@@ -883,7 +883,7 @@ void DtoDefineFunction(FuncDeclaration *fd) {
     // D varargs: prepare _argptr and _arguments
     if (f->linkage == LINKd && f->varargs == 1) {
       // allocate _argptr (of type core.stdc.stdarg.va_list)
-      LLValue *argptrmem = DtoAlloca(Type::tvalist, "_argptr_mem");
+      LLValue *argptrmem = DtoAlloca(Type::tvalist->semantic(fd->loc, fd->_scope), "_argptr_mem");
       irFunc->_argptr = argptrmem;
 
       // initialize _argptr with a call to the va_start intrinsic

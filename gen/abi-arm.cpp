@@ -13,6 +13,7 @@
   http://infocenter.arm.com/help/topic/com.arm.doc.ihi0042f/IHI0042F_aapcs.pdf
 */
 
+#include "ldcbindings.h"
 #include "gen/abi.h"
 #include "gen/abi-generic.h"
 #include "gen/abi-arm.h"
@@ -67,14 +68,29 @@ struct ArmTargetABI : TargetABI {
   }
 
   bool passByVal(Type *t) override {
-    // AAPCS does not pass byval
-    return false;
+    // AAPCS does not use an indirect arg to pass aggregates, however
+    // clang uses byval for types > 64-bytes, then llvm backend
+    // converts back to non-byval.  Without this special handling the
+    // optimzer generates bad code (e.g. std.random unittest crash).
+    t = t->toBasetype();
+    return ((t->ty == Tsarray || t->ty == Tstruct) && t->size() > 64);
 
-    // Note: the codegen is horrible for Tsarrays passed this way - tries to do
-    // copy without a loop for huge arrays.  Would be better if byval was used
-    // for arrays, but then there is an optimizer problem in the "top-down list
-    // latency scheduler" pass that reorders instructions incorrectly if byval
-    // used.
+    // Note: byval can have a codegen problem with -O1 and higher.
+    // What happens is that load instructions are being incorrectly
+    // reordered before stores.  It is a problem in the LLVM backend.
+    // The outcome is a program with incorrect results or crashes.
+    // It happens in the "top-down list latency scheduler" pass
+    //
+    //   https://forum.dlang.org/post/m2r3u5ac0c.fsf@comcast.net
+    //
+    // Revist and determine if the byval problem is only for small
+    // structs, say 16-bytes or less, that can entirely fit in
+    // registers.
+    
+    // Note: the codegen is horrible for Tsarrays passed this way -
+    // does a copy without a loop for huge arrays.  Could be better if
+    // byval was always used for sarrays, and maybe can if above
+    // problem is better understood.
   }
 
   void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
@@ -93,6 +109,11 @@ struct ArmTargetABI : TargetABI {
     for (auto arg : fty.args) {
       if (!arg->byref)
         rewriteArgument(fty, *arg);
+    }
+
+    // extern(D): reverse parameter order for non variadics, for DMD-compliance
+    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
+      fty.reverseParams = true;
     }
   }
 
@@ -118,6 +139,20 @@ struct ArmTargetABI : TargetABI {
         arg.ltype = compositeToArray32.type(arg.type, arg.ltype);
       }
     }
+  }
+
+  void vaCopy(LLValue *pDest, LLValue *src) {
+    // simply bitcopy src over dest.  src is __va_list*, so need load
+    auto srcval = DtoLoad(src);
+    DtoStore(srcval, pDest);
+  }
+
+  Type *vaListType() override {
+    // We need to pass the actual va_list type for correct mangling. Simply
+    // using TypeIdentifier here is a bit wonky but works, as long as the name
+    // is actually available in the scope (this is what DMD does, so if a better
+    // solution is found there, this should be adapted).
+    return (createTypeIdentifier(Loc(), Identifier::idPool("__va_list")));
   }
 };
 

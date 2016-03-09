@@ -359,6 +359,7 @@ typedef enum {
   Op_DstSrcFW,
   Op_UpdSrcFW,
   Op_DstSrcSSE,
+  Op_UpdSrcSSE,
   Op_DstSrcMMX,
   Op_DstSrcImmS,
   Op_DstSrcImmM,
@@ -611,7 +612,8 @@ static AsmOpInfo asmOpInfo[N_AsmOpInfo] = {
     /* Op_UpdSrcF   */ {{U | mr, mri, 0}, /**/ 1, Clb_Flags},
     /* Op_DstSrcFW  */ {{D | mr, mri, 0}, /**/ Word_Types, Clb_Flags},
     /* Op_UpdSrcFW  */ {{U | mr, mri, 0}, /**/ Word_Types, Clb_Flags},
-    /* Op_DstSrcSSE */ {{U | sse, ssem, 0}},       // some may not be update %%
+    /* Op_DstSrcSSE */ {{D | sse, ssem, 0}},
+    /* Op_UpdSrcSSE */ {{U | sse, ssem, 0}},       // some may not be update %%
     /* Op_DstSrcMMX */ {{U | mmx, mmxm, 0}},       // some may not be update %%
     /* Op_DstSrcImmS*/ {{U | sse, ssem, N | imm}}, // some may not be update %%
     /* Op_DstSrcImmM*/ {{U | mmx, mmxm, N | imm}}, // some may not be update %%
@@ -873,29 +875,29 @@ static AsmOpEnt opData[] = {
 #endif
     {"adc", Op_UpdSrcF},
     {"add", Op_UpdSrcF},
-    {"addpd", Op_DstSrcSSE},
-    {"addps", Op_DstSrcSSE},
+    {"addpd", Op_UpdSrcSSE},
+    {"addps", Op_UpdSrcSSE},
 #ifdef ASM_X86_64
-    {"addq", Op_DstSrcSSE}, // ?
+    {"addq", Op_UpdSrcSSE}, // ?
 #endif
-    {"addsd", Op_DstSrcSSE},
-    {"addss", Op_DstSrcSSE},
-    {"addsubpd", Op_DstSrcSSE},
-    {"addsubps", Op_DstSrcSSE},
-    {"aesdec", Op_DstSrcSSE},
-    {"aesdeclast", Op_DstSrcSSE},
-    {"aesenc", Op_DstSrcSSE},
-    {"aesenclast", Op_DstSrcSSE},
-    {"aesimc", Op_DstSrcSSE},
+    {"addsd", Op_UpdSrcSSE},
+    {"addss", Op_UpdSrcSSE},
+    {"addsubpd", Op_UpdSrcSSE},
+    {"addsubps", Op_UpdSrcSSE},
+    {"aesdec", Op_UpdSrcSSE},
+    {"aesdeclast", Op_UpdSrcSSE},
+    {"aesenc", Op_UpdSrcSSE},
+    {"aesenclast", Op_UpdSrcSSE},
+    {"aesimc", Op_UpdSrcSSE},
     {"aeskeygenassist", Op_DstSrcImmS},
 #ifndef ASM_X86_64
     {"align", Op_Align},
 #endif
     {"and", Op_UpdSrcF},
-    {"andnpd", Op_DstSrcSSE},
-    {"andnps", Op_DstSrcSSE},
-    {"andpd", Op_DstSrcSSE},
-    {"andps", Op_DstSrcSSE},
+    {"andnpd", Op_UpdSrcSSE},
+    {"andnps", Op_UpdSrcSSE},
+    {"andpd", Op_UpdSrcSSE},
+    {"andps", Op_UpdSrcSSE},
 #ifndef ASM_X86_64
     {"arpl", Op_UpdSrcNT},
 #endif
@@ -1023,10 +1025,10 @@ static AsmOpEnt opData[] = {
     {"df", Op_df},
     {"di", Op_di},
     {"div", Op_Src_DXAXF},
-    {"divpd", Op_DstSrcSSE},
-    {"divps", Op_DstSrcSSE},
-    {"divsd", Op_DstSrcSSE},
-    {"divss", Op_DstSrcSSE},
+    {"divpd", Op_UpdSrcSSE},
+    {"divps", Op_UpdSrcSSE},
+    {"divsd", Op_UpdSrcSSE},
+    {"divss", Op_UpdSrcSSE},
     {"dl", Op_dl},
     {"dppd", Op_DstSrcImmS},
     {"dpps", Op_DstSrcImmS},
@@ -1139,11 +1141,11 @@ static AsmOpEnt opData[] = {
     {"fxtract", Op_F0_P}, // pushes
     {"fyl2x", Op_F0_P},   // pops
     {"fyl2xp1", Op_F0_P}, // pops
-    {"haddpd", Op_DstSrcSSE},
-    {"haddps", Op_DstSrcSSE},
+    {"haddpd", Op_UpdSrcSSE},
+    {"haddps", Op_UpdSrcSSE},
     {"hlt", Op_0},
-    {"hsubpd", Op_DstSrcSSE},
-    {"hsubps", Op_DstSrcSSE},
+    {"hsubpd", Op_UpdSrcSSE},
+    {"hsubps", Op_UpdSrcSSE},
     {"idiv", Op_Src_DXAXF},
     {"imul", Op_imul},
     {"in", Op_in},
@@ -1240,15 +1242,15 @@ static AsmOpEnt opData[] = {
     {"ltr", Op_DstMemNT},
     {"maskmovdqu", Op_SrcSrcMMX}, // writes to [edi]
     {"maskmovq", Op_SrcSrcMMX},
-    {"maxpd", Op_DstSrcSSE},
-    {"maxps", Op_DstSrcSSE},
-    {"maxsd", Op_DstSrcSSE},
-    {"maxss", Op_DstSrcSSE},
+    {"maxpd", Op_UpdSrcSSE},
+    {"maxps", Op_UpdSrcSSE},
+    {"maxsd", Op_UpdSrcSSE},
+    {"maxss", Op_UpdSrcSSE},
     {"mfence", Op_0},
-    {"minpd", Op_DstSrcSSE},
-    {"minps", Op_DstSrcSSE},
-    {"minsd", Op_DstSrcSSE},
-    {"minss", Op_DstSrcSSE},
+    {"minpd", Op_UpdSrcSSE},
+    {"minps", Op_UpdSrcSSE},
+    {"minsd", Op_UpdSrcSSE},
+    {"minss", Op_UpdSrcSSE},
     {"monitor", Op_0},
     {"mov", Op_DstSrc},
     {"movapd", Op_DstSrcSSE},
@@ -1302,18 +1304,18 @@ static AsmOpEnt opData[] = {
     {"movzx", Op_movzx},
     {"mpsadbw", Op_DstSrcImmS},
     {"mul", Op_mul},
-    {"mulpd", Op_DstSrcSSE},
-    {"mulps", Op_DstSrcSSE},
-    {"mulsd", Op_DstSrcSSE},
-    {"mulss", Op_DstSrcSSE},
+    {"mulpd", Op_UpdSrcSSE},
+    {"mulps", Op_UpdSrcSSE},
+    {"mulsd", Op_UpdSrcSSE},
+    {"mulss", Op_UpdSrcSSE},
     {"mwait", Op_0},
     {"naked", Op_Naked},
     {"neg", Op_UpdF},
     {"nop", Op_0},
     {"not", Op_Upd},
     {"or", Op_UpdSrcF},
-    {"orpd", Op_DstSrcSSE},
-    {"orps", Op_DstSrcSSE},
+    {"orpd", Op_UpdSrcSSE},
+    {"orps", Op_UpdSrcSSE},
     {"out", Op_out},
     {"outs", Op_outs},
     {"outsb", Op_outsX},
@@ -1345,17 +1347,17 @@ static AsmOpEnt opData[] = {
     {"pavgb", Op_DstSrcMMX},
     {"pavgusb", Op_DstSrcMMX}, // AMD 3dNow!
     {"pavgw", Op_DstSrcMMX},
-    {"pblendvb", Op_DstSrcSSE}, // implicit xmm0
+    {"pblendvb", Op_UpdSrcSSE}, // implicit xmm0
     {"pblendw", Op_DstSrcImmS},
     {"pcmpeqb", Op_DstSrcMMX},
     {"pcmpeqd", Op_DstSrcMMX},
-    {"pcmpeqq", Op_DstSrcSSE},
+    {"pcmpeqq", Op_UpdSrcSSE},
     {"pcmpeqw", Op_DstSrcMMX},
     {"pcmpestri", Op_DstSrcImmS},
     {"pcmpestrm", Op_DstSrcImmS},
     {"pcmpgtb", Op_DstSrcMMX},
     {"pcmpgtd", Op_DstSrcMMX},
-    {"pcmpgtq", Op_DstSrcSSE},
+    {"pcmpgtq", Op_UpdSrcSSE},
     {"pcmpgtw", Op_DstSrcMMX},
     {"pcmpistri", Op_DstSrcImmS},
     {"pcmpistrm", Op_DstSrcImmS},
@@ -1382,13 +1384,13 @@ static AsmOpEnt opData[] = {
     {"pfsub", Op_DstSrcMMX},
     {"pfsubr", Op_DstSrcMMX},
 #ifdef ASM_X86_64
-    {"phaddd", Op_DstSrcSSE},
-    {"phaddsw", Op_DstSrcSSE},
-    {"phaddw", Op_DstSrcSSE},
-    {"phminposuw", Op_DstSrcSSE},
-    {"phsubd", Op_DstSrcSSE},
-    {"phsubsw", Op_DstSrcSSE},
-    {"phsubw", Op_DstSrcSSE},
+    {"phaddd", Op_UpdSrcSSE},
+    {"phaddsw", Op_UpdSrcSSE},
+    {"phaddw", Op_UpdSrcSSE},
+    {"phminposuw", Op_UpdSrcSSE},
+    {"phsubd", Op_UpdSrcSSE},
+    {"phsubsw", Op_UpdSrcSSE},
+    {"phsubw", Op_UpdSrcSSE},
 #endif
     {"pi2fd", Op_DstSrcMMX},   // %%
     {"pinsrb", Op_DstSrcImmM}, // gpr32(16), mem16 src, sse too
@@ -1396,21 +1398,21 @@ static AsmOpEnt opData[] = {
     {"pinsrq", Op_DstSrcImmM}, // gpr32(16), mem16 src, sse too
     {"pinsrw", Op_DstSrcImmM}, // gpr32(16), mem16 src, sse too
 #ifdef ASM_X86_64
-    {"pmaddubsw", Op_DstSrcSSE},
+    {"pmaddubsw", Op_UpdSrcSSE},
 #endif
     {"pmaddwd", Op_DstSrcMMX},
-    {"pmaxsb", Op_DstSrcSSE},
-    {"pmaxsd", Op_DstSrcSSE},
+    {"pmaxsb", Op_UpdSrcSSE},
+    {"pmaxsd", Op_UpdSrcSSE},
     {"pmaxsw", Op_DstSrcMMX},
     {"pmaxub", Op_DstSrcMMX},
-    {"pmaxud", Op_DstSrcSSE},
-    {"pmaxuw", Op_DstSrcSSE},
-    {"pminsb", Op_DstSrcSSE},
-    {"pminsd", Op_DstSrcSSE},
+    {"pmaxud", Op_UpdSrcSSE},
+    {"pmaxuw", Op_UpdSrcSSE},
+    {"pminsb", Op_UpdSrcSSE},
+    {"pminsd", Op_UpdSrcSSE},
     {"pminsw", Op_DstSrcMMX},
     {"pminub", Op_DstSrcMMX},
-    {"pminud", Op_DstSrcSSE},
-    {"pminuw", Op_DstSrcSSE},
+    {"pminud", Op_UpdSrcSSE},
+    {"pminuw", Op_UpdSrcSSE},
     {"pmovmskb", Op_DstSrcMMX},
     {"pmovsxbd", Op_DstSrcSSE},
     {"pmovsxbq", Op_DstSrcSSE},
@@ -1431,7 +1433,7 @@ static AsmOpEnt opData[] = {
     {"pmulhrw", Op_DstSrcMMX}, // AMD 3dNow!
     {"pmulhuw", Op_DstSrcMMX},
     {"pmulhw", Op_DstSrcMMX},
-    {"pmulld", Op_DstSrcSSE},
+    {"pmulld", Op_UpdSrcSSE},
     {"pmullw", Op_DstSrcMMX},
     {"pmuludq", Op_DstSrcMMX}, // also sse
     {"pop", Op_DstW},
@@ -1455,7 +1457,7 @@ static AsmOpEnt opData[] = {
     {"prefetcht1", Op_SrcMemNT},
     {"prefetcht2", Op_SrcMemNT},
     {"psadbw", Op_DstSrcMMX},
-    {"pshufb", Op_DstSrcSSE},
+    {"pshufb", Op_UpdSrcSSE},
 #ifndef ASM_X86_64
     {"pshufd", Op_DstSrcImmM},
     {"pshufhw", Op_DstSrcImmM},
@@ -1466,9 +1468,9 @@ static AsmOpEnt opData[] = {
     {"pshufhw", Op_DstSrcImmS},
     {"pshuflw", Op_DstSrcImmS},
     {"pshufw", Op_DstSrcImmS},
-    {"psignb", Op_DstSrcSSE},
-    {"psignd", Op_DstSrcSSE},
-    {"psignw", Op_DstSrcSSE},
+    {"psignb", Op_UpdSrcSSE},
+    {"psignd", Op_UpdSrcSSE},
+    {"psignw", Op_UpdSrcSSE},
 #endif
     {"pslld", Op_DstSrcMMX}, // immediate operands...
     {"pslldq", Op_DstSrcMMX},
@@ -1586,13 +1588,13 @@ static AsmOpEnt opData[] = {
     {"setz", Op_DstRMBNT},
     {"sfence", Op_0},
     {"sgdt", Op_DstMemNT},
-    {"sha1msg1", Op_DstSrcSSE},
-    {"sha1msg2", Op_DstSrcSSE},
-    {"sha1nexte", Op_DstSrcSSE},
+    {"sha1msg1", Op_UpdSrcSSE},
+    {"sha1msg2", Op_UpdSrcSSE},
+    {"sha1nexte", Op_UpdSrcSSE},
     {"sha1rnds4", Op_DstSrcImmS},
-    {"sha256msg1", Op_DstSrcSSE},
-    {"sha256msg2", Op_DstSrcSSE},
-    {"sha256rnds2", Op_DstSrcSSE}, // implicit xmm0
+    {"sha256msg1", Op_UpdSrcSSE},
+    {"sha256msg2", Op_UpdSrcSSE},
+    {"sha256rnds2", Op_UpdSrcSSE}, // implicit xmm0
     {"shl", Op_Shift},
     {"shld", Op_UpdSrcShft},
     {"shr", Op_Shift},
@@ -1619,13 +1621,13 @@ static AsmOpEnt opData[] = {
     {"stosw", Op_stosX},
     {"str", Op_DstMemNT}, // also r16
     {"sub", Op_UpdSrcF},
-    {"subpd", Op_DstSrcSSE},
-    {"subps", Op_DstSrcSSE},
+    {"subpd", Op_UpdSrcSSE},
+    {"subps", Op_UpdSrcSSE},
 #ifdef ASM_X86_64
-    {"subq", Op_DstSrcSSE}, // ?
+    {"subq", Op_UpdSrcSSE}, // ?
 #endif
-    {"subsd", Op_DstSrcSSE},
-    {"subss", Op_DstSrcSSE},
+    {"subsd", Op_UpdSrcSSE},
+    {"subss", Op_UpdSrcSSE},
 #ifdef ASM_X86_64
     {"swapgs", Op_0}, // Not supported by DMD
 #endif
@@ -1640,10 +1642,10 @@ static AsmOpEnt opData[] = {
     {"ucomisd", Op_SrcSrcSSEF},
     {"ucomiss", Op_SrcSrcSSEF},
     {"ud2", Op_0},
-    {"unpckhpd", Op_DstSrcSSE},
-    {"unpckhps", Op_DstSrcSSE},
-    {"unpcklpd", Op_DstSrcSSE},
-    {"unpcklps", Op_DstSrcSSE},
+    {"unpckhpd", Op_UpdSrcSSE},
+    {"unpckhps", Op_UpdSrcSSE},
+    {"unpcklpd", Op_UpdSrcSSE},
+    {"unpcklps", Op_UpdSrcSSE},
 #if 0 // TODO
     {"vaddpd", XXXX},
     {"vaddps", XXXX},
@@ -1954,8 +1956,8 @@ static AsmOpEnt opData[] = {
     {"xlat", Op_xlat},
     {"xlatb", Op_0_AX},
     {"xor", Op_DstSrcF},
-    {"xorpd", Op_DstSrcSSE},
-    {"xorps", Op_DstSrcSSE},
+    {"xorpd", Op_UpdSrcSSE},
+    {"xorps", Op_UpdSrcSSE},
 #ifdef ASM_X86_64
     {"xorq", Op_DstSrcNT}, //?
 #endif
