@@ -76,8 +76,9 @@ if ((WIN32 AND NOT(MINGW OR CYGWIN)) OR NOT LLVM_CONFIG)
             list(APPEND LLVM_FIND_COMPONENTS "debuginfo")
         endif()
         if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-8][\\.0-9A-Za-z]*")
-            # Versions below 3.9 do not support components debuginfocodeview
+            # Versions below 3.9 do not support components debuginfocodeview, globalisel
             list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfocodeview" index)
+            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "globalisel" index)
         endif()
         if(${LLVM_VERSION_STRING} MATCHES "^3\\.[8-9][\\.0-9A-Za-z]*")
             # Versions beginning with 3.8 do not support component ipa
@@ -155,8 +156,9 @@ else()
         list(APPEND LLVM_FIND_COMPONENTS "debuginfo")
     endif()
     if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-8][\\.0-9A-Za-z]*")
-        # Versions below 3.9 do not support components debuginfocodeview
+        # Versions below 3.9 do not support components debuginfocodeview, globalisel
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfocodeview" index)
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "globalisel" index)
     endif()
     if(${LLVM_VERSION_STRING} MATCHES "^3\\.[8-9][\\.0-9A-Za-z]*")
         # Versions beginning with 3.8 do not support component ipa
