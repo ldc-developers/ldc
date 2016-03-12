@@ -195,6 +195,9 @@ bool TargetABI::isHFA(TypeStruct *t, llvm::Type **rewriteType) {
       case 8:
         floatType = llvm::Type::getDoubleTy(gIR->context());
         break;
+      case 16:
+        floatType = llvm::Type::getFP128Ty(gIR->context());
+        break;
       default:
         llvm_unreachable("Unexpected size for float type");
       }
