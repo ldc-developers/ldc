@@ -649,10 +649,18 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
   ldc::DISubroutineType DIFnType =
       CreateFunctionType(static_cast<TypeFunction *>(fd->type));
 
+  llvm::StringRef displayName = fd->toPrettyChars();
+  // Mimic DMD for MSVC display names > ~64k: simply cut them off
+  constexpr size_t MSVC_MAX_DISPLAY_NAME_LENGTH = 0xffd8;
+  if (global.params.targetTriple->isWindowsMSVCEnvironment() &&
+      displayName.size() > MSVC_MAX_DISPLAY_NAME_LENGTH) {
+    displayName = displayName.substr(0, MSVC_MAX_DISPLAY_NAME_LENGTH);
+  }
+
   // FIXME: duplicates?
   return DBuilder.createFunction(
       CU,                                 // context
-      fd->toPrettyChars(),                // name
+      displayName,                        // name
       mangleExact(fd),                    // linkage name
       file,                               // file
       fd->loc.linnum,                     // line no
