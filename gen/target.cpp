@@ -41,9 +41,8 @@ void Target::_init() {
   c_longsize = global.params.is64bit ? 8 : 4;
   c_long_doublesize = realsize;
 
-  // according to DMD, only for 32-bit MSVC++:
-  reverseCppOverloads = !global.params.is64bit &&
-                        global.params.targetTriple->isWindowsMSVCEnvironment();
+  // according to DMD, only for MSVC++:
+  reverseCppOverloads = global.params.targetTriple->isWindowsMSVCEnvironment();
 }
 
 /******************************

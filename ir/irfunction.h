@@ -98,6 +98,9 @@ struct CleanupExitTarget {
   /// stores to the branch selector variable when converting from one to two
   /// targets.
   std::vector<llvm::BasicBlock *> sourceBlocks;
+
+  /// MSVC: The basic blocks that are executed when going this route
+  std::vector<llvm::BasicBlock *> cleanupBlocks;
 };
 
 /// Represents a scope (in abstract terms, not curly braces) that requires a
@@ -148,6 +151,10 @@ public:
   /// and popped again once it is left. If the corresponding landing pad has
   /// not been generated yet (this is done lazily), the pointer is null.
   std::vector<llvm::BasicBlock *> landingPads;
+
+  /// MSVC: The original basic blocks that are executed for beginBlock to
+  /// endBlock
+  std::vector<llvm::BasicBlock *> cleanupBlocks;
 };
 
 /// Stores information to be able to branch to a catch clause if it matches.
@@ -210,6 +217,13 @@ public:
   /// reached.
   void runAllCleanups(llvm::BasicBlock *continueWith);
 
+#if LDC_LLVM_VER >= 308
+  void runCleanupCopies(CleanupCursor sourceScope, CleanupCursor targetScope,
+                        llvm::BasicBlock *continueWith);
+  llvm::BasicBlock *runCleanupPad(CleanupCursor scope,
+                                  llvm::BasicBlock *unwindTo);
+#endif
+
   /// Pops all the cleanups between the current scope and the target cursor.
   ///
   /// This does not insert any cleanup calls, use #runCleanups() beforehand.
@@ -234,6 +248,28 @@ public:
 
   /// Unregisters the last registered catch block.
   void popCatch();
+
+  size_t currentCatchScope() { return catchScopes.size(); }
+
+#if LDC_LLVM_VER >= 308
+  /// MSVC: catch and cleanup code is emitted as funclets and need
+  /// to be referenced from inner pads and calls
+  void pushFunclet(llvm::Value *funclet) {
+    funclets.push_back(funclet);
+  }
+
+  void popFunclet() {
+    funclets.pop_back();
+  }
+
+  llvm::Value *getFunclet() {
+    return funclets.empty() ? nullptr : funclets.back();
+  }
+  llvm::Value *getFuncletToken() {
+    return funclets.empty() ? llvm::ConstantTokenNone::get(irs->context())
+                            : funclets.back();
+  }
+#endif
 
   /// Registers a loop statement to be used as a target for break/continue
   /// statements in the current scope.
@@ -295,6 +331,9 @@ public:
   /// the way there.
   void breakToClosest() { jumpToClosest(breakTargets); }
 
+  /// get exisiting or emit new landing pad
+  llvm::BasicBlock *getLandingPad();
+
 private:
   /// Internal version that allows specifying the scope at which to start
   /// emitting the cleanups.
@@ -305,8 +344,14 @@ private:
 
   std::vector<llvm::BasicBlock *> &currentLandingPads();
 
+  llvm::BasicBlock * &getLandingPadRef(CleanupCursor scope);
+
   /// Emits a landing pad to honor all the active cleanups and catches.
   llvm::BasicBlock *emitLandingPad();
+
+#if LDC_LLVM_VER >= 308
+  llvm::BasicBlock *emitLandingPadMSVCEH(CleanupCursor scope);
+#endif
 
   /// Unified implementation for labeled break/continue.
   void jumpToStatement(std::vector<JumpTarget> &targets,
@@ -347,6 +392,9 @@ private:
   /// (null if not yet emitted, one element is pushed to/popped from the back
   /// on entering/leaving a catch block).
   std::vector<llvm::BasicBlock *> topLevelLandingPads;
+
+  /// MSVC: stack of currently built catch/cleanup funclets
+  std::vector<llvm::Value*> funclets;
 };
 
 template <typename T>
@@ -360,31 +408,35 @@ llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
   const bool doesNotThrow =
       calleeFn && (calleeFn->isIntrinsic() || calleeFn->doesNotThrow());
 
+#if LDC_LLVM_VER >= 308
+  // calls inside a funclet must be annotated with its value
+  llvm::SmallVector<llvm::OperandBundleDef, 2> BundleList;
+  if (auto funclet = getFunclet())
+    BundleList.push_back(llvm::OperandBundleDef("funclet", funclet));
+#endif
+
   if (doesNotThrow || (cleanupScopes.empty() && catchScopes.empty())) {
-    llvm::CallInst *call = irs->ir->CreateCall(callee, args, name);
+    llvm::CallInst *call = irs->ir->CreateCall(callee, args,
+#if LDC_LLVM_VER >= 308
+                                               BundleList, 
+#endif
+                                               name);
     if (calleeFn) {
       call->setAttributes(calleeFn->getAttributes());
     }
     return call;
   }
 
-  if (currentLandingPads().empty()) {
-    // Have not encountered any catches (for which we would push a scope) or
-    // calls to throwing functions (where we would have already executed
-    // this if) in this cleanup scope yet.
-    currentLandingPads().push_back(nullptr);
-  }
-
-  llvm::BasicBlock *&landingPad = currentLandingPads().back();
-  if (!landingPad) {
-    landingPad = emitLandingPad();
-  }
+  llvm::BasicBlock* landingPad = getLandingPad();
 
   llvm::BasicBlock *postinvoke = llvm::BasicBlock::Create(
       irs->context(), "postinvoke", irs->topfunc(), landingPad);
   llvm::InvokeInst *invoke =
-      irs->ir->CreateInvoke(callee, postinvoke, landingPad, args, name);
-
+      irs->ir->CreateInvoke(callee, postinvoke, landingPad, args,
+#if LDC_LLVM_VER >= 308
+                            BundleList, 
+#endif
+                            name);
   if (calleeFn) {
     invoke->setAttributes(calleeFn->getAttributes());
   }
@@ -474,5 +526,6 @@ private:
 
 IrFunction *getIrFunc(FuncDeclaration *decl, bool create = false);
 bool isIrFuncCreated(FuncDeclaration *decl);
+bool useMSVCEH();
 
 #endif

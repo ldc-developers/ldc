@@ -350,10 +350,33 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       // function has.
       thunk->setUnnamedAddr(true);
 
+#if LDC_LLVM_VER >= 307
+      // thunks don't need exception handling themselves
+      thunk->setPersonalityFn(nullptr);
+#endif
+
+      // it is necessary to add debug information to the thunk
+      //  in case it is subject to inlining. See https://llvm.org/bugs/show_bug.cgi?id=26833
+      IF_LOG Logger::println("Doing function body for thunk to: %s", fd->toChars());
+
+      // create a dummy FuncDeclaration with enough information to satisfy the DIBuilder
+      FuncDeclaration *thunkFd = reinterpret_cast<FuncDeclaration *>(memcpy(
+          new char[sizeof(FuncDeclaration)], fd, sizeof(FuncDeclaration)));
+      thunkFd->ir = new IrDsymbol();
+      auto thunkFunc = getIrFunc(thunkFd, true); // create the IrFunction
+      thunkFunc->func = thunk;
+      thunkFunc->type = irFunc->type;
+      gIR->functions.push_back(thunkFunc);
+
+      // debug info
+      thunkFunc->diSubprogram = gIR->DBuilder.EmitThunk(thunk, thunkFd);
+
       // create entry and end blocks
       llvm::BasicBlock *beginbb =
           llvm::BasicBlock::Create(gIR->context(), "", thunk);
       gIR->scopes.push_back(IRScope(beginbb));
+
+      gIR->DBuilder.EmitFuncStart(thunkFd);
 
       // Copy the function parameters, so later we can pass them to the
       // real function and set their names from the original function (the
@@ -376,6 +399,10 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       thisArg = DtoGEP1(thisArg, DtoConstInt(-b->offset), true);
       thisArg = DtoBitCast(thisArg, targetThisType);
 
+      // all calls that might be subject to inlining into a caller with debug info
+      //  should have debug info, too
+      gIR->DBuilder.EmitStopPoint(fd->loc);
+
       // call the real vtbl function.
       llvm::CallSite call = gIR->ir->CreateCall(irFunc->func, args);
       call.setCallingConv(irFunc->func->getCallingConv());
@@ -388,8 +415,12 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
                                  beginbb);
       }
 
+      gIR->DBuilder.EmitFuncEnd(thunkFd);
+
       // clean up
       gIR->scopes.pop_back();
+
+      gIR->functions.pop_back();
     }
 
     constants.push_back(thunk);

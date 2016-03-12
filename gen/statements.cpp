@@ -23,6 +23,7 @@
 #include "gen/logger.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
+#include "gen/ms-cxx-helper.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "llvm/IR/CFG.h"
@@ -709,6 +710,85 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
+#if LDC_LLVM_VER >= 308
+  void emitBeginCatchMSVCEH(Catch *ctch, llvm::BasicBlock *endbb,
+                            llvm::CatchSwitchInst *catchSwitchInst) {
+    VarDeclaration *var = ctch->var;
+    // The MSVC/x86 build uses C++ exception handling
+    // This needs a series of catch pads to match the exception
+    // and the catch handler must be terminated by a catch return instruction
+    LLValue *exnObj = nullptr;
+    LLValue *cpyObj = nullptr;
+    LLValue *typeDesc = nullptr;
+    LLValue *clssInfo = nullptr;
+    if (var) {
+      // alloca storage for the variable, it always needs a place on the stack
+      // do not initialize, this will be done by the C++ exception handler
+      var->_init = nullptr;
+
+      // redirect scope to avoid the generation of debug info before the
+      // catchpad
+      IRScope save = irs->scope();
+      irs->scope() = IRScope(gIR->topallocapoint()->getParent());
+      irs->scope().builder.SetInsertPoint(gIR->topallocapoint());
+      DtoDeclarationExp(var);
+
+      // catch handler will be outlined, so always treat as a nested reference
+      exnObj = getIrValue(var);
+
+      if (var->nestedrefs.dim) {
+        // if variable needed in a closure, use a stack temporary and copy it
+        // when caught
+        cpyObj = exnObj;
+        exnObj = DtoAlloca(var->type, "exnObj");
+      }
+      irs->scope() = save;
+    } else if (ctch->type) {
+      // catch without var
+      exnObj = DtoAlloca(ctch->type, "exnObj");
+    } else {
+      // catch all
+      exnObj = LLConstant::getNullValue(getVoidPtrType());
+    }
+
+    if (ctch->type) {
+      ClassDeclaration *cd = ctch->type->toBasetype()->isClassHandle();
+      typeDesc = getTypeDescriptor(*irs, cd);
+      clssInfo = getIrAggr(cd)->getClassInfoSymbol();
+    } else {
+      // catch all
+      typeDesc = LLConstant::getNullValue(getVoidPtrType());
+      clssInfo = LLConstant::getNullValue(DtoType(Type::typeinfoclass->type));
+    }
+
+    // "catchpad within %switch [TypeDescriptor, 0, &caughtObject]" must be
+    // first instruction
+    int flags = var ? 0 : 64; // just mimicking clang here
+    LLValue *args[] = {typeDesc, DtoConstUint(flags), exnObj};
+    auto catchpad = irs->ir->CreateCatchPad(
+        catchSwitchInst, llvm::ArrayRef<LLValue *>(args), "");
+    catchSwitchInst->addHandler(irs->scopebb());
+
+    if (cpyObj) {
+      // assign the caught exception to the location in the closure
+      auto val = irs->ir->CreateLoad(exnObj);
+      irs->ir->CreateStore(val, cpyObj);
+      exnObj = cpyObj;
+    }
+
+    // Exceptions are never rethrown by D code (but thrown again), so
+    // we can leave the catch handler right away and continue execution
+    // outside the catch funclet
+    llvm::BasicBlock *catchhandler =
+      llvm::BasicBlock::Create(irs->context(), "catchhandler", irs->topfunc());
+    llvm::CatchReturnInst::Create(catchpad, catchhandler, irs->scopebb());
+    irs->scope() = IRScope(catchhandler);
+    auto enterCatchFn =
+      getRuntimeFunction(Loc(), irs->module, "_d_eh_enter_catch");
+    irs->CreateCallOrInvoke(enterCatchFn, DtoBitCast(exnObj, getVoidPtrType()), clssInfo);
+  }
+#endif
+
   void visit(TryCatchStatement *stmt) LLVM_OVERRIDE {
     IF_LOG Logger::println("TryCatchStatement::toIR(): %s",
                            stmt->loc.toChars());
@@ -733,59 +813,113 @@ public:
     CatchBlocks catchBlocks;
     catchBlocks.reserve(stmt->catches->dim);
 
-    for (Catches::reverse_iterator it = stmt->catches->rbegin(),
-                                   end = stmt->catches->rend();
-         it != end; ++it) {
-      llvm::BasicBlock *catchBB = llvm::BasicBlock::Create(
+#if LDC_LLVM_VER >= 308
+    if (useMSVCEH()) {
+      ScopeStack *scopes = irs->func()->scopes;
+      auto catchSwitchBlock = llvm::BasicBlock::Create(
+          irs->context(), "catch.dispatch", irs->topfunc());
+      llvm::BasicBlock *unwindto =
+          scopes->currentCleanupScope() > 0 || scopes->currentCatchScope() > 0
+              ? scopes->getLandingPad()
+              : nullptr;
+      auto funclet = scopes->getFunclet();
+      auto catchSwitchInst = llvm::CatchSwitchInst::Create(
+          funclet ? funclet : llvm::ConstantTokenNone::get(irs->context()),
+          unwindto, stmt->catches->dim, "", catchSwitchBlock);
+
+      for (auto it = stmt->catches->begin(), end = stmt->catches->end();
+           it != end; ++it) {
+        llvm::BasicBlock *catchBB = llvm::BasicBlock::Create(
           irs->context(), llvm::Twine("catch.") + (*it)->type->toChars(),
           irs->topfunc(), endbb);
 
-      irs->scope() = IRScope(catchBB);
-      irs->DBuilder.EmitBlockStart((*it)->loc);
+        irs->scope() = IRScope(catchBB);
+        irs->DBuilder.EmitBlockStart((*it)->loc);
 
-      const auto enterCatchFn =
-          getRuntimeFunction(Loc(), irs->module, "_d_eh_enter_catch");
-      auto ptr = DtoLoad(irs->func()->getOrCreateEhPtrSlot());
-      auto throwableObj = irs->ir->CreateCall(enterCatchFn, ptr);
+        emitBeginCatchMSVCEH(*it, endbb, catchSwitchInst);
 
-      // For catches that use the Throwable object, create storage for it.
-      // We will set it in the code that branches from the landing pads
-      // (there might be more than one) to catchBB.
-      auto var = (*it)->var;
-      if (var) {
-        // This will alloca if we haven't already and take care of nested refs
-        // if there are any.
-        DtoDeclarationExp(var);
+        // Emit handler, if there is one. The handler is zero, for instance,
+        // when building 'catch { debug foo(); }' in non-debug mode.
+        if ((*it)->handler) {
+          Statement_toIR((*it)->handler, irs);
+        }
 
-        // Copy the exception reference over from the _d_eh_enter_catch return
-        // value.
-        DtoStore(DtoBitCast(throwableObj, DtoType((*it)->var->type)),
-                 getIrLocal(var)->value);
+        if (!irs->scopereturned()) {
+          irs->ir->CreateBr(endbb);
+        }
+
+        irs->DBuilder.EmitBlockEnd();
+
       }
-
-      // Emit handler, if there is one. The handler is zero, for instance, when
-      // building 'catch { debug foo(); }' in non-debug mode.
-      if ((*it)->handler) {
-        Statement_toIR((*it)->handler, irs);
-      }
-
-      if (!irs->scopereturned()) {
-        irs->ir->CreateBr(endbb);
-      }
-
-      irs->DBuilder.EmitBlockEnd();
-
       catchBlocks.push_back(
-          std::make_pair((*it)->type->toBasetype()->isClassHandle(), catchBB));
-    }
+          std::make_pair(nullptr, catchSwitchBlock)); // just for cleanup
+      scopes->pushCatch(nullptr, catchSwitchBlock);
 
-    // Only after emitting all the catch bodies, register the catch scopes.
-    // This is so that (re)throwing inside a catch does not match later
-    // catches.
-    for (const auto &pair : catchBlocks) {
-      DtoResolveClass(pair.first);
-      irs->func()->scopes->pushCatch(
-          getIrAggr(pair.first)->getClassInfoSymbol(), pair.second);
+      // if no landing pad is created, the catch blocks are unused, but
+      // the verifier complains if there are catchpads without personality
+      // so we can just set it unconditionally
+      if (!irs->func()->func->hasPersonalityFn()) {
+        const char *personality = "__CxxFrameHandler3";
+        LLFunction *personalityFn =
+          getRuntimeFunction(Loc(), irs->module, personality);
+        irs->func()->func->setPersonalityFn(personalityFn);
+      }
+    } else
+#endif
+    {
+      for (Catches::reverse_iterator it = stmt->catches->rbegin(),
+           end = stmt->catches->rend();
+           it != end; ++it) {
+        llvm::BasicBlock *catchBB = llvm::BasicBlock::Create(
+            irs->context(), llvm::Twine("catch.") + (*it)->type->toChars(),
+            irs->topfunc(), endbb);
+
+        irs->scope() = IRScope(catchBB);
+        irs->DBuilder.EmitBlockStart((*it)->loc);
+
+        const auto enterCatchFn =
+            getRuntimeFunction(Loc(), irs->module, "_d_eh_enter_catch");
+        auto ptr = DtoLoad(irs->func()->getOrCreateEhPtrSlot());
+        auto throwableObj = irs->ir->CreateCall(enterCatchFn, ptr);
+
+        // For catches that use the Throwable object, create storage for it.
+        // We will set it in the code that branches from the landing pads
+        // (there might be more than one) to catchBB.
+        auto var = (*it)->var;
+        if (var) {
+          // This will alloca if we haven't already and take care of nested refs
+          // if there are any.
+          DtoDeclarationExp(var);
+
+          // Copy the exception reference over from the _d_eh_enter_catch return
+          // value.
+          DtoStore(DtoBitCast(throwableObj, DtoType((*it)->var->type)),
+                   getIrLocal(var)->value);
+        }
+
+        // Emit handler, if there is one. The handler is zero, for instance,
+        // when building 'catch { debug foo(); }' in non-debug mode.
+        if ((*it)->handler) {
+          Statement_toIR((*it)->handler, irs);
+        }
+
+        if (!irs->scopereturned()) {
+          irs->ir->CreateBr(endbb);
+        }
+
+        irs->DBuilder.EmitBlockEnd();
+
+        catchBlocks.push_back(std::make_pair(
+            (*it)->type->toBasetype()->isClassHandle(), catchBB));
+      }
+      // Only after emitting all the catch bodies, register the catch scopes.
+      // This is so that (re)throwing inside a catch does not match later
+      // catches.
+      for (const auto &pair : catchBlocks) {
+        DtoResolveClass(pair.first);
+        irs->func()->scopes->pushCatch(
+            getIrAggr(pair.first)->getClassInfoSymbol(), pair.second);
+      }
     }
 
     // Emit the try block.
