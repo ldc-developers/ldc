@@ -531,28 +531,32 @@ static void initializePasses() {
   // Initialize passes
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeCore(Registry);
+  initializeTransformUtils(Registry);
+  initializeScalarOpts(Registry);
+  initializeObjCARCOpts(Registry);
+  initializeVectorization(Registry);
+  initializeInstCombine(Registry);
+  initializeIPO(Registry);
+  initializeInstrumentation(Registry);
+  initializeAnalysis(Registry);
+  initializeCodeGen(Registry);
+#if LDC_LLVM_VER >= 309
+  initializeGlobalISel(Registry);
+#endif
+  initializeTarget(Registry);
+
+  // Initialize passes not included above
 #if LDC_LLVM_VER < 306
   initializeDebugIRPass(Registry);
 #endif
-  initializeScalarOpts(Registry);
-  initializeVectorization(Registry);
-  initializeIPO(Registry);
-  initializeAnalysis(Registry);
 #if LDC_LLVM_VER < 308
   initializeIPA(Registry);
 #endif
-  initializeTransformUtils(Registry);
-  initializeInstCombine(Registry);
-  initializeInstrumentation(Registry);
-  initializeTarget(Registry);
-  // For codegen passes, only passes that do IR to IR transformation are
-  // supported. For now, just add CodeGenPrepare.
-  initializeCodeGenPreparePass(Registry);
 #if LDC_LLVM_VER >= 306
-  initializeAtomicExpandPass(Registry);
   initializeRewriteSymbolsPass(Registry);
-#else
-  initializeAtomicExpandLoadLinkedPass(Registry);
+#endif
+#if LDC_LLVM_VER >= 307
+  initializeSjLjEHPreparePass(Registry);
 #endif
 }
 
