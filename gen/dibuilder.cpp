@@ -645,25 +645,15 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
 
   ldc::DIFile file(CreateFile(fd->loc));
 
-  std::string mangledName(getIrFunc(fd)->func->getName());
-
   // Create subroutine type
   ldc::DISubroutineType DIFnType =
     CreateFunctionType(static_cast<TypeFunction *>(fd->type));
 
-  llvm::StringRef displayName = fd->toPrettyChars();
-  // Mimic DMD for MSVC display names > ~64k: simply cut them off
-  constexpr size_t MSVC_MAX_DISPLAY_NAME_LENGTH = 0xffd8;
-  if (global.params.targetTriple->isWindowsMSVCEnvironment() &&
-      displayName.size() > MSVC_MAX_DISPLAY_NAME_LENGTH) {
-    displayName = displayName.substr(0, MSVC_MAX_DISPLAY_NAME_LENGTH);
-  }
-
   // FIXME: duplicates?
   return DBuilder.createFunction(
       CU,                                 // context
-      displayName,                        // name
-      mangledName,                        // linkage name
+      fd->toPrettyChars(),                // name
+      getIrFunc(fd)->func->getName(),     // linkage name
       file,                               // file
       fd->loc.linnum,                     // line no
       DIFnType,                           // type
@@ -701,22 +691,22 @@ ldc::DISubprogram ldc::DIBuilder::EmitThunk(llvm::Function *Thunk,
   // Create subroutine type (thunk has same type as wrapped function)
   ldc::DISubroutineType DIFnType = CreateFunctionType(fd->type);
 
-  std::string name(fd->toPrettyChars());
+  std::string name = fd->toPrettyChars();
   name.append(".__thunk");
 
   // FIXME: duplicates?
   return DBuilder.createFunction(
-      CU,                                      // context
-      name,                                    // name
-      Thunk->getName(),                        // linkage name
-      file,                                    // file
-      fd->loc.linnum,                          // line no
-      DIFnType,                                // type
-      fd->protection.kind == PROTprivate,      // is local to unit
-      true,                                    // isdefinition
-      fd->loc.linnum,                          // FIXME: scope line
-      DIFlags::FlagPrototyped,                 // Flags
-      isOptimizationEnabled()                  // isOptimized
+      CU,                                 // context
+      name,                               // name
+      Thunk->getName(),                   // linkage name
+      file,                               // file
+      fd->loc.linnum,                     // line no
+      DIFnType,                           // type
+      fd->protection.kind == PROTprivate, // is local to unit
+      true,                               // isdefinition
+      fd->loc.linnum,                     // FIXME: scope line
+      DIFlags::FlagPrototyped,            // Flags
+      isOptimizationEnabled()             // isOptimized
 #if LDC_LLVM_VER < 308
       ,
       getIrFunc(fd)->func
