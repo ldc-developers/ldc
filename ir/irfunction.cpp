@@ -34,8 +34,7 @@ CatchScope::CatchScope(llvm::Constant *classInfoPtr,
 
 bool useMSVCEH() {
 #if LDC_LLVM_VER >= 308
-  return global.params.targetTriple->isWindowsMSVCEnvironment() &&
-         !global.params.targetTriple->isArch64Bit();
+  return global.params.targetTriple->isWindowsMSVCEnvironment();
 #else
   return false;
 #endif
