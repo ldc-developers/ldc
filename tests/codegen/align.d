@@ -9,14 +9,14 @@ static Inner globalInner;
 // CHECK: constant %align.Inner_init zeroinitializer, align 32
 
 Outer passAndReturnOuterByVal(Outer arg) { return arg; }
-// CHECK: define void @_D5align23passAndReturnOuterByValFS5align5OuterZS5align5Outer
+// CHECK: define{{.*}} void @{{.*}}_D5align23passAndReturnOuterByValFS5align5OuterZS5align5Outer
 /* no sret align attributes for MSVC targets at the moment */
 // C HECK-SAME: %align.Outer* noalias sret align 32 %.sret_arg
 /* how the arg is passed by value is ABI-specific, but the pointer must be aligned */
 // CHECK-SAME: align 32 %
 
 Inner passAndReturnInnerByVal(Inner arg) { return arg; }
-// CHECK: define void @_D5align23passAndReturnInnerByValFS5align5InnerZS5align5Inner
+// CHECK: define{{.*}} void @{{.*}}_D5align23passAndReturnInnerByValFS5align5InnerZS5align5Inner
 // C HECK-SAME: %align.Inner* noalias sret align 32 %.sret_arg
 // CHECK-SAME: align 32 %
 
@@ -48,12 +48,12 @@ void main() {
   // CHECK: %.rettmp{{.*}} = alloca %align.Inner, align 32
 
   outer = passAndReturnOuterByVal(outer);
-  // CHECK: call void @_D5align23passAndReturnOuterByValFS5align5OuterZS5align5Outer
+  // CHECK: call{{.*}} void @{{.*}}_D5align23passAndReturnOuterByValFS5align5OuterZS5align5Outer
   // C HECK-SAME: %align.Outer* noalias sret align 32 %.rettmp
   // CHECK-SAME: align 32 %
 
   inner = passAndReturnInnerByVal(inner);
-  // CHECK: call void @_D5align23passAndReturnInnerByValFS5align5InnerZS5align5Inner
+  // CHECK: call{{.*}} void @{{.*}}_D5align23passAndReturnInnerByValFS5align5InnerZS5align5Inner
   // C HECK-SAME: %align.Inner* noalias sret align 32 %.rettmp1
   // CHECK-SAME: align 32 %
 }
