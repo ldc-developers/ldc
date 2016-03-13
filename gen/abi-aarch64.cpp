@@ -86,11 +86,8 @@ struct AArch64TargetABI : TargetABI {
     for (auto arg : fty.args) {
       if (!arg->byref)
         rewriteArgument(fty, *arg);
-    }
-
-    // extern(D): reverse parameter order for non variadics, for DMD-compliance
-    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
-      fty.reverseParams = true;
+      else if (passByVal(arg->type))
+        arg->attrs.remove(LLAttribute::ByVal);
     }
   }
 
@@ -98,10 +95,10 @@ struct AArch64TargetABI : TargetABI {
     // FIXME
     Type *ty = arg.type->toBasetype();
 
-    if (ty->ty == Tstruct) {
+    if (ty->ty == Tstruct || ty->ty == Tsarray) {
       // Rewrite HFAs only because union HFAs are turned into IR types that are
       // non-HFA and messes up register selection
-      if (isHFA((TypeStruct *)ty, &arg.ltype)) {
+      if (ty->ty == Tstruct && isHFA((TypeStruct *)ty, &arg.ltype)) {
         arg.rewrite = &hfaToArray;
         arg.ltype = hfaToArray.type(arg.type, arg.ltype);
       }
