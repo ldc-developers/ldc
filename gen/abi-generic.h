@@ -119,7 +119,7 @@ struct RemoveStructPadding : ABIRewrite {
  */
 struct IntegerRewrite : ABIRewrite {
   static LLType *getIntegerType(unsigned minSizeInBytes) {
-    if (minSizeInBytes > 8) {
+    if (minSizeInBytes > 16) {
       return nullptr;
     }
 
@@ -135,6 +135,15 @@ struct IntegerRewrite : ABIRewrite {
     case 6:
     case 7:
       size = 8;
+      break;
+    case 9:
+    case 10:
+    case 11:
+    case 12:
+    case 13:
+    case 14:
+    case 15:
+      size = 16;
       break;
     default:
       break;

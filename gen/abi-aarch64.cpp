@@ -59,12 +59,13 @@ struct AArch64TargetABI : TargetABI {
       return rt->ty == Tsarray || rt->ty == Tstruct;
 
     return rt->ty == Tsarray ||
-      (rt->ty == Tstruct && rt->size() > 4 && !isHFA((TypeStruct *)rt));
+      (rt->ty == Tstruct && rt->size() > 16 && !isHFA((TypeStruct *)rt));
   }
 
   bool passByVal(Type *t) override {
     t = t->toBasetype();
-    return ((t->ty == Tsarray || t->ty == Tstruct) && t->size() > 64);
+    return t->ty == Tsarray ||
+           (t->ty == Tstruct && t->size() > 16 && !isHFA((TypeStruct *)t));
   }
 
   void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
@@ -74,6 +75,7 @@ struct AArch64TargetABI : TargetABI {
       // non-HFA and messes up register selection
       if (isHFA((TypeStruct *)retTy, &fty.ret->ltype)) {
         fty.ret->rewrite = &hfaToArray;
+        fty.ret->ltype = hfaToArray.type(fty.ret->type, fty.ret->ltype);
       }
       else {
         fty.ret->rewrite = &integerRewrite;
@@ -101,6 +103,7 @@ struct AArch64TargetABI : TargetABI {
       // non-HFA and messes up register selection
       if (isHFA((TypeStruct *)ty, &arg.ltype)) {
         arg.rewrite = &hfaToArray;
+        arg.ltype = hfaToArray.type(arg.type, arg.ltype);
       }
       else {
         arg.rewrite = &compositeToArray64;
