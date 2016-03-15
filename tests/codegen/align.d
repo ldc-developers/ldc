@@ -44,8 +44,8 @@ void main() {
   // C HECK: %outeroverride = alloca %align.Outer, align 16
   // C HECK: %outeroverride = alloca %align.Outer, align 32
 
-  // CHECK: %.rettmp = alloca %align.Outer, align 32
-  // CHECK: %.rettmp1 = alloca %align.Inner, align 32
+  // CHECK: %.rettmp{{.*}} = alloca %align.Outer, align 32
+  // CHECK: %.rettmp{{.*}} = alloca %align.Inner, align 32
 
   outer = passAndReturnOuterByVal(outer);
   // CHECK: call void @_D5align23passAndReturnOuterByValFS5align5OuterZS5align5Outer

@@ -114,7 +114,10 @@ Statement *asmSemantic(AsmStatement *s, Scope *sc) {
     err = true;
   }
   if (err) {
-    fatal();
+    if (!global.gag) {
+      fatal();
+    }
+    return s;
   }
 
   // puts(toChars());
@@ -357,6 +360,7 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState *irs) {
     }
     llvmOutConstraints += oc;
     llvmOutConstraints += ",";
+    n++;
   }
   asmblock->outputcount += n;
 

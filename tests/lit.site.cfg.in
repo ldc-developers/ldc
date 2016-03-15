@@ -10,7 +10,7 @@ config.test_source_root = "@TESTS_IR_DIR@"
 config.llvm_tools_dir   = "@LLVM_TOOLS_DIR@"
 config.llvm_version     = @LDC_LLVM_VER@
 
-config.name = 'LLVM IR codegen'
+config.name = 'LDC'
 
 # testFormat: The test format to use to interpret tests.
 config.test_format = lit.formats.ShTest(execute_external=False)
@@ -23,7 +23,7 @@ config.suffixes = ['.d',
 # excludes: A list of directories to exclude from the testsuite. The 'Inputs'
 # subdirectories contain auxiliary inputs for various tests in their parent
 # directories.
-config.excludes = []
+config.excludes = ['d2', 'CMakeLists.txt', 'runlit.py']
 
 # Define available features so that we can disable tests depending on LLVM version
 config.available_features.add("llvm%d" % config.llvm_version)

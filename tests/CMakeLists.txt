@@ -6,7 +6,7 @@ set( TESTS_IR_DIR    ${CMAKE_CURRENT_SOURCE_DIR}           )
 configure_file(lit.site.cfg.in lit.site.cfg )
 configure_file(runlit.py       runlit.py    COPYONLY)
 
-add_test(NAME llvm-ir-testsuite
+add_test(NAME lit-tests
     COMMAND python runlit.py -v .
 )
 
