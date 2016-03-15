@@ -36,6 +36,9 @@ extern(C) void fatalerror(in char* format, ...)
     abort();
 }
 
+version(Win32) {} else version = notMSVC;
+version(notMSVC):
+
 // ------------------------
 //    Reading DWARF data
 // ------------------------
@@ -516,7 +519,7 @@ extern(C) auto eh_personality_common(NativeContext)(ref NativeContext nativeCont
 
             debug(EH_personality_verbose)
             {
-                printf("  - ip=%llx %d %d %llx\n", ip, block_start_offset,
+                printf("  - ip=%p %u %u %tx\n", ip, block_start_offset,
                     block_size, landingPadAddr);
             }
 

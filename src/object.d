@@ -49,18 +49,42 @@ alias immutable(char)[]  string;
 alias immutable(wchar)[] wstring;
 alias immutable(dchar)[] dstring;
 
-version (LDC) version (X86_64)
+version (LDC)
 {
     // Layout of this struct must match __gnuc_va_list for C ABI compatibility.
     // Defined here for LDC as it is referenced from implicitly generated code
     // for D-style variadics, etc., and we do not require people to manually
     // import core.vararg like DMD does.
-    struct __va_list_tag
+    version (X86_64)
     {
-        uint offset_regs = 6 * 8;
-        uint offset_fpregs = 6 * 8 + 8 * 16;
-        void* stack_args;
-        void* reg_args;
+        struct __va_list_tag
+        {
+            uint offset_regs = 6 * 8;
+            uint offset_fpregs = 6 * 8 + 8 * 16;
+            void* stack_args;
+            void* reg_args;
+        }
+    }
+    else version (AArch64)
+    {
+        version( iOS ) {}
+        else version( TVOS ) {}
+        else
+        {
+            static import ldc.internal.vararg;
+            alias __va_list = ldc.internal.vararg.std.__va_list;
+        }
+    }
+    else version (ARM)
+    {
+        // Darwin does not use __va_list
+        version( iOS ) {}
+        else version( WatchOS ) {}
+        else
+        {
+            static import ldc.internal.vararg;
+            alias __va_list = ldc.internal.vararg.std.__va_list;
+        }
     }
 }
 
