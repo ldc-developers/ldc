@@ -83,7 +83,6 @@ if(D_VERSION EQUAL 1)
     message(FATAL_ERROR "D version 1 is no longer supported.
 Please consider using D version 2 or checkout the 'd1' git branch for the last version supporting D version 1.")
 elseif(D_VERSION EQUAL 2)
-    set(DMDFE_PATH dmd2)
     set(DDMDFE_PATH ddmd)
     set(LDC_EXE ldc2)
     set(LDMD_EXE ldmd2)
@@ -98,7 +97,6 @@ set(LDMD_EXE_NAME ${PROGRAM_PREFIX}${LDMD_EXE}${PROGRAM_SUFFIX})
 
 file(MAKE_DIRECTORY
     ${PROJECT_BINARY_DIR}
-    ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
     ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}
 )
 
@@ -389,10 +387,8 @@ configure_file(driver/ldc-version.cpp.in driver/ldc-version.cpp)
 
 # Also add the header files to the build so that they are available in IDE
 # project files generated via CMake.
-file(GLOB_RECURSE FE_SRC ${DMDFE_PATH}/*.c)
-file(GLOB_RECURSE FE_HDR ${DMDFE_PATH}/*.h)
 file(GLOB_RECURSE FE_SRC_D ${DDMDFE_PATH}/*.d)
-file(GLOB_RECURSE FE_HDR_D ${DDMDFE_PATH}/*.h)
+file(GLOB_RECURSE FE_HDR   ${DDMDFE_PATH}/*.h)
 file(GLOB_RECURSE GEN_SRC gen/*.cpp)
 file(GLOB_RECURSE GEN_HDR gen/*.h)
 file(GLOB_RECURSE GEN_SRC_D gen/*.d)
@@ -431,9 +427,7 @@ list(REMOVE_ITEM FE_SRC_D
 )
 set(LDC_CXX_SOURCE_FILES
     ${LDC_CXX_GENERATED}
-    ${FE_SRC}
     ${FE_HDR}
-    ${FE_HDR_D}
     ${GEN_SRC}
     ${GEN_HDR}
     ${IR_SRC}
@@ -461,10 +455,8 @@ foreach(file ${LDC_CXX_SOURCE_FILES} ${DRV_SRC} ${DRV_HDR})
     endif()
 endforeach()
 
-source_group("Source Files\\${DMDFE_PATH}" FILES ${FE_SRC})
-source_group("Header Files\\${DMDFE_PATH}" FILES ${FE_HDR})
 source_group("Source Files\\${DDMDFE_PATH}" FILES ${FE_SRC_D})
-source_group("Header Files\\${DDMDFE_PATH}" FILES ${FE_HDR_D})
+source_group("Header Files\\${DDMDFE_PATH}" FILES ${FE_HDR})
 source_group("Source Files\\gen" FILES ${GEN_SRC})
 source_group("Header Files\\gen" FILES ${GEN_HDR})
 source_group("Source Files\\ir" FILES ${IR_SRC})
@@ -477,11 +469,8 @@ source_group("Generated Files" REGULAR_EXPRESSION "(id\\.[cdh]|impcnvtab\\.c)$")
 
 include_directories(
     .
-    ${DMDFE_PATH}
-    ${DMDFE_PATH}/root
     ${DDMDFE_PATH}
     ${DDMDFE_PATH}/root
-    ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
     ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}
     ${PROJECT_SOURCE_DIR}
 )
