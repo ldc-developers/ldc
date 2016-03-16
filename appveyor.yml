@@ -18,17 +18,16 @@ environment:
   matrix:
     - APPVEYOR_JOB_CONFIG: Debug
       APPVEYOR_JOB_ARCH:   x64
-    - APPVEYOR_JOB_CONFIG: Release
-      APPVEYOR_JOB_ARCH:   x64
     - APPVEYOR_JOB_CONFIG: Debug
       APPVEYOR_JOB_ARCH:   x86
+    - APPVEYOR_JOB_CONFIG: Release
+      APPVEYOR_JOB_ARCH:   x64
     - APPVEYOR_JOB_CONFIG: Release
       APPVEYOR_JOB_ARCH:   x86
 
 matrix:
   allow_failures:
     - APPVEYOR_JOB_CONFIG: Release
-    - APPVEYOR_JOB_ARCH: x86
 
 # scripts that are called at very beginning, before repo cloning
 init:
@@ -57,9 +56,9 @@ install:
   # Download a pre-built LLVM (CMAKE_BUILD_TYPE=Release) & extract
   - ps: |
         If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
-            Start-FileDownload 'https://dl.dropboxusercontent.com/s/una5bc049qw92k4/LLVM-dbe4385-x64.7z?dl=0' -FileName 'llvm-x64.7z'
+            Start-FileDownload 'https://dl.dropboxusercontent.com/s/gsgyy2k3nw7c8jc/LLVM-fa4edb6-x64.7z?dl=0' -FileName 'llvm-x64.7z'
         } Else {
-            Start-FileDownload 'https://dl.dropboxusercontent.com/s/3xj7gllo0sg9901/LLVM-dbe4385-x86.7z?dl=0' -FileName 'llvm-x86.7z'
+            Start-FileDownload 'https://dl.dropboxusercontent.com/s/txrug8g1707bc59/LLVM-fa4edb6-x86.7z?dl=0' -FileName 'llvm-x86.7z'
         }
   - md llvm-%APPVEYOR_JOB_ARCH%
   - cd llvm-%APPVEYOR_JOB_ARCH%
@@ -123,7 +122,7 @@ after_build:
             copy bin\ldc2.pdb "..\ldc-$Env:APPVEYOR_JOB_ARCH\bin"
             cd "..\ldc-$Env:APPVEYOR_JOB_ARCH"
             (gc etc\ldc2.conf).replace("C:/projects/ldc-$Env:APPVEYOR_JOB_ARCH/", '%%ldcbinarypath%%/../') | sc etc\ldc2.conf
-            $artifactFilename = "LDC-Win64-master-$Env:APPVEYOR_BUILD_NUMBER.7z"
+            $artifactFilename = "LDC-master-$Env:APPVEYOR_BUILD_NUMBER-$Env:APPVEYOR_JOB_ARCH.7z"
             7z a "..\$artifactFilename" * > $null
             cd ..
             Push-AppveyorArtifact $artifactFilename
@@ -146,12 +145,17 @@ test_script:
   # (pre-build some modules serially - those known to require lots of memory)
   - ninja -j1 runtime\std\algorithm\searching-%TEST_SUFFIX%.obj runtime\std\algorithm\setops-%TEST_SUFFIX%.obj runtime\std\array-%TEST_SUFFIX%.obj runtime\std\conv-%TEST_SUFFIX%.obj runtime\std\datetime-%TEST_SUFFIX%.obj runtime\std\range\package-%TEST_SUFFIX%.obj runtime\std\range\primitives-%TEST_SUFFIX%.obj runtime\std\regex\internal\tests-%TEST_SUFFIX%.obj runtime\std\string-%TEST_SUFFIX%.obj runtime\std\traits-%TEST_SUFFIX%.obj
   - ninja -j2 druntime-ldc-%TEST_SUFFIX% phobos2-ldc-%TEST_SUFFIX%
-  # Execute the unit tests; exclude dmd-testsuite for now
-  - set CTEST_SUFFIX=-E "-debug|testsuite"
-  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set CTEST_SUFFIX=-R -debug -E testsuite)
+  # Execute the unit tests
+  - set CTEST_SUFFIX=-E "-debug|dmd-testsuite|lit-tests"
+  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set CTEST_SUFFIX=-R -debug -E "dmd-testsuite|lit-tests")
   - ctest --output-on-failure %CTEST_SUFFIX%
-  # Execute the LLVM IR tests
-  - ctest --output-on-failure -R lit-tests
+  # Execute the LLVM IR tests (excluded for Debug x86 job due to LDC issue #1356)
+  - ps: |
+        If ($Env:APPVEYOR_JOB_CONFIG -eq 'Debug' -And $Env:APPVEYOR_JOB_ARCH -eq 'x86') {
+        } Else {
+            ctest --output-on-failure -R lit-tests
+        }
+  # Exclude dmd-testsuite for now
 
 #---------------------------------#
 #     deployment configuration    #
@@ -159,14 +163,13 @@ test_script:
 
 deploy:
   release: 'LDC Win64 master'
-  description: "Latest successful Win64 CI builds of branch 'master'"
+  description: "Latest successful Windows CI builds of branch 'master'"
   provider: GitHub
   auth_token:
     secure: qnbD8agL9mr0SFvy/sMkR2E29oQQ427T5zYwVVZkjRS3IZ361tG+9jlSiyEkyULy
-  artifact: LDC-Win64-master-$(APPVEYOR_BUILD_NUMBER).7z
+  artifact: LDC-master-$(APPVEYOR_BUILD_NUMBER)-$(APPVEYOR_JOB_ARCH).7z
   draft: true
   prerelease: true
   on:
     branch: master
     APPVEYOR_JOB_CONFIG: Debug
-    APPVEYOR_JOB_ARCH:   x64
