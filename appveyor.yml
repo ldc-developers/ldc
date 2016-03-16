@@ -32,14 +32,6 @@ matrix:
 # scripts that are called at very beginning, before repo cloning
 init:
   - git config --global core.autocrlf input
-  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64 )
-  - if "%APPVEYOR_JOB_ARCH%"=="x86" ( call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86 )
-  # Print environment info
-  - set
-  - msbuild /version
-  - cl
-  - cmake --version
-  - python --version
 
 # scripts that run after cloning repository
 install:
@@ -53,6 +45,45 @@ install:
   - cd libconfig
   - git checkout 7585cf6
   - cd ..
+  # dmd-testsuite: Merge `windows` branch
+  - cd ldc\tests\d2\dmd-testsuite
+  - git merge origin/windows
+  - cd ..\..\..\..
+  # Download & extract libcurl
+  - ps: Start-FileDownload 'http://d.darktech.org/libcurl-7.47.0-WinSSL-zlib-x86-x64.zip' -FileName 'libcurl.zip'
+  - md libcurl
+  - cd libcurl
+  - 7z x ..\libcurl.zip > nul
+  - cd ..
+  # Copy libcurl.dll to final LDC installation directory and add to PATH
+  - md ldc-%APPVEYOR_JOB_ARCH% && md ldc-%APPVEYOR_JOB_ARCH%\bin
+  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( copy libcurl\dmd2\windows\bin64\libcurl.dll ldc-x64\bin )
+  - if "%APPVEYOR_JOB_ARCH%"=="x86" ( copy libcurl\dmd2\windows\bin\libcurl.dll ldc-x86\bin )
+  - set PATH=%CD%\ldc-%APPVEYOR_JOB_ARCH%\bin;%PATH%
+  # Download & extract Ninja
+  - ps: Start-FileDownload 'https://github.com/ninja-build/ninja/releases/download/v1.6.0/ninja-win.zip' -FileName 'ninja.zip'
+  - md ninja
+  - cd ninja
+  - 7z x ..\ninja.zip > nul
+  - ninja --version
+  - cd ..
+  # Install lit
+  - python --version
+  - python -m pip install lit
+  - python -c "import lit; lit.main();" --version
+  # Download & extract DMD
+  - ps: Start-FileDownload 'http://downloads.dlang.org/releases/2015/dmd.2.069.2.windows.7z' -FileName 'dmd2.7z'
+  - 7z x dmd2.7z > nul
+  - set DMD=%CD%\dmd2\windows\bin\dmd.exe
+  - dmd2\windows\bin\dmd.exe --version
+  # Download & extract GNU make + utils (for dmd-testsuite)
+  - bash --version
+  - ps: Start-FileDownload 'https://dl.dropboxusercontent.com/s/d0cqmxf9arbjn27/make-3.81.7z?dl=0' -FileName 'make.7z'
+  - md make
+  - cd make
+  - 7z x ..\make.7z > nul
+  - bin\make --version
+  - cd ..
   # Download a pre-built LLVM (CMAKE_BUILD_TYPE=Release) & extract
   - ps: |
         If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
@@ -64,33 +95,15 @@ install:
   - cd llvm-%APPVEYOR_JOB_ARCH%
   - 7z x ..\llvm-%APPVEYOR_JOB_ARCH%.7z > nul
   - cd ..
-  # Download & install Ninja
-  - ps: Start-FileDownload 'https://github.com/ninja-build/ninja/releases/download/v1.6.0/ninja-win.zip' -FileName 'ninja.zip'
-  - md ninja
-  - cd ninja
-  - 7z x ..\ninja.zip > nul
-  - cd ..
-  - set PATH=c:\projects\ninja;%PATH%
-  - ninja --version
-  # Download & extract libcurl
-  - ps: Start-FileDownload 'http://d.darktech.org/libcurl-7.47.0-WinSSL-zlib-x86-x64.zip' -FileName 'libcurl.zip'
-  - md libcurl
-  - cd libcurl
-  - 7z x ..\libcurl.zip > nul
-  - cd ..
-  # Copy libcurl.dll to final LDC installation directory and add to PATH
-  - md ldc-%APPVEYOR_JOB_ARCH% && md ldc-%APPVEYOR_JOB_ARCH%\bin
-  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( copy libcurl\dmd2\windows\bin64\libcurl.dll ldc-x64\bin )
-  - if "%APPVEYOR_JOB_ARCH%"=="x86" ( copy libcurl\dmd2\windows\bin\libcurl.dll ldc-x86\bin )
-  - set PATH=c:\projects\ldc-%APPVEYOR_JOB_ARCH%\bin;%PATH%
-  # Install lit
-  - python -m pip install lit
-  - python -c "import lit; lit.main();" --version
-  # Download & extract DMD
-  - ps: Start-FileDownload 'http://downloads.dlang.org/releases/2015/dmd.2.069.2.windows.7z' -FileName 'dmd2.7z'
-  - 7z x dmd2.7z > nul
-  - set DMD=c:\projects\dmd2\windows\bin\dmd.exe
-  - c:\projects\dmd2\windows\bin\dmd.exe --version
+  # Set environment variables
+  - set PATH=%CD%\ninja;%CD%\make\bin;%PATH%
+  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64 )
+  - if "%APPVEYOR_JOB_ARCH%"=="x86" ( call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86 )
+  # Print environment info
+  - set
+  - msbuild /version
+  - cl
+  - cmake --version
 
 #---------------------------------#
 #       build configuration       #
@@ -155,7 +168,10 @@ test_script:
         } Else {
             ctest --output-on-failure -R lit-tests
         }
-  # Exclude dmd-testsuite for now
+  # Execute dmd-testsuite, but ignore failures for now
+  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( set OS=Win_64) else ( set OS=Win_32)
+  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( ctest --verbose -R dmd-testsuite-debug || set ERRORLEVEL=0)
+  - if "%APPVEYOR_JOB_CONFIG%"=="Release" ( ctest --verbose -R dmd-testsuite -E -debug || set ERRORLEVEL=0)
 
 #---------------------------------#
 #     deployment configuration    #
