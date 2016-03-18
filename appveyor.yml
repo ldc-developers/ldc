@@ -84,7 +84,7 @@ install:
   - 7z x ..\make.7z > nul
   - bin\make --version
   - cd ..
-  # Download a pre-built LLVM (CMAKE_BUILD_TYPE=Release) & extract
+  # Download & extract a pre-built LLVM (CMAKE_BUILD_TYPE=Release, LLVM_ENABLE_ASSERTIONS=ON)
   - ps: |
         If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
             Start-FileDownload 'https://dl.dropboxusercontent.com/s/gsgyy2k3nw7c8jc/LLVM-fa4edb6-x64.7z?dl=0' -FileName 'llvm-x64.7z'
@@ -162,16 +162,13 @@ test_script:
   - set CTEST_SUFFIX=-E "-debug|dmd-testsuite|lit-tests"
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set CTEST_SUFFIX=-R -debug -E "dmd-testsuite|lit-tests")
   - ctest --output-on-failure %CTEST_SUFFIX%
-  # Execute the LLVM IR tests (excluded for Debug x86 job due to LDC issue #1356)
-  - ps: |
-        If ($Env:APPVEYOR_JOB_CONFIG -eq 'Debug' -And $Env:APPVEYOR_JOB_ARCH -eq 'x86') {
-        } Else {
-            ctest --output-on-failure -R lit-tests
-        }
-  # Execute dmd-testsuite, but ignore failures for now
+  # Execute the LLVM IR tests; ignore failures for x86 jobs due to LDC issue #1356
+  - if "%APPVEYOR_JOB_ARCH%"=="x86" ( ctest --output-on-failure -R lit-tests || set ERRORLEVEL=0)
+  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( ctest --output-on-failure -R lit-tests )
+  # Execute dmd-testsuite
   - if "%APPVEYOR_JOB_ARCH%"=="x64" ( set OS=Win_64) else ( set OS=Win_32)
-  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( ctest --verbose -R dmd-testsuite-debug || set ERRORLEVEL=0)
-  - if "%APPVEYOR_JOB_CONFIG%"=="Release" ( ctest --verbose -R dmd-testsuite -E -debug || set ERRORLEVEL=0)
+  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( ctest --verbose -R dmd-testsuite-debug )
+  - if "%APPVEYOR_JOB_CONFIG%"=="Release" ( ctest --verbose -R dmd-testsuite -E -debug )
 
 #---------------------------------#
 #     deployment configuration    #
