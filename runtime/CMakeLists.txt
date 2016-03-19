@@ -300,7 +300,7 @@ macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
     add_custom_command(
         OUTPUT
             ${outfiles}
-        COMMAND ${LDC_EXE} ${dc_flags} -c -I${RUNTIME_DIR}/src -I${RUNTIME_DIR}/src/gc ${input_d} -of${output_o} ${d_flags}
+        COMMAND ${LDC_EXE_FULL} ${dc_flags} -c -I${RUNTIME_DIR}/src -I${RUNTIME_DIR}/src/gc ${input_d} -of${output_o} ${d_flags}
         WORKING_DIRECTORY ${PROJECT_PARENT_DIR}
         DEPENDS ${input_d}
                 ${LDC_EXE}
@@ -616,7 +616,7 @@ macro(build_test_runner name_suffix d_flags c_flags)
 
         set(libarg "druntime-ldc-unittest${name_suffix}")
         add_test(NAME build-druntime-test-runner${name_suffix}
-            COMMAND ${LDC_EXE}
+            COMMAND ${LDC_EXE_FULL}
                 -of${PROJECT_BINARY_DIR}/druntime-test-runner${name_suffix}${CMAKE_EXECUTABLE_SUFFIX}
                 -defaultlib=${libarg} -debuglib=${libarg}
                 -singleobj ${flags} ${RUNTIME_DIR}/src/test_runner.d
@@ -627,7 +627,7 @@ macro(build_test_runner name_suffix d_flags c_flags)
         if(PHOBOS2_DIR)
             set(libarg "phobos2-ldc-unittest${name_suffix},druntime-ldc-unittest${name_suffix}")
             add_test(NAME build-phobos2-test-runner${name_suffix}
-                COMMAND ${LDC_EXE}
+                COMMAND ${LDC_EXE_FULL}
                     -of${PROJECT_BINARY_DIR}/phobos2-test-runner${name_suffix}${CMAKE_EXECUTABLE_SUFFIX}
                     -L--no-as-needed -defaultlib=${libarg} -debuglib=${libarg}
                     -singleobj ${flags} ${RUNTIME_DIR}/src/test_runner.d
@@ -664,7 +664,7 @@ macro(build_test_runner name_suffix d_flags c_flags)
             --build ${CMAKE_BINARY_DIR} --target druntime-ldc-unittest${name_suffix})
 
         add_test(NAME build-druntime-test-runner${name_suffix}
-            COMMAND ${LDC_EXE}
+            COMMAND ${LDC_EXE_FULL}
                 -of${PROJECT_BINARY_DIR}/druntime-test-runner${name_suffix}${CMAKE_EXECUTABLE_SUFFIX}
                 -defaultlib=${druntime-casm} -debuglib=${druntime-casm}
                 -singleobj ${flags} ${druntime_o} ${RUNTIME_DIR}/src/test_runner.d
@@ -695,7 +695,7 @@ macro(build_test_runner name_suffix d_flags c_flags)
                 --build ${CMAKE_BINARY_DIR} --target phobos2-ldc-unittest${name_suffix})
 
             add_test(NAME build-phobos2-test-runner${name_suffix}
-                COMMAND ${LDC_EXE}
+                COMMAND ${LDC_EXE_FULL}
                     -of${PROJECT_BINARY_DIR}/phobos2-test-runner${name_suffix}${CMAKE_EXECUTABLE_SUFFIX}
                     -defaultlib=druntime-ldc,${phobos2-casm} -debuglib=druntime-ldc,${phobos2-casm}
                     -singleobj ${flags} ${phobos2_o} ${RUNTIME_DIR}/src/test_runner.d
@@ -760,7 +760,6 @@ endif()
 # Add the standalone druntime tests.
 # TODO: Add test/excetions and test/init_fini.
 if(BUILD_SHARED_LIBS)
-    get_property(ldmd_path TARGET ldmd2 PROPERTY LOCATION)
     get_property(druntime_path TARGET druntime-ldc PROPERTY LOCATION)
     set(outdir ${PROJECT_BINARY_DIR}/druntime-test-shared)
 
@@ -768,7 +767,7 @@ if(BUILD_SHARED_LIBS)
         COMMAND ${CMAKE_COMMAND} -E remove_directory ${outdir})
     add_test(NAME druntime-test-shared
         COMMAND make -C ${PROJECT_SOURCE_DIR}/druntime/test/shared
-            ROOT=${outdir} DMD=${ldmd_path} MODEL=default DRUNTIMESO=${druntime_path}
+            ROOT=${outdir} DMD=${LDMD_EXE_FULL} MODEL=default DRUNTIMESO=${druntime_path}
             CFLAGS=-Wall\ -Wl,-rpath,${CMAKE_BINARY_DIR}/lib LINKDL=-L-ldl
     )
     set_tests_properties(druntime-test-shared PROPERTIES DEPENDS clean-druntime-test-shared)
