@@ -24,6 +24,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
+#include "ir/irfunction.h"
 #include "ir/irtype.h"
 #include "ir/irtypefunction.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -620,9 +621,11 @@ static void buildRuntimeModule() {
   // int _d_eh_personality(...)
   {
     if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+      const char *fname =
+          useMSVCEH() ? "__CxxFrameHandler3" : "_d_eh_personality";
       // (ptr ExceptionRecord, ptr EstablisherFrame, ptr ContextRecord,
       //  ptr DispatcherContext)
-      createFwdDecl(LINKc, intTy, {"_d_eh_personality"},
+      createFwdDecl(LINKc, intTy, {fname},
                     {voidPtrTy, voidPtrTy, voidPtrTy, voidPtrTy});
     } else if (global.params.targetTriple->getArch() == llvm::Triple::arm) {
       // (int state, ptr ucb, ptr context)
@@ -635,12 +638,25 @@ static void buildRuntimeModule() {
     }
   }
 
-  // void _d_eh_resume_unwind(ptr)
-  createFwdDecl(LINKc, voidTy, {"_d_eh_resume_unwind"}, {voidPtrTy});
+  if (useMSVCEH()) {
+    // _d_enter_cleanup(ptr frame)
+    createFwdDecl(LINKc, boolTy, {"_d_enter_cleanup"}, {voidPtrTy});
 
-  // Object _d_eh_enter_catch(ptr)
-  createFwdDecl(LINKc, objectTy, {"_d_eh_enter_catch"}, {voidPtrTy}, {},
-                Attr_NoUnwind);
+    // _d_leave_cleanup(ptr frame)
+    createFwdDecl(LINKc, voidTy, {"_d_leave_cleanup"}, {voidPtrTy});
+
+    // Object _d_eh_enter_catch(ptr exception, ClassInfo catchType)
+    createFwdDecl(LINKc, objectTy, {"_d_eh_enter_catch"},
+                  {voidPtrTy, classInfoTy}, {});
+  } else {
+
+    // void _d_eh_resume_unwind(ptr)
+    createFwdDecl(LINKc, voidTy, {"_d_eh_resume_unwind"}, {voidPtrTy});
+
+    // Object _d_eh_enter_catch(ptr)
+    createFwdDecl(LINKc, objectTy, {"_d_eh_enter_catch"}, {voidPtrTy}, {},
+                  Attr_NoUnwind);
+  }
 
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////

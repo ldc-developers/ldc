@@ -109,6 +109,19 @@ public:
     }
   }
 
+  void rewriteVarargs(IrFuncTy &fty,
+                      std::vector<IrFuncTyArg *> &args) override {
+    for (auto arg : args) {
+      rewriteArgument(fty, *arg);
+
+      if (arg->rewrite == &byvalRewrite) {
+        // mark the vararg as being passed byref to prevent DtoCall() from
+        // passing the dereferenced pointer, i.e., just pass the pointer
+        arg->byref = true;
+      }
+    }
+  }
+
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     Type *t = arg.type->toBasetype();
 

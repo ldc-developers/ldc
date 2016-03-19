@@ -79,12 +79,8 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
       newIrFty.arg_sret = new IrFuncTyArg(
           rt, true,
           AttrBuilder().add(LLAttribute::StructRet).add(LLAttribute::NoAlias));
-      const unsigned alignment = DtoAlignment(rt);
-      if (alignment &&
-          // FIXME: LLVM inliner issues for std.bitmanip and std.uni on Win64
-          !global.params.targetTriple->isOSMSVCRT()) {
+      if (unsigned alignment = DtoAlignment(rt))
         newIrFty.arg_sret->attrs.addAlignment(alignment);
-      }
       rt = Type::tvoid;
       ++nextLLArgIdx;
     } else {

@@ -181,14 +181,7 @@ struct X86TargetABI : TargetABI {
       }
     }
 
-    // FIXME: byval params with alignment attributes lead to crashes with MSVC
-    if (isMSVC) {
-      for (auto arg : fty.args) {
-        if (arg->isByVal()) {
-          arg->attrs.remove(LLAttribute::Alignment);
-        }
-      }
-    }
+    workaroundIssue1356(fty.args);
 
     // Clang does not pass empty structs, while it seems that GCC does,
     // at least on Linux x86. We don't know whether the C compiler will
@@ -211,6 +204,23 @@ struct X86TargetABI : TargetABI {
         }
       }
       ++i;
+    }
+  }
+
+  void rewriteVarargs(IrFuncTy &fty,
+                      std::vector<IrFuncTyArg *> &args) override {
+    TargetABI::rewriteVarargs(fty, args);
+    workaroundIssue1356(args);
+  }
+
+  // FIXME: LDC issue #1356
+  // MSVC targets don't support alignment attributes for LL byval args
+  void workaroundIssue1356(std::vector<IrFuncTyArg *> &args) const {
+    if (isMSVC) {
+      for (auto arg : args) {
+        if (arg->isByVal())
+          arg->attrs.remove(LLAttribute::Alignment);
+      }
     }
   }
 };
