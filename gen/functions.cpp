@@ -623,13 +623,13 @@ void DtoDefineFunction(FuncDeclaration *fd) {
   }
 
   if (fd->semanticRun == PASSsemanticdone) {
-    /* What happened is this function failed semantic3() with errors,
-     * but the errors were gagged.
-     * Try to reproduce those errors, and then fail.
-     */
-    error(fd->loc, "errors compiling function %s", fd->toPrettyChars());
-    fd->ir->setDefined();
-    return;
+    // This function failed semantic3() with errors but the errors were gagged.
+    // In contrast to DMD we immediately bail out here, since other parts of
+    // the codegen expect irFunc to be set for defined functions.
+    error(fd->loc, "Internal Compiler Error: function not fully analyzed; "
+                   "previous unreported errors compiling %s?",
+          fd->toPrettyChars());
+    fatal();
   }
 
   DtoResolveFunction(fd);
@@ -692,8 +692,14 @@ void DtoDefineFunction(FuncDeclaration *fd) {
     }
   }
 
-  assert(fd->semanticRun == PASSsemantic3done);
   assert(fd->ident != Id::empty);
+
+  if (fd->semanticRun != PASSsemantic3done) {
+    error(fd->loc, "Internal Compiler Error: function not fully analyzed; "
+                   "previous unreported errors compiling %s?",
+          fd->toPrettyChars());
+    fatal();
+  }
 
   if (fd->isUnitTestDeclaration()) {
     getIrModule(gIR->dmodule)->unitTests.push_back(fd);
