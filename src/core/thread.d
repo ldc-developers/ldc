@@ -2001,12 +2001,6 @@ extern (C) void thread_init()
         status = sem_init( &suspendCount, 0, 0 );
         assert( status == 0 );
     }
-    else version( Windows )
-    {
-        enum TLS_OUT_OF_INDEXES = 0xFFFF_FFFFu;
-        Thread.sm_this = TlsAlloc();
-        assert( Thread.sm_this != TLS_OUT_OF_INDEXES );
-    }
     Thread.sm_main = thread_attachThis();
 }
 
