@@ -17,7 +17,13 @@ os: Visual Studio 2015
 environment:
   matrix:
     - APPVEYOR_JOB_CONFIG: Debug
+      APPVEYOR_JOB_ARCH:   x64
+    - APPVEYOR_JOB_CONFIG: Debug
+      APPVEYOR_JOB_ARCH:   x86
     - APPVEYOR_JOB_CONFIG: Release
+      APPVEYOR_JOB_ARCH:   x64
+    - APPVEYOR_JOB_CONFIG: Release
+      APPVEYOR_JOB_ARCH:   x86
 
 matrix:
   allow_failures:
@@ -26,13 +32,6 @@ matrix:
 # scripts that are called at very beginning, before repo cloning
 init:
   - git config --global core.autocrlf input
-  - call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64
-  # Print environment info
-  - set
-  - msbuild /version
-  - cl
-  - cmake --version
-  - python --version
 
 # scripts that run after cloning repository
 install:
@@ -46,24 +45,10 @@ install:
   - cd libconfig
   - git checkout 7585cf6
   - cd ..
-  ## Download & extract LLVM source
-  #- ps: Start-FileDownload 'http://llvm.org/pre-releases/3.7.0/rc3/llvm-3.7.0rc3.src.tar.xz' -FileName 'llvm.src.tar.xz'
-  #- 7z x llvm.src.tar.xz -so | 7z x -si -ttar > nul
-  #- ren llvm-3.7.0rc3.src llvm
-  # Download a pre-built LLVM & extract
-  - ps: Start-FileDownload 'https://dl.dropboxusercontent.com/s/5cok3dvmohtduy6/llvm-x64-release.7z?dl=0' -FileName 'llvm-x64.7z'
-  - md llvm-x64
-  - cd llvm-x64
-  - 7z x ..\llvm-x64.7z > nul
-  - cd ..
-  # Download & install Ninja
-  - ps: Start-FileDownload 'https://github.com/ninja-build/ninja/releases/download/v1.6.0/ninja-win.zip' -FileName 'ninja.zip'
-  - md ninja
-  - cd ninja
-  - 7z x ..\ninja.zip > nul
-  - cd ..
-  - set PATH=c:\projects\ninja;%PATH%
-  - ninja --version
+  # dmd-testsuite: Merge `windows` branch
+  - cd ldc\tests\d2\dmd-testsuite
+  - git merge origin/windows
+  - cd ..\..\..\..
   # Download & extract libcurl
   - ps: Start-FileDownload 'http://d.darktech.org/libcurl-7.47.0-WinSSL-zlib-x86-x64.zip' -FileName 'libcurl.zip'
   - md libcurl
@@ -71,19 +56,54 @@ install:
   - 7z x ..\libcurl.zip > nul
   - cd ..
   # Copy libcurl.dll to final LDC installation directory and add to PATH
-  - md ldc-x64
-  - md ldc-x64\bin
-  - copy libcurl\dmd2\windows\bin64\libcurl.dll ldc-x64\bin
-  - set PATH=c:\projects\ldc-x64\bin;%PATH%
+  - md ldc-%APPVEYOR_JOB_ARCH% && md ldc-%APPVEYOR_JOB_ARCH%\bin
+  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( copy libcurl\dmd2\windows\bin64\libcurl.dll ldc-x64\bin )
+  - if "%APPVEYOR_JOB_ARCH%"=="x86" ( copy libcurl\dmd2\windows\bin\libcurl.dll ldc-x86\bin )
+  - set PATH=%CD%\ldc-%APPVEYOR_JOB_ARCH%\bin;%PATH%
+  # Download & extract Ninja
+  - ps: Start-FileDownload 'https://github.com/ninja-build/ninja/releases/download/v1.6.0/ninja-win.zip' -FileName 'ninja.zip'
+  - md ninja
+  - cd ninja
+  - 7z x ..\ninja.zip > nul
+  - ninja --version
+  - cd ..
   # Install lit
+  - python --version
   - python -m pip install lit
   - python -c "import lit; lit.main();" --version
   # Download & extract DMD
   - ps: Start-FileDownload 'http://downloads.dlang.org/releases/2015/dmd.2.069.2.windows.7z' -FileName 'dmd2.7z'
   - 7z x dmd2.7z > nul
-  - set PATH=%PATH%;c:\projects\dmd2\windows\bin
-  - set DC=c:\projects\dmd2\windows\bin\dmd.exe
-  - dmd --version
+  - set DMD=%CD%\dmd2\windows\bin\dmd.exe
+  - dmd2\windows\bin\dmd.exe --version
+  # Download & extract GNU make + utils (for dmd-testsuite)
+  - bash --version
+  - ps: Start-FileDownload 'https://dl.dropboxusercontent.com/s/d0cqmxf9arbjn27/make-3.81.7z?dl=0' -FileName 'make.7z'
+  - md make
+  - cd make
+  - 7z x ..\make.7z > nul
+  - bin\make --version
+  - cd ..
+  # Download & extract a pre-built LLVM (CMAKE_BUILD_TYPE=Release, LLVM_ENABLE_ASSERTIONS=ON)
+  - ps: |
+        If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
+            Start-FileDownload 'https://dl.dropboxusercontent.com/s/gsgyy2k3nw7c8jc/LLVM-fa4edb6-x64.7z?dl=0' -FileName 'llvm-x64.7z'
+        } Else {
+            Start-FileDownload 'https://dl.dropboxusercontent.com/s/txrug8g1707bc59/LLVM-fa4edb6-x86.7z?dl=0' -FileName 'llvm-x86.7z'
+        }
+  - md llvm-%APPVEYOR_JOB_ARCH%
+  - cd llvm-%APPVEYOR_JOB_ARCH%
+  - 7z x ..\llvm-%APPVEYOR_JOB_ARCH%.7z > nul
+  - cd ..
+  # Set environment variables
+  - set PATH=%CD%\ninja;%CD%\make\bin;%PATH%
+  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64 )
+  - if "%APPVEYOR_JOB_ARCH%"=="x86" ( call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86 )
+  # Print environment info
+  - set
+  - msbuild /version
+  - cl
+  - cmake --version
 
 #---------------------------------#
 #       build configuration       #
@@ -92,19 +112,16 @@ install:
 before_build:
   - cd c:\projects
   # Build libconfig
-  - msbuild libconfig\lib\libconfig.vcxproj /p:Configuration=ReleaseStatic /p:Platform=x64
-  ## Generate build files for LLVM, build & install
-  #- md ninja-llvm
-  #- cd ninja-llvm
-  #- cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\llvm-x64 -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_APPEND_VC_REV=ON ..\llvm
-  #- ninja install
+  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( msbuild libconfig\lib\libconfig.vcxproj /p:Configuration=ReleaseStatic /p:Platform=x64 )
+  - if "%APPVEYOR_JOB_ARCH%"=="x86" ( msbuild libconfig\lib\libconfig.vcxproj /p:Configuration=ReleaseStatic /p:Platform=Win32 )
 
 build_script:
   - cd c:\projects
   # Generate build files for LDC
   - md ninja-ldc
   - cd ninja-ldc
-  - cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\ldc-x64 -DLLVM_ROOT_DIR=c:/projects/llvm-x64 -DLIBCONFIG_INCLUDE_DIR=c:/projects/libconfig/lib -DLIBCONFIG_LIBRARY=c:/projects/libconfig/lib/x64/ReleaseStatic/libconfig.lib ..\ldc
+  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\ldc-x64 -DLLVM_ROOT_DIR=c:/projects/llvm-x64 -DLIBCONFIG_INCLUDE_DIR=c:/projects/libconfig/lib -DLIBCONFIG_LIBRARY=c:/projects/libconfig/lib/x64/ReleaseStatic/libconfig.lib ..\ldc )
+  - if "%APPVEYOR_JOB_ARCH%"=="x86" ( cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\ldc-x86 -DLLVM_ROOT_DIR=c:/projects/llvm-x86 -DLIBCONFIG_INCLUDE_DIR=c:/projects/libconfig/lib -DLIBCONFIG_LIBRARY=c:/projects/libconfig/lib/ReleaseStatic/libconfig.lib ..\ldc )
   # Build LDC, druntime and phobos
   - ninja -j2
 
@@ -115,10 +132,10 @@ after_build:
             echo 'Preparing artifact...'
             cd c:\projects\ninja-ldc
             ninja install > $null
-            copy bin\ldc2.pdb ..\ldc-x64\bin
-            cd ..\ldc-x64
-            (gc etc\ldc2.conf).replace('C:/projects/ldc-x64/', '%%ldcbinarypath%%/../') | sc etc\ldc2.conf
-            $artifactFilename = "LDC-Win64-master-$Env:APPVEYOR_BUILD_NUMBER.7z"
+            copy bin\ldc2.pdb "..\ldc-$Env:APPVEYOR_JOB_ARCH\bin"
+            cd "..\ldc-$Env:APPVEYOR_JOB_ARCH"
+            (gc etc\ldc2.conf).replace("C:/projects/ldc-$Env:APPVEYOR_JOB_ARCH/", '%%ldcbinarypath%%/../') | sc etc\ldc2.conf
+            $artifactFilename = "LDC-master-$Env:APPVEYOR_BUILD_NUMBER-$Env:APPVEYOR_JOB_ARCH.7z"
             7z a "..\$artifactFilename" * > $null
             cd ..
             Push-AppveyorArtifact $artifactFilename
@@ -133,7 +150,7 @@ test_script:
   - bin\ldc2 -version
   # Compile, link & execute a hello-world program
   - ps: 'echo "import std.stdio; void main() { writeln(""Hello world!""); }" > hello.d'
-  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( bin\ldc2 -g hello.d ) else ( bin\ldc2 hello.d )
+  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( bin\ldc2 -g -link-debuglib hello.d ) else ( bin\ldc2 -O3 -release hello.d )
   - hello.exe
   # Compile the druntime & phobos unit tests
   - set TEST_SUFFIX=unittest
@@ -141,12 +158,17 @@ test_script:
   # (pre-build some modules serially - those known to require lots of memory)
   - ninja -j1 runtime\std\algorithm\searching-%TEST_SUFFIX%.obj runtime\std\algorithm\setops-%TEST_SUFFIX%.obj runtime\std\array-%TEST_SUFFIX%.obj runtime\std\conv-%TEST_SUFFIX%.obj runtime\std\datetime-%TEST_SUFFIX%.obj runtime\std\range\package-%TEST_SUFFIX%.obj runtime\std\range\primitives-%TEST_SUFFIX%.obj runtime\std\regex\internal\tests-%TEST_SUFFIX%.obj runtime\std\string-%TEST_SUFFIX%.obj runtime\std\traits-%TEST_SUFFIX%.obj
   - ninja -j2 druntime-ldc-%TEST_SUFFIX% phobos2-ldc-%TEST_SUFFIX%
-  # Execute the LLVM IR tests
-  - ctest --output-on-failure -R lit-tests
-  # Execute the unit tests; exclude dmd-testsuite for now
-  - set CTEST_SUFFIX=-E "-debug|testsuite"
-  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set CTEST_SUFFIX=-R -debug -E testsuite)
+  # Execute the unit tests
+  - set CTEST_SUFFIX=-E "-debug|dmd-testsuite|lit-tests"
+  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set CTEST_SUFFIX=-R -debug -E "dmd-testsuite|lit-tests")
   - ctest --output-on-failure %CTEST_SUFFIX%
+  # Execute the LLVM IR tests; ignore failures for x86 jobs due to LDC issue #1356
+  - if "%APPVEYOR_JOB_ARCH%"=="x86" ( ctest --output-on-failure -R lit-tests || set ERRORLEVEL=0)
+  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( ctest --output-on-failure -R lit-tests )
+  # Execute dmd-testsuite
+  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( set OS=Win_64) else ( set OS=Win_32)
+  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( ctest --verbose -R dmd-testsuite-debug )
+  - if "%APPVEYOR_JOB_CONFIG%"=="Release" ( ctest --verbose -R dmd-testsuite -E -debug )
 
 #---------------------------------#
 #     deployment configuration    #
@@ -154,11 +176,11 @@ test_script:
 
 deploy:
   release: 'LDC Win64 master'
-  description: "Latest successful Win64 CI builds of branch 'master'"
+  description: "Latest successful Windows CI builds of branch 'master'"
   provider: GitHub
   auth_token:
     secure: qnbD8agL9mr0SFvy/sMkR2E29oQQ427T5zYwVVZkjRS3IZ361tG+9jlSiyEkyULy
-  artifact: LDC-Win64-master-$(APPVEYOR_BUILD_NUMBER).7z
+  artifact: LDC-master-$(APPVEYOR_BUILD_NUMBER)-$(APPVEYOR_JOB_ARCH).7z
   draft: true
   prerelease: true
   on:

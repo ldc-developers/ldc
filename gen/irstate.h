@@ -182,6 +182,12 @@ struct IRState {
 #else
   llvm::SmallVector<llvm::Value *, 5> LinkerMetadataArgs;
 #endif
+
+#if LDC_LLVM_VER >= 308
+  // MS C++ compatible type descriptors
+  llvm::DenseMap<size_t, llvm::StructType *> TypeDescriptorTypeMap;
+  llvm::DenseMap<llvm::Constant *, llvm::GlobalVariable *> TypeDescriptorMap;
+#endif
 };
 
 void Statement_toIR(Statement *s, IRState *irs);
