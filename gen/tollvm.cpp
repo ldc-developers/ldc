@@ -65,7 +65,7 @@ LLAttribute DtoShouldExtend(Type *type) {
     case Tuns16:
     case Tchar:
     case Twchar:
-	return LLAttribute::ZExt;
+      return LLAttribute::ZExt;
 
     default:
       // Do not extend.
@@ -412,8 +412,8 @@ LLConstant *DtoConstFP(Type *t, longdouble value) {
       uint64_t bits[2];
     } t;
     t.ld = value;
-    return LLConstantFP::get(
-      gIR->context(), APFloat(APFloat::IEEEquad, APInt(128, 2, t.bits)));
+    return LLConstantFP::get(gIR->context(),
+                             APFloat(APFloat::IEEEquad, APInt(128, 2, t.bits)));
   }
   if (llty == LLType::getPPC_FP128Ty(gIR->context())) {
     uint64_t bits[] = {0, 0};
@@ -684,7 +684,7 @@ LLStructType *DtoMutexType() {
       global.params.targetTriple.getOS() == llvm::Triple::OpenBSD ||
       global.params.targetTriple.getOS() == llvm::Triple::DragonFly
 #endif
-     ) {
+          ) {
     // Just a pointer
     return LLStructType::get(gIR->context(), DtoSize_t());
   }
