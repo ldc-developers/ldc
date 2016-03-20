@@ -583,7 +583,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
 static LinkageWithCOMDAT lowerFuncLinkage(FuncDeclaration *fdecl) {
   // Intrinsics are always external.
   if (DtoIsIntrinsic(fdecl)) {
-    return LinkageWithCOMDAT(llvm::GlobalValue::ExternalLinkage, false);
+    return LinkageWithCOMDAT(LLGlobalValue::ExternalLinkage, false);
   }
 
   // Generated array op functions behave like templates in that they might be
@@ -596,7 +596,7 @@ static LinkageWithCOMDAT lowerFuncLinkage(FuncDeclaration *fdecl) {
   // (also e.g. naked template functions which would otherwise be weak_odr,
   // but where the definition is in module-level inline asm).
   if (!fdecl->fbody || fdecl->naked) {
-    return LinkageWithCOMDAT(llvm::GlobalValue::ExternalLinkage, false);
+    return LinkageWithCOMDAT(LLGlobalValue::ExternalLinkage, false);
   }
 
   return DtoLinkage(fdecl);
@@ -740,11 +740,8 @@ void DtoDefineFunction(FuncDeclaration *fd) {
   IF_LOG Logger::println("Doing function body for: %s", fd->toChars());
   gIR->functions.push_back(irFunc);
 
-  LinkageWithCOMDAT lwc = lowerFuncLinkage(fd);
-  func->setLinkage(lwc.first);
-  if (lwc.second) {
-    SET_COMDAT(func, gIR->module);
-  }
+  const auto lwc = lowerFuncLinkage(fd);
+  setLinkage(lwc, func);
 
   // On x86_64, always set 'uwtable' for System V ABI compatibility.
   // TODO: Find a better place for this.

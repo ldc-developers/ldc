@@ -75,7 +75,8 @@ static void check_and_add_output_file(Module *NewMod, const std::string &str) {
 }
 
 void buildTargetFiles(Module *m, bool singleObj, bool library) {
-  if (m->objfile && (!m->doDocComment || m->docfile) && (!m->doHdrGen || m->hdrfile)) {
+  if (m->objfile && (!m->doDocComment || m->docfile) &&
+      (!m->doHdrGen || m->hdrfile)) {
     return;
   }
 
@@ -83,27 +84,28 @@ void buildTargetFiles(Module *m, bool singleObj, bool library) {
     const char *objname = library ? nullptr : global.params.objname;
     if (global.params.output_o) {
       m->objfile = m->buildFilePath(objname, global.params.objdir,
-                                      global.params.targetTriple->isOSWindows()
-                                          ? global.obj_ext_alt
-                                          : global.obj_ext, library, fqnNames);
+                                    global.params.targetTriple->isOSWindows()
+                                        ? global.obj_ext_alt
+                                        : global.obj_ext,
+                                    library, fqnNames);
     } else if (global.params.output_bc) {
-      m->objfile =
-          m->buildFilePath(objname, global.params.objdir, global.bc_ext, library, fqnNames);
+      m->objfile = m->buildFilePath(objname, global.params.objdir,
+                                    global.bc_ext, library, fqnNames);
     } else if (global.params.output_ll) {
-      m->objfile =
-          m->buildFilePath(objname, global.params.objdir, global.ll_ext, library, fqnNames);
+      m->objfile = m->buildFilePath(objname, global.params.objdir,
+                                    global.ll_ext, library, fqnNames);
     } else if (global.params.output_s) {
-      m->objfile =
-          m->buildFilePath(objname, global.params.objdir, global.s_ext, library, fqnNames);
+      m->objfile = m->buildFilePath(objname, global.params.objdir, global.s_ext,
+                                    library, fqnNames);
     }
   }
   if (m->doDocComment && !m->docfile) {
     m->docfile = m->buildFilePath(global.params.docname, global.params.docdir,
-                                    global.doc_ext, library, fqnNames);
+                                  global.doc_ext, library, fqnNames);
   }
   if (m->doHdrGen && !m->hdrfile) {
     m->hdrfile = m->buildFilePath(global.params.hdrname, global.params.hdrdir,
-                                    global.hdr_ext, library, fqnNames);
+                                  global.hdr_ext, library, fqnNames);
   }
 
   // safety check: never allow obj, doc or hdr file to have the source file's
@@ -111,7 +113,7 @@ void buildTargetFiles(Module *m, bool singleObj, bool library) {
   if (Port::stricmp(FileName::name(m->objfile->name->str),
                     FileName::name(m->arg)) == 0) {
     m->error("Output object files with the same name as the source file are "
-          "forbidden");
+             "forbidden");
     fatal();
   }
   if (m->docfile &&
@@ -125,7 +127,7 @@ void buildTargetFiles(Module *m, bool singleObj, bool library) {
       Port::stricmp(FileName::name(m->hdrfile->name->str),
                     FileName::name(m->arg)) == 0) {
     m->error("Output header files with the same name as the source file are "
-          "forbidden");
+             "forbidden");
     fatal();
   }
 
@@ -895,18 +897,21 @@ static void genModuleInfo(Module *m, bool emitFullModuleInfo) {
   // create and set initializer
   LLGlobalVariable *moduleInfoSym = getIrModule(m)->moduleInfoSymbol();
   b.finalize(moduleInfoSym->getType()->getPointerElementType(), moduleInfoSym);
-  moduleInfoSym->setLinkage(llvm::GlobalValue::ExternalLinkage);
 
-  if (global.params.targetTriple->isOSLinux() || global.params.targetTriple->isOSFreeBSD() ||
+  setLinkage({LLGlobalValue::ExternalLinkage, false}, moduleInfoSym);
+
+  if (global.params.targetTriple->isOSLinux() ||
+      global.params.targetTriple->isOSFreeBSD() ||
 #if LDC_LLVM_VER > 305
-      global.params.targetTriple->isOSNetBSD() || global.params.targetTriple->isOSOpenBSD() ||
+      global.params.targetTriple->isOSNetBSD() ||
+      global.params.targetTriple->isOSOpenBSD() ||
       global.params.targetTriple->isOSDragonFly()
 #else
       global.params.targetTriple->getOS() == llvm::Triple::NetBSD ||
       global.params.targetTriple->getOS() == llvm::Triple::OpenBSD ||
       global.params.targetTriple->getOS() == llvm::Triple::DragonFly
 #endif
-     ) {
+          ) {
     if (emitFullModuleInfo) {
       build_dso_registry_calls(mangle(m), moduleInfoSym);
     } else {
