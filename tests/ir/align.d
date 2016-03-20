@@ -4,9 +4,9 @@ align(32) struct Outer { int a; }
 struct Inner { align(32) int a; }
 
 static Outer globalOuter;
-// CHECK: constant %align.Outer_init zeroinitializer, align 32
+// CHECK: constant %align.Outer_init zeroinitializer{{(, comdat)?}}, align 32
 static Inner globalInner;
-// CHECK: constant %align.Inner_init zeroinitializer, align 32
+// CHECK: constant %align.Inner_init zeroinitializer{{(, comdat)?}}, align 32
 
 Outer passAndReturnOuterByVal(Outer arg) { return arg; }
 // CHECK: define void @_D5align23passAndReturnOuterByValFS5align5OuterZS5align5Outer
