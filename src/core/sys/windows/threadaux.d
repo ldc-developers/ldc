@@ -318,6 +318,16 @@ void* GetTlsDataAddress( uint id ) nothrow
     return tls;
 }
 
+// get the address of the entry in the TLS array for the current thread
+// use C mangling to access it from msvc.c
+extern(C) void** GetTlsEntryAdr()
+{
+    if( void** teb = getTEB() )
+        if( void** tlsarray = cast(void**) teb[11] )
+            return tlsarray + _tls_index;
+    return null;
+}
+
 ///////////////////////////////////////////////////////////////////
 // run rt_moduleTlsCtor in the context of the given thread
 void thread_moduleTlsCtor( uint id )

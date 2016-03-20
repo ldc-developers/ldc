@@ -1,11 +1,10 @@
 /**
  * This module implements the runtime-part of LDC exceptions
- * on Windows win32.
+ * on Windows, based on the MSVC++ runtime.
  */
-module ldc.eh.win32;
+module ldc.eh.msvc;
 
 version(CRuntime_Microsoft):
-version(Win32):
 
 import ldc.eh.common;
 import core.sys.windows.windows;
