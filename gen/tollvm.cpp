@@ -245,6 +245,24 @@ LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
   return LinkageWithCOMDAT(llvm::GlobalValue::ExternalLinkage, false);
 }
 
+bool supportsCOMDAT() {
+#if LDC_LLVM_VER >= 307
+  return !global.params.targetTriple.isOSBinFormatMachO();
+#else
+  return false;
+#endif
+}
+
+void setLinkage(LinkageWithCOMDAT lwc, llvm::GlobalObject *obj) {
+  obj->setLinkage(lwc.first);
+  if (lwc.second)
+    obj->setComdat(gIR->module.getOrInsertComdat(obj->getName()));
+}
+
+void setLinkage(Dsymbol *sym, llvm::GlobalObject *obj) {
+  setLinkage(DtoLinkage(sym), obj);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 LLIntegerType *DtoSize_t() {
