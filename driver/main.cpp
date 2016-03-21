@@ -121,6 +121,7 @@ void printVersion() {
   printf("LDC - the LLVM D compiler (%s):\n", global.ldc_version);
   printf("  based on DMD %s and LLVM %s\n", global.version,
          global.llvm_version);
+  printf("  built with %s\n", ldc::built_with_Dcompiler_version);
 #if defined(__has_feature)
 #if __has_feature(address_sanitizer)
   printf("  compiled with address sanitizer enabled\n");
