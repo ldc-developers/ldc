@@ -1,0 +1,70 @@
+# Requires the BETA setting to use Ubunty 14.04 Trusty
+
+machine:
+  environment:
+    PATH: "~/$CIRCLE_PROJECT_REPONAME/ldc2-1.0.0-alpha1-linux-x86_64/bin:$PATH"
+dependencies:
+  cache_directories:
+    - ldc2-1.0.0-alpha1-linux-x86_64
+  pre:
+    - sudo add-apt-repository -y 'deb http://llvm.org/apt/trusty/ llvm-toolchain-trusty main'
+    - wget -q -O - http://llvm.org/apt/llvm-snapshot.gpg.key | sudo apt-key add -
+    - sudo apt-get update
+    - if [[ ! -e ldc2-1.0.0-alpha1-linux-x86_64/bin/ldc2 ]]; then wget https://github.com/ldc-developers/ldc/releases/download/v1.0.0-alpha1/ldc2-1.0.0-alpha1-linux-x86_64.tar.xz && xzcat ldc2-1.0.0-alpha1-linux-x86_64.tar.xz | tar -xvf - ; fi
+  override:
+    - sudo apt-get install gcc-multilib g++-multilib libconfig++8-dev llvm-3.8 llvm-3.8-dev clang-3.8 libedit-dev
+    - pip install --user lit
+  post:
+    - sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-3.8 99
+    - sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-3.8 99
+    - gcc --version
+    - clang --version
+    - ldc2 -version
+    - python -c "import lit; lit.main();" --version | head -n 1
+
+checkout:
+  post:
+    - git submodule sync
+    - git submodule update --init
+
+test:
+  pre:
+    - CC=clang CXX=clang++ cmake .
+    - make -j4
+    - bin/ldc2 -version || exit 1
+  override:
+    - MAKEOPTS=-j2 ctest -j 2 --verbose -R "build-"
+    - CC="" MAKEOPTS=-j4 ctest --verbose -R "dmd-testsuite"
+    - ctest --output-on-failure -R "lit-tests"
+    - MAKEOPTS=-j3 ctest --verbose -R "-test-runner"
+    - ctest -j4 --output-on-failure -E "testsuite"
+
+# To add more value the test results could be collected, see https://circleci.com/docs/test-metadata
+# A way how to convert the ctest output is described here:
+# http://stackoverflow.com/questions/6329215/how-to-get-ctest-results-in-hudson-jenkins
+
+# The tests could be run in 4 parallel containers. The syntax is shown below.
+# The containers were started but only the tests from container 0 were run.
+# Containers 1-3 also started the tests but stop with the message
+# "No tests were found!!!"
+#   
+#    - ? |
+#        echo $CIRCLE_NODE_INDEX
+#        case $CIRCLE_NODE_INDEX in
+#          0)
+#            MAKEOPTS=-j8 ctest -j4 --verbose -R "build-phobos2-ldc-unittest"
+#            ;;
+#          1)
+#            MAKEOPTS=-j8 ctest -j4 --verbose -R "build-druntime-ldc-unittest"
+#            ;;
+#          2)
+#            CC="" MAKEOPTS=-j8 ctest --verbose -R "dmd-testsuite"
+#            ;;
+#          3)
+#            MAKEOPTS=-j8 ctest --verbose -R "-test-runner"
+#            ;;
+#        esac
+#      :
+#        parallel: true
+#    - ctest -j8 --output-on-failure -E "testsuite"
+
