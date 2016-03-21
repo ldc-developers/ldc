@@ -177,7 +177,7 @@ else()
     # LLVM bug: llvm-config --libs tablegen returns -lLLVM-3.8.0
     # but code for it is not in shared library
     if("${LLVM_FIND_COMPONENTS}" MATCHES "tablegen")
-        if (NOT "${LLVM_LIBRARIES}" MATCHES "-lLLVMTableGen")
+        if (NOT "${LLVM_LIBRARIES}" MATCHES "LLVMTableGen")
             set(LLVM_LIBRARIES "${LLVM_LIBRARIES} -lLLVMTableGen")
         endif()
     endif()
