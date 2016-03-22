@@ -252,7 +252,7 @@ LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
 
 bool supportsCOMDAT() {
 #if LDC_LLVM_VER >= 307
-  return !global.params.targetTriple.isOSBinFormatMachO();
+  return !global.params.targetTriple->isOSBinFormatMachO();
 #else
   return false;
 #endif
