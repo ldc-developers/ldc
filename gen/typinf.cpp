@@ -726,8 +726,11 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
     } else {
       irg->type = LLStructType::create(gIR->context(), decl->toPrettyChars());
     }
-    LLGlobalVariable *g = new LLGlobalVariable(gIR->module, irg->type, true,
-                                               lwc.first, nullptr, mangled);
+    // Create the symbol. We need to keep it mutable as the type is not declared
+    // as immutable on the D side, and e.g. synchronized() can be used on the
+    // implicit monitor.
+    auto g = new LLGlobalVariable(gIR->module, irg->type, false, lwc.first,
+                                  nullptr, mangled);
     setLinkage(lwc, g);
     irg->value = g;
   }
