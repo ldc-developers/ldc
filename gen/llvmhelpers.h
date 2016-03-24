@@ -262,18 +262,4 @@ DValue *toElem(Expression *e, bool tryGetLvalue);
 DValue *toElemDtor(Expression *e);
 LLConstant *toConstElem(Expression *e, IRState *p);
 
-#if LDC_LLVM_VER >= 307
-bool supportsCOMDAT();
-
-#define SET_COMDAT(x, m)                                                       \
-  if (supportsCOMDAT())                                                        \
-  x->setComdat(m.getOrInsertComdat(x->getName()))
-
-#else
-
-#define supportsCOMDAT() false
-#define SET_COMDAT(x, m)
-
-#endif
-
 #endif

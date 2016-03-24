@@ -712,6 +712,8 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
   }
 
   IrGlobal *irg = getIrGlobal(decl, true);
+  const LinkageWithCOMDAT lwc(LLGlobalValue::ExternalLinkage, false);
+
   irg->value = gIR->module.getGlobalVariable(mangled);
   if (irg->value) {
     irg->type = irg->value->getType()->getContainedType(0);
@@ -723,17 +725,19 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
     } else {
       irg->type = LLStructType::create(gIR->context(), decl->toPrettyChars());
     }
-    irg->value = new llvm::GlobalVariable(gIR->module, irg->type, true,
-                                          llvm::GlobalValue::ExternalLinkage,
-                                          nullptr, mangled);
+    // Create the symbol. We need to keep it mutable as the type is not declared
+    // as immutable on the D side, and e.g. synchronized() can be used on the
+    // implicit monitor.
+    auto g = new LLGlobalVariable(gIR->module, irg->type, false, lwc.first,
+                                  nullptr, mangled);
+    setLinkage(lwc, g);
+    irg->value = g;
   }
 
   emitTypeMetadata(decl);
 
   // this is a declaration of a builtin __initZ var
   if (builtinTypeInfo(decl->tinfo)) {
-    LLGlobalVariable *g = isaGlobalVar(irg->value);
-    g->setLinkage(llvm::GlobalValue::ExternalLinkage);
     return;
   }
 

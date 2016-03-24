@@ -6,6 +6,8 @@
 #  D_COMPILER_FOUND          - true if a D compiler was found
 #  D_COMPILER          - D compiler
 #  D_COMPILER_FLAGS    - D compiler flags (could be passed in the DMD environment variable)
+#  D_COMPILER_ID       = {"DigitalMars", "LDMD", "LDC", "GDC"}
+#  D_COMPILER_VERSION_STRING - String containing the compiler version, e.g. "DMD64 D Compiler v2.070.2"
 
 
 set(D_COMPILER_FOUND "FALSE")
@@ -40,11 +42,19 @@ if (D_COMPILER)
     elseif (__D_COMPILER_NAME STREQUAL "gdc")
         set(D_COMPILER_ID "GDC")
     endif()
+
+    # Older versions of ldmd do not have --version cmdline option, but the error message still contains the version info in the first line.
+    execute_process(COMMAND ${D_COMPILER} --version
+                    OUTPUT_VARIABLE D_COMPILER_VERSION_STRING
+                    ERROR_VARIABLE D_COMPILER_VERSION_STRING
+                    ERROR_QUIET)
+    string(REGEX MATCH "^[^\r\n:]*" D_COMPILER_VERSION_STRING "${D_COMPILER_VERSION_STRING}")
 endif()
 
 
 if (D_COMPILER_FOUND)
     message(STATUS "Found D compiler ${D_COMPILER}, with default flags '${D_COMPILER_FLAGS}'")
+    message(STATUS "D compiler version: ${D_COMPILER_VERSION_STRING}")
 else()
     message(FATAL_ERROR "Did not find D compiler! Try setting the 'DMD' environment variable.")
 endif()

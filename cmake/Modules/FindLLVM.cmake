@@ -174,6 +174,13 @@ else()
     endif()
     llvm_set(LIBRARY_DIRS libdir true)
     llvm_set_libs(LIBRARIES libs)
+    # LLVM bug: llvm-config --libs tablegen returns -lLLVM-3.8.0
+    # but code for it is not in shared library
+    if("${LLVM_FIND_COMPONENTS}" MATCHES "tablegen")
+        if (NOT "${LLVM_LIBRARIES}" MATCHES "LLVMTableGen")
+            set(LLVM_LIBRARIES "${LLVM_LIBRARIES} -lLLVMTableGen")
+        endif()
+    endif()
     llvm_set(TARGETS_TO_BUILD targets-built)
     string(REGEX MATCHALL "${pattern}[^ ]+" LLVM_TARGETS_TO_BUILD ${LLVM_TARGETS_TO_BUILD})
 endif()

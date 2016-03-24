@@ -895,7 +895,7 @@ static void genModuleInfo(Module *m, bool emitFullModuleInfo) {
   // create and set initializer
   LLGlobalVariable *moduleInfoSym = getIrModule(m)->moduleInfoSymbol();
   b.finalize(moduleInfoSym->getType()->getPointerElementType(), moduleInfoSym);
-  moduleInfoSym->setLinkage(llvm::GlobalValue::ExternalLinkage);
+  setLinkage({LLGlobalValue::ExternalLinkage, false}, moduleInfoSym);
 
   if (global.params.targetTriple->isOSLinux() || global.params.targetTriple->isOSFreeBSD() ||
 #if LDC_LLVM_VER > 305
@@ -906,7 +906,7 @@ static void genModuleInfo(Module *m, bool emitFullModuleInfo) {
       global.params.targetTriple->getOS() == llvm::Triple::OpenBSD ||
       global.params.targetTriple->getOS() == llvm::Triple::DragonFly
 #endif
-     ) {
+          ) {
     if (emitFullModuleInfo) {
       build_dso_registry_calls(mangle(m), moduleInfoSym);
     } else {
