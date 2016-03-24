@@ -1322,12 +1322,14 @@ public:
       assert(e->upr);
 
       // get bounds (make sure $ works)
+      // The lower bound expression must be fully evaluated to an RVal before
+      // evaluating the upper bound expression, because the lower bound
+      // expression might change value after evaluating the upper bound, e.g. in
+      // a statement like this: `auto a1 = values[offset .. offset += 2];`
       p->arrays.push_back(v);
-      DValue *lo = toElem(e->lwr);
-      DValue *up = toElem(e->upr);
+      LLValue *vlo = toElem(e->lwr)->getRVal();
+      LLValue *vup = toElem(e->upr)->getRVal();
       p->arrays.pop_back();
-      LLValue *vlo = lo->getRVal();
-      LLValue *vup = up->getRVal();
 
       const bool needCheckUpper =
           (etype->ty != Tpointer) && !e->upperIsInBounds;
