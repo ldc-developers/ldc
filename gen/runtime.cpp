@@ -683,7 +683,7 @@ static void buildRuntimeModule() {
   }
 
   if (global.params.hasObjectiveC) {
-    assert(global.param.targetTriple->isOSDarwin());
+    assert(global.params.targetTriple->isOSDarwin());
 
     // The types of these functions don't really matter because they are always
     // bitcast to correct signature before calling.
