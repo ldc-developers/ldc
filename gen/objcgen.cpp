@@ -155,47 +155,6 @@ LLGlobalVariable *objc_getMethVarRef(const ObjcSelector &sel) {
   return selref;
 }
 
-const char* objc_getMsgSend(Type *ret, bool hasHiddenArg) {
-  // see objc/message.h for objc_msgSend selection rules
-  const llvm::Triple *triple = global.params.targetTriple;
-  assert(triple.isOSDarwin());
-
-  switch (triple->getArch()) {
-#if LDC_LLVM_VER == 305
-  case llvm::Triple::arm64:
-#endif
-  case llvm::Triple::aarch64:
-    return "objc_msgSend";
-  default:
-    break;
-  }
-
-  if (hasHiddenArg)
-    return "objc_msgSend_stret";
-
-  // Skip this for non x86
-  if (ret) {
-    switch (triple->getArch()) {
-    default:
-      break;
-    case llvm::Triple::x86:
-      if (ret->isfloating() && !ret->iscomplex()) {
-        return "objc_msgSend_fpret";
-      }
-      break;
-    case llvm::Triple::x86_64:
-      if (ret->ty == Tcomplex80) {
-        return "objc_msgSend_fp2ret";
-      }
-      if (ret->ty == Tfloat80 || ret->ty == Timaginary80) {
-        return "objc_msgSend_fpret";
-      }
-      break;
-    }
-  }
-  return "objc_msgSend";
-}
-
 void objc_Module_genmoduleinfo_classes() {
   if (hasSymbols) {
     genImageInfo();
