@@ -78,7 +78,6 @@ void Lexer_initLexer();
 void gendocfile(Module *m);
 
 // In driver/main.d
-void disableGC();
 void writeModuleDependencyFile();
 
 using namespace opts;
@@ -289,6 +288,7 @@ static void hideLLVMOptions() {
 #endif
 }
 
+// In driver/main.d
 int main(int argc, char **argv);
 
 static const char *tryGetExplicitConfFile(int argc, char **argv) {
@@ -918,17 +918,8 @@ static void emitJson(Modules &modules) {
   }
 }
 
-int main(int argc, char **argv) {
+int cppmain(int argc, char **argv) {
   llvm::sys::PrintStackTraceOnErrorSignal();
-
-  // Initialize the D runtime.
-  // TODO: We might want to call rt_term() using an atexit handler or so to
-  // run module destructors, etc.
-  rt_init();
-
-  // For now, even just the frontend does not work with GC enabled, so we need
-  // to disable it entirely.
-  disableGC();
 
   exe_path::initialize(argv[0], reinterpret_cast<void *>(main));
 
