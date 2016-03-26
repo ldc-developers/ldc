@@ -4831,6 +4831,29 @@ public:
                 exp = new CastExp(loc, exp, t);
                 exp = exp.semantic(sc);
             }
+
+            version(IN_LLVM)
+            {
+                /+ Semantic checking is skipped for the calls to _d_monitorenter/exit below,
+                 + however they may write to the __monitor ptr of the object (argument type is mutable Object).
+                 + Ensure here that the synchronization object is mutable.
+                 +/
+                if (!exp.type.isMutable())
+                {
+                    if ( sc.func.isInvariantDeclaration()
+                        && ( (exp.op == TOKthis) || ((exp.op == TOKvar) && (cast(VarExp)exp).var.isThisDeclaration()) ) )
+                    {
+                        // Explicitly allow `synchronized invariant() { }` for now.
+                        // Also allow the equivalent: `invariant() { synchronized(this) {} }`.
+                    }
+                    else
+                    {
+                        error("LDC only supports synchronize on a mutable object, not on '%s' of type '%s'", exp.toChars(), exp.type.toChars());
+                        return new ErrorStatement();
+                    }
+                }
+            }
+
             version (all)
             {
                 /* Rewrite as:
