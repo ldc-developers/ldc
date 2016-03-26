@@ -45,10 +45,6 @@ install:
   - cd libconfig
   - git checkout 7585cf6
   - cd ..
-  # dmd-testsuite: Merge `windows` branch
-  - cd ldc\tests\d2\dmd-testsuite
-  - git merge origin/windows
-  - cd ..\..\..\..
   # Download & extract libcurl
   - ps: Start-FileDownload 'http://d.darktech.org/libcurl-7.47.0-WinSSL-zlib-x86-x64.zip' -FileName 'libcurl.zip'
   - md libcurl
