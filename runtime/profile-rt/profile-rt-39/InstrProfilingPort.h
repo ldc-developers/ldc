@@ -28,7 +28,7 @@
 #elif defined(__PS4__)
 #define COMPILER_RT_GETHOSTNAME(Name, Len) (-1)
 #else
-#define COMPILER_RT_GETHOSTNAME(Name, Len) GetHostName(Name, Len)
+#define COMPILER_RT_GETHOSTNAME(Name, Len) lprofGetHostName(Name, Len)
 #define COMPILER_RT_HAS_UNAME 1
 #endif
 
@@ -52,8 +52,9 @@
   __sync_bool_compare_and_swap(Ptr, OldV, NewV)
 #endif
 #else /* COMPILER_RT_HAS_ATOMICS != 1 */
+#include "InstrProfilingUtil.h"
 #define COMPILER_RT_BOOL_CMPXCHG(Ptr, OldV, NewV)                              \
-  BoolCmpXchg((void **)Ptr, OldV, NewV)
+  lprofBoolCmpXchg((void **)Ptr, OldV, NewV)
 #endif
 
 #define PROF_ERR(Format, ...)                                                  \
