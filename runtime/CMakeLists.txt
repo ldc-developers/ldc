@@ -16,7 +16,7 @@ set(D_FLAGS               -w;-d                                     CACHE STRING
 set(D_FLAGS_DEBUG         -g;-link-debuglib                         CACHE STRING  "Runtime build flags (debug libraries), separated by ;")
 set(D_FLAGS_RELEASE       -O3;-release                              CACHE STRING  "Runtime build flags (release libraries), separated by ;")
 if(MSVC)
-    set(LINK_WITH_MSVCRT  ON                                        CACHE BOOL    "Link with MSVCRT.lib (DLL) instead of LIBCMT.lib (static)")
+    set(LINK_WITH_MSVCRT  OFF                                       CACHE BOOL    "Link with MSVCRT.lib (DLL) instead of LIBCMT.lib (static)")
 endif()
 
 # Note: In the below building helpers, this is more fittingly called
@@ -252,6 +252,11 @@ if(MSVC)
         string(REGEX REPLACE "(^| )[/-]MD( |$)" "\\2" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
         if(NOT CMAKE_C_FLAGS_RELEASE MATCHES "(^| )[/-]MT( |$)")
             append("/MT" CMAKE_C_FLAGS_RELEASE)
+        endif()
+    else()
+        string(REGEX REPLACE "(^| )[/-]MT( |$)" "\\2" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
+        if(NOT CMAKE_C_FLAGS_RELEASE MATCHES "(^| )[/-]MD( |$)")
+            append("/MD" CMAKE_C_FLAGS_RELEASE)
         endif()
     endif()
     # warning C4996: zlib uses 'deprecated' POSIX names
