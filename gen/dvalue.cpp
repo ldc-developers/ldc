@@ -15,7 +15,24 @@
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 
+namespace {
+bool isDefinedInFuncEntryBB(llvm::Value *v) {
+  auto instr = llvm::dyn_cast<llvm::Instruction>(v);
+  if (!instr) {
+    // Global, constant, ...
+    return true;
+  }
+  auto bb = instr->getParent();
+  return bb == &(bb->getParent()->getEntryBlock());
+}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
+
+bool DImValue::definedInFuncEntryBB() {
+  return isDefinedInFuncEntryBB(val);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 static bool checkVarValueType(LLType *t, bool extraDeref) {
@@ -41,29 +58,19 @@ static bool checkVarValueType(LLType *t, bool extraDeref) {
   return true;
 }
 
-DVarValue::DVarValue(Type *t, VarDeclaration *vd, LLValue *llvmValue)
-    : DValue(t), var(vd), val(llvmValue) {
-  assert(checkVarValueType(llvmValue->getType(), isSpecialRefVar(vd)));
+DVarValue::DVarValue(Type *t, LLValue *llvmValue, bool isSpecialRefVar)
+    : DValue(t), val(llvmValue), isSpecialRefVar(isSpecialRefVar) {
+  assert(llvmValue && "Unexpected null llvm::Value.");
+  assert(checkVarValueType(llvmValue->getType(), isSpecialRefVar));
 }
 
-DVarValue::DVarValue(Type *t, LLValue *llvmValue)
-    : DValue(t), var(nullptr), val(llvmValue) {
-  assert(checkVarValueType(llvmValue->getType(), false));
-}
-
-LLValue *DVarValue::getLVal() {
-  assert(val);
-  if (var && isSpecialRefVar(var)) {
-    return DtoLoad(val);
-  }
-  return val;
-}
+LLValue *DVarValue::getLVal() { return isSpecialRefVar ? DtoLoad(val) : val; }
 
 LLValue *DVarValue::getRVal() {
   assert(val);
 
   llvm::Value *storage = val;
-  if (var && isSpecialRefVar(var)) {
+  if (isSpecialRefVar) {
     storage = DtoLoad(storage);
   }
 
@@ -83,12 +90,14 @@ LLValue *DVarValue::getRVal() {
 }
 
 LLValue *DVarValue::getRefStorage() {
-  assert(val);
-  assert(isSpecialRefVar(var));
+  assert(isSpecialRefVar);
   return val;
 }
 
-////////////////////////////////////////////////////////////////////////////////
+bool DVarValue::definedInFuncEntryBB() {
+  return isDefinedInFuncEntryBB(val);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 LLValue *DSliceValue::getRVal() {
@@ -97,7 +106,10 @@ LLValue *DSliceValue::getRVal() {
   return DtoAggrPair(len, ptr);
 }
 
-////////////////////////////////////////////////////////////////////////////////
+bool DSliceValue::definedInFuncEntryBB() {
+  return isDefinedInFuncEntryBB(len) && isDefinedInFuncEntryBB(ptr);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 DFuncValue::DFuncValue(Type *t, FuncDeclaration *fd, llvm::Value *v,
@@ -112,7 +124,18 @@ LLValue *DFuncValue::getRVal() {
   return val;
 }
 
-////////////////////////////////////////////////////////////////////////////////
+bool DFuncValue::definedInFuncEntryBB() {
+  if (!isDefinedInFuncEntryBB(val)) {
+    return false;
+  }
+
+  if (vthis && !isDefinedInFuncEntryBB(vthis)) {
+    return false;
+  }
+
+  return true;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 LLValue *DConstValue::getRVal() {

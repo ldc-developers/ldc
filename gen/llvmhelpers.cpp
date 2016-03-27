@@ -55,7 +55,6 @@ llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel(
                                 "local-exec", "Local exec TLS model"),
                      clEnumValEnd));
 
-
 /******************************************************************************
  * Simple Triple helpers for DFE
  * TODO: find better location for this
@@ -67,7 +66,6 @@ bool isArchx86_64() {
 bool isTargetWindowsMSVC() {
   return global.params.targetTriple->isWindowsMSVCEnvironment();
 }
-
 
 /******************************************************************************
  * DYNAMIC MEMORY HELPERS
@@ -672,7 +670,7 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
       // Do nothing, the types will match up anyway.
       return new DImValue(to, val->getRVal());
     }
-    // fall-through
+  // fall-through
   default:
     error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
           to->toChars());
@@ -886,23 +884,21 @@ void DtoVarDeclaration(VarDeclaration *vd) {
 
   if (isIrLocalCreated(vd)) {
     // Nothing to do if it has already been allocated.
-  }
-  /* Named Return Value Optimization (NRVO):
-      T f(){
-          T ret;        // &ret == hidden pointer
-          ret = ...
-          return ret;    // NRVO.
-      }
-  */
-  else if (gIR->func()->retArg && gIR->func()->decl->nrvo_can &&
-           gIR->func()->decl->nrvo_var == vd) {
+  } else if (gIR->func()->retArg && gIR->func()->decl->nrvo_can &&
+             gIR->func()->decl->nrvo_var == vd) {
+    // Named Return Value Optimization (NRVO):
+    // T f() {
+    //   T ret;        // &ret == hidden pointer
+    //   ret = ...
+    //   return ret;    // NRVO.
+    // }
     assert(!isSpecialRefVar(vd) && "Can this happen?");
-    IrLocal *irLocal = getIrLocal(vd, true);
-    irLocal->value = gIR->func()->retArg;
+    getIrLocal(vd, true)->value = gIR->func()->retArg;
   }
-  // normal stack variable, allocate storage on the stack if it has not already
-  // been done
+
   else {
+    // normal stack variable, allocate storage on the stack if it has not
+    // already been done
     IrLocal *irLocal = getIrLocal(vd, true);
 
     Type *type = isSpecialRefVar(vd) ? vd->type->pointerTo() : vd->type;
@@ -980,7 +976,6 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
   IF_LOG Logger::print("DtoDeclarationExp: %s\n", declaration->toChars());
   LOG_SCOPE;
 
-  // variable declaration
   if (VarDeclaration *vd = declaration->isVarDeclaration()) {
     Logger::println("VarDeclaration");
 
@@ -1002,25 +997,19 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
     } else {
       DtoVarDeclaration(vd);
     }
-    return new DVarValue(vd->type, vd, getIrValue(vd));
+    return makeVarDValue(vd->type, vd);
   }
-  // struct declaration
+
   if (StructDeclaration *s = declaration->isStructDeclaration()) {
     Logger::println("StructDeclaration");
     Declaration_codegen(s);
-  }
-  // function declaration
-  else if (FuncDeclaration *f = declaration->isFuncDeclaration()) {
+  } else if (FuncDeclaration *f = declaration->isFuncDeclaration()) {
     Logger::println("FuncDeclaration");
     Declaration_codegen(f);
-  }
-  // class
-  else if (ClassDeclaration *e = declaration->isClassDeclaration()) {
+  } else if (ClassDeclaration *e = declaration->isClassDeclaration()) {
     Logger::println("ClassDeclaration");
     Declaration_codegen(e);
-  }
-  // attribute declaration
-  else if (AttribDeclaration *a = declaration->isAttribDeclaration()) {
+  } else if (AttribDeclaration *a = declaration->isAttribDeclaration()) {
     Logger::println("AttribDeclaration");
     // choose the right set in case this is a conditional declaration
     Dsymbols *d = a->include(nullptr, nullptr);
@@ -1029,17 +1018,13 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
         DtoDeclarationExp((*d)[i]);
       }
     }
-  }
-  // mixin declaration
-  else if (TemplateMixin *m = declaration->isTemplateMixin()) {
+  } else if (TemplateMixin *m = declaration->isTemplateMixin()) {
     Logger::println("TemplateMixin");
     for (unsigned i = 0; i < m->members->dim; ++i) {
       Dsymbol *mdsym = static_cast<Dsymbol *>(m->members->data[i]);
       DtoDeclarationExp(mdsym);
     }
-  }
-  // tuple declaration
-  else if (TupleDeclaration *tupled = declaration->isTupleDeclaration()) {
+  } else if (TupleDeclaration *tupled = declaration->isTupleDeclaration()) {
     Logger::println("TupleDeclaration");
     assert(tupled->isexp && "Non-expression tuple decls not handled yet.");
     assert(tupled->objects);
@@ -1243,7 +1228,8 @@ LLConstant *DtoTypeInfoOf(Type *type, bool base) {
 
 ////////////////////////////////////////////////////////////////////////////////
 /// Allocates memory and passes on ownership. (never returns null)
-static char* DtoOverloadedIntrinsicName(TemplateInstance *ti, TemplateDeclaration *td) {
+static char *DtoOverloadedIntrinsicName(TemplateInstance *ti,
+                                        TemplateDeclaration *td) {
   IF_LOG Logger::println("DtoOverloadedIntrinsicName");
   LOG_SCOPE;
 
@@ -1305,15 +1291,15 @@ static char* DtoOverloadedIntrinsicName(TemplateInstance *ti, TemplateDeclaratio
 /// For D frontend
 /// Fixup an overloaded intrinsic name string.
 void DtoSetFuncDeclIntrinsicName(TemplateInstance *ti, TemplateDeclaration *td,
-                            FuncDeclaration *fd) {
+                                 FuncDeclaration *fd) {
   if (fd->llvmInternal == LLVMintrinsic) {
     fd->intrinsicName = DtoOverloadedIntrinsicName(ti, td);
-    fd->mangleOverride = fd->intrinsicName ? strdup(fd->intrinsicName) : nullptr;
+    fd->mangleOverride =
+        fd->intrinsicName ? strdup(fd->intrinsicName) : nullptr;
   } else {
     fd->intrinsicName = td->intrinsicName ? strdup(td->intrinsicName) : nullptr;
   }
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -1523,25 +1509,29 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
     if (vd->ident == Id::_arguments && gIR->func()->_arguments) {
       Logger::println("Id::_arguments");
       LLValue *v = gIR->func()->_arguments;
-      return new DVarValue(type, vd, v);
+      assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
+                                     "vars, although it can easily be made "
+                                     "to.");
+      return new DVarValue(type, v);
     }
     // _argptr
     if (vd->ident == Id::_argptr && gIR->func()->_argptr) {
       Logger::println("Id::_argptr");
       LLValue *v = gIR->func()->_argptr;
-      return new DVarValue(type, vd, v);
+      assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
+                                     "vars, although it can easily be made "
+                                     "to.");
+      return new DVarValue(type, v);
     }
     // _dollar
     if (vd->ident == Id::dollar) {
       Logger::println("Id::dollar");
-      LLValue *val = nullptr;
-      if (isIrVarCreated(vd) && (val = getIrValue(vd))) {
-        // It must be length of a range
-        return new DVarValue(type, vd, val);
+      if (isIrVarCreated(vd)) {
+        // This is the length of a range.
+        return makeVarDValue(type, vd);
       }
       assert(!gIR->arrays.empty());
-      val = DtoArrayLen(gIR->arrays.back());
-      return new DImValue(type, val);
+      return new DImValue(type, DtoArrayLen(gIR->arrays.back()));
     }
     // typeinfo
     if (TypeInfoDeclaration *tid = vd->isTypeInfoDeclaration()) {
@@ -1578,7 +1568,10 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       }
       if (vd->isRef() || vd->isOut() || DtoIsInMemoryOnly(vd->type) ||
           llvm::isa<llvm::AllocaInst>(getIrValue(vd))) {
-        return new DVarValue(type, vd, getIrValue(vd));
+        assert(!isSpecialRefVar(vd) && "Code not expected to handle special "
+                                       "ref vars, although it can easily be "
+                                       "made to.");
+        return new DVarValue(type, getIrValue(vd));
       }
       if (llvm::isa<llvm::Argument>(getIrValue(vd))) {
         return new DImValue(type, getIrValue(vd));
@@ -1589,32 +1582,11 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       Logger::println("a normal variable");
 
       // take care of forward references of global variables
-      const bool isGlobal = vd->isDataseg() || (vd->storage_class & STCextern);
-      if (isGlobal) {
+      if (vd->isDataseg() || (vd->storage_class & STCextern)) {
         DtoResolveVariable(vd);
       }
 
-      assert(isIrVarCreated(vd) && "Variable not resolved.");
-
-      llvm::Value *val = getIrValue(vd);
-      assert(val && "Variable value not set yet.");
-
-      if (isGlobal) {
-        llvm::Type *expectedType =
-            llvm::PointerType::getUnqual(DtoMemType(type));
-        // The type of globals is determined by their initializer, so
-        // we might need to cast. Make sure that the type sizes fit -
-        // '==' instead of '<=' should probably work as well.
-        if (val->getType() != expectedType) {
-          llvm::Type *t =
-              llvm::cast<llvm::PointerType>(val->getType())->getElementType();
-          assert(getTypeStoreSize(DtoType(type)) <= getTypeStoreSize(t) &&
-                 "Global type mismatch, encountered type too small.");
-          val = DtoBitCast(val, expectedType);
-        }
-      }
-
-      return new DVarValue(type, vd, val);
+      return makeVarDValue(type, vd);
     }
   }
 
@@ -1709,10 +1681,11 @@ llvm::GlobalVariable *getOrCreateGlobal(Loc &loc, llvm::Module &module,
   // On PPC there is only local-exec available - in this case just ignore the
   // command line.
   const llvm::GlobalVariable::ThreadLocalMode tlsModel =
-      isThreadLocal ? (global.params.targetTriple->getArch() == llvm::Triple::ppc
-                           ? llvm::GlobalVariable::LocalExecTLSModel
-                           : clThreadModel.getValue())
-                    : llvm::GlobalVariable::NotThreadLocal;
+      isThreadLocal
+          ? (global.params.targetTriple->getArch() == llvm::Triple::ppc
+                 ? llvm::GlobalVariable::LocalExecTLSModel
+                 : clThreadModel.getValue())
+          : llvm::GlobalVariable::NotThreadLocal;
   return new llvm::GlobalVariable(module, type, isConstant, linkage, init, name,
                                   nullptr, tlsModel);
 }
@@ -1808,4 +1781,29 @@ unsigned getFieldGEPIndex(AggregateDeclaration *ad, VarDeclaration *vd) {
       ->getMemberLocation(vd, fieldIndex, byteOffset);
   assert(byteOffset == 0 && "Cannot address field by a simple GEP.");
   return fieldIndex;
+}
+
+DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
+  auto val = storage;
+  if (!val) {
+    assert(isIrVarCreated(vd) && "Variable not resolved.");
+    val = getIrValue(vd);
+  }
+
+  if (vd->isDataseg() || (vd->storage_class & STCextern)) {
+    // The type of globals is determined by their initializer, so
+    // we might need to cast. Make sure that the type sizes fit -
+    // '==' instead of '<=' should probably work as well.
+    llvm::Type *expectedType = llvm::PointerType::getUnqual(DtoMemType(type));
+
+    if (val->getType() != expectedType) {
+      llvm::Type *t =
+          llvm::cast<llvm::PointerType>(val->getType())->getElementType();
+      assert(getTypeStoreSize(DtoType(type)) <= getTypeStoreSize(t) &&
+             "Global type mismatch, encountered type too small.");
+      val = DtoBitCast(val, expectedType);
+    }
+  }
+
+  return new DVarValue(type, val, isSpecialRefVar(vd));
 }
