@@ -41,29 +41,19 @@ static bool checkVarValueType(LLType *t, bool extraDeref) {
   return true;
 }
 
-DVarValue::DVarValue(Type *t, VarDeclaration *vd, LLValue *llvmValue)
-    : DValue(t), var(vd), val(llvmValue) {
-  assert(checkVarValueType(llvmValue->getType(), isSpecialRefVar(vd)));
+DVarValue::DVarValue(Type *t, LLValue *llvmValue, bool isSpecialRefVar)
+    : DValue(t), val(llvmValue), isSpecialRefVar(isSpecialRefVar) {
+  assert(llvmValue && "Unexpected null llvm::Value.");
+  assert(checkVarValueType(llvmValue->getType(), isSpecialRefVar));
 }
 
-DVarValue::DVarValue(Type *t, LLValue *llvmValue)
-    : DValue(t), var(nullptr), val(llvmValue) {
-  assert(checkVarValueType(llvmValue->getType(), false));
-}
-
-LLValue *DVarValue::getLVal() {
-  assert(val);
-  if (var && isSpecialRefVar(var)) {
-    return DtoLoad(val);
-  }
-  return val;
-}
+LLValue *DVarValue::getLVal() { return isSpecialRefVar ? DtoLoad(val) : val; }
 
 LLValue *DVarValue::getRVal() {
   assert(val);
 
   llvm::Value *storage = val;
-  if (var && isSpecialRefVar(var)) {
+  if (isSpecialRefVar) {
     storage = DtoLoad(storage);
   }
 
@@ -83,8 +73,7 @@ LLValue *DVarValue::getRVal() {
 }
 
 LLValue *DVarValue::getRefStorage() {
-  assert(val);
-  assert(isSpecialRefVar(var));
+  assert(isSpecialRefVar);
   return val;
 }
 

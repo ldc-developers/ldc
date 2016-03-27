@@ -989,7 +989,7 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
     } else {
       DtoVarDeclaration(vd);
     }
-    return new DVarValue(vd->type, vd, getIrValue(vd));
+    return makeVarDValue(vd->type, vd);
   }
   // struct declaration
   if (StructDeclaration *s = declaration->isStructDeclaration()) {
@@ -1496,25 +1496,29 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
     if (vd->ident == Id::_arguments && gIR->func()->_arguments) {
       Logger::println("Id::_arguments");
       LLValue *v = gIR->func()->_arguments;
-      return new DVarValue(type, vd, v);
+      assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
+                                     "vars, although it can easily be made "
+                                     "to.");
+      return new DVarValue(type, v);
     }
     // _argptr
     if (vd->ident == Id::_argptr && gIR->func()->_argptr) {
       Logger::println("Id::_argptr");
       LLValue *v = gIR->func()->_argptr;
-      return new DVarValue(type, vd, v);
+      assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
+                                     "vars, although it can easily be made "
+                                     "to.");
+      return new DVarValue(type, v);
     }
     // _dollar
     if (vd->ident == Id::dollar) {
       Logger::println("Id::dollar");
-      LLValue *val = nullptr;
-      if (isIrVarCreated(vd) && (val = getIrValue(vd))) {
-        // It must be length of a range
-        return new DVarValue(type, vd, val);
+      if (isIrVarCreated(vd)) {
+        // This is the length of a range.
+        return makeVarDValue(type, vd);
       }
       assert(!gIR->arrays.empty());
-      val = DtoArrayLen(gIR->arrays.back());
-      return new DImValue(type, val);
+      return new DImValue(type, DtoArrayLen(gIR->arrays.back()));
     }
     // typeinfo
     if (TypeInfoDeclaration *tid = vd->isTypeInfoDeclaration()) {
@@ -1551,7 +1555,10 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       }
       if (vd->isRef() || vd->isOut() || DtoIsInMemoryOnly(vd->type) ||
           llvm::isa<llvm::AllocaInst>(getIrValue(vd))) {
-        return new DVarValue(type, vd, getIrValue(vd));
+        assert(!isSpecialRefVar(vd) && "Code not expected to handle special "
+                                       "ref vars, although it can easily be "
+                                       "made to.");
+        return new DVarValue(type, getIrValue(vd));
       }
       if (llvm::isa<llvm::Argument>(getIrValue(vd))) {
         return new DImValue(type, getIrValue(vd));
@@ -1562,32 +1569,11 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       Logger::println("a normal variable");
 
       // take care of forward references of global variables
-      const bool isGlobal = vd->isDataseg() || (vd->storage_class & STCextern);
-      if (isGlobal) {
+      if (vd->isDataseg() || (vd->storage_class & STCextern)) {
         DtoResolveVariable(vd);
       }
 
-      assert(isIrVarCreated(vd) && "Variable not resolved.");
-
-      llvm::Value *val = getIrValue(vd);
-      assert(val && "Variable value not set yet.");
-
-      if (isGlobal) {
-        llvm::Type *expectedType =
-            llvm::PointerType::getUnqual(DtoMemType(type));
-        // The type of globals is determined by their initializer, so
-        // we might need to cast. Make sure that the type sizes fit -
-        // '==' instead of '<=' should probably work as well.
-        if (val->getType() != expectedType) {
-          llvm::Type *t =
-              llvm::cast<llvm::PointerType>(val->getType())->getElementType();
-          assert(getTypeStoreSize(DtoType(type)) <= getTypeStoreSize(t) &&
-                 "Global type mismatch, encountered type too small.");
-          val = DtoBitCast(val, expectedType);
-        }
-      }
-
-      return new DVarValue(type, vd, val);
+      return makeVarDValue(type, vd);
     }
   }
 
@@ -1781,4 +1767,29 @@ unsigned getFieldGEPIndex(AggregateDeclaration *ad, VarDeclaration *vd) {
       ->getMemberLocation(vd, fieldIndex, byteOffset);
   assert(byteOffset == 0 && "Cannot address field by a simple GEP.");
   return fieldIndex;
+}
+
+DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
+  auto val = storage;
+  if (!val) {
+    assert(isIrVarCreated(vd) && "Variable not resolved.");
+    val = getIrValue(vd);
+  }
+
+  if (vd->isDataseg() || (vd->storage_class & STCextern)) {
+    // The type of globals is determined by their initializer, so
+    // we might need to cast. Make sure that the type sizes fit -
+    // '==' instead of '<=' should probably work as well.
+    llvm::Type *expectedType = llvm::PointerType::getUnqual(DtoMemType(type));
+
+    if (val->getType() != expectedType) {
+      llvm::Type *t =
+          llvm::cast<llvm::PointerType>(val->getType())->getElementType();
+      assert(getTypeStoreSize(DtoType(type)) <= getTypeStoreSize(t) &&
+             "Global type mismatch, encountered type too small.");
+      val = DtoBitCast(val, expectedType);
+    }
+  }
+
+  return new DVarValue(type, val, isSpecialRefVar(vd));
 }

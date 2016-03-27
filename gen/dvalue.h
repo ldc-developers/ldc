@@ -112,11 +112,14 @@ public:
   DNullValue *isNull() override { return this; }
 };
 
-// variable d-value
+/// This is really a misnomer, DVarValue represents generic lvalues, which
+/// might or might not come from variable declarations.
+// TODO: Rename this, probably remove getLVal() from parent since this is the
+// only lvalue. The isSpecialRefVar case should probably also be its own
+// subclass.
 class DVarValue : public DValue {
 public:
-  DVarValue(Type *t, VarDeclaration *vd, llvm::Value *llvmValue);
-  DVarValue(Type *t, llvm::Value *llvmValue);
+  DVarValue(Type *t, llvm::Value *llvmValue, bool isSpecialRefVar = false);
 
   bool isLVal() override { return true; }
   llvm::Value *getLVal() override;
@@ -124,13 +127,13 @@ public:
 
   /// Returns the underlying storage for special internal ref variables.
   /// Illegal to call on any other value.
-  virtual llvm::Value *getRefStorage();
+  llvm::Value *getRefStorage();
 
   DVarValue *isVar() override { return this; }
 
 protected:
-  VarDeclaration *var;
-  llvm::Value *val;
+  llvm::Value *const val;
+  bool const isSpecialRefVar;
 };
 
 // slice d-value

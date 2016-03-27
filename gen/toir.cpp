@@ -156,7 +156,9 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
     }
 
     // get a pointer to this field
-    DVarValue field(vd->type, vd, DtoIndexAggregate(mem, sd, vd));
+    assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
+                                   "vars, although it can easily be made to.");
+    DVarValue field(vd->type, DtoIndexAggregate(mem, sd, vd));
 
     // store the initializer there
     DtoAssign(loc, &field, val, TOKconstruct, true);
@@ -1143,9 +1145,10 @@ public:
     if (e->cachedLvalue) {
       Logger::println("using cached lvalue");
       LLValue *V = e->cachedLvalue;
-      VarDeclaration *vd = e->var->isVarDeclaration();
-      assert(vd);
-      result = new DVarValue(e->type, vd, V);
+      assert(!isSpecialRefVar(e->var->isVarDeclaration()) &&
+             "Code not expected to handle special ref vars, although it can "
+             "easily be made to.");
+      result = new DVarValue(e->type, V);
       return;
     }
 
@@ -1178,7 +1181,7 @@ public:
       }
 
       // Logger::cout() << "mem: " << *arrptr << '\n';
-      result = new DVarValue(e->type, vd, arrptr);
+      result = new DVarValue(e->type, arrptr);
     } else if (FuncDeclaration *fdecl = e->var->isFuncDeclaration()) {
       DtoResolveFunction(fdecl);
 
@@ -1240,7 +1243,10 @@ public:
         Logger::println("normal this exp");
         v = p->func()->thisArg;
       }
-      result = new DVarValue(e->type, vd, v);
+      assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
+                                     "vars, although it can easily be made "
+                                     "to.");
+      result = new DVarValue(e->type, v);
     } else {
       llvm_unreachable("No VarDeclaration in ThisExp.");
     }
