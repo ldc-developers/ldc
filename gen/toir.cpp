@@ -319,12 +319,9 @@ public:
 
     result = DtoDeclarationExp(e->declaration);
 
-    if (result) {
-      if (DVarValue *varValue = result->isVar()) {
-        VarDeclaration *vd = varValue->var;
-        if (!vd->isDataseg() && vd->edtor && !vd->noscope) {
-          pushVarDtorCleanup(p, vd);
-        }
+    if (auto vd = e->declaration->isVarDeclaration()) {
+      if (!vd->isDataseg() && vd->edtor && !vd->noscope) {
+        pushVarDtorCleanup(p, vd);
       }
     }
   }
@@ -1798,10 +1795,12 @@ public:
       if (tc->sym->isInterfaceDeclaration()) {
         DtoDeleteInterface(e->loc, dval);
         onstack = true;
-      } else if (DVarValue *vv = dval->isVar()) {
-        if (vv->var && vv->var->onstack) {
-          DtoFinalizeClass(e->loc, dval->getRVal());
-          onstack = true;
+      } else if (e->e1->op == TOKvar) {
+        if (auto vd = static_cast<VarExp *>(e->e1)->var->isVarDeclaration()) {
+          if (vd->onstack) {
+            DtoFinalizeClass(e->loc, dval->getRVal());
+            onstack = true;
+          }
         }
       }
 
