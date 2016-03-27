@@ -111,14 +111,16 @@ endif()
 # Setup D compiler flags and linker flags for phobos (system linker) etc. We use
 # DMD syntax for all the flags so we can work with both DMD and LDMD.
 set(DDMD_DFLAGS "-wi")
-if(CMAKE_BUILD_TYPE MATCHES Debug)
-    append("-g" DDMD_DFLAGS)
+if(CMAKE_BUILD_TYPE MATCHES "Debug")
+    append("-g -link-debuglib" DDMD_FLAGS)
+elseif(CMAKE_BUILD_TYPE MATCHES "RelWithDebInfo")
+    append("-g -O -inline -release" DDMD_DFLAGS)
 else()
     # Default to a Release build type
     append("-O -inline -release" DDMD_DFLAGS)
 endif()
 
-if(WIN32)
+if(MSVC)
     if(${D_COMPILER_ID} STREQUAL "DigitalMars")
         if(CMAKE_SIZEOF_VOID_P EQUAL 8)
             message(STATUS "Let DMD output 64bit object files")
@@ -129,7 +131,6 @@ if(WIN32)
         endif()
     endif()
 endif()
-
 
 append("-J${PROJECT_SOURCE_DIR}/${DDMDFE_PATH}" DDMD_DFLAGS) # Needed for importing text files
 string(STRIP "${DDMD_DFLAGS}" DDMD_DFLAGS)
