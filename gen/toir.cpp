@@ -1051,11 +1051,6 @@ public:
     }
 
     DValue *v = toElem(e->e1, true);
-    if (v->isField()) {
-      Logger::println("is field");
-      result = v;
-      return;
-    }
     if (DFuncValue *fv = v->isFunc()) {
       Logger::println("is func");
       // Logger::println("FuncDeclaration");
