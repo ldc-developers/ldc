@@ -55,7 +55,6 @@ llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel(
                                 "local-exec", "Local exec TLS model"),
                      clEnumValEnd));
 
-
 /******************************************************************************
  * Simple Triple helpers for DFE
  * TODO: find better location for this
@@ -67,7 +66,6 @@ bool isArchx86_64() {
 bool isTargetWindowsMSVC() {
   return global.params.targetTriple->isWindowsMSVCEnvironment();
 }
-
 
 /******************************************************************************
  * DYNAMIC MEMORY HELPERS
@@ -672,7 +670,7 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
       // Do nothing, the types will match up anyway.
       return new DImValue(to, val->getRVal());
     }
-    // fall-through
+  // fall-through
   default:
     error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
           to->toChars());
@@ -1243,7 +1241,8 @@ LLConstant *DtoTypeInfoOf(Type *type, bool base) {
 
 ////////////////////////////////////////////////////////////////////////////////
 /// Allocates memory and passes on ownership. (never returns null)
-static char* DtoOverloadedIntrinsicName(TemplateInstance *ti, TemplateDeclaration *td) {
+static char *DtoOverloadedIntrinsicName(TemplateInstance *ti,
+                                        TemplateDeclaration *td) {
   IF_LOG Logger::println("DtoOverloadedIntrinsicName");
   LOG_SCOPE;
 
@@ -1305,15 +1304,15 @@ static char* DtoOverloadedIntrinsicName(TemplateInstance *ti, TemplateDeclaratio
 /// For D frontend
 /// Fixup an overloaded intrinsic name string.
 void DtoSetFuncDeclIntrinsicName(TemplateInstance *ti, TemplateDeclaration *td,
-                            FuncDeclaration *fd) {
+                                 FuncDeclaration *fd) {
   if (fd->llvmInternal == LLVMintrinsic) {
     fd->intrinsicName = DtoOverloadedIntrinsicName(ti, td);
-    fd->mangleOverride = fd->intrinsicName ? strdup(fd->intrinsicName) : nullptr;
+    fd->mangleOverride =
+        fd->intrinsicName ? strdup(fd->intrinsicName) : nullptr;
   } else {
     fd->intrinsicName = td->intrinsicName ? strdup(td->intrinsicName) : nullptr;
   }
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -1709,10 +1708,11 @@ llvm::GlobalVariable *getOrCreateGlobal(Loc &loc, llvm::Module &module,
   // On PPC there is only local-exec available - in this case just ignore the
   // command line.
   const llvm::GlobalVariable::ThreadLocalMode tlsModel =
-      isThreadLocal ? (global.params.targetTriple->getArch() == llvm::Triple::ppc
-                           ? llvm::GlobalVariable::LocalExecTLSModel
-                           : clThreadModel.getValue())
-                    : llvm::GlobalVariable::NotThreadLocal;
+      isThreadLocal
+          ? (global.params.targetTriple->getArch() == llvm::Triple::ppc
+                 ? llvm::GlobalVariable::LocalExecTLSModel
+                 : clThreadModel.getValue())
+          : llvm::GlobalVariable::NotThreadLocal;
   return new llvm::GlobalVariable(module, type, isConstant, linkage, init, name,
                                   nullptr, tlsModel);
 }

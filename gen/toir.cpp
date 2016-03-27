@@ -101,14 +101,17 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
     Expression *expr = (index < nexprs) ? exprs[index] : nullptr;
 
     if (vd->overlapped && !expr) {
-      // In case of an union (overlapped field), we can't simply use the default initializer.
+      // In case of an union (overlapped field), we can't simply use the default
+      // initializer.
       // Consider the type union U7727A1 { int i; double d; } and
       // the declaration U7727A1 u = { d: 1.225 };
       // The loop will first visit variable i and then d. Since d has an
-      // explicit initializer, we must use this one. We should therefore skip union fields
+      // explicit initializer, we must use this one. We should therefore skip
+      // union fields
       // with no explicit initializer.
-      IF_LOG Logger::println("skipping overlapped field without init expr: %s %s (+%u)", vd->type->toChars(),
-                             vd->toChars(), vd->offset);
+      IF_LOG Logger::println(
+          "skipping overlapped field without init expr: %s %s (+%u)",
+          vd->type->toChars(), vd->toChars(), vd->offset);
       continue;
     }
 
@@ -624,7 +627,7 @@ public:
 
     // evaluate the underlying binary expression
     Expression *lhsForBinExp = (useLvalForBinExpLhs ? lvalExp : e->e1);
-    BinExp* binExp = bindD<BinExp>::create(loc, lhsForBinExp, e->e2);
+    BinExp *binExp = bindD<BinExp>::create(loc, lhsForBinExp, e->e2);
     binExp->type = lhsForBinExp->type;
     DValue *result = toElem(binExp);
 
@@ -1903,8 +1906,9 @@ public:
     // struct invariants
     else if (global.params.useInvariants && condty->ty == Tpointer &&
              condty->nextOf()->ty == Tstruct &&
-             (invdecl = static_cast<TypeStruct *>(condty->nextOf())
-                            ->sym->inv) != nullptr) {
+             (invdecl =
+                  static_cast<TypeStruct *>(condty->nextOf())->sym->inv) !=
+                 nullptr) {
       Logger::print("calling struct invariant");
       DtoResolveFunction(invdecl);
       DFuncValue invfunc(invdecl, getIrFunc(invdecl)->func, cond->getRVal());
