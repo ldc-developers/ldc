@@ -35,7 +35,6 @@ class DImValue;
 class DConstValue;
 class DNullValue;
 class DVarValue;
-class DFieldValue;
 class DFuncValue;
 class DSliceValue;
 
@@ -66,7 +65,6 @@ public:
   virtual DConstValue *isConst() { return nullptr; }
   virtual DNullValue *isNull() { return nullptr; }
   virtual DVarValue *isVar() { return nullptr; }
-  virtual DFieldValue *isField() { return nullptr; }
   virtual DSliceValue *isSlice() { return nullptr; }
   virtual DFuncValue *isFunc() { return nullptr; }
 
@@ -133,13 +131,6 @@ public:
 protected:
   VarDeclaration *var;
   llvm::Value *val;
-};
-
-// field d-value
-class DFieldValue : public DVarValue {
-public:
-  DFieldValue(Type *t, llvm::Value *llvmValue) : DVarValue(t, llvmValue) {}
-  DFieldValue *isField() override { return this; }
 };
 
 // slice d-value
