@@ -1304,25 +1304,20 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    // this is the new slicing code, it's different in that a full slice will no
-    // longer retain the original pointer.
-    // but this was broken if there *was* no original pointer, ie. a slice of a
-    // slice...
-    // now all slices have *both* the 'len' and 'ptr' fields set to != null.
-
     // value being sliced
     LLValue *elen = nullptr;
     LLValue *eptr;
     DValue *v = toElem(e->e1);
 
-    // handle pointer slicing
     Type *etype = e->e1->type->toBasetype();
     if (etype->ty == Tpointer) {
+      // pointer slicing
       assert(e->lwr);
       eptr = v->getRVal();
     }
-    // array slice
+
     else {
+      // array slice
       eptr = DtoArrayPtr(v);
     }
 
@@ -1383,8 +1378,7 @@ public:
     // no bounds or full slice -> just convert to slice
     else {
       assert(e->e1->type->toBasetype()->ty != Tpointer);
-      // if the sliceee is a static array, we use the length of that as DMD
-      // seems
+      // if the slicee is a static array, we use the length of that as DMD seems
       // to give contrary inconsistent sizesin some multidimensional static
       // array cases.
       // (namely default initialization, int[16][16] arr; -> int[256] arr = 0;)

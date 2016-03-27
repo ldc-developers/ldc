@@ -873,23 +873,21 @@ void DtoVarDeclaration(VarDeclaration *vd) {
 
   if (isIrLocalCreated(vd)) {
     // Nothing to do if it has already been allocated.
-  }
-  /* Named Return Value Optimization (NRVO):
-      T f(){
-          T ret;        // &ret == hidden pointer
-          ret = ...
-          return ret;    // NRVO.
-      }
-  */
-  else if (gIR->func()->retArg && gIR->func()->decl->nrvo_can &&
-           gIR->func()->decl->nrvo_var == vd) {
+  } else if (gIR->func()->retArg && gIR->func()->decl->nrvo_can &&
+             gIR->func()->decl->nrvo_var == vd) {
+    // Named Return Value Optimization (NRVO):
+    // T f() {
+    //   T ret;        // &ret == hidden pointer
+    //   ret = ...
+    //   return ret;    // NRVO.
+    // }
     assert(!isSpecialRefVar(vd) && "Can this happen?");
-    IrLocal *irLocal = getIrLocal(vd, true);
-    irLocal->value = gIR->func()->retArg;
+    getIrLocal(vd, true)->value = gIR->func()->retArg;
   }
-  // normal stack variable, allocate storage on the stack if it has not already
-  // been done
+
   else {
+    // normal stack variable, allocate storage on the stack if it has not
+    // already been done
     IrLocal *irLocal = getIrLocal(vd, true);
 
     Type *type = isSpecialRefVar(vd) ? vd->type->pointerTo() : vd->type;
@@ -967,7 +965,6 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
   IF_LOG Logger::print("DtoDeclarationExp: %s\n", declaration->toChars());
   LOG_SCOPE;
 
-  // variable declaration
   if (VarDeclaration *vd = declaration->isVarDeclaration()) {
     Logger::println("VarDeclaration");
 
@@ -991,23 +988,17 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
     }
     return makeVarDValue(vd->type, vd);
   }
-  // struct declaration
+
   if (StructDeclaration *s = declaration->isStructDeclaration()) {
     Logger::println("StructDeclaration");
     Declaration_codegen(s);
-  }
-  // function declaration
-  else if (FuncDeclaration *f = declaration->isFuncDeclaration()) {
+  } else if (FuncDeclaration *f = declaration->isFuncDeclaration()) {
     Logger::println("FuncDeclaration");
     Declaration_codegen(f);
-  }
-  // class
-  else if (ClassDeclaration *e = declaration->isClassDeclaration()) {
+  } else if (ClassDeclaration *e = declaration->isClassDeclaration()) {
     Logger::println("ClassDeclaration");
     Declaration_codegen(e);
-  }
-  // attribute declaration
-  else if (AttribDeclaration *a = declaration->isAttribDeclaration()) {
+  } else if (AttribDeclaration *a = declaration->isAttribDeclaration()) {
     Logger::println("AttribDeclaration");
     // choose the right set in case this is a conditional declaration
     Dsymbols *d = a->include(nullptr, nullptr);
@@ -1016,17 +1007,13 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
         DtoDeclarationExp((*d)[i]);
       }
     }
-  }
-  // mixin declaration
-  else if (TemplateMixin *m = declaration->isTemplateMixin()) {
+  } else if (TemplateMixin *m = declaration->isTemplateMixin()) {
     Logger::println("TemplateMixin");
     for (unsigned i = 0; i < m->members->dim; ++i) {
       Dsymbol *mdsym = static_cast<Dsymbol *>(m->members->data[i]);
       DtoDeclarationExp(mdsym);
     }
-  }
-  // tuple declaration
-  else if (TupleDeclaration *tupled = declaration->isTupleDeclaration()) {
+  } else if (TupleDeclaration *tupled = declaration->isTupleDeclaration()) {
     Logger::println("TupleDeclaration");
     assert(tupled->isexp && "Non-expression tuple decls not handled yet.");
     assert(tupled->objects);
