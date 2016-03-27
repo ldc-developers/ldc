@@ -2279,7 +2279,7 @@ public:
 
     p->scope() = IRScope(condend);
     if (retPtr) {
-      result = new DVarValue(e->type, DtoLoad(retPtr));
+      result = new DVarValue(e->type, retPtr, true);
     } else {
       result = new DConstValue(e->type, getNullValue(DtoMemType(dtype)));
     }
