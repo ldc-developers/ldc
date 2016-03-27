@@ -130,9 +130,8 @@ public:
 
   DVarValue *isVar() override { return this; }
 
-  VarDeclaration *var;
-
 protected:
+  VarDeclaration *var;
   llvm::Value *val;
 };
 
