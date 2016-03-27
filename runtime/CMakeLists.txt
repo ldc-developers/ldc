@@ -308,6 +308,7 @@ macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
         COMMAND ${LDC_EXE_FULL} ${dc_flags} -c -I${RUNTIME_DIR}/src -I${RUNTIME_DIR}/src/gc ${input_d} -of${output_o} ${d_flags}
         WORKING_DIRECTORY ${PROJECT_PARENT_DIR}
         DEPENDS ${input_d}
+                ${LDC_EXE}
                 ${LDC_EXE_FULL}
                 ${GCCBUILTINS}
                 ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
