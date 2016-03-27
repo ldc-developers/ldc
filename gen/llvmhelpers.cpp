@@ -9,11 +9,7 @@
 
 #include "gen/llvmhelpers.h"
 #include "expression.h"
-#include "id.h"
-#include "init.h"
-#include "mars.h"
-#include "module.h"
-#include "template.h"
+#include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/complex.h"
@@ -29,10 +25,14 @@
 #include "gen/tollvm.h"
 #include "gen/typeinf.h"
 #include "gen/uda.h"
-#include "gen/abi.h"
+#include "id.h"
+#include "init.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "ir/irtypeaggr.h"
+#include "mars.h"
+#include "module.h"
+#include "template.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
@@ -659,7 +659,7 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
       // Do nothing, the types will match up anyway.
       return new DImValue(to, val->getRVal());
     }
-    // fall-through
+  // fall-through
   default:
     error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
           to->toChars());

@@ -9,14 +9,6 @@
 
 #include "attrib.h"
 #include "enum.h"
-#include "hdrgen.h"
-#include "id.h"
-#include "init.h"
-#include "mtype.h"
-#include "module.h"
-#include "port.h"
-#include "rmem.h"
-#include "template.h"
 #include "gen/aa.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
@@ -37,9 +29,17 @@
 #include "gen/tollvm.h"
 #include "gen/typeinf.h"
 #include "gen/warnings.h"
+#include "hdrgen.h"
+#include "id.h"
+#include "init.h"
 #include "ir/irfunction.h"
 #include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
+#include "module.h"
+#include "mtype.h"
+#include "port.h"
+#include "rmem.h"
+#include "template.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
 #include <fstream>
@@ -100,14 +100,17 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
     Expression *expr = (index < nexprs) ? exprs[index] : nullptr;
 
     if (vd->overlapped && !expr) {
-      // In case of an union (overlapped field), we can't simply use the default initializer.
+      // In case of an union (overlapped field), we can't simply use the default
+      // initializer.
       // Consider the type union U7727A1 { int i; double d; } and
       // the declaration U7727A1 u = { d: 1.225 };
       // The loop will first visit variable i and then d. Since d has an
-      // explicit initializer, we must use this one. We should therefore skip union fields
+      // explicit initializer, we must use this one. We should therefore skip
+      // union fields
       // with no explicit initializer.
-      IF_LOG Logger::println("skipping overlapped field without init expr: %s %s (+%u)", vd->type->toChars(),
-                             vd->toChars(), vd->offset);
+      IF_LOG Logger::println(
+          "skipping overlapped field without init expr: %s %s (+%u)",
+          vd->type->toChars(), vd->toChars(), vd->offset);
       continue;
     }
 
@@ -1899,8 +1902,9 @@ public:
     // struct invariants
     else if (global.params.useInvariants && condty->ty == Tpointer &&
              condty->nextOf()->ty == Tstruct &&
-             (invdecl = static_cast<TypeStruct *>(condty->nextOf())
-                            ->sym->inv) != nullptr) {
+             (invdecl =
+                  static_cast<TypeStruct *>(condty->nextOf())->sym->inv) !=
+                 nullptr) {
       Logger::print("calling struct invariant");
       DtoResolveFunction(invdecl);
       DFuncValue invfunc(invdecl, getIrFunc(invdecl)->func, cond->getRVal());
