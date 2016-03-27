@@ -15,7 +15,29 @@
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 
+namespace {
+bool isDefinedInFuncEntryBB(llvm::Value *v) {
+  auto instr = llvm::dyn_cast<llvm::Instruction>(v);
+  if (!instr) {
+    // Global, constant, ...
+    return true;
+  }
+
+  auto bb = instr->getParent();
+  if (bb != &(bb->getParent()->getEntryBlock())) {
+    return false;
+  }
+
+  // An invoke instruction in the entry BB does not necessarily dominate the
+  // rest of the function because of the failure path.
+  return !llvm::isa<llvm::InvokeInst>(instr);
+}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
+
+bool DImValue::definedInFuncEntryBB() { return isDefinedInFuncEntryBB(val); }
+
 ////////////////////////////////////////////////////////////////////////////////
 
 static bool checkVarValueType(LLType *t, bool extraDeref) {
@@ -77,7 +99,8 @@ LLValue *DVarValue::getRefStorage() {
   return val;
 }
 
-////////////////////////////////////////////////////////////////////////////////
+bool DVarValue::definedInFuncEntryBB() { return isDefinedInFuncEntryBB(val); }
+
 ////////////////////////////////////////////////////////////////////////////////
 
 LLValue *DSliceValue::getRVal() {
@@ -86,7 +109,10 @@ LLValue *DSliceValue::getRVal() {
   return DtoAggrPair(len, ptr);
 }
 
-////////////////////////////////////////////////////////////////////////////////
+bool DSliceValue::definedInFuncEntryBB() {
+  return isDefinedInFuncEntryBB(len) && isDefinedInFuncEntryBB(ptr);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 DFuncValue::DFuncValue(Type *t, FuncDeclaration *fd, llvm::Value *v,
@@ -101,7 +127,18 @@ LLValue *DFuncValue::getRVal() {
   return val;
 }
 
-////////////////////////////////////////////////////////////////////////////////
+bool DFuncValue::definedInFuncEntryBB() {
+  if (!isDefinedInFuncEntryBB(val)) {
+    return false;
+  }
+
+  if (vthis && !isDefinedInFuncEntryBB(vthis)) {
+    return false;
+  }
+
+  return true;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 LLValue *DConstValue::getRVal() {

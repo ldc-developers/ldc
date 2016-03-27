@@ -61,6 +61,16 @@ public:
 
   virtual bool isLVal() { return false; }
 
+  /// Returns true iff the value can be accessed at the end of the entry basic
+  /// block of the current function, in the sense that it is either not derived
+  /// from an llvm::Instruction (but from a global, constant, etc.) or that
+  /// instruction is part of the entry basic block.
+  ///
+  /// In other words, whatever value the result of getLVal()/getRVal() might be
+  /// derived from then certainly dominates uses in all other basic blocks of
+  /// the function.
+  virtual bool definedInFuncEntryBB() = 0;
+
   virtual DImValue *isIm() { return nullptr; }
   virtual DConstValue *isConst() { return nullptr; }
   virtual DNullValue *isNull() { return nullptr; }
@@ -87,6 +97,8 @@ public:
     return val;
   }
 
+  bool definedInFuncEntryBB() override;
+
   DImValue *isIm() override { return this; }
 
 protected:
@@ -99,6 +111,8 @@ public:
   DConstValue(Type *t, llvm::Constant *con) : DValue(t), c(con) {}
 
   llvm::Value *getRVal() override;
+
+  bool definedInFuncEntryBB() override { return true; }
 
   DConstValue *isConst() override { return this; }
 
@@ -129,6 +143,8 @@ public:
   /// Illegal to call on any other value.
   llvm::Value *getRefStorage();
 
+  bool definedInFuncEntryBB() override;
+
   DVarValue *isVar() override { return this; }
 
 protected:
@@ -144,6 +160,8 @@ public:
 
   llvm::Value *getRVal() override;
 
+  bool definedInFuncEntryBB() override;
+
   DSliceValue *isSlice() override { return this; }
 
   llvm::Value *len;
@@ -158,6 +176,8 @@ public:
   DFuncValue(FuncDeclaration *fd, llvm::Value *v, llvm::Value *vt = nullptr);
 
   llvm::Value *getRVal() override;
+
+  bool definedInFuncEntryBB() override;
 
   DFuncValue *isFunc() override { return this; }
 

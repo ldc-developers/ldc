@@ -288,11 +288,17 @@ public:
   DValue *getResult() {
     if (destructTemporaries &&
         p->func()->scopes->currentCleanupScope() != initialCleanupScope) {
-      // If the results is an (LLVM) r-value, temporarily store it in an
-      // alloca slot to avoid running into instruction dominance issues
-      // if we share the cleanups with another exit path (e.g. unwinding).
+      // We might share the CFG edges through the below cleanup blocks with
+      // other paths (e.g. exception unwinding) where the result value has not
+      // been constructed. At runtime, the branches will be chosen such that the
+      // end bb (which will likely go on to access the value) is never executed
+      // in those other cases, but we need to make sure that the SSA is also
+      // well-formed statically (i.e. all instructions dominate their uses).
+      // Thus, dump the result to a temporary stack slot (created in the entry
+      // bb) if it is not guaranteed to dominate the end bb after possibly
+      // adding more control flow.
       if (result && result->getType()->ty != Tvoid &&
-          (result->isIm() || result->isSlice())) {
+          !result->definedInFuncEntryBB()) {
         LLValue *alloca = DtoAllocaDump(result);
         result = new DVarValue(result->getType(), alloca);
       }
