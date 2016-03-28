@@ -10,12 +10,6 @@
 #include "gen/runtime.h"
 #include "aggregate.h"
 #include "dsymbol.h"
-#include "tokens.h"
-#include "ldcbindings.h"
-#include "mars.h"
-#include "module.h"
-#include "mtype.h"
-#include "root.h"
 #include "gen/abi.h"
 #include "gen/attributes.h"
 #include "gen/functions.h"
@@ -27,11 +21,17 @@
 #include "ir/irfunction.h"
 #include "ir/irtype.h"
 #include "ir/irtypefunction.h"
+#include "ldcbindings.h"
+#include "mars.h"
+#include "module.h"
+#include "mtype.h"
+#include "root.h"
+#include "tokens.h"
 #include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/IR/Attributes.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Attributes.h"
 
 #include <algorithm>
 
@@ -254,6 +254,13 @@ static void createFwdDecl(LINK linkage, Type *returntype,
 
     fn->setAttributes(attrs);
 
+    // On x86_64, always set 'uwtable' for System V ABI compatibility.
+    // FIXME: Move to better place (abi-x86-64.cpp?)
+    // NOTE: There are several occurances if this line.
+    if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
+      fn->addFnAttr(LLAttribute::UWTable);
+    }
+
     fn->setCallingConv(gABI->callingConv(fn->getFunctionType(), linkage));
   }
 }
@@ -298,10 +305,18 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
 
   // Construct some attribute lists used below (possibly multiple times)
-  AttrSet NoAttrs, Attr_NoAlias(NoAttrs, 0, llvm::Attribute::NoAlias),
-      Attr_NoUnwind(NoAttrs, ~0U, llvm::Attribute::NoUnwind),
-      Attr_ReadOnly(NoAttrs, ~0U, llvm::Attribute::ReadOnly),
-      Attr_ReadOnly_NoUnwind(Attr_ReadOnly, ~0U, llvm::Attribute::NoUnwind),
+  AttrSet NoAttrs, Attr_NoAlias(NoAttrs, llvm::AttributeSet::ReturnIndex,
+                                llvm::Attribute::NoAlias),
+      Attr_NoUnwind(NoAttrs, llvm::AttributeSet::FunctionIndex,
+                    llvm::Attribute::NoUnwind),
+      Attr_ReadOnly(NoAttrs, llvm::AttributeSet::FunctionIndex,
+                    llvm::Attribute::ReadOnly),
+      Attr_Cold(NoAttrs, llvm::AttributeSet::FunctionIndex,
+                llvm::Attribute::Cold),
+      Attr_Cold_NoReturn(Attr_Cold, llvm::AttributeSet::FunctionIndex,
+                         llvm::Attribute::NoReturn),
+      Attr_ReadOnly_NoUnwind(Attr_ReadOnly, llvm::AttributeSet::FunctionIndex,
+                             llvm::Attribute::NoUnwind),
       Attr_ReadOnly_1_NoCapture(Attr_ReadOnly, 1, llvm::Attribute::NoCapture),
       Attr_ReadOnly_1_3_NoCapture(Attr_ReadOnly_1_NoCapture, 3,
                                   llvm::Attribute::NoCapture),
@@ -321,17 +336,18 @@ static void buildRuntimeModule() {
   // void _d_assert(string file, uint line)
   // void _d_arraybounds(string file, uint line)
   createFwdDecl(LINKc, Type::tvoid, {"_d_assert", "_d_arraybounds"},
-                {stringTy, uintTy});
+                {stringTy, uintTy}, {}, Attr_Cold_NoReturn);
 
   // void _d_assert_msg(string msg, string file, uint line)
-  createFwdDecl(LINKc, voidTy, {"_d_assert_msg"}, {stringTy, stringTy, uintTy});
+  createFwdDecl(LINKc, voidTy, {"_d_assert_msg"}, {stringTy, stringTy, uintTy},
+                {}, Attr_Cold_NoReturn);
 
   // void _d_assertm(immutable(ModuleInfo)* m, uint line)
   // void _d_array_bounds(immutable(ModuleInfo)* m, uint line)
   // void _d_switch_error(immutable(ModuleInfo)* m, uint line)
-  createFwdDecl(LINKc, voidTy,
-                {"_d_assertm", "_d_array_bounds", "_d_switch_error"},
-                {moduleInfoPtrTy, uintTy}, {STCimmutable, 0});
+  createFwdDecl(
+      LINKc, voidTy, {"_d_assertm", "_d_array_bounds", "_d_switch_error"},
+      {moduleInfoPtrTy, uintTy}, {STCimmutable, 0}, Attr_Cold_NoReturn);
 
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
