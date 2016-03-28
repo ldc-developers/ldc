@@ -83,7 +83,6 @@ if(D_VERSION EQUAL 1)
     message(FATAL_ERROR "D version 1 is no longer supported.
 Please consider using D version 2 or checkout the 'd1' git branch for the last version supporting D version 1.")
 elseif(D_VERSION EQUAL 2)
-    set(DMDFE_PATH dmd2)
     set(DDMDFE_PATH ddmd)
     set(LDC_EXE ldc2)
     set(LDMD_EXE ldmd2)
@@ -98,7 +97,6 @@ set(LDMD_EXE_NAME ${PROGRAM_PREFIX}${LDMD_EXE}${PROGRAM_SUFFIX})
 
 file(MAKE_DIRECTORY
     ${PROJECT_BINARY_DIR}
-    ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
     ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}
 )
 
@@ -158,11 +156,8 @@ string(STRIP "${DDMD_DFLAGS}" DDMD_DFLAGS)
 # Use separate compiler flags for the frontend and for the LDC-specific parts,
 # as enabling warnings on the DMD frontend only leads to a lot of clutter in
 # the output (LLVM_CXXFLAGS sometimes already includes -Wall).
-set(DMD_CXXFLAGS)
 set(LDC_CXXFLAGS)
 if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang"))
-    append("-w" DMD_CXXFLAGS)
-
     # Disable some noisy warnings:
     #  * -Wunused-parameter triggers for LLVM headers
     #  * -Wmissing-field-initializer leads to reams of warnings in gen/asm-*.h
@@ -196,24 +191,23 @@ elseif(MSVC)
     # warning C4624: destructor was implicitly defined as deleted because a base class destructor is inaccessible or deleted
     # warning C4800: forcing value to bool 'true' or 'false' (performance warning)
     # warning C4996: we're not using Microsoft's secure stringOp_s() functions
-    append("/wd4018 /wd4101 /wd4102 /wd4146 /wd4244 /wd4267 /wd4456 /wd4457 /wd4458 /wd4459 /wd4624 /wd4800 /wd4996" DMD_CXXFLAGS LDC_CXXFLAGS)
+    append("/wd4018 /wd4101 /wd4102 /wd4146 /wd4244 /wd4267 /wd4456 /wd4457 /wd4458 /wd4459 /wd4624 /wd4800 /wd4996" LDC_CXXFLAGS)
     if(LDC_LLVM_VER GREATER 307)
         # Suppress noisy warning C4141 'modifier' used more than once', because of __forceinline combined with inline in LLVM headers
-        append("/wd4141" DMD_CXXFLAGS LDC_CXXFLAGS)
+        append("/wd4141" LDC_CXXFLAGS)
     endif()
 endif()
 # Append -mminimal-toc for gcc 4.0.x - 4.5.x on ppc64
 if( CMAKE_COMPILER_IS_GNUCXX
     AND CMAKE_SYSTEM_PROCESSOR MATCHES "ppc64|powerpc64"
     AND CMAKE_C_COMPILER_VERSION VERSION_LESS "4.6.0" )
-    append("-mminimal-toc" DMD_CXXFLAGS LDC_CXXFLAGS)
+    append("-mminimal-toc" LDC_CXXFLAGS)
 endif()
 # Do not use doubledouble on ppc
 if( CMAKE_SYSTEM_PROCESSOR MATCHES "ppc|powerpc")
-    append("-mlong-double-64" DMD_CXXFLAGS LDC_CXXFLAGS)
+    append("-mlong-double-64" LDC_CXXFLAGS)
 endif()
 if(UNIX)
-    append("-DPOSIX -DLDC_POSIX" DMD_CXXFLAGS)
     append("-DLDC_POSIX" LDC_CXXFLAGS)
 endif()
 set(SANITIZE_CXXFLAGS)
@@ -226,7 +220,6 @@ if(SANITIZE)
         message(WARNING "Option SANITIZE specified but compiler is not clang.")
     endif()
 endif()
-append("${SANITIZE_CXXFLAGS}" DMD_CXXFLAGS)
 append("${SANITIZE_CXXFLAGS}" LDC_CXXFLAGS)
 # LLVM_CXXFLAGS may contain -Werror which causes compile errors with dmd source
 string(REPLACE "-Werror " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
@@ -358,8 +351,6 @@ configure_file(driver/ldc-version.cpp.in driver/ldc-version.cpp)
 
 # Also add the header files to the build so that they are available in IDE
 # project files generated via CMake.
-file(GLOB_RECURSE FE_SRC ${DMDFE_PATH}/*.c)
-file(GLOB_RECURSE FE_HDR ${DMDFE_PATH}/*.h)
 file(GLOB_RECURSE FE_SRC_D ${DDMDFE_PATH}/*.d)
 file(GLOB_RECURSE FE_HDR_D ${DDMDFE_PATH}/*.h)
 file(GLOB_RECURSE GEN_SRC gen/*.cpp)
@@ -403,8 +394,6 @@ list(REMOVE_ITEM DRV_SRC_D
 )
 set(LDC_CXX_SOURCE_FILES
     ${LDC_CXX_GENERATED}
-    ${FE_SRC}
-    ${FE_HDR}
     ${FE_HDR_D}
     ${GEN_SRC}
     ${GEN_HDR}
@@ -419,22 +408,6 @@ set(LDC_D_SOURCE_FILES
     ${IR_SRC_D}
 )
 
-# DMD source files have a .c extension, but are actually C++ code.
-foreach(file ${LDC_CXX_SOURCE_FILES} ${DRV_SRC} ${DRV_HDR})
-    if(file MATCHES ".*\\.c$")
-        set_source_files_properties(${file} PROPERTIES
-            LANGUAGE CXX
-            COMPILE_FLAGS "${DMD_CXXFLAGS}"
-        )
-    else()
-        set_source_files_properties(${file} PROPERTIES
-            COMPILE_FLAGS "${LDC_CXXFLAGS}"
-        )
-    endif()
-endforeach()
-
-source_group("Source Files\\${DMDFE_PATH}" FILES ${FE_SRC})
-source_group("Header Files\\${DMDFE_PATH}" FILES ${FE_HDR})
 source_group("Source Files\\${DDMDFE_PATH}" FILES ${FE_SRC_D})
 source_group("Header Files\\${DDMDFE_PATH}" FILES ${FE_HDR_D})
 source_group("Source Files\\gen" FILES ${GEN_SRC})
@@ -449,11 +422,8 @@ source_group("Generated Files" REGULAR_EXPRESSION "(id\\.[cdh]|impcnvtab\\.c)$")
 
 include_directories(
     .
-    ${DMDFE_PATH}
-    ${DMDFE_PATH}/root
     ${DDMDFE_PATH}
     ${DDMDFE_PATH}/root
-    ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
     ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}
     ${PROJECT_SOURCE_DIR}
 )
@@ -569,7 +539,7 @@ set_target_properties(
     ARCHIVE_OUTPUT_NAME ldc
     LIBRARY_OUTPUT_NAME ldc
     RUNTIME_OUTPUT_NAME ldc
-    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${EXTRA_CXXFLAGS}"
+    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS} ${EXTRA_CXXFLAGS}"
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
