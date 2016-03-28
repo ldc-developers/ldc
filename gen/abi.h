@@ -154,7 +154,7 @@ struct TargetABI {
   /// Check if struct 't' is a Homogeneous Floating-point Aggregate (HFA)
   /// consisting of up to 4 of same floating point type.  If so, optionally
   /// produce the rewriteType: an array of that floating point type
-  static bool isHFA(TypeStruct *t, llvm::Type **rewriteType = nullptr);
+  static bool isHFA(TypeStruct *t, llvm::Type **rewriteType = nullptr, const int maxFloats = 4);
 
 protected:
 
