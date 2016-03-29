@@ -30,13 +30,6 @@ extern (C++, ldc) struct real_t
     this(uint i) { initFrom(i); }
     this(ulong i) { initFrom(i); }
 
-    this() @disable;
-    void safeInit();
-    extern(D) this(this) { postblit(); }
-    extern(D) void opAssign(real_t r) { moveAssign(r); }
-    extern(D) ~this() { destruct(); }
-
-    // type conversions
     bool toBool() const;
     float toFloat32() const;
     double toFloat64() const;
@@ -45,7 +38,6 @@ extern (C++, ldc) struct real_t
     uint toUInt32() const;
     ulong toUInt64() const;
 
-    // D cast operators
     extern(D) T opCast(T)() const
     {
              static if (is(T == bool))   return toBool();
@@ -79,15 +71,27 @@ extern (C++, ldc) struct real_t
 
     // comparison
     int cmp(const ref real_t r) const;
+
     extern(D) int opCmp(real_t r) const { return cmp(r); }
     extern(D) bool opEquals(real_t r) const { return cmp(r) == 0; }
+
+    // D lifetime
+    extern(D) this(this) { postblit(); }
+    extern(D) void opAssign(real_t r) { moveAssign(r); }
+    extern(D) ~this() { destruct(); }
 
 private:
     // non-trivial llvm::APFloat, the hard way:
     union
     {
-        byte[APFloatPrototype.sizeof] value;
-        long for_alignment_only;
+        byte[APFloatPrototype.sizeof] value = void;
+        long for_alignment_only = void;
+
+        // Designate default-constructed real_t instances in D (with invalid
+        // APFloat values) by initializing the pointer at the beginning with
+        // null.
+        // See comment in C++ header.
+        void* valueSemantics = null;
     }
 
     void initFrom(float f);
@@ -96,6 +100,9 @@ private:
     void initFrom(long i);
     void initFrom(uint i);
     void initFrom(ulong i);
+
+    bool isInitialized() const;
+    void safeInit();
     void postblit();
     void moveAssign(ref real_t r);
     void destruct();

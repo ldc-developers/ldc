@@ -49,13 +49,6 @@ void Target::_init() {
   // LDC_FIXME: Set once we support it.
   cppExceptions = false;
 
-  RealProperties::max.safeInit();
-  RealProperties::min_normal.safeInit();
-  RealProperties::nan.safeInit();
-  RealProperties::snan.safeInit();
-  RealProperties::infinity.safeInit();
-  RealProperties::epsilon.safeInit();
-
   RealProperties::nan = real_t::nan();
   RealProperties::snan = real_t::snan();
   RealProperties::infinity = real_t::infinity();

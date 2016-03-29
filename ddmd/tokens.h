@@ -219,13 +219,7 @@ struct Token
     };
 
 #ifdef IN_LLVM
-    union
-    {
-        alignas(alignof(real_t)) char _floatvalue[sizeof(real_t)];
-        void *_floatSemantics;
-    };
-
-    const real_t &floatvalue() const;
+    real_t floatvalue = real_t(0);
 #endif
 
     static const char *tochars[TOKMAX];
@@ -235,11 +229,7 @@ struct Token
     static Token *alloc();
     void free();
 
-#ifdef IN_LLVM
-    Token() : next(NULL), _floatSemantics(NULL) {}
-#else
     Token() : next(NULL) {}
-#endif
     int isKeyword();
 #ifdef DEBUG
     void print();

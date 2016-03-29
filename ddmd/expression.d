@@ -3484,10 +3484,6 @@ public:
     {
         super(loc, TOKfloat64, __traits(classInstanceSize, RealExp));
         //printf("RealExp::RealExp(%Lg)\n", value);
-      version(IN_LLVM)
-      {
-        this.value.safeInit();
-      }
         this.value = value;
         this.type = type;
     }

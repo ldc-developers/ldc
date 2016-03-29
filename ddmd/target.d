@@ -456,11 +456,6 @@ extern (C++) static void encodeReal(Expression e, ubyte* buffer)
 extern (C++) static Expression decodeReal(Loc loc, Type type, ubyte* buffer)
 {
     real_t value;
-  version(IN_LLVM)
-  {
-    value.safeInit();
-  }
-
     switch (type.ty)
     {
     case Tfloat32:

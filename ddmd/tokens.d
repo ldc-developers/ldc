@@ -580,26 +580,7 @@ extern (C++) struct Token
 
   version(IN_LLVM)
   {
-    union
-    {
-        char[real_t.sizeof] _floatvalue = void;
-        long for_alignment_only = void;
-        void* _floatSemantics = null;
-    }
-
-    ref const(real_t) floatvalue() const
-    {
-        return *cast(const(real_t)*)_floatvalue.ptr;
-    }
-    ref real_t floatvalue(real_t r)
-    {
-        // make sure _floatvalue is initialized before assigning to it
-        auto l = cast(real_t*)_floatvalue.ptr;
-        if (_floatSemantics is null)
-            l.safeInit();
-        *l = r;
-        return *l;
-    }
+    real_t floatvalue;
   }
 
     static __gshared const(char)*[TOKMAX] tochars;
