@@ -7,25 +7,32 @@
 //
 //===----------------------------------------------------------------------===//
 //
+// The ABI implementation used for 32/64 bit big-endian PowerPC targets.
+//
+// The System V Application Binary Interface PowerPC Processor Supplement can be
+// found here:
+// http://refspecs.linuxfoundation.org/elf/elfspec_ppc.pdf
+//
 // The PowerOpen 64bit ABI can be found here:
 // http://refspecs.linuxfoundation.org/ELF/ppc64/PPC-elf64abi-1.9.html
+// http://refspecs.linuxfoundation.org/ELF/ppc64/PPC-elf64abi-1.9.pdf
 //
 //===----------------------------------------------------------------------===//
 
 #include "gen/abi.h"
 #include "gen/abi-generic.h"
-#include "gen/abi-ppc64.h"
+#include "gen/abi-ppc.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include "gen/tollvm.h"
 
-struct PPC64TargetABI : TargetABI {
+struct PPCTargetABI : TargetABI {
   ExplicitByvalRewrite byvalRewrite;
   IntegerRewrite integerRewrite;
   const bool Is64Bit;
 
-  explicit PPC64TargetABI(const bool Is64Bit) : Is64Bit(Is64Bit) {}
+  explicit PPCTargetABI(const bool Is64Bit) : Is64Bit(Is64Bit) {}
 
   bool returnInArg(TypeFunction *tf) override {
     if (tf->isref) {
@@ -81,6 +88,6 @@ struct PPC64TargetABI : TargetABI {
 };
 
 // The public getter for abi.cpp
-TargetABI *getPPC64TargetABI(bool Is64Bit) {
-  return new PPC64TargetABI(Is64Bit);
+TargetABI *getPPCTargetABI(bool Is64Bit) {
+  return new PPCTargetABI(Is64Bit);
 }

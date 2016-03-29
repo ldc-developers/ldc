@@ -20,10 +20,15 @@ config.test_format = lit.formats.ShTest(execute_external=False)
 config.suffixes = ['.d',
                    ]
 
-# excludes: A list of directories to exclude from the testsuite. The 'Inputs'
+# excludes: A list of directories to exclude from the testsuite. The 'inputs'
 # subdirectories contain auxiliary inputs for various tests in their parent
 # directories.
-config.excludes = ['d2', 'CMakeLists.txt', 'runlit.py']
+config.excludes = [
+    'inputs',
+    'd2',
+    'CMakeLists.txt',
+    'runlit.py',
+]
 
 # Define available features so that we can disable tests depending on LLVM version
 config.available_features.add("llvm%d" % config.llvm_version)
@@ -52,3 +57,12 @@ config.environment['PATH'] = path
 
 # Add substitutions
 config.substitutions.append( ('%ldc', config.ldc2_bin) )
+
+# Add platform-dependent file extension substitutions
+if (platform.system() == 'Windows'):
+    config.substitutions.append( ('%obj', '.obj') )
+    config.substitutions.append( ('%exe', '.exe') )
+else:
+    config.substitutions.append( ('%obj', '.o') )
+    config.substitutions.append( ('%exe', '') )
+
