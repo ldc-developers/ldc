@@ -62,8 +62,7 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     if (fd->isStatic()) {
       error(loc, "function %s cannot access frame of function %s",
             irfunc->decl->toPrettyChars(), vdparent->toPrettyChars());
-      return new DVarValue(astype, vd,
-                           llvm::UndefValue::get(DtoPtrToType(astype)));
+      return new DVarValue(astype, llvm::UndefValue::get(DtoPtrToType(astype)));
     }
     fd = getParentFunc(fd, false);
     assert(fd);
@@ -71,8 +70,7 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
 
   // is the nested variable in this scope?
   if (vdparent == irfunc->decl) {
-    LLValue *val = getIrValue(vd);
-    return new DVarValue(astype, vd, val);
+    return makeVarDValue(astype, vd);
   }
 
   LLValue *dwarfValue = nullptr;
@@ -120,8 +118,9 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     Logger::cout() << "of type: " << *irfunc->frameType << '\n';
   }
 
-  unsigned vardepth = getIrLocal(vd)->nestedDepth;
-  unsigned funcdepth = irfunc->depth;
+  IrLocal *const irLocal = getIrLocal(vd);
+  const auto vardepth = irLocal->nestedDepth;
+  const auto funcdepth = irfunc->depth;
 
   IF_LOG {
     Logger::cout() << "Variable: " << vd->toChars() << '\n';
@@ -148,7 +147,7 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     IF_LOG Logger::cout() << "Frame: " << *val << '\n';
   }
 
-  int idx = getIrLocal(vd)->nestedIndex;
+  const auto idx = irLocal->nestedIndex;
   assert(idx != -1 && "Nested context not yet resolved for variable.");
 
   if (dwarfValue && global.params.symdebug) {
@@ -165,8 +164,8 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     val = DtoAlignedLoad(val);
     // dwarfOpDeref(dwarfAddr);
     IF_LOG {
-      Logger::cout() << "Was byref, now: " << *val << '\n';
-      Logger::cout() << "of type: " << *val->getType() << '\n';
+      Logger::cout() << "Was byref, now: " << *irLocal->value << '\n';
+      Logger::cout() << "of type: " << *irLocal->value->getType() << '\n';
     }
   }
 
@@ -174,7 +173,7 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     gIR->DBuilder.EmitLocalVariable(dwarfValue, vd, nullptr, false, dwarfAddr);
   }
 
-  return new DVarValue(astype, vd, val);
+  return makeVarDValue(astype, vd, val);
 }
 
 void DtoResolveNestedContext(Loc &loc, AggregateDeclaration *decl,
