@@ -57,3 +57,24 @@ struct section {
 struct target {
     string specifier;
 }
+
+/++
+ + When applied to a global symbol, specifies that the symbol should be emitted
+ + with weak linkage. An example use case is a library function that should be
+ + overridable by user code.
+ +
+ + Quote from the LLVM manual: "Note that weak linkage does not actually allow
+ + the optimizer to inline the body of this function into callers because it
+ + doesn’t know if this definition of the function is the definitive definition
+ + within the program or whether it will be overridden by a stronger
+ + definition."
+ +
+ + Examples:
+ + ---
+ + import ldc.attributes;
+ +
+ + @weak int user_hook() { return 1; }
+ + ---
+ +/
+immutable weak = _weak();
+private struct _weak {}
