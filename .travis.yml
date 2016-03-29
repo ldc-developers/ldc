@@ -10,6 +10,7 @@ addons:
     - llvm-toolchain-precise-3.5
     - llvm-toolchain-precise-3.6
     - llvm-toolchain-precise-3.7
+#    - llvm-toolchain-precise-3.8
     - ubuntu-toolchain-r-test
     packages:
     - libconfig++8-dev
@@ -30,8 +31,8 @@ addons:
     - llvm-3.6-dev
     - llvm-3.7
     - llvm-3.7-dev
-    - llvm-3.8
-    - llvm-3.8-dev
+#    - llvm-3.8
+#    - llvm-3.8-dev
     - llvm-3.9
     - llvm-3.9-dev
 install:
@@ -51,6 +52,7 @@ env:
   - LLVM_CONFIG="llvm-config-3.6" TEST_CONFIG="Release"
 matrix:
   allow_failures:
+    - env: LLVM_CONFIG="llvm-config-3.8"
     - env: LLVM_CONFIG="llvm-config-3.9"
   exclude:
     - os: linux
