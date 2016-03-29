@@ -16,11 +16,11 @@
 #ifndef LDC_GEN_LLVMHELPERS_H
 #define LDC_GEN_LLVMHELPERS_H
 
-#include "mtype.h"
-#include "statement.h"
 #include "gen/dvalue.h"
 #include "gen/llvm.h"
 #include "ir/irfuncty.h"
+#include "mtype.h"
+#include "statement.h"
 
 struct IRState;
 
@@ -261,5 +261,12 @@ DValue *toElem(Expression *e);
 DValue *toElem(Expression *e, bool tryGetLvalue);
 DValue *toElemDtor(Expression *e);
 LLConstant *toConstElem(Expression *e, IRState *p);
+
+/// Creates a DVarValue for the given VarDeclaration.
+///
+/// If the storage is not given explicitly, the declaration is expected to be
+/// already resolved, and the value from the associated IrVar will be used.
+DValue *makeVarDValue(Type *type, VarDeclaration *vd,
+                      llvm::Value *storage = nullptr);
 
 #endif

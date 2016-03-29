@@ -7,15 +7,15 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// The ABI implementation used for 64 bit PowerPC targets.
+// The ABI implementation used for 64 bit little-endian PowerPC targets.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_ABI_PPC64_H
-#define LDC_GEN_ABI_PPC64_H
+#ifndef LDC_GEN_ABI_PPC64LE_H
+#define LDC_GEN_ABI_PPC64LE_H
 
 struct TargetABI;
 
-TargetABI *getPPC64TargetABI(bool Is64Bit);
+TargetABI *getPPC64LETargetABI();
 
 #endif

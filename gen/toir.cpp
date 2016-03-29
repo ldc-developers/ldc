@@ -9,15 +9,6 @@
 
 #include "attrib.h"
 #include "enum.h"
-#include "hdrgen.h"
-#include "id.h"
-#include "init.h"
-#include "mtype.h"
-#include "ldcbindings.h"
-#include "module.h"
-#include "port.h"
-#include "rmem.h"
-#include "template.h"
 #include "gen/aa.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
@@ -38,9 +29,18 @@
 #include "gen/tollvm.h"
 #include "gen/typeinf.h"
 #include "gen/warnings.h"
+#include "hdrgen.h"
+#include "id.h"
+#include "init.h"
 #include "ir/irfunction.h"
 #include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
+#include "ldcbindings.h"
+#include "module.h"
+#include "mtype.h"
+#include "port.h"
+#include "rmem.h"
+#include "template.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
 #include <fstream>
@@ -157,7 +157,9 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
     }
 
     // get a pointer to this field
-    DVarValue field(vd->type, vd, DtoIndexAggregate(mem, sd, vd));
+    assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
+                                   "vars, although it can easily be made to.");
+    DVarValue field(vd->type, DtoIndexAggregate(mem, sd, vd));
 
     // store the initializer there
     DtoAssign(loc, &field, val, TOKconstruct, true);
@@ -287,11 +289,17 @@ public:
   DValue *getResult() {
     if (destructTemporaries &&
         p->func()->scopes->currentCleanupScope() != initialCleanupScope) {
-      // If the results is an (LLVM) r-value, temporarily store it in an
-      // alloca slot to avoid running into instruction dominance issues
-      // if we share the cleanups with another exit path (e.g. unwinding).
+      // We might share the CFG edges through the below cleanup blocks with
+      // other paths (e.g. exception unwinding) where the result value has not
+      // been constructed. At runtime, the branches will be chosen such that the
+      // end bb (which will likely go on to access the value) is never executed
+      // in those other cases, but we need to make sure that the SSA is also
+      // well-formed statically (i.e. all instructions dominate their uses).
+      // Thus, dump the result to a temporary stack slot (created in the entry
+      // bb) if it is not guaranteed to dominate the end bb after possibly
+      // adding more control flow.
       if (result && result->getType()->ty != Tvoid &&
-          (result->isIm() || result->isSlice())) {
+          !result->definedInFuncEntryBB()) {
         LLValue *alloca = DtoAllocaDump(result);
         result = new DVarValue(result->getType(), alloca);
       }
@@ -322,12 +330,9 @@ public:
 
     result = DtoDeclarationExp(e->declaration);
 
-    if (result) {
-      if (DVarValue *varValue = result->isVar()) {
-        VarDeclaration *vd = varValue->var;
-        if (!vd->isDataseg() && vd->edtor && !vd->noscope) {
-          pushVarDtorCleanup(p, vd);
-        }
+    if (auto vd = e->declaration->isVarDeclaration()) {
+      if (!vd->isDataseg() && vd->edtor && !vd->noscope) {
+        pushVarDtorCleanup(p, vd);
       }
     }
   }
@@ -1045,11 +1050,6 @@ public:
     }
 
     DValue *v = toElem(e->e1, true);
-    if (v->isField()) {
-      Logger::println("is field");
-      result = v;
-      return;
-    }
     if (DFuncValue *fv = v->isFunc()) {
       Logger::println("is func");
       // Logger::println("FuncDeclaration");
@@ -1139,9 +1139,10 @@ public:
     if (e->cachedLvalue) {
       Logger::println("using cached lvalue");
       LLValue *V = e->cachedLvalue;
-      VarDeclaration *vd = e->var->isVarDeclaration();
-      assert(vd);
-      result = new DVarValue(e->type, vd, V);
+      assert(!isSpecialRefVar(e->var->isVarDeclaration()) &&
+             "Code not expected to handle special ref vars, although it can "
+             "easily be made to.");
+      result = new DVarValue(e->type, V);
       return;
     }
 
@@ -1174,7 +1175,7 @@ public:
       }
 
       // Logger::cout() << "mem: " << *arrptr << '\n';
-      result = new DVarValue(e->type, vd, arrptr);
+      result = new DVarValue(e->type, arrptr);
     } else if (FuncDeclaration *fdecl = e->var->isFuncDeclaration()) {
       DtoResolveFunction(fdecl);
 
@@ -1236,7 +1237,10 @@ public:
         Logger::println("normal this exp");
         v = p->func()->thisArg;
       }
-      result = new DVarValue(e->type, vd, v);
+      assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
+                                     "vars, although it can easily be made "
+                                     "to.");
+      result = new DVarValue(e->type, v);
     } else {
       llvm_unreachable("No VarDeclaration in ThisExp.");
     }
@@ -1294,25 +1298,20 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    // this is the new slicing code, it's different in that a full slice will no
-    // longer retain the original pointer.
-    // but this was broken if there *was* no original pointer, ie. a slice of a
-    // slice...
-    // now all slices have *both* the 'len' and 'ptr' fields set to != null.
-
     // value being sliced
     LLValue *elen = nullptr;
     LLValue *eptr;
     DValue *v = toElem(e->e1);
 
-    // handle pointer slicing
     Type *etype = e->e1->type->toBasetype();
     if (etype->ty == Tpointer) {
+      // pointer slicing
       assert(e->lwr);
       eptr = v->getRVal();
     }
-    // array slice
+
     else {
+      // array slice
       eptr = DtoArrayPtr(v);
     }
 
@@ -1373,8 +1372,7 @@ public:
     // no bounds or full slice -> just convert to slice
     else {
       assert(e->e1->type->toBasetype()->ty != Tpointer);
-      // if the sliceee is a static array, we use the length of that as DMD
-      // seems
+      // if the slicee is a static array, we use the length of that as DMD seems
       // to give contrary inconsistent sizesin some multidimensional static
       // array cases.
       // (namely default initialization, int[16][16] arr; -> int[256] arr = 0;)
@@ -1785,10 +1783,12 @@ public:
       if (tc->sym->isInterfaceDeclaration()) {
         DtoDeleteInterface(e->loc, dval);
         onstack = true;
-      } else if (DVarValue *vv = dval->isVar()) {
-        if (vv->var && vv->var->onstack) {
-          DtoFinalizeClass(e->loc, dval->getRVal());
-          onstack = true;
+      } else if (e->e1->op == TOKvar) {
+        if (auto vd = static_cast<VarExp *>(e->e1)->var->isVarDeclaration()) {
+          if (vd->onstack) {
+            DtoFinalizeClass(e->loc, dval->getRVal());
+            onstack = true;
+          }
         }
       }
 
@@ -1896,8 +1896,9 @@ public:
     // struct invariants
     else if (global.params.useInvariants && condty->ty == Tpointer &&
              condty->nextOf()->ty == Tstruct &&
-             (invdecl = static_cast<TypeStruct *>(condty->nextOf())
-                            ->sym->inv) != nullptr) {
+             (invdecl =
+                  static_cast<TypeStruct *>(condty->nextOf())->sym->inv) !=
+                 nullptr) {
       Logger::print("calling struct invariant");
       DtoResolveFunction(invdecl);
       DFuncValue invfunc(invdecl, getIrFunc(invdecl)->func, cond->getRVal());
@@ -2266,7 +2267,7 @@ public:
 
     p->scope() = IRScope(condend);
     if (retPtr) {
-      result = new DVarValue(e->type, DtoLoad(retPtr));
+      result = new DVarValue(e->type, retPtr, true);
     } else {
       result = new DConstValue(e->type, getNullValue(DtoMemType(dtype)));
     }

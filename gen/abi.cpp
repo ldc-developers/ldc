@@ -14,7 +14,8 @@
 #include "gen/abi-aarch64.h"
 #include "gen/abi-arm.h"
 #include "gen/abi-mips64.h"
-#include "gen/abi-ppc64.h"
+#include "gen/abi-ppc.h"
+#include "gen/abi-ppc64le.h"
 #include "gen/abi-win64.h"
 #include "gen/abi-x86-64.h"
 #include "gen/abi-x86.h"
@@ -166,8 +167,8 @@ bool isNestedHFA(const TypeStruct *t, d_uns64 &floatSize, int &num,
       else if (sz != floatSize) // different float size, reject
         return false;
 
-      if (n > 4)
-        return false; // too many floats for HFA, reject
+      //if (n > 4)
+      //  return false; // too many floats for HFA, reject
     } else {
       return false; // reject all other types
     }
@@ -181,29 +182,31 @@ bool isNestedHFA(const TypeStruct *t, d_uns64 &floatSize, int &num,
 }
 }
 
-bool TargetABI::isHFA(TypeStruct *t, llvm::Type **rewriteType) {
+bool TargetABI::isHFA(TypeStruct *t, llvm::Type **rewriteType, const int maxFloats) {
   d_uns64 floatSize = 0;
   int num = 0;
 
   if (isNestedHFA(t, floatSize, num, 1)) {
-    if (rewriteType) {
-      llvm::Type *floatType = nullptr;
-      switch (floatSize) {
-      case 4:
-        floatType = llvm::Type::getFloatTy(gIR->context());
-        break;
-      case 8:
-        floatType = llvm::Type::getDoubleTy(gIR->context());
-        break;
-      case 16:
-        floatType = llvm::Type::getFP128Ty(gIR->context());
-        break;
-      default:
-        llvm_unreachable("Unexpected size for float type");
+    if (num <= maxFloats) {
+      if (rewriteType) {
+        llvm::Type *floatType = nullptr;
+        switch (floatSize) {
+          case 4:
+            floatType = llvm::Type::getFloatTy(gIR->context());
+            break;
+          case 8:
+            floatType = llvm::Type::getDoubleTy(gIR->context());
+            break;
+          case 16:
+            floatType = llvm::Type::getFP128Ty(gIR->context());
+            break;
+          default:
+            llvm_unreachable("Unexpected size for float type");
+        }
+        *rewriteType = LLArrayType::get(floatType, num);
       }
-      *rewriteType = LLArrayType::get(floatType, num);
+      return true;
     }
-    return true;
   }
   return false;
 }
@@ -336,9 +339,11 @@ TargetABI *TargetABI::getTarget() {
   case llvm::Triple::mips64:
   case llvm::Triple::mips64el:
     return getMIPS64TargetABI(global.params.is64bit);
+  case llvm::Triple::ppc:
   case llvm::Triple::ppc64:
+    return getPPCTargetABI(global.params.targetTriple->isArch64Bit());
   case llvm::Triple::ppc64le:
-    return getPPC64TargetABI(global.params.targetTriple->isArch64Bit());
+    return getPPC64LETargetABI();
 #if LDC_LLVM_VER == 305
   case llvm::Triple::arm64:
   case llvm::Triple::arm64_be:
