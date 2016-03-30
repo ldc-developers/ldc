@@ -12,11 +12,14 @@ dependencies:
     - sudo apt-get update
     - if [[ ! -e ldc2-1.0.0-alpha1-linux-x86_64/bin/ldc2 ]]; then wget https://github.com/ldc-developers/ldc/releases/download/v1.0.0-alpha1/ldc2-1.0.0-alpha1-linux-x86_64.tar.xz && xzcat ldc2-1.0.0-alpha1-linux-x86_64.tar.xz | tar -xvf - ; fi
   override:
-    - sudo apt-get install gcc-multilib g++-multilib libconfig++8-dev llvm-3.8 llvm-3.8-dev clang-3.8 libedit-dev
+    - sudo apt-get remove clang
+    - sudo apt-get install gcc-4.9 g++-4.9 gcc-4.9-multilib g++-4.9-multilib libconfig++8-dev llvm-3.9 llvm-3.9-dev clang-3.9 libedit-dev
     - pip install --user lit
   post:
-    - sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-3.8 99
-    - sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-3.8 99
+    - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 99
+    - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.9 99
+    - sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-3.9 99
+    - sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-3.9 99
     - gcc --version
     - clang --version
     - ldc2 -version
