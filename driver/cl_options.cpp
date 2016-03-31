@@ -375,6 +375,11 @@ cl::opt<bool, true>
     singleObj("singleobj", cl::desc("Create only a single output object file"),
               cl::location(global.params.singleObj));
 
+cl::opt<uint32_t, true> hashThreshold(
+    "hash-threshold",
+    cl::desc("hash symbol names longer than this threshold (experimental)"),
+    cl::location(global.params.hashThreshold), cl::init(0));
+
 cl::opt<bool> linkonceTemplates(
     "linkonce-templates",
     cl::desc(

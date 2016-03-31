@@ -16,6 +16,7 @@
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/mangling.h"
 #include "gen/tollvm.h"
 #include "ir/iraggr.h"
 #include "irdsymbol.h"
@@ -39,9 +40,7 @@ LLGlobalVariable *IrAggr::getInitSymbol() {
   }
 
   // create the initZ symbol
-  std::string initname("_D");
-  initname.append(mangle(aggrdecl));
-  initname.append("6__initZ");
+  auto initname = getMangledInitSymbolName(aggrdecl);
 
   init =
       getOrCreateGlobal(aggrdecl->loc, gIR->module, init_type, true,

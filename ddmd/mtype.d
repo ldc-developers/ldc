@@ -2665,12 +2665,31 @@ public:
         buf.writeByte(0);
         // Allocate buffer on stack, fail over to using malloc()
         char[128] namebuf;
+
+        // Hash long symbol names
+        char* name;
+        if (IN_LLVM && global.params.hashThreshold && (len > global.params.hashThreshold))
+        {
+            import std.digest.md;
+            auto md5hash = md5Of(buf.peekString()[0..len]);
+            auto hashedname = toHexString(md5hash);
+            static assert(hashedname.length < namebuf.length-30);
+            name = namebuf.ptr;
+            sprintf(name, "_D%lluTypeInfo_%.*s6__initZ", cast(ulong)9 + hashedname.length, hashedname.length, hashedname.ptr);
+        }
+        else
+        {
+        // else path is DDMD original:
+
         size_t namelen = 19 + len.sizeof * 3 + len + 1;
-        char* name = namelen <= namebuf.length ? namebuf.ptr : cast(char*)malloc(namelen);
+        name = namelen <= namebuf.sizeof ? namebuf.ptr : cast(char*)malloc(namelen);
         assert(name);
         sprintf(name, "_D%lluTypeInfo_%s6__initZ", cast(ulong)9 + len, buf.data);
         //printf("%p, deco = %s, name = %s\n", this, deco, name);
         assert(strlen(name) < namelen); // don't overflow the buffer
+
+        }
+
         size_t off = 0;
         static if (!IN_GCC && !IN_LLVM)
         {
