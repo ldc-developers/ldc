@@ -770,7 +770,7 @@ int Port::isNan(double r)
     return isnan(r);
 #else
     #undef isnan
-    return ::isnan(r);
+    return std::isnan(r);
 #endif
 }
 
@@ -786,7 +786,7 @@ int Port::isNan(longdouble r)
     return isnan(r);
 #else
     #undef isnan
-    return ::isnan(r);
+    return std::isnan(r);
 #endif
 }
 
@@ -814,13 +814,13 @@ int Port::isInfinity(double r)
     return isinf(r);
 #else
     #undef isinf
-    return ::isinf(r);
+    return std::isinf(r);
 #endif
 }
 
 longdouble Port::sqrt(longdouble x)
 {
-    return ::sqrtl(x);
+    return std::sqrt(x);
 }
 
 longdouble Port::fmodl(longdouble x, longdouble y)
@@ -828,7 +828,7 @@ longdouble Port::fmodl(longdouble x, longdouble y)
 #if __FreeBSD__ && __FreeBSD_version < 800000 || __OpenBSD__ || __NetBSD__ || __DragonFly__
     return ::fmod(x, y);        // hack for now, fix later
 #else
-    return ::fmodl(x, y);
+    return std::fmod(x, y);
 #endif
 }
 
@@ -868,7 +868,7 @@ char *Port::strupr(char *s)
 
     while (*s)
     {
-        *s = toupper(*s);
+        *s = std::toupper(*s);
         s++;
     }
 
@@ -886,7 +886,7 @@ int Port::memicmp(const char *s1, const char *s2, int n)
         result = c1 - c2;
         if (result)
         {
-            result = toupper(c1) - toupper(c2);
+            result = std::toupper(c1) - std::toupper(c2);
             if (result)
                 break;
         }
@@ -905,7 +905,7 @@ int Port::stricmp(const char *s1, const char *s2)
         result = c1 - c2;
         if (result)
         {
-            result = toupper(c1) - toupper(c2);
+            result = std::toupper(c1) - std::toupper(c2);
             if (result)
                 break;
         }
@@ -919,17 +919,17 @@ int Port::stricmp(const char *s1, const char *s2)
 
 float Port::strtof(const char *p, char **endp)
 {
-    return ::strtof(p, endp);
+    return std::strtof(p, endp);
 }
 
 double Port::strtod(const char *p, char **endp)
 {
-    return ::strtod(p, endp);
+    return std::strtod(p, endp);
 }
 
 longdouble Port::strtold(const char *p, char **endp)
 {
-    return ::strtold(p, endp);
+    return std::strtold(p, endp);
 }
 
 #endif
