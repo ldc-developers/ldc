@@ -76,7 +76,7 @@ public:
 
     abstract Expression toExpression(Type t = null);
 
-    override final char* toChars()
+    override final const(char)* toChars()
     {
         OutBuffer buf;
         HdrGenState hgs;
@@ -533,6 +533,7 @@ public:
         case Tpointer:
             if (t.nextOf().ty != Tfunction)
                 break;
+            goto default;
         default:
             error(loc, "cannot use array to initialize %s", t.toChars());
             goto Lerr;
@@ -784,20 +785,14 @@ public:
                 se.error("cannot infer type from %s %s", se.sds.kind(), se.toChars());
             return new ErrorInitializer();
         }
+
         // Give error for overloaded function addresses
-        if (exp.op == TOKsymoff)
+        bool hasOverloads;
+        if (auto f = isFuncAddress(exp, &hasOverloads))
         {
-            SymOffExp se = cast(SymOffExp)exp;
-            if (se.hasOverloads && !se.var.isFuncDeclaration().isUnique())
-            {
-                exp.error("cannot infer type from overloaded function symbol %s", exp.toChars());
+            if (f.checkForwardRef(loc))
                 return new ErrorInitializer();
-            }
-        }
-        if (exp.op == TOKdelegate)
-        {
-            DelegateExp se = cast(DelegateExp)exp;
-            if (se.hasOverloads && se.func.isFuncDeclaration() && !se.func.isFuncDeclaration().isUnique())
+            if (hasOverloads && !f.isUnique())
             {
                 exp.error("cannot infer type from overloaded function symbol %s", exp.toChars());
                 return new ErrorInitializer();

@@ -25,6 +25,20 @@ import ddmd.root.outbuffer;
 import ddmd.tokens;
 import ddmd.visitor;
 
+private __gshared Identifier idUnitTest;
+private __gshared Identifier idAssert;
+
+static this()
+{
+    const(char)* s;
+
+    s = Token.toChars(TOKunittest);
+    idUnitTest = Identifier.idPool(s, strlen(s));
+
+    s = Token.toChars(TOKassert);
+    idAssert   = Identifier.idPool(s, strlen(s));
+}
+
 /***********************************************************
  */
 extern (C++) class Condition
@@ -171,6 +185,9 @@ public:
             "Win64",
             "linux",
             "OSX",
+            "iOS",
+            "TVOS",
+            "WatchOS",
             "FreeBSD",
             "OpenBSD",
             "NetBSD",
@@ -233,7 +250,7 @@ public:
             "ELFv1",
             "ELFv2",
             "CRuntime_Bionic",
-            "CRuntime_Digitalmars",
+            "CRuntime_DigitalMars",
             "CRuntime_Glibc",
             "CRuntime_Microsoft",
             "D_Coverage",
@@ -314,8 +331,11 @@ public:
             }
             else if (level <= global.params.versionlevel || level <= mod.versionlevel)
                 inc = 1;
-            if (!definedInModule && (!ident || (!isPredefined(ident.toChars()) && ident != Identifier.idPool(Token.toChars(TOKunittest)) && ident != Identifier.idPool(Token.toChars(TOKassert)))))
+            if (!definedInModule &&
+                (!ident || (!isPredefined(ident.toChars()) && ident != idUnitTest && ident != idAssert)))
+            {
                 printDepsConditional(sc, this, "depsVersion ");
+            }
         }
         return (inc == 1);
     }

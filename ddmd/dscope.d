@@ -26,12 +26,13 @@ import ddmd.globals;
 import ddmd.id;
 import ddmd.identifier;
 import ddmd.mtype;
-import ddmd.root.aav;
 import ddmd.root.outbuffer;
 import ddmd.root.rmem;
 import ddmd.root.speller;
 import ddmd.root.stringtable;
 import ddmd.statement;
+
+//version=LOGSEARCH;
 
 extern (C++) bool mergeFieldInit(Loc loc, ref uint fieldInit, uint fi, bool mustInit)
 {
@@ -104,6 +105,8 @@ enum SCOPEctfe          = 0x0080;   // inside a ctfe-only expression
 enum SCOPEcompile       = 0x0100;   // inside __traits(compile)
 enum SCOPEfree          = 0x8000;   // is on free list
 
+enum SCOPEfullinst      = 0x10000;  // fully instantiate templates
+
 struct Scope
 {
     Scope* enclosing;               // enclosing Scope
@@ -157,7 +160,7 @@ struct Scope
     int explicitProtection;         // set if in an explicit protection attribute
 
     StorageClass stc;               // storage class
-    char* depmsg;                   // customized deprecation message
+    DeprecatedDeclaration depdecl;  // customized deprecation message
 
     uint flags;
 
@@ -165,8 +168,8 @@ struct Scope
     UserAttributeDeclaration userAttribDecl;
 
     DocComment* lastdc;        // documentation comment for last symbol at this scope
-    AA* anchorCounts;        // lookup duplicate anchor name count
-    Identifier prevAnchor;        // qualified symbol name of last doc anchor
+    uint[void*] anchorCounts;  // lookup duplicate anchor name count
+    Identifier prevAnchor;     // qualified symbol name of last doc anchor
 
     extern (C++) static __gshared Scope* freelist;
 
@@ -256,14 +259,15 @@ struct Scope
         if (enclosing)
         {
             enclosing.callSuper |= callSuper;
-            if (enclosing.fieldinit && fieldinit)
+            if (fieldinit)
             {
-                assert(fieldinit != enclosing.fieldinit);
-                size_t dim = fieldinit_dim;
-                for (size_t i = 0; i < dim; i++)
-                    enclosing.fieldinit[i] |= fieldinit[i];
-                mem.xfree(fieldinit);
-                fieldinit = null;
+                if (enclosing.fieldinit)
+                {
+                    assert(fieldinit != enclosing.fieldinit);
+                    foreach (i; 0 .. fieldinit_dim)
+                        enclosing.fieldinit[i] |= fieldinit[i];
+                }
+                freeFieldinit();
             }
         }
         if (!nofree)
@@ -273,6 +277,20 @@ struct Scope
             flags |= SCOPEfree;
         }
         return enc;
+    }
+
+    void allocFieldinit(size_t dim)
+    {
+        fieldinit = cast(typeof(fieldinit))mem.xcalloc(typeof(*fieldinit).sizeof, dim);
+        fieldinit_dim = dim;
+    }
+
+    void freeFieldinit()
+    {
+        if (fieldinit)
+            mem.xfree(fieldinit);
+        fieldinit = null;
+        fieldinit_dim = 0;
     }
 
     extern (C++) Scope* startCTFE()
@@ -412,9 +430,44 @@ else
         return minst ? minst : _module;
     }
 
+    /************************************
+     * Perform unqualified name lookup by following the chain of scopes up
+     * until found.
+     *
+     * Params:
+     *  loc = location to use for error messages
+     *  ident = name to look up
+     *  pscopesym = if supplied and name is found, set to scope that ident was found in
+     *  flags = modify search based on flags
+     *
+     * Returns:
+     *  symbol if found, null if not
+     */
     extern (C++) Dsymbol search(Loc loc, Identifier ident, Dsymbol* pscopesym, int flags = IgnoreNone)
     {
-        //printf("Scope::search(%p, '%s')\n", this, ident->toChars());
+        version (LOGSEARCH)
+        {
+            printf("Scope.search(%p, '%s' flags=x%x)\n", &this, ident.toChars(), flags);
+            // Print scope chain
+            for (Scope* sc = &this; sc; sc = sc.enclosing)
+            {
+                if (!sc.scopesym)
+                    continue;
+                printf("\tscope %s\n", sc.scopesym.toChars());
+            }
+
+            static void printMsg(string txt, Dsymbol s)
+            {
+                printf("%.*s  %s.%s, kind = '%s'\n", cast(int)msg.length, msg.ptr,
+                    s.parent ? s.parent.toChars() : "", s.toChars(), s.kind());
+            }
+        }
+
+        // This function is called only for unqualified lookup
+        assert(!(flags & (SearchLocalsOnly | SearchImportsOnly)));
+
+        /* If ident is "start at module scope", only look at module scope
+         */
         if (ident == Id.empty)
         {
             // Look for module scope
@@ -425,7 +478,7 @@ else
                     continue;
                 if (Dsymbol s = sc.scopesym.isModule())
                 {
-                    //printf("\tfound %s.%s\n", s->parent ? s->parent->toChars() : "", s->toChars());
+                    //printMsg("\tfound", s);
                     if (pscopesym)
                         *pscopesym = sc.scopesym;
                     return s;
@@ -433,25 +486,90 @@ else
             }
             return null;
         }
-        for (Scope* sc = &this; sc; sc = sc.enclosing)
+
+        Dsymbol searchScopes(int flags)
         {
-            assert(sc != sc.enclosing);
-            if (!sc.scopesym)
-                continue;
-            //printf("\tlooking in scopesym '%s', kind = '%s'\n", sc->scopesym->toChars(), sc->scopesym->kind());
-            if (Dsymbol s = sc.scopesym.search(loc, ident, flags))
+            for (Scope* sc = &this; sc; sc = sc.enclosing)
             {
-                if (ident == Id.length && sc.scopesym.isArrayScopeSymbol() && sc.enclosing && sc.enclosing.search(loc, ident, null, flags))
+                assert(sc != sc.enclosing);
+                if (!sc.scopesym)
+                    continue;
+                //printf("\tlooking in scopesym '%s', kind = '%s', flags = x%x\n", sc.scopesym.toChars(), sc.scopesym.kind(), flags);
+
+                if (sc.scopesym.isModule())
+                    flags |= SearchUnqualifiedModule;        // tell Module.search() that SearchLocalsOnly is to be obeyed
+
+                if (Dsymbol s = sc.scopesym.search(loc, ident, flags))
                 {
-                    warning(s.loc, "array 'length' hides other 'length' name in outer scope");
+                    if (!(flags & (SearchImportsOnly | IgnoreErrors)) &&
+                        ident == Id.length && sc.scopesym.isArrayScopeSymbol() &&
+                        sc.enclosing && sc.enclosing.search(loc, ident, null, flags))
+                    {
+                        warning(s.loc, "array 'length' hides other 'length' name in outer scope");
+                    }
+                    //printMsg("\tfound local", s);
+                    if (pscopesym)
+                        *pscopesym = sc.scopesym;
+                    return s;
                 }
-                //printf("\tfound %s.%s, kind = '%s'\n", s->parent ? s->parent->toChars() : "", s->toChars(), s->kind());
-                if (pscopesym)
-                    *pscopesym = sc.scopesym;
-                return s;
+                // Stop when we hit a module, but keep going if that is not just under the global scope
+                if (sc.scopesym.isModule() && !(sc.enclosing && !sc.enclosing.enclosing))
+                    break;
+            }
+            return null;
+        }
+
+        Dsymbol sold = void;
+        if (global.params.bug10378 || global.params.check10378)
+        {
+            sold = searchScopes(flags | IgnoreSymbolVisibility);
+            if (!global.params.check10378)
+                return sold;
+
+            if (ident == Id.dollar) // Bugzilla 15825
+                return sold;
+
+            // Search both ways
+            flags |= SearchCheck10378;
+        }
+
+        // First look in local scopes
+        Dsymbol s = searchScopes(flags | SearchLocalsOnly);
+        version (LOGSEARCH) if (s) printMsg("-Scope.search() found local", s);
+        if (!s)
+        {
+            // Second look in imported modules
+            s = searchScopes(flags | SearchImportsOnly);
+            version (LOGSEARCH) if (s) printMsg("-Scope.search() found import", s);
+
+            /** Still find private symbols, so that symbols that weren't access
+             * checked by the compiler remain usable.  Once the deprecation is over,
+             * this should be moved to search_correct instead.
+             */
+            if (!s)
+            {
+                s = searchScopes(flags | SearchLocalsOnly | IgnoreSymbolVisibility);
+                if (!s)
+                    s = searchScopes(flags | SearchImportsOnly | IgnoreSymbolVisibility);
+
+                if (s && !(flags & IgnoreErrors))
+                    .deprecation(loc, "%s is not visible from module %s", s.toPrettyChars(), _module.toChars());
+                version (LOGSEARCH) if (s) printMsg("-Scope.search() found imported private symbol", s);
             }
         }
-        return null;
+        if (global.params.check10378)
+        {
+            alias snew = s;
+            if (sold !is snew)
+            {
+                deprecation(loc, "local import search method found %s %s instead of %s %s",
+                    sold ? sold.kind() : "nothing", sold ? sold.toPrettyChars() : null,
+                    snew ? snew.kind() : "nothing", snew ? snew.toPrettyChars() : null);
+            }
+            if (global.params.bug10378)
+                s = sold;
+        }
+        return s;
     }
 
     extern (C++) Dsymbol search_correct(Identifier ident)
@@ -609,7 +727,7 @@ else
         this.protection = sc.protection;
         this.explicitProtection = sc.explicitProtection;
         this.stc = sc.stc;
-        this.depmsg = sc.depmsg;
+        this.depdecl = sc.depdecl;
         this.inunion = sc.inunion;
         this.nofree = sc.nofree;
         this.noctor = sc.noctor;

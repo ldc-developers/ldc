@@ -148,9 +148,9 @@ public:
         this.type = var.type;
     }
 
-    override char* toChars()
+    override const(char)* toChars() const
     {
-        return cast(char*)"void";
+        return "void";
     }
 
     override void accept(Visitor v)
@@ -187,9 +187,9 @@ public:
         this.type = victim.type;
     }
 
-    override char* toChars()
+    override const(char)* toChars() const
     {
-        return cast(char*)"CTFE ThrownException";
+        return "CTFE ThrownException";
     }
 
     // Generate an error message when this exception is not caught
@@ -224,20 +224,20 @@ public:
         type = Type.tvoid;
     }
 
-    override char* toChars()
+    override const(char)* toChars() const
     {
         switch (op)
         {
         case TOKcantexp:
-            return cast(char*)"<cant>";
+            return "<cant>";
         case TOKvoidexp:
-            return cast(char*)"<void>";
+            return "<void>";
         case TOKbreak:
-            return cast(char*)"<break>";
+            return "<break>";
         case TOKcontinue:
-            return cast(char*)"<continue>";
+            return "<continue>";
         case TOKgoto:
-            return cast(char*)"<goto>";
+            return "<goto>";
         default:
             assert(0);
         }
@@ -629,10 +629,10 @@ extern (C++) ArrayLiteralExp createBlockDuplicatedArrayLiteral(Loc loc, Type typ
  * Helper for NewExp
  * Create a string literal consisting of 'value' duplicated 'dim' times.
  */
-extern (C++) StringExp createBlockDuplicatedStringLiteral(Loc loc, Type type, uint value, size_t dim, ubyte sz)
+extern (C++) StringExp createBlockDuplicatedStringLiteral(Loc loc, Type type, dchar value, size_t dim, ubyte sz)
 {
-    char* s = cast(char*)mem.xcalloc(dim + 1, sz);
-    for (size_t elemi = 0; elemi < dim; ++elemi)
+    auto s = cast(char*)mem.xcalloc(dim, sz);
+    foreach (elemi; 0 .. dim)
     {
         switch (sz)
         {
@@ -640,10 +640,10 @@ extern (C++) StringExp createBlockDuplicatedStringLiteral(Loc loc, Type type, ui
             s[elemi] = cast(char)value;
             break;
         case 2:
-            (cast(ushort*)s)[elemi] = cast(ushort)value;
+            (cast(wchar*)s)[elemi] = cast(wchar)value;
             break;
         case 4:
-            (cast(uint*)s)[elemi] = value;
+            (cast(dchar*)s)[elemi] = value;
             break;
         default:
             assert(0);
@@ -1025,7 +1025,6 @@ extern (C++) Expression paintFloatInt(Expression fromVal, Type to)
     assert(to.size() == 4 || to.size() == 8);
     return Target.paintAsType(fromVal, to);
 }
-
 
 /******** Constant folding, with support for CTFE ***************************/
 /// Return true if non-pointer expression e can be compared
@@ -1475,16 +1474,7 @@ extern (C++) UnionExp ctfeCat(Loc loc, Type type, Expression e1, Expression e2)
                 return ue;
             }
             dinteger_t v = es2e.toInteger();
-version(IN_LLVM) {
-    version(LittleEndian) {
-            memcpy(cast(char *)s + i * sz, &v, sz);
-    } else {
-            memcpy(cast(char *)s + i * sz,
-                   cast(char *)&v + (dinteger_t.sizeof - sz), sz);
-    }
-} else {
-            memcpy(cast(char*)s + i * sz, &v, sz);
-}
+            Port.valcpy(cast(char*)s + i * sz, v, sz);
         }
         // Add terminating 0
         memset(cast(char*)s + len * sz, 0, sz);
@@ -1514,16 +1504,7 @@ version(IN_LLVM) {
                 return ue;
             }
             dinteger_t v = es2e.toInteger();
-version(IN_LLVM) {
-    version(LittleEndian) {
-            memcpy(cast(char*)s + (es1.len + i) * sz, &v, sz);
-    } else {
-            memcpy(cast(char*)s + (es1.len + i) * sz,
-                   cast(char*)&v + (dinteger_t.sizeof - sz), sz);
-    }
-} else {
-            memcpy(cast(char*)s + (es1.len + i) * sz, &v, sz);
-}
+            Port.valcpy(cast(char*)s + (es1.len + i) * sz, v, sz);
         }
         // Add terminating 0
         memset(cast(char*)s + len * sz, 0, sz);
@@ -1813,10 +1794,10 @@ extern (C++) UnionExp changeArrayLiteralLength(Loc loc, TypeArray arrayType, Exp
                 (cast(char*)s)[cast(size_t)(indxlo + elemi)] = cast(char)defaultValue;
                 break;
             case 2:
-                (cast(utf16_t*)s)[cast(size_t)(indxlo + elemi)] = cast(utf16_t)defaultValue;
+                (cast(wchar*)s)[cast(size_t)(indxlo + elemi)] = cast(wchar)defaultValue;
                 break;
             case 4:
-                (cast(utf32_t*)s)[cast(size_t)(indxlo + elemi)] = cast(utf32_t)defaultValue;
+                (cast(dchar*)s)[cast(size_t)(indxlo + elemi)] = cast(dchar)defaultValue;
                 break;
             default:
                 assert(0);

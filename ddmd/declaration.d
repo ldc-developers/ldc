@@ -55,27 +55,9 @@ extern (C++) bool checkFrameAccess(Loc loc, Scope* sc, AggregateDeclaration ad, 
     Dsymbol s = sc.func;
     if (ad.isNested() && s)
     {
-        //printf("ad = %p %s [%s], parent:%p\n", ad, ad->toChars(), ad->loc.toChars(), ad->parent);
-        //printf("sparent = %p %s [%s], parent: %s\n", sparent, sparent->toChars(), sparent->loc.toChars(), sparent->parent->toChars());
-        while (s)
-        {
-            if (s == sparent) // hit!
-                break;
-            if (FuncDeclaration fd = s.isFuncDeclaration())
-            {
-                if (!fd.isThis() && !fd.isNested())
-                    break;
-                if (FuncLiteralDeclaration fld = fd.isFuncLiteralDeclaration())
-                    fld.tok = TOKdelegate;
-            }
-            if (AggregateDeclaration ad2 = s.isAggregateDeclaration())
-            {
-                if (ad2.storage_class & STCstatic)
-                    break;
-            }
-            s = s.toParent2();
-        }
-        if (s != sparent)
+        //printf("ad = %p %s [%s], parent:%p\n", ad, ad.toChars(), ad.loc.toChars(), ad.parent);
+        //printf("sparent = %p %s [%s], parent: %s\n", sparent, sparent.toChars(), sparent.loc.toChars(), sparent.parent,toChars());
+        if (checkNestedRef(s, sparent))
         {
             error(loc, "cannot access frame pointer of %s", ad.toPrettyChars());
             return true;
@@ -209,7 +191,7 @@ public:
     {
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "declaration";
     }
@@ -252,7 +234,7 @@ public:
         return 1;
     }
 
-    override final Dsymbol search(Loc loc, Identifier ident, int flags = IgnoreNone)
+    override final Dsymbol search(Loc loc, Identifier ident, int flags = SearchLocalsOnly)
     {
         Dsymbol s = Dsymbol.search(loc, ident, flags);
         if (!s && type)
@@ -379,7 +361,7 @@ public:
         return protection;
     }
 
-    override final Declaration isDeclaration()
+    override final inout(Declaration) isDeclaration() inout
     {
         return this;
     }
@@ -411,7 +393,7 @@ public:
         assert(0);
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "tuple";
     }
@@ -528,7 +510,7 @@ version(IN_LLVM)
     }
 }
 
-    override TupleDeclaration isTupleDeclaration()
+    override inout(TupleDeclaration) isTupleDeclaration() inout
     {
         return this;
     }
@@ -609,9 +591,11 @@ public:
             return;
         }
         inuse = 1;
+
         storage_class |= sc.stc & STCdeprecated;
         protection = sc.protection;
         userAttribDecl = sc.userAttribDecl;
+
         // Given:
         //  alias foo.bar.abc def;
         // it is not knowable from the syntax whether this is an alias
@@ -620,11 +604,10 @@ public:
         // If it is a type, then type is set and getType() will return that
         // type. If it is a symbol, then aliassym is set and type is NULL -
         // toAlias() will return aliasssym.
+
         uint errors = global.errors;
-        Type savedtype = type;
-        Dsymbol s;
-        Type t;
-        Expression e;
+        Type oldtype = type;
+
         // Ungag errors when not instantiated DeclDefs scope alias
         auto ungag = Ungag(global.gag);
         //printf("%s parent = %s, gag = %d, instantiated = %d\n", toChars(), parent, global.gag, isInstantiated());
@@ -633,12 +616,13 @@ public:
             //printf("%s type = %s\n", toPrettyChars(), type->toChars());
             global.gag = 0;
         }
-        /* This section is needed because resolve() will:
+
+        /* This section is needed because Type.resolve() will:
          *   const x = 3;
-         *   alias x y;
-         * try to alias y to 3.
+         *   alias y = x;
+         * try to convert identifier x to 3.
          */
-        s = type.toDsymbol(sc);
+        auto s = type.toDsymbol(sc);
         if (errors != global.errors)
         {
             s = null;
@@ -650,127 +634,67 @@ public:
             s = null;
             type = Type.terror;
         }
-        if (s && ((s.getType() && type.equals(s.getType())) || s.isEnumMember()))
-            goto L2;
-        // it's a symbolic alias
-        type = type.addSTC(storage_class);
-        if (storage_class & (STCref | STCnothrow | STCnogc | STCpure | STCdisable))
+        if (!s || !s.isEnumMember())
         {
-            // For 'ref' to be attached to function types, and picked
-            // up by Type::resolve(), it has to go into sc.
-            sc = sc.push();
-            sc.stc |= storage_class & (STCref | STCnothrow | STCnogc | STCpure | STCshared | STCdisable);
-            type.resolve(loc, sc, &e, &t, &s);
-            sc = sc.pop();
-        }
-        else
-            type.resolve(loc, sc, &e, &t, &s);
-        if (s)
-        {
-            goto L2;
-        }
-        else if (e)
-        {
-            // Try to convert Expression to Dsymbol
-            s = getDsymbol(e);
-            if (s)
-                goto L2;
-            if (e.op != TOKerror)
-                error("cannot alias an expression %s", e.toChars());
-            t = e.type;
-        }
-        else if (t)
-        {
-            type = t.semantic(loc, sc);
-            //printf("\talias resolved to type %s\n", type->toChars());
-        }
-        if (overnext)
-            ScopeDsymbol.multiplyDefined(Loc(), overnext, this);
-        inuse = 0;
-        if (global.gag && errors != global.errors)
-            type = savedtype;
+            Type t;
+            Expression e;
+            Scope* sc2 = sc;
+            if (storage_class & (STCref | STCnothrow | STCnogc | STCpure | STCdisable))
+            {
+                // For 'ref' to be attached to function types, and picked
+                // up by Type.resolve(), it has to go into sc.
+                sc2 = sc.push();
+                sc2.stc |= storage_class & (STCref | STCnothrow | STCnogc | STCpure | STCshared | STCdisable);
+            }
+            type = type.addSTC(storage_class);
+            type.resolve(loc, sc2, &e, &t, &s);
+            if (sc2 != sc)
+                sc2.pop();
 
-        semanticRun = PASSsemanticdone;
-        return;
-    L2:
-        //printf("alias is a symbol %s %s\n", s->kind(), s->toChars());
-        type = null;
-        VarDeclaration v = s.isVarDeclaration();
-        if (0 && v && v.linkage == LINKdefault)
+            if (e)  // Try to convert Expression to Dsymbol
+            {
+                s = getDsymbol(e);
+                if (!s)
+                {
+                    if (e.op != TOKerror)
+                        error("cannot alias an expression %s", e.toChars());
+                    t = Type.terror;
+                }
+            }
+            type = t;
+        }
+        if (s == this)
         {
-            error("forward reference of %s", v.toChars());
+            assert(global.errors);
+            type = Type.terror;
             s = null;
         }
-        else
+        if (!s) // it's a type alias
         {
-            Dsymbol savedovernext = overnext;
-            Dsymbol sa = s.toAlias();
-            if (FuncDeclaration fd = sa.isFuncDeclaration())
-            {
-                if (overnext)
-                {
-                    auto fa = new FuncAliasDeclaration(ident, fd);
-                    if (!fa.overloadInsert(overnext))
-                        ScopeDsymbol.multiplyDefined(Loc(), overnext, fd);
-                    overnext = null;
-                    s = fa;
-                    s.parent = sc.parent;
-                }
-            }
-            else if (TemplateDeclaration td = sa.isTemplateDeclaration())
-            {
-                if (overnext)
-                {
-                    auto od = new OverDeclaration(ident, td);
-                    if (!od.overloadInsert(overnext))
-                        ScopeDsymbol.multiplyDefined(Loc(), overnext, td);
-                    overnext = null;
-                    s = od;
-                    s.parent = sc.parent;
-                }
-            }
-            else if (OverDeclaration od = sa.isOverDeclaration())
-            {
-                if (overnext)
-                {
-                    auto od2 = new OverDeclaration(ident, od);
-                    if (!od2.overloadInsert(overnext))
-                        ScopeDsymbol.multiplyDefined(Loc(), overnext, od);
-                    overnext = null;
-                    s = od2;
-                    s.parent = sc.parent;
-                }
-            }
-            else if (OverloadSet os = sa.isOverloadSet())
-            {
-                if (overnext)
-                {
-                    os = new OverloadSet(ident, os);
-                    os.push(overnext);
-                    overnext = null;
-                    s = os;
-                    s.parent = sc.parent;
-                }
-            }
-            if (overnext)
-                ScopeDsymbol.multiplyDefined(Loc(), overnext, this);
-            if (s == this)
-            {
-                assert(global.errors);
-                s = null;
-            }
-            if (global.gag && errors != global.errors)
-            {
-                type = savedtype;
-                overnext = savedovernext;
-                s = null;
-            }
+            //printf("alias %s resolved to type %s\n", toChars(), type.toChars());
+            type = type.semantic(loc, sc);
+            aliassym = null;
         }
-        //printf("setting aliassym %s to %s %s\n", toChars(), s->kind(), s->toChars());
-        aliassym = s;
+        else    // it's a symbolic alias
+        {
+            //printf("alias %s resolved to %s %s\n", toChars(), s.kind(), s.toChars());
+            type = null;
+            aliassym = s;
+        }
+        if (global.gag && errors != global.errors)
+        {
+            type = oldtype;
+            aliassym = null;
+        }
         inuse = 0;
-
         semanticRun = PASSsemanticdone;
+
+        if (auto sx = overnext)
+        {
+            overnext = null;
+            if (!overloadInsert(sx))
+                ScopeDsymbol.multiplyDefined(Loc(), sx, this);
+        }
     }
 
     override bool overloadInsert(Dsymbol s)
@@ -789,18 +713,39 @@ public:
             /* When s is added in member scope by static if, mixin("code") or others,
              * aliassym is determined already. See the case in: test/compilable/test61.d
              */
-            Dsymbol sa = aliassym.toAlias();
+            auto sa = aliassym.toAlias();
             if (auto fd = sa.isFuncDeclaration())
             {
-                auto fa = new FuncAliasDeclaration(ident, fd);
-                aliassym = fa;
-                return fa.overloadInsert(s);
+                aliassym = new FuncAliasDeclaration(ident, fd);
+                aliassym.parent = parent;
+                return aliassym.overloadInsert(s);
             }
             if (auto td = sa.isTemplateDeclaration())
             {
-                auto od = new OverDeclaration(ident, td);
-                aliassym = od;
+                aliassym = new OverDeclaration(ident, td);
+                aliassym.parent = parent;
+                return aliassym.overloadInsert(s);
+            }
+            if (auto od = sa.isOverDeclaration())
+            {
+                if (sa.ident != ident || sa.parent != parent)
+                {
+                    od = new OverDeclaration(ident, od);
+                    od.parent = parent;
+                    aliassym = od;
+                }
                 return od.overloadInsert(s);
+            }
+            if (auto os = sa.isOverloadSet())
+            {
+                if (sa.ident != ident || sa.parent != parent)
+                {
+                    os = new OverloadSet(ident, os);
+                    os.parent = parent;
+                    aliassym = os;
+                }
+                os.push(s);
+                return true;
             }
             return false;
         }
@@ -816,7 +761,7 @@ public:
         return true;
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "alias";
     }
@@ -831,7 +776,7 @@ public:
     override Dsymbol toAlias()
     {
         //printf("[%s] AliasDeclaration::toAlias('%s', this = %p, aliassym = %p, kind = '%s', inuse = %d)\n",
-        //    loc.toChars(), toChars(), this, aliassym, aliassym ? aliassym->kind() : "", inuse);
+        //    loc.toChars(), toChars(), this, aliassym, aliassym ? aliassym.kind() : "", inuse);
         assert(this != aliassym);
         //static int count; if (++count == 10) *(char*)0=0;
         if (inuse == 1 && type && _scope)
@@ -872,9 +817,12 @@ public:
             type = Type.terror;
             return aliassym;
         }
-        if (aliassym || type.deco)
+        if (aliassym)
         {
             // semantic is already done.
+
+            // Even if type.deco !is null, "alias T = const int;` needs semantic
+            // call to take the storage class `const` as type qualifier.
         }
         else if (_import && _import._scope)
         {
@@ -884,7 +832,9 @@ public:
             _import.semantic(null);
         }
         else if (_scope)
+        {
             semantic(_scope);
+        }
         inuse = 1;
         Dsymbol s = aliassym ? aliassym.toAlias() : this;
         inuse = 0;
@@ -904,7 +854,7 @@ public:
         return s;
     }
 
-    override AliasDeclaration isAliasDeclaration()
+    override inout(AliasDeclaration) isAliasDeclaration() inout
     {
         return this;
     }
@@ -941,7 +891,7 @@ public:
         }
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "overload alias"; // todo
     }
@@ -981,24 +931,12 @@ public:
     override bool overloadInsert(Dsymbol s)
     {
         //printf("OverDeclaration::overloadInsert('%s') aliassym = %p, overnext = %p\n", s->toChars(), aliassym, overnext);
-        if (overnext is null)
-        {
-            if (s == this)
-            {
-                return true;
-            }
-            overnext = s;
-            return true;
-        }
-        else
-        {
+        if (overnext)
             return overnext.overloadInsert(s);
-        }
-    }
-
-    override Dsymbol toAlias()
-    {
-        return this;
+        if (s == this)
+            return true;
+        overnext = s;
+        return true;
     }
 
     Dsymbol isUnique()
@@ -1029,7 +967,7 @@ public:
         return result;
     }
 
-    override OverDeclaration isOverDeclaration()
+    override inout(OverDeclaration) isOverDeclaration() inout
     {
         return this;
     }
@@ -1047,7 +985,7 @@ extern (C++) class VarDeclaration : Declaration
 public:
     Initializer _init;
     uint offset;
-    bool noscope;                   // no auto semantics
+    bool noscope;                   // if scope destruction is disabled
     FuncDeclarations nestedrefs;    // referenced by these lexically nested functions
     bool isargptr;                  // if parameter that _argptr points to
     structalign_t alignment;
@@ -1331,6 +1269,7 @@ public:
                         te.exps.push(new ErrorExp());
                 }
             }
+
             auto exps = new Objects();
             exps.setDim(nelems);
             for (size_t i = 0; i < nelems; i++)
@@ -1338,8 +1277,8 @@ public:
                 Parameter arg = Parameter.getNth(tt.arguments, i);
                 OutBuffer buf;
                 buf.printf("__%s_field_%llu", ident.toChars(), cast(ulong)i);
-                const(char)* name = buf.extractString();
-                Identifier id = Identifier.idPool(name);
+                auto id = Identifier.idPool(buf.peekSlice());
+
                 Initializer ti;
                 if (ie)
                 {
@@ -1355,18 +1294,22 @@ public:
                 }
                 else
                     ti = _init ? _init.syntaxCopy() : null;
+
                 auto v = new VarDeclaration(loc, arg.type, id, ti);
                 v.storage_class |= STCtemp | storage_class;
                 if (arg.storageClass & STCparameter)
                     v.storage_class |= arg.storageClass;
                 //printf("declaring field %s of type %s\n", v->toChars(), v->type->toChars());
                 v.semantic(sc);
+
                 if (sc.scopesym)
                 {
                     //printf("adding %s to %s\n", v->toChars(), sc->scopesym->toChars());
                     if (sc.scopesym.members)
+                        // Note this prevents using foreach() over members, because the limits can change
                         sc.scopesym.members.push(v);
                 }
+
                 Expression e = new DsymbolExp(loc, v);
                 (*exps)[i] = e;
             }
@@ -1540,17 +1483,17 @@ public:
             // Provide a default initializer
 
             //printf("Providing default initializer for '%s'\n", toChars());
-            if (type.needsNested())
-            {
-                Type tv = type;
-                while (tv.toBasetype().ty == Tsarray)
-                    tv = tv.toBasetype().nextOf();
-                assert(tv.toBasetype().ty == Tstruct);
 
+            Type tv = type;
+            while (tv.ty == Tsarray)    // Don't skip Tenum
+                tv = tv.nextOf();
+            if (tv.needsNested())
+            {
                 /* Nested struct requires valid enclosing frame pointer.
                  * In StructLiteralExp::toElem(), it's calculated.
                  */
-                checkFrameAccess(loc, sc, (cast(TypeStruct)tv.toBasetype()).sym);
+                assert(tbn.ty == Tstruct);
+                checkFrameAccess(loc, sc, (cast(TypeStruct)tbn).sym);
 
                 Expression e = tv.defaultInitLiteral(loc);
                 e = new BlitExp(loc, new VarExp(loc, this), e);
@@ -1558,8 +1501,7 @@ public:
                 _init = new ExpInitializer(loc, e);
                 goto Ldtor;
             }
-            if (type.ty == Tstruct &&
-                (cast(TypeStruct)type).sym.zeroInit == 1)
+            if (tv.ty == Tstruct && (cast(TypeStruct)tv).sym.zeroInit == 1)
             {
                 /* If a struct is all zeros, as a special case
                  * set it's initializer to the integer 0.
@@ -1577,9 +1519,9 @@ public:
             {
                 error("%s does not have a default initializer", type.toChars());
             }
-            else
+            else if (auto e = type.defaultInit(loc))
             {
-                _init = getExpInitializer();
+                _init = new ExpInitializer(loc, e);
             }
 
             // Default initializer is always a blit
@@ -1768,7 +1710,7 @@ public:
 
     override final void setFieldOffset(AggregateDeclaration ad, uint* poffset, bool isunion)
     {
-        //printf("VarDeclaration::setFieldOffset(ad = %s) %s\n", ad->toChars(), toChars());
+        //printf("VarDeclaration::setFieldOffset(ad = %s) %s\n", ad.toChars(), toChars());
         if (aliassym)
         {
             // If this variable was really a tuple, set the offsets for the tuple fields
@@ -1839,16 +1781,19 @@ public:
             ad.sizeok = SIZEOKfwd; // cannot finish; flag as forward referenced
             return;
         }
-        // List in ad->fields. Even if the type is error, it's necessary to avoid
+
+        // List in ad.fields. Even if the type is error, it's necessary to avoid
         // pointless error diagnostic "more initializers than fields" on struct literal.
         ad.fields.push(this);
+
         if (t.ty == Terror)
             return;
+
         uint memsize = cast(uint)t.size(loc); // size of member
         uint memalignsize = Target.fieldalign(t); // size of member for alignment purposes
         offset = AggregateDeclaration.placeField(poffset, memsize, memalignsize, alignment, &ad.structsize, &ad.alignsize, isunion);
         //printf("\t%s: memalignsize = %d\n", toChars(), memalignsize);
-        //printf(" addField '%s' to '%s' at offset %d, size = %d\n", toChars(), ad->toChars(), offset, memsize);
+        //printf(" addField '%s' to '%s' at offset %d, size = %d\n", toChars(), ad.toChars(), offset, memsize);
     }
 
     override final void semantic2(Scope* sc)
@@ -1951,7 +1896,7 @@ public:
         sem = Semantic2Done;
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "variable";
     }
@@ -2060,12 +2005,10 @@ public:
     /******************************************
      * Return true if variable needs to call the destructor.
      */
-    final bool needsAutoDtor()
+    final bool needsScopeDtor()
     {
-        //printf("VarDeclaration::needsAutoDtor() %s\n", toChars());
-        if (noscope || !edtor)
-            return false;
-        return true;
+        //printf("VarDeclaration::needsScopeDtor() %s\n", toChars());
+        return edtor && !noscope;
     }
 
     /******************************************
@@ -2097,7 +2040,7 @@ public:
                  * fix properly.
                  */
                 e.type = e.type.mutableOf();
-                e = new DotVarExp(loc, e, sd.dtor, 0);
+                e = new DotVarExp(loc, e, sd.dtor, false);
                 e = new CallExp(loc, e);
             }
             else
@@ -2143,25 +2086,6 @@ public:
             }
         }
         return e;
-    }
-
-    /****************************
-     * Get ExpInitializer for a variable, if there is one.
-     */
-    final ExpInitializer getExpInitializer()
-    {
-        ExpInitializer ei;
-        if (_init)
-            ei = _init.isExpInitializer();
-        else
-        {
-            Expression e = type.defaultInit(loc);
-            if (e)
-                ei = new ExpInitializer(loc, e);
-            else
-                ei = null;
-        }
-        return ei;
     }
 
     /*******************************************
@@ -2237,91 +2161,80 @@ public:
             return false;
         if (isDataseg() || (storage_class & STCmanifest))
             return false;
+
         // The current function
         FuncDeclaration fdthis = sc.parent.isFuncDeclaration();
         if (!fdthis)
             return false; // out of function scope
+
         Dsymbol p = toParent2();
+
         // Function literals from fdthis to p must be delegates
-        // TODO: here is similar to checkFrameAccess.
-        for (Dsymbol s = fdthis; s && s != p; s = s.toParent2())
+        checkNestedRef(fdthis, p);
+
+        // The function that this variable is in
+        FuncDeclaration fdv = p.isFuncDeclaration();
+        if (!fdv || fdv == fdthis)
+            return false;
+
+        // Add fdthis to nestedrefs[] if not already there
+        for (size_t i = 0; 1; i++)
         {
-            // function literal has reference to enclosing scope is delegate
-            if (FuncLiteralDeclaration fld = s.isFuncLiteralDeclaration())
-                fld.tok = TOKdelegate;
-            if (FuncDeclaration fd = s.isFuncDeclaration())
+            if (i == nestedrefs.dim)
             {
-                if (!fd.isThis() && !fd.isNested())
-                    break;
+                nestedrefs.push(fdthis);
+                break;
             }
-            if (AggregateDeclaration ad2 = s.isAggregateDeclaration())
-            {
-                if (ad2.storage_class & STCstatic)
-                    break;
-            }
+            if (nestedrefs[i] == fdthis)
+                break;
         }
-        if (1)
+
+        /* __require and __ensure will always get called directly,
+         * so they never make outer functions closure.
+         */
+        if (fdthis.ident == Id.require || fdthis.ident == Id.ensure)
+            return false;
+
+        //printf("\tfdv = %s\n", fdv.toChars());
+        //printf("\tfdthis = %s\n", fdthis.toChars());
+        if (loc.filename)
         {
-            // The function that this variable is in
-            FuncDeclaration fdv = p.isFuncDeclaration();
-            if (fdv && fdv != fdthis)
-            {
-                // Add fdthis to nestedrefs[] if not already there
-                for (size_t i = 0; 1; i++)
-                {
-                    if (i == nestedrefs.dim)
-                    {
-                        nestedrefs.push(fdthis);
-                        break;
-                    }
-                    if (nestedrefs[i] == fdthis)
-                        break;
-                }
-                if (fdthis.ident != Id.require && fdthis.ident != Id.ensure)
-                {
-                    /* __require and __ensure will always get called directly,
-                     * so they never make outer functions closure.
-                     */
-                    //printf("\tfdv = %s\n", fdv->toChars());
-                    //printf("\tfdthis = %s\n", fdthis->toChars());
-                    if (loc.filename)
-                    {
-                        int lv = fdthis.getLevel(loc, sc, fdv);
-                        if (lv == -2) // error
-                            return true;
-                    }
-                    // Add this to fdv->closureVars[] if not already there
-                    for (size_t i = 0; 1; i++)
-                    {
-                        if (i == fdv.closureVars.dim)
-                        {
-                            if (!sc.intypeof && !(sc.flags & SCOPEcompile))
-                                fdv.closureVars.push(this);
-                            break;
-                        }
-                        if (fdv.closureVars[i] == this)
-                            break;
-                    }
-                    //printf("fdthis is %s\n", fdthis->toChars());
-                    //printf("var %s in function %s is nested ref\n", toChars(), fdv->toChars());
-                    // __dollar creates problems because it isn't a real variable Bugzilla 3326
-                    if (ident == Id.dollar)
-                    {
-                        .error(loc, "cannnot use $ inside a function literal");
-                        return true;
-                    }
-                    if (ident == Id.withSym) // Bugzilla 1759
-                    {
-                        ExpInitializer ez = _init.isExpInitializer();
-                        assert(ez);
-                        Expression e = ez.exp;
-                        if (e.op == TOKconstruct || e.op == TOKblit)
-                            e = (cast(AssignExp)e).e2;
-                        return lambdaCheckForNestedRef(e, sc);
-                    }
-                }
-            }
+            int lv = fdthis.getLevel(loc, sc, fdv);
+            if (lv == -2) // error
+                return true;
         }
+
+        // Add this to fdv.closureVars[] if not already there
+        for (size_t i = 0; 1; i++)
+        {
+            if (i == fdv.closureVars.dim)
+            {
+                if (!sc.intypeof && !(sc.flags & SCOPEcompile))
+                    fdv.closureVars.push(this);
+                break;
+            }
+            if (fdv.closureVars[i] == this)
+                break;
+        }
+
+        //printf("fdthis is %s\n", fdthis.toChars());
+        //printf("var %s in function %s is nested ref\n", toChars(), fdv.toChars());
+        // __dollar creates problems because it isn't a real variable Bugzilla 3326
+        if (ident == Id.dollar)
+        {
+            .error(loc, "cannnot use $ inside a function literal");
+            return true;
+        }
+        if (ident == Id.withSym) // Bugzilla 1759
+        {
+            ExpInitializer ez = _init.isExpInitializer();
+            assert(ez);
+            Expression e = ez.exp;
+            if (e.op == TOKconstruct || e.op == TOKblit)
+                e = (cast(AssignExp)e).e2;
+            return lambdaCheckForNestedRef(e, sc);
+        }
+
         return false;
     }
 
@@ -2337,9 +2250,9 @@ public:
     }
 
     // Eliminate need for dynamic_cast
-    override final VarDeclaration isVarDeclaration()
+    override final inout(VarDeclaration) isVarDeclaration() inout
     {
-        return cast(VarDeclaration)this;
+        return this;
     }
 
     override void accept(Visitor v)
@@ -2365,9 +2278,9 @@ public:
     }
 
     // Eliminate need for dynamic_cast
-    override SymbolDeclaration isSymbolDeclaration()
+    override inout(SymbolDeclaration) isSymbolDeclaration() inout
     {
-        return cast(SymbolDeclaration)this;
+        return this;
     }
 
     override void accept(Visitor v)
@@ -2407,7 +2320,7 @@ public:
         assert(linkage == LINKc);
     }
 
-    override final char* toChars()
+    override final const(char)* toChars()
     {
         //printf("TypeInfoDeclaration::toChars() tinfo = %s\n", tinfo->toChars());
         OutBuffer buf;
@@ -2417,7 +2330,7 @@ public:
         return buf.extractString();
     }
 
-    override final TypeInfoDeclaration isTypeInfoDeclaration()
+    override final inout(TypeInfoDeclaration) isTypeInfoDeclaration() inout
     {
         return this;
     }
@@ -2853,7 +2766,7 @@ public:
     extern (D) this(Loc loc, Type t)
     {
         super(loc, t, Id.This, null);
-        noscope = 1;
+        noscope = true;
     }
 
     override Dsymbol syntaxCopy(Dsymbol s)
@@ -2861,7 +2774,7 @@ public:
         assert(0); // should never be produced by syntax
     }
 
-    override ThisDeclaration isThisDeclaration()
+    override inout(ThisDeclaration) isThisDeclaration() inout
     {
         return this;
     }

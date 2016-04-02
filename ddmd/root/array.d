@@ -30,11 +30,11 @@ public:
             mem.xfree(data);
     }
 
-    char* toChars()
+    const(char)* toChars()
     {
         static if (is(typeof(T.init.toChars())))
         {
-            char** buf = cast(char**)mem.xmalloc(dim * (char*).sizeof);
+            const(char)** buf = cast(const(char)**)mem.xmalloc(dim * (char*).sizeof);
             size_t len = 2;
             for (size_t u = 0; u < dim; u++)
             {
@@ -145,19 +145,19 @@ public:
         dim = newdim;
     }
 
-    ref T opIndex(size_t i)
+    ref inout(T) opIndex(size_t i) inout
     {
         return data[i];
     }
 
-    T* tdata()
+    inout(T)* tdata() inout
     {
         return data;
     }
 
-    typeof(this)* copy()
+    Array!T* copy() const
     {
-        auto a = new typeof(this)();
+        auto a = new Array!T();
         a.setDim(dim);
         memcpy(a.data, data, dim * (void*).sizeof);
         return a;
@@ -200,8 +200,62 @@ public:
             assert(0);
     }
 
-    extern (D) T[] opSlice()
+    extern (D) inout(T)[] opSlice() inout
     {
         return data[0 .. dim];
     }
+
+    extern (D) inout(T)[] opSlice(size_t a, size_t b) inout
+    {
+        assert(a <= b && b <= dim);
+        return data[a .. b];
+    }
+}
+
+struct BitArray
+{
+    size_t length() const
+    {
+        return len;
+    }
+
+    void length(size_t nlen)
+    {
+        immutable obytes = (len + 7) / 8;
+        immutable nbytes = (nlen + 7) / 8;
+        ptr = cast(size_t*)mem.xrealloc(ptr, nbytes);
+        if (nbytes > obytes)
+            (cast(ubyte*)ptr)[obytes .. nbytes] = 0;
+        len = nlen;
+    }
+
+    bool opIndex(size_t idx) const
+    {
+        import core.bitop : bt;
+
+        assert(idx < length);
+        return !!bt(ptr, idx);
+    }
+
+    void opIndexAssign(bool val, size_t idx)
+    {
+        import core.bitop : btc, bts;
+
+        assert(idx < length);
+        if (val)
+            bts(ptr, idx);
+        else
+            btc(ptr, idx);
+    }
+
+    @disable this(this);
+
+    ~this()
+    {
+        mem.xfree(ptr);
+    }
+
+private:
+    size_t len;
+    size_t *ptr;
 }

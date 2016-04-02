@@ -276,7 +276,7 @@ struct OutBuffer
         offset += 4;
     }
 
-    extern (C++) void write(OutBuffer* buf)
+    extern (C++) void write(const OutBuffer* buf)
     {
         if (buf)
         {
@@ -399,6 +399,11 @@ struct OutBuffer
     {
         memmove(data + offset, data + offset + nbytes, this.offset - (offset + nbytes));
         this.offset -= nbytes;
+    }
+
+    extern (D) const(char)[] peekSlice()
+    {
+        return (cast(const char*)data)[0 .. offset];
     }
 
     // Append terminating null if necessary and get view of internal buffer

@@ -508,7 +508,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                         /* Rewrite op(a[arguments]) as:
                          *      a.opIndexUnary!(op)(arguments)
                          */
-                        Expressions* a = cast(Expressions*)ae.arguments.copy();
+                        Expressions* a = ae.arguments.copy();
                         Objects* tiargs = opToArg(sc, e.op);
                         result = new DotTemplateInstanceExp(e.loc, ae.e1, Id.opIndexUnary, tiargs);
                         result = new CallExp(e.loc, result, a);
@@ -676,7 +676,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     /* Rewrite e1[arguments] as:
                      *      e1.opIndex(arguments)
                      */
-                    Expressions* a = cast(Expressions*)ae.arguments.copy();
+                    Expressions* a = ae.arguments.copy();
                     result = new DotIdExp(ae.loc, ae.e1, Id.index);
                     result = new CallExp(ae.loc, result, a);
                     if (maybeSlice) // a[] might be: a.opSlice()
@@ -1238,10 +1238,15 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     return;
                 }
 
-                /* Rewrite:
+                /* Do memberwise equality.
+                 * Rewrite:
                  *      e1 == e2
                  * as:
                  *      e1.tupleof == e2.tupleof
+                 *
+                 * If sd is a nested struct, and if it's nested in a class, it will
+                 * also compare the parent class's equality. Otherwise, compares
+                 * the identity of parent context through void*.
                  */
                 if (e.att1 && t1 == e.att1) return;
                 if (e.att2 && t2 == e.att2) return;
@@ -1365,7 +1370,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                         /* Rewrite a[arguments] op= e2 as:
                          *      a.opIndexOpAssign!(op)(e2, arguments)
                          */
-                        Expressions* a = cast(Expressions*)ae.arguments.copy();
+                        Expressions* a = ae.arguments.copy();
                         a.insert(0, e.e2);
                         Objects* tiargs = opToArg(sc, e.op);
                         result = new DotTemplateInstanceExp(e.loc, ae.e1, Id.opIndexOpAssign, tiargs);
@@ -1719,7 +1724,7 @@ extern (C++) Expression build_overload(Loc loc, Scope* sc, Expression ethis, Exp
     //earg->type->print();
     Declaration decl = d.isDeclaration();
     if (decl)
-        e = new DotVarExp(loc, ethis, decl, 0);
+        e = new DotVarExp(loc, ethis, decl, false);
     else
         e = new DotIdExp(loc, ethis, d.ident);
     e = new CallExp(loc, e, earg);

@@ -229,9 +229,14 @@ extern (C++) bool isFriendOf(AggregateDeclaration ad, AggregateDeclaration cd)
  */
 extern (C++) bool hasPackageAccess(Scope* sc, Dsymbol s)
 {
+    return hasPackageAccess(sc._module, s);
+}
+
+extern (C++) bool hasPackageAccess(Module mod, Dsymbol s)
+{
     static if (LOG)
     {
-        printf("hasPackageAccess(s = '%s', sc = '%p', s->protection.pkg = '%s')\n", s.toChars(), sc, s.prot().pkg ? s.prot().pkg.toChars() : "NULL");
+        printf("hasPackageAccess(s = '%s', mod = '%s', s->protection.pkg = '%s')\n", s.toChars(), mod.toChars(), s.prot().pkg ? s.prot().pkg.toChars() : "NULL");
     }
     Package pkg = null;
     if (s.prot().pkg)
@@ -265,7 +270,7 @@ extern (C++) bool hasPackageAccess(Scope* sc, Dsymbol s)
     }
     if (pkg)
     {
-        if (pkg == sc._module.parent)
+        if (pkg == mod.parent)
         {
             static if (LOG)
             {
@@ -273,7 +278,7 @@ extern (C++) bool hasPackageAccess(Scope* sc, Dsymbol s)
             }
             return true;
         }
-        if (pkg.isPackageMod() == sc._module)
+        if (pkg.isPackageMod() == mod)
         {
             static if (LOG)
             {
@@ -281,7 +286,7 @@ extern (C++) bool hasPackageAccess(Scope* sc, Dsymbol s)
             }
             return true;
         }
-        Dsymbol ancestor = sc._module.parent;
+        Dsymbol ancestor = mod.parent;
         for (; ancestor; ancestor = ancestor.parent)
         {
             if (ancestor == pkg)
@@ -299,6 +304,25 @@ extern (C++) bool hasPackageAccess(Scope* sc, Dsymbol s)
         printf("\tno package access\n");
     }
     return false;
+}
+
+/****************************************
+ * Determine if scope sc has protected level access to cd.
+ */
+bool hasProtectedAccess(Scope *sc, Dsymbol s)
+{
+    if (auto cd = s.isClassMember()) // also includes interfaces
+    {
+        for (auto scx = sc; scx; scx = scx.enclosing)
+        {
+            if (!scx.scopesym)
+                continue;
+            auto cd2 = scx.scopesym.isClassDeclaration();
+            if (cd2 && cd.isBaseOf(cd2, null))
+                return true;
+        }
+    }
+    return sc._module == s.getAccessModule();
 }
 
 /**********************************
@@ -393,7 +417,7 @@ extern (C++) bool checkAccess(Loc loc, Scope* sc, Expression e, Declaration d)
     else if (e.type.ty == Tclass)
     {
         // Do access check
-        ClassDeclaration cd = cast(ClassDeclaration)(cast(TypeClass)e.type).sym;
+        ClassDeclaration cd = (cast(TypeClass)e.type).sym;
         if (e.op == TOKsuper)
         {
             ClassDeclaration cd2 = sc.func.toParent().isClassDeclaration();
@@ -405,8 +429,112 @@ extern (C++) bool checkAccess(Loc loc, Scope* sc, Expression e, Declaration d)
     else if (e.type.ty == Tstruct)
     {
         // Do access check
-        StructDeclaration cd = cast(StructDeclaration)(cast(TypeStruct)e.type).sym;
+        StructDeclaration cd = (cast(TypeStruct)e.type).sym;
         return checkAccess(cd, loc, sc, d);
     }
     return false;
+}
+
+/****************************************
+ * Check access to package/module `p` from scope `sc`.
+ *
+ * Params:
+ *   loc = source location for issued error message
+ *   sc = scope from which to access to a fully qualified package name
+ *   p = the package/module to check access for
+ * Returns: true if the package is not accessible.
+ *
+ * Because a global symbol table tree is used for imported packages/modules,
+ * access to them needs to be checked based on the imports in the scope chain
+ * (see Bugzilla 313).
+ *
+ */
+extern (C++) bool checkAccess(Loc loc, Scope* sc, Package p)
+{
+    if (sc._module == p)
+        return false;
+    for (; sc; sc = sc.enclosing)
+    {
+        if (sc.scopesym && sc.scopesym.isPackageAccessible(p))
+            return false;
+    }
+    auto name = p.toPrettyChars();
+    if (p.isPkgMod == PKGmodule || p.isModule())
+        deprecation(loc, "%s %s is not accessible here, perhaps add 'static import %s;'", p.kind(), name, name);
+    else
+        deprecation(loc, "%s %s is not accessible here", p.kind(), name);
+    return true;
+}
+
+/**
+ * Check whether symbols `s` is visible in `mod`.
+ *
+ * Params:
+ *  mod = lookup origin
+ *  s = symbol to check for visibility
+ * Returns: true if s is visible in mod
+ */
+extern (C++) bool symbolIsVisible(Module mod, Dsymbol s)
+{
+    // should sort overloads by ascending protection instead of iterating here
+    if (s.isOverloadable())
+    {
+        // Use the least protected overload to determine visibility
+        // and perform an access check after overload resolution.
+        overloadApply(s, (s2) {
+          if (s.prot().isMoreRestrictiveThan(s2.prot()))
+            s = s2;
+          return 0;
+        });
+    }
+    final switch (s.prot().kind)
+    {
+    case PROTundefined: return true;
+    case PROTnone: return false; // no access
+    case PROTprivate: return s.getAccessModule() == mod;
+    case PROTpackage: return hasPackageAccess(mod, s);
+    case PROTprotected: return s.getAccessModule() == mod;
+    case PROTpublic, PROTexport: return true;
+    }
+}
+
+/**
+ * Same as above, but determines the lookup module from symbols `origin`.
+ */
+extern (C++) bool symbolIsVisible(Dsymbol origin, Dsymbol s)
+{
+    return symbolIsVisible(origin.getAccessModule(), s);
+}
+
+/**
+ * Same as above but also checks for protected symbols visible from scope `sc`.
+ * Used for qualified name lookup.
+ *
+ * Params:
+ *  sc = lookup scope
+ *  s = symbol to check for visibility
+ * Returns: true if s is visible by origin
+ */
+extern (C++) bool symbolIsVisible(Scope *sc, Dsymbol s)
+{
+    // should sort overloads by ascending protection instead of iterating here
+    if (s.isOverloadable())
+    {
+        // Use the least protected overload to determine visibility
+        // and perform an access check after overload resolution.
+        overloadApply(s, (s2) {
+          if (s.prot().isMoreRestrictiveThan(s2.prot()))
+            s = s2;
+          return 0;
+        });
+    }
+    final switch (s.prot().kind)
+    {
+    case PROTundefined: return true;
+    case PROTnone: return false; // no access
+    case PROTprivate: return sc._module == s.getAccessModule();
+    case PROTpackage: return hasPackageAccess(sc._module, s);
+    case PROTprotected: return hasProtectedAccess(sc, s);
+    case PROTpublic, PROTexport: return true;
+    }
 }

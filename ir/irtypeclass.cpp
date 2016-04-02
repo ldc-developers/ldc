@@ -231,8 +231,8 @@ void IrTypeClass::addInterfaceToMap(ClassDeclaration *inter, size_t index) {
 
   // add the direct base interfaces recursively - they
   // are accessed through the same index
-  if (inter->interfaces_dim > 0) {
-    BaseClass *b = inter->interfaces[0];
+  if (inter->interfaces.length > 0) {
+    BaseClass *b = inter->interfaces.ptr[0];
     addInterfaceToMap(b->sym, index);
   }
 }

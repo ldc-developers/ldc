@@ -1143,7 +1143,7 @@ int cppmain(int argc, char **argv) {
       name = p;
     }
 
-    id = Identifier::idPool(name);
+    id = Identifier::idPool(name, strlen(name));
     auto m = Module::create(files.data[i], id, global.params.doDocComments,
                             global.params.doHdrGeneration);
     modules.push(m);

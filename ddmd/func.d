@@ -18,6 +18,7 @@ import ddmd.builtin;
 import ddmd.ctfeexpr;
 import ddmd.dclass;
 import ddmd.declaration;
+import ddmd.delegatize;
 import ddmd.dinterpret;
 import ddmd.dmodule;
 import ddmd.doc;
@@ -393,6 +394,7 @@ enum FUNCFLAGnogcInprocess    = 8;      // working on determining @nogc
 enum FUNCFLAGreturnInprocess  = 0x10;   // working on inferring 'return' for parameters
 enum FUNCFLAGinlineScanned    = 0x20;   // function has been scanned for inline possibilities
 
+
 /***********************************************************
  */
 extern (C++) class FuncDeclaration : Declaration
@@ -460,6 +462,7 @@ public:
     // true if errors in semantic3 this function's frame ptr
     bool semantic3Errors;
     ForeachStatement fes;               // if foreach body, this is the foreach
+    BaseClass* interfaceVirtual;        // if virtual, but only appears in base interface vtbl[]
     bool introducing;                   // true if 'introducing' function
     // if !=NULL, then this is the type
     // of the 'introducing' function
@@ -924,7 +927,7 @@ public:
             /* Find index of existing function in base class's vtbl[] to override
              * (the index will be the same as in cd's current vtbl[])
              */
-            int vi = cd.baseClass ? findVtblIndex(cast(Dsymbols*)&cd.baseClass.vtbl, cast(int)cd.baseClass.vtbl.dim) : -1;
+            int vi = cd.baseClass ? findVtblIndex(&cd.baseClass.vtbl, cast(int)cd.baseClass.vtbl.dim) : -1;
             bool doesoverride = false;
             switch (vi)
             {
@@ -949,6 +952,24 @@ public:
                         }
                     }
                 }
+
+                /* These quirky conditions mimic what VC++ appears to do
+                 */
+                if (global.params.mscoff && cd.cpp &&
+                    cd.baseClass && cd.baseClass.vtbl.dim)
+                {
+                    /* if overriding an interface function, then this is not
+                     * introducing and don't put it in the class vtbl[]
+                     */
+                    interfaceVirtual = overrideInterface();
+                    if (interfaceVirtual)
+                    {
+                        //printf("\tinterface function %s\n", toChars());
+                        cd.vtblFinal.push(this);
+                        goto Linterfaces;
+                    }
+                }
+
                 if (isFinalFunc())
                 {
                     // Don't check here, as it may override an interface function
@@ -958,7 +979,7 @@ public:
                 }
                 else
                 {
-                    //printf("\tintroducing function\n");
+                    //printf("\tintroducing function %s\n", toChars());
                     introducing = 1;
                     if (cd.cpp && Target.reverseCppOverloads)
                     {
@@ -1069,10 +1090,10 @@ public:
              * If this function is covariant with any members of those interface
              * functions, set the tintro.
              */
-            for (size_t i = 0; i < cd.interfaces_dim; i++)
+        Linterfaces:
+            foreach (b; cd.interfaces)
             {
-                BaseClass* b = cd.interfaces[i];
-                vi = findVtblIndex(cast(Dsymbols*)&b.sym.vtbl, cast(int)b.sym.vtbl.dim);
+                vi = findVtblIndex(&b.sym.vtbl, cast(int)b.sym.vtbl.dim);
                 switch (vi)
                 {
                 case -1:
@@ -1151,9 +1172,8 @@ public:
             /* Go through all the interface bases.
              * Disallow overriding any final functions in the interface(s).
              */
-            for (size_t i = 0; i < cd.interfaces_dim; i++)
+            foreach (b; cd.interfaces)
             {
-                BaseClass* b = cd.interfaces[i];
                 if (b.sym)
                 {
                     Dsymbol s = search_function(b.sym, ident);
@@ -1270,11 +1290,11 @@ public:
                 Statement s1 = new ExpStatement(loc, fd);
                 version(IN_LLVM)
                 {
-                    Expression e = new CallExp(loc, new VarExp(loc, fd, 0), fdrequireParams);
+                    Expression e = new CallExp(loc, new VarExp(loc, fd, false), fdrequireParams);
                 }
                 else
                 {
-                    Expression e = new CallExp(loc, new VarExp(loc, fd, 0), cast(Expressions*)null);
+                    Expression e = new CallExp(loc, new VarExp(loc, fd, false), cast(Expressions*)null);
                 }
                 Statement s2 = new ExpStatement(loc, e);
                 frequire = new CompoundStatement(loc, s1, s2);
@@ -1332,14 +1352,14 @@ public:
                 Statement s1 = new ExpStatement(loc, fd);
                 version(IN_LLVM)
                 {
-                    Expression e = new CallExp(loc, new VarExp(loc, fd, 0), fdensureParams);
+                    Expression e = new CallExp(loc, new VarExp(loc, fd, false), fdensureParams);
                 }
                 else
                 {
                     Expression eresult = null;
                     if (outId)
                         eresult = new IdentifierExp(loc, outId);
-                    Expression e = new CallExp(loc, new VarExp(loc, fd, 0), eresult);
+                    Expression e = new CallExp(loc, new VarExp(loc, fd, false), eresult);
                 }
                 Statement s2 = new ExpStatement(loc, e);
                 fensure = new CompoundStatement(loc, s1, s2);
@@ -1732,19 +1752,14 @@ public:
                 sym.parent = sc2.scopesym;
                 sc2 = sc2.push(sym);
                 AggregateDeclaration ad2 = isAggregateMember2();
-                uint* fieldinit = null;
                 /* If this is a class constructor
                  */
                 if (ad2 && isCtorDeclaration())
                 {
-                    fieldinit = cast(uint*)mem.xmalloc(uint.sizeof * ad2.fields.dim);
-                    sc2.fieldinit = fieldinit;
-                    sc2.fieldinit_dim = ad2.fields.dim;
-                    for (size_t i = 0; i < ad2.fields.dim; i++)
+                    sc2.allocFieldinit(ad2.fields.dim);
+                    foreach (v; ad2.fields)
                     {
-                        VarDeclaration v = ad2.fields[i];
                         v.ctorinit = 0;
-                        sc2.fieldinit[i] = 0;
                     }
                 }
                 if (!inferRetType && retStyle(f) != RETstack)
@@ -1841,8 +1856,7 @@ public:
                             }
                         }
                     }
-                    sc2.fieldinit = null;
-                    sc2.fieldinit_dim = 0;
+                    sc2.freeFieldinit();
                     if (cd && !(sc2.callSuper & CSXany_ctor) && cd.baseClass && cd.baseClass.ctor)
                     {
                         sc2.callSuper = 0;
@@ -1936,7 +1950,7 @@ public:
                         fbody = new CompoundStatement(Loc(), fbody, s);
                     }
                 }
-                if (returns && !fbody.isErrorStatement())
+                if (returns)
                 {
                     bool implicit0 = (f.next.ty == Tvoid && isMain());
                     Type tret = implicit0 ? Type.tint32 : f.next;
@@ -1951,6 +1965,15 @@ public:
                     {
                         ReturnStatement rs = (*returns)[i];
                         Expression exp = rs.exp;
+                        if (exp.op == TOKerror)
+                            continue;
+                        if (tret.ty == Terror)
+                        {
+                            // Bugzilla 13702
+                            exp = checkGC(sc2, exp);
+                            continue;
+                        }
+
                         if (!exp.implicitConvTo(tret) && parametersIntersect(exp.type))
                         {
                             if (exp.type.immutableOf().implicitConvTo(tret))
@@ -1959,6 +1982,7 @@ public:
                                 exp = exp.castTo(sc2, exp.type.wildOf());
                         }
                         exp = exp.implicitCastTo(sc2, tret);
+
                         if (f.isref)
                         {
                             // Function returns a reference
@@ -1972,16 +1996,20 @@ public:
                             /* Bugzilla 10789:
                              * If NRVO is not possible, all returned lvalues should call their postblits.
                              */
-                            if (!nrvo_can && exp.isLvalue())
-                                exp = callCpCtor(sc2, exp);
+                            if (!nrvo_can)
+                                exp = doCopyOrMove(sc2, exp);
+
                             checkEscape(sc2, exp, false);
                         }
+
                         exp = checkGC(sc2, exp);
+
                         if (vresult)
                         {
                             // Create: return vresult = exp;
                             exp = new BlitExp(rs.loc, vresult, exp);
                             exp.type = vresult.type;
+
                             if (rs.caseDim)
                                 exp = Expression.combine(exp, new IntegerExp(rs.caseDim));
                         }
@@ -1999,8 +2027,6 @@ public:
                     nw.sc = sc2;
                     nw.visitStmt(fbody);
                 }
-                if (fieldinit)
-                    mem.xfree(fieldinit);
                 sc2 = sc2.pop();
             }
             Statement freq = frequire;
@@ -2127,7 +2153,7 @@ static if (!IN_LLVM) {
                             if (global.params.is64bit && global.params.isWindows)
                             {
                                 offset += Target.ptrsize;
-                                if (p.storage_class & STClazy || p.type.size() > Target.ptrsize)
+                                if ((p.storage_class & STClazy) || p.type.size() > Target.ptrsize)
                                 {
                                     /* Necessary to offset the extra level of indirection the Win64
                                      * ABI demands
@@ -2231,23 +2257,25 @@ else
                     Statement s = new ReturnStatement(Loc(), new IntegerExp(0));
                     a.push(s);
                 }
+
                 Statement sbody = new CompoundStatement(Loc(), a);
+
                 /* Append destructor calls for parameters as finally blocks.
                  */
                 if (parameters)
                 {
-                    for (size_t i = 0; i < parameters.dim; i++)
+                    foreach (v; *parameters)
                     {
-                        VarDeclaration v = (*parameters)[i];
                         if (v.storage_class & (STCref | STCout | STClazy))
                             continue;
-                        if (v.noscope)
-                            continue;
-                        Expression e = v.edtor;
-                        if (e)
+                        if (v.needsScopeDtor())
                         {
-                            Statement s = new ExpStatement(Loc(), e);
+                            // same with ExpStatement.scopeCode()
+                            Statement s = new DtorExpStatement(Loc(), v.edtor, v);
+                            v.noscope = true;
+
                             s = s.semantic(sc2);
+
                             uint nothrowErrors = global.errors;
                             bool isnothrow = f.isnothrow & !(flags & FUNCFLAGnothrowInprocess);
                             int blockexit = s.blockExit(this, isnothrow);
@@ -2255,6 +2283,7 @@ else
                                 .error(loc, "%s '%s' is nothrow yet may throw", kind(), toPrettyChars());
                             if (flags & FUNCFLAGnothrowInprocess && blockexit & BEthrow)
                                 f.isnothrow = false;
+
                             if (sbody.blockExit(this, f.isnothrow) == BEfallthru)
                                 sbody = new CompoundStatement(Loc(), sbody, s);
                             else
@@ -2264,6 +2293,7 @@ else
                 }
                 // from this point on all possible 'throwers' are checked
                 flags &= ~FUNCFLAGnothrowInprocess;
+
                 if (isSynchronized())
                 {
                     /* Wrap the entire function body in a synchronized statement
@@ -2318,13 +2348,13 @@ else
             sc2.callSuper = 0;
             sc2.pop();
         }
-        if (needsClosure())
+
+        if (checkClosure())
         {
-            if (setGC())
-                error("@nogc function allocates a closure with the GC");
-            else
-                printGCUsage(loc, "using closure causes GC allocation");
+            // We should be setting errors here instead of relying on the global error count.
+            //errors = true;
         }
+
         /* If function survived being marked as impure, then it is pure
          */
         if (flags & FUNCFLAGpurityInprocess)
@@ -2459,6 +2489,29 @@ else
         }
 
         return !errors && !semantic3Errors;
+    }
+
+    /****************************************************
+     * Check that this function type is properly resolved.
+     * If not, report "forward reference error" and return true.
+     */
+    final bool checkForwardRef(Loc loc)
+    {
+        if (!functionSemantic())
+            return true;
+
+        /* No deco means the functionSemantic() call could not resolve
+         * forward referenes in the type of this function.
+         */
+        if (!type.deco)
+        {
+            bool inSemantic3 = (inferRetType && semanticRun >= PASSsemantic3);
+            .error(loc, "forward reference to %s'%s'",
+                (inSemantic3 ? "inferred return type of function " : "").ptr,
+                toChars());
+            return true;
+        }
+        return false;
     }
 
     // called from semantic3
@@ -2626,6 +2679,26 @@ else
             }
         }
         return bestvi;
+    }
+
+    /*********************************
+     * If function a function in a base class,
+     * return that base class.
+     * Params:
+     *  cd = class that function is in
+     * Returns:
+     *  base class if overriding, null if not
+     */
+    final BaseClass* overrideInterface()
+    {
+        ClassDeclaration cd = parent.isClassDeclaration();
+        foreach (b; cd.interfaces)
+        {
+            auto v = findVtblIndex(&b.sym.vtbl, cast(int)b.sym.vtbl.dim);
+            if (v >= 0)
+                return b;
+        }
+        return null;
     }
 
     /****************************************************
@@ -2928,7 +3001,7 @@ else
                 e = p.type.defaultInitLiteral(Loc());
             args[u] = e;
         }
-        MATCH m = cast(MATCH)tg.callMatch(null, &args, 1);
+        MATCH m = tg.callMatch(null, &args, 1);
         if (m > MATCHnomatch)
         {
             /* A variadic parameter list is less specialized than a
@@ -3020,7 +3093,7 @@ else
         int level;
         Dsymbol s;
         Dsymbol fdparent;
-        //printf("FuncDeclaration::getLevel(fd = '%s')\n", fd->toChars());
+        //printf("FuncDeclaration::getLevel(fd = '%s')\n", fd.toChars());
         fdparent = fd.toParent2();
         if (fdparent == this)
             return -1;
@@ -3028,7 +3101,7 @@ else
         level = 0;
         while (fd != s && fdparent != s.toParent2())
         {
-            //printf("\ts = %s, '%s'\n", s->kind(), s->toChars());
+            //printf("\ts = %s, '%s'\n", s.kind(), s.toChars());
             FuncDeclaration thisfd = s.isFuncDeclaration();
             if (thisfd)
             {
@@ -3139,11 +3212,6 @@ else
     override final bool isOverloadable()
     {
         return true; // functions can be overloaded
-    }
-
-    override final bool hasOverloads()
-    {
-        return overnext !is null;
     }
 
     final PURE isPure()
@@ -3413,7 +3481,7 @@ else
         return (ad && !(cd && cd.isCPPclass()) && ad.inv && global.params.useInvariants && (protection.kind == PROTprotected || protection.kind == PROTpublic || protection.kind == PROTexport) && !naked);
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "function";
     }
@@ -3456,73 +3524,71 @@ else
     final bool checkNestedReference(Scope* sc, Loc loc)
     {
         //printf("FuncDeclaration::checkNestedReference() %s\n", toPrettyChars());
+
+        if (auto fld = this.isFuncLiteralDeclaration())
+        {
+            if (fld.tok == TOKreserved)
+            {
+                fld.tok = TOKfunction;
+                fld.vthis = null;
+            }
+        }
+
         if (!parent || parent == sc.parent)
             return false;
         if (ident == Id.require || ident == Id.ensure)
             return false;
         if (!isThis() && !isNested())
             return false;
+
         // The current function
         FuncDeclaration fdthis = sc.parent.isFuncDeclaration();
         if (!fdthis)
             return false; // out of function scope
+
         Dsymbol p = toParent2();
+
         // Function literals from fdthis to p must be delegates
-        // TODO: here is similar to checkFrameAccess.
-        for (Dsymbol s = fdthis; s && s != p; s = s.toParent2())
-        {
-            // function literal has reference to enclosing scope is delegate
-            if (FuncLiteralDeclaration fld = s.isFuncLiteralDeclaration())
-                fld.tok = TOKdelegate;
-            if (FuncDeclaration fd = s.isFuncDeclaration())
-            {
-                if (!fd.isThis() && !fd.isNested())
-                    break;
-            }
-            if (AggregateDeclaration ad2 = s.isAggregateDeclaration())
-            {
-                if (ad2.storage_class & STCstatic)
-                    break;
-            }
-        }
+        checkNestedRef(fdthis, p);
+
         if (isNested())
         {
             // The function that this function is in
-            FuncDeclaration fdv2 = p.isFuncDeclaration();
-            //printf("this = %s in [%s]\n", this->toChars(), this->loc.toChars());
-            //printf("fdv2 = %s in [%s]\n", fdv2->toChars(), fdv2->loc.toChars());
-            //printf("fdthis = %s in [%s]\n", fdthis->toChars(), fdthis->loc.toChars());
-            if (fdv2 && fdv2 != fdthis)
+            FuncDeclaration fdv = p.isFuncDeclaration();
+            if (!fdv)
+                return false;
+            if (fdv == fdthis)
+                return false;
+
+            //printf("this = %s in [%s]\n", this.toChars(), this.loc.toChars());
+            //printf("fdv  = %s in [%s]\n", fdv .toChars(), fdv .loc.toChars());
+            //printf("fdthis = %s in [%s]\n", fdthis.toChars(), fdthis.loc.toChars());
+
+            // Add this function to the list of those which called us
+            if (fdthis != this)
             {
-                // Add this function to the list of those which called us
-                if (fdthis != this)
+                bool found = false;
+                for (size_t i = 0; i < siblingCallers.dim; ++i)
                 {
-                    bool found = false;
-                    for (size_t i = 0; i < siblingCallers.dim; ++i)
-                    {
-                        if (siblingCallers[i] == fdthis)
-                            found = true;
-                    }
-                    if (!found)
-                    {
-                        //printf("\tadding sibling %s\n", fdthis->toPrettyChars());
-                        if (!sc.intypeof && !(sc.flags & SCOPEcompile))
-                            siblingCallers.push(fdthis);
-                    }
+                    if (siblingCallers[i] == fdthis)
+                        found = true;
+                }
+                if (!found)
+                {
+                    //printf("\tadding sibling %s\n", fdthis.toPrettyChars());
+                    if (!sc.intypeof && !(sc.flags & SCOPEcompile))
+                        siblingCallers.push(fdthis);
                 }
             }
-            FuncDeclaration fdv = p.isFuncDeclaration();
-            if (fdv && fdthis && fdv != fdthis)
-            {
-                int lv = fdthis.getLevel(loc, sc, fdv);
-                if (lv == -2)
-                    return true; // error
-                if (lv == -1)
-                    return false; // downlevel call
-                if (lv == 0)
-                    return false; // same level call
-                // Uplevel call
-            }
+
+            int lv = fdthis.getLevel(loc, sc, fdv);
+            if (lv == -2)
+                return true; // error
+            if (lv == -1)
+                return false; // downlevel call
+            if (lv == 0)
+                return false; // same level call
+            // Uplevel call
         }
         return false;
     }
@@ -3557,7 +3623,6 @@ else
         for (size_t i = 0; i < closureVars.dim; i++)
         {
             VarDeclaration v = closureVars[i];
-            assert(v.isVarDeclaration());
             //printf("\tv = %s\n", v->toChars());
             for (size_t j = 0; j < v.nestedrefs.dim; j++)
             {
@@ -3623,6 +3688,65 @@ else
         return false;
     Lyes:
         //printf("\tneeds closure\n");
+        return true;
+    }
+
+    /***********************************************
+     * Check that the function contains any closure.
+     * If it's @nogc, report suitable errors.
+     * This is mostly consistent with FuncDeclaration::needsClosure().
+     *
+     * Returns:
+     *      true if any errors occur.
+     */
+    final bool checkClosure()
+    {
+        if (!needsClosure())
+            return false;
+
+        if (setGC())
+        {
+            error("is @nogc yet allocates closures with the GC");
+            if (global.gag)     // need not report supplemental errors
+                return true;
+        }
+        else
+        {
+            printGCUsage(loc, "using closure causes GC allocation");
+            return false;
+        }
+
+        FuncDeclarations a;
+        foreach (v; closureVars)
+        {
+            foreach (f; v.nestedrefs)
+            {
+                assert(f !is this);
+
+            LcheckAncestorsOfANestedRef:
+                for (Dsymbol s = f; s && s !is this; s = s.parent)
+                {
+                    auto fx = s.isFuncDeclaration();
+                    if (!fx)
+                        continue;
+                    if (fx.isThis() ||
+                        fx.tookAddressOf ||
+                        checkEscapingSiblings(fx, this))
+                    {
+                        foreach (f2; a)
+                        {
+                            if (f2 == f)
+                                break LcheckAncestorsOfANestedRef;
+                        }
+                        a.push(f);
+                        .errorSupplemental(f.loc, "%s closes over variable %s at %s",
+                            f.toPrettyChars(), v.toChars(), v.loc.toChars());
+                        break LcheckAncestorsOfANestedRef;
+                    }
+                }
+            }
+        }
+
         return true;
     }
 
@@ -3769,7 +3893,7 @@ version(IN_LLVM)
 else
 {
                 Expression eresult = null;
-                Expression e = new CallExp(loc, new VarExp(loc, fdv.fdrequire, 0), eresult);
+                Expression e = new CallExp(loc, new VarExp(loc, fdv.fdrequire, false), eresult);
 }
                 Statement s2 = new ExpStatement(loc, e);
                 auto c = new Catch(loc, null, null, sf);
@@ -3865,7 +3989,7 @@ version(IN_LLVM)
 }
 else
 {
-                Expression e = new CallExp(loc, new VarExp(loc, fdv.fdensure, 0), eresult);
+                Expression e = new CallExp(loc, new VarExp(loc, fdv.fdensure, false), eresult);
 }
                 Statement s2 = new ExpStatement(loc, e);
                 if (sf)
@@ -3904,7 +4028,7 @@ else
      */
     final static FuncDeclaration genCfunc(Parameters* fparams, Type treturn, const(char)* name, StorageClass stc = 0)
     {
-        return genCfunc(fparams, treturn, Identifier.idPool(name), stc);
+        return genCfunc(fparams, treturn, Identifier.idPool(name, strlen(name)), stc);
     }
 
     final static FuncDeclaration genCfunc(Parameters* fparams, Type treturn, Identifier id, StorageClass stc = 0)
@@ -3936,7 +4060,7 @@ else
         return fd;
     }
 
-    override final FuncDeclaration isFuncDeclaration()
+    override final inout(FuncDeclaration) isFuncDeclaration() inout
     {
         return this;
     }
@@ -3993,7 +4117,7 @@ extern (C++) Expression addInvariant(Loc loc, Scope* sc, AggregateDeclaration ad
              */
             e = new ThisExp(Loc());
             e.type = vthis.type;
-            e = new DotVarExp(Loc(), e, inv, 0);
+            e = new DotVarExp(Loc(), e, inv, false);
             e.type = inv.type;
             e = new CallExp(Loc(), e);
             e.type = Type.tvoid;
@@ -4141,10 +4265,12 @@ extern (C++) static void MODMatchToBuffer(OutBuffer* buf, ubyte lhsMod, ubyte rh
  *      flags           1: do not issue error message on no match, just return NULL
  *                      2: overloadResolve only
  */
-extern (C++) FuncDeclaration resolveFuncCall(Loc loc, Scope* sc, Dsymbol s, Objects* tiargs, Type tthis, Expressions* fargs, int flags = 0)
+extern (C++) FuncDeclaration resolveFuncCall(Loc loc, Scope* sc, Dsymbol s,
+    Objects* tiargs, Type tthis, Expressions* fargs, int flags = 0)
 {
     if (!s)
         return null; // no match
+
     version (none)
     {
         printf("resolveFuncCall('%s')\n", s.toChars());
@@ -4159,13 +4285,18 @@ extern (C++) FuncDeclaration resolveFuncCall(Loc loc, Scope* sc, Dsymbol s, Obje
             }
         }
     }
-    if (tiargs && arrayObjectIsError(tiargs) || fargs && arrayObjectIsError(cast(Objects*)fargs))
+
+    if (tiargs && arrayObjectIsError(tiargs) ||
+        fargs && arrayObjectIsError(cast(Objects*)fargs))
     {
         return null;
     }
+
     Match m;
     m.last = MATCHnomatch;
+
     functionResolve(&m, s, loc, sc, tiargs, tthis, fargs);
+
     if (m.last > MATCHnomatch && m.lastf)
     {
         if (m.count == 1) // exactly one match
@@ -4179,6 +4310,7 @@ extern (C++) FuncDeclaration resolveFuncCall(Loc loc, Scope* sc, Dsymbol s, Obje
             return m.lastf;
         }
     }
+
     /* Failed to find a best match.
      * Do nothing or print error.
      */
@@ -4187,16 +4319,21 @@ extern (C++) FuncDeclaration resolveFuncCall(Loc loc, Scope* sc, Dsymbol s, Obje
         // error was caused on matched function
         if (m.count == 1)
             return m.lastf;
+
         // if do not print error messages
         if (flags & 1)
             return null; // no match
     }
-    FuncDeclaration fd = s.isFuncDeclaration();
-    TemplateDeclaration td = s.isTemplateDeclaration();
+
+    auto fd = s.isFuncDeclaration();
+    auto od = s.isOverDeclaration();
+    auto td = s.isTemplateDeclaration();
     if (td && td.funcroot)
         s = fd = td.funcroot;
+
     OutBuffer tiargsBuf;
     arrayObjectsToBuffer(&tiargsBuf, tiargs);
+
     OutBuffer fargsBuf;
     fargsBuf.writeByte('(');
     argExpTypesToCBuffer(&fargsBuf, fargs);
@@ -4211,7 +4348,9 @@ extern (C++) FuncDeclaration resolveFuncCall(Loc loc, Scope* sc, Dsymbol s, Obje
     {
         if (td && !fd) // all of overloads are templates
         {
-            .error(loc, "%s %s.%s cannot deduce function from argument types !(%s)%s, candidates are:", td.kind(), td.parent.toPrettyChars(), td.ident.toChars(), tiargsBuf.peekString(), fargsBuf.peekString());
+            .error(loc, "%s %s.%s cannot deduce function from argument types !(%s)%s, candidates are:",
+                td.kind(), td.parent.toPrettyChars(), td.ident.toChars(),
+                tiargsBuf.peekString(), fargsBuf.peekString());
 
             // Display candidate templates (even if there are no multiple overloads)
             int numToDisplay = numOverloadsDisplay;
@@ -4227,17 +4366,23 @@ extern (C++) FuncDeclaration resolveFuncCall(Loc loc, Scope* sc, Dsymbol s, Obje
                 // Too many overloads to sensibly display.
                 // Just show count of remaining overloads.
                 int num = 0;
-                overloadApply(td.overnext, (s){ ++num; return 0; });
+                overloadApply(td.overnext, (s) { ++num; return 0; });
                 if (num > 0)
                     .errorSupplemental(loc, "... (%d more, -v to show) ...", num);
                 return 1;   // stop iterating
             });
         }
+        else if (od)
+        {
+            .error(loc, "none of the overloads of '%s' are callable using argument types !(%s)%s",
+                od.ident.toChars(), tiargsBuf.peekString(), fargsBuf.peekString());
+        }
         else
         {
             assert(fd);
+
             bool hasOverloads = fd.overnext !is null;
-            TypeFunction tf = cast(TypeFunction)fd.type;
+            auto tf = cast(TypeFunction)fd.type;
             if (tthis && !MODimplicitConv(tthis.mod, tf.mod)) // modifier mismatch
             {
                 OutBuffer thisBuf, funcBuf;
@@ -4245,7 +4390,7 @@ extern (C++) FuncDeclaration resolveFuncCall(Loc loc, Scope* sc, Dsymbol s, Obje
                 MODMatchToBuffer(&funcBuf, tf.mod, tthis.mod);
                 if (hasOverloads)
                 {
-                    .error(loc, "None of the overloads of '%s' are callable using a %sobject, candidates are:",
+                    .error(loc, "none of the overloads of '%s' are callable using a %sobject, candidates are:",
                         fd.ident.toChars(), thisBuf.peekString());
                 }
                 else
@@ -4260,7 +4405,7 @@ extern (C++) FuncDeclaration resolveFuncCall(Loc loc, Scope* sc, Dsymbol s, Obje
                 //printf("tf = %s, args = %s\n", tf->deco, (*fargs)[0]->type->deco);
                 if (hasOverloads)
                 {
-                    .error(loc, "None of the overloads of '%s' are callable using argument types %s, candidates are:",
+                    .error(loc, "none of the overloads of '%s' are callable using argument types %s, candidates are:",
                         fd.ident.toChars(), fargsBuf.peekString());
                 }
                 else
@@ -4299,7 +4444,11 @@ extern (C++) FuncDeclaration resolveFuncCall(Loc loc, Scope* sc, Dsymbol s, Obje
         TypeFunction tf2 = cast(TypeFunction)m.nextf.type;
         const(char)* lastprms = parametersTypeToChars(tf1.parameters, tf1.varargs);
         const(char)* nextprms = parametersTypeToChars(tf2.parameters, tf2.varargs);
-        .error(loc, "%s.%s called with argument types %s matches both:\n%s:     %s%s\nand:\n%s:     %s%s", s.parent.toPrettyChars(), s.ident.toChars(), fargsBuf.peekString(), m.lastf.loc.toChars(), m.lastf.toPrettyChars(), lastprms, m.nextf.loc.toChars(), m.nextf.toPrettyChars(), nextprms);
+        .error(loc, "%s.%s called with argument types %s matches both:\n%s:     %s%s\nand:\n%s:     %s%s",
+            s.parent.toPrettyChars(), s.ident.toChars(),
+            fargsBuf.peekString(),
+            m.lastf.loc.toChars(), m.lastf.toPrettyChars(), lastprms,
+            m.nextf.loc.toChars(), m.nextf.toPrettyChars(), nextprms);
     }
     return null;
 }
@@ -4483,12 +4632,12 @@ public:
         userAttribDecl = funcalias.userAttribDecl;
     }
 
-    override FuncAliasDeclaration isFuncAliasDeclaration()
+    override inout(FuncAliasDeclaration) isFuncAliasDeclaration() inout
     {
         return this;
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "function alias";
     }
@@ -4511,6 +4660,9 @@ extern (C++) final class FuncLiteralDeclaration : FuncDeclaration
 public:
     TOK tok;        // TOKfunction or TOKdelegate
     Type treq;      // target of return type inference
+
+    // backend
+    bool deferToObj;
 
     extern (D) this(Loc loc, Loc endloc, Type type, TOK tok, ForeachStatement fes, Identifier id = null)
     {
@@ -4598,12 +4750,12 @@ public:
             (cast(TypeFunction)type).next = tret;
     }
 
-    override FuncLiteralDeclaration isFuncLiteralDeclaration()
+    override inout(FuncLiteralDeclaration) isFuncLiteralDeclaration() inout
     {
         return this;
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         // GCC requires the (char*) casts
         return (tok != TOKfunction) ? cast(char*)"delegate" : cast(char*)"function";
@@ -4686,7 +4838,7 @@ public:
                 {
                     if (fbody || !(storage_class & STCdisable))
                     {
-                        error("default constructor for structs only allowed "
+                        error("default constructor for structs only allowed " ~
                             "with @disable, no body, and no parameters");
                         storage_class |= STCdisable;
                         fbody = null;
@@ -4717,14 +4869,14 @@ public:
         }
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "constructor";
     }
 
-    override char* toChars()
+    override const(char)* toChars() const
     {
-        return cast(char*)"this";
+        return "this";
     }
 
     override bool isVirtual()
@@ -4742,7 +4894,7 @@ public:
         return (isThis() && vthis && global.params.useInvariants);
     }
 
-    override CtorDeclaration isCtorDeclaration()
+    override inout(CtorDeclaration) isCtorDeclaration() inout
     {
         return this;
     }
@@ -4823,7 +4975,7 @@ public:
         return false; // cannot overload postblits
     }
 
-    override PostBlitDeclaration isPostBlitDeclaration()
+    override inout(PostBlitDeclaration) isPostBlitDeclaration() inout
     {
         return this;
     }
@@ -4883,19 +5035,20 @@ public:
             type = new TypeFunction(null, Type.tvoid, false, LINKd, storage_class);
         sc = sc.push();
         sc.stc &= ~STCstatic; // not a static destructor
-        sc.linkage = LINKd;
+        if (sc.linkage != LINKcpp)
+            sc.linkage = LINKd;
         FuncDeclaration.semantic(sc);
         sc.pop();
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "destructor";
     }
 
-    override char* toChars()
+    override const(char)* toChars() const
     {
-        return cast(char*)"~this";
+        return "~this";
     }
 
     override bool isVirtual()
@@ -4919,7 +5072,7 @@ public:
         return false; // cannot overload destructors
     }
 
-    override DtorDeclaration isDtorDeclaration()
+    override inout(DtorDeclaration) isDtorDeclaration() inout
     {
         return this;
     }
@@ -5037,7 +5190,7 @@ public:
         return true;
     }
 
-    override final StaticCtorDeclaration isStaticCtorDeclaration()
+    override final inout(StaticCtorDeclaration) isStaticCtorDeclaration() inout
     {
         return this;
     }
@@ -5065,7 +5218,7 @@ public:
         return FuncDeclaration.syntaxCopy(scd);
     }
 
-    override SharedStaticCtorDeclaration isSharedStaticCtorDeclaration()
+    override inout(SharedStaticCtorDeclaration) isSharedStaticCtorDeclaration() inout
     {
         return this;
     }
@@ -5186,7 +5339,7 @@ public:
         return false;
     }
 
-    override final StaticDtorDeclaration isStaticDtorDeclaration()
+    override final inout(StaticDtorDeclaration) isStaticDtorDeclaration() inout
     {
         return this;
     }
@@ -5214,7 +5367,7 @@ public:
         return FuncDeclaration.syntaxCopy(sdd);
     }
 
-    override SharedStaticDtorDeclaration isSharedStaticDtorDeclaration()
+    override inout(SharedStaticDtorDeclaration) isSharedStaticDtorDeclaration() inout
     {
         return this;
     }
@@ -5289,7 +5442,7 @@ public:
         return false;
     }
 
-    override InvariantDeclaration isInvariantDeclaration()
+    override inout(InvariantDeclaration) isInvariantDeclaration() inout
     {
         return this;
     }
@@ -5399,7 +5552,7 @@ public:
         return false;
     }
 
-    override UnitTestDeclaration isUnitTestDeclaration()
+    override inout(UnitTestDeclaration) isUnitTestDeclaration() inout
     {
         return this;
     }
@@ -5471,7 +5624,7 @@ public:
         FuncDeclaration.semantic(sc);
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "allocator";
     }
@@ -5491,7 +5644,7 @@ public:
         return false;
     }
 
-    override NewDeclaration isNewDeclaration()
+    override inout(NewDeclaration) isNewDeclaration() inout
     {
         return this;
     }
@@ -5560,7 +5713,7 @@ public:
         FuncDeclaration.semantic(sc);
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "deallocator";
     }
@@ -5585,7 +5738,7 @@ public:
         return false;
     }
 
-    override DeleteDeclaration isDeleteDeclaration()
+    override inout(DeleteDeclaration) isDeleteDeclaration() inout
     {
         return this;
     }

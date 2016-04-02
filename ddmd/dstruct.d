@@ -270,7 +270,7 @@ public:
 
     override final void semantic(Scope* sc)
     {
-        //printf("StructDeclaration::semantic(this=%p, %s '%s', sizeok = %d)\n", this, parent.toChars(), toChars(), sizeok);
+        //printf("StructDeclaration::semantic(this=%p, '%s', sizeok = %d)\n", this, toPrettyChars(), sizeok);
 
         //static int count; if (++count == 20) assert(0);
 
@@ -279,7 +279,7 @@ public:
         uint dprogress_save = Module.dprogress;
         int errors = global.errors;
 
-        //printf("+StructDeclaration::semantic(this=%p, %s '%s', sizeok = %d)\n", this, parent.toChars(), toChars(), sizeok);
+        //printf("+StructDeclaration::semantic(this=%p, '%s', sizeok = %d)\n", this, toPrettyChars(), sizeok);
         Scope* scx = null;
         if (_scope)
         {
@@ -296,7 +296,7 @@ public:
         assert(parent && !isAnonymous());
 
         if (this.errors)
-           type = Type.terror;
+            type = Type.terror;
         type = type.semantic(loc, sc);
         if (type.ty == Tstruct && (cast(TypeStruct)type).sym != this)
         {
@@ -342,7 +342,7 @@ public:
             for (size_t i = 0; i < members.dim; i++)
             {
                 Dsymbol s = (*members)[i];
-                //printf("adding member '%s' to '%s'\n", s->toChars(), this->toChars());
+                //printf("adding member '%s' to '%s'\n", s.toChars(), this.toChars());
                 s.addMember(sc, this);
             }
         }
@@ -367,7 +367,7 @@ public:
         for (size_t i = 0; i < members.dim; i++)
         {
             Dsymbol s = (*members)[i];
-            //printf("struct: setScope %s %s\n", s->kind(), s->toChars());
+            //printf("struct: setScope %s %s\n", s.kind(), s.toChars());
             s.setScope(sc2);
         }
 
@@ -383,7 +383,7 @@ public:
             s.semantic(sc2);
         }
 
-        finalizeSize(sc2);
+        finalizeSize();
 
         if (sizeok == SIZEOKfwd)
         {
@@ -451,16 +451,6 @@ public:
         xcmp = buildXopCmp(this, sc2);
         xhash = buildXtoHash(this, sc2);
 
-        /* Even if the struct is merely imported and its semantic3 is not run,
-         * the TypeInfo object would be speculatively stored in each object
-         * files. To set correct function pointer, run semantic3 for xeq and xcmp.
-         */
-        //if ((xeq && xeq != xerreq || xcmp && xcmp != xerrcmp) && isImportedSym(this))
-        //    Module::addDeferredSemantic3(this);
-
-        /* Defer requesting semantic3 until TypeInfo generation is actually invoked.
-         * See semanticTypeInfo().
-         */
         inv = buildInv(this, sc2);
 
         sc2.pop();
@@ -580,9 +570,9 @@ public:
         }
     }
 
-    override final Dsymbol search(Loc loc, Identifier ident, int flags = IgnoreNone)
+    override final Dsymbol search(Loc loc, Identifier ident, int flags = SearchLocalsOnly)
     {
-        //printf("%s.StructDeclaration::search('%s')\n", toChars(), ident->toChars());
+        //printf("%s.StructDeclaration::search('%s', flags = x%x)\n", toChars(), ident.toChars(), flags);
         if (_scope && !symtab)
             semantic(_scope);
 
@@ -595,12 +585,12 @@ public:
         return ScopeDsymbol.search(loc, ident, flags);
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "struct";
     }
 
-    override final void finalizeSize(Scope* sc)
+    override final void finalizeSize()
     {
         //printf("StructDeclaration::finalizeSize() %s\n", toChars());
         if (sizeok != SIZEOKnone)
@@ -769,7 +759,7 @@ public:
             if (e.op == TOKerror)
                 return false;
 
-            (*elements)[i] = e.isLvalue() ? callCpCtor(sc, e) : valueNoDtor(e);
+            (*elements)[i] = doCopyOrMove(sc, e);
         }
         return true;
     }
@@ -819,7 +809,7 @@ public:
         return (ispod == ISPODyes);
     }
 
-    override final StructDeclaration isStructDeclaration()
+    override final inout(StructDeclaration) isStructDeclaration() inout
     {
         return this;
     }
@@ -847,12 +837,12 @@ public:
         return StructDeclaration.syntaxCopy(ud);
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "union";
     }
 
-    override UnionDeclaration isUnionDeclaration()
+    override inout(UnionDeclaration) isUnionDeclaration() inout
     {
         return this;
     }

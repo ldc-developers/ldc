@@ -870,11 +870,6 @@ extern (C++) UnionExp Equal(TOK op, Loc loc, Type type, Expression e1, Expressio
                     break;
             }
         }
-        if (cmp && es1.type.needsNested())
-        {
-            if ((es1.sinit !is null) != (es2.sinit !is null))
-                cmp = 0;
-        }
     }
     else if (e1.isConst() != 1 || e2.isConst() != 1)
     {
@@ -1344,9 +1339,8 @@ extern (C++) UnionExp Slice(Type type, Expression e1, Expression lwr, Expression
         {
             size_t len = cast(size_t)(iupr - ilwr);
             ubyte sz = es1.sz;
-            void* s = mem.xmalloc((len + 1) * sz);
-            memcpy(cast(char*)s, cast(char*)es1.string + ilwr * sz, len * sz);
-            memset(cast(char*)s + len * sz, 0, sz);
+            void* s = mem.xmalloc(len * sz);
+            memcpy(cast(char*)s, es1.string + ilwr * sz, len * sz);
             emplaceExp!(StringExp)(&ue, loc, s, len, es1.postfix);
             StringExp es = cast(StringExp)ue.exp();
             es.sz = sz;
@@ -1382,29 +1376,13 @@ extern (C++) UnionExp Slice(Type type, Expression e1, Expression lwr, Expression
 /* Set a slice of char/integer array literal 'existingAE' from a string 'newval'.
  * existingAE[firstIndex..firstIndex+newval.length] = newval.
  */
-extern (C++) void sliceAssignArrayLiteralFromString(ArrayLiteralExp existingAE, StringExp newval, size_t firstIndex)
+extern (C++) void sliceAssignArrayLiteralFromString(ArrayLiteralExp existingAE, const StringExp newval, size_t firstIndex)
 {
-    size_t newlen = newval.len;
-    size_t sz = newval.sz;
-    void* s = newval.string;
+    const len = newval.len;
     Type elemType = existingAE.type.nextOf();
-    for (size_t j = 0; j < newlen; j++)
+    foreach (j; 0 .. len)
     {
-        dinteger_t val;
-        switch (sz)
-        {
-        case 1:
-            val = (cast(char*)s)[j];
-            break;
-        case 2:
-            val = (cast(utf16_t*)s)[j];
-            break;
-        case 4:
-            val = (cast(utf32_t*)s)[j];
-            break;
-        default:
-            assert(0);
-        }
+        const val = newval.getCodeUnit(j);
         (*existingAE.elements)[j + firstIndex] = new IntegerExp(newval.loc, val, elemType);
     }
 }
@@ -1414,76 +1392,44 @@ extern (C++) void sliceAssignArrayLiteralFromString(ArrayLiteralExp existingAE, 
  */
 extern (C++) void sliceAssignStringFromArrayLiteral(StringExp existingSE, ArrayLiteralExp newae, size_t firstIndex)
 {
-    void* s = existingSE.string;
-    for (size_t j = 0; j < newae.elements.dim; j++)
+    assert(existingSE.ownedByCtfe != OWNEDcode);
+    foreach (j; 0 .. newae.elements.dim)
     {
-        uint val = cast(uint)newae.getElement(j).toInteger();
-        switch (existingSE.sz)
-        {
-        case 1:
-            (cast(char*)s)[j + firstIndex] = cast(char)val;
-            break;
-        case 2:
-            (cast(utf16_t*)s)[j + firstIndex] = cast(utf16_t)val;
-            break;
-        case 4:
-            (cast(utf32_t*)s)[j + firstIndex] = cast(utf32_t)val;
-            break;
-        default:
-            assert(0);
-        }
+        existingSE.setCodeUnit(firstIndex + j, cast(dchar)newae.getElement(j).toInteger());
     }
 }
 
 /* Set a slice of string 'existingSE' from a string 'newstr'.
  *   existingSE[firstIndex..firstIndex+newstr.length] = newstr.
  */
-extern (C++) void sliceAssignStringFromString(StringExp existingSE, StringExp newstr, size_t firstIndex)
+extern (C++) void sliceAssignStringFromString(StringExp existingSE, const StringExp newstr, size_t firstIndex)
 {
-    void* s = existingSE.string;
+    assert(existingSE.ownedByCtfe != OWNEDcode);
     size_t sz = existingSE.sz;
     assert(sz == newstr.sz);
-    memcpy(cast(char*)s + firstIndex * sz, newstr.string, sz * newstr.len);
+    memcpy(existingSE.string + firstIndex * sz, newstr.string, sz * newstr.len);
 }
 
 /* Compare a string slice with another string slice.
  * Conceptually equivalent to memcmp( se1[lo1..lo1+len],  se2[lo2..lo2+len])
  */
-extern (C++) int sliceCmpStringWithString(StringExp se1, StringExp se2, size_t lo1, size_t lo2, size_t len)
+extern (C++) int sliceCmpStringWithString(const StringExp se1, const StringExp se2, size_t lo1, size_t lo2, size_t len)
 {
-    void* s1 = se1.string;
-    void* s2 = se2.string;
     size_t sz = se1.sz;
     assert(sz == se2.sz);
-    return memcmp(cast(char*)s1 + sz * lo1, cast(char*)s2 + sz * lo2, sz * len);
+    return memcmp(se1.string + sz * lo1, se2.string + sz * lo2, sz * len);
 }
 
 /* Compare a string slice with an array literal slice
  * Conceptually equivalent to memcmp( se1[lo1..lo1+len],  ae2[lo2..lo2+len])
  */
-extern (C++) int sliceCmpStringWithArray(StringExp se1, ArrayLiteralExp ae2, size_t lo1, size_t lo2, size_t len)
+extern (C++) int sliceCmpStringWithArray(const StringExp se1, ArrayLiteralExp ae2, size_t lo1, size_t lo2, size_t len)
 {
-    void* s = se1.string;
-    size_t sz = se1.sz;
-    for (size_t j = 0; j < len; j++)
+    foreach (j; 0 .. len)
     {
-        uint val2 = cast(uint)ae2.getElement(j + lo2).toInteger();
-        uint val1;
-        switch (sz)
-        {
-        case 1:
-            val1 = (cast(char*)s)[j + lo1];
-            break;
-        case 2:
-            val1 = (cast(utf16_t*)s)[j + lo1];
-            break;
-        case 4:
-            val1 = (cast(utf32_t*)s)[j + lo1];
-            break;
-        default:
-            assert(0);
-        }
-        int c = val1 - val2;
+        const val2 = cast(dchar)ae2.getElement(j + lo2).toInteger();
+        const val1 = se1.getCodeUnit(j + lo1);
+        const int c = val1 - val2;
         if (c)
             return c;
     }
@@ -1521,24 +1467,12 @@ extern (C++) UnionExp Cat(Type type, Expression e1, Expression e2)
                 t = t.nextOf().toBasetype();
             ubyte sz = cast(ubyte)t.size();
             dinteger_t v = e.toInteger();
-            size_t len = (t.ty == tn.ty) ? 1 : utf_codeLength(sz, cast(dchar_t)v);
-            void* s = mem.xmalloc((len + 1) * sz);
+            size_t len = (t.ty == tn.ty) ? 1 : utf_codeLength(sz, cast(dchar)v);
+            void* s = mem.xmalloc(len * sz);
             if (t.ty == tn.ty)
-            {
-version(IN_LLVM) {
-    version(LittleEndian) {
-                memcpy(s, &v, sz);
-    } else {
-                memcpy(s, cast(char *)&v + (dinteger_t.sizeof - sz), sz);
-    }
-} else {
-                memcpy(s, &v, sz);
-}
-            }
+                Port.valcpy(s, v, sz);
             else
-                utf_encode(sz, s, cast(dchar_t)v);
-            // Add terminating 0
-            memset(cast(char*)s + len * sz, 0, sz);
+                utf_encode(sz, s, cast(dchar)v);
             emplaceExp!(StringExp)(&ue, loc, s, len);
             StringExp es = cast(StringExp)ue.exp();
             es.sz = sz;
@@ -1601,11 +1535,9 @@ version(IN_LLVM) {
             assert(ue.exp().type);
             return ue;
         }
-        void* s = mem.xmalloc((len + 1) * sz);
+        void* s = mem.xmalloc(len * sz);
         memcpy(cast(char*)s, es1.string, es1.len * sz);
         memcpy(cast(char*)s + es1.len * sz, es2.string, es2.len * sz);
-        // Add terminating 0
-        memset(cast(char*)s + len * sz, 0, sz);
         emplaceExp!(StringExp)(&ue, loc, s, len);
         StringExp es = cast(StringExp)ue.exp();
         es.sz = sz;
@@ -1663,26 +1595,13 @@ version(IN_LLVM) {
         // (char[] ~ char, wchar[]~wchar, or dchar[]~dchar)
         bool homoConcat = (sz == t2.size());
         size_t len = es1.len;
-        len += homoConcat ? 1 : utf_codeLength(sz, cast(dchar_t)v);
-        void* s = mem.xmalloc((len + 1) * sz);
+        len += homoConcat ? 1 : utf_codeLength(sz, cast(dchar)v);
+        void* s = mem.xmalloc(len * sz);
         memcpy(s, es1.string, es1.len * sz);
         if (homoConcat)
-        {
-version(IN_LLVM) {
-    version(LittleEndian) {
-            memcpy(cast(char *)s + (sz * es1.len), &v, sz);
-    } else {
-            memcpy(cast(char *)s + (sz * es1.len),
-                   cast(char *)&v + (dinteger_t.sizeof - sz), sz);
-    }
-} else {
-            memcpy(cast(char*)s + (sz * es1.len), &v, sz);
-}
-        }
+            Port.valcpy(cast(char*)s + (sz * es1.len), v, sz);
         else
-            utf_encode(sz, cast(char*)s + (sz * es1.len), cast(dchar_t)v);
-        // Add terminating 0
-        memset(cast(char*)s + len * sz, 0, sz);
+            utf_encode(sz, cast(char*)s + (sz * es1.len), cast(dchar)v);
         emplaceExp!(StringExp)(&ue, loc, s, len);
         es = cast(StringExp)ue.exp();
         es.sz = sz;
@@ -1698,20 +1617,9 @@ version(IN_LLVM) {
         size_t len = 1 + es2.len;
         ubyte sz = es2.sz;
         dinteger_t v = e1.toInteger();
-        void* s = mem.xmalloc((len + 1) * sz);
-version(IN_LLVM) {
-    version(LittleEndian) {
-        memcpy(cast(char *)s, &v, sz);
-    } else {
-        memcpy(cast(char *)s,
-               cast(char *)&v + (dinteger_t.sizeof - sz), sz);
-    }
-} else {
+        void* s = mem.xmalloc(len * sz);
         memcpy(cast(char*)s, &v, sz);
-}
         memcpy(cast(char*)s + sz, es2.string, es2.len * sz);
-        // Add terminating 0
-        memset(cast(char*)s + len * sz, 0, sz);
         emplaceExp!(StringExp)(&ue, loc, s, len);
         StringExp es = cast(StringExp)ue.exp();
         es.sz = sz;

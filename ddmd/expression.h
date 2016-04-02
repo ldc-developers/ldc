@@ -75,7 +75,7 @@ TemplateDeclaration *getFuncTemplateDecl(Dsymbol *s);
 Expression *valueNoDtor(Expression *e);
 int modifyFieldVar(Loc loc, Scope *sc, VarDeclaration *var, Expression *e1);
 Expression *resolveAliasThis(Scope *sc, Expression *e, bool gag = false);
-Expression *callCpCtor(Scope *sc, Expression *e);
+Expression *doCopyOrMove(Scope *sc, Expression *e);
 Expression *resolveOpDollar(Scope *sc, ArrayExp *ae, Expression **pe0);
 Expression *resolveOpDollar(Scope *sc, ArrayExp *ae, IntervalExp *ie, Expression **pe0);
 Expression *integralPromotions(Expression *e, Scope *sc);
@@ -152,9 +152,9 @@ public:
     void print();
     char *toChars();
     virtual void printAST(int ident = 0);
-    void error(const char *format, ...);
-    void warning(const char *format, ...);
-    void deprecation(const char *format, ...);
+    void error(const char *format, ...) const;
+    void warning(const char *format, ...) const;
+    void deprecation(const char *format, ...) const;
 
     // creates a single expression which is effectively (e1, e2)
     // this new expression does not necessarily need to have valid D source code representation,
@@ -185,6 +185,7 @@ public:
         return ::castTo(this, sc, t);
     }
     virtual Expression *resolveLoc(Loc loc, Scope *sc);
+    virtual bool checkType();
     virtual bool checkValue();
     bool checkScalar();
     bool checkNoBool();
@@ -321,7 +322,7 @@ public:
     Dsymbol *s;
     bool hasOverloads;
 
-    DsymbolExp(Loc loc, Dsymbol *s, bool hasOverloads = false);
+    DsymbolExp(Loc loc, Dsymbol *s, bool hasOverloads = true);
     Expression *semantic(Scope *sc);
     static Expression resolve(Loc loc, Scope *sc, Dsymbol *s, bool hasOverloads);
     bool isLvalue();
@@ -388,11 +389,11 @@ public:
     bool isLvalue();
     Expression *toLvalue(Scope *sc, Expression *e);
     Expression *modifiableLvalue(Scope *sc, Expression *e);
-    unsigned charAt(uinteger_t i);
+    unsigned charAt(uinteger_t i) const;
     void accept(Visitor *v) { v->visit(this); }
-    char *toStringz();
-    size_t numberOfCodeUnits(int tynto = 0);
-    void writeTo(void* dest, bool zero, int tyto = 0);
+    const char *toStringz() const;
+    size_t numberOfCodeUnits(int tynto = 0) const;
+    void writeTo(void* dest, bool zero, int tyto = 0) const;
     char *toPtr();
 };
 
@@ -490,18 +491,11 @@ public:
     // A global variable for taking the address of this struct literal constant,
     // if it already exists. Used to resolve self-references.
     llvm::GlobalVariable *globalVar;
-
-    /// Set if this is really the result of a struct .init access and should be
-    /// resolved codegen'd as an access to the given SymbolDeclaration.
-    // LDC_FIXME: Figure out whether this, i.e. imitating the DMD behavior, is
-    // really the best way to fix the nested struct constant folding issue.
-    SymbolDeclaration *sinit;
-#else
-    Symbol *sinit;              // if this is a defaultInitLiteral, this symbol contains the default initializer
 #endif
+
+    bool useStaticInit;         // if this is true, use the StructDeclaration's init symbol
     Symbol *sym;                // back end symbol to initialize with literal
-    size_t soffset;             // offset from start of s
-    int fillHoles;              // fill alignment 'holes' with zero
+    bool fillHoles;             // fill alignment 'holes' with zero
     OwnedBy ownedByCtfe;
 
     // pointer to the origin instance of the expression.
@@ -540,6 +534,7 @@ public:
     TypeExp(Loc loc, Type *type);
     Expression *syntaxCopy();
     Expression *semantic(Scope *sc);
+    bool checkType();
     bool checkValue();
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -564,6 +559,7 @@ public:
     TemplateExp(Loc loc, TemplateDeclaration *td, FuncDeclaration *fd = NULL);
     bool isLvalue();
     Expression *toLvalue(Scope *sc, Expression *e);
+    bool checkType();
     bool checkValue();
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -627,7 +623,7 @@ class SymOffExp : public SymbolExp
 public:
     dinteger_t offset;
 
-    SymOffExp(Loc loc, Declaration *var, dinteger_t offset, bool hasOverloads = false);
+    SymOffExp(Loc loc, Declaration *var, dinteger_t offset, bool hasOverloads = true);
     Expression *semantic(Scope *sc);
     bool isBool(bool result);
 
@@ -639,8 +635,8 @@ public:
 class VarExp : public SymbolExp
 {
 public:
-    VarExp(Loc loc, Declaration *var, bool hasOverloads = false);
-    static VarExp *create(Loc loc, Declaration *var, bool hasOverloads = false);
+    VarExp(Loc loc, Declaration *var, bool hasOverloads = true);
+    static VarExp *create(Loc loc, Declaration *var, bool hasOverloads = true);
     bool equals(RootObject *o);
     Expression *semantic(Scope *sc);
     int checkModifiable(Scope *sc, int flag);
@@ -681,6 +677,7 @@ public:
     Expression *semantic(Scope *sc, Expressions *arguments);
     MATCH matchType(Type *to, Scope *sc, FuncExp **pfe, int flag = 0);
     char *toChars();
+    bool checkType();
     bool checkValue();
 
     void accept(Visitor *v) { v->visit(this); }
@@ -876,7 +873,7 @@ public:
     Declaration *var;
     bool hasOverloads;
 
-    DotVarExp(Loc loc, Expression *e, Declaration *var, bool hasOverloads = false);
+    DotVarExp(Loc loc, Expression *e, Declaration *var, bool hasOverloads = true);
     Expression *semantic(Scope *sc);
     int checkModifiable(Scope *sc, int flag);
     bool checkReadModifyWrite();
@@ -906,7 +903,7 @@ public:
     FuncDeclaration *func;
     bool hasOverloads;
 
-    DelegateExp(Loc loc, Expression *e, FuncDeclaration *func, bool hasOverloads = false);
+    DelegateExp(Loc loc, Expression *e, FuncDeclaration *func, bool hasOverloads = true);
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
@@ -1198,8 +1195,8 @@ public:
 
 enum MemorySet
 {
-    MemorySet_blockAssign     = 1,    // setting the contents of an array
-    MemorySet_referenceInit   = 2,    // setting the reference of STCref variable
+    blockAssign     = 1,    // setting the contents of an array
+    referenceInit   = 2,    // setting the reference of STCref variable
 };
 
 class AssignExp : public BinExp
