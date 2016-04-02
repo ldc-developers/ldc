@@ -1687,7 +1687,7 @@ llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm) {
 
   std::vector<LLConstant *> vals;
   vals.reserve(len);
-  for (size_t i = 0; i < len; ++i) {
+  for (size_t i = 0; i < se->numberOfCodeUnits(); ++i) {
     vals.push_back(LLConstantInt::get(ct, se->charAt(i), false));
   }
   if (zeroTerm) {
