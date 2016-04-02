@@ -974,3 +974,5 @@ pure nothrow unittest
     assert(aa.length == 1);
     assert(aa[5] == 6);
 }
+
+} // !version(LDC)

@@ -92,6 +92,7 @@ else
 }
 
 /// ditto
+static if (size_t.sizeof < ulong.sizeof) // IN_LLVM
 int bsf(ulong v) pure
 {
     static if (size_t.sizeof == ulong.sizeof)
@@ -143,6 +144,7 @@ else
 }
 
 /// ditto
+static if (size_t.sizeof < ulong.sizeof) // IN_LLVM
 int bsr(ulong v) pure
 {
     static if (size_t.sizeof == ulong.sizeof)
