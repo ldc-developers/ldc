@@ -63,7 +63,6 @@ matrix:
       d: dmd
       env: LLVM_CONFIG="llvm-config-3.7" TEST_CONFIG="Release"
   allow_failures:
-    - env: LLVM_CONFIG="llvm-config-3.8"
     - env: LLVM_CONFIG="llvm-config-3.9"
 script:
   - cmake -DLLVM_CONFIG=$(which ${LLVM_CONFIG}) $OPTS .
