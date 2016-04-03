@@ -33,20 +33,17 @@ IrTypeClass::IrTypeClass(ClassDeclaration *cd)
 
 void IrTypeClass::addClassData(AggrTypeBuilder &builder,
                                ClassDeclaration *currCd) {
-  // First, recursively add the fields for our base class, if any.
+  // First, recursively add the fields for our base class and interfaces, if
+  // any.
   if (currCd->baseClass) {
     addClassData(builder, currCd->baseClass);
   }
 
-  // Then, the data for this class.
-  builder.addAggregate(currCd);
-
-  // Finally, the vtbls for any interfaces.
   if (currCd->vtblInterfaces && currCd->vtblInterfaces->dim > 0) {
     // KLUDGE: The first pointer in the vtbl will be of type object.Interface;
     // extract that from the "well-known" object.TypeInfo_Class definition.
     const auto interfaceArrayType = Type::typeinfoclass->fields[3]->type;
-    const auto interfacePtrType = interfacesArrayType->nextOf()->pointerTo();
+    const auto interfacePtrType = interfaceArrayType->nextOf()->pointerTo();
 
     builder.alignCurrentOffset(Target::ptrsize);
 
@@ -67,6 +64,9 @@ void IrTypeClass::addClassData(AggrTypeBuilder &builder,
       ++num_interface_vtbls;
     }
   }
+
+  // Finally, the data members for this class.
+  builder.addAggregate(currCd);
 }
 
 IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
