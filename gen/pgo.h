@@ -19,8 +19,10 @@
 #define LDC_GEN_PGO_H
 
 #include "gen/llvm.h"
+#include "llvm/ProfileData/InstrProf.h"
 #include <string>
 #include <vector>
+#include <array>
 
 namespace llvm {
 class GlobalVariable;
@@ -79,6 +81,9 @@ public:
   static InstTy *addBranchWeights(InstTy *I, llvm::MDNode *) {
     return I;
   }
+
+  void valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
+                    llvm::Value *valuePtr) {}
 };
 
 #else
@@ -86,7 +91,14 @@ public:
 /// Keeps per-function PGO state.
 class CodeGenPGO {
 public:
-  CodeGenPGO() : NumRegionCounters(0), FunctionHash(0), CurrentRegionCount(0) {}
+  CodeGenPGO()
+      : NumRegionCounters(0), FunctionHash(0), CurrentRegionCount(0)
+#if LDC_LLVM_VER >= 309
+        ,
+        NumValueSites({{0}})
+#endif
+  {
+  }
 
   /// Whether or not we have PGO region data for the current function. This is
   /// false both when we have no data at all and when our data has been
@@ -158,6 +170,12 @@ public:
     return I;
   }
 
+  /// This method either inserts a call to the profile run-time during
+  /// instrumentation or puts profile data into metadata for PGO use.
+  /// Does nothing for LLVM < 3.9.
+  void valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
+                    llvm::Value *valuePtr);
+
 private:
   std::string FuncName;
   llvm::GlobalVariable *FuncNameVar;
@@ -169,6 +187,11 @@ private:
   std::unique_ptr<llvm::DenseMap<const RootObject *, uint64_t>> StmtCountMap;
   std::vector<uint64_t> RegionCounts;
   uint64_t CurrentRegionCount;
+
+#if LDC_LLVM_VER >= 309
+  std::array<unsigned, llvm::IPVK_Last + 1> NumValueSites;
+  std::unique_ptr<llvm::InstrProfRecord> ProfRecord;
+#endif
 
   /// \brief A flag that is set to false when instrumentation code should not be
   /// emitted for this function.

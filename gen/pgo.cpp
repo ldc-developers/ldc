@@ -21,6 +21,7 @@
 #include "init.h"
 #include "statement.h"
 #include "llvm.h"
+#include "gen/cl_helpers.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/recursivevisitor.h"
@@ -32,6 +33,15 @@
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MD5.h"
+
+#if LDC_LLVM_VER >= 309
+namespace {
+llvm::cl::opt<bool, false, opts::FlagParser<bool>> enablePGOIndirectCalls(
+    "pgo-indirect-calls",
+    llvm::cl::desc("(*) Enable PGO of indirect calls (LLVM >= 3.9)"),
+    llvm::cl::init(true), llvm::cl::Hidden);
+}
+#endif
 
 /// \brief Stable hasher for PGO region counters.
 ///
@@ -890,12 +900,20 @@ void CodeGenPGO::emitCounterIncrement(const RootObject *S) const {
 void CodeGenPGO::loadRegionCounts(llvm::IndexedInstrProfReader *PGOReader,
                                   const FuncDeclaration *fd) {
   RegionCounts.clear();
-  if (auto E =
-          PGOReader->getFunctionCounts(FuncName, FunctionHash, RegionCounts)) {
+
 #if LDC_LLVM_VER >= 309
-    auto IPE = llvm::InstrProfError::take(std::move(E));
+  llvm::Expected<llvm::InstrProfRecord> RecordExpected =
+      PGOReader->getInstrProfRecord(FuncName, FunctionHash);
+  auto EC = RecordExpected.takeError();
 #else
-    auto IPE = E;
+  auto EC = PGOReader->getFunctionCounts(FuncName, FunctionHash, RegionCounts);
+#endif
+
+  if (EC) {
+#if LDC_LLVM_VER >= 309
+    auto IPE = llvm::InstrProfError::take(std::move(EC));
+#else
+    auto IPE = EC;
 #endif
     if (IPE == llvm::instrprof_error::unknown_function) {
       IF_LOG Logger::println("No profile data for function: %s",
@@ -925,10 +943,17 @@ void CodeGenPGO::loadRegionCounts(llvm::IndexedInstrProfReader *PGOReader,
               FuncName.c_str());
     }
     RegionCounts.clear();
-  } else {
-    IF_LOG Logger::println("Loaded profile counts for function: %s",
-                           FuncName.c_str());
+    return;
   }
+
+#if LDC_LLVM_VER >= 309
+  ProfRecord =
+      llvm::make_unique<llvm::InstrProfRecord>(std::move(RecordExpected.get()));
+  RegionCounts = ProfRecord->Counts;
+#endif
+
+  IF_LOG Logger::println("Loaded profile data for function: %s",
+                         FuncName.c_str());
 }
 
 /// \brief Calculate what to divide by to scale weights.
@@ -1052,6 +1077,58 @@ llvm::MDNode *CodeGenPGO::createProfileWeightsForeachRange(
     return nullptr;
   return createProfileWeights(LoopCount,
                               std::max(CondCount, LoopCount) - LoopCount);
+}
+
+void CodeGenPGO::valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
+                              llvm::Value *valuePtr) {
+#if LDC_LLVM_VER >= 309
+  if (!enablePGOIndirectCalls)
+    return;
+
+  if (!valuePtr || !valueSite)
+    return;
+
+  bool instrumentValueSites = global.params.genInstrProf && emitInstrumentation;
+  if (instrumentValueSites && RegionCounterMap) {
+    // Instrumentation will be inserted before the actual call
+    auto savedInsertPoint = gIR->ir->saveIP();
+    gIR->ir->SetInsertPoint(valueSite);
+
+    auto *i8PtrTy = llvm::Type::getInt8PtrTy(gIR->context());
+    llvm::Value *Args[5] = {
+        llvm::ConstantExpr::getBitCast(FuncNameVar, i8PtrTy),
+        gIR->ir->getInt64(FunctionHash),
+        gIR->ir->CreatePtrToInt(valuePtr, gIR->ir->getInt64Ty()),
+        gIR->ir->getInt32(valueKind),
+        gIR->ir->getInt32(NumValueSites[valueKind]++)};
+    gIR->ir->CreateCall(GET_INTRINSIC_DECL(instrprof_value_profile), Args);
+
+    gIR->ir->restoreIP(savedInsertPoint);
+    return;
+  }
+
+  if (ProfRecord) {
+    // We record the top most called three functions at each call site.
+    // Profile metadata contains a string identifying this metadata
+    // as value profiling data, then a uint32_t value for the value profiling
+    // kind, a uint64_t value for the total number of times the call is
+    // executed, followed by the function hash and execution count (uint64_t)
+    // pairs for each function.
+    if (NumValueSites[valueKind] >= ProfRecord->getNumValueSites(valueKind))
+      return;
+
+    llvm::annotateValueSite(gIR->module, *valueSite, *ProfRecord,
+                            (llvm::InstrProfValueKind)valueKind,
+                            NumValueSites[valueKind]);
+
+    // Create PGOFuncName meta data if it does not exist yet.
+    //llvm::Function *F = valueSite->getFunction();
+    //if (!llvm::getPGOFuncNameMetadata(*F))
+    //  llvm::createPGOFuncNameMetadata(*F);
+
+    NumValueSites[valueKind]++;
+  }
+#endif // LLVM >= 3.9
 }
 
 #endif // LDC_WITH_PGO
