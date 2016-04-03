@@ -31,37 +31,38 @@ IrTypeClass::IrTypeClass(ClassDeclaration *cd)
   vtbl_size = cd->vtbl.dim;
 }
 
-void IrTypeClass::addBaseClassData(AggrTypeBuilder &builder,
-                                   ClassDeclaration *base) {
-  if (base->baseClass) {
-    addBaseClassData(builder, base->baseClass);
+void IrTypeClass::addClassData(AggrTypeBuilder &builder,
+                               ClassDeclaration *currCd) {
+  // First, recursively add the fields for our base class, if any.
+  if (currCd->baseClass) {
+    addClassData(builder, currCd->baseClass);
   }
 
-  builder.addAggregate(base);
+  // Then, the data for this class.
+  builder.addAggregate(currCd);
 
-  // any interface implementations?
-  if (base->vtblInterfaces && base->vtblInterfaces->dim > 0) {
-    const bool new_instances = (base == cd);
+  // Finally, the vtbls for any interfaces.
+  if (currCd->vtblInterfaces && currCd->vtblInterfaces->dim > 0) {
+    // KLUDGE: The first pointer in the vtbl will be of type object.Interface;
+    // extract that from the "well-known" object.TypeInfo_Class definition.
+    const auto interfaceArrayType = Type::typeinfoclass->fields[3]->type;
+    const auto interfacePtrType = interfacesArrayType->nextOf()->pointerTo();
 
-    const auto interfaces_idx = Type::typeinfoclass->fields[3];
-    const auto first = interfaces_idx->type->nextOf()->pointerTo();
-
-    // align offset
     builder.alignCurrentOffset(Target::ptrsize);
 
-    for (auto b : *base->vtblInterfaces) {
+    for (auto b : *currCd->vtblInterfaces) {
       IF_LOG Logger::println("Adding interface vtbl for %s",
                              b->sym->toPrettyChars());
 
       FuncDeclarations arr;
-      b->fillVtbl(cd, &arr, new_instances);
+      b->fillVtbl(cd, &arr, currCd == cd);
 
       // add to the interface map
       addInterfaceToMap(b->sym, builder.currentFieldIndex());
 
-      const auto ivtbl_type =
-          llvm::StructType::get(gIR->context(), buildVtblType(first, &arr));
-      builder.addType(llvm::PointerType::get(ivtbl_type, 0), Target::ptrsize);
+      const auto ivtblType = llvm::StructType::get(
+          gIR->context(), buildVtblType(interfacePtrType, &arr));
+      builder.addType(llvm::PointerType::get(ivtblType, 0), Target::ptrsize);
 
       ++num_interface_vtbls;
     }
@@ -101,7 +102,7 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
     }
 
     // add data members recursively
-    t->addBaseClassData(builder, cd);
+    t->addClassData(builder, cd);
 
     // add tail padding
     builder.addTailPadding(cd->structsize);
