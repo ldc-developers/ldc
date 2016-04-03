@@ -54,7 +54,7 @@ struct Case {
   }
 
   friend bool operator<(const Case& l, const Case& r) {
-    return l.str->compare(r.str) <= 0;
+    return l.str->compare(r.str) < 0;
   }
 };
 
