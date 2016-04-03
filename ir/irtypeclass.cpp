@@ -23,8 +23,6 @@
 #include "gen/functions.h"
 #include "ir/irtypeclass.h"
 
-//////////////////////////////////////////////////////////////////////////////
-
 IrTypeClass::IrTypeClass(ClassDeclaration *cd)
     : IrTypeAggr(cd), cd(cd), tc(static_cast<TypeClass *>(cd->type)) {
   std::string vtbl_name(cd->toPrettyChars());
@@ -32,8 +30,6 @@ IrTypeClass::IrTypeClass(ClassDeclaration *cd)
   vtbl_type = LLStructType::create(gIR->context(), vtbl_name);
   vtbl_size = cd->vtbl.dim;
 }
-
-//////////////////////////////////////////////////////////////////////////////
 
 void IrTypeClass::addBaseClassData(AggrTypeBuilder &builder,
                                    ClassDeclaration *base) {
@@ -45,10 +41,10 @@ void IrTypeClass::addBaseClassData(AggrTypeBuilder &builder,
 
   // any interface implementations?
   if (base->vtblInterfaces && base->vtblInterfaces->dim > 0) {
-    bool new_instances = (base == cd);
+    const bool new_instances = (base == cd);
 
-    VarDeclaration *interfaces_idx = Type::typeinfoclass->fields[3];
-    Type *first = interfaces_idx->type->nextOf()->pointerTo();
+    const auto interfaces_idx = Type::typeinfoclass->fields[3];
+    const auto first = interfaces_idx->type->nextOf()->pointerTo();
 
     // align offset
     builder.alignCurrentOffset(Target::ptrsize);
@@ -63,20 +59,17 @@ void IrTypeClass::addBaseClassData(AggrTypeBuilder &builder,
       // add to the interface map
       addInterfaceToMap(b->sym, builder.currentFieldIndex());
 
-      llvm::Type *ivtbl_type =
+      const auto ivtbl_type =
           llvm::StructType::get(gIR->context(), buildVtblType(first, &arr));
       builder.addType(llvm::PointerType::get(ivtbl_type, 0), Target::ptrsize);
 
-      // inc count
-      num_interface_vtbls++;
+      ++num_interface_vtbls;
     }
   }
 }
 
-//////////////////////////////////////////////////////////////////////////////
-
 IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
-  auto t = new IrTypeClass(cd);
+  const auto t = new IrTypeClass(cd);
   cd->type->ctype = t;
 
   IF_LOG Logger::println("Building class type %s @ %s", cd->toPrettyChars(),
@@ -84,10 +77,9 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
   LOG_SCOPE;
   IF_LOG Logger::println("Instance size: %u", cd->structsize);
 
-  // This class may contain an align declaration. See issue 726.
+  // This class may contain an align declaration. See GitHub #726.
   t->packed = false;
-  for (ClassDeclaration *base = cd; base != nullptr && !t->packed;
-       base = base->baseClass) {
+  for (auto base = cd; base != nullptr && !t->packed; base = base->baseClass) {
     t->packed = isPacked(base);
   }
 
@@ -96,12 +88,11 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
   // add vtbl
   builder.addType(llvm::PointerType::get(t->vtbl_type, 0), Target::ptrsize);
 
-  // interfaces are just a vtable
   if (cd->isInterfaceDeclaration()) {
+    // interfaces are just a vtable
     t->num_interface_vtbls = cd->vtblInterfaces ? cd->vtblInterfaces->dim : 0;
-  }
-  // classes have monitor and fields
-  else {
+  } else {
+    // classes have monitor and fields
     if (!cd->isCPPclass() && !cd->isCPPinterface()) {
       // add monitor
       builder.addType(
@@ -116,7 +107,6 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
     builder.addTailPadding(cd->structsize);
   }
 
-  // errors are fatal during codegen
   if (global.errors) {
     fatal();
   }
@@ -124,8 +114,6 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
   // set struct body and copy GEP indices
   isaStruct(t->type)->setBody(builder.defaultTypes(), t->packed);
   t->varGEPIndices = builder.varGEPIndices();
-
-  // VTBL
 
   // set vtbl type body
   FuncDeclarations vtbl;
@@ -142,8 +130,6 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
 
   return t;
 }
-
-//////////////////////////////////////////////////////////////////////////////
 
 std::vector<llvm::Type *>
 IrTypeClass::buildVtblType(Type *first, FuncDeclarations *vtbl_array) {
@@ -163,9 +149,7 @@ IrTypeClass::buildVtblType(Type *first, FuncDeclarations *vtbl_array) {
   for (auto I = vtbl_array->begin() + 1, E = vtbl_array->end(); I != E; ++I) {
     FuncDeclaration *fd = *I;
     if (fd == nullptr) {
-      // FIXME
-      // why is this null?
-      // happens for mini/s.d
+      // FIXME: This stems from the ancient D1 days – can it still happen?
       types.push_back(getVoidPtrType());
       continue;
     }
@@ -200,15 +184,9 @@ IrTypeClass::buildVtblType(Type *first, FuncDeclarations *vtbl_array) {
   return types;
 }
 
-//////////////////////////////////////////////////////////////////////////////
-
 llvm::Type *IrTypeClass::getLLType() { return llvm::PointerType::get(type, 0); }
 
-//////////////////////////////////////////////////////////////////////////////
-
 llvm::Type *IrTypeClass::getMemoryLLType() { return type; }
-
-//////////////////////////////////////////////////////////////////////////////
 
 size_t IrTypeClass::getInterfaceIndex(ClassDeclaration *inter) {
   auto it = interfaceMap.find(inter);
@@ -217,8 +195,6 @@ size_t IrTypeClass::getInterfaceIndex(ClassDeclaration *inter) {
   }
   return it->second;
 }
-
-//////////////////////////////////////////////////////////////////////////////
 
 void IrTypeClass::addInterfaceToMap(ClassDeclaration *inter, size_t index) {
   // don't duplicate work or overwrite indices
@@ -236,5 +212,3 @@ void IrTypeClass::addInterfaceToMap(ClassDeclaration *inter, size_t index) {
     addInterfaceToMap(b->sym, index);
   }
 }
-
-//////////////////////////////////////////////////////////////////////////////
