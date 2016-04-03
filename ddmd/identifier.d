@@ -41,27 +41,27 @@ public:
         return new Identifier(string, value);
     }
 
-    override bool equals(RootObject o)
+    override bool equals(RootObject o) const
     {
         return this == o || strncmp(string, o.toChars(), len + 1) == 0;
     }
 
-    override int compare(RootObject o)
+    override int compare(RootObject o) const
     {
         return strncmp(string, o.toChars(), len + 1);
     }
 
-    override void print()
+    override void print() const
     {
         fprintf(stderr, "%s", string);
     }
 
-    override char* toChars()
+    override const(char)* toChars() const
     {
-        return cast(char*)string;
+        return string;
     }
 
-    const(char)* toHChars2()
+    const(char)* toHChars2() const
     {
         const(char)* p = null;
         if (this == Id.ctor)
@@ -94,7 +94,7 @@ public:
         return p;
     }
 
-    override int dyncast()
+    override int dyncast() const
     {
         return DYNCAST_IDENTIFIER;
     }
@@ -112,16 +112,15 @@ public:
         OutBuffer buf;
         buf.writestring(prefix);
         buf.printf("%llu", cast(ulong)i);
-        char* id = buf.peekString();
-        return idPool(id);
+        return idPool(buf.peekSlice());
     }
 
     /********************************************
      * Create an identifier in the string table.
      */
-    static Identifier idPool(const(char)* s)
+    extern (D) static Identifier idPool(const(char)[] s)
     {
-        return idPool(s, strlen(s));
+        return idPool(s.ptr, s.length);
     }
 
     static Identifier idPool(const(char)* s, size_t len)
@@ -153,8 +152,8 @@ public:
         idx = 0;
         while (p[idx])
         {
-            dchar_t dc;
-            const(char)* q = utf_decodeChar(cast(char*)p, len, &idx, &dc);
+            dchar dc;
+            const q = utf_decodeChar(p, len, idx, dc);
             if (q)
                 goto Linvalid;
             if (!((dc >= 0x80 && isUniAlpha(dc)) || isalnum(dc) || dc == '_'))

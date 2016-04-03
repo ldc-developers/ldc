@@ -9,6 +9,8 @@
 module ddmd.dimport;
 
 import core.stdc.string;
+import core.stdc.stdio;
+
 import ddmd.arraytypes;
 import ddmd.attrib;
 import ddmd.declaration;
@@ -37,7 +39,7 @@ public:
     Identifier id;          // module Identifier
     Identifier aliasId;
     int isstatic;           // !=0 if static import
-    PROTKIND protection;
+    Prot protection;
 
     // Pairs of alias=name to bind into current namespace
     Identifiers names;
@@ -100,14 +102,14 @@ public:
         aliases.push(_alias);
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return isstatic ? cast(char*)"static import" : cast(char*)"import";
     }
 
     override Prot prot()
     {
-        return Prot(protection);
+        return protection;
     }
 
     // copy only syntax trees
@@ -158,6 +160,8 @@ public:
                         {
                             // mod is a package.d, or a normal module which conflicts with the package name.
                             assert(mod.isPackageFile == (p.isPkgMod == PKGmodule));
+                            if (mod.isPackageFile)
+                                mod.tag = p.tag; // reuse the same package tag
                         }
                     }
                     else
@@ -185,7 +189,7 @@ public:
             mod = Module.load(loc, packages, id);
             if (mod)
             {
-                dst.insert(id, mod); // id may be different from mod->ident,
+                dst.insert(id, mod); // id may be different from mod.ident,
                 // if so then insert alias
             }
         }
@@ -212,11 +216,11 @@ public:
                         mod.deprecation(loc, "is deprecated");
                 }
                 mod.importAll(null);
+                if (sc.explicitProtection)
+                    protection = sc.protection;
                 if (!isstatic && !aliasId && !names.dim)
                 {
-                    if (sc.explicitProtection)
-                        protection = sc.protection.kind;
-                    sc.scopesym.importScope(mod, Prot(protection));
+                    sc.scopesym.importScope(mod, protection);
                 }
             }
         }
@@ -224,7 +228,7 @@ public:
 
     override void semantic(Scope* sc)
     {
-        //printf("Import::semantic('%s')\n", toPrettyChars());
+        //printf("Import::semantic('%s') %s\n", toPrettyChars(), id.toChars());
         if (_scope)
         {
             sc = _scope;
@@ -240,43 +244,57 @@ public:
         if (mod)
         {
             // Modules need a list of each imported module
-            //printf("%s imports %s\n", sc->module->toChars(), mod->toChars());
+            //printf("%s imports %s\n", sc.module.toChars(), mod.toChars());
             sc._module.aimports.push(mod);
-            if (!isstatic && !aliasId && !names.dim)
+
+            if (sc.explicitProtection)
+                protection = sc.protection;
+
+            if (!aliasId && !names.dim) // neither a selective nor a renamed import
             {
-                if (sc.explicitProtection)
-                    protection = sc.protection.kind;
+                ScopeDsymbol scopesym;
                 for (Scope* scd = sc; scd; scd = scd.enclosing)
                 {
-                    if (scd.scopesym)
+                    if (!scd.scopesym)
+                        continue;
+                    scopesym = scd.scopesym;
+                    break;
+                }
+
+                if (!isstatic)
+                {
+                    scopesym.importScope(mod, protection);
+                }
+
+                // Mark the imported packages as accessible from the current
+                // scope. This access check is necessary when using FQN b/c
+                // we're using a single global package tree. See Bugzilla 313.
+                if (packages)
+                {
+                    // import a.b.c.d;
+                    auto p = pkg; // a
+                    scopesym.addAccessiblePackage(p);
+                    foreach (id; (*packages)[1 .. packages.dim]) // [b, c]
                     {
-                        scd.scopesym.importScope(mod, Prot(protection));
-                        break;
+                        p = cast(Package) p.symtab.lookup(id);
+                        scopesym.addAccessiblePackage(p);
                     }
                 }
+                scopesym.addAccessiblePackage(mod); // d
             }
+
             mod.semantic();
             if (mod.needmoduleinfo)
             {
-                //printf("module4 %s because of %s\n", sc->module->toChars(), mod->toChars());
+                //printf("module4 %s because of %s\n", sc.module.toChars(), mod.toChars());
                 sc._module.needmoduleinfo = 1;
             }
             sc = sc.push(mod);
-            /* BUG: Protection checks can't be enabled yet. The issue is
-             * that Dsymbol::search errors before overload resolution.
-             */
-            version (none)
-            {
-                sc.protection = protection;
-            }
-            else
-            {
-                sc.protection = Prot(PROTpublic);
-            }
+            sc.protection = protection;
             for (size_t i = 0; i < aliasdecls.dim; i++)
             {
                 AliasDeclaration ad = aliasdecls[i];
-                //printf("\tImport alias semantic('%s')\n", ad->toChars());
+                //printf("\tImport %s alias %s = %s, scope = %p\n", toPrettyChars(), aliases[i].toChars(), names[i].toChars(), ad._scope);
                 if (mod.search(loc, names[i]))
                 {
                     ad.semantic(sc);
@@ -317,9 +335,9 @@ public:
             ob.writestring(" (");
             escapePath(ob, imod.srcfile.toChars());
             ob.writestring(") : ");
-            // use protection instead of sc->protection because it couldn't be
+            // use protection instead of sc.protection because it couldn't be
             // resolved yet, see the comment above
-            protectionToBuffer(ob, Prot(protection));
+            protectionToBuffer(ob, protection);
             ob.writeByte(' ');
             if (isstatic)
             {
@@ -373,7 +391,7 @@ public:
             mod.semantic2();
             if (mod.needmoduleinfo)
             {
-                //printf("module5 %s because of %s\n", sc->module->toChars(), mod->toChars());
+                //printf("module5 %s because of %s\n", sc.module.toChars(), mod.toChars());
                 sc._module.needmoduleinfo = 1;
             }
         }
@@ -391,6 +409,7 @@ public:
      */
     override void addMember(Scope* sc, ScopeDsymbol sd)
     {
+        //printf("Import.addMember(this=%s, sd=%s, sc=%p)\n", toChars(), sd.toChars(), sc);
         if (names.dim == 0)
             return Dsymbol.addMember(sc, sd);
         if (aliasId)
@@ -412,9 +431,25 @@ public:
         }
     }
 
-    override Dsymbol search(Loc loc, Identifier ident, int flags = IgnoreNone)
+    override void setScope(Scope* sc)
     {
-        //printf("%s.Import::search(ident = '%s', flags = x%x)\n", toChars(), ident->toChars(), flags);
+        Dsymbol.setScope(sc);
+        if (aliasdecls.dim)
+        {
+            if (!mod)
+                importAll(sc);
+
+            sc = sc.push(mod);
+            sc.protection = protection;
+            foreach (ad; aliasdecls)
+                ad.setScope(sc);
+            sc = sc.pop();
+        }
+    }
+
+    override Dsymbol search(Loc loc, Identifier ident, int flags = SearchLocalsOnly)
+    {
+        //printf("%s.Import.search(ident = '%s', flags = x%x)\n", toChars(), ident.toChars(), flags);
         if (!pkg)
         {
             load(null);
@@ -438,7 +473,7 @@ public:
             return false;
     }
 
-    override Import isImport()
+    override inout(Import) isImport() inout
     {
         return this;
     }

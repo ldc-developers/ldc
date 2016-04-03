@@ -92,7 +92,7 @@ public:
                 {
                     // same with pragma(msg)
                     se = se.toUTF8(sc);
-                    error("\"%.*s\"", cast(int)se.len, cast(char*)se.string);
+                    error("\"%.*s\"", cast(int)se.len, se.string);
                 }
                 else
                     error("%s", msg.toChars());
@@ -117,7 +117,7 @@ public:
         return true;
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "static assert";
     }

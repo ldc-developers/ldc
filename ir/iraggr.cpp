@@ -207,6 +207,34 @@ void IrAggr::addFieldInitializers(
       addFieldInitializers(constants, explicitInitializers, cd->baseClass,
                            offset, populateInterfacesWithVtbls);
     }
+
+    // has interface vtbls?
+    if (cd->vtblInterfaces && cd->vtblInterfaces->dim > 0) {
+      // Align interface infos to pointer size.
+      unsigned aligned =
+          (offset + Target::ptrsize - 1) & ~(Target::ptrsize - 1);
+      if (offset < aligned) {
+        add_zeros(constants, offset, aligned);
+        offset = aligned;
+      }
+
+      // false when it's not okay to use functions from super classes
+      bool newinsts = (cd == aggrdecl->isClassDeclaration());
+
+      size_t inter_idx = interfacesWithVtbls.size();
+
+      offset = (offset + Target::ptrsize - 1) & ~(Target::ptrsize - 1);
+
+      for (auto bc : *cd->vtblInterfaces) {
+        constants.push_back(getInterfaceVtbl(bc, newinsts, inter_idx));
+        offset += Target::ptrsize;
+        inter_idx++;
+
+        if (populateInterfacesWithVtbls) {
+          interfacesWithVtbls.push_back(bc);
+        }
+      }
+    }
   }
 
   // Build up vector with one-to-one mapping to field indices.
@@ -341,36 +369,6 @@ void IrAggr::addFieldInitializers(
 
     constants.push_back(FillSArrayDims(vd->type, data[i].second));
     offset += getMemberSize(vd->type);
-  }
-
-  if (ClassDeclaration *cd = decl->isClassDeclaration()) {
-    // has interface vtbls?
-    if (cd->vtblInterfaces && cd->vtblInterfaces->dim > 0) {
-      // Align interface infos to pointer size.
-      unsigned aligned =
-          (offset + Target::ptrsize - 1) & ~(Target::ptrsize - 1);
-      if (offset < aligned) {
-        add_zeros(constants, offset, aligned);
-        offset = aligned;
-      }
-
-      // false when it's not okay to use functions from super classes
-      bool newinsts = (cd == aggrdecl->isClassDeclaration());
-
-      size_t inter_idx = interfacesWithVtbls.size();
-
-      offset = (offset + Target::ptrsize - 1) & ~(Target::ptrsize - 1);
-
-      for (auto bc : *cd->vtblInterfaces) {
-        constants.push_back(getInterfaceVtbl(bc, newinsts, inter_idx));
-        offset += Target::ptrsize;
-        inter_idx++;
-
-        if (populateInterfacesWithVtbls) {
-          interfacesWithVtbls.push_back(bc);
-        }
-      }
-    }
   }
 }
 

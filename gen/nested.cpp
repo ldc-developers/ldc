@@ -503,7 +503,7 @@ void DtoCreateNestedContext(FuncDeclaration *fd) {
 
     // go through all nested vars and assign addresses where possible.
     for (auto vd : fd->closureVars) {
-      if (needsClosure && vd->needsAutoDtor()) {
+      if (needsClosure && vd->needsScopeDtor()) {
         // This should really be a front-end, not a glue layer error,
         // but we need to fix this in DMD too.
         vd->error("has scoped destruction, cannot build closure");

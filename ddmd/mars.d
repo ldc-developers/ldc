@@ -1,10 +1,17 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2015 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// Distributed under the Boost Software License, Version 1.0.
-// http://www.boost.org/LICENSE_1_0.txt
+/**
+ * Compiler implementation of the
+ * $(LINK2 http://www.dlang.org, D programming language).
+ * Entry point for DMD.
+ *
+ * This modules defines the entry point (main) for DMD, as well as related
+ * utilities needed for arguments parsing, path manipulation, etc...
+ * This file is not shared with other compilers which use the DMD front-end.
+ *
+ * Copyright:   Copyright (c) 1999-2015 by Digital Mars, All Rights Reserved
+ * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Source:      $(DMDSRC mars.d)
+ */
 
 module ddmd.mars;
 
@@ -50,7 +57,16 @@ import ddmd.target;
 import ddmd.tokens;
 import ddmd.traits;
 
-/** Normalize path by turning forward slashes into backslashes */
+
+/**
+ * Normalize path by turning forward slashes into backslashes
+ *
+ * Params:
+ *   src = Source path, using unix-style ('/') path separators
+ *
+ * Returns:
+ *   A newly-allocated string with '/' turned into backslashes
+ */
 extern (C++) const(char)* toWinPath(const(char)* src)
 {
     if (src is null)
@@ -66,6 +82,14 @@ extern (C++) const(char)* toWinPath(const(char)* src)
     return result;
 }
 
+
+/**
+ * Reads a file, terminate the program on error
+ *
+ * Params:
+ *   loc = The line number information from where the call originates
+ *   f = a `ddmd.root.file.File` handle to read
+ */
 extern (C++) void readFile(Loc loc, File* f)
 {
     if (f.read())
@@ -75,6 +99,14 @@ extern (C++) void readFile(Loc loc, File* f)
     }
 }
 
+
+/**
+ * Writes a file, terminate the program on error
+ *
+ * Params:
+ *   loc = The line number information from where the call originates
+ *   f = a `ddmd.root.file.File` handle to write
+ */
 extern (C++) void writeFile(Loc loc, File* f)
 {
     if (f.write())
@@ -84,6 +116,15 @@ extern (C++) void writeFile(Loc loc, File* f)
     }
 }
 
+
+/**
+ * Ensure the root path (the path minus the name) of the provided path
+ * exists, and terminate the process if it doesn't.
+ *
+ * Params:
+ *   loc = The line number information from where the call originates
+ *   name = a path to check (the name is stripped)
+ */
 extern (C++) void ensurePathToNameExists(Loc loc, const(char)* name)
 {
     const(char)* pt = FileName.path(name);
@@ -98,7 +139,11 @@ extern (C++) void ensurePathToNameExists(Loc loc, const(char)* name)
     FileName.free(pt);
 }
 
-extern (C++) static void logo()
+
+/**
+ * Print DMD's logo on stdout
+ */
+private void logo()
 {
     printf("DMD%llu D Compiler %s\n%s %s\n", cast(ulong)size_t.sizeof * 8, global._version, global.copyright, global.written);
 }
@@ -109,8 +154,10 @@ version(IN_LLVM)
 }
 else
 {
-
-extern (C++) static void usage()
+/**
+ * Print DMD's usage message on stdout
+ */
+private  void usage()
 {
     static if (TARGET_LINUX)
     {
@@ -189,7 +236,7 @@ Usage:
   -release       compile release version
   -run srcfile args...   run resulting program, passing args
   -shared        generate shared library (DLL)
-  -transition=id show additional info about language change identified by 'id'
+  -transition=id help with language change identified by 'id'
   -transition=?  list all language changes
   -unittest      compile in unit tests
   -v             verbose
@@ -207,14 +254,25 @@ Usage:
 ", FileName.canonicalName(global.inifilename), fpic, m32mscoff);
 }
 
+/// DMD-generated module `__entrypoint` where the C main resides
 extern (C++) __gshared Module entrypoint = null;
+/// Module in which the D main is
 extern (C++) __gshared Module rootHasMain = null;
 
-/************************************
+
+/**
  * Generate C main() in response to seeing D main().
+ *
+ * This function will generate a module called `__entrypoint`,
+ * and set the globals `entrypoint` and `rootHasMain`.
+ *
  * This used to be in druntime, but contained a reference to _Dmain
  * which didn't work when druntime was made into a dll and was linked
  * to a program, such as a C++ program, that didn't have a _Dmain.
+ *
+ * Params:
+ *   sc = Scope which triggered the generation of the C main,
+ *        used to get the module where the D main is.
  */
 extern (C++) void genCmain(Scope* sc)
 {
@@ -238,7 +296,7 @@ extern (C++) void genCmain(Scope* sc)
     };
     Identifier id = Id.entrypoint;
     auto m = new Module("__entrypoint.d", id, 0, 0);
-    scope Parser p = new Parser(m, cmaincode, strlen(cast(const(char)*)cmaincode), 0);
+    scope Parser p = new Parser(m, cmaincode, strlen(cmaincode), 0);
     p.scanloc = Loc();
     p.nextToken();
     m.members = p.parseModule();
@@ -256,11 +314,24 @@ extern (C++) void genCmain(Scope* sc)
     rootHasMain = sc._module;
 }
 
-extern (C++) int tryMain(size_t argc, const(char)** argv)
+
+/**
+ * DMD's real entry point
+ *
+ * Parses command line arguments and config file, open and read all
+ * provided source file and do semantic analysis on them.
+ *
+ * Params:
+ *   argc = Number of arguments passed via command line
+ *   argv = Array of string arguments passed via command line
+ *
+ * Returns:
+ *   Application return code
+ */
+private int tryMain(size_t argc, const(char)** argv)
 {
     Strings files;
     Strings libmodules;
-    size_t argcstart = argc;
     bool setdebuglib = false;
     static if (TARGET_WINDOS)
     {
@@ -312,74 +383,12 @@ extern (C++) int tryMain(size_t argc, const(char)** argv)
     global.params.ddocfiles = new Strings();
     // Default to -m32 for 32 bit dmd, -m64 for 64 bit dmd
     global.params.is64bit = (size_t.sizeof == 8);
+    global.params.mscoff = false;
+
+    // Temporary: Use 32 bits as the default on Windows, for config parsing
     static if (TARGET_WINDOS)
-    {
-        global.params.mscoff = false;
         global.params.is64bit = false;
-        global.params.defaultlibname = "phobos";
-    }
-    else static if (TARGET_LINUX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS)
-    {
-        global.params.defaultlibname = "libphobos2.a";
-    }
-    else static if (TARGET_OSX)
-    {
-        global.params.defaultlibname = "phobos2";
-    }
-    else
-    {
-        static assert(0, "fix this");
-    }
-    // Predefine version identifiers
-    VersionCondition.addPredefinedGlobalIdent("DigitalMars");
-    static if (TARGET_WINDOS)
-    {
-        VersionCondition.addPredefinedGlobalIdent("Windows");
-        global.params.isWindows = true;
-    }
-    else static if (TARGET_LINUX)
-    {
-        VersionCondition.addPredefinedGlobalIdent("Posix");
-        VersionCondition.addPredefinedGlobalIdent("linux");
-        VersionCondition.addPredefinedGlobalIdent("ELFv1");
-        global.params.isLinux = true;
-    }
-    else static if (TARGET_OSX)
-    {
-        VersionCondition.addPredefinedGlobalIdent("Posix");
-        VersionCondition.addPredefinedGlobalIdent("OSX");
-        global.params.isOSX = true;
-        // For legacy compatibility
-        VersionCondition.addPredefinedGlobalIdent("darwin");
-    }
-    else static if (TARGET_FREEBSD)
-    {
-        VersionCondition.addPredefinedGlobalIdent("Posix");
-        VersionCondition.addPredefinedGlobalIdent("FreeBSD");
-        VersionCondition.addPredefinedGlobalIdent("ELFv1");
-        global.params.isFreeBSD = true;
-    }
-    else static if (TARGET_OPENBSD)
-    {
-        VersionCondition.addPredefinedGlobalIdent("Posix");
-        VersionCondition.addPredefinedGlobalIdent("OpenBSD");
-        VersionCondition.addPredefinedGlobalIdent("ELFv1");
-        global.params.isFreeBSD = true;
-    }
-    else static if (TARGET_SOLARIS)
-    {
-        VersionCondition.addPredefinedGlobalIdent("Posix");
-        VersionCondition.addPredefinedGlobalIdent("Solaris");
-        VersionCondition.addPredefinedGlobalIdent("ELFv1");
-        global.params.isSolaris = true;
-    }
-    else
-    {
-        static assert(0, "fix this");
-    }
-    VersionCondition.addPredefinedGlobalIdent("LittleEndian");
-    VersionCondition.addPredefinedGlobalIdent("D_Version2");
-    VersionCondition.addPredefinedGlobalIdent("all");
+
     global.inifilename = parse_conf_arg(&arguments);
     if (global.inifilename)
     {
@@ -547,7 +556,10 @@ extern (C++) int tryMain(size_t argc, const(char)** argv)
             else if (strcmp(p + 1, "m64") == 0)
             {
                 global.params.is64bit = true;
-                global.params.mscoff = true;
+                static if (TARGET_WINDOS)
+                {
+                    global.params.mscoff = true;
+                }
             }
             else if (strcmp(p + 1, "m32mscoff") == 0)
             {
@@ -595,7 +607,6 @@ extern (C++) int tryMain(size_t argc, const(char)** argv)
                     num = strtol(p + 9, cast(char**)&p, 10);
                     if (*p || errno || num > INT_MAX)
                         goto Lerror;
-                    // Bugzilla issue number
                     global.errorLimit = cast(uint)num;
                 }
                 else
@@ -612,8 +623,10 @@ extern (C++) int tryMain(size_t argc, const(char)** argv)
                         printf("
 Language changes listed by -transition=id:
   =all           list information on all language changes
+  =checkimports  give deprecation messages about 10378 anomalies
   =complex,14488 list all usages of complex or imaginary types
   =field,3449    list all non-mutable fields which occupy an object instance
+  =import,10378  revert to single phase name lookup
   =tls           list all variables going into thread local storage
 ");
                         return EXIT_FAILURE;
@@ -631,6 +644,9 @@ Language changes listed by -transition=id:
                         case 3449:
                             global.params.vfield = true;
                             break;
+                        case 10378:
+                            global.params.bug10378 = true;
+                            break;
                         case 14488:
                             global.params.vcomplex = true;
                             break;
@@ -640,37 +656,29 @@ Language changes listed by -transition=id:
                     }
                     else if (Identifier.isValidIdentifier(p + 12))
                     {
-                        const(char)* ident = p + 12;
-                        switch (strlen(ident))
+                        const ident = p + 12;
+                        switch (ident[0 .. strlen(ident)])
                         {
-                        case 3:
-                            if (strcmp(ident, "all") == 0)
-                            {
-                                global.params.vtls = true;
-                                global.params.vfield = true;
-                                global.params.vcomplex = true;
-                                break;
-                            }
-                            if (strcmp(ident, "tls") == 0)
-                            {
-                                global.params.vtls = true;
-                                break;
-                            }
-                            goto Lerror;
-                        case 5:
-                            if (strcmp(ident, "field") == 0)
-                            {
-                                global.params.vfield = true;
-                                break;
-                            }
-                            goto Lerror;
-                        case 7:
-                            if (strcmp(ident, "complex") == 0)
-                            {
-                                global.params.vcomplex = true;
-                                break;
-                            }
-                            goto Lerror;
+                        case "all":
+                            global.params.vtls = true;
+                            global.params.vfield = true;
+                            global.params.vcomplex = true;
+                            break;
+                        case "checkimports":
+                            global.params.check10378 = true;
+                            break;
+                        case "complex":
+                            global.params.vcomplex = true;
+                            break;
+                        case "field":
+                            global.params.vfield = true;
+                            break;
+                        case "import":
+                            global.params.bug10378 = true;
+                            break;
+                        case "tls":
+                            global.params.vtls = true;
+                            break;
                         default:
                             goto Lerror;
                         }
@@ -926,15 +934,10 @@ Language changes listed by -transition=id:
             }
             else if (memcmp(p + 1, cast(char*)"defaultlib=", 11) == 0)
             {
-                static if (TARGET_WINDOS)
-                {
-                    setdefaultlib = true;
-                }
                 global.params.defaultlibname = p + 1 + 11;
             }
             else if (memcmp(p + 1, cast(char*)"debuglib=", 9) == 0)
             {
-                setdebuglib = true;
                 global.params.debuglibname = p + 1 + 9;
             }
             else if (memcmp(p + 1, cast(char*)"deps", 4) == 0)
@@ -988,7 +991,7 @@ Language changes listed by -transition=id:
             else if (strcmp(p + 1, "run") == 0)
             {
                 global.params.run = true;
-                size_t length = ((i >= argcstart) ? argc : argcstart) - i - 1;
+                size_t length = argc - i - 1;
                 if (length)
                 {
                     const(char)* ext = FileName.ext(arguments[i + 1]);
@@ -1064,8 +1067,6 @@ Language changes listed by -transition=id:
         usage();
         return EXIT_FAILURE;
     }
-    if (!setdebuglib)
-        global.params.debuglibname = global.params.defaultlibname;
     static if (TARGET_OSX)
     {
         global.params.pic = 1;
@@ -1134,69 +1135,12 @@ Language changes listed by -transition=id:
             //fatal();
         }
     }
-    if (global.params.is64bit)
-    {
-        VersionCondition.addPredefinedGlobalIdent("D_InlineAsm_X86_64");
-        VersionCondition.addPredefinedGlobalIdent("X86_64");
-        VersionCondition.addPredefinedGlobalIdent("D_SIMD");
-        static if (TARGET_WINDOS)
-        {
-            VersionCondition.addPredefinedGlobalIdent("Win64");
-            if (!setdefaultlib)
-            {
-                global.params.defaultlibname = "phobos64";
-                if (!setdebuglib)
-                    global.params.debuglibname = global.params.defaultlibname;
-            }
-        }
-    }
-    else
-    {
-        VersionCondition.addPredefinedGlobalIdent("D_InlineAsm"); //legacy
-        VersionCondition.addPredefinedGlobalIdent("D_InlineAsm_X86");
-        VersionCondition.addPredefinedGlobalIdent("X86");
-        static if (TARGET_OSX)
-        {
-            VersionCondition.addPredefinedGlobalIdent("D_SIMD");
-        }
-        static if (TARGET_WINDOS)
-        {
-            VersionCondition.addPredefinedGlobalIdent("Win32");
-            if (!setdefaultlib && global.params.mscoff)
-            {
-                global.params.defaultlibname = "phobos32mscoff";
-                if (!setdebuglib)
-                    global.params.debuglibname = global.params.defaultlibname;
-            }
-        }
-    }
-    static if (TARGET_WINDOS)
-    {
-        if (global.params.mscoff)
-            VersionCondition.addPredefinedGlobalIdent("CRuntime_Microsoft");
-        else
-            VersionCondition.addPredefinedGlobalIdent("CRuntime_DigitalMars");
-    }
-    else static if (TARGET_LINUX)
-    {
-        VersionCondition.addPredefinedGlobalIdent("CRuntime_Glibc");
-    }
-    if (global.params.isLP64)
-        VersionCondition.addPredefinedGlobalIdent("D_LP64");
-    if (global.params.doDocComments)
-        VersionCondition.addPredefinedGlobalIdent("D_Ddoc");
-    if (global.params.cov)
-        VersionCondition.addPredefinedGlobalIdent("D_Coverage");
-    if (global.params.pic)
-        VersionCondition.addPredefinedGlobalIdent("D_PIC");
-    if (global.params.useUnitTests)
-        VersionCondition.addPredefinedGlobalIdent("unittest");
-    if (global.params.useAssert)
-        VersionCondition.addPredefinedGlobalIdent("assert");
-    if (global.params.useArrayBounds == BOUNDSCHECKoff)
-        VersionCondition.addPredefinedGlobalIdent("D_NoBoundsChecks");
-    VersionCondition.addPredefinedGlobalIdent("D_HardFloat");
+
+    // Predefined version identifiers
+    addDefaultVersionIdentifiers();
     objc_tryMain_dObjc();
+
+    setDefaultLibrary();
 
     // Initialization
     Type._init();
@@ -1354,7 +1298,7 @@ Language changes listed by -transition=id:
         /* At this point, name is the D source file name stripped of
          * its path and extension.
          */
-        Identifier id = Identifier.idPool(name);
+        auto id = Identifier.idPool(name, strlen(name));
         auto m = new Module(files[i], id, global.params.doDocComments, global.params.doHdrGeneration);
         modules.push(m);
         if (firstmodule)
@@ -1618,7 +1562,7 @@ Language changes listed by -transition=id:
     else if (global.params.oneobj)
     {
         if (modules.dim)
-            obj_start(modules[0].srcfile.toChars());
+            obj_start(cast(char*)modules[0].srcfile.toChars());
         for (size_t i = 0; i < modules.dim; i++)
         {
             Module m = modules[i];
@@ -1640,7 +1584,7 @@ Language changes listed by -transition=id:
             Module m = modules[i];
             if (global.params.verbose)
                 fprintf(global.stdmsg, "code      %s\n", m.toChars());
-            obj_start(m.srcfile.toChars());
+            obj_start(cast(char*)m.srcfile.toChars());
             genObjFile(m, global.params.multiobj);
             if (entrypoint && m == rootHasMain)
                 genObjFile(entrypoint, global.params.multiobj);
@@ -1685,6 +1629,13 @@ Language changes listed by -transition=id:
     return status;
 }
 
+
+/**
+ * Entry point which forwards to `tryMain`.
+ *
+ * Returns:
+ *   Return code of the application
+ */
 int main()
 {
     import core.memory;
@@ -1702,11 +1653,19 @@ int main()
     return tryMain(args.argc, cast(const(char)**)args.argv);
 }
 
-/***********************************
- * Parse and append contents of command line string envvalue to args[].
- * The string is separated into arguments, processing \ and ".
+
+/**
+ * Parses an environment variable containing command-line flags
+ * and append them to `args`.
+ *
+ * This function is used to read the content of DFLAGS.
+ * Flags are separated based on spaces and tabs.
+ *
+ * Params:
+ *   envvalue = The content of an environment variable
+ *   args     = Array to append the flags to, if any.
  */
-extern (C++) void getenv_setargv(const(char)* envvalue, Strings* args)
+private void getenv_setargv(const(char)* envvalue, Strings* args)
 {
     if (!envvalue)
         return;
@@ -1778,6 +1737,14 @@ extern (C++) void getenv_setargv(const(char)* envvalue, Strings* args)
 
 } // !IN_LLVM
 
+
+/**
+ * Takes a path, and escapes '(', ')' and backslashes
+ *
+ * Params:
+ *   buf = Buffer to write the escaped path to
+ *   fname = Path to escape
+ */
 extern (C++) void escapePath(OutBuffer* buf, const(char)* fname)
 {
     while (1)
@@ -1790,6 +1757,7 @@ extern (C++) void escapePath(OutBuffer* buf, const(char)* fname)
         case ')':
         case '\\':
             buf.writeByte('\\');
+            goto default;
         default:
             buf.writeByte(*fname);
             break;
@@ -1798,11 +1766,21 @@ extern (C++) void escapePath(OutBuffer* buf, const(char)* fname)
     }
 }
 
-/***********************************
+
+/**
  * Parse command line arguments for -m32 or -m64
  * to detect the desired architecture.
+ *
+ * Params:
+ *   args = Command line arguments
+ *   arch = Default value to use for architecture.
+ *          Should be "32" or "64"
+ *
+ * Returns:
+ *   "32", "64" or "32mscoff" if the "-m32", "-m64", "-m32mscoff" flags were passed,
+ *   respectively. If they weren't, return `arch`.
  */
-extern (C++) static const(char)* parse_arch_arg(Strings* args, const(char)* arch)
+private const(char)* parse_arch_arg(Strings* args, const(char)* arch)
 {
     for (size_t i = 0; i < args.dim; ++i)
     {
@@ -1818,10 +1796,17 @@ extern (C++) static const(char)* parse_arch_arg(Strings* args, const(char)* arch
     return arch;
 }
 
-/***********************************
+
+/**
  * Parse command line arguments for -conf=path.
+ *
+ * Params:
+ *   args = Command line arguments
+ *
+ * Returns:
+ *   Path to the config file to use
  */
-extern (C++) static const(char)* parse_conf_arg(Strings* args)
+private const(char)* parse_conf_arg(Strings* args)
 {
     const(char)* conf = null;
     for (size_t i = 0; i < args.dim; ++i)
@@ -1838,17 +1823,190 @@ extern (C++) static const(char)* parse_conf_arg(Strings* args)
     return conf;
 }
 
+
+/**
+ * Helper function used by the glue layer
+ *
+ * Returns:
+ *   A new array of Dsymbol
+ */
 extern (C++) Dsymbols* Dsymbols_create()
 {
     return new Dsymbols();
 }
 
+
+/**
+ * Helper function used by the glue layer
+ *
+ * Returns:
+ *   A new array of VarDeclaration
+ */
 extern (C++) VarDeclarations* VarDeclarations_create()
 {
     return new VarDeclarations();
 }
 
+
+/**
+ * Helper function used by the glue layer
+ *
+ * Returns:
+ *   A new array of Expression
+ */
 extern (C++) Expressions* Expressions_create()
 {
     return new Expressions();
+}
+
+/**
+ * Set the default and debug libraries to link against, if not already set
+ *
+ * Must be called after argument parsing is done, as it won't
+ * override any value.
+ * Note that if `-defaultlib=` or `-debuglib=` was used,
+ * we don't override that either.
+ */
+private void setDefaultLibrary()
+{
+    if (global.params.defaultlibname is null)
+    {
+        static if (TARGET_WINDOS)
+        {
+            if (global.params.is64bit)
+                global.params.defaultlibname = "phobos64";
+            else if (global.params.mscoff)
+                global.params.defaultlibname = "phobos32mscoff";
+            else
+                global.params.defaultlibname = "phobos";
+        }
+        else static if (TARGET_LINUX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS)
+        {
+            global.params.defaultlibname = "libphobos2.a";
+        }
+        else static if (TARGET_OSX)
+        {
+            global.params.defaultlibname = "phobos2";
+        }
+        else
+        {
+            static assert(0, "fix this");
+        }
+    }
+    if (global.params.debuglibname is null)
+        global.params.debuglibname = global.params.defaultlibname;
+}
+
+
+/**
+ * Add default `version` identifier for ddmd, and set the
+ * target platform in `global`.
+ *
+ * Needs to be run after all arguments parsing (command line, DFLAGS environment
+ * variable and config file) in order to add final flags (such as `X86_64` or
+ * the `CRuntime` used).
+ */
+private void addDefaultVersionIdentifiers()
+{
+    VersionCondition.addPredefinedGlobalIdent("DigitalMars");
+    static if (TARGET_WINDOS)
+    {
+        VersionCondition.addPredefinedGlobalIdent("Windows");
+        global.params.isWindows = true;
+    }
+    else static if (TARGET_LINUX)
+    {
+        VersionCondition.addPredefinedGlobalIdent("Posix");
+        VersionCondition.addPredefinedGlobalIdent("linux");
+        VersionCondition.addPredefinedGlobalIdent("ELFv1");
+        global.params.isLinux = true;
+    }
+    else static if (TARGET_OSX)
+    {
+        VersionCondition.addPredefinedGlobalIdent("Posix");
+        VersionCondition.addPredefinedGlobalIdent("OSX");
+        global.params.isOSX = true;
+        // For legacy compatibility
+        VersionCondition.addPredefinedGlobalIdent("darwin");
+    }
+    else static if (TARGET_FREEBSD)
+    {
+        VersionCondition.addPredefinedGlobalIdent("Posix");
+        VersionCondition.addPredefinedGlobalIdent("FreeBSD");
+        VersionCondition.addPredefinedGlobalIdent("ELFv1");
+        global.params.isFreeBSD = true;
+    }
+    else static if (TARGET_OPENBSD)
+    {
+        VersionCondition.addPredefinedGlobalIdent("Posix");
+        VersionCondition.addPredefinedGlobalIdent("OpenBSD");
+        VersionCondition.addPredefinedGlobalIdent("ELFv1");
+        global.params.isFreeBSD = true;
+    }
+    else static if (TARGET_SOLARIS)
+    {
+        VersionCondition.addPredefinedGlobalIdent("Posix");
+        VersionCondition.addPredefinedGlobalIdent("Solaris");
+        VersionCondition.addPredefinedGlobalIdent("ELFv1");
+        global.params.isSolaris = true;
+    }
+    else
+    {
+        static assert(0, "fix this");
+    }
+    VersionCondition.addPredefinedGlobalIdent("LittleEndian");
+    VersionCondition.addPredefinedGlobalIdent("D_Version2");
+    VersionCondition.addPredefinedGlobalIdent("all");
+
+    if (global.params.is64bit)
+    {
+        VersionCondition.addPredefinedGlobalIdent("D_InlineAsm_X86_64");
+        VersionCondition.addPredefinedGlobalIdent("X86_64");
+        VersionCondition.addPredefinedGlobalIdent("D_SIMD");
+        static if (TARGET_WINDOS)
+        {
+            VersionCondition.addPredefinedGlobalIdent("Win64");
+        }
+    }
+    else
+    {
+        VersionCondition.addPredefinedGlobalIdent("D_InlineAsm"); //legacy
+        VersionCondition.addPredefinedGlobalIdent("D_InlineAsm_X86");
+        VersionCondition.addPredefinedGlobalIdent("X86");
+        static if (TARGET_OSX)
+        {
+            VersionCondition.addPredefinedGlobalIdent("D_SIMD");
+        }
+        static if (TARGET_WINDOS)
+        {
+            VersionCondition.addPredefinedGlobalIdent("Win32");
+        }
+    }
+    static if (TARGET_WINDOS)
+    {
+        if (global.params.mscoff)
+            VersionCondition.addPredefinedGlobalIdent("CRuntime_Microsoft");
+        else
+            VersionCondition.addPredefinedGlobalIdent("CRuntime_DigitalMars");
+    }
+    else static if (TARGET_LINUX)
+    {
+        VersionCondition.addPredefinedGlobalIdent("CRuntime_Glibc");
+    }
+
+    if (global.params.isLP64)
+        VersionCondition.addPredefinedGlobalIdent("D_LP64");
+    if (global.params.doDocComments)
+        VersionCondition.addPredefinedGlobalIdent("D_Ddoc");
+    if (global.params.cov)
+        VersionCondition.addPredefinedGlobalIdent("D_Coverage");
+    if (global.params.pic)
+        VersionCondition.addPredefinedGlobalIdent("D_PIC");
+    if (global.params.useUnitTests)
+        VersionCondition.addPredefinedGlobalIdent("unittest");
+    if (global.params.useAssert)
+        VersionCondition.addPredefinedGlobalIdent("assert");
+    if (global.params.useArrayBounds == BOUNDSCHECKoff)
+        VersionCondition.addPredefinedGlobalIdent("D_NoBoundsChecks");
+    VersionCondition.addPredefinedGlobalIdent("D_HardFloat");
 }

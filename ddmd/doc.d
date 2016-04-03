@@ -34,7 +34,6 @@ import ddmd.identifier;
 import ddmd.lexer;
 import ddmd.mars;
 import ddmd.mtype;
-import ddmd.root.aav;
 import ddmd.root.array;
 import ddmd.root.file;
 import ddmd.root.filename;
@@ -510,13 +509,13 @@ extern (C++) void gendocfile(Module m)
         time(&t);
         char* p = ctime(&t);
         p = mem.xstrdup(p);
-        Macro.define(&m.macrotable, cast(char*)"DATETIME", 8, cast(char*)p, strlen(p));
-        Macro.define(&m.macrotable, cast(char*)"YEAR", 4, cast(char*)p + 20, 4);
+        Macro.define(&m.macrotable, cast(char*)"DATETIME", 8, p, strlen(p));
+        Macro.define(&m.macrotable, cast(char*)"YEAR", 4, p + 20, 4);
     }
-    char* srcfilename = m.srcfile.toChars();
-    Macro.define(&m.macrotable, cast(char*)"SRCFILENAME", 11, cast(char*)srcfilename, strlen(srcfilename));
-    char* docfilename = m.docfile.toChars();
-    Macro.define(&m.macrotable, cast(char*)"DOCFILENAME", 11, cast(char*)docfilename, strlen(docfilename));
+    const srcfilename = m.srcfile.toChars();
+    Macro.define(&m.macrotable, "SRCFILENAME", 11, srcfilename, strlen(srcfilename));
+    const docfilename = m.docfile.toChars();
+    Macro.define(&m.macrotable, "DOCFILENAME", 11, docfilename, strlen(docfilename));
     if (dc.copyright)
     {
         dc.copyright.nooutput = 1;
@@ -658,25 +657,30 @@ extern (C++) void escapeDdocString(OutBuffer* buf, size_t start)
 extern (C++) void escapeStrayParenthesis(Loc loc, OutBuffer* buf, size_t start)
 {
     uint par_open = 0;
+    bool inCode = 0;
     for (size_t u = start; u < buf.offset; u++)
     {
         char c = buf.data[u];
         switch (c)
         {
         case '(':
-            par_open++;
+            if (!inCode)
+                par_open++;
             break;
         case ')':
-            if (par_open == 0)
+            if (!inCode)
             {
-                //stray ')'
-                warning(loc, "Ddoc: Stray ')'. This may cause incorrect Ddoc output. Use $(RPAREN) instead for unpaired right parentheses.");
-                buf.remove(u, 1); //remove the )
-                buf.insert(u, cast(const(char)*)"$(RPAREN)", 9); //insert this instead
-                u += 8; //skip over newly inserted macro
+                if (par_open == 0)
+                {
+                    //stray ')'
+                    warning(loc, "Ddoc: Stray ')'. This may cause incorrect Ddoc output. Use $(RPAREN) instead for unpaired right parentheses.");
+                    buf.remove(u, 1); //remove the )
+                    buf.insert(u, cast(const(char)*)"$(RPAREN)", 9); //insert this instead
+                    u += 8; //skip over newly inserted macro
+                }
+                else
+                    par_open--;
             }
-            else
-                par_open--;
             break;
             version (none)
             {
@@ -687,6 +691,18 @@ extern (C++) void escapeStrayParenthesis(Loc loc, OutBuffer* buf, size_t start)
                 loc.linnum++;
                 break;
             }
+        case '-':
+            // Issue 15465: don't try to escape unbalanced parens inside code
+            // blocks.
+            int numdash = 0;
+            while (u < buf.offset && buf.data[u] == '-')
+            {
+                numdash++;
+                u++;
+            }
+            if (numdash >= 3)
+                inCode = !inCode;
+            break;
         default:
             break;
         }
@@ -766,21 +782,34 @@ extern (C++) static void emitAnchor(OutBuffer* buf, Dsymbol s, Scope* sc)
     {
         OutBuffer anc;
         emitAnchorName(&anc, s, skipNonQualScopes(sc));
-        ident = Identifier.idPool(anc.peekString());
+        ident = Identifier.idPool(anc.peekSlice());
     }
-    size_t* count = cast(size_t*)dmd_aaGet(&sc.anchorCounts, cast(void*)ident);
-    TemplateDeclaration td = getEponymousParent(s);
-    // don't write an anchor for matching consecutive ditto symbols
-    if (*count > 0 && sc.prevAnchor == ident && sc.lastdc && (isDitto(s.comment) || (td && isDitto(td.comment))))
-        return;
-    (*count)++;
+
+    auto pcount = cast(void*)ident in sc.anchorCounts;
+    typeof(*pcount) count;
+    if (pcount)
+    {
+        // Existing anchor,
+        // don't write an anchor for matching consecutive ditto symbols
+        TemplateDeclaration td = getEponymousParent(s);
+        if (sc.prevAnchor == ident && sc.lastdc && (isDitto(s.comment) || (td && isDitto(td.comment))))
+            return;
+
+        count = ++*pcount;
+    }
+    else
+    {
+        sc.anchorCounts[cast(void*)ident] = 1;
+        count = 1;
+    }
+
     // cache anchor name
     sc.prevAnchor = ident;
     buf.writestring("$(DDOC_ANCHOR ");
     buf.writestring(ident.string);
     // only append count once there's a duplicate
-    if (*count != 1)
-        buf.printf(".%u", *count);
+    if (count > 1)
+        buf.printf(".%u", count);
     buf.writeByte(')');
 }
 
@@ -1860,7 +1889,7 @@ extern (C++) bool isDitto(const(char)* comment)
     if (comment)
     {
         const(char)* p = skipwhitespace(comment);
-        if (Port.memicmp(cast(const(char)*)p, "ditto", 5) == 0 && *skipwhitespace(p + 5) == 0)
+        if (Port.memicmp(p, "ditto", 5) == 0 && *skipwhitespace(p + 5) == 0)
             return true;
     }
     return false;
@@ -1897,9 +1926,9 @@ extern (C++) size_t skiptoident(OutBuffer* buf, size_t i)
 {
     while (i < buf.offset)
     {
-        dchar_t c;
+        dchar c;
         size_t oi = i;
-        if (utf_decodeChar(cast(char*)buf.data, buf.offset, &i, &c))
+        if (utf_decodeChar(cast(char*)buf.data, buf.offset, i, c))
         {
             /* Ignore UTF errors, but still consume input
              */
@@ -1925,9 +1954,9 @@ extern (C++) size_t skippastident(OutBuffer* buf, size_t i)
 {
     while (i < buf.offset)
     {
-        dchar_t c;
+        dchar c;
         size_t oi = i;
-        if (utf_decodeChar(cast(char*)buf.data, buf.offset, &i, &c))
+        if (utf_decodeChar(cast(char*)buf.data, buf.offset, i, c))
         {
             /* Ignore UTF errors, but still consume input
              */
@@ -1959,11 +1988,11 @@ extern (C++) size_t skippastURL(OutBuffer* buf, size_t i)
     char* p = cast(char*)&buf.data[i];
     size_t j;
     uint sawdot = 0;
-    if (length > 7 && Port.memicmp(cast(char*)p, "http://", 7) == 0)
+    if (length > 7 && Port.memicmp(p, "http://", 7) == 0)
     {
         j = 7;
     }
-    else if (length > 8 && Port.memicmp(cast(char*)p, "https://", 8) == 0)
+    else if (length > 8 && Port.memicmp(p, "https://", 8) == 0)
     {
         j = 8;
     }
@@ -2548,7 +2577,6 @@ extern (C++) void highlightCode(Scope* sc, Dsymbols* a, OutBuffer* buf, size_t o
                     static immutable templateParamListMacro = "$(DDOC_TEMPLATE_PARAM_LIST ";
                     size_t paramListEnd = buf.bracket(i, templateParamListMacro.ptr, i + templateParamsLen, ")") - 1;
 
-
                     // We have the parameter list. While we're here we might
                     // as well wrap the parameters themselves as well
 
@@ -2672,13 +2700,13 @@ extern (C++) bool isCVariadicArg(const(char)* p, size_t len)
  */
 extern (C++) bool isIdStart(const(char)* p)
 {
-    uint c = *p;
+    dchar c = *p;
     if (isalpha(c) || c == '_')
         return true;
     if (c >= 0x80)
     {
         size_t i = 0;
-        if (utf_decodeChar(p, 4, &i, &c))
+        if (utf_decodeChar(p, 4, i, c))
             return false; // ignore errors
         if (isUniAlpha(c))
             return true;
@@ -2691,13 +2719,13 @@ extern (C++) bool isIdStart(const(char)* p)
  */
 extern (C++) bool isIdTail(const(char)* p)
 {
-    uint c = *p;
+    dchar c = *p;
     if (isalnum(c) || c == '_')
         return true;
     if (c >= 0x80)
     {
         size_t i = 0;
-        if (utf_decodeChar(p, 4, &i, &c))
+        if (utf_decodeChar(p, 4, i, c))
             return false; // ignore errors
         if (isUniAlpha(c))
             return true;
@@ -2718,10 +2746,10 @@ extern (C++) bool isIndentWS(const(char)* p)
  */
 extern (C++) int utfStride(const(char)* p)
 {
-    uint c = *p;
+    dchar c = *p;
     if (c < 0x80)
         return 1;
     size_t i = 0;
-    utf_decodeChar(p, 4, &i, &c); // ignore errors, but still consume input
+    utf_decodeChar(p, 4, i, c); // ignore errors, but still consume input
     return cast(int)i;
 }

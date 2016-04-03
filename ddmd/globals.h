@@ -130,6 +130,8 @@ struct Param
     bool allInst;       // generate code for all template instantiations
 // LDC_FIXME: Implement "addMain" and "allInst".
     bool dwarfeh;       // generate dwarf eh exception handling
+    bool check10378;    // check for issues transitioning to 10738
+    bool bug10378;      // use pre-bugzilla 10378 search strategy
 
     BOUNDSCHECK useArrayBounds;
 
@@ -315,6 +317,14 @@ typedef double real_t;
 typedef longdouble real_t;
 #endif
 
+// Represents a D [ ] array
+template<typename T>
+struct DArray
+{
+    size_t length;
+    T *ptr;
+};
+
 // file location
 struct Loc
 {
@@ -339,7 +349,7 @@ struct Loc
     Loc(const char *filename, unsigned linnum, unsigned charnum);
 #endif
 
-    char *toChars();
+    const char *toChars() const;
     bool equals(const Loc& loc);
 };
 

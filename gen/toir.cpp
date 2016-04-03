@@ -331,7 +331,7 @@ public:
     result = DtoDeclarationExp(e->declaration);
 
     if (auto vd = e->declaration->isVarDeclaration()) {
-      if (!vd->isDataseg() && vd->edtor && !vd->noscope) {
+      if (!vd->isDataseg() && vd->needsScopeDtor()) {
         pushVarDtorCleanup(p, vd);
       }
     }
@@ -504,7 +504,7 @@ public:
     // Can't just override ConstructExp::toElem because not all TOKconstruct
     // operations are actually instances of ConstructExp... Long live the DMD
     // coding style!
-    if (e->memset & MemorySet_referenceInit) {
+    if (e->memset & referenceInit) {
       assert(e->op == TOKconstruct || e->op == TOKblit);
       assert(e->e1->op == TOKvar);
 
@@ -898,7 +898,7 @@ public:
         if (ce->e1->op == TOKdeclaration && ce->e2->op == TOKvar) {
           VarExp *ve = static_cast<VarExp *>(ce->e2);
           if (VarDeclaration *vd = ve->var->isVarDeclaration()) {
-            if (vd->edtor && !vd->noscope) {
+            if (vd->needsScopeDtor()) {
               Logger::println("Delaying edtor");
               delayedDtorVar = vd;
               delayedDtorExp = vd->edtor;
@@ -2495,17 +2495,10 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    if (e->sinit) {
-      // Copied from VarExp::toElem, need to clean this mess up.
-      Type *sdecltype = e->sinit->type->toBasetype();
-      IF_LOG Logger::print("Sym: type = %s\n", sdecltype->toChars());
-      assert(sdecltype->ty == Tstruct);
-      TypeStruct *ts = static_cast<TypeStruct *>(sdecltype);
-      assert(ts->sym);
-      DtoResolveStruct(ts->sym);
-
-      LLValue *initsym = getIrAggr(ts->sym)->getInitSymbol();
-      initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
+    if (e->useStaticInit) {
+      DtoResolveStruct(e->sd);
+      LLValue *initsym = getIrAggr(e->sd)->getInitSymbol();
+      initsym = DtoBitCast(initsym, DtoType(e->type->pointerTo()));
       result = new DVarValue(e->type, initsym);
       return;
     }

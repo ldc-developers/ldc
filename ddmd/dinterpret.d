@@ -710,11 +710,6 @@ extern (C++) Expression ctfeInterpret(Expression e)
 {
     if (e.op == TOKerror)
         return e;
-    if (e.op == TOKscope && !e.type) // workaround Bugzilla 15239
-    {
-        e.error("cannot interpret %s at compile time", e.toChars());
-        return new ErrorExp();
-    }
     assert(e.type); // Bugzilla 14642
     //assert(e->type->ty != Terror);    // FIXME
     if (e.type.ty == Terror)
@@ -1060,6 +1055,19 @@ public:
             return true;
         }
         return false;
+    }
+
+    static Expressions* copyArrayOnWrite(Expressions* exps, Expressions* original)
+    {
+        if (exps is original)
+        {
+            if (!original)
+                exps = new Expressions();
+            else
+                exps = original.copy();
+            ++CtfeStatus.numArrayAllocs;
+        }
+        return exps;
     }
 
     /******************************** Statement ***************************/
@@ -2197,7 +2205,7 @@ public:
         }
         else
         {
-            result = new DelegateExp(e.loc, result, e.func);
+            result = new DelegateExp(e.loc, result, e.func, false);
             result.type = e.type;
         }
     }
@@ -2569,11 +2577,7 @@ public:
              */
             if (ex !is exp)
             {
-                if (expsx is e.exps)
-                {
-                    expsx = e.exps.copy();
-                    ++CtfeStatus.numArrayAllocs;
-                }
+                expsx = copyArrayOnWrite(expsx, e.exps);
                 (*expsx)[i] = ex;
             }
         }
@@ -2600,6 +2604,7 @@ public:
             result = e;
             return;
         }
+
         Type tn = e.type.toBasetype().nextOf().toBasetype();
         bool wantCopy = (tn.ty == Tsarray || tn.ty == Tstruct);
 
@@ -2607,54 +2612,43 @@ public:
         if (exceptionOrCant(basis))
             return;
 
-        Expressions* expsx = null;
-        size_t dim = e.elements ? e.elements.dim : 0;
+        auto expsx = e.elements;
+        size_t dim = expsx ? expsx.dim : 0;
         for (size_t i = 0; i < dim; i++)
         {
-            Expression exp = (*e.elements)[i];
+            Expression exp = (*expsx)[i];
             Expression ex;
             if (!exp)
             {
                 ex = copyLiteral(basis).copy();
-                goto Lcow;
             }
+            else
+            {
+                // segfault bug 6250
+                assert(exp.op != TOKindex || (cast(IndexExp)exp).e1 != e);
 
-            // segfault bug 6250
-            assert(exp.op != TOKindex || (cast(IndexExp)exp).e1 != e);
+                ex = interpret(exp, istate);
+                if (exceptionOrCant(ex))
+                    return;
 
-            ex = interpret(exp, istate);
-            if (exceptionOrCant(ex))
-                return;
-
-            /* Each elements should have distinct CFE memory.
-             *  int[1] z = 7;
-             *  int[1][] pieces = [z,z];    // here
-             */
-            if (wantCopy || ex == exp && expsx)
-                ex = copyLiteral(ex).copy();
-
-            if (ex == exp && !expsx)
-                continue;
+                /* Each elements should have distinct CTFE memory.
+                 *  int[1] z = 7;
+                 *  int[1][] pieces = [z,z];    // here
+                 */
+                if (wantCopy)
+                    ex = copyLiteral(ex).copy();
+            }
 
             /* If any changes, do Copy On Write
              */
-        Lcow:
-            if (!expsx)
+            if (ex !is exp)
             {
-                expsx = new Expressions();
-                ++CtfeStatus.numArrayAllocs;
-                expsx.setDim(dim);
-                for (size_t j = 0; j < i; j++)
-                {
-                    auto el = (*e.elements)[j];
-                    if (!el)
-                        el = e.basis;
-                    (*expsx)[j] = copyLiteral(el).copy();
-                }
+                expsx = copyArrayOnWrite(expsx, e.elements);
+                (*expsx)[i] = ex;
             }
-            (*expsx)[i] = ex;
         }
-        if (expsx)
+
+        if (expsx !is e.elements)
         {
             // todo: all tuple expansions should go in semantic phase.
             expandTuples(expsx);
@@ -2664,19 +2658,18 @@ public:
                 result = CTFEExp.cantexp;
                 return;
             }
-            auto ae = new ArrayLiteralExp(e.loc, basis, expsx);
-            ae.type = e.type;
-            ae.ownedByCtfe = OWNEDctfe;
-            result = ae;
-            return;
+            auto ale = new ArrayLiteralExp(e.loc, basis, expsx);
+            ale.type = e.type;
+            ale.ownedByCtfe = OWNEDctfe;
+            result = ale;
         }
-        if ((cast(TypeNext)e.type).next.mod & (MODconst | MODimmutable))
+        else if ((cast(TypeNext)e.type).next.mod & (MODconst | MODimmutable))
         {
             // If it's immutable, we don't need to dup it
             result = e;
-            return;
         }
-        result = copyLiteral(e).copy();
+        else
+            result = copyLiteral(e).copy();
     }
 
     override void visit(AssocArrayLiteralExp e)
@@ -2710,16 +2703,8 @@ public:
             if (ek !is ekey ||
                 ev !is evalue)
             {
-                if (keysx is e.keys)
-                {
-                    keysx = e.keys.copy();
-                    ++CtfeStatus.numArrayAllocs;
-                }
-                if (valuesx is e.values)
-                {
-                    valuesx = e.values.copy();
-                    ++CtfeStatus.numArrayAllocs;
-                }
+                keysx = copyArrayOnWrite(keysx, e.keys);
+                valuesx = copyArrayOnWrite(valuesx, e.values);
                 (*keysx)[i] = ek;
                 (*valuesx)[i] = ev;
             }
@@ -2747,16 +2732,8 @@ public:
                     continue;
 
                 // Remove ekey
-                if (keysx is e.keys)
-                {
-                    keysx = e.keys.copy();
-                    ++CtfeStatus.numArrayAllocs;
-                }
-                if (valuesx is e.values)
-                {
-                    valuesx = e.values.copy();
-                    ++CtfeStatus.numArrayAllocs;
-                }
+                keysx = copyArrayOnWrite(keysx, e.keys);
+                valuesx = copyArrayOnWrite(valuesx, e.values);
                 keysx.remove(i - 1);
                 valuesx.remove(i - 1);
 
@@ -2790,64 +2767,60 @@ public:
             result = e;
             return;
         }
-        size_t elemdim = e.elements ? e.elements.dim : 0;
-        Expressions* expsx = null;
-        for (size_t i = 0; i < e.sd.fields.dim; i++)
+
+        size_t dim = e.elements ? e.elements.dim : 0;
+        auto expsx = e.elements;
+
+        if (dim != e.sd.fields.dim)
         {
-            VarDeclaration v = e.sd.fields[i];
-            Expression ex = null;
-            Expression exp = null;
-            if (i >= elemdim)
+            // guaranteed by AggregateDeclaration.fill and TypeStruct.defaultInitLiteral
+            assert(e.sd.isNested() && dim == e.sd.fields.dim - 1);
+
+            /* If a nested struct has no initialized hidden pointer,
+             * set it to null to match the runtime behaviour.
+             */
+            auto ne = new NullExp(e.loc);
+            ne.type = e.sd.vthis.type;
+
+            expsx = copyArrayOnWrite(expsx, e.elements);
+            expsx.push(ne);
+            ++dim;
+        }
+        assert(dim == e.sd.fields.dim);
+
+        foreach (i; 0 .. dim)
+        {
+            auto v = e.sd.fields[i];
+            Expression exp = (*expsx)[i];
+            Expression ex;
+            if (!exp)
             {
-                /* If a nested struct has no initialized hidden pointer,
-                 * set it to null to match the runtime behaviour.
-                 */
-                if (i == e.sd.fields.dim - 1 && e.sd.isNested())
-                {
-                    // Context field has not been filled
-                    ex = new NullExp(e.loc);
-                    ex.type = v.type;
-                }
+                ex = voidInitLiteral(v.type, v).copy();
             }
             else
             {
-                exp = (*e.elements)[i];
-                if (!exp)
+                ex = interpret(exp, istate);
+                if (exceptionOrCant(ex))
+                    return;
+                if ((v.type.ty != ex.type.ty) && v.type.ty == Tsarray)
                 {
-                    ex = voidInitLiteral(v.type, v).copy();
-                }
-                else
-                {
-                    ex = interpret(exp, istate);
-                    if (exceptionOrCant(ex))
-                        return;
-                    if ((v.type.ty != ex.type.ty) && v.type.ty == Tsarray)
-                    {
-                        // Block assignment from inside struct literals
-                        TypeSArray tsa = cast(TypeSArray)v.type;
-                        size_t len = cast(size_t)tsa.dim.toInteger();
-                        ex = createBlockDuplicatedArrayLiteral(ex.loc, v.type, ex, len);
-                    }
+                    // Block assignment from inside struct literals
+                    auto tsa = cast(TypeSArray)v.type;
+                    auto len = cast(size_t)tsa.dim.toInteger();
+                    ex = createBlockDuplicatedArrayLiteral(ex.loc, v.type, ex, len);
                 }
             }
+
             /* If any changes, do Copy On Write
              */
-            if (ex != exp)
+            if (ex !is exp)
             {
-                if (!expsx)
-                {
-                    expsx = new Expressions();
-                    ++CtfeStatus.numArrayAllocs;
-                    expsx.setDim(e.sd.fields.dim);
-                    for (size_t j = 0; j < e.elements.dim; j++)
-                    {
-                        (*expsx)[j] = (*e.elements)[j];
-                    }
-                }
+                expsx = copyArrayOnWrite(expsx, e.elements);
                 (*expsx)[i] = ex;
             }
         }
-        if (e.elements && expsx)
+
+        if (expsx !is e.elements)
         {
             expandTuples(expsx);
             if (expsx.dim != e.sd.fields.dim)
@@ -2856,13 +2829,13 @@ public:
                 result = CTFEExp.cantexp;
                 return;
             }
-            auto se = new StructLiteralExp(e.loc, e.sd, expsx);
-            se.type = e.type;
-            se.ownedByCtfe = OWNEDctfe;
-            result = se;
-            return;
+            auto sle = new StructLiteralExp(e.loc, e.sd, expsx);
+            sle.type = e.type;
+            sle.ownedByCtfe = OWNEDctfe;
+            result = sle;
         }
-        result = copyLiteral(e).copy();
+        else
+            result = copyLiteral(e).copy();
     }
 
     // Create an array literal of type 'newtype' with dimensions given by
@@ -3488,7 +3461,11 @@ public:
                 }
 
                 if (fp)
+                {
                     oldval = findKeyInAA(e.loc, existingAA, lastIndex);
+                    if (!oldval)
+                        oldval = copyLiteral(e.e1.type.defaultInitLiteral(e.loc)).copy();
+                }
             }
             else
             {
@@ -3596,21 +3573,23 @@ public:
         Expression newval = interpret(e.e2, istate);
         if (exceptionOrCant(newval))
             return;
-        if (e.type.toBasetype().ty == Tstruct && newval.op == TOKint64)
+        if (e.op == TOKblit && newval.op == TOKint64)
         {
-            /* Look for special case of struct being initialized with 0.
-             */
-            assert(e.op == TOKconstruct || e.op == TOKblit);
-            newval = e.type.defaultInitLiteral(e.loc);
-            if (newval.op != TOKstructliteral)
+            Type tbn = e.type.baseElemOf();
+            if (tbn.ty == Tstruct)
             {
-                e.error("nested structs with constructors are not yet supported in CTFE (Bug 6419)");
-                result = CTFEExp.cantexp;
-                return;
+                /* Look for special case of struct being initialized with 0.
+                 */
+                newval = e.type.defaultInitLiteral(e.loc);
+                if (newval.op == TOKerror)
+                {
+                    result = CTFEExp.cantexp;
+                    return;
+                }
+                newval = interpret(newval, istate); // copy and set ownedByCtfe flag
+                if (exceptionOrCant(newval))
+                    return;
             }
-            newval = interpret(newval, istate); // copy and set ownedByCtfe flag
-            if (exceptionOrCant(newval))
-                return;
         }
 
         // ----------------------------------------------------
@@ -3873,22 +3852,7 @@ public:
                     e.error("cannot modify read-only string literal %s", ie.e1.toChars());
                     return CTFEExp.cantexp;
                 }
-                void* s = existingSE.string;
-                dinteger_t value = newval.toInteger();
-                switch (existingSE.sz)
-                {
-                case 1:
-                    (cast(char*)s)[index] = cast(char)value;
-                    break;
-                case 2:
-                    (cast(utf16_t*)s)[index] = cast(utf16_t)value;
-                    break;
-                case 4:
-                    (cast(utf32_t*)s)[index] = cast(utf32_t)value;
-                    break;
-                default:
-                    assert(0);
-                }
+                existingSE.setCodeUnit(index, cast(dchar)newval.toInteger());
                 return null;
             }
             if (aggregate.op != TOKarrayliteral)
@@ -4037,7 +4001,7 @@ public:
                 uint dim = cast(uint)dollar;
                 lowerbound = cast(int)(lwr ? lwr.toInteger() : 0);
                 upperbound = cast(size_t)(upr ? upr.toInteger() : dim);
-                if (cast(int)lowerbound < 0 || dim < upperbound)
+                if (lowerbound < 0 || dim < upperbound)
                 {
                     e.error("array bounds [0..%d] exceeded in slice [%d..%d]", dim, lowerbound, upperbound);
                     return CTFEExp.cantexp;
@@ -4124,7 +4088,7 @@ public:
             }
             if (newval.op == TOKstring)
             {
-                sliceAssignStringFromString(cast(StringExp)existingSE, cast(StringExp)newval, cast(size_t)firstIndex);
+                sliceAssignStringFromString(existingSE, cast(StringExp)newval, cast(size_t)firstIndex);
                 return newval;
             }
             if (newval.op == TOKarrayliteral)
@@ -4136,24 +4100,10 @@ public:
                 return newval;
             }
             // String literal block slice assign
-            dinteger_t value = newval.toInteger();
-            void* s = existingSE.string;
-            for (size_t i = 0; i < upperbound - lowerbound; i++)
+            const value = cast(dchar)newval.toInteger();
+            foreach (i; 0 .. upperbound - lowerbound)
             {
-                switch (existingSE.sz)
-                {
-                case 1:
-                    (cast(char*)s)[cast(size_t)(i + firstIndex)] = cast(char)value;
-                    break;
-                case 2:
-                    (cast(utf16_t*)s)[cast(size_t)(i + firstIndex)] = cast(utf16_t)value;
-                    break;
-                case 4:
-                    (cast(utf32_t*)s)[cast(size_t)(i + firstIndex)] = cast(utf32_t)value;
-                    break;
-                default:
-                    assert(0);
-                }
+                existingSE.setCodeUnit(cast(size_t)(i + firstIndex), value);
             }
             if (goal == ctfeNeedNothing)
                 return null; // avoid creating an unused literal
@@ -4449,7 +4399,7 @@ public:
         case TOKlt:
         case TOKle:
             ret *= -1;
-            /* fall through */
+            goto case; /+ fall through +/
         case TOKgt:
         case TOKge:
             *p1 = (cast(BinExp)e).e1;
@@ -5483,9 +5433,132 @@ public:
         }
         // We know we still own it, because we interpreted both e1 and e2
         if (result.op == TOKarrayliteral)
-            (cast(ArrayLiteralExp)result).ownedByCtfe = OWNEDctfe;
+        {
+            ArrayLiteralExp ale = cast(ArrayLiteralExp)result;
+            ale.ownedByCtfe = OWNEDctfe;
+
+            // Bugzilla 14686
+            for (size_t i = 0; i < ale.elements.dim; i++)
+            {
+                Expression ex = evaluatePostblit(istate, (*ale.elements)[i]);
+                if (exceptionOrCant(ex))
+                    return;
+            }
+        }
         if (result.op == TOKstring)
             (cast(StringExp)result).ownedByCtfe = OWNEDctfe;
+    }
+
+    override void visit(DeleteExp e)
+    {
+        static if (LOG)
+        {
+            printf("%s DeleteExp::interpret() %s\n", e.loc.toChars(), e.toChars());
+        }
+        result = interpret(e.e1, istate);
+        if (exceptionOrCant(result))
+            return;
+
+        if (result.op == TOKnull)
+        {
+            result = CTFEExp.voidexp;
+            return;
+        }
+
+        auto tb = e.e1.type.toBasetype();
+        switch (tb.ty)
+        {
+        case Tclass:
+            if (result.op != TOKclassreference)
+            {
+                e.error("delete on invalid class reference '%s'", result.toChars());
+                result = CTFEExp.cantexp;
+                return;
+            }
+
+            auto cre = cast(ClassReferenceExp)result;
+            auto cd = cre.originalClass();
+            if (cd.aggDelete)
+            {
+                e.error("member deallocators not supported by CTFE");
+                result = CTFEExp.cantexp;
+                return;
+            }
+
+            if (cd.dtor)
+            {
+                result = interpret(cd.dtor, istate, null, cre);
+                if (exceptionOrCant(result))
+                    return;
+            }
+            break;
+
+        case Tpointer:
+            tb = (cast(TypePointer)tb).next.toBasetype();
+            if (tb.ty == Tstruct)
+            {
+                if (result.op != TOKaddress ||
+                    (cast(AddrExp)result).e1.op != TOKstructliteral)
+                {
+                    e.error("delete on invalid struct pointer '%s'", result.toChars());
+                    result = CTFEExp.cantexp;
+                    return;
+                }
+
+                auto sd = (cast(TypeStruct)tb).sym;
+                auto sle = cast(StructLiteralExp)(cast(AddrExp)result).e1;
+                if (sd.aggDelete)
+                {
+                    e.error("member deallocators not supported by CTFE");
+                    result = CTFEExp.cantexp;
+                    return;
+                }
+
+                if (sd.dtor)
+                {
+                    result = interpret(sd.dtor, istate, null, sle);
+                    if (exceptionOrCant(result))
+                        return;
+                }
+            }
+            break;
+
+        case Tarray:
+            auto tv = tb.nextOf().baseElemOf();
+            if (tv.ty == Tstruct)
+            {
+                if (result.op != TOKarrayliteral)
+                {
+                    e.error("delete on invalid struct array '%s'", result.toChars());
+                    result = CTFEExp.cantexp;
+                    return;
+                }
+
+                auto sd = (cast(TypeStruct)tv).sym;
+                if (sd.aggDelete)
+                {
+                    e.error("member deallocators not supported by CTFE");
+                    result = CTFEExp.cantexp;
+                    return;
+                }
+
+                if (sd.dtor)
+                {
+                    auto ale = cast(ArrayLiteralExp)result;
+                    foreach (el; *ale.elements)
+                    {
+                        result = interpret(sd.dtor, istate, null, el);
+                        if (exceptionOrCant(result))
+                            return;
+                    }
+                }
+            }
+            break;
+
+        default:
+            assert(0);
+        }
+        result = CTFEExp.voidexp;
     }
 
     override void visit(CastExp e)
@@ -5837,7 +5910,7 @@ public:
                 result = e; // optimize: reuse this CTFE reference
             else
             {
-                result = new DotVarExp(e.loc, ex, f);
+                result = new DotVarExp(e.loc, ex, f, false);
                 result.type = e.type;
             }
             return;
@@ -6378,14 +6451,14 @@ extern (C++) Expression foreachApplyUtf(InterState* istate, Expression str, Expr
     Expression eresult = null; // ded-store to prevent spurious warning
     // Buffers for encoding; also used for decoding array literals
     char[4] utf8buf;
-    ushort[2] utf16buf;
+    wchar[2] utf16buf;
     size_t start = rvs ? len : 0;
     size_t end = rvs ? 0 : len;
     for (size_t indx = start; indx != end;)
     {
         // Step 1: Decode the next dchar from the string.
         const(char)* errmsg = null; // Used for reporting decoding errors
-        dchar_t rawvalue; // Holds the decoded dchar
+        dchar rawvalue; // Holds the decoded dchar
         size_t currentIndex = indx; // The index of the decoded character
         if (ale)
         {
@@ -6420,7 +6493,7 @@ extern (C++) Expression foreachApplyUtf(InterState* istate, Expression str, Expr
                     utf8buf[i] = cast(char)(cast(IntegerExp)r).getInteger();
                 }
                 n = 0;
-                errmsg = utf_decodeChar(&utf8buf[0], buflen, &n, &rawvalue);
+                errmsg = utf_decodeChar(&utf8buf[0], buflen, n, rawvalue);
                 break;
             case 2:
                 if (rvs)
@@ -6446,7 +6519,7 @@ extern (C++) Expression foreachApplyUtf(InterState* istate, Expression str, Expr
                     utf16buf[i] = cast(ushort)(cast(IntegerExp)r).getInteger();
                 }
                 n = 0;
-                errmsg = utf_decodeWchar(&utf16buf[0], buflen, &n, &rawvalue);
+                errmsg = utf_decodeWchar(&utf16buf[0], buflen, n, rawvalue);
                 break;
             case 4:
                 {
@@ -6454,7 +6527,7 @@ extern (C++) Expression foreachApplyUtf(InterState* istate, Expression str, Expr
                         --indx;
                     Expression r = (*ale.elements)[indx];
                     assert(r.op == TOKint64);
-                    rawvalue = cast(dchar_t)(cast(IntegerExp)r).getInteger();
+                    rawvalue = cast(dchar)(cast(IntegerExp)r).getInteger();
                     n = 1;
                 }
                 break;
@@ -6474,13 +6547,12 @@ extern (C++) Expression foreachApplyUtf(InterState* istate, Expression str, Expr
                 if (rvs)
                 {
                     // find the start of the string
-                    char* s = cast(char*)se.string;
                     --indx;
-                    while (indx > 0 && ((s[indx] & 0xC0) == 0x80))
+                    while (indx > 0 && ((se.getCodeUnit(indx) & 0xC0) == 0x80))
                         --indx;
                     saveindx = indx;
                 }
-                errmsg = utf_decodeChar(cast(char*)se.string, se.len, &indx, &rawvalue);
+                errmsg = utf_decodeChar(se.string, se.len, indx, rawvalue);
                 if (rvs)
                     indx = saveindx;
                 break;
@@ -6488,20 +6560,20 @@ extern (C++) Expression foreachApplyUtf(InterState* istate, Expression str, Expr
                 if (rvs)
                 {
                     // find the start
-                    ushort* s = cast(ushort*)se.string;
                     --indx;
-                    if (s[indx] >= 0xDC00 && s[indx] <= 0xDFFF)
+                    auto wc = se.getCodeUnit(indx);
+                    if (wc >= 0xDC00 && wc <= 0xDFFF)
                         --indx;
                     saveindx = indx;
                 }
-                errmsg = utf_decodeWchar(cast(ushort*)se.string, se.len, &indx, &rawvalue);
+                errmsg = utf_decodeWchar(se.wstring, se.len, indx, rawvalue);
                 if (rvs)
                     indx = saveindx;
                 break;
             case 4:
                 if (rvs)
                     --indx;
-                rawvalue = (cast(uint*)se.string)[indx];
+                rawvalue = se.getCodeUnit(indx);
                 if (!rvs)
                     ++indx;
                 break;
@@ -6540,7 +6612,7 @@ extern (C++) Expression foreachApplyUtf(InterState* istate, Expression str, Expr
         Expression val = null;
         for (int k = 0; k < charlen; ++k)
         {
-            dchar_t codepoint;
+            dchar codepoint;
             switch (charType.size())
             {
             case 1:
@@ -6606,9 +6678,9 @@ extern (C++) Expression evaluateIfBuiltin(InterState* istate, Loc loc, FuncDecla
             if (nargs == 1 && fd.ident == Id.aaLen)
                 return interpret_length(istate, firstarg);
             if (nargs == 3 && !strcmp(fd.ident.string, "_aaApply"))
-                return interpret_aaApply(istate, firstarg, cast(Expression)arguments.data[2]);
+                return interpret_aaApply(istate, firstarg, arguments.data[2]);
             if (nargs == 3 && !strcmp(fd.ident.string, "_aaApply2"))
-                return interpret_aaApply(istate, firstarg, cast(Expression)arguments.data[2]);
+                return interpret_aaApply(istate, firstarg, arguments.data[2]);
             if (nargs == 1 && !strcmp(fd.ident.string, "keys") && !strcmp(fd.toParent2().ident.string, "object"))
                 return interpret_keys(istate, firstarg, firstAAtype.index.arrayOf());
             if (nargs == 1 && !strcmp(fd.ident.string, "values") && !strcmp(fd.toParent2().ident.string, "object"))
