@@ -19,8 +19,10 @@
 #define LDC_GEN_PGO_H
 
 #include "gen/llvm.h"
+#include "llvm/ProfileData/InstrProf.h"
 #include <string>
 #include <vector>
+#include <array>
 
 namespace llvm {
 class GlobalVariable;
@@ -79,6 +81,12 @@ public:
   static InstTy *addBranchWeights(InstTy *I, llvm::MDNode *) {
     return I;
   }
+
+#if LDC_LLVM_VER >= 309
+  void valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
+                    llvm::Value *valuePtr) {}
+
+#endif
 };
 
 #else
@@ -158,6 +166,12 @@ public:
     return I;
   }
 
+#if LDC_LLVM_VER >= 309
+  void valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
+                    llvm::Value *valuePtr);
+
+#endif
+
 private:
   std::string FuncName;
   llvm::GlobalVariable *FuncNameVar;
@@ -169,6 +183,11 @@ private:
   std::unique_ptr<llvm::DenseMap<const RootObject *, uint64_t>> StmtCountMap;
   std::vector<uint64_t> RegionCounts;
   uint64_t CurrentRegionCount;
+
+#if LDC_LLVM_VER >= 309
+  std::array<unsigned, llvm::IPVK_Last + 1> NumValueSites;
+  std::unique_ptr<llvm::InstrProfRecord> ProfRecord;
+#endif
 
   /// \brief A flag that is set to false when instrumentation code should not be
   /// emitted for this function.
