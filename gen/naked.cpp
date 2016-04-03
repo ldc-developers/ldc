@@ -404,7 +404,7 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd,
     e->error("__asm code argument is not a char[] string literal");
     fatal();
   }
-  std::string code(static_cast<char *>(se->string), se->len);
+  std::string code(se->toPtr(), se->numberOfCodeUnits());
 
   // get constraints param
   e = (*arguments)[1];
@@ -414,7 +414,7 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd,
     e->error("__asm constraints argument is not a char[] string literal");
     fatal();
   }
-  std::string constraints(static_cast<char *>(se->string), se->len);
+  std::string constraints(se->toPtr(), se->numberOfCodeUnits());
 
   // build runtime arguments
   size_t n = arguments->dim;

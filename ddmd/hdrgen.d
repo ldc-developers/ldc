@@ -616,7 +616,14 @@ public:
         while (t)
         {
             buf.writestring(t.toChars());
-            if (t.next && t.value != TOKmin && t.value != TOKcomma && t.next.value != TOKcomma && t.value != TOKlbracket && t.next.value != TOKlbracket && t.next.value != TOKrbracket && t.value != TOKlparen && t.next.value != TOKlparen && t.next.value != TOKrparen && t.value != TOKdot && t.next.value != TOKdot)
+            if (t.next &&
+                t.value != TOKmin      &&
+                t.value != TOKcomma    && t.next.value != TOKcomma    &&
+                t.value != TOKlbracket && t.next.value != TOKlbracket &&
+                                          t.next.value != TOKrbracket &&
+                t.value != TOKlparen   && t.next.value != TOKlparen   &&
+                                          t.next.value != TOKrparen   &&
+                t.value != TOKdot      && t.next.value != TOKdot)
             {
                 buf.writeByte(' ');
             }
@@ -2552,7 +2559,7 @@ public:
         buf.writeByte(')');
     }
 
-    override void visit(FileExp e)
+    override void visit(ImportExp e)
     {
         buf.writestring("import(");
         expToBuffer(e.e1, PREC_assign);

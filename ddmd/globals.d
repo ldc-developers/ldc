@@ -129,6 +129,7 @@ struct Param
     bool betterC;           // be a "better C" compiler; no dependency on D runtime
     bool addMain;           // add a default main() function
     bool allInst;           // generate code for all template instantiations
+    bool dwarfeh;           // generate dwarf eh exception handling
 
     BOUNDSCHECK useArrayBounds;
 
@@ -408,9 +409,6 @@ alias d_uns64 = uint64_t;
 alias d_float32 = float;
 alias d_float64 = double;
 alias d_float80 = real;
-alias d_char = d_uns8;
-alias d_wchar = d_uns16;
-alias d_dchar = d_uns32;
 version(IN_LLVM_MSVC)
 {
     alias real_t = double;

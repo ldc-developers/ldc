@@ -22,7 +22,7 @@ import ddmd.aliasthis;
 import ddmd.argtypes;
 import ddmd.arraytypes;
 import ddmd.attrib;
-import ddmd.backend;
+import ddmd.gluelayer;
 import ddmd.complex;
 import ddmd.ctfeexpr;
 import ddmd.dcast;
@@ -2034,64 +2034,60 @@ public:
 
     final Type aliasthisOf()
     {
-        AggregateDeclaration ad = isAggregate(this);
-        if (ad && ad.aliasthis)
+        auto ad = isAggregate(this);
+        if (!ad || !ad.aliasthis)
+            return null;
+
+        auto s = ad.aliasthis;
+        if (s.isAliasDeclaration())
+            s = s.toAlias();
+
+        if (s.isTupleDeclaration())
+            return null;
+
+        if (auto vd = s.isVarDeclaration())
         {
-            Dsymbol s = ad.aliasthis;
-            if (s.isAliasDeclaration())
-                s = s.toAlias();
-            Declaration d = s.isDeclaration();
-            if (d && !d.isTupleDeclaration())
-            {
-                assert(d.type);
-                Type t = d.type;
-                if (d.isVarDeclaration() && d.needThis())
-                {
-                    t = t.addMod(this.mod);
-                }
-                else if (d.isFuncDeclaration())
-                {
-                    FuncDeclaration fd = resolveFuncCall(Loc(), null, d, null, this, null, 1);
-                    if (fd && fd.errors)
-                        return Type.terror;
-                    if (fd && !fd.type.nextOf() && !fd.functionSemantic())
-                        fd = null;
-                    if (fd)
-                    {
-                        t = fd.type.nextOf();
-                        if (!t) // issue 14185
-                            return Type.terror;
-                        t = t.substWildTo(mod == 0 ? MODmutable : mod);
-                    }
-                    else
-                        return Type.terror;
-                }
-                return t;
-            }
-            EnumDeclaration ed = s.isEnumDeclaration();
-            if (ed)
-            {
-                Type t = ed.type;
-                return t;
-            }
-            TemplateDeclaration td = s.isTemplateDeclaration();
-            if (td)
-            {
-                assert(td._scope);
-                FuncDeclaration fd = resolveFuncCall(Loc(), null, td, null, this, null, 1);
-                if (fd && fd.errors)
-                    return Type.terror;
-                if (fd && fd.functionSemantic())
-                {
-                    Type t = fd.type.nextOf();
-                    t = t.substWildTo(mod == 0 ? MODmutable : mod);
-                    return t;
-                }
-                else
-                    return Type.terror;
-            }
-            //printf("%s\n", s->kind());
+            auto t = vd.type;
+            if (vd.needThis())
+                t = t.addMod(this.mod);
+            return t;
         }
+        if (auto fd = s.isFuncDeclaration())
+        {
+            fd = resolveFuncCall(Loc(), null, fd, null, this, null, 1);
+            if (!fd || fd.errors || !fd.functionSemantic())
+                return Type.terror;
+
+            auto t = fd.type.nextOf();
+            if (!t) // issue 14185
+                return Type.terror;
+            t = t.substWildTo(mod == 0 ? MODmutable : mod);
+            return t;
+        }
+        if (auto d = s.isDeclaration())
+        {
+            assert(d.type);
+            return d.type;
+        }
+        if (auto ed = s.isEnumDeclaration())
+        {
+            return ed.type;
+        }
+        if (auto td = s.isTemplateDeclaration())
+        {
+            assert(td._scope);
+            auto fd = resolveFuncCall(Loc(), null, td, null, this, null, 1);
+            if (!fd || fd.errors || !fd.functionSemantic())
+                return Type.terror;
+
+            auto t = fd.type.nextOf();
+            if (!t)
+                return Type.terror;
+            t = t.substWildTo(mod == 0 ? MODmutable : mod);
+            return t;
+        }
+
+        //printf("%s\n", s.kind());
         return null;
     }
 
@@ -2753,7 +2749,7 @@ else
                 s = (cast(TemplateExp)e).td;
                 break;
 
-            case TOKimport:
+            case TOKscope:
                 s = (cast(ScopeExp)e).sds;
                 // TemplateDeclaration, TemplateInstance, Import, Package, Module
                 break;
@@ -2773,7 +2769,7 @@ else
             //case TOKdottd:
             //case TOKdotti:
             //case TOKdottype:
-            //case TOKdot:
+            //case TOKdotid:
 
             default:
                 *pe = e;
@@ -6527,8 +6523,10 @@ public:
                 Expression arg = (*args)[u];
                 assert(arg);
                 //printf("arg: %s, type: %s\n", arg->toChars(), arg->type->toChars());
+
                 Type targ = arg.type;
                 Type tprm = wildmatch ? p.type.substWildTo(wildmatch) : p.type;
+
                 if (p.storageClass & STClazy && tprm.ty == Tvoid && targ.ty != Tvoid)
                     m = MATCHconvert;
                 else
@@ -6543,15 +6541,20 @@ public:
                         m = arg.implicitConvTo(tprm);
                     //printf("match %d\n", m);
                 }
+
                 // Non-lvalues do not match ref or out parameters
-                if (p.storageClass & STCref)
+                if (p.storageClass & (STCref | STCout))
                 {
                     // Bugzilla 13783: Don't use toBasetype() to handle enum types.
                     Type ta = targ;
                     Type tp = tprm;
                     //printf("fparam[%d] ta = %s, tp = %s\n", u, ta->toChars(), tp->toChars());
+
                     if (m && !arg.isLvalue())
                     {
+                        if (p.storageClass & STCout)
+                            goto Nomatch;
+
                         if (arg.op == TOKstring && tp.ty == Tsarray)
                         {
                             if (ta.ty != Tsarray)
@@ -6574,7 +6577,9 @@ public:
                         else
                             goto Nomatch;
                     }
-                    /* find most derived alias this type being matched.
+
+                    /* Find most derived alias this type being matched.
+                     * Bugzilla 15674: Allow on both ref and out parameters.
                      */
                     while (1)
                     {
@@ -6583,6 +6588,7 @@ public:
                             break;
                         ta = tat;
                     }
+
                     /* A ref variable should work like a head-const reference.
                      * e.g. disallows:
                      *  ref T      <- an lvalue of const(T) argument
@@ -6591,16 +6597,8 @@ public:
                     if (!ta.constConv(tp))
                         goto Nomatch;
                 }
-                else if (p.storageClass & STCout)
-                {
-                    if (m && !arg.isLvalue())
-                        goto Nomatch;
-                    Type targb = targ.toBasetype();
-                    Type tprmb = tprm.toBasetype();
-                    if (!targb.constConv(tprmb))
-                        goto Nomatch;
-                }
             }
+
             /* prefer matching the element type rather than the array
              * type when more arguments are present with T[]...
              */
@@ -7069,7 +7067,8 @@ public:
             for (size_t i = 0; i < idents.dim; i++)
             {
                 RootObject id = idents[i];
-                if (id.dyncast() == DYNCAST_EXPRESSION || id.dyncast() == DYNCAST_TYPE)
+                if (id.dyncast() == DYNCAST_EXPRESSION ||
+                    id.dyncast() == DYNCAST_TYPE)
                 {
                     Type tx;
                     Expression ex;
@@ -7089,6 +7088,7 @@ public:
                     resolveExp(ex, pt, pe, ps);
                     return;
                 }
+
                 Type t = s.getType(); // type symbol, type alias, or type tuple?
                 uint errorsave = global.errors;
                 Dsymbol sm = s.searchX(loc, sc, id);
@@ -7102,7 +7102,8 @@ public:
                     goto L3;
                 if (VarDeclaration v = s.isVarDeclaration())
                 {
-                    if (v.storage_class & (STCconst | STCimmutable | STCmanifest) || v.type.isConst() || v.type.isImmutable())
+                    if (v.storage_class & (STCconst | STCimmutable | STCmanifest) ||
+                        v.type.isConst() || v.type.isImmutable())
                     {
                         // Bugzilla 13087: this.field is not constant always
                         if (!v.isThisDeclaration())
@@ -7119,7 +7120,8 @@ public:
                             if (!t && s.isTupleDeclaration()) // expression tuple?
                                 goto L3;
                         }
-                        else if (s.isTemplateInstance() || s.isImport() || s.isPackage() || s.isModule())
+                        else if (s.isTemplateInstance() ||
+                                 s.isImport() || s.isPackage() || s.isModule())
                         {
                             goto L3;
                         }
@@ -7207,6 +7209,13 @@ public:
                     *pe = new VarExp(loc, v);
                 return;
             }
+            if (auto fld = s.isFuncLiteralDeclaration())
+            {
+                //printf("'%s' is a function literal\n", fld.toChars());
+                *pe = new FuncExp(loc, fld);
+                *pe = (*pe).semantic(sc);
+                return;
+            }
             version (none)
             {
                 if (FuncDeclaration fd = s.isFuncDeclaration())
@@ -7215,6 +7224,7 @@ public:
                     return;
                 }
             }
+
         L1:
             Type t = s.getType();
             if (!t)
@@ -7237,35 +7247,7 @@ public:
                 *pt = Type.terror;
                 return;
             }
-            if (t != this)
-            {
-                if (reliesOnTident(t))
-                {
-                    if (s._scope)
-                        t = t.semantic(loc, s._scope);
-                    else
-                    {
-                        /* Attempt to find correct scope in which to evaluate t.
-                         * Not sure if this is right or not, or if we should just
-                         * give forward reference error if s->scope is not set.
-                         */
-                        for (Scope* scx = sc; 1; scx = scx.enclosing)
-                        {
-                            if (!scx)
-                            {
-                                error(loc, "forward reference to '%s'", t.toChars());
-                                *pt = Type.terror;
-                                return;
-                            }
-                            if (scx.scopesym == scopesym)
-                            {
-                                t = t.semantic(loc, scx);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
+
             if (t.ty == Ttuple)
                 *pt = t;
             else
@@ -7597,49 +7579,49 @@ public:
             return;
         }
         inuse++;
-        Type t;
+
+        /* Currently we cannot evalute 'exp' in speculative context, because
+         * the type implementation may leak to the final execution. Consider:
+         *
+         * struct S(T) {
+         *   string toString() const { return "x"; }
+         * }
+         * void main() {
+         *   alias X = typeof(S!int());
+         *   assert(typeid(X).xtoString(null) == "x");
+         * }
+         */
+        Scope* sc2 = sc.push();
+        sc2.intypeof = 1;
+        exp = exp.semantic(sc2);
+        exp = resolvePropertiesOnly(sc2, exp);
+        sc2.pop();
+
+        if (exp.op == TOKtype)
         {
-            /* Currently we cannot evalute 'exp' in speculative context, because
-             * the type implementation may leak to the final execution. Consider:
-             *
-             * struct S(T) {
-             *   string toString() const { return "x"; }
-             * }
-             * void main() {
-             *   alias X = typeof(S!int());
-             *   assert(typeid(X).xtoString(null) == "x");
-             * }
-             */
-            Scope* sc2 = sc.push();
-            sc2.intypeof = 1;
-            exp = exp.semantic(sc2);
-            exp = resolvePropertiesOnly(sc2, exp);
-            sc2.pop();
-            if (exp.op == TOKtype)
+            error(loc, "argument %s to typeof is not an expression", exp.toChars());
+            goto Lerr;
+        }
+        if (exp.op == TOKscope)
+        {
+            ScopeDsymbol sds = (cast(ScopeExp)exp).sds;
+            if (sds.isPackage())
             {
-                error(loc, "argument %s to typeof is not an expression", exp.toChars());
+                error(loc, "%s has no type", exp.toChars());
                 goto Lerr;
             }
-            else if (exp.op == TOKimport)
-            {
-                ScopeDsymbol sds = (cast(ScopeExp)exp).sds;
-                if (sds.isPackage())
-                {
-                    error(loc, "%s has no type", exp.toChars());
-                    goto Lerr;
-                }
-            }
-            t = exp.type;
-            if (!t)
-            {
-                error(loc, "expression (%s) has no type", exp.toChars());
-                goto Lerr;
-            }
-            if (t.ty == Ttypeof)
-            {
-                error(loc, "forward reference to %s", toChars());
-                goto Lerr;
-            }
+        }
+
+        Type t = exp.type;
+        if (!t)
+        {
+            error(loc, "expression (%s) has no type", exp.toChars());
+            goto Lerr;
+        }
+        if (t.ty == Ttypeof)
+        {
+            error(loc, "forward reference to %s", toChars());
+            goto Lerr;
         }
         if (idents.dim == 0)
             *pt = t;
@@ -7926,10 +7908,10 @@ public:
             sc2.pop();
             return e;
         }
-        if (e.op == TOKdotexp)
+        if (e.op == TOKdot)
         {
             DotExp de = cast(DotExp)e;
-            if (de.e1.op == TOKimport)
+            if (de.e1.op == TOKscope)
             {
                 assert(0); // cannot find a case where this happens; leave
                 // assert in until we do
@@ -7982,9 +7964,9 @@ public:
             ve = ve.semantic(sc);
             return ve;
         }
-        if (s.getType())
+        if (auto t = s.getType())
         {
-            return new TypeExp(e.loc, s.getType());
+            return (new TypeExp(e.loc, t)).semantic(sc);
         }
 
         TemplateMixin tm = s.isTemplateMixin();
@@ -8082,23 +8064,6 @@ public:
             e = unreal ? ve : new CommaExp(e.loc, e, ve);
             e = e.semantic(sc);
             return e;
-        }
-        if (v)
-        {
-            if (v.toParent() != sym)
-                sym.error(e.loc, "'%s' is not a member", v.toChars());
-            version (none)
-            {
-                // *(&e + offset)
-                checkAccess(e.loc, sc, e, d);
-                Expression b = new AddrExp(e.loc, e);
-                b.type = e.type.pointerTo();
-                b = new AddExp(e.loc, b, new IntegerExp(e.loc, v.offset, Type.tint32));
-                b.type = v.type.pointerTo();
-                b = new PtrExp(e.loc, b);
-                b.type = v.type.addMod(e.type.mod);
-                return b;
-            }
         }
         auto de = new DotVarExp(e.loc, e, d);
         return de.semantic(sc);
@@ -8261,7 +8226,7 @@ public:
     override MATCH implicitConvTo(Type to)
     {
         MATCH m;
-        //printf("TypeStruct::implicitConvTo(%s => %s)\n", toChars(), to->toChars());
+        //printf("TypeStruct::implicitConvTo(%s => %s)\n", toChars(), to.toChars());
         if (ty == to.ty && sym == (cast(TypeStruct)to).sym)
         {
             m = MATCHexact; // exact match
@@ -8432,7 +8397,20 @@ public:
             {
                 return getProperty(e.loc, ident, flag);
             }
-            return sym.getMemtype(Loc()).dotExp(sc, e, ident, flag);
+
+            Expression res = sym.getMemtype(Loc()).dotExp(sc, e, ident, 1);
+            if (flag != 1 && !res)
+            {
+                if (auto ns = sym.search_correct(ident))
+                    e.error("no property '%s' for type '%s'. Did you mean '%s.%s' ?", ident.toChars(), toChars(), toChars(),
+                        ns.toChars());
+                else
+                    e.error("no property '%s' for type '%s'", ident.toChars(),
+                        toChars());
+
+                return new ErrorExp();
+            }
+            return res;
         }
         EnumMember m = s.isEnumMember();
         return m.getVarExp(e.loc, sc);
@@ -8645,10 +8623,10 @@ public:
         {
             printf("TypeClass::dotExp(e='%s', ident='%s')\n", e.toChars(), ident.toChars());
         }
-        if (e.op == TOKdotexp)
+        if (e.op == TOKdot)
         {
             DotExp de = cast(DotExp)e;
-            if (de.e1.op == TOKimport)
+            if (de.e1.op == TOKscope)
             {
                 ScopeExp se = cast(ScopeExp)de.e1;
                 s = se.sds.search(e.loc, ident);
@@ -8845,9 +8823,9 @@ public:
             ve = ve.semantic(sc);
             return ve;
         }
-        if (s.getType())
+        if (auto t = s.getType())
         {
-            return new TypeExp(e.loc, s.getType());
+            return (new TypeExp(e.loc, t)).semantic(sc);
         }
 
         TemplateMixin tm = s.isTemplateMixin();

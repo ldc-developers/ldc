@@ -28,16 +28,6 @@ import ddmd.root.stringtable;
 import ddmd.tokens;
 import ddmd.utf;
 
-version(IN_LLVM)
-{
-    // Provide extern C++ function for LDC to initializer Lexer (no C++-header available)
-    extern (C++) void Lexer_initLexer()
-    {
-        Lexer.initLexer();
-    }
-
-}
-
 enum LS = 0x2028;       // UTF line separator
 enum PS = 0x2029;       // UTF paragraph separator
 
@@ -49,6 +39,9 @@ immutable ubyte[256] cmtable;
 enum CMoctal  = 0x1;
 enum CMhex    = 0x2;
 enum CMidchar = 0x4;
+enum CMzerosecond = 0x8;
+enum CMdigitsecond = 0x10;
+enum CMsinglechar = 0x20;
 
 bool isoctal(char c)
 {
@@ -65,6 +58,21 @@ bool isidchar(char c)
     return (cmtable[c] & CMidchar) != 0;
 }
 
+bool isZeroSecond(char c)
+{
+    return (cmtable[c] & CMzerosecond) != 0;
+}
+
+bool isDigitSecond(char c)
+{
+    return (cmtable[c] & CMdigitsecond) != 0;
+}
+
+bool issinglechar(char c)
+{
+    return (cmtable[c] & CMsinglechar) != 0;
+}
+
 static this()
 {
     foreach (const c; 0 .. cmtable.length)
@@ -75,28 +83,62 @@ static this()
             cmtable[c] |= CMhex;
         if (isalnum(c) || c == '_')
             cmtable[c] |= CMidchar;
+
+        switch (c)
+        {
+            case 'x': case 'X':
+            case 'b': case 'B':
+                cmtable[c] |= CMzerosecond;
+                break;
+
+            case '0': .. case '9':
+            case 'e': case 'E':
+            case 'f': case 'F':
+            case 'l': case 'L':
+            case 'p': case 'P':
+            case 'u': case 'U':
+            case 'i':
+            case '.':
+            case '_':
+                cmtable[c] |= CMzerosecond | CMdigitsecond;
+                break;
+
+            default:
+                break;
+        }
+
+        switch (c)
+        {
+            case '\\':
+            case '\n':
+            case '\r':
+            case 0:
+            case 0x1A:
+            case '\'':
+                break;
+            default:
+                if (!(c & 0x80))
+                    cmtable[c] |= CMsinglechar;
+                break;
+        }
     }
 }
 
-
-version (unittest)
+unittest
 {
-    void unittest_lexer()
-    {
-        //printf("unittest_lexer()\n");
-        /* Not much here, just trying things out.
-         */
-        const(char)* text = "int";
-        scope Lexer lex1 = new Lexer(null, cast(char*)text, 0, text.sizeof, 0, 0);
-        TOK tok;
-        tok = lex1.nextToken();
-        //printf("tok == %s, %d, %d\n", Token::toChars(tok), tok, TOKint32);
-        assert(tok == TOKint32);
-        tok = lex1.nextToken();
-        assert(tok == TOKeof);
-        tok = lex1.nextToken();
-        assert(tok == TOKeof);
-    }
+    //printf("lexer.unittest\n");
+    /* Not much here, just trying things out.
+     */
+    string text = "int";
+    scope Lexer lex1 = new Lexer(null, text.ptr, 0, text.length, 0, 0);
+    TOK tok;
+    tok = lex1.nextToken();
+    //printf("tok == %s, %d, %d\n", Token::toChars(tok), tok, TOKint32);
+    assert(tok == TOKint32);
+    tok = lex1.nextToken();
+    assert(tok == TOKeof);
+    tok = lex1.nextToken();
+    assert(tok == TOKeof);
 }
 
 /***********************************************************
@@ -113,12 +155,22 @@ public:
     const(char)* p;         // current character
     const(char)* line;      // start of current line
     Token token;
-    int doDocComment;       // collect doc comment information
-    int anyToken;           // !=0 means seen at least one token
-    int commentToken;       // !=0 means comments are TOKcomment's
+    bool doDocComment;      // collect doc comment information
+    bool anyToken;          // seen at least one token
+    bool commentToken;      // comments are TOKcomment's
     bool errors;            // errors occurred during lexing or parsing
 
-    final extern (D) this(const(char)* filename, const(char)* base, size_t begoffset, size_t endoffset, int doDocComment, int commentToken)
+    /*********************
+     * Creates a Lexer.
+     * Params:
+     *  filename = used for error messages
+     *  base = source code, ending in a 0 byte
+     *  begoffset = starting offset into base[]
+     *  endoffset = last offset into base[]
+     *  doDocComment = handle documentation comments
+     *  commentToken = comments become TOKcomment's
+     */
+    this(const(char)* filename, const(char)* base, size_t begoffset, size_t endoffset, bool doDocComment, bool commentToken)
     {
         scanloc = Loc(filename, 1, 1);
         //printf("Lexer::Lexer(%p,%d)\n",base,length);
@@ -165,16 +217,6 @@ public:
                 break;
             }
             endOfLine();
-        }
-    }
-
-    final static void initLexer()
-    {
-        Identifier.initTable();
-        Token.initTokens();
-        version (unittest)
-        {
-            unittest_lexer();
         }
     }
 
@@ -250,19 +292,36 @@ public:
                 continue;
                 // skip white space
             case '0':
-            case '1':
-            case '2':
-            case '3':
-            case '4':
-            case '5':
-            case '6':
-            case '7':
-            case '8':
-            case '9':
+                if (!isZeroSecond(p[1]))        // if numeric literal does not continue
+                {
+                    ++p;
+                    t.uns64value = 0;
+                    t.value = TOKint32v;
+                    return;
+                }
+                goto Lnumber;
+
+            case '1': .. case '9':
+                if (!isDigitSecond(p[1]))       // if numeric literal does not continue
+                {
+                    t.uns64value = *p - '0';
+                    ++p;
+                    t.value = TOKint32v;
+                    return;
+                }
+            Lnumber:
                 t.value = number(t);
                 return;
+
             case '\'':
-                t.value = charConstant(t, 0);
+                if (issinglechar(p[1]) && p[2] == '\'')
+                {
+                    t.uns64value = p[1];        // simple one character literal
+                    t.value = TOKcharv;
+                    p += 3;
+                }
+                else
+                    t.value = charConstant(t);
                 return;
             case 'r':
                 if (p[1] != '"')
@@ -1603,7 +1662,7 @@ public:
 
     /**************************************
      */
-    final TOK charConstant(Token* t, int wide)
+    final TOK charConstant(Token* t)
     {
         uint c;
         TOK tk = TOKcharv;
@@ -1844,16 +1903,14 @@ public:
             default:
                 goto Ldone;
             }
-            uinteger_t n2 = n * base;
-            if ((n2 / base != n || n2 + d < n))
+            // Avoid expensive overflow check if we aren't at risk of overflow
+            if (n <= 0x0FFF_FFFF_FFFF_FFFFUL)
+                n = n * base + d;
+            else
             {
-                overflow = true;
-            }
-            n = n2 + d;
-            // if n needs more than 64 bits
-            if (n.sizeof > 8 && n > 0xFFFFFFFFFFFFFFFFUL)
-            {
-                overflow = true;
+                import core.checkedint;
+                n = mulu(n, base, overflow);
+                n = addu(n, d, overflow);
             }
         }
     Ldone:

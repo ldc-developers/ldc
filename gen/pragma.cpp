@@ -18,15 +18,13 @@
 #include "llvm/Support/CommandLine.h"
 
 static bool parseStringExp(Expression *e, const char *&res) {
-  StringExp *s = nullptr;
-
   e = e->optimize(WANTvalue);
-  if (e->op == TOKstring && (s = static_cast<StringExp *>(e))) {
-    char *str = static_cast<char *>(s->string);
-    res = strdup(str);
-    return true;
+  if (e->op != TOKstring) {
+    return false;
   }
-  return false;
+  auto s = static_cast<StringExp *>(e);
+  res = s->toStringz();
+  return true;
 }
 
 static bool parseIntExp(Expression *e, dinteger_t &res) {
@@ -40,7 +38,8 @@ static bool parseIntExp(Expression *e, dinteger_t &res) {
   return false;
 }
 
-LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, const char *&arg1str) {
+LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
+                       const char *&arg1str) {
   Identifier *ident = decl->ident;
   Expressions *args = decl->args;
   Expression *expr =
@@ -259,8 +258,8 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, const char *&arg1str)
   return LLVMnone;
 }
 
-void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s, LDCPragma llvm_internal,
-                    const char * const arg1str) {
+void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
+                    LDCPragma llvm_internal, const char *const arg1str) {
   if (llvm_internal == LLVMnone || llvm_internal == LLVMignore) {
     return;
   }

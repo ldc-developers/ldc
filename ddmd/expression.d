@@ -19,7 +19,7 @@ import ddmd.argtypes;
 import ddmd.arrayop;
 import ddmd.arraytypes;
 import ddmd.attrib;
-// IN_LLVM import ddmd.backend;
+import ddmd.gluelayer;
 import ddmd.canthrow;
 import ddmd.clone;
 import ddmd.complex;
@@ -267,7 +267,7 @@ extern (C++) Expression resolvePropertiesX(Scope* sc, Expression e1, Expression 
     Dsymbol s;
     Objects* tiargs;
     Type tthis;
-    if (e1.op == TOKdotexp)
+    if (e1.op == TOKdot)
     {
         DotExp de = cast(DotExp)e1;
         if (de.e2.op == TOKoverloadset)
@@ -360,7 +360,7 @@ extern (C++) Expression resolvePropertiesX(Scope* sc, Expression e1, Expression 
         tthis = dte.e1.type;
         goto Lfd;
     }
-    else if (e1.op == TOKimport)
+    else if (e1.op == TOKscope)
     {
         s = (cast(ScopeExp)e1).sds;
         if (s.isTemplateDeclaration())
@@ -488,7 +488,7 @@ extern (C++) Expression resolvePropertiesX(Scope* sc, Expression e1, Expression 
                 }
             }
         }
-        else if (e1.op == TOKdotexp)
+        else if (e1.op == TOKdot)
         {
             e1.error("expression has no value");
             return new ErrorExp();
@@ -560,7 +560,7 @@ extern (C++) Expression resolvePropertiesOnly(Scope* sc, Expression e1)
     OverloadSet os;
     FuncDeclaration fd;
     TemplateDeclaration td;
-    if (e1.op == TOKdotexp)
+    if (e1.op == TOKdot)
     {
         DotExp de = cast(DotExp)e1;
         if (de.e2.op == TOKoverloadset)
@@ -604,7 +604,7 @@ extern (C++) Expression resolvePropertiesOnly(Scope* sc, Expression e1)
         td = (cast(DotTemplateExp)e1).td;
         goto Ltd;
     }
-    else if (e1.op == TOKimport)
+    else if (e1.op == TOKscope)
     {
         Dsymbol s = (cast(ScopeExp)e1).sds;
         td = s.isTemplateDeclaration();
@@ -722,7 +722,7 @@ extern (C++) Expression resolveUFCS(Scope* sc, CallExp ce)
     Loc loc = ce.loc;
     Expression eleft;
     Expression e;
-    if (ce.e1.op == TOKdot)
+    if (ce.e1.op == TOKdotid)
     {
         DotIdExp die = cast(DotIdExp)ce.e1;
         Identifier ident = die.ident;
@@ -818,7 +818,7 @@ extern (C++) Expression resolveUFCSProperties(Scope* sc, Expression e1, Expressi
     Loc loc = e1.loc;
     Expression eleft;
     Expression e;
-    if (e1.op == TOKdot)
+    if (e1.op == TOKdotid)
     {
         DotIdExp die = cast(DotIdExp)e1;
         eleft = die.e1;
@@ -1612,7 +1612,7 @@ extern (C++) bool functionParameters(Loc loc, Scope* sc, TypeFunction tf, Type t
                         if (f)
                         {
                             f.tookAddressOf--;
-                            //printf("tookAddressOf = %d\n", f->tookAddressOf);
+                            //printf("--tookAddressOf = %d\n", f.tookAddressOf);
                         }
                     }
                 }
@@ -1676,7 +1676,7 @@ extern (C++) bool functionParameters(Loc loc, Scope* sc, TypeFunction tf, Type t
             }
             if (tb.ty == Tstruct)
             {
-                //                arg = callCpCtor(sc, arg);
+                //arg = callCpCtor(sc, arg);
             }
             // Give error for overloaded function addresses
             if (arg.op == TOKsymoff)
@@ -3556,19 +3556,12 @@ public:
                     }
                 }
                 s = s.toAlias();
+
                 // Same as wthis.ident
-                if (s.needThis() || s.isTemplateDeclaration())
-                {
-                    e = new VarExp(loc, withsym.withstate.wthis);
-                    e = new DotIdExp(loc, e, ident);
-                }
-                else
-                {
-                    Type t = withsym.withstate.wthis.type;
-                    if (t.ty == Tpointer)
-                        t = (cast(TypePointer)t).next;
-                    e = typeDotIdExp(loc, t, ident);
-                }
+                //  TODO: DotIdExp.semantic will find 'ident' from 'wthis' again.
+                //  The redudancy should be removed.
+                e = new VarExp(loc, withsym.withstate.wthis);
+                e = new DotIdExp(loc, e, ident);
                 e = e.semantic(sc);
             }
             else
@@ -3761,17 +3754,18 @@ public:
             e = e.semantic(sc);
             return e;
         }
-        if (FuncLiteralDeclaration fld = s.isFuncLiteralDeclaration())
+        if (auto fld = s.isFuncLiteralDeclaration())
         {
             //printf("'%s' is a function literal\n", fld->toChars());
             e = new FuncExp(loc, fld);
             return e.semantic(sc);
         }
-        if (FuncDeclaration f = s.isFuncDeclaration())
+        if (auto f = s.isFuncDeclaration())
         {
             f = f.toAliasFunc();
             if (!f.functionSemantic())
                 return new ErrorExp();
+
             if (!f.type.deco)
             {
                 const(char)* trailMsg = f.inferRetType ? "inferred return type of function call " : "";
@@ -3820,8 +3814,7 @@ public:
         }
         if (Type t = s.getType())
         {
-            auto te = new TypeExp(loc, t);
-            return te.semantic(sc);
+            return (new TypeExp(loc, t)).semantic(sc);
         }
         if (TupleDeclaration tup = s.isTupleDeclaration())
         {
@@ -3883,7 +3876,7 @@ public:
 extern (C++) class ThisExp : Expression
 {
 public:
-    Declaration var;
+    VarDeclaration var;
 
     final extern (D) this(Loc loc)
     {
@@ -3899,7 +3892,9 @@ public:
         }
         if (type)
             return this;
+
         FuncDeclaration fd = hasThis(sc); // fd is the uplevel function with the 'this' variable
+
         /* Special case for typeof(this) and typeof(super) since both
          * should work even if they are not inside a non-static member function
          */
@@ -3929,15 +3924,17 @@ public:
         }
         if (!fd)
             goto Lerr;
+
         assert(fd.vthis);
         var = fd.vthis;
         assert(var.parent);
         type = var.type;
-        if (var.isVarDeclaration().checkNestedReference(sc, loc))
+        if (var.checkNestedReference(sc, loc))
             return new ErrorExp();
         if (!sc.intypeof)
             sc.callSuper |= CSXthis;
         return this;
+
     Lerr:
         error("'this' is only defined in non-static member functions, not %s", sc.parent.toChars());
         return new ErrorExp();
@@ -3994,9 +3991,11 @@ public:
         }
         if (type)
             return this;
+
         FuncDeclaration fd = hasThis(sc);
         ClassDeclaration cd;
         Dsymbol s;
+
         /* Special case for typeof(this) and typeof(super) since both
          * should work even if they are not inside a non-static member function
          */
@@ -4026,8 +4025,10 @@ public:
         }
         if (!fd)
             goto Lerr;
+
         var = fd.vthis;
         assert(var && var.parent);
+
         s = fd.toParent();
         while (s && s.isTemplateInstance())
             s = s.toParent();
@@ -4048,11 +4049,14 @@ public:
             type = cd.baseClass.type;
             type = type.castMod(var.type.mod);
         }
-        if (var.isVarDeclaration().checkNestedReference(sc, loc))
+
+        if (var.checkNestedReference(sc, loc))
             return new ErrorExp();
+
         if (!sc.intypeof)
             sc.callSuper |= CSXsuper;
         return this;
+
     Lerr:
         error("'super' is only allowed in non-static class member functions");
         return new ErrorExp();
@@ -4252,13 +4256,25 @@ public:
     }
 
     /**********************************
-     * Return the code unit count of string.
-     * Input:
-     *      encSize     code unit size of the target encoding.
+     * Return the number of code units the string would be if it were re-encoded
+     * as tynto.
+     * Params:
+     *      tynto = code unit type of the target encoding
+     * Returns:
+     *      number of code units
      */
-    size_t length(int encSize = 4)
+    final size_t numberOfCodeUnits(int tynto = 0)
     {
-        assert(encSize == 1 || encSize == 2 || encSize == 4);
+        int encSize;
+        switch (tynto)
+        {
+            case 0:      return len;
+            case Tchar:  encSize = 1; break;
+            case Twchar: encSize = 2; break;
+            case Tdchar: encSize = 4; break;
+            default:
+                assert(0);
+        }
         if (sz == encSize)
             return len;
         size_t result = 0;
@@ -4299,6 +4315,48 @@ public:
             assert(0);
         }
         return result;
+    }
+
+    /**********************************************
+     * Write the contents of the string to dest.
+     * Use numberOfCodeUnits() to determine size of result.
+     * Params:
+     *  dest = destination
+     *  tyto = encoding type of the result
+     *  zero = add terminating 0
+     */
+    void writeTo(void* dest, bool zero, int tyto = 0)
+    {
+        int encSize;
+        switch (tyto)
+        {
+            case 0:      encSize = sz; break;
+            case Tchar:  encSize = 1; break;
+            case Twchar: encSize = 2; break;
+            case Tdchar: encSize = 4; break;
+            default:
+                assert(0);
+        }
+        if (sz == encSize)
+        {
+            memcpy(dest, string, len * sz);
+            if (zero)
+                memset(dest + len * sz, 0, sz);
+        }
+        else
+            assert(0);
+    }
+
+    /**************************************************
+     * If the string data is UTF-8 and can be accessed directly,
+     * return a pointer to it.
+     * Do not assume a terminating 0.
+     * Returns:
+     *  pointer to string data if possible, null if not
+     */
+    char* toPtr()
+    {
+        return (sz == 1) ? cast(char*)string : null;
     }
 
     override StringExp toStringExp()
@@ -4346,18 +4404,19 @@ public:
                 return memcmp(cast(char*)string, cast(char*)se2.string, len1);
             case 2:
                 {
-                    d_wchar* s1 = cast(d_wchar*)string;
-                    d_wchar* s2 = cast(d_wchar*)se2.string;
+                    wchar* s1 = cast(wchar*)string;
+                    wchar* s2 = cast(wchar*)se2.string;
                     for (size_t u = 0; u < len; u++)
                     {
                         if (s1[u] != s2[u])
                             return s1[u] - s2[u];
                     }
                 }
+                break;
             case 4:
                 {
-                    d_dchar* s1 = cast(d_dchar*)string;
-                    d_dchar* s2 = cast(d_dchar*)se2.string;
+                    dchar* s1 = cast(dchar*)string;
+                    dchar* s2 = cast(dchar*)se2.string;
                     for (size_t u = 0; u < len; u++)
                     {
                         if (s1[u] != s2[u])
@@ -4415,6 +4474,18 @@ public:
             assert(0);
         }
         return value;
+    }
+
+    /********************************
+     * Convert string contents to a 0 terminated string,
+     * allocated by mem.xmalloc().
+     */
+    final char* toStringz()
+    {
+        auto nbytes = len * sz;
+        char* s = cast(char*)mem.xmalloc(nbytes + sz);
+        writeTo(s, true);
+        return s;
     }
 
     override void accept(Visitor v)
@@ -5155,6 +5226,9 @@ public:
 
     override Expression semantic(Scope* sc)
     {
+        if (type.ty == Terror)
+            return new ErrorExp();
+
         //printf("TypeExp::semantic(%s)\n", type->toChars());
         Expression e;
         Type t;
@@ -5205,8 +5279,8 @@ public:
 
     extern (D) this(Loc loc, ScopeDsymbol pkg)
     {
-        super(loc, TOKimport, __traits(classInstanceSize, ScopeExp));
-        //printf("ScopeExp::ScopeExp(pkg = '%s')\n", pkg->toChars());
+        super(loc, TOKscope, __traits(classInstanceSize, ScopeExp));
+        //printf("ScopeExp::ScopeExp(sds = '%s')\n", pkg->toChars());
         //static int count; if (++count == 38) *(char*)0=0;
         this.sds = pkg;
     }
@@ -5856,6 +5930,14 @@ public:
     {
         v.visit(this);
     }
+
+    override void printAST(int indent)
+    {
+        Expression.printAST(indent);
+        foreach (i; 0 .. indent + 2)
+            printf(" ");
+        printf(".var: %s\n", var ? var.toChars() : "");
+    }
 }
 
 /***********************************************************
@@ -6110,6 +6192,20 @@ public:
         }
         tok = fd.tok; // save original kind of function/delegate/(infer)
         assert(fd.fbody);
+    }
+
+    override bool equals(RootObject o)
+    {
+        if (this == o)
+            return true;
+        if (o.dyncast() != DYNCAST_EXPRESSION)
+            return false;
+        if ((cast(Expression)o).op == TOKfunction)
+        {
+            FuncExp fe = cast(FuncExp)o;
+            return fd == fe.fd;
+        }
+        return false;
     }
 
     void genIdent(Scope* sc)
@@ -7225,7 +7321,9 @@ public:
         // T opAssign floating yields a floating. Prevent truncating conversions (float to int).
         // See issue 3841.
         // Should we also prevent double to float (type->isfloating() && type->size() < t2 ->size()) ?
-        if (op == TOKmulass || op == TOKdivass || op == TOKmodass || TOKaddass || op == TOKminass || op == TOKpowass)
+        if (op == TOKaddass || op == TOKminass ||
+            op == TOKmulass || op == TOKdivass || op == TOKmodass ||
+            op == TOKpowass)
         {
             if ((type.isintegral() && t2.isfloating()))
             {
@@ -7606,22 +7704,24 @@ public:
 
 /***********************************************************
  */
-extern (C++) final class FileExp : UnaExp
+extern (C++) final class ImportExp : UnaExp
 {
 public:
     extern (D) this(Loc loc, Expression e)
     {
-        super(loc, TOKmixin, __traits(classInstanceSize, FileExp), e);
+        super(loc, TOKimport, __traits(classInstanceSize, ImportExp), e);
     }
 
     override Expression semantic(Scope* sc)
     {
-        const(char)* name;
-        StringExp se;
         static if (LOGSEMANTIC)
         {
-            printf("FileExp::semantic('%s')\n", toChars());
+            printf("ImportExp::semantic('%s')\n", toChars());
         }
+        const(char)* name;
+        char* namez;
+        StringExp se;
+
         sc = sc.startCTFE();
         e1 = e1.semantic(sc);
         e1 = resolveProperties(sc, e1);
@@ -7634,24 +7734,24 @@ public:
         }
         se = cast(StringExp)e1;
         se = se.toUTF8(sc);
-        name = cast(char*)se.string;
+        namez = se.toStringz();
         if (!global.params.fileImppath)
         {
-            error("need -Jpath switch to import text file %s", name);
+            error("need -Jpath switch to import text file %s", namez);
             goto Lerror;
         }
         /* Be wary of CWE-22: Improper Limitation of a Pathname to a Restricted Directory
          * ('Path Traversal') attacks.
          * http://cwe.mitre.org/data/definitions/22.html
          */
-        name = FileName.safeSearchPath(global.filePath, name);
+        name = FileName.safeSearchPath(global.filePath, namez);
         if (!name)
         {
             error("file %s cannot be found or not in a path specified with -J", se.toChars());
             goto Lerror;
         }
         if (global.params.verbose)
-            fprintf(global.stdmsg, "file      %s\t(%s)\n", cast(char*)se.string, name);
+            fprintf(global.stdmsg, "file      %.*s\t(%s)\n", cast(int)se.len, se.string, name);
         if (global.params.moduleDeps !is null)
         {
             OutBuffer* ob = global.params.moduleDeps;
@@ -7664,7 +7764,7 @@ public:
             ob.writestring(") : ");
             if (global.params.moduleDepsFile)
                 ob.writestring("string : ");
-            ob.writestring(cast(char*)se.string);
+            ob.write(se.string, se.len);
             ob.writestring(" (");
             escapePath(ob, name);
             ob.writestring(")");
@@ -7772,7 +7872,7 @@ public:
 
     extern (D) this(Loc loc, Expression e, Identifier ident)
     {
-        super(loc, TOKdot, __traits(classInstanceSize, DotIdExp), e);
+        super(loc, TOKdotid, __traits(classInstanceSize, DotIdExp), e);
         this.ident = ident;
     }
 
@@ -7822,7 +7922,7 @@ public:
             Dsymbol ds;
             switch (e1.op)
             {
-            case TOKimport:
+            case TOKscope:
                 ds = (cast(ScopeExp)e1).sds;
                 goto L1;
             case TOKvar:
@@ -7864,7 +7964,7 @@ public:
             // bypass checkPurity
             return e1.type.dotExp(sc, e1, ident, 0);
         }
-        if (e1.op == TOKdotexp)
+        if (e1.op == TOKdot)
         {
         }
         else
@@ -7942,7 +8042,7 @@ public:
             return e;
         Expression eleft;
         Expression eright;
-        if (e1.op == TOKdotexp)
+        if (e1.op == TOKdot)
         {
             DotExp de = cast(DotExp)e1;
             eleft = de.e1;
@@ -7954,7 +8054,7 @@ public:
             eright = e1;
         }
         Type t1b = e1.type.toBasetype();
-        if (eright.op == TOKimport) // also used for template alias's
+        if (eright.op == TOKscope) // also used for template alias's
         {
             ScopeExp ie = cast(ScopeExp)eright;
             /* Disable access to another module's private imports.
@@ -8048,10 +8148,9 @@ public:
                     //printf("'%s' is an overload set\n", o->toChars());
                     return new OverExp(loc, o);
                 }
-                Type t = s.getType();
-                if (t)
+                if (auto t = s.getType())
                 {
-                    return new TypeExp(loc, t);
+                    return (new TypeExp(loc, t)).semantic(sc);
                 }
                 TupleDeclaration tup = s.isTupleDeclaration();
                 if (tup)
@@ -8399,7 +8498,7 @@ public:
             return true;
         Expression e = new DotIdExp(loc, e1, ti.name);
         e = e.semantic(sc);
-        if (e.op == TOKdotexp)
+        if (e.op == TOKdot)
             e = (cast(DotExp)e).e2;
         Dsymbol s = null;
         switch (e.op)
@@ -8410,7 +8509,7 @@ public:
         case TOKdottd:
             s = (cast(DotTemplateExp)e).td;
             break;
-        case TOKimport:
+        case TOKscope:
             s = (cast(ScopeExp)e).sds;
             break;
         case TOKdotvar:
@@ -8563,7 +8662,7 @@ public:
             e = e.semantic(sc);
             return e;
         }
-        else if (e.op == TOKimport)
+        else if (e.op == TOKscope)
         {
             ScopeExp se = cast(ScopeExp)e;
             TemplateDeclaration td = se.sds.isTemplateDeclaration();
@@ -8577,7 +8676,7 @@ public:
             e = e.semantic(sc);
             return e;
         }
-        else if (e.op == TOKdotexp)
+        else if (e.op == TOKdot)
         {
             DotExp de = cast(DotExp)e;
             e1 = de.e1; // pull semantic() result
@@ -8607,7 +8706,7 @@ public:
                 e = e.semantic(sc);
                 return e;
             }
-            if (de.e2.op == TOKimport)
+            if (de.e2.op == TOKscope)
             {
                 // This should *really* be moved to ScopeExp::semantic()
                 ScopeExp se = cast(ScopeExp)de.e2;
@@ -8686,6 +8785,14 @@ public:
     override void accept(Visitor v)
     {
         v.visit(this);
+    }
+
+    override void printAST(int indent)
+    {
+        UnaExp.printAST(indent);
+        foreach (i; 0 .. indent + 2)
+            printf(" ");
+        printf(".func: %s\n", func ? func.toChars() : "");
     }
 }
 
@@ -8839,7 +8946,7 @@ public:
         /* This recognizes:
          *  foo!(tiargs)(funcargs)
          */
-        if (e1.op == TOKimport && !e1.type)
+        if (e1.op == TOKscope && !e1.type)
         {
             ScopeExp se = cast(ScopeExp)e1;
             TemplateInstance ti = se.sds.isTemplateInstance();
@@ -8930,7 +9037,7 @@ public:
         }
         else
         {
-            if (e1.op == TOKdot)
+            if (e1.op == TOKdotid)
             {
                 DotIdExp die = cast(DotIdExp)e1;
                 e1 = die.semantic(sc);
@@ -8976,7 +9083,7 @@ public:
                 if (v && ve.checkPurity(sc, v))
                     return new ErrorExp();
             }
-            if (e1.op == TOKimport)
+            if (e1.op == TOKscope)
             {
                 // Perhaps this should be moved to ScopeExp::semantic()
                 ScopeExp se = cast(ScopeExp)e1;
@@ -8988,7 +9095,7 @@ public:
                 e1 = new VarExp(se.loc, se.var, 1);
                 e1 = e1.semantic(sc);
             }
-            else if (e1.op == TOKdotexp)
+            else if (e1.op == TOKdot)
             {
                 DotExp de = cast(DotExp)e1;
                 if (de.e2.op == TOKoverloadset)
@@ -8997,7 +9104,7 @@ public:
                     tthis = de.e1.type;
                     e1 = de.e2;
                 }
-                if (de.e2.op == TOKimport)
+                if (de.e2.op == TOKscope)
                 {
                     // This should *really* be moved to ScopeExp::semantic()
                     ScopeExp se = cast(ScopeExp)de.e2;
@@ -9679,7 +9786,7 @@ public:
                 }
             }
         }
-        else if (e1.op == TOKimport)
+        else if (e1.op == TOKscope)
         {
             TemplateInstance ti = (cast(ScopeExp)e1).sds.isTemplateInstance();
             if (ti)
@@ -10902,7 +11009,7 @@ extern (C++) final class DotExp : BinExp
 public:
     extern (D) this(Loc loc, Expression e1, Expression e2)
     {
-        super(loc, TOKdotexp, __traits(classInstanceSize, DotExp), e1, e2);
+        super(loc, TOKdot, __traits(classInstanceSize, DotExp), e1, e2);
     }
 
     override Expression semantic(Scope* sc)
@@ -10915,7 +11022,7 @@ public:
         }
         e1 = e1.semantic(sc);
         e2 = e2.semantic(sc);
-        if (e2.op == TOKimport)
+        if (e2.op == TOKscope)
         {
             ScopeExp se = cast(ScopeExp)e2;
             TemplateDeclaration td = se.sds.isTemplateDeclaration();
@@ -11689,7 +11796,7 @@ public:
                     return resolveUFCSProperties(sc, e1x, e2);
                 e1x = e;
             }
-            else if (e1x.op == TOKdot)
+            else if (e1x.op == TOKdotid)
             {
                 DotIdExp die = cast(DotIdExp)e1x;
                 Expression e = die.semanticY(sc, 1);
@@ -11873,13 +11980,18 @@ public:
                 Type t2 = e2x.type.toBasetype();
                 if (t2.ty == Tstruct && sd == (cast(TypeStruct)t2).sym)
                 {
+                    // Bugzilla 15661: Look for the form from last of comma chain.
+                    auto e2y = e2x;
+                    while (e2y.op == TOKcomma)
+                        e2y = (cast(CommaExp)e2y).e2;
+
                     CallExp ce;
                     DotVarExp dve;
                     if (sd.ctor &&
-                        e2x.op == TOKcall &&
-                        (ce = cast(CallExp)e2x, ce.e1.op == TOKdotvar) &&
+                        e2y.op == TOKcall &&
+                        (ce = cast(CallExp)e2y, ce.e1.op == TOKdotvar) &&
                         (dve = cast(DotVarExp)ce.e1, dve.var.isCtorDeclaration()) &&
-                        e2x.type.implicitConvTo(t1))
+                        e2y.type.implicitConvTo(t1))
                     {
                         /* Look for form of constructor call which is:
                          *    __ctmp.ctor(arguments...)
@@ -11911,7 +12023,11 @@ public:
                         CallExp cx = cast(CallExp)ce.copy();
                         cx.e1 = dvx;
 
-                        Expression e = new CommaExp(loc, ae, cx);
+                        Expression e0;
+                        extractLast(e2x, &e0);
+
+                        auto e = combine(ae, cx);
+                        e = combine(e0, e);
                         e = e.semantic(sc);
                         return e;
                     }
@@ -13882,11 +13998,15 @@ public:
 
     override Expression semantic(Scope* sc)
     {
+        if (type)
+            return this;
+
         // same as for AndAnd
         e1 = e1.semantic(sc);
         e1 = resolveProperties(sc, e1);
         e1 = e1.toBoolean(sc);
         uint cs1 = sc.callSuper;
+
         if (sc.flags & SCOPEcondition)
         {
             /* If in static if, don't evaluate e2 if we don't have to.
@@ -13897,9 +14017,11 @@ public:
                 return new IntegerExp(loc, 1, Type.tbool);
             }
         }
+
         e2 = e2.semantic(sc);
         sc.mergeCallSuper(loc, cs1);
         e2 = resolveProperties(sc, e2);
+
         if (e2.type.ty == Tvoid)
             type = Type.tvoid;
         else
@@ -13907,7 +14029,7 @@ public:
             e2 = e2.toBoolean(sc);
             type = Type.tbool;
         }
-        if (e2.op == TOKtype || e2.op == TOKimport)
+        if (e2.op == TOKtype || e2.op == TOKscope)
         {
             error("%s is not an expression", e2.toChars());
             return new ErrorExp();
@@ -13916,6 +14038,7 @@ public:
             return e1;
         if (e2.op == TOKerror)
             return e2;
+
         return this;
     }
 
@@ -13943,11 +14066,15 @@ public:
 
     override Expression semantic(Scope* sc)
     {
+        if (type)
+            return this;
+
         // same as for OrOr
         e1 = e1.semantic(sc);
         e1 = resolveProperties(sc, e1);
         e1 = e1.toBoolean(sc);
         uint cs1 = sc.callSuper;
+
         if (sc.flags & SCOPEcondition)
         {
             /* If in static if, don't evaluate e2 if we don't have to.
@@ -13958,9 +14085,11 @@ public:
                 return new IntegerExp(loc, 0, Type.tbool);
             }
         }
+
         e2 = e2.semantic(sc);
         sc.mergeCallSuper(loc, cs1);
         e2 = resolveProperties(sc, e2);
+
         if (e2.type.ty == Tvoid)
             type = Type.tvoid;
         else
@@ -13968,7 +14097,7 @@ public:
             e2 = e2.toBoolean(sc);
             type = Type.tbool;
         }
-        if (e2.op == TOKtype || e2.op == TOKimport)
+        if (e2.op == TOKtype || e2.op == TOKscope)
         {
             error("%s is not an expression", e2.toChars());
             return new ErrorExp();
@@ -13977,6 +14106,7 @@ public:
             return e1;
         if (e2.op == TOKerror)
             return e2;
+
         return this;
     }
 

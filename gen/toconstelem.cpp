@@ -158,42 +158,17 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    Type *t = e->type->toBasetype();
-    Type *cty = t->nextOf()->toBasetype();
+    Type * const t = e->type->toBasetype();
+    Type * const cty = t->nextOf()->toBasetype();
 
-    bool nullterm = (t->ty != Tsarray);
-    size_t endlen = nullterm ? e->len + 1 : e->len;
-
-    LLType *ct = DtoMemType(cty);
-    LLArrayType *at = LLArrayType::get(ct, endlen);
-
-    llvm::StringMap<llvm::GlobalVariable *> *stringLiteralCache = nullptr;
-    LLConstant *_init;
-    switch (cty->size()) {
-    default:
-      llvm_unreachable("Unknown char type");
-    case 1:
-      _init = toConstantArray(ct, at, static_cast<uint8_t *>(e->string), e->len,
-                              nullterm);
-      stringLiteralCache = &(gIR->stringLiteral1ByteCache);
-      break;
-    case 2:
-      _init = toConstantArray(ct, at, static_cast<uint16_t *>(e->string),
-                              e->len, nullterm);
-      stringLiteralCache = &(gIR->stringLiteral2ByteCache);
-      break;
-    case 4:
-      _init = toConstantArray(ct, at, static_cast<uint32_t *>(e->string),
-                              e->len, nullterm);
-      stringLiteralCache = &(gIR->stringLiteral4ByteCache);
-      break;
-    }
+    auto _init = buildStringLiteralConstant(e, t->ty != Tsarray);
 
     if (t->ty == Tsarray) {
       result = _init;
       return;
     }
 
+    auto stringLiteralCache = stringLiteralCacheForType(cty);
     llvm::StringRef key(e->toChars());
     llvm::GlobalVariable *gvar =
         (stringLiteralCache->find(key) == stringLiteralCache->end())
@@ -221,7 +196,7 @@ public:
     if (t->ty == Tpointer) {
       result = arrptr;
     } else if (t->ty == Tarray) {
-      LLConstant *clen = LLConstantInt::get(DtoSize_t(), e->len, false);
+      LLConstant *clen = LLConstantInt::get(DtoSize_t(), e->numberOfCodeUnits(), false);
       result = DtoConstSlice(clen, arrptr, e->type);
     } else {
       llvm_unreachable("Unknown type for StringExp.");

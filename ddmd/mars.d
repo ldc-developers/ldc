@@ -16,7 +16,7 @@ import core.stdc.stdio;
 import core.stdc.stdlib;
 import core.stdc.string;
 import ddmd.arraytypes;
-// IN_LLVM import ddmd.backend;
+import ddmd.gluelayer;
 import ddmd.builtin;
 import ddmd.cond;
 import ddmd.dinifile;
@@ -25,7 +25,6 @@ import ddmd.dmodule;
 import ddmd.doc;
 import ddmd.dscope;
 import ddmd.dsymbol;
-import ddmd.dunittest;
 import ddmd.errors;
 import ddmd.expression;
 import ddmd.globals;
@@ -273,7 +272,6 @@ extern (C++) int tryMain(size_t argc, const(char)** argv)
         printf("DMD %s DEBUG\n", global._version);
         fflush(stdout); // avoid interleaving with stderr output when redirecting
     }
-    unittests();
     // Check for malformed input
     if (argc < 1 || !argv)
     {
@@ -452,6 +450,8 @@ extern (C++) int tryMain(size_t argc, const(char)** argv)
                 global.params.useDeprecated = 1;
             else if (strcmp(p + 1, "dw") == 0)
                 global.params.useDeprecated = 2;
+            else if (strcmp(p + 1, "dwarfeh") == 0)
+                global.params.dwarfeh = true;
             else if (strcmp(p + 1, "c") == 0)
                 global.params.link = false;
             else if (memcmp(p + 1, cast(char*)"color", 5) == 0)
@@ -1197,8 +1197,8 @@ Language changes listed by -transition=id:
         VersionCondition.addPredefinedGlobalIdent("D_NoBoundsChecks");
     VersionCondition.addPredefinedGlobalIdent("D_HardFloat");
     objc_tryMain_dObjc();
+
     // Initialization
-    Lexer.initLexer();
     Type._init();
     Id.initialize();
     Module._init();
@@ -1206,7 +1206,7 @@ Language changes listed by -transition=id:
     Expression._init();
     objc_tryMain_init();
     builtin_init();
-    initTraitsStringTable();
+
     if (global.params.verbose)
     {
         fprintf(global.stdmsg, "binary    %s\n", global.params.argv0);

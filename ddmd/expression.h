@@ -332,7 +332,7 @@ public:
 class ThisExp : public Expression
 {
 public:
-    Declaration *var;
+    VarDeclaration *var;
 
     ThisExp(Loc loc);
     Expression *semantic(Scope *sc);
@@ -367,9 +367,9 @@ public:
 
 class StringExp : public Expression
 {
-public:
     void *string;       // char, wchar, or dchar data
     size_t len;         // number of chars, wchars, or dchars
+public:
     unsigned char sz;   // 1: char, 2: wchar, 4: dchar
     unsigned char committed;    // !=0 if type is committed
     utf8_t postfix;      // 'c', 'w', 'd'
@@ -381,7 +381,6 @@ public:
     static StringExp *create(Loc loc, char *s);
     bool equals(RootObject *o);
     Expression *semantic(Scope *sc);
-    size_t length(int encSize = 4);
     StringExp *toStringExp();
     StringExp *toUTF8(Scope *sc);
     int compare(RootObject *obj);
@@ -391,6 +390,10 @@ public:
     Expression *modifiableLvalue(Scope *sc, Expression *e);
     unsigned charAt(uinteger_t i);
     void accept(Visitor *v) { v->visit(this); }
+    char *toStringz();
+    size_t numberOfCodeUnits(int tynto = 0);
+    void writeTo(void* dest, bool zero, int tyto = 0);
+    char *toPtr();
 };
 
 // Tuple
@@ -824,10 +827,10 @@ public:
     void accept(Visitor *v) { v->visit(this); }
 };
 
-class FileExp : public UnaExp
+class ImportExp : public UnaExp
 {
 public:
-    FileExp(Loc loc, Expression *e);
+    ImportExp(Loc loc, Expression *e);
     Expression *semantic(Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
 };

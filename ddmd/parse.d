@@ -69,8 +69,9 @@ __gshared PREC[TOKMAX] precedence =
     TOKerror : PREC_expr,
     TOKtypeof : PREC_primary,
     TOKmixin : PREC_primary,
-    TOKdotvar : PREC_primary,
     TOKimport : PREC_primary,
+    TOKdotvar : PREC_primary,
+    TOKscope : PREC_primary,
     TOKidentifier : PREC_primary,
     TOKthis : PREC_primary,
     TOKsuper : PREC_primary,
@@ -108,9 +109,9 @@ __gshared PREC[TOKMAX] precedence =
     TOKvoid : PREC_primary,
     // post
     TOKdotti : PREC_primary,
-    TOKdot : PREC_primary,
+    TOKdotid : PREC_primary,
     TOKdottd : PREC_primary,
-    TOKdotexp : PREC_primary,
+    TOKdot : PREC_primary,
     TOKdottype : PREC_primary,
     TOKplusplus : PREC_primary,
     TOKminusminus : PREC_primary,
@@ -235,9 +236,9 @@ public:
      * Input:
      *      loc     location in source file of mixin
      */
-    extern (D) this(Loc loc, Module _module, const(char)* base, size_t length, int doDocComment)
+    extern (D) this(Loc loc, Module _module, const(char)* base, size_t length, bool doDocComment)
     {
-        super(_module ? _module.srcfile.toChars() : null, base, 0, length, doDocComment, 0);
+        super(_module ? _module.srcfile.toChars() : null, base, 0, length, doDocComment, false);
         //printf("Parser::Parser()\n");
         scanloc = loc;
         if (loc.filename)
@@ -254,9 +255,9 @@ public:
         //nextToken();              // start up the scanner
     }
 
-    extern (D) this(Module _module, const(char)* base, size_t length, int doDocComment)
+    extern (D) this(Module _module, const(char)* base, size_t length, bool doDocComment)
     {
-        super(_module ? _module.srcfile.toChars() : null, base, 0, length, doDocComment, 0);
+        super(_module ? _module.srcfile.toChars() : null, base, 0, length, doDocComment, false);
         //printf("Parser::Parser()\n");
         mod = _module;
         linkage = LINKd;
@@ -1475,7 +1476,7 @@ public:
                     nextToken();
                     loc = token.loc; // todo
                     Type spectype = null;
-                    if (isDeclaration(&token, 2, TOKreserved, null))
+                    if (isDeclaration(&token, NeedDeclaratorId.must, TOKreserved, null))
                     {
                         spectype = parseType(&tp_ident);
                     }
@@ -1493,7 +1494,7 @@ public:
                     if (token.value == TOKcolon) // : Type
                     {
                         nextToken();
-                        if (isDeclaration(&token, 0, TOKreserved, null))
+                        if (isDeclaration(&token, NeedDeclaratorId.no, TOKreserved, null))
                             spec = parseType();
                         else
                             spec = parseCondExp();
@@ -1502,7 +1503,7 @@ public:
                     if (token.value == TOKassign) // = Type
                     {
                         nextToken();
-                        if (isDeclaration(&token, 0, TOKreserved, null))
+                        if (isDeclaration(&token, NeedDeclaratorId.no, TOKreserved, null))
                             def = parseType();
                         else
                             def = parseCondExp();
@@ -1748,7 +1749,7 @@ public:
         while (token.value != endtok)
         {
             // See if it is an Expression or a Type
-            if (isDeclaration(&token, 0, TOKreserved, null))
+            if (isDeclaration(&token, NeedDeclaratorId.no, TOKreserved, null))
             {
                 // Template argument is a type
                 Type ta = parseType();
@@ -3364,7 +3365,7 @@ public:
                         nextToken();
                         return t;
                     }
-                    else if (isDeclaration(&token, 0, TOKrbracket, null))
+                    else if (isDeclaration(&token, NeedDeclaratorId.no, TOKrbracket, null))
                     {
                         // This can be one of two things:
                         //  1 - an associative array declaration, T[type]
@@ -3443,7 +3444,7 @@ public:
                     t = new TypeDArray(t); // []
                     nextToken();
                 }
-                else if (isDeclaration(&token, 0, TOKrbracket, null))
+                else if (isDeclaration(&token, NeedDeclaratorId.no, TOKrbracket, null))
                 {
                     // It's an associative array declaration
                     //printf("it's an associative array\n");
@@ -3578,7 +3579,7 @@ public:
                             nextToken();
                             *palt |= 2;
                         }
-                        else if (isDeclaration(&token, 0, TOKrbracket, null))
+                        else if (isDeclaration(&token, NeedDeclaratorId.no, TOKrbracket, null))
                         {
                             // It's an associative array
                             //printf("it's an associative array\n");
@@ -3865,16 +3866,45 @@ public:
                     if (token.value == TOKlparen)
                         tpl = parseTemplateParameterList();
                     check(TOKassign);
-                    storage_class = STCundefined;
-                    link = linkage;
-                    structalign = 0;
-                    udas = null;
-                    parseStorageClasses(storage_class, link, structalign, udas);
-                    if (udas)
-                        error("user defined attributes not allowed for %s declarations", Token.toChars(tok));
-                    t = parseType();
-                    Declaration v = new AliasDeclaration(loc, ident, t);
+
+                    Declaration v;
+                    if (token.value == TOKfunction ||
+                        token.value == TOKdelegate ||
+                        token.value == TOKlparen &&
+                            skipAttributes(peekPastParen(&token), &tk) &&
+                            (tk.value == TOKgoesto || tk.value == TOKlcurly) ||
+                        token.value == TOKlcurly ||
+                        token.value == TOKidentifier && peekNext() == TOKgoesto
+                       )
+                    {
+                        // function (parameters) { statements... }
+                        // delegate (parameters) { statements... }
+                        // (parameters) { statements... }
+                        // (parameters) => expression
+                        // { statements... }
+                        // identifier => expression
+
+                        Dsymbol s = parseFunctionLiteral();
+                        v = new AliasDeclaration(loc, ident, s);
+                    }
+                    else
+                    {
+                        // StorageClasses type
+
+                        storage_class = STCundefined;
+                        link = linkage;
+                        structalign = 0;
+                        udas = null;
+                        parseStorageClasses(storage_class, link, structalign, udas);
+
+                        if (udas)
+                            error("user defined attributes not allowed for %s declarations", Token.toChars(tok));
+
+                        t = parseType();
+                        v = new AliasDeclaration(loc, ident, t);
+                    }
                     v.storage_class = storage_class;
+
                     Dsymbol s = v;
                     if (tpl)
                     {
@@ -3890,6 +3920,7 @@ public:
                         s = new LinkDeclaration(link, a2);
                     }
                     a.push(s);
+
                     switch (token.value)
                     {
                     case TOKsemicolon:
@@ -3919,6 +3950,7 @@ public:
                 }
                 return a;
             }
+
             // alias StorageClasses type ident;
         }
         else if (token.value == TOKtypedef)
@@ -4097,24 +4129,7 @@ public:
                 if (tpl)
                     constraint = parseConstraint();
                 Dsymbol s = parseContracts(f);
-                /* A template parameter list means it's a function template
-                 */
-                if (tpl)
-                {
-                    // Wrap a template around the function declaration
-                    auto decldefs = new Dsymbols();
-                    decldefs.push(s);
-                    auto tempdecl = new TemplateDeclaration(loc, s.ident, tpl, constraint, decldefs);
-                    s = tempdecl;
-                    if (storage_class & STCstatic)
-                    {
-                        assert(f.storage_class & STCstatic);
-                        f.storage_class &= ~STCstatic;
-                        auto ax = new Dsymbols();
-                        ax.push(s);
-                        s = new StorageClassDeclaration(STCstatic, ax);
-                    }
-                }
+                auto tplIdent = s.ident;
                 if (link != linkage)
                 {
                     auto ax = new Dsymbols();
@@ -4126,6 +4141,24 @@ public:
                     auto ax = new Dsymbols();
                     ax.push(s);
                     s = new UserAttributeDeclaration(udas, ax);
+                }
+                /* A template parameter list means it's a function template
+                 */
+                if (tpl)
+                {
+                    // Wrap a template around the function declaration
+                    auto decldefs = new Dsymbols();
+                    decldefs.push(s);
+                    auto tempdecl = new TemplateDeclaration(loc, tplIdent, tpl, constraint, decldefs);
+                    s = tempdecl;
+                    if (storage_class & STCstatic)
+                    {
+                        assert(f.storage_class & STCstatic);
+                        f.storage_class &= ~STCstatic;
+                        auto ax = new Dsymbols();
+                        ax.push(s);
+                        s = new StorageClassDeclaration(STCstatic, ax);
+                    }
                 }
                 a.push(s);
                 addComment(s, comment);
@@ -4444,6 +4477,16 @@ public:
                 Token* t = peek(&token);
                 if (t.value == TOKcolon)
                 {
+                    Token* nt = peek(t);
+                    if (nt.value == TOKcolon)
+                    {
+                        // skip ident::
+                        nextToken();
+                        nextToken();
+                        nextToken();
+                        error("use '.' for member lookup, not '::'");
+                        break;
+                    }
                     // It's a label
                     Identifier ident = token.ident;
                     nextToken();
@@ -4462,7 +4505,10 @@ public:
         case TOKdot:
         case TOKtypeof:
         case TOKvector:
-            if (isDeclaration(&token, 2, TOKreserved, null))
+            /* Bugzilla 15163: If tokens can be handled as
+             * old C-style declaration or D expression, prefer the latter.
+             */
+            if (isDeclaration(&token, NeedDeclaratorId.mustIfDstyle, TOKreserved, null))
                 goto Ldeclaration;
             else
                 goto Lexp;
@@ -4945,7 +4991,7 @@ public:
                     check(TOKassign);
                     param = new Parameter(storageClass, at, ai, null);
                 }
-                else if (isDeclaration(&token, 2, TOKassign, null))
+                else if (isDeclaration(&token, NeedDeclaratorId.must, TOKassign, null))
                 {
                     Identifier ai;
                     Type at = parseType(&ai);
@@ -5714,16 +5760,22 @@ public:
             error(e.loc, "%s must be parenthesized when next to operator %s", e.toChars(), Token.toChars(value));
     }
 
+    enum NeedDeclaratorId
+    {
+        no,             // Declarator part must have no identifier
+        opt,            // Declarator part identifier is optional
+        must,           // Declarator part must have identifier
+        mustIfDstyle,   // Declarator part must have identifier, but don't recognize old C-style syntax
+    }
+
     /************************************
      * Determine if the scanner is sitting on the start of a declaration.
-     * Input:
-     *      needId  0       no identifier
-     *              1       identifier optional
-     *              2       must have identifier
+     * Params:
+     *      needId
      * Output:
      *      if *pt is not NULL, it is set to the ending token, which would be endtok
      */
-    bool isDeclaration(Token* t, int needId, TOK endtok, Token** pt)
+    bool isDeclaration(Token* t, NeedDeclaratorId needId, TOK endtok, Token** pt)
     {
         //printf("isDeclaration(needId = %d)\n", needId);
         int haveId = 0;
@@ -5746,9 +5798,12 @@ public:
         {
             goto Lisnot;
         }
-        if (!isDeclarator(&t, &haveId, &haveTpl, endtok))
+        if (!isDeclarator(&t, &haveId, &haveTpl, endtok, needId != NeedDeclaratorId.mustIfDstyle))
             goto Lisnot;
-        if (needId == 1 || (needId == 0 && !haveId) || (needId == 2 && haveId))
+        if ((needId == NeedDeclaratorId.no && !haveId) ||
+            (needId == NeedDeclaratorId.opt) ||
+            (needId == NeedDeclaratorId.must && haveId) ||
+            (needId == NeedDeclaratorId.mustIfDstyle && haveId))
         {
             if (pt)
                 *pt = t;
@@ -5909,7 +5964,7 @@ public:
             if (t.value != TOKlparen)
                 goto Lfalse;
             t = peek(t);
-            if (!isDeclaration(t, 0, TOKrparen, &t))
+            if (!isDeclaration(t, NeedDeclaratorId.no, TOKrparen, &t))
             {
                 goto Lfalse;
             }
@@ -5926,7 +5981,7 @@ public:
         return false;
     }
 
-    bool isDeclarator(Token** pt, int* haveId, int* haveTpl, TOK endtok)
+    bool isDeclarator(Token** pt, int* haveId, int* haveTpl, TOK endtok, bool allowAltSyntax = true)
     {
         // This code parallels parseDeclarator()
         Token* t = *pt;
@@ -5949,7 +6004,7 @@ public:
                 {
                     t = peek(t);
                 }
-                else if (isDeclaration(t, 0, TOKrbracket, &t))
+                else if (isDeclaration(t, NeedDeclaratorId.no, TOKrbracket, &t))
                 {
                     // It's an associative array declaration
                     t = peek(t);
@@ -5995,10 +6050,15 @@ public:
                 *haveId = true;
                 t = peek(t);
                 break;
+
             case TOKlparen:
+                if (!allowAltSyntax)
+                    return false;   // Do not recognize C-style declarations.
+
                 t = peek(t);
                 if (t.value == TOKrparen)
                     return false; // () is not a declarator
+
                 /* Regard ( identifier ) as not a declarator
                  * BUG: what about ( *identifier ) in
                  *      f(*p)(x);
@@ -6041,7 +6101,7 @@ public:
                     {
                         t = peek(t);
                     }
-                    else if (isDeclaration(t, 0, TOKrbracket, &t))
+                    else if (isDeclaration(t, NeedDeclaratorId.no, TOKrbracket, &t))
                     {
                         // It's an associative array declaration
                         t = peek(t);
@@ -6162,7 +6222,7 @@ public:
                 if (t.value == TOKlparen)
                 {
                     t = peek(t);
-                    if (!isDeclaration(t, 0, TOKrparen, &t))
+                    if (!isDeclaration(t, NeedDeclaratorId.no, TOKrparen, &t))
                         return false;
                     t = peek(t); // skip past closing ')'
                     goto L2;
@@ -6474,6 +6534,18 @@ public:
         {
         case TOKidentifier:
             {
+                Token* t1 = peek(&token);
+                Token* t2 = peek(t1);
+                if (t1.value == TOKmin && t2.value == TOKgt)
+                {
+                    // skip ident->
+                    nextToken();
+                    nextToken();
+                    nextToken();
+                    error("use '.' for member lookup, not '->'");
+                    goto Lerr;
+                }
+
                 if (peekNext() == TOKgoesto)
                     goto case_delegate;
                 id = token.ident;
@@ -6737,7 +6809,7 @@ public:
                 nextToken();
                 check(TOKlparen, "typeid");
                 RootObject o;
-                if (isDeclaration(&token, 0, TOKreserved, null))
+                if (isDeclaration(&token, NeedDeclaratorId.no, TOKreserved, null))
                 {
                     // argument is a type
                     o = parseType();
@@ -6853,7 +6925,7 @@ public:
                 check(TOKlparen, "import");
                 e = parseAssignExp();
                 check(TOKrparen);
-                e = new FileExp(loc, e);
+                e = new ImportExp(loc, e);
                 break;
             }
         case TOKnew:
@@ -7082,7 +7154,7 @@ public:
                 static if (CCASTSYNTAX)
                 {
                     // If cast
-                    if (isDeclaration(tk, 0, TOKrparen, &tk))
+                    if (isDeclaration(tk, NeedDeclaratorId.no, TOKrparen, &tk))
                     {
                         tk = peek(tk); // skip over right parenthesis
                         switch (tk.value)

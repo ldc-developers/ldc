@@ -11,7 +11,7 @@ module ddmd.dclass;
 import core.stdc.string;
 import ddmd.aggregate;
 import ddmd.arraytypes;
-// IN_LLVM import ddmd.backend;
+import ddmd.gluelayer;
 import ddmd.clone;
 import ddmd.declaration;
 import ddmd.dmodule;
@@ -970,6 +970,18 @@ public:
             this.errors = true;
             if (deferred)
                 deferred.errors = true;
+        }
+
+        // Verify fields of a synchronized class are not public
+        if (storage_class & STCsynchronized)
+        foreach (vd; this.fields)
+        {
+            if (!vd.isThisDeclaration() &&
+                !vd.prot().isMoreRestrictiveThan(Prot(PROTpublic)))
+            {
+                vd.error("Field members of a synchronized class cannot be %s",
+                    protectionToChars(vd.prot().kind));
+            }
         }
 
         if (deferred && !global.gag)

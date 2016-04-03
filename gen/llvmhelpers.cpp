@@ -55,7 +55,6 @@ llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel(
                                 "local-exec", "Local exec TLS model"),
                      clEnumValEnd));
 
-
 /******************************************************************************
  * Simple Triple helpers for DFE
  * TODO: find better location for this
@@ -67,7 +66,6 @@ bool isArchx86_64() {
 bool isTargetWindowsMSVC() {
   return global.params.targetTriple->isWindowsMSVCEnvironment();
 }
-
 
 /******************************************************************************
  * DYNAMIC MEMORY HELPERS
@@ -1230,7 +1228,8 @@ LLConstant *DtoTypeInfoOf(Type *type, bool base) {
 
 ////////////////////////////////////////////////////////////////////////////////
 /// Allocates memory and passes on ownership. (never returns null)
-static char* DtoOverloadedIntrinsicName(TemplateInstance *ti, TemplateDeclaration *td) {
+static char *DtoOverloadedIntrinsicName(TemplateInstance *ti,
+                                        TemplateDeclaration *td) {
   IF_LOG Logger::println("DtoOverloadedIntrinsicName");
   LOG_SCOPE;
 
@@ -1292,15 +1291,15 @@ static char* DtoOverloadedIntrinsicName(TemplateInstance *ti, TemplateDeclaratio
 /// For D frontend
 /// Fixup an overloaded intrinsic name string.
 void DtoSetFuncDeclIntrinsicName(TemplateInstance *ti, TemplateDeclaration *td,
-                            FuncDeclaration *fd) {
+                                 FuncDeclaration *fd) {
   if (fd->llvmInternal == LLVMintrinsic) {
     fd->intrinsicName = DtoOverloadedIntrinsicName(ti, td);
-    fd->mangleOverride = fd->intrinsicName ? strdup(fd->intrinsicName) : nullptr;
+    fd->mangleOverride =
+        fd->intrinsicName ? strdup(fd->intrinsicName) : nullptr;
   } else {
     fd->intrinsicName = td->intrinsicName ? strdup(td->intrinsicName) : nullptr;
   }
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -1661,6 +1660,42 @@ llvm::Constant *DtoConstSymbolAddress(Loc &loc, Declaration *decl) {
   llvm_unreachable("Taking constant address not implemented.");
 }
 
+llvm::StringMap<llvm::GlobalVariable *> *
+stringLiteralCacheForType(Type *charType) {
+  switch (charType->size()) {
+  default:
+    llvm_unreachable("Unknown char type");
+  case 1:
+    return &gIR->stringLiteral1ByteCache;
+  case 2:
+    return &gIR->stringLiteral2ByteCache;
+  case 4:
+    return &gIR->stringLiteral4ByteCache;
+  }
+}
+
+llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm) {
+  Type *dtype = se->type->toBasetype();
+  Type *cty = dtype->nextOf()->toBasetype();
+
+  LLType *ct = DtoMemType(cty);
+  auto len = se->numberOfCodeUnits();
+  if (zeroTerm) {
+    len += 1;
+  }
+  LLArrayType *at = LLArrayType::get(ct, len);
+
+  std::vector<LLConstant *> vals;
+  vals.reserve(len);
+  for (size_t i = 0; i < se->numberOfCodeUnits(); ++i) {
+    vals.push_back(LLConstantInt::get(ct, se->charAt(i), false));
+  }
+  if (zeroTerm) {
+    vals.push_back(LLConstantInt::get(ct, 0, false));
+  }
+  return LLConstantArray::get(at, vals);
+}
+
 llvm::GlobalVariable *getOrCreateGlobal(Loc &loc, llvm::Module &module,
                                         llvm::Type *type, bool isConstant,
                                         llvm::GlobalValue::LinkageTypes linkage,
@@ -1682,10 +1717,11 @@ llvm::GlobalVariable *getOrCreateGlobal(Loc &loc, llvm::Module &module,
   // On PPC there is only local-exec available - in this case just ignore the
   // command line.
   const llvm::GlobalVariable::ThreadLocalMode tlsModel =
-      isThreadLocal ? (global.params.targetTriple->getArch() == llvm::Triple::ppc
-                           ? llvm::GlobalVariable::LocalExecTLSModel
-                           : clThreadModel.getValue())
-                    : llvm::GlobalVariable::NotThreadLocal;
+      isThreadLocal
+          ? (global.params.targetTriple->getArch() == llvm::Triple::ppc
+                 ? llvm::GlobalVariable::LocalExecTLSModel
+                 : clThreadModel.getValue())
+          : llvm::GlobalVariable::NotThreadLocal;
   return new llvm::GlobalVariable(module, type, isConstant, linkage, init, name,
                                   nullptr, tlsModel);
 }

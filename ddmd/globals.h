@@ -129,6 +129,7 @@ struct Param
     bool addMain;       // add a default main() function
     bool allInst;       // generate code for all template instantiations
 // LDC_FIXME: Implement "addMain" and "allInst".
+    bool dwarfeh;       // generate dwarf eh exception handling
 
     BOUNDSCHECK useArrayBounds;
 
@@ -307,11 +308,6 @@ typedef uint64_t                d_uns64;
 typedef float                   d_float32;
 typedef double                  d_float64;
 typedef longdouble              d_float80;
-
-typedef d_uns8                  d_char;
-typedef d_uns16                 d_wchar;
-typedef d_uns32                 d_dchar;
-
 
 #if IN_LLVM && _MSC_VER
 typedef double real_t;

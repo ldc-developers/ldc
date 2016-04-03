@@ -52,7 +52,7 @@ endfunction()
 set(LDC_VERSION "1.0.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   69)
+set(DMDFE_PATCH_VERSION   70)
 set(DMDFE_FIX_LEVEL       2) # Comment out if not used
 
 set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}${DMDFE_PATCH_VERSION})
@@ -352,7 +352,7 @@ configure_file(driver/ldc-version.cpp.in driver/ldc-version.cpp)
 # Also add the header files to the build so that they are available in IDE
 # project files generated via CMake.
 file(GLOB_RECURSE FE_SRC_D ${DDMDFE_PATH}/*.d)
-file(GLOB_RECURSE FE_HDR_D ${DDMDFE_PATH}/*.h)
+file(GLOB_RECURSE FE_HDR   ${DDMDFE_PATH}/*.h)
 file(GLOB_RECURSE GEN_SRC gen/*.cpp)
 file(GLOB_RECURSE GEN_HDR gen/*.h)
 file(GLOB_RECURSE GEN_SRC_D gen/*.d)
@@ -394,7 +394,7 @@ list(REMOVE_ITEM DRV_SRC_D
 )
 set(LDC_CXX_SOURCE_FILES
     ${LDC_CXX_GENERATED}
-    ${FE_HDR_D}
+    ${FE_HDR}
     ${GEN_SRC}
     ${GEN_HDR}
     ${IR_SRC}
@@ -409,7 +409,7 @@ set(LDC_D_SOURCE_FILES
 )
 
 source_group("Source Files\\${DDMDFE_PATH}" FILES ${FE_SRC_D})
-source_group("Header Files\\${DDMDFE_PATH}" FILES ${FE_HDR_D})
+source_group("Header Files\\${DDMDFE_PATH}" FILES ${FE_HDR})
 source_group("Source Files\\gen" FILES ${GEN_SRC})
 source_group("Header Files\\gen" FILES ${GEN_HDR})
 source_group("Source Files\\ir" FILES ${IR_SRC})
