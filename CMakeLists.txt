@@ -8,6 +8,8 @@ if(MSVC)
 endif()
 
 include(CheckIncludeFile)
+include(CheckCXXSymbolExists)
+include(CheckSymbolExists)
 include(CheckLibraryExists)
 include(CheckCXXCompilerFlag)
 
@@ -370,6 +372,21 @@ if(LLVM_ENABLE_ASSERTIONS)
 endif()
 
 #
+# check string functions
+#
+check_cxx_symbol_exists(memicmp "cstring" HAVE_MEMICMP)
+check_cxx_symbol_exists(stricmp "cstring" HAVE_STRICMP)
+check_cxx_symbol_exists(strupr "cstring" HAVE_STRUPR)
+check_cxx_symbol_exists(strtof "cstdlib" HAVE_STRTOF)
+
+set(SYMBOLLIST "HAVE_MEMICMP;HAVE_STRICMP;HAVE_STRUPR;HAVE_STRTOF")
+foreach(symbol ${SYMBOLLIST})
+  if(${symbol})
+    add_definitions(-D${symbol})
+  endif()
+endforeach()
+
+#
 # Check endianess.
 # There is no realiable way to delegate the work to the compiler.
 # E.g. gcc up to version 4.6 defines __LITTLE_ENDIAN, but not 4.7
@@ -532,7 +549,6 @@ target_link_libraries(not  ${LLVM_LIBRARIES} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} "
 #
 # LDMD
 #
-include(CheckSymbolExists)
 CHECK_SYMBOL_EXISTS(_SC_ARG_MAX "unistd.h" HAVE_SC_ARG_MAX)
 if (HAVE_SC_ARG_MAX)
    add_definitions(-DHAVE_SC_ARG_MAX)
