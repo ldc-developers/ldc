@@ -282,6 +282,14 @@ pragma(LDC_intrinsic, "llvm.maxnum.f#")
 // BIT MANIPULATION INTRINSICS
 //
 
+version(INTRINSICS_FROM_309)
+{
+/// The 'llvm.bitreverse' family of intrinsics is used to reverse the bitpattern
+/// of an integer value; for example 0b10110110 becomes 0b01101101.
+pragma(LDC_intrinsic, "llvm.bitreverse.i#")
+    T llvm_bitreverse(T)(T val);
+}
+
 /// The 'llvm.bswap' family of intrinsics is used to byte swap integer values
 /// with an even number of bytes (positive multiple of 16 bits). These are
 /// useful for performing operations on data that is not in the target's native
