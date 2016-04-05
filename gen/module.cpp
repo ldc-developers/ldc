@@ -679,7 +679,7 @@ static void addCoverageAnalysisInitializer(Module *m) {
 }
 
 // Load InstrProf data from file and store in it IrState
-// This is probably not the right place, we should load it once for all modules?
+// TODO: This is probably not the right place, we should load it once for all modules?
 static void loadInstrProfileData(IRState *irs) {
 #if LDC_WITH_PGO
   // Only load from datafileInstrProf if we are not generating instrumented
@@ -700,7 +700,17 @@ static void loadInstrProfileData(IRState *irs) {
     irs->PGOReader = std::move(readerOrErr.get());
 
 #if LDC_LLVM_VER >= 308
-    irs->module.setMaximumFunctionCount(irs->PGOReader->getMaximumFunctionCount());
+    auto maxCount = irs->PGOReader->getMaximumFunctionCount();
+    auto optionalCount = irs->module.getMaximumFunctionCount();
+    if (optionalCount) {
+      maxCount = std::max(maxCount, optionalCount.getValue());
+    }
+    if (!optionalCount) {
+    // TODO: Merge MaximumFunctionCount if it is already defined for the module.
+    //       LLVM currently does not support resetting the maximum function
+    //       count using setMaximumFunctionCount.
+      irs->module.setMaximumFunctionCount(maxCount);
+    }
 #endif
   }
 #endif
