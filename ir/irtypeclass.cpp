@@ -21,6 +21,7 @@
 #include "gen/tollvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/functions.h"
+#include "gen/pgo.h"
 #include "ir/irtypeclass.h"
 
 //////////////////////////////////////////////////////////////////////////////
@@ -139,6 +140,9 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
   t->vtbl_type->setBody(t->buildVtblType(Type::typeinfoclass->type, &vtbl));
 
   IF_LOG Logger::cout() << "class type: " << *t->type << std::endl;
+
+  // PGO: Add vtable symbol to hash table and create variables for instrumentation
+  CodeGenPGO::createVTableInstrumentationVariables(cd);
 
   return t;
 }

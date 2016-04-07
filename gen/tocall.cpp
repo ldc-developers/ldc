@@ -760,6 +760,30 @@ private:
 
 ////////////////////////////////////////////////////////////////////////////////
 
+static void AddCallFunctionAttributes(LLCallSite &call,
+                                      llvm::CallingConv::ID callconv,
+                                      AttrSet &attrs, DFuncValue *dfnval) {
+  llvm::AttributeSet &attrlist = attrs;
+  if (dfnval && dfnval->func) {
+    LLFunction *llfunc = llvm::dyn_cast<LLFunction>(dfnval->val);
+    if (llfunc && llfunc->isIntrinsic()) // override intrinsic attrs
+    {
+      attrlist = llvm::Intrinsic::getAttributes(
+          gIR->context(),
+          static_cast<llvm::Intrinsic::ID>(llfunc->getIntrinsicID()));
+    } else {
+      call.setCallingConv(callconv);
+    }
+  } else {
+    call.setCallingConv(callconv);
+  }
+  // merge in function attributes set in callOrInvoke
+  attrlist = attrlist.addAttributes(
+      gIR->context(), llvm::AttributeSet::FunctionIndex, call.getAttributes());
+
+  call.setAttributes(attrlist);
+}
+
 // FIXME: this function is a mess !
 
 DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
@@ -853,31 +877,101 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   addExplicitArguments(args, attrs, irFty, callableTy, argvals,
                        numFormalParams);
 
-  if (iab.hasObjcSelector) {
-    // Use runtime msgSend function bitcasted as original call
-    const char *msgSend = gABI->objcMsgSendFunc(resulttype, irFty);
-    LLType *t = callable->getType();
-    callable = getRuntimeFunction(loc, gIR->module, msgSend);
-    callable = DtoBitCast(callable, t);
-  }
+  LLValue *callretval = nullptr;
+  // PGO: Check if the callable is a select instruction with profiling data
+  // TODO: figure out how this works with ObjC functions
+  auto *selinst = iab.hasObjcSelector
+                      ? nullptr
+                      : llvm::dyn_cast<llvm::SelectInst>(callable);
+  if (selinst && selinst->getMetadata("pgovcp")) {
+    IF_LOG Logger::cout() << "PGO Virtual Call Promotion to "
+                          << selinst->getTrueValue() << "\n";
 
-  // call the function
-  LLCallSite call = gIR->func()->scopes->callOrInvoke(callable, args);
+    // Inform CodeGenPGO that ICP value profile data will be unused (it is used
+    // in the else-branch). Somewhat of a hack.
+    // No check on indirectness of call needed, because a virtual call is always
+    // indirect.
+    gIR->func()->pgo.valueProfileIndirectCallUnused();
 
-  // PGO: Insert instrumentation or attach profile metadata at indirect call
-  // sites.
-  if (!call.getCalledFunction()) {
-    auto &PGO = gIR->func()->pgo;
-    PGO.valueProfile(llvm::IPVK_IndirectCallTarget, call.getInstruction(),
-                     callable);
+    auto branchweights = selinst->getMetadata("pgovcp");
+
+    llvm::BasicBlock *condtrue = llvm::BasicBlock::Create(
+        gIR->context(), "pgo.vtable.true", gIR->topfunc());
+    llvm::BasicBlock *condfalse = llvm::BasicBlock::Create(
+        gIR->context(), "pgo.vtable.false", gIR->topfunc());
+    llvm::BasicBlock *condend = llvm::BasicBlock::Create(
+        gIR->context(), "pgo.vtable.end", gIR->topfunc());
+
+    gIR->ir->CreateCondBr(selinst->getCondition(), condtrue, condfalse,
+                          branchweights);
+
+    gIR->scope() = IRScope(condtrue);
+    auto truecall =
+        gIR->func()->scopes->callOrInvoke(selinst->getTrueValue(), args);
+    AddCallFunctionAttributes(truecall, callconv, attrs, dfnval);
+    {
+      // If it is an invoke, gIR->scopebb() now points to the invoke's normal
+      // destination, otherwise gIR->scopebb() still points to condtrue.
+      condtrue = gIR->scopebb();
+      llvm::BranchInst::Create(condend, condtrue);
+    }
+
+    gIR->scope() = IRScope(condfalse);
+    auto falsecall =
+        gIR->func()->scopes->callOrInvoke(selinst->getFalseValue(), args);
+    AddCallFunctionAttributes(falsecall, callconv, attrs, dfnval);
+    {
+      // If it is an invoke, gIR->scopebb() now points to the invoke's normal
+      // destination, otherwise gIR->scopebb() still points to condfalse.
+      condfalse = gIR->scopebb();
+      llvm::BranchInst::Create(condend, condfalse);
+    }
+
+    // Place condend after the condfalse BB (could be a postinvoke block)
+    condend->moveAfter(condfalse);
+
+    gIR->scope() = IRScope(condend);
+    // Only create PHI node when return type is not void
+    if (falsecall.getInstruction()->getType()->isVoidTy()) {
+      callretval = nullptr;
+    } else {
+      llvm::PHINode *PN =
+          gIR->ir->CreatePHI(falsecall.getInstruction()->getType(), 2);
+      PN->addIncoming(truecall.getInstruction(), condtrue);
+      PN->addIncoming(falsecall.getInstruction(), condfalse);
+      callretval = PN;
+    }
+  } else {
+    if (iab.hasObjcSelector) {
+      // Use runtime msgSend function bitcasted as original call
+      const char *msgSend = gABI->objcMsgSendFunc(resulttype, irFty);
+      LLType *t = callable->getType();
+      callable = getRuntimeFunction(loc, gIR->module, msgSend);
+      callable = DtoBitCast(callable, t);
+    }
+
+    // call the function
+    LLCallSite call = gIR->func()->scopes->callOrInvoke(callable, args);
+
+    // PGO: Insert instrumentation or attach profile metadata at indirect call
+    // sites.
+    if (!call.getCalledFunction()) {
+      auto &PGO = gIR->func()->pgo;
+      PGO.valueProfileIndirectCall(call.getInstruction(), callable);
+    }
+
+    // set calling convention and parameter attributes
+    AddCallFunctionAttributes(call, callconv, attrs, dfnval);
+
+    callretval = call.getInstruction();
   }
 
   // get return value
   const int sretArgIndex =
       (irFty.arg_sret && irFty.arg_this && gABI->passThisBeforeSret(tf) ? 1
                                                                         : 0);
-  LLValue *retllval =
-      (irFty.arg_sret ? args[sretArgIndex] : call.getInstruction());
+  // get return value
+  LLValue *retllval = (irFty.arg_sret ? args[sretArgIndex] : callretval);
 
   // Hack around LDC assuming structs and static arrays are in memory:
   // If the function returns a struct or a static array, and the return
@@ -999,27 +1093,6 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
     }
     IF_LOG Logger::cout() << "final return value: " << *retllval << '\n';
   }
-
-  // set calling convention and parameter attributes
-  llvm::AttributeSet &attrlist = attrs;
-  if (dfnval && dfnval->func) {
-    LLFunction *llfunc = llvm::dyn_cast<LLFunction>(dfnval->val);
-    if (llfunc && llfunc->isIntrinsic()) // override intrinsic attrs
-    {
-      attrlist = llvm::Intrinsic::getAttributes(
-          gIR->context(),
-          static_cast<llvm::Intrinsic::ID>(llfunc->getIntrinsicID()));
-    } else {
-      call.setCallingConv(callconv);
-    }
-  } else {
-    call.setCallingConv(callconv);
-  }
-  // merge in function attributes set in callOrInvoke
-  attrlist = attrlist.addAttributes(
-      gIR->context(), llvm::AttributeSet::FunctionIndex, call.getAttributes());
-
-  call.setAttributes(attrlist);
 
   // Special case for struct constructor calls: For temporaries, using the
   // this pointer value returned from the constructor instead of the alloca

@@ -409,29 +409,37 @@ LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl,
   LLValue *vthis = inst->getRVal();
   IF_LOG Logger::cout() << "vthis: " << *vthis << '\n';
 
-  LLValue *funcval = vthis;
   // get the vtbl for objects
-  funcval = DtoGEPi(funcval, 0, 0);
+  auto vtblGEP = DtoGEPi(vthis, 0, 0);
   // load vtbl ptr
-  funcval = DtoLoad(funcval);
+  auto vtblptr = DtoLoad(vtblGEP);
+
   // index vtbl
   std::string vtblname = name;
   vtblname.append("@vtbl");
-  funcval = DtoGEPi(funcval, 0, fdecl->vtblIndex, vtblname.c_str());
+  auto funcptr = DtoGEPi(vtblptr, 0, fdecl->vtblIndex, vtblname.c_str());
   // load funcptr
-  funcval = DtoAlignedLoad(funcval);
+  funcptr = DtoAlignedLoad(funcptr);
 
-  IF_LOG Logger::cout() << "funcval: " << *funcval << '\n';
+  IF_LOG Logger::cout() << "funcptr: " << *funcptr << '\n';
 
   // cast to final funcptr type
-  funcval = DtoBitCast(funcval, getPtrToType(DtoFunctionType(fdecl)));
+  funcptr = DtoBitCast(funcptr, getPtrToType(DtoFunctionType(fdecl)));
+
+  // PGO: value profile the loaded vtable ptr
+  auto &PGO = gIR->func()->pgo;
+  auto PGOval = PGO.valueProfileVTable(vtblptr, fdecl->vtblIndex, funcptr);
+  if (PGOval) {
+    funcptr = PGOval;
+    IF_LOG Logger::cout() << "VCP funcptr: " << *funcptr << '\n';
+  }
 
   // postpone naming until after casting to get the name in call instructions
-  funcval->setName(name);
+  funcptr->setName(name);
 
-  IF_LOG Logger::cout() << "funcval casted: " << *funcval << '\n';
+  IF_LOG Logger::cout() << "funcptr casted: " << *funcptr << '\n';
 
-  return funcval;
+  return funcptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -52,6 +52,10 @@ struct IrAggr {
   /// Builds the __initZ initializer constant lazily.
   llvm::Constant *getDefaultInit();
 
+  static std::string getVtblSymbolName(AggregateDeclaration *aggrdecl);
+  static llvm::GlobalVariable *
+  getOrCreateVtblSymbol(AggregateDeclaration *aggrdecl);
+
   /// Create the __vtblZ symbol lazily.
   llvm::GlobalVariable *getVtblSymbol();
   /// Builds the __vtblZ initializer constant lazily.

@@ -40,21 +40,28 @@ extern LLConstant *DtoDefineClassInfo(ClassDeclaration *cd);
 
 //////////////////////////////////////////////////////////////////////////////
 
+std::string IrAggr::getVtblSymbolName(AggregateDeclaration *aggrdecl) {
+  std::string name("_D");
+  name.append(mangle(aggrdecl));
+  name.append("6__vtblZ");
+  return name;
+}
+
+llvm::GlobalVariable *
+IrAggr::getOrCreateVtblSymbol(AggregateDeclaration *aggrdecl) {
+  LLType *vtblTy = stripModifiers(aggrdecl->type)->ctype->isClass()->getVtbl();
+
+  return getOrCreateGlobal(aggrdecl->loc, gIR->module, vtblTy, true,
+                           llvm::GlobalValue::ExternalLinkage, nullptr,
+                           getVtblSymbolName(aggrdecl));
+}
+
 LLGlobalVariable *IrAggr::getVtblSymbol() {
   if (vtbl) {
     return vtbl;
   }
 
-  // create the initZ symbol
-  std::string initname("_D");
-  initname.append(mangle(aggrdecl));
-  initname.append("6__vtblZ");
-
-  LLType *vtblTy = stripModifiers(type)->ctype->isClass()->getVtbl();
-
-  vtbl =
-      getOrCreateGlobal(aggrdecl->loc, gIR->module, vtblTy, true,
-                        llvm::GlobalValue::ExternalLinkage, nullptr, initname);
+  vtbl = getOrCreateVtblSymbol(aggrdecl);
 
   return vtbl;
 }

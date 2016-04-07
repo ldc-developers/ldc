@@ -17,14 +17,18 @@
 // Conditionally include PGO
 #if LDC_WITH_PGO
 
+#include "ddmd/aggregate.h"
 #include "globals.h"
 #include "init.h"
 #include "statement.h"
 #include "llvm.h"
+#include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/recursivevisitor.h"
 #include "gen/tollvm.h"
+#include "ir/irfunction.h"
+#include "ir/iraggr.h"
 
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/MDBuilder.h"
@@ -39,8 +43,16 @@ llvm::cl::opt<bool>
     enablePGOIndirectCalls("fprofile-indirect-calls", llvm::cl::ZeroOrMore,
                            llvm::cl::desc("Enable PGO of indirect calls"),
                            llvm::cl::init(false));
+llvm::cl::opt<bool>
+    enablePGOVirtualCalls("fprofile-virtual-calls", llvm::cl::ZeroOrMore,
+                          llvm::cl::desc("Enable PGO of virtual calls"),
+                          llvm::cl::init(false));
+
+// Map that stores Hash->ClassDecl for all types seen, also imported ones
+// for which no codegen is done.
+llvm::DenseMap<uint64_t, ClassDeclaration *> HashToClassDecl;
 }
-#endif
+#endif //  LDC_LLVM_VER >= 309
 
 /// \brief Stable hasher for PGO region counters.
 ///
@@ -845,9 +857,11 @@ void CodeGenPGO::assignRegionCounters(const FuncDeclaration *D,
   emitInstrumentation = D->emitInstrumentation;
   setFuncName(fn);
 
+#if LDC_LLVM_VER >= 309
   // Reset Value Profile Data. TODO: Find better place
   NumValueSites.fill(0);
   ProfRecord = nullptr;
+#endif
 
   mapRegionCounters(D);
   if (PGOReader) {
@@ -905,6 +919,7 @@ void CodeGenPGO::loadRegionCounts(llvm::IndexedInstrProfReader *PGOReader,
   RegionCounts.clear();
 
 #if LDC_LLVM_VER >= 309
+  ProfRecord = nullptr;
   llvm::ErrorOr<llvm::InstrProfRecord> RecordErrorOr =
       PGOReader->getInstrProfRecord(FuncName, FunctionHash);
   std::error_code EC = RecordErrorOr.getError();
@@ -941,6 +956,7 @@ void CodeGenPGO::loadRegionCounts(llvm::IndexedInstrProfReader *PGOReader,
               const_cast<FuncDeclaration *>(fd)->toPrettyChars(),
               FuncName.c_str());
     }
+
     RegionCounts.clear();
     return;
   }
@@ -1081,14 +1097,16 @@ llvm::MDNode *CodeGenPGO::createProfileWeightsForeachRange(
 // This method either inserts a call to the profile run-time during
 // instrumentation or puts profile data into metadata for PGO use.
 // Does nothing for LLVM < 3.9.
-void CodeGenPGO::valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
-                              llvm::Value *valuePtr) {
+void CodeGenPGO::valueProfileIndirectCall(llvm::Instruction *valueSite,
+                                          llvm::Value *valuePtr) {
 #if LDC_LLVM_VER >= 309
   if (!enablePGOIndirectCalls)
     return;
 
   if (!valuePtr || !valueSite)
     return;
+
+  auto valueKind = llvm::IPVK_IndirectCallTarget;
 
   bool instrumentValueSites = global.params.genInstrProf && emitInstrumentation;
   if (instrumentValueSites && RegionCounterMap) {
@@ -1124,13 +1142,258 @@ void CodeGenPGO::valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
                             NumValueSites[valueKind]);
 
     // Create PGOFuncName meta data if it does not exist yet.
-    //llvm::Function *F = valueSite->getFunction();
-    //if (!llvm::getPGOFuncNameMetadata(*F))
+    // llvm::Function *F = valueSite->getFunction();
+    // if (!llvm::getPGOFuncNameMetadata(*F))
     //  llvm::createPGOFuncNameMetadata(*F);
 
     NumValueSites[valueKind]++;
   }
 #endif // LLVM >= 3.9
+}
+
+// A function that informs CodeGenPGO that ICP value profile was not used.
+// Needed to advance NumValueSites[valueKind]
+void CodeGenPGO::valueProfileIndirectCallUnused() {
+#if LDC_LLVM_VER >= 309
+  if (!enablePGOIndirectCalls)
+    return;
+
+  auto valueKind = llvm::IPVK_IndirectCallTarget;
+
+  if (ProfRecord) {
+    if (NumValueSites[valueKind] >= ProfRecord->getNumValueSites(valueKind))
+      return;
+
+    NumValueSites[valueKind]++;
+  }
+#endif // LLVM >= 3.9
+}
+
+///////////////////////////////////////////////////
+// Functions for PGO of virtual calls
+
+// Does nothing for LLVM < 3.9.
+void CodeGenPGO::createVTableInstrumentationVariables(ClassDeclaration *cd) {
+#if LDC_LLVM_VER >= 309
+
+  if (!enablePGOVirtualCalls || !cd)
+    return;
+
+  // Interfaces are not supported yet
+  if (cd->isInterfaceDeclaration())
+    return;
+
+  auto VTableLinkage = llvm::GlobalValue::LinkOnceODRLinkage;
+  llvm::IndexedInstrProfReader *PGOReader = gIR->getPGOReader();
+  auto Name = llvm::getPGOFuncName(
+      IrAggr::getVtblSymbolName(cd), VTableLinkage, "",
+      PGOReader ? PGOReader->getVersion() : llvm::IndexedInstrProf::Version);
+
+  // Add the Hash to lookup table
+  auto VTableHash = llvm::IndexedInstrProf::ComputeHash(Name);
+  HashToClassDecl.insert({VTableHash, cd});
+  IF_LOG Logger::println("PGO: Added %s to lookup table with hash %llu",
+                         cd->toPrettyChars(), VTableHash);
+
+  // If we're generating a profile, create a variable for the name.
+  if (global.params.genInstrProf) {
+    IF_LOG Logger::println(
+        "PGO: Building VTable instrumentation variables for %s",
+        cd->toPrettyChars());
+
+    auto FuncNameVar =
+        llvm::createPGOFuncNameVar(gIR->module, VTableLinkage, Name);
+
+    // HACK BECAUSE OF NO LLVM SUPPORT
+
+    {
+      using namespace llvm;
+      llvm::LLVMContext &Ctx = gIR->context();
+
+      auto *Int8PtrTy = llvm::Type::getInt8PtrTy(Ctx);
+      auto *Int16Ty = llvm::Type::getInt16Ty(Ctx);
+      auto *Int16ArrayTy = llvm::ArrayType::get(Int16Ty, IPVK_Last + 1);
+
+      // Create data variable.
+      llvm::Type *DataTypes[] = {
+#define INSTR_PROF_DATA(Type, LLVMType, Name, Init) LLVMType,
+#include "runtime/profile-rt/profile-rt-39/InstrProfData.inc"
+      };
+      auto *DataTy = llvm::StructType::get(Ctx, makeArrayRef(DataTypes));
+
+      llvm::GlobalVariable *vtable = IrAggr::getOrCreateVtblSymbol(cd);
+      Constant *FunctionAddr =
+          llvm::ConstantExpr::getBitCast(vtable, Int8PtrTy);
+
+      Constant *Int16ArrayVals[IPVK_Last + 1];
+      for (uint32_t Kind = IPVK_First; Kind <= IPVK_Last; ++Kind)
+        Int16ArrayVals[Kind] = ConstantInt::get(Int16Ty, 0);
+
+      auto NumCounters = 1;
+      ArrayType *CounterTy =
+          ArrayType::get(llvm::Type::getInt64Ty(Ctx), NumCounters);
+      auto *CounterPtr = new GlobalVariable(
+          gIR->module, CounterTy, false, FuncNameVar->getLinkage(),
+          Constant::getNullValue(CounterTy),
+          getInstrProfCountersVarPrefix() + Name);
+      CounterPtr->setVisibility(FuncNameVar->getVisibility());
+      CounterPtr->setSection(getInstrProfCountersSectionName(
+          global.params.targetTriple->isOSBinFormatMachO()));
+      CounterPtr->setAlignment(8);
+      // CounterPtr->setComdat(ProfileVarsComdat);
+
+      Constant *DataVals[] = {
+          ConstantInt::get(llvm::Type::getInt64Ty(Ctx), VTableHash),
+          ConstantInt::get(llvm::Type::getInt64Ty(Ctx), VTableHash),
+          ConstantExpr::getBitCast(CounterPtr, llvm::Type::getInt64PtrTy(Ctx)),
+          FunctionAddr,
+          ConstantPointerNull::get(Int8PtrTy),
+          ConstantInt::get(llvm::Type::getInt32Ty(Ctx), NumCounters),
+          ConstantArray::get(Int16ArrayTy, Int16ArrayVals)};
+      auto *Data = new llvm::GlobalVariable(
+          gIR->module, DataTy, false, FuncNameVar->getLinkage(),
+          ConstantStruct::get(DataTy, DataVals),
+          getInstrProfDataVarPrefix() + Name);
+
+      Data->setVisibility(FuncNameVar->getVisibility());
+      Data->setSection(getInstrProfDataSectionName(
+          global.params.targetTriple->isOSBinFormatMachO()));
+      Data->setAlignment(INSTR_PROF_DATA_ALIGNMENT);
+      // Data->setComdat(ProfileVarsComdat);
+
+      // Add data structure to @llvm.used list
+      gIR->usedArray.push_back(Data);
+    }
+  }
+
+#endif // LLVM >= 3.9
+}
+
+// Does nothing for LLVM < 3.9.
+llvm::Value *CodeGenPGO::valueProfileVTable(llvm::Value *vtblPtr, int vtblIndex,
+                                            llvm::Value *funcPtr) {
+  llvm::Value *retVal = nullptr;
+
+#if LDC_LLVM_VER >= 309
+  if (!enablePGOVirtualCalls)
+    return retVal;
+
+  if (!vtblPtr)
+    return retVal;
+
+  // HACK!
+  auto valueKind = llvm::IPVK_IndirectCallTarget;
+
+  bool instrumentValueSites = global.params.genInstrProf && emitInstrumentation;
+  if (instrumentValueSites) {
+    // Instrumentation will be inserted after the vtable load
+    auto *i8PtrTy = llvm::Type::getInt8PtrTy(gIR->context());
+    llvm::Value *Args[5] = {
+        llvm::ConstantExpr::getBitCast(FuncNameVar, i8PtrTy),
+        gIR->ir->getInt64(FunctionHash),
+        gIR->ir->CreatePtrToInt(vtblPtr, gIR->ir->getInt64Ty()),
+        gIR->ir->getInt32(valueKind),
+        gIR->ir->getInt32(NumValueSites[valueKind]++)};
+    gIR->ir->CreateCall(GET_INTRINSIC_DECL(instrprof_value_profile), Args);
+
+    return retVal;
+  }
+
+  if (ProfRecord) {
+    // We record the top most called three functions at each call site.
+    // Profile metadata contains a string identifying this metadata
+    // as value profiling data, then a uint32_t value for the value profiling
+    // kind, a uint64_t value for the total number of times the call is
+    // executed, followed by the function hash and execution count (uint64_t)
+    // pairs for each function.
+    auto SiteIdx = NumValueSites[valueKind];
+    if (SiteIdx >= ProfRecord->getNumValueSites(valueKind))
+      return retVal;
+
+    NumValueSites[valueKind]++;
+
+    // Load value profile data
+    uint64_t Sum = 0;
+    uint32_t NV = ProfRecord->getNumValueDataForSite(valueKind, SiteIdx);
+    if (NV < 1) // Not enough values
+      return retVal;
+
+    auto values = ProfRecord->getValueForSite(valueKind, SiteIdx, &Sum);
+    if (Sum < 1000) // Not enough statistical data
+      return retVal;
+
+    std::unique_ptr<InstrProfValueData[]> data =
+        ProfRecord->getValueForSite(valueKind, SiteIdx, &Sum);
+    llvm::ArrayRef<InstrProfValueData> VDs(data.get(), NV);
+
+    auto mostOftenVD = VDs[0];
+    auto requiredFraction = 0.8;
+    if (mostOftenVD.Count >= requiredFraction * Sum) {
+      if (!mostOftenVD.Value) {
+        IF_LOG Logger::cout() << "PGO VCP: hash 0 means raw pointer value was "
+                                 "not recognized in profile\n";
+        return retVal;
+      }
+
+      IF_LOG Logger::cout() << "PGO VCP: hash " << mostOftenVD.Value
+                            << " occured " << mostOftenVD.Count << " out of "
+                            << Sum << " calls\n";
+
+      auto *winningClassDecl = HashToClassDecl.lookup(mostOftenVD.Value);
+      if (!winningClassDecl) {
+        IF_LOG Logger::cout() << "PGO VCP: hash " << mostOftenVD.Value
+                              << " not found in lookup table\n";
+        return retVal;
+      }
+
+      IF_LOG Logger::cout() << "PGO VCP : hash corresponds to "
+                            << IrAggr::getVtblSymbolName(winningClassDecl)
+                            << '\n';
+
+      auto *winningVtable = IrAggr::getOrCreateVtblSymbol(winningClassDecl);
+
+      auto *i8PtrTy = llvm::Type::getInt8PtrTy(gIR->context());
+      auto *cond_val = gIR->ir->CreateICmp(
+          llvm::ICmpInst::ICMP_EQ, gIR->ir->CreateBitCast(vtblPtr, i8PtrTy),
+          llvm::ConstantExpr::getBitCast(winningVtable, i8PtrTy));
+
+      if (winningClassDecl->vtbl.dim <= (size_t)vtblIndex ||
+          !winningClassDecl->vtbl[vtblIndex]) {
+        IF_LOG Logger::cout() << "PGO VCP: vtable lookup at index " << vtblIndex
+                              << " failed\n";
+        return retVal;
+      }
+
+      FuncDeclaration *fdecl =
+          winningClassDecl->vtbl[vtblIndex]->isFuncDeclaration();
+
+      if (!fdecl) {
+        IF_LOG Logger::cout() << "PGO VCP: vtable lookup at index " << vtblIndex
+                              << " is not a function declaration\n";
+        return retVal;
+      }
+
+      // Make sure the function to be called has been declared
+      DtoDeclareFunction(fdecl);
+      auto PGOptr = getIrFunc(fdecl)->func;
+
+      // Cast the PGOptr to the type of the function pointer
+      auto PGOptr_casted = gIR->ir->CreateBitCast(PGOptr, funcPtr->getType());
+
+      auto truecount = mostOftenVD.Count;
+      auto falsecount = Sum - truecount;
+      auto branchweights = createProfileWeights(truecount, falsecount);
+      auto *sel = llvm::SelectInst::Create(cond_val, PGOptr_casted, funcPtr,
+                                           "vtbl.sel", gIR->scopebb());
+      sel->setMetadata("pgovcp", branchweights);
+      return sel;
+    }
+
+    return retVal;
+  }
+#endif // LLVM >= 3.9
+
+  return retVal;
 }
 
 #endif // LDC_WITH_PGO

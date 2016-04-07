@@ -1,4 +1,4 @@
-// Test instrumentation of indirect calls
+// Test instrumentation of C-style indirect calls
 
 // RUN: %ldc -c -output-ll -fprofile-instr-generate -fprofile-indirect-calls -of=%t.ll %s && FileCheck %s --check-prefix=PROFGEN < %t.ll
 
@@ -12,9 +12,11 @@ import ldc.attributes : weak;
 extern (C)
 { // simplify name mangling for simpler string matching
 
-    @weak // disable reasoning about this function
+    @weak // disable inlining of this function
     void hot()
     {
+       // LLVM missing feature: need capability to add symbols to pointer lookup table!
+       // pragma(LDC_profile_instr, false);
     }
 
     void luke()
@@ -62,4 +64,26 @@ int main()
     }
 
     return 0;
+}
+
+
+// ICP without profiling should generate same IR
+pragma(LDC_profile_instr, false)
+{
+auto is_likely(alias A, Fptr, Args...)(Fptr fptr, Args args)
+{
+    return (fptr == &A) ? A(args) : fptr(args);
+}
+
+int manual_optimization()
+{
+    for (int i; i < 2000; ++i)
+    {
+        select_func(i);
+
+        foo.is_likely!hot();
+    }
+
+    return 0;
+}
 }

@@ -30,6 +30,7 @@ class Function;
 class IndexedInstrProfReader;
 }
 class FuncDeclaration;
+class ClassDeclaration;
 struct IRState;
 class RootObject;
 class ForStatement;
@@ -82,11 +83,15 @@ public:
     return I;
   }
 
-#if LDC_LLVM_VER >= 309
-  void valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
-                    llvm::Value *valuePtr) {}
+  void valueProfileIndirectCallUnused() {}
+  void valueProfileIndirectCall(llvm::Instruction *valueSite,
+                                llvm::Value *valuePtr) {}
+  llvm::GlobalVariable *valueProfileVTable(llvm::Value *vtblPtr, int vtblIndex,
+                                           llvm::Value *funcPtr) {
+    return nullptr;
+  }
 
-#endif
+  static void createVTableInstrumentationVariables(ClassDeclaration *cd) {}
 };
 
 #else
@@ -166,11 +171,14 @@ public:
     return I;
   }
 
-#if LDC_LLVM_VER >= 309
-  void valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
-                    llvm::Value *valuePtr);
+  void valueProfileIndirectCallUnused();
+  void valueProfileIndirectCall(llvm::Instruction *valueSite,
+                                llvm::Value *valuePtr);
 
-#endif
+  llvm::Value *valueProfileVTable(llvm::Value *vtblPtr, int vtblIndex,
+                                  llvm::Value *funcPtr);
+
+  static void createVTableInstrumentationVariables(ClassDeclaration *cd);
 
 private:
   std::string FuncName;
