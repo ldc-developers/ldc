@@ -609,7 +609,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
 class ImplicitArgumentsBuilder {
 public:
-  ObjcSelector* sel = nullptr;
+  bool hasObjcSelector = false;
 
   ImplicitArgumentsBuilder(std::vector<LLValue *> &args, AttrSet &attrs,
                            Loc &loc, DValue *fnval,
@@ -682,19 +682,6 @@ private:
     bool delegatecall = (calleeType->toBasetype()->ty == Tdelegate);
     bool nestedcall = irFty.arg_nest;
 
-    //ObjcSelector*
-    sel = dfnval ? dfnval->func->objc.selector : nullptr;
-    IF_LOG Logger::cout() << "objcselector: '" << sel << "'\n";
-    IF_LOG if (sel) {
-      Logger::cout() << "objcselector: '" << sel->stringvalue << "'\n";
-      Logger::cout() << "thiscall: " << thiscall << '\n';
-      Logger::cout() << "ty: "
-                     << (int)calleeType->toBasetype()->ty << " ("
-                     << Tfunction << ", " << Tdelegate << ", "
-                     //<< Tobjcselector
-                     << ")\n";
-    }
-
     if (!thiscall && !delegatecall && !nestedcall) {
       return;
     }
@@ -747,10 +734,12 @@ private:
       attrs.add(index + 1, irFty.arg_nest->attrs);
     }
 
-    if (sel)  {
+    if (irFty.arg_objcSelector && dfnval) {
+      if (auto sel = dfnval->func->objc.selector) {
         LLGlobalVariable* selptr = objc_getMethVarRef(*sel);
         args.push_back(DtoBitCast(DtoLoad(selptr), getVoidPtrType()));
-        // TODO: do we need the real selector type instead of void*?
+        hasObjcSelector = true;
+      }
     }
   }
 
@@ -865,13 +854,13 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   addExplicitArguments(args, attrs, irFty, callableTy, argvals,
                        numFormalParams);
 
-  if (iab.sel) {
-        LLType* t = callable->getType();
-        const char* msgSend = objc_getMsgSend(resulttype, irFty.arg_sret);
-        //const char* msgSend = "objc_msgSend";
-        callable = getRuntimeFunction(loc, gIR->module, msgSend);
-        callable = DtoBitCast(callable, t);
-    }
+  if (iab.hasObjcSelector) {
+    // Use runtime msgSend function bitcasted as original call
+    const char *msgSend = gABI->objcMsgSendFunc(resulttype, irFty);
+    LLType *t = callable->getType();
+    callable = getRuntimeFunction(loc, gIR->module, msgSend);
+    callable = DtoBitCast(callable, t);
+  }
 
   // call the function
   LLCallSite call = gIR->func()->scopes->callOrInvoke(callable, args);

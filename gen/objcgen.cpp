@@ -5,6 +5,8 @@
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
 //
+// Support limited to Objective-C on Darwin (OS X, iOS, tvOS, watchOS)
+//
 //===----------------------------------------------------------------------===//
 
 #include "mtype.h"
@@ -12,9 +14,8 @@
 #include "gen/irstate.h"
 #include "gen/objcgen.h"
 
-// Currently generates symbols for the non-fragile ABI
-
 namespace {
+// Were any Objective-C symbols generated?
 bool hasSymbols;
 
 enum ABI {
@@ -25,27 +26,28 @@ enum ABI {
 
 ABI abi = nonFragile;
 
-std::vector<LLConstant *> usedSymbols;
+// symbols that shouldn't be optimized away
+std::vector<LLConstant *> retainedSymbols;
 
 llvm::StringMap<LLGlobalVariable *> methVarNameMap;
 llvm::StringMap<LLGlobalVariable *> methVarRefMap;
 
 void initSymbols() {
   hasSymbols = false;
-  usedSymbols.clear();
+  retainedSymbols.clear();
   methVarNameMap.clear();
   methVarRefMap.clear();
 }
 
-void use(LLConstant *sym) {
-    usedSymbols.push_back(DtoBitCast(sym, getVoidPtrType()));
+void retain(LLConstant *sym) {
+    retainedSymbols.push_back(DtoBitCast(sym, getVoidPtrType()));
 }
 
 void retainSymbols() {
   // put all objc symbols in the llvm.compiler.used array so optimizer won't
   // remove.  Should do just once per module.
-  auto arrayType = LLArrayType::get(getVoidPtrType(), usedSymbols.size());
-  auto usedArray = LLConstantArray::get(arrayType, usedSymbols);
+  auto arrayType = LLArrayType::get(getVoidPtrType(), retainedSymbols.size());
+  auto usedArray = LLConstantArray::get(arrayType, retainedSymbols);
   auto var = new LLGlobalVariable
     (gIR->module, usedArray->getType(), false,
      LLGlobalValue::AppendingLinkage,
@@ -55,9 +57,6 @@ void retainSymbols() {
 }
 
 void genImageInfo() {
-  // First option uses LLMV to produce image info ala module flags and
-  // TargetLoweringObjectFileMachO::emitModuleFlags()
-#if 1
   // Use LLVM to generate image info
   const char *section = (abi == nonFragile ?
                          "__DATA,__objc_imageinfo,regular,no_dead_strip" :
@@ -71,25 +70,6 @@ void genImageInfo() {
                             llvm::MDString::get(gIR->context(), section));
   gIR->module.addModuleFlag(llvm::Module::Override,
                             "Objective-C Garbage Collection", 0u); // flags
-#else
-  // Second option just does it directly
-  LLType* intType = LLType::getInt32Ty(gIR->context());
-  LLConstant* values[2] = {
-    LLConstantInt::get(intType, 0),  // version
-    LLConstantInt::get(intType, 0)   // flag
-  };
-
-  auto data = LLConstantStruct::getAnon(values);
-  auto var = new LLGlobalVariable
-    (gIR->module, data->getType(), false,
-     LLGlobalValue::PrivateLinkage,
-     data,
-     "OBJC_IMAGE_INFO");
-  var->setSection(abi == nonFragile ?
-                  "__DATA,__objc_imageinfo,regular,no_dead_strip" :
-                  "__OBJC,__image_info");
-  use(var);
-#endif
 }
 
 LLGlobalVariable *getCStringVar(const char *symbol,
@@ -109,13 +89,12 @@ LLGlobalVariable *getMethVarName(const llvm::StringRef &name) {
     return it->second;
   }
 
-  // TODO: check on proper alignment.  May be different for -m32
   auto var = getCStringVar("OBJC_METH_VAR_NAME_", name,
                            abi == nonFragile ?
                            "__TEXT,__objc_methname,cstring_literals" :
                            "__TEXT,__cstring,cstring_literals");
   methVarNameMap[name] = var;
-  use(var);
+  retain(var);
   return var;
 }
 } // end local stuff
@@ -170,27 +149,10 @@ LLGlobalVariable *objc_getMethVarRef(const ObjcSelector &sel) {
 
   // Save for later lookup and prevent optimizer elimination
   methVarRefMap[s] = selref;
-  use(selref);
+  retain(selref);
   hasSymbols = true;
 
   return selref;
-}
-
-const char* objc_getMsgSend(Type *ret, bool hasHiddenArg) {
-  // TODO: Need the abi to vote on if objc_msgSend_fpret or fp2ret are used
-  if (hasHiddenArg)
-    return "objc_msgSend_stret";
-
-  if (ret) {
-    // not sure if DMD can handle this
-    if (ret->ty == Tcomplex80)          // x86_64 only
-      return "objc_msgSend_fp2ret";
-
-    if (ret->ty == Tfloat80)            // x86 and x86_64
-      return "objc_msgSend_fpret";
-  }
-
-  return "objc_msgSend";
 }
 
 void objc_Module_genmoduleinfo_classes() {

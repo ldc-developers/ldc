@@ -149,6 +149,9 @@ struct TargetABI {
   /// Must match the alias in druntime.
   virtual Type *vaListType();
 
+  /// Returns Objective-C message send function
+  virtual const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty);
+
   /***** Static Helpers *****/
 
   /// Check if struct 't' is a Homogeneous Floating-point Aggregate (HFA)

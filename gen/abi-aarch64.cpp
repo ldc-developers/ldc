@@ -115,6 +115,11 @@ struct AArch64TargetABI : TargetABI {
     return (createTypeIdentifier(Loc(), Identifier::idPool("__va_list_tag")))
         ->pointerTo();
   }
+
+  const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty) override {
+    // see objc/message.h for objc_msgSend selection rules
+    return "objc_msgSend";
+  }
 };
 
 // The public getter for abi.cpp

@@ -215,6 +215,19 @@ struct X86TargetABI : TargetABI {
       ++i;
     }
   }
+
+  const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty) override {
+    // see objc/message.h for objc_msgSend selection rules
+    assert(isOSX);
+    if (fty.arg_sret) {
+      return "objc_msgSend_stret";
+    }
+    // float, double, long double return
+    if (ret && ret->isfloating() && !ret->iscomplex()) {
+      return "objc_msgSend_fpret";
+    }
+    return "objc_msgSend";
+  }
 };
 
 // The public getter for abi.cpp.
