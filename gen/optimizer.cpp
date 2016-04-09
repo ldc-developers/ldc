@@ -40,12 +40,6 @@
 extern llvm::TargetMachine *gTargetMachine;
 using namespace llvm;
 
-// Allow the user to specify specific optimizations to run.
-static cl::list<const PassInfo *, bool, PassNameParser>
-    passList(cl::desc("Running specific optimizations:"),
-             cl::Hidden // to clean up --help output
-             );
-
 static cl::opt<signed char> optimizeLevel(
     cl::desc("Setting the optimization level:"), cl::ZeroOrMore,
     cl::values(
@@ -384,37 +378,7 @@ bool ldc_optimize_module(llvm::Module *M) {
     mpm.add(createStripSymbolsPass(true));
   }
 
-  bool defaultsAdded = false;
-  // Create a new optimization pass for each one specified on the command line
-  for (unsigned i = 0; i < passList.size(); ++i) {
-    if (optimizeLevel &&
-        optimizeLevel.getPosition() < passList.getPosition(i)) {
-      addOptimizationPasses(mpm, fpm, optLevel(), sizeLevel());
-      defaultsAdded = true;
-    }
-
-    const PassInfo *passInf = passList[i];
-    Pass *pass = nullptr;
-    if (passInf->getNormalCtor()) {
-      pass = passInf->getNormalCtor()();
-    } else {
-      const char *arg = passInf->getPassArgument(); // may return null
-      if (arg) {
-        error(Loc(), "Can't create pass '-%s' (%s)", arg, pass->getPassName());
-      } else {
-        error(Loc(), "Can't create pass (%s)", pass->getPassName());
-      }
-      llvm_unreachable("pass creation failed");
-    }
-    if (pass) {
-      addPass(mpm, pass);
-    }
-  }
-
-  // Add the default passes for the specified optimization level.
-  if (!defaultsAdded) {
-    addOptimizationPasses(mpm, fpm, optLevel(), sizeLevel());
-  }
+  addOptimizationPasses(mpm, fpm, optLevel(), sizeLevel());
 
   // Run per-function passes.
   fpm.doInitialization();

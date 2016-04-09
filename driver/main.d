@@ -17,12 +17,6 @@ import ddmd.globals;
 import ddmd.root.file;
 import ddmd.root.outbuffer;
 
-extern (C++) void disableGC()
-{
-	import core.memory;
-	GC.disable();
-}
-
 extern (C++) void writeModuleDependencyFile()
 {
     if (global.params.moduleDepsFile !is null)
@@ -32,4 +26,22 @@ extern (C++) void writeModuleDependencyFile()
         deps.setbuffer(cast(void*)ob.data, ob.offset);
         deps.write();
     }
+}
+
+// In driver/main.cpp
+extern(C++) int cppmain(int argc, char **argv);
+
+/+ Having a main() in D-source solves a few issues with building/linking with
+ + DMD on Windows, with the extra benefit of implicitly initializing the D runtime.
+ +/
+int main()
+{
+    // For now, even just the frontend does not work with GC enabled, so we need
+    // to disable it entirely.
+    import core.memory;
+    GC.disable();
+
+    import core.runtime;
+    auto args = Runtime.cArgs();
+    return cppmain(args.argc, cast(char**)args.argv);
 }

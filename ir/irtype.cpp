@@ -48,10 +48,19 @@ namespace {
 llvm::Type *getReal80Type(llvm::LLVMContext &ctx) {
   llvm::Triple::ArchType const a = global.params.targetTriple->getArch();
   bool const anyX86 = (a == llvm::Triple::x86) || (a == llvm::Triple::x86_64);
+  bool const anyAarch64 = (a == llvm::Triple::aarch64) || (a == llvm::Triple::aarch64_be)
+#if LDC_LLVM_VER == 305
+                       || (a == llvm::Triple::arm64) || (a == llvm::Triple::arm64_be)
+#endif
+    ;
 
   // only x86 has 80bit float - but no support with MS C Runtime!
   if (anyX86 && !global.params.targetTriple->isWindowsMSVCEnvironment()) {
     return llvm::Type::getX86_FP80Ty(ctx);
+  }
+
+  if (anyAarch64) {
+    return llvm::Type::getFP128Ty(ctx);
   }
 
   return llvm::Type::getDoubleTy(ctx);

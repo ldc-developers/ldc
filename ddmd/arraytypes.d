@@ -9,7 +9,7 @@
 module ddmd.arraytypes;
 
 import ddmd.aggregate;
-// IN_LLVM import ddmd.backend;
+import ddmd.gluelayer;
 import ddmd.dclass;
 import ddmd.declaration;
 import ddmd.dmodule;

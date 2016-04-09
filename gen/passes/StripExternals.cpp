@@ -70,7 +70,7 @@ bool StripExternals::runOnModule(Module &M) {
     ++I;
   }
 
-  for (Module::global_iterator I = M.global_begin(); I != M.global_end();) {
+  for (auto I = M.global_begin(); I != M.global_end();) {
     if (I->hasAvailableExternallyLinkage()) {
       assert(!I->isDeclaration() &&
              "Declarations can't be available_externally");
@@ -78,7 +78,7 @@ bool StripExternals::runOnModule(Module &M) {
       ++NumVariables;
       if (I->use_empty()) {
         DEBUG(errs() << "Deleting global: " << *I);
-        Module::global_iterator todelete = I;
+        auto todelete = I;
         ++I;
         todelete->eraseFromParent();
         continue;

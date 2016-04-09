@@ -230,10 +230,23 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
         break;
       }
     } else {
-      if (global.params.is64bit) {
-        args.push_back("-m64");
-      } else {
-        args.push_back("-m32");
+      switch (global.params.targetTriple->getArch()) {
+      case llvm::Triple::arm:
+      case llvm::Triple::armeb:
+      case llvm::Triple::aarch64:
+      case llvm::Triple::aarch64_be:
+#if LDC_LLVM_VER == 305
+      case llvm::Triple::arm64:
+      case llvm::Triple::arm64_be:
+#endif
+        break;
+      default:
+        if (global.params.is64bit) {
+          args.push_back("-m64");
+        }
+        else {
+          args.push_back("-m32");
+        }
       }
     }
   }

@@ -648,7 +648,12 @@ version(IN_LLVM) {
                 c = 'd';
                 break;
             case Tfloat80:
+version(IN_LLVM) {
+                // There is no platform which uses __float128 for real.
+                c = 'e';
+} else {
                 c = (Target.realsize - Target.realpad == 16) ? 'g' : 'e';
+}
                 break;
             case Tbool:
                 c = 'b';

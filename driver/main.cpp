@@ -69,17 +69,10 @@ extern "C" {
 int rt_init();
 }
 
-// in traits.c
-void initTraitsStringTable();
-
-// In ddmd/lexer.d
-void Lexer_initLexer();
-
 // In ddmd/doc.d
 void gendocfile(Module *m);
 
 // In driver/main.d
-void disableGC();
 void writeModuleDependencyFile();
 
 using namespace opts;
@@ -122,6 +115,7 @@ void printVersion() {
   printf("LDC - the LLVM D compiler (%s):\n", global.ldc_version);
   printf("  based on DMD %s and LLVM %s\n", global.version,
          global.llvm_version);
+  printf("  built with %s\n", ldc::built_with_Dcompiler_version);
 #if defined(__has_feature)
 #if __has_feature(address_sanitizer)
   printf("  compiled with address sanitizer enabled\n");
@@ -289,6 +283,7 @@ static void hideLLVMOptions() {
 #endif
 }
 
+// In driver/main.d
 int main(int argc, char **argv);
 
 static const char *tryGetExplicitConfFile(int argc, char **argv) {
@@ -546,28 +541,32 @@ static void initializePasses() {
   // Initialize passes
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeCore(Registry);
+  initializeTransformUtils(Registry);
+  initializeScalarOpts(Registry);
+  initializeObjCARCOpts(Registry);
+  initializeVectorization(Registry);
+  initializeInstCombine(Registry);
+  initializeIPO(Registry);
+  initializeInstrumentation(Registry);
+  initializeAnalysis(Registry);
+  initializeCodeGen(Registry);
+#if LDC_LLVM_VER >= 309
+  initializeGlobalISel(Registry);
+#endif
+  initializeTarget(Registry);
+
+  // Initialize passes not included above
 #if LDC_LLVM_VER < 306
   initializeDebugIRPass(Registry);
 #endif
-  initializeScalarOpts(Registry);
-  initializeVectorization(Registry);
-  initializeIPO(Registry);
-  initializeAnalysis(Registry);
 #if LDC_LLVM_VER < 308
   initializeIPA(Registry);
 #endif
-  initializeTransformUtils(Registry);
-  initializeInstCombine(Registry);
-  initializeInstrumentation(Registry);
-  initializeTarget(Registry);
-  // For codegen passes, only passes that do IR to IR transformation are
-  // supported. For now, just add CodeGenPrepare.
-  initializeCodeGenPreparePass(Registry);
 #if LDC_LLVM_VER >= 306
-  initializeAtomicExpandPass(Registry);
   initializeRewriteSymbolsPass(Registry);
-#else
-  initializeAtomicExpandLoadLinkedPass(Registry);
+#endif
+#if LDC_LLVM_VER >= 307
+  initializeSjLjEHPreparePass(Registry);
 #endif
 }
 
@@ -918,17 +917,8 @@ static void emitJson(Modules &modules) {
   }
 }
 
-int main(int argc, char **argv) {
+int cppmain(int argc, char **argv) {
   llvm::sys::PrintStackTraceOnErrorSignal();
-
-  // Initialize the D runtime.
-  // TODO: We might want to call rt_term() using an atexit handler or so to
-  // run module destructors, etc.
-  rt_init();
-
-  // For now, even just the frontend does not work with GC enabled, so we need
-  // to disable it entirely.
-  disableGC();
 
   exe_path::initialize(argv[0], reinterpret_cast<void *>(main));
 
@@ -1021,7 +1011,6 @@ int main(int argc, char **argv) {
   }
 
   // Initialization
-  Lexer_initLexer();
   Type::_init();
   Id::initialize();
   Module::_init();
@@ -1029,7 +1018,6 @@ int main(int argc, char **argv) {
   Expression::_init();
   builtin_init();
   objc_init();
-  initTraitsStringTable();
 
   // Build import search path
   if (global.params.imppath) {

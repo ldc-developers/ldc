@@ -29,6 +29,7 @@
 #include "gen/runtime.h"
 #include "gen/structs.h"
 #include "gen/typeinf.h"
+#include "gen/uda.h"
 #include "ir/irtype.h"
 #include "ir/irtypeclass.h"
 #include "ir/irtypefunction.h"
@@ -63,6 +64,8 @@ LLAttribute DtoShouldExtend(Type *type) {
 
     case Tuns8:
     case Tuns16:
+    case Tchar:
+    case Twchar:
       return LLAttribute::ZExt;
 
     default:
@@ -243,10 +246,33 @@ LLValue *DtoDelegateEquals(TOK op, LLValue *lhs, LLValue *rhs) {
 ////////////////////////////////////////////////////////////////////////////////
 
 LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
-  if (DtoIsTemplateInstance(sym)) {
-    return LinkageWithCOMDAT(templateLinkage, supportsCOMDAT());
+  auto linkage = (DtoIsTemplateInstance(sym) ? templateLinkage
+                                             : LLGlobalValue::ExternalLinkage);
+
+  // If @(ldc.attributes.weak) is applied, override the linkage to WeakAny
+  if (hasWeakUDA(sym)) {
+    linkage = LLGlobalValue::WeakAnyLinkage;
   }
-  return LinkageWithCOMDAT(llvm::GlobalValue::ExternalLinkage, false);
+
+  return {linkage, supportsCOMDAT()};
+}
+
+bool supportsCOMDAT() {
+#if LDC_LLVM_VER >= 307
+  return !global.params.targetTriple->isOSBinFormatMachO();
+#else
+  return false;
+#endif
+}
+
+void setLinkage(LinkageWithCOMDAT lwc, llvm::GlobalObject *obj) {
+  obj->setLinkage(lwc.first);
+  if (lwc.second)
+    obj->setComdat(gIR->module.getOrInsertComdat(obj->getName()));
+}
+
+void setLinkage(Dsymbol *sym, llvm::GlobalObject *obj) {
+  setLinkage(DtoLinkage(sym), obj);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -409,6 +435,15 @@ LLConstant *DtoConstFP(Type *t, longdouble value) {
         *reinterpret_cast<uint16_t *>(reinterpret_cast<uint64_t *>(&value) + 1);
     return LLConstantFP::get(gIR->context(), APFloat(APFloat::x87DoubleExtended,
                                                      APInt(80, 2, bits)));
+  }
+  if (llty == LLType::getFP128Ty(gIR->context())) {
+    union {
+      longdouble ld;
+      uint64_t bits[2];
+    } t;
+    t.ld = value;
+    return LLConstantFP::get(gIR->context(),
+                             APFloat(APFloat::IEEEquad, APInt(128, 2, t.bits)));
   }
   if (llty == LLType::getPPC_FP128Ty(gIR->context())) {
     uint64_t bits[] = {0, 0};
@@ -679,7 +714,7 @@ LLStructType *DtoMutexType() {
       global.params.targetTriple->getOS() == llvm::Triple::OpenBSD ||
       global.params.targetTriple->getOS() == llvm::Triple::DragonFly
 #endif
-     ) {
+          ) {
     // Just a pointer
     return LLStructType::get(gIR->context(), DtoSize_t());
   }

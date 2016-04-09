@@ -13,7 +13,7 @@ import core.stdc.string;
 import ddmd.aggregate;
 import ddmd.arraytypes;
 import ddmd.attrib;
-// IN_LLVM import ddmd.backend;
+import ddmd.gluelayer;
 import ddmd.builtin;
 import ddmd.ctfeexpr;
 import ddmd.dclass;
@@ -47,8 +47,6 @@ import ddmd.statement;
 import ddmd.target;
 import ddmd.tokens;
 import ddmd.visitor;
-
-extern extern (C++) RET retStyle(TypeFunction tf);
 
 enum ILS : int
 {
@@ -1583,7 +1581,7 @@ public:
                 if (f.linkage == LINKd || (f.parameters && Parameter.dim(f.parameters)))
                 {
                     // Declare _argptr
-                    Type t = Type.tvalist;
+                    Type t = Type.tvalist.semantic(loc, sc);
                     argptr = new VarDeclaration(Loc(), t, Id._argptr, null);
                     argptr.storage_class |= STCtemp;
                     argptr.semantic(sc2);
@@ -1774,7 +1772,10 @@ public:
                         Expression exp = (*returns)[i].exp;
                         if (exp.op == TOKvar && (cast(VarExp)exp).var == vresult)
                         {
-                            exp.type = f.next;
+                            if (f.next.ty == Tvoid && isMain())
+                                exp.type = Type.tint32;
+                            else
+                                exp.type = f.next;
                             // Remove `return vresult;` from returns
                             returns.remove(i);
                             continue;
@@ -2091,7 +2092,7 @@ static if (!IN_LLVM) {
                             Expression e = new SymOffExp(Loc(), v_argsave, 6 * 8 + 8 * 16);
                             e.type = argptr.type;
                             e = new AssignExp(Loc(), e1, e);
-                            e = e.semantic(sc);
+                            e = e.semantic(sc2);
                             a.push(new ExpStatement(Loc(), e));
                         }
                         else
@@ -2355,6 +2356,8 @@ else
         if (!f.deco && ident != Id.xopEquals && ident != Id.xopCmp)
         {
             sc = sc.push();
+            if (isCtorDeclaration()) // Bugzilla #15665
+                sc.flags |= SCOPEctor;
             sc.stc = 0;
             sc.linkage = linkage; // Bugzilla 8496
             type = f.semantic(loc, sc);
@@ -2372,10 +2375,16 @@ else
         //fflush(stdout);
     }
 
+    /****************************************************
+     * Resolve forward reference of function signature -
+     * parameter types, return type, and attributes.
+     * Returns false if any errors exist in the signature.
+     */
     final bool functionSemantic()
     {
         if (!_scope)
-            return true;
+            return !errors;
+
         if (!originalType) // semantic not yet run
         {
             TemplateInstance spec = isSpeculative();
@@ -2390,11 +2399,17 @@ else
             if (olderrs != global.errors) // if errors compiling this function
                 return false;
         }
+
         // if inferring return type, sematic3 needs to be run
+        // - When the function body contains any errors, we cannot assume
+        //   the inferred return type is valid.
+        //   So, the body errors should become the function signature error.
         if (inferRetType && type && !type.nextOf())
             return functionSemantic3();
+
         TemplateInstance ti;
-        if (isInstantiated() && !isVirtualMethod() && !(ti = parent.isTemplateInstance(), ti && !ti.isTemplateMixin() && ti.tempdecl.ident != ident))
+        if (isInstantiated() && !isVirtualMethod() &&
+            !(ti = parent.isTemplateInstance(), ti && !ti.isTemplateMixin() && ti.tempdecl.ident != ident))
         {
             AggregateDeclaration ad = isMember2();
             if (ad && ad.sizeok != SIZEOKdone)
@@ -2406,15 +2421,19 @@ else
                 //ad->sizeok = SIZEOKfwd;
             }
             else
-                return functionSemantic3();
+                return functionSemantic3() || !errors;
         }
 
         if (storage_class & STCinference)
-            return functionSemantic3();
+            return functionSemantic3() || !errors;
 
-        return true;
+        return !errors;
     }
 
+    /****************************************************
+     * Resolve forward reference of function body.
+     * Returns false if any errors exist in the body.
+     */
     final bool functionSemantic3()
     {
         if (semanticRun < PASSsemantic3 && _scope)
@@ -2430,6 +2449,7 @@ else
                 global.gag = 0;
             semantic3(_scope);
             global.gag = oldgag;
+
             // If it is a speculatively-instantiated template, and errors occur,
             // we need to mark the template as having errors.
             if (spec && global.errors != olderrs)
@@ -2437,7 +2457,8 @@ else
             if (olderrs != global.errors) // if errors compiling this function
                 return false;
         }
-        return true;
+
+        return !errors && !semantic3Errors;
     }
 
     // called from semantic3
@@ -2445,31 +2466,29 @@ else
     {
         if (ad && !isFuncLiteralDeclaration())
         {
-            VarDeclaration v;
+            Type thandle = ad.handleType();
+            assert(thandle);
+            thandle = thandle.addMod(type.mod);
+            thandle = thandle.addStorageClass(storage_class);
+            VarDeclaration v = new ThisDeclaration(loc, thandle);
+            v.storage_class |= STCparameter;
+            if (thandle.ty == Tstruct)
             {
-                Type thandle = ad.handleType();
-                assert(thandle);
-                thandle = thandle.addMod(type.mod);
-                thandle = thandle.addStorageClass(storage_class);
-                v = new ThisDeclaration(loc, thandle);
-                v.storage_class |= STCparameter;
-                if (thandle.ty == Tstruct)
-                {
-                    v.storage_class |= STCref;
-                    // if member function is marked 'inout', then 'this' is 'return ref'
-                    if (type.ty == Tfunction && (cast(TypeFunction)type).iswild & 2)
-                        v.storage_class |= STCreturn;
-                }
-                if (type.ty == Tfunction && (cast(TypeFunction)type).isreturn)
+                v.storage_class |= STCref;
+                // if member function is marked 'inout', then 'this' is 'return ref'
+                if (type.ty == Tfunction && (cast(TypeFunction)type).iswild & 2)
                     v.storage_class |= STCreturn;
-                v.semantic(sc);
-                if (!sc.insert(v))
-                    assert(0);
-                v.parent = this;
-                return v;
             }
+            if (type.ty == Tfunction && (cast(TypeFunction)type).isreturn)
+                v.storage_class |= STCreturn;
+
+            v.semantic(sc);
+            if (!sc.insert(v))
+                assert(0);
+            v.parent = this;
+            return v;
         }
-        else if (isNested())
+        if (isNested())
         {
             /* The 'this' for a nested function is the link to the
              * enclosing function's stack frame.
@@ -2717,20 +2736,20 @@ else
      * There's four result types.
      *
      * 1. If the 'tthis' matches only one candidate, it's an "exact match".
-     *    Returns the function and 't' is set to its type.
+     *    Returns the function and 'hasOverloads' is set to false.
      *      eg. If 'tthis" is mutable and there's only one mutable method.
      * 2. If there's two or more match candidates, but a candidate function will be
      *    a "better match".
-     *    Returns NULL but 't' is set to the candidate type.
+     *    Returns the better match function but 'hasOverloads' is set to true.
      *      eg. If 'tthis' is mutable, and there's both mutable and const methods,
      *          the mutable method will be a better match.
      * 3. If there's two or more match candidates, but there's no better match,
-     *    Returns NULL and 't' is set to NULL to represent "ambiguous match".
+     *    Returns null and 'hasOverloads' is set to true to represent "ambiguous match".
      *      eg. If 'tthis' is mutable, and there's two or more mutable methods.
-     * 4. If there's no candidates, it's "no match" and returns NULL with error report.
+     * 4. If there's no candidates, it's "no match" and returns null with error report.
      *      e.g. If 'tthis' is const but there's no const methods.
      */
-    final FuncDeclaration overloadModMatch(Loc loc, Type tthis, ref Type t)
+    final FuncDeclaration overloadModMatch(Loc loc, Type tthis, ref bool hasOverloads)
     {
         //printf("FuncDeclaration::overloadModMatch('%s')\n", toChars());
         Match m;
@@ -2778,6 +2797,7 @@ else
 
         LlastIsBetter:
             //printf("\tlastbetter\n");
+            m.count++; // count up
             return 0;
 
         LcurrIsBetter:
@@ -2794,21 +2814,17 @@ else
             return 0;
         });
 
-        if (m.count == 1)   // exact match
+        if (m.count == 1)       // exact match
         {
-            t = m.lastf.type;
+            hasOverloads = false;
         }
-        else if (m.count > 1)
+        else if (m.count > 1)   // better or ambiguous match
         {
-            if (!m.nextf)   // better match
-                t = m.lastf.type;
-            else            // ambiguous match
-                t = null;
-            m.lastf = null;
+            hasOverloads = true;
         }
-        else                // no match
+        else                    // no match
         {
-            t = null;
+            hasOverloads = true;
             auto tf = cast(TypeFunction)this.type;
             assert(tthis);
             assert(!MODimplicitConv(tthis.mod, tf.mod)); // modifier mismatch
@@ -2816,7 +2832,8 @@ else
                 OutBuffer thisBuf, funcBuf;
                 MODMatchToBuffer(&thisBuf, tthis.mod, tf.mod);
                 MODMatchToBuffer(&funcBuf, tf.mod, tthis.mod);
-                .error(loc, "%smethod %s is not callable using a %sobject", funcBuf.peekString(), this.toPrettyChars(), thisBuf.peekString());
+                .error(loc, "%smethod %s is not callable using a %sobject",
+                    funcBuf.peekString(), this.toPrettyChars(), thisBuf.peekString());
             }
         }
         return m.lastf;
@@ -4659,20 +4676,41 @@ public:
         /* See if it's the default constructor
          * But, template constructor should not become a default constructor.
          */
-        if (ad && tf.varargs == 0 && Parameter.dim(tf.parameters) == 0 && (!parent.isTemplateInstance() || parent.isTemplateMixin()))
+        if (ad && (!parent.isTemplateInstance() || parent.isTemplateMixin()))
         {
-            StructDeclaration sd = ad.isStructDeclaration();
-            if (sd)
+            immutable dim = Parameter.dim(tf.parameters);
+
+            if (auto sd = ad.isStructDeclaration())
             {
-                if (fbody || !(storage_class & STCdisable))
+                if (dim == 0 && tf.varargs == 0) // empty default ctor w/o any varargs
                 {
-                    error("default constructor for structs only allowed with @disable and no body");
-                    storage_class |= STCdisable;
-                    fbody = null;
+                    if (fbody || !(storage_class & STCdisable))
+                    {
+                        error("default constructor for structs only allowed "
+                            "with @disable, no body, and no parameters");
+                        storage_class |= STCdisable;
+                        fbody = null;
+                    }
+                    sd.noDefaultCtor = true;
                 }
-                sd.noDefaultCtor = true;
+                else if (dim == 0 && tf.varargs) // allow varargs only ctor
+                {
+                }
+                else if (dim && Parameter.getNth(tf.parameters, 0).defaultArg)
+                {
+                    // if the first parameter has a default argument, then the rest does as well
+                    if (storage_class & STCdisable)
+                    {
+                        deprecation("@disable'd constructor cannot have default "~
+                                    "arguments for all parameters.");
+                        deprecationSupplemental(loc, "Use @disable this(); if you want to disable default initialization.");
+                    }
+                    else
+                        deprecation("all parameters have default arguments, "~
+                                    "but structs cannot have default constructors.");
+                }
             }
-            else
+            else if (dim == 0 && tf.varargs == 0)
             {
                 ad.defaultCtor = this;
             }

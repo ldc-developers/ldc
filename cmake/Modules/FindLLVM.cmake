@@ -76,8 +76,9 @@ if ((WIN32 AND NOT(MINGW OR CYGWIN)) OR NOT LLVM_CONFIG)
             list(APPEND LLVM_FIND_COMPONENTS "debuginfo")
         endif()
         if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-8][\\.0-9A-Za-z]*")
-            # Versions below 3.9 do not support components debuginfocodeview
+            # Versions below 3.9 do not support components debuginfocodeview, globalisel
             list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfocodeview" index)
+            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "globalisel" index)
         endif()
         if(${LLVM_VERSION_STRING} MATCHES "^3\\.[8-9][\\.0-9A-Za-z]*")
             # Versions beginning with 3.8 do not support component ipa
@@ -155,8 +156,9 @@ else()
         list(APPEND LLVM_FIND_COMPONENTS "debuginfo")
     endif()
     if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-8][\\.0-9A-Za-z]*")
-        # Versions below 3.9 do not support components debuginfocodeview
+        # Versions below 3.9 do not support components debuginfocodeview, globalisel
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfocodeview" index)
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "globalisel" index)
     endif()
     if(${LLVM_VERSION_STRING} MATCHES "^3\\.[8-9][\\.0-9A-Za-z]*")
         # Versions beginning with 3.8 do not support component ipa
@@ -172,6 +174,13 @@ else()
     endif()
     llvm_set(LIBRARY_DIRS libdir true)
     llvm_set_libs(LIBRARIES libs)
+    # LLVM bug: llvm-config --libs tablegen returns -lLLVM-3.8.0
+    # but code for it is not in shared library
+    if("${LLVM_FIND_COMPONENTS}" MATCHES "tablegen")
+        if (NOT "${LLVM_LIBRARIES}" MATCHES "LLVMTableGen")
+            set(LLVM_LIBRARIES "${LLVM_LIBRARIES} -lLLVMTableGen")
+        endif()
+    endif()
     llvm_set(TARGETS_TO_BUILD targets-built)
     string(REGEX MATCHALL "${pattern}[^ ]+" LLVM_TARGETS_TO_BUILD ${LLVM_TARGETS_TO_BUILD})
 endif()

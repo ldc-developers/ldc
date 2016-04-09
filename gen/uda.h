@@ -15,6 +15,7 @@
 #ifndef GEN_UDA_H
 #define GEN_UDA_H
 
+class Dsymbol;
 class FuncDeclaration;
 class VarDeclaration;
 namespace llvm {
@@ -24,5 +25,7 @@ class GlobalVariable;
 
 void applyFuncDeclUDAs(FuncDeclaration *decl, llvm::Function *func);
 void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar);
+
+bool hasWeakUDA(Dsymbol *sym);
 
 #endif

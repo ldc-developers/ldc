@@ -12,7 +12,7 @@ import core.stdc.stdio;
 import ddmd.aggregate;
 import ddmd.argtypes;
 import ddmd.arraytypes;
-// IN_LLVM import ddmd.backend;
+import ddmd.gluelayer;
 import ddmd.clone;
 import ddmd.declaration;
 import ddmd.dmodule;
@@ -746,7 +746,7 @@ public:
                 if (!se.committed &&
                     (typeb.ty == Tarray || typeb.ty == Tsarray) &&
                     (tynto == Tchar || tynto == Twchar || tynto == Tdchar) &&
-                    se.length(cast(int)tb.nextOf().size()) < (cast(TypeSArray)tb).dim.toInteger())
+                    se.numberOfCodeUnits(tynto) < (cast(TypeSArray)tb).dim.toInteger())
                 {
                     e = se.castTo(sc, t);
                     goto L1;

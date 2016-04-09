@@ -23,7 +23,7 @@ llvm::Function *DtoInlineIRFunction(FuncDeclaration *fdecl) {
   StringExp *strexp = a0->toStringExp();
   assert(strexp);
   assert(strexp->sz == 1);
-  std::string code(static_cast<char *>(strexp->string), strexp->len);
+  std::string code(strexp->toPtr(), strexp->numberOfCodeUnits());
 
   Type *ret = isType(objs[1]);
   assert(ret);
@@ -93,8 +93,7 @@ llvm::Function *DtoInlineIRFunction(FuncDeclaration *fdecl) {
 #endif
 
   LLFunction *fun = gIR->module.getFunction(mangled_name);
-  fun->setLinkage(llvm::GlobalValue::LinkOnceODRLinkage);
-  SET_COMDAT(fun, gIR->module);
+  setLinkage({LLGlobalValue::LinkOnceODRLinkage, supportsCOMDAT()}, fun);
   fun->addFnAttr(LLAttribute::AlwaysInline);
   return fun;
 }

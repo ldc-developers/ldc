@@ -18,31 +18,70 @@
 #include "gen/abi-aarch64.h"
 
 struct AArch64TargetABI : TargetABI {
+  HFAToArray hfaToArray;
+  CompositeToArray64 compositeToArray64;
+  IntegerRewrite integerRewrite;
+
   bool returnInArg(TypeFunction *tf) override {
     if (tf->isref) {
       return false;
     }
 
-    // Return structs and static arrays on the stack. The latter is needed
-    // because otherwise LLVM tries to actually return the array in a number
-    // of physical registers, which leads, depending on the target, to
-    // either horrendous codegen or backend crashes.
     Type *rt = tf->next->toBasetype();
-    return (rt->ty == Tstruct || rt->ty == Tsarray);
+
+    // FIXME
+    if (tf->linkage == LINKd)
+      return rt->ty == Tsarray || rt->ty == Tstruct;
+
+    return rt->ty == Tsarray ||
+      (rt->ty == Tstruct && rt->size() > 16 && !isHFA((TypeStruct *)rt));
   }
 
-  bool passByVal(Type *t) override { return t->toBasetype()->ty == Tstruct; }
+  bool passByVal(Type *t) override {
+    t = t->toBasetype();
+    return t->ty == Tsarray ||
+           (t->ty == Tstruct && t->size() > 16 && !isHFA((TypeStruct *)t));
+  }
 
-  void rewriteFunctionType(TypeFunction *t, IrFuncTy &fty) override {
-    for (auto arg : fty.args) {
-      if (!arg->byref) {
-        rewriteArgument(fty, *arg);
+  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
+    Type *retTy = fty.ret->type->toBasetype();
+    if (!fty.ret->byref && retTy->ty == Tstruct) {
+      // Rewrite HFAs only because union HFAs are turned into IR types that are
+      // non-HFA and messes up register selection
+      if (isHFA((TypeStruct *)retTy, &fty.ret->ltype)) {
+        fty.ret->rewrite = &hfaToArray;
+        fty.ret->ltype = hfaToArray.type(fty.ret->type, fty.ret->ltype);
       }
+      else {
+        fty.ret->rewrite = &integerRewrite;
+        fty.ret->ltype = integerRewrite.type(fty.ret->type, fty.ret->ltype);
+      }
+    }
+
+    for (auto arg : fty.args) {
+      if (!arg->byref)
+        rewriteArgument(fty, *arg);
+      else if (passByVal(arg->type))
+        arg->attrs.remove(LLAttribute::ByVal);
     }
   }
 
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     // FIXME
+    Type *ty = arg.type->toBasetype();
+
+    if (ty->ty == Tstruct || ty->ty == Tsarray) {
+      // Rewrite HFAs only because union HFAs are turned into IR types that are
+      // non-HFA and messes up register selection
+      if (ty->ty == Tstruct && isHFA((TypeStruct *)ty, &arg.ltype)) {
+        arg.rewrite = &hfaToArray;
+        arg.ltype = hfaToArray.type(arg.type, arg.ltype);
+      }
+      else {
+        arg.rewrite = &compositeToArray64;
+        arg.ltype = compositeToArray64.type(arg.type, arg.ltype);
+      }
+    }
   }
 
   /**
@@ -112,8 +151,7 @@ struct AArch64TargetABI : TargetABI {
     // using TypeIdentifier here is a bit wonky but works, as long as the name
     // is actually available in the scope (this is what DMD does, so if a better
     // solution is found there, this should be adapted).
-    return (createTypeIdentifier(Loc(), Identifier::idPool("__va_list_tag")))
-        ->pointerTo();
+    return (createTypeIdentifier(Loc(), Identifier::idPool("__va_list")));
   }
 
   const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty) override {

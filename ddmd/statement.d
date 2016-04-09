@@ -15,7 +15,7 @@ import ddmd.aliasthis;
 import ddmd.arrayop;
 import ddmd.arraytypes;
 import ddmd.attrib;
-import ddmd.backend;
+import ddmd.gluelayer;
 import ddmd.canthrow;
 import ddmd.clone;
 import ddmd.cond;
@@ -53,8 +53,6 @@ import ddmd.staticassert;
 import ddmd.target;
 import ddmd.tokens;
 import ddmd.visitor;
-
-extern extern (C++) Statement asmSemantic(AsmStatement s, Scope* sc);
 
 extern (C++) Identifier fixupLabelName(Scope* sc, Identifier ident)
 {
@@ -2227,7 +2225,7 @@ public:
                         ds = (cast(VarExp)e).var;
                     else if (e.op == TOKtemplate)
                         ds = (cast(TemplateExp)e).td;
-                    else if (e.op == TOKimport)
+                    else if (e.op == TOKscope)
                         ds = (cast(ScopeExp)e).sds;
                     else if (e.op == TOKfunction)
                     {
@@ -3883,7 +3881,7 @@ public:
         if (sw)
         {
             exp = exp.implicitCastTo(sc, sw.condition.type);
-            exp = exp.optimize(WANTvalue);
+            exp = exp.optimize(WANTvalue | WANTexpand);
             /* This is where variables are allowed as case expressions.
              */
             if (exp.op == TOKvar)
@@ -4956,7 +4954,7 @@ public:
         exp = checkGC(sc, exp);
         if (exp.op == TOKerror)
             return new ErrorStatement();
-        if (exp.op == TOKimport)
+        if (exp.op == TOKscope)
         {
             sym = new WithScopeSymbol(this);
             sym.parent = sc.scopesym;

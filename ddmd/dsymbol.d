@@ -15,7 +15,7 @@ import ddmd.aggregate;
 import ddmd.aliasthis;
 import ddmd.arraytypes;
 import ddmd.attrib;
-// IN_LLVM import ddmd.backend;
+import ddmd.gluelayer;
 import ddmd.dclass;
 import ddmd.declaration;
 import ddmd.denum;
@@ -49,9 +49,6 @@ import ddmd.visitor;
 
 version(IN_LLVM)
 {
-    // define DMD backend type
-    struct Symbol;
-
     // Functions to construct/destruct Dsymbol.ir
     extern (C++) void* newIrDsymbol();
     extern (C++) void deleteIrDsymbol(void*);
@@ -881,7 +878,7 @@ public:
      */
     final static bool oneMembers(Dsymbols* members, Dsymbol* ps, Identifier ident)
     {
-        //printf("Dsymbol::oneMembers() %d\n", members ? members->dim : 0);
+        //printf("Dsymbol::oneMembers() %d\n", members ? members.dim : 0);
         Dsymbol s = null;
         if (members)
         {
@@ -889,7 +886,7 @@ public:
             {
                 Dsymbol sx = (*members)[i];
                 bool x = sx.oneMember(ps, ident);
-                //printf("\t[%d] kind %s = %d, s = %p\n", i, sx->kind(), x, *ps);
+                //printf("\t[%d] kind %s = %d, s = %p\n", i, sx.kind(), x, *ps);
                 if (!x)
                 {
                     //printf("\tfalse 1\n");
@@ -898,12 +895,19 @@ public:
                 }
                 if (*ps)
                 {
+                    static bool isOverloadableAlias(Dsymbol s)
+                    {
+                        auto ad = s.isAliasDeclaration();
+                        return ad && ad.aliassym && ad.aliassym.isOverloadable();
+                    }
+
                     assert(ident);
                     if (!(*ps).ident || !(*ps).ident.equals(ident))
                         continue;
                     if (!s)
                         s = *ps;
-                    else if (s.isOverloadable() && (*ps).isOverloadable())
+                    else if ((   s .isOverloadable() || isOverloadableAlias(  s)) &&
+                             ((*ps).isOverloadable() || isOverloadableAlias(*ps)))
                     {
                         // keep head of overload set
                         FuncDeclaration f1 = s.isFuncDeclaration();
@@ -931,7 +935,7 @@ public:
                 }
             }
         }
-        *ps = s; // s is the one symbol, NULL if none
+        *ps = s; // s is the one symbol, null if none
         //printf("\ttrue\n");
         return true;
     }
@@ -1622,7 +1626,7 @@ public:
         Expression eold = null;
         for (Expression e = withstate.exp; e != eold; e = resolveAliasThis(_scope, e))
         {
-            if (e.op == TOKimport)
+            if (e.op == TOKscope)
             {
                 s = (cast(ScopeExp)e).sds;
             }

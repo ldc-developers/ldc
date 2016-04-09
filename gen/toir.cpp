@@ -9,15 +9,6 @@
 
 #include "attrib.h"
 #include "enum.h"
-#include "hdrgen.h"
-#include "id.h"
-#include "init.h"
-#include "mtype.h"
-#include "ldcbindings.h"
-#include "module.h"
-#include "port.h"
-#include "rmem.h"
-#include "template.h"
 #include "gen/aa.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
@@ -38,9 +29,18 @@
 #include "gen/tollvm.h"
 #include "gen/typeinf.h"
 #include "gen/warnings.h"
+#include "hdrgen.h"
+#include "id.h"
+#include "init.h"
 #include "ir/irfunction.h"
 #include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
+#include "ldcbindings.h"
+#include "module.h"
+#include "mtype.h"
+#include "port.h"
+#include "rmem.h"
+#include "template.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
 #include <fstream>
@@ -101,14 +101,17 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
     Expression *expr = (index < nexprs) ? exprs[index] : nullptr;
 
     if (vd->overlapped && !expr) {
-      // In case of an union (overlapped field), we can't simply use the default initializer.
+      // In case of an union (overlapped field), we can't simply use the default
+      // initializer.
       // Consider the type union U7727A1 { int i; double d; } and
       // the declaration U7727A1 u = { d: 1.225 };
       // The loop will first visit variable i and then d. Since d has an
-      // explicit initializer, we must use this one. We should therefore skip union fields
+      // explicit initializer, we must use this one. We should therefore skip
+      // union fields
       // with no explicit initializer.
-      IF_LOG Logger::println("skipping overlapped field without init expr: %s %s (+%u)", vd->type->toChars(),
-                             vd->toChars(), vd->offset);
+      IF_LOG Logger::println(
+          "skipping overlapped field without init expr: %s %s (+%u)",
+          vd->type->toChars(), vd->toChars(), vd->offset);
       continue;
     }
 
@@ -154,7 +157,9 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
     }
 
     // get a pointer to this field
-    DVarValue field(vd->type, vd, DtoIndexAggregate(mem, sd, vd));
+    assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
+                                   "vars, although it can easily be made to.");
+    DVarValue field(vd->type, DtoIndexAggregate(mem, sd, vd));
 
     // store the initializer there
     DtoAssign(loc, &field, val, TOKconstruct, true);
@@ -284,11 +289,17 @@ public:
   DValue *getResult() {
     if (destructTemporaries &&
         p->func()->scopes->currentCleanupScope() != initialCleanupScope) {
-      // If the results is an (LLVM) r-value, temporarily store it in an
-      // alloca slot to avoid running into instruction dominance issues
-      // if we share the cleanups with another exit path (e.g. unwinding).
+      // We might share the CFG edges through the below cleanup blocks with
+      // other paths (e.g. exception unwinding) where the result value has not
+      // been constructed. At runtime, the branches will be chosen such that the
+      // end bb (which will likely go on to access the value) is never executed
+      // in those other cases, but we need to make sure that the SSA is also
+      // well-formed statically (i.e. all instructions dominate their uses).
+      // Thus, dump the result to a temporary stack slot (created in the entry
+      // bb) if it is not guaranteed to dominate the end bb after possibly
+      // adding more control flow.
       if (result && result->getType()->ty != Tvoid &&
-          (result->isIm() || result->isSlice())) {
+          !result->definedInFuncEntryBB()) {
         LLValue *alloca = DtoAllocaDump(result);
         result = new DVarValue(result->getType(), alloca);
       }
@@ -319,12 +330,9 @@ public:
 
     result = DtoDeclarationExp(e->declaration);
 
-    if (result) {
-      if (DVarValue *varValue = result->isVar()) {
-        VarDeclaration *vd = varValue->var;
-        if (!vd->isDataseg() && vd->edtor && !vd->noscope) {
-          pushVarDtorCleanup(p, vd);
-        }
+    if (auto vd = e->declaration->isVarDeclaration()) {
+      if (!vd->isDataseg() && vd->edtor && !vd->noscope) {
+        pushVarDtorCleanup(p, vd);
       }
     }
   }
@@ -419,29 +427,11 @@ public:
     Type *cty = dtype->nextOf()->toBasetype();
 
     LLType *ct = DtoMemType(cty);
-    LLArrayType *at = LLArrayType::get(ct, e->len + 1);
 
-    llvm::StringMap<llvm::GlobalVariable *> *stringLiteralCache = nullptr;
-    LLConstant *_init;
-    switch (cty->size()) {
-    default:
-      llvm_unreachable("Unknown char type");
-    case 1:
-      _init =
-          toConstantArray(ct, at, static_cast<uint8_t *>(e->string), e->len);
-      stringLiteralCache = &(gIR->stringLiteral1ByteCache);
-      break;
-    case 2:
-      _init =
-          toConstantArray(ct, at, static_cast<uint16_t *>(e->string), e->len);
-      stringLiteralCache = &(gIR->stringLiteral2ByteCache);
-      break;
-    case 4:
-      _init =
-          toConstantArray(ct, at, static_cast<uint32_t *>(e->string), e->len);
-      stringLiteralCache = &(gIR->stringLiteral4ByteCache);
-      break;
-    }
+    llvm::StringMap<llvm::GlobalVariable *> *stringLiteralCache =
+        stringLiteralCacheForType(cty);
+    LLConstant *_init = buildStringLiteralConstant(e, true);
+    const auto at = _init->getType();
 
     llvm::StringRef key(e->toChars());
     llvm::GlobalVariable *gvar =
@@ -472,10 +462,12 @@ public:
 #endif
 
     if (dtype->ty == Tarray) {
-      LLConstant *clen = LLConstantInt::get(DtoSize_t(), e->len, false);
+      LLConstant *clen =
+          LLConstantInt::get(DtoSize_t(), e->numberOfCodeUnits(), false);
       result = new DImValue(e->type, DtoConstSlice(clen, arrptr, dtype));
     } else if (dtype->ty == Tsarray) {
-      LLType *dstType = getPtrToType(LLArrayType::get(ct, e->len));
+      LLType *dstType =
+          getPtrToType(LLArrayType::get(ct, e->numberOfCodeUnits()));
       LLValue *emem =
           (gvar->getType() == dstType) ? gvar : DtoBitCast(gvar, dstType);
       result = new DVarValue(e->type, emem);
@@ -627,7 +619,7 @@ public:
 
     // evaluate the underlying binary expression
     Expression *lhsForBinExp = (useLvalForBinExpLhs ? lvalExp : e->e1);
-    BinExp* binExp = bindD<BinExp>::create(loc, lhsForBinExp, e->e2);
+    BinExp *binExp = bindD<BinExp>::create(loc, lhsForBinExp, e->e2);
     binExp->type = lhsForBinExp->type;
     DValue *result = toElem(binExp);
 
@@ -1058,11 +1050,6 @@ public:
     }
 
     DValue *v = toElem(e->e1, true);
-    if (v->isField()) {
-      Logger::println("is field");
-      result = v;
-      return;
-    }
     if (DFuncValue *fv = v->isFunc()) {
       Logger::println("is func");
       // Logger::println("FuncDeclaration");
@@ -1152,9 +1139,10 @@ public:
     if (e->cachedLvalue) {
       Logger::println("using cached lvalue");
       LLValue *V = e->cachedLvalue;
-      VarDeclaration *vd = e->var->isVarDeclaration();
-      assert(vd);
-      result = new DVarValue(e->type, vd, V);
+      assert(!isSpecialRefVar(e->var->isVarDeclaration()) &&
+             "Code not expected to handle special ref vars, although it can "
+             "easily be made to.");
+      result = new DVarValue(e->type, V);
       return;
     }
 
@@ -1187,7 +1175,7 @@ public:
       }
 
       // Logger::cout() << "mem: " << *arrptr << '\n';
-      result = new DVarValue(e->type, vd, arrptr);
+      result = new DVarValue(e->type, arrptr);
     } else if (FuncDeclaration *fdecl = e->var->isFuncDeclaration()) {
       DtoResolveFunction(fdecl);
 
@@ -1249,7 +1237,10 @@ public:
         Logger::println("normal this exp");
         v = p->func()->thisArg;
       }
-      result = new DVarValue(e->type, vd, v);
+      assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
+                                     "vars, although it can easily be made "
+                                     "to.");
+      result = new DVarValue(e->type, v);
     } else {
       llvm_unreachable("No VarDeclaration in ThisExp.");
     }
@@ -1307,25 +1298,20 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    // this is the new slicing code, it's different in that a full slice will no
-    // longer retain the original pointer.
-    // but this was broken if there *was* no original pointer, ie. a slice of a
-    // slice...
-    // now all slices have *both* the 'len' and 'ptr' fields set to != null.
-
     // value being sliced
     LLValue *elen = nullptr;
     LLValue *eptr;
     DValue *v = toElem(e->e1);
 
-    // handle pointer slicing
     Type *etype = e->e1->type->toBasetype();
     if (etype->ty == Tpointer) {
+      // pointer slicing
       assert(e->lwr);
       eptr = v->getRVal();
     }
-    // array slice
+
     else {
+      // array slice
       eptr = DtoArrayPtr(v);
     }
 
@@ -1335,12 +1321,14 @@ public:
       assert(e->upr);
 
       // get bounds (make sure $ works)
+      // The lower bound expression must be fully evaluated to an RVal before
+      // evaluating the upper bound expression, because the lower bound
+      // expression might change value after evaluating the upper bound, e.g. in
+      // a statement like this: `auto a1 = values[offset .. offset += 2];`
       p->arrays.push_back(v);
-      DValue *lo = toElem(e->lwr);
-      DValue *up = toElem(e->upr);
+      LLValue *vlo = toElem(e->lwr)->getRVal();
+      LLValue *vup = toElem(e->upr)->getRVal();
       p->arrays.pop_back();
-      LLValue *vlo = lo->getRVal();
-      LLValue *vup = up->getRVal();
 
       const bool needCheckUpper =
           (etype->ty != Tpointer) && !e->upperIsInBounds;
@@ -1384,8 +1372,7 @@ public:
     // no bounds or full slice -> just convert to slice
     else {
       assert(e->e1->type->toBasetype()->ty != Tpointer);
-      // if the sliceee is a static array, we use the length of that as DMD
-      // seems
+      // if the slicee is a static array, we use the length of that as DMD seems
       // to give contrary inconsistent sizesin some multidimensional static
       // array cases.
       // (namely default initialization, int[16][16] arr; -> int[256] arr = 0;)
@@ -1796,10 +1783,12 @@ public:
       if (tc->sym->isInterfaceDeclaration()) {
         DtoDeleteInterface(e->loc, dval);
         onstack = true;
-      } else if (DVarValue *vv = dval->isVar()) {
-        if (vv->var && vv->var->onstack) {
-          DtoFinalizeClass(e->loc, dval->getRVal());
-          onstack = true;
+      } else if (e->e1->op == TOKvar) {
+        if (auto vd = static_cast<VarExp *>(e->e1)->var->isVarDeclaration()) {
+          if (vd->onstack) {
+            DtoFinalizeClass(e->loc, dval->getRVal());
+            onstack = true;
+          }
         }
       }
 
@@ -1907,8 +1896,9 @@ public:
     // struct invariants
     else if (global.params.useInvariants && condty->ty == Tpointer &&
              condty->nextOf()->ty == Tstruct &&
-             (invdecl = static_cast<TypeStruct *>(condty->nextOf())
-                            ->sym->inv) != nullptr) {
+             (invdecl =
+                  static_cast<TypeStruct *>(condty->nextOf())->sym->inv) !=
+                 nullptr) {
       Logger::print("calling struct invariant");
       DtoResolveFunction(invdecl);
       DFuncValue invfunc(invdecl, getIrFunc(invdecl)->func, cond->getRVal());
@@ -2277,7 +2267,7 @@ public:
 
     p->scope() = IRScope(condend);
     if (retPtr) {
-      result = new DVarValue(e->type, DtoLoad(retPtr));
+      result = new DVarValue(e->type, retPtr, true);
     } else {
       result = new DConstValue(e->type, getNullValue(DtoMemType(dtype)));
     }

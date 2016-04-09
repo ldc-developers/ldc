@@ -65,6 +65,10 @@ LLValue *DtoDelegateEquals(TOK op, LLValue *lhs, LLValue *rhs);
 typedef std::pair<llvm::GlobalValue::LinkageTypes, bool> LinkageWithCOMDAT;
 LinkageWithCOMDAT DtoLinkage(Dsymbol *sym);
 
+bool supportsCOMDAT();
+void setLinkage(LinkageWithCOMDAT lwc, llvm::GlobalObject *obj);
+void setLinkage(Dsymbol *sym, llvm::GlobalObject *obj);
+
 // some types
 LLIntegerType *DtoSize_t();
 LLStructType *DtoMutexType();

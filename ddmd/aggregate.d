@@ -11,7 +11,7 @@ module ddmd.aggregate;
 import core.stdc.stdio;
 import ddmd.access;
 import ddmd.arraytypes;
-// IN_LLVM import ddmd.backend;
+import ddmd.gluelayer;
 import ddmd.clone;
 import ddmd.dclass;
 import ddmd.declaration;
@@ -313,6 +313,9 @@ public:
         foreach (i; 0 .. nfields)
         {
             auto vd = fields[i];
+            if (vd.errors)
+                continue;
+
             auto vx = vd;
             if (vd._init && vd._init.isVoidInitializer())
                 vx = null;

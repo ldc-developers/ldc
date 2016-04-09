@@ -14,5 +14,6 @@ namespace ldc {
 const char * const ldc_version = "@LDC_VERSION@";
 const char * const dmd_version = "v@DMD_VERSION@";
 const char * const llvm_version = "@LLVM_VERSION_STRING@";
+const char * const built_with_Dcompiler_version = "@D_COMPILER_VERSION_STRING@";
 
 }

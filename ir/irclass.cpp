@@ -340,20 +340,45 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
     const char *thunkName = nameBuf.extractString();
     llvm::Function *thunk = gIR->module.getFunction(thunkName);
     if (!thunk) {
+      const LinkageWithCOMDAT lwc(LLGlobalValue::LinkOnceODRLinkage,
+                                  supportsCOMDAT());
       thunk = LLFunction::Create(
-          isaFunction(irFunc->func->getType()->getContainedType(0)),
-          llvm::GlobalValue::LinkOnceODRLinkage, thunkName, &gIR->module);
-      SET_COMDAT(thunk, gIR->module);
+          isaFunction(irFunc->func->getType()->getContainedType(0)), lwc.first,
+          thunkName, &gIR->module);
+      setLinkage(lwc, thunk);
       thunk->copyAttributesFrom(irFunc->func);
 
       // Thunks themselves don't have an identity, only the target
       // function has.
       thunk->setUnnamedAddr(true);
 
+#if LDC_LLVM_VER >= 307
+      // thunks don't need exception handling themselves
+      thunk->setPersonalityFn(nullptr);
+#endif
+
+      // it is necessary to add debug information to the thunk
+      //  in case it is subject to inlining. See https://llvm.org/bugs/show_bug.cgi?id=26833
+      IF_LOG Logger::println("Doing function body for thunk to: %s", fd->toChars());
+
+      // create a dummy FuncDeclaration with enough information to satisfy the DIBuilder
+      FuncDeclaration *thunkFd = reinterpret_cast<FuncDeclaration *>(memcpy(
+          new char[sizeof(FuncDeclaration)], fd, sizeof(FuncDeclaration)));
+      thunkFd->ir = new IrDsymbol();
+      auto thunkFunc = getIrFunc(thunkFd, true); // create the IrFunction
+      thunkFunc->func = thunk;
+      thunkFunc->type = irFunc->type;
+      gIR->functions.push_back(thunkFunc);
+
+      // debug info
+      thunkFunc->diSubprogram = gIR->DBuilder.EmitThunk(thunk, thunkFd);
+
       // create entry and end blocks
       llvm::BasicBlock *beginbb =
           llvm::BasicBlock::Create(gIR->context(), "", thunk);
       gIR->scopes.push_back(IRScope(beginbb));
+
+      gIR->DBuilder.EmitFuncStart(thunkFd);
 
       // Copy the function parameters, so later we can pass them to the
       // real function and set their names from the original function (the
@@ -376,6 +401,10 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       thisArg = DtoGEP1(thisArg, DtoConstInt(-b->offset), true);
       thisArg = DtoBitCast(thisArg, targetThisType);
 
+      // all calls that might be subject to inlining into a caller with debug info
+      //  should have debug info, too
+      gIR->DBuilder.EmitStopPoint(fd->loc);
+
       // call the real vtbl function.
       llvm::CallSite call = gIR->ir->CreateCall(irFunc->func, args);
       call.setCallingConv(irFunc->func->getCallingConv());
@@ -388,8 +417,12 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
                                  beginbb);
       }
 
+      gIR->DBuilder.EmitFuncEnd(thunkFd);
+
       // clean up
       gIR->scopes.pop_back();
+
+      gIR->functions.pop_back();
     }
 
     constants.push_back(thunk);
@@ -405,13 +438,11 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
   mangledName.append(mangle(b->sym));
   mangledName.append("6__vtblZ");
 
-  const LinkageWithCOMDAT lwc = DtoLinkage(cd);
-  llvm::GlobalVariable *GV =
+  const auto lwc = DtoLinkage(cd);
+  LLGlobalVariable *GV =
       getOrCreateGlobal(cd->loc, gIR->module, vtbl_constant->getType(), true,
                         lwc.first, vtbl_constant, mangledName);
-  if (lwc.second) {
-    SET_COMDAT(GV, gIR->module);
-  }
+  setLinkage(lwc, GV);
 
   // insert into the vtbl map
   interfaceVtblMap.insert(std::make_pair(b->sym, GV));
@@ -503,11 +534,7 @@ LLConstant *IrAggr::getClassInfoInterfaces() {
   // create and apply initializer
   LLConstant *arr = LLConstantArray::get(array_type, constants);
   classInterfacesArray->setInitializer(arr);
-  const LinkageWithCOMDAT lwc = DtoLinkage(cd);
-  classInterfacesArray->setLinkage(lwc.first);
-  if (lwc.second) {
-    SET_COMDAT(classInterfacesArray, gIR->module);
-  }
+  setLinkage(cd, classInterfacesArray);
 
   // return null, only baseclass provide interfaces
   if (cd->vtblInterfaces->dim == 0) {

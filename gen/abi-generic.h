@@ -119,7 +119,7 @@ struct RemoveStructPadding : ABIRewrite {
  */
 struct IntegerRewrite : ABIRewrite {
   static LLType *getIntegerType(unsigned minSizeInBytes) {
-    if (minSizeInBytes > 8) {
+    if (minSizeInBytes > 16) {
       return nullptr;
     }
 
@@ -135,6 +135,15 @@ struct IntegerRewrite : ABIRewrite {
     case 6:
     case 7:
       size = 8;
+      break;
+    case 9:
+    case 10:
+    case 11:
+    case 12:
+    case 13:
+    case 14:
+    case 15:
+      size = 16;
       break;
     default:
       break;
@@ -232,6 +241,10 @@ struct ExplicitByvalRewrite : ABIRewrite {
  * float type.
  */
 struct HFAToArray : ABIRewrite {
+  const int maxFloats = 4;
+
+  HFAToArray(const int max = 4) : maxFloats(max) {}
+
   LLValue *get(Type *dty, LLValue *v) override {
     Logger::println("rewriting array -> as HFA %s", dty->toChars());
     LLValue *lval = DtoRawAlloca(v->getType(), 0);
@@ -251,9 +264,36 @@ struct HFAToArray : ABIRewrite {
   LLType *type(Type *dty, LLType *) override {
     assert(dty->ty == Tstruct);
     LLType *floatArrayType = nullptr;
-    if (TargetABI::isHFA((TypeStruct *)dty, &floatArrayType))
+    if (TargetABI::isHFA((TypeStruct *)dty, &floatArrayType, maxFloats))
       return floatArrayType;
     llvm_unreachable("Type dty should be an HFA");
+  }
+};
+
+/**
+* Rewrite a composite as array of i64.
+*/
+struct CompositeToArray64 : ABIRewrite {
+  LLValue *get(Type *dty, LLValue *v) override {
+    Logger::println("rewriting i64 array -> as %s", dty->toChars());
+    LLValue *lval = DtoRawAlloca(v->getType(), 0);
+    DtoStore(v, lval);
+
+    LLType *pTy = getPtrToType(DtoType(dty));
+    return DtoLoad(DtoBitCast(lval, pTy), "get-result");
+  }
+
+  LLValue *put(DValue *dv) override {
+    Type *dty = dv->getType();
+    Logger::println("rewriting %s -> as i64 array", dty->toChars());
+    LLType *t = type(dty, nullptr);
+    return DtoLoad(DtoBitCast(dv->getRVal(), getPtrToType(t)));
+  }
+
+  LLType *type(Type *t, LLType *) override {
+    // An i64 array that will hold Type 't'
+    size_t sz = (t->size() + 7) / 8;
+    return LLArrayType::get(LLIntegerType::get(gIR->context(), 64), sz);
   }
 };
 

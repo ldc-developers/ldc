@@ -35,7 +35,6 @@ class DImValue;
 class DConstValue;
 class DNullValue;
 class DVarValue;
-class DFieldValue;
 class DFuncValue;
 class DSliceValue;
 
@@ -62,11 +61,20 @@ public:
 
   virtual bool isLVal() { return false; }
 
+  /// Returns true iff the value can be accessed at the end of the entry basic
+  /// block of the current function, in the sense that it is either not derived
+  /// from an llvm::Instruction (but from a global, constant, etc.) or that
+  /// instruction is part of the entry basic block.
+  ///
+  /// In other words, whatever value the result of getLVal()/getRVal() might be
+  /// derived from then certainly dominates uses in all other basic blocks of
+  /// the function.
+  virtual bool definedInFuncEntryBB() = 0;
+
   virtual DImValue *isIm() { return nullptr; }
   virtual DConstValue *isConst() { return nullptr; }
   virtual DNullValue *isNull() { return nullptr; }
   virtual DVarValue *isVar() { return nullptr; }
-  virtual DFieldValue *isField() { return nullptr; }
   virtual DSliceValue *isSlice() { return nullptr; }
   virtual DFuncValue *isFunc() { return nullptr; }
 
@@ -89,6 +97,8 @@ public:
     return val;
   }
 
+  bool definedInFuncEntryBB() override;
+
   DImValue *isIm() override { return this; }
 
 protected:
@@ -102,6 +112,8 @@ public:
 
   llvm::Value *getRVal() override;
 
+  bool definedInFuncEntryBB() override { return true; }
+
   DConstValue *isConst() override { return this; }
 
   llvm::Constant *c;
@@ -114,11 +126,14 @@ public:
   DNullValue *isNull() override { return this; }
 };
 
-// variable d-value
+/// This is really a misnomer, DVarValue represents generic lvalues, which
+/// might or might not come from variable declarations.
+// TODO: Rename this, probably remove getLVal() from parent since this is the
+// only lvalue. The isSpecialRefVar case should probably also be its own
+// subclass.
 class DVarValue : public DValue {
 public:
-  DVarValue(Type *t, VarDeclaration *vd, llvm::Value *llvmValue);
-  DVarValue(Type *t, llvm::Value *llvmValue);
+  DVarValue(Type *t, llvm::Value *llvmValue, bool isSpecialRefVar = false);
 
   bool isLVal() override { return true; }
   llvm::Value *getLVal() override;
@@ -126,21 +141,15 @@ public:
 
   /// Returns the underlying storage for special internal ref variables.
   /// Illegal to call on any other value.
-  virtual llvm::Value *getRefStorage();
+  llvm::Value *getRefStorage();
+
+  bool definedInFuncEntryBB() override;
 
   DVarValue *isVar() override { return this; }
 
-  VarDeclaration *var;
-
 protected:
-  llvm::Value *val;
-};
-
-// field d-value
-class DFieldValue : public DVarValue {
-public:
-  DFieldValue(Type *t, llvm::Value *llvmValue) : DVarValue(t, llvmValue) {}
-  DFieldValue *isField() override { return this; }
+  llvm::Value *const val;
+  bool const isSpecialRefVar;
 };
 
 // slice d-value
@@ -150,6 +159,8 @@ public:
       : DValue(t), len(l), ptr(p) {}
 
   llvm::Value *getRVal() override;
+
+  bool definedInFuncEntryBB() override;
 
   DSliceValue *isSlice() override { return this; }
 
@@ -165,6 +176,8 @@ public:
   DFuncValue(FuncDeclaration *fd, llvm::Value *v, llvm::Value *vt = nullptr);
 
   llvm::Value *getRVal() override;
+
+  bool definedInFuncEntryBB() override;
 
   DFuncValue *isFunc() override { return this; }
 

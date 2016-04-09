@@ -79,12 +79,8 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
       newIrFty.arg_sret = new IrFuncTyArg(
           rt, true,
           AttrBuilder().add(LLAttribute::StructRet).add(LLAttribute::NoAlias));
-      const unsigned alignment = DtoAlignment(rt);
-      if (alignment &&
-          // FIXME: LLVM inliner issues for std.bitmanip and std.uni on Win64
-          !global.params.targetTriple->isOSMSVCRT()) {
+      if (unsigned alignment = DtoAlignment(rt))
         newIrFty.arg_sret->attrs.addAlignment(alignment);
-      }
       rt = Type::tvoid;
       ++nextLLArgIdx;
     } else {
@@ -612,7 +608,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
 static LinkageWithCOMDAT lowerFuncLinkage(FuncDeclaration *fdecl) {
   // Intrinsics are always external.
   if (DtoIsIntrinsic(fdecl)) {
-    return LinkageWithCOMDAT(llvm::GlobalValue::ExternalLinkage, false);
+    return LinkageWithCOMDAT(LLGlobalValue::ExternalLinkage, false);
   }
 
   // Generated array op functions behave like templates in that they might be
@@ -625,7 +621,7 @@ static LinkageWithCOMDAT lowerFuncLinkage(FuncDeclaration *fdecl) {
   // (also e.g. naked template functions which would otherwise be weak_odr,
   // but where the definition is in module-level inline asm).
   if (!fdecl->fbody || fdecl->naked) {
-    return LinkageWithCOMDAT(llvm::GlobalValue::ExternalLinkage, false);
+    return LinkageWithCOMDAT(LLGlobalValue::ExternalLinkage, false);
   }
 
   return DtoLinkage(fdecl);
@@ -652,13 +648,13 @@ void DtoDefineFunction(FuncDeclaration *fd) {
   }
 
   if (fd->semanticRun == PASSsemanticdone) {
-    /* What happened is this function failed semantic3() with errors,
-     * but the errors were gagged.
-     * Try to reproduce those errors, and then fail.
-     */
-    error(fd->loc, "errors compiling function %s", fd->toPrettyChars());
-    fd->ir->setDefined();
-    return;
+    // This function failed semantic3() with errors but the errors were gagged.
+    // In contrast to DMD we immediately bail out here, since other parts of
+    // the codegen expect irFunc to be set for defined functions.
+    error(fd->loc, "Internal Compiler Error: function not fully analyzed; "
+                   "previous unreported errors compiling %s?",
+          fd->toPrettyChars());
+    fatal();
   }
 
   DtoResolveFunction(fd);
@@ -721,8 +717,14 @@ void DtoDefineFunction(FuncDeclaration *fd) {
     }
   }
 
-  assert(fd->semanticRun == PASSsemantic3done);
   assert(fd->ident != Id::empty);
+
+  if (fd->semanticRun != PASSsemantic3done) {
+    error(fd->loc, "Internal Compiler Error: function not fully analyzed; "
+                   "previous unreported errors compiling %s?",
+          fd->toPrettyChars());
+    fatal();
+  }
 
   if (fd->isUnitTestDeclaration()) {
     getIrModule(gIR->dmodule)->unitTests.push_back(fd);
@@ -769,11 +771,8 @@ void DtoDefineFunction(FuncDeclaration *fd) {
   IF_LOG Logger::println("Doing function body for: %s", fd->toChars());
   gIR->functions.push_back(irFunc);
 
-  LinkageWithCOMDAT lwc = lowerFuncLinkage(fd);
-  func->setLinkage(lwc.first);
-  if (lwc.second) {
-    SET_COMDAT(func, gIR->module);
-  }
+  const auto lwc = lowerFuncLinkage(fd);
+  setLinkage(lwc, func);
 
   // On x86_64, always set 'uwtable' for System V ABI compatibility.
   // TODO: Find a better place for this.
@@ -908,7 +907,7 @@ void DtoDefineFunction(FuncDeclaration *fd) {
     // D varargs: prepare _argptr and _arguments
     if (f->linkage == LINKd && f->varargs == 1) {
       // allocate _argptr (of type core.stdc.stdarg.va_list)
-      LLValue *argptrmem = DtoAlloca(Type::tvalist, "_argptr_mem");
+      LLValue *argptrmem = DtoAlloca(Type::tvalist->semantic(fd->loc, fd->_scope), "_argptr_mem");
       irFunc->_argptr = argptrmem;
 
       // initialize _argptr with a call to the va_start intrinsic

@@ -16,11 +16,11 @@
 #ifndef LDC_GEN_LLVMHELPERS_H
 #define LDC_GEN_LLVMHELPERS_H
 
-#include "mtype.h"
-#include "statement.h"
 #include "gen/dvalue.h"
 #include "gen/llvm.h"
 #include "ir/irfuncty.h"
+#include "mtype.h"
+#include "statement.h"
 
 struct IRState;
 
@@ -232,6 +232,13 @@ LLConstant *toConstantArray(LLType *ct, LLArrayType *at, T *str, size_t len,
   return LLConstantArray::get(at, vals);
 }
 
+/// Returns the cache for string literals of the given character type (for the
+/// current IRState).
+llvm::StringMap<llvm::GlobalVariable *> *
+stringLiteralCacheForType(Type *charType);
+
+llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm);
+
 /// Tries to create an LLVM global with the given properties. If a variable with
 /// the same mangled name already exists, checks if the types match and returns
 /// it instead.
@@ -255,18 +262,11 @@ DValue *toElem(Expression *e, bool tryGetLvalue);
 DValue *toElemDtor(Expression *e);
 LLConstant *toConstElem(Expression *e, IRState *p);
 
-#if LDC_LLVM_VER >= 307
-bool supportsCOMDAT();
-
-#define SET_COMDAT(x, m)                                                       \
-  if (supportsCOMDAT())                                                        \
-  x->setComdat(m.getOrInsertComdat(x->getName()))
-
-#else
-
-#define supportsCOMDAT() false
-#define SET_COMDAT(x, m)
-
-#endif
+/// Creates a DVarValue for the given VarDeclaration.
+///
+/// If the storage is not given explicitly, the declaration is expected to be
+/// already resolved, and the value from the associated IrVar will be used.
+DValue *makeVarDValue(Type *type, VarDeclaration *vd,
+                      llvm::Value *storage = nullptr);
 
 #endif

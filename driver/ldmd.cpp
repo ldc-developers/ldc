@@ -214,6 +214,7 @@ Usage:\n\
   -v             verbose\n\
   -vcolumns      print character (column) numbers in diagnostics\n\
   -vdmd          print the command used to invoke the underlying compiler\n\
+  --version      print compiler version and exit\n\
   -version=level compile in version code >= level\n\
   -version=ident compile in version code identified by ident\n"
 #if 0
@@ -715,6 +716,11 @@ Params parseArgs(size_t originalArgc, char **originalArgv,
       } else if (strcmp(p + 1, "-help") == 0) {
         printUsage(originalArgv[0], ldcPath);
         exit(EXIT_SUCCESS);
+      } else if (strcmp(p + 1, "-version") == 0) {
+        // Print version information by actually invoking ldc -version.
+        const char *versionargs[] = {ldcPath.c_str(), "-version", nullptr};
+        execute(ldcPath, versionargs);
+        exit(EXIT_SUCCESS);
       } else if (strcmp(p + 1, "-r") == 0) {
         result.hiddenDebugR = 1;
       } else if (strcmp(p + 1, "-x") == 0) {
@@ -1038,7 +1044,10 @@ static size_t addStrlen(size_t acc, const char *str) {
   return acc + strlen(str);
 }
 
-int main(int argc, char *argv[]) {
+// In driver/main.d
+int main(int argc, char **argv);
+
+int cppmain(int argc, char **argv) {
   exe_path::initialize(argv[0], reinterpret_cast<void *>(main));
 
   std::string ldcExeName = LDC_EXE_NAME;
