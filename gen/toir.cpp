@@ -1416,7 +1416,7 @@ public:
 
     if (t->isintegral() || t->ty == Tpointer || t->ty == Tnull) {
       llvm::ICmpInst::Predicate icmpPred;
-      tokToIcmpPred(e->op, isLLVMUnsigned(t), &icmpPred, &eval);
+      tokToICmpPred(e->op, isLLVMUnsigned(t), &icmpPred, &eval);
 
       if (!eval) {
         LLValue *a = l->getRVal();
@@ -1481,7 +1481,7 @@ public:
       eval = LLConstantInt::getFalse(gIR->context());
     } else if (t->ty == Tdelegate) {
       llvm::ICmpInst::Predicate icmpPred;
-      tokToIcmpPred(e->op, isLLVMUnsigned(t), &icmpPred, &eval);
+      tokToICmpPred(e->op, isLLVMUnsigned(t), &icmpPred, &eval);
 
       if (!eval) {
         // First compare the function pointers, then the context ones. This is
