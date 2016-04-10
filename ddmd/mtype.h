@@ -788,7 +788,7 @@ public:
     structalign_t alignment();
     Expression *defaultInit(Loc loc);
     Expression *defaultInitLiteral(Loc loc);
-    bool isZeroInit(Loc loc) const;
+    bool isZeroInit(Loc loc) /*const*/;
     bool isAssignable();
     bool isBoolean() const;
     bool needsDestruction() const;
