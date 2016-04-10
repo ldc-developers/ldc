@@ -196,16 +196,14 @@ LLConstant *IrAggr::getVtblInit() {
       DtoResolveFunction(fd);
       assert(isIrFuncCreated(fd) && "invalid vtbl function");
       c = getIrFunc(fd)->func;
-      if (cd->isFuncHidden(
-              fd)) { /* fd is hidden from the view of this class.
-                      * If fd overlaps with any function in the vtbl[], then
-                      * issue 'hidden' error.
-                      */
+      if (cd->isFuncHidden(fd)) {
+        // fd is hidden from the view of this class. If fd overlaps with any
+        // function in the vtbl[], issue error.
         for (size_t j = 1; j < n; j++) {
           if (j == i) {
             continue;
           }
-          FuncDeclaration *fd2 =
+          auto fd2 =
               static_cast<Dsymbol *>(cd->vtbl.data[j])->isFuncDeclaration();
           if (!fd2->ident->equals(fd->ident)) {
             continue;
@@ -357,11 +355,13 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       thunk->setPersonalityFn(nullptr);
 #endif
 
-      // it is necessary to add debug information to the thunk
-      //  in case it is subject to inlining. See https://llvm.org/bugs/show_bug.cgi?id=26833
-      IF_LOG Logger::println("Doing function body for thunk to: %s", fd->toChars());
+      // It is necessary to add debug information to the thunk in case it is
+      // subject to inlining. See https://llvm.org/bugs/show_bug.cgi?id=26833
+      IF_LOG Logger::println("Doing function body for thunk to: %s",
+                             fd->toChars());
 
-      // create a dummy FuncDeclaration with enough information to satisfy the DIBuilder
+      // Create a dummy FuncDeclaration with enough information to satisfy the
+      // DIBuilder
       FuncDeclaration *thunkFd = reinterpret_cast<FuncDeclaration *>(memcpy(
           new char[sizeof(FuncDeclaration)], fd, sizeof(FuncDeclaration)));
       thunkFd->ir = new IrDsymbol();
@@ -401,8 +401,8 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       thisArg = DtoGEP1(thisArg, DtoConstInt(-b->offset), true);
       thisArg = DtoBitCast(thisArg, targetThisType);
 
-      // all calls that might be subject to inlining into a caller with debug info
-      //  should have debug info, too
+      // all calls that might be subject to inlining into a caller with debug
+      // info should have debug info, too
       gIR->DBuilder.EmitStopPoint(fd->loc);
 
       // call the real vtbl function.
