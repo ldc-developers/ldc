@@ -234,6 +234,8 @@ struct X86_64TargetABI : TargetABI {
 
   Type *vaListType() override;
 
+  const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty) override;
+
 private:
   LLType *getValistType();
   RegCount &getRegCount(IrFuncTy &fty) {
@@ -418,4 +420,23 @@ Type *X86_64TargetABI::vaListType() {
   // solution is found there, this should be adapted).
   return (createTypeIdentifier(Loc(), Identifier::idPool("__va_list_tag")))
       ->pointerTo();
+}
+
+const char *X86_64TargetABI::objcMsgSendFunc(Type *ret,
+                                             IrFuncTy &fty) {
+  // see objc/message.h for objc_msgSend selection rules
+  if (fty.arg_sret) {
+    return "objc_msgSend_stret";
+  }
+  if (ret) {
+    // complex long double return
+    if (ret->ty == Tcomplex80) {
+      return "objc_msgSend_fp2ret";
+    }
+    // long double return
+    if (ret->ty == Tfloat80 || ret->ty == Timaginary80) {
+      return "objc_msgSend_fpret";
+    }
+  }
+  return "objc_msgSend";
 }

@@ -38,6 +38,7 @@ struct X86TargetABI : TargetABI {
                                     FuncDeclaration *fdecl = nullptr) override {
     switch (l) {
     case LINKc:
+    case LINKobjc:
       return llvm::CallingConv::C;
     case LINKcpp:
       return isMSVC && !ft->isVarArg() && fdecl && fdecl->isThis()
@@ -57,6 +58,7 @@ struct X86TargetABI : TargetABI {
     switch (l) {
     case LINKc:
     case LINKcpp:
+    case LINKobjc:
     case LINKpascal:
     case LINKwindows:
       return name;
@@ -222,6 +224,19 @@ struct X86TargetABI : TargetABI {
           arg->attrs.remove(LLAttribute::Alignment);
       }
     }
+  }
+
+  const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty) override {
+    // see objc/message.h for objc_msgSend selection rules
+    assert(isOSX);
+    if (fty.arg_sret) {
+      return "objc_msgSend_stret";
+    }
+    // float, double, long double return
+    if (ret && ret->isfloating() && !ret->iscomplex()) {
+      return "objc_msgSend_fpret";
+    }
+    return "objc_msgSend";
   }
 };
 

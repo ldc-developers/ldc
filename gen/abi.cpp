@@ -300,6 +300,12 @@ Type *TargetABI::vaListType() {
 
 //////////////////////////////////////////////////////////////////////////////
 
+const char *TargetABI::objcMsgSendFunc(Type *ret, IrFuncTy &fty) {
+  llvm_unreachable("Unknown Objective-C ABI");
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 // Some reasonable defaults for when we don't know what ABI to use.
 struct UnknownTargetABI : TargetABI {
   bool returnInArg(TypeFunction *tf) override {

@@ -153,6 +153,11 @@ struct AArch64TargetABI : TargetABI {
     // solution is found there, this should be adapted).
     return (createTypeIdentifier(Loc(), Identifier::idPool("__va_list")));
   }
+
+  const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty) override {
+    // see objc/message.h for objc_msgSend selection rules
+    return "objc_msgSend";
+  }
 };
 
 // The public getter for abi.cpp

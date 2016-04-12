@@ -200,6 +200,7 @@ struct Param
     OUTPUTFLAG output_o;
     bool useInlineAsm;
     bool verbose_cg;
+    bool hasObjectiveC;
 
     const llvm::Triple *targetTriple;
 

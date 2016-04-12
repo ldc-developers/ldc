@@ -141,7 +141,7 @@ struct ArmTargetABI : TargetABI {
     }
   }
 
-  void vaCopy(LLValue *pDest, LLValue *src) {
+  void vaCopy(LLValue *pDest, LLValue *src) override {
     // simply bitcopy src over dest.  src is __va_list*, so need load
     auto srcval = DtoLoad(src);
     DtoStore(srcval, pDest);
@@ -153,6 +153,14 @@ struct ArmTargetABI : TargetABI {
     // is actually available in the scope (this is what DMD does, so if a better
     // solution is found there, this should be adapted).
     return (createTypeIdentifier(Loc(), Identifier::idPool("__va_list")));
+  }
+
+  const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty) override {
+    // see objc/message.h for objc_msgSend selection rules
+    if (fty.arg_sret) {
+      return "objc_msgSend_stret";
+    }
+    return "objc_msgSend";
   }
 };
 

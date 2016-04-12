@@ -713,4 +713,43 @@ static void buildRuntimeModule() {
     createFwdDecl(LINKc, voidTy, {"_d_cover_register2"},
                   {stringTy, sizeTy->arrayOf(), uintTy->arrayOf(), ubyteTy});
   }
+
+  if (global.params.hasObjectiveC) {
+    assert(global.params.targetTriple->isOSDarwin());
+
+    // The types of these functions don't really matter because they are always
+    // bitcast to correct signature before calling.
+    Type* objectPtrTy = voidPtrTy;
+    Type* selectorPtrTy = voidPtrTy;
+    Type* realTy = Type::tfloat80;
+
+    // id objc_msgSend(id self, SEL op, ...)
+    // Function called early and/or often, so lazy binding isn't worthwhile.
+    createFwdDecl(LINKc, objectPtrTy, {"objc_msgSend"},
+                  {objectPtrTy, selectorPtrTy}, {},
+                  AttrSet(NoAttrs, ~0U, llvm::Attribute::NonLazyBind));
+
+    switch (global.params.targetTriple->getArch()) {
+    case llvm::Triple::x86_64:
+      // creal objc_msgSend_fp2ret(id self, SEL op, ...)
+      createFwdDecl(LINKc, Type::tcomplex80, {"objc_msgSend_fp2ret"},
+                    {objectPtrTy, selectorPtrTy});
+      // fall-thru
+    case llvm::Triple::x86:
+      // x86_64 real return only,  x86 float, double, real return
+      // real objc_msgSend_fpret(id self, SEL op, ...)
+      createFwdDecl(LINKc, realTy, {"objc_msgSend_fpret"},
+                    {objectPtrTy, selectorPtrTy});
+      // fall-thru
+    case llvm::Triple::arm:
+    case llvm::Triple::thumb:
+      // used when return value is aggregate via a hidden sret arg
+      // void objc_msgSend_stret(T *sret_arg, id self, SEL op, ...)
+      createFwdDecl(LINKc, voidTy, {"objc_msgSend_stret"},
+                    {objectPtrTy, selectorPtrTy});
+      break;
+    default:
+      break;
+    }
+  }
 }
