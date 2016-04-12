@@ -784,7 +784,6 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   // get callee llvm value
-  //LLValue *const callable = DtoCallableValue(fnval);
   LLValue *callable = DtoCallableValue(fnval);
   LLFunctionType *const callableTy =
       DtoExtractFunctionType(callable->getType());
@@ -792,7 +791,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   const auto callconv = gABI->callingConv(callableTy, tf->linkage,
                                           dfnval ? dfnval->func : nullptr);
 
-  IF_LOG Logger::cout() << "callable: " << *callable << '\n';
+  //     IF_LOG Logger::cout() << "callable: " << *callable << '\n';
 
   // parameter attributes
   AttrSet attrs;
@@ -819,7 +818,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
     }
     Logger::undent();
     Logger::cout() << "Function type: " << tf->toChars() << '\n';
-    Logger::cout() << "LLVM functype: " << *callable->getType() << '\n';
+    // Logger::cout() << "LLVM functype: " << *callable->getType() << '\n';
   }
 
   const int numFormalParams = Parameter::dim(tf->parameters); // excl. variadics
