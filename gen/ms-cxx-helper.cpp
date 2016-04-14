@@ -59,11 +59,17 @@ void findSuccessors(std::vector<llvm::BasicBlock *> &blocks,
 void remapBlocks(std::vector<llvm::BasicBlock *> &blocks,
                  llvm::ValueToValueMapTy &VMap, llvm::BasicBlock *unwindTo,
                  llvm::Value *funclet) {
-  for (llvm::BasicBlock *bb : blocks)
+  for (llvm::BasicBlock *bb : blocks) {
     for (llvm::BasicBlock::iterator I = bb->begin(); I != bb->end(); ++I) {
-      llvm::RemapInstruction(&*I, VMap, llvm::RF_IgnoreMissingEntries |
-                             llvm::RF_NoModuleLevelChanges);
+      llvm::RemapInstruction(&*I, VMap,
+#if LDC_LLVM_VER >= 309
+                             llvm::RF_IgnoreMissingLocals
+#else
+                             llvm::RF_IgnoreMissingEntries
+#endif
+                                 | llvm::RF_NoModuleLevelChanges);
     }
+  }
 }
 
 void remapBlocksValue(std::vector<llvm::BasicBlock *> &blocks,
