@@ -352,6 +352,9 @@ public:
       return;
     }
 
+    if (auto fd = e->var->isFuncLiteralDeclaration())
+        genFuncLiteral(fd, nullptr);
+
     result = DtoSymbolAddress(e->loc, e->type, e->var);
   }
 
@@ -2361,6 +2364,36 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
+  void genFuncLiteral(FuncLiteralDeclaration *fd, FuncExp *e)
+  {
+      if ((fd->tok == TOKreserved || fd->tok == TOKdelegate) &&
+          (e && e->type->ty == Tpointer)) {
+          // This is a lambda that was inferred to be a function literal instead
+          // of a delegate, so set tok here in order to get correct types/mangling.
+          // Horrible hack, but DMD does the same thing.
+          fd->tok = TOKfunction;
+          fd->vthis = nullptr;
+      }
+
+      if (fd->isNested()) {
+          Logger::println("nested");
+      }
+      Logger::println("kind = %s", fd->kind());
+
+      // We need to actually codegen the function here, as literals are not added
+      // to the module member list.
+      Declaration_codegen(fd, p);
+      if (!isIrFuncCreated(fd)) {
+          // See DtoDefineFunction for reasons why codegen was suppressed.
+          // Instead just declare the function.
+          DtoDeclareFunction(fd);
+          assert(!fd->isNested());
+      }
+      assert(getIrFunc(fd)->func);
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   void visit(FuncExp *e) override {
     IF_LOG Logger::print("FuncExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
@@ -2369,30 +2402,7 @@ public:
     FuncLiteralDeclaration *fd = e->fd;
     assert(fd);
 
-    if ((fd->tok == TOKreserved || fd->tok == TOKdelegate) &&
-        e->type->ty == Tpointer) {
-      // This is a lambda that was inferred to be a function literal instead
-      // of a delegate, so set tok here in order to get correct types/mangling.
-      // Horrible hack, but DMD does the same thing.
-      fd->tok = TOKfunction;
-      fd->vthis = nullptr;
-    }
-
-    if (fd->isNested()) {
-      Logger::println("nested");
-    }
-    Logger::println("kind = %s", fd->kind());
-
-    // We need to actually codegen the function here, as literals are not added
-    // to the module member list.
-    Declaration_codegen(fd, p);
-    if (!isIrFuncCreated(fd)) {
-      // See DtoDefineFunction for reasons why codegen was suppressed.
-      // Instead just declare the function.
-      DtoDeclareFunction(fd);
-      assert(!fd->isNested());
-    }
-    assert(getIrFunc(fd)->func);
+    genFuncLiteral(fd, e);
 
     if (fd->isNested()) {
       LLType *dgty = DtoType(e->type);
