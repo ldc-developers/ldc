@@ -16,7 +16,7 @@
 #include "gen/tollvm.h"
 #include "ir/irtype.h"
 
-// These functions use llvm::getGlobalContext() as they are invoked before gIR
+// These functions use LLVMGetGlobalContext() as they are invoked before gIR
 // is set.
 
 IrType::IrType(Type *dt, LLType *lt) : dtype(dt), type(lt) {
@@ -68,7 +68,7 @@ llvm::Type *getReal80Type(llvm::LLVMContext &ctx) {
 }
 
 llvm::Type *IrTypeBasic::basic2llvm(Type *t) {
-  llvm::LLVMContext &ctx = llvm::getGlobalContext();
+  llvm::LLVMContext &ctx = LLGetGlobalContext();
 
   switch (t->ty) {
   case Tvoid:
@@ -135,7 +135,7 @@ IrTypePointer *IrTypePointer::get(Type *dt) {
 
   LLType *elemType;
   if (dt->ty == Tnull) {
-    elemType = llvm::Type::getInt8Ty(llvm::getGlobalContext());
+    elemType = llvm::Type::getInt8Ty(LLGetGlobalContext());
   } else {
     elemType = DtoMemType(dt->nextOf());
 
@@ -186,7 +186,7 @@ IrTypeArray *IrTypeArray::get(Type *dt) {
   // just as for pointers.
   if (!dt->ctype) {
     llvm::Type *types[] = {DtoSize_t(), llvm::PointerType::get(elemType, 0)};
-    LLType *at = llvm::StructType::get(llvm::getGlobalContext(), types, false);
+    LLType *at = llvm::StructType::get(LLGetGlobalContext(), types, false);
     dt->ctype = new IrTypeArray(dt, at);
   }
 

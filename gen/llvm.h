@@ -31,6 +31,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm-c/Core.h"  // for LLVMGetGlobalContext
 
 #include "gen/llvmcompat.h"
 
@@ -40,6 +41,8 @@ using llvm::IRBuilder;
 
 #define GET_INTRINSIC_DECL(_X)                                                 \
   (llvm::Intrinsic::getDeclaration(&gIR->module, llvm::Intrinsic::_X))
+
+#define LLGetGlobalContext() (*reinterpret_cast<llvm::LLVMContext*> (LLVMGetGlobalContext ()))
 
 // shortcuts for the common llvm types
 
