@@ -24,6 +24,8 @@
 
 struct IRState;
 
+llvm::LLVMContext& getGlobalContext();
+
 // dynamic memory helpers
 LLValue *DtoNew(Loc &loc, Type *newtype);
 LLValue *DtoNewStruct(Loc &loc, TypeStruct *newtype);
