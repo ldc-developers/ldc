@@ -36,6 +36,7 @@
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
+#include "llvm/Support/ManagedStatic.h"
 #include <stack>
 
 #include "llvm/Support/CommandLine.h"
@@ -55,6 +56,13 @@ llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel(
                      clEnumValEnd));
 
 Type *getTypeInfoType(Type *t, Scope *sc);
+
+/******************************************************************************
+* Global context
+******************************************************************************/
+static llvm::ManagedStatic<llvm::LLVMContext> GlobalContext;
+
+llvm::LLVMContext& getGlobalContext() { return *GlobalContext; }
 
 /******************************************************************************
  * DYNAMIC MEMORY HELPERS
