@@ -107,10 +107,11 @@ protected:
   /// ClassInfo initializer constant.
   llvm::Constant *constClassInfo = nullptr;
 
-  /// Map for mapping ClassDeclaration* to LLVM GlobalVariable.
-  using ClassGlobalMap = std::map<ClassDeclaration *, llvm::GlobalVariable *>;
+  using ClassGlobalMap = std::map<std::pair<ClassDeclaration *, size_t>, llvm::GlobalVariable *>;
 
-  /// Map from of interface vtbls implemented by this class.
+  /// Map from pairs of <interface vtbl,index> to global variable, implemented
+  /// by this class. The same interface can appear multiple times, so index is
+  /// another way to specify the thunk offset
   ClassGlobalMap interfaceVtblMap;
 
   /// Interface info array global.
