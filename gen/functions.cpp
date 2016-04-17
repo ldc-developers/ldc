@@ -384,9 +384,9 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
           static_cast<TypeFunction *>(type)->linkage = LINKc;
 
           DtoFunctionType(fdecl);
-          DtoDeclareFunction(fdecl);
           fdecl->ir->setDefined();
-          return;
+          return; // this gets mapped to a special inline IR call, no point in
+                  // going on.
         }
       }
     }
@@ -470,14 +470,10 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   LLFunctionType *functype = DtoFunctionType(fdecl);
   LLFunction *func = vafunc ? vafunc : gIR->module.getFunction(mangledName);
   if (!func) {
-    if (fdecl->llvmInternal == LLVMinline_ir) {
-      func = DtoInlineIRFunction(fdecl);
-    } else {
-      // All function declarations are "external" - any other linkage type
-      // is set when actually defining the function.
-      func = LLFunction::Create(functype, llvm::GlobalValue::ExternalLinkage,
-                                mangledName, &gIR->module);
-    }
+    // All function declarations are "external" - any other linkage type
+    // is set when actually defining the function.
+    func = LLFunction::Create(functype, llvm::GlobalValue::ExternalLinkage,
+                              mangledName, &gIR->module);
   } else if (func->getFunctionType() != functype) {
     error(fdecl->loc, "Function type does not match previously declared "
                       "function with the same mangled name: %s",
