@@ -8,6 +8,36 @@
 module ldc.attributes;
 
 /**
+ * Adds an LLVM attribute to a function, without checking the validity or
+ * applicability of the attribute.
+ * The attribute is specified as key-value pair:
+ * @llvmAttr("key", "value")
+ * If the value string is empty, just the key is added as attribute.
+ *
+ * Example:
+ * ---
+ * import ldc.attributes;
+ *
+ * @llvmAttr("unsafe-fp-math", "true")
+ * double dot(double[] a, double[] b) {
+ *     double s = 0;
+ *     foreach(size_t i; 0..a.length)
+ *     {
+ *         s = inlineIR!(`
+ *         %p = fmul fast double %0, %1
+ *         %r = fadd fast double %p, %2
+ *         ret double %r`, double)(a[i], b[i], s);
+ *     }
+ *     return s;
+ * }
+ * ---
+ */
+struct llvmAttr {
+    string key;
+    string value;
+}
+
+/**
  * When applied to a global variable or function, causes it to be emitted to a
  * non-standard object file/executable section.
  *
