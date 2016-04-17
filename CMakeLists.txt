@@ -292,7 +292,7 @@ macro(Dcompilelib  input_d  output_dir  extra_d_flags  outlist_o)
 endmacro()
 
 # Build (generate executable) of D source
-macro(Dbuild  target_id  input_d  output_exec  extra_d_flags  link_flags  extra_deps)
+macro(build_idgen  input_d  output_exec  extra_d_flags  link_flags  extra_deps)
     separate_arguments(FLAG_LIST WINDOWS_COMMAND "${D_COMPILER_FLAGS} ${extra_d_flags} ${link_flags}")
     add_custom_command(
         OUTPUT ${output_exec}
@@ -300,14 +300,13 @@ macro(Dbuild  target_id  input_d  output_exec  extra_d_flags  link_flags  extra_
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
         DEPENDS ${input_d} ${extra_deps}
     )
-    add_custom_target(${target_id} DEPENDS ${output_exec})
 endmacro()
 
 
 #
 # Build idgen.
 #
-Dbuild(idgen ${DDMDFE_PATH}/idgen.d ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/idgen${CMAKE_EXECUTABLE_SUFFIX}  ${DDMD_DFLAGS} "" "")
+build_idgen(${DDMDFE_PATH}/idgen.d ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/idgen${CMAKE_EXECUTABLE_SUFFIX}  ${DDMD_DFLAGS} "" "")
 # Run idgen.
 add_custom_command(
     OUTPUT
@@ -315,7 +314,7 @@ add_custom_command(
         ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.h
     COMMAND ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/idgen  #provide full path to avoid clash with idgen on path
     WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}
-    DEPENDS idgen
+    DEPENDS ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/idgen${CMAKE_EXECUTABLE_SUFFIX}
 )
 set(LDC_CXX_GENERATED
     ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.h
