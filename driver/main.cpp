@@ -30,6 +30,7 @@
 #include "gen/irstate.h"
 #include "gen/linkage.h"
 #include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/metadata.h"
 #include "gen/optimizer.h"
@@ -1259,7 +1260,7 @@ int cppmain(int argc, char **argv) {
 
   // Generate one or more object/IR/bitcode files.
   if (global.params.obj && !modules.empty()) {
-    ldc::CodeGenerator cg(llvm::getGlobalContext(), singleObj);
+    ldc::CodeGenerator cg(getGlobalContext(), singleObj);
 
     for (unsigned i = 0; i < modules.dim; i++) {
       Module *const m = modules[i];
