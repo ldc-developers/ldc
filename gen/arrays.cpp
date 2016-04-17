@@ -943,10 +943,16 @@ static LLValue *DtoArrayEqCmp_impl(Loc &loc, const char *func, DValue *l,
 
 ////////////////////////////////////////////////////////////////////////////////
 LLValue *DtoArrayEquals(Loc &loc, TOK op, DValue *l, DValue *r) {
-  LLValue *res = DtoArrayEqCmp_impl(loc, "_adEq2", l, r, true);
-  res = gIR->ir->CreateICmpNE(res, DtoConstInt(0));
-  if (op == TOKnotequal) {
-    res = gIR->ir->CreateNot(res);
+  LLValue *res = nullptr;
+
+  // optimize comparisons against null by rewriting to `l.length op 0`
+  if (r->isNull()) {
+    const auto predicate = eqTokToICmpPred(op);
+    res = gIR->ir->CreateICmp(predicate, DtoArrayLen(l), DtoConstSize_t(0));
+  } else {
+    res = DtoArrayEqCmp_impl(loc, "_adEq2", l, r, true);
+    const auto predicate = eqTokToICmpPred(op, /* invert = */ true);
+    res = gIR->ir->CreateICmp(predicate, res, DtoConstInt(0));
   }
 
   return res;
@@ -956,7 +962,7 @@ LLValue *DtoArrayEquals(Loc &loc, TOK op, DValue *l, DValue *r) {
 LLValue *DtoArrayCompare(Loc &loc, TOK op, DValue *l, DValue *r) {
   LLValue *res = nullptr;
   llvm::ICmpInst::Predicate cmpop;
-  tokToIcmpPred(op, false, &cmpop, &res);
+  tokToICmpPred(op, false, &cmpop, &res);
 
   if (!res) {
     Type *t = l->getType()->toBasetype()->nextOf()->toBasetype();
@@ -997,26 +1003,16 @@ LLValue *DtoArrayCastLength(Loc &loc, LLValue *len, LLType *elemty,
 
 ////////////////////////////////////////////////////////////////////////////////
 LLValue *DtoDynArrayIs(TOK op, DValue *l, DValue *r) {
-  LLValue *len1, *ptr1, *len2, *ptr2;
-
   assert(l);
   assert(r);
 
-  // compare lengths
-  len1 = DtoArrayLen(l);
-  len2 = DtoArrayLen(r);
-  LLValue *b1 = gIR->ir->CreateICmpEQ(len1, len2);
+  LLValue *len1 = DtoArrayLen(l);
+  LLValue *ptr1 = DtoArrayPtr(l);
 
-  // compare pointers
-  ptr1 = DtoArrayPtr(l);
-  ptr2 = DtoArrayPtr(r);
-  LLValue *b2 = gIR->ir->CreateICmpEQ(ptr1, ptr2);
+  LLValue *len2 = DtoArrayLen(r);
+  LLValue *ptr2 = DtoArrayPtr(r);
 
-  // combine
-  LLValue *res = gIR->ir->CreateAnd(b1, b2);
-
-  // return result
-  return (op == TOKnotidentity) ? gIR->ir->CreateNot(res) : res;
+  return createIPairCmp(op, len1, ptr1, len2, ptr2);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

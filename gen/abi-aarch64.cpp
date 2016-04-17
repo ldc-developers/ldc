@@ -154,6 +154,11 @@ struct AArch64TargetABI : TargetABI {
     static const llvm::StringRef ident = "__va_list";
     return (createTypeIdentifier(Loc(), Identifier::idPool(ident.data(), ident.size())));
   }
+
+  const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty) override {
+    // see objc/message.h for objc_msgSend selection rules
+    return "objc_msgSend";
+  }
 };
 
 // The public getter for abi.cpp

@@ -20,7 +20,9 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/nested.h"
+#include "gen/objcgen.h"
 #include "gen/tollvm.h"
+#include "gen/runtime.h"
 #include "ir/irfunction.h"
 #include "ir/irtype.h"
 
@@ -607,6 +609,8 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
 class ImplicitArgumentsBuilder {
 public:
+  bool hasObjcSelector = false;
+
   ImplicitArgumentsBuilder(std::vector<LLValue *> &args, AttrSet &attrs,
                            Loc &loc, DValue *fnval,
                            LLFunctionType *llCalleeType, Expressions *arguments,
@@ -729,6 +733,14 @@ private:
     } else if (irFty.arg_nest) {
       attrs.add(index + 1, irFty.arg_nest->attrs);
     }
+
+    if (irFty.arg_objcSelector && dfnval) {
+      if (auto sel = dfnval->func->objc.selector) {
+        LLGlobalVariable* selptr = objc_getMethVarRef(*sel);
+        args.push_back(DtoBitCast(DtoLoad(selptr), getVoidPtrType()));
+        hasObjcSelector = true;
+      }
+    }
   }
 
   // D vararg functions need a "TypeInfo[] _arguments" argument.
@@ -772,7 +784,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   // get callee llvm value
-  LLValue *const callable = DtoCallableValue(fnval);
+  LLValue *callable = DtoCallableValue(fnval);
   LLFunctionType *const callableTy =
       DtoExtractFunctionType(callable->getType());
   assert(callableTy);
@@ -840,6 +852,14 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
 
   addExplicitArguments(args, attrs, irFty, callableTy, argvals,
                        numFormalParams);
+
+  if (iab.hasObjcSelector) {
+    // Use runtime msgSend function bitcasted as original call
+    const char *msgSend = gABI->objcMsgSendFunc(resulttype, irFty);
+    LLType *t = callable->getType();
+    callable = getRuntimeFunction(loc, gIR->module, msgSend);
+    callable = DtoBitCast(callable, t);
+  }
 
   // call the function
   LLCallSite call = gIR->func()->scopes->callOrInvoke(callable, args);

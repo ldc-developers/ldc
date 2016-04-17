@@ -29,6 +29,7 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/objcgen.h"
 #include "gen/optimizer.h"
 #include "gen/programs.h"
 #include "gen/rttibuilder.h"
@@ -891,6 +892,8 @@ static void genModuleInfo(Module *m, bool emitFullModuleInfo) {
   llvm::IntegerType *it = llvm::IntegerType::getInt8Ty(gIR->context());
   llvm::ArrayType *at = llvm::ArrayType::get(it, len);
   b.push(toConstantArray(it, at, name, len, false));
+
+  objc_Module_genmoduleinfo_classes();
 
   // create and set initializer
   LLGlobalVariable *moduleInfoSym = getIrModule(m)->moduleInfoSymbol();

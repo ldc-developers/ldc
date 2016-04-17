@@ -24,6 +24,8 @@
 
 struct IRState;
 
+llvm::LLVMContext& getGlobalContext();
+
 // dynamic memory helpers
 LLValue *DtoNew(Loc &loc, Type *newtype);
 LLValue *DtoNewStruct(Loc &loc, TypeStruct *newtype);
@@ -180,8 +182,17 @@ bool isLLVMUnsigned(Type *t);
 ///
 /// For some operations, the result can be a constant. In this case outConst is
 /// set to it, otherwise outPred is set to the predicate to use.
-void tokToIcmpPred(TOK op, bool isUnsigned, llvm::ICmpInst::Predicate *outPred,
+void tokToICmpPred(TOK op, bool isUnsigned, llvm::ICmpInst::Predicate *outPred,
                    llvm::Value **outConst);
+
+/// Converts a DMD equality/identity operation token into the corresponding LLVM
+/// icmp predicate.
+llvm::ICmpInst::Predicate eqTokToICmpPred(TOK op, bool invert = false);
+
+/// For equality/identity operations, returns `(lhs1 == rhs1) & (lhs2 == rhs2)`.
+/// `(lhs1 != rhs1) | (lhs2 != rhs2)` for inequality/not-identity.
+LLValue *createIPairCmp(TOK op, LLValue *lhs1, LLValue *lhs2, LLValue *rhs1,
+                        LLValue *rhs2);
 
 ////////////////////////////////////////////
 // gen/tocall.cpp stuff below

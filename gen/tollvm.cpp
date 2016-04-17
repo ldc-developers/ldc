@@ -221,26 +221,17 @@ LLType *i1ToI8(LLType *t) {
 
 LLValue *DtoDelegateEquals(TOK op, LLValue *lhs, LLValue *rhs) {
   Logger::println("Doing delegate equality");
-  llvm::Value *b1, *b2;
   if (rhs == nullptr) {
     rhs = LLConstant::getNullValue(lhs->getType());
   }
 
-  LLValue *l = gIR->ir->CreateExtractValue(lhs, 0);
-  LLValue *r = gIR->ir->CreateExtractValue(rhs, 0);
-  b1 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ, l, r);
+  LLValue *l1 = gIR->ir->CreateExtractValue(lhs, 0);
+  LLValue *l2 = gIR->ir->CreateExtractValue(lhs, 1);
 
-  l = gIR->ir->CreateExtractValue(lhs, 1);
-  r = gIR->ir->CreateExtractValue(rhs, 1);
-  b2 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ, l, r);
+  LLValue *r1 = gIR->ir->CreateExtractValue(rhs, 0);
+  LLValue *r2 = gIR->ir->CreateExtractValue(rhs, 1);
 
-  LLValue *b = gIR->ir->CreateAnd(b1, b2);
-
-  if (op == TOKnotequal || op == TOKnotidentity) {
-    return gIR->ir->CreateNot(b);
-  }
-
-  return b;
+  return createIPairCmp(op, l1, l2, r1, r2);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

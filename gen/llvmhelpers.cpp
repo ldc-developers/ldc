@@ -37,6 +37,7 @@
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
+#include "llvm/Support/ManagedStatic.h"
 #include <stack>
 
 #include "llvm/Support/CommandLine.h"
@@ -66,6 +67,13 @@ bool isArchx86_64() {
 bool isTargetWindowsMSVC() {
   return global.params.targetTriple->isWindowsMSVCEnvironment();
 }
+
+/******************************************************************************
+* Global context
+******************************************************************************/
+static llvm::ManagedStatic<llvm::LLVMContext> GlobalContext;
+
+llvm::LLVMContext& getGlobalContext() { return *GlobalContext; }
 
 /******************************************************************************
  * DYNAMIC MEMORY HELPERS
@@ -1451,7 +1459,7 @@ void AppendFunctionToLLVMGlobalCtorsDtors(llvm::Function *func,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void tokToIcmpPred(TOK op, bool isUnsigned, llvm::ICmpInst::Predicate *outPred,
+void tokToICmpPred(TOK op, bool isUnsigned, llvm::ICmpInst::Predicate *outPred,
                    llvm::Value **outConst) {
   switch (op) {
   case TOKlt:
@@ -1485,6 +1493,35 @@ void tokToIcmpPred(TOK op, bool isUnsigned, llvm::ICmpInst::Predicate *outPred,
   default:
     llvm_unreachable("Invalid comparison operation");
   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+llvm::ICmpInst::Predicate eqTokToICmpPred(TOK op, bool invert) {
+  assert(op == TOKequal || op == TOKnotequal || op == TOKidentity ||
+         op == TOKnotidentity);
+
+  bool isEquality = (op == TOKequal || op == TOKidentity);
+  if (invert)
+    isEquality = !isEquality;
+
+  return (isEquality ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+LLValue *createIPairCmp(TOK op, LLValue *lhs1, LLValue *lhs2, LLValue *rhs1,
+                        LLValue *rhs2) {
+  const auto predicate = eqTokToICmpPred(op);
+
+  LLValue *r1 = gIR->ir->CreateICmp(predicate, lhs1, rhs1);
+  LLValue *r2 = gIR->ir->CreateICmp(predicate, lhs2, rhs2);
+
+  LLValue *r =
+      (predicate == llvm::ICmpInst::ICMP_EQ ? gIR->ir->CreateAnd(r1, r2)
+                                            : gIR->ir->CreateOr(r1, r2));
+
+  return r;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

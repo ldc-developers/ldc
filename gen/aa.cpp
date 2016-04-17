@@ -207,9 +207,9 @@ LLValue *DtoAAEquals(Loc &loc, TOK op, DValue *l, DValue *r) {
   LLValue *res =
       gIR->CreateCallOrInvoke(func, aaTypeInfo, aaval, abval, "aaEqRes")
           .getInstruction();
-  res = gIR->ir->CreateICmpNE(res, DtoConstInt(0));
-  if (op == TOKnotequal) {
-    res = gIR->ir->CreateNot(res);
-  }
+
+  const auto predicate = eqTokToICmpPred(op, /* invert = */ true);
+  res = gIR->ir->CreateICmp(predicate, res, DtoConstInt(0));
+
   return res;
 }

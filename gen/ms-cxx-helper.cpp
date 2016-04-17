@@ -55,14 +55,27 @@ void findSuccessors(std::vector<llvm::BasicBlock *> &blocks,
   }
 }
 
+// temporary mapping to either RF_IgnoreMissingEntries or RF_IgnoreMissingLocals
+//  that has been renamed during LLVM 3.9 development
+// TODO: remove once appveyor builds are updated to newer LLVM prebuilt libs
+struct RF_IgnoreMissing {
+  template <typename C> struct _entries { static const auto value = C::RF_IgnoreMissingEntries; };
+  template <typename C> struct _locals  { static const auto value = C::RF_IgnoreMissingLocals; };
+
+  template <typename C> static _entries<C> test(decltype(C::RF_IgnoreMissingEntries)*) {}
+  template <typename C> static _locals<C> test(...) {}
+
+  static const auto value = decltype(test<llvm::RemapFlags>(nullptr))::value;
+};
+
 // remap values in all instructions of all blocks
 void remapBlocks(std::vector<llvm::BasicBlock *> &blocks,
                  llvm::ValueToValueMapTy &VMap, llvm::BasicBlock *unwindTo,
                  llvm::Value *funclet) {
   for (llvm::BasicBlock *bb : blocks)
     for (llvm::BasicBlock::iterator I = bb->begin(); I != bb->end(); ++I) {
-      llvm::RemapInstruction(&*I, VMap, llvm::RF_IgnoreMissingEntries |
-                             llvm::RF_NoModuleLevelChanges);
+      llvm::RemapInstruction(&*I, VMap, RF_IgnoreMissing::value |
+                                            llvm::RF_NoModuleLevelChanges);
     }
 }
 

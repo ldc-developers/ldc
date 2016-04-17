@@ -30,8 +30,10 @@
 #include "gen/irstate.h"
 #include "gen/linkage.h"
 #include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/metadata.h"
+#include "gen/objcgen.h"
 #include "gen/optimizer.h"
 #include "gen/passes/Passes.h"
 #include "gen/runtime.h"
@@ -830,6 +832,10 @@ static void registerPredefinedVersions() {
 
   registerPredefinedTargetVersions();
 
+  if (global.params.hasObjectiveC) {
+    VersionCondition::addPredefinedGlobalIdent("D_ObjectiveC");
+  }
+
   // Pass sanitizer arguments to linker. Requires clang.
   if (opts::sanitize == opts::AddressSanitizer) {
     VersionCondition::addPredefinedGlobalIdent("LDC_AddressSanitizer");
@@ -987,6 +993,7 @@ int cppmain(int argc, char **argv) {
     global.params.isWindows = triple->isOSWindows();
     global.params.isLP64 = gDataLayout->getPointerSizeInBits() == 64;
     global.params.is64bit = triple->isArch64Bit();
+    global.params.hasObjectiveC = objc_isSupported(*triple);
   }
 
   // allocate the target abi
@@ -1010,8 +1017,8 @@ int cppmain(int argc, char **argv) {
   Module::_init();
   Target::_init();
   Expression::_init();
-  objc_tryMain_init();
   builtin_init();
+  objc_init();
 
   // Build import search path
   if (global.params.imppath) {
@@ -1259,7 +1266,7 @@ int cppmain(int argc, char **argv) {
 
   // Generate one or more object/IR/bitcode files.
   if (global.params.obj && !modules.empty()) {
-    ldc::CodeGenerator cg(llvm::getGlobalContext(), singleObj);
+    ldc::CodeGenerator cg(getGlobalContext(), singleObj);
 
     for (unsigned i = 0; i < modules.dim; i++) {
       Module *const m = modules[i];

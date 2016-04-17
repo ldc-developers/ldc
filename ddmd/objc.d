@@ -141,13 +141,21 @@ struct Objc_FuncDeclaration
 // MARK: semantic
 extern (C++) void objc_ClassDeclaration_semantic_PASSinit_LINKobjc(ClassDeclaration cd)
 {
-    cd.objc.objc = true;
+    if (global.params.hasObjectiveC)
+        cd.objc.objc = true;
+    else
+        cd.error("Objective-C classes not supported");
 }
 
 extern (C++) void objc_InterfaceDeclaration_semantic_objcExtern(InterfaceDeclaration id, Scope* sc)
 {
     if (sc.linkage == LINKobjc)
-        id.objc.objc = true;
+    {
+        if (global.params.hasObjectiveC)
+            id.objc.objc = true;
+        else
+            id.error("Objective-C interfaces not supported");
+    }
 }
 
 // MARK: semantic
