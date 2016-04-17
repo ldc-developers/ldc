@@ -403,7 +403,7 @@ public:
     TypeBasic(TY ty);
     const char *kind();
     Type *syntaxCopy();
-    d_uns64 size(Loc loc) const;
+    d_uns64 size(Loc loc) /*const*/;
     unsigned alignsize();
 #if IN_LLVM
     uint32_t alignment();
@@ -411,15 +411,15 @@ public:
     Expression *getProperty(Loc loc, Identifier *ident, int flag);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     bool isintegral();
-    bool isfloating() const;
-    bool isreal() const;
-    bool isimaginary() const;
-    bool iscomplex() const;
-    bool isscalar() const;
-    bool isunsigned() const;
+    bool isfloating() /*const*/;
+    bool isreal() /*const*/;
+    bool isimaginary() /*const*/;
+    bool iscomplex() /*const*/;
+    bool isscalar() /*const*/;
+    bool isunsigned() /*const*/;
     MATCH implicitConvTo(Type *to);
     Expression *defaultInit(Loc loc);
-    bool isZeroInit(Loc loc) const;
+    bool isZeroInit(Loc loc) /*const*/;
 
     // For eliminating dynamic_cast
     TypeBasic *isTypeBasic();
@@ -443,7 +443,7 @@ public:
     bool isfloating();
     bool isscalar();
     bool isunsigned();
-    bool isBoolean() const;
+    bool isBoolean() /*const*/;
     MATCH implicitConvTo(Type *to);
     Expression *defaultInit(Loc loc);
     Expression *defaultInitLiteral(Loc loc);
@@ -497,17 +497,17 @@ public:
     TypeDArray(Type *t);
     const char *kind();
     Type *syntaxCopy();
-    d_uns64 size(Loc loc) const;
-    unsigned alignsize() const;
+    d_uns64 size(Loc loc) /*const*/;
+    unsigned alignsize() /*const*/;
     Type *semantic(Loc loc, Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     bool isString();
-    bool isZeroInit(Loc loc) const;
-    bool isBoolean() const;
+    bool isZeroInit(Loc loc) /*const*/;
+    bool isBoolean() /*const*/;
     MATCH implicitConvTo(Type *to);
     Expression *defaultInit(Loc loc);
-    bool hasPointers() const;
+    bool hasPointers() /*const*/;
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -528,10 +528,10 @@ public:
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     Expression *defaultInit(Loc loc);
-    bool isZeroInit(Loc loc) const;
-    bool isBoolean() const;
+    bool isZeroInit(Loc loc) /*const*/;
+    bool isBoolean() /*const*/;
     Expression *toExpression();
-    bool hasPointers() const;
+    bool hasPointers() /*const*/;
     MATCH implicitConvTo(Type *to);
     MATCH constConv(Type *to);
 
@@ -545,13 +545,13 @@ public:
     const char *kind();
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
-    d_uns64 size(Loc loc) const;
+    d_uns64 size(Loc loc) /*const*/;
     MATCH implicitConvTo(Type *to);
     MATCH constConv(Type *to);
-    bool isscalar() const;
+    bool isscalar() /*const*/;
     Expression *defaultInit(Loc loc);
-    bool isZeroInit(Loc loc) const;
-    bool hasPointers() const;
+    bool isZeroInit(Loc loc) /*const*/;
+    bool hasPointers() /*const*/;
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -563,10 +563,10 @@ public:
     const char *kind();
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
-    d_uns64 size(Loc loc) const;
+    d_uns64 size(Loc loc) /*const*/;
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     Expression *defaultInit(Loc loc);
-    bool isZeroInit(Loc loc) const;
+    bool isZeroInit(Loc loc) /*const*/;
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -642,7 +642,7 @@ public:
     MATCH callMatch(Type *tthis, Expressions *toargs, int flag = 0);
     bool checkRetType(Loc loc);
 
-    Expression *defaultInit(Loc loc) const;
+    Expression *defaultInit(Loc loc) /*const*/;
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -655,14 +655,14 @@ public:
     const char *kind();
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
-    d_uns64 size(Loc loc) const;
-    unsigned alignsize() const;
+    d_uns64 size(Loc loc) /*const*/;
+    unsigned alignsize() /*const*/;
     MATCH implicitConvTo(Type *to);
     Expression *defaultInit(Loc loc);
-    bool isZeroInit(Loc loc) const;
-    bool isBoolean() const;
+    bool isZeroInit(Loc loc) /*const*/;
+    bool isBoolean() /*const*/;
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
-    bool hasPointers() const;
+    bool hasPointers() /*const*/;
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -788,10 +788,10 @@ public:
     structalign_t alignment();
     Expression *defaultInit(Loc loc);
     Expression *defaultInitLiteral(Loc loc);
-    bool isZeroInit(Loc loc) const;
+    bool isZeroInit(Loc loc) /*const*/;
     bool isAssignable();
-    bool isBoolean() const;
-    bool needsDestruction() const;
+    bool isBoolean() /*const*/;
+    bool needsDestruction() /*const*/;
     bool needsNested();
     bool hasPointers();
     MATCH implicitConvTo(Type *to);
@@ -847,7 +847,7 @@ public:
 
     TypeClass(ClassDeclaration *sym);
     const char *kind();
-    d_uns64 size(Loc loc) const;
+    d_uns64 size(Loc loc) /*const*/;
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
@@ -859,10 +859,10 @@ public:
     unsigned char deduceWild(Type *t, bool isRef);
     Type *toHeadMutable();
     Expression *defaultInit(Loc loc);
-    bool isZeroInit(Loc loc) const;
-    bool isscope() const;
-    bool isBoolean() const;
-    bool hasPointers() const;
+    bool isZeroInit(Loc loc) /*const*/;
+    bool isscope() /*const*/;
+    bool isBoolean() /*const*/;
+    bool hasPointers() /*const*/;
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -909,10 +909,10 @@ public:
 
     Type *syntaxCopy();
     MATCH implicitConvTo(Type *to);
-    bool isBoolean() const;
+    bool isBoolean() /*const*/;
 
-    d_uns64 size(Loc loc) const;
-    Expression *defaultInit(Loc loc) const;
+    d_uns64 size(Loc loc) /*const*/;
+    Expression *defaultInit(Loc loc) /*const*/;
     void accept(Visitor *v) { v->visit(this); }
 };
 
