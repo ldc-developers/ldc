@@ -215,13 +215,6 @@ template <typename DECL> static void ensureDecl(DECL *decl, const char *msg) {
   }
 }
 
-// We need a vector type with initializer_list support:
-#if LDC_LLVM_VER >= 307
-template <class T> using ArrayParam = llvm::ArrayRef<T>;
-#else
-template <class T> using ArrayParam = std::vector<T>;
-#endif
-
 // Parameters fnames are assumed to be already mangled!
 static void createFwdDecl(LINK linkage, Type *returntype,
                           ArrayParam<llvm::StringRef> fnames,

@@ -24,6 +24,13 @@
 
 struct IRState;
 
+// An arrayreference type with initializer_list support (C++11):
+#if LDC_LLVM_VER >= 307
+template <class T> using ArrayParam = llvm::ArrayRef<T>;
+#else
+template <class T> using ArrayParam = std::vector<T>;
+#endif
+
 llvm::LLVMContext& getGlobalContext();
 
 // dynamic memory helpers

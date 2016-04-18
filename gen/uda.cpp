@@ -1,6 +1,7 @@
 #include "gen/uda.h"
 
 #include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
 #include "aggregate.h"
 #include "attrib.h"
 #include "declaration.h"
@@ -13,9 +14,10 @@ namespace {
 
 /// Names of the attribute structs we recognize.
 namespace attr {
+const std::string llvmAttr = "llvmAttr";
 const std::string section = "section";
-const std::string target  = "target";
-const std::string weak    = "_weak";
+const std::string target = "target";
+const std::string weak = "_weak";
 }
 
 /// Checks whether `moduleDecl` is the ldc.attributes module.
@@ -62,7 +64,7 @@ StructLiteralExp *getLdcAttributesStruct(Expression *attr) {
   return nullptr;
 }
 
-void checkStructElems(StructLiteralExp *sle, llvm::ArrayRef<Type *> elemTypes) {
+void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
   if (sle->elements->dim != elemTypes.size()) {
     sle->error(
         "unexpected field count in 'ldc.attributes.%s'; does druntime not "
@@ -81,12 +83,33 @@ void checkStructElems(StructLiteralExp *sle, llvm::ArrayRef<Type *> elemTypes) {
   }
 }
 
+const char *getStringElem(StructLiteralExp *sle, size_t idx) {
+  auto arg = (*sle->elements)[idx];
+  if (arg && arg->op == TOKstring) {
+    auto strexp = static_cast<StringExp *>(arg);
+    assert(strexp->sz == 1);
+    return strexp->toStringz();
+  } else {
+    // Default initialized element (arg->op == TOKnull)
+    return "";
+  }
+}
+
 const char *getFirstElemString(StructLiteralExp *sle) {
-  auto arg = (*sle->elements)[0];
-  assert(arg->op == TOKstring);
-  auto strexp = static_cast<StringExp *>(arg);
-  assert(strexp->sz == 1);
-  return strexp->toStringz();
+  return getStringElem(sle, 0);
+}
+
+// @llvmAttr("key", "value")
+// @llvmAttr("key")
+void applyAttrLLVMAttr(StructLiteralExp *sle, llvm::Function *func) {
+  checkStructElems(sle, {Type::tstring, Type::tstring});
+  llvm::StringRef key = getStringElem(sle, 0);
+  llvm::StringRef value = getStringElem(sle, 1);
+  if (value.empty()) {
+    func->addFnAttr(key);
+  } else {
+    func->addFnAttr(key, value);
+  }
 }
 
 void applyAttrSection(StructLiteralExp *sle, llvm::GlobalObject *globj) {
@@ -200,7 +223,9 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, llvm::Function *func) {
       continue;
 
     auto name = sle->sd->ident->string;
-    if (name == attr::section) {
+    if (name == attr::llvmAttr) {
+      applyAttrLLVMAttr(sle, func);
+    } else if (name == attr::section) {
       applyAttrSection(sle, func);
     } else if (name == attr::target) {
       applyAttrTarget(sle, func);
