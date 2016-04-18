@@ -270,7 +270,7 @@ LLConstant *IrAggr::getClassInfoInit() {
 
 llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
                                                size_t interfaces_index) {
-  auto it = interfaceVtblMap.find(b->sym);
+  auto it = interfaceVtblMap.find({b->sym, interfaces_index});
   if (it != interfaceVtblMap.end()) {
     return it->second;
   }
@@ -304,6 +304,12 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
     constants.push_back(c);
   }
 
+  // Thunk prefix
+  char thunkPrefix[16];
+  int thunkLen = sprintf(thunkPrefix, "Th%d", b->offset);
+  char thunkPrefixLen[16];
+  sprintf(thunkPrefixLen, "%d", thunkLen);
+
   // add virtual function pointers
   size_t n = vtbl_array.dim;
   for (size_t i = b->sym->vtblOffset(); i < n; i++) {
@@ -332,8 +338,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
     // Create the thunk function if it does not already exist in this
     // module.
     OutBuffer nameBuf;
-    nameBuf.writestring("Th");
-    nameBuf.printf("%i", b->offset);
+    nameBuf.writestring(thunkPrefix);
     nameBuf.writestring(mangleExact(fd));
     const char *thunkName = nameBuf.extractString();
     llvm::Function *thunk = gIR->module.getFunction(thunkName);
@@ -436,6 +441,8 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
   mangledName.append(mangle(cd));
   mangledName.append("11__interface");
   mangledName.append(mangle(b->sym));
+  mangledName.append(thunkPrefixLen);
+  mangledName.append(thunkPrefix);
   mangledName.append("6__vtblZ");
 
   const auto lwc = DtoLinkage(cd);
@@ -445,7 +452,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
   setLinkage(lwc, GV);
 
   // insert into the vtbl map
-  interfaceVtblMap.insert(std::make_pair(b->sym, GV));
+  interfaceVtblMap.insert({{b->sym, interfaces_index}, GV});
 
   return GV;
 }
@@ -511,7 +518,7 @@ LLConstant *IrAggr::getClassInfoInterfaces() {
     if (cd->isInterfaceDeclaration()) {
       vtb = DtoConstSlice(DtoConstSize_t(0), getNullValue(voidptrptr_type));
     } else {
-      auto itv = interfaceVtblMap.find(it->sym);
+      auto itv = interfaceVtblMap.find({it->sym, i});
       assert(itv != interfaceVtblMap.end() && "interface vtbl not found");
       vtb = itv->second;
       vtb = DtoBitCast(vtb, voidptrptr_type);
