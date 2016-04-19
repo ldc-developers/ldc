@@ -496,7 +496,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     }
   }
 
-  applyFuncDeclUDAs(fdecl, func);
+  applyFuncDeclUDAs(fdecl, irFunc);
 
   // main
   if (fdecl->isMain()) {

@@ -18,12 +18,12 @@
 class Dsymbol;
 class FuncDeclaration;
 class VarDeclaration;
+struct IrFunction;
 namespace llvm {
-class Function;
 class GlobalVariable;
 }
 
-void applyFuncDeclUDAs(FuncDeclaration *decl, llvm::Function *func);
+void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc);
 void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar);
 
 bool hasWeakUDA(Dsymbol *sym);

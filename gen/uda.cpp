@@ -6,6 +6,7 @@
 #include "attrib.h"
 #include "declaration.h"
 #include "expression.h"
+#include "ir/irfunction.h"
 #include "module.h"
 
 #include "llvm/ADT/StringExtras.h"
@@ -211,9 +212,12 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
   }
 }
 
-void applyFuncDeclUDAs(FuncDeclaration *decl, llvm::Function *func) {
+void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
   if (!decl->userAttribDecl)
     return;
+
+  llvm::Function *func = irFunc->func;
+  assert(func);
 
   Expressions *attrs = decl->userAttribDecl->getAttributes();
   expandTuples(attrs);
