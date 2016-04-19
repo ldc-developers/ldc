@@ -216,6 +216,24 @@ void CodeGenerator::emit(Module *m) {
       emitSymbolAddrGlobal(ir_->module, "__bss_start", "_d_execBssBegAddr");
       emitSymbolAddrGlobal(ir_->module, "_end", "_d_execBssEndAddr");
     }
+
+    // On Android, bracket TLS data with the symbols _tlsstart and _tlsend, as
+    // done with dmd
+    if (global.params.targetTriple.getEnvironment() == llvm::Triple::Android) {
+      auto startSymbol = new llvm::GlobalVariable(
+          ir_->module, llvm::Type::getInt32Ty(ir_->module.getContext()), false,
+          llvm::GlobalValue::ExternalLinkage,
+          llvm::ConstantInt::get(ir_->module.getContext(), APInt(32,0)),
+          "_tlsstart", &*(ir_->module.global_begin()));
+      startSymbol->setSection(".tdata");
+
+      auto endSymbol = new llvm::GlobalVariable(
+          ir_->module, llvm::Type::getInt32Ty(ir_->module.getContext()), false,
+          llvm::GlobalValue::ExternalLinkage,
+          llvm::ConstantInt::get(ir_->module.getContext(), APInt(32,0)),
+          "_tlsend");
+      endSymbol->setSection(".tcommon");
+    }
   }
 
   finishLLModule(m);
