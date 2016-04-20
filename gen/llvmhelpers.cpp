@@ -1028,8 +1028,7 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
     }
   } else if (TemplateMixin *m = declaration->isTemplateMixin()) {
     Logger::println("TemplateMixin");
-    for (unsigned i = 0; i < m->members->dim; ++i) {
-      Dsymbol *mdsym = static_cast<Dsymbol *>(m->members->data[i]);
+    for (Dsymbol *mdsym : *m->members) {
       DtoDeclarationExp(mdsym);
     }
   } else if (TupleDeclaration *tupled = declaration->isTupleDeclaration()) {
