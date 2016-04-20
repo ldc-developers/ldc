@@ -57,6 +57,11 @@ static cl::list<std::string> ImplicitCheckNot(
              "this pattern occur which are not matched by a positive pattern"),
     cl::value_desc("pattern"));
 
+static cl::opt<bool> AllowEmptyInput(
+    "allow-empty", cl::init(false),
+    cl::desc("Allow the input file to be empty. This is useful when making\n"
+             "checks that some error message does not occur, for example."));
+
 typedef cl::list<std::string>::const_iterator prefix_iterator;
 
 //===----------------------------------------------------------------------===//
@@ -68,13 +73,16 @@ namespace Check {
     CheckNone = 0,
     CheckPlain,
     CheckNext,
+    CheckSame,
     CheckNot,
     CheckDAG,
     CheckLabel,
 
     /// MatchEOF - When set, this pattern only matches the end of file. This is
     /// used for trailing CHECK-NOTs.
-    CheckEOF
+    CheckEOF,
+    /// CheckBadNot - Found -NOT combined with another CHECK suffix.
+    CheckBadNot
   };
 }
 
@@ -615,6 +623,9 @@ struct CheckString {
   /// CheckNext - Verify there is a single line in the given buffer.
   bool CheckNext(const SourceMgr &SM, StringRef Buffer) const;
 
+  /// CheckSame - Verify there is no newline in the given buffer.
+  bool CheckSame(const SourceMgr &SM, StringRef Buffer) const;
+
   /// CheckNot - Verify there's no "not strings" in the given buffer.
   bool CheckNot(const SourceMgr &SM, StringRef Buffer,
                 const std::vector<const Pattern *> &NotStrings,
@@ -673,6 +684,7 @@ static bool IsPartOfWord(char c) {
 static size_t CheckTypeSize(Check::CheckType Ty) {
   switch (Ty) {
   case Check::CheckNone:
+  case Check::CheckBadNot:
     return 0;
 
   case Check::CheckPlain:
@@ -680,6 +692,9 @@ static size_t CheckTypeSize(Check::CheckType Ty) {
 
   case Check::CheckNext:
     return sizeof("-NEXT:") - 1;
+
+  case Check::CheckSame:
+    return sizeof("-SAME:") - 1;
 
   case Check::CheckNot:
     return sizeof("-NOT:") - 1;
@@ -711,6 +726,9 @@ static Check::CheckType FindCheckType(StringRef Buffer, StringRef Prefix) {
   if (Rest.startswith("NEXT:"))
     return Check::CheckNext;
 
+  if (Rest.startswith("SAME:"))
+    return Check::CheckSame;
+
   if (Rest.startswith("NOT:"))
     return Check::CheckNot;
 
@@ -719,6 +737,12 @@ static Check::CheckType FindCheckType(StringRef Buffer, StringRef Prefix) {
 
   if (Rest.startswith("LABEL:"))
     return Check::CheckLabel;
+
+  // You can't combine -NOT with another suffix.
+  if (Rest.startswith("DAG-NOT:") || Rest.startswith("NOT-DAG:") ||
+      Rest.startswith("NEXT-NOT:") || Rest.startswith("NOT-NEXT:") ||
+      Rest.startswith("SAME-NOT:") || Rest.startswith("NOT-SAME:"))
+    return Check::CheckBadNot;
 
   return Check::CheckNone;
 }
@@ -889,6 +913,14 @@ static bool ReadCheckFile(SourceMgr &SM,
     // PrefixLoc is to the start of the prefix. Skip to the end.
     Buffer = Buffer.drop_front(UsedPrefix.size() + CheckTypeSize(CheckTy));
 
+    // Complain about useful-looking but unsupported suffixes.
+    if (CheckTy == Check::CheckBadNot) {
+      SM.PrintMessage(SMLoc::getFromPointer(Buffer.data()),
+                      SourceMgr::DK_Error,
+                      "unsupported -NOT combo on prefix '" + UsedPrefix + "'");
+      return true;
+    }
+
     // Okay, we found the prefix, yay. Remember the rest of the line, but ignore
     // leading and trailing whitespace.
     Buffer = Buffer.substr(Buffer.find_first_not_of(" \t"));
@@ -916,10 +948,12 @@ static bool ReadCheckFile(SourceMgr &SM,
     Buffer = Buffer.substr(EOL);
 
     // Verify that CHECK-NEXT lines have at least one CHECK line before them.
-    if ((CheckTy == Check::CheckNext) && CheckStrings.empty()) {
+    if ((CheckTy == Check::CheckNext || CheckTy == Check::CheckSame) &&
+        CheckStrings.empty()) {
+      StringRef Type = CheckTy == Check::CheckNext ? "NEXT" : "SAME";
       SM.PrintMessage(SMLoc::getFromPointer(UsedPrefixStart),
                       SourceMgr::DK_Error,
-                      "found '" + UsedPrefix + "-NEXT:' without previous '"
+                      "found '" + UsedPrefix + "-" + Type + "' without previous '"
                       + UsedPrefix + ": line");
       return true;
     }
@@ -1038,7 +1072,6 @@ size_t CheckString::Check(const SourceMgr &SM, StringRef Buffer,
     PrintCheckFailed(SM, *this, MatchBuffer, VariableTable);
     return StringRef::npos;
   }
-  MatchPos += LastPos;
 
   // Similar to the above, in "label-scan mode" we can't yet handle CHECK-NEXT
   // or CHECK-NOT
@@ -1050,13 +1083,18 @@ size_t CheckString::Check(const SourceMgr &SM, StringRef Buffer,
     if (CheckNext(SM, SkippedRegion))
       return StringRef::npos;
 
+    // If this check is a "CHECK-SAME", verify that the previous match was on
+    // the same line (i.e. that there is no newline between them).
+    if (CheckSame(SM, SkippedRegion))
+      return StringRef::npos;
+
     // If this match had "not strings", verify that they don't exist in the
     // skipped region.
     if (CheckNot(SM, SkippedRegion, NotStrings, VariableTable))
       return StringRef::npos;
   }
 
-  return MatchPos;
+  return LastPos + MatchPos;
 }
 
 bool CheckString::CheckNext(const SourceMgr &SM, StringRef Buffer) const {
@@ -1092,6 +1130,34 @@ bool CheckString::CheckNext(const SourceMgr &SM, StringRef Buffer) const {
                     "previous match ended here");
     SM.PrintMessage(SMLoc::getFromPointer(FirstNewLine), SourceMgr::DK_Note,
                     "non-matching line after previous match is here");
+    return true;
+  }
+
+  return false;
+}
+
+bool CheckString::CheckSame(const SourceMgr &SM, StringRef Buffer) const {
+  if (CheckTy != Check::CheckSame)
+    return false;
+
+  // Count the number of newlines between the previous match and this one.
+  assert(Buffer.data() !=
+             SM.getMemoryBuffer(SM.FindBufferContainingLoc(
+                                    SMLoc::getFromPointer(Buffer.data())))
+                 ->getBufferStart() &&
+         "CHECK-SAME can't be the first check in a file");
+
+  const char *FirstNewLine = nullptr;
+  unsigned NumNewLines = CountNumNewlinesBetween(Buffer, FirstNewLine);
+
+  if (NumNewLines != 0) {
+    SM.PrintMessage(Loc, SourceMgr::DK_Error,
+                    Prefix +
+                        "-SAME: is not on the same line as the previous match");
+    SM.PrintMessage(SMLoc::getFromPointer(Buffer.end()), SourceMgr::DK_Note,
+                    "'next' match was here");
+    SM.PrintMessage(SMLoc::getFromPointer(Buffer.data()), SourceMgr::DK_Note,
+                    "previous match ended here");
     return true;
   }
 

@@ -80,7 +80,9 @@ namespace Check {
 
     /// MatchEOF - When set, this pattern only matches the end of file. This is
     /// used for trailing CHECK-NOTs.
-    CheckEOF
+    CheckEOF,
+    /// CheckBadNot - Found -NOT combined with another CHECK suffix.
+    CheckBadNot
   };
 }
 
@@ -679,6 +681,7 @@ static bool IsPartOfWord(char c) {
 static size_t CheckTypeSize(Check::CheckType Ty) {
   switch (Ty) {
   case Check::CheckNone:
+  case Check::CheckBadNot:
     return 0;
 
   case Check::CheckPlain:
@@ -731,6 +734,12 @@ static Check::CheckType FindCheckType(StringRef Buffer, StringRef Prefix) {
 
   if (Rest.startswith("LABEL:"))
     return Check::CheckLabel;
+
+  // You can't combine -NOT with another suffix.
+  if (Rest.startswith("DAG-NOT:") || Rest.startswith("NOT-DAG:") ||
+      Rest.startswith("NEXT-NOT:") || Rest.startswith("NOT-NEXT:") ||
+      Rest.startswith("SAME-NOT:") || Rest.startswith("NOT-SAME:"))
+    return Check::CheckBadNot;
 
   return Check::CheckNone;
 }
@@ -901,6 +910,14 @@ static bool ReadCheckFile(SourceMgr &SM,
 
     // PrefixLoc is to the start of the prefix. Skip to the end.
     Buffer = Buffer.drop_front(UsedPrefix.size() + CheckTypeSize(CheckTy));
+
+    // Complain about useful-looking but unsupported suffixes.
+    if (CheckTy == Check::CheckBadNot) {
+      SM.PrintMessage(SMLoc::getFromPointer(Buffer.data()),
+                      SourceMgr::DK_Error,
+                      "unsupported -NOT combo on prefix '" + UsedPrefix + "'");
+      return true;
+    }
 
     // Okay, we found the prefix, yay. Remember the rest of the line, but ignore
     // leading and trailing whitespace.
