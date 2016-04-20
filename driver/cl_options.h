@@ -48,6 +48,7 @@ extern cl::opt<bool> output_ll;
 extern cl::opt<bool> output_s;
 extern cl::opt<cl::boolOrDefault> output_o;
 extern cl::opt<bool, true> disableRedZone;
+extern cl::opt<bool> fastMemberSearch;
 extern cl::opt<std::string> ddocDir;
 extern cl::opt<std::string> ddocFile;
 extern cl::opt<std::string> jsonFile;

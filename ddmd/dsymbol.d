@@ -502,6 +502,22 @@ public:
         return b;
     }
 
+version(IN_LLVM)
+{
+    /*************************************
+     * Do syntax copy of an array-tree of Dsymbol's.
+     */
+    final static DsymbolsAT* arraySyntaxCopy(DsymbolsAT* a)
+    {
+        DsymbolsAT* b = null;
+        if (a)
+        {
+            b = new DsymbolsAT(arraySyntaxCopy(a.getArrayPtr));
+        }
+        return b;
+    }
+}
+
     Identifier getIdent()
     {
         return ident;
@@ -876,6 +892,13 @@ public:
     /*****************************************
      * Same as Dsymbol::oneMember(), but look at an array of Dsymbols.
      */
+version(IN_LLVM)
+{
+    final static bool oneMembers(DsymbolsAT* members, Dsymbol* ps, Identifier ident)
+    {
+        return oneMembers(members.getArrayPtr(), ps, ident);
+    }
+}
     final static bool oneMembers(Dsymbols* members, Dsymbol* ps, Identifier ident)
     {
         //printf("Dsymbol::oneMembers() %d\n", members ? members.dim : 0);
@@ -1229,7 +1252,10 @@ public:
 extern (C++) class ScopeDsymbol : Dsymbol
 {
 public:
-    Dsymbols* members;      // all Dsymbol's in this scope
+    version(IN_LLVM)
+        DsymbolsAT* members;    // all Dsymbol's in this scope
+    else
+        Dsymbols* members;    // all Dsymbol's in this scope
     DsymbolTable symtab;    // members[] sorted into table
 
 private:
@@ -1594,6 +1620,14 @@ public:
             *pn = n; // update index
         return result;
     }
+version(IN_LLVM)
+{
+    /// Ditto
+    extern (D) static int _foreach(Scope* sc, DsymbolsAT* members, scope ForeachDg dg, size_t* pn = null)
+    {
+        return _foreach(sc, members.getArrayPtr(), dg, pn);
+    }
+}
 
     override final ScopeDsymbol isScopeDsymbol()
     {

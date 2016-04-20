@@ -299,7 +299,11 @@ public:
 class ScopeDsymbol : public Dsymbol
 {
 public:
-    Dsymbols *members;          // all Dsymbol's in this scope
+    #if IN_LLVM
+        DsymbolsAT *members;    // all Dsymbol's in this scope
+    #else
+        Dsymbols *members;      // all Dsymbol's in this scope
+    #endif
     DsymbolTable *symtab;       // members[] sorted into table
 
 private:

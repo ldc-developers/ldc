@@ -353,6 +353,9 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     }
   }
 
+  // Set search/memory behavior of DsymbolsAT
+  DsymbolsAT::fastSearch = opts::fastMemberSearch;
+
   // Negated options
   global.params.link = !compileOnly;
   global.params.obj = !dontWriteObj;

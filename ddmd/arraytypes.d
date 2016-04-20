@@ -51,3 +51,5 @@ alias GotoCaseStatements = Array!(GotoCaseStatement);
 alias ReturnStatements = Array!(ReturnStatement);
 alias GotoStatements = Array!(GotoStatement);
 alias TemplateInstances = Array!(TemplateInstance);
+
+version(IN_LLVM) alias DsymbolsAT = ArrayTree!(Dsymbol);

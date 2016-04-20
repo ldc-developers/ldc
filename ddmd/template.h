@@ -88,6 +88,10 @@ public:
     const char *intrinsicName;
 #endif
 
+#if IN_LLVM
+    TemplateDeclaration(Loc loc, Identifier *id, TemplateParameters *parameters,
+        Expression *constraint, DsymbolsAT *decldefs, bool ismixin = false, bool literal = false);
+#endif
     TemplateDeclaration(Loc loc, Identifier *id, TemplateParameters *parameters,
         Expression *constraint, Dsymbols *decldefs, bool ismixin = false, bool literal = false);
     Dsymbol *syntaxCopy(Dsymbol *);

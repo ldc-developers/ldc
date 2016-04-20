@@ -68,4 +68,8 @@ typedef Array<class GotoStatement *> GotoStatements;
 
 typedef Array<class TemplateInstance *> TemplateInstances;
 
+#if IN_LLVM
+typedef ArrayTree<class Dsymbol *> DsymbolsAT;
+#endif
+
 #endif

@@ -1161,7 +1161,10 @@ extern (C++) Expression semanticTraits(TraitsExp e, Scope* sc)
                     }
                 }
             }
-            collectUnitTests(sds.members);
+            version(IN_LLVM)
+                collectUnitTests(sds.members.getArrayPtr());
+            else
+                collectUnitTests(sds.members);
         }
         auto te = new TupleExp(e.loc, exps);
         return te.semantic(sc);

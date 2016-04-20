@@ -147,6 +147,11 @@ cl::opt<bool, true>
                    cl::desc("Do not emit code that uses the red zone."),
                    cl::location(global.params.disableRedZone), cl::init(false));
 
+cl::opt<bool> fastMemberSearch(
+    "fast-member-search",
+    cl::desc("Enables faster module member lookup during semantic analysis at "
+             "the cost of more memory usage."), cl::init(false));
+
 // DDoc options
 static cl::opt<bool, true> doDdoc("D", cl::desc("Generate documentation"),
                                   cl::location(global.params.doDocComments));
