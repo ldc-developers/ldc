@@ -935,7 +935,8 @@ static void genModuleInfo(Module *m, bool emitFullModuleInfo) {
   b.finalize(moduleInfoSym->getType()->getPointerElementType(), moduleInfoSym);
   setLinkage({LLGlobalValue::ExternalLinkage, false}, moduleInfoSym);
 
-  if (global.params.targetTriple.isOSLinux() ||
+  if ((global.params.targetTriple.isOSLinux() &&
+       global.params.targetTriple.getEnvironment() != llvm::Triple::Android) ||
       global.params.targetTriple.isOSFreeBSD() ||
 #if LDC_LLVM_VER > 305
       global.params.targetTriple.isOSNetBSD() ||

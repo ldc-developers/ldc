@@ -654,10 +654,6 @@ longdouble Port::strtold(const char *p, char **endp)
 #if __linux__ || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __NetBSD__ || __DragonFly__ || __HAIKU__
 
 #include <math.h>
-#if __linux__
-#include <bits/nan.h>
-#include <bits/mathdef.h>
-#endif
 #if __FreeBSD__ && __i386__
 #include <ieeefp.h>
 #endif
