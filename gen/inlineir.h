@@ -14,11 +14,17 @@
 #ifndef LDC_GEN_INLINEIR_H
 #define LDC_GEN_INLINEIR_H
 
+#include "ddmd/arraytypes.h"
+
+class DValue;
 class FuncDeclaration;
+struct Loc;
+
 namespace llvm {
 class Function;
 }
 
-llvm::Function *DtoInlineIRFunction(FuncDeclaration *fdecl);
+DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
+                        Expressions *arguments);
 
 #endif

@@ -1634,6 +1634,10 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       // TODO: Is this needed? If so, what about other intrinsics?
       error(loc, "special ldc inline asm is not a normal function");
       fatal();
+    } else if (fdecl->llvmInternal == LLVMinline_ir) {
+      // TODO: Is this needed? If so, what about other intrinsics?
+      error(loc, "special ldc inline ir is not a normal function");
+      fatal();
     }
     DtoResolveFunction(fdecl);
     return new DFuncValue(fdecl, fdecl->llvmInternal != LLVMva_arg

@@ -17,6 +17,7 @@
 #include "gen/coverage.h"
 #include "gen/dvalue.h"
 #include "gen/functions.h"
+#include "gen/inlineir.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
@@ -874,6 +875,10 @@ public:
       if (FuncDeclaration *fd = ve->var->isFuncDeclaration()) {
         if (fd->llvmInternal == LLVMinline_asm) {
           result = DtoInlineAsmExpr(e->loc, fd, e->arguments);
+          return;
+        }
+        if (fd->llvmInternal == LLVMinline_ir) {
+          result = DtoInlineIRExpr(e->loc, fd, e->arguments);
           return;
         }
       }
