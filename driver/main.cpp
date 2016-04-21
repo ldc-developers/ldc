@@ -67,6 +67,10 @@
 // in traits.c
 void initTraitsStringTable();
 
+// FIXME: In this file and in ir/irtype.cpp a global LLVM context is used.
+//        This functionality was removed in LLVM 3.9.
+llvm::LLVMContext TheGlobalContext;
+
 using namespace opts;
 
 extern void getenv_setargv(const char *envvar, int *pargc, char ***pargv);
@@ -1258,7 +1262,7 @@ int main(int argc, char **argv) {
 
   // Generate one or more object/IR/bitcode files.
   if (global.params.obj && !modules.empty()) {
-    ldc::CodeGenerator cg(llvm::getGlobalContext(), singleObj);
+    ldc::CodeGenerator cg(TheGlobalContext, singleObj);
 
     for (unsigned i = 0; i < modules.dim; i++) {
       Module *const m = modules[i];
