@@ -25,6 +25,24 @@ version supporting it.
 Installation
 ------------
 
+### From a pre-built package
+
+Some Linux and OS X package managers include recent versions of LDC, so
+manually installing it might not be necessary. For several platforms,
+there are also stand-alone binary builds available at the
+[GitHub release page](https://github.com/ldc-developers/ldc/releases).
+
+| Distribution | Command               |
+| ------------ | --------------------- |
+| Arch Linux   | `pacman -S ldc`       |
+| Debian       | `apt-get install ldc` |
+| Fedora       | `yum install ldc`     |
+| Gentoo       | `layman -a ldc`       |
+| HomeBrew     | `brew install ldc`    |
+| Ubuntu       | `apt-get install ldc` |
+
+### Building from source
+
 In-depth material on building and installing LDC and the standard
 libraries, including experimental instructions for running LDC on
 Windows, is available on the project wiki at
@@ -42,12 +60,6 @@ are up to date:
 
     $ cd ldc
     $ git submodule update --recursive --init
-
-Some Linux and OS X package managers include recent versions of LDC, so
-manually installing it might not be necessary. For several platforms,
-there are also stand-alone binary builds available at the
-[GitHub release page](https://github.com/ldc-developers/ldc/releases).
-
 
 Contact
 -------
