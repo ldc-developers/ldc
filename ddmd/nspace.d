@@ -32,7 +32,10 @@ public:
         super(ident);
         //printf("Nspace::Nspace(ident = %s)\n", ident->toChars());
         this.loc = loc;
-        this.members = members;
+        version(IN_LLVM)
+            this.members = DsymbolsAT.convert(members);
+        else
+            this.members = members;
     }
 
     override Dsymbol syntaxCopy(Dsymbol s)

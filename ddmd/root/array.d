@@ -205,3 +205,195 @@ public:
         return data[0 .. dim];
     }
 }
+
+version(IN_LLVM)
+{
+
+/+ A container that preserves the order in which elements were added
+ + and that can do sub-linear search for whether an element is already in the container.
+ + The sub-linear search behavior requires extra memory and is only enabled when
+ + constructed with fastSearch = true.
+ +/
+extern (C++) struct ArrayTree(T)
+{
+private:
+    Array!T *array;
+
+    import std.container.rbtree : RedBlackTree;
+    alias TreeType = RedBlackTree!(void*); // RedBlackTree!(T, "cast(void*)a < cast(void*)b") is broken in Phobos version 2.070
+    TreeType tree;
+
+public:
+    static __gshared bool fastSearch = false; // Enable sub-linear lookup
+
+    // Disable default construction, for default construction use `new ArrayTree!T(null)`.
+    @disable this();
+
+    // Construct and use the array as initializer. No deep copy is made.
+    this(Array!T *a)
+    {
+        if (a)
+        {
+            array = a;
+        }
+        else
+        {
+            array = new Array!T();
+        }
+
+        if (fastSearch)
+        {
+            tree = new TreeType();
+            foreach (elem; *array)
+            {
+                tree.stableInsert(cast(void*)elem);
+            }
+        }
+    }
+
+    ~this()
+    {
+        destroy(array);
+        destroy(tree);
+    }
+
+    // Construct a new ArrayTree is a!=null, otherwise return null. No deep copy is made.
+    static typeof(this)* convert(Array!T *a)
+    {
+        if (a)
+        {
+            return new typeof(this)(a);
+        }
+        else
+        {
+            return null;
+        }
+    }
+
+    size_t dim() @property
+    {
+        return array.dim;
+    }
+
+    // Necessary because mangling of push(T) is broken for 2.070
+    void push(void* ptr)
+    {
+        push(cast(T)ptr);
+    }
+
+    void push(T ptr)
+    {
+        array.push(ptr);
+        if (tree)
+            tree.stableInsert(cast(void*)ptr);
+    }
+
+    // Insert element iff it is not inside yet. Returns true if the element was inserted.
+    // This is sublinear if ArrayTree was constructed with fastSearch = true,
+    // otherwise a linear search is performed.
+    bool pushIfAbsent(T ptr)
+    {
+        if (tree)
+        {
+            size_t inserted = tree.stableInsert(cast(void*)ptr);
+            if (inserted > 0)
+                array.push(ptr);
+            return inserted > 0;
+        }
+        else
+        {
+            foreach (elem; *array)
+            {
+                if (elem == ptr)
+                {
+                    return false;
+                }
+            }
+            push(ptr);
+            return true;
+        }
+    }
+
+    void append(typeof(this) at)
+    {
+        append(at.getArrayPtr());
+    }
+
+    void append(Array!T* at)
+    {
+        array.append(at);
+        if (tree)
+        {
+            foreach (elem; *at)
+            {
+                tree.stableInsert(cast(void*)elem);
+            }
+        }
+    }
+
+    void remove(size_t i)
+    {
+        array.remove(i);
+        if (tree)
+            tree.removeKey(cast(void*)(*array)[i]);
+    }
+
+    void insert(size_t index, typeof(this) at)
+    {
+        array.insert(index, at.array);
+        if (tree)
+        {
+            foreach (elem; at)
+            {
+                tree.stableInsert(cast(void*)elem);
+            }
+        }
+    }
+
+    void insert(size_t index, T ptr)
+    {
+        array.insert(index, ptr);
+        if (tree)
+            tree.stableInsert(cast(void*)ptr);
+    }
+
+    ref T opIndex(size_t i)
+    {
+        return (*array)[i];
+    }
+
+    // Gets a pointer (!) to the array, not a copy of the array
+    typeof(array) getArrayPtr()
+    {
+        return array;
+    }
+
+    // Makes a deep copy
+    typeof(this)* copy()
+    {
+        auto at = new typeof(this)(null);
+        at.array.setDim(array.dim);
+        memcpy(at.array.data, array.data, array.dim * (void*).sizeof);
+        at.tree = tree ? tree.dup() : null;
+        return at;
+    }
+
+    void shift(T ptr)
+    {
+        array.shift(ptr);
+        if (tree)
+            tree.stableInsert(cast(void*)ptr);
+    }
+
+    int apply(int function(T, void*) fp, void* param)
+    {
+        return array.apply(fp, param);
+    }
+
+    extern (D) T[] opSlice()
+    {
+        return (*array)[];
+    }
+}
+
+}

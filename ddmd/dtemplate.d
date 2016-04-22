@@ -439,7 +439,14 @@ version(IN_LLVM) {
     const(char)* intrinsicName;
 }
 
+version (IN_LLVM)
+{
     extern (D) this(Loc loc, Identifier id, TemplateParameters* parameters, Expression constraint, Dsymbols* decldefs, bool ismixin = false, bool literal = false)
+    {
+        this(loc, id, parameters, constraint, DsymbolsAT.convert(decldefs), ismixin, literal);
+    }
+}
+    extern (D) this(Loc loc, Identifier id, TemplateParameters* parameters, Expression constraint, /+IN_LLVM+/ DsymbolsAT* decldefs, bool ismixin = false, bool literal = false)
     {
         super(id);
         static if (LOG)
@@ -5738,7 +5745,7 @@ public:
 
         // Store the place we added it to in target_symbol_list(_idx) so we can
         // remove it later if we encounter an error.
-        Dsymbols* target_symbol_list = appendToModuleMember();
+        auto target_symbol_list = appendToModuleMember();
         size_t target_symbol_list_idx = target_symbol_list ? target_symbol_list.dim - 1 : 0;
 
         // Copy the syntax trees from the TemplateDeclaration
@@ -5753,8 +5760,16 @@ public:
             if (StorageClass stc = ModToStc(t.mod))
             {
                 //printf("t = %s, stc = x%llx\n", t->toChars(), stc);
-                auto s = new Dsymbols();
-                s.push(new StorageClassDeclaration(stc, members));
+                version (IN_LLVM)
+                {
+                    auto s = new DsymbolsAT(null);
+                    s.push(new StorageClassDeclaration(stc, members.getArrayPtr()));
+                }
+                else
+                {
+                    auto s = new Dsymbols();
+                    s.push(new StorageClassDeclaration(stc, members));
+                }
                 members = s;
             }
             break;
@@ -7407,7 +7422,7 @@ public:
     /*****************************************
      * Append 'this' to the specific module members[]
      */
-    final Dsymbols* appendToModuleMember()
+    final DsymbolsAT* appendToModuleMember()
     {
         Module mi = minst; // instantiated -> inserted module
 
@@ -7457,20 +7472,37 @@ public:
              */
         }
         //printf("\t--> mi = %s\n", mi.toPrettyChars());
-        Dsymbols* a = mi.members;
-        for (size_t i = 0; 1; i++)
+        version(IN_LLVM)
         {
-            if (i == a.dim)
+            auto a = mi.members;
+            bool inserted = a.pushIfAbsent(this);
+            if (inserted)
             {
-                a.push(this);
                 if (mi.semanticRun >= PASSsemantic3done && mi.isRoot())
                     Module.addDeferredSemantic3(this);
-                break;
             }
-            if (this == (*a)[i]) // if already in Array
+            else
             {
                 a = null;
-                break;
+            }
+        }
+        else
+        {
+            Dsymbols* a = mi.members;
+            for (size_t i = 0; 1; i++)
+            {
+                if (i == a.dim)
+                {
+                    a.push(this);
+                    if (mi.semanticRun >= PASSsemantic3done && mi.isRoot())
+                        Module.addDeferredSemantic3(this);
+                    break;
+                }
+                if (this == (*a)[i]) // if already in Array
+                {
+                    a = null;
+                    break;
+                }
             }
         }
         return a;

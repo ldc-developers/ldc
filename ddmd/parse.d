@@ -264,7 +264,7 @@ public:
         //nextToken();              // start up the scanner
     }
 
-    Dsymbols* parseModule()
+    DsymbolsAT* parseModule()
     {
         const(char)* comment = token.blockComment;
         bool isdeprecated = false;
@@ -372,12 +372,12 @@ public:
             error(token.loc, "unrecognized declaration");
             goto Lerr;
         }
-        return decldefs;
+        return DsymbolsAT.convert(decldefs);
     Lerr:
         while (token.value != TOKsemicolon && token.value != TOKeof)
             nextToken();
         nextToken();
-        return new Dsymbols();
+        return new DsymbolsAT(null);
     }
 
     Dsymbols* parseDeclDefs(int once, Dsymbol* pLastDecl = null, PrefixAttributes* pAttrs = null)
@@ -2750,6 +2750,9 @@ public:
         else if (token.value == TOKlcurly)
         {
             //printf("enum definition\n");
+version(IN_LLVM)
+            e.members = new DsymbolsAT(null);
+else
             e.members = new Dsymbols();
             nextToken();
             const(char)* comment = token.blockComment;
@@ -2917,7 +2920,12 @@ public:
                 return new AnonDeclaration(loc, anon == 2, decl);
             }
             else
-                a.members = decl;
+            {
+                version(IN_LLVM)
+                    a.members = DsymbolsAT.convert(decl);
+                else
+                    a.members = decl;
+            }
         }
         else
         {
@@ -7779,6 +7787,9 @@ public:
                 if (token.value != TOKrcurly)
                     error("class member expected");
                 nextToken();
+version(IN_LLVM)
+                cd.members = DsymbolsAT.convert(decl);
+else
                 cd.members = decl;
             }
             Expression e = new NewAnonClassExp(loc, thisexp, newargs, cd, arguments);

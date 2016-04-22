@@ -695,7 +695,7 @@ void codegenModule(IRState *irs, Module *m, bool emitFullModuleInfo) {
   }
 
   // process module members
-  for (unsigned k = 0; k < m->members->dim; k++) {
+  for (unsigned k = 0; k < m->members->dim(); k++) {
     Dsymbol *dsym = (*m->members)[k];
     assert(dsym);
     Declaration_codegen(dsym);
@@ -771,7 +771,7 @@ static void genModuleInfo(Module *m, bool emitFullModuleInfo) {
   llvm::ArrayType *localClassesTy = nullptr;
   ClassDeclarations aclasses;
   // printf("members->dim = %d\n", members->dim);
-  for (size_t i = 0; i < m->members->dim; i++) {
+  for (size_t i = 0; i < m->members->dim(); i++) {
     (*m->members)[i]->addLocalClass(&aclasses);
   }
   // fill inits

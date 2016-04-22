@@ -363,4 +363,95 @@ struct Array
 #endif
 };
 
+#if IN_LLVM
+template <typename TYPE>
+class ArrayTree
+{
+  private:
+    Array<TYPE>* array;
+    void* tree;
+
+  public:
+    static bool fastSearch; // Enable sub-linear lookup
+
+    // The bindings to this D class are intentionally exposing only part of the functionality
+
+    // Disallow C++ construction
+    ArrayTree() = delete;
+
+    ~ArrayTree()
+    {
+        array = nullptr;
+        tree = nullptr;
+    }
+
+    size_t dim()
+    {
+        return array->dim;
+    }
+
+    TYPE& operator[] (d_size_t index)
+    {
+        return (*array)[index];
+    }
+
+    void push(TYPE a); // mangling is broken with 2.070
+    void push(void* a);
+
+#if IN_LLVM
+    // Define members and types like std::vector
+    typedef size_t size_type;
+
+    size_type size()
+    {
+        return array->size();
+    }
+
+    bool empty()
+    {
+        return array->empty();
+    }
+
+    TYPE front()
+    {
+        return array->front();
+    }
+
+    TYPE back()
+    {
+        return array->back();
+    }
+
+    void push_back(TYPE a)
+    {
+        push(a);
+    }
+
+    typedef TYPE *iterator;
+    typedef std::reverse_iterator<iterator> reverse_iterator;
+
+    iterator begin()
+    {
+        return array->begin();
+    }
+
+    iterator end()
+    {
+        return array->end();
+    }
+
+    reverse_iterator rbegin()
+    {
+        return array->rbegin();
+    }
+
+    reverse_iterator rend()
+    {
+        return array->rend();
+    }
+
+#endif
+};
+#endif
+
 #endif
