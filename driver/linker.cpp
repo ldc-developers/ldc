@@ -164,10 +164,15 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
   switch (global.params.targetTriple->getOS()) {
   case llvm::Triple::Linux:
     addSoname = true;
-    args.push_back("-lrt");
     if (!opts::disableLinkerStripDead) {
       args.push_back("-Wl,--gc-sections");
     }
+    if (global.params.targetTriple.getEnvironment() == llvm::Triple::Android) {
+        args.push_back("-ldl");
+        args.push_back("-lm");
+        break;
+    }
+    args.push_back("-lrt");
   // fallthrough
   case llvm::Triple::Darwin:
   case llvm::Triple::MacOSX:

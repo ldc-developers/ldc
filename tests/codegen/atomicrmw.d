@@ -1,4 +1,4 @@
-// RUN: %ldc -c -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
+// RUN: %ldc -c -de -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 
 import core.atomic;
 

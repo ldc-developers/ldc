@@ -271,8 +271,8 @@ struct HFAToArray : ABIRewrite {
 };
 
 /**
-* Rewrite a composite as array of i64.
-*/
+ * Rewrite a composite as array of i64.
+ */
 struct CompositeToArray64 : ABIRewrite {
   LLValue *get(Type *dty, LLValue *v) override {
     Logger::println("rewriting i64 array -> as %s", dty->toChars());
@@ -294,6 +294,33 @@ struct CompositeToArray64 : ABIRewrite {
     // An i64 array that will hold Type 't'
     size_t sz = (t->size() + 7) / 8;
     return LLArrayType::get(LLIntegerType::get(gIR->context(), 64), sz);
+  }
+};
+
+/**
+ * Rewrite a composite as array of i32.
+ */
+struct CompositeToArray32 : ABIRewrite {
+  LLValue *get(Type *dty, LLValue *v) override {
+    Logger::println("rewriting i32 array -> as %s", dty->toChars());
+    LLValue *lval = DtoRawAlloca(v->getType(), 0);
+    DtoStore(v, lval);
+
+    LLType *pTy = getPtrToType(DtoType(dty));
+    return DtoLoad(DtoBitCast(lval, pTy), "get-result");
+  }
+
+  LLValue *put(DValue *dv) override {
+    Type *dty = dv->getType();
+    Logger::println("rewriting %s -> as i32 array", dty->toChars());
+    LLType *t = type(dty, nullptr);
+    return DtoLoad(DtoBitCast(dv->getRVal(), getPtrToType(t)));
+  }
+
+  LLType *type(Type *t, LLType *) override {
+    // An i32 array that will hold Type 't'
+    size_t sz = (t->size() + 3) / 4;
+    return LLArrayType::get(LLIntegerType::get(gIR->context(), 32), sz);
   }
 };
 

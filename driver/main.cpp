@@ -754,8 +754,6 @@ static void registerPredefinedTargetVersions() {
       VersionCondition::addPredefinedGlobalIdent("Android");
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Bionic");
     } else {
-      VersionCondition::addPredefinedGlobalIdent("linux");
-      VersionCondition::addPredefinedGlobalIdent("Posix");
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Glibc");
     }
     break;

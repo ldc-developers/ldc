@@ -18,35 +18,10 @@
 #include "gen/abi-generic.h"
 #include "gen/abi-arm.h"
 
-namespace {
-struct CompositeToArray32 : ABIRewrite {
-  LLValue *get(Type *dty, LLValue *v) override {
-    Logger::println("rewriting i32 array -> as %s", dty->toChars());
-    LLValue *lval = DtoRawAlloca(v->getType(), 0);
-    DtoStore(v, lval);
-
-    LLType *pTy = getPtrToType(DtoType(dty));
-    return DtoLoad(DtoBitCast(lval, pTy), "get-result");
-  }
-
-  LLValue *put(DValue *dv) override {
-    Type *dty = dv->getType();
-    Logger::println("rewriting %s -> as i32 array", dty->toChars());
-    LLType *t = type(dty, nullptr);
-    return DtoLoad(DtoBitCast(dv->getRVal(), getPtrToType(t)));
-  }
-
-  LLType *type(Type *t, LLType *) override {
-    // An i32 array that will hold Type 't'
-    size_t sz = (t->size() + 3) / 4;
-    return LLArrayType::get(LLIntegerType::get(gIR->context(), 32), sz);
-  }
-};
-}
-
 struct ArmTargetABI : TargetABI {
   HFAToArray hfaToArray;
   CompositeToArray32 compositeToArray32;
+  CompositeToArray64 compositeToArray64;
   IntegerRewrite integerRewrite;
 
   bool returnInArg(TypeFunction *tf) override {
@@ -134,9 +109,12 @@ struct ArmTargetABI : TargetABI {
       // non-HFA and messes up register selection
       if (isHFA((TypeStruct *)ty, &arg.ltype)) {
         arg.rewrite = &hfaToArray;
-      } else {
+      } else if (DtoAlignment(ty) <= 4) {
         arg.rewrite = &compositeToArray32;
         arg.ltype = compositeToArray32.type(arg.type, arg.ltype);
+      } else {
+        arg.rewrite = &compositeToArray64;
+        arg.ltype = compositeToArray64.type(arg.type, arg.ltype);
       }
     }
   }
