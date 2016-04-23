@@ -179,7 +179,7 @@ else version( LDC )
     import ldc.intrinsics;
 
     HeadUnshared!(T) atomicOp(string op, T, V1)( ref shared T val, V1 mod )
-        if( __traits( compiles, mixin( "val" ~ op ~ "mod" ) ) )
+        if( __traits( compiles, mixin( "*cast(T*)&val" ~ op ~ "mod" ) ) )
     {
         enum suitedForAtomicRmw = (__traits(isIntegral, T) && __traits(isIntegral, V1) &&
                                    T.sizeof <= AtomicRmwSizeLimit && V1.sizeof <= AtomicRmwSizeLimit);
@@ -366,7 +366,7 @@ else version( LDC )
     // to avoid ambiguities with below "general" floating point definition from
     // the upstream runtime.
     HeadUnshared!T atomicLoad(MemoryOrder ms = MemoryOrder.seq, T)(ref const shared T val)
-        if(!__traits(isFloating, T))
+        if( !__traits(isFloating, T) )
     {
         alias Int = _AtomicType!T;
         auto asInt = llvm_atomic_load!Int(cast(shared(Int)*)cast(void*)&val, _ordering!(ms));
@@ -374,7 +374,7 @@ else version( LDC )
     }
 
     void atomicStore(MemoryOrder ms = MemoryOrder.seq, T, V1)( ref shared T val, V1 newval )
-        if(__traits(compiles, mixin("val = newval")))
+        if( __traits( compiles, { val = newval; } ) )
     {
         alias Int = _AtomicType!T;
         auto target = cast(shared(Int)*)cast(void*)&val;
