@@ -76,13 +76,6 @@ static llvm::ManagedStatic<llvm::LLVMContext> GlobalContext;
 llvm::LLVMContext& getGlobalContext() { return *GlobalContext; }
 
 /******************************************************************************
-* Global context
-******************************************************************************/
-static llvm::ManagedStatic<llvm::LLVMContext> GlobalContext;
-
-llvm::LLVMContext& getGlobalContext() { return *GlobalContext; }
-
-/******************************************************************************
  * DYNAMIC MEMORY HELPERS
  ******************************************************************************/
 

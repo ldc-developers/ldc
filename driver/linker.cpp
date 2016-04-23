@@ -167,7 +167,7 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
     if (!opts::disableLinkerStripDead) {
       args.push_back("-Wl,--gc-sections");
     }
-    if (global.params.targetTriple.getEnvironment() == llvm::Triple::Android) {
+    if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
         args.push_back("-ldl");
         args.push_back("-lm");
         break;

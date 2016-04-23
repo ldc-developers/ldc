@@ -750,6 +750,8 @@ static void registerPredefinedTargetVersions() {
     }
     break;
   case llvm::Triple::Linux:
+    VersionCondition::addPredefinedGlobalIdent("linux");
+    VersionCondition::addPredefinedGlobalIdent("Posix");
     if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
       VersionCondition::addPredefinedGlobalIdent("Android");
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Bionic");
