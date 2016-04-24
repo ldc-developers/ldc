@@ -9,7 +9,7 @@
 
 extern(C):  // simplify name mangling for simpler string matching
 
-// PROFGEN-DAG: @[[BoB:__(llvm_profile_counters|profc)_bunch_of_branches]] = private global [15 x i64] zeroinitializer
+// PROFGEN-DAG: @[[BoB:__(llvm_profile_counters|profc)_bunch_of_branches]] ={{.*}} global [15 x i64] zeroinitializer
 
 // PROFGEN-LABEL: @bunch_of_branches()
 // PROFUSE-LABEL: @bunch_of_branches()

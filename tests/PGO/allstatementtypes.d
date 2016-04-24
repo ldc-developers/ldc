@@ -5,7 +5,7 @@
 
 // RUN: %ldc -boundscheck=off -c -output-ll -fprofile-instr-generate="hoihoihoi" -of=%t.ll %s && FileCheck %s --check-prefix=PROFGEN < %t.ll
 
-// PROFGEN-DAG: @[[FILENAME:.+]] = private constant{{.*}} c"hoihoihoi\00"
+// PROFGEN-DAG: @[[FILENAME:.+]] ={{.*}} constant{{.*}} c"hoihoihoi\00"
 
 // RUN: %ldc -boundscheck=off -fprofile-instr-generate=%t.profraw -run %s  \
 // RUN:   &&  %profdata merge %t.profraw -o %t.profdata \
@@ -14,14 +14,14 @@
 
 extern(C):  // simplify name mangling for simpler string matching
 
-// PROFGEN-DAG: @[[FL:__(llvm_profile_counters|profc)_for_loop]] = private global [7 x i64] zeroinitializer
-// PROFGEN-DAG: @[[FEL:__(llvm_profile_counters|profc)_foreach_loop]] = private global [5 x i64] zeroinitializer
-// PROFGEN-DAG: @[[FERL:__(llvm_profile_counters|profc)_foreachrange_loop]] = private global [6 x i64] zeroinitializer
-// PROFGEN-DAG: @[[LG:__(llvm_profile_counters|profc)_label_goto]] = private global [7 x i64] zeroinitializer
-// PROFGEN-DAG: @[[SWC:__(llvm_profile_counters|profc)_c_switches]] = private global [23 x i64] zeroinitializer
-// PROFGEN-DAG: @[[DSW:__(llvm_profile_counters|profc)_d_switches]] = private global [15 x i64] zeroinitializer
-// PROFGEN-DAG: @[[BOOL:__(llvm_profile_counters|profc)_booleanlogic]] = private global [9 x i64] zeroinitializer
-// PROFGEN-DAG: @[[DW:__(llvm_profile_counters|profc)_do_while]] = private global [6 x i64] zeroinitializer
+// PROFGEN-DAG: @[[FL:__(llvm_profile_counters|profc)_for_loop]] ={{.*}} global [7 x i64] zeroinitializer
+// PROFGEN-DAG: @[[FEL:__(llvm_profile_counters|profc)_foreach_loop]] ={{.*}} global [5 x i64] zeroinitializer
+// PROFGEN-DAG: @[[FERL:__(llvm_profile_counters|profc)_foreachrange_loop]] ={{.*}} global [6 x i64] zeroinitializer
+// PROFGEN-DAG: @[[LG:__(llvm_profile_counters|profc)_label_goto]] ={{.*}} global [7 x i64] zeroinitializer
+// PROFGEN-DAG: @[[SWC:__(llvm_profile_counters|profc)_c_switches]] ={{.*}} global [23 x i64] zeroinitializer
+// PROFGEN-DAG: @[[DSW:__(llvm_profile_counters|profc)_d_switches]] ={{.*}} global [15 x i64] zeroinitializer
+// PROFGEN-DAG: @[[BOOL:__(llvm_profile_counters|profc)_booleanlogic]] ={{.*}} global [9 x i64] zeroinitializer
+// PROFGEN-DAG: @[[DW:__(llvm_profile_counters|profc)_do_while]] ={{.*}} global [6 x i64] zeroinitializer
 
 // PROFGEN-LABEL: @for_loop()
 // PROFUSE-LABEL: @for_loop()

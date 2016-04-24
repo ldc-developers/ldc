@@ -11,10 +11,10 @@
 
 extern(C):  // simplify name mangling for simpler string matching
 
-// PROFGEN-DAG: @[[TC:__(llvm_profile_counters|profc)_try_catch]] = private global [9 x i64] zeroinitializer
+// PROFGEN-DAG: @[[TC:__(llvm_profile_counters|profc)_try_catch]] ={{.*}} global [9 x i64] zeroinitializer
 // FIXME: fix the nr of counter entries:
-// PROFGEN-DAG: @[[TF:__(llvm_profile_counters|profc)_try_finally]] = private global [{{[0-9]+}} x i64] zeroinitializer
-// PROFGEN-DAG: @[[SCP:__(llvm_profile_counters|profc)_scope_stmts]] = private global [{{[0-9]+}} x i64] zeroinitializer
+// PROFGEN-DAG: @[[TF:__(llvm_profile_counters|profc)_try_finally]] ={{.*}} global [{{[0-9]+}} x i64] zeroinitializer
+// PROFGEN-DAG: @[[SCP:__(llvm_profile_counters|profc)_scope_stmts]] ={{.*}} global [{{[0-9]+}} x i64] zeroinitializer
 
 // Simple classes to disambiguate different throw statements
 class ExceptionTwo : Exception {

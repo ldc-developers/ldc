@@ -9,8 +9,8 @@
 
 extern(C):  // simplify name mangling for simpler string matching
 
-// PROFGEN-DAG: @[[BREAK:__(llvm_profile_counters|profc)_testbreak]] = private global [8 x i64] zeroinitializer
-// PROFGEN-DAG: @[[CONT:__(llvm_profile_counters|profc)_testcontinue]] = private global [8 x i64] zeroinitializer
+// PROFGEN-DAG: @[[BREAK:__(llvm_profile_counters|profc)_testbreak]] ={{.*}} global [8 x i64] zeroinitializer
+// PROFGEN-DAG: @[[CONT:__(llvm_profile_counters|profc)_testcontinue]] ={{.*}} global [8 x i64] zeroinitializer
 
 // PROFGEN-LABEL: @testbreak({{.*}})
 // PROFUSE-LABEL: @testbreak({{.*}})

@@ -2,7 +2,7 @@
 
 // RUN: %ldc -c -output-ll -fprofile-instr-generate -of=%t.ll %s && FileCheck %s < %t.ll
 
-// CHECK-DAG: @__{{(llvm_profile_counters|profc)}}__Dmain = private global [1 x i64] zeroinitializer
+// CHECK-DAG: @__{{(llvm_profile_counters|profc)}}__Dmain ={{.*}} [1 x i64] zeroinitializer
 // CHECK-NOT: @__{{(llvm_profile_counters|profc)}}_main
 
 void main() {}

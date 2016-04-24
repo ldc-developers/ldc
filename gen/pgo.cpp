@@ -24,6 +24,7 @@
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/recursivevisitor.h"
+#include "gen/tollvm.h"
 
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/MDBuilder.h"
@@ -771,8 +772,17 @@ void CodeGenPGO::setFuncName(llvm::StringRef Name,
                                             : llvm::IndexedInstrProf::Version);
 
   // If we're generating a profile, create a variable for the name.
-  if (global.params.genInstrProf && emitInstrumentation)
+  if (global.params.genInstrProf && emitInstrumentation) {
     FuncNameVar = llvm::createPGOFuncNameVar(gIR->module, Linkage, FuncName);
+
+    // If Linkage is private, and the function is in a comdat "any" group, set
+    // the linkage to internal to prevent LLVM from erroring with "comdat global
+    // value has private linkage".
+    if (supportsCOMDAT() &&
+        FuncNameVar->getLinkage() == llvm::GlobalValue::PrivateLinkage) {
+      FuncNameVar->setLinkage(llvm::GlobalValue::InternalLinkage);
+    }
+  }
 #else
   llvm::StringRef RawFuncName = Name;
   // Function names may be prefixed with a binary '1' to indicate
