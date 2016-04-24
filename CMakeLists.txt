@@ -569,7 +569,12 @@ if(MSVC)
     # Set LDC's stack to 8MB also on Windows:
     append("-L/STACK:8388608" tempVar)
 else()
-    append("-L-lstdc++" tempVar)
+    if (${CMAKE_EXE_LINKER_FLAGS} MATCHES ".*stdlib=libc\\+\\+.*")
+        message(STATUS "Linking with libc++")
+        append("-L-lc++" tempVar)
+    else()
+        append("-L-lstdc++" tempVar)
+    endif()
 endif()
 
 separate_arguments(LDC_FLAG_LIST WINDOWS_COMMAND "${tempVar} ${D_COMPILER_FLAGS} ${DDMD_DFLAGS}")
