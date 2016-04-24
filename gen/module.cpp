@@ -699,16 +699,17 @@ static void loadInstrProfileData(IRState *irs) {
     }
     irs->PGOReader = std::move(readerOrErr.get());
 
-#if LDC_LLVM_VER >= 308
-    auto maxCount = irs->PGOReader->getMaximumFunctionCount();
-    auto optionalCount = irs->module.getMaximumFunctionCount();
-    if (optionalCount) {
-      maxCount = std::max(maxCount, optionalCount.getValue());
+#if LDC_LLVM_VER >= 309
+    if (!irs->module.getProfileSummary()) {
+      // Don't reset the summary. There is only one profile data file per LDC invocation
+      // so the summary must be the same as the one that is already set.
+      irs->module.setProfileSummary(irs->PGOReader->getSummary().getMD(irs->context()));
     }
-    if (!optionalCount) {
-    // TODO: Merge MaximumFunctionCount if it is already defined for the module.
-    //       LLVM currently does not support resetting the maximum function
-    //       count using setMaximumFunctionCount.
+#elif LDC_LLVM_VER == 308
+    auto maxCount = irs->PGOReader->getMaximumFunctionCount();
+    if (!irs->module.getMaximumFunctionCount()) {
+      // Don't reset the max function count. There is only one profile data file per LDC
+      // invocation so the information must be the same as the one that is already set.
       irs->module.setMaximumFunctionCount(maxCount);
     }
 #endif
