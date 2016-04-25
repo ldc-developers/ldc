@@ -37,12 +37,17 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MD5.h"
 
-#if LDC_LLVM_VER >= 309
+#ifdef LDC_WITH_PGO_VALUEPROFILING
 namespace {
+
+// ICP is not available for LLVM < 3.9
+#if LDC_LLVM_VER >= 309
 llvm::cl::opt<bool>
     enablePGOIndirectCalls("fprofile-indirect-calls", llvm::cl::ZeroOrMore,
                            llvm::cl::desc("Enable PGO of indirect calls"),
                            llvm::cl::init(false));
+#endif
+
 llvm::cl::opt<bool>
     enablePGOVirtualCalls("fprofile-virtual-calls", llvm::cl::ZeroOrMore,
                           llvm::cl::desc("Enable PGO of virtual calls"),
@@ -52,7 +57,7 @@ llvm::cl::opt<bool>
 // for which no codegen is done.
 llvm::DenseMap<uint64_t, ClassDeclaration *> HashToClassDecl;
 }
-#endif //  LDC_LLVM_VER >= 309
+#endif // LDC_WITH_PGO_VALUEPROFILING
 
 /// \brief Stable hasher for PGO region counters.
 ///
@@ -857,7 +862,7 @@ void CodeGenPGO::assignRegionCounters(const FuncDeclaration *D,
   emitInstrumentation = D->emitInstrumentation;
   setFuncName(fn);
 
-#if LDC_LLVM_VER >= 309
+#ifdef LDC_WITH_PGO_VALUEPROFILING
   // Reset Value Profile Data. TODO: Find better place
   NumValueSites.fill(0);
   ProfRecord = nullptr;
@@ -1096,10 +1101,14 @@ llvm::MDNode *CodeGenPGO::createProfileWeightsForeachRange(
 
 // This method either inserts a call to the profile run-time during
 // instrumentation or puts profile data into metadata for PGO use.
-// Does nothing for LLVM < 3.9.
+// Does nothing when when PGO of indirect calls is disabled.
 void CodeGenPGO::valueProfileIndirectCall(llvm::Instruction *valueSite,
                                           llvm::Value *valuePtr) {
+#ifdef LDC_WITH_PGO_VALUEPROFILING
+
+// ICP is not available for LLVM < 3.9
 #if LDC_LLVM_VER >= 309
+
   if (!enablePGOIndirectCalls)
     return;
 
@@ -1148,12 +1157,15 @@ void CodeGenPGO::valueProfileIndirectCall(llvm::Instruction *valueSite,
 
     NumValueSites[valueKind]++;
   }
-#endif // LLVM >= 3.9
+#endif // if LDC_LLVM_VER >= 309
+#endif // LDC_WITH_PGO_VALUEPROFILING
 }
 
 // A function that informs CodeGenPGO that ICP value profile was not used.
 // Needed to advance NumValueSites[valueKind]
 void CodeGenPGO::valueProfileIndirectCallUnused() {
+#ifdef LDC_WITH_PGO_VALUEPROFILING
+// ICP is not available for LLVM < 3.9
 #if LDC_LLVM_VER >= 309
   if (!enablePGOIndirectCalls)
     return;
@@ -1166,15 +1178,15 @@ void CodeGenPGO::valueProfileIndirectCallUnused() {
 
     NumValueSites[valueKind]++;
   }
-#endif // LLVM >= 3.9
+#endif // if LDC_LLVM_VER >= 309
+#endif // LDC_WITH_PGO_VALUEPROFILING
 }
 
 ///////////////////////////////////////////////////
 // Functions for PGO of virtual calls
 
-// Does nothing for LLVM < 3.9.
 void CodeGenPGO::createVTableInstrumentationVariables(ClassDeclaration *cd) {
-#if LDC_LLVM_VER >= 309
+#ifdef LDC_WITH_PGO_VALUEPROFILING
 
   if (!enablePGOVirtualCalls || !cd)
     return;
@@ -1217,7 +1229,11 @@ void CodeGenPGO::createVTableInstrumentationVariables(ClassDeclaration *cd) {
       // Create data variable.
       llvm::Type *DataTypes[] = {
 #define INSTR_PROF_DATA(Type, LLVMType, Name, Init) LLVMType,
+#if LDC_LLVM_VER == 309
 #include "runtime/profile-rt/profile-rt-39/InstrProfData.inc"
+#elif LDC_LLVM_VER == 308
+#include "runtime/profile-rt/profile-rt-38/InstrProfData.inc"
+#endif
       };
       auto *DataTy = llvm::StructType::get(Ctx, makeArrayRef(DataTypes));
 
@@ -1242,6 +1258,7 @@ void CodeGenPGO::createVTableInstrumentationVariables(ClassDeclaration *cd) {
       CounterPtr->setAlignment(8);
       // CounterPtr->setComdat(ProfileVarsComdat);
 
+#if LDC_LLVM_VER >= 309
       Constant *DataVals[] = {
           ConstantInt::get(llvm::Type::getInt64Ty(Ctx), VTableHash),
           ConstantInt::get(llvm::Type::getInt64Ty(Ctx), VTableHash),
@@ -1250,6 +1267,18 @@ void CodeGenPGO::createVTableInstrumentationVariables(ClassDeclaration *cd) {
           ConstantPointerNull::get(Int8PtrTy),
           ConstantInt::get(llvm::Type::getInt32Ty(Ctx), NumCounters),
           ConstantArray::get(Int16ArrayTy, Int16ArrayVals)};
+#elif LDC_LLVM_VER == 308
+      Constant *DataVals[] = {
+          ConstantInt::get(llvm::Type::getInt32Ty(Ctx), Name.size()),
+          ConstantInt::get(llvm::Type::getInt32Ty(Ctx), NumCounters),
+          ConstantInt::get(llvm::Type::getInt64Ty(Ctx), VTableHash),
+          FuncNameVar,
+          ConstantExpr::getBitCast(CounterPtr, llvm::Type::getInt64PtrTy(Ctx)),
+          FunctionAddr,
+          ConstantPointerNull::get(Int8PtrTy),
+          ConstantArray::get(Int16ArrayTy, Int16ArrayVals)};
+#endif
+
       auto *Data = new llvm::GlobalVariable(
           gIR->module, DataTy, false, FuncNameVar->getLinkage(),
           ConstantStruct::get(DataTy, DataVals),
@@ -1266,15 +1295,14 @@ void CodeGenPGO::createVTableInstrumentationVariables(ClassDeclaration *cd) {
     }
   }
 
-#endif // LLVM >= 3.9
+#endif // LDC_WITH_PGO_VALUEPROFILING
 }
 
-// Does nothing for LLVM < 3.9.
 llvm::Value *CodeGenPGO::valueProfileVTable(llvm::Value *vtblPtr, int vtblIndex,
                                             llvm::Value *funcPtr) {
   llvm::Value *retVal = nullptr;
 
-#if LDC_LLVM_VER >= 309
+#ifdef LDC_WITH_PGO_VALUEPROFILING
   if (!enablePGOVirtualCalls)
     return retVal;
 
@@ -1318,13 +1346,23 @@ llvm::Value *CodeGenPGO::valueProfileVTable(llvm::Value *vtblPtr, int vtblIndex,
     if (NV < 1) // Not enough values
       return retVal;
 
+#if LDC_LLVM_VER >= 309
     auto values = ProfRecord->getValueForSite(valueKind, SiteIdx, &Sum);
+#else
+    auto values = ProfRecord->getValueForSite(valueKind, SiteIdx);
+#endif
+    if (!values)
+      return retVal;
+    llvm::ArrayRef<InstrProfValueData> VDs(values.get(), NV);
+
+#if LDC_LLVM_VER < 309
+    for (auto &v : VDs) {
+      Sum += v.Value;
+    }
+#endif
+
     if (Sum < 1000) // Not enough statistical data
       return retVal;
-
-    std::unique_ptr<InstrProfValueData[]> data =
-        ProfRecord->getValueForSite(valueKind, SiteIdx, &Sum);
-    llvm::ArrayRef<InstrProfValueData> VDs(data.get(), NV);
 
     auto mostOftenVD = VDs[0];
     auto requiredFraction = 0.8;
@@ -1391,7 +1429,7 @@ llvm::Value *CodeGenPGO::valueProfileVTable(llvm::Value *vtblPtr, int vtblIndex,
 
     return retVal;
   }
-#endif // LLVM >= 3.9
+#endif // LDC_WITH_PGO_VALUEPROFILING
 
   return retVal;
 }

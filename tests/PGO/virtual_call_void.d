@@ -1,10 +1,10 @@
 // Test VCP of functions returning void (no phi node)
 
-// RUN: %ldc -c -output-ll -fprofile-instr-generate -fprofile-indirect-calls -fprofile-virtual-calls -of=%t.ll %s && FileCheck %s --check-prefix=PROFGEN < %t.ll
+// RUN: %ldc -c -output-ll -fprofile-instr-generate -fprofile-virtual-calls -of=%t.ll %s && FileCheck %s --check-prefix=PROFGEN < %t.ll
 
-// RUN: %ldc -fprofile-instr-generate=%t.profraw  -fprofile-indirect-calls -fprofile-virtual-calls -run %s  \
+// RUN: %ldc -fprofile-instr-generate=%t.profraw  -fprofile-virtual-calls -run %s  \
 // RUN:   &&  %profdata merge %t.profraw -o %t.profdata \
-// RUN:   &&  %ldc -O3 -release -c -output-ll -of=%t2.ll -fprofile-instr-use=%t.profdata -fprofile-indirect-calls -fprofile-virtual-calls %s \
+// RUN:   &&  %ldc -O3 -release -c -output-ll -of=%t2.ll -fprofile-instr-use=%t.profdata -fprofile-virtual-calls %s \
 // RUN:   &&  FileCheck %s -check-prefix=PROFUSE < %t2.ll
 
 module mod;

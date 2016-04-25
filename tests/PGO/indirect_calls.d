@@ -1,5 +1,7 @@
 // Test instrumentation of C-style indirect calls
 
+// REQUIRES: atleast_llvm309
+
 // RUN: %ldc -c -output-ll -fprofile-instr-generate -fprofile-indirect-calls -of=%t.ll %s && FileCheck %s --check-prefix=PROFGEN < %t.ll
 
 // RUN: %ldc -fprofile-instr-generate=%t.profraw -fprofile-indirect-calls -run %s  \

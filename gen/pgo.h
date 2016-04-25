@@ -96,6 +96,10 @@ public:
 
 #else
 
+#if LDC_LLVM_VER >= 308
+  #define LDC_WITH_PGO_VALUEPROFILING
+#endif
+
 /// Keeps per-function PGO state.
 class CodeGenPGO {
 public:
@@ -192,7 +196,7 @@ private:
   std::vector<uint64_t> RegionCounts;
   uint64_t CurrentRegionCount;
 
-#if LDC_LLVM_VER >= 309
+#ifdef LDC_WITH_PGO_VALUEPROFILING
   std::array<unsigned, llvm::IPVK_Last + 1> NumValueSites;
   std::unique_ptr<llvm::InstrProfRecord> ProfRecord;
 #endif
