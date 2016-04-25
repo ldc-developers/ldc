@@ -25,6 +25,7 @@
 #define COMPILER_RT_MAX_HOSTLEN 128
 #ifdef _MSC_VER
 #define COMPILER_RT_GETHOSTNAME(Name, Len) gethostname(Name, Len)
+#pragma comment(lib, "Ws2_32.lib")
 #elif defined(__PS4__)
 #define COMPILER_RT_GETHOSTNAME(Name, Len) (-1)
 #else
