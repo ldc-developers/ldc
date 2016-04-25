@@ -13,6 +13,7 @@
 #include "target.h"
 #include "pragma.h"
 #include "gen/abi.h"
+#include "gen/classes.h"
 #include "gen/dvalue.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
@@ -696,8 +697,19 @@ private:
       // __require/__ensure as the needed parameters are passed
       // explicitly, while in D1, the normal nested function handling
       // mechanisms are used)
-      LLValue *thisarg =
-          DtoBitCast(DtoLoad(gIR->func()->thisArg), getVoidPtrType());
+      LLValue *thisptr = DtoLoad(gIR->func()->thisArg);
+      if (auto parentfd = dfnval->func->parent->isFuncDeclaration()) {
+        if (auto iface = parentfd->parent->isInterfaceDeclaration()) {
+          // an interface contract expects the interface pointer, not the
+          //  class pointer
+          Type *thistype = gIR->func()->decl->vthis->type;
+          if (thistype != iface->type) {
+            DImValue *dthis = new DImValue(thistype, thisptr);
+            thisptr = DtoCastClass(loc, dthis, iface->type)->getRVal();
+          }
+        }
+      }
+      LLValue *thisarg = DtoBitCast(thisptr, getVoidPtrType());
       args.push_back(thisarg);
     } else if (thiscall && dfnval && dfnval->vthis) {
       // ... or a normal 'this' argument
