@@ -240,6 +240,11 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     string(REPLACE "-Wcovered-switch-default " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
     string(REPLACE "-fcolor-diagnostics " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
 endif()
+# LLVM_CXXFLAGS may contain -Wno-maybe-uninitialized
+# which is gcc-only options
+if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
+    string(REPLACE "-Wno-maybe-uninitialized " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+endif()
 
 
 # Compiles the given D module into an object file.
@@ -574,10 +579,18 @@ if(MSVC)
     # Set LDC's stack to 8MB also on Windows:
     append("-L/STACK:8388608" tempVar)
 else()
-    if (${CMAKE_EXE_LINKER_FLAGS} MATCHES ".*stdlib=libc\\+\\+.*")
-        message(STATUS "Linking with libc++")
-        append("-L-lc++" tempVar)
+    if(${D_COMPILER_ID} STREQUAL "LDC" OR ${D_COMPILER_ID} STREQUAL "LDMD")
+        # Translate flags from CMAKE_EXE_LINKER_FLAGS
+        if(NOT "${CMAKE_EXE_LINKER_FLAGS}" STREQUAL "")
+            separate_arguments(flags UNIX_COMMAND "${CMAKE_EXE_LINKER_FLAGS}")
+            foreach(f ${flags})
+                append("-L${f}" tempVar)
+            endforeach()
+        endif()
+        # Use the C++ compiler for linking - only for ldc or ldmd.
+        append("-gcc=${CMAKE_CXX_COMPILER}" tempVar)
     else()
+        # Link against libstdc++
         append("-L-lstdc++" tempVar)
     endif()
 endif()
