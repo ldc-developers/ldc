@@ -110,6 +110,17 @@ endif()
 # DMD syntax for all the flags so we can work with both DMD and LDMD.
 set(DDMD_DFLAGS "-wi")
 set(DDMD_LFLAGS "")
+if(NOT MSVC_IDE)
+    # for multi-config builds, these options have to be added later to the custom command
+    if(CMAKE_BUILD_TYPE MATCHES "Debug")
+        append("-g -link-debuglib" DDMD_FLAGS)
+    elseif(CMAKE_BUILD_TYPE MATCHES "RelWithDebInfo")
+        append("-g -O -inline -release" DDMD_DFLAGS)
+    else()
+        # Default to a Release build type
+        append("-O -inline -release" DDMD_DFLAGS)
+    endif()
+endif()
 
 if(MSVC)
     if(${D_COMPILER_ID} STREQUAL "DigitalMars")
@@ -572,13 +583,21 @@ endif()
 
 # CONFIG generator expressions need to be repeated due to https://cmake.org/Bug/view.php?id=14353
 separate_arguments(LDC_FLAG_LIST WINDOWS_COMMAND "${tempVar} ${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS}")
-add_custom_command(
-    OUTPUT ${LDC_EXE_FULL}
-    COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:${LDC_LIB}> ${LDC_FLAG_LIST} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${LDC_EXE_FULL} ${LDC_D_SOURCE_FILES} $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:-g> $<$<NOT:$<CONFIG:Debug>>:-O> $<$<NOT:$<CONFIG:Debug>>:-inline> $<$<NOT:$<CONFIG:Debug>>:-release>
-    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    DEPENDS ${LDC_D_SOURCE_FILES} ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d ${LDC_LIB}
-)
-
+if(MSVC_IDE)
+    add_custom_command(
+        OUTPUT ${LDC_EXE_FULL}
+        COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:${LDC_LIB}> ${LDC_FLAG_LIST} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${LDC_EXE_FULL} ${LDC_D_SOURCE_FILES} $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:-g> $<$<NOT:$<CONFIG:Debug>>:-O> $<$<NOT:$<CONFIG:Debug>>:-inline> $<$<NOT:$<CONFIG:Debug>>:-release>
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        DEPENDS ${LDC_D_SOURCE_FILES} ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d ${LDC_LIB}
+    )
+else()
+    add_custom_command(
+        OUTPUT ${LDC_EXE_FULL}
+        COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:${LDC_LIB}> ${LDC_FLAG_LIST} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${LDC_EXE_FULL} ${LDC_D_SOURCE_FILES}
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        DEPENDS ${LDC_D_SOURCE_FILES} ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d ${LDC_LIB}
+    )
+endif()
 
 if(MSVC_IDE)
     # the IDE generator is a multi-config one
