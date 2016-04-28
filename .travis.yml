@@ -65,6 +65,7 @@ matrix:
   allow_failures:
     - env: LLVM_CONFIG="llvm-config-3.9"
 script:
+  - cmake --version
   - cmake -DLLVM_CONFIG=$(which ${LLVM_CONFIG}) $OPTS .
   - make -j3
   # Outputs some environment info, plus makes sure we only run the test suite
