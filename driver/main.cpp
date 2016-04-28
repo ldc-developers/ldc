@@ -1030,6 +1030,9 @@ int cppmain(int argc, char **argv) {
     global.params.isLP64 = gDataLayout->getPointerSizeInBits() == 64;
     global.params.is64bit = triple->isArch64Bit();
     global.params.hasObjectiveC = objc_isSupported(*triple);
+    // mscoff enables slightly different handling of interface functions 
+    // in the front end
+    global.params.mscoff = triple->isKnownWindowsMSVCEnvironment();
   }
 
   // allocate the target abi

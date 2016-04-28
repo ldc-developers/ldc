@@ -857,7 +857,15 @@ void DtoDefineFunction(FuncDeclaration *fd) {
 
     LLValue *thismem = thisvar;
     if (!irFty.arg_this->byref) {
-      thismem = DtoAllocaDump(thisvar, 0, "this");
+      if (fd->interfaceVirtual) {
+        // Adjust the 'this' pointer instead of using a thunk
+        LLType *targetThisType = thismem->getType();
+        thismem = DtoBitCast(thismem, getVoidPtrType());
+        auto off = DtoConstInt(-fd->interfaceVirtual->offset);
+        thismem = DtoGEP1(thismem, off, true);
+        thismem = DtoBitCast(thismem, targetThisType);
+      }
+      thismem = DtoAllocaDump(thismem, 0, "this");
       irFunc->thisArg = thismem;
     }
 

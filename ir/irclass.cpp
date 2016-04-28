@@ -335,6 +335,14 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
 
     assert(irFunc->irFty.arg_this);
 
+    int thunkOffset = b->offset;
+    if (fd->interfaceVirtual)
+      thunkOffset -= fd->interfaceVirtual->offset;
+    if (thunkOffset == 0) {
+      constants.push_back(irFunc->func);
+      continue;
+    }
+
     // Create the thunk function if it does not already exist in this
     // module.
     OutBuffer nameBuf;
@@ -403,7 +411,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
                                    : 1];
       LLType *targetThisType = thisArg->getType();
       thisArg = DtoBitCast(thisArg, getVoidPtrType());
-      thisArg = DtoGEP1(thisArg, DtoConstInt(-b->offset), true);
+      thisArg = DtoGEP1(thisArg, DtoConstInt(-thunkOffset), true);
       thisArg = DtoBitCast(thisArg, targetThisType);
 
       // all calls that might be subject to inlining into a caller with debug
