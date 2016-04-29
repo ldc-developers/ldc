@@ -444,6 +444,7 @@ source_group("Generated Files" REGULAR_EXPRESSION "(id\\.[cdh]|impcnvtab\\.c)$")
 #
 set(LDC_WITH_PGO False)  # must be a valid Python boolean constant (case sensitive)
 if (NOT (LDC_LLVM_VER LESS 307))
+    message(STATUS "Building LDC with PGO support")
     add_definitions(-DLDC_WITH_PGO)
     set(LDC_WITH_PGO True)
 endif()
