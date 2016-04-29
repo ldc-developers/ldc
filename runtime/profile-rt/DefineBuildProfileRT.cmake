@@ -65,7 +65,7 @@ if (LDC_WITH_PGO)
         endforeach()
     endmacro()
 
-    macro(build_profile_runtime c_flags ld_flags path_suffix outlist_targets)
+    macro(build_profile_runtime d_flags c_flags ld_flags path_suffix outlist_targets)
         get_target_suffix("" "${path_suffix}" target_suffix)
 
         set(output_path ${CMAKE_BINARY_DIR}/lib${path_suffix})
@@ -87,7 +87,7 @@ if (LDC_WITH_PGO)
             LINK_FLAGS                  "${ld_flags}"
         )
 
-        list(APPEND ${outlist_targets} ldc-profile-rt)
+        list(APPEND ${outlist_targets} "ldc-profile-rt${target_suffix}")
     endmacro()
 
     # Install D interface files to profile-rt.
