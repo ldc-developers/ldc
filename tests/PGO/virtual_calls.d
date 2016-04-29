@@ -93,7 +93,7 @@ void indirect_optim()
 
         // No VTable check, instead the "normal" indirect call optimization
         // PROFUSE:  [[REGCOND2:%[0-9]+]] = icmp eq i32 ({{.*}})* [[REG2:%a.getNum]], @_D3mod1A6getNumMFiZi
-        // PROFUSE:  br i1 [[REGCOND2]], label %if.true, label %if.false, !prof ![[INDIRbr:[0-9]+]]
+        // PROFUSE:  br i1 [[REGCOND2]], label %{{.*}}, label %{{.*}}, !prof ![[INDIRbr:[0-9]+]]
         // PROFUSE:  if.true
         // PROFUSE-NEXT:  shl
         // PROFUSE:  if.false
