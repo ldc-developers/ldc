@@ -908,6 +908,17 @@ struct tls_index
     size_t ti_offset;
 }
 
+version(LDC)
+{
+    version(PPC64)
+    {
+        extern(C) void* __tls_get_addr_opt(tls_index* ti);
+        alias __tls_get_addr = __tls_get_addr_opt;
+    }
+    else
+        extern(C) void* __tls_get_addr(tls_index* ti);
+}
+else
 extern(C) void* __tls_get_addr(tls_index* ti);
 
 /* The dynamic thread vector (DTV) pointers may point 0x8000 past the start of
