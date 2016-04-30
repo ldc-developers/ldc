@@ -153,7 +153,11 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
     // Don't push -l and -L switches using -Xlinker, but pass them indirectly
     // via GCC. This makes sure user-defined paths take precedence over
     // GCC's builtin LIBRARY_PATHs.
-    if (!p[0] || !(p[0] == '-' && (p[1] == 'l' || p[1] == 'L'))) {
+    // Options starting with -shared and -static are not handled by
+    // the linker and must be passed to the driver.
+    auto str = llvm::StringRef(p);
+    if (!(str.startswith("-l") || str.startswith("-L") ||
+          str.startswith("-shared") || str.startswith("-static"))) {
       args.push_back("-Xlinker");
     }
     args.push_back(p);
