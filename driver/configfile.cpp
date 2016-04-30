@@ -158,7 +158,7 @@ bool ConfigFile::locate() {
   return false;
 }
 
-bool ConfigFile::read(const char *explicitConfFile) {
+bool ConfigFile::read(const char *explicitConfFile, const char* section) {
   // explicitly provided by user in command line?
   if (explicitConfFile) {
     const std::string clPath = explicitConfFile;
@@ -188,14 +188,21 @@ bool ConfigFile::read(const char *explicitConfFile) {
     return false;
   }
 
+  config_setting_t *root = nullptr;
+  if (section && *section)
+    root = config_lookup(cfg, section);
+
   // make sure there's a default group
-  config_setting_t *root = config_lookup(cfg, "default");
+  if (!root) {
+    section = "default";
+    root = config_lookup(cfg, section);
+  }
   if (!root) {
     std::cerr << "no default settings in configuration file" << std::endl;
     return false;
   }
   if (!config_setting_is_group(root)) {
-    std::cerr << "default is not a group" << std::endl;
+    std::cerr << section << " is not a group" << std::endl;
     return false;
   }
 

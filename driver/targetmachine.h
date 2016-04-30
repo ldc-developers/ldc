@@ -32,6 +32,8 @@ enum Type { Unknown, O32, N32, N64, EABI };
 }
 
 namespace llvm {
+class Triple;
+class Target;
 class TargetMachine;
 }
 
@@ -56,5 +58,9 @@ llvm::TargetMachine *createTargetMachine(
  * for Mips).
  */
 MipsABI::Type getMipsABI();
+
+// Looks up a target based on an arch name and a target triple.
+const llvm::Target *lookupTarget(const std::string &arch, llvm::Triple &triple,
+                                 std::string &errorMsg);
 
 #endif // LDC_DRIVER_TARGET_H
