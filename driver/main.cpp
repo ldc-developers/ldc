@@ -298,18 +298,26 @@ static const char *tryGetExplicitConfFile(int argc, char **argv) {
 }
 
 static llvm::Triple tryGetExplicitTriple(int argc, char **argv) {
+  // most combinations of flags are illegal, this mimicks command line
+  //  behaviour for legal ones only
   llvm::Triple triple(llvm::sys::getDefaultTargetTriple());
+  const char* mtriple = nullptr;
+  const char* march = nullptr;
   for (int i = 1; i < argc; ++i) {
-    if (strcmp(argv[i], "-m32") == 0) {
-      triple = triple.get32BitArchVariant();
-    } else if (strcmp(argv[i], "-m64") == 0) {
-      triple = triple.get64BitArchVariant();
-    } else if (strcmp(argv[i], "-mtriple=") == 0) {
-      triple = llvm::Triple(llvm::Triple::normalize(argv[i] + 9));
-    } else if (strcmp(argv[i], "-march=") == 0) {
+    if (strcmp(argv[i], "-m32") == 0)
+      return triple.get32BitArchVariant();
+    else if (strcmp(argv[i], "-m64") == 0)
+      return triple.get64BitArchVariant();
+    else if (strcmp(argv[i], "-mtriple=") == 0)
+      mtriple = argv[i] + 9;
+    else if (strcmp(argv[i], "-march=") == 0)
+      march = argv[i] + 7;
+  }
+  if (mtriple)
+      triple = llvm::Triple(llvm::Triple::normalize(mtriple));
+  if (march) {
       std::string errorMsg; // ignore error, will show up later anyway
-      lookupTarget(argv[i] + 7, triple, errorMsg); 
-    }
+      lookupTarget(march, triple, errorMsg); // modifies triple
   }
   return triple;
 }
