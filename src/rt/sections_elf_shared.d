@@ -736,6 +736,11 @@ void scanSegments(in ref dl_phdr_info info, DSO* pdso)
             assert(!pdso._tlsSize); // is unique per DSO
             pdso._tlsMod = info.dlpi_tls_modid;
             pdso._tlsSize = phdr.p_memsz;
+
+            // align to multiple of size_t to avoid misaligned scanning
+            // (size is subtracted from TCB address to get base of TLS)
+            immutable mask = size_t.sizeof - 1;
+            pdso._tlsSize = (pdso._tlsSize + mask) & ~mask;
             break;
 
         default:
