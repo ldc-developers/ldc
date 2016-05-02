@@ -519,6 +519,10 @@ struct IrFunction {
 
   IrFuncTy irFty;
 
+  /// Stores the FastMath options for this functions.
+  /// These are set e.g. by math related UDA's from ldc.attributes.
+  llvm::FastMathFlags FMF;
+
 private:
   llvm::AllocaInst *ehPtrSlot = nullptr;
   llvm::BasicBlock *resumeUnwindBlock = nullptr;

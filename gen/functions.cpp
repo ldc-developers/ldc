@@ -822,6 +822,13 @@ void DtoDefineFunction(FuncDeclaration *fd) {
   // assert(gIR->scopes.empty());
   gIR->scopes.push_back(IRScope(beginbb));
 
+  // Set the FastMath options for this function scope.
+#if LDC_LLVM_VER >= 308
+  gIR->scopes.back().builder.setFastMathFlags(irFunc->FMF);
+#else
+  gIR->scopes.back().builder.SetFastMathFlags(irFunc->FMF);
+#endif
+
   // create alloca point
   // this gets erased when the function is complete, so alignment etc does not
   // matter at all

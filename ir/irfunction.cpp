@@ -607,7 +607,7 @@ llvm::BasicBlock *ScopeStack::emitLandingPad() {
   return beginBB;
 }
 
-IrFunction::IrFunction(FuncDeclaration *fd) {
+IrFunction::IrFunction(FuncDeclaration *fd) : FMF() {
   decl = fd;
 
   Type *t = fd->type->toBasetype();
