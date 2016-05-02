@@ -7,6 +7,35 @@
  */
 module ldc.attributes;
 
+/// Helper template
+private template AliasSeq(TList...)
+{
+    alias AliasSeq = TList;
+}
+
+/**
+ * Explicitly sets "fast math" for a function, enabling aggressive math
+ * optimizations. These optimizations may dramatically change the outcome of
+ * floating point calculations (e.g. because of reassociation).
+ *
+ * Example:
+ * ---
+ * import ldc.attributes;
+ *
+ * @fastmath
+ * double dot(double[] a, double[] b) {
+ *     double s = 0;
+ *     foreach(size_t i; 0..a.length)
+ *     {
+ *         // will result in vectorized fused-multiply-add instructions
+ *         s += a * b;
+ *     }
+ *     return s;
+ * }
+ * ---
+ */
+alias fastmath = AliasSeq!(llvmAttr("unsafe-fp-math", "true"), llvmFastMathFlag("fast"));
+
 /**
  * Adds an LLVM attribute to a function, without checking the validity or
  * applicability of the attribute.
@@ -35,6 +64,17 @@ module ldc.attributes;
 struct llvmAttr {
     string key;
     string value;
+}
+
+/**
+ * Sets LLVM's fast-math flags for floating point operations in the function
+ * this attribute is applied to.
+ * See LLVM LangRef for possible values:
+ *    http://llvm.org/docs/LangRef.html#fast-math-flags
+ * @llvmFastMathFlag("clear") clears all flags.
+ */
+struct llvmFastMathFlag {
+    string flag;
 }
 
 /**
