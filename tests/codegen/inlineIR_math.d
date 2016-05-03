@@ -51,7 +51,6 @@ extern (C) double features(double[] a, double[] b)
 // Test that inlineIR works when calling function has special attributes defined for its parameters
 // LLVM-LABEL: define{{.*}} @dot160
 // ASM-LABEL: dot160:
-@llvmAttr("unsafe-fp-math", "false") // needed because of an LLVM bug: see the discussion at GH #1438
 extern (C) double dot160(double[160] a, double[160] b)
 {
     double s = 0;
@@ -89,8 +88,8 @@ extern (C) double aliasInlineUnsafe(double[] a, double[] b)
 }
 
 // LLVM-LABEL: define{{.*}} @aliasInlineSafe
+// LLVM-SAME: #[[UNSAFEFPMATH3:[0-9]+]]
 // ASM-LABEL: aliasInlineSafe:
-@llvmAttr("unsafe-fp-math", "false") // needed because of an LLVM bug: see the discussion at GH #1438
 extern (C) double aliasInlineSafe(double[] a, double[] b)
 {
     double s = 0;
@@ -105,4 +104,5 @@ extern (C) double aliasInlineSafe(double[] a, double[] b)
 
 // LLVM-DAG: attributes #[[UNSAFEFPMATH]] ={{.*}} "unsafe-fp-math"="true"
 // LLVM-DAG: attributes #[[UNSAFEFPMATH2]] ={{.*}} "unsafe-fp-math"="true"
+// LLVM-DAG: attributes #[[UNSAFEFPMATH3]] ={{.*}} "unsafe-fp-math"="false"
 // LLVM-DAG: attributes #[[FEAT]] ={{.*}} "target-features"="+fma"
