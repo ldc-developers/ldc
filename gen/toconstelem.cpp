@@ -574,15 +574,9 @@ public:
                          e->toChars(), e->type ? e->type->toChars() : "(null)");
     LOG_SCOPE;
 
-    if (e->sinit) {
-      // Copied from VarExp::toConstElem, need to clean this mess up.
-      Type *sdecltype = e->sinit->type->toBasetype();
-      IF_LOG Logger::print("Sym: type=%s\n", sdecltype->toChars());
-      assert(sdecltype->ty == Tstruct);
-      TypeStruct *ts = static_cast<TypeStruct *>(sdecltype);
-      DtoResolveStruct(ts->sym);
-
-      result = getIrAggr(ts->sym)->getDefaultInit();
+    if (e->useStaticInit) {
+      DtoResolveStruct(e->sd);
+      result = getIrAggr(e->sd)->getDefaultInit();
     } else {
       // make sure the struct is resolved
       DtoResolveStruct(e->sd);

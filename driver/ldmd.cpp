@@ -205,22 +205,18 @@ Usage:\n\
   -quiet         suppress unnecessary messages\n\
   -release       compile release version\n\
   -run srcfile args...   run resulting program, passing args\n\
-  -shared        generate shared library\n"
-#if 0
-"  -transition=id show additional info about language change identified by 'id'\n\
-  -transition=?  list all language changes\n"
-#endif
-"  -unittest      compile in unit tests\n\
+  -shared        generate shared library\n\
+  -transition=id show additional info about language change identified by 'id'\n\
+  -transition=?  list all language changes\n\
+  -unittest      compile in unit tests\n\
   -v             verbose\n\
   -vcolumns      print character (column) numbers in diagnostics\n\
   -vdmd          print the command used to invoke the underlying compiler\n\
   --version      print compiler version and exit\n\
   -version=level compile in version code >= level\n\
-  -version=ident compile in version code identified by ident\n"
-#if 0
-"  -vtls          list all variables going into thread local storage\n"
-#endif
-"  -vgc           list all gc allocations including hidden ones\n\
+  -version=ident compile in version code identified by ident\n\
+  -vtls          list all variables going into thread local storage\n\
+  -vgc           list all gc allocations including hidden ones\n\
   -verrors=num   limit the number of error messages (0 means unlimited)\n\
   -w             enable warnings\n\
   -wi            enable informational warnings\n\
@@ -379,6 +375,7 @@ struct Params {
   unsigned versionLevel;
   std::vector<char *> versionIdentifiers;
   std::vector<char *> linkerSwitches;
+  std::vector<char *> transitions;
   char *defaultLibName;
   char *debugLibName;
   char *moduleDepsFile;
@@ -499,8 +496,8 @@ Params parseArgs(size_t originalArgc, char **originalArgv,
         result.targetModel = Model::m64;
       } else if (strcmp(p + 1, "profile") == 0) {
         result.profile = true;
-      } else if (memcmp(p + 1, "transition", 10) == 0) {
-        warning("-transition not yet supported by LDC.");
+      } else if (memcmp(p + 1, "transition=", 11) == 0) {
+        result.transitions.push_back(p + 1 + 11);
       } else if (strcmp(p + 1, "v") == 0) {
         result.verbose = true;
       } else if (strcmp(p + 1, "vcolumns") == 0) {
@@ -847,7 +844,7 @@ void buildCommandLine(std::vector<const char *> &r, const Params &p) {
     r.push_back("-vgc");
   }
   if (p.logTlsUse) {
-    warning("-vtls not yet supported by LDC.");
+    r.push_back("-transition=tls");
   }
   if (p.errorLimitSet) {
     r.push_back(concat("-verrors=", p.errorLimit));
@@ -940,6 +937,7 @@ void buildCommandLine(std::vector<const char *> &r, const Params &p) {
   }
   pushSwitches("-d-version=", p.versionIdentifiers, r);
   pushSwitches("-L=", p.linkerSwitches, r);
+  pushSwitches("-transition=", p.transitions, r);
   if (p.defaultLibName) {
     r.push_back(concat("-defaultlib=", p.defaultLibName));
   }

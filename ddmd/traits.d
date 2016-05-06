@@ -31,7 +31,6 @@ import ddmd.id;
 import ddmd.identifier;
 import ddmd.mtype;
 import ddmd.nogc;
-import ddmd.root.aav;
 import ddmd.root.array;
 import ddmd.root.rootobject;
 import ddmd.root.speller;
@@ -393,6 +392,7 @@ extern (C++) Expression semanticTraits(TraitsExp e, Scope* sc)
     Lfalse:
         return new IntegerExp(e.loc, result, Type.tbool);
     }
+
     alias isTypeX = isX!Type;
     alias isDsymX = isX!Dsymbol;
     alias isDeclX = isX!Declaration;
@@ -564,7 +564,7 @@ extern (C++) Expression semanticTraits(TraitsExp e, Scope* sc)
             id = s.ident;
         }
 
-        auto se = new StringExp(e.loc, id.toChars());
+        auto se = new StringExp(e.loc, cast(char*)id.toChars());
         return se.semantic(sc);
     }
     if (e.ident == Id.getProtection)
@@ -628,7 +628,7 @@ extern (C++) Expression semanticTraits(TraitsExp e, Scope* sc)
             if (auto fld = f.isFuncLiteralDeclaration())
             {
                 // Directly translate to VarExp instead of FuncExp
-                Expression ex = new VarExp(e.loc, fld, 1);
+                Expression ex = new VarExp(e.loc, fld, true);
                 return ex.semantic(sc);
             }
         }
@@ -665,7 +665,7 @@ extern (C++) Expression semanticTraits(TraitsExp e, Scope* sc)
             e.error("string must be chars");
             return new ErrorExp();
         }
-        Identifier id = Identifier.idPool(cast(char*)se.string);
+        auto id = Identifier.idPool(se.peekSlice());
 
         /* Prefer dsymbol, because it might need some runtime contexts.
          */
@@ -747,10 +747,13 @@ extern (C++) Expression semanticTraits(TraitsExp e, Scope* sc)
                     return 0;
                 if (e.ident == Id.getVirtualMethods && !fd.isVirtualMethod())
                     return 0;
-                auto fa = new FuncAliasDeclaration(fd.ident, fd, 0);
+
+                auto fa = new FuncAliasDeclaration(fd.ident, fd, false);
                 fa.protection = fd.protection;
-                Expression e = ex ? new DotVarExp(Loc(), ex, fa)
-                                  : new DsymbolExp(Loc(), fa);
+
+                auto e = ex ? new DotVarExp(Loc(), ex, fa, false)
+                            : new DsymbolExp(Loc(), fa, false);
+
                 exps.push(e);
                 return 0;
             });
@@ -803,7 +806,7 @@ extern (C++) Expression semanticTraits(TraitsExp e, Scope* sc)
 
         auto exps = new Expressions();
         if (ad.aliasthis)
-            exps.push(new StringExp(e.loc, ad.aliasthis.ident.toChars()));
+            exps.push(new StringExp(e.loc, cast(char*)ad.aliasthis.ident.toChars()));
         Expression ex = new TupleExp(e.loc, exps);
         ex = ex.semantic(sc);
         return ex;
@@ -981,7 +984,7 @@ extern (C++) Expression semanticTraits(TraitsExp e, Scope* sc)
         auto exps = cast(Expressions*)idents;
         foreach (i, id; *idents)
         {
-            auto se = new StringExp(e.loc, id.toChars());
+            auto se = new StringExp(e.loc, cast(char*)id.toChars());
             (*exps)[i] = se;
         }
 
@@ -1007,7 +1010,7 @@ extern (C++) Expression semanticTraits(TraitsExp e, Scope* sc)
             Scope* sc2 = sc.push();
             sc2.tinst = null;
             sc2.minst = null;
-            sc2.flags = (sc.flags & ~(SCOPEctfe | SCOPEcondition)) | SCOPEcompile;
+            sc2.flags = (sc.flags & ~(SCOPEctfe | SCOPEcondition)) | SCOPEcompile | SCOPEfullinst;
 
             bool err = false;
 
@@ -1132,7 +1135,7 @@ extern (C++) Expression semanticTraits(TraitsExp e, Scope* sc)
         auto exps = new Expressions();
         if (global.params.useUnitTests)
         {
-            AA* uniqueUnitTests = null;
+            bool[void*] uniqueUnitTests;
 
             void collectUnitTests(Dsymbols* a)
             {
@@ -1147,20 +1150,20 @@ extern (C++) Expression semanticTraits(TraitsExp e, Scope* sc)
                     }
                     if (auto ud = s.isUnitTestDeclaration())
                     {
-                        if (dmd_aaGetRvalue(uniqueUnitTests, cast(void*)ud))
+                        if (cast(void*)ud in uniqueUnitTests)
                             continue;
 
-                        auto ad = new FuncAliasDeclaration(ud.ident, ud, 0);
+                        auto ad = new FuncAliasDeclaration(ud.ident, ud, false);
                         ad.protection = ud.protection;
 
-                        auto e = new DsymbolExp(Loc(), ad);
+                        auto e = new DsymbolExp(Loc(), ad, false);
                         exps.push(e);
 
-                        auto pv = cast(bool*)dmd_aaGet(&uniqueUnitTests, cast(void*)ud);
-                        *pv = true;
+                        uniqueUnitTests[cast(void*)ud] = true;
                     }
                 }
             }
+
             collectUnitTests(sds.members);
         }
         auto te = new TupleExp(e.loc, exps);
@@ -1197,7 +1200,7 @@ extern (C++) Expression semanticTraits(TraitsExp e, Scope* sc)
             return null;
         cost = 0;
         StringValue* sv = traitsStringTable.lookup(seed, len);
-        return sv ? cast(void*)sv.ptrvalue : null;
+        return sv ? sv.ptrvalue : null;
     }
 
     if (auto sub = cast(const(char)*)speller(e.ident.toChars(), &trait_search_fp, idchars))

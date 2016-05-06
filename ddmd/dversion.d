@@ -50,7 +50,7 @@ public:
         return ds;
     }
 
-    override char* toChars()
+    override const(char)* toChars() const
     {
         if (ident)
             return ident.toChars();
@@ -104,7 +104,7 @@ public:
         //printf("DebugSymbol::semantic() %s\n", toChars());
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "debug";
     }
@@ -145,7 +145,7 @@ public:
         return ds;
     }
 
-    override char* toChars()
+    override const(char)* toChars()
     {
         if (ident)
             return ident.toChars();
@@ -199,7 +199,7 @@ public:
     {
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "version";
     }

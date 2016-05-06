@@ -303,12 +303,12 @@ public:
         return type;
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "enum";
     }
 
-    override Dsymbol search(Loc loc, Identifier ident, int flags = IgnoreNone)
+    override Dsymbol search(Loc loc, Identifier ident, int flags = SearchLocalsOnly)
     {
         //printf("%s.EnumDeclaration::search('%s')\n", toChars(), ident->toChars());
         if (_scope)
@@ -485,7 +485,7 @@ public:
         return memtype;
     }
 
-    override EnumDeclaration isEnumDeclaration()
+    override inout(EnumDeclaration) isEnumDeclaration() inout
     {
         return this;
     }
@@ -532,7 +532,7 @@ public:
         return new EnumMember(loc, ident, value ? value.syntaxCopy() : null, origType ? origType.syntaxCopy() : null);
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "enum member";
     }
@@ -755,7 +755,7 @@ public:
         return e.semantic(sc);
     }
 
-    override EnumMember isEnumMember()
+    override inout(EnumMember) isEnumMember() inout
     {
         return this;
     }

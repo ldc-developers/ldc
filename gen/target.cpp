@@ -43,6 +43,9 @@ void Target::_init() {
 
   // according to DMD, only for MSVC++:
   reverseCppOverloads = global.params.targetTriple->isWindowsMSVCEnvironment();
+
+  // LDC_FIXME: Set once we support it.
+  cppExceptions = false;
 }
 
 /******************************

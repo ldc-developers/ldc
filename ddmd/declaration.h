@@ -251,7 +251,7 @@ class VarDeclaration : public Declaration
 public:
     Initializer *_init;
     unsigned offset;
-    bool noscope;                // no auto semantics
+    bool noscope;               // if scope destruction is disabled
     FuncDeclarations nestedrefs; // referenced by these lexically nested functions
     bool isargptr;              // if parameter that _argptr points to
     structalign_t alignment;
@@ -289,9 +289,8 @@ public:
     bool isOverlappedWith(VarDeclaration *v);
     bool hasPointers();
     bool canTakeAddressOf();
-    bool needsAutoDtor();
+    bool needsScopeDtor();
     Expression *callScopeDtor(Scope *sc);
-    ExpInitializer *getExpInitializer();
     Expression *getConstInitializer(bool needFullType = true);
     void checkCtorConstInit();
     bool checkNestedReference(Scope *sc, Loc loc);
@@ -577,6 +576,7 @@ public:
     // true if errors in semantic3 this function's frame ptr
     bool semantic3Errors;
     ForeachStatement *fes;              // if foreach body, this is the foreach
+    BaseClass* interfaceVirtual;        // if virtual, but only appears in interface vtbl[]
     bool introducing;                   // true if 'introducing' function
     // if !=NULL, then this is the type
     // of the 'introducing' function
@@ -649,7 +649,6 @@ public:
     bool isImportedSymbol();
     bool isCodeseg();
     bool isOverloadable();
-    bool hasOverloads();
     PURE isPure();
     PURE isPureBypassingInference();
     bool setImpure();
@@ -676,6 +675,7 @@ public:
     FuncDeclaration *isUnique();
     bool checkNestedReference(Scope *sc, Loc loc);
     bool needsClosure();
+    bool checkClosure();
     bool hasNestedFrameRefs();
     void buildResultVar(Scope *sc, Type *tret);
 #if IN_LLVM
@@ -722,6 +722,9 @@ class FuncLiteralDeclaration : public FuncDeclaration
 public:
     TOK tok;                       // TOKfunction or TOKdelegate
     Type *treq;                         // target of return type inference
+
+    // backend
+    bool deferToObj;
 
     FuncLiteralDeclaration(Loc loc, Loc endloc, Type *type, TOK tok,
         ForeachStatement *fes, Identifier *id = NULL);

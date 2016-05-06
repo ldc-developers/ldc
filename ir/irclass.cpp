@@ -196,16 +196,14 @@ LLConstant *IrAggr::getVtblInit() {
       DtoResolveFunction(fd);
       assert(isIrFuncCreated(fd) && "invalid vtbl function");
       c = getIrFunc(fd)->func;
-      if (cd->isFuncHidden(
-              fd)) { /* fd is hidden from the view of this class.
-                      * If fd overlaps with any function in the vtbl[], then
-                      * issue 'hidden' error.
-                      */
+      if (cd->isFuncHidden(fd)) {
+        // fd is hidden from the view of this class. If fd overlaps with any
+        // function in the vtbl[], issue error.
         for (size_t j = 1; j < n; j++) {
           if (j == i) {
             continue;
           }
-          FuncDeclaration *fd2 =
+          auto fd2 =
               static_cast<Dsymbol *>(cd->vtbl.data[j])->isFuncDeclaration();
           if (!fd2->ident->equals(fd->ident)) {
             continue;
@@ -272,7 +270,7 @@ LLConstant *IrAggr::getClassInfoInit() {
 
 llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
                                                size_t interfaces_index) {
-  auto it = interfaceVtblMap.find(b->sym);
+  auto it = interfaceVtblMap.find({b->sym, interfaces_index});
   if (it != interfaceVtblMap.end()) {
     return it->second;
   }
@@ -306,6 +304,12 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
     constants.push_back(c);
   }
 
+  // Thunk prefix
+  char thunkPrefix[16];
+  int thunkLen = sprintf(thunkPrefix, "Th%d", b->offset);
+  char thunkPrefixLen[16];
+  sprintf(thunkPrefixLen, "%d", thunkLen);
+
   // add virtual function pointers
   size_t n = vtbl_array.dim;
   for (size_t i = b->sym->vtblOffset(); i < n; i++) {
@@ -331,11 +335,18 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
 
     assert(irFunc->irFty.arg_this);
 
+    int thunkOffset = b->offset;
+    if (fd->interfaceVirtual)
+      thunkOffset -= fd->interfaceVirtual->offset;
+    if (thunkOffset == 0) {
+      constants.push_back(irFunc->func);
+      continue;
+    }
+
     // Create the thunk function if it does not already exist in this
     // module.
     OutBuffer nameBuf;
-    nameBuf.writestring("Th");
-    nameBuf.printf("%i", b->offset);
+    nameBuf.writestring(thunkPrefix);
     nameBuf.writestring(mangleExact(fd));
     const char *thunkName = nameBuf.extractString();
     llvm::Function *thunk = gIR->module.getFunction(thunkName);
@@ -357,11 +368,13 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       thunk->setPersonalityFn(nullptr);
 #endif
 
-      // it is necessary to add debug information to the thunk
-      //  in case it is subject to inlining. See https://llvm.org/bugs/show_bug.cgi?id=26833
-      IF_LOG Logger::println("Doing function body for thunk to: %s", fd->toChars());
+      // It is necessary to add debug information to the thunk in case it is
+      // subject to inlining. See https://llvm.org/bugs/show_bug.cgi?id=26833
+      IF_LOG Logger::println("Doing function body for thunk to: %s",
+                             fd->toChars());
 
-      // create a dummy FuncDeclaration with enough information to satisfy the DIBuilder
+      // Create a dummy FuncDeclaration with enough information to satisfy the
+      // DIBuilder
       FuncDeclaration *thunkFd = reinterpret_cast<FuncDeclaration *>(memcpy(
           new char[sizeof(FuncDeclaration)], fd, sizeof(FuncDeclaration)));
       thunkFd->ir = new IrDsymbol();
@@ -398,11 +411,11 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
                                    : 1];
       LLType *targetThisType = thisArg->getType();
       thisArg = DtoBitCast(thisArg, getVoidPtrType());
-      thisArg = DtoGEP1(thisArg, DtoConstInt(-b->offset), true);
+      thisArg = DtoGEP1(thisArg, DtoConstInt(-thunkOffset), true);
       thisArg = DtoBitCast(thisArg, targetThisType);
 
-      // all calls that might be subject to inlining into a caller with debug info
-      //  should have debug info, too
+      // all calls that might be subject to inlining into a caller with debug
+      // info should have debug info, too
       gIR->DBuilder.EmitStopPoint(fd->loc);
 
       // call the real vtbl function.
@@ -436,6 +449,8 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
   mangledName.append(mangle(cd));
   mangledName.append("11__interface");
   mangledName.append(mangle(b->sym));
+  mangledName.append(thunkPrefixLen);
+  mangledName.append(thunkPrefix);
   mangledName.append("6__vtblZ");
 
   const auto lwc = DtoLinkage(cd);
@@ -445,7 +460,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
   setLinkage(lwc, GV);
 
   // insert into the vtbl map
-  interfaceVtblMap.insert(std::make_pair(b->sym, GV));
+  interfaceVtblMap.insert({{b->sym, interfaces_index}, GV});
 
   return GV;
 }
@@ -511,7 +526,7 @@ LLConstant *IrAggr::getClassInfoInterfaces() {
     if (cd->isInterfaceDeclaration()) {
       vtb = DtoConstSlice(DtoConstSize_t(0), getNullValue(voidptrptr_type));
     } else {
-      auto itv = interfaceVtblMap.find(it->sym);
+      auto itv = interfaceVtblMap.find({it->sym, i});
       assert(itv != interfaceVtblMap.end() && "interface vtbl not found");
       vtb = itv->second;
       vtb = DtoBitCast(vtb, voidptrptr_type);

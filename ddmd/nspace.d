@@ -17,6 +17,7 @@ import ddmd.hdrgen;
 import ddmd.identifier;
 import ddmd.root.outbuffer;
 import ddmd.visitor;
+import core.stdc.stdio;
 
 private enum LOG = false;
 
@@ -41,6 +42,53 @@ public:
         return ScopeDsymbol.syntaxCopy(ns);
     }
 
+    override void addMember(Scope* sc, ScopeDsymbol sds)
+    {
+        ScopeDsymbol.addMember(sc, sds);
+        if (members)
+        {
+            if (!symtab)
+                symtab = new DsymbolTable();
+            // The namespace becomes 'imported' into the enclosing scope
+            for (Scope* sce = sc; 1; sce = sce.enclosing)
+            {
+                ScopeDsymbol sds2 = sce.scopesym;
+                if (sds2)
+                {
+                    sds2.importScope(this, Prot(PROTpublic));
+                    break;
+                }
+            }
+            assert(sc);
+            sc = sc.push(this);
+            sc.linkage = LINKcpp; // namespaces default to C++ linkage
+            sc.parent = this;
+            foreach (s; *members)
+            {
+                //printf("add %s to scope %s\n", s->toChars(), toChars());
+                s.addMember(sc, this);
+            }
+            sc.pop();
+        }
+    }
+
+    override void setScope(Scope* sc)
+    {
+        ScopeDsymbol.setScope(sc);
+        if (members)
+        {
+            assert(sc);
+            sc = sc.push(this);
+            sc.linkage = LINKcpp; // namespaces default to C++ linkage
+            sc.parent = this;
+            foreach (s; *members)
+            {
+                s.setScope(sc);
+            }
+            sc.pop();
+        }
+    }
+
     override void semantic(Scope* sc)
     {
         if (semanticRun >= PASSsemantic)
@@ -58,31 +106,10 @@ public:
         parent = sc.parent;
         if (members)
         {
-            if (!symtab)
-                symtab = new DsymbolTable();
-            // The namespace becomes 'imported' into the enclosing scope
-            for (Scope* sce = sc; 1; sce = sce.enclosing)
-            {
-                ScopeDsymbol sds = cast(ScopeDsymbol)sce.scopesym;
-                if (sds)
-                {
-                    sds.importScope(this, Prot(PROTpublic));
-                    break;
-                }
-            }
             assert(sc);
             sc = sc.push(this);
             sc.linkage = LINKcpp; // note that namespaces imply C++ linkage
             sc.parent = this;
-            foreach (s; *members)
-            {
-                //printf("add %s to scope %s\n", s->toChars(), toChars());
-                s.addMember(sc, this);
-            }
-            foreach (s; *members)
-            {
-                s.setScope(sc);
-            }
             foreach (s; *members)
             {
                 s.importAll(sc);
@@ -159,7 +186,7 @@ public:
         return Dsymbol.oneMember(ps, ident);
     }
 
-    override final Dsymbol search(Loc loc, Identifier ident, int flags = IgnoreNone)
+    override final Dsymbol search(Loc loc, Identifier ident, int flags = SearchLocalsOnly)
     {
         //printf("%s.Nspace.search('%s')\n", toChars(), ident.toChars());
         if (_scope && !symtab)
@@ -222,12 +249,12 @@ public:
         }
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "namespace";
     }
 
-    override Nspace isNspace()
+    override inout(Nspace) isNspace() inout
     {
         return this;
     }

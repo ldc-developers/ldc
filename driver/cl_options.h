@@ -54,6 +54,7 @@ extern cl::opt<std::string> jsonFile;
 extern cl::opt<std::string> hdrDir;
 extern cl::opt<std::string> hdrFile;
 extern cl::list<std::string> versions;
+extern cl::list<std::string> transitions;
 extern cl::opt<std::string> moduleDepsFile;
 
 extern cl::opt<std::string> mArch;

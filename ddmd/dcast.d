@@ -360,6 +360,7 @@ extern (C++) MATCH implicitConvTo(Expression e, Type t)
             case Tchar:
                 if ((oldty == Twchar || oldty == Tdchar) && value > 0x7F)
                     return;
+                goto case Tuns8;
             case Tuns8:
                 //printf("value = %llu %llu\n", (dinteger_t)(unsigned char)value, value);
                 if (cast(ubyte)value != value)
@@ -374,6 +375,7 @@ extern (C++) MATCH implicitConvTo(Expression e, Type t)
             case Twchar:
                 if (oldty == Tdchar && value > 0xD7FF && value < 0xE000)
                     return;
+                goto case Tuns16;
             case Tuns16:
                 if (cast(ushort)value != value)
                     return;
@@ -460,6 +462,7 @@ extern (C++) MATCH implicitConvTo(Expression e, Type t)
                      */
                     break;
                 }
+                goto default;
             default:
                 visit(cast(Expression)e);
                 return;
@@ -600,7 +603,7 @@ extern (C++) MATCH implicitConvTo(Expression e, Type t)
                                 return;
                             }
                         }
-                        /* fall through */
+                        goto case; /+ fall through +/
                     case Tarray:
                     case Tpointer:
                         Type tn = t.nextOf();
@@ -1654,10 +1657,10 @@ extern (C++) Expression castTo(Expression e, Scope* sc, Type t)
                  */
                 if ((se.len + 1) * se.sz > (e.len + 1) * e.sz)
                 {
-                    void* s = cast(void*)mem.xmalloc((se.len + 1) * se.sz);
+                    void* s = mem.xmalloc((se.len + 1) * se.sz);
                     memcpy(s, se.string, se.len * se.sz);
-                    memset(cast(char*)s + se.len * se.sz, 0, se.sz);
-                    se.string = s;
+                    memset(s + se.len * se.sz, 0, se.sz);
+                    se.string = cast(char*)s;
                 }
                 result = se;
                 return;
@@ -1715,8 +1718,8 @@ extern (C++) Expression castTo(Expression e, Scope* sc, Type t)
                 case X(Tchar, Twchar):
                     for (size_t u = 0; u < e.len;)
                     {
-                        uint c;
-                        const(char)* p = utf_decodeChar(cast(char*)se.string, e.len, &u, &c);
+                        dchar c;
+                        const p = utf_decodeChar(se.string, e.len, u, c);
                         if (p)
                             e.error("%s", p);
                         else
@@ -1728,8 +1731,8 @@ extern (C++) Expression castTo(Expression e, Scope* sc, Type t)
                 case X(Tchar, Tdchar):
                     for (size_t u = 0; u < e.len;)
                     {
-                        uint c;
-                        const(char)* p = utf_decodeChar(cast(char*)se.string, e.len, &u, &c);
+                        dchar c;
+                        const p = utf_decodeChar(se.string, e.len, u, c);
                         if (p)
                             e.error("%s", p);
                         buffer.write4(c);
@@ -1740,8 +1743,8 @@ extern (C++) Expression castTo(Expression e, Scope* sc, Type t)
                 case X(Twchar, Tchar):
                     for (size_t u = 0; u < e.len;)
                     {
-                        uint c;
-                        const(char)* p = utf_decodeWchar(cast(ushort*)se.string, e.len, &u, &c);
+                        dchar c;
+                        const p = utf_decodeWchar(se.wstring, e.len, u, c);
                         if (p)
                             e.error("%s", p);
                         else
@@ -1753,8 +1756,8 @@ extern (C++) Expression castTo(Expression e, Scope* sc, Type t)
                 case X(Twchar, Tdchar):
                     for (size_t u = 0; u < e.len;)
                     {
-                        uint c;
-                        const(char)* p = utf_decodeWchar(cast(ushort*)se.string, e.len, &u, &c);
+                        dchar c;
+                        const p = utf_decodeWchar(se.wstring, e.len, u, c);
                         if (p)
                             e.error("%s", p);
                         buffer.write4(c);
@@ -1765,7 +1768,7 @@ extern (C++) Expression castTo(Expression e, Scope* sc, Type t)
                 case X(Tdchar, Tchar):
                     for (size_t u = 0; u < e.len; u++)
                     {
-                        uint c = (cast(uint*)se.string)[u];
+                        uint c = se.dstring[u];
                         if (!utf_isValidDchar(c))
                             e.error("invalid UCS-32 char \\U%08x", c);
                         else
@@ -1778,7 +1781,7 @@ extern (C++) Expression castTo(Expression e, Scope* sc, Type t)
                 case X(Tdchar, Twchar):
                     for (size_t u = 0; u < e.len; u++)
                     {
-                        uint c = (cast(uint*)se.string)[u];
+                        uint c = se.dstring[u];
                         if (!utf_isValidDchar(c))
                             e.error("invalid UCS-32 char \\U%08x", c);
                         else
@@ -1820,11 +1823,11 @@ extern (C++) Expression castTo(Expression e, Scope* sc, Type t)
                     // Copy when changing the string literal
                     size_t newsz = se.sz;
                     size_t d = (dim2 < se.len) ? dim2 : se.len;
-                    void* s = cast(void*)mem.xmalloc((dim2 + 1) * newsz);
+                    void* s = mem.xmalloc((dim2 + 1) * newsz);
                     memcpy(s, se.string, d * newsz);
                     // Extend with 0, add terminating 0
-                    memset(cast(char*)s + d * newsz, 0, (dim2 + 1 - d) * newsz);
-                    se.string = s;
+                    memset(s + d * newsz, 0, (dim2 + 1 - d) * newsz);
+                    se.string = cast(char*)s;
                     se.len = dim2;
                 }
             }
@@ -1881,7 +1884,7 @@ extern (C++) Expression castTo(Expression e, Scope* sc, Type t)
                 if (f)
                 {
                     f.tookAddressOf++;
-                    auto se = new SymOffExp(e.loc, f, 0, 0);
+                    auto se = new SymOffExp(e.loc, f, 0, false);
                     se.semantic(sc);
                     // Let SymOffExp::castTo() do the heavy lifting
                     visit(se);
@@ -1901,12 +1904,21 @@ extern (C++) Expression castTo(Expression e, Scope* sc, Type t)
                     f = f.overloadExactMatch(tb.nextOf());
                     if (f)
                     {
-                        result = new VarExp(e.loc, f);
+                        result = new VarExp(e.loc, f, false);
                         result.type = f.type;
                         result = new AddrExp(e.loc, result);
                         result.type = t;
                         return;
                     }
+                }
+            }
+
+            if (auto f = isFuncAddress(e))
+            {
+                if (f.checkForwardRef(e.loc))
+                {
+                    result = new ErrorExp();
+                    return;
                 }
             }
 
@@ -1922,7 +1934,7 @@ extern (C++) Expression castTo(Expression e, Scope* sc, Type t)
             }
             TupleExp te = cast(TupleExp)e.copy();
             te.e0 = e.e0 ? e.e0.copy() : null;
-            te.exps = cast(Expressions*)e.exps.copy();
+            te.exps = e.exps.copy();
             for (size_t i = 0; i < te.exps.dim; i++)
             {
                 Expression ex = (*te.exps)[i];
@@ -2075,8 +2087,10 @@ extern (C++) Expression castTo(Expression e, Scope* sc, Type t)
                 result = e;
                 return;
             }
+
             Type tb = t.toBasetype();
             Type typeb = e.type.toBasetype();
+
             if (tb.equals(typeb))
             {
                 result = e.copy();
@@ -2084,8 +2098,11 @@ extern (C++) Expression castTo(Expression e, Scope* sc, Type t)
                 (cast(SymOffExp)result).hasOverloads = false;
                 return;
             }
+
             // Look for pointers to functions where the functions are overloaded.
-            if (e.hasOverloads && typeb.ty == Tpointer && typeb.nextOf().ty == Tfunction && (tb.ty == Tpointer || tb.ty == Tdelegate) && tb.nextOf().ty == Tfunction)
+            if (e.hasOverloads &&
+                typeb.ty == Tpointer && typeb.nextOf().ty == Tfunction &&
+                (tb.ty == Tpointer || tb.ty == Tdelegate) && tb.nextOf().ty == Tfunction)
             {
                 FuncDeclaration f = e.var.isFuncDeclaration();
                 f = f ? f.overloadExactMatch(tb.nextOf()) : null;
@@ -2095,12 +2112,12 @@ extern (C++) Expression castTo(Expression e, Scope* sc, Type t)
                     {
                         if (f.needThis() && hasThis(sc))
                         {
-                            result = new DelegateExp(e.loc, new ThisExp(e.loc), f);
+                            result = new DelegateExp(e.loc, new ThisExp(e.loc), f, false);
                             result = result.semantic(sc);
                         }
                         else if (f.isNested())
                         {
-                            result = new DelegateExp(e.loc, new IntegerExp(0), f);
+                            result = new DelegateExp(e.loc, new IntegerExp(0), f, false);
                             result = result.semantic(sc);
                         }
                         else if (f.needThis())
@@ -2118,13 +2135,23 @@ extern (C++) Expression castTo(Expression e, Scope* sc, Type t)
                     }
                     else
                     {
-                        result = new SymOffExp(e.loc, f, 0);
+                        result = new SymOffExp(e.loc, f, 0, false);
                         result.type = t;
                     }
                     f.tookAddressOf++;
                     return;
                 }
             }
+
+            if (auto f = isFuncAddress(e))
+            {
+                if (f.checkForwardRef(e.loc))
+                {
+                    result = new ErrorExp();
+                    return;
+                }
+            }
+
             visit(cast(Expression)e);
         }
 
@@ -2162,12 +2189,21 @@ extern (C++) Expression castTo(Expression e, Scope* sc, Type t)
                             e.error("%s", msg);
                         if (f != e.func)    // if address not already marked as taken
                             f.tookAddressOf++;
-                        result = new DelegateExp(e.loc, e.e1, f);
+                        result = new DelegateExp(e.loc, e.e1, f, false);
                         result.type = t;
                         return;
                     }
                     if (e.func.tintro)
                         e.error("%s", msg);
+                }
+            }
+
+            if (auto f = isFuncAddress(e))
+            {
+                if (f.checkForwardRef(e.loc))
+                {
+                    result = new ErrorExp();
+                    return;
                 }
             }
 
@@ -2476,23 +2512,22 @@ extern (C++) bool isVoidArrayLiteral(Expression e, Type other)
 // used by deduceType()
 extern (C++) Type rawTypeMerge(Type t1, Type t2)
 {
-    Type t1b = t1.toBasetype();
-    Type t2b = t2.toBasetype();
-
     if (t1.equals(t2))
-    {
         return t1;
-    }
-    else if (t1b.equals(t2b))
-    {
+    if (t1.equivalent(t2))
+        return t1.castMod(MODmerge(t1.mod, t2.mod));
+
+    auto t1b = t1.toBasetype();
+    auto t2b = t2.toBasetype();
+    if (t1b.equals(t2b))
         return t1b;
-    }
-    else
-    {
-        TY ty = cast(TY)impcnvResult[t1b.ty][t2b.ty];
-        if (ty != Terror)
-            return Type.basic[ty];
-    }
+    if (t1b.equivalent(t2b))
+        return t1b.castMod(MODmerge(t1b.mod, t2b.mod));
+
+    auto ty = cast(TY)impcnvResult[t1b.ty][t2b.ty];
+    if (ty != Terror)
+        return Type.basic[ty];
+
     return null;
 }
 
@@ -2508,7 +2543,7 @@ extern (C++) Type rawTypeMerge(Type t1, Type t2)
  */
 extern (C++) bool typeMerge(Scope* sc, TOK op, Type* pt, Expression* pe1, Expression* pe2)
 {
-    //printf("typeMerge() %s op %s\n", (*pe1)->toChars(), (*pe2)->toChars());
+    //printf("typeMerge() %s op %s\n", pe1.toChars(), pe2.toChars());
     MATCH m;
     Expression e1 = *pe1;
     Expression e2 = *pe2;
@@ -2804,8 +2839,8 @@ Lagain:
                 ClassDeclaration cd2 = tc2.sym.baseClass;
                 if (cd1 && cd2)
                 {
-                    t1 = cd1.type;
-                    t2 = cd2.type;
+                    t1 = cd1.type.castMod(t1.mod);
+                    t2 = cd2.type.castMod(t2.mod);
                 }
                 else if (cd1)
                     t1 = cd1.type;

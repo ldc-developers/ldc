@@ -336,6 +336,11 @@ public:
 
       const auto lwc = DtoLinkage(decl);
 
+      if (global.params.vtls && gvar->isThreadLocal() &&
+          !(decl->storage_class & STCtemp)) {
+        const char *p = decl->loc.toChars();
+        fprintf(global.stdmsg, "%s: %s is thread local\n", p, decl->toChars());
+      }
       // Check if we are defining or just declaring the global in this module.
       if (!(decl->storage_class & STCextern)) {
         // Build the initializer. Might use this->ir.irGlobal->value!

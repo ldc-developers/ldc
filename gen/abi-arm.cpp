@@ -61,7 +61,7 @@ struct ArmTargetABI : TargetABI {
     // Revist and determine if the byval problem is only for small
     // structs, say 16-bytes or less, that can entirely fit in
     // registers.
-    
+
     // Note: the codegen is horrible for Tsarrays passed this way -
     // does a copy without a loop for huge arrays.  Could be better if
     // byval was always used for sarrays, and maybe can if above
@@ -130,7 +130,9 @@ struct ArmTargetABI : TargetABI {
     // using TypeIdentifier here is a bit wonky but works, as long as the name
     // is actually available in the scope (this is what DMD does, so if a better
     // solution is found there, this should be adapted).
-    return (createTypeIdentifier(Loc(), Identifier::idPool("__va_list")));
+    static const llvm::StringRef ident = "__va_list";
+    return (createTypeIdentifier(
+        Loc(), Identifier::idPool(ident.data(), ident.size())));
   }
 
   const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty) override {
