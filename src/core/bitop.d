@@ -3,7 +3,7 @@
  *
  * Copyright: Copyright Don Clugston 2005 - 2013.
  * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Authors:   Don Clugston, Sean Kelly, Walter Bright, Alex Rønne Petersen
+ * Authors:   Don Clugston, Sean Kelly, Walter Bright, Alex Rønne Petersen, Thomas Stuart Bockman
  * Source:    $(DRUNTIMESRC core/_bitop.d)
  *
  * Some of the LDC-specific parts came »From GDC ... public domain!«
@@ -30,6 +30,46 @@ else version (X86)
     version = AnyX86;
 }
 
+// Use to implement 64-bit bitops on 32-bit arch.
+private union Split64
+{
+    ulong u64;
+    struct
+    {
+        version(LittleEndian)
+        {
+            uint lo;
+            uint hi;
+        }
+        else
+        {
+            uint hi;
+            uint lo;
+        }
+    }
+
+    pragma(inline, true)
+    this(ulong u64) @safe pure nothrow @nogc
+    {
+        if (__ctfe)
+        {
+            lo = cast(uint) u64;
+            hi = cast(uint) (u64 >>> 32);
+        }
+        else
+            this.u64 = u64;
+    }
+}
+
+unittest
+{
+    const rt = Split64(1);
+    assert((rt.lo == 1) && (rt.hi == 0));
+
+    enum ct = Split64(1);
+    assert((ct.lo == rt.lo) && (ct.hi == rt.hi));
+}
+
 /**
  * Scans the bits in v starting with bit 0, looking
  * for the first set bit.
@@ -51,10 +91,35 @@ else
     int bsf(size_t v) pure;
 }
 
+/// ditto
+static if (size_t.sizeof < ulong.sizeof) // IN_LLVM
+int bsf(ulong v) pure
+{
+    static if (size_t.sizeof == ulong.sizeof)
+        return bsf(cast(size_t) v);
+    else static if (size_t.sizeof == uint.sizeof)
+    {
+        const sv = Split64(v);
+        return (sv.lo == 0)?
+            bsf(sv.hi) + 32 :
+            bsf(sv.lo);
+    }
+    else
+        static assert(false);
+}
+
 ///
 unittest
 {
     assert(bsf(0x21) == 0);
+    assert(bsf(ulong.max << 39) == 39);
+}
+
+unittest
+{
+    // Make sure bsf() is available at CTFE
+    enum test_ctfe = bsf(ulong.max);
+    assert(test_ctfe == 0);
 }
 
 /**
@@ -78,10 +143,35 @@ else
     int bsr(size_t v) pure;
 }
 
+/// ditto
+static if (size_t.sizeof < ulong.sizeof) // IN_LLVM
+int bsr(ulong v) pure
+{
+    static if (size_t.sizeof == ulong.sizeof)
+        return bsr(cast(size_t) v);
+    else static if (size_t.sizeof == uint.sizeof)
+    {
+        const sv = Split64(v);
+        return (sv.hi == 0)?
+            bsr(sv.lo) :
+            bsr(sv.hi) + 32;
+    }
+    else
+        static assert(false);
+}
+
 ///
 unittest
 {
     assert(bsr(0x21) == 5);
+    assert(bsr((ulong.max >> 15) - 1) == 48);
+}
+
+unittest
+{
+    // Make sure bsr() is available at CTFE
+    enum test_ctfe = bsr(ulong.max);
+    assert(test_ctfe == 63);
 }
 
 /**
@@ -221,6 +311,21 @@ else
 }
 
 
+/**
+ * Swaps bytes in an 8 byte ulong end-to-end, i.e. byte 0 becomes
+ * byte 7, byte 1 becomes byte 6, etc.
+ */
+ulong bswap(ulong v) pure
+{
+    auto sv = Split64(v);
+
+    const temp = sv.lo;
+    sv.lo = bswap(sv.hi);
+    sv.hi = bswap(temp);
+
+    return (cast(ulong) sv.hi << 32) | sv.lo;
+}
+
 version (DigitalMars) version (AnyX86) @system // not pure
 {
     /**
@@ -316,54 +421,154 @@ version(LDC) @system // not pure
 
 version (LDC)
 {
-    ushort _popcnt( ushort x ) pure
+    private pure pragma(LDC_intrinsic, "llvm.ctpop.i#") T ctpop(T)(T v);
+    ushort _popcnt(ushort x) pure
     {
         return ctpop(x);
     }
 
-    int _popcnt( uint x ) pure
+    int _popcnt(uint x) pure
     {
-        return cast(int) ctpop(x);
+        return cast(int)ctpop(x);
     }
 
-    int _popcnt( ulong x ) pure
+    int _popcnt(ulong x) pure
     {
-        return cast(int) ctpop(x);
-    }
-
-    unittest
-    {
-        static int popcnt_x(ulong u) nothrow @nogc
-        {
-            int c;
-            while (u)
-            {
-                c += u & 1;
-                u >>= 1;
-            }
-            return c;
-        }
-
-        for (uint u = 0; u < 0x1_0000; ++u)
-        {
-            //writefln("%x %x %x", u,   _popcnt(cast(ushort)u), popcnt_x(cast(ushort)u));
-            assert(_popcnt(cast(ushort)u) == popcnt_x(cast(ushort)u));
-
-            assert(_popcnt(cast(uint)u) == popcnt_x(cast(uint)u));
-            uint ui = u * 0x3_0001;
-            assert(_popcnt(ui) == popcnt_x(ui));
-
-            assert(_popcnt(cast(ulong)u) == popcnt_x(cast(ulong)u));
-            ulong ul = u * 0x3_0003_0001;
-            assert(_popcnt(ul) == popcnt_x(ul));
-        }
+        return cast(int)ctpop(x);
     }
 }
-else
+
+/**
+ *  Calculates the number of set bits in an integer.
+ */
+int popcnt(uint x) pure
+{
+    // Select the fastest method depending on the compiler and CPU architecture
+    version(LDC)
+    {
+        return _popcnt(x);
+    }
+    else
+    {
+        version(DigitalMars)
+        {
+            static if (is(typeof(_popcnt(uint.max))))
+            {
+                import core.cpuid;
+                if (!__ctfe && hasPopcnt)
+                    return _popcnt(x);
+            }
+        }
+
+        return softPopcnt!uint(x);
+    }
+}
+
+unittest
+{
+    assert( popcnt( 0 ) == 0 );
+    assert( popcnt( 7 ) == 3 );
+    assert( popcnt( 0xAA )== 4 );
+    assert( popcnt( 0x8421_1248 ) == 8 );
+    assert( popcnt( 0xFFFF_FFFF ) == 32 );
+    assert( popcnt( 0xCCCC_CCCC ) == 16 );
+    assert( popcnt( 0x7777_7777 ) == 24 );
+
+    // Make sure popcnt() is available at CTFE
+    enum test_ctfe = popcnt(uint.max);
+    assert(test_ctfe == 32);
+}
+
+/// ditto
+int popcnt(ulong x) pure
+{
+    // Select the fastest method depending on the compiler and CPU architecture
+    version(LDC)
+    {
+        return _popcnt(x);
+    }
+    else
+    {
+        import core.cpuid;
+
+        static if (size_t.sizeof == uint.sizeof)
+        {
+            const sx = Split64(x);
+            version(DigitalMars)
+            {
+                static if (is(typeof(_popcnt(uint.max))))
+                {
+                    if (!__ctfe && hasPopcnt)
+                        return _popcnt(sx.lo) + _popcnt(sx.hi);
+                }
+            }
+
+            return softPopcnt!uint(sx.lo) + softPopcnt!uint(sx.hi);
+        }
+        else static if (size_t.sizeof == ulong.sizeof)
+        {
+            version(DigitalMars)
+            {
+                static if (is(typeof(_popcnt(ulong.max))))
+                {
+                    if (!__ctfe && hasPopcnt)
+                        return _popcnt(x);
+                }
+            }
+
+            return softPopcnt!ulong(x);
+        }
+        else
+            static assert(false);
+    }
+}
+
+unittest
+{
+    assert(popcnt(0uL) == 0);
+    assert(popcnt(1uL) == 1);
+    assert(popcnt((1uL << 32) - 1) == 32);
+    assert(popcnt(0x48_65_6C_6C_6F_3F_21_00uL) == 28);
+    assert(popcnt(ulong.max) == 64);
+
+    // Make sure popcnt() is available at CTFE
+    enum test_ctfe = popcnt(ulong.max);
+    assert(test_ctfe == 64);
+}
+
+private int softPopcnt(N)(N x) pure
+    if (is(N == uint) || is(N == ulong))
+{
+    // Avoid branches, and the potential for cache misses which
+    // could be incurred with a table lookup.
+
+    // We need to mask alternate bits to prevent the
+    // sum from overflowing.
+    // add neighbouring bits. Each bit is 0 or 1.
+    enum mask1 = cast(N) 0x5555_5555_5555_5555L;
+    x = x - ((x>>1) & mask1);
+    // now each two bits of x is a number 00,01 or 10.
+    // now add neighbouring pairs
+    enum mask2a = cast(N) 0xCCCC_CCCC_CCCC_CCCCL;
+    enum mask2b = cast(N) 0x3333_3333_3333_3333L;
+    x = ((x & mask2a)>>2) + (x & mask2b);
+    // now each nibble holds 0000-0100. Adding them won't
+    // overflow any more, so we don't need to mask any more
+
+    enum mask4 = cast(N) 0x0F0F_0F0F_0F0F_0F0FL;
+    x = (x + (x >> 4)) & mask4;
+
+    enum shiftbits = is(N == uint)? 24 : 56;
+    enum maskMul = cast(N) 0x0101_0101_0101_0101L;
+    x = (x * maskMul) >> shiftbits;
+
+    return cast(int) x;
+}
+
 version (DigitalMars) version (AnyX86)
 {
     /**
-     * Calculates the number of set bits in a 32-bit integer
+     * Calculates the number of set bits in an integer
      * using the X86 SSE4 POPCNT instruction.
      * POPCNT is not available on all X86 CPUs.
      */
@@ -412,6 +617,7 @@ version (DigitalMars) version (AnyX86)
         }
     }
 }
+
 
 /*************************************
  * Read/write value from/to the memory location indicated by ptr.
@@ -491,69 +697,98 @@ void volatileStore(ulong * ptr, ulong  value);   /// ditto
 
 
 /**
- *  Calculates the number of set bits in a 32-bit integer.
+ * Reverses the order of bits in a 32-bit integer.
  */
-version (LDC)
+pragma(inline, true)
+uint bitswap( uint x ) pure
 {
-    private pure pragma(LDC_intrinsic, "llvm.ctpop.i#") T ctpop(T)(T v);
-    pure int popcnt(uint x)
+    if (!__ctfe)
     {
-        return cast(int) ctpop(x);
+        static if (is(typeof(asmBitswap32(x))))
+            return asmBitswap32(x);
     }
+
+    return softBitswap!uint(x);
 }
-else
-{
-    int popcnt( uint x ) pure
-    {
-        // Avoid branches, and the potential for cache misses which
-        // could be incurred with a table lookup.
-
-        // We need to mask alternate bits to prevent the
-        // sum from overflowing.
-        // add neighbouring bits. Each bit is 0 or 1.
-        x = x - ((x>>1) & 0x5555_5555);
-        // now each two bits of x is a number 00,01 or 10.
-        // now add neighbouring pairs
-        x = ((x&0xCCCC_CCCC)>>2) + (x&0x3333_3333);
-        // now each nibble holds 0000-0100. Adding them won't
-        // overflow any more, so we don't need to mask any more
-
-        // Now add the nibbles, then the bytes, then the words
-        // We still need to mask to prevent double-counting.
-        // Note that if we used a rotate instead of a shift, we
-        // wouldn't need the masks, and could just divide the sum
-        // by 8 to account for the double-counting.
-        // On some CPUs, it may be faster to perform a multiply.
-
-        x += (x>>4);
-        x &= 0x0F0F_0F0F;
-        x += (x>>8);
-        x &= 0x00FF_00FF;
-        x += (x>>16);
-        x &= 0xFFFF;
-        return x;
-    }
-}
-
 
 unittest
 {
-    assert( popcnt( 0 ) == 0 );
-    assert( popcnt( 7 ) == 3 );
-    assert( popcnt( 0xAA )== 4 );
-    assert( popcnt( 0x8421_1248 ) == 8 );
-    assert( popcnt( 0xFFFF_FFFF ) == 32 );
-    assert( popcnt( 0xCCCC_CCCC ) == 16 );
-    assert( popcnt( 0x7777_7777 ) == 24 );
+    static void test(alias impl)()
+    {
+        assert (impl( 0x8000_0100 ) == 0x0080_0001);
+        foreach(i; 0 .. 32)
+            assert (impl(1 << i) == 1 << 32 - i - 1);
+    }
+
+    test!(bitswap)();
+    test!(softBitswap!uint)();
+    static if (is(typeof(asmBitswap32(0u))))
+        test!(asmBitswap32)();
+
+    // Make sure bitswap() is available at CTFE
+    enum test_ctfe = bitswap(1U);
+    assert(test_ctfe == (1U << 31));
 }
 
-
 /**
- * Reverses the order of bits in a 32-bit integer.
+ * Reverses the order of bits in a 64-bit integer.
  */
-@trusted uint bitswap( uint x ) pure
+pragma(inline, true)
+ulong bitswap ( ulong x ) pure
 {
-    version (AsmX86)
+    if (!__ctfe)
+    {
+        static if (is(typeof(asmBitswap64(x))))
+            return asmBitswap64(x);
+    }
+
+    return softBitswap!ulong(x);
+}
+
+unittest
+{
+    static void test(alias impl)()
+    {
+        assert (impl( 0b1000000000000000000000010000000000000000100000000000000000000001)
+            == 0b1000000000000000000000010000000000000000100000000000000000000001);
+        assert (impl( 0b1110000000000000000000010000000000000000100000000000000000000001)
+            == 0b1000000000000000000000010000000000000000100000000000000000000111);
+        foreach (i; 0 .. 64)
+            assert (impl(1UL << i) == 1UL << 64 - i - 1);
+    }
+
+    test!(bitswap)();
+    test!(softBitswap!ulong)();
+    static if (is(typeof(asmBitswap64(0uL))))
+        test!(asmBitswap64)();
+
+    // Make sure bitswap() is available at CTFE
+    enum test_ctfe = bitswap(1UL);
+    assert(test_ctfe == (1UL << 63));
+}
+
+private N softBitswap(N)(N x) pure
+    if (is(N == uint) || is(N == ulong))
+{
+    // swap 1-bit pairs:
+    enum mask1 = cast(N) 0x5555_5555_5555_5555L;
+    x = ((x >> 1) & mask1) | ((x & mask1) << 1);
+    // swap 2-bit pairs:
+    enum mask2 = cast(N) 0x3333_3333_3333_3333L;
+    x = ((x >> 2) & mask2) | ((x & mask2) << 2);
+    // swap 4-bit pairs:
+    enum mask4 = cast(N) 0x0F0F_0F0F_0F0F_0F0FL;
+    x = ((x >> 4) & mask4) | ((x & mask4) << 4);
+
+    // reverse the order of all bytes:
+    x = bswap(x);
+
+    return x;
+}
+
+version (AsmX86)
+{
+    private uint asmBitswap32(uint x) @trusted pure
     {
         asm pure nothrow @nogc { naked; }
 
@@ -590,37 +825,11 @@ unittest
             ret;
         }
     }
-    else
-    {
-        // swap odd and even bits
-        x = ((x >> 1) & 0x5555_5555) | ((x & 0x5555_5555) << 1);
-        // swap consecutive pairs
-        x = ((x >> 2) & 0x3333_3333) | ((x & 0x3333_3333) << 2);
-        // swap nibbles
-        x = ((x >> 4) & 0x0F0F_0F0F) | ((x & 0x0F0F_0F0F) << 4);
-        // swap bytes
-        x = ((x >> 8) & 0x00FF_00FF) | ((x & 0x00FF_00FF) << 8);
-        // swap 2-byte long pairs
-        x = ( x >> 16              ) | ( x               << 16);
-        return x;
-
-    }
 }
 
-
-unittest
+version (D_InlineAsm_X86_64)
 {
-    assert( bitswap( 0x8000_0100 ) == 0x0080_0001 );
-    foreach(i; 0 .. 32)
-        assert(bitswap(1 << i) == 1 << 32 - i - 1);
-}
-
-/**
- * Reverses the order of bits in a 64-bit integer.
- */
-ulong bitswap ( ulong x ) pure @trusted
-{
-    version (D_InlineAsm_X86_64)
+    private ulong asmBitswap64(ulong x) @trusted pure
     {
         asm pure nothrow @nogc { naked; }
 
@@ -659,30 +868,57 @@ ulong bitswap ( ulong x ) pure @trusted
             ret;
         }
     }
-    else
-    {
-        // swap odd and even bits
-        x = ((x >> 1) & 0x5555_5555_5555_5555L) | ((x & 0x5555_5555_5555_5555L) << 1);
-        // swap consecutive pairs
-        x = ((x >> 2) & 0x3333_3333_3333_3333L) | ((x & 0x3333_3333_3333_3333L) << 2);
-        // swap nibbles
-        x = ((x >> 4) & 0x0f0f_0f0f_0f0f_0f0fL) | ((x & 0x0f0f_0f0f_0f0f_0f0fL) << 4);
-        // swap bytes
-        x = ((x >> 8) & 0x00FF_00FF_00FF_00FFL) | ((x & 0x00FF_00FF_00FF_00FFL) << 8);
-        // swap shorts
-        x = ((x >> 16) & 0x0000_FFFF_0000_FFFFL) | ((x & 0x0000_FFFF_0000_FFFFL) << 16);
-        // swap ints
-        x = ( x >> 32 ) | ( x << 32);
-        return x;
-    }
 }
 
+/**
+ *  Bitwise rotate `value` left (`rol`) or right (`ror`) by
+ *  `count` bit positions.
+ */
+pure T rol(T)(in T value, in uint count)
+    if (__traits(isIntegral, T) && __traits(isUnsigned, T))
+{
+    assert(count < 8 * T.sizeof);
+    return cast(T) ((value << count) | (value >> (-count & (T.sizeof * 8 - 1))));
+}
+/// ditto
+pure T ror(T)(in T value, in uint count)
+    if (__traits(isIntegral, T) && __traits(isUnsigned, T))
+{
+    assert(count < 8 * T.sizeof);
+    return cast(T) ((value >> count) | (value << (-count & (T.sizeof * 8 - 1))));
+}
+/// ditto
+pure T rol(uint count, T)(in T value)
+    if (__traits(isIntegral, T) && __traits(isUnsigned, T))
+{
+    static assert(count < 8 * T.sizeof);
+    return cast(T) ((value << count) | (value >> (-count & (T.sizeof * 8 - 1))));
+}
+/// ditto
+pure T ror(uint count, T)(in T value)
+    if (__traits(isIntegral, T) && __traits(isUnsigned, T))
+{
+    static assert(count < 8 * T.sizeof);
+    return cast(T) ((value >> count) | (value << (-count & (T.sizeof * 8 - 1))));
+}
+
+///
 unittest
 {
-    assert (bitswap( 0b1000000000000000000000010000000000000000100000000000000000000001)
-        == 0b1000000000000000000000010000000000000000100000000000000000000001);
-    assert (bitswap( 0b1110000000000000000000010000000000000000100000000000000000000001)
-        == 0b1000000000000000000000010000000000000000100000000000000000000111);
-    foreach (i; 0 .. 64)
-        assert(bitswap(1UL << i) == 1UL << 64 - i - 1);
+    ubyte a = 0b10101010U;
+    ulong b = ulong.max;
+
+    assert(rol(a, 1) == 0b01010101);
+    assert(ror(a, 1) == 0b01010101);
+    assert(rol(a, 3) == 0b01010101);
+    assert(ror(a, 3) == 0b01010101);
+
+    assert(rol(a, 0) == a);
+    assert(ror(a, 0) == a);
+
+    assert(rol(b, 63) == ulong.max);
+    assert(ror(b, 63) == ulong.max);
+
+    assert(rol!3(a) == 0b01010101);
+    assert(ror!3(a) == 0b01010101);
 }

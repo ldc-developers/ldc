@@ -305,6 +305,10 @@ else version( Posix )
             }
             assert( obj );
 
+            // loadedLibraries need to be inherited from parent thread
+            // before initilizing GC for TLS (rt_tlsgc_init)
+            version (Shared) inheritLoadedLibraries(loadedLibraries);
+
             assert( obj.m_curr is &obj.m_main );
             obj.m_main.bstack = getStackBottom();
             obj.m_main.tstack = obj.m_main.bstack;
@@ -378,7 +382,6 @@ else version( Posix )
 
             try
             {
-                version (Shared) inheritLoadedLibraries(loadedLibraries);
                 rt_moduleTlsCtor();
                 try
                 {
@@ -1091,7 +1094,7 @@ class Thread
      *
      * ------------------------------------------------------------------------
      */
-    static void sleep( Duration val ) nothrow
+    static void sleep( Duration val ) @nogc nothrow
     in
     {
         assert( !val.isNegative );
@@ -1134,7 +1137,7 @@ class Thread
                 if( !nanosleep( &tin, &tout ) )
                     return;
                 if( errno != EINTR )
-                    throw new ThreadError( "Unable to sleep for the specified duration" );
+                    assert(0, "Unable to sleep for the specified duration");
                 tin = tout;
             }
         }
@@ -1144,7 +1147,7 @@ class Thread
     /**
      * Forces a context switch to occur away from the calling thread.
      */
-    static void yield() nothrow
+    static void yield() @nogc nothrow
     {
         version( Windows )
             SwitchToThread();
@@ -1852,6 +1855,9 @@ unittest
     // create and start instances of each type
     auto derived = new DerivedThread().start();
     auto composed = new Thread(&threadFunc).start();
+    new Thread({
+        // Codes to run in the newly created thread.
+    }).start();
 }
 
 unittest

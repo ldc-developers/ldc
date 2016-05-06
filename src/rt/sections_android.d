@@ -67,14 +67,13 @@ void initSections()
     auto mend = cast(immutable ModuleInfo**)&__stop_minfo;
     _sections.moduleGroup = ModuleGroup(mbeg[0 .. mend - mbeg]);
 
-    auto pbeg = cast(void*)&_tlsend;
+    auto pbeg = cast(void*)&_tls_end;
     auto pend = cast(void*)&__bss_end__;
     _sections._gcRanges[0] = pbeg[0 .. pend - pbeg];
 }
 
 void finiSections()
 {
-    .free(cast(void*)_sections.modules.ptr);
     pthread_key_delete(_tlsKey);
 }
 
