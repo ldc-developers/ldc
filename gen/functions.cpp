@@ -623,6 +623,28 @@ static LinkageWithCOMDAT lowerFuncLinkage(FuncDeclaration *fdecl) {
   return DtoLinkage(fdecl);
 }
 
+// LDC has the same problem with destructors of struct arguments in closures
+// as DMD, so we copy the failure detection
+void verifyScopedDestructionInClosure(FuncDeclaration* fd) {
+  for (size_t i = 0; i < fd->closureVars.dim; i++) {
+    VarDeclaration *v = fd->closureVars[i];
+  
+    // Hack for the case fail_compilation/fail10666.d, until
+    // proper issue https://issues.dlang.org/show_bug.cgi?id=5730 fix will come.
+    bool isScopeDtorParam = v->edtor && (v->storage_class & STCparameter);
+    if (v->needsScopeDtor() || isScopeDtorParam) {
+      // Because the value needs to survive the end of the scope!
+      v->error("has scoped destruction, cannot build closure");
+    }
+    if (v->isargptr) {
+      // See https://issues.dlang.org/show_bug.cgi?id=2479
+      // This is actually a bug, but better to produce a nice
+      // message at compile time rather than memory corruption at runtime
+      v->error("cannot reference variadic arguments from closure");
+    }
+  }
+}
+
 void DtoDefineFunction(FuncDeclaration *fd) {
   IF_LOG Logger::println("DtoDefineFunction(%s): %s", fd->toPrettyChars(),
                          fd->loc.toChars());
@@ -712,6 +734,9 @@ void DtoDefineFunction(FuncDeclaration *fd) {
       return;
     }
   }
+
+  if (fd->needsClosure())
+      verifyScopedDestructionInClosure(fd);
 
   assert(fd->ident != Id::empty);
 
@@ -828,7 +853,15 @@ void DtoDefineFunction(FuncDeclaration *fd) {
 
     LLValue *thismem = thisvar;
     if (!irFty.arg_this->byref) {
-      thismem = DtoAllocaDump(thisvar, 0, "this");
+      if (fd->interfaceVirtual) {
+        // Adjust the 'this' pointer instead of using a thunk
+        LLType *targetThisType = thismem->getType();
+        thismem = DtoBitCast(thismem, getVoidPtrType());
+        auto off = DtoConstInt(-fd->interfaceVirtual->offset);
+        thismem = DtoGEP1(thismem, off, true);
+        thismem = DtoBitCast(thismem, targetThisType);
+      }
+      thismem = DtoAllocaDump(thismem, 0, "this");
       irFunc->thisArg = thismem;
     }
 

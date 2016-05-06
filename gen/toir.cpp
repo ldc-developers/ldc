@@ -332,7 +332,7 @@ public:
     result = DtoDeclarationExp(e->declaration);
 
     if (auto vd = e->declaration->isVarDeclaration()) {
-      if (!vd->isDataseg() && vd->edtor && !vd->noscope) {
+      if (!vd->isDataseg() && vd->needsScopeDtor()) {
         pushVarDtorCleanup(p, vd);
       }
     }
@@ -352,6 +352,9 @@ public:
       result = new DVarValue(e->type, V);
       return;
     }
+
+    if (auto fd = e->var->isFuncLiteralDeclaration())
+        genFuncLiteral(fd, nullptr);
 
     result = DtoSymbolAddress(e->loc, e->type, e->var);
   }
@@ -505,7 +508,7 @@ public:
     // Can't just override ConstructExp::toElem because not all TOKconstruct
     // operations are actually instances of ConstructExp... Long live the DMD
     // coding style!
-    if (e->memset & MemorySet_referenceInit) {
+    if (e->memset & referenceInit) {
       assert(e->op == TOKconstruct || e->op == TOKblit);
       assert(e->e1->op == TOKvar);
 
@@ -903,7 +906,7 @@ public:
         if (ce->e1->op == TOKdeclaration && ce->e2->op == TOKvar) {
           VarExp *ve = static_cast<VarExp *>(ce->e2);
           if (VarDeclaration *vd = ve->var->isVarDeclaration()) {
-            if (vd->edtor && !vd->noscope) {
+            if (vd->needsScopeDtor()) {
               Logger::println("Delaying edtor");
               delayedDtorVar = vd;
               delayedDtorExp = vd->edtor;
@@ -2366,6 +2369,36 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
+  void genFuncLiteral(FuncLiteralDeclaration *fd, FuncExp *e)
+  {
+      if ((fd->tok == TOKreserved || fd->tok == TOKdelegate) &&
+          (e && e->type->ty == Tpointer)) {
+          // This is a lambda that was inferred to be a function literal instead
+          // of a delegate, so set tok here in order to get correct types/mangling.
+          // Horrible hack, but DMD does the same thing.
+          fd->tok = TOKfunction;
+          fd->vthis = nullptr;
+      }
+
+      if (fd->isNested()) {
+          Logger::println("nested");
+      }
+      Logger::println("kind = %s", fd->kind());
+
+      // We need to actually codegen the function here, as literals are not added
+      // to the module member list.
+      Declaration_codegen(fd, p);
+      if (!isIrFuncCreated(fd)) {
+          // See DtoDefineFunction for reasons why codegen was suppressed.
+          // Instead just declare the function.
+          DtoDeclareFunction(fd);
+          assert(!fd->isNested());
+      }
+      assert(getIrFunc(fd)->func);
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   void visit(FuncExp *e) override {
     IF_LOG Logger::print("FuncExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
@@ -2374,30 +2407,7 @@ public:
     FuncLiteralDeclaration *fd = e->fd;
     assert(fd);
 
-    if ((fd->tok == TOKreserved || fd->tok == TOKdelegate) &&
-        e->type->ty == Tpointer) {
-      // This is a lambda that was inferred to be a function literal instead
-      // of a delegate, so set tok here in order to get correct types/mangling.
-      // Horrible hack, but DMD does the same thing.
-      fd->tok = TOKfunction;
-      fd->vthis = nullptr;
-    }
-
-    if (fd->isNested()) {
-      Logger::println("nested");
-    }
-    Logger::println("kind = %s", fd->kind());
-
-    // We need to actually codegen the function here, as literals are not added
-    // to the module member list.
-    Declaration_codegen(fd, p);
-    if (!isIrFuncCreated(fd)) {
-      // See DtoDefineFunction for reasons why codegen was suppressed.
-      // Instead just declare the function.
-      DtoDeclareFunction(fd);
-      assert(!fd->isNested());
-    }
-    assert(getIrFunc(fd)->func);
+    genFuncLiteral(fd, e);
 
     if (fd->isNested()) {
       LLType *dgty = DtoType(e->type);
@@ -2500,17 +2510,10 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    if (e->sinit) {
-      // Copied from VarExp::toElem, need to clean this mess up.
-      Type *sdecltype = e->sinit->type->toBasetype();
-      IF_LOG Logger::print("Sym: type = %s\n", sdecltype->toChars());
-      assert(sdecltype->ty == Tstruct);
-      TypeStruct *ts = static_cast<TypeStruct *>(sdecltype);
-      assert(ts->sym);
-      DtoResolveStruct(ts->sym);
-
-      LLValue *initsym = getIrAggr(ts->sym)->getInitSymbol();
-      initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
+    if (e->useStaticInit) {
+      DtoResolveStruct(e->sd);
+      LLValue *initsym = getIrAggr(e->sd)->getInitSymbol();
+      initsym = DtoBitCast(initsym, DtoType(e->type->pointerTo()));
       result = new DVarValue(e->type, initsym);
       return;
     }

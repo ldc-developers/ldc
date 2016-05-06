@@ -49,6 +49,7 @@ class Package : public ScopeDsymbol
 {
 public:
     PKG isPkgMod;
+    unsigned tag;       // auto incremented tag, used to mask package tree in scopes
     Module *mod;        // != NULL if isPkgMod == PKGmodule
 
     Package(Identifier *ident);
@@ -58,7 +59,7 @@ public:
 
     Package *isPackage() { return this; }
 
-    bool isAncestorPackageOf(Package *pkg);
+    bool isAncestorPackageOf(const Package * const pkg) const;
 
     void semantic(Scope *sc) { }
     Dsymbol *search(Loc loc, Identifier *ident, int flags = IgnoreNone);

@@ -162,6 +162,8 @@ extern (C++) Dsymbol getDsymbol(RootObject oarg)
             else
                 sa = (cast(FuncExp)ea).fd;
         }
+        else if (ea.op == TOKtemplate)
+            sa = (cast(TemplateExp)ea).td;
         else
             sa = null;
     }
@@ -394,7 +396,7 @@ public:
         return DYNCAST_TUPLE;
     }
 
-    override char* toChars()
+    override const(char)* toChars()
     {
         return objects.toChars();
     }
@@ -653,12 +655,12 @@ else
         return false; // don't scan uninstantiated templates
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
-        return (onemember && onemember.isAggregateDeclaration()) ? onemember.kind() : cast(char*)"template";
+        return (onemember && onemember.isAggregateDeclaration()) ? onemember.kind() : "template";
     }
 
-    override char* toChars()
+    override const(char)* toChars()
     {
         if (literal)
             return Dsymbol.toChars();
@@ -1687,14 +1689,14 @@ else
                                 else
                                 {
                                     Type vt = tvp.valType.semantic(Loc(), sc);
-                                    MATCH m = cast(MATCH)dim.implicitConvTo(vt);
+                                    MATCH m = dim.implicitConvTo(vt);
                                     if (m <= MATCHnomatch)
                                         goto Lnomatch;
                                     (*dedtypes)[i] = dim;
                                 }
                             }
                         }
-                        /* fall through */
+                        goto case Tarray;
                     }
                 case Tarray:
                     {
@@ -1767,6 +1769,7 @@ else
         {
             TemplateParameter tparam = (*parameters)[i];
             //printf("tparam[%d] = %s\n", i, tparam->ident->toChars());
+
             /* For T:T*, the dedargs is the T*, dedtypes is the T
              * But for function templates, we really need them to match
              */
@@ -1808,7 +1811,9 @@ else
                         // if tuple parameter and
                         // tuple parameter was not in function parameter list and
                         // we're one or more arguments short (i.e. no tuple argument)
-                        if (tparam == tp && fptupindex == IDX_NOTFOUND && ntargs <= dedargs.dim - 1)
+                        if (tparam == tp &&
+                            fptupindex == IDX_NOTFOUND &&
+                            ntargs <= dedargs.dim - 1)
                         {
                             // make tuple argument an empty tuple
                             oded = cast(RootObject)new Tuple();
@@ -1819,6 +1824,7 @@ else
                     if (isError(oded))
                         goto Lerror;
                     ntargs++;
+
                     /* At the template parameter T, the picked default template argument
                      * X!int should be matched to T in order to deduce dependent
                      * template parameter A.
@@ -1839,20 +1845,23 @@ else
                     }
                 }
                 oded = declareParameter(paramscope, tparam, oded);
-                /* Bugzilla 7469: Normalize ti->tiargs for the correct mangling of template instance.
-                 */
-                Tuple va = isTuple(oded);
-                if (va && va.objects.dim)
-                {
-                    dedargs.setDim(parameters.dim - 1 + va.objects.dim);
-                    for (size_t j = 0; j < va.objects.dim; j++)
-                        (*dedargs)[i + j] = va.objects[j];
-                    i = dedargs.dim - 1;
-                }
-                else
-                    (*dedargs)[i] = oded;
+                (*dedargs)[i] = oded;
             }
         }
+
+        /* Bugzilla 7469: As same as the code for 7469 in findBestMatch,
+         * expand a Tuple in dedargs to normalize template arguments.
+         */
+        if (auto d = dedargs.dim)
+        {
+            if (auto va = isTuple((*dedargs)[d - 1]))
+            {
+                dedargs.setDim(d - 1);
+                dedargs.insert(d - 1, &va.objects);
+            }
+        }
+        ti.tiargs = dedargs; // update to the normalized template arguments.
+
         // Partially instantiate function for constraint and fd->leastAsSpecialized()
         {
             assert(paramsym);
@@ -1862,18 +1871,22 @@ else
             sc2.parent = ti;
             sc2.tinst = ti;
             sc2.minst = sc.minst;
+
             fd = doHeaderInstantiation(ti, sc2, fd, tthis, fargs);
+
             sc2 = sc2.pop();
             sc2 = sc2.pop();
+
             if (!fd)
                 goto Lnomatch;
         }
-        ti.tiargs = dedargs; // update to the normalized template arguments.
+
         if (constraint)
         {
             if (!evaluateConstraint(ti, sc, paramscope, dedargs, fd))
                 goto Lnomatch;
         }
+
         version (none)
         {
             for (size_t i = 0; i < dedargs.dim; i++)
@@ -1882,13 +1895,16 @@ else
                 printf("\tdedargs[%d] = %d, %s\n", i, o.dyncast(), o.toChars());
             }
         }
+
         paramscope.pop();
         //printf("\tmatch %d\n", match);
         return cast(MATCH)(match | (matchTiargs << 4));
+
     Lnomatch:
         paramscope.pop();
         //printf("\tnomatch\n");
         return MATCHnomatch;
+
     Lerror:
         // todo: for the future improvement
         paramscope.pop();
@@ -2166,7 +2182,7 @@ else
         --numinstances;
     }
 
-    override TemplateDeclaration isTemplateDeclaration()
+    override inout(TemplateDeclaration) isTemplateDeclaration() inout
     {
         return this;
     }
@@ -2408,6 +2424,7 @@ extern (C++) void functionResolve(Match* m, Dsymbol dstart, Loc loc, Scope* sc, 
         }
         return 0;
     }
+
     int applyTemplate(TemplateDeclaration td)
     {
         // skip duplicates
@@ -2454,7 +2471,7 @@ extern (C++) void functionResolve(Match* m, Dsymbol dstart, Loc loc, Scope* sc, 
 
             Dsymbol s = ti.inst.toAlias();
             FuncDeclaration fd;
-            if (TemplateDeclaration tdx = s.isTemplateDeclaration())
+            if (auto tdx = s.isTemplateDeclaration())
             {
                 Objects dedtypesX;      // empty tiargs
 
@@ -2501,7 +2518,12 @@ extern (C++) void functionResolve(Match* m, Dsymbol dstart, Loc loc, Scope* sc, 
                 return 0;
 
             if (fd.type.ty != Tfunction)
-                goto Lerror;
+            {
+                m.lastf = fd;   // to propagate "error match"
+                m.count = 1;
+                m.last = MATCHnomatch;
+                return 1;
+            }
 
             Type tthis_fd = fd.needThis() && !fd.isCtorDeclaration() ? tthis : null;
 
@@ -2702,21 +2724,6 @@ extern (C++) void functionResolve(Match* m, Dsymbol dstart, Loc loc, Scope* sc, 
         assert(tf.ty == Tfunction);
         if (!tf.callMatch(tthis_best, fargs))
             goto Lnomatch;
-
-        if (auto fld = m.lastf.isFuncLiteralDeclaration())
-        {
-            if ((sc.flags & SCOPEconstraint) || sc.intypeof)
-            {
-                // Inside template constraint, or inside typeof,
-                // nested reference check doesn't work correctly.
-            }
-            else if (fld.tok == TOKreserved)
-            {
-                // change to non-nested
-                fld.tok = TOKfunction;
-                fld.vthis = null;
-            }
-        }
 
         /* As Bugzilla 3682 shows, a template instance can be matched while instantiating
          * that same template. Thus, the function type can be incomplete. Complete it.
@@ -3919,7 +3926,7 @@ extern (C++) MATCH deduceType(RootObject o, Scope* sc, Type tparam, TemplatePara
          * If a match occurs, numBaseClassMatches is incremented, and the new deduced
          * types are ANDed with the current 'best' estimate for dedtypes.
          */
-        static void deduceBaseClassParameters(BaseClass* b, Scope* sc, Type tparam, TemplateParameters* parameters, Objects* dedtypes, Objects* best, ref int numBaseClassMatches)
+        static void deduceBaseClassParameters(ref BaseClass b, Scope* sc, Type tparam, TemplateParameters* parameters, Objects* dedtypes, Objects* best, ref int numBaseClassMatches)
         {
             TemplateInstance parti = b.sym ? b.sym.parent.isTemplateInstance() : null;
             if (parti)
@@ -3947,9 +3954,9 @@ extern (C++) MATCH deduceType(RootObject o, Scope* sc, Type tparam, TemplatePara
                 }
             }
             // Now recursively test the inherited interfaces
-            for (size_t j = 0; j < b.baseInterfaces_dim; ++j)
+            foreach (ref bi; b.baseInterfaces)
             {
-                deduceBaseClassParameters(&b.baseInterfaces[j], sc, tparam, parameters, dedtypes, best, numBaseClassMatches);
+                deduceBaseClassParameters(bi, sc, tparam, parameters, dedtypes, best, numBaseClassMatches);
             }
         }
 
@@ -4012,12 +4019,11 @@ extern (C++) MATCH deduceType(RootObject o, Scope* sc, Type tparam, TemplatePara
                 while (s && s.baseclasses.dim > 0)
                 {
                     // Test the base class
-                    deduceBaseClassParameters((*s.baseclasses)[0], sc, tparam, parameters, dedtypes, best, numBaseClassMatches);
+                    deduceBaseClassParameters(*(*s.baseclasses)[0], sc, tparam, parameters, dedtypes, best, numBaseClassMatches);
                     // Test the interfaces inherited by the base class
-                    for (size_t i = 0; i < s.interfaces_dim; ++i)
+                    foreach (b; s.interfaces)
                     {
-                        BaseClass* b = s.interfaces[i];
-                        deduceBaseClassParameters(b, sc, tparam, parameters, dedtypes, best, numBaseClassMatches);
+                        deduceBaseClassParameters(*b, sc, tparam, parameters, dedtypes, best, numBaseClassMatches);
                     }
                     s = (*s.baseclasses)[0].sym;
                 }
@@ -4367,7 +4373,7 @@ extern (C++) MATCH deduceType(RootObject o, Scope* sc, Type tparam, TemplatePara
 
         override void visit(CommaExp e)
         {
-            (cast(CommaExp)e).e2.accept(this);
+            e.e2.accept(this);
         }
     }
 
@@ -4390,7 +4396,7 @@ extern (C++) MATCH deduceType(RootObject o, Scope* sc, Type tparam, TemplatePara
  *      iStart      = Start index of tparams to limit the tested parameters. If it's
  *                    nonzero, tparams[0..iStart] will be excluded from the test target.
  */
-extern (C++) Type reliesOnTident(Type t, TemplateParameters* tparams = null, size_t iStart = 0)
+extern (C++) bool reliesOnTident(Type t, TemplateParameters* tparams = null, size_t iStart = 0)
 {
     extern (C++) final class ReliesOnTident : Visitor
     {
@@ -4398,7 +4404,7 @@ extern (C++) Type reliesOnTident(Type t, TemplateParameters* tparams = null, siz
     public:
         TemplateParameters* tparams;
         size_t iStart;
-        Type result;
+        bool result;
 
         extern (D) this(TemplateParameters* tparams, size_t iStart)
         {
@@ -4448,7 +4454,7 @@ extern (C++) Type reliesOnTident(Type t, TemplateParameters* tparams = null, siz
                 TemplateParameter tp = (*tparams)[i];
                 if (tp.ident.equals(t.ident))
                 {
-                    result = t;
+                    result = true;
                     return;
                 }
             }
@@ -4461,7 +4467,7 @@ extern (C++) Type reliesOnTident(Type t, TemplateParameters* tparams = null, siz
                 TemplateParameter tp = (*tparams)[i];
                 if (t.tempinst.name == tp.ident)
                 {
-                    result = t;
+                    result = true;
                     return;
                 }
             }
@@ -4479,6 +4485,12 @@ extern (C++) Type reliesOnTident(Type t, TemplateParameters* tparams = null, siz
             }
         }
 
+        override void visit(TypeTypeof t)
+        {
+            //printf("TypeTypeof::reliesOnTident('%s')\n", t.toChars());
+            t.exp.accept(this);
+        }
+
         override void visit(TypeTuple t)
         {
             if (t.arguments)
@@ -4492,10 +4504,256 @@ extern (C++) Type reliesOnTident(Type t, TemplateParameters* tparams = null, siz
                 }
             }
         }
+
+        override void visit(Expression e)
+        {
+            //printf("Expression::reliesOnTident('%s')\n", e.toChars());
+        }
+
+        override void visit(IdentifierExp e)
+        {
+            //printf("IdentifierExp::reliesOnTident('%s')\n", e.toChars());
+            for (size_t i = iStart; i < tparams.dim; i++)
+            {
+                auto tp = (*tparams)[i];
+                if (e.ident == tp.ident)
+                {
+                    result = true;
+                    return;
+                }
+            }
+        }
+
+        override void visit(TupleExp e)
+        {
+            //printf("TupleExp::reliesOnTident('%s')\n", e.toChars());
+            if (e.exps)
+            {
+                foreach (ea; *e.exps)
+                {
+                    ea.accept(this);
+                    if (result)
+                        return;
+                }
+            }
+        }
+
+        override void visit(ArrayLiteralExp e)
+        {
+            //printf("ArrayLiteralExp::reliesOnTident('%s')\n", e.toChars());
+            if (e.elements)
+            {
+                foreach (el; *e.elements)
+                {
+                    el.accept(this);
+                    if (result)
+                        return;
+                }
+            }
+        }
+
+        override void visit(AssocArrayLiteralExp e)
+        {
+            //printf("AssocArrayLiteralExp::reliesOnTident('%s')\n", e.toChars());
+            foreach (ek; *e.keys)
+            {
+                ek.accept(this);
+                if (result)
+                    return;
+            }
+            foreach (ev; *e.values)
+            {
+                ev.accept(this);
+                if (result)
+                    return;
+            }
+        }
+
+        override void visit(StructLiteralExp e)
+        {
+            //printf("StructLiteralExp::reliesOnTident('%s')\n", e.toChars());
+            if (e.elements)
+            {
+                foreach (ea; *e.elements)
+                {
+                    ea.accept(this);
+                    if (result)
+                        return;
+                }
+            }
+        }
+
+        override void visit(TypeExp e)
+        {
+            //printf("TypeExp::reliesOnTident('%s')\n", e.toChars());
+            e.type.accept(this);
+        }
+
+        override void visit(NewExp e)
+        {
+            //printf("NewExp::reliesOnTident('%s')\n", e.toChars());
+            if (e.thisexp)
+                e.thisexp.accept(this);
+            if (!result && e.newargs)
+            {
+                foreach (ea; *e.newargs)
+                {
+                    ea.accept(this);
+                    if (result)
+                        return;
+                }
+            }
+            e.newtype.accept(this);
+            if (!result && e.arguments)
+            {
+                foreach (ea; *e.arguments)
+                {
+                    ea.accept(this);
+                    if (result)
+                        return;
+                }
+            }
+        }
+
+        override void visit(NewAnonClassExp e)
+        {
+            //printf("NewAnonClassExp::reliesOnTident('%s')\n", e.toChars());
+            result = true;
+        }
+
+        override void visit(FuncExp e)
+        {
+            //printf("FuncExp::reliesOnTident('%s')\n", e.toChars());
+            result = true;
+        }
+
+        override void visit(TypeidExp e)
+        {
+            //printf("TypeidExp::reliesOnTident('%s')\n", e.toChars());
+            if (auto ea = isExpression(e.obj))
+                ea.accept(this);
+            else if (auto ta = isType(e.obj))
+                ta.accept(this);
+        }
+
+        override void visit(TraitsExp e)
+        {
+            //printf("TraitsExp::reliesOnTident('%s')\n", e.toChars());
+            if (e.args)
+            {
+                foreach (oa; *e.args)
+                {
+                    if (auto ea = isExpression(oa))
+                        ea.accept(this);
+                    else if (auto ta = isType(oa))
+                        ta.accept(this);
+                    if (result)
+                        return;
+                }
+            }
+        }
+
+        override void visit(IsExp e)
+        {
+            //printf("IsExp::reliesOnTident('%s')\n", e.toChars());
+            e.targ.accept(this);
+        }
+
+        override void visit(UnaExp e)
+        {
+            //printf("UnaExp::reliesOnTident('%s')\n", e.toChars());
+            e.e1.accept(this);
+        }
+
+        override void visit(DotTemplateInstanceExp e)
+        {
+            //printf("DotTemplateInstanceExp::reliesOnTident('%s')\n", e.toChars());
+            visit(cast(UnaExp)e);
+            if (!result && e.ti.tiargs)
+            {
+                foreach (oa; *e.ti.tiargs)
+                {
+                    if (auto ea = isExpression(oa))
+                        ea.accept(this);
+                    else if (auto ta = isType(oa))
+                        ta.accept(this);
+                    if (result)
+                        return;
+                }
+            }
+        }
+
+        override void visit(CallExp e)
+        {
+            //printf("CallExp::reliesOnTident('%s')\n", e.toChars());
+            visit(cast(UnaExp)e);
+            if (!result && e.arguments)
+            {
+                foreach (ea; *e.arguments)
+                {
+                    ea.accept(this);
+                    if (result)
+                        return;
+                }
+            }
+        }
+
+        override void visit(CastExp e)
+        {
+            //printf("CallExp::reliesOnTident('%s')\n", e.toChars());
+            visit(cast(UnaExp)e);
+            if (!result)
+                e.to.accept(this);
+        }
+
+        override void visit(SliceExp e)
+        {
+            //printf("SliceExp::reliesOnTident('%s')\n", e.toChars());
+            visit(cast(UnaExp)e);
+            if (!result && e.lwr)
+                e.lwr.accept(this);
+            if (!result && e.upr)
+                e.upr.accept(this);
+        }
+
+        override void visit(IntervalExp e)
+        {
+            //printf("IntervalExp::reliesOnTident('%s')\n", e.toChars());
+            e.lwr.accept(this);
+            if (!result)
+                e.upr.accept(this);
+        }
+
+        override void visit(ArrayExp e)
+        {
+            //printf("ArrayExp::reliesOnTident('%s')\n", e.toChars());
+            visit(cast(UnaExp)e);
+            if (!result && e.arguments)
+            {
+                foreach (ea; *e.arguments)
+                    ea.accept(this);
+            }
+        }
+
+        override void visit(BinExp e)
+        {
+            //printf("BinExp::reliesOnTident('%s')\n", e.toChars());
+            e.e1.accept(this);
+            if (!result)
+                e.e2.accept(this);
+        }
+
+        override void visit(CondExp e)
+        {
+            //printf("BinExp::reliesOnTident('%s')\n", e.toChars());
+            e.econd.accept(this);
+            if (!result)
+                visit(cast(BinExp)e);
+        }
     }
 
     if (!t)
-        return null;
+        return false;
 
     assert(tparams);
     scope ReliesOnTident v = new ReliesOnTident(tparams, iStart);
@@ -5908,7 +6166,7 @@ public:
         }
         if (global.errors != errorsave)
             goto Laftersemantic;
-        if (sc.func && !tinst)
+        if ((sc.func || (sc.flags & SCOPEfullinst)) && !tinst)
         {
             /* If a template is instantiated inside function, the whole instantiation
              * should be done at that position. But, immediate running semantic3 of
@@ -5928,13 +6186,48 @@ public:
         }
         else if (tinst)
         {
-            /* Template function instantiation should run semantic3 immediately
-             * for attribute inference.
-             */
+            bool doSemantic3 = false;
             if (sc.func && aliasdecl && aliasdecl.toAlias().isFuncDeclaration())
             {
-                trySemantic3(sc2);
+                /* Template function instantiation should run semantic3 immediately
+                 * for attribute inference.
+                 */
+                doSemantic3 = true;
             }
+            else if (sc.func)
+            {
+                /* A lambda function in template arguments might capture the
+                 * instantiated scope context. For the correct context inference,
+                 * all instantiated functions should run the semantic3 immediately.
+                 * See also compilable/test14973.d
+                 */
+                foreach (oarg; tdtypes)
+                {
+                    auto s = getDsymbol(oarg);
+                    if (!s)
+                        continue;
+
+                    if (auto td = s.isTemplateDeclaration())
+                    {
+                        if (!td.literal)
+                            continue;
+                        assert(td.members && td.members.dim == 1);
+                        s = (*td.members)[0];
+                    }
+                    if (auto fld = s.isFuncLiteralDeclaration())
+                    {
+                        if (fld.tok == TOKreserved)
+                        {
+                            doSemantic3 = true;
+                            break;
+                        }
+                    }
+                }
+                //printf("[%s] %s doSemantic3 = %d\n", loc.toChars(), toChars(), doSemantic3);
+            }
+            if (doSemantic3)
+                trySemantic3(sc2);
+
             TemplateInstance ti = tinst;
             int nest = 0;
             while (ti && !ti.deferred && ti.tinst)
@@ -6181,7 +6474,7 @@ public:
         return inst;
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "template instance";
     }
@@ -6192,7 +6485,7 @@ public:
         return true;
     }
 
-    override char* toChars()
+    override const(char)* toChars()
     {
         OutBuffer buf;
         toCBufferInstance(this, &buf);
@@ -7197,7 +7490,7 @@ public:
                 {
                     if (!td2.onemember || !td2.onemember.isFuncDeclaration())
                         return 0;
-                    if (tiargs.dim > td.parameters.dim && !td.isVariadic())
+                    if (tiargs.dim >= td.parameters.dim - (td.isVariadic() ? 1 : 0))
                         return 0;
                     return 1;
                 }
@@ -7506,7 +7799,7 @@ public:
         assert(tempdecl);
         //printf("TemplateInstance::genIdent('%s')\n", tempdecl->ident->toChars());
         OutBuffer buf;
-        char* id = tempdecl.ident.toChars();
+        const id = tempdecl.ident.toChars();
         if (!members)
         {
             // Use "__U" for the symbols declared inside template constraint.
@@ -7612,9 +7905,8 @@ public:
                 assert(0);
         }
         buf.writeByte('Z');
-        id = buf.peekString();
-        //printf("\tgenIdent = %s\n", id);
-        return Identifier.idPool(id);
+        //printf("\tgenIdent = %s\n", buf.peekString());
+        return Identifier.idPool(buf.peekSlice());
     }
 
     final void expandMembers(Scope* sc2)
@@ -7674,7 +7966,7 @@ public:
         --nest;
     }
 
-    override final TemplateInstance isTemplateInstance()
+    override final inout(TemplateInstance) isTemplateInstance() inout
     {
         return this;
     }
@@ -7898,8 +8190,7 @@ public:
                 symtab = sc.parent.isScopeDsymbol().symtab;
             L1:
                 assert(symtab);
-                int num = cast(int)dmd_aaLen(symtab.tab) + 1;
-                ident = Identifier.generateId(s, num);
+                ident = Identifier.generateId(s, symtab.len + 1);
                 symtab.insert(this);
             }
         }
@@ -7959,7 +8250,7 @@ public:
         symtab = new DsymbolTable();
         for (Scope* sce = sc; 1; sce = sce.enclosing)
         {
-            ScopeDsymbol sds = cast(ScopeDsymbol)sce.scopesym;
+            ScopeDsymbol sds = sce.scopesym;
             if (sds)
             {
                 sds.importScope(this, Prot(PROTpublic));
@@ -8099,7 +8390,7 @@ public:
         }
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "mixin";
     }
@@ -8160,7 +8451,7 @@ public:
         }
     }
 
-    override char* toChars()
+    override const(char)* toChars()
     {
         OutBuffer buf;
         toCBufferInstance(this, &buf);
@@ -8239,7 +8530,7 @@ public:
         return true;
     }
 
-    override TemplateMixin isTemplateMixin()
+    override inout(TemplateMixin) isTemplateMixin() inout
     {
         return this;
     }

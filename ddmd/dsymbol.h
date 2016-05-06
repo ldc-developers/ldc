@@ -115,9 +115,9 @@ struct Prot
     Prot();
     Prot(PROTKIND kind);
 
-    bool isMoreRestrictiveThan(Prot other);
-    bool operator==(Prot other);
-    bool isSubsetOf(Prot other);
+    bool isMoreRestrictiveThan(const Prot other) const;
+    bool operator==(const Prot& other) const;
+    bool isSubsetOf(const Prot& other) const;
 };
 
 // in hdrgen.c
@@ -145,9 +145,17 @@ enum PASS
 enum
 {
     IgnoreNone              = 0x00, // default
-    IgnorePrivateMembers    = 0x01, // don't find private members
+    IgnorePrivateImports    = 0x01, // don't search private imports
     IgnoreErrors            = 0x02, // don't give error messages
     IgnoreAmbiguous         = 0x04, // return NULL if ambiguous
+    SearchLocalsOnly        = 0x08, // only look at locals (don't search imports)
+    SearchImportsOnly       = 0x10, // only look in imports
+    SearchUnqualifiedModule = 0x20, // the module scope search is unqualified,
+                                    // meaning don't search imports in that scope,
+                                    // because qualified module searches search
+                                    // their imports
+    SearchCheck10378        = 0x40, // unqualified search with transition=checkimports switch
+    IgnoreSymbolVisibility  = 0x80, // also find private and package protected symbols
 };
 
 typedef int (*Dsymbol_apply_ft_t)(Dsymbol *, void *);
@@ -162,6 +170,7 @@ public:
     const utf8_t *comment;      // documentation comment for this Dsymbol
     Loc loc;                    // where defined
     Scope *_scope;               // !=NULL means context to use for semantic()
+    const utf8_t *prettystring;
     bool errors;                // this symbol failed to pass semantic()
     PASS semanticRun;
     char *depmsg;               // customized deprecation message
@@ -181,7 +190,7 @@ public:
     char *toChars();
     virtual char *toPrettyCharsHelper(); // helper to print fully qualified (template) arguments
     Loc& getLoc();
-    char *locToChars();
+    const char *locToChars();
     bool equals(RootObject *o);
     bool isAnonymous();
     void error(Loc loc, const char *format, ...);
@@ -229,7 +238,6 @@ public:
     virtual bool isImportedSymbol();            // is Dsymbol imported?
     virtual bool isDeprecated();                // is Dsymbol deprecated?
     virtual bool isOverloadable();
-    virtual bool hasOverloads();
     virtual LabelDsymbol *isLabel();            // is this a LabelDsymbol?
     virtual AggregateDeclaration *isMember();   // is this symbol a member of an AggregateDeclaration?
     virtual Type *getType();                    // is this a type?
@@ -303,8 +311,10 @@ public:
     DsymbolTable *symtab;       // members[] sorted into table
 
 private:
-    Dsymbols *imports;          // imported Dsymbol's
+    Dsymbols *importedScopes;   // imported Dsymbol's
     PROTKIND *prots;            // array of PROTKIND, one for each import
+
+    BitArray accessiblePackages;
 
 public:
     ScopeDsymbol();
@@ -384,14 +394,14 @@ public:
     DsymbolTable();
 
     // Look up Identifier. Return Dsymbol if found, NULL if not.
-    Dsymbol *lookup(Identifier *ident);
+    Dsymbol *lookup(Identifier const * const ident);
 
     // Insert Dsymbol in table. Return NULL if already there.
     Dsymbol *insert(Dsymbol *s);
 
     // Look for Dsymbol in table. If there, return it. If not, insert s and return that.
     Dsymbol *update(Dsymbol *s);
-    Dsymbol *insert(Identifier *ident, Dsymbol *s);     // when ident and s are not the same
+    Dsymbol *insert(Identifier const * const ident, Dsymbol *s);     // when ident and s are not the same
 };
 
 #endif /* DMD_DSYMBOL_H */
