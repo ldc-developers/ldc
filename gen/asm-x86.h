@@ -178,7 +178,7 @@ static const int N_Regs = /*gp*/ 8 + /*fp*/ 8 + /*mmx*/ 8 + /*sse*/ 8 +
 #define NULL_TREE ""
 
 static struct {
-  const char *name;
+  llvm::StringRef name;
   std::string gccName; // GAS will take upper case, but GCC won't (needed for
                        // the clobber list)
   Identifier *ident;
@@ -2056,23 +2056,25 @@ struct AsmProcessor {
       char buf[8], *p;
 
       for (int i = 0; i < N_Regs; i++) {
-        strncpy(buf, regInfo[i].name, sizeof(buf) - 1);
+        strncpy(buf, regInfo[i].name.data(), sizeof(buf) - 1);
         for (p = buf; *p; p++) {
           *p = std::tolower(*p);
         }
         regInfo[i].gccName = std::string(buf, p - buf);
         if ((i <= Reg_ST || i > Reg_ST7) && i != Reg_EFLAGS) {
-          regInfo[i].ident = Identifier::idPool(regInfo[i].name);
+          regInfo[i].ident =
+              Identifier::idPool(regInfo[i].name.data(), regInfo[i].name.size());
         }
       }
 
       for (int i = 0; i < N_PtrNames; i++) {
-        ptrTypeIdentTable[i] = Identifier::idPool(ptrTypeNameTable[i]);
+        ptrTypeIdentTable[i] = Identifier::idPool(ptrTypeNameTable[i],
+                                                  std::strlen(ptrTypeNameTable[i]));
       }
 
       Handled = createExpression(Loc(), TOKvoid, sizeof(Expression));
 
-      ident_seg = Identifier::idPool("seg");
+      ident_seg = Identifier::idPool("seg", std::strlen("seg"));
 
       eof_tok.value = TOKeof;
       eof_tok.next = nullptr;

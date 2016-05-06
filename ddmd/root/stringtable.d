@@ -42,11 +42,14 @@ private uint calcHash(const(char)* key, size_t len) pure nothrow @nogc
     {
     case 3:
         h ^= data[2] << 16;
+        goto case;
     case 2:
         h ^= data[1] << 8;
+        goto case;
     case 1:
         h ^= data[0];
         h *= m;
+        goto default;
     default:
         break;
     }
@@ -86,12 +89,12 @@ struct StringValue
         return cast(char*)(&this + 1);
     }
 
-    extern (C++) const(size_t) len()
+    extern (C++) size_t len() const
     {
         return length;
     }
 
-    extern (C++) const(const(char)*) toDchars()
+    extern (C++) const(char)* toDchars() const
     {
         return cast(const(char)*)(&this + 1);
     }

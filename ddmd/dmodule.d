@@ -118,15 +118,18 @@ extern (C++) class Package : ScopeDsymbol
 {
 public:
     PKG isPkgMod;
+    uint tag;        // auto incremented tag, used to mask package tree in scopes
     Module mod;     // !=null if isPkgMod == PKGmodule
 
     final extern (D) this(Identifier ident)
     {
         super(ident);
         this.isPkgMod = PKGunknown;
+        __gshared uint packageTag;
+        this.tag = packageTag++;
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "package";
     }
@@ -191,7 +194,7 @@ public:
         return dst;
     }
 
-    override final Package isPackage()
+    override final inout(Package) isPackage() inout
     {
         return this;
     }
@@ -209,25 +212,23 @@ public:
      * Returns:
      *  see description
      */
-    final bool isAncestorPackageOf(Package pkg)
+    final bool isAncestorPackageOf(const Package pkg) const
     {
-        while (pkg)
-        {
-            if (this == pkg)
-                return true;
-            if (!pkg.parent)
-                break;
-            pkg = pkg.parent.isPackage();
-        }
-        return false;
+        if (this == pkg)
+            return true;
+        if (!pkg || !pkg.parent)
+            return false;
+        return isAncestorPackageOf(pkg.parent.isPackage());
     }
 
     override final void semantic(Scope* sc)
     {
     }
 
-    override Dsymbol search(Loc loc, Identifier ident, int flags = IgnoreNone)
+    override Dsymbol search(Loc loc, Identifier ident, int flags = SearchLocalsOnly)
     {
+        //printf("%s Package.search('%s', flags = x%x)\n", toChars(), ident.toChars(), flags);
+        flags &= ~SearchLocalsOnly;  // searching an import is always transitive
         if (!isModule() && mod)
         {
             // Prefer full package name.
@@ -413,7 +414,7 @@ else
         //  foo.bar.baz
         // into:
         //  foo\bar\baz
-        char* filename = ident.toChars();
+        auto filename = ident.toChars();
         if (packages && packages.dim)
         {
             OutBuffer buf;
@@ -432,7 +433,7 @@ else
             }
             buf.writestring(filename);
             buf.writeByte(0);
-            filename = cast(char*)buf.extractData();
+            filename = buf.extractData();
         }
         auto m = new Module(filename, ident, 0, 0);
         m.loc = loc;
@@ -461,7 +462,7 @@ else
         return m;
     }
 
-    override const(char)* kind()
+    override const(char)* kind() const
     {
         return "module";
     }
@@ -567,7 +568,7 @@ else
     Module parse(bool gen_docs = false)
     {
         //printf("Module::parse(srcfile='%s') this=%p\n", srcfile->name->toChars(), this);
-        char* srcname = srcfile.name.toChars();
+        const(char)* srcname = srcfile.name.toChars();
         //printf("Module::parse(srcname = '%s')\n", srcname);
         isPackageFile = (strcmp(srcfile.name.name(), "package.d") == 0);
         char* buf = cast(char*)srcfile.buffer;
@@ -618,7 +619,7 @@ else
                     }
                     dbuf.writeByte(0); // add 0 as sentinel for scanner
                     buflen = dbuf.offset - 1; // don't include sentinel in count
-                    buf = cast(char*)dbuf.extractData();
+                    buf = dbuf.extractData();
                 }
                 else
                 {
@@ -675,7 +676,7 @@ else
                     }
                     dbuf.writeByte(0); // add 0 as sentinel for scanner
                     buflen = dbuf.offset - 1; // don't include sentinel in count
-                    buf = cast(char*)dbuf.extractData();
+                    buf = dbuf.extractData();
                 }
             }
             else if (buf[0] == 0xFE && buf[1] == 0xFF)
@@ -843,29 +844,29 @@ else
             }
             if (arreq)
             {
-                scope Parser p = new Parser(loc, this, code_ArrayEq, strlen(cast(const(char)*)code_ArrayEq), 0);
+                scope Parser p = new Parser(loc, this, code_ArrayEq, strlen(code_ArrayEq), 0);
                 p.nextToken();
                 members.append(p.parseDeclDefs(0));
             }
             {
-                scope Parser p = new Parser(loc, this, code_ArrayPostblit, strlen(cast(const(char)*)code_ArrayPostblit), 0);
+                scope Parser p = new Parser(loc, this, code_ArrayPostblit, strlen(code_ArrayPostblit), 0);
                 p.nextToken();
                 members.append(p.parseDeclDefs(0));
             }
             {
-                scope Parser p = new Parser(loc, this, code_ArrayDtor, strlen(cast(const(char)*)code_ArrayDtor), 0);
+                scope Parser p = new Parser(loc, this, code_ArrayDtor, strlen(code_ArrayDtor), 0);
                 p.nextToken();
                 members.append(p.parseDeclDefs(0));
             }
             if (xopeq)
             {
-                scope Parser p = new Parser(loc, this, code_xopEquals, strlen(cast(const(char)*)code_xopEquals), 0);
+                scope Parser p = new Parser(loc, this, code_xopEquals, strlen(code_xopEquals), 0);
                 p.nextToken();
                 members.append(p.parseDeclDefs(0));
             }
             if (xopcmp)
             {
-                scope Parser p = new Parser(loc, this, code_xopCmp, strlen(cast(const(char)*)code_xopCmp), 0);
+                scope Parser p = new Parser(loc, this, code_xopCmp, strlen(code_xopCmp), 0);
                 p.nextToken();
                 members.append(p.parseDeclDefs(0));
             }
@@ -895,6 +896,7 @@ else
             p.parent = this.parent;
             p.isPkgMod = PKGmodule;
             p.mod = this;
+            p.tag = this.tag; // reuse the same package tag
             p.symtab = new DsymbolTable();
             s = p;
         }
@@ -925,6 +927,7 @@ else
                      */
                     pkg.isPkgMod = PKGmodule;
                     pkg.mod = this;
+                    pkg.tag = this.tag; // reuse the same package tag
                 }
                 else
                     error(md ? md.loc : loc, "from file %s conflicts with package name %s", srcname, pkg.toChars());
@@ -1023,7 +1026,7 @@ else
         for (size_t i = 0; i < members.dim; i++)
         {
             Dsymbol s = (*members)[i];
-            //printf("\tModule('%s'): '%s'.semantic()\n", toChars(), s->toChars());
+            //printf("\tModule('%s'): '%s'.semantic()\n", toChars(), s.toChars());
             s.semantic(sc);
             runDeferredSemantic();
         }
@@ -1109,15 +1112,22 @@ else
         return needmoduleinfo || global.params.cov;
     }
 
-    override Dsymbol search(Loc loc, Identifier ident, int flags = IgnoreNone)
+    override Dsymbol search(Loc loc, Identifier ident, int flags = SearchLocalsOnly)
     {
         /* Since modules can be circularly referenced,
          * need to stop infinite recursive searches.
          * This is done with the cache.
          */
-        //printf("%s Module::search('%s', flags = %d) insearch = %d\n", toChars(), ident->toChars(), flags, insearch);
+        //printf("%s Module.search('%s', flags = x%x) insearch = %d\n", toChars(), ident.toChars(), flags, insearch);
         if (insearch)
             return null;
+
+        /* Qualified module searches always search their imports,
+         * even if SearchLocalsOnly
+         */
+        if (!(flags & SearchUnqualifiedModule))
+            flags &= ~(SearchUnqualifiedModule | SearchLocalsOnly);
+
         if (searchCacheIdent == ident && searchCacheFlags == flags)
         {
             //printf("%s Module::search('%s', flags = %d) insearch = %d searchCacheSymbol = %s\n",
@@ -1166,7 +1176,8 @@ else
             if (sd == s)
                 return;
         }
-        //printf("Module::addDeferredSemantic('%s')\n", s->toChars());
+
+        //printf("Module::addDeferredSemantic('%s')\n", s.toChars());
         deferred.push(s);
     }
 
@@ -1177,11 +1188,13 @@ else
     {
         if (dprogress == 0)
             return;
+
         static __gshared int nested;
         if (nested)
             return;
         //if (deferred.dim) printf("+Module::runDeferredSemantic(), len = %d\n", deferred.dim);
         nested++;
+
         size_t len;
         do
         {
@@ -1189,6 +1202,7 @@ else
             len = deferred.dim;
             if (!len)
                 break;
+
             Dsymbol* todo;
             Dsymbol* todoalloc = null;
             Dsymbol tmp;
@@ -1204,11 +1218,12 @@ else
             }
             memcpy(todo, deferred.tdata(), len * Dsymbol.sizeof);
             deferred.setDim(0);
+
             for (size_t i = 0; i < len; i++)
             {
                 Dsymbol s = todo[i];
                 s.semantic(null);
-                //printf("deferred: %s, parent = %s\n", s->toChars(), s->parent->toChars());
+                //printf("deferred: %s, parent = %s\n", s.toChars(), s.parent.toChars());
             }
             //printf("\tdeferred.dim = %d, len = %d, dprogress = %d\n", deferred.dim, len, dprogress);
             if (todoalloc)
@@ -1237,8 +1252,9 @@ else
         for (size_t i = 0; i < a.dim; i++)
         {
             Dsymbol s = (*a)[i];
-            //printf("[%d] %s semantic3a\n", i, s->toPrettyChars());
+            //printf("[%d] %s semantic3a\n", i, s.toPrettyChars());
             s.semantic3(null);
+
             if (global.errors)
                 break;
         }
@@ -1328,7 +1344,7 @@ else
                 }
 
                 if (fqnNames) {
-                    char* name = md ? md.toChars() : toChars();
+                    const name = md ? md.toChars() : toChars();
                     argobj = FileName.replaceName(argobj, name);
 
                     // add ext, otherwise forceExt will make nested.module into nested.bc
@@ -1358,7 +1374,8 @@ else
         bool noModuleInfo; /// Do not emit any module metadata.
 
         // array ops emitted in this module already
-        AA* arrayfuncs;
+        import ddmd.func;
+        FuncDeclaration[void*] arrayfuncs;
 
         // Coverage analysis
         void* d_cover_valid;  // llvm::GlobalVariable* --> private immutable size_t[] _d_cover_valid;
@@ -1366,7 +1383,7 @@ else
         Array!size_t d_cover_valid_init; // initializer for _d_cover_valid
     }
 
-    override Module isModule()
+    override inout(Module) isModule() inout
     {
         return this;
     }
@@ -1393,7 +1410,7 @@ struct ModuleDeclaration
         this.id = id;
     }
 
-    extern (C++) char* toChars()
+    extern (C++) const(char)* toChars()
     {
         OutBuffer buf;
         if (packages && packages.dim)

@@ -235,6 +235,11 @@ cl::list<std::string> versions(
     cl::desc("Compile in version code >= <level> or identified by <idents>"),
     cl::value_desc("level/idents"), cl::CommaSeparated);
 
+cl::list<std::string> transitions(
+    "transition",
+    cl::desc("help with language change identified by <idents>, use ? for list"),
+    cl::value_desc("idents"), cl::CommaSeparated);
+
 static StringsAdapter linkSwitchStore("L", global.params.linkswitches);
 static cl::list<std::string, StringsAdapter>
     linkerSwitches("L", cl::desc("Pass <linkerflag> to the linker"),

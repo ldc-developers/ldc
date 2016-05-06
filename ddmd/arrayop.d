@@ -18,7 +18,6 @@ import ddmd.globals;
 import ddmd.id;
 import ddmd.identifier;
 import ddmd.mtype;
-import ddmd.root.aav;
 import ddmd.root.outbuffer;
 import ddmd.statement;
 import ddmd.tokens;
@@ -27,9 +26,9 @@ import ddmd.visitor;
 /**************************************
  * Hash table of array op functions already generated or known about.
  */
-version(IN_LLVM) {}
-else
-extern (C++) __gshared AA* arrayfuncs;
+version(IN_LLVM) {} else
+private __gshared FuncDeclaration[void*] arrayfuncs;
+
 
 /**************************************
  * Structure to contain information needed to insert an array op call
@@ -54,7 +53,7 @@ extern (C++) FuncDeclaration buildArrayOp(Identifier ident, BinExp exp, Scope* s
     StorageClass stc = STCtrusted | STCpure | STCnothrow | STCnogc;
     /* Construct the function
      */
-    auto ftype = new TypeFunction(fparams, exp.type, 0, LINKc, stc);
+    auto ftype = new TypeFunction(fparams, exp.e1.type, 0, LINKc, stc);
     //printf("fd: %s %s\n", ident->toChars(), ftype->toChars());
     auto fd = new FuncDeclaration(Loc(), Loc(), ident, STCundefined, ftype);
     fd.fbody = fbody;
@@ -179,19 +178,19 @@ extern (C++) Expression arrayOp(BinExp e, Scope* sc)
     /* Append deco of array element type
      */
     buf.writestring(e.type.toBasetype().nextOf().toBasetype().mutableOf().deco);
-    char* name = buf.peekString();
-    Identifier ident = Identifier.idPool(name);
+    auto ident = Identifier.idPool(buf.peekSlice());
+
     version(IN_LLVM)
     {
-        FuncDeclaration* pFd = cast(FuncDeclaration*)dmd_aaGet(&(sc._module.arrayfuncs), cast(void*)ident);
+        auto arrayfuncs = sc._module.arrayfuncs;
     }
+    FuncDeclaration* pFd = cast(void*)ident in arrayfuncs;
+    FuncDeclaration fd;
+    if (pFd)
+        fd = *pFd;
     else
-    {
-        FuncDeclaration* pFd = cast(FuncDeclaration*)dmd_aaGet(&arrayfuncs, cast(void*)ident);
-    }
-    FuncDeclaration fd = *pFd;
-    if (!fd)
         fd = buildArrayOp(ident, e, sc, e.loc);
+
     if (fd && fd.errors)
     {
         const(char)* fmt;
@@ -204,7 +203,8 @@ extern (C++) Expression arrayOp(BinExp e, Scope* sc)
         e.error(fmt, e.toChars(), tbn.toChars());
         return new ErrorExp();
     }
-    *pFd = fd;
+    if (!pFd)
+        arrayfuncs[cast(void*)ident] = fd;
     Expression ev = new VarExp(e.loc, fd);
     Expression ec = new CallExp(e.loc, ev, arguments);
     return ec.semantic(sc);

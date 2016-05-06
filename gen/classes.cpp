@@ -241,81 +241,61 @@ DValue *DtoCastClass(Loc &loc, DValue *val, Type *_to) {
   Type *from = val->getType()->toBasetype();
   TypeClass *fc = static_cast<TypeClass *>(from);
 
-  if (fc->sym->isCPPclass()) {
-    IF_LOG Logger::println("C++ class/interface, just bitcasting");
-    LLValue *rval = DtoBitCast(val->getRVal(), DtoType(_to));
-    return new DImValue(_to, rval);
+  // copy DMD logic:
+  // if to isBaseOf from with offset:   (to ? to + offset : null)
+  // else if from is C++ and to is C++:  to
+  // else if from is C++ and to is D:    null
+  // else if from is interface:          _d_interface_cast(to)
+  // else if from is class:              _d_dynamic_cast(to)
+
+  LLType *toType = DtoType(_to);
+  int offset = 0;
+  if (tc->sym->isBaseOf(fc->sym, &offset)) {
+    Logger::println("static down cast");
+    // interface types don't cover the full object in case of multiple inheritence
+    //  so GEP on the original type is inappropriate
+
+    // offset pointer
+    LLValue *orig = val->getRVal();
+    LLValue *v = orig;
+    if (offset != 0) {
+      v = DtoBitCast(v, getVoidPtrType());
+      LLValue *off =
+          LLConstantInt::get(LLType::getInt32Ty(gIR->context()), offset);
+      v = gIR->ir->CreateGEP(v, off);
+    }
+    IF_LOG {
+      Logger::cout() << "V = " << *v << std::endl;
+      Logger::cout() << "T = " << *toType << std::endl;
+    }
+    v = DtoBitCast(v, toType);
+
+    // Check whether the original value was null, and return null if so.
+    // Sure we could have jumped over the code above in this case, but
+    // it's just a GEP and (maybe) a pointer-to-pointer BitCast, so it
+    // should be pretty cheap and perfectly safe even if the original was
+    // null.
+    LLValue *isNull = gIR->ir->CreateICmpEQ(
+        orig, LLConstant::getNullValue(orig->getType()), ".nullcheck");
+    v = gIR->ir->CreateSelect(isNull, LLConstant::getNullValue(toType), v,
+                              ".interface");
+    // return r-value
+    return new DImValue(_to, v);
   }
 
-  // x -> interface
-  if (InterfaceDeclaration *it = tc->sym->isInterfaceDeclaration()) {
-    Logger::println("to interface");
-    // interface -> interface
-    if (fc->sym->isInterfaceDeclaration()) {
-      Logger::println("from interface");
-      return DtoDynamicCastInterface(loc, val, _to);
-    }
-    // class -> interface - static cast
-    if (it->isBaseOf(fc->sym, nullptr)) {
-      Logger::println("static down cast");
-
-      // get the from class
-      ClassDeclaration *cd = fc->sym->isClassDeclaration();
-      DtoResolveClass(cd); // add this
-      IrTypeClass *typeclass = stripModifiers(fc)->ctype->isClass();
-
-      // find interface impl
-
-      size_t i_index = typeclass->getInterfaceIndex(it);
-      assert(i_index != ~0UL &&
-             "requesting interface that is not implemented by this class");
-
-      // offset pointer
-      LLValue *v = val->getRVal();
-      LLValue *orig = v;
-      v = DtoGEPi(v, 0, i_index);
-      LLType *ifType = DtoType(_to);
-      IF_LOG {
-        Logger::cout() << "V = " << *v << std::endl;
-        Logger::cout() << "T = " << *ifType << std::endl;
-      }
-      v = DtoBitCast(v, ifType);
-
-      // Check whether the original value was null, and return null if so.
-      // Sure we could have jumped over the code above in this case, but
-      // it's just a GEP and (maybe) a pointer-to-pointer BitCast, so it
-      // should be pretty cheap and perfectly safe even if the original was
-      // null.
-      LLValue *isNull = gIR->ir->CreateICmpEQ(
-          orig, LLConstant::getNullValue(orig->getType()), ".nullcheck");
-      v = gIR->ir->CreateSelect(isNull, LLConstant::getNullValue(ifType), v,
-                                ".interface");
-
-      // return r-value
-      return new DImValue(_to, v);
-    }
-    // class -> interface
-
-    Logger::println("from object");
-    return DtoDynamicCastObject(loc, val, _to);
+  if (fc->sym->cpp) {
+    Logger::println("C++ class/interface cast");
+    LLValue *v = tc->sym->cpp ? DtoBitCast(val->getRVal(), toType)
+                              : LLConstant::getNullValue(toType);
+    return new DImValue(_to, v);
   }
-  // x -> class
 
-  Logger::println("to class");
-  // interface -> class
+  // from interface
   if (fc->sym->isInterfaceDeclaration()) {
     Logger::println("interface cast");
     return DtoDynamicCastInterface(loc, val, _to);
   }
-  // class -> class - static down cast
-  if (tc->sym->isBaseOf(fc->sym, nullptr)) {
-    Logger::println("static down cast");
-    LLType *tolltype = DtoType(_to);
-    LLValue *rval = DtoBitCast(val->getRVal(), tolltype);
-    return new DImValue(_to, rval);
-  }
-  // class -> class - dynamic up cast
-
+  // from class
   Logger::println("dynamic up cast");
   return DtoDynamicCastObject(loc, val, _to);
 }

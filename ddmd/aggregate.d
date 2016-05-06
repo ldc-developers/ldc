@@ -122,7 +122,7 @@ public:
 
     override final void semantic2(Scope* sc)
     {
-        //printf("AggregateDeclaration::semantic2(%s) type = %s, errors = %d\n", toChars(), type->toChars(), errors);
+        //printf("AggregateDeclaration::semantic2(%s) type = %s, errors = %d\n", toChars(), type.toChars(), errors);
         if (!members)
             return;
 
@@ -138,7 +138,7 @@ public:
         sc2.stc &= STCsafe | STCtrusted | STCsystem;
         sc2.parent = this;
         //if (isUnionDeclaration())     // TODO
-        //    sc2->inunion = 1;
+        //    sc2.inunion = 1;
         sc2.protection = Prot(PROTpublic);
         sc2.explicitProtection = 0;
         sc2.structalign = STRUCTALIGN_DEFAULT;
@@ -147,7 +147,7 @@ public:
         for (size_t i = 0; i < members.dim; i++)
         {
             Dsymbol s = (*members)[i];
-            //printf("\t[%d] %s\n", i, s->toChars());
+            //printf("\t[%d] %s\n", i, s.toChars());
             s.semantic2(sc2);
         }
 
@@ -215,6 +215,8 @@ public:
             sd.semanticTypeInfoMembers();
     }
 
+    abstract void finalizeSize();
+
     override final uint size(Loc loc)
     {
         //printf("AggregateDeclaration::size() %s, scope = %p\n", toChars(), scope);
@@ -271,7 +273,7 @@ public:
                 if (s.apply(&SV.func, &sv))
                     goto L1;
             }
-            finalizeSize(null);
+            finalizeSize();
 
         L1:
         }
@@ -287,8 +289,6 @@ public:
         }
         return structsize;
     }
-
-    abstract void finalizeSize(Scope* sc);
 
     /***************************************
      * Calculate field[i].overlapped, and check that all of explicit
@@ -331,7 +331,7 @@ public:
 
                 // vd and v2 are overlapping. If either has destructors, postblits, etc., then error
                 //printf("overlapping fields %s and %s\n", vd->toChars(), v2->toChars());
-                foreach (k; 0.. 2)
+                foreach (k; 0 .. 2)
                 {
                     auto v = k == 0 ? vd : v2;
                     Type tv = v.type.baseElemOf();
@@ -608,6 +608,8 @@ public:
         return enclosing !is null;
     }
 
+    /* Append vthis field (this.tupleof[$-1]) to make this aggregate type nested.
+     */
     final void makeNested()
     {
         if (enclosing) // if already nested
@@ -620,19 +622,20 @@ public:
             return;
 
         // If nested struct, add in hidden 'this' pointer to outer scope
-        Dsymbol s = toParent2();
+        auto s = toParent2();
         if (!s)
             return;
-        AggregateDeclaration ad = s.isAggregateDeclaration();
-        FuncDeclaration fd = s.isFuncDeclaration();
         Type t = null;
-        if (fd)
+        if (auto fd = s.isFuncDeclaration())
         {
             enclosing = fd;
-            AggregateDeclaration agg = fd.isMember2();
-            t = agg ? agg.handleType() : Type.tvoidptr;
+
+            /* Bugzilla 14422: If a nested class parent is a function, its
+             * context pointer (== `outer`) should be void* always.
+             */
+            t = Type.tvoidptr;
         }
-        else if (ad)
+        else if (auto ad = s.isAggregateDeclaration())
         {
             if (isClassDeclaration() && ad.isClassDeclaration())
             {
@@ -640,7 +643,7 @@ public:
             }
             else if (isStructDeclaration())
             {
-                if (TemplateInstance ti = ad.parent.isTemplateInstance())
+                if (auto ti = ad.parent.isTemplateInstance())
                 {
                     enclosing = ti.enclosing;
                 }
@@ -649,7 +652,7 @@ public:
         }
         if (enclosing)
         {
-            //printf("makeNested %s, enclosing = %s\n", toChars(), enclosing->toChars());
+            //printf("makeNested %s, enclosing = %s\n", toChars(), enclosing.toChars());
             assert(t);
             if (t.ty == Tstruct)
                 t = Type.tvoidptr; // t should not be a ref type
@@ -700,7 +703,7 @@ public:
     Symbol* stag; // tag symbol for debug data
     Symbol* sinit;
 
-    override final AggregateDeclaration isAggregateDeclaration()
+    override final inout(AggregateDeclaration) isAggregateDeclaration() inout
     {
         return this;
     }

@@ -569,7 +569,7 @@ extern (C++) struct Token
 
         struct
         {
-            char* ustring; // UTF8 string
+            const(char)* ustring; // UTF8 string
             uint len;
             ubyte postfix; // 'c', 'w', 'd'
         }
@@ -587,7 +587,7 @@ extern (C++) struct Token
             //printf("keyword[%d] = '%s'\n",u, keywords[u].name);
             const(char)* s = kw.name;
             TOK v = kw.value;
-            Identifier id = Identifier.idPool(s);
+            auto id = Identifier.idPool(s, strlen(s));
             id.value = v;
             //printf("tochars[%d] = '%s'\n",v, s);
             Token.tochars[v] = s;
@@ -719,7 +719,7 @@ extern (C++) struct Token
         freelist = &this;
     }
 
-    int isKeyword()
+    int isKeyword() const
     {
         foreach (kw; keywords)
         {
@@ -737,7 +737,43 @@ extern (C++) struct Token
         }
     }
 
-    extern (C++) const(char)* toChars()
+    /****
+     * Set to contents of ptr[0..length]
+     * Params:
+     *  ptr = pointer to string
+     *  length = length of string
+     */
+    final void setString(const(char)* ptr, size_t length)
+    {
+        auto s = cast(char*)mem.xmalloc(length + 1);
+        memcpy(s, ptr, length);
+        s[length] = 0;
+        ustring = s;
+        len = cast(uint)length;
+        postfix = 0;
+    }
+
+    /****
+     * Set to contents of buf
+     * Params:
+     *  buf = string (not zero terminated)
+     */
+    final void setString(const ref OutBuffer buf)
+    {
+        setString(cast(const(char)*)buf.data, buf.offset);
+    }
+
+    /****
+     * Set to empty string
+     */
+    final void setString()
+    {
+        ustring = "";
+        len = 0;
+        postfix = 0;
+    }
+
+    extern (C++) const(char)* toChars() const
     {
         __gshared char[3 + 3 * float80value.sizeof + 1] buffer;
         const(char)* p = &buffer[0];
@@ -787,8 +823,8 @@ extern (C++) struct Token
                 buf.writeByte('"');
                 for (size_t i = 0; i < len;)
                 {
-                    uint c;
-                    utf_decodeChar(cast(char*)ustring, len, &i, &c);
+                    dchar c;
+                    utf_decodeChar(ustring, len, i, c);
                     switch (c)
                     {
                     case 0:
@@ -796,6 +832,7 @@ extern (C++) struct Token
                     case '"':
                     case '\\':
                         buf.writeByte('\\');
+                        goto default;
                     default:
                         if (c <= 0x7F)
                         {
@@ -833,7 +870,7 @@ extern (C++) struct Token
                 if (postfix)
                     buf.writeByte(postfix);
                 buf.writeByte(0);
-                p = cast(char*)buf.extractData();
+                p = buf.extractData();
                 break;
             }
         case TOKidentifier:

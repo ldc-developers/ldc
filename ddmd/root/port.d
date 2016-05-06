@@ -350,13 +350,15 @@ extern (C++) struct Port
     }
 
     version(IN_LLVM)
-    {   // LDC_FIXME: look at the old port.c how to implement this with system calls for some OSses
+    {   
+        // LDC_FIXME: Move this into our C++ code, since only driver/gen is
+        // still using this.
         static int stricmp(const(char)* s1, const(char)* s2)
         {
             int result = 0;
-
             for (;;)
-            {   char c1 = *s1;
+            {   
+                char c1 = *s1;
                 char c2 = *s2;
 
                 result = c1 - c2;
@@ -372,6 +374,18 @@ extern (C++) struct Port
                 s2++;
             }
             return result;
+        }
+    }
+
+    static void valcpy(void *dst, ulong val, size_t size)
+    {
+        switch (size)
+        {
+            case 1: *cast(ubyte *)dst = cast(ubyte)val; break;
+            case 2: *cast(ushort *)dst = cast(ushort)val; break;
+            case 4: *cast(uint *)dst = cast(uint)val; break;
+            case 8: *cast(ulong *)dst = cast(ulong)val; break;
+            default: assert(0);
         }
     }
 }
