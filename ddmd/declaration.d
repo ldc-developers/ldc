@@ -489,27 +489,6 @@ public:
         return false;
     }
 
-version(IN_LLVM)
-{
-    override void semantic3(Scope *sc)
-    {
-        //printf("TupleDeclaration::semantic3((%s)\n", toChars());
-        for (size_t i = 0; i < objects.dim; i++)
-        {   RootObject o = (*objects)[i];
-            if (o.dyncast() == DYNCAST_EXPRESSION)
-            {
-                Expression e = cast(Expression)o;
-                if (e.op == TOKdsymbol)
-                {
-                    DsymbolExp ve = cast(DsymbolExp)e;
-                    Declaration d = ve.s.isDeclaration();
-                    d.semantic3(sc);
-                }
-            }
-        }
-    }
-}
-
     override inout(TupleDeclaration) isTupleDeclaration() inout
     {
         return this;
