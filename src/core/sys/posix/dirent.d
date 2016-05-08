@@ -163,6 +163,7 @@ else version (Solaris)
     version (D_LP64)
     {
         dirent* readdir(DIR*);
+        alias readdir64 = readdir;
     }
     else
     {
