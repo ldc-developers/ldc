@@ -166,7 +166,7 @@ else version ( FreeBSD )
         long        _mbstateL;
     }
 }
-else version( Solaris )
+else version (Solaris)
 {
     enum
     {
@@ -392,7 +392,7 @@ else version( FreeBSD )
     ///
     alias shared(__sFILE) FILE;
 }
-else version( Solaris )
+else version (Solaris)
 {
     import core.stdc.wchar_ : __mbstate_t;
 
@@ -660,7 +660,7 @@ else version( FreeBSD )
     ///
     alias __stderrp stderr;
 }
-else version( Solaris )
+else version (Solaris)
 {
     enum
     {
