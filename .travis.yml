@@ -51,7 +51,7 @@ matrix:
       d: ldc
       env: LLVM_CONFIG="llvm-config-3.7" OPTS="-DMULTILIB=ON"
     - os: linux
-      d: ldc
+      d: ldc-0.17.1
       env: LLVM_CONFIG="llvm-config-3.6" OPTS="-DBUILD_SHARED_LIBS=ON"
     - os: linux
       d: dmd
