@@ -353,8 +353,9 @@ public:
       return;
     }
 
-    if (auto fd = e->var->isFuncLiteralDeclaration())
-        genFuncLiteral(fd, nullptr);
+    if (auto fd = e->var->isFuncLiteralDeclaration()) {
+      genFuncLiteral(fd, nullptr);
+    }
 
     result = DtoSymbolAddress(e->loc, e->type, e->var);
   }
@@ -1222,36 +1223,29 @@ public:
     // special cases: `this(int) { this(); }` and `this(int) { super(); }`
     if (!e->var) {
       Logger::println("this exp without var declaration");
-      LLValue *v = p->func()->thisArg;
-      result = new DVarValue(e->type, v);
+      result = new DVarValue(e->type, p->func()->thisArg);
       return;
     }
-    // regular this expr
-    if (VarDeclaration *vd = e->var->isVarDeclaration()) {
-      LLValue *v;
-      Dsymbol *vdparent = vd->toParent2();
-      Identifier *ident = p->func()->decl->ident;
-      // In D1, contracts are treated as normal nested methods, 'this' is
-      // just passed in the context struct along with any used parameters.
-      if (ident == Id::ensure || ident == Id::require) {
-        Logger::println("contract this exp");
-        v = p->func()->nestArg;
-        v = DtoBitCast(v, DtoType(e->type)->getPointerTo());
-      } else if (vdparent != p->func()->decl) {
-        Logger::println("nested this exp");
-        result = DtoNestedVariable(e->loc, e->type, vd, e->type->ty == Tstruct);
-        return;
-      } else {
-        Logger::println("normal this exp");
-        v = p->func()->thisArg;
-      }
-      assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
-                                     "vars, although it can easily be made "
-                                     "to.");
-      result = new DVarValue(e->type, v);
+
+    const auto vd = e->var->isVarDeclaration();
+    assert(vd);
+    assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
+                                   "vars, although it can easily be made to.");
+
+    LLValue *v;
+    const auto ident = p->func()->decl->ident;
+    if (ident == Id::ensure || ident == Id::require) {
+      Logger::println("contract this exp");
+      v = DtoBitCast(p->func()->nestArg, DtoType(e->type)->getPointerTo());
+    } else if (vd->toParent2() != p->func()->decl) {
+      Logger::println("nested this exp");
+      result = DtoNestedVariable(e->loc, e->type, vd, e->type->ty == Tstruct);
+      return;
     } else {
-      llvm_unreachable("No VarDeclaration in ThisExp.");
+      Logger::println("normal this exp");
+      v = p->func()->thisArg;
     }
+    result = new DVarValue(e->type, v);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -2369,32 +2363,31 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
-  void genFuncLiteral(FuncLiteralDeclaration *fd, FuncExp *e)
-  {
-      if ((fd->tok == TOKreserved || fd->tok == TOKdelegate) &&
-          (e && e->type->ty == Tpointer)) {
-          // This is a lambda that was inferred to be a function literal instead
-          // of a delegate, so set tok here in order to get correct types/mangling.
-          // Horrible hack, but DMD does the same thing.
-          fd->tok = TOKfunction;
-          fd->vthis = nullptr;
-      }
+  void genFuncLiteral(FuncLiteralDeclaration *fd, FuncExp *e) {
+    if ((fd->tok == TOKreserved || fd->tok == TOKdelegate) &&
+        (e && e->type->ty == Tpointer)) {
+      // This is a lambda that was inferred to be a function literal instead
+      // of a delegate, so set tok here in order to get correct types/mangling.
+      // Horrible hack, but DMD does the same thing.
+      fd->tok = TOKfunction;
+      fd->vthis = nullptr;
+    }
 
-      if (fd->isNested()) {
-          Logger::println("nested");
-      }
-      Logger::println("kind = %s", fd->kind());
+    if (fd->isNested()) {
+      Logger::println("nested");
+    }
+    Logger::println("kind = %s", fd->kind());
 
-      // We need to actually codegen the function here, as literals are not added
-      // to the module member list.
-      Declaration_codegen(fd, p);
-      if (!isIrFuncCreated(fd)) {
-          // See DtoDefineFunction for reasons why codegen was suppressed.
-          // Instead just declare the function.
-          DtoDeclareFunction(fd);
-          assert(!fd->isNested());
-      }
-      assert(getIrFunc(fd)->func);
+    // We need to actually codegen the function here, as literals are not added
+    // to the module member list.
+    Declaration_codegen(fd, p);
+    if (!isIrFuncCreated(fd)) {
+      // See DtoDefineFunction for reasons why codegen was suppressed.
+      // Instead just declare the function.
+      DtoDeclareFunction(fd);
+      assert(!fd->isNested());
+    }
+    assert(getIrFunc(fd)->func);
   }
 
   //////////////////////////////////////////////////////////////////////////////

@@ -83,12 +83,14 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
   // get the nested context
   LLValue *ctx = nullptr;
   if (irfunc->nestedVar) {
-    // If this function has its own nested context struct, always load it.
+    Logger::println("Using own nested context of current function");
+
     ctx = irfunc->nestedVar;
     dwarfValue = ctx;
   } else if (irfunc->decl->isMember2()) {
-    // If this is a member function of a nested class without its own
-    // context, load the vthis member.
+    Logger::println(
+        "Current function is member of nested class, loading vthis");
+
     AggregateDeclaration *cd = irfunc->decl->isMember2();
     LLValue *val = irfunc->thisArg;
     if (cd->isClassDeclaration()) {
@@ -96,15 +98,17 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     }
     ctx = DtoLoad(DtoGEPi(val, 0, getVthisIdx(cd), ".vthis"));
   } else {
-    // Otherwise, this is a simple nested function, load from the context
-    // argument.
+    Logger::println("Regular nested function, loading context arg");
+
     ctx = DtoLoad(irfunc->nestArg);
     dwarfValue = irfunc->nestArg;
     if (global.params.symdebug) {
       gIR->DBuilder.OpDeref(dwarfAddr);
     }
   }
+
   assert(ctx);
+  IF_LOG { Logger::cout() << "Context: " << *ctx << '\n'; }
 
   DtoCreateNestedContextType(vdparent->isFuncDeclaration());
   assert(isIrLocalCreated(vd));
@@ -112,11 +116,9 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
   ////////////////////////////////////
   // Extract variable from nested context
 
-  LLValue *val = DtoBitCast(ctx, LLPointerType::getUnqual(irfunc->frameType));
-  IF_LOG {
-    Logger::cout() << "Context: " << *val << '\n';
-    Logger::cout() << "of type: " << *irfunc->frameType << '\n';
-  }
+  const auto frameType = LLPointerType::getUnqual(irfunc->frameType);
+  IF_LOG { Logger::cout() << "casting to: " << *irfunc->frameType << '\n'; }
+  LLValue *val = DtoBitCast(ctx, frameType);
 
   IrLocal *const irLocal = getIrLocal(vd);
   const auto vardepth = irLocal->nestedDepth;
