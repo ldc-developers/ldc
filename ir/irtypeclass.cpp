@@ -42,6 +42,7 @@ void IrTypeClass::addClassData(AggrTypeBuilder &builder,
   if (currCd->vtblInterfaces && currCd->vtblInterfaces->dim > 0) {
     // KLUDGE: The first pointer in the vtbl will be of type object.Interface;
     // extract that from the "well-known" object.TypeInfo_Class definition.
+    // For C++ interfaces, this vtbl entry has to be omitted
     const auto interfaceArrayType = Type::typeinfoclass->fields[3]->type;
     const auto interfacePtrType = interfaceArrayType->nextOf()->pointerTo();
 
@@ -56,9 +57,9 @@ void IrTypeClass::addClassData(AggrTypeBuilder &builder,
 
       // add to the interface map
       addInterfaceToMap(b->sym, builder.currentFieldIndex());
-
-      const auto ivtblType = llvm::StructType::get(
-          gIR->context(), buildVtblType(interfacePtrType, &arr));
+      Type* first = b->sym->isCPPinterface() ? nullptr : interfacePtrType;
+      const auto ivtblType =
+          llvm::StructType::get(gIR->context(), buildVtblType(first, &arr));
       builder.addType(llvm::PointerType::get(ivtblType, 0), Target::ptrsize);
 
       ++num_interface_vtbls;
@@ -119,13 +120,15 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
   // set vtbl type body
   FuncDeclarations vtbl;
   vtbl.reserve(cd->vtbl.dim);
-  vtbl.push(nullptr);
+  if (!cd->isCPPclass())
+    vtbl.push(nullptr);
   for (size_t i = cd->vtblOffset(); i < cd->vtbl.dim; ++i) {
     FuncDeclaration *fd = cd->vtbl[i]->isFuncDeclaration();
     assert(fd);
     vtbl.push(fd);
   }
-  t->vtbl_type->setBody(t->buildVtblType(Type::typeinfoclass->type, &vtbl));
+  Type* first = cd->isCPPclass() ? nullptr : Type::typeinfoclass->type;
+  t->vtbl_type->setBody(t->buildVtblType(first, &vtbl));
 
   IF_LOG Logger::cout() << "class type: " << *t->type << std::endl;
 
@@ -141,13 +144,15 @@ IrTypeClass::buildVtblType(Type *first, FuncDeclarations *vtbl_array) {
   std::vector<llvm::Type *> types;
   types.reserve(vtbl_array->dim);
 
-  // first comes the classinfo
-  if (!cd->isCPPclass() && !cd->isCPPinterface()) {
+  auto I = vtbl_array->begin();
+  // first comes the classinfo for D interfaces
+  if (first) {
     types.push_back(DtoType(first));
+    ++I;
   }
 
   // then come the functions
-  for (auto I = vtbl_array->begin() + 1, E = vtbl_array->end(); I != E; ++I) {
+  for (auto E = vtbl_array->end(); I != E; ++I) {
     FuncDeclaration *fd = *I;
     if (fd == nullptr) {
       // FIXME: This stems from the ancient D1 days – can it still happen?

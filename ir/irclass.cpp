@@ -548,8 +548,9 @@ LLConstant *IrAggr::getClassInfoInterfaces() {
 
   // create and apply initializer
   LLConstant *arr = LLConstantArray::get(array_type, constants);
-  classInterfacesArray->setInitializer(arr);
-  setLinkage(cd, classInterfacesArray);
+  auto ciarr = getInterfaceArraySymbol();
+  ciarr->setInitializer(arr);
+  setLinkage(cd, ciarr);
 
   // return null, only baseclass provide interfaces
   if (cd->vtblInterfaces->dim == 0) {
@@ -563,9 +564,9 @@ LLConstant *IrAggr::getClassInfoInterfaces() {
 
   LLConstant *ptr = llvm::ConstantExpr::getGetElementPtr(
 #if LDC_LLVM_VER >= 307
-      isaPointer(classInterfacesArray)->getElementType(),
+      isaPointer(ciarr)->getElementType(),
 #endif
-      classInterfacesArray, idxs, true);
+      ciarr, idxs, true);
 
   // return as a slice
   return DtoConstSlice(DtoConstSize_t(cd->vtblInterfaces->dim), ptr);
