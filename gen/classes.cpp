@@ -523,8 +523,7 @@ static ClassFlags::Type build_classinfo_flags(ClassDeclaration *cd) {
   }
   for (ClassDeclaration *pc = cd; pc; pc = pc->baseClass) {
     if (pc->members) {
-      for (size_t i = 0; i < pc->members->dim; i++) {
-        Dsymbol *sm = (*pc->members)[i];
+      for (Dsymbol *sm : *pc->members) {
         // printf("sm = %s %s\n", sm->kind(), sm->toChars());
         if (sm->hasPointers()) {
           return flags;
