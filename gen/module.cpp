@@ -42,6 +42,8 @@
 #include "ir/irtype.h"
 #include "ir/irvar.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
@@ -76,35 +78,60 @@ static void check_and_add_output_file(Module *NewMod, const std::string &str) {
 }
 
 void buildTargetFiles(Module *m, bool singleObj, bool library) {
-  if (m->objfile && (!m->doDocComment || m->docfile) && (!m->doHdrGen || m->hdrfile)) {
+  if (m->objfile && (!m->doDocComment || m->docfile) &&
+      (!m->doHdrGen || m->hdrfile)) {
     return;
   }
 
   if (!m->objfile) {
     const char *objname = library ? nullptr : global.params.objname;
     if (global.params.output_o) {
-      m->objfile = m->buildFilePath(objname, global.params.objdir,
-                                      global.params.targetTriple->isOSWindows()
-                                          ? global.obj_ext_alt
-                                          : global.obj_ext, library, fqnNames);
+      const char *extension = global.params.targetTriple->isOSWindows()
+                                  ? global.obj_ext_alt
+                                  : global.obj_ext;
+      llvm::SmallString<128> tempFilename; // must outlive buildFilePath call
+      if (global.params.run) {
+        using namespace llvm;
+        // If `-run` is passed, the obj file is temporary and is removed
+        // after execution. Make sure the name does not collide with other files
+        // from other processes by creating a unique filename.
+        auto tmpname = objname ? objname : "tmp";
+        std::error_code EC;
+        if (global.params.objdir) {
+          // Prepend with path to form absolute filename.
+          EC = sys::fs::createUniqueFile(Twine(global.params.objdir) +
+                                             sys::path::get_separator() +
+                                             tmpname + "-%%%%%%%." + extension,
+                                         tempFilename);
+        } else {
+          // Uses current dir as base for file.
+          EC = sys::fs::createUniqueFile(
+              Twine(tmpname) + "-%%%%%%%." + extension, tempFilename);
+        }
+        if (!EC) {
+          objname = tempFilename.c_str();
+        }
+      }
+      m->objfile = m->buildFilePath(objname, global.params.objdir, extension,
+                                    library, fqnNames);
     } else if (global.params.output_bc) {
-      m->objfile =
-          m->buildFilePath(objname, global.params.objdir, global.bc_ext, library, fqnNames);
+      m->objfile = m->buildFilePath(objname, global.params.objdir,
+                                    global.bc_ext, library, fqnNames);
     } else if (global.params.output_ll) {
-      m->objfile =
-          m->buildFilePath(objname, global.params.objdir, global.ll_ext, library, fqnNames);
+      m->objfile = m->buildFilePath(objname, global.params.objdir,
+                                    global.ll_ext, library, fqnNames);
     } else if (global.params.output_s) {
-      m->objfile =
-          m->buildFilePath(objname, global.params.objdir, global.s_ext, library, fqnNames);
+      m->objfile = m->buildFilePath(objname, global.params.objdir, global.s_ext,
+                                    library, fqnNames);
     }
   }
   if (m->doDocComment && !m->docfile) {
     m->docfile = m->buildFilePath(global.params.docname, global.params.docdir,
-                                    global.doc_ext, library, fqnNames);
+                                  global.doc_ext, library, fqnNames);
   }
   if (m->doHdrGen && !m->hdrfile) {
     m->hdrfile = m->buildFilePath(global.params.hdrname, global.params.hdrdir,
-                                    global.hdr_ext, library, fqnNames);
+                                  global.hdr_ext, library, fqnNames);
   }
 
   // safety check: never allow obj, doc or hdr file to have the source file's
@@ -112,7 +139,7 @@ void buildTargetFiles(Module *m, bool singleObj, bool library) {
   if (Port::stricmp(FileName::name(m->objfile->name->str),
                     FileName::name(m->arg)) == 0) {
     m->error("Output object files with the same name as the source file are "
-          "forbidden");
+             "forbidden");
     fatal();
   }
   if (m->docfile &&
@@ -126,7 +153,7 @@ void buildTargetFiles(Module *m, bool singleObj, bool library) {
       Port::stricmp(FileName::name(m->hdrfile->name->str),
                     FileName::name(m->arg)) == 0) {
     m->error("Output header files with the same name as the source file are "
-          "forbidden");
+             "forbidden");
     fatal();
   }
 
@@ -904,7 +931,8 @@ static void genModuleInfo(Module *m, bool emitFullModuleInfo) {
        global.params.targetTriple->getEnvironment() != llvm::Triple::Android) ||
       global.params.targetTriple->isOSFreeBSD() ||
 #if LDC_LLVM_VER > 305
-      global.params.targetTriple->isOSNetBSD() || global.params.targetTriple->isOSOpenBSD() ||
+      global.params.targetTriple->isOSNetBSD() ||
+      global.params.targetTriple->isOSOpenBSD() ||
       global.params.targetTriple->isOSDragonFly()
 #else
       global.params.targetTriple->getOS() == llvm::Triple::NetBSD ||
