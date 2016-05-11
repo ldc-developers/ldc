@@ -188,6 +188,8 @@ struct Param
     const char *mapfile;
 
 #if IN_LLVM
+    Array<const char *> *bitcodeFiles; // LLVM bitcode files passed on cmdline
+
     uint32_t nestedTmpl; // maximum nested template instantiations
 
     // Whether to keep all function bodies in .di file generation or to strip

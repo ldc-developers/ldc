@@ -389,6 +389,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   global.params.libfiles = new Strings();
   global.params.objfiles = new Strings();
   global.params.ddocfiles = new Strings();
+  global.params.bitcodeFiles = new Strings();
 
   global.params.moduleDeps = nullptr;
   global.params.moduleDepsFile = nullptr;
@@ -1157,14 +1158,24 @@ int cppmain(int argc, char **argv) {
     ext = FileName::ext(p);
     if (ext) {
 #if LDC_POSIX
-      if (strcmp(ext, global.obj_ext) == 0 || strcmp(ext, global.bc_ext) == 0)
+      if (strcmp(ext, global.obj_ext) == 0)
 #else
       if (Port::stricmp(ext, global.obj_ext) == 0 ||
-          Port::stricmp(ext, global.obj_ext_alt) == 0 ||
-          Port::stricmp(ext, global.bc_ext) == 0)
+          Port::stricmp(ext, global.obj_ext_alt) == 0)
 #endif
       {
         global.params.objfiles->push(static_cast<const char *>(files.data[i]));
+        continue;
+      }
+
+      // Detect LLVM bitcode files on commandline
+#if LDC_POSIX
+      if (strcmp(ext, global.bc_ext) == 0)
+#else
+      if (Port::stricmp(ext, global.bc_ext) == 0)
+#endif
+      {
+        global.params.bitcodeFiles->push(static_cast<const char *>(files.data[i]));
         continue;
       }
 
