@@ -68,7 +68,7 @@ install:
   - python -m pip install lit
   - python -c "import lit; lit.main();" --version
   # Download & extract DMD
-  - ps: Start-FileDownload 'http://downloads.dlang.org/releases/2015/dmd.2.069.2.windows.7z' -FileName 'dmd2.7z'
+  - ps: Start-FileDownload 'http://nightlies.dlang.org/dmd-nightly/dmd.master.windows.7z' -FileName 'dmd2.7z'
   - 7z x dmd2.7z > nul
   - set DMD=%CD%\dmd2\windows\bin\dmd.exe
   - dmd2\windows\bin\dmd.exe --version
