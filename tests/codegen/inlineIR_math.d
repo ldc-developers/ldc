@@ -1,5 +1,7 @@
 // Tests inlineIR + math optimizations
 
+// REQUIRES: target_X86
+
 // RUN: %ldc -c -output-ll -of=%t.ll %s && FileCheck %s --check-prefix LLVM < %t.ll
 // RUN: %ldc -mtriple x86_64-linux-gnu -mattr=+fma -O3 -release -c -output-s -of=%t.s %s && FileCheck %s --check-prefix ASM < %t.s
 
