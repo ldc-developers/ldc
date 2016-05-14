@@ -178,7 +178,7 @@ else()
     # but code for it is not in shared library
     if("${LLVM_FIND_COMPONENTS}" MATCHES "tablegen")
         if (NOT "${LLVM_LIBRARIES}" MATCHES "LLVMTableGen")
-            set(LLVM_LIBRARIES "${LLVM_LIBRARIES} -lLLVMTableGen")
+            set(LLVM_LIBRARIES "${LLVM_LIBRARIES};-lLLVMTableGen")
         endif()
     endif()
     llvm_set(TARGETS_TO_BUILD targets-built)
