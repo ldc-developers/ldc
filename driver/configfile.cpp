@@ -131,16 +131,20 @@ bool ConfigFile::locate() {
     APPEND_FILENAME_AND_RETURN_IF_EXISTS
   }
 #else
+#define STR(x) #x
+#define XSTR(x) STR(x)
   // try the install-prefix/etc
-  p = LDC_INSTALL_PREFIX;
+  p = XSTR(LDC_INSTALL_PREFIX);
   sys::path::append(p, "etc");
   APPEND_FILENAME_AND_RETURN_IF_EXISTS
 
   // try the install-prefix/etc/ldc
-  p = LDC_INSTALL_PREFIX;
+  p = XSTR(LDC_INSTALL_PREFIX);
   sys::path::append(p, "etc");
   sys::path::append(p, "ldc");
   APPEND_FILENAME_AND_RETURN_IF_EXISTS
+#undef XSTR
+#undef STR
 
   // try /etc (absolute path)
   p = "/etc";
