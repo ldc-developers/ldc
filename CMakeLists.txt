@@ -114,13 +114,17 @@ endif()
 # Setup D compiler flags and linker flags for phobos (system linker) etc. We use
 # DMD syntax for all the flags so we can work with both DMD and LDMD.
 set(DDMD_DFLAGS "-wi")
-if(CMAKE_BUILD_TYPE MATCHES "Debug")
-    append("-g -link-debuglib" DDMD_FLAGS)
-elseif(CMAKE_BUILD_TYPE MATCHES "RelWithDebInfo")
-    append("-g -O -inline -release" DDMD_DFLAGS)
-else()
-    # Default to a Release build type
-    append("-O -inline -release" DDMD_DFLAGS)
+set(DDMD_LFLAGS "")
+if(NOT MSVC_IDE)
+    # for multi-config builds, these options have to be added later to the custom command
+    if(CMAKE_BUILD_TYPE MATCHES "Debug")
+        append("-g -link-debuglib" DDMD_FLAGS)
+    elseif(CMAKE_BUILD_TYPE MATCHES "RelWithDebInfo")
+        append("-g -O -inline -release" DDMD_DFLAGS)
+    else()
+        # Default to a Release build type
+        append("-O -inline -release" DDMD_DFLAGS)
+    endif()
 endif()
 
 if(MSVC)
@@ -143,14 +147,14 @@ if(MSVC)
     # Host DMD/LDMD will default to linking against the static MSVC runtime.
     # So disable some default libs based on CMAKE_C_FLAGS_RELEASE.
     if(CMAKE_C_FLAGS_RELEASE MATCHES "(^| )[/-]MD( |$)")
-        append("-L/DEFAULTLIB:msvcrt -L/NODEFAULTLIB:libcmt" DDMD_DFLAGS)
+        append("-L/NODEFAULTLIB:libcmt" DDMD_LFLAGS)
         if(MSVC_VERSION GREATER 1800) # VS 2015+
-            append("-L/NODEFAULTLIB:libvcruntime" DDMD_DFLAGS)
+            append("-L/NODEFAULTLIB:libvcruntime" DDMD_LFLAGS)
         endif()
     else()
-        append("-L/DEFAULTLIB:libcmt -L/NODEFAULTLIB:msvcrt" DDMD_DFLAGS)
+        append("-L/NODEFAULTLIB:msvcrt" DDMD_LFLAGS)
         if(MSVC_VERSION GREATER 1800) # VS 2015+
-            append("-L/NODEFAULTLIB:vcruntime" DDMD_DFLAGS)
+            append("-L/NODEFAULTLIB:vcruntime" DDMD_LFLAGS)
         endif()
     endif()
 endif()
@@ -595,19 +599,29 @@ else()
     endif()
 endif()
 
-separate_arguments(LDC_FLAG_LIST WINDOWS_COMMAND "${tempVar} ${D_COMPILER_FLAGS} ${DDMD_DFLAGS}")
-add_custom_command(
-    OUTPUT ${LDC_EXE_FULL}
-    COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:${LDC_LIB}> ${LDC_FLAG_LIST} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${LDC_EXE_FULL} ${LDC_D_SOURCE_FILES}
-    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    DEPENDS ${LDC_D_SOURCE_FILES} ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d ${LDC_LIB}
-)
-
+# CONFIG generator expressions need to be repeated due to https://cmake.org/Bug/view.php?id=14353
+separate_arguments(LDC_FLAG_LIST WINDOWS_COMMAND "${tempVar} ${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS}")
+if(MSVC_IDE)
+    add_custom_command(
+        OUTPUT ${LDC_EXE_FULL}
+        COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:${LDC_LIB}> ${LDC_FLAG_LIST} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${LDC_EXE_FULL} ${LDC_D_SOURCE_FILES} $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:-g> $<$<NOT:$<CONFIG:Debug>>:-O> $<$<NOT:$<CONFIG:Debug>>:-inline> $<$<NOT:$<CONFIG:Debug>>:-release>
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        DEPENDS ${LDC_D_SOURCE_FILES} ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d ${LDC_LIB}
+    )
+else()
+    add_custom_command(
+        OUTPUT ${LDC_EXE_FULL}
+        COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:${LDC_LIB}> ${LDC_FLAG_LIST} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${LDC_EXE_FULL} ${LDC_D_SOURCE_FILES}
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        DEPENDS ${LDC_D_SOURCE_FILES} ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d ${LDC_LIB}
+    )
+endif()
 
 if(MSVC_IDE)
     # the IDE generator is a multi-config one
     # so copy the config file into the correct bin subfolder
-    add_custom_command(TARGET ${LDC_EXE} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf $<TARGET_FILE_DIR:${LDC_EXE}> COMMENT "Copy config file ${LDC_EXE}.conf")
+    # (different outputs no longer feasible for custom commands, so disabled)
+    #    add_custom_command(TARGET ${LDC_EXE} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf $<TARGET_FILE_DIR:${LDC_EXE}> COMMENT "Copy config file ${LDC_EXE}.conf")
 endif()
 
 
