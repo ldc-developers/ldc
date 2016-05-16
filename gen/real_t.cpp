@@ -45,6 +45,10 @@ void real_t::_init() {
     case llvm::Triple::ppc64le:
       semantics = &APFloat::PPCDoubleDouble;
       break;
+    case llvm::Triple::aarch64:
+    case llvm::Triple::aarch64_be:
+      semantics = &APFloat::IEEEquad;
+      break;
     default:
       semantics = &APFloat::IEEEdouble;
       break;
