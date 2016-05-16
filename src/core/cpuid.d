@@ -914,6 +914,7 @@ bool hasCPUID()
             pop EAX;
             xor flags, EAX;
         }
+        return (flags & 0x0020_0000) != 0;
     }
     else version(D_InlineAsm_X86)
     {
