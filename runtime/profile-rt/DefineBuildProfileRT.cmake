@@ -11,6 +11,9 @@ if (LDC_WITH_PGO)
     if(MSVC)
         # Omit Default Library Name from the library, so it will work with both release and debug builds
         set(PROFRT_EXTRA_FLAGS "/Zl")
+
+        # Add library needed for `gethostname`
+        set(PROFRT_EXTRA_LDFLAGS "Ws2_32.lib")
     else()
         set(PROFRT_EXTRA_FLAGS "-fPIC -O3")
     endif()
@@ -84,7 +87,7 @@ if (LDC_WITH_PGO)
             LIBRARY_OUTPUT_DIRECTORY    ${output_path}
             RUNTIME_OUTPUT_DIRECTORY    ${output_path}
             COMPILE_FLAGS               "${c_flags} ${PROFRT_EXTRA_FLAGS}"
-            LINK_FLAGS                  "${ld_flags}"
+            LINK_FLAGS                  "${ld_flags} ${PROFRT_EXTRA_LDFLAGS}"
         )
 
         list(APPEND ${outlist_targets} "ldc-profile-rt${target_suffix}")
