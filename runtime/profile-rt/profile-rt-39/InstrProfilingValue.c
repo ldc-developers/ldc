@@ -21,7 +21,6 @@
 #define PROF_OOM_RETURN(Msg)                                                   \
   {                                                                            \
     PROF_OOM(Msg)                                                              \
-    free(ValueDataArray);                                                      \
     return NULL;                                                               \
   }
 
@@ -86,8 +85,8 @@ __llvm_profile_instrument_target(uint64_t TargetValue, void *Data,
 
   uint8_t VDataCount = 0;
   while (CurrentVNode) {
-    if (TargetValue == CurrentVNode->VData.Value) {
-      CurrentVNode->VData.Count++;
+    if (TargetValue == CurrentVNode->Value) {
+      CurrentVNode->Count++;
       return;
     }
     PrevVNode = CurrentVNode;
@@ -102,8 +101,8 @@ __llvm_profile_instrument_target(uint64_t TargetValue, void *Data,
   if (!CurrentVNode)
     return;
 
-  CurrentVNode->VData.Value = TargetValue;
-  CurrentVNode->VData.Count++;
+  CurrentVNode->Value = TargetValue;
+  CurrentVNode->Count++;
 
   uint32_t Success = 0;
   if (!ValueCounters[CounterIndex])
@@ -118,51 +117,109 @@ __llvm_profile_instrument_target(uint64_t TargetValue, void *Data,
   }
 }
 
-COMPILER_RT_VISIBILITY ValueProfData **
-__llvm_profile_gather_value_data(uint64_t *ValueDataSize) {
-  size_t S = 0;
-  __llvm_profile_data *I;
-  ValueProfData **ValueDataArray;
+/*
+ * A wrapper struct that represents value profile runtime data.
+ * Like InstrProfRecord class which is used by profiling host tools,
+ * ValueProfRuntimeRecord also implements the abstract intefaces defined in
+ * ValueProfRecordClosure so that the runtime data can be serialized using
+ * shared C implementation.
+ */
+typedef struct ValueProfRuntimeRecord {
+  const __llvm_profile_data *Data;
+  ValueProfNode **NodesKind[IPVK_Last + 1];
+  uint8_t **SiteCountArray;
+} ValueProfRuntimeRecord;
 
-  const __llvm_profile_data *DataEnd = __llvm_profile_end_data();
-  const __llvm_profile_data *DataBegin = __llvm_profile_begin_data();
+/* ValueProfRecordClosure Interface implementation. */
 
-  if (!ValueDataSize)
-    return NULL;
+static uint32_t getNumValueSitesRT(const void *R, uint32_t VK) {
+  return ((const ValueProfRuntimeRecord *)R)->Data->NumValueSites[VK];
+}
 
-  ValueDataArray = (ValueProfData **)calloc(
-      __llvm_profile_get_data_size(DataBegin, DataEnd), sizeof(void *));
-  if (!ValueDataArray)
-    PROF_OOM_RETURN("Failed to write value profile data ");
+static uint32_t getNumValueDataRT(const void *R, uint32_t VK) {
+  uint32_t S = 0, I;
+  const ValueProfRuntimeRecord *Record = (const ValueProfRuntimeRecord *)R;
+  if (Record->SiteCountArray[VK] == INSTR_PROF_NULLPTR)
+    return 0;
+  for (I = 0; I < Record->Data->NumValueSites[VK]; I++)
+    S += Record->SiteCountArray[VK][I];
+  return S;
+}
 
-  /*
-   * Compute the total Size of the buffer to hold ValueProfData
-   * structures for functions with value profile data.
-   */
-  for (I = (__llvm_profile_data *)DataBegin; I < DataEnd; ++I) {
-    ValueProfRuntimeRecord R;
-    if (initializeValueProfRuntimeRecord(&R, I->NumValueSites, I->Values))
-      PROF_OOM_RETURN("Failed to write value profile data ");
+static uint32_t getNumValueDataForSiteRT(const void *R, uint32_t VK,
+                                         uint32_t S) {
+  const ValueProfRuntimeRecord *Record = (const ValueProfRuntimeRecord *)R;
+  return Record->SiteCountArray[VK][S];
+}
 
-    /* Compute the size of ValueProfData from this runtime record.  */
-    if (getNumValueKindsRT(&R) != 0) {
-      ValueProfData *VD = NULL;
-      uint32_t VS = getValueProfDataSizeRT(&R);
-      VD = (ValueProfData *)calloc(VS, sizeof(uint8_t));
-      if (!VD)
-        PROF_OOM_RETURN("Failed to write value profile data ");
-      serializeValueProfDataFromRT(&R, VD);
-      ValueDataArray[I - DataBegin] = VD;
-      S += VS;
+static ValueProfRuntimeRecord RTRecord;
+static ValueProfRecordClosure RTRecordClosure = {
+    &RTRecord,          INSTR_PROF_NULLPTR, /* GetNumValueKinds */
+    getNumValueSitesRT, getNumValueDataRT,  getNumValueDataForSiteRT,
+    INSTR_PROF_NULLPTR, /* RemapValueData */
+    INSTR_PROF_NULLPTR, /* GetValueForSite, */
+    INSTR_PROF_NULLPTR  /* AllocValueProfData */
+};
+
+static uint32_t
+initializeValueProfRuntimeRecord(const __llvm_profile_data *Data,
+                                 uint8_t *SiteCountArray[]) {
+  unsigned I, J, S = 0, NumValueKinds = 0;
+  ValueProfNode **Nodes = (ValueProfNode **)Data->Values;
+  RTRecord.Data = Data;
+  RTRecord.SiteCountArray = SiteCountArray;
+  for (I = 0; I <= IPVK_Last; I++) {
+    uint16_t N = Data->NumValueSites[I];
+    if (!N)
+      continue;
+
+    NumValueKinds++;
+
+    RTRecord.NodesKind[I] = Nodes ? &Nodes[S] : INSTR_PROF_NULLPTR;
+    for (J = 0; J < N; J++) {
+      /* Compute value count for each site. */
+      uint32_t C = 0;
+      ValueProfNode *Site =
+          Nodes ? RTRecord.NodesKind[I][J] : INSTR_PROF_NULLPTR;
+      while (Site) {
+        C++;
+        Site = Site->Next;
+      }
+      if (C > UCHAR_MAX)
+        C = UCHAR_MAX;
+      RTRecord.SiteCountArray[I][J] = C;
     }
-    finalizeValueProfRuntimeRecord(&R);
+    S += N;
   }
+  return NumValueKinds;
+}
 
-  if (!S) {
-    free(ValueDataArray);
-    ValueDataArray = NULL;
+static ValueProfNode *getNextNValueData(uint32_t VK, uint32_t Site,
+                                        InstrProfValueData *Dst,
+                                        ValueProfNode *StartNode, uint32_t N) {
+  unsigned I;
+  ValueProfNode *VNode = StartNode ? StartNode : RTRecord.NodesKind[VK][Site];
+  for (I = 0; I < N; I++) {
+    Dst[I].Value = VNode->Value;
+    Dst[I].Count = VNode->Count;
+    VNode = VNode->Next;
   }
+  return VNode;
+}
 
-  *ValueDataSize = S;
-  return ValueDataArray;
+static uint32_t getValueProfDataSizeWrapper() {
+  return getValueProfDataSize(&RTRecordClosure);
+}
+
+static uint32_t getNumValueDataForSiteWrapper(uint32_t VK, uint32_t S) {
+  return getNumValueDataForSiteRT(&RTRecord, VK, S);
+}
+
+static VPDataReaderType TheVPDataReader = {
+    initializeValueProfRuntimeRecord, getValueProfRecordHeaderSize,
+    getFirstValueProfRecord,          getNumValueDataForSiteWrapper,
+    getValueProfDataSizeWrapper,      getNextNValueData};
+
+COMPILER_RT_VISIBILITY VPDataReaderType *lprofGetVPDataReader() {
+  return &TheVPDataReader;
 }

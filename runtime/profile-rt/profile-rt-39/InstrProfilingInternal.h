@@ -68,12 +68,13 @@ typedef struct ProfBufferIO {
 } ProfBufferIO;
 
 /* The creator interface used by testing.  */
-ProfBufferIO *lprofCreateBufferIOInternal(void *File, uint32_t DefaultBufferSz);
+ProfBufferIO *lprofCreateBufferIOInternal(void *File, uint32_t BufferSz);
+
 /*!
  * This is the interface to create a handle for buffered IO.
  */
-ProfBufferIO *lprofCreateBufferIO(WriterCallback FileWriter, void *File,
-                                  uint32_t DefaultBufferSz);
+ProfBufferIO *lprofCreateBufferIO(WriterCallback FileWriter, void *File);
+
 /*!
  * The interface to destroy the bufferIO handle and reclaim
  * the memory.
@@ -98,26 +99,61 @@ int lprofBufferIOFlush(ProfBufferIO *BufferIO);
 uint32_t lprofBufferWriter(ProfDataIOVec *IOVecs, uint32_t NumIOVecs,
                            void **WriterCtx);
 
+struct ValueProfData;
+struct ValueProfRecord;
+struct InstrProfValueData;
+struct ValueProfNode;
+
+/*!
+ * The class that defines a set of methods to read value profile
+ * data for streaming/serialization from the instrumentation runtime.
+ */
+typedef struct VPDataReaderType {
+  uint32_t (*InitRTRecord)(const __llvm_profile_data *Data,
+                           uint8_t *SiteCountArray[]);
+  /* Function pointer to getValueProfRecordHeader method. */
+  uint32_t (*GetValueProfRecordHeaderSize)(uint32_t NumSites);
+  /* Function pointer to getFristValueProfRecord method. */  
+  struct ValueProfRecord *(*GetFirstValueProfRecord)(struct ValueProfData *);
+  /* Return the number of value data for site \p Site.  */
+  uint32_t (*GetNumValueDataForSite)(uint32_t VK, uint32_t Site);
+  /* Return the total size of the value profile data of the 
+   * current function.  */
+  uint32_t (*GetValueProfDataSize)(void);
+  /*! 
+   * Read the next \p N value data for site \p Site and store the data
+   * in \p Dst. \p StartNode is the first value node to start with if
+   * it is not null. The function returns the pointer to the value
+   * node pointer to be used as the \p StartNode of the next batch reading.
+   * If there is nothing left, it returns NULL.
+   */
+  struct ValueProfNode *(*GetValueData)(uint32_t ValueKind, uint32_t Site,
+                                        struct InstrProfValueData *Dst,
+                                        struct ValueProfNode *StartNode,
+                                        uint32_t N);
+} VPDataReaderType;
+
 int lprofWriteData(WriterCallback Writer, void *WriterCtx,
-                   struct ValueProfData **ValueDataArray,
-                   const uint64_t ValueDataSize);
+                   VPDataReaderType *VPDataReader);
 int lprofWriteDataImpl(WriterCallback Writer, void *WriterCtx,
                        const __llvm_profile_data *DataBegin,
                        const __llvm_profile_data *DataEnd,
                        const uint64_t *CountersBegin,
                        const uint64_t *CountersEnd,
-                       struct ValueProfData **ValueDataBeginArray,
-                       const uint64_t ValueDataSize, const char *NamesBegin,
+                       VPDataReaderType *VPDataReader, const char *NamesBegin,
                        const char *NamesEnd);
+
 /* Merge value profile data pointed to by SrcValueProfData into
  * in-memory profile counters pointed by to DstData.  */
 void lprofMergeValueProfData(struct ValueProfData *SrcValueProfData,
                              __llvm_profile_data *DstData);
 
-extern char *(*GetEnvHook)(const char *);
-extern void (*FreeHook)(void *);
-extern void *(*CallocHook)(size_t, size_t);
+VPDataReaderType *lprofGetVPDataReader();
+
+COMPILER_RT_VISIBILITY extern char *(*GetEnvHook)(const char *);
+COMPILER_RT_VISIBILITY extern void (*FreeHook)(void *);
+COMPILER_RT_VISIBILITY extern uint8_t *DynamicBufferIOBuffer;
+COMPILER_RT_VISIBILITY extern uint32_t VPBufferSize;
 extern void (*VPMergeHook)(struct ValueProfData *, __llvm_profile_data *);
-extern uint32_t VPBufferSize;
 
 #endif
