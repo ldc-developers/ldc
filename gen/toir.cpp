@@ -335,7 +335,7 @@ public:
     LOG_SCOPE;
 
     auto &PGO = gIR->func()->pgo;
-    auto entryCount = PGO.setCurrentStmt(e);
+    PGO.setCurrentStmt(e);
 
     result = DtoDeclarationExp(e->declaration);
 
@@ -905,7 +905,7 @@ public:
     LOG_SCOPE;
 
     auto &PGO = gIR->func()->pgo;
-    auto entryCount = PGO.setCurrentStmt(e);
+    PGO.setCurrentStmt(e);
 
     if (e->cachedLvalue) {
       LLValue *V = e->cachedLvalue;
