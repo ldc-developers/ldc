@@ -178,6 +178,9 @@ public:
     // (e.g. TypeidExp, NewExp, ArrayLiteralExp, etc) request its TypeInfo.
     // For those, today TypeInfo_Struct is generated in COMDAT.
     bool requestTypeInfo;
+#if IN_LLVM
+    bool cppmangleAsClass;      // true if this struct should be mangled as class (VS only)
+#endif
 
     StructDeclaration(Loc loc, Identifier *id);
     Dsymbol *syntaxCopy(Dsymbol *s);
@@ -273,6 +276,9 @@ public:
     bool cpp;                           // true if this is a C++ interface
     bool isscope;                       // true if this is a scope class
     bool isabstract;                    // true if abstract class
+#if IN_LLVM
+    bool cppmangleAsStruct;             // true if this class should be mangled as struct (VS only)
+#endif
     int inuse;                          // to prevent recursive attempts
     Baseok baseok;                      // set the progress of base classes resolving
     Objc_ClassDeclaration objc;
