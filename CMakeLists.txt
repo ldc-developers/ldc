@@ -478,19 +478,6 @@ if(LLVM_ENABLE_ASSERTIONS)
 endif()
 
 #
-# Check endianess.
-# There is no realiable way to delegate the work to the compiler.
-# E.g. gcc up to version 4.6 defines __LITTLE_ENDIAN, but not 4.7
-#
-include(TestBigEndian)
-test_big_endian(BIGENDIAN)
-if(${BIGENDIAN})
-    append("-D__BIG_ENDIAN__" CMAKE_CXX_FLAGS)
-else()
-    append("-D__LITTLE_ENDIAN__" CMAKE_CXX_FLAGS)
-endif()
-
-#
 # Check if libpthread is available.
 # FIXME: Guard with LLVM_ENABLE_THREADS
 #
@@ -562,11 +549,8 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(${LDC_LIB} dl)
 endif()
 
-if(WIN32)
-    set(EXECUTABLE_EXTENSION ".exe")
-endif()
-set(LDC_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_EXE_NAME}${EXECUTABLE_EXTENSION})
-set(LDMD_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDMD_EXE_NAME}${EXECUTABLE_EXTENSION})
+set(LDC_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
+set(LDMD_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDMD_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
 add_custom_target(${LDC_EXE} ALL DEPENDS ${LDC_EXE_FULL})
 add_custom_target(${LDMD_EXE} ALL DEPENDS ${LDMD_EXE_FULL})
 set(LDC_LINKERFLAG_LIST "${SANITIZE_LDFLAGS};${WINDOWS_STACK_SIZE};${LIBCONFIG_LIBRARY};${LLVM_LIBRARIES};${LLVM_LDFLAGS}")
