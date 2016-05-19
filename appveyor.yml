@@ -25,9 +25,9 @@ environment:
     - APPVEYOR_JOB_CONFIG: Release
       APPVEYOR_JOB_ARCH:   x86
 
-matrix:
-  allow_failures:
-    - APPVEYOR_JOB_CONFIG: Release
+#matrix:
+#  allow_failures:
+#    - APPVEYOR_JOB_CONFIG: Release
 
 # scripts that are called at very beginning, before repo cloning
 init:
