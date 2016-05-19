@@ -96,7 +96,11 @@ MipsABI::Type getMipsABI() {
 #endif
     if (dl.getPointerSizeInBits() == 64)
       return MipsABI::N64;
+#if LDC_LLVM_VER >= 309
+    else if (dl.getLargestLegalIntTypeSizeInBits() == 64)
+#else
     else if (dl.getLargestLegalIntTypeSize() == 64)
+#endif
       return MipsABI::N32;
     else
       return MipsABI::O32;
