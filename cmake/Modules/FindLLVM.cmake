@@ -68,6 +68,11 @@ if ((WIN32 AND NOT(MINGW OR CYGWIN)) OR NOT LLVM_CONFIG)
         if(TARGET_AArch64 GREATER -1)
             list(APPEND LLVM_FIND_COMPONENTS AArch64Utils)
         endif()
+        # Similar to the work around above, but for AMDGPU
+        list(FIND LLVM_TARGETS_TO_BUILD "AMDGPU" TARGET_AMDGPU)
+        if(TARGET_AMDGPU GREATER -1)
+            list(APPEND LLVM_FIND_COMPONENTS AMDGPUUtils)
+        endif()
         if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-6][\\.0-9A-Za-z]*")
             # Versions below 3.7 do not support components debuginfo[dwarf|pdb]
             # Only debuginfo is available
