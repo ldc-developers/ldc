@@ -112,6 +112,20 @@ static cl::opt<bool> staticFlag(
         "Create a statically linked binary, including all system dependencies"),
     cl::ZeroOrMore);
 
+#if LDC_LLVM_VER >= 309
+static inline llvm::Optional<llvm::Reloc::Model> getRelocModel() {
+  if (mRelocModel.getNumOccurrences()) {
+    llvm::Reloc::Model R = mRelocModel;
+    return R;
+  }
+  return llvm::None;
+}
+#else
+static inline llvm::Reloc::Model getRelocModel() {
+  return mRelocModel;
+}
+#endif
+
 void printVersion() {
   printf("LDC - the LLVM D compiler (%s):\n", global.ldc_version);
   printf("  based on DMD %s and LLVM %s\n", global.version,
@@ -551,7 +565,11 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     error(Loc(), "-lib and -shared switches cannot be used together");
   }
 
+#if LDC_LLVM_VER >= 309
+  if (createSharedLib && !mRelocModel.getNumOccurrences()) {
+#else
   if (createSharedLib && mRelocModel == llvm::Reloc::Default) {
+#endif
     mRelocModel = llvm::Reloc::PIC_;
   }
 
@@ -1009,7 +1027,7 @@ int cppmain(int argc, char **argv) {
   }
 
   gTargetMachine = createTargetMachine(
-      mTargetTriple, mArch, mCPU, mAttrs, bitness, mFloatABI, mRelocModel,
+      mTargetTriple, mArch, mCPU, mAttrs, bitness, mFloatABI, getRelocModel(),
       mCodeModel, codeGenOptLevel(), disableFpElim, disableLinkerStripDead);
 
 #if LDC_LLVM_VER >= 308
