@@ -150,10 +150,17 @@ void lprofMergeValueProfData(struct ValueProfData *SrcValueProfData,
 
 VPDataReaderType *lprofGetVPDataReader();
 
+/* Internal interface used by test to reset the max number of 
+ * tracked values per value site to be \p MaxVals.
+ */
+void lprofSetMaxValsPerSite(uint32_t MaxVals);
+void lprofSetupValueProfiler();
+
 COMPILER_RT_VISIBILITY extern char *(*GetEnvHook)(const char *);
 COMPILER_RT_VISIBILITY extern void (*FreeHook)(void *);
 COMPILER_RT_VISIBILITY extern uint8_t *DynamicBufferIOBuffer;
 COMPILER_RT_VISIBILITY extern uint32_t VPBufferSize;
+COMPILER_RT_VISIBILITY extern uint32_t VPMaxNumValsPerSite;
 extern void (*VPMergeHook)(struct ValueProfData *, __llvm_profile_data *);
 
 #endif
