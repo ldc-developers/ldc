@@ -166,6 +166,21 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
     args.push_back(p);
   }
 
+  // Link with profile-rt library when generating an instrumented binary.
+  // profile-rt uses Phobos (MD5 hashing) and therefore must be passed on the
+  // commandline before Phobos.
+  if (global.params.genInstrProf) {
+#if LDC_LLVM_VER >= 308
+    if (global.params.targetTriple->isOSLinux()) {
+      // For Linux, explicitly define __llvm_profile_runtime as undefined
+      // symbol, so that the initialization part of profile-rt is linked in.
+      args.push_back(
+          ("-Wl,-u," + llvm::getInstrProfRuntimeHookVarName()).str());
+    }
+#endif
+    args.push_back("-lldc-profile-rt");
+  }
+
   // user libs
   for (unsigned i = 0; i < global.params.libfiles->dim; i++) {
     const char *p = static_cast<const char *>(global.params.libfiles->data[i]);
@@ -221,18 +236,6 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
       args.push_back("-Xlinker");
     }
     args.push_back(p);
-  }
-
-  // Link with profile-rt library when generating an instrumented binary
-  if (global.params.genInstrProf) {
-#if LDC_LLVM_VER >= 308
-    if (global.params.targetTriple->isOSLinux()) {
-      // For Linux, explicitly define __llvm_profile_runtime as undefined
-      // symbol, so that the initialization part of profile-rt is linked in.
-      args.push_back(("-Wl,-u," + llvm::getInstrProfRuntimeHookVarName()).str());
-    }
-#endif
-    args.push_back("-lldc-profile-rt");
   }
 
   // default libs
