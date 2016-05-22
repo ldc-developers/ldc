@@ -27,7 +27,7 @@ public:
 public:
   ConfigFile();
 
-  bool read(const char *explicitConfFile);
+  bool read(const char *explicitConfFile, const char* section);
 
   s_iterator switches_begin() { return switches.begin(); }
   s_iterator switches_end() { return switches.end(); }

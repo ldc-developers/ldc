@@ -345,6 +345,31 @@ static const char *tryGetExplicitConfFile(int argc, char **argv) {
   return nullptr;
 }
 
+static llvm::Triple tryGetExplicitTriple(int argc, char **argv) {
+  // most combinations of flags are illegal, this mimicks command line
+  //  behaviour for legal ones only
+  llvm::Triple triple(llvm::sys::getDefaultTargetTriple());
+  const char* mtriple = nullptr;
+  const char* march = nullptr;
+  for (int i = 1; i < argc; ++i) {
+    if (strcmp(argv[i], "-m32") == 0)
+      return triple.get32BitArchVariant();
+    else if (strcmp(argv[i], "-m64") == 0)
+      return triple.get64BitArchVariant();
+    else if (strcmp(argv[i], "-mtriple=") == 0)
+      mtriple = argv[i] + 9;
+    else if (strcmp(argv[i], "-march=") == 0)
+      march = argv[i] + 7;
+  }
+  if (mtriple)
+      triple = llvm::Triple(llvm::Triple::normalize(mtriple));
+  if (march) {
+      std::string errorMsg; // ignore error, will show up later anyway
+      lookupTarget(march, triple, errorMsg); // modifies triple
+  }
+  return triple;
+}
+
 /// Parses switches from the command line, any response files and the global
 /// config file and sets up global.params accordingly.
 ///
@@ -371,8 +396,9 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
 
   ConfigFile cfg_file;
   const char *explicitConfFile = tryGetExplicitConfFile(argc, argv);
+  std::string cfg_triple = tryGetExplicitTriple(argc, argv).getTriple();
   // just ignore errors for now, they are still printed
-  cfg_file.read(explicitConfFile);
+  cfg_file.read(explicitConfFile, cfg_triple.c_str());
   final_args.insert(final_args.end(), cfg_file.switches_begin(),
                     cfg_file.switches_end());
 
