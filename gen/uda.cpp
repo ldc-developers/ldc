@@ -6,6 +6,7 @@
 #include "attrib.h"
 #include "declaration.h"
 #include "expression.h"
+#include "ir/irfunction.h"
 #include "module.h"
 
 #include "llvm/ADT/StringExtras.h"
@@ -15,6 +16,7 @@ namespace {
 /// Names of the attribute structs we recognize.
 namespace attr {
 const std::string llvmAttr = "llvmAttr";
+const std::string llvmFastMathFlag = "llvmFastMathFlag";
 const std::string section = "section";
 const std::string target = "target";
 const std::string weak = "_weak";
@@ -83,6 +85,12 @@ void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
   }
 }
 
+bool getBoolElem(StructLiteralExp *sle, size_t idx) {
+  auto arg = (*sle->elements)[idx];
+  return arg->toInteger() != 0;
+}
+
+/// Returns a null-terminated string
 const char *getStringElem(StructLiteralExp *sle, size_t idx) {
   auto arg = (*sle->elements)[idx];
   if (arg && arg->op == TOKstring) {
@@ -95,6 +103,7 @@ const char *getStringElem(StructLiteralExp *sle, size_t idx) {
   }
 }
 
+/// Returns a null-terminated string
 const char *getFirstElemString(StructLiteralExp *sle) {
   return getStringElem(sle, 0);
 }
@@ -109,6 +118,32 @@ void applyAttrLLVMAttr(StructLiteralExp *sle, llvm::Function *func) {
     func->addFnAttr(key);
   } else {
     func->addFnAttr(key, value);
+  }
+}
+
+// @llvmFastMathFlag("flag")
+void applyAttrLLVMFastMathFlag(StructLiteralExp *sle, IrFunction *irFunc) {
+  checkStructElems(sle, {Type::tstring});
+  llvm::StringRef value = getStringElem(sle, 0);
+
+  if (value == "clear") {
+    irFunc->FMF.clear();
+  } else if (value == "fast") {
+    irFunc->FMF.setUnsafeAlgebra();
+  } else if (value == "nnan") {
+    irFunc->FMF.setNoNaNs();
+  } else if (value == "ninf") {
+    irFunc->FMF.setNoInfs();
+  } else if (value == "nsz") {
+    irFunc->FMF.setNoSignedZeros();
+  } else if (value == "arcp") {
+    irFunc->FMF.setAllowReciprocal();
+  } else {
+    // `value` is a null-terminated returned from getStringElem so can be passed
+    // to warning("... %s ...").
+    sle->warning(
+        "ignoring unrecognized flag parameter '%s' for '@ldc.attributes.%s'",
+        value.data(), sle->sd->ident->string);
   }
 }
 
@@ -211,9 +246,12 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
   }
 }
 
-void applyFuncDeclUDAs(FuncDeclaration *decl, llvm::Function *func) {
+void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
   if (!decl->userAttribDecl)
     return;
+
+  llvm::Function *func = irFunc->func;
+  assert(func);
 
   Expressions *attrs = decl->userAttribDecl->getAttributes();
   expandTuples(attrs);
@@ -225,6 +263,8 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, llvm::Function *func) {
     auto name = sle->sd->ident->string;
     if (name == attr::llvmAttr) {
       applyAttrLLVMAttr(sle, func);
+    } else if (name == attr::llvmFastMathFlag) {
+      applyAttrLLVMFastMathFlag(sle, irFunc);
     } else if (name == attr::section) {
       applyAttrSection(sle, func);
     } else if (name == attr::target) {

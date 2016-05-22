@@ -406,11 +406,26 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+namespace {
+
 void applyParamAttrsToLLFunc(TypeFunction *f, IrFuncTy &irFty,
                              llvm::Function *func) {
   AttrSet newAttrs = AttrSet::extractFunctionAndReturnAttributes(func);
   newAttrs.merge(irFty.getParamAttrs(gABI->passThisBeforeSret(f)));
   func->setAttributes(newAttrs);
+}
+
+void applyDefaultMathAttributes(IrFunction *irFunc) {
+  // TODO: implement commandline switches to change the default values.
+
+  // "unsafe-fp-math" is not properly reset in LLVM between function definitions,
+  // i.e. if a function does not define a value for "unsafe-fp-math" it will be
+  // compiled using the value of the previous function. Therefore, each function
+  // must explicitly define the value (clang does the same).
+  // See https://llvm.org/bugs/show_bug.cgi?id=23172
+  irFunc->func->addFnAttr("unsafe-fp-math", "false");
+}
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -496,7 +511,10 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     }
   }
 
-  applyFuncDeclUDAs(fdecl, func);
+  // Set default math function attributes here, such that they can be overridden
+  // by UDAs.
+  applyDefaultMathAttributes(irFunc);
+  applyFuncDeclUDAs(fdecl, irFunc);
 
   // main
   if (fdecl->isMain()) {
@@ -821,6 +839,13 @@ void DtoDefineFunction(FuncDeclaration *fd) {
 
   // assert(gIR->scopes.empty());
   gIR->scopes.push_back(IRScope(beginbb));
+
+  // Set the FastMath options for this function scope.
+#if LDC_LLVM_VER >= 308
+  gIR->scopes.back().builder.setFastMathFlags(irFunc->FMF);
+#else
+  gIR->scopes.back().builder.SetFastMathFlags(irFunc->FMF);
+#endif
 
   // create alloca point
   // this gets erased when the function is complete, so alignment etc does not
