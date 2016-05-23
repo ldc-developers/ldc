@@ -719,6 +719,16 @@ static void loadInstrProfileData(IRState *irs) {
 
     auto readerOrErr =
         llvm::IndexedInstrProfReader::create(global.params.datafileInstrProf);
+#if LDC_LLVM_VER >= 309
+    if (auto E = readerOrErr.takeError()) {
+      handleAllErrors(std::move(E), [&](const llvm::ErrorInfoBase &EI) {
+        irs->dmodule->error("Could not read profile file %s: %s",
+                            global.params.datafileInstrProf,
+                            EI.message().c_str());
+      });
+      fatal();
+    }
+#else
     std::error_code EC = readerOrErr.getError();
     if (EC) {
       irs->dmodule->error("Could not read profile file %s: %s",
@@ -726,6 +736,7 @@ static void loadInstrProfileData(IRState *irs) {
                           EC.message().c_str());
       fatal();
     }
+#endif
     irs->PGOReader = std::move(readerOrErr.get());
 
 #if LDC_LLVM_VER >= 309

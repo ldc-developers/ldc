@@ -890,14 +890,19 @@ void CodeGenPGO::emitCounterIncrement(const RootObject *S) const {
 void CodeGenPGO::loadRegionCounts(llvm::IndexedInstrProfReader *PGOReader,
                                   const FuncDeclaration *fd) {
   RegionCounts.clear();
-  if (std::error_code EC =
+  if (auto E =
           PGOReader->getFunctionCounts(FuncName, FunctionHash, RegionCounts)) {
-    if (EC == llvm::instrprof_error::unknown_function) {
+#if LDC_LLVM_VER >= 309
+    auto IPE = llvm::InstrProfError::take(std::move(E));
+#else
+    auto IPE = E;
+#endif
+    if (IPE == llvm::instrprof_error::unknown_function) {
       IF_LOG Logger::println("No profile data for function: %s",
                              FuncName.c_str());
       // Don't output a compiler warning when profile data is missing for a
       // function, because it could be intentional.
-    } else if (EC == llvm::instrprof_error::hash_mismatch) {
+    } else if (IPE == llvm::instrprof_error::hash_mismatch) {
       IF_LOG Logger::println(
           "Ignoring profile data: hash mismatch for function: %s",
           FuncName.c_str());
@@ -905,7 +910,7 @@ void CodeGenPGO::loadRegionCounts(llvm::IndexedInstrProfReader *PGOReader,
                        "control-flow hash mismatch",
               const_cast<FuncDeclaration *>(fd)->toPrettyChars(),
               FuncName.c_str());
-    } else if (EC == llvm::instrprof_error::malformed) {
+    } else if (IPE == llvm::instrprof_error::malformed) {
       IF_LOG Logger::println("Profile data is malformed for function: %s",
                              FuncName.c_str());
       warning(fd->loc, "Ignoring profile data for function '%s' ('%s'): "
