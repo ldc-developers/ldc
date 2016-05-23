@@ -18,12 +18,16 @@ environment:
   matrix:
     - APPVEYOR_JOB_CONFIG: Debug
       APPVEYOR_JOB_ARCH:   x64
+      D_COMPILER:          ldc
     - APPVEYOR_JOB_CONFIG: Debug
       APPVEYOR_JOB_ARCH:   x86
+      D_COMPILER:          dmd
     - APPVEYOR_JOB_CONFIG: Release
       APPVEYOR_JOB_ARCH:   x64
+      D_COMPILER:          dmd
     - APPVEYOR_JOB_CONFIG: Release
       APPVEYOR_JOB_ARCH:   x86
+      D_COMPILER:          ldc
 
 #matrix:
 #  allow_failures:
@@ -67,11 +71,26 @@ install:
   - python --version
   - python -m pip install lit
   - python -c "import lit; lit.main();" --version
-  # Download & extract DMD
-  - ps: Start-FileDownload 'http://nightlies.dlang.org/dmd-nightly/dmd.master.windows.7z' -FileName 'dmd2.7z'
-  - 7z x dmd2.7z > nul
-  - set DMD=%CD%\dmd2\windows\bin\dmd.exe
-  - dmd2\windows\bin\dmd.exe --version
+  # Download & extract D compiler
+  - ps: |
+        If ($Env:D_COMPILER -eq 'dmd') {
+            Start-FileDownload 'http://nightlies.dlang.org/dmd-nightly/dmd.master.windows.7z' -FileName 'dmd2.7z'
+            7z x dmd2.7z > $null
+            Set-Item -path env:DMD -value c:\projects\dmd2\windows\bin\dmd.exe
+            c:\projects\dmd2\windows\bin\dmd.exe --version
+        } Else {
+            If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
+                Start-FileDownload 'http://github.com/ldc-developers/ldc/releases/download/v1.0.0-beta2/ldc2-1.0.0-beta2-win64-msvc.zip' -FileName 'ldc2.zip'
+                7z x ldc2.zip > $null
+                Set-Item -path env:DMD -value c:\projects\ldc2-1.0.0-beta2-win64-msvc\bin\ldmd2.exe
+                c:\projects\ldc2-1.0.0-beta2-win64-msvc\bin\ldc2 --version
+            } Else {
+                Start-FileDownload 'http://github.com/ldc-developers/ldc/releases/download/v1.0.0-beta2/ldc2-1.0.0-beta2-win32-msvc.zip' -FileName 'ldc2.zip'
+                7z x ldc2.zip > $null
+                Set-Item -path env:DMD -value c:\projects\ldc2-1.0.0-beta2-win32-msvc\bin\ldmd2.exe
+                c:\projects\ldc2-1.0.0-beta2-win32-msvc\bin\ldc2 --version
+            }
+        }
   # Download & extract GNU make + utils (for dmd-testsuite)
   - bash --version
   - ps: Start-FileDownload 'https://dl.dropboxusercontent.com/s/d0cqmxf9arbjn27/make-3.81.7z?dl=0' -FileName 'make.7z'
