@@ -31,7 +31,7 @@ CatchScope::CatchScope(llvm::Constant *classInfoPtr,
                        llvm::BasicBlock *bodyBlock, CleanupCursor cleanupScope,
                        llvm::MDNode *branchWeights)
     : classInfoPtr(classInfoPtr), bodyBlock(bodyBlock),
-      branchWeights(branchWeights), cleanupScope(cleanupScope) {}
+      cleanupScope(cleanupScope), branchWeights(branchWeights) {}
 
 bool useMSVCEH() {
 #if LDC_LLVM_VER >= 308
