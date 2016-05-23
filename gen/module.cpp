@@ -707,7 +707,8 @@ static void addCoverageAnalysisInitializer(Module *m) {
 }
 
 // Load InstrProf data from file and store in it IrState
-// TODO: This is probably not the right place, we should load it once for all modules?
+// TODO: This is probably not the right place, we should load it once for all
+// modules?
 static void loadInstrProfileData(IRState *irs) {
 #if LDC_WITH_PGO
   // Only load from datafileInstrProf if we are not generating instrumented
@@ -729,15 +730,18 @@ static void loadInstrProfileData(IRState *irs) {
 
 #if LDC_LLVM_VER >= 309
     if (!irs->module.getProfileSummary()) {
-      // Don't reset the summary. There is only one profile data file per LDC invocation
-      // so the summary must be the same as the one that is already set.
-      irs->module.setProfileSummary(irs->PGOReader->getSummary().getMD(irs->context()));
+      // Don't reset the summary. There is only one profile data file per LDC
+      // invocation so the summary must be the same as the one that is already
+      // set.
+      irs->module.setProfileSummary(
+          irs->PGOReader->getSummary().getMD(irs->context()));
     }
 #elif LDC_LLVM_VER == 308
     auto maxCount = irs->PGOReader->getMaximumFunctionCount();
     if (!irs->module.getMaximumFunctionCount()) {
-      // Don't reset the max function count. There is only one profile data file per LDC
-      // invocation so the information must be the same as the one that is already set.
+      // Don't reset the max function count. There is only one profile data file
+      // per LDC invocation so the information must be the same as the one that
+      // is already set.
       irs->module.setMaximumFunctionCount(maxCount);
     }
 #endif
