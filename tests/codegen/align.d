@@ -1,5 +1,8 @@
 // RUN: %ldc -c -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 
+// Fails on Windows_x86, see https://github.com/ldc-developers/ldc/issues/1356
+// XFAIL: Windows_x86
+
 align(32) struct Outer { int a; }
 struct Inner { align(32) int a; }
 
