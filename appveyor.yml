@@ -161,6 +161,7 @@ test_script:
   # Execute the LLVM IR tests; ignore failures for x86 jobs due to LDC issue #1356
   - if "%APPVEYOR_JOB_ARCH%"=="x86" ( ctest --output-on-failure -R lit-tests || set ERRORLEVEL=0)
   - if "%APPVEYOR_JOB_ARCH%"=="x64" ( ctest --output-on-failure -R lit-tests )
+  - set ERRORLEVEL=
   # Execute dmd-testsuite
   - if "%APPVEYOR_JOB_ARCH%"=="x64" ( set OS=Win_64) else ( set OS=Win_32)
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( ctest --verbose -R dmd-testsuite-debug )
