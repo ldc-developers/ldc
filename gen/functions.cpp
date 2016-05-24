@@ -28,6 +28,7 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/mangling.h"
 #include "gen/nested.h"
 #include "gen/optimizer.h"
 #include "gen/pragma.h"
@@ -478,8 +479,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   }
 
   // mangled name
-  std::string mangledName(mangleExact(fdecl));
-  mangledName = gABI->mangleForLLVM(mangledName, link);
+  std::string mangledName = getMangledName(fdecl, link);
 
   // construct function
   LLFunctionType *functype = DtoFunctionType(fdecl);

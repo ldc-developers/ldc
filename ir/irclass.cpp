@@ -29,6 +29,7 @@
 #include "gen/runtime.h"
 #include "gen/functions.h"
 #include "gen/abi.h"
+#include "gen/mangling.h"
 
 #include "ir/iraggr.h"
 #include "ir/irfunction.h"
@@ -45,10 +46,8 @@ LLGlobalVariable *IrAggr::getVtblSymbol() {
     return vtbl;
   }
 
-  // create the initZ symbol
-  std::string initname("_D");
-  initname.append(mangle(aggrdecl));
-  initname.append("6__vtblZ");
+  // create the vtblZ symbol
+  auto initname = getMangledVTableSymbolName(aggrdecl);
 
   LLType *vtblTy = stripModifiers(type)->ctype->isClass()->getVtbl();
 
@@ -66,15 +65,8 @@ LLGlobalVariable *IrAggr::getClassInfoSymbol() {
     return classInfo;
   }
 
-  // create the initZ symbol
-  std::string initname("_D");
-  initname.append(mangle(aggrdecl));
-
-  if (aggrdecl->isInterfaceDeclaration()) {
-    initname.append("11__InterfaceZ");
-  } else {
-    initname.append("7__ClassZ");
-  }
+  // create the ClassZ / InterfaceZ symbol
+  std::string initname = getMangledClassInfoSymbolName(aggrdecl);
 
   // The type is also ClassInfo for interfaces – the actual TypeInfo for them
   // is a TypeInfo_Interface instance that references __ClassZ in its "base"
