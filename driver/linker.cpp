@@ -607,6 +607,14 @@ static int linkObjToBinaryWin(bool sharedLib) {
     args.push_back(p);
   }
 
+  // Link with profile-rt library when generating an instrumented binary
+  // profile-rt depends on Phobos (MD5 hashing).
+  if (global.params.genInstrProf) {
+    args.push_back("ldc-profile-rt.lib");
+    // profile-rt depends on ws2_32 for symbol `gethostname`
+    args.push_back("ws2_32.lib");
+  }
+
   // user libs
   for (unsigned i = 0; i < global.params.libfiles->dim; i++) {
     const char *p = static_cast<const char *>(global.params.libfiles->data[i]);
@@ -646,11 +654,6 @@ static int linkObjToBinaryWin(bool sharedLib) {
   args.push_back("uuid.lib");
   args.push_back("comdlg32.lib");
   args.push_back("advapi32.lib");
-
-  // Link with profile-rt library when generating an instrumented binary
-  if (global.params.genInstrProf) {
-    args.push_back("ldc-profile-rt.lib");
-  }
 
   Logger::println("Linking with: ");
   Stream logstr = Logger::cout();
