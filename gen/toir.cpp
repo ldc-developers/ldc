@@ -1889,7 +1889,7 @@ public:
       Logger::println("calling class invariant");
       llvm::Function *fn = getRuntimeFunction(
           e->loc, gIR->module,
-          gABI->mangleForLLVM("_D9invariant12_d_invariantFC6ObjectZv", LINKd)
+          gABI->mangleFunctionForLLVM("_D9invariant12_d_invariantFC6ObjectZv", LINKd)
               .c_str());
       LLValue *arg =
           DtoBitCast(cond->getRVal(), fn->getFunctionType()->getParamType(0));
