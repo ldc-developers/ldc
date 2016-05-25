@@ -67,7 +67,7 @@ struct X86TargetABI : TargetABI {
       if (global.params.targetTriple->isOSWindows()) {
         // Prepend a 0x1 byte to keep LLVM from adding the usual
         // "@<paramsize>" stdcall suffix.
-        return ("\1_" + name).str();
+        return ("\1" + name).str();
       }
       return name;
     }
