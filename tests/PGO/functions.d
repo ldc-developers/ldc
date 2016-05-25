@@ -27,8 +27,8 @@
 // PROFGEN-NOT: @{{__profc.*fwddecl.*}}
 
 
-// PROFGEN-LABEL: define {{.*}} @{{[A-Za-z0-9_]*}}simplefunction{{[A-Za-z0-9]*}}(
-// PROFUSE-LABEL: define {{.*}} @{{[A-Za-z0-9_]*}}simplefunction{{[A-Za-z0-9]*}}(
+// PROFGEN-LABEL: define {{.*}} @{{.*}}simplefunction{{.*}}(
+// PROFUSE-LABEL: define {{.*}} @{{.*}}simplefunction{{.*}}(
 // PROFGEN: store {{.*}} @[[SMPL]], i64 0, i64 0
 // PROFUSE-SAME: !prof ![[SMPL0:[0-9]+]]
 void simplefunction(int i) {
@@ -38,8 +38,8 @@ void simplefunction(int i) {
 }
 
 
-// PROFGEN-LABEL: define {{.*}} @{{[A-Za-z0-9_]*}}templatefunc{{[A-Za-z0-9]*}}(
-// PROFUSE-LABEL: define {{.*}} @{{[A-Za-z0-9_]*}}templatefunc{{[A-Za-z0-9]*}}(
+// PROFGEN-LABEL: define {{.*}} @{{.*}}templatefunc{{.*}}(
+// PROFUSE-LABEL: define {{.*}} @{{.*}}templatefunc{{.*}}(
 // PROFGEN: store {{.*}} @[[TMPL]], i64 0, i64 0
 // PROFUSE-SAME: !prof ![[TMPL0:[0-9]+]]
 void templatefunc(T)(T i) {
@@ -54,14 +54,14 @@ void call_templatefunc(int i) {
 }
 
 
-// PROFGEN-LABEL: define {{.*}} @{{[A-Za-z0-9_]*}}outerfunc{{[A-Za-z0-9]*}}(
-// PROFUSE-LABEL: define {{.*}} @{{[A-Za-z0-9_]*}}outerfunc{{[A-Za-z0-9]*}}(
+// PROFGEN-LABEL: define {{.*}} @{{.*}}outerfunc{{.*}}(
+// PROFUSE-LABEL: define {{.*}} @{{.*}}outerfunc{{.*}}(
 // PROFGEN: store {{.*}} @[[OUTR]], i64 0, i64 0
 // PROFUSE-SAME: !prof ![[OUTR0:[0-9]+]]
 // PROFGEN: store {{.*}} @[[OUTR]], i64 0, i64 1
 // PROFUSE: br {{.*}} !prof ![[OUTR1:[0-9]+]]
-// PROFGEN-LABEL: define {{.*}} @{{[A-Za-z0-9_]*}}nestedfunc{{[A-Za-z0-9]*}}(
-// PROFUSE-LABEL: define {{.*}} @{{[A-Za-z0-9_]*}}nestedfunc{{[A-Za-z0-9]*}}(
+// PROFGEN-LABEL: define {{.*}} @{{.*}}nestedfunc{{.*}}(
+// PROFUSE-LABEL: define {{.*}} @{{.*}}nestedfunc{{.*}}(
 // PROFGEN: store {{.*}} @[[NEST]], i64 0, i64 0
 // PROFUSE-SAME: !prof ![[NEST0:[0-9]+]]
 // PROFGEN: store {{.*}} @[[NEST]], i64 0, i64 1

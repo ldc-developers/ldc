@@ -148,7 +148,19 @@ const(ProfileData)* getData(string funcname)
 const(ProfileData)* getData(alias F)()
     // TODO: add constraint on F
 {
-    return getData(F.mangleof);
+    enum mangledName = F.mangleof;
+    version(Win32)
+    {
+        import std.traits : functionLinkage;
+        static if (functionLinkage!F == "D")
+            return getData("_" ~ mangledName);
+        else
+            return getData(mangledName);
+    }
+    else
+    {
+        return getData(mangledName);
+    }
 }
 
 /**
