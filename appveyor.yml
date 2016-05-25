@@ -177,9 +177,8 @@ test_script:
   - set CTEST_SUFFIX=-E "-debug|dmd-testsuite|lit-tests"
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set CTEST_SUFFIX=-R -debug -E "dmd-testsuite|lit-tests")
   - ctest --output-on-failure %CTEST_SUFFIX%
-  # Execute the LLVM IR tests; ignore failures for x86 jobs due to LDC issue #1356
-  - if "%APPVEYOR_JOB_ARCH%"=="x86" ( ctest --output-on-failure -R lit-tests || set ERRORLEVEL=0)
-  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( ctest --output-on-failure -R lit-tests )
+  # Execute the LLVM IR tests
+  - ctest --output-on-failure -R lit-tests
   # Execute dmd-testsuite
   - if "%APPVEYOR_JOB_ARCH%"=="x64" ( set OS=Win_64) else ( set OS=Win_32)
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( ctest --verbose -R dmd-testsuite-debug )
