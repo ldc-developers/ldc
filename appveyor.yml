@@ -21,7 +21,7 @@ environment:
       D_COMPILER:          ldc
     - APPVEYOR_JOB_CONFIG: Debug
       APPVEYOR_JOB_ARCH:   x86
-      D_COMPILER:          dmd
+      D_COMPILER:          ldc
     - APPVEYOR_JOB_CONFIG: Release
       APPVEYOR_JOB_ARCH:   x64
       D_COMPILER:          dmd
