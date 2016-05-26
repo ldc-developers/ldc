@@ -155,6 +155,41 @@ after_build:
             cd ..
             Push-AppveyorArtifact $artifactFilename
         }
+  # Debug x86 job: Create a 32/64-bit multilib artifact if the commit is on the master branch.
+  # It consists of the x64 artifact (published by a successful Debug x64 job) downloaded from
+  # GitHub, augmented by the 32-bit libs and an extra section in the ldc2.conf file for `-m32`
+  # (using the lib32 directory).
+  - ps: |
+        If (($Env:APPVEYOR_REPO_BRANCH -eq 'master') -And !(Test-Path Env:APPVEYOR_PULL_REQUEST_NUMBER) -And ($Env:APPVEYOR_JOB_CONFIG -eq 'Debug') -And ($Env:APPVEYOR_JOB_ARCH -eq 'x86')) {
+            echo 'Preparing 32/64-bit multilib artifact...'
+            cd c:\projects
+            $artifact64Downloaded = $True
+            Try {
+                Start-FileDownload "https://github.com/ldc-developers/ldc/releases/download/LDC-Win64-master/LDC-master-$Env:APPVEYOR_BUILD_NUMBER-x64.7z" -FileName 'LDC-master-x64.7z'
+            }
+            Catch {
+                echo 'Failed to download the 64-bit artifact from GitHub (the Debug x64 job probably failed).'
+                echo 'Skipping the 32/64-bit multilib artifact.'
+                $artifact64Downloaded = $False
+            }
+            If ($artifact64Downloaded) {
+                md ldc-multilib
+                cd ldc-multilib
+                7z x ..\LDC-master-x64.7z > $null
+                ren lib lib64
+                copy ..\ldc-x86\lib > $null
+                ren lib lib32
+                (gc etc\ldc2.conf).replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib64') | sc etc\ldc2.conf
+                $conf32 = gc ..\ldc-x86\etc\ldc2.conf -Raw
+                $conf32 = "`r`ni686-pc-windows-msvc:" + $conf32.Substring($conf32.IndexOf("`r`ndefault:") + 10)
+                $conf32 = $conf32.Replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib32')
+                ac etc\ldc2.conf $conf32
+                $artifactFilename = "LDC-master-$Env:APPVEYOR_BUILD_NUMBER-multilib.7z"
+                7z a "..\$artifactFilename" * > $null
+                cd ..
+                Push-AppveyorArtifact $artifactFilename
+            }
+        }
 
 #---------------------------------#
 #       test configuration        #
@@ -189,14 +224,26 @@ test_script:
 #---------------------------------#
 
 deploy:
-  release: 'LDC Win64 master'
-  description: "Latest successful Windows CI builds of branch 'master'"
-  provider: GitHub
-  auth_token:
-    secure: qnbD8agL9mr0SFvy/sMkR2E29oQQ427T5zYwVVZkjRS3IZ361tG+9jlSiyEkyULy
-  artifact: LDC-master-$(APPVEYOR_BUILD_NUMBER)-$(APPVEYOR_JOB_ARCH).7z
-  draft: true
-  prerelease: true
-  on:
-    branch: master
-    APPVEYOR_JOB_CONFIG: Debug
+  - provider: GitHub
+    release: 'LDC Win64 master'
+    description: "Latest successful Windows CI builds of branch 'master'"
+    draft: true
+    prerelease: true
+    auth_token:
+      secure: qnbD8agL9mr0SFvy/sMkR2E29oQQ427T5zYwVVZkjRS3IZ361tG+9jlSiyEkyULy
+    artifact: LDC-master-$(APPVEYOR_BUILD_NUMBER)-$(APPVEYOR_JOB_ARCH).7z
+    on:
+      branch: master
+      APPVEYOR_JOB_CONFIG: Debug
+  - provider: GitHub
+    release: 'LDC Win64 master'
+    description: "Latest successful Windows CI builds of branch 'master'"
+    draft: true
+    prerelease: true
+    auth_token:
+      secure: qnbD8agL9mr0SFvy/sMkR2E29oQQ427T5zYwVVZkjRS3IZ361tG+9jlSiyEkyULy
+    artifact: LDC-master-$(APPVEYOR_BUILD_NUMBER)-multilib.7z
+    on:
+      branch: master
+      APPVEYOR_JOB_CONFIG: Debug
+      APPVEYOR_JOB_ARCH: x86
