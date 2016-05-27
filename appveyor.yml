@@ -173,11 +173,11 @@ after_build:
                 $artifact64Downloaded = $False
             }
             If ($artifact64Downloaded) {
-                md ldc-multilib
+                md ldc-multilib > $null
                 cd ldc-multilib
                 7z x ..\LDC-master-x64.7z > $null
                 ren lib lib64
-                copy ..\ldc-x86\lib > $null
+                copy ..\ldc-x86\lib -Recurse
                 ren lib lib32
                 (gc etc\ldc2.conf).replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib64') | sc etc\ldc2.conf
                 $conf32 = gc ..\ldc-x86\etc\ldc2.conf -Raw
