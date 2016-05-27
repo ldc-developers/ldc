@@ -359,9 +359,9 @@ static llvm::Triple tryGetExplicitTriple(int argc, char **argv) {
       return triple;
     } else if (sizeof(void *) != 8 && strcmp(argv[i], "-m64") == 0)
       return triple.get64BitArchVariant();
-    else if (strcmp(argv[i], "-mtriple=") == 0)
+    else if (strncmp(argv[i], "-mtriple=", 9) == 0)
       mtriple = argv[i] + 9;
-    else if (strcmp(argv[i], "-march=") == 0)
+    else if (strncmp(argv[i], "-march=", 7) == 0)
       march = argv[i] + 7;
   }
   if (mtriple)
