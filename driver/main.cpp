@@ -352,9 +352,12 @@ static llvm::Triple tryGetExplicitTriple(int argc, char **argv) {
   const char* mtriple = nullptr;
   const char* march = nullptr;
   for (int i = 1; i < argc; ++i) {
-    if (strcmp(argv[i], "-m32") == 0)
-      return triple.get32BitArchVariant();
-    else if (strcmp(argv[i], "-m64") == 0)
+    if (sizeof(void *) != 4 && strcmp(argv[i], "-m32") == 0) {
+      triple = triple.get32BitArchVariant();
+      if (triple.getArch() == llvm::Triple::ArchType::x86)
+        triple.setArchName("i686"); // instead of i386
+      return triple;
+    } else if (sizeof(void *) != 8 && strcmp(argv[i], "-m64") == 0)
       return triple.get64BitArchVariant();
     else if (strcmp(argv[i], "-mtriple=") == 0)
       mtriple = argv[i] + 9;
