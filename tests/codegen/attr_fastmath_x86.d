@@ -2,7 +2,7 @@
 
 // REQUIRES: target_X86
 
-// RUN: %ldc -mtriple x86_64-linux-gnu -mattr=+fma -O3 -release -c -output-s -of=%t.s %s && FileCheck %s --check-prefix ASM < %t.s
+// RUN: %ldc -mtriple=x86_64-linux-gnu -mattr=+fma -O3 -release -c -output-s -of=%t.s %s && FileCheck %s --check-prefix ASM < %t.s
 
 import ldc.attributes;
 
