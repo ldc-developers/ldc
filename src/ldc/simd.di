@@ -2,6 +2,10 @@ module ldc.simd;
 
 import core.simd;
 
+// The syntax of e.g. `load` changed with LLVM 3.7
+version (LDC_LLVM_305) version = LDC_LLVM_PRE307;
+version (LDC_LLVM_306) version = LDC_LLVM_PRE307;
+
 pure:
 nothrow:
 @nogc:
@@ -189,6 +193,7 @@ if(is(typeof(llvmVecType!V)) && i < numElements!V)
 
     alias inlineIR!(ir, V, V, BaseType!V) insertelement;
 }
+
 /**
 loadUnaligned: Loads a vector from an unaligned pointer.
 Example:
@@ -204,12 +209,44 @@ if(is(typeof(llvmVecType!V)))
     alias BaseType!V T;
     enum llvmT = llvmType!T;
     enum llvmV = llvmVecType!V;
-    enum ir = `
-        %p = bitcast `~llvmT~`* %0 to `~llvmV~`*
-        %r = load `~llvmV~`* %p, align 1
-        ret `~llvmV~` %r`;
+    version (LDC_LLVM_PRE307)
+    {
+        enum ir = `
+            %p = bitcast `~llvmT~`* %0 to `~llvmV~`*
+            %r = load `~llvmV~`* %p, align 1
+            ret `~llvmV~` %r`;
+    }
+    else
+    {
+        enum ir = `
+            %p = bitcast `~llvmT~`* %0 to `~llvmV~`*
+            %r = load `~llvmV~`, `~llvmV~`* %p, align 1
+            ret `~llvmV~` %r`;
+    }
 
-    alias inlineIR!(ir, V, T*) loadUnaligned;
+    alias inlineIR!(ir, V, const(T)*) loadUnaligned;
+}
+
+/**
+storeUnaligned: Stores a vector to an unaligned pointer.
+Example:
+---
+int[4] a;
+int4 v = [0, 10, 20, 30];
+storeUnaligned!int4(v, a.ptr);
+assert(v.array == a);
+---
+*/
+template storeUnaligned(V)
+if(is(typeof(llvmVecType!V)))
+{
+  alias BaseType!V T;
+  enum llvmT = llvmType!T;
+  enum llvmV = llvmVecType!V;
+  enum ir = `
+      %p = bitcast `~llvmT~`* %1 to `~llvmV~`*
+      store `~llvmV~` %0, `~llvmV~`* %p, align 1`;
+  alias inlineIR!(ir, void, V, T*) storeUnaligned;
 }
 
 private enum Cond{ eq, ne, gt, ge }
