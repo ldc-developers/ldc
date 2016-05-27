@@ -406,9 +406,11 @@ const llvm::Target *lookupTarget(const std::string &arch, llvm::Triple &triple,
 
     // Adjust the triple to match (if known), otherwise stick with the
     // given triple.
-    llvm::Triple::ArchType Type = llvm::Triple::getArchTypeForLLVMName(arch);
+    const auto Type = llvm::Triple::getArchTypeForLLVMName(arch);
     if (Type != llvm::Triple::UnknownArch) {
       triple.setArch(Type);
+      if (Type == llvm::Triple::x86)
+        triple.setArchName("i686"); // instead of i386
     }
   } else {
     std::string tempError;
