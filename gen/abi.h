@@ -39,16 +39,16 @@ class FunctionType;
 struct ABIRewrite {
   virtual ~ABIRewrite() = default;
 
-  /// get a rewritten value back to its original form
-  virtual llvm::Value *get(Type *dty, llvm::Value *v) = 0;
-
-  /// get a rewritten value back to its original form and store result in
-  /// provided lvalue
-  /// this one is optional and defaults to calling the one above
-  virtual void getL(Type *dty, llvm::Value *v, llvm::Value *lval);
-
-  /// put out rewritten value
+  /// Transforms the D argument to a suitable LL argument.
   virtual llvm::Value *put(DValue *v) = 0;
+
+  /// Transforms the LL parameter back and returns the address for the D
+  /// parameter.
+  virtual llvm::Value *getLVal(Type *dty, llvm::Value *v) = 0;
+
+  /// Transforms the LL parameter back and returns the value for the D
+  /// parameter.
+  virtual llvm::Value *getRVal(Type *dty, llvm::Value *v);
 
   /// should return the transformed type for this rewrite
   virtual llvm::Type *type(Type *dty, llvm::Type *t) = 0;

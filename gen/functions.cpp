@@ -917,11 +917,9 @@ void DtoDefineFunction(FuncDeclaration *fd) {
         irparam->value = DtoAlloca(vd, vd->ident->toChars());
       } else {
         if (!irparam->arg->byref) {
-          // alloca a stack slot for this first class value arg
-          LLValue *mem = DtoAlloca(irparam->arg->type, vd->ident->toChars());
-
           // let the abi transform the argument back first
-          irFty.getParam(vd->type, llArgIdx, irparam->value, mem);
+          LLValue *mem = irFty.getParamLVal(irparam->arg->type, llArgIdx, irparam->value);
+          mem->setName(vd->ident->toChars());
 
           // set the arg var value to the alloca
           irparam->value = mem;

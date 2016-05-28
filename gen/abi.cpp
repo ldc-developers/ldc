@@ -31,10 +31,8 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-void ABIRewrite::getL(Type *dty, LLValue *v, LLValue *lval) {
-  LLValue *rval = get(dty, v);
-  assert(rval->getType() == lval->getType()->getContainedType(0));
-  DtoStore(rval, lval);
+llvm::Value *ABIRewrite::getRVal(Type *dty, LLValue *v) {
+  return DtoLoad(DtoBitCast(getLVal(dty, v), DtoType(dty)->getPointerTo()));
 }
 
 //////////////////////////////////////////////////////////////////////////////

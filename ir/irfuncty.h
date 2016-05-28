@@ -111,12 +111,12 @@ struct IrFuncTy {
   void *tag = nullptr;
 
   llvm::Value *putRet(DValue *dval);
-  llvm::Value *getRet(Type *dty, llvm::Value *val);
-  void getRet(Type *dty, llvm::Value *val, llvm::Value *address);
+  llvm::Value *getRetRVal(Type *dty, llvm::Value *val);
+  llvm::Value *getRetLVal(Type *dty, llvm::Value *val);
 
   llvm::Value *putParam(size_t idx, DValue *dval);
   llvm::Value *putParam(const IrFuncTyArg &arg, DValue *dval);
-  void getParam(Type *dty, size_t idx, llvm::Value *val, llvm::Value *address);
+  llvm::Value *getParamLVal(Type *dty, size_t idx, llvm::Value *val);
 
   AttrSet getParamAttrs(bool passThisBeforeSret);
 };

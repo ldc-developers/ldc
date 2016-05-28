@@ -900,13 +900,11 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
     // do ABI specific return value fixups
     if (storeReturnValueOnStack) {
       Logger::println("Storing return value to stack slot");
-      LLValue *mem = DtoAlloca(returntype);
-      irFty.getRet(returntype, retllval, mem);
-      retllval = mem;
+      retllval = irFty.getRetLVal(returntype, retllval);
       retValIsAlloca = true;
       storeReturnValueOnStack = false;
     } else {
-      retllval = irFty.getRet(returntype, retllval);
+      retllval = irFty.getRetRVal(returntype, retllval);
       storeReturnValueOnStack =
           (returnTy == Tstruct && !isaPointer(retllval)) ||
           (returnTy == Tsarray && isaArray(retllval));
