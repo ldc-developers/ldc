@@ -605,13 +605,10 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
       continue;
     }
 
-    Dsymbol *const argsym = (*fdecl->parameters)[arg->parametersIdx];
-    VarDeclaration *argvd = argsym->isVarDeclaration();
-    assert(argvd);
+    auto *const vd = (*fdecl->parameters)[arg->parametersIdx];
+    iarg->setName(vd->ident->toChars() + llvm::Twine("_arg"));
 
-    iarg->setName(argvd->ident->toChars() + llvm::Twine("_arg"));
-
-    IrParameter *irParam = getIrParameter(argvd, true);
+    IrParameter *irParam = getIrParameter(vd, true);
     irParam->arg = arg;
     irParam->value = &(*iarg);
   }
@@ -908,10 +905,7 @@ void DtoDefineFunction(FuncDeclaration *fd) {
     // index in the IrFuncTy args array separately.
     size_t llArgIdx = 0;
     for (size_t i = 0; i < fd->parameters->dim; ++i) {
-      Dsymbol *const argsym = (*fd->parameters)[i];
-      VarDeclaration *const vd = argsym->isVarDeclaration();
-      assert(vd);
-      const bool refout = vd->storage_class & (STCref | STCout);
+      auto *const vd = (*fd->parameters)[i];
 
       IrParameter *irparam = getIrParameter(vd);
       Type *debugInfoType = vd->type;
@@ -922,9 +916,7 @@ void DtoDefineFunction(FuncDeclaration *fd) {
         irparam = getIrParameter(vd, true);
         irparam->value = DtoAlloca(vd, vd->ident->toChars());
       } else {
-        const bool lazy = vd->storage_class & STClazy;
-        const bool firstClassVal = !refout && (!irparam->arg->byref || lazy);
-        if (firstClassVal) {
+        if (!irparam->arg->byref) {
           // alloca a stack slot for this first class value arg
           LLValue *mem = DtoAlloca(irparam->arg->type, vd->ident->toChars());
 
@@ -939,11 +931,8 @@ void DtoDefineFunction(FuncDeclaration *fd) {
         ++llArgIdx;
       }
 
-      if (global.params.symdebug &&
-          !(isaArgument(irparam->value) &&
-            isaArgument(irparam->value)->hasByValAttr())) {
+      if (global.params.symdebug)
         gIR->DBuilder.EmitLocalVariable(irparam->value, vd, debugInfoType);
-      }
     }
   }
 

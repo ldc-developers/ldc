@@ -58,11 +58,6 @@ struct IrLocal : IrVar {
 // represents a function parameter
 struct IrParameter : IrLocal {
   explicit IrParameter(VarDeclaration *v) : IrLocal(v) {}
-  IrParameter(VarDeclaration *v, llvm::Value *value) : IrLocal(v, value) {}
-  IrParameter(VarDeclaration *v, llvm::Value *value, IrFuncTyArg *arg,
-              bool isVthis = false)
-      : IrLocal(v, value), arg(arg), isVthis(isVthis) {}
-
   IrFuncTyArg *arg = nullptr;
   bool isVthis = false; // true, if it is the 'this' parameter
 };
