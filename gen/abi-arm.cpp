@@ -77,7 +77,7 @@ struct ArmTargetABI : TargetABI {
         fty.ret->rewrite = &hfaToArray;
       } else {
         fty.ret->rewrite = &integerRewrite;
-        fty.ret->ltype = integerRewrite.type(fty.ret->type, fty.ret->ltype);
+        fty.ret->ltype = integerRewrite.type(fty.ret->type);
       }
     }
 
@@ -111,10 +111,10 @@ struct ArmTargetABI : TargetABI {
         arg.rewrite = &hfaToArray;
       } else if (DtoAlignment(ty) <= 4) {
         arg.rewrite = &compositeToArray32;
-        arg.ltype = compositeToArray32.type(arg.type, arg.ltype);
+        arg.ltype = compositeToArray32.type(arg.type);
       } else {
         arg.rewrite = &compositeToArray64;
-        arg.ltype = compositeToArray64.type(arg.type, arg.ltype);
+        arg.ltype = compositeToArray64.type(arg.type);
       }
     }
   }

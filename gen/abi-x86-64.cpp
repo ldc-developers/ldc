@@ -182,7 +182,7 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
     return DtoAllocaDump(v, dty, ".X86_64_C_struct_rewrite_dump");
   }
 
-  LLType *type(Type *dty, LLType *t) override { return getAbiType(dty); }
+  LLType *type(Type *t) override { return getAbiType(t); }
 };
 
 /**
@@ -198,7 +198,7 @@ struct ImplicitByvalRewrite : ABIRewrite {
 
   LLValue *getLVal(Type *dty, LLValue *v) override { return v; }
 
-  LLType *type(Type *dty, LLType *t) override { return DtoPtrToType(dty); }
+  LLType *type(Type *t) override { return DtoPtrToType(t); }
 };
 
 struct X86_64TargetABI : TargetABI {
