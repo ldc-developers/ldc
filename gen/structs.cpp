@@ -168,7 +168,7 @@ void DtoPaddedStruct(Type *dty, LLValue *v, LLValue *lval) {
       // Nested structs are the only members that can contain padding
       DtoPaddedStruct(fields[i]->type, fieldval, fieldptr);
     } else {
-      DtoStore(fieldval, fieldptr);
+      DtoStoreZextI8(fieldval, fieldptr);
     }
   }
 }

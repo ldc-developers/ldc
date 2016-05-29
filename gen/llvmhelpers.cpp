@@ -1600,7 +1600,6 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       if (vd->storage_class & STClazy) {
         Logger::println("lazy parameter");
         assert(type->ty == Tdelegate);
-        return new DVarValue(type, getIrValue(vd));
       }
       assert(!isSpecialRefVar(vd) && "Code not expected to handle special "
                                      "ref vars, although it can easily be "
