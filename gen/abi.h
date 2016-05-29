@@ -59,11 +59,6 @@ protected:
   /// Returns the address of a D value, storing it to memory first if need be.
   static llvm::Value *getAddressOf(DValue *v);
 
-  /// Stores a LL value to a specified memory address. The element type of the
-  /// provided pointer doesn't need to match the value type (=> suited for
-  /// bit-casting).
-  static void storeToMemory(llvm::Value *rval, llvm::Value *address);
-
   /// Loads a LL value of a specified type from memory. The element type of the
   /// provided pointer doesn't need to match the value type (=> suited for
   /// bit-casting).

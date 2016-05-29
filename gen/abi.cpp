@@ -51,27 +51,6 @@ LLValue *ABIRewrite::getAddressOf(DValue *v) {
   return DtoAllocaDump(v, ".getAddressOf_dump");
 }
 
-void ABIRewrite::storeToMemory(LLValue *rval, LLValue *address) {
-  LLType *pointerType = address->getType();
-  assert(pointerType->isPointerTy());
-  LLType *pointeeType = pointerType->getPointerElementType();
-
-  LLType *rvalType = rval->getType();
-  if (rvalType != pointeeType) {
-    if (getTypeStoreSize(rvalType) > getTypeAllocSize(pointeeType)) {
-      // not enough allocated memory
-      LLValue *paddedDump = DtoAllocaDump(rval, 0, ".storeToMemory_paddedDump");
-      DtoMemCpy(address, paddedDump);
-      return;
-    }
-
-    address = DtoBitCast(address, getPtrToType(rvalType),
-                         ".storeToMemory_bitCastAddress");
-  }
-
-  DtoStore(rval, address);
-}
-
 LLValue *ABIRewrite::loadFromMemory(LLValue *address, LLType *asType,
                                     const char *name) {
   LLType *pointerType = address->getType();
