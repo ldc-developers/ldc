@@ -660,6 +660,57 @@ void verifyScopedDestructionInClosure(FuncDeclaration* fd) {
   }
 }
 
+namespace {
+
+// Gives all explicit parameters storage and debug info.
+// All explicit D parameters are lvalues, just like regular local variables.
+void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
+  // Not all arguments are necessarily passed on the LLVM level
+  // (e.g. zero-member structs), so we need to keep track of the
+  // index in the IrFuncTy args array separately.
+  size_t llArgIdx = 0;
+
+  for (size_t i = 0; i < parameters.dim; ++i) {
+    auto *const vd = parameters[i];
+    IrParameter *irparam = getIrParameter(vd);
+
+    // vd->type (parameter) and irparam->arg->type (argument) don't always
+    // match.
+    // E.g., for a lazy parameter of type T, vd->type is T (with lazy storage
+    // class) while irparam->arg->type is the delegate type.
+    Type *const paramType = (irparam ? irparam->arg->type : vd->type);
+
+    if (!irparam) {
+      // This is a parameter that is not passed on the LLVM level.
+      // Create the param here and set it to a "dummy" alloca that
+      // we do not store to here.
+      irparam = getIrParameter(vd, true);
+      irparam->value = DtoAlloca(vd, vd->ident->toChars());
+    } else {
+      assert(irparam->value);
+
+      if (irparam->arg->byref) {
+        // The argument is an appropriate lvalue passed by reference.
+        // Use the passed pointer as parameter storage.
+        assert(irparam->value->getType() == DtoPtrToType(paramType));
+      } else {
+        // Let the ABI transform the parameter back to an lvalue.
+        irparam->value =
+            irFty.getParamLVal(paramType, llArgIdx, irparam->value);
+      }
+
+      irparam->value->setName(vd->ident->toChars());
+
+      ++llArgIdx;
+    }
+
+    if (global.params.symdebug)
+      gIR->DBuilder.EmitLocalVariable(irparam->value, vd, paramType);
+  }
+}
+
+} // anonymous namespace
+
 void DtoDefineFunction(FuncDeclaration *fd) {
   IF_LOG Logger::println("DtoDefineFunction(%s): %s", fd->toPrettyChars(),
                          fd->loc.toChars());
@@ -868,7 +919,7 @@ void DtoDefineFunction(FuncDeclaration *fd) {
 #endif
   }
 
-  // give the 'this' argument storage and debug info
+  // give the 'this' parameter (an lvalue) storage and debug info
   if (irFty.arg_this) {
     LLValue *thisvar = irFunc->thisArg;
     assert(thisvar);
@@ -893,48 +944,14 @@ void DtoDefineFunction(FuncDeclaration *fd) {
     gIR->DBuilder.EmitLocalVariable(thismem, fd->vthis, nullptr, true);
   }
 
-  // give the 'nestArg' storage
+  // give the 'nestArg' parameter (an lvalue) storage
   if (irFty.arg_nest) {
     irFunc->nestArg = DtoAllocaDump(irFunc->nestArg, 0, "nestedFrame");
   }
 
-  // give arguments storage and debug info
-  if (fd->parameters) {
-    // Not all arguments are necessarily passed on the LLVM level
-    // (e.g. zero-member structs), so we need to keep track of the
-    // index in the IrFuncTy args array separately.
-    size_t llArgIdx = 0;
-    for (size_t i = 0; i < fd->parameters->dim; ++i) {
-      auto *const vd = (*fd->parameters)[i];
-
-      IrParameter *irparam = getIrParameter(vd);
-      Type *debugInfoType = vd->type;
-      if (!irparam) {
-        // This is a parameter that is not passed on the LLVM level.
-        // Create the param here and set it to a "dummy" alloca that
-        // we do not store to here.
-        irparam = getIrParameter(vd, true);
-        irparam->value = DtoAlloca(vd, vd->ident->toChars());
-      } else {
-        if (!irparam->arg->byref) {
-          // alloca a stack slot for this first class value arg
-          LLValue *mem = DtoAlloca(irparam->arg->type, vd->ident->toChars());
-
-          // let the abi transform the argument back first
-          irFty.getParam(vd->type, llArgIdx, irparam->value, mem);
-
-          // set the arg var value to the alloca
-          irparam->value = mem;
-
-          debugInfoType = irparam->arg->type;
-        }
-        ++llArgIdx;
-      }
-
-      if (global.params.symdebug)
-        gIR->DBuilder.EmitLocalVariable(irparam->value, vd, debugInfoType);
-    }
-  }
+  // define all explicit parameters
+  if (fd->parameters)
+    defineParameters(irFty, *fd->parameters);
 
   {
     ScopeStack scopeStack(gIR);

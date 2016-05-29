@@ -68,13 +68,13 @@ struct PPCTargetABI : TargetABI {
       if (canRewriteAsInt(ty, Is64Bit)) {
         if (!IntegerRewrite::isObsoleteFor(arg.ltype)) {
           arg.rewrite = &integerRewrite;
-          arg.ltype = integerRewrite.type(arg.type, arg.ltype);
+          arg.ltype = integerRewrite.type(arg.type);
         }
       } else {
         // these types are passed byval:
         // the caller allocates a copy and then passes a pointer to the copy
         arg.rewrite = &byvalRewrite;
-        arg.ltype = byvalRewrite.type(arg.type, arg.ltype);
+        arg.ltype = byvalRewrite.type(arg.type);
 
         // the copy is treated as a local variable of the callee
         // hence add the NoAlias and NoCapture attributes

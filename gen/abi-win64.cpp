@@ -145,7 +145,7 @@ public:
 
     if (arg.rewrite) {
       LLType *originalLType = arg.ltype;
-      arg.ltype = arg.rewrite->type(arg.type, arg.ltype);
+      arg.ltype = arg.rewrite->type(arg.type);
 
       IF_LOG {
         Logger::println("Rewriting argument type %s", t->toChars());

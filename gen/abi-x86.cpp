@@ -126,7 +126,7 @@ struct X86TargetABI : TargetABI {
           !(externD && rt->ty == Tcomplex32) &&
           !integerRewrite.isObsoleteFor(fty.ret->ltype)) {
         fty.ret->rewrite = &integerRewrite;
-        fty.ret->ltype = integerRewrite.type(fty.ret->type, fty.ret->ltype);
+        fty.ret->ltype = integerRewrite.type(fty.ret->type);
       }
     }
 
@@ -166,7 +166,7 @@ struct X86TargetABI : TargetABI {
           // rewrite aggregates as integers to make inreg work
           if (lastTy->ty == Tstruct || lastTy->ty == Tsarray) {
             last->rewrite = &integerRewrite;
-            last->ltype = integerRewrite.type(last->type, last->ltype);
+            last->ltype = integerRewrite.type(last->type);
             // undo byval semantics applied via passByVal() returning true
             last->byref = false;
             last->attrs.clear();

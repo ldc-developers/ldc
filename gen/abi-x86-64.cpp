@@ -169,16 +169,6 @@ struct RegCount {
  * memory so that it's then readable as the other type (i.e., bit-casting).
  */
 struct X86_64_C_struct_rewrite : ABIRewrite {
-  LLValue *get(Type *dty, LLValue *v) override {
-    LLValue *address = DtoAllocaDump(v, dty, ".X86_64_C_struct_rewrite_dump");
-    LLType *type = DtoType(dty);
-    return loadFromMemory(address, type, ".X86_64_C_struct_rewrite_getResult");
-  }
-
-  void getL(Type *dty, LLValue *v, LLValue *lval) override {
-    storeToMemory(v, lval);
-  }
-
   LLValue *put(DValue *v) override {
     LLValue *address = getAddressOf(v);
 
@@ -188,7 +178,11 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
     return loadFromMemory(address, abiTy, ".X86_64_C_struct_rewrite_putResult");
   }
 
-  LLType *type(Type *dty, LLType *t) override { return getAbiType(dty); }
+  LLValue *getLVal(Type *dty, LLValue *v) override {
+    return DtoAllocaDump(v, dty, ".X86_64_C_struct_rewrite_dump");
+  }
+
+  LLType *type(Type *t) override { return getAbiType(t); }
 };
 
 /**
@@ -200,17 +194,11 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
  * the ByVal LLVM attribute.
  */
 struct ImplicitByvalRewrite : ABIRewrite {
-  LLValue *get(Type *dty, LLValue *v) override {
-    return DtoLoad(v, ".ImplicitByvalRewrite_getResult");
-  }
-
-  void getL(Type *dty, LLValue *v, LLValue *lval) override {
-    DtoMemCpy(lval, v);
-  }
-
   LLValue *put(DValue *v) override { return getAddressOf(v); }
 
-  LLType *type(Type *dty, LLType *t) override { return DtoPtrToType(dty); }
+  LLValue *getLVal(Type *dty, LLValue *v) override { return v; }
+
+  LLType *type(Type *t) override { return DtoPtrToType(t); }
 };
 
 struct X86_64TargetABI : TargetABI {

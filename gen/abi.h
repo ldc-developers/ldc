@@ -35,23 +35,27 @@ class Value;
 class FunctionType;
 }
 
-// return rewrite rule
+/// Transforms function arguments and return values.
+/// This is needed to implement certain ABI aspects which LLVM doesn't get
+/// right by default.
 struct ABIRewrite {
   virtual ~ABIRewrite() = default;
 
-  /// get a rewritten value back to its original form
-  virtual llvm::Value *get(Type *dty, llvm::Value *v) = 0;
-
-  /// get a rewritten value back to its original form and store result in
-  /// provided lvalue
-  /// this one is optional and defaults to calling the one above
-  virtual void getL(Type *dty, llvm::Value *v, llvm::Value *lval);
-
-  /// put out rewritten value
+  /// Transforms the D argument to a suitable LL argument.
   virtual llvm::Value *put(DValue *v) = 0;
 
-  /// should return the transformed type for this rewrite
-  virtual llvm::Type *type(Type *dty, llvm::Type *t) = 0;
+  /// Transforms the LL parameter back and returns the address for the D
+  /// parameter.
+  virtual llvm::Value *getLVal(Type *dty, llvm::Value *v) = 0;
+
+  /// Transforms the LL parameter back and returns the value for the D
+  /// parameter.
+  /// Defaults to loading the lvalue returned by getLVal().
+  virtual llvm::Value *getRVal(Type *dty, llvm::Value *v);
+
+  /// Returns the resulting LL type when transforming an argument of the
+  /// specified D type.
+  virtual llvm::Type *type(Type *t) = 0;
 
 protected:
   /***** Static Helpers *****/
@@ -59,13 +63,8 @@ protected:
   /// Returns the address of a D value, storing it to memory first if need be.
   static llvm::Value *getAddressOf(DValue *v);
 
-  /// Stores a LL value to a specified memory address. The element type of the
-  /// provided pointer doesn't need to match the value type (=> suited for
-  /// bit-casting).
-  static void storeToMemory(llvm::Value *rval, llvm::Value *address);
-
   /// Loads a LL value of a specified type from memory. The element type of the
-  /// provided pointer doesn't need to match the value type (=> suited for
+  /// provided pointer doesn't need to match the value type (=> suitable for
   /// bit-casting).
   static llvm::Value *loadFromMemory(llvm::Value *address, llvm::Type *asType,
                                      const char *name = ".bitcast_result");

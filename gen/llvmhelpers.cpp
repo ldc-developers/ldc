@@ -227,14 +227,14 @@ LLValue *DtoAllocaDump(LLValue *val, Type *asType, const char *name) {
 
 LLValue *DtoAllocaDump(LLValue *val, LLType *asType, int alignment,
                        const char *name) {
-  LLType *valType = i1ToI8(voidToI8(val->getType()));
-  asType = i1ToI8(voidToI8(asType));
+  LLType *memType = i1ToI8(voidToI8(val->getType()));
+  LLType *asMemType = i1ToI8(voidToI8(asType));
   LLType *allocaType =
-      (getTypeStoreSize(valType) <= getTypeAllocSize(asType) ? asType
-                                                             : valType);
+      (getTypeStoreSize(memType) <= getTypeAllocSize(asMemType) ? asMemType
+                                                                : memType);
   LLValue *mem = DtoRawAlloca(allocaType, alignment, name);
-  DtoStoreZextI8(val, DtoBitCast(mem, valType->getPointerTo()));
-  return DtoBitCast(mem, asType->getPointerTo());
+  DtoStoreZextI8(val, DtoBitCast(mem, memType->getPointerTo()));
+  return DtoBitCast(mem, asMemType->getPointerTo());
 }
 
 /******************************************************************************
@@ -1600,20 +1600,11 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       if (vd->storage_class & STClazy) {
         Logger::println("lazy parameter");
         assert(type->ty == Tdelegate);
-        return new DVarValue(type, getIrValue(vd));
       }
-      if (vd->isRef() || vd->isOut() || DtoIsInMemoryOnly(vd->type) ||
-          llvm::isa<llvm::AllocaInst>(getIrValue(vd))) {
-        assert(!isSpecialRefVar(vd) && "Code not expected to handle special "
-                                       "ref vars, although it can easily be "
-                                       "made to.");
-        return new DVarValue(type, getIrValue(vd));
-      }
-      if (llvm::isa<llvm::Argument>(getIrValue(vd))) {
-        return new DImValue(type, getIrValue(vd));
-      }
-      llvm_unreachable("Unexpected parameter value.");
-
+      assert(!isSpecialRefVar(vd) && "Code not expected to handle special "
+                                     "ref vars, although it can easily be "
+                                     "made to.");
+      return new DVarValue(type, getIrValue(vd));
     } else {
       Logger::println("a normal variable");
 

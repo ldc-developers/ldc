@@ -882,47 +882,21 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
                                                                         : 0);
   LLValue *retllval =
       (irFty.arg_sret ? args[sretArgIndex] : call.getInstruction());
+  bool retValIsLVal = (tf->isref && returnTy != Tvoid) || (irFty.arg_sret != nullptr);
 
-  // Hack around LDC assuming structs and static arrays are in memory:
-  // If the function returns a struct or a static array, and the return
-  // value is not a pointer to a struct or a static array, store it to
-  // a stack slot before continuing.
-  bool storeReturnValueOnStack =
-      (returnTy == Tstruct && !isaPointer(retllval)) ||
-      (returnTy == Tsarray && isaArray(retllval));
-
-  bool retValIsAlloca = false;
-
-  // ignore ABI for intrinsics
-  const bool intrinsic =
-      (dfnval && dfnval->func && DtoIsIntrinsic(dfnval->func));
-  if (!intrinsic && !irFty.arg_sret) {
-    // do ABI specific return value fixups
-    if (storeReturnValueOnStack) {
-      Logger::println("Storing return value to stack slot");
-      LLValue *mem = DtoAlloca(returntype);
-      irFty.getRet(returntype, retllval, mem);
-      retllval = mem;
-      retValIsAlloca = true;
-      storeReturnValueOnStack = false;
+  if (!retValIsLVal) {
+    // let the ABI transform the return value back
+    if (DtoIsInMemoryOnly(returntype)) {
+      retllval = irFty.getRetLVal(returntype, retllval);
+      retValIsLVal = true;
     } else {
-      retllval = irFty.getRet(returntype, retllval);
-      storeReturnValueOnStack =
-          (returnTy == Tstruct && !isaPointer(retllval)) ||
-          (returnTy == Tsarray && isaArray(retllval));
+      retllval = irFty.getRetRVal(returntype, retllval);
     }
-  }
-
-  if (storeReturnValueOnStack) {
-    Logger::println("Storing return value to stack slot");
-    retllval = DtoAllocaDump(retllval, returntype);
-    retValIsAlloca = true;
   }
 
   // repaint the type if necessary
   Type *rbase = stripModifiers(resulttype->toBasetype(), true);
   Type *nextbase = stripModifiers(returntype->toBasetype(), true);
-  bool retinptr = irFty.arg_sret;
   if (!rbase->equals(nextbase)) {
     IF_LOG Logger::println("repainting return value from '%s' to '%s'",
                            returntype->toChars(), rbase->toChars());
@@ -960,7 +934,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
         LLValue *val =
             DtoInsertValue(llvm::UndefValue::get(DtoType(rbase)), retllval, 0);
         retllval = DtoAllocaDump(val, rbase, ".aalvaluetmp");
-        retinptr = true;
+        retValIsLVal = true;
         break;
       }
     // Fall through.
@@ -1035,10 +1009,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
     return new DVarValue(resulttype, dfnval->vthis);
   }
 
-  // if we are returning through a pointer arg
-  // or if we are returning a reference
-  // make sure we provide a lvalue back!
-  if (retinptr || (tf->isref && returnTy != Tvoid) || retValIsAlloca) {
+  if (retValIsLVal) {
     return new DVarValue(resulttype, retllval);
   }
 

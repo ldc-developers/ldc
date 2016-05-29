@@ -12,6 +12,7 @@
 #include "gen/abi.h"
 #include "gen/dvalue.h"
 #include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 
@@ -38,29 +39,28 @@ llvm::Value *IrFuncTy::putRet(DValue *dval) {
   return dval->getRVal();
 }
 
-llvm::Value *IrFuncTy::getRet(Type *dty, LLValue *val) {
+llvm::Value *IrFuncTy::getRetRVal(Type *dty, LLValue *val) {
   assert(!arg_sret);
 
   if (ret->rewrite) {
-    Logger::println("Rewrite: getRet");
+    Logger::println("Rewrite: getRetRVal");
     LOG_SCOPE
-    return ret->rewrite->get(dty, val);
+    return ret->rewrite->getRVal(dty, val);
   }
 
   return val;
 }
 
-void IrFuncTy::getRet(Type *dty, LLValue *val, LLValue *address) {
+llvm::Value *IrFuncTy::getRetLVal(Type *dty, LLValue *val) {
   assert(!arg_sret);
 
   if (ret->rewrite) {
-    Logger::println("Rewrite: getRet (getL)");
+    Logger::println("Rewrite: getRetLVal");
     LOG_SCOPE
-    ret->rewrite->getL(dty, val, address);
-    return;
+    return ret->rewrite->getLVal(dty, val);
   }
 
-  DtoStoreZextI8(val, address);
+  return DtoAllocaDump(val, dty);
 }
 
 llvm::Value *IrFuncTy::putParam(size_t idx, DValue *dval) {
@@ -78,17 +78,16 @@ llvm::Value *IrFuncTy::putParam(const IrFuncTyArg &arg, DValue *dval) {
   return dval->getRVal();
 }
 
-void IrFuncTy::getParam(Type *dty, size_t idx, LLValue *val, LLValue *address) {
+LLValue *IrFuncTy::getParamLVal(Type *dty, size_t idx, LLValue *val) {
   assert(idx < args.size() && "invalid getParam");
 
   if (args[idx]->rewrite) {
-    Logger::println("Rewrite: getParam (getL)");
+    Logger::println("Rewrite: getParamLVal");
     LOG_SCOPE
-    args[idx]->rewrite->getL(dty, val, address);
-    return;
+    return args[idx]->rewrite->getLVal(dty, val);
   }
 
-  DtoStoreZextI8(val, address);
+  return DtoAllocaDump(val, dty);
 }
 
 AttrSet IrFuncTy::getParamAttrs(bool passThisBeforeSret) {

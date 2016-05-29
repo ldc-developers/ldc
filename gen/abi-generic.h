@@ -84,30 +84,21 @@ struct LLTypeMemoryLayout {
 
 /// Removes padding fields for (non-union-containing!) structs
 struct RemoveStructPadding : ABIRewrite {
-  /// get a rewritten value back to its original form
-  LLValue *get(Type *dty, LLValue *v) override {
-    LLValue *lval = DtoAlloca(dty, ".rewritetmp");
-    getL(dty, v, lval);
-    return lval;
-  }
-
-  /// get a rewritten value back to its original form and store result in
-  /// provided lvalue
-  void getL(Type *dty, LLValue *v, LLValue *lval) override {
-    // Make sure the padding is zero, so struct comparisons work.
-    // TODO: Only do this if there's padding, and/or only initialize padding.
-    DtoMemSetZero(lval, DtoConstSize_t(getTypeAllocSize(DtoType(dty))));
-    DtoPaddedStruct(dty->toBasetype(), v, lval);
-  }
-
-  /// put out rewritten value
   LLValue *put(DValue *v) override {
     return DtoUnpaddedStruct(v->getType()->toBasetype(), v->getRVal());
   }
 
-  /// return the transformed type for this rewrite
-  LLType *type(Type *dty, LLType *t) override {
-    return DtoUnpaddedStructType(dty->toBasetype());
+  LLValue *getLVal(Type *dty, LLValue *v) override {
+    LLValue *lval = DtoAlloca(dty, ".RemoveStructPadding_dump");
+    // Make sure the padding is zero, so struct comparisons work.
+    // TODO: Only do this if there's padding, and/or only initialize padding.
+    DtoMemSetZero(lval, DtoConstSize_t(getTypeAllocSize(DtoType(dty))));
+    DtoPaddedStruct(dty->toBasetype(), v, lval);
+    return lval;
+  }
+
+  LLType *type(Type *t) override {
+    return DtoUnpaddedStructType(t->toBasetype());
   }
 };
 
@@ -164,23 +155,17 @@ struct IntegerRewrite : ABIRewrite {
     return LLTypeMemoryLayout::typesAreEquivalent(llType, integerType);
   }
 
-  LLValue *get(Type *dty, LLValue *v) override {
-    LLValue *integerDump = DtoAllocaDump(v, dty, ".IntegerRewrite_dump");
-    LLType *type = DtoType(dty);
-    return loadFromMemory(integerDump, type, ".IntegerRewrite_getResult");
-  }
-
-  void getL(Type *dty, LLValue *v, LLValue *lval) override {
-    storeToMemory(v, lval);
-  }
-
   LLValue *put(DValue *dv) override {
     LLValue *address = getAddressOf(dv);
     LLType *integerType = getIntegerType(dv->getType()->size());
-    return loadFromMemory(address, integerType, ".IntegerRewrite_putResult");
+    return loadFromMemory(address, integerType);
   }
 
-  LLType *type(Type *t, LLType *) override { return getIntegerType(t->size()); }
+  LLValue *getLVal(Type *dty, LLValue *v) override {
+    return DtoAllocaDump(v, dty, ".IntegerRewrite_dump");
+  }
+
+  LLType *type(Type *t) override { return getIntegerType(t->size()); }
 };
 
 //////////////////////////////////////////////////////////////////////////////
@@ -204,32 +189,28 @@ struct ExplicitByvalRewrite : ABIRewrite {
   explicit ExplicitByvalRewrite(unsigned minAlignment = 16)
       : minAlignment(minAlignment) {}
 
-  LLValue *get(Type *dty, LLValue *v) override {
-    return DtoLoad(v, ".ExplicitByvalRewrite_getResult");
-  }
-
-  void getL(Type *dty, LLValue *v, LLValue *lval) override {
-    DtoMemCpy(lval, v);
-  }
-
   LLValue *put(DValue *v) override {
     Type *dty = v->getType();
     const unsigned align = alignment(dty);
 
-    if (DtoIsInMemoryOnly(dty)) {
-      LLValue *originalPointer = v->getRVal();
-      LLType *type = originalPointer->getType()->getPointerElementType();
-      LLValue *copyForCallee =
-          DtoRawAlloca(type, align, ".ExplicitByvalRewrite_putResult");
-      DtoMemCpy(copyForCallee, originalPointer);
-      return copyForCallee;
+    if (!DtoIsInMemoryOnly(dty)) {
+      return DtoAllocaDump(v->getRVal(), align,
+                           ".ExplicitByvalRewrite_dump");
     }
 
-    return DtoAllocaDump(v->getRVal(), align,
-                         ".ExplicitByvalRewrite_putResult");
+    LLValue *originalPointer = v->getRVal();
+    LLType *type = originalPointer->getType()->getPointerElementType();
+    LLValue *copyForCallee =
+        DtoRawAlloca(type, align, ".ExplicitByvalRewrite_dump");
+    DtoMemCpy(copyForCallee, originalPointer);
+    return copyForCallee;
   }
 
-  LLType *type(Type *dty, LLType *t) override { return DtoPtrToType(dty); }
+  LLValue *getLVal(Type *dty, LLValue *v) override {
+    return DtoBitCast(v, DtoPtrToType(dty));
+  }
+
+  LLType *type(Type *t) override { return DtoPtrToType(t); }
 
   unsigned alignment(Type *dty) const {
     return std::max(minAlignment, DtoAlignment(dty));
@@ -245,28 +226,24 @@ struct HFAToArray : ABIRewrite {
 
   HFAToArray(const int max = 4) : maxFloats(max) {}
 
-  LLValue *get(Type *dty, LLValue *v) override {
-    Logger::println("rewriting array -> as HFA %s", dty->toChars());
-    LLValue *lval = DtoRawAlloca(v->getType(), 0);
-    DtoStore(v, lval);
-
-    LLType *pTy = getPtrToType(DtoType(dty));
-    return DtoLoad(DtoBitCast(lval, pTy), "get-result");
-  }
-
   LLValue *put(DValue *dv) override {
     Type *dty = dv->getType();
     Logger::println("rewriting HFA %s -> as array", dty->toChars());
-    LLType *t = type(dty, nullptr);
+    LLType *t = type(dty);
     return DtoLoad(DtoBitCast(dv->getRVal(), getPtrToType(t)));
   }
 
-  LLType *type(Type *dty, LLType *) override {
-    assert(dty->ty == Tstruct);
+  LLValue *getLVal(Type *dty, LLValue *v) override {
+    Logger::println("rewriting array -> as HFA %s", dty->toChars());
+    return DtoAllocaDump(v, dty, ".HFAToArray_dump");
+  }
+
+  LLType *type(Type *t) override {
+    assert(t->ty == Tstruct);
     LLType *floatArrayType = nullptr;
-    if (TargetABI::isHFA((TypeStruct *)dty, &floatArrayType, maxFloats))
+    if (TargetABI::isHFA((TypeStruct *)t, &floatArrayType, maxFloats))
       return floatArrayType;
-    llvm_unreachable("Type dty should be an HFA");
+    llvm_unreachable("Type t should be an HFA");
   }
 };
 
@@ -274,23 +251,19 @@ struct HFAToArray : ABIRewrite {
  * Rewrite a composite as array of i64.
  */
 struct CompositeToArray64 : ABIRewrite {
-  LLValue *get(Type *dty, LLValue *v) override {
-    Logger::println("rewriting i64 array -> as %s", dty->toChars());
-    LLValue *lval = DtoRawAlloca(v->getType(), 0);
-    DtoStore(v, lval);
-
-    LLType *pTy = getPtrToType(DtoType(dty));
-    return DtoLoad(DtoBitCast(lval, pTy), "get-result");
-  }
-
   LLValue *put(DValue *dv) override {
     Type *dty = dv->getType();
     Logger::println("rewriting %s -> as i64 array", dty->toChars());
-    LLType *t = type(dty, nullptr);
+    LLType *t = type(dty);
     return DtoLoad(DtoBitCast(dv->getRVal(), getPtrToType(t)));
   }
 
-  LLType *type(Type *t, LLType *) override {
+  LLValue *getLVal(Type *dty, LLValue *v) override {
+    Logger::println("rewriting i64 array -> as %s", dty->toChars());
+    return DtoAllocaDump(v, dty, ".CompositeToArray64_dump");
+  }
+
+  LLType *type(Type *t) override {
     // An i64 array that will hold Type 't'
     size_t sz = (t->size() + 7) / 8;
     return LLArrayType::get(LLIntegerType::get(gIR->context(), 64), sz);
@@ -301,23 +274,19 @@ struct CompositeToArray64 : ABIRewrite {
  * Rewrite a composite as array of i32.
  */
 struct CompositeToArray32 : ABIRewrite {
-  LLValue *get(Type *dty, LLValue *v) override {
-    Logger::println("rewriting i32 array -> as %s", dty->toChars());
-    LLValue *lval = DtoRawAlloca(v->getType(), 0);
-    DtoStore(v, lval);
-
-    LLType *pTy = getPtrToType(DtoType(dty));
-    return DtoLoad(DtoBitCast(lval, pTy), "get-result");
-  }
-
   LLValue *put(DValue *dv) override {
     Type *dty = dv->getType();
     Logger::println("rewriting %s -> as i32 array", dty->toChars());
-    LLType *t = type(dty, nullptr);
+    LLType *t = type(dty);
     return DtoLoad(DtoBitCast(dv->getRVal(), getPtrToType(t)));
   }
 
-  LLType *type(Type *t, LLType *) override {
+  LLValue *getLVal(Type *dty, LLValue *v) override {
+    Logger::println("rewriting i32 array -> as %s", dty->toChars());
+    return DtoAllocaDump(v, dty, ".CompositeToArray32_dump");
+  }
+
+  LLType *type(Type *t) override {
     // An i32 array that will hold Type 't'
     size_t sz = (t->size() + 3) / 4;
     return LLArrayType::get(LLIntegerType::get(gIR->context(), 32), sz);

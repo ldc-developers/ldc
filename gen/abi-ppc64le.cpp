@@ -63,14 +63,14 @@ struct PPC64LETargetABI : TargetABI {
         if (retTy->ty == Tstruct &&
             isHFA((TypeStruct *)retTy, &fty.ret->ltype, 8)) {
           fty.ret->rewrite = &hfaToArray;
-          fty.ret->ltype = hfaToArray.type(fty.ret->type, fty.ret->ltype);
+          fty.ret->ltype = hfaToArray.type(fty.ret->type);
         } else if (canRewriteAsInt(retTy, true)) {
           fty.ret->rewrite = &integerRewrite;
-          fty.ret->ltype = integerRewrite.type(fty.ret->type, fty.ret->ltype);
+          fty.ret->ltype = integerRewrite.type(fty.ret->type);
         } else {
           fty.ret->rewrite = &compositeToArray64;
           fty.ret->ltype =
-              compositeToArray64.type(fty.ret->type, fty.ret->ltype);
+              compositeToArray64.type(fty.ret->type);
         }
       } else if (retTy->isintegral())
         fty.ret->attrs.add(retTy->isunsigned() ? LLAttribute::ZExt
@@ -90,13 +90,13 @@ struct PPC64LETargetABI : TargetABI {
     if (ty->ty == Tstruct || ty->ty == Tsarray) {
       if (ty->ty == Tstruct && isHFA((TypeStruct *)ty, &arg.ltype, 8)) {
         arg.rewrite = &hfaToArray;
-        arg.ltype = hfaToArray.type(arg.type, arg.ltype);
+        arg.ltype = hfaToArray.type(arg.type);
       } else if (canRewriteAsInt(ty, true)) {
         arg.rewrite = &integerRewrite;
-        arg.ltype = integerRewrite.type(arg.type, arg.ltype);
+        arg.ltype = integerRewrite.type(arg.type);
       } else {
         arg.rewrite = &compositeToArray64;
-        arg.ltype = compositeToArray64.type(arg.type, arg.ltype);
+        arg.ltype = compositeToArray64.type(arg.type);
       }
     } else if (ty->isintegral())
       arg.attrs.add(ty->isunsigned() ? LLAttribute::ZExt : LLAttribute::SExt);

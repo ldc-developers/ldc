@@ -50,11 +50,11 @@ struct AArch64TargetABI : TargetABI {
       // non-HFA and messes up register selection
       if (isHFA((TypeStruct *)retTy, &fty.ret->ltype)) {
         fty.ret->rewrite = &hfaToArray;
-        fty.ret->ltype = hfaToArray.type(fty.ret->type, fty.ret->ltype);
+        fty.ret->ltype = hfaToArray.type(fty.ret->type);
       }
       else {
         fty.ret->rewrite = &integerRewrite;
-        fty.ret->ltype = integerRewrite.type(fty.ret->type, fty.ret->ltype);
+        fty.ret->ltype = integerRewrite.type(fty.ret->type);
       }
     }
 
@@ -75,11 +75,11 @@ struct AArch64TargetABI : TargetABI {
       // non-HFA and messes up register selection
       if (ty->ty == Tstruct && isHFA((TypeStruct *)ty, &arg.ltype)) {
         arg.rewrite = &hfaToArray;
-        arg.ltype = hfaToArray.type(arg.type, arg.ltype);
+        arg.ltype = hfaToArray.type(arg.type);
       }
       else {
         arg.rewrite = &compositeToArray64;
-        arg.ltype = compositeToArray64.type(arg.type, arg.ltype);
+        arg.ltype = compositeToArray64.type(arg.type);
       }
     }
   }
