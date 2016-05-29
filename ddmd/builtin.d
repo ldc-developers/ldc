@@ -285,10 +285,12 @@ extern (C++) Expression eval_bswap(Loc loc, FuncDeclaration fd, Expressions *arg
       case Tuns64:
           // swap high and low uints
           n = ((n >> 32) & INTMASK) | ((n & INTMASK) << 32);
+          goto case Tuns32;
       case Tint32:
       case Tuns32:
           // swap adjacent ushorts
           n = ((n >> 16) & SHORTMASK) | ((n & SHORTMASK) << 16);
+          goto case Tuns16;
       case Tint16:
       case Tuns16:
           // swap adjacent ubytes
