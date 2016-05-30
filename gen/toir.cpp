@@ -1143,7 +1143,7 @@ public:
         // member, so we have to add an extra layer of indirection.
         resultType = Type::typeinfointerface->type->pointerTo();
       } else {
-        resultType = Type::typeinfointerface->type;
+        resultType = Type::typeinfoclass->type;
       }
 
       V = DtoBitCast(V, DtoType(resultType->pointerTo()->pointerTo()));
