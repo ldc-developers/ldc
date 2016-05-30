@@ -142,7 +142,7 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
     llvm::SmallVector<llvm::Value *, 8> args;
     args.reserve(n);
     for (size_t i = 0; i < n; i++) {
-      args.push_back(toElem((*arguments)[i])->getRVal());
+      args.push_back(DtoRVal((*arguments)[i]));
     }
 
     llvm::Value *rv = gIR->ir->CreateCall(fun, args);

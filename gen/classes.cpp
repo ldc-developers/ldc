@@ -112,9 +112,8 @@ DValue *DtoNewClass(Loc &loc, TypeClass *tc, NewExp *newexp) {
   if (newexp->thisexp) {
     Logger::println("Resolving outer class");
     LOG_SCOPE;
-    DValue *thisval = toElem(newexp->thisexp);
     unsigned idx = getFieldGEPIndex(tc->sym, tc->sym->vthis);
-    LLValue *src = thisval->getRVal();
+    LLValue *src = DtoRVal(newexp->thisexp);
     LLValue *dst = DtoGEPi(mem, 0, idx);
     IF_LOG Logger::cout() << "dst: " << *dst << "\nsrc: " << *src << '\n';
     DtoStore(src, DtoBitCast(dst, getPtrToType(src->getType())));

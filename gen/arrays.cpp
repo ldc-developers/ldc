@@ -29,7 +29,8 @@ static void DtoSetArray(DValue *array, LLValue *dim, LLValue *ptr);
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static LLValue *DtoSlice(DValue *dval) {
+static LLValue *DtoSlice(Expression *e) {
+  DValue *dval = toElem(e);
   LLValue *val = dval->getRVal();
   if (dval->getType()->toBasetype()->ty == Tsarray) {
     // Convert static array to slice
@@ -58,7 +59,8 @@ static LLValue *DtoSlice(LLValue *ptr, LLValue *length,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static LLValue *DtoSlicePtr(DValue *dval) {
+static LLValue *DtoSlicePtr(Expression *e) {
+  DValue *dval = toElem(e);
   Loc loc;
   LLStructType *type = DtoArrayType(LLType::getInt8Ty(gIR->context()));
   Type *vt = dval->getType()->toBasetype();
@@ -788,7 +790,7 @@ DSliceValue *DtoCatAssignArray(Loc &loc, DValue *arr, Expression *exp) {
       gIR->CreateCallOrInvoke(
              fn, DtoTypeInfoOf(arrayType),
              DtoBitCast(arr->getLVal(), fn->getFunctionType()->getParamType(1)),
-             DtoAggrPaint(DtoSlice(toElem(exp)),
+             DtoAggrPaint(DtoSlice(exp),
                           fn->getFunctionType()->getParamType(2)),
              ".appendedArray")
           .getInstruction();
@@ -812,13 +814,13 @@ DSliceValue *DtoCatArrays(Loc &loc, Type *arrayType, Expression *exp1,
     // Create array of slices
     typedef llvm::SmallVector<llvm::Value *, 16> ArgVector;
     ArgVector arrs;
-    arrs.push_back(DtoSlicePtr(toElem(exp2)));
+    arrs.push_back(DtoSlicePtr(exp2));
     CatExp *ce = static_cast<CatExp *>(exp1);
     do {
-      arrs.push_back(DtoSlicePtr(toElem(ce->e2)));
+      arrs.push_back(DtoSlicePtr(ce->e2));
       ce = static_cast<CatExp *>(ce->e1);
     } while (ce->op == TOKcat);
-    arrs.push_back(DtoSlicePtr(toElem(ce)));
+    arrs.push_back(DtoSlicePtr(ce));
 
     // Create static array from slices
     LLPointerType *ptrarraytype = isaPointer(arrs[0]->getType());
@@ -852,11 +854,11 @@ DSliceValue *DtoCatArrays(Loc &loc, Type *arrayType, Expression *exp1,
     // TypeInfo ti
     args.push_back(DtoTypeInfoOf(arrayType));
     // byte[] x
-    LLValue *val = DtoLoad(DtoSlicePtr(toElem(exp1)));
+    LLValue *val = DtoLoad(DtoSlicePtr(exp1));
     val = DtoAggrPaint(val, fn->getFunctionType()->getParamType(1));
     args.push_back(val);
     // byte[] y
-    val = DtoLoad(DtoSlicePtr(toElem(exp2)));
+    val = DtoLoad(DtoSlicePtr(exp2));
     val = DtoAggrPaint(val, fn->getFunctionType()->getParamType(2));
     args.push_back(val);
   }
@@ -872,7 +874,7 @@ DSliceValue *DtoCatArrays(Loc &loc, Type *arrayType, Expression *exp1,
 DSliceValue *DtoAppendDChar(Loc &loc, DValue *arr, Expression *exp,
                             const char *func) {
   Type *arrayType = arr->getType();
-  DValue *valueToAppend = toElem(exp);
+  LLValue *valueToAppend = DtoRVal(exp);
 
   // Prepare arguments
   LLFunction *fn = getRuntimeFunction(loc, gIR->module, func);
@@ -882,8 +884,7 @@ DSliceValue *DtoAppendDChar(Loc &loc, DValue *arr, Expression *exp,
       gIR->CreateCallOrInvoke(
              fn,
              DtoBitCast(arr->getLVal(), fn->getFunctionType()->getParamType(0)),
-             DtoBitCast(valueToAppend->getRVal(),
-                        fn->getFunctionType()->getParamType(1)),
+             DtoBitCast(valueToAppend, fn->getFunctionType()->getParamType(1)),
              ".appendedArray")
           .getInstruction();
 

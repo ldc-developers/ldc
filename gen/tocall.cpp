@@ -264,7 +264,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       e->error("va_start instruction expects 1 (or 2) arguments");
       fatal();
     }
-    LLValue *pAp = toElem((*e->arguments)[0])->getLVal(); // va_list*
+    LLValue *pAp = DtoLVal((*e->arguments)[0]); // va_list*
     // variadic extern(D) function with implicit _argptr?
     if (LLValue *pArgptr = p->func()->_argptr) {
       DtoMemCpy(pAp, pArgptr); // ap = _argptr
@@ -284,8 +284,8 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       e->error("va_copy instruction expects 2 arguments");
       fatal();
     }
-    LLValue *pDest = toElem((*e->arguments)[0])->getLVal(); // va_list*
-    LLValue *src = toElem((*e->arguments)[1])->getRVal();   // va_list
+    LLValue *pDest = DtoLVal((*e->arguments)[0]); // va_list*
+    LLValue *src = DtoRVal((*e->arguments)[1]);   // va_list
     gABI->vaCopy(pDest, src);
     result = new DVarValue(e->type, pDest);
     return true;
@@ -297,7 +297,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       e->error("va_arg instruction expects 1 argument");
       fatal();
     }
-    LLValue *pAp = toElem((*e->arguments)[0])->getLVal(); // va_list*
+    LLValue *pAp = DtoLVal((*e->arguments)[0]); // va_list*
     LLValue *vaArgArg = gABI->prepareVaArg(pAp);
     LLType *llType = DtoType(e->type);
     if (DtoIsInMemoryOnly(e->type)) {
@@ -343,8 +343,8 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     Expression *exp1 = (*e->arguments)[0];
     Expression *exp2 = (*e->arguments)[1];
     int atomicOrdering = (*e->arguments)[2]->toInteger();
-    LLValue *val = toElem(exp1)->getRVal();
-    LLValue *ptr = toElem(exp2)->getRVal();
+    LLValue *val = DtoRVal(exp1);
+    LLValue *ptr = DtoRVal(exp2);
 
     if (!val->getType()->isIntegerTy()) {
       llvm::PointerType *v = isaPointer(val->getType());
@@ -388,7 +388,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     Expression *exp = (*e->arguments)[0];
     int atomicOrdering = (*e->arguments)[1]->toInteger();
 
-    LLValue *ptr = toElem(exp)->getRVal();
+    LLValue *ptr = DtoRVal(exp);
     LLType *ptrTy = ptr->getType()->getContainedType(0);
     Type *retType = exp->type->nextOf();
 
@@ -435,9 +435,9 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     Expression *exp2 = (*e->arguments)[1];
     Expression *exp3 = (*e->arguments)[2];
     int atomicOrdering = (*e->arguments)[3]->toInteger();
-    LLValue *ptr = toElem(exp1)->getRVal();
-    LLValue *cmp = toElem(exp2)->getRVal();
-    LLValue *val = toElem(exp3)->getRVal();
+    LLValue *ptr = DtoRVal(exp1);
+    LLValue *cmp = DtoRVal(exp2);
+    LLValue *val = DtoRVal(exp3);
     LLType *retTy = val->getType();
 
     if (!cmp->getType()->isIntegerTy()) {
@@ -507,8 +507,8 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     Expression *exp1 = (*e->arguments)[0];
     Expression *exp2 = (*e->arguments)[1];
     int atomicOrdering = (*e->arguments)[2]->toInteger();
-    LLValue *ptr = toElem(exp1)->getRVal();
-    LLValue *val = toElem(exp2)->getRVal();
+    LLValue *ptr = DtoRVal(exp1);
+    LLValue *val = DtoRVal(exp2);
     LLValue *ret =
         p->ir->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp(op), ptr, val,
                                llvm::AtomicOrdering(atomicOrdering));
@@ -528,8 +528,8 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
     Expression *exp1 = (*e->arguments)[0];
     Expression *exp2 = (*e->arguments)[1];
-    LLValue *ptr = toElem(exp1)->getRVal();
-    LLValue *bitnum = toElem(exp2)->getRVal();
+    LLValue *ptr = DtoRVal(exp1);
+    LLValue *bitnum = DtoRVal(exp2);
 
     unsigned bitmask = DtoSize_t()->getBitWidth() - 1;
     assert(bitmask == 31 || bitmask == 63);
@@ -583,7 +583,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     // TODO: Check types
 
     Expression *exp1 = (*e->arguments)[0];
-    LLValue *ptr = toElem(exp1)->getRVal();
+    LLValue *ptr = DtoRVal(exp1);
     result = new DImValue(exp1->type, DtoVolatileLoad(ptr));
     return true;
   }
@@ -597,8 +597,8 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
     Expression *exp1 = (*e->arguments)[0];
     Expression *exp2 = (*e->arguments)[1];
-    LLValue *ptr = toElem(exp1)->getRVal();
-    LLValue *val = toElem(exp2)->getRVal();
+    LLValue *ptr = DtoRVal(exp1);
+    LLValue *val = DtoRVal(exp2);
     DtoVolatileStore(val, ptr);
     return true;
   }

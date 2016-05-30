@@ -425,7 +425,7 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd,
   argtypes.reserve(n - 2);
 
   for (size_t i = 2; i < n; i++) {
-    args.push_back(toElem((*arguments)[i])->getRVal());
+    args.push_back(DtoRVal((*arguments)[i]));
     argtypes.push_back(args.back()->getType());
   }
 

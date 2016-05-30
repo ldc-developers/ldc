@@ -955,7 +955,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
           auto ce = static_cast<CallExp *>(rhs);
           if (DtoIsReturnInArg(ce)) {
             if (isSpecialRefVar(vd)) {
-              LLValue *const val = toElem(ce)->getLVal();
+              LLValue *const val = DtoLVal(ce);
               DtoStore(val, irLocal->value);
             } else {
               DValue *fnval = toElem(ce->e1);
