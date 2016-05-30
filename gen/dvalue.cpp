@@ -63,10 +63,10 @@ static bool checkVarValueType(LLType *t, bool extraDeref) {
   return true;
 }
 
-DVarValue::DVarValue(Type *t, LLValue *llvmValue, bool isSpecialRefVar)
-    : DValue(t), val(llvmValue), isSpecialRefVar(isSpecialRefVar) {
-  assert(llvmValue && "Unexpected null llvm::Value.");
-  assert(checkVarValueType(llvmValue->getType(), isSpecialRefVar));
+DVarValue::DVarValue(Type *t, LLValue *v, bool isSpecialRefVar)
+    : DValue(t, v), isSpecialRefVar(isSpecialRefVar) {
+  assert(v && "Unexpected null llvm::Value.");
+  assert(checkVarValueType(v->getType(), isSpecialRefVar));
 }
 
 LLValue *DVarValue::getLVal() { return isSpecialRefVar ? DtoLoad(val) : val; }
@@ -115,12 +115,11 @@ bool DSliceValue::definedInFuncEntryBB() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DFuncValue::DFuncValue(Type *t, FuncDeclaration *fd, llvm::Value *v,
-                       llvm::Value *vt)
-    : DValue(t), func(fd), val(v), vthis(vt) {}
+DFuncValue::DFuncValue(Type *t, FuncDeclaration *fd, LLValue *v, LLValue *vt)
+    : DValue(t, v), func(fd), vthis(vt) {}
 
 DFuncValue::DFuncValue(FuncDeclaration *fd, LLValue *v, LLValue *vt)
-    : DValue(fd->type), func(fd), val(v), vthis(vt) {}
+    : DValue(fd->type, v), func(fd), vthis(vt) {}
 
 LLValue *DFuncValue::getRVal() {
   assert(val);
@@ -141,7 +140,10 @@ bool DFuncValue::definedInFuncEntryBB() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+DConstValue::DConstValue(Type *t, llvm::Constant *con)
+    : DValue(t, static_cast<LLValue *>(con)) {}
+
 LLValue *DConstValue::getRVal() {
-  assert(c);
-  return c;
+  assert(val);
+  return val;
 }

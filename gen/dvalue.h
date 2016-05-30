@@ -41,11 +41,12 @@ class DSliceValue;
 // base class for d-values
 class DValue {
 public:
-  Type *type;
-  explicit DValue(Type *ty) : type(ty) {}
+  Type *const type;
+  llvm::Value *const val;
+
   virtual ~DValue() = default;
 
-  Type *&getType() {
+  Type *const &getType() {
     assert(type);
     return type;
   }
@@ -79,18 +80,13 @@ public:
   virtual DFuncValue *isFunc() { return nullptr; }
 
 protected:
-  DValue() = default;
-  DValue(const DValue &) {}
-  DValue &operator=(const DValue &other) {
-    type = other.type;
-    return *this;
-  }
+  DValue(Type *t, llvm::Value *v) : type(t), val(v) {}
 };
 
 // immediate d-value
 class DImValue : public DValue {
 public:
-  DImValue(Type *t, llvm::Value *v) : DValue(t), val(v) {}
+  DImValue(Type *t, llvm::Value *v) : DValue(t, v) {}
 
   llvm::Value *getRVal() override {
     assert(val);
@@ -100,23 +96,18 @@ public:
   bool definedInFuncEntryBB() override;
 
   DImValue *isIm() override { return this; }
-
-protected:
-  llvm::Value *val;
 };
 
 // constant d-value
 class DConstValue : public DValue {
 public:
-  DConstValue(Type *t, llvm::Constant *con) : DValue(t), c(con) {}
+  DConstValue(Type *t, llvm::Constant *con);
 
   llvm::Value *getRVal() override;
 
   bool definedInFuncEntryBB() override { return true; }
 
   DConstValue *isConst() override { return this; }
-
-  llvm::Constant *c;
 };
 
 // null d-value
@@ -133,7 +124,7 @@ public:
 // subclass.
 class DVarValue : public DValue {
 public:
-  DVarValue(Type *t, llvm::Value *llvmValue, bool isSpecialRefVar = false);
+  DVarValue(Type *t, llvm::Value *v, bool isSpecialRefVar = false);
 
   bool isLVal() override { return true; }
   llvm::Value *getLVal() override;
@@ -148,7 +139,6 @@ public:
   DVarValue *isVar() override { return this; }
 
 protected:
-  llvm::Value *const val;
   bool const isSpecialRefVar;
 };
 
@@ -156,7 +146,7 @@ protected:
 class DSliceValue : public DValue {
 public:
   DSliceValue(Type *t, llvm::Value *l, llvm::Value *p)
-      : DValue(t), len(l), ptr(p) {}
+      : DValue(t, nullptr), len(l), ptr(p) {}
 
   llvm::Value *getRVal() override;
 
@@ -182,7 +172,6 @@ public:
   DFuncValue *isFunc() override { return this; }
 
   FuncDeclaration *func;
-  llvm::Value *val;
   llvm::Value *vthis;
 };
 

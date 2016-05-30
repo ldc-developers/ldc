@@ -135,8 +135,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
 
     // get initializer
     DValue *val;
-    DConstValue cv(vd->type,
-                   nullptr); // Only used in one branch; value is set beforehand
+    std::unique_ptr<DConstValue> cv;
     if (expr) {
       IF_LOG Logger::println("expr %llu = %s",
                              static_cast<unsigned long long>(index),
@@ -153,8 +152,8 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       }
       IF_LOG Logger::println("using default initializer");
       LOG_SCOPE
-      cv.c = get_default_initializer(vd);
-      val = &cv;
+      cv.reset(new DConstValue(vd->type, get_default_initializer(vd)));
+      val = cv.get();
     }
 
     // get a pointer to this field
