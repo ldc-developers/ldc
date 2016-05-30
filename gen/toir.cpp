@@ -298,10 +298,10 @@ public:
       // Thus, dump the result to a temporary stack slot (created in the entry
       // bb) if it is not guaranteed to dominate the end bb after possibly
       // adding more control flow.
-      if (result && result->getType()->ty != Tvoid &&
+      if (result && result->type->ty != Tvoid &&
           !result->definedInFuncEntryBB()) {
         LLValue *alloca = DtoAllocaDump(result);
-        result = new DVarValue(result->getType(), alloca);
+        result = new DVarValue(result->type, alloca);
       }
 
       llvm::BasicBlock *endbb = llvm::BasicBlock::Create(
@@ -508,7 +508,7 @@ public:
       ArrayLengthExp *ale = static_cast<ArrayLengthExp *>(e->e1);
       DVarValue arrval(ale->e1->type, DtoLVal(ale->e1));
       DValue *newlen = toElem(e->e2);
-      DSliceValue *slice = DtoResizeDynArray(e->loc, arrval.getType(), &arrval,
+      DSliceValue *slice = DtoResizeDynArray(e->loc, arrval.type, &arrval,
                                              newlen->getRVal());
       DtoAssign(e->loc, &arrval, slice);
       result = newlen;
@@ -1957,7 +1957,7 @@ public:
     DValue *v = toElemDtor(e->e2);
 
     LLValue *vbool = nullptr;
-    if (v && !v->isFunc() && v->getType() != Type::tvoid) {
+    if (v && !v->isFunc() && v->type != Type::tvoid) {
       vbool = DtoCast(e->loc, v, Type::tbool)->getRVal();
     }
 
@@ -2006,7 +2006,7 @@ public:
     DValue *v = toElemDtor(e->e2);
 
     LLValue *vbool = nullptr;
-    if (v && !v->isFunc() && v->getType() != Type::tvoid) {
+    if (v && !v->isFunc() && v->type != Type::tvoid) {
       vbool = DtoCast(e->loc, v, Type::tbool)->getRVal();
     }
 

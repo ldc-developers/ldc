@@ -71,7 +71,7 @@ void DtoResolveStruct(StructDeclaration *sd, Loc &callerLoc) {
 ////////////////////////////////////////////////////////////////////////////////
 
 LLValue *DtoStructEquals(TOK op, DValue *lhs, DValue *rhs) {
-  Type *t = lhs->getType()->toBasetype();
+  Type *t = lhs->type->toBasetype();
   assert(t->ty == Tstruct);
 
   // set predicate

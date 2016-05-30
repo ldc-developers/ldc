@@ -32,7 +32,7 @@ static void DtoSetArray(DValue *array, LLValue *dim, LLValue *ptr);
 static LLValue *DtoSlice(Expression *e) {
   DValue *dval = toElem(e);
   LLValue *val = dval->getRVal();
-  if (dval->getType()->toBasetype()->ty == Tsarray) {
+  if (dval->type->toBasetype()->ty == Tsarray) {
     // Convert static array to slice
     LLStructType *type = DtoArrayType(LLType::getInt8Ty(gIR->context()));
     LLValue *array = DtoRawAlloca(type, 0, ".array");
@@ -63,7 +63,7 @@ static LLValue *DtoSlicePtr(Expression *e) {
   DValue *dval = toElem(e);
   Loc loc;
   LLStructType *type = DtoArrayType(LLType::getInt8Ty(gIR->context()));
-  Type *vt = dval->getType()->toBasetype();
+  Type *vt = dval->type->toBasetype();
   if (vt->ty == Tarray) {
     return makeLValue(loc, dval);
   }
@@ -627,7 +627,7 @@ DSliceValue *DtoNewDynArray(Loc &loc, Type *arrayType, DValue *dim,
   LLValue *arrayTypeInfo = DtoTypeInfoOf(arrayType);
 
   // dim arg
-  assert(DtoType(dim->getType()) == DtoSize_t());
+  assert(DtoType(dim->type) == DtoSize_t());
   LLValue *arrayLen = dim->getRVal();
 
   // get runtime function
@@ -782,7 +782,7 @@ void DtoCatAssignElement(Loc &loc, Type *arrayType, DValue *array,
 DSliceValue *DtoCatAssignArray(Loc &loc, DValue *arr, Expression *exp) {
   IF_LOG Logger::println("DtoCatAssignArray");
   LOG_SCOPE;
-  Type *arrayType = arr->getType();
+  Type *arrayType = arr->type;
 
   LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_arrayappendT");
   // Call _d_arrayappendT(TypeInfo ti, byte[] *px, byte[] y)
@@ -873,7 +873,6 @@ DSliceValue *DtoCatArrays(Loc &loc, Type *arrayType, Expression *exp1,
 
 DSliceValue *DtoAppendDChar(Loc &loc, DValue *arr, Expression *exp,
                             const char *func) {
-  Type *arrayType = arr->getType();
   LLValue *valueToAppend = DtoRVal(exp);
 
   // Prepare arguments
@@ -888,7 +887,7 @@ DSliceValue *DtoAppendDChar(Loc &loc, DValue *arr, Expression *exp,
              ".appendedArray")
           .getInstruction();
 
-  return getSlice(arrayType, newArray);
+  return getSlice(arr->type, newArray);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -917,7 +916,7 @@ static LLValue *DtoArrayEqCmp_impl(Loc &loc, const char *func, DValue *l,
   assert(fn);
 
   // find common dynamic array type
-  Type *commonType = l->getType()->toBasetype()->nextOf()->arrayOf();
+  Type *commonType = l->type->toBasetype()->nextOf()->arrayOf();
 
   // cast static arrays to dynamic ones, this turns them into DSliceValues
   Logger::println("casting to dynamic arrays");
@@ -934,8 +933,7 @@ static LLValue *DtoArrayEqCmp_impl(Loc &loc, const char *func, DValue *l,
 
   // pass array typeinfo ?
   if (useti) {
-    Type *t = l->getType();
-    LLValue *tival = DtoTypeInfoOf(t);
+    LLValue *tival = DtoTypeInfoOf(l->type);
     args.push_back(DtoBitCast(tival, fn->getFunctionType()->getParamType(2)));
   }
 
@@ -966,7 +964,7 @@ LLValue *DtoArrayCompare(Loc &loc, TOK op, DValue *l, DValue *r) {
   tokToICmpPred(op, false, &cmpop, &res);
 
   if (!res) {
-    Type *t = l->getType()->toBasetype()->nextOf()->toBasetype();
+    Type *t = l->type->toBasetype()->nextOf()->toBasetype();
     if (t->ty == Tchar) {
       res = DtoArrayEqCmp_impl(loc, "_adCmpChar", l, r, false);
     } else {
@@ -1021,7 +1019,7 @@ LLValue *DtoArrayLen(DValue *v) {
   IF_LOG Logger::println("DtoArrayLen");
   LOG_SCOPE;
 
-  Type *t = v->getType()->toBasetype();
+  Type *t = v->type->toBasetype();
   if (t->ty == Tarray) {
     if (DSliceValue *s = v->isSlice()) {
       return s->len;
@@ -1037,8 +1035,8 @@ LLValue *DtoArrayLen(DValue *v) {
   if (t->ty == Tsarray) {
     assert(!v->isSlice());
     assert(!v->isNull());
-    assert(v->type->toBasetype()->ty == Tsarray);
-    TypeSArray *sarray = static_cast<TypeSArray *>(v->type->toBasetype());
+    assert(t->ty == Tsarray);
+    TypeSArray *sarray = static_cast<TypeSArray *>(t);
     return DtoConstSize_t(sarray->dim->toUInteger());
   }
   llvm_unreachable("unsupported array for len");
@@ -1049,7 +1047,7 @@ LLValue *DtoArrayPtr(DValue *v) {
   IF_LOG Logger::println("DtoArrayPtr");
   LOG_SCOPE;
 
-  Type *t = v->getType()->toBasetype();
+  Type *t = v->type->toBasetype();
   // v's LL array element type may not be the real one
   // due to implicit casts (e.g., to base class)
   LLType *wantedLLPtrType = DtoPtrToType(t->nextOf());
@@ -1084,9 +1082,9 @@ DValue *DtoCastArray(Loc &loc, DValue *u, Type *to) {
   LLType *tolltype = DtoType(to);
 
   Type *totype = to->toBasetype();
-  Type *fromtype = u->getType()->toBasetype();
+  Type *fromtype = u->type->toBasetype();
   if (fromtype->ty != Tarray && fromtype->ty != Tsarray) {
-    error(loc, "can't cast %s to %s", u->getType()->toChars(), to->toChars());
+    error(loc, "can't cast %s to %s", u->type->toChars(), to->toChars());
     fatal();
   }
 
@@ -1181,7 +1179,7 @@ DValue *DtoCastArray(Loc &loc, DValue *u, Type *to) {
 }
 
 void DtoIndexBoundsCheck(Loc &loc, DValue *arr, DValue *index) {
-  Type *arrty = arr->getType()->toBasetype();
+  Type *arrty = arr->type->toBasetype();
   assert(
       (arrty->ty == Tsarray || arrty->ty == Tarray || arrty->ty == Tpointer) &&
       "Can only array bounds check for static or dynamic arrays");

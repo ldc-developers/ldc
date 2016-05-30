@@ -36,14 +36,14 @@ IrFuncTy &DtoIrTypeFunction(DValue *fnval) {
     }
   }
 
-  Type *type = stripModifiers(fnval->getType()->toBasetype());
+  Type *type = stripModifiers(fnval->type->toBasetype());
   DtoType(type);
   assert(type->ctype);
   return type->ctype->getIrFuncTy();
 }
 
 TypeFunction *DtoTypeFunction(DValue *fnval) {
-  Type *type = fnval->getType()->toBasetype();
+  Type *type = fnval->type->toBasetype();
   if (type->ty == Tfunction) {
     return static_cast<TypeFunction *>(type);
   }
@@ -72,7 +72,7 @@ TypeFunction *DtoTypeFunction(DValue *fnval) {
 ////////////////////////////////////////////////////////////////////////////////
 
 LLValue *DtoCallableValue(DValue *fn) {
-  Type *type = fn->getType()->toBasetype();
+  Type *type = fn->type->toBasetype();
   if (type->ty == Tfunction) {
     return fn->getRVal();
   }
@@ -124,7 +124,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
   // construct and initialize an IrFuncTyArg object for each vararg
   std::vector<IrFuncTyArg *> optionalIrArgs;
   for (size_t i = numFormalParams; i < explicitDArgCount; i++) {
-    Type *argType = argvals[i]->getType();
+    Type *argType = argvals[i]->type;
     bool passByVal = gABI->passByVal(argType);
 
     AttrBuilder initialAttrs;
@@ -157,7 +157,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
     }
 
     DValue *const argval = argvals[irArg->parametersIdx];
-    Type *const argType = argval->getType();
+    Type *const argType = argval->type;
 
     llvm::Value *llVal = nullptr;
     if (isVararg) {
@@ -315,7 +315,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     }
     Expression *exp = (*e->arguments)[0];
     DValue *expv = toElem(exp);
-    if (expv->getType()->toBasetype()->ty != Tint32) {
+    if (expv->type->toBasetype()->ty != Tint32) {
       expv = DtoCast(e->loc, expv, Type::tint32);
     }
     result = new DImValue(e->type,
@@ -619,7 +619,7 @@ public:
       : args(args), attrs(attrs), loc(loc), fnval(fnval), arguments(arguments),
         resulttype(resulttype), retvar(retvar),
         // computed:
-        calleeType(fnval->getType()), dfnval(fnval->isFunc()),
+        calleeType(fnval->type), dfnval(fnval->isFunc()),
         irFty(DtoIrTypeFunction(fnval)), tf(DtoTypeFunction(fnval)),
         llArgTypesBegin(llCalleeType->param_begin()) {}
 
@@ -780,7 +780,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   LOG_SCOPE
 
   // make sure the D callee type has been processed
-  DtoType(fnval->getType());
+  DtoType(fnval->type);
 
   // get func value if any
   DFuncValue *dfnval = fnval->isFunc();

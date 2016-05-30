@@ -38,8 +38,7 @@ llvm::Value *ABIRewrite::getRVal(Type *dty, LLValue *v) {
 //////////////////////////////////////////////////////////////////////////////
 
 LLValue *ABIRewrite::getAddressOf(DValue *v) {
-  Type *dty = v->getType();
-  if (DtoIsInMemoryOnly(dty)) {
+  if (DtoIsInMemoryOnly(v->type)) {
     // v is lowered to a LL pointer to the struct/static array
     return v->getRVal();
   }

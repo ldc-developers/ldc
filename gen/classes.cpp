@@ -194,7 +194,7 @@ void DtoFinalizeClass(Loc &loc, LLValue *inst) {
 ////////////////////////////////////////////////////////////////////////////////
 
 DValue *DtoCastClass(Loc &loc, DValue *val, Type *_to) {
-  IF_LOG Logger::println("DtoCastClass(%s, %s)", val->getType()->toChars(),
+  IF_LOG Logger::println("DtoCastClass(%s, %s)", val->type->toChars(),
                          _to->toChars());
   LOG_SCOPE;
 
@@ -237,7 +237,7 @@ DValue *DtoCastClass(Loc &loc, DValue *val, Type *_to) {
   TypeClass *tc = static_cast<TypeClass *>(to);
 
   // from type
-  Type *from = val->getType()->toBasetype();
+  Type *from = val->type->toBasetype();
   TypeClass *fc = static_cast<TypeClass *>(from);
 
   // copy DMD logic:
@@ -379,7 +379,7 @@ LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl,
   // sanity checks
   assert(fdecl->isVirtual());
   assert(!fdecl->isFinalFunc());
-  assert(inst->getType()->toBasetype()->ty == Tclass);
+  assert(inst->type->toBasetype()->ty == Tclass);
   // 0 is always ClassInfo/Interface* unless it is a CPP interface
   assert(fdecl->vtblIndex > 0 ||
          (fdecl->vtblIndex == 0 && fdecl->linkage == LINKcpp));

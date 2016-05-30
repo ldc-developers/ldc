@@ -206,7 +206,7 @@ LLValue *DtoGcMalloc(Loc &loc, LLType *lltype, const char *name) {
 }
 
 LLValue *DtoAllocaDump(DValue *val, const char *name) {
-  return DtoAllocaDump(val->getRVal(), val->getType(), name);
+  return DtoAllocaDump(val->getRVal(), val->type, name);
 }
 
 LLValue *DtoAllocaDump(DValue *val, Type *asType, const char *name) {
@@ -304,8 +304,8 @@ void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
   IF_LOG Logger::println("DtoAssign()");
   LOG_SCOPE;
 
-  Type *t = lhs->getType()->toBasetype();
-  Type *t2 = rhs->getType()->toBasetype();
+  Type *t = lhs->type->toBasetype();
+  Type *t2 = rhs->type->toBasetype();
 
   assert(t->ty != Tvoid && "Cannot assign values of type void.");
 
@@ -346,7 +346,7 @@ void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
     DtoStore(r, l);
   } else if (t->iscomplex()) {
     LLValue *dst = lhs->getLVal();
-    LLValue *src = DtoCast(loc, rhs, lhs->getType())->getRVal();
+    LLValue *src = DtoCast(loc, rhs, lhs->type)->getRVal();
     DtoStore(src, dst);
   } else {
     LLValue *l = lhs->getLVal();
@@ -357,7 +357,7 @@ void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
     }
     LLType *lit = l->getType()->getContainedType(0);
     if (r->getType() != lit) {
-      r = DtoCast(loc, rhs, lhs->getType())->getRVal();
+      r = DtoCast(loc, rhs, lhs->type)->getRVal();
       IF_LOG {
         Logger::println("Type mismatch, really assigning:");
         LOG_SCOPE
@@ -417,7 +417,7 @@ DValue *DtoCastInt(Loc &loc, DValue *val, Type *_to) {
   LLType *tolltype = DtoType(_to);
 
   Type *to = _to->toBasetype();
-  Type *from = val->getType()->toBasetype();
+  Type *from = val->type->toBasetype();
   assert(from->isintegral());
 
   LLValue *rval = val->getRVal();
@@ -456,7 +456,7 @@ DValue *DtoCastInt(Loc &loc, DValue *val, Type *_to) {
     IF_LOG Logger::cout() << "cast pointer: " << *tolltype << '\n';
     rval = gIR->ir->CreateIntToPtr(rval, tolltype);
   } else {
-    error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
+    error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
           _to->toChars());
     fatal();
   }
@@ -468,7 +468,7 @@ DValue *DtoCastPtr(Loc &loc, DValue *val, Type *to) {
   LLType *tolltype = DtoType(to);
 
   Type *totype = to->toBasetype();
-  Type *fromtype = val->getType()->toBasetype();
+  Type *fromtype = val->type->toBasetype();
   assert(fromtype->ty == Tpointer || fromtype->ty == Tfunction);
 
   LLValue *rval;
@@ -487,7 +487,7 @@ DValue *DtoCastPtr(Loc &loc, DValue *val, Type *to) {
   } else if (totype->isintegral()) {
     rval = new llvm::PtrToIntInst(val->getRVal(), tolltype, "", gIR->scopebb());
   } else {
-    error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
+    error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
           to->toChars());
     fatal();
   }
@@ -496,14 +496,14 @@ DValue *DtoCastPtr(Loc &loc, DValue *val, Type *to) {
 }
 
 DValue *DtoCastFloat(Loc &loc, DValue *val, Type *to) {
-  if (val->getType() == to) {
+  if (val->type == to) {
     return val;
   }
 
   LLType *tolltype = DtoType(to);
 
   Type *totype = to->toBasetype();
-  Type *fromtype = val->getType()->toBasetype();
+  Type *fromtype = val->type->toBasetype();
   assert(fromtype->isfloating());
 
   size_t fromsz = fromtype->size();
@@ -527,7 +527,7 @@ DValue *DtoCastFloat(Loc &loc, DValue *val, Type *to) {
       rval =
           new llvm::FPTruncInst(val->getRVal(), tolltype, "", gIR->scopebb());
     } else {
-      error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
+      error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
             to->toChars());
       fatal();
     }
@@ -538,7 +538,7 @@ DValue *DtoCastFloat(Loc &loc, DValue *val, Type *to) {
       rval = new llvm::FPToSIInst(val->getRVal(), tolltype, "", gIR->scopebb());
     }
   } else {
-    error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
+    error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
           to->toChars());
     fatal();
   }
@@ -554,16 +554,16 @@ DValue *DtoCastDelegate(Loc &loc, DValue *val, Type *to) {
     return new DImValue(
         to, DtoDelegateEquals(TOKnotequal, val->getRVal(), nullptr));
   }
-  error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
+  error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
         to->toChars());
   fatal();
 }
 
 DValue *DtoCastVector(Loc &loc, DValue *val, Type *to) {
-  assert(val->getType()->toBasetype()->ty == Tvector);
+  assert(val->type->toBasetype()->ty == Tvector);
   Type *totype = to->toBasetype();
   LLType *tolltype = DtoType(to);
-  TypeVector *type = static_cast<TypeVector *>(val->getType()->toBasetype());
+  TypeVector *type = static_cast<TypeVector *>(val->type->toBasetype());
 
   if (totype->ty == Tsarray) {
     // If possible, we need to cast only the address of the vector without
@@ -592,10 +592,10 @@ DValue *DtoCastVector(Loc &loc, DValue *val, Type *to) {
 
     return new DImValue(to, array);
   }
-  if (totype->ty == Tvector && to->size() == val->getType()->size()) {
+  if (totype->ty == Tvector && to->size() == val->type->size()) {
     return new DImValue(to, DtoBitCast(val->getRVal(), tolltype));
   }
-  error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
+  error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
         to->toChars());
   fatal();
 }
@@ -613,12 +613,12 @@ DValue *DtoCastStruct(Loc &loc, DValue *val, Type *to) {
   }
 
   error(loc, "Internal Compiler Error: Invalid struct cast from '%s' to '%s'",
-        val->getType()->toChars(), to->toChars());
+        val->type->toChars(), to->toChars());
   fatal();
 }
 
 DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
-  Type *fromtype = val->getType()->toBasetype();
+  Type *fromtype = val->type->toBasetype();
   Type *totype = to->toBasetype();
 
   if (fromtype->ty == Taarray) {
@@ -681,7 +681,7 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
     }
   // fall-through
   default:
-    error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
+    error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
           to->toChars());
     fatal();
   }
@@ -690,7 +690,7 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
 ////////////////////////////////////////////////////////////////////////////////
 
 DValue *DtoPaintType(Loc &loc, DValue *val, Type *to) {
-  Type *from = val->getType()->toBasetype();
+  Type *from = val->type->toBasetype();
   IF_LOG Logger::println("repainting from '%s' to '%s'", from->toChars(),
                          to->toChars());
 
@@ -1379,7 +1379,7 @@ Type *stripModifiers(Type *type, bool transitive) {
 ////////////////////////////////////////////////////////////////////////////////
 
 LLValue *makeLValue(Loc &loc, DValue *value) {
-  Type *valueType = value->getType();
+  Type *valueType = value->type;
   bool needsMemory;
   LLValue *valuePointer;
   if (value->isIm()) {

@@ -19,7 +19,7 @@
 //////////////////////////////////////////////////////////////////////////////
 
 DValue *DtoBinAdd(DValue *lhs, DValue *rhs) {
-  Type *t = lhs->getType();
+  Type *t = lhs->type;
   LLValue *l, *r;
   l = lhs->getRVal();
   r = rhs->getRVal();
@@ -37,7 +37,7 @@ DValue *DtoBinAdd(DValue *lhs, DValue *rhs) {
 //////////////////////////////////////////////////////////////////////////////
 
 DValue *DtoBinSub(DValue *lhs, DValue *rhs) {
-  Type *t = lhs->getType();
+  Type *t = lhs->type;
   LLValue *l, *r;
   l = lhs->getRVal();
   r = rhs->getRVal();
@@ -55,7 +55,7 @@ DValue *DtoBinSub(DValue *lhs, DValue *rhs) {
 //////////////////////////////////////////////////////////////////////////////
 
 DValue *DtoBinMul(Type *targettype, DValue *lhs, DValue *rhs) {
-  Type *t = lhs->getType();
+  Type *t = lhs->type;
   LLValue *l, *r;
   l = lhs->getRVal();
   r = rhs->getRVal();
@@ -72,7 +72,7 @@ DValue *DtoBinMul(Type *targettype, DValue *lhs, DValue *rhs) {
 //////////////////////////////////////////////////////////////////////////////
 
 DValue *DtoBinDiv(Type *targettype, DValue *lhs, DValue *rhs) {
-  Type *t = lhs->getType();
+  Type *t = lhs->type;
   LLValue *l, *r;
   l = lhs->getRVal();
   r = rhs->getRVal();
@@ -91,7 +91,7 @@ DValue *DtoBinDiv(Type *targettype, DValue *lhs, DValue *rhs) {
 //////////////////////////////////////////////////////////////////////////////
 
 DValue *DtoBinRem(Type *targettype, DValue *lhs, DValue *rhs) {
-  Type *t = lhs->getType();
+  Type *t = lhs->type;
   LLValue *l, *r;
   l = lhs->getRVal();
   r = rhs->getRVal();
@@ -111,7 +111,7 @@ DValue *DtoBinRem(Type *targettype, DValue *lhs, DValue *rhs) {
 LLValue *DtoBinNumericEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op) {
   assert(op == TOKequal || op == TOKnotequal || op == TOKidentity ||
          op == TOKnotidentity);
-  Type *t = lhs->getType()->toBasetype();
+  Type *t = lhs->type->toBasetype();
   assert(t->isfloating());
   Logger::println("numeric equality");
 
@@ -144,7 +144,7 @@ LLValue *DtoBinFloatsEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op) {
       cmpop = llvm::ICmpInst::ICMP_NE;
     }
 
-    LLValue *sz = DtoConstSize_t(getTypeStoreSize(DtoType(lhs->getType())));
+    LLValue *sz = DtoConstSize_t(getTypeStoreSize(DtoType(lhs->type)));
     LLValue *val = DtoMemCmp(makeLValue(loc, lhs), makeLValue(loc, rhs), sz);
     res = gIR->ir->CreateICmp(cmpop, val,
                               LLConstantInt::get(val->getType(), 0, false));

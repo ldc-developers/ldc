@@ -194,8 +194,8 @@ DValue *DtoAARemove(Loc &loc, DValue *aa, DValue *key) {
 ////////////////////////////////////////////////////////////////////////////////
 
 LLValue *DtoAAEquals(Loc &loc, TOK op, DValue *l, DValue *r) {
-  Type *t = l->getType()->toBasetype();
-  assert(t == r->getType()->toBasetype() &&
+  Type *t = l->type->toBasetype();
+  assert(t == r->type->toBasetype() &&
          "aa equality is only defined for aas of same type");
   llvm::Function *func =
       getRuntimeFunction(loc, gIR->module, "_aaEqual");

@@ -46,11 +46,6 @@ public:
 
   virtual ~DValue() = default;
 
-  Type *const &getType() {
-    assert(type);
-    return type;
-  }
-
   virtual llvm::Value *getLVal() {
     assert(0);
     return nullptr;

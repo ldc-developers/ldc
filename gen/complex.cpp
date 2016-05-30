@@ -132,7 +132,7 @@ void DtoGetComplexParts(Loc &loc, Type *to, DValue *val, DValue *&re,
     break;
   }
 
-  Type *t = val->getType()->toBasetype();
+  Type *t = val->type->toBasetype();
 
   if (t->iscomplex()) {
     DValue *v = DtoCastComplex(loc, val, to);
@@ -408,14 +408,12 @@ DValue *DtoComplexNeg(Loc &loc, Type *type, DValue *val) {
 ////////////////////////////////////////////////////////////////////////////////
 
 LLValue *DtoComplexEquals(Loc &loc, TOK op, DValue *lhs, DValue *rhs) {
-  Type *type = lhs->getType();
-
   DValue *lhs_re, *lhs_im, *rhs_re, *rhs_im;
 
   // lhs values
-  DtoGetComplexParts(loc, type, lhs, lhs_re, lhs_im);
+  DtoGetComplexParts(loc, lhs->type, lhs, lhs_re, lhs_im);
   // rhs values
-  DtoGetComplexParts(loc, type, rhs, rhs_re, rhs_im);
+  DtoGetComplexParts(loc, lhs->type, rhs, rhs_re, rhs_im);
 
   // (l.re==r.re && l.im==r.im) or (l.re!=r.re || l.im!=r.im)
   LLValue *b1 = DtoBinFloatsEquals(loc, lhs_re, rhs_re, op);
@@ -431,14 +429,14 @@ LLValue *DtoComplexEquals(Loc &loc, TOK op, DValue *lhs, DValue *rhs) {
 
 DValue *DtoCastComplex(Loc &loc, DValue *val, Type *_to) {
   Type *to = _to->toBasetype();
-  Type *vty = val->getType()->toBasetype();
+  Type *vty = val->type->toBasetype();
   if (to->iscomplex()) {
     if (vty->size() == to->size()) {
       return val;
     }
 
     llvm::Value *re, *im;
-    DtoGetComplexParts(loc, val->getType(), val, re, im);
+    DtoGetComplexParts(loc, val->type, val, re, im);
     LLType *toty = DtoComplexBaseType(to);
 
     if (to->size() < vty->size()) {
