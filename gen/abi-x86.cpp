@@ -54,21 +54,47 @@ struct X86TargetABI : TargetABI {
     llvm_unreachable("Unhandled D linkage type.");
   }
 
-  std::string mangleForLLVM(llvm::StringRef name, LINK l) override {
+  std::string mangleFunctionForLLVM(std::string name, LINK l) override {
     switch (l) {
     case LINKc:
-    case LINKcpp:
     case LINKobjc:
     case LINKpascal:
     case LINKwindows:
+      return name;
+    case LINKcpp:
+      if (global.params.targetTriple->isOSWindows()) {
+        // Prepend a 0x1 byte to prevent LLVM from prepending an underscore.
+        return name.insert(0, "\1");
+      }
       return name;
     case LINKd:
     case LINKdefault:
       if (global.params.targetTriple->isOSWindows()) {
         // Prepend a 0x1 byte to keep LLVM from adding the usual
-        // "@<paramsize>" stdcall suffix.
-        return ("\1_" + name).str();
+        // "@<paramsize>" stdcall suffix. Also prepend the underscore that
+        // would otherwise be added by LLVM.
+        return name.insert(0, "\1_");
       }
+      return name;
+    }
+    llvm_unreachable("Unhandled D linkage type.");
+  }
+
+  std::string mangleVariableForLLVM(std::string name, LINK l) override {
+    switch (l) {
+    case LINKc:
+    case LINKobjc:
+    case LINKpascal:
+    case LINKwindows:
+      return name;
+    case LINKcpp:
+      if (global.params.targetTriple->isOSWindows()) {
+        // Prepend a 0x1 byte to prevent LLVM from prepending an underscore.
+        return name.insert(0, "\1");
+      }
+      return name;
+    case LINKd:
+    case LINKdefault:
       return name;
     }
     llvm_unreachable("Unhandled D linkage type.");

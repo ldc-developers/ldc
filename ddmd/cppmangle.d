@@ -1356,9 +1356,6 @@ static if (IN_LLVM || TARGET_WINDOS)
 
         const(char)* mangleOf(Dsymbol s)
         {
-version(IN_LLVM) {
-            buf.writeByte('\01'); // disable further mangling by the backend
-}
             VarDeclaration vd = s.isVarDeclaration();
             FuncDeclaration fd = s.isFuncDeclaration();
             if (vd)

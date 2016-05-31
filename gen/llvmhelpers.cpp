@@ -21,6 +21,7 @@
 #include "gen/llvmcompat.h"
 #include "gen/logger.h"
 #include "gen/nested.h"
+#include "gen/mangling.h"
 #include "gen/pragma.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
@@ -831,7 +832,7 @@ void DtoResolveVariable(VarDeclaration *vd) {
     if (gIR->dmodule) {
       vd->ir->setInitialized();
     }
-    std::string llName(mangle(vd));
+    std::string llName(getMangledName(vd));
 
     // Since the type of a global must exactly match the type of its
     // initializer, we cannot know the type until after we have emitted the
