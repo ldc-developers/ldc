@@ -5,9 +5,9 @@ LDC is released under the "three-clause BSD" LDC license reproduced below, with
 the following exceptions:
 
 Compiler (bin/ in binary packages):
- - LDC uses the DMD frontend (dmd/* and dmd2/* in source code distributions),
+ - LDC uses the DMD frontend (ddmd/* in source code distributions),
    which was originally written by Walter Bright and is released under the
-   Artistic license or the GPL version 1. LDMD (driver/ldmd.cpp) and the RTTI
+   Boost Software License - Version 1.0. LDMD (driver/ldmd.cpp) and the RTTI
    handling code (gen/typinf.cpp) are also partly derived from DMD.
 
  - LDC incorporates code (gen/asmstmt.cpp and gen/asm-*.h) originally written
@@ -31,7 +31,7 @@ Full license texts
 
 -- LDC license -----------------------------------------------------------------
 
-Copyright (c) 2007-2012 LDC Team.
+Copyright (c) 2007-2016 LDC Team.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -57,6 +57,12 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+
+-- DMD license -----------------------------------------------------------------
+
+Copyright (c) 1999-2016 by Digital Mars written by Walter Bright.
+
+DMD is released under the terms of the Boost Software License - Version 1.0.
 
 
 -- Runtime library license -----------------------------------------------------
@@ -86,13 +92,12 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 
-
 -- LLVM license ----------------------------------------------------------------
 
 University of Illinois/NCSA
 Open Source License
 
-Copyright (c) 2003-2012 University of Illinois at Urbana-Champaign.
+Copyright (c) 2003-2016 University of Illinois at Urbana-Champaign.
 All rights reserved.
 
 Developed by:
@@ -132,14 +137,8 @@ SOFTWARE.
 
 
 
--- DMD license -----------------------------------------------------------------
+-- License of GDC artefacts ---------------------------------------------------
 
-Copyright (c) 1999-2012 by Digital Mars written by Walter Bright.
-
-DMD is released under the terms of the Artistic license or the GNU General
-Public License, version 1.
-
---
                          The "Artistic License"
 
                                 Preamble
@@ -512,7 +511,7 @@ That's all there is to it!
 
 -- libconfig license -----------------------------------------------------------
 
-Copyright (C) 2005-2010  Mark A Lindner
+Copyright (C) 2005-2016  Mark A Lindner
 
 --
 
