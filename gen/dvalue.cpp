@@ -16,7 +16,7 @@
 #include "gen/tollvm.h"
 
 namespace {
-bool isDefinedInFuncEntryBB(llvm::Value *v) {
+bool isDefinedInFuncEntryBB(LLValue *v) {
   auto instr = llvm::dyn_cast<llvm::Instruction>(v);
   if (!instr) {
     // Global, constant, ...
@@ -36,7 +36,11 @@ bool isDefinedInFuncEntryBB(llvm::Value *v) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-bool DImValue::definedInFuncEntryBB() { return isDefinedInFuncEntryBB(val); }
+bool DValue::definedInFuncEntryBB() { return isDefinedInFuncEntryBB(val); }
+
+////////////////////////////////////////////////////////////////////////////////
+
+DConstValue::DConstValue(Type *t, llvm::Constant *con) : DValue(t, con) {}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -72,9 +76,7 @@ DVarValue::DVarValue(Type *t, LLValue *v, bool isSpecialRefVar)
 LLValue *DVarValue::getLVal() { return isSpecialRefVar ? DtoLoad(val) : val; }
 
 LLValue *DVarValue::getRVal() {
-  assert(val);
-
-  llvm::Value *storage = val;
+  LLValue *storage = val;
   if (isSpecialRefVar) {
     storage = DtoLoad(storage);
   }
@@ -83,7 +85,7 @@ LLValue *DVarValue::getRVal() {
     return storage;
   }
 
-  llvm::Value *rawValue = DtoLoad(storage);
+  LLValue *rawValue = DtoLoad(storage);
 
   if (type->toBasetype()->ty == Tbool) {
     assert(rawValue->getType() == llvm::Type::getInt8Ty(gIR->context()));
@@ -99,19 +101,14 @@ LLValue *DVarValue::getRefStorage() {
   return val;
 }
 
-bool DVarValue::definedInFuncEntryBB() { return isDefinedInFuncEntryBB(val); }
-
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DSliceValue::getRVal() {
-  assert(len);
-  assert(ptr);
-  return DtoAggrPair(len, ptr);
-}
+DSliceValue::DSliceValue(Type *t, LLValue *length, LLValue *ptr)
+    : DValue(t, DtoAggrPair(length, ptr)) {}
 
-bool DSliceValue::definedInFuncEntryBB() {
-  return isDefinedInFuncEntryBB(len) && isDefinedInFuncEntryBB(ptr);
-}
+LLValue *DSliceValue::getLength() { return DtoExtractValue(val, 0, ".len"); }
+
+LLValue *DSliceValue::getPtr() { return DtoExtractValue(val, 1, ".ptr"); }
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -121,29 +118,7 @@ DFuncValue::DFuncValue(Type *t, FuncDeclaration *fd, LLValue *v, LLValue *vt)
 DFuncValue::DFuncValue(FuncDeclaration *fd, LLValue *v, LLValue *vt)
     : DValue(fd->type, v), func(fd), vthis(vt) {}
 
-LLValue *DFuncValue::getRVal() {
-  assert(val);
-  return val;
-}
-
 bool DFuncValue::definedInFuncEntryBB() {
-  if (!isDefinedInFuncEntryBB(val)) {
-    return false;
-  }
-
-  if (vthis && !isDefinedInFuncEntryBB(vthis)) {
-    return false;
-  }
-
-  return true;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-DConstValue::DConstValue(Type *t, llvm::Constant *con)
-    : DValue(t, static_cast<LLValue *>(con)) {}
-
-LLValue *DConstValue::getRVal() {
-  assert(val);
-  return val;
+  return isDefinedInFuncEntryBB(val) &&
+         (!vthis || isDefinedInFuncEntryBB(vthis));
 }

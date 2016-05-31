@@ -1021,9 +1021,6 @@ LLValue *DtoArrayLen(DValue *v) {
 
   Type *t = v->type->toBasetype();
   if (t->ty == Tarray) {
-    if (DSliceValue *s = v->isSlice()) {
-      return s->len;
-    }
     if (v->isNull()) {
       return DtoConstSize_t(0);
     }
@@ -1054,9 +1051,7 @@ LLValue *DtoArrayPtr(DValue *v) {
   LLValue *ptr = nullptr;
 
   if (t->ty == Tarray) {
-    if (DSliceValue *s = v->isSlice()) {
-      ptr = s->ptr;
-    } else if (v->isNull()) {
+    if (v->isNull()) {
       ptr = getNullPtr(wantedLLPtrType);
     } else if (v->isLVal()) {
       ptr = DtoLoad(DtoGEPi(v->getLVal(), 0, 1), ".ptr");

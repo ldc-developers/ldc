@@ -50,10 +50,7 @@ public:
     assert(0);
     return nullptr;
   }
-  virtual llvm::Value *getRVal() {
-    assert(0);
-    return nullptr;
-  }
+  virtual llvm::Value *getRVal() { return val; }
 
   virtual bool isLVal() { return false; }
 
@@ -65,7 +62,7 @@ public:
   /// In other words, whatever value the result of getLVal()/getRVal() might be
   /// derived from then certainly dominates uses in all other basic blocks of
   /// the function.
-  virtual bool definedInFuncEntryBB() = 0;
+  virtual bool definedInFuncEntryBB();
 
   virtual DImValue *isIm() { return nullptr; }
   virtual DConstValue *isConst() { return nullptr; }
@@ -75,20 +72,16 @@ public:
   virtual DFuncValue *isFunc() { return nullptr; }
 
 protected:
-  DValue(Type *t, llvm::Value *v) : type(t), val(v) {}
+  DValue(Type *t, llvm::Value *v) : type(t), val(v) {
+    assert(type);
+    assert(val);
+  }
 };
 
 // immediate d-value
 class DImValue : public DValue {
 public:
   DImValue(Type *t, llvm::Value *v) : DValue(t, v) {}
-
-  llvm::Value *getRVal() override {
-    assert(val);
-    return val;
-  }
-
-  bool definedInFuncEntryBB() override;
 
   DImValue *isIm() override { return this; }
 };
@@ -97,8 +90,6 @@ public:
 class DConstValue : public DValue {
 public:
   DConstValue(Type *t, llvm::Constant *con);
-
-  llvm::Value *getRVal() override;
 
   bool definedInFuncEntryBB() override { return true; }
 
@@ -109,6 +100,7 @@ public:
 class DNullValue : public DConstValue {
 public:
   DNullValue(Type *t, llvm::Constant *con) : DConstValue(t, con) {}
+
   DNullValue *isNull() override { return this; }
 };
 
@@ -122,6 +114,7 @@ public:
   DVarValue(Type *t, llvm::Value *v, bool isSpecialRefVar = false);
 
   bool isLVal() override { return true; }
+
   llvm::Value *getLVal() override;
   llvm::Value *getRVal() override;
 
@@ -129,45 +122,36 @@ public:
   /// Illegal to call on any other value.
   llvm::Value *getRefStorage();
 
-  bool definedInFuncEntryBB() override;
-
   DVarValue *isVar() override { return this; }
 
 protected:
-  bool const isSpecialRefVar;
+  const bool isSpecialRefVar;
 };
 
 // slice d-value
 class DSliceValue : public DValue {
 public:
-  DSliceValue(Type *t, llvm::Value *l, llvm::Value *p)
-      : DValue(t, nullptr), len(l), ptr(p) {}
-
-  llvm::Value *getRVal() override;
-
-  bool definedInFuncEntryBB() override;
+  DSliceValue(Type *t, llvm::Value *length, llvm::Value *ptr);
 
   DSliceValue *isSlice() override { return this; }
 
-  llvm::Value *len;
-  llvm::Value *ptr;
+  llvm::Value *getLength();
+  llvm::Value *getPtr();
 };
 
 // function d-value
 class DFuncValue : public DValue {
 public:
+  FuncDeclaration *func;
+  llvm::Value *vthis;
+
   DFuncValue(Type *t, FuncDeclaration *fd, llvm::Value *v,
              llvm::Value *vt = nullptr);
   DFuncValue(FuncDeclaration *fd, llvm::Value *v, llvm::Value *vt = nullptr);
 
-  llvm::Value *getRVal() override;
-
   bool definedInFuncEntryBB() override;
 
   DFuncValue *isFunc() override { return this; }
-
-  FuncDeclaration *func;
-  llvm::Value *vthis;
 };
 
 #endif // LDC_GEN_DVALUE_H

@@ -2491,7 +2491,7 @@ public:
             e->loc, arrayType,
             new DConstValue(Type::tsize_t, DtoConstSize_t(len)), false);
         initializeArrayLiteral(
-            p, e, DtoBitCast(dynSlice->ptr, getPtrToType(llStoType)));
+            p, e, DtoBitCast(dynSlice->getPtr(), getPtrToType(llStoType)));
         result = dynSlice;
       }
     } else {

@@ -699,8 +699,8 @@ DValue *DtoPaintType(Loc &loc, DValue *val, Type *to) {
     assert(at->ty == Tarray);
     Type *elem = at->nextOf()->pointerTo();
     if (DSliceValue *slice = val->isSlice()) {
-      return new DSliceValue(to, slice->len,
-                             DtoBitCast(slice->ptr, DtoType(elem)));
+      return new DSliceValue(to, slice->getLength(),
+                             DtoBitCast(slice->getPtr(), DtoType(elem)));
     }
     if (val->isLVal()) {
       LLValue *ptr = val->getLVal();
