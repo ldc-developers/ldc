@@ -187,7 +187,7 @@ static llvm::Function *build_module_function(
   LLFunctionType *fnTy = LLFunctionType::get(LLType::getVoidTy(gIR->context()),
                                              std::vector<LLType *>(), false);
 
-  std::string const symbolName = gABI->mangleForLLVM(name, LINKd);
+  std::string const symbolName = gABI->mangleFunctionForLLVM(name, LINKd);
   assert(gIR->module.getFunction(symbolName) == NULL);
   llvm::Function *fn = llvm::Function::Create(
       fnTy, llvm::GlobalValue::InternalLinkage, symbolName, &gIR->module);

@@ -93,7 +93,17 @@ struct TargetABI {
   /// Using this function at a stage where the name could be user-visible is
   /// almost certainly a mistake; it is intended to e.g. prepend '\1' where
   /// disabling the LLVM-internal name mangling/postprocessing is required.
-  virtual std::string mangleForLLVM(llvm::StringRef name, LINK l) {
+  virtual std::string mangleFunctionForLLVM(std::string name, LINK l) {
+    return name;
+  }
+
+  /// Applies any rewrites that might be required to accurately reproduce the
+  /// passed variable name on LLVM given a specific D linkage.
+  ///
+  /// Using this function at a stage where the name could be user-visible is
+  /// almost certainly a mistake; it is intended to e.g. prepend '\1' where
+  /// the LLVM-internal postprocessing of prepending a '_' must be disabled.
+  virtual std::string mangleVariableForLLVM(std::string name, LINK l) {
     return name;
   }
 

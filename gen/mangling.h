@@ -17,10 +17,12 @@
 #include <string>
 #include "ddmd/globals.h"
 
-class FuncDeclaration;
 class AggregateDeclaration;
+class FuncDeclaration;
+class VarDeclaration;
 
 std::string getMangledName(FuncDeclaration *fdecl, LINK link);
+std::string getMangledName(VarDeclaration *vd);
 
 std::string getMangledInitSymbolName(AggregateDeclaration *aggrdecl);
 std::string getMangledVTableSymbolName(AggregateDeclaration *aggrdecl);

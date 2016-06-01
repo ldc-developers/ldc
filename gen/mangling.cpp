@@ -108,7 +108,17 @@ std::string getMangledName(FuncDeclaration *fdecl, LINK link) {
     mangledName = "_D" + hashedName + "Z";
   }
 
-  return gABI->mangleForLLVM(mangledName, link);
+  // TODO: Cache the result?
+
+  return gABI->mangleFunctionForLLVM(std::move(mangledName), link);
+}
+
+std::string getMangledName(VarDeclaration *vd) {
+  // TODO: is hashing of variable names necessary?
+
+  // TODO: Cache the result?
+
+  return gABI->mangleVariableForLLVM(mangle(vd), vd->linkage);
 }
 
 std::string getMangledInitSymbolName(AggregateDeclaration *aggrdecl) {
@@ -123,7 +133,7 @@ std::string getMangledInitSymbolName(AggregateDeclaration *aggrdecl) {
 
   ret += "6__initZ";
 
-  return ret;
+  return gABI->mangleVariableForLLVM(std::move(ret), LINKd);
 }
 
 std::string getMangledVTableSymbolName(AggregateDeclaration *aggrdecl) {
@@ -138,7 +148,7 @@ std::string getMangledVTableSymbolName(AggregateDeclaration *aggrdecl) {
 
   ret += "6__vtblZ";
 
-  return ret;
+  return gABI->mangleVariableForLLVM(std::move(ret), LINKd);
 }
 
 std::string getMangledClassInfoSymbolName(AggregateDeclaration *aggrdecl) {
@@ -157,5 +167,5 @@ std::string getMangledClassInfoSymbolName(AggregateDeclaration *aggrdecl) {
     ret += "7__ClassZ";
   }
 
-  return ret;
+  return gABI->mangleVariableForLLVM(std::move(ret), LINKd);
 }
