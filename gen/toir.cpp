@@ -357,6 +357,18 @@ public:
       genFuncLiteral(fd, nullptr);
     }
 
+    if (auto em = e->var->isEnumMember()) {
+      IF_LOG Logger::println("Create temporary for enum member");
+      // Return the value of the enum member instead of trying to take its
+      // address (impossible because we don't emit them as variables)
+      // In most cases, the front-end constfolds a VarExp of an EnumMember,
+      // leaving the AST free of EnumMembers. However in rare cases,
+      // EnumMembers remain and thus we have to deal with them here.
+      // See DMD issues 16022 and 16100.
+      result = toElem(em->value(), p);
+      return;
+    }
+
     result = DtoSymbolAddress(e->loc, e->type, e->var);
   }
 

@@ -190,7 +190,6 @@ enum : int
                                     // meaning don't search imports in that scope,
                                     // because qualified module searches search
                                     // their imports
-    SearchCheck10378        = 0x40, // unqualified search with transition=checkimports switch
     IgnoreSymbolVisibility  = 0x80, // also find private and package protected symbols
 }
 
@@ -1308,9 +1307,6 @@ public:
         //printf("%s.ScopeDsymbol::search(ident='%s', flags=x%x)\n", toChars(), ident.toChars(), flags);
         //if (strcmp(ident->toChars(),"c") == 0) *(char*)0=0;
 
-        if (global.params.bug10378 && !(flags & SearchCheck10378))
-            flags &= ~(SearchImportsOnly | SearchLocalsOnly);
-
         // Look in symbols declared in this module
         if (symtab && !(flags & SearchImportsOnly))
         {
@@ -1343,21 +1339,15 @@ public:
                 if (ss.isModule())
                 {
                     if (flags & SearchLocalsOnly)
-                    {
-                        if (global.params.check10378 && !(flags & SearchCheck10378))
-                        {
-                            auto s3 = ss.search(loc, ident, sflags | IgnorePrivateImports);
-                            if (s3)
-                                deprecation("%s %s found in local import", s3.kind(), s3.toPrettyChars());
-                        }
                         continue;
-                    }
                 }
-                else
+                else // mixin template
                 {
                     if (flags & SearchImportsOnly)
                         continue;
-                    sflags |= SearchLocalsOnly;
+                    // compatibility with -transition=import (Bugzilla 15925)
+                    // SearchLocalsOnly should always get set for new lookup rules
+                    sflags |= (flags & SearchLocalsOnly);
                 }
 
                 /* Don't find private members if ss is a module
@@ -1424,7 +1414,11 @@ public:
                 if (a)
                 {
                     if (!s.isOverloadSet())
+                    {
                         a = mergeOverloadSet(ident, a, s);
+                        if (symtab)
+                            symtabInsert(a);    // Bugzilla 15857
+                    }
                     s = a;
                 }
                 // TODO: remove once private symbol visibility has been deprecated

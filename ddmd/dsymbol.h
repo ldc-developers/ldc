@@ -154,7 +154,6 @@ enum
                                     // meaning don't search imports in that scope,
                                     // because qualified module searches search
                                     // their imports
-    SearchCheck10378        = 0x40, // unqualified search with transition=checkimports switch
     IgnoreSymbolVisibility  = 0x80, // also find private and package protected symbols
 };
 
@@ -320,7 +319,7 @@ public:
     ScopeDsymbol();
     ScopeDsymbol(Identifier *id);
     Dsymbol *syntaxCopy(Dsymbol *s);
-    Dsymbol *search(Loc loc, Identifier *ident, int flags = IgnoreNone);
+    Dsymbol *search(Loc loc, Identifier *ident, int flags = SearchLocalsOnly);
     OverloadSet *mergeOverloadSet(Identifier *ident, OverloadSet *os, Dsymbol *s);
     void importScope(Dsymbol *s, Prot protection);
     bool isforwardRef();
@@ -345,7 +344,7 @@ public:
     WithStatement *withstate;
 
     WithScopeSymbol(WithStatement *withstate);
-    Dsymbol *search(Loc loc, Identifier *ident, int flags = IgnoreNone);
+    Dsymbol *search(Loc loc, Identifier *ident, int flags = SearchLocalsOnly);
 
     WithScopeSymbol *isWithScopeSymbol() { return this; }
     void accept(Visitor *v) { v->visit(this); }
