@@ -15,6 +15,19 @@
 #ifndef LDC_DRIVER_LINKER_H
 #define LDC_DRIVER_LINKER_H
 
+namespace llvm {
+class Module;
+class LLVMContext;
+}
+
+template <typename TYPE> struct Array;
+
+/**
+ * Inserts bitcode files passed on the commandline into a module.
+ */
+void insertBitcodeFiles(llvm::Module &M, llvm::LLVMContext &Ctx,
+                        Array<const char *> &bitcodeFiles);
+
 /**
  * Link an executable only from object files.
  * @return 0 on success.

@@ -19,9 +19,12 @@
 #include "gen/optimizer.h"
 #include "gen/programs.h"
 #include "llvm/ADT/Triple.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/Linker/Linker.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/SourceMgr.h"
 #if _WIN32
 #include "llvm/Support/SystemUtils.h"
 #include <Windows.h>
@@ -99,6 +102,35 @@ static std::string getOutputName(bool const sharedLib) {
   }
 
   return result;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+namespace {
+
+/// Insert an LLVM bitcode file into the module
+void insertBitcodeIntoModule(const char *bcFile, llvm::Module &M,
+                             llvm::LLVMContext &Context) {
+  Logger::println("*** Linking-in bitcode file %s ***", bcFile);
+
+  llvm::SMDiagnostic Err;
+  std::unique_ptr<llvm::Module> loadedModule =
+      getLazyIRFileModule(bcFile, Err, Context);
+  if (!loadedModule) {
+    error(Loc(), "Error when loading LLVM bitcode file: %s", bcFile);
+    return;
+  }
+
+  llvm::Linker(M).linkInModule(std::move(loadedModule));
+}
+}
+
+/// Insert LLVM bitcode files into the module
+void insertBitcodeFiles(llvm::Module &M, llvm::LLVMContext &Ctx,
+                        Array<const char *> &bitcodeFiles) {
+  for (const char *fname : bitcodeFiles) {
+    insertBitcodeIntoModule(fname, M, Ctx);
+  }
 }
 
 //////////////////////////////////////////////////////////////////////////////
