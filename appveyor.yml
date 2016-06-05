@@ -213,7 +213,7 @@ test_script:
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set CTEST_SUFFIX=-R -debug -E "dmd-testsuite|lit-tests")
   - ctest --output-on-failure %CTEST_SUFFIX%
   # Execute the LLVM IR tests
-  - ctest --output-on-failure -R lit-tests
+  - ctest --output-on-failure -V -R lit-tests
   # Execute dmd-testsuite
   - if "%APPVEYOR_JOB_ARCH%"=="x64" ( set OS=Win_64) else ( set OS=Win_32)
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( ctest --verbose -R dmd-testsuite-debug )

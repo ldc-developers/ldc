@@ -93,7 +93,7 @@ script:
       CC="" MAKEOPTS=-j4 ctest --verbose -R "dmd-testsuite";
     fi
   # Run LLVM IR testsuite.
-  - ctest --output-on-failure -R "lit-tests"
+  - ctest --output-on-failure -V -R "lit-tests"
   # Link and run Phobos & druntime unittest runners.
   -
     if [ "${TEST_CONFIG}" = "Debug" ]; then
