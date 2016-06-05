@@ -42,12 +42,11 @@ class DSliceValue;
 class DValue {
 public:
   Type *const type;
-  llvm::Value *const val;
 
   virtual ~DValue() = default;
 
   virtual llvm::Value *getLVal() {
-    assert(0);
+    assert(0 && "DValue is not a LL lvalue!");
     return nullptr;
   }
   virtual llvm::Value *getRVal() { return val; }
@@ -72,6 +71,8 @@ public:
   virtual DFuncValue *isFunc() { return nullptr; }
 
 protected:
+  llvm::Value *const val;
+
   DValue(Type *t, llvm::Value *v) : type(t), val(v) {
     assert(type);
     assert(val);
@@ -81,7 +82,7 @@ protected:
 // immediate d-value
 class DImValue : public DValue {
 public:
-  DImValue(Type *t, llvm::Value *v) : DValue(t, v) {}
+  DImValue(Type *t, llvm::Value *v);
 
   DImValue *isIm() override { return this; }
 };

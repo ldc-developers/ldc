@@ -1037,8 +1037,8 @@ DValue *DtoArgument(Parameter *fnarg, Expression *argexp) {
   if (fnarg && (fnarg->storageClass & (STCref | STCout))) {
     Loc loc;
     DValue *arg = toElem(argexp, true);
-    return new DImValue(argexp->type,
-                        arg->isLVal() ? arg->getLVal() : makeLValue(loc, arg));
+    return new DVarValue(argexp->type,
+                         arg->isLVal() ? arg->getLVal() : makeLValue(loc, arg));
   }
 
   DValue *arg = toElem(argexp);

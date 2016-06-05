@@ -38,15 +38,8 @@ llvm::Value *ABIRewrite::getRVal(Type *dty, LLValue *v) {
 //////////////////////////////////////////////////////////////////////////////
 
 LLValue *ABIRewrite::getAddressOf(DValue *v) {
-  if (DtoIsInMemoryOnly(v->type)) {
-    // v is lowered to a LL pointer to the struct/static array
-    return v->getRVal();
-  }
-
-  if (v->isLVal()) {
+  if (v->isLVal())
     return v->getLVal();
-  }
-
   return DtoAllocaDump(v, ".getAddressOf_dump");
 }
 

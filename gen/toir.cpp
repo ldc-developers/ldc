@@ -300,8 +300,14 @@ public:
       // adding more control flow.
       if (result && result->type->ty != Tvoid &&
           !result->definedInFuncEntryBB()) {
-        LLValue *alloca = DtoAllocaDump(result);
-        result = new DVarValue(result->type, alloca);
+        if (result->isLVal()) {
+          LLValue *copy = DtoAlloca(result->type);
+          DtoMemCpy(copy, result->getLVal());
+          result = new DVarValue(result->type, copy);
+        } else {
+          LLValue *copy = DtoAllocaDump(result);
+          result = new DVarValue(result->type, copy);
+        }
       }
 
       llvm::BasicBlock *endbb = llvm::BasicBlock::Create(
@@ -645,8 +651,7 @@ public:
     DtoAssign(loc, lval, assignedResult);
 
     // return the (casted) result
-    return e->type == assignedResult->type ? assignedResult
-                                           : DtoCast(loc, result, e->type);
+    return e->type == lval->type ? lval : DtoCast(loc, lval, e->type);
   }
 
 #define BIN_ASSIGN(Op, useLvalForBinExpLhs)                                    \
@@ -959,9 +964,8 @@ public:
         }
       }
 
-      if (DtoLowerMagicIntrinsic(p, fndecl, e, result)) {
+      if (DtoLowerMagicIntrinsic(p, fndecl, e, result))
         return;
-      }
     }
 
     result = DtoCallFunction(e->loc, e->type, fnval, e->arguments);
@@ -1165,7 +1169,7 @@ public:
       return;
     }
 
-    LLValue *l = DtoRVal(e->e1);
+    DValue *l = toElem(e->e1);
 
     Type *e1type = e->e1->type->toBasetype();
 
@@ -1178,17 +1182,17 @@ public:
       if (e1type->ty == Tpointer) {
         assert(e1type->nextOf()->ty == Tstruct);
         TypeStruct *ts = static_cast<TypeStruct *>(e1type->nextOf());
-        arrptr = DtoIndexAggregate(l, ts->sym, vd);
+        arrptr = DtoIndexAggregate(l->getRVal(), ts->sym, vd);
       }
       // indexing normal struct
       else if (e1type->ty == Tstruct) {
         TypeStruct *ts = static_cast<TypeStruct *>(e1type);
-        arrptr = DtoIndexAggregate(l, ts->sym, vd);
+        arrptr = DtoIndexAggregate(l->getLVal(), ts->sym, vd);
       }
       // indexing class
       else if (e1type->ty == Tclass) {
         TypeClass *tc = static_cast<TypeClass *>(e1type);
-        arrptr = DtoIndexAggregate(l, tc->sym, vd);
+        arrptr = DtoIndexAggregate(l->getRVal(), tc->sym, vd);
       } else {
         llvm_unreachable("Unknown DotVarExp type for VarDeclaration.");
       }
@@ -1210,14 +1214,15 @@ public:
       // Get the actual function value to call.
       LLValue *funcval = nullptr;
       if (nonFinal) {
-        DImValue thisVal(e1type, l);
-        funcval = DtoVirtualFunctionPointer(&thisVal, fdecl, e->toChars());
+        funcval = DtoVirtualFunctionPointer(l, fdecl, e->toChars());
       } else {
         funcval = getIrFunc(fdecl)->func;
       }
       assert(funcval);
 
-      result = new DFuncValue(fdecl, funcval, l);
+      LLValue *vthis =
+          (DtoIsInMemoryOnly(l->type) ? l->getLVal() : l->getRVal());
+      result = new DFuncValue(fdecl, funcval, vthis);
     } else {
       llvm_unreachable("Unknown target for VarDeclaration.");
     }
@@ -1286,7 +1291,7 @@ public:
       if (p->emitArrayBoundsChecks() && !e->indexIsInBounds) {
         DtoIndexBoundsCheck(e->loc, l, r);
       }
-      arrptr = DtoGEP(l->getRVal(), DtoConstUint(0), r->getRVal(),
+      arrptr = DtoGEP(l->getLVal(), DtoConstUint(0), r->getRVal(),
                       e->indexIsInBounds);
     } else if (e1type->ty == Tarray) {
       if (p->emitArrayBoundsChecks() && !e->indexIsInBounds) {
@@ -1547,8 +1552,6 @@ public:
 
     DValue *l = toElem(e->e1);
     DValue *r = toElem(e->e2);
-    LLValue *lv = l->getRVal();
-    LLValue *rv = r->getRVal();
 
     Type *t = e->e1->type->toBasetype();
 
@@ -1570,6 +1573,8 @@ public:
       default:
         llvm_unreachable("Unsupported integral type equality comparison.");
       }
+      LLValue *lv = l->getRVal();
+      LLValue *rv = r->getRVal();
       if (rv->getType() != lv->getType()) {
         rv = DtoBitCast(rv, lv->getType());
       }
@@ -2116,7 +2121,7 @@ public:
       LLValue *contextptr = DtoNestedContext(e->loc, f->func);
       uval = DtoBitCast(contextptr, getVoidPtrType());
     } else {
-      uval = u->getRVal();
+      uval = (DtoIsInMemoryOnly(u->type) ? u->getLVal() : u->getRVal());
     }
 
     IF_LOG Logger::cout() << "context = " << *uval << '\n';
@@ -2167,8 +2172,6 @@ public:
 
     DValue *l = toElem(e->e1);
     DValue *r = toElem(e->e2);
-    LLValue *lv = l->getRVal();
-    LLValue *rv = r->getRVal();
 
     Type *t1 = e->e1->type->toBasetype();
 
@@ -2187,9 +2190,10 @@ public:
     LLValue *eval = nullptr;
 
     if (t1->ty == Tdelegate) {
-      if (r->isNull()) {
-        rv = nullptr;
-      } else {
+      LLValue *lv = l->getRVal();
+      LLValue *rv = nullptr;
+      if (!r->isNull()) {
+        rv = r->getRVal();
         assert(lv->getType() == rv->getType());
       }
       eval = DtoDelegateEquals(e->op, lv, rv);
@@ -2197,6 +2201,8 @@ public:
     {
       eval = DtoBinNumericEquals(e->loc, l, r, e->op);
     } else if (t1->ty == Tpointer || t1->ty == Tclass) {
+      LLValue *lv = l->getRVal();
+      LLValue *rv = r->getRVal();
       if (lv->getType() != rv->getType()) {
         if (r->isNull()) {
           rv = llvm::ConstantPointerNull::get(isaPointer(lv->getType()));
@@ -2206,7 +2212,15 @@ public:
       }
       eval = (e->op == TOKidentity) ? p->ir->CreateICmpEQ(lv, rv)
                                     : p->ir->CreateICmpNE(lv, rv);
+    } else if (t1->ty == Tsarray) {
+      LLValue *lptr = l->getLVal();
+      LLValue *rptr = r->getLVal();
+      assert(lptr->getType() == rptr->getType());
+      eval = (e->op == TOKidentity) ? p->ir->CreateICmpEQ(lptr, rptr)
+                                    : p->ir->CreateICmpNE(lptr, rptr);
     } else {
+      LLValue *lv = l->getRVal();
+      LLValue *rv = r->getRVal();
       assert(lv->getType() == rv->getType());
       eval = (e->op == TOKidentity) ? p->ir->CreateICmpEQ(lv, rv)
                                     : p->ir->CreateICmpNE(lv, rv);
@@ -2498,7 +2512,14 @@ public:
       llvm::Value *storage =
           DtoRawAlloca(llStoType, DtoAlignment(e->type), "arrayliteral");
       initializeArrayLiteral(p, e, storage);
-      result = new DImValue(e->type, storage);
+      if (arrayType->ty == Tsarray) {
+        result = new DVarValue(e->type, storage);
+      } else if (arrayType->ty == Tpointer) {
+        storage = DtoBitCast(storage, llElemType->getPointerTo());
+        result = new DImValue(e->type, storage);
+      } else {
+        llvm_unreachable("Unexpected array literal type");
+      }
     }
   }
 
@@ -2804,7 +2825,7 @@ public:
       DValue *ep = toElem(el);
       LLValue *gep = DtoGEPi(val, 0, i);
       if (DtoIsInMemoryOnly(el->type)) {
-        DtoMemCpy(gep, ep->getRVal());
+        DtoMemCpy(gep, ep->getLVal());
       } else if (el->type->ty != Tvoid) {
         DtoStoreZextI8(ep->getRVal(), gep);
       } else {

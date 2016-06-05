@@ -85,7 +85,7 @@ struct LLTypeMemoryLayout {
 /// Removes padding fields for (non-union-containing!) structs
 struct RemoveStructPadding : ABIRewrite {
   LLValue *put(DValue *v) override {
-    return DtoUnpaddedStruct(v->type->toBasetype(), v->getRVal());
+    return DtoUnpaddedStruct(v->type->toBasetype(), v->getLVal());
   }
 
   LLValue *getLVal(Type *dty, LLValue *v) override {
@@ -197,7 +197,7 @@ struct ExplicitByvalRewrite : ABIRewrite {
                            ".ExplicitByvalRewrite_dump");
     }
 
-    LLValue *originalPointer = v->getRVal();
+    LLValue *originalPointer = v->getLVal();
     LLType *type = originalPointer->getType()->getPointerElementType();
     LLValue *copyForCallee =
         DtoRawAlloca(type, align, ".ExplicitByvalRewrite_dump");
@@ -228,7 +228,7 @@ struct HFAToArray : ABIRewrite {
   LLValue *put(DValue *dv) override {
     Logger::println("rewriting HFA %s -> as array", dv->type->toChars());
     LLType *t = type(dv->type);
-    return DtoLoad(DtoBitCast(dv->getRVal(), getPtrToType(t)));
+    return DtoLoad(DtoBitCast(dv->getLVal(), getPtrToType(t)));
   }
 
   LLValue *getLVal(Type *dty, LLValue *v) override {
@@ -252,7 +252,7 @@ struct CompositeToArray64 : ABIRewrite {
   LLValue *put(DValue *dv) override {
     Logger::println("rewriting %s -> as i64 array", dv->type->toChars());
     LLType *t = type(dv->type);
-    return DtoLoad(DtoBitCast(dv->getRVal(), getPtrToType(t)));
+    return DtoLoad(DtoBitCast(dv->getLVal(), getPtrToType(t)));
   }
 
   LLValue *getLVal(Type *dty, LLValue *v) override {
@@ -274,7 +274,7 @@ struct CompositeToArray32 : ABIRewrite {
   LLValue *put(DValue *dv) override {
     Logger::println("rewriting %s -> as i32 array", dv->type->toChars());
     LLType *t = type(dv->type);
-    return DtoLoad(DtoBitCast(dv->getRVal(), getPtrToType(t)));
+    return DtoLoad(DtoBitCast(dv->getLVal(), getPtrToType(t)));
   }
 
   LLValue *getLVal(Type *dty, LLValue *v) override {

@@ -148,9 +148,8 @@ public:
         DValue *rvar = new DVarValue(f->type->next, getIrFunc(f->decl)->retArg);
         DValue *e = toElemDtor(stmt->exp);
         // store return value
-        if (rvar->getLVal() != e->getRVal()) {
+        if (!e->isLVal() || e->getLVal() != rvar->getLVal())
           DtoAssign(stmt->loc, rvar, e, TOKblit);
-        }
 
         // call postblit if necessary
         if (!irs->func()->type->isref &&
@@ -171,9 +170,11 @@ public:
           // call postblit if necessary
           if (!irs->func()->type->isref) {
             dval = toElemDtor(stmt->exp);
-            callPostblit(stmt->loc, stmt->exp, dval->getRVal());
+            LLValue *vthis = (DtoIsInMemoryOnly(dval->type) ? dval->getLVal()
+                                                            : dval->getRVal());
+            callPostblit(stmt->loc, stmt->exp, vthis);
           } else {
-            Expression *ae = stmt->exp->addressOf();
+            Expression *ae = stmt->exp;
             dval = toElemDtor(ae);
           }
           // do abi specific transformations on the return value
@@ -185,9 +186,8 @@ public:
         // If the function returns a struct or a static array, and the return
         // value is a pointer to a struct or a static array, load from it
         // before returning.
-        int ty = f->type->next->toBasetype()->ty;
         if (returnValue->getType() != irs->topfunc()->getReturnType() &&
-            (ty == Tstruct || ty == Tsarray) &&
+            DtoIsInMemoryOnly(f->type->next) &&
             isaPointer(returnValue->getType())) {
           Logger::println("Loading value for return");
           returnValue = DtoLoad(returnValue);
@@ -1620,9 +1620,10 @@ public:
     // with(..) can either be used with expressions or with symbols
     // wthis == null indicates the symbol form
     if (stmt->wthis) {
-      DValue *e = toElemDtor(stmt->exp);
       LLValue *mem = DtoRawVarDeclaration(stmt->wthis);
-      DtoStore(e->getRVal(), mem);
+      DValue *e = toElemDtor(stmt->exp);
+      LLValue *val = (DtoIsInMemoryOnly(e->type) ? e->getLVal() : e->getRVal());
+      DtoStore(val, mem);
     }
 
     if (stmt->_body) {

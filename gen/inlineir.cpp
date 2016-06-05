@@ -152,15 +152,7 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
     if (type->ty == Tstruct) {
       // make a copy
       llvm::Value *mem = DtoAlloca(type, ".__ir_tuple_ret");
-
-      TypeStruct *ts = static_cast<TypeStruct *>(type);
-      size_t n = ts->sym->fields.dim;
-      for (size_t i = 0; i < n; i++) {
-        llvm::Value *v = gIR->ir->CreateExtractValue(rv, i, "");
-        llvm::Value *gep = DtoGEPi(mem, 0, i);
-        DtoStore(v, gep);
-      }
-
+      DtoStore(rv, DtoBitCast(mem, getPtrToType(rv->getType())));
       return new DVarValue(fdecl->type->nextOf(), mem);
     }
 

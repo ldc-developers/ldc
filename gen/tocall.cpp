@@ -107,7 +107,7 @@ LLFunctionType *DtoExtractFunctionType(LLType *type) {
 ////////////////////////////////////////////////////////////////////////////////
 
 static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
-                                 IrFuncTy &irFty, LLFunctionType *callableTy,
+                                 IrFuncTy &irFty, LLFunctionType *calleeType,
                                  const std::vector<DValue *> &argvals,
                                  int numFormalParams) {
   // Number of arguments added to the LLVM type that are implicit on the
@@ -169,29 +169,29 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
     const size_t llArgIdx =
         implicitLLArgCount +
         (irFty.reverseParams ? explicitLLArgCount - i - 1 : i);
-    llvm::Type *const callableArgType =
-        (isVararg ? nullptr : callableTy->getParamType(llArgIdx));
+    llvm::Type *const paramType =
+        (isVararg ? nullptr : calleeType->getParamType(llArgIdx));
 
     // Hack around LDC assuming structs and static arrays are in memory:
     // If the function wants a struct, and the argument value is a
     // pointer to a struct, load from it before passing it in.
     if (isaPointer(llVal) && DtoIsInMemoryOnly(argType) &&
-        ((!isVararg && !isaPointer(callableArgType)) ||
+        ((!isVararg && !isaPointer(paramType)) ||
          (isVararg && !irArg->byref && !irArg->isByVal()))) {
       Logger::println("Loading struct type for function argument");
       llVal = DtoLoad(llVal);
     }
 
     // parameter type mismatch, this is hard to get rid of
-    if (!isVararg && llVal->getType() != callableArgType) {
+    if (!isVararg && llVal->getType() != paramType) {
       IF_LOG {
         Logger::cout() << "arg:     " << *llVal << '\n';
-        Logger::cout() << "expects: " << *callableArgType << '\n';
+        Logger::cout() << "expects: " << *paramType << '\n';
       }
       if (isaStruct(llVal)) {
-        llVal = DtoAggrPaint(llVal, callableArgType);
+        llVal = DtoAggrPaint(llVal, paramType);
       } else {
-        llVal = DtoBitCast(llVal, callableArgType);
+        llVal = DtoBitCast(llVal, paramType);
       }
     }
 
@@ -343,24 +343,27 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     Expression *exp1 = (*e->arguments)[0];
     Expression *exp2 = (*e->arguments)[1];
     int atomicOrdering = (*e->arguments)[2]->toInteger();
-    LLValue *val = DtoRVal(exp1);
-    LLValue *ptr = DtoRVal(exp2);
 
-    if (!val->getType()->isIntegerTy()) {
-      llvm::PointerType *v = isaPointer(val->getType());
-      if (v && v->getContainedType(0)->isStructTy()) {
-        switch (const size_t N = getTypeBitSize(v->getContainedType(0))) {
+    DValue *dval = toElem(exp1);
+    LLValue *ptr = DtoRVal(exp2);
+    LLType *pointeeType = ptr->getType()->getContainedType(0);
+
+    LLValue *val = nullptr;
+    if (!pointeeType->isIntegerTy()) {
+      if (pointeeType->isStructTy()) {
+        val = dval->getLVal();
+        switch (size_t N = getTypeBitSize(pointeeType)) {
         case 8:
         case 16:
         case 32:
         case 64:
-        case 128:
-          val = DtoLoad(
-              DtoBitCast(val, llvm::Type::getIntNPtrTy(
-                                  gIR->context(), static_cast<unsigned>(N))));
-          ptr = DtoBitCast(ptr, llvm::Type::getIntNPtrTy(
-                                    gIR->context(), static_cast<unsigned>(N)));
+        case 128: {
+          LLType *intPtrType =
+              LLType::getIntNPtrTy(gIR->context(), static_cast<unsigned>(N));
+          val = DtoLoad(DtoBitCast(val, intPtrType));
+          ptr = DtoBitCast(ptr, intPtrType);
           break;
+        }
         default:
           goto errorStore;
         }
@@ -370,6 +373,8 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
                  exp1->type->toChars());
         fatal();
       }
+    } else {
+      val = dval->getRVal();
     }
 
     llvm::StoreInst *ret = p->ir->CreateStore(val, ptr);
@@ -389,19 +394,19 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     int atomicOrdering = (*e->arguments)[1]->toInteger();
 
     LLValue *ptr = DtoRVal(exp);
-    LLType *ptrTy = ptr->getType()->getContainedType(0);
+    LLType *pointeeType = ptr->getType()->getContainedType(0);
     Type *retType = exp->type->nextOf();
 
-    if (!ptrTy->isIntegerTy()) {
-      if (ptrTy->isStructTy()) {
-        switch (const size_t N = getTypeBitSize(ptrTy)) {
+    if (!pointeeType->isIntegerTy()) {
+      if (pointeeType->isStructTy()) {
+        switch (const size_t N = getTypeBitSize(pointeeType)) {
         case 8:
         case 16:
         case 32:
         case 64:
         case 128:
-          ptr = DtoBitCast(ptr, llvm::Type::getIntNPtrTy(
-                                    gIR->context(), static_cast<unsigned>(N)));
+          ptr = DtoBitCast(ptr, LLType::getIntNPtrTy(gIR->context(),
+                                                     static_cast<unsigned>(N)));
           break;
         default:
           goto errorLoad;
@@ -418,10 +423,12 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     load->setAlignment(getTypeAllocSize(load->getType()));
     load->setAtomic(llvm::AtomicOrdering(atomicOrdering));
     llvm::Value *val = load;
-    if (val->getType() != ptrTy) {
+    if (val->getType() != pointeeType) {
       val = DtoAllocaDump(val, retType);
+      result = new DVarValue(retType, val);
+    } else {
+      result = new DImValue(retType, val);
     }
-    result = new DImValue(retType, val);
     return true;
   }
 
@@ -434,30 +441,29 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     Expression *exp1 = (*e->arguments)[0];
     Expression *exp2 = (*e->arguments)[1];
     Expression *exp3 = (*e->arguments)[2];
-    int atomicOrdering = (*e->arguments)[3]->toInteger();
+    auto atomicOrdering = llvm::AtomicOrdering((*e->arguments)[3]->toInteger());
     LLValue *ptr = DtoRVal(exp1);
-    LLValue *cmp = DtoRVal(exp2);
-    LLValue *val = DtoRVal(exp3);
-    LLType *retTy = val->getType();
+    LLType *pointeeType = ptr->getType()->getContainedType(0);
+    DValue *dcmp = toElem(exp2);
+    DValue *dval = toElem(exp3);
 
-    if (!cmp->getType()->isIntegerTy()) {
-      llvm::PointerType *v = isaPointer(cmp->getType());
-      if (v && v->getContainedType(0)->isStructTy()) {
-        switch (const size_t N = getTypeBitSize(v->getContainedType(0))) {
+    LLValue *cmp = nullptr;
+    LLValue *val = nullptr;
+    if (!pointeeType->isIntegerTy()) {
+      if (pointeeType->isStructTy()) {
+        switch (const size_t N = getTypeBitSize(pointeeType)) {
         case 8:
         case 16:
         case 32:
         case 64:
-        case 128:
-          ptr = DtoBitCast(ptr, llvm::Type::getIntNPtrTy(
-                                    gIR->context(), static_cast<unsigned>(N)));
-          cmp = DtoLoad(
-              DtoBitCast(cmp, llvm::Type::getIntNPtrTy(
-                                  gIR->context(), static_cast<unsigned>(N))));
-          val = DtoLoad(
-              DtoBitCast(val, llvm::Type::getIntNPtrTy(
-                                  gIR->context(), static_cast<unsigned>(N))));
+        case 128: {
+          LLType *intPtrType =
+              LLType::getIntNPtrTy(gIR->context(), static_cast<unsigned>(N));
+          ptr = DtoBitCast(ptr, intPtrType);
+          cmp = DtoLoad(DtoBitCast(dcmp->getLVal(), intPtrType));
+          val = DtoLoad(DtoBitCast(dval->getLVal(), intPtrType));
           break;
+        }
         default:
           goto errorCmpxchg;
         }
@@ -467,17 +473,21 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
                  exp2->type->toChars());
         fatal();
       }
+    } else {
+      cmp = dcmp->getRVal();
+      val = dval->getRVal();
     }
-    LLValue *ret = p->ir->CreateAtomicCmpXchg(
-        ptr, cmp, val, llvm::AtomicOrdering(atomicOrdering),
-        llvm::AtomicOrdering(atomicOrdering));
+
+    LLValue *ret = p->ir->CreateAtomicCmpXchg(ptr, cmp, val, atomicOrdering,
+                                              atomicOrdering);
     // Use the same quickfix as for dragonegg - see r210956
     ret = p->ir->CreateExtractValue(ret, 0);
-    llvm::Value *retVal = ret;
-    if (retVal->getType() != retTy) {
-      retVal = DtoAllocaDump(retVal, exp3->type);
+    if (ret->getType() != pointeeType) {
+      ret = DtoAllocaDump(ret, exp3->type);
+      result = new DVarValue(exp3->type, ret);
+    } else {
+      result = new DImValue(exp3->type, ret);
     }
-    result = new DImValue(exp3->type, retVal);
     return true;
   }
 
@@ -683,9 +693,8 @@ private:
     bool delegatecall = (calleeType->toBasetype()->ty == Tdelegate);
     bool nestedcall = irFty.arg_nest;
 
-    if (!thiscall && !delegatecall && !nestedcall) {
+    if (!thiscall && !delegatecall && !nestedcall)
       return;
-    }
 
     size_t index = args.size();
     LLType *llArgType = *(llArgTypesBegin + index);
@@ -981,7 +990,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   // set calling convention and parameter attributes
   llvm::AttributeSet &attrlist = attrs;
   if (dfnval && dfnval->func) {
-    LLFunction *llfunc = llvm::dyn_cast<LLFunction>(dfnval->val);
+    LLFunction *llfunc = llvm::dyn_cast<LLFunction>(dfnval->getRVal());
     if (llfunc && llfunc->isIntrinsic()) // override intrinsic attrs
     {
       attrlist = llvm::Intrinsic::getAttributes(

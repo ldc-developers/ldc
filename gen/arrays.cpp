@@ -31,16 +31,16 @@ static void DtoSetArray(DValue *array, LLValue *dim, LLValue *ptr);
 
 static LLValue *DtoSlice(Expression *e) {
   DValue *dval = toElem(e);
-  LLValue *val = dval->getRVal();
   if (dval->type->toBasetype()->ty == Tsarray) {
     // Convert static array to slice
     LLStructType *type = DtoArrayType(LLType::getInt8Ty(gIR->context()));
     LLValue *array = DtoRawAlloca(type, 0, ".array");
     DtoStore(DtoArrayLen(dval), DtoGEPi(array, 0, 0, ".len"));
-    DtoStore(DtoBitCast(val, getVoidPtrType()), DtoGEPi(array, 0, 1, ".ptr"));
-    val = DtoLoad(array);
+    DtoStore(DtoBitCast(dval->getLVal(), getVoidPtrType()),
+             DtoGEPi(array, 0, 1, ".ptr"));
+    return DtoLoad(array);
   }
-  return val;
+  return dval->getRVal();
 }
 
 static LLValue *DtoSlice(LLValue *ptr, LLValue *length,
@@ -69,7 +69,7 @@ static LLValue *DtoSlicePtr(Expression *e) {
   }
 
   bool isStaticArray = vt->ty == Tsarray;
-  LLValue *val = isStaticArray ? dval->getRVal() : makeLValue(loc, dval);
+  LLValue *val = isStaticArray ? dval->getLVal() : makeLValue(loc, dval);
   LLValue *array = DtoRawAlloca(type, 0, ".array");
   LLValue *len = isStaticArray ? DtoArrayLen(dval) : DtoConstSize_t(1);
   DtoStore(len, DtoGEPi(array, 0, 0));
@@ -120,21 +120,26 @@ static void DtoArrayInit(Loc &loc, LLValue *ptr, LLValue *length,
   IF_LOG Logger::println("DtoArrayInit");
   LOG_SCOPE;
 
-  LLValue *value = dvalue->getRVal();
-  LLValue *elementSize = DtoConstSize_t(getTypeAllocSize(value->getType()));
-
   // lets first optimize all zero/constant i8 initializations down to a memset.
   // this simplifies codegen later on as llvm null's have no address!
-  if (isaConstant(value) &&
-      (isaConstant(value)->isNullValue() ||
-       value->getType() == LLType::getInt8Ty(gIR->context()))) {
-    LLValue *nbytes = gIR->ir->CreateMul(length, elementSize, ".nbytes");
-    if (isaConstant(value)->isNullValue()) {
-      DtoMemSetZero(ptr, nbytes);
-    } else {
-      DtoMemSet(ptr, value, nbytes);
+  if (!dvalue->isLVal()) {
+    LLConstant *constantVal = isaConstant(dvalue->getRVal());
+    if (constantVal &&
+        (constantVal->isNullValue() ||
+         constantVal->getType() == LLType::getInt8Ty(gIR->context()))) {
+      LLValue *size = length;
+      size_t elementSize = getTypeAllocSize(constantVal->getType());
+      if (elementSize != 1) {
+        size = gIR->ir->CreateMul(length, DtoConstSize_t(elementSize),
+                                  ".arraysize");
+      }
+      if (constantVal->isNullValue()) {
+        DtoMemSetZero(ptr, size);
+      } else {
+        DtoMemSet(ptr, constantVal, size);
+      }
+      return;
     }
-    return;
   }
 
   // create blocks
@@ -224,8 +229,7 @@ static bool arrayNeedsPostblit(Type *t) {
 }
 
 // Does array assignment (or initialization) from another array of the same
-// element type
-// or from an appropriate single element.
+// element type or from an appropriate single element.
 void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
                     bool canSkipPostblit) {
   IF_LOG Logger::println("DtoArrayAssign");
@@ -1032,7 +1036,6 @@ LLValue *DtoArrayLen(DValue *v) {
   if (t->ty == Tsarray) {
     assert(!v->isSlice());
     assert(!v->isNull());
-    assert(t->ty == Tsarray);
     TypeSArray *sarray = static_cast<TypeSArray *>(t);
     return DtoConstSize_t(sarray->dim->toUInteger());
   }
@@ -1061,7 +1064,7 @@ LLValue *DtoArrayPtr(DValue *v) {
   } else if (t->ty == Tsarray) {
     assert(!v->isSlice());
     assert(!v->isNull());
-    ptr = DtoGEPi(v->getRVal(), 0, 0, "sarrayptr");
+    ptr = v->getLVal();
   } else {
     llvm_unreachable("Unexpected array type.");
   }
@@ -1083,31 +1086,26 @@ DValue *DtoCastArray(Loc &loc, DValue *u, Type *to) {
     fatal();
   }
 
-  LLValue *rval;
-  LLValue *rval2;
-  bool isslice = false;
-
   IF_LOG Logger::cout() << "from array or sarray" << '\n';
 
   if (totype->ty == Tpointer) {
     IF_LOG Logger::cout() << "to pointer" << '\n';
-    rval = DtoArrayPtr(u);
-    if (rval->getType() != tolltype) {
-      rval = gIR->ir->CreateBitCast(rval, tolltype);
+    LLValue *ptr = DtoArrayPtr(u);
+    if (ptr->getType() != tolltype) {
+      ptr = gIR->ir->CreateBitCast(ptr, tolltype);
     }
+    return new DImValue(to, ptr);
   } else if (totype->ty == Tarray) {
     IF_LOG Logger::cout() << "to array" << '\n';
 
-    LLType *ptrty = DtoArrayType(totype)->getContainedType(1);
-    LLType *ety = DtoMemType(fromtype->nextOf());
-
+    LLValue *length = nullptr;
+    LLValue *ptr = nullptr;
     if (fromtype->ty == Tsarray) {
-      LLValue *uval = u->getRVal();
-
-      IF_LOG Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
-
-      assert(isaPointer(uval->getType()));
-      LLArrayType *arrty = isaArray(uval->getType()->getContainedType(0));
+      uinteger_t len = static_cast<TypeSArray *>(fromtype)->dim->toUInteger();
+      length = DtoConstSize_t(len);
+      ptr = u->getLVal();
+      assert(isaPointer(ptr->getType()));
+      LLArrayType *arrty = isaArray(ptr->getType()->getContainedType(0));
 
       if (arrty->getNumElements() * fromtype->nextOf()->size() %
               totype->nextOf()->size() !=
@@ -1117,60 +1115,46 @@ DValue *DtoCastArray(Loc &loc, DValue *u, Type *to) {
               fromtype->toChars(), totype->toChars());
         fatal();
       }
-
-      uinteger_t len = static_cast<TypeSArray *>(fromtype)->dim->toUInteger();
-      rval2 = LLConstantInt::get(DtoSize_t(), len, false);
-      if (fromtype->nextOf()->size() != totype->nextOf()->size()) {
-        rval2 = DtoArrayCastLength(loc, rval2, ety, ptrty->getContainedType(0));
-      }
-      rval = DtoBitCast(uval, ptrty);
     } else {
-      rval2 = DtoArrayLen(u);
-      if (fromtype->nextOf()->size() != totype->nextOf()->size()) {
-        rval2 = DtoArrayCastLength(loc, rval2, ety, ptrty->getContainedType(0));
-      }
-
-      rval = DtoArrayPtr(u);
-      rval = DtoBitCast(rval, ptrty);
+      length = DtoArrayLen(u);
+      ptr = DtoArrayPtr(u);
     }
-    isslice = true;
+
+    LLType *ptrty = DtoArrayType(totype)->getContainedType(1);
+    LLType *ety = DtoMemType(fromtype->nextOf());
+
+    if (fromtype->nextOf()->size() != totype->nextOf()->size())
+      length = DtoArrayCastLength(loc, length, ety, ptrty->getContainedType(0));
+
+    return new DSliceValue(to, length, DtoBitCast(ptr, ptrty));
   } else if (totype->ty == Tsarray) {
     IF_LOG Logger::cout() << "to sarray" << '\n';
 
-    size_t tosize = static_cast<TypeSArray *>(totype)->dim->toInteger();
-
+    LLValue *ptr = nullptr;
     if (fromtype->ty == Tsarray) {
-      LLValue *uval = u->getRVal();
-      IF_LOG Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
-      rval = DtoBitCast(uval, getPtrToType(tolltype));
+      ptr = u->getLVal();
     } else {
+      size_t tosize = static_cast<TypeSArray *>(totype)->dim->toInteger();
       size_t i =
           (tosize * totype->nextOf()->size() - 1) / fromtype->nextOf()->size();
       DConstValue index(Type::tsize_t, DtoConstSize_t(i));
       DtoIndexBoundsCheck(loc, u, &index);
-
-      rval = DtoArrayPtr(u);
-      rval = DtoBitCast(rval, getPtrToType(tolltype));
+      ptr = DtoArrayPtr(u);
     }
+
+    return new DVarValue(to, DtoBitCast(ptr, getPtrToType(tolltype)));
   } else if (totype->ty == Tbool) {
     // return (arr.ptr !is null)
     LLValue *ptr = DtoArrayPtr(u);
     LLConstant *nul = getNullPtr(ptr->getType());
-    rval = gIR->ir->CreateICmpNE(ptr, nul);
+    return new DImValue(to, gIR->ir->CreateICmpNE(ptr, nul));
   } else {
-    rval = DtoArrayPtr(u);
-    rval = DtoBitCast(rval, getPtrToType(tolltype));
-    if (totype->ty != Tstruct) {
-      rval = DtoLoad(rval);
-    }
+    LLValue *ptr = DtoArrayPtr(u);
+    ptr = DtoBitCast(ptr, getPtrToType(tolltype));
+    return new DVarValue(to, ptr);
   }
 
-  if (isslice) {
-    Logger::println("isslice");
-    return new DSliceValue(to, rval2, rval);
-  }
-
-  return new DImValue(to, rval);
+  llvm_unreachable("Unexpected array cast");
 }
 
 void DtoIndexBoundsCheck(Loc &loc, DValue *arr, DValue *index) {

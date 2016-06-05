@@ -40,6 +40,13 @@ bool DValue::definedInFuncEntryBB() { return isDefinedInFuncEntryBB(val); }
 
 ////////////////////////////////////////////////////////////////////////////////
 
+DImValue::DImValue(Type *t, llvm::Value *v) : DValue(t, v) {
+  assert(!DtoIsInMemoryOnly(t) &&
+         "Cannot represent memory-only type as immediate DValue");
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 DConstValue::DConstValue(Type *t, llvm::Constant *con) : DValue(t, con) {}
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -77,12 +84,12 @@ LLValue *DVarValue::getLVal() { return isSpecialRefVar ? DtoLoad(val) : val; }
 
 LLValue *DVarValue::getRVal() {
   LLValue *storage = val;
-  if (isSpecialRefVar) {
+  if (isSpecialRefVar)
     storage = DtoLoad(storage);
-  }
 
   if (DtoIsInMemoryOnly(type->toBasetype())) {
-    return storage;
+    llvm_unreachable("getRVal() for memory-only type");
+    return nullptr;
   }
 
   LLValue *rawValue = DtoLoad(storage);

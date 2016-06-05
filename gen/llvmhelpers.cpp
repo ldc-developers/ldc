@@ -206,11 +206,11 @@ LLValue *DtoGcMalloc(Loc &loc, LLType *lltype, const char *name) {
 }
 
 LLValue *DtoAllocaDump(DValue *val, const char *name) {
-  return DtoAllocaDump(val->getRVal(), val->type, name);
+  return DtoAllocaDump(val, val->type, name);
 }
 
 LLValue *DtoAllocaDump(DValue *val, Type *asType, const char *name) {
-  return DtoAllocaDump(val->getRVal(), asType, name);
+  return DtoAllocaDump(val, DtoType(asType), DtoAlignment(asType), name);
 }
 
 LLValue *DtoAllocaDump(DValue *val, LLType *asType, int alignment,
@@ -314,15 +314,14 @@ void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
   } else if (t->ty == Tstruct) {
     // don't copy anything to empty structs
     if (static_cast<TypeStruct *>(t)->sym->fields.dim > 0) {
-      llvm::Value *src = rhs->getRVal();
+      llvm::Value *src = rhs->getLVal();
       llvm::Value *dst = lhs->getLVal();
 
       // Check whether source and destination values are the same at compile
       // time as to not emit an invalid (overlapping) memcpy on trivial
       // struct self-assignments like 'A a; a = a;'.
-      if (src != dst) {
+      if (src != dst)
         DtoMemCpy(dst, src);
-      }
     }
   } else if (t->ty == Tarray || t->ty == Tsarray) {
     DtoArrayAssign(loc, lhs, rhs, op, canSkipPostblit);
@@ -576,21 +575,13 @@ DValue *DtoCastVector(Loc &loc, DValue *val, Type *to) {
                             << " (casting address)\n";
       return new DVarValue(to, DtoBitCast(vector, getPtrToType(tolltype)));
     }
+
     LLValue *vector = val->getRVal();
     IF_LOG Logger::cout() << "src: " << *vector << "to type: " << *tolltype
                           << " (creating temporary)\n";
     LLValue *array = DtoAlloca(to);
-
-    TypeSArray *st = static_cast<TypeSArray *>(totype);
-
-    for (int i = 0, n = st->dim->toInteger(); i < n; ++i) {
-      LLValue *lelem = DtoExtractElement(vector, i);
-      DImValue elem(type->elementType(), lelem);
-      lelem = DtoCast(loc, &elem, to->nextOf())->getRVal();
-      DtoStore(lelem, DtoGEPi(array, 0, i));
-    }
-
-    return new DImValue(to, array);
+    DtoStore(vector, DtoBitCast(array, getPtrToType(vector->getType())));
+    return new DVarValue(to, array);
   }
   if (totype->ty == Tvector && to->size() == val->type->size()) {
     return new DImValue(to, DtoBitCast(val->getRVal(), tolltype));
@@ -606,10 +597,10 @@ DValue *DtoCastStruct(Loc &loc, DValue *val, Type *to) {
     // This a cast to repaint a struct to another type, which the language
     // allows for identical layouts (opCast() and so on have been lowered
     // earlier by the frontend).
-    llvm::Value *rv = val->getRVal();
-    llvm::Value *result =
-        DtoBitCast(rv, DtoType(to)->getPointerTo(), rv->getName() + ".repaint");
-    return new DImValue(to, result);
+    llvm::Value *lval = val->getLVal();
+    llvm::Value *result = DtoBitCast(lval, DtoType(to)->getPointerTo(),
+                                     lval->getName() + ".repaint");
+    return new DVarValue(to, result);
   }
 
   error(loc, "Internal Compiler Error: Invalid struct cast from '%s' to '%s'",

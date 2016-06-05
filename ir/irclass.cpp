@@ -397,10 +397,11 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       }
 
       // cast 'this' to Object
-      LLValue *&thisArg = args[(!irFunc->irFty.arg_sret ||
-                                gABI->passThisBeforeSret(irFunc->type))
-                                   ? 0
-                                   : 1];
+      const int thisArgIndex =
+          (!irFunc->irFty.arg_sret || gABI->passThisBeforeSret(irFunc->type))
+              ? 0
+              : 1;
+      LLValue *&thisArg = args[thisArgIndex];
       LLType *targetThisType = thisArg->getType();
       thisArg = DtoBitCast(thisArg, getVoidPtrType());
       thisArg = DtoGEP1(thisArg, DtoConstInt(-thunkOffset), true);

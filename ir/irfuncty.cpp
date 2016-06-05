@@ -36,6 +36,9 @@ llvm::Value *IrFuncTy::putRet(DValue *dval) {
     return ret->rewrite->put(dval);
   }
 
+  if (ret->byref || DtoIsInMemoryOnly(dval->type))
+    return dval->getLVal();
+
   return dval->getRVal();
 }
 
@@ -74,6 +77,9 @@ llvm::Value *IrFuncTy::putParam(const IrFuncTyArg &arg, DValue *dval) {
     LOG_SCOPE
     return arg.rewrite->put(dval);
   }
+
+  if (arg.byref || DtoIsInMemoryOnly(dval->type))
+    return dval->getLVal();
 
   return dval->getRVal();
 }
