@@ -27,6 +27,7 @@ import ddmd.expression;
 import ddmd.func;
 import ddmd.globals;
 import ddmd.hdrgen;
+import ddmd.hooks;
 import ddmd.id;
 import ddmd.identifier;
 import ddmd.mtype;
@@ -1190,6 +1191,10 @@ extern (C++) Expression semanticTraits(TraitsExp e, Scope* sc)
     if (e.ident == Id.getPointerBitmap)
     {
         return pointerBitmap(e);
+    }
+    if (Expression ret = semanticTraitsHook(e, sc))
+    {
+        return ret;
     }
 
     extern (D) void* trait_search_fp(const(char)* seed, ref int cost)
