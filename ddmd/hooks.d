@@ -10,7 +10,10 @@ module ddmd.hooks;
 import ddmd.dscope;
 import ddmd.expression;
 
+import gen.ldctraits;
+
+/// Returns `null` when the __trait was not recognized.
 Expression semanticTraitsHook(TraitsExp e, Scope* sc)
 {
-    return null;
+    return semanticTraitsLDC(e, sc);
 }
