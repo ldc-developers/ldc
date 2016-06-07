@@ -15,10 +15,15 @@
 #ifndef LDC_GEN_TYPEINF_H
 #define LDC_GEN_TYPEINF_H
 
+struct IRState;
+struct Scope;
+class Type;
 class TypeInfoDeclaration;
+
 void DtoResolveTypeInfo(TypeInfoDeclaration *tid);
 TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(Type *t, Scope *sc);
 void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p);
+void TypeInfoClassDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p);
 Type *getTypeInfoType(Type *t, Scope *sc);
 
 #endif

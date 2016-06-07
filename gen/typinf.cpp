@@ -20,6 +20,8 @@
 // Copyright (c) 2007 by Tomas Lindquist Olsen
 // tomas at famolsen dk
 
+#include "gen/typeinf.h"
+
 #include "aggregate.h"
 #include "attrib.h"
 #include "declaration.h"
@@ -696,7 +698,7 @@ public:
 /* ========================================================================= */
 
 void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
-  IF_LOG Logger::println("TypeInfoDeclaration::codegen(%s)",
+  IF_LOG Logger::println("TypeInfoDeclaration_codegen(%s)",
                          decl->toPrettyChars());
   LOG_SCOPE;
 
@@ -749,6 +751,10 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
 /* ========================================================================= */
 
 void TypeInfoClassDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
+  IF_LOG Logger::println("TypeInfoClassDeclaration_codegen(%s)",
+                         decl->toPrettyChars());
+  LOG_SCOPE;
+
   // For classes, the TypeInfo is in fact a ClassInfo instance and emitted
   // as a __ClassZ symbol. For interfaces, the __InterfaceZ symbol is
   // referenced as "info" member in a (normal) TypeInfo_Interface instance.
