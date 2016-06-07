@@ -28,7 +28,7 @@
 #include "gen/runtime.h"
 #include "gen/structs.h"
 #include "gen/tollvm.h"
-#include "gen/typeinf.h"
+#include "gen/typinf.h"
 #include "gen/warnings.h"
 #include "hdrgen.h"
 #include "id.h"

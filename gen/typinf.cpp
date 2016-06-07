@@ -20,7 +20,7 @@
 // Copyright (c) 2007 by Tomas Lindquist Olsen
 // tomas at famolsen dk
 
-#include "gen/typeinf.h"
+#include "gen/typinf.h"
 
 #include "aggregate.h"
 #include "attrib.h"
