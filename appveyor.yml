@@ -80,15 +80,15 @@ install:
             c:\projects\dmd2\windows\bin\dmd.exe --version
         } Else {
             If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
-                Start-FileDownload 'http://github.com/ldc-developers/ldc/releases/download/v1.0.0-beta2/ldc2-1.0.0-beta2-win64-msvc.zip' -FileName 'ldc2.zip'
+                Start-FileDownload 'http://github.com/ldc-developers/ldc/releases/download/v1.0.0/ldc2-1.0.0-win64-msvc.zip' -FileName 'ldc2.zip'
                 7z x ldc2.zip > $null
-                Set-Item -path env:DMD -value c:\projects\ldc2-1.0.0-beta2-win64-msvc\bin\ldmd2.exe
-                c:\projects\ldc2-1.0.0-beta2-win64-msvc\bin\ldc2 --version
+                Set-Item -path env:DMD -value c:\projects\ldc2-1.0.0-win64-msvc\bin\ldmd2.exe
+                c:\projects\ldc2-1.0.0-win64-msvc\bin\ldc2 --version
             } Else {
-                Start-FileDownload 'http://github.com/ldc-developers/ldc/releases/download/v1.0.0-beta2/ldc2-1.0.0-beta2-win32-msvc.zip' -FileName 'ldc2.zip'
+                Start-FileDownload 'http://github.com/ldc-developers/ldc/releases/download/v1.0.0/ldc2-1.0.0-win32-msvc.zip' -FileName 'ldc2.zip'
                 7z x ldc2.zip > $null
-                Set-Item -path env:DMD -value c:\projects\ldc2-1.0.0-beta2-win32-msvc\bin\ldmd2.exe
-                c:\projects\ldc2-1.0.0-beta2-win32-msvc\bin\ldc2 --version
+                Set-Item -path env:DMD -value c:\projects\ldc2-1.0.0-win32-msvc\bin\ldmd2.exe
+                c:\projects\ldc2-1.0.0-win32-msvc\bin\ldc2 --version
             }
         }
   # Download & extract GNU make + utils (for dmd-testsuite)
