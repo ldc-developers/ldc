@@ -287,7 +287,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     LLValue *pDest = DtoLVal((*e->arguments)[0]); // va_list*
     LLValue *src = DtoRVal((*e->arguments)[1]);   // va_list
     gABI->vaCopy(pDest, src);
-    result = new DVarValue(e->type, pDest);
+    result = new DLValue(e->type, pDest);
     return true;
   }
 
@@ -425,7 +425,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     llvm::Value *val = load;
     if (val->getType() != pointeeType) {
       val = DtoAllocaDump(val, retType);
-      result = new DVarValue(retType, val);
+      result = new DLValue(retType, val);
     } else {
       result = new DImValue(retType, val);
     }
@@ -484,7 +484,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     ret = p->ir->CreateExtractValue(ret, 0);
     if (ret->getType() != pointeeType) {
       ret = DtoAllocaDump(ret, exp3->type);
-      result = new DVarValue(exp3->type, ret);
+      result = new DLValue(exp3->type, ret);
     } else {
       result = new DImValue(exp3->type, ret);
     }
@@ -1015,11 +1015,11 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   // cleanups (see struct ctor hack in ToElemVisitor::visit(CallExp *)).
   if (dfnval && dfnval->func && dfnval->func->isCtorDeclaration() &&
       dfnval->func->isMember2()->isStructDeclaration()) {
-    return new DVarValue(resulttype, dfnval->vthis);
+    return new DLValue(resulttype, dfnval->vthis);
   }
 
   if (retValIsLVal) {
-    return new DVarValue(resulttype, retllval);
+    return new DLValue(resulttype, retllval);
   }
 
   return new DImValue(resulttype, retllval);

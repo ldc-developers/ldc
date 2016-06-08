@@ -153,7 +153,7 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
       // make a copy
       llvm::Value *mem = DtoAlloca(type, ".__ir_tuple_ret");
       DtoStore(rv, DtoBitCast(mem, getPtrToType(rv->getType())));
-      return new DVarValue(fdecl->type->nextOf(), mem);
+      return new DLValue(fdecl->type->nextOf(), mem);
     }
 
     // return call as im value

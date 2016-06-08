@@ -573,7 +573,7 @@ DValue *DtoCastVector(Loc &loc, DValue *val, Type *to) {
       LLValue *vector = val->getLVal();
       IF_LOG Logger::cout() << "src: " << *vector << "to type: " << *tolltype
                             << " (casting address)\n";
-      return new DVarValue(to, DtoBitCast(vector, getPtrToType(tolltype)));
+      return new DLValue(to, DtoBitCast(vector, getPtrToType(tolltype)));
     }
 
     LLValue *vector = val->getRVal();
@@ -581,7 +581,7 @@ DValue *DtoCastVector(Loc &loc, DValue *val, Type *to) {
                           << " (creating temporary)\n";
     LLValue *array = DtoAlloca(to);
     DtoStore(vector, DtoBitCast(array, getPtrToType(vector->getType())));
-    return new DVarValue(to, array);
+    return new DLValue(to, array);
   }
   if (totype->ty == Tvector && to->size() == val->type->size()) {
     return new DImValue(to, DtoBitCast(val->getRVal(), tolltype));
@@ -600,7 +600,7 @@ DValue *DtoCastStruct(Loc &loc, DValue *val, Type *to) {
     llvm::Value *lval = val->getLVal();
     llvm::Value *result = DtoBitCast(lval, DtoType(to)->getPointerTo(),
                                      lval->getName() + ".repaint");
-    return new DVarValue(to, result);
+    return new DLValue(to, result);
   }
 
   error(loc, "Internal Compiler Error: Invalid struct cast from '%s' to '%s'",
@@ -696,7 +696,7 @@ DValue *DtoPaintType(Loc &loc, DValue *val, Type *to) {
     if (val->isLVal()) {
       LLValue *ptr = val->getLVal();
       ptr = DtoBitCast(ptr, DtoType(at->pointerTo()));
-      return new DVarValue(to, ptr);
+      return new DLValue(to, ptr);
     }
     LLValue *len, *ptr;
     len = DtoArrayLen(val);
@@ -712,7 +712,7 @@ DValue *DtoPaintType(Loc &loc, DValue *val, Type *to) {
       assert(isaPointer(ptr));
       ptr = DtoBitCast(ptr, DtoPtrToType(dgty));
       IF_LOG Logger::cout() << "dg ptr: " << *ptr << '\n';
-      return new DVarValue(to, ptr);
+      return new DLValue(to, ptr);
     }
     LLValue *dg = val->getRVal();
     LLValue *context = gIR->ir->CreateExtractValue(dg, 0, ".context");
@@ -1384,7 +1384,7 @@ LLValue *makeLValue(Loc &loc, DValue *value) {
     needsMemory = true;
   } else {
     valuePointer = DtoAlloca(valueType, ".makelvaluetmp");
-    DVarValue var(valueType, valuePointer);
+    DLValue var(valueType, valuePointer);
     DtoAssign(loc, &var, value);
     needsMemory = false;
   }
@@ -1540,7 +1540,7 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
                                      "vars, although it can easily be made "
                                      "to.");
-      return new DVarValue(type, v);
+      return new DLValue(type, v);
     }
     // _argptr
     if (vd->ident == Id::_argptr && gIR->func()->_argptr) {
@@ -1549,7 +1549,7 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
                                      "vars, although it can easily be made "
                                      "to.");
-      return new DVarValue(type, v);
+      return new DLValue(type, v);
     }
     // _dollar
     if (vd->ident == Id::dollar) {
@@ -1596,7 +1596,7 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       assert(!isSpecialRefVar(vd) && "Code not expected to handle special "
                                      "ref vars, although it can easily be "
                                      "made to.");
-      return new DVarValue(type, getIrValue(vd));
+      return new DLValue(type, getIrValue(vd));
     } else {
       Logger::println("a normal variable");
 
@@ -1638,7 +1638,7 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
 
     LLValue *initsym = getIrAggr(ts->sym)->getInitSymbol();
     initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
-    return new DVarValue(type, initsym);
+    return new DLValue(type, initsym);
   }
 
   llvm_unreachable("Unimplemented VarExp type");
@@ -1864,5 +1864,5 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
     }
   }
 
-  return new DVarValue(type, val, isSpecialRefVar(vd));
+  return new DLValue(type, val, isSpecialRefVar(vd));
 }

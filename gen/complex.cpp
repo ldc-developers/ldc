@@ -142,8 +142,8 @@ void DtoGetComplexParts(Loc &loc, Type *to, DValue *val, DValue *&re,
             DtoGEPi(v->getLVal(), 0, 0, ".re_part");
         LLValue *imVal =
             DtoGEPi(v->getLVal(), 0, 1, ".im_part");
-        re = new DVarValue(baserety, reVal);
-        im = new DVarValue(baseimty, imVal);
+        re = new DLValue(baserety, reVal);
+        im = new DLValue(baseimty, imVal);
       } else {
         LLValue *reVal =
             gIR->ir->CreateExtractValue(v->getRVal(), 0, ".re_part");

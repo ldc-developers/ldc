@@ -103,7 +103,7 @@ DValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key, bool lvalue) {
     // if ok, proceed in okbb
     gIR->scope() = IRScope(okbb);
   }
-  return new DVarValue(type, ret);
+  return new DLValue(type, ret);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

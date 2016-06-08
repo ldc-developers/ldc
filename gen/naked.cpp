@@ -445,7 +445,7 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd,
     // make a copy
     llvm::Value *mem = DtoAlloca(type, ".__asm_tuple_ret");
     DtoStore(rv, DtoBitCast(mem, getPtrToType(rv->getType())));
-    return new DVarValue(fd->type->nextOf(), mem);
+    return new DLValue(fd->type->nextOf(), mem);
   }
 
   // return call as im value

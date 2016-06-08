@@ -159,7 +159,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
     // get a pointer to this field
     assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
                                    "vars, although it can easily be made to.");
-    DVarValue field(vd->type, DtoIndexAggregate(mem, sd, vd));
+    DLValue field(vd->type, DtoIndexAggregate(mem, sd, vd));
 
     // store the initializer there
     DtoAssign(loc, &field, val, TOKconstruct, true);
@@ -303,10 +303,10 @@ public:
         if (result->isLVal()) {
           LLValue *copy = DtoAlloca(result->type);
           DtoMemCpy(copy, result->getLVal());
-          result = new DVarValue(result->type, copy);
+          result = new DLValue(result->type, copy);
         } else {
           LLValue *copy = DtoAllocaDump(result);
-          result = new DVarValue(result->type, copy);
+          result = new DLValue(result->type, copy);
         }
       }
 
@@ -354,7 +354,7 @@ public:
 
     if (e->cachedLvalue) {
       LLValue *V = e->cachedLvalue;
-      result = new DVarValue(e->type, V);
+      result = new DLValue(e->type, V);
       return;
     }
 
@@ -492,7 +492,7 @@ public:
           getPtrToType(LLArrayType::get(ct, e->numberOfCodeUnits()));
       LLValue *emem =
           (gvar->getType() == dstType) ? gvar : DtoBitCast(gvar, dstType);
-      result = new DVarValue(e->type, emem);
+      result = new DLValue(e->type, emem);
     } else if (dtype->ty == Tpointer) {
       result = new DImValue(e->type, arrptr);
     } else {
@@ -512,7 +512,7 @@ public:
     if (e->e1->op == TOKarraylength) {
       Logger::println("performing array.length assignment");
       ArrayLengthExp *ale = static_cast<ArrayLengthExp *>(e->e1);
-      DVarValue arrval(ale->e1->type, DtoLVal(ale->e1));
+      DLValue arrval(ale->e1->type, DtoLVal(ale->e1));
       DValue *newlen = toElem(e->e2);
       DSliceValue *slice = DtoResizeDynArray(e->loc, arrval.type, &arrval,
                                              newlen->getRVal());
@@ -535,7 +535,7 @@ public:
         // Note that the variable value is accessed directly (instead
         // of via getLVal(), which would perform a load from the
         // uninitialized location), and that rhs is stored as an l-value!
-        DVarValue *lhs = toElem(e->e1)->isVar();
+        DLValue *lhs = toElem(e->e1)->isVar();
         assert(lhs);
         result = toElem(e->e2);
 
@@ -884,7 +884,7 @@ public:
 
     if (e->cachedLvalue) {
       LLValue *V = e->cachedLvalue;
-      result = new DVarValue(e->type, V);
+      result = new DLValue(e->type, V);
       return;
     }
 
@@ -1016,7 +1016,7 @@ public:
     DValue *base = DtoSymbolAddress(e->loc, e->var->type, e->var);
 
     // This weird setup is required to be able to handle both variables as
-    // well as functions and TypeInfo references (which are not a DVarValue
+    // well as functions and TypeInfo references (which are not a DLValue
     // as well due to the level-of-indirection hack in Type::getTypeInfo that
     // is unfortunately required by the frontend).
     llvm::Value *baseValue;
@@ -1149,7 +1149,7 @@ public:
       V = DtoBitCast(V, DtoType(resultType->pointerTo()->pointerTo()));
     }
 
-    result = new DVarValue(e->type, V);
+    result = new DLValue(e->type, V);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1165,7 +1165,7 @@ public:
       assert(!isSpecialRefVar(e->var->isVarDeclaration()) &&
              "Code not expected to handle special ref vars, although it can "
              "easily be made to.");
-      result = new DVarValue(e->type, V);
+      result = new DLValue(e->type, V);
       return;
     }
 
@@ -1198,7 +1198,7 @@ public:
       }
 
       // Logger::cout() << "mem: " << *arrptr << '\n';
-      result = new DVarValue(e->type, arrptr);
+      result = new DLValue(e->type, arrptr);
     } else if (FuncDeclaration *fdecl = e->var->isFuncDeclaration()) {
       DtoResolveFunction(fdecl);
 
@@ -1238,7 +1238,7 @@ public:
     // special cases: `this(int) { this(); }` and `this(int) { super(); }`
     if (!e->var) {
       Logger::println("this exp without var declaration");
-      result = new DVarValue(e->type, p->func()->thisArg);
+      result = new DLValue(e->type, p->func()->thisArg);
       return;
     }
 
@@ -1260,7 +1260,7 @@ public:
       Logger::println("normal this exp");
       v = p->func()->thisArg;
     }
-    result = new DVarValue(e->type, v);
+    result = new DLValue(e->type, v);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1272,7 +1272,7 @@ public:
 
     if (e->cachedLvalue) {
       LLValue *V = e->cachedLvalue;
-      result = new DVarValue(e->type, V);
+      result = new DLValue(e->type, V);
       return;
     }
 
@@ -1305,7 +1305,7 @@ public:
       IF_LOG Logger::println("e1type: %s", e1type->toChars());
       llvm_unreachable("Unknown IndexExp target.");
     }
-    result = new DVarValue(e->type, arrptr);
+    result = new DLValue(e->type, arrptr);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1405,7 +1405,7 @@ public:
     // fixed-width slice to a static array.
     if (e->type->toBasetype()->ty == Tsarray) {
       LLValue *v = DtoBitCast(eptr, DtoType(e->type->pointerTo()));
-      result = new DVarValue(e->type, v);
+      result = new DLValue(e->type, v);
       return;
     }
 
@@ -1749,7 +1749,7 @@ public:
 
       // allocate
       LLValue *mem = DtoNew(e->loc, e->newtype);
-      DVarValue tmpvar(e->newtype, mem);
+      DLValue tmpvar(e->newtype, mem);
 
       Expression *exp = nullptr;
       if (!e->arguments || e->arguments->dim == 0) {
@@ -2237,7 +2237,7 @@ public:
 
     if (e->cachedLvalue) {
       LLValue *V = e->cachedLvalue;
-      result = new DVarValue(e->type, V);
+      result = new DLValue(e->type, V);
       return;
     }
 
@@ -2291,7 +2291,7 @@ public:
 
     p->scope() = IRScope(condend);
     if (retPtr) {
-      result = new DVarValue(e->type, retPtr, true);
+      result = new DLValue(e->type, retPtr, true);
     } else {
       result = new DConstValue(e->type, getNullValue(DtoMemType(dtype)));
     }
@@ -2513,7 +2513,7 @@ public:
           DtoRawAlloca(llStoType, DtoAlignment(e->type), "arrayliteral");
       initializeArrayLiteral(p, e, storage);
       if (arrayType->ty == Tsarray) {
-        result = new DVarValue(e->type, storage);
+        result = new DLValue(e->type, storage);
       } else if (arrayType->ty == Tpointer) {
         storage = DtoBitCast(storage, llElemType->getPointerTo());
         result = new DImValue(e->type, storage);
@@ -2534,12 +2534,12 @@ public:
       DtoResolveStruct(e->sd);
       LLValue *initsym = getIrAggr(e->sd)->getInitSymbol();
       initsym = DtoBitCast(initsym, DtoType(e->type->pointerTo()));
-      result = new DVarValue(e->type, initsym);
+      result = new DLValue(e->type, initsym);
       return;
     }
 
     if (e->inProgressMemory) {
-      result = new DVarValue(e->type, e->inProgressMemory);
+      result = new DLValue(e->type, e->inProgressMemory);
       return;
     }
 
@@ -2553,7 +2553,7 @@ public:
     write_struct_literal(e->loc, e->inProgressMemory, e->sd, e->elements);
 
     // return as a var
-    result = new DVarValue(e->type, e->inProgressMemory);
+    result = new DLValue(e->type, e->inProgressMemory);
     e->inProgressMemory = nullptr;
   }
 
@@ -2712,7 +2712,7 @@ public:
       if (basetype->ty != Taarray) {
         LLValue *tmp = DtoAlloca(e->type, "aaliteral");
         DtoStore(aa, DtoGEPi(tmp, 0, 0));
-        result = new DVarValue(e->type, tmp);
+        result = new DLValue(e->type, tmp);
       } else {
         result = new DImValue(e->type, aa);
       }
@@ -2725,7 +2725,7 @@ public:
     // it should be possible to avoid the temporary in some cases
     LLValue *tmp = DtoAllocaDump(LLConstant::getNullValue(DtoType(e->type)),
                                  e->type, "aaliteral");
-    result = new DVarValue(e->type, tmp);
+    result = new DLValue(e->type, tmp);
 
     const size_t n = e->keys->dim;
     for (size_t i = 0; i < n; ++i) {
@@ -2752,7 +2752,7 @@ public:
     // (&a.foo).funcptr is a case where toElem(e1) is genuinely not an l-value.
     LLValue *val = makeLValue(exp->loc, toElem(exp->e1));
     LLValue *v = DtoGEPi(val, 0, index);
-    return new DVarValue(exp->type, DtoBitCast(v, DtoPtrToType(exp->type)));
+    return new DLValue(exp->type, DtoBitCast(v, DtoPtrToType(exp->type)));
   }
 
   void visit(DelegatePtrExp *e) override {
@@ -2833,7 +2833,7 @@ public:
                  gep);
       }
     }
-    result = new DVarValue(e->type, val);
+    result = new DLValue(e->type, val);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -2869,7 +2869,7 @@ public:
       }
     }
 
-    result = new DVarValue(e->to, vector);
+    result = new DLValue(e->to, vector);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -2912,7 +2912,7 @@ public:
             DtoBitCast(typinf, DtoType(resultType->pointerTo()->pointerTo())));
       }
 
-      result = new DVarValue(resultType, typinf);
+      result = new DLValue(resultType, typinf);
       return;
     }
     llvm_unreachable("Unknown TypeidExp argument kind");

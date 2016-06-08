@@ -283,7 +283,7 @@ LLConstant *toConstElem(Expression *e, IRState *p);
 inline llvm::Value *DtoRVal(Expression *e) { return toElem(e)->getRVal(); }
 inline llvm::Value *DtoLVal(Expression *e) { return toElem(e)->getLVal(); }
 
-/// Creates a DVarValue for the given VarDeclaration.
+/// Creates a DLValue for the given VarDeclaration.
 ///
 /// If the storage is not given explicitly, the declaration is expected to be
 /// already resolved, and the value from the associated IrVar will be used.

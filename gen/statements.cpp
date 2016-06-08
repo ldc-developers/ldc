@@ -145,7 +145,7 @@ public:
         // for the ABI?
 
         // get return pointer
-        DValue *rvar = new DVarValue(f->type->next, getIrFunc(f->decl)->retArg);
+        DValue *rvar = new DLValue(f->type->next, getIrFunc(f->decl)->retArg);
         DValue *e = toElemDtor(stmt->exp);
         // store return value
         if (!e->isLVal() || e->getLVal() != rvar->getLVal())
@@ -1355,8 +1355,8 @@ public:
 
     if (!stmt->value->isRef() && !stmt->value->isOut()) {
       // Copy value to local variable, and use it as the value variable.
-      DVarValue dst(stmt->value->type, valvar);
-      DVarValue src(stmt->value->type, gep);
+      DLValue dst(stmt->value->type, valvar);
+      DLValue src(stmt->value->type, gep);
       DtoAssign(stmt->loc, &dst, &src);
       getIrLocal(stmt->value)->value = valvar;
     } else {

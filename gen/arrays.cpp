@@ -174,7 +174,7 @@ static void DtoArrayInit(Loc &loc, LLValue *ptr, LLValue *length,
   LLValue *itr_val = DtoLoad(itr);
   // assign array element value
   DValue *arrayelem =
-      new DVarValue(dvalue->type->toBasetype(),
+      new DLValue(dvalue->type->toBasetype(),
                     DtoGEP1(ptr, itr_val, true, "arrayinit.arrayelem"));
   DtoAssign(loc, arrayelem, dvalue, op);
 
@@ -589,7 +589,7 @@ void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale, LLValue *dstMem) {
       DValue *e = toElem(indexArrayLiteral(ale, i));
 
       LLValue *elemAddr = DtoGEPi(dstMem, 0, i, "", p->scopebb());
-      auto vv = new DVarValue(e->type, elemAddr);
+      auto vv = new DLValue(e->type, elemAddr);
       DtoAssign(ale->loc, vv, e, TOKconstruct, true);
     }
   }
@@ -777,7 +777,7 @@ void DtoCatAssignElement(Loc &loc, Type *arrayType, DValue *array,
 
   LLValue *val = DtoArrayPtr(array);
   val = DtoGEP1(val, oldLength, true, ".lastElem");
-  DtoAssign(loc, new DVarValue(arrayType->nextOf(), val), expVal, TOKblit);
+  DtoAssign(loc, new DLValue(arrayType->nextOf(), val), expVal, TOKblit);
   callPostblit(loc, exp, val);
 }
 
@@ -1142,7 +1142,7 @@ DValue *DtoCastArray(Loc &loc, DValue *u, Type *to) {
       ptr = DtoArrayPtr(u);
     }
 
-    return new DVarValue(to, DtoBitCast(ptr, getPtrToType(tolltype)));
+    return new DLValue(to, DtoBitCast(ptr, getPtrToType(tolltype)));
   } else if (totype->ty == Tbool) {
     // return (arr.ptr !is null)
     LLValue *ptr = DtoArrayPtr(u);
@@ -1151,7 +1151,7 @@ DValue *DtoCastArray(Loc &loc, DValue *u, Type *to) {
   } else {
     LLValue *ptr = DtoArrayPtr(u);
     ptr = DtoBitCast(ptr, getPtrToType(tolltype));
-    return new DVarValue(to, ptr);
+    return new DLValue(to, ptr);
   }
 
   llvm_unreachable("Unexpected array cast");

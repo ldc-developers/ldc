@@ -34,7 +34,7 @@ class Constant;
 class DImValue;
 class DConstValue;
 class DNullValue;
-class DVarValue;
+class DLValue;
 class DFuncValue;
 class DSliceValue;
 
@@ -66,7 +66,7 @@ public:
   virtual DImValue *isIm() { return nullptr; }
   virtual DConstValue *isConst() { return nullptr; }
   virtual DNullValue *isNull() { return nullptr; }
-  virtual DVarValue *isVar() { return nullptr; }
+  virtual DLValue *isVar() { return nullptr; }
   virtual DSliceValue *isSlice() { return nullptr; }
   virtual DFuncValue *isFunc() { return nullptr; }
 
@@ -105,14 +105,14 @@ public:
   DNullValue *isNull() override { return this; }
 };
 
-/// This is really a misnomer, DVarValue represents generic lvalues, which
-/// might or might not come from variable declarations.
-// TODO: Rename this, probably remove getLVal() from parent since this is the
-// only lvalue. The isSpecialRefVar case should probably also be its own
-// subclass.
-class DVarValue : public DValue {
+/// Represents a D value in memory via a low-level lvalue.
+/// This doesn't imply that the D value is an lvalue too - e.g., we always
+/// keep structs and static arrays in memory.
+// TODO: Probably remove getLVal() from parent since this is the only lvalue.
+// The isSpecialRefVar case should probably also be its own subclass.
+class DLValue : public DValue {
 public:
-  DVarValue(Type *t, llvm::Value *v, bool isSpecialRefVar = false);
+  DLValue(Type *t, llvm::Value *v, bool isSpecialRefVar = false);
 
   bool isLVal() override { return true; }
 
@@ -123,7 +123,7 @@ public:
   /// Illegal to call on any other value.
   llvm::Value *getRefStorage();
 
-  DVarValue *isVar() override { return this; }
+  DLValue *isVar() override { return this; }
 
 protected:
   const bool isSpecialRefVar;
