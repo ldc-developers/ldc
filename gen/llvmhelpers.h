@@ -280,8 +280,10 @@ DValue *toElem(Expression *e, bool tryGetLvalue);
 DValue *toElemDtor(Expression *e);
 LLConstant *toConstElem(Expression *e, IRState *p);
 
-inline llvm::Value *DtoRVal(Expression *e) { return toElem(e)->getRVal(); }
-inline llvm::Value *DtoLVal(Expression *e) { return toElem(e)->getLVal(); }
+llvm::Value *DtoRVal(DValue *v);
+llvm::Value *DtoRVal(Expression *e);
+llvm::Value *DtoLVal(DValue *v);
+llvm::Value *DtoLVal(Expression *e);
 
 /// Creates a DLValue for the given VarDeclaration.
 ///

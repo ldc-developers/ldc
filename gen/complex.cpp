@@ -139,16 +139,16 @@ void DtoGetComplexParts(Loc &loc, Type *to, DValue *val, DValue *&re,
     if (to->iscomplex()) {
       if (v->isLVal()) {
         LLValue *reVal =
-            DtoGEPi(v->getLVal(), 0, 0, ".re_part");
+            DtoGEPi(DtoLVal(v), 0, 0, ".re_part");
         LLValue *imVal =
-            DtoGEPi(v->getLVal(), 0, 1, ".im_part");
+            DtoGEPi(DtoLVal(v), 0, 1, ".im_part");
         re = new DLValue(baserety, reVal);
         im = new DLValue(baseimty, imVal);
       } else {
         LLValue *reVal =
-            gIR->ir->CreateExtractValue(v->getRVal(), 0, ".re_part");
+            gIR->ir->CreateExtractValue(DtoRVal(v), 0, ".re_part");
         LLValue *imVal =
-            gIR->ir->CreateExtractValue(v->getRVal(), 1, ".im_part");
+            gIR->ir->CreateExtractValue(DtoRVal(v), 1, ".im_part");
         re = new DImValue(baserety, reVal);
         im = new DImValue(baseimty, imVal);
       }
@@ -175,8 +175,8 @@ void DtoGetComplexParts(Loc &loc, Type *to, DValue *val, LLValue *&re,
                         LLValue *&im) {
   DValue *dre, *dim;
   DtoGetComplexParts(loc, to, val, dre, dim);
-  re = dre ? dre->getRVal() : nullptr;
-  im = dim ? dim->getRVal() : nullptr;
+  re = dre ? DtoRVal(dre) : nullptr;
+  im = dim ? DtoRVal(dim) : nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -452,7 +452,7 @@ DValue *DtoCastComplex(Loc &loc, DValue *val, Type *_to) {
   }
   if (to->isimaginary()) {
     // FIXME: this loads both values, even when we only need one
-    LLValue *v = val->getRVal();
+    LLValue *v = DtoRVal(val);
     LLValue *impart = gIR->ir->CreateExtractValue(v, 1, ".im_part");
     Type *extractty;
     switch (vty->ty) {
@@ -477,7 +477,7 @@ DValue *DtoCastComplex(Loc &loc, DValue *val, Type *_to) {
   }
   if (to->isfloating() || to->isintegral()) {
     // FIXME: this loads both values, even when we only need one
-    LLValue *v = val->getRVal();
+    LLValue *v = DtoRVal(val);
     LLValue *repart = gIR->ir->CreateExtractValue(v, 0, ".re_part");
     Type *extractty;
     switch (vty->ty) {

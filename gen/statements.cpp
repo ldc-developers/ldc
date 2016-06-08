@@ -82,7 +82,7 @@ static LLValue *call_string_switch_runtime(llvm::Value *table, Expression *e) {
   assert(table->getType() == fn->getFunctionType()->getParamType(0));
 
   DValue *val = toElemDtor(e);
-  LLValue *llval = val->getRVal();
+  LLValue *llval = DtoRVal(val);
   assert(llval->getType() == fn->getFunctionType()->getParamType(1));
 
   LLCallSite call = gIR->CreateCallOrInvoke(fn, table, llval);
@@ -148,13 +148,13 @@ public:
         DValue *rvar = new DLValue(f->type->next, getIrFunc(f->decl)->retArg);
         DValue *e = toElemDtor(stmt->exp);
         // store return value
-        if (!e->isLVal() || e->getLVal() != rvar->getLVal())
+        if (!e->isLVal() || DtoLVal(e) != DtoLVal(rvar))
           DtoAssign(stmt->loc, rvar, e, TOKblit);
 
         // call postblit if necessary
         if (!irs->func()->type->isref &&
             !(f->decl->nrvo_can && f->decl->nrvo_var)) {
-          callPostblit(stmt->loc, stmt->exp, rvar->getLVal());
+          callPostblit(stmt->loc, stmt->exp, DtoLVal(rvar));
         }
       }
       // the return type is not void, so this is a normal "register" return
@@ -170,8 +170,8 @@ public:
           // call postblit if necessary
           if (!irs->func()->type->isref) {
             dval = toElemDtor(stmt->exp);
-            LLValue *vthis = (DtoIsInMemoryOnly(dval->type) ? dval->getLVal()
-                                                            : dval->getRVal());
+            LLValue *vthis = (DtoIsInMemoryOnly(dval->type) ? DtoLVal(dval)
+                                                            : DtoRVal(dval));
             callPostblit(stmt->loc, stmt->exp, vthis);
           } else {
             Expression *ae = stmt->exp;
@@ -311,7 +311,7 @@ public:
     }
 
     DValue *cond_e = toElemDtor(stmt->condition);
-    LLValue *cond_val = cond_e->getRVal();
+    LLValue *cond_val = DtoRVal(cond_e);
 
     llvm::BasicBlock *ifbb =
         llvm::BasicBlock::Create(irs->context(), "if", irs->topfunc());
@@ -324,7 +324,7 @@ public:
 
     if (cond_val->getType() != LLType::getInt1Ty(irs->context())) {
       IF_LOG Logger::cout() << "if conditional: " << *cond_val << '\n';
-      cond_val = DtoCast(stmt->loc, cond_e, Type::tbool)->getRVal();
+      cond_val = DtoRVal(DtoCast(stmt->loc, cond_e, Type::tbool));
     }
     llvm::BranchInst::Create(ifbb, elsebb, cond_val, irs->scopebb());
 
@@ -399,7 +399,7 @@ public:
     // create the condition
     emitCoverageLinecountInc(stmt->condition->loc);
     DValue *cond_e = toElemDtor(stmt->condition);
-    LLValue *cond_val = DtoCast(stmt->loc, cond_e, Type::tbool)->getRVal();
+    LLValue *cond_val = DtoRVal(DtoCast(stmt->loc, cond_e, Type::tbool));
     delete cond_e;
 
     // conditional branch
@@ -465,7 +465,7 @@ public:
     // create the condition
     emitCoverageLinecountInc(stmt->condition->loc);
     DValue *cond_e = toElemDtor(stmt->condition);
-    LLValue *cond_val = DtoCast(stmt->loc, cond_e, Type::tbool)->getRVal();
+    LLValue *cond_val = DtoRVal(DtoCast(stmt->loc, cond_e, Type::tbool));
     delete cond_e;
 
     // conditional branch
@@ -523,7 +523,7 @@ public:
     if (stmt->condition) {
       emitCoverageLinecountInc(stmt->condition->loc);
       DValue *cond_e = toElemDtor(stmt->condition);
-      cond_val = DtoCast(stmt->loc, cond_e, Type::tbool)->getRVal();
+      cond_val = DtoRVal(DtoCast(stmt->loc, cond_e, Type::tbool));
       delete cond_e;
     } else {
       cond_val = DtoConstBool(true);
@@ -960,7 +960,7 @@ public:
     llvm::Function *fn =
         getRuntimeFunction(stmt->loc, irs->module, "_d_throw_exception");
     LLValue *arg =
-        DtoBitCast(e->getRVal(), fn->getFunctionType()->getParamType(0));
+        DtoBitCast(DtoRVal(e), fn->getFunctionType()->getParamType(0));
 
     irs->CreateCallOrInvoke(fn, arg);
     irs->ir->CreateUnreachable();
@@ -994,7 +994,7 @@ public:
         vd = static_cast<VarExp *>(cs->exp)->var->isVarDeclaration();
       }
       if (vd && (!vd->_init || !vd->isConst())) {
-        cs->llvmIdx = toElemDtor(cs->exp)->getRVal();
+        cs->llvmIdx = DtoRVal(toElemDtor(cs->exp));
         useSwitchInst = false;
       }
     }
@@ -1078,7 +1078,7 @@ public:
       // integral switch
       if (stmt->condition->type->isintegral()) {
         DValue *cond = toElemDtor(stmt->condition);
-        condVal = cond->getRVal();
+        condVal = DtoRVal(cond);
       }
       // string switch
       else {
@@ -1094,7 +1094,7 @@ public:
     } else { // we can't use switch, so we will use a bunch of br instructions
              // instead
       DValue *cond = toElemDtor(stmt->condition);
-      LLValue *condVal = cond->getRVal();
+      LLValue *condVal = DtoRVal(cond);
 
       llvm::BasicBlock *nextbb =
           llvm::BasicBlock::Create(irs->context(), "checkcase", irs->topfunc());
@@ -1403,9 +1403,9 @@ public:
 
     // evaluate lwr/upr
     assert(stmt->lwr->type->isintegral());
-    LLValue *lower = toElemDtor(stmt->lwr)->getRVal();
+    LLValue *lower = DtoRVal(toElemDtor(stmt->lwr));
     assert(stmt->upr->type->isintegral());
-    LLValue *upper = toElemDtor(stmt->upr)->getRVal();
+    LLValue *upper = DtoRVal(toElemDtor(stmt->upr));
 
     // handle key
     assert(stmt->key->type->isintegral());
@@ -1622,7 +1622,7 @@ public:
     if (stmt->wthis) {
       LLValue *mem = DtoRawVarDeclaration(stmt->wthis);
       DValue *e = toElemDtor(stmt->exp);
-      LLValue *val = (DtoIsInMemoryOnly(e->type) ? e->getLVal() : e->getRVal());
+      LLValue *val = (DtoIsInMemoryOnly(e->type) ? DtoLVal(e) : DtoRVal(e));
       DtoStore(val, mem);
     }
 

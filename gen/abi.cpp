@@ -39,7 +39,7 @@ llvm::Value *ABIRewrite::getRVal(Type *dty, LLValue *v) {
 
 LLValue *ABIRewrite::getAddressOf(DValue *v) {
   if (v->isLVal())
-    return v->getLVal();
+    return DtoLVal(v);
   return DtoAllocaDump(v, ".getAddressOf_dump");
 }
 

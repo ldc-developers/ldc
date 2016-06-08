@@ -45,13 +45,7 @@ public:
 
   virtual ~DValue() = default;
 
-  virtual llvm::Value *getLVal() {
-    assert(0 && "DValue is not a LL lvalue!");
-    return nullptr;
-  }
   virtual llvm::Value *getRVal() { return val; }
-
-  virtual bool isLVal() { return false; }
 
   /// Returns true iff the value can be accessed at the end of the entry basic
   /// block of the current function, in the sense that it is either not derived
@@ -63,10 +57,10 @@ public:
   /// the function.
   virtual bool definedInFuncEntryBB();
 
+  virtual DLValue *isLVal() { return nullptr; }
   virtual DImValue *isIm() { return nullptr; }
   virtual DConstValue *isConst() { return nullptr; }
   virtual DNullValue *isNull() { return nullptr; }
-  virtual DLValue *isVar() { return nullptr; }
   virtual DSliceValue *isSlice() { return nullptr; }
   virtual DFuncValue *isFunc() { return nullptr; }
 
@@ -108,22 +102,19 @@ public:
 /// Represents a D value in memory via a low-level lvalue.
 /// This doesn't imply that the D value is an lvalue too - e.g., we always
 /// keep structs and static arrays in memory.
-// TODO: Probably remove getLVal() from parent since this is the only lvalue.
-// The isSpecialRefVar case should probably also be its own subclass.
+// TODO: The isSpecialRefVar case should probably be its own subclass.
 class DLValue : public DValue {
 public:
   DLValue(Type *t, llvm::Value *v, bool isSpecialRefVar = false);
 
-  bool isLVal() override { return true; }
-
-  llvm::Value *getLVal() override;
+  virtual llvm::Value *getLVal();
   llvm::Value *getRVal() override;
 
   /// Returns the underlying storage for special internal ref variables.
   /// Illegal to call on any other value.
   llvm::Value *getRefStorage();
 
-  DLValue *isVar() override { return this; }
+  DLValue *isLVal() override { return this; }
 
 protected:
   const bool isSpecialRefVar;

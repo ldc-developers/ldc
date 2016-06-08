@@ -74,15 +74,15 @@ TypeFunction *DtoTypeFunction(DValue *fnval) {
 LLValue *DtoCallableValue(DValue *fn) {
   Type *type = fn->type->toBasetype();
   if (type->ty == Tfunction) {
-    return fn->getRVal();
+    return DtoRVal(fn);
   }
   if (type->ty == Tdelegate) {
     if (fn->isLVal()) {
-      LLValue *dg = fn->getLVal();
+      LLValue *dg = DtoLVal(fn);
       LLValue *funcptr = DtoGEPi(dg, 0, 1);
       return DtoLoad(funcptr, ".funcptr");
     }
-    LLValue *dg = fn->getRVal();
+    LLValue *dg = DtoRVal(fn);
     assert(isaStruct(dg));
     return gIR->ir->CreateExtractValue(dg, 1, ".funcptr");
   }
@@ -320,7 +320,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     }
     result = new DImValue(e->type,
                           p->ir->CreateAlloca(LLType::getInt8Ty(p->context()),
-                                              expv->getRVal(), ".alloca"));
+                                              DtoRVal(expv), ".alloca"));
     return true;
   }
 
@@ -351,7 +351,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     LLValue *val = nullptr;
     if (!pointeeType->isIntegerTy()) {
       if (pointeeType->isStructTy()) {
-        val = dval->getLVal();
+        val = DtoLVal(dval);
         switch (size_t N = getTypeBitSize(pointeeType)) {
         case 8:
         case 16:
@@ -374,7 +374,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
         fatal();
       }
     } else {
-      val = dval->getRVal();
+      val = DtoRVal(dval);
     }
 
     llvm::StoreInst *ret = p->ir->CreateStore(val, ptr);
@@ -460,8 +460,8 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
           LLType *intPtrType =
               LLType::getIntNPtrTy(gIR->context(), static_cast<unsigned>(N));
           ptr = DtoBitCast(ptr, intPtrType);
-          cmp = DtoLoad(DtoBitCast(dcmp->getLVal(), intPtrType));
-          val = DtoLoad(DtoBitCast(dval->getLVal(), intPtrType));
+          cmp = DtoLoad(DtoBitCast(DtoLVal(dcmp), intPtrType));
+          val = DtoLoad(DtoBitCast(DtoLVal(dval), intPtrType));
           break;
         }
         default:
@@ -474,8 +474,8 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
         fatal();
       }
     } else {
-      cmp = dcmp->getRVal();
-      val = dval->getRVal();
+      cmp = DtoRVal(dcmp);
+      val = DtoRVal(dval);
     }
 
     LLValue *ret = p->ir->CreateAtomicCmpXchg(ptr, cmp, val, atomicOrdering,
@@ -714,7 +714,7 @@ private:
           Type *thistype = gIR->func()->decl->vthis->type;
           if (thistype != iface->type) {
             DImValue *dthis = new DImValue(thistype, thisptr);
-            thisptr = DtoCastClass(loc, dthis, iface->type)->getRVal();
+            thisptr = DtoRVal(DtoCastClass(loc, dthis, iface->type));
           }
         }
       }
@@ -728,9 +728,9 @@ private:
       // ... or a delegate context arg
       LLValue *ctxarg;
       if (fnval->isLVal()) {
-        ctxarg = DtoLoad(DtoGEPi(fnval->getLVal(), 0, 0), ".ptr");
+        ctxarg = DtoLoad(DtoGEPi(DtoLVal(fnval), 0, 0), ".ptr");
       } else {
-        ctxarg = gIR->ir->CreateExtractValue(fnval->getRVal(), 0, ".ptr");
+        ctxarg = gIR->ir->CreateExtractValue(DtoRVal(fnval), 0, ".ptr");
       }
       ctxarg = DtoBitCast(ctxarg, llArgType);
       args.push_back(ctxarg);
@@ -990,7 +990,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   // set calling convention and parameter attributes
   llvm::AttributeSet &attrlist = attrs;
   if (dfnval && dfnval->func) {
-    LLFunction *llfunc = llvm::dyn_cast<LLFunction>(dfnval->getRVal());
+    LLFunction *llfunc = llvm::dyn_cast<LLFunction>(DtoRVal(dfnval));
     if (llfunc && llfunc->isIntrinsic()) // override intrinsic attrs
     {
       attrlist = llvm::Intrinsic::getAttributes(

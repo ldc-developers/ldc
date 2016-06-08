@@ -37,9 +37,9 @@ llvm::Value *IrFuncTy::putRet(DValue *dval) {
   }
 
   if (ret->byref || DtoIsInMemoryOnly(dval->type))
-    return dval->getLVal();
+    return DtoLVal(dval);
 
-  return dval->getRVal();
+  return DtoRVal(dval);
 }
 
 llvm::Value *IrFuncTy::getRetRVal(Type *dty, LLValue *val) {
@@ -79,9 +79,9 @@ llvm::Value *IrFuncTy::putParam(const IrFuncTyArg &arg, DValue *dval) {
   }
 
   if (arg.byref || DtoIsInMemoryOnly(dval->type))
-    return dval->getLVal();
+    return DtoLVal(dval);
 
-  return dval->getRVal();
+  return DtoRVal(dval);
 }
 
 LLValue *IrFuncTy::getParamLVal(Type *dty, size_t idx, LLValue *val) {

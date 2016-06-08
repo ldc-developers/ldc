@@ -1038,7 +1038,7 @@ DValue *DtoArgument(Parameter *fnarg, Expression *argexp) {
     Loc loc;
     DValue *arg = toElem(argexp, true);
     return new DLValue(argexp->type,
-                         arg->isLVal() ? arg->getLVal() : makeLValue(loc, arg));
+                         arg->isLVal() ? DtoLVal(arg) : makeLValue(loc, arg));
   }
 
   DValue *arg = toElem(argexp);

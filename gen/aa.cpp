@@ -46,7 +46,7 @@ DValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key, bool lvalue) {
   LLFunctionType *funcTy = func->getFunctionType();
 
   // aa param
-  LLValue *aaval = lvalue ? aa->getLVal() : aa->getRVal();
+  LLValue *aaval = lvalue ? DtoLVal(aa) : DtoRVal(aa);
   aaval = DtoBitCast(aaval, funcTy->getParamType(0));
 
   // pkey param
@@ -124,7 +124,7 @@ DValue *DtoAAIn(Loc &loc, Type *type, DValue *aa, DValue *key) {
   IF_LOG Logger::cout() << "_aaIn = " << *func << '\n';
 
   // aa param
-  LLValue *aaval = aa->getRVal();
+  LLValue *aaval = DtoRVal(aa);
   IF_LOG {
     Logger::cout() << "aaval: " << *aaval << '\n';
     Logger::cout() << "totype: " << *funcTy->getParamType(0) << '\n';
@@ -170,7 +170,7 @@ DValue *DtoAARemove(Loc &loc, DValue *aa, DValue *key) {
   IF_LOG Logger::cout() << "_aaDel = " << *func << '\n';
 
   // aa param
-  LLValue *aaval = aa->getRVal();
+  LLValue *aaval = DtoRVal(aa);
   IF_LOG {
     Logger::cout() << "aaval: " << *aaval << '\n';
     Logger::cout() << "totype: " << *funcTy->getParamType(0) << '\n';
@@ -201,8 +201,8 @@ LLValue *DtoAAEquals(Loc &loc, TOK op, DValue *l, DValue *r) {
       getRuntimeFunction(loc, gIR->module, "_aaEqual");
   LLFunctionType *funcTy = func->getFunctionType();
 
-  LLValue *aaval = DtoBitCast(l->getRVal(), funcTy->getParamType(1));
-  LLValue *abval = DtoBitCast(r->getRVal(), funcTy->getParamType(2));
+  LLValue *aaval = DtoBitCast(DtoRVal(l), funcTy->getParamType(1));
+  LLValue *abval = DtoBitCast(DtoRVal(r), funcTy->getParamType(2));
   LLValue *aaTypeInfo = DtoTypeInfoOf(t);
   LLValue *res =
       gIR->CreateCallOrInvoke(func, aaTypeInfo, aaval, abval, "aaEqRes")

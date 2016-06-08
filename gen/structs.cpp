@@ -89,7 +89,7 @@ LLValue *DtoStructEquals(TOK op, DValue *lhs, DValue *rhs) {
 
   // call memcmp
   size_t sz = getTypeAllocSize(DtoType(t));
-  LLValue *val = DtoMemCmp(lhs->getLVal(), rhs->getLVal(), DtoConstSize_t(sz));
+  LLValue *val = DtoMemCmp(DtoLVal(lhs), DtoLVal(rhs), DtoConstSize_t(sz));
   return gIR->ir->CreateICmp(cmpop, val,
                              LLConstantInt::get(val->getType(), 0, false));
 }

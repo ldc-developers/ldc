@@ -21,8 +21,8 @@
 DValue *DtoBinAdd(DValue *lhs, DValue *rhs) {
   Type *t = lhs->type;
   LLValue *l, *r;
-  l = lhs->getRVal();
-  r = rhs->getRVal();
+  l = DtoRVal(lhs);
+  r = DtoRVal(rhs);
 
   LLValue *res;
   if (t->isfloating()) {
@@ -39,8 +39,8 @@ DValue *DtoBinAdd(DValue *lhs, DValue *rhs) {
 DValue *DtoBinSub(DValue *lhs, DValue *rhs) {
   Type *t = lhs->type;
   LLValue *l, *r;
-  l = lhs->getRVal();
-  r = rhs->getRVal();
+  l = DtoRVal(lhs);
+  r = DtoRVal(rhs);
 
   LLValue *res;
   if (t->isfloating()) {
@@ -57,8 +57,8 @@ DValue *DtoBinSub(DValue *lhs, DValue *rhs) {
 DValue *DtoBinMul(Type *targettype, DValue *lhs, DValue *rhs) {
   Type *t = lhs->type;
   LLValue *l, *r;
-  l = lhs->getRVal();
-  r = rhs->getRVal();
+  l = DtoRVal(lhs);
+  r = DtoRVal(rhs);
 
   LLValue *res;
   if (t->isfloating()) {
@@ -74,8 +74,8 @@ DValue *DtoBinMul(Type *targettype, DValue *lhs, DValue *rhs) {
 DValue *DtoBinDiv(Type *targettype, DValue *lhs, DValue *rhs) {
   Type *t = lhs->type;
   LLValue *l, *r;
-  l = lhs->getRVal();
-  r = rhs->getRVal();
+  l = DtoRVal(lhs);
+  r = DtoRVal(rhs);
 
   LLValue *res;
   if (t->isfloating()) {
@@ -93,8 +93,8 @@ DValue *DtoBinDiv(Type *targettype, DValue *lhs, DValue *rhs) {
 DValue *DtoBinRem(Type *targettype, DValue *lhs, DValue *rhs) {
   Type *t = lhs->type;
   LLValue *l, *r;
-  l = lhs->getRVal();
-  r = rhs->getRVal();
+  l = DtoRVal(lhs);
+  r = DtoRVal(rhs);
   LLValue *res;
   if (t->isfloating()) {
     res = gIR->ir->CreateFRem(l, r);
@@ -133,9 +133,9 @@ LLValue *DtoBinNumericEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op) {
 LLValue *DtoBinFloatsEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op) {
   LLValue *res = nullptr;
   if (op == TOKequal) {
-    res = gIR->ir->CreateFCmpOEQ(lhs->getRVal(), rhs->getRVal());
+    res = gIR->ir->CreateFCmpOEQ(DtoRVal(lhs), DtoRVal(rhs));
   } else if (op == TOKnotequal) {
-    res = gIR->ir->CreateFCmpUNE(lhs->getRVal(), rhs->getRVal());
+    res = gIR->ir->CreateFCmpUNE(DtoRVal(lhs), DtoRVal(rhs));
   } else {
     llvm::ICmpInst::Predicate cmpop;
     if (op == TOKidentity) {
