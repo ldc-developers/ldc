@@ -535,7 +535,7 @@ public:
         // Note that the variable value is accessed directly (instead
         // of via getLVal(), which would perform a load from the
         // uninitialized location), and that rhs is stored as an l-value!
-        DLValue *lhs = toElem(e->e1)->isLVal();
+        DSpecialRefValue *lhs = toElem(e->e1)->isSpecialRef();
         assert(lhs);
         result = toElem(e->e2);
 
@@ -2291,7 +2291,7 @@ public:
 
     p->scope() = IRScope(condend);
     if (retPtr) {
-      result = new DLValue(e->type, retPtr, true);
+      result = new DSpecialRefValue(e->type, retPtr);
     } else {
       result = new DConstValue(e->type, getNullValue(DtoMemType(dtype)));
     }

@@ -1864,7 +1864,10 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
     }
   }
 
-  return new DLValue(type, val, isSpecialRefVar(vd));
+  if (isSpecialRefVar(vd))
+    return new DSpecialRefValue(type, val);
+
+  return new DLValue(type, val);
 }
 
 LLValue *DtoRVal(DValue *v) { return v->getRVal(); }

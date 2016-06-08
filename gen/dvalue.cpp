@@ -74,38 +74,34 @@ static bool checkVarValueType(LLType *t, bool extraDeref) {
   return true;
 }
 
-DLValue::DLValue(Type *t, LLValue *v, bool isSpecialRefVar)
-    : DValue(t, v), isSpecialRefVar(isSpecialRefVar) {
-  assert(v && "Unexpected null llvm::Value.");
-  assert(checkVarValueType(v->getType(), isSpecialRefVar));
+DLValue::DLValue(Type *t, LLValue *v) : DValue(t, v) {
+  assert(checkVarValueType(v->getType(), false));
 }
 
-LLValue *DLValue::getLVal() { return isSpecialRefVar ? DtoLoad(val) : val; }
-
 LLValue *DLValue::getRVal() {
-  LLValue *storage = val;
-  if (isSpecialRefVar)
-    storage = DtoLoad(storage);
-
   if (DtoIsInMemoryOnly(type->toBasetype())) {
     llvm_unreachable("getRVal() for memory-only type");
     return nullptr;
   }
 
-  LLValue *rawValue = DtoLoad(storage);
+  LLValue *rawValue = DtoLoad(val);
+  if (type->toBasetype()->ty != Tbool)
+    return rawValue;
 
-  if (type->toBasetype()->ty == Tbool) {
-    assert(rawValue->getType() == llvm::Type::getInt8Ty(gIR->context()));
-    return gIR->ir->CreateTrunc(rawValue,
-                                llvm::Type::getInt1Ty(gIR->context()));
-  }
-
-  return rawValue;
+  assert(rawValue->getType() == llvm::Type::getInt8Ty(gIR->context()));
+  return gIR->ir->CreateTrunc(rawValue, llvm::Type::getInt1Ty(gIR->context()));
 }
 
-LLValue *DLValue::getRefStorage() {
-  assert(isSpecialRefVar);
-  return val;
+////////////////////////////////////////////////////////////////////////////////
+
+DSpecialRefValue::DSpecialRefValue(Type *t, LLValue *v) : DLValue(v, t) {
+  assert(checkVarValueType(v->getType(), true));
+}
+
+LLValue *DSpecialRefValue::getLVal() { return DtoLoad(val); }
+
+LLValue *DSpecialRefValue::getRVal() {
+  return DLValue(type, getLVal()).getRVal();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

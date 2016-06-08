@@ -35,6 +35,7 @@ class DImValue;
 class DConstValue;
 class DNullValue;
 class DLValue;
+class DSpecialRefValue;
 class DFuncValue;
 class DSliceValue;
 
@@ -58,6 +59,7 @@ public:
   virtual bool definedInFuncEntryBB();
 
   virtual DLValue *isLVal() { return nullptr; }
+  virtual DSpecialRefValue *isSpecialRef() { return nullptr; }
   virtual DImValue *isIm() { return nullptr; }
   virtual DConstValue *isConst() { return nullptr; }
   virtual DNullValue *isNull() { return nullptr; }
@@ -102,22 +104,29 @@ public:
 /// Represents a D value in memory via a low-level lvalue.
 /// This doesn't imply that the D value is an lvalue too - e.g., we always
 /// keep structs and static arrays in memory.
-// TODO: The isSpecialRefVar case should probably be its own subclass.
 class DLValue : public DValue {
 public:
-  DLValue(Type *t, llvm::Value *v, bool isSpecialRefVar = false);
+  DLValue(Type *t, llvm::Value *v);
 
-  virtual llvm::Value *getLVal();
+  virtual llvm::Value *getLVal() { return val; }
   llvm::Value *getRVal() override;
-
-  /// Returns the underlying storage for special internal ref variables.
-  /// Illegal to call on any other value.
-  llvm::Value *getRefStorage();
 
   DLValue *isLVal() override { return this; }
 
 protected:
-  const bool isSpecialRefVar;
+  DLValue(llvm::Value *v, Type *t) : DValue(t, v) {}
+};
+
+/// Represents special internal ref variables.
+class DSpecialRefValue : public DLValue {
+public:
+  DSpecialRefValue(Type *t, llvm::Value *v);
+
+  llvm::Value *getRefStorage() { return val; }
+  llvm::Value *getLVal() override;
+  llvm::Value *getRVal() override;
+
+  DSpecialRefValue *isSpecialRef() override { return this; }
 };
 
 // slice d-value
