@@ -25,7 +25,7 @@
 #include "gen/pragma.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
-#include "gen/typeinf.h"
+#include "gen/typinf.h"
 #include "gen/uda.h"
 #include "id.h"
 #include "init.h"

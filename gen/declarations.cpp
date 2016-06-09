@@ -22,15 +22,11 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
+#include "gen/typinf.h"
 #include "gen/uda.h"
 #include "ir/irtype.h"
 #include "ir/irvar.h"
 #include "llvm/ADT/SmallString.h"
-
-//////////////////////////////////////////////////////////////////////////////
-// FIXME: Integrate these functions
-void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p);
-void TypeInfoClassDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p);
 
 //////////////////////////////////////////////////////////////////////////////
 

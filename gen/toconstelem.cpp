@@ -16,7 +16,7 @@
 #include "gen/logger.h"
 #include "gen/structs.h"
 #include "gen/tollvm.h"
-#include "gen/typeinf.h"
+#include "gen/typinf.h"
 #include "ir/irfunction.h"
 #include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
@@ -720,7 +720,13 @@ public:
     }
 
     TypeInfoDeclaration *tid = getOrCreateTypeInfoDeclaration(t, nullptr);
-    TypeInfoDeclaration_codegen(tid, p);
+    if ((t->ty == Tclass) &&
+        !static_cast<TypeClass *>(t)->sym->isInterfaceDeclaration()) {
+      // For classes, delegate to special function:
+      TypeInfoClassDeclaration_codegen(tid, p);
+    } else {
+      TypeInfoDeclaration_codegen(tid, p);
+    }
     result = llvm::cast<llvm::GlobalVariable>(getIrGlobal(tid)->value);
   }
 

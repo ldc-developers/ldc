@@ -28,7 +28,7 @@
 #include "gen/pragma.h"
 #include "gen/runtime.h"
 #include "gen/structs.h"
-#include "gen/typeinf.h"
+#include "gen/typinf.h"
 #include "gen/uda.h"
 #include "ir/irtype.h"
 #include "ir/irtypeclass.h"
