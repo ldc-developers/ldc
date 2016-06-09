@@ -902,6 +902,10 @@ static void registerPredefinedVersions() {
     VersionCondition::addPredefinedGlobalIdent("D_Ddoc");
   }
 
+  if (global.params.cov) {
+    VersionCondition::addPredefinedGlobalIdent("D_Coverage");
+  }
+
   if (global.params.useUnitTests) {
     VersionCondition::addPredefinedGlobalIdent("unittest");
   }
