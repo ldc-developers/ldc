@@ -119,7 +119,7 @@ void insertBitcodeIntoModule(const char *bcFile, llvm::Module &M,
       getLazyIRFileModule(bcFile, Err, Context));
   if (!loadedModule) {
     error(Loc(), "Error when loading LLVM bitcode file: %s", bcFile);
-    return;
+    fatal();
   }
 #if LDC_LLVM_VER >= 308
   llvm::Linker(M).linkInModule(std::move(loadedModule));
@@ -141,6 +141,7 @@ void insertBitcodeFiles(llvm::Module &M, llvm::LLVMContext &Ctx,
   if (!bitcodeFiles.empty()) {
     error(Loc(),
           "Passing LLVM bitcode files to LDC is not supported for LLVM < 3.6");
+    fatal();
   }
 #endif
 }
