@@ -38,6 +38,11 @@ void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
     // Merge the Linker Options with the pre-existing one
     // (this can happen when passing a .bc file on the commandline)
 
+#if LDC_LLVM_VER < 306
+    // Passing a bitcode file on the commandline is not supported for LLVM 3.5.
+    llvm_unreachable(
+        "Merging of Linker Options is not implemented for LLVM 3.5");
+#else
     auto *moduleFlags = M.getModuleFlagsMetadata();
     for (unsigned i = 0, e = moduleFlags->getNumOperands(); i < e; ++i) {
       auto *flag = moduleFlags->getOperand(i);
@@ -66,6 +71,7 @@ void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
 
       break;
     }
+#endif
   }
 }
 }
@@ -212,14 +218,14 @@ void CodeGenerator::emit(Module *m) {
       auto startSymbol = new llvm::GlobalVariable(
           ir_->module, llvm::Type::getInt32Ty(ir_->module.getContext()), false,
           llvm::GlobalValue::ExternalLinkage,
-          llvm::ConstantInt::get(ir_->module.getContext(), APInt(32,0)),
+          llvm::ConstantInt::get(ir_->module.getContext(), APInt(32, 0)),
           "_tlsstart", &*(ir_->module.global_begin()));
       startSymbol->setSection(".tdata");
 
       auto endSymbol = new llvm::GlobalVariable(
           ir_->module, llvm::Type::getInt32Ty(ir_->module.getContext()), false,
           llvm::GlobalValue::ExternalLinkage,
-          llvm::ConstantInt::get(ir_->module.getContext(), APInt(32,0)),
+          llvm::ConstantInt::get(ir_->module.getContext(), APInt(32, 0)),
           "_tlsend");
       endSymbol->setSection(".tcommon");
     }
