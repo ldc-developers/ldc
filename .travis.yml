@@ -52,7 +52,7 @@ addons:
 before_install:
   -
     if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
-      if [ "$(ls -A llvm-$LLVM_VERSION)" ]; then
+      if [ -z "$(ls -A llvm-$LLVM_VERSION)" ]; then
         wget -O llvm-$LLVM_VERSION.tar.xz http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-x86_64-linux-gnu-ubuntu-14.04.tar.xz;
         mkdir llvm-$LLVM_VERSION;
         xzcat llvm-$LLVM_VERSION.tar.xz | tar -xvf - --strip 1 -C llvm-$LLVM_VERSION;
