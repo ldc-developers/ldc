@@ -30,10 +30,10 @@ matrix:
 
 cache:
   directories:
-    #- llvm-3.8.0
-    #- llvm-3.7.1
-    #- llvm-3.6.2
-    #- llvm-3.5.2
+    - llvm-3.8.0
+    - llvm-3.7.1
+    - llvm-3.6.2
+    - llvm-3.5.2
 addons:
   apt:
     sources:
@@ -49,12 +49,10 @@ addons:
     - g++-multilib
     - libedit2
     - libedit-dev
-install:
-  - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then export CC="gcc-4.9"; export CXX="g++-4.9"; fi
-  - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then brew update; brew install llvm38; brew install libconfig; fi;
+before_install:
   -
     if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
-      if [[ ! -e llvm-$LLVM_VERSION ]]; then
+      if [ "$(ls -A llvm-$LLVM_VERSION)" ]; then
         wget -O llvm-$LLVM_VERSION.tar.xz http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-x86_64-linux-gnu-ubuntu-14.04.tar.xz;
         mkdir llvm-$LLVM_VERSION;
         xzcat llvm-$LLVM_VERSION.tar.xz | tar -xvf - --strip 1 -C llvm-$LLVM_VERSION;
@@ -62,6 +60,9 @@ install:
       llvm-$LLVM_VERSION/bin/llvm-config --version;
       export LLVM_CONFIG="llvm-$LLVM_VERSION/bin/llvm-config";
     fi
+install:
+  - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then export CC="gcc-4.9"; export CXX="g++-4.9"; fi
+  - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then brew update; brew install llvm38; brew install libconfig; fi;
   - eval "${DC} --version"
   - pip install --user lit
   - python -c "import lit; lit.main();" --version | head -n 1
