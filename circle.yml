@@ -6,27 +6,25 @@ machine:
 dependencies:
   cache_directories:
     - ldc2-1.0.0-linux-x86_64
-    - clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04
+    #- clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04
   pre:
-    # LLVM's APT repositories are shut down until further notice.
-    #- sudo add-apt-repository -y 'deb http://llvm.org/apt/trusty/ llvm-toolchain-trusty main'
-    #- wget -q -O - http://llvm.org/apt/llvm-snapshot.gpg.key | sudo apt-key add -
+    # LLVM's APT repositories are shut down until further notice. Use temporary solution:
+    - sudo add-apt-repository -y 'deb http://llvm-apt.ecranbleu.org/apt/trusty/ llvm-toolchain-trusty main'
+    - wget -O - http://llvm-apt.ecranbleu.org/apt/llvm-snapshot.gpg.key|sudo apt-key add -
     - sudo apt-get update
-    - if [[ ! -e clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04 ]]; then wget http://llvm.org/releases/3.8.0/clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04.tar.xz && xzcat clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04.tar.xz | tar -xvf - ; fi
+    #- if [[ ! -e clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04 ]]; then wget http://llvm.org/releases/3.8.0/clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04.tar.xz && xzcat clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04.tar.xz | tar -xvf - ; fi
 
     - if [[ ! -e ldc2-1.0.0-linux-x86_64/bin/ldc2 ]]; then wget https://github.com/ldc-developers/ldc/releases/download/v1.0.0/ldc2-1.0.0-linux-x86_64.tar.xz && xzcat ldc2-1.0.0-linux-x86_64.tar.xz | tar -xvf - ; fi
   override:
     - sudo apt-get remove clang
-    #- sudo apt-get install gcc-4.9 g++-4.9 gcc-4.9-multilib g++-4.9-multilib libconfig++8-dev libedit-dev
     - sudo apt-get install libconfig++8-dev libedit-dev
+    - sudo apt-get install llvm-3.9 llvm-3.9-dev clang-3.9
     - pip install --user lit
   post:
-    #- sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 99
-    #- sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.9 99
-    #- sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-3.9 99
-    #- sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-3.9 99
-    - sudo update-alternatives --install /usr/bin/clang clang ~/$CIRCLE_PROJECT_REPONAME/clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04/bin/clang 99
-    - sudo update-alternatives --install /usr/bin/clang++ clang++ ~/$CIRCLE_PROJECT_REPONAME/clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04/bin/clang++ 99
+    - sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-3.9 99
+    - sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-3.9 99
+    #- sudo update-alternatives --install /usr/bin/clang clang ~/$CIRCLE_PROJECT_REPONAME/clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04/bin/clang 99
+    #- sudo update-alternatives --install /usr/bin/clang++ clang++ ~/$CIRCLE_PROJECT_REPONAME/clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04/bin/clang++ 99
     - gcc --version
     - clang --version
     - ldc2 -version
@@ -40,7 +38,8 @@ checkout:
 
 test:
   pre:
-    - CC=clang CXX=clang++ cmake -DLLVM_ROOT_DIR="~/$CIRCLE_PROJECT_REPONAME/clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04" -DD_COMPILER="~/$CIRCLE_PROJECT_REPONAME/ldc2-1.0.0-linux-x86_64/bin/ldmd2" .
+    - CC=clang CXX=clang++ cmake .
+    #- CC=clang CXX=clang++ cmake -DLLVM_ROOT_DIR="~/$CIRCLE_PROJECT_REPONAME/clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04" -DD_COMPILER="~/$CIRCLE_PROJECT_REPONAME/ldc2-1.0.0-linux-x86_64/bin/ldmd2" .
     - make -j4
     - bin/ldc2 -version || exit 1
   override:
