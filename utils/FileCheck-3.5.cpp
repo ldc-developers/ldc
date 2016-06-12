@@ -642,8 +642,9 @@ struct CheckString {
 ///
 /// \param PreserveHorizontal Don't squash consecutive horizontal whitespace
 /// characters to a single space.
-static MemoryBuffer *CanonicalizeInputFile(MemoryBuffer *MB,
-                                           bool PreserveHorizontal) {
+static std::unique_ptr<MemoryBuffer>
+CanonicalizeInputFile(std::unique_ptr<MemoryBuffer> MB,
+                      bool PreserveHorizontal) {
   SmallString<128> NewFile;
   NewFile.reserve(MB->getBufferSize());
 
@@ -668,12 +669,8 @@ static MemoryBuffer *CanonicalizeInputFile(MemoryBuffer *MB,
       ++Ptr;
   }
 
-  // Free the old buffer and return a new one.
-  MemoryBuffer *MB2 =
-    MemoryBuffer::getMemBufferCopy(NewFile.str(), MB->getBufferIdentifier());
-
-  delete MB;
-  return MB2;
+  return std::unique_ptr<MemoryBuffer>(
+      MemoryBuffer::getMemBufferCopy(NewFile.str(), MB->getBufferIdentifier()));
 }
 
 static bool IsPartOfWord(char c) {
@@ -861,13 +858,13 @@ static bool ReadCheckFile(SourceMgr &SM,
 
   // If we want to canonicalize whitespace, strip excess whitespace from the
   // buffer containing the CHECK lines. Remove DOS style line endings.
-  MemoryBuffer *F = CanonicalizeInputFile(FileOrErr.get().release(),
-                                          NoCanonicalizeWhiteSpace);
-
-  SM.AddNewSourceBuffer(F, SMLoc());
+  std::unique_ptr<MemoryBuffer> F = CanonicalizeInputFile(
+      std::move(FileOrErr.get()), NoCanonicalizeWhiteSpace);
 
   // Find all instances of CheckPrefix followed by : in the file.
   StringRef Buffer = F->getBuffer();
+
+  SM.AddNewSourceBuffer(F.release(), SMLoc());
 
   std::vector<Pattern> ImplicitNegativeChecks;
   for (const auto &PatternString : ImplicitCheckNot) {
@@ -875,11 +872,12 @@ static bool ReadCheckFile(SourceMgr &SM,
     // command line option responsible for the specific implicit CHECK-NOT.
     std::string Prefix = std::string("-") + ImplicitCheckNot.ArgStr + "='";
     std::string Suffix = "'";
-    MemoryBuffer *CmdLine = MemoryBuffer::getMemBufferCopy(
-        Prefix + PatternString + Suffix, "command line");
+    std::unique_ptr<MemoryBuffer> CmdLine ( MemoryBuffer::getMemBufferCopy(
+        Prefix + PatternString + Suffix, "command line") );
+
     StringRef PatternInBuffer =
         CmdLine->getBuffer().substr(Prefix.size(), PatternString.size());
-    SM.AddNewSourceBuffer(CmdLine, SMLoc());
+    SM.AddNewSourceBuffer(CmdLine.release(), SMLoc());
 
     ImplicitNegativeChecks.push_back(Pattern(Check::CheckNot));
     ImplicitNegativeChecks.back().ParsePattern(PatternInBuffer,
@@ -965,10 +963,7 @@ static bool ReadCheckFile(SourceMgr &SM,
     }
 
     // Okay, add the string we captured to the output vector and move on.
-    CheckStrings.push_back(CheckString(P,
-                                       UsedPrefix,
-                                       PatternLoc,
-                                       CheckTy));
+    CheckStrings.emplace_back(P, UsedPrefix, PatternLoc, CheckTy);
     std::swap(DagNotMatches, CheckStrings.back().DagNotStrings);
     DagNotMatches = ImplicitNegativeChecks;
   }
@@ -976,22 +971,23 @@ static bool ReadCheckFile(SourceMgr &SM,
   // Add an EOF pattern for any trailing CHECK-DAG/-NOTs, and use the first
   // prefix as a filler for the error message.
   if (!DagNotMatches.empty()) {
-    CheckStrings.push_back(CheckString(Pattern(Check::CheckEOF),
-                                       CheckPrefixes[0],
-                                       SMLoc::getFromPointer(Buffer.data()),
-                                       Check::CheckEOF));
+    CheckStrings.emplace_back(Pattern(Check::CheckEOF), *CheckPrefixes.begin(),
+                              SMLoc::getFromPointer(Buffer.data()),
+                              Check::CheckEOF);
     std::swap(DagNotMatches, CheckStrings.back().DagNotStrings);
   }
 
   if (CheckStrings.empty()) {
     errs() << "error: no check strings found with prefix"
            << (CheckPrefixes.size() > 1 ? "es " : " ");
-    for (size_t I = 0, N = CheckPrefixes.size(); I != N; ++I) {
-      StringRef Prefix(CheckPrefixes[I]);
-      errs() << '\'' << Prefix << ":'";
-      if (I != N - 1)
-        errs() << ", ";
+    prefix_iterator I = CheckPrefixes.begin();
+    prefix_iterator E = CheckPrefixes.end();
+    if (I != E) {
+      errs() << "\'" << *I << ":'";
+      ++I;
     }
+    for (; I != E; ++I) 
+      errs() << ", \'" << *I << ":'";
 
     errs() << '\n';
     return true;
@@ -1278,6 +1274,10 @@ static bool ValidateCheckPrefixes() {
        I != E; ++I) {
     StringRef Prefix(*I);
 
+    // Reject empty prefixes.
+    if (Prefix == "")
+      return false;
+
     if (!PrefixSet.insert(Prefix))
       return false;
 
@@ -1324,26 +1324,26 @@ int main(int argc, char **argv) {
            << "': " << EC.message() << '\n';
     return 2;
   }
-  std::unique_ptr<MemoryBuffer> File = std::move(FileOrErr.get());
+  std::unique_ptr<MemoryBuffer> &File = FileOrErr.get();
 
-  if (File->getBufferSize() == 0) {
+  if (File->getBufferSize() == 0 && !AllowEmptyInput) {
     errs() << "FileCheck error: '" << InputFilename << "' is empty.\n";
     return 2;
   }
 
   // Remove duplicate spaces in the input file if requested.
   // Remove DOS style line endings.
-  MemoryBuffer *F =
-    CanonicalizeInputFile(File.release(), NoCanonicalizeWhiteSpace);
-
-  SM.AddNewSourceBuffer(F, SMLoc());
-
-  /// VariableTable - This holds all the current filecheck variables.
-  StringMap<StringRef> VariableTable;
+  std::unique_ptr<MemoryBuffer> F =
+      CanonicalizeInputFile(std::move(File), NoCanonicalizeWhiteSpace);
 
   // Check that we have all of the expected strings, in order, in the input
   // file.
   StringRef Buffer = F->getBuffer();
+
+  SM.AddNewSourceBuffer(F.release(), SMLoc());
+
+  /// VariableTable - This holds all the current filecheck variables.
+  StringMap<StringRef> VariableTable;
 
   bool hasError = false;
 
