@@ -202,6 +202,8 @@ public:
             "SysV4",
             "Hurd",
             "Android",
+            "PlayStation",
+            "PlayStation4",
             "Cygwin",
             "MinGW",
             "FreeStanding",
