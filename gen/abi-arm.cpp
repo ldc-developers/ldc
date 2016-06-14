@@ -17,6 +17,7 @@
 #include "gen/abi.h"
 #include "gen/abi-generic.h"
 #include "gen/abi-arm.h"
+#include "llvm/Target/TargetMachine.h"
 
 struct ArmTargetABI : TargetABI {
   HFAToArray hfaToArray;
@@ -39,7 +40,9 @@ struct ArmTargetABI : TargetABI {
       return rt->ty == Tsarray || rt->ty == Tstruct;
 
     return rt->ty == Tsarray ||
-           (rt->ty == Tstruct && rt->size() > 4 && !isHFA((TypeStruct *)rt));
+           (rt->ty == Tstruct && rt->size() > 4 &&
+             (gTargetMachine->Options.FloatABIType == llvm::FloatABI::Soft ||
+             !isHFA((TypeStruct *)rt)));
   }
 
   bool passByVal(Type *t) override {
