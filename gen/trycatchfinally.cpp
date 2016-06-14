@@ -20,6 +20,39 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
+namespace {
+/// Creates a block that calls `_d_eh_exit_catch` upon cleanup of current scope.
+class ExitCatchCleanupCall {
+  IRState &irs;
+  llvm::BasicBlock *endbb;
+  CleanupCursor presaveCleanupScope;
+
+public:
+  ExitCatchCleanupCall(IRState &_irs, llvm::BasicBlock *_endbb)
+      : irs(_irs), endbb(_endbb),
+        presaveCleanupScope(irs.funcGen().scopes.currentCleanupScope()) {
+
+    auto *exitCatchBB =
+        llvm::BasicBlock::Create(irs.context(), "catch.exit", irs.topfunc());
+    IRScope oldScope = irs.scope();
+    irs.scope() = IRScope(exitCatchBB);
+    irs.ir->CreateCall(
+        getRuntimeFunction(Loc(), irs.module, "_d_eh_exit_catch"));
+    irs.funcGen().scopes.pushCleanup(exitCatchBB, irs.scopebb());
+    irs.scope() = oldScope;
+  }
+
+  ~ExitCatchCleanupCall() {
+    if (!irs.scopereturned()) {
+      irs.funcGen().scopes.runCleanups(presaveCleanupScope, endbb);
+    }
+    irs.funcGen().scopes.popCleanups(presaveCleanupScope);
+  }
+};
+} // anonymous namespace
+
+////////////////////////////////////////////////////////////////////////////////
+
 TryCatchScope::TryCatchScope(IRState &irs, llvm::Value *ehPtrSlot,
                              TryCatchStatement *stmt, llvm::BasicBlock *endbb)
     : stmt(stmt), endbb(endbb) {
@@ -92,10 +125,16 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
                getIrLocal(c->var)->value);
     }
 
-    // Emit handler, if there is one. The handler is zero, for instance,
-    // when building 'catch { debug foo(); }' in non-debug mode.
-    if (c->handler)
-      Statement_toIR(c->handler, &irs);
+    {
+      // Note, the destructor of S does cleanup (thus the scope of S is
+      // important).
+      auto S = ExitCatchCleanupCall(irs, endbb);
+
+      // Emit handler, if there is one. The handler is zero, for instance,
+      // when building 'catch { debug foo(); }' in non-debug mode.
+      if (c->handler)
+        Statement_toIR(c->handler, &irs);
+    }
 
     if (!irs.scopereturned())
       irs.ir->CreateBr(endbb);
@@ -240,10 +279,16 @@ void TryCatchScope::emitCatchBodiesMSVC(IRState &irs, llvm::Value *) {
 
     emitBeginCatchMSVC(irs, c, catchSwitchInst);
 
-    // Emit handler, if there is one. The handler is zero, for instance,
-    // when building 'catch { debug foo(); }' in non-debug mode.
-    if (c->handler)
-      Statement_toIR(c->handler, &irs);
+    {
+      // Note, the destructor of S does cleanup (thus the scope of S is
+      // important).
+      auto S = ExitCatchCleanupCall(irs, endbb);
+
+      // Emit handler, if there is one. The handler is zero, for instance,
+      // when building 'catch { debug foo(); }' in non-debug mode.
+      if (c->handler)
+        Statement_toIR(c->handler, &irs);
+    }
 
     if (!irs.scopereturned())
       irs.ir->CreateBr(endbb);
