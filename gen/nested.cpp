@@ -45,7 +45,7 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     if (fd->isStatic()) {
       error(loc, "function %s cannot access frame of function %s",
             irfunc->decl->toPrettyChars(), vdparent->toPrettyChars());
-      return new DVarValue(astype, llvm::UndefValue::get(DtoPtrToType(astype)));
+      return new DLValue(astype, llvm::UndefValue::get(DtoPtrToType(astype)));
     }
     fd = getParentFunc(fd, false);
     assert(fd);

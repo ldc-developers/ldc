@@ -172,7 +172,7 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
   LLValue *put(DValue *v) override {
     LLValue *address = getAddressOf(v);
 
-    LLType *abiTy = getAbiType(v->getType());
+    LLType *abiTy = getAbiType(v->type);
     assert(abiTy && "Why are we rewriting a non-rewritten type?");
 
     return loadFromMemory(address, abiTy, ".X86_64_C_struct_rewrite_putResult");

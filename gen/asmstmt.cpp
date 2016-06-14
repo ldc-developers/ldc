@@ -193,18 +193,18 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState *irs) {
 
     switch (arg->type) {
     case Arg_Integer:
-      arg_val = toElem(arg->expr)->getRVal();
+      arg_val = DtoRVal(arg->expr);
     do_integer:
       cns = i_cns;
       break;
     case Arg_Pointer:
       assert(arg->expr->op == TOKvar);
-      arg_val = toElem(arg->expr)->getRVal();
+      arg_val = DtoRVal(arg->expr);
       cns = p_cns;
 
       break;
     case Arg_Memory:
-      arg_val = toElem(arg->expr)->getRVal();
+      arg_val = DtoRVal(arg->expr);
 
       switch (arg->mode) {
       case Mode_Input:

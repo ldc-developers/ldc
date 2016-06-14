@@ -92,7 +92,7 @@ DValue *DtoNewClass(Loc &loc, TypeClass *tc, NewExp *newexp) {
     DtoResolveFunction(newexp->allocator);
     DFuncValue dfn(newexp->allocator, getIrFunc(newexp->allocator)->func);
     DValue *res = DtoCallFunction(newexp->loc, nullptr, &dfn, newexp->newargs);
-    mem = DtoBitCast(res->getRVal(), DtoType(tc), ".newclass_custom");
+    mem = DtoBitCast(DtoRVal(res), DtoType(tc), ".newclass_custom");
   }
   // default allocator
   else {
@@ -112,9 +112,8 @@ DValue *DtoNewClass(Loc &loc, TypeClass *tc, NewExp *newexp) {
   if (newexp->thisexp) {
     Logger::println("Resolving outer class");
     LOG_SCOPE;
-    DValue *thisval = toElem(newexp->thisexp);
     unsigned idx = getFieldGEPIndex(tc->sym, tc->sym->vthis);
-    LLValue *src = thisval->getRVal();
+    LLValue *src = DtoRVal(newexp->thisexp);
     LLValue *dst = DtoGEPi(mem, 0, idx);
     IF_LOG Logger::cout() << "dst: " << *dst << "\nsrc: " << *src << '\n';
     DtoStore(src, DtoBitCast(dst, getPtrToType(src->getType())));
@@ -195,7 +194,7 @@ void DtoFinalizeClass(Loc &loc, LLValue *inst) {
 ////////////////////////////////////////////////////////////////////////////////
 
 DValue *DtoCastClass(Loc &loc, DValue *val, Type *_to) {
-  IF_LOG Logger::println("DtoCastClass(%s, %s)", val->getType()->toChars(),
+  IF_LOG Logger::println("DtoCastClass(%s, %s)", val->type->toChars(),
                          _to->toChars());
   LOG_SCOPE;
 
@@ -205,13 +204,13 @@ DValue *DtoCastClass(Loc &loc, DValue *val, Type *_to) {
   if (to->ty == Tpointer) {
     IF_LOG Logger::println("to pointer");
     LLType *tolltype = DtoType(_to);
-    LLValue *rval = DtoBitCast(val->getRVal(), tolltype);
+    LLValue *rval = DtoBitCast(DtoRVal(val), tolltype);
     return new DImValue(_to, rval);
   }
   // class -> bool
   if (to->ty == Tbool) {
     IF_LOG Logger::println("to bool");
-    LLValue *llval = val->getRVal();
+    LLValue *llval = DtoRVal(val);
     LLValue *zero = LLConstant::getNullValue(llval->getType());
     return new DImValue(_to, gIR->ir->CreateICmpNE(llval, zero));
   }
@@ -220,7 +219,7 @@ DValue *DtoCastClass(Loc &loc, DValue *val, Type *_to) {
     IF_LOG Logger::println("to %s", to->toChars());
 
     // get class ptr
-    LLValue *v = val->getRVal();
+    LLValue *v = DtoRVal(val);
     // cast to size_t
     v = gIR->ir->CreatePtrToInt(v, DtoSize_t(), "");
     // cast to the final int type
@@ -238,7 +237,7 @@ DValue *DtoCastClass(Loc &loc, DValue *val, Type *_to) {
   TypeClass *tc = static_cast<TypeClass *>(to);
 
   // from type
-  Type *from = val->getType()->toBasetype();
+  Type *from = val->type->toBasetype();
   TypeClass *fc = static_cast<TypeClass *>(from);
 
   // copy DMD logic:
@@ -256,7 +255,7 @@ DValue *DtoCastClass(Loc &loc, DValue *val, Type *_to) {
     //  so GEP on the original type is inappropriate
 
     // offset pointer
-    LLValue *orig = val->getRVal();
+    LLValue *orig = DtoRVal(val);
     LLValue *v = orig;
     if (offset != 0) {
       v = DtoBitCast(v, getVoidPtrType());
@@ -285,7 +284,7 @@ DValue *DtoCastClass(Loc &loc, DValue *val, Type *_to) {
 
   if (fc->sym->cpp) {
     Logger::println("C++ class/interface cast");
-    LLValue *v = tc->sym->cpp ? DtoBitCast(val->getRVal(), toType)
+    LLValue *v = tc->sym->cpp ? DtoBitCast(DtoRVal(val), toType)
                               : LLConstant::getNullValue(toType);
     return new DImValue(_to, v);
   }
@@ -314,7 +313,7 @@ DValue *DtoDynamicCastObject(Loc &loc, DValue *val, Type *_to) {
   LLFunctionType *funcTy = func->getFunctionType();
 
   // Object o
-  LLValue *obj = val->getRVal();
+  LLValue *obj = DtoRVal(val);
   obj = DtoBitCast(obj, funcTy->getParamType(0));
   assert(funcTy->getParamType(0) == obj->getType());
 
@@ -352,7 +351,7 @@ DValue *DtoDynamicCastInterface(Loc &loc, DValue *val, Type *_to) {
   LLFunctionType *funcTy = func->getFunctionType();
 
   // void* p
-  LLValue *ptr = val->getRVal();
+  LLValue *ptr = DtoRVal(val);
   ptr = DtoBitCast(ptr, funcTy->getParamType(0));
 
   // ClassInfo c
@@ -380,13 +379,13 @@ LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl,
   // sanity checks
   assert(fdecl->isVirtual());
   assert(!fdecl->isFinalFunc());
-  assert(inst->getType()->toBasetype()->ty == Tclass);
+  assert(inst->type->toBasetype()->ty == Tclass);
   // 0 is always ClassInfo/Interface* unless it is a CPP interface
   assert(fdecl->vtblIndex > 0 ||
          (fdecl->vtblIndex == 0 && fdecl->linkage == LINKcpp));
 
   // get instance
-  LLValue *vthis = inst->getRVal();
+  LLValue *vthis = DtoRVal(inst);
   IF_LOG Logger::cout() << "vthis: " << *vthis << '\n';
 
   LLValue *funcval = vthis;

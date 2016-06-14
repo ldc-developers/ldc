@@ -103,14 +103,14 @@ LLValue *DtoNewStruct(Loc &loc, TypeStruct *newtype) {
 
 void DtoDeleteMemory(Loc &loc, DValue *ptr) {
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delmemory");
-  LLValue *lval = (ptr->isLVal() ? ptr->getLVal() : makeLValue(loc, ptr));
+  LLValue *lval = (ptr->isLVal() ? DtoLVal(ptr) : makeLValue(loc, ptr));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)));
 }
 
 void DtoDeleteStruct(Loc &loc, DValue *ptr) {
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delstruct");
-  LLValue *lval = (ptr->isLVal() ? ptr->getLVal() : makeLValue(loc, ptr));
+  LLValue *lval = (ptr->isLVal() ? DtoLVal(ptr) : makeLValue(loc, ptr));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)),
       DtoBitCast(DtoTypeInfoOf(ptr->type->nextOf()),
@@ -119,14 +119,14 @@ void DtoDeleteStruct(Loc &loc, DValue *ptr) {
 
 void DtoDeleteClass(Loc &loc, DValue *inst) {
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delclass");
-  LLValue *lval = (inst->isLVal() ? inst->getLVal() : makeLValue(loc, inst));
+  LLValue *lval = (inst->isLVal() ? DtoLVal(inst) : makeLValue(loc, inst));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)));
 }
 
 void DtoDeleteInterface(Loc &loc, DValue *inst) {
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delinterface");
-  LLValue *lval = (inst->isLVal() ? inst->getLVal() : makeLValue(loc, inst));
+  LLValue *lval = (inst->isLVal() ? DtoLVal(inst) : makeLValue(loc, inst));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)));
 }
@@ -142,7 +142,7 @@ void DtoDeleteArray(Loc &loc, DValue *arr) {
   LLValue *typeInfo = (!hasDtor ? getNullPtr(fty->getParamType(1))
                                 : DtoTypeInfoOf(elementType));
 
-  LLValue *lval = (arr->isLVal() ? arr->getLVal() : makeLValue(loc, arr));
+  LLValue *lval = (arr->isLVal() ? DtoLVal(arr) : makeLValue(loc, arr));
   gIR->CreateCallOrInvoke(fn, DtoBitCast(lval, fty->getParamType(0)),
                           DtoBitCast(typeInfo, fty->getParamType(1)));
 }
@@ -206,16 +206,16 @@ LLValue *DtoGcMalloc(Loc &loc, LLType *lltype, const char *name) {
 }
 
 LLValue *DtoAllocaDump(DValue *val, const char *name) {
-  return DtoAllocaDump(val->getRVal(), val->getType(), name);
+  return DtoAllocaDump(val, val->type, name);
 }
 
 LLValue *DtoAllocaDump(DValue *val, Type *asType, const char *name) {
-  return DtoAllocaDump(val->getRVal(), asType, name);
+  return DtoAllocaDump(val, DtoType(asType), DtoAlignment(asType), name);
 }
 
 LLValue *DtoAllocaDump(DValue *val, LLType *asType, int alignment,
                        const char *name) {
-  return DtoAllocaDump(val->getRVal(), asType, alignment, name);
+  return DtoAllocaDump(DtoRVal(val), asType, alignment, name);
 }
 
 LLValue *DtoAllocaDump(LLValue *val, int alignment, const char *name) {
@@ -252,7 +252,7 @@ void DtoAssert(Module *M, Loc &loc, DValue *msg) {
 
   // msg param
   if (msg) {
-    args.push_back(msg->getRVal());
+    args.push_back(DtoRVal(msg));
   }
 
   // file param
@@ -304,31 +304,30 @@ void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
   IF_LOG Logger::println("DtoAssign()");
   LOG_SCOPE;
 
-  Type *t = lhs->getType()->toBasetype();
-  Type *t2 = rhs->getType()->toBasetype();
+  Type *t = lhs->type->toBasetype();
+  Type *t2 = rhs->type->toBasetype();
 
   assert(t->ty != Tvoid && "Cannot assign values of type void.");
 
   if (t->ty == Tbool) {
-    DtoStoreZextI8(rhs->getRVal(), lhs->getLVal());
+    DtoStoreZextI8(DtoRVal(rhs), DtoLVal(lhs));
   } else if (t->ty == Tstruct) {
     // don't copy anything to empty structs
     if (static_cast<TypeStruct *>(t)->sym->fields.dim > 0) {
-      llvm::Value *src = rhs->getRVal();
-      llvm::Value *dst = lhs->getLVal();
+      llvm::Value *src = DtoLVal(rhs);
+      llvm::Value *dst = DtoLVal(lhs);
 
       // Check whether source and destination values are the same at compile
       // time as to not emit an invalid (overlapping) memcpy on trivial
       // struct self-assignments like 'A a; a = a;'.
-      if (src != dst) {
+      if (src != dst)
         DtoMemCpy(dst, src);
-      }
     }
   } else if (t->ty == Tarray || t->ty == Tsarray) {
     DtoArrayAssign(loc, lhs, rhs, op, canSkipPostblit);
   } else if (t->ty == Tdelegate) {
-    LLValue *l = lhs->getLVal();
-    LLValue *r = rhs->getRVal();
+    LLValue *l = DtoLVal(lhs);
+    LLValue *r = DtoRVal(rhs);
     IF_LOG {
       Logger::cout() << "lhs: " << *l << '\n';
       Logger::cout() << "rhs: " << *r << '\n';
@@ -336,8 +335,8 @@ void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
     DtoStore(r, l);
   } else if (t->ty == Tclass) {
     assert(t2->ty == Tclass);
-    LLValue *l = lhs->getLVal();
-    LLValue *r = rhs->getRVal();
+    LLValue *l = DtoLVal(lhs);
+    LLValue *r = DtoRVal(rhs);
     IF_LOG {
       Logger::cout() << "l : " << *l << '\n';
       Logger::cout() << "r : " << *r << '\n';
@@ -345,19 +344,19 @@ void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
     r = DtoBitCast(r, l->getType()->getContainedType(0));
     DtoStore(r, l);
   } else if (t->iscomplex()) {
-    LLValue *dst = lhs->getLVal();
-    LLValue *src = DtoCast(loc, rhs, lhs->getType())->getRVal();
+    LLValue *dst = DtoLVal(lhs);
+    LLValue *src = DtoRVal(DtoCast(loc, rhs, lhs->type));
     DtoStore(src, dst);
   } else {
-    LLValue *l = lhs->getLVal();
-    LLValue *r = rhs->getRVal();
+    LLValue *l = DtoLVal(lhs);
+    LLValue *r = DtoRVal(rhs);
     IF_LOG {
       Logger::cout() << "lhs: " << *l << '\n';
       Logger::cout() << "rhs: " << *r << '\n';
     }
     LLType *lit = l->getType()->getContainedType(0);
     if (r->getType() != lit) {
-      r = DtoCast(loc, rhs, lhs->getType())->getRVal();
+      r = DtoRVal(DtoCast(loc, rhs, lhs->type));
       IF_LOG {
         Logger::println("Type mismatch, really assigning:");
         LOG_SCOPE
@@ -417,10 +416,10 @@ DValue *DtoCastInt(Loc &loc, DValue *val, Type *_to) {
   LLType *tolltype = DtoType(_to);
 
   Type *to = _to->toBasetype();
-  Type *from = val->getType()->toBasetype();
+  Type *from = val->type->toBasetype();
   assert(from->isintegral());
 
-  LLValue *rval = val->getRVal();
+  LLValue *rval = DtoRVal(val);
   if (rval->getType() == tolltype) {
     return new DImValue(_to, rval);
   }
@@ -456,7 +455,7 @@ DValue *DtoCastInt(Loc &loc, DValue *val, Type *_to) {
     IF_LOG Logger::cout() << "cast pointer: " << *tolltype << '\n';
     rval = gIR->ir->CreateIntToPtr(rval, tolltype);
   } else {
-    error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
+    error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
           _to->toChars());
     fatal();
   }
@@ -468,26 +467,26 @@ DValue *DtoCastPtr(Loc &loc, DValue *val, Type *to) {
   LLType *tolltype = DtoType(to);
 
   Type *totype = to->toBasetype();
-  Type *fromtype = val->getType()->toBasetype();
+  Type *fromtype = val->type->toBasetype();
   assert(fromtype->ty == Tpointer || fromtype->ty == Tfunction);
 
   LLValue *rval;
 
   if (totype->ty == Tpointer || totype->ty == Tclass) {
-    LLValue *src = val->getRVal();
+    LLValue *src = DtoRVal(val);
     IF_LOG {
       Logger::cout() << "src: " << *src << '\n';
       Logger::cout() << "to type: " << *tolltype << '\n';
     }
     rval = DtoBitCast(src, tolltype);
   } else if (totype->ty == Tbool) {
-    LLValue *src = val->getRVal();
+    LLValue *src = DtoRVal(val);
     LLValue *zero = LLConstant::getNullValue(src->getType());
     rval = gIR->ir->CreateICmpNE(src, zero);
   } else if (totype->isintegral()) {
-    rval = new llvm::PtrToIntInst(val->getRVal(), tolltype, "", gIR->scopebb());
+    rval = new llvm::PtrToIntInst(DtoRVal(val), tolltype, "", gIR->scopebb());
   } else {
-    error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
+    error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
           to->toChars());
     fatal();
   }
@@ -496,14 +495,14 @@ DValue *DtoCastPtr(Loc &loc, DValue *val, Type *to) {
 }
 
 DValue *DtoCastFloat(Loc &loc, DValue *val, Type *to) {
-  if (val->getType() == to) {
+  if (val->type == to) {
     return val;
   }
 
   LLType *tolltype = DtoType(to);
 
   Type *totype = to->toBasetype();
-  Type *fromtype = val->getType()->toBasetype();
+  Type *fromtype = val->type->toBasetype();
   assert(fromtype->isfloating());
 
   size_t fromsz = fromtype->size();
@@ -512,33 +511,33 @@ DValue *DtoCastFloat(Loc &loc, DValue *val, Type *to) {
   LLValue *rval;
 
   if (totype->ty == Tbool) {
-    rval = val->getRVal();
+    rval = DtoRVal(val);
     LLValue *zero = LLConstant::getNullValue(rval->getType());
     rval = gIR->ir->CreateFCmpUNE(rval, zero);
   } else if (totype->iscomplex()) {
     return DtoComplex(loc, to, val);
   } else if (totype->isfloating()) {
     if (fromsz == tosz) {
-      rval = val->getRVal();
+      rval = DtoRVal(val);
       assert(rval->getType() == tolltype);
     } else if (fromsz < tosz) {
-      rval = new llvm::FPExtInst(val->getRVal(), tolltype, "", gIR->scopebb());
+      rval = new llvm::FPExtInst(DtoRVal(val), tolltype, "", gIR->scopebb());
     } else if (fromsz > tosz) {
       rval =
-          new llvm::FPTruncInst(val->getRVal(), tolltype, "", gIR->scopebb());
+          new llvm::FPTruncInst(DtoRVal(val), tolltype, "", gIR->scopebb());
     } else {
-      error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
+      error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
             to->toChars());
       fatal();
     }
   } else if (totype->isintegral()) {
     if (totype->isunsigned()) {
-      rval = new llvm::FPToUIInst(val->getRVal(), tolltype, "", gIR->scopebb());
+      rval = new llvm::FPToUIInst(DtoRVal(val), tolltype, "", gIR->scopebb());
     } else {
-      rval = new llvm::FPToSIInst(val->getRVal(), tolltype, "", gIR->scopebb());
+      rval = new llvm::FPToSIInst(DtoRVal(val), tolltype, "", gIR->scopebb());
     }
   } else {
-    error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
+    error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
           to->toChars());
     fatal();
   }
@@ -552,18 +551,18 @@ DValue *DtoCastDelegate(Loc &loc, DValue *val, Type *to) {
   }
   if (to->toBasetype()->ty == Tbool) {
     return new DImValue(
-        to, DtoDelegateEquals(TOKnotequal, val->getRVal(), nullptr));
+        to, DtoDelegateEquals(TOKnotequal, DtoRVal(val), nullptr));
   }
-  error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
+  error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
         to->toChars());
   fatal();
 }
 
 DValue *DtoCastVector(Loc &loc, DValue *val, Type *to) {
-  assert(val->getType()->toBasetype()->ty == Tvector);
+  assert(val->type->toBasetype()->ty == Tvector);
   Type *totype = to->toBasetype();
   LLType *tolltype = DtoType(to);
-  TypeVector *type = static_cast<TypeVector *>(val->getType()->toBasetype());
+  TypeVector *type = static_cast<TypeVector *>(val->type->toBasetype());
 
   if (totype->ty == Tsarray) {
     // If possible, we need to cast only the address of the vector without
@@ -571,31 +570,23 @@ DValue *DtoCastVector(Loc &loc, DValue *val, Type *to) {
     // language semantics, DMD rewrites e.g. float4.array to
     // cast(float[4])array.
     if (val->isLVal()) {
-      LLValue *vector = val->getLVal();
+      LLValue *vector = DtoLVal(val);
       IF_LOG Logger::cout() << "src: " << *vector << "to type: " << *tolltype
                             << " (casting address)\n";
-      return new DVarValue(to, DtoBitCast(vector, getPtrToType(tolltype)));
+      return new DLValue(to, DtoBitCast(vector, getPtrToType(tolltype)));
     }
-    LLValue *vector = val->getRVal();
+
+    LLValue *vector = DtoRVal(val);
     IF_LOG Logger::cout() << "src: " << *vector << "to type: " << *tolltype
                           << " (creating temporary)\n";
     LLValue *array = DtoAlloca(to);
-
-    TypeSArray *st = static_cast<TypeSArray *>(totype);
-
-    for (int i = 0, n = st->dim->toInteger(); i < n; ++i) {
-      LLValue *lelem = DtoExtractElement(vector, i);
-      DImValue elem(type->elementType(), lelem);
-      lelem = DtoCast(loc, &elem, to->nextOf())->getRVal();
-      DtoStore(lelem, DtoGEPi(array, 0, i));
-    }
-
-    return new DImValue(to, array);
+    DtoStore(vector, DtoBitCast(array, getPtrToType(vector->getType())));
+    return new DLValue(to, array);
   }
-  if (totype->ty == Tvector && to->size() == val->getType()->size()) {
-    return new DImValue(to, DtoBitCast(val->getRVal(), tolltype));
+  if (totype->ty == Tvector && to->size() == val->type->size()) {
+    return new DImValue(to, DtoBitCast(DtoRVal(val), tolltype));
   }
-  error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
+  error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
         to->toChars());
   fatal();
 }
@@ -606,19 +597,19 @@ DValue *DtoCastStruct(Loc &loc, DValue *val, Type *to) {
     // This a cast to repaint a struct to another type, which the language
     // allows for identical layouts (opCast() and so on have been lowered
     // earlier by the frontend).
-    llvm::Value *rv = val->getRVal();
-    llvm::Value *result =
-        DtoBitCast(rv, DtoType(to)->getPointerTo(), rv->getName() + ".repaint");
-    return new DImValue(to, result);
+    llvm::Value *lval = DtoLVal(val);
+    llvm::Value *result = DtoBitCast(lval, DtoType(to)->getPointerTo(),
+                                     lval->getName() + ".repaint");
+    return new DLValue(to, result);
   }
 
   error(loc, "Internal Compiler Error: Invalid struct cast from '%s' to '%s'",
-        val->getType()->toChars(), to->toChars());
+        val->type->toChars(), to->toChars());
   fatal();
 }
 
 DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
-  Type *fromtype = val->getType()->toBasetype();
+  Type *fromtype = val->type->toBasetype();
   Type *totype = to->toBasetype();
 
   if (fromtype->ty == Taarray) {
@@ -626,12 +617,12 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
     // implemented as structs.
     if (totype->ty == Tpointer) {
       IF_LOG Logger::println("Casting AA to pointer.");
-      LLValue *rval = DtoBitCast(val->getRVal(), DtoType(to));
+      LLValue *rval = DtoBitCast(DtoRVal(val), DtoType(to));
       return new DImValue(to, rval);
     }
     if (totype->ty == Tbool) {
       IF_LOG Logger::println("Casting AA to bool.");
-      LLValue *rval = val->getRVal();
+      LLValue *rval = DtoRVal(val);
       LLValue *zero = LLConstant::getNullValue(rval->getType());
       return new DImValue(to, gIR->ir->CreateICmpNE(rval, zero));
     }
@@ -677,11 +668,11 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
   case Taarray:
     if (totype->ty == Taarray) {
       // Do nothing, the types will match up anyway.
-      return new DImValue(to, val->getRVal());
+      return new DImValue(to, DtoRVal(val));
     }
   // fall-through
   default:
-    error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
+    error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
           to->toChars());
     fatal();
   }
@@ -690,7 +681,7 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
 ////////////////////////////////////////////////////////////////////////////////
 
 DValue *DtoPaintType(Loc &loc, DValue *val, Type *to) {
-  Type *from = val->getType()->toBasetype();
+  Type *from = val->type->toBasetype();
   IF_LOG Logger::println("repainting from '%s' to '%s'", from->toChars(),
                          to->toChars());
 
@@ -699,13 +690,13 @@ DValue *DtoPaintType(Loc &loc, DValue *val, Type *to) {
     assert(at->ty == Tarray);
     Type *elem = at->nextOf()->pointerTo();
     if (DSliceValue *slice = val->isSlice()) {
-      return new DSliceValue(to, slice->len,
-                             DtoBitCast(slice->ptr, DtoType(elem)));
+      return new DSliceValue(to, slice->getLength(),
+                             DtoBitCast(slice->getPtr(), DtoType(elem)));
     }
     if (val->isLVal()) {
-      LLValue *ptr = val->getLVal();
+      LLValue *ptr = DtoLVal(val);
       ptr = DtoBitCast(ptr, DtoType(at->pointerTo()));
-      return new DVarValue(to, ptr);
+      return new DLValue(to, ptr);
     }
     LLValue *len, *ptr;
     len = DtoArrayLen(val);
@@ -717,13 +708,13 @@ DValue *DtoPaintType(Loc &loc, DValue *val, Type *to) {
     Type *dgty = to->toBasetype();
     assert(dgty->ty == Tdelegate);
     if (val->isLVal()) {
-      LLValue *ptr = val->getLVal();
+      LLValue *ptr = DtoLVal(val);
       assert(isaPointer(ptr));
       ptr = DtoBitCast(ptr, DtoPtrToType(dgty));
       IF_LOG Logger::cout() << "dg ptr: " << *ptr << '\n';
-      return new DVarValue(to, ptr);
+      return new DLValue(to, ptr);
     }
-    LLValue *dg = val->getRVal();
+    LLValue *dg = DtoRVal(val);
     LLValue *context = gIR->ir->CreateExtractValue(dg, 0, ".context");
     LLValue *funcptr = gIR->ir->CreateExtractValue(dg, 1, ".funcptr");
     funcptr = DtoBitCast(funcptr, DtoType(dgty)->getContainedType(1));
@@ -734,12 +725,12 @@ DValue *DtoPaintType(Loc &loc, DValue *val, Type *to) {
   if (from->ty == Tpointer || from->ty == Tclass || from->ty == Taarray) {
     Type *b = to->toBasetype();
     assert(b->ty == Tpointer || b->ty == Tclass || b->ty == Taarray);
-    LLValue *ptr = DtoBitCast(val->getRVal(), DtoType(b));
+    LLValue *ptr = DtoBitCast(DtoRVal(val), DtoType(b));
     return new DImValue(to, ptr);
   }
   // assert(!val->isLVal()); TODO: what is it needed for?
   assert(DtoType(to) == DtoType(to));
-  return new DImValue(to, val->getRVal());
+  return new DImValue(to, DtoRVal(val));
 }
 
 /******************************************************************************
@@ -955,7 +946,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
           auto ce = static_cast<CallExp *>(rhs);
           if (DtoIsReturnInArg(ce)) {
             if (isSpecialRefVar(vd)) {
-              LLValue *const val = toElem(ce)->getLVal();
+              LLValue *const val = DtoLVal(ce);
               DtoStore(val, irLocal->value);
             } else {
               DValue *fnval = toElem(ce->e1);
@@ -1379,21 +1370,21 @@ Type *stripModifiers(Type *type, bool transitive) {
 ////////////////////////////////////////////////////////////////////////////////
 
 LLValue *makeLValue(Loc &loc, DValue *value) {
-  Type *valueType = value->getType();
+  Type *valueType = value->type;
   bool needsMemory;
   LLValue *valuePointer;
   if (value->isIm()) {
-    valuePointer = value->getRVal();
+    valuePointer = DtoRVal(value);
     needsMemory = !DtoIsInMemoryOnly(valueType);
-  } else if (value->isVar()) {
-    valuePointer = value->getLVal();
+  } else if (value->isLVal()) {
+    valuePointer = DtoLVal(value);
     needsMemory = false;
   } else if (value->isConst()) {
-    valuePointer = value->getRVal();
+    valuePointer = DtoRVal(value);
     needsMemory = true;
   } else {
     valuePointer = DtoAlloca(valueType, ".makelvaluetmp");
-    DVarValue var(valueType, valuePointer);
+    DLValue var(valueType, valuePointer);
     DtoAssign(loc, &var, value);
     needsMemory = false;
   }
@@ -1549,7 +1540,7 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
                                      "vars, although it can easily be made "
                                      "to.");
-      return new DVarValue(type, v);
+      return new DLValue(type, v);
     }
     // _argptr
     if (vd->ident == Id::_argptr && gIR->func()->_argptr) {
@@ -1558,7 +1549,7 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
                                      "vars, although it can easily be made "
                                      "to.");
-      return new DVarValue(type, v);
+      return new DLValue(type, v);
     }
     // _dollar
     if (vd->ident == Id::dollar) {
@@ -1605,7 +1596,7 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       assert(!isSpecialRefVar(vd) && "Code not expected to handle special "
                                      "ref vars, although it can easily be "
                                      "made to.");
-      return new DVarValue(type, getIrValue(vd));
+      return new DLValue(type, getIrValue(vd));
     } else {
       Logger::println("a normal variable");
 
@@ -1647,7 +1638,7 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
 
     LLValue *initsym = getIrAggr(ts->sym)->getInitSymbol();
     initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
-    return new DVarValue(type, initsym);
+    return new DLValue(type, initsym);
   }
 
   llvm_unreachable("Unimplemented VarExp type");
@@ -1873,5 +1864,18 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
     }
   }
 
-  return new DVarValue(type, val, isSpecialRefVar(vd));
+  if (isSpecialRefVar(vd))
+    return new DSpecialRefValue(type, val);
+
+  return new DLValue(type, val);
 }
+
+LLValue *DtoRVal(DValue *v) { return v->getRVal(); }
+LLValue *DtoLVal(DValue *v) {
+  auto lval = v->isLVal();
+  assert(lval);
+  return lval->getLVal();
+}
+
+LLValue *DtoRVal(Expression *e) { return DtoRVal(toElem(e)); }
+LLValue *DtoLVal(Expression *e) { return DtoLVal(toElem(e)); }

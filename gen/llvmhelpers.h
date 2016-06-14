@@ -280,7 +280,12 @@ DValue *toElem(Expression *e, bool tryGetLvalue);
 DValue *toElemDtor(Expression *e);
 LLConstant *toConstElem(Expression *e, IRState *p);
 
-/// Creates a DVarValue for the given VarDeclaration.
+llvm::Value *DtoRVal(DValue *v);
+llvm::Value *DtoRVal(Expression *e);
+llvm::Value *DtoLVal(DValue *v);
+llvm::Value *DtoLVal(Expression *e);
+
+/// Creates a DLValue for the given VarDeclaration.
 ///
 /// If the storage is not given explicitly, the declaration is expected to be
 /// already resolved, and the value from the associated IrVar will be used.

@@ -142,7 +142,7 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
     llvm::SmallVector<llvm::Value *, 8> args;
     args.reserve(n);
     for (size_t i = 0; i < n; i++) {
-      args.push_back(toElem((*arguments)[i])->getRVal());
+      args.push_back(DtoRVal((*arguments)[i]));
     }
 
     llvm::Value *rv = gIR->ir->CreateCall(fun, args);
@@ -152,16 +152,8 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
     if (type->ty == Tstruct) {
       // make a copy
       llvm::Value *mem = DtoAlloca(type, ".__ir_tuple_ret");
-
-      TypeStruct *ts = static_cast<TypeStruct *>(type);
-      size_t n = ts->sym->fields.dim;
-      for (size_t i = 0; i < n; i++) {
-        llvm::Value *v = gIR->ir->CreateExtractValue(rv, i, "");
-        llvm::Value *gep = DtoGEPi(mem, 0, i);
-        DtoStore(v, gep);
-      }
-
-      return new DVarValue(fdecl->type->nextOf(), mem);
+      DtoStore(rv, DtoBitCast(mem, getPtrToType(rv->getType())));
+      return new DLValue(fdecl->type->nextOf(), mem);
     }
 
     // return call as im value

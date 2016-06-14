@@ -1037,8 +1037,8 @@ DValue *DtoArgument(Parameter *fnarg, Expression *argexp) {
   if (fnarg && (fnarg->storageClass & (STCref | STCout))) {
     Loc loc;
     DValue *arg = toElem(argexp, true);
-    return new DImValue(argexp->type,
-                        arg->isLVal() ? arg->getLVal() : makeLValue(loc, arg));
+    return new DLValue(argexp->type,
+                         arg->isLVal() ? DtoLVal(arg) : makeLValue(loc, arg));
   }
 
   DValue *arg = toElem(argexp);
@@ -1053,7 +1053,7 @@ DValue *DtoArgument(Parameter *fnarg, Expression *argexp) {
   // byval arg, but expr has no storage yet
   if (DtoIsInMemoryOnly(argexp->type) && (arg->isSlice() || arg->isNull())) {
     LLValue *alloc = DtoAlloca(argexp->type, ".tmp_arg");
-    auto vv = new DVarValue(argexp->type, alloc);
+    auto vv = new DLValue(argexp->type, alloc);
     DtoAssign(argexp->loc, vv, arg);
     arg = vv;
   }
