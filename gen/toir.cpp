@@ -165,7 +165,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
     DtoAssign(loc, &field, val, TOKconstruct, true);
 
     if (expr && expr->isLvalue()) {
-      callPostblit(loc, expr, field.getLVal());
+      callPostblit(loc, expr, DtoLVal(&field));
     }
 
     // Also zero out padding bytes counted as being part of the type in DMD

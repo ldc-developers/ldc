@@ -1869,13 +1869,3 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
 
   return new DLValue(type, val);
 }
-
-LLValue *DtoRVal(DValue *v) { return v->getRVal(); }
-LLValue *DtoLVal(DValue *v) {
-  auto lval = v->isLVal();
-  assert(lval);
-  return lval->getLVal();
-}
-
-LLValue *DtoRVal(Expression *e) { return DtoRVal(toElem(e)); }
-LLValue *DtoLVal(Expression *e) { return DtoLVal(toElem(e)); }
