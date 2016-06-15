@@ -16,8 +16,8 @@
 
 #include "tokens.h"
 #include "longdouble.h"
+#include "dvalue.h"
 
-class DValue;
 struct Loc;
 class Type;
 namespace llvm {
@@ -43,12 +43,12 @@ void DtoGetComplexParts(Loc &loc, Type *to, DValue *c, DValue *&re,
 void DtoGetComplexParts(Loc &loc, Type *to, DValue *c, llvm::Value *&re,
                         llvm::Value *&im);
 
-DValue *DtoComplexAdd(Loc &loc, Type *type, DValue *lhs, DValue *rhs);
-DValue *DtoComplexSub(Loc &loc, Type *type, DValue *lhs, DValue *rhs);
-DValue *DtoComplexMul(Loc &loc, Type *type, DValue *lhs, DValue *rhs);
-DValue *DtoComplexDiv(Loc &loc, Type *type, DValue *lhs, DValue *rhs);
-DValue *DtoComplexRem(Loc &loc, Type *type, DValue *lhs, DValue *rhs);
-DValue *DtoComplexNeg(Loc &loc, Type *type, DValue *val);
+DImValue *DtoComplexAdd(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
+DImValue *DtoComplexSub(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
+DImValue *DtoComplexMul(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
+DImValue *DtoComplexDiv(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
+DImValue *DtoComplexRem(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
+DImValue *DtoComplexNeg(Loc &loc, Type *type, DRValue *val);
 
 llvm::Value *DtoComplexEquals(Loc &loc, TOK op, DValue *lhs, DValue *rhs);
 

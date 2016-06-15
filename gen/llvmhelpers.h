@@ -129,13 +129,13 @@ LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp);
 LLConstant *DtoTypeInfoOf(Type *ty, bool base = true);
 
 // binary operations
-DValue *DtoBinAdd(DValue *lhs, DValue *rhs);
-DValue *DtoBinSub(DValue *lhs, DValue *rhs);
+DImValue *DtoBinAdd(DRValue *lhs, DRValue *rhs);
+DImValue *DtoBinSub(DRValue *lhs, DRValue *rhs);
 // these binops need an explicit result type to handling
 // to give 'ifloat op float' and 'float op ifloat' the correct type
-DValue *DtoBinMul(Type *resulttype, DValue *lhs, DValue *rhs);
-DValue *DtoBinDiv(Type *resulttype, DValue *lhs, DValue *rhs);
-DValue *DtoBinRem(Type *resulttype, DValue *lhs, DValue *rhs);
+DImValue *DtoBinMul(Type *resulttype, DRValue *lhs, DRValue *rhs);
+DImValue *DtoBinDiv(Type *resulttype, DRValue *lhs, DRValue *rhs);
+DImValue *DtoBinRem(Type *resulttype, DRValue *lhs, DRValue *rhs);
 LLValue *DtoBinNumericEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op);
 LLValue *DtoBinFloatsEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op);
 

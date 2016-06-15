@@ -181,7 +181,7 @@ void DtoGetComplexParts(Loc &loc, Type *to, DValue *val, LLValue *&re,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoComplexAdd(Loc &loc, Type *type, DValue *lhs, DValue *rhs) {
+DImValue *DtoComplexAdd(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
 
   // lhs values
@@ -212,7 +212,7 @@ DValue *DtoComplexAdd(Loc &loc, Type *type, DValue *lhs, DValue *rhs) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoComplexSub(Loc &loc, Type *type, DValue *lhs, DValue *rhs) {
+DImValue *DtoComplexSub(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
 
   // lhs values
@@ -243,7 +243,7 @@ DValue *DtoComplexSub(Loc &loc, Type *type, DValue *lhs, DValue *rhs) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoComplexMul(Loc &loc, Type *type, DValue *lhs, DValue *rhs) {
+DImValue *DtoComplexMul(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
 
   // lhs values
@@ -296,7 +296,7 @@ DValue *DtoComplexMul(Loc &loc, Type *type, DValue *lhs, DValue *rhs) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoComplexDiv(Loc &loc, Type *type, DValue *lhs, DValue *rhs) {
+DImValue *DtoComplexDiv(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
 
   // lhs values
@@ -369,7 +369,7 @@ DValue *DtoComplexDiv(Loc &loc, Type *type, DValue *lhs, DValue *rhs) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoComplexRem(Loc &loc, Type *type, DValue *lhs, DValue *rhs) {
+DImValue *DtoComplexRem(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im, *divisor;
 
   // lhs values
@@ -390,7 +390,7 @@ DValue *DtoComplexRem(Loc &loc, Type *type, DValue *lhs, DValue *rhs) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoComplexNeg(Loc &loc, Type *type, DValue *val) {
+DImValue *DtoComplexNeg(Loc &loc, Type *type, DRValue *val) {
   llvm::Value *a, *b, *re, *im;
 
   // values

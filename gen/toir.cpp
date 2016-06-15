@@ -776,7 +776,7 @@ public:
     auto &PGO = gIR->func()->pgo;
     PGO.setCurrentStmt(e);
 
-    DValue *l = toElem(e->e1);
+    DRValue *l = toElem(e->e1)->getRVal();
 
     Type *t = e->type->toBasetype();
     Type *e1type = e->e1->type->toBasetype();
@@ -788,9 +788,9 @@ public:
       Logger::println("Adding integer to pointer");
       result = emitPointerOffset(p, e->loc, l, e->e2, false, e->type);
     } else if (t->iscomplex()) {
-      result = DtoComplexAdd(e->loc, e->type, l, toElem(e->e2));
+      result = DtoComplexAdd(e->loc, e->type, l, toElem(e->e2)->getRVal());
     } else {
-      result = DtoBinAdd(l, toElem(e->e2));
+      result = DtoBinAdd(l, toElem(e->e2)->getRVal());
     }
   }
 
@@ -802,7 +802,7 @@ public:
     auto &PGO = gIR->func()->pgo;
     PGO.setCurrentStmt(e);
 
-    DValue *l = toElem(e->e1);
+    DRValue *l = toElem(e->e1)->getRVal();
 
     Type *t = e->type->toBasetype();
     Type *t1 = e->e1->type->toBasetype();
@@ -825,9 +825,9 @@ public:
       Logger::println("Subtracting integer from pointer");
       result = emitPointerOffset(p, e->loc, l, e->e2, true, e->type);
     } else if (t->iscomplex()) {
-      result = DtoComplexSub(e->loc, e->type, l, toElem(e->e2));
+      result = DtoComplexSub(e->loc, e->type, l, toElem(e->e2)->getRVal());
     } else {
-      result = DtoBinSub(l, toElem(e->e2));
+      result = DtoBinSub(l, toElem(e->e2)->getRVal());
     }
   }
 
@@ -841,8 +841,8 @@ public:
     auto &PGO = gIR->func()->pgo;
     PGO.setCurrentStmt(e);
 
-    DValue *l = toElem(e->e1);
-    DValue *r = toElem(e->e2);
+    DRValue *l = toElem(e->e1)->getRVal();
+    DRValue *r = toElem(e->e2)->getRVal();
 
     errorOnIllegalArrayOp(e, e->e1, e->e2);
 
@@ -863,8 +863,8 @@ public:
     auto &PGO = gIR->func()->pgo;
     PGO.setCurrentStmt(e);
 
-    DValue *l = toElem(e->e1);
-    DValue *r = toElem(e->e2);
+    DRValue *l = toElem(e->e1)->getRVal();
+    DRValue *r = toElem(e->e2)->getRVal();
 
     errorOnIllegalArrayOp(e, e->e1, e->e2);
 
@@ -885,8 +885,8 @@ public:
     auto &PGO = gIR->func()->pgo;
     PGO.setCurrentStmt(e);
 
-    DValue *l = toElem(e->e1);
-    DValue *r = toElem(e->e2);
+    DRValue *l = toElem(e->e1)->getRVal();
+    DRValue *r = toElem(e->e2)->getRVal();
 
     errorOnIllegalArrayOp(e, e->e1, e->e2);
 
@@ -2418,14 +2418,14 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    DValue *l = toElem(e->e1);
+    DRValue *dval = toElem(e->e1)->getRVal();
 
     if (e->type->iscomplex()) {
-      result = DtoComplexNeg(e->loc, e->type, l);
+      result = DtoComplexNeg(e->loc, e->type, dval);
       return;
     }
 
-    LLValue *val = DtoRVal(l);
+    LLValue *val = DtoRVal(dval);
 
     if (e->type->isintegral()) {
       val = p->ir->CreateNeg(val, "negval");

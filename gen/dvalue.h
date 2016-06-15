@@ -40,7 +40,7 @@ class DSpecialRefValue;
 class DSliceValue;
 class DFuncValue;
 
-/// Associates an immutable low-level value with an immutable D type.
+/// Represents an immutable pair of LLVM value and associated D type.
 class DValue {
 public:
   Type *const type;
@@ -87,7 +87,10 @@ protected:
   DRValue(Type *t, llvm::Value *v);
 };
 
-/// Represents an immediate D value via a low-level rvalue.
+/// Represents an immediate D value (simple rvalue with no special properties
+/// like being a compile-time constant) via a low-level rvalue.
+/// Restricted to primitive types such as pointers (incl. class references),
+/// integral and floating-point types.
 class DImValue : public DRValue {
 public:
   DImValue(Type *t, llvm::Value *v) : DRValue(t, v) {}
@@ -95,7 +98,7 @@ public:
   DImValue *isIm() override { return this; }
 };
 
-/// Represents a constant D value via a low-level constant.
+/// Represents a D compile-time constant via a low-level constant.
 class DConstValue : public DRValue {
 public:
   DConstValue(Type *t, llvm::Constant *con);
@@ -105,7 +108,7 @@ public:
   DConstValue *isConst() override { return this; }
 };
 
-/// Represents a D null constant.
+/// Represents a D compile-time null constant.
 class DNullValue : public DConstValue {
 public:
   DNullValue(Type *t, llvm::Constant *con) : DConstValue(t, con) {}
@@ -139,7 +142,7 @@ public:
   DFuncValue *isFunc() override { return this; }
 };
 
-/// Represents a D value in memory via a low-level lvalue.
+/// Represents a D value in memory via a low-level lvalue (pointer).
 /// This doesn't imply that the D value is an lvalue too - e.g., we always
 /// keep structs and static arrays in memory.
 class DLValue : public DValue {
