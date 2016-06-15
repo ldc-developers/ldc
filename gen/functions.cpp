@@ -527,8 +527,15 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     gIR->mainFunc = func;
   }
 
+  // Set inlining attribute
   if (fdecl->neverInline) {
     irFunc->setNeverInline();
+  } else {
+    if (fdecl->inlining == PINLINEalways) {
+      irFunc->setAlwaysInline();
+    } else if (fdecl->inlining == PINLINEnever) {
+      irFunc->setNeverInline();
+    }
   }
 
   if (fdecl->llvmInternal == LLVMglobal_crt_ctor ||
