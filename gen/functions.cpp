@@ -42,6 +42,123 @@
 #include "llvm/IR/CFG.h"
 #include <iostream>
 
+////////////////////////////////////////////////////////////////////////////////
+// Function inlining
+// TODO: move to its own file?
+namespace {
+
+// Use a heuristic to determine if it could make sense to inline this fdecl.
+// Note: isInlineCandidate is called _before_ full semantic analysis of fdecl.
+bool isInlineCandidate(FuncDeclaration &fdecl) {
+  if (fdecl.inlining == PINLINEalways)
+    return true;
+
+  return true;
+}
+
+/// Check whether the frontend knows that the function is already defined
+/// in some other module (see DMD's FuncDeclaration::toObjFile).
+bool alreadyOrWillBeDefined(FuncDeclaration &fdecl) {
+  for (FuncDeclaration *f = &fdecl; f;) {
+    if (!f->isInstantiated() && f->inNonRoot()) {
+      return false;
+    }
+    if (f->isNested()) {
+      f = f->toParent2()->isFuncDeclaration();
+    } else {
+      break;
+    }
+  }
+  return true;
+}
+
+/// If true: define this function with externally_available linkage, for
+/// inlining potential.
+/// If true: full semantic analysis done on this fdecl, ready for codegen.
+bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
+  IF_LOG Logger::println("Enter defineAsExternallyAvailable");
+  LOG_SCOPE
+
+  // Try to do cheap checks first.
+
+  if (fdecl.neverInline || fdecl.inlining == PINLINEnever)
+    return false;
+
+  // pragma(inline, true) functions will be inlined even at -O0
+  if (!willInline() && (fdecl.inlining != PINLINEalways))
+    return false;
+
+  if (fdecl.isUnitTestDeclaration())
+    return false;
+  if (fdecl.isFuncAliasDeclaration())
+    return false;
+  if (!fdecl.fbody)
+    return false;
+
+  // Disable inlining functions from object.d because of TypeInfo related issue
+  if (fdecl.getModule()->ident == Id::object)
+    return false;
+
+  if (alreadyOrWillBeDefined(fdecl))
+    return false;
+
+  // Weak-linkage functions can not be inlined.
+  if (hasWeakUDA(&fdecl))
+    return false;
+
+  if (!isInlineCandidate(fdecl))
+    return false;
+
+  IF_LOG Logger::println("Potential inlining candidate");
+
+  // If semantic analysis is already complete, the function will be codegenned
+  // elsewhere.
+  if (fdecl.semanticRun >= PASSsemantic3)
+    return false;
+
+  {
+    IF_LOG Logger::println("Do semantic analysis");
+    LOG_SCOPE
+
+    // The inlining is aggressive and may give semantic errors that are forward
+    // referencing errors. Simply avoid those cases for inlining.
+    uint errors = global.startGagging();
+    global.gaggedForInlining = true;
+
+    bool semantic_error = false;
+    if (fdecl.functionSemantic3()) {
+      Module::runDeferredSemantic3();
+    } else {
+      IF_LOG Logger::println("Failed functionSemantic3.");
+      semantic_error = true;
+    }
+
+    global.gaggedForInlining = false;
+    if (global.endGagging(errors) || semantic_error) {
+      IF_LOG Logger::println("Errors occured during semantic analysis.");
+      return false;
+    }
+    assert(fdecl.semanticRun >= PASSsemantic3done);
+  }
+
+  // For naked functions (inline assembly), we emit the assembly directly as
+  // globals in the text section. Emitting them during this inline pass will
+  // therefore result in multiple definitions. Solution: don't try to inline
+  // them.
+  // These naked functions don't appear to be inlined anyway, so it is pointless
+  // at this moment to try.
+  // FuncDeclaration::naked is set by the AsmParser during semantic analysis.
+  if (fdecl.naked) {
+    IF_LOG Logger::println("Naked asm functions cannot be inlined.");
+    return false;
+  }
+
+  IF_LOG Logger::println("defineAsExternallyAvailable? Yes.");
+  return true;
+}
+}
+////////////////////////////////////////////////////////////////////////////////
+
 llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
                                     Type *nesttype, bool isMain, bool isCtor,
                                     bool isIntrinsic, bool hasSel) {
@@ -457,6 +574,15 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     fatal();
   }
 
+  // Check if fdecl should be defined too for cross-module inlining.
+  // If true, semantic is fully done for fdecl which is needed for some code
+  // below (e.g. code that uses fdecl->vthis).
+  bool defineAtEnd = defineAsExternallyAvailable(*fdecl);
+  if (defineAtEnd) {
+    IF_LOG Logger::println(
+        "Function is an externally_available inline candidate.");
+  }
+
   // get TypeFunction*
   Type *t = fdecl->type->toBasetype();
   TypeFunction *f = static_cast<TypeFunction *>(t);
@@ -620,6 +746,13 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     irParam->arg = arg;
     irParam->value = &(*iarg);
   }
+
+  // Now that this function is declared, also define it if needed.
+  if (defineAtEnd) {
+    IF_LOG Logger::println(
+        "Function is an externally_available inline candidate: define it now.");
+    DtoDefineFunction(fdecl, true);
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -719,12 +852,22 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
 
 } // anonymous namespace
 
-void DtoDefineFunction(FuncDeclaration *fd) {
+void DtoDefineFunction(FuncDeclaration *fd, bool availableExternally) {
   IF_LOG Logger::println("DtoDefineFunction(%s): %s", fd->toPrettyChars(),
                          fd->loc.toChars());
   LOG_SCOPE;
+  if (availableExternally) {
+    IF_LOG Logger::println("availableExternally = true");
+  }
 
   if (fd->ir->isDefined()) {
+    if (!availableExternally &&
+        (getIrFunc(fd)->func->getLinkage() ==
+         llvm::GlobalValue::AvailableExternallyLinkage)) {
+      // Fix linkage
+      const auto lwc = lowerFuncLinkage(fd);
+      setLinkage(lwc, getIrFunc(fd)->func);
+    }
     return;
   }
 
@@ -748,6 +891,7 @@ void DtoDefineFunction(FuncDeclaration *fd) {
           fd->toPrettyChars());
     fatal();
   }
+  assert(fd->semanticRun >= PASSsemantic3done);
 
   DtoResolveFunction(fd);
 
@@ -767,20 +911,22 @@ void DtoDefineFunction(FuncDeclaration *fd) {
     return;
   }
 
-  // Check whether the frontend knows that the function is already defined
-  // in some other module (see DMD's FuncDeclaration::toObjFile).
-  for (FuncDeclaration *f = fd; f;) {
-    if (!f->isInstantiated() && f->inNonRoot()) {
-      IF_LOG Logger::println("Skipping '%s'.", fd->toPrettyChars());
-      // TODO: Emit as available_externally for inlining purposes instead
-      // (see #673).
-      fd->ir->setDefined();
-      return;
-    }
-    if (f->isNested()) {
-      f = f->toParent2()->isFuncDeclaration();
-    } else {
-      break;
+  if (!availableExternally) {
+    // Check whether the frontend knows that the function is already defined
+    // in some other module (see DMD's FuncDeclaration::toObjFile).
+    for (FuncDeclaration *f = fd; f;) {
+      if (!f->isInstantiated() && f->inNonRoot()) {
+        IF_LOG Logger::println("Skipping '%s'.", fd->toPrettyChars());
+        // TODO: Emit as available_externally for inlining purposes instead
+        // (see #673).
+        fd->ir->setDefined();
+        return;
+      }
+      if (f->isNested()) {
+        f = f->toParent2()->isFuncDeclaration();
+      } else {
+        break;
+      }
     }
   }
 
@@ -867,7 +1013,15 @@ void DtoDefineFunction(FuncDeclaration *fd) {
   gIR->functions.push_back(irFunc);
 
   const auto lwc = lowerFuncLinkage(fd);
-  setLinkage(lwc, func);
+  if (availableExternally) {
+    func->setLinkage(llvm::GlobalValue::AvailableExternallyLinkage);
+    // Assert that we are not overriding a linkage type that disallows inlining
+    assert(lwc.first != llvm::GlobalValue::WeakAnyLinkage &&
+           lwc.first != llvm::GlobalValue::ExternalWeakLinkage &&
+           lwc.first != llvm::GlobalValue::LinkOnceAnyLinkage);
+  } else {
+    setLinkage(lwc, func);
+  }
 
   // On x86_64, always set 'uwtable' for System V ABI compatibility.
   // TODO: Find a better place for this.

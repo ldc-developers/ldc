@@ -338,7 +338,10 @@ public:
         fprintf(global.stdmsg, "%s: %s is thread local\n", p, decl->toChars());
       }
       // Check if we are defining or just declaring the global in this module.
-      if (!(decl->storage_class & STCextern)) {
+      // If we reach here during codegen of an available_externally function,
+      // new variable declarations should stay external and therefore must not
+      // have an initializer.
+      if (!(decl->storage_class & STCextern) && !decl->inNonRoot()) {
         // Build the initializer. Might use this->ir.irGlobal->value!
         LLConstant *initVal =
             DtoConstInitializer(decl->loc, decl->type, decl->_init);

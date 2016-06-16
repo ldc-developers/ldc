@@ -242,6 +242,8 @@ struct Global
     const char *s_ext;
     const char *ldc_version;
     const char *llvm_version;
+
+    bool gaggedForInlining; // Set for functionSemantic3 for external inlining canditates
 #endif
     const char *lib_ext;
     const char *dll_ext;
