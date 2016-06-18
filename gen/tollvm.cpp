@@ -462,7 +462,11 @@ LLConstant *DtoConstString(const char *str) {
     gvar = new llvm::GlobalVariable(gIR->module, init->getType(), true,
                                     llvm::GlobalValue::PrivateLinkage, init,
                                     ".str");
+#if LDC_LLVM_VER >= 309
+    gvar->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+#else
     gvar->setUnnamedAddr(true);
+#endif
     gIR->stringLiteral1ByteCache[s] = gvar;
   }
   LLConstant *idxs[] = {DtoConstUint(0), DtoConstUint(0)};
