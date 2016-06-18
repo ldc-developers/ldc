@@ -30,6 +30,7 @@ import ddmd.target;
 import ddmd.tokens;
 import ddmd.visitor;
 version(IN_LLVM) {
+    import ddmd.dclass;
     import ddmd.errors;
     import gen.llvmhelpers;
 }
@@ -1281,7 +1282,12 @@ static if (IN_LLVM || TARGET_WINDOS)
                 if (type.sym.isUnionDeclaration())
                     buf.writeByte('T');
                 else
+version(IN_LLVM) {
+                    StructDeclaration sd = (cast(TypeStruct)type).sym;
+                    buf.writeByte(sd.cppmangleAsClass ? 'V' : 'U');
+} else {
                     buf.writeByte('U');
+}
                 mangleIdent(type.sym);
             }
             flags &= ~IS_NOT_TOP_TYPE;
@@ -1348,7 +1354,12 @@ static if (IN_LLVM || TARGET_WINDOS)
                 buf.writeByte('E');
             flags |= IS_NOT_TOP_TYPE;
             mangleModifier(type);
+version(IN_LLVM) {
+            ClassDeclaration cd = (cast(TypeClass)type).sym;
+            buf.writeByte(cd.cppmangleAsStruct ? 'U' : 'V');
+} else {
             buf.writeByte('V');
+}
             mangleIdent(type.sym);
             flags &= ~IS_NOT_TOP_TYPE;
             flags &= ~IGNORE_CONST;

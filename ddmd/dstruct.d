@@ -248,6 +248,10 @@ public:
     // (e.g. TypeidExp, NewExp, ArrayLiteralExp, etc) request its TypeInfo.
     // For those, today TypeInfo_Struct is generated in COMDAT.
     bool requestTypeInfo;
+    version (IN_LLVM)
+    {
+        bool cppmangleAsClass;// true if this struct should be mangled as class (VS only)
+    }
 
     final extern (D) this(Loc loc, Identifier id)
     {

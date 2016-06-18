@@ -1535,6 +1535,24 @@ extern (C++) static uint setMangleOverride(Dsymbol s, char* sym)
         s.isDeclaration().mangleOverride = sym;
         return 1;
     }
+//version(IN_LLVM) {
+    else if (s.isStructDeclaration() || s.isClassDeclaration())
+    {
+        bool asClass = !strcmp(sym, "class");
+        bool asStruct = !strcmp(sym, "struct");
+        if (!(asClass || asStruct))
+            return 0;
+        if (StructDeclaration sd = s.isStructDeclaration())
+        {
+            sd.cppmangleAsClass = asClass;
+        }
+        else if (ClassDeclaration cd = s.isClassDeclaration())
+        {
+            cd.cppmangleAsStruct = asStruct;
+        }
+        return 1;
+    }
+//}
     else
         return 0;
 }

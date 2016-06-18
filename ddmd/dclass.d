@@ -213,6 +213,10 @@ public:
     bool cpp;           // true if this is a C++ interface
     bool isscope;       // true if this is a scope class
     bool isabstract;    // true if abstract class
+    version (IN_LLVM)
+    {
+        bool cppmangleAsStruct; // true if this class should be mangled as struct (VS only)
+    }
     int inuse;          // to prevent recursive attempts
     Baseok baseok;      // set the progress of base classes resolving
 
