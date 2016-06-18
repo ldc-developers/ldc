@@ -906,7 +906,11 @@ static void emitJson(Modules &modules) {
 
 int main(int argc, char **argv) {
   // stack trace on signals
+#if LDC_LLVM_VER >= 309
+  llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
+#else
   llvm::sys::PrintStackTraceOnErrorSignal();
+#endif
 
   exe_path::initialize(argv[0], reinterpret_cast<void *>(main));
 

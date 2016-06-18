@@ -204,7 +204,11 @@ public:
           llvm::GlobalValue::PrivateLinkage;
       gvar = new llvm::GlobalVariable(gIR->module, _init->getType(), true,
                                       _linkage, _init, ".str");
+#if LDC_LLVM_VER >= 309
+      gvar->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+#else
       gvar->setUnnamedAddr(true);
+#endif
       (*stringLiteralCache)[key] = gvar;
     }
 
@@ -568,7 +572,11 @@ public:
     auto gvar = new llvm::GlobalVariable(
         gIR->module, initval->getType(), canBeConst,
         llvm::GlobalValue::InternalLinkage, initval, ".dynarrayStorage");
+#if LDC_LLVM_VER >= 309
+    gvar->setUnnamedAddr(canBeConst ? llvm::GlobalValue::UnnamedAddr::Global : llvm::GlobalValue::UnnamedAddr::None);
+#else
     gvar->setUnnamedAddr(canBeConst);
+#endif
     llvm::Constant *store = DtoBitCast(gvar, getPtrToType(arrtype));
 
     if (bt->ty == Tpointer) {
