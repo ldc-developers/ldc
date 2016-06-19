@@ -187,6 +187,10 @@ static cl::opt<bool, true> unittest("unittest",
                                     cl::desc("Compile in unit tests"),
                                     cl::location(global.params.useUnitTests));
 
+cl::opt<std::string>
+    ir2objCacheDir("ir2obj-cache", cl::desc("Use <cache dir> to cache object files for whole IR modules (experimental)"),
+            cl::value_desc("cache dir"), cl::Prefix);
+
 static StringsAdapter strImpPathStore("J", global.params.fileImppath);
 static cl::list<std::string, StringsAdapter>
     stringImportPaths("J", cl::desc("Where to look for string imports"),
