@@ -28,9 +28,10 @@ GotoJump::GotoJump(Loc loc, llvm::BasicBlock *sourceBlock,
       tentativeTarget(tentativeTarget), targetLabel(targetLabel) {}
 
 CatchScope::CatchScope(llvm::Constant *classInfoPtr,
-                       llvm::BasicBlock *bodyBlock, CleanupCursor cleanupScope)
+                       llvm::BasicBlock *bodyBlock, CleanupCursor cleanupScope,
+                       llvm::MDNode *branchWeights)
     : classInfoPtr(classInfoPtr), bodyBlock(bodyBlock),
-      cleanupScope(cleanupScope) {}
+      cleanupScope(cleanupScope), branchWeights(branchWeights) {}
 
 bool useMSVCEH() {
 #if LDC_LLVM_VER >= 308
@@ -54,7 +55,7 @@ llvm::BasicBlock *executeCleanupCopying(IRState *irs, CleanupScope &scope,
                                         llvm::BasicBlock *sourceBlock,
                                         llvm::BasicBlock *continueWith,
                                         llvm::BasicBlock *unwindTo,
-                                        llvm::Value* funclet) {
+                                        llvm::Value *funclet) {
   if (isCatchSwitchBlock(scope.beginBlock))
     return continueWith;
   if (scope.cleanupBlocks.empty()) {
@@ -253,7 +254,6 @@ llvm::BasicBlock *ScopeStack::runCleanupPad(CleanupCursor scope,
   if (isCatchSwitchBlock(cleanupScopes[scope].beginBlock))
     return cleanupScopes[scope].beginBlock;
 
-
   // each cleanup block is bracketed by a pair of cleanuppad/cleanupret
   // instructions, any unwinding should also just continue at the next
   // cleanup block, e.g.:
@@ -261,7 +261,7 @@ llvm::BasicBlock *ScopeStack::runCleanupPad(CleanupCursor scope,
   // cleanuppad:
   //   %0 = cleanuppad within %funclet[]
   //   %frame = nullptr
-  //   if (!_d_enter_cleanup(%frame)) br label %cleanupret 
+  //   if (!_d_enter_cleanup(%frame)) br label %cleanupret
   //                                  else br label %copy
   //
   // copy:
@@ -279,7 +279,7 @@ llvm::BasicBlock *ScopeStack::runCleanupPad(CleanupCursor scope,
   llvm::BasicBlock *cleanupret =
       llvm::BasicBlock::Create(irs->context(), "cleanupret", irs->topfunc());
 
-  // preparation to allocate some space on the stack where _d_enter_cleanup 
+  // preparation to allocate some space on the stack where _d_enter_cleanup
   //  can place an exception frame (but not done here)
   auto frame = getNullPtr(getVoidPtrType());
 
@@ -320,8 +320,8 @@ void ScopeStack::popCleanups(CleanupCursor targetScope) {
       llvm::BasicBlock *tentative = gotoJump.tentativeTarget;
 #if LDC_LLVM_VER >= 308
       if (useMSVCEH()) {
-        llvm::BasicBlock *continueWith =
-          llvm::BasicBlock::Create(irs->context(), "jumpcleanup", irs->topfunc());
+        llvm::BasicBlock *continueWith = llvm::BasicBlock::Create(
+            irs->context(), "jumpcleanup", irs->topfunc());
         auto startCleanup =
             executeCleanupCopying(irs, cleanupScopes[i], gotoJump.sourceBlock,
                                   continueWith, nullptr, nullptr);
@@ -350,14 +350,16 @@ void ScopeStack::popCleanups(CleanupCursor targetScope) {
 }
 
 void ScopeStack::pushCatch(llvm::Constant *classInfoPtr,
-                           llvm::BasicBlock *bodyBlock) {
+                           llvm::BasicBlock *bodyBlock,
+                           llvm::MDNode *matchWeights) {
   if (useMSVCEH()) {
 #if LDC_LLVM_VER >= 308
     assert(isCatchSwitchBlock(bodyBlock));
     pushCleanup(bodyBlock, bodyBlock);
 #endif
   } else {
-    catchScopes.emplace_back(classInfoPtr, bodyBlock, currentCleanupScope());
+    catchScopes.emplace_back(classInfoPtr, bodyBlock, currentCleanupScope(),
+                             matchWeights);
     currentLandingPads().push_back(nullptr);
   }
 }
@@ -585,7 +587,7 @@ llvm::BasicBlock *ScopeStack::emitLandingPad() {
     irs->ir->CreateCondBr(
         irs->ir->CreateICmpEQ(irs->ir->CreateLoad(irs->func()->ehSelectorSlot),
                               ehTypeId),
-        it->bodyBlock, mismatchBB);
+        it->bodyBlock, mismatchBB, it->branchWeights);
     irs->scope() = IRScope(mismatchBB);
   }
 

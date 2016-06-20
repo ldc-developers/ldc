@@ -459,6 +459,26 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     global.params.moduleDeps = new OutBuffer;
   }
 
+// PGO options
+#if LDC_WITH_PGO
+  if (genfileInstrProf.getNumOccurrences() > 0) {
+    global.params.genInstrProf = true;
+    if (genfileInstrProf.empty()) {
+      global.params.datafileInstrProf = "default.profraw";
+    } else {
+      initFromString(global.params.datafileInstrProf, genfileInstrProf);
+    }
+  } else {
+    global.params.genInstrProf = false;
+    // If we don't have to generate instrumentation, we could be given a
+    // profdata file:
+    initFromString(global.params.datafileInstrProf, usefileInstrProf);
+  }
+#else
+  global.params.datafileInstrProf = nullptr;
+  global.params.genInstrProf = false;
+#endif
+
   processVersions(debugArgs, "debug", DebugCondition::setGlobalLevel,
                   DebugCondition::addGlobalIdent);
   processVersions(versions, "version", VersionCondition::setGlobalLevel,

@@ -50,6 +50,7 @@ endif()
 get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
 set(RUNTIME_DIR ${PROJECT_SOURCE_DIR}/druntime CACHE PATH "druntime root directory")
 set(PHOBOS2_DIR ${PROJECT_SOURCE_DIR}/phobos CACHE PATH "Phobos root directory")
+set(PROFILERT_DIR ${PROJECT_SOURCE_DIR}/profile-rt CACHE PATH "profile-rt root directory")
 
 #
 # Gather source files.
@@ -499,7 +500,11 @@ macro(build_runtime_variants d_flags c_flags ld_flags path_suffix outlist_target
         "${path_suffix}"
         ${outlist_targets}
     )
+    build_profile_runtime ("${d_flags}" "${c_flags}" "${ld_flags}" "${path_suffix}" ${outlist_targets})
 endmacro()
+
+# Setup the build of profile-rt
+include(profile-rt/DefineBuildProfileRT.cmake)
 
 #
 # Set up build targets.
@@ -527,9 +532,11 @@ if(MULTILIB)
 
         set(hosttargets)
         build_runtime_variants("" "${RT_CFLAGS}" "${LD_FLAGS}" "${hostsuffix}" hosttargets)
+        #build_profile_runtime ("" "${RT_CFLAGS}" "${LD_FLAGS}" "${hostsuffix}" hosttargets)
 
         set(multitargets)
         build_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}" multitargets)
+        #build_profile_runtime ("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}" multitargets)
 
         foreach(targetname ${hosttargets})
             string(REPLACE "_${hostsuffix}" "" t ${targetname})
@@ -547,10 +554,13 @@ if(MULTILIB)
         endforeach()
     else()
         build_runtime_variants("" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" LIBS_TO_INSTALL)
+        #build_profile_runtime ("" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" LIBS_TO_INSTALL)
         build_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}" dummy)
+        #build_profile_runtime ("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}" dummy)
     endif()
 else()
     build_runtime_variants("" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" LIBS_TO_INSTALL)
+    #build_profile_runtime ("" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" LIBS_TO_INSTALL)
 endif()
 
 #

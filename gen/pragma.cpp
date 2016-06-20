@@ -38,6 +38,16 @@ static bool parseIntExp(Expression *e, dinteger_t &res) {
   return false;
 }
 
+static bool parseBoolExp(Expression *e, bool &res) {
+  e = e->optimize(WANTvalue);
+  if (e->op == TOKint64 && e->type->equals(Type::tbool)) {
+    IntegerExp *i = static_cast<IntegerExp *>(e);
+    res = i->isBool(true);
+    return true;
+  }
+  return false;
+}
+
 LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
                        const char *&arg1str) {
   Identifier *ident = decl->ident;
@@ -255,12 +265,19 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
     return LLVMextern_weak;
   }
 
+  // pragma(LDC_profile_instr, [true | false])
+  if (ident == Id::LDC_profile_instr) {
+    // checking of this pragma is done in DtoCheckProfileInstrPragma()
+    return LLVMprofile_instr;
+  }
+
   return LLVMnone;
 }
 
 void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
                     LDCPragma llvm_internal, const char *const arg1str) {
-  if (llvm_internal == LLVMnone || llvm_internal == LLVMignore) {
+  if (llvm_internal == LLVMnone || llvm_internal == LLVMignore ||
+      llvm_internal == LLVMprofile_instr) {
     return;
   }
 
@@ -513,4 +530,10 @@ bool DtoIsIntrinsic(FuncDeclaration *fd) {
 bool DtoIsVaIntrinsic(FuncDeclaration *fd) {
   return (fd->llvmInternal == LLVMva_start || fd->llvmInternal == LLVMva_copy ||
           fd->llvmInternal == LLVMva_end);
+}
+
+// pragma(LDC_profile_instr, [true | false])
+// Return false if an error occurred.
+bool DtoCheckProfileInstrPragma(Expression *arg, bool &value) {
+  return parseBoolExp(arg, value);
 }

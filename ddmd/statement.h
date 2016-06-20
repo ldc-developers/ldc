@@ -441,6 +441,10 @@ public:
     int hasNoDefault;           // !=0 if no default statement
     int hasVars;                // !=0 if has variable case values
 
+#if IN_LLVM
+    bool hasGotoDefault;        // true iff there is a `goto default` statement for this switch
+#endif
+
     SwitchStatement(Loc loc, Expression *c, Statement *b, bool isFinal);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
@@ -458,6 +462,7 @@ public:
     int index;          // which case it is (since we sort this)
 
 #if IN_LLVM
+    bool gototarget; // true iff this is the target of a 'goto case'
     llvm::BasicBlock* bodyBB;
     llvm::Value* llvmIdx;
 #endif
@@ -492,6 +497,7 @@ public:
     Statement *statement;
 
 #if IN_LLVM
+    bool gototarget; // true iff this is the target of a 'goto default'
     llvm::BasicBlock* bodyBB;
 #endif
 

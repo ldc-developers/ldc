@@ -202,6 +202,21 @@ static void addThreadSanitizerPass(const PassManagerBuilder &Builder,
   PM.add(createThreadSanitizerPass());
 }
 
+static void addInstrProfilingPass(legacy::PassManagerBase &mpm) {
+#if LDC_WITH_PGO
+  if (global.params.genInstrProf) {
+    InstrProfOptions options;
+    options.NoRedZone = global.params.disableRedZone;
+    options.InstrProfileOutput = global.params.datafileInstrProf;
+#if LDC_LLVM_VER >= 309
+    mpm.add(createInstrProfilingLegacyPass(options));
+#else
+    mpm.add(createInstrProfilingPass(options));
+#endif
+  }
+#endif
+}
+
 /**
  * Adds a set of optimization passes to the given module/function pass
  * managers based on the given optimization and size reduction levels.
@@ -292,6 +307,8 @@ static void addOptimizationPasses(PassManagerBase &mpm,
   // EP_OptimizerLast does not exist in LLVM 3.0, add it manually below.
   builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
                        addStripExternalsPass);
+
+  addInstrProfilingPass(mpm);
 
   builder.populateFunctionPassManager(fpm);
   builder.populateModulePassManager(mpm);

@@ -334,6 +334,9 @@ public:
                          e->type ? e->type->toChars() : "(null)");
     LOG_SCOPE;
 
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
+
     result = DtoDeclarationExp(e->declaration);
 
     if (auto vd = e->declaration->isVarDeclaration()) {
@@ -770,6 +773,9 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
+
     DValue *l = toElem(e->e1);
 
     Type *t = e->type->toBasetype();
@@ -792,6 +798,9 @@ public:
     IF_LOG Logger::print("MinExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
+
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
 
     DValue *l = toElem(e->e1);
 
@@ -829,6 +838,9 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
+
     DValue *l = toElem(e->e1);
     DValue *r = toElem(e->e2);
 
@@ -847,6 +859,9 @@ public:
     IF_LOG Logger::print("DivExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
+
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
 
     DValue *l = toElem(e->e1);
     DValue *r = toElem(e->e2);
@@ -867,6 +882,9 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
+
     DValue *l = toElem(e->e1);
     DValue *r = toElem(e->e2);
 
@@ -885,6 +903,9 @@ public:
     IF_LOG Logger::print("CallExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
+
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
 
     if (e->cachedLvalue) {
       LLValue *V = e->cachedLvalue;
@@ -987,6 +1008,9 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
+
     // get the value to cast
     DValue *u = toElem(e->e1);
 
@@ -1016,6 +1040,9 @@ public:
     IF_LOG Logger::print("SymOffExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
+
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
 
     DValue *base = DtoSymbolAddress(e->loc, e->var->type, e->var);
 
@@ -1063,6 +1090,9 @@ public:
     IF_LOG Logger::println("AddrExp::toElem: %s @ %s", e->toChars(),
                            e->type->toChars());
     LOG_SCOPE;
+
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
 
     // The address of a StructLiteralExp can in fact be a global variable, check
     // for that instead of re-codegening the literal.
@@ -1114,6 +1144,9 @@ public:
                            e->type->toChars());
     LOG_SCOPE;
 
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
+
     // function pointers are special
     if (e->type->toBasetype()->ty == Tfunction) {
       assert(!e->cachedLvalue);
@@ -1162,6 +1195,9 @@ public:
     IF_LOG Logger::print("DotVarExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
+
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
 
     if (e->cachedLvalue) {
       Logger::println("using cached lvalue");
@@ -1239,6 +1275,9 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
+
     // special cases: `this(int) { this(); }` and `this(int) { super(); }`
     if (!e->var) {
       Logger::println("this exp without var declaration");
@@ -1273,6 +1312,9 @@ public:
     IF_LOG Logger::print("IndexExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
+
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
 
     if (e->cachedLvalue) {
       LLValue *V = e->cachedLvalue;
@@ -1318,6 +1360,9 @@ public:
     IF_LOG Logger::print("SliceExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
+
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
 
     // value being sliced
     LLValue *elen = nullptr;
@@ -1425,6 +1470,9 @@ public:
     IF_LOG Logger::print("CmpExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
+
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
 
     DValue *l = toElem(e->e1);
     DValue *r = toElem(e->e2);
@@ -1554,6 +1602,9 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
+
     DValue *l = toElem(e->e1);
     DValue *r = toElem(e->e2);
 
@@ -1617,6 +1668,9 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
+
     LLValue *const lval = DtoLVal(e->e1);
     toElem(e->e2);
 
@@ -1662,6 +1716,9 @@ public:
     IF_LOG Logger::print("NewExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
+
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
 
     bool isArgprefixHandled = false;
 
@@ -1783,6 +1840,9 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
+
     DValue *dval = toElem(e->e1);
     Type *et = e->e1->type->toBasetype();
 
@@ -1839,6 +1899,9 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
+
     DValue *u = toElem(e->e1);
     result = new DImValue(e->type, DtoArrayLen(u));
   }
@@ -1848,6 +1911,9 @@ public:
   void visit(AssertExp *e) override {
     IF_LOG Logger::print("AssertExp::toElem: %s\n", e->toChars());
     LOG_SCOPE;
+
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
 
     // DMD allows syntax like this:
     // f() == 0 || assert(false)
@@ -1884,6 +1950,9 @@ public:
 
     // branch
     llvm::BranchInst::Create(passedbb, failedbb, condval, p->scopebb());
+    // The branch does not need instrumentation for PGO because failedbb
+    // terminates in unreachable, which means that LLVM will automatically
+    // assign branch weights to this branch instruction.
 
     // failed: call assert runtime function
     p->scope() = IRScope(failedbb);
@@ -1932,6 +2001,9 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
+
     DValue *u = toElem(e->e1);
 
     LLValue *b = DtoRVal(DtoCast(e->loc, u, Type::tbool));
@@ -1949,6 +2021,9 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
+
     DValue *u = toElem(e->e1);
 
     llvm::BasicBlock *andand =
@@ -1959,9 +2034,13 @@ public:
     LLValue *ubool = DtoRVal(DtoCast(e->loc, u, Type::tbool));
 
     llvm::BasicBlock *oldblock = p->scopebb();
-    llvm::BranchInst::Create(andand, andandend, ubool, p->scopebb());
+    auto truecount = PGO.getRegionCount(e);
+    auto falsecount = PGO.getCurrentRegionCount() - truecount;
+    auto branchweights = PGO.createProfileWeights(truecount, falsecount);
+    p->ir->CreateCondBr(ubool, andand, andandend, branchweights);
 
     p->scope() = IRScope(andand);
+    PGO.emitCounterIncrement(e);
     emitCoverageLinecountInc(e->e2->loc);
     DValue *v = toElemDtor(e->e2);
 
@@ -1998,6 +2077,9 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
+
     DValue *u = toElem(e->e1);
 
     llvm::BasicBlock *oror =
@@ -2008,9 +2090,13 @@ public:
     LLValue *ubool = DtoRVal(DtoCast(e->loc, u, Type::tbool));
 
     llvm::BasicBlock *oldblock = p->scopebb();
-    llvm::BranchInst::Create(ororend, oror, ubool, p->scopebb());
+    auto falsecount = PGO.getRegionCount(e);
+    auto truecount = PGO.getCurrentRegionCount() - falsecount;
+    auto branchweights = PGO.createProfileWeights(truecount, falsecount);
+    p->ir->CreateCondBr(ubool, ororend, oror, branchweights);
 
     p->scope() = IRScope(oror);
+    PGO.emitCounterIncrement(e);
     emitCoverageLinecountInc(e->e2->loc);
     DValue *v = toElemDtor(e->e2);
 
@@ -2259,6 +2345,9 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
+
     Type *dtype = e->type->toBasetype();
     LLValue *retPtr = nullptr;
     if (dtype->ty != Tvoid) {
@@ -2275,9 +2364,14 @@ public:
 
     DValue *c = toElem(e->econd);
     LLValue *cond_val = DtoRVal(DtoCast(e->loc, c, Type::tbool));
-    llvm::BranchInst::Create(condtrue, condfalse, cond_val, p->scopebb());
+
+    auto truecount = PGO.getRegionCount(e);
+    auto falsecount = PGO.getCurrentRegionCount() - truecount;
+    auto branchweights = PGO.createProfileWeights(truecount, falsecount);
+    p->ir->CreateCondBr(cond_val, condtrue, condfalse, branchweights);
 
     p->scope() = IRScope(condtrue);
+    PGO.emitCounterIncrement(e);
     DValue *u = toElem(e->e1);
     if (retPtr) {
       LLValue *lval = makeLValue(e->loc, u);

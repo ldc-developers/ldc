@@ -79,6 +79,11 @@ extern bool nonSafeBoundsChecks;
 
 extern cl::opt<unsigned, true> nestedTemplateDepth;
 
+#if LDC_WITH_PGO
+extern cl::opt<std::string> genfileInstrProf;
+extern cl::opt<std::string> usefileInstrProf;
+#endif
+
 // Arguments to -d-debug
 extern std::vector<std::string> debugArgs;
 // Arguments to -run
