@@ -101,3 +101,14 @@ pragma(inline, true) extern (C) void naked_asm_func()
         nop;
     }
 }
+
+pragma(inline, true)
+int call_template_foo(int i) {
+    return template_foo(i);
+}
+
+pragma(inline, true)
+T template_foo(T)(T i)
+{
+    return i;
+}
