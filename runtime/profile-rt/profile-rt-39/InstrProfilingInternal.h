@@ -156,11 +156,21 @@ VPDataReaderType *lprofGetVPDataReader();
 void lprofSetMaxValsPerSite(uint32_t MaxVals);
 void lprofSetupValueProfiler();
 
+/* Return the profile header 'signature' value associated with the current
+ * executable or shared library. The signature value can be used to for
+ * a profile name that is unique to this load module so that it does not
+ * collide with profiles from other binaries. It also allows shared libraries
+ * to dump merged profile data into its own profile file. */
+uint64_t lprofGetLoadModuleSignature();
+
 COMPILER_RT_VISIBILITY extern char *(*GetEnvHook)(const char *);
 COMPILER_RT_VISIBILITY extern void (*FreeHook)(void *);
 COMPILER_RT_VISIBILITY extern uint8_t *DynamicBufferIOBuffer;
 COMPILER_RT_VISIBILITY extern uint32_t VPBufferSize;
 COMPILER_RT_VISIBILITY extern uint32_t VPMaxNumValsPerSite;
+/* Pointer to the start of static value counters to be allocted. */
+COMPILER_RT_VISIBILITY extern ValueProfNode *CurrentVNode;
+COMPILER_RT_VISIBILITY extern ValueProfNode *EndVNode;
 extern void (*VPMergeHook)(struct ValueProfData *, __llvm_profile_data *);
 
 #endif

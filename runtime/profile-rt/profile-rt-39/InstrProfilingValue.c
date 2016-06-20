@@ -18,27 +18,38 @@
 #define INSTR_PROF_COMMON_API_IMPL
 #include "InstrProfData.inc"
 
-#define PROF_OOM(Msg) PROF_ERR(Msg ":%s\n", "Out of memory");
-#define PROF_OOM_RETURN(Msg)                                                   \
-  {                                                                            \
-    PROF_OOM(Msg)                                                              \
-    return NULL;                                                               \
-  }
+static int hasStaticCounters = 1;
+static int OutOfNodesWarnings = 0;
+static int hasNonDefaultValsPerSite = 0;
+#define INSTR_PROF_MAX_VP_WARNS 10
+#define INSTR_PROF_DEFAULT_NUM_VAL_PER_SITE 8
+#define INSTR_PROF_VNODE_POOL_SIZE 1024
+
+#ifndef _MSC_VER
+/* A shared static pool in addition to the vnodes statically
+ * allocated by the compiler.  */
+COMPILER_RT_VISIBILITY ValueProfNode
+    lprofValueProfNodes[INSTR_PROF_VNODE_POOL_SIZE] COMPILER_RT_SECTION(
+       COMPILER_RT_SEG INSTR_PROF_VNODES_SECT_NAME_STR);
+#endif
 
 COMPILER_RT_VISIBILITY uint32_t VPMaxNumValsPerSite =
-    INSTR_PROF_MAX_NUM_VAL_PER_SITE;
+    INSTR_PROF_DEFAULT_NUM_VAL_PER_SITE;
 
 COMPILER_RT_VISIBILITY void lprofSetupValueProfiler() {
   const char *Str = 0;
   Str = getenv("LLVM_VP_MAX_NUM_VALS_PER_SITE");
-  if (Str && Str[0])
+  if (Str && Str[0]) {
     VPMaxNumValsPerSite = atoi(Str);
+    hasNonDefaultValsPerSite = 1;
+  }
   if (VPMaxNumValsPerSite > INSTR_PROF_MAX_NUM_VAL_PER_SITE)
     VPMaxNumValsPerSite = INSTR_PROF_MAX_NUM_VAL_PER_SITE;
 }
 
 COMPILER_RT_VISIBILITY void lprofSetMaxValsPerSite(uint32_t MaxVals) {
   VPMaxNumValsPerSite = MaxVals;
+  hasNonDefaultValsPerSite = 1;
 }
 
 /* This method is only used in value profiler mock testing.  */
@@ -69,6 +80,15 @@ __llvm_get_function_addr(const __llvm_profile_data *Data) {
 static int allocateValueProfileCounters(__llvm_profile_data *Data) {
   uint64_t NumVSites = 0;
   uint32_t VKI;
+
+  /* This function will never be called when value site array is allocated
+     statically at compile time.  */
+  hasStaticCounters = 0;
+  /* When dynamic allocation is enabled, allow tracking the max number of
+   * values allowd.  */
+  if (!hasNonDefaultValsPerSite)
+    VPMaxNumValsPerSite = INSTR_PROF_MAX_NUM_VAL_PER_SITE;
+
   for (VKI = IPVK_First; VKI <= IPVK_Last; ++VKI)
     NumVSites += Data->NumValueSites[VKI];
 
@@ -83,10 +103,36 @@ static int allocateValueProfileCounters(__llvm_profile_data *Data) {
   return 1;
 }
 
+static ValueProfNode *allocateOneNode(__llvm_profile_data *Data, uint32_t Index,
+                                      uint64_t Value) {
+  ValueProfNode *Node;
+
+  if (!hasStaticCounters)
+    return (ValueProfNode *)calloc(1, sizeof(ValueProfNode));
+
+  /* Early check to avoid value wrapping around.  */
+  if (CurrentVNode + 1 > EndVNode) {
+    if (OutOfNodesWarnings++ < INSTR_PROF_MAX_VP_WARNS) {
+      PROF_WARN("Unable to track new values: %s. "
+                " Consider using option -mllvm -vp-counters-per-site=<n> to "
+                "allocate more"
+                " value profile counters at compile time. \n",
+                "Running out of static counters");
+    }
+    return 0;
+  }
+  Node = COMPILER_RT_PTR_FETCH_ADD(ValueProfNode, CurrentVNode, 1);
+  /* Due to section padding, EndVNode point to a byte which is one pass
+   * an incomplete VNode, so we need to skip the last incomplete node. */
+  if (Node + 1 > EndVNode)
+    return 0;
+
+  return Node;
+}
+
 COMPILER_RT_VISIBILITY void
 __llvm_profile_instrument_target(uint64_t TargetValue, void *Data,
                                  uint32_t CounterIndex) {
-
   __llvm_profile_data *PData = (__llvm_profile_data *)Data;
   if (!PData)
     return;
@@ -99,21 +145,21 @@ __llvm_profile_instrument_target(uint64_t TargetValue, void *Data,
   ValueProfNode **ValueCounters = (ValueProfNode **)PData->Values;
   ValueProfNode *PrevVNode = NULL;
   ValueProfNode *MinCountVNode = NULL;
-  ValueProfNode *CurrentVNode = ValueCounters[CounterIndex];
+  ValueProfNode *CurVNode = ValueCounters[CounterIndex];
   uint64_t MinCount = UINT64_MAX;
 
   uint8_t VDataCount = 0;
-  while (CurrentVNode) {
-    if (TargetValue == CurrentVNode->Value) {
-      CurrentVNode->Count++;
+  while (CurVNode) {
+    if (TargetValue == CurVNode->Value) {
+      CurVNode->Count++;
       return;
     }
-    if (CurrentVNode->Count < MinCount) {
-      MinCount = CurrentVNode->Count;
-      MinCountVNode = CurrentVNode;
+    if (CurVNode->Count < MinCount) {
+      MinCount = CurVNode->Count;
+      MinCountVNode = CurVNode;
     }
-    PrevVNode = CurrentVNode;
-    CurrentVNode = CurrentVNode->Next;
+    PrevVNode = CurVNode;
+    CurVNode = CurVNode->Next;
     ++VDataCount;
   }
 
@@ -147,29 +193,28 @@ __llvm_profile_instrument_target(uint64_t TargetValue, void *Data,
      * to give space for hot targets.
      */
     if (!(--MinCountVNode->Count)) {
-      CurrentVNode = MinCountVNode;
-      CurrentVNode->Value = TargetValue;
-      CurrentVNode->Count++;
+      CurVNode = MinCountVNode;
+      CurVNode->Value = TargetValue;
+      CurVNode->Count++;
     }
     return;
   }
 
-  CurrentVNode = (ValueProfNode *)calloc(1, sizeof(ValueProfNode));
-  if (!CurrentVNode)
+  CurVNode = allocateOneNode(PData, CounterIndex, TargetValue);
+  if (!CurVNode)
     return;
-
-  CurrentVNode->Value = TargetValue;
-  CurrentVNode->Count++;
+  CurVNode->Value = TargetValue;
+  CurVNode->Count++;
 
   uint32_t Success = 0;
   if (!ValueCounters[CounterIndex])
     Success =
-        COMPILER_RT_BOOL_CMPXCHG(&ValueCounters[CounterIndex], 0, CurrentVNode);
+        COMPILER_RT_BOOL_CMPXCHG(&ValueCounters[CounterIndex], 0, CurVNode);
   else if (PrevVNode && !PrevVNode->Next)
-    Success = COMPILER_RT_BOOL_CMPXCHG(&(PrevVNode->Next), 0, CurrentVNode);
+    Success = COMPILER_RT_BOOL_CMPXCHG(&(PrevVNode->Next), 0, CurVNode);
 
-  if (!Success) {
-    free(CurrentVNode);
+  if (!Success && !hasStaticCounters) {
+    free(CurVNode);
     return;
   }
 }
@@ -264,7 +309,7 @@ static ValueProfNode *getNextNValueData(uint32_t VK, uint32_t Site,
   return VNode;
 }
 
-static uint32_t getValueProfDataSizeWrapper() {
+static uint32_t getValueProfDataSizeWrapper(void) {
   return getValueProfDataSize(&RTRecordClosure);
 }
 

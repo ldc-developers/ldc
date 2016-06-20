@@ -13,22 +13,37 @@
 #ifdef _MSC_VER
 #define COMPILER_RT_ALIGNAS(x) __declspec(align(x))
 #define COMPILER_RT_VISIBILITY
+/* FIXME: selectany does not have the same semantics as weak. */
 #define COMPILER_RT_WEAK __declspec(selectany)
+/* Need to include <windows.h> */
 #define COMPILER_RT_ALLOCA _alloca
+/* Need to include <stdio.h> and <io.h> */
+#define COMPILER_RT_FTRUNCATE(f,l) _chsize(_fileno(f),l)
 #elif __GNUC__
 #define COMPILER_RT_ALIGNAS(x) __attribute__((aligned(x)))
 #define COMPILER_RT_VISIBILITY __attribute__((visibility("hidden")))
 #define COMPILER_RT_WEAK __attribute__((weak))
 #define COMPILER_RT_ALLOCA __builtin_alloca
+#define COMPILER_RT_FTRUNCATE(f,l) ftruncate(fileno(f),l)
 #endif
 
+#if defined(__APPLE__)
+#define COMPILER_RT_SEG "__DATA,"
+#else
+#define COMPILER_RT_SEG ""
+#endif
+
+#ifdef _MSC_VER
+#define COMPILER_RT_SECTION(Sect) __declspec(allocate(Sect))
+#else
 #define COMPILER_RT_SECTION(Sect) __attribute__((section(Sect)))
+#endif
 
 #define COMPILER_RT_MAX_HOSTLEN 128
 #ifdef _MSC_VER
 #define COMPILER_RT_GETHOSTNAME(Name, Len) gethostname(Name, Len)
 #elif defined(__ORBIS__)
-#define COMPILER_RT_GETHOSTNAME(Name, Len) (-1)
+#define COMPILER_RT_GETHOSTNAME(Name, Len) ((void)(Name), (void)(Len), (-1))
 #else
 #define COMPILER_RT_GETHOSTNAME(Name, Len) lprofGetHostName(Name, Len)
 #define COMPILER_RT_HAS_UNAME 1
@@ -74,6 +89,9 @@
 
 #define PROF_WARN(Format, ...)                                                 \
   fprintf(stderr, "LLVM Profile Warning: " Format, __VA_ARGS__);
+
+#define PROF_NOTE(Format, ...)                                                 \
+  fprintf(stderr, "LLVM Profile Note: " Format, __VA_ARGS__);
 
 #if defined(__FreeBSD__)
 
