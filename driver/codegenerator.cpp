@@ -122,6 +122,23 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   ir_ = nullptr;
 }
 
+namespace {
+/// Emits a declaration for the given symbol, which is assumed to be of type
+/// i8*, and defines a second globally visible i8* that contains the address
+/// of the first symbol.
+void emitSymbolAddrGlobal(llvm::Module &lm, const char *symbolName,
+                          const char *addrName) {
+  llvm::Type *voidPtr =
+      llvm::PointerType::get(llvm::Type::getInt8Ty(lm.getContext()), 0);
+  auto targetSymbol = new llvm::GlobalVariable(
+      lm, voidPtr, false, llvm::GlobalValue::ExternalWeakLinkage, nullptr,
+      symbolName);
+  new llvm::GlobalVariable(
+      lm, voidPtr, false, llvm::GlobalValue::ExternalLinkage,
+      llvm::ConstantExpr::getBitCast(targetSymbol, voidPtr), addrName);
+}
+}
+
 void CodeGenerator::emit(Module *m) {
   bool const loggerWasEnabled = Logger::enabled();
   if (m->llvmForceLogging && !loggerWasEnabled) {
@@ -152,9 +169,9 @@ void CodeGenerator::emit(Module *m) {
   if (m == g_dMainModule) {
     codegenModule(ir_, g_entrypointModule, emitFullModuleInfo);
 
-    // On Android, bracket TLS data with the symbols _tlsstart and _tlsend, as
-    // done with dmd
     if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
+      // On Android, bracket TLS data with the symbols _tlsstart and _tlsend, as
+      // done with dmd
       auto startSymbol = new llvm::GlobalVariable(
           ir_->module, llvm::Type::getInt32Ty(ir_->module.getContext()), false,
           llvm::GlobalValue::ExternalLinkage,
@@ -168,6 +185,11 @@ void CodeGenerator::emit(Module *m) {
           llvm::ConstantInt::get(ir_->module.getContext(), APInt(32,0)),
           "_tlsend");
       endSymbol->setSection(".tcommon");
+    } else if (global.params.targetTriple->isOSLinux()) {
+      // On Linux, strongly define the excecutabe BSS bracketing symbols in
+      // the main module for druntime use (see rt.sections_elf_shared).
+      emitSymbolAddrGlobal(ir_->module, "__bss_start", "_d_execBssBegAddr");
+      emitSymbolAddrGlobal(ir_->module, "_end", "_d_execBssEndAddr");
     }
   }
 
