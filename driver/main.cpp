@@ -1393,7 +1393,15 @@ int cppmain(int argc, char **argv) {
   if (global.params.obj && !modules.empty()) {
     ldc::CodeGenerator cg(getGlobalContext(), singleObj);
 
-    for (unsigned i = 0; i < modules.dim; i++) {
+    // When inlining is enabled, we are calling semantic3 on function
+    // declarations, which may _add_ members to the first module in the modules
+    // array. These added functions must be codegenned, because these functions
+    // may be "alwaysinline" and linker problems arise otherwise with templates
+    // that have __FILE__ as parameters (which must be `pragma(inline, true);`)
+    // Therefore, codegen is done in reverse order with members[0] last, to make
+    // sure these functions (added to members[0] by members[x>0]) are
+    // codegenned.
+    for (d_size_t i = modules.dim; i-- > 0;) {
       Module *const m = modules[i];
       if (global.params.verbose) {
         fprintf(global.stdmsg, "code      %s\n", m->toChars());

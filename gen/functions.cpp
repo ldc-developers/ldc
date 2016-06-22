@@ -79,49 +79,69 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
   IF_LOG Logger::println("Enter defineAsExternallyAvailable");
   LOG_SCOPE
 
-  // Try to do cheap checks first.
+  // Implementation note: try to do cheap checks first.
 
-  if (fdecl.neverInline || fdecl.inlining == PINLINEnever)
+  if (fdecl.neverInline || fdecl.inlining == PINLINEnever) {
+    IF_LOG Logger::println("pragma(inline, false) specified");
     return false;
+  }
 
   // pragma(inline, true) functions will be inlined even at -O0
-  if (!willInline() && (fdecl.inlining != PINLINEalways))
+  if (!willInline() && (fdecl.inlining != PINLINEalways)) {
+    IF_LOG Logger::println("Commandline flags indicate no inlining");
     return false;
+  }
 
-  if (fdecl.isUnitTestDeclaration())
+  if (fdecl.isUnitTestDeclaration()) {
+    IF_LOG Logger::println("isUnitTestDeclaration() == true");
     return false;
-  if (fdecl.isFuncAliasDeclaration())
+  }
+  if (fdecl.isFuncAliasDeclaration()) {
+    IF_LOG Logger::println("isFuncAliasDeclaration() == true");
     return false;
-  if (!fdecl.fbody)
+  }
+  if (!fdecl.fbody) {
+    IF_LOG Logger::println("No function body available for inlining");
     return false;
+  }
 
-  // Disable inlining functions from object.d because of TypeInfo related issue
-  if (fdecl.getModule()->ident == Id::object)
+  // Disable inlining functions from object.d because of TypeInfo related
+  // issue
+  if (fdecl.getModule()->ident == Id::object) {
+    IF_LOG Logger::println("Inlining of object.d functions is disabled");
     return false;
+  }
 
-  if (alreadyOrWillBeDefined(fdecl))
+  if (alreadyOrWillBeDefined(fdecl)) {
+    IF_LOG Logger::println("Function will be defined later.");
     return false;
+  }
 
   // Weak-linkage functions can not be inlined.
-  if (hasWeakUDA(&fdecl))
+  if (hasWeakUDA(&fdecl)) {
+    IF_LOG Logger::println("@weak functions cannot be inlined.");
     return false;
+  }
 
   if (!isInlineCandidate(fdecl))
     return false;
 
   IF_LOG Logger::println("Potential inlining candidate");
 
-  // If semantic analysis is already complete, the function will be codegenned
-  // elsewhere.
-  if (fdecl.semanticRun >= PASSsemantic3)
+  if (fdecl.semanticRun >= PASSsemantic3) {
+    // If semantic analysis has come this far, the function will be defined
+    // elsewhere and should not get the available_externally attribute from
+    // here.
+    IF_LOG Logger::println("Semantic analysis already completed");
     return false;
+  }
 
   {
     IF_LOG Logger::println("Do semantic analysis");
     LOG_SCOPE
 
-    // The inlining is aggressive and may give semantic errors that are forward
-    // referencing errors. Simply avoid those cases for inlining.
+    // The inlining is aggressive and may give semantic errors that are
+    // forward referencing errors. Simply avoid those cases for inlining.
     uint errors = global.startGagging();
     global.gaggedForInlining = true;
 
@@ -144,9 +164,8 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
   // For naked functions (inline assembly), we emit the assembly directly as
   // globals in the text section. Emitting them during this inline pass will
   // therefore result in multiple definitions. Solution: don't try to inline
-  // them.
-  // These naked functions don't appear to be inlined anyway, so it is pointless
-  // at this moment to try.
+  // them. These naked functions don't appear to be inlined anyway, so it is
+  // pointless at this moment to try.
   // FuncDeclaration::naked is set by the AsmParser during semantic analysis.
   if (fdecl.naked) {
     IF_LOG Logger::println("Naked asm functions cannot be inlined.");
@@ -912,21 +931,10 @@ void DtoDefineFunction(FuncDeclaration *fd, bool availableExternally) {
   }
 
   if (!availableExternally) {
-    // Check whether the frontend knows that the function is already defined
-    // in some other module (see DMD's FuncDeclaration::toObjFile).
-    for (FuncDeclaration *f = fd; f;) {
-      if (!f->isInstantiated() && f->inNonRoot()) {
-        IF_LOG Logger::println("Skipping '%s'.", fd->toPrettyChars());
-        // TODO: Emit as available_externally for inlining purposes instead
-        // (see #673).
-        fd->ir->setDefined();
-        return;
-      }
-      if (f->isNested()) {
-        f = f->toParent2()->isFuncDeclaration();
-      } else {
-        break;
-      }
+    if (!alreadyOrWillBeDefined(*fd)) {
+      IF_LOG Logger::println("Skipping '%s'.", fd->toPrettyChars());
+      fd->ir->setDefined();
+      return;
     }
   }
 
