@@ -112,9 +112,9 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   }
 
   if (hasSel) {
-      // TODO: make arg_objcselector to match dmd type
-      newIrFty.arg_objcSelector = new IrFuncTyArg(Type::tvoidptr, false);
-      ++nextLLArgIdx;
+    // TODO: make arg_objcselector to match dmd type
+    newIrFty.arg_objcSelector = new IrFuncTyArg(Type::tvoidptr, false);
+    ++nextLLArgIdx;
   }
 
   // vararg functions are special too
@@ -420,14 +420,14 @@ void applyParamAttrsToLLFunc(TypeFunction *f, IrFuncTy &irFty,
 void applyDefaultMathAttributes(IrFunction *irFunc) {
   // TODO: implement commandline switches to change the default values.
 
-  // "unsafe-fp-math" is not properly reset in LLVM between function definitions,
-  // i.e. if a function does not define a value for "unsafe-fp-math" it will be
-  // compiled using the value of the previous function. Therefore, each function
-  // must explicitly define the value (clang does the same).
+  // "unsafe-fp-math" is not properly reset in LLVM between function
+  // definitions, i.e. if a function does not define a value for
+  // "unsafe-fp-math" it will be compiled using the value of the previous
+  // function. Therefore, each function must explicitly define the value (clang
+  // does the same).
   // See https://llvm.org/bugs/show_bug.cgi?id=23172
   irFunc->func->addFnAttr("unsafe-fp-math", "false");
 }
-
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -641,10 +641,10 @@ static LinkageWithCOMDAT lowerFuncLinkage(FuncDeclaration *fdecl) {
 
 // LDC has the same problem with destructors of struct arguments in closures
 // as DMD, so we copy the failure detection
-void verifyScopedDestructionInClosure(FuncDeclaration* fd) {
+void verifyScopedDestructionInClosure(FuncDeclaration *fd) {
   for (size_t i = 0; i < fd->closureVars.dim; i++) {
     VarDeclaration *v = fd->closureVars[i];
-  
+
     // Hack for the case fail_compilation/fail10666.d, until
     // proper issue https://issues.dlang.org/show_bug.cgi?id=5730 fix will come.
     bool isScopeDtorParam = v->edtor && (v->storage_class & STCparameter);
@@ -803,7 +803,7 @@ void DtoDefineFunction(FuncDeclaration *fd) {
   }
 
   if (fd->needsClosure())
-      verifyScopedDestructionInClosure(fd);
+    verifyScopedDestructionInClosure(fd);
 
   assert(fd->ident != Id::empty);
 
@@ -971,7 +971,8 @@ void DtoDefineFunction(FuncDeclaration *fd) {
     // D varargs: prepare _argptr and _arguments
     if (f->linkage == LINKd && f->varargs == 1) {
       // allocate _argptr (of type core.stdc.stdarg.va_list)
-      LLValue *argptrmem = DtoAlloca(Type::tvalist->semantic(fd->loc, fd->_scope), "_argptr_mem");
+      LLValue *argptrmem = DtoAlloca(
+          Type::tvalist->semantic(fd->loc, fd->_scope), "_argptr_mem");
       irFunc->_argptr = argptrmem;
 
       // initialize _argptr with a call to the va_start intrinsic
@@ -1045,7 +1046,7 @@ DValue *DtoArgument(Parameter *fnarg, Expression *argexp) {
     Loc loc;
     DValue *arg = toElem(argexp, true);
     return new DLValue(argexp->type,
-                         arg->isLVal() ? DtoLVal(arg) : makeLValue(loc, arg));
+                       arg->isLVal() ? DtoLVal(arg) : makeLValue(loc, arg));
   }
 
   DValue *arg = toElem(argexp);
