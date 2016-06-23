@@ -44,6 +44,24 @@ if (LDC_WITH_PGO)
      set(PROFRT_EXTRA_FLAGS "${PROFRT_EXTRA_FLAGS} -DCOMPILER_RT_HAS_ATOMICS=1")
     endif()
 
+    CHECK_CXX_SOURCE_COMPILES("
+    #if defined(__linux__)
+    #include <unistd.h>
+    #endif
+    #include <fcntl.h>
+    int fd;
+    int main() {
+     struct flock s_flock;
+
+     s_flock.l_type = F_WRLCK;
+     fcntl(fd, F_SETLKW, &s_flock);
+     return 0;
+    }
+    " COMPILER_RT_TARGET_HAS_FCNTL_LCK)
+    if(COMPILER_RT_TARGET_HAS_FCNTL_LCK)
+     set(PROFRT_EXTRA_FLAGS "${PROFRT_EXTRA_FLAGS} -DCOMPILER_RT_HAS_FCNTL_LCK=1")
+    endif()
+
     # Sets up the targets for building the D-source profile-rt object files,
     # appending the names of the (bitcode) files to link into the library to
     # outlist_o (outlist_bc).
