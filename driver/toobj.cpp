@@ -8,6 +8,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "driver/toobj.h"
+
+#include "driver/cl_options.h"
+#include "driver/ir2obj_cache.h"
 #include "driver/targetmachine.h"
 #include "driver/tool.h"
 #include "gen/irstate.h"
@@ -39,6 +42,14 @@
 #include "llvm/IR/Module.h"
 #include <cstddef>
 #include <fstream>
+
+#if LDC_LLVM_VER >= 306
+using LLErrorInfo = std::error_code;
+#define ERRORINFO_STRING(errinfo) errinfo.message().c_str()
+#else
+using LLErrorInfo = std::string;
+#define ERRORINFO_STRING(errinfo) errinfo.c_str()
+#endif
 
 static llvm::cl::opt<bool>
     NoIntegratedAssembler("no-integrated-as", llvm::cl::Hidden,
@@ -332,12 +343,29 @@ public:
     }
   }
 };
+
+void writeObjectFile(llvm::Module *m, std::string &filename) {
+  IF_LOG Logger::println("Writing object file to: %s", filename.c_str());
+  LLErrorInfo errinfo;
+  {
+    llvm::raw_fd_ostream out(filename.c_str(), errinfo, llvm::sys::fs::F_None);
+#if LDC_LLVM_VER >= 306
+    if (!errinfo)
+#else
+    if (errinfo.empty())
+#endif
+    {
+      codegenModule(*gTargetMachine, *m, out,
+                    llvm::TargetMachine::CGFT_ObjectFile);
+    } else {
+      error(Loc(), "cannot write object file: %s", ERRORINFO_STRING(errinfo));
+      fatal();
+    }
+  }
+}
 } // end of anonymous namespace
 
 void writeModule(llvm::Module *m, std::string filename) {
-  // run optimizer
-  ldc_optimize_module(m);
-
   // There is no integrated assembler on AIX because XCOFF is not supported.
   // Starting with LLVM 3.5 the integrated assembler can be used with MinGW.
   bool const assembleExternally =
@@ -345,23 +373,38 @@ void writeModule(llvm::Module *m, std::string filename) {
       (NoIntegratedAssembler ||
        global.params.targetTriple->getOS() == llvm::Triple::AIX);
 
+  // Use cached object code if possible
+  bool useIR2ObjCache = !opts::ir2objCacheDir.empty();
+  llvm::SmallString<32> moduleHash;
+  if (useIR2ObjCache && global.params.output_o && !assembleExternally) {
+    llvm::SmallString<128> cacheDir(opts::ir2objCacheDir.c_str());
+    llvm::sys::fs::make_absolute(cacheDir);
+    opts::ir2objCacheDir = cacheDir.c_str();
+
+    IF_LOG Logger::println("Use IR-to-Object cache in %s",
+                           opts::ir2objCacheDir.c_str());
+    LOG_SCOPE
+
+    ir2obj::calculateModuleHash(m, moduleHash);
+    std::string cacheFile = ir2obj::cacheLookup(moduleHash);
+    if (!cacheFile.empty()) {
+      ir2obj::recoverObjectFile(moduleHash, filename);
+      return;
+    }
+  }
+
+  // run optimizer
+  ldc_optimize_module(m);
+
   // eventually do our own path stuff, dmd's is a bit strange.
   using LLPath = llvm::SmallString<128>;
-
-#if LDC_LLVM_VER >= 306
-  using ErrorInfo = std::error_code;
-#define ERRORINFO_STRING(errinfo) errinfo.message().c_str()
-#else
-  using ErrorInfo = std::string;
-#define ERRORINFO_STRING(errinfo) errinfo.c_str()
-#endif
 
   // write LLVM bitcode
   if (global.params.output_bc) {
     LLPath bcpath(filename);
     llvm::sys::path::replace_extension(bcpath, global.bc_ext);
     Logger::println("Writing LLVM bitcode to: %s\n", bcpath.c_str());
-    ErrorInfo errinfo;
+    LLErrorInfo errinfo;
     llvm::raw_fd_ostream bos(bcpath.c_str(), errinfo, llvm::sys::fs::F_None);
     if (bos.has_error()) {
       error(Loc(), "cannot write LLVM bitcode file '%s': %s", bcpath.c_str(),
@@ -376,7 +419,7 @@ void writeModule(llvm::Module *m, std::string filename) {
     LLPath llpath(filename);
     llvm::sys::path::replace_extension(llpath, global.ll_ext);
     Logger::println("Writing LLVM asm to: %s\n", llpath.c_str());
-    ErrorInfo errinfo;
+    LLErrorInfo errinfo;
     llvm::raw_fd_ostream aos(llpath.c_str(), errinfo, llvm::sys::fs::F_None);
     if (aos.has_error()) {
       error(Loc(), "cannot write LLVM asm file '%s': %s", llpath.c_str(),
@@ -396,7 +439,7 @@ void writeModule(llvm::Module *m, std::string filename) {
     }
 
     Logger::println("Writing native asm to: %s\n", spath.c_str());
-    ErrorInfo errinfo;
+    LLErrorInfo errinfo;
     {
       llvm::raw_fd_ostream out(spath.c_str(), errinfo, llvm::sys::fs::F_None);
 #if LDC_LLVM_VER >= 306
@@ -423,25 +466,11 @@ void writeModule(llvm::Module *m, std::string filename) {
   }
 
   if (global.params.output_o && !assembleExternally) {
-    Logger::println("Writing object file to: %s\n", filename.c_str());
-    ErrorInfo errinfo;
-    {
-      llvm::raw_fd_ostream out(filename.c_str(), errinfo,
-                               llvm::sys::fs::F_None);
-#if LDC_LLVM_VER >= 306
-      if (!errinfo)
-#else
-      if (errinfo.empty())
-#endif
-      {
-        codegenModule(*gTargetMachine, *m, out,
-                      llvm::TargetMachine::CGFT_ObjectFile);
-      } else {
-        error(Loc(), "cannot write object file: %s", ERRORINFO_STRING(errinfo));
-        fatal();
-      }
+    writeObjectFile(m, filename);
+    if (useIR2ObjCache) {
+      ir2obj::cacheObjectFile(filename, moduleHash);
     }
   }
+}
 
 #undef ERRORINFO_STRING
-}

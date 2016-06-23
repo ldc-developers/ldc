@@ -386,6 +386,7 @@ set(DRV_SRC
     driver/codegenerator.cpp
     driver/configfile.cpp
     driver/exe_path.cpp
+    driver/ir2obj_cache.cpp
     driver/targetmachine.cpp
     driver/toobj.cpp
     driver/tool.cpp
@@ -399,6 +400,7 @@ set(DRV_HDR
     driver/codegenerator.h
     driver/configfile.h
     driver/exe_path.h
+    driver/ir2obj_cache.h
     driver/ldc-version.h
     driver/targetmachine.h
     driver/toobj.h
