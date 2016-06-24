@@ -53,7 +53,7 @@ struct Case {
     index = i;
   }
 
-  friend bool operator<(const Case& l, const Case& r) {
+  friend bool operator<(const Case &l, const Case &r) {
     return l.str->compare(r.str) < 0;
   }
 };
@@ -176,8 +176,8 @@ public:
           // call postblit if necessary
           if (!irs->func()->type->isref) {
             dval = toElemDtor(stmt->exp);
-            LLValue *vthis = (DtoIsInMemoryOnly(dval->type) ? DtoLVal(dval)
-                                                            : DtoRVal(dval));
+            LLValue *vthis =
+                (DtoIsInMemoryOnly(dval->type) ? DtoLVal(dval) : DtoRVal(dval));
             callPostblit(stmt->loc, stmt->exp, vthis);
           } else {
             Expression *ae = stmt->exp;
