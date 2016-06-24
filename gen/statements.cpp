@@ -225,12 +225,13 @@ public:
     }
 
     // If there are no cleanups to run, we try to keep the IR simple and
-    // just directly emit the return instruction.
-
-    const bool loadFromSlot = irs->func()->scopes->currentCleanupScope() != 0;
-    if (loadFromSlot) {
-      const bool retBlockExisted = !!irs->func()->retBlock;
-      if (!retBlockExisted) {
+    // just directly emit the return instruction. If there are cleanups to run
+    // first, we need to store the return value to a stack slot, in which case
+    // we can use a shared return bb for all these cases.
+    const bool useRetValSlot = irs->func()->scopes->currentCleanupScope() != 0;
+    const bool sharedRetBlockExists = !!irs->func()->retBlock;
+    if (useRetValSlot) {
+      if (!sharedRetBlockExists) {
         irs->func()->retBlock =
             llvm::BasicBlock::Create(irs->context(), "return", irs->topfunc());
         if (returnValue) {
@@ -248,33 +249,31 @@ public:
       // Now run the cleanups.
       irs->func()->scopes->runAllCleanups(irs->func()->retBlock);
 
-      // If the return block already exists, we are golden. Otherwise, go
-      // ahead and emit it now.
-      if (retBlockExisted) {
-        return;
-      }
-
       irs->scope() = IRScope(irs->func()->retBlock);
     }
 
-    if (returnValue) {
-      // Hack: the frontend generates 'return 0;' as last statement of
-      // 'void main()'. But the debug location is missing. Use the end
-      // of function as debug location.
-      if (irs->func()->decl->isMain() && !stmt->loc.linnum) {
-        irs->DBuilder.EmitStopPoint(irs->func()->decl->endloc);
-      }
+    // If we need to emit the actual return instruction, do so.
+    if (!useRetValSlot || !sharedRetBlockExists) {
+      if (returnValue) {
+        // Hack: the frontend generates 'return 0;' as last statement of
+        // 'void main()'. But the debug location is missing. Use the end
+        // of function as debug location.
+        if (irs->func()->decl->isMain() && !stmt->loc.linnum) {
+          irs->DBuilder.EmitStopPoint(irs->func()->decl->endloc);
+        }
 
-      irs->ir->CreateRet(loadFromSlot ? DtoLoad(irs->func()->retValSlot)
-                                      : returnValue);
-    } else {
-      irs->ir->CreateRetVoid();
+        irs->ir->CreateRet(useRetValSlot ? DtoLoad(irs->func()->retValSlot)
+                                         : returnValue);
+      } else {
+        irs->ir->CreateRetVoid();
+      }
     }
 
-    // TODO: Should not be needed
-    llvm::BasicBlock *bb =
-        llvm::BasicBlock::Create(gIR->context(), "afterreturn", irs->topfunc());
-    irs->scope() = IRScope(bb);
+    // Finally, create a new predecessor-less dummy bb as the current IRScope
+    // to make sure we do not emit any extra instructions after the terminating
+    // instruction (ret or branch to return bb), which would be illegal IR.
+    irs->scope() = IRScope(llvm::BasicBlock::Create(
+        gIR->context(), "dummy.afterreturn", irs->topfunc()));
   }
 
   //////////////////////////////////////////////////////////////////////////
