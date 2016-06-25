@@ -423,6 +423,11 @@ public:
         visit(cast(AttribDeclaration)s);
     }
 
+    void visit(CPPMangleDeclaration s)
+    {
+        visit(cast(AttribDeclaration)s);
+    }
+
     void visit(ProtDeclaration s)
     {
         visit(cast(AttribDeclaration)s);

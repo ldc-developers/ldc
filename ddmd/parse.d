@@ -227,6 +227,7 @@ public:
     Module mod;
     ModuleDeclaration* md;
     LINK linkage;
+    CPPMANGLE cppmangle;
     Loc endloc; // set to location of last right curly
     int inBrackets; // inside [] of array index or slice
     Loc lookingForElse; // location of lonely if looking for an else
@@ -800,7 +801,8 @@ public:
                     }
                     const linkLoc = token.loc;
                     Identifiers* idents = null;
-                    const link = parseLinkage(&idents);
+                    CPPMANGLE cppmangle;
+                    const link = parseLinkage(&idents, cppmangle);
                     if (pAttrs.link != LINKdefault)
                     {
                         if (pAttrs.link != link)
@@ -832,6 +834,11 @@ public:
                             s = new Nspace(linkLoc, id, a);
                         }
                         pAttrs.link = LINKdefault;
+                    }
+                    else if (cppmangle != CPPMANGLE.def)
+                    {
+                        assert(link == LINKcpp);
+                        s = new CPPMangleDeclaration(cppmangle, a);
                     }
                     else if (pAttrs.link != LINKdefault)
                     {
@@ -1976,9 +1983,10 @@ public:
      *      extern (C++, namespaces)
      * The parser is on the 'extern' token.
      */
-    LINK parseLinkage(Identifiers** pidents)
+    LINK parseLinkage(Identifiers** pidents, out CPPMANGLE cppmangle)
     {
         Identifiers* idents = null;
+        cppmangle = CPPMANGLE.def;
         LINK link = LINKdefault;
         nextToken();
         assert(token.value == TOKlparen);
@@ -2000,26 +2008,34 @@ public:
                 {
                     link = LINKcpp;
                     nextToken();
-                    if (token.value == TOKcomma) // , namespaces
+                    if (token.value == TOKcomma) // , namespaces or class or struct
                     {
-                        idents = new Identifiers();
                         nextToken();
-                        while (1)
+                        if (token.value == TOKclass || token.value == TOKstruct)
                         {
-                            if (token.value == TOKidentifier)
+                            cppmangle = token.value == TOKclass ? CPPMANGLE.asClass : CPPMANGLE.asStruct;
+                            nextToken();
+                        }
+                        else
+                        {
+                            idents = new Identifiers();
+                            while (1)
                             {
-                                Identifier idn = token.ident;
-                                idents.push(idn);
-                                nextToken();
-                                if (token.value == TOKdot)
+                                if (token.value == TOKidentifier)
                                 {
+                                    Identifier idn = token.ident;
+                                    idents.push(idn);
                                     nextToken();
-                                    continue;
+                                    if (token.value == TOKdot)
+                                    {
+                                        nextToken();
+                                        continue;
+                                    }
                                 }
+                                else
+                                    error("identifier expected for C++ namespace");
+                                break;
                             }
-                            else
-                                error("identifier expected for C++ namespace");
-                            break;
                         }
                     }
                 }
@@ -3758,10 +3774,15 @@ public:
                         error("redundant linkage declaration");
                     sawLinkage = true;
                     Identifiers* idents = null;
-                    link = parseLinkage(&idents);
+                    CPPMANGLE cppmangle;
+                    link = parseLinkage(&idents, cppmangle);
                     if (idents)
                     {
                         error("C++ name spaces not allowed here");
+                    }
+                    if (cppmangle != CPPMANGLE.def)
+                    {
+                        error("C++ mangle declaration not allowed here");
                     }
                     continue;
                 }

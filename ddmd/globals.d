@@ -485,6 +485,13 @@ alias LINKwindows = LINK.windows;
 alias LINKpascal = LINK.pascal;
 alias LINKobjc = LINK.objc;
 
+enum CPPMANGLE : int
+{
+    def,
+    asStruct,
+    asClass,
+}
+
 enum DYNCAST : int
 {
     object,
