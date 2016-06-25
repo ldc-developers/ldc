@@ -894,9 +894,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     // }
     assert(!isSpecialRefVar(vd) && "Can this happen?");
     getIrLocal(vd, true)->value = gIR->func()->retArg;
-  }
-
-  else {
+  } else {
     // normal stack variable, allocate storage on the stack if it has not
     // already been done
     IrLocal *irLocal = getIrLocal(vd, true);
@@ -920,14 +918,13 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     /* NRVO again:
         T t = f();    // t's memory address is taken hidden pointer
     */
-    Type *vdBasetype = vd->type->toBasetype();
     ExpInitializer *ei = nullptr;
-    if ((vdBasetype->ty == Tstruct || vdBasetype->ty == Tsarray) && vd->_init &&
-        (ei = vd->_init->isExpInitializer())) {
-      if (ei->exp->op == TOKconstruct) {
-        auto ae = static_cast<AssignExp *>(ei->exp);
-        Expression *rhs = ae->e2;
-
+    if (vd->_init && (ei = vd->_init->isExpInitializer()) &&
+        ei->exp->op == TOKconstruct) {
+      const auto ae = static_cast<AssignExp *>(ei->exp);
+      Expression *rhs = ae->e2;
+      Type *const vdBasetype = vd->type->toBasetype();
+      if (rhs->type->toBasetype() == vdBasetype) {
         // Allow casts only emitted because of differing static array
         // constness. See runnable.sdtor.test10094.
         if (rhs->op == TOKcast && vdBasetype->ty == Tsarray) {
