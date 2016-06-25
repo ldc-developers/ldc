@@ -7819,6 +7819,7 @@ extern (C++) final class TypeStruct : Type
 public:
     StructDeclaration sym;
     AliasThisRec att = RECfwdref;
+    CPPMANGLE cppmangle = CPPMANGLE.def;
 
     version(IN_LLVM)
     {
@@ -7856,7 +7857,10 @@ public:
 
     override Type semantic(Loc loc, Scope* sc)
     {
-        //printf("TypeStruct::semantic('%s')\n", sym->toChars());
+        //printf("TypeStruct::semantic('%s')\n", sym.toChars());
+        if (deco)
+            return this;
+
         /* Don't semantic for sym because it should be deferred until
          * sizeof needed or its members accessed.
          */
@@ -7864,6 +7868,7 @@ public:
         assert(sym.parent);
         if (sym.type.ty == Terror)
             return Type.terror;
+        this.cppmangle = sc.cppmangle;
         return merge();
     }
 
@@ -8623,6 +8628,7 @@ extern (C++) final class TypeClass : Type
 public:
     ClassDeclaration sym;
     AliasThisRec att = RECfwdref;
+    CPPMANGLE cppmangle = CPPMANGLE.def;
 
     extern (D) this(ClassDeclaration sym)
     {
@@ -8647,7 +8653,10 @@ public:
 
     override Type semantic(Loc loc, Scope* sc)
     {
-        //printf("TypeClass::semantic(%s)\n", sym->toChars());
+        //printf("TypeClass::semantic(%s)\n", sym.toChars());
+        if (deco)
+            return this;
+
         /* Don't semantic for sym because it should be deferred until
          * sizeof needed or its members accessed.
          */
@@ -8655,6 +8664,7 @@ public:
         assert(sym.parent);
         if (sym.type.ty == Terror)
             return Type.terror;
+        this.cppmangle = sc.cppmangle;
         return merge();
     }
 

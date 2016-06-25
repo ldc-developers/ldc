@@ -84,15 +84,16 @@ public:
      * If the returned scope != sc, the caller should pop
      * the scope after it used.
      */
-    final static Scope* createNewScope(Scope* sc, StorageClass stc, LINK linkage, Prot protection, int explicitProtection, structalign_t structalign, PINLINE inlining)
+    final static Scope* createNewScope(Scope* sc, StorageClass stc, LINK linkage, CPPMANGLE cppmangle, Prot protection, int explicitProtection, structalign_t structalign, PINLINE inlining)
     {
         Scope* sc2 = sc;
-        if (stc != sc.stc || linkage != sc.linkage || !protection.isSubsetOf(sc.protection) || explicitProtection != sc.explicitProtection || structalign != sc.structalign || inlining != sc.inlining)
+        if (stc != sc.stc || linkage != sc.linkage || cppmangle != sc.cppmangle || !protection.isSubsetOf(sc.protection) || explicitProtection != sc.explicitProtection || structalign != sc.structalign || inlining != sc.inlining)
         {
             // create new one for changes
             sc2 = sc.copy();
             sc2.stc = stc;
             sc2.linkage = linkage;
+            sc2.cppmangle = cppmangle;
             sc2.protection = protection;
             sc2.explicitProtection = explicitProtection;
             sc2.structalign = structalign;
@@ -358,7 +359,7 @@ public:
             scstc &= ~(STCsafe | STCtrusted | STCsystem);
         scstc |= stc;
         //printf("scstc = x%llx\n", scstc);
-        return createNewScope(sc, scstc, sc.linkage, sc.protection, sc.explicitProtection, sc.structalign, sc.inlining);
+        return createNewScope(sc, scstc, sc.linkage, sc.cppmangle, sc.protection, sc.explicitProtection, sc.structalign, sc.inlining);
     }
 
     override final bool oneMember(Dsymbol* ps, Identifier ident)
@@ -505,7 +506,42 @@ public:
 
     override Scope* newScope(Scope* sc)
     {
-        return createNewScope(sc, sc.stc, this.linkage, sc.protection, sc.explicitProtection, sc.structalign, sc.inlining);
+        return createNewScope(sc, sc.stc, this.linkage, sc.cppmangle, sc.protection, sc.explicitProtection, sc.structalign, sc.inlining);
+    }
+
+    override const(char)* toChars() const
+    {
+        return "extern ()";
+    }
+
+    override void accept(Visitor v)
+    {
+        v.visit(this);
+    }
+}
+
+/***********************************************************
+ */
+extern (C++) final class CPPMangleDeclaration : AttribDeclaration
+{
+    CPPMANGLE cppmangle;
+
+    extern (D) this(CPPMANGLE p, Dsymbols* decl)
+    {
+        super(decl);
+        //printf("CPPMangleDeclaration(cppmangle = %d, decl = %p)\n", p, decl);
+        cppmangle = p;
+    }
+
+    override Dsymbol syntaxCopy(Dsymbol s)
+    {
+        assert(!s);
+        return new CPPMangleDeclaration(cppmangle, Dsymbol.arraySyntaxCopy(decl));
+    }
+
+    override Scope* newScope(Scope* sc)
+    {
+        return createNewScope(sc, sc.stc, LINKcpp, cppmangle, sc.protection, sc.explicitProtection, sc.structalign, sc.inlining);
     }
 
     override const(char)* toChars() const
@@ -569,7 +605,7 @@ public:
     {
         if (pkg_identifiers)
             semantic(sc);
-        return createNewScope(sc, sc.stc, sc.linkage, this.protection, 1, sc.structalign, sc.inlining);
+        return createNewScope(sc, sc.stc, sc.linkage, sc.cppmangle, this.protection, 1, sc.structalign, sc.inlining);
     }
 
     override void addMember(Scope* sc, ScopeDsymbol sds)
@@ -633,7 +669,7 @@ public:
 
     override Scope* newScope(Scope* sc)
     {
-        return createNewScope(sc, sc.stc, sc.linkage, sc.protection, sc.explicitProtection, this.salign, sc.inlining);
+        return createNewScope(sc, sc.stc, sc.linkage, sc.cppmangle, sc.protection, sc.explicitProtection, this.salign, sc.inlining);
     }
 
     override void accept(Visitor v)
@@ -1101,7 +1137,7 @@ public:
                 else if (e.isBool(false))
                     inlining = PINLINEnever;
             }
-            return createNewScope(sc, sc.stc, sc.linkage, sc.protection, sc.explicitProtection, sc.structalign, inlining);
+            return createNewScope(sc, sc.stc, sc.linkage, sc.cppmangle, sc.protection, sc.explicitProtection, sc.structalign, inlining);
         }
         else if (IN_LLVM && ident == Id.LDC_profile_instr) {
             bool emitInstr = true;

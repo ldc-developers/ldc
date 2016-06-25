@@ -373,6 +373,13 @@ enum LINK
     LINKobjc,
 };
 
+enum CPPMANGLE
+{
+    def,
+    asStruct,
+    asClass,
+};
+
 enum DYNCAST
 {
     DYNCAST_OBJECT,
