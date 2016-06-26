@@ -48,7 +48,7 @@
 namespace {
 
 // Use a heuristic to determine if it could make sense to inline this fdecl.
-// Note: isInlineCandidate is called _before_ full semantic analysis of fdecl.
+// Note: isInlineCandidate is called _before_ semantic3 analysis of fdecl.
 bool isInlineCandidate(FuncDeclaration &fdecl) {
   if (fdecl.inlining == PINLINEalways)
     return true;
@@ -72,9 +72,11 @@ bool alreadyOrWillBeDefined(FuncDeclaration &fdecl) {
   return true;
 }
 
-/// If true: define this function with externally_available linkage, for
-/// inlining potential.
-/// If true: full semantic analysis done on this fdecl, ready for codegen.
+
+/// Returns whether `fdecl` should be emitted with externally_available
+/// linkage to make it available for inlining.
+///
+/// If true, `semantic3` will have been run on the declaration.
 bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
   IF_LOG Logger::println("Enter defineAsExternallyAvailable");
   LOG_SCOPE
@@ -87,7 +89,10 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
   }
 
   // pragma(inline, true) functions will be inlined even at -O0
-  if (!willInline() && (fdecl.inlining != PINLINEalways)) {
+  if (fdecl.inlining == PINLINEalways) {
+    IF_LOG Logger::println("pragma(inline, true) specified, overrides cmdline flags");
+  }
+  else if (!willCrossModuleInline()) {
     IF_LOG Logger::println("Commandline flags indicate no inlining");
     return false;
   }
@@ -105,14 +110,26 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
     return false;
   }
 
-  // Disable inlining functions from object.d because of TypeInfo related
-  // issue
+  // TODO: Fix inlining functions from object.d. Currently errors because of
+  // TypeInfo type-mismatch issue (TypeInfo classes get special treatment by the
+  // compiler). To start working on it: comment-out this check and druntime will
+  // fail to compile.
   if (fdecl.getModule()->ident == Id::object) {
     IF_LOG Logger::println("Inlining of object.d functions is disabled");
     return false;
   }
 
+  if (fdecl.semanticRun >= PASSsemantic3) {
+    // If semantic analysis has come this far, the function will be defined
+    // elsewhere and should not get the available_externally attribute from
+    // here.
+    IF_LOG Logger::println("Semantic analysis already completed");
+    return false;
+  }
+
   if (alreadyOrWillBeDefined(fdecl)) {
+    // This check is needed because of ICEs happening because of unclear issues
+    // upon changing the codegen order without this check.
     IF_LOG Logger::println("Function will be defined later.");
     return false;
   }
@@ -127,14 +144,6 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
     return false;
 
   IF_LOG Logger::println("Potential inlining candidate");
-
-  if (fdecl.semanticRun >= PASSsemantic3) {
-    // If semantic analysis has come this far, the function will be defined
-    // elsewhere and should not get the available_externally attribute from
-    // here.
-    IF_LOG Logger::println("Semantic analysis already completed");
-    return false;
-  }
 
   {
     IF_LOG Logger::println("Do semantic analysis");
@@ -161,12 +170,8 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
     assert(fdecl.semanticRun >= PASSsemantic3done);
   }
 
-  // For naked functions (inline assembly), we emit the assembly directly as
-  // globals in the text section. Emitting them during this inline pass will
-  // therefore result in multiple definitions. Solution: don't try to inline
-  // them. These naked functions don't appear to be inlined anyway, so it is
-  // pointless at this moment to try.
-  // FuncDeclaration::naked is set by the AsmParser during semantic analysis.
+  // FuncDeclaration::naked is set by the AsmParser during semantic3 analysis,
+  // and so this check can only be done at this late point.
   if (fdecl.naked) {
     IF_LOG Logger::println("Naked asm functions cannot be inlined.");
     return false;
@@ -596,7 +601,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   // Check if fdecl should be defined too for cross-module inlining.
   // If true, semantic is fully done for fdecl which is needed for some code
   // below (e.g. code that uses fdecl->vthis).
-  bool defineAtEnd = defineAsExternallyAvailable(*fdecl);
+  const bool defineAtEnd = defineAsExternallyAvailable(*fdecl);
   if (defineAtEnd) {
     IF_LOG Logger::println(
         "Function is an externally_available inline candidate.");
@@ -871,16 +876,16 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
 
 } // anonymous namespace
 
-void DtoDefineFunction(FuncDeclaration *fd, bool availableExternally) {
+void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   IF_LOG Logger::println("DtoDefineFunction(%s): %s", fd->toPrettyChars(),
                          fd->loc.toChars());
   LOG_SCOPE;
-  if (availableExternally) {
-    IF_LOG Logger::println("availableExternally = true");
+  if (linkageAvailableExternally) {
+    IF_LOG Logger::println("linkageAvailableExternally = true");
   }
 
   if (fd->ir->isDefined()) {
-    if (!availableExternally &&
+    if (!linkageAvailableExternally &&
         (getIrFunc(fd)->func->getLinkage() ==
          llvm::GlobalValue::AvailableExternallyLinkage)) {
       // Fix linkage
@@ -910,7 +915,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool availableExternally) {
           fd->toPrettyChars());
     fatal();
   }
-  assert(fd->semanticRun >= PASSsemantic3done);
 
   DtoResolveFunction(fd);
 
@@ -930,12 +934,10 @@ void DtoDefineFunction(FuncDeclaration *fd, bool availableExternally) {
     return;
   }
 
-  if (!availableExternally) {
-    if (!alreadyOrWillBeDefined(*fd)) {
+  if (!linkageAvailableExternally && !alreadyOrWillBeDefined(*fd)) {
       IF_LOG Logger::println("Skipping '%s'.", fd->toPrettyChars());
       fd->ir->setDefined();
       return;
-    }
   }
 
   DtoDeclareFunction(fd);
@@ -1021,7 +1023,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool availableExternally) {
   gIR->functions.push_back(irFunc);
 
   const auto lwc = lowerFuncLinkage(fd);
-  if (availableExternally) {
+  if (linkageAvailableExternally) {
     func->setLinkage(llvm::GlobalValue::AvailableExternallyLinkage);
     // Assert that we are not overriding a linkage type that disallows inlining
     assert(lwc.first != llvm::GlobalValue::WeakAnyLinkage &&

@@ -90,6 +90,14 @@ static cl::opt<cl::boolOrDefault, false, opts::FlagParser<cl::boolOrDefault>>
         cl::desc("Enable function inlining (default in -O2 and higher)"),
         cl::ZeroOrMore);
 
+static llvm::cl::opt<llvm::cl::boolOrDefault, false,
+                     opts::FlagParser<llvm::cl::boolOrDefault>>
+enableCrossModuleInlining(
+    "cross-module-inlining",
+    llvm::cl::desc("Enable cross-module function inlining (default enabled "
+                   "with inlining)"),
+    llvm::cl::ZeroOrMore, llvm::cl::Hidden);
+
 static cl::opt<bool> unitAtATime("unit-at-a-time", cl::desc("Enable basic IPO"),
                                  cl::init(true));
 
@@ -129,6 +137,11 @@ static unsigned sizeLevel() { return optimizeLevel < 0 ? -optimizeLevel : 0; }
 bool willInline() {
   return enableInlining == cl::BOU_TRUE ||
          (enableInlining == cl::BOU_UNSET && optLevel() > 1);
+}
+
+bool willCrossModuleInline() {
+  return enableCrossModuleInlining == llvm::cl::BOU_TRUE ||
+         (enableCrossModuleInlining == llvm::cl::BOU_UNSET && willInline());
 }
 
 bool isOptimizationEnabled() { return optimizeLevel != 0; }

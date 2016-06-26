@@ -433,16 +433,16 @@ public:
       return;
     }
 
-    // FIXME: This is #673 all over again.
-    if (!decl->needsCodegen()) {
-      // Force codegen if this is a templated function with pragma(inline, true).
-      if ((decl->members->dim == 1) &&
-          ((*decl->members)[0]->isFuncDeclaration()) &&
-          ((*decl->members)[0]->isFuncDeclaration()->inlining == PINLINEalways)) {
-        Logger::println("needsCodegen() == false, but function is marked with "
-                        "pragma(inline, true), so it really does need "
-                        "codegen.");
-      } else {
+    // Force codegen if this is a templated function with pragma(inline, true).
+    if ((decl->members->dim == 1) &&
+        ((*decl->members)[0]->isFuncDeclaration()) &&
+        ((*decl->members)[0]->isFuncDeclaration()->inlining == PINLINEalways)) {
+      Logger::println("needsCodegen() == false, but function is marked with "
+                      "pragma(inline, true), so it really does need "
+                      "codegen.");
+    } else {
+      // FIXME: This is #673 all over again.
+      if (!decl->needsCodegen()) {
         Logger::println("Does not need codegen, skipping.");
         return;
       }
