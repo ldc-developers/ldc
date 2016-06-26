@@ -577,14 +577,37 @@ public:
 
     DValue *l = toElem(e->e1, true);
 
-    // NRVO for object field initialization in constructor
-    if (l->isLVal() && e->op == TOKconstruct && e->e2->op == TOKcall) {
-      CallExp *ce = static_cast<CallExp *>(e->e2);
-      if (DtoIsReturnInArg(ce)) {
-        DValue *fnval = toElem(ce->e1);
-        LLValue *lval = DtoLVal(l);
-        result = DtoCallFunction(ce->loc, ce->type, fnval, ce->arguments, lval);
-        return;
+    // Direct construction by right-hand-side call via sret?
+    // E.g., `T v = foo();` if the callee `T foo()` uses sret.
+    // In this case, pass `&v` as hidden sret argument, i.e., let `foo()`
+    // construct the return value directly into the lhs lvalue.
+    if (l->isLVal() && e->op == TOKconstruct) {
+      Type *const lhsBasetype = l->type->toBasetype();
+      Expression *rhs = e->e2;
+      if (rhs->type->toBasetype() == lhsBasetype) {
+        // Skip over rhs casts only emitted because of differing static array
+        // constness. See runnable.sdtor.test10094.
+        if (rhs->op == TOKcast && lhsBasetype->ty == Tsarray) {
+          Expression *castSource = static_cast<CastExp *>(rhs)->e1;
+          Type *rhsElem = castSource->type->toBasetype()->nextOf();
+          if (rhsElem) {
+            Type *l = lhsBasetype->nextOf()->arrayOf()->immutableOf();
+            Type *r = rhsElem->arrayOf()->immutableOf();
+            if (l->equals(r))
+              rhs = castSource;
+          }
+        }
+
+        if (rhs->op == TOKcall) {
+          auto ce = static_cast<CallExp *>(rhs);
+          if (DtoIsReturnInArg(ce)) {
+            DValue *fnval = toElem(ce->e1);
+            DtoCallFunction(ce->loc, ce->type, fnval, ce->arguments,
+                            DtoLVal(l));
+            result = l;
+            return;
+          }
+        }
       }
     }
 

@@ -914,47 +914,6 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     irLocal->value = allocainst;
 
     gIR->DBuilder.EmitLocalVariable(allocainst, vd);
-
-    /* NRVO again:
-        T t = f();    // t's memory address is taken hidden pointer
-    */
-    ExpInitializer *ei = nullptr;
-    if (vd->_init && (ei = vd->_init->isExpInitializer()) &&
-        ei->exp->op == TOKconstruct) {
-      const auto ae = static_cast<AssignExp *>(ei->exp);
-      Expression *rhs = ae->e2;
-      Type *const vdBasetype = vd->type->toBasetype();
-      if (rhs->type->toBasetype() == vdBasetype) {
-        // Allow casts only emitted because of differing static array
-        // constness. See runnable.sdtor.test10094.
-        if (rhs->op == TOKcast && vdBasetype->ty == Tsarray) {
-          Expression *castSource = static_cast<CastExp *>(rhs)->e1;
-          Type *rhsElem = castSource->type->toBasetype()->nextOf();
-          if (rhsElem) {
-            Type *l = vdBasetype->nextOf()->arrayOf()->immutableOf();
-            Type *r = rhsElem->arrayOf()->immutableOf();
-            if (l->equals(r)) {
-              rhs = castSource;
-            }
-          }
-        }
-
-        if (rhs->op == TOKcall) {
-          auto ce = static_cast<CallExp *>(rhs);
-          if (DtoIsReturnInArg(ce)) {
-            if (isSpecialRefVar(vd)) {
-              LLValue *const val = DtoLVal(ce);
-              DtoStore(val, irLocal->value);
-            } else {
-              DValue *fnval = toElem(ce->e1);
-              DtoCallFunction(ce->loc, ce->type, fnval, ce->arguments,
-                              irLocal->value);
-            }
-            return;
-          }
-        }
-      }
-    }
   }
 
   IF_LOG Logger::cout() << "llvm value for decl: " << *getIrLocal(vd)->value
