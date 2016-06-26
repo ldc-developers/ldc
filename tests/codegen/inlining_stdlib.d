@@ -11,7 +11,7 @@ extern (C): // simplify mangling for easier matching
 int foo(size_t i)
 {
     import core.bitop;
-    // OPT0: call i32 @{{.*}}core5bitop3bsf
+    // OPT0: call {{.*}} @{{.*}}core5bitop3bsf
     // OPT3: call {{.*}} @llvm.cttz
     return bsf(i);
     // OPT0: ret
