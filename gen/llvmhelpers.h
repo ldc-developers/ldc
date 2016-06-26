@@ -129,13 +129,13 @@ LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp);
 LLConstant *DtoTypeInfoOf(Type *ty, bool base = true);
 
 // binary operations
-DValue *DtoBinAdd(DValue *lhs, DValue *rhs);
-DValue *DtoBinSub(DValue *lhs, DValue *rhs);
+DImValue *DtoBinAdd(DRValue *lhs, DRValue *rhs);
+DImValue *DtoBinSub(DRValue *lhs, DRValue *rhs);
 // these binops need an explicit result type to handling
 // to give 'ifloat op float' and 'float op ifloat' the correct type
-DValue *DtoBinMul(Type *resulttype, DValue *lhs, DValue *rhs);
-DValue *DtoBinDiv(Type *resulttype, DValue *lhs, DValue *rhs);
-DValue *DtoBinRem(Type *resulttype, DValue *lhs, DValue *rhs);
+DImValue *DtoBinMul(Type *resulttype, DRValue *lhs, DRValue *rhs);
+DImValue *DtoBinDiv(Type *resulttype, DRValue *lhs, DRValue *rhs);
+DImValue *DtoBinRem(Type *resulttype, DRValue *lhs, DRValue *rhs);
 LLValue *DtoBinNumericEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op);
 LLValue *DtoBinFloatsEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op);
 
@@ -280,10 +280,8 @@ DValue *toElem(Expression *e, bool tryGetLvalue);
 DValue *toElemDtor(Expression *e);
 LLConstant *toConstElem(Expression *e, IRState *p);
 
-llvm::Value *DtoRVal(DValue *v);
-llvm::Value *DtoRVal(Expression *e);
-llvm::Value *DtoLVal(DValue *v);
-llvm::Value *DtoLVal(Expression *e);
+inline llvm::Value *DtoRVal(Expression *e) { return DtoRVal(toElem(e)); }
+inline llvm::Value *DtoLVal(Expression *e) { return DtoLVal(toElem(e)); }
 
 /// Creates a DLValue for the given VarDeclaration.
 ///

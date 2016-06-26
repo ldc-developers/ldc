@@ -18,11 +18,10 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoBinAdd(DValue *lhs, DValue *rhs) {
+DImValue *DtoBinAdd(DRValue *lhs, DRValue *rhs) {
   Type *t = lhs->type;
-  LLValue *l, *r;
-  l = DtoRVal(lhs);
-  r = DtoRVal(rhs);
+  LLValue *l = DtoRVal(lhs);
+  LLValue *r = DtoRVal(rhs);
 
   LLValue *res;
   if (t->isfloating()) {
@@ -36,11 +35,10 @@ DValue *DtoBinAdd(DValue *lhs, DValue *rhs) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoBinSub(DValue *lhs, DValue *rhs) {
+DImValue *DtoBinSub(DRValue *lhs, DRValue *rhs) {
   Type *t = lhs->type;
-  LLValue *l, *r;
-  l = DtoRVal(lhs);
-  r = DtoRVal(rhs);
+  LLValue *l = DtoRVal(lhs);
+  LLValue *r = DtoRVal(rhs);
 
   LLValue *res;
   if (t->isfloating()) {
@@ -54,11 +52,10 @@ DValue *DtoBinSub(DValue *lhs, DValue *rhs) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoBinMul(Type *targettype, DValue *lhs, DValue *rhs) {
+DImValue *DtoBinMul(Type *targettype, DRValue *lhs, DRValue *rhs) {
   Type *t = lhs->type;
-  LLValue *l, *r;
-  l = DtoRVal(lhs);
-  r = DtoRVal(rhs);
+  LLValue *l = DtoRVal(lhs);
+  LLValue *r = DtoRVal(rhs);
 
   LLValue *res;
   if (t->isfloating()) {
@@ -66,16 +63,16 @@ DValue *DtoBinMul(Type *targettype, DValue *lhs, DValue *rhs) {
   } else {
     res = gIR->ir->CreateMul(l, r);
   }
+
   return new DImValue(targettype, res);
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoBinDiv(Type *targettype, DValue *lhs, DValue *rhs) {
+DImValue *DtoBinDiv(Type *targettype, DRValue *lhs, DRValue *rhs) {
   Type *t = lhs->type;
-  LLValue *l, *r;
-  l = DtoRVal(lhs);
-  r = DtoRVal(rhs);
+  LLValue *l = DtoRVal(lhs);
+  LLValue *r = DtoRVal(rhs);
 
   LLValue *res;
   if (t->isfloating()) {
@@ -85,16 +82,17 @@ DValue *DtoBinDiv(Type *targettype, DValue *lhs, DValue *rhs) {
   } else {
     res = gIR->ir->CreateUDiv(l, r);
   }
+
   return new DImValue(targettype, res);
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoBinRem(Type *targettype, DValue *lhs, DValue *rhs) {
+DImValue *DtoBinRem(Type *targettype, DRValue *lhs, DRValue *rhs) {
   Type *t = lhs->type;
-  LLValue *l, *r;
-  l = DtoRVal(lhs);
-  r = DtoRVal(rhs);
+  LLValue *l = DtoRVal(lhs);
+  LLValue *r = DtoRVal(rhs);
+
   LLValue *res;
   if (t->isfloating()) {
     res = gIR->ir->CreateFRem(l, r);
@@ -103,6 +101,7 @@ DValue *DtoBinRem(Type *targettype, DValue *lhs, DValue *rhs) {
   } else {
     res = gIR->ir->CreateURem(l, r);
   }
+
   return new DImValue(targettype, res);
 }
 

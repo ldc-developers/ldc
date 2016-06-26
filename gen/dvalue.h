@@ -18,7 +18,6 @@
 #define LDC_GEN_DVALUE_H
 
 #include "root.h"
-#include <cassert>
 
 class Type;
 class Dsymbol;
@@ -31,35 +30,38 @@ class Type;
 class Constant;
 }
 
+class DValue;
+class DRValue;
 class DImValue;
 class DConstValue;
 class DNullValue;
 class DLValue;
 class DSpecialRefValue;
-class DFuncValue;
 class DSliceValue;
+class DFuncValue;
 
-// base class for d-values
+/// Represents an immutable pair of LLVM value and associated D type.
 class DValue {
 public:
   Type *const type;
 
   virtual ~DValue() = default;
 
-  virtual llvm::Value *getRVal() { return val; }
-
   /// Returns true iff the value can be accessed at the end of the entry basic
   /// block of the current function, in the sense that it is either not derived
   /// from an llvm::Instruction (but from a global, constant, etc.) or that
   /// instruction is part of the entry basic block.
   ///
-  /// In other words, whatever value the result of getLVal()/getRVal() might be
-  /// derived from then certainly dominates uses in all other basic blocks of
-  /// the function.
+  /// In other words, whatever the value might be derived from then certainly
+  /// dominates uses in all other basic blocks of the function.
   virtual bool definedInFuncEntryBB();
+
+  virtual DRValue *getRVal() { return nullptr; }
 
   virtual DLValue *isLVal() { return nullptr; }
   virtual DSpecialRefValue *isSpecialRef() { return nullptr; }
+
+  virtual DRValue *isRVal() { return nullptr; }
   virtual DImValue *isIm() { return nullptr; }
   virtual DConstValue *isConst() { return nullptr; }
   virtual DNullValue *isNull() { return nullptr; }
@@ -69,22 +71,35 @@ public:
 protected:
   llvm::Value *const val;
 
-  DValue(Type *t, llvm::Value *v) : type(t), val(v) {
-    assert(type);
-    assert(val);
-  }
+  DValue(Type *t, llvm::Value *v);
+
+  friend llvm::Value *DtoRVal(DValue *v);
 };
 
-// immediate d-value
-class DImValue : public DValue {
+/// Represents a D rvalue via a low-level rvalue.
+class DRValue : public DValue {
 public:
-  DImValue(Type *t, llvm::Value *v);
+  DRValue *getRVal() override { return this; }
+
+  DRValue *isRVal() override { return this; }
+
+protected:
+  DRValue(Type *t, llvm::Value *v);
+};
+
+/// Represents an immediate D value (simple rvalue with no special properties
+/// like being a compile-time constant) via a low-level rvalue.
+/// Restricted to primitive types such as pointers (incl. class references),
+/// integral and floating-point types.
+class DImValue : public DRValue {
+public:
+  DImValue(Type *t, llvm::Value *v) : DRValue(t, v) {}
 
   DImValue *isIm() override { return this; }
 };
 
-// constant d-value
-class DConstValue : public DValue {
+/// Represents a D compile-time constant via a low-level constant.
+class DConstValue : public DRValue {
 public:
   DConstValue(Type *t, llvm::Constant *con);
 
@@ -93,7 +108,7 @@ public:
   DConstValue *isConst() override { return this; }
 };
 
-// null d-value
+/// Represents a D compile-time null constant.
 class DNullValue : public DConstValue {
 public:
   DNullValue(Type *t, llvm::Constant *con) : DConstValue(t, con) {}
@@ -101,36 +116,8 @@ public:
   DNullValue *isNull() override { return this; }
 };
 
-/// Represents a D value in memory via a low-level lvalue.
-/// This doesn't imply that the D value is an lvalue too - e.g., we always
-/// keep structs and static arrays in memory.
-class DLValue : public DValue {
-public:
-  DLValue(Type *t, llvm::Value *v);
-
-  virtual llvm::Value *getLVal() { return val; }
-  llvm::Value *getRVal() override;
-
-  DLValue *isLVal() override { return this; }
-
-protected:
-  DLValue(llvm::Value *v, Type *t) : DValue(t, v) {}
-};
-
-/// Represents special internal ref variables.
-class DSpecialRefValue : public DLValue {
-public:
-  DSpecialRefValue(Type *t, llvm::Value *v);
-
-  llvm::Value *getRefStorage() { return val; }
-  llvm::Value *getLVal() override;
-  llvm::Value *getRVal() override;
-
-  DSpecialRefValue *isSpecialRef() override { return this; }
-};
-
-// slice d-value
-class DSliceValue : public DValue {
+/// Represents a D slice (dynamic array).
+class DSliceValue : public DRValue {
 public:
   DSliceValue(Type *t, llvm::Value *length, llvm::Value *ptr);
 
@@ -140,8 +127,8 @@ public:
   llvm::Value *getPtr();
 };
 
-// function d-value
-class DFuncValue : public DValue {
+/// Represents a D function value with optional this/context pointer.
+class DFuncValue : public DRValue {
 public:
   FuncDeclaration *func;
   llvm::Value *vthis;
@@ -154,5 +141,39 @@ public:
 
   DFuncValue *isFunc() override { return this; }
 };
+
+/// Represents a D value in memory via a low-level lvalue (pointer).
+/// This doesn't imply that the D value is an lvalue too - e.g., we always
+/// keep structs and static arrays in memory.
+class DLValue : public DValue {
+public:
+  DLValue(Type *t, llvm::Value *v);
+
+  DRValue *getRVal() override;
+  virtual DLValue *getLVal() { return this; }
+
+  DLValue *isLVal() override { return this; }
+
+protected:
+  DLValue(llvm::Value *v, Type *t) : DValue(t, v) {}
+
+  friend llvm::Value *DtoLVal(DValue *v);
+};
+
+/// Represents special internal ref variables.
+class DSpecialRefValue : public DLValue {
+public:
+  DSpecialRefValue(Type *t, llvm::Value *v);
+
+  DRValue *getRVal() override;
+  DLValue *getLVal() override;
+  llvm::Value *getRefStorage() { return val; }
+
+  DSpecialRefValue *isSpecialRef() override { return this; }
+};
+
+
+inline llvm::Value *DtoRVal(DValue *v) { return v->getRVal()->val; }
+llvm::Value *DtoLVal(DValue *v);
 
 #endif // LDC_GEN_DVALUE_H
