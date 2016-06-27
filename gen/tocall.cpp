@@ -264,17 +264,16 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       e->error("va_start instruction expects 1 (or 2) arguments");
       fatal();
     }
-    LLValue *pAp = DtoLVal((*e->arguments)[0]); // va_list*
+    DLValue *ap = toElem((*e->arguments)[0])->isLVal(); // va_list
+    assert(ap);
     // variadic extern(D) function with implicit _argptr?
-    if (LLValue *pArgptr = p->func()->_argptr) {
-      DtoMemCpy(pAp, pArgptr); // ap = _argptr
-      result = new DImValue(e->type, pAp);
+    if (LLValue *argptrMem = p->func()->_argptr) {
+      DtoMemCpy(DtoLVal(ap), argptrMem); // ap = _argptr
     } else {
-      LLValue *vaStartArg = gABI->prepareVaStart(pAp);
-      result =
-          new DImValue(e->type, p->ir->CreateCall(GET_INTRINSIC_DECL(vastart),
-                                                  vaStartArg, ""));
+      LLValue *llAp = gABI->prepareVaStart(ap);
+      p->ir->CreateCall(GET_INTRINSIC_DECL(vastart), llAp, "");
     }
+    result = nullptr;
     return true;
   }
 
@@ -284,10 +283,11 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       e->error("va_copy instruction expects 2 arguments");
       fatal();
     }
-    LLValue *pDest = DtoLVal((*e->arguments)[0]); // va_list*
-    LLValue *src = DtoRVal((*e->arguments)[1]);   // va_list
-    gABI->vaCopy(pDest, src);
-    result = new DLValue(e->type, pDest);
+    DLValue *dest = toElem((*e->arguments)[0])->isLVal(); // va_list
+    assert(dest);
+    DValue *src = toElem((*e->arguments)[1]);             // va_list
+    gABI->vaCopy(dest, src);
+    result = nullptr;
     return true;
   }
 
@@ -297,13 +297,15 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       e->error("va_arg instruction expects 1 argument");
       fatal();
     }
-    LLValue *pAp = DtoLVal((*e->arguments)[0]); // va_list*
-    LLValue *vaArgArg = gABI->prepareVaArg(pAp);
-    LLType *llType = DtoType(e->type);
     if (DtoIsInMemoryOnly(e->type)) {
-      llType = getPtrToType(llType);
+      e->error("va_arg instruction does not support structs and static arrays");
+      fatal();
     }
-    result = new DImValue(e->type, p->ir->CreateVAArg(vaArgArg, llType));
+    DLValue *ap = toElem((*e->arguments)[0])->isLVal(); // va_list
+    assert(ap);
+    LLValue *llAp = gABI->prepareVaArg(ap);
+    LLType *llType = DtoType(e->type);
+    result = new DImValue(e->type, p->ir->CreateVAArg(llAp, llType));
     return true;
   }
 
