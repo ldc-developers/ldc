@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/optimizer.h"
-#include "mars.h" // error()
+#include "errors.h"
 #include "gen/cl_helpers.h"
 #include "gen/logger.h"
 #include "gen/passes/Passes.h"
@@ -408,7 +408,9 @@ bool ldc_optimize_module(llvm::Module *M) {
   mpm.run(*M);
 
   // Verify the resulting module.
-  verifyModule(M);
+  if (!noVerify) {
+    verifyModule(M);
+  }
 
   // Report that we run some passes.
   return true;
@@ -416,16 +418,13 @@ bool ldc_optimize_module(llvm::Module *M) {
 
 // Verifies the module.
 void verifyModule(llvm::Module *m) {
-  if (!noVerify) {
-    Logger::println("Verifying module...");
-    LOG_SCOPE;
-    std::string ErrorStr;
-    raw_string_ostream OS(ErrorStr);
-    if (llvm::verifyModule(*m, &OS)) {
-      error(Loc(), "%s", ErrorStr.c_str());
-      fatal();
-    } else {
-      Logger::println("Verification passed!");
-    }
+  Logger::println("Verifying module...");
+  LOG_SCOPE;
+  std::string ErrorStr;
+  raw_string_ostream OS(ErrorStr);
+  if (llvm::verifyModule(*m, &OS)) {
+    error(Loc(), "%s", ErrorStr.c_str());
+    fatal();
   }
+  Logger::println("Verification passed!");
 }
