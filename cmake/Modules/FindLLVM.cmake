@@ -42,6 +42,19 @@ find_program(LLVM_CONFIG
     DOC "Path to llvm-config tool.")
 find_program(LLVM_CONFIG NAMES ${llvm_config_names})
 
+# Prints a warning/failure message depending on the required/quiet flags. Copied
+# from FindPackageHandleStandardArgs.cmake because it doesn't seem to be exposed.
+macro(_LLVM_FAIL _msg)
+  if(LLVM_FIND_REQUIRED)
+    message(FATAL_ERROR "${_msg}")
+  else()
+    if(NOT LLVM_FIND_QUIETLY)
+      message(STATUS "${_msg}")
+    endif()
+  endif()
+endmacro()
+
+
 if ((WIN32 AND NOT(MINGW OR CYGWIN)) OR NOT LLVM_CONFIG)
     if (WIN32)
         # A bit of a sanity check:
@@ -118,7 +131,7 @@ if ((WIN32 AND NOT(MINGW OR CYGWIN)) OR NOT LLVM_CONFIG)
         # to switch to add_definitions() instead of throwing strings around.
         string(REPLACE ";" " " LLVM_CXXFLAGS "${LLVM_CXXFLAGS}")
     else()
-        if (NOT FIND_LLVM_QUIETLY)
+        if (NOT LLVM_FIND_QUIETLY)
             message(WARNING "Could not find llvm-config. Try manually setting LLVM_CONFIG to the llvm-config executable of the installation to use.")
         endif()
     endif()
@@ -127,28 +140,40 @@ else()
        if(LLVM_FIND_QUIETLY)
             set(_quiet_arg ERROR_QUIET)
         endif()
+        set(result_code)
         execute_process(
             COMMAND ${LLVM_CONFIG} --${flag}
+            RESULT_VARIABLE result_code
             OUTPUT_VARIABLE LLVM_${var}
             OUTPUT_STRIP_TRAILING_WHITESPACE
             ${_quiet_arg}
         )
-        if(${ARGV2})
-            file(TO_CMAKE_PATH "${LLVM_${var}}" LLVM_${var})
+        if(result_code)
+            _LLVM_FAIL("Failed to execute llvm-config ('${LLVM_CONFIG}', result code: '${result_code})'")
+        else()
+            if(${ARGV2})
+                file(TO_CMAKE_PATH "${LLVM_${var}}" LLVM_${var})
+            endif()
         endif()
     endmacro()
     macro(llvm_set_libs var flag)
        if(LLVM_FIND_QUIETLY)
             set(_quiet_arg ERROR_QUIET)
         endif()
+        set(result_code)
         execute_process(
             COMMAND ${LLVM_CONFIG} --${flag} ${LLVM_FIND_COMPONENTS}
+            RESULT_VARIABLE result_code
             OUTPUT_VARIABLE tmplibs
             OUTPUT_STRIP_TRAILING_WHITESPACE
             ${_quiet_arg}
         )
-        file(TO_CMAKE_PATH "${tmplibs}" tmplibs)
-        string(REGEX MATCHALL "${pattern}[^ ]+" LLVM_${var} ${tmplibs})
+        if(result_code)
+            _LLVM_FAIL("Failed to execute llvm-config ('${LLVM_CONFIG}', result code: '${result_code})'")
+        else()        
+            file(TO_CMAKE_PATH "${tmplibs}" tmplibs)
+            string(REGEX MATCHALL "${pattern}[^ ]+" LLVM_${var} ${tmplibs})
+        endif()
     endmacro()
 
     llvm_set(VERSION_STRING version)
