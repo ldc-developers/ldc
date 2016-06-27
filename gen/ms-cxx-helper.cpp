@@ -91,7 +91,6 @@ void remapBlocksValue(std::vector<llvm::BasicBlock *> &blocks,
 // - redirect srcTarget to continueWith
 // - set "funclet" attribute inside catch/cleanup pads
 // - inside funclets, replace "unreachable" with "branch cleanupret"
-// - disable inlining inside a funclet
 void cloneBlocks(const std::vector<llvm::BasicBlock *> &srcblocks,
                  std::vector<llvm::BasicBlock *> &blocks,
                  llvm::BasicBlock *continueWith, llvm::BasicBlock *unwindTo,
@@ -116,12 +115,10 @@ void cloneBlocks(const std::vector<llvm::BasicBlock *> &srcblocks,
         if (auto IInst = llvm::dyn_cast<llvm::InvokeInst> (Inst)) {
           auto invoke = llvm::InvokeInst::Create(
             IInst, llvm::OperandBundleDef("funclet", funclet));
-          invoke->setIsNoInline();
           newInst = invoke;
         } else if (auto CInst = llvm::dyn_cast<llvm::CallInst> (Inst)) {
           auto call = llvm::CallInst::Create(
               CInst, llvm::OperandBundleDef("funclet", funclet));
-          call->setIsNoInline();
           newInst = call;
         } else if (funclet && llvm::isa<llvm::UnreachableInst>(Inst)) {
           newInst = llvm::BranchInst::Create(continueWith); // to cleanupret
