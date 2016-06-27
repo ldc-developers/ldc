@@ -259,60 +259,6 @@ if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
 endif()
 
 
-# Compiles the given D module into an object file.
-macro(Dcompile  input_d  output_dir  extra_d_flags  outlist_o extra_deps)
-    if (IS_ABSOLUTE ${input_d})
-        file(RELATIVE_PATH output ${output_dir} ${input_d})
-    else()
-        set(output ${input_d})
-    endif()
-
-    get_filename_component(name ${output} NAME)
-    get_filename_component(path ${output} PATH)
-    if("${path}" STREQUAL "")
-        set(output_root ${name})
-    else()
-        set(output_root ${path}/${name})
-    endif()
-
-    set(output_o  ${CMAKE_CURRENT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/${output_root}${CMAKE_C_OUTPUT_EXTENSION})
-    list(APPEND ${outlist_o} ${output_o})
-
-    separate_arguments(FLAG_LIST WINDOWS_COMMAND "${D_COMPILER_FLAGS} ${extra_d_flags}")
-    add_custom_command(
-        OUTPUT ${output_o}
-        COMMAND ${D_COMPILER} ${FLAG_LIST} -c -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${output_o} ${input_d}
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        DEPENDS ${input_d} ${extra_deps}
-    )
-endmacro()
-macro(Dcompilelib  input_d  output_dir  extra_d_flags  outlist_o)
-    if (IS_ABSOLUTE ${input_d})
-        file(RELATIVE_PATH output ${output_dir} ${input_d})
-    else()
-        set(output ${input_d})
-    endif()
-
-    get_filename_component(name ${output} NAME_WE)
-    get_filename_component(path ${output} PATH)
-    if("${path}" STREQUAL "")
-        set(output_root ${name})
-    else()
-        set(output_root ${path}/${name})
-    endif()
-
-    set(output_lib  ${CMAKE_CURRENT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/${output_root}${CMAKE_STATIC_LIBRARY_SUFFIX})
-    list(APPEND ${outlist_o} ${output_lib})
-
-    separate_arguments(FLAG_LIST WINDOWS_COMMAND "${D_COMPILER_FLAGS} ${extra_d_flags}")
-    add_custom_command(
-        OUTPUT ${output_lib}
-        COMMAND ${D_COMPILER} ${FLAG_LIST} -lib -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${output_lib} ${input_d}
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        DEPENDS ${input_d}
-    )
-endmacro()
-
 # Build (generate executable) of D source
 macro(build_idgen  input_d  output_exec  extra_d_flags  link_flags  extra_deps)
     separate_arguments(FLAG_LIST WINDOWS_COMMAND "${D_COMPILER_FLAGS} ${extra_d_flags} ${link_flags}")
