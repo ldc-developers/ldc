@@ -113,8 +113,7 @@ elseif(MSVC)
     ENABLE_LANGUAGE(ASM_MASM)
 endif()
 
-# Setup D compiler flags and linker flags for phobos (system linker) etc. We use
-# DMD syntax for all the flags so we can work with both DMD and LDMD.
+# Setup D compiler flags (DMD syntax, which also works with LDMD).
 set(DDMD_DFLAGS "-wi")
 set(DDMD_LFLAGS "")
 if(NOT MSVC_IDE)
@@ -522,7 +521,7 @@ set(LDC_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_EXE_NAME}${CMAKE_EXECUTABLE_SUF
 set(LDMD_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDMD_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
 add_custom_target(${LDC_EXE} ALL DEPENDS ${LDC_EXE_FULL})
 add_custom_target(${LDMD_EXE} ALL DEPENDS ${LDMD_EXE_FULL})
-set(LDC_LINKERFLAG_LIST "${SANITIZE_LDFLAGS};${WINDOWS_STACK_SIZE};${LIBCONFIG_LIBRARY};${LLVM_LIBRARIES};${LLVM_LDFLAGS}")
+set(LDC_LINKERFLAG_LIST "${SANITIZE_LDFLAGS};${LIBCONFIG_LIBRARY};${LLVM_LIBRARIES};${LLVM_LDFLAGS}")
 set(tempVar "")
 foreach(f ${LDC_LINKERFLAG_LIST})
     string (REPLACE "-Wl," "" f ${f})
