@@ -42,17 +42,17 @@ using namespace llvm;
 
 static cl::opt<signed char> optimizeLevel(
     cl::desc("Setting the optimization level:"), cl::ZeroOrMore,
-    cl::values(
-        clEnumValN(3, "O", "Equivalent to -O3"),
-        clEnumValN(0, "O0", "No optimizations (default)"),
-        clEnumValN(1, "O1", "Simple optimizations"),
-        clEnumValN(2, "O2", "Good optimizations"),
-        clEnumValN(3, "O3", "Aggressive optimizations"),
-        clEnumValN(4, "O4", "Equivalent to -O3"), // Not implemented yet.
-        clEnumValN(5, "O5", "Equivalent to -O3"), // Not implemented yet.
-        clEnumValN(-1, "Os", "Like -O2 with extra optimizations for size"),
-        clEnumValN(-2, "Oz", "Like -Os but reduces code size further"),
-        clEnumValEnd),
+    cl::values(clEnumValN(3, "O", "Equivalent to -O3"),
+               clEnumValN(0, "O0", "No optimizations (default)"),
+               clEnumValN(1, "O1", "Simple optimizations"),
+               clEnumValN(2, "O2", "Good optimizations"),
+               clEnumValN(3, "O3", "Aggressive optimizations"),
+               clEnumValN(4, "O4", "Equivalent to -O3"), // Not implemented yet.
+               clEnumValN(5, "O5", "Equivalent to -O3"), // Not implemented yet.
+               clEnumValN(-1, "Os",
+                          "Like -O2 with extra optimizations for size"),
+               clEnumValN(-2, "Oz", "Like -Os but reduces code size further"),
+               clEnumValEnd),
     cl::init(0));
 
 static cl::opt<bool> noVerify("disable-verify",
