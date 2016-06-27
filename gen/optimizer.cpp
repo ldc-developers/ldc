@@ -232,7 +232,9 @@ static void addOptimizationPasses(PassManagerBase &mpm,
                                   FunctionPassManager &fpm,
 #endif
                                   unsigned optLevel, unsigned sizeLevel) {
-  fpm.add(createVerifierPass()); // Verify that input is correct
+  if (!noVerify) {
+    fpm.add(createVerifierPass());
+  }
 
   PassManagerBuilder builder;
   builder.OptLevel = optLevel;
