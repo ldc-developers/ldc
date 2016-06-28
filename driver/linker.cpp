@@ -28,6 +28,7 @@
 #include "llvm/Support/SourceMgr.h"
 #if _WIN32
 #include "llvm/Support/SystemUtils.h"
+#include "llvm/Support/ConvertUTF.h"
 #include <Windows.h>
 #endif
 
@@ -426,9 +427,17 @@ int executeAndWait(const char *commandLine) {
 
   DWORD exitCode;
 
+#if UNICODE
+  std::wstring wcommandLine;
+  if (!llvm::ConvertUTF8toWide(commandLine, wcommandLine))
+    return -3;
+  auto cmdline = const_cast<wchar_t *>(wcommandLine.data());
+#else
+  auto cmdline = const_cast<char *>(commandLine);
+#endif
   // according to MSDN, only CreateProcessW (unicode) may modify the passed
   // command line
-  if (!CreateProcess(NULL, const_cast<char *>(commandLine), NULL, NULL, TRUE, 0,
+  if (!CreateProcess(NULL, cmdline, NULL, NULL, TRUE, 0,
                      NULL, NULL, &si, &pi)) {
     exitCode = -1;
   } else {
