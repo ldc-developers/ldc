@@ -521,38 +521,76 @@ set(LDC_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_EXE_NAME}${CMAKE_EXECUTABLE_SUF
 set(LDMD_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDMD_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
 add_custom_target(${LDC_EXE} ALL DEPENDS ${LDC_EXE_FULL})
 add_custom_target(${LDMD_EXE} ALL DEPENDS ${LDMD_EXE_FULL})
+
+# Figure out how to link the main LDC executable, for which we need to take the
+# libconfig/LLVM flags into account.
 set(LDC_LINKERFLAG_LIST "${SANITIZE_LDFLAGS};${LIBCONFIG_LIBRARY};${LLVM_LIBRARIES};${LLVM_LDFLAGS}")
-set(tempVar "")
-foreach(f ${LDC_LINKERFLAG_LIST})
-    string (REPLACE "-Wl," "" f ${f})
-    string (REPLACE "-LIBPATH:" "/LIBPATH:" f ${f})
-    append("-L\"${f}\"" tempVar)
-endforeach(f)
-if(MSVC)
-    # Issue 1297
-    # The default system-allocated stack size is 8MB on Linux and Mac, but only 1MB on Windows
-    # Set LDC's stack to 8MB also on Windows:
-    append("-L/STACK:8388608" tempVar)
+
+set(LDC_LINK_MANUALLY OFF)
+if(UNIX AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")))
+    # On Unix-like systems, DMD and LDC will use the C compiler for linking, but
+    # will pass on -L options prefixed by -Xlinker to directly forward them to
+    # the underlying ld. Since there are some flags the GCC driver handles itself
+    # rather than passing them to ld, we cannot just directly translate
+    # LDC_LINKERFLAG_LIST to -L options. To be able to handle general linker flags,
+    # we manually invoke the linker instead of using the D compiler to do so.
+    set(LDC_LINK_MANUALLY ON)
+
+    include(ExtractDMDSystemLinker)
+    list(APPEND LDC_LINKERFLAG_LIST ${D_LINKER_ARGS})
+
+    if(NOT "${CMAKE_EXE_LINKER_FLAGS}" STREQUAL "")
+        separate_arguments(flags UNIX_COMMAND "${CMAKE_EXE_LINKER_FLAGS}")
+        list(APPEND LDC_LINKERFLAG_LIST ${flags})
+    endif()
 else()
-    if(${D_COMPILER_ID} STREQUAL "LDC" OR ${D_COMPILER_ID} STREQUAL "LDMD")
-        # Translate flags from CMAKE_EXE_LINKER_FLAGS
-        if(NOT "${CMAKE_EXE_LINKER_FLAGS}" STREQUAL "")
-            separate_arguments(flags UNIX_COMMAND "${CMAKE_EXE_LINKER_FLAGS}")
-            foreach(f ${flags})
-                append("-L${f}" tempVar)
-            endforeach()
-        endif()
-        # Use the C++ compiler for linking - only for ldc or ldmd.
-        append("-gcc=${CMAKE_CXX_COMPILER}" tempVar)
-    else()
-        # Link against libstdc++
-        append("-L-lstdc++" tempVar)
+    # Use D compiler for linking, trying to translate a few common linker flags.
+    set(LDC_TRANSLATED_LINKER_FLAGS "")
+    foreach(f ${LDC_LINKERFLAG_LIST})
+        string(REPLACE "-Wl," "" f ${f})
+        string(REPLACE "-LIBPATH:" "/LIBPATH:" f ${f})
+        append("-L\"${f}\"" LDC_TRANSLATED_LINKER_FLAGS)
+    endforeach()
+
+    if(MSVC)
+        # Issue 1297 – set LDC's stack to 8 MiB like on Linux and Mac (default: 1 MiB).
+        append("-L/STACK:8388608" LDC_TRANSLATED_LINKER_FLAGS)
     endif()
 endif()
 
+function(build_d_executable output_exe compiler_args linker_args dependencies)
+    if(LDC_LINK_MANUALLY)
+        set(object_file ${output_exe}${CMAKE_CXX_OUTPUT_EXTENSION})
+        separate_arguments(dmd_flags UNIX_COMMAND "${D_COMPILER_FLAGS} ${DDMD_DFLAGS}")
+        add_custom_command(
+            OUTPUT ${object_file}
+            COMMAND ${D_COMPILER} -c ${dmd_flags} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${object_file} ${compiler_args}
+            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+            DEPENDS ${dependencies}
+        )
+        add_custom_command(
+            OUTPUT ${output_exe}
+            COMMAND ${CMAKE_CXX_COMPILER} -o ${output_exe} ${object_file} ${linker_args} ${LDC_LINKERFLAG_LIST}
+            DEPENDS ${object_file}
+        )
+    else()
+        set(lflags ${LDC_TRANSLATED_LINKER_FLAGS})
+        separate_arguments(lflags)
+        foreach(f ${linker_args})
+            append("-L\"${f}\"" lflags)
+        endforeach()
+        add_custom_command(
+            OUTPUT ${output_exe}
+            COMMAND ${D_COMPILER} ${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS} ${lflags} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${output_exe} ${compiler_args} ${linker_args}
+            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+            DEPENDS ${dependencies}
+        )
+    endif()
+endfunction()
+
 # CONFIG generator expressions need to be repeated due to https://cmake.org/Bug/view.php?id=14353
-separate_arguments(LDC_FLAG_LIST WINDOWS_COMMAND "${tempVar} ${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS}")
 if(MSVC_IDE)
+    separate_arguments(LDC_FLAG_LIST WINDOWS_COMMAND "${LDC_TRANSLATED_LINKER_FLAGS} ${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS}")
     add_custom_command(
         OUTPUT ${LDC_EXE_FULL}
         COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:${LDC_LIB}> ${LDC_FLAG_LIST} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${LDC_EXE_FULL} ${LDC_D_SOURCE_FILES} $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:-g> $<$<NOT:$<CONFIG:Debug>>:-O> $<$<NOT:$<CONFIG:Debug>>:-inline> $<$<NOT:$<CONFIG:Debug>>:-release>
@@ -560,11 +598,11 @@ if(MSVC_IDE)
         DEPENDS ${LDC_D_SOURCE_FILES} ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d ${LDC_LIB}
     )
 else()
-    add_custom_command(
-        OUTPUT ${LDC_EXE_FULL}
-        COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:${LDC_LIB}> ${LDC_FLAG_LIST} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${LDC_EXE_FULL} ${LDC_D_SOURCE_FILES}
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        DEPENDS ${LDC_D_SOURCE_FILES} ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d ${LDC_LIB}
+    build_d_executable(
+        "${LDC_EXE_FULL}"
+        "${LDC_D_SOURCE_FILES}"
+        "$<TARGET_LINKER_FILE:${LDC_LIB}>"
+        "${LDC_D_SOURCE_FILES};${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d;${LDC_LIB}"
     )
 endif()
 
@@ -598,12 +636,13 @@ set_target_properties(
     ARCHIVE_OUTPUT_NAME ldmd
     LIBRARY_OUTPUT_NAME ldmd
 )
-add_custom_command(
-    OUTPUT ${LDMD_EXE_FULL}
-    COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:LDMD_CXX_LIB> ${LDC_FLAG_LIST} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${LDMD_EXE_FULL} ${DDMDFE_PATH}/root/man.d driver/ldmd.d
-    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    DEPENDS LDMD_CXX_LIB ${LDC_LIB}
+build_d_executable(
+    "${LDMD_EXE_FULL}"
+    "${DDMDFE_PATH}/root/man.d;driver/ldmd.d"
+    "$<TARGET_LINKER_FILE:LDMD_CXX_LIB>"
+    "LDMD_CXX_LIB;${LDC_LIB}"
 )
+
 
 #
 # Auxiliary tools.
