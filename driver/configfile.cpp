@@ -20,8 +20,10 @@
 #include <string>
 #if _WIN32
 #define WIN32_LEAN_AND_MEAN
+#include "llvm/Support/ConvertUTF.h"
 #include <windows.h>
 #include <shlobj.h>
+#include <tchar.h>
 // Prevent name clash with LLVM
 #undef GetCurrentDirectory
 #endif
@@ -55,16 +57,23 @@ static bool ReadPathFromRegistry(llvm::SmallString<128> &p) {
   HKEY hkey;
   bool res = false;
   // FIXME: Version number should be a define.
-  if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, "SOFTWARE\\ldc-developers\\LDC\\0.11.0",
+  if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, _T("SOFTWARE\\ldc-developers\\LDC\\0.11.0"),
                    NULL, KEY_QUERY_VALUE, &hkey) == ERROR_SUCCESS) {
     DWORD length;
-    if (RegGetValue(hkey, NULL, "Path", RRF_RT_REG_SZ, NULL, NULL, &length) ==
+    if (RegGetValue(hkey, NULL, _T("Path"), RRF_RT_REG_SZ, NULL, NULL, &length) ==
         ERROR_SUCCESS) {
-      char *data = static_cast<char *>(_alloca(length));
-      if (RegGetValue(hkey, NULL, "Path", RRF_RT_REG_SZ, NULL, data, &length) ==
+      TCHAR *data = static_cast<TCHAR *>(_alloca(length * sizeof(TCHAR)));
+      if (RegGetValue(hkey, NULL, _T("Path"), RRF_RT_REG_SZ, NULL, data, &length) ==
           ERROR_SUCCESS) {
+#if UNICODE
+        std::string out;
+        res = llvm::convertUTF16ToUTF8String(
+            llvm::ArrayRef<UTF16>(reinterpret_cast<UTF16 *>(data), length), out);
+        p = out;
+#else
         p = std::string(data);
         res = true;
+#endif
       }
     }
     RegCloseKey(hkey);
