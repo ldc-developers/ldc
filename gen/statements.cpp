@@ -145,12 +145,12 @@ public:
           LLType::getVoidTy(irs->context())) {
         // sanity check
         IrFunction *f = irs->func();
-        assert(getIrFunc(f->decl)->retArg);
+        assert(getIrFunc(f->decl)->sretArg);
 
         // FIXME: is there ever a case where a sret return needs to be rewritten
         // for the ABI?
 
-        LLValue *sretPointer = getIrFunc(f->decl)->retArg;
+        LLValue *sretPointer = getIrFunc(f->decl)->sretArg;
         DValue *e = toElemDtor(stmt->exp);
         // store return value
         if (!e->isLVal() || DtoLVal(e) != sretPointer) {

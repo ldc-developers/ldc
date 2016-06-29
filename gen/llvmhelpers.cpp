@@ -884,7 +884,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
 
   if (isIrLocalCreated(vd)) {
     // Nothing to do if it has already been allocated.
-  } else if (gIR->func()->retArg && gIR->func()->decl->nrvo_can &&
+  } else if (gIR->func()->sretArg && gIR->func()->decl->nrvo_can &&
              gIR->func()->decl->nrvo_var == vd) {
     // Named Return Value Optimization (NRVO):
     // T f() {
@@ -893,7 +893,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     //   return ret;    // NRVO.
     // }
     assert(!isSpecialRefVar(vd) && "Can this happen?");
-    getIrLocal(vd, true)->value = gIR->func()->retArg;
+    getIrLocal(vd, true)->value = gIR->func()->sretArg;
   } else {
     // normal stack variable, allocate storage on the stack if it has not
     // already been done
