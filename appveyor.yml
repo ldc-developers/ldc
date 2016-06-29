@@ -102,9 +102,9 @@ install:
   # Download & extract a pre-built LLVM (CMAKE_BUILD_TYPE=Release, LLVM_ENABLE_ASSERTIONS=ON)
   - ps: |
         If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
-            Start-FileDownload 'https://dl.dropboxusercontent.com/s/kqsr5haxoiz9nly/LLVM-r273081-x64.7z?dl=0' -FileName 'llvm-x64.7z'
+            Start-FileDownload 'https://dl.dropboxusercontent.com/s/pyb0l9hf7wuidiy/LLVM-r274132-x64.7z?dl=0' -FileName 'llvm-x64.7z'
         } Else {
-            Start-FileDownload 'https://dl.dropboxusercontent.com/s/tp9acj30ww0yekh/LLVM-r273081-x86.7z?dl=0' -FileName 'llvm-x86.7z'
+            Start-FileDownload 'https://dl.dropboxusercontent.com/s/cqrhiizo2x9w0ac/LLVM-r274132-x86.7z?dl=0' -FileName 'llvm-x86.7z'
         }
   - md llvm-%APPVEYOR_JOB_ARCH%
   - cd llvm-%APPVEYOR_JOB_ARCH%
