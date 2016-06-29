@@ -1276,7 +1276,7 @@ public:
 
       // Get the actual function value to call.
       LLValue *funcval = nullptr;
-      if (nonFinal) {
+      if (e->e1->op != TOKsuper && nonFinal) {
         funcval = DtoVirtualFunctionPointer(l, fdecl, e->toChars());
       } else {
         funcval = getIrFunc(fdecl)->func;
