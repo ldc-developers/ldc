@@ -18,6 +18,7 @@
 #define LDC_GEN_ABI_H
 
 #include "mars.h"
+#include "gen/dvalue.h"
 #include "llvm/IR/CallingConv.h"
 #include <vector>
 
@@ -26,7 +27,6 @@ class TypeFunction;
 class TypeStruct;
 struct IrFuncTy;
 struct IrFuncTyArg;
-class DValue;
 class FuncDeclaration;
 
 namespace llvm {
@@ -136,22 +136,18 @@ struct TargetABI {
   virtual void rewriteVarargs(IrFuncTy &fty, std::vector<IrFuncTyArg *> &args);
   virtual void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) {}
 
-  /// Prepares a va_start intrinsic call.
-  ///
-  /// Input:  pointer to passed ap argument (va_list*)
-  /// Output: value to be passed to LLVM's va_start intrinsic (void*)
-  virtual llvm::Value *prepareVaStart(llvm::Value *pAp);
+  /// Prepares a va_start intrinsic call by transforming the D argument (of type
+  /// va_list) to a low-level value (of type i8*) to be passed to LLVM's
+  /// va_start intrinsic.
+  virtual llvm::Value *prepareVaStart(DLValue *ap);
 
   /// Implements the va_copy intrinsic.
-  ///
-  /// Input: pointer to dest argument (va_list*) and src argument (va_list)
-  virtual void vaCopy(llvm::Value *pDest, llvm::Value *src);
+  virtual void vaCopy(DLValue *dest, DValue *src);
 
-  /// Prepares a va_arg intrinsic call.
-  ///
-  /// Input:  pointer to passed ap argument (va_list*)
-  /// Output: value to be passed to LLVM's va_arg intrinsic (void*)
-  virtual llvm::Value *prepareVaArg(llvm::Value *pAp);
+  /// Prepares a va_arg intrinsic call by transforming the D argument (of type
+  /// va_list) to a low-level value (of type i8*) to be passed to LLVM's
+  /// va_arg intrinsic.
+  virtual llvm::Value *prepareVaArg(DLValue *ap);
 
   /// Returns the D type to be used for va_list.
   ///

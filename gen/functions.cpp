@@ -971,13 +971,14 @@ void DtoDefineFunction(FuncDeclaration *fd) {
     // D varargs: prepare _argptr and _arguments
     if (f->linkage == LINKd && f->varargs == 1) {
       // allocate _argptr (of type core.stdc.stdarg.va_list)
-      LLValue *argptrmem = DtoAlloca(
-          Type::tvalist->semantic(fd->loc, fd->_scope), "_argptr_mem");
-      irFunc->_argptr = argptrmem;
+      Type *const argptrType = Type::tvalist->semantic(fd->loc, fd->_scope);
+      LLValue *argptrMem = DtoAlloca(argptrType, "_argptr_mem");
+      irFunc->_argptr = argptrMem;
 
       // initialize _argptr with a call to the va_start intrinsic
-      LLValue *vaStartArg = gABI->prepareVaStart(argptrmem);
-      llvm::CallInst::Create(GET_INTRINSIC_DECL(vastart), vaStartArg, "",
+      DLValue argptrVal(argptrType, argptrMem);
+      LLValue *llAp = gABI->prepareVaStart(&argptrVal);
+      llvm::CallInst::Create(GET_INTRINSIC_DECL(vastart), llAp, "",
                              gIR->scopebb());
 
       // copy _arguments to a memory location

@@ -1040,8 +1040,8 @@ public:
     // handle cast to void (usually created by frontend to avoid "has no effect"
     // error)
     if (e->to == Type::tvoid) {
-      result = new DImValue(Type::tvoid,
-                            llvm::UndefValue::get(DtoMemType(Type::tvoid)));
+      result = new DConstValue(Type::tvoid,
+                               llvm::UndefValue::get(DtoMemType(Type::tvoid)));
       return;
     }
 
