@@ -920,7 +920,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
-  static DValue *call(IRState *p, CallExp *e, LLValue *retvar = nullptr) {
+  static DValue *call(IRState *p, CallExp *e, LLValue *sretPointer = nullptr) {
     IF_LOG Logger::print("CallExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -1012,7 +1012,7 @@ public:
     }
 
     DValue *result =
-        DtoCallFunction(e->loc, e->type, fnval, e->arguments, retvar);
+        DtoCallFunction(e->loc, e->type, fnval, e->arguments, sretPointer);
 
     if (delayedDtorVar) {
       delayedDtorVar->edtor = delayedDtorExp;

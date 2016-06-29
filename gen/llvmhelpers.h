@@ -225,7 +225,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
 ///
 DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
-                        Expressions *arguments, LLValue *retvar = nullptr);
+                        Expressions *arguments, LLValue *sretPointer = nullptr);
 
 Type *stripModifiers(Type *type, bool transitive = false);
 

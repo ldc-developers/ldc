@@ -47,16 +47,16 @@ void main() {
   // C HECK: %outeroverride = alloca %align.Outer, align 16
   // C HECK: %outeroverride = alloca %align.Outer, align 32
 
-  // CHECK: %.rettmp{{.*}} = alloca %align.Outer, align 32
-  // CHECK: %.rettmp{{.*}} = alloca %align.Inner, align 32
+  // CHECK: %.sret_tmp{{.*}} = alloca %align.Outer, align 32
+  // CHECK: %.sret_tmp{{.*}} = alloca %align.Inner, align 32
 
   outer = passAndReturnOuterByVal(outer);
   // CHECK: call{{.*}} void @{{.*}}_D5align23passAndReturnOuterByValFS5align5OuterZS5align5Outer
-  // CHECK-SAME: %align.Outer* {{noalias sret|inreg noalias}} align 32 %.rettmp
+  // CHECK-SAME: %align.Outer* {{noalias sret|inreg noalias}} align 32 %.sret_tmp
   // CHECK-SAME: align 32 %
 
   inner = passAndReturnInnerByVal(inner);
   // CHECK: call{{.*}} void @{{.*}}_D5align23passAndReturnInnerByValFS5align5InnerZS5align5Inner
-  // CHECK-SAME: %align.Inner* {{noalias sret|inreg noalias}} align 32 %.rettmp1
+  // CHECK-SAME: %align.Inner* {{noalias sret|inreg noalias}} align 32 %.sret_tmp
   // CHECK-SAME: align 32 %
 }

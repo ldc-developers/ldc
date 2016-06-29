@@ -150,17 +150,18 @@ public:
         // FIXME: is there ever a case where a sret return needs to be rewritten
         // for the ABI?
 
-        // get return pointer
-        DValue *rvar = new DLValue(f->type->next, getIrFunc(f->decl)->retArg);
+        LLValue *sretPointer = getIrFunc(f->decl)->retArg;
         DValue *e = toElemDtor(stmt->exp);
         // store return value
-        if (!e->isLVal() || DtoLVal(e) != DtoLVal(rvar))
-          DtoAssign(stmt->loc, rvar, e, TOKblit);
+        if (!e->isLVal() || DtoLVal(e) != sretPointer) {
+          DLValue rvar(f->type->next, sretPointer);
+          DtoAssign(stmt->loc, &rvar, e, TOKblit);
+        }
 
         // call postblit if necessary
         if (!irs->func()->type->isref &&
             !(f->decl->nrvo_can && f->decl->nrvo_var)) {
-          callPostblit(stmt->loc, stmt->exp, DtoLVal(rvar));
+          callPostblit(stmt->loc, stmt->exp, sretPointer);
         }
       }
       // the return type is not void, so this is a normal "register" return
