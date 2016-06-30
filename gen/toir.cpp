@@ -601,9 +601,7 @@ public:
         if (rhs->op == TOKcall) {
           auto ce = static_cast<CallExp *>(rhs);
           if (DtoIsReturnInArg(ce)) {
-            DValue *fnval = toElem(ce->e1);
-            DtoCallFunction(ce->loc, ce->type, fnval, ce->arguments,
-                            DtoLVal(l));
+            call(p, ce, DtoLVal(l));
             result = l;
             return;
           }
@@ -922,7 +920,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
-  void visit(CallExp *e) override {
+  static DValue *call(IRState *p, CallExp *e, LLValue *retvar = nullptr) {
     IF_LOG Logger::print("CallExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -932,8 +930,7 @@ public:
 
     if (e->cachedLvalue) {
       LLValue *V = e->cachedLvalue;
-      result = new DLValue(e->type, V);
-      return;
+      return new DLValue(e->type, V);
     }
 
     // handle magic inline asm
@@ -941,12 +938,10 @@ public:
       VarExp *ve = static_cast<VarExp *>(e->e1);
       if (FuncDeclaration *fd = ve->var->isFuncDeclaration()) {
         if (fd->llvmInternal == LLVMinline_asm) {
-          result = DtoInlineAsmExpr(e->loc, fd, e->arguments);
-          return;
+          return DtoInlineAsmExpr(e->loc, fd, e->arguments);
         }
         if (fd->llvmInternal == LLVMinline_ir) {
-          result = DtoInlineIRExpr(e->loc, fd, e->arguments);
-          return;
+          return DtoInlineIRExpr(e->loc, fd, e->arguments);
         }
       }
     }
@@ -990,8 +985,7 @@ public:
       FuncDeclaration *fdecl = dve->var->isFuncDeclaration();
       assert(fdecl);
       DtoResolveFunction(fdecl);
-      fnval = new DFuncValue(fdecl, getIrFunc(fdecl)->func,
-                             DtoRVal(dve->e1));
+      fnval = new DFuncValue(fdecl, getIrFunc(fdecl)->func, DtoRVal(dve->e1));
     } else {
       fnval = toElem(e->e1);
     }
@@ -1012,16 +1006,24 @@ public:
         }
       }
 
+      DValue *result = nullptr;
       if (DtoLowerMagicIntrinsic(p, fndecl, e, result))
-        return;
+        return result;
     }
 
-    result = DtoCallFunction(e->loc, e->type, fnval, e->arguments);
+    DValue *result =
+        DtoCallFunction(e->loc, e->type, fnval, e->arguments, retvar);
 
     if (delayedDtorVar) {
       delayedDtorVar->edtor = delayedDtorExp;
       pushVarDtorCleanup(p, delayedDtorVar);
     }
+
+    return result;
+  }
+
+  void visit(CallExp *e) override {
+    result = call(p, e);
   }
 
   //////////////////////////////////////////////////////////////////////////////
