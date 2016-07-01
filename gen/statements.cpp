@@ -135,52 +135,69 @@ public:
     emitCoverageLinecountInc(stmt->loc);
 
     // The LLVM value to return, or null for void returns.
-    llvm::Value *returnValue = nullptr;
+    LLValue *returnValue = nullptr;
+
+    IrFunction *const f = irs->func();
+    FuncDeclaration *const fd = f->decl;
+    LLFunction *const llFunc = f->func;
 
     // is there a return value expression?
-    if (stmt->exp || (!stmt->exp && (irs->topfunc() == irs->mainFunc))) {
-      // if the functions return type is void this means that
-      // we are returning through a pointer argument
-      if (irs->topfunc()->getReturnType() ==
-          LLType::getVoidTy(irs->context())) {
-        // sanity check
-        IrFunction *f = irs->func();
-        assert(getIrFunc(f->decl)->sretArg);
+    if (stmt->exp || (!stmt->exp && (llFunc == irs->mainFunc))) {
+      // if the function's return type is void, it uses sret
+      if (llFunc->getReturnType() == LLType::getVoidTy(irs->context())) {
+        assert(!f->type->isref);
 
-        // FIXME: is there ever a case where a sret return needs to be rewritten
-        // for the ABI?
+        LLValue *sretPointer = getIrFunc(fd)->sretArg;
+        assert(sretPointer);
 
-        LLValue *sretPointer = getIrFunc(f->decl)->sretArg;
-        DValue *e = toElemDtor(stmt->exp);
-        // store return value
-        if (!e->isLVal() || DtoLVal(e) != sretPointer) {
-          DLValue rvar(f->type->next, sretPointer);
-          DtoAssign(stmt->loc, &rvar, e, TOKblit);
+        assert(!f->irFty.arg_sret->rewrite &&
+               "ABI shouldn't have to rewrite sret returns");
+        DLValue returnValue(f->type->next, sretPointer);
 
-          // call postblit if the expression is a D lvalue
-          // exceptions: NRVO and special __result variable (for out contracts)
-          bool doPostblit = !(f->decl->nrvo_can && f->decl->nrvo_var);
-          if (doPostblit && stmt->exp->op == TOKvar) {
-            auto ve = static_cast<VarExp *>(stmt->exp);
-            if (ve->var->isResult())
-              doPostblit = false;
+        // try to construct the return value in-place
+        const auto initialCleanupScope = f->scopes->currentCleanupScope();
+        const bool constructed = toInPlaceConstruction(&returnValue, stmt->exp);
+        if (constructed) {
+          // cleanup manually (otherwise done by toElemDtor())
+          if (f->scopes->currentCleanupScope() != initialCleanupScope) {
+            auto endbb = llvm::BasicBlock::Create(
+                irs->context(), "inPlaceSretConstruct.success", llFunc);
+            f->scopes->runCleanups(initialCleanupScope, endbb);
+            f->scopes->popCleanups(initialCleanupScope);
+            irs->scope() = IRScope(endbb);
           }
-          if (doPostblit)
-            callPostblit(stmt->loc, stmt->exp, sretPointer);
+        } else {
+          DValue *e = toElemDtor(stmt->exp);
+
+          // store the return value unless NRVO already used the sret pointer
+          if (!e->isLVal() || DtoLVal(e) != sretPointer) {
+            DtoAssign(stmt->loc, &returnValue, e, TOKblit);
+
+            // call postblit if the expression is a D lvalue
+            // exceptions: NRVO and special __result variable (out contracts)
+            bool doPostblit = !(fd->nrvo_can && fd->nrvo_var);
+            if (doPostblit && stmt->exp->op == TOKvar) {
+              auto ve = static_cast<VarExp *>(stmt->exp);
+              if (ve->var->isResult())
+                doPostblit = false;
+            }
+            if (doPostblit)
+              callPostblit(stmt->loc, stmt->exp, sretPointer);
+          }
         }
       }
       // the return type is not void, so this is a normal "register" return
       else {
-        if (!stmt->exp && (irs->topfunc() == irs->mainFunc)) {
+        if (!stmt->exp && (llFunc == irs->mainFunc)) {
           returnValue =
               LLConstant::getNullValue(irs->mainFunc->getReturnType());
         } else {
           if (stmt->exp->op == TOKnull) {
-            stmt->exp->type = irs->func()->type->next;
+            stmt->exp->type = f->type->next;
           }
           DValue *dval = nullptr;
           // call postblit if necessary
-          if (!irs->func()->type->isref) {
+          if (!f->type->isref) {
             dval = toElemDtor(stmt->exp);
             LLValue *vthis =
                 (DtoIsInMemoryOnly(dval->type) ? DtoLVal(dval) : DtoRVal(dval));
@@ -190,15 +207,14 @@ public:
             dval = toElemDtor(ae);
           }
           // do abi specific transformations on the return value
-          returnValue = getIrFunc(irs->func()->decl)->irFty.putRet(dval);
+          returnValue = getIrFunc(fd)->irFty.putRet(dval);
         }
 
-        IrFunction *f = irs->func();
         // Hack around LDC assuming structs and static arrays are in memory:
         // If the function returns a struct or a static array, and the return
         // value is a pointer to a struct or a static array, load from it
         // before returning.
-        if (returnValue->getType() != irs->topfunc()->getReturnType() &&
+        if (returnValue->getType() != llFunc->getReturnType() &&
             DtoIsInMemoryOnly(f->type->next) &&
             isaPointer(returnValue->getType())) {
           Logger::println("Loading value for return");
@@ -206,18 +222,18 @@ public:
         }
 
         // can happen for classes and void main
-        if (returnValue->getType() != irs->topfunc()->getReturnType()) {
+        if (returnValue->getType() != llFunc->getReturnType()) {
           // for the main function this only happens if it is declared as void
           // and then contains a return (exp); statement. Since the actual
           // return type remains i32, we just throw away the exp value
           // and return 0 instead
           // if we're not in main, just bitcast
-          if (irs->topfunc() == irs->mainFunc) {
+          if (llFunc == irs->mainFunc) {
             returnValue =
                 LLConstant::getNullValue(irs->mainFunc->getReturnType());
           } else {
-            returnValue = irs->ir->CreateBitCast(
-                returnValue, irs->topfunc()->getReturnType());
+            returnValue =
+                irs->ir->CreateBitCast(returnValue, llFunc->getReturnType());
           }
 
           IF_LOG Logger::cout() << "return value after cast: " << *returnValue
@@ -226,22 +242,21 @@ public:
       }
     } else {
       // no return value expression means it's a void function.
-      assert(irs->topfunc()->getReturnType() ==
-             LLType::getVoidTy(irs->context()));
+      assert(llFunc->getReturnType() == LLType::getVoidTy(irs->context()));
     }
 
     // If there are no cleanups to run, we try to keep the IR simple and
     // just directly emit the return instruction. If there are cleanups to run
     // first, we need to store the return value to a stack slot, in which case
     // we can use a shared return bb for all these cases.
-    const bool useRetValSlot = irs->func()->scopes->currentCleanupScope() != 0;
-    const bool sharedRetBlockExists = !!irs->func()->retBlock;
+    const bool useRetValSlot = f->scopes->currentCleanupScope() != 0;
+    const bool sharedRetBlockExists = !!f->retBlock;
     if (useRetValSlot) {
       if (!sharedRetBlockExists) {
-        irs->func()->retBlock =
-            llvm::BasicBlock::Create(irs->context(), "return", irs->topfunc());
+        f->retBlock =
+            llvm::BasicBlock::Create(irs->context(), "return", llFunc);
         if (returnValue) {
-          irs->func()->retValSlot =
+          f->retValSlot =
               DtoRawAlloca(returnValue->getType(), 0, "return.slot");
         }
       }
@@ -249,13 +264,13 @@ public:
       // Create the store to the slot at the end of our current basic
       // block, before we run the cleanups.
       if (returnValue) {
-        irs->ir->CreateStore(returnValue, irs->func()->retValSlot);
+        irs->ir->CreateStore(returnValue, f->retValSlot);
       }
 
       // Now run the cleanups.
-      irs->func()->scopes->runAllCleanups(irs->func()->retBlock);
+      f->scopes->runAllCleanups(f->retBlock);
 
-      irs->scope() = IRScope(irs->func()->retBlock);
+      irs->scope() = IRScope(f->retBlock);
     }
 
     // If we need to emit the actual return instruction, do so.
@@ -264,11 +279,11 @@ public:
         // Hack: the frontend generates 'return 0;' as last statement of
         // 'void main()'. But the debug location is missing. Use the end
         // of function as debug location.
-        if (irs->func()->decl->isMain() && !stmt->loc.linnum) {
-          irs->DBuilder.EmitStopPoint(irs->func()->decl->endloc);
+        if (fd->isMain() && !stmt->loc.linnum) {
+          irs->DBuilder.EmitStopPoint(fd->endloc);
         }
 
-        irs->ir->CreateRet(useRetValSlot ? DtoLoad(irs->func()->retValSlot)
+        irs->ir->CreateRet(useRetValSlot ? DtoLoad(f->retValSlot)
                                          : returnValue);
       } else {
         irs->ir->CreateRetVoid();
@@ -278,8 +293,8 @@ public:
     // Finally, create a new predecessor-less dummy bb as the current IRScope
     // to make sure we do not emit any extra instructions after the terminating
     // instruction (ret or branch to return bb), which would be illegal IR.
-    irs->scope() = IRScope(llvm::BasicBlock::Create(
-        gIR->context(), "dummy.afterreturn", irs->topfunc()));
+    irs->scope() = IRScope(
+        llvm::BasicBlock::Create(gIR->context(), "dummy.afterreturn", llFunc));
   }
 
   //////////////////////////////////////////////////////////////////////////
