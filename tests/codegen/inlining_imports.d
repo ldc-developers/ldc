@@ -1,5 +1,7 @@
 // Test inlining of imported functions
 
+// REQUIRES: atleast_llvm307
+
 // RUN: %ldc %s -I%S -c -output-ll -release -O3 -of=%t.O3.ll && FileCheck %s --check-prefix OPT3 < %t.O3.ll
 
 import inputs.inlinables;

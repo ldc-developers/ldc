@@ -1,5 +1,7 @@
 // Test inlining of some standard library functions
 
+// REQUIRES: atleast_llvm307
+
 // Test also that the tested functions are indeed not inlined at -O0 (basically verifying that we are testing something real)
 // RUN: %ldc %s -c -output-ll -release -O0 -of=%t.O0.ll && FileCheck %s --check-prefix OPT0 < %t.O0.ll
 // RUN: %ldc %s -c -output-ll -release -O3 -of=%t.O3.ll && FileCheck %s --check-prefix OPT3 < %t.O3.ll

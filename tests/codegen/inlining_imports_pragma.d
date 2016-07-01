@@ -2,6 +2,8 @@
 
 // O0 and O3 should behave the same for these tests with explicit inlining directives by the user.
 
+// REQUIRES: atleast_llvm307
+
 // RUN: %ldc %s -I%S -c -output-ll -O0 -of=%t.O0.ll && FileCheck %s --check-prefix OPTNONE < %t.O0.ll
 // RUN: %ldc %s -I%S -c -output-ll -O3 -of=%t.O3.ll && FileCheck %s --check-prefix OPT3 < %t.O3.ll
 
