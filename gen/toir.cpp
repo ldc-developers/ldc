@@ -582,30 +582,9 @@ public:
     // In this case, pass `&v` as hidden sret argument, i.e., let `foo()`
     // construct the return value directly into the lhs lvalue.
     if (l->isLVal() && e->op == TOKconstruct) {
-      Type *const lhsBasetype = l->type->toBasetype();
-      Expression *rhs = e->e2;
-      if (rhs->type->toBasetype() == lhsBasetype) {
-        // Skip over rhs casts only emitted because of differing static array
-        // constness. See runnable.sdtor.test10094.
-        if (rhs->op == TOKcast && lhsBasetype->ty == Tsarray) {
-          Expression *castSource = static_cast<CastExp *>(rhs)->e1;
-          Type *rhsElem = castSource->type->toBasetype()->nextOf();
-          if (rhsElem) {
-            Type *l = lhsBasetype->nextOf()->arrayOf()->immutableOf();
-            Type *r = rhsElem->arrayOf()->immutableOf();
-            if (l->equals(r))
-              rhs = castSource;
-          }
-        }
-
-        if (rhs->op == TOKcall) {
-          auto ce = static_cast<CallExp *>(rhs);
-          if (DtoIsReturnInArg(ce)) {
-            call(p, ce, DtoLVal(l));
-            result = l;
-            return;
-          }
-        }
+      if (toDirectSretConstruction(l->isLVal(), e->e2)) {
+        result = l;
+        return;
       }
     }
 
@@ -3069,6 +3048,39 @@ DValue *toElemDtor(Expression *e) {
   e->accept(&v);
   return v.getResult();
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+bool toDirectSretConstruction(DLValue *lhs, Expression *rhs) {
+  Type *const lhsBasetype = lhs->type->toBasetype();
+  if (rhs->type->toBasetype() != lhsBasetype)
+    return false;
+
+  // Skip over rhs casts only emitted because of differing static array
+  // constness. See runnable.sdtor.test10094.
+  if (rhs->op == TOKcast && lhsBasetype->ty == Tsarray) {
+    Expression *castSource = static_cast<CastExp *>(rhs)->e1;
+    Type *rhsElem = castSource->type->toBasetype()->nextOf();
+    if (rhsElem) {
+      Type *l = lhsBasetype->nextOf()->arrayOf()->immutableOf();
+      Type *r = rhsElem->arrayOf()->immutableOf();
+      if (l->equals(r))
+        rhs = castSource;
+    }
+  }
+
+  if (rhs->op == TOKcall) {
+    auto ce = static_cast<CallExp *>(rhs);
+    if (DtoIsReturnInArg(ce)) {
+      ToElemVisitor::call(gIR, ce, DtoLVal(lhs));
+      return true;
+    }
+  }
+
+  return false;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 // FIXME: Implement & place in right module
 Symbol *toModuleAssert(Module *m) { return nullptr; }
