@@ -3051,22 +3051,23 @@ DValue *toElemDtor(Expression *e) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+namespace {
+bool basetypesAreEqualWithoutModifiers(Type *l, Type *r) {
+  l = stripModifiers(l->toBasetype(), true);
+  r = stripModifiers(r->toBasetype(), true);
+  return l->equals(r);
+}
+}
+
 bool toDirectSretConstruction(DLValue *lhs, Expression *rhs) {
-  Type *const lhsBasetype = lhs->type->toBasetype();
-  if (rhs->type->toBasetype() != lhsBasetype)
+  if (!basetypesAreEqualWithoutModifiers(lhs->type, rhs->type))
     return false;
 
-  // Skip over rhs casts only emitted because of differing static array
-  // constness. See runnable.sdtor.test10094.
-  if (rhs->op == TOKcast && lhsBasetype->ty == Tsarray) {
+  // skip over rhs casts only emitted because of differing constness
+  if (rhs->op == TOKcast) {
     Expression *castSource = static_cast<CastExp *>(rhs)->e1;
-    Type *rhsElem = castSource->type->toBasetype()->nextOf();
-    if (rhsElem) {
-      Type *l = lhsBasetype->nextOf()->arrayOf()->immutableOf();
-      Type *r = rhsElem->arrayOf()->immutableOf();
-      if (l->equals(r))
-        rhs = castSource;
-    }
+    if (basetypesAreEqualWithoutModifiers(lhs->type, castSource->type))
+      rhs = castSource;
   }
 
   if (rhs->op == TOKcall) {
