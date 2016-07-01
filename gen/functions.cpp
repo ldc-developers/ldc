@@ -22,6 +22,7 @@
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/dvalue.h"
+#include "gen/function-inlining.h"
 #include "gen/inlineir.h"
 #include "gen/irstate.h"
 #include "gen/linkage.h"
@@ -41,154 +42,6 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/CFG.h"
 #include <iostream>
-
-////////////////////////////////////////////////////////////////////////////////
-// Function inlining
-// TODO: move to its own file?
-namespace {
-
-// Use a heuristic to determine if it could make sense to inline this fdecl.
-// Note: isInlineCandidate is called _before_ semantic3 analysis of fdecl.
-bool isInlineCandidate(FuncDeclaration &fdecl) {
-  if (fdecl.inlining == PINLINEalways)
-    return true;
-
-  return true;
-}
-
-/// Check whether the frontend knows that the function is already defined
-/// in some other module (see DMD's FuncDeclaration::toObjFile).
-bool alreadyOrWillBeDefined(FuncDeclaration &fdecl) {
-  for (FuncDeclaration *f = &fdecl; f;) {
-    if (!f->isInstantiated() && f->inNonRoot()) {
-      return false;
-    }
-    if (f->isNested()) {
-      f = f->toParent2()->isFuncDeclaration();
-    } else {
-      break;
-    }
-  }
-  return true;
-}
-
-
-/// Returns whether `fdecl` should be emitted with externally_available
-/// linkage to make it available for inlining.
-///
-/// If true, `semantic3` will have been run on the declaration.
-bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
-  IF_LOG Logger::println("Enter defineAsExternallyAvailable");
-  LOG_SCOPE
-
-#if LDC_LLVM_VER < 307
-  // Pre-3.7, cross-module inlining is disabled completely.
-  // See the commandline flag definition for more details.
-  IF_LOG Logger::println("LLVM < 3.7: Cross-module inlining disabled.");
-  return false;
-#endif
-
-  // Implementation note: try to do cheap checks first.
-
-  if (fdecl.neverInline || fdecl.inlining == PINLINEnever) {
-    IF_LOG Logger::println("pragma(inline, false) specified");
-    return false;
-  }
-
-  // pragma(inline, true) functions will be inlined even at -O0
-  if (fdecl.inlining == PINLINEalways) {
-    IF_LOG Logger::println("pragma(inline, true) specified, overrides cmdline flags");
-  }
-  else if (!willCrossModuleInline()) {
-    IF_LOG Logger::println("Commandline flags indicate no inlining");
-    return false;
-  }
-
-  if (fdecl.isUnitTestDeclaration()) {
-    IF_LOG Logger::println("isUnitTestDeclaration() == true");
-    return false;
-  }
-  if (fdecl.isFuncAliasDeclaration()) {
-    IF_LOG Logger::println("isFuncAliasDeclaration() == true");
-    return false;
-  }
-  if (!fdecl.fbody) {
-    IF_LOG Logger::println("No function body available for inlining");
-    return false;
-  }
-
-  // TODO: Fix inlining functions from object.d. Currently errors because of
-  // TypeInfo type-mismatch issue (TypeInfo classes get special treatment by the
-  // compiler). To start working on it: comment-out this check and druntime will
-  // fail to compile.
-  if (fdecl.getModule()->ident == Id::object) {
-    IF_LOG Logger::println("Inlining of object.d functions is disabled");
-    return false;
-  }
-
-  if (fdecl.semanticRun >= PASSsemantic3) {
-    // If semantic analysis has come this far, the function will be defined
-    // elsewhere and should not get the available_externally attribute from
-    // here.
-    IF_LOG Logger::println("Semantic analysis already completed");
-    return false;
-  }
-
-  if (alreadyOrWillBeDefined(fdecl)) {
-    // This check is needed because of ICEs happening because of unclear issues
-    // upon changing the codegen order without this check.
-    IF_LOG Logger::println("Function will be defined later.");
-    return false;
-  }
-
-  // Weak-linkage functions can not be inlined.
-  if (hasWeakUDA(&fdecl)) {
-    IF_LOG Logger::println("@weak functions cannot be inlined.");
-    return false;
-  }
-
-  if (!isInlineCandidate(fdecl))
-    return false;
-
-  IF_LOG Logger::println("Potential inlining candidate");
-
-  {
-    IF_LOG Logger::println("Do semantic analysis");
-    LOG_SCOPE
-
-    // The inlining is aggressive and may give semantic errors that are
-    // forward referencing errors. Simply avoid those cases for inlining.
-    uint errors = global.startGagging();
-    global.gaggedForInlining = true;
-
-    bool semantic_error = false;
-    if (fdecl.functionSemantic3()) {
-      Module::runDeferredSemantic3();
-    } else {
-      IF_LOG Logger::println("Failed functionSemantic3.");
-      semantic_error = true;
-    }
-
-    global.gaggedForInlining = false;
-    if (global.endGagging(errors) || semantic_error) {
-      IF_LOG Logger::println("Errors occured during semantic analysis.");
-      return false;
-    }
-    assert(fdecl.semanticRun >= PASSsemantic3done);
-  }
-
-  // FuncDeclaration::naked is set by the AsmParser during semantic3 analysis,
-  // and so this check can only be done at this late point.
-  if (fdecl.naked) {
-    IF_LOG Logger::println("Naked asm functions cannot be inlined.");
-    return false;
-  }
-
-  IF_LOG Logger::println("defineAsExternallyAvailable? Yes.");
-  return true;
-}
-}
-////////////////////////////////////////////////////////////////////////////////
 
 llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
                                     Type *nesttype, bool isMain, bool isCtor,
@@ -942,9 +795,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   if (!linkageAvailableExternally && !alreadyOrWillBeDefined(*fd)) {
-      IF_LOG Logger::println("Skipping '%s'.", fd->toPrettyChars());
-      fd->ir->setDefined();
-      return;
+    IF_LOG Logger::println("Skipping '%s'.", fd->toPrettyChars());
+    fd->ir->setDefined();
+    return;
   }
 
   DtoDeclareFunction(fd);
@@ -1067,7 +920,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // assert(gIR->scopes.empty());
   gIR->scopes.push_back(IRScope(beginbb));
 
-  // Set the FastMath options for this function scope.
+// Set the FastMath options for this function scope.
 #if LDC_LLVM_VER >= 308
   gIR->scopes.back().builder.setFastMathFlags(irFunc->FMF);
 #else
