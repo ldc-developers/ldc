@@ -291,9 +291,8 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd,
                       llvm::Value *storage = nullptr);
 
 /// Checks whether the rhs expression is able to construct the lhs lvalue
-/// directly via sret ('struct return').
-/// If so, it performs the according codegen and returns true; otherwise it just
-/// returns false.
-bool toDirectSretConstruction(DLValue *lhs, Expression *rhs);
+/// directly in-place. If so, it performs the according codegen and returns
+/// true; otherwise it just returns false.
+bool toInPlaceConstruction(DLValue *lhs, Expression *rhs);
 
 #endif

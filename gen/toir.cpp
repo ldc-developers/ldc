@@ -577,12 +577,9 @@ public:
 
     DValue *l = toElem(e->e1, true);
 
-    // Direct construction by right-hand-side call via sret?
-    // E.g., `T v = foo();` if the callee `T foo()` uses sret.
-    // In this case, pass `&v` as hidden sret argument, i.e., let `foo()`
-    // construct the return value directly into the lhs lvalue.
+    // try to construct the lhs in-place
     if (l->isLVal() && e->op == TOKconstruct) {
-      if (toDirectSretConstruction(l->isLVal(), e->e2)) {
+      if (toInPlaceConstruction(l->isLVal(), e->e2)) {
         result = l;
         return;
       }
@@ -2627,7 +2624,8 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
-  void visit(StructLiteralExp *e) override {
+  static DLValue *emitStructLiteral(StructLiteralExp *e,
+                                    LLValue *dstMem = nullptr) {
     IF_LOG Logger::print("StructLiteralExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -2636,27 +2634,35 @@ public:
       DtoResolveStruct(e->sd);
       LLValue *initsym = getIrAggr(e->sd)->getInitSymbol();
       initsym = DtoBitCast(initsym, DtoType(e->type->pointerTo()));
-      result = new DLValue(e->type, initsym);
-      return;
+
+      if (!dstMem)
+        return new DLValue(e->type, initsym);
+
+      assert(dstMem->getType() == initsym->getType());
+      DtoMemCpy(dstMem, initsym);
+      return new DLValue(e->type, dstMem);
     }
 
     if (e->inProgressMemory) {
-      result = new DLValue(e->type, e->inProgressMemory);
-      return;
+      assert(!dstMem);
+      return new DLValue(e->type, e->inProgressMemory);
     }
 
     // make sure the struct is fully resolved
     DtoResolveStruct(e->sd);
 
-    // alloca a stack slot
-    e->inProgressMemory = DtoAlloca(e->type, ".structliteral");
+    if (!dstMem)
+      dstMem = DtoAlloca(e->type, ".structliteral");
 
-    // fill the allocated struct literal
-    write_struct_literal(e->loc, e->inProgressMemory, e->sd, e->elements);
-
-    // return as a var
-    result = new DLValue(e->type, e->inProgressMemory);
+    e->inProgressMemory = dstMem;
+    write_struct_literal(e->loc, dstMem, e->sd, e->elements);
     e->inProgressMemory = nullptr;
+
+    return new DLValue(e->type, dstMem);
+  }
+
+  void visit(StructLiteralExp *e) override {
+    result = emitStructLiteral(e);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -3059,23 +3065,34 @@ bool basetypesAreEqualWithoutModifiers(Type *l, Type *r) {
 }
 }
 
-bool toDirectSretConstruction(DLValue *lhs, Expression *rhs) {
+bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
   if (!basetypesAreEqualWithoutModifiers(lhs->type, rhs->type))
     return false;
 
   // skip over rhs casts only emitted because of differing constness
   if (rhs->op == TOKcast) {
-    Expression *castSource = static_cast<CastExp *>(rhs)->e1;
+    auto castSource = static_cast<CastExp *>(rhs)->e1;
     if (basetypesAreEqualWithoutModifiers(lhs->type, castSource->type))
       rhs = castSource;
   }
 
+  // Direct construction by rhs call via sret?
+  // E.g., `T v = foo();` if the callee `T foo()` uses sret.
+  // In this case, pass `&v` as hidden sret argument, i.e., let `foo()`
+  // construct the return value directly into the lhs lvalue.
   if (rhs->op == TOKcall) {
     auto ce = static_cast<CallExp *>(rhs);
     if (DtoIsReturnInArg(ce)) {
       ToElemVisitor::call(gIR, ce, DtoLVal(lhs));
       return true;
     }
+  }
+
+  // emit struct literals directly into the lhs lvalue
+  if (rhs->op == TOKstructliteral) {
+    auto sle = static_cast<StructLiteralExp *>(rhs);
+    ToElemVisitor::emitStructLiteral(sle, DtoLVal(lhs));
+    return true;
   }
 
   return false;
