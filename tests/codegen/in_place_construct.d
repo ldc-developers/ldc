@@ -28,8 +28,8 @@ S returnNRVO()
     return r;
 }
 
-// CHECK-LABEL: define{{.*}} @{{.*}}_Dmain
-void main()
+// CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct7structsFZv
+void structs()
 {
     // CHECK: %literal = alloca %in_place_construct.S
     // CHECK: %a = alloca %in_place_construct.S
@@ -57,4 +57,21 @@ void main()
     // CHECK: call {{.*}}_D18in_place_construct10returnNRVOFZS18in_place_construct1S
     // CHECK-SAME: %in_place_construct.S* {{.*}} %c
     const c = returnNRVO();
+}
+
+// CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct12staticArraysFZv
+void staticArrays()
+{
+    // CHECK: %sa = alloca [2 x i32]
+
+    // make sure static array literals are in-place constructed too
+    // CHECK: store [2 x i32] [i32 1, i32 2], [2 x i32]* %sa
+    const(int[2]) sa = [ 1, 2 ];
+}
+
+// CHECK-LABEL: define{{.*}} @{{.*}}_Dmain
+void main()
+{
+    structs();
+    staticArrays();
 }

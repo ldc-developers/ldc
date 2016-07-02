@@ -3095,6 +3095,14 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
     return true;
   }
 
+  // static array literals too
+  Type *lhsBasetype = lhs->type->toBasetype();
+  if (rhs->op == TOKarrayliteral && lhsBasetype->ty == Tsarray) {
+    auto al = static_cast<ArrayLiteralExp *>(rhs);
+    initializeArrayLiteral(gIR, al, DtoLVal(lhs));
+    return true;
+  }
+
   return false;
 }
 
