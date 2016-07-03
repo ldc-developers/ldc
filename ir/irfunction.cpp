@@ -283,20 +283,29 @@ llvm::BasicBlock *ScopeStack::runCleanupPad(CleanupCursor scope,
   //  can place an exception frame (but not done here)
   auto frame = getNullPtr(getVoidPtrType());
 
+  auto savedInsertBlock = irs->ir->GetInsertBlock();
+  auto savedInsertPoint = irs->ir->GetInsertPoint();
+  auto savedDbgLoc = irs->DBuilder.GetCurrentLoc();
+
   auto endFn = getRuntimeFunction(Loc(), irs->module, "_d_leave_cleanup");
-  llvm::CallInst::Create(endFn, frame,
-                         {llvm::OperandBundleDef("funclet", cleanuppad)}, "",
-                         cleanupret);
+  irs->ir->SetInsertPoint(cleanupret);
+  irs->DBuilder.EmitStopPoint(irs->func()->decl->loc);
+  irs->ir->CreateCall(endFn, frame,
+                      {llvm::OperandBundleDef("funclet", cleanuppad)}, "");
   llvm::CleanupReturnInst::Create(cleanuppad, unwindTo, cleanupret);
 
   auto copybb = executeCleanupCopying(irs, cleanupScopes[scope], cleanupbb,
                                       cleanupret, unwindTo, cleanuppad);
 
   auto beginFn = getRuntimeFunction(Loc(), irs->module, "_d_enter_cleanup");
-  auto exec = llvm::CallInst::Create(
-      beginFn, frame, {llvm::OperandBundleDef("funclet", cleanuppad)}, "",
-      cleanupbb);
+  irs->ir->SetInsertPoint(cleanupbb);
+  irs->DBuilder.EmitStopPoint(irs->func()->decl->loc);
+  auto exec = irs->ir->CreateCall(
+      beginFn, frame, {llvm::OperandBundleDef("funclet", cleanuppad)}, "");
   llvm::BranchInst::Create(copybb, cleanupret, exec, cleanupbb);
+
+  irs->ir->SetInsertPoint(savedInsertBlock, savedInsertPoint);
+  irs->DBuilder.EmitStopPoint(savedDbgLoc);
 
   return cleanupbb;
 }

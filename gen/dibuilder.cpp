@@ -874,6 +874,11 @@ void ldc::DIBuilder::EmitStopPoint(Loc &loc) {
   LOG_SCOPE;
   IR->ir->SetCurrentDebugLocation(
       llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope()));
+  currentLoc = loc;
+}
+
+Loc ldc::DIBuilder::GetCurrentLoc() const {
+  return currentLoc;
 }
 
 void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {

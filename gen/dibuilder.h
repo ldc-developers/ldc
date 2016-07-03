@@ -87,6 +87,8 @@ class DIBuilder {
 #endif
   }
 
+  Loc currentLoc;
+
 public:
   explicit DIBuilder(IRState *const IR);
 
@@ -126,6 +128,8 @@ public:
 
   /// \brief Emits debug info for block end
   void EmitBlockEnd();
+
+  Loc GetCurrentLoc() const;
 
   void EmitStopPoint(Loc &loc);
 

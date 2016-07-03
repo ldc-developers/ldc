@@ -816,6 +816,8 @@ public:
         exnObj = DtoAlloca(var->type, "exnObj");
       }
       irs->scope() = save;
+      irs->DBuilder.EmitStopPoint(ctch->loc); // re-set debug loc after the
+                                              // SetInsertPoint(allocaInst) call
     } else if (ctch->type) {
       // catch without var
       exnObj = DtoAlloca(ctch->type, "exnObj");
