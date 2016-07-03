@@ -82,6 +82,10 @@ else version( FreeBSD )
 {
     enum clock_t CLOCKS_PER_SEC = 128;
 }
+else version( OpenBSD )
+{
+    enum clock_t CLOCKS_PER_SEC = 100;
+}
 else version (CRuntime_Glibc)
 {
     enum clock_t CLOCKS_PER_SEC = 1_000_000;
@@ -139,6 +143,13 @@ else version( CRuntime_Glibc )
     extern __gshared const(char)*[2] tzname; // non-standard
 }
 else version( FreeBSD )
+{
+    ///
+    void tzset();                            // non-standard
+    ///
+    extern __gshared const(char)*[2] tzname; // non-standard
+}
+else version( OpenBSD )
 {
     ///
     void tzset();                            // non-standard
