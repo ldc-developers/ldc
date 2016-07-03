@@ -28,6 +28,23 @@ S returnNRVO()
     return r;
 }
 
+// CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct15withOutContractFZS18in_place_construct1S
+S withOutContract()
+out { assert(__result.a == 0); }
+body
+{
+    // make sure NRVO zero-initializes the sret pointee directly
+    // CHECK: %1 = bitcast %in_place_construct.S* %.sret_arg to i8*
+    // CHECK: call void @llvm.memset.{{.*}}(i8* %1, i8 0,
+    const S r;
+    return r;
+
+    // make sure `__result` inside the out contract is just an alias to the sret pointee
+    // CHECK: %2 = getelementptr inbounds {{.*}}%in_place_construct.S* %.sret_arg, i32 0, i32 0
+    // CHECK: %3 = load {{.*}}i64* %2
+    // CHECK: %4 = icmp eq i64 %3, 0
+}
+
 // CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct7structsFZv
 void structs()
 {
@@ -57,6 +74,8 @@ void structs()
     // CHECK: call {{.*}}_D18in_place_construct10returnNRVOFZS18in_place_construct1S
     // CHECK-SAME: %in_place_construct.S* {{.*}} %c
     const c = returnNRVO();
+
+    withOutContract();
 }
 
 // CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct12staticArraysFZv

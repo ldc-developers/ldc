@@ -884,8 +884,9 @@ void DtoVarDeclaration(VarDeclaration *vd) {
 
   if (isIrLocalCreated(vd)) {
     // Nothing to do if it has already been allocated.
-  } else if (gIR->func()->sretArg && gIR->func()->decl->nrvo_can &&
-             gIR->func()->decl->nrvo_var == vd) {
+  } else if (gIR->func()->sretArg && ((gIR->func()->decl->nrvo_can &&
+                                       gIR->func()->decl->nrvo_var == vd) ||
+                                      vd->isResult())) {
     // Named Return Value Optimization (NRVO):
     // T f() {
     //   T ret;        // &ret == hidden pointer
