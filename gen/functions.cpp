@@ -547,7 +547,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
 
   if (irFty.arg_sret && !passThisBeforeSret) {
     iarg->setName(".sret_arg");
-    irFunc->retArg = &(*iarg);
+    irFunc->sretArg = &(*iarg);
     ++iarg;
   }
 
@@ -585,7 +585,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
 
   if (passThisBeforeSret) {
     iarg->setName(".sret_arg");
-    irFunc->retArg = &(*iarg);
+    irFunc->sretArg = &(*iarg);
     ++iarg;
   }
 

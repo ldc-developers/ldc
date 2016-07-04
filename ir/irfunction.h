@@ -484,7 +484,7 @@ struct IrFunction {
   /// Points to the associated scope stack while emitting code for the function.
   ScopeStack *scopes = nullptr;
 
-  llvm::Value *retArg = nullptr;  // return in ptr arg
+  llvm::Value *sretArg = nullptr; // sret pointer arg
   llvm::Value *thisArg = nullptr; // class/struct 'this' arg
   llvm::Value *nestArg = nullptr; // nested function 'this' arg
 

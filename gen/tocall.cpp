@@ -627,9 +627,9 @@ public:
   ImplicitArgumentsBuilder(std::vector<LLValue *> &args, AttrSet &attrs,
                            Loc &loc, DValue *fnval,
                            LLFunctionType *llCalleeType, Expressions *arguments,
-                           Type *resulttype, LLValue *retvar)
+                           Type *resulttype, LLValue *sretPointer)
       : args(args), attrs(attrs), loc(loc), fnval(fnval), arguments(arguments),
-        resulttype(resulttype), retvar(retvar),
+        resulttype(resulttype), sretPointer(sretPointer),
         // computed:
         calleeType(fnval->type), dfnval(fnval->isFunc()),
         irFty(DtoIrTypeFunction(fnval)), tf(DtoTypeFunction(fnval)),
@@ -655,7 +655,7 @@ private:
   DValue *const fnval;
   Expressions *const arguments;
   Type *const resulttype;
-  LLValue *const retvar;
+  LLValue *const sretPointer;
 
   // computed:
   Type *const calleeType;
@@ -673,13 +673,13 @@ private:
     size_t index = args.size();
     LLType *llArgType = *(llArgTypesBegin + index);
 
-    LLValue *var = retvar;
-    if (!var) {
-      var = DtoRawAlloca(llArgType->getContainedType(0),
-                         DtoAlignment(resulttype), ".rettmp");
+    LLValue *pointer = sretPointer;
+    if (!pointer) {
+      pointer = DtoRawAlloca(llArgType->getContainedType(0),
+                             DtoAlignment(resulttype), ".sret_tmp");
     }
 
-    args.push_back(var);
+    args.push_back(pointer);
     attrs.add(index + 1, irFty.arg_sret->attrs);
 
     // verify that sret and/or inreg attributes are set
@@ -786,7 +786,7 @@ private:
 // FIXME: this function is a mess !
 
 DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
-                        Expressions *arguments, llvm::Value *retvar) {
+                        Expressions *arguments, LLValue *sretPointer) {
   IF_LOG Logger::println("DtoCallFunction()");
   LOG_SCOPE
 
@@ -827,7 +827,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
 
   // handle implicit arguments (sret, context/this, _arguments)
   ImplicitArgumentsBuilder iab(args, attrs, loc, fnval, callableTy, arguments,
-                               resulttype, retvar);
+                               resulttype, sretPointer);
   iab.addImplicitArgs();
 
   // handle explicit arguments

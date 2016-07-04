@@ -225,7 +225,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
 ///
 DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
-                        Expressions *arguments, LLValue *retvar = nullptr);
+                        Expressions *arguments, LLValue *sretPointer = nullptr);
 
 Type *stripModifiers(Type *type, bool transitive = false);
 
@@ -289,5 +289,10 @@ inline llvm::Value *DtoLVal(Expression *e) { return DtoLVal(toElem(e)); }
 /// already resolved, and the value from the associated IrVar will be used.
 DValue *makeVarDValue(Type *type, VarDeclaration *vd,
                       llvm::Value *storage = nullptr);
+
+/// Checks whether the rhs expression is able to construct the lhs lvalue
+/// directly in-place. If so, it performs the according codegen and returns
+/// true; otherwise it just returns false.
+bool toInPlaceConstruction(DLValue *lhs, Expression *rhs);
 
 #endif
