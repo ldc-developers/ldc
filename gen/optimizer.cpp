@@ -90,6 +90,14 @@ static cl::opt<cl::boolOrDefault, false, opts::FlagParser<cl::boolOrDefault>>
         cl::desc("Enable function inlining (default in -O2 and higher)"),
         cl::ZeroOrMore);
 
+static llvm::cl::opt<llvm::cl::boolOrDefault, false,
+                     opts::FlagParser<llvm::cl::boolOrDefault>>
+enableCrossModuleInlining(
+    "cross-module-inlining",
+    llvm::cl::desc("Enable cross-module function inlining (default enabled "
+                   "with inlining) (LLVM >= 3.7)"),
+    llvm::cl::ZeroOrMore, llvm::cl::Hidden);
+
 static cl::opt<bool> unitAtATime("unit-at-a-time", cl::desc("Enable basic IPO"),
                                  cl::init(true));
 
@@ -129,6 +137,19 @@ static unsigned sizeLevel() { return optimizeLevel < 0 ? -optimizeLevel : 0; }
 bool willInline() {
   return enableInlining == cl::BOU_TRUE ||
          (enableInlining == cl::BOU_UNSET && optLevel() > 1);
+}
+
+bool willCrossModuleInline() {
+#if LDC_LLVM_VER >= 307
+  return enableCrossModuleInlining == llvm::cl::BOU_TRUE ||
+         (enableCrossModuleInlining == llvm::cl::BOU_UNSET && willInline());
+#else
+// Cross-module inlining is disabled for <3.7 because we don't emit symbols in
+// COMDAT any groups pre-LLVM3.7. With cross-module inlining enabled, without
+// COMDAT any there are multiple-def linker errors when linking druntime.
+// See supportsCOMDAT().
+  return false;
+#endif
 }
 
 bool isOptimizationEnabled() { return optimizeLevel != 0; }

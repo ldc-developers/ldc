@@ -29,7 +29,10 @@
 #ifndef LDC_GEN_RECURSIVEVISITOR_H
 #define LDC_GEN_RECURSIVEVISITOR_H
 
-#include "visitor.h"
+#include "ddmd/declaration.h"
+#include "ddmd/init.h"
+#include "ddmd/statement.h"
+#include "ddmd/visitor.h"
 
 class RecursiveVisitor : public Visitor {
 public:
@@ -240,40 +243,44 @@ public:
 ///////////////////////////////////////////////////////////////////////////////
 
 /// A recursive AST walker, that walks both Statements and Expressions
-/// The recursion stops at a depth where the visitor sets stop to true. Then,
-/// the visitor's stop is reset to false and traversal continues at the next
-/// node in the hierarchy at the same level as where stop was set.
+/// The recursion stops at a depth where the visitor sets stop to true.
+/// If `continueAfterStop` is true, the visitor's stop is reset to false and
+/// traversal continues at the next node in the hierarchy at the same level as
+/// where stop was set.
 class RecursiveWalker : public Visitor {
 public:
   StoppableVisitor *v;
+  bool continueAfterStop;
 
-  RecursiveWalker(StoppableVisitor *visitor) : v(visitor) {}
+  RecursiveWalker(StoppableVisitor *visitor, bool _continueAfterStop = true)
+      : v(visitor), continueAfterStop(_continueAfterStop) {}
 
   template <class T> bool recurse(T *stmt) {
     if (stmt) {
       stmt->accept(this);
     }
-    return false;
+    return v->stop;
   }
 
   template <class T> bool recurse(Array<T> *stmts) {
     if (stmts) {
       for (auto s : *stmts) {
-        recurse(s);
+        if (recurse(s))
+          break;
       }
     }
-    return false;
+    return v->stop;
   }
 
   template <class T> bool call_visitor(T *obj) {
     obj->accept(v);
-    if (v->stop) {
+    if (v->stop && continueAfterStop) {
       // Reset stop to false, so that traversion continues at neighboring node
       // in the tree.
       v->stop = false;
       return true;
     }
-    return false;
+    return v->stop;
   }
 
   using Visitor::visit;
@@ -326,9 +333,7 @@ public:
   }
 
   void visit(OnScopeStatement *stmt) override {
-    stmt->error("Internal Compiler Error: OnScopeStatement should have been "
-                "lowered by frontend.");
-    fatal();
+    call_visitor(stmt) || recurse(stmt->statement);
   }
 
   void visit(ThrowStatement *stmt) override {

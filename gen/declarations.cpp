@@ -338,7 +338,10 @@ public:
         fprintf(global.stdmsg, "%s: %s is thread local\n", p, decl->toChars());
       }
       // Check if we are defining or just declaring the global in this module.
-      if (!(decl->storage_class & STCextern)) {
+      // If we reach here during codegen of an available_externally function,
+      // new variable declarations should stay external and therefore must not
+      // have an initializer.
+      if (!(decl->storage_class & STCextern) && !decl->inNonRoot()) {
         // Build the initializer. Might use this->ir.irGlobal->value!
         LLConstant *initVal =
             DtoConstInitializer(decl->loc, decl->type, decl->_init);
@@ -430,10 +433,19 @@ public:
       return;
     }
 
-    // FIXME: This is #673 all over again.
-    if (!decl->needsCodegen()) {
-      Logger::println("Does not need codegen, skipping.");
-      return;
+    // Force codegen if this is a templated function with pragma(inline, true).
+    if ((decl->members->dim == 1) &&
+        ((*decl->members)[0]->isFuncDeclaration()) &&
+        ((*decl->members)[0]->isFuncDeclaration()->inlining == PINLINEalways)) {
+      Logger::println("needsCodegen() == false, but function is marked with "
+                      "pragma(inline, true), so it really does need "
+                      "codegen.");
+    } else {
+      // FIXME: This is #673 all over again.
+      if (!decl->needsCodegen()) {
+        Logger::println("Does not need codegen, skipping.");
+        return;
+      }
     }
 
     for (auto &m : *decl->members) {

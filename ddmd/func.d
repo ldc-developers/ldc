@@ -2484,8 +2484,16 @@ else
             TemplateInstance spec = isSpeculative();
             uint olderrs = global.errors;
             uint oldgag = global.gag;
+version (IN_LLVM)
+{
+            if (global.gag && !spec && !global.gaggedForInlining)
+                global.gag = 0;
+}
+else
+{
             if (global.gag && !spec)
                 global.gag = 0;
+}
             semantic3(_scope);
             global.gag = oldgag;
 

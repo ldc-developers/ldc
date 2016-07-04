@@ -41,6 +41,8 @@ bool ldc_optimize_module(llvm::Module *m);
 // Returns whether the normal, full inlining pass will be run.
 bool willInline();
 
+bool willCrossModuleInline();
+
 bool isOptimizationEnabled();
 
 llvm::CodeGenOpt::Level codeGenOptLevel();

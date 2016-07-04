@@ -22,6 +22,7 @@
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/dvalue.h"
+#include "gen/function-inlining.h"
 #include "gen/inlineir.h"
 #include "gen/irstate.h"
 #include "gen/linkage.h"
@@ -457,6 +458,15 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     fatal();
   }
 
+  // Check if fdecl should be defined too for cross-module inlining.
+  // If true, semantic is fully done for fdecl which is needed for some code
+  // below (e.g. code that uses fdecl->vthis).
+  const bool defineAtEnd = defineAsExternallyAvailable(*fdecl);
+  if (defineAtEnd) {
+    IF_LOG Logger::println(
+        "Function is an externally_available inline candidate.");
+  }
+
   // get TypeFunction*
   Type *t = fdecl->type->toBasetype();
   TypeFunction *f = static_cast<TypeFunction *>(t);
@@ -527,8 +537,15 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     gIR->mainFunc = func;
   }
 
+  // Set inlining attribute
   if (fdecl->neverInline) {
     irFunc->setNeverInline();
+  } else {
+    if (fdecl->inlining == PINLINEalways) {
+      irFunc->setAlwaysInline();
+    } else if (fdecl->inlining == PINLINEnever) {
+      irFunc->setNeverInline();
+    }
   }
 
   if (fdecl->llvmInternal == LLVMglobal_crt_ctor ||
@@ -612,6 +629,13 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     IrParameter *irParam = getIrParameter(vd, true);
     irParam->arg = arg;
     irParam->value = &(*iarg);
+  }
+
+  // Now that this function is declared, also define it if needed.
+  if (defineAtEnd) {
+    IF_LOG Logger::println(
+        "Function is an externally_available inline candidate: define it now.");
+    DtoDefineFunction(fdecl, true);
   }
 }
 
@@ -712,12 +736,22 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
 
 } // anonymous namespace
 
-void DtoDefineFunction(FuncDeclaration *fd) {
+void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   IF_LOG Logger::println("DtoDefineFunction(%s): %s", fd->toPrettyChars(),
                          fd->loc.toChars());
   LOG_SCOPE;
+  if (linkageAvailableExternally) {
+    IF_LOG Logger::println("linkageAvailableExternally = true");
+  }
 
   if (fd->ir->isDefined()) {
+    if (!linkageAvailableExternally &&
+        (getIrFunc(fd)->func->getLinkage() ==
+         llvm::GlobalValue::AvailableExternallyLinkage)) {
+      // Fix linkage
+      const auto lwc = lowerFuncLinkage(fd);
+      setLinkage(lwc, getIrFunc(fd)->func);
+    }
     return;
   }
 
@@ -760,21 +794,10 @@ void DtoDefineFunction(FuncDeclaration *fd) {
     return;
   }
 
-  // Check whether the frontend knows that the function is already defined
-  // in some other module (see DMD's FuncDeclaration::toObjFile).
-  for (FuncDeclaration *f = fd; f;) {
-    if (!f->isInstantiated() && f->inNonRoot()) {
-      IF_LOG Logger::println("Skipping '%s'.", fd->toPrettyChars());
-      // TODO: Emit as available_externally for inlining purposes instead
-      // (see #673).
-      fd->ir->setDefined();
-      return;
-    }
-    if (f->isNested()) {
-      f = f->toParent2()->isFuncDeclaration();
-    } else {
-      break;
-    }
+  if (!linkageAvailableExternally && !alreadyOrWillBeDefined(*fd)) {
+    IF_LOG Logger::println("Skipping '%s'.", fd->toPrettyChars());
+    fd->ir->setDefined();
+    return;
   }
 
   DtoDeclareFunction(fd);
@@ -860,7 +883,15 @@ void DtoDefineFunction(FuncDeclaration *fd) {
   gIR->functions.push_back(irFunc);
 
   const auto lwc = lowerFuncLinkage(fd);
-  setLinkage(lwc, func);
+  if (linkageAvailableExternally) {
+    func->setLinkage(llvm::GlobalValue::AvailableExternallyLinkage);
+    // Assert that we are not overriding a linkage type that disallows inlining
+    assert(lwc.first != llvm::GlobalValue::WeakAnyLinkage &&
+           lwc.first != llvm::GlobalValue::ExternalWeakLinkage &&
+           lwc.first != llvm::GlobalValue::LinkOnceAnyLinkage);
+  } else {
+    setLinkage(lwc, func);
+  }
 
   // On x86_64, always set 'uwtable' for System V ABI compatibility.
   // TODO: Find a better place for this.
@@ -889,7 +920,7 @@ void DtoDefineFunction(FuncDeclaration *fd) {
   // assert(gIR->scopes.empty());
   gIR->scopes.push_back(IRScope(beginbb));
 
-  // Set the FastMath options for this function scope.
+// Set the FastMath options for this function scope.
 #if LDC_LLVM_VER >= 308
   gIR->scopes.back().builder.setFastMathFlags(irFunc->FMF);
 #else
