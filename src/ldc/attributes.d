@@ -14,6 +14,48 @@ private template AliasSeq(TList...)
 }
 
 /**
+ * Specifies that the function returns `null` or a pointer to at least a
+ * certain number of allocated bytes. `sizeArgIdx` and `numArgIdx` specify
+ * the 0-based index of the function arguments that should be used to calculate
+ * the number of bytes returned:
+ *
+ *   bytes = arg[sizeArgIdx] * (numArgIdx < 0) ? arg[numArgIdx] : 1
+ *
+ * The optimizer may assume that an @allocSize function has no other side
+ * effects and that it is valid to eliminate calls to the function if the
+ * allocated memory is not used. The optimizer will eliminate all code from
+ * `foo` in this example:
+ *     @allocSize(0) void* myAlloc(size_t size);
+ *     void foo() {
+ *         auto p = myAlloc(100);
+ *         p[0] = 1;
+ *     }
+ *
+ * See LLVM LangRef for more details:
+ *    http://llvm.org/docs/LangRef.html#function-attributes
+ *
+ * This attribute has no effect for LLVM < 3.9.
+ *
+ * Example:
+ * ---
+ * import ldc.attributes;
+ *
+ * @allocSize(0) extern(C) void* malloc(size_t size);
+ * @allocSize(2,1) extern(C) void* reallocarray(void *ptr, size_t nmemb,
+ *                                              size_t size);
+ * @allocSize(0,1) void* my_calloc(size_t element_size, size_t count,
+ *                                 bool irrelevant);
+ * ---
+ */
+struct allocSize
+{
+    int sizeArgIdx;
+
+    /// If numArgIdx < 0, there is no argument specifying the element count
+    int numArgIdx = int.min;
+}
+
+/**
  * Explicitly sets "fast math" for a function, enabling aggressive math
  * optimizations. These optimizations may dramatically change the outcome of
  * floating point calculations (e.g. because of reassociation).
@@ -88,7 +130,8 @@ struct optStrategy {
  * }
  * ---
  */
-struct llvmAttr {
+struct llvmAttr
+{
     string key;
     string value;
 }
@@ -100,7 +143,8 @@ struct llvmAttr {
  *    http://llvm.org/docs/LangRef.html#fast-math-flags
  * @llvmFastMathFlag("clear") clears all flags.
  */
-struct llvmFastMathFlag {
+struct llvmFastMathFlag
+{
     string flag;
 }
 
@@ -118,7 +162,8 @@ struct llvmFastMathFlag {
  * @section(".mySection") int myGlobal;
  * ---
  */
-struct section {
+struct section
+{
     string name;
 }
 
@@ -151,7 +196,8 @@ struct section {
  * }
  * ---
  */
-struct target {
+struct target
+{
     string specifier;
 }
 
@@ -174,4 +220,6 @@ struct target {
  + ---
  +/
 immutable weak = _weak();
-private struct _weak {}
+private struct _weak
+{
+}
