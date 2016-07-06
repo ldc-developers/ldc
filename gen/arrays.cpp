@@ -246,9 +246,6 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
   Type *const elemType = t->nextOf()->toBasetype();
   const bool needsDestruction =
       (!isConstructing && elemType->needsDestruction());
-  const bool needsPostblit =
-      (op != TOKblit && !canSkipPostblit && arrayNeedsPostblit(t));
-
   LLValue *realLhsPtr = DtoArrayPtr(lhs);
   LLValue *lhsPtr = DtoBitCast(realLhsPtr, getVoidPtrType());
   LLValue *lhsLength = DtoArrayLen(lhs);
@@ -263,6 +260,11 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
     // T[n] = T[n]     T[n] = T[]
     LLValue *rhsPtr = DtoBitCast(realRhsArrayPtr, getVoidPtrType());
     LLValue *rhsLength = DtoArrayLen(rhs);
+
+    if (t2->ty == Tarray)
+      canSkipPostblit = false;
+    const bool needsPostblit =
+        (op != TOKblit && !canSkipPostblit && arrayNeedsPostblit(t));
 
     if (!needsDestruction && !needsPostblit) {
       // fast version
@@ -296,6 +298,9 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
       call.setCallingConv(llvm::CallingConv::C);
     }
   } else {
+    const bool needsPostblit =
+        (op != TOKblit && !canSkipPostblit && arrayNeedsPostblit(t));
+
     // scalar rhs:
     // T[]  = T     T[n][]  = T
     // T[n] = T     T[n][m] = T
