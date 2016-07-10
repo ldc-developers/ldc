@@ -98,6 +98,10 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
   for (size_t index = 0; index < nfields; ++index) {
     VarDeclaration *vd = sd->fields[index];
 
+    // Skip zero-sized fields such as zero-length static arrays: `ubyte[0] data`.
+    if (vd->size(loc) == 0)
+      continue;
+
     // get initializer expression
     Expression *expr = (index < nexprs) ? exprs[index] : nullptr;
 
