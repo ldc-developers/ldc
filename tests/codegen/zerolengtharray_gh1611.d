@@ -16,7 +16,7 @@ struct uint_0_uint
 
 // No tests for codegen with e.g. uint_0_uint yet, because codegen could be much improved.
 // I think codegen should be the same as for
-//     struct uint_bool
+//     struct uint_uint
 //     {
 //         uint a = 111;
 //         uint c = 333;
@@ -30,8 +30,8 @@ auto fooA0()
     // CHECK: {{ ret }}
 }
 
-// CHECK-LABEL: define{{.*}}foo_uint_0_bool
-auto foo_uint_0_bool()
+// CHECK-LABEL: define{{.*}}foo_uint_0_uint
+auto foo_uint_0_uint()
 {
     return uint_0_uint();
     // Intentionally a regexp to not match "sret"
