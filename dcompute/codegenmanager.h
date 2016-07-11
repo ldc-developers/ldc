@@ -14,6 +14,7 @@
 #include <vector>
 
 // gets run on modules makred @compute
+// we do singleobj only
 class DComputeCodeGenManager {
   
   struct target {
@@ -22,13 +23,15 @@ class DComputeCodeGenManager {
   };
   // targets from the command line. Hard coded for now. TODO: do this properly.
   // also SmallVector this
-  static std::vector<target> clTargets = {{1, 210}, { 2, 350}};
-  std::vector<DComputeTarget *> dcTargets;
+  static std::vector<target> clTargets;
+  llvm::LLVMContext &ctx;
+  std::vector<DComputeTarget *> targets;
   DComputeTarget *createComputeTarget(target t);
-  Module *m;
 public:
+  void emit(Module *m);
+
     
-  DComputeCodeGenManager(Module *_m);
+  DComputeCodeGenManager(llvm::LLVMContext &context);
     
 };
 

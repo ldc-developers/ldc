@@ -381,6 +381,8 @@ file(GLOB_RECURSE DRV_SRC_D driver/*.d)
 file(GLOB_RECURSE IR_SRC_D ir/*.d)
 file(GLOB IR_SRC ir/*.cpp)
 file(GLOB IR_HDR ir/*.h)
+file(GLOB DCOMPUTE_SRC dcompute/*.cpp)
+file(GLOB DCOMPUTE_HDR dcompute/*.h)
 set(DRV_SRC
     driver/cl_options.cpp
     driver/codegenerator.cpp
@@ -422,6 +424,8 @@ set(LDC_CXX_SOURCE_FILES
     ${GEN_HDR}
     ${IR_SRC}
     ${IR_HDR}
+    ${DCOMPUTE_SRC}
+    ${DCOMPUTE_HDR}
 )
 set(LDC_D_SOURCE_FILES
     ${LDC_D_GENERATED}

@@ -20,6 +20,7 @@ IRState *gIR = nullptr;
 llvm::TargetMachine *gTargetMachine = nullptr;
 const llvm::DataLayout *gDataLayout = nullptr;
 TargetABI *gABI = nullptr;
+bool gGenningCompute = false;
 
 ////////////////////////////////////////////////////////////////////////////////
 IRScope::IRScope() : builder(gIR->context()) { begin = nullptr; }

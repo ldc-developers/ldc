@@ -7,26 +7,41 @@
 //
 //===----------------------------------------------------------------------===//
 #include "dcompute/reflect.h"
-
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringMap.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_os_ostream.h"
+#include "llvm/Transforms/Scalar.h"
 using namespace llvm;
 namespace {
-class DComputeReflect : ModulePass
+class DComputeReflect : public ModulePass
 {
   static char ID;
-  int target;
-  unsigned version;
+  int _target;
+  unsigned _version;
+public:
   DComputeReflect(int _target, unsigned _version) : ModulePass(ID) {}
   void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.setPreservesAll();
   }
-  bool runOnModule(Module &) override;
+  bool runOnModule(llvm::Module &) override;
 
 
-}
+};
 
-bool DComputeReflect::runOnModule(Module& m)
+bool DComputeReflect::runOnModule(llvm::Module& m)
 {
-  Function *ReflectFunction = M.getFunction("__dcompute_reflect");
+  Function *ReflectFunction = m.getFunction("__dcompute_reflect");
   if (!ReflectFunction)
       return false;
   // Validate _reflect function
@@ -46,8 +61,8 @@ bool DComputeReflect::runOnModule(Module& m)
     const Value *vers = Reflect->getArgOperand(1);
     assert(isa<ConstantInt>(targ) && isa<ConstantInt>(vers) &&
            "arguments to __dcompute_reflect must be Constant integer types");
-    ConstantInt *ctarg = cast<ConstantInt>(targ);
-    ConstantInt *cvers = cast<ConstantInt>(vers);
+    const ConstantInt *ctarg = cast<ConstantInt>(targ);
+    const ConstantInt *cvers = cast<ConstantInt>(vers);
     if (ctarg->equalsInt(_target) && (
         cvers->equalsInt(_version) || cvers->isZero()))
     {

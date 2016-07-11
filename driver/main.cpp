@@ -19,6 +19,7 @@
 #include "root.h"
 #include "scope.h"
 #include "ddmd/target.h"
+#include "dcompute/codegenmanager.h"
 #include "driver/cl_options.h"
 #include "driver/codegenerator.h"
 #include "driver/configfile.h"
@@ -61,7 +62,7 @@
 #elif _WIN32
 #include <windows.h>
 #endif
-
+#include <vector>
 // Needs Type already declared.
 #include "cond.h"
 
@@ -1025,7 +1026,26 @@ static void emitJson(Modules &modules) {
     writeFile(Loc(), jsonfile);
   }
 }
+bool isAtCompute( const Module *m)
+{
+    
+    auto uda = m->userAttribDecl;
+    if (uda) {
+        //FIXME!!
+        /*auto es = uda->getAttributes();
+        for (int i = 0; i < es->dim; i++) {
+            auto t = isType(es[i]);
+            if (t->ty == Tstruct) {
+                return true;
+            }
+        }*/
+        printf(" found a module uda");
+        return true;
+    }
+    return false;
 
+}
+    
 int cppmain(int argc, char **argv) {
 #if LDC_LLVM_VER >= 309
   llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
@@ -1392,7 +1412,8 @@ int cppmain(int argc, char **argv) {
   // Generate one or more object/IR/bitcode files.
   if (global.params.obj && !modules.empty()) {
     ldc::CodeGenerator cg(getGlobalContext(), singleObj);
-
+    DComputeCodeGenManager dccg(getGlobalContext());
+    std::vector<Module*> compute_modules;
     // When inlining is enabled, we are calling semantic3 on function
     // declarations, which may _add_ members to the first module in the modules
     // array. These added functions must be codegenned, because these functions
@@ -1406,13 +1427,22 @@ int cppmain(int argc, char **argv) {
       if (global.params.verbose) {
         fprintf(global.stdmsg, "code      %s\n", m->toChars());
       }
-
-      cg.emit(m);
-
+        if (isAtCompute(m)) {
+            compute_modules.push_back(m);
+        } else {
+            cg.emit(m);
+        }
       if (global.errors) {
         fatal();
       }
     }
+    if (compute_modules.size()) {
+        for (int i = 0;i < compute_modules.size(); i++) {
+        printf("got here len is %d, i is %d",compute_modules.size(),i);
+        dccg.emit(compute_modules[i]);
+      }
+    }
+    
   }
 
   // Generate DDoc output files.

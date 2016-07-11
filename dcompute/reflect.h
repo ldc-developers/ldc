@@ -13,7 +13,14 @@
 namespace llvm {
   class ModulePass;
 }
-
+enum PointerSpace {
+    PSPrivate = 0,
+    PSGlobal = 1,
+    PSShared = 2,
+    PSConstant = 3,
+    PSGeneric = 4,
+    PSnum = 5
+    };
 llvm::ModulePass *createDComputeReflectPass(int, unsigned);
 
 #endif

@@ -1021,7 +1021,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     irFunc->pgo.setCurrentStmt(fd->fbody);
 
     // output function body
-    Statement_toIR(fd->fbody, gIR);
+    Statement_toIR(fd->fbody, gIR,gGenningCompute);
 
     irFunc->scopes = nullptr;
   }

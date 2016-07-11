@@ -43,6 +43,7 @@ extern IRState *gIR;
 extern llvm::TargetMachine *gTargetMachine;
 extern const llvm::DataLayout *gDataLayout;
 extern TargetABI *gABI;
+extern bool gGenningCompute;
 
 class TypeFunction;
 class TypeStruct;
@@ -109,7 +110,10 @@ struct IRState {
   IRState(const char *name, llvm::LLVMContext &context);
 
   llvm::Module module;
-  llvm::LLVMContext &context() const { return module.getContext(); }
+  llvm::LLVMContext &context() const
+    {
+        printf("gIR = %p,gIR,module.context = %p");
+        return module.getContext(); }
 
   Module *dmodule;
 
@@ -196,6 +200,6 @@ struct IRState {
 #endif
 };
 
-void Statement_toIR(Statement *s, IRState *irs);
+void Statement_toIR(Statement *s, IRState *irs, bool compute);
 
 #endif // LDC_GEN_IRSTATE_H

@@ -10,6 +10,10 @@
 
 #ifndef LDC_DCOMPUTE_TARGET_H
 #define LDC_DCOMPUTE_TARGET_H
+#include "gen/irstate.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Function.h"
+
 namespace llvm {
   class Module;
   class Function;
@@ -18,24 +22,26 @@ namespace llvm {
 class Module;
 class FuncDeclaration;
 
-namespace ldc {
 class DComputeTarget {
-  llvm::Module *llm;
-  Module *dm;
-    
-    
 public:
-  DComputeTarget(Module* m) : m(m) llm(nullptr){}
-  void doCodeGen();
-  virtual void runReflectPass();
-  virtual void runPointerReplacePass();
-  virtual void runSpecialTypeReplacePass();
-  virtual void addMetadata();
-  virtual void handleKernelFunc(FuncDeclaration *df, llvm::Funtion *llf);
-  virtual void handleNonKernelFunc(FuncDeclaration *df, llvm::Funtion *llf);
+  int tversion;
+  IRState* _ir;
+  llvm::LLVMContext &ctx;
+
+  DComputeTarget(llvm::LLVMContext &c, int v);
+  void emit(Module* m);
+    
+  void doCodeGen(Module* m);
+  
+  virtual void runReflectPass() =0;
+  //virtual void runPointerReplacePass();
+  //virtual void runSpecialTypeReplacePass();
+  virtual void addMetadata() =0;
+  virtual void handleKernelFunc(FuncDeclaration *df, llvm::Function *llf) =0;
+  virtual void handleNonKernelFunc(FuncDeclaration *df, llvm::Function *llf)=0;
 };
-}
-DComputeTarget *createCUDATarget(Module *_m, int sm);
-DComputeTarget *createOCLTarget(Module *_m, int oclver);
+
+DComputeTarget *createCUDATarget(llvm::LLVMContext &c, int sm);
+DComputeTarget *createOCLTarget(llvm::LLVMContext &c, int oclver);
 
 #endif

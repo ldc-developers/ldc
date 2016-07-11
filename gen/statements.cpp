@@ -929,7 +929,7 @@ public:
         // Emit handler, if there is one. The handler is zero, for instance,
         // when building 'catch { debug foo(); }' in non-debug mode.
         if ((*it)->handler) {
-          Statement_toIR((*it)->handler, irs);
+          Statement_toIR((*it)->handler, irs, gGenningCompute);
         }
 
         if (!irs->scopereturned()) {
@@ -993,7 +993,7 @@ public:
         // Emit handler, if there is one. The handler is zero, for instance,
         // when building 'catch { debug foo(); }' in non-debug mode.
         if ((*it)->handler) {
-          Statement_toIR((*it)->handler, irs);
+          Statement_toIR((*it)->handler, irs,gGenningCompute);
         }
 
         if (!irs->scopereturned()) {
@@ -1961,8 +1961,14 @@ public:
 };
 
 //////////////////////////////////////////////////////////////////////////////
-
-void Statement_toIR(Statement *s, IRState *irs) {
-  ToIRVisitor v(irs);
-  s->accept(&v);
+Visitor* createDCopmuteToIRVisitor(IRState *irs);
+void Statement_toIR(Statement *s, IRState *irs, bool compute) {
+    if (compute) {
+        Visitor* v = createDCopmuteToIRVisitor(irs);
+        s->accept(v);
+        delete v;
+    } else {
+        ToIRVisitor v(irs);
+        s->accept(&v);
+  }
 }
