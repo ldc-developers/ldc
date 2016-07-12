@@ -2136,12 +2136,13 @@ public:
     IF_LOG Logger::print("%sExp::toElem: %s @ %s\n", #X, e->toChars(),         \
                          e->type->toChars());                                  \
     LOG_SCOPE;                                                                 \
-    DValue *u = toElem(e->e1);                                                 \
-    DValue *v = toElem(e->e2);                                                 \
     errorOnIllegalArrayOp(e, e->e1, e->e2);                                    \
+    auto lhs = DtoRVal(toElem(e->e1));                                         \
+    DValue *v = toElem(e->e2);                                                 \
     v = DtoCast(e->loc, v, e->e1->type);                                       \
-    LLValue *x = llvm::BinaryOperator::Create(                                 \
-        llvm::Instruction::Y, DtoRVal(u), DtoRVal(v), "", p->scopebb());       \
+    auto rhs = DtoRVal(v);                                                     \
+    LLValue *x = llvm::BinaryOperator::Create(llvm::Instruction::Y, lhs, rhs,  \
+                                              "", p->scopebb());               \
     result = new DImValue(e->type, x);                                         \
   }
 
@@ -2156,14 +2157,17 @@ public:
     IF_LOG Logger::print("ShrExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
-    DValue *u = toElem(e->e1);
+
+    auto lhs = DtoRVal(toElem(e->e1));
     DValue *v = toElem(e->e2);
     v = DtoCast(e->loc, v, e->e1->type);
+    auto rhs = DtoRVal(v);
+
     LLValue *x;
     if (isLLVMUnsigned(e->e1->type)) {
-      x = p->ir->CreateLShr(DtoRVal(u), DtoRVal(v));
+      x = p->ir->CreateLShr(lhs, rhs);
     } else {
-      x = p->ir->CreateAShr(DtoRVal(u), DtoRVal(v));
+      x = p->ir->CreateAShr(lhs, rhs);
     }
     result = new DImValue(e->type, x);
   }
