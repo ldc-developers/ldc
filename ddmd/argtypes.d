@@ -276,7 +276,7 @@ extern (C++) TypeTuple toArgTypes(Type t)
         override void visit(TypeStruct t)
         {
             //printf("TypeStruct.toArgTypes() %s\n", t.toChars());
-            if (!t.sym.isPOD() || t.sym.fields.dim == 0)
+            if (!t.sym.isPOD())
             {
             Lmemory:
                 //printf("\ttoArgTypes() %s => [ ]\n", t->toChars());
@@ -336,6 +336,10 @@ extern (C++) TypeTuple toArgTypes(Type t)
                     for (size_t i = 0; i < t.sym.fields.dim; i++)
                     {
                         VarDeclaration f = t.sym.fields[i];
+                        d_uns64 fieldsz = f.type.size(Loc());
+                        // Skip zero-sized fields such as zero-length static arrays
+                        if (fieldsz == 0)
+                            continue;
                         //printf("  [%d] %s f.type = %s\n", cast(int)i, f.toChars(), f.type.toChars());
                         TypeTuple tup = toArgTypes(f.type);
                         if (!tup)
@@ -365,7 +369,6 @@ extern (C++) TypeTuple toArgTypes(Type t)
                             if (f.offset & (alignsz - 1))
                                 goto Lmemory;
                             // Fields that overlap the 8byte boundary goto Lmemory
-                            d_uns64 fieldsz = f.type.size(Loc());
                             if (f.offset < 8 && (f.offset + fieldsz) > 8)
                                 goto Lmemory;
                         }
@@ -386,13 +389,17 @@ extern (C++) TypeTuple toArgTypes(Type t)
                                 off2 = 8;
                             if (!t2 && off2 != 8)
                                 goto Lmemory;
-                            assert(t2 || off2 == 8);
                             t2 = argtypemerge(t2, ft2, off2 - 8);
                             if (!t2)
                                 goto Lmemory;
                         }
                     }
-                    if (t2)
+                    if (!t1)
+                    {
+                        // Zero-sized fields only - treat as empty struct
+                        t1 = Type.tint8;
+                    }
+                    else if (t2)
                     {
                         if (t1.isfloating() && t2.isfloating())
                         {
