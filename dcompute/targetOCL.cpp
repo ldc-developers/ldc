@@ -16,7 +16,7 @@ class TargetOCL : public DComputeTarget {
 public:
     TargetOCL(llvm::LLVMContext &c, int oclversion) : DComputeTarget(c,oclversion)
   {
-      _ir = new IRState("dcomputeTargetCUDA",ctx);
+      _ir = new IRState("dcomputeTargetOCL",ctx);
       _ir->module.setTargetTriple( global.params.is64bit ? "sipr64-unknown-unknown" : "sipr-unknown-unknown");
       //TODO: does this need to be changed
 #if LDC_LLVM_VER >= 308
@@ -25,7 +25,7 @@ public:
       _ir->module.setDataLayout(gDataLayout->getStringRepresentation());
 #endif
       abi = createOCLABI();
-      binSuffix="code.spv";
+      binSuffix="spv";
   }
   void runReflectPass() override {
     auto p = createDComputeReflectPass(1,tversion);
@@ -43,10 +43,10 @@ public:
     //opencl.enable.FP_CONTRACT
   }
   void handleNonKernelFunc(FuncDeclaration *df, llvm::Function *llf) override {
-    //TODO: set the calling convention for llf to llvm::CallingConv::SPIR_FUNC
+    
   }
   void handleKernelFunc(FuncDeclaration *df, llvm::Function *llf) override {
-    //TODO: set the calling convention for llf to llvm::CallingConv::SPIR_KERNEL
+    
     //TODO: Handle Function attibutes
     
     //mostly copied from clang

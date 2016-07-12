@@ -9,7 +9,7 @@
 
 #include "dcompute/codegenmanager.h"
 #include "ir/irdsymbol.h"
-std::vector<DComputeCodeGenManager::target> DComputeCodeGenManager::clTargets = {{1, 210}, { 2, 350}};
+std::vector<DComputeCodeGenManager::target> DComputeCodeGenManager::clTargets = {{1, 210}/*, { 2, 350}*/};
 DComputeTarget *DComputeCodeGenManager::createComputeTarget(target t) {
   switch (t.platform) {
     case 1:
@@ -23,7 +23,7 @@ DComputeTarget *DComputeCodeGenManager::createComputeTarget(target t) {
   
 }
 
-DComputeCodeGenManager::DComputeCodeGenManager(): ctx() {
+DComputeCodeGenManager::DComputeCodeGenManager(llvm::LLVMContext &c): ctx(c) {
     for (int i = 0; i<clTargets.size() ; i++) {
         targets.push_back(createComputeTarget(clTargets[i]));
     }
@@ -38,7 +38,13 @@ void DComputeCodeGenManager::emit(Module *m)
 }
 
 DComputeCodeGenManager::~DComputeCodeGenManager() {
+    
+}
+
+void DComputeCodeGenManager::writeModules()
+{
     for (int i = 0; i<targets.size() ; i++) {
         targets[i]->writeModule();
     }
 }
+

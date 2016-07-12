@@ -28,7 +28,8 @@
 #include "ir/irtype.h"
 #include "ir/irvar.h"
 #include "llvm/ADT/SmallString.h"
-
+#include "module.h"
+#include "identifier.h"
 namespace {
     // from dmd/src/typinf.c
     bool isSpeculativeType(Type *t) {
@@ -256,6 +257,10 @@ void visit(FuncDeclaration *decl) LLVM_OVERRIDE {
     // don't touch function aliases, they don't contribute any new symbols
     if (!decl->isFuncAliasDeclaration()) {
         DtoDefineFunction(decl);
+        if (hasKernelAttr(decl))
+            dct.handleKernelFunc(decl,irs->module.getFunction(decl->mangleString));
+        else
+            dct.handleNonKernelFunc(decl,irs->module.getFunction(decl->mangleString));
     }
 }
 
@@ -280,7 +285,9 @@ void visit(TemplateInstance *decl) LLVM_OVERRIDE {
         Logger::println("Has no members, skipping.");
         return;
     }
-    
+    if (!strcmp(decl->getModule()->ident->string,"object")) {
+        return;
+    }
     // Force codegen if this is a templated function with pragma(inline, true).
     if ((decl->members->dim == 1) &&
         ((*decl->members)[0]->isFuncDeclaration()) &&
@@ -302,7 +309,7 @@ void visit(TemplateInstance *decl) LLVM_OVERRIDE {
 }
 
 void visit(TemplateMixin *decl) LLVM_OVERRIDE {
-    IF_LOG Logger::println("TemplateInstance::codegen: '%s'",
+    IF_LOG Logger::println("TemplateMixin::codegen: '%s'",
                            decl->toPrettyChars());
     LOG_SCOPE
     

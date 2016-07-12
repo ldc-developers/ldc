@@ -8,6 +8,7 @@
 #include "expression.h"
 #include "ir/irfunction.h"
 #include "module.h"
+#include "gen/logger.h"
 
 #include "llvm/ADT/StringExtras.h"
 
@@ -270,8 +271,8 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
       applyAttrSection(sle, func);
     } else if (name == attr::target) {
       applyAttrTarget(sle, func);
-    } else if (name == attr::weak) {
-      // @weak is applied elsewhere
+    } else if (name == attr::weak || name == attr::kernel) {
+      // @weak and @kernel are applied elsewhere
     } else {
       sle->warning(
           "ignoring unrecognized special attribute 'ldc.attributes.%s'",
@@ -311,15 +312,23 @@ bool hasWeakUDA(Dsymbol *sym) {
 }
 
 bool hasKernelAttr(FuncDeclaration *decl) {
-    if (!decl->userAttribDecl)
+    
+    if (!decl->userAttribDecl) {
+        IF_LOG Logger::println("hasKernelAttr(%s) = no", decl->toPrettyChars());
         return false;
+    }
+    IF_LOG Logger::println("hasKernelAttr(%s) = yes", decl->toPrettyChars());
+    LOG_SCOPE
+
     Expressions *attrs = decl->userAttribDecl->getAttributes();
+
     expandTuples(attrs);
     for (auto &attr : *attrs) {
+        Logger::println("(%s)",attr->toChars());
         auto sle = getLdcAttributesStruct(attr);
         if (!sle)
             continue;
-        
+        IF_LOG Logger::println("that are from ldc.attributes");
         auto name = sle->sd->ident->string;
         if (name == attr::kernel) {
             return true;

@@ -29,7 +29,7 @@ public:
       abi = createCudaABI();
       //Dont need the diBuilder to run
       //IrDsymbol::resetAll(); //this doesn't look good
-      binSuffix= "code.ptx";
+      binSuffix= "ptx";
   }
   void runReflectPass() override {
     auto p = createDComputeReflectPass(2,tversion);
@@ -46,7 +46,7 @@ public:
   }
     
   void handleNonKernelFunc(FuncDeclaration *df, llvm::Function *llf) override {
-    //TODO: set the calling convention for llf to llvm::CallingConv::PTX_DEVICE
+    
   }
   void handleKernelFunc(FuncDeclaration *df, llvm::Function *llf) override {
     //TODO: Handle Function attibutes

@@ -19,6 +19,7 @@
 #include "driver/toobj.h"
 #include "gen/logger.h"
 #include "gen/runtime.h"
+#include <string>
 DComputeTarget::DComputeTarget(llvm::LLVMContext &c, int v) : ctx(c) , tversion(v)
 {    
 }
@@ -42,14 +43,18 @@ void DComputeTarget::emit(Module* m) {
     gABI = abi;
     gIR = _ir;
     doCodeGen(m);
-    runReflectPass();
+
 }
 
 void DComputeTarget::writeModule()
 {
+    IF_LOG Logger::println("Here 1");
+    runReflectPass();
+    IF_LOG Logger::println("Here 2");
     insertBitcodeFiles(_ir->module, _ir->context(),
                        *global.params.bitcodeFiles);
-    llvm::NamedMDNode *IdentMetadata =
+    IF_LOG Logger::println("Here 3");
+    /*llvm::NamedMDNode *IdentMetadata =
     _ir->module.getOrInsertNamedMetadata("llvm.ident");
     std::string Version("ldc version ");
     Version.append(global.ldc_version);
@@ -59,7 +64,7 @@ void DComputeTarget::writeModule()
     llvm::Value *IdentNode[] =
 #endif
     {llvm::MDString::get(_ir->context(), Version)};
-    IdentMetadata->addOperand(llvm::MDNode::get(_ir->context(), IdentNode));
+    IdentMetadata->addOperand(llvm::MDNode::get(_ir->context(), IdentNode));*/
     const char *oname;
     const char *filename;
     if ((oname = global.params.exefile) || (oname = global.params.objname)) {
@@ -67,12 +72,15 @@ void DComputeTarget::writeModule()
         if (global.params.objdir) {
             filename =
             FileName::combine(global.params.objdir, FileName::name(filename));
+            
         }
     } else {
-        filename = filename = FileName::forceExt("gpusuff", binSuffix);;
+        filename = filename = FileName::forceExt((std::string("gpusuff_")+binSuffix).c_str(), binSuffix);;
     }
-    ::writeModule(&_ir->module, oname);
-    global.params.objfiles->push(oname);
+    IF_LOG Logger::println("Here 4");
+    ::writeModule(&_ir->module, filename);
+    IF_LOG Logger::println("Here 5");
+    global.params.objfiles->push(filename);
     delete _ir;
     _ir = nullptr;
 
