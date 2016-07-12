@@ -10,10 +10,11 @@
 #include "dcompute/target.h"
 #include "dcompute/reflect.h"
 #include "template.h"
+#include "dcompute/abi-ocl.h"
 namespace {
 class TargetOCL : public DComputeTarget {
 public:
-  TargetOCL(llvm::LLVMContext &c, int oclversion) : DComputeTarget(c,oclversion)
+    TargetOCL(llvm::LLVMContext &c, int oclversion) : DComputeTarget(c,oclversion)
   {
       _ir = new IRState("dcomputeTargetCUDA",ctx);
       _ir->module.setTargetTriple( global.params.is64bit ? "sipr64-unknown-unknown" : "sipr-unknown-unknown");
@@ -23,6 +24,8 @@ public:
 #else
       _ir->module.setDataLayout(gDataLayout->getStringRepresentation());
 #endif
+      abi = createOCLABI();
+      binSuffix="code.spv";
   }
   void runReflectPass() override {
     auto p = createDComputeReflectPass(1,tversion);

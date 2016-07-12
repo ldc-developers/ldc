@@ -27,12 +27,13 @@ public:
   int tversion;
   IRState* _ir;
   llvm::LLVMContext &ctx;
-
+  TargetABI* abi;
   DComputeTarget(llvm::LLVMContext &c, int v);
+  char *  binSuffix;
   void emit(Module* m);
     
   void doCodeGen(Module* m);
-  
+  void writeModule();
   virtual void runReflectPass() =0;
   //virtual void runPointerReplacePass();
   //virtual void runSpecialTypeReplacePass();

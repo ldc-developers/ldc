@@ -20,6 +20,7 @@ const std::string llvmFastMathFlag = "llvmFastMathFlag";
 const std::string section = "section";
 const std::string target = "target";
 const std::string weak = "_weak";
+const std::string kernel = "kernel";
 }
 
 /// Checks whether `moduleDecl` is the ldc.attributes module.
@@ -307,4 +308,23 @@ bool hasWeakUDA(Dsymbol *sym) {
   }
 
   return false;
+}
+
+bool hasKernelAttr(FuncDeclaration *decl) {
+    if (!decl->userAttribDecl)
+        return false;
+    Expressions *attrs = decl->userAttribDecl->getAttributes();
+    expandTuples(attrs);
+    for (auto &attr : *attrs) {
+        auto sle = getLdcAttributesStruct(attr);
+        if (!sle)
+            continue;
+        
+        auto name = sle->sd->ident->string;
+        if (name == attr::kernel) {
+            return true;
+        }
+    }
+    
+    return false;
 }

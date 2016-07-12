@@ -11,6 +11,8 @@
 #include "llvm/IR/metadata.h"
 #include "dcompute/reflect.h"
 #include "llvm/ADT/APint.h"
+#include "dcompute/abi-cuda.h"
+
 namespace {
 class TargetCUDA : public DComputeTarget {
 public:
@@ -24,8 +26,10 @@ public:
 #else
       _ir->module.setDataLayout(gDataLayout->getStringRepresentation());
 #endif
+      abi = createCudaABI();
       //Dont need the diBuilder to run
       //IrDsymbol::resetAll(); //this doesn't look good
+      binSuffix= "code.ptx";
   }
   void runReflectPass() override {
     auto p = createDComputeReflectPass(2,tversion);

@@ -32,6 +32,7 @@ public:
 
     
   DComputeCodeGenManager();
+  ~DComputeCodeGenManager();
     
 };
 

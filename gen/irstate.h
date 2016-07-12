@@ -110,10 +110,7 @@ struct IRState {
   IRState(const char *name, llvm::LLVMContext &context);
 
   llvm::Module module;
-  llvm::LLVMContext &context() const
-    {
-        printf("gIR = %p,gIR,module.context = %p");
-        return module.getContext(); }
+  llvm::LLVMContext &context() const {return module.getContext(); }
 
   Module *dmodule;
 

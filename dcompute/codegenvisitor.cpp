@@ -114,7 +114,6 @@ class DComputeCodegenVisitor : public Visitor {
 public:
     explicit DComputeCodegenVisitor(IRState *irs,DComputeTarget &_dct) : irs(irs),dct(_dct)
     {
-        gIR = dct._ir;
     }
     
 

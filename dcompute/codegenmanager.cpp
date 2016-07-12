@@ -24,8 +24,6 @@ DComputeTarget *DComputeCodeGenManager::createComputeTarget(target t) {
 }
 
 DComputeCodeGenManager::DComputeCodeGenManager(): ctx() {
-    
-
     for (int i = 0; i<clTargets.size() ; i++) {
         targets.push_back(createComputeTarget(clTargets[i]));
     }
@@ -39,4 +37,8 @@ void DComputeCodeGenManager::emit(Module *m)
     }
 }
 
-
+DComputeCodeGenManager::~DComputeCodeGenManager() {
+    for (int i = 0; i<targets.size() ; i++) {
+        targets[i]->writeModule();
+    }
+}
