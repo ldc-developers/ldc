@@ -14,7 +14,16 @@ namespace {
 class TargetOCL : public DComputeTarget {
 public:
   TargetOCL(llvm::LLVMContext &c, int oclversion) : DComputeTarget(c,oclversion)
-  {}
+  {
+      _ir = new IRState("dcomputeTargetCUDA",ctx);
+      _ir->module.setTargetTriple( global.params.is64bit ? "sipr64-unknown-unknown" : "sipr-unknown-unknown");
+      //TODO: does this need to be changed
+#if LDC_LLVM_VER >= 308
+      _ir->module.setDataLayout(*gDataLayout);
+#else
+      _ir->module.setDataLayout(gDataLayout->getStringRepresentation());
+#endif
+  }
   void runReflectPass() override {
     auto p = createDComputeReflectPass(1,tversion);
     p->runOnModule(_ir->module);

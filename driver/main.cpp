@@ -1412,7 +1412,7 @@ int cppmain(int argc, char **argv) {
   // Generate one or more object/IR/bitcode files.
   if (global.params.obj && !modules.empty()) {
     ldc::CodeGenerator cg(getGlobalContext(), singleObj);
-    DComputeCodeGenManager dccg(getGlobalContext());
+    DComputeCodeGenManager dccg;
     std::vector<Module*> compute_modules;
     // When inlining is enabled, we are calling semantic3 on function
     // declarations, which may _add_ members to the first module in the modules

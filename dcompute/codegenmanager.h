@@ -24,14 +24,14 @@ class DComputeCodeGenManager {
   // targets from the command line. Hard coded for now. TODO: do this properly.
   // also SmallVector this
   static std::vector<target> clTargets;
-  llvm::LLVMContext &ctx;
+  llvm::LLVMContext ctx;
   std::vector<DComputeTarget *> targets;
   DComputeTarget *createComputeTarget(target t);
 public:
   void emit(Module *m);
 
     
-  DComputeCodeGenManager(llvm::LLVMContext &context);
+  DComputeCodeGenManager();
     
 };
 

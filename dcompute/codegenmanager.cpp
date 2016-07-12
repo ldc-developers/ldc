@@ -23,8 +23,9 @@ DComputeTarget *DComputeCodeGenManager::createComputeTarget(target t) {
   
 }
 
-DComputeCodeGenManager::DComputeCodeGenManager(llvm::LLVMContext &context) : ctx(context)
-{
+DComputeCodeGenManager::DComputeCodeGenManager(): ctx() {
+    
+
     for (int i = 0; i<clTargets.size() ; i++) {
         targets.push_back(createComputeTarget(clTargets[i]));
     }
