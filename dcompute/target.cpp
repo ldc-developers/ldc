@@ -48,12 +48,11 @@ void DComputeTarget::emit(Module* m) {
 
 void DComputeTarget::writeModule()
 {
-    IF_LOG Logger::println("Here 1");
+
     runReflectPass();
-    IF_LOG Logger::println("Here 2");
+
     insertBitcodeFiles(_ir->module, _ir->context(),
                        *global.params.bitcodeFiles);
-    IF_LOG Logger::println("Here 3");
     /*llvm::NamedMDNode *IdentMetadata =
     _ir->module.getOrInsertNamedMetadata("llvm.ident");
     std::string Version("ldc version ");
@@ -77,9 +76,9 @@ void DComputeTarget::writeModule()
     } else {
         filename = filename = FileName::forceExt((std::string("gpusuff_")+binSuffix).c_str(), binSuffix);;
     }
-    IF_LOG Logger::println("Here 4");
+
     ::writeModule(&_ir->module, filename);
-    IF_LOG Logger::println("Here 5");
+
     global.params.objfiles->push(filename);
     delete _ir;
     _ir = nullptr;

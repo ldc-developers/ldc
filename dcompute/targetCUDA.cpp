@@ -12,6 +12,7 @@
 #include "dcompute/reflect.h"
 #include "llvm/ADT/APint.h"
 #include "dcompute/abi-cuda.h"
+#include "gen/logger.h"
 
 namespace {
 class TargetCUDA : public DComputeTarget {
@@ -20,16 +21,17 @@ public:
   {
       _ir = new IRState("dcomputeTargetCUDA",ctx);
       _ir->module.setTargetTriple( global.params.is64bit ? "nvptx64-nvidia-cuda" : "nvptx-nvidia-cuda");
-      //TODO: does this need to be changed
-#if LDC_LLVM_VER >= 308
-      _ir->module.setDataLayout(*gDataLayout);
-#else
-      _ir->module.setDataLayout(gDataLayout->getStringRepresentation());
-#endif
-      abi = createCudaABI();
-      //Dont need the diBuilder to run
-      //IrDsymbol::resetAll(); //this doesn't look good
-      binSuffix= "ptx";
+ 
+    std::string dl;
+    if (global.params.is64bit) {
+        dl = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64";
+    } else {
+        dl = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64";
+    }
+    _ir->module.setDataLayout(dl);
+    abi = createCudaABI();
+    
+    binSuffix= "ptx";
   }
   void runReflectPass() override {
     auto p = createDComputeReflectPass(2,tversion);
@@ -53,10 +55,12 @@ public:
     llvm::NamedMDNode *na = _ir->module.getOrInsertNamedMetadata("nvvm.annotations");
     llvm::Metadata *fn    = llvm::ConstantAsMetadata::get(llf);
     llvm::Metadata *kstr  = llvm::MDString::get(ctx,"kernel");
-      llvm::Metadata *one   = llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(llvm::IntegerType::get(ctx,32),1));
+    llvm::Metadata *one   = llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(llvm::IntegerType::get(ctx,32),1));
+
     llvm::Metadata *arr[] = {fn,kstr,one};
     llvm::MDNode *tup   = llvm::MDTuple::get(ctx,arr);
     na->addOperand(tup);
+
   }
     
 };

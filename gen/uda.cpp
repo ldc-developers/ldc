@@ -21,7 +21,7 @@ const std::string llvmFastMathFlag = "llvmFastMathFlag";
 const std::string section = "section";
 const std::string target = "target";
 const std::string weak = "_weak";
-const std::string kernel = "kernel";
+const std::string kernel = "_kernel";
 }
 
 /// Checks whether `moduleDecl` is the ldc.attributes module.
@@ -328,10 +328,16 @@ bool hasKernelAttr(FuncDeclaration *decl) {
         auto sle = getLdcAttributesStruct(attr);
         if (!sle)
             continue;
-        IF_LOG Logger::println("that are from ldc.attributes");
+
         auto name = sle->sd->ident->string;
+        IF_LOG Logger::println("that are from ldc.attributes name(%p)",name);
+        LOG_SCOPE
         if (name == attr::kernel) {
+            
+            IF_LOG Logger::println("is an @kernel");
             return true;
+        } else {
+            IF_LOG Logger::println("is NOT an @kernel");
         }
     }
     

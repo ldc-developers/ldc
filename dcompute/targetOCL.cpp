@@ -11,21 +11,25 @@
 #include "dcompute/reflect.h"
 #include "template.h"
 #include "dcompute/abi-ocl.h"
+#include "gen/logger.h"
+#include "dcompute/util.h"
 namespace {
 class TargetOCL : public DComputeTarget {
 public:
     TargetOCL(llvm::LLVMContext &c, int oclversion) : DComputeTarget(c,oclversion)
   {
-      _ir = new IRState("dcomputeTargetOCL",ctx);
-      _ir->module.setTargetTriple( global.params.is64bit ? "sipr64-unknown-unknown" : "sipr-unknown-unknown");
-      //TODO: does this need to be changed
-#if LDC_LLVM_VER >= 308
-      _ir->module.setDataLayout(*gDataLayout);
-#else
-      _ir->module.setDataLayout(gDataLayout->getStringRepresentation());
-#endif
-      abi = createOCLABI();
-      binSuffix="spv";
+    _ir = new IRState("dcomputeTargetOCL",ctx);
+    _ir->module.setTargetTriple( global.params.is64bit ? "sipr64-unknown-unknown" : "sipr-unknown-unknown");
+    std::string dl;
+    if (global.params.is64bit) {
+        dl = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64";
+    } else {
+        dl = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64";
+    }
+    _ir->module.setDataLayout(dl);
+
+    abi = createOCLABI();
+    binSuffix="spv";
   }
   void runReflectPass() override {
     auto p = createDComputeReflectPass(1,tversion);
@@ -46,11 +50,11 @@ public:
     
   }
   void handleKernelFunc(FuncDeclaration *df, llvm::Function *llf) override {
-    
     //TODO: Handle Function attibutes
     
     //mostly copied from clang
       llvm::SmallVector<llvm::Metadata *, 8> kernelMDArgs;
+      kernelMDArgs.push_back(llvm::ConstantAsMetadata::get(llf));
     // MDNode for the kernel argument address space qualifiers.
       llvm::SmallVector<llvm::Metadata *, 8> addressQuals;
     addressQuals.push_back(llvm::MDString::get(ctx, "kernel_arg_addr_space"));
@@ -73,36 +77,58 @@ public:
     
     // MDNode for the kernel argument names.
     llvm::SmallVector<llvm::Metadata*, 8> argNames;
-    for(int i = 0; i < df->parameters->dim; i++) {
-      std::string typeQuals;
-      std::string baseTyName;
-      std::string tyName;
-      VarDeclarations *vs = df->parameters;
-        VarDeclaration *v = (*vs)[i];
-      TemplateInstance *t = v->isInstantiated();
-      if (t && !strcmp(t->tempdecl->ident->string, "dcompute.types.Pointer")) {
-        //We have a pointer in an address space
-        //struct Pointer(uint addrspace, T)
-        //int addrspace = (TemplateValueParameter*)(t->tdargs[0])->/* gah what goes here?*/
-        //addressQuals.push_back(llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(llvm::IntegerType::get(ctx,32),addrspace)));
-        //tyName = T.stringof ~ "*"
-        //baseTyName = tyName
-        //typeQuals = ((T == const U, U) || addrspace == Constant) ? "const" : "";
-        // there is no volatile or restrict in D
-        //TODO: deal with Pipes and Images. (they are global pointers)
-      } else {
-        //tyName = T.stringof ~ "*"
-        //baseTyName = tyName
-        //typeQuals = ((T == const U, U) || addrspace == Constant) ? "const" : "";
-        // there is no volatile or restrict in D
-      }
-        // Adding the type and base type to the metadata.
-      assert(!tyName.empty() && "Empty type name");
-      argTypeNames.push_back(llvm::MDString::get(ctx, tyName));
-      assert(!baseTyName.empty() && "Empty base type name");
-      argBaseTypeNames.push_back(llvm::MDString::get(ctx, baseTyName));
-      argTypeQuals.push_back(llvm::MDString::get(ctx, typeQuals));
+    if (df->parameters) {
+        for(int i = 0; i < df->parameters->dim; i++) {
+            
+            std::string typeQuals;
+            std::string baseTyName;
+            std::string tyName;
+            std::string accessQual = "none";
+            int addrspace = 0;
+            VarDeclarations *vs = df->parameters;
+            VarDeclaration *v = (*vs)[i];
+            
+            TemplateInstance *t = v->isTemplateInstance();
+            IF_LOG Logger::println("TargetOCL::handleKernelFunc: proceesing parameter(%s,%s)",v->toPrettyChars(),t?t->toPrettyChars():nullptr);
+            //Hmm t == null for typeof(v) == Pointer!1,float) wtf?
+            if (t && isFromDCompute_Types(t)) {
+                IF_LOG Logger::println("From dcompute.types");
+                if (!strcmp(t->tempdecl->ident->string, "Pointer")) {
+                    //We have a pointer in an address space
+                    //struct Pointer(uint addrspace, T)
+                    Expression *exp = isExpression((*t->tiargs)[0]);
+                    Type * t1 = isType((*t->tiargs)[1]);
+                    addrspace = exp->toInteger();
+                    
+                    //tyName = T.stringof ~ "*"
+                    tyName = t1->toChars()+std::string("*");
+                    baseTyName = tyName;
+                    //typeQuals = ((T == const U, U) || addrspace == Constant) ? "const" : "";
+                    typeQuals = (t1->mod & (MODconst | MODimmutable)|| addrspace == 3) ? "const" : "";
+                    // there is no volatile or restrict in D
+                    
+                } else {
+                     //TODO: deal with Pipes and Images. (they are global pointers)
+                }
+            } else {
+                //tyName = T.stringof ~ "*"
+                tyName = v->type->toChars();
+                baseTyName = tyName;
+                //typeQuals = ((T == const U, U) || addrspace == Constant) ? "const" : "";
+                typeQuals = v->storage_class & (STCconst | STCimmutable) ? "const" : "";
+                // there is no volatile or restrict in D
+            }
+            // Adding the type and base type to the metadata.
+            assert(!tyName.empty() && "Empty type name");
+            argTypeNames.push_back(llvm::MDString::get(ctx, tyName));
+            assert(!baseTyName.empty() && "Empty base type name");
+            argBaseTypeNames.push_back(llvm::MDString::get(ctx, baseTyName));
+            argTypeQuals.push_back(llvm::MDString::get(ctx, typeQuals));
+            accessQuals.push_back(llvm::MDString::get(ctx, accessQual));
+            addressQuals.push_back(llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(llvm::IntegerType::get(ctx,32),addrspace)));
+        }
     }
+
     kernelMDArgs.push_back(llvm::MDNode::get(ctx, addressQuals));
     kernelMDArgs.push_back(llvm::MDNode::get(ctx, accessQuals));
     kernelMDArgs.push_back(llvm::MDNode::get(ctx, argTypeNames));

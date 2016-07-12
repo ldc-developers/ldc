@@ -257,8 +257,11 @@ void visit(FuncDeclaration *decl) LLVM_OVERRIDE {
     // don't touch function aliases, they don't contribute any new symbols
     if (!decl->isFuncAliasDeclaration()) {
         DtoDefineFunction(decl);
-        if (hasKernelAttr(decl))
-            dct.handleKernelFunc(decl,irs->module.getFunction(decl->mangleString));
+        if (hasKernelAttr(decl)) {
+            auto fn = irs->module.getFunction(decl->mangleString);
+            IF_LOG Logger::println("Fn = %p",fn);
+            dct.handleKernelFunc(decl,fn);
+        }
         else
             dct.handleNonKernelFunc(decl,irs->module.getFunction(decl->mangleString));
     }
