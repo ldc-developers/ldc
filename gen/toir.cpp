@@ -676,13 +676,6 @@ public:
   BIN_ASSIGN(Mul, false)
   BIN_ASSIGN(Div, false)
   BIN_ASSIGN(Mod, false)
-  BIN_ASSIGN(And, false)
-  BIN_ASSIGN(Or, false)
-  BIN_ASSIGN(Xor, false)
-  BIN_ASSIGN(Shl, true)
-  BIN_ASSIGN(Shr, true)
-  BIN_ASSIGN(Ushr, true)
-
 #undef BIN_ASSIGN
 
   //////////////////////////////////////////////////////////////////////////////
@@ -2131,6 +2124,7 @@ public:
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// Bitwise expressions, like `a ^ foo();`
 #define BIN_BLIT_EXP(X, Y)                                                     \
   void visit(X##Exp *e) override {                                             \
     IF_LOG Logger::print("%sExp::toElem: %s @ %s\n", #X, e->toChars(),         \
@@ -2153,6 +2147,65 @@ public:
   BIN_BLIT_EXP(Ushr, LShr)
 #undef BIN_BLIT_EXP
 
+  // Bitwise `@=` expressions, like `a ^= foo();`
+  static DValue *binBlitAssign(BinAssignExp *e,
+                               llvm::Instruction::BinaryOps binOp, IRState *p) {
+    // find the lhs' lvalue expression
+    Expression *lvalExp = findLvalueExp(e->e1);
+    if (!lvalExp) {
+      e->error("expression %s does not mask any l-value", e->e1->toChars());
+      fatal();
+    }
+
+    // FIXME: I don't know why this is needed.
+    bool useFindLval =
+        (binOp == llvm::Instruction::Shl) || (binOp == llvm::Instruction::LShr);
+
+    DValue *lhs_val = nullptr;
+    {
+      IF_LOG Logger::println("Caching l-value of %s => %s", e->toChars(),
+                             lvalExp->toChars());
+      LOG_SCOPE;
+      lhs_val = toElemAndCacheLvalue(lvalExp);
+    }
+    DValue *rhs_val = toElem(e->e2);
+    rhs_val =
+        DtoCast(e->loc, rhs_val, useFindLval ? lvalExp->type : e->e1->type);
+
+    // The inverted evaluation order (1. rhs, 2. lhs) is intentional
+    auto rhs = DtoRVal(rhs_val);
+    auto lhs = DtoRVal(useFindLval ? lhs_val : toElem(e->e1));
+    LLValue *llresult =
+        llvm::BinaryOperator::Create(binOp, lhs, rhs, "", p->scopebb());
+    auto opResult =
+        new DImValue(useFindLval ? lvalExp->type : e->e1->type, llresult);
+
+    lvalExp->cachedLvalue = nullptr;
+
+    DValue *assignedResult = DtoCast(e->loc, opResult, lhs_val->type);
+    DtoAssign(e->loc, lhs_val, assignedResult);
+
+    // return the (casted) result
+    return e->type == lhs_val->type ? lhs_val
+                                    : DtoCast(e->loc, lhs_val, e->type);
+  }
+#define BIN_ASSIGN_BLIT_EXP(X, Y)                                              \
+  void visit(X##AssignExp *e) override {                                       \
+    IF_LOG Logger::print(#X "AssignExp::toElem: %s @ %s\n", e->toChars(),      \
+                         e->type->toChars());                                  \
+    LOG_SCOPE;                                                                 \
+    errorOnIllegalArrayOp(e, e->e1, e->e2);                                    \
+                                                                               \
+    result = binBlitAssign(e, llvm::Instruction::Y, p);                        \
+  }
+
+  BIN_ASSIGN_BLIT_EXP(And, And)
+  BIN_ASSIGN_BLIT_EXP(Or, Or)
+  BIN_ASSIGN_BLIT_EXP(Xor, Xor)
+  BIN_ASSIGN_BLIT_EXP(Shl, Shl)
+  BIN_ASSIGN_BLIT_EXP(Ushr, LShr)
+#undef BIN_ASSIGN_BLIT_EXP
+
   void visit(ShrExp *e) override {
     IF_LOG Logger::print("ShrExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
@@ -2170,6 +2223,18 @@ public:
       x = p->ir->CreateAShr(lhs, rhs);
     }
     result = new DImValue(e->type, x);
+  }
+
+  void visit(ShrAssignExp *e) override {
+    IF_LOG Logger::print("ShrAssignExp::toElem: %s @ %s\n", e->toChars(),
+                         e->type->toChars());
+    LOG_SCOPE;
+
+    if (isLLVMUnsigned(e->e1->type)) {
+      result = binBlitAssign(e, llvm::Instruction::LShr, p);
+    } else {
+      result = binBlitAssign(e, llvm::Instruction::AShr, p);
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
