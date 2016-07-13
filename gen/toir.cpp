@@ -775,7 +775,6 @@ public:
       opResult = emitPointerOffset(p, e->loc, lhs, e->e2, false, e->type);
     } else {
       DValue *rhs_val = toElem(e->e2);
-      rhs_val = DtoCast(e->loc, rhs_val, e->e1->type);
 
       // The inverted evaluation order (1. rhs, 2. lhs) is intentional
       auto rhs = rhs_val->getRVal();
@@ -873,7 +872,6 @@ public:
       opResult = emitPointerOffset(p, e->loc, lhs, e->e2, true, e->type);
     } else if (t1->ty == Tpointer && t2->ty == Tpointer) {
       DValue *rhs_val = toElem(e->e2);
-      rhs_val = DtoCast(e->loc, rhs_val, e->e1->type);
 
       // The inverted evaluation order (1. rhs, 2. lhs) is intentional
       auto rhs = rhs_val->getRVal();
@@ -892,7 +890,6 @@ public:
       opResult = new DImValue(e->type, diff);
     } else {
       DValue *rhs_val = toElem(e->e2);
-      rhs_val = DtoCast(e->loc, rhs_val, e->e1->type);
 
       // The inverted evaluation order (1. rhs, 2. lhs) is intentional
       auto rhs = rhs_val->getRVal();
@@ -969,7 +966,6 @@ public:
       lhs_val = toElemAndCacheLvalue(lvalExp);                                 \
     }                                                                          \
     DValue *rhs_val = toElem(e->e2);                                           \
-    rhs_val = DtoCast(e->loc, rhs_val, e->e1->type);                           \
                                                                                \
     auto rhs = rhs_val->getRVal();                                             \
     auto lhs = toElem(e->e1)->getRVal();                                       \
