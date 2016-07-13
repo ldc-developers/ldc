@@ -13,6 +13,7 @@
 #include "dcompute/abi-ocl.h"
 #include "gen/logger.h"
 #include "dcompute/util.h"
+#include <cstring>
 namespace {
 class TargetOCL : public DComputeTarget {
 public:
@@ -30,6 +31,8 @@ public:
 
     abi = createOCLABI();
     binSuffix="spv";
+    int _mapping[PSnum] = {0, 1, 2, 3, 4,};
+    memcpy(mapping,_mapping,sizeof(_mapping));
   }
   void runReflectPass() override {
     auto p = createDComputeReflectPass(1,tversion);
@@ -74,12 +77,12 @@ public:
     // MDNode for the kernel argument type qualifiers.
     llvm::SmallVector<llvm::Metadata *, 8> argTypeQuals;
     argTypeQuals.push_back(llvm::MDString::get(ctx, "kernel_arg_type_qual"));
-    
+    IF_LOG Logger::println("TargetOCL::handleKernelFunc");
+    LOG_SCOPE
     // MDNode for the kernel argument names.
     llvm::SmallVector<llvm::Metadata*, 8> argNames;
     if (df->parameters) {
         for(int i = 0; i < df->parameters->dim; i++) {
-            
             std::string typeQuals;
             std::string baseTyName;
             std::string tyName;
@@ -87,29 +90,32 @@ public:
             int addrspace = 0;
             VarDeclarations *vs = df->parameters;
             VarDeclaration *v = (*vs)[i];
-            
-            TemplateInstance *t = v->isTemplateInstance();
-            IF_LOG Logger::println("TargetOCL::handleKernelFunc: proceesing parameter(%s,%s)",v->toPrettyChars(),t?t->toPrettyChars():nullptr);
-            //Hmm t == null for typeof(v) == Pointer!1,float) wtf?
-            if (t && isFromDCompute_Types(t)) {
-                IF_LOG Logger::println("From dcompute.types");
-                if (!strcmp(t->tempdecl->ident->string, "Pointer")) {
-                    //We have a pointer in an address space
-                    //struct Pointer(uint addrspace, T)
-                    Expression *exp = isExpression((*t->tiargs)[0]);
-                    Type * t1 = isType((*t->tiargs)[1]);
-                    addrspace = exp->toInteger();
+            Type *ty = v->type;
+            IF_LOG Logger::println("TargetOCL::handleKernelFunc: proceesing parameter(%s,type=%s)",v->toPrettyChars(),ty->toPrettyChars());
+
+            if (ty->ty == Tstruct) {
+                TemplateInstance *t = ((TypeStruct*)(v->type))->sym->isInstantiated();
+                if (t && isFromDCompute_Types(((TypeStruct*)(v->type))->sym)) {
+                    IF_LOG Logger::println("From dcompute.types");
+                    if (!strcmp(t->tempdecl->ident->string, "Pointer")) {
+                        //We have a pointer in an address space
+                        //struct Pointer(uint addrspace, T)
+                        Expression *exp = isExpression((*t->tiargs)[0]);
+                        Type * t1 = isType((*t->tiargs)[1]);
+                        addrspace = exp->toInteger();
                     
-                    //tyName = T.stringof ~ "*"
-                    tyName = t1->toChars()+std::string("*");
-                    baseTyName = tyName;
-                    //typeQuals = ((T == const U, U) || addrspace == Constant) ? "const" : "";
-                    typeQuals = (t1->mod & (MODconst | MODimmutable)|| addrspace == 3) ? "const" : "";
-                    // there is no volatile or restrict in D
+                        //tyName = T.stringof ~ "*"
+                        tyName = t1->toChars()+std::string("*");
+                        baseTyName = tyName;
+                        //typeQuals = ((T == const U, U) || addrspace == Constant) ? "const" : "";
+                        typeQuals = (t1->mod & (MODconst | MODimmutable)|| addrspace == 3) ? "const" : "";
+                        // there is no volatile or restrict in D
                     
                 } else {
                      //TODO: deal with Pipes and Images. (they are global pointers)
                 }
+            }
+
             } else {
                 //tyName = T.stringof ~ "*"
                 tyName = v->type->toChars();

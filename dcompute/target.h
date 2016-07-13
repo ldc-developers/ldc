@@ -13,7 +13,7 @@
 #include "gen/irstate.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Function.h"
-
+#include "dcompute/reflect.h"
 namespace llvm {
   class Module;
   class Function;
@@ -31,7 +31,7 @@ public:
   DComputeTarget(llvm::LLVMContext &c, int v);
   char *  binSuffix;
   void emit(Module* m);
-    
+  int mapping[PSnum];
   void doCodeGen(Module* m);
   void writeModule();
   virtual void runReflectPass() =0;

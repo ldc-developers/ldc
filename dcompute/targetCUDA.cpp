@@ -13,7 +13,7 @@
 #include "llvm/ADT/APint.h"
 #include "dcompute/abi-cuda.h"
 #include "gen/logger.h"
-
+#include <cstring>
 namespace {
 class TargetCUDA : public DComputeTarget {
 public:
@@ -32,6 +32,8 @@ public:
     abi = createCudaABI();
     
     binSuffix= "ptx";
+    int _mapping[PSnum] = {5, 1, 3, 4, 0};
+    memcpy(mapping,_mapping,sizeof(_mapping));
   }
   void runReflectPass() override {
     auto p = createDComputeReflectPass(2,tversion);
@@ -39,7 +41,7 @@ public:
   }
  /* void runPointerReplacePass() override {
     //see http://llvm.org/docs/NVPTXUsage.html#address-spaces
-    int mapping[PSnum] = {5, 1, 3, 4, 0,};
+    int mapping[PSnum] = {5, 1, 3, 4, 0};
     auto p = createPointerReplacePass(mapping);
     p->runOnModule(*llm);
   }*/
