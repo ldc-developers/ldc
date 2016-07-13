@@ -673,9 +673,6 @@ public:
 
   BIN_ASSIGN(Add, false)
   BIN_ASSIGN(Min, false)
-  BIN_ASSIGN(Mul, false)
-  BIN_ASSIGN(Div, false)
-  BIN_ASSIGN(Mod, false)
 #undef BIN_ASSIGN
 
   //////////////////////////////////////////////////////////////////////////////
@@ -834,14 +831,13 @@ public:
     IF_LOG Logger::print(#X "Exp::toElem: %s @ %s\n", e->toChars(),            \
                          e->type->toChars());                                  \
     LOG_SCOPE;                                                                 \
+    errorOnIllegalArrayOp(e, e->e1, e->e2);                                    \
                                                                                \
     auto &PGO = gIR->func()->pgo;                                              \
     PGO.setCurrentStmt(e);                                                     \
                                                                                \
     DRValue *l = toElem(e->e1)->getRVal();                                     \
     DRValue *r = toElem(e->e2)->getRVal();                                     \
-                                                                               \
-    errorOnIllegalArrayOp(e, e->e1, e->e2);                                    \
                                                                                \
     if (e->type->iscomplex()) {                                                \
       result = DtoComplex##Y(e->loc, e->type, l, r);                           \
@@ -854,6 +850,57 @@ public:
   SCALAR_OR_COMPLEX_EXP(Div, Div)
   SCALAR_OR_COMPLEX_EXP(Mod, Rem)
 #undef SCALAR_OR_COMPLEX_EXP
+
+#define SCALAR_OR_COMPLEX_ASSIGN_EXP(X, Y)                                     \
+  void visit(X##AssignExp *e) override {                                       \
+    IF_LOG Logger::print(#X "Exp::toElem: %s @ %s\n", e->toChars(),            \
+                         e->type->toChars());                                  \
+    LOG_SCOPE;                                                                 \
+    errorOnIllegalArrayOp(e, e->e1, e->e2);                                    \
+                                                                               \
+    auto &PGO = gIR->func()->pgo;                                              \
+    PGO.setCurrentStmt(e);                                                     \
+                                                                               \
+    /* find the lhs' lvalue expression */                                      \
+    Expression *lvalExp = findLvalueExp(e->e1);                                \
+    if (!lvalExp) {                                                            \
+      e->error("expression %s does not mask any l-value", e->e1->toChars());   \
+      fatal();                                                                 \
+    }                                                                          \
+                                                                               \
+    DValue *lhs_val = nullptr;                                                 \
+    {                                                                          \
+      IF_LOG Logger::println("Caching l-value of %s => %s", e->toChars(),      \
+                             lvalExp->toChars());                              \
+      LOG_SCOPE;                                                               \
+      lhs_val = toElemAndCacheLvalue(lvalExp);                                 \
+    }                                                                          \
+    DValue *rhs_val = toElem(e->e2);                                           \
+    rhs_val = DtoCast(e->loc, rhs_val, e->e1->type);                           \
+                                                                               \
+    auto rhs = rhs_val->getRVal();                                             \
+    auto lhs = toElem(e->e1)->getRVal();                                       \
+    DImValue *opResult = nullptr;                                              \
+    if (e->type->iscomplex()) {                                                \
+      opResult = DtoComplex##Y(e->loc, e->e1->type, lhs, rhs);                 \
+    } else {                                                                   \
+      opResult = DtoBin##Y(e->e1->type, lhs, rhs);                             \
+    }                                                                          \
+                                                                               \
+    lvalExp->cachedLvalue = nullptr;                                           \
+                                                                               \
+    DValue *assignedResult = DtoCast(e->loc, opResult, lhs_val->type);         \
+    DtoAssign(e->loc, lhs_val, assignedResult);                                \
+                                                                               \
+    /* return the (casted) result */                                           \
+    result = (e->type == lhs_val->type) ? lhs_val                              \
+                                        : DtoCast(e->loc, lhs_val, e->type);   \
+  }
+
+  SCALAR_OR_COMPLEX_ASSIGN_EXP(Mul, Mul)
+  SCALAR_OR_COMPLEX_ASSIGN_EXP(Div, Div)
+  SCALAR_OR_COMPLEX_ASSIGN_EXP(Mod, Rem)
+#undef SCALAR_OR_COMPLEX_ASSIGN_EXP
 
   //////////////////////////////////////////////////////////////////////////////
 
