@@ -626,57 +626,6 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
-  template <typename BinExp, bool useLvalForBinExpLhs>
-  static DValue *binAssign(BinAssignExp *e) {
-    Loc loc = e->loc;
-
-    // find the lhs' lvalue expression
-    Expression *lvalExp = findLvalueExp(e->e1);
-    if (!lvalExp) {
-      e->error("expression %s does not mask any l-value", e->e1->toChars());
-      fatal();
-    }
-
-    // pre-evaluate and cache the lvalue subexpression
-    DValue *lval = nullptr;
-    {
-      IF_LOG Logger::println("Caching l-value of %s => %s", e->toChars(),
-                             lvalExp->toChars());
-
-      LOG_SCOPE;
-      lval = toElemAndCacheLvalue(lvalExp);
-    }
-
-    // evaluate the underlying binary expression
-    Expression *lhsForBinExp = (useLvalForBinExpLhs ? lvalExp : e->e1);
-    BinExp *binExp = bindD<BinExp>::create(loc, lhsForBinExp, e->e2);
-    binExp->type = lhsForBinExp->type;
-    DValue *result = toElem(binExp);
-
-    lvalExp->cachedLvalue = nullptr;
-
-    // assign the (casted) result to lval
-    DValue *assignedResult = DtoCast(loc, result, lval->type);
-    DtoAssign(loc, lval, assignedResult);
-
-    // return the (casted) result
-    return e->type == lval->type ? lval : DtoCast(loc, lval, e->type);
-  }
-
-#define BIN_ASSIGN(Op, useLvalForBinExpLhs)                                    \
-  void visit(Op##AssignExp *e) override {                                      \
-    IF_LOG Logger::print(#Op "AssignExp::toElem: %s @ %s\n", e->toChars(),     \
-                         e->type->toChars());                                  \
-    LOG_SCOPE;                                                                 \
-    result = binAssign<Op##Exp, useLvalForBinExpLhs>(e);                       \
-  }
-
-  BIN_ASSIGN(Add, false)
-  BIN_ASSIGN(Min, false)
-#undef BIN_ASSIGN
-
-  //////////////////////////////////////////////////////////////////////////////
-
   void errorOnIllegalArrayOp(Expression *base, Expression *e1, Expression *e2) {
     Type *t1 = e1->type->toBasetype();
     Type *t2 = e2->type->toBasetype();
@@ -720,6 +669,9 @@ public:
 
     return mul->e1;
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Math: addition and subtraction
 
   DValue *emitPointerOffset(IRState *p, Loc loc, DValue *base,
                             Expression *offset, bool negateOffset,
@@ -765,6 +717,8 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    errorOnIllegalArrayOp(e, e->e1, e->e2);
+
     auto &PGO = gIR->func()->pgo;
     PGO.setCurrentStmt(e);
 
@@ -773,8 +727,6 @@ public:
     Type *t = e->type->toBasetype();
     Type *e1type = e->e1->type->toBasetype();
     Type *e2type = e->e2->type->toBasetype();
-
-    errorOnIllegalArrayOp(e, e->e1, e->e2);
 
     if (e1type != e2type && e1type->ty == Tpointer && e2type->isintegral()) {
       Logger::println("Adding integer to pointer");
@@ -786,10 +738,73 @@ public:
     }
   }
 
+  void visit(AddAssignExp *e) override {
+    IF_LOG Logger::print("AddAssignExp::toElem: %s @ %s\n", e->toChars(),
+                         e->type->toChars());
+    LOG_SCOPE;
+
+    errorOnIllegalArrayOp(e, e->e1, e->e2);
+
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
+
+    // find the lhs' lvalue expression
+    Expression *lvalExp = findLvalueExp(e->e1);
+    if (!lvalExp) {
+      e->error("expression %s does not mask any l-value", e->e1->toChars());
+      fatal();
+    }
+
+    DValue *lhs_val = nullptr;
+    {
+      IF_LOG Logger::println("Caching l-value of %s => %s", e->toChars(),
+                             lvalExp->toChars());
+      LOG_SCOPE;
+      lhs_val = toElemAndCacheLvalue(lvalExp);
+    }
+
+    DValue *opResult = nullptr;
+
+    Type *t = e->type->toBasetype();
+    Type *e1type = e->e1->type->toBasetype();
+    Type *e2type = e->e2->type->toBasetype();
+
+    if (e1type != e2type && e1type->ty == Tpointer && e2type->isintegral()) {
+      Logger::println("Adding integer to pointer");
+      auto lhs = toElem(e->e1)->getRVal();
+      opResult = emitPointerOffset(p, e->loc, lhs, e->e2, false, e->type);
+    } else {
+      DValue *rhs_val = toElem(e->e2);
+      rhs_val = DtoCast(e->loc, rhs_val, e->e1->type);
+
+      // The inverted evaluation order (1. rhs, 2. lhs) is intentional
+      auto rhs = rhs_val->getRVal();
+      auto lhs = toElem(e->e1)->getRVal();
+
+      if (t->iscomplex()) {
+        opResult = DtoComplexAdd(e->loc, e->type, lhs, rhs);
+      } else {
+        opResult = DtoBinAdd(lhs, rhs);
+      }
+    }
+    assert(opResult);
+
+    lvalExp->cachedLvalue = nullptr;
+
+    DValue *assignedResult = DtoCast(e->loc, opResult, lhs_val->type);
+    DtoAssign(e->loc, lhs_val, assignedResult);
+
+    // return the (casted) result
+    result = (e->type == lhs_val->type) ? lhs_val
+                                        : DtoCast(e->loc, lhs_val, e->type);
+  }
+
   void visit(MinExp *e) override {
     IF_LOG Logger::print("MinExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
+
+    errorOnIllegalArrayOp(e, e->e1, e->e2);
 
     auto &PGO = gIR->func()->pgo;
     PGO.setCurrentStmt(e);
@@ -799,8 +814,6 @@ public:
     Type *t = e->type->toBasetype();
     Type *t1 = e->e1->type->toBasetype();
     Type *t2 = e->e2->type->toBasetype();
-
-    errorOnIllegalArrayOp(e, e->e1, e->e2);
 
     if (t1->ty == Tpointer && t2->ty == Tpointer) {
       LLValue *lv = DtoRVal(l);
@@ -821,6 +834,86 @@ public:
     } else {
       result = DtoBinSub(l, toElem(e->e2)->getRVal());
     }
+  }
+
+  void visit(MinAssignExp *e) override {
+    IF_LOG Logger::print("MinAssignExp::toElem: %s @ %s\n", e->toChars(),
+                         e->type->toChars());
+    LOG_SCOPE;
+
+    errorOnIllegalArrayOp(e, e->e1, e->e2);
+
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
+
+    // find the lhs' lvalue expression
+    Expression *lvalExp = findLvalueExp(e->e1);
+    if (!lvalExp) {
+      e->error("expression %s does not mask any l-value", e->e1->toChars());
+      fatal();
+    }
+
+    DValue *lhs_val = nullptr;
+    {
+      IF_LOG Logger::println("Caching l-value of %s => %s", e->toChars(),
+                             lvalExp->toChars());
+      LOG_SCOPE;
+      lhs_val = toElemAndCacheLvalue(lvalExp);
+    }
+
+    DValue *opResult = nullptr;
+
+    Type *t = e->type->toBasetype();
+    Type *t1 = e->e1->type->toBasetype();
+    Type *t2 = e->e2->type->toBasetype();
+
+    if (t1->ty == Tpointer && t2->isintegral()) {
+      Logger::println("Subtracting integer from pointer");
+      auto lhs = toElem(e->e1)->getRVal();
+      opResult = emitPointerOffset(p, e->loc, lhs, e->e2, true, e->type);
+    } else if (t1->ty == Tpointer && t2->ty == Tpointer) {
+      DValue *rhs_val = toElem(e->e2);
+      rhs_val = DtoCast(e->loc, rhs_val, e->e1->type);
+
+      // The inverted evaluation order (1. rhs, 2. lhs) is intentional
+      auto rhs = rhs_val->getRVal();
+      auto lhs = toElem(e->e1)->getRVal();
+
+      auto rv = DtoRVal(rhs);
+      auto lv = DtoRVal(lhs);
+
+      IF_LOG Logger::cout() << "lv: " << *lv << " rv: " << *rv << '\n';
+      lv = p->ir->CreatePtrToInt(lv, DtoSize_t());
+      rv = p->ir->CreatePtrToInt(rv, DtoSize_t());
+      LLValue *diff = p->ir->CreateSub(lv, rv);
+      if (diff->getType() != DtoType(e->type)) {
+        diff = p->ir->CreateIntToPtr(diff, DtoType(e->type));
+      }
+      opResult = new DImValue(e->type, diff);
+    } else {
+      DValue *rhs_val = toElem(e->e2);
+      rhs_val = DtoCast(e->loc, rhs_val, e->e1->type);
+
+      // The inverted evaluation order (1. rhs, 2. lhs) is intentional
+      auto rhs = rhs_val->getRVal();
+      auto lhs = toElem(e->e1)->getRVal();
+
+      if (t->iscomplex()) {
+        opResult = DtoComplexSub(e->loc, e->type, lhs, rhs);
+      } else {
+        opResult = DtoBinSub(lhs, rhs);
+      }
+    }
+    assert(opResult);
+
+    lvalExp->cachedLvalue = nullptr;
+
+    DValue *assignedResult = DtoCast(e->loc, opResult, lhs_val->type);
+    DtoAssign(e->loc, lhs_val, assignedResult);
+
+    // return the (casted) result
+    result = (e->type == lhs_val->type) ? lhs_val
+                                        : DtoCast(e->loc, lhs_val, e->type);
   }
 
 //////////////////////////////////////////////////////////////////////////////
