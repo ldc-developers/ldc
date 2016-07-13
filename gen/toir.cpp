@@ -826,71 +826,34 @@ public:
     }
   }
 
-  //////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+// Math: multiply, divide, and modulo
 
-  void visit(MulExp *e) override {
-    IF_LOG Logger::print("MulExp::toElem: %s @ %s\n", e->toChars(),
-                         e->type->toChars());
-    LOG_SCOPE;
-
-    auto &PGO = gIR->func()->pgo;
-    PGO.setCurrentStmt(e);
-
-    DRValue *l = toElem(e->e1)->getRVal();
-    DRValue *r = toElem(e->e2)->getRVal();
-
-    errorOnIllegalArrayOp(e, e->e1, e->e2);
-
-    if (e->type->iscomplex()) {
-      result = DtoComplexMul(e->loc, e->type, l, r);
-    } else {
-      result = DtoBinMul(e->type, l, r);
-    }
+#define SCALAR_OR_COMPLEX_EXP(X, Y)                                            \
+  void visit(X##Exp *e) override {                                             \
+    IF_LOG Logger::print(#X "Exp::toElem: %s @ %s\n", e->toChars(),            \
+                         e->type->toChars());                                  \
+    LOG_SCOPE;                                                                 \
+                                                                               \
+    auto &PGO = gIR->func()->pgo;                                              \
+    PGO.setCurrentStmt(e);                                                     \
+                                                                               \
+    DRValue *l = toElem(e->e1)->getRVal();                                     \
+    DRValue *r = toElem(e->e2)->getRVal();                                     \
+                                                                               \
+    errorOnIllegalArrayOp(e, e->e1, e->e2);                                    \
+                                                                               \
+    if (e->type->iscomplex()) {                                                \
+      result = DtoComplex##Y(e->loc, e->type, l, r);                           \
+    } else {                                                                   \
+      result = DtoBin##Y(e->type, l, r);                                       \
+    }                                                                          \
   }
 
-  //////////////////////////////////////////////////////////////////////////////
-
-  void visit(DivExp *e) override {
-    IF_LOG Logger::print("DivExp::toElem: %s @ %s\n", e->toChars(),
-                         e->type->toChars());
-    LOG_SCOPE;
-
-    auto &PGO = gIR->func()->pgo;
-    PGO.setCurrentStmt(e);
-
-    DRValue *l = toElem(e->e1)->getRVal();
-    DRValue *r = toElem(e->e2)->getRVal();
-
-    errorOnIllegalArrayOp(e, e->e1, e->e2);
-
-    if (e->type->iscomplex()) {
-      result = DtoComplexDiv(e->loc, e->type, l, r);
-    } else {
-      result = DtoBinDiv(e->type, l, r);
-    }
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  void visit(ModExp *e) override {
-    IF_LOG Logger::print("ModExp::toElem: %s @ %s\n", e->toChars(),
-                         e->type->toChars());
-    LOG_SCOPE;
-
-    auto &PGO = gIR->func()->pgo;
-    PGO.setCurrentStmt(e);
-
-    DRValue *l = toElem(e->e1)->getRVal();
-    DRValue *r = toElem(e->e2)->getRVal();
-
-    errorOnIllegalArrayOp(e, e->e1, e->e2);
-
-    if (e->type->iscomplex()) {
-      result = DtoComplexRem(e->loc, e->type, l, r);
-    } else {
-      result = DtoBinRem(e->type, l, r);
-    }
-  }
+  SCALAR_OR_COMPLEX_EXP(Mul, Mul)
+  SCALAR_OR_COMPLEX_EXP(Div, Div)
+  SCALAR_OR_COMPLEX_EXP(Mod, Rem)
+#undef SCALAR_OR_COMPLEX_EXP
 
   //////////////////////////////////////////////////////////////////////////////
 
