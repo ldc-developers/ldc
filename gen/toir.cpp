@@ -762,6 +762,7 @@ public:
       LOG_SCOPE;
       lhs_val = toElemAndCacheLvalue(lvalExp);
     }
+    auto lhs_fullEvaluation = toElem(e->e1);
 
     DValue *opResult = nullptr;
 
@@ -771,14 +772,14 @@ public:
 
     if (e1type != e2type && e1type->ty == Tpointer && e2type->isintegral()) {
       Logger::println("Adding integer to pointer");
-      auto lhs = toElem(e->e1)->getRVal();
+      auto lhs = lhs_fullEvaluation->getRVal();
       opResult = emitPointerOffset(p, e->loc, lhs, e->e2, false, e->type);
     } else {
       DValue *rhs_val = toElem(e->e2);
 
       // The inverted evaluation order (1. rhs, 2. lhs) is intentional
       auto rhs = rhs_val->getRVal();
-      auto lhs = toElem(e->e1)->getRVal();
+      auto lhs = lhs_fullEvaluation->getRVal();
 
       if (t->iscomplex()) {
         opResult = DtoComplexAdd(e->loc, e->type, lhs, rhs);
@@ -859,6 +860,7 @@ public:
       LOG_SCOPE;
       lhs_val = toElemAndCacheLvalue(lvalExp);
     }
+    auto lhs_fullEvaluation = toElem(e->e1);
 
     DValue *opResult = nullptr;
 
@@ -868,14 +870,14 @@ public:
 
     if (t1->ty == Tpointer && t2->isintegral()) {
       Logger::println("Subtracting integer from pointer");
-      auto lhs = toElem(e->e1)->getRVal();
+      auto lhs = lhs_fullEvaluation->getRVal();
       opResult = emitPointerOffset(p, e->loc, lhs, e->e2, true, e->type);
     } else if (t1->ty == Tpointer && t2->ty == Tpointer) {
       DValue *rhs_val = toElem(e->e2);
 
       // The inverted evaluation order (1. rhs, 2. lhs) is intentional
       auto rhs = rhs_val->getRVal();
-      auto lhs = toElem(e->e1)->getRVal();
+      auto lhs = lhs_fullEvaluation->getRVal();
 
       auto rv = DtoRVal(rhs);
       auto lv = DtoRVal(lhs);
@@ -893,7 +895,7 @@ public:
 
       // The inverted evaluation order (1. rhs, 2. lhs) is intentional
       auto rhs = rhs_val->getRVal();
-      auto lhs = toElem(e->e1)->getRVal();
+      auto lhs = lhs_fullEvaluation->getRVal();
 
       if (t->iscomplex()) {
         opResult = DtoComplexSub(e->loc, e->type, lhs, rhs);
@@ -965,10 +967,11 @@ public:
       LOG_SCOPE;                                                               \
       lhs_val = toElemAndCacheLvalue(lvalExp);                                 \
     }                                                                          \
+    auto lhs_fullEvaluation = toElem(e->e1);                                   \
     DValue *rhs_val = toElem(e->e2);                                           \
                                                                                \
     auto rhs = rhs_val->getRVal();                                             \
-    auto lhs = toElem(e->e1)->getRVal();                                       \
+    auto lhs = lhs_fullEvaluation->getRVal();                                  \
     DImValue *opResult = nullptr;                                              \
     if (e->type->iscomplex()) {                                                \
       opResult = DtoComplex##Y(e->loc, e->e1->type, lhs, rhs);                 \
@@ -2256,7 +2259,7 @@ public:
       fatal();
     }
 
-    // FIXME: I don't know why this is needed.
+    // FIXME: I don't know why this is there. Is it needed?
     bool useFindLval =
         (binOp == llvm::Instruction::Shl) || (binOp == llvm::Instruction::LShr);
 
@@ -2267,13 +2270,14 @@ public:
       LOG_SCOPE;
       lhs_val = toElemAndCacheLvalue(lvalExp);
     }
+    auto lhs_fullEvaluation = toElem(e->e1);
     DValue *rhs_val = toElem(e->e2);
     rhs_val =
         DtoCast(e->loc, rhs_val, useFindLval ? lvalExp->type : e->e1->type);
 
     // The inverted evaluation order (1. rhs, 2. lhs) is intentional
     auto rhs = DtoRVal(rhs_val);
-    auto lhs = DtoRVal(useFindLval ? lhs_val : toElem(e->e1));
+    auto lhs = DtoRVal(useFindLval ? lhs_val : lhs_fullEvaluation);
     LLValue *llresult =
         llvm::BinaryOperator::Create(binOp, lhs, rhs, "", p->scopebb());
     auto opResult =
