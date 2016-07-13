@@ -1436,7 +1436,9 @@ int cppmain(int argc, char **argv) {
         fatal();
       }
     }
+    
     if (compute_modules.size()) {
+          gGenningCompute = true;
         for (int i = 0;i < compute_modules.size(); i++) {
         printf("got here len is %d, i is %d",compute_modules.size(),i);
         dccg.emit(compute_modules[i]);

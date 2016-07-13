@@ -260,21 +260,7 @@ void visit(FuncDeclaration *decl) LLVM_OVERRIDE {
         //we emit their definition to the module directly
         
         //Part II is in statementvisitor.cpp where the returned value is altered to be the correct type
-        if(strlen(decl->mangleString) >40 && !strncmp(decl->mangleString,"_D8dcompute5types7pointer22__T7PointerVki",41))
-        {
-            int addrspace = decl->mangleString[41] -'0';
-            int realAS = dct.mapping[addrspace];
-            const char * name = decl->ident->string;
-            if (!strcmp(name,"opIndex")) {
-                
-            } else if (!strcmp(name,"opUnary")) {
-                
-            } else if (!strcmp(name,"opBinary")) {
-                
-            } else if (!strcmp(name,"opOpAssign")) {
-                
-            }
-        }
+
         DtoDefineFunction(decl);
         if (hasKernelAttr(decl)) {
             auto fn = irs->module.getFunction(decl->mangleString);
