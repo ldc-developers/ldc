@@ -47,7 +47,27 @@ public:
     //opencl.ident?
     //spirv.Source // debug only
     //stuff from clang's CGSPIRMetadataAdder.cpp
+      //opencl.used.extensions
+      //opencl.used.optional.core.features
+      //opencl.compiler.options
     //opencl.enable.FP_CONTRACT
+      llvm::Metadata *SPIRVerElts[] = {
+          llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(llvm::Type::getInt32Ty(ctx), 1)),
+          llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(llvm::Type::getInt32Ty(ctx), 2))
+      };
+      llvm::NamedMDNode *SPIRVerMD =
+      _ir->module.getOrInsertNamedMetadata("opencl.spir.version");
+      SPIRVerMD->addOperand(llvm::MDNode::get(ctx, SPIRVerElts));
+      
+      // Add OpenCL version
+      llvm::Metadata *OCLVerElts[] = {
+          llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(llvm::Type::getInt32Ty(ctx), tversion / 100)),
+          llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(llvm::Type::getInt32Ty(ctx), (tversion % 100) / 10))
+      };
+      llvm::NamedMDNode *OCLVerMD =
+      _ir->module.getOrInsertNamedMetadata("opencl.ocl.version");
+      OCLVerMD->addOperand(llvm::MDNode::get(ctx, OCLVerElts));
+
   }
   void handleNonKernelFunc(FuncDeclaration *df, llvm::Function *llf) override {
     

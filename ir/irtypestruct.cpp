@@ -59,7 +59,8 @@ IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
       Type *T =isType((*ti->tiargs)[1]);
       IF_LOG Logger::println("T = %p",T);
       int addrspace = isExpression((*ti->tiargs)[0])->toInteger();
-      isaStruct(t->type)->setBody({DtoMemType(T)->getPointerTo(addrspace)});
+      llvm::SmallVector<llvm::Type *, 1> x; x.push_back(DtoMemType(T)->getPointerTo(addrspace));
+      isaStruct(t->type)->setBody(x,t->packed);
       VarGEPIndices v;
       v[sd->fields[0]] = 0;
       t->varGEPIndices = v;

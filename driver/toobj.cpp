@@ -32,6 +32,7 @@
 #if LDC_LLVM_VER >= 307
 #include "llvm/Support/Path.h"
 #endif
+#include "llvm/Support/SPIRV.h"
 #include "llvm/Target/TargetMachine.h"
 #if LDC_LLVM_VER >= 307
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -56,7 +57,7 @@ static llvm::cl::opt<bool>
                           llvm::cl::desc("Disable integrated assembler"));
 
 // based on llc code, University of Illinois Open Source License
-static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
+static void codegenModule(llvm::TargetMachine *Target, llvm::Module &m,
                           llvm::raw_fd_ostream &out,
                           llvm::TargetMachine::CodeGenFileType fileType) {
   using namespace llvm;
@@ -67,7 +68,27 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
   legacy::
 #endif
       PassManager Passes;
-
+    switch (llvm::Triple(m.getTargetTriple()).getArch()) {
+        case Triple::nvptx:
+            Target = createTargetMachine(
+                                         "nvptx-nvidia-cuda", "nvptx", "sm_20",
+                                         {}, ExplicitBitness::M32,
+                                         ::FloatABI::Hard,
+                                         llvm::Reloc::Default,
+                                         llvm::CodeModel::Default , llvm::CodeGenOpt::Default,
+                                         false, false);
+            break;
+            
+        case Triple::nvptx64:
+            Target = createTargetMachine(
+                                         "nvptx-nvidia-cuda", "nvptx", "sm_20",
+                                         {}, ExplicitBitness::M64,
+                                         ::FloatABI::Hard,
+                                         llvm::Reloc::Default,
+                                         llvm::CodeModel::Default , llvm::CodeGenOpt::Default,
+                                         false, false);
+            break;
+    }
 #if LDC_LLVM_VER >= 307
 // The DataLayout is already set at the module (in module.cpp,
 // method Module::genLLVMModule())
@@ -76,7 +97,7 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 #elif LDC_LLVM_VER == 306
   Passes.add(new DataLayoutPass());
 #else
-  if (const DataLayout *DL = Target.getDataLayout())
+  if (const DataLayout *DL = Target->getDataLayout())
     Passes.add(new DataLayoutPass(*DL));
   else
     Passes.add(new DataLayoutPass(&m));
@@ -85,15 +106,19 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 #if LDC_LLVM_VER >= 307
   // Add internal analysis passes from the target machine.
   Passes.add(
-      createTargetTransformInfoWrapperPass(Target.getTargetIRAnalysis()));
+      createTargetTransformInfoWrapperPass(Target->getTargetIRAnalysis()));
 #else
-  Target.addAnalysisPasses(Passes);
+  Target->addAnalysisPasses(Passes);
 #endif
 
 #if LDC_LLVM_VER < 307
   llvm::formatted_raw_ostream fout(out);
 #endif
-  if (Target.addPassesToEmitFile(Passes,
+  if (llvm::Triple(m.getTargetTriple()).getArch() ==  Triple::spir ||
+      llvm::Triple(m.getTargetTriple()).getArch() ==  Triple::spir64 ) {
+      Passes.add(llvm::createSPIRVWriterPass(out));
+  }
+    if (Target->addPassesToEmitFile(Passes,
 #if LDC_LLVM_VER >= 307
                                  out,
 #else
@@ -102,7 +127,8 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
                                  fileType, codeGenOptLevel())) {
     llvm_unreachable("no support for asm output");
   }
-
+  
+    
   Passes.run(m);
 }
 
@@ -355,7 +381,7 @@ void writeObjectFile(llvm::Module *m, std::string &filename) {
     if (errinfo.empty())
 #endif
     {
-      codegenModule(*gTargetMachine, *m, out,
+      codegenModule(gTargetMachine, *m, out,
                     llvm::TargetMachine::CGFT_ObjectFile);
     } else {
       error(Loc(), "cannot write object file: %s", ERRORINFO_STRING(errinfo));
@@ -448,7 +474,7 @@ void writeModule(llvm::Module *m, std::string filename) {
       if (errinfo.empty())
 #endif
       {
-        codegenModule(*gTargetMachine, *m, out,
+        codegenModule(gTargetMachine, *m, out,
                       llvm::TargetMachine::CGFT_AssemblyFile);
       } else {
         error(Loc(), "cannot write native asm: %s", ERRORINFO_STRING(errinfo));

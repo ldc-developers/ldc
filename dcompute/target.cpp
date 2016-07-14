@@ -48,7 +48,7 @@ void DComputeTarget::emit(Module* m) {
 
 void DComputeTarget::writeModule()
 {
-
+    addMetadata();
     runReflectPass();
 
     insertBitcodeFiles(_ir->module, _ir->context(),

@@ -436,6 +436,7 @@ bool ldc_optimize_module(llvm::Module *M) {
   }
 
   // Report that we run some passes.
+    
   return true;
 }
 

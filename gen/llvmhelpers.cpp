@@ -1765,6 +1765,7 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   if (ad->isStructDeclaration()) {
     st = getPtrToType(st);
   }
+    
   src = DtoBitCast(src, st);
 
   // Look up field to index and any offset to apply.
@@ -1775,7 +1776,7 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
       ->getMemberLocation(vd, fieldIndex, byteOffset);
 
   LLValue *val = DtoGEPi(src, 0, fieldIndex);
-
+  IF_LOG Logger::cout() << "Value: " << *val << '\n';
   if (byteOffset) {
     // Cast to void* to apply byte-wise offset.
     val = DtoBitCast(val, getVoidPtrType());
