@@ -1,4 +1,4 @@
-//===-- dcompute/codegenmanager.h - LDC command line options -----------*- C++ -*-===//
+//===-- dcompute/codegenmanager.h - LDC -------------------------*- C++ -*-===//
 //
 //                         LDC – the LLVM D compiler
 //

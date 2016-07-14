@@ -1,10 +1,12 @@
+//===-- dcompute/ab-cuda.cpp ------------------------------------*- C++ -*-===//
 //
-//  abi-cuda.cpp
-//  ldc
+//                         LDC – the LLVM D compiler
 //
-//  Created by Nicholas Wilson on 12/07/2016.
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
 //
-//
+//===----------------------------------------------------------------------===//
+
 
 #include "dcompute/abi-cuda.h"
 #include "gen/uda.h"
@@ -15,7 +17,7 @@ struct CUDATargetABI : TargetABI {
         if(!fdecl)
             return llvm::CallingConv::C;
         if(hasKernelAttr(fdecl))
-            return llvm::CallingConv::SPIR_KERNEL;
+            return llvm::CallingConv::PTX_Kernel;
         else
             return llvm::CallingConv::PTX_Device;
     }
