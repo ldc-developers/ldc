@@ -68,6 +68,7 @@ static void codegenModule(llvm::TargetMachine *Target, llvm::Module &m,
   legacy::
 #endif
       PassManager Passes;
+    //this isn't working
     switch (llvm::Triple(m.getTargetTriple()).getArch()) {
         case Triple::nvptx:
             Target = createTargetMachine(
@@ -81,7 +82,7 @@ static void codegenModule(llvm::TargetMachine *Target, llvm::Module &m,
             
         case Triple::nvptx64:
             Target = createTargetMachine(
-                                         "nvptx-nvidia-cuda", "nvptx", "sm_20",
+                                         "nvptx64-nvidia-cuda", "nvptx", "sm_20",
                                          {}, ExplicitBitness::M64,
                                          ::FloatABI::Hard,
                                          llvm::Reloc::Default,
