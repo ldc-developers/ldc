@@ -1,10 +1,12 @@
+//===-- dcompute/codegenvisitor.h - LDC -------------------------*- C++ -*-===//
 //
-//  codegenvisitor.h
-//  ldc
+//                         LDC – the LLVM D compiler
 //
-//  Created by Nicholas Wilson on 11/07/2016.
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
 //
-//
+//===----------------------------------------------------------------------===//
+
 
 #ifndef LDC_DCOMPUTE_CODEGENVISTOR_H
 #define LDC_DCOMPUTE_CODEGENVISTOR_H

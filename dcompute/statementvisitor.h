@@ -1,4 +1,4 @@
-//===-- dcompute/target.h ----------------------------------------*- C++ -*-===//
+//===-- dcompute/statementvisitor.h -----------------------------*- C++ -*-===//
 //
 //                         LDC – the LLVM D compiler
 //

@@ -1,10 +1,12 @@
+//===-- dcompute/statementvisiotr.cpp -------------------------------------===//
 //
-//  statementvisitor.cpp
-//  ldc
+//                         LDC – the LLVM D compiler
 //
-//  Created by Nicholas Wilson on 11/07/2016.
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
 //
-//
+//===----------------------------------------------------------------------===//
+
 
 #include "statementvisitor.h"
 #include "init.h"

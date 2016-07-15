@@ -1,4 +1,4 @@
-//===-- dcompute/targetOCL.cpp ----------------------------------*- C++ -*-===//
+//===-- dcompute/targetOCL.cpp ---------------------------------------------===//
 //
 //                         LDC – the LLVM D compiler
 //

@@ -1,4 +1,4 @@
-//===-- codegenmanager.cpp ------------------------------------------------===//
+//===-- dcompute/codegenmanager.cpp ---------------------------------------===//
 //
 //                         LDC – the LLVM D compiler
 //
