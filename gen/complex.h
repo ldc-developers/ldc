@@ -44,10 +44,10 @@ void DtoGetComplexParts(Loc &loc, Type *to, DValue *c, llvm::Value *&re,
                         llvm::Value *&im);
 
 DImValue *DtoComplexAdd(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
-DImValue *DtoComplexSub(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
+DImValue *DtoComplexMin(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
 DImValue *DtoComplexMul(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
 DImValue *DtoComplexDiv(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
-DImValue *DtoComplexRem(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
+DImValue *DtoComplexMod(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
 DImValue *DtoComplexNeg(Loc &loc, Type *type, DRValue *val);
 
 llvm::Value *DtoComplexEquals(Loc &loc, TOK op, DValue *lhs, DValue *rhs);
