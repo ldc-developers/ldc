@@ -164,8 +164,11 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
   // object files
   for (unsigned i = 0; i < global.params.objfiles->dim; i++) {
     const char *p = static_cast<const char *>(global.params.objfiles->data[i]);
-      
-    args.push_back(p);
+      std::string s(p);
+      if (endsWith(s,".spv")|| endsWith(s, ".ptx")) {
+          continue;
+      }
+    args.push_back(s);
   }
 
   // Link with profile-rt library when generating an instrumented binary.
