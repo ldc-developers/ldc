@@ -1039,7 +1039,7 @@ bool isAtCompute( const Module *m)
                 return true;
             }
         }*/
-        printf(" found a module uda");
+        
         return true;
     }
     return false;

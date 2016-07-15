@@ -20,7 +20,7 @@ public:
     TargetOCL(llvm::LLVMContext &c, int oclversion) : DComputeTarget(c,oclversion)
   {
     _ir = new IRState("dcomputeTargetOCL",ctx);
-    _ir->module.setTargetTriple( global.params.is64bit ? "sipr64-unknown-unknown" : "sipr-unknown-unknown");
+    _ir->module.setTargetTriple( global.params.is64bit ? "spir64-unknown-unknown" : "spir-unknown-unknown");
     std::string dl;
     if (global.params.is64bit) {
         dl = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64";
