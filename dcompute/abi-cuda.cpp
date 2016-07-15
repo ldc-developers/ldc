@@ -1,4 +1,4 @@
-//===-- dcompute/ab-cuda.cpp ------------------------------------*- C++ -*-===//
+//===-- dcompute/abi-cuda.cpp -----------------------------------*- C++ -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 
-#include "dcompute/abi-cuda.h"
+#include "dcompute/abi.h"
 #include "gen/uda.h"
 struct CUDATargetABI : TargetABI {
     llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l,

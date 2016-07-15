@@ -11,7 +11,7 @@
 #include "llvm/IR/metadata.h"
 #include "dcompute/reflect.h"
 #include "llvm/ADT/APint.h"
-#include "dcompute/abi-cuda.h"
+#include "dcompute/abi.h"
 #include "gen/logger.h"
 #include <cstring>
 namespace {

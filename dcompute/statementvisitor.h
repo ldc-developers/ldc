@@ -1,14 +1,15 @@
+//===-- dcompute/target.h ----------------------------------------*- C++ -*-===//
 //
-//  statementvisitor.h
-//  ldc
+//                         LDC – the LLVM D compiler
 //
-//  Created by Nicholas Wilson on 11/07/2016.
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
 //
-//
+//===----------------------------------------------------------------------===//
 
-#ifndef __ldc__statementvisitor__
-#define __ldc__statementvisitor__
-
-#include <iostream>
-
-#endif /* defined(__ldc__statementvisitor__) */
+#ifndef LDC_DCOMPUTE_STATEMENTVISITOR_H
+#define LDC_DCOMPUTE_STATEMENTVISITOR_H
+class Visitor;
+struct IRState;
+Visitor* createDCopmuteToIRVisitor(IRState *irs);
+#endif 

@@ -9,7 +9,7 @@
 
 #include "dcompute/codegenmanager.h"
 #include "ir/irdsymbol.h"
-std::vector<DComputeCodeGenManager::target> DComputeCodeGenManager::clTargets = {{ 2, 350},{1, 210} };
+std::vector<DComputeCodeGenManager::target> DComputeCodeGenManager::clTargets = {{1, 210},{ 2, 350} };
 DComputeTarget *DComputeCodeGenManager::createComputeTarget(target t) {
   switch (t.platform) {
     case 1:

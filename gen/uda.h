@@ -19,6 +19,7 @@ class Dsymbol;
 class FuncDeclaration;
 class VarDeclaration;
 struct IrFunction;
+class Module;
 namespace llvm {
 class GlobalVariable;
 }
@@ -28,4 +29,5 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar);
 
 bool hasWeakUDA(Dsymbol *sym);
 bool hasKernelAttr(FuncDeclaration *decl);
+bool hasComputeAttr(Module *m);
 #endif

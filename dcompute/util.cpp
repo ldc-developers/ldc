@@ -1,10 +1,12 @@
+//===-- dcompute/util.cpp ---------------------------------------*- C++ -*-===//
 //
-//  util.cpp
-//  ldc
+//                         LDC – the LLVM D compiler
 //
-//  Created by Nicholas Wilson on 12/07/2016.
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
 //
-//
+//===----------------------------------------------------------------------===//
+
 
 #include "util.h"
 
@@ -22,6 +24,20 @@ bool isFromDCompute_Types(Dsymbol *sym)
     if (strcmp("dcompute", (*moduleDecl->packages)[0]->string))
         return false;
     if (strcmp("types", (*moduleDecl->packages)[1]->string))
+        return false;
+    return true;
+}
+
+bool isFromDCompute_Attributes(Dsymbol *sym)
+{
+    IF_LOG Logger::println("isFromDCompute_Attributes(%s)", sym->toPrettyChars());
+    auto moduleDecl = sym->getModule()->md;
+    
+    if (moduleDecl->packages->dim != 2)
+        return false;
+    if (strcmp("dcompute", (*moduleDecl->packages)[0]->string))
+        return false;
+    if (strcmp("attributes", (*moduleDecl->packages)[1]->string))
         return false;
     return true;
 }

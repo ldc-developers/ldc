@@ -1,4 +1,4 @@
-//===-- targetOCL.cpp -------------------------------------------*- C++ -*-===//
+//===-- dcompute/targetOCL.cpp ----------------------------------*- C++ -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -10,7 +10,7 @@
 #include "dcompute/target.h"
 #include "dcompute/reflect.h"
 #include "template.h"
-#include "dcompute/abi-ocl.h"
+#include "dcompute/abi.h"
 #include "gen/logger.h"
 #include "dcompute/util.h"
 #include <cstring>
@@ -123,7 +123,9 @@ public:
                         Expression *exp = isExpression((*t->tiargs)[0]);
                         Type * t1 = isType((*t->tiargs)[1]);
                         addrspace = exp->toInteger();
-                    
+                        
+                        //baseTyName is the underlying type, tyName is an alias (if any). We currently dont have enough info
+                        //to determine the alias's name.
                         //tyName = T.stringof ~ "*"
                         tyName = t1->toChars()+std::string("*");
                         baseTyName = tyName;

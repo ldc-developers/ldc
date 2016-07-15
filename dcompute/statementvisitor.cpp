@@ -1364,7 +1364,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
     
     void visit(CompoundAsmStatement *stmt) LLVM_OVERRIDE {
-       stmt->error("ne exceptions in @compute code");
+       stmt->error("ne asm in @compute code");
     }
     
     //////////////////////////////////////////////////////////////////////////

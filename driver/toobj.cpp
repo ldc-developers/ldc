@@ -69,26 +69,29 @@ static void codegenModule(llvm::TargetMachine *Target, llvm::Module &m,
 #endif
       PassManager Passes;
     //this isn't working
-    switch (llvm::Triple(m.getTargetTriple()).getArch()) {
+    IF_LOG Logger::println("Here: fileType = %s", fileType == llvm::TargetMachine::CGFT_ObjectFile ? "Object" : "Assembly");
+    llvm::Triple::ArchType a = llvm::Triple(m.getTargetTriple()).getArch();
+    bool isSpirv = a == Triple::spir || a == Triple::spir64;
+    bool isNvptx = a == Triple::nvptx || a == Triple::nvptx64;
+    switch (a) {
         case Triple::nvptx:
-            Target = createTargetMachine(
-                                         "nvptx-nvidia-cuda", "nvptx", "sm_20",
+            Target = createTargetMachine("nvptx-nvidia-cuda", "nvptx", "sm_20",
                                          {}, ExplicitBitness::M32,
                                          ::FloatABI::Hard,
-                                         llvm::Reloc::Default,
-                                         llvm::CodeModel::Default , llvm::CodeGenOpt::Default,
+                                         llvm::Reloc::Static,
+                                         llvm::CodeModel::Medium , codeGenOptLevel(),
                                          false, false);
             break;
             
         case Triple::nvptx64:
-            Target = createTargetMachine(
-                                         "nvptx64-nvidia-cuda", "nvptx", "sm_20",
+            Target = createTargetMachine("nvptx64-nvidia-cuda", "nvptx64", "sm_20",
                                          {}, ExplicitBitness::M64,
                                          ::FloatABI::Hard,
-                                         llvm::Reloc::Default,
-                                         llvm::CodeModel::Default , llvm::CodeGenOpt::Default,
+                                         llvm::Reloc::Static,
+                                         llvm::CodeModel::Medium , codeGenOptLevel(),
                                          false, false);
             break;
+            
     }
 #if LDC_LLVM_VER >= 307
 // The DataLayout is already set at the module (in module.cpp,
@@ -109,23 +112,25 @@ static void codegenModule(llvm::TargetMachine *Target, llvm::Module &m,
   Passes.add(
       createTargetTransformInfoWrapperPass(Target->getTargetIRAnalysis()));
 #else
-  Target->addAnalysisPasses(Passes);
+    if (!isSpirv) {
+        Target->addAnalysisPasses(Passes);
+    }
 #endif
 
 #if LDC_LLVM_VER < 307
   llvm::formatted_raw_ostream fout(out);
 #endif
-  if (llvm::Triple(m.getTargetTriple()).getArch() ==  Triple::spir ||
-      llvm::Triple(m.getTargetTriple()).getArch() ==  Triple::spir64 ) {
+  if (isSpirv) {
+      IF_LOG Logger::println("adding createSPIRVWriterPass()");
       Passes.add(llvm::createSPIRVWriterPass(out));
   }
-    if (Target->addPassesToEmitFile(Passes,
+    if (!isSpirv && Target->addPassesToEmitFile(Passes,
 #if LDC_LLVM_VER >= 307
                                  out,
 #else
                                  fout,
 #endif
-                                 fileType, codeGenOptLevel())) {
+                                                isNvptx ? llvm::TargetMachine::CGFT_AssemblyFile : fileType, codeGenOptLevel())) {
     llvm_unreachable("no support for asm output");
   }
   

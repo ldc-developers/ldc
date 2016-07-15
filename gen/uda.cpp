@@ -343,3 +343,36 @@ bool hasKernelAttr(FuncDeclaration *decl) {
     
     return false;
 }
+
+bool hasComputeAttr(Module *decl) {
+    
+    if (!decl->userAttribDecl) {
+        IF_LOG Logger::println("hasKernelAttr(%s) = no", decl->toPrettyChars());
+        return false;
+    }
+    IF_LOG Logger::println("hasKernelAttr(%s) = yes", decl->toPrettyChars());
+    LOG_SCOPE
+    
+    Expressions *attrs = decl->userAttribDecl->getAttributes();
+    
+    expandTuples(attrs);
+    for (auto &attr : *attrs) {
+        Logger::println("(%s)",attr->toChars());
+        auto sle = getLdcAttributesStruct(attr);
+        if (!sle)
+            continue;
+        
+        auto name = sle->sd->ident->string;
+        IF_LOG Logger::println("that are from ldc.attributes name(%p)",name);
+        LOG_SCOPE
+        if (name == attr::kernel) {
+            
+            IF_LOG Logger::println("is an @kernel");
+            return true;
+        } else {
+            IF_LOG Logger::println("is NOT an @kernel");
+        }
+    }
+    
+    return false;
+}
