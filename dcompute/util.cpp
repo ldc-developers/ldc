@@ -33,7 +33,8 @@ bool isFromDCompute_Attributes(Dsymbol *sym)
 {
     IF_LOG Logger::println("isFromDCompute_Attributes(%s)", sym->toPrettyChars());
     auto moduleDecl = sym->getModule()->md;
-    
+    if (!moduleDecl)
+        return false;
     if (moduleDecl->packages->dim != 2)
         return false;
     if (strcmp("dcompute", (*moduleDecl->packages)[0]->string))
