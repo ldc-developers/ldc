@@ -796,14 +796,6 @@ static void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("SPARC64");
     registerPredefinedFloatABI("SPARC_SoftFloat", "SPARC_HardFloat");
     break;
-  case llvm::Triple::nvptx:
-    VersionCondition::addPredefinedGlobalIdent("NVPTX");
-    VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
-    break;
-  case llvm::Triple::nvptx64:
-    VersionCondition::addPredefinedGlobalIdent("NVPTX64");
-    VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
-    break;
   case llvm::Triple::systemz:
     VersionCondition::addPredefinedGlobalIdent("SystemZ");
     VersionCondition::addPredefinedGlobalIdent(
