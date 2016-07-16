@@ -18,7 +18,8 @@ bool isFromDCompute_Types(Dsymbol *sym)
 {
     IF_LOG Logger::println("isFromDCompute_Types(%s)", sym->toPrettyChars());
     auto moduleDecl = sym->getModule()->md;
-
+    if (!moduleDecl)
+        return false;
     if (moduleDecl->packages->dim != 2)
         return false;
     if (strcmp("dcompute", (*moduleDecl->packages)[0]->string))
