@@ -14,20 +14,30 @@
 #include "gen/logger.h"
 #include "dcompute/util.h"
 #include <cstring>
+
+//from SPIRVInternal.h
+#define SPIR_TARGETTRIPLE32 "spir-unknown-unknown"
+#define SPIR_TARGETTRIPLE64 "spir64-unknown-unknown"
+#define SPIR_DATALAYOUT32 "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32"\
+                            "-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v24:32:32"\
+                            "-v32:32:32-v48:64:64-v64:64:64-v96:128:128"\
+                            "-v128:128:128-v192:256:256-v256:256:256"\
+                            "-v512:512:512-v1024:1024:1024"
+#define SPIR_DATALAYOUT64 "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32"\
+                            "-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v24:32:32"\
+                            "-v32:32:32-v48:64:64-v64:64:64-v96:128:128"\
+                            "-v128:128:128-v192:256:256-v256:256:256"\
+                            "-v512:512:512-v1024:1024:1024"
+
 namespace {
 class TargetOCL : public DComputeTarget {
 public:
     TargetOCL(llvm::LLVMContext &c, int oclversion) : DComputeTarget(c,oclversion)
   {
     _ir = new IRState("dcomputeTargetOCL",ctx);
-    _ir->module.setTargetTriple( global.params.is64bit ? "spir64-unknown-unknown" : "spir-unknown-unknown");
-    std::string dl;
-    if (global.params.is64bit) {
-        dl = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64";
-    } else {
-        dl = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64";
-    }
-    _ir->module.setDataLayout(dl);
+    _ir->module.setTargetTriple( global.params.is64bit ? SPIR_TARGETTRIPLE32 : SPIR_TARGETTRIPLE64);
+
+    _ir->module.setDataLayout(global.params.is64bit  ? SPIR_DATALAYOUT32 : SPIR_DATALAYOUT64);
 
     abi = createOCLABI();
     binSuffix="spv";
