@@ -22,6 +22,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Transforms/Scalar.h"
+#include "gen/logger.h"
 using namespace llvm;
 namespace {
 class DComputeReflect : public ModulePass
@@ -30,7 +31,10 @@ class DComputeReflect : public ModulePass
   int _target;
   unsigned _version;
 public:
-  DComputeReflect(int _target, unsigned _version) : ModulePass(ID) {}
+  DComputeReflect(int __target, unsigned __version) : ModulePass(ID) {
+      _target = __target;
+      _version = __version;
+  }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.setPreservesAll();
   }
@@ -41,6 +45,7 @@ public:
 
 bool DComputeReflect::runOnModule(llvm::Module& m)
 {
+    IF_LOG Logger::println("DComputeReflect::runOnModule. _target = %d,_version = %d",_target,_version);
   Function *ReflectFunction = m.getFunction("__dcompute_reflect");
   if (!ReflectFunction)
       return false;
@@ -55,8 +60,6 @@ bool DComputeReflect::runOnModule(llvm::Module& m)
   {
     assert(isa<CallInst>(U) && "Only a call instruction can use __dcompute_reflect");
     CallInst *Reflect = cast<CallInst>(U);
-    assert((Reflect->getNumOperands() == 2) &&
-           "Only two operands expect for __dcompute_reflect function");
     const Value *targ = Reflect->getArgOperand(0);
     const Value *vers = Reflect->getArgOperand(1);
     assert(isa<ConstantInt>(targ) && isa<ConstantInt>(vers) &&
@@ -86,5 +89,6 @@ char DComputeReflect::ID = 0;
 
 ModulePass *createDComputeReflectPass(int target, unsigned version)
 {
+    IF_LOG Logger::println("DComputeReflect create pass target %d, version %d", target,version);
     return new DComputeReflect(target,version);
 }

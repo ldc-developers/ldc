@@ -431,7 +431,9 @@ void writeModule(llvm::Module *m, std::string filename) {
     // run optimizer
     ldc_optimize_module(m);
 
-    }
+  } else {
+      IF_LOG Logger::println("Targetting SPIRV - Ignoring optimisation");
+  }
     
   // eventually do our own path stuff, dmd's is a bit strange.
   using LLPath = llvm::SmallString<128>;
