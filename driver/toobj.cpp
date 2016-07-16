@@ -67,9 +67,7 @@ static void codegenModule(llvm::TargetMachine *Target, llvm::Module &m,
 #if LDC_LLVM_VER >= 307
   legacy::
 #endif
-      PassManager Passes;
-    //this isn't working
-    IF_LOG Logger::println("Here: fileType = %s", fileType == llvm::TargetMachine::CGFT_ObjectFile ? "Object" : "Assembly");
+    PassManager Passes;
     llvm::Triple::ArchType a = llvm::Triple(m.getTargetTriple()).getArch();
     bool isSpirv = a == Triple::spir || a == Triple::spir64;
     bool isNvptx = a == Triple::nvptx || a == Triple::nvptx64;
