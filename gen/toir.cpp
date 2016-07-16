@@ -696,9 +696,8 @@ public:
     DValue *assignedResult = DtoCast(e->loc, opResult, lhsLVal->type);
     DtoAssign(e->loc, lhsLVal, assignedResult);
 
-    // return the (casted) result
-    return (e->type == lhsLVal->type) ? lhsLVal
-                                      : DtoCast(e->loc, lhsLVal, e->type);
+    assert(e->type->toBasetype()->equals(lhsLVal->type->toBasetype()));
+    return lhsLVal;
   }
 
 #define BIN_ASSIGN(Op, useLValForBinOpLhs)                                     \
