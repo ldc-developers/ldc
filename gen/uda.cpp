@@ -329,10 +329,10 @@ bool isDComputeAttibutes(const ModuleDeclaration *moduleDecl) {
 
 bool isFromDComputeAttibutes(const StructLiteralExp *e) {
     auto moduleDecl = e->sd->getModule()->md;
-    return isLdcAttibutes(moduleDecl);
+    return isDComputeAttibutes(moduleDecl);
 }
 StructLiteralExp *getDComputeAttributesStruct(Expression *attr) {
-    // See whether we can evaluate the attribute at compile-time. All the LDC
+    // See whether we can evaluate the attribute at compile-time. All the DCompute
     // attributes are struct literals that may be constructed using a CTFE
     // function.
     unsigned prevErrors = global.startGagging();
@@ -346,6 +346,7 @@ StructLiteralExp *getDComputeAttributesStruct(Expression *attr) {
     }
     
     auto sle = static_cast<StructLiteralExp *>(e);
+    
     if (isFromDComputeAttibutes(sle)) {
         return sle;
     }
@@ -386,21 +387,25 @@ bool hasKernelAttr(FuncDeclaration *decl) {
 }
 
 bool hasComputeAttr(Module *decl) {
+    IF_LOG Logger::println("checking Module %s for @dcompute.attributes.compute", decl->toPrettyChars());
     if (!decl->userAttribDecl) {
+        IF_LOG Logger::println("no attributes at all");
         return false;
     }
+    
     Expressions *attrs = decl->userAttribDecl->getAttributes();
     expandTuples(attrs);
     for (auto &attr : *attrs) {
-                auto sle = getDComputeAttributesStruct(attr);
+        auto sle = getDComputeAttributesStruct(attr);
         if (!sle)
             continue;
         auto name = sle->sd->ident->string;
         if (name == attr::compute) {
+            IF_LOG Logger::println("yes");
             return true;
         }
 
     }
-    
+    IF_LOG Logger::println("no");
     return false;
 }

@@ -1401,7 +1401,9 @@ int cppmain(int argc, char **argv) {
       if (global.params.verbose) {
         fprintf(global.stdmsg, "code      %s\n", m->toChars());
       }
-        if (hasComputeAttr(m)) {
+        bool atCompute = hasComputeAttr(m);
+        IF_LOG Logger::println("Module %s is%s @compute (%d)", m->toChars(), atCompute ? "" :" not", atCompute);
+        if (atCompute) {
             compute_modules.push_back(m);
         } else {
             cg.emit(m);
@@ -1410,8 +1412,9 @@ int cppmain(int argc, char **argv) {
         fatal();
       }
     }
-    
+    IF_LOG Logger::println("number of Modules for computecodgenning %d", compute_modules.size());
     if (compute_modules.size()) {
+        
           gGenningCompute = true;
         for (int i = 0;i < compute_modules.size(); i++) {
 
