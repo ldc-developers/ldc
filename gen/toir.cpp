@@ -630,7 +630,7 @@ public:
 
 //////////////////////////////////////////////////////////////////////////////
 
-#define SCALAR_OR_COMPLEX_EXP(Op)                                              \
+#define BIN_OP(Op)                                                             \
   void visit(Op##Exp *e) override {                                            \
     IF_LOG Logger::print(#Op "Exp::toElem: %s @ %s\n", e->toChars(),           \
                          e->type->toChars());                                  \
@@ -644,46 +644,64 @@ public:
     result = bin##Op(e->loc, e->type, e->e1, e->e2);                           \
   }
 
-  SCALAR_OR_COMPLEX_EXP(Add)
-  SCALAR_OR_COMPLEX_EXP(Min)
-  SCALAR_OR_COMPLEX_EXP(Mul)
-  SCALAR_OR_COMPLEX_EXP(Div)
-  SCALAR_OR_COMPLEX_EXP(Mod)
-#undef SCALAR_OR_COMPLEX_EXP
+  BIN_OP(Add)
+  BIN_OP(Min)
+  BIN_OP(Mul)
+  BIN_OP(Div)
+  BIN_OP(Mod)
+
+  BIN_OP(And)
+  BIN_OP(Or)
+  BIN_OP(Xor)
+  BIN_OP(Shl)
+  BIN_OP(Shr)
+  BIN_OP(Ushr)
+#undef BIN_OP
 
   //////////////////////////////////////////////////////////////////////////////
 
   using BinOpFunc = DValue *(Loc &, Type *, Expression *, Expression *, bool);
 
-  template <BinOpFunc binOpFunc> static DValue *binAssign(BinAssignExp *e) {
-    // find the lhs' lvalue expression
+  template <BinOpFunc binOpFunc, bool useLValForBinOpLhs>
+  static DValue *binAssign(BinAssignExp *e) {
+    // find the lhs' lvalue subexpression
     Expression *lvalExp = findLvalueExp(e->e1);
     if (!lvalExp) {
       e->error("expression %s does not mask any l-value", e->e1->toChars());
       fatal();
     }
 
-    DValue *lhs_val = nullptr;
+    DValue *lhsLVal = nullptr;
     {
       IF_LOG Logger::println("Caching l-value of %s => %s", e->toChars(),
                              lvalExp->toChars());
       LOG_SCOPE;
-      lhs_val = toElemAndCacheLvalue(lvalExp);
+      lhsLVal = toElemAndCacheLvalue(lvalExp);
     }
 
-    DValue *opResult = binOpFunc(e->loc, e->e1->type, e->e1, e->e2, true);
+    Expression *lhsExp;
+    if (!useLValForBinOpLhs) {
+      lhsExp = e->e1;
+    } else {
+      // use the pre-evaluated lvalue subexpression as lhs for the binop
+      lhsExp = lvalExp;
+      // make sure we still fully evaluate the binassign lhs
+      toElem(e->e1);
+    }
+
+    DValue *opResult = binOpFunc(e->loc, lhsExp->type, lhsExp, e->e2, true);
 
     lvalExp->cachedLvalue = nullptr;
 
-    DValue *assignedResult = DtoCast(e->loc, opResult, lhs_val->type);
-    DtoAssign(e->loc, lhs_val, assignedResult);
+    DValue *assignedResult = DtoCast(e->loc, opResult, lhsLVal->type);
+    DtoAssign(e->loc, lhsLVal, assignedResult);
 
     // return the (casted) result
-    return (e->type == lhs_val->type) ? lhs_val
-                                      : DtoCast(e->loc, lhs_val, e->type);
+    return (e->type == lhsLVal->type) ? lhsLVal
+                                      : DtoCast(e->loc, lhsLVal, e->type);
   }
 
-#define SCALAR_OR_COMPLEX_ASSIGN_EXP(Op)                                       \
+#define BIN_ASSIGN(Op, useLValForBinOpLhs)                                     \
   void visit(Op##AssignExp *e) override {                                      \
     IF_LOG Logger::print(#Op "AssignExp::toElem: %s @ %s\n", e->toChars(),     \
                          e->type->toChars());                                  \
@@ -694,15 +712,22 @@ public:
     auto &PGO = gIR->func()->pgo;                                              \
     PGO.setCurrentStmt(e);                                                     \
                                                                                \
-    result = binAssign<bin##Op>(e);                                            \
+    result = binAssign<bin##Op, useLValForBinOpLhs>(e);                        \
   }
 
-  SCALAR_OR_COMPLEX_ASSIGN_EXP(Add)
-  SCALAR_OR_COMPLEX_ASSIGN_EXP(Min)
-  SCALAR_OR_COMPLEX_ASSIGN_EXP(Mul)
-  SCALAR_OR_COMPLEX_ASSIGN_EXP(Div)
-  SCALAR_OR_COMPLEX_ASSIGN_EXP(Mod)
-#undef SCALAR_OR_COMPLEX_ASSIGN_EXP
+  BIN_ASSIGN(Add, false)
+  BIN_ASSIGN(Min, false)
+  BIN_ASSIGN(Mul, false)
+  BIN_ASSIGN(Div, false)
+  BIN_ASSIGN(Mod, false)
+
+  BIN_ASSIGN(And, false)
+  BIN_ASSIGN(Or, false)
+  BIN_ASSIGN(Xor, false)
+  BIN_ASSIGN(Shl, true)
+  BIN_ASSIGN(Shr, true)
+  BIN_ASSIGN(Ushr, true)
+#undef BIN_ASSIGN
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -1932,122 +1957,6 @@ public:
     }
 
     result = new DImValue(e->type, resval);
-  }
-
-////////////////////////////////////////////////////////////////////////////////
-
-// Bitwise expressions, like `a ^ foo();`
-#define BIN_BLIT_EXP(X, Y)                                                     \
-  void visit(X##Exp *e) override {                                             \
-    IF_LOG Logger::print("%sExp::toElem: %s @ %s\n", #X, e->toChars(),         \
-                         e->type->toChars());                                  \
-    LOG_SCOPE;                                                                 \
-    errorOnIllegalArrayOp(e, e->e1, e->e2);                                    \
-    auto lhs = DtoRVal(toElem(e->e1));                                         \
-    DValue *v = toElem(e->e2);                                                 \
-    v = DtoCast(e->loc, v, e->e1->type);                                       \
-    auto rhs = DtoRVal(v);                                                     \
-    LLValue *x = llvm::BinaryOperator::Create(llvm::Instruction::Y, lhs, rhs,  \
-                                              "", p->scopebb());               \
-    result = new DImValue(e->type, x);                                         \
-  }
-
-  BIN_BLIT_EXP(And, And)
-  BIN_BLIT_EXP(Or, Or)
-  BIN_BLIT_EXP(Xor, Xor)
-  BIN_BLIT_EXP(Shl, Shl)
-  BIN_BLIT_EXP(Ushr, LShr)
-#undef BIN_BLIT_EXP
-
-  // Bitwise `@=` expressions, like `a ^= foo();`
-  static DValue *binBlitAssign(BinAssignExp *e,
-                               llvm::Instruction::BinaryOps binOp, IRState *p) {
-    // find the lhs' lvalue expression
-    Expression *lvalExp = findLvalueExp(e->e1);
-    if (!lvalExp) {
-      e->error("expression %s does not mask any l-value", e->e1->toChars());
-      fatal();
-    }
-
-    // FIXME: I don't know why this is there. Is it needed?
-    bool useFindLval =
-        (binOp == llvm::Instruction::Shl) || (binOp == llvm::Instruction::LShr);
-
-    DValue *lhs_val = nullptr;
-    {
-      IF_LOG Logger::println("Caching l-value of %s => %s", e->toChars(),
-                             lvalExp->toChars());
-      LOG_SCOPE;
-      lhs_val = toElemAndCacheLvalue(lvalExp);
-    }
-    auto lhs_fullEvaluation = toElem(e->e1);
-    DValue *rhs_val = toElem(e->e2);
-    rhs_val =
-        DtoCast(e->loc, rhs_val, useFindLval ? lvalExp->type : e->e1->type);
-
-    // The inverted evaluation order (1. rhs, 2. lhs) is intentional
-    auto rhs = DtoRVal(rhs_val);
-    auto lhs = DtoRVal(useFindLval ? lhs_val : lhs_fullEvaluation);
-    LLValue *llresult =
-        llvm::BinaryOperator::Create(binOp, lhs, rhs, "", p->scopebb());
-    auto opResult =
-        new DImValue(useFindLval ? lvalExp->type : e->e1->type, llresult);
-
-    lvalExp->cachedLvalue = nullptr;
-
-    DValue *assignedResult = DtoCast(e->loc, opResult, lhs_val->type);
-    DtoAssign(e->loc, lhs_val, assignedResult);
-
-    // return the (casted) result
-    return e->type == lhs_val->type ? lhs_val
-                                    : DtoCast(e->loc, lhs_val, e->type);
-  }
-#define BIN_ASSIGN_BLIT_EXP(X, Y)                                              \
-  void visit(X##AssignExp *e) override {                                       \
-    IF_LOG Logger::print(#X "AssignExp::toElem: %s @ %s\n", e->toChars(),      \
-                         e->type->toChars());                                  \
-    LOG_SCOPE;                                                                 \
-    errorOnIllegalArrayOp(e, e->e1, e->e2);                                    \
-                                                                               \
-    result = binBlitAssign(e, llvm::Instruction::Y, p);                        \
-  }
-
-  BIN_ASSIGN_BLIT_EXP(And, And)
-  BIN_ASSIGN_BLIT_EXP(Or, Or)
-  BIN_ASSIGN_BLIT_EXP(Xor, Xor)
-  BIN_ASSIGN_BLIT_EXP(Shl, Shl)
-  BIN_ASSIGN_BLIT_EXP(Ushr, LShr)
-#undef BIN_ASSIGN_BLIT_EXP
-
-  void visit(ShrExp *e) override {
-    IF_LOG Logger::print("ShrExp::toElem: %s @ %s\n", e->toChars(),
-                         e->type->toChars());
-    LOG_SCOPE;
-
-    auto lhs = DtoRVal(toElem(e->e1));
-    DValue *v = toElem(e->e2);
-    v = DtoCast(e->loc, v, e->e1->type);
-    auto rhs = DtoRVal(v);
-
-    LLValue *x;
-    if (isLLVMUnsigned(e->e1->type)) {
-      x = p->ir->CreateLShr(lhs, rhs);
-    } else {
-      x = p->ir->CreateAShr(lhs, rhs);
-    }
-    result = new DImValue(e->type, x);
-  }
-
-  void visit(ShrAssignExp *e) override {
-    IF_LOG Logger::print("ShrAssignExp::toElem: %s @ %s\n", e->toChars(),
-                         e->type->toChars());
-    LOG_SCOPE;
-
-    if (isLLVMUnsigned(e->e1->type)) {
-      result = binBlitAssign(e, llvm::Instruction::LShr, p);
-    } else {
-      result = binBlitAssign(e, llvm::Instruction::AShr, p);
-    }
   }
 
   //////////////////////////////////////////////////////////////////////////////

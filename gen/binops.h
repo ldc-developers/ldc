@@ -36,6 +36,25 @@ DValue *binDiv(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
 DValue *binMod(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
                bool loadLhsAfterRhs = false);
 
+// lhs & rhs
+DValue *binAnd(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+               bool loadLhsAfterRhs = false);
+// lhs | rhs
+DValue *binOr(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+              bool loadLhsAfterRhs = false);
+// lhs ^ rhs
+DValue *binXor(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+               bool loadLhsAfterRhs = false);
+// lhs << rhs
+DValue *binShl(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+               bool loadLhsAfterRhs = false);
+// lhs >> rhs
+DValue *binShr(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+               bool loadLhsAfterRhs = false);
+// lhs >>> rhs
+DValue *binUshr(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+                bool loadLhsAfterRhs = false);
+
 llvm::Value *DtoBinNumericEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op);
 llvm::Value *DtoBinFloatsEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op);
 

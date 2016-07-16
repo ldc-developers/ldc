@@ -255,6 +255,61 @@ DValue *binMod(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
 
 //////////////////////////////////////////////////////////////////////////////
 
+namespace {
+template <llvm::Instruction::BinaryOps binOp>
+DValue *binBitwise(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+                   bool loadLhsAfterRhs) {
+  auto rvals = evalSides(lhs, rhs, loadLhsAfterRhs);
+
+  LLValue *l = DtoRVal(rvals.lhs);
+  LLValue *r = DtoRVal(DtoCast(loc, rvals.rhs, lhs->type));
+  LLValue *res = llvm::BinaryOperator::Create(binOp, l, r, "", gIR->scopebb());
+
+  return new DImValue(type, res);
+}
+}
+
+DValue *binAnd(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+               bool loadLhsAfterRhs) {
+  return binBitwise<llvm::Instruction::And>(loc, type, lhs, rhs,
+                                            loadLhsAfterRhs);
+}
+
+DValue *binOr(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+              bool loadLhsAfterRhs) {
+  return binBitwise<llvm::Instruction::Or>(loc, type, lhs, rhs,
+                                           loadLhsAfterRhs);
+}
+
+DValue *binXor(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+               bool loadLhsAfterRhs) {
+  return binBitwise<llvm::Instruction::Xor>(loc, type, lhs, rhs,
+                                            loadLhsAfterRhs);
+}
+
+DValue *binShl(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+               bool loadLhsAfterRhs) {
+  return binBitwise<llvm::Instruction::Shl>(loc, type, lhs, rhs,
+                                            loadLhsAfterRhs);
+}
+
+DValue *binShr(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+               bool loadLhsAfterRhs) {
+  if (isLLVMUnsigned(lhs->type))
+    return binUshr(loc, type, lhs, rhs);
+
+  return binBitwise<llvm::Instruction::AShr>(loc, type, lhs, rhs,
+                                             loadLhsAfterRhs);
+}
+
+DValue *binUshr(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+                bool loadLhsAfterRhs) {
+  return binBitwise<llvm::Instruction::LShr>(loc, type, lhs, rhs,
+                                             loadLhsAfterRhs);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 LLValue *DtoBinNumericEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op) {
   assert(op == TOKequal || op == TOKnotequal || op == TOKidentity ||
          op == TOKnotidentity);
