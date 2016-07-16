@@ -39,6 +39,7 @@
 #include "gen/passes/Passes.h"
 #include "gen/runtime.h"
 #include "gen/abi.h"
+#include "gen/uda.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/Support/FileSystem.h"
@@ -1018,25 +1019,6 @@ static void emitJson(Modules &modules) {
     writeFile(Loc(), jsonfile);
   }
 }
-bool isAtCompute( const Module *m)
-{
-    
-    auto uda = m->userAttribDecl;
-    if (uda) {
-        //FIXME!!
-        /*auto es = uda->getAttributes();
-        for (int i = 0; i < es->dim; i++) {
-            auto t = isType(es[i]);
-            if (t->ty == Tstruct) {
-                return true;
-            }
-        }*/
-        
-        return true;
-    }
-    return false;
-
-}
     
 int cppmain(int argc, char **argv) {
 #if LDC_LLVM_VER >= 309
@@ -1419,7 +1401,7 @@ int cppmain(int argc, char **argv) {
       if (global.params.verbose) {
         fprintf(global.stdmsg, "code      %s\n", m->toChars());
       }
-        if (isAtCompute(m)) {
+        if (hasComputeAttr(m)) {
             compute_modules.push_back(m);
         } else {
             cg.emit(m);
