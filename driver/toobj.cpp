@@ -129,7 +129,8 @@ static void codegenModule(llvm::TargetMachine *Target, llvm::Module &m,
 #else
                                  fout,
 #endif
-                                                isNvptx ? llvm::TargetMachine::CGFT_AssemblyFile : fileType, codeGenOptLevel())) {
+                                //Always generate assembly for ptx. for some reason it doesn't like binary.
+                                isNvptx ? llvm::TargetMachine::CGFT_AssemblyFile : fileType, codeGenOptLevel())) {
     llvm_unreachable("no support for asm output");
   }
   
