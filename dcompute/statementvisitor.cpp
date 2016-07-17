@@ -286,7 +286,7 @@ public:
                 if (arg1 == dct.target && (!arg2 || arg2 == dct.tversion)) {
                     stmt->ifbody->accept(this);
                 }
-                else {
+                else if (stmt->elsebody){
                     stmt->elsebody->accept(this);
                 }
                 return;
