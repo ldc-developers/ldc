@@ -336,8 +336,7 @@ void visit(TemplateMixin *decl) LLVM_OVERRIDE {
 }
 
 void visit(AttribDeclaration *decl) LLVM_OVERRIDE {
-    if (decl->ident == Id::lib)
-        decl->error("pragma(lib, \"...\" not allowed in @compute code");
+
     Dsymbols *d = decl->include(nullptr, nullptr);
     
     if (d) {
@@ -348,6 +347,8 @@ void visit(AttribDeclaration *decl) LLVM_OVERRIDE {
 }
 
 void visit(PragmaDeclaration *decl) LLVM_OVERRIDE {
+    if (decl->ident == Id::lib)
+        decl->error("pragma(lib, \"...\" not allowed in @compute code");
     visit(static_cast<AttribDeclaration *>(decl));
 }
 
