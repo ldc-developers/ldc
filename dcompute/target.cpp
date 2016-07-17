@@ -51,17 +51,7 @@ void DComputeTarget::writeModule()
     addMetadata();
     insertBitcodeFiles(_ir->module, _ir->context(),
                        *global.params.bitcodeFiles);
-    /*llvm::NamedMDNode *IdentMetadata =
-    _ir->module.getOrInsertNamedMetadata("llvm.ident");
-    std::string Version("ldc version ");
-    Version.append(global.ldc_version);
-#if LDC_LLVM_VER >= 306
-    llvm::Metadata *IdentNode[] =
-#else
-    llvm::Value *IdentNode[] =
-#endif
-    {llvm::MDString::get(_ir->context(), Version)};
-    IdentMetadata->addOperand(llvm::MDNode::get(_ir->context(), IdentNode));*/
+
     const char *oname;
     const char *filename;
     if ((oname = global.params.exefile) || (oname = global.params.objname)) {
@@ -72,7 +62,7 @@ void DComputeTarget::writeModule()
             
         }
     } else {
-        filename = filename = FileName::forceExt((std::string("gpusuff_")+binSuffix).c_str(), binSuffix);;
+        filename = FileName::forceExt((std::string("kernels_")+binSuffix).c_str(), binSuffix);;
     }
 
     ::writeModule(&_ir->module, filename);
