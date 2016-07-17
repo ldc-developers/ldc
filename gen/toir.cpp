@@ -850,8 +850,7 @@ public:
     // handle cast to void (usually created by frontend to avoid "has no effect"
     // error)
     if (e->to == Type::tvoid) {
-      result = new DConstValue(Type::tvoid,
-                               llvm::UndefValue::get(DtoMemType(Type::tvoid)));
+      result = nullptr;
       return;
     }
 
@@ -892,29 +891,28 @@ public:
     assert(isaPointer(baseValue));
 
     llvm::Value *offsetValue;
-    Type *offsetType;
 
     if (e->offset == 0) {
       offsetValue = baseValue;
-      offsetType = base->type->pointerTo();
     } else {
       uint64_t elemSize = gDataLayout->getTypeAllocSize(
           baseValue->getType()->getContainedType(0));
       if (e->offset % elemSize == 0) {
         // We can turn this into a "nice" GEP.
         offsetValue = DtoGEPi1(baseValue, e->offset / elemSize);
-        offsetType = base->type->pointerTo();
       } else {
         // Offset isn't a multiple of base type size, just cast to i8* and
         // apply the byte offset.
         offsetValue =
             DtoGEPi1(DtoBitCast(baseValue, getVoidPtrType()), e->offset);
-        offsetType = Type::tvoidptr;
       }
     }
 
     // Casts are also "optimized into" SymOffExp by the frontend.
-    result = DtoCast(e->loc, new DImValue(offsetType, offsetValue), e->type);
+    LLValue *llVal = (e->type->toBasetype()->isintegral()
+                          ? p->ir->CreatePtrToInt(offsetValue, DtoType(e->type))
+                          : DtoBitCast(offsetValue, DtoType(e->type)));
+    result = new DImValue(e->type, llVal);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -984,10 +982,11 @@ public:
     if (e->type->toBasetype()->ty == Tfunction) {
       assert(!e->cachedLvalue);
       DValue *dv = toElem(e->e1);
+      LLValue *llVal = DtoRVal(dv);
       if (DFuncValue *dfv = dv->isFunc()) {
-        result = new DFuncValue(e->type, dfv->func, DtoRVal(dfv));
+        result = new DFuncValue(e->type, dfv->func, llVal);
       } else {
-        result = new DImValue(e->type, DtoRVal(dv));
+        result = new DImValue(e->type, llVal);
       }
       return;
     }
@@ -1000,26 +999,7 @@ public:
       V = DtoRVal(e->e1);
     }
 
-    // The frontend emits dereferences of class/interfaces types to access the
-    // first member, which is the .classinfo property.
-    Type *origType = e->e1->type->toBasetype();
-    if (origType->ty == Tclass) {
-      TypeClass *ct = static_cast<TypeClass *>(origType);
-
-      Type *resultType;
-      if (ct->sym->isInterfaceDeclaration()) {
-        // For interfaces, the first entry in the vtbl is actually a pointer
-        // to an Interface instance, which has the type info as its first
-        // member, so we have to add an extra layer of indirection.
-        resultType = Type::typeinfointerface->type->pointerTo();
-      } else {
-        resultType = Type::typeinfoclass->type;
-      }
-
-      V = DtoBitCast(V, DtoType(resultType->pointerTo()->pointerTo()));
-    }
-
-    result = new DLValue(e->type, V);
+    result = new DLValue(e->type, DtoBitCast(V, DtoPtrToType(e->type)));
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1071,7 +1051,7 @@ public:
       }
 
       // Logger::cout() << "mem: " << *arrptr << '\n';
-      result = new DLValue(e->type, arrptr);
+      result = new DLValue(e->type, DtoBitCast(arrptr, DtoPtrToType(e->type)));
     } else if (FuncDeclaration *fdecl = e->var->isFuncDeclaration()) {
       DtoResolveFunction(fdecl);
 
@@ -1135,7 +1115,7 @@ public:
       Logger::println("normal this exp");
       v = p->func()->thisArg;
     }
-    result = new DLValue(e->type, v);
+    result = new DLValue(e->type, DtoBitCast(v, DtoPtrToType(e->type)));
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1183,7 +1163,7 @@ public:
       IF_LOG Logger::println("e1type: %s", e1type->toChars());
       llvm_unreachable("Unknown IndexExp target.");
     }
-    result = new DLValue(e->type, arrptr);
+    result = new DLValue(e->type, DtoBitCast(arrptr, DtoPtrToType(e->type)));
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1284,15 +1264,17 @@ public:
 
     // The frontend generates a SliceExp of static array type when assigning a
     // fixed-width slice to a static array.
-    if (e->type->toBasetype()->ty == Tsarray) {
-      LLValue *v = DtoBitCast(eptr, DtoType(e->type->pointerTo()));
-      result = new DLValue(e->type, v);
+    Type *const ety = e->type->toBasetype();
+    if (ety->ty == Tsarray) {
+      result = new DLValue(e->type, DtoBitCast(eptr, DtoPtrToType(e->type)));
       return;
     }
 
-    if (!elen) {
+    assert(ety->ty == Tarray);
+    if (!elen)
       elen = DtoArrayLen(v);
-    }
+    eptr = DtoBitCast(eptr, DtoPtrToType(ety->nextOf()));
+
     result = new DSliceValue(e->type, elen, eptr);
   }
 
@@ -1747,13 +1729,8 @@ public:
     auto &PGO = gIR->func()->pgo;
     PGO.setCurrentStmt(e);
 
-    // DMD allows syntax like this:
-    // f() == 0 || assert(false)
-    result = new DImValue(e->type, DtoConstBool(false));
-
-    if (!global.params.useAssert) {
+    if (!global.params.useAssert)
       return;
-    }
 
     // condition
     DValue *cond;
@@ -1885,6 +1862,11 @@ public:
     llvm::BranchInst::Create(andandend, p->scopebb());
     p->scope() = IRScope(andandend);
 
+    if (e->type->toBasetype()->ty == Tvoid) {
+      result = nullptr;
+      return;
+    }
+
     LLValue *resval = nullptr;
     if (ubool == vbool || !vbool) {
       // No need to create a PHI node.
@@ -1940,6 +1922,11 @@ public:
     llvm::BasicBlock *newblock = p->scopebb();
     llvm::BranchInst::Create(ororend, p->scopebb());
     p->scope() = IRScope(ororend);
+
+    if (e->type->toBasetype()->ty == Tvoid) {
+      result = nullptr;
+      return;
+    }
 
     LLValue *resval = nullptr;
     if (ubool == vbool || !vbool) {
@@ -2181,11 +2168,8 @@ public:
     llvm::BranchInst::Create(condend, p->scopebb());
 
     p->scope() = IRScope(condend);
-    if (retPtr) {
+    if (retPtr)
       result = new DSpecialRefValue(e->type, retPtr);
-    } else {
-      result = new DConstValue(e->type, getNullValue(DtoMemType(dtype)));
-    }
   }
 
   //////////////////////////////////////////////////////////////////////////////

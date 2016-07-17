@@ -396,7 +396,7 @@ DValue *DtoNullValue(Type *type, Loc loc) {
   // representation
   if (basetype->isintegral() || basetype->isfloating() || basety == Tpointer ||
       basety == Tclass || basety == Tdelegate || basety == Taarray) {
-    return new DConstValue(type, LLConstant::getNullValue(lltype));
+    return new DNullValue(type, LLConstant::getNullValue(lltype));
   }
   // dynamic array
   if (basety == Tarray) {
@@ -1553,7 +1553,7 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       assert(!isSpecialRefVar(vd) && "Code not expected to handle special "
                                      "ref vars, although it can easily be "
                                      "made to.");
-      return new DLValue(type, getIrValue(vd));
+      return new DLValue(type, DtoBitCast(getIrValue(vd), DtoPtrToType(type)));
     } else {
       Logger::println("a normal variable");
 
@@ -1806,22 +1806,28 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
     val = getIrValue(vd);
   }
 
-  if (vd->isDataseg() || (vd->storage_class & STCextern)) {
-    // The type of globals is determined by their initializer, so
-    // we might need to cast. Make sure that the type sizes fit -
-    // '==' instead of '<=' should probably work as well.
-    llvm::Type *expectedType = llvm::PointerType::getUnqual(DtoMemType(type));
+  // We might need to cast.
+  llvm::Type *expectedType = DtoPtrToType(type);
+  const bool isSpecialRef = isSpecialRefVar(vd);
+  if (isSpecialRef)
+    expectedType = expectedType->getPointerTo();
 
-    if (val->getType() != expectedType) {
-      llvm::Type *t =
-          llvm::cast<llvm::PointerType>(val->getType())->getElementType();
-      assert(getTypeStoreSize(DtoType(type)) <= getTypeStoreSize(t) &&
-             "Global type mismatch, encountered type too small.");
-      val = DtoBitCast(val, expectedType);
-    }
+  if (val->getType() != expectedType) {
+    // The type of globals is determined by their initializer, and the front-end
+    // may inject implicit casts for class references and static arrays.
+    assert(vd->isDataseg() || (vd->storage_class & STCextern) ||
+           type->toBasetype()->ty == Tclass || type->toBasetype()->ty == Tsarray);
+    llvm::Type *pointeeType = val->getType()->getPointerElementType();
+    if (isSpecialRef)
+      pointeeType = pointeeType->getPointerElementType();
+    // Make sure that the type sizes fit - '==' instead of '<=' should probably
+    // work as well.
+    assert(getTypeStoreSize(DtoType(type)) <= getTypeStoreSize(pointeeType) &&
+           "LValue type mismatch, encountered type too small.");
+    val = DtoBitCast(val, expectedType);
   }
 
-  if (isSpecialRefVar(vd))
+  if (isSpecialRef)
     return new DSpecialRefValue(type, val);
 
   return new DLValue(type, val);

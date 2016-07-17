@@ -60,12 +60,24 @@ DRValue::DRValue(Type *t, LLValue *v) : DValue(t, v) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DConstValue::DConstValue(Type *t, LLConstant *con) : DRValue(t, con) {}
+DImValue::DImValue(Type *t, llvm::Value *v) : DRValue(t, v) {
+  // TODO: get rid of Tfunction exception
+  assert(t->toBasetype()->ty == Tfunction || v->getType() == DtoType(t));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+DConstValue::DConstValue(Type *t, LLConstant *con) : DRValue(t, con) {
+  assert(con->getType() == DtoType(t));
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
 DSliceValue::DSliceValue(Type *t, LLValue *length, LLValue *ptr)
-    : DRValue(t, DtoAggrPair(length, ptr)) {}
+    : DRValue(t, DtoAggrPair(length, ptr)) {
+  assert(t->toBasetype()->ty == Tarray &&
+         ptr->getType() == DtoPtrToType(t->toBasetype()->nextOf()));
+}
 
 LLValue *DSliceValue::getLength() { return DtoExtractValue(val, 0, ".len"); }
 
@@ -77,7 +89,7 @@ DFuncValue::DFuncValue(Type *t, FuncDeclaration *fd, LLValue *v, LLValue *vt)
     : DRValue(t, v), func(fd), vthis(vt) {}
 
 DFuncValue::DFuncValue(FuncDeclaration *fd, LLValue *v, LLValue *vt)
-    : DRValue(fd->type, v), func(fd), vthis(vt) {}
+    : DFuncValue(fd->type, fd, v, vt) {}
 
 bool DFuncValue::definedInFuncEntryBB() {
   return isDefinedInFuncEntryBB(val) &&
@@ -86,31 +98,8 @@ bool DFuncValue::definedInFuncEntryBB() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static bool checkVarValueType(LLType *t, bool extraDeref) {
-  if (extraDeref) {
-    llvm::PointerType *pt = llvm::dyn_cast<llvm::PointerType>(t);
-    if (!pt) {
-      return false;
-    }
-
-    t = pt->getElementType();
-  }
-
-  llvm::PointerType *pt = llvm::dyn_cast<llvm::PointerType>(t);
-  if (!pt) {
-    return false;
-  }
-
-  // bools should not be stored as i1 any longer.
-  if (pt->getElementType() == llvm::Type::getInt1Ty(gIR->context())) {
-    return false;
-  }
-
-  return true;
-}
-
 DLValue::DLValue(Type *t, LLValue *v) : DValue(t, v) {
-  assert(checkVarValueType(v->getType(), false));
+  assert(t->toBasetype()->ty == Ttuple || v->getType() == DtoPtrToType(t));
 }
 
 DRValue *DLValue::getRVal() {
@@ -131,7 +120,7 @@ DRValue *DLValue::getRVal() {
 ////////////////////////////////////////////////////////////////////////////////
 
 DSpecialRefValue::DSpecialRefValue(Type *t, LLValue *v) : DLValue(v, t) {
-  assert(checkVarValueType(v->getType(), true));
+  assert(v->getType() == DtoPtrToType(t)->getPointerTo());
 }
 
 DRValue *DSpecialRefValue::getRVal() {

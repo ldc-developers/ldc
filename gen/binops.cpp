@@ -261,8 +261,8 @@ DValue *binBitwise(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
                    bool loadLhsAfterRhs) {
   auto rvals = evalSides(lhs, rhs, loadLhsAfterRhs);
 
-  LLValue *l = DtoRVal(rvals.lhs);
-  LLValue *r = DtoRVal(DtoCast(loc, rvals.rhs, lhs->type));
+  LLValue *l = DtoRVal(DtoCast(loc, rvals.lhs, type));
+  LLValue *r = DtoRVal(DtoCast(loc, rvals.rhs, type));
   LLValue *res = llvm::BinaryOperator::Create(binOp, l, r, "", gIR->scopebb());
 
   return new DImValue(type, res);
