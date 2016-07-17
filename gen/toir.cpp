@@ -662,7 +662,7 @@ public:
 
   using BinOpFunc = DValue *(Loc &, Type *, Expression *, Expression *, bool);
 
-  template <BinOpFunc binOpFunc, bool useLValForBinOpLhs>
+  template <BinOpFunc binOpFunc, bool useLValTypeForBinOp>
   static DValue *binAssign(BinAssignExp *e) {
     // find the lhs' lvalue subexpression
     Expression *lvalExp = findLvalueExp(e->e1);
@@ -679,17 +679,16 @@ public:
       lhsLVal = toElemAndCacheLvalue(lvalExp);
     }
 
-    Expression *lhsExp;
-    if (!useLValForBinOpLhs) {
-      lhsExp = e->e1;
-    } else {
-      // use the pre-evaluated lvalue subexpression as lhs for the binop
-      lhsExp = lvalExp;
-      // make sure we still fully evaluate the binassign lhs
-      toElem(e->e1);
-    }
+    // fully evaluate the binassign lhs
+    toElem(e->e1);
 
-    DValue *opResult = binOpFunc(e->loc, lhsExp->type, lhsExp, e->e2, true);
+    // Use the lhs lvalue for the binop lhs and optionally cast it to the full
+    // lhs type (!useLValTypeForBinOp).
+    // The front-end apparently likes to specify the binop type via lhs casts,
+    // e.g., `byte x; cast(int)x += 5;`.
+    // Load the binop lhs AFTER evaluating the rhs.
+    Type *opType = (useLValTypeForBinOp ? lvalExp->type : e->e1->type);
+    DValue *opResult = binOpFunc(e->loc, opType, lvalExp, e->e2, true);
 
     lvalExp->cachedLvalue = nullptr;
 
@@ -700,7 +699,7 @@ public:
     return lhsLVal;
   }
 
-#define BIN_ASSIGN(Op, useLValForBinOpLhs)                                     \
+#define BIN_ASSIGN(Op, useLValTypeForBinOp)                                    \
   void visit(Op##AssignExp *e) override {                                      \
     IF_LOG Logger::print(#Op "AssignExp::toElem: %s @ %s\n", e->toChars(),     \
                          e->type->toChars());                                  \
@@ -711,7 +710,7 @@ public:
     auto &PGO = gIR->func()->pgo;                                              \
     PGO.setCurrentStmt(e);                                                     \
                                                                                \
-    result = binAssign<bin##Op, useLValForBinOpLhs>(e);                        \
+    result = binAssign<bin##Op, useLValTypeForBinOp>(e);                       \
   }
 
   BIN_ASSIGN(Add, false)

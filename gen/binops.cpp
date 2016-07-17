@@ -138,12 +138,12 @@ DValue *binAdd(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
   if (type->iscomplex())
     return DtoComplexAdd(loc, type, rvals.lhs, rvals.rhs);
 
-  LLValue *l = DtoRVal(rvals.lhs);
-  LLValue *r = DtoRVal(rvals.rhs);
-  LLValue *res = (lhs->type->isfloating() ? gIR->ir->CreateFAdd(l, r)
-                                          : gIR->ir->CreateAdd(l, r));
+  LLValue *l = DtoRVal(DtoCast(loc, rvals.lhs, type));
+  LLValue *r = DtoRVal(DtoCast(loc, rvals.rhs, type));
+  LLValue *res = (type->isfloating() ? gIR->ir->CreateFAdd(l, r)
+                                     : gIR->ir->CreateAdd(l, r));
 
-  return new DImValue(lhs->type, res);
+  return new DImValue(type, res);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -176,12 +176,12 @@ DValue *binMin(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
   if (type->iscomplex())
     return DtoComplexMin(loc, type, rvals.lhs, rvals.rhs);
 
-  LLValue *l = DtoRVal(rvals.lhs);
-  LLValue *r = DtoRVal(rvals.rhs);
-  LLValue *res = (lhs->type->isfloating() ? gIR->ir->CreateFSub(l, r)
-                                          : gIR->ir->CreateSub(l, r));
+  LLValue *l = DtoRVal(DtoCast(loc, rvals.lhs, type));
+  LLValue *r = DtoRVal(DtoCast(loc, rvals.rhs, type));
+  LLValue *res = (type->isfloating() ? gIR->ir->CreateFSub(l, r)
+                                     : gIR->ir->CreateSub(l, r));
 
-  return new DImValue(lhs->type, res);
+  return new DImValue(type, res);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -193,10 +193,10 @@ DValue *binMul(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
   if (type->iscomplex())
     return DtoComplexMul(loc, type, rvals.lhs, rvals.rhs);
 
-  LLValue *l = DtoRVal(rvals.lhs);
-  LLValue *r = DtoRVal(rvals.rhs);
-  LLValue *res = (lhs->type->isfloating() ? gIR->ir->CreateFMul(l, r)
-                                          : gIR->ir->CreateMul(l, r));
+  LLValue *l = DtoRVal(DtoCast(loc, rvals.lhs, type));
+  LLValue *r = DtoRVal(DtoCast(loc, rvals.rhs, type));
+  LLValue *res = (type->isfloating() ? gIR->ir->CreateFMul(l, r)
+                                     : gIR->ir->CreateMul(l, r));
 
   return new DImValue(type, res);
 }
@@ -210,13 +210,12 @@ DValue *binDiv(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
   if (type->iscomplex())
     return DtoComplexDiv(loc, type, rvals.lhs, rvals.rhs);
 
-  Type *t = lhs->type;
-  LLValue *l = DtoRVal(rvals.lhs);
-  LLValue *r = DtoRVal(rvals.rhs);
+  LLValue *l = DtoRVal(DtoCast(loc, rvals.lhs, type));
+  LLValue *r = DtoRVal(DtoCast(loc, rvals.rhs, type));
   LLValue *res;
-  if (t->isfloating()) {
+  if (type->isfloating()) {
     res = gIR->ir->CreateFDiv(l, r);
-  } else if (!isLLVMUnsigned(t)) {
+  } else if (!isLLVMUnsigned(type)) {
     res = gIR->ir->CreateSDiv(l, r);
   } else {
     res = gIR->ir->CreateUDiv(l, r);
@@ -234,13 +233,12 @@ DValue *binMod(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
   if (type->iscomplex())
     return DtoComplexMod(loc, type, rvals.lhs, rvals.rhs);
 
-  Type *t = lhs->type;
-  LLValue *l = DtoRVal(rvals.lhs);
-  LLValue *r = DtoRVal(rvals.rhs);
+  LLValue *l = DtoRVal(DtoCast(loc, rvals.lhs, type));
+  LLValue *r = DtoRVal(DtoCast(loc, rvals.rhs, type));
   LLValue *res;
-  if (t->isfloating()) {
+  if (type->isfloating()) {
     res = gIR->ir->CreateFRem(l, r);
-  } else if (!isLLVMUnsigned(t)) {
+  } else if (!isLLVMUnsigned(type)) {
     res = gIR->ir->CreateSRem(l, r);
   } else {
     res = gIR->ir->CreateURem(l, r);
@@ -291,7 +289,7 @@ DValue *binShl(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
 
 DValue *binShr(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
-  if (isLLVMUnsigned(lhs->type))
+  if (isLLVMUnsigned(type))
     return binUshr(loc, type, lhs, rhs);
 
   return binBitwise<llvm::Instruction::AShr>(loc, type, lhs, rhs,
