@@ -30,6 +30,7 @@
 #include "ir/irmodule.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/InlineAsm.h"
+#include "dcompute/target.h"
 #include <fstream>
 #include <math.h>
 #include <stdio.h>
@@ -88,9 +89,9 @@ static LLValue *call_string_switch_runtime(llvm::Value *table, Expression *e) {
 
 class DCopmuteToIRVisitor : public Visitor {
     IRState *irs;
-    
+    DComputeTarget & dct;
 public:
-    explicit DCopmuteToIRVisitor(IRState *irs) : irs(irs) {}
+    explicit DCopmuteToIRVisitor(IRState *irs,DComputeTarget &_dct) : irs(irs) ,dct(_dct){}
     
     //////////////////////////////////////////////////////////////////////////
     
@@ -275,7 +276,23 @@ public:
         if (stmt->match) {
             DtoRawVarDeclaration(stmt->match);
         }
-        
+        IF_LOG Logger::println("stmt->condition->op = %d",stmt->condition->op);
+        if (stmt->condition->op == TOKcall) {
+            auto ce = (CallExp *)stmt->condition;
+            IF_LOG Logger::println("stmt->condition is a Callexp");
+            if (!strcmp(ce->f->ident->string,"__dcompute_reflect")) {
+                auto arg1 = (*ce->arguments)[0]->toInteger();
+                auto arg2 = (*ce->arguments)[1]->toInteger();
+                if (arg1 == dct.target && (!arg2 || arg2 == dct.tversion)) {
+                    stmt->ifbody->accept(this);
+                }
+                else {
+                    stmt->elsebody->accept(this);
+                }
+                return;
+            }
+        }
+        IF_LOG Logger::println("stmt->condition is not a Callexp");
         DValue *cond_e = toElemDtor(stmt->condition);
         LLValue *cond_val = DtoRVal(cond_e);
         
@@ -1392,7 +1409,7 @@ public:
     }
 };
 
-Visitor* createDCopmuteToIRVisitor(IRState *irs)
+Visitor* createDCopmuteToIRVisitor(IRState *irs,DComputeTarget *dct)
 {
-    return new DCopmuteToIRVisitor(irs);
+    return new DCopmuteToIRVisitor(irs,*dct);
 }

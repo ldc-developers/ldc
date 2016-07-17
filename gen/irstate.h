@@ -38,12 +38,13 @@ class IndexedInstrProfReader;
 // global ir state for current module
 struct IRState;
 struct TargetABI;
+class DComputeTarget;
 
 extern IRState *gIR;
 extern llvm::TargetMachine *gTargetMachine;
 extern const llvm::DataLayout *gDataLayout;
 extern TargetABI *gABI;
-extern bool gGenningCompute;
+extern DComputeTarget* gDComputeTarget;
 
 class TypeFunction;
 class TypeStruct;
@@ -197,6 +198,6 @@ struct IRState {
 #endif
 };
 
-void Statement_toIR(Statement *s, IRState *irs, bool compute);
+void Statement_toIR(Statement *s, IRState *irs);
 
 #endif // LDC_GEN_IRSTATE_H

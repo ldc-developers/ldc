@@ -50,8 +50,8 @@ IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
     // contains an align declaration. See issue 726.
     t->packed = isPacked(sd);
   }
-  IF_LOG Logger::println("gGenningCompute = %d , isFromDCompute_Types = %d sd->ident->string = %s",gGenningCompute,isFromDCompute_Types(sd),sd->ident->string);
-  if (gGenningCompute && isFromDCompute_Types(sd) && !strcmp(sd->ident->string,"Pointer")) {
+  IF_LOG Logger::println("gDComputeTarget = %p , isFromDCompute_Types = %d sd->ident->string = %s",gDComputeTarget,isFromDCompute_Types(sd),sd->ident->string);
+  if (gDComputeTarget != nullptr && isFromDCompute_Types(sd) && !strcmp(sd->ident->string,"Pointer")) {
       IF_LOG Logger::println("GOT HERE");
       TemplateInstance *ti = sd->isInstantiated();
       IF_LOG Logger::println("ti = %p",ti);

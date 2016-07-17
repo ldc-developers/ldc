@@ -32,6 +32,7 @@ DComputeCodeGenManager::DComputeCodeGenManager(llvm::LLVMContext &c): ctx(c) {
 void DComputeCodeGenManager::emit(Module *m)
 {
     for (int  i = 0 ; i < targets.size(); i++) {
+        gDComputeTarget = targets[i];
         targets[i]->emit(m);
         IrDsymbol::resetAll();
     }

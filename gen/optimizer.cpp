@@ -343,6 +343,9 @@ static void addOptimizationPasses(PassManagerBase &mpm,
 bool ldc_optimize_module(llvm::Module *M) {
 // Create a PassManager to hold and optimize the collection of
 // per-module passes we are about to build.
+    //dont optimise spirv modules as turning GEPs into extracts causes crashes.
+    llvm::Triple::ArchType a = llvm::Triple(M->getTargetTriple()).getArch();
+    bool isSpirv = a == Triple::spir || a == Triple::spir64;
 #if LDC_LLVM_VER >= 307
   legacy::
 #endif
@@ -363,13 +366,13 @@ bool ldc_optimize_module(llvm::Module *M) {
   TargetLibraryInfo *tli = new TargetLibraryInfo(Triple(M->getTargetTriple()));
 
   // The -disable-simplify-libcalls flag actually disables all builtin optzns.
-  if (disableSimplifyLibCalls) {
+  if (disableSimplifyLibCalls || isSpirv) {
     tli->disableAllFunctions();
   }
 
   mpm.add(tli);
 #endif
-
+  
 // Add an appropriate DataLayout instance for this module.
 #if LDC_LLVM_VER >= 307
 // The DataLayout is already set at the module (in module.cpp,
@@ -384,7 +387,18 @@ bool ldc_optimize_module(llvm::Module *M) {
                                            "DataLayout not set at module");
                                     mpm.add(new DataLayoutPass(*DL));
 #endif
-
+    // Also set up a manager for the per-function passes.
+#if LDC_LLVM_VER >= 307
+    legacy::
+#endif
+    FunctionPassManager fpm(M);
+    
+  if(isSpirv)
+  {
+      IF_LOG Logger::println("Adding dce pass to spirv");
+      fpm.add(createDeadCodeEliminationPass());
+      goto runPasses;
+  }
 #if LDC_LLVM_VER >= 307
   // Add internal analysis passes from the target machine.
   mpm.add(createTargetTransformInfoWrapperPass(
@@ -394,11 +408,6 @@ bool ldc_optimize_module(llvm::Module *M) {
   gTargetMachine->addAnalysisPasses(mpm);
 #endif
 
-// Also set up a manager for the per-function passes.
-#if LDC_LLVM_VER >= 307
-  legacy::
-#endif
-      FunctionPassManager fpm(M);
 
 #if LDC_LLVM_VER >= 307
   // Add internal analysis passes from the target machine.
@@ -419,7 +428,7 @@ bool ldc_optimize_module(llvm::Module *M) {
   }
 
   addOptimizationPasses(mpm, fpm, optLevel(), sizeLevel());
-
+runPasses:
   // Run per-function passes.
   fpm.doInitialization();
   for (auto &F : *M) {

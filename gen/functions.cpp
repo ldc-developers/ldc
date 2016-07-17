@@ -37,6 +37,7 @@
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
 #include "gen/uda.h"
+#include "dcompute/statementvisitor.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "llvm/IR/Intrinsics.h"
@@ -1021,8 +1022,13 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     irFunc->pgo.setCurrentStmt(fd->fbody);
 
     // output function body
-    Statement_toIR(fd->fbody, gIR,gGenningCompute);
-
+    if (gDComputeTarget) {
+      Visitor* v = createDCopmuteToIRVisitor(gIR,gDComputeTarget);
+      fd->fbody->accept(v);
+      delete v;
+    } else {
+    Statement_toIR(fd->fbody, gIR);
+    }
     irFunc->scopes = nullptr;
   }
 

@@ -1414,8 +1414,6 @@ int cppmain(int argc, char **argv) {
     }
     IF_LOG Logger::println("number of Modules for computecodgenning %d", compute_modules.size());
     if (compute_modules.size()) {
-        
-          gGenningCompute = true;
         for (int i = 0;i < compute_modules.size(); i++) {
 
           dccg.emit(compute_modules[i]);

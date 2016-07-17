@@ -8,12 +8,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "dcompute/target.h"
-#include "dcompute/reflect.h"
+#include "dcompute/util.h"
 #include "template.h"
 #include "dcompute/abi.h"
 #include "gen/logger.h"
-#include "dcompute/util.h"
+#include "llvm/Transforms/Scalar.h"
 #include <cstring>
+
 
 //from SPIRVInternal.h
 #define SPIR_TARGETTRIPLE32 "spir-unknown-unknown"
@@ -35,24 +36,16 @@ public:
     TargetOCL(llvm::LLVMContext &c, int oclversion) : DComputeTarget(c,oclversion)
   {
     _ir = new IRState("dcomputeTargetOCL",ctx);
-    _ir->module.setTargetTriple( global.params.is64bit ? SPIR_TARGETTRIPLE32 : SPIR_TARGETTRIPLE64);
+    _ir->module.setTargetTriple( global.params.is64bit ? SPIR_TARGETTRIPLE64 : SPIR_TARGETTRIPLE32);
 
-    _ir->module.setDataLayout(global.params.is64bit  ? SPIR_DATALAYOUT32 : SPIR_DATALAYOUT64);
-
+    _ir->module.setDataLayout(global.params.is64bit  ? SPIR_DATALAYOUT64 : SPIR_DATALAYOUT32);
+    target  = 1;
     abi = createOCLABI();
     binSuffix="spv";
-    int _mapping[PSnum] = {0, 1, 2, 3, 4,};
+    int _mapping[MAX_NUM_TARGET_ADDRSPAECES] = {0, 1, 2, 3, 4,};
     memcpy(mapping,_mapping,sizeof(_mapping));
   }
-  void runReflectPass() override {
-    auto p = createDComputeReflectPass(1,tversion);
-    p->runOnModule(_ir->module);
-  }
-  /*void runPointerReplacePass() override {
-    int mapping[PSnum] = {0, 1, 2, 3, 4,};
-    auto p = createPointerReplacePass(mapping);
-    p->runOnModule(_ir.module);
-  }*/
+
   void addMetadata() override {
     //opencl.ident?
     //spirv.Source // debug only

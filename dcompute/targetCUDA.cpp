@@ -7,12 +7,11 @@
 //
 //===----------------------------------------------------------------------===//
 #include "dcompute/target.h"
-#include "dcompute/reflect.h"
 #include "llvm/IR/metadata.h"
-#include "dcompute/reflect.h"
 #include "llvm/ADT/APint.h"
 #include "dcompute/abi.h"
 #include "gen/logger.h"
+#include "llvm/Transforms/Scalar.h"
 #include <cstring>
 namespace {
 class TargetCUDA : public DComputeTarget {
@@ -21,7 +20,7 @@ public:
   {
       _ir = new IRState("dcomputeTargetCUDA",ctx);
       _ir->module.setTargetTriple( global.params.is64bit ? "nvptx64-nvidia-cuda" : "nvptx-nvidia-cuda");
- 
+    target = 2;
     std::string dl;
     if (global.params.is64bit) {
         dl = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64";
@@ -32,13 +31,10 @@ public:
     abi = createCudaABI();
     
     binSuffix= "ptx";
-    int _mapping[PSnum] = {5, 1, 3, 4, 0};
+    int _mapping[MAX_NUM_TARGET_ADDRSPAECES] = {5, 1, 3, 4, 0};
     memcpy(mapping,_mapping,sizeof(_mapping));
   }
-  void runReflectPass() override {
-    auto p = createDComputeReflectPass(2,tversion);
-    p->runOnModule(_ir->module);
-  }
+
  /* void runPointerReplacePass() override {
     //see http://llvm.org/docs/NVPTXUsage.html#address-spaces
     int mapping[PSnum] = {5, 1, 3, 4, 0};

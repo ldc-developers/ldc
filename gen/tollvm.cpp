@@ -207,13 +207,13 @@ LLType *DtoMemType(Type *t) { return i1ToI8(voidToI8(DtoType(t))); }
 LLPointerType *DtoPtrToType(Type *t) {
     int addrspace = 0;
     IF_LOG {
-        Logger::println("gGenningCompute = %d");
+        Logger::println("gDcomputeTarget = %p", gDComputeTarget);
         if (t->ty == Tstruct) {
             StructDeclaration *sd = ((TypeStruct*)t)->sym;
-            Logger::println("isFromDCompute_Types = %d sd->ident->string = %s",gGenningCompute,isFromDCompute_Types(sd),sd->ident->string);
+            Logger::println("isFromDCompute_Types = %d sd->ident->string = %s",isFromDCompute_Types(sd),sd->ident->string);
         }
     }
-    if (gGenningCompute && t->ty == Tstruct && isFromDCompute_Types(((TypeStruct*)t)->sym) && !strcmp(((TypeStruct*)t)->sym->ident->string,"Pointer")) {
+    if (gDComputeTarget != nullptr && t->ty == Tstruct && isFromDCompute_Types(((TypeStruct*)t)->sym) && !strcmp(((TypeStruct*)t)->sym->ident->string,"Pointer")) {
         TemplateInstance *ti = ((TypeStruct*)t)->sym->isInstantiated();
         addrspace = isExpression((*ti->tiargs)[0])->toInteger();
     }

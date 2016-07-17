@@ -13,30 +13,28 @@
 #include "gen/irstate.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Function.h"
-#include "dcompute/reflect.h"
 namespace llvm {
   class Module;
   class Function;
 }
-
+#define MAX_NUM_TARGET_ADDRSPAECES 5
 class Module;
 class FuncDeclaration;
 
 class DComputeTarget {
 public:
   int tversion;
+  int target;
   IRState* _ir;
   llvm::LLVMContext &ctx;
   TargetABI* abi;
   DComputeTarget(llvm::LLVMContext &c, int v);
   char *  binSuffix;
   void emit(Module* m);
-  int mapping[PSnum];
+  int mapping[MAX_NUM_TARGET_ADDRSPAECES];
   void doCodeGen(Module* m);
   void writeModule();
-  virtual void runReflectPass() =0;
-  //virtual void runPointerReplacePass();
-  //virtual void runSpecialTypeReplacePass();
+
   virtual void addMetadata() =0;
   virtual void handleKernelFunc(FuncDeclaration *df, llvm::Function *llf) =0;
   virtual void handleNonKernelFunc(FuncDeclaration *df, llvm::Function *llf)=0;
