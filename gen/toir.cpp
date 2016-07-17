@@ -626,67 +626,6 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
-  template <typename BinExp, bool useLvalForBinExpLhs>
-  static DValue *binAssign(BinAssignExp *e) {
-    Loc loc = e->loc;
-
-    // find the lhs' lvalue expression
-    Expression *lvalExp = findLvalueExp(e->e1);
-    if (!lvalExp) {
-      e->error("expression %s does not mask any l-value", e->e1->toChars());
-      fatal();
-    }
-
-    // pre-evaluate and cache the lvalue subexpression
-    DValue *lval = nullptr;
-    {
-      IF_LOG Logger::println("Caching l-value of %s => %s", e->toChars(),
-                             lvalExp->toChars());
-
-      LOG_SCOPE;
-      lval = toElemAndCacheLvalue(lvalExp);
-    }
-
-    // evaluate the underlying binary expression
-    Expression *lhsForBinExp = (useLvalForBinExpLhs ? lvalExp : e->e1);
-    BinExp *binExp = bindD<BinExp>::create(loc, lhsForBinExp, e->e2);
-    binExp->type = lhsForBinExp->type;
-    DValue *result = toElem(binExp);
-
-    lvalExp->cachedLvalue = nullptr;
-
-    // assign the (casted) result to lval
-    DValue *assignedResult = DtoCast(loc, result, lval->type);
-    DtoAssign(loc, lval, assignedResult);
-
-    // return the (casted) result
-    return e->type == lval->type ? lval : DtoCast(loc, lval, e->type);
-  }
-
-#define BIN_ASSIGN(Op, useLvalForBinExpLhs)                                    \
-  void visit(Op##AssignExp *e) override {                                      \
-    IF_LOG Logger::print(#Op "AssignExp::toElem: %s @ %s\n", e->toChars(),     \
-                         e->type->toChars());                                  \
-    LOG_SCOPE;                                                                 \
-    result = binAssign<Op##Exp, useLvalForBinExpLhs>(e);                       \
-  }
-
-  BIN_ASSIGN(Add, false)
-  BIN_ASSIGN(Min, false)
-  BIN_ASSIGN(Mul, false)
-  BIN_ASSIGN(Div, false)
-  BIN_ASSIGN(Mod, false)
-  BIN_ASSIGN(And, false)
-  BIN_ASSIGN(Or, false)
-  BIN_ASSIGN(Xor, false)
-  BIN_ASSIGN(Shl, true)
-  BIN_ASSIGN(Shr, true)
-  BIN_ASSIGN(Ushr, true)
-
-#undef BIN_ASSIGN
-
-  //////////////////////////////////////////////////////////////////////////////
-
   void errorOnIllegalArrayOp(Expression *base, Expression *e1, Expression *e2) {
     Type *t1 = e1->type->toBasetype();
     Type *t2 = e2->type->toBasetype();
@@ -730,6 +669,9 @@ public:
 
     return mul->e1;
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Math: addition and subtraction
 
   DValue *emitPointerOffset(IRState *p, Loc loc, DValue *base,
                             Expression *offset, bool negateOffset,
@@ -775,6 +717,8 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    errorOnIllegalArrayOp(e, e->e1, e->e2);
+
     auto &PGO = gIR->func()->pgo;
     PGO.setCurrentStmt(e);
 
@@ -783,8 +727,6 @@ public:
     Type *t = e->type->toBasetype();
     Type *e1type = e->e1->type->toBasetype();
     Type *e2type = e->e2->type->toBasetype();
-
-    errorOnIllegalArrayOp(e, e->e1, e->e2);
 
     if (e1type != e2type && e1type->ty == Tpointer && e2type->isintegral()) {
       Logger::println("Adding integer to pointer");
@@ -796,10 +738,73 @@ public:
     }
   }
 
+  void visit(AddAssignExp *e) override {
+    IF_LOG Logger::print("AddAssignExp::toElem: %s @ %s\n", e->toChars(),
+                         e->type->toChars());
+    LOG_SCOPE;
+
+    errorOnIllegalArrayOp(e, e->e1, e->e2);
+
+    auto &PGO = gIR->func()->pgo;
+    PGO.setCurrentStmt(e);
+
+    // find the lhs' lvalue expression
+    Expression *lvalExp = findLvalueExp(e->e1);
+    if (!lvalExp) {
+      e->error("expression %s does not mask any l-value", e->e1->toChars());
+      fatal();
+    }
+
+    DValue *lhs_val = nullptr;
+    {
+      IF_LOG Logger::println("Caching l-value of %s => %s", e->toChars(),
+                             lvalExp->toChars());
+      LOG_SCOPE;
+      lhs_val = toElemAndCacheLvalue(lvalExp);
+    }
+    auto lhs_fullEvaluation = toElem(e->e1);
+
+    DValue *opResult = nullptr;
+
+    Type *t = e->type->toBasetype();
+    Type *e1type = e->e1->type->toBasetype();
+    Type *e2type = e->e2->type->toBasetype();
+
+    if (e1type != e2type && e1type->ty == Tpointer && e2type->isintegral()) {
+      Logger::println("Adding integer to pointer");
+      auto lhs = lhs_fullEvaluation->getRVal();
+      opResult = emitPointerOffset(p, e->loc, lhs, e->e2, false, e->type);
+    } else {
+      DValue *rhs_val = toElem(e->e2);
+
+      // The inverted evaluation order (1. rhs, 2. lhs) is intentional
+      auto rhs = rhs_val->getRVal();
+      auto lhs = lhs_fullEvaluation->getRVal();
+
+      if (t->iscomplex()) {
+        opResult = DtoComplexAdd(e->loc, e->type, lhs, rhs);
+      } else {
+        opResult = DtoBinAdd(lhs, rhs);
+      }
+    }
+    assert(opResult);
+
+    lvalExp->cachedLvalue = nullptr;
+
+    DValue *assignedResult = DtoCast(e->loc, opResult, lhs_val->type);
+    DtoAssign(e->loc, lhs_val, assignedResult);
+
+    // return the (casted) result
+    result = (e->type == lhs_val->type) ? lhs_val
+                                        : DtoCast(e->loc, lhs_val, e->type);
+  }
+
   void visit(MinExp *e) override {
     IF_LOG Logger::print("MinExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
+
+    errorOnIllegalArrayOp(e, e->e1, e->e2);
 
     auto &PGO = gIR->func()->pgo;
     PGO.setCurrentStmt(e);
@@ -809,8 +814,6 @@ public:
     Type *t = e->type->toBasetype();
     Type *t1 = e->e1->type->toBasetype();
     Type *t2 = e->e2->type->toBasetype();
-
-    errorOnIllegalArrayOp(e, e->e1, e->e2);
 
     if (t1->ty == Tpointer && t2->ty == Tpointer) {
       LLValue *lv = DtoRVal(l);
@@ -833,71 +836,163 @@ public:
     }
   }
 
-  //////////////////////////////////////////////////////////////////////////////
-
-  void visit(MulExp *e) override {
-    IF_LOG Logger::print("MulExp::toElem: %s @ %s\n", e->toChars(),
+  void visit(MinAssignExp *e) override {
+    IF_LOG Logger::print("MinAssignExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
+
+    errorOnIllegalArrayOp(e, e->e1, e->e2);
 
     auto &PGO = gIR->func()->pgo;
     PGO.setCurrentStmt(e);
 
-    DRValue *l = toElem(e->e1)->getRVal();
-    DRValue *r = toElem(e->e2)->getRVal();
-
-    errorOnIllegalArrayOp(e, e->e1, e->e2);
-
-    if (e->type->iscomplex()) {
-      result = DtoComplexMul(e->loc, e->type, l, r);
-    } else {
-      result = DtoBinMul(e->type, l, r);
+    // find the lhs' lvalue expression
+    Expression *lvalExp = findLvalueExp(e->e1);
+    if (!lvalExp) {
+      e->error("expression %s does not mask any l-value", e->e1->toChars());
+      fatal();
     }
+
+    DValue *lhs_val = nullptr;
+    {
+      IF_LOG Logger::println("Caching l-value of %s => %s", e->toChars(),
+                             lvalExp->toChars());
+      LOG_SCOPE;
+      lhs_val = toElemAndCacheLvalue(lvalExp);
+    }
+    auto lhs_fullEvaluation = toElem(e->e1);
+
+    DValue *opResult = nullptr;
+
+    Type *t = e->type->toBasetype();
+    Type *t1 = e->e1->type->toBasetype();
+    Type *t2 = e->e2->type->toBasetype();
+
+    if (t1->ty == Tpointer && t2->isintegral()) {
+      Logger::println("Subtracting integer from pointer");
+      auto lhs = lhs_fullEvaluation->getRVal();
+      opResult = emitPointerOffset(p, e->loc, lhs, e->e2, true, e->type);
+    } else if (t1->ty == Tpointer && t2->ty == Tpointer) {
+      DValue *rhs_val = toElem(e->e2);
+
+      // The inverted evaluation order (1. rhs, 2. lhs) is intentional
+      auto rhs = rhs_val->getRVal();
+      auto lhs = lhs_fullEvaluation->getRVal();
+
+      auto rv = DtoRVal(rhs);
+      auto lv = DtoRVal(lhs);
+
+      IF_LOG Logger::cout() << "lv: " << *lv << " rv: " << *rv << '\n';
+      lv = p->ir->CreatePtrToInt(lv, DtoSize_t());
+      rv = p->ir->CreatePtrToInt(rv, DtoSize_t());
+      LLValue *diff = p->ir->CreateSub(lv, rv);
+      if (diff->getType() != DtoType(e->type)) {
+        diff = p->ir->CreateIntToPtr(diff, DtoType(e->type));
+      }
+      opResult = new DImValue(e->type, diff);
+    } else {
+      DValue *rhs_val = toElem(e->e2);
+
+      // The inverted evaluation order (1. rhs, 2. lhs) is intentional
+      auto rhs = rhs_val->getRVal();
+      auto lhs = lhs_fullEvaluation->getRVal();
+
+      if (t->iscomplex()) {
+        opResult = DtoComplexSub(e->loc, e->type, lhs, rhs);
+      } else {
+        opResult = DtoBinSub(lhs, rhs);
+      }
+    }
+    assert(opResult);
+
+    lvalExp->cachedLvalue = nullptr;
+
+    DValue *assignedResult = DtoCast(e->loc, opResult, lhs_val->type);
+    DtoAssign(e->loc, lhs_val, assignedResult);
+
+    // return the (casted) result
+    result = (e->type == lhs_val->type) ? lhs_val
+                                        : DtoCast(e->loc, lhs_val, e->type);
   }
 
-  //////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+// Math: multiply, divide, and modulo
 
-  void visit(DivExp *e) override {
-    IF_LOG Logger::print("DivExp::toElem: %s @ %s\n", e->toChars(),
-                         e->type->toChars());
-    LOG_SCOPE;
-
-    auto &PGO = gIR->func()->pgo;
-    PGO.setCurrentStmt(e);
-
-    DRValue *l = toElem(e->e1)->getRVal();
-    DRValue *r = toElem(e->e2)->getRVal();
-
-    errorOnIllegalArrayOp(e, e->e1, e->e2);
-
-    if (e->type->iscomplex()) {
-      result = DtoComplexDiv(e->loc, e->type, l, r);
-    } else {
-      result = DtoBinDiv(e->type, l, r);
-    }
+#define SCALAR_OR_COMPLEX_EXP(X, Y)                                            \
+  void visit(X##Exp *e) override {                                             \
+    IF_LOG Logger::print(#X "Exp::toElem: %s @ %s\n", e->toChars(),            \
+                         e->type->toChars());                                  \
+    LOG_SCOPE;                                                                 \
+    errorOnIllegalArrayOp(e, e->e1, e->e2);                                    \
+                                                                               \
+    auto &PGO = gIR->func()->pgo;                                              \
+    PGO.setCurrentStmt(e);                                                     \
+                                                                               \
+    DRValue *l = toElem(e->e1)->getRVal();                                     \
+    DRValue *r = toElem(e->e2)->getRVal();                                     \
+                                                                               \
+    if (e->type->iscomplex()) {                                                \
+      result = DtoComplex##Y(e->loc, e->type, l, r);                           \
+    } else {                                                                   \
+      result = DtoBin##Y(e->type, l, r);                                       \
+    }                                                                          \
   }
 
-  //////////////////////////////////////////////////////////////////////////////
+  SCALAR_OR_COMPLEX_EXP(Mul, Mul)
+  SCALAR_OR_COMPLEX_EXP(Div, Div)
+  SCALAR_OR_COMPLEX_EXP(Mod, Rem)
+#undef SCALAR_OR_COMPLEX_EXP
 
-  void visit(ModExp *e) override {
-    IF_LOG Logger::print("ModExp::toElem: %s @ %s\n", e->toChars(),
-                         e->type->toChars());
-    LOG_SCOPE;
-
-    auto &PGO = gIR->func()->pgo;
-    PGO.setCurrentStmt(e);
-
-    DRValue *l = toElem(e->e1)->getRVal();
-    DRValue *r = toElem(e->e2)->getRVal();
-
-    errorOnIllegalArrayOp(e, e->e1, e->e2);
-
-    if (e->type->iscomplex()) {
-      result = DtoComplexRem(e->loc, e->type, l, r);
-    } else {
-      result = DtoBinRem(e->type, l, r);
-    }
+#define SCALAR_OR_COMPLEX_ASSIGN_EXP(X, Y)                                     \
+  void visit(X##AssignExp *e) override {                                       \
+    IF_LOG Logger::print(#X "Exp::toElem: %s @ %s\n", e->toChars(),            \
+                         e->type->toChars());                                  \
+    LOG_SCOPE;                                                                 \
+    errorOnIllegalArrayOp(e, e->e1, e->e2);                                    \
+                                                                               \
+    auto &PGO = gIR->func()->pgo;                                              \
+    PGO.setCurrentStmt(e);                                                     \
+                                                                               \
+    /* find the lhs' lvalue expression */                                      \
+    Expression *lvalExp = findLvalueExp(e->e1);                                \
+    if (!lvalExp) {                                                            \
+      e->error("expression %s does not mask any l-value", e->e1->toChars());   \
+      fatal();                                                                 \
+    }                                                                          \
+                                                                               \
+    DValue *lhs_val = nullptr;                                                 \
+    {                                                                          \
+      IF_LOG Logger::println("Caching l-value of %s => %s", e->toChars(),      \
+                             lvalExp->toChars());                              \
+      LOG_SCOPE;                                                               \
+      lhs_val = toElemAndCacheLvalue(lvalExp);                                 \
+    }                                                                          \
+    auto lhs_fullEvaluation = toElem(e->e1);                                   \
+    DValue *rhs_val = toElem(e->e2);                                           \
+                                                                               \
+    auto rhs = rhs_val->getRVal();                                             \
+    auto lhs = lhs_fullEvaluation->getRVal();                                  \
+    DImValue *opResult = nullptr;                                              \
+    if (e->type->iscomplex()) {                                                \
+      opResult = DtoComplex##Y(e->loc, e->e1->type, lhs, rhs);                 \
+    } else {                                                                   \
+      opResult = DtoBin##Y(e->e1->type, lhs, rhs);                             \
+    }                                                                          \
+                                                                               \
+    lvalExp->cachedLvalue = nullptr;                                           \
+                                                                               \
+    DValue *assignedResult = DtoCast(e->loc, opResult, lhs_val->type);         \
+    DtoAssign(e->loc, lhs_val, assignedResult);                                \
+                                                                               \
+    /* return the (casted) result */                                           \
+    result = (e->type == lhs_val->type) ? lhs_val                              \
+                                        : DtoCast(e->loc, lhs_val, e->type);   \
   }
+
+  SCALAR_OR_COMPLEX_ASSIGN_EXP(Mul, Mul)
+  SCALAR_OR_COMPLEX_ASSIGN_EXP(Div, Div)
+  SCALAR_OR_COMPLEX_ASSIGN_EXP(Mod, Rem)
+#undef SCALAR_OR_COMPLEX_ASSIGN_EXP
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -2131,17 +2226,19 @@ public:
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// Bitwise expressions, like `a ^ foo();`
 #define BIN_BLIT_EXP(X, Y)                                                     \
   void visit(X##Exp *e) override {                                             \
     IF_LOG Logger::print("%sExp::toElem: %s @ %s\n", #X, e->toChars(),         \
                          e->type->toChars());                                  \
     LOG_SCOPE;                                                                 \
-    DValue *u = toElem(e->e1);                                                 \
-    DValue *v = toElem(e->e2);                                                 \
     errorOnIllegalArrayOp(e, e->e1, e->e2);                                    \
+    auto lhs = DtoRVal(toElem(e->e1));                                         \
+    DValue *v = toElem(e->e2);                                                 \
     v = DtoCast(e->loc, v, e->e1->type);                                       \
-    LLValue *x = llvm::BinaryOperator::Create(                                 \
-        llvm::Instruction::Y, DtoRVal(u), DtoRVal(v), "", p->scopebb());       \
+    auto rhs = DtoRVal(v);                                                     \
+    LLValue *x = llvm::BinaryOperator::Create(llvm::Instruction::Y, lhs, rhs,  \
+                                              "", p->scopebb());               \
     result = new DImValue(e->type, x);                                         \
   }
 
@@ -2152,20 +2249,95 @@ public:
   BIN_BLIT_EXP(Ushr, LShr)
 #undef BIN_BLIT_EXP
 
+  // Bitwise `@=` expressions, like `a ^= foo();`
+  static DValue *binBlitAssign(BinAssignExp *e,
+                               llvm::Instruction::BinaryOps binOp, IRState *p) {
+    // find the lhs' lvalue expression
+    Expression *lvalExp = findLvalueExp(e->e1);
+    if (!lvalExp) {
+      e->error("expression %s does not mask any l-value", e->e1->toChars());
+      fatal();
+    }
+
+    // FIXME: I don't know why this is there. Is it needed?
+    bool useFindLval =
+        (binOp == llvm::Instruction::Shl) || (binOp == llvm::Instruction::LShr);
+
+    DValue *lhs_val = nullptr;
+    {
+      IF_LOG Logger::println("Caching l-value of %s => %s", e->toChars(),
+                             lvalExp->toChars());
+      LOG_SCOPE;
+      lhs_val = toElemAndCacheLvalue(lvalExp);
+    }
+    auto lhs_fullEvaluation = toElem(e->e1);
+    DValue *rhs_val = toElem(e->e2);
+    rhs_val =
+        DtoCast(e->loc, rhs_val, useFindLval ? lvalExp->type : e->e1->type);
+
+    // The inverted evaluation order (1. rhs, 2. lhs) is intentional
+    auto rhs = DtoRVal(rhs_val);
+    auto lhs = DtoRVal(useFindLval ? lhs_val : lhs_fullEvaluation);
+    LLValue *llresult =
+        llvm::BinaryOperator::Create(binOp, lhs, rhs, "", p->scopebb());
+    auto opResult =
+        new DImValue(useFindLval ? lvalExp->type : e->e1->type, llresult);
+
+    lvalExp->cachedLvalue = nullptr;
+
+    DValue *assignedResult = DtoCast(e->loc, opResult, lhs_val->type);
+    DtoAssign(e->loc, lhs_val, assignedResult);
+
+    // return the (casted) result
+    return e->type == lhs_val->type ? lhs_val
+                                    : DtoCast(e->loc, lhs_val, e->type);
+  }
+#define BIN_ASSIGN_BLIT_EXP(X, Y)                                              \
+  void visit(X##AssignExp *e) override {                                       \
+    IF_LOG Logger::print(#X "AssignExp::toElem: %s @ %s\n", e->toChars(),      \
+                         e->type->toChars());                                  \
+    LOG_SCOPE;                                                                 \
+    errorOnIllegalArrayOp(e, e->e1, e->e2);                                    \
+                                                                               \
+    result = binBlitAssign(e, llvm::Instruction::Y, p);                        \
+  }
+
+  BIN_ASSIGN_BLIT_EXP(And, And)
+  BIN_ASSIGN_BLIT_EXP(Or, Or)
+  BIN_ASSIGN_BLIT_EXP(Xor, Xor)
+  BIN_ASSIGN_BLIT_EXP(Shl, Shl)
+  BIN_ASSIGN_BLIT_EXP(Ushr, LShr)
+#undef BIN_ASSIGN_BLIT_EXP
+
   void visit(ShrExp *e) override {
     IF_LOG Logger::print("ShrExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
-    DValue *u = toElem(e->e1);
+
+    auto lhs = DtoRVal(toElem(e->e1));
     DValue *v = toElem(e->e2);
     v = DtoCast(e->loc, v, e->e1->type);
+    auto rhs = DtoRVal(v);
+
     LLValue *x;
     if (isLLVMUnsigned(e->e1->type)) {
-      x = p->ir->CreateLShr(DtoRVal(u), DtoRVal(v));
+      x = p->ir->CreateLShr(lhs, rhs);
     } else {
-      x = p->ir->CreateAShr(DtoRVal(u), DtoRVal(v));
+      x = p->ir->CreateAShr(lhs, rhs);
     }
     result = new DImValue(e->type, x);
+  }
+
+  void visit(ShrAssignExp *e) override {
+    IF_LOG Logger::print("ShrAssignExp::toElem: %s @ %s\n", e->toChars(),
+                         e->type->toChars());
+    LOG_SCOPE;
+
+    if (isLLVMUnsigned(e->e1->type)) {
+      result = binBlitAssign(e, llvm::Instruction::LShr, p);
+    } else {
+      result = binBlitAssign(e, llvm::Instruction::AShr, p);
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
