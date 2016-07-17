@@ -237,6 +237,16 @@ version( CRuntime_Glibc )
     int    putc_unlocked(int, FILE*);
     int    putchar_unlocked(int);
 }
+else version( OpenBSD )
+{
+    void   flockfile(FILE*);
+    int    ftrylockfile(FILE*);
+    void   funlockfile(FILE*);
+    int    getc_unlocked(FILE*);
+    int    getchar_unlocked();
+    int    putc_unlocked(int, FILE*);
+    int    putchar_unlocked(int);
+}
 else version( Solaris )
 {
     void   flockfile(FILE*);
@@ -271,6 +281,10 @@ version( OSX )
 version( FreeBSD )
 {
     enum P_tmpdir  = "/var/tmp/";
+}
+version( OpenBSD )
+{
+    enum P_tmpdir  = "/tmp/";
 }
 version( Solaris )
 {
