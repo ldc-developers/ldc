@@ -35,16 +35,15 @@ struct RVals {
   DRValue *lhs, *rhs;
 };
 
-RVals evalSides(Expression *lhs, Expression *rhs, bool loadLhsAfterRhs) {
+RVals evalSides(DValue *lhs, Expression *rhs, bool loadLhsAfterRhs) {
   RVals rvals;
-  DValue *lhsVal = toElem(lhs);
 
   if (!loadLhsAfterRhs) {
-    rvals.lhs = lhsVal->getRVal();
+    rvals.lhs = lhs->getRVal();
     rvals.rhs = toElem(rhs)->getRVal();
   } else {
     rvals.rhs = toElem(rhs)->getRVal();
-    rvals.lhs = lhsVal->getRVal();
+    rvals.lhs = lhs->getRVal();
   }
 
   return rvals;
@@ -81,7 +80,7 @@ Expression *extractNoStrideInc(Expression *e, d_uns64 baseSize, bool &negate) {
   return mul->e1;
 }
 
-DValue *emitPointerOffset(Loc loc, Expression *base, Expression *offset,
+DValue *emitPointerOffset(Loc loc, DValue *base, Expression *offset,
                           bool negateOffset, Type *resultType,
                           bool loadLhsAfterRhs) {
   // The operand emitted by the frontend is in units of bytes, and not
@@ -123,7 +122,7 @@ DValue *emitPointerOffset(Loc loc, Expression *base, Expression *offset,
 
 //////////////////////////////////////////////////////////////////////////////
 
-DValue *binAdd(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+DValue *binAdd(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
   Type *lhsType = lhs->type->toBasetype();
   Type *rhsType = rhs->type->toBasetype();
@@ -148,7 +147,7 @@ DValue *binAdd(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
 
 //////////////////////////////////////////////////////////////////////////////
 
-DValue *binMin(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+DValue *binMin(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
   Type *lhsType = lhs->type->toBasetype();
   Type *rhsType = rhs->type->toBasetype();
@@ -186,7 +185,7 @@ DValue *binMin(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
 
 //////////////////////////////////////////////////////////////////////////////
 
-DValue *binMul(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+DValue *binMul(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
   auto rvals = evalSides(lhs, rhs, loadLhsAfterRhs);
 
@@ -203,7 +202,7 @@ DValue *binMul(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
 
 //////////////////////////////////////////////////////////////////////////////
 
-DValue *binDiv(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+DValue *binDiv(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
   auto rvals = evalSides(lhs, rhs, loadLhsAfterRhs);
 
@@ -226,7 +225,7 @@ DValue *binDiv(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
 
 //////////////////////////////////////////////////////////////////////////////
 
-DValue *binMod(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+DValue *binMod(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
   auto rvals = evalSides(lhs, rhs, loadLhsAfterRhs);
 
@@ -251,7 +250,7 @@ DValue *binMod(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
 
 namespace {
 template <llvm::Instruction::BinaryOps binOp>
-DValue *binBitwise(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+DValue *binBitwise(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                    bool loadLhsAfterRhs) {
   auto rvals = evalSides(lhs, rhs, loadLhsAfterRhs);
 
@@ -263,31 +262,31 @@ DValue *binBitwise(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
 }
 }
 
-DValue *binAnd(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+DValue *binAnd(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
   return binBitwise<llvm::Instruction::And>(loc, type, lhs, rhs,
                                             loadLhsAfterRhs);
 }
 
-DValue *binOr(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+DValue *binOr(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
               bool loadLhsAfterRhs) {
   return binBitwise<llvm::Instruction::Or>(loc, type, lhs, rhs,
                                            loadLhsAfterRhs);
 }
 
-DValue *binXor(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+DValue *binXor(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
   return binBitwise<llvm::Instruction::Xor>(loc, type, lhs, rhs,
                                             loadLhsAfterRhs);
 }
 
-DValue *binShl(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+DValue *binShl(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
   return binBitwise<llvm::Instruction::Shl>(loc, type, lhs, rhs,
                                             loadLhsAfterRhs);
 }
 
-DValue *binShr(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+DValue *binShr(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
   if (isLLVMUnsigned(type))
     return binUshr(loc, type, lhs, rhs);
@@ -296,7 +295,7 @@ DValue *binShr(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
                                              loadLhsAfterRhs);
 }
 
-DValue *binUshr(Loc &loc, Type *type, Expression *lhs, Expression *rhs,
+DValue *binUshr(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                 bool loadLhsAfterRhs) {
   return binBitwise<llvm::Instruction::LShr>(loc, type, lhs, rhs,
                                              loadLhsAfterRhs);

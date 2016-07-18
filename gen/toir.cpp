@@ -195,76 +195,18 @@ void pushVarDtorCleanup(IRState *p, VarDeclaration *vd) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// Tries to find the proper lvalue subexpression of an assign/binassign
-// expression.
-// Returns null if none is found.
-static Expression *findLvalueExp(Expression *e) {
-  class FindLvalueVisitor : public Visitor {
-  public:
-    Expression *result;
-
-    FindLvalueVisitor() : result(nullptr) {}
-
-    void visit(Expression *e) LLVM_OVERRIDE {}
-
-#define FORWARD(TYPE)                                                          \
-  void visit(TYPE *e) LLVM_OVERRIDE { e->e1->accept(this); }
-    FORWARD(AssignExp)
-    FORWARD(BinAssignExp)
-    FORWARD(CastExp)
-#undef FORWARD
-
-#define IMPLEMENT(TYPE)                                                        \
-  void visit(TYPE *e) LLVM_OVERRIDE { result = e; }
-    IMPLEMENT(VarExp)
-    IMPLEMENT(CallExp)
-    IMPLEMENT(PtrExp)
-    IMPLEMENT(DotVarExp)
-    IMPLEMENT(IndexExp)
-    IMPLEMENT(CommaExp)
-#undef IMPLEMENT
-  };
-
-  FindLvalueVisitor v;
-  e->accept(&v);
-  return v.result;
+static Expression *skipOverCasts(Expression *e) {
+  while (e->op == TOKcast)
+    e = static_cast<CastExp *>(e)->e1;
+  return e;
 }
 
-// Evaluates an lvalue expression e and prevents further
-// evaluations as long as e->cachedLvalue isn't reset to null.
-static DValue *toElemAndCacheLvalue(Expression *e) {
-  DValue *value = toElem(e);
-  e->cachedLvalue = DtoLVal(value);
-  return value;
-}
-
-// Evaluates e and, if tryGetLvalue is true, returns the
-// (casted) nested lvalue if one is found.
-// Otherwise simply returns the expression's result.
-DValue *toElem(Expression *e, bool tryGetLvalue) {
-  if (!tryGetLvalue) {
+DValue *toElem(Expression *e, bool doSkipOverCasts) {
+  Expression *inner = skipOverCasts(e);
+  if (!doSkipOverCasts || inner == e)
     return toElem(e);
-  }
 
-  Expression *lvalExp = findLvalueExp(e); // may be null
-  Expression *nestedLvalExp = (lvalExp == e ? nullptr : lvalExp);
-
-  DValue *nestedLval = nullptr;
-  if (nestedLvalExp) {
-    IF_LOG Logger::println("Caching l-value of %s => %s", e->toChars(),
-                           nestedLvalExp->toChars());
-
-    LOG_SCOPE;
-    nestedLval = toElemAndCacheLvalue(nestedLvalExp);
-  }
-
-  DValue *value = toElem(e);
-
-  if (nestedLvalExp) {
-    nestedLvalExp->cachedLvalue = nullptr;
-  }
-
-  return !nestedLval ? value : DtoCast(e->loc, nestedLval, e->type);
+  return DtoCast(e->loc, toElem(inner), e->type);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -349,12 +291,6 @@ public:
     LOG_SCOPE;
 
     assert(e->var);
-
-    if (e->cachedLvalue) {
-      LLValue *V = e->cachedLvalue;
-      result = new DLValue(e->type, V);
-      return;
-    }
 
     if (auto fd = e->var->isFuncLiteralDeclaration()) {
       genFuncLiteral(fd, nullptr);
@@ -539,13 +475,14 @@ public:
         // uninitialized location), and that rhs is stored as an l-value!
         DSpecialRefValue *lhs = toElem(e->e1)->isSpecialRef();
         assert(lhs);
-        result = toElem(e->e2);
+        DValue *rhs = toElem(e->e2);
 
         // We shouldn't really need makeLValue() here, but the 2.063
         // frontend generates ref variables initialized from function
         // calls.
-        DtoStore(makeLValue(e->loc, result), lhs->getRefStorage());
+        DtoStore(makeLValue(e->loc, rhs), lhs->getRefStorage());
 
+        result = lhs;
         return;
       }
     }
@@ -570,14 +507,12 @@ public:
       }
     }
 
-    DValue *l = toElem(e->e1, true);
+    result = toElem(e->e1, true);
 
     // try to construct the lhs in-place
-    if (l->isLVal() && e->op == TOKconstruct) {
-      if (toInPlaceConstruction(l->isLVal(), e->e2)) {
-        result = l;
-        return;
-      }
+    if (result->isLVal() && e->op == TOKconstruct &&
+        toInPlaceConstruction(result->isLVal(), e->e2)) {
+      return;
     }
 
     DValue *r = toElem(e->e2);
@@ -585,13 +520,10 @@ public:
     if (e->e1->type->toBasetype()->ty == Tstruct && e->e2->op == TOKint64) {
       Logger::println("performing aggregate zero initialization");
       assert(e->e2->toInteger() == 0);
-      DtoMemSetZero(DtoLVal(l));
+      DtoMemSetZero(DtoLVal(result));
       TypeStruct *ts = static_cast<TypeStruct *>(e->e1->type);
-      if (ts->sym->isNested() && ts->sym->vthis) {
-        DtoResolveNestedContext(e->loc, ts->sym, DtoLVal(l));
-      }
-      // Return value should be irrelevant.
-      result = r;
+      if (ts->sym->isNested() && ts->sym->vthis)
+        DtoResolveNestedContext(e->loc, ts->sym, DtoLVal(result));
       return;
     }
 
@@ -609,9 +541,7 @@ public:
 
     Logger::println("performing normal assignment (rhs has lvalue elems = %d)",
                     lvalueElem);
-    DtoAssign(e->loc, l, r, e->op, !lvalueElem);
-
-    result = l;
+    DtoAssign(e->loc, result, r, e->op, !lvalueElem);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -641,7 +571,7 @@ public:
     auto &PGO = gIR->func()->pgo;                                              \
     PGO.setCurrentStmt(e);                                                     \
                                                                                \
-    result = bin##Op(e->loc, e->type, e->e1, e->e2);                           \
+    result = bin##Op(e->loc, e->type, toElem(e->e1), e->e2);                   \
   }
 
   BIN_OP(Add)
@@ -660,37 +590,20 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
-  using BinOpFunc = DValue *(Loc &, Type *, Expression *, Expression *, bool);
+  using BinOpFunc = DValue *(Loc &, Type *, DValue *, Expression *, bool);
 
   template <BinOpFunc binOpFunc, bool useLValTypeForBinOp>
   static DValue *binAssign(BinAssignExp *e) {
-    // find the lhs' lvalue subexpression
-    Expression *lvalExp = findLvalueExp(e->e1);
-    if (!lvalExp) {
-      e->error("expression %s does not mask any l-value", e->e1->toChars());
-      fatal();
-    }
-
-    DValue *lhsLVal = nullptr;
-    {
-      IF_LOG Logger::println("Caching l-value of %s => %s", e->toChars(),
-                             lvalExp->toChars());
-      LOG_SCOPE;
-      lhsLVal = toElemAndCacheLvalue(lvalExp);
-    }
-
-    // fully evaluate the binassign lhs
-    toElem(e->e1);
+    Expression *lvalExp = skipOverCasts(e->e1);
+    DValue *lhsLVal = toElem(lvalExp);
 
     // Use the lhs lvalue for the binop lhs and optionally cast it to the full
     // lhs type (!useLValTypeForBinOp).
     // The front-end apparently likes to specify the binop type via lhs casts,
     // e.g., `byte x; cast(int)x += 5;`.
     // Load the binop lhs AFTER evaluating the rhs.
-    Type *opType = (useLValTypeForBinOp ? lvalExp->type : e->e1->type);
-    DValue *opResult = binOpFunc(e->loc, opType, lvalExp, e->e2, true);
-
-    lvalExp->cachedLvalue = nullptr;
+    Type *opType = (useLValTypeForBinOp ? lhsLVal->type : e->e1->type);
+    DValue *opResult = binOpFunc(e->loc, opType, lhsLVal, e->e2, true);
 
     DValue *assignedResult = DtoCast(e->loc, opResult, lhsLVal->type);
     DtoAssign(e->loc, lhsLVal, assignedResult);
@@ -736,11 +649,6 @@ public:
 
     auto &PGO = gIR->func()->pgo;
     PGO.setCurrentStmt(e);
-
-    if (e->cachedLvalue) {
-      LLValue *V = e->cachedLvalue;
-      return new DLValue(e->type, V);
-    }
 
     // handle magic inline asm
     if (e->e1->op == TOKvar) {
@@ -979,7 +887,6 @@ public:
 
     // function pointers are special
     if (e->type->toBasetype()->ty == Tfunction) {
-      assert(!e->cachedLvalue);
       DValue *dv = toElem(e->e1);
       LLValue *llVal = DtoRVal(dv);
       if (DFuncValue *dfv = dv->isFunc()) {
@@ -991,12 +898,7 @@ public:
     }
 
     // get the rvalue and return it as an lvalue
-    LLValue *V;
-    if (e->cachedLvalue) {
-      V = e->cachedLvalue;
-    } else {
-      V = DtoRVal(e->e1);
-    }
+    LLValue *V = DtoRVal(e->e1);
 
     result = new DLValue(e->type, DtoBitCast(V, DtoPtrToType(e->type)));
   }
@@ -1010,16 +912,6 @@ public:
 
     auto &PGO = gIR->func()->pgo;
     PGO.setCurrentStmt(e);
-
-    if (e->cachedLvalue) {
-      Logger::println("using cached lvalue");
-      LLValue *V = e->cachedLvalue;
-      assert(!isSpecialRefVar(e->var->isVarDeclaration()) &&
-             "Code not expected to handle special ref vars, although it can "
-             "easily be made to.");
-      result = new DLValue(e->type, V);
-      return;
-    }
 
     DValue *l = toElem(e->e1);
 
@@ -1126,12 +1018,6 @@ public:
 
     auto &PGO = gIR->func()->pgo;
     PGO.setCurrentStmt(e);
-
-    if (e->cachedLvalue) {
-      LLValue *V = e->cachedLvalue;
-      result = new DLValue(e->type, V);
-      return;
-    }
 
     DValue *l = toElem(e->e1);
 
@@ -2103,12 +1989,6 @@ public:
     IF_LOG Logger::print("CommaExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
-
-    if (e->cachedLvalue) {
-      LLValue *V = e->cachedLvalue;
-      result = new DLValue(e->type, V);
-      return;
-    }
 
     toElem(e->e1);
     result = toElem(e->e2);

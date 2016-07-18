@@ -265,7 +265,9 @@ void Declaration_codegen(Dsymbol *decl);
 void Declaration_codegen(Dsymbol *decl, IRState *irs);
 
 DValue *toElem(Expression *e);
-DValue *toElem(Expression *e, bool tryGetLvalue);
+/// If `skipOverCasts` is true, skips over casts (no codegen) and returns the
+/// (casted) result of the first inner non-cast expression.
+DValue *toElem(Expression *e, bool skipOverCasts);
 DValue *toElemDtor(Expression *e);
 LLConstant *toConstElem(Expression *e, IRState *p);
 

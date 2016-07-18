@@ -2362,11 +2362,6 @@ public:
     ubyte size;     // # of bytes in Expression so we can copy() it
     ubyte parens;   // if this is a parenthesized expression
 
-    version(IN_LLVM)
-    {
-        void* cachedLvalue; // llvm::Value*
-    }
-
     final extern (D) this(Loc loc, TOK op, int size)
     {
         //printf("Expression::Expression(op = %d) this = %p\n", op, this);
