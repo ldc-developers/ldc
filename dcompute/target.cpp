@@ -43,32 +43,22 @@ void DComputeTarget::emit(Module* m) {
     gABI = abi;
     gIR = _ir;
     doCodeGen(m);
-
 }
 
 void DComputeTarget::writeModule()
 {
     addMetadata();
-    insertBitcodeFiles(_ir->module, _ir->context(),
-                       *global.params.bitcodeFiles);
-
-    const char *oname;
+    //TODO: make a command line switch for the and do it properly so as to not
+    //cross @conpute code with non-@compute code
+    //insertBitcodeFiles(_ir->module, _ir->context(),
+    //                   *global.params.bitcodeFiles);
     const char *filename;
-    if ((oname = global.params.exefile) || (oname = global.params.objname)) {
-        filename = FileName::forceExt(oname, binSuffix);
-        if (global.params.objdir) {
-            filename =
-            FileName::combine(global.params.objdir, FileName::name(filename));
-            
-        }
-    } else {
-        char tmp[20];
-        const char* fmt = "kernels_%s%d_%d";
-        int len = sprintf(tmp,fmt, (target == 1) ? "ocl" : "cuda",tversion,global.params.is64bit? 64 :32);
-        tmp[len] = '\0';
-        filename = FileName::forceExt(tmp, binSuffix);
-    }
 
+    char tmp[20];
+    const char* fmt = "kernels_%s%d_%d";
+    int len = sprintf(tmp,fmt, (target == 1) ? "ocl" : "cuda",tversion,global.params.is64bit? 64 :32);
+    tmp[len] = '\0';
+    filename = FileName::forceExt(tmp, binSuffix);
     ::writeModule(&_ir->module, filename);
 
     global.params.objfiles->push(filename);
