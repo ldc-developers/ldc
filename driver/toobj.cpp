@@ -17,6 +17,7 @@
 #include "gen/logger.h"
 #include "gen/optimizer.h"
 #include "gen/programs.h"
+#include "dcompute/target.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -73,21 +74,29 @@ static void codegenModule(llvm::TargetMachine *Target, llvm::Module &m,
     bool isNvptx = a == Triple::nvptx || a == Triple::nvptx64;
     switch (a) {
         case Triple::nvptx:
-            Target = createTargetMachine("nvptx-nvidia-cuda", "nvptx", "sm_20",
+        {
+            char buf[8];
+            snprintf(buf, sizeof(buf),"sm_%d",gDComputeTarget->tversion/10);
+            Target = createTargetMachine("nvptx-nvidia-cuda", "nvptx", buf,
                                          {}, ExplicitBitness::M32,
                                          ::FloatABI::Hard,
                                          llvm::Reloc::Static,
                                          llvm::CodeModel::Medium , codeGenOptLevel(),
                                          false, false);
+        }
             break;
             
         case Triple::nvptx64:
-            Target = createTargetMachine("nvptx64-nvidia-cuda", "nvptx64", "sm_20",
+        {
+            char buf[8];
+            snprintf(buf, sizeof(buf),"sm_%d",gDComputeTarget->tversion/10);
+            Target = createTargetMachine("nvptx64-nvidia-cuda", "nvptx64", buf,
                                          {}, ExplicitBitness::M64,
                                          ::FloatABI::Hard,
                                          llvm::Reloc::Static,
                                          llvm::CodeModel::Medium , codeGenOptLevel(),
                                          false, false);
+        }
             break;
             
     }
