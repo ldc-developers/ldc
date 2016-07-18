@@ -62,7 +62,11 @@ void DComputeTarget::writeModule()
             
         }
     } else {
-        filename = FileName::forceExt((std::string("kernels_")+binSuffix).c_str(), binSuffix);;
+        char tmp[20];
+        const char* fmt = "kernels_%s%d_%d";
+        int len = sprintf(tmp,fmt, (target == 1) ? "ocl" : "cuda",tversion,global.params.is64bit? 64 :32);
+        tmp[len] = '\0';
+        filename = FileName::forceExt(tmp, binSuffix);
     }
 
     ::writeModule(&_ir->module, filename);
