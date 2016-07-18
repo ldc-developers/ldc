@@ -127,11 +127,13 @@ static void codegenModule(llvm::TargetMachine *Target, llvm::Module &m,
 #if LDC_LLVM_VER < 307
   llvm::formatted_raw_ostream fout(out);
 #endif
+#ifdef LDC_WITH_DCOMPUTE_SPIRV
   if (isSpirv) {
       IF_LOG Logger::println("adding createSPIRVWriterPass()");
       llvm::createSPIRVWriterPass(fout)->runOnModule(m);
       return;
   }
+#endif
     if (!isSpirv && Target->addPassesToEmitFile(Passes,
 #if LDC_LLVM_VER >= 307
                                  out,
