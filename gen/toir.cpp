@@ -560,7 +560,7 @@ public:
 
 //////////////////////////////////////////////////////////////////////////////
 
-#define BIN_OP(Op)                                                             \
+#define BIN_OP(Op, Func)                                                       \
   void visit(Op##Exp *e) override {                                            \
     IF_LOG Logger::print(#Op "Exp::toElem: %s @ %s\n", e->toChars(),           \
                          e->type->toChars());                                  \
@@ -571,21 +571,21 @@ public:
     auto &PGO = gIR->func()->pgo;                                              \
     PGO.setCurrentStmt(e);                                                     \
                                                                                \
-    result = bin##Op(e->loc, e->type, toElem(e->e1), e->e2);                   \
+    result = Func(e->loc, e->type, toElem(e->e1), e->e2);                      \
   }
 
-  BIN_OP(Add)
-  BIN_OP(Min)
-  BIN_OP(Mul)
-  BIN_OP(Div)
-  BIN_OP(Mod)
+  BIN_OP(Add, binAdd)
+  BIN_OP(Min, binMin)
+  BIN_OP(Mul, binMul)
+  BIN_OP(Div, binDiv)
+  BIN_OP(Mod, binMod)
 
-  BIN_OP(And)
-  BIN_OP(Or)
-  BIN_OP(Xor)
-  BIN_OP(Shl)
-  BIN_OP(Shr)
-  BIN_OP(Ushr)
+  BIN_OP(And, binAnd)
+  BIN_OP(Or, binOr)
+  BIN_OP(Xor, binXor)
+  BIN_OP(Shl, binShl)
+  BIN_OP(Shr, binShr)
+  BIN_OP(Ushr, binUshr)
 #undef BIN_OP
 
   //////////////////////////////////////////////////////////////////////////////
@@ -612,7 +612,7 @@ public:
     return lhsLVal;
   }
 
-#define BIN_ASSIGN(Op, useLValTypeForBinOp)                                    \
+#define BIN_ASSIGN(Op, Func, useLValTypeForBinOp)                              \
   void visit(Op##AssignExp *e) override {                                      \
     IF_LOG Logger::print(#Op "AssignExp::toElem: %s @ %s\n", e->toChars(),     \
                          e->type->toChars());                                  \
@@ -623,21 +623,21 @@ public:
     auto &PGO = gIR->func()->pgo;                                              \
     PGO.setCurrentStmt(e);                                                     \
                                                                                \
-    result = binAssign<bin##Op, useLValTypeForBinOp>(e);                       \
+    result = binAssign<Func, useLValTypeForBinOp>(e);                          \
   }
 
-  BIN_ASSIGN(Add, false)
-  BIN_ASSIGN(Min, false)
-  BIN_ASSIGN(Mul, false)
-  BIN_ASSIGN(Div, false)
-  BIN_ASSIGN(Mod, false)
+  BIN_ASSIGN(Add, binAdd, false)
+  BIN_ASSIGN(Min, binMin, false)
+  BIN_ASSIGN(Mul, binMul, false)
+  BIN_ASSIGN(Div, binDiv, false)
+  BIN_ASSIGN(Mod, binMod, false)
 
-  BIN_ASSIGN(And, false)
-  BIN_ASSIGN(Or, false)
-  BIN_ASSIGN(Xor, false)
-  BIN_ASSIGN(Shl, true)
-  BIN_ASSIGN(Shr, true)
-  BIN_ASSIGN(Ushr, true)
+  BIN_ASSIGN(And, binAnd, false)
+  BIN_ASSIGN(Or, binOr, false)
+  BIN_ASSIGN(Xor, binXor, false)
+  BIN_ASSIGN(Shl, binShl, true)
+  BIN_ASSIGN(Shr, binShr, true)
+  BIN_ASSIGN(Ushr, binUshr, true)
 #undef BIN_ASSIGN
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1747,6 +1747,7 @@ public:
     llvm::BranchInst::Create(andandend, p->scopebb());
     p->scope() = IRScope(andandend);
 
+    // DMD allows stuff like `x == 0 && assert(false)`
     if (e->type->toBasetype()->ty == Tvoid) {
       result = nullptr;
       return;
@@ -1808,6 +1809,7 @@ public:
     llvm::BranchInst::Create(ororend, p->scopebb());
     p->scope() = IRScope(ororend);
 
+    // DMD allows stuff like `x == 0 || assert(false)`
     if (e->type->toBasetype()->ty == Tvoid) {
       result = nullptr;
       return;

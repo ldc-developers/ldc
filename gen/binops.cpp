@@ -249,9 +249,8 @@ DValue *binMod(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
 //////////////////////////////////////////////////////////////////////////////
 
 namespace {
-template <llvm::Instruction::BinaryOps binOp>
-DValue *binBitwise(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
-                   bool loadLhsAfterRhs) {
+DValue *binBitwise(llvm::Instruction::BinaryOps binOp, Loc &loc, Type *type,
+                   DValue *lhs, Expression *rhs, bool loadLhsAfterRhs) {
   auto rvals = evalSides(lhs, rhs, loadLhsAfterRhs);
 
   LLValue *l = DtoRVal(DtoCast(loc, rvals.lhs, type));
@@ -264,41 +263,39 @@ DValue *binBitwise(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
 
 DValue *binAnd(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
-  return binBitwise<llvm::Instruction::And>(loc, type, lhs, rhs,
-                                            loadLhsAfterRhs);
+  return binBitwise(llvm::Instruction::And, loc, type, lhs, rhs,
+                    loadLhsAfterRhs);
 }
 
 DValue *binOr(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
               bool loadLhsAfterRhs) {
-  return binBitwise<llvm::Instruction::Or>(loc, type, lhs, rhs,
-                                           loadLhsAfterRhs);
+  return binBitwise(llvm::Instruction::Or, loc, type, lhs, rhs,
+                    loadLhsAfterRhs);
 }
 
 DValue *binXor(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
-  return binBitwise<llvm::Instruction::Xor>(loc, type, lhs, rhs,
-                                            loadLhsAfterRhs);
+  return binBitwise(llvm::Instruction::Xor, loc, type, lhs, rhs,
+                    loadLhsAfterRhs);
 }
 
 DValue *binShl(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
-  return binBitwise<llvm::Instruction::Shl>(loc, type, lhs, rhs,
-                                            loadLhsAfterRhs);
+  return binBitwise(llvm::Instruction::Shl, loc, type, lhs, rhs,
+                    loadLhsAfterRhs);
 }
 
 DValue *binShr(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
-  if (isLLVMUnsigned(type))
-    return binUshr(loc, type, lhs, rhs);
-
-  return binBitwise<llvm::Instruction::AShr>(loc, type, lhs, rhs,
-                                             loadLhsAfterRhs);
+  auto op = (isLLVMUnsigned(type) ? llvm::Instruction::LShr
+                                  : llvm::Instruction::AShr);
+  return binBitwise(op, loc, type, lhs, rhs, loadLhsAfterRhs);
 }
 
 DValue *binUshr(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                 bool loadLhsAfterRhs) {
-  return binBitwise<llvm::Instruction::LShr>(loc, type, lhs, rhs,
-                                             loadLhsAfterRhs);
+  return binBitwise(llvm::Instruction::LShr, loc, type, lhs, rhs,
+                    loadLhsAfterRhs);
 }
 
 //////////////////////////////////////////////////////////////////////////////
