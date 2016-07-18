@@ -87,6 +87,8 @@ class DIBuilder {
 #endif
   }
 
+  Loc currentLoc;
+
 public:
   explicit DIBuilder(IRState *const IR);
 
@@ -127,6 +129,8 @@ public:
   /// \brief Emits debug info for block end
   void EmitBlockEnd();
 
+  Loc GetCurrentLoc() const;
+
   void EmitStopPoint(Loc &loc);
 
   void EmitValue(llvm::Value *val, VarDeclaration *vd);
@@ -137,10 +141,11 @@ public:
   /// \param vd       Variable declaration to emit debug info for.
   /// \param type     Type of parameter if diferent from vd->type
   /// \param isThisPtr Parameter is hidden this pointer
+  /// \param fromNested Is a closure variable accessed through nest_arg
   /// \param addr     An array of complex address operations.
   void
   EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd, Type *type = nullptr,
-                    bool isThisPtr = false,
+                    bool isThisPtr = false, bool fromNested = false,
 #if LDC_LLVM_VER >= 306
                     llvm::ArrayRef<int64_t> addr = llvm::ArrayRef<int64_t>()
 #else
