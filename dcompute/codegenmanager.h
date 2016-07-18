@@ -26,7 +26,7 @@ class DComputeCodeGenManager {
   static std::vector<target> clTargets;
   llvm::LLVMContext &ctx;
   std::vector<DComputeTarget *> targets;
-  DComputeTarget *createComputeTarget(target t);
+  DComputeTarget *createComputeTarget(const std::string &s);
 public:
   void emit(Module *m);
   void writeModules();

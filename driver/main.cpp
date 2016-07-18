@@ -299,6 +299,13 @@ static void hideLLVMOptions() {
   hide(map, "sample-profile-max-propagate-iterations");
   hide(map, "shrink-wrap");
   hide(map, "spiller");
+//spirv options - enable while in dev
+//hide(map, "spirv-debug");
+//hide(map, "spirv-erase-cl-md");
+//hide(map, "spirv-lower-const-expr");
+//hide(map, "spirv-mem2reg");
+//hide(map, "spirv-text");
+//hide(map, "spvbool-validate");
   hide(map, "stackmap-version");
   hide(map, "stats");
   hide(map, "strip-debug");
