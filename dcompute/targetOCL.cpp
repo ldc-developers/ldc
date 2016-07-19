@@ -51,7 +51,9 @@ public:
     };
     memcpy(mapping, _mapping, sizeof(_mapping));
   }
-
+  void setGTargetMachine() override {
+    gTargetMachine = nullptr;
+  }
   void addMetadata() override {
     // opencl.ident?
     // spirv.Source // debug only

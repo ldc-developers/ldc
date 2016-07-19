@@ -72,25 +72,20 @@ static void codegenModule(llvm::TargetMachine *Target, llvm::Module &m,
   llvm::Triple::ArchType a = llvm::Triple(m.getTargetTriple()).getArch();
   bool isSpirv = a == Triple::spir || a == Triple::spir64;
   bool isNvptx = a == Triple::nvptx || a == Triple::nvptx64;
-  switch (a) {
-  case Triple::nvptx: {
-    char buf[8];
-    snprintf(buf, sizeof(buf), "sm_%d", gDComputeTarget->tversion / 10);
-    Target = createTargetMachine("nvptx-nvidia-cuda", "nvptx", buf, {},
-                                 ExplicitBitness::M32, ::FloatABI::Hard,
-                                 llvm::Reloc::Static, llvm::CodeModel::Medium,
-                                 codeGenOptLevel(), false, false);
-  } break;
 
-  case Triple::nvptx64: {
-    char buf[8];
-    snprintf(buf, sizeof(buf), "sm_%d", gDComputeTarget->tversion / 10);
-    Target = createTargetMachine("nvptx64-nvidia-cuda", "nvptx64", buf, {},
-                                 ExplicitBitness::M64, ::FloatABI::Hard,
-                                 llvm::Reloc::Static, llvm::CodeModel::Medium,
-                                 codeGenOptLevel(), false, false);
-  } break;
+#if LDC_LLVM_VER < 307
+  llvm::formatted_raw_ostream fout(out);
+#endif
+#define LDC_WITH_DCOMPUTE_SPIRV
+  if (isSpirv) {
+#ifdef LDC_WITH_DCOMPUTE_SPIRV
+    IF_LOG Logger::println("adding createSPIRVWriterPass()");
+    llvm::createSPIRVWriterPass(fout)->runOnModule(m);
+#else
+    IF_LOG Logger::println("Trying to target SPIRV, but LDC is not built to do so!");
+    return;
   }
+#endif
 #if LDC_LLVM_VER >= 307
 // The DataLayout is already set at the module (in module.cpp,
 // method Module::genLLVMModule())
@@ -110,23 +105,11 @@ static void codegenModule(llvm::TargetMachine *Target, llvm::Module &m,
   Passes.add(
       createTargetTransformInfoWrapperPass(Target->getTargetIRAnalysis()));
 #else
-  if (!isSpirv) {
-    Target->addAnalysisPasses(Passes);
-  }
+  Target->addAnalysisPasses(Passes);
 #endif
 
-#if LDC_LLVM_VER < 307
-  llvm::formatted_raw_ostream fout(out);
-#endif
-#ifdef LDC_WITH_DCOMPUTE_SPIRV
-  if (isSpirv) {
-    IF_LOG Logger::println("adding createSPIRVWriterPass()");
-    llvm::createSPIRVWriterPass(fout)->runOnModule(m);
-    return;
-  }
-#endif
-  if (!isSpirv &&
-      Target->addPassesToEmitFile(
+
+  if (Target->addPassesToEmitFile(
           Passes,
 #if LDC_LLVM_VER >= 307
           out,

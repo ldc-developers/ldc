@@ -57,6 +57,7 @@ void DComputeTarget::writeModule() {
                     global.params.is64bit ? 64 : 32);
   tmp[len] = '\0';
   filename = FileName::forceExt(tmp, binSuffix);
+  setGTargetMachine();
   ::writeModule(&_ir->module, filename);
 
   global.params.objfiles->push(filename);

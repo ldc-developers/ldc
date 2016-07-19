@@ -34,7 +34,7 @@ public:
   int mapping[MAX_NUM_TARGET_ADDRSPAECES];
   void doCodeGen(Module *m);
   void writeModule();
-
+  virtual void setGTargetMachine() =0;
   virtual void addMetadata() = 0;
   virtual void handleKernelFunc(FuncDeclaration *df, llvm::Function *llf) = 0;
   virtual void handleNonKernelFunc(FuncDeclaration *df,
