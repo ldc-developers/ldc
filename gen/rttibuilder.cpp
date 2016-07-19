@@ -44,11 +44,11 @@ void RTTIBuilder::push(llvm::Constant *C) {
   // also match the struct type lowering code here).
   const uint64_t fieldStart =
 #if LDC_LLVM_VER >= 309
-      llvm::alignTo
+    llvm::alignTo
 #else
-      llvm::RoundUpToAlignment
+    llvm::RoundUpToAlignment
 #endif
-      (prevFieldEnd, gDataLayout->getABITypeAlignment(C->getType()));
+    (prevFieldEnd, gDataLayout->getABITypeAlignment(C->getType()));
 
   const uint64_t paddingBytes = fieldStart - prevFieldEnd;
   if (paddingBytes) {
@@ -88,8 +88,8 @@ void RTTIBuilder::push_void_array(llvm::Constant *CI, Type *valtype,
 
   const LinkageWithCOMDAT lwc(TYPEINFO_LINKAGE_TYPE, supportsCOMDAT());
 
-  auto G = new LLGlobalVariable(gIR->module, CI->getType(), true, lwc.first, CI,
-                                initname);
+  auto G = new LLGlobalVariable(gIR->module, CI->getType(), true,
+                                lwc.first, CI, initname);
   setLinkage(lwc, G);
   G->setAlignment(DtoAlignment(valtype));
 
@@ -110,8 +110,8 @@ void RTTIBuilder::push_array(llvm::Constant *CI, uint64_t dim, Type *valtype,
 
   const LinkageWithCOMDAT lwc(TYPEINFO_LINKAGE_TYPE, supportsCOMDAT());
 
-  auto G = new LLGlobalVariable(gIR->module, CI->getType(), true, lwc.first, CI,
-                                initname);
+  auto G = new LLGlobalVariable(gIR->module, CI->getType(), true,
+                                lwc.first, CI, initname);
   setLinkage(lwc, G);
   G->setAlignment(DtoAlignment(valtype));
 

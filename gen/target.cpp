@@ -75,15 +75,15 @@ unsigned Target::critsecsize() {
   }
   if (global.params.targetTriple->isOSFreeBSD() ||
 #if LDC_LLVM_VER > 305
-      global.params.targetTriple->isOSNetBSD() ||
-      global.params.targetTriple->isOSOpenBSD() ||
-      global.params.targetTriple->isOSDragonFly()
+    global.params.targetTriple->isOSNetBSD() ||
+    global.params.targetTriple->isOSOpenBSD() ||
+    global.params.targetTriple->isOSDragonFly()
 #else
-      global.params.targetTriple->getOS() == llvm::Triple::NetBSD ||
-      global.params.targetTriple->getOS() == llvm::Triple::OpenBSD ||
-      global.params.targetTriple->getOS() == llvm::Triple::DragonFly
+    global.params.targetTriple->getOS() == llvm::Triple::NetBSD ||
+    global.params.targetTriple->getOS() == llvm::Triple::OpenBSD ||
+    global.params.targetTriple->getOS() == llvm::Triple::DragonFly
 #endif
-          ) {
+     ) {
     return sizeof(size_t);
   }
   return sizeof(pthread_mutex_t);
@@ -177,3 +177,4 @@ void Target::loadModule(Module *m) {}
  *
  */
 void Target::prefixName(OutBuffer *buf, LINK linkage) {}
+

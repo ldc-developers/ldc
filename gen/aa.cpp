@@ -41,8 +41,8 @@ DValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key, bool lvalue) {
   // extern(C) void* _aaInX(AA aa*, TypeInfo keyti, void* pkey)
 
   // first get the runtime function
-  llvm::Function *func =
-      getRuntimeFunction(loc, gIR->module, lvalue ? "_aaGetY" : "_aaInX");
+  llvm::Function *func = getRuntimeFunction(
+      loc, gIR->module, lvalue ? "_aaGetY" : "_aaInX");
   LLFunctionType *funcTy = func->getFunctionType();
 
   // aa param
@@ -61,7 +61,8 @@ DValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key, bool lvalue) {
     LLValue *castedAATI = DtoBitCast(rawAATI, funcTy->getParamType(1));
     LLValue *valsize = DtoConstSize_t(getTypeAllocSize(DtoType(type)));
     ret = gIR->CreateCallOrInvoke(func, aaval, castedAATI, valsize, pkey,
-                                  "aa.index").getInstruction();
+                                  "aa.index")
+              .getInstruction();
   } else {
     LLValue *keyti = DtoBitCast(to_keyti(aa), funcTy->getParamType(1));
     ret = gIR->CreateCallOrInvoke(func, aaval, keyti, pkey, "aa.index")
@@ -196,14 +197,16 @@ LLValue *DtoAAEquals(Loc &loc, TOK op, DValue *l, DValue *r) {
   Type *t = l->type->toBasetype();
   assert(t == r->type->toBasetype() &&
          "aa equality is only defined for aas of same type");
-  llvm::Function *func = getRuntimeFunction(loc, gIR->module, "_aaEqual");
+  llvm::Function *func =
+      getRuntimeFunction(loc, gIR->module, "_aaEqual");
   LLFunctionType *funcTy = func->getFunctionType();
 
   LLValue *aaval = DtoBitCast(DtoRVal(l), funcTy->getParamType(1));
   LLValue *abval = DtoBitCast(DtoRVal(r), funcTy->getParamType(2));
   LLValue *aaTypeInfo = DtoTypeInfoOf(t);
-  LLValue *res = gIR->CreateCallOrInvoke(func, aaTypeInfo, aaval, abval,
-                                         "aaEqRes").getInstruction();
+  LLValue *res =
+      gIR->CreateCallOrInvoke(func, aaTypeInfo, aaval, abval, "aaEqRes")
+          .getInstruction();
 
   const auto predicate = eqTokToICmpPred(op, /* invert = */ true);
   res = gIR->ir->CreateICmp(predicate, res, DtoConstInt(0));

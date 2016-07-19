@@ -486,8 +486,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
       // DMD treats _Dmain as having C calling convention and this has been
       // hardcoded into druntime, even if the frontend type has D linkage.
       // See Bugzilla issue 9028.
-      ||
-      fdecl->isMain()) {
+      || fdecl->isMain()) {
     link = LINKc;
   }
 
@@ -1024,11 +1023,11 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
     // output function body
     if (gDComputeTarget) {
-      Visitor *v = createDCopmuteToIRVisitor(gIR, gDComputeTarget);
+      Visitor* v = createDCopmuteToIRVisitor(gIR,gDComputeTarget);
       fd->fbody->accept(v);
       delete v;
     } else {
-      Statement_toIR(fd->fbody, gIR);
+    Statement_toIR(fd->fbody, gIR);
     }
     irFunc->scopes = nullptr;
   }

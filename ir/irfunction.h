@@ -260,9 +260,13 @@ public:
 #if LDC_LLVM_VER >= 308
   /// MSVC: catch and cleanup code is emitted as funclets and need
   /// to be referenced from inner pads and calls
-  void pushFunclet(llvm::Value *funclet) { funclets.push_back(funclet); }
+  void pushFunclet(llvm::Value *funclet) {
+    funclets.push_back(funclet);
+  }
 
-  void popFunclet() { funclets.pop_back(); }
+  void popFunclet() {
+    funclets.pop_back();
+  }
 
   llvm::Value *getFunclet() {
     return funclets.empty() ? nullptr : funclets.back();
@@ -346,7 +350,7 @@ private:
 
   std::vector<llvm::BasicBlock *> &currentLandingPads();
 
-  llvm::BasicBlock *&getLandingPadRef(CleanupCursor scope);
+  llvm::BasicBlock * &getLandingPadRef(CleanupCursor scope);
 
   /// Emits a landing pad to honor all the active cleanups and catches.
   llvm::BasicBlock *emitLandingPad();
@@ -396,7 +400,7 @@ private:
   std::vector<llvm::BasicBlock *> topLevelLandingPads;
 
   /// MSVC: stack of currently built catch/cleanup funclets
-  std::vector<llvm::Value *> funclets;
+  std::vector<llvm::Value*> funclets;
 };
 
 template <typename T>
@@ -420,7 +424,7 @@ llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
   if (doesNotThrow || (cleanupScopes.empty() && catchScopes.empty())) {
     llvm::CallInst *call = irs->ir->CreateCall(callee, args,
 #if LDC_LLVM_VER >= 308
-                                               BundleList,
+                                               BundleList, 
 #endif
                                                name);
     if (calleeFn) {
@@ -429,14 +433,14 @@ llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
     return call;
   }
 
-  llvm::BasicBlock *landingPad = getLandingPad();
+  llvm::BasicBlock* landingPad = getLandingPad();
 
   llvm::BasicBlock *postinvoke = llvm::BasicBlock::Create(
       irs->context(), "postinvoke", irs->topfunc(), landingPad);
   llvm::InvokeInst *invoke =
       irs->ir->CreateInvoke(callee, postinvoke, landingPad, args,
 #if LDC_LLVM_VER >= 308
-                            BundleList,
+                            BundleList, 
 #endif
                             name);
   if (calleeFn) {

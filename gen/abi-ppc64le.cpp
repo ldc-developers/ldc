@@ -69,7 +69,8 @@ struct PPC64LETargetABI : TargetABI {
           fty.ret->ltype = integerRewrite.type(fty.ret->type);
         } else {
           fty.ret->rewrite = &compositeToArray64;
-          fty.ret->ltype = compositeToArray64.type(fty.ret->type);
+          fty.ret->ltype =
+              compositeToArray64.type(fty.ret->type);
         }
       } else if (retTy->isintegral())
         fty.ret->attrs.add(retTy->isunsigned() ? LLAttribute::ZExt

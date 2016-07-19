@@ -35,8 +35,8 @@ void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
     M.addModuleFlag(llvm::Module::AppendUnique, "Linker Options",
                     llvm::MDNode::get(ctx, irs.LinkerMetadataArgs));
   } else {
-// Merge the Linker Options with the pre-existing one
-// (this can happen when passing a .bc file on the commandline)
+    // Merge the Linker Options with the pre-existing one
+    // (this can happen when passing a .bc file on the commandline)
 
 #if LDC_LLVM_VER < 306
     // Passing a bitcode file on the commandline is not supported for LLVM 3.5.

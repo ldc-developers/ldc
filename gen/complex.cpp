@@ -138,13 +138,17 @@ void DtoGetComplexParts(Loc &loc, Type *to, DValue *val, DValue *&re,
     DValue *v = DtoCastComplex(loc, val, to);
     if (to->iscomplex()) {
       if (v->isLVal()) {
-        LLValue *reVal = DtoGEPi(DtoLVal(v), 0, 0, ".re_part");
-        LLValue *imVal = DtoGEPi(DtoLVal(v), 0, 1, ".im_part");
+        LLValue *reVal =
+            DtoGEPi(DtoLVal(v), 0, 0, ".re_part");
+        LLValue *imVal =
+            DtoGEPi(DtoLVal(v), 0, 1, ".im_part");
         re = new DLValue(baserety, reVal);
         im = new DLValue(baseimty, imVal);
       } else {
-        LLValue *reVal = gIR->ir->CreateExtractValue(DtoRVal(v), 0, ".re_part");
-        LLValue *imVal = gIR->ir->CreateExtractValue(DtoRVal(v), 1, ".im_part");
+        LLValue *reVal =
+            gIR->ir->CreateExtractValue(DtoRVal(v), 0, ".re_part");
+        LLValue *imVal =
+            gIR->ir->CreateExtractValue(DtoRVal(v), 1, ".im_part");
         re = new DImValue(baserety, reVal);
         im = new DImValue(baseimty, imVal);
       }

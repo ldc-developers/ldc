@@ -55,15 +55,38 @@ static void buildRuntimeModule();
 static void checkForImplicitGCCall(const Loc &loc, const char *name) {
   if (nogc) {
     static const std::string GCNAMES[] = {
-        "_aaDelX", "_aaGetY", "_aaKeys", "_aaRehash", "_aaValues",
-        "_d_allocmemory", "_d_allocmemoryT", "_d_array_cast_len",
-        "_d_array_slice_copy", "_d_arrayappendT", "_d_arrayappendcTX",
-        "_d_arrayappendcd", "_d_arrayappendwd", "_d_arraycatT",
-        "_d_arraycatnTX", "_d_arraysetlengthT", "_d_arraysetlengthiT",
-        "_d_assocarrayliteralTX", "_d_callfinalizer", "_d_delarray_t",
-        "_d_delclass", "_d_delstruct", "_d_delinterface", "_d_delmemory",
-        "_d_newarrayT", "_d_newarrayiT", "_d_newarraymTX", "_d_newarraymiTX",
-        "_d_newarrayU", "_d_newclass", "_d_newitemT", "_d_newitemiT",
+        "_aaDelX",
+        "_aaGetY",
+        "_aaKeys",
+        "_aaRehash",
+        "_aaValues",
+        "_d_allocmemory",
+        "_d_allocmemoryT",
+        "_d_array_cast_len",
+        "_d_array_slice_copy",
+        "_d_arrayappendT",
+        "_d_arrayappendcTX",
+        "_d_arrayappendcd",
+        "_d_arrayappendwd",
+        "_d_arraycatT",
+        "_d_arraycatnTX",
+        "_d_arraysetlengthT",
+        "_d_arraysetlengthiT",
+        "_d_assocarrayliteralTX",
+        "_d_callfinalizer",
+        "_d_delarray_t",
+        "_d_delclass",
+        "_d_delstruct",
+        "_d_delinterface",
+        "_d_delmemory",
+        "_d_newarrayT",
+        "_d_newarrayiT",
+        "_d_newarraymTX",
+        "_d_newarraymiTX",
+        "_d_newarrayU",
+        "_d_newclass",
+        "_d_newitemT",
+        "_d_newitemiT",
     };
 
     if (binary_search(&GCNAMES[0],
@@ -649,10 +672,10 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
 
   // void invariant._d_invariant(Object o)
-  createFwdDecl(LINKd, voidTy,
-                {gABI->mangleFunctionForLLVM(
-                    "_D9invariant12_d_invariantFC6ObjectZv", LINKd)},
-                {objectTy});
+  createFwdDecl(
+      LINKd, voidTy,
+      {gABI->mangleFunctionForLLVM("_D9invariant12_d_invariantFC6ObjectZv", LINKd)},
+      {objectTy});
 
   // void _d_dso_registry(CompilerDSOData* data)
   llvm::StringRef fname("_d_dso_registry");
@@ -689,9 +712,9 @@ static void buildRuntimeModule() {
 
     // The types of these functions don't really matter because they are always
     // bitcast to correct signature before calling.
-    Type *objectPtrTy = voidPtrTy;
-    Type *selectorPtrTy = voidPtrTy;
-    Type *realTy = Type::tfloat80;
+    Type* objectPtrTy = voidPtrTy;
+    Type* selectorPtrTy = voidPtrTy;
+    Type* realTy = Type::tfloat80;
 
     // id objc_msgSend(id self, SEL op, ...)
     // Function called early and/or often, so lazy binding isn't worthwhile.
@@ -704,13 +727,13 @@ static void buildRuntimeModule() {
       // creal objc_msgSend_fp2ret(id self, SEL op, ...)
       createFwdDecl(LINKc, Type::tcomplex80, {"objc_msgSend_fp2ret"},
                     {objectPtrTy, selectorPtrTy});
-    // fall-thru
+      // fall-thru
     case llvm::Triple::x86:
       // x86_64 real return only,  x86 float, double, real return
       // real objc_msgSend_fpret(id self, SEL op, ...)
       createFwdDecl(LINKc, realTy, {"objc_msgSend_fpret"},
                     {objectPtrTy, selectorPtrTy});
-    // fall-thru
+      // fall-thru
     case llvm::Triple::arm:
     case llvm::Triple::thumb:
       // used when return value is aggregate via a hidden sret arg

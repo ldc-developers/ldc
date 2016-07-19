@@ -484,8 +484,7 @@ void DtoCreateNestedContext(FuncDeclaration *fd) {
         assert(parm->value->getType()->isPointerTy());
 
         if (vd->isRef() || vd->isOut()) {
-          Logger::println(
-              "Captured by reference, copying pointer to nested frame");
+          Logger::println("Captured by reference, copying pointer to nested frame");
           DtoAlignedStore(parm->value, gep);
         } else {
           Logger::println("Copying to nested frame");

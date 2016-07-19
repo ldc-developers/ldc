@@ -7,11 +7,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef __ldc__abi_cuda__
-#define __ldc__abi_cuda__
+#ifndef LDC_DCOMPUTE_ABI_H
+#define LDC_DCOMPUTE_ABI_H
 
 #include "gen/abi.h"
 
 TargetABI *createCudaABI();
 TargetABI *createOCLABI();
-#endif /* defined(__ldc__abi_cuda__) */
+#endif

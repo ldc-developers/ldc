@@ -215,7 +215,8 @@ static llvm::Function *build_module_function(
 #endif
     call->setCallingConv(gABI->callingConv(call->
 #if LDC_LLVM_VER < 307
-                                           getCalledFunction()->
+                                           getCalledFunction()
+                                               ->
 #endif
                                            getFunctionType(),
                                            LINKd));

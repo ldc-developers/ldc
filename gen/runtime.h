@@ -27,9 +27,9 @@ bool initRuntime();
 void freeRuntime();
 
 llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
-                                   const char *name);
+                                          const char *name);
 
-llvm::GlobalVariable *getRuntimeGlobal(const Loc &loc, llvm::Module &target,
-                                       const char *name);
+llvm::GlobalVariable *
+getRuntimeGlobal(const Loc &loc, llvm::Module &target, const char *name);
 
 #endif // LDC_GEN_RUNTIME_H

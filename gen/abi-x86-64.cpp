@@ -410,7 +410,8 @@ Type *X86_64TargetABI::vaListType() {
       ->pointerTo();
 }
 
-const char *X86_64TargetABI::objcMsgSendFunc(Type *ret, IrFuncTy &fty) {
+const char *X86_64TargetABI::objcMsgSendFunc(Type *ret,
+                                             IrFuncTy &fty) {
   // see objc/message.h for objc_msgSend selection rules
   if (fty.arg_sret) {
     return "objc_msgSend_stret";

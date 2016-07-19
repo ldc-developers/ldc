@@ -88,4 +88,6 @@ struct PPCTargetABI : TargetABI {
 };
 
 // The public getter for abi.cpp
-TargetABI *getPPCTargetABI(bool Is64Bit) { return new PPCTargetABI(Is64Bit); }
+TargetABI *getPPCTargetABI(bool Is64Bit) {
+  return new PPCTargetABI(Is64Bit);
+}

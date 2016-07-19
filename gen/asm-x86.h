@@ -561,11 +561,16 @@ typedef enum {
 } Alternate_Mnemonics;
 
 static const char *alternateMnemonics[N_AltMn] = {
-    ".byte 0xdb, 0xe1", ".byte 0xdb, 0xe0", ".byte 0xdb, 0xe4", "iretw", "iret",
+    ".byte 0xdb, 0xe1",
+    ".byte 0xdb, 0xe0",
+    ".byte 0xdb, 0xe4",
+    "iretw",
+    "iret",
 #ifdef ASM_X86_64
     "iretq",
 #endif
-    "lret", "cmpxchg8b",
+    "lret",
+    "cmpxchg8b",
 #ifdef ASM_X86_64
     "cmpxchg16b",
 #endif
@@ -2057,14 +2062,14 @@ struct AsmProcessor {
         }
         regInfo[i].gccName = std::string(buf, p - buf);
         if ((i <= Reg_ST || i > Reg_ST7) && i != Reg_EFLAGS) {
-          regInfo[i].ident = Identifier::idPool(regInfo[i].name.data(),
-                                                regInfo[i].name.size());
+          regInfo[i].ident =
+              Identifier::idPool(regInfo[i].name.data(), regInfo[i].name.size());
         }
       }
 
       for (int i = 0; i < N_PtrNames; i++) {
-        ptrTypeIdentTable[i] = Identifier::idPool(
-            ptrTypeNameTable[i], std::strlen(ptrTypeNameTable[i]));
+        ptrTypeIdentTable[i] = Identifier::idPool(ptrTypeNameTable[i],
+                                                  std::strlen(ptrTypeNameTable[i]));
       }
 
       Handled = createExpression(Loc(), TOKvoid, sizeof(Expression));

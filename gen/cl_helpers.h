@@ -143,27 +143,26 @@ public:
 #else
   void getExtraOptionNames(llvm::SmallVectorImpl<const char *> &Names) {
 #endif
-    for (auto I = switches.begin() + 1, E = switches.end();
-  I != E; ++I) {
+    for (auto I = switches.begin() + 1, E = switches.end(); I != E; ++I) {
       Names.push_back(I->first.data());
     }
-}
-
-private : static bool
-          parse(cl::Option &O, llvm::StringRef Arg, DataType &Val) {
-  if (Arg == "" || Arg == "true" || Arg == "TRUE" || Arg == "True" ||
-      Arg == "1") {
-    Val = FlagParserDataType<DataType>::true_val();
-    return false;
   }
 
-  if (Arg == "false" || Arg == "FALSE" || Arg == "False" || Arg == "0") {
-    Val = FlagParserDataType<DataType>::false_val();
-    return false;
+private:
+  static bool parse(cl::Option &O, llvm::StringRef Arg, DataType &Val) {
+    if (Arg == "" || Arg == "true" || Arg == "TRUE" || Arg == "True" ||
+        Arg == "1") {
+      Val = FlagParserDataType<DataType>::true_val();
+      return false;
+    }
+
+    if (Arg == "false" || Arg == "FALSE" || Arg == "False" || Arg == "0") {
+      Val = FlagParserDataType<DataType>::false_val();
+      return false;
+    }
+    return O.error("'" + Arg +
+                   "' is invalid value for boolean argument! Try 0 or 1");
   }
-  return O.error("'" + Arg +
-                 "' is invalid value for boolean argument! Try 0 or 1");
-}
 };
 
 /// Helper class for options that set multiple flags
