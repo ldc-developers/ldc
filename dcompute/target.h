@@ -17,7 +17,7 @@ namespace llvm {
 class Module;
 class Function;
 }
-#define MAX_NUM_TARGET_ADDRSPAECES 5
+#define MAX_NUM_TARGET_ADDRSPACES 5
 class Module;
 class FuncDeclaration;
 
@@ -31,7 +31,7 @@ public:
   DComputeTarget(llvm::LLVMContext &c, int v);
   char *binSuffix;
   void emit(Module *m);
-  int mapping[MAX_NUM_TARGET_ADDRSPAECES];
+  int mapping[MAX_NUM_TARGET_ADDRSPACES];
   void doCodeGen(Module *m);
   void writeModule();
   virtual void setGTargetMachine() =0;

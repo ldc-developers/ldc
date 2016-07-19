@@ -13,7 +13,7 @@
 #include "dcompute/target.h"
 #include <vector>
 
-// gets run on modules makred @compute
+// gets run on modules marked @compute
 // we do singleobj only
 class DComputeCodeGenManager {
 

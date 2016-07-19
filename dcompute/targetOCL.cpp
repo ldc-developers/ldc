@@ -46,7 +46,7 @@ public:
     target = 1;
     abi = createOCLABI();
     binSuffix = "spv";
-    int _mapping[MAX_NUM_TARGET_ADDRSPAECES] = {
+    int _mapping[MAX_NUM_TARGET_ADDRSPACES] = {
         0, 1, 2, 3, 4,
     };
     memcpy(mapping, _mapping, sizeof(_mapping));
