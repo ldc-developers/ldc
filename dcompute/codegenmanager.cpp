@@ -15,7 +15,7 @@
 #include <string>
 namespace cl = llvm::cl;
 static cl::list<std::string>
-    mDcomputeTargets("mdct", cl::CommaSeparated,
+    mDcomputeTargets("mdcompute-targets", cl::CommaSeparated,
                      cl::desc("DCompute targets to generate for:OpenCl "
                               "(ocl-xy0 for x.y) CUDA (cuda-xy0 for cc x.y)"),
                      cl::value_desc("ocl-210,cuda-350"));
