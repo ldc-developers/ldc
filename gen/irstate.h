@@ -44,7 +44,7 @@ extern IRState *gIR;
 extern llvm::TargetMachine *gTargetMachine;
 extern const llvm::DataLayout *gDataLayout;
 extern TargetABI *gABI;
-extern DComputeTarget* gDComputeTarget;
+extern DComputeTarget *gDComputeTarget;
 
 class TypeFunction;
 class TypeStruct;
@@ -111,7 +111,7 @@ struct IRState {
   IRState(const char *name, llvm::LLVMContext &context);
 
   llvm::Module module;
-  llvm::LLVMContext &context() const {return module.getContext(); }
+  llvm::LLVMContext &context() const { return module.getContext(); }
 
   Module *dmodule;
 

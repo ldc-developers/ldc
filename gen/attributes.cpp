@@ -60,7 +60,6 @@ AttrBuilder &AttrBuilder::addDereferenceable(unsigned size) {
   return *this;
 }
 
-
 AttrSet::AttrSet(const AttrSet &base, unsigned index, LLAttribute attribute)
     : set(base.set.addAttribute(gIR->context(), index, attribute)) {}
 

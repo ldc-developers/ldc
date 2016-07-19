@@ -929,7 +929,7 @@ public:
         // Emit handler, if there is one. The handler is zero, for instance,
         // when building 'catch { debug foo(); }' in non-debug mode.
         if ((*it)->handler) {
-            //In try catch blocks we shouldn't be in @compute code anyway
+          // In try catch blocks we shouldn't be in @compute code anyway
           Statement_toIR((*it)->handler, irs);
         }
 
@@ -994,7 +994,7 @@ public:
         // Emit handler, if there is one. The handler is zero, for instance,
         // when building 'catch { debug foo(); }' in non-debug mode.
         if ((*it)->handler) {
-          //In try catch blocks we shouldn't be in @compute code anyway
+          // In try catch blocks we shouldn't be in @compute code anyway
           Statement_toIR((*it)->handler, irs);
         }
 
@@ -1965,6 +1965,6 @@ public:
 //////////////////////////////////////////////////////////////////////////////
 
 void Statement_toIR(Statement *s, IRState *irs) {
-        ToIRVisitor v(irs);
-        s->accept(&v);
+  ToIRVisitor v(irs);
+  s->accept(&v);
 }

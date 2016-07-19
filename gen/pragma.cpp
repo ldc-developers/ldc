@@ -68,9 +68,12 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
       LDCPragma pragma;
     };
     static LdcIntrinsic ldcIntrinsic[] = {
-        {"bitop.bt", LLVMbitop_bt},   {"bitop.btc", LLVMbitop_btc},
-        {"bitop.btr", LLVMbitop_btr}, {"bitop.bts", LLVMbitop_bts},
-        {"bitop.vld", LLVMbitop_vld}, {"bitop.vst", LLVMbitop_vst},
+        {"bitop.bt", LLVMbitop_bt},
+        {"bitop.btc", LLVMbitop_btc},
+        {"bitop.btr", LLVMbitop_btr},
+        {"bitop.bts", LLVMbitop_bts},
+        {"bitop.vld", LLVMbitop_vld},
+        {"bitop.vst", LLVMbitop_vst},
     };
 
     static std::string prefix = "ldc.";

@@ -193,8 +193,7 @@ struct ExplicitByvalRewrite : ABIRewrite {
     const unsigned align = alignment(v->type);
 
     if (!DtoIsInMemoryOnly(v->type)) {
-      return DtoAllocaDump(DtoRVal(v), align,
-                           ".ExplicitByvalRewrite_dump");
+      return DtoAllocaDump(DtoRVal(v), align, ".ExplicitByvalRewrite_dump");
     }
 
     LLValue *originalPointer = DtoLVal(v);

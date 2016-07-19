@@ -31,7 +31,7 @@ template <class T> using ArrayParam = llvm::ArrayRef<T>;
 template <class T> using ArrayParam = std::vector<T>;
 #endif
 
-llvm::LLVMContext& getGlobalContext();
+llvm::LLVMContext &getGlobalContext();
 
 // dynamic memory helpers
 LLValue *DtoNew(Loc &loc, Type *newtype);

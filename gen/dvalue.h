@@ -172,7 +172,6 @@ public:
   DSpecialRefValue *isSpecialRef() override { return this; }
 };
 
-
 inline llvm::Value *DtoRVal(DValue *v) { return v->getRVal()->val; }
 llvm::Value *DtoLVal(DValue *v);
 

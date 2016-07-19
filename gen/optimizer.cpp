@@ -92,11 +92,11 @@ static cl::opt<cl::boolOrDefault, false, opts::FlagParser<cl::boolOrDefault>>
 
 static llvm::cl::opt<llvm::cl::boolOrDefault, false,
                      opts::FlagParser<llvm::cl::boolOrDefault>>
-enableCrossModuleInlining(
-    "cross-module-inlining",
-    llvm::cl::desc("Enable cross-module function inlining (default enabled "
-                   "with inlining) (LLVM >= 3.7)"),
-    llvm::cl::ZeroOrMore, llvm::cl::Hidden);
+    enableCrossModuleInlining(
+        "cross-module-inlining",
+        llvm::cl::desc("Enable cross-module function inlining (default enabled "
+                       "with inlining) (LLVM >= 3.7)"),
+        llvm::cl::ZeroOrMore, llvm::cl::Hidden);
 
 static cl::opt<bool> unitAtATime("unit-at-a-time", cl::desc("Enable basic IPO"),
                                  cl::init(true));
@@ -144,10 +144,10 @@ bool willCrossModuleInline() {
   return enableCrossModuleInlining == llvm::cl::BOU_TRUE ||
          (enableCrossModuleInlining == llvm::cl::BOU_UNSET && willInline());
 #else
-// Cross-module inlining is disabled for <3.7 because we don't emit symbols in
-// COMDAT any groups pre-LLVM3.7. With cross-module inlining enabled, without
-// COMDAT any there are multiple-def linker errors when linking druntime.
-// See supportsCOMDAT().
+  // Cross-module inlining is disabled for <3.7 because we don't emit symbols in
+  // COMDAT any groups pre-LLVM3.7. With cross-module inlining enabled, without
+  // COMDAT any there are multiple-def linker errors when linking druntime.
+  // See supportsCOMDAT().
   return false;
 #endif
 }
@@ -341,11 +341,11 @@ static void addOptimizationPasses(PassManagerBase &mpm,
 // This function runs optimization passes based on command line arguments.
 // Returns true if any optimization passes were invoked.
 bool ldc_optimize_module(llvm::Module *M) {
-// Create a PassManager to hold and optimize the collection of
-// per-module passes we are about to build.
-    //dont optimise spirv modules as turning GEPs into extracts causes crashes.
-    llvm::Triple::ArchType a = llvm::Triple(M->getTargetTriple()).getArch();
-    bool isSpirv = a == Triple::spir || a == Triple::spir64;
+  // Create a PassManager to hold and optimize the collection of
+  // per-module passes we are about to build.
+  // dont optimise spirv modules as turning GEPs into extracts causes crashes.
+  llvm::Triple::ArchType a = llvm::Triple(M->getTargetTriple()).getArch();
+  bool isSpirv = a == Triple::spir || a == Triple::spir64;
 #if LDC_LLVM_VER >= 307
   legacy::
 #endif
@@ -372,7 +372,7 @@ bool ldc_optimize_module(llvm::Module *M) {
 
   mpm.add(tli);
 #endif
-  
+
 // Add an appropriate DataLayout instance for this module.
 #if LDC_LLVM_VER >= 307
 // The DataLayout is already set at the module (in module.cpp,
@@ -387,17 +387,16 @@ bool ldc_optimize_module(llvm::Module *M) {
                                            "DataLayout not set at module");
                                     mpm.add(new DataLayoutPass(*DL));
 #endif
-    // Also set up a manager for the per-function passes.
+// Also set up a manager for the per-function passes.
 #if LDC_LLVM_VER >= 307
-    legacy::
+  legacy::
 #endif
-    FunctionPassManager fpm(M);
-    
-  if(isSpirv)
-  {
-      IF_LOG Logger::println("Adding dce pass to spirv");
-      fpm.add(createDeadCodeEliminationPass());
-      goto runPasses;
+      FunctionPassManager fpm(M);
+
+  if (isSpirv) {
+    IF_LOG Logger::println("Adding dce pass to spirv");
+    fpm.add(createDeadCodeEliminationPass());
+    goto runPasses;
   }
 #if LDC_LLVM_VER >= 307
   // Add internal analysis passes from the target machine.
@@ -407,7 +406,6 @@ bool ldc_optimize_module(llvm::Module *M) {
   // Add internal analysis passes from the target machine.
   gTargetMachine->addAnalysisPasses(mpm);
 #endif
-
 
 #if LDC_LLVM_VER >= 307
   // Add internal analysis passes from the target machine.
@@ -445,7 +443,7 @@ runPasses:
   }
 
   // Report that we run some passes.
-    
+
   return true;
 }
 

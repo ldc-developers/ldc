@@ -16,10 +16,11 @@
 // gets run on modules makred @compute
 // we do singleobj only
 class DComputeCodeGenManager {
-  
+
   struct target {
-    int platform; //0 - host, 1 - OpenCL, 2 - CUDA
-    int _version; //platform specific. OpenCL version we are pretending to be OR sm for CUDA
+    int platform; // 0 - host, 1 - OpenCL, 2 - CUDA
+    int _version; // platform specific. OpenCL version we are pretending to be
+                  // OR sm for CUDA
   };
   // targets from the command line. Hard coded for now. TODO: do this properly.
   // also SmallVector this
@@ -27,13 +28,13 @@ class DComputeCodeGenManager {
   llvm::LLVMContext &ctx;
   std::vector<DComputeTarget *> targets;
   DComputeTarget *createComputeTarget(const std::string &s);
+
 public:
   void emit(Module *m);
   void writeModules();
-    
+
   DComputeCodeGenManager(llvm::LLVMContext &c);
   ~DComputeCodeGenManager();
-    
 };
 
 #endif

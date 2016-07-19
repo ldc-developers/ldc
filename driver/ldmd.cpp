@@ -191,7 +191,7 @@ Usage:\n\
 #if 0
 "  -map           generate linker .map file\n"
 #endif
-"  -boundscheck=[on|safeonly|off]   bounds checks on, in @safe only, or off\n\
+      "  -boundscheck=[on|safeonly|off]   bounds checks on, in @safe only, or off\n\
   -noboundscheck no array bounds checking (deprecated, use -boundscheck=off)\n\
   -O             optimize\n\
   -o-            do not write object file\n\
@@ -201,7 +201,7 @@ Usage:\n\
 #if 0
 "  -profile       profile runtime performance of generated code\n"
 #endif
-"  -property      enforce property syntax (deprecated, no effect)\n\
+      "  -property      enforce property syntax (deprecated, no effect)\n\
   -quiet         suppress unnecessary messages\n\
   -release       compile release version\n\
   -run srcfile args...   run resulting program, passing args\n\
@@ -474,7 +474,8 @@ Params parseArgs(size_t originalArgc, char **originalArgv,
         result.useDIP25 = true;
       } else if (strcmp(p + 1, "shared") == 0
                  // backwards compatibility with old switch
-                 || strcmp(p + 1, "dylib") == 0) {
+                 ||
+                 strcmp(p + 1, "dylib") == 0) {
         result.emitSharedLib = true;
       } else if (strcmp(p + 1, "fPIC") == 0) {
         result.pic = true;

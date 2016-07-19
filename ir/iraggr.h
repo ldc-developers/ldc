@@ -107,7 +107,8 @@ protected:
   /// ClassInfo initializer constant.
   llvm::Constant *constClassInfo = nullptr;
 
-  using ClassGlobalMap = std::map<std::pair<ClassDeclaration *, size_t>, llvm::GlobalVariable *>;
+  using ClassGlobalMap =
+      std::map<std::pair<ClassDeclaration *, size_t>, llvm::GlobalVariable *>;
 
   /// Map from pairs of <interface vtbl,index> to global variable, implemented
   /// by this class. The same interface can appear multiple times, so index is

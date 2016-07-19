@@ -424,17 +424,18 @@ const llvm::Target *lookupTarget(const std::string &arch, llvm::Triple &triple,
   return target;
 }
 
-llvm::TargetMachine *createTargetMachine(
-    std::string targetTriple, std::string arch, std::string cpu,
-    std::vector<std::string> attrs, ExplicitBitness::Type bitness,
-    FloatABI::Type floatABI,
+llvm::TargetMachine *
+createTargetMachine(std::string targetTriple, std::string arch, std::string cpu,
+                    std::vector<std::string> attrs,
+                    ExplicitBitness::Type bitness, FloatABI::Type floatABI,
 #if LDC_LLVM_VER >= 309
-    llvm::Optional<llvm::Reloc::Model> relocModel,
+                    llvm::Optional<llvm::Reloc::Model> relocModel,
 #else
-    llvm::Reloc::Model relocModel,
+                    llvm::Reloc::Model relocModel,
 #endif
-    llvm::CodeModel::Model codeModel, llvm::CodeGenOpt::Level codeGenOptLevel,
-    bool noFramePointerElim, bool noLinkerStripDead) {
+                    llvm::CodeModel::Model codeModel,
+                    llvm::CodeGenOpt::Level codeGenOptLevel,
+                    bool noFramePointerElim, bool noLinkerStripDead) {
   // Determine target triple. If the user didn't explicitly specify one, use
   // the one set at LLVM configure time.
   llvm::Triple triple;
@@ -518,7 +519,7 @@ llvm::TargetMachine *createTargetMachine(
                     features.getString().c_str());
   }
 
-  // Handle cases where LLVM picks wrong default relocModel
+// Handle cases where LLVM picks wrong default relocModel
 #if LDC_LLVM_VER >= 309
   if (!relocModel.hasValue()) {
 #else

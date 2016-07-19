@@ -12,5 +12,5 @@
 class Visitor;
 class DComputeTarget;
 struct IRState;
-Visitor* createDCopmuteToIRVisitor(IRState *irs,DComputeTarget* t);
-#endif 
+Visitor *createDCopmuteToIRVisitor(IRState *irs, DComputeTarget *t);
+#endif

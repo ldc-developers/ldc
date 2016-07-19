@@ -297,13 +297,15 @@ bool hasWeakUDA(Dsymbol *sym) {
 
     auto name = sle->sd->ident->string;
     if (name == attr::weak) {
-        // Check whether @weak can be applied to this symbol.
-        // Because hasWeakUDA is currently only called for global symbols, this check never errors.
-        auto vd = sym->isVarDeclaration();
-        if (!(vd && vd->isDataseg()) && !sym->isFuncDeclaration()) {
-          sym->error("@ldc.attributes.weak can only be applied to functions or global variables");
-          return false;
-        }
+      // Check whether @weak can be applied to this symbol.
+      // Because hasWeakUDA is currently only called for global symbols, this
+      // check never errors.
+      auto vd = sym->isVarDeclaration();
+      if (!(vd && vd->isDataseg()) && !sym->isFuncDeclaration()) {
+        sym->error("@ldc.attributes.weak can only be applied to functions or "
+                   "global variables");
+        return false;
+      }
 
       return true;
     }
@@ -313,99 +315,99 @@ bool hasWeakUDA(Dsymbol *sym) {
 }
 
 bool isDComputeAttibutes(const ModuleDeclaration *moduleDecl) {
-    if (!moduleDecl)
-        return false;
-    
-    if (strcmp("attributes", moduleDecl->id->string)) {
-        return false;
-    }
-    
-    if (moduleDecl->packages->dim != 1 ||
-        strcmp("dcompute", (*moduleDecl->packages)[0]->string)) {
-        return false;
-    }
-    return true;
+  if (!moduleDecl)
+    return false;
+
+  if (strcmp("attributes", moduleDecl->id->string)) {
+    return false;
+  }
+
+  if (moduleDecl->packages->dim != 1 ||
+      strcmp("dcompute", (*moduleDecl->packages)[0]->string)) {
+    return false;
+  }
+  return true;
 }
 
 bool isFromDComputeAttibutes(const StructLiteralExp *e) {
-    auto moduleDecl = e->sd->getModule()->md;
-    return isDComputeAttibutes(moduleDecl);
+  auto moduleDecl = e->sd->getModule()->md;
+  return isDComputeAttibutes(moduleDecl);
 }
 StructLiteralExp *getDComputeAttributesStruct(Expression *attr) {
-    // See whether we can evaluate the attribute at compile-time. All the DCompute
-    // attributes are struct literals that may be constructed using a CTFE
-    // function.
-    unsigned prevErrors = global.startGagging();
-    auto e = ctfeInterpret(attr);
-    if (global.endGagging(prevErrors)) {
-        return nullptr;
-    }
-    
-    if (e->op != TOKstructliteral) {
-        return nullptr;
-    }
-    
-    auto sle = static_cast<StructLiteralExp *>(e);
-    
-    if (isFromDComputeAttibutes(sle)) {
-        return sle;
-    }
-    
+  // See whether we can evaluate the attribute at compile-time. All the DCompute
+  // attributes are struct literals that may be constructed using a CTFE
+  // function.
+  unsigned prevErrors = global.startGagging();
+  auto e = ctfeInterpret(attr);
+  if (global.endGagging(prevErrors)) {
     return nullptr;
+  }
+
+  if (e->op != TOKstructliteral) {
+    return nullptr;
+  }
+
+  auto sle = static_cast<StructLiteralExp *>(e);
+
+  if (isFromDComputeAttibutes(sle)) {
+    return sle;
+  }
+
+  return nullptr;
 }
 bool hasKernelAttr(FuncDeclaration *decl) {
-    
-    if (!decl->userAttribDecl) {
-        IF_LOG Logger::println("hasKernelAttr(%s) = no", decl->toPrettyChars());
-        return false;
-    }
-    IF_LOG Logger::println("hasKernelAttr(%s) = yes", decl->toPrettyChars());
-    LOG_SCOPE
 
-    Expressions *attrs = decl->userAttribDecl->getAttributes();
-
-    expandTuples(attrs);
-    for (auto &attr : *attrs) {
-        Logger::println("(%s)",attr->toChars());
-        auto sle = getDComputeAttributesStruct(attr);
-        if (!sle)
-            continue;
-
-        auto name = sle->sd->ident->string;
-        IF_LOG Logger::println("that are from dcompute.attributes name(%p)",name);
-        LOG_SCOPE
-        if (name == attr::kernel) {
-            
-            IF_LOG Logger::println("is an @kernel");
-            return true;
-        } else {
-            IF_LOG Logger::println("is NOT an @kernel");
-        }
-    }
-    
+  if (!decl->userAttribDecl) {
+    IF_LOG Logger::println("hasKernelAttr(%s) = no", decl->toPrettyChars());
     return false;
+  }
+  IF_LOG Logger::println("hasKernelAttr(%s) = yes", decl->toPrettyChars());
+  LOG_SCOPE
+
+  Expressions *attrs = decl->userAttribDecl->getAttributes();
+
+  expandTuples(attrs);
+  for (auto &attr : *attrs) {
+    Logger::println("(%s)", attr->toChars());
+    auto sle = getDComputeAttributesStruct(attr);
+    if (!sle)
+      continue;
+
+    auto name = sle->sd->ident->string;
+    IF_LOG Logger::println("that are from dcompute.attributes name(%p)", name);
+    LOG_SCOPE
+    if (name == attr::kernel) {
+
+      IF_LOG Logger::println("is an @kernel");
+      return true;
+    } else {
+      IF_LOG Logger::println("is NOT an @kernel");
+    }
+  }
+
+  return false;
 }
 
 bool hasComputeAttr(Module *decl) {
-    IF_LOG Logger::println("checking Module %s for @dcompute.attributes.compute", decl->toPrettyChars());
-    if (!decl->userAttribDecl) {
-        IF_LOG Logger::println("no attributes at all");
-        return false;
-    }
-    
-    Expressions *attrs = decl->userAttribDecl->getAttributes();
-    expandTuples(attrs);
-    for (auto &attr : *attrs) {
-        auto sle = getDComputeAttributesStruct(attr);
-        if (!sle)
-            continue;
-        auto name = sle->sd->ident->string;
-        if (name == attr::compute) {
-            IF_LOG Logger::println("yes");
-            return true;
-        }
-
-    }
-    IF_LOG Logger::println("no");
+  IF_LOG Logger::println("checking Module %s for @dcompute.attributes.compute",
+                         decl->toPrettyChars());
+  if (!decl->userAttribDecl) {
+    IF_LOG Logger::println("no attributes at all");
     return false;
+  }
+
+  Expressions *attrs = decl->userAttribDecl->getAttributes();
+  expandTuples(attrs);
+  for (auto &attr : *attrs) {
+    auto sle = getDComputeAttributesStruct(attr);
+    if (!sle)
+      continue;
+    auto name = sle->sd->ident->string;
+    if (name == attr::compute) {
+      IF_LOG Logger::println("yes");
+      return true;
+    }
+  }
+  IF_LOG Logger::println("no");
+  return false;
 }

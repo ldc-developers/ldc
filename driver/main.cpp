@@ -123,9 +123,7 @@ static inline llvm::Optional<llvm::Reloc::Model> getRelocModel() {
   return llvm::None;
 }
 #else
-static inline llvm::Reloc::Model getRelocModel() {
-  return mRelocModel;
-}
+static inline llvm::Reloc::Model getRelocModel() { return mRelocModel; }
 #endif
 
 void printVersion() {
@@ -184,36 +182,40 @@ static void processVersions(std::vector<std::string> &list, const char *type,
 
 // Helper function to handle -transition=*
 static void processTransitions(std::vector<std::string> &list) {
-    for (const auto &i : list) {
-        if (i == "?") {
-            printf("Language changes listed by -transition=id:\n");
-            printf("  = all           list information on all language changes\n");
-            printf("  = checkimports  give deprecation messages about 10378 anomalies\n");
-            printf("  = complex,14488 list all usages of complex or imaginary types\n");
-            printf("  = field,3449    list all non - mutable fields which occupy an object instance\n");
-            printf("  = import,10378  revert to single phase name lookup\n");
-            printf("  = tls           list all variables going into thread local storage\n");
-            exit(EXIT_SUCCESS);
-        } else if (i == "all") {
-            global.params.vtls = true;
-            global.params.vfield = true;
-            global.params.vcomplex = true;
-            global.params.bug10378 = true; // not set in DMD
-            global.params.check10378 = true; // not set in DMD
-        } else if (i == "checkimports") {
-            global.params.check10378 = true;
-        } else if (i == "complex" || i == "14488") {
-            global.params.vcomplex = true;
-        } else if (i == "field" || i == "3449") {
-            global.params.vfield = true;
-        } else if (i == "import" || i == "10378") {
-            global.params.bug10378 = true;
-        } else if (i == "tls") {
-            global.params.vtls = true;
-        } else {
-            error(Loc(), "Invalid transition %s", i.c_str());
-        }
+  for (const auto &i : list) {
+    if (i == "?") {
+      printf("Language changes listed by -transition=id:\n");
+      printf("  = all           list information on all language changes\n");
+      printf("  = checkimports  give deprecation messages about 10378 "
+             "anomalies\n");
+      printf(
+          "  = complex,14488 list all usages of complex or imaginary types\n");
+      printf("  = field,3449    list all non - mutable fields which occupy an "
+             "object instance\n");
+      printf("  = import,10378  revert to single phase name lookup\n");
+      printf("  = tls           list all variables going into thread local "
+             "storage\n");
+      exit(EXIT_SUCCESS);
+    } else if (i == "all") {
+      global.params.vtls = true;
+      global.params.vfield = true;
+      global.params.vcomplex = true;
+      global.params.bug10378 = true;   // not set in DMD
+      global.params.check10378 = true; // not set in DMD
+    } else if (i == "checkimports") {
+      global.params.check10378 = true;
+    } else if (i == "complex" || i == "14488") {
+      global.params.vcomplex = true;
+    } else if (i == "field" || i == "3449") {
+      global.params.vfield = true;
+    } else if (i == "import" || i == "10378") {
+      global.params.bug10378 = true;
+    } else if (i == "tls") {
+      global.params.vtls = true;
+    } else {
+      error(Loc(), "Invalid transition %s", i.c_str());
     }
+  }
 }
 
 // Helper function to handle -of, -od, etc.
@@ -299,13 +301,13 @@ static void hideLLVMOptions() {
   hide(map, "sample-profile-max-propagate-iterations");
   hide(map, "shrink-wrap");
   hide(map, "spiller");
-//spirv options - enable while in dev
-//hide(map, "spirv-debug");
-//hide(map, "spirv-erase-cl-md");
-//hide(map, "spirv-lower-const-expr");
-//hide(map, "spirv-mem2reg");
-//hide(map, "spirv-text");
-//hide(map, "spvbool-validate");
+  // spirv options - enable while in dev
+  // hide(map, "spirv-debug");
+  // hide(map, "spirv-erase-cl-md");
+  // hide(map, "spirv-lower-const-expr");
+  // hide(map, "spirv-mem2reg");
+  // hide(map, "spirv-text");
+  // hide(map, "spvbool-validate");
   hide(map, "stackmap-version");
   hide(map, "stats");
   hide(map, "strip-debug");
@@ -358,8 +360,8 @@ static llvm::Triple tryGetExplicitTriple(int argc, char **argv) {
   // most combinations of flags are illegal, this mimicks command line
   //  behaviour for legal ones only
   llvm::Triple triple(llvm::sys::getDefaultTargetTriple());
-  const char* mtriple = nullptr;
-  const char* march = nullptr;
+  const char *mtriple = nullptr;
+  const char *march = nullptr;
   for (int i = 1; i < argc; ++i) {
     if (sizeof(void *) != 4 && strcmp(argv[i], "-m32") == 0) {
       triple = triple.get32BitArchVariant();
@@ -374,10 +376,10 @@ static llvm::Triple tryGetExplicitTriple(int argc, char **argv) {
       march = argv[i] + 7;
   }
   if (mtriple)
-      triple = llvm::Triple(llvm::Triple::normalize(mtriple));
+    triple = llvm::Triple(llvm::Triple::normalize(mtriple));
   if (march) {
-      std::string errorMsg; // ignore error, will show up later anyway
-      lookupTarget(march, triple, errorMsg); // modifies triple
+    std::string errorMsg; // ignore error, will show up later anyway
+    lookupTarget(march, triple, errorMsg); // modifies triple
   }
   return triple;
 }
@@ -669,7 +671,7 @@ static void initializePasses() {
 #endif
   initializeTarget(Registry);
 
-  // Initialize passes not included above
+// Initialize passes not included above
 #if LDC_LLVM_VER < 306
   initializeDebugIRPass(Registry);
 #endif
@@ -1026,7 +1028,7 @@ static void emitJson(Modules &modules) {
     writeFile(Loc(), jsonfile);
   }
 }
-    
+
 int cppmain(int argc, char **argv) {
 #if LDC_LLVM_VER >= 309
   llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
@@ -1107,7 +1109,7 @@ int cppmain(int argc, char **argv) {
     global.params.isLP64 = gDataLayout->getPointerSizeInBits() == 64;
     global.params.is64bit = triple->isArch64Bit();
     global.params.hasObjectiveC = objc_isSupported(*triple);
-    // mscoff enables slightly different handling of interface functions 
+    // mscoff enables slightly different handling of interface functions
     // in the front end
     global.params.mscoff = triple->isKnownWindowsMSVCEnvironment();
   }
@@ -1197,14 +1199,15 @@ int cppmain(int argc, char **argv) {
         continue;
       }
 
-      // Detect LLVM bitcode files on commandline
+// Detect LLVM bitcode files on commandline
 #if LDC_POSIX
       if (strcmp(ext, global.bc_ext) == 0)
 #else
       if (Port::stricmp(ext, global.bc_ext) == 0)
 #endif
       {
-        global.params.bitcodeFiles->push(static_cast<const char *>(files.data[i]));
+        global.params.bitcodeFiles->push(
+            static_cast<const char *>(files.data[i]));
         continue;
       }
 
@@ -1394,7 +1397,7 @@ int cppmain(int argc, char **argv) {
   if (global.params.obj && !modules.empty()) {
     ldc::CodeGenerator cg(getGlobalContext(), singleObj);
     DComputeCodeGenManager dccg(getGlobalContext());
-    std::vector<Module*> compute_modules;
+    std::vector<Module *> compute_modules;
     // When inlining is enabled, we are calling semantic3 on function
     // declarations, which may _add_ members to the first module in the modules
     // array. These added functions must be codegenned, because these functions
@@ -1408,26 +1411,27 @@ int cppmain(int argc, char **argv) {
       if (global.params.verbose) {
         fprintf(global.stdmsg, "code      %s\n", m->toChars());
       }
-        bool atCompute = hasComputeAttr(m);
-        IF_LOG Logger::println("Module %s is%s @compute (%d)", m->toChars(), atCompute ? "" :" not", atCompute);
-        if (atCompute) {
-            compute_modules.push_back(m);
-        } else {
-            cg.emit(m);
-        }
+      bool atCompute = hasComputeAttr(m);
+      IF_LOG Logger::println("Module %s is%s @compute (%d)", m->toChars(),
+                             atCompute ? "" : " not", atCompute);
+      if (atCompute) {
+        compute_modules.push_back(m);
+      } else {
+        cg.emit(m);
+      }
       if (global.errors) {
         fatal();
       }
     }
-    IF_LOG Logger::println("number of Modules for computecodgenning %d", compute_modules.size());
+    IF_LOG Logger::println("number of Modules for computecodgenning %d",
+                           compute_modules.size());
     if (compute_modules.size()) {
-        for (int i = 0;i < compute_modules.size(); i++) {
+      for (int i = 0; i < compute_modules.size(); i++) {
 
-          dccg.emit(compute_modules[i]);
+        dccg.emit(compute_modules[i]);
       }
       dccg.writeModules();
     }
-    
   }
 
   // Generate DDoc output files.

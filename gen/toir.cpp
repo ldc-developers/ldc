@@ -521,8 +521,8 @@ public:
       ArrayLengthExp *ale = static_cast<ArrayLengthExp *>(e->e1);
       DLValue arrval(ale->e1->type, DtoLVal(ale->e1));
       DValue *newlen = toElem(e->e2);
-      DSliceValue *slice = DtoResizeDynArray(e->loc, arrval.type, &arrval,
-                                             DtoRVal(newlen));
+      DSliceValue *slice =
+          DtoResizeDynArray(e->loc, arrval.type, &arrval, DtoRVal(newlen));
       DtoAssign(e->loc, &arrval, slice);
       result = newlen;
       return;
@@ -998,9 +998,7 @@ public:
     return result;
   }
 
-  void visit(CallExp *e) override {
-    result = call(p, e);
-  }
+  void visit(CallExp *e) override { result = call(p, e); }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -1261,8 +1259,7 @@ public:
       }
       assert(funcval);
 
-      LLValue *vthis =
-          (DtoIsInMemoryOnly(l->type) ? DtoLVal(l) : DtoRVal(l));
+      LLValue *vthis = (DtoIsInMemoryOnly(l->type) ? DtoLVal(l) : DtoRVal(l));
       result = new DFuncValue(fdecl, funcval, vthis);
     } else {
       llvm_unreachable("Unknown target for VarDeclaration.");
@@ -1338,8 +1335,8 @@ public:
       if (p->emitArrayBoundsChecks() && !e->indexIsInBounds) {
         DtoIndexBoundsCheck(e->loc, l, r);
       }
-      arrptr = DtoGEP(DtoLVal(l), DtoConstUint(0), DtoRVal(r),
-                      e->indexIsInBounds);
+      arrptr =
+          DtoGEP(DtoLVal(l), DtoConstUint(0), DtoRVal(r), e->indexIsInBounds);
     } else if (e1type->ty == Tarray) {
       if (p->emitArrayBoundsChecks() && !e->indexIsInBounds) {
         DtoIndexBoundsCheck(e->loc, l, r);
@@ -1976,8 +1973,8 @@ public:
       Logger::println("calling class invariant");
       llvm::Function *fn = getRuntimeFunction(
           e->loc, gIR->module,
-          gABI->mangleFunctionForLLVM("_D9invariant12_d_invariantFC6ObjectZv", LINKd)
-              .c_str());
+          gABI->mangleFunctionForLLVM("_D9invariant12_d_invariantFC6ObjectZv",
+                                      LINKd).c_str());
       LLValue *arg =
           DtoBitCast(DtoRVal(cond), fn->getFunctionType()->getParamType(0));
       gIR->CreateCallOrInvoke(fn, arg);
@@ -1985,9 +1982,8 @@ public:
     // struct invariants
     else if (global.params.useInvariants && condty->ty == Tpointer &&
              condty->nextOf()->ty == Tstruct &&
-             (invdecl =
-                  static_cast<TypeStruct *>(condty->nextOf())->sym->inv) !=
-                 nullptr) {
+             (invdecl = static_cast<TypeStruct *>(condty->nextOf())
+                            ->sym->inv) != nullptr) {
       Logger::print("calling struct invariant");
       DtoResolveFunction(invdecl);
       DFuncValue invfunc(invdecl, getIrFunc(invdecl)->func, DtoRVal(cond));
@@ -2661,9 +2657,7 @@ public:
     return new DLValue(e->type, dstMem);
   }
 
-  void visit(StructLiteralExp *e) override {
-    result = emitStructLiteral(e);
-  }
+  void visit(StructLiteralExp *e) override { result = emitStructLiteral(e); }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -2815,8 +2809,7 @@ public:
       LLValue *valuesArray = DtoAggrPaint(slice, funcTy->getParamType(2));
 
       LLValue *aa = gIR->CreateCallOrInvoke(func, aaTypeInfo, keysArray,
-                                            valuesArray, "aa")
-                        .getInstruction();
+                                            valuesArray, "aa").getInstruction();
       if (basetype->ty != Taarray) {
         LLValue *tmp = DtoAlloca(e->type, "aaliteral");
         DtoStore(aa, DtoGEPi(tmp, 0, 0));
@@ -2886,8 +2879,8 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    result = new DImValue(
-        e->type, DtoRVal(DtoCast(e->loc, toElem(e->e1), Type::tbool)));
+    result = new DImValue(e->type,
+                          DtoRVal(DtoCast(e->loc, toElem(e->e1), Type::tbool)));
   }
 
   //////////////////////////////////////////////////////////////////////////////

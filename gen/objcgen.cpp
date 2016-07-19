@@ -18,11 +18,7 @@ namespace {
 // Were any Objective-C symbols generated?
 bool hasSymbols;
 
-enum ABI {
-  none = 0,
-  fragile = 1,
-  nonFragile = 2
-};
+enum ABI { none = 0, fragile = 1, nonFragile = 2 };
 
 ABI abi = nonFragile;
 
@@ -40,7 +36,7 @@ void initSymbols() {
 }
 
 void retain(LLConstant *sym) {
-    retainedSymbols.push_back(DtoBitCast(sym, getVoidPtrType()));
+  retainedSymbols.push_back(DtoBitCast(sym, getVoidPtrType()));
 }
 
 void retainSymbols() {
@@ -48,21 +44,19 @@ void retainSymbols() {
   // remove.  Should do just once per module.
   auto arrayType = LLArrayType::get(getVoidPtrType(), retainedSymbols.size());
   auto usedArray = LLConstantArray::get(arrayType, retainedSymbols);
-  auto var = new LLGlobalVariable
-    (gIR->module, usedArray->getType(), false,
-     LLGlobalValue::AppendingLinkage,
-     usedArray,
-     "llvm.compiler.used");
+  auto var = new LLGlobalVariable(gIR->module, usedArray->getType(), false,
+                                  LLGlobalValue::AppendingLinkage, usedArray,
+                                  "llvm.compiler.used");
   var->setSection("llvm.metadata");
 }
 
 void genImageInfo() {
   // Use LLVM to generate image info
-  const char *section = (abi == nonFragile ?
-                         "__DATA,__objc_imageinfo,regular,no_dead_strip" :
-                         "__OBJC,__image_info");
-  gIR->module.addModuleFlag(llvm::Module::Error,
-                            "Objective-C Version", abi); //  unused?
+  const char *section =
+      (abi == nonFragile ? "__DATA,__objc_imageinfo,regular,no_dead_strip"
+                         : "__OBJC,__image_info");
+  gIR->module.addModuleFlag(llvm::Module::Error, "Objective-C Version",
+                            abi); //  unused?
   gIR->module.addModuleFlag(llvm::Module::Error,
                             "Objective-C Image Info Version", 0u); // version
   gIR->module.addModuleFlag(llvm::Module::Error,
@@ -72,15 +66,13 @@ void genImageInfo() {
                             "Objective-C Garbage Collection", 0u); // flags
 }
 
-LLGlobalVariable *getCStringVar(const char *symbol,
-                                const llvm::StringRef &str,
+LLGlobalVariable *getCStringVar(const char *symbol, const llvm::StringRef &str,
                                 const char *section) {
   auto init = llvm::ConstantDataArray::getString(gIR->context(), str);
-  auto var = new LLGlobalVariable
-    (gIR->module, init->getType(), false,
-     LLGlobalValue::PrivateLinkage, init, symbol);
-    var->setSection(section);
-    return var;
+  auto var = new LLGlobalVariable(gIR->module, init->getType(), false,
+                                  LLGlobalValue::PrivateLinkage, init, symbol);
+  var->setSection(section);
+  return var;
 }
 
 LLGlobalVariable *getMethVarName(const llvm::StringRef &name) {
@@ -90,9 +82,9 @@ LLGlobalVariable *getMethVarName(const llvm::StringRef &name) {
   }
 
   auto var = getCStringVar("OBJC_METH_VAR_NAME_", name,
-                           abi == nonFragile ?
-                           "__TEXT,__objc_methname,cstring_literals" :
-                           "__TEXT,__cstring,cstring_literals");
+                           abi == nonFragile
+                               ? "__TEXT,__objc_methname,cstring_literals"
+                               : "__TEXT,__cstring,cstring_literals");
   methVarNameMap[name] = var;
   retain(var);
   return var;
@@ -106,13 +98,13 @@ bool objc_isSupported(const llvm::Triple &triple) {
 #if LDC_LLVM_VER == 305
     case llvm::Triple::arm64:
 #endif
-    case llvm::Triple::aarch64:              // arm64 iOS, tvOS
-    case llvm::Triple::arm:                  // armv6 iOS
-    case llvm::Triple::thumb:                // thumbv7 iOS, watchOS
-    case llvm::Triple::x86_64:               // OSX, iOS, tvOS sim
+    case llvm::Triple::aarch64: // arm64 iOS, tvOS
+    case llvm::Triple::arm:     // armv6 iOS
+    case llvm::Triple::thumb:   // thumbv7 iOS, watchOS
+    case llvm::Triple::x86_64:  // OSX, iOS, tvOS sim
       abi = nonFragile;
       return true;
-    case llvm::Triple::x86:                  // OSX, iOS, watchOS sim
+    case llvm::Triple::x86: // OSX, iOS, watchOS sim
       abi = fragile;
       return true;
     default:
@@ -135,17 +127,16 @@ LLGlobalVariable *objc_getMethVarRef(const ObjcSelector &sel) {
   }
 
   auto gvar = getMethVarName(s);
-  auto selref = new LLGlobalVariable
-    (gIR->module, gvar->getType(),
-     false,                            // prevent const elimination optimization
-     LLGlobalValue::PrivateLinkage,
-     gvar,
-     "OBJC_SELECTOR_REFERENCES_",
-     nullptr, LLGlobalVariable::NotThreadLocal, 0,
-     true);                                  // externally initialized
-  selref->setSection(abi == nonFragile ?
-                     "__DATA,__objc_selrefs,literal_pointers,no_dead_strip" :
-                     "__OBJC,__message_refs,literal_pointers,no_dead_strip");
+  auto selref = new LLGlobalVariable(
+      gIR->module, gvar->getType(),
+      false, // prevent const elimination optimization
+      LLGlobalValue::PrivateLinkage, gvar, "OBJC_SELECTOR_REFERENCES_", nullptr,
+      LLGlobalVariable::NotThreadLocal, 0,
+      true); // externally initialized
+  selref->setSection(
+      abi == nonFragile
+          ? "__DATA,__objc_selrefs,literal_pointers,no_dead_strip"
+          : "__OBJC,__message_refs,literal_pointers,no_dead_strip");
 
   // Save for later lookup and prevent optimizer elimination
   methVarRefMap[s] = selref;

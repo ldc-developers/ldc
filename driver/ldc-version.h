@@ -16,7 +16,6 @@ extern const char *const ldc_version;
 extern const char *const dmd_version;
 extern const char *const llvm_version;
 extern const char *const built_with_Dcompiler_version;
-
 }
 
 #endif

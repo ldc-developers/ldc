@@ -164,10 +164,10 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
   // object files
   for (unsigned i = 0; i < global.params.objfiles->dim; i++) {
     const char *p = static_cast<const char *>(global.params.objfiles->data[i]);
-      std::string s(p);
-      if (endsWith(s,".spv")|| endsWith(s, ".ptx")) {
-          continue;
-      }
+    std::string s(p);
+    if (endsWith(s, ".spv") || endsWith(s, ".ptx")) {
+      continue;
+    }
     args.push_back(s);
   }
 
@@ -441,8 +441,8 @@ int executeAndWait(const char *commandLine) {
 #endif
   // according to MSDN, only CreateProcessW (unicode) may modify the passed
   // command line
-  if (!CreateProcess(NULL, cmdline, NULL, NULL, TRUE, 0,
-                     NULL, NULL, &si, &pi)) {
+  if (!CreateProcess(NULL, cmdline, NULL, NULL, TRUE, 0, NULL, NULL, &si,
+                     &pi)) {
     exitCode = -1;
   } else {
     if (WaitForSingleObject(pi.hProcess, INFINITE) != 0 ||

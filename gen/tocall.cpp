@@ -285,7 +285,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     }
     DLValue *dest = toElem((*e->arguments)[0])->isLVal(); // va_list
     assert(dest);
-    DValue *src = toElem((*e->arguments)[1]);             // va_list
+    DValue *src = toElem((*e->arguments)[1]); // va_list
     gABI->vaCopy(dest, src);
     result = nullptr;
     return true;
@@ -507,8 +507,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     int op = 0;
     for (;; ++op) {
       if (ops[op] == nullptr) {
-        e->error("unknown atomic_rmw operation %s",
-                 fndecl->intrinsicName);
+        e->error("unknown atomic_rmw operation %s", fndecl->intrinsicName);
         fatal();
       }
       if (strcmp(fndecl->intrinsicName, ops[op]) == 0) {
@@ -547,7 +546,8 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     assert(bitmask == 31 || bitmask == 63);
     // auto q = cast(size_t*)ptr + (bitnum >> (64bit ? 6 : 5));
     LLValue *q = DtoBitCast(ptr, DtoSize_t()->getPointerTo());
-    q = DtoGEP1(q, p->ir->CreateLShr(bitnum, bitmask == 63 ? 6 : 5), true, "bitop.q");
+    q = DtoGEP1(q, p->ir->CreateLShr(bitnum, bitmask == 63 ? 6 : 5), true,
+                "bitop.q");
 
     // auto mask = 1 << (bitnum & bitmask);
     LLValue *mask =
@@ -759,7 +759,7 @@ private:
 
     if (irFty.arg_objcSelector && dfnval) {
       if (auto sel = dfnval->func->objc.selector) {
-        LLGlobalVariable* selptr = objc_getMethVarRef(*sel);
+        LLGlobalVariable *selptr = objc_getMethVarRef(*sel);
         args.push_back(DtoBitCast(DtoLoad(selptr), getVoidPtrType()));
         hasObjcSelector = true;
       }
@@ -893,7 +893,8 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
                                                                         : 0);
   LLValue *retllval =
       (irFty.arg_sret ? args[sretArgIndex] : call.getInstruction());
-  bool retValIsLVal = (tf->isref && returnTy != Tvoid) || (irFty.arg_sret != nullptr);
+  bool retValIsLVal =
+      (tf->isref && returnTy != Tvoid) || (irFty.arg_sret != nullptr);
 
   if (!retValIsLVal) {
     // let the ABI transform the return value back

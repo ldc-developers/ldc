@@ -57,7 +57,7 @@ void IrTypeClass::addClassData(AggrTypeBuilder &builder,
 
       // add to the interface map
       addInterfaceToMap(b->sym, builder.currentFieldIndex());
-      Type* first = b->sym->isCPPinterface() ? nullptr : interfacePtrType;
+      Type *first = b->sym->isCPPinterface() ? nullptr : interfacePtrType;
       const auto ivtblType =
           llvm::StructType::get(gIR->context(), buildVtblType(first, &arr));
       builder.addType(llvm::PointerType::get(ivtblType, 0), Target::ptrsize);
@@ -127,7 +127,7 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
     assert(fd);
     vtbl.push(fd);
   }
-  Type* first = cd->isCPPclass() ? nullptr : Type::typeinfoclass->type;
+  Type *first = cd->isCPPclass() ? nullptr : Type::typeinfoclass->type;
   t->vtbl_type->setBody(t->buildVtblType(first, &vtbl));
 
   IF_LOG Logger::cout() << "class type: " << *t->type << std::endl;

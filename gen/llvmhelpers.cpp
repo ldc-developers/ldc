@@ -74,7 +74,7 @@ bool isTargetWindowsMSVC() {
 ******************************************************************************/
 static llvm::ManagedStatic<llvm::LLVMContext> GlobalContext;
 
-llvm::LLVMContext& getGlobalContext() { return *GlobalContext; }
+llvm::LLVMContext &getGlobalContext() { return *GlobalContext; }
 
 /******************************************************************************
  * DYNAMIC MEMORY HELPERS
@@ -523,8 +523,7 @@ DValue *DtoCastFloat(Loc &loc, DValue *val, Type *to) {
     } else if (fromsz < tosz) {
       rval = new llvm::FPExtInst(DtoRVal(val), tolltype, "", gIR->scopebb());
     } else if (fromsz > tosz) {
-      rval =
-          new llvm::FPTruncInst(DtoRVal(val), tolltype, "", gIR->scopebb());
+      rval = new llvm::FPTruncInst(DtoRVal(val), tolltype, "", gIR->scopebb());
     } else {
       error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
             to->toChars());
@@ -550,8 +549,8 @@ DValue *DtoCastDelegate(Loc &loc, DValue *val, Type *to) {
     return DtoPaintType(loc, val, to);
   }
   if (to->toBasetype()->ty == Tbool) {
-    return new DImValue(
-        to, DtoDelegateEquals(TOKnotequal, DtoRVal(val), nullptr));
+    return new DImValue(to,
+                        DtoDelegateEquals(TOKnotequal, DtoRVal(val), nullptr));
   }
   error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
         to->toChars());
@@ -1765,7 +1764,7 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   if (ad->isStructDeclaration()) {
     st = getPtrToType(st);
   }
-    
+
   src = DtoBitCast(src, st);
 
   // Look up field to index and any offset to apply.

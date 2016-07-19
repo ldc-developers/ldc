@@ -34,7 +34,7 @@ struct AArch64TargetABI : TargetABI {
       return rt->ty == Tsarray || rt->ty == Tstruct;
 
     return rt->ty == Tsarray ||
-      (rt->ty == Tstruct && rt->size() > 16 && !isHFA((TypeStruct *)rt));
+           (rt->ty == Tstruct && rt->size() > 16 && !isHFA((TypeStruct *)rt));
   }
 
   bool passByVal(Type *t) override {
@@ -51,8 +51,7 @@ struct AArch64TargetABI : TargetABI {
       if (isHFA((TypeStruct *)retTy, &fty.ret->ltype)) {
         fty.ret->rewrite = &hfaToArray;
         fty.ret->ltype = hfaToArray.type(fty.ret->type);
-      }
-      else {
+      } else {
         fty.ret->rewrite = &integerRewrite;
         fty.ret->ltype = integerRewrite.type(fty.ret->type);
       }
@@ -76,8 +75,7 @@ struct AArch64TargetABI : TargetABI {
       if (ty->ty == Tstruct && isHFA((TypeStruct *)ty, &arg.ltype)) {
         arg.rewrite = &hfaToArray;
         arg.ltype = hfaToArray.type(arg.type);
-      }
-      else {
+      } else {
         arg.rewrite = &compositeToArray64;
         arg.ltype = compositeToArray64.type(arg.type);
       }
@@ -150,7 +148,8 @@ struct AArch64TargetABI : TargetABI {
     // is actually available in the scope (this is what DMD does, so if a better
     // solution is found there, this should be adapted).
     static const llvm::StringRef ident = "__va_list";
-    return (createTypeIdentifier(Loc(), Identifier::idPool(ident.data(), ident.size())));
+    return (createTypeIdentifier(
+        Loc(), Identifier::idPool(ident.data(), ident.size())));
   }
 
   const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty) override {

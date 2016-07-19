@@ -647,7 +647,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
 
   // Create subroutine type
   ldc::DISubroutineType DIFnType =
-    CreateFunctionType(static_cast<TypeFunction *>(fd->type));
+      CreateFunctionType(static_cast<TypeFunction *>(fd->type));
 
   // FIXME: duplicates?
   return DBuilder.createFunction(
@@ -683,8 +683,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitThunk(llvm::Function *Thunk,
   LOG_SCOPE;
 
   ldc::DICompileUnit CU(GetCU());
-  assert(CU &&
-         "Compilation unit missing or corrupted in DIBuilder::EmitThunk");
+  assert(CU && "Compilation unit missing or corrupted in DIBuilder::EmitThunk");
 
   ldc::DIFile file(CreateFile(fd->loc));
 

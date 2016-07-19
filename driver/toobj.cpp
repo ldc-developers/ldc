@@ -68,38 +68,29 @@ static void codegenModule(llvm::TargetMachine *Target, llvm::Module &m,
 #if LDC_LLVM_VER >= 307
   legacy::
 #endif
-    PassManager Passes;
-    llvm::Triple::ArchType a = llvm::Triple(m.getTargetTriple()).getArch();
-    bool isSpirv = a == Triple::spir || a == Triple::spir64;
-    bool isNvptx = a == Triple::nvptx || a == Triple::nvptx64;
-    switch (a) {
-        case Triple::nvptx:
-        {
-            char buf[8];
-            snprintf(buf, sizeof(buf),"sm_%d",gDComputeTarget->tversion/10);
-            Target = createTargetMachine("nvptx-nvidia-cuda", "nvptx", buf,
-                                         {}, ExplicitBitness::M32,
-                                         ::FloatABI::Hard,
-                                         llvm::Reloc::Static,
-                                         llvm::CodeModel::Medium , codeGenOptLevel(),
-                                         false, false);
-        }
-            break;
-            
-        case Triple::nvptx64:
-        {
-            char buf[8];
-            snprintf(buf, sizeof(buf),"sm_%d",gDComputeTarget->tversion/10);
-            Target = createTargetMachine("nvptx64-nvidia-cuda", "nvptx64", buf,
-                                         {}, ExplicitBitness::M64,
-                                         ::FloatABI::Hard,
-                                         llvm::Reloc::Static,
-                                         llvm::CodeModel::Medium , codeGenOptLevel(),
-                                         false, false);
-        }
-            break;
-            
-    }
+      PassManager Passes;
+  llvm::Triple::ArchType a = llvm::Triple(m.getTargetTriple()).getArch();
+  bool isSpirv = a == Triple::spir || a == Triple::spir64;
+  bool isNvptx = a == Triple::nvptx || a == Triple::nvptx64;
+  switch (a) {
+  case Triple::nvptx: {
+    char buf[8];
+    snprintf(buf, sizeof(buf), "sm_%d", gDComputeTarget->tversion / 10);
+    Target = createTargetMachine("nvptx-nvidia-cuda", "nvptx", buf, {},
+                                 ExplicitBitness::M32, ::FloatABI::Hard,
+                                 llvm::Reloc::Static, llvm::CodeModel::Medium,
+                                 codeGenOptLevel(), false, false);
+  } break;
+
+  case Triple::nvptx64: {
+    char buf[8];
+    snprintf(buf, sizeof(buf), "sm_%d", gDComputeTarget->tversion / 10);
+    Target = createTargetMachine("nvptx64-nvidia-cuda", "nvptx64", buf, {},
+                                 ExplicitBitness::M64, ::FloatABI::Hard,
+                                 llvm::Reloc::Static, llvm::CodeModel::Medium,
+                                 codeGenOptLevel(), false, false);
+  } break;
+  }
 #if LDC_LLVM_VER >= 307
 // The DataLayout is already set at the module (in module.cpp,
 // method Module::genLLVMModule())
@@ -119,9 +110,9 @@ static void codegenModule(llvm::TargetMachine *Target, llvm::Module &m,
   Passes.add(
       createTargetTransformInfoWrapperPass(Target->getTargetIRAnalysis()));
 #else
-    if (!isSpirv) {
-        Target->addAnalysisPasses(Passes);
-    }
+  if (!isSpirv) {
+    Target->addAnalysisPasses(Passes);
+  }
 #endif
 
 #if LDC_LLVM_VER < 307
@@ -129,23 +120,26 @@ static void codegenModule(llvm::TargetMachine *Target, llvm::Module &m,
 #endif
 #ifdef LDC_WITH_DCOMPUTE_SPIRV
   if (isSpirv) {
-      IF_LOG Logger::println("adding createSPIRVWriterPass()");
-      llvm::createSPIRVWriterPass(fout)->runOnModule(m);
-      return;
+    IF_LOG Logger::println("adding createSPIRVWriterPass()");
+    llvm::createSPIRVWriterPass(fout)->runOnModule(m);
+    return;
   }
 #endif
-    if (!isSpirv && Target->addPassesToEmitFile(Passes,
+  if (!isSpirv &&
+      Target->addPassesToEmitFile(
+          Passes,
 #if LDC_LLVM_VER >= 307
-                                 out,
+          out,
 #else
-                                 fout,
+          fout,
 #endif
-                                //Always generate assembly for ptx. for some reason it doesn't like binary.
-                                isNvptx ? llvm::TargetMachine::CGFT_AssemblyFile : fileType, codeGenOptLevel())) {
+          // Always generate assembly for ptx. for some reason it doesn't like
+          // binary.
+          isNvptx ? llvm::TargetMachine::CGFT_AssemblyFile : fileType,
+          codeGenOptLevel())) {
     llvm_unreachable("no support for asm output");
   }
-  
-    
+
   Passes.run(m);
 }
 
@@ -438,7 +432,6 @@ void writeModule(llvm::Module *m, std::string filename) {
   // run optimizer
   ldc_optimize_module(m);
 
-    
   // eventually do our own path stuff, dmd's is a bit strange.
   using LLPath = llvm::SmallString<128>;
 

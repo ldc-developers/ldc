@@ -188,8 +188,10 @@ static cl::opt<bool, true> unittest("unittest",
                                     cl::location(global.params.useUnitTests));
 
 cl::opt<std::string>
-    ir2objCacheDir("ir2obj-cache", cl::desc("Use <cache dir> to cache object files for whole IR modules (experimental)"),
-            cl::value_desc("cache dir"), cl::Prefix);
+    ir2objCacheDir("ir2obj-cache",
+                   cl::desc("Use <cache dir> to cache object files for whole "
+                            "IR modules (experimental)"),
+                   cl::value_desc("cache dir"), cl::Prefix);
 
 static StringsAdapter strImpPathStore("J", global.params.fileImppath);
 static cl::list<std::string, StringsAdapter>
@@ -241,7 +243,8 @@ cl::list<std::string> versions(
 
 cl::list<std::string> transitions(
     "transition",
-    cl::desc("help with language change identified by <idents>, use ? for list"),
+    cl::desc(
+        "help with language change identified by <idents>, use ? for list"),
     cl::value_desc("idents"), cl::CommaSeparated);
 
 static StringsAdapter linkSwitchStore("L", global.params.linkswitches);

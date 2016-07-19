@@ -28,6 +28,6 @@ void cloneBlocks(const std::vector<llvm::BasicBlock *> &srcblocks,
                  llvm::BasicBlock *continueWith, llvm::BasicBlock *unwindTo,
                  llvm::Value *funclet);
 
-bool isCatchSwitchBlock(llvm::BasicBlock* bb);
+bool isCatchSwitchBlock(llvm::BasicBlock *bb);
 
 #endif // LDC_GEN_MS_CXX_HELPER_H

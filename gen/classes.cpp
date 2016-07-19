@@ -96,8 +96,7 @@ DValue *DtoNewClass(Loc &loc, TypeClass *tc, NewExp *newexp) {
   }
   // default allocator
   else {
-    llvm::Function *fn =
-        getRuntimeFunction(loc, gIR->module, "_d_newclass");
+    llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_newclass");
     LLConstant *ci = DtoBitCast(getIrAggr(tc->sym)->getClassInfoSymbol(),
                                 DtoType(Type::typeinfoclass->type));
     mem =
@@ -184,8 +183,7 @@ void DtoInitClass(TypeClass *tc, LLValue *dst) {
 
 void DtoFinalizeClass(Loc &loc, LLValue *inst) {
   // get runtime function
-  llvm::Function *fn =
-      getRuntimeFunction(loc, gIR->module, "_d_callfinalizer");
+  llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_callfinalizer");
 
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(inst, fn->getFunctionType()->getParamType(0)), "");
@@ -251,7 +249,8 @@ DValue *DtoCastClass(Loc &loc, DValue *val, Type *_to) {
   int offset = 0;
   if (tc->sym->isBaseOf(fc->sym, &offset)) {
     Logger::println("static down cast");
-    // interface types don't cover the full object in case of multiple inheritence
+    // interface types don't cover the full object in case of multiple
+    // inheritence
     //  so GEP on the original type is inappropriate
 
     // offset pointer
