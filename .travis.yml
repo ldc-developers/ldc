@@ -76,14 +76,17 @@ script:
   # Build Phobos & druntime unittest modules.
   -
     if [ "${TEST_CONFIG}" = "Debug" ]; then
-      MAKEOPTS=-j2 ctest --verbose -R "build-phobos2-ldc-unittest-debug";
-      MAKEOPTS=-j3 ctest --verbose -R "build-druntime-ldc-unittest-debug";
+      make -j2 phobos2-ldc-unittest-debug;
+      make -j3 druntime-ldc-unittest-debug;
     elif [ "${TEST_CONFIG}" = "Release" ]; then
-      MAKEOPTS=-j2 ctest --verbose -R "build-phobos2-ldc-unittest" -E "-debug";
-      MAKEOPTS=-j3 ctest --verbose -R "build-druntime-ldc-unittest" -E "-debug";
+      make -j2 phobos2-ldc-unittest;
+      make -j3 druntime-ldc-unittest;
+    elif [ "${OPTS}" = "-DMULTILIB=ON" ]; then
+      make -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest phobos2-ldc-unittest-debug-32 phobos2-ldc-unittest-32;
+      make -j3 druntime-ldc-unittest-debug druntime-ldc-unittest druntime-ldc-unittest-debug-32 druntime-ldc-unittest-32;
     else
-      MAKEOPTS=-j2 ctest --verbose -R "build-phobos2-ldc-unittest";
-      MAKEOPTS=-j3 ctest --verbose -R "build-druntime-ldc-unittest";
+      make -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest;
+      make -j3 druntime-ldc-unittest-debug druntime-ldc-unittest;
     fi
   # Run dmd-testsuite.
   -
@@ -99,14 +102,11 @@ script:
   # Link and run Phobos & druntime unittest runners.
   -
     if [ "${TEST_CONFIG}" = "Debug" ]; then
-      MAKEOPTS=-j3 ctest --verbose -R "-test-runner-debug";
-      ctest -j4 --output-on-failure -R "-debug" -E "testsuite";
+      ctest -j4 --output-on-failure -R "-debug" -E "dmd-testsuite|lit-tests";
     elif [ "${TEST_CONFIG}" = "Release" ]; then
-      MAKEOPTS=-j3 ctest --verbose -R "-test-runner" -E "-debug";
-      ctest -j4 --output-on-failure -E "(-debug|testsuite)";
+      ctest -j4 --output-on-failure -E "-debug|dmd-testsuite|lit-tests";
     else
-      MAKEOPTS=-j3 ctest --verbose -R "-test-runner";
-      ctest -j4 --output-on-failure -E "testsuite";
+      ctest -j4 --output-on-failure -E "dmd-testsuite|lit-tests";
     fi
 
 after_success:
