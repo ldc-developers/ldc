@@ -83,7 +83,7 @@ void DtoEnterMonitor(Loc &loc, LLValue *v);
 void DtoLeaveMonitor(Loc &loc, LLValue *v);
 
 // basic operations
-void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op = -1,
+void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
                bool canSkipPostblit = false);
 
 DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl);

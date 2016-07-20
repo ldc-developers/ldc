@@ -106,7 +106,7 @@ void DtoSetArrayToNull(LLValue *v) {
 ////////////////////////////////////////////////////////////////////////////////
 
 static void DtoArrayInit(Loc &loc, LLValue *ptr, LLValue *length,
-                         DValue *dvalue, int op) {
+                         DValue *dvalue) {
   IF_LOG Logger::println("DtoArrayInit");
   LOG_SCOPE;
 
@@ -165,7 +165,7 @@ static void DtoArrayInit(Loc &loc, LLValue *ptr, LLValue *length,
   // assign array element value
   DLValue arrayelem(dvalue->type->toBasetype(),
                     DtoGEP1(ptr, itr_val, true, "arrayinit.arrayelem"));
-  DtoAssign(loc, &arrayelem, dvalue, op);
+  DtoAssign(loc, &arrayelem, dvalue, TOKblit);
 
   // increment iterator
   DtoStore(gIR->ir->CreateAdd(itr_val, DtoConstSize_t(1), "arrayinit.new_itr"),
@@ -261,10 +261,8 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
     LLValue *rhsPtr = DtoBitCast(realRhsArrayPtr, getVoidPtrType());
     LLValue *rhsLength = DtoArrayLen(rhs);
 
-    if (t2->ty == Tarray)
-      canSkipPostblit = false;
-    const bool needsPostblit =
-        (op != TOKblit && !canSkipPostblit && arrayNeedsPostblit(t));
+    const bool needsPostblit = (op != TOKblit && arrayNeedsPostblit(t) &&
+                                (!canSkipPostblit || t2->ty == Tarray));
 
     if (!needsDestruction && !needsPostblit) {
       // fast version
@@ -298,12 +296,12 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
       call.setCallingConv(llvm::CallingConv::C);
     }
   } else {
-    const bool needsPostblit =
-        (op != TOKblit && !canSkipPostblit && arrayNeedsPostblit(t));
-
     // scalar rhs:
     // T[]  = T     T[n][]  = T
     // T[n] = T     T[n][m] = T
+    const bool needsPostblit =
+        (op != TOKblit && !canSkipPostblit && arrayNeedsPostblit(t));
+
     if (!needsDestruction && !needsPostblit) {
       // fast version
       LLValue *elemSize = DtoConstSize_t(
@@ -313,7 +311,7 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
       LLValue *rhsSize = DtoConstSize_t(getTypeAllocSize(rhsType));
       LLValue *actualPtr = DtoBitCast(lhsPtr, rhsType->getPointerTo());
       LLValue *actualLength = gIR->ir->CreateExactUDiv(lhsSize, rhsSize);
-      DtoArrayInit(loc, actualPtr, actualLength, rhs, op);
+      DtoArrayInit(loc, actualPtr, actualLength, rhs);
     } else {
       LLFunction *fn = getRuntimeFunction(loc, gIR->module,
                                           isConstructing ? "_d_arraysetctor"
@@ -590,7 +588,7 @@ void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale, LLValue *dstMem) {
 
       // try to construct it in-place
       if (!toInPlaceConstruction(&lhs, rhsExp))
-        DtoAssign(ale->loc, &lhs, toElem(rhsExp), TOKconstruct, true);
+        DtoAssign(ale->loc, &lhs, toElem(rhsExp), TOKblit);
     }
   }
 }
