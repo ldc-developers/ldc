@@ -83,9 +83,9 @@ static void codegenModule(llvm::TargetMachine *Target, llvm::Module &m,
     llvm::createSPIRVWriterPass(fout)->runOnModule(m);
 #else
     IF_LOG Logger::println("Trying to target SPIRV, but LDC is not built to do so!");
+#endif
     return;
   }
-#endif
 #if LDC_LLVM_VER >= 307
 // The DataLayout is already set at the module (in module.cpp,
 // method Module::genLLVMModule())
