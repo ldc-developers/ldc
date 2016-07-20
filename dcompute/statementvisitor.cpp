@@ -38,52 +38,6 @@
 // dependencies.
 #include "hdrgen.h"
 
-// used to build the sorted list of cases
-struct Case {
-  StringExp *str;
-  size_t index;
-
-  Case(StringExp *s, size_t i) {
-    str = s;
-    index = i;
-  }
-
-  friend bool operator<(const Case &l, const Case &r) {
-    return l.str->compare(r.str) < 0;
-  }
-};
-
-static LLValue *call_string_switch_runtime(llvm::Value *table, Expression *e) {
-  Type *dt = e->type->toBasetype();
-  Type *dtnext = dt->nextOf()->toBasetype();
-  TY ty = dtnext->ty;
-  const char *fname;
-  if (ty == Tchar) {
-    fname = "_d_switch_string";
-  } else if (ty == Twchar) {
-    fname = "_d_switch_ustring";
-  } else if (ty == Tdchar) {
-    fname = "_d_switch_dstring";
-  } else {
-    llvm_unreachable("not char/wchar/dchar");
-  }
-
-  llvm::Function *fn = getRuntimeFunction(e->loc, gIR->module, fname);
-
-  IF_LOG {
-    Logger::cout() << *table->getType() << '\n';
-    Logger::cout() << *fn->getFunctionType()->getParamType(0) << '\n';
-  }
-  assert(table->getType() == fn->getFunctionType()->getParamType(0));
-
-  DValue *val = toElemDtor(e);
-  LLValue *llval = DtoRVal(val);
-  assert(llval->getType() == fn->getFunctionType()->getParamType(1));
-
-  LLCallSite call = gIR->CreateCallOrInvoke(fn, table, llval);
-
-  return call.getInstruction();
-}
 
 class DCopmuteToIRVisitor : public Visitor {
   IRState *irs;
@@ -749,61 +703,16 @@ public:
 
     irs->scope() = IRScope(oldbb);
     if (useSwitchInst) {
-      // string switch?
-      llvm::Value *switchTable = nullptr;
-      std::vector<Case> caseArray;
-      if (!stmt->condition->type->isintegral()) {
-        Logger::println("is string switch");
-        // build array of the stringexpS
-        caseArray.reserve(stmt->cases->dim);
-        for (unsigned i = 0; i < stmt->cases->dim; ++i) {
-          CaseStatement *cs =
-              static_cast<CaseStatement *>(stmt->cases->data[i]);
-
-          assert(cs->exp->op == TOKstring);
-          caseArray.emplace_back(static_cast<StringExp *>(cs->exp), i);
-        }
-        // first sort it
-        std::sort(caseArray.begin(), caseArray.end());
-        // iterate and add indices to cases
-        std::vector<llvm::Constant *> inits(caseArray.size(), nullptr);
-        for (size_t i = 0, e = caseArray.size(); i < e; ++i) {
-          Case &c = caseArray[i];
-          CaseStatement *cs =
-              static_cast<CaseStatement *>(stmt->cases->data[c.index]);
-          cs->llvmIdx = DtoConstUint(i);
-          inits[i] = toConstElem(c.str, irs);
-        }
-        // build static array for ptr or final array
-        llvm::Type *elemTy = DtoType(stmt->condition->type);
-        LLArrayType *arrTy = llvm::ArrayType::get(elemTy, inits.size());
-        LLConstant *arrInit = LLConstantArray::get(arrTy, inits);
-        auto arr = new llvm::GlobalVariable(
-            irs->module, arrTy, true, llvm::GlobalValue::InternalLinkage,
-            arrInit, ".string_switch_table_data");
-
-        LLType *elemPtrTy = getPtrToType(elemTy);
-        LLConstant *arrPtr = llvm::ConstantExpr::getBitCast(arr, elemPtrTy);
-
-        // build the static table
-        LLType *types[] = {DtoSize_t(), elemPtrTy};
-        LLStructType *sTy = llvm::StructType::get(irs->context(), types, false);
-        LLConstant *sinits[] = {DtoConstSize_t(inits.size()), arrPtr};
-        switchTable = llvm::ConstantStruct::get(
-            sTy, llvm::ArrayRef<LLConstant *>(sinits));
-      }
+      // no string switchs in @compute code
+      if (!stmt->condition->type->isintegral())
+          stmt->error("string switches not allowed in @compute code");
 
       // condition var
       LLValue *condVal;
       // integral switch
-      if (stmt->condition->type->isintegral()) {
-        DValue *cond = toElemDtor(stmt->condition);
-        condVal = DtoRVal(cond);
-      }
-      // string switch
-      else {
-        condVal = call_string_switch_runtime(switchTable, stmt->condition);
-      }
+
+      DValue *cond = toElemDtor(stmt->condition);
+      condVal = DtoRVal(cond);
 
       // Create switch and add the cases.
       // For PGO instrumentation, we need to add counters /before/ the case
