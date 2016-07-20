@@ -73,11 +73,13 @@ DConstValue::DConstValue(Type *t, LLConstant *con) : DRValue(t, con) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DSliceValue::DSliceValue(Type *t, LLValue *length, LLValue *ptr)
-    : DRValue(t, DtoAggrPair(length, ptr)) {
-  assert(t->toBasetype()->ty == Tarray &&
-         ptr->getType() == DtoPtrToType(t->toBasetype()->nextOf()));
+DSliceValue::DSliceValue(Type *t, LLValue *pair) : DRValue(t, pair) {
+  assert(t->toBasetype()->ty == Tarray);
+  assert(pair->getType() == DtoType(t));
 }
+
+DSliceValue::DSliceValue(Type *t, LLValue *length, LLValue *ptr)
+    : DSliceValue(t, DtoAggrPair(length, ptr)) {}
 
 LLValue *DSliceValue::getLength() { return DtoExtractValue(val, 0, ".len"); }
 

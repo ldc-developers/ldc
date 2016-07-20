@@ -29,32 +29,22 @@ static void DtoSetArray(DValue *array, LLValue *dim, LLValue *ptr);
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static LLValue *DtoSlice(Expression *e) {
+namespace {
+LLValue *DtoSlice(LLValue *ptr, LLValue *length, LLType *elemType = nullptr) {
+  if (!elemType)
+    elemType = ptr->getType()->getContainedType(0);
+  elemType = i1ToI8(voidToI8(elemType));
+  return DtoAggrPair(length, DtoBitCast(ptr, elemType->getPointerTo()));
+}
+
+LLValue *DtoSlice(Expression *e) {
   DValue *dval = toElem(e);
   if (dval->type->toBasetype()->ty == Tsarray) {
     // Convert static array to slice
-    LLStructType *type = DtoArrayType(LLType::getInt8Ty(gIR->context()));
-    LLValue *array = DtoRawAlloca(type, 0, ".array");
-    DtoStore(DtoArrayLen(dval), DtoGEPi(array, 0, 0, ".len"));
-    DtoStore(DtoBitCast(DtoLVal(dval), getVoidPtrType()),
-             DtoGEPi(array, 0, 1, ".ptr"));
-    return DtoLoad(array);
+    return DtoSlice(DtoLVal(dval), DtoArrayLen(dval));
   }
   return DtoRVal(dval);
 }
-
-static LLValue *DtoSlice(LLValue *ptr, LLValue *length,
-                         LLType *elemType = nullptr) {
-  if (elemType == nullptr) {
-    elemType = ptr->getType()->getContainedType(0);
-  }
-  elemType = i1ToI8(voidToI8(elemType));
-
-  LLStructType *type = DtoArrayType(elemType);
-  LLValue *array = DtoRawAlloca(type, 0, ".array");
-  DtoStore(length, DtoGEPi(array, 0, 0));
-  DtoStore(DtoBitCast(ptr, elemType->getPointerTo()), DtoGEPi(array, 0, 1));
-  return DtoLoad(array);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -613,17 +603,15 @@ LLConstant *DtoConstSlice(LLConstant *dim, LLConstant *ptr, Type *type) {
 ////////////////////////////////////////////////////////////////////////////////
 
 static DSliceValue *getSlice(Type *arrayType, LLValue *array) {
-  // Get ptr and length of the array
-  LLValue *arrayLen = DtoExtractValue(array, 0, ".len");
-  LLValue *newptr = DtoExtractValue(array, 1, ".ptr");
+  LLType *llArrayType = DtoType(arrayType);
+  if (array->getType() == llArrayType)
+    return new DSliceValue(arrayType, array);
 
-  // cast pointer to wanted type
-  LLType *dstType = DtoType(arrayType)->getContainedType(1);
-  if (newptr->getType() != dstType) {
-    newptr = DtoBitCast(newptr, dstType, ".gc_mem");
-  }
+  LLValue *len = DtoExtractValue(array, 0, ".len");
+  LLValue *ptr = DtoExtractValue(array, 1, ".ptr");
+  ptr = DtoBitCast(ptr, llArrayType->getContainedType(1));
 
-  return new DSliceValue(arrayType, arrayLen, newptr);
+  return new DSliceValue(arrayType, len, ptr);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
