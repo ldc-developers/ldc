@@ -52,12 +52,8 @@ IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
   }
   IF_LOG Logger::println("gDComputeTarget = %p , isFromDCompute_Types = %d sd->ident->string = %s",gDComputeTarget,isFromDCompute_Types(sd),sd->ident->string);
   if (gDComputeTarget != nullptr && isFromDCompute_Types(sd) && !strcmp(sd->ident->string,"Pointer")) {
-      IF_LOG Logger::println("GOT HERE");
       TemplateInstance *ti = sd->isInstantiated();
-      IF_LOG Logger::println("ti = %p",ti);
-
       Type *T =isType((*ti->tiargs)[1]);
-      IF_LOG Logger::println("T = %p",T);
       int addrspace = isExpression((*ti->tiargs)[0])->toInteger();
       llvm::SmallVector<llvm::Type *, 1> x; x.push_back(DtoMemType(T)->getPointerTo(addrspace));
       isaStruct(t->type)->setBody(x,t->packed);

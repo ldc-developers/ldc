@@ -205,23 +205,7 @@ LLType *DtoType(Type *t) {
 LLType *DtoMemType(Type *t) { return i1ToI8(voidToI8(DtoType(t))); }
 
 LLPointerType *DtoPtrToType(Type *t) {
-  int addrspace = 0;
-  IF_LOG {
-    Logger::println("gDcomputeTarget = %p", gDComputeTarget);
-    if (t->ty == Tstruct) {
-      StructDeclaration *sd = ((TypeStruct *)t)->sym;
-      Logger::println("isFromDCompute_Types = %d sd->ident->string = %s",
-                      isFromDCompute_Types(sd), sd->ident->string);
-    }
-  }
-  if (gDComputeTarget != nullptr && t->ty == Tstruct &&
-      isFromDCompute_Types(((TypeStruct *)t)->sym) &&
-      !strcmp(((TypeStruct *)t)->sym->ident->string, "Pointer")) {
-    TemplateInstance *ti = ((TypeStruct *)t)->sym->isInstantiated();
-    addrspace = isExpression((*ti->tiargs)[0])->toInteger();
-  }
-  IF_LOG Logger::println("DtoPtrToType: addrspace = %d", addrspace);
-  return DtoMemType(t)->getPointerTo(addrspace);
+  return DtoMemType(t)->getPointerTo();
 }
 
 LLType *voidToI8(LLType *t) {
@@ -559,12 +543,13 @@ void DtoAlignedStore(LLValue *src, LLValue *dst) {
 LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name) {
   // Dont generate an invalid bitcast from say float addrspace(1)** to float**
   LLType *tv = v->getType();
-  if (tv->isPointerTy()) {
+  int indirections = 0;
+  while (tv->isPointerTy()) {
+    indirections++;
     tv = tv->getPointerElementType();
-    if (tv->isPointerTy()) {
-      tv = tv->getPointerElementType()->getPointerTo(0);
-    }
-    tv = tv->getPointerTo(0);
+  }
+  while (indirections-- != 0) {
+      tv = tv->getPointerTo(0);
   }
   if (tv == t) {
     return v;
