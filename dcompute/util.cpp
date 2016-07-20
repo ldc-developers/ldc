@@ -23,14 +23,10 @@ bool isFromDCompute_Types(Dsymbol *sym) {
   auto moduleDecl = mod->md;
   if (!moduleDecl)
     return false;
-  IF_LOG Logger::println("moduleDecl = %p", moduleDecl);
   if (!moduleDecl->packages)
     return false;
   if (moduleDecl->packages->dim != 2)
     return false;
-
-  IF_LOG Logger::println("moduleDecl.packages.dim = %d",
-                         moduleDecl->packages->dim);
   if (strcmp("dcompute", (*moduleDecl->packages)[0]->string))
     return false;
   if (strcmp("types", (*moduleDecl->packages)[1]->string))

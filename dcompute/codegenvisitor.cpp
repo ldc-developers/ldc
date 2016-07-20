@@ -254,26 +254,16 @@ public:
   void visit(FuncDeclaration *decl) LLVM_OVERRIDE {
     // don't touch function aliases, they don't contribute any new symbols
     if (!decl->isFuncAliasDeclaration()) {
-      // Part I of a hack to replace things in dcompute.types with their correct
-      // types
-      // we emit their definition to the module directly
-
-      // Part II is in statementvisitor.cpp where the returned value is altered
-      // to be the correct type
-
       DtoDefineFunction(decl);
+      auto fn = irs->module.getFunction(decl->mangleString);
       if (hasKernelAttr(decl)) {
-        auto fn = irs->module.getFunction(decl->mangleString);
-        IF_LOG Logger::println("Fn = %p", fn);
         dct.handleKernelFunc(decl, fn);
       } else
-        dct.handleNonKernelFunc(decl,
-                                irs->module.getFunction(decl->mangleString));
+        dct.handleNonKernelFunc(decl,fn);
     }
   }
 
   void visit(TemplateInstance *decl) LLVM_OVERRIDE {
-    // TODO: resolve struct Pointer(uint n, T) instances to addrspace(n) T*
     IF_LOG Logger::println("TemplateInstance::codegen: '%s'",
                            decl->toPrettyChars());
     LOG_SCOPE
@@ -346,7 +336,7 @@ public:
 
   void visit(PragmaDeclaration *decl) LLVM_OVERRIDE {
     if (decl->ident == Id::lib)
-      decl->error("pragma(lib, \"...\" not allowed in @compute code");
+      decl->error("pragma(lib, \"...\" not currently allowed in @compute code");
     visit(static_cast<AttribDeclaration *>(decl));
   }
 
