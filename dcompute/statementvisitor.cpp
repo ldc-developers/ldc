@@ -230,10 +230,8 @@ public:
     if (stmt->match) {
       DtoRawVarDeclaration(stmt->match);
     }
-    IF_LOG Logger::println("stmt->condition->op = %d", stmt->condition->op);
     if (stmt->condition->op == TOKcall) {
       auto ce = (CallExp *)stmt->condition;
-      IF_LOG Logger::println("stmt->condition is a Callexp");
       if (!strcmp(ce->f->ident->string, "__dcompute_reflect")) {
         auto arg1 = (*ce->arguments)[0]->toInteger();
         auto arg2 = (*ce->arguments)[1]->toInteger();
