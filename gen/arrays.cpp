@@ -29,32 +29,22 @@ static void DtoSetArray(DValue *array, LLValue *dim, LLValue *ptr);
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static LLValue *DtoSlice(Expression *e) {
+namespace {
+LLValue *DtoSlice(LLValue *ptr, LLValue *length, LLType *elemType = nullptr) {
+  if (!elemType)
+    elemType = ptr->getType()->getContainedType(0);
+  elemType = i1ToI8(voidToI8(elemType));
+  return DtoAggrPair(length, DtoBitCast(ptr, elemType->getPointerTo()));
+}
+
+LLValue *DtoSlice(Expression *e) {
   DValue *dval = toElem(e);
   if (dval->type->toBasetype()->ty == Tsarray) {
     // Convert static array to slice
-    LLStructType *type = DtoArrayType(LLType::getInt8Ty(gIR->context()));
-    LLValue *array = DtoRawAlloca(type, 0, ".array");
-    DtoStore(DtoArrayLen(dval), DtoGEPi(array, 0, 0, ".len"));
-    DtoStore(DtoBitCast(DtoLVal(dval), getVoidPtrType()),
-             DtoGEPi(array, 0, 1, ".ptr"));
-    return DtoLoad(array);
+    return DtoSlice(DtoLVal(dval), DtoArrayLen(dval));
   }
   return DtoRVal(dval);
 }
-
-static LLValue *DtoSlice(LLValue *ptr, LLValue *length,
-                         LLType *elemType = nullptr) {
-  if (elemType == nullptr) {
-    elemType = ptr->getType()->getContainedType(0);
-  }
-  elemType = i1ToI8(voidToI8(elemType));
-
-  LLStructType *type = DtoArrayType(elemType);
-  LLValue *array = DtoRawAlloca(type, 0, ".array");
-  DtoStore(length, DtoGEPi(array, 0, 0));
-  DtoStore(DtoBitCast(ptr, elemType->getPointerTo()), DtoGEPi(array, 0, 1));
-  return DtoLoad(array);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -173,10 +163,9 @@ static void DtoArrayInit(Loc &loc, LLValue *ptr, LLValue *length,
 
   LLValue *itr_val = DtoLoad(itr);
   // assign array element value
-  DValue *arrayelem =
-      new DLValue(dvalue->type->toBasetype(),
+  DLValue arrayelem(dvalue->type->toBasetype(),
                     DtoGEP1(ptr, itr_val, true, "arrayinit.arrayelem"));
-  DtoAssign(loc, arrayelem, dvalue, op);
+  DtoAssign(loc, &arrayelem, dvalue, op);
 
   // increment iterator
   DtoStore(gIR->ir->CreateAdd(itr_val, DtoConstSize_t(1), "arrayinit.new_itr"),
@@ -562,9 +551,8 @@ void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale, LLValue *dstMem) {
 
   // Don't try to write nothing to a zero-element array, we might represent it
   // as a null pointer.
-  if (elemCount == 0) {
+  if (elemCount == 0)
     return;
-  }
 
   if (isConstLiteral(ale)) {
     llvm::Constant *constarr = arrayLiteralToConst(p, ale);
@@ -590,11 +578,14 @@ void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale, LLValue *dstMem) {
   } else {
     // Store the elements one by one.
     for (size_t i = 0; i < elemCount; ++i) {
-      DValue *rhs = toElem(indexArrayLiteral(ale, i));
+      Expression *rhsExp = indexArrayLiteral(ale, i);
 
       LLValue *lhsPtr = DtoGEPi(dstMem, 0, i, "", p->scopebb());
-      DLValue lhs(rhs->type, DtoBitCast(lhsPtr, DtoPtrToType(rhs->type)));
-      DtoAssign(ale->loc, &lhs, rhs, TOKconstruct, true);
+      DLValue lhs(rhsExp->type, DtoBitCast(lhsPtr, DtoPtrToType(rhsExp->type)));
+
+      // try to construct it in-place
+      if (!toInPlaceConstruction(&lhs, rhsExp))
+        DtoAssign(ale->loc, &lhs, toElem(rhsExp), TOKconstruct, true);
     }
   }
 }
@@ -612,17 +603,15 @@ LLConstant *DtoConstSlice(LLConstant *dim, LLConstant *ptr, Type *type) {
 ////////////////////////////////////////////////////////////////////////////////
 
 static DSliceValue *getSlice(Type *arrayType, LLValue *array) {
-  // Get ptr and length of the array
-  LLValue *arrayLen = DtoExtractValue(array, 0, ".len");
-  LLValue *newptr = DtoExtractValue(array, 1, ".ptr");
+  LLType *llArrayType = DtoType(arrayType);
+  if (array->getType() == llArrayType)
+    return new DSliceValue(arrayType, array);
 
-  // cast pointer to wanted type
-  LLType *dstType = DtoType(arrayType)->getContainedType(1);
-  if (newptr->getType() != dstType) {
-    newptr = DtoBitCast(newptr, dstType, ".gc_mem");
-  }
+  LLValue *len = DtoExtractValue(array, 0, ".len");
+  LLValue *ptr = DtoExtractValue(array, 1, ".ptr");
+  ptr = DtoBitCast(ptr, llArrayType->getContainedType(1));
 
-  return new DSliceValue(arrayType, arrayLen, newptr);
+  return new DSliceValue(arrayType, len, ptr);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -744,12 +733,12 @@ DSliceValue *DtoResizeDynArray(Loc &loc, Type *arrayType, DValue *array,
       getRuntimeFunction(loc, gIR->module, zeroInit ? "_d_arraysetlengthT"
                                                     : "_d_arraysetlengthiT");
 
-  LLValue *newArray = gIR->CreateCallOrInvoke(
-                             fn, DtoTypeInfoOf(arrayType), newdim,
-                             DtoBitCast(DtoLVal(array),
-                                        fn->getFunctionType()->getParamType(2)),
-                             ".gc_mem")
-                          .getInstruction();
+  LLValue *newArray =
+      gIR->CreateCallOrInvoke(
+             fn, DtoTypeInfoOf(arrayType), newdim,
+             DtoBitCast(DtoLVal(array), fn->getFunctionType()->getParamType(2)),
+             ".gc_mem")
+          .getInstruction();
 
   return getSlice(arrayType, newArray);
 }
@@ -773,16 +762,16 @@ void DtoCatAssignElement(Loc &loc, Type *arrayType, DValue *array,
   LLValue *appendedArray =
       gIR->CreateCallOrInvoke(
              fn, DtoTypeInfoOf(arrayType),
-             DtoBitCast(DtoLVal(array),
-                        fn->getFunctionType()->getParamType(1)),
+             DtoBitCast(DtoLVal(array), fn->getFunctionType()->getParamType(1)),
              DtoConstSize_t(1), ".appendedArray")
           .getInstruction();
   appendedArray = DtoAggrPaint(appendedArray, DtoType(arrayType));
 
-  LLValue *val = DtoArrayPtr(array);
-  val = DtoGEP1(val, oldLength, true, ".lastElem");
-  DtoAssign(loc, new DLValue(arrayType->nextOf(), val), expVal, TOKblit);
-  callPostblit(loc, exp, val);
+  LLValue *ptr = DtoArrayPtr(array);
+  ptr = DtoGEP1(ptr, oldLength, true, ".lastElem");
+  DLValue lastElem(arrayType->nextOf(), ptr);
+  DtoAssign(loc, &lastElem, expVal, TOKblit);
+  callPostblit(loc, exp, ptr);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

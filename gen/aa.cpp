@@ -32,7 +32,8 @@ static LLValue *to_keyti(DValue *aa) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key, bool lvalue) {
+DLValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key,
+                    bool lvalue) {
   // D2:
   // call:
   // extern(C) void* _aaGetY(AA* aa, TypeInfo aati, size_t valuesize, void*
@@ -41,8 +42,8 @@ DValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key, bool lvalue) {
   // extern(C) void* _aaInX(AA aa*, TypeInfo keyti, void* pkey)
 
   // first get the runtime function
-  llvm::Function *func = getRuntimeFunction(
-      loc, gIR->module, lvalue ? "_aaGetY" : "_aaInX");
+  llvm::Function *func =
+      getRuntimeFunction(loc, gIR->module, lvalue ? "_aaGetY" : "_aaInX");
   LLFunctionType *funcTy = func->getFunctionType();
 
   // aa param
@@ -197,8 +198,7 @@ LLValue *DtoAAEquals(Loc &loc, TOK op, DValue *l, DValue *r) {
   Type *t = l->type->toBasetype();
   assert(t == r->type->toBasetype() &&
          "aa equality is only defined for aas of same type");
-  llvm::Function *func =
-      getRuntimeFunction(loc, gIR->module, "_aaEqual");
+  llvm::Function *func = getRuntimeFunction(loc, gIR->module, "_aaEqual");
   LLFunctionType *funcTy = func->getFunctionType();
 
   LLValue *aaval = DtoBitCast(DtoRVal(l), funcTy->getParamType(1));

@@ -74,18 +74,14 @@ static LLValue *write_zeroes(LLValue *mem, unsigned start, unsigned end) {
 
 static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
                                  Expressions *elements) {
-  // ready elements data
   assert(elements && "struct literal has null elements");
-  const size_t nexprs = elements->dim;
-  Expression **exprs = reinterpret_cast<Expression **>(elements->data);
 
-  // might be reset to an actual i8* value so only a single bitcast is emitted.
+  // might be reset to an actual i8* value so only a single bitcast is emitted
   LLValue *voidptr = mem;
   unsigned offset = 0;
 
   // go through fields
-  const size_t nfields = sd->fields.dim;
-  for (size_t index = 0; index < nfields; ++index) {
+  for (size_t index = 0; index < sd->fields.dim; ++index) {
     VarDeclaration *vd = sd->fields[index];
 
     // Skip zero-sized fields such as zero-length static arrays: `ubyte[0]
@@ -94,17 +90,17 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       continue;
 
     // get initializer expression
-    Expression *expr = (index < nexprs) ? exprs[index] : nullptr;
+    Expression *expr =
+        (index < elements->dim) ? elements->data[index] : nullptr;
 
     if (vd->overlapped && !expr) {
-      // In case of an union (overlapped field), we can't simply use the default
+      // In case of a union (overlapped field), we can't simply use the default
       // initializer.
       // Consider the type union U7727A1 { int i; double d; } and
       // the declaration U7727A1 u = { d: 1.225 };
       // The loop will first visit variable i and then d. Since d has an
       // explicit initializer, we must use this one. We should therefore skip
-      // union fields
-      // with no explicit initializer.
+      // union fields with no explicit initializer.
       IF_LOG Logger::println(
           "skipping overlapped field without init expr: %s %s (+%u)",
           vd->type->toChars(), vd->toChars(), vd->offset);
@@ -119,48 +115,50 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
     }
 
     // initialize any padding so struct comparisons work
-    if (vd->offset != offset) {
+    if (vd->offset != offset)
       voidptr = write_zeroes(voidptr, offset, vd->offset);
-    }
     offset = vd->offset + vd->type->size();
+
+    // skip fields with a void initializer
+    if (!expr && vd != sd->vthis && vd->_init &&
+        vd->_init->isVoidInitializer()) {
+      IF_LOG Logger::println(
+          "skipping field with void initializer: %s %s (+%u)",
+          vd->type->toChars(), vd->toChars(), vd->offset);
+      continue;
+    }
 
     IF_LOG Logger::println("initializing field: %s %s (+%u)",
                            vd->type->toChars(), vd->toChars(), vd->offset);
     LOG_SCOPE
-
-    // get initializer
-    DValue *val;
-    std::unique_ptr<DConstValue> cv;
-    if (expr) {
-      IF_LOG Logger::println("expr %llu = %s",
-                             static_cast<unsigned long long>(index),
-                             expr->toChars());
-      val = toElem(expr);
-    } else if (vd == sd->vthis) {
-      IF_LOG Logger::println("initializing vthis");
-      LOG_SCOPE
-      val = new DImValue(
-          vd->type, DtoBitCast(DtoNestedContext(loc, sd), DtoType(vd->type)));
-    } else {
-      if (vd->_init && vd->_init->isVoidInitializer()) {
-        continue;
-      }
-      IF_LOG Logger::println("using default initializer");
-      LOG_SCOPE
-      cv.reset(new DConstValue(vd->type, get_default_initializer(vd)));
-      val = cv.get();
-    }
 
     // get a pointer to this field
     assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
                                    "vars, although it can easily be made to.");
     DLValue field(vd->type, DtoIndexAggregate(mem, sd, vd));
 
-    // store the initializer there
-    DtoAssign(loc, &field, val, TOKconstruct, true);
-
-    if (expr && expr->isLvalue()) {
-      callPostblit(loc, expr, DtoLVal(&field));
+    // get initializer
+    if (expr) {
+      IF_LOG Logger::println("expr %llu = %s",
+                             static_cast<unsigned long long>(index),
+                             expr->toChars());
+      // try to construct it in-place
+      if (!toInPlaceConstruction(&field, expr)) {
+        DtoAssign(loc, &field, toElem(expr), TOKconstruct, true);
+        if (expr->isLvalue())
+          callPostblit(loc, expr, DtoLVal(&field));
+      }
+    } else if (vd == sd->vthis) {
+      IF_LOG Logger::println("initializing vthis");
+      LOG_SCOPE
+      DImValue val(vd->type,
+                   DtoBitCast(DtoNestedContext(loc, sd), DtoType(vd->type)));
+      DtoAssign(loc, &field, &val, TOKconstruct, true);
+    } else {
+      IF_LOG Logger::println("using default initializer");
+      LOG_SCOPE
+      DConstValue val(vd->type, get_default_initializer(vd));
+      DtoAssign(loc, &field, &val, TOKconstruct, true);
     }
 
     // Also zero out padding bytes counted as being part of the type in DMD
@@ -173,10 +171,10 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       voidptr = write_zeroes(voidptr, offset - implicitPadding, offset);
     }
   }
+
   // initialize trailing padding
-  if (sd->structsize != offset) {
+  if (sd->structsize != offset)
     voidptr = write_zeroes(voidptr, offset, sd->structsize);
-  }
 }
 
 namespace {
@@ -1522,8 +1520,9 @@ public:
         exp = (*e->arguments)[0];
       }
 
-      DValue *iv = toElem(exp);
-      DtoAssign(e->loc, &tmpvar, iv);
+      // try to construct it in-place
+      if (!toInPlaceConstruction(&tmpvar, exp))
+        DtoAssign(e->loc, &tmpvar, toElem(exp));
 
       // return as pointer-to
       result = new DImValue(e->type, mem);
@@ -2501,11 +2500,11 @@ public:
 
       // index
       DValue *key = toElem(ekey);
-      DValue *mem = DtoAAIndex(e->loc, vtype, result, key, true);
+      DLValue *mem = DtoAAIndex(e->loc, vtype, result, key, true);
 
-      // store
-      DValue *val = toElem(eval);
-      DtoAssign(e->loc, mem, val);
+      // try to construct it in-place
+      if (!toInPlaceConstruction(mem, eval))
+        DtoAssign(e->loc, mem, toElem(eval));
     }
   }
 

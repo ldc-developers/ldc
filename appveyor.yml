@@ -16,22 +16,14 @@ os: Visual Studio 2015
 
 environment:
   matrix:
-    - APPVEYOR_JOB_CONFIG: Debug
-      APPVEYOR_JOB_ARCH:   x64
+    - APPVEYOR_JOB_ARCH:   x64
       D_COMPILER:          ldc
-    - APPVEYOR_JOB_CONFIG: Debug
-      APPVEYOR_JOB_ARCH:   x86
+    - APPVEYOR_JOB_ARCH:   x86
       D_COMPILER:          dmd
-    - APPVEYOR_JOB_CONFIG: Release
-      APPVEYOR_JOB_ARCH:   x64
-      D_COMPILER:          dmd
-    - APPVEYOR_JOB_CONFIG: Release
-      APPVEYOR_JOB_ARCH:   x86
-      D_COMPILER:          ldc
 
 #matrix:
 #  allow_failures:
-#    - APPVEYOR_JOB_CONFIG: Release
+#    - APPVEYOR_JOB_ARCH: x86
 
 # scripts that are called at very beginning, before repo cloning
 init:
@@ -141,26 +133,24 @@ build_script:
   - ninja -j2
 
 after_build:
-  # Debug job: install LDC, compress & publish as artifact
+  # install LDC, compress & publish as artifact
   - ps: |
-        If ($Env:APPVEYOR_JOB_CONFIG -eq 'Debug') {
-            echo 'Preparing artifact...'
-            cd c:\projects\ninja-ldc
-            ninja install > $null
-            copy bin\ldc2.pdb "..\ldc-$Env:APPVEYOR_JOB_ARCH\bin"
-            cd "..\ldc-$Env:APPVEYOR_JOB_ARCH"
-            (gc etc\ldc2.conf).replace("C:/projects/ldc-$Env:APPVEYOR_JOB_ARCH/", '%%ldcbinarypath%%/../') | sc etc\ldc2.conf
-            $artifactFilename = "LDC-master-$Env:APPVEYOR_BUILD_NUMBER-$Env:APPVEYOR_JOB_ARCH.7z"
-            7z a "..\$artifactFilename" * > $null
-            cd ..
-            Push-AppveyorArtifact $artifactFilename
-        }
-  # Debug x86 job: Create a 32/64-bit multilib artifact if the commit is on the master branch.
-  # It consists of the x64 artifact (published by a successful Debug x64 job) downloaded from
+        echo 'Preparing artifact...'
+        cd c:\projects\ninja-ldc
+        ninja install > $null
+        copy bin\ldc2.pdb "..\ldc-$Env:APPVEYOR_JOB_ARCH\bin"
+        cd "..\ldc-$Env:APPVEYOR_JOB_ARCH"
+        (gc etc\ldc2.conf).replace("C:/projects/ldc-$Env:APPVEYOR_JOB_ARCH/", '%%ldcbinarypath%%/../') | sc etc\ldc2.conf
+        $artifactFilename = "LDC-master-$Env:APPVEYOR_BUILD_NUMBER-$Env:APPVEYOR_JOB_ARCH.7z"
+        7z a "..\$artifactFilename" * > $null
+        cd ..
+        Push-AppveyorArtifact $artifactFilename
+  # x86 job: Create a 32/64-bit multilib artifact if the commit is on the master branch.
+  # It consists of the x64 artifact (published by a successful x64 job) downloaded from
   # GitHub, augmented by the 32-bit libs and an extra section in the ldc2.conf file for `-m32`
   # (using the lib32 directory).
   - ps: |
-        If (($Env:APPVEYOR_REPO_BRANCH -eq 'master') -And !(Test-Path Env:APPVEYOR_PULL_REQUEST_NUMBER) -And ($Env:APPVEYOR_JOB_CONFIG -eq 'Debug') -And ($Env:APPVEYOR_JOB_ARCH -eq 'x86')) {
+        If (($Env:APPVEYOR_REPO_BRANCH -eq 'master') -And !(Test-Path Env:APPVEYOR_PULL_REQUEST_NUMBER) -And ($Env:APPVEYOR_JOB_ARCH -eq 'x86')) {
             echo 'Preparing 32/64-bit multilib artifact...'
             cd c:\projects
             $artifact64Downloaded = $True
@@ -168,7 +158,7 @@ after_build:
                 Start-FileDownload "https://github.com/ldc-developers/ldc/releases/download/LDC-Win64-master/LDC-master-$Env:APPVEYOR_BUILD_NUMBER-x64.7z" -FileName 'LDC-master-x64.7z'
             }
             Catch {
-                echo 'Failed to download the 64-bit artifact from GitHub (the Debug x64 job probably failed).'
+                echo 'Failed to download the 64-bit artifact from GitHub (the x64 job probably failed).'
                 echo 'Skipping the 32/64-bit multilib artifact.'
                 $artifact64Downloaded = $False
             }
@@ -200,24 +190,17 @@ test_script:
   - bin\ldc2 -version
   # Compile, link & execute a hello-world program
   - ps: 'echo "import std.stdio; void main() { writeln(""Hello world!""); }" > hello.d'
-  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( bin\ldc2 -g -link-debuglib hello.d ) else ( bin\ldc2 -O3 -release hello.d )
+  - bin\ldc2 hello.d
   - hello.exe
   # Compile the druntime & phobos unit tests
-  - set TEST_SUFFIX=unittest
-  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set TEST_SUFFIX=unittest-debug)
-  # (pre-build some modules serially - those known to require lots of memory)
-  - ninja -j1 runtime\std\algorithm\searching-%TEST_SUFFIX%.obj runtime\std\algorithm\setops-%TEST_SUFFIX%.obj runtime\std\array-%TEST_SUFFIX%.obj runtime\std\conv-%TEST_SUFFIX%.obj runtime\std\datetime-%TEST_SUFFIX%.obj runtime\std\range\package-%TEST_SUFFIX%.obj runtime\std\range\primitives-%TEST_SUFFIX%.obj runtime\std\regex\internal\tests-%TEST_SUFFIX%.obj runtime\std\string-%TEST_SUFFIX%.obj runtime\std\traits-%TEST_SUFFIX%.obj
-  - ninja -j2 druntime-ldc-%TEST_SUFFIX% phobos2-ldc-%TEST_SUFFIX%
+  - ninja -j2 druntime-ldc-unittest-debug phobos2-ldc-unittest-debug druntime-ldc-unittest phobos2-ldc-unittest
   # Execute the unit tests
-  - set CTEST_SUFFIX=-E "-debug|dmd-testsuite|lit-tests"
-  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set CTEST_SUFFIX=-R -debug -E "dmd-testsuite|lit-tests")
-  - ctest --output-on-failure %CTEST_SUFFIX%
+  - ctest --output-on-failure -E "dmd-testsuite|lit-tests"
   # Execute the LLVM IR tests
   - ctest --output-on-failure -V -R lit-tests
   # Execute dmd-testsuite
   - if "%APPVEYOR_JOB_ARCH%"=="x64" ( set OS=Win_64) else ( set OS=Win_32)
-  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( ctest --verbose -R dmd-testsuite-debug )
-  - if "%APPVEYOR_JOB_CONFIG%"=="Release" ( ctest --verbose -R dmd-testsuite -E -debug )
+  - ctest --verbose -R dmd-testsuite
 
 #---------------------------------#
 #     deployment configuration    #
@@ -234,7 +217,6 @@ deploy:
     artifact: LDC-master-$(APPVEYOR_BUILD_NUMBER)-$(APPVEYOR_JOB_ARCH).7z
     on:
       branch: master
-      APPVEYOR_JOB_CONFIG: Debug
   - provider: GitHub
     release: 'LDC Win64 master'
     description: "Latest successful Windows CI builds of branch 'master'"
@@ -245,5 +227,4 @@ deploy:
     artifact: LDC-master-$(APPVEYOR_BUILD_NUMBER)-multilib.7z
     on:
       branch: master
-      APPVEYOR_JOB_CONFIG: Debug
       APPVEYOR_JOB_ARCH: x86
