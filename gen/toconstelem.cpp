@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/arrays.h"
+#include "gen/binops.h"
 #include "gen/classes.h"
 #include "gen/complex.h"
 #include "gen/irstate.h"
@@ -23,8 +24,6 @@
 #include "template.h"
 // Needs other includes.
 #include "ctfe.h"
-
-extern dinteger_t undoStrideMul(Loc &loc, Type *t, dinteger_t offset);
 
 /// Emits an LLVM constant corresponding to the expression.
 ///

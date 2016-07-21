@@ -93,7 +93,7 @@ protected:
 /// integral and floating-point types.
 class DImValue : public DRValue {
 public:
-  DImValue(Type *t, llvm::Value *v) : DRValue(t, v) {}
+  DImValue(Type *t, llvm::Value *v);
 
   DImValue *isIm() override { return this; }
 };

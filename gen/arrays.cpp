@@ -590,11 +590,11 @@ void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale, LLValue *dstMem) {
   } else {
     // Store the elements one by one.
     for (size_t i = 0; i < elemCount; ++i) {
-      DValue *e = toElem(indexArrayLiteral(ale, i));
+      DValue *rhs = toElem(indexArrayLiteral(ale, i));
 
-      LLValue *elemAddr = DtoGEPi(dstMem, 0, i, "", p->scopebb());
-      auto vv = new DLValue(e->type, elemAddr);
-      DtoAssign(ale->loc, vv, e, TOKconstruct, true);
+      LLValue *lhsPtr = DtoGEPi(dstMem, 0, i, "", p->scopebb());
+      DLValue lhs(rhs->type, DtoBitCast(lhsPtr, DtoPtrToType(rhs->type)));
+      DtoAssign(ale->loc, &lhs, rhs, TOKconstruct, true);
     }
   }
 }

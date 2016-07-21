@@ -596,7 +596,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
     Expression *exp1 = (*e->arguments)[0];
     LLValue *ptr = DtoRVal(exp1);
-    result = new DImValue(exp1->type, DtoVolatileLoad(ptr));
+    result = new DImValue(e->type, DtoVolatileLoad(ptr));
     return true;
   }
 
@@ -849,7 +849,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
       arguments ? arguments->dim : 0; // number of explicit arguments
 
   std::vector<DValue *> argvals(n_arguments, static_cast<DValue *>(nullptr));
-  if (dfnval && dfnval->func->isArrayOp) {
+  if (dfnval && dfnval->func && dfnval->func->isArrayOp) {
     // For array ops, the druntime implementation signatures are crafted
     // specifically such that the evaluation order is as expected with
     // the strange DMD reverse parameter passing order. Thus, we need

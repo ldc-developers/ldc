@@ -128,17 +128,6 @@ LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp);
 // getting typeinfo of type, base=true casts to object.TypeInfo
 LLConstant *DtoTypeInfoOf(Type *ty, bool base = true);
 
-// binary operations
-DImValue *DtoBinAdd(DRValue *lhs, DRValue *rhs);
-DImValue *DtoBinSub(DRValue *lhs, DRValue *rhs);
-// these binops need an explicit result type to handling
-// to give 'ifloat op float' and 'float op ifloat' the correct type
-DImValue *DtoBinMul(Type *resulttype, DRValue *lhs, DRValue *rhs);
-DImValue *DtoBinDiv(Type *resulttype, DRValue *lhs, DRValue *rhs);
-DImValue *DtoBinRem(Type *resulttype, DRValue *lhs, DRValue *rhs);
-LLValue *DtoBinNumericEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op);
-LLValue *DtoBinFloatsEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op);
-
 // target stuff
 void findDefaultTarget();
 
@@ -276,7 +265,9 @@ void Declaration_codegen(Dsymbol *decl);
 void Declaration_codegen(Dsymbol *decl, IRState *irs);
 
 DValue *toElem(Expression *e);
-DValue *toElem(Expression *e, bool tryGetLvalue);
+/// If `skipOverCasts` is true, skips over casts (no codegen) and returns the
+/// (casted) result of the first inner non-cast expression.
+DValue *toElem(Expression *e, bool skipOverCasts);
 DValue *toElemDtor(Expression *e);
 LLConstant *toConstElem(Expression *e, IRState *p);
 

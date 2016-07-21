@@ -12,6 +12,7 @@
 #include "gen/aa.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
+#include "gen/binops.h"
 #include "gen/classes.h"
 #include "gen/complex.h"
 #include "gen/coverage.h"
@@ -59,17 +60,6 @@ llvm::cl::opt<bool> checkPrintf(
 
 bool walkPostorder(Expression *e, StoppableVisitor *v);
 extern LLConstant *get_default_initializer(VarDeclaration *vd);
-
-////////////////////////////////////////////////////////////////////////////////
-
-dinteger_t undoStrideMul(Loc &loc, Type *t, dinteger_t offset) {
-  assert(t->ty == Tpointer);
-  d_uns64 elemSize = t->nextOf()->size(loc);
-  assert((offset % elemSize) == 0 &&
-         "Expected offset by an integer amount of elements");
-
-  return offset / elemSize;
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -205,76 +195,18 @@ void pushVarDtorCleanup(IRState *p, VarDeclaration *vd) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// Tries to find the proper lvalue subexpression of an assign/binassign
-// expression.
-// Returns null if none is found.
-static Expression *findLvalueExp(Expression *e) {
-  class FindLvalueVisitor : public Visitor {
-  public:
-    Expression *result;
-
-    FindLvalueVisitor() : result(nullptr) {}
-
-    void visit(Expression *e) LLVM_OVERRIDE {}
-
-#define FORWARD(TYPE)                                                          \
-  void visit(TYPE *e) LLVM_OVERRIDE { e->e1->accept(this); }
-    FORWARD(AssignExp)
-    FORWARD(BinAssignExp)
-    FORWARD(CastExp)
-#undef FORWARD
-
-#define IMPLEMENT(TYPE)                                                        \
-  void visit(TYPE *e) LLVM_OVERRIDE { result = e; }
-    IMPLEMENT(VarExp)
-    IMPLEMENT(CallExp)
-    IMPLEMENT(PtrExp)
-    IMPLEMENT(DotVarExp)
-    IMPLEMENT(IndexExp)
-    IMPLEMENT(CommaExp)
-#undef IMPLEMENT
-  };
-
-  FindLvalueVisitor v;
-  e->accept(&v);
-  return v.result;
+static Expression *skipOverCasts(Expression *e) {
+  while (e->op == TOKcast)
+    e = static_cast<CastExp *>(e)->e1;
+  return e;
 }
 
-// Evaluates an lvalue expression e and prevents further
-// evaluations as long as e->cachedLvalue isn't reset to null.
-static DValue *toElemAndCacheLvalue(Expression *e) {
-  DValue *value = toElem(e);
-  e->cachedLvalue = DtoLVal(value);
-  return value;
-}
-
-// Evaluates e and, if tryGetLvalue is true, returns the
-// (casted) nested lvalue if one is found.
-// Otherwise simply returns the expression's result.
-DValue *toElem(Expression *e, bool tryGetLvalue) {
-  if (!tryGetLvalue) {
+DValue *toElem(Expression *e, bool doSkipOverCasts) {
+  Expression *inner = skipOverCasts(e);
+  if (!doSkipOverCasts || inner == e)
     return toElem(e);
-  }
 
-  Expression *lvalExp = findLvalueExp(e); // may be null
-  Expression *nestedLvalExp = (lvalExp == e ? nullptr : lvalExp);
-
-  DValue *nestedLval = nullptr;
-  if (nestedLvalExp) {
-    IF_LOG Logger::println("Caching l-value of %s => %s", e->toChars(),
-                           nestedLvalExp->toChars());
-
-    LOG_SCOPE;
-    nestedLval = toElemAndCacheLvalue(nestedLvalExp);
-  }
-
-  DValue *value = toElem(e);
-
-  if (nestedLvalExp) {
-    nestedLvalExp->cachedLvalue = nullptr;
-  }
-
-  return !nestedLval ? value : DtoCast(e->loc, nestedLval, e->type);
+  return DtoCast(e->loc, toElem(inner), e->type);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -359,12 +291,6 @@ public:
     LOG_SCOPE;
 
     assert(e->var);
-
-    if (e->cachedLvalue) {
-      LLValue *V = e->cachedLvalue;
-      result = new DLValue(e->type, V);
-      return;
-    }
 
     if (auto fd = e->var->isFuncLiteralDeclaration()) {
       genFuncLiteral(fd, nullptr);
@@ -549,13 +475,14 @@ public:
         // uninitialized location), and that rhs is stored as an l-value!
         DSpecialRefValue *lhs = toElem(e->e1)->isSpecialRef();
         assert(lhs);
-        result = toElem(e->e2);
+        DValue *rhs = toElem(e->e2);
 
         // We shouldn't really need makeLValue() here, but the 2.063
         // frontend generates ref variables initialized from function
         // calls.
-        DtoStore(makeLValue(e->loc, result), lhs->getRefStorage());
+        DtoStore(makeLValue(e->loc, rhs), lhs->getRefStorage());
 
+        result = lhs;
         return;
       }
     }
@@ -580,14 +507,12 @@ public:
       }
     }
 
-    DValue *l = toElem(e->e1, true);
+    result = toElem(e->e1, true);
 
     // try to construct the lhs in-place
-    if (l->isLVal() && e->op == TOKconstruct) {
-      if (toInPlaceConstruction(l->isLVal(), e->e2)) {
-        result = l;
-        return;
-      }
+    if (result->isLVal() && e->op == TOKconstruct &&
+        toInPlaceConstruction(result->isLVal(), e->e2)) {
+      return;
     }
 
     DValue *r = toElem(e->e2);
@@ -595,13 +520,10 @@ public:
     if (e->e1->type->toBasetype()->ty == Tstruct && e->e2->op == TOKint64) {
       Logger::println("performing aggregate zero initialization");
       assert(e->e2->toInteger() == 0);
-      DtoMemSetZero(DtoLVal(l));
+      DtoMemSetZero(DtoLVal(result));
       TypeStruct *ts = static_cast<TypeStruct *>(e->e1->type);
-      if (ts->sym->isNested() && ts->sym->vthis) {
-        DtoResolveNestedContext(e->loc, ts->sym, DtoLVal(l));
-      }
-      // Return value should be irrelevant.
-      result = r;
+      if (ts->sym->isNested() && ts->sym->vthis)
+        DtoResolveNestedContext(e->loc, ts->sym, DtoLVal(result));
       return;
     }
 
@@ -619,71 +541,8 @@ public:
 
     Logger::println("performing normal assignment (rhs has lvalue elems = %d)",
                     lvalueElem);
-    DtoAssign(e->loc, l, r, e->op, !lvalueElem);
-
-    result = l;
+    DtoAssign(e->loc, result, r, e->op, !lvalueElem);
   }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  template <typename BinExp, bool useLvalForBinExpLhs>
-  static DValue *binAssign(BinAssignExp *e) {
-    Loc loc = e->loc;
-
-    // find the lhs' lvalue expression
-    Expression *lvalExp = findLvalueExp(e->e1);
-    if (!lvalExp) {
-      e->error("expression %s does not mask any l-value", e->e1->toChars());
-      fatal();
-    }
-
-    // pre-evaluate and cache the lvalue subexpression
-    DValue *lval = nullptr;
-    {
-      IF_LOG Logger::println("Caching l-value of %s => %s", e->toChars(),
-                             lvalExp->toChars());
-
-      LOG_SCOPE;
-      lval = toElemAndCacheLvalue(lvalExp);
-    }
-
-    // evaluate the underlying binary expression
-    Expression *lhsForBinExp = (useLvalForBinExpLhs ? lvalExp : e->e1);
-    BinExp *binExp = bindD<BinExp>::create(loc, lhsForBinExp, e->e2);
-    binExp->type = lhsForBinExp->type;
-    DValue *result = toElem(binExp);
-
-    lvalExp->cachedLvalue = nullptr;
-
-    // assign the (casted) result to lval
-    DValue *assignedResult = DtoCast(loc, result, lval->type);
-    DtoAssign(loc, lval, assignedResult);
-
-    // return the (casted) result
-    return e->type == lval->type ? lval : DtoCast(loc, lval, e->type);
-  }
-
-#define BIN_ASSIGN(Op, useLvalForBinExpLhs)                                    \
-  void visit(Op##AssignExp *e) override {                                      \
-    IF_LOG Logger::print(#Op "AssignExp::toElem: %s @ %s\n", e->toChars(),     \
-                         e->type->toChars());                                  \
-    LOG_SCOPE;                                                                 \
-    result = binAssign<Op##Exp, useLvalForBinExpLhs>(e);                       \
-  }
-
-  BIN_ASSIGN(Add, false)
-  BIN_ASSIGN(Min, false)
-  BIN_ASSIGN(Mul, false)
-  BIN_ASSIGN(Div, false)
-  BIN_ASSIGN(Mod, false)
-  BIN_ASSIGN(And, false)
-  BIN_ASSIGN(Or, false)
-  BIN_ASSIGN(Xor, false)
-  BIN_ASSIGN(Shl, true)
-  BIN_ASSIGN(Shr, true)
-  BIN_ASSIGN(Ushr, true)
-
-#undef BIN_ASSIGN
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -699,205 +558,87 @@ public:
     }
   }
 
-  /// Tries to remove a MulExp by a constant value of baseSize from e. Returns
-  /// NULL if not possible.
-  Expression *extractNoStrideInc(Expression *e, d_uns64 baseSize,
-                                 bool &negate) {
-    MulExp *mul;
-    while (true) {
-      if (e->op == TOKneg) {
-        negate = !negate;
-        e = static_cast<NegExp *>(e)->e1;
-        continue;
-      }
+//////////////////////////////////////////////////////////////////////////////
 
-      if (e->op == TOKmul) {
-        mul = static_cast<MulExp *>(e);
-        break;
-      }
-
-      return nullptr;
-    }
-
-    if (!mul->e2->isConst()) {
-      return nullptr;
-    }
-    dinteger_t stride = mul->e2->toInteger();
-
-    if (stride != baseSize) {
-      return nullptr;
-    }
-
-    return mul->e1;
+#define BIN_OP(Op, Func)                                                       \
+  void visit(Op##Exp *e) override {                                            \
+    IF_LOG Logger::print(#Op "Exp::toElem: %s @ %s\n", e->toChars(),           \
+                         e->type->toChars());                                  \
+    LOG_SCOPE;                                                                 \
+                                                                               \
+    errorOnIllegalArrayOp(e, e->e1, e->e2);                                    \
+                                                                               \
+    auto &PGO = gIR->func()->pgo;                                              \
+    PGO.setCurrentStmt(e);                                                     \
+                                                                               \
+    result = Func(e->loc, e->type, toElem(e->e1), e->e2);                      \
   }
 
-  DValue *emitPointerOffset(IRState *p, Loc loc, DValue *base,
-                            Expression *offset, bool negateOffset,
-                            Type *resultType) {
-    // The operand emitted by the frontend is in units of bytes, and not
-    // pointer elements. We try to undo this before resorting to
-    // temporarily bitcasting the pointer to i8.
+  BIN_OP(Add, binAdd)
+  BIN_OP(Min, binMin)
+  BIN_OP(Mul, binMul)
+  BIN_OP(Div, binDiv)
+  BIN_OP(Mod, binMod)
 
-    llvm::Value *noStrideInc = nullptr;
-    if (offset->isConst()) {
-      dinteger_t byteOffset = offset->toInteger();
-      if (byteOffset == 0) {
-        Logger::println("offset is zero");
-        return base;
-      }
-      noStrideInc = DtoConstSize_t(undoStrideMul(loc, base->type, byteOffset));
-    } else if (Expression *inc = extractNoStrideInc(
-                   offset, base->type->nextOf()->size(loc), negateOffset)) {
-      noStrideInc = DtoRVal(inc);
-    }
-
-    if (noStrideInc) {
-      if (negateOffset) {
-        noStrideInc = p->ir->CreateNeg(noStrideInc);
-      }
-      return new DImValue(base->type,
-                          DtoGEP1(DtoRVal(base), noStrideInc, false));
-    }
-
-    // This might not actually be generated by the frontend, just to be
-    // safe.
-    llvm::Value *inc = DtoRVal(offset);
-    if (negateOffset) {
-      inc = p->ir->CreateNeg(inc);
-    }
-    llvm::Value *bytePtr = DtoBitCast(DtoRVal(base), getVoidPtrType());
-    DValue *result = new DImValue(Type::tvoidptr, DtoGEP1(bytePtr, inc, false));
-    return DtoCast(loc, result, resultType);
-  }
-
-  void visit(AddExp *e) override {
-    IF_LOG Logger::print("AddExp::toElem: %s @ %s\n", e->toChars(),
-                         e->type->toChars());
-    LOG_SCOPE;
-
-    auto &PGO = gIR->func()->pgo;
-    PGO.setCurrentStmt(e);
-
-    DRValue *l = toElem(e->e1)->getRVal();
-
-    Type *t = e->type->toBasetype();
-    Type *e1type = e->e1->type->toBasetype();
-    Type *e2type = e->e2->type->toBasetype();
-
-    errorOnIllegalArrayOp(e, e->e1, e->e2);
-
-    if (e1type != e2type && e1type->ty == Tpointer && e2type->isintegral()) {
-      Logger::println("Adding integer to pointer");
-      result = emitPointerOffset(p, e->loc, l, e->e2, false, e->type);
-    } else if (t->iscomplex()) {
-      result = DtoComplexAdd(e->loc, e->type, l, toElem(e->e2)->getRVal());
-    } else {
-      result = DtoBinAdd(l, toElem(e->e2)->getRVal());
-    }
-  }
-
-  void visit(MinExp *e) override {
-    IF_LOG Logger::print("MinExp::toElem: %s @ %s\n", e->toChars(),
-                         e->type->toChars());
-    LOG_SCOPE;
-
-    auto &PGO = gIR->func()->pgo;
-    PGO.setCurrentStmt(e);
-
-    DRValue *l = toElem(e->e1)->getRVal();
-
-    Type *t = e->type->toBasetype();
-    Type *t1 = e->e1->type->toBasetype();
-    Type *t2 = e->e2->type->toBasetype();
-
-    errorOnIllegalArrayOp(e, e->e1, e->e2);
-
-    if (t1->ty == Tpointer && t2->ty == Tpointer) {
-      LLValue *lv = DtoRVal(l);
-      LLValue *rv = DtoRVal(e->e2);
-      IF_LOG Logger::cout() << "lv: " << *lv << " rv: " << *rv << '\n';
-      lv = p->ir->CreatePtrToInt(lv, DtoSize_t());
-      rv = p->ir->CreatePtrToInt(rv, DtoSize_t());
-      LLValue *diff = p->ir->CreateSub(lv, rv);
-      if (diff->getType() != DtoType(e->type)) {
-        diff = p->ir->CreateIntToPtr(diff, DtoType(e->type));
-      }
-      result = new DImValue(e->type, diff);
-    } else if (t1->ty == Tpointer && t2->isintegral()) {
-      Logger::println("Subtracting integer from pointer");
-      result = emitPointerOffset(p, e->loc, l, e->e2, true, e->type);
-    } else if (t->iscomplex()) {
-      result = DtoComplexSub(e->loc, e->type, l, toElem(e->e2)->getRVal());
-    } else {
-      result = DtoBinSub(l, toElem(e->e2)->getRVal());
-    }
-  }
+  BIN_OP(And, binAnd)
+  BIN_OP(Or, binOr)
+  BIN_OP(Xor, binXor)
+  BIN_OP(Shl, binShl)
+  BIN_OP(Shr, binShr)
+  BIN_OP(Ushr, binUshr)
+#undef BIN_OP
 
   //////////////////////////////////////////////////////////////////////////////
 
-  void visit(MulExp *e) override {
-    IF_LOG Logger::print("MulExp::toElem: %s @ %s\n", e->toChars(),
-                         e->type->toChars());
-    LOG_SCOPE;
+  using BinOpFunc = DValue *(Loc &, Type *, DValue *, Expression *, bool);
 
-    auto &PGO = gIR->func()->pgo;
-    PGO.setCurrentStmt(e);
+  template <BinOpFunc binOpFunc, bool useLValTypeForBinOp>
+  static DValue *binAssign(BinAssignExp *e) {
+    Expression *lvalExp = skipOverCasts(e->e1);
+    DValue *lhsLVal = toElem(lvalExp);
 
-    DRValue *l = toElem(e->e1)->getRVal();
-    DRValue *r = toElem(e->e2)->getRVal();
+    // Use the lhs lvalue for the binop lhs and optionally cast it to the full
+    // lhs type (!useLValTypeForBinOp).
+    // The front-end apparently likes to specify the binop type via lhs casts,
+    // e.g., `byte x; cast(int)x += 5;`.
+    // Load the binop lhs AFTER evaluating the rhs.
+    Type *opType = (useLValTypeForBinOp ? lhsLVal->type : e->e1->type);
+    DValue *opResult = binOpFunc(e->loc, opType, lhsLVal, e->e2, true);
 
-    errorOnIllegalArrayOp(e, e->e1, e->e2);
+    DValue *assignedResult = DtoCast(e->loc, opResult, lhsLVal->type);
+    DtoAssign(e->loc, lhsLVal, assignedResult);
 
-    if (e->type->iscomplex()) {
-      result = DtoComplexMul(e->loc, e->type, l, r);
-    } else {
-      result = DtoBinMul(e->type, l, r);
-    }
+    assert(e->type->toBasetype()->equals(lhsLVal->type->toBasetype()));
+    return lhsLVal;
   }
 
-  //////////////////////////////////////////////////////////////////////////////
-
-  void visit(DivExp *e) override {
-    IF_LOG Logger::print("DivExp::toElem: %s @ %s\n", e->toChars(),
-                         e->type->toChars());
-    LOG_SCOPE;
-
-    auto &PGO = gIR->func()->pgo;
-    PGO.setCurrentStmt(e);
-
-    DRValue *l = toElem(e->e1)->getRVal();
-    DRValue *r = toElem(e->e2)->getRVal();
-
-    errorOnIllegalArrayOp(e, e->e1, e->e2);
-
-    if (e->type->iscomplex()) {
-      result = DtoComplexDiv(e->loc, e->type, l, r);
-    } else {
-      result = DtoBinDiv(e->type, l, r);
-    }
+#define BIN_ASSIGN(Op, Func, useLValTypeForBinOp)                              \
+  void visit(Op##AssignExp *e) override {                                      \
+    IF_LOG Logger::print(#Op "AssignExp::toElem: %s @ %s\n", e->toChars(),     \
+                         e->type->toChars());                                  \
+    LOG_SCOPE;                                                                 \
+                                                                               \
+    errorOnIllegalArrayOp(e, e->e1, e->e2);                                    \
+                                                                               \
+    auto &PGO = gIR->func()->pgo;                                              \
+    PGO.setCurrentStmt(e);                                                     \
+                                                                               \
+    result = binAssign<Func, useLValTypeForBinOp>(e);                          \
   }
 
-  //////////////////////////////////////////////////////////////////////////////
+  BIN_ASSIGN(Add, binAdd, false)
+  BIN_ASSIGN(Min, binMin, false)
+  BIN_ASSIGN(Mul, binMul, false)
+  BIN_ASSIGN(Div, binDiv, false)
+  BIN_ASSIGN(Mod, binMod, false)
 
-  void visit(ModExp *e) override {
-    IF_LOG Logger::print("ModExp::toElem: %s @ %s\n", e->toChars(),
-                         e->type->toChars());
-    LOG_SCOPE;
-
-    auto &PGO = gIR->func()->pgo;
-    PGO.setCurrentStmt(e);
-
-    DRValue *l = toElem(e->e1)->getRVal();
-    DRValue *r = toElem(e->e2)->getRVal();
-
-    errorOnIllegalArrayOp(e, e->e1, e->e2);
-
-    if (e->type->iscomplex()) {
-      result = DtoComplexRem(e->loc, e->type, l, r);
-    } else {
-      result = DtoBinRem(e->type, l, r);
-    }
-  }
+  BIN_ASSIGN(And, binAnd, false)
+  BIN_ASSIGN(Or, binOr, false)
+  BIN_ASSIGN(Xor, binXor, false)
+  BIN_ASSIGN(Shl, binShl, true)
+  BIN_ASSIGN(Shr, binShr, true)
+  BIN_ASSIGN(Ushr, binUshr, true)
+#undef BIN_ASSIGN
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -908,11 +649,6 @@ public:
 
     auto &PGO = gIR->func()->pgo;
     PGO.setCurrentStmt(e);
-
-    if (e->cachedLvalue) {
-      LLValue *V = e->cachedLvalue;
-      return new DLValue(e->type, V);
-    }
 
     // handle magic inline asm
     if (e->e1->op == TOKvar) {
@@ -1021,8 +757,7 @@ public:
     // handle cast to void (usually created by frontend to avoid "has no effect"
     // error)
     if (e->to == Type::tvoid) {
-      result = new DConstValue(Type::tvoid,
-                               llvm::UndefValue::get(DtoMemType(Type::tvoid)));
+      result = nullptr;
       return;
     }
 
@@ -1063,29 +798,28 @@ public:
     assert(isaPointer(baseValue));
 
     llvm::Value *offsetValue;
-    Type *offsetType;
 
     if (e->offset == 0) {
       offsetValue = baseValue;
-      offsetType = base->type->pointerTo();
     } else {
       uint64_t elemSize = gDataLayout->getTypeAllocSize(
           baseValue->getType()->getContainedType(0));
       if (e->offset % elemSize == 0) {
         // We can turn this into a "nice" GEP.
         offsetValue = DtoGEPi1(baseValue, e->offset / elemSize);
-        offsetType = base->type->pointerTo();
       } else {
         // Offset isn't a multiple of base type size, just cast to i8* and
         // apply the byte offset.
         offsetValue =
             DtoGEPi1(DtoBitCast(baseValue, getVoidPtrType()), e->offset);
-        offsetType = Type::tvoidptr;
       }
     }
 
     // Casts are also "optimized into" SymOffExp by the frontend.
-    result = DtoCast(e->loc, new DImValue(offsetType, offsetValue), e->type);
+    LLValue *llVal = (e->type->toBasetype()->isintegral()
+                          ? p->ir->CreatePtrToInt(offsetValue, DtoType(e->type))
+                          : DtoBitCast(offsetValue, DtoType(e->type)));
+    result = new DImValue(e->type, llVal);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1153,44 +887,20 @@ public:
 
     // function pointers are special
     if (e->type->toBasetype()->ty == Tfunction) {
-      assert(!e->cachedLvalue);
       DValue *dv = toElem(e->e1);
+      LLValue *llVal = DtoRVal(dv);
       if (DFuncValue *dfv = dv->isFunc()) {
-        result = new DFuncValue(e->type, dfv->func, DtoRVal(dfv));
+        result = new DFuncValue(e->type, dfv->func, llVal);
       } else {
-        result = new DImValue(e->type, DtoRVal(dv));
+        result = new DImValue(e->type, llVal);
       }
       return;
     }
 
     // get the rvalue and return it as an lvalue
-    LLValue *V;
-    if (e->cachedLvalue) {
-      V = e->cachedLvalue;
-    } else {
-      V = DtoRVal(e->e1);
-    }
+    LLValue *V = DtoRVal(e->e1);
 
-    // The frontend emits dereferences of class/interfaces types to access the
-    // first member, which is the .classinfo property.
-    Type *origType = e->e1->type->toBasetype();
-    if (origType->ty == Tclass) {
-      TypeClass *ct = static_cast<TypeClass *>(origType);
-
-      Type *resultType;
-      if (ct->sym->isInterfaceDeclaration()) {
-        // For interfaces, the first entry in the vtbl is actually a pointer
-        // to an Interface instance, which has the type info as its first
-        // member, so we have to add an extra layer of indirection.
-        resultType = Type::typeinfointerface->type->pointerTo();
-      } else {
-        resultType = Type::typeinfoclass->type;
-      }
-
-      V = DtoBitCast(V, DtoType(resultType->pointerTo()->pointerTo()));
-    }
-
-    result = new DLValue(e->type, V);
+    result = new DLValue(e->type, DtoBitCast(V, DtoPtrToType(e->type)));
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1202,16 +912,6 @@ public:
 
     auto &PGO = gIR->func()->pgo;
     PGO.setCurrentStmt(e);
-
-    if (e->cachedLvalue) {
-      Logger::println("using cached lvalue");
-      LLValue *V = e->cachedLvalue;
-      assert(!isSpecialRefVar(e->var->isVarDeclaration()) &&
-             "Code not expected to handle special ref vars, although it can "
-             "easily be made to.");
-      result = new DLValue(e->type, V);
-      return;
-    }
 
     DValue *l = toElem(e->e1);
 
@@ -1242,7 +942,7 @@ public:
       }
 
       // Logger::cout() << "mem: " << *arrptr << '\n';
-      result = new DLValue(e->type, arrptr);
+      result = new DLValue(e->type, DtoBitCast(arrptr, DtoPtrToType(e->type)));
     } else if (FuncDeclaration *fdecl = e->var->isFuncDeclaration()) {
       DtoResolveFunction(fdecl);
 
@@ -1306,7 +1006,7 @@ public:
       Logger::println("normal this exp");
       v = p->func()->thisArg;
     }
-    result = new DLValue(e->type, v);
+    result = new DLValue(e->type, DtoBitCast(v, DtoPtrToType(e->type)));
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1318,12 +1018,6 @@ public:
 
     auto &PGO = gIR->func()->pgo;
     PGO.setCurrentStmt(e);
-
-    if (e->cachedLvalue) {
-      LLValue *V = e->cachedLvalue;
-      result = new DLValue(e->type, V);
-      return;
-    }
 
     DValue *l = toElem(e->e1);
 
@@ -1354,7 +1048,7 @@ public:
       IF_LOG Logger::println("e1type: %s", e1type->toChars());
       llvm_unreachable("Unknown IndexExp target.");
     }
-    result = new DLValue(e->type, arrptr);
+    result = new DLValue(e->type, DtoBitCast(arrptr, DtoPtrToType(e->type)));
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1455,15 +1149,17 @@ public:
 
     // The frontend generates a SliceExp of static array type when assigning a
     // fixed-width slice to a static array.
-    if (e->type->toBasetype()->ty == Tsarray) {
-      LLValue *v = DtoBitCast(eptr, DtoType(e->type->pointerTo()));
-      result = new DLValue(e->type, v);
+    Type *const ety = e->type->toBasetype();
+    if (ety->ty == Tsarray) {
+      result = new DLValue(e->type, DtoBitCast(eptr, DtoPtrToType(e->type)));
       return;
     }
 
-    if (!elen) {
+    assert(ety->ty == Tarray);
+    if (!elen)
       elen = DtoArrayLen(v);
-    }
+    eptr = DtoBitCast(eptr, DtoPtrToType(ety->nextOf()));
+
     result = new DSliceValue(e->type, elen, eptr);
   }
 
@@ -1918,13 +1614,8 @@ public:
     auto &PGO = gIR->func()->pgo;
     PGO.setCurrentStmt(e);
 
-    // DMD allows syntax like this:
-    // f() == 0 || assert(false)
-    result = new DImValue(e->type, DtoConstBool(false));
-
-    if (!global.params.useAssert) {
+    if (!global.params.useAssert)
       return;
-    }
 
     // condition
     DValue *cond;
@@ -2056,6 +1747,12 @@ public:
     llvm::BranchInst::Create(andandend, p->scopebb());
     p->scope() = IRScope(andandend);
 
+    // DMD allows stuff like `x == 0 && assert(false)`
+    if (e->type->toBasetype()->ty == Tvoid) {
+      result = nullptr;
+      return;
+    }
+
     LLValue *resval = nullptr;
     if (ubool == vbool || !vbool) {
       // No need to create a PHI node.
@@ -2112,6 +1809,12 @@ public:
     llvm::BranchInst::Create(ororend, p->scopebb());
     p->scope() = IRScope(ororend);
 
+    // DMD allows stuff like `x == 0 || assert(false)`
+    if (e->type->toBasetype()->ty == Tvoid) {
+      result = nullptr;
+      return;
+    }
+
     LLValue *resval = nullptr;
     if (ubool == vbool || !vbool) {
       // No need to create a PHI node.
@@ -2127,45 +1830,6 @@ public:
     }
 
     result = new DImValue(e->type, resval);
-  }
-
-////////////////////////////////////////////////////////////////////////////////
-
-#define BIN_BLIT_EXP(X, Y)                                                     \
-  void visit(X##Exp *e) override {                                             \
-    IF_LOG Logger::print("%sExp::toElem: %s @ %s\n", #X, e->toChars(),         \
-                         e->type->toChars());                                  \
-    LOG_SCOPE;                                                                 \
-    DValue *u = toElem(e->e1);                                                 \
-    DValue *v = toElem(e->e2);                                                 \
-    errorOnIllegalArrayOp(e, e->e1, e->e2);                                    \
-    v = DtoCast(e->loc, v, e->e1->type);                                       \
-    LLValue *x = llvm::BinaryOperator::Create(                                 \
-        llvm::Instruction::Y, DtoRVal(u), DtoRVal(v), "", p->scopebb());       \
-    result = new DImValue(e->type, x);                                         \
-  }
-
-  BIN_BLIT_EXP(And, And)
-  BIN_BLIT_EXP(Or, Or)
-  BIN_BLIT_EXP(Xor, Xor)
-  BIN_BLIT_EXP(Shl, Shl)
-  BIN_BLIT_EXP(Ushr, LShr)
-#undef BIN_BLIT_EXP
-
-  void visit(ShrExp *e) override {
-    IF_LOG Logger::print("ShrExp::toElem: %s @ %s\n", e->toChars(),
-                         e->type->toChars());
-    LOG_SCOPE;
-    DValue *u = toElem(e->e1);
-    DValue *v = toElem(e->e2);
-    v = DtoCast(e->loc, v, e->e1->type);
-    LLValue *x;
-    if (isLLVMUnsigned(e->e1->type)) {
-      x = p->ir->CreateLShr(DtoRVal(u), DtoRVal(v));
-    } else {
-      x = p->ir->CreateAShr(DtoRVal(u), DtoRVal(v));
-    }
-    result = new DImValue(e->type, x);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -2328,12 +1992,6 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    if (e->cachedLvalue) {
-      LLValue *V = e->cachedLvalue;
-      result = new DLValue(e->type, V);
-      return;
-    }
-
     toElem(e->e1);
     result = toElem(e->e2);
 
@@ -2391,11 +2049,8 @@ public:
     llvm::BranchInst::Create(condend, p->scopebb());
 
     p->scope() = IRScope(condend);
-    if (retPtr) {
+    if (retPtr)
       result = new DSpecialRefValue(e->type, retPtr);
-    } else {
-      result = new DConstValue(e->type, getNullValue(DtoMemType(dtype)));
-    }
   }
 
   //////////////////////////////////////////////////////////////////////////////

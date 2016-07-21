@@ -10,6 +10,7 @@
 #include "gen/complex.h"
 #include "declaration.h"
 #include "mtype.h"
+#include "gen/binops.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
@@ -212,7 +213,7 @@ DImValue *DtoComplexAdd(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoComplexSub(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs) {
+DImValue *DtoComplexMin(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
 
   // lhs values
@@ -369,7 +370,7 @@ DImValue *DtoComplexDiv(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoComplexRem(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs) {
+DImValue *DtoComplexMod(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im, *divisor;
 
   // lhs values
