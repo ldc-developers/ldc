@@ -48,6 +48,7 @@ addons:
     - g++-multilib
     - libedit2
     - libedit-dev
+    - libcurl3:i386
 before_install:
   -
     if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
