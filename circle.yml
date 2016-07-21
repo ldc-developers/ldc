@@ -9,6 +9,7 @@ dependencies:
     #- clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04
   pre:
     # LLVM's official APT repo:
+    - sudo add-apt-repository -y 'deb http://apt.llvm.org/trusty/ llvm-toolchain-trusty-3.9 main'
     - sudo add-apt-repository -y 'deb http://apt.llvm.org/trusty/ llvm-toolchain-trusty main'
     - wget -O - http://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
     - sudo apt-get update
