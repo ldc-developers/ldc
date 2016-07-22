@@ -370,11 +370,7 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
     }
   }
 
-#if LDC_LLVM_VER >= 307
-  llvm::DINodeArray elemsArray = DBuilder.getOrCreateArray(elems);
-#else
-  llvm::DIArray elemsArray = DBuilder.getOrCreateArray(elems);
-#endif
+  auto elemsArray = DBuilder.getOrCreateArray(elems);
 
   ldc::DIType ret;
   if (t->ty == Tclass) {
@@ -460,9 +456,9 @@ ldc::DIType ldc::DIBuilder::CreateSArrayType(Type *type) {
     TypeSArray *tsa = static_cast<TypeSArray *>(t);
     int64_t Count = tsa->dim->toInteger();
 #if LDC_LLVM_VER >= 306
-    llvm::Metadata *subscript = DBuilder.getOrCreateSubrange(0, Count - 1);
+    llvm::Metadata *subscript = DBuilder.getOrCreateSubrange(0, Count);
 #else
-    llvm::Value *subscript = DBuilder.getOrCreateSubrange(0, Count - 1);
+    llvm::Value *subscript = DBuilder.getOrCreateSubrange(0, Count);
 #endif
     subscripts.push_back(subscript);
     t = t->nextOf();
@@ -478,8 +474,7 @@ ldc::DIType ldc::DIBuilder::CreateSArrayType(Type *type) {
 }
 
 ldc::DIType ldc::DIBuilder::CreateAArrayType(Type *type) {
-  // FIXME: Implement
-  return DBuilder.createUnspecifiedType(type->toChars());
+  return CreatePointerType(Type::tvoidptr);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -507,30 +502,39 @@ ldc::DISubroutineType ldc::DIBuilder::CreateFunctionType(Type *type) {
 #endif
 }
 
-ldc::DISubroutineType ldc::DIBuilder::CreateDelegateType(Type *type) {
-  // FIXME: Implement
-  TypeDelegate *t = static_cast<TypeDelegate *>(type);
+ldc::DIType ldc::DIBuilder::CreateDelegateType(Type *type) {
+  ldc::DICompileUnit CU(GetCU());
+  assert(CU && "Compilation unit missing or corrupted");
 
-// Create "dummy" subroutine type for the return type
-#if LDC_LLVM_VER >= 306
-  llvm::SmallVector<llvm::Metadata *, 16> Elts;
-#else
-  llvm::SmallVector<llvm::Value *, 16> Elts;
-#endif
-  Elts.push_back(DBuilder.createUnspecifiedType(type->toChars()));
-#if LDC_LLVM_VER >= 306
-  auto EltTypeArray = DBuilder.getOrCreateTypeArray(Elts);
-#else
-  auto EltTypeArray = DBuilder.getOrCreateArray(Elts);
-#endif
-
-#if LDC_LLVM_VER >= 308
-  return DBuilder.createSubroutineType(EltTypeArray);
-#else
   Loc loc(IR->dmodule->srcfile->toChars(), 0, 0);
   ldc::DIFile file(CreateFile(loc));
-  return DBuilder.createSubroutineType(file, EltTypeArray);
+
+  DIType voidPtrType = CreatePointerType(Type::tvoidptr);
+#if LDC_LLVM_VER >= 306
+  llvm::Metadata *elems[] =
+#else
+  llvm::Value *elems[] =
 #endif
+      {CreatePointerType(Type::tvoidptr),
+       CreateFunctionType(static_cast<TypeDelegate *>(type)->next)};
+  auto elemsArray = DBuilder.getOrCreateArray(elems);
+
+#if LDC_LLVM_VER >= 307
+  ldc::DIType derivedFrom = nullptr;
+#else
+  ldc::DIType derivedFrom;
+#endif
+
+  return DBuilder.createStructType(
+      CU,                                         // compile unit where defined
+      "delegate",                                 // name
+      file,                                       // file where defined
+      0,                                          // line number where defined
+      getTypeAllocSize(getVoidPtrType()) * 2 * 8, // size in bits
+      getABITypeAlign(getVoidPtrType()) * 8,      // alignment in bits
+      0,                                          // flags
+      derivedFrom,                                // derived from
+      elemsArray);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -544,9 +548,8 @@ bool isOpaqueEnumType(Type *type) {
 
 ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type, bool derefclass) {
   // Check for opaque enum first, Bugzilla 13792
-  if (isOpaqueEnumType(type)) {
+  if (isOpaqueEnumType(type))
     return DBuilder.createUnspecifiedType(type->toChars());
-  }
 
   Type *t = type->toBasetype();
   if (derefclass && t->ty == Tclass) {
@@ -554,39 +557,31 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type, bool derefclass) {
     t = type->toBasetype();
   }
 
-  if (t->ty == Tvoid || t->ty == Tnull) {
+  if (t->ty == Tnull)
     return DBuilder.createUnspecifiedType(t->toChars());
-  }
+  if (t->ty == Tvoid)
+    return CreateBasicType(Type::tuns8); // byte
   if (t->isintegral() || t->isfloating()) {
-    if (t->ty == Tvector) {
+    if (t->ty == Tvector)
       return CreateVectorType(type);
-    }
-    if (type->ty == Tenum) {
+    if (type->ty == Tenum)
       return CreateEnumType(type);
-    }
     return CreateBasicType(type);
   }
-  if (t->ty == Tpointer) {
+  if (t->ty == Tpointer)
     return CreatePointerType(type);
-  }
-  if (t->ty == Tarray) {
+  if (t->ty == Tarray)
     return CreateArrayType(type);
-  }
-  if (t->ty == Tsarray) {
+  if (t->ty == Tsarray)
     return CreateSArrayType(type);
-  }
-  if (t->ty == Taarray) {
+  if (t->ty == Taarray)
     return CreateAArrayType(type);
-  }
-  if (t->ty == Tstruct || t->ty == Tclass) {
+  if (t->ty == Tstruct || t->ty == Tclass)
     return CreateCompositeType(type);
-  }
-  if (t->ty == Tfunction) {
+  if (t->ty == Tfunction)
     return CreateFunctionType(type);
-  }
-  if (t->ty == Tdelegate) {
+  if (t->ty == Tdelegate)
     return CreateDelegateType(type);
-  }
 
   // Crash if the type is not supported.
   llvm_unreachable("Unsupported type in debug info");
