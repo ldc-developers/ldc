@@ -391,8 +391,6 @@ void main() {
   // PROFUSE-NEXT: }
 }
 
-// PROFGEN-DAG: call {{.*}} @__llvm_profile_override_default_filename{{.*}} @[[FILENAME]]
-
 // PROFUSE-DAG: ![[FL0]] = !{!"function_entry_count", i64 1}
 // PROFUSE-DAG: ![[FL1]] = !{!"branch_weights", i32 392, i32 1}
 // PROFUSE-DAG: ![[FL2]] = !{!"branch_weights", i32 2, i32 391}
