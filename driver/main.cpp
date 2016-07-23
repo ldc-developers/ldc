@@ -44,6 +44,9 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Path.h"
+#if LDC_LLVM_VER >= 308
+#include "llvm/Support/StringSaver.h"
+#endif
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
@@ -395,7 +398,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   global.params.moduleDepsFile = nullptr;
 
   // Build combined list of command line arguments.
-  std::vector<const char *> final_args;
+  llvm::SmallVector<const char *, 32> final_args;
   final_args.push_back(argv[0]);
 
   ConfigFile cfg_file;
@@ -410,6 +413,22 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
 
   cl::SetVersionPrinter(&printVersion);
   hideLLVMOptions();
+
+// pre-expand response files (LLVM's ParseCommandLineOptions() always uses
+// TokenizeGNUCommandLine which eats backslashes)
+#if LDC_LLVM_VER >= 308
+  llvm::BumpPtrAllocator A;
+  llvm::StringSaver Saver(A);
+  cl::ExpandResponseFiles(Saver,
+#ifdef _WIN32
+                          cl::TokenizeWindowsCommandLine
+#else
+                          cl::TokenizeGNUCommandLine
+#endif
+                          ,
+                          final_args);
+#endif
+
   cl::ParseCommandLineOptions(final_args.size(),
                               const_cast<char **>(final_args.data()),
                               "LDC - the LLVM D compiler\n");
