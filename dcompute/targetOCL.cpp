@@ -143,6 +143,12 @@ public:
               // to determine the alias's name.
               // tyName = T.stringof ~ "*"
               tyName = t1->toChars() + std::string("*");
+              //FIXME for vector types
+              if (tyName.substr(0,4) == "byte") {
+                tyName = "char" + tyName.substr(4);
+              } else if (tyName.substr(0,5) == "ubyte") {
+                tyName = "uchar" + tyName.substr(5);
+              }
               baseTyName = tyName;
               // typeQuals = ((T == const U, U) || addrspace == Constant) ?
               // "const" : "";
