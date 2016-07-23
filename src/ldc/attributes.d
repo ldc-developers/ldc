@@ -37,6 +37,33 @@ private template AliasSeq(TList...)
 alias fastmath = AliasSeq!(llvmAttr("unsafe-fp-math", "true"), llvmFastMathFlag("fast"));
 
 /**
+ * Sets the optimization strategy for a function.
+ * Valid strategies are "none", "optsize", "minsize". The strategies are mutually exclusive.
+ *
+ * @optStrategy("none") in particular is useful to selectively debug functions when a
+ * fully unoptimized program cannot be used (e.g. due to too low performance).
+ *
+ * Strategy "none":
+ *     Disables most optimizations for a function.
+ *     It implies `pragma(inline, false)`: the function is never inlined
+ *     in a calling function, and the attribute cannot be combined with
+ *     `pragma(inline, true)`.
+ *     Functions with `pragma(inline, true)` are still candidates for inlining into
+ *     the function.
+ *
+ * Strategy "optsize":
+ *     Tries to keep the code size of the function low and does optimizations to
+ *     reduce code size as long as they do not significantly impact runtime performance.
+ *
+ * Strategy "minsize":
+ *     Tries to keep the code size of the function low and does optimizations to
+ *     reduce code size that may reduce runtime performance.
+ */
+struct optStrategy {
+    string strategy;
+}
+
+/**
  * Adds an LLVM attribute to a function, without checking the validity or
  * applicability of the attribute.
  * The attribute is specified as key-value pair:
