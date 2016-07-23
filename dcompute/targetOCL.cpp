@@ -92,7 +92,7 @@ public:
     llvm::SmallVector<llvm::Metadata *, 8> addressQuals;
     addressQuals.push_back(llvm::MDString::get(ctx, "kernel_arg_addr_space"));
 
-    // MDNode for the kernel argument access qualifiers (images only).
+    // MDNode for the kernel argument access qualifiers (memory objects only).
     llvm::SmallVector<llvm::Metadata *, 8> accessQuals;
     accessQuals.push_back(llvm::MDString::get(ctx, "kernel_arg_access_qual"));
 
