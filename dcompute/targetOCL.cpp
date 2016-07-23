@@ -166,6 +166,12 @@ public:
         } else {
           // tyName = T.stringof ~ "*"
           tyName = v->type->toChars();
+          if (tyName.substr(0,4) == "byte") {
+              tyName = "char" + tyName.substr(4);
+          } else if (tyName.substr(0,5) == "ubyte") {
+              tyName = "uchar" + tyName.substr(5);
+          }
+
           baseTyName = tyName;
           // typeQuals = ((T == const U, U) || addrspace == Constant) ? "const"
           // : "";
