@@ -581,14 +581,21 @@ function(build_d_executable output_exe compiler_args linker_args dependencies)
             DEPENDS ${object_file}
         )
     else()
+        set(dflags "${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS}")
         set(lflags ${LDC_TRANSLATED_LINKER_FLAGS})
-        separate_arguments(lflags)
+        if(UNIX)
+          separate_arguments(dflags UNIX_COMMAND "${dflags}")
+          separate_arguments(lflags UNIX_COMMAND "${lflags}")
+        else()
+          separate_arguments(dflags WINDOWS_COMMAND "${dflags}")
+          separate_arguments(lflags WINDOWS_COMMAND "${lflags}")
+        endif()
         foreach(f ${linker_args})
             append("-L\"${f}\"" lflags)
         endforeach()
         add_custom_command(
             OUTPUT ${output_exe}
-            COMMAND ${D_COMPILER} ${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS} ${lflags} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${output_exe} ${compiler_args} ${linker_args}
+            COMMAND ${D_COMPILER} ${dflags} ${lflags} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${output_exe} ${compiler_args} ${linker_args}
             WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
             DEPENDS ${dependencies}
         )
