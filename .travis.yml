@@ -8,7 +8,7 @@ matrix:
     #  env: LLVM_VERSION=3.9
     - os: linux
       d: ldc
-      env: LLVM_VERSION=3.8.0
+      env: LLVM_VERSION=3.8.1
     - os: linux
       d: ldc
       env: LLVM_VERSION=3.7.1 OPTS="-DMULTILIB=ON"
@@ -29,7 +29,7 @@ matrix:
 
 cache:
   directories:
-    - llvm-3.8.0
+    - llvm-3.8.1
     - llvm-3.7.1
     - llvm-3.6.2
     - llvm-3.5.2
@@ -55,7 +55,7 @@ before_install:
       if [ -z "$(ls -A llvm-$LLVM_VERSION)" ]; then
         wget -O llvm-$LLVM_VERSION.tar.xz http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-x86_64-linux-gnu-ubuntu-14.04.tar.xz;
         mkdir llvm-$LLVM_VERSION;
-        xzcat llvm-$LLVM_VERSION.tar.xz | tar -xvf - --strip 1 -C llvm-$LLVM_VERSION;
+        tar -xvf llvm-$LLVM_VERSION.tar.xz --strip 1 -C llvm-$LLVM_VERSION;
       fi;
       llvm-$LLVM_VERSION/bin/llvm-config --version;
       export LLVM_CONFIG="llvm-$LLVM_VERSION/bin/llvm-config";
