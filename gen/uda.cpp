@@ -17,6 +17,7 @@ namespace {
 namespace attr {
 const std::string llvmAttr = "llvmAttr";
 const std::string llvmFastMathFlag = "llvmFastMathFlag";
+const std::string optStrategy = "optStrategy";
 const std::string section = "section";
 const std::string target = "target";
 const std::string weak = "_weak";
@@ -147,6 +148,30 @@ void applyAttrLLVMFastMathFlag(StructLiteralExp *sle, IrFunction *irFunc) {
   }
 }
 
+void applyAttrOptStrategy(StructLiteralExp *sle, IrFunction *irFunc) {
+  checkStructElems(sle, {Type::tstring});
+  llvm::StringRef value = getStringElem(sle, 0);
+
+  if (value == "none") {
+    if (irFunc->decl->inlining == PINLINEalways) {
+      sle->error("cannot combine '@ldc.attributes.%s(\"none\")' with "
+                 "'pragma(inline, true)'",
+                 sle->sd->ident->string);
+      return;
+    }
+    irFunc->decl->inlining = PINLINEnever;
+    irFunc->func->addFnAttr(llvm::Attribute::OptimizeNone);
+  } else if (value == "optsize") {
+    irFunc->func->addFnAttr(llvm::Attribute::OptimizeForSize);
+  } else if (value == "minsize") {
+    irFunc->func->addFnAttr(llvm::Attribute::MinSize);
+  } else {
+    sle->warning(
+        "ignoring unrecognized parameter '%s' for '@ldc.attributes.%s'",
+        value.data(), sle->sd->ident->string);
+  }
+}
+
 void applyAttrSection(StructLiteralExp *sle, llvm::GlobalObject *globj) {
   checkStructElems(sle, {Type::tstring});
   globj->setSection(getFirstElemString(sle));
@@ -233,6 +258,10 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
     auto name = sle->sd->ident->string;
     if (name == attr::section) {
       applyAttrSection(sle, gvar);
+    } else if (name == attr::optStrategy) {
+      sle->error(
+          "Special attribute 'ldc.attributes.optStrategy' is only valid for "
+          "functions");
     } else if (name == attr::target) {
       sle->error("Special attribute 'ldc.attributes.target' is only valid for "
                  "functions");
@@ -265,6 +294,8 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
       applyAttrLLVMAttr(sle, func);
     } else if (name == attr::llvmFastMathFlag) {
       applyAttrLLVMFastMathFlag(sle, irFunc);
+    } else if (name == attr::optStrategy) {
+      applyAttrOptStrategy(sle, irFunc);
     } else if (name == attr::section) {
       applyAttrSection(sle, func);
     } else if (name == attr::target) {
