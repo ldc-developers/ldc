@@ -105,8 +105,7 @@ public:
   /// \param Thunk    llvm::Function pointer.
   /// \param fd       The function wrapped by this thunk.
   /// \returns        the Dwarf subprogram global.
-  DISubprogram EmitThunk(llvm::Function *Thunk,
-                              FuncDeclaration *fd); // FIXME
+  DISubprogram EmitThunk(llvm::Function *Thunk, FuncDeclaration *fd); // FIXME
 
   /// \brief Emit the Dwarf subprogram global for a module ctor.
   /// This is used for generated functions like moduleinfoctors,
@@ -175,12 +174,13 @@ private:
                );
   void AddBaseFields(ClassDeclaration *sd, ldc::DIFile file,
 #if LDC_LLVM_VER >= 306
-                     std::vector<llvm::Metadata *> &elems
+                     llvm::SmallVector<llvm::Metadata *, 16> &elems
 #else
-                     std::vector<llvm::Value *> &elems
+                     llvm::SmallVector<llvm::Value *, 16> &elems
 #endif
                      );
   DIFile CreateFile(Loc &loc);
+  DIFile CreateFile();
   DIType CreateBasicType(Type *type);
   DIType CreateEnumType(Type *type);
   DIType CreatePointerType(Type *type);
@@ -192,7 +192,7 @@ private:
   DIType CreateSArrayType(Type *type);
   DIType CreateAArrayType(Type *type);
   DISubroutineType CreateFunctionType(Type *type);
-  DISubroutineType CreateDelegateType(Type *type);
+  DIType CreateDelegateType(Type *type);
   DIType CreateTypeDescription(Type *type, bool derefclass = false);
 
 public:
