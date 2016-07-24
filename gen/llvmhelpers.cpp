@@ -1551,6 +1551,17 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
     }
   }
 
+  if (FuncLiteralDeclaration *flitdecl = decl->isFuncLiteralDeclaration()) {
+    Logger::println("FuncLiteralDeclaration");
+
+    // We need to codegen the function here, because literals are not added
+    // to the module member list.
+    DtoDefineFunction(flitdecl);
+    assert(getIrFunc(flitdecl)->func);
+
+    return new DFuncValue(flitdecl, getIrFunc(flitdecl)->func);
+  }
+
   if (FuncDeclaration *fdecl = decl->isFuncDeclaration()) {
     Logger::println("FuncDeclaration");
     fdecl = fdecl->toAliasFunc();
