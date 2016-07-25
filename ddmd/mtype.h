@@ -243,7 +243,7 @@ public:
     // kludge for template.isType()
     int dyncast() { return DYNCAST_TYPE; }
     int covariant(Type *t, StorageClass *pstc = NULL);
-    char *toChars();
+    const char *toChars();
     char *toPrettyChars(bool QualifyTypes = false);
     static char needThisPrefix();
     static void _init();
