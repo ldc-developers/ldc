@@ -375,7 +375,7 @@ DValue *DtoDynamicCastInterface(Loc &loc, DValue *val, Type *_to) {
 ////////////////////////////////////////////////////////////////////////////////
 
 LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl,
-                                   char *name) {
+                                   const char *name) {
   // sanity checks
   assert(fdecl->isVirtual());
   assert(!fdecl->isFinalFunc());

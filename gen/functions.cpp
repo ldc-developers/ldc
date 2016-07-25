@@ -1227,7 +1227,7 @@ int isDruntimeArrayOp(FuncDeclaration *fd) {
       "_arraySliceSliceMulass_s",         "_arraySliceSliceMulass_t",
       "_arraySliceSliceMulass_u",         "_arraySliceSliceMulass_w",
   };
-  char *name = fd->ident->toChars();
+  const char *name = fd->ident->toChars();
   int i =
       binary(name, libArrayopFuncs, sizeof(libArrayopFuncs) / sizeof(char *));
   if (i != -1) {
