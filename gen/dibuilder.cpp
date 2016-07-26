@@ -1002,6 +1002,62 @@ ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *ll,
       );
 }
 
+void ldc::DIBuilder::EmitNestedContextDebugInfo(llvm::Value *frame,
+                                                FuncDeclaration *fd) {
+
+  IrFunction *irFunc = getIrFunc(fd);
+  assert(irFunc);
+  auto frameType = irFunc->frameType;
+
+  ldc::DICompileUnit CU(GetCU());
+  assert(CU && "Compilation unit missing or corrupted");
+  ldc::DIFile file = CreateFile(fd->loc);
+
+  llvm::SmallVector<LLMetadata *, 16> elems;
+  elems.reserve(fd->closureVars.dim);
+  for (auto vd : fd->closureVars) {
+    IrLocal *irLocal = getIrLocal(vd);
+    assert(irLocal);
+    uint64_t offset = gDataLayout->getStructLayout(frameType)->getElementOffset(
+        irLocal->nestedIndex);
+
+    auto dt = CreateMemberType(vd->loc.linnum, vd->type, file, vd->toChars(),
+                               offset, vd->prot().kind);
+    elems.push_back(dt);
+  }
+  auto elemsArray = DBuilder.getOrCreateArray(elems);
+
+  unsigned alignment =
+      std::max(getABITypeAlign(frameType), irFunc->frameTypeAlignment);
+
+  auto TD =
+      DBuilder.createStructType(CU,             // compile unit where defined
+                                "",             // name
+                                file,           // file where defined
+                                fd->loc.linnum, // line number where defined
+                                getTypeAllocSize(frameType) * 8, // size in bits
+                                alignment * 8,           // alignment in bits
+                                DIFlags::FlagArtificial, // flags
+                                getNullDIType(),         // DerivedFrom
+                                elemsArray);
+
+  auto debugVariable =
+      DBuilder.createAutoVariable(GetCurrentScope(),      // scope
+                                  ".frame",               // name
+                                  file,                   // file
+                                  fd->loc.linnum,         // line num
+                                  TD,                     // type
+                                  true,                   // preserve
+                                  DIFlags::FlagArtificial // flags
+                                  );
+
+#if LDC_LLVM_VER >= 306
+  Declare(fd->loc, frame, debugVariable, DBuilder.createExpression());
+#else
+  Declare(fd->loc, frame, debugVariable);
+#endif
+}
+
 void ldc::DIBuilder::Finalize() {
   if (!global.params.symdebug)
     return;

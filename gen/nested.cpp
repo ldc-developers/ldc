@@ -431,6 +431,10 @@ void DtoCreateNestedContext(FuncDeclaration *fd) {
       frame = DtoRawAlloca(frameType, alignment, ".frame");
     }
 
+    if (global.params.symdebug) {
+      gIR->DBuilder.EmitNestedContextDebugInfo(frame, fd);
+    }
+
     // copy parent frames into beginning
     if (depth != 0) {
       LLValue *src = irfunction->nestArg;
@@ -499,16 +503,6 @@ void DtoCreateNestedContext(FuncDeclaration *fd) {
         IF_LOG Logger::println("nested var:   %s", vd->toChars());
         assert(!irLocal->value);
         irLocal->value = gep;
-      }
-
-      if (global.params.symdebug) {
-#if LDC_LLVM_VER >= 306
-        LLSmallVector<int64_t, 2> addr;
-#else
-        LLSmallVector<LLValue *, 2> addr;
-#endif
-        gIR->DBuilder.OpOffset(addr, frameType, irLocal->nestedIndex);
-        gIR->DBuilder.EmitLocalVariable(frame, vd, nullptr, false, false, addr);
       }
     }
   }
