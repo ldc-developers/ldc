@@ -25,7 +25,7 @@ file(WRITE ${source_file} "void main() {}")
 set(result_code)
 set(stdout)
 execute_process(
-    COMMAND ${D_COMPILER} -v ${source_file}
+    COMMAND ${D_COMPILER} ${D_COMPILER_FLAGS} -v ${source_file}
     RESULT_VARIABLE result_code
     OUTPUT_VARIABLE stdout
     OUTPUT_STRIP_TRAILING_WHITESPACE

@@ -544,6 +544,8 @@ if(UNIX AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Cla
     endif()
 
     include(ExtractDMDSystemLinker)
+    message(STATUS "Host D compiler linker program: ${D_LINKER_COMMAND}")
+    message(STATUS "Host D compiler linker flags: ${D_LINKER_ARGS}")
     list(APPEND LDC_LINKERFLAG_LIST ${D_LINKER_ARGS})
 
     if(NOT "${CMAKE_EXE_LINKER_FLAGS}" STREQUAL "")
