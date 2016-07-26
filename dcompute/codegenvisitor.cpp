@@ -354,6 +354,12 @@ public:
                            "'%s' should have already errored",
                            decl->toPrettyChars());
   }
+  
+  void visit(TemplateDeclaration *decl) LLVM_OVERRIDE {
+    IF_LOG Logger::println("DComputeCodegenVisitor::visit(TemplateDeclaration *decl)");
+    LOG_SCOPE
+      IF_LOG Logger::println("%s",decl->toPrettyChars());
+  }
 };
 void DcomputeDeclaration_codegen(Dsymbol *decl, IRState *irs,
                                  DComputeTarget &dct) {

@@ -230,6 +230,7 @@ LLValue *DtoAllocaDump(LLValue *val, LLType *asType, int alignment,
                        const char *name) {
   LLType *memType = i1ToI8(voidToI8(val->getType()));
   LLType *asMemType = i1ToI8(voidToI8(asType));
+  IF_LOG Logger::cout() << "DtoAllocaDump: " << *memType << "\n" << *asMemType << '\n';
   LLType *allocaType =
       (getTypeStoreSize(memType) <= getTypeAllocSize(asMemType) ? asMemType
                                                                 : memType);
@@ -912,8 +913,10 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     }
 
     irLocal->value = allocainst;
-
-    gIR->DBuilder.EmitLocalVariable(allocainst, vd);
+    if (!gDComputeTarget) {
+      gIR->DBuilder.EmitLocalVariable(allocainst, vd);
+    }
+    
   }
 
   IF_LOG Logger::cout() << "llvm value for decl: " << *getIrLocal(vd)->value

@@ -730,7 +730,7 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
       ++llArgIdx;
     }
 
-    if (global.params.symdebug)
+    if (global.params.symdebug && !gDComputeTarget)
       gIR->DBuilder.EmitLocalVariable(irparam->value, vd, paramType);
   }
 }
@@ -867,7 +867,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   IrFuncTy &irFty = irFunc->irFty;
 
   // debug info
-  irFunc->diSubprogram = gIR->DBuilder.EmitSubProgram(fd);
+  if (!gDComputeTarget) {
+    irFunc->diSubprogram = gIR->DBuilder.EmitSubProgram(fd);
+  }
 
   Type *t = fd->type->toBasetype();
   TypeFunction *f = static_cast<TypeFunction *>(t);
@@ -893,27 +895,30 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   } else {
     setLinkage(lwc, func);
   }
-
-  // On x86_64, always set 'uwtable' for System V ABI compatibility.
-  // TODO: Find a better place for this.
-  // TODO: Is this required for Win64 as well?
-  if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
-    func->addFnAttr(LLAttribute::UWTable);
+  //Exploratory hack to get templates working
+  if (!gDComputeTarget) {
+    // On x86_64, always set 'uwtable' for System V ABI compatibility.
+    // TODO: Find a better place for this.
+    // TODO: Is this required for Win64 as well?
+    if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
+        func->addFnAttr(LLAttribute::UWTable);
+    }
+    if (opts::sanitize != opts::None) {
+      // Set the required sanitizer attribute.
+      if (opts::sanitize == opts::AddressSanitizer) {
+        func->addFnAttr(LLAttribute::SanitizeAddress);
+      }
+      
+      if (opts::sanitize == opts::MemorySanitizer) {
+        func->addFnAttr(LLAttribute::SanitizeMemory);
+      }
+      
+      if (opts::sanitize == opts::ThreadSanitizer) {
+        func->addFnAttr(LLAttribute::SanitizeThread);
+      }
+    }
   }
-  if (opts::sanitize != opts::None) {
-    // Set the required sanitizer attribute.
-    if (opts::sanitize == opts::AddressSanitizer) {
-      func->addFnAttr(LLAttribute::SanitizeAddress);
-    }
-
-    if (opts::sanitize == opts::MemorySanitizer) {
-      func->addFnAttr(LLAttribute::SanitizeMemory);
-    }
-
-    if (opts::sanitize == opts::ThreadSanitizer) {
-      func->addFnAttr(LLAttribute::SanitizeThread);
-    }
-  }
+  
 
   llvm::BasicBlock *beginbb =
       llvm::BasicBlock::Create(gIR->context(), "", func);
@@ -932,11 +937,14 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // this gets erased when the function is complete, so alignment etc does not
   // matter at all
   llvm::Instruction *allocaPoint = new llvm::AllocaInst(
-      LLType::getInt32Ty(gIR->context()), "alloca point", beginbb);
+      LLType::getInt32Ty(gIR->context()), "allocaPoint", beginbb);
   irFunc->allocapoint = allocaPoint;
 
   // debug info - after all allocas, but before any llvm.dbg.declare etc
-  gIR->DBuilder.EmitFuncStart(fd);
+  if (!gDComputeTarget) {
+    gIR->DBuilder.EmitFuncStart(fd);
+  }
+  
 
   // this hack makes sure the frame pointer elimination optimization is
   // disabled.
@@ -973,8 +981,10 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
     assert(getIrParameter(fd->vthis)->value == thisvar);
     getIrParameter(fd->vthis)->value = thismem;
-
-    gIR->DBuilder.EmitLocalVariable(thismem, fd->vthis, nullptr, true);
+    if (!gDComputeTarget) {
+      gIR->DBuilder.EmitLocalVariable(thismem, fd->vthis, nullptr, true);
+    }
+    
   }
 
   // give the 'nestArg' parameter (an lvalue) storage
@@ -1044,7 +1054,10 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     // not put a return statement in automatically, so we do it here.
 
     // pass the previous block into this block
-    gIR->DBuilder.EmitStopPoint(fd->endloc);
+    if (!gDComputeTarget) {
+      gIR->DBuilder.EmitStopPoint(fd->endloc);
+    }
+    
     if (func->getReturnType() == LLType::getVoidTy(gIR->context())) {
       gIR->ir->CreateRetVoid();
     } else if (!fd->isMain()) {
@@ -1059,7 +1072,10 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
       gIR->ir->CreateRet(LLConstant::getNullValue(func->getReturnType()));
     }
   }
-  gIR->DBuilder.EmitFuncEnd(fd);
+  if (!gDComputeTarget) {
+    gIR->DBuilder.EmitFuncEnd(fd);
+  }
+  
 
   // erase alloca point
   if (allocaPoint->getParent()) {

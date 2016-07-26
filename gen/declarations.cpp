@@ -447,7 +447,11 @@ public:
         return;
       }
     }
-
+    
+    if (hasComputeAttr(decl->tempdecl->isTemplateDeclaration()->getModule())) {
+        IF_LOG Logger::println("Template declartion is @compute, skipping");
+        return;
+    }
     for (auto &m : *decl->members) {
       m->accept(this);
     }
