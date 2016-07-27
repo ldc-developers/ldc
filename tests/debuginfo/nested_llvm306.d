@@ -5,7 +5,7 @@
 // CHECK-LABEL: define {{.*}} @_D{{.*}}8encloserFiiZv
 void encloser(int arg0, int arg1)
 {
-    // CHECK: @llvm.dbg.declare{{.*}}%.frame{{.*}}enc_n
+    // CHECK: @llvm.dbg.declare{{.*}}%enc_n{{.*}}enc_n
     int enc_n;
 
     // CHECK-LABEL: define {{.*}} @_D{{.*}}encloser{{.*}}nested
