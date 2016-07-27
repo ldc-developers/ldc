@@ -920,7 +920,7 @@ static void registerPredefinedVersions() {
   VersionCondition::addPredefinedGlobalIdent("LDC");
   VersionCondition::addPredefinedGlobalIdent("all");
   VersionCondition::addPredefinedGlobalIdent("D_Version2");
-  VersionCondition::addPredefinedGlobalIdent("LDC_DCompute");
+  VersionCondition::addPredefinedGlobalIdent("D_DCompute");
   if (global.params.doDocComments) {
     VersionCondition::addPredefinedGlobalIdent("D_Ddoc");
   }
