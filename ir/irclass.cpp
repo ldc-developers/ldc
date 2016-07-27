@@ -371,8 +371,9 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
 
       // Create a dummy FuncDeclaration with enough information to satisfy the
       // DIBuilder
-      FuncDeclaration *thunkFd = reinterpret_cast<FuncDeclaration *>(memcpy(
-          new char[sizeof(FuncDeclaration)], fd, sizeof(FuncDeclaration)));
+      FuncDeclaration *thunkFd = reinterpret_cast<FuncDeclaration *>(
+          memcpy(new char[sizeof(FuncDeclaration)], (void *)fd,
+                 sizeof(FuncDeclaration)));
       thunkFd->ir = new IrDsymbol();
       auto thunkFunc = getIrFunc(thunkFd, true); // create the IrFunction
       thunkFunc->func = thunk;
