@@ -770,11 +770,7 @@ int createStaticLibrary() {
 //////////////////////////////////////////////////////////////////////////////
 
 void deleteExecutable() {
-  if (!gExePath.empty()) {
-    // assert(gExePath.isValid());
-    bool is_directory;
-    assert(!(!llvm::sys::fs::is_directory(gExePath, is_directory) &&
-             is_directory));
+  if (!gExePath.empty() && !llvm::sys::fs::is_directory(gExePath)) {
     llvm::sys::fs::remove(gExePath);
   }
 }
