@@ -160,6 +160,8 @@ public:
   DIGlobalVariable EmitGlobalVariable(llvm::GlobalVariable *ll,
                                       VarDeclaration *vd); // FIXME
 
+  void EmitNestedContextDebugInfo(llvm::Value *frame, FuncDeclaration *fd);
+
   void Finalize();
 
 private:
