@@ -86,11 +86,6 @@ void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
   }
 }
 
-bool getBoolElem(StructLiteralExp *sle, size_t idx) {
-  auto arg = (*sle->elements)[idx];
-  return arg->toInteger() != 0;
-}
-
 /// Returns a null-terminated string
 const char *getStringElem(StructLiteralExp *sle, size_t idx) {
   auto arg = (*sle->elements)[idx];

@@ -561,7 +561,6 @@ DValue *DtoCastVector(Loc &loc, DValue *val, Type *to) {
   assert(val->type->toBasetype()->ty == Tvector);
   Type *totype = to->toBasetype();
   LLType *tolltype = DtoType(to);
-  TypeVector *type = static_cast<TypeVector *>(val->type->toBasetype());
 
   if (totype->ty == Tsarray) {
     // If possible, we need to cast only the address of the vector without

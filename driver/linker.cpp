@@ -34,13 +34,6 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-static bool endsWith(const std::string &str, const std::string &end) {
-  return (str.length() >= end.length() &&
-          std::equal(end.rbegin(), end.rend(), str.rbegin()));
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
 static void CreateDirectoryOnDisk(llvm::StringRef fileName) {
   auto dir = llvm::sys::path::parent_path(fileName);
   if (!dir.empty() && !llvm::sys::fs::exists(dir)) {
