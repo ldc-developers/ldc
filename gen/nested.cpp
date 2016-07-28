@@ -507,8 +507,10 @@ void DtoCreateNestedContext(FuncDeclaration *fd) {
 #else
         LLSmallVector<LLValue *, 2> addr;
 #endif
-        gIR->DBuilder.OpOffset(addr, frameType, irLocal->nestedIndex);
-        gIR->DBuilder.EmitLocalVariable(frame, vd, nullptr, false, false, addr);
+        // Because we are passing a GEP instead of an alloca to
+        // llvm.dbg.declare, we have to make the address dereference explicit.
+        gIR->DBuilder.OpDeref(addr);
+        gIR->DBuilder.EmitLocalVariable(gep, vd, nullptr, false, false, addr);
       }
     }
   }
