@@ -18,7 +18,8 @@
 #include <string>
 
 namespace exe_path {
-void initialize(const char *arg0, void *mainAddress);
+
+void initialize(const char *arg0);
 
 const std::string &getExePath();               // <baseDir>/bin/ldc2
 std::string getBinDir();                       // <baseDir>/bin
