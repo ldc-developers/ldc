@@ -908,11 +908,11 @@ public:
                     if (token.value == TOKlparen)
                     {
                         nextToken();
-                        if (token.value == TOKint32v && token.uns64value > 0)
+                        if (token.value == TOKint32v && token.uns128value > 0)
                         {
-                            if (token.uns64value & (token.uns64value - 1))
+                            if (token.uns128value & (token.uns128value - 1))
                                 error("align(%s) must be a power of 2", token.toChars());
-                            n = cast(uint)token.uns64value;
+                            n = cast(uint)token.uns128value;
                         }
                         else
                         {
@@ -998,7 +998,7 @@ public:
                     if (token.value == TOKidentifier)
                         s = new DebugSymbol(token.loc, token.ident);
                     else if (token.value == TOKint32v || token.value == TOKint64v)
-                        s = new DebugSymbol(token.loc, cast(uint)token.uns64value);
+                        s = new DebugSymbol(token.loc, cast(uint)token.uns128value);
                     else
                     {
                         error("identifier or integer expected, not %s", token.toChars());
@@ -1020,7 +1020,7 @@ public:
                     if (token.value == TOKidentifier)
                         s = new VersionSymbol(token.loc, token.ident);
                     else if (token.value == TOKint32v || token.value == TOKint64v)
-                        s = new VersionSymbol(token.loc, cast(uint)token.uns64value);
+                        s = new VersionSymbol(token.loc, cast(uint)token.uns128value);
                     else
                     {
                         error("identifier or integer expected, not %s", token.toChars());
@@ -2121,7 +2121,7 @@ public:
             if (token.value == TOKidentifier)
                 id = token.ident;
             else if (token.value == TOKint32v || token.value == TOKint64v)
-                level = cast(uint)token.uns64value;
+                level = cast(uint)token.uns128value;
             else
                 error("identifier or integer expected, not %s", token.toChars());
             nextToken();
@@ -2152,7 +2152,7 @@ public:
             if (token.value == TOKidentifier)
                 id = token.ident;
             else if (token.value == TOKint32v || token.value == TOKint64v)
-                level = cast(uint)token.uns64value;
+                level = cast(uint)token.uns128value;
             else if (token.value == TOKunittest)
                 id = Identifier.idPool(Token.toChars(TOKunittest), strlen(Token.toChars(TOKunittest)));
             else if (token.value == TOKassert)
@@ -3792,8 +3792,8 @@ public:
                     if (token.value == TOKlparen)
                     {
                         nextToken();
-                        if (token.value == TOKint32v && token.uns64value > 0)
-                            structalign = cast(uint)token.uns64value;
+                        if (token.value == TOKint32v && token.uns128value > 0)
+                            structalign = cast(uint)token.uns128value;
                         else
                         {
                             error("positive integer expected, not %s", token.toChars());
@@ -6605,19 +6605,19 @@ public:
             nextToken();
             break;
         case TOKint32v:
-            e = new IntegerExp(loc, cast(d_int32)token.int64value, Type.tint32);
+            e = new IntegerExp(loc, cast(d_int32)token.int128value, Type.tint32);
             nextToken();
             break;
         case TOKuns32v:
-            e = new IntegerExp(loc, cast(d_uns32)token.uns64value, Type.tuns32);
+            e = new IntegerExp(loc, cast(d_uns32)token.uns128value, Type.tuns32);
             nextToken();
             break;
         case TOKint64v:
-            e = new IntegerExp(loc, token.int64value, Type.tint64);
+            e = new IntegerExp(loc, token.int128value, Type.tint64);
             nextToken();
             break;
         case TOKuns64v:
-            e = new IntegerExp(loc, token.uns64value, Type.tuns64);
+            e = new IntegerExp(loc, token.uns128value, Type.tuns64);
             nextToken();
             break;
         case TOKfloat32v:
@@ -6683,15 +6683,15 @@ public:
             nextToken();
             break;
         case TOKcharv:
-            e = new IntegerExp(loc, cast(d_uns8)token.uns64value, Type.tchar);
+            e = new IntegerExp(loc, cast(d_uns8)token.uns128value, Type.tchar);
             nextToken();
             break;
         case TOKwcharv:
-            e = new IntegerExp(loc, cast(d_uns16)token.uns64value, Type.twchar);
+            e = new IntegerExp(loc, cast(d_uns16)token.uns128value, Type.twchar);
             nextToken();
             break;
         case TOKdcharv:
-            e = new IntegerExp(loc, cast(d_uns32)token.uns64value, Type.tdchar);
+            e = new IntegerExp(loc, cast(d_uns32)token.uns128value, Type.tdchar);
             nextToken();
             break;
         case TOKstring:

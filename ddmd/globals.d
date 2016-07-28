@@ -406,10 +406,10 @@ else
 // Be careful not to care about sign when using dinteger_t
 // use this instead of integer_t to
 // avoid conflicts with system #include's
-alias dinteger_t = ulong;
+alias dinteger_t = ucent;
 // Signed and unsigned variants
-alias sinteger_t = long;
-alias uinteger_t = ulong;
+alias sinteger_t = cent;
+alias uinteger_t = ucent;
 
 alias d_int8 = int8_t;
 alias d_uns8 = uint8_t;
@@ -419,6 +419,8 @@ alias d_int32 = int32_t;
 alias d_uns32 = uint32_t;
 alias d_int64 = int64_t;
 alias d_uns64 = uint64_t;
+alias d_int128 = int128_t;
+alias d_uns128 = uint128_t;
 alias d_float32 = float;
 alias d_float64 = double;
 alias d_float80 = real;

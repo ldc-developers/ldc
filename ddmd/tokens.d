@@ -562,8 +562,8 @@ extern (C++) struct Token
     union
     {
         // Integers
-        d_int64 int64value;
-        d_uns64 uns64value;
+        d_int128 int128value;
+        d_uns128 uns128value;
         // Floats
         d_float80 float80value;
 
@@ -780,19 +780,19 @@ extern (C++) struct Token
         switch (value)
         {
         case TOKint32v:
-            sprintf(&buffer[0], "%d", cast(d_int32)int64value);
+            sprintf(&buffer[0], "%d", cast(d_int32)int128value);
             break;
         case TOKuns32v:
         case TOKcharv:
         case TOKwcharv:
         case TOKdcharv:
-            sprintf(&buffer[0], "%uU", cast(d_uns32)uns64value);
+            sprintf(&buffer[0], "%uU", cast(d_uns32)uns128value);
             break;
         case TOKint64v:
-            sprintf(&buffer[0], "%lldL", cast(long)int64value);
+            sprintf(&buffer[0], "%lldL", cast(long)int128value);
             break;
         case TOKuns64v:
-            sprintf(&buffer[0], "%lluUL", cast(ulong)uns64value);
+            sprintf(&buffer[0], "%lluUL", cast(ulong)uns128value);
             break;
         case TOKfloat32v:
             Port.ld_sprint(&buffer[0], 'g', float80value);
