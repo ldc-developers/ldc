@@ -1079,52 +1079,50 @@ llvm::MDNode *CodeGenPGO::createProfileWeightsForeachRange(
                               std::max(CondCount, LoopCount) - LoopCount);
 }
 
-void CodeGenPGO::valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
-                              llvm::Value *valuePtr) {
+void CodeGenPGO::emitIndirectCallPGO(llvm::Instruction *callSite,
+                                     llvm::Value *funcPtr) {
 #if LDC_LLVM_VER >= 309
-  if (!enablePGOIndirectCalls)
-    return;
+  if (enablePGOIndirectCalls)
+    valueProfile(llvm::IPVK_IndirectCallTarget, callSite, funcPtr, true);
+#endif
+}
 
-  if (!valuePtr || !valueSite)
+void CodeGenPGO::valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
+                              llvm::Value *value, bool ptrCastNeeded) {
+#if LDC_LLVM_VER >= 309
+  if (!value || !valueSite)
     return;
 
   bool instrumentValueSites = global.params.genInstrProf && emitInstrumentation;
   if (instrumentValueSites && RegionCounterMap) {
-    // Instrumentation will be inserted before the actual call
+    // Instrumentation must be inserted just before the valueSite instruction.
+    // Save the current insertion point to be able to restore it later.
     auto savedInsertPoint = gIR->ir->saveIP();
     gIR->ir->SetInsertPoint(valueSite);
+
+    if (ptrCastNeeded)
+      value = gIR->ir->CreatePtrToInt(value, gIR->ir->getInt64Ty());
 
     auto *i8PtrTy = llvm::Type::getInt8PtrTy(gIR->context());
     llvm::Value *Args[5] = {
         llvm::ConstantExpr::getBitCast(FuncNameVar, i8PtrTy),
-        gIR->ir->getInt64(FunctionHash),
-        gIR->ir->CreatePtrToInt(valuePtr, gIR->ir->getInt64Ty()),
-        gIR->ir->getInt32(valueKind),
-        gIR->ir->getInt32(NumValueSites[valueKind]++)};
+        gIR->ir->getInt64(FunctionHash), value, gIR->ir->getInt32(valueKind),
+        gIR->ir->getInt32(NumValueSites[valueKind])};
     gIR->ir->CreateCall(GET_INTRINSIC_DECL(instrprof_value_profile), Args);
 
     gIR->ir->restoreIP(savedInsertPoint);
+
+    NumValueSites[valueKind]++;
     return;
   }
 
   if (ProfRecord) {
-    // We record the top most called three functions at each call site.
-    // Profile metadata contains a string identifying this metadata
-    // as value profiling data, then a uint32_t value for the value profiling
-    // kind, a uint64_t value for the total number of times the call is
-    // executed, followed by the function hash and execution count (uint64_t)
-    // pairs for each function.
     if (NumValueSites[valueKind] >= ProfRecord->getNumValueSites(valueKind))
       return;
 
     llvm::annotateValueSite(gIR->module, *valueSite, *ProfRecord,
-                            (llvm::InstrProfValueKind)valueKind,
+                            static_cast<llvm::InstrProfValueKind>(valueKind),
                             NumValueSites[valueKind]);
-
-    // Create PGOFuncName meta data if it does not exist yet.
-    //llvm::Function *F = valueSite->getFunction();
-    //if (!llvm::getPGOFuncNameMetadata(*F))
-    //  llvm::createPGOFuncNameMetadata(*F);
 
     NumValueSites[valueKind]++;
   }

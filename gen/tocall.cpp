@@ -892,8 +892,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   // sites.
   if (!call.getCalledFunction()) {
     auto &PGO = gIR->func()->pgo;
-    PGO.valueProfile(llvm::IPVK_IndirectCallTarget, call.getInstruction(),
-                     callable);
+    PGO.emitIndirectCallPGO(call.getInstruction(), callable);
   }
 #endif
 

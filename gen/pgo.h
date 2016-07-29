@@ -82,8 +82,10 @@ public:
     return I;
   }
 
+  void emitIndirectCallPGO(llvm::Instruction *callSite, llvm::Value *funcPtr) {}
+
   void valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
-                    llvm::Value *valuePtr) {}
+                    llvm::Value *value, bool ptrCastNeeded) {}
 };
 
 #else
@@ -170,11 +172,21 @@ public:
     return I;
   }
 
+  /// Adds profiling instrumentation/annotation of indirect calls to `funcPtr`
+  /// for callsite `callSite`.
+  /// Does nothing for LLVM < 3.9.
+  void emitIndirectCallPGO(llvm::Instruction *callSite, llvm::Value *funcPtr);
+
+  /// Adds profiling instrumentation/annotation of a certain value.
   /// This method either inserts a call to the profile run-time during
   /// instrumentation or puts profile data into metadata for PGO use.
+  /// The profiled value is of kind `valueKind`, will be added right before IR
+  /// code site `valueSite`, and the to be profiled value is given by
+  /// `value`. `value` should be of LLVM i64 type, unless `ptrCastNeeded` is
+  /// true, in which case a ptrtoint cast to i64 is added.
   /// Does nothing for LLVM < 3.9.
   void valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
-                    llvm::Value *valuePtr);
+                    llvm::Value *value, bool ptrCastNeeded);
 
 private:
   std::string FuncName;
