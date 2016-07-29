@@ -365,7 +365,7 @@ void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
       }
 #if 1
       if (r->getType() !=
-          lit) { // It's wierd but it happens. TODO: try to remove this hack
+          lit) { // It's weird but it happens. TODO: try to remove this hack
         r = DtoBitCast(r, lit);
       }
 #else
@@ -1333,7 +1333,7 @@ LLValue *makeLValue(Loc &loc, DValue *value) {
 
   LLValue *mem = DtoAlloca(value->type, ".makelvaluetmp");
   DLValue var(value->type, mem);
-  DtoAssign(loc, &var, value);
+  DtoAssign(loc, &var, value, TOKblit);
   return mem;
 }
 
@@ -1811,7 +1811,8 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
     // The type of globals is determined by their initializer, and the front-end
     // may inject implicit casts for class references and static arrays.
     assert(vd->isDataseg() || (vd->storage_class & STCextern) ||
-           type->toBasetype()->ty == Tclass || type->toBasetype()->ty == Tsarray);
+           type->toBasetype()->ty == Tclass ||
+           type->toBasetype()->ty == Tsarray);
     llvm::Type *pointeeType = val->getType()->getPointerElementType();
     if (isSpecialRef)
       pointeeType = pointeeType->getPointerElementType();

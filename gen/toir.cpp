@@ -144,7 +144,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
                              expr->toChars());
       // try to construct it in-place
       if (!toInPlaceConstruction(&field, expr)) {
-        DtoAssign(loc, &field, toElem(expr), TOKconstruct, true);
+        DtoAssign(loc, &field, toElem(expr), TOKblit);
         if (expr->isLvalue())
           callPostblit(loc, expr, DtoLVal(&field));
       }
@@ -153,12 +153,12 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       LOG_SCOPE
       DImValue val(vd->type,
                    DtoBitCast(DtoNestedContext(loc, sd), DtoType(vd->type)));
-      DtoAssign(loc, &field, &val, TOKconstruct, true);
+      DtoAssign(loc, &field, &val, TOKblit);
     } else {
       IF_LOG Logger::println("using default initializer");
       LOG_SCOPE
       DConstValue val(vd->type, get_default_initializer(vd));
-      DtoAssign(loc, &field, &val, TOKconstruct, true);
+      DtoAssign(loc, &field, &val, TOKblit);
     }
 
     // Also zero out padding bytes counted as being part of the type in DMD
@@ -452,7 +452,7 @@ public:
       DValue *newlen = toElem(e->e2);
       DSliceValue *slice =
           DtoResizeDynArray(e->loc, arrval.type, &arrval, DtoRVal(newlen));
-      DtoAssign(e->loc, &arrval, slice);
+      DtoStore(DtoRVal(slice), DtoLVal(&arrval));
       result = newlen;
       return;
     }
@@ -604,7 +604,7 @@ public:
     DValue *opResult = binOpFunc(e->loc, opType, lhsLVal, e->e2, true);
 
     DValue *assignedResult = DtoCast(e->loc, opResult, lhsLVal->type);
-    DtoAssign(e->loc, lhsLVal, assignedResult);
+    DtoAssign(e->loc, lhsLVal, assignedResult, TOKassign);
 
     assert(e->type->toBasetype()->equals(lhsLVal->type->toBasetype()));
     return lhsLVal;
@@ -1522,7 +1522,7 @@ public:
 
       // try to construct it in-place
       if (!toInPlaceConstruction(&tmpvar, exp))
-        DtoAssign(e->loc, &tmpvar, toElem(exp));
+        DtoAssign(e->loc, &tmpvar, toElem(exp), TOKblit);
 
       // return as pointer-to
       result = new DImValue(e->type, mem);
@@ -2129,7 +2129,7 @@ public:
     } else if (e1type->equals(e2type)) {
       // append array
       DSliceValue *slice = DtoCatAssignArray(e->loc, result, e->e2);
-      DtoAssign(e->loc, result, slice);
+      DtoStore(DtoRVal(slice), DtoLVal(result));
     } else {
       // append element
       DtoCatAssignElement(e->loc, e1type, result, e->e2);
@@ -2504,7 +2504,7 @@ public:
 
       // try to construct it in-place
       if (!toInPlaceConstruction(mem, eval))
-        DtoAssign(e->loc, mem, toElem(eval));
+        DtoAssign(e->loc, mem, toElem(eval), TOKblit);
     }
   }
 

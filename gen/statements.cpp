@@ -171,8 +171,6 @@ public:
 
           // store the return value unless NRVO already used the sret pointer
           if (!e->isLVal() || DtoLVal(e) != sretPointer) {
-            DtoAssign(stmt->loc, &returnValue, e, TOKblit);
-
             // call postblit if the expression is a D lvalue
             // exceptions: NRVO and special __result variable (out contracts)
             bool doPostblit = !(fd->nrvo_can && fd->nrvo_var);
@@ -181,6 +179,8 @@ public:
               if (ve->var->isResult())
                 doPostblit = false;
             }
+
+            DtoAssign(stmt->loc, &returnValue, e, TOKblit);
             if (doPostblit)
               callPostblit(stmt->loc, stmt->exp, sretPointer);
           }
@@ -1619,7 +1619,7 @@ public:
       // Copy value to local variable, and use it as the value variable.
       DLValue dst(stmt->value->type, valvar);
       DLValue src(stmt->value->type, gep);
-      DtoAssign(stmt->loc, &dst, &src);
+      DtoAssign(stmt->loc, &dst, &src, TOKassign);
       getIrLocal(stmt->value)->value = valvar;
     } else {
       // Use the GEP as the address of the value variable.
