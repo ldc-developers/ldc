@@ -571,7 +571,9 @@ static void initializePasses() {
 #if LDC_LLVM_VER < 308
   initializeIPA(Registry);
 #endif
-#if LDC_LLVM_VER >= 306
+#if LDC_LLVM_VER >= 400
+  initializeRewriteSymbolsLegacyPassPass(Registry);
+#elif LDC_LLVM_VER >= 306
   initializeRewriteSymbolsPass(Registry);
 #endif
 #if LDC_LLVM_VER >= 307
