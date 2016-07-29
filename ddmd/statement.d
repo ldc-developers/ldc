@@ -4037,7 +4037,6 @@ public:
     {
         bool gototarget; // true iff this is the target of a 'goto case'
         void* bodyBB;  // llvm::BasicBlock*
-        void* llvmIdx; // llvm::Value*
     }
 
     extern (D) this(Loc loc, Expression exp, Statement s)
