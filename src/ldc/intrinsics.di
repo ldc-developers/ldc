@@ -407,7 +407,7 @@ pragma(LDC_atomic_rmw, "umin")
 
 ///
 struct OverflowRet(T) {
-    static assert(is(T : long), T.stringof ~ " is not an integer type!");
+    static assert((is(ucent) && is(T : cent)) || is(T : long), T.stringof ~ " is not an integer type!");
     T result; ///
     bool overflow; ///
 }
