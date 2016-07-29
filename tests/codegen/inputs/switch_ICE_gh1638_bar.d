@@ -1,17 +1,26 @@
-// Don't make any changes to this file without consulting Github issue 1638 first.
+// Don't make any changes/additions to this file without consulting Github issue 1638 first.
 
 module switch_ICE_gh1638_bar;
 
-import switch_ICE_gh1638;
-import std.conv;
-
-static class F
+struct S(T)
 {
-    static Q[] X;
+    auto fun = (T a) {
+        T r;
+        switch (a)
+        {
+        case 1:
+            r = 1;
+            break;
+        default:
+            return 0;
+        }
+        return r * 2;
+    };
+}
 
-    public static void A(int x)
-    {
-        emplace(X[x].Y);
-        return;
-    }
+alias T = S!int;
+
+void f(int a)
+{
+    int r = T().fun(a);
 }
