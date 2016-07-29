@@ -260,6 +260,9 @@ public:
   /// Unregisters the last registered catch block.
   void popCatch();
 
+  /// Indicates whether there are any registered catch blocks.
+  bool hasCatches() const;
+
   size_t currentCatchScope() { return catchScopes.size(); }
 
 #if LDC_LLVM_VER >= 308
@@ -305,7 +308,7 @@ public:
   /// are catches/cleanups active or not.
   template <typename T>
   llvm::CallSite callOrInvoke(llvm::Value *callee, const T &args,
-                              const char *name = "");
+                              const char *name = "", bool isNothrow = false);
 
   /// Terminates the current basic block with an unconditional branch to the
   /// given label, along with the cleanups to execute on the way there.
@@ -406,14 +409,20 @@ private:
 
 template <typename T>
 llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
-                                        const char *name) {
+                                        const char *name, bool isNothrow) {
   // If this is a direct call, we might be able to use the callee attributes
   // to our advantage.
   llvm::Function *calleeFn = llvm::dyn_cast<llvm::Function>(callee);
 
+  // Ignore 'nothrow' inside try-blocks with at least 1 catch block to allow
+  // catching Errors.
+  if (isNothrow)
+    isNothrow = !hasCatches();
+
   // Intrinsics don't support invoking and 'nounwind' functions don't need it.
   const bool doesNotThrow =
-      calleeFn && (calleeFn->isIntrinsic() || calleeFn->doesNotThrow());
+      isNothrow ||
+      (calleeFn && (calleeFn->isIntrinsic() || calleeFn->doesNotThrow()));
 
 #if LDC_LLVM_VER >= 308
   // calls inside a funclet must be annotated with its value

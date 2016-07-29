@@ -14,7 +14,6 @@
 #include "gen/tollvm.h"
 #include "ir/irdsymbol.h"
 
-
 IrFunction::IrFunction(FuncDeclaration *fd) : FMF() {
   decl = fd;
 

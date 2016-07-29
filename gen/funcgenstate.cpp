@@ -375,6 +375,20 @@ void ScopeStack::popCatch() {
   }
 }
 
+bool ScopeStack::hasCatches() const {
+  if (useMSVCEH()) {
+#if LDC_LLVM_VER >= 308
+    for (const auto &c : cleanupScopes) {
+      if (isCatchSwitchBlock(c.beginBlock))
+        return true;
+    }
+#endif
+    return false;
+  }
+
+  return !catchScopes.empty();
+}
+
 void ScopeStack::pushLoopTarget(Statement *loopStatement,
                                 llvm::BasicBlock *continueTarget,
                                 llvm::BasicBlock *breakTarget) {
