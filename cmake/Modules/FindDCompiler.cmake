@@ -70,8 +70,8 @@ endif()
 
 
 if (D_COMPILER_FOUND)
-    message(STATUS "Found D compiler ${D_COMPILER}, with default flags '${D_COMPILER_FLAGS}'")
-    message(STATUS "D compiler version: ${D_COMPILER_VERSION_STRING}")
+    message(STATUS "Found host D compiler ${D_COMPILER}, with default flags '${D_COMPILER_FLAGS}'")
+    message(STATUS "Host D compiler version: ${D_COMPILER_VERSION_STRING}")
 else()
-    message(FATAL_ERROR "Did not find D compiler! Try setting the 'D_COMPILER' variable or 'DMD' environment variable.")
+    message(FATAL_ERROR "No D compiler found! Try setting the 'D_COMPILER' variable or 'DMD' environment variable.")
 endif()
