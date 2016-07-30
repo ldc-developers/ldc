@@ -90,6 +90,7 @@ script:
       make -j3 druntime-ldc-unittest-debug druntime-ldc-unittest;
     fi
   # Run dmd-testsuite.
+  - gdb --version
   -
     if [ "${TEST_CONFIG}" = "Debug" ]; then
       CC="" MAKEOPTS=-j4 ctest --verbose -R "dmd-testsuite-debug";
