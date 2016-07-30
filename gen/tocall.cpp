@@ -887,6 +887,15 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   // call the function
   LLCallSite call = gIR->func()->scopes->callOrInvoke(callable, args);
 
+#if LDC_LLVM_VER >= 309
+  // PGO: Insert instrumentation or attach profile metadata at indirect call
+  // sites.
+  if (!call.getCalledFunction()) {
+    auto &PGO = gIR->func()->pgo;
+    PGO.emitIndirectCallPGO(call.getInstruction(), callable);
+  }
+#endif
+
   // get return value
   const int sretArgIndex =
       (irFty.arg_sret && irFty.arg_this && gABI->passThisBeforeSret(tf) ? 1
