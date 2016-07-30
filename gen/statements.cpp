@@ -1125,6 +1125,16 @@ public:
 
     llvm::BasicBlock *oldbb = irs->scopebb();
 
+    // Codegen state variables stored in the AST must be reset (see end of
+    // function)
+    for (CaseStatement *cs : *stmt->cases) {
+      assert(cs->bodyBB == nullptr);
+      assert(cs->llvmIdx == nullptr);
+    }
+    if (stmt->sdefault) {
+      assert(stmt->sdefault->bodyBB == nullptr);
+    }
+
     // If one of the case expressions is non-constant, we can't use
     // 'switch' instruction (that can happen because D2 allows to
     // initialize a global variable in a static constructor).
@@ -1357,6 +1367,17 @@ public:
     }
 
     irs->scope() = IRScope(endbb);
+
+    // Reset backend variables to original state (to allow multiple codegen
+    // passes of same ast nodes)
+    // TODO: move the codegen state variables out of the AST.
+    for (CaseStatement *cs : *stmt->cases) {
+      cs->bodyBB = nullptr;
+      cs->llvmIdx = nullptr;
+    }
+    if (stmt->sdefault) {
+      stmt->sdefault->bodyBB = nullptr;
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////
