@@ -12,8 +12,8 @@ struct Throwing
     void bar() { throw new Exception("bar"); }
 }
 
-// CHECK-LABEL: define{{.*}} @{{.*}}_D7nothrow10inTryCatchFZv
-void inTryCatch()
+// CHECK-LABEL: define{{.*}} @{{.*}}_D7nothrow15inTryCatchErrorFZv
+void inTryCatchError()
 {
     try
     {
@@ -25,6 +25,21 @@ void inTryCatch()
         // CHECK: invoke {{.*}}_D7nothrow1S6__dtorMFNbZv{{.*}} %a
     }
     catch (Error) {}
+}
+
+// CHECK-LABEL: define{{.*}} @{{.*}}_D7nothrow19inTryCatchExceptionFZv
+void inTryCatchException()
+{
+    // make sure the nothrow functions are never invoked
+    // CHECK-NOT: invoke {{.*}}_D7nothrow1S3fooMFNbZv
+    // CHECK-NOT: invoke {{.*}}_D7nothrow1S6__dtorMFNbZv
+
+    try
+    {
+        S a;
+        a.foo();
+    }
+    catch (Exception) {}
 }
 
 // CHECK-LABEL: define{{.*}} @{{.*}}_D7nothrow12inTryFinallyFZv

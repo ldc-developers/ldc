@@ -924,22 +924,21 @@ public:
           funclet ? funclet : llvm::ConstantTokenNone::get(irs->context()),
           unwindto, stmt->catches->dim, "", catchSwitchBlock);
 
-      for (auto it = stmt->catches->begin(), end = stmt->catches->end();
-           it != end; ++it) {
-        llvm::BasicBlock *catchBB = llvm::BasicBlock::Create(
-            irs->context(), llvm::Twine("catch.") + (*it)->type->toChars(),
+      for (auto c : *stmt->catches) {
+        auto catchBB = llvm::BasicBlock::Create(
+            irs->context(), llvm::Twine("catch.") + c->type->toChars(),
             irs->topfunc(), endbb);
 
         irs->scope() = IRScope(catchBB);
-        irs->DBuilder.EmitBlockStart((*it)->loc);
-        PGO.emitCounterIncrement(*it);
+        irs->DBuilder.EmitBlockStart(c->loc);
+        PGO.emitCounterIncrement(c);
 
-        emitBeginCatchMSVCEH(*it, endbb, catchSwitchInst);
+        emitBeginCatchMSVCEH(c, endbb, catchSwitchInst);
 
         // Emit handler, if there is one. The handler is zero, for instance,
         // when building 'catch { debug foo(); }' in non-debug mode.
-        if ((*it)->handler) {
-          Statement_toIR((*it)->handler, irs);
+        if (c->handler) {
+          Statement_toIR(c->handler, irs);
         }
 
         if (!irs->scopereturned()) {
@@ -969,10 +968,9 @@ public:
     } else
 #endif
     {
-      for (Catches::reverse_iterator it = stmt->catches->rbegin(),
-                                     end = stmt->catches->rend();
+      for (auto it = stmt->catches->rbegin(), end = stmt->catches->rend();
            it != end; ++it) {
-        llvm::BasicBlock *catchBB = llvm::BasicBlock::Create(
+        auto catchBB = llvm::BasicBlock::Create(
             irs->context(), llvm::Twine("catch.") + (*it)->type->toChars(),
             irs->topfunc(), endbb);
 
@@ -1047,14 +1045,30 @@ public:
     // Emit the try block.
     irs->scope() = IRScope(trybb);
 
+    const bool isCatchingNonExceptions =
+        std::any_of(stmt->catches->begin(), stmt->catches->end(), [](Catch *c) {
+          bool isException = false;
+          for (auto cd = c->type->toBasetype()->isClassHandle(); cd;
+               cd = cd->baseClass) {
+            if (cd == ClassDeclaration::exception) {
+              isException = true;
+              break;
+            }
+          }
+          return !isException;
+        });
+
+    irs->func()->scopes->pushTryBlock(isCatchingNonExceptions);
+
     assert(stmt->_body);
     irs->DBuilder.EmitBlockStart(stmt->_body->loc);
     stmt->_body->accept(this);
     irs->DBuilder.EmitBlockEnd();
 
-    if (!irs->scopereturned()) {
+    irs->func()->scopes->popTryBlock();
+
+    if (!irs->scopereturned())
       llvm::BranchInst::Create(endbb, irs->scopebb());
-    }
 
     // Now that we have done the try block, remove the catches and continue
     // codegen in the end block the try and all the catches branch to.

@@ -260,8 +260,16 @@ public:
   /// Unregisters the last registered catch block.
   void popCatch();
 
-  /// Indicates whether there are any registered catch blocks.
-  bool hasCatches() const;
+  /// Registers a try block and the info whether non-Exceptions (Errors and
+  /// other Throwables) can be caught.
+  void pushTryBlock(bool catchingNonExceptions);
+
+  /// Unregisters the last registered try block.
+  void popTryBlock();
+
+  /// Indicates whether there are any registered catch blocks that handle
+  /// non-Exception Throwables.
+  bool isCatchingNonExceptions() const;
 
   size_t currentCatchScope() { return catchScopes.size(); }
 
@@ -392,6 +400,9 @@ private:
   ///
   std::vector<CatchScope> catchScopes;
 
+  ///
+  std::vector<bool> catchingNonExceptions;
+
   /// Gotos which we were not able to resolve to any cleanup scope, but which
   /// might still be defined later in the function at top level. If there are
   /// any left on function exit, it is an error (e.g. because the user tried
@@ -414,10 +425,10 @@ llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
   // to our advantage.
   llvm::Function *calleeFn = llvm::dyn_cast<llvm::Function>(callee);
 
-  // Ignore 'nothrow' inside try-blocks with at least 1 catch block to allow
-  // catching Errors.
+  // Ignore 'nothrow' inside try-blocks with at least 1 catch block handling a
+  // non-Exception Throwable.
   if (isNothrow)
-    isNothrow = !hasCatches();
+    isNothrow = !isCatchingNonExceptions();
 
   // Intrinsics don't support invoking and 'nounwind' functions don't need it.
   const bool doesNotThrow =

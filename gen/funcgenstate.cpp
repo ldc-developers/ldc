@@ -375,18 +375,31 @@ void ScopeStack::popCatch() {
   }
 }
 
-bool ScopeStack::hasCatches() const {
+void ScopeStack::pushTryBlock(bool catchesNonExceptions) {
+  catchingNonExceptions.push_back(catchesNonExceptions);
+}
+
+void ScopeStack::popTryBlock() {
+  catchingNonExceptions.pop_back();
+}
+
+bool ScopeStack::isCatchingNonExceptions() const {
+  bool hasCatchScopes = !catchScopes.empty();
   if (useMSVCEH()) {
 #if LDC_LLVM_VER >= 308
-    for (const auto &c : cleanupScopes) {
-      if (isCatchSwitchBlock(c.beginBlock))
-        return true;
-    }
+    hasCatchScopes = std::any_of(
+        cleanupScopes.begin(), cleanupScopes.end(),
+        [](const CleanupScope &c) { return isCatchSwitchBlock(c.beginBlock); });
+#else
+    hasCatchScopes = false;
 #endif
-    return false;
   }
 
-  return !catchScopes.empty();
+  if (!hasCatchScopes)
+    return false;
+
+  assert(!catchingNonExceptions.empty());
+  return catchingNonExceptions.back();
 }
 
 void ScopeStack::pushLoopTarget(Statement *loopStatement,
