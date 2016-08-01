@@ -304,7 +304,7 @@ public:
   /// are catches/cleanups active or not.
   template <typename T>
   llvm::CallSite callOrInvoke(llvm::Value *callee, const T &args,
-                              const char *name = "");
+                              const char *name = "", bool isNothrow = false);
 
   /// Terminates the current basic block with an unconditional branch to the
   /// given label, along with the cleanups to execute on the way there.
@@ -405,14 +405,18 @@ private:
 
 template <typename T>
 llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
-                                        const char *name) {
+                                        const char *name, bool isNothrow) {
   // If this is a direct call, we might be able to use the callee attributes
   // to our advantage.
   llvm::Function *calleeFn = llvm::dyn_cast<llvm::Function>(callee);
 
   // Intrinsics don't support invoking and 'nounwind' functions don't need it.
-  const bool doesNotThrow =
-      calleeFn && (calleeFn->isIntrinsic() || calleeFn->doesNotThrow());
+  const bool isIntrinsic = calleeFn && calleeFn->isIntrinsic();
+  if (!isNothrow)
+    isNothrow = (calleeFn && calleeFn->doesNotThrow());
+
+  // ignore "nothrow" inside a try/catch block to allow catching Errors
+  const bool doesNotThrow = isIntrinsic || (isNothrow && catchScopes.empty());
 
 #if LDC_LLVM_VER >= 308
   // calls inside a funclet must be annotated with its value
