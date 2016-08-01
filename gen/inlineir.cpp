@@ -127,7 +127,7 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
     // is needed e.g. when the parent function has "unsafe-fp-math"="true"
     // applied.
     {
-      assert(!gIR->functions.empty() && "Inline ir outside function");
+      assert(!gIR->funcGenStates.empty() && "Inline ir outside function");
       auto enclosingFunc = gIR->topfunc();
       assert(enclosingFunc);
       copyFnAttributes(fun, enclosingFunc);

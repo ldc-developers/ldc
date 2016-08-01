@@ -16,6 +16,7 @@
 #include "module.h"
 #include "mtype.h"
 #include "gen/dvalue.h"
+#include "gen/funcgenstate.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
@@ -863,9 +864,9 @@ DSliceValue *DtoCatArrays(Loc &loc, Type *arrayType, Expression *exp1,
     args.push_back(val);
   }
 
-  LLValue *newArray = gIR->func()
-                          ->scopes->callOrInvoke(fn, args, ".appendedArray")
-                          .getInstruction();
+  auto newArray = gIR->funcGen()
+                      .scopes.callOrInvoke(fn, args, ".appendedArray")
+                      .getInstruction();
   return getSlice(arrayType, newArray);
 }
 
@@ -937,7 +938,7 @@ static LLValue *DtoArrayEqCmp_impl(Loc &loc, const char *func, DValue *l,
     args.push_back(DtoBitCast(tival, fn->getFunctionType()->getParamType(2)));
   }
 
-  return gIR->func()->scopes->callOrInvoke(fn, args).getInstruction();
+  return gIR->funcGen().scopes.callOrInvoke(fn, args).getInstruction();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -994,9 +995,9 @@ LLValue *DtoArrayCastLength(Loc &loc, LLValue *len, LLType *elemty,
   }
 
   LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_array_cast_len");
-  return gIR->CreateCallOrInvoke(fn, len,
-                                 LLConstantInt::get(DtoSize_t(), esz, false),
-                                 LLConstantInt::get(DtoSize_t(), nsz, false))
+  return gIR
+      ->CreateCallOrInvoke(fn, len, LLConstantInt::get(DtoSize_t(), esz, false),
+                           LLConstantInt::get(DtoSize_t(), nsz, false))
       .getInstruction();
 }
 

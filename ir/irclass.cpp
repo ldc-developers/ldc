@@ -19,7 +19,7 @@
 #include "hdrgen.h" // for parametersTypeToChars()
 #include "mtype.h"
 #include "target.h"
-
+#include "gen/funcgenstate.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
@@ -351,8 +351,8 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       setLinkage(lwc, thunk);
       thunk->copyAttributesFrom(irFunc->func);
 
-      // Thunks themselves don't have an identity, only the target
-      // function has.
+// Thunks themselves don't have an identity, only the target
+// function has.
 #if LDC_LLVM_VER >= 309
       thunk->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
 #else
@@ -378,7 +378,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       auto thunkFunc = getIrFunc(thunkFd, true); // create the IrFunction
       thunkFunc->func = thunk;
       thunkFunc->type = irFunc->type;
-      gIR->functions.push_back(thunkFunc);
+      gIR->funcGenStates.emplace_back(new FuncGenState(*thunkFunc, *gIR));
 
       // debug info
       thunkFunc->diSubprogram = gIR->DBuilder.EmitThunk(thunk, thunkFd);
@@ -433,7 +433,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       // clean up
       gIR->scopes.pop_back();
 
-      gIR->functions.pop_back();
+      gIR->funcGenStates.pop_back();
     }
 
     constants.push_back(thunk);

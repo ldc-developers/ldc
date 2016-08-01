@@ -15,6 +15,7 @@
 #include "gen/classes.h"
 #include "gen/complex.h"
 #include "gen/dvalue.h"
+#include "gen/funcgenstate.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
@@ -262,7 +263,7 @@ void DtoAssert(Module *M, Loc &loc, DValue *msg) {
   args.push_back(DtoConstUint(loc.linnum));
 
   // call
-  gIR->func()->scopes->callOrInvoke(fn, args);
+  gIR->funcGen().scopes.callOrInvoke(fn, args);
 
   // after assert is always unreachable
   gIR->ir->CreateUnreachable();
@@ -290,7 +291,7 @@ void DtoGoto(Loc &loc, LabelDsymbol *target) {
     fatal();
   }
 
-  gIR->func()->scopes->jumpToLabel(loc, target->ident);
+  gIR->funcGen().scopes.jumpToLabel(loc, target->ident);
 }
 
 /******************************************************************************

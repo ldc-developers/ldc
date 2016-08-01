@@ -18,6 +18,7 @@
 #include "gen/coverage.h"
 #include "gen/dvalue.h"
 #include "gen/functions.h"
+#include "gen/funcgenstate.h"
 #include "gen/inlineir.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
@@ -186,7 +187,7 @@ void pushVarDtorCleanup(IRState *p, VarDeclaration *vd) {
   IRScope oldScope = p->scope();
   p->scope() = IRScope(beginBB);
   toElemDtor(vd->edtor);
-  p->func()->scopes->pushCleanup(beginBB, p->scopebb());
+  p->funcGen().scopes.pushCleanup(beginBB, p->scopebb());
   p->scope() = oldScope;
 }
 }
@@ -218,12 +219,12 @@ class ToElemVisitor : public Visitor {
 public:
   ToElemVisitor(IRState *p_, bool destructTemporaries_)
       : p(p_), destructTemporaries(destructTemporaries_), result(nullptr) {
-    initialCleanupScope = p->func()->scopes->currentCleanupScope();
+    initialCleanupScope = p->funcGen().scopes.currentCleanupScope();
   }
 
   DValue *getResult() {
     if (destructTemporaries &&
-        p->func()->scopes->currentCleanupScope() != initialCleanupScope) {
+        p->funcGen().scopes.currentCleanupScope() != initialCleanupScope) {
       // We might share the CFG edges through the below cleanup blocks with
       // other paths (e.g. exception unwinding) where the result value has not
       // been constructed. At runtime, the branches will be chosen such that the
@@ -247,8 +248,8 @@ public:
 
       llvm::BasicBlock *endbb = llvm::BasicBlock::Create(
           p->context(), "toElem.success", p->topfunc());
-      p->func()->scopes->runCleanups(initialCleanupScope, endbb);
-      p->func()->scopes->popCleanups(initialCleanupScope);
+      p->funcGen().scopes.runCleanups(initialCleanupScope, endbb);
+      p->funcGen().scopes.popCleanups(initialCleanupScope);
       p->scope() = IRScope(endbb);
 
       destructTemporaries = false;
@@ -269,7 +270,7 @@ public:
                          e->type ? e->type->toChars() : "(null)");
     LOG_SCOPE;
 
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
     result = DtoDeclarationExp(e->declaration);
@@ -566,7 +567,7 @@ public:
                                                                                \
     errorOnIllegalArrayOp(e, e->e1, e->e2);                                    \
                                                                                \
-    auto &PGO = gIR->func()->pgo;                                              \
+    auto &PGO = gIR->funcGen().pgo;                                              \
     PGO.setCurrentStmt(e);                                                     \
                                                                                \
     result = Func(e->loc, e->type, toElem(e->e1), e->e2);                      \
@@ -618,7 +619,7 @@ public:
                                                                                \
     errorOnIllegalArrayOp(e, e->e1, e->e2);                                    \
                                                                                \
-    auto &PGO = gIR->func()->pgo;                                              \
+    auto &PGO = gIR->funcGen().pgo;                                              \
     PGO.setCurrentStmt(e);                                                     \
                                                                                \
     result = binAssign<Func, useLValTypeForBinOp>(e);                          \
@@ -645,7 +646,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
     // handle magic inline asm
@@ -746,7 +747,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
     // get the value to cast
@@ -778,7 +779,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
     DValue *base = DtoSymbolAddress(e->loc, e->var->type, e->var);
@@ -827,7 +828,7 @@ public:
                            e->type->toChars());
     LOG_SCOPE;
 
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
     // The address of a StructLiteralExp can in fact be a global variable, check
@@ -880,7 +881,7 @@ public:
                            e->type->toChars());
     LOG_SCOPE;
 
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
     // function pointers are special
@@ -908,7 +909,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
     DValue *l = toElem(e->e1);
@@ -976,7 +977,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
     // special cases: `this(int) { this(); }` and `this(int) { super(); }`
@@ -1014,7 +1015,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
     DValue *l = toElem(e->e1);
@@ -1056,7 +1057,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
     // value being sliced
@@ -1168,7 +1169,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
     DValue *l = toElem(e->e1);
@@ -1299,7 +1300,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
     DValue *l = toElem(e->e1);
@@ -1365,7 +1366,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
     LLValue *const lval = DtoLVal(e->e1);
@@ -1414,7 +1415,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
     bool isArgprefixHandled = false;
@@ -1538,7 +1539,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
     DValue *dval = toElem(e->e1);
@@ -1597,7 +1598,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
     DValue *u = toElem(e->e1);
@@ -1610,7 +1611,7 @@ public:
     IF_LOG Logger::print("AssertExp::toElem: %s\n", e->toChars());
     LOG_SCOPE;
 
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
     if (!global.params.useAssert)
@@ -1694,7 +1695,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
     DValue *u = toElem(e->e1);
@@ -1714,7 +1715,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
     DValue *u = toElem(e->e1);
@@ -1776,7 +1777,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
     DValue *u = toElem(e->e1);
@@ -2005,7 +2006,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
     Type *dtype = e->type->toBasetype();
@@ -2181,21 +2182,22 @@ public:
       LLType *dgty = DtoType(e->type);
 
       LLValue *cval;
-      IrFunction *irfn = p->func();
-      if (irfn->nestedVar && fd->toParent2() == irfn->decl) {
+      auto &funcGen = p->funcGen();
+      auto &irfn = funcGen.irFunc;
+      if (funcGen.nestedVar && fd->toParent2() == irfn.decl) {
         // We check fd->toParent2() because a frame allocated in one
         // function cannot be used for a delegate created in another
         // function. Happens with anonymous functions.
-        cval = irfn->nestedVar;
-      } else if (irfn->nestArg) {
-        cval = DtoLoad(irfn->nestArg);
-      } else if (irfn->thisArg) {
-        AggregateDeclaration *ad = irfn->decl->isMember2();
+        cval = funcGen.nestedVar;
+      } else if (irfn.nestArg) {
+        cval = DtoLoad(irfn.nestArg);
+      } else if (irfn.thisArg) {
+        AggregateDeclaration *ad = irfn.decl->isMember2();
         if (!ad || !ad->vthis) {
           cval = getNullPtr(getVoidPtrType());
         } else {
           cval =
-              ad->isClassDeclaration() ? DtoLoad(irfn->thisArg) : irfn->thisArg;
+              ad->isClassDeclaration() ? DtoLoad(irfn.thisArg) : irfn.thisArg;
           cval = DtoLoad(
               DtoGEPi(cval, 0, getFieldGEPIndex(ad, ad->vthis), ".vthis"));
         }

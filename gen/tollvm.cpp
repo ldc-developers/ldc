@@ -482,11 +482,7 @@ LLConstant *DtoConstString(const char *str) {
 ////////////////////////////////////////////////////////////////////////////////
 
 LLValue *DtoLoad(LLValue *src, const char *name) {
-  //     if (Logger::enabled())
-  //         Logger::cout() << "loading " << *src <<  '\n';
-  llvm::LoadInst *ld = gIR->ir->CreateLoad(src, name);
-  // ld->setVolatile(gIR->func()->inVolatile);
-  return ld;
+  return gIR->ir->CreateLoad(src, name);
 }
 
 // Like DtoLoad, but the pointer is guaranteed to be aligned appropriately for
