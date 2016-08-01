@@ -916,9 +916,7 @@ public:
       auto catchSwitchBlock = llvm::BasicBlock::Create(
           irs->context(), "catch.dispatch", irs->topfunc());
       llvm::BasicBlock *unwindto =
-          scopes.currentCleanupScope() > 0 || scopes.currentCatchScope() > 0
-              ? scopes.getLandingPad()
-              : nullptr;
+          scopes.currentCleanupScope() > 0 ? scopes.getLandingPad() : nullptr;
       auto funclet = scopes.getFunclet();
       auto catchSwitchInst = llvm::CatchSwitchInst::Create(
           funclet ? funclet : llvm::ConstantTokenNone::get(irs->context()),

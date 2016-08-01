@@ -271,8 +271,6 @@ public:
   /// non-Exception Throwables.
   bool isCatchingNonExceptions() const;
 
-  size_t currentCatchScope() { return catchScopes.size(); }
-
 #if LDC_LLVM_VER >= 308
   /// MSVC: catch and cleanup code is emitted as funclets and need
   /// to be referenced from inner pads and calls
