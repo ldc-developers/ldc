@@ -463,11 +463,11 @@ struct IrFunction {
   /// Returns the stack slot that contains the exception object pointer while a
   /// landing pad is active, lazily creating it as needed.
   ///
-  /// Need this because the instruction must dominate all uses as a
-  /// _d_eh_resume_unwind parameter, but if we take a select at the end on a
-  /// cleanup on the way there, it also must dominate all other predecessors
-  /// of the cleanup. Thus, we just create an alloca at the start of the
-  /// function.
+  /// This value must dominate all uses; first storing it, and then loading it
+  /// when calling _d_eh_resume_unwind. If we take a select at the end of any
+  /// cleanups on the way to the latter, the value must also dominate all other
+  /// predecessors of the cleanup. Thus, we just use a single alloca in the
+  /// entry BB of the function.
   llvm::AllocaInst *getOrCreateEhPtrSlot();
 
   /// Returns the basic block with the call to the unwind resume function.
