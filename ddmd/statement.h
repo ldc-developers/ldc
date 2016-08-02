@@ -463,7 +463,6 @@ public:
 
 #if IN_LLVM
     bool gototarget; // true iff this is the target of a 'goto case'
-    llvm::BasicBlock* bodyBB;
 #endif
 
     CaseStatement(Loc loc, Expression *exp, Statement *s);
@@ -497,7 +496,6 @@ public:
 
 #if IN_LLVM
     bool gototarget; // true iff this is the target of a 'goto default'
-    llvm::BasicBlock* bodyBB;
 #endif
 
     DefaultStatement(Loc loc, Statement *s);

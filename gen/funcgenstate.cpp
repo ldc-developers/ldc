@@ -608,6 +608,24 @@ llvm::BasicBlock *ScopeStack::emitLandingPad() {
   return beginBB;
 }
 
+llvm::BasicBlock *SwitchCaseTargets::get(Statement *stmt) {
+  auto it = targetBBs.find(stmt);
+  assert(it != targetBBs.end());
+  return it->second;
+}
+
+llvm::BasicBlock *SwitchCaseTargets::getOrCreate(Statement *stmt,
+                                                 const llvm::Twine &name) {
+  auto &bb = targetBBs[stmt];
+  if (!bb) {
+    bb = llvm::BasicBlock::Create(llFunc->getContext(), name, llFunc);
+  }
+  return bb;
+}
+
+FuncGenState::FuncGenState(IrFunction &irFunc, IRState &irs)
+    : irFunc(irFunc), scopes(irs), switchTargets(irFunc.func), irs(irs) {}
+
 llvm::AllocaInst *FuncGenState::getOrCreateEhPtrSlot() {
   if (!ehPtrSlot) {
     ehPtrSlot = DtoRawAlloca(getVoidPtrType(), 0, "eh.ptr");

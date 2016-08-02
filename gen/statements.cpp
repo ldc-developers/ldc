@@ -1107,7 +1107,9 @@ public:
     IF_LOG Logger::println("SwitchStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->funcGen().pgo;
+    auto &funcGen = irs->funcGen();
+
+    auto &PGO = funcGen.pgo;
     PGO.setCurrentStmt(stmt);
     const auto incomingPGORegionCount = PGO.getCurrentRegionCount();
 
@@ -1194,16 +1196,15 @@ public:
     if (stmt->sdefault) {
       Logger::println("has default");
       defaultTargetBB =
-          llvm::BasicBlock::Create(irs->context(), "default", irs->topfunc());
-      stmt->sdefault->bodyBB = defaultTargetBB;
+          funcGen.switchTargets.getOrCreate(stmt->sdefault, "default");
     }
 
     // do switch body
     assert(stmt->_body);
     irs->scope() = IRScope(bodybb);
-    irs->funcGen().scopes.pushBreakTarget(stmt, endbb);
+    funcGen.scopes.pushBreakTarget(stmt, endbb);
     stmt->_body->accept(this);
-    irs->funcGen().scopes.popBreakTarget();
+    funcGen.scopes.popBreakTarget();
     if (!irs->scopereturned()) {
       llvm::BranchInst::Create(endbb, irs->scopebb());
     }
@@ -1227,12 +1228,13 @@ public:
         si = llvm::SwitchInst::Create(condVal, defaultTargetBB, caseCount,
                                       irs->scopebb());
         for (size_t i = 0; i < caseCount; ++i) {
-          si->addCase(isaConstantInt(indices[i]), (*cases)[i]->bodyBB);
+          si->addCase(isaConstantInt(indices[i]),
+                      funcGen.switchTargets.get((*cases)[i]));
         }
       } else {
         auto switchbb = irs->scopebb();
         // Add PGO instrumentation.
-        // Create "default" counter
+        // Create "default" counter bb.
         {
           llvm::BasicBlock *defaultcntr = llvm::BasicBlock::Create(
               irs->context(), "defaultcntr", irs->topfunc());
@@ -1244,17 +1246,21 @@ public:
           si = llvm::SwitchInst::Create(condVal, defaultcntr, caseCount,
                                         switchbb);
         }
-        // Create and add case counters
+
+        // Create and add case counter bbs.
         for (size_t i = 0; i < caseCount; ++i) {
           const auto cs = (*cases)[i];
-          llvm::BasicBlock *casecntr = llvm::BasicBlock::Create(
-              irs->context(), "casecntr", irs->topfunc());
-          irs->scope() = IRScope(casecntr);
-          PGO.emitCounterIncrement(cs);
-          llvm::BranchInst::Create(cs->bodyBB, irs->scopebb());
-          casecntr->moveBefore(cs->bodyBB);
 
-          si->addCase(isaConstantInt(indices[i]), casecntr);
+          auto incrCaseCounter = llvm::BasicBlock::Create(
+              irs->context(), "incrCaseCounter", irs->topfunc());
+          irs->scope() = IRScope(incrCaseCounter);
+          PGO.emitCounterIncrement(cs);
+
+          const auto body = funcGen.switchTargets.get(cs);
+          llvm::BranchInst::Create(body, irs->scopebb());
+          incrCaseCounter->moveBefore(body);
+
+          si->addCase(isaConstantInt(indices[i]), incrCaseCounter);
         }
       }
 
@@ -1308,7 +1314,7 @@ public:
 
         // Add case counters for PGO in front of case body
         const auto cs = (*cases)[i];
-        auto casejumptargetbb = cs->bodyBB;
+        auto casejumptargetbb = funcGen.switchTargets.get(cs);
         if (global.params.genInstrProf) {
           llvm::BasicBlock *casecntr = llvm::BasicBlock::Create(
               irs->context(), "casecntr", irs->topfunc());
@@ -1354,21 +1360,17 @@ public:
     IF_LOG Logger::println("CaseStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->funcGen().pgo;
+    auto &funcGen = irs->funcGen();
+    auto &PGO = funcGen.pgo;
     PGO.setCurrentStmt(stmt);
 
-    llvm::BasicBlock *nbb =
-        llvm::BasicBlock::Create(irs->context(), "case", irs->topfunc());
-    if (stmt->bodyBB && !stmt->bodyBB->getTerminator()) {
-      llvm::BranchInst::Create(nbb, stmt->bodyBB);
-    }
-    stmt->bodyBB = nbb;
+    const auto body = funcGen.switchTargets.getOrCreate(stmt, "case");
 
     if (!irs->scopereturned()) {
-      llvm::BranchInst::Create(stmt->bodyBB, irs->scopebb());
+      llvm::BranchInst::Create(body, irs->scopebb());
     }
 
-    irs->scope() = IRScope(stmt->bodyBB);
+    irs->scope() = IRScope(body);
 
     assert(stmt->statement);
     irs->DBuilder.EmitBlockStart(stmt->statement->loc);
@@ -1386,24 +1388,17 @@ public:
     IF_LOG Logger::println("DefaultStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
+    auto &funcGen = irs->funcGen();
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
-    assert(stmt->bodyBB);
-
-    llvm::BasicBlock *nbb =
-        llvm::BasicBlock::Create(irs->context(), "default", irs->topfunc());
-
-    if (!stmt->bodyBB->getTerminator()) {
-      llvm::BranchInst::Create(nbb, stmt->bodyBB);
-    }
-    stmt->bodyBB = nbb;
+    const auto body = funcGen.switchTargets.getOrCreate(stmt, "default");
 
     if (!irs->scopereturned()) {
-      llvm::BranchInst::Create(stmt->bodyBB, irs->scopebb());
+      llvm::BranchInst::Create(body, irs->scopebb());
     }
 
-    irs->scope() = IRScope(stmt->bodyBB);
+    irs->scope() = IRScope(body);
 
     assert(stmt->statement);
     irs->DBuilder.EmitBlockStart(stmt->statement->loc);
@@ -1819,7 +1814,8 @@ public:
                            stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->funcGen().pgo;
+    auto &funcGen = irs->funcGen();
+    auto &PGO = funcGen.pgo;
     PGO.setCurrentStmt(stmt);
 
     irs->DBuilder.EmitStopPoint(stmt->loc);
@@ -1827,14 +1823,9 @@ public:
     emitCoverageLinecountInc(stmt->loc);
 
     assert(!irs->scopereturned());
-    assert(stmt->sw->sdefault->bodyBB);
 
-#if 0
-        // TODO: Store switch scopes.
-        DtoEnclosingHandlers(stmt->loc, stmt->sw);
-#endif
-
-    llvm::BranchInst::Create(stmt->sw->sdefault->bodyBB, irs->scopebb());
+    const auto defaultBB = funcGen.switchTargets.get(stmt->sw->sdefault);
+    llvm::BranchInst::Create(defaultBB, irs->scopebb());
 
     // TODO: Should not be needed.
     llvm::BasicBlock *bb = llvm::BasicBlock::Create(
@@ -1849,6 +1840,7 @@ public:
                            stmt->loc.toChars());
     LOG_SCOPE;
 
+    auto &funcGen = irs->funcGen();
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
@@ -1857,17 +1849,10 @@ public:
     emitCoverageLinecountInc(stmt->loc);
 
     assert(!irs->scopereturned());
-    if (!stmt->cs->bodyBB) {
-      stmt->cs->bodyBB =
-          llvm::BasicBlock::Create(irs->context(), "goto_case", irs->topfunc());
-    }
 
-#if 0
-        // TODO: Store switch scopes.
-        DtoEnclosingHandlers(stmt->loc, stmt->sw);
-#endif
-
-    llvm::BranchInst::Create(stmt->cs->bodyBB, irs->scopebb());
+    const auto caseBB =
+        funcGen.switchTargets.getOrCreate(stmt->cs, "goto_case");
+    llvm::BranchInst::Create(caseBB, irs->scopebb());
 
     // TODO: Should not be needed.
     llvm::BasicBlock *bb = llvm::BasicBlock::Create(

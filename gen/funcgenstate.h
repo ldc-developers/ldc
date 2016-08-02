@@ -452,6 +452,29 @@ llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
   return invoke;
 }
 
+/// Tracks the basic blocks corresponding to the switch `case`s (and `default`s)
+/// in a given function.
+///
+/// Since the bb for a given case must already be known when a jump to it is
+/// to be emitted (at which point the former might not have been emitted yet,
+/// e.g. when goto-ing forward), we lazily create them as needed.
+class SwitchCaseTargets {
+public:
+  explicit SwitchCaseTargets(llvm::Function *llFunc) : llFunc(llFunc) {}
+
+  /// Returns the basic block associated with the given case/default statement,
+  /// asserting that it has already been created.
+  llvm::BasicBlock *get(Statement *stmt);
+
+  /// Returns the basic block associated with the given case/default statement
+  /// or creates one with the given name if it does not already exist
+  llvm::BasicBlock *getOrCreate(Statement *stmt, const llvm::Twine &name);
+
+private:
+  llvm::Function *const llFunc;
+  llvm::DenseMap<Statement *, llvm::BasicBlock *> targetBBs;
+};
+
 /// The "global" transitory state necessary for emitting the body of a certain
 /// function.
 ///
@@ -459,8 +482,7 @@ llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
 /// IRState lifetime (i.e. llvm::Module emission process) see IrFunction.
 class FuncGenState {
 public:
-  explicit FuncGenState(IrFunction &irFunc, IRState &irs)
-      : irFunc(irFunc), scopes(irs), irs(irs) {}
+  explicit FuncGenState(IrFunction &irFunc, IRState &irs);
 
   FuncGenState(FuncGenState const &) = delete;
   FuncGenState &operator=(FuncGenState const &) = delete;
@@ -489,6 +511,9 @@ public:
 
   // PGO information
   CodeGenPGO pgo;
+
+  /// Tracks basic blocks corresponding to switch cases.
+  SwitchCaseTargets switchTargets;
 
   /// The marker at which to insert `alloca`s in the function entry bb.
   llvm::Instruction *allocapoint = nullptr;

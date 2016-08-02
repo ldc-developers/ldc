@@ -27,6 +27,9 @@ void bunch_of_branches() {
     // default counter:
     // PROFGEN: store {{.*}} @[[BoB]], i64 0, i64 10
 
+    // default: (codegen'd out-of-order, 1 + 1*gototarget)
+    // PROFGEN: store {{.*}} @[[BoB]], i64 0, i64 11
+
     // PROFGEN: store {{.*}} @[[BoB]], i64 0, i64 3
     case 1: // 1 + 1*gototarget
       // PROFGEN: store {{.*}} @[[BoB]], i64 0, i64 4
@@ -51,8 +54,7 @@ void bunch_of_branches() {
       if (i != 2) {}
       goto case 1;
 
-    default: // 1 + 1*gototarget
-      // PROFGEN: store {{.*}} @[[BoB]], i64 0, i64 11
+    default:
       // fall through
 
     // PROFGEN: store {{.*}} @[[BoB]], i64 0, i64 12
