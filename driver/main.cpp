@@ -1374,7 +1374,7 @@ int cppmain(int argc, char **argv) {
     if (global.params.verbose) {
       fprintf(global.stdmsg, "semantic  %s\n", modules[i]->toChars());
     }
-    modules[i]->semantic();
+    modules[i]->semantic(nullptr);
   }
   if (global.errors) {
     fatal();
@@ -1388,7 +1388,7 @@ int cppmain(int argc, char **argv) {
     if (global.params.verbose) {
       fprintf(global.stdmsg, "semantic2 %s\n", modules[i]->toChars());
     }
-    modules[i]->semantic2();
+    modules[i]->semantic2(nullptr);
   }
   if (global.errors) {
     fatal();
@@ -1399,7 +1399,7 @@ int cppmain(int argc, char **argv) {
     if (global.params.verbose) {
       fprintf(global.stdmsg, "semantic3 %s\n", modules[i]->toChars());
     }
-    modules[i]->semantic3();
+    modules[i]->semantic3(nullptr);
   }
   if (global.errors) {
     fatal();
