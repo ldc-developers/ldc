@@ -43,19 +43,11 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p);
 
 //////////////////////////////////////////////////////////////////////////////
 
-// used to build the sorted list of cases
-struct Case {
-  StringExp *str;
-  size_t index;
-
-  Case(StringExp *s, size_t i) {
-    str = s;
-    index = i;
-  }
-
-  friend bool operator<(const Case &l, const Case &r) {
-    return l.str->compare(r.str) < 0;
-  }
+// For sorting string switch cases lexicographically.
+namespace {
+bool compareCaseStrings(CaseStatement *lhs, CaseStatement *rhs) {
+  return lhs->exp->compare(rhs->exp) < 0;
+}
 };
 
 static LLValue *call_string_switch_runtime(llvm::Value *table, Expression *e) {
@@ -1116,39 +1108,71 @@ public:
 
     auto &PGO = irs->func()->pgo;
     PGO.setCurrentStmt(stmt);
-    auto incoming_count = PGO.getCurrentRegionCount();
+    const auto incomingPGORegionCount = PGO.getCurrentRegionCount();
 
-    // emit dwarf stop point
     irs->DBuilder.EmitStopPoint(stmt->loc);
-
     emitCoverageLinecountInc(stmt->loc);
+    llvm::BasicBlock *const oldbb = irs->scopebb();
 
-    llvm::BasicBlock *oldbb = irs->scopebb();
+    // The cases of the switch statement, in codegen order. For string switches,
+    // we reorder them lexicographically later to match what the _d_switch_*
+    // druntime dispatch functions expect.
+    auto cases = stmt->cases;
+    const auto caseCount = cases->dim;
 
-    // Codegen state variables stored in the AST must be reset (see end of
-    // function)
-    for (CaseStatement *cs : *stmt->cases) {
-      assert(cs->bodyBB == nullptr);
-      assert(cs->llvmIdx == nullptr);
-    }
-    if (stmt->sdefault) {
-      assert(stmt->sdefault->bodyBB == nullptr);
-    }
-
-    // If one of the case expressions is non-constant, we can't use
-    // 'switch' instruction (that can happen because D2 allows to
-    // initialize a global variable in a static constructor).
+    // llvm::Values for the case indices. Might not be llvm::Constants for
+    // runtime-initialised immutable globals as case indices, in which case we
+    // need to emit a `br` chain instead of `switch`.
+    llvm::SmallVector<llvm::Value *, 16> indices;
+    indices.reserve(caseCount);
     bool useSwitchInst = true;
-    for (auto cs : *stmt->cases) {
-      VarDeclaration *vd = nullptr;
-      if (cs->exp->op == TOKvar) {
-        vd = static_cast<VarExp *>(cs->exp)->var->isVarDeclaration();
+
+    // For string switches, sort the cases and emit the table data.
+    llvm::Value *stringTableSlice = nullptr;
+    const bool isStringSwitch = !stmt->condition->type->isintegral();
+    if (isStringSwitch) {
+      Logger::println("is string switch");
+
+      // Sort the cases, taking care not to modify the original AST.
+      cases = cases->copy();
+      std::sort(cases->begin(), cases->end(), compareCaseStrings);
+
+      // Emit constants for the case values.
+      llvm::SmallVector<llvm::Constant *, 16> stringConsts;
+      stringConsts.reserve(caseCount);
+      for (size_t i = 0; i < caseCount; ++i) {
+        stringConsts.push_back(toConstElem((*cases)[i]->exp, irs));
+        indices.push_back(DtoConstUint(i));
       }
-      if (vd && (!vd->_init || !vd->isConst())) {
-        cs->llvmIdx = DtoRVal(toElemDtor(cs->exp));
-        useSwitchInst = false;
+
+      // Create internal global with the data table.
+      const auto elemTy = DtoType(stmt->condition->type);
+      const auto arrTy = llvm::ArrayType::get(elemTy, stringConsts.size());
+      const auto arrInit = LLConstantArray::get(arrTy, stringConsts);
+      const auto arr = new llvm::GlobalVariable(
+          irs->module, arrTy, true, llvm::GlobalValue::InternalLinkage, arrInit,
+          ".string_switch_table_data");
+
+      // Create D slice to pass to runtime later.
+      const auto arrPtr =
+          llvm::ConstantExpr::getBitCast(arr, getPtrToType(elemTy));
+      const auto arrLen = DtoConstSize_t(stringConsts.size());
+      stringTableSlice = DtoConstSlice(arrLen, arrPtr);
+    } else {
+      for (auto cs : *cases) {
+        if (cs->exp->op == TOKvar) {
+          const auto vd =
+              static_cast<VarExp *>(cs->exp)->var->isVarDeclaration();
+          if (vd && (!vd->_init || !vd->isConst())) {
+            indices.push_back(DtoRVal(toElemDtor(cs->exp)));
+            useSwitchInst = false;
+            continue;
+          }
+        }
+        indices.push_back(toConstElem(cs->exp, irs));
       }
     }
+    assert(indices.size() == caseCount);
 
     // body block.
     // FIXME: that block is never used
@@ -1185,72 +1209,25 @@ public:
 
     irs->scope() = IRScope(oldbb);
     if (useSwitchInst) {
-      // string switch?
-      llvm::Value *switchTable = nullptr;
-      std::vector<Case> caseArray;
-      if (!stmt->condition->type->isintegral()) {
-        Logger::println("is string switch");
-        // build array of the stringexpS
-        caseArray.reserve(stmt->cases->dim);
-        for (unsigned i = 0; i < stmt->cases->dim; ++i) {
-          CaseStatement *cs =
-              static_cast<CaseStatement *>(stmt->cases->data[i]);
-
-          assert(cs->exp->op == TOKstring);
-          caseArray.emplace_back(static_cast<StringExp *>(cs->exp), i);
-        }
-        // first sort it
-        std::sort(caseArray.begin(), caseArray.end());
-        // iterate and add indices to cases
-        std::vector<llvm::Constant *> inits(caseArray.size(), nullptr);
-        for (size_t i = 0, e = caseArray.size(); i < e; ++i) {
-          Case &c = caseArray[i];
-          CaseStatement *cs =
-              static_cast<CaseStatement *>(stmt->cases->data[c.index]);
-          cs->llvmIdx = DtoConstUint(i);
-          inits[i] = toConstElem(c.str, irs);
-        }
-        // build static array for ptr or final array
-        llvm::Type *elemTy = DtoType(stmt->condition->type);
-        LLArrayType *arrTy = llvm::ArrayType::get(elemTy, inits.size());
-        LLConstant *arrInit = LLConstantArray::get(arrTy, inits);
-        auto arr = new llvm::GlobalVariable(
-            irs->module, arrTy, true, llvm::GlobalValue::InternalLinkage,
-            arrInit, ".string_switch_table_data");
-
-        LLType *elemPtrTy = getPtrToType(elemTy);
-        LLConstant *arrPtr = llvm::ConstantExpr::getBitCast(arr, elemPtrTy);
-
-        // build the static table
-        LLType *types[] = {DtoSize_t(), elemPtrTy};
-        LLStructType *sTy = llvm::StructType::get(irs->context(), types, false);
-        LLConstant *sinits[] = {DtoConstSize_t(inits.size()), arrPtr};
-        switchTable = llvm::ConstantStruct::get(
-            sTy, llvm::ArrayRef<LLConstant *>(sinits));
-      }
-
-      // condition var
+      // The case index value.
       LLValue *condVal;
-      // integral switch
-      if (stmt->condition->type->isintegral()) {
-        DValue *cond = toElemDtor(stmt->condition);
-        condVal = DtoRVal(cond);
-      }
-      // string switch
-      else {
-        condVal = call_string_switch_runtime(switchTable, stmt->condition);
+
+      if (isStringSwitch) {
+        condVal = call_string_switch_runtime(stringTableSlice, stmt->condition);
+      } else {
+        condVal = DtoRVal(toElemDtor(stmt->condition));
       }
 
       // Create switch and add the cases.
       // For PGO instrumentation, we need to add counters /before/ the case
       // statement bodies, because the counters should only count the jumps
-      // directly from the switch statement.
+      // directly from the switch statement and not "goto default", etc.
       llvm::SwitchInst *si;
       if (!global.params.genInstrProf) {
-        si = llvm::SwitchInst::Create(condVal, defbb ? defbb : endbb,
-                                      stmt->cases->dim, irs->scopebb());
-        for (auto cs : *stmt->cases) {
-          si->addCase(isaConstantInt(cs->llvmIdx), cs->bodyBB);
+        si = llvm::SwitchInst::Create(condVal, defbb ? defbb : endbb, caseCount,
+                                      irs->scopebb());
+        for (size_t i = 0; i < caseCount; ++i) {
+          si->addCase(isaConstantInt(indices[i]), (*cases)[i]->bodyBB);
         }
       } else {
         auto switchbb = irs->scopebb();
@@ -1264,11 +1241,12 @@ public:
           llvm::BranchInst::Create(defbb ? defbb : endbb, irs->scopebb());
           defaultcntr->moveBefore(defbb ? defbb : endbb);
           // Create switch
-          si = llvm::SwitchInst::Create(condVal, defaultcntr, stmt->cases->dim,
+          si = llvm::SwitchInst::Create(condVal, defaultcntr, caseCount,
                                         switchbb);
         }
         // Create and add case counters
-        for (auto cs : *stmt->cases) {
+        for (size_t i = 0; i < caseCount; ++i) {
+          const auto cs = (*cases)[i];
           llvm::BasicBlock *casecntr = llvm::BasicBlock::Create(
               irs->context(), "casecntr", irs->topfunc());
           irs->scope() = IRScope(casecntr);
@@ -1276,7 +1254,7 @@ public:
           llvm::BranchInst::Create(cs->bodyBB, irs->scopebb());
           casecntr->moveBefore(cs->bodyBB);
 
-          si->addCase(isaConstantInt(cs->llvmIdx), casecntr);
+          si->addCase(isaConstantInt(indices[i]), casecntr);
         }
       }
 
@@ -1290,7 +1268,7 @@ public:
         std::vector<uint64_t> case_prof_counts;
         case_prof_counts.push_back(
             stmt->sdefault ? PGO.getRegionCount(stmt->sdefault) : 0);
-        for (auto cs : *stmt->cases) {
+        for (auto cs : *cases) {
           auto w = PGO.getRegionCount(cs);
           case_prof_counts.push_back(w);
         }
@@ -1298,9 +1276,10 @@ public:
         auto brweights = PGO.createProfileWeights(case_prof_counts);
         PGO.addBranchWeights(si, brweights);
       }
+    } else {
+      // We can't use switch, so we will use a bunch of br instructions
+      // instead.
 
-    } else { // we can't use switch, so we will use a bunch of br instructions
-             // instead
       DValue *cond = toElemDtor(stmt->condition);
       LLValue *condVal = DtoRVal(cond);
 
@@ -1321,14 +1300,15 @@ public:
       }
 
       irs->scope() = IRScope(nextbb);
-      auto failedCompareCount = incoming_count;
-      for (auto cs : *stmt->cases) {
-        LLValue *cmp = irs->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ, cs->llvmIdx,
+      auto failedCompareCount = incomingPGORegionCount;
+      for (size_t i = 0; i < caseCount; ++i) {
+        LLValue *cmp = irs->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ, indices[i],
                                            condVal, "checkcase");
         nextbb = llvm::BasicBlock::Create(irs->context(), "checkcase",
                                           irs->topfunc());
 
         // Add case counters for PGO in front of case body
+        const auto cs = (*cases)[i];
         auto casejumptargetbb = cs->bodyBB;
         if (global.params.genInstrProf) {
           llvm::BasicBlock *casecntr = llvm::BasicBlock::Create(
@@ -1336,8 +1316,8 @@ public:
           auto savedbb = irs->scope();
           irs->scope() = IRScope(casecntr);
           PGO.emitCounterIncrement(cs);
-          llvm::BranchInst::Create(cs->bodyBB, irs->scopebb());
-          casecntr->moveBefore(cs->bodyBB);
+          llvm::BranchInst::Create(casejumptargetbb, irs->scopebb());
+          casecntr->moveBefore(casejumptargetbb);
           irs->scope() = savedbb;
 
           casejumptargetbb = casecntr;
@@ -1373,7 +1353,6 @@ public:
     // TODO: move the codegen state variables out of the AST.
     for (CaseStatement *cs : *stmt->cases) {
       cs->bodyBB = nullptr;
-      cs->llvmIdx = nullptr;
     }
     if (stmt->sdefault) {
       stmt->sdefault->bodyBB = nullptr;
@@ -1395,11 +1374,6 @@ public:
       llvm::BranchInst::Create(nbb, stmt->bodyBB);
     }
     stmt->bodyBB = nbb;
-
-    if (stmt->llvmIdx == nullptr) {
-      llvm::Constant *c = toConstElem(stmt->exp, irs);
-      stmt->llvmIdx = isaConstantInt(c);
-    }
 
     if (!irs->scopereturned()) {
       llvm::BranchInst::Create(stmt->bodyBB, irs->scopebb());
@@ -1471,9 +1445,8 @@ public:
     irs->DBuilder.EmitBlockStart(stmt->loc);
 
     // DMD doesn't fold stuff like continue/break, and since this isn't really a
-    // loop
-    // we have to keep track of each statement and jump to the next/end on
-    // continue/break
+    // loop we have to keep track of each statement and jump to the next/end
+    // on continue/break
 
     // create a block for each statement
     size_t nstmt = stmt->statements->dim;
