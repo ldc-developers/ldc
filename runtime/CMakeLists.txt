@@ -206,7 +206,7 @@ endif()
 # Add extra paths on Linux and disable linker arch mismatch warnings (like
 # DMD and GDC do). OS X doesn't need extra configuration due to the use of
 # fat binaries. Other Posixen might need to be added here.
-if(MULTILIB AND ((${CMAKE_SYSTEM_NAME} MATCHES "Linux") OR (${CMAKE_SYSTEM_NAME} MATCHES "Linux")))
+if(MULTILIB AND ((${CMAKE_SYSTEM_NAME} MATCHES "Linux") OR (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")))
     set(MULTILIB_ADDITIONAL_PATH         "\n        \"-L-L${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
     set(MULTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
 endif()
@@ -418,15 +418,18 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
     # When building a shared library, we need to link in all the default
     # libraries otherwise implicitly added by LDC to make it loadable from
     # C executables.
+
+    if(${CMAKE_SYSTEM} MATCHES "FreeBSD")
+        set(SharedLinkLibraries "m" "pthread")
+    else()
+        set(SharedLinkLibraries "m" "pthread" "rt" "dl")
+    endif()
+
     if(BUILD_SHARED_LIBS)
         # TOOD: Once BUILD_SHARED_LIBS is supported on operating systems other
         # than Linux, the library selection will need to be adapted based on
         # the target.
-	if(${CMAKE_SYSTEM} MATCHES "FreeBSD")
-            target_link_libraries(druntime-ldc${target_suffix} "m" "pthread")
-	else()
-            target_link_libraries(druntime-ldc${target_suffix} "m" "pthread" "rt" "dl")
-	endif()
+        target_link_libraries(druntime-ldc${target_suffix} ${SharedLinkLibraries})
     endif()
 
     list(APPEND ${outlist_targets} druntime-ldc${target_suffix})
@@ -453,14 +456,9 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
         if(BUILD_SHARED_LIBS)
             # TODO: As for druntime, adapt once shared libraries are supported
             # on more operating systems.
-	    if(${CMAKE_SYSTEM} MATCHES "FreeBSD")
-	        target_link_libraries(phobos2-ldc${target_suffix}
-                   druntime-ldc${target_suffix} "m" "pthread")
-	    else()
-               target_link_libraries(phobos2-ldc${target_suffix}
-                   druntime-ldc${target_suffix} "m" "pthread" "dl")
-            endif()
-	endif()
+            target_link_libraries(phobos2-ldc${target_suffix}
+                druntime-ldc${target_suffix} ${SharedLinkLibraries})
+        endif()
 
         list(APPEND ${outlist_targets} "phobos2-ldc${target_suffix}")
     endif()
@@ -790,22 +788,22 @@ endif()
 if(BUILD_SHARED_LIBS)
     get_property(druntime_path TARGET druntime-ldc PROPERTY LOCATION)
     set(outdir ${PROJECT_BINARY_DIR}/druntime-test-shared)
+    set(CFLAGS "-Wall -Wl,-rpath,${CMAKE_BINARY_DIR}/lib")
 
     add_test(NAME clean-druntime-test-shared
         COMMAND ${CMAKE_COMMAND} -E remove_directory ${outdir})
 
-    if(${CMAKE_SYSTEM} MATCHES "FreeBSD")
-       add_test(NAME druntime-test-shared
-          COMMAND make -C ${PROJECT_SOURCE_DIR}/druntime/test/shared
-             ROOT=${outdir} DMD=${LDMD_EXE_FULL} MODEL=default DRUNTIMESO=${druntime_path}
-             CFLAGS=-Wall\ -Wl,-rpath,${CMAKE_BINARY_DIR}/lib 
-       )
+    if(FreeBSD)
+        set(LINKFLAGS "")
     else()
-       add_test(NAME druntime-test-shared
-          COMMAND make -C ${PROJECT_SOURCE_DIR}/druntime/test/shared
-             ROOT=${outdir} DMD=${LDMD_EXE_FULL} MODEL=default DRUNTIMESO=${drunt
-             CFLAGS=-Wall\ -Wl,-rpath,${CMAKE_BINARY_DIR}/lib LINKDL=-L-ldl
-       )
+        set(LINKFLAGS "LINKDL=-L-ldl")
     endif()
+
+    add_test(NAME druntime-test-shared
+      COMMAND make -C ${PROJECT_SOURCE_DIR}/druntime/test/shared
+         ROOT=${outdir} DMD=${LDMD_EXE_FULL} MODEL=default DRUNTIMESO=${druntime_path}
+         CFLAGS=${CFLAGS} ${LINKFLAGS}
+    )
+
     set_tests_properties(druntime-test-shared PROPERTIES DEPENDS clean-druntime-test-shared)
 endif()
