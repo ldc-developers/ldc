@@ -172,12 +172,6 @@ void c_switches() {
     // PROFUSE: switch {{.*}} [
     // PROFUSE: ], !prof ![[SW2:[0-9]+]]
     switch (weights[i]) {
-    // default counter:
-    // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 20
-
-    // default body (codegen'd out-of-order):
-    // PROFUSE: br {{.*}} !prof ![[SW9:[0-9]+]]
-
     // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 5
     case 1:
       // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 6
@@ -204,9 +198,6 @@ void c_switches() {
       // PROFUSE: switch {{.*}} [
       // PROFUSE: ], !prof ![[SW7:[0-9]+]]
       switch (i) {
-      // default counter:
-      // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 19
-
       // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 14
       // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 15
       // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 16
@@ -216,12 +207,15 @@ void c_switches() {
         // PROFUSE: br {{.*}} !prof ![[SW8:[0-9]+]]
         if (i) {}
         continue;
+      // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 19
       default:
       }
       // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 13
       // fallthrough
 
+    // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 20
     default:
+      // PROFUSE: br {{.*}} !prof ![[SW9:[0-9]+]]
       // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 21
       if (i == weights.length - 1)
         return;
@@ -252,12 +246,6 @@ void d_switches() {
     // PROFUSE: switch {{.*}} [
     // PROFUSE: ], !prof ![[DSW2:[0-9]+]]
     switch (i) {
-    // default counter:
-    // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 10
-
-    // default: (codegen'd out-of-order), 2x (gototarget)
-    // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 11
-
     // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 3
     case 1: // 2x (gototarget)
       // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 4
@@ -280,7 +268,9 @@ void d_switches() {
       if (i != 2) {}
       goto case 1;
 
+    // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 10
     default:
+      // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 11
       // fall through
 
     // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 12

@@ -1365,6 +1365,7 @@ public:
     PGO.setCurrentStmt(stmt);
 
     const auto body = funcGen.switchTargets.getOrCreate(stmt, "case");
+    body->moveAfter(irs->scopebb());
 
     if (!irs->scopereturned()) {
       llvm::BranchInst::Create(body, irs->scopebb());
@@ -1393,6 +1394,7 @@ public:
     PGO.setCurrentStmt(stmt);
 
     const auto body = funcGen.switchTargets.getOrCreate(stmt, "default");
+    body->moveAfter(irs->scopebb());
 
     if (!irs->scopereturned()) {
       llvm::BranchInst::Create(body, irs->scopebb());
