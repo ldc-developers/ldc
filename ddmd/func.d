@@ -555,12 +555,7 @@ public:
             {
                 if (p.storageClass & STCout)
                 {
-                    // Cannot just use syntaxCopy() here, because it would cause the
-                    // parameter type to be semantic()ed again, in the wrong scope. So,
-                    // just copy the outer layer to modify the storage class.
-                    void* cpy = mem.xmalloc(Parameter.sizeof);
-                    memcpy(cpy, cast(void*)p, Parameter.sizeof);
-                    p = cast(Parameter) cpy;
+                    p = p.syntaxCopy();
                     p.storageClass &= ~STCout;
                     p.storageClass |= STCref;
                 }
