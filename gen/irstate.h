@@ -109,6 +109,9 @@ struct IRState {
   IRState(const char *name, llvm::LLVMContext &context);
   ~IRState();
 
+  IRState(IRState const &) = delete;
+  IRState &operator=(IRState const &) = delete;
+
   llvm::Module module;
   llvm::LLVMContext &context() const { return module.getContext(); }
 
