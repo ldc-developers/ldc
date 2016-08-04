@@ -10,6 +10,7 @@
 #include "target.h"
 #include "gen/nested.h"
 #include "gen/dvalue.h"
+#include "gen/funcgenstate.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
@@ -65,11 +66,11 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
 
   // get the nested context
   LLValue *ctx = nullptr;
-  if (irfunc->nestedVar) {
+  auto currentCtx = gIR->funcGen().nestedVar;
+  if (currentCtx) {
     Logger::println("Using own nested context of current function");
-
-    ctx = irfunc->nestedVar;
-    dwarfValue = ctx;
+    ctx = currentCtx;
+    dwarfValue = currentCtx;
   } else if (irfunc->decl->isMember2()) {
     Logger::println(
         "Current function is member of nested class, loading vthis");
@@ -213,23 +214,24 @@ LLValue *DtoNestedContext(Loc &loc, Dsymbol *sym) {
 
   // The function we are currently in, and the constructed object/called
   // function might inherit a context pointer from.
-  IrFunction *irfunc = gIR->func();
+  auto &funcGen = gIR->funcGen();
+  auto &irFunc = funcGen.irFunc;
 
   bool fromParent = true;
 
   LLValue *val;
-  if (irfunc->nestedVar) {
+  if (funcGen.nestedVar) {
     // if this func has its own vars that are accessed by nested funcs
     // use its own context
-    val = irfunc->nestedVar;
+    val = funcGen.nestedVar;
     fromParent = false;
-  } else if (irfunc->nestArg) {
+  } else if (irFunc.nestArg) {
     // otherwise, it may have gotten a context from the caller
-    val = DtoLoad(irfunc->nestArg);
-  } else if (irfunc->thisArg) {
+    val = DtoLoad(irFunc.nestArg);
+  } else if (irFunc.thisArg) {
     // or just have a this argument
-    AggregateDeclaration *ad = irfunc->decl->isMember2();
-    val = ad->isClassDeclaration() ? DtoLoad(irfunc->thisArg) : irfunc->thisArg;
+    AggregateDeclaration *ad = irFunc.decl->isMember2();
+    val = ad->isClassDeclaration() ? DtoLoad(irFunc.thisArg) : irFunc.thisArg;
     if (!ad->vthis) {
       // This is just a plain 'outer' reference of a class nested in a
       // function (but without any variables in the nested context).
@@ -244,7 +246,7 @@ LLValue *DtoNestedContext(Loc &loc, Dsymbol *sym) {
       // tries to call a nested function from the parent scope).
       error(loc,
             "function %s is a nested function and cannot be accessed from %s",
-            sym->toPrettyChars(), irfunc->decl->toPrettyChars());
+            sym->toPrettyChars(), irFunc.decl->toPrettyChars());
       fatal();
     }
     return llvm::ConstantPointerNull::get(getVoidPtrType());
@@ -263,7 +265,7 @@ LLValue *DtoNestedContext(Loc &loc, Dsymbol *sym) {
 
   if (frameToPass) {
     IF_LOG Logger::println("Parent frame is from %s", frameToPass->toChars());
-    FuncDeclaration *ctxfd = irfunc->decl;
+    FuncDeclaration *ctxfd = irFunc.decl;
     IF_LOG Logger::println("Current function is %s", ctxfd->toChars());
     if (fromParent) {
       ctxfd = getParentFunc(ctxfd, true);
@@ -408,7 +410,8 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
   irFunc.frameTypeAlignment = builder.overallAlignment();
 }
 
-void DtoCreateNestedContext(FuncDeclaration *fd) {
+void DtoCreateNestedContext(FuncGenState &funcGen) {
+  const auto fd = funcGen.irFunc.decl;
   IF_LOG Logger::println("DtoCreateNestedContext for %s", fd->toPrettyChars());
   LOG_SCOPE
 
@@ -416,9 +419,9 @@ void DtoCreateNestedContext(FuncDeclaration *fd) {
 
   // construct nested variables array
   if (fd->closureVars.dim > 0) {
-    IrFunction *irfunction = getIrFunc(fd);
-    unsigned depth = irfunction->depth;
-    LLStructType *frameType = irfunction->frameType;
+    auto &irFunc = funcGen.irFunc;
+    unsigned depth = irFunc.depth;
+    LLStructType *frameType = irFunc.frameType;
     // Create frame for current function and append to frames list
     LLValue *frame = nullptr;
     bool needsClosure = fd->needsClosure();
@@ -427,17 +430,17 @@ void DtoCreateNestedContext(FuncDeclaration *fd) {
       frame = DtoGcMalloc(fd->loc, frameType, ".frame");
     } else {
       unsigned alignment =
-          std::max(getABITypeAlign(frameType), irfunction->frameTypeAlignment);
+          std::max(getABITypeAlign(frameType), irFunc.frameTypeAlignment);
       frame = DtoRawAlloca(frameType, alignment, ".frame");
     }
 
     // copy parent frames into beginning
     if (depth != 0) {
-      LLValue *src = irfunction->nestArg;
+      LLValue *src = irFunc.nestArg;
       if (!src) {
-        assert(irfunction->thisArg);
+        assert(irFunc.thisArg);
         assert(fd->isMember2());
-        LLValue *thisval = DtoLoad(irfunction->thisArg);
+        LLValue *thisval = DtoLoad(irFunc.thisArg);
         AggregateDeclaration *cd = fd->isMember2();
         assert(cd);
         assert(cd->vthis);
@@ -463,8 +466,7 @@ void DtoCreateNestedContext(FuncDeclaration *fd) {
       DtoAlignedStore(src, gep);
     }
 
-    // store context in IrFunction
-    irfunction->nestedVar = frame;
+    funcGen.nestedVar = frame;
 
     // go through all nested vars and assign addresses where possible.
     for (auto vd : fd->closureVars) {

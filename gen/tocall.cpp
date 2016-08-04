@@ -15,6 +15,7 @@
 #include "gen/abi.h"
 #include "gen/classes.h"
 #include "gen/dvalue.h"
+#include "gen/funcgenstate.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
@@ -885,13 +886,13 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   // call the function
-  LLCallSite call = gIR->func()->scopes->callOrInvoke(callable, args);
+  LLCallSite call = gIR->funcGen().scopes.callOrInvoke(callable, args);
 
 #if LDC_LLVM_VER >= 309
   // PGO: Insert instrumentation or attach profile metadata at indirect call
   // sites.
   if (!call.getCalledFunction()) {
-    auto &PGO = gIR->func()->pgo;
+    auto &PGO = gIR->funcGen().pgo;
     PGO.emitIndirectCallPGO(call.getInstruction(), callable);
   }
 #endif

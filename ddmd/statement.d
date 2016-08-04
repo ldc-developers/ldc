@@ -4036,7 +4036,6 @@ public:
     version(IN_LLVM)
     {
         bool gototarget; // true iff this is the target of a 'goto case'
-        void* bodyBB;  // llvm::BasicBlock*
     }
 
     extern (D) this(Loc loc, Expression exp, Statement s)
@@ -4266,7 +4265,6 @@ public:
     version(IN_LLVM)
     {
         bool gototarget; // true iff this is the target of a 'goto default'
-        void* bodyBB;  // llvm::BasicBlock*
     }
 
     extern (D) this(Loc loc, Statement s)

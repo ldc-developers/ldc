@@ -12,6 +12,7 @@
 #include "statement.h"
 #include "template.h"
 #include "gen/dvalue.h"
+#include "gen/funcgenstate.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
@@ -138,7 +139,7 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   IF_LOG Logger::println("DtoDefineNakedFunction(%s)", mangleExact(fd));
   LOG_SCOPE;
 
-  gIR->functions.push_back(getIrFunc(fd));
+  gIR->funcGenStates.emplace_back(new FuncGenState(*getIrFunc(fd), *gIR));
 
   // we need to do special processing on the body, since we only want
   // to allow actual inline asm blocks to reach the final asm output
@@ -233,7 +234,7 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   gIR->module.appendModuleInlineAsm(asmstr.str());
   asmstr.str("");
 
-  gIR->functions.pop_back();
+  gIR->funcGenStates.pop_back();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
