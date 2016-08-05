@@ -250,10 +250,9 @@ void TryCatchScope::emitCatchBodiesMSVC(IRState &irs) {
       llvm::BasicBlock::Create(irs.context(), "catch.dispatch", irs.topfunc());
   llvm::BasicBlock *unwindto =
       scopes.currentCleanupScope() > 0 ? scopes.getLandingPad() : nullptr;
-  auto funclet = scopes.getFunclet();
   auto catchSwitchInst = llvm::CatchSwitchInst::Create(
-      funclet ? funclet : llvm::ConstantTokenNone::get(irs.context()), unwindto,
-      stmt->catches->dim, "", catchSwitchBlock);
+      llvm::ConstantTokenNone::get(irs.context()), unwindto, stmt->catches->dim,
+      "", catchSwitchBlock);
 
   for (auto c : *stmt->catches) {
     auto catchBB = llvm::BasicBlock::Create(

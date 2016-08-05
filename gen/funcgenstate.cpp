@@ -257,8 +257,9 @@ llvm::BasicBlock *ScopeStack::runCleanupPad(CleanupCursor scope,
   //
   llvm::BasicBlock *cleanupbb =
       llvm::BasicBlock::Create(irs.context(), "cleanuppad", irs.topfunc());
+  auto funcletToken = llvm::ConstantTokenNone::get(irs.context());
   auto cleanuppad =
-      llvm::CleanupPadInst::Create(getFuncletToken(), {}, "", cleanupbb);
+      llvm::CleanupPadInst::Create(funcletToken, {}, "", cleanupbb);
 
   llvm::BasicBlock *cleanupret =
       llvm::BasicBlock::Create(irs.context(), "cleanupret", irs.topfunc());

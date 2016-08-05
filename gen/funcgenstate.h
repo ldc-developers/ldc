@@ -232,22 +232,6 @@ public:
   /// Unregisters the last registered try-catch scope.
   void popTryCatch();
 
-#if LDC_LLVM_VER >= 308
-  /// MSVC: catch and cleanup code is emitted as funclets and need
-  /// to be referenced from inner pads and calls
-  void pushFunclet(llvm::Value *funclet) { funclets.push_back(funclet); }
-
-  void popFunclet() { funclets.pop_back(); }
-
-  llvm::Value *getFunclet() {
-    return funclets.empty() ? nullptr : funclets.back();
-  }
-  llvm::Value *getFuncletToken() {
-    return funclets.empty() ? llvm::ConstantTokenNone::get(irs.context())
-                            : funclets.back();
-  }
-#endif
-
   /// Registers a loop statement to be used as a target for break/continue
   /// statements in the current scope.
   void pushLoopTarget(Statement *loopStatement,
@@ -362,9 +346,6 @@ private:
   /// (null if not yet emitted, one element is pushed to/popped from the back
   /// on entering/leaving a catch block).
   std::vector<llvm::BasicBlock *> topLevelLandingPads;
-
-  /// MSVC: stack of currently built catch/cleanup funclets
-  std::vector<llvm::Value *> funclets;
 };
 
 template <typename T>
@@ -387,8 +368,6 @@ llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
 #if LDC_LLVM_VER >= 308
   // calls inside a funclet must be annotated with its value
   llvm::SmallVector<llvm::OperandBundleDef, 2> BundleList;
-  if (auto funclet = getFunclet())
-    BundleList.push_back(llvm::OperandBundleDef("funclet", funclet));
 #endif
 
   if (doesNotThrow || (cleanupScopes.empty() && tryCatchScopes.empty())) {
