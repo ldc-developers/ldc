@@ -17,6 +17,7 @@
 
 #include "gen/irstate.h"
 #include "gen/pgo.h"
+#include "gen/trycatch.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/CallSite.h"
 #include <vector>
@@ -163,29 +164,6 @@ public:
   std::vector<llvm::BasicBlock *> cleanupBlocks;
 };
 
-/// Stores information to be able to branch to a catch clause if it matches.
-///
-/// Each catch body is emitted only once, but may be target from many landing
-/// pads (in case of nested catch or cleanup scopes).
-struct CatchScope {
-  /// The ClassInfo reference corresponding to the type to match the
-  /// exception object against.
-  llvm::Constant *classInfoPtr = nullptr;
-
-  /// The block to branch to if the exception type matches.
-  llvm::BasicBlock *bodyBlock = nullptr;
-
-  /// The cleanup scope stack level corresponding to this catch.
-  CleanupCursor cleanupScope;
-
-  // PGO branch weights for the exception type match branch.
-  // (first weight is for match, second is for mismatch)
-  llvm::MDNode *branchWeights = nullptr;
-
-  CatchScope(llvm::Constant *classInfoPtr, llvm::BasicBlock *bodyBlock,
-             CleanupCursor cleanupScope, llvm::MDNode *branchWeights = nullptr);
-};
-
 /// Keeps track of active (abstract) scopes in a function that influence code
 /// generation of their contents. This includes cleanups (finally blocks,
 /// destructors), try/catch blocks and labels for goto/break/continue.
@@ -203,8 +181,10 @@ struct CatchScope {
 /// the rest of the ScopeStack API, as it (in contrast to goto) never requires
 /// resolving forward references across cleanup scopes.
 class ScopeStack {
+  friend class TryCatchScopes;
+
 public:
-  explicit ScopeStack(IRState &irs) : irs(irs) {}
+  explicit ScopeStack(IRState &irs) : irs(irs), tryCatchScopes(irs) {}
   ~ScopeStack();
 
   /// Registers a piece of cleanup code to be run.
@@ -246,30 +226,11 @@ public:
   /// popped.
   CleanupCursor currentCleanupScope() { return cleanupScopes.size(); }
 
-  /// Registers a catch block to be taken into consideration when an exception
-  /// is thrown within the current scope.
-  ///
-  /// When a potentially throwing function call is emitted, a landing pad will
-  /// be emitted to compare the dynamic type info of the exception against the
-  /// given ClassInfo constant and to branch to the given body block if it
-  /// matches. The registered catch blocks are maintained on a stack, with the
-  /// top-most (i.e. last pushed, innermost) taking precedence.
-  void pushCatch(llvm::Constant *classInfoPtr, llvm::BasicBlock *bodyBlock,
-                 llvm::MDNode *matchWeights = nullptr);
+  /// Registers a try-catch scope.
+  void pushTryCatch(TryCatchStatement *stmt, llvm::BasicBlock *endbb);
 
-  /// Unregisters the last registered catch block.
-  void popCatch();
-
-  /// Registers a try block and the info whether non-Exceptions (Errors and
-  /// other Throwables) can be caught.
-  void pushTryBlock(bool catchingNonExceptions);
-
-  /// Unregisters the last registered try block.
-  void popTryBlock();
-
-  /// Indicates whether there are any registered catch blocks that handle
-  /// non-Exception Throwables.
-  bool isCatchingNonExceptions() const;
+  /// Unregisters the last registered try-catch scope.
+  void popTryCatch();
 
 #if LDC_LLVM_VER >= 308
   /// MSVC: catch and cleanup code is emitted as funclets and need
@@ -362,13 +323,6 @@ private:
 
   llvm::BasicBlock *&getLandingPadRef(CleanupCursor scope);
 
-  /// Emits a landing pad to honor all the active cleanups and catches.
-  llvm::BasicBlock *emitLandingPad();
-
-#if LDC_LLVM_VER >= 308
-  llvm::BasicBlock *emitLandingPadMSVCEH(CleanupCursor scope);
-#endif
-
   /// Unified implementation for labeled break/continue.
   void jumpToStatement(std::vector<JumpTarget> &targets,
                        Statement *loopOrSwitchStatement);
@@ -396,10 +350,7 @@ private:
   std::vector<CleanupScope> cleanupScopes;
 
   ///
-  std::vector<CatchScope> catchScopes;
-
-  ///
-  std::vector<bool> catchingNonExceptions;
+  TryCatchScopes tryCatchScopes;
 
   /// Gotos which we were not able to resolve to any cleanup scope, but which
   /// might still be defined later in the function at top level. If there are
@@ -423,10 +374,10 @@ llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
   // to our advantage.
   llvm::Function *calleeFn = llvm::dyn_cast<llvm::Function>(callee);
 
-  // Ignore 'nothrow' inside try-blocks with at least 1 catch block handling a
-  // non-Exception Throwable.
-  if (isNothrow)
-    isNothrow = !isCatchingNonExceptions();
+  // Ignore 'nothrow' if there are active catch blocks handling non-Exception
+  // Throwables.
+  if (isNothrow && tryCatchScopes.isCatchingNonExceptions())
+    isNothrow = false;
 
   // Intrinsics don't support invoking and 'nounwind' functions don't need it.
   const bool doesNotThrow =
@@ -440,7 +391,7 @@ llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
     BundleList.push_back(llvm::OperandBundleDef("funclet", funclet));
 #endif
 
-  if (doesNotThrow || (cleanupScopes.empty() && catchScopes.empty())) {
+  if (doesNotThrow || (cleanupScopes.empty() && tryCatchScopes.empty())) {
     llvm::CallInst *call = irs.ir->CreateCall(callee, args,
 #if LDC_LLVM_VER >= 308
                                               BundleList,

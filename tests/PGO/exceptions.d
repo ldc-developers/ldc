@@ -78,13 +78,14 @@ void try_catch() {
       if (i) {}  // 1 : 1 (branch taken)
     }
 
-    // Exception handlers (only the first BBs):
-    // PROFGEN: store {{.*}} @[[TC]], i64 0, i64 4
+    // ExceptionTwo 1st BB:
     // PROFGEN: store {{.*}} @[[TC]], i64 0, i64 3
-    // ExceptionThree 2nd BB:
-    // PROFGEN: store {{.*}} @[[TC]], i64 0, i64 8
-    // ExceptionTwo 2nd BB:
+    // ExceptionThree 1st BB:
+    // PROFGEN: store {{.*}} @[[TC]], i64 0, i64 4
+    // ExceptionTwo 2nd BB: if(i)
     // PROFGEN: store {{.*}} @[[TC]], i64 0, i64 7
+    // ExceptionThree 2nd BB: if(i)
+    // PROFGEN: store {{.*}} @[[TC]], i64 0, i64 8
     // Try body 2nd BB:  if(i < 2)
     // PROFGEN: store {{.*}} @[[TC]], i64 0, i64 5
     // Landingpad stuff:
@@ -97,8 +98,8 @@ void try_catch() {
     // Try body:  if(i < 2)
     // PROFUSE: br {{.*}} !prof ![[TC5:[0-9]+]]
     // Exception handlers: if(i){}
-    // PROFUSE: br {{.*}} !prof ![[TC8:[0-9]+]]
     // PROFUSE: br {{.*}} !prof ![[TC7:[0-9]+]]
+    // PROFUSE: br {{.*}} !prof ![[TC8:[0-9]+]]
     // More try body:  if(i < 5)
     // PROFUSE: br {{.*}} !prof ![[TC6:[0-9]+]]
     // Landingpad stuff:

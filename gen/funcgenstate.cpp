@@ -25,12 +25,6 @@ GotoJump::GotoJump(Loc loc, llvm::BasicBlock *sourceBlock,
     : sourceLoc(std::move(loc)), sourceBlock(sourceBlock),
       tentativeTarget(tentativeTarget), targetLabel(targetLabel) {}
 
-CatchScope::CatchScope(llvm::Constant *classInfoPtr,
-                       llvm::BasicBlock *bodyBlock, CleanupCursor cleanupScope,
-                       llvm::MDNode *branchWeights)
-    : classInfoPtr(classInfoPtr), bodyBlock(bodyBlock),
-      cleanupScope(cleanupScope), branchWeights(branchWeights) {}
-
 namespace {
 
 #if LDC_LLVM_VER >= 308
@@ -348,58 +342,17 @@ void ScopeStack::popCleanups(CleanupCursor targetScope) {
   }
 }
 
-void ScopeStack::pushCatch(llvm::Constant *classInfoPtr,
-                           llvm::BasicBlock *bodyBlock,
-                           llvm::MDNode *matchWeights) {
-  if (useMSVCEH()) {
-#if LDC_LLVM_VER >= 308
-    assert(isCatchSwitchBlock(bodyBlock));
-    pushCleanup(bodyBlock, bodyBlock);
-#endif
-  } else {
-    catchScopes.emplace_back(classInfoPtr, bodyBlock, currentCleanupScope(),
-                             matchWeights);
+void ScopeStack::pushTryCatch(TryCatchStatement *stmt,
+                              llvm::BasicBlock *endbb) {
+  tryCatchScopes.push(stmt, endbb);
+  if (!useMSVCEH())
     currentLandingPads().push_back(nullptr);
-  }
 }
 
-void ScopeStack::popCatch() {
-  if (useMSVCEH()) {
-#if LDC_LLVM_VER >= 308
-    assert(isCatchSwitchBlock(cleanupScopes.back().beginBlock));
-    popCleanups(currentCleanupScope() - 1);
-#endif
-  } else {
-    catchScopes.pop_back();
+void ScopeStack::popTryCatch() {
+  tryCatchScopes.pop();
+  if (!useMSVCEH())
     currentLandingPads().pop_back();
-  }
-}
-
-void ScopeStack::pushTryBlock(bool catchesNonExceptions) {
-  catchingNonExceptions.push_back(catchesNonExceptions);
-}
-
-void ScopeStack::popTryBlock() {
-  catchingNonExceptions.pop_back();
-}
-
-bool ScopeStack::isCatchingNonExceptions() const {
-  bool hasCatchScopes = !catchScopes.empty();
-  if (useMSVCEH()) {
-#if LDC_LLVM_VER >= 308
-    hasCatchScopes = std::any_of(
-        cleanupScopes.begin(), cleanupScopes.end(),
-        [](const CleanupScope &c) { return isCatchSwitchBlock(c.beginBlock); });
-#else
-    hasCatchScopes = false;
-#endif
-  }
-
-  if (!hasCatchScopes)
-    return false;
-
-  assert(!catchingNonExceptions.empty());
-  return catchingNonExceptions.back();
 }
 
 void ScopeStack::pushLoopTarget(Statement *loopStatement,
@@ -499,140 +452,9 @@ llvm::BasicBlock *&ScopeStack::getLandingPadRef(CleanupCursor scope) {
 
 llvm::BasicBlock *ScopeStack::getLandingPad() {
   llvm::BasicBlock *&landingPad = getLandingPadRef(currentCleanupScope() - 1);
-  if (!landingPad) {
-#if LDC_LLVM_VER >= 308
-    if (useMSVCEH()) {
-      assert(currentCleanupScope() > 0);
-      landingPad = emitLandingPadMSVCEH(currentCleanupScope() - 1);
-    } else
-#endif
-      landingPad = emitLandingPad();
-  }
+  if (!landingPad)
+    landingPad = tryCatchScopes.emitLandingPad();
   return landingPad;
-}
-
-namespace {
-llvm::LandingPadInst *createLandingPadInst(IRState &irs) {
-  LLType *retType =
-      LLStructType::get(LLType::getInt8PtrTy(irs.context()),
-                        LLType::getInt32Ty(irs.context()), nullptr);
-#if LDC_LLVM_VER >= 307
-  LLFunction *currentFunction = irs.func()->func;
-  if (!currentFunction->hasPersonalityFn()) {
-    LLFunction *personalityFn =
-        getRuntimeFunction(Loc(), irs.module, "_d_eh_personality");
-    currentFunction->setPersonalityFn(personalityFn);
-  }
-  return irs.ir->CreateLandingPad(retType, 0);
-#else
-  LLFunction *personalityFn =
-      getRuntimeFunction(Loc(), irs.module, "_d_eh_personality");
-  return irs.ir->CreateLandingPad(retType, personalityFn, 0);
-#endif
-}
-}
-
-#if LDC_LLVM_VER >= 308
-llvm::BasicBlock *ScopeStack::emitLandingPadMSVCEH(CleanupCursor scope) {
-
-  LLFunction *currentFunction = irs.func()->func;
-  if (!currentFunction->hasPersonalityFn()) {
-    const char *personality = "__CxxFrameHandler3";
-    LLFunction *personalityFn =
-        getRuntimeFunction(Loc(), irs.module, personality);
-    currentFunction->setPersonalityFn(personalityFn);
-  }
-
-  if (scope == 0)
-    return runCleanupPad(scope, nullptr);
-
-  llvm::BasicBlock *&pad = getLandingPadRef(scope - 1);
-  if (!pad)
-    pad = emitLandingPadMSVCEH(scope - 1);
-
-  return runCleanupPad(scope, pad);
-}
-#endif
-
-llvm::BasicBlock *ScopeStack::emitLandingPad() {
-  // save and rewrite scope
-  IRScope savedIRScope = irs.scope();
-
-  llvm::BasicBlock *beginBB =
-      llvm::BasicBlock::Create(irs.context(), "landingPad", irs.topfunc());
-  irs.scope() = IRScope(beginBB);
-
-  llvm::LandingPadInst *landingPad = createLandingPadInst(irs);
-
-  // Stash away the exception object pointer and selector value into their
-  // stack slots.
-  llvm::Value *ehPtr = DtoExtractValue(landingPad, 0);
-  irs.ir->CreateStore(ehPtr, irs.funcGen().getOrCreateEhPtrSlot());
-
-  llvm::Value *ehSelector = DtoExtractValue(landingPad, 1);
-  if (!irs.funcGen().ehSelectorSlot) {
-    irs.funcGen().ehSelectorSlot =
-        DtoRawAlloca(ehSelector->getType(), 0, "eh.selector");
-  }
-  irs.ir->CreateStore(ehSelector, irs.funcGen().ehSelectorSlot);
-
-  // Add landingpad clauses, emit finallys and 'if' chain to catch the
-  // exception.
-  CleanupCursor lastCleanup = currentCleanupScope();
-  for (auto it = catchScopes.rbegin(), end = catchScopes.rend(); it != end;
-       ++it) {
-    // Insert any cleanups in between the last catch we ran (i.e. tested for
-    // and found that the type does not match) and this one.
-    assert(lastCleanup >= it->cleanupScope);
-    if (lastCleanup > it->cleanupScope) {
-      landingPad->setCleanup(true);
-      llvm::BasicBlock *afterCleanupBB = llvm::BasicBlock::Create(
-          irs.context(), beginBB->getName() + llvm::Twine(".after.cleanup"),
-          irs.topfunc());
-      runCleanups(lastCleanup, it->cleanupScope, afterCleanupBB);
-      irs.scope() = IRScope(afterCleanupBB);
-      lastCleanup = it->cleanupScope;
-    }
-
-    // Add the ClassInfo reference to the landingpad instruction so it is
-    // emitted to the EH tables.
-    landingPad->addClause(it->classInfoPtr);
-
-    llvm::BasicBlock *mismatchBB = llvm::BasicBlock::Create(
-        irs.context(), beginBB->getName() + llvm::Twine(".mismatch"),
-        irs.topfunc());
-
-    // "Call" llvm.eh.typeid.for, which gives us the eh selector value to
-    // compare the landing pad selector value with.
-    llvm::Value *ehTypeId =
-        irs.ir->CreateCall(GET_INTRINSIC_DECL(eh_typeid_for),
-                           DtoBitCast(it->classInfoPtr, getVoidPtrType()));
-
-    // Compare the selector value from the unwinder against the expected
-    // one and branch accordingly.
-    irs.ir->CreateCondBr(
-        irs.ir->CreateICmpEQ(irs.ir->CreateLoad(irs.funcGen().ehSelectorSlot),
-                             ehTypeId),
-        it->bodyBlock, mismatchBB, it->branchWeights);
-    irs.scope() = IRScope(mismatchBB);
-  }
-
-  // No catch matched. Execute all finallys and resume unwinding.
-  if (lastCleanup > 0) {
-    landingPad->setCleanup(true);
-    runCleanups(lastCleanup, 0, irs.funcGen().getOrCreateResumeUnwindBlock());
-  } else if (!catchScopes.empty()) {
-    // Directly convert the last mismatch branch into a branch to the
-    // unwind resume block.
-    irs.scopebb()->replaceAllUsesWith(
-        irs.funcGen().getOrCreateResumeUnwindBlock());
-    irs.scopebb()->eraseFromParent();
-  } else {
-    irs.ir->CreateBr(irs.funcGen().getOrCreateResumeUnwindBlock());
-  }
-
-  irs.scope() = savedIRScope;
-  return beginBB;
 }
 
 llvm::BasicBlock *SwitchCaseTargets::get(Statement *stmt) {
