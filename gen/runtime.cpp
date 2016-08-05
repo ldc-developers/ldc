@@ -700,12 +700,19 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
 
-  // extern (C) void _d_cover_register2(string filename, size_t[] valid,
-  //                                    uint[] data, ubyte minPercent)
   if (global.params.cov) {
+    // extern (C) void _d_cover_register2(string filename, size_t[] valid,
+    //                                    uint[] data, ubyte minPercent)
     createFwdDecl(LINKc, voidTy, {"_d_cover_register2"},
                   {stringTy, sizeTy->arrayOf(), uintTy->arrayOf(), ubyteTy});
+
+    // extern (C) void dmd_coverSetMerge( bool flag )
+    createFwdDecl(LINKc, voidTy, {"dmd_coverSetMerge"}, {boolTy});
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
 
   if (global.params.hasObjectiveC) {
     assert(global.params.targetTriple->isOSDarwin());
