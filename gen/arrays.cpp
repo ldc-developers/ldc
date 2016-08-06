@@ -134,12 +134,9 @@ static void DtoArrayInit(Loc &loc, LLValue *ptr, LLValue *length,
   }
 
   // create blocks
-  llvm::BasicBlock *condbb = llvm::BasicBlock::Create(
-      gIR->context(), "arrayinit.cond", gIR->topfunc());
-  llvm::BasicBlock *bodybb = llvm::BasicBlock::Create(
-      gIR->context(), "arrayinit.body", gIR->topfunc());
-  llvm::BasicBlock *endbb =
-      llvm::BasicBlock::Create(gIR->context(), "arrayinit.end", gIR->topfunc());
+  llvm::BasicBlock *condbb = gIR->insertBB("arrayinit.cond");
+  llvm::BasicBlock *bodybb = gIR->insertBBAfter(condbb, "arrayinit.body");
+  llvm::BasicBlock *endbb = gIR->insertBBAfter(bodybb, "arrayinit.end");
 
   // initialize iterator
   LLValue *itr = DtoAllocaDump(DtoConstSize_t(0), 0, "arrayinit.itr");
@@ -1174,15 +1171,12 @@ void DtoIndexBoundsCheck(Loc &loc, DValue *arr, DValue *index) {
   llvm::Value *cond = gIR->ir->CreateICmp(cmpop, DtoRVal(index),
                                           DtoArrayLen(arr), "bounds.cmp");
 
-  llvm::BasicBlock *failbb =
-      llvm::BasicBlock::Create(gIR->context(), "bounds.fail", gIR->topfunc());
-  llvm::BasicBlock *okbb =
-      llvm::BasicBlock::Create(gIR->context(), "bounds.ok", gIR->topfunc());
+  llvm::BasicBlock *okbb = gIR->insertBB("bounds.ok");
+  llvm::BasicBlock *failbb = gIR->insertBBAfter(okbb, "bounds.fail");
   gIR->ir->CreateCondBr(cond, okbb, failbb);
 
   // set up failbb to call the array bounds error runtime function
   gIR->scope() = IRScope(failbb);
-
   DtoBoundsCheckFailCall(gIR, loc);
 
   // if ok, proceed in okbb

@@ -93,8 +93,7 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch, llvm::BasicBlock *endbb,
   // Exceptions are never rethrown by D code (but thrown again), so
   // we can leave the catch handler right away and continue execution
   // outside the catch funclet
-  llvm::BasicBlock *catchhandler =
-      llvm::BasicBlock::Create(irs.context(), "catchhandler", irs.topfunc());
+  llvm::BasicBlock *catchhandler = irs.insertBB("catchhandler");
   llvm::CatchReturnInst::Create(catchpad, catchhandler, irs.scopebb());
   irs.scope() = IRScope(catchhandler);
   auto enterCatchFn =
@@ -172,10 +171,8 @@ void TryCatchScope::emitCatchBodies(IRState &irs) {
   cbPrototypes.reserve(stmt->catches->dim);
 
   for (auto c : *stmt->catches) {
-    auto catchBB = llvm::BasicBlock::Create(
-        irs.context(), llvm::Twine("catch.") + c->type->toChars(),
-        irs.topfunc(), endbb);
-
+    auto catchBB =
+        irs.insertBBBefore(endbb, llvm::Twine("catch.") + c->type->toChars());
     irs.scope() = IRScope(catchBB);
     irs.DBuilder.EmitBlockStart(c->loc);
     PGO.emitCounterIncrement(c);
@@ -246,8 +243,7 @@ void TryCatchScope::emitCatchBodiesMSVC(IRState &irs) {
   auto &PGO = irs.funcGen().pgo;
   auto &scopes = irs.funcGen().scopes;
 
-  auto catchSwitchBlock =
-      llvm::BasicBlock::Create(irs.context(), "catch.dispatch", irs.topfunc());
+  auto catchSwitchBlock = irs.insertBBBefore(endbb, "catch.dispatch");
   llvm::BasicBlock *unwindto =
       scopes.currentCleanupScope() > 0 ? scopes.getLandingPad() : nullptr;
   auto catchSwitchInst = llvm::CatchSwitchInst::Create(
@@ -255,9 +251,8 @@ void TryCatchScope::emitCatchBodiesMSVC(IRState &irs) {
       "", catchSwitchBlock);
 
   for (auto c : *stmt->catches) {
-    auto catchBB = llvm::BasicBlock::Create(
-        irs.context(), llvm::Twine("catch.") + c->type->toChars(),
-        irs.topfunc(), endbb);
+    auto catchBB =
+        irs.insertBBBefore(endbb, llvm::Twine("catch.") + c->type->toChars());
 
     irs.scope() = IRScope(catchBB);
     irs.DBuilder.EmitBlockStart(c->loc);
@@ -330,8 +325,7 @@ llvm::BasicBlock *TryCatchScopes::emitLandingPad() {
   // save and rewrite scope
   IRScope savedIRScope = irs.scope();
 
-  llvm::BasicBlock *beginBB =
-      llvm::BasicBlock::Create(irs.context(), "landingPad", irs.topfunc());
+  llvm::BasicBlock *beginBB = irs.insertBB("landingPad");
   irs.scope() = IRScope(beginBB);
 
   llvm::LandingPadInst *landingPad = createLandingPadInst(irs);
@@ -361,9 +355,8 @@ llvm::BasicBlock *TryCatchScopes::emitLandingPad() {
     assert(lastCleanup >= newCleanup);
     if (lastCleanup > newCleanup) {
       landingPad->setCleanup(true);
-      llvm::BasicBlock *afterCleanupBB = llvm::BasicBlock::Create(
-          irs.context(), beginBB->getName() + llvm::Twine(".after.cleanup"),
-          irs.topfunc());
+      llvm::BasicBlock *afterCleanupBB =
+          irs.insertBB(beginBB->getName() + llvm::Twine(".after.cleanup"));
       scopes.runCleanups(lastCleanup, newCleanup, afterCleanupBB);
       irs.scope() = IRScope(afterCleanupBB);
       lastCleanup = newCleanup;
@@ -374,9 +367,8 @@ llvm::BasicBlock *TryCatchScopes::emitLandingPad() {
       // emitted to the EH tables.
       landingPad->addClause(cb.classInfoPtr);
 
-      llvm::BasicBlock *mismatchBB = llvm::BasicBlock::Create(
-          irs.context(), beginBB->getName() + llvm::Twine(".mismatch"),
-          irs.topfunc());
+      llvm::BasicBlock *mismatchBB =
+          irs.insertBB(beginBB->getName() + llvm::Twine(".mismatch"));
 
       // "Call" llvm.eh.typeid.for, which gives us the eh selector value to
       // compare the landing pad selector value with.
@@ -395,18 +387,17 @@ llvm::BasicBlock *TryCatchScopes::emitLandingPad() {
   }
 
   // No catch matched. Execute all finallys and resume unwinding.
+  auto resumeUnwindBlock = irs.funcGen().getOrCreateResumeUnwindBlock();
   if (lastCleanup > 0) {
     landingPad->setCleanup(true);
-    scopes.runCleanups(lastCleanup, 0,
-                       irs.funcGen().getOrCreateResumeUnwindBlock());
+    scopes.runCleanups(lastCleanup, 0, resumeUnwindBlock);
   } else if (!tryCatchScopes.empty()) {
     // Directly convert the last mismatch branch into a branch to the
     // unwind resume block.
-    irs.scopebb()->replaceAllUsesWith(
-        irs.funcGen().getOrCreateResumeUnwindBlock());
+    irs.scopebb()->replaceAllUsesWith(resumeUnwindBlock);
     irs.scopebb()->eraseFromParent();
   } else {
-    irs.ir->CreateBr(irs.funcGen().getOrCreateResumeUnwindBlock());
+    irs.ir->CreateBr(resumeUnwindBlock);
   }
 
   irs.scope() = savedIRScope;

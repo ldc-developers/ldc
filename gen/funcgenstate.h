@@ -384,8 +384,7 @@ llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
 
   llvm::BasicBlock *landingPad = getLandingPad();
 
-  llvm::BasicBlock *postinvoke = llvm::BasicBlock::Create(
-      irs.context(), "postinvoke", irs.topfunc(), landingPad);
+  llvm::BasicBlock *postinvoke = irs.insertBB("postinvoke");
   llvm::InvokeInst *invoke =
       irs.ir->CreateInvoke(callee, postinvoke, landingPad, args,
 #if LDC_LLVM_VER >= 308

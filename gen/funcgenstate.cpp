@@ -255,14 +255,12 @@ llvm::BasicBlock *ScopeStack::runCleanupPad(CleanupCursor scope,
   //   _d_leave_cleanup(%frame)
   //   cleanupret %0 unwind %unwindTo
   //
-  llvm::BasicBlock *cleanupbb =
-      llvm::BasicBlock::Create(irs.context(), "cleanuppad", irs.topfunc());
+  llvm::BasicBlock *cleanupbb = irs.insertBB("cleanuppad");
   auto funcletToken = llvm::ConstantTokenNone::get(irs.context());
   auto cleanuppad =
       llvm::CleanupPadInst::Create(funcletToken, {}, "", cleanupbb);
 
-  llvm::BasicBlock *cleanupret =
-      llvm::BasicBlock::Create(irs.context(), "cleanupret", irs.topfunc());
+  llvm::BasicBlock *cleanupret = irs.insertBBAfter(cleanupbb, "cleanupret");
 
   // preparation to allocate some space on the stack where _d_enter_cleanup
   //  can place an exception frame (but not done here)
@@ -314,13 +312,13 @@ void ScopeStack::popCleanups(CleanupCursor targetScope) {
       llvm::BasicBlock *tentative = gotoJump.tentativeTarget;
 #if LDC_LLVM_VER >= 308
       if (useMSVCEH()) {
-        llvm::BasicBlock *continueWith = llvm::BasicBlock::Create(
-            irs.context(), "jumpcleanup", irs.topfunc());
+        llvm::BasicBlock *afterCleanup = irs.insertBB("");
         auto startCleanup =
             executeCleanupCopying(irs, cleanupScopes[i], gotoJump.sourceBlock,
-                                  continueWith, nullptr, nullptr);
+                                  afterCleanup, nullptr, nullptr);
         tentative->replaceAllUsesWith(startCleanup);
-        llvm::BranchInst::Create(tentative, continueWith);
+        afterCleanup->replaceAllUsesWith(tentative);
+        afterCleanup->eraseFromParent();
       } else
 #endif
       {
@@ -405,8 +403,7 @@ void ScopeStack::jumpToLabel(Loc loc, Identifier *labelName) {
     return;
   }
 
-  llvm::BasicBlock *target =
-      llvm::BasicBlock::Create(irs.context(), "goto.unresolved", irs.topfunc());
+  llvm::BasicBlock *target = irs.insertBB("goto.unresolved");
   irs.ir->CreateBr(target);
   currentUnresolvedGotos().emplace_back(loc, irs.scopebb(), target, labelName);
 }
@@ -467,9 +464,8 @@ llvm::BasicBlock *SwitchCaseTargets::get(Statement *stmt) {
 llvm::BasicBlock *SwitchCaseTargets::getOrCreate(Statement *stmt,
                                                  const llvm::Twine &name) {
   auto &bb = targetBBs[stmt];
-  if (!bb) {
-    bb = llvm::BasicBlock::Create(llFunc->getContext(), name, llFunc);
-  }
+  if (!bb)
+    bb = gIR->insertBB(name);
   return bb;
 }
 
@@ -487,8 +483,7 @@ llvm::BasicBlock *FuncGenState::getOrCreateResumeUnwindBlock() {
   assert(irFunc.func == irs.topfunc() &&
          "Should only access unwind resume block while emitting function.");
   if (!resumeUnwindBlock) {
-    resumeUnwindBlock =
-        llvm::BasicBlock::Create(irs.context(), "eh.resume", irFunc.func);
+    resumeUnwindBlock = irs.insertBB("eh.resume");
 
     llvm::BasicBlock *oldBB = irs.scopebb();
     irs.scope() = IRScope(resumeUnwindBlock);

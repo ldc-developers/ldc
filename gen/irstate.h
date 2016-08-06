@@ -139,6 +139,16 @@ struct IRState {
   llvm::BasicBlock *scopebb();
   bool scopereturned();
 
+  // Creates a new basic block and inserts it before the specified one.
+  llvm::BasicBlock *insertBBBefore(llvm::BasicBlock *successor,
+                                   const llvm::Twine &name);
+  // Creates a new basic block and inserts it after the specified one.
+  llvm::BasicBlock *insertBBAfter(llvm::BasicBlock *predecessor,
+                                  const llvm::Twine &name);
+  // Creates a new basic block and inserts it after the current scope basic
+  // block (`scopebb()`).
+  llvm::BasicBlock *insertBB(const llvm::Twine &name);
+
   // create a call or invoke, depending on the landing pad info
   llvm::CallSite CreateCallOrInvoke(LLValue *Callee, const char *Name = "");
   llvm::CallSite CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
