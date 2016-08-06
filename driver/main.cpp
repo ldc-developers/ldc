@@ -483,7 +483,12 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   if (genfileInstrProf.getNumOccurrences() > 0) {
     global.params.genInstrProf = true;
     if (genfileInstrProf.empty()) {
+#if LDC_LLVM_VER >= 309
+      // profile-rt provides a default filename by itself
+      global.params.datafileInstrProf = nullptr;
+#else
       global.params.datafileInstrProf = "default.profraw";
+#endif
     } else {
       initFromString(global.params.datafileInstrProf, genfileInstrProf);
     }

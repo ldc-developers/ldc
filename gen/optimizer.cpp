@@ -228,7 +228,8 @@ static void addInstrProfilingPass(legacy::PassManagerBase &mpm) {
   if (global.params.genInstrProf) {
     InstrProfOptions options;
     options.NoRedZone = global.params.disableRedZone;
-    options.InstrProfileOutput = global.params.datafileInstrProf;
+    if (global.params.datafileInstrProf)
+      options.InstrProfileOutput = global.params.datafileInstrProf;
 #if LDC_LLVM_VER >= 309
     mpm.add(createInstrProfilingLegacyPass(options));
 #else
