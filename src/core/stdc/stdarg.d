@@ -443,7 +443,16 @@ version( LDC )
         }
         else version( AnyPPC )
         {
-            T arg = *cast(T*)ap;
+            /*
+             * The rules are described in the 64bit PowerPC ELF ABI Supplement 1.9,
+             * available here:
+             * http://refspecs.linuxfoundation.org/ELF/ppc64/PPC-elf64abi-1.9.html#PARAM-PASS
+             */
+
+            // This works for all types because only the rules for non-floating,
+            // non-vector types are used.
+            auto p = (T.sizeof < size_t.sizeof ? ap + (size_t.sizeof - T.sizeof) : ap);
+            T arg = *cast(T*)p;
             ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
             return arg;
         }
