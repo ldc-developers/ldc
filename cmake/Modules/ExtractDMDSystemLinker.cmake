@@ -24,8 +24,13 @@ file(WRITE ${source_file} "void main() {}")
 # Compile the file in verbose mode and capture the compiler's stdout.
 set(result_code)
 set(stdout)
+if(UNIX)
+    separate_arguments(cmdflags UNIX_COMMAND "${D_COMPILER_FLAGS}")
+else()
+    separate_arguments(cmdflags WINDOWS_COMMAND "${D_COMPILER_FLAGS}")
+endif()
 execute_process(
-    COMMAND ${D_COMPILER} ${D_COMPILER_FLAGS} -v ${source_file}
+    COMMAND ${D_COMPILER} ${cmdflags} -v ${source_file}
     RESULT_VARIABLE result_code
     OUTPUT_VARIABLE stdout
     OUTPUT_STRIP_TRAILING_WHITESPACE
