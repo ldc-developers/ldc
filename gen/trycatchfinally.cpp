@@ -20,113 +20,6 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-namespace {
-
-#if LDC_LLVM_VER >= 308
-void emitBeginCatchMSVC(IRState &irs, Catch *ctch, llvm::BasicBlock *endbb,
-                        llvm::CatchSwitchInst *catchSwitchInst) {
-  VarDeclaration *var = ctch->var;
-  // The MSVC/x86 build uses C++ exception handling
-  // This needs a series of catch pads to match the exception
-  // and the catch handler must be terminated by a catch return instruction
-  LLValue *exnObj = nullptr;
-  LLValue *cpyObj = nullptr;
-  LLValue *typeDesc = nullptr;
-  LLValue *clssInfo = nullptr;
-  if (var) {
-    // alloca storage for the variable, it always needs a place on the stack
-    // do not initialize, this will be done by the C++ exception handler
-    var->_init = nullptr;
-
-    // redirect scope to avoid the generation of debug info before the
-    // catchpad
-    IRScope save = irs.scope();
-    irs.scope() = IRScope(gIR->topallocapoint()->getParent());
-    irs.scope().builder.SetInsertPoint(gIR->topallocapoint());
-    DtoDeclarationExp(var);
-
-    // catch handler will be outlined, so always treat as a nested reference
-    exnObj = getIrValue(var);
-
-    if (var->nestedrefs.dim) {
-      // if variable needed in a closure, use a stack temporary and copy it
-      // when caught
-      cpyObj = exnObj;
-      exnObj = DtoAlloca(var->type, "exnObj");
-    }
-    irs.scope() = save;
-    irs.DBuilder.EmitStopPoint(ctch->loc); // re-set debug loc after the
-                                           // SetInsertPoint(allocaInst) call
-  } else if (ctch->type) {
-    // catch without var
-    exnObj = DtoAlloca(ctch->type, "exnObj");
-  } else {
-    // catch all
-    exnObj = LLConstant::getNullValue(getVoidPtrType());
-  }
-
-  if (ctch->type) {
-    ClassDeclaration *cd = ctch->type->toBasetype()->isClassHandle();
-    typeDesc = getTypeDescriptor(irs, cd);
-    clssInfo = getIrAggr(cd)->getClassInfoSymbol();
-  } else {
-    // catch all
-    typeDesc = LLConstant::getNullValue(getVoidPtrType());
-    clssInfo = LLConstant::getNullValue(DtoType(Type::typeinfoclass->type));
-  }
-
-  // "catchpad within %switch [TypeDescriptor, 0, &caughtObject]" must be
-  // first instruction
-  int flags = var ? 0 : 64; // just mimicking clang here
-  LLValue *args[] = {typeDesc, DtoConstUint(flags), exnObj};
-  auto catchpad = irs.ir->CreateCatchPad(catchSwitchInst,
-                                         llvm::ArrayRef<LLValue *>(args), "");
-  catchSwitchInst->addHandler(irs.scopebb());
-
-  if (cpyObj) {
-    // assign the caught exception to the location in the closure
-    auto val = irs.ir->CreateLoad(exnObj);
-    irs.ir->CreateStore(val, cpyObj);
-    exnObj = cpyObj;
-  }
-
-  // Exceptions are never rethrown by D code (but thrown again), so
-  // we can leave the catch handler right away and continue execution
-  // outside the catch funclet
-  llvm::BasicBlock *catchhandler = irs.insertBB("catchhandler");
-  llvm::CatchReturnInst::Create(catchpad, catchhandler, irs.scopebb());
-  irs.scope() = IRScope(catchhandler);
-  auto enterCatchFn =
-      getRuntimeFunction(Loc(), irs.module, "_d_eh_enter_catch");
-  irs.CreateCallOrInvoke(enterCatchFn, DtoBitCast(exnObj, getVoidPtrType()),
-                         clssInfo);
-}
-#endif
-
-////////////////////////////////////////////////////////////////////////////////
-
-llvm::LandingPadInst *createLandingPadInst(IRState &irs) {
-  LLType *retType =
-      LLStructType::get(LLType::getInt8PtrTy(irs.context()),
-                        LLType::getInt32Ty(irs.context()), nullptr);
-#if LDC_LLVM_VER >= 307
-  LLFunction *currentFunction = irs.func()->func;
-  if (!currentFunction->hasPersonalityFn()) {
-    LLFunction *personalityFn =
-        getRuntimeFunction(Loc(), irs.module, "_d_eh_personality");
-    currentFunction->setPersonalityFn(personalityFn);
-  }
-  return irs.ir->CreateLandingPad(retType, 0);
-#else
-  LLFunction *personalityFn =
-      getRuntimeFunction(Loc(), irs.module, "_d_eh_personality");
-  return irs.ir->CreateLandingPad(retType, personalityFn, 0);
-#endif
-}
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 TryCatchScope::TryCatchScope(TryCatchStatement *stmt, llvm::BasicBlock *endbb,
                              CleanupCursor cleanupScope)
     : stmt(stmt), endbb(endbb), cleanupScope(cleanupScope) {
@@ -240,6 +133,88 @@ void TryCatchScope::emitCatchBodies(IRState &irs,
 }
 
 #if LDC_LLVM_VER >= 308
+
+namespace {
+void emitBeginCatchMSVC(IRState &irs, Catch *ctch, llvm::BasicBlock *endbb,
+                        llvm::CatchSwitchInst *catchSwitchInst) {
+  VarDeclaration *var = ctch->var;
+  // The MSVC/x86 build uses C++ exception handling
+  // This needs a series of catch pads to match the exception
+  // and the catch handler must be terminated by a catch return instruction
+  LLValue *exnObj = nullptr;
+  LLValue *cpyObj = nullptr;
+  LLValue *typeDesc = nullptr;
+  LLValue *clssInfo = nullptr;
+  if (var) {
+    // alloca storage for the variable, it always needs a place on the stack
+    // do not initialize, this will be done by the C++ exception handler
+    var->_init = nullptr;
+
+    // redirect scope to avoid the generation of debug info before the
+    // catchpad
+    IRScope save = irs.scope();
+    irs.scope() = IRScope(gIR->topallocapoint()->getParent());
+    irs.scope().builder.SetInsertPoint(gIR->topallocapoint());
+    DtoDeclarationExp(var);
+
+    // catch handler will be outlined, so always treat as a nested reference
+    exnObj = getIrValue(var);
+
+    if (var->nestedrefs.dim) {
+      // if variable needed in a closure, use a stack temporary and copy it
+      // when caught
+      cpyObj = exnObj;
+      exnObj = DtoAlloca(var->type, "exnObj");
+    }
+    irs.scope() = save;
+    irs.DBuilder.EmitStopPoint(ctch->loc); // re-set debug loc after the
+                                           // SetInsertPoint(allocaInst) call
+  } else if (ctch->type) {
+    // catch without var
+    exnObj = DtoAlloca(ctch->type, "exnObj");
+  } else {
+    // catch all
+    exnObj = LLConstant::getNullValue(getVoidPtrType());
+  }
+
+  if (ctch->type) {
+    ClassDeclaration *cd = ctch->type->toBasetype()->isClassHandle();
+    typeDesc = getTypeDescriptor(irs, cd);
+    clssInfo = getIrAggr(cd)->getClassInfoSymbol();
+  } else {
+    // catch all
+    typeDesc = LLConstant::getNullValue(getVoidPtrType());
+    clssInfo = LLConstant::getNullValue(DtoType(Type::typeinfoclass->type));
+  }
+
+  // "catchpad within %switch [TypeDescriptor, 0, &caughtObject]" must be
+  // first instruction
+  int flags = var ? 0 : 64; // just mimicking clang here
+  LLValue *args[] = {typeDesc, DtoConstUint(flags), exnObj};
+  auto catchpad = irs.ir->CreateCatchPad(catchSwitchInst,
+                                         llvm::ArrayRef<LLValue *>(args), "");
+  catchSwitchInst->addHandler(irs.scopebb());
+
+  if (cpyObj) {
+    // assign the caught exception to the location in the closure
+    auto val = irs.ir->CreateLoad(exnObj);
+    irs.ir->CreateStore(val, cpyObj);
+    exnObj = cpyObj;
+  }
+
+  // Exceptions are never rethrown by D code (but thrown again), so
+  // we can leave the catch handler right away and continue execution
+  // outside the catch funclet
+  llvm::BasicBlock *catchhandler = irs.insertBB("catchhandler");
+  llvm::CatchReturnInst::Create(catchpad, catchhandler, irs.scopebb());
+  irs.scope() = IRScope(catchhandler);
+  auto enterCatchFn =
+      getRuntimeFunction(Loc(), irs.module, "_d_eh_enter_catch");
+  irs.CreateCallOrInvoke(enterCatchFn, DtoBitCast(exnObj, getVoidPtrType()),
+                         clssInfo);
+}
+}
+
 void TryCatchScope::emitCatchBodiesMSVC(IRState &irs,
                                         TryCatchFinallyScopes &scopes) {
   auto &PGO = irs.funcGen().pgo;
@@ -284,7 +259,8 @@ void TryCatchScope::emitCatchBodiesMSVC(IRState &irs,
     irs.func()->func->setPersonalityFn(personalityFn);
   }
 }
-#endif
+
+#endif // LDC_LLVM_VER >= 308
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -385,10 +361,6 @@ llvm::BasicBlock *CleanupScope::run(IRState &irs, llvm::BasicBlock *sourceBlock,
 }
 
 #if LDC_LLVM_VER >= 308
-// MSVC/x86 uses C++ exception handling that puts cleanup blocks into funclets.
-// This means that we cannot use a branch selector and conditional branches
-// at cleanup exit to continue with different targets.
-// Instead we make a full copy of the cleanup code for every target.
 llvm::BasicBlock *CleanupScope::runCopying(IRState &irs,
                                            llvm::BasicBlock *sourceBlock,
                                            llvm::BasicBlock *continueWith,
@@ -669,6 +641,27 @@ TryCatchFinallyScopes::getLandingPadRef(CleanupCursor scope) {
     pads.push_back(nullptr);
   }
   return pads.back();
+}
+
+namespace {
+llvm::LandingPadInst *createLandingPadInst(IRState &irs) {
+  LLType *retType =
+      LLStructType::get(LLType::getInt8PtrTy(irs.context()),
+                        LLType::getInt32Ty(irs.context()), nullptr);
+#if LDC_LLVM_VER >= 307
+  LLFunction *currentFunction = irs.func()->func;
+  if (!currentFunction->hasPersonalityFn()) {
+    LLFunction *personalityFn =
+        getRuntimeFunction(Loc(), irs.module, "_d_eh_personality");
+    currentFunction->setPersonalityFn(personalityFn);
+  }
+  return irs.ir->CreateLandingPad(retType, 0);
+#else
+  LLFunction *personalityFn =
+      getRuntimeFunction(Loc(), irs.module, "_d_eh_personality");
+  return irs.ir->CreateLandingPad(retType, personalityFn, 0);
+#endif
+}
 }
 
 llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {

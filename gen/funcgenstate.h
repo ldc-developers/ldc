@@ -59,67 +59,10 @@ struct JumpTarget {
              Statement *targetStatement);
 };
 
-/// Keeps track of active (abstract) scopes in a function that influence code
-/// generation of their contents. This includes cleanups (finally blocks,
-/// destructors), try/catch blocks and labels for goto/break/continue.
-///
-/// Note that the entire code generation process, and this class in particular,
-/// depends heavily on the fact that we visit the statement/expression tree in
-/// its natural order, i.e. depth-first and in lexical order. In other words,
-/// the code here expects that after a cleanup/catch/loop/etc. has been pushed,
-/// the contents of the block are generated, and it is then popped again
-/// afterwards. This is also encoded in the fact that none of the methods for
-/// branching/running cleanups take a cursor for describing the "source" scope,
-/// it is always assumed to be the current one.
-///
-/// Handling of break/continue could be moved into a separate layer that uses
-/// the rest of the ScopeStack API, as it (in contrast to goto) never requires
-/// resolving forward references across cleanup scopes.
-class ScopeStack {
+/// Keeps track of labels for goto/break/continue.
+class JumpTargets {
 public:
-  explicit ScopeStack(IRState &irs) : irs(irs), tryCatchFinallyScopes(irs) {}
-
-  /// Registers a piece of cleanup code to be run.
-  ///
-  /// The end block is expected not to contain a terminator yet. It will be
-  /// added by ScopeStack as needed, based on what follow-up blocks code from
-  /// within this scope will branch to.
-  void pushCleanup(llvm::BasicBlock *beginBlock, llvm::BasicBlock *endBlock) {
-    tryCatchFinallyScopes.pushCleanup(beginBlock, endBlock);
-  }
-
-  /// Terminates the current basic block with a branch to the cleanups needed
-  /// for leaving the current scope and continuing execution at the target
-  /// scope stack level.
-  ///
-  /// After running them, execution will branch to the given basic block.
-  void runCleanups(CleanupCursor targetScope, llvm::BasicBlock *continueWith) {
-    tryCatchFinallyScopes.runCleanups(targetScope, continueWith);
-  }
-
-  /// Pops all the cleanups between the current scope and the target cursor.
-  ///
-  /// This does not insert any cleanup calls, use #runCleanups() beforehand.
-  void popCleanups(CleanupCursor targetScope) {
-    tryCatchFinallyScopes.popCleanups(targetScope);
-  }
-
-  /// Returns a cursor that identifies the current cleanup scope, to be later
-  /// used with #runCleanups() et al.
-  ///
-  /// Note that this cursor is only valid as long as the current scope is not
-  /// popped.
-  CleanupCursor currentCleanupScope() {
-    return tryCatchFinallyScopes.currentCleanupScope();
-  }
-
-  /// Registers a try-catch scope.
-  void pushTryCatch(TryCatchStatement *stmt, llvm::BasicBlock *endbb) {
-    tryCatchFinallyScopes.pushTryCatch(stmt, endbb);
-  }
-
-  /// Unregisters the last registered try-catch scope.
-  void popTryCatch() { tryCatchFinallyScopes.popTryCatch(); }
+  JumpTargets(IRState &irs, TryCatchFinallyScopes &scopes);
 
   /// Registers a loop statement to be used as a target for break/continue
   /// statements in the current scope.
@@ -143,12 +86,6 @@ public:
   ///
   /// Also causes in-flight forward references to this label to be resolved.
   void addLabelTarget(Identifier *labelName, llvm::BasicBlock *targetBlock);
-
-  /// Emits a call or invoke to the given callee, depending on whether there
-  /// are catches/cleanups active or not.
-  template <typename T>
-  llvm::CallSite callOrInvoke(llvm::Value *callee, const T &args,
-                              const char *name = "", bool isNothrow = false);
 
   /// Terminates the current basic block with an unconditional branch to the
   /// given label, along with the cleanups to execute on the way there.
@@ -189,9 +126,8 @@ private:
   /// Unified implementation for unlabeled break/continue.
   void jumpToClosest(std::vector<JumpTarget> &targets);
 
-  /// The ambient IRState. For legacy reasons, there is currently a cyclic
-  /// dependency between the two.
   IRState &irs;
+  TryCatchFinallyScopes &scopes;
 
   using LabelTargetMap = llvm::DenseMap<Identifier *, JumpTarget>;
   /// The labels we have encountered in this function so far, accessed by
@@ -203,61 +139,7 @@ private:
 
   ///
   std::vector<JumpTarget> continueTargets;
-
-  ///
-  TryCatchFinallyScopes tryCatchFinallyScopes;
 };
-
-template <typename T>
-llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
-                                        const char *name, bool isNothrow) {
-  // If this is a direct call, we might be able to use the callee attributes
-  // to our advantage.
-  llvm::Function *calleeFn = llvm::dyn_cast<llvm::Function>(callee);
-
-  // Ignore 'nothrow' if there are active catch blocks handling non-Exception
-  // Throwables.
-  if (isNothrow && tryCatchFinallyScopes.isCatchingNonExceptions())
-    isNothrow = false;
-
-  // Intrinsics don't support invoking and 'nounwind' functions don't need it.
-  const bool doesNotThrow =
-      isNothrow ||
-      (calleeFn && (calleeFn->isIntrinsic() || calleeFn->doesNotThrow()));
-
-#if LDC_LLVM_VER >= 308
-  // calls inside a funclet must be annotated with its value
-  llvm::SmallVector<llvm::OperandBundleDef, 2> BundleList;
-#endif
-
-  if (doesNotThrow || tryCatchFinallyScopes.empty()) {
-    llvm::CallInst *call = irs.ir->CreateCall(callee, args,
-#if LDC_LLVM_VER >= 308
-                                              BundleList,
-#endif
-                                              name);
-    if (calleeFn) {
-      call->setAttributes(calleeFn->getAttributes());
-    }
-    return call;
-  }
-
-  llvm::BasicBlock *landingPad = tryCatchFinallyScopes.getLandingPad();
-
-  llvm::BasicBlock *postinvoke = irs.insertBB("postinvoke");
-  llvm::InvokeInst *invoke =
-      irs.ir->CreateInvoke(callee, postinvoke, landingPad, args,
-#if LDC_LLVM_VER >= 308
-                           BundleList,
-#endif
-                           name);
-  if (calleeFn) {
-    invoke->setAttributes(calleeFn->getAttributes());
-  }
-
-  irs.scope() = IRScope(postinvoke);
-  return invoke;
-}
 
 /// Tracks the basic blocks corresponding to the switch `case`s (and `default`s)
 /// in a given function.
@@ -289,7 +171,7 @@ private:
 /// IRState lifetime (i.e. llvm::Module emission process) see IrFunction.
 class FuncGenState {
 public:
-  explicit FuncGenState(IrFunction &irFunc, IRState &irs);
+  FuncGenState(IrFunction &irFunc, IRState &irs);
 
   FuncGenState(FuncGenState const &) = delete;
   FuncGenState &operator=(FuncGenState const &) = delete;
@@ -314,7 +196,9 @@ public:
   IrFunction &irFunc;
 
   /// The stack of scopes inside the function.
-  ScopeStack scopes;
+  TryCatchFinallyScopes scopes;
+
+  JumpTargets jumpTargets;
 
   // PGO information
   CodeGenPGO pgo;
@@ -338,10 +222,67 @@ public:
   /// Similar story to ehPtrSlot, but for the selector value.
   llvm::AllocaInst *ehSelectorSlot = nullptr;
 
+  /// Emits a call or invoke to the given callee, depending on whether there
+  /// are catches/cleanups active or not.
+  template <typename T>
+  llvm::CallSite callOrInvoke(llvm::Value *callee, const T &args,
+                              const char *name = "", bool isNothrow = false);
+
 private:
   IRState &irs;
   llvm::AllocaInst *ehPtrSlot = nullptr;
   llvm::BasicBlock *resumeUnwindBlock = nullptr;
 };
+
+template <typename T>
+llvm::CallSite FuncGenState::callOrInvoke(llvm::Value *callee, const T &args,
+                                          const char *name, bool isNothrow) {
+  // If this is a direct call, we might be able to use the callee attributes
+  // to our advantage.
+  llvm::Function *calleeFn = llvm::dyn_cast<llvm::Function>(callee);
+
+  // Ignore 'nothrow' if there are active catch blocks handling non-Exception
+  // Throwables.
+  if (isNothrow && scopes.isCatchingNonExceptions())
+    isNothrow = false;
+
+  // Intrinsics don't support invoking and 'nounwind' functions don't need it.
+  const bool doesNotThrow =
+      isNothrow ||
+      (calleeFn && (calleeFn->isIntrinsic() || calleeFn->doesNotThrow()));
+
+#if LDC_LLVM_VER >= 308
+  // calls inside a funclet must be annotated with its value
+  llvm::SmallVector<llvm::OperandBundleDef, 2> BundleList;
+#endif
+
+  if (doesNotThrow || scopes.empty()) {
+    llvm::CallInst *call = irs.ir->CreateCall(callee, args,
+#if LDC_LLVM_VER >= 308
+                                              BundleList,
+#endif
+                                              name);
+    if (calleeFn) {
+      call->setAttributes(calleeFn->getAttributes());
+    }
+    return call;
+  }
+
+  llvm::BasicBlock *landingPad = scopes.getLandingPad();
+
+  llvm::BasicBlock *postinvoke = irs.insertBB("postinvoke");
+  llvm::InvokeInst *invoke =
+      irs.ir->CreateInvoke(callee, postinvoke, landingPad, args,
+#if LDC_LLVM_VER >= 308
+                           BundleList,
+#endif
+                           name);
+  if (calleeFn) {
+    invoke->setAttributes(calleeFn->getAttributes());
+  }
+
+  irs.scope() = IRScope(postinvoke);
+  return invoke;
+}
 
 #endif

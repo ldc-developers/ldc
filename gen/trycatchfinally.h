@@ -1,4 +1,4 @@
-//===-- gen/trycatchfinally.h - Try-catch-finally scopes --------*- C++ -*-===//
+//===-- gen/trycatchfinally.h - Try/catch/finally scopes --------*- C++ -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -61,7 +61,12 @@ public:
   CleanupCursor getCleanupScope() const { return cleanupScope; }
   bool isCatchingNonExceptions() const { return catchesNonExceptions; }
 
+  /// Emits the catch bodies. Must be called only once, and this scope must not
+  /// be registered yet.
   void emitCatchBodies(IRState &irs, TryCatchFinallyScopes &scopes);
+
+  /// Gets the list of catch blocks. The catch bodies must have been emitted
+  /// already.
   const std::vector<CatchBlock> &getCatchBlocks() const;
 
 private:
@@ -96,6 +101,10 @@ public:
   llvm::BasicBlock *run(IRState &irs, llvm::BasicBlock *sourceBlock,
                         llvm::BasicBlock *continueWith);
 
+  /// MSVC uses C++ exception handling that puts cleanup blocks into funclets.
+  /// This means that we cannot use a branch selector and conditional branches
+  /// at cleanup exit to continue with different targets.
+  /// Instead we make a full copy of the cleanup code for every target.
   llvm::BasicBlock *runCopying(IRState &irs, llvm::BasicBlock *sourceBlock,
                                llvm::BasicBlock *continueWith,
                                llvm::BasicBlock *unwindTo = nullptr,
@@ -151,22 +160,30 @@ struct GotoJump {
   Loc sourceLoc;
 
   /// The basic block which contains the goto as its terminator.
-  llvm::BasicBlock *sourceBlock = nullptr;
+  llvm::BasicBlock *sourceBlock;
 
   /// While we have not found the actual branch target, we might need to
   /// create a "fake" basic block in order to be able to execute the cleanups
   /// (we do not keep branching information around after leaving the scope).
-  llvm::BasicBlock *tentativeTarget = nullptr;
+  llvm::BasicBlock *tentativeTarget;
 
   /// The label to target with the goto.
-  Identifier *targetLabel = nullptr;
-
-  GotoJump(Loc loc, llvm::BasicBlock *sourceBlock,
-           llvm::BasicBlock *tentativeTarget, Identifier *targetLabel);
+  Identifier *targetLabel;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/// Manages both try/catch and cleanups (try/finally blocks, destructors)
+/// stacks.
+///
+/// Note that the entire code generation process, and this class in particular,
+/// depends heavily on the fact that we visit the statement/expression tree in
+/// its natural order, i.e. depth-first and in lexical order. In other words,
+/// the code here expects that after a cleanup/catch/etc. has been pushed,
+/// the contents of the block are generated, and it is then popped again
+/// afterwards. This is also encoded in the fact that none of the methods for
+/// branching/running cleanups take a cursor for describing the "source" scope,
+/// it is always assumed to be the current one.
 class TryCatchFinallyScopes {
 public:
   explicit TryCatchFinallyScopes(IRState &irs);
@@ -174,11 +191,11 @@ public:
 
   bool empty() const { return tryCatchScopes.empty() && cleanupScopes.empty(); }
 
-  /// Registers a try-catch scope.
+  /// Registers a try/catch scope.
   /// The catch bodies are emitted just before registering the new scope.
   void pushTryCatch(TryCatchStatement *stmt, llvm::BasicBlock *endbb);
 
-  /// Unregisters the last registered try-catch scope.
+  /// Unregisters the last registered try/catch scope.
   void popTryCatch();
 
   /// Indicates whether there are any active catch blocks that handle

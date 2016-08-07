@@ -263,7 +263,7 @@ void DtoAssert(Module *M, Loc &loc, DValue *msg) {
   args.push_back(DtoConstUint(loc.linnum));
 
   // call
-  gIR->funcGen().scopes.callOrInvoke(fn, args);
+  gIR->funcGen().callOrInvoke(fn, args);
 
   // after assert is always unreachable
   gIR->ir->CreateUnreachable();
@@ -291,7 +291,7 @@ void DtoGoto(Loc &loc, LabelDsymbol *target) {
     fatal();
   }
 
-  gIR->funcGen().scopes.jumpToLabel(loc, target->ident);
+  gIR->funcGen().jumpTargets.jumpToLabel(loc, target->ident);
 }
 
 /******************************************************************************

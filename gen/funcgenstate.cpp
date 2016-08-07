@@ -20,39 +20,39 @@ JumpTarget::JumpTarget(llvm::BasicBlock *targetBlock,
     : targetBlock(targetBlock), cleanupScope(cleanupScope),
       targetStatement(targetStatement) {}
 
-GotoJump::GotoJump(Loc loc, llvm::BasicBlock *sourceBlock,
-                   llvm::BasicBlock *tentativeTarget, Identifier *targetLabel)
-    : sourceLoc(std::move(loc)), sourceBlock(sourceBlock),
-      tentativeTarget(tentativeTarget), targetLabel(targetLabel) {}
+JumpTargets::JumpTargets(IRState &irs, TryCatchFinallyScopes &scopes)
+    : irs(irs), scopes(scopes) {}
 
-void ScopeStack::pushLoopTarget(Statement *loopStatement,
-                                llvm::BasicBlock *continueTarget,
-                                llvm::BasicBlock *breakTarget) {
-  continueTargets.emplace_back(continueTarget, currentCleanupScope(),
+void JumpTargets::pushLoopTarget(Statement *loopStatement,
+                                 llvm::BasicBlock *continueTarget,
+                                 llvm::BasicBlock *breakTarget) {
+  continueTargets.emplace_back(continueTarget, scopes.currentCleanupScope(),
                                loopStatement);
-  breakTargets.emplace_back(breakTarget, currentCleanupScope(), loopStatement);
+  breakTargets.emplace_back(breakTarget, scopes.currentCleanupScope(),
+                            loopStatement);
 }
 
-void ScopeStack::popLoopTarget() {
+void JumpTargets::popLoopTarget() {
   continueTargets.pop_back();
   breakTargets.pop_back();
 }
 
-void ScopeStack::pushBreakTarget(Statement *switchStatement,
-                                 llvm::BasicBlock *targetBlock) {
-  breakTargets.push_back({targetBlock, currentCleanupScope(), switchStatement});
+void JumpTargets::pushBreakTarget(Statement *switchStatement,
+                                  llvm::BasicBlock *targetBlock) {
+  breakTargets.push_back(
+      {targetBlock, scopes.currentCleanupScope(), switchStatement});
 }
 
-void ScopeStack::popBreakTarget() { breakTargets.pop_back(); }
+void JumpTargets::popBreakTarget() { breakTargets.pop_back(); }
 
-void ScopeStack::addLabelTarget(Identifier *labelName,
-                                llvm::BasicBlock *targetBlock) {
-  labelTargets[labelName] = {targetBlock, currentCleanupScope(), nullptr};
+void JumpTargets::addLabelTarget(Identifier *labelName,
+                                 llvm::BasicBlock *targetBlock) {
+  labelTargets[labelName] = {targetBlock, scopes.currentCleanupScope(),
+                             nullptr};
 
   // See whether any of the unresolved gotos target this label, and resolve
   // those that do.
-  std::vector<GotoJump> &unresolved =
-      tryCatchFinallyScopes.currentUnresolvedGotos();
+  std::vector<GotoJump> &unresolved = scopes.currentUnresolvedGotos();
   size_t i = 0;
   while (i < unresolved.size()) {
     if (unresolved[i].targetLabel != labelName) {
@@ -66,37 +66,37 @@ void ScopeStack::addLabelTarget(Identifier *labelName,
   }
 }
 
-void ScopeStack::jumpToLabel(Loc loc, Identifier *labelName) {
+void JumpTargets::jumpToLabel(Loc loc, Identifier *labelName) {
   // If we have already seen that label, branch to it, executing any cleanups
   // as necessary.
   auto it = labelTargets.find(labelName);
   if (it != labelTargets.end()) {
-    runCleanups(it->second.cleanupScope, it->second.targetBlock);
+    scopes.runCleanups(it->second.cleanupScope, it->second.targetBlock);
     return;
   }
 
   llvm::BasicBlock *target = irs.insertBB("goto.unresolved");
   irs.ir->CreateBr(target);
-  tryCatchFinallyScopes.currentUnresolvedGotos().emplace_back(
-      loc, irs.scopebb(), target, labelName);
+  scopes.currentUnresolvedGotos().push_back(
+      {loc, irs.scopebb(), target, labelName});
 }
 
-void ScopeStack::jumpToStatement(std::vector<JumpTarget> &targets,
-                                 Statement *loopOrSwitchStatement) {
+void JumpTargets::jumpToStatement(std::vector<JumpTarget> &targets,
+                                  Statement *loopOrSwitchStatement) {
   for (auto it = targets.rbegin(), end = targets.rend(); it != end; ++it) {
     if (it->targetStatement == loopOrSwitchStatement) {
-      runCleanups(it->cleanupScope, it->targetBlock);
+      scopes.runCleanups(it->cleanupScope, it->targetBlock);
       return;
     }
   }
   assert(false && "Target for labeled break not found.");
 }
 
-void ScopeStack::jumpToClosest(std::vector<JumpTarget> &targets) {
+void JumpTargets::jumpToClosest(std::vector<JumpTarget> &targets) {
   assert(!targets.empty() &&
          "Encountered break/continue but no loop in scope.");
   JumpTarget &t = targets.back();
-  runCleanups(t.cleanupScope, t.targetBlock);
+  scopes.runCleanups(t.cleanupScope, t.targetBlock);
 }
 
 llvm::BasicBlock *SwitchCaseTargets::get(Statement *stmt) {
@@ -114,7 +114,8 @@ llvm::BasicBlock *SwitchCaseTargets::getOrCreate(Statement *stmt,
 }
 
 FuncGenState::FuncGenState(IrFunction &irFunc, IRState &irs)
-    : irFunc(irFunc), scopes(irs), switchTargets(irFunc.func), irs(irs) {}
+    : irFunc(irFunc), scopes(irs), jumpTargets(irs, scopes),
+      switchTargets(irFunc.func), irs(irs) {}
 
 llvm::AllocaInst *FuncGenState::getOrCreateEhPtrSlot() {
   if (!ehPtrSlot) {

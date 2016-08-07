@@ -861,9 +861,8 @@ DSliceValue *DtoCatArrays(Loc &loc, Type *arrayType, Expression *exp1,
     args.push_back(val);
   }
 
-  auto newArray = gIR->funcGen()
-                      .scopes.callOrInvoke(fn, args, ".appendedArray")
-                      .getInstruction();
+  auto newArray =
+      gIR->funcGen().callOrInvoke(fn, args, ".appendedArray").getInstruction();
   return getSlice(arrayType, newArray);
 }
 
@@ -935,7 +934,7 @@ static LLValue *DtoArrayEqCmp_impl(Loc &loc, const char *func, DValue *l,
     args.push_back(DtoBitCast(tival, fn->getFunctionType()->getParamType(2)));
   }
 
-  return gIR->funcGen().scopes.callOrInvoke(fn, args).getInstruction();
+  return gIR->funcGen().callOrInvoke(fn, args).getInstruction();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

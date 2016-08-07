@@ -442,12 +442,12 @@ public:
     irs->scope() = IRScope(whilebodybb);
 
     // while body code
-    irs->funcGen().scopes.pushLoopTarget(stmt, whilebb, endbb);
+    irs->funcGen().jumpTargets.pushLoopTarget(stmt, whilebb, endbb);
     PGO.emitCounterIncrement(stmt);
     if (stmt->_body) {
       stmt->_body->accept(this);
     }
-    irs->funcGen().scopes.popLoopTarget();
+    irs->funcGen().jumpTargets.popLoopTarget();
 
     // loop
     if (!irs->scopereturned()) {
@@ -486,12 +486,12 @@ public:
     irs->scope() = IRScope(dowhilebb);
 
     // do-while body code
-    irs->funcGen().scopes.pushLoopTarget(stmt, condbb, endbb);
+    irs->funcGen().jumpTargets.pushLoopTarget(stmt, condbb, endbb);
     PGO.emitCounterIncrement(stmt);
     if (stmt->_body) {
       stmt->_body->accept(this);
     }
-    irs->funcGen().scopes.popLoopTarget();
+    irs->funcGen().jumpTargets.popLoopTarget();
 
     // branch to condition block
     llvm::BranchInst::Create(condbb, irs->scopebb());
@@ -557,7 +557,7 @@ public:
     while (ScopeStatement *scope = scopeStart->isScopeStatement()) {
       scopeStart = scope->statement;
     }
-    irs->funcGen().scopes.pushLoopTarget(scopeStart, forincbb, endbb);
+    irs->funcGen().jumpTargets.pushLoopTarget(scopeStart, forincbb, endbb);
 
     // replace current scope
     irs->scope() = IRScope(forbb);
@@ -609,7 +609,7 @@ public:
       llvm::BranchInst::Create(forbb, irs->scopebb());
     }
 
-    irs->funcGen().scopes.popLoopTarget();
+    irs->funcGen().jumpTargets.popLoopTarget();
 
     // rewrite the scope
     irs->scope() = IRScope(endbb);
@@ -649,9 +649,9 @@ public:
         targetStatement = tmp->statement;
       }
 
-      irs->funcGen().scopes.breakToStatement(targetStatement);
+      irs->funcGen().jumpTargets.breakToStatement(targetStatement);
     } else {
-      irs->funcGen().scopes.breakToClosest();
+      irs->funcGen().jumpTargets.breakToClosest();
     }
 
     // the break terminated this basicblock, start a new one
@@ -684,9 +684,9 @@ public:
         targetLoopStatement = tmp->statement;
       }
 
-      irs->funcGen().scopes.continueWithLoop(targetLoopStatement);
+      irs->funcGen().jumpTargets.continueWithLoop(targetLoopStatement);
     } else {
-      irs->funcGen().scopes.continueWithClosest();
+      irs->funcGen().jumpTargets.continueWithClosest();
     }
 
     // the continue terminated this basicblock, start a new one
@@ -933,9 +933,9 @@ public:
     // do switch body
     assert(stmt->_body);
     irs->scope() = IRScope(bodybb);
-    funcGen.scopes.pushBreakTarget(stmt, endbb);
+    funcGen.jumpTargets.pushBreakTarget(stmt, endbb);
     stmt->_body->accept(this);
-    funcGen.scopes.popBreakTarget();
+    funcGen.jumpTargets.popBreakTarget();
     if (!irs->scopereturned()) {
       llvm::BranchInst::Create(endbb, irs->scopebb());
     }
@@ -1185,13 +1185,13 @@ public:
 
       // push loop scope
       // continue goes to next statement, break goes to end
-      irs->funcGen().scopes.pushLoopTarget(stmt, nextbb, endbb);
+      irs->funcGen().jumpTargets.pushLoopTarget(stmt, nextbb, endbb);
 
       // do statement
       s->accept(this);
 
       // pop loop scope
-      irs->funcGen().scopes.popLoopTarget();
+      irs->funcGen().jumpTargets.popLoopTarget();
 
       // next stmt
       if (!irs->scopereturned()) {
@@ -1317,11 +1317,11 @@ public:
     }
 
     // emit body
-    irs->funcGen().scopes.pushLoopTarget(stmt, nextbb, endbb);
+    irs->funcGen().jumpTargets.pushLoopTarget(stmt, nextbb, endbb);
     if (stmt->_body) {
       stmt->_body->accept(this);
     }
-    irs->funcGen().scopes.popLoopTarget();
+    irs->funcGen().jumpTargets.popLoopTarget();
 
     if (!irs->scopereturned()) {
       llvm::BranchInst::Create(nextbb, irs->scopebb());
@@ -1419,11 +1419,11 @@ public:
     }
 
     // emit body
-    irs->funcGen().scopes.pushLoopTarget(stmt, nextbb, endbb);
+    irs->funcGen().jumpTargets.pushLoopTarget(stmt, nextbb, endbb);
     if (stmt->_body) {
       stmt->_body->accept(this);
     }
-    irs->funcGen().scopes.popLoopTarget();
+    irs->funcGen().jumpTargets.popLoopTarget();
 
     // jump to next iteration
     if (!irs->scopereturned()) {
@@ -1477,7 +1477,7 @@ public:
     } else {
       llvm::BasicBlock *labelBB =
           irs->insertBB(llvm::Twine("label.") + stmt->ident->toChars());
-      irs->funcGen().scopes.addLabelTarget(stmt->ident, labelBB);
+      irs->funcGen().jumpTargets.addLabelTarget(stmt->ident, labelBB);
 
       if (!irs->scopereturned()) {
         llvm::BranchInst::Create(labelBB, irs->scopebb());
