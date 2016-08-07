@@ -59,29 +59,6 @@ struct JumpTarget {
              Statement *targetStatement);
 };
 
-/// Keeps track of source and target label of a goto.
-///
-/// Used if we cannot immediately emit all the code for a jump because we have
-/// not generated code for the target yet.
-struct GotoJump {
-  // The location of the goto instruction, for error reporting.
-  Loc sourceLoc;
-
-  /// The basic block which contains the goto as its terminator.
-  llvm::BasicBlock *sourceBlock = nullptr;
-
-  /// While we have not found the actual branch target, we might need to
-  /// create a "fake" basic block in order to be able to execute the cleanups
-  /// (we do not keep branching information around after leaving the scope).
-  llvm::BasicBlock *tentativeTarget = nullptr;
-
-  /// The label to target with the goto.
-  Identifier *targetLabel = nullptr;
-
-  GotoJump(Loc loc, llvm::BasicBlock *sourceBlock,
-           llvm::BasicBlock *tentativeTarget, Identifier *targetLabel);
-};
-
 /// Keeps track of active (abstract) scopes in a function that influence code
 /// generation of their contents. This includes cleanups (finally blocks,
 /// destructors), try/catch blocks and labels for goto/break/continue.
@@ -100,10 +77,7 @@ struct GotoJump {
 /// resolving forward references across cleanup scopes.
 class ScopeStack {
 public:
-  explicit ScopeStack(IRState &irs) : irs(irs), tryCatchFinallyScopes(irs) {
-    unresolvedGotosPerCleanupScope.emplace_back();
-  }
-  ~ScopeStack();
+  explicit ScopeStack(IRState &irs) : irs(irs), tryCatchFinallyScopes(irs) {}
 
   /// Registers a piece of cleanup code to be run.
   ///
@@ -112,7 +86,6 @@ public:
   /// within this scope will branch to.
   void pushCleanup(llvm::BasicBlock *beginBlock, llvm::BasicBlock *endBlock) {
     tryCatchFinallyScopes.pushCleanup(beginBlock, endBlock);
-    unresolvedGotosPerCleanupScope.emplace_back();
   }
 
   /// Terminates the current basic block with a branch to the cleanups needed
@@ -127,7 +100,9 @@ public:
   /// Pops all the cleanups between the current scope and the target cursor.
   ///
   /// This does not insert any cleanup calls, use #runCleanups() beforehand.
-  void popCleanups(CleanupCursor targetScope);
+  void popCleanups(CleanupCursor targetScope) {
+    tryCatchFinallyScopes.popCleanups(targetScope);
+  }
 
   /// Returns a cursor that identifies the current cleanup scope, to be later
   /// used with #runCleanups() et al.
@@ -207,8 +182,6 @@ public:
   void breakToClosest() { jumpToClosest(breakTargets); }
 
 private:
-  std::vector<GotoJump> &currentUnresolvedGotos();
-
   /// Unified implementation for labeled break/continue.
   void jumpToStatement(std::vector<JumpTarget> &targets,
                        Statement *loopOrSwitchStatement);
@@ -233,16 +206,6 @@ private:
 
   ///
   TryCatchFinallyScopes tryCatchFinallyScopes;
-
-  /// Keeps track of all the gotos originating from somewhere inside this
-  /// scope for which we have not found the label yet (because it occurs
-  /// lexically later in the function).
-  // Note: Should also be a dense map from source block to the rest of the
-  // data if we expect many gotos.
-  using Gotos = std::vector<GotoJump>;
-  /// The first element represents the stack of unresolved top-level gotos
-  /// (no cleanups).
-  std::vector<Gotos> unresolvedGotosPerCleanupScope;
 };
 
 template <typename T>

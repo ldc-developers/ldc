@@ -148,7 +148,8 @@ TryCatchScope::getCatchBlocks() const {
   return catchBlocks;
 }
 
-void TryCatchScope::emitCatchBodies(IRState &irs, TryCatchFinallyScopes &scopes) {
+void TryCatchScope::emitCatchBodies(IRState &irs,
+                                    TryCatchFinallyScopes &scopes) {
   assert(catchBlocks.empty());
 
 #if LDC_LLVM_VER >= 308
@@ -239,7 +240,8 @@ void TryCatchScope::emitCatchBodies(IRState &irs, TryCatchFinallyScopes &scopes)
 }
 
 #if LDC_LLVM_VER >= 308
-void TryCatchScope::emitCatchBodiesMSVC(IRState &irs, TryCatchFinallyScopes &scopes) {
+void TryCatchScope::emitCatchBodiesMSVC(IRState &irs,
+                                        TryCatchFinallyScopes &scopes) {
   auto &PGO = irs.funcGen().pgo;
 
   auto catchSwitchBlock = irs.insertBBBefore(endbb, "catch.dispatch");
@@ -270,7 +272,7 @@ void TryCatchScope::emitCatchBodiesMSVC(IRState &irs, TryCatchFinallyScopes &sco
     irs.DBuilder.EmitBlockEnd();
   }
 
-  irs.funcGen().scopes.pushCleanup(catchSwitchBlock, catchSwitchBlock);
+  scopes.pushCleanup(catchSwitchBlock, catchSwitchBlock);
 
   // if no landing pad is created, the catch blocks are unused, but
   // the verifier complains if there are catchpads without personality
@@ -442,8 +444,22 @@ llvm::BasicBlock *CleanupScope::runCopying(IRState &irs,
 ////////////////////////////////////////////////////////////////////////////////
 
 TryCatchFinallyScopes::TryCatchFinallyScopes(IRState &irs) : irs(irs) {
-  // create top-level landing pads cache
+  // create top-level stacks
+  unresolvedGotosPerCleanupScope.emplace_back();
   landingPadsPerCleanupScope.emplace_back();
+}
+
+TryCatchFinallyScopes::~TryCatchFinallyScopes() {
+  assert(currentCleanupScope() == 0);
+  // If there are still unresolved gotos left, it means that they were either
+  // down or "sideways" (i.e. down another branch) of the tree of all
+  // cleanup scopes, both of which are not allowed in D.
+  if (!currentUnresolvedGotos().empty()) {
+    for (const auto &i : currentUnresolvedGotos()) {
+      error(i.sourceLoc, "goto into try/finally scope is not allowed");
+    }
+    fatal();
+  }
 }
 
 void TryCatchFinallyScopes::pushTryCatch(TryCatchStatement *stmt,
@@ -463,7 +479,7 @@ void TryCatchFinallyScopes::popTryCatch() {
   tryCatchScopes.pop_back();
   if (useMSVCEH()) {
     assert(isCatchSwitchBlock(cleanupScopes.back().beginBlock()));
-    irs.funcGen().scopes.popCleanups(currentCleanupScope() - 1);
+    popCleanups(currentCleanupScope() - 1);
   } else {
     landingPadsPerCleanupScope[currentCleanupScope()].pop_back();
   }
@@ -480,23 +496,49 @@ bool TryCatchFinallyScopes::isCatchingNonExceptions() const {
 void TryCatchFinallyScopes::pushCleanup(llvm::BasicBlock *beginBlock,
                                         llvm::BasicBlock *endBlock) {
   cleanupScopes.emplace_back(beginBlock, endBlock);
+  unresolvedGotosPerCleanupScope.emplace_back();
   landingPadsPerCleanupScope.emplace_back();
+}
+
+std::vector<GotoJump> &TryCatchFinallyScopes::currentUnresolvedGotos() {
+  return unresolvedGotosPerCleanupScope[currentCleanupScope()];
 }
 
 void TryCatchFinallyScopes::popCleanups(CleanupCursor targetScope) {
   assert(targetScope <= currentCleanupScope());
-  while (targetScope < currentCleanupScope()) {
+  if (targetScope == currentCleanupScope())
+    return;
+
+  for (CleanupCursor i = currentCleanupScope(); i-- > targetScope;) {
+    // Any gotos that are still unresolved necessarily leave this scope.
+    // Thus, the cleanup needs to be executed.
+    for (const auto &gotoJump : currentUnresolvedGotos()) {
+      // Make the source resp. last cleanup branch to this one.
+      llvm::BasicBlock *tentative = gotoJump.tentativeTarget;
+      llvm::BasicBlock *afterCleanup = irs.insertBB("");
+      auto startCleanup =
+          cleanupScopes[i].run(irs, gotoJump.sourceBlock, afterCleanup);
+      tentative->replaceAllUsesWith(startCleanup);
+      // And continue execution with the tentative target (we simply reuse
+      // it because there is no reason not to).
+      afterCleanup->replaceAllUsesWith(tentative);
+      afterCleanup->eraseFromParent();
+    }
+
+    Gotos &nextUnresolved = unresolvedGotosPerCleanupScope[i];
+    nextUnresolved.insert(nextUnresolved.end(),
+                          currentUnresolvedGotos().begin(),
+                          currentUnresolvedGotos().end());
+
     cleanupScopes.pop_back();
+    unresolvedGotosPerCleanupScope.pop_back();
     landingPadsPerCleanupScope.pop_back();
   }
 }
 
-llvm::BasicBlock *
-TryCatchFinallyScopes::runCleanup(CleanupCursor targetScope,
-                                  llvm::BasicBlock *sourceBlock,
-                                  llvm::BasicBlock *continueWith) {
-  assert(targetScope < cleanupScopes.size());
-  return cleanupScopes[targetScope].run(irs, sourceBlock, continueWith);
+void TryCatchFinallyScopes::runCleanups(CleanupCursor targetScope,
+                                        llvm::BasicBlock *continueWith) {
+  runCleanups(currentCleanupScope(), targetScope, continueWith);
 }
 
 void TryCatchFinallyScopes::runCleanups(CleanupCursor sourceScope,

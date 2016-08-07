@@ -25,49 +25,6 @@ GotoJump::GotoJump(Loc loc, llvm::BasicBlock *sourceBlock,
     : sourceLoc(std::move(loc)), sourceBlock(sourceBlock),
       tentativeTarget(tentativeTarget), targetLabel(targetLabel) {}
 
-ScopeStack::~ScopeStack() {
-  // If there are still unresolved gotos left, it means that they were either
-  // down or "sideways" (i.e. down another branch) of the tree of all
-  // cleanup scopes, both of which are not allowed in D.
-  if (!unresolvedGotosPerCleanupScope[0].empty()) {
-    for (const auto &i : unresolvedGotosPerCleanupScope[0]) {
-      error(i.sourceLoc, "goto into try/finally scope is not allowed");
-    }
-    fatal();
-  }
-}
-
-void ScopeStack::popCleanups(CleanupCursor targetScope) {
-  assert(targetScope <= currentCleanupScope());
-  if (targetScope == currentCleanupScope())
-    return;
-
-  for (CleanupCursor i = currentCleanupScope(); i-- > targetScope;) {
-    // Any gotos that are still unresolved necessarily leave this scope.
-    // Thus, the cleanup needs to be executed.
-    for (const auto &gotoJump : currentUnresolvedGotos()) {
-      // Make the source resp. last cleanup branch to this one.
-      llvm::BasicBlock *tentative = gotoJump.tentativeTarget;
-      llvm::BasicBlock *afterCleanup = irs.insertBB("");
-      auto startCleanup = tryCatchFinallyScopes.runCleanup(
-          i, gotoJump.sourceBlock, afterCleanup);
-      tentative->replaceAllUsesWith(startCleanup);
-      // And continue execution with the tentative target (we simply reuse
-      // it because there is no reason not to).
-      afterCleanup->replaceAllUsesWith(tentative);
-      afterCleanup->eraseFromParent();
-    }
-
-    Gotos &nextUnresolved = unresolvedGotosPerCleanupScope[i];
-    nextUnresolved.insert(nextUnresolved.end(),
-                          currentUnresolvedGotos().begin(),
-                          currentUnresolvedGotos().end());
-
-    tryCatchFinallyScopes.popCleanups(i);
-    unresolvedGotosPerCleanupScope.pop_back();
-  }
-}
-
 void ScopeStack::pushLoopTarget(Statement *loopStatement,
                                 llvm::BasicBlock *continueTarget,
                                 llvm::BasicBlock *breakTarget) {
@@ -94,7 +51,8 @@ void ScopeStack::addLabelTarget(Identifier *labelName,
 
   // See whether any of the unresolved gotos target this label, and resolve
   // those that do.
-  std::vector<GotoJump> &unresolved = currentUnresolvedGotos();
+  std::vector<GotoJump> &unresolved =
+      tryCatchFinallyScopes.currentUnresolvedGotos();
   size_t i = 0;
   while (i < unresolved.size()) {
     if (unresolved[i].targetLabel != labelName) {
@@ -119,7 +77,8 @@ void ScopeStack::jumpToLabel(Loc loc, Identifier *labelName) {
 
   llvm::BasicBlock *target = irs.insertBB("goto.unresolved");
   irs.ir->CreateBr(target);
-  currentUnresolvedGotos().emplace_back(loc, irs.scopebb(), target, labelName);
+  tryCatchFinallyScopes.currentUnresolvedGotos().emplace_back(
+      loc, irs.scopebb(), target, labelName);
 }
 
 void ScopeStack::jumpToStatement(std::vector<JumpTarget> &targets,
@@ -138,10 +97,6 @@ void ScopeStack::jumpToClosest(std::vector<JumpTarget> &targets) {
          "Encountered break/continue but no loop in scope.");
   JumpTarget &t = targets.back();
   runCleanups(t.cleanupScope, t.targetBlock);
-}
-
-std::vector<GotoJump> &ScopeStack::currentUnresolvedGotos() {
-  return unresolvedGotosPerCleanupScope[currentCleanupScope()];
 }
 
 llvm::BasicBlock *SwitchCaseTargets::get(Statement *stmt) {

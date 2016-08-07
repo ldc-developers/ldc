@@ -10,9 +10,11 @@
 #ifndef LDC_GEN_TRYCATCHFINALLY_H
 #define LDC_GEN_TRYCATCHFINALLY_H
 
+#include "globals.h"
 #include <stddef.h>
 #include <vector>
 
+class Identifier;
 struct IRState;
 class TryCatchStatement;
 
@@ -35,6 +37,7 @@ using CleanupCursor = size_t;
 
 class TryCatchFinallyScopes;
 
+/// Represents a scope for a TryCatchStatement.
 class TryCatchScope {
 public:
   /// Stores information to be able to branch to a catch clause if it matches.
@@ -139,13 +142,43 @@ private:
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/// Keeps track of source and target label of a goto.
+///
+/// Used if we cannot immediately emit all the code for a jump because we have
+/// not generated code for the target yet.
+struct GotoJump {
+  // The location of the goto instruction, for error reporting.
+  Loc sourceLoc;
+
+  /// The basic block which contains the goto as its terminator.
+  llvm::BasicBlock *sourceBlock = nullptr;
+
+  /// While we have not found the actual branch target, we might need to
+  /// create a "fake" basic block in order to be able to execute the cleanups
+  /// (we do not keep branching information around after leaving the scope).
+  llvm::BasicBlock *tentativeTarget = nullptr;
+
+  /// The label to target with the goto.
+  Identifier *targetLabel = nullptr;
+
+  GotoJump(Loc loc, llvm::BasicBlock *sourceBlock,
+           llvm::BasicBlock *tentativeTarget, Identifier *targetLabel);
+};
+
+////////////////////////////////////////////////////////////////////////////////
+
 class TryCatchFinallyScopes {
 public:
-  TryCatchFinallyScopes(IRState &irs);
+  explicit TryCatchFinallyScopes(IRState &irs);
+  ~TryCatchFinallyScopes();
 
   bool empty() const { return tryCatchScopes.empty() && cleanupScopes.empty(); }
 
+  /// Registers a try-catch scope.
+  /// The catch bodies are emitted just before registering the new scope.
   void pushTryCatch(TryCatchStatement *stmt, llvm::BasicBlock *endbb);
+
+  /// Unregisters the last registered try-catch scope.
   void popTryCatch();
 
   /// Indicates whether there are any active catch blocks that handle
@@ -164,15 +197,7 @@ public:
   /// scope stack level.
   ///
   /// After running them, execution will branch to the given basic block.
-  void runCleanups(CleanupCursor targetScope, llvm::BasicBlock *continueWith) {
-    runCleanups(currentCleanupScope(), targetScope, continueWith);
-  }
-
-  /// Runs the single cleanup at the specified stack level and returns the
-  /// beginning basic block of the cleanup code.
-  llvm::BasicBlock *runCleanup(CleanupCursor targetScope,
-                               llvm::BasicBlock *sourceBlock,
-                               llvm::BasicBlock *continueWith);
+  void runCleanups(CleanupCursor targetScope, llvm::BasicBlock *continueWith);
 
   /// Pops all the cleanups between the current scope and the target cursor.
   ///
@@ -186,6 +211,9 @@ public:
   /// popped.
   CleanupCursor currentCleanupScope() const { return cleanupScopes.size(); }
 
+  /// Gets the unresolved gotos for the current cleanup scope.
+  std::vector<GotoJump> &currentUnresolvedGotos();
+
   /// Gets the landing pad for the current catches and cleanups.
   /// If there's no cached one, a new one will be emitted.
   llvm::BasicBlock *getLandingPad();
@@ -197,6 +225,16 @@ private:
   /// cleanupScopes[i] contains the information to go from
   /// currentCleanupScope() == i + 1 to currentCleanupScope() == i.
   std::vector<CleanupScope> cleanupScopes;
+
+  /// Keeps track of all the gotos originating from somewhere inside a cleanup
+  /// scope for which we have not found the label yet (because it occurs
+  /// lexically later in the function).
+  // Note: Should also be a dense map from source block to the rest of the
+  // data if we expect many gotos.
+  using Gotos = std::vector<GotoJump>;
+  /// The first element represents the stack of unresolved top-level gotos
+  /// (no cleanups).
+  std::vector<Gotos> unresolvedGotosPerCleanupScope;
 
   using LandingPads = std::vector<llvm::BasicBlock *>;
   /// Landing pads are cached via a dedicated stack for each cleanup scope (one
