@@ -95,13 +95,12 @@ void try_catch() {
 
     // Try body:  if(i < 2)
     // PROFUSE: br {{.*}} !prof ![[TC5:[0-9]+]]
+    // Landing pad - match ExceptionTwo:
+    // PROFUSE: br {{.*}} !prof ![[TC3:[0-9]+]]
+    // Landing pad - match ExceptionThree:
+    // PROFUSE: br {{.*}} !prof ![[TC4:[0-9]+]]
     // More try body:  if(i < 5)
     // PROFUSE: br {{.*}} !prof ![[TC6:[0-9]+]]
-    // Landingpad stuff:
-    // Match ExceptionTwo:
-    // PROFUSE: br {{.*}} !prof ![[TC3:[0-9]+]]
-    // Match ExceptionThree:
-    // PROFUSE: br {{.*}} !prof ![[TC4:[0-9]+]]
     // Catch bodies:  if(i)
     // PROFUSE: br {{.*}} !prof ![[TC7:[0-9]+]]
     // PROFUSE: br {{.*}} !prof ![[TC8:[0-9]+]]
@@ -147,10 +146,10 @@ void main() {
 // PROFUSE-DAG: ![[TC0]] = !{!"function_entry_count", i64 1}
 // PROFUSE-DAG: ![[TC1]] = !{!"branch_weights", i32 7, i32 1}
 // PROFUSE-DAG: ![[TC5]] = !{!"branch_weights", i32 3, i32 5}
-// PROFUSE-DAG: ![[TC6]] = !{!"branch_weights", i32 4, i32 2}
 // PROFUSE-DAG: ![[TC3]] = !{!"branch_weights", i32 4, i32 4}
-// PROFUSE-DAG: ![[TC7]] = !{!"branch_weights", i32 4, i32 1}
 // PROFUSE-DAG: ![[TC4]] = !{!"branch_weights", i32 3, i32 2}
+// PROFUSE-DAG: ![[TC6]] = !{!"branch_weights", i32 4, i32 2}
+// PROFUSE-DAG: ![[TC7]] = !{!"branch_weights", i32 4, i32 1}
 // PROFUSE-DAG: ![[TC8]] = !{!"branch_weights", i32 2, i32 2}
 
 // PROFUSE-DAG: ![[SCP0]] = !{!"function_entry_count", i64 2}
