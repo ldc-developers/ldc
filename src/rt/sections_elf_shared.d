@@ -910,7 +910,12 @@ struct tls_index
 
 version(LDC)
 {
-    version(PPC64)
+    version(PPC)
+    {
+        extern(C) void* __tls_get_addr_opt(tls_index* ti);
+        alias __tls_get_addr = __tls_get_addr_opt;
+    }
+    else version(PPC64)
     {
         extern(C) void* __tls_get_addr_opt(tls_index* ti);
         alias __tls_get_addr = __tls_get_addr_opt;
