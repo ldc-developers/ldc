@@ -675,7 +675,9 @@ llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
   // save and rewrite scope
   IRScope savedIRScope = irs.scope();
 
-  llvm::BasicBlock *beginBB = irs.insertBB("landingPad");
+  // insert landing pads at the end of the function, in emission order,
+  // to improve human-readability of the IR
+  llvm::BasicBlock *beginBB = irs.insertBBBefore(nullptr, "landingPad");
   irs.scope() = IRScope(beginBB);
 
   llvm::LandingPadInst *landingPad = createLandingPadInst(irs);
