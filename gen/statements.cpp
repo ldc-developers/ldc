@@ -258,7 +258,7 @@ public:
       }
 
       // Now run the cleanups.
-      funcGen.scopes.runAllCleanups(funcGen.retBlock);
+      funcGen.scopes.runCleanups(0, funcGen.retBlock);
 
       irs->scope() = IRScope(funcGen.retBlock);
     }
