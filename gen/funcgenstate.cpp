@@ -52,18 +52,7 @@ void JumpTargets::addLabelTarget(Identifier *labelName,
 
   // See whether any of the unresolved gotos target this label, and resolve
   // those that do.
-  std::vector<GotoJump> &unresolved = scopes.currentUnresolvedGotos();
-  size_t i = 0;
-  while (i < unresolved.size()) {
-    if (unresolved[i].targetLabel != labelName) {
-      ++i;
-      continue;
-    }
-
-    unresolved[i].tentativeTarget->replaceAllUsesWith(targetBlock);
-    unresolved[i].tentativeTarget->eraseFromParent();
-    unresolved.erase(unresolved.begin() + i);
-  }
+  scopes.tryResolveGotos(labelName, targetBlock);
 }
 
 void JumpTargets::jumpToLabel(Loc loc, Identifier *labelName) {
@@ -72,13 +61,9 @@ void JumpTargets::jumpToLabel(Loc loc, Identifier *labelName) {
   auto it = labelTargets.find(labelName);
   if (it != labelTargets.end()) {
     scopes.runCleanups(it->second.cleanupScope, it->second.targetBlock);
-    return;
+  } else {
+    scopes.pushUnresolvedGoto(loc, labelName);
   }
-
-  llvm::BasicBlock *target = irs.insertBB("goto.unresolved");
-  irs.ir->CreateBr(target);
-  scopes.currentUnresolvedGotos().push_back(
-      {loc, irs.scopebb(), target, labelName});
 }
 
 void JumpTargets::jumpToStatement(std::vector<JumpTarget> &targets,

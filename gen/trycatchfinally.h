@@ -225,8 +225,8 @@ public:
   /// popped.
   CleanupCursor currentCleanupScope() const { return cleanupScopes.size(); }
 
-  /// Gets the unresolved gotos for the current cleanup scope.
-  std::vector<GotoJump> &currentUnresolvedGotos();
+  void pushUnresolvedGoto(Loc loc, Identifier *labelName);
+  void tryResolveGotos(Identifier *labelName, llvm::BasicBlock *targetBlock);
 
   /// Gets the landing pad for the current catches and cleanups.
   /// If there's no cached one, a new one will be emitted.
@@ -249,6 +249,9 @@ private:
   /// The first element represents the stack of unresolved top-level gotos
   /// (no cleanups).
   std::vector<Gotos> unresolvedGotosPerCleanupScope;
+
+  /// Gets the unresolved gotos for the current cleanup scope.
+  std::vector<GotoJump> &currentUnresolvedGotos();
 
   using LandingPads = std::vector<llvm::BasicBlock *>;
   /// Landing pads are cached via a dedicated stack for each cleanup scope (one

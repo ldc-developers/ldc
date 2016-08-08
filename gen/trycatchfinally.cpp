@@ -475,10 +475,6 @@ void TryCatchFinallyScopes::pushCleanup(llvm::BasicBlock *beginBlock,
   landingPadsPerCleanupScope.emplace_back();
 }
 
-std::vector<GotoJump> &TryCatchFinallyScopes::currentUnresolvedGotos() {
-  return unresolvedGotosPerCleanupScope[currentCleanupScope()];
-}
-
 void TryCatchFinallyScopes::popCleanups(CleanupCursor targetScope) {
   assert(targetScope <= currentCleanupScope());
   if (targetScope == currentCleanupScope())
@@ -562,6 +558,34 @@ void TryCatchFinallyScopes::runCleanupCopies(CleanupCursor sourceScope,
   irs.ir->CreateBr(continueWith);
 }
 #endif
+
+////////////////////////////////////////////////////////////////////////////////
+
+std::vector<GotoJump> &TryCatchFinallyScopes::currentUnresolvedGotos() {
+  return unresolvedGotosPerCleanupScope[currentCleanupScope()];
+}
+
+void TryCatchFinallyScopes::pushUnresolvedGoto(Loc loc, Identifier *labelName) {
+  llvm::BasicBlock *target = irs.insertBB("goto.unresolved");
+  irs.ir->CreateBr(target);
+  currentUnresolvedGotos().push_back({loc, irs.scopebb(), target, labelName});
+}
+
+void TryCatchFinallyScopes::tryResolveGotos(Identifier *labelName,
+                                            llvm::BasicBlock *targetBlock) {
+  auto &unresolved = currentUnresolvedGotos();
+  size_t i = 0;
+  while (i < unresolved.size()) {
+    if (unresolved[i].targetLabel != labelName) {
+      ++i;
+      continue;
+    }
+
+    unresolved[i].tentativeTarget->replaceAllUsesWith(targetBlock);
+    unresolved[i].tentativeTarget->eraseFromParent();
+    unresolved.erase(unresolved.begin() + i);
+  }
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
