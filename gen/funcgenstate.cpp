@@ -62,7 +62,7 @@ void JumpTargets::jumpToLabel(Loc loc, Identifier *labelName) {
   if (it != labelTargets.end()) {
     scopes.runCleanups(it->second.cleanupScope, it->second.targetBlock);
   } else {
-    scopes.pushUnresolvedGoto(loc, labelName);
+    scopes.registerUnresolvedGoto(loc, labelName);
   }
 }
 

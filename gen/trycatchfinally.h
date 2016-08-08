@@ -57,7 +57,8 @@ public:
 
   /// The catch bodies are emitted when constructing a TryCatchScope (before the
   /// specified `endbb` block, which should be the try continuation block).
-  TryCatchScope(IRState &irs, TryCatchStatement *stmt, llvm::BasicBlock *endbb);
+  TryCatchScope(IRState &irs, llvm::Value *ehPtrSlot, TryCatchStatement *stmt,
+                llvm::BasicBlock *endbb);
 
   CleanupCursor getCleanupScope() const { return cleanupScope; }
   bool isCatchingNonExceptions() const { return catchesNonExceptions; }
@@ -73,8 +74,8 @@ private:
 
   std::vector<CatchBlock> catchBlocks;
 
-  void emitCatchBodies(IRState &irs);
-  void emitCatchBodiesMSVC(IRState &irs);
+  void emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot);
+  void emitCatchBodiesMSVC(IRState &irs, llvm::Value *ehPtrSlot);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -225,22 +226,20 @@ public:
   /// popped.
   CleanupCursor currentCleanupScope() const { return cleanupScopes.size(); }
 
-  void pushUnresolvedGoto(Loc loc, Identifier *labelName);
+  /// Registers a goto jump to a not yet visited label.
+  ///
+  /// TryCatchFinallyScopes needs to keep track of all existing cleanups which
+  /// are popped before the goto target is resolved. These cleanups will be run
+  /// at each goto site before jumping to the actual target.
+  void registerUnresolvedGoto(Loc loc, Identifier *labelName);
+
+  /// Resolves all unresolved gotos matching the specified label and makes sure
+  /// they jump to the specified target block.
   void tryResolveGotos(Identifier *labelName, llvm::BasicBlock *targetBlock);
 
   /// Gets the landing pad for the current catches and cleanups.
   /// If there's no cached one, a new one will be emitted.
   llvm::BasicBlock *getLandingPad();
-
-  /// Returns the stack slot that contains the exception object pointer while a
-  /// landing pad is active, lazily creating it as needed.
-  ///
-  /// This value must dominate all uses; first storing it, and then loading it
-  /// when calling _d_eh_resume_unwind. If we take a select at the end of any
-  /// cleanups on the way to the latter, the value must also dominate all other
-  /// predecessors of the cleanup. Thus, we just use a single alloca in the
-  /// entry BB of the function.
-  llvm::AllocaInst *getOrCreateEhPtrSlot();
 
 private:
   IRState &irs;
@@ -285,6 +284,16 @@ private:
   /// emitting the cleanups.
   void runCleanups(CleanupCursor sourceScope, CleanupCursor targetScope,
                    llvm::BasicBlock *continueWith);
+
+  /// Returns the stack slot that contains the exception object pointer while a
+  /// landing pad is active, lazily creating it as needed.
+  ///
+  /// This value must dominate all uses; first storing it, and then loading it
+  /// when calling _d_eh_resume_unwind. If we take a select at the end of any
+  /// cleanups on the way to the latter, the value must also dominate all other
+  /// predecessors of the cleanup. Thus, we just use a single alloca in the
+  /// entry BB of the function.
+  llvm::AllocaInst *getOrCreateEhPtrSlot();
 
   /// Returns the basic block with the call to the unwind resume function.
   ///

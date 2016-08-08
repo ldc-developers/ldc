@@ -20,8 +20,8 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-TryCatchScope::TryCatchScope(IRState &irs, TryCatchStatement *stmt,
-                             llvm::BasicBlock *endbb)
+TryCatchScope::TryCatchScope(IRState &irs, llvm::Value *ehPtrSlot,
+                             TryCatchStatement *stmt, llvm::BasicBlock *endbb)
     : stmt(stmt), endbb(endbb) {
   assert(stmt->catches);
 
@@ -38,11 +38,11 @@ TryCatchScope::TryCatchScope(IRState &irs, TryCatchStatement *stmt,
 
 #if LDC_LLVM_VER >= 308
   if (useMSVCEH()) {
-    emitCatchBodiesMSVC(irs);
+    emitCatchBodiesMSVC(irs, ehPtrSlot);
     return;
   }
 #endif
-  emitCatchBodies(irs);
+  emitCatchBodies(irs, ehPtrSlot);
 }
 
 const std::vector<TryCatchScope::CatchBlock> &
@@ -51,10 +51,9 @@ TryCatchScope::getCatchBlocks() const {
   return catchBlocks;
 }
 
-void TryCatchScope::emitCatchBodies(IRState &irs) {
+void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
   assert(catchBlocks.empty());
 
-  auto &scopes = irs.funcGen().scopes;
   auto &PGO = irs.funcGen().pgo;
   const auto entryCount = PGO.setCurrentStmt(stmt);
 
@@ -76,7 +75,7 @@ void TryCatchScope::emitCatchBodies(IRState &irs) {
 
     const auto enterCatchFn =
         getRuntimeFunction(Loc(), irs.module, "_d_eh_enter_catch");
-    auto ptr = DtoLoad(scopes.getOrCreateEhPtrSlot());
+    auto ptr = DtoLoad(ehPtrSlot);
     auto throwableObj = irs.ir->CreateCall(enterCatchFn, ptr);
 
     // For catches that use the Throwable object, create storage for it.
@@ -218,7 +217,7 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch, llvm::BasicBlock *endbb,
 }
 }
 
-void TryCatchScope::emitCatchBodiesMSVC(IRState &irs) {
+void TryCatchScope::emitCatchBodiesMSVC(IRState &irs, llvm::Value *) {
   assert(catchBlocks.empty());
 
   auto &scopes = irs.funcGen().scopes;
@@ -441,7 +440,7 @@ TryCatchFinallyScopes::~TryCatchFinallyScopes() {
 
 void TryCatchFinallyScopes::pushTryCatch(TryCatchStatement *stmt,
                                          llvm::BasicBlock *endbb) {
-  TryCatchScope scope(irs, stmt, endbb);
+  TryCatchScope scope(irs, getOrCreateEhPtrSlot(), stmt, endbb);
   // Only after emitting all the catch bodies, register the catch scopes.
   // This is so that (re)throwing inside a catch does not match later
   // catches.
@@ -566,7 +565,8 @@ std::vector<GotoJump> &TryCatchFinallyScopes::currentUnresolvedGotos() {
   return unresolvedGotosPerCleanupScope[currentCleanupScope()];
 }
 
-void TryCatchFinallyScopes::pushUnresolvedGoto(Loc loc, Identifier *labelName) {
+void TryCatchFinallyScopes::registerUnresolvedGoto(Loc loc,
+                                                   Identifier *labelName) {
   llvm::BasicBlock *target = irs.insertBB("goto.unresolved");
   irs.ir->CreateBr(target);
   currentUnresolvedGotos().push_back({loc, irs.scopebb(), target, labelName});
