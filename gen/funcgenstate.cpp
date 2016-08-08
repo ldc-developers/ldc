@@ -101,29 +101,3 @@ llvm::BasicBlock *SwitchCaseTargets::getOrCreate(Statement *stmt,
 FuncGenState::FuncGenState(IrFunction &irFunc, IRState &irs)
     : irFunc(irFunc), scopes(irs), jumpTargets(irs, scopes),
       switchTargets(irFunc.func), irs(irs) {}
-
-llvm::AllocaInst *FuncGenState::getOrCreateEhPtrSlot() {
-  if (!ehPtrSlot) {
-    ehPtrSlot = DtoRawAlloca(getVoidPtrType(), 0, "eh.ptr");
-  }
-  return ehPtrSlot;
-}
-
-llvm::BasicBlock *FuncGenState::getOrCreateResumeUnwindBlock() {
-  assert(irFunc.func == irs.topfunc() &&
-         "Should only access unwind resume block while emitting function.");
-  if (!resumeUnwindBlock) {
-    resumeUnwindBlock = irs.insertBB("eh.resume");
-
-    llvm::BasicBlock *oldBB = irs.scopebb();
-    irs.scope() = IRScope(resumeUnwindBlock);
-
-    llvm::Function *resumeFn =
-        getRuntimeFunction(Loc(), irs.module, "_d_eh_resume_unwind");
-    irs.ir->CreateCall(resumeFn, DtoLoad(getOrCreateEhPtrSlot()));
-    irs.ir->CreateUnreachable();
-
-    irs.scope() = IRScope(oldBB);
-  }
-  return resumeUnwindBlock;
-}

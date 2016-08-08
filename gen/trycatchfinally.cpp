@@ -54,6 +54,7 @@ TryCatchScope::getCatchBlocks() const {
 void TryCatchScope::emitCatchBodies(IRState &irs) {
   assert(catchBlocks.empty());
 
+  auto &scopes = irs.funcGen().scopes;
   auto &PGO = irs.funcGen().pgo;
   const auto entryCount = PGO.setCurrentStmt(stmt);
 
@@ -75,7 +76,7 @@ void TryCatchScope::emitCatchBodies(IRState &irs) {
 
     const auto enterCatchFn =
         getRuntimeFunction(Loc(), irs.module, "_d_eh_enter_catch");
-    auto ptr = DtoLoad(irs.funcGen().getOrCreateEhPtrSlot());
+    auto ptr = DtoLoad(scopes.getOrCreateEhPtrSlot());
     auto throwableObj = irs.ir->CreateCall(enterCatchFn, ptr);
 
     // For catches that use the Throwable object, create storage for it.
@@ -650,14 +651,12 @@ llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
   // Stash away the exception object pointer and selector value into their
   // stack slots.
   llvm::Value *ehPtr = DtoExtractValue(landingPad, 0);
-  irs.ir->CreateStore(ehPtr, irs.funcGen().getOrCreateEhPtrSlot());
+  irs.ir->CreateStore(ehPtr, getOrCreateEhPtrSlot());
 
   llvm::Value *ehSelector = DtoExtractValue(landingPad, 1);
-  if (!irs.funcGen().ehSelectorSlot) {
-    irs.funcGen().ehSelectorSlot =
-        DtoRawAlloca(ehSelector->getType(), 0, "eh.selector");
-  }
-  irs.ir->CreateStore(ehSelector, irs.funcGen().ehSelectorSlot);
+  if (!ehSelectorSlot)
+    ehSelectorSlot = DtoRawAlloca(ehSelector->getType(), 0, "eh.selector");
+  irs.ir->CreateStore(ehSelector, ehSelectorSlot);
 
   // Add landingpad clauses, emit finallys and 'if' chain to catch the
   // exception.
@@ -696,7 +695,7 @@ llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
       // Compare the selector value from the unwinder against the expected
       // one and branch accordingly.
       irs.ir->CreateCondBr(
-          irs.ir->CreateICmpEQ(irs.ir->CreateLoad(irs.funcGen().ehSelectorSlot),
+          irs.ir->CreateICmpEQ(irs.ir->CreateLoad(ehSelectorSlot),
                                ehTypeId),
           cb.bodyBB, mismatchBB, cb.branchWeights);
       irs.scope() = IRScope(mismatchBB);
@@ -704,7 +703,7 @@ llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
   }
 
   // No catch matched. Execute all finallys and resume unwinding.
-  auto resumeUnwindBlock = irs.funcGen().getOrCreateResumeUnwindBlock();
+  auto resumeUnwindBlock = getOrCreateResumeUnwindBlock();
   if (lastCleanup > 0) {
     landingPad->setCleanup(true);
     runCleanups(lastCleanup, 0, resumeUnwindBlock);
@@ -719,6 +718,29 @@ llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
 
   irs.scope() = savedIRScope;
   return beginBB;
+}
+
+llvm::AllocaInst *TryCatchFinallyScopes::getOrCreateEhPtrSlot() {
+  if (!ehPtrSlot)
+    ehPtrSlot = DtoRawAlloca(getVoidPtrType(), 0, "eh.ptr");
+  return ehPtrSlot;
+}
+
+llvm::BasicBlock *TryCatchFinallyScopes::getOrCreateResumeUnwindBlock() {
+  if (!resumeUnwindBlock) {
+    resumeUnwindBlock = irs.insertBB("eh.resume");
+
+    llvm::BasicBlock *oldBB = irs.scopebb();
+    irs.scope() = IRScope(resumeUnwindBlock);
+
+    llvm::Function *resumeFn =
+        getRuntimeFunction(Loc(), irs.module, "_d_eh_resume_unwind");
+    irs.ir->CreateCall(resumeFn, DtoLoad(getOrCreateEhPtrSlot()));
+    irs.ir->CreateUnreachable();
+
+    irs.scope() = IRScope(oldBB);
+  }
+  return resumeUnwindBlock;
 }
 
 #if LDC_LLVM_VER >= 308

@@ -176,22 +176,6 @@ public:
   FuncGenState(FuncGenState const &) = delete;
   FuncGenState &operator=(FuncGenState const &) = delete;
 
-  /// Returns the stack slot that contains the exception object pointer while a
-  /// landing pad is active, lazily creating it as needed.
-  ///
-  /// This value must dominate all uses; first storing it, and then loading it
-  /// when calling _d_eh_resume_unwind. If we take a select at the end of any
-  /// cleanups on the way to the latter, the value must also dominate all other
-  /// predecessors of the cleanup. Thus, we just use a single alloca in the
-  /// entry BB of the function.
-  llvm::AllocaInst *getOrCreateEhPtrSlot();
-
-  /// Returns the basic block with the call to the unwind resume function.
-  ///
-  /// Because of ehPtrSlot, we do not need more than one, so might as well
-  /// save on code size and reuse it.
-  llvm::BasicBlock *getOrCreateResumeUnwindBlock();
-
   // The function code is being generated for.
   IrFunction &irFunc;
 
@@ -218,9 +202,6 @@ public:
   /// value.
   llvm::AllocaInst *retValSlot = nullptr;
 
-  /// Similar story to ehPtrSlot, but for the selector value.
-  llvm::AllocaInst *ehSelectorSlot = nullptr;
-
   /// Emits a call or invoke to the given callee, depending on whether there
   /// are catches/cleanups active or not.
   template <typename T>
@@ -229,8 +210,6 @@ public:
 
 private:
   IRState &irs;
-  llvm::AllocaInst *ehPtrSlot = nullptr;
-  llvm::BasicBlock *resumeUnwindBlock = nullptr;
 };
 
 template <typename T>
