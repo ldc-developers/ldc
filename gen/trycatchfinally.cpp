@@ -20,10 +20,12 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-TryCatchScope::TryCatchScope(TryCatchStatement *stmt, llvm::BasicBlock *endbb,
-                             CleanupCursor cleanupScope)
-    : stmt(stmt), endbb(endbb), cleanupScope(cleanupScope) {
+TryCatchScope::TryCatchScope(IRState &irs, TryCatchStatement *stmt,
+                             llvm::BasicBlock *endbb)
+    : stmt(stmt), endbb(endbb) {
   assert(stmt->catches);
+
+  cleanupScope = irs.funcGen().scopes.currentCleanupScope();
   catchesNonExceptions =
       std::any_of(stmt->catches->begin(), stmt->catches->end(), [](Catch *c) {
         for (auto cd = c->type->toBasetype()->isClassHandle(); cd;
@@ -33,6 +35,14 @@ TryCatchScope::TryCatchScope(TryCatchStatement *stmt, llvm::BasicBlock *endbb,
         }
         return true;
       });
+
+#if LDC_LLVM_VER >= 308
+  if (useMSVCEH()) {
+    emitCatchBodiesMSVC(irs);
+    return;
+  }
+#endif
+  emitCatchBodies(irs);
 }
 
 const std::vector<TryCatchScope::CatchBlock> &
@@ -41,16 +51,8 @@ TryCatchScope::getCatchBlocks() const {
   return catchBlocks;
 }
 
-void TryCatchScope::emitCatchBodies(IRState &irs,
-                                    TryCatchFinallyScopes &scopes) {
+void TryCatchScope::emitCatchBodies(IRState &irs) {
   assert(catchBlocks.empty());
-
-#if LDC_LLVM_VER >= 308
-  if (useMSVCEH()) {
-    emitCatchBodiesMSVC(irs, scopes);
-    return;
-  }
-#endif
 
   auto &PGO = irs.funcGen().pgo;
   const auto entryCount = PGO.setCurrentStmt(stmt);
@@ -215,8 +217,10 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch, llvm::BasicBlock *endbb,
 }
 }
 
-void TryCatchScope::emitCatchBodiesMSVC(IRState &irs,
-                                        TryCatchFinallyScopes &scopes) {
+void TryCatchScope::emitCatchBodiesMSVC(IRState &irs) {
+  assert(catchBlocks.empty());
+
+  auto &scopes = irs.funcGen().scopes;
   auto &PGO = irs.funcGen().pgo;
 
   auto catchSwitchBlock = irs.insertBBBefore(endbb, "catch.dispatch");
@@ -436,11 +440,10 @@ TryCatchFinallyScopes::~TryCatchFinallyScopes() {
 
 void TryCatchFinallyScopes::pushTryCatch(TryCatchStatement *stmt,
                                          llvm::BasicBlock *endbb) {
-  TryCatchScope scope(stmt, endbb, currentCleanupScope());
+  TryCatchScope scope(irs, stmt, endbb);
   // Only after emitting all the catch bodies, register the catch scopes.
   // This is so that (re)throwing inside a catch does not match later
   // catches.
-  scope.emitCatchBodies(irs, *this);
   tryCatchScopes.push_back(scope);
 
   if (!useMSVCEH())
@@ -557,68 +560,6 @@ void TryCatchFinallyScopes::runCleanupCopies(CleanupCursor sourceScope,
 
   // Insert the unconditional branch to the first cleanup block.
   irs.ir->CreateBr(continueWith);
-}
-
-llvm::BasicBlock *
-TryCatchFinallyScopes::runCleanupPad(CleanupCursor scope,
-                                     llvm::BasicBlock *unwindTo) {
-  // a catch switch never needs to be cloned and is an unwind target itself
-  if (isCatchSwitchBlock(cleanupScopes[scope].beginBlock()))
-    return cleanupScopes[scope].beginBlock();
-
-  // each cleanup block is bracketed by a pair of cleanuppad/cleanupret
-  // instructions, any unwinding should also just continue at the next
-  // cleanup block, e.g.:
-  //
-  // cleanuppad:
-  //   %0 = cleanuppad within %funclet[]
-  //   %frame = nullptr
-  //   if (!_d_enter_cleanup(%frame)) br label %cleanupret
-  //                                  else br label %copy
-  //
-  // copy:
-  //   invoke _dtor to %cleanupret unwind %unwindTo [ "funclet"(token %0) ]
-  //
-  // cleanupret:
-  //   _d_leave_cleanup(%frame)
-  //   cleanupret %0 unwind %unwindTo
-  //
-  llvm::BasicBlock *cleanupbb = irs.insertBB("cleanuppad");
-  auto funcletToken = llvm::ConstantTokenNone::get(irs.context());
-  auto cleanuppad =
-      llvm::CleanupPadInst::Create(funcletToken, {}, "", cleanupbb);
-
-  llvm::BasicBlock *cleanupret = irs.insertBBAfter(cleanupbb, "cleanupret");
-
-  // preparation to allocate some space on the stack where _d_enter_cleanup
-  //  can place an exception frame (but not done here)
-  auto frame = getNullPtr(getVoidPtrType());
-
-  auto savedInsertBlock = irs.ir->GetInsertBlock();
-  auto savedInsertPoint = irs.ir->GetInsertPoint();
-  auto savedDbgLoc = irs.DBuilder.GetCurrentLoc();
-
-  auto endFn = getRuntimeFunction(Loc(), irs.module, "_d_leave_cleanup");
-  irs.ir->SetInsertPoint(cleanupret);
-  irs.DBuilder.EmitStopPoint(irs.func()->decl->loc);
-  irs.ir->CreateCall(endFn, frame,
-                     {llvm::OperandBundleDef("funclet", cleanuppad)}, "");
-  llvm::CleanupReturnInst::Create(cleanuppad, unwindTo, cleanupret);
-
-  auto copybb = cleanupScopes[scope].runCopying(irs, cleanupbb, cleanupret,
-                                                unwindTo, cleanuppad);
-
-  auto beginFn = getRuntimeFunction(Loc(), irs.module, "_d_enter_cleanup");
-  irs.ir->SetInsertPoint(cleanupbb);
-  irs.DBuilder.EmitStopPoint(irs.func()->decl->loc);
-  auto exec = irs.ir->CreateCall(
-      beginFn, frame, {llvm::OperandBundleDef("funclet", cleanuppad)}, "");
-  llvm::BranchInst::Create(copybb, cleanupret, exec, cleanupbb);
-
-  irs.ir->SetInsertPoint(savedInsertBlock, savedInsertPoint);
-  irs.DBuilder.EmitStopPoint(savedDbgLoc);
-
-  return cleanupbb;
 }
 #endif
 
@@ -775,5 +716,67 @@ TryCatchFinallyScopes::emitLandingPadMSVC(CleanupCursor cleanupScope) {
     pad = emitLandingPadMSVC(cleanupScope - 1);
 
   return runCleanupPad(cleanupScope, pad);
+}
+
+llvm::BasicBlock *
+TryCatchFinallyScopes::runCleanupPad(CleanupCursor scope,
+                                     llvm::BasicBlock *unwindTo) {
+  // a catch switch never needs to be cloned and is an unwind target itself
+  if (isCatchSwitchBlock(cleanupScopes[scope].beginBlock()))
+    return cleanupScopes[scope].beginBlock();
+
+  // each cleanup block is bracketed by a pair of cleanuppad/cleanupret
+  // instructions, any unwinding should also just continue at the next
+  // cleanup block, e.g.:
+  //
+  // cleanuppad:
+  //   %0 = cleanuppad within %funclet[]
+  //   %frame = nullptr
+  //   if (!_d_enter_cleanup(%frame)) br label %cleanupret
+  //                                  else br label %copy
+  //
+  // copy:
+  //   invoke _dtor to %cleanupret unwind %unwindTo [ "funclet"(token %0) ]
+  //
+  // cleanupret:
+  //   _d_leave_cleanup(%frame)
+  //   cleanupret %0 unwind %unwindTo
+  //
+  llvm::BasicBlock *cleanupbb = irs.insertBB("cleanuppad");
+  auto funcletToken = llvm::ConstantTokenNone::get(irs.context());
+  auto cleanuppad =
+      llvm::CleanupPadInst::Create(funcletToken, {}, "", cleanupbb);
+
+  llvm::BasicBlock *cleanupret = irs.insertBBAfter(cleanupbb, "cleanupret");
+
+  // preparation to allocate some space on the stack where _d_enter_cleanup
+  //  can place an exception frame (but not done here)
+  auto frame = getNullPtr(getVoidPtrType());
+
+  auto savedInsertBlock = irs.ir->GetInsertBlock();
+  auto savedInsertPoint = irs.ir->GetInsertPoint();
+  auto savedDbgLoc = irs.DBuilder.GetCurrentLoc();
+
+  auto endFn = getRuntimeFunction(Loc(), irs.module, "_d_leave_cleanup");
+  irs.ir->SetInsertPoint(cleanupret);
+  irs.DBuilder.EmitStopPoint(irs.func()->decl->loc);
+  irs.ir->CreateCall(endFn, frame,
+                     {llvm::OperandBundleDef("funclet", cleanuppad)}, "");
+  llvm::CleanupReturnInst::Create(cleanuppad, unwindTo, cleanupret);
+
+  auto copybb = cleanupScopes[scope].runCopying(irs, cleanupbb, cleanupret,
+                                                unwindTo, cleanuppad);
+
+  auto beginFn = getRuntimeFunction(Loc(), irs.module, "_d_enter_cleanup");
+  irs.ir->SetInsertPoint(cleanupbb);
+  irs.DBuilder.EmitStopPoint(irs.func()->decl->loc);
+  auto exec = irs.ir->CreateCall(
+      beginFn, frame, {llvm::OperandBundleDef("funclet", cleanuppad)}, "");
+  llvm::BranchInst::Create(copybb, cleanupret, exec, cleanupbb);
+
+  irs.ir->SetInsertPoint(savedInsertBlock, savedInsertPoint);
+  irs.DBuilder.EmitStopPoint(savedDbgLoc);
+
+  return cleanupbb;
 }
 #endif

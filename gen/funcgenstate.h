@@ -59,7 +59,7 @@ struct JumpTarget {
              Statement *targetStatement);
 };
 
-/// Keeps track of labels for goto/break/continue.
+/// Keeps track of labels and implicit loop targets for goto/break/continue.
 class JumpTargets {
 public:
   JumpTargets(IRState &irs, TryCatchFinallyScopes &scopes);
@@ -195,7 +195,6 @@ public:
   // The function code is being generated for.
   IrFunction &irFunc;
 
-  /// The stack of scopes inside the function.
   TryCatchFinallyScopes scopes;
 
   JumpTargets jumpTargets;

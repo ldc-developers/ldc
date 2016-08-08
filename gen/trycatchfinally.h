@@ -55,18 +55,14 @@ public:
     llvm::MDNode *branchWeights;
   };
 
-  TryCatchScope(TryCatchStatement *stmt, llvm::BasicBlock *endbb,
-                CleanupCursor cleanupScope);
+  /// The catch bodies are emitted when constructing a TryCatchScope (before the
+  /// specified `endbb` block, which should be the try continuation block).
+  TryCatchScope(IRState &irs, TryCatchStatement *stmt, llvm::BasicBlock *endbb);
 
   CleanupCursor getCleanupScope() const { return cleanupScope; }
   bool isCatchingNonExceptions() const { return catchesNonExceptions; }
 
-  /// Emits the catch bodies. Must be called only once, and this scope must not
-  /// be registered yet.
-  void emitCatchBodies(IRState &irs, TryCatchFinallyScopes &scopes);
-
-  /// Gets the list of catch blocks. The catch bodies must have been emitted
-  /// already.
+  /// Returns the list of catch blocks, needed for landing pad emission.
   const std::vector<CatchBlock> &getCatchBlocks() const;
 
 private:
@@ -77,7 +73,8 @@ private:
 
   std::vector<CatchBlock> catchBlocks;
 
-  void emitCatchBodiesMSVC(IRState &irs, TryCatchFinallyScopes &scopes);
+  void emitCatchBodies(IRState &irs);
+  void emitCatchBodiesMSVC(IRState &irs);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -205,8 +202,8 @@ public:
   /// Registers a piece of cleanup code to be run.
   ///
   /// The end block is expected not to contain a terminator yet. It will be
-  /// added by ScopeStack as needed, based on what follow-up blocks code from
-  /// within this scope will branch to.
+  /// added as needed, based on what follow-up blocks code from within this
+  /// scope will branch to.
   void pushCleanup(llvm::BasicBlock *beginBlock, llvm::BasicBlock *endBlock);
 
   /// Terminates the current basic block with a branch to the cleanups needed
