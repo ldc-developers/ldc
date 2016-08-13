@@ -886,7 +886,8 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   // call the function
-  LLCallSite call = gIR->funcGen().scopes.callOrInvoke(callable, args);
+  LLCallSite call =
+      gIR->funcGen().callOrInvoke(callable, args, "", tf->isnothrow);
 
 #if LDC_LLVM_VER >= 309
   // PGO: Insert instrumentation or attach profile metadata at indirect call

@@ -180,8 +180,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
 
 namespace {
 void pushVarDtorCleanup(IRState *p, VarDeclaration *vd) {
-  llvm::BasicBlock *beginBB = llvm::BasicBlock::Create(
-      p->context(), llvm::Twine("dtor.") + vd->toChars(), p->topfunc());
+  llvm::BasicBlock *beginBB = p->insertBB(llvm::Twine("dtor.") + vd->toChars());
 
   // TODO: Clean this up with push/pop insertion point methods.
   IRScope oldScope = p->scope();
@@ -246,8 +245,7 @@ public:
         }
       }
 
-      llvm::BasicBlock *endbb = llvm::BasicBlock::Create(
-          p->context(), "toElem.success", p->topfunc());
+      llvm::BasicBlock *endbb = p->insertBB("toElem.success");
       p->funcGen().scopes.runCleanups(initialCleanupScope, endbb);
       p->funcGen().scopes.popCleanups(initialCleanupScope);
       p->scope() = IRScope(endbb);
@@ -1094,10 +1092,8 @@ public:
           (etype->ty != Tpointer) && !e->upperIsInBounds;
       const bool needCheckLower = !e->lowerIsLessThanUpper;
       if (p->emitArrayBoundsChecks() && (needCheckUpper || needCheckLower)) {
-        llvm::BasicBlock *failbb =
-            llvm::BasicBlock::Create(p->context(), "bounds.fail", p->topfunc());
-        llvm::BasicBlock *okbb =
-            llvm::BasicBlock::Create(p->context(), "bounds.ok", p->topfunc());
+        llvm::BasicBlock *okbb = p->insertBB("bounds.ok");
+        llvm::BasicBlock *failbb = p->insertBBAfter(okbb, "bounds.fail");
 
         llvm::Value *okCond = nullptr;
         if (needCheckUpper) {
@@ -1254,12 +1250,9 @@ public:
         llvm::Value *lhs = DtoRVal(l);
         llvm::Value *rhs = DtoRVal(r);
 
-        llvm::BasicBlock *fptreq =
-            llvm::BasicBlock::Create(gIR->context(), "fptreq", gIR->topfunc());
-        llvm::BasicBlock *fptrneq =
-            llvm::BasicBlock::Create(gIR->context(), "fptrneq", gIR->topfunc());
-        llvm::BasicBlock *dgcmpend = llvm::BasicBlock::Create(
-            gIR->context(), "dgcmpend", gIR->topfunc());
+        llvm::BasicBlock *fptreq = p->insertBB("fptreq");
+        llvm::BasicBlock *fptrneq = p->insertBBAfter(fptreq, "fptrneq");
+        llvm::BasicBlock *dgcmpend = p->insertBBAfter(fptrneq, "dgcmpend");
 
         llvm::Value *lfptr = p->ir->CreateExtractValue(lhs, 1, ".lfptr");
         llvm::Value *rfptr = p->ir->CreateExtractValue(rhs, 1, ".rfptr");
@@ -1634,10 +1627,8 @@ public:
     }
 
     // create basic blocks
-    llvm::BasicBlock *passedbb =
-        llvm::BasicBlock::Create(gIR->context(), "assertPassed", p->topfunc());
-    llvm::BasicBlock *failedbb =
-        llvm::BasicBlock::Create(gIR->context(), "assertFailed", p->topfunc());
+    llvm::BasicBlock *passedbb = p->insertBB("assertPassed");
+    llvm::BasicBlock *failedbb = p->insertBBAfter(passedbb, "assertFailed");
 
     // test condition
     LLValue *condval = DtoRVal(DtoCast(e->loc, cond, Type::tbool));
@@ -1720,10 +1711,8 @@ public:
 
     DValue *u = toElem(e->e1);
 
-    llvm::BasicBlock *andand =
-        llvm::BasicBlock::Create(gIR->context(), "andand", gIR->topfunc());
-    llvm::BasicBlock *andandend =
-        llvm::BasicBlock::Create(gIR->context(), "andandend", gIR->topfunc());
+    llvm::BasicBlock *andand = p->insertBB("andand");
+    llvm::BasicBlock *andandend = p->insertBBAfter(andand, "andandend");
 
     LLValue *ubool = DtoRVal(DtoCast(e->loc, u, Type::tbool));
 
@@ -1782,10 +1771,8 @@ public:
 
     DValue *u = toElem(e->e1);
 
-    llvm::BasicBlock *oror =
-        llvm::BasicBlock::Create(gIR->context(), "oror", gIR->topfunc());
-    llvm::BasicBlock *ororend =
-        llvm::BasicBlock::Create(gIR->context(), "ororend", gIR->topfunc());
+    llvm::BasicBlock *oror = p->insertBB("oror");
+    llvm::BasicBlock *ororend = p->insertBBAfter(oror, "ororend");
 
     LLValue *ubool = DtoRVal(DtoCast(e->loc, u, Type::tbool));
 
@@ -1848,8 +1835,7 @@ public:
     // this terminated the basicblock, start a new one
     // this is sensible, since someone might goto behind the assert
     // and prevents compiler errors if a terminator follows the assert
-    llvm::BasicBlock *bb =
-        llvm::BasicBlock::Create(gIR->context(), "afterhalt", p->topfunc());
+    llvm::BasicBlock *bb = p->insertBB("afterhalt");
     p->scope() = IRScope(bb);
   }
 
@@ -2016,12 +2002,9 @@ public:
       retPtr = DtoAlloca(dtype->pointerTo(), "condtmp");
     }
 
-    llvm::BasicBlock *condtrue =
-        llvm::BasicBlock::Create(gIR->context(), "condtrue", gIR->topfunc());
-    llvm::BasicBlock *condfalse =
-        llvm::BasicBlock::Create(gIR->context(), "condfalse", gIR->topfunc());
-    llvm::BasicBlock *condend =
-        llvm::BasicBlock::Create(gIR->context(), "condend", gIR->topfunc());
+    llvm::BasicBlock *condtrue = p->insertBB("condtrue");
+    llvm::BasicBlock *condfalse = p->insertBBAfter(condtrue, "condfalse");
+    llvm::BasicBlock *condend = p->insertBBAfter(condfalse, "condend");
 
     DValue *c = toElem(e->econd);
     LLValue *cond_val = DtoRVal(DtoCast(e->loc, c, Type::tbool));

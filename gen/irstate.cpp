@@ -80,35 +80,51 @@ bool IRState::scopereturned() {
   return !scopebb()->empty() && scopebb()->back().isTerminator();
 }
 
+llvm::BasicBlock *IRState::insertBBBefore(llvm::BasicBlock *successor,
+                                          const llvm::Twine &name) {
+  return llvm::BasicBlock::Create(context(), name, topfunc(), successor);
+}
+
+llvm::BasicBlock *IRState::insertBBAfter(llvm::BasicBlock *predecessor,
+                                         const llvm::Twine &name) {
+  auto bb = llvm::BasicBlock::Create(context(), name, topfunc());
+  bb->moveAfter(predecessor);
+  return bb;
+}
+
+llvm::BasicBlock *IRState::insertBB(const llvm::Twine &name) {
+  return insertBBAfter(scopebb(), name);
+}
+
 LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, const char *Name) {
   LLSmallVector<LLValue *, 1> args;
-  return funcGen().scopes.callOrInvoke(Callee, args, Name);
+  return funcGen().callOrInvoke(Callee, args, Name);
 }
 
 LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
                                        const char *Name) {
   LLValue *args[] = {Arg1};
-  return funcGen().scopes.callOrInvoke(Callee, args, Name);
+  return funcGen().callOrInvoke(Callee, args, Name);
 }
 
 LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
                                        LLValue *Arg2, const char *Name) {
   LLValue *args[] = {Arg1, Arg2};
-  return funcGen().scopes.callOrInvoke(Callee, args, Name);
+  return funcGen().callOrInvoke(Callee, args, Name);
 }
 
 LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
                                        LLValue *Arg2, LLValue *Arg3,
                                        const char *Name) {
   LLValue *args[] = {Arg1, Arg2, Arg3};
-  return funcGen().scopes.callOrInvoke(Callee, args, Name);
+  return funcGen().callOrInvoke(Callee, args, Name);
 }
 
 LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
                                        LLValue *Arg2, LLValue *Arg3,
                                        LLValue *Arg4, const char *Name) {
   LLValue *args[] = {Arg1, Arg2, Arg3, Arg4};
-  return funcGen().scopes.callOrInvoke(Callee, args, Name);
+  return funcGen().callOrInvoke(Callee, args, Name);
 }
 
 bool IRState::emitArrayBoundsChecks() {

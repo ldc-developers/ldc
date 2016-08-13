@@ -716,8 +716,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     assert(jump_target);
 
     // make new blocks
-    llvm::BasicBlock *bb = llvm::BasicBlock::Create(
-        gIR->context(), "afterasmgotoforwarder", p->topfunc());
+    llvm::BasicBlock *bb = p->insertBB("afterasmgotoforwarder");
 
     llvm::LoadInst *val =
         p->ir->CreateLoad(jump_target, "__llvm_jump_target_value");
@@ -725,8 +724,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
 
     // add all cases
     for (const auto &pair : gotoToVal) {
-      llvm::BasicBlock *casebb =
-          llvm::BasicBlock::Create(gIR->context(), "case", p->topfunc(), bb);
+      llvm::BasicBlock *casebb = p->insertBBBefore(bb, "case");
       sw->addCase(LLConstantInt::get(llvm::IntegerType::get(gIR->context(), 32),
                                      pair.second),
                   casebb);
