@@ -7868,7 +7868,7 @@ public:
         //printf("TypeStruct::semantic('%s')\n", sym.toChars());
         if (deco)
         {
-            if (sc.cppmangle != CPPMANGLE.def)
+            if (sc && sc.cppmangle != CPPMANGLE.def)
             {
                 if (this.cppmangle == CPPMANGLE.def)
                     this.cppmangle = sc.cppmangle;
@@ -7885,7 +7885,8 @@ public:
         assert(sym.parent);
         if (sym.type.ty == Terror)
             return Type.terror;
-        this.cppmangle = sc.cppmangle;
+        if (sc)
+            this.cppmangle = sc.cppmangle;
         return merge();
     }
 
@@ -8673,7 +8674,7 @@ public:
         //printf("TypeClass::semantic(%s)\n", sym.toChars());
         if (deco)
         {
-            if (sc.cppmangle != CPPMANGLE.def)
+            if (sc && sc.cppmangle != CPPMANGLE.def)
             {
                 if (this.cppmangle == CPPMANGLE.def)
                     this.cppmangle = sc.cppmangle;
@@ -8690,7 +8691,8 @@ public:
         assert(sym.parent);
         if (sym.type.ty == Terror)
             return Type.terror;
-        this.cppmangle = sc.cppmangle;
+        if (sc)
+            this.cppmangle = sc.cppmangle;
         return merge();
     }
 
