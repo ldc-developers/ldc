@@ -784,7 +784,7 @@ endif()
 # Add the standalone druntime tests.
 # TODO: Add test/excetions and test/init_fini.
 if(BUILD_SHARED_LIBS)
-    get_property(druntime_path TARGET druntime-ldc PROPERTY LOCATION)
+    set(druntime_path "$<TARGET_FILE:druntime-ldc>")
     set(outdir ${PROJECT_BINARY_DIR}/druntime-test-shared)
 
     add_test(NAME clean-druntime-test-shared
