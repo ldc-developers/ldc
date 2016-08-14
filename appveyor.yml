@@ -188,6 +188,8 @@ after_build:
 test_script:
   - cd c:\projects\ninja-ldc
   - bin\ldc2 -version
+  - bin\ldc2 -main -unittest -g ..\ldc\runtime\druntime\src\core\thread.d
+  - thread.exe
   # Compile, link & execute a hello-world program
   - ps: 'echo "import std.stdio; void main() { writeln(""Hello world!""); }" > hello.d'
   - bin\ldc2 hello.d
