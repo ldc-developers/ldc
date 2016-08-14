@@ -92,22 +92,22 @@ script:
   # Run dmd-testsuite.
   -
     if [ "${TEST_CONFIG}" = "Debug" ]; then
-      CC="" MAKEOPTS=-j4 ctest --verbose -R "dmd-testsuite-debug";
+      CC="" DMD_TESTSUITE_MAKE_ARGS=-j3 ctest --verbose -R "dmd-testsuite-debug";
     elif [ "${TEST_CONFIG}" = "Release" ]; then
-      CC="" MAKEOPTS=-j4 ctest --verbose -R "dmd-testsuite" -E "-debug";
+      CC="" DMD_TESTSUITE_MAKE_ARGS=-j3 ctest --verbose -R "dmd-testsuite" -E "-debug";
     else
-      CC="" MAKEOPTS=-j4 ctest --verbose -R "dmd-testsuite";
+      CC="" DMD_TESTSUITE_MAKE_ARGS=-j3 ctest --verbose -R "dmd-testsuite";
     fi
   # Run LLVM IR testsuite.
   - ctest --output-on-failure -V -R "lit-tests"
   # Link and run Phobos & druntime unittest runners.
   -
     if [ "${TEST_CONFIG}" = "Debug" ]; then
-      ctest -j4 --output-on-failure -R "-debug" -E "dmd-testsuite|lit-tests";
+      ctest -j3 --output-on-failure -R "-debug" -E "dmd-testsuite|lit-tests";
     elif [ "${TEST_CONFIG}" = "Release" ]; then
-      ctest -j4 --output-on-failure -E "-debug|dmd-testsuite|lit-tests";
+      ctest -j3 --output-on-failure -E "-debug|dmd-testsuite|lit-tests";
     else
-      ctest -j4 --output-on-failure -E "dmd-testsuite|lit-tests";
+      ctest -j3 --output-on-failure -E "dmd-testsuite|lit-tests";
     fi
 
 after_success:
