@@ -3559,14 +3559,6 @@ public:
             }
         }
 
-        // If it isn't a simple assignment, we need the existing value
-        if (fp && !oldval)
-        {
-            oldval = interpret(e1, istate);
-            if (exceptionOrCant(oldval))
-                return;
-        }
-
         // ---------------------------------------
         //      Interpret right hand side
         // ---------------------------------------
@@ -3600,7 +3592,14 @@ public:
         // ----------------------------------------------------
         if (fp)
         {
-            assert(oldval);
+            if (!oldval)
+            {
+                // Load the left hand side after interpreting the right hand side.
+                oldval = interpret(e1, istate);
+                if (exceptionOrCant(oldval))
+                    return;
+            }
+
             if (e.e1.type.ty != Tpointer)
             {
                 // ~= can create new values (see bug 6052)
