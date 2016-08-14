@@ -1052,11 +1052,6 @@ class TypeInfo_Class : TypeInfo
         if (m_flags & 64) // abstract
             return null;
         Object o = _d_newclass(this);
-      version (LDC)
-      {
-        // initialize manually as LDC's _d_newclass() doesn't
-        (cast(void*)o)[0 .. initializer.length] = initializer[];
-      }
         if (m_flags & 8 && defaultConstructor)
         {
             defaultConstructor(o);

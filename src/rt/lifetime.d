@@ -84,11 +84,9 @@ extern (C) void* _d_allocmemoryT(TypeInfo ti)
 } // version (LDC)
 
 
-/**
- *
- */
-extern (C) Object _d_newclass(const ClassInfo ci)
-@weak // LDC
+// adapted for LDC
+pragma(inline, true)
+private extern (D) Object _d_newclass(bool initialize)(const ClassInfo ci)
 {
     void* p;
 
@@ -131,19 +129,34 @@ extern (C) Object _d_newclass(const ClassInfo ci)
         printf("init[4] = %x\n", (cast(uint*) ci.initializer)[4]);
     }
 
+  static if (initialize) // LDC
+  {
     // initialize it
-  version (LDC)
-  {
-    // LDC initializes it in DtoNewClass(), so no need to pre-initialize it here
-    // (LDC issue #966)
-  }
-  else
-  {
     p[0 .. ci.initializer.length] = ci.initializer[];
   }
 
     debug(PRINTF) printf("initialization done\n");
     return cast(Object) p;
+}
+
+version (LDC)
+{
+
+/**
+ *
+ */
+extern (C) Object _d_newclass(const ClassInfo ci) @weak
+{
+    return _d_newclass!true(ci);
+}
+
+// Initialization is performed in DtoNewClass(), so only allocate
+// the class in druntime (LDC issue #966).
+extern (C) Object _d_allocclass(const ClassInfo ci) @weak
+{
+    return _d_newclass!false(ci);
+}
+
 }
 
 
