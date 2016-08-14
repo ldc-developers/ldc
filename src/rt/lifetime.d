@@ -132,7 +132,15 @@ extern (C) Object _d_newclass(const ClassInfo ci)
     }
 
     // initialize it
+  version (LDC)
+  {
+    // LDC initializes it in DtoNewClass(), so no need to pre-initialize it here
+    // (LDC issue #966)
+  }
+  else
+  {
     p[0 .. ci.initializer.length] = ci.initializer[];
+  }
 
     debug(PRINTF) printf("initialization done\n");
     return cast(Object) p;
