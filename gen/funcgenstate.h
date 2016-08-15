@@ -149,18 +149,16 @@ private:
 /// e.g. when goto-ing forward), we lazily create them as needed.
 class SwitchCaseTargets {
 public:
-  explicit SwitchCaseTargets(llvm::Function *llFunc) : llFunc(llFunc) {}
-
   /// Returns the basic block associated with the given case/default statement,
   /// asserting that it has already been created.
   llvm::BasicBlock *get(Statement *stmt);
 
   /// Returns the basic block associated with the given case/default statement
   /// or creates one with the given name if it does not already exist
-  llvm::BasicBlock *getOrCreate(Statement *stmt, const llvm::Twine &name);
+  llvm::BasicBlock *getOrCreate(Statement *stmt, const llvm::Twine &name,
+                                IRState &irs);
 
 private:
-  llvm::Function *const llFunc;
   llvm::DenseMap<Statement *, llvm::BasicBlock *> targetBBs;
 };
 

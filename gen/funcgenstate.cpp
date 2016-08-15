@@ -91,13 +91,14 @@ llvm::BasicBlock *SwitchCaseTargets::get(Statement *stmt) {
 }
 
 llvm::BasicBlock *SwitchCaseTargets::getOrCreate(Statement *stmt,
-                                                 const llvm::Twine &name) {
+                                                 const llvm::Twine &name,
+                                                 IRState &irs) {
   auto &bb = targetBBs[stmt];
   if (!bb)
-    bb = gIR->insertBB(name);
+    bb = irs.insertBB(name);
   return bb;
 }
 
 FuncGenState::FuncGenState(IrFunction &irFunc, IRState &irs)
     : irFunc(irFunc), scopes(irs), jumpTargets(irs, scopes),
-      switchTargets(irFunc.func), irs(irs) {}
+      switchTargets(), irs(irs) {}

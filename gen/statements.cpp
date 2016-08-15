@@ -927,7 +927,7 @@ public:
     if (stmt->sdefault) {
       Logger::println("has default");
       defaultTargetBB =
-          funcGen.switchTargets.getOrCreate(stmt->sdefault, "default");
+          funcGen.switchTargets.getOrCreate(stmt->sdefault, "default", *irs);
     }
 
     // do switch body
@@ -1082,7 +1082,7 @@ public:
     auto &PGO = funcGen.pgo;
     PGO.setCurrentStmt(stmt);
 
-    const auto body = funcGen.switchTargets.getOrCreate(stmt, "case");
+    const auto body = funcGen.switchTargets.getOrCreate(stmt, "case", *irs);
     // The BB may have already been created by a `goto case` statement.
     // Move it after the current scope BB for lexical order.
     body->moveAfter(irs->scopebb());
@@ -1113,7 +1113,7 @@ public:
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
-    const auto body = funcGen.switchTargets.getOrCreate(stmt, "default");
+    const auto body = funcGen.switchTargets.getOrCreate(stmt, "default", *irs);
     // The BB may have already been created.
     // Move it after the current scope BB for lexical order.
     body->moveAfter(irs->scopebb());
@@ -1556,7 +1556,7 @@ public:
     assert(!irs->scopereturned());
 
     const auto caseBB =
-        funcGen.switchTargets.getOrCreate(stmt->cs, "goto_case");
+        funcGen.switchTargets.getOrCreate(stmt->cs, "goto_case", *irs);
     llvm::BranchInst::Create(caseBB, irs->scopebb());
 
     // TODO: Should not be needed.
