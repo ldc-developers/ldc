@@ -84,8 +84,8 @@ DValue *DtoNewClass(Loc &loc, TypeClass *tc, NewExp *newexp) {
   // allocate
   LLValue *mem;
   if (newexp->onstack) {
-    // FIXME align scope class to its largest member
-    mem = DtoRawAlloca(DtoType(tc)->getContainedType(0), 0, ".newclass_alloca");
+    mem = DtoRawAlloca(DtoType(tc)->getContainedType(0), DtoAlignment(tc),
+                       ".newclass_alloca");
   }
   // custom allocator
   else if (newexp->allocator) {
@@ -97,7 +97,7 @@ DValue *DtoNewClass(Loc &loc, TypeClass *tc, NewExp *newexp) {
   // default allocator
   else {
     llvm::Function *fn =
-        getRuntimeFunction(loc, gIR->module, "_d_newclass");
+        getRuntimeFunction(loc, gIR->module, "_d_allocclass");
     LLConstant *ci = DtoBitCast(getIrAggr(tc->sym)->getClassInfoSymbol(),
                                 DtoType(Type::typeinfoclass->type));
     mem =
