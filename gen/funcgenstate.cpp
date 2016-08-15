@@ -20,8 +20,7 @@ JumpTarget::JumpTarget(llvm::BasicBlock *targetBlock,
     : targetBlock(targetBlock), cleanupScope(cleanupScope),
       targetStatement(targetStatement) {}
 
-JumpTargets::JumpTargets(IRState &irs, TryCatchFinallyScopes &scopes)
-    : irs(irs), scopes(scopes) {}
+JumpTargets::JumpTargets(TryCatchFinallyScopes &scopes) : scopes(scopes) {}
 
 void JumpTargets::pushLoopTarget(Statement *loopStatement,
                                  llvm::BasicBlock *continueTarget,
@@ -100,5 +99,5 @@ llvm::BasicBlock *SwitchCaseTargets::getOrCreate(Statement *stmt,
 }
 
 FuncGenState::FuncGenState(IrFunction &irFunc, IRState &irs)
-    : irFunc(irFunc), scopes(irs), jumpTargets(irs, scopes),
-      switchTargets(), irs(irs) {}
+    : irFunc(irFunc), scopes(irs), jumpTargets(scopes), switchTargets(),
+      irs(irs) {}

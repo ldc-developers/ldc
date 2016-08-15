@@ -62,7 +62,7 @@ struct JumpTarget {
 /// Keeps track of labels and implicit loop targets for goto/break/continue.
 class JumpTargets {
 public:
-  JumpTargets(IRState &irs, TryCatchFinallyScopes &scopes);
+  explicit JumpTargets(TryCatchFinallyScopes &scopes);
 
   /// Registers a loop statement to be used as a target for break/continue
   /// statements in the current scope.
@@ -126,7 +126,6 @@ private:
   /// Unified implementation for unlabeled break/continue.
   void jumpToClosest(std::vector<JumpTarget> &targets);
 
-  IRState &irs;
   TryCatchFinallyScopes &scopes;
 
   using LabelTargetMap = llvm::DenseMap<Identifier *, JumpTarget>;
