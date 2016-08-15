@@ -123,6 +123,17 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
     return false;
   }
 
+  // Because the frontend names `__invariant*` functions differently depending
+  // on the compilation order, we cannot emit the `__invariant` wrapper that
+  // calls the `__invariant*` functions.
+  // This is a workaround, the frontend needs to be changed such that the
+  // __invariant* names no longer depend on semantic analysis order.
+  // See https://github.com/ldc-developers/ldc/issues/1678
+  if (fdecl.isInvariantDeclaration()) {
+    IF_LOG Logger::println("__invariant cannot be emitted.");
+    return false;
+  }
+
   // TODO: Fix inlining functions from object.d. Currently errors because of
   // TypeInfo type-mismatch issue (TypeInfo classes get special treatment by the
   // compiler). To start working on it: comment-out this check and druntime will
