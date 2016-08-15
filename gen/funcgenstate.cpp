@@ -20,8 +20,7 @@ JumpTarget::JumpTarget(llvm::BasicBlock *targetBlock,
     : targetBlock(targetBlock), cleanupScope(cleanupScope),
       targetStatement(targetStatement) {}
 
-JumpTargets::JumpTargets(IRState &irs, TryCatchFinallyScopes &scopes)
-    : irs(irs), scopes(scopes) {}
+JumpTargets::JumpTargets(TryCatchFinallyScopes &scopes) : scopes(scopes) {}
 
 void JumpTargets::pushLoopTarget(Statement *loopStatement,
                                  llvm::BasicBlock *continueTarget,
@@ -91,13 +90,14 @@ llvm::BasicBlock *SwitchCaseTargets::get(Statement *stmt) {
 }
 
 llvm::BasicBlock *SwitchCaseTargets::getOrCreate(Statement *stmt,
-                                                 const llvm::Twine &name) {
+                                                 const llvm::Twine &name,
+                                                 IRState &irs) {
   auto &bb = targetBBs[stmt];
   if (!bb)
-    bb = gIR->insertBB(name);
+    bb = irs.insertBB(name);
   return bb;
 }
 
 FuncGenState::FuncGenState(IrFunction &irFunc, IRState &irs)
-    : irFunc(irFunc), scopes(irs), jumpTargets(irs, scopes),
-      switchTargets(irFunc.func), irs(irs) {}
+    : irFunc(irFunc), scopes(irs), jumpTargets(scopes), switchTargets(),
+      irs(irs) {}

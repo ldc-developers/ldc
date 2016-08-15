@@ -62,7 +62,7 @@ struct JumpTarget {
 /// Keeps track of labels and implicit loop targets for goto/break/continue.
 class JumpTargets {
 public:
-  JumpTargets(IRState &irs, TryCatchFinallyScopes &scopes);
+  explicit JumpTargets(TryCatchFinallyScopes &scopes);
 
   /// Registers a loop statement to be used as a target for break/continue
   /// statements in the current scope.
@@ -126,7 +126,6 @@ private:
   /// Unified implementation for unlabeled break/continue.
   void jumpToClosest(std::vector<JumpTarget> &targets);
 
-  IRState &irs;
   TryCatchFinallyScopes &scopes;
 
   using LabelTargetMap = llvm::DenseMap<Identifier *, JumpTarget>;
@@ -149,18 +148,16 @@ private:
 /// e.g. when goto-ing forward), we lazily create them as needed.
 class SwitchCaseTargets {
 public:
-  explicit SwitchCaseTargets(llvm::Function *llFunc) : llFunc(llFunc) {}
-
   /// Returns the basic block associated with the given case/default statement,
   /// asserting that it has already been created.
   llvm::BasicBlock *get(Statement *stmt);
 
   /// Returns the basic block associated with the given case/default statement
   /// or creates one with the given name if it does not already exist
-  llvm::BasicBlock *getOrCreate(Statement *stmt, const llvm::Twine &name);
+  llvm::BasicBlock *getOrCreate(Statement *stmt, const llvm::Twine &name,
+                                IRState &irs);
 
 private:
-  llvm::Function *const llFunc;
   llvm::DenseMap<Statement *, llvm::BasicBlock *> targetBBs;
 };
 
