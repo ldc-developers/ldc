@@ -7,7 +7,7 @@ matrix:
     #  d: ldc
     #  env: LLVM_VERSION=3.9
     - os: linux
-      d: ldc
+      d: ldc-beta
       env: LLVM_VERSION=3.8.1
     - os: linux
       d: ldc
