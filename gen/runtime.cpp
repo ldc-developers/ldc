@@ -127,22 +127,24 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
                                    const char *name) {
   checkForImplicitGCCall(loc, name);
 
-  if (!M) {
+  if (!M)
     initRuntime();
-  }
 
-  LLFunction *fn = target.getFunction(name);
-  if (fn) {
-    return fn;
-  }
-
-  fn = M->getFunction(name);
+  LLFunction *fn = M->getFunction(name);
   if (!fn) {
     error(loc, "Runtime function '%s' was not found", name);
     fatal();
   }
-
   LLFunctionType *fnty = fn->getFunctionType();
+
+  if (LLFunction *existing = target.getFunction(name)) {
+    if (existing->getFunctionType() != fnty) {
+      error(Loc(), "Incompatible declaration of runtime function '%s'", name);
+      fatal();
+    }
+    return existing;
+  }
+
   LLFunction *resfn =
       llvm::cast<llvm::Function>(target.getOrInsertFunction(name, fnty));
   resfn->setAttributes(fn->getAttributes());
