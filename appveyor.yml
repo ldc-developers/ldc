@@ -194,13 +194,14 @@ test_script:
   - hello.exe
   # Compile the druntime & phobos unit tests
   - ninja -j2 druntime-ldc-unittest-debug phobos2-ldc-unittest-debug druntime-ldc-unittest phobos2-ldc-unittest
-  # Execute the unit tests
-  - ctest --output-on-failure -E "dmd-testsuite|lit-tests"
-  # Execute the LLVM IR tests
-  - ctest --output-on-failure -V -R lit-tests
   # Execute dmd-testsuite
   - if "%APPVEYOR_JOB_ARCH%"=="x64" ( set OS=Win_64) else ( set OS=Win_32)
+  - set DMD_TESTSUITE_MAKE_ARGS=-j2
   - ctest --verbose -R dmd-testsuite
+  # Execute the LLVM IR tests
+  - ctest --output-on-failure -V -R lit-tests
+  # Execute the unit tests
+  - ctest -j2 --output-on-failure -E "dmd-testsuite|lit-tests"
 
 #---------------------------------#
 #     deployment configuration    #

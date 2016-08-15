@@ -45,14 +45,14 @@ test:
   pre:
     - CC=clang CXX=clang++ cmake .
     #- CC=clang CXX=clang++ cmake -DLLVM_ROOT_DIR="~/$CIRCLE_PROJECT_REPONAME/clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04" -DD_COMPILER="~/$CIRCLE_PROJECT_REPONAME/ldc2-1.0.0-linux-x86_64/bin/ldmd2" .
-    - make -j4
+    - make -j3
     - bin/ldc2 -version || exit 1
   override:
-    - MAKEOPTS=-j2 ctest -j 2 --verbose -R "build-"
-    - CC="" MAKEOPTS=-j4 ctest --verbose -R "dmd-testsuite"
+    - make -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest
+    - make -j3 druntime-ldc-unittest-debug druntime-ldc-unittest
+    - CC="" DMD_TESTSUITE_MAKE_ARGS=-j3 ctest --verbose -R "dmd-testsuite"
     - ctest --output-on-failure -V -R "lit-tests"
-    - MAKEOPTS=-j3 ctest --verbose -R "-test-runner"
-    - ctest -j4 --output-on-failure -E "testsuite"
+    - ctest -j3 --output-on-failure -E "dmd-testsuite|lit-tests"
 
 # To add more value the test results could be collected, see https://circleci.com/docs/test-metadata
 # A way how to convert the ctest output is described here:

@@ -20,10 +20,7 @@ matrix:
       env: LLVM_VERSION=3.5.2 OPTS="-DTEST_COVERAGE=ON"
     - os: osx
       d: ldc
-      env: LLVM_CONFIG="llvm-config-3.8" TEST_CONFIG="Debug"
-    - os: osx
-      d: dmd
-      env: LLVM_CONFIG="llvm-config-3.8" TEST_CONFIG="Release"
+      env: LLVM_CONFIG="llvm-config-3.8"
   allow_failures:
     #- env: LLVM_VERSION=3.9
 
@@ -76,13 +73,7 @@ script:
   - bin/ldc2 -version || exit 1
   # Build Phobos & druntime unittest modules.
   -
-    if [ "${TEST_CONFIG}" = "Debug" ]; then
-      make -j2 phobos2-ldc-unittest-debug;
-      make -j3 druntime-ldc-unittest-debug;
-    elif [ "${TEST_CONFIG}" = "Release" ]; then
-      make -j2 phobos2-ldc-unittest;
-      make -j3 druntime-ldc-unittest;
-    elif [ "${OPTS}" = "-DMULTILIB=ON" ]; then
+    if [ "${OPTS}" = "-DMULTILIB=ON" ]; then
       make -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest phobos2-ldc-unittest-debug-32 phobos2-ldc-unittest-32;
       make -j3 druntime-ldc-unittest-debug druntime-ldc-unittest druntime-ldc-unittest-debug-32 druntime-ldc-unittest-32;
     else
@@ -90,25 +81,11 @@ script:
       make -j3 druntime-ldc-unittest-debug druntime-ldc-unittest;
     fi
   # Run dmd-testsuite.
-  -
-    if [ "${TEST_CONFIG}" = "Debug" ]; then
-      CC="" MAKEOPTS=-j4 ctest --verbose -R "dmd-testsuite-debug";
-    elif [ "${TEST_CONFIG}" = "Release" ]; then
-      CC="" MAKEOPTS=-j4 ctest --verbose -R "dmd-testsuite" -E "-debug";
-    else
-      CC="" MAKEOPTS=-j4 ctest --verbose -R "dmd-testsuite";
-    fi
+  - CC="" DMD_TESTSUITE_MAKE_ARGS=-j3 ctest --verbose -R "dmd-testsuite"
   # Run LLVM IR testsuite.
   - ctest --output-on-failure -V -R "lit-tests"
   # Link and run Phobos & druntime unittest runners.
-  -
-    if [ "${TEST_CONFIG}" = "Debug" ]; then
-      ctest -j4 --output-on-failure -R "-debug" -E "dmd-testsuite|lit-tests";
-    elif [ "${TEST_CONFIG}" = "Release" ]; then
-      ctest -j4 --output-on-failure -E "-debug|dmd-testsuite|lit-tests";
-    else
-      ctest -j4 --output-on-failure -E "dmd-testsuite|lit-tests";
-    fi
+  - ctest -j3 --output-on-failure -E "dmd-testsuite|lit-tests"
 
 after_success:
   -
