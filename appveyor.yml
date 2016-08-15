@@ -19,7 +19,7 @@ environment:
     - APPVEYOR_JOB_ARCH:   x64
       D_COMPILER:          ldc
     - APPVEYOR_JOB_ARCH:   x86
-      D_COMPILER:          dmd
+      D_COMPILER:          ldc
 
 #matrix:
 #  allow_failures:
@@ -72,16 +72,16 @@ install:
             c:\projects\dmd2\windows\bin\dmd.exe --version
         } Else {
             If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
-                Start-FileDownload 'http://github.com/ldc-developers/ldc/releases/download/v1.0.0/ldc2-1.0.0-win64-msvc.zip' -FileName 'ldc2.zip'
-                7z x ldc2.zip > $null
-                Set-Item -path env:DMD -value c:\projects\ldc2-1.0.0-win64-msvc\bin\ldmd2.exe
-                c:\projects\ldc2-1.0.0-win64-msvc\bin\ldc2 --version
+                Start-FileDownload 'http://github.com/ldc-developers/ldc/releases/download/LDC-Win64-master/LDC-master-2113-x64.7z' -FileName 'ldc2.7z'
             } Else {
-                Start-FileDownload 'http://github.com/ldc-developers/ldc/releases/download/v1.0.0/ldc2-1.0.0-win32-msvc.zip' -FileName 'ldc2.zip'
-                7z x ldc2.zip > $null
-                Set-Item -path env:DMD -value c:\projects\ldc2-1.0.0-win32-msvc\bin\ldmd2.exe
-                c:\projects\ldc2-1.0.0-win32-msvc\bin\ldc2 --version
+                Start-FileDownload 'http://github.com/ldc-developers/ldc/releases/download/LDC-Win64-master/LDC-master-2113-x86.7z' -FileName 'ldc2.7z'
             }
+            md ldc2 > $null
+            cd ldc2
+            7z x ..\ldc2.7z > $null
+            cd ..
+            Set-Item -path env:DMD -value c:\projects\ldc2\bin\ldmd2.exe
+            c:\projects\ldc2\bin\ldc2 --version
         }
   # Download & extract GNU make + utils (for dmd-testsuite)
   - bash --version
