@@ -605,8 +605,10 @@ public:
     DValue *assignedResult = DtoCast(e->loc, opResult, lhsLVal->type);
     DtoAssign(e->loc, lhsLVal, assignedResult, TOKassign);
 
-    assert(e->type->toBasetype()->equals(lhsLVal->type->toBasetype()));
-    return lhsLVal;
+    if (e->type->equals(lhsLVal->type))
+        return lhsLVal;
+
+    return new DLValue(e->type, DtoLVal(lhsLVal));
   }
 
 #define BIN_ASSIGN(Op, Func, useLValTypeForBinOp)                              \
