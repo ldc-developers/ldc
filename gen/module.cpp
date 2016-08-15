@@ -65,6 +65,12 @@ static llvm::cl::opt<bool>
              llvm::cl::desc("Write object files with fully qualified names"),
              llvm::cl::ZeroOrMore);
 
+static llvm::cl::opt<bool> coverageDMDMerge(
+    "cov-merge",
+    llvm::cl::desc(
+        "Enable merging of DMD-style coverage reports with existing data."),
+    llvm::cl::ZeroOrMore);
+
 static void check_and_add_output_file(Module *NewMod, const std::string &str) {
   static std::map<std::string, Module *> files;
 
@@ -636,8 +642,9 @@ static void addCoverageAnalysis(Module *m) {
                           m->d_cover_data, idxs, true));
   }
 
-  // Create "static constructor" that calls _d_cover_register2(string filename,
-  // size_t[] valid, uint[] data, ubyte minPercent)
+  // Create "static constructor" that calls _d_cover_register2. Also call
+  // dmd_coverSetMerge if needed. This way each module will call
+  // dmd_coverSetMerge (so more often than needed), but this does no harm.
   // Build ctor name
   LLFunction *ctor = nullptr;
   std::string ctorname = "_D";
@@ -660,18 +667,29 @@ static void addCoverageAnalysis(Module *m) {
     llvm::BasicBlock *bb = llvm::BasicBlock::Create(gIR->context(), "", ctor);
     IRBuilder<> builder(bb);
 
-    // Set up call to _d_cover_register2
-    llvm::Function *fn =
-        getRuntimeFunction(Loc(), gIR->module, "_d_cover_register2");
-    LLValue *args[] = {DtoConstString(m->srcfile->name->toChars()),
-                       d_cover_valid_slice, d_cover_data_slice,
-                       DtoConstUbyte(global.params.covPercent)};
-    // Check if argument types are correct
-    for (unsigned i = 0; i < 4; ++i) {
-      assert(args[i]->getType() == fn->getFunctionType()->getParamType(i));
+    // Call _d_cover_register2(string filename, size_t[] valid, uint[] data,
+    // ubyte minPercent)
+    {
+      llvm::Function *fn =
+          getRuntimeFunction(Loc(), gIR->module, "_d_cover_register2");
+      LLValue *args[] = {DtoConstString(m->srcfile->name->toChars()),
+                         d_cover_valid_slice, d_cover_data_slice,
+                         DtoConstUbyte(global.params.covPercent)};
+      // Check if argument types are correct
+      for (unsigned i = 0; i < 4; ++i) {
+        assert(args[i]->getType() == fn->getFunctionType()->getParamType(i));
+      }
+      builder.CreateCall(fn, args);
     }
 
-    builder.CreateCall(fn, args);
+    // Call void dmd_coverSetMerge(bool flag) only when needed. The default is
+    // to not merge.
+    if (coverageDMDMerge) {
+      llvm::Function *fn =
+          getRuntimeFunction(Loc(), gIR->module, "dmd_coverSetMerge");
+      LLValue *args[] = {DtoConstBool(true)};
+      builder.CreateCall(fn, args);
+    }
 
     builder.CreateRetVoid();
   }
