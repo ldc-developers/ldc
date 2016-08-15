@@ -17,9 +17,9 @@ os: Visual Studio 2015
 environment:
   matrix:
     - APPVEYOR_JOB_ARCH:   x64
-      D_COMPILER:          ldc
+      D_COMPILER:          dmd
     - APPVEYOR_JOB_ARCH:   x86
-      D_COMPILER:          ldc
+      D_COMPILER:          dmd
 
 #matrix:
 #  allow_failures:
