@@ -252,7 +252,7 @@ llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm);
 ///
 /// Necessary to support multiple declarations with the same mangled name, as
 /// can be the case due to pragma(mangle).
-llvm::GlobalVariable *getOrCreateGlobal(Loc &loc, llvm::Module &module,
+llvm::GlobalVariable *getOrCreateGlobal(const Loc &loc, llvm::Module &module,
                                         llvm::Type *type, bool isConstant,
                                         llvm::GlobalValue::LinkageTypes linkage,
                                         llvm::Constant *init,
