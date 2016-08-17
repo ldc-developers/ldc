@@ -13,7 +13,11 @@ module rt.sections_elf_shared;
 version (CRuntime_Glibc) enum SharedELF = true;
 else version (FreeBSD) enum SharedELF = true;
 else enum SharedELF = false;
-static if (SharedELF):
+
+version (OSX) enum SharedDarwin = true;
+else enum SharedDarwin = false;
+
+static if (SharedELF || SharedDarwin):
 
 // debug = PRINTF;
 import core.memory;
@@ -31,6 +35,15 @@ else version (FreeBSD)
     import core.sys.freebsd.dlfcn;
     import core.sys.freebsd.sys.elf;
     import core.sys.freebsd.sys.link_elf;
+}
+else version (OSX)
+{
+    import core.sys.osx.dlfcn;
+    import core.sys.osx.mach.dyld;
+    import core.sys.osx.mach.getsect;
+
+    extern(C) intptr_t _dyld_get_image_slide(const mach_header*) nothrow @nogc;
+    extern(C) mach_header* _dyld_get_image_header_containing_address(const void *addr) nothrow @nogc;
 }
 else
 {
@@ -66,22 +79,22 @@ struct DSO
         return 0;
     }
 
-    @property immutable(ModuleInfo*)[] modules() const
+    @property immutable(ModuleInfo*)[] modules() const nothrow
     {
         return _moduleGroup.modules;
     }
 
-    @property ref inout(ModuleGroup) moduleGroup() inout
+    @property ref inout(ModuleGroup) moduleGroup() inout nothrow
     {
         return _moduleGroup;
     }
 
-    version (DigitalMars) @property immutable(FuncTable)[] ehTables() const
+    version (DigitalMars) @property immutable(FuncTable)[] ehTables() const nothrow
     {
         return _ehTables[];
     }
 
-    @property inout(void[])[] gcRanges() inout
+    @property inout(void[])[] gcRanges() inout nothrow
     {
         return _gcRanges[];
     }
@@ -91,14 +104,25 @@ private:
     invariant()
     {
         assert(_moduleGroup.modules.length);
-        assert(_tlsMod || !_tlsSize);
+        static if (SharedELF)
+        {
+            assert(_tlsMod || !_tlsSize);
+        }
     }
 
     version (DigitalMars) immutable(FuncTable)[] _ehTables;
     ModuleGroup _moduleGroup;
     Array!(void[]) _gcRanges;
-    size_t _tlsMod;
-    size_t _tlsSize;
+    static if (SharedELF)
+    {
+        size_t _tlsMod;
+        size_t _tlsSize;
+    }
+    else static if (SharedDarwin)
+    {
+        GetTLSAnchor _getTLSAnchor;
+    }
+    void** _slot;
 
     version (Shared)
     {
@@ -169,7 +193,7 @@ version (Shared)
             if (tdso._addCnt)
             {
                 // Increment the dlopen ref for explicitly loaded libraries to pin them.
-                .dlopen(linkMapForHandle(tdso._pdso._handle).l_name, RTLD_LAZY) !is null || assert(0);
+                .dlopen(nameForDSO(tdso._pdso), RTLD_LAZY) !is null || assert(0);
                 (*res)[i]._addCnt = 1; // new array takes over the additional ref count
             }
         }
@@ -266,16 +290,37 @@ version (Shared)
      */
     struct ThreadDSO
     {
-        DSO* _pdso;
-        static if (_pdso.sizeof == 8) uint _refCnt, _addCnt;
-        else static if (_pdso.sizeof == 4) ushort _refCnt, _addCnt;
+        static if (_pdso.sizeof == 8) alias CntType = uint;
+        else static if (_pdso.sizeof == 4) alias CntType = ushort;
         else static assert(0, "unimplemented");
-        void[] _tlsRange;
+
+        this(DSO* pdso, CntType refCnt, CntType addCnt)
+        {
+            _pdso = pdso;
+            _refCnt = refCnt;
+            _addCnt = addCnt;
+            updateTLSRange();
+        }
+
+        DSO* _pdso;
         alias _pdso this;
+
+        void[] _tlsRange;
+        CntType _refCnt;
+        CntType _addCnt;
+
         // update the _tlsRange for the executing thread
         void updateTLSRange()
         {
-            _tlsRange = getTLSRange(_pdso._tlsMod, _pdso._tlsSize);
+            static if (SharedELF)
+            {
+                _tlsRange = getTLSRange(_pdso._tlsMod, _pdso._tlsSize);
+            }
+            else static if (SharedDarwin)
+            {
+                _tlsRange = getTLSRange(_pdso._getTLSAnchor());
+            }
+            else static assert(0, "unimplemented");
         }
     }
     Array!(ThreadDSO) _loadedDSOs;
@@ -286,17 +331,30 @@ version (Shared)
     bool _rtLoading;
 
     /*
-     * Hash table to map link_map* to corresponding DSO*.
-     * The hash table is protected by a Mutex.
+     * Hash table to map the native handle (as returned by dlopen)
+     * to the corresponding DSO*, protected by a mutex.
      */
     __gshared pthread_mutex_t _handleToDSOMutex;
     __gshared HashTab!(void*, DSO*) _handleToDSO;
 
-    /*
-     * Section in executable that contains copy relocations.
-     * Might be null when druntime is dynamically loaded by a C host.
-     */
-    __gshared const(void)[] _copyRelocSection;
+    static if (SharedDarwin)
+    {
+        /*
+         * Hash table to map fully qualified names of loaded D modules to the DSO*
+         * in which they were defined, protected by a mutex.
+         */
+        __gshared pthread_mutex_t _moduleNameToDSOMutex;
+        __gshared HashTab!(const(char)[], const(DSO)*) _moduleNameToDSO;
+    }
+
+    static if (SharedELF)
+    {
+        /*
+         * Section in executable that contains copy relocations.
+         * null when druntime is dynamically loaded by a C host.
+         */
+        __gshared const(void)[] _copyRelocSection;
+    }
 }
 else
 {
@@ -319,6 +377,12 @@ else
 // Compiler to runtime interface.
 ///////////////////////////////////////////////////////////////////////////////
 
+version (OSX)
+    private alias ImageHeader = mach_header*;
+else
+    private alias ImageHeader = dl_phdr_info;
+
+extern(C) alias GetTLSAnchor = void* function() nothrow @nogc;
 
 /*
  * This data structure is generated by the compiler, and then passed to
@@ -330,6 +394,7 @@ struct CompilerDSOData
     void** _slot;                                          // can be used to store runtime data
     immutable(object.ModuleInfo*)* _minfo_beg, _minfo_end; // array of modules in this object file
     version (DigitalMars) immutable(rt.deh.FuncTable)* _deh_beg, _deh_end; // array of exception handling data
+    static if (SharedDarwin) GetTLSAnchor _getTLSAnchor;
 }
 
 T[] toRange(T)(T* beg, T* end) { return beg[0 .. end - beg]; }
@@ -339,8 +404,10 @@ T[] toRange(T)(T* beg, T* end) { return beg[0 .. end - beg]; }
  * A pointer to that code is inserted into both the .ctors and .dtors
  * segment so it gets called by the loader on startup and shutdown.
  */
-extern(C) void _d_dso_registry(CompilerDSOData* data)
+extern(C) void _d_dso_registry(void* arg)
 {
+    auto data = cast(CompilerDSOData*)arg;
+
     // only one supported currently
     data._version >= 1 || assert(0, "corrupt DSO data version");
 
@@ -352,6 +419,7 @@ extern(C) void _d_dso_registry(CompilerDSOData* data)
 
         DSO* pdso = cast(DSO*).calloc(1, DSO.sizeof);
         assert(typeid(DSO).initializer().ptr is null);
+        pdso._slot = data._slot;
         *data._slot = pdso; // store backlink in library record
 
         auto minfoBeg = data._minfo_beg;
@@ -361,29 +429,34 @@ extern(C) void _d_dso_registry(CompilerDSOData* data)
         pdso._moduleGroup = ModuleGroup(toRange(minfoBeg, minfoEnd));
 
         version (DigitalMars) pdso._ehTables = toRange(data._deh_beg, data._deh_end);
+        static if (SharedDarwin) pdso._getTLSAnchor = data._getTLSAnchor;
 
-        dl_phdr_info info = void;
-        findDSOInfoForAddr(data._slot, &info) || assert(0);
+        ImageHeader header = void;
+        findImageHeaderForAddr(data._slot, &header) || assert(0);
 
-        scanSegments(info, pdso);
+        scanSegments(header, pdso);
 
         version (Shared)
         {
             auto handle = handleForAddr(data._slot);
-
-            if (firstDSO)
-            {
-                /// Assert that the first loaded DSO is druntime itself. Use a
-                /// local druntime symbol (rt_get_bss_start) to get the handle.
-                version (LDC) {} else
-                assert(handleForAddr(data._slot) == handleForAddr(&rt_get_bss_start));
-                _copyRelocSection = getCopyRelocSection();
-            }
-            checkModuleCollisions(info, pdso._moduleGroup.modules, _copyRelocSection);
-
-            getDependencies(info, pdso._deps);
             pdso._handle = handle;
             setDSOForHandle(pdso, pdso._handle);
+
+            static if (SharedELF)
+            {
+                if (firstDSO)
+                {
+                    /// Assert that the first loaded DSO is druntime itself. Use a
+                    /// local druntime symbol (rt_get_bss_start) to get the handle.
+                    version (LDC) {} else
+                    assert(handleForAddr(data._slot) == handleForAddr(&rt_get_bss_start));
+                    _copyRelocSection = getCopyRelocSection();
+                }
+            }
+
+            checkModuleCollisions(header, pdso);
+
+            getDependencies(header, pdso._deps);
 
             if (!_rtLoading)
             {
@@ -394,8 +467,7 @@ extern(C) void _d_dso_registry(CompilerDSOData* data)
                  * thread with a refCnt of 1 and call the TlsCtors.
                  */
                 immutable ushort refCnt = 1, addCnt = 0;
-                auto tlsRng = getTLSRange(pdso._tlsMod, pdso._tlsSize);
-                _loadedDSOs.insertBack(ThreadDSO(pdso, refCnt, addCnt, tlsRng));
+                _loadedDSOs.insertBack(ThreadDSO(pdso, refCnt, addCnt));
             }
         }
         else
@@ -410,7 +482,11 @@ extern(C) void _d_dso_registry(CompilerDSOData* data)
             }
             foreach (p; _loadedDSOs) assert(p !is pdso);
             _loadedDSOs.insertBack(pdso);
-            _tlsRanges.insertBack(getTLSRange(pdso._tlsMod, pdso._tlsSize));
+            version (OSX)
+                auto tlsRange = getTLSRange(data._getTLSAnchor());
+            else
+                auto tlsRange = getTLSRange(pdso._tlsMod, pdso._tlsSize);
+            _tlsRanges.insertBack(tlsRange);
         }
 
         // don't initialize modules before rt_init was called (see Bugzilla 11378)
@@ -456,6 +532,17 @@ extern(C) void _d_dso_registry(CompilerDSOData* data)
                 }
             }
 
+            static if (SharedDarwin)
+            {
+                !pthread_mutex_lock(&_moduleNameToDSOMutex) || assert(0);
+                foreach (m; pdso.modules())
+                {
+                    assert(_moduleNameToDSO[m.name] == pdso);
+                    _moduleNameToDSO.remove(m.name);
+                }
+                !pthread_mutex_unlock(&_moduleNameToDSOMutex) || assert(0);
+            }
+
             assert(pdso._handle == handleForAddr(data._slot));
             unsetDSOForHandle(pdso, pdso._handle);
             pdso._handle = null;
@@ -463,7 +550,7 @@ extern(C) void _d_dso_registry(CompilerDSOData* data)
         else
         {
             // static DSOs are unloaded in reverse order
-            assert(pdso._tlsSize == _tlsRanges.back.length);
+            static if (SharedELF) assert(pdso._tlsSize == _tlsRanges.back.length);
             _tlsRanges.popBack();
             assert(pdso == _loadedDSOs.back);
             _loadedDSOs.popBack();
@@ -502,8 +589,7 @@ version (Shared)
             foreach (dep; pdso._deps)
                 incThreadRef(dep, false);
             immutable ushort refCnt = 1, addCnt = incAdd ? 1 : 0;
-            auto tlsRng = getTLSRange(pdso._tlsMod, pdso._tlsSize);
-            _loadedDSOs.insertBack(ThreadDSO(pdso, refCnt, addCnt, tlsRng));
+            _loadedDSOs.insertBack(ThreadDSO(pdso, refCnt, addCnt));
             pdso._moduleGroup.runTlsCtors();
         }
     }
@@ -561,13 +647,21 @@ version (Shared)
 void initLocks()
 {
     version (Shared)
+    {
         !pthread_mutex_init(&_handleToDSOMutex, null) || assert(0);
+        static if (SharedDarwin)
+            !pthread_mutex_init(&_moduleNameToDSOMutex, null) || assert(0);
+    }
 }
 
 void finiLocks()
 {
     version (Shared)
+    {
         !pthread_mutex_destroy(&_handleToDSOMutex) || assert(0);
+        static if (SharedDarwin)
+            !pthread_mutex_destroy(&_moduleNameToDSOMutex) || assert(0);
+    }
 }
 
 void runModuleConstructors(DSO* pdso, bool runTlsCtors)
@@ -611,20 +705,17 @@ void freeDSO(DSO* pdso)
 version (Shared)
 {
 nothrow:
-    link_map* linkMapForHandle(void* handle)
+    const(char)* nameForDSO(in DSO* pdso)
     {
-        link_map* map;
-        dlinfo(handle, RTLD_DI_LINKMAP, &map) == 0 || assert(0);
-        return map;
+        return nameForAddr(pdso._slot);
     }
 
-     link_map* exeLinkMap(link_map* map)
-     {
-         assert(map);
-         while (map.l_prev !is null)
-             map = map.l_prev;
-         return map;
-     }
+    const(char)* nameForAddr(in void* addr)
+    {
+        Dl_info info = void;
+        dladdr(addr, &info) || assert(0);
+        return info.dli_fname;
+    }
 
     DSO* dsoForHandle(void* handle)
     {
@@ -652,7 +743,8 @@ nothrow:
         !pthread_mutex_unlock(&_handleToDSOMutex) || assert(0);
     }
 
-    void getDependencies(in ref dl_phdr_info info, ref Array!(DSO*) deps)
+
+    static if(SharedELF) void getDependencies(in ref dl_phdr_info info, ref Array!(DSO*) deps)
     {
         // get the entries of the .dynamic section
         ElfW!"Dyn"[] dyns;
@@ -697,6 +789,10 @@ nothrow:
                 deps.insertBack(pdso); // append it to the dependencies
         }
     }
+    else static if(SharedDarwin) void getDependencies(in ImageHeader info, ref Array!(DSO*) deps)
+    {
+        // FIXME: Not implemented yet.
+    }
 
     void* handleForName(const char* name)
     {
@@ -711,10 +807,10 @@ nothrow:
 ///////////////////////////////////////////////////////////////////////////////
 
 /************
- * Scan segments in Linux dl_phdr_info struct and store
+ * Scan segments in the image header and stores
  * the TLS and writeable data segments in *pdso.
  */
-void scanSegments(in ref dl_phdr_info info, DSO* pdso)
+static if (SharedELF) void scanSegments(in ref dl_phdr_info info, DSO* pdso)
 {
     foreach (ref phdr; info.dlpi_phdr[0 .. info.dlpi_phnum])
     {
@@ -749,6 +845,27 @@ void scanSegments(in ref dl_phdr_info info, DSO* pdso)
         }
     }
 }
+else static if (SharedDarwin) void scanSegments(mach_header* info, DSO* pdso)
+{
+    import rt.mach_utils;
+
+    immutable slide = _dyld_get_image_slide(info);
+    foreach (e; dataSections)
+    {
+        auto sect = getSection(info, slide, e.seg, e.sect);
+        if (sect != null)
+            pdso._gcRanges.insertBack((cast(void*)sect.ptr)[0 .. sect.length]);
+    }
+
+    version (Shared)
+    {
+        auto text = getSection(info, slide, "__TEXT", "__text");
+        if (!text) {
+            assert(0, "Failed to get text section.");
+        }
+        pdso._codeSegments.insertBack(cast(void[])text);
+    }
+}
 
 /**************************
  * Input:
@@ -758,7 +875,7 @@ void scanSegments(in ref dl_phdr_info info, DSO* pdso)
  * References:
  *      http://linux.die.net/man/3/dl_iterate_phdr
  */
-version (linux) bool findDSOInfoForAddr(in void* addr, dl_phdr_info* result=null) nothrow @nogc
+version (linux) bool findImageHeaderForAddr(in void* addr, dl_phdr_info* result=null) nothrow @nogc
 {
     static struct DG { const(void)* addr; dl_phdr_info* result; }
 
@@ -781,16 +898,22 @@ version (linux) bool findDSOInfoForAddr(in void* addr, dl_phdr_info* result=null
      */
     return dl_iterate_phdr(&callback, &dg) != 0;
 }
-else version (FreeBSD) bool findDSOInfoForAddr(in void* addr, dl_phdr_info* result=null) nothrow @nogc
+else version (FreeBSD) bool findImageHeaderForAddr(in void* addr, dl_phdr_info* result=null) nothrow @nogc
 {
     return !!_rtld_addr_phdr(addr, result);
+}
+else version (OSX) bool findImageHeaderForAddr(in void* addr, mach_header** result=null) nothrow @nogc
+{
+    auto header = _dyld_get_image_header_containing_address(addr);
+    if (result) *result = header;
+    return !!header;
 }
 
 /*********************************
  * Determine if 'addr' lies within shared object 'info'.
  * If so, return true and fill in 'result' with the corresponding ELF program header.
  */
-bool findSegmentForAddr(in ref dl_phdr_info info, in void* addr, ElfW!"Phdr"* result=null) nothrow @nogc
+static if (SharedELF) bool findSegmentForAddr(in ref dl_phdr_info info, in void* addr, ElfW!"Phdr"* result=null) nothrow @nogc
 {
     if (addr < cast(void*)info.dlpi_addr) // less than base address of object means quick reject
         return false;
@@ -810,11 +933,13 @@ bool findSegmentForAddr(in ref dl_phdr_info info, in void* addr, ElfW!"Phdr"* re
 version (linux) import core.sys.linux.errno : program_invocation_name;
 // should be in core.sys.freebsd.stdlib
 version (FreeBSD) extern(C) const(char)* getprogname() nothrow @nogc;
+version (OSX) extern(C) const(char)* getprogname() nothrow @nogc;
 
 @property const(char)* progname() nothrow @nogc
 {
     version (linux) return program_invocation_name;
     version (FreeBSD) return getprogname();
+    version (OSX) return getprogname();
 }
 
 nothrow
@@ -843,6 +968,8 @@ else
 }
 
 /// get the BSS section of the executable to check for copy relocations
+static if (SharedELF)
+{
 version (LDC)
 const(void)[] getCopyRelocSection() nothrow
 {
@@ -878,7 +1005,7 @@ const(void)[] getCopyRelocSection() nothrow
     immutable bss_size = bss_end - bss_start;
 
     /**
-       Check whether __bss_start/_end both lie within the executable DSO.same DSO.
+       Check whether __bss_start/_end both lie within the executable DSO.
 
        When a C host program dynamically loads druntime, i.e. it isn't linked
        against, __bss_start/_end might be defined in different DSOs, b/c the
@@ -895,14 +1022,15 @@ const(void)[] getCopyRelocSection() nothrow
         enum ElfW!"Addr" exeBaseAddr = 0;
 
     dl_phdr_info info = void;
-    findDSOInfoForAddr(bss_start, &info) || assert(0);
+    findImageHeaderForAddr(bss_start, &info) || assert(0);
     if (info.dlpi_addr != exeBaseAddr)
         return null;
-    findDSOInfoForAddr(bss_end - 1, &info) || assert(0);
+    findImageHeaderForAddr(bss_end - 1, &info) || assert(0);
     if (info.dlpi_addr != exeBaseAddr)
         return null;
 
     return bss_start[0 .. bss_size];
+}
 }
 
 /**
@@ -912,44 +1040,63 @@ const(void)[] getCopyRelocSection() nothrow
  * same name do not collide if their DSOs are in separate symbol resolution
  * chains.
  */
-void checkModuleCollisions(in ref dl_phdr_info info, in immutable(ModuleInfo)*[] modules,
-                           in void[] copyRelocSection) nothrow
-in { assert(modules.length); }
+version (Shared)
+void checkModuleCollisions(in ref ImageHeader info, in DSO* pdso) nothrow
+in { assert(pdso.modules().length); }
 body
 {
-    immutable(ModuleInfo)* conflicting;
+    immutable(ModuleInfo)* conflictModule;
+    const(char)[] conflictExistingDSOName;
 
-    foreach (m; modules)
+    static if (SharedELF)
     {
-        auto addr = cast(const(void*))m;
-        if (cast(size_t)(addr - copyRelocSection.ptr) < copyRelocSection.length)
+        foreach (m; pdso.modules())
         {
-            // Module is in .bss of the exe because it was copy relocated
-        }
-        else if (!findSegmentForAddr(info, addr))
-        {
-            // Module is in another DSO
-            conflicting = m;
-            break;
+            auto addr = cast(const(void*))m;
+            if (cast(size_t)(addr - _copyRelocSection.ptr) < _copyRelocSection.length)
+            {
+                // Module is in .bss of the exe because it was copy relocated
+            }
+            else if (!findSegmentForAddr(info, addr))
+            {
+                // Module is in another DSO
+                conflictModule = m;
+                conflictExistingDSOName = dsoName(nameForAddr(m));
+                break;
+            }
         }
     }
-
-    if (conflicting !is null)
+    else static if (SharedDarwin)
     {
-        dl_phdr_info other=void;
-        findDSOInfoForAddr(conflicting, &other) || assert(0);
+        !pthread_mutex_lock(&_moduleNameToDSOMutex) || assert(0);
+        foreach (m; pdso.modules())
+        {
+            if (auto existing = m.name in _moduleNameToDSO)
+            {
+                conflictModule = m;
+                conflictExistingDSOName = dsoName(nameForDSO(*existing));
+                break;
+            }
+            _moduleNameToDSO[m.name] = pdso;
+        }
+        !pthread_mutex_unlock(&_moduleNameToDSOMutex) || assert(0);
+    }
+    else static assert(0, "Module conflict detection not implemented.");
 
-        auto modname = conflicting.name;
-        auto loading = dsoName(info.dlpi_name);
-        auto existing = dsoName(other.dlpi_name);
+
+    if (conflictModule !is null)
+    {
+        auto modname = conflictModule.name;
+        auto loading = dsoName(nameForDSO(pdso));
         fprintf(stderr, "Fatal Error while loading '%.*s':\n\tThe module '%.*s' is already defined in '%.*s'.\n",
                 cast(int)loading.length, loading.ptr,
                 cast(int)modname.length, modname.ptr,
-                cast(int)existing.length, existing.ptr);
+                cast(int)conflictExistingDSOName.length, conflictExistingDSOName.ptr);
         import core.stdc.stdlib : _Exit;
         _Exit(1);
     }
 }
+
 
 /**************************
  * Input:
@@ -982,6 +1129,25 @@ struct tls_index
     size_t ti_offset;
 }
 
+version (OSX)
+{
+    extern(C) void _d_dyld_getTLSRange(void*, void**, size_t*);
+    private align(16) ubyte dummyTlsSymbol = 42;
+    // By initalizing dummyTlsSymbol with something non-zero and aligning
+    // to 16-bytes, section __thread_data will be aligned as a workaround
+    // for https://github.com/ldc-developers/ldc/issues/1252
+
+    void[] getTLSRange(void *tlsSymbol)
+    {
+        void* start = null;
+        size_t size = 0;
+        _d_dyld_getTLSRange(tlsSymbol, &start, &size);
+        assert(start && size, "Could not determine TLS range.");
+        return start[0 .. size];
+    }
+}
+else
+{
 version(LDC)
 {
     version(PPC)
@@ -1064,4 +1230,5 @@ void[] getTLSRange(size_t mod, size_t sz)
         auto ti = tls_index(mod, 0);
         return (__tls_get_addr(&ti)-TLS_DTV_OFFSET)[0 .. sz];
     }
+}
 }

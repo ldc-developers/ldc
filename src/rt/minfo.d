@@ -48,7 +48,7 @@ struct ModuleGroup
         _modules = modules;
     }
 
-    @property immutable(ModuleInfo*)[] modules() const
+    @property immutable(ModuleInfo*)[] modules() const pure nothrow @nogc
     {
         return _modules;
     }

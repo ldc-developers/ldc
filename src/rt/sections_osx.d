@@ -20,8 +20,7 @@ import core.stdc.stdio;
 import core.stdc.string, core.stdc.stdlib;
 import core.sys.posix.pthread;
 import core.sys.osx.mach.dyld;
-import core.sys.osx.mach.getsect;
-import rt.deh, rt.minfo;
+import rt.deh, rt.minfo, rt.mach_utils;
 import rt.util.container.array;
 
 struct SectionGroup
@@ -186,9 +185,9 @@ __gshared SectionGroup _sections;
 
 extern (C) void sections_osx_onAddImage(in mach_header* h, intptr_t slide)
 {
-    foreach (e; dataSegs)
+    foreach (e; dataSections)
     {
-        auto sect = getSection(h, slide, e.seg.ptr, e.sect.ptr);
+        auto sect = getSection(h, slide, e.seg, e.sect);
         if (sect != null)
             _sections._gcRanges.insertBack((cast(void*)sect.ptr)[0 .. sect.length]);
     }
@@ -238,41 +237,4 @@ extern (C) void sections_osx_onAddImage(in mach_header* h, intptr_t slide)
         debug(PRINTF) printf("  tlscoal_nt %p %p\n", tlssect2.ptr, tlssect2.ptr + tlssect2.length);
         _sections._tlsImage[1] = (cast(immutable(void)*)tlssect2.ptr)[0 .. tlssect2.length];
     }
-}
-
-struct SegRef
-{
-    string seg;
-    string sect;
-}
-
-
-static immutable SegRef[] dataSegs = [{SEG_DATA, SECT_DATA},
-                                      {SEG_DATA, SECT_BSS},
-                                      {SEG_DATA, SECT_COMMON}];
-
-
-ubyte[] getSection(in mach_header* header, intptr_t slide,
-                   in char* segmentName, in char* sectionName)
-{
-    version (X86)
-    {
-        assert(header.magic == MH_MAGIC);
-        auto sect = getsectbynamefromheader(header,
-                                            segmentName,
-                                            sectionName);
-    }
-    else version (X86_64)
-    {
-        assert(header.magic == MH_MAGIC_64);
-        auto sect = getsectbynamefromheader_64(cast(mach_header_64*)header,
-                                            segmentName,
-                                            sectionName);
-    }
-    else
-        static assert(0, "unimplemented");
-
-    if (sect !is null && sect.size > 0)
-        return (cast(ubyte*)sect.addr + slide)[0 .. cast(size_t)sect.size];
-    return null;
 }

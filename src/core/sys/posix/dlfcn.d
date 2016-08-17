@@ -111,7 +111,7 @@ version( CRuntime_Glibc )
 
     deprecated("Please use core.sys.linux.dlfcn for non-POSIX extensions")
     {
-        int   dladdr(void* addr, Dl_info* info);
+        int   dladdr(in void* addr, Dl_info* info);
         void* dlvsym(void* handle, in char* symbol, in char* version_);
 
         struct Dl_info
@@ -134,14 +134,18 @@ else version( OSX )
     char* dlerror();
     void* dlopen(in char*, int);
     void* dlsym(void*, in char*);
-    int   dladdr(void* addr, Dl_info* info);
 
-    struct Dl_info
+    deprecated("Please use core.sys.osx.dlfcn for non-POSIX extensions")
     {
-        const(char)* dli_fname;
-        void*        dli_fbase;
-        const(char)* dli_sname;
-        void*        dli_saddr;
+        int dladdr(in void* addr, Dl_info* info);
+
+        struct Dl_info
+        {
+            const(char)* dli_fname;
+            void*        dli_fbase;
+            const(char)* dli_sname;
+            void*        dli_saddr;
+        }
     }
 }
 else version( FreeBSD )

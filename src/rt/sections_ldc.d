@@ -16,7 +16,7 @@
 
 module rt.sections_ldc;
 
-version (linux) {} else version (FreeBSD) {} else version(LDC):
+version (linux) {} else version (OSX) {} else version (FreeBSD) {} else version(LDC):
 
 import core.stdc.stdlib : alloca;
 import rt.minfo;

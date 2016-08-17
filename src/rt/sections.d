@@ -19,7 +19,12 @@ else version (FreeBSD)
 else version (Solaris)
     public import rt.sections_solaris;
 else version (OSX)
-    public import rt.sections_osx;
+{
+    version (LDC)
+        public import rt.sections_elf_shared;
+    else
+        public import rt.sections_osx;
+}
 else version (CRuntime_DigitalMars)
     public import rt.sections_win32;
 else version (CRuntime_Microsoft)
