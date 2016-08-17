@@ -1,4 +1,4 @@
-//===-- module.cpp --------------------------------------------------------===//
+//===-- modules.cpp -------------------------------------------------------===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "module.h"
 #include "aggregate.h"
 #include "attrib.h"
 #include "declaration.h"
@@ -169,10 +170,12 @@ void buildTargetFiles(Module *m, bool singleObj, bool library) {
   //    check_and_add_output_file(m, hdrfile->name->str);
 }
 
+namespace {
+
 // build ModuleReference and register function, to register the module info in
 // the global linked list
-static LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
-                                                   LLConstant *moduleinfo) {
+LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
+                                            LLConstant *moduleinfo) {
   // build ctor type
   LLFunctionType *fty = LLFunctionType::get(LLType::getVoidTy(gIR->context()),
                                             std::vector<LLType *>(), false);
@@ -246,38 +249,54 @@ static LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
 /// Builds the body for the ldc.dso_ctor and ldc.dso_dtor functions.
 ///
 /// Pseudocode:
-/// if (dsoInitialized == executeWhenInitialized) {
-///     dsoInitialized = !executeWhenInitialized;
+/// void ldc.register_dso(bool isShutdown, void* minfoUsedPointer) {
+///   if (dsoInitialized == isShutdown) {
+///     dsoInitialized = !isShutdown;
 ///     auto record = {1, dsoSlot, minfoBeg, minfoEnd, minfoUsedPointer};
 ///     _d_dso_registry(cast(CompilerDSOData*)&record);
+///   }
 /// }
-static void build_dso_ctor_dtor_body(
-    llvm::Function *targetFunc, llvm::Value *dsoInitialized,
-    llvm::Value *dsoSlot, llvm::Value *minfoBeg, llvm::Value *minfoEnd,
-    llvm::Value *minfoUsedPointer, bool executeWhenInitialized) {
-  llvm::Function *const dsoRegistry =
-      getRuntimeFunction(Loc(), gIR->module, "_d_dso_registry");
-  llvm::Type *const recordPtrTy =
-      dsoRegistry->getFunctionType()->getContainedType(1);
+llvm::Function *buildRegisterDSO(llvm::Value *dsoInitialized,
+                                 llvm::Value *dsoSlot, llvm::Value *minfoBeg,
+                                 llvm::Value *minfoEnd) {
+  llvm::Type *argTypes[] = {llvm::Type::getInt1Ty(gIR->context()),
+                            llvm::Type::getInt8PtrTy(gIR->context())};
+  const auto fnType = llvm::FunctionType::get(
+      llvm::Type::getVoidTy(gIR->context()), argTypes, false);
+  const auto fn =
+      llvm::Function::Create(fnType, llvm::GlobalValue::LinkOnceODRLinkage,
+                             "ldc.register_dso", &gIR->module);
+  fn->setVisibility(llvm::GlobalValue::HiddenVisibility);
+  auto argIt = fn->arg_begin();
+  const auto isShutdown = &*argIt;
+  isShutdown->setName("isShutdown");
+  ++argIt;
+  const auto minfoUsedPointer = &*argIt;
+  minfoUsedPointer->setName("minfoUsedPointer");
 
-  llvm::BasicBlock *const entryBB =
-      llvm::BasicBlock::Create(gIR->context(), "", targetFunc);
-  llvm::BasicBlock *const initBB =
-      llvm::BasicBlock::Create(gIR->context(), "init", targetFunc);
-  llvm::BasicBlock *const endBB =
-      llvm::BasicBlock::Create(gIR->context(), "end", targetFunc);
+  // Never inline – the functions is only called on startup/shutdown, hence
+  // it isn't worth the increase in code size.
+  fn->addFnAttr(llvm::Attribute::NoInline);
+
+  const auto dsoRegistry =
+      getRuntimeFunction(Loc(), gIR->module, "_d_dso_registry");
+  const auto recordPtrTy = dsoRegistry->getFunctionType()->getContainedType(1);
+
+  const auto entryBB = llvm::BasicBlock::Create(gIR->context(), "", fn);
+  const auto initBB = llvm::BasicBlock::Create(gIR->context(), "init", fn);
+  const auto endBB = llvm::BasicBlock::Create(gIR->context(), "end", fn);
 
   {
     IRBuilder<> b(entryBB);
-    llvm::Value *condEval =
-        b.CreateICmp(executeWhenInitialized ? llvm::ICmpInst::ICMP_NE
-                                            : llvm::ICmpInst::ICMP_EQ,
-                     b.CreateLoad(dsoInitialized), b.getInt8(0));
+    const auto loadedFlag = b.CreateTrunc(b.CreateLoad(dsoInitialized), b.getInt1Ty());
+    const auto condEval =
+        b.CreateICmp(llvm::ICmpInst::ICMP_EQ, loadedFlag, isShutdown);
     b.CreateCondBr(condEval, initBB, endBB);
   }
   {
     IRBuilder<> b(initBB);
-    b.CreateStore(b.getInt8(!executeWhenInitialized), dsoInitialized);
+    const auto newFlag = b.CreateXor(isShutdown, b.getTrue());
+    b.CreateStore(b.CreateZExt(newFlag, b.getInt8Ty()), dsoInitialized);
 
     llvm::Constant *version = DtoConstSize_t(1);
     llvm::Type *memberTypes[] = {version->getType(), dsoSlot->getType(),
@@ -307,40 +326,34 @@ static void build_dso_ctor_dtor_body(
     IRBuilder<> b(endBB);
     b.CreateRetVoid();
   }
+
+  return fn;
 }
 
-static void build_module_ref(std::string moduleMangle,
-                             llvm::Constant *thisModuleInfo) {
-  // Build the ModuleInfo reference and bracketing symbols.
-  llvm::Type *const moduleInfoPtrTy = DtoPtrToType(Module::moduleinfo->type);
+void build_module_ref(std::string moduleMangle,
+                      llvm::Constant *thisModuleInfo) {
+  // Only for the first D module to be emitted into this llvm::Module we need to
+  // create the _minfo_beg/_minfo_end symbols and the global ctors/dtors. For
+  // all subsequent ones, we just need to emit an additional reference into the
+  // .minfo section (even with --gc-sections, the section is already kept alive
+  // by the first module's reference being used in the ctor/dtor functions).
+  const bool isFirst = !gIR->module.getGlobalVariable("ldc.dso_slot");
 
-  std::string thismrefname = "_D";
-  thismrefname += moduleMangle;
-  thismrefname += "11__moduleRefZ";
-  auto thismref = new llvm::GlobalVariable(
-      gIR->module, moduleInfoPtrTy,
-      false, // FIXME: mRelocModel != llvm::Reloc::PIC_
-      llvm::GlobalValue::LinkOnceODRLinkage,
-      DtoBitCast(thisModuleInfo, moduleInfoPtrTy), thismrefname);
-  thismref->setSection(".minfo");
-  gIR->usedArray.push_back(thismref);
-}
-
-static void build_dso_registry_calls(std::string moduleMangle,
-                                     llvm::Constant *thisModuleInfo) {
-  // Build the ModuleInfo reference and bracketing symbols.
   llvm::Type *const moduleInfoPtrTy = DtoPtrToType(Module::moduleinfo->type);
 
   // Order is important here: We must create the symbols in the
   // bracketing sections right before/after the ModuleInfo reference
   // so that they end up in the correct order in the object file.
-  auto minfoBeg =
-      new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy,
-                               false, // FIXME: mRelocModel != llvm::Reloc::PIC_
-                               llvm::GlobalValue::LinkOnceODRLinkage,
-                               getNullPtr(moduleInfoPtrTy), "_minfo_beg");
-  minfoBeg->setSection(".minfo_beg");
-  minfoBeg->setVisibility(llvm::GlobalValue::HiddenVisibility);
+  llvm::GlobalVariable *minfoBeg;
+  if (isFirst) {
+    minfoBeg = new llvm::GlobalVariable(
+        gIR->module, moduleInfoPtrTy,
+        false, // FIXME: mRelocModel != llvm::Reloc::PIC_
+        llvm::GlobalValue::LinkOnceODRLinkage, getNullPtr(moduleInfoPtrTy),
+        "_minfo_beg");
+    minfoBeg->setSection(".minfo_beg");
+    minfoBeg->setVisibility(llvm::GlobalValue::HiddenVisibility);
+  }
 
   std::string thismrefname = "_D";
   thismrefname += moduleMangle;
@@ -352,6 +365,11 @@ static void build_dso_registry_calls(std::string moduleMangle,
       DtoBitCast(thisModuleInfo, moduleInfoPtrTy), thismrefname);
   thismref->setSection(".minfo");
   gIR->usedArray.push_back(thismref);
+
+  if (!isFirst) {
+    // Nothing left to do.
+    return;
+  }
 
   auto minfoEnd =
       new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy,
@@ -413,28 +431,41 @@ static void build_dso_registry_calls(std::string moduleMangle,
   // minfoUsedPointer store in the ctor as soon as the optimizer runs.
   llvm::Value *minfoRefPtr = DtoBitCast(thismref, getVoidPtrType());
 
+  const auto registerDSO =
+      buildRegisterDSO(dsoInitialized, dsoSlot, minfoBeg, minfoEnd);
+
   std::string ctorName = "ldc.dso_ctor.";
   ctorName += moduleMangle;
-  llvm::Function *dsoCtor = llvm::Function::Create(
+  const auto dsoCtor = llvm::Function::Create(
       llvm::FunctionType::get(llvm::Type::getVoidTy(gIR->context()), false),
       llvm::GlobalValue::LinkOnceODRLinkage, ctorName, &gIR->module);
   dsoCtor->setVisibility(llvm::GlobalValue::HiddenVisibility);
-  build_dso_ctor_dtor_body(dsoCtor, dsoInitialized, dsoSlot, minfoBeg, minfoEnd,
-                           minfoRefPtr, false);
+  {
+    const auto bb = llvm::BasicBlock::Create(gIR->context(), "", dsoCtor);
+    IRBuilder<> b{bb};
+    LLValue *params[] = {b.getFalse(), minfoRefPtr};
+    b.CreateCall(registerDSO, params);
+    b.CreateRetVoid();
+  }
   llvm::appendToGlobalCtors(gIR->module, dsoCtor, 65535);
 
   std::string dtorName = "ldc.dso_dtor.";
   dtorName += moduleMangle;
-  llvm::Function *dsoDtor = llvm::Function::Create(
+  const auto dsoDtor = llvm::Function::Create(
       llvm::FunctionType::get(llvm::Type::getVoidTy(gIR->context()), false),
       llvm::GlobalValue::LinkOnceODRLinkage, dtorName, &gIR->module);
   dsoDtor->setVisibility(llvm::GlobalValue::HiddenVisibility);
-  build_dso_ctor_dtor_body(dsoDtor, dsoInitialized, dsoSlot, minfoBeg, minfoEnd,
-                           minfoRefPtr, true);
+  {
+    const auto bb = llvm::BasicBlock::Create(gIR->context(), "", dsoDtor);
+    IRBuilder<> b{bb};
+    LLValue *params[] = {b.getTrue(), minfoRefPtr};
+    b.CreateCall(registerDSO, params);
+    b.CreateRetVoid();
+  }
   llvm::appendToGlobalDtors(gIR->module, dsoDtor, 65535);
 }
 
-static void build_llvm_used_array(IRState *p) {
+void build_llvm_used_array(IRState *p) {
   if (p->usedArray.empty()) {
     return;
   }
@@ -455,7 +486,7 @@ static void build_llvm_used_array(IRState *p) {
 }
 
 // Add module-private variables and functions for coverage analysis.
-static void addCoverageAnalysis(Module *m) {
+void addCoverageAnalysis(Module *m) {
   IF_LOG {
     Logger::println("Adding coverage analysis for module %s (%d lines)",
                     m->srcfile->toChars(), m->numlines);
@@ -580,7 +611,7 @@ static void addCoverageAnalysis(Module *m) {
 }
 
 // Initialize _d_cover_valid for coverage analysis
-static void addCoverageAnalysisInitializer(Module *m) {
+void addCoverageAnalysisInitializer(Module *m) {
   IF_LOG Logger::println("Adding coverage analysis _d_cover_valid initializer");
 
   size_t array_size = m->d_cover_valid_init.size();
@@ -596,7 +627,7 @@ static void addCoverageAnalysisInitializer(Module *m) {
 // Load InstrProf data from file and store in it IrState
 // TODO: This is probably not the right place, we should load it once for all
 // modules?
-static void loadInstrProfileData(IRState *irs) {
+void loadInstrProfileData(IRState *irs) {
 #if LDC_WITH_PGO
   // Only load from datafileInstrProf if we are not generating instrumented
   // code.
@@ -647,7 +678,7 @@ static void loadInstrProfileData(IRState *irs) {
 #endif
 }
 
-static void registerModuleInfo(Module *m, bool emitFullModuleInfo) {
+void registerModuleInfo(Module *m) {
   const auto moduleInfoSym = genModuleInfo(m);
 
   if ((global.params.targetTriple->isOSLinux() &&
@@ -663,11 +694,7 @@ static void registerModuleInfo(Module *m, bool emitFullModuleInfo) {
       global.params.targetTriple->getOS() == llvm::Triple::DragonFly
 #endif
           ) {
-    if (emitFullModuleInfo) {
-      build_dso_registry_calls(mangle(m), moduleInfoSym);
-    } else {
-      build_module_ref(mangle(m), moduleInfoSym);
-    }
+    build_module_ref(mangle(m), moduleInfoSym);
   } else {
     // build the modulereference and ctor for registering it
     LLFunction *mictor =
@@ -675,8 +702,9 @@ static void registerModuleInfo(Module *m, bool emitFullModuleInfo) {
     AppendFunctionToLLVMGlobalCtorsDtors(mictor, 65535, true);
   }
 }
+}
 
-void codegenModule(IRState *irs, Module *m, bool emitFullModuleInfo) {
+void codegenModule(IRState *irs, Module *m) {
   assert(!irs->dmodule &&
          "irs->module not null, codegen already in progress?!");
   irs->dmodule = m;
@@ -687,12 +715,12 @@ void codegenModule(IRState *irs, Module *m, bool emitFullModuleInfo) {
 
   // Skip pseudo-modules for coverage analysis
   std::string name = m->toChars();
-  bool pseudo_modules = (name == "__entrypoint") || (name == "__main");
-  if (global.params.cov && !pseudo_modules) {
+  const bool isPseudoModule = (name == "__entrypoint") || (name == "__main");
+  if (global.params.cov && !isPseudoModule) {
     addCoverageAnalysis(m);
   }
 
-  if (!pseudo_modules) {
+  if (!isPseudoModule) {
     loadInstrProfileData(gIR);
   }
 
@@ -711,7 +739,7 @@ void codegenModule(IRState *irs, Module *m, bool emitFullModuleInfo) {
   // user.
   if (!m->noModuleInfo) {
     // generate ModuleInfo
-    registerModuleInfo(m, emitFullModuleInfo);
+    registerModuleInfo(m);
 
     build_llvm_used_array(irs);
   }
