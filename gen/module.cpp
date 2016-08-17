@@ -23,23 +23,20 @@
 #include "template.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
-#include "gen/classes.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
-#include "gen/objcgen.h"
+#include "gen/moduleinfo.h"
 #include "gen/optimizer.h"
 #include "gen/programs.h"
-#include "gen/rttibuilder.h"
 #include "gen/runtime.h"
 #include "gen/structs.h"
 #include "gen/tollvm.h"
 #include "ir/irdsymbol.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
-#include "ir/irtype.h"
 #include "ir/irvar.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
@@ -170,116 +167,6 @@ void buildTargetFiles(Module *m, bool singleObj, bool library) {
   // FIXME: DMD overwrites header files. This should be done only in a DMD mode.
   // if (hdrfile)
   //    check_and_add_output_file(m, hdrfile->name->str);
-}
-
-static llvm::Function *build_module_function(
-    const std::string &name, const std::list<FuncDeclaration *> &funcs,
-    const std::list<VarDeclaration *> &gates = std::list<VarDeclaration *>()) {
-  if (gates.empty()) {
-    if (funcs.empty()) {
-      return nullptr;
-    }
-
-    if (funcs.size() == 1) {
-      return getIrFunc(funcs.front())->func;
-    }
-  }
-
-  // build ctor type
-  LLFunctionType *fnTy = LLFunctionType::get(LLType::getVoidTy(gIR->context()),
-                                             std::vector<LLType *>(), false);
-
-  std::string const symbolName = gABI->mangleFunctionForLLVM(name, LINKd);
-  assert(gIR->module.getFunction(symbolName) == NULL);
-  llvm::Function *fn = llvm::Function::Create(
-      fnTy, llvm::GlobalValue::InternalLinkage, symbolName, &gIR->module);
-  fn->setCallingConv(gABI->callingConv(fn->getFunctionType(), LINKd));
-
-  llvm::BasicBlock *bb = llvm::BasicBlock::Create(gIR->context(), "", fn);
-  IRBuilder<> builder(bb);
-
-  // debug info
-  ldc::DISubprogram dis = gIR->DBuilder.EmitModuleCTor(fn, name.c_str());
-  if (global.params.symdebug) {
-    // Need _some_ debug info to avoid inliner bug, see GitHub issue #998.
-    builder.SetCurrentDebugLocation(llvm::DebugLoc::get(0, 0, dis));
-  }
-
-  // Call ctor's
-  for (auto func : funcs) {
-    llvm::Function *f = getIrFunc(func)->func;
-#if LDC_LLVM_VER >= 307
-    llvm::CallInst *call = builder.CreateCall(f, {});
-#else
-    llvm::CallInst *call = builder.CreateCall(f, "");
-#endif
-    call->setCallingConv(gABI->callingConv(call->
-#if LDC_LLVM_VER < 307
-                                           getCalledFunction()
-                                               ->
-#endif
-                                           getFunctionType(),
-                                           LINKd));
-  }
-
-  // Increment vgate's
-  for (auto gate : gates) {
-    assert(getIrGlobal(gate));
-    llvm::Value *val = getIrGlobal(gate)->value;
-    llvm::Value *rval = builder.CreateLoad(val, "vgate");
-    llvm::Value *res = builder.CreateAdd(rval, DtoConstUint(1), "vgate");
-    builder.CreateStore(res, val);
-  }
-
-  builder.CreateRetVoid();
-  return fn;
-}
-
-// build module ctor
-
-static llvm::Function *build_module_ctor(Module *m) {
-  std::string name("_D");
-  name.append(mangle(m));
-  name.append("6__ctorZ");
-  IrModule *irm = getIrModule(m);
-  return build_module_function(name, irm->ctors, irm->gates);
-}
-
-// build module dtor
-
-static llvm::Function *build_module_dtor(Module *m) {
-  std::string name("_D");
-  name.append(mangle(m));
-  name.append("6__dtorZ");
-  return build_module_function(name, getIrModule(m)->dtors);
-}
-
-// build module unittest
-
-static llvm::Function *build_module_unittest(Module *m) {
-  std::string name("_D");
-  name.append(mangle(m));
-  name.append("10__unittestZ");
-  return build_module_function(name, getIrModule(m)->unitTests);
-}
-
-// build module shared ctor
-
-static llvm::Function *build_module_shared_ctor(Module *m) {
-  std::string name("_D");
-  name.append(mangle(m));
-  name.append("13__shared_ctorZ");
-  IrModule *irm = getIrModule(m);
-  return build_module_function(name, irm->sharedCtors, irm->sharedGates);
-}
-
-// build module shared dtor
-
-static llvm::Function *build_module_shared_dtor(Module *m) {
-  std::string name("_D");
-  name.append(mangle(m));
-  name.append("13__shared_dtorZ");
-  return build_module_function(name, getIrModule(m)->sharedDtors);
 }
 
 // build ModuleReference and register function, to register the module info in
@@ -760,7 +647,34 @@ static void loadInstrProfileData(IRState *irs) {
 #endif
 }
 
-static void genModuleInfo(Module *m, bool emitFullModuleInfo);
+static void registerModuleInfo(Module *m, bool emitFullModuleInfo) {
+  const auto moduleInfoSym = genModuleInfo(m);
+
+  if ((global.params.targetTriple->isOSLinux() &&
+       global.params.targetTriple->getEnvironment() != llvm::Triple::Android) ||
+      global.params.targetTriple->isOSFreeBSD() ||
+#if LDC_LLVM_VER > 305
+      global.params.targetTriple->isOSNetBSD() ||
+      global.params.targetTriple->isOSOpenBSD() ||
+      global.params.targetTriple->isOSDragonFly()
+#else
+      global.params.targetTriple->getOS() == llvm::Triple::NetBSD ||
+      global.params.targetTriple->getOS() == llvm::Triple::OpenBSD ||
+      global.params.targetTriple->getOS() == llvm::Triple::DragonFly
+#endif
+          ) {
+    if (emitFullModuleInfo) {
+      build_dso_registry_calls(mangle(m), moduleInfoSym);
+    } else {
+      build_module_ref(mangle(m), moduleInfoSym);
+    }
+  } else {
+    // build the modulereference and ctor for registering it
+    LLFunction *mictor =
+        build_module_reference_and_ctor(mangle(m), moduleInfoSym);
+    AppendFunctionToLLVMGlobalCtorsDtors(mictor, 65535, true);
+  }
+}
 
 void codegenModule(IRState *irs, Module *m, bool emitFullModuleInfo) {
   assert(!irs->dmodule &&
@@ -797,7 +711,7 @@ void codegenModule(IRState *irs, Module *m, bool emitFullModuleInfo) {
   // user.
   if (!m->noModuleInfo) {
     // generate ModuleInfo
-    genModuleInfo(m, emitFullModuleInfo);
+    registerModuleInfo(m, emitFullModuleInfo);
 
     build_llvm_used_array(irs);
   }
@@ -808,208 +722,4 @@ void codegenModule(IRState *irs, Module *m, bool emitFullModuleInfo) {
 
   gIR = nullptr;
   irs->dmodule = nullptr;
-}
-
-// Put out instance of ModuleInfo for this Module
-static void genModuleInfo(Module *m, bool emitFullModuleInfo) {
-  // resolve ModuleInfo
-  if (!Module::moduleinfo) {
-    m->error("object.d is missing the ModuleInfo struct");
-    fatal();
-  }
-  // check for patch
-  else {
-    // The base struct should consist only of _flags/_index.
-    if (Module::moduleinfo->structsize != 4 + 4) {
-      m->error("Unexpected size of struct object.ModuleInfo; "
-               "druntime version does not match compiler (see -v)");
-      fatal();
-    }
-  }
-
-  // use the RTTIBuilder
-  RTTIBuilder b(Module::moduleinfo);
-
-  // some types
-  llvm::Type *const moduleInfoPtrTy = DtoPtrToType(Module::moduleinfo->type);
-  LLType *classinfoTy = Type::typeinfoclass->type->ctype->getLLType();
-
-  // importedModules[]
-  std::vector<LLConstant *> importInits;
-  LLConstant *importedModules = nullptr;
-  llvm::ArrayType *importedModulesTy = nullptr;
-  for (size_t i = 0; i < m->aimports.dim; i++) {
-    Module *mod = static_cast<Module *>(m->aimports.data[i]);
-    if (!mod->needModuleInfo() || mod == m) {
-      continue;
-    }
-
-    importInits.push_back(
-        DtoBitCast(getIrModule(mod)->moduleInfoSymbol(), moduleInfoPtrTy));
-  }
-  // has import array?
-  if (!importInits.empty()) {
-    importedModulesTy =
-        llvm::ArrayType::get(moduleInfoPtrTy, importInits.size());
-    importedModules = LLConstantArray::get(importedModulesTy, importInits);
-  }
-
-  // localClasses[]
-  LLConstant *localClasses = nullptr;
-  llvm::ArrayType *localClassesTy = nullptr;
-  ClassDeclarations aclasses;
-  // printf("members->dim = %d\n", members->dim);
-  for (size_t i = 0; i < m->members->dim; i++) {
-    (*m->members)[i]->addLocalClass(&aclasses);
-  }
-  // fill inits
-  std::vector<LLConstant *> classInits;
-  for (size_t i = 0; i < aclasses.dim; i++) {
-    ClassDeclaration *cd = aclasses[i];
-    DtoResolveClass(cd);
-
-    if (cd->isInterfaceDeclaration()) {
-      IF_LOG Logger::println("skipping interface '%s' in moduleinfo",
-                             cd->toPrettyChars());
-      continue;
-    } else if (cd->sizeok != SIZEOKdone) {
-      IF_LOG Logger::println(
-          "skipping opaque class declaration '%s' in moduleinfo",
-          cd->toPrettyChars());
-      continue;
-    }
-    IF_LOG Logger::println("class: %s", cd->toPrettyChars());
-    LLConstant *c =
-        DtoBitCast(getIrAggr(cd)->getClassInfoSymbol(), classinfoTy);
-    classInits.push_back(c);
-  }
-  // has class array?
-  if (!classInits.empty()) {
-    localClassesTy = llvm::ArrayType::get(classinfoTy, classInits.size());
-    localClasses = LLConstantArray::get(localClassesTy, classInits);
-  }
-
-// These must match the values in druntime/src/object_.d
-#define MIstandalone 4
-#define MItlsctor 8
-#define MItlsdtor 0x10
-#define MIctor 0x20
-#define MIdtor 0x40
-#define MIxgetMembers 0x80
-#define MIictor 0x100
-#define MIunitTest 0x200
-#define MIimportedModules 0x400
-#define MIlocalClasses 0x800
-#define MInew 0x80000000 // it's the "new" layout
-
-  llvm::Function *fsharedctor = build_module_shared_ctor(m);
-  llvm::Function *fshareddtor = build_module_shared_dtor(m);
-  llvm::Function *funittest = build_module_unittest(m);
-  llvm::Function *fctor = build_module_ctor(m);
-  llvm::Function *fdtor = build_module_dtor(m);
-
-  unsigned flags = MInew;
-  if (fctor) {
-    flags |= MItlsctor;
-  }
-  if (fdtor) {
-    flags |= MItlsdtor;
-  }
-  if (fsharedctor) {
-    flags |= MIctor;
-  }
-  if (fshareddtor) {
-    flags |= MIdtor;
-  }
-#if 0
-    if (fgetmembers)
-        flags |= MIxgetMembers;
-    if (fictor)
-        flags |= MIictor;
-#endif
-  if (funittest) {
-    flags |= MIunitTest;
-  }
-  if (importedModules) {
-    flags |= MIimportedModules;
-  }
-  if (localClasses) {
-    flags |= MIlocalClasses;
-  }
-
-  if (!m->needmoduleinfo) {
-    flags |= MIstandalone;
-  }
-
-  b.push_uint(flags); // flags
-  b.push_uint(0);     // index
-
-  if (fctor) {
-    b.push(fctor);
-  }
-  if (fdtor) {
-    b.push(fdtor);
-  }
-  if (fsharedctor) {
-    b.push(fsharedctor);
-  }
-  if (fshareddtor) {
-    b.push(fshareddtor);
-  }
-#if 0
-    if (fgetmembers)
-        b.push(fgetmembers);
-    if (fictor)
-        b.push(fictor);
-#endif
-  if (funittest) {
-    b.push(funittest);
-  }
-  if (importedModules) {
-    b.push_size(importInits.size());
-    b.push(importedModules);
-  }
-  if (localClasses) {
-    b.push_size(classInits.size());
-    b.push(localClasses);
-  }
-
-  // Put out module name as a 0-terminated string.
-  const char *name = m->toPrettyChars();
-  const size_t len = strlen(name) + 1;
-  llvm::IntegerType *it = llvm::IntegerType::getInt8Ty(gIR->context());
-  llvm::ArrayType *at = llvm::ArrayType::get(it, len);
-  b.push(toConstantArray(it, at, name, len, false));
-
-  objc_Module_genmoduleinfo_classes();
-
-  // create and set initializer
-  LLGlobalVariable *moduleInfoSym = getIrModule(m)->moduleInfoSymbol();
-  b.finalize(moduleInfoSym->getType()->getPointerElementType(), moduleInfoSym);
-  setLinkage({LLGlobalValue::ExternalLinkage, false}, moduleInfoSym);
-
-  if ((global.params.targetTriple->isOSLinux() &&
-       global.params.targetTriple->getEnvironment() != llvm::Triple::Android) ||
-      global.params.targetTriple->isOSFreeBSD() ||
-#if LDC_LLVM_VER > 305
-      global.params.targetTriple->isOSNetBSD() ||
-      global.params.targetTriple->isOSOpenBSD() ||
-      global.params.targetTriple->isOSDragonFly()
-#else
-      global.params.targetTriple->getOS() == llvm::Triple::NetBSD ||
-      global.params.targetTriple->getOS() == llvm::Triple::OpenBSD ||
-      global.params.targetTriple->getOS() == llvm::Triple::DragonFly
-#endif
-          ) {
-    if (emitFullModuleInfo) {
-      build_dso_registry_calls(mangle(m), moduleInfoSym);
-    } else {
-      build_module_ref(mangle(m), moduleInfoSym);
-    }
-  } else {
-    // build the modulereference and ctor for registering it
-    LLFunction *mictor =
-        build_module_reference_and_ctor(mangle(m), moduleInfoSym);
-    AppendFunctionToLLVMGlobalCtorsDtors(mictor, 65535, true);
-  }
 }
