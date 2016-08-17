@@ -37,8 +37,10 @@ else()
 endif()
 
 if(BUILD_SHARED_LIBS)
-    if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Linux" AND NOT ${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-        message(FATAL_ERROR "Shared libraries (BUILD_SHARED_LIBS) are only supported on Linux and FreeBSD for the time being.")
+    if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Linux" AND
+       NOT ${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD" AND
+       NOT APPLE)
+        message(FATAL_ERROR "Shared libraries (BUILD_SHARED_LIBS) are only supported on Linux, macOS and FreeBSD for the time being.")
     endif()
 
     list(APPEND D_FLAGS -relocation-model=pic)
@@ -422,10 +424,10 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
     # C executables.
 
     if(BUILD_SHARED_LIBS)
-        if(${CMAKE_SYSTEM} MATCHES "FreeBSD")
-            set(dso_system_libs "m" "pthread")
-        else()
+        if(${CMAKE_SYSTEM} MATCHES "Linux")
             set(dso_system_libs "m" "pthread" "rt" "dl")
+        else()
+            set(dso_system_libs "m" "pthread")
         endif()
         target_link_libraries(druntime-ldc${target_suffix} ${dso_system_libs})
     endif()
@@ -638,6 +640,10 @@ macro(build_test_runner name_suffix d_flags c_flags)
             add_test(build-${l} "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ${l})
         endforeach()
 
+        if(NOT APPLE)
+            list(APPEND flags -L--no-as-needed)
+        endif()
+
         set(libarg "druntime-ldc-unittest${name_suffix}")
         add_test(NAME build-druntime-test-runner${name_suffix}
             COMMAND ${LDC_EXE_FULL}
@@ -653,7 +659,7 @@ macro(build_test_runner name_suffix d_flags c_flags)
             add_test(NAME build-phobos2-test-runner${name_suffix}
                 COMMAND ${LDC_EXE_FULL}
                     -of${PROJECT_BINARY_DIR}/phobos2-test-runner${name_suffix}${CMAKE_EXECUTABLE_SUFFIX}
-                    -L--no-as-needed -defaultlib=${libarg} -debuglib=${libarg}
+                    -defaultlib=${libarg} -debuglib=${libarg}
                     -singleobj ${flags} ${RUNTIME_DIR}/src/test_runner.d
             )
             set_tests_properties(build-phobos2-test-runner${name_suffix} PROPERTIES
