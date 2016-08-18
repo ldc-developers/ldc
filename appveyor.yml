@@ -17,7 +17,7 @@ os: Visual Studio 2015
 environment:
   matrix:
     - APPVEYOR_JOB_ARCH:   x64
-      D_COMPILER:          ldc
+      D_COMPILER:          dmd
     - APPVEYOR_JOB_ARCH:   x86
       D_COMPILER:          dmd
 
@@ -72,16 +72,16 @@ install:
             c:\projects\dmd2\windows\bin\dmd.exe --version
         } Else {
             If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
-                Start-FileDownload 'http://github.com/ldc-developers/ldc/releases/download/v1.0.0/ldc2-1.0.0-win64-msvc.zip' -FileName 'ldc2.zip'
-                7z x ldc2.zip > $null
-                Set-Item -path env:DMD -value c:\projects\ldc2-1.0.0-win64-msvc\bin\ldmd2.exe
-                c:\projects\ldc2-1.0.0-win64-msvc\bin\ldc2 --version
+                Start-FileDownload 'http://github.com/ldc-developers/ldc/releases/download/LDC-Win64-master/LDC-master-2113-x64.7z' -FileName 'ldc2.7z'
             } Else {
-                Start-FileDownload 'http://github.com/ldc-developers/ldc/releases/download/v1.0.0/ldc2-1.0.0-win32-msvc.zip' -FileName 'ldc2.zip'
-                7z x ldc2.zip > $null
-                Set-Item -path env:DMD -value c:\projects\ldc2-1.0.0-win32-msvc\bin\ldmd2.exe
-                c:\projects\ldc2-1.0.0-win32-msvc\bin\ldc2 --version
+                Start-FileDownload 'http://github.com/ldc-developers/ldc/releases/download/LDC-Win64-master/LDC-master-2113-x86.7z' -FileName 'ldc2.7z'
             }
+            md ldc2 > $null
+            cd ldc2
+            7z x ..\ldc2.7z > $null
+            cd ..
+            Set-Item -path env:DMD -value c:\projects\ldc2\bin\ldmd2.exe
+            c:\projects\ldc2\bin\ldc2 --version
         }
   # Download & extract GNU make + utils (for dmd-testsuite)
   - bash --version
@@ -188,6 +188,13 @@ after_build:
 test_script:
   - cd c:\projects\ninja-ldc
   - bin\ldc2 -version
+  - bin\ldc2 -main -unittest -g ..\ldc\runtime\druntime\src\core\thread.d
+  - bin\ldc2 -g ..\ldc\tests\d2\dmd-testsuite\runnable\eh.d
+  - ps: |
+        Push-AppveyorArtifact thread.exe
+        Push-AppveyorArtifact thread.pdb
+        Push-AppveyorArtifact eh.exe
+        Push-AppveyorArtifact eh.pdb
   # Compile, link & execute a hello-world program
   - ps: 'echo "import std.stdio; void main() { writeln(""Hello world!""); }" > hello.d'
   - bin\ldc2 hello.d
