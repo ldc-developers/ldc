@@ -376,11 +376,17 @@ void msvc_eh_terminate() nothrow
             mov EDX,[RAX];
             mov RBX, 0xFFFFFF;
             and RDX, RBX;
-            cmp RDX, 0xC48348;          // add ESP,nn
+            cmp RDX, 0xC48348;          // add ESP,nn  (debug UCRT libs)
             je L_addESP_found;
-            cmp DX, 0xCC90;             // nop; int3;
+            cmp DL, 0x90;               // nop; (release libs)
             jne L_term;
-            mov RDX, 0x28;              // release build of vcruntimelib
+
+        L_release_ucrt:
+            mov RDX,[RSP+8];
+            cmp word ptr[RDX-2], 0xD3FF; // call ebx?
+            sete BL;                     // if not, it's UCRT 10.0.14393.0
+            movzx RBX,BL;
+            mov RDX, 0x28;               // release build of vcruntimelib
             jmp L_retTerminate;
 
         L_addESP_found:
@@ -393,6 +399,8 @@ void msvc_eh_terminate() nothrow
             lea RDX,[RSP+RDX+0x10];     // RSP before returning from terminate()
 
             mov RAX,[RDX];              // return address inside __FrameUnwindHandler
+
+            or RDX,RBX;                 // RDX aligned, save RBX == 0 for UCRT 10.0.14393.0, 1 otherwise
 
             cmp byte ptr [RAX-19], 0xEB; // skip back to default jump inside "switch" (libvcruntimed.lib)
             je L_switchFound;
@@ -425,7 +433,13 @@ void msvc_eh_terminate() nothrow
 
             add RAX,2;
         L_xorSkipped:
-            mov RBX,[RDX-8]; // restore RBX (pushed inside terminate())
+            mov RBX, RDX;                 // extract UCRT marker from EDX
+            and RDX, ~1;
+            and RBX, 1;
+
+            cmovnz RBX,[RDX-8]; // restore RBX (pushed inside terminate())
+            cmovz RBX,[RSP];    // RBX not changed in terminate inside UCRT 10.0.14393.0
+
             lea RSP,[RDX+8];
             push RAX;       // new return after setting return value in __frameUnwindHandler
 
