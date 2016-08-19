@@ -429,21 +429,27 @@ public:
 
         // We won't emit ti, so emit the special member functions in here.
         if (sd->xeq && sd->xeq != StructDeclaration::xerreq) {
+          sd->xeq->semantic3(sd->xeq->_scope);
           Declaration_codegen(sd->xeq);
         }
         if (sd->xcmp && sd->xcmp != StructDeclaration::xerrcmp) {
+          sd->xcmp->semantic3(sd->xcmp->_scope);
           Declaration_codegen(sd->xcmp);
         }
         if (FuncDeclaration *ftostr = search_toString(sd)) {
+          ftostr->semantic3(ftostr->_scope);
           Declaration_codegen(ftostr);
         }
         if (sd->xhash) {
+          sd->xhash->semantic3(sd->xhash->_scope);
           Declaration_codegen(sd->xhash);
         }
         if (sd->postblit) {
+          sd->postblit->semantic3(sd->postblit->_scope);
           Declaration_codegen(sd->postblit);
         }
         if (sd->dtor) {
+          sd->dtor->semantic3(sd->dtor->_scope);
           Declaration_codegen(sd->dtor);
         }
       }
