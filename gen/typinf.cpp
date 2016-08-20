@@ -428,22 +428,25 @@ public:
         assert(ti->minst || sd->requestTypeInfo);
 
         // We won't emit ti, so emit the special member functions in here.
-        if (sd->xeq && sd->xeq != StructDeclaration::xerreq) {
+        if (sd->xeq && sd->xeq != StructDeclaration::xerreq &&
+            sd->xeq->semanticRun >= PASSsemantic3) {
           Declaration_codegen(sd->xeq);
         }
-        if (sd->xcmp && sd->xcmp != StructDeclaration::xerrcmp) {
+        if (sd->xcmp && sd->xcmp != StructDeclaration::xerrcmp &&
+            sd->xcmp->semanticRun >= PASSsemantic3) {
           Declaration_codegen(sd->xcmp);
         }
         if (FuncDeclaration *ftostr = search_toString(sd)) {
-          Declaration_codegen(ftostr);
+          if (ftostr->semanticRun >= PASSsemantic3)
+            Declaration_codegen(ftostr);
         }
-        if (sd->xhash) {
+        if (sd->xhash && sd->xhash->semanticRun >= PASSsemantic3) {
           Declaration_codegen(sd->xhash);
         }
-        if (sd->postblit) {
+        if (sd->postblit && sd->postblit->semanticRun >= PASSsemantic3) {
           Declaration_codegen(sd->postblit);
         }
-        if (sd->dtor) {
+        if (sd->dtor && sd->dtor->semanticRun >= PASSsemantic3) {
           Declaration_codegen(sd->dtor);
         }
       }

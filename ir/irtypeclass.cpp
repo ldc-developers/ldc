@@ -166,10 +166,10 @@ IrTypeClass::buildVtblType(Type *first, FuncDeclarations *vtbl_array) {
     // This pops up in some other places in the frontend as well, however
     // it is probably a bug that it still occurs that late.
     if (!fd->type->nextOf() && fd->inferRetType) {
-      Logger::println("Running late semantic3 to infer return type.");
+      Logger::println("Running late functionSemantic to infer return type.");
       TemplateInstance *spec = fd->isSpeculative();
       unsigned int olderrs = global.errors;
-      fd->semantic3(fd->_scope);
+      fd->functionSemantic();
       if (spec && global.errors != olderrs) {
         spec->errors = global.errors - olderrs;
       }
