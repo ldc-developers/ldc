@@ -16,9 +16,8 @@
 #include "driver/linker.h"
 #include "driver/toobj.h"
 #include "gen/logger.h"
+#include "gen/modules.h"
 #include "gen/runtime.h"
-
-void codegenModule(IRState *irs, Module *m, bool emitFullModuleInfo);
 
 /// The module with the frontend-generated C main() definition.
 extern Module *g_entrypointModule;
@@ -219,15 +218,9 @@ void CodeGenerator::emit(Module *m) {
 
   prepareLLModule(m);
 
-  // If we are compiling to a single object file then only the first module
-  // needs to generate a call to _d_dso_registry(). All other modules only add
-  // a module reference.
-  // FIXME Find better name.
-  const bool emitFullModuleInfo =
-      !singleObj_ || (singleObj_ && moduleCount_ == 1);
-  codegenModule(ir_, m, emitFullModuleInfo);
+  codegenModule(ir_, m);
   if (m == g_dMainModule) {
-    codegenModule(ir_, g_entrypointModule, emitFullModuleInfo);
+    codegenModule(ir_, g_entrypointModule);
 
     if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
       // On Android, bracket TLS data with the symbols _tlsstart and _tlsend, as

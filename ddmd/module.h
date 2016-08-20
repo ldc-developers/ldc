@@ -207,10 +207,6 @@ public:
     void accept(Visitor *v) { v->visit(this); }
 };
 
-#if IN_LLVM
-    void buildTargetFiles(Module *m, bool singleObj, bool library);
-#endif
-
 struct ModuleDeclaration
 {
     Loc loc;

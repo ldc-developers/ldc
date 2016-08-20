@@ -1672,7 +1672,7 @@ llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm) {
   return LLConstantArray::get(at, vals);
 }
 
-llvm::GlobalVariable *getOrCreateGlobal(Loc &loc, llvm::Module &module,
+llvm::GlobalVariable *getOrCreateGlobal(const Loc &loc, llvm::Module &module,
                                         llvm::Type *type, bool isConstant,
                                         llvm::GlobalValue::LinkageTypes linkage,
                                         llvm::Constant *init,

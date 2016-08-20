@@ -33,6 +33,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/metadata.h"
+#include "gen/modules.h"
 #include "gen/objcgen.h"
 #include "gen/optimizer.h"
 #include "gen/passes/Passes.h"
