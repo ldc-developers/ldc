@@ -102,6 +102,14 @@ extern (C) double aliasInlineSafe(double[] a, double[] b)
     return s;
 }
 
+// Make sure an enclosing function's 'noinline' attribute isn't copied to
+// the inlined IR function (having 'alwaysinline') (issue #1711).
+double neverInlinedEnclosingFunction()
+{
+    pragma(inline, false);
+    return muladd(1.0, 2.0, 3.0);
+}
+
 // LLVM-DAG: attributes #[[UNSAFEFPMATH]] ={{.*}} "unsafe-fp-math"="true"
 // LLVM-DAG: attributes #[[UNSAFEFPMATH2]] ={{.*}} "unsafe-fp-math"="true"
 // LLVM-DAG: attributes #[[UNSAFEFPMATH3]] ={{.*}} "unsafe-fp-math"="false"

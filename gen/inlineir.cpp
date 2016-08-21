@@ -134,6 +134,7 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
     }
 
     fun->setLinkage(llvm::GlobalValue::PrivateLinkage);
+    fun->removeFnAttr(llvm::Attribute::NoInline);
     fun->addFnAttr(llvm::Attribute::AlwaysInline);
     fun->setCallingConv(llvm::CallingConv::C);
 
