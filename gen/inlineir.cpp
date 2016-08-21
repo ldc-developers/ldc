@@ -97,7 +97,7 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
 #endif
 
     std::string errstr = err.getMessage();
-    if (errstr != "") {
+    if (!errstr.empty()) {
       error(
           tinst->loc,
           "can't parse inline LLVM IR:\n%s\n%s\n%s\nThe input string was: \n%s",
@@ -106,16 +106,19 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
           stream.str().c_str());
     }
 
+    m->setDataLayout(gIR->module.getDataLayout());
+
 #if LDC_LLVM_VER >= 308
     llvm::Linker(gIR->module).linkInModule(std::move(m));
 #elif LDC_LLVM_VER >= 306
     llvm::Linker(&gIR->module).linkInModule(m.get());
 #else
-    std::string errstr2 = "";
-    llvm::Linker(&gIR->module).linkInModule(m, &errstr2);
-    if (errstr2 != "")
+    errstr.clear();
+    llvm::Linker(&gIR->module).linkInModule(m, &errstr);
+    if (!errstr.empty()) {
       error(tinst->loc, "Error when linking in llvm inline ir: %s",
-            errstr2.c_str());
+            errstr.c_str());
+    }
 #endif
   }
 
