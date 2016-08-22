@@ -21,7 +21,7 @@ dependencies:
     - if [[ ! -e ldc2-1.0.0-linux-x86_64/bin/ldc2 ]]; then wget https://github.com/ldc-developers/ldc/releases/download/v1.0.0/ldc2-1.0.0-linux-x86_64.tar.xz && xzcat ldc2-1.0.0-linux-x86_64.tar.xz | tar -xvf - ; fi
 
   override:
-    - sudo apt-get remove clang
+    - sudo apt-get remove clang llvm
     - sudo apt-get install libconfig++8-dev libedit-dev
     - sudo apt-get install llvm-3.9 llvm-3.9-dev clang-3.9
     - pip install --user lit
