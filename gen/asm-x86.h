@@ -2006,7 +2006,7 @@ typedef enum { Opr_Invalid, Opr_Immediate, Opr_Reg, Opr_Mem } OperandClass;
 // mov eax, fs:4
 // -- have to assume we know whether or not to use '$'
 
-static Token eof_tok;
+static Token *eof_tok;
 static Expression *Handled;
 static Identifier *ident_seg;
 
@@ -2076,8 +2076,11 @@ struct AsmProcessor {
 
       ident_seg = Identifier::idPool("seg", std::strlen("seg"));
 
-      eof_tok.value = TOKeof;
-      eof_tok.next = nullptr;
+      if (!eof_tok) {
+        eof_tok = new Token();
+        eof_tok->value = TOKeof;
+        eof_tok->next = nullptr;
+      }
     }
   }
 
@@ -2087,7 +2090,7 @@ struct AsmProcessor {
     if (token->next) {
       token = token->next;
     } else {
-      token = &eof_tok;
+      token = eof_tok;
     }
   }
 
@@ -2095,7 +2098,7 @@ struct AsmProcessor {
     if (token->next) {
       return token->next;
     }
-    return &eof_tok;
+    return eof_tok;
   }
 
   void expectEnd() {
@@ -3718,7 +3721,7 @@ struct AsmProcessor {
     case TOKfloat64v:
     case TOKfloat80v:
       // %% need different types?
-      e = createRealExp(stmt->loc, token->float80value, Type::tfloat80);
+      e = createRealExp(stmt->loc, token->floatvalue, Type::tfloat80);
       nextToken();
       break;
     case TOKidentifier: {
@@ -3939,7 +3942,7 @@ struct AsmProcessor {
         if (token->value == TOKfloat32v || token->value == TOKfloat64v ||
             token->value == TOKfloat80v) {
           long words[3];
-          real_to_target(words, & token->float80value.rv(), mode);
+          real_to_target(words, & token->floatvalue.rv(), mode);
           // don't use directives..., just use .long like GCC
           insnTemplate->printf(".long\t%u", words[0]);
           if (mode != SFmode)

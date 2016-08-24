@@ -42,7 +42,8 @@ LLType *DtoComplexBaseType(Type *t) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLConstant *DtoConstComplex(Type *_ty, longdouble re, longdouble im) {
+LLConstant *DtoConstComplex(Type *_ty, const ldc::real_t &re,
+                            const ldc::real_t &im) {
   Type *base = nullptr;
   switch (_ty->toBasetype()->ty) {
   default:

@@ -55,11 +55,10 @@ import ddmd.nspace;
 import ddmd.opover;
 import ddmd.optimize;
 import ddmd.parse;
+import ddmd.root.ctfloat;
 import ddmd.root.file;
 import ddmd.root.filename;
-import ddmd.root.longdouble;
 import ddmd.root.outbuffer;
-import ddmd.root.port;
 import ddmd.root.rmem;
 import ddmd.root.rootobject;
 import ddmd.sideeffect;
@@ -2037,7 +2036,10 @@ private:
         char[__traits(classInstanceSize, IndexExp)] indexexp;
         char[__traits(classInstanceSize, SliceExp)] sliceexp;
         // Ensure that the union is suitably aligned.
-        real for_alignment_only;
+      version(IN_LLVM)
+        long for_alignment_only;
+      else
+        real_t for_alignment_only;
     }
 
     __AnonStruct__u u;
@@ -2050,7 +2052,7 @@ private:
  */
 extern (C++) int RealEquals(real_t x1, real_t x2)
 {
-    return (Port.isNan(x1) && Port.isNan(x2)) || Port.fequal(x1, x2);
+    return (CTFloat.isNaN(x1) && CTFloat.isNaN(x2)) || CTFloat.isIdentical(x1, x2);
 }
 
 /************************ TypeDotIdExp ************************************/
@@ -2590,19 +2592,19 @@ public:
     real_t toReal()
     {
         error("floating point constant expression expected instead of %s", toChars());
-        return ldouble(0);
+        return real_t(0);
     }
 
     real_t toImaginary()
     {
         error("floating point constant expression expected instead of %s", toChars());
-        return ldouble(0);
+        return real_t(0);
     }
 
     complex_t toComplex()
     {
         error("floating point constant expression expected instead of %s", toChars());
-        return cast(complex_t)0.0;
+        return complex_t(real_t(0));
     }
 
     StringExp toStringExp()
@@ -3342,19 +3344,19 @@ public:
         normalize(); // necessary until we fix all the paints of 'type'
         Type t = type.toBasetype();
         if (t.ty == Tuns64)
-            return ldouble(cast(d_uns64)value);
+            return real_t(cast(d_uns64)value);
         else
-            return ldouble(cast(d_int64)value);
+            return real_t(cast(d_int64)value);
     }
 
     override real_t toImaginary()
     {
-        return ldouble(0);
+        return real_t(0);
     }
 
     override complex_t toComplex()
     {
-        return cast(complex_t)toReal();
+        return complex_t(toReal());
     }
 
     override bool isBool(bool result)
@@ -3517,12 +3519,12 @@ public:
 
     override real_t toReal()
     {
-        return type.isreal() ? value : ldouble(0);
+        return type.isreal() ? value : real_t(0);
     }
 
     override real_t toImaginary()
     {
-        return type.isreal() ? ldouble(0) : value;
+        return type.isreal() ? real_t(0) : value;
     }
 
     override complex_t toComplex()
@@ -3532,7 +3534,7 @@ public:
 
     override bool isBool(bool result)
     {
-        return result ? (value != 0) : (value == 0);
+        return result ? cast(bool)value : !cast(bool)value;
     }
 
     override void accept(Visitor v)
@@ -7715,7 +7717,7 @@ public:
                 {
                     // x/iv = i(-x/v)
                     // Therefore, the result is 0
-                    e2 = new CommaExp(loc, e2, new RealExp(loc, ldouble(0.0), t1));
+                    e2 = new CommaExp(loc, e2, new RealExp(loc, real_t(0), t1));
                     e2.type = t1;
                     Expression e = new AssignExp(loc, e1, e2);
                     e.type = t1;
@@ -14126,7 +14128,7 @@ public:
         sinteger_t intpow = 0;
         if (e2.op == TOKint64 && (cast(sinteger_t)e2.toInteger() == 2 || cast(sinteger_t)e2.toInteger() == 3))
             intpow = e2.toInteger();
-        else if (e2.op == TOKfloat64 && (e2.toReal() == cast(sinteger_t)e2.toReal()))
+        else if (e2.op == TOKfloat64 && (e2.toReal() == real_t(cast(sinteger_t)e2.toReal())))
             intpow = cast(sinteger_t)e2.toReal();
         // Deal with x^^2, x^^3 immediately, since they are of practical importance.
         if (intpow == 2 || intpow == 3)
@@ -14159,7 +14161,7 @@ public:
             return this;
         }
         e = new ScopeExp(loc, mmath);
-        if (e2.op == TOKfloat64 && e2.toReal() == 0.5)
+        if (e2.op == TOKfloat64 && e2.toReal() == real_t(0.5))
         {
             // Replace e1 ^^ 0.5 with .std.math.sqrt(x)
             e = new CallExp(loc, new DotIdExp(loc, e, Id._sqrt), e1);

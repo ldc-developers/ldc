@@ -34,6 +34,14 @@ struct Target
     static int c_long_doublesize;    // size of a C 'long double'
     static int classinfosize;        // size of 'ClassInfo'
 
+#ifdef IN_LLVM
+    struct RealProperties
+    {
+        static real_t max, min_normal, nan, snan, infinity, epsilon;
+        static int64_t dig, mant_dig, max_exp, min_exp, max_10_exp, min_10_exp;
+    };
+#endif
+
     static void _init();
     // Type sizes and support.
     static unsigned alignsize(Type* type);

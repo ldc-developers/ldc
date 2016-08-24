@@ -205,7 +205,9 @@ struct Token
         d_uns64 uns64value;
 
         // Floats
-        d_float80 float80value;
+#if !defined(IN_LLVM)
+        real_t floatvalue;
+#endif
 
         struct
         {   utf8_t *ustring;     // UTF8 string
@@ -215,6 +217,10 @@ struct Token
 
         Identifier *ident;
     };
+
+#ifdef IN_LLVM
+    real_t floatvalue = real_t(0);
+#endif
 
     static const char *tochars[TOKMAX];
     static void initTokens();

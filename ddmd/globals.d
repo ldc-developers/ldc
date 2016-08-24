@@ -419,17 +419,6 @@ alias d_int32 = int32_t;
 alias d_uns32 = uint32_t;
 alias d_int64 = int64_t;
 alias d_uns64 = uint64_t;
-alias d_float32 = float;
-alias d_float64 = double;
-alias d_float80 = real;
-version(IN_LLVM_MSVC)
-{
-    alias real_t = double;
-}
-else
-{
-    alias real_t = real;
-}
 
 // file location
 struct Loc

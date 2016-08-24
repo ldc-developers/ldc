@@ -20,6 +20,8 @@
 #include <pthread.h>
 #endif
 
+using llvm::APFloat;
+
 /*
 These guys are allocated by ddmd/target.d:
 int Target::ptrsize;
@@ -46,6 +48,36 @@ void Target::_init() {
 
   // LDC_FIXME: Set once we support it.
   cppExceptions = false;
+
+  RealProperties::nan = real_t::nan();
+  RealProperties::snan = real_t::snan();
+  RealProperties::infinity = real_t::infinity();
+
+  auto pTargetRealSemantics = &real->getFltSemantics();
+  if (pTargetRealSemantics == &APFloat::x87DoubleExtended) {
+    RealProperties::max = CTFloat::parse("0x1.fffffffffffffffep+16383");
+    RealProperties::min_normal = CTFloat::parse("0x1p-16382");
+    RealProperties::epsilon = CTFloat::parse("0x1p-63");
+    RealProperties::dig = 18;
+    RealProperties::mant_dig = 64;
+    RealProperties::max_exp = 16384;
+    RealProperties::min_exp = -16381;
+    RealProperties::max_10_exp = 4932;
+    RealProperties::min_10_exp = -4932;
+  } else if (pTargetRealSemantics == &APFloat::IEEEdouble ||
+             pTargetRealSemantics == &APFloat::PPCDoubleDouble) {
+    RealProperties::max = CTFloat::parse("0x1.fffffffffffffp+1023");
+    RealProperties::min_normal = CTFloat::parse("0x1p-1022");
+    RealProperties::epsilon = CTFloat::parse("0x1p-52");
+    RealProperties::dig = 15;
+    RealProperties::mant_dig = 53;
+    RealProperties::max_exp = 1024;
+    RealProperties::min_exp = -1021;
+    RealProperties::max_10_exp = 308;
+    RealProperties::min_10_exp = -307;
+  } else {
+    assert(0 && "No type properties for target `real` type");
+  }
 }
 
 /******************************
@@ -141,10 +173,10 @@ Expression *Target::paintAsType(Expression *e, Type *type) {
     return createIntegerExp(e->loc, u.int64value, type);
 
   case Tfloat32:
-    return createRealExp(e->loc, ldouble(u.float32value), type);
+    return createRealExp(e->loc, u.float32value, type);
 
   case Tfloat64:
-    return createRealExp(e->loc, ldouble(u.float64value), type);
+    return createRealExp(e->loc, u.float64value, type);
 
   default:
     assert(0);

@@ -1155,6 +1155,7 @@ int cppmain(int argc, char **argv) {
 
   // Initialization
   Type::_init();
+  ldc::real_t::_init();
   Id::initialize();
   Module::_init();
   Target::_init();

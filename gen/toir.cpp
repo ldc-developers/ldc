@@ -352,13 +352,13 @@ public:
       default:
         llvm_unreachable("Unexpected complex floating point type");
       case Tcomplex32:
-        c = DtoConstFP(Type::tfloat32, ldouble(0));
+        c = DtoConstFP(Type::tfloat32, 0);
         break;
       case Tcomplex64:
-        c = DtoConstFP(Type::tfloat64, ldouble(0));
+        c = DtoConstFP(Type::tfloat64, 0);
         break;
       case Tcomplex80:
-        c = DtoConstFP(Type::tfloat80, ldouble(0));
+        c = DtoConstFP(Type::tfloat80, 0);
         break;
       }
       res = DtoAggrPair(DtoType(e->type), c, c);
@@ -1389,7 +1389,7 @@ public:
       post = DtoGEP1(val, offset, false, "", p->scopebb());
     } else if (e1type->isfloating()) {
       assert(e2type->isfloating());
-      LLValue *one = DtoConstFP(e1type, ldouble(1.0));
+      LLValue *one = DtoConstFP(e1type, 1);
       if (e->op == TOKplusplus) {
         post = llvm::BinaryOperator::CreateFAdd(val, one, "", p->scopebb());
       } else if (e->op == TOKminusminus) {

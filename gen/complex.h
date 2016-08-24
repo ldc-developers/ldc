@@ -14,8 +14,8 @@
 #ifndef LDC_GEN_COMPLEX_H
 #define LDC_GEN_COMPLEX_H
 
+#include "ctfloat.h"
 #include "tokens.h"
-#include "longdouble.h"
 #include "dvalue.h"
 
 struct Loc;
@@ -30,7 +30,8 @@ class Value;
 llvm::StructType *DtoComplexType(Type *t);
 llvm::Type *DtoComplexBaseType(Type *t);
 
-llvm::Constant *DtoConstComplex(Type *t, longdouble re, longdouble im);
+llvm::Constant *DtoConstComplex(Type *t, const ldc::real_t &re,
+                                const ldc::real_t &im);
 
 llvm::Constant *DtoComplexShuffleMask(unsigned a, unsigned b);
 

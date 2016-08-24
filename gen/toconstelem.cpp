@@ -119,8 +119,12 @@ public:
   //////////////////////////////////////////////////////////////////////////////
 
   void visit(RealExp *e) override {
-    IF_LOG Logger::print("RealExp::toConstElem: %s @ %s | %La\n", e->toChars(),
-                         e->type->toChars(), e->value);
+    IF_LOG {
+      char buffer[64];
+      CTFloat::sprintImpl(buffer, 'a', e->value);
+      Logger::print("RealExp::toConstElem: %s @ %s | %s\n", e->toChars(),
+                    e->type->toChars(), buffer);
+    }
     LOG_SCOPE;
     Type *t = e->type->toBasetype();
     result = DtoConstFP(t, e->value);
