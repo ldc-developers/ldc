@@ -4,6 +4,12 @@
 
 // RUN: %ldc %s -I%S -c -output-ll                  -O3 -of=%t.O3.ll && FileCheck %s --check-prefix OPT3 < %t.O3.ll
 // RUN: %ldc %s -I%S -c -output-ll -enable-inlining -O0 -of=%t.O0.ll && FileCheck %s --check-prefix OPT0 < %t.O0.ll
+
+// Test linkage with separate compilation.
+// RUN: %ldc -c %S/inputs/inlinables_staticvar.d -of=%t.import%obj \
+// RUN:   && %ldc -I%S -enable-inlining %t.import%obj -run %s
+
+// Test linkage with non-singleobj build.
 // RUN: %ldc -I%S -enable-inlining %S/inputs/inlinables_staticvar.d -run %s
 // RUN: %ldc -I%S -O3              %S/inputs/inlinables_staticvar.d -run %s
 
@@ -55,6 +61,16 @@ void checkNestedStruct_2() @weak
     assert(addAndCheckNestedStruct(7+101, 9));
 }
 
+void checkTemplatedNestedStruct_1() @weak
+{
+    assert(addAndCheckTemplatedNestedStruct(0, 7));
+}
+void checkTemplatedNestedStruct_2() @weak
+{
+    assert(addAndCheckTemplatedNestedStructIndirect(7, 101));
+    assert(addAndCheckTemplatedNestedStruct(7+101, 9));
+}
+
 // OPT0-LABEL: define{{.*}} @_Dmain(
 // OPT3-LABEL: define{{.*}} @_Dmain(
 extern(D)
@@ -68,4 +84,6 @@ void main()
     checkInsideNestedFunc_2();
     checkNestedStruct_1();
     checkNestedStruct_2();
+    checkTemplatedNestedStruct_1();
+    checkTemplatedNestedStruct_2();
 }

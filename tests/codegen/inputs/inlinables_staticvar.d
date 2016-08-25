@@ -83,3 +83,24 @@ pragma(inline, false) bool addAndCheckNestedStructIndirect(int checkbefore, int 
 }
 
 /+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++/
+
+pragma(inline, true) bool addAndCheckTemplatedNestedStruct(T)(T checkbefore, T increment)
+{
+    struct NestedStruct(T)
+    {
+        static T structValue;
+    }
+
+    if (NestedStruct!T.structValue != checkbefore)
+        return false;
+
+    NestedStruct!T.structValue += increment;
+    return true;
+}
+
+pragma(inline, false) bool addAndCheckTemplatedNestedStructIndirect(T)(T checkbefore, T increment)
+{
+    return addAndCheckTemplatedNestedStruct!T(checkbefore, increment);
+}
+
+/+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++/

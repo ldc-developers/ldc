@@ -34,8 +34,8 @@ llvm::FunctionType *DtoFunctionType(Type *t, IrFuncTy &irFty, Type *thistype,
                                     bool hasSel = false);
 llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl);
 
-void DtoResolveFunction(FuncDeclaration *fdecl);
-void DtoDeclareFunction(FuncDeclaration *fdecl);
+void DtoResolveFunction(FuncDeclaration *fdecl, bool mayDefine = true);
+void DtoDeclareFunction(FuncDeclaration *fdecl, bool mayDefine = true);
 void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally = false);
 
 void DtoDefineNakedFunction(FuncDeclaration *fd);
