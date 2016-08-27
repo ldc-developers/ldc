@@ -13,18 +13,24 @@
 
 module driver.main;
 
+import core.stdc.stdio;
 import ddmd.globals;
 import ddmd.root.file;
 import ddmd.root.outbuffer;
 
 extern (C++) void writeModuleDependencyFile()
 {
-    if (global.params.moduleDepsFile !is null)
+    if (global.params.moduleDeps)
     {
-        auto deps = File(global.params.moduleDepsFile);
-        OutBuffer *ob = global.params.moduleDeps;
-        deps.setbuffer(cast(void*)ob.data, ob.offset);
-        deps.write();
+        OutBuffer* ob = global.params.moduleDeps;
+        if (global.params.moduleDepsFile)
+        {
+            auto deps = File(global.params.moduleDepsFile);
+            deps.setbuffer(cast(void*)ob.data, ob.offset);
+            deps.write();
+        }
+        else
+            printf("%.*s", cast(int)ob.offset, ob.data);
     }
 }
 

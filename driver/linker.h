@@ -43,12 +43,12 @@ int createStaticLibrary();
 /**
  * Delete the executable that was previously linked with linkObjToBinary.
  */
-void deleteExecutable();
+void deleteExeFile();
 
 /**
  * Runs the executable that was previously linked with linkObjToBinary.
  * @return the return status of the executable.
  */
-int runExecutable();
+int runProgram();
 
 #endif // LDC_DRIVER_LINKER_H
