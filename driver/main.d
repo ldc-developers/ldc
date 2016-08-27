@@ -27,6 +27,7 @@ extern (C++) void writeModuleDependencyFile()
         {
             auto deps = File(global.params.moduleDepsFile);
             deps.setbuffer(cast(void*)ob.data, ob.offset);
+            deps._ref = 1;
             deps.write();
         }
         else
