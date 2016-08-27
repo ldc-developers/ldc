@@ -55,7 +55,7 @@ extern cl::opt<std::string> hdrDir;
 extern cl::opt<std::string> hdrFile;
 extern cl::list<std::string> versions;
 extern cl::list<std::string> transitions;
-extern cl::opt<std::string> moduleDepsFile;
+extern cl::opt<std::string> moduleDeps;
 extern cl::opt<std::string> ir2objCacheDir;
 
 extern cl::opt<std::string> mArch;

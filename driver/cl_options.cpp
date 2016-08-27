@@ -251,8 +251,9 @@ static cl::list<std::string, StringsAdapter>
                    cl::Prefix);
 
 cl::opt<std::string>
-    moduleDepsFile("deps", cl::desc("Write module dependencies to filename"),
-                   cl::value_desc("filename"));
+    moduleDeps("deps",
+               cl::desc("Write module dependencies to filename (only imports)"),
+               cl::value_desc("filename"), cl::ValueOptional);
 
 cl::opt<std::string> mArch("march",
                            cl::desc("Architecture to generate code for:"));

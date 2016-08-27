@@ -469,9 +469,10 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   global.params.doHdrGeneration |=
       global.params.hdrdir || global.params.hdrname;
 
-  initFromString(global.params.moduleDepsFile, moduleDepsFile);
-  if (global.params.moduleDepsFile != nullptr) {
+  if (moduleDeps.getNumOccurrences() != 0) {
     global.params.moduleDeps = new OutBuffer;
+    if (!moduleDeps.empty())
+      global.params.moduleDepsFile = mem.xstrdup(moduleDeps.c_str());
   }
 
 // PGO options

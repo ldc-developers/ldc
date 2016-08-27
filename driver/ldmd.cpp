@@ -169,7 +169,8 @@ Usage:\n\
   -debug=ident   compile in debug code identified by ident\n\
   -debuglib=name    set symbolic debug library to name\n\
   -defaultlib=name  set default library to name\n\
-  -deps=filename write module dependencies to filename\n\
+  -deps          print module dependencies (imports/file/version/debug/lib)\n\
+  -deps=filename write module dependencies to filename (only imports)\n\
   -dip25         implement http://wiki.dlang.org/DIP25 (experimental)\n\
   -fPIC          generate position independent code\n\
   -g             add symbolic debug info\n\
@@ -709,11 +710,8 @@ Params parseArgs(size_t originalArgc, char **originalArgv,
         result.defaultLibName = p + 1 + 11;
       } else if (memcmp(p + 1, "debuglib=", 9) == 0) {
         result.debugLibName = p + 1 + 9;
-      } else if (memcmp(p + 1, "deps=", 5) == 0) {
-        result.moduleDepsFile = p + 1 + 5;
-        if (!result.moduleDepsFile[0]) {
-          goto Lnoarg;
-        }
+      } else if (memcmp(p + 1, "deps", 4) == 0) {
+        result.moduleDepsFile = p + 1 + (p[1 + 4] == '=' ? 5 : 4);
       } else if (memcmp(p + 1, "man", 3) == 0) {
         browse("http://wiki.dlang.org/LDC");
         exit(EXIT_SUCCESS);
@@ -924,7 +922,8 @@ void buildCommandLine(std::vector<const char *> &r, const Params &p) {
     r.push_back(concat("-debuglib=", p.debugLibName));
   }
   if (p.moduleDepsFile) {
-    r.push_back(concat("-deps=", p.moduleDepsFile));
+    r.push_back(p.moduleDepsFile[0] == 0 ? "-deps"
+                                         : concat("-deps=", p.moduleDepsFile));
   }
   if (p.color == Color::on) {
     r.push_back("-enable-color");
