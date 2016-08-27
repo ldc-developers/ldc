@@ -13,27 +13,9 @@
 
 module driver.main;
 
-import core.stdc.stdio;
 import ddmd.globals;
 import ddmd.root.file;
 import ddmd.root.outbuffer;
-
-extern (C++) void writeModuleDependencyFile()
-{
-    if (global.params.moduleDeps)
-    {
-        OutBuffer* ob = global.params.moduleDeps;
-        if (global.params.moduleDepsFile)
-        {
-            auto deps = File(global.params.moduleDepsFile);
-            deps.setbuffer(cast(void*)ob.data, ob.offset);
-            deps._ref = 1;
-            deps.write();
-        }
-        else
-            printf("%.*s", cast(int)ob.offset, ob.data);
-    }
-}
 
 // In driver/main.cpp
 extern(C++) int cppmain(int argc, char **argv);

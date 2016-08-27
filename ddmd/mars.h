@@ -99,6 +99,11 @@ void readFile(Loc loc, File *f);
 void writeFile(Loc loc, File *f);
 void ensurePathToNameExists(Loc loc, const char *name);
 
+#if IN_LLVM
+int mars_mainBody(Strings& files, Strings& libmodules, bool createStaticLib,
+                  bool createSharedLib, bool staticFlag);
+#endif
+
 const char *importHint(const char *s);
 /// Little helper function for writting out deps.
 void escapePath(OutBuffer *buf, const char *fname);
