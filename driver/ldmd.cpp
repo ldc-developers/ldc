@@ -326,96 +326,75 @@ struct Warnings {
 };
 
 struct Params {
-  bool allinst;
-  Deprecated::Type useDeprecated;
-  bool compileOnly;
-  bool coverage;
-  bool emitSharedLib;
-  bool pic;
-  bool emitMap;
-  bool multiObj;
-  Debug::Type debugInfo;
-  bool alwaysStackFrame;
-  Model::Type targetModel;
-  bool profile;
-  bool verbose;
-  bool vcolumns;
-  bool vdmd;
-  bool vgc;
-  bool logTlsUse;
-  unsigned errorLimit;
-  bool errorLimitSet;
-  Warnings::Type warnings;
-  bool optimize;
-  bool noObj;
-  char *objDir;
-  char *objName;
-  bool preservePaths;
-  bool generateDocs;
-  char *docDir;
-  char *docName;
-  bool generateHeaders;
-  char *headerDir;
-  char *headerName;
-  bool generateJson;
-  char *jsonName;
-  bool ignoreUnsupportedPragmas;
-  bool enforcePropertySyntax;
-  bool enableInline;
-  bool emitStaticLib;
-  bool quiet;
-  bool release;
-  BoundsCheck::Type boundsChecks;
-  bool emitUnitTests;
+  bool allinst = false;
+  Deprecated::Type useDeprecated = Deprecated::warn;
+  bool compileOnly = false;
+  bool coverage = false;
+  bool emitSharedLib = false;
+  bool pic = false;
+  bool emitMap = false;
+  bool multiObj = false;
+  Debug::Type debugInfo = Debug::none;
+  bool alwaysStackFrame = false;
+  Model::Type targetModel = Model::automatic;
+  bool profile = false;
+  bool verbose = false;
+  bool vcolumns = false;
+  bool vdmd = false;
+  bool vgc = false;
+  bool logTlsUse = false;
+  unsigned errorLimit = 0;
+  bool errorLimitSet = false;
+  Warnings::Type warnings = Warnings::none;
+  bool optimize = false;
+  bool noObj = false;
+  char *objDir = nullptr;
+  char *objName = nullptr;
+  bool preservePaths = false;
+  bool generateDocs = false;
+  char *docDir = nullptr;
+  char *docName = nullptr;
+  bool generateHeaders = false;
+  char *headerDir = nullptr;
+  char *headerName = nullptr;
+  bool generateJson = false;
+  char *jsonName = nullptr;
+  bool ignoreUnsupportedPragmas = false;
+  bool enforcePropertySyntax = false;
+  bool enableInline = false;
+  bool emitStaticLib = false;
+  bool quiet = false;
+  bool release = false;
+  BoundsCheck::Type boundsChecks = BoundsCheck::defaultVal;
+  bool emitUnitTests = false;
   std::vector<char *> modulePaths;
   std::vector<char *> importPaths;
-  bool debugFlag;
-  unsigned debugLevel;
+  bool debugFlag = false;
+  unsigned debugLevel = 0;
   std::vector<char *> debugIdentifiers;
-  unsigned versionLevel;
+  unsigned versionLevel = 0;
   std::vector<char *> versionIdentifiers;
   std::vector<char *> linkerSwitches;
   std::vector<char *> transitions;
-  char *defaultLibName;
-  char *debugLibName;
-  char *moduleDepsFile;
-  Color::Type color;
-  bool useDIP25;
-  char *conf;
+  char *defaultLibName = nullptr;
+  char *debugLibName = nullptr;
+  char *moduleDepsFile = nullptr;
+  Color::Type color = Color::automatic;
+  bool useDIP25 = false;
+  char *conf = nullptr;
 
-  bool hiddenDebugB;
-  bool hiddenDebugC;
-  bool hiddenDebugF;
-  bool hiddenDebugR;
-  bool hiddenDebugX;
-  bool hiddenDebugY;
+  bool hiddenDebugB = false;
+  bool hiddenDebugC = false;
+  bool hiddenDebugF = false;
+  bool hiddenDebugR = false;
+  bool hiddenDebugX = false;
+  bool hiddenDebugY = false;
 
   std::vector<char *> unknownSwitches;
 
-  bool run;
+  bool run = false;
   std::vector<char *> files;
   std::vector<char *> runArgs;
-
-  Params()
-      : allinst(false), useDeprecated(Deprecated::warn), compileOnly(false),
-        coverage(false), emitSharedLib(false), pic(false), emitMap(false),
-        multiObj(false), debugInfo(Debug::none), alwaysStackFrame(false),
-        targetModel(Model::automatic), profile(false), verbose(false),
-        vcolumns(false), vdmd(false), vgc(false), logTlsUse(false),
-        errorLimit(0), errorLimitSet(false), warnings(Warnings::none),
-        optimize(false), noObj(false), objDir(nullptr), objName(nullptr),
-        preservePaths(false), generateDocs(false), docDir(nullptr),
-        docName(nullptr), generateHeaders(false), headerDir(nullptr),
-        headerName(nullptr), generateJson(false), jsonName(nullptr),
-        ignoreUnsupportedPragmas(false), enforcePropertySyntax(false),
-        enableInline(false), emitStaticLib(false), quiet(false), release(false),
-        boundsChecks(BoundsCheck::defaultVal), emitUnitTests(false),
-        debugFlag(false), debugLevel(0), versionLevel(0),
-        defaultLibName(nullptr), debugLibName(nullptr), moduleDepsFile(nullptr),
-        color(Color::automatic), useDIP25(false), conf(nullptr),
-        hiddenDebugB(false), hiddenDebugC(false), hiddenDebugF(false),
-        hiddenDebugR(false), hiddenDebugX(false), hiddenDebugY(false),
-        run(false) {}
 };
 
 /**
