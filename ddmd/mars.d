@@ -1581,12 +1581,13 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules,
         {
             auto deps = File(global.params.moduleDepsFile);
             deps.setbuffer(cast(void*)ob.data, ob.offset);
+            writeFile(Loc(), &deps);
           version (IN_LLVM)
           {
             // fix LDC issue #1625
-            deps._ref = 1;
+            global.params.moduleDeps = null;
+            global.params.moduleDepsFile = null;
           }
-            writeFile(Loc(), &deps);
         }
         else
             printf("%.*s", cast(int)ob.offset, ob.data);
