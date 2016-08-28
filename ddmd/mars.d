@@ -1592,9 +1592,9 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules,
         else
             printf("%.*s", cast(int)ob.offset, ob.data);
     }
+    printCtfePerformanceStats();
   version (IN_LLVM) {} else
   {
-    printCtfePerformanceStats();
     Library library = null;
     if (global.params.lib)
     {
