@@ -608,8 +608,10 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     } else if (strcmp(ext, global.s_ext) == 0) {
       global.params.output_s = OUTPUTFLAGset;
       autofound = true;
-    } else if (strcmp(ext, global.obj_ext) == 0 ||
-               strcmp(ext, global.obj_ext_alt) == 0) {
+    } else if (strcmp(ext, global.obj_ext) == 0 || strcmp(ext, "obj") == 0) {
+      // global.obj_ext hasn't been corrected yet for MSVC targets as we first
+      // need the command line to figure out the target...
+      // so treat both 'o' and 'obj' extensions as object files
       global.params.output_o = OUTPUTFLAGset;
       autofound = true;
     } else {
@@ -1089,6 +1091,8 @@ int cppmain(int argc, char **argv) {
     // mscoff enables slightly different handling of interface functions 
     // in the front end
     global.params.mscoff = triple->isKnownWindowsMSVCEnvironment();
+    if (global.params.mscoff)
+      global.obj_ext = "obj";
   }
 
   // allocate the target abi
@@ -1108,7 +1112,8 @@ int cppmain(int argc, char **argv) {
   }
 
   Strings libmodules;
-  return mars_mainBody(files, libmodules, createStaticLib, createSharedLib, staticFlag);
+  return mars_mainBody(files, libmodules, createStaticLib, createSharedLib,
+                       staticFlag);
 }
 
 void codegenModules(Modules &modules) {

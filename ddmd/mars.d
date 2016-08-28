@@ -1248,27 +1248,21 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules,
         {
             /* Deduce what to do with a file based on its extension
              */
-          version (IN_LLVM)
-          {
-            if (FileName.equals(ext, global.obj_ext) ||
-                (TARGET_WINDOS && FileName.equals(ext, global.obj_ext_alt)))
+            if (FileName.equals(ext, global.obj_ext))
             {
                 global.params.objfiles.push(files[i]);
+              version (IN_LLVM) {} else
+              {
+                libmodules.push(files[i]);
+              }
                 continue;
             }
+          version (IN_LLVM)
+          {
             // Detect LLVM bitcode files on commandline
             if (FileName.equals(ext, global.bc_ext)) {
               global.params.bitcodeFiles.push(files[i]);
               continue;
-            }
-          }
-          else
-          {
-            if (FileName.equals(ext, global.obj_ext))
-            {
-                global.params.objfiles.push(files[i]);
-                libmodules.push(files[i]);
-                continue;
             }
           }
             if (FileName.equals(ext, global.lib_ext))

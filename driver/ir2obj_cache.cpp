@@ -71,16 +71,11 @@ public:
   }
 };
 
-const char *cacheObjectExtension() {
-  return global.params.targetTriple->isOSWindows() ? global.obj_ext_alt
-                                                   : global.obj_ext;
-}
-
 void storeCacheFileName(llvm::StringRef cacheObjectHash,
                         llvm::SmallString<128> &filePath) {
   filePath = opts::ir2objCacheDir;
   llvm::sys::path::append(filePath, llvm::Twine("ircache_") + cacheObjectHash +
-                                        "." + cacheObjectExtension());
+                                        "." + global.obj_ext);
 }
 }
 
