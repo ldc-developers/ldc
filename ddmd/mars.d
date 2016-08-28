@@ -1226,10 +1226,7 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules,
     // Create Modules
     Modules modules;
     modules.reserve(files.dim);
-  version (IN_LLVM) {} else
-  {
     bool firstmodule = true;
-  }
     for (size_t i = 0; i < files.dim; i++)
     {
         const(char)* name;
@@ -1251,10 +1248,7 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules,
             if (FileName.equals(ext, global.obj_ext))
             {
                 global.params.objfiles.push(files[i]);
-              version (IN_LLVM) {} else
-              {
                 libmodules.push(files[i]);
-              }
                 continue;
             }
           version (IN_LLVM)
@@ -1268,10 +1262,7 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules,
             if (FileName.equals(ext, global.lib_ext))
             {
                 global.params.libfiles.push(files[i]);
-              version (IN_LLVM) {} else
-              {
                 libmodules.push(files[i]);
-              }
                 continue;
             }
           version (IN_LLVM) {} else
