@@ -153,8 +153,6 @@ version(IN_LLVM)
     extern (C++):
 
     void genCmain(Scope* sc);
-    // in gen/objcgen.cpp
-    void objc_init();
     // in gen/modules.cpp
     void buildTargetFiles(Module m, bool singleObj, bool library);
     // in driver/main.cpp
@@ -1169,15 +1167,8 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules,
     Module._init();
     Target._init();
     Expression._init();
-  version (IN_LLVM) {} else
-  {
     objc_tryMain_init();
-  }
     builtin_init();
-  version (IN_LLVM)
-  {
-    objc_init();
-  }
 
   version (IN_LLVM) {} else
   {
