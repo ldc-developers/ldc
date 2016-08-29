@@ -32,13 +32,6 @@ std::vector<LLConstant *> retainedSymbols;
 llvm::StringMap<LLGlobalVariable *> methVarNameMap;
 llvm::StringMap<LLGlobalVariable *> methVarRefMap;
 
-void initSymbols() {
-  hasSymbols = false;
-  retainedSymbols.clear();
-  methVarNameMap.clear();
-  methVarRefMap.clear();
-}
-
 void retain(LLConstant *sym) {
     retainedSymbols.push_back(DtoBitCast(sym, getVoidPtrType()));
 }
@@ -122,9 +115,12 @@ bool objc_isSupported(const llvm::Triple &triple) {
   return false;
 }
 
-void objc_init() {
-  initSymbols();
-  ObjcSelector::_init();
+// called by ddmd.objc.objc_tryMain_init()
+void objc_initSymbols() {
+  hasSymbols = false;
+  retainedSymbols.clear();
+  methVarNameMap.clear();
+  methVarRefMap.clear();
 }
 
 LLGlobalVariable *objc_getMethVarRef(const ObjcSelector &sel) {

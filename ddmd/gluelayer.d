@@ -31,7 +31,7 @@ version (IN_LLVM)
     extern (C++) RET retStyle(TypeFunction tf);
     extern (C++) Statement asmSemantic(AsmStatement s, Scope* sc);
 
-    extern(C++) void objc_initSymbols() {}
+    extern (C++) void objc_initSymbols(); // in gen/objcgen.cpp
 }
 else version (NoBackend)
 {

@@ -86,9 +86,6 @@ void buildTargetFiles(Module *m, bool singleObj, bool library) {
   if (!m->objfile) {
     const char *objname = library ? nullptr : global.params.objname;
     if (global.params.output_o) {
-      const char *extension = global.params.targetTriple->isOSWindows()
-                                  ? global.obj_ext_alt
-                                  : global.obj_ext;
       llvm::SmallString<128> tempFilename; // must outlive buildFilePath call
       if (global.params.run) {
         using namespace llvm;
@@ -99,21 +96,21 @@ void buildTargetFiles(Module *m, bool singleObj, bool library) {
         std::error_code EC;
         if (global.params.objdir) {
           // Prepend with path to form absolute filename.
-          EC = sys::fs::createUniqueFile(Twine(global.params.objdir) +
-                                             sys::path::get_separator() +
-                                             tmpname + "-%%%%%%%." + extension,
-                                         tempFilename);
+          EC = sys::fs::createUniqueFile(
+              Twine(global.params.objdir) + sys::path::get_separator() +
+                  tmpname + "-%%%%%%%." + global.obj_ext,
+              tempFilename);
         } else {
           // Uses current dir as base for file.
           EC = sys::fs::createUniqueFile(
-              Twine(tmpname) + "-%%%%%%%." + extension, tempFilename);
+              Twine(tmpname) + "-%%%%%%%." + global.obj_ext, tempFilename);
         }
         if (!EC) {
           objname = tempFilename.c_str();
         }
       }
-      m->objfile = m->buildFilePath(objname, global.params.objdir, extension,
-                                    library, fqnNames);
+      m->objfile = m->buildFilePath(objname, global.params.objdir,
+                                    global.obj_ext, library, fqnNames);
     } else if (global.params.output_bc) {
       m->objfile = m->buildFilePath(objname, global.params.objdir,
                                     global.bc_ext, library, fqnNames);

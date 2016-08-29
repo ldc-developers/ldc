@@ -60,9 +60,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#if LDC_POSIX
-#include <errno.h>
-#elif _WIN32
+#if _WIN32
 #include <windows.h>
 #endif
 
@@ -76,9 +74,6 @@ int rt_init();
 
 // In ddmd/doc.d
 void gendocfile(Module *m);
-
-// In driver/main.d
-void writeModuleDependencyFile();
 
 using namespace opts;
 
@@ -474,9 +469,10 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   global.params.doHdrGeneration |=
       global.params.hdrdir || global.params.hdrname;
 
-  initFromString(global.params.moduleDepsFile, moduleDepsFile);
-  if (global.params.moduleDepsFile != nullptr) {
+  if (moduleDeps.getNumOccurrences() != 0) {
     global.params.moduleDeps = new OutBuffer;
+    if (!moduleDeps.empty())
+      global.params.moduleDepsFile = mem.xstrdup(moduleDeps.c_str());
   }
 
 // PGO options
@@ -612,8 +608,10 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     } else if (strcmp(ext, global.s_ext) == 0) {
       global.params.output_s = OUTPUTFLAGset;
       autofound = true;
-    } else if (strcmp(ext, global.obj_ext) == 0 ||
-               strcmp(ext, global.obj_ext_alt) == 0) {
+    } else if (strcmp(ext, global.obj_ext) == 0 || strcmp(ext, "obj") == 0) {
+      // global.obj_ext hasn't been corrected yet for MSVC targets as we first
+      // need the command line to figure out the target...
+      // so treat both 'o' and 'obj' extensions as object files
       global.params.output_o = OUTPUTFLAGset;
       autofound = true;
     } else {
@@ -1010,49 +1008,6 @@ static void dumpPredefinedVersions() {
   }
 }
 
-/// Emits the .json AST description file.
-///
-/// This (ugly) piece of code has been taken from DMD's mars.c and should be
-/// kept in sync with the former.
-static void emitJson(Modules &modules) {
-  OutBuffer buf;
-  json_generate(&buf, &modules);
-
-  // Write buf to file
-  const char *name = global.params.jsonfilename;
-
-  if (name && name[0] == '-' &&
-      name[1] == 0) { // Write to stdout; assume it succeeds
-    (void)fwrite(buf.data, 1, buf.offset, stdout);
-  } else {
-    /* The filename generation code here should be harmonized with
-     * Module::setOutfile()
-     */
-    const char *jsonfilename;
-
-    if (name && *name) {
-      jsonfilename = FileName::defaultExt(name, global.json_ext);
-    } else {
-      // Generate json file name from first obj name
-      const char *n = (*global.params.objfiles)[0];
-      n = FileName::name(n);
-
-      // if (!FileName::absolute(name))
-      // name = FileName::combine(dir, name);
-
-      jsonfilename = FileName::forceExt(n, global.json_ext);
-    }
-
-    ensurePathToNameExists(Loc(), jsonfilename);
-
-    auto jsonfile = File::create(jsonfilename);
-
-    jsonfile->setbuffer(buf.data, buf.offset);
-    jsonfile->ref = 1;
-    writeFile(Loc(), jsonfile);
-  }
-}
-
 int cppmain(int argc, char **argv) {
 #if LDC_LLVM_VER >= 309
   llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
@@ -1136,6 +1091,8 @@ int cppmain(int argc, char **argv) {
     // mscoff enables slightly different handling of interface functions 
     // in the front end
     global.params.mscoff = triple->isKnownWindowsMSVCEnvironment();
+    if (global.params.mscoff)
+      global.obj_ext = "obj";
   }
 
   // allocate the target abi
@@ -1147,275 +1104,19 @@ int cppmain(int argc, char **argv) {
 
   if (global.params.targetTriple->isOSWindows()) {
     global.dll_ext = "dll";
-    global.lib_ext = "lib";
+    global.lib_ext =
+        (global.params.targetTriple->isWindowsMSVCEnvironment() ? "lib" : "a");
   } else {
     global.dll_ext = "so";
     global.lib_ext = "a";
   }
 
-  // Initialization
-  Type::_init();
-  Id::initialize();
-  Module::_init();
-  Target::_init();
-  Expression::_init();
-  builtin_init();
-  objc_init();
+  Strings libmodules;
+  return mars_mainBody(files, libmodules, createStaticLib, createSharedLib,
+                       staticFlag);
+}
 
-  // Build import search path
-  if (global.params.imppath) {
-    for (unsigned i = 0; i < global.params.imppath->dim; i++) {
-      const char *path =
-          static_cast<const char *>(global.params.imppath->data[i]);
-      Strings *a = FileName::splitPath(path);
-
-      if (a) {
-        if (!global.path) {
-          global.path = new Strings();
-        }
-        global.path->append(a);
-      }
-    }
-  }
-
-  // Build string import search path
-  if (global.params.fileImppath) {
-    for (unsigned i = 0; i < global.params.fileImppath->dim; i++) {
-      const char *path =
-          static_cast<const char *>(global.params.fileImppath->data[i]);
-      Strings *a = FileName::splitPath(path);
-
-      if (a) {
-        if (!global.filePath) {
-          global.filePath = new Strings();
-        }
-        global.filePath->append(a);
-      }
-    }
-  }
-
-  if (global.params.addMain) {
-    // a dummy name, we never actually look up this file
-    files.push(const_cast<char *>(global.main_d));
-  }
-
-  // Create Modules
-  Modules modules;
-  modules.reserve(files.dim);
-  for (unsigned i = 0; i < files.dim; i++) {
-    Identifier *id;
-    const char *ext;
-    const char *name;
-
-    const char *p = files.data[i];
-
-    p = FileName::name(p); // strip path
-    ext = FileName::ext(p);
-    if (ext) {
-#if LDC_POSIX
-      if (strcmp(ext, global.obj_ext) == 0)
-#else
-      if (Port::stricmp(ext, global.obj_ext) == 0 ||
-          Port::stricmp(ext, global.obj_ext_alt) == 0)
-#endif
-      {
-        global.params.objfiles->push(static_cast<const char *>(files.data[i]));
-        continue;
-      }
-
-      // Detect LLVM bitcode files on commandline
-#if LDC_POSIX
-      if (strcmp(ext, global.bc_ext) == 0)
-#else
-      if (Port::stricmp(ext, global.bc_ext) == 0)
-#endif
-      {
-        global.params.bitcodeFiles->push(static_cast<const char *>(files.data[i]));
-        continue;
-      }
-
-#if LDC_POSIX
-      if (strcmp(ext, "a") == 0)
-#elif __MINGW32__
-      if (Port::stricmp(ext, "a") == 0)
-#else
-      if (Port::stricmp(ext, "lib") == 0)
-#endif
-      {
-        global.params.libfiles->push(static_cast<const char *>(files.data[i]));
-        continue;
-      }
-
-      if (strcmp(ext, global.ddoc_ext) == 0) {
-        global.params.ddocfiles->push(static_cast<const char *>(files.data[i]));
-        continue;
-      }
-
-      if (FileName::equals(ext, global.json_ext)) {
-        global.params.doJsonGeneration = 1;
-        global.params.jsonfilename = static_cast<const char *>(files.data[i]);
-        continue;
-      }
-
-#if !LDC_POSIX
-      if (Port::stricmp(ext, "res") == 0) {
-        global.params.resfile = static_cast<const char *>(files.data[i]);
-        continue;
-      }
-
-      if (Port::stricmp(ext, "def") == 0) {
-        global.params.deffile = static_cast<const char *>(files.data[i]);
-        continue;
-      }
-
-      if (Port::stricmp(ext, "exe") == 0) {
-        global.params.exefile = static_cast<const char *>(files.data[i]);
-        continue;
-      }
-#endif
-
-      if (Port::stricmp(ext, global.mars_ext) == 0 ||
-          Port::stricmp(ext, global.hdr_ext) == 0 ||
-          FileName::equals(ext, "dd")) {
-        ext--; // skip onto '.'
-        assert(*ext == '.');
-        char *tmp = static_cast<char *>(mem.xmalloc((ext - p) + 1));
-        memcpy(tmp, p, ext - p);
-        tmp[ext - p] = 0; // strip extension
-        name = tmp;
-
-        if (name[0] == 0 || strcmp(name, "..") == 0 || strcmp(name, ".") == 0) {
-          goto Linvalid;
-        }
-      } else {
-        error(Loc(), "unrecognized file extension %s\n", ext);
-        fatal();
-      }
-    } else {
-      name = p;
-      if (!*p) {
-      Linvalid:
-        error(Loc(), "invalid file name '%s'",
-              static_cast<const char *>(files.data[i]));
-        fatal();
-      }
-      name = p;
-    }
-
-    id = Identifier::idPool(name, strlen(name));
-    auto m = Module::create(files.data[i], id, global.params.doDocComments,
-                            global.params.doHdrGeneration);
-    modules.push(m);
-  }
-
-  // Read files, parse them
-  for (unsigned i = 0; i < modules.dim; i++) {
-    Module *m = modules[i];
-    if (global.params.verbose) {
-      fprintf(global.stdmsg, "parse     %s\n", m->toChars());
-    }
-    if (!Module::rootModule) {
-      Module::rootModule = m;
-    }
-    m->importedFrom = m;
-
-    if (strcmp(m->srcfile->name->str, global.main_d) == 0) {
-      static const char buf[] = "void main(){}";
-      m->srcfile->setbuffer(const_cast<char *>(buf), sizeof(buf));
-      m->srcfile->ref = 1;
-    } else {
-      m->read(Loc());
-    }
-
-    m->parse(global.params.doDocComments);
-    buildTargetFiles(m, singleObj, createSharedLib || createStaticLib);
-    m->deleteObjFile();
-    if (m->isDocFile) {
-      gendocfile(m);
-
-      // Remove m from list of modules
-      modules.remove(i);
-      i--;
-    }
-  }
-  if (global.errors) {
-    fatal();
-  }
-
-  if (global.params.doHdrGeneration) {
-    /* Generate 'header' import files.
-     * Since 'header' import files must be independent of command
-     * line switches and what else is imported, they are generated
-     * before any semantic analysis.
-     */
-    for (unsigned i = 0; i < modules.dim; i++) {
-      if (global.params.verbose) {
-        fprintf(global.stdmsg, "import    %s\n", modules[i]->toChars());
-      }
-      genhdrfile(modules[i]);
-    }
-  }
-  if (global.errors) {
-    fatal();
-  }
-
-  // load all unconditional imports for better symbol resolving
-  for (unsigned i = 0; i < modules.dim; i++) {
-    if (global.params.verbose) {
-      fprintf(global.stdmsg, "importall %s\n", modules[i]->toChars());
-    }
-    modules[i]->importAll(nullptr);
-  }
-  if (global.errors) {
-    fatal();
-  }
-
-  // Do semantic analysis
-  for (unsigned i = 0; i < modules.dim; i++) {
-    if (global.params.verbose) {
-      fprintf(global.stdmsg, "semantic  %s\n", modules[i]->toChars());
-    }
-    modules[i]->semantic(nullptr);
-  }
-  if (global.errors) {
-    fatal();
-  }
-
-  Module::dprogress = 1;
-  Module::runDeferredSemantic();
-
-  // Do pass 2 semantic analysis
-  for (unsigned i = 0; i < modules.dim; i++) {
-    if (global.params.verbose) {
-      fprintf(global.stdmsg, "semantic2 %s\n", modules[i]->toChars());
-    }
-    modules[i]->semantic2(nullptr);
-  }
-  if (global.errors) {
-    fatal();
-  }
-
-  // Do pass 3 semantic analysis
-  for (unsigned i = 0; i < modules.dim; i++) {
-    if (global.params.verbose) {
-      fprintf(global.stdmsg, "semantic3 %s\n", modules[i]->toChars());
-    }
-    modules[i]->semantic3(nullptr);
-  }
-  if (global.errors) {
-    fatal();
-  }
-
-  Module::runDeferredSemantic3();
-
-  if (global.errors || global.warnings) {
-    fatal();
-  }
-
-  // Now that we analyzed all modules, write the module dependency file if
-  // the user requested it.
-  writeModuleDependencyFile();
-
+void codegenModules(Modules &modules) {
   // Generate one or more object/IR/bitcode files.
   if (global.params.obj && !modules.empty()) {
     ldc::CodeGenerator cg(getGlobalContext(), singleObj);
@@ -1430,63 +1131,16 @@ int cppmain(int argc, char **argv) {
     // codegenned.
     for (d_size_t i = modules.dim; i-- > 0;) {
       Module *const m = modules[i];
-      if (global.params.verbose) {
+      if (global.params.verbose)
         fprintf(global.stdmsg, "code      %s\n", m->toChars());
-      }
 
       cg.emit(m);
 
-      if (global.errors) {
+      if (global.errors)
         fatal();
-      }
     }
-  }
-
-  // Generate DDoc output files.
-  if (global.params.doDocComments) {
-    for (unsigned i = 0; i < modules.dim; i++) {
-      gendocfile(modules[i]);
-    }
-  }
-
-  // Generate the AST-describing JSON file.
-  if (global.params.doJsonGeneration) {
-    emitJson(modules);
   }
 
   freeRuntime();
   llvm::llvm_shutdown();
-
-  if (global.errors) {
-    fatal();
-  }
-
-  // Finally, produce the final executable/archive and run it, if we are
-  // supposed to.
-  int status = EXIT_SUCCESS;
-  if (!global.params.objfiles->dim) {
-    if (global.params.link) {
-      error(Loc(), "no object files to link");
-    } else if (createStaticLib) {
-      error(Loc(), "no object files");
-    }
-  } else {
-    if (global.params.link) {
-      status = linkObjToBinary(createSharedLib, staticFlag);
-    } else if (createStaticLib) {
-      status = createStaticLibrary();
-    }
-
-    if (global.params.run && status == EXIT_SUCCESS) {
-      status = runExecutable();
-
-      /// Delete .obj files and .exe file.
-      for (unsigned i = 0; i < modules.dim; i++) {
-        modules[i]->deleteObjFile();
-      }
-      deleteExecutable();
-    }
-  }
-
-  return status;
 }

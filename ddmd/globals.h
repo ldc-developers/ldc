@@ -236,7 +236,6 @@ struct Global
     const char *mars_ext;
     const char *obj_ext;
 #if IN_LLVM
-    const char *obj_ext_alt;
     const char *ll_ext;
     const char *bc_ext;
     const char *s_ext;

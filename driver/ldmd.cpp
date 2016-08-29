@@ -169,7 +169,8 @@ Usage:\n\
   -debug=ident   compile in debug code identified by ident\n\
   -debuglib=name    set symbolic debug library to name\n\
   -defaultlib=name  set default library to name\n\
-  -deps=filename write module dependencies to filename\n\
+  -deps          print module dependencies (imports/file/version/debug/lib)\n\
+  -deps=filename write module dependencies to filename (only imports)\n\
   -dip25         implement http://wiki.dlang.org/DIP25 (experimental)\n\
   -fPIC          generate position independent code\n\
   -g             add symbolic debug info\n\
@@ -326,96 +327,75 @@ struct Warnings {
 };
 
 struct Params {
-  bool allinst;
-  Deprecated::Type useDeprecated;
-  bool compileOnly;
-  bool coverage;
-  bool emitSharedLib;
-  bool pic;
-  bool emitMap;
-  bool multiObj;
-  Debug::Type debugInfo;
-  bool alwaysStackFrame;
-  Model::Type targetModel;
-  bool profile;
-  bool verbose;
-  bool vcolumns;
-  bool vdmd;
-  bool vgc;
-  bool logTlsUse;
-  unsigned errorLimit;
-  bool errorLimitSet;
-  Warnings::Type warnings;
-  bool optimize;
-  bool noObj;
-  char *objDir;
-  char *objName;
-  bool preservePaths;
-  bool generateDocs;
-  char *docDir;
-  char *docName;
-  bool generateHeaders;
-  char *headerDir;
-  char *headerName;
-  bool generateJson;
-  char *jsonName;
-  bool ignoreUnsupportedPragmas;
-  bool enforcePropertySyntax;
-  bool enableInline;
-  bool emitStaticLib;
-  bool quiet;
-  bool release;
-  BoundsCheck::Type boundsChecks;
-  bool emitUnitTests;
+  bool allinst = false;
+  Deprecated::Type useDeprecated = Deprecated::warn;
+  bool compileOnly = false;
+  bool coverage = false;
+  bool emitSharedLib = false;
+  bool pic = false;
+  bool emitMap = false;
+  bool multiObj = false;
+  Debug::Type debugInfo = Debug::none;
+  bool alwaysStackFrame = false;
+  Model::Type targetModel = Model::automatic;
+  bool profile = false;
+  bool verbose = false;
+  bool vcolumns = false;
+  bool vdmd = false;
+  bool vgc = false;
+  bool logTlsUse = false;
+  unsigned errorLimit = 0;
+  bool errorLimitSet = false;
+  Warnings::Type warnings = Warnings::none;
+  bool optimize = false;
+  bool noObj = false;
+  char *objDir = nullptr;
+  char *objName = nullptr;
+  bool preservePaths = false;
+  bool generateDocs = false;
+  char *docDir = nullptr;
+  char *docName = nullptr;
+  bool generateHeaders = false;
+  char *headerDir = nullptr;
+  char *headerName = nullptr;
+  bool generateJson = false;
+  char *jsonName = nullptr;
+  bool ignoreUnsupportedPragmas = false;
+  bool enforcePropertySyntax = false;
+  bool enableInline = false;
+  bool emitStaticLib = false;
+  bool quiet = false;
+  bool release = false;
+  BoundsCheck::Type boundsChecks = BoundsCheck::defaultVal;
+  bool emitUnitTests = false;
   std::vector<char *> modulePaths;
   std::vector<char *> importPaths;
-  bool debugFlag;
-  unsigned debugLevel;
+  bool debugFlag = false;
+  unsigned debugLevel = 0;
   std::vector<char *> debugIdentifiers;
-  unsigned versionLevel;
+  unsigned versionLevel = 0;
   std::vector<char *> versionIdentifiers;
   std::vector<char *> linkerSwitches;
   std::vector<char *> transitions;
-  char *defaultLibName;
-  char *debugLibName;
-  char *moduleDepsFile;
-  Color::Type color;
-  bool useDIP25;
-  char *conf;
+  char *defaultLibName = nullptr;
+  char *debugLibName = nullptr;
+  char *moduleDepsFile = nullptr;
+  Color::Type color = Color::automatic;
+  bool useDIP25 = false;
+  char *conf = nullptr;
 
-  bool hiddenDebugB;
-  bool hiddenDebugC;
-  bool hiddenDebugF;
-  bool hiddenDebugR;
-  bool hiddenDebugX;
-  bool hiddenDebugY;
+  bool hiddenDebugB = false;
+  bool hiddenDebugC = false;
+  bool hiddenDebugF = false;
+  bool hiddenDebugR = false;
+  bool hiddenDebugX = false;
+  bool hiddenDebugY = false;
 
   std::vector<char *> unknownSwitches;
 
-  bool run;
+  bool run = false;
   std::vector<char *> files;
   std::vector<char *> runArgs;
-
-  Params()
-      : allinst(false), useDeprecated(Deprecated::warn), compileOnly(false),
-        coverage(false), emitSharedLib(false), pic(false), emitMap(false),
-        multiObj(false), debugInfo(Debug::none), alwaysStackFrame(false),
-        targetModel(Model::automatic), profile(false), verbose(false),
-        vcolumns(false), vdmd(false), vgc(false), logTlsUse(false),
-        errorLimit(0), errorLimitSet(false), warnings(Warnings::none),
-        optimize(false), noObj(false), objDir(nullptr), objName(nullptr),
-        preservePaths(false), generateDocs(false), docDir(nullptr),
-        docName(nullptr), generateHeaders(false), headerDir(nullptr),
-        headerName(nullptr), generateJson(false), jsonName(nullptr),
-        ignoreUnsupportedPragmas(false), enforcePropertySyntax(false),
-        enableInline(false), emitStaticLib(false), quiet(false), release(false),
-        boundsChecks(BoundsCheck::defaultVal), emitUnitTests(false),
-        debugFlag(false), debugLevel(0), versionLevel(0),
-        defaultLibName(nullptr), debugLibName(nullptr), moduleDepsFile(nullptr),
-        color(Color::automatic), useDIP25(false), conf(nullptr),
-        hiddenDebugB(false), hiddenDebugC(false), hiddenDebugF(false),
-        hiddenDebugR(false), hiddenDebugX(false), hiddenDebugY(false),
-        run(false) {}
 };
 
 /**
@@ -730,11 +710,8 @@ Params parseArgs(size_t originalArgc, char **originalArgv,
         result.defaultLibName = p + 1 + 11;
       } else if (memcmp(p + 1, "debuglib=", 9) == 0) {
         result.debugLibName = p + 1 + 9;
-      } else if (memcmp(p + 1, "deps=", 5) == 0) {
-        result.moduleDepsFile = p + 1 + 5;
-        if (!result.moduleDepsFile[0]) {
-          goto Lnoarg;
-        }
+      } else if (memcmp(p + 1, "deps", 4) == 0) {
+        result.moduleDepsFile = p + 1 + (p[1 + 4] == '=' ? 5 : 4);
       } else if (memcmp(p + 1, "man", 3) == 0) {
         browse("http://wiki.dlang.org/LDC");
         exit(EXIT_SUCCESS);
@@ -945,7 +922,8 @@ void buildCommandLine(std::vector<const char *> &r, const Params &p) {
     r.push_back(concat("-debuglib=", p.debugLibName));
   }
   if (p.moduleDepsFile) {
-    r.push_back(concat("-deps=", p.moduleDepsFile));
+    r.push_back(p.moduleDepsFile[0] == 0 ? "-deps"
+                                         : concat("-deps=", p.moduleDepsFile));
   }
   if (p.color == Color::on) {
     r.push_back("-enable-color");
