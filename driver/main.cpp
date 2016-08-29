@@ -105,12 +105,6 @@ static cl::opt<bool> linkDebugLib(
     cl::desc("Link with libraries specified in -debuglib, not -defaultlib"),
     cl::ZeroOrMore);
 
-static cl::opt<bool> staticFlag(
-    "static",
-    cl::desc(
-        "Create a statically linked binary, including all system dependencies"),
-    cl::ZeroOrMore);
-
 #if LDC_LLVM_VER >= 309
 static inline llvm::Optional<llvm::Reloc::Model> getRelocModel() {
   if (mRelocModel.getNumOccurrences()) {
@@ -599,7 +593,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   // LDC output determination
 
   // if we don't link, autodetect target from extension
-  if (!global.params.link && !createStaticLib && global.params.objname) {
+  if (!global.params.link && !global.params.lib && global.params.objname) {
     const char *ext = FileName::ext(global.params.objname);
     bool autofound = false;
     if (!ext) {
@@ -635,23 +629,23 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   }
 
   // only link if possible
-  if (!global.params.obj || !global.params.output_o || createStaticLib) {
+  if (!global.params.obj || !global.params.output_o || global.params.lib) {
     global.params.link = 0;
   }
 
-  if (createStaticLib && createSharedLib) {
+  if (global.params.lib && global.params.dll) {
     error(Loc(), "-lib and -shared switches cannot be used together");
   }
 
 #if LDC_LLVM_VER >= 309
-  if (createSharedLib && !mRelocModel.getNumOccurrences()) {
+  if (global.params.dll && !mRelocModel.getNumOccurrences()) {
 #else
-  if (createSharedLib && mRelocModel == llvm::Reloc::Default) {
+  if (global.params.dll && mRelocModel == llvm::Reloc::Default) {
 #endif
     mRelocModel = llvm::Reloc::PIC_;
   }
 
-  if (global.params.link && !createSharedLib) {
+  if (global.params.link && !global.params.dll) {
     global.params.exefile = global.params.objname;
     if (sourceFiles.dim > 1) {
       global.params.objname = nullptr;
@@ -659,12 +653,12 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   } else if (global.params.run) {
     error(Loc(), "flags conflict with -run");
   } else if (global.params.objname && sourceFiles.dim > 1) {
-    if (!(createStaticLib || createSharedLib) && !singleObj) {
+    if (!(global.params.lib || global.params.dll) && !singleObj) {
       error(Loc(), "multiple source files, but only one .obj name");
     }
   }
 
-  if (soname.getNumOccurrences() > 0 && !createSharedLib) {
+  if (soname.getNumOccurrences() > 0 && !global.params.dll) {
     error(Loc(), "-soname can be used only when building a shared library");
   }
 }
@@ -1117,8 +1111,7 @@ int cppmain(int argc, char **argv) {
   }
 
   Strings libmodules;
-  return mars_mainBody(files, libmodules, createStaticLib, createSharedLib,
-                       staticFlag);
+  return mars_mainBody(files, libmodules);
 }
 
 void codegenModules(Modules &modules) {

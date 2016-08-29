@@ -34,6 +34,14 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
+static llvm::cl::opt<bool> staticFlag(
+    "static",
+    llvm::cl::desc(
+        "Create a statically linked binary, including all system dependencies"),
+    llvm::cl::ZeroOrMore);
+
+//////////////////////////////////////////////////////////////////////////////
+
 static void CreateDirectoryOnDisk(llvm::StringRef fileName) {
   auto dir = llvm::sys::path::parent_path(fileName);
   if (!dir.empty() && !llvm::sys::fs::exists(dir)) {
@@ -332,7 +340,7 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
     }
   }
 
-  if (opts::createSharedLib && addSoname) {
+  if (global.params.dll && addSoname) {
     std::string soname = opts::soname;
     if (!soname.empty()) {
       args.push_back("-Wl,-soname," + soname);
@@ -673,13 +681,13 @@ static int linkObjToBinaryWin(bool sharedLib) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-int linkObjToBinary(bool sharedLib, bool fullyStatic) {
+int linkObjToBinary() {
   if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
-    // TODO: Choose dynamic/static MSVCRT version based on fullyStatic?
-    return linkObjToBinaryWin(sharedLib);
+    // TODO: Choose dynamic/static MSVCRT version based on staticFlag?
+    return linkObjToBinaryWin(global.params.dll);
   }
 
-  return linkObjToBinaryGcc(sharedLib, fullyStatic);
+  return linkObjToBinaryGcc(global.params.dll, staticFlag);
 }
 
 //////////////////////////////////////////////////////////////////////////////

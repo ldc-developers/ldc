@@ -63,6 +63,18 @@ enum TEST_EMIT_ALL = 0;
 
 extern (C++) void genhdrfile(Module m)
 {
+  version (IN_LLVM)
+  {
+    import ddmd.errors, ddmd.root.filename;
+    if (FileName.equals(FileName.name(m.hdrfile.name.str), FileName.name(m.arg)))
+    {
+        m.error("Output header files with the same name as the source file are forbidden");
+        fatal();
+    }
+    // FIXME: DMD overwrites header files. This should be done only in a DMD mode.
+    // m.checkAndAddOutputFile(m.hdrfile);
+  }
+
     OutBuffer buf;
     buf.doindent = 1;
     buf.printf("// D import file generated from '%s'", m.srcfile.toChars());

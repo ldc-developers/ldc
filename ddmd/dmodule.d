@@ -362,12 +362,6 @@ public:
     size_t nameoffset;          // offset of module name from start of ModuleInfo
     size_t namelen;             // length of module name in characters
 
-    version(IN_LLVM)
-    {
-        int doDocComment;       // enable generating doc comments for this module
-        int doHdrGen;           // enable generating header file for this module
-    }
-
     extern (D) this(const(char)* filename, Identifier ident, int doDocComment, int doHdrGen)
     {
         super(ident);
@@ -388,8 +382,23 @@ public:
         srcfile = new File(srcfilename);
 version(IN_LLVM)
 {
-        this.doDocComment = doDocComment;
-        this.doHdrGen = doHdrGen;
+        auto objName = (global.params.lib || global.params.dll ? null : global.params.objname);
+        const(char)* objExt;
+        if (global.params.output_o)
+            objExt = global.obj_ext;
+        else if (global.params.output_bc)
+            objExt = global.bc_ext;
+        else if (global.params.output_ll)
+            objExt = global.ll_ext;
+        else if (global.params.output_s)
+            objExt = global.s_ext;
+
+        if (objExt)
+            objfile = buildFilePath(objName, global.params.objdir, objExt);
+        if (doDocComment)
+            setDocfile();
+        if (doHdrGen)
+            hdrfile = buildFilePath(global.params.hdrname, global.params.hdrdir, global.hdr_ext);
 }
 else
 {
@@ -509,7 +518,14 @@ else
 
     void setDocfile()
     {
+version (IN_LLVM)
+{
+        docfile = buildFilePath(global.params.docname, global.params.docdir, global.doc_ext);
+}
+else
+{
         docfile = setOutfile(global.params.docname, global.params.docdir, arg, global.doc_ext);
+}
     }
 
     // read file, returns 'true' if succeed, 'false' otherwise.
@@ -564,8 +580,7 @@ else
     }
 
     // syntactic parse
-    // IN_LLVM replaced: Module parse()
-    Module parse(bool gen_docs = false)
+    Module parse()
     {
         //printf("Module::parse(srcfile='%s') this=%p\n", srcfile->name->toChars(), this);
         const(char)* srcname = srcfile.name.toChars();
@@ -749,15 +764,8 @@ else
         {
             comment = buf + 4;
             isDocFile = 1;
-version(IN_LLVM)
-{
-            doDocComment = true;
-}
-else
-{
             if (!docfile)
                 setDocfile();
-}
             return this;
         }
         /* If it has the extension ".dd", it is also a documentation
@@ -774,9 +782,6 @@ else
             return this;
         }
         {
-version(IN_LLVM)
-            scope Parser p = new Parser(this, buf, buflen, gen_docs);
-else
             scope Parser p = new Parser(this, buf, buflen, docfile !is null);
             p.nextToken();
             members = p.parseModule();
@@ -1174,8 +1179,7 @@ else
     {
         if (global.params.obj)
             objfile.remove();
-        // IN_LLVM replaced: if (docfile)
-        if (doDocComment && docfile)
+        if (docfile)
             docfile.remove();
     }
 
@@ -1345,9 +1349,14 @@ else
 
     version(IN_LLVM)
     {
+        void checkAndAddOutputFile(File* file);
+        void makeObjectFilenameUnique();
+
         //llvm::Module* genLLVMModule(llvm::LLVMContext& context);
-        File* buildFilePath(const(char)* forcename, const(char)* path, const(char)* ext, bool preservePaths, bool fqnNames)
+        File* buildFilePath(const(char)* forcename, const(char)* path, const(char)* ext)
         {
+            const preservePaths = (global.params.lib || global.params.dll);
+            const fqnNames = global.params.fullyQualifiedObjectFiles;
             const(char)* argobj;
             if (forcename) {
                 argobj = forcename;

@@ -153,12 +153,10 @@ version(IN_LLVM)
     extern (C++):
 
     void genCmain(Scope* sc);
-    // in gen/modules.cpp
-    void buildTargetFiles(Module m, bool singleObj, bool library);
     // in driver/main.cpp
     void codegenModules(ref Modules modules);
     // in driver/linker.cpp
-    int linkObjToBinary(bool sharedLib, bool fullyStatic);
+    int linkObjToBinary();
     int createStaticLibrary();
     void deleteExeFile();
     int runProgram();
@@ -1158,8 +1156,7 @@ Language changes listed by -transition=id:
 
 } // !IN_LLVM
 
-extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules,
-        bool createStaticLib = false, bool createSharedLib = false, bool staticFlag = false)
+extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
 {
     // Initialization
     Type._init();
@@ -1409,8 +1406,7 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules,
         m.importedFrom = m; // m->isRoot() == true
       version (IN_LLVM)
       {
-        m.parse(global.params.doDocComments);
-        buildTargetFiles(m, global.params.singleObj, createSharedLib || createStaticLib);
+        m.parse();
         m.deleteObjFile();
       }
       else
@@ -1632,6 +1628,28 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules,
     }
   version (IN_LLVM)
   {
+    for (size_t i = 0; i < modules.dim; i++)
+    {
+        Module m = modules[i];
+        if (!m.objfile)
+            continue;
+
+        // If `-run` is passed, the obj file is temporary and is removed after execution.
+        // Make sure the name does not collide with other files from other processes by
+        // creating a unique filename.
+        if (global.params.run)
+            m.makeObjectFilenameUnique();
+
+        if (FileName.equals(FileName.name(m.objfile.name.str), FileName.name(m.arg)))
+        {
+            m.error("Output object files with the same name as the source file are forbidden");
+            fatal();
+        }
+
+        if (!global.params.singleObj)
+            m.checkAndAddOutputFile(m.objfile);
+    }
+
     codegenModules(modules);
   }
   else
@@ -1687,7 +1705,7 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules,
       {
         if (global.params.link)
             error(Loc(), "no object files to link");
-        else if (createStaticLib)
+        else if (global.params.lib)
             error(Loc(), "no object files");
       }
       else
@@ -1701,8 +1719,8 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules,
       version (IN_LLVM)
       {
         if (global.params.link)
-            status = linkObjToBinary(createSharedLib, staticFlag);
-        else if (createStaticLib)
+            status = linkObjToBinary();
+        else if (global.params.lib)
             status = createStaticLibrary();
       }
       else

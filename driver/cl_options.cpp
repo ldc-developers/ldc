@@ -70,11 +70,15 @@ cl::opt<bool, true>
 
 cl::opt<bool> compileOnly("c", cl::desc("Do not link"), cl::ZeroOrMore);
 
-cl::opt<bool> createStaticLib("lib", cl::desc("Create static library"),
-                              cl::ZeroOrMore);
+static cl::opt<bool, true> createStaticLib("lib",
+                                           cl::desc("Create static library"),
+                                           cl::ZeroOrMore,
+                                           cl::location(global.params.lib));
 
-cl::opt<bool> createSharedLib("shared", cl::desc("Create shared library"),
-                              cl::ZeroOrMore);
+static cl::opt<bool, true> createSharedLib("shared",
+                                           cl::desc("Create shared library"),
+                                           cl::ZeroOrMore,
+                                           cl::location(global.params.dll));
 
 static cl::opt<bool, true> verbose("v", cl::desc("Verbose"), cl::ZeroOrMore,
                                    cl::location(global.params.verbose));
