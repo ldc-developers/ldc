@@ -1640,12 +1640,6 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
         if (global.params.run)
             m.makeObjectFilenameUnique();
 
-        if (FileName.equals(FileName.name(m.objfile.name.str), FileName.name(m.arg)))
-        {
-            m.error("Output object files with the same name as the source file are forbidden");
-            fatal();
-        }
-
         if (!global.params.singleObj)
             m.checkAndAddOutputFile(m.objfile);
     }

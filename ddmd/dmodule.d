@@ -382,7 +382,6 @@ public:
         srcfile = new File(srcfilename);
 version(IN_LLVM)
 {
-        auto objName = (global.params.lib || global.params.dll ? null : global.params.objname);
         const(char)* objExt;
         if (global.params.output_o)
             objExt = global.obj_ext;
@@ -394,21 +393,17 @@ version(IN_LLVM)
             objExt = global.s_ext;
 
         if (objExt)
-            objfile = buildFilePath(objName, global.params.objdir, objExt);
-        if (doDocComment)
-            setDocfile();
-        if (doHdrGen)
-            hdrfile = buildFilePath(global.params.hdrname, global.params.hdrdir, global.hdr_ext);
+            objfile = setOutfile(global.params.objname, global.params.objdir, filename, objExt);
 }
 else
 {
         objfile = setOutfile(global.params.objname, global.params.objdir, filename, global.obj_ext);
+}
         if (doDocComment)
             setDocfile();
         if (doHdrGen)
             hdrfile = setOutfile(global.params.hdrname, global.params.hdrdir, arg, global.hdr_ext);
         //objfile = new File(objfilename);
-}
     }
 
     static Module create(const(char)* filename, Identifier ident, int doDocComment, int doHdrGen)
@@ -500,6 +495,23 @@ else
                 argdoc = arg;
             else
                 argdoc = FileName.name(arg);
+          version (IN_LLVM)
+          {
+            if (global.params.fullyQualifiedObjectFiles)
+            {
+                const fqn = md ? md.toChars() : toChars();
+                argdoc = FileName.replaceName(argdoc, fqn);
+
+                // add ext, otherwise forceExt will make nested.module into nested.<ext>
+                const len = strlen(argdoc);
+                const extlen = strlen(ext);
+                char* s = cast(char*)mem.xmalloc(len + 1 + extlen + 1);
+                memcpy(s, argdoc, len);
+                s[len] = '.';
+                memcpy(s + len + 1, ext, extlen + 1); // incl. terminating null
+                argdoc = s;
+            }
+          }
             // If argdoc doesn't have an absolute path, make it relative to dir
             if (!FileName.absolute(argdoc))
             {
@@ -518,14 +530,7 @@ else
 
     void setDocfile()
     {
-version (IN_LLVM)
-{
-        docfile = buildFilePath(global.params.docname, global.params.docdir, global.doc_ext);
-}
-else
-{
         docfile = setOutfile(global.params.docname, global.params.docdir, arg, global.doc_ext);
-}
     }
 
     // read file, returns 'true' if succeed, 'false' otherwise.
@@ -1349,50 +1354,9 @@ else
 
     version(IN_LLVM)
     {
+        //llvm::Module* genLLVMModule(llvm::LLVMContext& context);
         void checkAndAddOutputFile(File* file);
         void makeObjectFilenameUnique();
-
-        //llvm::Module* genLLVMModule(llvm::LLVMContext& context);
-        File* buildFilePath(const(char)* forcename, const(char)* path, const(char)* ext)
-        {
-            const preservePaths = (global.params.lib || global.params.dll);
-            const fqnNames = global.params.fullyQualifiedObjectFiles;
-            const(char)* argobj;
-            if (forcename) {
-                argobj = forcename;
-            } else {
-                if (preservePaths) {
-                    argobj = this.arg;
-                } else {
-                    argobj = FileName.name(this.arg);
-                }
-
-                if (fqnNames) {
-                    const name = md ? md.toChars() : toChars();
-                    argobj = FileName.replaceName(argobj, name);
-
-                    // add ext, otherwise forceExt will make nested.module into nested.bc
-                    size_t len = strlen(argobj);
-                    size_t extlen = strlen(ext);
-                    char* s = cast(char *)alloca(len + 1 + extlen + 1);
-                    memcpy(s, argobj, len);
-                    s[len] = '.';
-                    memcpy(s + len + 1, ext, extlen + 1);
-                    s[len + 1 + extlen] = 0;
-                    argobj = s;
-                }
-            }
-
-            if (!FileName.absolute(argobj)) {
-                argobj = FileName.combine(path, argobj);
-            }
-
-            FileName.ensurePathExists(FileName.path(argobj));
-
-            // always append the extension! otherwise hard to make output switches
-            // consistent
-            return new File(FileName.forceExt(argobj, ext));
-        }
 
         bool llvmForceLogging;
         bool noModuleInfo; /// Do not emit any module metadata.

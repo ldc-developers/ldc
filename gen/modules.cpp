@@ -54,9 +54,10 @@
 #include <alloca.h>
 #endif
 
-static llvm::cl::opt<bool>
+static llvm::cl::opt<bool, true>
     preservePaths("op", llvm::cl::desc("Do not strip paths from source file"),
-                  llvm::cl::ZeroOrMore);
+                  llvm::cl::ZeroOrMore,
+                  llvm::cl::location(global.params.preservePaths));
 
 static llvm::cl::opt<bool, true>
     fqnNames("oq",

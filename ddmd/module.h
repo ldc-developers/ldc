@@ -182,7 +182,6 @@ public:
     llvm::Module* genLLVMModule(llvm::LLVMContext& context);
     void checkAndAddOutputFile(File *file);
     void makeObjectFilenameUnique();
-    File* buildFilePath(const char* forcename, const char* path, const char* ext, bool preservePaths, bool fqnNames);
 
     bool llvmForceLogging;
     bool noModuleInfo; /// Do not emit any module metadata.

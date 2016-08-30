@@ -469,14 +469,8 @@ extern (C++) void gendocfile(Module m)
 {
   version (IN_LLVM)
   {
-    if (FileName.equals(FileName.name(m.docfile.name.str), FileName.name(m.arg)))
-    {
-        m.error("Output doc files with the same name as the source file are forbidden");
-        fatal();
-    }
     m.checkAndAddOutputFile(m.docfile);
   }
-
     static __gshared OutBuffer mbuf;
     static __gshared int mbuf_done;
     OutBuffer buf;
