@@ -40,8 +40,9 @@ int main(string[] args)
 // CHECK: +[[OFF]] ptr {{ *}}: [[PTR]]
 
 // CDB: dv /t
-// struct arguments passed by reference
-// CHECK: string[] * args
+// struct arguments passed by reference on x64
+// x64: string[] * args
+// x86: string[] args
 // CHECK: string[] nargs
 // CHECK: string ns
 // CHECK: string ws
