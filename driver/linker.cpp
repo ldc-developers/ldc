@@ -59,17 +59,10 @@ static std::string getOutputName(bool const sharedLib) {
   if (global.params.exefile)
     return global.params.exefile;
 
-  // Output name is inferred.
-  std::string result;
-
-  // try root module name
-  if (Module::rootModule) {
-    result = Module::rootModule->toChars();
-  } else if (global.params.objfiles->dim) {
-    result = FileName::removeExt((*global.params.objfiles)[0]);
-  } else {
-    result = "a.out";
-  }
+  // Infer output name from first object file.
+  std::string result = global.params.objfiles->dim
+                           ? FileName::removeExt((*global.params.objfiles)[0])
+                           : "a.out";
 
   const char *extension = nullptr;
   if (sharedLib) {
@@ -716,15 +709,10 @@ int createStaticLibrary() {
   std::string libName;
   if (global.params.libname) { // explicit
     libName = global.params.libname;
-  } else { // inferred
-    // try root module name
-    if (Module::rootModule) {
-      libName = Module::rootModule->toChars();
-    } else if (global.params.objfiles->dim) {
-      libName = FileName::removeExt((*global.params.objfiles)[0]);
-    } else {
-      libName = "a.out";
-    }
+  } else { // infer from first object file
+    libName = global.params.objfiles->dim
+                  ? FileName::removeExt((*global.params.objfiles)[0])
+                  : "a.out";
     libName.push_back('.');
     libName.append(global.lib_ext);
   }
