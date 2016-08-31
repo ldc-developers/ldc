@@ -2,6 +2,7 @@ import lit.formats
 import os
 import sys
 import platform
+import string
 
 ## Auto-initialized variables by cmake:
 config.ldc2_bin         = "@LDC2_BIN@"
@@ -58,9 +59,11 @@ config.available_features.add(platform.system())
 for t in config.llvm_targetsstr.split(';'):
     config.available_features.add('target_' + t)
 
-# Add a specific feature for Windows x86 testing
+# Add specific features for Windows x86/x64 testing
 if (platform.system() == 'Windows') and (config.default_target_bits == 32):
     config.available_features.add('Windows_x86')
+if (platform.system() == 'Windows') and (config.default_target_bits == 64):
+    config.available_features.add('Windows_x64')
 
 config.target_triple = '(unused)'
 
@@ -91,3 +94,15 @@ if (platform.system() == 'Windows'):
 else:
     config.substitutions.append( ('%obj', '.o') )
     config.substitutions.append( ('%exe', '') )
+
+# Add cdb substitution
+if (platform.system() == 'Windows') and (config.default_target_bits == 32):
+    cdb = os.environ['WindowsSDKDir'] + 'Debuggers\\x86\\cdb.exe'
+    config.substitutions.append( ('%arch', 'x86') )
+if (platform.system() == 'Windows') and (config.default_target_bits == 64):
+    cdb = os.environ['WindowsSDKDir'] + 'Debuggers\\x64\\cdb.exe'
+    config.substitutions.append( ('%arch', 'x64') )
+
+if (platform.system() == 'Windows') and os.path.isfile( cdb ):
+    config.available_features.add('cdb')
+    config.substitutions.append( ('%cdb', '"' + string.replace( cdb, '\\', '\\\\') + '"') )

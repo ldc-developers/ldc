@@ -49,6 +49,14 @@ ldc::DIType getNullDIType() {
 }
 }
 
+llvm::StringRef uniqueIdent(Type* t) {
+#if LDC_LLVM_VER >= 309
+  if (t->deco)
+    return t->deco;
+#endif
+  return llvm::StringRef();
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // get the module the symbol is in, or - for template instances - the current
@@ -131,11 +139,21 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
     Encoding = DW_ATE_boolean;
     break;
   case Tchar:
+    if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+      // VS debugger does not support DW_ATE_UTF for char
+      Encoding = DW_ATE_unsigned_char;
+      break;
+    }
   case Twchar:
   case Tdchar:
-    Encoding = type->isunsigned() ? DW_ATE_unsigned_char : DW_ATE_signed_char;
+    Encoding = DW_ATE_UTF;
     break;
   case Tint8:
+    if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+      // VS debugger does not support DW_ATE_signed for 8-bit
+      Encoding = DW_ATE_signed_char;
+      break;
+    }
   case Tint16:
   case Tint32:
   case Tint64:
@@ -143,6 +161,11 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
     Encoding = DW_ATE_signed;
     break;
   case Tuns8:
+    if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+      // VS debugger does not support DW_ATE_unsigned for 8-bit
+      Encoding = DW_ATE_unsigned_char;
+      break;
+    }
   case Tuns16:
   case Tuns32:
   case Tuns64:
@@ -377,9 +400,12 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
                                    getTypeAllocSize(T) * 8, // size in bits
                                    getABITypeAlign(T) * 8,  // alignment in bits
                                    0,                       // offset in bits,
-                                   DIFlags::FlagFwdDecl,    // flags
+                                   0,                       // flags
                                    derivedFrom,             // DerivedFrom
-                                   elemsArray);
+                                   elemsArray,
+                                   getNullDIType(), // VTableHolder
+                                   nullptr,         // TemplateParms
+                                   uniqueIdent(t)); // UniqueIdentifier
   } else {
     ret = DBuilder.createStructType(CU,     // compile unit where defined
                                     name,   // name
@@ -387,9 +413,12 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
                                     linnum, // line number where defined
                                     getTypeAllocSize(T) * 8, // size in bits
                                     getABITypeAlign(T) * 8, // alignment in bits
-                                    DIFlags::FlagFwdDecl,   // flags
+                                    0,                      // flags
                                     derivedFrom,            // DerivedFrom
-                                    elemsArray);
+                                    elemsArray,
+                                    0,               // RunTimeLang
+                                    getNullDIType(), // VTableHolder
+                                    uniqueIdent(t)); // UniqueIdentifier
   }
 
 #if LDC_LLVM_VER >= 307
@@ -415,16 +444,18 @@ ldc::DIType ldc::DIBuilder::CreateArrayType(Type *type) {
       CreateMemberType(0, t->nextOf()->pointerTo(), file, "ptr",
                        global.params.is64bit ? 8 : 4, PROTpublic)};
 
-  return DBuilder.createStructType(
-      GetCU(),
-      llvm::StringRef(), // Name TODO: Really no name for arrays? t->toChars()?
-      file,              // File
-      0,                 // LineNo
-      getTypeAllocSize(T) * 8, // size in bits
-      getABITypeAlign(T) * 8,  // alignment in bits
-      0,                       // What here?
-      getNullDIType(),         // derived from
-      DBuilder.getOrCreateArray(elems));
+  return DBuilder.createStructType(GetCU(),
+                                   t->toChars(), // Name
+                                   file,                    // File
+                                   0,                       // LineNo
+                                   getTypeAllocSize(T) * 8, // size in bits
+                                   getABITypeAlign(T) * 8,  // alignment in bits
+                                   0,                       // What here?
+                                   getNullDIType(),         // derived from
+                                   DBuilder.getOrCreateArray(elems),
+                                   0,               // RunTimeLang
+                                   getNullDIType(), // VTableHolder
+                                   uniqueIdent(t)); // UniqueIdentifier
 }
 
 ldc::DIType ldc::DIBuilder::CreateSArrayType(Type *type) {
@@ -499,15 +530,18 @@ ldc::DIType ldc::DIBuilder::CreateDelegateType(Type *type) {
       CreateMemberType(0, t->next, file, "funcptr",
                        global.params.is64bit ? 8 : 4, PROTpublic)};
 
-  return DBuilder.createStructType(CU,         // compile unit where defined
-                                   "delegate", // name
-                                   file,       // file where defined
-                                   0,          // line number where defined
+  return DBuilder.createStructType(CU,           // compile unit where defined
+                                   t->toChars(), // name
+                                   file,         // file where defined
+                                   0,            // line number where defined
                                    getTypeAllocSize(T) * 8, // size in bits
                                    getABITypeAlign(T) * 8,  // alignment in bits
                                    0,                       // flags
                                    getNullDIType(),         // derived from
-                                   DBuilder.getOrCreateArray(elems));
+                                   DBuilder.getOrCreateArray(elems),
+                                   0,               // RunTimeLang
+                                   getNullDIType(), // VTableHolder
+                                   uniqueIdent(t)); // UniqueIdentifier
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -530,8 +564,15 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type, bool derefclass) {
     t = type->toBasetype();
   }
 
+#if LDC_LLVM_VER >= 309
+  if (t->ty == Tnull)
+      return DBuilder.createNullPtrType();
+  if (t->ty == Tvoid)
+      return nullptr;
+#else
   if (t->ty == Tvoid || t->ty == Tnull)
     return DBuilder.createUnspecifiedType(t->toChars());
+#endif
   if (t->isintegral() || t->isfloating()) {
     if (t->ty == Tvector)
       return CreateVectorType(type);
