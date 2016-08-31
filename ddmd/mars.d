@@ -1298,15 +1298,7 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
                 }
                 if (FileName.equals(ext, "exe"))
                 {
-                  version (IN_LLVM)
-                  {
-                    global.params.exefile = files[i];
-                    continue;
-                  }
-                  else
-                  {
                     assert(0); // should have already been handled
-                  }
                 }
             }
             /* Examine extension to see if it is a valid

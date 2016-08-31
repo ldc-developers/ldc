@@ -645,16 +645,34 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     mRelocModel = llvm::Reloc::PIC_;
   }
 
-  if (global.params.link && !global.params.dll) {
+  if (global.params.link) {
     global.params.exefile = global.params.objname;
-    if (sourceFiles.dim > 1) {
-      global.params.objname = nullptr;
+    global.params.oneobj = true;
+    if (global.params.objname) {
+      /* Use this to name the one object file with the same
+       * name as the exe file.
+       */
+      global.params.objname =
+          FileName::forceExt(global.params.objname, global.obj_ext);
+      /* If output directory is given, use that path rather than
+       * the exe file path.
+       */
+      if (global.params.objdir) {
+        const char *name = FileName::name(global.params.objname);
+        global.params.objname = FileName::combine(global.params.objdir, name);
+      }
     }
   } else if (global.params.run) {
     error(Loc(), "flags conflict with -run");
-  } else if (global.params.objname && sourceFiles.dim > 1) {
-    if (!(global.params.lib || global.params.dll) && !global.params.oneobj) {
-      error(Loc(), "multiple source files, but only one .obj name");
+    fatal();
+  } else if (global.params.lib) {
+    global.params.libname = global.params.objname;
+    global.params.objname = nullptr;
+  } else {
+    if (global.params.objname && sourceFiles.dim > 1) {
+      global.params.oneobj = true;
+      // error("multiple source files, but only one .obj name");
+      // fatal();
     }
   }
 
