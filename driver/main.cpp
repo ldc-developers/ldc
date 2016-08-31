@@ -653,7 +653,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   } else if (global.params.run) {
     error(Loc(), "flags conflict with -run");
   } else if (global.params.objname && sourceFiles.dim > 1) {
-    if (!(global.params.lib || global.params.dll) && !singleObj) {
+    if (!(global.params.lib || global.params.dll) && !global.params.oneobj) {
       error(Loc(), "multiple source files, but only one .obj name");
     }
   }
@@ -1117,7 +1117,7 @@ int cppmain(int argc, char **argv) {
 void codegenModules(Modules &modules) {
   // Generate one or more object/IR/bitcode files.
   if (global.params.obj && !modules.empty()) {
-    ldc::CodeGenerator cg(getGlobalContext(), singleObj);
+    ldc::CodeGenerator cg(getGlobalContext(), global.params.oneobj);
 
     // When inlining is enabled, we are calling semantic3 on function
     // declarations, which may _add_ members to the first module in the modules

@@ -1404,13 +1404,6 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
         if (!Module.rootModule)
             Module.rootModule = m;
         m.importedFrom = m; // m->isRoot() == true
-      version (IN_LLVM)
-      {
-        m.parse();
-        m.deleteObjFile();
-      }
-      else
-      {
         if (!global.params.oneobj || modi == 0 || m.isDocFile)
             m.deleteObjFile();
         static if (ASYNCREAD)
@@ -1422,7 +1415,6 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
             }
         }
         m.parse();
-      }
         if (m.isDocFile)
         {
             anydocfiles = true;
@@ -1640,7 +1632,7 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
         if (global.params.run)
             m.makeObjectFilenameUnique();
 
-        if (!global.params.singleObj)
+        if (!global.params.oneobj || i == 0)
             m.checkAndAddOutputFile(m.objfile);
     }
 
@@ -1732,11 +1724,8 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
                 for (size_t i = 0; i < modules.dim; i++)
                 {
                     modules[i].deleteObjFile();
-                  version (IN_LLVM) {} else
-                  {
                     if (global.params.oneobj)
                         break;
-                  }
                 }
                 deleteExeFile();
             }

@@ -382,7 +382,7 @@ static cl::opt<MultiSetter, true, cl::parser<bool>>
 
 cl::opt<bool, true>
     singleObj("singleobj", cl::desc("Create only a single output object file"),
-              cl::location(global.params.singleObj));
+              cl::location(global.params.oneobj));
 
 cl::opt<uint32_t, true> hashThreshold(
     "hash-threshold",
