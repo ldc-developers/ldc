@@ -180,11 +180,22 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
   case Timaginary32:
   case Timaginary64:
   case Timaginary80:
+    if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+      // DW_ATE_imaginary_float not supported by the LLVM DWARF->CodeView
+      // conversion
+      Encoding = DW_ATE_float;
+      break;
+    }
     Encoding = DW_ATE_imaginary_float;
     break;
   case Tcomplex32:
   case Tcomplex64:
   case Tcomplex80:
+    if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+      // DW_ATE_complex_float not supported by the LLVM DWARF->CodeView
+      // conversion
+      return CreateComplexType(t);
+    }
     Encoding = DW_ATE_complex_float;
     break;
   default:
@@ -260,6 +271,46 @@ ldc::DIType ldc::DIBuilder::CreateVectorType(Type *type) {
       CreateTypeDescription(te, false),     // element type
       DBuilder.getOrCreateArray(subscripts) // subscripts
       );
+}
+
+ldc::DIType ldc::DIBuilder::CreateComplexType(Type *type) {
+    llvm::Type *T = DtoType(type);
+    Type *t = type->toBasetype();
+
+    Type* elemtype = nullptr;
+    switch (t->ty) {
+    case Tcomplex32:
+        elemtype = Type::tfloat32;
+        break;
+    case Tcomplex64:
+        elemtype = Type::tfloat64;
+        break;
+    case Tcomplex80:
+        elemtype = Type::tfloat80;
+        break;
+    default:
+        llvm_unreachable(
+            "Unexpected type for debug info in DIBuilder::CreateComplexType");
+    }
+    ldc::DIFile file = CreateFile();
+
+    auto imoffset = getTypeAllocSize(DtoType(elemtype));
+    LLMetadata *elems[] = {
+        CreateMemberType(0, elemtype, file, "re", 0, PROTpublic),
+        CreateMemberType(0, elemtype, file, "im", imoffset, PROTpublic)};
+
+    return DBuilder.createStructType(GetCU(),
+                                     t->toChars(),            // Name
+                                     file,                    // File
+                                     0,                       // LineNo
+                                     getTypeAllocSize(T) * 8, // size in bits
+                                     getABITypeAlign(T) * 8,  // alignment
+                                     0,                       // What here?
+                                     getNullDIType(),         // derived from
+                                     DBuilder.getOrCreateArray(elems),
+                                     0,               // RunTimeLang
+                                     getNullDIType(), // VTableHolder
+                                     uniqueIdent(t)); // UniqueIdentifier
 }
 
 ldc::DIType ldc::DIBuilder::CreateMemberType(unsigned linnum, Type *type,
