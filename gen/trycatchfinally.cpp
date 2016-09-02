@@ -137,7 +137,7 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
 #if LDC_LLVM_VER >= 308
 
 namespace {
-void emitBeginCatchMSVC(IRState &irs, Catch *ctch, llvm::BasicBlock *endbb,
+void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
                         llvm::CatchSwitchInst *catchSwitchInst) {
   VarDeclaration *var = ctch->var;
   // The MSVC/x86 build uses C++ exception handling
@@ -238,7 +238,7 @@ void TryCatchScope::emitCatchBodiesMSVC(IRState &irs, llvm::Value *) {
     irs.DBuilder.EmitBlockStart(c->loc);
     PGO.emitCounterIncrement(c);
 
-    emitBeginCatchMSVC(irs, c, endbb, catchSwitchInst);
+    emitBeginCatchMSVC(irs, c, catchSwitchInst);
 
     // Emit handler, if there is one. The handler is zero, for instance,
     // when building 'catch { debug foo(); }' in non-debug mode.
