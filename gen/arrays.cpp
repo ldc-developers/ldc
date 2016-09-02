@@ -1088,7 +1088,9 @@ DValue *DtoCastArray(Loc &loc, DValue *u, Type *to) {
       ptr = gIR->ir->CreateBitCast(ptr, tolltype);
     }
     return new DImValue(to, ptr);
-  } else if (totype->ty == Tarray) {
+  }
+
+  if (totype->ty == Tarray) {
     IF_LOG Logger::cout() << "to array" << '\n';
 
     LLValue *length = nullptr;
@@ -1120,7 +1122,9 @@ DValue *DtoCastArray(Loc &loc, DValue *u, Type *to) {
       length = DtoArrayCastLength(loc, length, ety, ptrty->getContainedType(0));
 
     return new DSliceValue(to, length, DtoBitCast(ptr, ptrty));
-  } else if (totype->ty == Tsarray) {
+  }
+
+  if (totype->ty == Tsarray) {
     IF_LOG Logger::cout() << "to sarray" << '\n';
 
     LLValue *ptr = nullptr;
@@ -1136,18 +1140,17 @@ DValue *DtoCastArray(Loc &loc, DValue *u, Type *to) {
     }
 
     return new DLValue(to, DtoBitCast(ptr, getPtrToType(tolltype)));
-  } else if (totype->ty == Tbool) {
+  }
+
+  if (totype->ty == Tbool) {
     // return (arr.ptr !is null)
     LLValue *ptr = DtoArrayPtr(u);
     LLConstant *nul = getNullPtr(ptr->getType());
     return new DImValue(to, gIR->ir->CreateICmpNE(ptr, nul));
-  } else {
-    LLValue *ptr = DtoArrayPtr(u);
-    ptr = DtoBitCast(ptr, getPtrToType(tolltype));
-    return new DLValue(to, ptr);
   }
 
-  llvm_unreachable("Unexpected array cast");
+  const auto castedPtr = DtoBitCast(DtoArrayPtr(u), getPtrToType(tolltype));
+  return new DLValue(to, castedPtr);
 }
 
 void DtoIndexBoundsCheck(Loc &loc, DValue *arr, DValue *index) {
