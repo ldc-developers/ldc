@@ -1539,16 +1539,15 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
                                      "ref vars, although it can easily be "
                                      "made to.");
       return new DLValue(type, DtoBitCast(getIrValue(vd), DtoPtrToType(type)));
-    } else {
-      Logger::println("a normal variable");
-
-      // take care of forward references of global variables
-      if (vd->isDataseg() || (vd->storage_class & STCextern)) {
-        DtoResolveVariable(vd);
-      }
-
-      return makeVarDValue(type, vd);
     }
+    Logger::println("a normal variable");
+
+    // take care of forward references of global variables
+    if (vd->isDataseg() || (vd->storage_class & STCextern)) {
+      DtoResolveVariable(vd);
+    }
+
+    return makeVarDValue(type, vd);
   }
 
   if (FuncLiteralDeclaration *flitdecl = decl->isFuncLiteralDeclaration()) {

@@ -93,10 +93,9 @@ const char *getStringElem(StructLiteralExp *sle, size_t idx) {
     auto strexp = static_cast<StringExp *>(arg);
     assert(strexp->sz == 1);
     return strexp->toStringz();
-  } else {
-    // Default initialized element (arg->op == TOKnull)
-    return "";
   }
+  // Default initialized element (arg->op == TOKnull)
+  return "";
 }
 
 /// Returns a null-terminated string
