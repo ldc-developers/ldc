@@ -30,7 +30,7 @@ struct MoreThanXStatements : public StoppableVisitor {
   /// The statement count.
   unsigned count;
 
-  MoreThanXStatements(unsigned X) : threshold(X), count(0) {}
+  explicit MoreThanXStatements(unsigned X) : threshold(X), count(0) {}
 
   using StoppableVisitor::visit;
 
