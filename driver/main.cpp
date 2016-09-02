@@ -144,10 +144,12 @@ void printVersion() {
   exit(EXIT_SUCCESS);
 }
 
+namespace {
+
 // Helper function to handle -d-debug=* and -d-version=*
-static void processVersions(std::vector<std::string> &list, const char *type,
-                            void (*setLevel)(unsigned),
-                            void (*addIdent)(const char *)) {
+void processVersions(std::vector<std::string> &list, const char *type,
+                     void (*setLevel)(unsigned),
+                     void (*addIdent)(const char *)) {
   for (const auto &i : list) {
     const char *value = i.c_str();
     if (isdigit(value[0])) {
@@ -172,7 +174,7 @@ static void processVersions(std::vector<std::string> &list, const char *type,
 }
 
 // Helper function to handle -transition=*
-static void processTransitions(std::vector<std::string> &list) {
+void processTransitions(std::vector<std::string> &list) {
   for (const auto &i : list) {
     if (i == "?") {
       printf("Language changes listed by -transition=id:\n");
@@ -209,18 +211,26 @@ static void processTransitions(std::vector<std::string> &list) {
   }
 }
 
+char *dupPathString(const std::string &src) {
+  char *r = mem.xstrdup(src.c_str());
+#if _WIN32
+  std::replace(r, r + src.length(), '/', '\\');
+#endif
+  return r;
+}
+
 // Helper function to handle -of, -od, etc.
-static void initFromString(const char *&dest, const cl::opt<std::string> &src) {
+void initFromPathString(const char *&dest, const cl::opt<std::string> &src) {
   dest = nullptr;
   if (src.getNumOccurrences() != 0) {
     if (src.empty()) {
       error(Loc(), "Expected argument to '-%s'", src.ArgStr);
     }
-    dest = mem.xstrdup(src.c_str());
+    dest = dupPathString(src);
   }
 }
 
-static void hide(llvm::StringMap<cl::Option *> &map, const char *name) {
+void hide(llvm::StringMap<cl::Option *> &map, const char *name) {
   // Check if option exists first for resilience against LLVM changes
   // between versions.
   if (map.count(name)) {
@@ -229,8 +239,8 @@ static void hide(llvm::StringMap<cl::Option *> &map, const char *name) {
 }
 
 #if LDC_LLVM_VER >= 307
-static void rename(llvm::StringMap<cl::Option *> &map, const char *from,
-                   const char *to) {
+void rename(llvm::StringMap<cl::Option *> &map, const char *from,
+            const char *to) {
   auto i = map.find(from);
   if (i != map.end()) {
     cl::Option *opt = i->getValue();
@@ -243,7 +253,7 @@ static void rename(llvm::StringMap<cl::Option *> &map, const char *from,
 
 /// Removes command line options exposed from within LLVM that are unlikely
 /// to be useful for end users from the -help output.
-static void hideLLVMOptions() {
+void hideLLVMOptions() {
 #if LDC_LLVM_VER >= 307
   llvm::StringMap<cl::Option *> &map = cl::getRegisteredOptions();
 #else
@@ -327,10 +337,7 @@ static void hideLLVMOptions() {
 #endif
 }
 
-// In driver/main.d
-int main(int argc, char **argv);
-
-static const char *tryGetExplicitConfFile(int argc, char **argv) {
+const char *tryGetExplicitConfFile(int argc, char **argv) {
   // begin at the back => use latest -conf= specification
   for (int i = argc - 1; i >= 1; --i) {
     if (strncmp(argv[i], "-conf=", 6) == 0) {
@@ -340,7 +347,7 @@ static const char *tryGetExplicitConfFile(int argc, char **argv) {
   return nullptr;
 }
 
-static llvm::Triple tryGetExplicitTriple(int argc, char **argv) {
+llvm::Triple tryGetExplicitTriple(int argc, char **argv) {
   // most combinations of flags are illegal, this mimicks command line
   //  behaviour for legal ones only
   llvm::Triple triple(llvm::sys::getDefaultTargetTriple());
@@ -375,8 +382,8 @@ static llvm::Triple tryGetExplicitTriple(int argc, char **argv) {
 /// config file and sets up global.params accordingly.
 ///
 /// Returns a list of source file names.
-static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
-                             bool &helpOnly) {
+void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
+                      bool &helpOnly) {
   global.params.argv0 = exe_path::getExePath().data();
 
   // Set some default values.
@@ -451,28 +458,39 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   global.params.useInlineAsm = !noAsm;
 
   // String options: std::string --> char*
-  initFromString(global.params.objname, objectFile);
-  initFromString(global.params.objdir, objectDir);
+  initFromPathString(global.params.objname, objectFile);
+  initFromPathString(global.params.objdir, objectDir);
 
-  initFromString(global.params.docdir, ddocDir);
-  initFromString(global.params.docname, ddocFile);
+  initFromPathString(global.params.docdir, ddocDir);
+  initFromPathString(global.params.docname, ddocFile);
   global.params.doDocComments |= global.params.docdir || global.params.docname;
 
-  initFromString(global.params.jsonfilename, jsonFile);
+  initFromPathString(global.params.jsonfilename, jsonFile);
   if (global.params.jsonfilename) {
     global.params.doJsonGeneration = true;
   }
 
-  initFromString(global.params.hdrdir, hdrDir);
-  initFromString(global.params.hdrname, hdrFile);
+  initFromPathString(global.params.hdrdir, hdrDir);
+  initFromPathString(global.params.hdrname, hdrFile);
   global.params.doHdrGeneration |=
       global.params.hdrdir || global.params.hdrname;
 
   if (moduleDeps.getNumOccurrences() != 0) {
     global.params.moduleDeps = new OutBuffer;
     if (!moduleDeps.empty())
-      global.params.moduleDepsFile = mem.xstrdup(moduleDeps.c_str());
+      global.params.moduleDepsFile = dupPathString(moduleDeps);
   }
+
+#if _WIN32
+  const auto toWinPaths = [](Strings *paths) {
+    if (!paths)
+      return;
+    for (unsigned i = 0; i < paths->dim; ++i)
+      (*paths)[i] = dupPathString((*paths)[i]);
+  };
+  toWinPaths(global.params.imppath);
+  toWinPaths(global.params.fileImppath);
+#endif
 
 // PGO options
 #if LDC_WITH_PGO
@@ -486,17 +504,14 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
       global.params.datafileInstrProf = "default.profraw";
 #endif
     } else {
-      initFromString(global.params.datafileInstrProf, genfileInstrProf);
+      initFromPathString(global.params.datafileInstrProf, genfileInstrProf);
     }
   } else {
     global.params.genInstrProf = false;
     // If we don't have to generate instrumentation, we could be given a
     // profdata file:
-    initFromString(global.params.datafileInstrProf, usefileInstrProf);
+    initFromPathString(global.params.datafileInstrProf, usefileInstrProf);
   }
-#else
-  global.params.datafileInstrProf = nullptr;
-  global.params.genInstrProf = false;
 #endif
 
   processVersions(debugArgs, "debug", DebugCondition::setGlobalLevel,
@@ -547,10 +562,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   sourceFiles.reserve(fileList.size());
   for (const auto &file : fileList) {
     if (!file.empty()) {
-      char *copy = mem.xstrdup(file.c_str());
-#ifdef _WIN32
-      std::replace(copy, copy + file.length(), '/', '\\');
-#endif
+      char *copy = dupPathString(file);
       sourceFiles.push(copy);
     }
   }
@@ -681,7 +693,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   }
 }
 
-static void initializePasses() {
+void initializePasses() {
   using namespace llvm;
   // Initialize passes
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
@@ -739,8 +751,8 @@ static void registerMipsABI() {
 
 /// Register the float ABI.
 /// Also defines D_HardFloat or D_SoftFloat depending if FPU should be used
-static void registerPredefinedFloatABI(const char *soft, const char *hard,
-                                       const char *softfp = nullptr) {
+void registerPredefinedFloatABI(const char *soft, const char *hard,
+                                const char *softfp = nullptr) {
 // Use target floating point unit instead of s/w float routines
 #if LDC_LLVM_VER >= 307
   // FIXME: This is a semantic change!
@@ -764,7 +776,7 @@ static void registerPredefinedFloatABI(const char *soft, const char *hard,
 
 /// Registers the predefined versions specific to the current target triple
 /// and other target specific options with VersionCondition.
-static void registerPredefinedTargetVersions() {
+void registerPredefinedTargetVersions() {
   switch (global.params.targetTriple->getArch()) {
   case llvm::Triple::x86:
     VersionCondition::addPredefinedGlobalIdent("X86");
@@ -955,7 +967,7 @@ static void registerPredefinedTargetVersions() {
 
 /// Registers all predefined D version identifiers for the current
 /// configuration with VersionCondition.
-static void registerPredefinedVersions() {
+void registerPredefinedVersions() {
   VersionCondition::addPredefinedGlobalIdent("LDC");
   VersionCondition::addPredefinedGlobalIdent("all");
   VersionCondition::addPredefinedGlobalIdent("D_Version2");
@@ -1008,7 +1020,7 @@ static void registerPredefinedVersions() {
 }
 
 /// Dump all predefined version identifiers.
-static void dumpPredefinedVersions() {
+void dumpPredefinedVersions() {
   if (global.params.verbose && global.params.versionids) {
     fprintf(global.stdmsg, "predefs  ");
     int col = 10;
@@ -1024,6 +1036,8 @@ static void dumpPredefinedVersions() {
     fprintf(global.stdmsg, "\n");
   }
 }
+
+} // anonymous namespace
 
 int cppmain(int argc, char **argv) {
 #if LDC_LLVM_VER >= 309
