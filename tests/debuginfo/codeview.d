@@ -13,8 +13,10 @@ int main(string[] args)
     wstring ws = "b";
     dstring ds = "c";
 
-// CDB: ld codeview
-// CDB: bp `codeview.d:19`
+// CDB: ld /f codeview*
+// enable case sensitive symbol lookup
+// CDB: .symopt-1
+// CDB: bp `codeview.d:21`
 // CDB: g
     return 0;
 // CHECK: !D main
