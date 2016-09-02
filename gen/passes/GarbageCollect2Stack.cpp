@@ -474,7 +474,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
   const DataLayout &DL = F.getParent()->getDataLayout();
   DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   CallGraphWrapperPass *CGPass = getAnalysisIfAvailable<CallGraphWrapperPass>();
-  CallGraph *CG = CGPass ? &CGPass->getCallGraph() : 0;
+  CallGraph *CG = CGPass ? &CGPass->getCallGraph() : nullptr;
 #else
   DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
   assert(DLP && "required DataLayoutPass is null");
