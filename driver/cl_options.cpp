@@ -24,7 +24,7 @@ namespace opts {
  */
 struct CoverageParser : public cl::parser<unsigned char> {
 #if LDC_LLVM_VER >= 307
-  CoverageParser(cl::Option &O) : cl::parser<unsigned char>(O) {}
+  explicit CoverageParser(cl::Option &O) : cl::parser<unsigned char>(O) {}
 #endif
 
   bool parse(cl::Option &O, llvm::StringRef ArgName, llvm::StringRef Arg,
