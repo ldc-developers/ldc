@@ -120,9 +120,7 @@ static inline llvm::Optional<llvm::Reloc::Model> getRelocModel() {
   return llvm::None;
 }
 #else
-static inline llvm::Reloc::Model getRelocModel() {
-  return mRelocModel;
-}
+static inline llvm::Reloc::Model getRelocModel() { return mRelocModel; }
 #endif
 
 void printVersion() {
@@ -181,36 +179,40 @@ static void processVersions(std::vector<std::string> &list, const char *type,
 
 // Helper function to handle -transition=*
 static void processTransitions(std::vector<std::string> &list) {
-    for (const auto &i : list) {
-        if (i == "?") {
-            printf("Language changes listed by -transition=id:\n");
-            printf("  = all           list information on all language changes\n");
-            printf("  = checkimports  give deprecation messages about 10378 anomalies\n");
-            printf("  = complex,14488 list all usages of complex or imaginary types\n");
-            printf("  = field,3449    list all non - mutable fields which occupy an object instance\n");
-            printf("  = import,10378  revert to single phase name lookup\n");
-            printf("  = tls           list all variables going into thread local storage\n");
-            exit(EXIT_SUCCESS);
-        } else if (i == "all") {
-            global.params.vtls = true;
-            global.params.vfield = true;
-            global.params.vcomplex = true;
-            global.params.bug10378 = true; // not set in DMD
-            global.params.check10378 = true; // not set in DMD
-        } else if (i == "checkimports") {
-            global.params.check10378 = true;
-        } else if (i == "complex" || i == "14488") {
-            global.params.vcomplex = true;
-        } else if (i == "field" || i == "3449") {
-            global.params.vfield = true;
-        } else if (i == "import" || i == "10378") {
-            global.params.bug10378 = true;
-        } else if (i == "tls") {
-            global.params.vtls = true;
-        } else {
-            error(Loc(), "Invalid transition %s", i.c_str());
-        }
+  for (const auto &i : list) {
+    if (i == "?") {
+      printf("Language changes listed by -transition=id:\n");
+      printf("  = all           list information on all language changes\n");
+      printf("  = checkimports  give deprecation messages about 10378 "
+             "anomalies\n");
+      printf(
+          "  = complex,14488 list all usages of complex or imaginary types\n");
+      printf("  = field,3449    list all non - mutable fields which occupy an "
+             "object instance\n");
+      printf("  = import,10378  revert to single phase name lookup\n");
+      printf("  = tls           list all variables going into thread local "
+             "storage\n");
+      exit(EXIT_SUCCESS);
+    } else if (i == "all") {
+      global.params.vtls = true;
+      global.params.vfield = true;
+      global.params.vcomplex = true;
+      global.params.bug10378 = true;   // not set in DMD
+      global.params.check10378 = true; // not set in DMD
+    } else if (i == "checkimports") {
+      global.params.check10378 = true;
+    } else if (i == "complex" || i == "14488") {
+      global.params.vcomplex = true;
+    } else if (i == "field" || i == "3449") {
+      global.params.vfield = true;
+    } else if (i == "import" || i == "10378") {
+      global.params.bug10378 = true;
+    } else if (i == "tls") {
+      global.params.vtls = true;
+    } else {
+      error(Loc(), "Invalid transition %s", i.c_str());
     }
+  }
 }
 
 // Helper function to handle -of, -od, etc.
@@ -348,8 +350,8 @@ static llvm::Triple tryGetExplicitTriple(int argc, char **argv) {
   // most combinations of flags are illegal, this mimicks command line
   //  behaviour for legal ones only
   llvm::Triple triple(llvm::sys::getDefaultTargetTriple());
-  const char* mtriple = nullptr;
-  const char* march = nullptr;
+  const char *mtriple = nullptr;
+  const char *march = nullptr;
   for (int i = 1; i < argc; ++i) {
     if (sizeof(void *) != 4 && strcmp(argv[i], "-m32") == 0) {
       triple = triple.get32BitArchVariant();
@@ -364,10 +366,10 @@ static llvm::Triple tryGetExplicitTriple(int argc, char **argv) {
       march = argv[i] + 7;
   }
   if (mtriple)
-      triple = llvm::Triple(llvm::Triple::normalize(mtriple));
+    triple = llvm::Triple(llvm::Triple::normalize(mtriple));
   if (march) {
-      std::string errorMsg; // ignore error, will show up later anyway
-      lookupTarget(march, triple, errorMsg); // modifies triple
+    std::string errorMsg; // ignore error, will show up later anyway
+    lookupTarget(march, triple, errorMsg); // modifies triple
   }
   return triple;
 }
@@ -683,7 +685,7 @@ static void initializePasses() {
 #endif
   initializeTarget(Registry);
 
-  // Initialize passes not included above
+// Initialize passes not included above
 #if LDC_LLVM_VER < 306
   initializeDebugIRPass(Registry);
 #endif
@@ -1088,7 +1090,7 @@ int cppmain(int argc, char **argv) {
     global.params.isLP64 = gDataLayout->getPointerSizeInBits() == 64;
     global.params.is64bit = triple->isArch64Bit();
     global.params.hasObjectiveC = objc_isSupported(*triple);
-    // mscoff enables slightly different handling of interface functions 
+    // mscoff enables slightly different handling of interface functions
     // in the front end
     global.params.mscoff = triple->isKnownWindowsMSVCEnvironment();
     if (global.params.mscoff)

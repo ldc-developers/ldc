@@ -695,8 +695,7 @@ llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
       // Compare the selector value from the unwinder against the expected
       // one and branch accordingly.
       irs.ir->CreateCondBr(
-          irs.ir->CreateICmpEQ(irs.ir->CreateLoad(ehSelectorSlot),
-                               ehTypeId),
+          irs.ir->CreateICmpEQ(irs.ir->CreateLoad(ehSelectorSlot), ehTypeId),
           cb.bodyBB, mismatchBB, cb.branchWeights);
       irs.scope() = IRScope(mismatchBB);
     }
