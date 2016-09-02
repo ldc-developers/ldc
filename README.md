@@ -77,6 +77,9 @@ are up to date:
     $ cd ldc
     $ git submodule update --recursive --init
 
+
+test
+
 Contact
 -------
 
