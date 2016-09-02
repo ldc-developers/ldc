@@ -1051,20 +1051,6 @@ int cppmain(int argc, char **argv) {
 
   args.push_back(nullptr);
 
-  // On Linux, DMD creates output directores that don't already exist, while
-  // LDC does not (and neither does GDC). Do this here for rdmd compatibility.
-  if (p.objName) {
-    llvm::SmallString<256> outputPath(p.objName);
-    ls::path::remove_filename(outputPath);
-    if (!outputPath.empty()) {
-      createOutputDir(outputPath.c_str());
-    }
-  }
-
-  if (p.objDir) {
-    createOutputDir(p.objDir);
-  }
-
   // Check if we need to write out a response file.
   size_t totalLen = std::accumulate(args.begin(), args.end(), 0, addStrlen);
   if (totalLen > maxCommandLineLen()) {
