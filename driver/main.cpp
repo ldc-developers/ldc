@@ -358,9 +358,12 @@ static llvm::Triple tryGetExplicitTriple(int argc, char **argv) {
       if (triple.getArch() == llvm::Triple::ArchType::x86)
         triple.setArchName("i686"); // instead of i386
       return triple;
-    } else if (sizeof(void *) != 8 && strcmp(argv[i], "-m64") == 0)
+    }
+
+    if (sizeof(void *) != 8 && strcmp(argv[i], "-m64") == 0)
       return triple.get64BitArchVariant();
-    else if (strncmp(argv[i], "-mtriple=", 9) == 0)
+
+    if (strncmp(argv[i], "-mtriple=", 9) == 0)
       mtriple = argv[i] + 9;
     else if (strncmp(argv[i], "-march=", 7) == 0)
       march = argv[i] + 7;

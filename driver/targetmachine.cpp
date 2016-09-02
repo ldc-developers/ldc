@@ -88,24 +88,23 @@ MipsABI::Type getMipsABI() {
   // eabi can only be set on the commandline
   if (strncmp(opts::mABI.c_str(), "eabi", 4) == 0)
     return MipsABI::EABI;
-  else {
+
 #if LDC_LLVM_VER >= 308
-    const llvm::DataLayout dl = gTargetMachine->createDataLayout();
+  const llvm::DataLayout dl = gTargetMachine->createDataLayout();
 #else
-    const llvm::DataLayout &dl = *gTargetMachine->getDataLayout();
+  const llvm::DataLayout &dl = *gTargetMachine->getDataLayout();
 #endif
-    if (dl.getPointerSizeInBits() == 64)
-      return MipsABI::N64;
+
+  if (dl.getPointerSizeInBits() == 64)
+    return MipsABI::N64;
+
 #if LDC_LLVM_VER >= 309
-    else if (dl.getLargestLegalIntTypeSizeInBits() == 64)
+  const auto largestInt = dl.getLargestLegalIntTypeSizeInBits();
 #else
-    else if (dl.getLargestLegalIntTypeSize() == 64)
+  const auto largestInt = dl.getLargestLegalIntTypeSize();
 #endif
-      return MipsABI::N32;
-    else
-      return MipsABI::O32;
-  }
-#else
+  return (largestInt == 64) ? MipsABI::N32 : MipsABI::O32;
+#else // LDC_LLVM_VER < 307
   llvm::StringRef features = gTargetMachine->getTargetFeatureString();
   if (features.find("+o32") != std::string::npos) {
     return MipsABI::O32;
