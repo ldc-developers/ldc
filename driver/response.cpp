@@ -172,7 +172,7 @@ int response_expand(size_t *pargc, char ***ppargv) {
   }
 
   char **pargv =
-      reinterpret_cast<char **>(malloc(sizeof(pargv) * processed_args.size()));
+      reinterpret_cast<char **>(malloc(sizeof(char *) * processed_args.size()));
 
   for (size_t i = 0; i < processed_args.size(); ++i) {
     pargv[i] = reinterpret_cast<char *>(
