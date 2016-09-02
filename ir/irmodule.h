@@ -24,7 +24,7 @@ class GlobalVariable;
 }
 
 struct IrModule {
-  IrModule(Module *module, const char *srcfilename);
+  IrModule(Module *module);
   virtual ~IrModule() = default;
 
   Module *const M = nullptr;

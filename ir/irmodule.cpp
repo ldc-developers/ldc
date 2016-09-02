@@ -15,7 +15,7 @@
 #include "ir/irdsymbol.h"
 #include "ir/irfunction.h"
 
-IrModule::IrModule(Module *module, const char *srcfilename) : M(module) {}
+IrModule::IrModule(Module *module) : M(module) {}
 
 llvm::GlobalVariable *IrModule::moduleInfoSymbol() {
   if (moduleInfoVar) {
@@ -39,7 +39,7 @@ IrModule *getIrModule(Module *m) {
 
   assert(m && "null module");
   if (m->ir->m_type == IrDsymbol::NotSet) {
-    m->ir->irModule = new IrModule(m, m->srcfile->toChars());
+    m->ir->irModule = new IrModule(m);
     m->ir->m_type = IrDsymbol::ModuleType;
   }
 
