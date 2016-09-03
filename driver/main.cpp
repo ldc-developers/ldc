@@ -99,12 +99,12 @@ static cl::opt<std::string>
 
 static cl::opt<std::string> debugLib(
     "debuglib",
-    cl::desc("Debug versions of default libraries (overrides previous)"),
+    cl::desc("(deprecated) Debug versions of default libraries"),
     cl::value_desc("lib1,lib2,..."), cl::ZeroOrMore);
 
 static cl::opt<bool> linkDebugLib(
     "link-debuglib",
-    cl::desc("Link with libraries specified in -debuglib, not -defaultlib"),
+    cl::desc("Link with debug versions of default libraries"),
     cl::ZeroOrMore);
 
 #if LDC_LLVM_VER >= 309
@@ -497,11 +497,30 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     deprecation(
         Loc(),
         "-nodefaultlib is deprecated, as "
-        "-defaultlib/-debuglib now override the existing list instead of "
+        "-defaultlib now overrides the existing list instead of "
         "appending to it. Please use the latter instead.");
   } else {
     // Parse comma-separated default library list.
-    std::stringstream libNames(linkDebugLib ? debugLib : defaultLib);
+    bool generatedDebugLib = false;
+
+    if (debugLib.length() > 0)
+    {
+        // temporarily disabled to not affect expected test output
+        /*
+        deprecation(
+            Loc(),
+            "-debuglib is deprecated, as LDC generates names of "
+            "debug libraries automatically now by appending '-debug' "
+            "suffix to default ones"
+        );
+        */
+    }
+    else
+        generatedDebugLib = true;
+
+    std::stringstream libNames(linkDebugLib && !generatedDebugLib
+        ? debugLib : defaultLib);
+
     while (libNames.good()) {
       std::string lib;
       std::getline(libNames, lib, ',');
@@ -509,9 +528,14 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
         continue;
       }
 
-      char *arg = static_cast<char *>(mem.xmalloc(lib.size() + 3));
+      size_t size = lib.size() + 3;
+      if (linkDebugLib && generatedDebugLib)
+          size += 6;
+      char *arg = static_cast<char *>(mem.xmalloc(size));
       strcpy(arg, "-l");
       strcpy(arg + 2, lib.c_str());
+      if (linkDebugLib && generatedDebugLib)
+          strcpy(arg + size - 7, "-debug");
       global.params.linkswitches->push(arg);
     }
   }
