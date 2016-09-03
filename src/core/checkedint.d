@@ -159,6 +159,7 @@ cent adds(cent x, cent y, ref bool overflow)
 {
     version(LDC)
     {
+        pragma(inline, true);
         if (__ctfe)
         {
             cent r = cast(ucent)x + cast(ucent)y;
@@ -317,6 +318,7 @@ ucent addu(ucent x, ucent y, ref bool overflow)
 {
     version(LDC)
     {
+        pragma(inline, true);
         if (__ctfe)
         {
             ucent r = x + y;
@@ -477,6 +479,7 @@ cent subs(cent x, cent y, ref bool overflow)
 {
     version(LDC)
     {
+        pragma(inline, true);
         if (__ctfe)
         {
             cent r = cast(ucent)x - cast(ucent)y;
@@ -634,6 +637,7 @@ ucent subu(ucent x, ucent y, ref bool overflow)
 {
     version(LDC)
     {
+        pragma(inline, true);
         if (__ctfe)
         {
             if (x < y)

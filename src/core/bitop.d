@@ -16,6 +16,7 @@ nothrow:
 @nogc:
 
 version (LDC) {
+    import ldc.intrinsics;
     // Do not use the DMD inline assembler.
 }
 else {
@@ -80,10 +81,10 @@ unittest
 version (LDC)
 {
     // KLUDGE: Need to adapt the return type.
-    private pure pragma(LDC_intrinsic, "llvm.cttz.i#") T cttz(T)(T v, bool is_zero_undef);
-    pure int bsf(size_t v)
+    pragma(inline, true)
+    int bsf(size_t v) pure
     {
-        return cast(int)cttz(v, true);
+        return cast(int)llvm_cttz(v, true);
     }
 }
 else
@@ -132,10 +133,10 @@ unittest
  */
 version (LDC)
 {
-    private pure pragma(LDC_intrinsic, "llvm.ctlz.i#") T ctlz(T)(T v, bool is_zero_undef);
-    pure int bsr(size_t v)
+    pragma(inline, true)
+    int bsr(size_t v) pure
     {
-        return cast(int)(size_t.sizeof * 8 - 1 - ctlz(v, true));
+        return cast(int)(size_t.sizeof * 8 - 1 - llvm_ctlz(v, true));
     }
 }
 else
@@ -302,19 +303,22 @@ int bts(size_t* p, size_t bitnum) pure @system;
  */
 version (LDC)
 {
-    pure pragma(LDC_intrinsic, "llvm.bswap.i32")
-        uint bswap(uint v);
+    alias bswap = llvm_bswap!uint;
 }
 else
-{
-    uint bswap(uint v) pure;
-}
+uint bswap(uint v) pure;
 
 
 /**
  * Swaps bytes in an 8 byte ulong end-to-end, i.e. byte 0 becomes
  * byte 7, byte 1 becomes byte 6, etc.
  */
+version (LDC)
+{
+    alias bswap = llvm_bswap!ulong;
+}
+else
+{
 ulong bswap(ulong v) pure
 {
     auto sv = Split64(v);
@@ -324,6 +328,7 @@ ulong bswap(ulong v) pure
     sv.hi = bswap(temp);
 
     return (cast(ulong) sv.hi << 32) | sv.lo;
+}
 }
 
 version (DigitalMars) version (AnyX86) @system // not pure
@@ -421,20 +426,21 @@ version(LDC) @system // not pure
 
 version (LDC)
 {
-    private pure pragma(LDC_intrinsic, "llvm.ctpop.i#") T ctpop(T)(T v);
+    pragma(inline, true):
+
     ushort _popcnt(ushort x) pure
     {
-        return ctpop(x);
+        return llvm_ctpop(x);
     }
 
     int _popcnt(uint x) pure
     {
-        return cast(int)ctpop(x);
+        return cast(int)llvm_ctpop(x);
     }
 
     int _popcnt(ulong x) pure
     {
-        return cast(int)ctpop(x);
+        return cast(int)llvm_ctpop(x);
     }
 }
 
@@ -446,22 +452,21 @@ int popcnt(uint x) pure
     // Select the fastest method depending on the compiler and CPU architecture
     version(LDC)
     {
-        return _popcnt(x);
+        pragma(inline, true);
+        if (!__ctfe)
+            return _popcnt(x);
     }
-    else
+    else version(DigitalMars)
     {
-        version(DigitalMars)
+        static if (is(typeof(_popcnt(uint.max))))
         {
-            static if (is(typeof(_popcnt(uint.max))))
-            {
-                import core.cpuid;
-                if (!__ctfe && hasPopcnt)
-                    return _popcnt(x);
-            }
+            import core.cpuid;
+            if (!__ctfe && hasPopcnt)
+                return _popcnt(x);
         }
-
-        return softPopcnt!uint(x);
     }
+
+    return softPopcnt!uint(x);
 }
 
 unittest
@@ -482,45 +487,45 @@ unittest
 /// ditto
 int popcnt(ulong x) pure
 {
-    // Select the fastest method depending on the compiler and CPU architecture
     version(LDC)
     {
-        return _popcnt(x);
+        pragma(inline, true);
+        if (!__ctfe)
+            return _popcnt(x);
+    }
+
+    // Select the fastest method depending on the compiler and CPU architecture
+    import core.cpuid;
+
+    static if (size_t.sizeof == uint.sizeof)
+    {
+        const sx = Split64(x);
+        version(DigitalMars)
+        {
+            static if (is(typeof(_popcnt(uint.max))))
+            {
+                if (!__ctfe && hasPopcnt)
+                    return _popcnt(sx.lo) + _popcnt(sx.hi);
+            }
+        }
+
+        return softPopcnt!uint(sx.lo) + softPopcnt!uint(sx.hi);
+    }
+    else static if (size_t.sizeof == ulong.sizeof)
+    {
+        version(DigitalMars)
+        {
+            static if (is(typeof(_popcnt(ulong.max))))
+            {
+                if (!__ctfe && hasPopcnt)
+                    return _popcnt(x);
+            }
+        }
+
+        return softPopcnt!ulong(x);
     }
     else
-    {
-        import core.cpuid;
-
-        static if (size_t.sizeof == uint.sizeof)
-        {
-            const sx = Split64(x);
-            version(DigitalMars)
-            {
-                static if (is(typeof(_popcnt(uint.max))))
-                {
-                    if (!__ctfe && hasPopcnt)
-                        return _popcnt(sx.lo) + _popcnt(sx.hi);
-                }
-            }
-
-            return softPopcnt!uint(sx.lo) + softPopcnt!uint(sx.hi);
-        }
-        else static if (size_t.sizeof == ulong.sizeof)
-        {
-            version(DigitalMars)
-            {
-                static if (is(typeof(_popcnt(ulong.max))))
-                {
-                    if (!__ctfe && hasPopcnt)
-                        return _popcnt(x);
-                }
-            }
-
-            return softPopcnt!ulong(x);
-        }
-        else
-            static assert(false);
-    }
+        static assert(false);
 }
 
 unittest
@@ -704,6 +709,12 @@ uint bitswap( uint x ) pure
 {
     if (!__ctfe)
     {
+        version (LDC)
+        {
+            static if (is(typeof(llvm_bitreverse(x))))
+                return llvm_bitreverse(x);
+        }
+        else
         static if (is(typeof(asmBitswap32(x))))
             return asmBitswap32(x);
     }
@@ -738,6 +749,12 @@ ulong bitswap ( ulong x ) pure
 {
     if (!__ctfe)
     {
+        version (LDC)
+        {
+            static if (is(typeof(llvm_bitreverse(x))))
+                return llvm_bitreverse(x);
+        }
+        else
         static if (is(typeof(asmBitswap64(x))))
             return asmBitswap64(x);
     }

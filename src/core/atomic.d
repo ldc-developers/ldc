@@ -178,6 +178,8 @@ else version( LDC )
 {
     import ldc.intrinsics;
 
+    pragma(inline, true):
+
     HeadUnshared!(T) atomicOp(string op, T, V1)( ref shared T val, V1 mod )
         if( __traits( compiles, mixin( "*cast(T*)&val" ~ op ~ "mod" ) ) )
     {
@@ -1509,6 +1511,8 @@ else version( AsmX86_64 )
 HeadUnshared!(T) atomicLoad(MemoryOrder ms = MemoryOrder.seq, T)( ref const shared T val ) pure nothrow @nogc
 if(__traits(isFloating, T))
 {
+    version (LDC) pragma(inline, true);
+
     static if(T.sizeof == int.sizeof)
     {
         static assert(is(T : float));
