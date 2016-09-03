@@ -107,6 +107,17 @@ static cl::opt<bool> linkDebugLib(
     cl::desc("Link with debug versions of default libraries"),
     cl::ZeroOrMore);
 
+static cl::opt<bool> linkSharedLib(
+    "link-sharedlib",
+    cl::desc("Link with shared versions of default libraries"),
+    cl::ZeroOrMore);
+
+static cl::opt<bool> staticFlag(
+    "static",
+    cl::desc(
+        "Create a statically linked binary, including all system dependencies"),
+    cl::ZeroOrMore);
+
 #if LDC_LLVM_VER >= 309
 static inline llvm::Optional<llvm::Reloc::Model> getRelocModel() {
   if (mRelocModel.getNumOccurrences()) {
@@ -493,6 +504,14 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     }
   }
 
+  if (linkSharedLib && staticFlag)
+  {
+      error(
+        Loc(),
+        "Can't use -link-sharedlib and -static together"
+      );
+  }
+
   if (noDefaultLib) {
     deprecation(
         Loc(),
@@ -531,11 +550,16 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
       size_t size = lib.size() + 3;
       if (linkDebugLib && generatedDebugLib)
           size += 6;
+      if (linkSharedLib)
+          size += 7;
       char *arg = static_cast<char *>(mem.xmalloc(size));
       strcpy(arg, "-l");
       strcpy(arg + 2, lib.c_str());
       if (linkDebugLib && generatedDebugLib)
-          strcpy(arg + size - 7, "-debug");
+          strcpy(arg + lib.length(), "-debug");
+      if (linkSharedLib)
+          strcpy(arg + size - 8, "-shared");
+
       global.params.linkswitches->push(arg);
     }
   }
