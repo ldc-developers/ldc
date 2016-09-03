@@ -21,11 +21,11 @@
 #include "llvm/IR/CFG.h"
 
 llvm::BasicBlock *getUnwindDest(llvm::Instruction *I) {
-  if (auto II = llvm::dyn_cast<llvm::InvokeInst> (I))
+  if (auto II = llvm::dyn_cast<llvm::InvokeInst>(I))
     return II->getUnwindDest();
-  else if (auto CSI = llvm::dyn_cast<llvm::CatchSwitchInst> (I))
+  if (auto CSI = llvm::dyn_cast<llvm::CatchSwitchInst>(I))
     return CSI->getUnwindDest();
-  else if (auto CRPI = llvm::dyn_cast<llvm::CleanupReturnInst> (I))
+  if (auto CRPI = llvm::dyn_cast<llvm::CleanupReturnInst>(I))
     return CRPI->getUnwindDest();
   return nullptr;
 }
@@ -57,11 +57,10 @@ void findSuccessors(std::vector<llvm::BasicBlock *> &blocks,
 
 // remap values in all instructions of all blocks
 void remapBlocks(std::vector<llvm::BasicBlock *> &blocks,
-                 llvm::ValueToValueMapTy &VMap, llvm::BasicBlock *unwindTo,
-                 llvm::Value *funclet) {
+                 llvm::ValueToValueMapTy &VMap) {
   for (llvm::BasicBlock *bb : blocks)
-    for (llvm::BasicBlock::iterator I = bb->begin(); I != bb->end(); ++I) {
-      llvm::RemapInstruction(&*I, VMap,
+    for (auto &I : *bb) {
+      llvm::RemapInstruction(&I, VMap,
 #if LDC_LLVM_VER == 308
                              llvm::RF_IgnoreMissingEntries
 #else
@@ -75,11 +74,11 @@ void remapBlocksValue(std::vector<llvm::BasicBlock *> &blocks,
                       llvm::Value *from, llvm::Value *to) {
   llvm::ValueToValueMapTy VMap;
   VMap[from] = to;
-  remapBlocks(blocks, VMap, nullptr, nullptr);
+  remapBlocks(blocks, VMap);
 }
 
 // make a copy of all blocks and instructions in srcblocks
-// - map values to clones 
+// - map values to clones
 // - redirect srcTarget to continueWith
 // - set "funclet" attribute inside catch/cleanup pads
 // - inside funclets, replace "unreachable" with "branch cleanupret"
@@ -94,21 +93,21 @@ void cloneBlocks(const std::vector<llvm::BasicBlock *> &srcblocks,
       if (auto succ = term->getSuccessor(0))
         VMap[succ] = continueWith;
 
-  for (size_t b = 0; b < srcblocks.size(); b++) {
-    llvm::BasicBlock *bb = srcblocks[b];
-    llvm::Function* F = bb->getParent();
+  for (auto bb : srcblocks) {
+    llvm::Function *F = bb->getParent();
 
     auto nbb = llvm::BasicBlock::Create(bb->getContext(), bb->getName());
     // Loop over all instructions, and copy them over.
-    for (auto II = bb->begin(), IE = bb->end(); II != IE; ++II) {
-      llvm::Instruction *Inst = &*II;
+    for (auto &II : *bb) {
+      llvm::Instruction *Inst = &II;
       llvm::Instruction *newInst = nullptr;
-      if (funclet && !llvm::isa<llvm::DbgInfoIntrinsic>(Inst)) { // IntrinsicInst?
-        if (auto IInst = llvm::dyn_cast<llvm::InvokeInst> (Inst)) {
+      if (funclet &&
+          !llvm::isa<llvm::DbgInfoIntrinsic>(Inst)) { // IntrinsicInst?
+        if (auto IInst = llvm::dyn_cast<llvm::InvokeInst>(Inst)) {
           auto invoke = llvm::InvokeInst::Create(
-            IInst, llvm::OperandBundleDef("funclet", funclet));
+              IInst, llvm::OperandBundleDef("funclet", funclet));
           newInst = invoke;
-        } else if (auto CInst = llvm::dyn_cast<llvm::CallInst> (Inst)) {
+        } else if (auto CInst = llvm::dyn_cast<llvm::CallInst>(Inst)) {
           auto call = llvm::CallInst::Create(
               CInst, llvm::OperandBundleDef("funclet", funclet));
           newInst = call;
@@ -130,10 +129,10 @@ void cloneBlocks(const std::vector<llvm::BasicBlock *> &srcblocks,
     blocks.push_back(nbb);
   }
 
-  remapBlocks(blocks, VMap, unwindTo, funclet);
+  remapBlocks(blocks, VMap);
 }
 
-bool isCatchSwitchBlock(llvm::BasicBlock* bb) {
+bool isCatchSwitchBlock(llvm::BasicBlock *bb) {
   if (bb->empty())
     return false;
   return llvm::dyn_cast<llvm::CatchSwitchInst>(&bb->front());

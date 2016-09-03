@@ -93,10 +93,9 @@ const char *getStringElem(StructLiteralExp *sle, size_t idx) {
     auto strexp = static_cast<StringExp *>(arg);
     assert(strexp->sz == 1);
     return strexp->toStringz();
-  } else {
-    // Default initialized element (arg->op == TOKnull)
-    return "";
   }
+  // Default initialized element (arg->op == TOKnull)
+  return "";
 }
 
 /// Returns a null-terminated string
@@ -320,13 +319,15 @@ bool hasWeakUDA(Dsymbol *sym) {
 
     auto name = sle->sd->ident->string;
     if (name == attr::weak) {
-        // Check whether @weak can be applied to this symbol.
-        // Because hasWeakUDA is currently only called for global symbols, this check never errors.
-        auto vd = sym->isVarDeclaration();
-        if (!(vd && vd->isDataseg()) && !sym->isFuncDeclaration()) {
-          sym->error("@ldc.attributes.weak can only be applied to functions or global variables");
-          return false;
-        }
+      // Check whether @weak can be applied to this symbol.
+      // Because hasWeakUDA is currently only called for global symbols, this
+      // check never errors.
+      auto vd = sym->isVarDeclaration();
+      if (!(vd && vd->isDataseg()) && !sym->isFuncDeclaration()) {
+        sym->error("@ldc.attributes.weak can only be applied to functions or "
+                   "global variables");
+        return false;
+      }
 
       return true;
     }

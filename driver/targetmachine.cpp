@@ -88,24 +88,23 @@ MipsABI::Type getMipsABI() {
   // eabi can only be set on the commandline
   if (strncmp(opts::mABI.c_str(), "eabi", 4) == 0)
     return MipsABI::EABI;
-  else {
+
 #if LDC_LLVM_VER >= 308
-    const llvm::DataLayout dl = gTargetMachine->createDataLayout();
+  const llvm::DataLayout dl = gTargetMachine->createDataLayout();
 #else
-    const llvm::DataLayout &dl = *gTargetMachine->getDataLayout();
+  const llvm::DataLayout &dl = *gTargetMachine->getDataLayout();
 #endif
-    if (dl.getPointerSizeInBits() == 64)
-      return MipsABI::N64;
+
+  if (dl.getPointerSizeInBits() == 64)
+    return MipsABI::N64;
+
 #if LDC_LLVM_VER >= 309
-    else if (dl.getLargestLegalIntTypeSizeInBits() == 64)
+  const auto largestInt = dl.getLargestLegalIntTypeSizeInBits();
 #else
-    else if (dl.getLargestLegalIntTypeSize() == 64)
+  const auto largestInt = dl.getLargestLegalIntTypeSize();
 #endif
-      return MipsABI::N32;
-    else
-      return MipsABI::O32;
-  }
-#else
+  return (largestInt == 64) ? MipsABI::N32 : MipsABI::O32;
+#else // LDC_LLVM_VER < 307
   llvm::StringRef features = gTargetMachine->getTargetFeatureString();
   if (features.find("+o32") != std::string::npos) {
     return MipsABI::O32;
@@ -424,17 +423,18 @@ const llvm::Target *lookupTarget(const std::string &arch, llvm::Triple &triple,
   return target;
 }
 
-llvm::TargetMachine *createTargetMachine(
-    std::string targetTriple, std::string arch, std::string cpu,
-    std::vector<std::string> attrs, ExplicitBitness::Type bitness,
-    FloatABI::Type floatABI,
+llvm::TargetMachine *
+createTargetMachine(std::string targetTriple, std::string arch, std::string cpu,
+                    std::vector<std::string> attrs,
+                    ExplicitBitness::Type bitness, FloatABI::Type floatABI,
 #if LDC_LLVM_VER >= 309
-    llvm::Optional<llvm::Reloc::Model> relocModel,
+                    llvm::Optional<llvm::Reloc::Model> relocModel,
 #else
-    llvm::Reloc::Model relocModel,
+                    llvm::Reloc::Model relocModel,
 #endif
-    llvm::CodeModel::Model codeModel, llvm::CodeGenOpt::Level codeGenOptLevel,
-    bool noFramePointerElim, bool noLinkerStripDead) {
+                    llvm::CodeModel::Model codeModel,
+                    llvm::CodeGenOpt::Level codeGenOptLevel,
+                    bool noFramePointerElim, bool noLinkerStripDead) {
   // Determine target triple. If the user didn't explicitly specify one, use
   // the one set at LLVM configure time.
   llvm::Triple triple;
@@ -518,7 +518,7 @@ llvm::TargetMachine *createTargetMachine(
                     features.getString().c_str());
   }
 
-  // Handle cases where LLVM picks wrong default relocModel
+// Handle cases where LLVM picks wrong default relocModel
 #if LDC_LLVM_VER >= 309
   if (!relocModel.hasValue()) {
 #else
@@ -529,8 +529,10 @@ llvm::TargetMachine *createTargetMachine(
       // to crashes for non-PIC code). LLVM doesn't handle this.
       relocModel = llvm::Reloc::PIC_;
     } else if (triple.isOSLinux()) {
-      // Modern Linux distributions have their toolchain generate PIC code for additional security
-      // features (like ASLR). We default to PIC code to avoid linking issues on these OSes.
+      // Modern Linux distributions have their toolchain generate PIC code for
+      // additional security
+      // features (like ASLR). We default to PIC code to avoid linking issues on
+      // these OSes.
       // On Android, PIC is default as well.
       relocModel = llvm::Reloc::PIC_;
     } else {
