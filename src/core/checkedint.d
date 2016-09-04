@@ -62,27 +62,17 @@ int adds(int x, int y, ref bool overflow)
 {
     version(LDC)
     {
-        if (__ctfe)
-        {
-            long r = cast(long)x + cast(long)y;
-            if (r < int.min || r > int.max)
-                overflow = true;
-            return cast(int)r;
-        }
-        else
+        if (!__ctfe)
         {
             auto res = llvm_sadd_with_overflow(x, y);
             overflow |= res.overflow;
             return res.result;
         }
     }
-    else
-    {
-        long r = cast(long)x + cast(long)y;
-        if (r < int.min || r > int.max)
-            overflow = true;
-        return cast(int)r;
-    }
+    long r = cast(long)x + cast(long)y;
+    if (r < int.min || r > int.max)
+        overflow = true;
+    return cast(int)r;
 }
 
 unittest
@@ -109,29 +99,18 @@ long adds(long x, long y, ref bool overflow)
 {
     version(LDC)
     {
-        if (__ctfe)
-        {
-            long r = cast(ulong)x + cast(ulong)y;
-            if (x <  0 && y <  0 && r >= 0 ||
-                x >= 0 && y >= 0 && r <  0)
-                overflow = true;
-            return r;
-        }
-        else
+        if (!__ctfe)
         {
             auto res = llvm_sadd_with_overflow(x, y);
             overflow |= res.overflow;
             return res.result;
         }
     }
-    else
-    {
-        long r = cast(ulong)x + cast(ulong)y;
-        if (x <  0 && y <  0 && r >= 0 ||
-            x >= 0 && y >= 0 && r <  0)
-            overflow = true;
-        return r;
-    }
+    long r = cast(ulong)x + cast(ulong)y;
+    if (x <  0 && y <  0 && r >= 0 ||
+        x >= 0 && y >= 0 && r <  0)
+        overflow = true;
+    return r;
 }
 
 unittest
@@ -160,29 +139,18 @@ cent adds(cent x, cent y, ref bool overflow)
     version(LDC)
     {
         pragma(inline, true);
-        if (__ctfe)
-        {
-            cent r = cast(ucent)x + cast(ucent)y;
-            if (x <  0 && y <  0 && r >= 0 ||
-                x >= 0 && y >= 0 && r <  0)
-                overflow = true;
-            return r;
-        }
-        else
+        if (!__ctfe)
         {
             auto res = llvm_sadd_with_overflow(x, y);
             overflow |= res.overflow;
             return res.result;
         }
     }
-    else
-    {
-        cent r = cast(ucent)x + cast(ucent)y;
-        if (x <  0 && y <  0 && r >= 0 ||
-            x >= 0 && y >= 0 && r <  0)
-            overflow = true;
-        return r;
-    }
+    cent r = cast(ucent)x + cast(ucent)y;
+    if (x <  0 && y <  0 && r >= 0 ||
+        x >= 0 && y >= 0 && r <  0)
+        overflow = true;
+    return r;
 }
 
 unittest
@@ -223,27 +191,17 @@ uint addu(uint x, uint y, ref bool overflow)
 {
     version(LDC)
     {
-        if (__ctfe)
-        {
-            uint r = x + y;
-            if (r < x || r < y)
-                overflow = true;
-            return r;
-        }
-        else
+        if (!__ctfe)
         {
             auto res = llvm_uadd_with_overflow(x, y);
             overflow |= res.overflow;
             return res.result;
         }
     }
-    else
-    {
-        uint r = x + y;
-        if (r < x || r < y)
-            overflow = true;
-        return r;
-    }
+    uint r = x + y;
+    if (r < x || r < y)
+        overflow = true;
+    return r;
 }
 
 unittest
@@ -270,27 +228,17 @@ ulong addu(ulong x, ulong y, ref bool overflow)
 {
     version(LDC)
     {
-        if (__ctfe)
-        {
-            ulong r = x + y;
-            if (r < x || r < y)
-                overflow = true;
-            return r;
-        }
-        else
+        if (!__ctfe)
         {
             auto res = llvm_uadd_with_overflow(x, y);
             overflow |= res.overflow;
             return res.result;
         }
     }
-    else
-    {
-        ulong r = x + y;
-        if (r < x || r < y)
-            overflow = true;
-        return r;
-    }
+    ulong r = x + y;
+    if (r < x || r < y)
+        overflow = true;
+    return r;
 }
 
 unittest
@@ -319,27 +267,17 @@ ucent addu(ucent x, ucent y, ref bool overflow)
     version(LDC)
     {
         pragma(inline, true);
-        if (__ctfe)
-        {
-            ucent r = x + y;
-            if (r < x || r < y)
-                overflow = true;
-            return r;
-        }
-        else
+        if (!__ctfe)
         {
             auto res = llvm_uadd_with_overflow(x, y);
             overflow |= res.overflow;
             return res.result;
         }
     }
-    else
-    {
-        ucent r = x + y;
-        if (r < x || r < y)
-            overflow = true;
-        return r;
-    }
+    ucent r = x + y;
+    if (r < x || r < y)
+        overflow = true;
+    return r;
 }
 
 unittest
@@ -380,27 +318,17 @@ int subs(int x, int y, ref bool overflow)
 {
     version(LDC)
     {
-        if (__ctfe)
-        {
-            long r = cast(long)x - cast(long)y;
-            if (r < int.min || r > int.max)
-                overflow = true;
-            return cast(int)r;
-        }
-        else
+        if (!__ctfe)
         {
             auto res = llvm_ssub_with_overflow(x, y);
             overflow |= res.overflow;
             return res.result;
         }
     }
-    else
-    {
-        long r = cast(long)x - cast(long)y;
-        if (r < int.min || r > int.max)
-            overflow = true;
-        return cast(int)r;
-    }
+    long r = cast(long)x - cast(long)y;
+    if (r < int.min || r > int.max)
+        overflow = true;
+    return cast(int)r;
 }
 
 unittest
@@ -427,29 +355,18 @@ long subs(long x, long y, ref bool overflow)
 {
     version(LDC)
     {
-        if (__ctfe)
-        {
-            long r = cast(ulong)x - cast(ulong)y;
-            if (x <  0 && y >= 0 && r >= 0 ||
-                x >= 0 && y <  0 && (r <  0 || y == long.min))
-                overflow = true;
-            return r;
-        }
-        else
+        if (!__ctfe)
         {
             auto res = llvm_ssub_with_overflow(x, y);
             overflow |= res.overflow;
             return res.result;
         }
     }
-    else
-    {
-        long r = cast(ulong)x - cast(ulong)y;
-        if (x <  0 && y >= 0 && r >= 0 ||
-            x >= 0 && y <  0 && (r <  0 || y == long.min))
-            overflow = true;
-        return r;
-    }
+    long r = cast(ulong)x - cast(ulong)y;
+    if (x <  0 && y >= 0 && r >= 0 ||
+        x >= 0 && y <  0 && (r <  0 || y == long.min))
+        overflow = true;
+    return r;
 }
 
 unittest
@@ -480,31 +397,19 @@ cent subs(cent x, cent y, ref bool overflow)
     version(LDC)
     {
         pragma(inline, true);
-        if (__ctfe)
-        {
-            cent r = cast(ucent)x - cast(ucent)y;
-            if (x <  0 && y >= 0 && r >= 0 ||
-                x >= 0 && y <  0 && r <  0 ||
-                y == cent.min)
-                overflow = true;
-            return r;
-        }
-        else
+        if (!__ctfe)
         {
             auto res = llvm_ssub_with_overflow(x, y);
             overflow |= res.overflow;
             return res.result;
         }
     }
-    else
-    {
-        cent r = cast(ucent)x - cast(ucent)y;
-        if (x <  0 && y >= 0 && r >= 0 ||
-            x >= 0 && y <  0 && r <  0 ||
-            y == cent.min)
-            overflow = true;
-        return r;
-    }
+    cent r = cast(ucent)x - cast(ucent)y;
+    if (x <  0 && y >= 0 && r >= 0 ||
+        x >= 0 && y <  0 && r <  0 ||
+        y == cent.min)
+        overflow = true;
+    return r;
 }
 
 unittest
@@ -545,25 +450,16 @@ uint subu(uint x, uint y, ref bool overflow)
 {
     version(LDC)
     {
-        if (__ctfe)
-        {
-            if (x < y)
-                overflow = true;
-            return x - y;
-        }
-        else
+        if (!__ctfe)
         {
             auto res = llvm_usub_with_overflow(x, y);
             overflow |= res.overflow;
             return res.result;
         }
     }
-    else
-    {
-        if (x < y)
-            overflow = true;
-        return x - y;
-    }
+    if (x < y)
+        overflow = true;
+    return x - y;
 }
 
 unittest
@@ -591,25 +487,16 @@ ulong subu(ulong x, ulong y, ref bool overflow)
 {
     version(LDC)
     {
-        if (__ctfe)
-        {
-            if (x < y)
-                overflow = true;
-            return x - y;
-        }
-        else
+        if (!__ctfe)
         {
             auto res = llvm_usub_with_overflow(x, y);
             overflow |= res.overflow;
             return res.result;
         }
     }
-    else
-    {
-        if (x < y)
-            overflow = true;
-        return x - y;
-    }
+    if (x < y)
+        overflow = true;
+    return x - y;
 }
 
 unittest
@@ -638,25 +525,16 @@ ucent subu(ucent x, ucent y, ref bool overflow)
     version(LDC)
     {
         pragma(inline, true);
-        if (__ctfe)
-        {
-            if (x < y)
-                overflow = true;
-            return x - y;
-        }
-        else
+        if (!__ctfe)
         {
             auto res = llvm_usub_with_overflow(x, y);
             overflow |= res.overflow;
             return res.result;
         }
     }
-    else
-    {
-        if (x < y)
-            overflow = true;
-        return x - y;
-    }
+    if (x < y)
+        overflow = true;
+    return x - y;
 }
 
 unittest
@@ -781,27 +659,17 @@ int muls(int x, int y, ref bool overflow)
 {
     version(LDC)
     {
-        if (__ctfe)
-        {
-            long r = cast(long)x * cast(long)y;
-            if (r < int.min || r > int.max)
-                overflow = true;
-            return cast(int)r;
-        }
-        else
+        if (!__ctfe)
         {
             auto res = llvm_smul_with_overflow(x, y);
             overflow |= res.overflow;
             return res.result;
         }
     }
-    else
-    {
-        long r = cast(long)x * cast(long)y;
-        if (r < int.min || r > int.max)
-            overflow = true;
-        return cast(int)r;
-    }
+    long r = cast(long)x * cast(long)y;
+    if (r < int.min || r > int.max)
+        overflow = true;
+    return cast(int)r;
 }
 
 unittest
@@ -830,29 +698,18 @@ long muls(long x, long y, ref bool overflow)
 {
     version(LDC_HasNativeI64Mul)
     {
-        if (__ctfe)
-        {
-            long r = cast(ulong)x * cast(ulong)y;
-            enum not0or1 = ~1L;
-            if((x & not0or1) && ((r == y)? r : (r / x) != y))
-                overflow = true;
-            return r;
-        }
-        else
+        if (!__ctfe)
         {
             auto res = llvm_smul_with_overflow(x, y);
             overflow |= res.overflow;
             return res.result;
         }
     }
-    else
-    {
-        long r = cast(ulong)x * cast(ulong)y;
-        enum not0or1 = ~1L;
-        if((x & not0or1) && ((r == y)? r : (r / x) != y))
-            overflow = true;
-        return r;
-    }
+    long r = cast(ulong)x * cast(ulong)y;
+    enum not0or1 = ~1L;
+    if((x & not0or1) && ((r == y)? r : (r / x) != y))
+        overflow = true;
+    return r;
 }
 
 unittest
@@ -885,27 +742,17 @@ cent muls(cent x, cent y, ref bool overflow)
 {
     version(LDC_HasNativeI64Mul)
     {
-        if (__ctfe)
-        {
-            cent r = cast(ucent)x * cast(ucent)y;
-            if (x && (r / x) != y)
-                overflow = true;
-            return r;
-        }
-        else
+        if (!__ctfe)
         {
             auto res = llvm_smul_with_overflow(x, y);
             overflow |= res.overflow;
             return res.result;
         }
     }
-    else
-    {
-        cent r = cast(ucent)x * cast(ucent)y;
-        if (x && (r / x) != y)
-            overflow = true;
-        return r;
-    }
+    cent r = cast(ucent)x * cast(ucent)y;
+    if (x && (r / x) != y)
+        overflow = true;
+    return r;
 }
 
 unittest
@@ -948,27 +795,17 @@ uint mulu(uint x, uint y, ref bool overflow)
 {
     version(LDC)
     {
-        if (__ctfe)
-        {
-            ulong r = ulong(x) * ulong(y);
-            if (r > uint.max)
-                overflow = true;
-            return cast(uint)r;
-        }
-        else
+        if (!__ctfe)
         {
             auto res = llvm_umul_with_overflow(x, y);
             overflow |= res.overflow;
             return res.result;
         }
     }
-    else
-    {
-        ulong r = ulong(x) * ulong(y);
-        if (r > uint.max)
-            overflow = true;
-        return cast(uint)r;
-    }
+    ulong r = ulong(x) * ulong(y);
+    if (r > uint.max)
+        overflow = true;
+    return cast(uint)r;
 }
 
 unittest
@@ -997,27 +834,17 @@ ulong mulu(ulong x, ulong y, ref bool overflow)
 {
     version(LDC_HasNativeI64Mul)
     {
-        if (__ctfe)
-        {
-            ulong r = x * y;
-            if (x && (r / x) != y)
-                overflow = true;
-            return r;
-        }
-        else
+        if (!__ctfe)
         {
             auto res = llvm_umul_with_overflow(x, y);
             overflow |= res.overflow;
             return res.result;
         }
     }
-    else
-    {
-        ulong r = x * y;
-        if (x && (r / x) != y)
-            overflow = true;
-        return r;
-    }
+    ulong r = x * y;
+    if (x && (r / x) != y)
+        overflow = true;
+    return r;
 }
 
 unittest
@@ -1047,14 +874,7 @@ ucent mulu(ucent x, ucent y, ref bool overflow)
 {
     version(LDC_HasNativeI64Mul)
     {
-        if (__ctfe)
-        {
-            ucent r = x * y;
-            if (x && (r / x) != y)
-                overflow = true;
-            return r;
-        }
-        else
+        if (!__ctfe)
         {
             auto res = llvm_umul_with_overflow(x, y);
             overflow |= res.overflow;
