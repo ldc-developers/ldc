@@ -3,7 +3,7 @@
 // REQUIRES: cdb
 // RUN: %ldc -g -of=%t.exe %s
 // RUN: sed -e "/^\\/\\/ CDB:/!d" -e "s,// CDB:,," %s \
-// RUN:    | %cdb -snul -lines %t.exe >%t.out
+// RUN:    | %cdb -snul -lines -y . %t.exe >%t.out
 // RUN: FileCheck %s -check-prefix=CHECK -check-prefix=%arch < %t.out
 
 void main()
