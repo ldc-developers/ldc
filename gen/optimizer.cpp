@@ -274,7 +274,11 @@ static void addOptimizationPasses(PassManagerBase &mpm,
     }
     builder.Inliner = createFunctionInliningPass(threshold);
   } else {
+#if LDC_LLVM_VER >= 400
+    builder.Inliner = createAlwaysInlinerLegacyPass();
+#else
     builder.Inliner = createAlwaysInlinerPass();
+#endif
   }
   builder.DisableUnitAtATime = !unitAtATime;
   builder.DisableUnrollLoops = optLevel == 0;
