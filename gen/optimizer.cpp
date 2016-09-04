@@ -92,11 +92,11 @@ static cl::opt<cl::boolOrDefault, false, opts::FlagParser<cl::boolOrDefault>>
 
 static llvm::cl::opt<llvm::cl::boolOrDefault, false,
                      opts::FlagParser<llvm::cl::boolOrDefault>>
-enableCrossModuleInlining(
-    "cross-module-inlining",
-    llvm::cl::desc("Enable cross-module function inlining (default enabled "
-                   "with inlining) (LLVM >= 3.7)"),
-    llvm::cl::ZeroOrMore, llvm::cl::Hidden);
+    enableCrossModuleInlining(
+        "cross-module-inlining",
+        llvm::cl::desc("Enable cross-module function inlining (default "
+                       "disabled) (LLVM >= 3.7)"),
+        llvm::cl::ZeroOrMore, llvm::cl::Hidden);
 
 static cl::opt<bool> unitAtATime("unit-at-a-time", cl::desc("Enable basic IPO"),
                                  cl::init(true));
@@ -141,8 +141,7 @@ bool willInline() {
 
 bool willCrossModuleInline() {
 #if LDC_LLVM_VER >= 307
-  return enableCrossModuleInlining == llvm::cl::BOU_TRUE ||
-         (enableCrossModuleInlining == llvm::cl::BOU_UNSET && willInline());
+  return enableCrossModuleInlining == llvm::cl::BOU_TRUE;
 #else
 // Cross-module inlining is disabled for <3.7 because we don't emit symbols in
 // COMDAT any groups pre-LLVM3.7. With cross-module inlining enabled, without
