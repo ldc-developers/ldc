@@ -86,11 +86,11 @@ install:
         }
   # Download & extract GNU make + utils (for dmd-testsuite)
   - bash --version
-  - ps: Start-FileDownload 'https://dl.dropboxusercontent.com/s/d0cqmxf9arbjn27/make-3.81.7z?dl=0' -FileName 'make.7z'
+  - ps: Start-FileDownload 'https://dl.dropboxusercontent.com/s/4y36f5ydgrk4p5g/make-4.2.1.7z?dl=0' -FileName 'make.7z'
   - md make
   - cd make
   - 7z x ..\make.7z > nul
-  - bin\make --version
+  - make --version
   - cd ..
   # Download & extract a pre-built LLVM (CMAKE_BUILD_TYPE=Release, LLVM_ENABLE_ASSERTIONS=ON)
   - ps: |
@@ -104,7 +104,7 @@ install:
   - 7z x ..\llvm-%APPVEYOR_JOB_ARCH%.7z > nul
   - cd ..
   # Set environment variables
-  - set PATH=%CD%\ninja;%CD%\make\bin;%PATH%
+  - set PATH=%CD%\ninja;%CD%\make;%PATH%
   - if "%APPVEYOR_JOB_ARCH%"=="x64" ( call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64 )
   - if "%APPVEYOR_JOB_ARCH%"=="x86" ( call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86 )
   # Print environment info
