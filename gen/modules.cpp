@@ -54,117 +54,44 @@
 #include <alloca.h>
 #endif
 
-static llvm::cl::opt<bool>
+static llvm::cl::opt<bool, true>
     preservePaths("op", llvm::cl::desc("Do not strip paths from source file"),
-                  llvm::cl::ZeroOrMore);
+                  llvm::cl::ZeroOrMore,
+                  llvm::cl::location(global.params.preservePaths));
 
-static llvm::cl::opt<bool>
+static llvm::cl::opt<bool, true>
     fqnNames("oq",
              llvm::cl::desc("Write object files with fully qualified names"),
-             llvm::cl::ZeroOrMore);
+             llvm::cl::ZeroOrMore,
+             llvm::cl::location(global.params.fullyQualifiedObjectFiles));
 
-static void check_and_add_output_file(Module *NewMod, const std::string &str) {
+void Module::checkAndAddOutputFile(File *file) {
   static std::map<std::string, Module *> files;
 
-  auto i = files.find(str);
+  std::string key(file->name->str);
+  auto i = files.find(key);
   if (i != files.end()) {
-    Module *ThisMod = i->second;
-    error(Loc(), "Output file '%s' for module '%s' collides with previous "
-                 "module '%s'. See the -oq option",
-          str.c_str(), NewMod->toPrettyChars(), ThisMod->toPrettyChars());
+    Module *previousMod = i->second;
+    ::error(Loc(), "Output file '%s' for module '%s' collides with previous "
+                   "module '%s'. See the -oq option",
+            key.c_str(), toPrettyChars(), previousMod->toPrettyChars());
     fatal();
   }
-  files.insert(std::make_pair(str, NewMod));
+
+  files.emplace(std::move(key), this);
 }
 
-void buildTargetFiles(Module *m, bool singleObj, bool library) {
-  if (m->objfile && (!m->doDocComment || m->docfile) &&
-      (!m->doHdrGen || m->hdrfile)) {
-    return;
-  }
+void Module::makeObjectFilenameUnique() {
+  assert(objfile);
 
-  if (!m->objfile) {
-    const char *objname = library ? nullptr : global.params.objname;
-    if (global.params.output_o) {
-      llvm::SmallString<128> tempFilename; // must outlive buildFilePath call
-      if (global.params.run) {
-        using namespace llvm;
-        // If `-run` is passed, the obj file is temporary and is removed
-        // after execution. Make sure the name does not collide with other files
-        // from other processes by creating a unique filename.
-        auto tmpname = objname ? objname : "tmp";
-        std::error_code EC;
-        if (global.params.objdir) {
-          // Prepend with path to form absolute filename.
-          EC = sys::fs::createUniqueFile(
-              Twine(global.params.objdir) + sys::path::get_separator() +
-                  tmpname + "-%%%%%%%." + global.obj_ext,
-              tempFilename);
-        } else {
-          // Uses current dir as base for file.
-          EC = sys::fs::createUniqueFile(
-              Twine(tmpname) + "-%%%%%%%." + global.obj_ext, tempFilename);
-        }
-        if (!EC) {
-          objname = tempFilename.c_str();
-        }
-      }
-      m->objfile = m->buildFilePath(objname, global.params.objdir,
-                                    global.obj_ext, library, fqnNames);
-    } else if (global.params.output_bc) {
-      m->objfile = m->buildFilePath(objname, global.params.objdir,
-                                    global.bc_ext, library, fqnNames);
-    } else if (global.params.output_ll) {
-      m->objfile = m->buildFilePath(objname, global.params.objdir,
-                                    global.ll_ext, library, fqnNames);
-    } else if (global.params.output_s) {
-      m->objfile = m->buildFilePath(objname, global.params.objdir, global.s_ext,
-                                    library, fqnNames);
-    }
-  }
-  if (m->doDocComment && !m->docfile) {
-    m->docfile = m->buildFilePath(global.params.docname, global.params.docdir,
-                                  global.doc_ext, library, fqnNames);
-  }
-  if (m->doHdrGen && !m->hdrfile) {
-    m->hdrfile = m->buildFilePath(global.params.hdrname, global.params.hdrdir,
-                                  global.hdr_ext, library, fqnNames);
-  }
+  const char *ext = FileName::ext(objfile->name->str);
+  const char *stem = FileName::removeExt(objfile->name->str);
 
-  // safety check: never allow obj, doc or hdr file to have the source file's
-  // name
-  if (Port::stricmp(FileName::name(m->objfile->name->str),
-                    FileName::name(m->arg)) == 0) {
-    m->error("Output object files with the same name as the source file are "
-             "forbidden");
-    fatal();
-  }
-  if (m->docfile &&
-      Port::stricmp(FileName::name(m->docfile->name->str),
-                    FileName::name(m->arg)) == 0) {
-    m->error(
-        "Output doc files with the same name as the source file are forbidden");
-    fatal();
-  }
-  if (m->hdrfile &&
-      Port::stricmp(FileName::name(m->hdrfile->name->str),
-                    FileName::name(m->arg)) == 0) {
-    m->error("Output header files with the same name as the source file are "
-             "forbidden");
-    fatal();
-  }
-
-  // LDC
-  // another safety check to make sure we don't overwrite previous output files
-  if (!singleObj && global.params.obj) {
-    check_and_add_output_file(m, m->objfile->name->str);
-  }
-  if (m->docfile) {
-    check_and_add_output_file(m, m->docfile->name->str);
-  }
-  // FIXME: DMD overwrites header files. This should be done only in a DMD mode.
-  // if (hdrfile)
-  //    check_and_add_output_file(m, hdrfile->name->str);
+  llvm::SmallString<128> unique;
+  auto EC = llvm::sys::fs::createUniqueFile(
+      llvm::Twine(stem) + "-%%%%%%%." + ext, unique);
+  if (!EC) // success
+    objfile->name->str = mem.xstrdup(unique.c_str());
 }
 
 namespace {

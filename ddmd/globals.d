@@ -206,6 +206,7 @@ struct Param
         bool useInlineAsm;
         bool verbose_cg;
         bool hasObjectiveC;
+        bool fullyQualifiedObjectFiles;
 
         // Profile-guided optimization:
         bool genInstrProf;             // Whether to generate PGO instrumented code
@@ -215,7 +216,6 @@ struct Param
         const(void)* targetTriple; // const llvm::Triple*
 
         // Codegen cl options
-        bool singleObj;
         bool disableRedZone;
 
         uint hashThreshold; // MD5 hash symbols larger than this threshold (0 = no hashing)

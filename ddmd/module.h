@@ -128,11 +128,6 @@ public:
     size_t nameoffset;          // offset of module name from start of ModuleInfo
     size_t namelen;             // length of module name in characters
 
-#if IN_LLVM
-    int32_t doDocComment;          // enable generating doc comments for this module
-    int32_t doHdrGen;              // enable generating header file for this module
-#endif
-
     Module(const char *arg, Identifier *ident, int doDocComment, int doHdrGen);
     static Module* create(const char *arg, Identifier *ident, int doDocComment, int doHdrGen);
 
@@ -142,11 +137,7 @@ public:
     File *setOutfile(const char *name, const char *dir, const char *arg, const char *ext);
     void setDocfile();
     bool read(Loc loc); // read file, returns 'true' if succeed, 'false' otherwise.
-#if IN_LLVM
-    Module *parse(bool gen_docs = false);       // syntactic parse
-#else
     Module *parse();       // syntactic parse
-#endif
     void importAll(Scope *sc);
     void semantic(Scope *);    // semantic analysis
     void semantic2(Scope *);   // pass 2 semantic analysis
@@ -189,7 +180,8 @@ public:
 #if IN_LLVM
     // LDC
     llvm::Module* genLLVMModule(llvm::LLVMContext& context);
-    File* buildFilePath(const char* forcename, const char* path, const char* ext, bool preservePaths, bool fqnNames);
+    void checkAndAddOutputFile(File *file);
+    void makeObjectFilenameUnique();
 
     bool llvmForceLogging;
     bool noModuleInfo; /// Do not emit any module metadata.

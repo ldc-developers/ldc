@@ -10,11 +10,6 @@
 struct IRState;
 class Module;
 
-/// Sets the m->*file members to the output file names, as derived from platform
-/// and command line switches, making sure that they are valid paths and don't
-/// conflict with the source file.
-void buildTargetFiles(Module *m, bool singleObj, bool library);
-
 /// Generates code for the contents of module m into the LLVM module associated
 /// with irs.
 void codegenModule(IRState *irs, Module *m);

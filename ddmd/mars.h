@@ -100,8 +100,7 @@ void writeFile(Loc loc, File *f);
 void ensurePathToNameExists(Loc loc, const char *name);
 
 #if IN_LLVM
-int mars_mainBody(Strings& files, Strings& libmodules, bool createStaticLib,
-                  bool createSharedLib, bool staticFlag);
+int mars_mainBody(Strings &files, Strings &libmodules);
 #endif
 
 const char *importHint(const char *s);

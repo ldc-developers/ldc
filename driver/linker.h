@@ -32,7 +32,7 @@ void insertBitcodeFiles(llvm::Module &M, llvm::LLVMContext &Ctx,
  * Link an executable only from object files.
  * @return 0 on success.
  */
-int linkObjToBinary(bool sharedLib, bool fullyStatic);
+int linkObjToBinary();
 
 /**
  * Create a static library from object files.

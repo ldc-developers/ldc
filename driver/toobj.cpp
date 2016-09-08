@@ -358,7 +358,8 @@ void writeObjectFile(llvm::Module *m, std::string &filename) {
       codegenModule(*gTargetMachine, *m, out,
                     llvm::TargetMachine::CGFT_ObjectFile);
     } else {
-      error(Loc(), "cannot write object file: %s", ERRORINFO_STRING(errinfo));
+      error(Loc(), "cannot write object file '%s': %s", filename.c_str(),
+            ERRORINFO_STRING(errinfo));
       fatal();
     }
   }
@@ -399,6 +400,16 @@ void writeModule(llvm::Module *m, std::string filename) {
   // eventually do our own path stuff, dmd's is a bit strange.
   using LLPath = llvm::SmallString<128>;
 
+  // make sure the output directory exists
+  const auto directory = llvm::sys::path::parent_path(filename);
+  if (!directory.empty()) {
+    if (auto ec = llvm::sys::fs::create_directories(directory)) {
+      error(Loc(), "failed to create output directory: %s\n%s",
+            directory.data(), ec.message().c_str());
+      fatal();
+    }
+  }
+
   // write LLVM bitcode
   if (global.params.output_bc) {
     LLPath bcpath(filename);
@@ -418,11 +429,11 @@ void writeModule(llvm::Module *m, std::string filename) {
   if (global.params.output_ll) {
     LLPath llpath(filename);
     llvm::sys::path::replace_extension(llpath, global.ll_ext);
-    Logger::println("Writing LLVM asm to: %s\n", llpath.c_str());
+    Logger::println("Writing LLVM IR to: %s\n", llpath.c_str());
     LLErrorInfo errinfo;
     llvm::raw_fd_ostream aos(llpath.c_str(), errinfo, llvm::sys::fs::F_None);
     if (aos.has_error()) {
-      error(Loc(), "cannot write LLVM asm file '%s': %s", llpath.c_str(),
+      error(Loc(), "cannot write LLVM IR file '%s': %s", llpath.c_str(),
             ERRORINFO_STRING(errinfo));
       fatal();
     }
@@ -438,7 +449,7 @@ void writeModule(llvm::Module *m, std::string filename) {
       llvm::sys::fs::createUniqueFile("ldc-%%%%%%%.s", spath);
     }
 
-    Logger::println("Writing native asm to: %s\n", spath.c_str());
+    Logger::println("Writing asm to: %s\n", spath.c_str());
     LLErrorInfo errinfo;
     {
       llvm::raw_fd_ostream out(spath.c_str(), errinfo, llvm::sys::fs::F_None);
@@ -451,7 +462,7 @@ void writeModule(llvm::Module *m, std::string filename) {
         codegenModule(*gTargetMachine, *m, out,
                       llvm::TargetMachine::CGFT_AssemblyFile);
       } else {
-        error(Loc(), "cannot write native asm: %s", ERRORINFO_STRING(errinfo));
+        error(Loc(), "cannot write asm: %s", ERRORINFO_STRING(errinfo));
         fatal();
       }
     }

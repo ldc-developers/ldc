@@ -133,7 +133,7 @@ void CodeGenerator::prepareLLModule(Module *m) {
 #endif
 
   // TODO: Make ldc::DIBuilder per-Module to be able to emit several CUs for
-  // singleObj compilations?
+  // single-object compilations?
   ir_->DBuilder.EmitCompileUnit(m);
 
   IrDsymbol::resetAll();
