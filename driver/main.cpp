@@ -23,6 +23,7 @@
 #include "driver/codegenerator.h"
 #include "driver/configfile.h"
 #include "driver/exe_path.h"
+#include "driver/ir2obj_cache.h"
 #include "driver/ldc-version.h"
 #include "driver/linker.h"
 #include "driver/targetmachine.h"
@@ -1170,6 +1171,8 @@ void codegenModules(Modules &modules) {
         fatal();
     }
   }
+
+  ir2obj::pruneCache();
 
   freeRuntime();
   llvm::llvm_shutdown();

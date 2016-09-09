@@ -32,6 +32,7 @@
 #include "ddmd/errors.h"
 #include "driver/cl_options.h"
 #include "driver/ldc-version.h"
+#include "driver/ir2obj_cache_pruning.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"
 
@@ -41,7 +42,56 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 
+// Include close() declaration.
+#if !defined(_MSC_VER) && !defined(__MINGW32__)
+#include <unistd.h>
+#else
+#include <io.h>
+#endif
+
 namespace {
+
+// Options for the cache pruning algorithm
+llvm::cl::opt<bool> pruneEnabled("ir2obj-cache-prune",
+                                 llvm::cl::desc("Enable cache pruning."),
+                                 llvm::cl::ZeroOrMore);
+llvm::cl::opt<unsigned long long> pruneSizeLimitInBytes(
+    "ir2obj-cache-prune-maxbytes",
+    llvm::cl::desc("Sets the maximum cache size to <size> bytes. Implies "
+                   "-ir2obj-cache-prune."),
+    llvm::cl::value_desc("size"), llvm::cl::init(0));
+llvm::cl::opt<unsigned> pruneInterval(
+    "ir2obj-cache-prune-interval",
+    llvm::cl::desc("Sets the cache pruning interval to <dur> seconds "
+                   "(default: 20 min). Set to 0 to force pruning. Implies "
+                   "-ir2obj-cache-prune."),
+    llvm::cl::value_desc("dur"), llvm::cl::init(20 * 60));
+llvm::cl::opt<unsigned> pruneExpiration(
+    "ir2obj-cache-prune-expiration",
+    llvm::cl::desc(
+        "Sets the pruning expiration time of cache files to "
+        "<dur> seconds (default: 1 week). Implies -ir2obj-cache-prune."),
+    llvm::cl::value_desc("dur"), llvm::cl::init(7 * 24 * 3600));
+llvm::cl::opt<unsigned> pruneSizeLimitPercentage(
+    "ir2obj-cache-prune-maxpercentage",
+    llvm::cl::desc(
+        "Sets the cache size limit to <perc> percent of the available "
+        "space (default: 75%). Implies -ir2obj-cache-prune."),
+    llvm::cl::value_desc("perc"), llvm::cl::init(75));
+
+bool isPruningEnabled() {
+  if (pruneEnabled)
+    return true;
+
+  // Specifying cache pruning parameters implies enabling pruning.
+  if ((pruneSizeLimitInBytes.getNumOccurrences() > 0) ||
+      (pruneInterval.getNumOccurrences() > 0) ||
+      (pruneExpiration.getNumOccurrences() > 0) ||
+      (pruneSizeLimitPercentage.getNumOccurrences() > 0))
+    return true;
+
+  return false;
+}
 
 /// A raw_ostream that creates a hash of what is written to it.
 /// This class does not encounter output errors.
@@ -154,6 +204,7 @@ void recoverObjectFile(llvm::StringRef cacheObjectHash,
   llvm::SmallString<128> cacheFile;
   storeCacheFileName(cacheObjectHash, cacheFile);
 
+  // Remove the potentially pre-existing output file.
   llvm::sys::fs::remove(objectFile);
 
   IF_LOG Logger::println("SymLink output to cached object file: %s -> %s",
@@ -162,6 +213,38 @@ void recoverObjectFile(llvm::StringRef cacheObjectHash,
     error(Loc(), "Failed to create a symlink to the cached file: %s -> %s",
           cacheFile.c_str(), objectFile.str().c_str());
     fatal();
+  }
+
+  // We reset the modification time to "now" such that the pruning algorithm
+  // sees that the file should be kept over older files.
+  // On some systems the last accessed time is not automatically updated so set
+  // it explicitly here. Because the file will really only be accessed later
+  // during linking, it's not perfect but it's the best we can do.
+  {
+    int FD;
+    if (llvm::sys::fs::openFileForWrite(cacheFile.c_str(), FD,
+                                        llvm::sys::fs::F_Append)) {
+      error(Loc(), "Failed to open the cached file for writing: %s",
+            cacheFile.c_str());
+      fatal();
+    }
+
+    if (llvm::sys::fs::setLastModificationAndAccessTime(
+            FD, llvm::sys::TimeValue::now())) {
+      error(Loc(), "Failed to set the cached file modification time: %s",
+            cacheFile.c_str());
+      fatal();
+    }
+
+    close(FD);
+  }
+}
+
+void pruneCache() {
+  if (!opts::ir2objCacheDir.empty() && isPruningEnabled()) {
+    ::pruneCache(opts::ir2objCacheDir.data(), opts::ir2objCacheDir.size(),
+                 pruneInterval, pruneExpiration, pruneSizeLimitInBytes,
+                 pruneSizeLimitPercentage);
   }
 }
 }

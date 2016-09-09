@@ -346,6 +346,7 @@ set(DRV_HDR
     driver/configfile.h
     driver/exe_path.h
     driver/ir2obj_cache.h
+    driver/ir2obj_cache_pruning.h
     driver/ldc-version.h
     driver/targetmachine.h
     driver/toobj.h

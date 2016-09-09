@@ -1,0 +1,38 @@
+// Test ir2obj-cache pruning for size
+
+// This test assumes that the `void main(){}` object file size is below 200_000 bytes and above 200_000/2,
+// such that rebuilding with version(NEW_OBJ_FILE) will clear the cache of all but the latest object file.
+
+// RUN: %ldc %s -ir2obj-cache=%T/prunecache2 \
+// RUN: && %ldc %s -ir2obj-cache=%T/prunecache2 -ir2obj-cache-prune -ir2obj-cache-prune-interval=0 -d-version=SLEEP \
+// RUN: && %ldc %s -ir2obj-cache=%T/prunecache2 -ir2obj-cache-prune -ir2obj-cache-prune-interval=0 -vv | FileCheck --check-prefix=MUST_HIT %s \
+// RUN: && %ldc %s -ir2obj-cache=%T/prunecache2 -ir2obj-cache-prune -ir2obj-cache-prune-interval=0 -vv -d-version=NEW_OBJ_FILE | FileCheck --check-prefix=NO_HIT %s \
+// RUN: && %ldc %s -ir2obj-cache=%T/prunecache2 -ir2obj-cache-prune -ir2obj-cache-prune-interval=0 -vv | FileCheck --check-prefix=MUST_HIT %s \
+// RUN: && %ldc -d-version=SLEEP -run %s \
+// RUN: && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/prunecache2 -ir2obj-cache-prune-interval=0 -ir2obj-cache-prune-maxbytes=200000 -vv | FileCheck --check-prefix=MUST_HIT %s \
+// RUN: && %ldc %t%obj \
+// RUN: && %ldc %s -ir2obj-cache=%T/prunecache2 -d-version=SLEEP -vv | FileCheck --check-prefix=NO_HIT %s \
+// RUN: && %ldc -d-version=SLEEP -run %s \
+// RUN: && %ldc %s -ir2obj-cache=%T/prunecache2 -ir2obj-cache-prune-interval=1 -ir2obj-cache-prune-maxbytes=200000 -d-version=NEW_OBJ_FILE \
+// RUN: && %ldc %s -ir2obj-cache=%T/prunecache2 -ir2obj-cache-prune -ir2obj-cache-prune-interval=0 -vv | FileCheck --check-prefix=NO_HIT %s
+
+// MUST_HIT: Cache object found!
+// NO_HIT-NOT: Cache object found!
+
+void main()
+{
+    // Add non-zero static data to guarantee a binary size larger than 200_000/2.
+    static byte[120_000] dummy = 1;
+
+    version (NEW_OBJ_FILE)
+    {
+        auto a = __TIME__;
+    }
+
+    version (SLEEP)
+    {
+        // Sleep for 2 seconds, so we are sure that the cache object file timestamps are "aging".
+        import core.thread;
+        Thread.sleep( dur!"seconds"(2) );
+    }
+}
