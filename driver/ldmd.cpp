@@ -1004,15 +1004,6 @@ std::string locateBinary(std::string exeName) {
   return "";
 }
 
-/**
- * Makes sure the given directory (absolute or relative) exists on disk.
- */
-static void createOutputDir(const char *dir) {
-  if (ls::fs::create_directories(dir)) {
-    error("Could not create output directory '%s'.", dir);
-  }
-}
-
 static size_t addStrlen(size_t acc, const char *str) {
   if (!str) {
     return acc;
