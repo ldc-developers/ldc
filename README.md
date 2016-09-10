@@ -2,7 +2,6 @@ LDC – the LLVM-based D Compiler
 ===============================
 
 [![Build Status](https://travis-ci.org/ldc-developers/ldc.png?branch=master)][1]
-[![Test Coverage](https://coveralls.io/repos/ldc-developers/ldc/badge.svg)][2]
 [![Bountysource](https://www.bountysource.com/badge/tracker?tracker_id=283332)][3]
 
 The LDC project aims to provide a portable D programming language
