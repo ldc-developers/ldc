@@ -173,7 +173,10 @@ version (Shared)
 
     void finiTLSRanges(Array!(ThreadDSO)* tdsos)
     {
-        tdsos.reset();
+        // Nothing to do here. tdsos used to point to the _loadedDSOs instance
+        // in the dying thread's TLS segment and as such is not valid anymore.
+        // The memory for the array contents was already reclaimed in
+        // cleanupLoadedLibraries().
     }
 
     void scanTLSRanges(Array!(ThreadDSO)* tdsos, scope ScanDG dg) nothrow
@@ -243,6 +246,8 @@ version (Shared)
             for (; tdso._addCnt > 0; --tdso._addCnt)
                 .dlclose(handle);
         }
+
+        // Free the memory for the array contents.
         _loadedDSOs.reset();
     }
 }
