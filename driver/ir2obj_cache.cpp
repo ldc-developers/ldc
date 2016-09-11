@@ -32,6 +32,7 @@
 #include "ddmd/errors.h"
 #include "driver/cl_options.h"
 #include "driver/ldc-version.h"
+#include "driver/ir2obj_cache_pruning.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"
 
@@ -41,7 +42,42 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 
+#if LDC_LLVM_VER >= 307
+#define CAN_DO_CACHE_PRUNING
+#endif
+
 namespace {
+
+#ifdef CAN_DO_CACHE_PRUNING
+// Options for the cache pruning algorithm
+llvm::cl::opt<bool> pruneEnabled("ir2obj-cache-prune",
+                                 llvm::cl::desc("Enable cache pruning."),
+                                 llvm::cl::ZeroOrMore);
+llvm::cl::opt<uint64_t> pruneSizeLimitInBytes(
+    "ir2obj-cache-prune-maxbytes",
+    llvm::cl::desc("Sets the maximum cache size to <size> bytes."),
+    llvm::cl::value_desc("size"), llvm::cl::init(0), llvm::cl::Prefix);
+llvm::cl::opt<unsigned> pruneInterval(
+    "ir2obj-cache-prune-interval",
+    llvm::cl::desc("Sets the cache pruning interval to <duration> seconds "
+                   "(default: 20 min). Set to 0 to force pruning."),
+    llvm::cl::value_desc("duration"), llvm::cl::init(20 * 60), llvm::cl::Prefix,
+    llvm::cl::Hidden);
+llvm::cl::opt<unsigned> pruneExpiration(
+    "ir2obj-cache-prune-expiration",
+    llvm::cl::desc("Sets the pruning expiration time of cache files to "
+                   "<duration> seconds (default: 1 week)."),
+    llvm::cl::value_desc("duration"), llvm::cl::init(7 * 24 * 3600),
+    llvm::cl::Prefix, llvm::cl::Hidden);
+#if LDC_LLVM_VER >= 309
+llvm::cl::opt<unsigned> pruneSizeLimitPercentage(
+    "ir2obj-cache-prune-maxpercentage",
+    llvm::cl::desc("Sets the cache size limit to a percentage of the available "
+                   "space."),
+    llvm::cl::value_desc("percentage"), llvm::cl::init(75), llvm::cl::Prefix,
+    llvm::cl::Hidden);
+#endif
+#endif
 
 /// A raw_ostream that creates a hash of what is written to it.
 /// This class does not encounter output errors.
@@ -154,6 +190,7 @@ void recoverObjectFile(llvm::StringRef cacheObjectHash,
   llvm::SmallString<128> cacheFile;
   storeCacheFileName(cacheObjectHash, cacheFile);
 
+  // Remove the potentially pre-existing output file.
   llvm::sys::fs::remove(objectFile);
 
   IF_LOG Logger::println("SymLink output to cached object file: %s -> %s",
@@ -163,5 +200,47 @@ void recoverObjectFile(llvm::StringRef cacheObjectHash,
           cacheFile.c_str(), objectFile.str().c_str());
     fatal();
   }
+
+#ifdef CAN_DO_CACHE_PRUNING
+  // We reset the modification time to "now" such that the pruning algorithm
+  // sees that the file should be kept over older files.
+  // Because the cache pruning algorithm reads the file last modified time
+  // instead of the last accessed time for LLVM < 3.9, using the modified time
+  // is a little inaccurate, because the file will really only be accessed later
+  // during linking, but it's the least we can do.
+  {
+    int FD;
+    if (llvm::sys::fs::openFileForWrite(cacheFile, FD,
+                                        llvm::sys::fs::F_Append)) {
+      error(Loc(), "Failed to open the cached file for writing: %s",
+            cacheFile.c_str());
+      fatal();
+    }
+
+    if (llvm::sys::fs::setLastModificationAndAccessTime(
+            FD, llvm::sys::TimeValue::now())) {
+      error(Loc(), "Failed to set the cached file modification time: %s",
+            cacheFile.c_str());
+      fatal();
+    }
+
+    close(FD);
+  }
+#endif
+}
+
+void pruneCache() {
+#ifdef CAN_DO_CACHE_PRUNING
+  if (pruneEnabled) {
+    llvmldc::CachePruning(opts::ir2objCacheDir)
+        .setPruningInterval(pruneInterval)
+        .setEntryExpiration(pruneExpiration)
+#if LDC_LLVM_VER >= 309
+        .setMaxSize(pruneSizeLimitPercentage)
+#endif
+        .setMaxSizeBytes(pruneSizeLimitInBytes)
+        .prune();
+  }
+#endif
 }
 }

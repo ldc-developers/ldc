@@ -332,6 +332,7 @@ set(DRV_SRC
     driver/configfile.cpp
     driver/exe_path.cpp
     driver/ir2obj_cache.cpp
+    driver/ir2obj_cache_pruning.cpp
     driver/targetmachine.cpp
     driver/toobj.cpp
     driver/tool.cpp
@@ -346,6 +347,7 @@ set(DRV_HDR
     driver/configfile.h
     driver/exe_path.h
     driver/ir2obj_cache.h
+    driver/ir2obj_cache_pruning.h
     driver/ldc-version.h
     driver/targetmachine.h
     driver/toobj.h
