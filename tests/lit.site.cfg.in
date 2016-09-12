@@ -5,15 +5,16 @@ import platform
 import string
 
 ## Auto-initialized variables by cmake:
-config.ldc2_bin         = "@LDC2_BIN@"
-config.ldcprofdata_bin  = "@LDCPROFDATA_BIN@"
-config.ldc2_bin_dir     = "@LDC2_BIN_DIR@"
-config.test_source_root = "@TESTS_IR_DIR@"
-config.llvm_tools_dir   = "@LLVM_TOOLS_DIR@"
-config.llvm_version     = @LDC_LLVM_VER@
-config.llvm_targetsstr  = "@LLVM_TARGETS_TO_BUILD@"
+config.ldc2_bin            = "@LDC2_BIN@"
+config.ldcprofdata_bin     = "@LDCPROFDATA_BIN@"
+config.ldcprunecache_bin   = "@LDCPRUNECACHE_BIN@"
+config.ldc2_bin_dir        = "@LDC2_BIN_DIR@"
+config.test_source_root    = "@TESTS_IR_DIR@"
+config.llvm_tools_dir      = "@LLVM_TOOLS_DIR@"
+config.llvm_version        = @LDC_LLVM_VER@
+config.llvm_targetsstr     = "@LLVM_TARGETS_TO_BUILD@"
 config.default_target_bits = @DEFAULT_TARGET_BITS@
-config.with_PGO         = @LDC_WITH_PGO@
+config.with_PGO            = @LDC_WITH_PGO@
 
 config.name = 'LDC'
 
@@ -86,6 +87,7 @@ config.environment['PATH'] = path
 # Add substitutions
 config.substitutions.append( ('%ldc', config.ldc2_bin) )
 config.substitutions.append( ('%profdata', config.ldcprofdata_bin) )
+config.substitutions.append( ('%prunecache', config.ldcprunecache_bin) )
 
 # Add platform-dependent file extension substitutions
 if (platform.system() == 'Windows'):

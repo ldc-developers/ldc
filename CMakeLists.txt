@@ -665,9 +665,14 @@ build_d_executable(
 
 
 #
-# Auxiliary tools.
+# Auxiliary build and test utils.
 #
 add_subdirectory(utils)
+
+#
+# Auxiliary tools.
+#
+add_subdirectory(tools)
 
 #
 # Test and runtime targets. Note that enable_testing() is order-sensitive!
