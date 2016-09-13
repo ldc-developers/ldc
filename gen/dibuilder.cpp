@@ -40,6 +40,12 @@ using DIFlags = llvm::DIDescriptor;
 #endif
 
 namespace {
+#if LDC_LLVM_VER >= 400
+const auto DIFlagZero = DIFlags::FlagZero;
+#else
+const unsigned DIFlagZero = 0;
+#endif
+
 ldc::DIType getNullDIType() {
 #if LDC_LLVM_VER >= 307
   return nullptr;
@@ -305,7 +311,7 @@ ldc::DIType ldc::DIBuilder::CreateComplexType(Type *type) {
                                      0,                       // LineNo
                                      getTypeAllocSize(T) * 8, // size in bits
                                      getABITypeAlign(T) * 8,  // alignment
-                                     0,                       // What here?
+                                     DIFlagZero,              // What here?
                                      getNullDIType(),         // derived from
                                      DBuilder.getOrCreateArray(elems),
                                      0,               // RunTimeLang
@@ -328,7 +334,7 @@ ldc::DIType ldc::DIBuilder::CreateMemberType(unsigned linnum, Type *type,
   // find base type
   ldc::DIType basetype = CreateTypeDescription(t, true);
 
-  unsigned Flags = 0;
+  auto Flags = DIFlagZero;
   switch (prot) {
   case PROTprivate:
     Flags = DIFlags::FlagPrivate;
@@ -451,7 +457,7 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
                                    getTypeAllocSize(T) * 8, // size in bits
                                    getABITypeAlign(T) * 8,  // alignment in bits
                                    0,                       // offset in bits,
-                                   0,                       // flags
+                                   DIFlagZero,              // flags
                                    derivedFrom,             // DerivedFrom
                                    elemsArray,
                                    getNullDIType(), // VTableHolder
@@ -464,7 +470,7 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
                                     linnum, // line number where defined
                                     getTypeAllocSize(T) * 8, // size in bits
                                     getABITypeAlign(T) * 8, // alignment in bits
-                                    0,                      // flags
+                                    DIFlagZero,             // flags
                                     derivedFrom,            // DerivedFrom
                                     elemsArray,
                                     0,               // RunTimeLang
@@ -496,12 +502,12 @@ ldc::DIType ldc::DIBuilder::CreateArrayType(Type *type) {
                        global.params.is64bit ? 8 : 4, PROTpublic)};
 
   return DBuilder.createStructType(GetCU(),
-                                   t->toChars(), // Name
+                                   t->toChars(),            // Name
                                    file,                    // File
                                    0,                       // LineNo
                                    getTypeAllocSize(T) * 8, // size in bits
                                    getABITypeAlign(T) * 8,  // alignment in bits
-                                   0,                       // What here?
+                                   DIFlagZero,              // What here?
                                    getNullDIType(),         // derived from
                                    DBuilder.getOrCreateArray(elems),
                                    0,               // RunTimeLang
@@ -587,7 +593,7 @@ ldc::DIType ldc::DIBuilder::CreateDelegateType(Type *type) {
                                    0,            // line number where defined
                                    getTypeAllocSize(T) * 8, // size in bits
                                    getABITypeAlign(T) * 8,  // alignment in bits
-                                   0,                       // flags
+                                   DIFlagZero,              // flags
                                    getNullDIType(),         // derived from
                                    DBuilder.getOrCreateArray(elems),
                                    0,               // RunTimeLang
@@ -981,8 +987,9 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 #endif
 
   ldc::DILocalVariable debugVariable;
-  unsigned Flags =
-      !isThisPtr ? 0 : DIFlags::FlagArtificial | DIFlags::FlagObjectPointer;
+  auto Flags = !isThisPtr
+                   ? DIFlagZero
+                   : DIFlags::FlagArtificial | DIFlags::FlagObjectPointer;
 
 #if LDC_LLVM_VER < 306
   if (addr.empty()) {
