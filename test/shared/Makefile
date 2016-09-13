@@ -2,6 +2,11 @@ LINK_SHARED:=1
 
 include ../common.mak
 
+# LDC_FIXME: Strictly speaking, this should be based on the target set in
+# CMake, although the scope for cross-compilation is fairly limited by having
+# to be able to actually run the test executables.
+include ../../osmodel.mak
+
 TESTS:=link load linkD linkDR loadDR host finalize
 TESTS+=link_linkdep load_linkdep link_loaddep load_loaddep load_13414
 TESTS+=link_mod_collision load_mod_collision
