@@ -84,6 +84,13 @@ CodeGenerator::CodeGenerator(llvm::LLVMContext &context, bool singleObj)
                  "configured properly");
     fatal();
   }
+
+#if LDC_LLVM_VER >= 309
+  // Set the context to discard value names when not generating textual IR.
+  if (!global.params.output_ll) {
+    context_.setDiscardValueNames(true);
+  }
+#endif
 }
 
 CodeGenerator::~CodeGenerator() {
