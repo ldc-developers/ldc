@@ -157,8 +157,8 @@ public:
   /// variable vd.
   /// \param ll       LLVM global variable
   /// \param vd       Variable declaration to emit debug info for.
-  DIGlobalVariable EmitGlobalVariable(llvm::GlobalVariable *ll,
-                                      VarDeclaration *vd); // FIXME
+  void EmitGlobalVariable(llvm::GlobalVariable *ll,
+                          VarDeclaration *vd); // FIXME
 
   void Finalize();
 
