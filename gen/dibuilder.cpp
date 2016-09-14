@@ -1070,16 +1070,10 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 #endif
 }
 
-ldc::DIGlobalVariable
-ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *ll,
-                                   VarDeclaration *vd) {
-  if (!global.params.symdebug) {
-#if LDC_LLVM_VER >= 307
-    return nullptr;
-#else
-    return llvm::DIGlobalVariable();
-#endif
-  }
+void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
+                                        VarDeclaration *vd) {
+  if (!global.params.symdebug)
+    return;
 
   Logger::println("D to dwarf global_variable");
   LOG_SCOPE;
@@ -1087,7 +1081,7 @@ ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *ll,
   assert(vd->isDataseg() ||
          (vd->storage_class & (STCconst | STCimmutable) && vd->_init));
 
-  return DBuilder.createGlobalVariable(
+  auto DIVar = DBuilder.createGlobalVariable(
 #if LDC_LLVM_VER >= 306
       GetCU(), // context
 #endif
@@ -1097,8 +1091,15 @@ ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *ll,
       vd->loc.linnum,                         // line num
       CreateTypeDescription(vd->type, false), // type
       vd->protection.kind == PROTprivate,     // is local to unit
-      ll                                      // value
+#if LDC_LLVM_VER >= 400
+      nullptr // relative location of field
+#else
+      llVar // value
+#endif
       );
+#if LDC_LLVM_VER >= 400
+  llVar->addDebugInfo(DIVar);
+#endif
 }
 
 void ldc::DIBuilder::Finalize() {
