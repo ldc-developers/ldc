@@ -346,6 +346,7 @@ set(DRV_HDR
     driver/configfile.h
     driver/exe_path.h
     driver/ir2obj_cache.h
+    driver/ir2obj_cache_pruning.h
     driver/ldc-version.h
     driver/targetmachine.h
     driver/toobj.h
@@ -664,9 +665,14 @@ build_d_executable(
 
 
 #
-# Auxiliary tools.
+# Auxiliary build and test utils.
 #
 add_subdirectory(utils)
+
+#
+# Auxiliary tools.
+#
+add_subdirectory(tools)
 
 #
 # Test and runtime targets. Note that enable_testing() is order-sensitive!

@@ -22,8 +22,15 @@ namespace ir2obj {
 
 void calculateModuleHash(llvm::Module *m, llvm::SmallString<32> &str);
 std::string cacheLookup(llvm::StringRef cacheObjectHash);
-void cacheObjectFile(llvm::StringRef objectFile, llvm::StringRef cacheObjectHash);
-void recoverObjectFile(llvm::StringRef cacheObjectHash, llvm::StringRef objectFile);
+void cacheObjectFile(llvm::StringRef objectFile,
+                     llvm::StringRef cacheObjectHash);
+void recoverObjectFile(llvm::StringRef cacheObjectHash,
+                       llvm::StringRef objectFile);
+
+/// Prune the cache to avoid filling up disk space.
+///
+/// Note: Does nothing for LLVM < 3.7.
+void pruneCache();
 }
 
 #endif
