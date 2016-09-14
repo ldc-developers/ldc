@@ -1022,7 +1022,17 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
                                                Flags                // flags
                                                );
 #else
-  if (!fromNested && vd->isParameter()) {
+  bool isParameter = vd->isParameter();
+  if (global.params.targetTriple->isWindowsMSVCEnvironment() &&
+      global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
+    // arrays are not passed through ExplicitByvalRewrite, because it is not
+    //  considered an aggregate (see TargetABI::isAggregate)
+    // instead a local copy of the parameter is created in the local frame, so
+    // pretend it is a local
+    if (isParameter && type && type->ty == Tarray)
+      isParameter = false;
+  }
+  if (!fromNested && isParameter) {
     FuncDeclaration *fd = vd->parent->isFuncDeclaration();
     assert(fd);
     size_t argNo = 0;
