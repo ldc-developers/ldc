@@ -16,6 +16,24 @@
 
 namespace {
 
+/// Sets LLVMContext::setDiscardValueNames(false) upon construction and restores
+/// the previous value upon destruction.
+struct TempDisableDiscardValueNames {
+#if LDC_LLVM_VER >= 309
+  llvm::LLVMContext &ctx;
+  bool previousValue;
+
+  TempDisableDiscardValueNames(llvm::LLVMContext &context)
+      : ctx(context), previousValue(context.shouldDiscardValueNames()) {
+    ctx.setDiscardValueNames(false);
+  }
+
+  ~TempDisableDiscardValueNames() { ctx.setDiscardValueNames(previousValue); }
+#else
+  TempDisableDiscardValueNames(llvm::LLVMContext &context) {}
+#endif
+};
+
 /// Adds the idol's function attributes to the wannabe
 void copyFnAttributes(llvm::Function *wannabe, llvm::Function *idol) {
   auto attrSet = idol->getAttributes();
@@ -28,6 +46,10 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
                         Expressions *arguments) {
   IF_LOG Logger::println("DtoInlineIRExpr @ %s", loc.toChars());
   LOG_SCOPE;
+
+  // LLVM can't read textual IR with a Context that discards named Values, so
+  // temporarily disable value name discarding.
+  TempDisableDiscardValueNames tempDisable(gIR->context());
 
   // Generate a random new function name. Because the inlineIR function is
   // always inlined, this name does not escape the current compiled module; not
