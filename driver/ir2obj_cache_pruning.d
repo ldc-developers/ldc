@@ -79,7 +79,7 @@ struct CachePruner
     Duration expireDuration; // cache file expiration
     ulong sizeLimit; // in bytes
     uint sizeLimitPercentage; // Percentage limit of available space
-    bool willPruneForSize;
+    bool willPruneForSize; // true if we need to prune for absolute/relative size
 
     this(string cachePath, uint pruneIntervalSeconds, uint expireIntervalSeconds,
         ulong sizeLimit, uint sizeLimitPercentage)
@@ -93,7 +93,7 @@ struct CachePruner
         this.expireDuration = dur!"seconds"(expireIntervalSeconds);
         this.sizeLimit = sizeLimit;
         this.sizeLimitPercentage = sizeLimitPercentage < 100 ? sizeLimitPercentage : 100;
-        this.willPruneForSize = sizeLimit > 0;
+        this.willPruneForSize = (sizeLimit > 0) || (sizeLimitPercentage < 100);
     }
 
     void doPrune()
@@ -150,7 +150,7 @@ private:
 
     void pruneForSize(DirEntry[] candidates, ulong cacheSize)
     {
-        ulong availableSpace = getAvailableDiskSpace(cachePath);
+        ulong availableSpace = cacheSize + getAvailableDiskSpace(cachePath);
         if (!isSizeAboveMaximum(cacheSize, availableSpace))
             return;
 
