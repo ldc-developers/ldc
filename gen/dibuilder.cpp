@@ -268,6 +268,9 @@ ldc::DIType ldc::DIBuilder::CreateVectorType(Type *type) {
          "Only vectors allowed for debug info in DIBuilder::CreateVectorType");
   TypeVector *tv = static_cast<TypeVector *>(t);
   Type *te = tv->elementType();
+  // translate void vectors to byte vectors
+  if (te->toBasetype()->ty == Tvoid)
+    te = Type::tuns8;
   int64_t Dim = tv->size(Loc()) / te->size(Loc());
   LLMetadata *subscripts[] = {DBuilder.getOrCreateSubrange(0, Dim)};
 
@@ -630,9 +633,9 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type, bool derefclass) {
   if (t->ty == Tvoid || t->ty == Tnull)
     return DBuilder.createUnspecifiedType(t->toChars());
 #endif
+  if (t->ty == Tvector)
+    return CreateVectorType(type);
   if (t->isintegral() || t->isfloating()) {
-    if (t->ty == Tvector)
-      return CreateVectorType(type);
     if (type->ty == Tenum)
       return CreateEnumType(type);
     return CreateBasicType(type);
