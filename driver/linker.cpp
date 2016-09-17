@@ -149,10 +149,8 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
   std::vector<std::string> args;
 
   // object files
-  for (unsigned i = 0; i < global.params.objfiles->dim; i++) {
-    const char *p = static_cast<const char *>(global.params.objfiles->data[i]);
-    args.push_back(p);
-  }
+  for (unsigned i = 0; i < global.params.objfiles->dim; i++)
+    args.push_back((*global.params.objfiles)[i]);
 
   // Link with profile-rt library when generating an instrumented binary.
   // profile-rt uses Phobos (MD5 hashing) and therefore must be passed on the
@@ -170,10 +168,8 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
   }
 
   // user libs
-  for (unsigned i = 0; i < global.params.libfiles->dim; i++) {
-    const char *p = static_cast<const char *>(global.params.libfiles->data[i]);
-    args.push_back(p);
-  }
+  for (unsigned i = 0; i < global.params.libfiles->dim; i++)
+    args.push_back((*global.params.libfiles)[i]);
 
   // output filename
   std::string output = getOutputName(sharedLib);
@@ -211,8 +207,7 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
 
   // additional linker switches
   for (unsigned i = 0; i < global.params.linkswitches->dim; i++) {
-    const char *p =
-        static_cast<const char *>(global.params.linkswitches->data[i]);
+    const char *p = (*global.params.linkswitches)[i];
     // Don't push -l and -L switches using -Xlinker, but pass them indirectly
     // via GCC. This makes sure user-defined paths take precedence over
     // GCC's builtin LIBRARY_PATHs.
@@ -598,10 +593,8 @@ static int linkObjToBinaryWin(bool sharedLib) {
   args.push_back("/OUT:" + output);
 
   // object files
-  for (unsigned i = 0; i < global.params.objfiles->dim; i++) {
-    const char *p = static_cast<const char *>(global.params.objfiles->data[i]);
-    args.push_back(p);
-  }
+  for (unsigned i = 0; i < global.params.objfiles->dim; i++)
+    args.push_back((*global.params.objfiles)[i]);
 
   // Link with profile-rt library when generating an instrumented binary
   // profile-rt depends on Phobos (MD5 hashing).
@@ -612,10 +605,8 @@ static int linkObjToBinaryWin(bool sharedLib) {
   }
 
   // user libs
-  for (unsigned i = 0; i < global.params.libfiles->dim; i++) {
-    const char *p = static_cast<const char *>(global.params.libfiles->data[i]);
-    args.push_back(p);
-  }
+  for (unsigned i = 0; i < global.params.libfiles->dim; i++)
+    args.push_back((*global.params.libfiles)[i]);
 
   // set the global gExePath
   gExePath = output;

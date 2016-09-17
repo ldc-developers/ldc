@@ -154,6 +154,7 @@ version(IN_LLVM)
 
     void genCmain(Scope* sc);
     // in driver/main.cpp
+    void addDefaultVersionIdentifiers();
     void codegenModules(ref Modules modules);
     // in driver/linker.cpp
     int linkObjToBinary();
@@ -1102,6 +1103,14 @@ Language changes listed by -transition=id:
         global.params.useAssert = true;
     if (!global.params.obj || global.params.lib)
         global.params.link = false;
+
+    return mars_mainBody(files, libmodules);
+}
+
+} // !IN_LLVM
+
+extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
+{
     if (global.params.link)
     {
         global.params.exefile = global.params.objname;
@@ -1131,9 +1140,12 @@ Language changes listed by -transition=id:
     {
         global.params.libname = global.params.objname;
         global.params.objname = null;
+      version (IN_LLVM) {} else
+      {
         // Haven't investigated handling these options with multiobj
         if (!global.params.cov && !global.params.trace)
             global.params.multiobj = true;
+      }
     }
     else
     {
@@ -1147,17 +1159,13 @@ Language changes listed by -transition=id:
 
     // Predefined version identifiers
     addDefaultVersionIdentifiers();
+  version (IN_LLVM) {} else
+  {
     objc_tryMain_dObjc();
 
     setDefaultLibrary();
+  }
 
-    return mars_mainBody(files, libmodules);
-}
-
-} // !IN_LLVM
-
-extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
-{
     // Initialization
     Type._init();
     Id.initialize();
@@ -1214,7 +1222,14 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
     // Create Modules
     Modules modules;
     modules.reserve(files.dim);
+  version (IN_LLVM)
+  {
+    size_t firstModuleObjectFileIndex = size_t.max;
+  }
+  else
+  {
     bool firstmodule = true;
+  }
     for (size_t i = 0; i < files.dim; i++)
     {
         const(char)* name;
@@ -1337,7 +1352,23 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
         auto id = Identifier.idPool(name, strlen(name));
         auto m = new Module(files[i], id, global.params.doDocComments, global.params.doHdrGeneration);
         modules.push(m);
-      version (IN_LLVM) {} else
+      version (IN_LLVM)
+      {
+        // If `-run` is passed, the obj file is temporary and is removed after execution.
+        // Make sure the name does not collide with other files from other processes by
+        // creating a unique filename.
+        if (global.params.run)
+            m.makeObjectFilenameUnique();
+
+        if (!global.params.oneobj || firstModuleObjectFileIndex == size_t.max)
+        {
+            global.params.objfiles.push(m.objfile.name.str);
+            m.checkAndAddOutputFile(m.objfile);
+            if (firstModuleObjectFileIndex == size_t.max)
+                firstModuleObjectFileIndex = global.params.objfiles.dim - 1;
+        }
+      }
+      else
       {
         if (firstmodule)
         {
@@ -1346,6 +1377,19 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
         }
       }
     }
+  version (IN_LLVM)
+  {
+    if (global.params.oneobj && modules.dim < 2)
+        global.params.oneobj = false;
+    // global.params.oneobj => move object file for first source file to
+    // beginning of object files list
+    if (global.params.oneobj && firstModuleObjectFileIndex != 0)
+    {
+        auto fn = (*global.params.objfiles)[firstModuleObjectFileIndex];
+        global.params.objfiles.remove(firstModuleObjectFileIndex);
+        global.params.objfiles.insert(0, fn);
+    }
+  }
     // Read files
     /* Start by "reading" the dummy main.d file
      */
@@ -1612,22 +1656,6 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
     }
   version (IN_LLVM)
   {
-    for (size_t i = 0; i < modules.dim; i++)
-    {
-        Module m = modules[i];
-        if (!m.objfile)
-            continue;
-
-        // If `-run` is passed, the obj file is temporary and is removed after execution.
-        // Make sure the name does not collide with other files from other processes by
-        // creating a unique filename.
-        if (global.params.run)
-            m.makeObjectFilenameUnique();
-
-        if (!global.params.oneobj || i == 0)
-            m.checkAndAddOutputFile(m.objfile);
-    }
-
     codegenModules(modules);
   }
   else
@@ -1959,6 +1987,9 @@ extern (C++) Expressions* Expressions_create()
     return new Expressions();
 }
 
+version (IN_LLVM) {} else
+{
+
 /**
  * Set the default and debug libraries to link against, if not already set
  *
@@ -2110,3 +2141,5 @@ private void addDefaultVersionIdentifiers()
         VersionCondition.addPredefinedGlobalIdent("D_NoBoundsChecks");
     VersionCondition.addPredefinedGlobalIdent("D_HardFloat");
 }
+
+} // !IN_LLVM
