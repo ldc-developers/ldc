@@ -53,7 +53,7 @@ int main(string[] args)
 // CHECK: +[[OFF]] ptr {{ *}}: 0x{{[0-9a-f`]* *}} "a"
 // CDB: ?? args.ptr[0]
 // CHECK: +0x000 length
-// CHECK: +[[OFF]] ptr {{ *}}: 0x{{[0-9a-f`]* *".*exe"}}
+// CHECK: +[[OFF]] ptr {{ *}}: 0x{{[0-9a-f`]* *".*exe.*"}}
 }
 
 // CDB: q

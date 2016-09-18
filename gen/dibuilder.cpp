@@ -947,7 +947,7 @@ void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
 
 void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
                                        Type *type, bool isThisPtr,
-                                       bool fromNested,
+                                       bool rewrittenToLocal,
 #if LDC_LLVM_VER >= 306
                                        llvm::ArrayRef<int64_t> addr
 #else
@@ -979,7 +979,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 
 #if LDC_LLVM_VER < 308
   unsigned tag;
-  if (!fromNested && vd->isParameter()) {
+  if (!rewrittenToLocal && vd->isParameter()) {
     tag = llvm::dwarf::DW_TAG_arg_variable;
   } else {
     tag = llvm::dwarf::DW_TAG_auto_variable;
@@ -1022,17 +1022,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
                                                Flags                // flags
                                                );
 #else
-  bool isParameter = vd->isParameter();
-  if (global.params.targetTriple->isWindowsMSVCEnvironment() &&
-      global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
-    // arrays are not passed through ExplicitByvalRewrite, because it is not
-    //  considered an aggregate (see TargetABI::isAggregate)
-    // instead a local copy of the parameter is created in the local frame, so
-    // pretend it is a local
-    if (isParameter && type && type->ty == Tarray)
-      isParameter = false;
-  }
-  if (!fromNested && isParameter) {
+  if (!rewrittenToLocal && vd->isParameter()) {
     FuncDeclaration *fd = vd->parent->isFuncDeclaration();
     assert(fd);
     size_t argNo = 0;
