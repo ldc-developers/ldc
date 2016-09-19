@@ -1081,22 +1081,26 @@ void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
   assert(vd->isDataseg() ||
          (vd->storage_class & (STCconst | STCimmutable) && vd->_init));
 
-  auto DIVar = DBuilder.createGlobalVariable(
-#if LDC_LLVM_VER >= 306
-      GetCU(), // context
-#endif
-      vd->toChars(),                          // name
-      mangle(vd),                             // linkage name
-      CreateFile(vd->loc),                    // file
-      vd->loc.linnum,                         // line num
-      CreateTypeDescription(vd->type, false), // type
-      vd->protection.kind == PROTprivate,     // is local to unit
 #if LDC_LLVM_VER >= 400
-      nullptr // relative location of field
-#else
-      llVar // value
+  auto DIVar =
 #endif
-      );
+      DBuilder.createGlobalVariable(
+#if LDC_LLVM_VER >= 306
+          GetCU(), // context
+#endif
+          vd->toChars(),                          // name
+          mangle(vd),                             // linkage name
+          CreateFile(vd->loc),                    // file
+          vd->loc.linnum,                         // line num
+          CreateTypeDescription(vd->type, false), // type
+          vd->protection.kind == PROTprivate,     // is local to unit
+#if LDC_LLVM_VER >= 400
+          nullptr // relative location of field
+#else
+          llVar // value
+#endif
+          );
+
 #if LDC_LLVM_VER >= 400
   llVar->addDebugInfo(DIVar);
 #endif
