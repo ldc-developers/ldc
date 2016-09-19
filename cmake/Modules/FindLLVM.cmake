@@ -104,6 +104,10 @@ if ((WIN32 AND NOT(MINGW OR CYGWIN)) OR NOT LLVM_CONFIG)
             # Versions beginning with 3.8 do not support component ipa
             list(REMOVE_ITEM LLVM_FIND_COMPONENTS "ipa" index)
         endif()
+        if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-9][\\.0-9A-Za-z]*")
+            # Versions below 4.0 do not support component debuginfomsf
+            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfomsf" index)
+        endif()
         if(${LLVM_VERSION_STRING} MATCHES "^4\\.[\\.0-9A-Za-z]*")
             # Versions beginning with 4. do not support component ipa
             list(REMOVE_ITEM LLVM_FIND_COMPONENTS "ipa" index)
@@ -200,6 +204,10 @@ else()
     if(${LLVM_VERSION_STRING} MATCHES "^3\\.[8-9][\\.0-9A-Za-z]*")
         # Versions beginning with 3.8 do not support component ipa
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "ipa" index)
+    endif()
+    if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-9][\\.0-9A-Za-z]*")
+        # Versions below 4.0 do not support component debuginfomsf
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfomsf" index)
     endif()
     if(${LLVM_VERSION_STRING} MATCHES "^4\\.[\\.0-9A-Za-z]*")
         # Versions beginning with 4. do not support component ipa
