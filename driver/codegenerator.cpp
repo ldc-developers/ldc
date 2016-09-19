@@ -13,6 +13,7 @@
 #include "mars.h"
 #include "module.h"
 #include "scope.h"
+#include "driver/cache.h"
 #include "driver/linker.h"
 #include "driver/toobj.h"
 #include "gen/logger.h"
@@ -189,7 +190,18 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename) {
       {llvm::MDString::get(ir_->context(), Version)};
   IdentMetadata->addOperand(llvm::MDNode::get(ir_->context(), IdentNode));
 
-  writeModule(&ir_->module, filename);
+  std::string cachedFile;
+  writeModule(&ir_->module, filename, cachedFile);
+
+  // global.params.compileHash is only non-null for valid source-cached builds.
+  if (global.params.useCompileCache && global.params.compileHash &&
+      !cachedFile.empty()) {
+
+    // TODO: add cachedFile to a list of outputted files (with output filename)
+    // such that multiple files can be recovered at the same time.
+    cacheManifest(global.params.compileHash, cachedFile.c_str());
+  }
+
   delete ir_;
   ir_ = nullptr;
 }

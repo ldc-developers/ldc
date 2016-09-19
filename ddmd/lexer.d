@@ -449,11 +449,13 @@ public:
                         if (id == Id.DATE)
                         {
                             t.ustring = date.ptr;
+                            global.params.dateUsedByLexer = date.ptr;
                             goto Lstr;
                         }
                         else if (id == Id.TIME)
                         {
                             t.ustring = time.ptr;
+                            global.params.timeUsedByLexer = time.ptr;
                             goto Lstr;
                         }
                         else if (id == Id.VENDOR)
@@ -464,6 +466,8 @@ public:
                         else if (id == Id.TIMESTAMP)
                         {
                             t.ustring = timestamp.ptr;
+                            global.params.dateUsedByLexer = date.ptr;
+                            global.params.timeUsedByLexer = time.ptr;
                         Lstr:
                             t.value = TOKstring;
                             t.postfix = 0;

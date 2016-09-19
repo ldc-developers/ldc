@@ -43,6 +43,8 @@
 #include <cstddef>
 #include <fstream>
 
+#include "ddmd/module.h"
+
 #if LDC_LLVM_VER >= 306
 using LLErrorInfo = std::error_code;
 #define ERRORINFO_STRING(errinfo) errinfo.message().c_str()
@@ -366,7 +368,8 @@ void writeObjectFile(llvm::Module *m, std::string &filename) {
 }
 } // end of anonymous namespace
 
-void writeModule(llvm::Module *m, std::string filename) {
+void writeModule(llvm::Module *m, std::string filename,
+                 std::string &cachedObjectFilename) {
   // There is no integrated assembler on AIX because XCOFF is not supported.
   // Starting with LLVM 3.5 the integrated assembler can be used with MinGW.
   bool const assembleExternally =
@@ -375,21 +378,21 @@ void writeModule(llvm::Module *m, std::string filename) {
        global.params.targetTriple->getOS() == llvm::Triple::AIX);
 
   // Use cached object code if possible
-  bool useIR2ObjCache = !opts::cacheDir.empty();
   llvm::SmallString<32> moduleHash;
-  if (useIR2ObjCache && global.params.output_o && !assembleExternally) {
-    llvm::SmallString<128> cacheDir(opts::cacheDir.c_str());
+  if (global.params.useCompileCache && global.params.output_o &&
+      !assembleExternally) {
+    llvm::SmallString<128> cacheDir(global.params.useCompileCache);
     llvm::sys::fs::make_absolute(cacheDir);
     opts::cacheDir = cacheDir.c_str();
 
     IF_LOG Logger::println("Use IR-to-Object cache in %s",
-                           opts::cacheDir.c_str());
+                           global.params.useCompileCache);
     LOG_SCOPE
 
     cache::calculateModuleHash(m, moduleHash);
-    std::string cacheFile = cache::cacheLookup(moduleHash);
-    if (!cacheFile.empty()) {
-      cache::recoverObjectFile(moduleHash, filename);
+    cachedObjectFilename = cache::cacheLookup(moduleHash);
+    if (!cachedObjectFilename.empty()) {
+      cache::recoverObjectFile(cachedObjectFilename, filename);
       return;
     }
   }
@@ -478,8 +481,8 @@ void writeModule(llvm::Module *m, std::string filename) {
 
   if (global.params.output_o && !assembleExternally) {
     writeObjectFile(m, filename);
-    if (useIR2ObjCache) {
-      cache::cacheObjectFile(filename, moduleHash);
+    if (global.params.useCompileCache) {
+      cachedObjectFilename = cache::cacheObjectFile(filename, moduleHash);
     }
   }
 }

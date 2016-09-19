@@ -1525,6 +1525,47 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
     }
     if (global.errors)
         fatal();
+
+version (IN_LLVM)
+{
+    // Check whether this compile session has already been cached.
+
+    import driver.cache;
+    import gen.logger;
+    if (global.params.useCompileCache && canDoSourceCachedBuild(modules))
+    {
+        // TODO: This really should be a function or a variable somewhere:
+        const(char)* oname = global.params.exefile ? global.params.exefile : global.params.objname ? global.params.objname : null;
+        const(char)* filename;
+        if (oname) {
+            filename = FileName.forceExt(oname, global.obj_ext);
+            if (global.params.objdir) {
+                filename =
+                    FileName.combine(global.params.objdir, FileName.name(filename));
+            }
+        } else {
+            // TODO
+            //filename = firstModuleObjfileName_;
+        }
+
+        if (filename)
+        {
+            string hash = calculateModulesHash(modules);
+            Log.printfln("Do source-cached build (hash = %s)", hash);
+
+            // Set compileHash to non-null to indicate that a source-cached build is valid.
+            import std.string : toStringz;
+            global.params.compileHash = toStringz(hash);
+
+            if (attemptRecoverFromCache(hash, filename))
+            {
+                // Outputs have been recovered from the cache, we're done!
+                return EXIT_SUCCESS;
+            }
+        }
+    }
+}
+
     // load all unconditional imports for better symbol resolving
     for (size_t i = 0; i < modules.dim; i++)
     {

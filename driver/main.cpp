@@ -514,6 +514,10 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   }
 #endif
 
+  // Cache options
+  if (!opts::cacheDir.empty())
+    global.params.useCompileCache = dupPathString(opts::cacheDir);
+
   processVersions(debugArgs, "debug", DebugCondition::setGlobalLevel,
                   DebugCondition::addGlobalIdent);
   processVersions(versions, "version", VersionCondition::setGlobalLevel,

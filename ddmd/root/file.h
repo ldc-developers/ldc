@@ -28,6 +28,8 @@ struct File
     unsigned char *buffer;      // data for our file
     size_t len;                 // amount of data in buffer[]
 
+    unsigned char md5[16];      // MD5 hash of file contents
+
     FileName *name;             // name of our file
 
     File(const char *);
@@ -36,6 +38,9 @@ struct File
     ~File();
 
     const char *toChars();
+
+    const char *hashToChars();
+    void calculateHash();
 
     /* Read file, return true if error
      */

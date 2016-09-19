@@ -20,6 +20,7 @@ struct File
     int _ref; // != 0 if this is a reference to someone else's buffer
     ubyte* buffer; // data for our file
     size_t len; // amount of data in buffer[]
+    ubyte[16] md5;      // MD5 hash of file contents
     const(FileName)* name; // name of our file
 
     extern (D) this(const(char)* n)
@@ -60,6 +61,23 @@ struct File
     extern (C++) const(char)* toChars()
     {
         return name.toChars();
+    }
+
+    extern (C++) const(char)* hashToChars()
+    {
+        import std.digest.md;
+        import std.string;
+        calculateHash();
+        return toHexString!(LetterCase.lower)(md5).toStringz;
+    }
+
+    extern(C++) void calculateHash()
+    {
+        if (md5 != [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
+            return; // hash is already calculated
+
+        import std.digest.md;
+        md5 = md5Of(buffer[0..len]);
     }
 
     /*************************************
