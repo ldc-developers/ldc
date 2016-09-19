@@ -51,18 +51,3 @@ set_target_properties(
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
 target_link_libraries(not  ${LLVM_LIBRARIES} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
-
-# Build ldc-profdata for converting profile data formats (source version depends on LLVM version)
-set(LDCPROFDATA_SRC llvm-profdata-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.cpp)
-if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${LDCPROFDATA_SRC})
-    add_executable(ldc-profdata ${LDCPROFDATA_SRC})
-    set_target_properties(
-        ldc-profdata PROPERTIES
-        OUTPUT_NAME "${LDCPROFDATA_EXE_NAME}"
-        RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
-        COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
-        LINK_FLAGS "${SANITIZE_LDFLAGS}"
-    )
-    target_link_libraries(ldc-profdata  ${LLVM_LIBRARIES} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
-    install(TARGETS ${LDCPROFDATA_EXE} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
-endif()
