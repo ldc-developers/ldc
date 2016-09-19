@@ -17,6 +17,9 @@
 
 namespace opts {
 
+// This vector is filled by parseCommandLine in main.cpp.
+llvm::SmallVector<const char *, 32> allArguments;
+
 /* Option parser that defaults to zero when no explicit number is given.
  * i.e.:  -cov    --> value = 0
  *        -cov=9  --> value = 9
@@ -198,7 +201,7 @@ static cl::opt<bool, true> unittest("unittest",
 
 cl::opt<std::string>
     ir2objCacheDir("ir2obj-cache", cl::desc("Use <cache dir> to cache object files for whole IR modules (experimental)"),
-            cl::value_desc("cache dir"), cl::Prefix);
+            cl::value_desc("cache dir"));
 
 static StringsAdapter strImpPathStore("J", global.params.fileImppath);
 static cl::list<std::string, StringsAdapter>

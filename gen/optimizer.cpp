@@ -455,3 +455,22 @@ void verifyModule(llvm::Module *m) {
   }
   Logger::println("Verification passed!");
 }
+
+// Output to `hash_os` all optimization settings that influence object code output
+// and that are not observable in the IR.
+// This is used to calculate the hash use for caching that uniquely identifies
+// the object file output.
+void outputOptimizationSettings(llvm::raw_ostream &hash_os) {
+  hash_os << optimizeLevel;
+  hash_os << willInline();
+  hash_os << disableLangSpecificPasses;
+  hash_os << disableSimplifyDruntimeCalls;
+  hash_os << disableSimplifyLibCalls;
+  hash_os << disableGCToStack;
+  hash_os << unitAtATime;
+  hash_os << stripDebug;
+  hash_os << opts::sanitize;
+  hash_os << disableLoopUnrolling;
+  hash_os << disableLoopVectorization;
+  hash_os << disableSLPVectorization;
+}
