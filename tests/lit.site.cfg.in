@@ -108,3 +108,9 @@ if (platform.system() == 'Windows') and (config.default_target_bits == 64):
 if (platform.system() == 'Windows') and os.path.isfile( cdb ):
     config.available_features.add('cdb')
     config.substitutions.append( ('%cdb', '"' + string.replace( cdb, '\\', '\\\\') + '"') )
+
+# Add lldb substitution
+if platform.system() == 'Darwin':
+    config.available_features.add('lldb')
+    config.available_features.add('sed')
+    config.substitutions.append( ('%lldb', 'lldb') )
