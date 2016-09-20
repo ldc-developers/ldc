@@ -18,5 +18,5 @@ void encloser(int arg0, int arg1)
 
 // CHECK: @_D{{.*}}8encloserFiiZv{{.*}}DW_TAG_subprogram
 // CHECK: @_D{{.*}}8encloserFiiZ6nestedMFiZv{{.*}}DW_TAG_subprogram
-// CHECK: nes_i{{.*}}DW_TAG_arg_variable
+// CHECK: nes_i{{.*}}DW_TAG_auto_variable
 // CHECK: arg1{{.*}}DW_TAG_auto_variable
