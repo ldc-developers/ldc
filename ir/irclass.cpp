@@ -298,7 +298,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
 
   // Thunk prefix
   char thunkPrefix[16];
-  int thunkLen = sprintf(thunkPrefix, "Th%d", b->offset);
+  int thunkLen = sprintf(thunkPrefix, "Thn%d_", b->offset);
   char thunkPrefixLen[16];
   sprintf(thunkPrefixLen, "%d", thunkLen);
 
@@ -338,8 +338,10 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
     // Create the thunk function if it does not already exist in this
     // module.
     OutBuffer nameBuf;
+    const auto mangledTargetName = mangleExact(fd);
+    nameBuf.write(mangledTargetName, 2);
     nameBuf.writestring(thunkPrefix);
-    nameBuf.writestring(mangleExact(fd));
+    nameBuf.writestring(mangledTargetName + 2);
     const char *thunkName = nameBuf.extractString();
     llvm::Function *thunk = gIR->module.getFunction(thunkName);
     if (!thunk) {
