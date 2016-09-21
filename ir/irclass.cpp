@@ -419,15 +419,15 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       gIR->DBuilder.EmitStopPoint(fd->loc);
 
       // call the real vtbl function.
-      llvm::CallSite call = gIR->ir->CreateCall(irFunc->func, args);
-      call.setCallingConv(irFunc->func->getCallingConv());
+      llvm::CallInst *call = gIR->ir->CreateCall(irFunc->func, args);
+      call->setCallingConv(irFunc->func->getCallingConv());
+      call->setTailCallKind(llvm::CallInst::TCK_Tail);
 
       // return from the thunk
       if (thunk->getReturnType() == LLType::getVoidTy(gIR->context())) {
         llvm::ReturnInst::Create(gIR->context(), beginbb);
       } else {
-        llvm::ReturnInst::Create(gIR->context(), call.getInstruction(),
-                                 beginbb);
+        llvm::ReturnInst::Create(gIR->context(), call, beginbb);
       }
 
       gIR->DBuilder.EmitFuncEnd(thunkFd);
