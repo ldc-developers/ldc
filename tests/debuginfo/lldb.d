@@ -3,8 +3,8 @@
 
 // RUN: %ldc -g -of=%t%exe %s \
 // RUN: && sed -e "/^\\/\\/ LLDB:/!d" -e "s,// LLDB:,," %s > %t.lldb \
-// RUN: && %lldb %t%exe -s %t.lldb > %t.out.txt 2>&1
-// R UN: && FileCheck %s -check-prefix=CHECK < %t.out.txt
+// RUN: && %lldb %t%exe -s %t.lldb > %t.out.txt 2>&1 \
+// RUN: && FileCheck %s -check-prefix=CHECK < %t.out.txt
 
 int globalvar = 123;
 
@@ -16,7 +16,8 @@ void main()
 
 // CHECK: Current executable set to {{.*}}lldb
 // L LDB: break set --file lldb.d --line 14
-// L LDB: run
+// LLDB: version
+// LLDB: run
 // CHECK:      void main()
 // CHECK-NEXT: {
 // CHECK-NEXT: int a = 42;
