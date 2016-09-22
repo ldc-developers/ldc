@@ -1291,14 +1291,11 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
                 global.params.jsonfilename = files[i];
                 continue;
             }
-          version (IN_LLVM) {} else
-          {
             if (FileName.equals(ext, global.map_ext))
             {
                 global.params.mapfile = files[i];
                 continue;
             }
-          }
             static if (TARGET_WINDOS)
             {
                 if (FileName.equals(ext, "res"))
