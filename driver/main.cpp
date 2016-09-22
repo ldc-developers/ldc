@@ -863,7 +863,7 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("Windows");
     VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64"
                                                                      : "Win32");
-    if (global.params.targetTriple->isKnownWindowsMSVCEnvironment()) {
+    if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Microsoft");
     }
     if (global.params.targetTriple->isWindowsGNUEnvironment()) {

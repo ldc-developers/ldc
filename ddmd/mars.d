@@ -1296,7 +1296,7 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
                 global.params.mapfile = files[i];
                 continue;
             }
-            static if (TARGET_WINDOS)
+            if (global.params.isWindows)
             {
                 if (FileName.equals(ext, "res"))
                 {
