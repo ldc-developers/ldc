@@ -52,7 +52,7 @@ public:
   void setGTargetMachine() override {
     char buf[8];
     bool is64 = global.params.is64bit;
-    snprintf(buf, sizeof(buf), "sm_%d", gDComputeTarget->tversion / 10);
+    snprintf(buf, sizeof(buf), "sm_%d", tversion / 10);
     gTargetMachine = createTargetMachine(is64 ? "nvptx64-nvidia-cuda" : "nvptx-nvidia-cuda",
                                            is64 ? "nvptx64" : "nvptx", buf, {},
                                            is64 ? ExplicitBitness::M64 : ExplicitBitness::M32

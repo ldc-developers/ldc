@@ -76,6 +76,7 @@ static void codegenModule(llvm::TargetMachine *Target, llvm::Module &m,
 #if LDC_LLVM_VER < 307
   llvm::formatted_raw_ostream fout(out);
 #endif
+//TODO make this a CMake Option
 #define LDC_WITH_DCOMPUTE_SPIRV
   if (isSpirv) {
 #ifdef LDC_WITH_DCOMPUTE_SPIRV

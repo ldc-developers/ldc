@@ -25,9 +25,11 @@ DComputeTarget *
 DComputeCodeGenManager::createComputeTarget(const std::string &s) {
   int v;
   if (s.substr(0, 3) == "ocl") {
+    //TODO: validate version
     v = atoi(s.c_str() + 4);
     return createOCLTarget(ctx, v);
   } else if (s.substr(0, 4) == "cuda") {
+    //TODO: validate version
     v = atoi(s.c_str() + 5);
     return createCUDATarget(ctx, v);
   }

@@ -164,7 +164,7 @@ public:
           }
 
         } else {
-          // tyName = T.stringof ~ "*"
+          // tyName = T.stringof
           tyName = v->type->toChars();
           if (tyName.substr(0,4) == "byte") {
               tyName = "char" + tyName.substr(4);
