@@ -88,24 +88,23 @@ MipsABI::Type getMipsABI() {
   // eabi can only be set on the commandline
   if (strncmp(opts::mABI.c_str(), "eabi", 4) == 0)
     return MipsABI::EABI;
-  else {
+
 #if LDC_LLVM_VER >= 308
-    const llvm::DataLayout dl = gTargetMachine->createDataLayout();
+  const llvm::DataLayout dl = gTargetMachine->createDataLayout();
 #else
-    const llvm::DataLayout &dl = *gTargetMachine->getDataLayout();
+  const llvm::DataLayout &dl = *gTargetMachine->getDataLayout();
 #endif
-    if (dl.getPointerSizeInBits() == 64)
-      return MipsABI::N64;
+
+  if (dl.getPointerSizeInBits() == 64)
+    return MipsABI::N64;
+
 #if LDC_LLVM_VER >= 309
-    else if (dl.getLargestLegalIntTypeSizeInBits() == 64)
+  const auto largestInt = dl.getLargestLegalIntTypeSizeInBits();
 #else
-    else if (dl.getLargestLegalIntTypeSize() == 64)
+  const auto largestInt = dl.getLargestLegalIntTypeSize();
 #endif
-      return MipsABI::N32;
-    else
-      return MipsABI::O32;
-  }
-#else
+  return (largestInt == 64) ? MipsABI::N32 : MipsABI::O32;
+#else // LDC_LLVM_VER < 307
   llvm::StringRef features = gTargetMachine->getTargetFeatureString();
   if (features.find("+o32") != std::string::npos) {
     return MipsABI::O32;
@@ -529,7 +528,12 @@ createTargetMachine(std::string targetTriple, std::string arch, std::string cpu,
       // Darwin defaults to PIC (and as of 10.7.5/LLVM 3.1-3.3, TLS use leads
       // to crashes for non-PIC code). LLVM doesn't handle this.
       relocModel = llvm::Reloc::PIC_;
-    } else if (triple.getEnvironment() == llvm::Triple::Android) {
+    } else if (triple.isOSLinux()) {
+      // Modern Linux distributions have their toolchain generate PIC code for
+      // additional security
+      // features (like ASLR). We default to PIC code to avoid linking issues on
+      // these OSes.
+      // On Android, PIC is default as well.
       relocModel = llvm::Reloc::PIC_;
     } else {
       // ARM for other than Darwin or Android defaults to static

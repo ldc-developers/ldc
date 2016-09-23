@@ -260,6 +260,7 @@ public:
                                 // 2: on stack, run destructor anyway
     int canassign;              // it can be assigned to
     bool overlapped;            // if it is a field and has overlapping
+    unsigned char isdataseg;    // private data for isDataseg
     Dsymbol *aliassym;          // if redone as alias to another symbol
     VarDeclaration *lastVar;    // Linked list of variables for goto-skips-init detection
 
@@ -325,7 +326,7 @@ public:
     static TypeInfoDeclaration *create(Type *tinfo, int internal);
     Dsymbol *syntaxCopy(Dsymbol *);
     void semantic(Scope *sc);
-    char *toChars();
+    const char *toChars();
 
     TypeInfoDeclaration *isTypeInfoDeclaration() { return this; }
     void accept(Visitor *v) { v->visit(this); }
@@ -753,7 +754,7 @@ public:
     Dsymbol *syntaxCopy(Dsymbol *);
     void semantic(Scope *sc);
     const char *kind();
-    char *toChars();
+    const char *toChars();
     bool isVirtual();
     bool addPreInvariant();
     bool addPostInvariant();
@@ -785,7 +786,7 @@ public:
     Dsymbol *syntaxCopy(Dsymbol *);
     void semantic(Scope *sc);
     const char *kind();
-    char *toChars();
+    const char *toChars();
     bool isVirtual();
     bool addPreInvariant();
     bool addPostInvariant();

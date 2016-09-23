@@ -21,7 +21,7 @@ class Triple;
 }
 
 bool objc_isSupported(const llvm::Triple &triple);
-void objc_init();
+void objc_initSymbols();
 void objc_Module_genmoduleinfo_classes();
 llvm::GlobalVariable *objc_getMethVarRef(const ObjcSelector &sel);
 

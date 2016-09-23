@@ -3,16 +3,16 @@
 
 // REQUIRES: atleast_llvm307
 
-// RUN: %ldc %s -I%S -c -output-ll -release -enable-inlining -O0 -of=%t.O0.ll && FileCheck %s < %t.O0.ll
+// RUN: %ldc %s -I%S -c -output-ll -release -enable-inlining -enable-cross-module-inlining -O0 -of=%t.O0.ll && FileCheck %s < %t.O0.ll
 
-// RUN: %ldc -singleobj %S/inputs/inlinables.d %s -I%S -c -output-ll -release -enable-inlining -O0 -of=%t.singleobj.O0.ll && FileCheck %s < %t.singleobj.O0.ll
+// RUN: %ldc -singleobj %S/inputs/inlinables.d %s -I%S -c -output-ll -release -enable-inlining -enable-cross-module-inlining -O0 -of=%t.singleobj.O0.ll && FileCheck %s < %t.singleobj.O0.ll
 
 // Test linking too.
 // Separate compilation
-//   RUN: %ldc -c -enable-inlining %S/inputs/inlinables.d -of=%t.inlinables%obj \
-//   RUN: && %ldc -I%S -enable-inlining %t.inlinables%obj %s -of=%t%exe
+//   RUN: %ldc -c -enable-inlining -enable-cross-module-inlining %S/inputs/inlinables.d -of=%t.inlinables%obj \
+//   RUN: && %ldc -I%S -enable-inlining -enable-cross-module-inlining %t.inlinables%obj %s -of=%t%exe
 // Singleobj compilation
-//   RUN: %ldc -I%S -enable-inlining -singleobj %S/inputs/inlinables.d %s -of=%t2%exe
+//   RUN: %ldc -I%S -enable-inlining -enable-cross-module-inlining -singleobj %S/inputs/inlinables.d %s -of=%t2%exe
 
 import inputs.inlinables;
 import std.stdio;

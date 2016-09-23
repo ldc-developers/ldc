@@ -6,24 +6,38 @@
 struct S
 {
     long a, b, c, d;
-    /*
-    this(this) {}
-    ~this() {}
-    */
 }
 
+// CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct13returnLiteralFZS18in_place_construct1S
 S returnLiteral()
 {
+    // make sure the literal is emitted directly into the sret pointee
+    // CHECK: %1 = getelementptr inbounds {{.*}}%in_place_construct.S* %.sret_arg, i32 0, i32 0
+    // CHECK: store i64 1, i64* %1
+    // CHECK: %2 = getelementptr inbounds {{.*}}%in_place_construct.S* %.sret_arg, i32 0, i32 1
+    // CHECK: store i64 2, i64* %2
+    // CHECK: %3 = getelementptr inbounds {{.*}}%in_place_construct.S* %.sret_arg, i32 0, i32 2
+    // CHECK: store i64 3, i64* %3
+    // CHECK: %4 = getelementptr inbounds {{.*}}%in_place_construct.S* %.sret_arg, i32 0, i32 3
+    // CHECK: store i64 4, i64* %4
     return S(1, 2, 3, 4);
 }
 
+// CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct12returnRValueFZS18in_place_construct1S
 S returnRValue()
 {
+    // make sure the sret pointer is forwarded
+    // CHECK: call {{.*}}_D18in_place_construct13returnLiteralFZS18in_place_construct1S
+    // CHECK-SAME: %in_place_construct.S* {{.*}} %.sret_arg
     return returnLiteral();
 }
 
+// CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct10returnNRVOFZS18in_place_construct1S
 S returnNRVO()
 {
+    // make sure NRVO zero-initializes the sret pointee directly
+    // CHECK: %1 = bitcast %in_place_construct.S* %.sret_arg to i8*
+    // CHECK: call void @llvm.memset.{{.*}}(i8* %1, i8 0,
     const S r;
     return r;
 }
@@ -88,9 +102,29 @@ void staticArrays()
     const(int[2]) sa = [ 1, 2 ];
 }
 
+struct Container { S s; }
+
+// CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct19hierarchyOfLiteralsFZv
+void hierarchyOfLiterals()
+{
+    // CHECK: %sa = alloca [1 x %in_place_construct.Container]
+    // CHECK: %1 = getelementptr inbounds {{.*}}[1 x %in_place_construct.Container]* %sa, i32 0, i32 0
+    // CHECK: %2 = getelementptr inbounds {{.*}}%in_place_construct.Container* %1, i32 0, i32 0
+    // CHECK: %3 = getelementptr inbounds {{.*}}%in_place_construct.S* %2, i32 0, i32 0
+    // CHECK: store i64 11, i64* %3
+    // CHECK: %4 = getelementptr inbounds {{.*}}%in_place_construct.S* %2, i32 0, i32 1
+    // CHECK: store i64 12, i64* %4
+    // CHECK: %5 = getelementptr inbounds {{.*}}%in_place_construct.S* %2, i32 0, i32 2
+    // CHECK: store i64 13, i64* %5
+    // CHECK: %6 = getelementptr inbounds {{.*}}%in_place_construct.S* %2, i32 0, i32 3
+    // CHECK: store i64 14, i64* %6
+    Container[1] sa = [ Container(S(11, 12, 13, 14)) ];
+}
+
 // CHECK-LABEL: define{{.*}} @{{.*}}_Dmain
 void main()
 {
     structs();
     staticArrays();
+    hierarchyOfLiterals();
 }

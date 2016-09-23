@@ -135,10 +135,6 @@ public:
     unsigned char size;         // # of bytes in Expression so we can copy() it
     unsigned char parens;       // if this is a parenthesized expression
 
-#if IN_LLVM
-    llvm::Value* cachedLvalue;
-#endif
-
     Expression(Loc loc, TOK op, int size);
     static void _init();
     Expression *copy();
@@ -150,7 +146,7 @@ public:
     int dyncast() { return DYNCAST_EXPRESSION; }
 
     void print();
-    char *toChars();
+    const char *toChars();
     virtual void printAST(int ident = 0);
     void error(const char *format, ...) const;
     void warning(const char *format, ...) const;
@@ -676,7 +672,7 @@ public:
     Expression *semantic(Scope *sc);
     Expression *semantic(Scope *sc, Expressions *arguments);
     MATCH matchType(Type *to, Scope *sc, FuncExp **pfe, int flag = 0);
-    char *toChars();
+    const char *toChars();
     bool checkType();
     bool checkValue();
 

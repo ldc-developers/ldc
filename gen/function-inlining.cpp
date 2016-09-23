@@ -30,7 +30,7 @@ struct MoreThanXStatements : public StoppableVisitor {
   /// The statement count.
   unsigned count;
 
-  MoreThanXStatements(unsigned X) : threshold(X), count(0) {}
+  explicit MoreThanXStatements(unsigned X) : threshold(X), count(0) {}
 
   using StoppableVisitor::visit;
 
@@ -94,6 +94,15 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
   return false;
 #endif
 
+  // FIXME: For now, disable all cross-module inlining (also of pragma(inline, true)
+  // functions). This check should be removed when cross-module inlining has
+  // become more stable.
+  // There are related `FIXME`s in a few lit-based `codegen/inlining_*.d` tests.
+  if (!willCrossModuleInline()) {
+    IF_LOG Logger::println("Cross-module inlining fully disabled.");
+    return false;
+  }
+
   // Implementation note: try to do cheap checks first.
 
   if (fdecl.neverInline || fdecl.inlining == PINLINEnever) {
@@ -120,6 +129,17 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
   }
   if (!fdecl.fbody) {
     IF_LOG Logger::println("No function body available for inlining");
+    return false;
+  }
+
+  // Because the frontend names `__invariant*` functions differently depending
+  // on the compilation order, we cannot emit the `__invariant` wrapper that
+  // calls the `__invariant*` functions.
+  // This is a workaround, the frontend needs to be changed such that the
+  // __invariant* names no longer depend on semantic analysis order.
+  // See https://github.com/ldc-developers/ldc/issues/1678
+  if (fdecl.isInvariantDeclaration()) {
+    IF_LOG Logger::println("__invariant cannot be emitted.");
     return false;
   }
 

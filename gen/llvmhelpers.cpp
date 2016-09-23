@@ -15,6 +15,7 @@
 #include "gen/classes.h"
 #include "gen/complex.h"
 #include "gen/dvalue.h"
+#include "gen/funcgenstate.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
@@ -263,7 +264,7 @@ void DtoAssert(Module *M, Loc &loc, DValue *msg) {
   args.push_back(DtoConstUint(loc.linnum));
 
   // call
-  gIR->func()->scopes->callOrInvoke(fn, args);
+  gIR->funcGen().callOrInvoke(fn, args);
 
   // after assert is always unreachable
   gIR->ir->CreateUnreachable();
@@ -291,7 +292,7 @@ void DtoGoto(Loc &loc, LabelDsymbol *target) {
     fatal();
   }
 
-  gIR->func()->scopes->jumpToLabel(loc, target->ident);
+  gIR->funcGen().jumpTargets.jumpToLabel(loc, target->ident);
 }
 
 /******************************************************************************
@@ -366,7 +367,7 @@ void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
       }
 #if 1
       if (r->getType() !=
-          lit) { // It's wierd but it happens. TODO: try to remove this hack
+          lit) { // It's weird but it happens. TODO: try to remove this hack
         r = DtoBitCast(r, lit);
       }
 #else
@@ -397,7 +398,7 @@ DValue *DtoNullValue(Type *type, Loc loc) {
   // representation
   if (basetype->isintegral() || basetype->isfloating() || basety == Tpointer ||
       basety == Tclass || basety == Tdelegate || basety == Taarray) {
-    return new DConstValue(type, LLConstant::getNullValue(lltype));
+    return new DNullValue(type, LLConstant::getNullValue(lltype));
   }
   // dynamic array
   if (basety == Tarray) {
@@ -562,7 +563,6 @@ DValue *DtoCastVector(Loc &loc, DValue *val, Type *to) {
   assert(val->type->toBasetype()->ty == Tvector);
   Type *totype = to->toBasetype();
   LLType *tolltype = DtoType(to);
-  TypeVector *type = static_cast<TypeVector *>(val->type->toBasetype());
 
   if (totype->ty == Tsarray) {
     // If possible, we need to cast only the address of the vector without
@@ -1329,30 +1329,16 @@ Type *stripModifiers(Type *type, bool transitive) {
 ////////////////////////////////////////////////////////////////////////////////
 
 LLValue *makeLValue(Loc &loc, DValue *value) {
-  Type *valueType = value->type;
-  bool needsMemory;
-  LLValue *valuePointer;
-  if (value->isIm()) {
-    valuePointer = DtoRVal(value);
-    needsMemory = !DtoIsInMemoryOnly(valueType);
-  } else if (value->isLVal()) {
-    valuePointer = DtoLVal(value);
-    needsMemory = false;
-  } else if (value->isConst()) {
-    valuePointer = DtoRVal(value);
-    needsMemory = true;
-  } else {
-    valuePointer = DtoAlloca(valueType, ".makelvaluetmp");
-    DLValue var(valueType, valuePointer);
-    DtoAssign(loc, &var, value);
-    needsMemory = false;
-  }
+  if (value->isLVal())
+    return DtoLVal(value);
 
-  if (needsMemory) {
-    valuePointer = DtoAllocaDump(value, ".makelvaluetmp");
-  }
+  if (value->isIm() || value->isConst())
+    return DtoAllocaDump(value, ".makelvaluetmp");
 
-  return valuePointer;
+  LLValue *mem = DtoAlloca(value->type, ".makelvaluetmp");
+  DLValue var(value->type, mem);
+  DtoAssign(loc, &var, value, TOKblit);
+  return mem;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1555,17 +1541,27 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       assert(!isSpecialRefVar(vd) && "Code not expected to handle special "
                                      "ref vars, although it can easily be "
                                      "made to.");
-      return new DLValue(type, getIrValue(vd));
-    } else {
-      Logger::println("a normal variable");
-
-      // take care of forward references of global variables
-      if (vd->isDataseg() || (vd->storage_class & STCextern)) {
-        DtoResolveVariable(vd);
-      }
-
-      return makeVarDValue(type, vd);
+      return new DLValue(type, DtoBitCast(getIrValue(vd), DtoPtrToType(type)));
     }
+    Logger::println("a normal variable");
+
+    // take care of forward references of global variables
+    if (vd->isDataseg() || (vd->storage_class & STCextern)) {
+      DtoResolveVariable(vd);
+    }
+
+    return makeVarDValue(type, vd);
+  }
+
+  if (FuncLiteralDeclaration *flitdecl = decl->isFuncLiteralDeclaration()) {
+    Logger::println("FuncLiteralDeclaration");
+
+    // We need to codegen the function here, because literals are not added
+    // to the module member list.
+    DtoDefineFunction(flitdecl);
+    assert(getIrFunc(flitdecl)->func);
+
+    return new DFuncValue(flitdecl, getIrFunc(flitdecl)->func);
   }
 
   if (FuncDeclaration *fdecl = decl->isFuncDeclaration()) {
@@ -1678,7 +1674,7 @@ llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm) {
   return LLConstantArray::get(at, vals);
 }
 
-llvm::GlobalVariable *getOrCreateGlobal(Loc &loc, llvm::Module &module,
+llvm::GlobalVariable *getOrCreateGlobal(const Loc &loc, llvm::Module &module,
                                         llvm::Type *type, bool isConstant,
                                         llvm::GlobalValue::LinkageTypes linkage,
                                         llvm::Constant *init,
@@ -1809,22 +1805,29 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
     val = getIrValue(vd);
   }
 
-  if (vd->isDataseg() || (vd->storage_class & STCextern)) {
-    // The type of globals is determined by their initializer, so
-    // we might need to cast. Make sure that the type sizes fit -
-    // '==' instead of '<=' should probably work as well.
-    llvm::Type *expectedType = llvm::PointerType::getUnqual(DtoMemType(type));
+  // We might need to cast.
+  llvm::Type *expectedType = DtoPtrToType(type);
+  const bool isSpecialRef = isSpecialRefVar(vd);
+  if (isSpecialRef)
+    expectedType = expectedType->getPointerTo();
 
-    if (val->getType() != expectedType) {
-      llvm::Type *t =
-          llvm::cast<llvm::PointerType>(val->getType())->getElementType();
-      assert(getTypeStoreSize(DtoType(type)) <= getTypeStoreSize(t) &&
-             "Global type mismatch, encountered type too small.");
-      val = DtoBitCast(val, expectedType);
-    }
+  if (val->getType() != expectedType) {
+    // The type of globals is determined by their initializer, and the front-end
+    // may inject implicit casts for class references and static arrays.
+    assert(vd->isDataseg() || (vd->storage_class & STCextern) ||
+           type->toBasetype()->ty == Tclass ||
+           type->toBasetype()->ty == Tsarray);
+    llvm::Type *pointeeType = val->getType()->getPointerElementType();
+    if (isSpecialRef)
+      pointeeType = pointeeType->getPointerElementType();
+    // Make sure that the type sizes fit - '==' instead of '<=' should probably
+    // work as well.
+    assert(getTypeStoreSize(DtoType(type)) <= getTypeStoreSize(pointeeType) &&
+           "LValue type mismatch, encountered type too small.");
+    val = DtoBitCast(val, expectedType);
   }
 
-  if (isSpecialRefVar(vd))
+  if (isSpecialRef)
     return new DSpecialRefValue(type, val);
 
   return new DLValue(type, val);

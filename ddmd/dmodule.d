@@ -221,7 +221,7 @@ public:
         return isAncestorPackageOf(pkg.parent.isPackage());
     }
 
-    override final void semantic(Scope* sc)
+    override void semantic(Scope* sc)
     {
     }
 
@@ -362,12 +362,6 @@ public:
     size_t nameoffset;          // offset of module name from start of ModuleInfo
     size_t namelen;             // length of module name in characters
 
-    version(IN_LLVM)
-    {
-        int doDocComment;       // enable generating doc comments for this module
-        int doHdrGen;           // enable generating header file for this module
-    }
-
     extern (D) this(const(char)* filename, Identifier ident, int doDocComment, int doHdrGen)
     {
         super(ident);
@@ -388,18 +382,28 @@ public:
         srcfile = new File(srcfilename);
 version(IN_LLVM)
 {
-        this.doDocComment = doDocComment;
-        this.doHdrGen = doHdrGen;
+        const(char)* objExt;
+        if (global.params.output_o)
+            objExt = global.obj_ext;
+        else if (global.params.output_bc)
+            objExt = global.bc_ext;
+        else if (global.params.output_ll)
+            objExt = global.ll_ext;
+        else if (global.params.output_s)
+            objExt = global.s_ext;
+
+        if (objExt)
+            objfile = setOutfile(global.params.objname, global.params.objdir, filename, objExt);
 }
 else
 {
         objfile = setOutfile(global.params.objname, global.params.objdir, filename, global.obj_ext);
+}
         if (doDocComment)
             setDocfile();
         if (doHdrGen)
             hdrfile = setOutfile(global.params.hdrname, global.params.hdrdir, arg, global.hdr_ext);
         //objfile = new File(objfilename);
-}
     }
 
     static Module create(const(char)* filename, Identifier ident, int doDocComment, int doHdrGen)
@@ -491,6 +495,23 @@ else
                 argdoc = arg;
             else
                 argdoc = FileName.name(arg);
+          version (IN_LLVM)
+          {
+            if (global.params.fullyQualifiedObjectFiles)
+            {
+                const fqn = md ? md.toChars() : toChars();
+                argdoc = FileName.replaceName(argdoc, fqn);
+
+                // add ext, otherwise forceExt will make nested.module into nested.<ext>
+                const len = strlen(argdoc);
+                const extlen = strlen(ext);
+                char* s = cast(char*)mem.xmalloc(len + 1 + extlen + 1);
+                memcpy(s, argdoc, len);
+                s[len] = '.';
+                memcpy(s + len + 1, ext, extlen + 1); // incl. terminating null
+                argdoc = s;
+            }
+          }
             // If argdoc doesn't have an absolute path, make it relative to dir
             if (!FileName.absolute(argdoc))
             {
@@ -564,8 +585,7 @@ else
     }
 
     // syntactic parse
-    // IN_LLVM replaced: Module parse()
-    Module parse(bool gen_docs = false)
+    Module parse()
     {
         //printf("Module::parse(srcfile='%s') this=%p\n", srcfile->name->toChars(), this);
         const(char)* srcname = srcfile.name.toChars();
@@ -749,15 +769,8 @@ else
         {
             comment = buf + 4;
             isDocFile = 1;
-version(IN_LLVM)
-{
-            doDocComment = true;
-}
-else
-{
             if (!docfile)
                 setDocfile();
-}
             return this;
         }
         /* If it has the extension ".dd", it is also a documentation
@@ -774,9 +787,6 @@ else
             return this;
         }
         {
-version(IN_LLVM)
-            scope Parser p = new Parser(this, buf, buflen, gen_docs);
-else
             scope Parser p = new Parser(this, buf, buflen, docfile !is null);
             p.nextToken();
             members = p.parseModule();
@@ -1007,7 +1017,7 @@ else
     }
 
     // semantic analysis
-    void semantic()
+    override void semantic(Scope*)
     {
         if (semanticRun != PASSinit)
             return;
@@ -1044,7 +1054,7 @@ else
     }
 
     // pass 2 semantic analysis
-    void semantic2()
+    override void semantic2(Scope*)
     {
         //printf("Module::semantic2('%s'): parent = %p\n", toChars(), parent);
         if (semanticRun != PASSsemanticdone) // semantic() not completed yet - could be recursive call
@@ -1072,7 +1082,7 @@ else
     }
 
     // pass 3 semantic analysis
-    void semantic3()
+    override void semantic3(Scope*)
     {
         //printf("Module::semantic3('%s'): parent = %p\n", toChars(), parent);
         if (semanticRun != PASSsemantic2done)
@@ -1152,6 +1162,18 @@ else
         return s;
     }
 
+    override bool isPackageAccessible(Package p, Prot protection, int flags = 0)
+    {
+        if (insearch) // don't follow import cycles
+            return false;
+        insearch = true;
+        scope (exit)
+            insearch = false;
+        if (flags & IgnorePrivateImports)
+            protection = Prot(PROTpublic); // only consider public imports
+        return super.isPackageAccessible(p, protection);
+    }
+
     override Dsymbol symtabInsert(Dsymbol s)
     {
         searchCacheIdent = null; // symbol is inserted, so invalidate cache
@@ -1162,8 +1184,7 @@ else
     {
         if (global.params.obj)
             objfile.remove();
-        // IN_LLVM replaced: if (docfile)
-        if (doDocComment && docfile)
+        if (docfile)
             docfile.remove();
     }
 
@@ -1334,44 +1355,8 @@ else
     version(IN_LLVM)
     {
         //llvm::Module* genLLVMModule(llvm::LLVMContext& context);
-        File* buildFilePath(const(char)* forcename, const(char)* path, const(char)* ext, bool preservePaths, bool fqnNames)
-        {
-            const(char)* argobj;
-            if (forcename) {
-                argobj = forcename;
-            } else {
-                if (preservePaths) {
-                    argobj = this.arg;
-                } else {
-                    argobj = FileName.name(this.arg);
-                }
-
-                if (fqnNames) {
-                    const name = md ? md.toChars() : toChars();
-                    argobj = FileName.replaceName(argobj, name);
-
-                    // add ext, otherwise forceExt will make nested.module into nested.bc
-                    size_t len = strlen(argobj);
-                    size_t extlen = strlen(ext);
-                    char* s = cast(char *)alloca(len + 1 + extlen + 1);
-                    memcpy(s, argobj, len);
-                    s[len] = '.';
-                    memcpy(s + len + 1, ext, extlen + 1);
-                    s[len + 1 + extlen] = 0;
-                    argobj = s;
-                }
-            }
-
-            if (!FileName.absolute(argobj)) {
-                argobj = FileName.combine(path, argobj);
-            }
-
-            FileName.ensurePathExists(FileName.path(argobj));
-
-            // always append the extension! otherwise hard to make output switches
-            // consistent
-            return new File(FileName.forceExt(argobj, ext));
-        }
+        void checkAndAddOutputFile(File* file);
+        void makeObjectFilenameUnique();
 
         bool llvmForceLogging;
         bool noModuleInfo; /// Do not emit any module metadata.

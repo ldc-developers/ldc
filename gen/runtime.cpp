@@ -85,6 +85,7 @@ static void checkForImplicitGCCall(const Loc &loc, const char *name) {
         "_d_newarraymiTX",
         "_d_newarrayU",
         "_d_newclass",
+        "_d_allocclass",
         "_d_newitemT",
         "_d_newitemiT",
     };
@@ -395,6 +396,10 @@ static void buildRuntimeModule() {
 
   // Object _d_newclass(const ClassInfo ci)
   createFwdDecl(LINKc, objectTy, {"_d_newclass"}, {classInfoTy}, {STCconst},
+                Attr_NoAlias);
+
+  // Object _d_allocclass(const ClassInfo ci)
+  createFwdDecl(LINKc, objectTy, {"_d_allocclass"}, {classInfoTy}, {STCconst},
                 Attr_NoAlias);
 
   // void* _d_newitemT (TypeInfo ti)

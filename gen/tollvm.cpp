@@ -487,11 +487,7 @@ LLConstant *DtoConstString(const char *str) {
 ////////////////////////////////////////////////////////////////////////////////
 
 LLValue *DtoLoad(LLValue *src, const char *name) {
-  //     if (Logger::enabled())
-  //         Logger::cout() << "loading " << *src <<  '\n';
-  llvm::LoadInst *ld = gIR->ir->CreateLoad(src, name);
-  // ld->setVolatile(gIR->func()->inVolatile);
-  return ld;
+  return gIR->ir->CreateLoad(src, name);
 }
 
 // Like DtoLoad, but the pointer is guaranteed to be aligned appropriately for
@@ -645,14 +641,13 @@ llvm::GlobalVariable *isaGlobalVar(LLValue *v) {
 ////////////////////////////////////////////////////////////////////////////////
 
 LLPointerType *getPtrToType(LLType *t) {
-  if (t == LLType::getVoidTy(gIR->context())) {
+  if (t == LLType::getVoidTy(gIR->context()))
     t = LLType::getInt8Ty(gIR->context());
-  }
-  return LLPointerType::get(t, 0);
+  return t->getPointerTo();
 }
 
 LLPointerType *getVoidPtrType() {
-  return getPtrToType(LLType::getInt8Ty(gIR->context()));
+  return LLType::getInt8Ty(gIR->context())->getPointerTo();
 }
 
 llvm::ConstantPointerNull *getNullPtr(LLType *t) {

@@ -2396,7 +2396,7 @@ struct AsmProcessor {
     asmcode->args.push_back(AsmArg(type, e, mode));
   }
 
-  void addLabel(char *id) {
+  void addLabel(const char *id) {
     // We need to delay emitting the actual function name, see
     // replace_func_name in asmstmt.cpp for details.
     printLabelName(insnTemplate, "<<func>>", id);

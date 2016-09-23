@@ -60,9 +60,9 @@ extern (C++) void genCmain(Scope *sc) {
   global.params.verbose = false;
   m.importedFrom = m;
   m.importAll(null);
-  m.semantic();
-  m.semantic2();
-  m.semantic3();
+  m.semantic(null);
+  m.semantic2(null);
+  m.semantic3(null);
   global.params.verbose = v;
 
   g_entrypointModule = m;

@@ -39,7 +39,7 @@ import ddmd.hdrgen;
 import ddmd.id;
 import ddmd.identifier;
 import ddmd.inline;
-// IN_LLVM import ddmd.json;
+import ddmd.json;
 import ddmd.lexer;
 // IN_LLVM import ddmd.lib;
 // IN_LLVM import ddmd.link;
@@ -150,7 +150,16 @@ private void logo()
 
 version(IN_LLVM)
 {
-    extern (C++) void genCmain(Scope* sc);
+    extern (C++):
+
+    void genCmain(Scope* sc);
+    // in driver/main.cpp
+    void codegenModules(ref Modules modules);
+    // in driver/linker.cpp
+    int linkObjToBinary();
+    int createStaticLibrary();
+    void deleteExeFile();
+    int runProgram();
 }
 else
 {
@@ -1142,6 +1151,13 @@ Language changes listed by -transition=id:
 
     setDefaultLibrary();
 
+    return mars_mainBody(files, libmodules);
+}
+
+} // !IN_LLVM
+
+extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
+{
     // Initialization
     Type._init();
     Id.initialize();
@@ -1151,12 +1167,15 @@ Language changes listed by -transition=id:
     objc_tryMain_init();
     builtin_init();
 
+  version (IN_LLVM) {} else
+  {
     if (global.params.verbose)
     {
         fprintf(global.stdmsg, "binary    %s\n", global.params.argv0);
         fprintf(global.stdmsg, "version   %s\n", global._version);
         fprintf(global.stdmsg, "config    %s\n", global.inifilename ? global.inifilename : "(none)");
     }
+  }
     //printf("%d source files\n",files.dim);
     // Build import search path
     if (global.params.imppath)
@@ -1199,10 +1218,13 @@ Language changes listed by -transition=id:
     for (size_t i = 0; i < files.dim; i++)
     {
         const(char)* name;
+      version (IN_LLVM) {} else
+      {
         version (Windows)
         {
             files[i] = toWinPath(files[i]);
         }
+      }
         const(char)* p = files[i];
         p = FileName.name(p); // strip path
         const(char)* ext = FileName.ext(p);
@@ -1217,12 +1239,22 @@ Language changes listed by -transition=id:
                 libmodules.push(files[i]);
                 continue;
             }
+          version (IN_LLVM)
+          {
+            // Detect LLVM bitcode files on commandline
+            if (FileName.equals(ext, global.bc_ext)) {
+              global.params.bitcodeFiles.push(files[i]);
+              continue;
+            }
+          }
             if (FileName.equals(ext, global.lib_ext))
             {
                 global.params.libfiles.push(files[i]);
                 libmodules.push(files[i]);
                 continue;
             }
+          version (IN_LLVM) {} else
+          {
             static if (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS)
             {
                 if (FileName.equals(ext, global.dll_ext))
@@ -1232,6 +1264,7 @@ Language changes listed by -transition=id:
                     continue;
                 }
             }
+          }
             if (strcmp(ext, global.ddoc_ext) == 0)
             {
                 global.params.ddocfiles.push(files[i]);
@@ -1243,11 +1276,14 @@ Language changes listed by -transition=id:
                 global.params.jsonfilename = files[i];
                 continue;
             }
+          version (IN_LLVM) {} else
+          {
             if (FileName.equals(ext, global.map_ext))
             {
                 global.params.mapfile = files[i];
                 continue;
             }
+          }
             static if (TARGET_WINDOS)
             {
                 if (FileName.equals(ext, "res"))
@@ -1301,11 +1337,14 @@ Language changes listed by -transition=id:
         auto id = Identifier.idPool(name, strlen(name));
         auto m = new Module(files[i], id, global.params.doDocComments, global.params.doHdrGeneration);
         modules.push(m);
+      version (IN_LLVM) {} else
+      {
         if (firstmodule)
         {
             global.params.objfiles.push(m.objfile.name.str);
             firstmodule = false;
         }
+      }
     }
     // Read files
     /* Start by "reading" the dummy main.d file
@@ -1426,14 +1465,17 @@ Language changes listed by -transition=id:
     }
     if (global.errors)
         fatal();
+  version (IN_LLVM) {} else
+  {
     backend_init();
+  }
     // Do semantic analysis
     for (size_t i = 0; i < modules.dim; i++)
     {
         Module m = modules[i];
         if (global.params.verbose)
             fprintf(global.stdmsg, "semantic  %s\n", m.toChars());
-        m.semantic();
+        m.semantic(null);
     }
     if (global.errors)
         fatal();
@@ -1454,7 +1496,7 @@ Language changes listed by -transition=id:
         Module m = modules[i];
         if (global.params.verbose)
             fprintf(global.stdmsg, "semantic2 %s\n", m.toChars());
-        m.semantic2();
+        m.semantic2(null);
     }
     if (global.errors)
         fatal();
@@ -1464,11 +1506,13 @@ Language changes listed by -transition=id:
         Module m = modules[i];
         if (global.params.verbose)
             fprintf(global.stdmsg, "semantic3 %s\n", m.toChars());
-        m.semantic3();
+        m.semantic3(null);
     }
     Module.runDeferredSemantic3();
     if (global.errors)
         fatal();
+  version (IN_LLVM) {} else
+  {
     // Scan for functions to inline
     if (global.params.useInline)
     {
@@ -1480,6 +1524,7 @@ Language changes listed by -transition=id:
             inlineScanModule(m);
         }
     }
+  }
     // Do not attempt to generate output files if errors or warnings occurred
     if (global.errors || global.warnings)
         fatal();
@@ -1493,11 +1538,19 @@ Language changes listed by -transition=id:
             auto deps = File(global.params.moduleDepsFile);
             deps.setbuffer(cast(void*)ob.data, ob.offset);
             writeFile(Loc(), &deps);
+          version (IN_LLVM)
+          {
+            // fix LDC issue #1625
+            global.params.moduleDeps = null;
+            global.params.moduleDepsFile = null;
+          }
         }
         else
             printf("%.*s", cast(int)ob.offset, ob.data);
     }
     printCtfePerformanceStats();
+  version (IN_LLVM) {} else
+  {
     Library library = null;
     if (global.params.lib)
     {
@@ -1510,6 +1563,7 @@ Language changes listed by -transition=id:
             library.addObject(p, null, 0);
         }
     }
+  }
     // Generate output files
     if (global.params.doJsonGeneration)
     {
@@ -1556,6 +1610,28 @@ Language changes listed by -transition=id:
             gendocfile(m);
         }
     }
+  version (IN_LLVM)
+  {
+    for (size_t i = 0; i < modules.dim; i++)
+    {
+        Module m = modules[i];
+        if (!m.objfile)
+            continue;
+
+        // If `-run` is passed, the obj file is temporary and is removed after execution.
+        // Make sure the name does not collide with other files from other processes by
+        // creating a unique filename.
+        if (global.params.run)
+            m.makeObjectFilenameUnique();
+
+        if (!global.params.oneobj || i == 0)
+            m.checkAndAddOutputFile(m.objfile);
+    }
+
+    codegenModules(modules);
+  }
+  else
+  {
     if (!global.params.obj)
     {
     }
@@ -1597,18 +1673,39 @@ Language changes listed by -transition=id:
     if (global.params.lib && !global.errors)
         library.write();
     backend_term();
+  }
     if (global.errors)
         fatal();
     int status = EXIT_SUCCESS;
     if (!global.params.objfiles.dim)
     {
+      version (IN_LLVM)
+      {
         if (global.params.link)
             error(Loc(), "no object files to link");
+        else if (global.params.lib)
+            error(Loc(), "no object files");
+      }
+      else
+      {
+        if (global.params.link)
+            error(Loc(), "no object files to link");
+      }
     }
     else
     {
+      version (IN_LLVM)
+      {
+        if (global.params.link)
+            status = linkObjToBinary();
+        else if (global.params.lib)
+            status = createStaticLibrary();
+      }
+      else
+      {
         if (global.params.link)
             status = runLINK();
+      }
         if (global.params.run)
         {
             if (!status)
@@ -1629,6 +1726,9 @@ Language changes listed by -transition=id:
     return status;
 }
 
+
+version (IN_LLVM) {} else
+{
 
 /**
  * Entry point which forwards to `tryMain`.

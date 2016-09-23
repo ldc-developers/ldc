@@ -273,17 +273,17 @@ public:
                 {
                     // import a.b.c.d;
                     auto p = pkg; // a
-                    scopesym.addAccessiblePackage(p);
+                    scopesym.addAccessiblePackage(p, protection);
                     foreach (id; (*packages)[1 .. packages.dim]) // [b, c]
                     {
                         p = cast(Package) p.symtab.lookup(id);
-                        scopesym.addAccessiblePackage(p);
+                        scopesym.addAccessiblePackage(p, protection);
                     }
                 }
-                scopesym.addAccessiblePackage(mod); // d
+                scopesym.addAccessiblePackage(mod, protection); // d
             }
 
-            mod.semantic();
+            mod.semantic(null);
             if (mod.needmoduleinfo)
             {
                 //printf("module4 %s because of %s\n", sc.module.toChars(), mod.toChars());
@@ -388,7 +388,7 @@ public:
         //printf("Import::semantic2('%s')\n", toChars());
         if (mod)
         {
-            mod.semantic2();
+            mod.semantic2(null);
             if (mod.needmoduleinfo)
             {
                 //printf("module5 %s because of %s\n", sc.module.toChars(), mod.toChars());
@@ -454,7 +454,7 @@ public:
         {
             load(null);
             mod.importAll(null);
-            mod.semantic();
+            mod.semantic(null);
         }
         // Forward it to the package/module
         return pkg.search(loc, ident, flags);

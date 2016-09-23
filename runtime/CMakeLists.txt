@@ -37,8 +37,8 @@ else()
 endif()
 
 if(BUILD_SHARED_LIBS)
-    if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-        message(FATAL_ERROR "Shared libraries (BUILD_SHARED_LIBS) are only supported on Linux for the time being.")
+    if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Linux" AND NOT ${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+        message(FATAL_ERROR "Shared libraries (BUILD_SHARED_LIBS) are only supported on Linux and FreeBSD for the time being.")
     endif()
 
     list(APPEND D_FLAGS -relocation-model=pic)
@@ -151,6 +151,8 @@ if(PHOBOS2_DIR)
     file(GLOB PHOBOS2_ETC ${PHOBOS2_DIR}/etc/c/*.d)
     if(APPLE)
         file(GLOB PHOBOS2_D_C_SYS ${PHOBOS2_DIR}/std/c/osx/*.d)
+    elseif(FreeBSD)
+        file(GLOB PHOBOS2_D_C_SYS ${PHOBOS2_DIR}/std/c/freebsd/*.d)
     elseif(UNIX)
         # Install Linux headers on all non-Apple *nixes - not correct, but
         # shouldn't cause any harm either.
@@ -204,13 +206,15 @@ endif()
 # Add extra paths on Linux and disable linker arch mismatch warnings (like
 # DMD and GDC do). OS X doesn't need extra configuration due to the use of
 # fat binaries. Other Posixen might need to be added here.
-if(MULTILIB AND (${CMAKE_SYSTEM_NAME} MATCHES "Linux"))
-    set(MULTILIB_ADDITIONAL_PATH         "\n        \"-L-L${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
-    set(MULTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
-endif()
+if((${CMAKE_SYSTEM_NAME} MATCHES "Linux") OR (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD"))
+    if(MULTILIB)
+        set(MULTILIB_ADDITIONAL_PATH         "\n        \"-L-L${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
+        set(MULTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
+    endif()
 
-if(BUILD_SHARED_LIBS AND (${CMAKE_SYSTEM_NAME} MATCHES "Linux"))
-    set(SHARED_LIBS_RPATH "\n        \"-L-rpath=${CMAKE_BINARY_DIR}/lib\",")
+    if(BUILD_SHARED_LIBS)
+        set(SHARED_LIBS_RPATH "\n        \"-L-rpath=${CMAKE_BINARY_DIR}/lib\",")
+    endif()
 endif()
 
 configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
@@ -416,11 +420,14 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
     # When building a shared library, we need to link in all the default
     # libraries otherwise implicitly added by LDC to make it loadable from
     # C executables.
+
     if(BUILD_SHARED_LIBS)
-        # TOOD: Once BUILD_SHARED_LIBS is supported on operating systems other
-        # than Linux, the library selection will need to be adapted based on
-        # the target.
-        target_link_libraries(druntime-ldc${target_suffix} "m" "pthread" "rt" "dl")
+        if(${CMAKE_SYSTEM} MATCHES "FreeBSD")
+            set(dso_system_libs "m" "pthread")
+        else()
+            set(dso_system_libs "m" "pthread" "rt" "dl")
+        endif()
+        target_link_libraries(druntime-ldc${target_suffix} ${dso_system_libs})
     endif()
 
     list(APPEND ${outlist_targets} druntime-ldc${target_suffix})
@@ -448,7 +455,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
             # TODO: As for druntime, adapt once shared libraries are supported
             # on more operating systems.
             target_link_libraries(phobos2-ldc${target_suffix}
-                druntime-ldc${target_suffix} "m" "pthread" "dl")
+                druntime-ldc${target_suffix} ${dso_system_libs})
         endif()
 
         list(APPEND ${outlist_targets} "phobos2-ldc${target_suffix}")
@@ -777,15 +784,23 @@ endif()
 # Add the standalone druntime tests.
 # TODO: Add test/excetions and test/init_fini.
 if(BUILD_SHARED_LIBS)
-    get_property(druntime_path TARGET druntime-ldc PROPERTY LOCATION)
+    set(druntime_path "$<TARGET_FILE:druntime-ldc>")
     set(outdir ${PROJECT_BINARY_DIR}/druntime-test-shared)
 
     add_test(NAME clean-druntime-test-shared
         COMMAND ${CMAKE_COMMAND} -E remove_directory ${outdir})
+
+    if(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+        set(linkflags "")
+    else()
+        set(linkflags "LINKDL=-L-ldl")
+    endif()
+
     add_test(NAME druntime-test-shared
         COMMAND make -C ${PROJECT_SOURCE_DIR}/druntime/test/shared
             ROOT=${outdir} DMD=${LDMD_EXE_FULL} MODEL=default DRUNTIMESO=${druntime_path}
-            CFLAGS=-Wall\ -Wl,-rpath,${CMAKE_BINARY_DIR}/lib LINKDL=-L-ldl
+            CFLAGS=-Wall\ -Wl,-rpath,${CMAKE_BINARY_DIR}/lib ${linkflags}
     )
+
     set_tests_properties(druntime-test-shared PROPERTIES DEPENDS clean-druntime-test-shared)
 endif()

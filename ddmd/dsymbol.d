@@ -933,19 +933,12 @@ public:
                 }
                 if (*ps)
                 {
-                    static bool isOverloadableAlias(Dsymbol s)
-                    {
-                        auto ad = s.isAliasDeclaration();
-                        return ad && ad.aliassym && ad.aliassym.isOverloadable();
-                    }
-
                     assert(ident);
                     if (!(*ps).ident || !(*ps).ident.equals(ident))
                         continue;
                     if (!s)
                         s = *ps;
-                    else if ((   s .isOverloadable() || isOverloadableAlias(  s)) &&
-                             ((*ps).isOverloadable() || isOverloadableAlias(*ps)))
+                    else if (s.isOverloadable() && (*ps).isOverloadable())
                     {
                         // keep head of overload set
                         FuncDeclaration f1 = s.isFuncDeclaration();
@@ -1278,7 +1271,7 @@ private:
     PROTKIND* prots;            // array of PROTKIND, one for each import
 
     import ddmd.root.array : BitArray;
-    BitArray accessiblePackages;// whitelist of accessible (imported) packages
+    BitArray accessiblePackages, privateAccessiblePackages;// whitelists of accessible (imported) packages
 
 public:
     final extern (D) this()
@@ -1414,11 +1407,7 @@ public:
                 if (a)
                 {
                     if (!s.isOverloadSet())
-                    {
                         a = mergeOverloadSet(ident, a, s);
-                        if (symtab)
-                            symtabInsert(a);    // Bugzilla 15857
-                    }
                     s = a;
                 }
                 // TODO: remove once private symbol visibility has been deprecated
@@ -1514,17 +1503,27 @@ public:
         }
     }
 
-    final void addAccessiblePackage(Package p)
+    final void addAccessiblePackage(Package p, Prot protection)
     {
-        if (accessiblePackages.length <= p.tag)
-            accessiblePackages.length = p.tag + 1;
-        accessiblePackages[p.tag] = true;
+        auto pary = protection.kind == PROTprivate ? &privateAccessiblePackages : &accessiblePackages;
+        if (pary.length <= p.tag)
+            pary.length = p.tag + 1;
+        (*pary)[p.tag] = true;
     }
 
-    final bool isPackageAccessible(Package p)
+    bool isPackageAccessible(Package p, Prot protection, int flags = 0)
     {
-        return p.tag < accessiblePackages.length &&
-            accessiblePackages[p.tag];
+        if (p.tag < accessiblePackages.length && accessiblePackages[p.tag] ||
+            protection.kind == PROTprivate && p.tag < privateAccessiblePackages.length && privateAccessiblePackages[p.tag])
+            return true;
+        foreach (i, ss; importedScopes ? (*importedScopes)[] : null)
+        {
+            // only search visible scopes && imported modules should ignore private imports
+            if (protection.kind <= prots[i] &&
+                ss.isScopeDsymbol.isPackageAccessible(p, protection, IgnorePrivateImports))
+                return true;
+        }
+        return false;
     }
 
     override final bool isforwardRef()

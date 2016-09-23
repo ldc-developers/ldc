@@ -11,6 +11,7 @@
 #include "declaration.h"
 #include "mtype.h"
 #include "statement.h"
+#include "gen/funcgenstate.h"
 #include "gen/llvm.h"
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
@@ -45,19 +46,23 @@ IRState::IRState(const char *name, llvm::LLVMContext &context)
   asmBlock = nullptr;
 }
 
+IRState::~IRState() {}
+
+FuncGenState &IRState::funcGen() {
+  assert(!funcGenStates.empty() && "Function stack is empty!");
+  return *funcGenStates.back();
+}
+
 IrFunction *IRState::func() {
-  assert(!functions.empty() && "Function stack is empty!");
-  return functions.back();
+  return &funcGen().irFunc;
 }
 
 llvm::Function *IRState::topfunc() {
-  assert(!functions.empty() && "Function stack is empty!");
-  return functions.back()->func;
+  return func()->func;
 }
 
 llvm::Instruction *IRState::topallocapoint() {
-  assert(!functions.empty() && "AllocaPoint stack is empty!");
-  return functions.back()->allocapoint;
+  return funcGen().allocapoint;
 }
 
 IRScope &IRState::scope() {
@@ -76,35 +81,51 @@ bool IRState::scopereturned() {
   return !scopebb()->empty() && scopebb()->back().isTerminator();
 }
 
+llvm::BasicBlock *IRState::insertBBBefore(llvm::BasicBlock *successor,
+                                          const llvm::Twine &name) {
+  return llvm::BasicBlock::Create(context(), name, topfunc(), successor);
+}
+
+llvm::BasicBlock *IRState::insertBBAfter(llvm::BasicBlock *predecessor,
+                                         const llvm::Twine &name) {
+  auto bb = llvm::BasicBlock::Create(context(), name, topfunc());
+  bb->moveAfter(predecessor);
+  return bb;
+}
+
+llvm::BasicBlock *IRState::insertBB(const llvm::Twine &name) {
+  return insertBBAfter(scopebb(), name);
+}
+
 LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, const char *Name) {
   LLSmallVector<LLValue *, 1> args;
-  return func()->scopes->callOrInvoke(Callee, args, Name);
+  return funcGen().callOrInvoke(Callee, args, Name);
 }
 
 LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
                                        const char *Name) {
   LLValue *args[] = {Arg1};
-  return func()->scopes->callOrInvoke(Callee, args, Name);
+  return funcGen().callOrInvoke(Callee, args, Name);
 }
 
 LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
                                        LLValue *Arg2, const char *Name) {
   LLValue *args[] = {Arg1, Arg2};
-  return func()->scopes->callOrInvoke(Callee, args, Name);
+  return funcGen().callOrInvoke(Callee, args, Name);
 }
 
 LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
                                        LLValue *Arg2, LLValue *Arg3,
                                        const char *Name) {
   LLValue *args[] = {Arg1, Arg2, Arg3};
-  return func()->scopes->callOrInvoke(Callee, args, Name);
+  return funcGen().callOrInvoke(Callee, args, Name);
 }
 
 LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
                                        LLValue *Arg2, LLValue *Arg3,
                                        LLValue *Arg4, const char *Name) {
   LLValue *args[] = {Arg1, Arg2, Arg3, Arg4};
-  return func()->scopes->callOrInvoke(Callee, args, Name);
+  return funcGen().callOrInvoke(Callee, args, Name);
 }
 
 bool IRState::emitArrayBoundsChecks() {
@@ -113,7 +134,7 @@ bool IRState::emitArrayBoundsChecks() {
   }
 
   // Safe functions only.
-  if (functions.empty()) {
+  if (funcGenStates.empty()) {
     return false;
   }
 
@@ -127,4 +148,14 @@ IRBuilder<> *IRBuilderHelper::operator->() {
   IRBuilder<> &b = state->scope().builder;
   assert(b.GetInsertBlock() != NULL);
   return &b;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+bool useMSVCEH() {
+#if LDC_LLVM_VER >= 308
+  return global.params.targetTriple->isWindowsMSVCEnvironment();
+#else
+  return false;
+#endif
 }

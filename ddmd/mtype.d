@@ -7098,7 +7098,7 @@ public:
                 Type t = s.getType(); // type symbol, type alias, or type tuple?
                 uint errorsave = global.errors;
                 Dsymbol sm = s.searchX(loc, sc, id);
-                if (sm && !symbolIsVisible(sc, sm))
+                if (sm && !(sc.flags & SCOPEignoresymbolvisibility) && !symbolIsVisible(sc, sm))
                 {
                     .deprecation(loc, "%s is not visible from module %s", sm.toPrettyChars(), sc._module.toChars());
                     // sm = null;
@@ -7604,9 +7604,17 @@ public:
          */
         Scope* sc2 = sc.push();
         sc2.intypeof = 1;
-        exp = exp.semantic(sc2);
-        exp = resolvePropertiesOnly(sc2, exp);
+        auto exp2 = exp.semantic(sc2);
+        exp2 = resolvePropertiesOnly(sc2, exp2);
         sc2.pop();
+
+        if (exp2.op == TOKerror)
+        {
+            if (!global.gag)
+                exp = exp2;
+            goto Lerr;
+        }
+        exp = exp2;
 
         if (exp.op == TOKtype ||
             exp.op == TOKscope)
@@ -7859,7 +7867,16 @@ public:
     {
         //printf("TypeStruct::semantic('%s')\n", sym.toChars());
         if (deco)
+        {
+            if (sc && sc.cppmangle != CPPMANGLE.def)
+            {
+                if (this.cppmangle == CPPMANGLE.def)
+                    this.cppmangle = sc.cppmangle;
+                else
+                    assert(this.cppmangle == sc.cppmangle);
+            }
             return this;
+        }
 
         /* Don't semantic for sym because it should be deferred until
          * sizeof needed or its members accessed.
@@ -7868,7 +7885,8 @@ public:
         assert(sym.parent);
         if (sym.type.ty == Terror)
             return Type.terror;
-        this.cppmangle = sc.cppmangle;
+        if (sc)
+            this.cppmangle = sc.cppmangle;
         return merge();
     }
 
@@ -7950,7 +7968,7 @@ public:
 
         Dsymbol searchSym()
         {
-            int flags = 0;
+            int flags = sc.flags & SCOPEignoresymbolvisibility ? IgnoreSymbolVisibility : 0;
             Dsymbol sold = void;
             if (global.params.bug10378 || global.params.check10378)
             {
@@ -7983,7 +8001,7 @@ public:
             if (!s)
                 return noMember(sc, e, ident, flag);
         }
-        if (!symbolIsVisible(sc, s))
+        if (!(sc.flags & SCOPEignoresymbolvisibility) && !symbolIsVisible(sc, s))
         {
             .deprecation(e.loc, "%s is not visible from module %s", s.toPrettyChars(), sc._module.toPrettyChars());
             // return noMember(sc, e, ident, flag);
@@ -8655,7 +8673,16 @@ public:
     {
         //printf("TypeClass::semantic(%s)\n", sym.toChars());
         if (deco)
+        {
+            if (sc && sc.cppmangle != CPPMANGLE.def)
+            {
+                if (this.cppmangle == CPPMANGLE.def)
+                    this.cppmangle = sc.cppmangle;
+                else
+                    assert(this.cppmangle == sc.cppmangle);
+            }
             return this;
+        }
 
         /* Don't semantic for sym because it should be deferred until
          * sizeof needed or its members accessed.
@@ -8664,7 +8691,8 @@ public:
         assert(sym.parent);
         if (sym.type.ty == Terror)
             return Type.terror;
-        this.cppmangle = sc.cppmangle;
+        if (sc)
+            this.cppmangle = sc.cppmangle;
         return merge();
     }
 
@@ -8750,7 +8778,7 @@ public:
 
         Dsymbol searchSym()
         {
-            int flags = 0;
+            int flags = sc.flags & SCOPEignoresymbolvisibility ? IgnoreSymbolVisibility : 0;
             Dsymbol sold = void;
             if (global.params.bug10378 || global.params.check10378)
             {
@@ -8760,7 +8788,7 @@ public:
             }
 
             auto s = sym.search(e.loc, ident, flags | SearchLocalsOnly);
-            if (!s)
+            if (!s && !(flags & IgnoreSymbolVisibility))
             {
                 s = sym.search(e.loc, ident, flags | SearchLocalsOnly | IgnoreSymbolVisibility);
                 if (s && !(flags & IgnoreErrors))
@@ -8913,7 +8941,7 @@ public:
                 return noMember(sc, e, ident, flag);
             }
         }
-        if (!symbolIsVisible(sc, s))
+        if (!(sc.flags & SCOPEignoresymbolvisibility) && !symbolIsVisible(sc, s))
         {
             .deprecation(e.loc, "%s is not visible from module %s", s.toPrettyChars(), sc._module.toChars());
             // return noMember(sc, e, ident, flag);

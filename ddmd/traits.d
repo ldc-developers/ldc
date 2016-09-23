@@ -685,6 +685,12 @@ extern (C++) Expression semanticTraits(TraitsExp e, Scope* sc)
             e.error("invalid first argument");
             return new ErrorExp();
         }
+
+        // ignore symbol visibility for these traits, should disable access checks as well
+        Scope* scx = sc.push();
+        scx.flags |= SCOPEignoresymbolvisibility;
+        scope (exit) scx.pop();
+
         if (e.ident == Id.hasMember)
         {
             if (sym)
@@ -695,9 +701,7 @@ extern (C++) Expression semanticTraits(TraitsExp e, Scope* sc)
 
             /* Take any errors as meaning it wasn't found
              */
-            Scope* sc2 = sc.push();
-            ex = ex.trySemantic(sc2);
-            sc2.pop();
+            ex = ex.trySemantic(scx);
             if (!ex)
                 goto Lfalse;
             else
@@ -705,7 +709,7 @@ extern (C++) Expression semanticTraits(TraitsExp e, Scope* sc)
         }
         else if (e.ident == Id.getMember)
         {
-            ex = ex.semantic(sc);
+            ex = ex.semantic(scx);
             return ex;
         }
         else if (e.ident == Id.getVirtualFunctions ||
@@ -714,7 +718,7 @@ extern (C++) Expression semanticTraits(TraitsExp e, Scope* sc)
         {
             uint errors = global.errors;
             Expression eorig = ex;
-            ex = ex.semantic(sc);
+            ex = ex.semantic(scx);
             if (errors < global.errors)
                 e.error("%s cannot be resolved", eorig.toChars());
             //ex->print();
@@ -760,7 +764,7 @@ extern (C++) Expression semanticTraits(TraitsExp e, Scope* sc)
             });
 
             auto tup = new TupleExp(e.loc, exps);
-            return tup.semantic(sc);
+            return tup.semantic(scx);
         }
         else
             assert(0);

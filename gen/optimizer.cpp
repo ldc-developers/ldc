@@ -94,8 +94,8 @@ static llvm::cl::opt<llvm::cl::boolOrDefault, false,
                      opts::FlagParser<llvm::cl::boolOrDefault>>
     enableCrossModuleInlining(
         "cross-module-inlining",
-        llvm::cl::desc("Enable cross-module function inlining (default enabled "
-                       "with inlining) (LLVM >= 3.7)"),
+        llvm::cl::desc("Enable cross-module function inlining (default "
+                       "disabled) (LLVM >= 3.7)"),
         llvm::cl::ZeroOrMore, llvm::cl::Hidden);
 
 static cl::opt<bool> unitAtATime("unit-at-a-time", cl::desc("Enable basic IPO"),
@@ -141,8 +141,7 @@ bool willInline() {
 
 bool willCrossModuleInline() {
 #if LDC_LLVM_VER >= 307
-  return enableCrossModuleInlining == llvm::cl::BOU_TRUE ||
-         (enableCrossModuleInlining == llvm::cl::BOU_UNSET && willInline());
+  return enableCrossModuleInlining == llvm::cl::BOU_TRUE;
 #else
   // Cross-module inlining is disabled for <3.7 because we don't emit symbols in
   // COMDAT any groups pre-LLVM3.7. With cross-module inlining enabled, without
@@ -228,7 +227,8 @@ static void addInstrProfilingPass(legacy::PassManagerBase &mpm) {
   if (global.params.genInstrProf) {
     InstrProfOptions options;
     options.NoRedZone = global.params.disableRedZone;
-    options.InstrProfileOutput = global.params.datafileInstrProf;
+    if (global.params.datafileInstrProf)
+      options.InstrProfileOutput = global.params.datafileInstrProf;
 #if LDC_LLVM_VER >= 309
     mpm.add(createInstrProfilingLegacyPass(options));
 #else
@@ -273,7 +273,11 @@ static void addOptimizationPasses(PassManagerBase &mpm,
     }
     builder.Inliner = createFunctionInliningPass(threshold);
   } else {
+#if LDC_LLVM_VER >= 400
+    builder.Inliner = createAlwaysInlinerLegacyPass();
+#else
     builder.Inliner = createAlwaysInlinerPass();
+#endif
   }
   builder.DisableUnitAtATime = !unitAtATime;
   builder.DisableUnrollLoops = optLevel == 0;

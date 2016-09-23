@@ -15,6 +15,7 @@
 #include "gen/abi.h"
 #include "gen/classes.h"
 #include "gen/dvalue.h"
+#include "gen/funcgenstate.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
@@ -596,7 +597,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
     Expression *exp1 = (*e->arguments)[0];
     LLValue *ptr = DtoRVal(exp1);
-    result = new DImValue(exp1->type, DtoVolatileLoad(ptr));
+    result = new DImValue(e->type, DtoVolatileLoad(ptr));
     return true;
   }
 
@@ -849,7 +850,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
       arguments ? arguments->dim : 0; // number of explicit arguments
 
   std::vector<DValue *> argvals(n_arguments, static_cast<DValue *>(nullptr));
-  if (dfnval && dfnval->func->isArrayOp) {
+  if (dfnval && dfnval->func && dfnval->func->isArrayOp) {
     // For array ops, the druntime implementation signatures are crafted
     // specifically such that the evaluation order is as expected with
     // the strange DMD reverse parameter passing order. Thus, we need
@@ -885,7 +886,17 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   // call the function
-  LLCallSite call = gIR->func()->scopes->callOrInvoke(callable, args);
+  LLCallSite call =
+      gIR->funcGen().callOrInvoke(callable, args, "", tf->isnothrow);
+
+#if LDC_LLVM_VER >= 309
+  // PGO: Insert instrumentation or attach profile metadata at indirect call
+  // sites.
+  if (!call.getCalledFunction()) {
+    auto &PGO = gIR->funcGen().pgo;
+    PGO.emitIndirectCallPGO(call.getInstruction(), callable);
+  }
+#endif
 
   // get return value
   const int sretArgIndex =

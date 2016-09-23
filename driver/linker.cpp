@@ -34,10 +34,11 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-static bool endsWith(const std::string &str, const std::string &end) {
-  return (str.length() >= end.length() &&
-          std::equal(end.rbegin(), end.rend(), str.rbegin()));
-}
+static llvm::cl::opt<bool> staticFlag(
+    "static",
+    llvm::cl::desc(
+        "Create a statically linked binary, including all system dependencies"),
+    llvm::cl::ZeroOrMore);
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -55,33 +56,19 @@ static void CreateDirectoryOnDisk(llvm::StringRef fileName) {
 //////////////////////////////////////////////////////////////////////////////
 
 static std::string getOutputName(bool const sharedLib) {
-  if (!sharedLib && global.params.exefile) {
+  if (global.params.exefile)
     return global.params.exefile;
-  }
 
-  if (sharedLib && global.params.objname) {
-    return global.params.objname;
-  }
-
-  // Output name is inferred.
-  std::string result;
-
-  // try root module name
-  if (Module::rootModule) {
-    result = Module::rootModule->toChars();
-  } else if (global.params.objfiles->dim) {
-    result = FileName::removeExt(
-        static_cast<const char *>(global.params.objfiles->data[0]));
-  } else {
-    result = "a.out";
-  }
+  // Infer output name from first object file.
+  std::string result = global.params.objfiles->dim
+                           ? FileName::removeExt((*global.params.objfiles)[0])
+                           : "a.out";
 
   const char *extension = nullptr;
   if (sharedLib) {
     extension = global.dll_ext;
-    if (global.params.targetTriple->getOS() != llvm::Triple::Win32) {
+    if (!global.params.mscoff)
       result = "lib" + result;
-    }
   } else if (global.params.targetTriple->isOSWindows()) {
     extension = "exe";
   }
@@ -91,11 +78,11 @@ static std::string getOutputName(bool const sharedLib) {
     // after execution. Make sure the name does not collide with other files
     // from other processes by creating a unique filename.
     llvm::SmallString<128> tempFilename;
-    auto EC = llvm::sys::fs::createTemporaryFile(
-        result, extension ? extension : "", tempFilename);
-    if (!EC) {
+    auto EC = llvm::sys::fs::createTemporaryFile(FileName::name(result.c_str()),
+                                                 extension ? extension : "",
+                                                 tempFilename);
+    if (!EC)
       result = tempFilename.str();
-    }
   } else {
     if (extension) {
       result += ".";
@@ -343,7 +330,7 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
     }
   }
 
-  if (opts::createSharedLib && addSoname) {
+  if (global.params.dll && addSoname) {
     std::string soname = opts::soname;
     if (!soname.empty()) {
       args.push_back("-Wl,-soname," + soname);
@@ -684,13 +671,13 @@ static int linkObjToBinaryWin(bool sharedLib) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-int linkObjToBinary(bool sharedLib, bool fullyStatic) {
+int linkObjToBinary() {
   if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
-    // TODO: Choose dynamic/static MSVCRT version based on fullyStatic?
-    return linkObjToBinaryWin(sharedLib);
+    // TODO: Choose dynamic/static MSVCRT version based on staticFlag?
+    return linkObjToBinaryWin(global.params.dll);
   }
 
-  return linkObjToBinaryGcc(sharedLib, fullyStatic);
+  return linkObjToBinaryGcc(global.params.dll, staticFlag);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -724,28 +711,18 @@ int createStaticLibrary() {
 
   // output filename
   std::string libName;
-  if (global.params.objname) { // explicit
-    libName = global.params.objname;
-  } else { // inferred
-    // try root module name
-    if (Module::rootModule) {
-      libName = Module::rootModule->toChars();
-    } else if (global.params.objfiles->dim) {
-      libName = FileName::removeExt(
-          static_cast<const char *>(global.params.objfiles->data[0]));
-    } else {
-      libName = "a.out";
-    }
+  if (global.params.libname) { // explicit
+    libName = global.params.libname;
+  } else { // infer from first object file
+    libName = global.params.objfiles->dim
+                  ? FileName::removeExt((*global.params.objfiles)[0])
+                  : "a.out";
+    libName.push_back('.');
+    libName.append(global.lib_ext);
   }
-  // KN: The following lines were added to fix a test case failure
-  // (runnable/test13774.sh).
-  //     Root cause is that dmd handles it in this why.
-  //     As a side effect this change broke compiling with dub.
-  //    if (!FileName::absolute(libName.c_str()))
-  //        libName = FileName::combine(global.params.objdir, libName.c_str());
-  if (llvm::sys::path::extension(libName).empty()) {
-    libName.append(std::string(".") + global.lib_ext);
-  }
+  if (global.params.objdir && !FileName::absolute(libName.c_str()))
+    libName = FileName::combine(global.params.objdir, libName.c_str());
+
   if (isTargetWindows) {
     args.push_back("/OUT:" + libName);
   } else {
@@ -753,10 +730,8 @@ int createStaticLibrary() {
   }
 
   // object files
-  for (unsigned i = 0; i < global.params.objfiles->dim; i++) {
-    const char *p = static_cast<const char *>(global.params.objfiles->data[i]);
-    args.push_back(p);
-  }
+  for (unsigned i = 0; i < global.params.objfiles->dim; i++)
+    args.push_back((*global.params.objfiles)[i]);
 
   // create path to the library
   CreateDirectoryOnDisk(libName);
@@ -773,19 +748,15 @@ int createStaticLibrary() {
 
 //////////////////////////////////////////////////////////////////////////////
 
-void deleteExecutable() {
-  if (!gExePath.empty()) {
-    // assert(gExePath.isValid());
-    bool is_directory;
-    assert(!(!llvm::sys::fs::is_directory(gExePath, is_directory) &&
-             is_directory));
+void deleteExeFile() {
+  if (!gExePath.empty() && !llvm::sys::fs::is_directory(gExePath)) {
     llvm::sys::fs::remove(gExePath);
   }
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-int runExecutable() {
+int runProgram() {
   assert(!gExePath.empty());
   // assert(gExePath.isValid());
 

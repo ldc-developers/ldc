@@ -93,7 +93,7 @@ public:
     virtual Statement *syntaxCopy();
 
     void print();
-    char *toChars();
+    const char *toChars();
 
     void error(const char *format, ...);
     void warning(const char *format, ...);
@@ -463,8 +463,6 @@ public:
 
 #if IN_LLVM
     bool gototarget; // true iff this is the target of a 'goto case'
-    llvm::BasicBlock* bodyBB;
-    llvm::Value* llvmIdx;
 #endif
 
     CaseStatement(Loc loc, Expression *exp, Statement *s);
@@ -498,7 +496,6 @@ public:
 
 #if IN_LLVM
     bool gototarget; // true iff this is the target of a 'goto default'
-    llvm::BasicBlock* bodyBB;
 #endif
 
     DefaultStatement(Loc loc, Statement *s);

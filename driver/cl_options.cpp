@@ -24,10 +24,10 @@ namespace opts {
  */
 struct CoverageParser : public cl::parser<unsigned char> {
 #if LDC_LLVM_VER >= 307
-  CoverageParser(cl::Option &O) : cl::parser<unsigned char>(O) {}
+  explicit CoverageParser(cl::Option &O) : cl::parser<unsigned char>(O) {}
 #endif
 
-  bool parse(cl::Option &O, llvm::StringRef ArgName, llvm::StringRef Arg,
+  bool parse(cl::Option &O, llvm::StringRef /*ArgName*/, llvm::StringRef Arg,
              unsigned char &Val) {
     if (Arg == "") {
       Val = 0;
@@ -70,11 +70,15 @@ cl::opt<bool, true>
 
 cl::opt<bool> compileOnly("c", cl::desc("Do not link"), cl::ZeroOrMore);
 
-cl::opt<bool> createStaticLib("lib", cl::desc("Create static library"),
-                              cl::ZeroOrMore);
+static cl::opt<bool, true> createStaticLib("lib",
+                                           cl::desc("Create static library"),
+                                           cl::ZeroOrMore,
+                                           cl::location(global.params.lib));
 
-cl::opt<bool> createSharedLib("shared", cl::desc("Create shared library"),
-                              cl::ZeroOrMore);
+static cl::opt<bool, true> createSharedLib("shared",
+                                           cl::desc("Create shared library"),
+                                           cl::ZeroOrMore,
+                                           cl::location(global.params.dll));
 
 static cl::opt<bool, true> verbose("v", cl::desc("Verbose"), cl::ZeroOrMore,
                                    cl::location(global.params.verbose));
@@ -251,8 +255,9 @@ static cl::list<std::string, StringsAdapter>
                    cl::Prefix);
 
 cl::opt<std::string>
-    moduleDepsFile("deps", cl::desc("Write module dependencies to filename"),
-                   cl::value_desc("filename"));
+    moduleDeps("deps",
+               cl::desc("Write module dependencies to filename (only imports)"),
+               cl::value_desc("filename"), cl::ValueOptional);
 
 cl::opt<std::string> mArch("march",
                            cl::desc("Architecture to generate code for:"));
@@ -377,7 +382,7 @@ static cl::opt<MultiSetter, true, cl::parser<bool>>
 
 cl::opt<bool, true>
     singleObj("singleobj", cl::desc("Create only a single output object file"),
-              cl::location(global.params.singleObj));
+              cl::location(global.params.oneobj));
 
 cl::opt<uint32_t, true> hashThreshold(
     "hash-threshold",

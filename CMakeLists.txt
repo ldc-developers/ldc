@@ -22,7 +22,7 @@ endif()
 #
 
 find_package(LLVM 3.5 REQUIRED
-    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfocodeview debuginfodwarf debuginfopdb globalisel instcombine ipa ipo instrumentation irreader linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
+    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel instcombine ipa ipo instrumentation irreader linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 # Remove LLVMTableGen library from list of libraries
 string(REGEX MATCH "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" LLVM_TABLEGEN_LIBRARY "${LLVM_LIBRARIES}")
@@ -58,7 +58,7 @@ set(LDC_VERSION "1.0.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
 set(DMDFE_PATCH_VERSION   71)
-set(DMDFE_FIX_LEVEL       1) # Comment out if not used
+set(DMDFE_FIX_LEVEL       2) # Comment out if not used
 
 set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}${DMDFE_PATCH_VERSION})
 if(DEFINED DMDFE_FIX_LEVEL)
@@ -113,8 +113,7 @@ elseif(MSVC)
     ENABLE_LANGUAGE(ASM_MASM)
 endif()
 
-# Setup D compiler flags and linker flags for phobos (system linker) etc. We use
-# DMD syntax for all the flags so we can work with both DMD and LDMD.
+# Setup D compiler flags (DMD syntax, which also works with LDMD).
 set(DDMD_DFLAGS "-wi")
 set(DDMD_LFLAGS "")
 if(NOT MSVC_IDE)
@@ -259,60 +258,6 @@ if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
 endif()
 
 
-# Compiles the given D module into an object file.
-macro(Dcompile  input_d  output_dir  extra_d_flags  outlist_o extra_deps)
-    if (IS_ABSOLUTE ${input_d})
-        file(RELATIVE_PATH output ${output_dir} ${input_d})
-    else()
-        set(output ${input_d})
-    endif()
-
-    get_filename_component(name ${output} NAME)
-    get_filename_component(path ${output} PATH)
-    if("${path}" STREQUAL "")
-        set(output_root ${name})
-    else()
-        set(output_root ${path}/${name})
-    endif()
-
-    set(output_o  ${CMAKE_CURRENT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/${output_root}${CMAKE_C_OUTPUT_EXTENSION})
-    list(APPEND ${outlist_o} ${output_o})
-
-    separate_arguments(FLAG_LIST WINDOWS_COMMAND "${D_COMPILER_FLAGS} ${extra_d_flags}")
-    add_custom_command(
-        OUTPUT ${output_o}
-        COMMAND ${D_COMPILER} ${FLAG_LIST} -c -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${output_o} ${input_d}
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        DEPENDS ${input_d} ${extra_deps}
-    )
-endmacro()
-macro(Dcompilelib  input_d  output_dir  extra_d_flags  outlist_o)
-    if (IS_ABSOLUTE ${input_d})
-        file(RELATIVE_PATH output ${output_dir} ${input_d})
-    else()
-        set(output ${input_d})
-    endif()
-
-    get_filename_component(name ${output} NAME_WE)
-    get_filename_component(path ${output} PATH)
-    if("${path}" STREQUAL "")
-        set(output_root ${name})
-    else()
-        set(output_root ${path}/${name})
-    endif()
-
-    set(output_lib  ${CMAKE_CURRENT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/${output_root}${CMAKE_STATIC_LIBRARY_SUFFIX})
-    list(APPEND ${outlist_o} ${output_lib})
-
-    separate_arguments(FLAG_LIST WINDOWS_COMMAND "${D_COMPILER_FLAGS} ${extra_d_flags}")
-    add_custom_command(
-        OUTPUT ${output_lib}
-        COMMAND ${D_COMPILER} ${FLAG_LIST} -lib -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${output_lib} ${input_d}
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        DEPENDS ${input_d}
-    )
-endmacro()
-
 # Build (generate executable) of D source
 macro(build_idgen  input_d  output_exec  extra_d_flags  link_flags  extra_deps)
     separate_arguments(FLAG_LIST WINDOWS_COMMAND "${D_COMPILER_FLAGS} ${extra_d_flags} ${link_flags}")
@@ -403,6 +348,7 @@ set(DRV_HDR
     driver/configfile.h
     driver/exe_path.h
     driver/ir2obj_cache.h
+    driver/ir2obj_cache_pruning.h
     driver/ldc-version.h
     driver/targetmachine.h
     driver/toobj.h
@@ -580,38 +526,92 @@ set(LDC_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_EXE_NAME}${CMAKE_EXECUTABLE_SUF
 set(LDMD_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDMD_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
 add_custom_target(${LDC_EXE} ALL DEPENDS ${LDC_EXE_FULL})
 add_custom_target(${LDMD_EXE} ALL DEPENDS ${LDMD_EXE_FULL})
-set(LDC_LINKERFLAG_LIST "${SANITIZE_LDFLAGS};${WINDOWS_STACK_SIZE};${LIBCONFIG_LIBRARY};${LLVM_LIBRARIES};${LLVM_LDFLAGS}")
-set(tempVar "")
-foreach(f ${LDC_LINKERFLAG_LIST})
-    string (REPLACE "-Wl," "" f ${f})
-    string (REPLACE "-LIBPATH:" "/LIBPATH:" f ${f})
-    append("-L\"${f}\"" tempVar)
-endforeach(f)
-if(MSVC)
-    # Issue 1297
-    # The default system-allocated stack size is 8MB on Linux and Mac, but only 1MB on Windows
-    # Set LDC's stack to 8MB also on Windows:
-    append("-L/STACK:8388608" tempVar)
+
+# Figure out how to link the main LDC executable, for which we need to take the
+# libconfig/LLVM flags into account.
+set(LDC_LINKERFLAG_LIST "${SANITIZE_LDFLAGS};${LIBCONFIG_LIBRARY};${LLVM_LIBRARIES};${LLVM_LDFLAGS}")
+
+set(LDC_LINK_MANUALLY OFF)
+if(UNIX AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")))
+    # On Unix-like systems, DMD and LDC will use the C compiler for linking, but
+    # will pass on -L options prefixed by -Xlinker to directly forward them to
+    # the underlying ld. Since there are some flags the GCC driver handles itself
+    # rather than passing them to ld, we cannot just directly translate
+    # LDC_LINKERFLAG_LIST to -L options. To be able to handle general linker flags,
+    # we manually invoke the linker instead of using the D compiler to do so.
+    set(LDC_LINK_MANUALLY ON)
+
+    # gdmd's -of option is incompatible with DMD/LDMD when -c is given. We could
+    # detect this and modify the command line accordingly, but for now, just
+    # disallow gdmd.
+    if(D_COMPILER_ID STREQUAL "GDMD")
+        message(FATAL_ERROR "GDMD currently not supported due to http://bugzilla.gdcproject.org/show_bug.cgi?id=232.")
+    endif()
+
+    include(ExtractDMDSystemLinker)
+    message(STATUS "Host D compiler linker program: ${D_LINKER_COMMAND}")
+    message(STATUS "Host D compiler linker flags: ${D_LINKER_ARGS}")
+    list(APPEND LDC_LINKERFLAG_LIST ${D_LINKER_ARGS})
+
+    if(NOT "${CMAKE_EXE_LINKER_FLAGS}" STREQUAL "")
+        separate_arguments(flags UNIX_COMMAND "${CMAKE_EXE_LINKER_FLAGS}")
+        list(APPEND LDC_LINKERFLAG_LIST ${flags})
+    endif()
 else()
-    if(${D_COMPILER_ID} STREQUAL "LDC" OR ${D_COMPILER_ID} STREQUAL "LDMD")
-        # Translate flags from CMAKE_EXE_LINKER_FLAGS
-        if(NOT "${CMAKE_EXE_LINKER_FLAGS}" STREQUAL "")
-            separate_arguments(flags UNIX_COMMAND "${CMAKE_EXE_LINKER_FLAGS}")
-            foreach(f ${flags})
-                append("-L${f}" tempVar)
-            endforeach()
-        endif()
-        # Use the C++ compiler for linking - only for ldc or ldmd.
-        append("-gcc=${CMAKE_CXX_COMPILER}" tempVar)
-    else()
-        # Link against libstdc++
-        append("-L-lstdc++" tempVar)
+    # Use D compiler for linking, trying to translate a few common linker flags.
+    set(LDC_TRANSLATED_LINKER_FLAGS "")
+    foreach(f ${LDC_LINKERFLAG_LIST})
+        string(REPLACE "-Wl," "" f ${f})
+        string(REPLACE "-LIBPATH:" "/LIBPATH:" f ${f})
+        append("-L\"${f}\"" LDC_TRANSLATED_LINKER_FLAGS)
+    endforeach()
+
+    if(MSVC)
+        # Issue 1297 – set LDC's stack to 8 MiB like on Linux and Mac (default: 1 MiB).
+        append("-L/STACK:8388608" LDC_TRANSLATED_LINKER_FLAGS)
     endif()
 endif()
 
+function(build_d_executable output_exe compiler_args linker_args compile_deps link_deps)
+    if(LDC_LINK_MANUALLY)
+        set(object_file ${output_exe}${CMAKE_CXX_OUTPUT_EXTENSION})
+        separate_arguments(dmd_flags UNIX_COMMAND "${D_COMPILER_FLAGS} ${DDMD_DFLAGS}")
+        add_custom_command(
+            OUTPUT ${object_file}
+            COMMAND ${D_COMPILER} -c ${dmd_flags} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${object_file} ${compiler_args}
+            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+            DEPENDS ${compile_deps}
+        )
+        add_custom_command(
+            OUTPUT ${output_exe}
+            COMMAND ${CMAKE_CXX_COMPILER} -o ${output_exe} ${object_file} ${linker_args} ${LDC_LINKERFLAG_LIST}
+            DEPENDS ${object_file} ${link_deps}
+        )
+    else()
+        set(dflags "${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS}")
+        set(lflags ${LDC_TRANSLATED_LINKER_FLAGS})
+        if(UNIX)
+          separate_arguments(dflags UNIX_COMMAND "${dflags}")
+          separate_arguments(lflags UNIX_COMMAND "${lflags}")
+        else()
+          separate_arguments(dflags WINDOWS_COMMAND "${dflags}")
+          separate_arguments(lflags WINDOWS_COMMAND "${lflags}")
+        endif()
+        foreach(f ${linker_args})
+            append("-L\"${f}\"" lflags)
+        endforeach()
+        add_custom_command(
+            OUTPUT ${output_exe}
+            COMMAND ${D_COMPILER} ${dflags} ${lflags} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${output_exe} ${compiler_args} ${linker_args}
+            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+            DEPENDS ${compile_deps} ${link_deps}
+        )
+    endif()
+endfunction()
+
 # CONFIG generator expressions need to be repeated due to https://cmake.org/Bug/view.php?id=14353
-separate_arguments(LDC_FLAG_LIST WINDOWS_COMMAND "${tempVar} ${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS}")
 if(MSVC_IDE)
+    separate_arguments(LDC_FLAG_LIST WINDOWS_COMMAND "${LDC_TRANSLATED_LINKER_FLAGS} ${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS}")
     add_custom_command(
         OUTPUT ${LDC_EXE_FULL}
         COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:${LDC_LIB}> ${LDC_FLAG_LIST} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${LDC_EXE_FULL} ${LDC_D_SOURCE_FILES} $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:-g> $<$<NOT:$<CONFIG:Debug>>:-O> $<$<NOT:$<CONFIG:Debug>>:-inline> $<$<NOT:$<CONFIG:Debug>>:-release>
@@ -619,11 +619,12 @@ if(MSVC_IDE)
         DEPENDS ${LDC_D_SOURCE_FILES} ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d ${LDC_LIB}
     )
 else()
-    add_custom_command(
-        OUTPUT ${LDC_EXE_FULL}
-        COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:${LDC_LIB}> ${LDC_FLAG_LIST} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${LDC_EXE_FULL} ${LDC_D_SOURCE_FILES}
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        DEPENDS ${LDC_D_SOURCE_FILES} ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d ${LDC_LIB}
+    build_d_executable(
+        "${LDC_EXE_FULL}"
+        "${LDC_D_SOURCE_FILES}"
+        "$<TARGET_LINKER_FILE:${LDC_LIB}>"
+        "${LDC_D_SOURCE_FILES};${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d"
+        "${LDC_LIB}"
     )
 endif()
 
@@ -632,77 +633,6 @@ if(MSVC_IDE)
     # so copy the config file into the correct bin subfolder
     # (different outputs no longer feasible for custom commands, so disabled)
     #    add_custom_command(TARGET ${LDC_EXE} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf $<TARGET_FILE_DIR:${LDC_EXE}> COMMENT "Copy config file ${LDC_EXE}.conf")
-endif()
-
-
-#
-# Intrinsics module generation tools.
-#
-
-# The LLVM_INCLUDE_DIR definition is not always set, e.g. on Windows.
-# strip off anything but the first path
-string(REGEX REPLACE ";.*$" "" LLVM_INC_DIR "${LLVM_INCLUDE_DIRS}")
-find_path(LLVM_INTRINSIC_TD_PATH "Intrinsics.td" PATHS ${LLVM_INC_DIR}/llvm ${LLVM_INC_DIR}/llvm/IR NO_DEFAULT_PATH)
-if (${LLVM_INTRINSIC_TD_PATH} STREQUAL "LLVM_INTRINSIC_TD_PATH-NOTFOUND")
-    message(SEND_ERROR "File Intrinsics.td not found")
-else()
-    string(REGEX REPLACE "/llvm(/IR)?$" "" LLVM_INTRINSIC_TD_PATH ${LLVM_INTRINSIC_TD_PATH})
-    message(STATUS "Using path for Intrinsics.td: ${LLVM_INTRINSIC_TD_PATH}")
-endif()
-append("-DLLVM_INTRINSIC_TD_PATH=\"${LLVM_INTRINSIC_TD_PATH}\"" CMAKE_CXX_FLAGS )
-
-add_executable(gen_gccbuiltins utils/gen_gccbuiltins.cpp)
-
-set_target_properties(
-    gen_gccbuiltins PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
-    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
-    LINK_FLAGS "${SANITIZE_LDFLAGS}"
-)
-target_link_libraries(gen_gccbuiltins ${LLVM_TABLEGEN_LIBRARY} ${LLVM_LIBRARIES} ${PTHREAD_LIBS} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
-if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    target_link_libraries(gen_gccbuiltins dl)
-endif()
-
-
-# Build FileCheck for testing (build source version depending on LLVM version)
-set(FILECHECK_SRC utils/FileCheck-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.cpp)
-if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${FILECHECK_SRC})
-    add_executable(FileCheck ${FILECHECK_SRC})
-    set_target_properties(
-        FileCheck PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
-        COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
-        LINK_FLAGS "${SANITIZE_LDFLAGS}"
-    )
-    target_link_libraries(FileCheck  ${LLVM_LIBRARIES} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
-else()
-    message(STATUS "Skip building FileCheck, assuming it can be found in LLVM bin directory")
-endif()
-
-# Build `not` for testing
-add_executable(not utils/not.cpp)
-set_target_properties(
-    not PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
-    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
-    LINK_FLAGS "${SANITIZE_LDFLAGS}"
-)
-target_link_libraries(not  ${LLVM_LIBRARIES} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
-
-# Build ldc-profdata for converting profile data formats (source version depends on LLVM version)
-set(LDCPROFDATA_SRC utils/llvm-profdata-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.cpp)
-if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${LDCPROFDATA_SRC})
-    add_executable(ldc-profdata ${LDCPROFDATA_SRC})
-    set_target_properties(
-        ldc-profdata PROPERTIES
-        OUTPUT_NAME "${LDCPROFDATA_EXE_NAME}"
-        RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
-        COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
-        LINK_FLAGS "${SANITIZE_LDFLAGS}"
-    )
-    target_link_libraries(ldc-profdata  ${LLVM_LIBRARIES} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
-    install(TARGETS ${LDCPROFDATA_EXE} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 endif()
 
 
@@ -728,13 +658,25 @@ set_target_properties(
     ARCHIVE_OUTPUT_NAME ldmd
     LIBRARY_OUTPUT_NAME ldmd
 )
-add_custom_command(
-    OUTPUT ${LDMD_EXE_FULL}
-    COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:LDMD_CXX_LIB> ${LDC_FLAG_LIST} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${LDMD_EXE_FULL} ${DDMDFE_PATH}/root/man.d driver/ldmd.d
-    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    DEPENDS LDMD_CXX_LIB ${LDC_LIB}
+set(LDMD_D_SOURCE_FILES ${DDMDFE_PATH}/root/man.d driver/ldmd.d)
+build_d_executable(
+    "${LDMD_EXE_FULL}"
+    "${LDMD_D_SOURCE_FILES}"
+    "$<TARGET_LINKER_FILE:LDMD_CXX_LIB>"
+    "${LDMD_D_SOURCE_FILES}"
+    "LDMD_CXX_LIB;${LDC_LIB}"
 )
 
+
+#
+# Auxiliary build and test utils.
+#
+add_subdirectory(utils)
+
+#
+# Auxiliary tools.
+#
+add_subdirectory(tools)
 
 #
 # Test and runtime targets. Note that enable_testing() is order-sensitive!

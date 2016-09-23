@@ -17,17 +17,6 @@ import ddmd.globals;
 import ddmd.root.file;
 import ddmd.root.outbuffer;
 
-extern (C++) void writeModuleDependencyFile()
-{
-    if (global.params.moduleDepsFile !is null)
-    {
-        auto deps = File(global.params.moduleDepsFile);
-        OutBuffer *ob = global.params.moduleDeps;
-        deps.setbuffer(cast(void*)ob.data, ob.offset);
-        deps.write();
-    }
-}
-
 // In driver/main.cpp
 extern(C++) int cppmain(int argc, char **argv);
 

@@ -36,8 +36,6 @@ extern cl::list<std::string> fileList;
 extern cl::list<std::string> runargs;
 extern cl::opt<bool> compileOnly;
 extern cl::opt<bool, true> enforcePropertySyntax;
-extern cl::opt<bool> createStaticLib;
-extern cl::opt<bool> createSharedLib;
 extern cl::opt<bool> noAsm;
 extern cl::opt<bool> dontWriteObj;
 extern cl::opt<std::string> objectFile;
@@ -55,7 +53,7 @@ extern cl::opt<std::string> hdrDir;
 extern cl::opt<std::string> hdrFile;
 extern cl::list<std::string> versions;
 extern cl::list<std::string> transitions;
-extern cl::opt<std::string> moduleDepsFile;
+extern cl::opt<std::string> moduleDeps;
 extern cl::opt<std::string> ir2objCacheDir;
 
 extern cl::opt<std::string> mArch;

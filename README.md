@@ -2,7 +2,6 @@ LDC – the LLVM-based D Compiler
 ===============================
 
 [![Build Status](https://travis-ci.org/ldc-developers/ldc.png?branch=master)][1]
-[![Test Coverage](https://coveralls.io/repos/ldc-developers/ldc/badge.svg)][2]
 [![Bountysource](https://www.bountysource.com/badge/tracker?tracker_id=283332)][3]
 
 The LDC project aims to provide a portable D programming language
@@ -56,8 +55,6 @@ LDC for Windows relies on the Microsoft linker. So you'll either need
 (2015 is greatly encouraged; 2013 works too if you build LDC yourself)
 with Visual C++, or the stand-alone
 [Visual C++ Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools).
-For the latter to work, you'll need to create the environment variable `LDC_VSDIR`
-and set it to something like `C:\Program Files (x86)\Microsoft Visual Studio 14.0\`.
 
 ### Building from source
 

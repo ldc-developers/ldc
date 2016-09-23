@@ -24,8 +24,11 @@
 // Nested variable and context helpers
 ///////////////////////////////////////////////////////////
 
-/// Creates the context value for a nested function.
-void DtoCreateNestedContext(FuncDeclaration *fd);
+class FuncGenState;
+
+/// Creates the nested struct alloca for the current function (if there are any
+/// nested references to its variables).
+void DtoCreateNestedContext(FuncGenState &funcGen);
 
 /// Resolves the nested context for classes and structs with arbitrary nesting.
 void DtoResolveNestedContext(Loc &loc, AggregateDeclaration *decl,

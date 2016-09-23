@@ -206,6 +206,7 @@ struct Param
         bool useInlineAsm;
         bool verbose_cg;
         bool hasObjectiveC;
+        bool fullyQualifiedObjectFiles;
 
         // Profile-guided optimization:
         bool genInstrProf;             // Whether to generate PGO instrumented code
@@ -215,7 +216,6 @@ struct Param
         const(void)* targetTriple; // const llvm::Triple*
 
         // Codegen cl options
-        bool singleObj;
         bool disableRedZone;
 
         uint hashThreshold; // MD5 hash symbols larger than this threshold (0 = no hashing)
@@ -240,7 +240,6 @@ struct Global
     const(char)* obj_ext;
     version(IN_LLVM)
     {
-        const(char)* obj_ext_alt;
         const(char)* ll_ext;
         const(char)* bc_ext;
         const(char)* s_ext;
@@ -324,7 +323,6 @@ version(IN_LLVM)
         bc_ext  = "bc";
         s_ext   = "s";
         obj_ext = "o";
-        obj_ext_alt = "obj";
 }
 else
 {

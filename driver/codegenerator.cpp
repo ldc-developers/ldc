@@ -16,9 +16,8 @@
 #include "driver/linker.h"
 #include "driver/toobj.h"
 #include "gen/logger.h"
+#include "gen/modules.h"
 #include "gen/runtime.h"
-
-void codegenModule(IRState *irs, Module *m, bool emitFullModuleInfo);
 
 /// The module with the frontend-generated C main() definition.
 extern Module *g_entrypointModule;
@@ -85,6 +84,13 @@ CodeGenerator::CodeGenerator(llvm::LLVMContext &context, bool singleObj)
                  "configured properly");
     fatal();
   }
+
+#if LDC_LLVM_VER >= 309
+  // Set the context to discard value names when not generating textual IR.
+  if (!global.params.output_ll) {
+    context_.setDiscardValueNames(true);
+  }
+#endif
 }
 
 CodeGenerator::~CodeGenerator() {
@@ -92,9 +98,7 @@ CodeGenerator::~CodeGenerator() {
     const char *oname;
     const char *filename;
     if ((oname = global.params.exefile) || (oname = global.params.objname)) {
-      filename = FileName::forceExt(
-          oname, global.params.targetTriple->isOSWindows() ? global.obj_ext_alt
-                                                           : global.obj_ext);
+      filename = FileName::forceExt(oname, global.obj_ext);
       if (global.params.objdir) {
         filename =
             FileName::combine(global.params.objdir, FileName::name(filename));
@@ -136,7 +140,7 @@ void CodeGenerator::prepareLLModule(Module *m) {
 #endif
 
   // TODO: Make ldc::DIBuilder per-Module to be able to emit several CUs for
-  // singleObj compilations?
+  // single-object compilations?
   ir_->DBuilder.EmitCompileUnit(m);
 
   IrDsymbol::resetAll();
@@ -219,15 +223,9 @@ void CodeGenerator::emit(Module *m) {
 
   prepareLLModule(m);
 
-  // If we are compiling to a single object file then only the first module
-  // needs to generate a call to _d_dso_registry(). All other modules only add
-  // a module reference.
-  // FIXME Find better name.
-  const bool emitFullModuleInfo =
-      !singleObj_ || (singleObj_ && moduleCount_ == 1);
-  codegenModule(ir_, m, emitFullModuleInfo);
+  codegenModule(ir_, m);
   if (m == g_dMainModule) {
-    codegenModule(ir_, g_entrypointModule, emitFullModuleInfo);
+    codegenModule(ir_, g_entrypointModule);
 
     if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
       // On Android, bracket TLS data with the symbols _tlsstart and _tlsend, as
