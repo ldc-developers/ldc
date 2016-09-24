@@ -934,13 +934,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // this gets erased when the function is complete, so alignment etc does not
   // matter at all
   llvm::Instruction *allocaPoint = new llvm::AllocaInst(
-<<<<<<< HEAD
-      LLType::getInt32Ty(gIR->context()), "allocaPoint", beginbb);
-  irFunc->allocapoint = allocaPoint;
-=======
-      LLType::getInt32Ty(gIR->context()), "alloca point", beginbb);
-  funcGen.allocapoint = allocaPoint;
->>>>>>> ldc-developers/master
+    LLType::getInt32Ty(gIR->context()), "allocaPoint", beginbb);
+  //irFunc->allocapoint = allocaPoint;
+  
 
   // debug info - after all allocas, but before any llvm.dbg.declare etc
   if (!gDComputeTarget) {
@@ -1026,24 +1022,18 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
         DtoAllocaDump(irFunc->_arguments, 0, "_arguments_mem");
   }
 
-<<<<<<< HEAD
-    // output function body
-    if (gDComputeTarget) {
-      Visitor* v = createDCopmuteToIRVisitor(gIR,gDComputeTarget);
-      fd->fbody->accept(v);
-      delete v;
-    } else {
-    Statement_toIR(fd->fbody, gIR);
-    }
-    irFunc->scopes = nullptr;
-  }
-=======
-  funcGen.pgo.emitCounterIncrement(fd->fbody);
-  funcGen.pgo.setCurrentStmt(fd->fbody);
-
   // output function body
-  Statement_toIR(fd->fbody, gIR);
->>>>>>> ldc-developers/master
+  if (gDComputeTarget) {
+    Visitor* v = createDCopmuteToIRVisitor(gIR,gDComputeTarget);
+    fd->fbody->accept(v);
+    delete v;
+  } else {
+    funcGen.pgo.emitCounterIncrement(fd->fbody);
+    funcGen.pgo.setCurrentStmt(fd->fbody);
+    // output function body
+    Statement_toIR(fd->fbody, gIR);
+  }
+    //irFunc->scopes = nullptr; //temp hack
 
   llvm::BasicBlock *bb = gIR->scopebb();
   if (pred_begin(bb) == pred_end(bb) &&

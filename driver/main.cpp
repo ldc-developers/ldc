@@ -220,7 +220,6 @@ char *dupPathString(const std::string &src) {
   std::replace(r, r + src.length(), '/', '\\');
 #endif
   return r;
->>>>>>> ldc-developers/master
 }
 
 // Helper function to handle -of, -od, etc.
@@ -1167,8 +1166,8 @@ void codegenModules(Modules &modules) {
     // sure these functions (added to members[0] by members[x>0]) are
     // codegenned.
     for (d_size_t i = modules.dim; i-- > 0;) {
-      Module *const m = modules[i];
-      if (global.params.verbose)
+      Module * m = modules[i];
+      if (global.params.verbose) {
         fprintf(global.stdmsg, "code      %s\n", m->toChars());
 
       }
@@ -1182,6 +1181,7 @@ void codegenModules(Modules &modules) {
       }
       if (global.errors) {
         fatal();
+      }
     }
     IF_LOG Logger::println("number of Modules for computecodgenning %d",
                            compute_modules.size());
