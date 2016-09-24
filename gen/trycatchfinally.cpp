@@ -452,10 +452,10 @@ void TryCatchFinallyScopes::pushTryCatch(TryCatchStatement *stmt,
 
 void TryCatchFinallyScopes::popTryCatch() {
   tryCatchScopes.pop_back();
-  /*if (useMSVCEH()) {
+  if (useMSVCEH()) {
     assert(isCatchSwitchBlock(cleanupScopes.back().beginBlock()));
     popCleanups(currentCleanupScope() - 1);
-  } else*/ {
+  } else {
     landingPadsPerCleanupScope[currentCleanupScope()].pop_back();
   }
 }
