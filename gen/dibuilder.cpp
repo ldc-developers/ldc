@@ -969,7 +969,7 @@ void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
 
 void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
                                        Type *type, bool isThisPtr,
-                                       bool fromNested,
+                                       bool rewrittenToLocal,
 #if LDC_LLVM_VER >= 306
                                        llvm::ArrayRef<int64_t> addr
 #else
@@ -1001,7 +1001,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 
 #if LDC_LLVM_VER < 308
   unsigned tag;
-  if (!fromNested && vd->isParameter()) {
+  if (!rewrittenToLocal && vd->isParameter()) {
     tag = llvm::dwarf::DW_TAG_arg_variable;
   } else {
     tag = llvm::dwarf::DW_TAG_auto_variable;
@@ -1044,7 +1044,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
                                                Flags                // flags
                                                );
 #else
-  if (!fromNested && vd->isParameter()) {
+  if (!rewrittenToLocal && vd->isParameter()) {
     FuncDeclaration *fd = vd->parent->isFuncDeclaration();
     assert(fd);
     size_t argNo = 0;

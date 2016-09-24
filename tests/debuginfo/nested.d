@@ -22,7 +22,6 @@ void encloser(int arg0, int arg1)
 
 // CHECK-LABEL: !DISubprogram(name:{{.*}}"{{.*}}encloser.nested"
 // CHECK: !DILocalVariable{{.*}}nes_i
-// CHECK-SAME: arg: 2
 // CHECK: !DILocalVariable{{.*}}arg1
 // CHECK-NOT: arg:
 // CHECK-SAME: ){{$}}
