@@ -7,6 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if LDC_LLVM_VER >= 308
+
 #include "gen/ms-cxx-helper.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
@@ -14,7 +16,6 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
 
-#if LDC_LLVM_VER >= 308
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"

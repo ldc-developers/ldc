@@ -42,7 +42,7 @@ install:
   - git checkout 7585cf6
   - cd ..
   # Download & extract libcurl
-  - ps: Start-FileDownload 'http://d.darktech.org/libcurl-7.47.0-WinSSL-zlib-x86-x64.zip' -FileName 'libcurl.zip'
+  - appveyor DownloadFile "http://d.darktech.org/libcurl-7.47.0-WinSSL-zlib-x86-x64.zip" -FileName libcurl.zip
   - md libcurl
   - cd libcurl
   - 7z x ..\libcurl.zip > nul
@@ -53,7 +53,7 @@ install:
   - if "%APPVEYOR_JOB_ARCH%"=="x86" ( copy libcurl\dmd2\windows\bin\libcurl.dll ldc-x86\bin )
   - set PATH=%CD%\ldc-%APPVEYOR_JOB_ARCH%\bin;%PATH%
   # Download & extract Ninja
-  - ps: Start-FileDownload 'https://github.com/ninja-build/ninja/releases/download/v1.6.0/ninja-win.zip' -FileName 'ninja.zip'
+  - appveyor DownloadFile "https://github.com/ninja-build/ninja/releases/download/v1.6.0/ninja-win.zip" -FileName ninja.zip
   - md ninja
   - cd ninja
   - 7z x ..\ninja.zip > nul
@@ -67,18 +67,18 @@ install:
   - ps: |
         If ($Env:D_COMPILER -eq 'dmd') {
             $dmdVersion = '2.071.1'
-            Start-FileDownload "http://downloads.dlang.org/releases/2.x/$dmdVersion/dmd.$dmdVersion.windows.7z" -FileName 'dmd2.7z'
+            appveyor DownloadFile "http://downloads.dlang.org/releases/2.x/$dmdVersion/dmd.$dmdVersion.windows.7z" -FileName dmd2.7z
             7z x dmd2.7z > $null
             Set-Item -path env:DMD -value c:\projects\dmd2\windows\bin\dmd.exe
             c:\projects\dmd2\windows\bin\dmd.exe --version
         } Else {
             If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
-                Start-FileDownload 'http://github.com/ldc-developers/ldc/releases/download/v1.0.0/ldc2-1.0.0-win64-msvc.zip' -FileName 'ldc2.zip'
+                appveyor DownloadFile 'http://github.com/ldc-developers/ldc/releases/download/v1.0.0/ldc2-1.0.0-win64-msvc.zip' -FileName ldc2.zip
                 7z x ldc2.zip > $null
                 Set-Item -path env:DMD -value c:\projects\ldc2-1.0.0-win64-msvc\bin\ldmd2.exe
                 c:\projects\ldc2-1.0.0-win64-msvc\bin\ldc2 --version
             } Else {
-                Start-FileDownload 'http://github.com/ldc-developers/ldc/releases/download/v1.0.0/ldc2-1.0.0-win32-msvc.zip' -FileName 'ldc2.zip'
+                appveyor DownloadFile 'http://github.com/ldc-developers/ldc/releases/download/v1.0.0/ldc2-1.0.0-win32-msvc.zip' -FileName ldc2.zip
                 7z x ldc2.zip > $null
                 Set-Item -path env:DMD -value c:\projects\ldc2-1.0.0-win32-msvc\bin\ldmd2.exe
                 c:\projects\ldc2-1.0.0-win32-msvc\bin\ldc2 --version
@@ -86,7 +86,7 @@ install:
         }
   # Download & extract GNU make + utils (for dmd-testsuite)
   - bash --version
-  - ps: Start-FileDownload 'https://dl.dropboxusercontent.com/s/4y36f5ydgrk4p5g/make-4.2.1.7z?dl=0' -FileName 'make.7z'
+  - appveyor DownloadFile "https://dl.dropboxusercontent.com/s/4y36f5ydgrk4p5g/make-4.2.1.7z?dl=0" -FileName make.7z
   - md make
   - cd make
   - 7z x ..\make.7z > nul
@@ -95,9 +95,9 @@ install:
   # Download & extract a pre-built LLVM (CMAKE_BUILD_TYPE=Release, LLVM_ENABLE_ASSERTIONS=ON)
   - ps: |
         If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
-            Start-FileDownload 'https://dl.dropboxusercontent.com/s/kkmr30ntlay843f/LLVM-3.9.0-x64.7z?dl=0' -FileName 'llvm-x64.7z'
+            appveyor DownloadFile 'https://dl.dropboxusercontent.com/s/kkmr30ntlay843f/LLVM-3.9.0-x64.7z?dl=0' -FileName llvm-x64.7z
         } Else {
-            Start-FileDownload 'https://dl.dropboxusercontent.com/s/7xbpwnf8zyeokw3/LLVM-3.9.0-x86.7z?dl=0' -FileName 'llvm-x86.7z'
+            appveyor DownloadFile 'https://dl.dropboxusercontent.com/s/7xbpwnf8zyeokw3/LLVM-3.9.0-x86.7z?dl=0' -FileName llvm-x86.7z
         }
   - md llvm-%APPVEYOR_JOB_ARCH%
   - cd llvm-%APPVEYOR_JOB_ARCH%
@@ -156,7 +156,7 @@ after_build:
             cd c:\projects
             $artifact64Downloaded = $True
             Try {
-                Start-FileDownload "https://github.com/ldc-developers/ldc/releases/download/LDC-Win64-master/LDC-master-$Env:APPVEYOR_BUILD_NUMBER-x64.7z" -FileName 'LDC-master-x64.7z'
+                (New-Object Net.WebClient).DownloadFile("https://github.com/ldc-developers/ldc/releases/download/LDC-Win64-master/LDC-master-$Env:APPVEYOR_BUILD_NUMBER-x64.7z", 'c:\projects\LDC-master-x64.7z')
             }
             Catch {
                 echo 'Failed to download the 64-bit artifact from GitHub (the x64 job probably failed).'

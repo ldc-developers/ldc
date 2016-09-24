@@ -453,7 +453,9 @@ void TryCatchFinallyScopes::pushTryCatch(TryCatchStatement *stmt,
 void TryCatchFinallyScopes::popTryCatch() {
   tryCatchScopes.pop_back();
   if (useMSVCEH()) {
+#if LDC_LLVM_VER >= 308
     assert(isCatchSwitchBlock(cleanupScopes.back().beginBlock()));
+#endif
     popCleanups(currentCleanupScope() - 1);
   } else {
     landingPadsPerCleanupScope[currentCleanupScope()].pop_back();
