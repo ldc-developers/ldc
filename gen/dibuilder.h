@@ -172,13 +172,13 @@ private:
                ldc::DIExpression diexpr
 #endif
                );
-  void AddBaseFields(ClassDeclaration *sd, ldc::DIFile file,
+  void AddFields(AggregateDeclaration *sd, ldc::DIFile file,
 #if LDC_LLVM_VER >= 306
-                     llvm::SmallVector<llvm::Metadata *, 16> &elems
+                 llvm::SmallVector<llvm::Metadata *, 16> &elems
 #else
-                     llvm::SmallVector<llvm::Value *, 16> &elems
+                 llvm::SmallVector<llvm::Value *, 16> &elems
 #endif
-                     );
+                 );
   DIFile CreateFile(Loc &loc);
   DIFile CreateFile();
   DIType CreateBasicType(Type *type);

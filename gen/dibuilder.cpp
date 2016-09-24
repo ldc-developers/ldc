@@ -53,7 +53,16 @@ ldc::DIType getNullDIType() {
   return llvm::DIType();
 #endif
 }
+
+#if LDC_LLVM_VER >= 307
+llvm::DINodeArray getEmptyDINodeArray() {
+  return nullptr;
 }
+#else
+llvm::DIArray getEmptyDINodeArray() {
+  return llvm::DIArray();
+}
+#endif
 
 llvm::StringRef uniqueIdent(Type* t) {
 #if LDC_LLVM_VER >= 309
@@ -62,6 +71,8 @@ llvm::StringRef uniqueIdent(Type* t) {
 #endif
   return llvm::StringRef();
 }
+
+} // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -363,11 +374,8 @@ ldc::DIType ldc::DIBuilder::CreateMemberType(unsigned linnum, Type *type,
                                    );
 }
 
-void ldc::DIBuilder::AddBaseFields(ClassDeclaration *sd, ldc::DIFile file,
-                                   llvm::SmallVector<LLMetadata *, 16> &elems) {
-  if (sd->baseClass)
-    AddBaseFields(sd->baseClass, file, elems);
-
+void ldc::DIBuilder::AddFields(AggregateDeclaration *sd, ldc::DIFile file,
+                               llvm::SmallVector<LLMetadata *, 16> &elems) {
   size_t narr = sd->fields.dim;
   elems.reserve(narr);
   for (auto vd : sd->fields) {
@@ -430,20 +438,34 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
 
   if (!sd->isInterfaceDeclaration()) // plain interfaces don't have one
   {
-    if (t->ty == Tstruct) {
-      elems.reserve(sd->fields.dim);
-      for (auto vd : sd->fields) {
-        ldc::DIType dt =
-            CreateMemberType(vd->loc.linnum, vd->type, file, vd->toChars(),
-                             vd->offset, vd->prot().kind);
-        elems.push_back(dt);
-      }
-    } else {
-      ClassDeclaration *classDecl = sd->isClassDeclaration();
-      AddBaseFields(classDecl, file, elems);
-      if (classDecl->baseClass)
-        derivedFrom = CreateCompositeType(classDecl->baseClass->getType());
+    ClassDeclaration *classDecl = sd->isClassDeclaration();
+    if (classDecl && classDecl->baseClass) {
+      derivedFrom = CreateCompositeType(classDecl->baseClass->getType());
+      // needs a forward declaration to add inheritence information to elems
+      ldc::DIType fwd =
+          DBuilder.createClassType(CU,     // compile unit where defined
+                                   name,   // name
+                                   file,   // file where defined
+                                   linnum, // line number where defined
+                                   getTypeAllocSize(T) * 8, // size in bits
+                                   getABITypeAlign(T) * 8,  // alignment in bits
+                                   0,                       // offset in bits,
+                                   DIFlags::FlagFwdDecl,    // flags
+                                   derivedFrom,             // DerivedFrom
+                                   getEmptyDINodeArray(),
+                                   getNullDIType(), // VTableHolder
+                                   nullptr,         // TemplateParms
+                                   uniqueIdent(t)); // UniqueIdentifier
+      auto dt = DBuilder.createInheritance(fwd, derivedFrom, 0,
+#if LDC_LLVM_VER >= 306
+                                           DIFlags::FlagPublic
+#else
+                                           0
+#endif
+                                           );
+      elems.push_back(dt);
     }
+    AddFields(sd, file, elems);
   }
 
   auto elemsArray = DBuilder.getOrCreateArray(elems);
