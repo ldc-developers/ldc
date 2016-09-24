@@ -25,7 +25,7 @@ endfunction()
 # Would like to specify the "-release" flag for relase builds, but some of the
 # tests (e.g. 'testdstress') depend on contracts and invariants being active.
 # Need a solution integrated with d_do_test.
-add_testsuite("-debug" "-gc -link-debuglib" ${host_model})
+add_testsuite("-debug" "-g -link-debuglib" ${host_model})
 add_testsuite("" -O3 ${host_model})
 
 if(MULTILIB AND host_model EQUAL 64)
