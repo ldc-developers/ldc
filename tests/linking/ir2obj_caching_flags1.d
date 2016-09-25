@@ -28,10 +28,15 @@
 // RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache -D -H -I. -J.                    -vv | FileCheck --check-prefix=MUST_HIT %s \
 // RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache -d-version=Irrelevant            -vv | FileCheck --check-prefix=MUST_HIT %s \
 // RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache -unittest                        -vv | FileCheck --check-prefix=MUST_HIT %s \
+// RUN:   && %ldc                  -ir2obj-cache=%T/flag1cache -vv -run %s                          | FileCheck --check-prefix=COULD_HIT %s \
+// RUN:   && %ldc                  -ir2obj-cache=%T/flag1cache -vv -run %s a b                      | FileCheck --check-prefix=MUST_HIT %s \
 // RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache                                  -vv | FileCheck --check-prefix=MUST_HIT %s
 // The last test is a MUST_HIT test, to make sure that the cache wasn't pruned somehow, which could effectively disable some NO_HIT tests.
 
 // MUST_HIT: Cache object found!
-// NO_HIT-NOT: Cache object found!
+// NO_HIT: Cache object not found.
 
-void foo() {}
+// Could hit is used for cases where we could have a cache hit, but currently we don't: a "TODO" item.
+// COULD_HIT: Cache object
+
+void main() {}
