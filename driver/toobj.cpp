@@ -58,7 +58,7 @@ static llvm::cl::opt<bool>
                           llvm::cl::desc("Disable integrated assembler"));
 
 // based on llc code, University of Illinois Open Source License
-static void codegenModule(llvm::TargetMachine *Target, llvm::Module &m,
+static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
                           llvm::raw_fd_ostream &out,
                           llvm::TargetMachine::CodeGenFileType fileType) {
   using namespace llvm;
@@ -95,7 +95,7 @@ static void codegenModule(llvm::TargetMachine *Target, llvm::Module &m,
 #elif LDC_LLVM_VER == 306
   Passes.add(new DataLayoutPass());
 #else
-  if (const DataLayout *DL = Target->getDataLayout())
+  if (const DataLayout *DL = Target.getDataLayout())
     Passes.add(new DataLayoutPass(*DL));
   else
     Passes.add(new DataLayoutPass(&m));
@@ -104,18 +104,17 @@ static void codegenModule(llvm::TargetMachine *Target, llvm::Module &m,
 #if LDC_LLVM_VER >= 307
   // Add internal analysis passes from the target machine.
   Passes.add(
-      createTargetTransformInfoWrapperPass(Target->getTargetIRAnalysis()));
+      createTargetTransformInfoWrapperPass(Target.getTargetIRAnalysis()));
 #else
-  Target->addAnalysisPasses(Passes);
+  Target.addAnalysisPasses(Passes);
 #endif
 
 
-  if (Target->addPassesToEmitFile(
-          Passes,
+  if (Target.addPassesToEmitFile(Passes,
 #if LDC_LLVM_VER >= 307
-          out,
+                                 out,
 #else
-          fout,
+                                 fout,
 #endif
           // Always generate assembly for ptx. for some reason it doesn't like
           // binary.
@@ -376,7 +375,7 @@ void writeObjectFile(llvm::Module *m, std::string &filename) {
     if (errinfo.empty())
 #endif
     {
-      codegenModule(gTargetMachine, *m, out,
+      codegenModule(*gTargetMachine, *m, out,
                     llvm::TargetMachine::CGFT_ObjectFile);
     } else {
       error(Loc(), "cannot write object file '%s': %s", filename.c_str(),
@@ -479,7 +478,7 @@ void writeModule(llvm::Module *m, std::string filename) {
       if (errinfo.empty())
 #endif
       {
-        codegenModule(gTargetMachine, *m, out,
+        codegenModule(*gTargetMachine, *m, out,
                       llvm::TargetMachine::CGFT_AssemblyFile);
       } else {
         error(Loc(), "cannot write asm: %s", ERRORINFO_STRING(errinfo));
