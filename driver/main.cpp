@@ -305,13 +305,14 @@ void hideLLVMOptions() {
   hide(map, "sample-profile-max-propagate-iterations");
   hide(map, "shrink-wrap");
   hide(map, "spiller");
-  // spirv options - enable while in dev
-  // hide(map, "spirv-debug");
-  // hide(map, "spirv-erase-cl-md");
-  // hide(map, "spirv-lower-const-expr");
-  // hide(map, "spirv-mem2reg");
-  // hide(map, "spirv-text");
-  // hide(map, "spvbool-validate");
+#if LDC_WITH_DCOMPUTE_SPIRV
+  hide(map, "spirv-debug");
+  hide(map, "spirv-erase-cl-md");
+  hide(map, "spirv-lower-const-expr");
+  hide(map, "spirv-mem2reg");
+  hide(map, "spirv-text");
+  hide(map, "spvbool-validate");
+#endif
   hide(map, "stackmap-version");
   hide(map, "stats");
   hide(map, "strip-debug");
@@ -1182,7 +1183,7 @@ void codegenModules(Modules &modules) {
       if (global.errors) {
         fatal();
       }
-    }
+    }   
     IF_LOG Logger::println("number of Modules for computecodgenning %d",
                            compute_modules.size());
     if (compute_modules.size()) {
