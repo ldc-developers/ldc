@@ -260,9 +260,9 @@ llvm::GlobalVariable *getOrCreateGlobal(const Loc &loc, llvm::Module &module,
                                         bool isThreadLocal = false);
 
 FuncDeclaration *getParentFunc(Dsymbol *sym, bool stopOnStatic);
-
+class DComputeTarget;
 void Declaration_codegen(Dsymbol *decl);
-void Declaration_codegen(Dsymbol *decl, IRState *irs);
+void Declaration_codegen(Dsymbol *decl, IRState *irs,DComputeTarget *dct= nullptr);
 
 DValue *toElem(Expression *e);
 /// If `skipOverCasts` is true, skips over casts (no codegen) and returns the

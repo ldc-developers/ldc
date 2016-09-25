@@ -536,18 +536,22 @@ void DtoAlignedStore(LLValue *src, LLValue *dst) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+LLType *StripAddrSpaces(LLType *t)
+{
+    int indirections = 0;
+    while (t->isPointerTy()) {
+        indirections++;
+        t = t->getPointerElementType();
+    }
+    while (indirections-- != 0) {
+        t = t->getPointerTo(0);
+    }
+    return t;
+}
+
 LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name) {
   // Dont generate an invalid bitcast from say float addrspace(1)** to float**
-  LLType *tv = v->getType();
-  int indirections = 0;
-  while (tv->isPointerTy()) {
-    indirections++;
-    tv = tv->getPointerElementType();
-  }
-  while (indirections-- != 0) {
-      tv = tv->getPointerTo(0);
-  }
-  if (tv == t) {
+  if (StripAddrSpaces(v->getType()) == t) {
     return v;
   }
   assert(!isaStruct(t));
