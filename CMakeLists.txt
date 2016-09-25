@@ -31,7 +31,7 @@ endfunction()
 option(LDC_WITH_DCOMPUTE_SPIRV "Enable Dcompute to generate SPIRV kernels for targetting OpenCL, requires a khronos llvm")
 mark_as_advanced(LDC_WITH_DCOMPUTE_SPIRV)
 if(LDC_WITH_DCOMPUTE_SPIRV)
-    append( EXTRA_LLVM_MODULES spriv)
+    append( EXTRA_LLVM_MODULES sprivlib ) #yes it is libLLVMSPIRVLib 
 endif()
 #
 # Locate LLVM.
