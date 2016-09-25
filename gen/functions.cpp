@@ -935,7 +935,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // matter at all
   llvm::Instruction *allocaPoint = new llvm::AllocaInst(
     LLType::getInt32Ty(gIR->context()), "allocaPoint", beginbb);
-  //irFunc->allocapoint = allocaPoint;
+  funcGen.allocapoint = allocaPoint;
   
 
   // debug info - after all allocas, but before any llvm.dbg.declare etc
@@ -1033,8 +1033,13 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     // output function body
     Statement_toIR(fd->fbody, gIR);
   }
-    //irFunc->scopes = nullptr; //temp hack
-
+  //irFunc->scopes() = nullptr; //temp hack
+  // erase alloca point
+  if (allocaPoint->getParent()) {
+    funcGen.allocapoint = nullptr;
+    allocaPoint->eraseFromParent();
+    allocaPoint = nullptr;
+  }
   llvm::BasicBlock *bb = gIR->scopebb();
   if (pred_begin(bb) == pred_end(bb) &&
       bb != &bb->getParent()->getEntryBlock()) {
@@ -1070,12 +1075,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
   
 
-  // erase alloca point
-  if (allocaPoint->getParent()) {
-    funcGen.allocapoint = nullptr;
-    allocaPoint->eraseFromParent();
-    allocaPoint = nullptr;
-  }
+
 
   gIR->scopes.pop_back();
 
