@@ -10,7 +10,7 @@
 #include "dcompute/target.h"
 #include "dsymbol.h"
 #include "module.h"
-#include "dcompute/codegenvisitor.h"
+#include "gen/llvmhelpers.h"
 #include "id.h"
 #include "mars.h"
 #include "module.h"
@@ -29,7 +29,7 @@ void DComputeTarget::doCodeGen(Module *m) {
   for (unsigned k = 0; k < m->members->dim; k++) {
     Dsymbol *dsym = (*m->members)[k];
     assert(dsym);
-    DcomputeDeclaration_codegen(dsym, _ir, *this);
+    Declaration_codegen(dsym, _ir, this);
   }
 
   if (global.errors) {
