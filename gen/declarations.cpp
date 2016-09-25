@@ -217,7 +217,7 @@ public:
     setLinkage(decl, initZ);
 
     // emit typeinfo
-    DtoTypeInfoOf(decl->type);
+    if(!dct) DtoTypeInfoOf(decl->type);
 
     // Emit __xopEquals/__xopCmp/__xtoHash.
     if (decl->xeq && decl->xeq != decl->xerreq) {
@@ -593,7 +593,7 @@ public:
 //////////////////////////////////////////////////////////////////////////////
 
 void Declaration_codegen(Dsymbol *decl) {
-  CodegenVisitor v(gIR,nullptr);
+  CodegenVisitor v(gIR,gDComputeTarget);
   decl->accept(&v);
 }
 
