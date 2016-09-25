@@ -700,6 +700,9 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
 #if LDC_LLVM_VER >= 308
   if (global.params.targetTriple->isWindowsMSVCEnvironment())
     IR->module.addModuleFlag(llvm::Module::Warning, "CodeView", 1);
+  else if (global.params.dwarfVersion > 0)
+    IR->module.addModuleFlag(llvm::Module::Warning, "Dwarf Version",
+                             global.params.dwarfVersion);
 #endif
   // Metadata without a correct version will be stripped by UpgradeDebugInfo.
   IR->module.addModuleFlag(llvm::Module::Warning, "Debug Info Version",

@@ -217,6 +217,7 @@ struct Param
 
         // Codegen cl options
         bool disableRedZone;
+        uint dwarfVersion;
 
         uint hashThreshold; // MD5 hash symbols larger than this threshold (0 = no hashing)
     }
