@@ -31,7 +31,6 @@ void recoverObjectFile(llvm::StringRef cacheObjectHash,
 ///
 /// Note: Does nothing for LLVM < 3.7.
 void pruneCache();
-
 }
 
 #endif

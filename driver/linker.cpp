@@ -428,8 +428,8 @@ int executeAndWait(const char *commandLine) {
 #endif
   // according to MSDN, only CreateProcessW (unicode) may modify the passed
   // command line
-  if (!CreateProcess(NULL, cmdline, NULL, NULL, TRUE, 0, NULL, NULL, &si,
-                     &pi)) {
+  if (!CreateProcess(NULL, cmdline, NULL, NULL, TRUE, 0,
+                     NULL, NULL, &si, &pi)) {
     exitCode = -1;
   } else {
     if (WaitForSingleObject(pi.hProcess, INFINITE) != 0 ||
