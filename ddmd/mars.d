@@ -1468,7 +1468,7 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
             if ((*global.params.objfiles)[j] == cast(const(char)*)m)
             {
                 (*global.params.objfiles)[j] = m.objfile.name.str;
-                if (!m.isDocFile)
+                if (!m.isDocFile && global.params.obj)
                     m.checkAndAddOutputFile(m.objfile);
                 break;
             }
