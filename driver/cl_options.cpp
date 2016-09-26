@@ -119,6 +119,11 @@ static cl::opt<ubyte, true>
                          clEnumValEnd),
               cl::location(global.params.symdebug), cl::init(0));
 
+static cl::opt<unsigned, true>
+    dwarfVersion("dwarf-version", cl::desc("Dwarf version"),
+                 cl::location(global.params.dwarfVersion), cl::init(0),
+                 cl::Hidden);
+
 cl::opt<bool> noAsm("noasm", cl::desc("Disallow use of inline assembler"));
 
 // Output file options

@@ -64,6 +64,7 @@ install:
   - eval "${DC} --version"
   - pip install --user lit
   - python -c "import lit; lit.main();" --version | head -n 1
+  - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then gdb --version; fi
 
 script:
   - cmake --version

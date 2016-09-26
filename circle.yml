@@ -34,6 +34,7 @@ dependencies:
     - ldc2 -version
     - cmake --version
     - python -c "import lit; lit.main();" --version | head -n 1
+    - gdb --version
 
 checkout:
   post:
