@@ -327,11 +327,11 @@ file(GLOB_RECURSE IR_SRC_D ir/*.d)
 file(GLOB IR_SRC ir/*.cpp)
 file(GLOB IR_HDR ir/*.h)
 set(DRV_SRC
+    driver/cache.cpp
     driver/cl_options.cpp
     driver/codegenerator.cpp
     driver/configfile.cpp
     driver/exe_path.cpp
-    driver/ir2obj_cache.cpp
     driver/targetmachine.cpp
     driver/toobj.cpp
     driver/tool.cpp
@@ -340,14 +340,14 @@ set(DRV_SRC
     ${CMAKE_BINARY_DIR}/driver/ldc-version.cpp
 )
 set(DRV_HDR
-    driver/linker.h
+    driver/cache.h
+    driver/cache_pruning.h
     driver/cl_options.h
     driver/codegenerator.h
     driver/configfile.h
     driver/exe_path.h
-    driver/ir2obj_cache.h
-    driver/ir2obj_cache_pruning.h
     driver/ldc-version.h
+    driver/linker.h
     driver/targetmachine.h
     driver/toobj.h
     driver/tool.h

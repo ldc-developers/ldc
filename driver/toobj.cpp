@@ -10,7 +10,7 @@
 #include "driver/toobj.h"
 
 #include "driver/cl_options.h"
-#include "driver/ir2obj_cache.h"
+#include "driver/cache.h"
 #include "driver/targetmachine.h"
 #include "driver/tool.h"
 #include "gen/irstate.h"

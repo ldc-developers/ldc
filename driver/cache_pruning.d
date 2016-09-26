@@ -1,4 +1,4 @@
-//===-- driver/ir2obj_cache_pruning.d -----------------------------*- D -*-===//
+//===-- driver/cache_pruning.d ------------------------------------*- D -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -18,7 +18,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-module driver.ir2obj_cache_pruning;
+module driver.cache_pruning;
 
 import std.file;
 import std.datetime: Clock, dur, Duration, SysTime;
@@ -104,7 +104,7 @@ struct CachePruner
         if (!hasPruneIntervalPassed())
             return;
 
-        // Only delete files that match ir2obj cache file naming.
+        // Only delete files that match LDC's cache file naming.
         // E.g.            "ircache_00a13b6f918d18f9f9de499fc661ec0d.o"
         auto filePattern = "ircache_????????????????????????????????.{o,obj}";
         auto cacheFiles = dirEntries(cachePath, filePattern, SpanMode.shallow, /+ followSymlink +/ false);
