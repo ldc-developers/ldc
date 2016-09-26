@@ -15,7 +15,7 @@ if((${CMAKE_SYSTEM_NAME} MATCHES "Linux") AND (${LDC_LLVM_VER} GREATER 307))
     string(REGEX REPLACE "[^0-9]*([0-9]+[0-9.]*).*" "\\1" GDB_VERSION "${GDB_VERSION}")
     message(STATUS "GDB ${GDB_VERSION} detected")
     if(GDB_VERSION VERSION_LESS "7.6.1")
-        set(gdb_flags "ON_NOTLS")
+        set(gdb_flags "NOTLS")
     else()
         set(gdb_flags "ON")
     endif()
@@ -33,7 +33,7 @@ function(add_testsuite config_name dflags model)
     add_test(NAME clean-${name}
         COMMAND ${CMAKE_COMMAND} -E remove_directory ${outdir})
 
-    string(CONCAT all_dflags ${dflags} ${gdb_dflags})
+    set(all_dflags "${dflags} ${gdb_dflags}")
 
     # The DFLAGS environment variable read by LDMD is used because the DMD
     # testsuite build system provides no way to run the test cases with a
