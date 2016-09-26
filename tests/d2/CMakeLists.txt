@@ -26,7 +26,7 @@ else()
     set(gdb_flags "OFF")
 endif()
 
-function(add_testsuite config_name dflags model)
+function(add_testsuite config_name dflags gdbflags model)
     set(name dmd-testsuite${config_name})
     set(outdir ${CMAKE_BINARY_DIR}/${name})
 
@@ -39,7 +39,7 @@ function(add_testsuite config_name dflags model)
     # testsuite build system provides no way to run the test cases with a
     # given set of flags without trying all combinations of them.
     add_test(NAME ${name}
-        COMMAND make -k -C ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite RESULTS_DIR=${outdir} DMD=${LDMD_EXE_FULL} DFLAGS=${all_dflags} MODEL=${model} GDB_FLAGS=${gdb_flags} quick
+        COMMAND make -k -C ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite RESULTS_DIR=${outdir} DMD=${LDMD_EXE_FULL} DFLAGS=${all_dflags} MODEL=${model} GDB_FLAGS=${gdbflags} quick
     )
     set_tests_properties(${name} PROPERTIES DEPENDS clean-${name})
 endfunction()
@@ -48,11 +48,11 @@ string(REGEX REPLACE "[^0-9]*([0-9]+[0-9.]*).*" "\\1" GDB_VERSION "${GDB_VERSION
 # Would like to specify the "-release" flag for release builds, but some of the
 # tests (e.g. 'testdstress') depend on contracts and invariants being active.
 # Need a solution integrated with d_do_test.
-add_testsuite("-debug" "-g -link-debuglib" ${host_model})
-add_testsuite("" -O3 ${host_model})
+add_testsuite("-debug" "-g -link-debuglib" "${gdb_flags}" ${host_model})
+add_testsuite("" -O3 "OFF" ${host_model})
 
 if(MULTILIB AND host_model EQUAL 64)
     # Also test in 32 bit mode on x86_64 multilib builds.
-    add_testsuite("-debug-32" "-g -link-debuglib" 32)
-    add_testsuite("-32" -O3 32)
+    add_testsuite("-debug-32" "-g -link-debuglib" "${gdb_flags}" 32)
+    add_testsuite("-32" -O3 "OFF" 32)
 endif()
