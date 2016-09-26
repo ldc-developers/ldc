@@ -40,12 +40,6 @@ public:
     memcpy(mapping, _mapping, sizeof(_mapping));
   }
 
-  /* void runPointerReplacePass() override {
-     //see http://llvm.org/docs/NVPTXUsage.html#address-spaces
-     int mapping[PSnum] = {5, 1, 3, 4, 0};
-     auto p = createPointerReplacePass(mapping);
-     p->runOnModule(*llm);
-   }*/
   void addMetadata() override {
     // sm version?
   }

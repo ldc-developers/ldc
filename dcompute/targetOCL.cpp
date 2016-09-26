@@ -54,6 +54,8 @@ public:
   void setGTargetMachine() override {
     gTargetMachine = nullptr;
   }
+    
+  //Adapted from clang
   void addMetadata() override {
     // opencl.ident?
     // spirv.Source // debug only
