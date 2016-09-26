@@ -6,22 +6,7 @@ elseif(${ptr_size} MATCHES "^8$")
     set(host_model 64)
 endif()
 
-function(add_testsuite config_name dflags model)
-    set(name dmd-testsuite${config_name})
-    set(outdir ${CMAKE_BINARY_DIR}/${name})
-
-    add_test(NAME clean-${name}
-        COMMAND ${CMAKE_COMMAND} -E remove_directory ${outdir})
-
-    # The DFLAGS environment variable read by LDMD is used because the DMD
-    # testsuite build system provides no way to run the test cases with a
-    # given set of flags without trying all combinations of them.
-    add_test(NAME ${name}
-        COMMAND make -k -C ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite RESULTS_DIR=${outdir} DMD=${LDMD_EXE_FULL} DFLAGS=${dflags} MODEL=${model} GDB_FLAGS=${gdb_flags} quick
-    )
-    set_tests_properties(${name} PROPERTIES DEPENDS clean-${name})
-endfunction()
-
+set(gdb_dflags "")
 if((${CMAKE_SYSTEM_NAME} MATCHES "Linux") AND (${LDC_LLVM_VER} GREATER 307))
     execute_process(COMMAND gdb --version
                     COMMAND head -n 1
@@ -34,19 +19,40 @@ if((${CMAKE_SYSTEM_NAME} MATCHES "Linux") AND (${LDC_LLVM_VER} GREATER 307))
     else()
         set(gdb_flags "ON")
     endif()
+    if(GDB_VERSION VERSION_LESS "7.8")
+        set(gdb_dflags "-dwarf-version=2")
+    endif()
 else()
     set(gdb_flags "OFF")
 endif()
+
+function(add_testsuite config_name dflags model)
+    set(name dmd-testsuite${config_name})
+    set(outdir ${CMAKE_BINARY_DIR}/${name})
+
+    add_test(NAME clean-${name}
+        COMMAND ${CMAKE_COMMAND} -E remove_directory ${outdir})
+
+    set(all_dflags ${dflags} ${gdb_dflags})
+
+    # The DFLAGS environment variable read by LDMD is used because the DMD
+    # testsuite build system provides no way to run the test cases with a
+    # given set of flags without trying all combinations of them.
+    add_test(NAME ${name}
+        COMMAND make -k -C ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite RESULTS_DIR=${outdir} DMD=${LDMD_EXE_FULL} DFLAGS=${all_dflags} MODEL=${model} GDB_FLAGS=${gdb_flags} quick
+    )
+    set_tests_properties(${name} PROPERTIES DEPENDS clean-${name})
+endfunction()
 
 string(REGEX REPLACE "[^0-9]*([0-9]+[0-9.]*).*" "\\1" GDB_VERSION "${GDB_VERSION}")
 # Would like to specify the "-release" flag for release builds, but some of the
 # tests (e.g. 'testdstress') depend on contracts and invariants being active.
 # Need a solution integrated with d_do_test.
-add_testsuite("-debug" "-g -dwarf-version=2 -link-debuglib" ${host_model})
+add_testsuite("-debug" "-g -link-debuglib" ${host_model})
 add_testsuite("" -O3 ${host_model})
 
 if(MULTILIB AND host_model EQUAL 64)
     # Also test in 32 bit mode on x86_64 multilib builds.
-    add_testsuite("-debug-32" "-gc -link-debuglib" 32)
+    add_testsuite("-debug-32" "-g -link-debuglib" 32)
     add_testsuite("-32" -O3 32)
 endif()
