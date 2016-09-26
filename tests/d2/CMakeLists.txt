@@ -17,11 +17,28 @@ function(add_testsuite config_name dflags model)
     # testsuite build system provides no way to run the test cases with a
     # given set of flags without trying all combinations of them.
     add_test(NAME ${name}
-        COMMAND make -k -C ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite RESULTS_DIR=${outdir} DMD=${LDMD_EXE_FULL} DFLAGS=${dflags} MODEL=${model} quick
+        COMMAND make -k -C ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite RESULTS_DIR=${outdir} DMD=${LDMD_EXE_FULL} DFLAGS=${dflags} MODEL=${model} GDB_FLAGS=${gdb_flags} quick
     )
     set_tests_properties(${name} PROPERTIES DEPENDS clean-${name})
 endfunction()
 
+if((${CMAKE_SYSTEM_NAME} MATCHES "Linux") AND (${LDC_LLVM_VER} GREATER 307))
+    execute_process(COMMAND gdb --version
+                    COMMAND head -n 1
+                    OUTPUT_VARIABLE GDB_VERSION
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    string(REGEX REPLACE "[^0-9]*([0-9]+[0-9.]*).*" "\\1" GDB_VERSION "${GDB_VERSION}")
+    message(STATUS "GDB ${GDB_VERSION} detected")
+    if(GDB_VERSION VERSION_LESS "7.6.1")
+        set(gdb_flags "ON_NOTLS")
+    else()
+        set(gdb_flags "ON")
+    endif()
+else()
+    set(gdb_flags "OFF")
+endif()
+
+string(REGEX REPLACE "[^0-9]*([0-9]+[0-9.]*).*" "\\1" GDB_VERSION "${GDB_VERSION}")
 # Would like to specify the "-release" flag for release builds, but some of the
 # tests (e.g. 'testdstress') depend on contracts and invariants being active.
 # Need a solution integrated with d_do_test.
