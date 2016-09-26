@@ -1351,16 +1351,9 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
         modules.push(m);
       version (IN_LLVM)
       {
-        // If `-run` is passed, the obj file is temporary and is removed after execution.
-        // Make sure the name does not collide with other files from other processes by
-        // creating a unique filename.
-        if (global.params.run)
-            m.makeObjectFilenameUnique();
-
         if (!global.params.oneobj || firstModuleObjectFileIndex == size_t.max)
         {
-            global.params.objfiles.push(m.objfile.name.str);
-            m.checkAndAddOutputFile(m.objfile);
+            global.params.objfiles.push(cast(const(char)*)m); // defer to a later stage after parsing
             if (firstModuleObjectFileIndex == size_t.max)
                 firstModuleObjectFileIndex = global.params.objfiles.dim - 1;
         }
@@ -1437,8 +1430,11 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
         if (!Module.rootModule)
             Module.rootModule = m;
         m.importedFrom = m; // m->isRoot() == true
+      version (IN_LLVM) {} else
+      {
         if (!global.params.oneobj || modi == 0 || m.isDocFile)
             m.deleteObjFile();
+      }
         static if (ASYNCREAD)
         {
             if (aw.read(filei))
@@ -1448,6 +1444,39 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
             }
         }
         m.parse();
+      version (IN_LLVM)
+      {
+        // Finalize output filenames. Update if `-oq` was specified (only feasible after parsing).
+        if (global.params.fullyQualifiedObjectFiles && m.md)
+        {
+            m.objfile = m.setOutfile(global.params.objname, global.params.objdir, m.arg, FileName.ext(m.objfile.name.str));
+            if (m.docfile)
+                m.setDocfile();
+            if (m.hdrfile)
+                m.hdrfile = m.setOutfile(global.params.hdrname, global.params.hdrdir, m.arg, global.hdr_ext);
+        }
+
+        // If `-run` is passed, the obj file is temporary and is removed after execution.
+        // Make sure the name does not collide with other files from other processes by
+        // creating a unique filename.
+        if (global.params.run)
+            m.makeObjectFilenameUnique();
+
+        // Set object filename in global.params.objfiles.
+        for (size_t j = 0; j < global.params.objfiles.dim; j++)
+        {
+            if ((*global.params.objfiles)[j] == cast(const(char)*)m)
+            {
+                (*global.params.objfiles)[j] = m.objfile.name.str;
+                if (!m.isDocFile)
+                    m.checkAndAddOutputFile(m.objfile);
+                break;
+            }
+        }
+
+        if (!global.params.oneobj || modi == 0 || m.isDocFile)
+            m.deleteObjFile();
+      }
         if (m.isDocFile)
         {
             anydocfiles = true;
