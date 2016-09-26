@@ -38,7 +38,6 @@
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
 #include "gen/uda.h"
-#include "dcompute/statementvisitor.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "llvm/IR/Intrinsics.h"
@@ -995,7 +994,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     defineParameters(irFty, *fd->parameters);
 
   // Initialize PGO state for this function
-  funcGen.pgo.assignRegionCounters(fd, irFunc->func);
+  if (!gDComputeTarget)
+    funcGen.pgo.assignRegionCounters(fd, irFunc->func);
 
   DtoCreateNestedContext(funcGen);
 
@@ -1023,16 +1023,13 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   // output function body
-  if (gDComputeTarget) {
-    Visitor* v = createDCopmuteToIRVisitor(gIR,gDComputeTarget);
-    fd->fbody->accept(v);
-    delete v;
-  } else {
+  if (!gDComputeTarget) {
     funcGen.pgo.emitCounterIncrement(fd->fbody);
     funcGen.pgo.setCurrentStmt(fd->fbody);
-    // output function body
-    Statement_toIR(fd->fbody, gIR);
   }
+  // output function body
+  Statement_toIR(fd->fbody, gIR, gDComputeTarget);
+
   //irFunc->scopes() = nullptr; //temp hack
   // erase alloca point
   if (allocaPoint->getParent()) {

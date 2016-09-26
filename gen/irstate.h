@@ -213,7 +213,7 @@ struct IRState {
 #endif
 };
 
-void Statement_toIR(Statement *s, IRState *irs);
+void Statement_toIR(Statement *s, IRState *irs,DComputeTarget *dct = nullptr);
 
 bool useMSVCEH();
 
