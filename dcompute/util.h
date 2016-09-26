@@ -13,6 +13,6 @@
 class Dsymbol;
 
 bool isFromDCompute_Types(Dsymbol *sym);
-bool isFromDCompute_Attributes(Dsymbol *sym);
+
 
 #endif

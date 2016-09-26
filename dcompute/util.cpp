@@ -34,19 +34,4 @@ bool isFromDCompute_Types(Dsymbol *sym) {
   return true;
 }
 
-bool isFromDCompute_Attributes(Dsymbol *sym) {
-  IF_LOG Logger::println("isFromDCompute_Attributes(%s)", sym->toPrettyChars());
-  auto mod = sym->getModule();
-  if (!mod)
-    return false;
-  auto moduleDecl = mod->md;
-  if (!moduleDecl)
-    return false;
-  if (moduleDecl->packages->dim != 2)
-    return false;
-  if (strcmp("dcompute", (*moduleDecl->packages)[0]->string))
-    return false;
-  if (strcmp("attributes", (*moduleDecl->packages)[1]->string))
-    return false;
-  return true;
-}
+
