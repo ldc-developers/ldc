@@ -18,7 +18,7 @@ class StringRef;
 template <unsigned> class SmallString;
 }
 
-namespace ir2obj {
+namespace cache {
 
 void calculateModuleHash(llvm::Module *m, llvm::SmallString<32> &str);
 std::string cacheLookup(llvm::StringRef cacheObjectHash);

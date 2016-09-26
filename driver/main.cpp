@@ -1131,7 +1131,7 @@ void codegenModules(Modules &modules) {
     }
   }
 
-  ir2obj::pruneCache();
+  cache::pruneCache();
 
   freeRuntime();
   llvm::llvm_shutdown();
