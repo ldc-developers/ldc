@@ -5,6 +5,7 @@
 // Create and then empty the cache for correct testing when running the test multiple times.
 // RUN: %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache \
 // RUN:   && %prunecache -f %T/flag1cache --max-bytes=1 \
+// RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache -g                               -vv | FileCheck --check-prefix=NO_HIT %s \
 // RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache                                  -vv | FileCheck --check-prefix=NO_HIT %s \
 // RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache -O                               -vv | FileCheck --check-prefix=NO_HIT %s \
 // RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache -O3                              -vv | FileCheck --check-prefix=MUST_HIT %s \
@@ -30,8 +31,8 @@
 // RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache -unittest                        -vv | FileCheck --check-prefix=MUST_HIT %s \
 // RUN:   && %ldc                  -ir2obj-cache=%T/flag1cache -vv -run %s                          | FileCheck --check-prefix=COULD_HIT %s \
 // RUN:   && %ldc                  -ir2obj-cache=%T/flag1cache -vv -run %s a b                      | FileCheck --check-prefix=MUST_HIT %s \
-// RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache                                  -vv | FileCheck --check-prefix=MUST_HIT %s
-// The last test is a MUST_HIT test, to make sure that the cache wasn't pruned somehow, which could effectively disable some NO_HIT tests.
+// RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache -g                               -vv | FileCheck --check-prefix=MUST_HIT %s
+// The last test is a MUST_HIT test (hits with the first compile invocation), to make sure that the cache wasn't pruned somehow which could effectively disable some NO_HIT tests.
 
 // MUST_HIT: Cache object found!
 // NO_HIT: Cache object not found.
