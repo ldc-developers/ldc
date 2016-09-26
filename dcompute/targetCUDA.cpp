@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "dcompute/target.h"
-#include "llvm/IR/metadata.h"
+#include "gen/metadata.h"
 #include "llvm/ADT/APint.h"
 #include "dcompute/abi.h"
 #include "gen/logger.h"
