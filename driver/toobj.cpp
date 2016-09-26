@@ -33,7 +33,9 @@
 #if LDC_LLVM_VER >= 307
 #include "llvm/Support/Path.h"
 #endif
+#if LDC_WITH_DCOMPUTE_SPIRV
 #include "llvm/Support/SPIRV.h"
+#endif
 #include "llvm/Target/TargetMachine.h"
 #if LDC_LLVM_VER >= 307
 #include "llvm/Analysis/TargetTransformInfo.h"
