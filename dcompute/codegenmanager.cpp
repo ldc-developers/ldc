@@ -12,6 +12,7 @@
 #include "driver/cl_options.h"
 #include "gen/cl_helpers.h"
 #include "llvm/Support/CommandLine.h"
+#include "ddmd/errors.h"
 #include <string>
 namespace cl = llvm::cl;
 static cl::list<std::string>
@@ -19,21 +20,23 @@ static cl::list<std::string>
                      cl::desc("DCompute targets to generate for:OpenCl "
                               "(ocl-xy0 for x.y) CUDA (cuda-xy0 for cc x.y)"),
                      cl::value_desc("ocl-210,cuda-350"));
-std::vector<DComputeCodeGenManager::target> DComputeCodeGenManager::clTargets =
-    {{1, 210}, {2, 350}};
+
 DComputeTarget *
 DComputeCodeGenManager::createComputeTarget(const std::string &s) {
   int v;
-  if (s.substr(0, 3) == "ocl") {
-    //TODO: validate version
+  if (s.substr(0, 4) == "ocl-") {
     v = atoi(s.c_str() + 4);
-    return createOCLTarget(ctx, v);
-  } else if (s.substr(0, 4) == "cuda") {
+    if (v==100||v==110||v==120||v==200||v==210||v==220) {
+      return createOCLTarget(ctx, v);
+    }
+  } else if (s.substr(0, 5) == "cuda-") {
     //TODO: validate version
     v = atoi(s.c_str() + 5);
     return createCUDATarget(ctx, v);
   }
-  // TODO: print an error msg
+  error(Loc(),"unrecognised or invalid DCompute targets: format is OpenCl "
+              "(ocl-xy0 for x.y) CUDA (cuda-xy0 for cc x.y)");
+  fatal();
   return nullptr;
 }
 

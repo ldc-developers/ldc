@@ -22,9 +22,7 @@ class DComputeCodeGenManager {
     int _version; // platform specific. OpenCL version we are pretending to be
                   // OR sm for CUDA
   };
-  // targets from the command line. Hard coded for now. TODO: do this properly.
-  // also SmallVector this
-  static std::vector<target> clTargets;
+
   llvm::LLVMContext &ctx;
   std::vector<DComputeTarget *> targets;
   DComputeTarget *createComputeTarget(const std::string &s);
