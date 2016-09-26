@@ -231,7 +231,6 @@ LLValue *DtoAllocaDump(LLValue *val, LLType *asType, int alignment,
                        const char *name) {
   LLType *memType = i1ToI8(voidToI8(val->getType()));
   LLType *asMemType = i1ToI8(voidToI8(asType));
-  IF_LOG Logger::cout() << "DtoAllocaDump: " << *memType << "\n" << *asMemType << '\n';
   LLType *allocaType =
       (getTypeStoreSize(memType) <= getTypeAllocSize(asMemType) ? asMemType
                                                                 : memType);
@@ -1763,7 +1762,6 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   if (ad->isStructDeclaration()) {
     st = getPtrToType(st);
   }
-
   src = DtoBitCast(src, st);
 
   // Look up field to index and any offset to apply.
@@ -1784,7 +1782,6 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   // Cast the (possibly void*) pointer to the canonical variable type.
   val = DtoBitCast(val, DtoPtrToType(vd->type));
 
-  IF_LOG Logger::cout() << "Value: " << *val << '\n';
   return val;
 }
 

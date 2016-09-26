@@ -1167,7 +1167,7 @@ void codegenModules(Modules &modules) {
     // sure these functions (added to members[0] by members[x>0]) are
     // codegenned.
     for (d_size_t i = modules.dim; i-- > 0;) {
-      Module * m = modules[i];
+      Module *const m = modules[i];
       if (global.params.verbose) {
         fprintf(global.stdmsg, "code      %s\n", m->toChars());
 

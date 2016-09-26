@@ -143,10 +143,10 @@ bool willCrossModuleInline() {
 #if LDC_LLVM_VER >= 307
   return enableCrossModuleInlining == llvm::cl::BOU_TRUE;
 #else
-  // Cross-module inlining is disabled for <3.7 because we don't emit symbols in
-  // COMDAT any groups pre-LLVM3.7. With cross-module inlining enabled, without
-  // COMDAT any there are multiple-def linker errors when linking druntime.
-  // See supportsCOMDAT().
+// Cross-module inlining is disabled for <3.7 because we don't emit symbols in
+// COMDAT any groups pre-LLVM3.7. With cross-module inlining enabled, without
+// COMDAT any there are multiple-def linker errors when linking druntime.
+// See supportsCOMDAT().
   return false;
 #endif
 }
@@ -345,9 +345,9 @@ static void addOptimizationPasses(PassManagerBase &mpm,
 // This function runs optimization passes based on command line arguments.
 // Returns true if any optimization passes were invoked.
 bool ldc_optimize_module(llvm::Module *M) {
-  // Create a PassManager to hold and optimize the collection of
-  // per-module passes we are about to build.
-  // dont optimise spirv modules as turning GEPs into extracts causes crashes.
+// Create a PassManager to hold and optimize the collection of
+// per-module passes we are about to build.
+// dont optimise spirv modules as turning GEPs into extracts causes crashes.
   llvm::Triple::ArchType a = llvm::Triple(M->getTargetTriple()).getArch();
   bool isSpirv = a == Triple::spir || a == Triple::spir64;
   if(isSpirv)
@@ -443,7 +443,6 @@ bool ldc_optimize_module(llvm::Module *M) {
   }
 
   // Report that we run some passes.
-
   return true;
 }
 

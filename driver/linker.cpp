@@ -155,7 +155,7 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
     if (s.endswith(".spv") || s.endswith(".ptx")) {
       continue;
     }
-    args.push_back(std::string(p));
+    args.push_back(p);
   }
 
   // Link with profile-rt library when generating an instrumented binary.

@@ -35,9 +35,6 @@
 #include "ir/irtypefunction.h"
 #include "ir/irtypestruct.h"
 
-#include "dcompute/util.h"
-#include "template.h"
-
 bool DtoIsInMemoryOnly(Type *type) {
   Type *typ = type->toBasetype();
   TY t = typ->ty;
@@ -204,9 +201,7 @@ LLType *DtoType(Type *t) {
 
 LLType *DtoMemType(Type *t) { return i1ToI8(voidToI8(DtoType(t))); }
 
-LLPointerType *DtoPtrToType(Type *t) {
-  return DtoMemType(t)->getPointerTo();
-}
+LLPointerType *DtoPtrToType(Type *t) { return DtoMemType(t)->getPointerTo(); }
 
 LLType *voidToI8(LLType *t) {
   if (t == LLType::getVoidTy(gIR->context())) {

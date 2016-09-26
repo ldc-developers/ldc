@@ -24,8 +24,7 @@ Dstring traitsGetTargetCPU() {
 
 bool traitsTargetHasFeature(Dstring feature) {
 #if LDC_LLVM_VER < 307
-  // LLVM below 3.7 does not provide the necessary means to obtain the needed
-  // information,
+  // LLVM below 3.7 does not provide the necessary means to obtain the needed information,
   // return the safe "feature not enabled".
   return false;
 #else
