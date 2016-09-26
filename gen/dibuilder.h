@@ -138,13 +138,13 @@ public:
   /// variable vd.
   /// \param ll       LLVM Value of the variable.
   /// \param vd       Variable declaration to emit debug info for.
-  /// \param type     Type of parameter if diferent from vd->type
+  /// \param type     Type of parameter if different from vd->type
   /// \param isThisPtr Parameter is hidden this pointer
-  /// \param fromNested Is a closure variable accessed through nest_arg
+  /// \param bool rewrittenToLocal Parameter is copied to local stack frame/closure
   /// \param addr     An array of complex address operations.
   void
   EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd, Type *type = nullptr,
-                    bool isThisPtr = false, bool fromNested = false,
+                    bool isThisPtr = false, bool rewrittenToLocal = false,
 #if LDC_LLVM_VER >= 306
                     llvm::ArrayRef<int64_t> addr = llvm::ArrayRef<int64_t>()
 #else
@@ -172,13 +172,13 @@ private:
                ldc::DIExpression diexpr
 #endif
                );
-  void AddBaseFields(ClassDeclaration *sd, ldc::DIFile file,
+  void AddFields(AggregateDeclaration *sd, ldc::DIFile file,
 #if LDC_LLVM_VER >= 306
-                     llvm::SmallVector<llvm::Metadata *, 16> &elems
+                 llvm::SmallVector<llvm::Metadata *, 16> &elems
 #else
-                     llvm::SmallVector<llvm::Value *, 16> &elems
+                 llvm::SmallVector<llvm::Value *, 16> &elems
 #endif
-                     );
+                 );
   DIFile CreateFile(Loc &loc);
   DIFile CreateFile();
   DIType CreateBasicType(Type *type);
