@@ -1,4 +1,4 @@
-//===-- driver/ir2obj_cache.cpp -------------------------------------------===//
+//===-- driver/cache.cpp --------------------------------------------------===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -27,12 +27,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "driver/ir2obj_cache.h"
+#include "driver/cache.h"
 
 #include "ddmd/errors.h"
+#include "driver/cache_pruning.h"
 #include "driver/cl_options.h"
 #include "driver/ldc-version.h"
-#include "driver/ir2obj_cache_pruning.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"
 

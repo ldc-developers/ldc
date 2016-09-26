@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Prunes the ir2obj cache.
+// Prunes LDC's cache.
 //
 // TODO: Let the commandline parameters accept units, e.g.
 //       `--interval=30m`, or `--max-bytes=5GB`.
@@ -20,7 +20,7 @@ import std.stdio;
 import std.getopt;
 import std.file: isDir;
 
-import driver.ir2obj_cache_pruning;
+import driver.cache_pruning;
 
 // System exit codes:
 enum EX_OK = 0;
