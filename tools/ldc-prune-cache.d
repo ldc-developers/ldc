@@ -65,7 +65,7 @@ OVERVIEW: LDC-PRUNE-CACHE
 
 USAGE: ldc-prune-cache [OPTION]... PATH
   PATH should be a directory where LDC has placed its object files cache (see
-  LDC's --ir2obj-cache option).
+  LDC's -cache option).
 
 OPTIONS:
   --expiration=<dur>     Sets the pruning expiration time of cache files to

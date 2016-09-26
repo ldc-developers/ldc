@@ -1,7 +1,7 @@
-// Test recognition of -ir2obj-cache commandline flag
+// Test recognition of -cache commandline flag
 
-// RUN: %ldc -ir2obj-cache=%T/cachedirectory %s -vv | FileCheck --check-prefix=FIRST %s \
-// RUN: && %ldc -ir2obj-cache=%T/cachedirectory %s -vv | FileCheck --check-prefix=SECOND %s
+// RUN: %ldc -cache=%T/cachedirectory %s -vv | FileCheck --check-prefix=FIRST %s \
+// RUN: && %ldc -cache=%T/cachedirectory %s -vv | FileCheck --check-prefix=SECOND %s
 
 
 // FIRST: Use IR-to-Object cache in {{.*}}cachedirectory
