@@ -23,7 +23,7 @@ void emitCoverageLinecountInc(Loc &loc) {
     return;
   }
   //Never generate line coverage for dcompute
-  if (gDcomputeTarget) {
+  if (gDComputeTarget) {
     return;
   }
   const unsigned line = loc.linnum - 1; // convert to 0-based line# index
