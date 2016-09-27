@@ -912,9 +912,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     }
 
     irLocal->value = allocainst;
-    if (!gDComputeTarget) {
-      gIR->DBuilder.EmitLocalVariable(allocainst, vd);
-    }
+    gIR->DBuilder.EmitLocalVariable(allocainst, vd);
     
   }
 

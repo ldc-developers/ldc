@@ -869,9 +869,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   IrFunction *irFunc = getIrFunc(fd);
 
   // debug info
-  if (!gDComputeTarget) {
-    irFunc->diSubprogram = gIR->DBuilder.EmitSubProgram(fd);
-  }
+  irFunc->diSubprogram = gIR->DBuilder.EmitSubProgram(fd);
+
 
   if (!fd->fbody) {
     return;
