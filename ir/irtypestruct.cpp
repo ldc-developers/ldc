@@ -22,6 +22,7 @@
 #include "gen/llvmhelpers.h"
 
 #include "dcompute/util.h"
+#include "dcompute/target.h"
 #include "template.h"
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
@@ -50,12 +51,13 @@ IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
     // contains an align declaration. See issue 726.
     t->packed = isPacked(sd);
   }
-  IF_LOG Logger::println("gDComputeTarget = %p , isFromDCompute_Types = %d sd->ident->string = %s",gDComputeTarget,isFromDCompute_Types(sd),sd->ident->string);
+  //For dcompte.types.Pointer!(uint n,T), emit { T addrspace(gDComputeTarget->mapping[n])* }
   if (gDComputeTarget != nullptr && isFromDCompute_Types(sd) && !strcmp(sd->ident->string,"Pointer")) {
       TemplateInstance *ti = sd->isInstantiated();
       Type *T =isType((*ti->tiargs)[1]);
       int addrspace = isExpression((*ti->tiargs)[0])->toInteger();
-      llvm::SmallVector<llvm::Type *, 1> x; x.push_back(DtoMemType(T)->getPointerTo(addrspace));
+      int realAS = gDComputeTarget->mapping[addrspace];
+      llvm::SmallVector<llvm::Type *, 1> x; x.push_back(DtoMemType(T)->getPointerTo(realAS));
       isaStruct(t->type)->setBody(x,t->packed);
       VarGEPIndices v;
       v[sd->fields[0]] = 0;
