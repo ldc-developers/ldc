@@ -151,6 +151,10 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
   // object files
   for (unsigned i = 0; i < global.params.objfiles->dim; i++) {
     const char *p = static_cast<const char *>(global.params.objfiles->data[i]);
+    llvm::SmallString<24> s(p);
+    if (s.endswith(".spv") || s.endswith(".ptx")) {
+      continue;
+    }
     args.push_back(p);
   }
 

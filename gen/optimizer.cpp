@@ -347,6 +347,11 @@ static void addOptimizationPasses(PassManagerBase &mpm,
 bool ldc_optimize_module(llvm::Module *M) {
 // Create a PassManager to hold and optimize the collection of
 // per-module passes we are about to build.
+// dont optimise spirv modules as turning GEPs into extracts causes crashes.
+  llvm::Triple::ArchType a = llvm::Triple(M->getTargetTriple()).getArch();
+  bool isSpirv = a == Triple::spir || a == Triple::spir64;
+  if(isSpirv)
+    return false;
 #if LDC_LLVM_VER >= 307
   legacy::
 #endif
@@ -388,7 +393,11 @@ bool ldc_optimize_module(llvm::Module *M) {
                                            "DataLayout not set at module");
                                     mpm.add(new DataLayoutPass(*DL));
 #endif
-
+// Also set up a manager for the per-function passes.
+#if LDC_LLVM_VER >= 307
+  legacy::
+#endif
+      FunctionPassManager fpm(M);
 #if LDC_LLVM_VER >= 307
   // Add internal analysis passes from the target machine.
   mpm.add(createTargetTransformInfoWrapperPass(
@@ -397,12 +406,6 @@ bool ldc_optimize_module(llvm::Module *M) {
   // Add internal analysis passes from the target machine.
   gTargetMachine->addAnalysisPasses(mpm);
 #endif
-
-// Also set up a manager for the per-function passes.
-#if LDC_LLVM_VER >= 307
-  legacy::
-#endif
-      FunctionPassManager fpm(M);
 
 #if LDC_LLVM_VER >= 307
   // Add internal analysis passes from the target machine.

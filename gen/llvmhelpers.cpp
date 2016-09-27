@@ -912,8 +912,8 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     }
 
     irLocal->value = allocainst;
-
     gIR->DBuilder.EmitLocalVariable(allocainst, vd);
+    
   }
 
   IF_LOG Logger::cout() << "llvm value for decl: " << *getIrLocal(vd)->value

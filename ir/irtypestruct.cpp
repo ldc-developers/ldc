@@ -21,6 +21,9 @@
 #include "gen/logger.h"
 #include "gen/llvmhelpers.h"
 
+#include "dcompute/util.h"
+#include "dcompute/target.h"
+#include "template.h"
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
@@ -48,12 +51,25 @@ IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
     // contains an align declaration. See issue 726.
     t->packed = isPacked(sd);
   }
+  //For dcompte.types.Pointer!(uint n,T), emit { T addrspace(gDComputeTarget->mapping[n])* }
+  if (gDComputeTarget != nullptr && isFromDCompute_Types(sd) && !strcmp(sd->ident->string,"Pointer")) {
+      TemplateInstance *ti = sd->isInstantiated();
+      Type *T =isType((*ti->tiargs)[1]);
+      int addrspace = isExpression((*ti->tiargs)[0])->toInteger();
+      int realAS = gDComputeTarget->mapping[addrspace];
+      llvm::SmallVector<llvm::Type *, 1> x; x.push_back(DtoMemType(T)->getPointerTo(realAS));
+      isaStruct(t->type)->setBody(x,t->packed);
+      VarGEPIndices v;
+      v[sd->fields[0]] = 0;
+      t->varGEPIndices = v;
+  } else {
+      AggrTypeBuilder builder(t->packed);
+      builder.addAggregate(sd);
+      builder.addTailPadding(sd->structsize);
+      isaStruct(t->type)->setBody(builder.defaultTypes(), t->packed);
+      t->varGEPIndices = builder.varGEPIndices();
 
-  AggrTypeBuilder builder(t->packed);
-  builder.addAggregate(sd);
-  builder.addTailPadding(sd->structsize);
-  isaStruct(t->type)->setBody(builder.defaultTypes(), t->packed);
-  t->varGEPIndices = builder.varGEPIndices();
+  }
 
   IF_LOG Logger::cout() << "final struct type: " << *t->type << std::endl;
 

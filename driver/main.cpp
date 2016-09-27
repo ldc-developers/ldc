@@ -19,6 +19,7 @@
 #include "root.h"
 #include "scope.h"
 #include "ddmd/target.h"
+#include "dcompute/codegenmanager.h"
 #include "driver/cl_options.h"
 #include "driver/codegenerator.h"
 #include "driver/configfile.h"
@@ -40,6 +41,7 @@
 #include "gen/passes/Passes.h"
 #include "gen/runtime.h"
 #include "gen/abi.h"
+#include "gen/uda.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/Support/FileSystem.h"
@@ -64,7 +66,7 @@
 #if _WIN32
 #include <windows.h>
 #endif
-
+#include <vector>
 // Needs Type already declared.
 #include "cond.h"
 
@@ -303,6 +305,14 @@ void hideLLVMOptions() {
   hide(map, "sample-profile-max-propagate-iterations");
   hide(map, "shrink-wrap");
   hide(map, "spiller");
+#if LDC_WITH_DCOMPUTE_SPIRV
+  hide(map, "spirv-debug");
+  hide(map, "spirv-erase-cl-md");
+  hide(map, "spirv-lower-const-expr");
+  hide(map, "spirv-mem2reg");
+  hide(map, "spirv-text");
+  hide(map, "spvbool-validate");
+#endif
   hide(map, "stackmap-version");
   hide(map, "stats");
   hide(map, "strip-debug");
@@ -850,14 +860,6 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("SPARC64");
     registerPredefinedFloatABI("SPARC_SoftFloat", "SPARC_HardFloat");
     break;
-  case llvm::Triple::nvptx:
-    VersionCondition::addPredefinedGlobalIdent("NVPTX");
-    VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
-    break;
-  case llvm::Triple::nvptx64:
-    VersionCondition::addPredefinedGlobalIdent("NVPTX64");
-    VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
-    break;
   case llvm::Triple::systemz:
     VersionCondition::addPredefinedGlobalIdent("SystemZ");
     VersionCondition::addPredefinedGlobalIdent(
@@ -972,7 +974,7 @@ void registerPredefinedVersions() {
   VersionCondition::addPredefinedGlobalIdent("LDC");
   VersionCondition::addPredefinedGlobalIdent("all");
   VersionCondition::addPredefinedGlobalIdent("D_Version2");
-
+  VersionCondition::addPredefinedGlobalIdent("D_DCompute");
   if (global.params.doDocComments) {
     VersionCondition::addPredefinedGlobalIdent("D_Ddoc");
   }
@@ -1151,6 +1153,8 @@ void codegenModules(Modules &modules) {
   // Generate one or more object/IR/bitcode files.
   if (global.params.obj && !modules.empty()) {
     ldc::CodeGenerator cg(getGlobalContext(), global.params.oneobj);
+    DComputeCodeGenManager dccg(getGlobalContext());
+    std::vector<Module *> compute_modules;
 
     // When inlining is enabled, we are calling semantic3 on function
     // declarations, which may _add_ members to the first module in the modules
@@ -1165,10 +1169,24 @@ void codegenModules(Modules &modules) {
       if (global.params.verbose)
         fprintf(global.stdmsg, "code      %s\n", m->toChars());
 
-      cg.emit(m);
-
+      bool atCompute = hasComputeAttr(m);
+      IF_LOG Logger::println("Module %s is%s @compute (%d)", m->toChars(),
+                             atCompute ? "" : " not", atCompute);
+      if (atCompute) {
+        compute_modules.push_back(m);
+      } else {
+        cg.emit(m);
+      }
       if (global.errors)
         fatal();
+    }   
+    IF_LOG Logger::println("number of Modules for computecodgenning %d",
+                           compute_modules.size());
+    if (compute_modules.size()) {
+      for (int i = 0; i < compute_modules.size(); i++) {
+        dccg.emit(compute_modules[i]);
+      }
+      dccg.writeModules();
     }
   }
 

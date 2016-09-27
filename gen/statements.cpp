@@ -12,6 +12,7 @@
 #include "module.h"
 #include "mtype.h"
 #include "port.h"
+#include "dcompute/target.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
@@ -86,9 +87,10 @@ static LLValue *call_string_switch_runtime(llvm::Value *table, Expression *e) {
 
 class ToIRVisitor : public Visitor {
   IRState *irs;
-
+  DComputeTarget *dct;
+    
 public:
-  explicit ToIRVisitor(IRState *irs) : irs(irs) {}
+  explicit ToIRVisitor(IRState *irs,DComputeTarget *dct) : irs(irs),dct(dct) {}
 
   //////////////////////////////////////////////////////////////////////////
 
@@ -117,13 +119,13 @@ public:
   void visit(ReturnStatement *stmt) LLVM_OVERRIDE {
     IF_LOG Logger::println("ReturnStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
-
+    
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
-
+    
     // emit dwarf stop point
     irs->DBuilder.EmitStopPoint(stmt->loc);
-
+    
     emitCoverageLinecountInc(stmt->loc);
 
     // The LLVM value to return, or null for void returns.
@@ -291,7 +293,7 @@ public:
   void visit(ExpStatement *stmt) LLVM_OVERRIDE {
     IF_LOG Logger::println("ExpStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
-
+    
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
@@ -333,7 +335,23 @@ public:
     if (stmt->match) {
       DtoRawVarDeclaration(stmt->match);
     }
-
+    // This is a (dirty) hack to get codegen time conditional
+    // compilation, on account of the fact that we are trying
+    // to target multiple backends "simultaneously" with one
+    // pass through the front end.
+    if (dct && stmt->condition->op == TOKcall) {
+      auto ce = (CallExp *)stmt->condition;
+      if (!strcmp(ce->f->ident->string, "__dcompute_reflect")) {
+        auto arg1 = (*ce->arguments)[0]->toInteger();
+        auto arg2 = (*ce->arguments)[1]->toInteger();
+        if (arg1 == dct->target && (!arg2 || arg2 == dct->tversion)) {
+          stmt->ifbody->accept(this);
+        } else if (stmt->elsebody) {
+          stmt->elsebody->accept(this);
+        }
+        return;
+      }
+    }
     DValue *cond_e = toElemDtor(stmt->condition);
     LLValue *cond_val = DtoRVal(cond_e);
 
@@ -434,7 +452,7 @@ public:
     {
       auto loopcount = PGO.getRegionCount(stmt);
       auto brweights =
-          PGO.createProfileWeightsWhileLoop(stmt->condition, loopcount);
+      PGO.createProfileWeightsWhileLoop(stmt->condition, loopcount);
       PGO.addBranchWeights(branchinst, brweights);
     }
 
@@ -531,10 +549,10 @@ public:
 
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
-
+    
     // start new dwarf lexical block
     irs->DBuilder.EmitBlockStart(stmt->loc);
-
+      
     // create for blocks
     llvm::BasicBlock *forbb = irs->insertBB("forcond");
     llvm::BasicBlock *forbodybb = irs->insertBBAfter(forbb, "forbody");
@@ -703,7 +721,10 @@ public:
   }
 
   //////////////////////////////////////////////////////////////////////////
-
+  //TODO: for dcompute change this to
+  // trystmts;
+  // finallystmts;
+  // as this is still useful for lowering scope(exit)
   void visit(TryFinallyStatement *stmt) LLVM_OVERRIDE {
     IF_LOG Logger::println("TryFinallyStatement::toIR(): %s",
                            stmt->loc.toChars());
@@ -774,6 +795,10 @@ public:
     IF_LOG Logger::println("TryCatchStatement::toIR(): %s",
                            stmt->loc.toChars());
     LOG_SCOPE;
+    if(dct) {
+      stmt->error("ne exceptions in @compute code");
+      return;
+    }
 
     auto &PGO = irs->funcGen().pgo;
 
@@ -815,6 +840,10 @@ public:
     IF_LOG Logger::println("ThrowStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
+    if(dct) {
+      stmt->error("ne exceptions in @compute code");
+      return;
+    }
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
@@ -873,7 +902,10 @@ public:
     const bool isStringSwitch = !stmt->condition->type->isintegral();
     if (isStringSwitch) {
       Logger::println("is string switch");
-
+      if (dct) {
+        stmt->error("cannot switch on strings in @compute code");
+        return;
+      }
       // Sort the cases, taking care not to modify the original AST.
       cases = cases->copy();
       std::sort(cases->begin(), cases->end(), compareCaseStrings);
@@ -954,8 +986,9 @@ public:
       // For PGO instrumentation, we need to add counters /before/ the case
       // statement bodies, because the counters should only count the jumps
       // directly from the switch statement and not "goto default", etc.
+      // never generate PGO code for dcompute.
       llvm::SwitchInst *si;
-      if (!global.params.genInstrProf) {
+      if (!global.params.genInstrProf && !dct) {
         si = llvm::SwitchInst::Create(condVal, defaultTargetBB, caseCount,
                                       irs->scopebb());
         for (size_t i = 0; i < caseCount; ++i) {
@@ -1014,7 +1047,7 @@ public:
       llvm::BasicBlock *nextbb = irs->insertBBBefore(endbb, "checkcase");
       llvm::BranchInst::Create(nextbb, irs->scopebb());
 
-      if (global.params.genInstrProf) {
+      if (global.params.genInstrProf && !dct) {
         // Prepend extra BB to "default:" to increment profiling counter.
         llvm::BasicBlock *defaultcntr =
             irs->insertBBBefore(defaultTargetBB, "defaultcntr");
@@ -1125,11 +1158,13 @@ public:
     irs->scope() = IRScope(body);
 
     assert(stmt->statement);
+
     irs->DBuilder.EmitBlockStart(stmt->statement->loc);
     emitCoverageLinecountInc(stmt->loc);
     if (stmt->gototarget) {
       PGO.emitCounterIncrement(PGO.getCounterPtr(stmt, 1));
     }
+    
     stmt->statement->accept(this);
     irs->DBuilder.EmitBlockEnd();
   }
@@ -1216,7 +1251,7 @@ public:
 
     // start a dwarf lexical block
     irs->DBuilder.EmitBlockStart(stmt->loc);
-
+      
     // assert(arguments->dim == 1);
     assert(stmt->value != 0);
     assert(stmt->aggr != 0);
@@ -1505,7 +1540,6 @@ public:
     irs->DBuilder.EmitStopPoint(stmt->loc);
 
     emitCoverageLinecountInc(stmt->loc);
-
     DtoGoto(stmt->loc, stmt->label);
 
     // TODO: Should not be needed.
@@ -1599,7 +1633,12 @@ public:
     IF_LOG Logger::println("SwitchErrorStatement::toIR(): %s",
                            stmt->loc.toChars());
     LOG_SCOPE;
-
+      
+    //This uses a runtime function and therefore cannot be used
+    //TODO: what causes a SwitchErrorStatement to be emitted? Find
+    // out what the appripriate thing to do is for @compute code.
+    if(dct) return;
+    
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
@@ -1618,11 +1657,17 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(AsmStatement *stmt) LLVM_OVERRIDE { AsmStatement_toIR(stmt, irs); }
+  void visit(AsmStatement *stmt) LLVM_OVERRIDE {
+      if(dct)
+        stmt->error("no asm statements allowed in @compute code");
+      AsmStatement_toIR(stmt, irs);
+  }
 
   //////////////////////////////////////////////////////////////////////////
 
   void visit(CompoundAsmStatement *stmt) LLVM_OVERRIDE {
+    if(dct)
+      stmt->error("no asm statements allowed in @compute code");
     CompoundAsmStatement_toIR(stmt, irs);
   }
 
@@ -1651,7 +1696,7 @@ public:
 
 //////////////////////////////////////////////////////////////////////////////
 
-void Statement_toIR(Statement *s, IRState *irs) {
-  ToIRVisitor v(irs);
+void Statement_toIR(Statement *s, IRState *irs, DComputeTarget *dct) {
+  ToIRVisitor v(irs,dct);
   s->accept(&v);
 }

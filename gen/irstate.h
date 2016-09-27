@@ -38,11 +38,13 @@ class IndexedInstrProfReader;
 class FuncGenState;
 struct IRState;
 struct TargetABI;
+class DComputeTarget;
 
 extern IRState *gIR;
 extern llvm::TargetMachine *gTargetMachine;
 extern const llvm::DataLayout *gDataLayout;
 extern TargetABI *gABI;
+extern DComputeTarget *gDComputeTarget;
 
 class TypeFunction;
 class TypeStruct;
@@ -211,7 +213,7 @@ struct IRState {
 #endif
 };
 
-void Statement_toIR(Statement *s, IRState *irs);
+void Statement_toIR(Statement *s, IRState *irs,DComputeTarget *dct = nullptr);
 
 bool useMSVCEH();
 

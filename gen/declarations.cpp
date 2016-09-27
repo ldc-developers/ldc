@@ -15,6 +15,7 @@
 #include "nspace.h"
 #include "rmem.h"
 #include "template.h"
+#include "dcompute/target.h"
 #include "gen/classes.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
@@ -112,9 +113,9 @@ bool isSpeculativeType(Type *t) {
 
 class CodegenVisitor : public Visitor {
   IRState *irs;
-
+  DComputeTarget *dct;
 public:
-  explicit CodegenVisitor(IRState *irs) : irs(irs) {}
+  explicit CodegenVisitor(IRState *irs,DComputeTarget *dct) : irs(irs),dct(dct) {}
 
   //////////////////////////////////////////////////////////////////////////
 
@@ -143,6 +144,10 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(InterfaceDeclaration *decl) LLVM_OVERRIDE {
+    if (dct)  {
+      decl->error("Interfaces not allowed in @compute code");
+      return;
+    }
     IF_LOG Logger::println("InterfaceDeclaration::codegen: '%s'",
                            decl->toPrettyChars());
     LOG_SCOPE
@@ -205,14 +210,17 @@ public:
       m->accept(this);
     }
 
-    // Define the __initZ symbol.
-    IrAggr *ir = getIrAggr(decl);
-    llvm::GlobalVariable *initZ = ir->getInitSymbol();
-    initZ->setInitializer(ir->getDefaultInit());
-    setLinkage(decl, initZ);
+    if (!dct) {
+      // Define the __initZ symbol.
+      IrAggr *ir = getIrAggr(decl);
+      llvm::GlobalVariable *initZ = ir->getInitSymbol();
+      initZ->setInitializer(ir->getDefaultInit());
+      setLinkage(decl, initZ);
+    }
+
 
     // emit typeinfo
-    DtoTypeInfoOf(decl->type);
+    if(!dct) DtoTypeInfoOf(decl->type);
 
     // Emit __xopEquals/__xopCmp/__xtoHash.
     if (decl->xeq && decl->xeq != decl->xerreq) {
@@ -229,6 +237,10 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(ClassDeclaration *decl) LLVM_OVERRIDE {
+    if (dct)  {
+      decl->error("Classes not allowed in @compute code");
+      return;
+    }
     IF_LOG Logger::println("ClassDeclaration::codegen: '%s'",
                            decl->toPrettyChars());
     LOG_SCOPE
@@ -321,6 +333,10 @@ public:
 
     // global variable
     if (decl->isDataseg()) {
+      if (dct)  {
+        decl->error("global variables currently not allowed in @compute code");
+        return;
+      }
       Logger::println("data segment");
 
       assert(!(decl->storage_class & STCmanifest) &&
@@ -407,6 +423,13 @@ public:
     // don't touch function aliases, they don't contribute any new symbols
     if (!decl->isFuncAliasDeclaration()) {
       DtoDefineFunction(decl);
+      if(dct) {
+        auto fn = irs->module.getFunction(decl->mangleString);
+        if (hasKernelAttr(decl)) {
+          dct->handleKernelFunc(decl, fn);
+        } else
+          dct->handleNonKernelFunc(decl,fn);
+        }
     }
   }
 
@@ -488,6 +511,10 @@ public:
 
   void visit(PragmaDeclaration *decl) LLVM_OVERRIDE {
     if (decl->ident == Id::lib) {
+      if (dct) {
+        decl->error("pragma(lib, \"...\" not currently allowed in @compute code");
+        return;
+      }
       assert(decl->args && decl->args->dim == 1);
 
       Expression *e = static_cast<Expression *>(decl->args->data[0]);
@@ -550,7 +577,7 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(TypeInfoDeclaration *decl) LLVM_OVERRIDE {
-    if (isSpeculativeType(decl->tinfo)) {
+    if (isSpeculativeType(decl->tinfo) || dct) {
       return;
     }
     TypeInfoDeclaration_codegen(decl, irs);
@@ -559,7 +586,7 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(TypeInfoClassDeclaration *decl) LLVM_OVERRIDE {
-    if (isSpeculativeType(decl->tinfo)) {
+    if (isSpeculativeType(decl->tinfo) || dct) {
       return;
     }
     TypeInfoClassDeclaration_codegen(decl, irs);
@@ -569,12 +596,12 @@ public:
 //////////////////////////////////////////////////////////////////////////////
 
 void Declaration_codegen(Dsymbol *decl) {
-  CodegenVisitor v(gIR);
+  CodegenVisitor v(gIR,gDComputeTarget);
   decl->accept(&v);
 }
 
-void Declaration_codegen(Dsymbol *decl, IRState *irs) {
-  CodegenVisitor v(irs);
+void Declaration_codegen(Dsymbol *decl, IRState *irs, DComputeTarget *dct) {
+  CodegenVisitor v(irs,dct);
   decl->accept(&v);
 }
 

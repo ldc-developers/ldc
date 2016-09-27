@@ -733,7 +733,7 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
       ++llArgIdx;
     }
 
-    if (global.params.symdebug)
+    if (global.params.symdebug && !gDComputeTarget)
       gIR->DBuilder.EmitLocalVariable(irparam->value, vd, paramType, false, rewrittenToLocal);
   }
 }
@@ -871,6 +871,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // debug info
   irFunc->diSubprogram = gIR->DBuilder.EmitSubProgram(fd);
 
+
   if (!fd->fbody) {
     return;
   }
@@ -893,25 +894,27 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   } else {
     setLinkage(lwc, func);
   }
-
-  // On x86_64, always set 'uwtable' for System V ABI compatibility.
-  // TODO: Find a better place for this.
-  // TODO: Is this required for Win64 as well?
-  if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
-    func->addFnAttr(LLAttribute::UWTable);
-  }
-  if (opts::sanitize != opts::None) {
-    // Set the required sanitizer attribute.
-    if (opts::sanitize == opts::AddressSanitizer) {
-      func->addFnAttr(LLAttribute::SanitizeAddress);
+  //Exploratory hack to get templates working
+  if (!gDComputeTarget) {
+    // On x86_64, always set 'uwtable' for System V ABI compatibility.
+    // TODO: Find a better place for this.
+    // TODO: Is this required for Win64 as well?
+    if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
+        func->addFnAttr(LLAttribute::UWTable);
     }
-
-    if (opts::sanitize == opts::MemorySanitizer) {
-      func->addFnAttr(LLAttribute::SanitizeMemory);
-    }
-
-    if (opts::sanitize == opts::ThreadSanitizer) {
-      func->addFnAttr(LLAttribute::SanitizeThread);
+    if (opts::sanitize != opts::None) {
+      // Set the required sanitizer attribute.
+      if (opts::sanitize == opts::AddressSanitizer) {
+        func->addFnAttr(LLAttribute::SanitizeAddress);
+      }
+      
+      if (opts::sanitize == opts::MemorySanitizer) {
+        func->addFnAttr(LLAttribute::SanitizeMemory);
+      }
+      
+      if (opts::sanitize == opts::ThreadSanitizer) {
+        func->addFnAttr(LLAttribute::SanitizeThread);
+      }
     }
   }
 
@@ -931,9 +934,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // this gets erased when the function is complete, so alignment etc does not
   // matter at all
   llvm::Instruction *allocaPoint = new llvm::AllocaInst(
-      LLType::getInt32Ty(gIR->context()), "alloca point", beginbb);
+    LLType::getInt32Ty(gIR->context()), "allocaPoint", beginbb);
   funcGen.allocapoint = allocaPoint;
-
+  
   // debug info - after all allocas, but before any llvm.dbg.declare etc
   gIR->DBuilder.EmitFuncStart(fd);
 
@@ -972,7 +975,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
     assert(getIrParameter(fd->vthis)->value == thisvar);
     getIrParameter(fd->vthis)->value = thismem;
-
+    
     gIR->DBuilder.EmitLocalVariable(thismem, fd->vthis, nullptr, true);
   }
 
@@ -1017,7 +1020,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   funcGen.pgo.setCurrentStmt(fd->fbody);
 
   // output function body
-  Statement_toIR(fd->fbody, gIR);
+  Statement_toIR(fd->fbody, gIR, gDComputeTarget);
 
   llvm::BasicBlock *bb = gIR->scopebb();
   if (pred_begin(bb) == pred_end(bb) &&
@@ -1047,14 +1050,13 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     }
   }
   gIR->DBuilder.EmitFuncEnd(fd);
-
+   
   // erase alloca point
   if (allocaPoint->getParent()) {
     funcGen.allocapoint = nullptr;
     allocaPoint->eraseFromParent();
     allocaPoint = nullptr;
   }
-
   gIR->scopes.pop_back();
 
   assert(&gIR->funcGen() == &funcGen);

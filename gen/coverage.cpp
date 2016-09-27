@@ -22,7 +22,10 @@ void emitCoverageLinecountInc(Loc &loc) {
       strcmp(gIR->dmodule->srcfile->name->toChars(), loc.filename) != 0) {
     return;
   }
-
+  //Never generate line coverage for dcompute
+  if (gDComputeTarget) {
+    return;
+  }
   const unsigned line = loc.linnum - 1; // convert to 0-based line# index
   assert(line < gIR->dmodule->numlines);
 

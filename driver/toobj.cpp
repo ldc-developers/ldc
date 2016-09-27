@@ -17,6 +17,7 @@
 #include "gen/logger.h"
 #include "gen/optimizer.h"
 #include "gen/programs.h"
+#include "dcompute/target.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -31,6 +32,9 @@
 #include "llvm/Support/Program.h"
 #if LDC_LLVM_VER >= 307
 #include "llvm/Support/Path.h"
+#endif
+#if LDC_WITH_DCOMPUTE_SPIRV
+#include "llvm/Support/SPIRV.h"
 #endif
 #include "llvm/Target/TargetMachine.h"
 #if LDC_LLVM_VER >= 307
@@ -67,7 +71,23 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
   legacy::
 #endif
       PassManager Passes;
+  llvm::Triple::ArchType a = llvm::Triple(m.getTargetTriple()).getArch();
+  bool isSpirv = a == Triple::spir || a == Triple::spir64;
+  bool isNvptx = a == Triple::nvptx || a == Triple::nvptx64;
 
+#if LDC_LLVM_VER < 307
+  llvm::formatted_raw_ostream fout(out);
+#endif
+
+  if (isSpirv) {
+#ifdef LDC_WITH_DCOMPUTE_SPIRV
+    IF_LOG Logger::println("adding createSPIRVWriterPass()");
+    llvm::createSPIRVWriterPass(fout)->runOnModule(m);
+#else
+    IF_LOG Logger::println("Trying to target SPIRV, but LDC is not built to do so!");
+#endif
+    return;
+  }
 #if LDC_LLVM_VER >= 307
 // The DataLayout is already set at the module (in module.cpp,
 // method Module::genLLVMModule())
@@ -90,16 +110,17 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
   Target.addAnalysisPasses(Passes);
 #endif
 
-#if LDC_LLVM_VER < 307
-  llvm::formatted_raw_ostream fout(out);
-#endif
+
   if (Target.addPassesToEmitFile(Passes,
 #if LDC_LLVM_VER >= 307
                                  out,
 #else
                                  fout,
 #endif
-                                 fileType, codeGenOptLevel())) {
+          // Always generate assembly for ptx. for some reason it doesn't like
+          // binary.
+          isNvptx ? llvm::TargetMachine::CGFT_AssemblyFile : fileType,
+          codeGenOptLevel())) {
     llvm_unreachable("no support for asm output");
   }
 
@@ -393,7 +414,6 @@ void writeModule(llvm::Module *m, std::string filename) {
       return;
     }
   }
-
   // run optimizer
   ldc_optimize_module(m);
 
