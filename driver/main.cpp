@@ -626,15 +626,6 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
       // so treat both 'o' and 'obj' extensions as object files
       global.params.output_o = OUTPUTFLAGset;
       autofound = true;
-    } else {
-      // append dot, so forceExt won't change existing name even if it contains
-      // dots
-      size_t len = strlen(global.params.objname);
-      char *s = static_cast<char *>(mem.xmalloc(len + 1 + 1));
-      memcpy(s, global.params.objname, len);
-      s[len] = '.';
-      s[len + 1] = 0;
-      global.params.objname = s;
     }
     if (autofound && global.params.output_o == OUTPUTFLAGdefault) {
       global.params.output_o = OUTPUTFLAGno;
