@@ -210,11 +210,14 @@ public:
       m->accept(this);
     }
 
-    // Define the __initZ symbol.
-    IrAggr *ir = getIrAggr(decl);
-    llvm::GlobalVariable *initZ = ir->getInitSymbol();
-    initZ->setInitializer(ir->getDefaultInit());
-    setLinkage(decl, initZ);
+    if (!dct) {
+      // Define the __initZ symbol.
+      IrAggr *ir = getIrAggr(decl);
+      llvm::GlobalVariable *initZ = ir->getInitSymbol();
+      initZ->setInitializer(ir->getDefaultInit());
+      setLinkage(decl, initZ);
+    }
+
 
     // emit typeinfo
     if(!dct) DtoTypeInfoOf(decl->type);
