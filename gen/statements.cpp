@@ -955,7 +955,7 @@ public:
       // statement bodies, because the counters should only count the jumps
       // directly from the switch statement and not "goto default", etc.
       llvm::SwitchInst *si;
-      if (!global.params.genInstrProf) {
+      if (!PGO.emitsInstrumentation()) {
         si = llvm::SwitchInst::Create(condVal, defaultTargetBB, caseCount,
                                       irs->scopebb());
         for (size_t i = 0; i < caseCount; ++i) {
@@ -982,11 +982,11 @@ public:
           const auto cs = (*cases)[i];
           const auto body = funcGen.switchTargets.get(cs);
 
-          auto incrCaseCounter = irs->insertBBBefore(body, "incrCaseCounter");
-          irs->scope() = IRScope(incrCaseCounter);
+          auto casecntr = irs->insertBBBefore(body, "casecntr");
+          irs->scope() = IRScope(casecntr);
           PGO.emitCounterIncrement(cs);
-          llvm::BranchInst::Create(body, incrCaseCounter);
-          si->addCase(isaConstantInt(indices[i]), incrCaseCounter);
+          llvm::BranchInst::Create(body, casecntr);
+          si->addCase(isaConstantInt(indices[i]), casecntr);
         }
       }
 
@@ -1014,7 +1014,7 @@ public:
       llvm::BasicBlock *nextbb = irs->insertBBBefore(endbb, "checkcase");
       llvm::BranchInst::Create(nextbb, irs->scopebb());
 
-      if (global.params.genInstrProf) {
+      if (PGO.emitsInstrumentation()) {
         // Prepend extra BB to "default:" to increment profiling counter.
         llvm::BasicBlock *defaultcntr =
             irs->insertBBBefore(defaultTargetBB, "defaultcntr");
@@ -1034,7 +1034,7 @@ public:
         // Add case counters for PGO in front of case body
         const auto cs = (*cases)[i];
         auto casejumptargetbb = funcGen.switchTargets.get(cs);
-        if (global.params.genInstrProf) {
+        if (PGO.emitsInstrumentation()) {
           llvm::BasicBlock *casecntr =
               irs->insertBBBefore(casejumptargetbb, "casecntr");
           auto savedbb = irs->scope();

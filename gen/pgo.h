@@ -42,6 +42,7 @@ class ForeachRangeStatement;
 class CodeGenPGO {
 public:
   CodeGenPGO() {}
+  bool emitsInstrumentation() const { return false; }
   bool haveRegionCounts() const { return false; }
   uint64_t getCurrentRegionCount() const { return 0; }
   void setCurrentRegionCount(uint64_t) {}
@@ -101,6 +102,9 @@ public:
 #endif
   {
   }
+
+  /// Whether or not we emit PGO instrumentation for the current function.
+  bool emitsInstrumentation() const { return emitInstrumentation; }
 
   /// Whether or not we have PGO region data for the current function. This is
   /// false both when we have no data at all and when our data has been
