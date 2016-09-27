@@ -467,7 +467,7 @@ public:
         return;
       }
     }
-    
+
     for (auto &m : *decl->members) {
       m->accept(this);
     }

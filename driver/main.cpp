@@ -1149,11 +1149,9 @@ int cppmain(int argc, char **argv) {
   return mars_mainBody(files, libmodules);
 }
 
-
 void codegenModules(Modules &modules) {
   // Generate one or more object/IR/bitcode files.
   if (global.params.obj && !modules.empty()) {
-      
     ldc::CodeGenerator cg(getGlobalContext(), global.params.oneobj);
     DComputeCodeGenManager dccg(getGlobalContext());
     std::vector<Module *> compute_modules;
@@ -1168,10 +1166,9 @@ void codegenModules(Modules &modules) {
     // codegenned.
     for (d_size_t i = modules.dim; i-- > 0;) {
       Module *const m = modules[i];
-      if (global.params.verbose) {
+      if (global.params.verbose)
         fprintf(global.stdmsg, "code      %s\n", m->toChars());
 
-      }
       bool atCompute = hasComputeAttr(m);
       IF_LOG Logger::println("Module %s is%s @compute (%d)", m->toChars(),
                              atCompute ? "" : " not", atCompute);
@@ -1180,15 +1177,13 @@ void codegenModules(Modules &modules) {
       } else {
         cg.emit(m);
       }
-      if (global.errors) {
+      if (global.errors)
         fatal();
-      }
     }   
     IF_LOG Logger::println("number of Modules for computecodgenning %d",
                            compute_modules.size());
     if (compute_modules.size()) {
       for (int i = 0; i < compute_modules.size(); i++) {
-
         dccg.emit(compute_modules[i]);
       }
       dccg.writeModules();

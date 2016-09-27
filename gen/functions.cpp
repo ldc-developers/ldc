@@ -1074,9 +1074,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     gIR->DBuilder.EmitFuncEnd(fd);
   }
   
-
-
-
   gIR->scopes.pop_back();
 
   assert(&gIR->funcGen() == &funcGen);

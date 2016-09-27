@@ -833,7 +833,6 @@ public:
 
     // Create a basic block to branch to after leaving the try or an
     // associated catch block successfully.
-
     llvm::BasicBlock *endbb = irs->insertBB("try.success.or.caught");
 
     irs->funcGen().scopes.pushTryCatch(stmt, endbb);

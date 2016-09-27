@@ -398,7 +398,7 @@ bool hasKernelAttr(FuncDeclaration *decl) {
       continue;
 
     auto name = sle->sd->ident->string;
-    IF_LOG Logger::println("that are from dcompute.attributes name(%p)", name);
+    IF_LOG Logger::println("that are from dcompute.attributes name(%s)", name);
     LOG_SCOPE
     if (name == attr::kernel) {
 

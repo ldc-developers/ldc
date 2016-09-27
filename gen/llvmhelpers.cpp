@@ -1772,7 +1772,7 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
       ->getMemberLocation(vd, fieldIndex, byteOffset);
 
   LLValue *val = DtoGEPi(src, 0, fieldIndex);
-  IF_LOG Logger::cout() << "Value: " << *val << '\n';
+
   if (byteOffset) {
     // Cast to void* to apply byte-wise offset.
     val = DtoBitCast(val, getVoidPtrType());
@@ -1782,6 +1782,7 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   // Cast the (possibly void*) pointer to the canonical variable type.
   val = DtoBitCast(val, DtoPtrToType(vd->type));
 
+  IF_LOG Logger::cout() << "Value: " << *val << '\n';
   return val;
 }
 
