@@ -941,11 +941,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   
 
   // debug info - after all allocas, but before any llvm.dbg.declare etc
-  if (!gDComputeTarget) {
-    gIR->DBuilder.EmitFuncStart(fd);
-  }
+  gIR->DBuilder.EmitFuncStart(fd);
   
-
   // this hack makes sure the frame pointer elimination optimization is
   // disabled.
   // this this eliminates a bunch of inline asm related issues.
@@ -981,9 +978,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
     assert(getIrParameter(fd->vthis)->value == thisvar);
     getIrParameter(fd->vthis)->value = thismem;
-    if (!gDComputeTarget) {
-      gIR->DBuilder.EmitLocalVariable(thismem, fd->vthis, nullptr, true);
-    }
+    gIR->DBuilder.EmitLocalVariable(thismem, fd->vthis, nullptr, true);
     
   }
 
@@ -997,8 +992,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     defineParameters(irFty, *fd->parameters);
 
   // Initialize PGO state for this function
-  if (!gDComputeTarget)
-    funcGen.pgo.assignRegionCounters(fd, irFunc->func);
+  funcGen.pgo.assignRegionCounters(fd, irFunc->func);
 
   DtoCreateNestedContext(funcGen);
 
@@ -1025,11 +1019,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
         DtoAllocaDump(irFunc->_arguments, 0, "_arguments_mem");
   }
 
-  // output function body
-  if (!gDComputeTarget) {
-    funcGen.pgo.emitCounterIncrement(fd->fbody);
-    funcGen.pgo.setCurrentStmt(fd->fbody);
-  }
+  funcGen.pgo.emitCounterIncrement(fd->fbody);
+  funcGen.pgo.setCurrentStmt(fd->fbody);
+  
   // output function body
   Statement_toIR(fd->fbody, gIR, gDComputeTarget);
 
@@ -1052,9 +1044,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     // not put a return statement in automatically, so we do it here.
 
     // pass the previous block into this block
-    if (!gDComputeTarget) {
-      gIR->DBuilder.EmitStopPoint(fd->endloc);
-    }
+    gIR->DBuilder.EmitStopPoint(fd->endloc);
     
     if (func->getReturnType() == LLType::getVoidTy(gIR->context())) {
       gIR->ir->CreateRetVoid();
@@ -1070,9 +1060,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
       gIR->ir->CreateRet(LLConstant::getNullValue(func->getReturnType()));
     }
   }
-  if (!gDComputeTarget) {
-    gIR->DBuilder.EmitFuncEnd(fd);
-  }
+  gIR->DBuilder.EmitFuncEnd(fd);
   
   gIR->scopes.pop_back();
 

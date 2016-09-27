@@ -775,6 +775,9 @@ RootObject *CodeGenPGO::getCounterPtr(const RootObject *ptr,
 
 void CodeGenPGO::setFuncName(llvm::StringRef Name,
                              llvm::GlobalValue::LinkageTypes Linkage) {
+  //Never generate PGO code for dcompute
+  if (gDComputeTarget)
+    return;
 #if LDC_LLVM_VER >= 308
   llvm::IndexedInstrProfReader *PGOReader = gIR->getPGOReader();
   FuncName = llvm::getPGOFuncName(Name, Linkage, "",
@@ -842,7 +845,9 @@ void CodeGenPGO::assignRegionCounters(const FuncDeclaration *D,
   llvm::IndexedInstrProfReader *PGOReader = gIR->getPGOReader();
   if (!global.params.genInstrProf && !PGOReader)
     return;
-
+  //Never generate PGO code for dcompute
+  if (gDComputeTarget)
+    return;
   emitInstrumentation = D->emitInstrumentation;
   setFuncName(fn);
 
@@ -884,7 +889,9 @@ void CodeGenPGO::applyFunctionAttributes(llvm::Function *Fn) {
 void CodeGenPGO::emitCounterIncrement(const RootObject *S) const {
   if (!global.params.genInstrProf || !RegionCounterMap || !emitInstrumentation)
     return;
-
+  //Never generate PGO code for dcompute
+  if (gDComputeTarget)
+    return;
   auto counter_it = (*RegionCounterMap).find(S);
   assert(counter_it != (*RegionCounterMap).end() &&
          "Statement not found in PGO counter map!");
@@ -1089,6 +1096,9 @@ void CodeGenPGO::emitIndirectCallPGO(llvm::Instruction *callSite,
 
 void CodeGenPGO::valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
                               llvm::Value *value, bool ptrCastNeeded) {
+  //Never generate PGO code for dcompute
+  if (gDComputeTarget)
+    return;
 #if LDC_LLVM_VER >= 309
   if (!value || !valueSite)
     return;

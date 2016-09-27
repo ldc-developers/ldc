@@ -103,10 +103,8 @@ public:
     IF_LOG Logger::println("CompoundStatement::toIR(): %s",
                            stmt->loc.toChars());
     LOG_SCOPE;
-    if (!dct) {
-      auto &PGO = irs->funcGen().pgo;
-      PGO.setCurrentStmt(stmt);
-    }
+    auto &PGO = irs->funcGen().pgo;
+    PGO.setCurrentStmt(stmt);
 
     for (auto s : *stmt->statements) {
       if (s) {
@@ -120,13 +118,11 @@ public:
   void visit(ReturnStatement *stmt) LLVM_OVERRIDE {
     IF_LOG Logger::println("ReturnStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
-    if (!dct) {
-      auto &PGO = irs->funcGen().pgo;
-      PGO.setCurrentStmt(stmt);
-      // emit dwarf stop point
-      irs->DBuilder.EmitStopPoint(stmt->loc);
-      emitCoverageLinecountInc(stmt->loc);
-    }
+    auto &PGO = irs->funcGen().pgo;
+    PGO.setCurrentStmt(stmt);
+    // emit dwarf stop point
+    irs->DBuilder.EmitStopPoint(stmt->loc);
+    emitCoverageLinecountInc(stmt->loc);
 
 
     // The LLVM value to return, or null for void returns.
@@ -294,14 +290,11 @@ public:
   void visit(ExpStatement *stmt) LLVM_OVERRIDE {
     IF_LOG Logger::println("ExpStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
-    if (!dct) {
-      auto &PGO = irs->funcGen().pgo;
-      PGO.setCurrentStmt(stmt);
-      // emit dwarf stop point
-      irs->DBuilder.EmitStopPoint(stmt->loc);
-
-      emitCoverageLinecountInc(stmt->loc);
-    }
+    auto &PGO = irs->funcGen().pgo;
+    PGO.setCurrentStmt(stmt);
+    // emit dwarf stop point
+    irs->DBuilder.EmitStopPoint(stmt->loc);
+    emitCoverageLinecountInc(stmt->loc);
 
     if (stmt->exp) {
       elem *e;
@@ -324,20 +317,15 @@ public:
     LOG_SCOPE;
 
     auto &PGO = irs->funcGen().pgo;
-    if (!dct) {
-      PGO.setCurrentStmt(stmt);
-    }
+    PGO.setCurrentStmt(stmt);
  
     auto truecount = PGO.getRegionCount(stmt);
     auto elsecount = PGO.getCurrentRegionCount() - truecount;
     auto brweights = PGO.createProfileWeights(truecount, elsecount);
 
     // start a dwarf lexical block
-    if (!dct) {
-      irs->DBuilder.EmitBlockStart(stmt->loc);
-      emitCoverageLinecountInc(stmt->loc);
-
-    }
+    irs->DBuilder.EmitBlockStart(stmt->loc);
+    emitCoverageLinecountInc(stmt->loc);
 
     if (stmt->match) {
       DtoRawVarDeclaration(stmt->match);
@@ -373,8 +361,8 @@ public:
     }
     auto brinstr =
         llvm::BranchInst::Create(ifbb, elsebb, cond_val, irs->scopebb());
-    if(!dct)
-      PGO.addBranchWeights(brinstr, brweights);
+
+    PGO.addBranchWeights(brinstr, brweights);
 
     // replace current scope
     irs->scope() = IRScope(ifbb);
@@ -382,14 +370,11 @@ public:
     // do scoped statements
 
     if (stmt->ifbody) {
-      if (dct)
-        stmt->ifbody->accept(this);
-      else {
-        irs->DBuilder.EmitBlockStart(stmt->ifbody->loc);
-        PGO.emitCounterIncrement(stmt);
-        stmt->ifbody->accept(this);
-        irs->DBuilder.EmitBlockEnd();
-      }
+
+      irs->DBuilder.EmitBlockStart(stmt->ifbody->loc);
+      PGO.emitCounterIncrement(stmt);
+      stmt->ifbody->accept(this);
+      irs->DBuilder.EmitBlockEnd();
     }
     if (!irs->scopereturned()) {
       llvm::BranchInst::Create(endbb, irs->scopebb());
@@ -397,8 +382,7 @@ public:
 
     if (stmt->elsebody) {
       irs->scope() = IRScope(elsebb);
-      if(!dct)
-        irs->DBuilder.EmitBlockStart(stmt->elsebody->loc);
+      irs->DBuilder.EmitBlockStart(stmt->elsebody->loc);
       stmt->elsebody->accept(this);
       if (!irs->scopereturned()) {
         llvm::BranchInst::Create(endbb, irs->scopebb());
@@ -407,8 +391,7 @@ public:
     }
 
     // end the dwarf lexical block
-    if(!dct)
-      irs->DBuilder.EmitBlockEnd();
+    irs->DBuilder.EmitBlockEnd();
 
     // rewrite the scope
     irs->scope() = IRScope(endbb);
@@ -421,13 +404,12 @@ public:
     LOG_SCOPE;
 
     auto &PGO = irs->funcGen().pgo;
-    if(!dct)
-      PGO.setCurrentStmt(stmt);
+    PGO.setCurrentStmt(stmt);
 
     if (stmt->statement) {
-      if(!dct) irs->DBuilder.EmitBlockStart(stmt->statement->loc);
+      irs->DBuilder.EmitBlockStart(stmt->statement->loc);
       stmt->statement->accept(this);
-      if(!dct) irs->DBuilder.EmitBlockEnd();
+      irs->DBuilder.EmitBlockEnd();
     }
   }
 
@@ -438,13 +420,11 @@ public:
     LOG_SCOPE;
 
     auto &PGO = irs->funcGen().pgo;
-    if(!dct) {
-      PGO.setCurrentStmt(stmt);
-      // start a dwarf lexical block
-      irs->DBuilder.EmitBlockStart(stmt->loc);
-    }
+    PGO.setCurrentStmt(stmt);
+    // start a dwarf lexical block
+    irs->DBuilder.EmitBlockStart(stmt->loc);
+    
     // create while blocks
-
     llvm::BasicBlock *whilebb = irs->insertBB("whilecond");
     llvm::BasicBlock *whilebodybb = irs->insertBBAfter(whilebb, "whilebody");
     llvm::BasicBlock *endbb = irs->insertBBAfter(whilebodybb, "endwhile");
@@ -464,19 +444,19 @@ public:
     // conditional branch
     auto branchinst =
         llvm::BranchInst::Create(whilebodybb, endbb, cond_val, irs->scopebb());
-    if(!dct) {
-      auto loopcount = PGO.getRegionCount(stmt);
-      auto brweights =
-          PGO.createProfileWeightsWhileLoop(stmt->condition, loopcount);
-      PGO.addBranchWeights(branchinst, brweights);
-    }
+
+    auto loopcount = PGO.getRegionCount(stmt);
+    auto brweights =
+        PGO.createProfileWeightsWhileLoop(stmt->condition, loopcount);
+    PGO.addBranchWeights(branchinst, brweights);
+    
 
     // rewrite scope
     irs->scope() = IRScope(whilebodybb);
 
     // while body code
     irs->funcGen().jumpTargets.pushLoopTarget(stmt, whilebb, endbb);
-    if(!dct) PGO.emitCounterIncrement(stmt);
+    PGO.emitCounterIncrement(stmt);
     if (stmt->_body) {
       stmt->_body->accept(this);
     }
@@ -491,7 +471,7 @@ public:
     irs->scope() = IRScope(endbb);
 
     // end the dwarf lexical block
-    if(!dct) irs->DBuilder.EmitBlockEnd();
+    irs->DBuilder.EmitBlockEnd();
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -502,11 +482,10 @@ public:
 
     auto &PGO = irs->funcGen().pgo;
     uint64_t entryCount;
-    if(!dct) {
-      entryCount = PGO.setCurrentStmt(stmt);
-      // start a dwarf lexical block
-      irs->DBuilder.EmitBlockStart(stmt->loc);
-    }
+    entryCount = PGO.setCurrentStmt(stmt);
+    
+    // start a dwarf lexical block
+    irs->DBuilder.EmitBlockStart(stmt->loc);
       
     // create while blocks
     llvm::BasicBlock *dowhilebb = irs->insertBB("dowhile");
@@ -522,7 +501,7 @@ public:
 
     // do-while body code
     irs->funcGen().jumpTargets.pushLoopTarget(stmt, condbb, endbb);
-    if(!dct) PGO.emitCounterIncrement(stmt);
+    PGO.emitCounterIncrement(stmt);
     if (stmt->_body) {
       stmt->_body->accept(this);
     }
@@ -533,7 +512,7 @@ public:
     irs->scope() = IRScope(condbb);
 
     // create the condition
-    if(!dct) emitCoverageLinecountInc(stmt->condition->loc);
+    emitCoverageLinecountInc(stmt->condition->loc);
     DValue *cond_e = toElemDtor(stmt->condition);
     LLValue *cond_val = DtoRVal(DtoCast(stmt->loc, cond_e, Type::tbool));
     delete cond_e;
@@ -541,7 +520,7 @@ public:
     // conditional branch
     auto branchinst =
         llvm::BranchInst::Create(dowhilebb, endbb, cond_val, irs->scopebb());
-    if(!dct) {
+    {
       // The region counter includes fallthrough from the previous statement.
       // Subtract parent count to get the true branch count of the loop
       // conditional.
@@ -565,11 +544,10 @@ public:
     LOG_SCOPE;
 
     auto &PGO = irs->funcGen().pgo;
-    if(!dct) {
-      PGO.setCurrentStmt(stmt);
-      // start new dwarf lexical block
-      irs->DBuilder.EmitBlockStart(stmt->loc);
-    }
+    PGO.setCurrentStmt(stmt);
+    
+    // start new dwarf lexical block
+    irs->DBuilder.EmitBlockStart(stmt->loc);
       
     // create for blocks
     llvm::BasicBlock *forbb = irs->insertBB("forcond");
@@ -601,7 +579,7 @@ public:
     // create the condition
     llvm::Value *cond_val;
     if (stmt->condition) {
-      if(!dct) emitCoverageLinecountInc(stmt->condition->loc);
+      emitCoverageLinecountInc(stmt->condition->loc);
       DValue *cond_e = toElemDtor(stmt->condition);
       cond_val = DtoRVal(DtoCast(stmt->loc, cond_e, Type::tbool));
       delete cond_e;
@@ -613,16 +591,14 @@ public:
     assert(!irs->scopereturned());
     auto branchinst =
         llvm::BranchInst::Create(forbodybb, endbb, cond_val, irs->scopebb());
-    if(!dct) {
-      auto brweights = PGO.createProfileWeightsForLoop(stmt);
-      PGO.addBranchWeights(branchinst, brweights);
-    }
+    auto brweights = PGO.createProfileWeightsForLoop(stmt);
+    PGO.addBranchWeights(branchinst, brweights);
 
     // rewrite scope
     irs->scope() = IRScope(forbodybb);
 
     // do for body code
-    if(!dct) PGO.emitCounterIncrement(stmt);
+    PGO.emitCounterIncrement(stmt);
     if (stmt->_body) {
       stmt->_body->accept(this);
     }
@@ -635,7 +611,7 @@ public:
 
     // increment
     if (stmt->increment) {
-      if(!dct) emitCoverageLinecountInc(stmt->increment->loc);
+      emitCoverageLinecountInc(stmt->increment->loc);
       DValue *inc = toElemDtor(stmt->increment);
       delete inc;
     }
@@ -651,7 +627,7 @@ public:
     irs->scope() = IRScope(endbb);
 
     // end the dwarf lexical block
-    if(!dct) irs->DBuilder.EmitBlockEnd();
+    irs->DBuilder.EmitBlockEnd();
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -661,7 +637,7 @@ public:
     LOG_SCOPE;
 
     auto &PGO = irs->funcGen().pgo;
-    if(!dct) PGO.setCurrentStmt(stmt);
+    PGO.setCurrentStmt(stmt);
 
     // don't emit two terminators in a row
     // happens just before DMD generated default statements if the last case
@@ -671,11 +647,9 @@ public:
     }
 
     // emit dwarf stop point
-    if(!dct) {
-      irs->DBuilder.EmitStopPoint(stmt->loc);
+    irs->DBuilder.EmitStopPoint(stmt->loc);
 
-      emitCoverageLinecountInc(stmt->loc);
-    }
+    emitCoverageLinecountInc(stmt->loc);
       
     if (stmt->ident) {
       IF_LOG Logger::println("ident = %s", stmt->ident->toChars());
@@ -705,14 +679,12 @@ public:
     LOG_SCOPE;
 
     auto &PGO = irs->funcGen().pgo;
-    if(!dct) {
-      PGO.setCurrentStmt(stmt);
+    PGO.setCurrentStmt(stmt);
 
-      // emit dwarf stop point
-      irs->DBuilder.EmitStopPoint(stmt->loc);
+    // emit dwarf stop point
+    irs->DBuilder.EmitStopPoint(stmt->loc);
 
-      emitCoverageLinecountInc(stmt->loc);
-    }
+    emitCoverageLinecountInc(stmt->loc);
       
     if (stmt->ident) {
       IF_LOG Logger::println("ident = %s", stmt->ident->toChars());
@@ -899,13 +871,12 @@ public:
     auto &funcGen = irs->funcGen();
 
     auto &PGO = funcGen.pgo;
-    if(!dct) PGO.setCurrentStmt(stmt);
+    PGO.setCurrentStmt(stmt);
     const auto incomingPGORegionCount = PGO.getCurrentRegionCount();
 
-    if(!dct) {
-      irs->DBuilder.EmitStopPoint(stmt->loc);
-      emitCoverageLinecountInc(stmt->loc);
-    }
+    irs->DBuilder.EmitStopPoint(stmt->loc);
+    emitCoverageLinecountInc(stmt->loc);
+      
     llvm::BasicBlock *const oldbb = irs->scopebb();
 
     // The cases of the switch statement, in codegen order. For string switches,
@@ -1048,20 +1019,18 @@ public:
       }
 
       // Apply PGO switch branch weights:
-      if (!dct) {
-          
-        // Get case statements execution counts from profile data.
-        std::vector<uint64_t> case_prof_counts;
-        case_prof_counts.push_back(
-            stmt->sdefault ? PGO.getRegionCount(stmt->sdefault) : 0);
-        for (auto cs : *cases) {
-          auto w = PGO.getRegionCount(cs);
-          case_prof_counts.push_back(w);
-        }
-
-        auto brweights = PGO.createProfileWeights(case_prof_counts);
-        PGO.addBranchWeights(si, brweights);
+      // Get case statements execution counts from profile data.
+      std::vector<uint64_t> case_prof_counts;
+      case_prof_counts.push_back(
+          stmt->sdefault ? PGO.getRegionCount(stmt->sdefault) : 0);
+      for (auto cs : *cases) {
+        auto w = PGO.getRegionCount(cs);
+        case_prof_counts.push_back(w);
       }
+
+      auto brweights = PGO.createProfileWeights(case_prof_counts);
+      PGO.addBranchWeights(si, brweights);
+      
     } else {
       // We can't use switch, so we will use a bunch of br instructions
       // instead.
@@ -1109,15 +1078,13 @@ public:
                                                    cmp, irs->scopebb());
 
         // Calculate and apply PGO branch weights
-        if(!dct) {
-          auto trueCount = PGO.getRegionCount(cs);
-          assert(trueCount <= failedCompareCount &&
-                 "Higher branch count than switch incoming count!");
-          failedCompareCount -= trueCount;
-          auto brweights =
-              PGO.createProfileWeights(trueCount, failedCompareCount);
-          PGO.addBranchWeights(branchinst, brweights);
-        }
+        auto trueCount = PGO.getRegionCount(cs);
+        assert(trueCount <= failedCompareCount &&
+               "Higher branch count than switch incoming count!");
+        failedCompareCount -= trueCount;
+        auto brweights =
+            PGO.createProfileWeights(trueCount, failedCompareCount);
+        PGO.addBranchWeights(branchinst, brweights);
 
         irs->scope() = IRScope(nextbb);
       }
@@ -1127,7 +1094,7 @@ public:
 
     irs->scope() = IRScope(endbb);
     // PGO counter tracks exit point of switch statement:
-    if(!dct) PGO.emitCounterIncrement(stmt);
+    PGO.emitCounterIncrement(stmt);
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -1138,7 +1105,7 @@ public:
 
     auto &funcGen = irs->funcGen();
     auto &PGO = funcGen.pgo;
-    if(!dct) PGO.setCurrentStmt(stmt);
+    PGO.setCurrentStmt(stmt);
 
     const auto body = funcGen.switchTargets.getOrCreate(stmt, "case", *irs);
     // The BB may have already been created by a `goto case` statement.
@@ -1152,15 +1119,15 @@ public:
     irs->scope() = IRScope(body);
 
     assert(stmt->statement);
-    if(!dct) {
-      irs->DBuilder.EmitBlockStart(stmt->statement->loc);
-      emitCoverageLinecountInc(stmt->loc);
-      if (stmt->gototarget) {
-        PGO.emitCounterIncrement(PGO.getCounterPtr(stmt, 1));
-      }
+
+    irs->DBuilder.EmitBlockStart(stmt->statement->loc);
+    emitCoverageLinecountInc(stmt->loc);
+    if (stmt->gototarget) {
+      PGO.emitCounterIncrement(PGO.getCounterPtr(stmt, 1));
     }
+
     stmt->statement->accept(this);
-    if(!dct) irs->DBuilder.EmitBlockEnd();
+    irs->DBuilder.EmitBlockEnd();
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -1171,7 +1138,7 @@ public:
 
     auto &funcGen = irs->funcGen();
     auto &PGO = irs->funcGen().pgo;
-    if(!dct) PGO.setCurrentStmt(stmt);
+    PGO.setCurrentStmt(stmt);
 
     const auto body = funcGen.switchTargets.getOrCreate(stmt, "default", *irs);
     // The BB may have already been created.
@@ -1185,15 +1152,15 @@ public:
     irs->scope() = IRScope(body);
 
     assert(stmt->statement);
-    if(!dct) {
-      irs->DBuilder.EmitBlockStart(stmt->statement->loc);
-      emitCoverageLinecountInc(stmt->loc);
-      if (stmt->gototarget) {
-        PGO.emitCounterIncrement(PGO.getCounterPtr(stmt, 1));
-      }
+
+    irs->DBuilder.EmitBlockStart(stmt->statement->loc);
+    emitCoverageLinecountInc(stmt->loc);
+    if (stmt->gototarget) {
+      PGO.emitCounterIncrement(PGO.getCounterPtr(stmt, 1));
     }
+    
     stmt->statement->accept(this);
-    if(!dct) irs->DBuilder.EmitBlockEnd();
+    irs->DBuilder.EmitBlockEnd();
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -1204,7 +1171,7 @@ public:
     LOG_SCOPE;
 
     auto &PGO = irs->funcGen().pgo;
-    if(!dct) PGO.setCurrentStmt(stmt);
+    PGO.setCurrentStmt(stmt);
 
     // if no statements, there's nothing to do
     if (!stmt->statements || !stmt->statements->dim) {
@@ -1212,7 +1179,7 @@ public:
     }
 
     // start a dwarf lexical block
-    if(!dct) irs->DBuilder.EmitBlockStart(stmt->loc);
+    irs->DBuilder.EmitBlockStart(stmt->loc);
 
     // DMD doesn't fold stuff like continue/break, and since this isn't really a
     // loop we have to keep track of each statement and jump to the next/end
@@ -1264,7 +1231,7 @@ public:
     irs->scope() = IRScope(endbb);
 
     // end the dwarf lexical block
-    if(!dct) irs->DBuilder.EmitBlockEnd();
+    irs->DBuilder.EmitBlockEnd();
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -1274,12 +1241,10 @@ public:
     LOG_SCOPE;
 
     auto &PGO = irs->funcGen().pgo;
-    if(!dct) {
-      PGO.setCurrentStmt(stmt);
+    PGO.setCurrentStmt(stmt);
 
-      // start a dwarf lexical block
-      irs->DBuilder.EmitBlockStart(stmt->loc);
-    }
+    // start a dwarf lexical block
+    irs->DBuilder.EmitBlockStart(stmt->loc);
       
     // assert(arguments->dim == 1);
     assert(stmt->value != 0);
@@ -1356,14 +1321,13 @@ public:
     }
     auto branchinst =
         llvm::BranchInst::Create(bodybb, endbb, done, irs->scopebb());
-    if(!dct) {
-      auto brweights = PGO.createProfileWeightsForeach(stmt);
-      PGO.addBranchWeights(branchinst, brweights);
-    }
+
+    auto brweights = PGO.createProfileWeightsForeach(stmt);
+    PGO.addBranchWeights(branchinst, brweights);
 
     // init body
     irs->scope() = IRScope(bodybb);
-    if(!dct) PGO.emitCounterIncrement(stmt);
+    PGO.emitCounterIncrement(stmt);
 
     // get value for this iteration
     LLValue *loadedKey = irs->ir->CreateLoad(keyvar);
@@ -1401,7 +1365,7 @@ public:
     llvm::BranchInst::Create(condbb, irs->scopebb());
 
     // end the dwarf lexical block
-    if(!dct) irs->DBuilder.EmitBlockEnd();
+    irs->DBuilder.EmitBlockEnd();
 
     // end
     irs->scope() = IRScope(endbb);
@@ -1415,12 +1379,11 @@ public:
     LOG_SCOPE;
 
     auto &PGO = irs->funcGen().pgo;
-    if(!dct) {
-      PGO.setCurrentStmt(stmt);
+    PGO.setCurrentStmt(stmt);
 
-      // start a dwarf lexical block
-      irs->DBuilder.EmitBlockStart(stmt->loc);
-    }
+    // start a dwarf lexical block
+    irs->DBuilder.EmitBlockStart(stmt->loc);
+
     // evaluate lwr/upr
     assert(stmt->lwr->type->isintegral());
     LLValue *lower = DtoRVal(toElemDtor(stmt->lwr));
@@ -1466,14 +1429,13 @@ public:
     // jump to the body if range is ok, to the end if not
     auto branchinst =
         llvm::BranchInst::Create(bodybb, endbb, cond, irs->scopebb());
-    if(!dct) {
-      auto brweights = PGO.createProfileWeightsForeachRange(stmt);
-      PGO.addBranchWeights(branchinst, brweights);
-    }
+
+    auto brweights = PGO.createProfileWeightsForeachRange(stmt);
+    PGO.addBranchWeights(branchinst, brweights);
 
     // BODY
     irs->scope() = IRScope(bodybb);
-    if(!dct) PGO.emitCounterIncrement(stmt);
+    PGO.emitCounterIncrement(stmt);
 
     // reverse foreach decrements here
     if (stmt->op == TOKforeach_reverse) {
@@ -1510,7 +1472,7 @@ public:
     llvm::BranchInst::Create(condbb, irs->scopebb());
 
     // end the dwarf lexical block
-    if(!dct) irs->DBuilder.EmitBlockEnd();
+    irs->DBuilder.EmitBlockEnd();
 
     // END
     irs->scope() = IRScope(endbb);
@@ -1523,7 +1485,7 @@ public:
     LOG_SCOPE;
 
     auto &PGO = irs->funcGen().pgo;
-    if(!dct) PGO.setCurrentStmt(stmt);
+    PGO.setCurrentStmt(stmt);
 
     // if it's an inline asm label, we don't create a basicblock, just emit it
     // in the asm
@@ -1551,7 +1513,7 @@ public:
       irs->scope() = IRScope(labelBB);
     }
 
-    if(!dct) PGO.emitCounterIncrement(stmt);
+    PGO.emitCounterIncrement(stmt);
     // statement == nullptr when the label is at the end of function
     if (stmt->statement) {
       stmt->statement->accept(this);
@@ -1565,13 +1527,12 @@ public:
     LOG_SCOPE;
 
     auto &PGO = irs->funcGen().pgo;
-    if(!dct) {
-      PGO.setCurrentStmt(stmt);
+    PGO.setCurrentStmt(stmt);
 
-      irs->DBuilder.EmitStopPoint(stmt->loc);
+    irs->DBuilder.EmitStopPoint(stmt->loc);
 
-      emitCoverageLinecountInc(stmt->loc);
-    }
+    emitCoverageLinecountInc(stmt->loc);
+        
     DtoGoto(stmt->loc, stmt->label);
 
     // TODO: Should not be needed.
@@ -1588,13 +1549,12 @@ public:
 
     auto &funcGen = irs->funcGen();
     auto &PGO = funcGen.pgo;
-    if(!dct) {
-      PGO.setCurrentStmt(stmt);
+    PGO.setCurrentStmt(stmt);
 
-      irs->DBuilder.EmitStopPoint(stmt->loc);
+    irs->DBuilder.EmitStopPoint(stmt->loc);
 
-      emitCoverageLinecountInc(stmt->loc);
-    }
+    emitCoverageLinecountInc(stmt->loc);
+
     assert(!irs->scopereturned());
 
     const auto defaultBB = funcGen.switchTargets.get(stmt->sw->sdefault);
@@ -1614,13 +1574,12 @@ public:
 
     auto &funcGen = irs->funcGen();
     auto &PGO = irs->funcGen().pgo;
-    if(!dct) {
-      PGO.setCurrentStmt(stmt);
+    PGO.setCurrentStmt(stmt);
 
-      irs->DBuilder.EmitStopPoint(stmt->loc);
+    irs->DBuilder.EmitStopPoint(stmt->loc);
 
-      emitCoverageLinecountInc(stmt->loc);
-    }
+    emitCoverageLinecountInc(stmt->loc);
+
     assert(!irs->scopereturned());
 
     const auto caseBB =
@@ -1639,7 +1598,7 @@ public:
     LOG_SCOPE;
 
     auto &PGO = irs->funcGen().pgo;
-    if(!dct) PGO.setCurrentStmt(stmt);
+    PGO.setCurrentStmt(stmt);
 
     irs->DBuilder.EmitBlockStart(stmt->loc);
 
@@ -1658,7 +1617,7 @@ public:
       stmt->_body->accept(this);
     }
 
-    if(!dct) irs->DBuilder.EmitBlockEnd();
+    irs->DBuilder.EmitBlockEnd();
   }
 
   //////////////////////////////////////////////////////////////////////////
