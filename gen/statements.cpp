@@ -103,6 +103,7 @@ public:
     IF_LOG Logger::println("CompoundStatement::toIR(): %s",
                            stmt->loc.toChars());
     LOG_SCOPE;
+
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
@@ -118,12 +119,14 @@ public:
   void visit(ReturnStatement *stmt) LLVM_OVERRIDE {
     IF_LOG Logger::println("ReturnStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
+    
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
+    
     // emit dwarf stop point
     irs->DBuilder.EmitStopPoint(stmt->loc);
+    
     emitCoverageLinecountInc(stmt->loc);
-
 
     // The LLVM value to return, or null for void returns.
     LLValue *returnValue = nullptr;
@@ -290,10 +293,13 @@ public:
   void visit(ExpStatement *stmt) LLVM_OVERRIDE {
     IF_LOG Logger::println("ExpStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
+    
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
+
     // emit dwarf stop point
     irs->DBuilder.EmitStopPoint(stmt->loc);
+
     emitCoverageLinecountInc(stmt->loc);
 
     if (stmt->exp) {
@@ -318,7 +324,6 @@ public:
 
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
- 
     auto truecount = PGO.getRegionCount(stmt);
     auto elsecount = PGO.getCurrentRegionCount() - truecount;
     auto brweights = PGO.createProfileWeights(truecount, elsecount);
@@ -361,7 +366,6 @@ public:
     }
     auto brinstr =
         llvm::BranchInst::Create(ifbb, elsebb, cond_val, irs->scopebb());
-
     PGO.addBranchWeights(brinstr, brweights);
 
     // replace current scope
@@ -370,7 +374,6 @@ public:
     // do scoped statements
 
     if (stmt->ifbody) {
-
       irs->DBuilder.EmitBlockStart(stmt->ifbody->loc);
       PGO.emitCounterIncrement(stmt);
       stmt->ifbody->accept(this);
@@ -421,10 +424,12 @@ public:
 
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
+
     // start a dwarf lexical block
     irs->DBuilder.EmitBlockStart(stmt->loc);
-    
+
     // create while blocks
+
     llvm::BasicBlock *whilebb = irs->insertBB("whilecond");
     llvm::BasicBlock *whilebodybb = irs->insertBBAfter(whilebb, "whilebody");
     llvm::BasicBlock *endbb = irs->insertBBAfter(whilebodybb, "endwhile");
@@ -444,12 +449,12 @@ public:
     // conditional branch
     auto branchinst =
         llvm::BranchInst::Create(whilebodybb, endbb, cond_val, irs->scopebb());
-
-    auto loopcount = PGO.getRegionCount(stmt);
-    auto brweights =
-        PGO.createProfileWeightsWhileLoop(stmt->condition, loopcount);
-    PGO.addBranchWeights(branchinst, brweights);
-    
+    {
+      auto loopcount = PGO.getRegionCount(stmt);
+      auto brweights =
+      PGO.createProfileWeightsWhileLoop(stmt->condition, loopcount);
+      PGO.addBranchWeights(branchinst, brweights);
+    }
 
     // rewrite scope
     irs->scope() = IRScope(whilebodybb);
@@ -481,12 +486,11 @@ public:
     LOG_SCOPE;
 
     auto &PGO = irs->funcGen().pgo;
-    uint64_t entryCount;
-    entryCount = PGO.setCurrentStmt(stmt);
-    
+    auto entryCount = PGO.setCurrentStmt(stmt);
+
     // start a dwarf lexical block
     irs->DBuilder.EmitBlockStart(stmt->loc);
-      
+
     // create while blocks
     llvm::BasicBlock *dowhilebb = irs->insertBB("dowhile");
     llvm::BasicBlock *condbb = irs->insertBBAfter(dowhilebb, "dowhilecond");
@@ -591,8 +595,10 @@ public:
     assert(!irs->scopereturned());
     auto branchinst =
         llvm::BranchInst::Create(forbodybb, endbb, cond_val, irs->scopebb());
-    auto brweights = PGO.createProfileWeightsForLoop(stmt);
-    PGO.addBranchWeights(branchinst, brweights);
+    {
+      auto brweights = PGO.createProfileWeightsForLoop(stmt);
+      PGO.addBranchWeights(branchinst, brweights);
+    }
 
     // rewrite scope
     irs->scope() = IRScope(forbodybb);
@@ -650,7 +656,7 @@ public:
     irs->DBuilder.EmitStopPoint(stmt->loc);
 
     emitCoverageLinecountInc(stmt->loc);
-      
+
     if (stmt->ident) {
       IF_LOG Logger::println("ident = %s", stmt->ident->toChars());
 
@@ -685,7 +691,7 @@ public:
     irs->DBuilder.EmitStopPoint(stmt->loc);
 
     emitCoverageLinecountInc(stmt->loc);
-      
+
     if (stmt->ident) {
       IF_LOG Logger::println("ident = %s", stmt->ident->toChars());
 
@@ -876,7 +882,6 @@ public:
 
     irs->DBuilder.EmitStopPoint(stmt->loc);
     emitCoverageLinecountInc(stmt->loc);
-      
     llvm::BasicBlock *const oldbb = irs->scopebb();
 
     // The cases of the switch statement, in codegen order. For string switches,
@@ -1019,18 +1024,19 @@ public:
       }
 
       // Apply PGO switch branch weights:
-      // Get case statements execution counts from profile data.
-      std::vector<uint64_t> case_prof_counts;
-      case_prof_counts.push_back(
-          stmt->sdefault ? PGO.getRegionCount(stmt->sdefault) : 0);
-      for (auto cs : *cases) {
-        auto w = PGO.getRegionCount(cs);
-        case_prof_counts.push_back(w);
-      }
+      {
+        // Get case statements execution counts from profile data.
+        std::vector<uint64_t> case_prof_counts;
+        case_prof_counts.push_back(
+            stmt->sdefault ? PGO.getRegionCount(stmt->sdefault) : 0);
+        for (auto cs : *cases) {
+          auto w = PGO.getRegionCount(cs);
+          case_prof_counts.push_back(w);
+        }
 
-      auto brweights = PGO.createProfileWeights(case_prof_counts);
-      PGO.addBranchWeights(si, brweights);
-      
+        auto brweights = PGO.createProfileWeights(case_prof_counts);
+        PGO.addBranchWeights(si, brweights);
+      }
     } else {
       // We can't use switch, so we will use a bunch of br instructions
       // instead.
@@ -1078,13 +1084,15 @@ public:
                                                    cmp, irs->scopebb());
 
         // Calculate and apply PGO branch weights
-        auto trueCount = PGO.getRegionCount(cs);
-        assert(trueCount <= failedCompareCount &&
-               "Higher branch count than switch incoming count!");
-        failedCompareCount -= trueCount;
-        auto brweights =
-            PGO.createProfileWeights(trueCount, failedCompareCount);
-        PGO.addBranchWeights(branchinst, brweights);
+        {
+          auto trueCount = PGO.getRegionCount(cs);
+          assert(trueCount <= failedCompareCount &&
+                 "Higher branch count than switch incoming count!");
+          failedCompareCount -= trueCount;
+          auto brweights =
+              PGO.createProfileWeights(trueCount, failedCompareCount);
+          PGO.addBranchWeights(branchinst, brweights);
+        }
 
         irs->scope() = IRScope(nextbb);
       }
@@ -1119,13 +1127,11 @@ public:
     irs->scope() = IRScope(body);
 
     assert(stmt->statement);
-
     irs->DBuilder.EmitBlockStart(stmt->statement->loc);
     emitCoverageLinecountInc(stmt->loc);
     if (stmt->gototarget) {
       PGO.emitCounterIncrement(PGO.getCounterPtr(stmt, 1));
     }
-
     stmt->statement->accept(this);
     irs->DBuilder.EmitBlockEnd();
   }
@@ -1321,9 +1327,10 @@ public:
     }
     auto branchinst =
         llvm::BranchInst::Create(bodybb, endbb, done, irs->scopebb());
-
-    auto brweights = PGO.createProfileWeightsForeach(stmt);
-    PGO.addBranchWeights(branchinst, brweights);
+    {
+      auto brweights = PGO.createProfileWeightsForeach(stmt);
+      PGO.addBranchWeights(branchinst, brweights);
+    }
 
     // init body
     irs->scope() = IRScope(bodybb);
@@ -1429,9 +1436,10 @@ public:
     // jump to the body if range is ok, to the end if not
     auto branchinst =
         llvm::BranchInst::Create(bodybb, endbb, cond, irs->scopebb());
-
-    auto brweights = PGO.createProfileWeightsForeachRange(stmt);
-    PGO.addBranchWeights(branchinst, brweights);
+    {
+      auto brweights = PGO.createProfileWeightsForeachRange(stmt);
+      PGO.addBranchWeights(branchinst, brweights);
+    }
 
     // BODY
     irs->scope() = IRScope(bodybb);
@@ -1532,7 +1540,6 @@ public:
     irs->DBuilder.EmitStopPoint(stmt->loc);
 
     emitCoverageLinecountInc(stmt->loc);
-        
     DtoGoto(stmt->loc, stmt->label);
 
     // TODO: Should not be needed.

@@ -918,7 +918,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
       }
     }
   }
-  
 
   llvm::BasicBlock *beginbb =
       llvm::BasicBlock::Create(gIR->context(), "", func);
@@ -939,10 +938,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     LLType::getInt32Ty(gIR->context()), "allocaPoint", beginbb);
   funcGen.allocapoint = allocaPoint;
   
-
   // debug info - after all allocas, but before any llvm.dbg.declare etc
   gIR->DBuilder.EmitFuncStart(fd);
-  
+
   // this hack makes sure the frame pointer elimination optimization is
   // disabled.
   // this this eliminates a bunch of inline asm related issues.
@@ -978,8 +976,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
     assert(getIrParameter(fd->vthis)->value == thisvar);
     getIrParameter(fd->vthis)->value = thismem;
-    gIR->DBuilder.EmitLocalVariable(thismem, fd->vthis, nullptr, true);
     
+    gIR->DBuilder.EmitLocalVariable(thismem, fd->vthis, nullptr, true);
   }
 
   // give the 'nestArg' parameter (an lvalue) storage
@@ -1021,17 +1019,10 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   funcGen.pgo.emitCounterIncrement(fd->fbody);
   funcGen.pgo.setCurrentStmt(fd->fbody);
-  
+
   // output function body
   Statement_toIR(fd->fbody, gIR, gDComputeTarget);
 
-  //irFunc->scopes() = nullptr; //temp hack
-  // erase alloca point
-  if (allocaPoint->getParent()) {
-    funcGen.allocapoint = nullptr;
-    allocaPoint->eraseFromParent();
-    allocaPoint = nullptr;
-  }
   llvm::BasicBlock *bb = gIR->scopebb();
   if (pred_begin(bb) == pred_end(bb) &&
       bb != &bb->getParent()->getEntryBlock()) {
@@ -1045,7 +1036,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
     // pass the previous block into this block
     gIR->DBuilder.EmitStopPoint(fd->endloc);
-    
     if (func->getReturnType() == LLType::getVoidTy(gIR->context())) {
       gIR->ir->CreateRetVoid();
     } else if (!fd->isMain()) {
@@ -1061,7 +1051,13 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     }
   }
   gIR->DBuilder.EmitFuncEnd(fd);
-  
+   
+  // erase alloca point
+  if (allocaPoint->getParent()) {
+    funcGen.allocapoint = nullptr;
+    allocaPoint->eraseFromParent();
+    allocaPoint = nullptr;
+  }
   gIR->scopes.pop_back();
 
   assert(&gIR->funcGen() == &funcGen);
