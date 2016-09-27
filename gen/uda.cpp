@@ -8,6 +8,7 @@
 #include "expression.h"
 #include "ir/irfunction.h"
 #include "module.h"
+#include "gen/logger.h"
 
 #include "llvm/ADT/StringExtras.h"
 
@@ -21,6 +22,8 @@ const std::string optStrategy = "optStrategy";
 const std::string section = "section";
 const std::string target = "target";
 const std::string weak = "_weak";
+const std::string kernel = "_kernel";
+const std::string compute = "_compute";
 }
 
 /// Checks whether `moduleDecl` is the ldc.attributes module.
@@ -294,8 +297,8 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
       applyAttrSection(sle, func);
     } else if (name == attr::target) {
       applyAttrTarget(sle, func);
-    } else if (name == attr::weak) {
-      // @weak is applied elsewhere
+    } else if (name == attr::weak || name == attr::kernel) {
+      // @weak and @kernel are applied elsewhere
     } else {
       sle->warning(
           "ignoring unrecognized special attribute 'ldc.attributes.%s'",
@@ -328,10 +331,107 @@ bool hasWeakUDA(Dsymbol *sym) {
                    "global variables");
         return false;
       }
-
       return true;
     }
   }
 
+  return false;
+}
+
+bool isDComputeAttibutes(const ModuleDeclaration *moduleDecl) {
+  if (!moduleDecl)
+    return false;
+
+  if (strcmp("attributes", moduleDecl->id->string)) {
+    return false;
+  }
+
+  if (moduleDecl->packages->dim != 1 ||
+      strcmp("dcompute", (*moduleDecl->packages)[0]->string)) {
+    return false;
+  }
+  return true;
+}
+
+bool isFromDComputeAttibutes(const StructLiteralExp *e) {
+  auto moduleDecl = e->sd->getModule()->md;
+  return isDComputeAttibutes(moduleDecl);
+}
+StructLiteralExp *getDComputeAttributesStruct(Expression *attr) {
+  // See whether we can evaluate the attribute at compile-time. All the DCompute
+  // attributes are struct literals that may be constructed using a CTFE
+  // function.
+  unsigned prevErrors = global.startGagging();
+  auto e = ctfeInterpret(attr);
+  if (global.endGagging(prevErrors)) {
+    return nullptr;
+  }
+
+  if (e->op != TOKstructliteral) {
+    return nullptr;
+  }
+
+  auto sle = static_cast<StructLiteralExp *>(e);
+
+  if (isFromDComputeAttibutes(sle)) {
+    return sle;
+  }
+
+  return nullptr;
+}
+bool hasKernelAttr(FuncDeclaration *decl) {
+
+  if (!decl->userAttribDecl) {
+    IF_LOG Logger::println("hasKernelAttr(%s) = no", decl->toPrettyChars());
+    return false;
+  }
+  IF_LOG Logger::println("hasKernelAttr(%s) = yes", decl->toPrettyChars());
+  LOG_SCOPE
+
+  Expressions *attrs = decl->userAttribDecl->getAttributes();
+
+  expandTuples(attrs);
+  for (auto &attr : *attrs) {
+    Logger::println("(%s)", attr->toChars());
+    auto sle = getDComputeAttributesStruct(attr);
+    if (!sle)
+      continue;
+
+    auto name = sle->sd->ident->string;
+    IF_LOG Logger::println("that are from dcompute.attributes name(%s)", name);
+    LOG_SCOPE
+    if (name == attr::kernel) {
+
+      IF_LOG Logger::println("is an @kernel");
+      return true;
+    } else {
+      IF_LOG Logger::println("is NOT an @kernel");
+    }
+  }
+
+  return false;
+}
+
+bool hasComputeAttr(Module *decl) {
+  IF_LOG Logger::println("checking Module %s for @dcompute.attributes.compute",
+                         decl->toPrettyChars());
+  if (!decl->userAttribDecl) {
+    IF_LOG Logger::println("no attributes at all");
+    return false;
+  }
+
+  Expressions *attrs = decl->userAttribDecl->getAttributes();
+  expandTuples(attrs);
+  for (auto &attr : *attrs) {
+    auto sle = getDComputeAttributesStruct(attr);
+    if (!sle)
+      continue;
+    auto name = sle->sd->ident->string;
+    if (name == attr::compute) {
+      IF_LOG Logger::println("yes");
+      return true;
+    }
+  }
+  IF_LOG Logger::println("no");
   return false;
 }
