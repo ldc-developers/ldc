@@ -988,7 +988,7 @@ public:
       // directly from the switch statement and not "goto default", etc.
       // never generate PGO code for dcompute.
       llvm::SwitchInst *si;
-      if (!global.params.genInstrProf || dct) {
+      if (!global.params.genInstrProf && !dct) {
         si = llvm::SwitchInst::Create(condVal, defaultTargetBB, caseCount,
                                       irs->scopebb());
         for (size_t i = 0; i < caseCount; ++i) {
