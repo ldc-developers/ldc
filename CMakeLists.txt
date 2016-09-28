@@ -17,10 +17,25 @@ if (NOT D_COMPILER_DMD_COMPAT)
     message(FATAL_ERROR "We currently only support building using a D compiler with a DMD-compatible commandline interface. (try 'ldmd2' or 'gdmd')")
 endif()
 
+# Helper function
+function(append value)
+    foreach(variable ${ARGN})
+        if(${variable} STREQUAL "")
+            set(${variable} "${value}" PARENT_SCOPE)
+        else()
+            set(${variable} "${${variable}} ${value}" PARENT_SCOPE)
+        endif()
+    endforeach(variable)
+endfunction()
+
+option(LDC_WITH_DCOMPUTE_SPIRV "Enable Dcompute to generate SPIRV kernels for targetting OpenCL, requires a khronos llvm")
+mark_as_advanced(LDC_WITH_DCOMPUTE_SPIRV)
+if(LDC_WITH_DCOMPUTE_SPIRV)
+    append( EXTRA_LLVM_MODULES sprivlib ) #yes it is libLLVMSPIRVLib 
+endif()
 #
 # Locate LLVM.
 #
-
 find_package(LLVM 3.5 REQUIRED
     all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel instcombine ipa ipo instrumentation irreader linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
@@ -38,16 +53,7 @@ find_package(LibConfig REQUIRED)
 #
 include(GetLinuxDistribution)
 
-# Helper function
-function(append value)
-    foreach(variable ${ARGN})
-        if(${variable} STREQUAL "")
-            set(${variable} "${value}" PARENT_SCOPE)
-        else()
-            set(${variable} "${${variable}} ${value}" PARENT_SCOPE)
-        endif()
-    endforeach(variable)
-endfunction()
+
 
 #
 # Main configuration.
@@ -326,6 +332,8 @@ file(GLOB_RECURSE DRV_SRC_D driver/*.d)
 file(GLOB_RECURSE IR_SRC_D ir/*.d)
 file(GLOB IR_SRC ir/*.cpp)
 file(GLOB IR_HDR ir/*.h)
+file(GLOB DCOMPUTE_SRC dcompute/*.cpp)
+file(GLOB DCOMPUTE_HDR dcompute/*.h)
 set(DRV_SRC
     driver/cl_options.cpp
     driver/codegenerator.cpp
@@ -368,6 +376,8 @@ set(LDC_CXX_SOURCE_FILES
     ${GEN_HDR}
     ${IR_SRC}
     ${IR_HDR}
+    ${DCOMPUTE_SRC}
+    ${DCOMPUTE_HDR}
 )
 set(LDC_D_SOURCE_FILES
     ${LDC_D_GENERATED}
