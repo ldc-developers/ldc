@@ -1,10 +1,11 @@
-// REQUIRES: atleast_llvm308
+// REQUIRES: atleast_llvm309
 // REQUIRES: Windows
 // REQUIRES: cdb
 // RUN: %ldc -g -of=%t.exe %s
 // RUN: sed -e "/^\\/\\/ CDB:/!d" -e "s,// CDB:,," %s \
 // RUN:    | %cdb -snul -lines -y . %t.exe >%t.out
 // RUN: FileCheck %s -check-prefix=CHECK -check-prefix=%arch < %t.out
+module basictypes;
 
 void main()
 {
@@ -37,10 +38,10 @@ int basic_types()
 	creal cr = 19 + 20i;
 
     c = c;
-// CDB: ld cvbasictypes
-// CDB: bp `cvbasictypes.d:39`
+// CDB: ld basictypes_cdb*
+// CDB: bp `basictypes_cdb.d:39`
 // CDB: g
-// CHECK: !cvbasictypes.basic_types
+// CHECK: !basictypes.basic_types
 
 // enable case sensitive symbol lookup
 // CDB: .symopt-1
