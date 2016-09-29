@@ -960,7 +960,7 @@ void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
     return;
 
   ldc::DILocalVariable debugVariable = sub->second;
-  if (!global.params.symdebug || !debugVariable || gDComputeTarget)
+  if (!mustEmitDebugInfo() || !debugVariable)
     return;
 
   llvm::Instruction *instr =
