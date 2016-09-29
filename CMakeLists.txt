@@ -28,10 +28,10 @@ function(append value)
     endforeach(variable)
 endfunction()
 
-option(LDC_WITH_DCOMPUTE_SPIRV "Enable Dcompute to generate SPIRV kernels for targetting OpenCL, requires a khronos llvm")
+option(LDC_WITH_DCOMPUTE_SPIRV "Enable Dcompute to generate SPIR-V kernels for targetting OpenCL, requires a Khronos llvm")
 mark_as_advanced(LDC_WITH_DCOMPUTE_SPIRV)
 if(LDC_WITH_DCOMPUTE_SPIRV)
-    append( EXTRA_LLVM_MODULES sprivlib ) #yes it is libLLVMSPIRVLib 
+    append(EXTRA_LLVM_MODULES sprivlib) #The .a is libLLVMSPIRVLib with the extra "Lib" on the end so need sprivlib not spirv
 endif()
 #
 # Locate LLVM.
@@ -332,8 +332,6 @@ file(GLOB_RECURSE DRV_SRC_D driver/*.d)
 file(GLOB_RECURSE IR_SRC_D ir/*.d)
 file(GLOB IR_SRC ir/*.cpp)
 file(GLOB IR_HDR ir/*.h)
-file(GLOB DCOMPUTE_SRC dcompute/*.cpp)
-file(GLOB DCOMPUTE_HDR dcompute/*.h)
 set(DRV_SRC
     driver/cl_options.cpp
     driver/codegenerator.cpp
@@ -376,8 +374,6 @@ set(LDC_CXX_SOURCE_FILES
     ${GEN_HDR}
     ${IR_SRC}
     ${IR_HDR}
-    ${DCOMPUTE_SRC}
-    ${DCOMPUTE_HDR}
 )
 set(LDC_D_SOURCE_FILES
     ${LDC_D_GENERATED}
