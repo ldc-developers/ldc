@@ -74,7 +74,7 @@ llvm::StringRef uniqueIdent(Type* t) {
 
 } // namespace
 
-bool mustEmitDebugInfo() { return global.params.symdebug; }
+bool ldc::DIBuilder::mustEmitDebugInfo() { return global.params.symdebug; }
 
 ////////////////////////////////////////////////////////////////////////////////
 
