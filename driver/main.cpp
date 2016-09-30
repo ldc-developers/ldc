@@ -626,15 +626,6 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
       // so treat both 'o' and 'obj' extensions as object files
       global.params.output_o = OUTPUTFLAGset;
       autofound = true;
-    } else {
-      // append dot, so forceExt won't change existing name even if it contains
-      // dots
-      size_t len = strlen(global.params.objname);
-      char *s = static_cast<char *>(mem.xmalloc(len + 1 + 1));
-      memcpy(s, global.params.objname, len);
-      s[len] = '.';
-      s[len + 1] = 0;
-      global.params.objname = s;
     }
     if (autofound && global.params.output_o == OUTPUTFLAGdefault) {
       global.params.output_o = OUTPUTFLAGno;
@@ -656,37 +647,6 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   if (global.params.dll && mRelocModel == llvm::Reloc::Default) {
 #endif
     mRelocModel = llvm::Reloc::PIC_;
-  }
-
-  if (global.params.link) {
-    global.params.exefile = global.params.objname;
-    global.params.oneobj = true;
-    if (global.params.objname) {
-      /* Use this to name the one object file with the same
-       * name as the exe file.
-       */
-      global.params.objname =
-          FileName::forceExt(global.params.objname, global.obj_ext);
-      /* If output directory is given, use that path rather than
-       * the exe file path.
-       */
-      if (global.params.objdir) {
-        const char *name = FileName::name(global.params.objname);
-        global.params.objname = FileName::combine(global.params.objdir, name);
-      }
-    }
-  } else if (global.params.run) {
-    error(Loc(), "flags conflict with -run");
-    fatal();
-  } else if (global.params.lib) {
-    global.params.libname = global.params.objname;
-    global.params.objname = nullptr;
-  } else {
-    if (global.params.objname && sourceFiles.dim > 1) {
-      global.params.oneobj = true;
-      // error("multiple source files, but only one .obj name");
-      // fatal();
-    }
   }
 
   if (soname.getNumOccurrences() > 0 && !global.params.dll) {
@@ -894,7 +854,7 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("Windows");
     VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64"
                                                                      : "Win32");
-    if (global.params.targetTriple->isKnownWindowsMSVCEnvironment()) {
+    if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Microsoft");
     }
     if (global.params.targetTriple->isWindowsGNUEnvironment()) {
@@ -1130,14 +1090,9 @@ int cppmain(int argc, char **argv) {
   // allocate the target abi
   gABI = TargetABI::getTarget();
 
-  // Set predefined version identifiers.
-  registerPredefinedVersions();
-  dumpPredefinedVersions();
-
   if (global.params.targetTriple->isOSWindows()) {
     global.dll_ext = "dll";
-    global.lib_ext =
-        (global.params.targetTriple->isWindowsMSVCEnvironment() ? "lib" : "a");
+    global.lib_ext = (global.params.mscoff ? "lib" : "a");
   } else {
     global.dll_ext = "so";
     global.lib_ext = "a";
@@ -1145,6 +1100,11 @@ int cppmain(int argc, char **argv) {
 
   Strings libmodules;
   return mars_mainBody(files, libmodules);
+}
+
+void addDefaultVersionIdentifiers() {
+  registerPredefinedVersions();
+  dumpPredefinedVersions();
 }
 
 void codegenModules(Modules &modules) {
