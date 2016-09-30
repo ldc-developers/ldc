@@ -261,7 +261,7 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
     } else if (name == attr::target) {
       sle->error("Special attribute 'ldc.attributes.target' is only valid for "
                  "functions");
-    } else if (name == attr::weak || attr::kerenl || attr::compute) {
+    } else if (name == attr::weak || attr::kernel || attr::compute) {
       // @weak, @kernel and @compute are applied elsewhere
     } else {
       sle->warning(
