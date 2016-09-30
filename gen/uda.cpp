@@ -306,8 +306,8 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
   }
 }
 
-/// Checks whether 'sym' has the @ldc.attributes._weak() UDA applied.
-bool hasWeakUDA(Dsymbol *sym) {
+bool hasNamedAttr(Dsymbol *sym,std::string name, bool errorIfFound,char* errmsg)
+{
   if (!sym->userAttribDecl)
     return false;
 
@@ -318,59 +318,50 @@ bool hasWeakUDA(Dsymbol *sym) {
     auto sle = getLdcAttributesStruct(attr);
     if (!sle)
       continue;
-
-    auto name = sle->sd->ident->string;
-    if (name == attr::weak) {
+    
+    if (name == sle->sd->ident->string) {
       // Check whether @weak can be applied to this symbol.
       // Because hasWeakUDA is currently only called for global symbols, this
       // check never errors.
-      auto vd = sym->isVarDeclaration();
-      if (!(vd && vd->isDataseg()) && !sym->isFuncDeclaration()) {
-        sym->error("@ldc.attributes.weak can only be applied to functions or "
-                   "global variables");
-        return false;
+      if (errorIfFound) {
+          sym->error(errmsg);
+          return false;
       }
       return true;
     }
   }
-
+  
   return false;
+
+}
+/// Checks whether 'sym' has the @ldc.attributes._weak() UDA applied.
+bool hasWeakUDA(Dsymbol *sym) {
+  // Check whether @weak can be applied to this symbol.
+  // Because hasWeakUDA is currently only called for global symbols, this
+  // never errors.
+  auto vd = sym->isVarDeclaration();
+  bool err = !(vd && vd->isDataseg()) && !sym->isFuncDeclaration();
+  
+  return hasNamedAttr(sym,attr::weak,err,"@ldc.attributes.weak can only be "
+                      "applied to functions or global variables");
 }
 
-bool hasKernelAttr(FuncDeclaration *decl) {
-
-  if (!decl->userAttribDecl)
-    return false;
-
-  Expressions *attrs = decl->userAttribDecl->getAttributes();
-
-  expandTuples(attrs);
-  for (auto &attr : *attrs) {
-    auto sle = getLdcAttributesStruct(attr);
-    if (!sle)
-      continue;
-
-    auto name = sle->sd->ident->string;
-    if (name == attr::kernel)
-      return true;
-  }
-
-  return false;
+/// Checks whether 'sym' has the @ldc.attributes._kernel() UDA applied.
+bool hasKernelAttr(Dsymbol *sym) {
+  // Check whether @kernel can be applied to this symbol.
+  // Because hasKernelAttr is currently only called for functions in modules
+  // marked @compute, this never errors.
+  bool err = !sym->isFuncDeclaration();
+  return hasNamedAttr(sym,attr::kernel,err,"@ldc.attributes.kernel can only"
+                    " be applied to functions in modules marked @compute");
 }
 
-bool hasComputeAttr(Module *decl) {
-  if (!decl->userAttribDecl)
-    return false;
-
-  Expressions *attrs = decl->userAttribDecl->getAttributes();
-  expandTuples(attrs);
-  for (auto &attr : *attrs) {
-    auto sle = getLdcAttributesStruct(attr);
-    if (!sle)
-      continue;
-    auto name = sle->sd->ident->string;
-    if (name == attr::compute)
-      return true;
-  }
-  return false;
+/// Checks whether 'sym' has the @ldc.attributes._compute() UDA applied.
+bool hasComputeAttr(Dsymbol *sym) {
+  // Check whether @compute can be applied to this symbol.
+  // Because hasComputeAttr is currently only called for modules,
+  // this never errors.
+  bool err = !sym->isModule();
+  return hasNamedAttr(sym,attr::compute,err,"@ldc.attributes.compute  can only"
+                      " be applied to modules");
 }
