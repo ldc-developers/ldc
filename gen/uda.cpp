@@ -311,7 +311,7 @@ StructLiteralExp * namedAttr(Dsymbol *sym,std::string name, bool errorIfFound,co
   if (!sym->userAttribDecl)
     return nullptr;
 
-  // Loop over all UDAs and early return true if @weak was found.
+  // Loop over all UDAs and early return the expression if a match was found.
   Expressions *attrs = sym->userAttribDecl->getAttributes();
   expandTuples(attrs);
   for (auto &attr : *attrs) {
@@ -320,9 +320,6 @@ StructLiteralExp * namedAttr(Dsymbol *sym,std::string name, bool errorIfFound,co
       continue;
     
     if (name == sle->sd->ident->string) {
-      // Check whether @weak can be applied to this symbol.
-      // Because hasWeakUDA is currently only called for global symbols, this
-      // check never errors.
       if (errorIfFound) {
           sym->error(errmsg);
           return nullptr;
