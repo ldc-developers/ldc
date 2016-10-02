@@ -486,16 +486,22 @@ void TryCatchFinallyScopes::popCleanups(CleanupCursor targetScope) {
     // Any gotos that are still unresolved necessarily leave this scope.
     // Thus, the cleanup needs to be executed.
     for (const auto &gotoJump : currentUnresolvedGotos()) {
-      // Make the source resp. last cleanup branch to this one.
+      // Replace all branches to the tentative target by branches to the cleanup
+      // and continue with the tentative target (we simply reuse it because
+      // there is no reason not to).
       llvm::BasicBlock *tentative = gotoJump.tentativeTarget;
-      llvm::BasicBlock *afterCleanup = irs.insertBB("");
+      // 1) Replace all branches to the tentative target by branches to a
+      //    temporary placeholder BB.
+      llvm::BasicBlock *dummy = irs.insertBB("");
+      tentative->replaceAllUsesWith(dummy);
+      // 2) We need a cleanup instance which continues execution with the
+      //    tentative target.
       auto startCleanup =
-          cleanupScopes[i].run(irs, gotoJump.sourceBlock, afterCleanup);
-      tentative->replaceAllUsesWith(startCleanup);
-      // And continue execution with the tentative target (we simply reuse
-      // it because there is no reason not to).
-      afterCleanup->replaceAllUsesWith(tentative);
-      afterCleanup->eraseFromParent();
+          cleanupScopes[i].run(irs, gotoJump.sourceBlock, tentative);
+      // 3) Replace all branches to the placeholder BB by branches to the
+      //    cleanup.
+      dummy->replaceAllUsesWith(startCleanup);
+      dummy->eraseFromParent();
     }
 
     Gotos &nextUnresolved = unresolvedGotosPerCleanupScope[i];
