@@ -259,7 +259,7 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
     } else if (name == attr::optStrategy || name == attr::target || name == attr::kernel) {
       sle->error(
           "Special attribute 'ldc.attributes.%s' is only valid for functions", name);
-    } else if (name == attr::compute)
+    } else if (name == attr::compute) {
       sle->error("Special attribute 'ldc.attributes.compute' is only valid for functions");
     } else {
       sle->warning(
@@ -296,7 +296,7 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
       applyAttrTarget(sle, func);
     } else if (name == attr::weak || name == attr::kernel) {
       // @weak and @kernel are applied elsewhere
-    } else if (name == attr::compute)
+    } else if (name == attr::compute) {
       sle->error("Special attribute 'ldc.attributes.compute' is only valid for functions");
     } else {
       sle->warning(
