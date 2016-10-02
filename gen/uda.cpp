@@ -254,15 +254,13 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
     auto name = sle->sd->ident->string;
     if (name == attr::section) {
       applyAttrSection(sle, gvar);
-    } else if (name == attr::optStrategy) {
+    } else if (name == attr::weak  ) {
+      // @weak is applied elsewhere
+    } else if (name == attr::optStrategy || name == attr::target || name == attr::kernel) {
       sle->error(
-          "Special attribute 'ldc.attributes.optStrategy' is only valid for "
-          "functions");
-    } else if (name == attr::target) {
-      sle->error("Special attribute 'ldc.attributes.target' is only valid for "
-                 "functions");
-    } else if (name == attr::weak || name == attr::kernel || name == attr::compute) {
-      // @weak, @kernel and @compute are applied elsewhere
+          "Special attribute 'ldc.attributes.%s' is only valid for functions", name);
+    } else if (name == attr::compute)
+      sle->error("Special attribute 'ldc.attributes.compute' is only valid for functions");
     } else {
       sle->warning(
           "Ignoring unrecognized special attribute 'ldc.attributes.%s'",
@@ -296,8 +294,10 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
       applyAttrSection(sle, func);
     } else if (name == attr::target) {
       applyAttrTarget(sle, func);
-    } else if (name == attr::weak) {
-      // @weak is applied elsewhere
+    } else if (name == attr::weak || name == attr::kernel) {
+      // @weak and @kernel are applied elsewhere
+    } else if (name == attr::compute)
+      sle->error("Special attribute 'ldc.attributes.compute' is only valid for functions");
     } else {
       sle->warning(
           "ignoring unrecognized special attribute 'ldc.attributes.%s'",
