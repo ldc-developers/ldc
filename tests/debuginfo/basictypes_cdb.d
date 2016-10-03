@@ -5,8 +5,8 @@
 // RUN: sed -e "/^\\/\\/ CDB:/!d" -e "s,// CDB:,," %s \
 // RUN:    | %cdb -snul -lines -y . %t.exe >%t.out
 // RUN: FileCheck %s -check-prefix=CHECK -check-prefix=%arch < %t.out
-module basictypes;
 
+// modulename explicitly unspecified to check implicit function name when breaking
 void main()
 {
 	basic_types();
@@ -41,7 +41,7 @@ int basic_types()
 // CDB: ld basictypes_cdb*
 // CDB: bp `basictypes_cdb.d:39`
 // CDB: g
-// CHECK: !basictypes.basic_types
+// CHECK: !basictypes_cdb.basic_types
 
 // enable case sensitive symbol lookup
 // CDB: .symopt-1
