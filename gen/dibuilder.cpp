@@ -1018,7 +1018,15 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     return; // unsupported
 
   if (vd->storage_class & (STCref | STCout)) {
+#if LDC_LLVM_VER >= 308
+    auto vt = type ? type : vd->type;
+    auto T = DtoType(vt);
+    TD = DBuilder.createReferenceType(llvm::dwarf::DW_TAG_reference_type, TD,
+                                      getTypeAllocSize(T) * 8, // size (bits)
+                                      DtoAlignment(vt) * 8);   // align (bits)
+#else
     TD = DBuilder.createReferenceType(llvm::dwarf::DW_TAG_reference_type, TD);
+#endif
   }
 
   // get variable description
