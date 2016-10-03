@@ -87,18 +87,28 @@ public:
 
   // Implement virtual functions needed by generic_parser_base
   unsigned getNumOptions() const LLVM_OVERRIDE { return 1; }
-  const char *getOption(unsigned N) const LLVM_OVERRIDE {
+#if LDC_LLVM_VER >= 400
+  llvm::StringRef
+#else
+  const char *
+#endif
+  getOption(unsigned N) const LLVM_OVERRIDE {
     assert(N == 0);
-#if LDC_LLVM_VER >= 308
+#if LDC_LLVM_VER >= 308 && LDC_LLVM_VER < 400
     return owner().ArgStr.data();
 #else
     return owner().ArgStr;
 #endif
   }
 
-  const char *getDescription(unsigned N) const LLVM_OVERRIDE {
+#if LDC_LLVM_VER >= 400
+  llvm::StringRef
+#else
+  const char *
+#endif
+  getDescription(unsigned N) const LLVM_OVERRIDE {
     assert(N == 0);
-#if LDC_LLVM_VER >= 308
+#if LDC_LLVM_VER >= 308 && LDC_LLVM_VER < 400
     return owner().HelpStr.data();
 #else
     return owner().HelpStr;
