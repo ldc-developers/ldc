@@ -18,6 +18,7 @@
 #include "mtype.h"
 #include "statement.h"
 #include "template.h"
+#include "driver/cl_options.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
@@ -42,6 +43,8 @@
 #include "ir/irmodule.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/CFG.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
 #include <iostream>
 
 llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
@@ -419,18 +422,54 @@ void applyParamAttrsToLLFunc(TypeFunction *f, IrFuncTy &irFty,
   func->setAttributes(newAttrs);
 }
 
-void applyDefaultMathAttributes(IrFunction *irFunc) {
+/// Applies TargetMachine options as function attributes in the IR (options for
+/// which attributes exist).
+/// This is e.g. needed for LTO: it tells the linker/LTO-codegen what settings
+/// to use.
+/// It is also needed because "unsafe-fp-math" is not properly reset in LLVM
+/// between function definitions, i.e. if a function does not define a value for
+/// "unsafe-fp-math" it will be compiled using the value of the previous
+/// function. Therefore, each function must explicitly define the value (clang
+/// does the same). See https://llvm.org/bugs/show_bug.cgi?id=23172
+void applyTargetMachineAttributes(llvm::Function &func,
+                                  const llvm::TargetMachine &target) {
+  const llvm::TargetOptions &TO = target.Options;
+
   // TODO: implement commandline switches to change the default values.
 
-  // "unsafe-fp-math" is not properly reset in LLVM between function
-  // definitions, i.e. if a function does not define a value for
-  // "unsafe-fp-math" it will be compiled using the value of the previous
-  // function. Therefore, each function must explicitly define the value (clang
-  // does the same).
-  // See https://llvm.org/bugs/show_bug.cgi?id=23172
-  irFunc->func->addFnAttr("unsafe-fp-math", "false");
+  // Target CPU capabilities
+  func.addFnAttr("target-cpu", target.getTargetCPU());
+  auto featStr = target.getTargetFeatureString();
+  if (!featStr.empty())
+    func.addFnAttr("target-features", featStr);
+
+  // Floating point settings
+  func.addFnAttr("unsafe-fp-math", TO.UnsafeFPMath ? "true" : "false");
+  func.addFnAttr("less-precise-fpmad",
+                 TO.LessPreciseFPMADOption ? "true" : "false");
+  func.addFnAttr("no-infs-fp-math", TO.NoInfsFPMath ? "true" : "false");
+  func.addFnAttr("no-nans-fp-math", TO.NoNaNsFPMath ? "true" : "false");
+#if LDC_LLVM_VER < 307
+  func.addFnAttr("use-soft-float", TO.UseSoftFloat ? "true" : "false");
+#else
+  switch (TO.FloatABIType) {
+  case llvm::FloatABI::Default:
+    break;
+  case llvm::FloatABI::Soft:
+    func.addFnAttr("use-soft-float", "true");
+    break;
+  case llvm::FloatABI::Hard:
+    func.addFnAttr("use-soft-float", "false");
+    break;
+  }
+#endif
+
+  // Frame pointer elimination
+  func.addFnAttr("no-frame-pointer-elim",
+                 opts::disableFpElim ? "true" : "false");
 }
-}
+
+} // anonymous namespace
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -523,9 +562,9 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     }
   }
 
-  // Set default math function attributes here, such that they can be overridden
+  // First apply the TargetMachine attributes, such that they can be overridden
   // by UDAs.
-  applyDefaultMathAttributes(irFunc);
+  applyTargetMachineAttributes(*func, *gTargetMachine);
   applyFuncDeclUDAs(fdecl, irFunc);
 
   // main

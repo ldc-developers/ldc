@@ -113,4 +113,4 @@ double neverInlinedEnclosingFunction()
 // LLVM-DAG: attributes #[[UNSAFEFPMATH]] ={{.*}} "unsafe-fp-math"="true"
 // LLVM-DAG: attributes #[[UNSAFEFPMATH2]] ={{.*}} "unsafe-fp-math"="true"
 // LLVM-DAG: attributes #[[UNSAFEFPMATH3]] ={{.*}} "unsafe-fp-math"="false"
-// LLVM-DAG: attributes #[[FEAT]] ={{.*}} "target-features"="+fma"
+// LLVM-DAG: attributes #[[FEAT]] ={{.*}} "target-features"="{{.*}}+fma{{.*}}"
