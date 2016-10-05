@@ -1364,7 +1364,8 @@ public:
     auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
-    LLValue *const lval = DtoLVal(e->e1);
+    DValue *const dv = toElem(e->e1);
+    LLValue *const lval = DtoLVal(dv);
     toElem(e->e2);
 
     LLValue *val = DtoLoad(lval);
@@ -1387,6 +1388,17 @@ public:
       LLConstant *offset =
           e->op == TOKplusplus ? DtoConstUint(1) : DtoConstInt(-1);
       post = DtoGEP1(val, offset, false, "", p->scopebb());
+    } else if (e1type->iscomplex()) {
+      assert(e2type->iscomplex());
+      LLValue *one = LLConstantFP::get(DtoComplexBaseType(e1type), 1.0);
+      LLValue *re, *im;
+      DtoGetComplexParts(e->loc, e1type, dv, re, im);
+      if (e->op == TOKplusplus) {
+        re = llvm::BinaryOperator::CreateFAdd(re, one, "", p->scopebb());
+      } else if (e->op == TOKminusminus) {
+        re = llvm::BinaryOperator::CreateFSub(re, one, "", p->scopebb());
+      }
+      DtoComplexSet(lval, re, im);
     } else if (e1type->isfloating()) {
       assert(e2type->isfloating());
       LLValue *one = DtoConstFP(e1type, ldouble(1.0));
@@ -1399,7 +1411,11 @@ public:
       llvm_unreachable("Unsupported type for PostExp.");
     }
 
-    DtoStore(post, lval);
+    // The real part of the complex number has already been updated, skip the
+    // store
+    if (!e1type->iscomplex()) {
+	DtoStore(post, lval);
+    }
     result = new DImValue(e->type, val);
   }
 
