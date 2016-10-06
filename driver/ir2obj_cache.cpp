@@ -183,6 +183,9 @@ void outputIR2ObjRelevantCmdlineArgs(llvm::raw_ostream &hash_os)
       // All  "-ir2..." options can be ignored
       if (arg[1] == 'i' && arg[2] == 'r' && arg[3] == '2')
         continue;
+      // Ignore "-lib"
+      if (arg[1] == 'l' && arg[2] == 'i' && arg[3] == 'b' && !arg[4])
+        continue;
       // All effects of -d-version... are already included in the IR hash.
       if (strncmp(arg+1, "d-version", 9) == 0)
         continue;

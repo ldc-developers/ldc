@@ -29,6 +29,7 @@
 // RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache -D -H -I. -J.                    -vv | FileCheck --check-prefix=MUST_HIT %s \
 // RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache -d-version=Irrelevant            -vv | FileCheck --check-prefix=MUST_HIT %s \
 // RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache -unittest                        -vv | FileCheck --check-prefix=MUST_HIT %s \
+// RUN:   && %ldc %s               -ir2obj-cache=%T/flag1cache -lib                             -vv | FileCheck --check-prefix=MUST_HIT %s \
 // RUN:   && %ldc                  -ir2obj-cache=%T/flag1cache -vv -run %s                          | FileCheck --check-prefix=COULD_HIT %s \
 // RUN:   && %ldc                  -ir2obj-cache=%T/flag1cache -vv -run %s a b                      | FileCheck --check-prefix=MUST_HIT %s \
 // RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache -g                               -vv | FileCheck --check-prefix=MUST_HIT %s
