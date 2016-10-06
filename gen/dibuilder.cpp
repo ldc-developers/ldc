@@ -131,7 +131,10 @@ void ldc::DIBuilder::Declare(const Loc &loc, llvm::Value *var,
 }
 
 ldc::DIFile ldc::DIBuilder::CreateFile(Loc &loc) {
-  llvm::SmallString<128> path(loc.filename ? loc.filename : "");
+  const char* filename = loc.filename;
+  if (!filename)
+    filename = IR->dmodule->srcfile->toChars();
+  llvm::SmallString<128> path(filename);
   llvm::sys::fs::make_absolute(path);
 
   return DBuilder.createFile(llvm::sys::path::filename(path),
@@ -141,6 +144,13 @@ ldc::DIFile ldc::DIBuilder::CreateFile(Loc &loc) {
 ldc::DIFile ldc::DIBuilder::CreateFile() {
   Loc loc(IR->dmodule->srcfile->toChars(), 0, 0);
   return CreateFile(loc);
+}
+
+ldc::DIFile ldc::DIBuilder::CreateFile(Dsymbol* decl) {
+  Loc loc;
+  for (Dsymbol* sym = decl; sym && !loc.filename; sym = sym->parent)
+    loc = sym->loc;
+  return loc.filename ? CreateFile(loc) : CreateFile();
 }
 
 ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
@@ -243,7 +253,7 @@ ldc::DIType ldc::DIBuilder::CreateEnumType(Type *type) {
 
   llvm::StringRef Name = te->toChars();
   unsigned LineNumber = te->sym->loc.linnum;
-  ldc::DIFile File(CreateFile(te->sym->loc));
+  ldc::DIFile File(CreateFile(te->sym));
 
   return DBuilder.createEnumerationType(
       GetCU(), Name, File, LineNumber,
@@ -426,7 +436,7 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
   unsigned linnum = sd->loc.linnum;
   ldc::DICompileUnit CU(GetCU());
   assert(CU && "Compilation unit missing or corrupted");
-  ldc::DIFile file = CreateFile(sd->loc);
+  ldc::DIFile file = CreateFile(sd);
   ldc::DIType derivedFrom = getNullDIType();
 
   // set diCompositeType to handle recursive types properly
@@ -735,7 +745,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
   assert(CU &&
          "Compilation unit missing or corrupted in DIBuilder::EmitSubProgram");
 
-  ldc::DIFile file = CreateFile(fd->loc);
+  ldc::DIFile file = CreateFile(fd);
 
   // Create subroutine type
   ldc::DISubroutineType DIFnType =
@@ -782,7 +792,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitThunk(llvm::Function *Thunk,
   ldc::DICompileUnit CU(GetCU());
   assert(CU && "Compilation unit missing or corrupted in DIBuilder::EmitThunk");
 
-  ldc::DIFile file = CreateFile(fd->loc);
+  ldc::DIFile file = CreateFile(fd);
 
   // Create subroutine type (thunk has same type as wrapped function)
   ldc::DISubroutineType DIFnType = CreateFunctionType(fd->type);
@@ -930,9 +940,9 @@ void ldc::DIBuilder::EmitStopPoint(Loc &loc) {
   if (!global.params.symdebug)
     return;
 
-// If we already have a location set and the current loc is invalid
-// (line 0), then we can just ignore it (see GitHub issue #998 for why we
-// cannot do this in all cases).
+  // If we already have a location set and the current loc is invalid
+  // (line 0), then we can just ignore it (see GitHub issue #998 for why we
+  // cannot do this in all cases).
 #if LDC_LLVM_VER >= 307
   if (!loc.linnum && IR->ir->getCurrentDebugLocation())
     return;
@@ -940,13 +950,20 @@ void ldc::DIBuilder::EmitStopPoint(Loc &loc) {
   if (!loc.linnum && !IR->ir->getCurrentDebugLocation().isUnknown())
     return;
 #endif
+  unsigned linnum = loc.linnum;
+  // without proper loc use the line of the enclosing symbol that has line
+  // number debug info
+  for (Dsymbol *sym = IR->func()->decl; sym && !linnum; sym = sym->parent)
+    linnum = sym->loc.linnum;
+  if (!linnum)
+    linnum = 1;
 
   unsigned charnum = (loc.linnum ? loc.charnum : 0);
-  Logger::println("D to dwarf stoppoint at line %u, column %u", loc.linnum,
+  Logger::println("D to dwarf stoppoint at line %u, column %u", linnum,
                   charnum);
   LOG_SCOPE;
   IR->ir->SetCurrentDebugLocation(
-      llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope()));
+      llvm::DebugLoc::get(linnum, charnum, GetCurrentScope()));
   currentLoc = loc;
 }
 
@@ -1024,7 +1041,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     debugVariable = DBuilder.createLocalVariable(tag,                 // tag
                                                  GetCurrentScope(),   // scope
                                                  vd->toChars(),       // name
-                                                 CreateFile(vd->loc), // file
+                                                 CreateFile(vd), // file
                                                  vd->loc.linnum, // line num
                                                  TD,             // type
                                                  true,           // preserve
@@ -1034,7 +1051,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     debugVariable = DBuilder.createComplexVariable(tag,                 // tag
                                                    GetCurrentScope(),   // scope
                                                    vd->toChars(),       // name
-                                                   CreateFile(vd->loc), // file
+                                                   CreateFile(vd), // file
                                                    vd->loc.linnum, // line num
                                                    TD,             // type
                                                    addr);
@@ -1043,7 +1060,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
   debugVariable = DBuilder.createLocalVariable(tag,                 // tag
                                                GetCurrentScope(),   // scope
                                                vd->toChars(),       // name
-                                               CreateFile(vd->loc), // file
+                                               CreateFile(vd),      // file
                                                vd->loc.linnum,      // line num
                                                TD,                  // type
                                                true,                // preserve
@@ -1065,24 +1082,23 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
         argNo++;
     }
 
-    debugVariable =
-        DBuilder.createParameterVariable(GetCurrentScope(), // scope
-                                         vd->toChars(),     // name
-                                         argNo + 1,
-                                         CreateFile(vd->loc), // file
-                                         vd->loc.linnum,      // line num
-                                         TD,                  // type
-                                         true,                // preserve
-                                         Flags                // flags
-                                         );
+    debugVariable = DBuilder.createParameterVariable(GetCurrentScope(), // scope
+                                                     vd->toChars(),     // name
+                                                     argNo + 1,
+                                                     CreateFile(vd), // file
+                                                     vd->loc.linnum, // line num
+                                                     TD,             // type
+                                                     true,           // preserve
+                                                     Flags           // flags
+                                                     );
   } else {
-    debugVariable = DBuilder.createAutoVariable(GetCurrentScope(),   // scope
-                                                vd->toChars(),       // name
-                                                CreateFile(vd->loc), // file
-                                                vd->loc.linnum,      // line num
-                                                TD,                  // type
-                                                true,                // preserve
-                                                Flags                // flags
+    debugVariable = DBuilder.createAutoVariable(GetCurrentScope(), // scope
+                                                vd->toChars(),     // name
+                                                CreateFile(vd),    // file
+                                                vd->loc.linnum,    // line num
+                                                TD,                // type
+                                                true,              // preserve
+                                                Flags              // flags
                                                 );
   }
 #endif
@@ -1118,7 +1134,7 @@ void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
 #endif
           vd->toChars(),                          // name
           mangle(vd),                             // linkage name
-          CreateFile(vd->loc),                    // file
+          CreateFile(vd),                         // file
           vd->loc.linnum,                         // line num
           CreateTypeDescription(vd->type, false), // type
           vd->protection.kind == PROTprivate,     // is local to unit

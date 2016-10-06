@@ -181,6 +181,7 @@ private:
                  );
   DIFile CreateFile(Loc &loc);
   DIFile CreateFile();
+  DIFile CreateFile(Dsymbol* decl);
   DIType CreateBasicType(Type *type);
   DIType CreateEnumType(Type *type);
   DIType CreatePointerType(Type *type);
