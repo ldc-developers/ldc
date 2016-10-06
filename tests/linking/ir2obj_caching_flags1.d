@@ -11,7 +11,7 @@
 // RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache -O3                              -vv | FileCheck --check-prefix=MUST_HIT %s \
 // RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache -O2                              -vv | FileCheck --check-prefix=NO_HIT %s \
 // RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache -O4                              -vv | FileCheck --check-prefix=NO_HIT %s \
-// RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache -O5                              -vv | FileCheck --check-prefix=NO_HIT %s \
+// RUN:   && %ldc -O5 %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache                              -vv | FileCheck --check-prefix=NO_HIT %s \
 // RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache -Os                              -vv | FileCheck --check-prefix=NO_HIT %s \
 // RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache -Oz                              -vv | FileCheck --check-prefix=NO_HIT %s \
 // RUN:   && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/flag1cache -disable-d-passes                -vv | FileCheck --check-prefix=NO_HIT %s \

@@ -142,7 +142,13 @@ void outputIR2ObjRelevantCmdlineArgs(llvm::raw_ostream &hash_os)
   // IR, which simplifies the code here.
   // The code does not deal well with options specified without equals sign, and
   // will add those to the hash, resulting in missed cache opportunities.
-  for (const char *arg : opts::allArguments) {
+
+  auto it = opts::allArguments.begin();
+  auto end_it = opts::allArguments.end();
+  // The first argument is the compiler executable filename: we can skip it.
+  ++it;
+  for (; it != end_it; ++it) {
+    const char *arg = *it;
     if (!arg || !arg[0])
       continue;
 
