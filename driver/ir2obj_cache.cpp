@@ -127,6 +127,113 @@ void storeCacheFileName(llvm::StringRef cacheObjectHash,
   llvm::sys::path::append(filePath, llvm::Twine("ircache_") + cacheObjectHash +
                                         "." + global.obj_ext);
 }
+
+// Output to `hash_os` all commandline flags, and try to skip the ones that have
+// no influence on the object code output. The cmdline flags need to be added
+// to the ir2obj cache hash to uniquely identify the object file output.
+// Because the compiler version is part of the hash, differences in the
+// default settings between compiler versions are already taken care of.
+// (Note: config and response files may also add compiler flags.)
+void outputIR2ObjRelevantCmdlineArgs(llvm::raw_ostream &hash_os)
+{
+  // Use a "whitelist" of cmdline args that do not need to be added to the hash,
+  // and add all others. There is no harm (other than missed cache
+  // opportunities) in adding commandline arguments that also change the hashed
+  // IR, which simplifies the code here.
+  // The code does not deal well with options specified without equals sign, and
+  // will add those to the hash, resulting in missed cache opportunities.
+
+  auto it = opts::allArguments.begin();
+  auto end_it = opts::allArguments.end();
+  // The first argument is the compiler executable filename: we can skip it.
+  ++it;
+  for (; it != end_it; ++it) {
+    const char *arg = *it;
+    if (!arg || !arg[0])
+      continue;
+
+    // Out of pre-caution, all arguments that are not prefixed with '-' are
+    // added to the hash. Such an argument could be a source file "foo.d", but
+    // also a value for the previous argument when the equals sign is omitted,
+    // for example: "-code-model default" becomes "-code-model" "default".
+    // It results in missed cache opportunities. :(
+    if (arg[0] == '-') {
+      if (arg[1] == 'O') {
+        // We deal with -O later ("-O" and "-O3" should hash equally, "" and
+        // "-O0" too)
+        continue;
+      }
+      if (arg[1] == 'c' && !arg[2])
+        continue;
+      // All options starting with these characters can be ignored (LLVM does
+      // not have options starting with capitals)
+      if (arg[1] == 'D' || arg[1] == 'H' || arg[1] == 'I' || arg[1] == 'J' ||
+          arg[1] == 'L' || arg[1] == 'X')
+        continue;
+      if (arg[1] == 'd' || arg[1] == 'v' || arg[1] == 'w') {
+        // LLVM options are long, so short options starting with 'v' or 'w' can
+        // be ignored.
+        unsigned len = 2;
+        for (; len < 11; ++len)
+          if (!arg[len])
+            break;
+        if (len < 11)
+          continue;
+      }
+      // "-of..." can be ignored
+      if (arg[1] == 'o' && arg[2] == 'f')
+        continue;
+      // "-od..." can be ignored
+      if (arg[1] == 'o' && arg[2] == 'd')
+        continue;
+      // All  "-ir2..." options can be ignored
+      if (arg[1] == 'i' && arg[2] == 'r' && arg[3] == '2')
+        continue;
+      // Ignore "-lib"
+      if (arg[1] == 'l' && arg[2] == 'i' && arg[3] == 'b' && !arg[4])
+        continue;
+      // All effects of -d-version... are already included in the IR hash.
+      if (strncmp(arg+1, "d-version", 9) == 0)
+        continue;
+      // All effects of -unittest are already included in the IR hash.
+      if (strcmp(arg + 1, "unittest") == 0) {
+        continue;
+      }
+
+      // All arguments following -run can safely be ignored
+      if (strcmp(arg + 1, "run") == 0) {
+        break;
+      }
+    }
+
+    // If we reach here, add the argument to the hash.
+    hash_os << arg;
+  }
+
+  // Adding these options to the hash should not be needed after adding all
+  // cmdline args. We keep this code here however, in case we find a different
+  // solution for dealing with LLVM commandline flags. See GH #1773.
+  // Also, having these options explicitly added to the hash protects against
+  // the possibility of different default settings on different platforms (while
+  // sharing the cache).
+  outputOptimizationSettings(hash_os);
+  hash_os << opts::mCPU;
+  for (auto &attr : opts::mAttrs) {
+    hash_os << attr;
+  }
+  hash_os << opts::mFloatABI;
+  hash_os << opts::mRelocModel;
+  hash_os << opts::mCodeModel;
+  hash_os << opts::disableFpElim;
+}
+
+// Output to `hash_os` all environment flags that influence object code output
+// in ways that are not observable in the pre-LLVM passes IR used for hashing.
+void outputIR2ObjRelevantEnvironmentOpts(llvm::raw_ostream &hash_os)
+{
+  // There are no relevant environment options at the moment.
+}
+
 }
 
 namespace ir2obj {
@@ -138,17 +245,11 @@ void calculateModuleHash(llvm::Module *m, llvm::SmallString<32> &str) {
   hash_os << global.ldc_version << global.version << global.llvm_version
           << ldc::built_with_Dcompiler_version;
 
-  // Let hash depend on a few compile flags that change the outputted obj file,
-  // but whose changes are not always observable in the IR:
-  hash_os << codeGenOptLevel();
-  hash_os << opts::mCPU;
-  for (auto &attr : opts::mAttrs) {
-    hash_os << attr;
-  }
-  hash_os << opts::mFloatABI;
-  hash_os << opts::mRelocModel;
-  hash_os << opts::mCodeModel;
-  hash_os << opts::disableFpElim;
+  // Let hash depend on compile flags that change the outputted obj file,
+  // but whose changes are not always observable in the pre-optimized IR used
+  // for hashing:
+  outputIR2ObjRelevantCmdlineArgs(hash_os);
+  outputIR2ObjRelevantEnvironmentOpts(hash_os);
 
   llvm::WriteBitcodeToFile(m, hash_os);
   hash_os.resultAsString(str);

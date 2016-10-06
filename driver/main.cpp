@@ -401,18 +401,17 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   global.params.moduleDepsFile = nullptr;
 
   // Build combined list of command line arguments.
-  llvm::SmallVector<const char *, 32> final_args;
-  final_args.push_back(argv[0]);
+  opts::allArguments.push_back(argv[0]);
 
   ConfigFile cfg_file;
   const char *explicitConfFile = tryGetExplicitConfFile(argc, argv);
   std::string cfg_triple = tryGetExplicitTriple(argc, argv).getTriple();
   // just ignore errors for now, they are still printed
   cfg_file.read(explicitConfFile, cfg_triple.c_str());
-  final_args.insert(final_args.end(), cfg_file.switches_begin(),
-                    cfg_file.switches_end());
+  opts::allArguments.insert(opts::allArguments.end(), cfg_file.switches_begin(),
+                            cfg_file.switches_end());
 
-  final_args.insert(final_args.end(), &argv[1], &argv[argc]);
+  opts::allArguments.insert(opts::allArguments.end(), &argv[1], &argv[argc]);
 
   cl::SetVersionPrinter(&printVersion);
   hideLLVMOptions();
@@ -429,11 +428,11 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
                           cl::TokenizeGNUCommandLine
 #endif
                           ,
-                          final_args);
+                          opts::allArguments);
 #endif
 
-  cl::ParseCommandLineOptions(final_args.size(),
-                              const_cast<char **>(final_args.data()),
+  cl::ParseCommandLineOptions(opts::allArguments.size(),
+                              const_cast<char **>(opts::allArguments.data()),
                               "LDC - the LLVM D compiler\n");
 
   helpOnly = mCPU == "help" ||

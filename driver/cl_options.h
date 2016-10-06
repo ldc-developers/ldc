@@ -17,6 +17,7 @@
 
 #include "driver/targetmachine.h"
 #include "gen/cl_helpers.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/CommandLine.h"
 #include <deque>
@@ -27,6 +28,10 @@
 
 namespace opts {
 namespace cl = llvm::cl;
+
+/// Stores the commandline arguments list, including the ones specified by the
+/// config and response files.
+extern llvm::SmallVector<const char *, 32> allArguments;
 
 /* Mostly generated with the following command:
    egrep -e '^(cl::|#if|#e)' gen/cl_options.cpp \
