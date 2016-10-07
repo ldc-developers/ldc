@@ -74,6 +74,8 @@ llvm::StringRef uniqueIdent(Type* t) {
 
 } // namespace
 
+bool ldc::DIBuilder::mustEmitDebugInfo() { return global.params.symdebug; }
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // get the module the symbol is in, or - for template instances - the current
@@ -694,7 +696,7 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type, bool derefclass) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void ldc::DIBuilder::EmitCompileUnit(Module *m) {
-  if (!global.params.symdebug) {
+  if (!mustEmitDebugInfo()) {
     return;
   }
 
@@ -730,7 +732,7 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
 }
 
 ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
-  if (!global.params.symdebug) {
+  if (!mustEmitDebugInfo()) {
 #if LDC_LLVM_VER >= 307
     return nullptr;
 #else
@@ -778,7 +780,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
 
 ldc::DISubprogram ldc::DIBuilder::EmitThunk(llvm::Function *Thunk,
                                             FuncDeclaration *fd) {
-  if (!global.params.symdebug) {
+  if (!mustEmitDebugInfo()) {
 #if LDC_LLVM_VER >= 307
     return nullptr;
 #else
@@ -827,7 +829,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitThunk(llvm::Function *Thunk,
 
 ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function *Fn,
                                                  llvm::StringRef prettyname) {
-  if (!global.params.symdebug) {
+  if (!mustEmitDebugInfo()) {
 #if LDC_LLVM_VER >= 307
     return nullptr;
 #else
@@ -882,7 +884,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function *Fn,
 }
 
 void ldc::DIBuilder::EmitFuncStart(FuncDeclaration *fd) {
-  if (!global.params.symdebug)
+  if (!mustEmitDebugInfo())
     return;
 
   Logger::println("D to dwarf funcstart");
@@ -893,7 +895,7 @@ void ldc::DIBuilder::EmitFuncStart(FuncDeclaration *fd) {
 }
 
 void ldc::DIBuilder::EmitFuncEnd(FuncDeclaration *fd) {
-  if (!global.params.symdebug)
+  if (!mustEmitDebugInfo())
     return;
 
   Logger::println("D to dwarf funcend");
@@ -904,7 +906,7 @@ void ldc::DIBuilder::EmitFuncEnd(FuncDeclaration *fd) {
 }
 
 void ldc::DIBuilder::EmitBlockStart(Loc &loc) {
-  if (!global.params.symdebug)
+  if (!mustEmitDebugInfo())
     return;
 
   Logger::println("D to dwarf block start");
@@ -925,7 +927,7 @@ void ldc::DIBuilder::EmitBlockStart(Loc &loc) {
 }
 
 void ldc::DIBuilder::EmitBlockEnd() {
-  if (!global.params.symdebug)
+  if (!mustEmitDebugInfo())
     return;
 
   Logger::println("D to dwarf block end");
@@ -937,7 +939,7 @@ void ldc::DIBuilder::EmitBlockEnd() {
 }
 
 void ldc::DIBuilder::EmitStopPoint(Loc &loc) {
-  if (!global.params.symdebug)
+  if (!mustEmitDebugInfo())
     return;
 
   // If we already have a location set and the current loc is invalid
@@ -975,7 +977,7 @@ void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
     return;
 
   ldc::DILocalVariable debugVariable = sub->second;
-  if (!global.params.symdebug || !debugVariable)
+  if (!mustEmitDebugInfo() || !debugVariable)
     return;
 
   llvm::Instruction *instr =
@@ -999,7 +1001,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
                                        llvm::ArrayRef<llvm::Value *> addr
 #endif
                                        ) {
-  if (!global.params.symdebug)
+  if (!mustEmitDebugInfo())
     return;
 
   Logger::println("D to dwarf local variable");
@@ -1116,7 +1118,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 
 void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
                                         VarDeclaration *vd) {
-  if (!global.params.symdebug)
+  if (!mustEmitDebugInfo())
     return;
 
   Logger::println("D to dwarf global_variable");
@@ -1151,7 +1153,7 @@ void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
 }
 
 void ldc::DIBuilder::Finalize() {
-  if (!global.params.symdebug)
+  if (!mustEmitDebugInfo())
     return;
 
   DBuilder.finalize();

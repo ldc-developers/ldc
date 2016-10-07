@@ -197,6 +197,8 @@ private:
   DIType CreateDelegateType(Type *type);
   DIType CreateTypeDescription(Type *type, bool derefclass = false);
 
+  bool mustEmitDebugInfo();
+
 public:
   template <typename T>
   void OpOffset(T &addr, llvm::StructType *type, int index) {
