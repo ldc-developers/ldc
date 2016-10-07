@@ -1,5 +1,9 @@
 # Requires the BETA setting to use Ubunty 14.04 Trusty
 
+# It appears that the current directory is reset at the start of each `-` line,
+# so for example to do an out-of-source build, you have to chain operations
+# after `cd`: `cd build && cmake .. `.
+
 machine:
   environment:
     PATH: "~/$CIRCLE_PROJECT_REPONAME/ldc2-1.0.0-linux-x86_64/bin:$PATH"
