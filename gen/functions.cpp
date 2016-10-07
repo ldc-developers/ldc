@@ -1011,6 +1011,17 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     // copy _arguments to a memory location
     irFunc->_arguments =
         DtoAllocaDump(irFunc->_arguments, 0, "_arguments_mem");
+
+    // Push cleanup block that calls va_end to match the va_start call.
+    {
+      auto *vaendBB =
+          llvm::BasicBlock::Create(gIR->context(), "vaend", gIR->topfunc());
+      IRScope saveScope = gIR->scope();
+      gIR->scope() = IRScope(vaendBB);
+      gIR->ir->CreateCall(GET_INTRINSIC_DECL(vaend), llAp);
+      funcGen.scopes.pushCleanup(vaendBB, gIR->scopebb());
+      gIR->scope() = saveScope;
+    }
   }
 
   funcGen.pgo.emitCounterIncrement(fd->fbody);
@@ -1018,6 +1029,17 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   // output function body
   Statement_toIR(fd->fbody, gIR);
+
+  // D varargs: emit the cleanup block that calls va_end.
+  if (f->linkage == LINKd && f->varargs == 1) {
+    if (!gIR->scopereturned()) {
+      if (!funcGen.retBlock)
+        funcGen.retBlock = gIR->insertBB("return");
+      funcGen.scopes.runCleanups(0, funcGen.retBlock);
+      gIR->scope() = IRScope(funcGen.retBlock);
+    }
+    funcGen.scopes.popCleanups(0);
+  }
 
   llvm::BasicBlock *bb = gIR->scopebb();
   if (pred_begin(bb) == pred_end(bb) &&
