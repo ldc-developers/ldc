@@ -28,16 +28,6 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 // CHECK: !args_cdb.byValue
 // CDB: dv /t
 
-// arguments not converted to locals come first:
-// x64: cdouble * c
-// x64: int delegate() * dg
-// "Internal implementation error for fa" with cdb on x64, ok in VS
-// x64: Interface * ifc
-
-// x86: unsigned char [16] fa
-// x86: Interface ifc
-
-// locals:
 // CHECK: unsigned char ub = 0x01
 // CHECK: unsigned short us = 2
 // CHECK: unsigned int ui = 3
@@ -45,15 +35,22 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 // CHECK: float f = 5
 // CHECK: double d = 6
 // CHECK: double r = 7
+// x64: cdouble * c =
 // x86: cdouble c =
+// x64: int delegate() * dg =
 // x86: int delegate() dg =
 // CHECK: <function> * fun = {{0x[0-9a-f`]*}}
-// CHECK: struct int[] slice =
+// x64: struct int[] * slice =
+// x86: struct int[] slice =
 // CHECK: unsigned char * aa = {{0x[0-9a-f`]*}}
+// "Internal implementation error for fa" with cdb on x64, ok in VS
+// x86: unsigned char [16] fa
 // CHECK: float [4] f4 = float [4]
 // CHECK: double [4] d4 = double [4]
+// x64: Interface * ifc
+// x86: Interface ifc
 // CHECK: struct TypeInfo_Class * ti = {{0x[0-9a-f`]*}}
-// noCHECK: <CLR type> np = <unknown base type 80000013> 
+// CHECK: void * np = {{0x[0`]*}}
 
 // check arguments with indirections
 // CDB: ?? c
@@ -68,7 +65,7 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 // CHECK-SAME: args_cdb.main.__lambda
 
 // CDB: ?? fa[1]
-// "Internal implementation error for fa" on x64
+// "Internal implementation error for fa" with cdb on x64, ok in VS
 // no-x86: unsigned char 0x0e (displays 0xf6)
 
 // CDB: ?? ifc
@@ -90,7 +87,7 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
           float4* f4, double4* d4,
           Interface* ifc, TypeInfo_Class* ti, typeof(null)* np)
 {
-// CDB: bp `args_cdb.d:94`
+// CDB: bp `args_cdb.d:91`
 // CDB: g
     return 3;
 // CHECK: !args_cdb.byPtr
@@ -141,7 +138,7 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
 // CHECK-NEXT: m_init : byte[]
 // shows bad member values
 // CDB: ?? *np
-// noCHECK: <CLR type> np = <unknown base type 80000013> 
+// CHECK: void * {{0x[0`]*}}
 }
 
 int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
@@ -151,7 +148,7 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
           ref float4 f4, ref double4 d4,
           ref Interface ifc, ref TypeInfo_Class ti, ref typeof(null) np)
 {
-// CDB: bp `args_cdb.d:206`
+// CDB: bp `args_cdb.d:203`
 // CDB: g
 // CHECK: !args_cdb.byRef
 
@@ -201,7 +198,7 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
 // CHECK: struct TypeInfo_Class * {{0x[0-9a-f`]*}}
 // CHECK-NEXT: m_init : byte[]
 // CDB: ?? *np
-// noCHECK: <CLR type> <unknown base type 80000013> 
+// CHECK: void * {{0x[0`]*}}
 
 // needs access to references to actually generate debug info
     ub++;
@@ -254,4 +251,3 @@ int main()
 }
 // CDB: q
 // CHECK: quit
-

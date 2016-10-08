@@ -136,15 +136,15 @@ public:
 
   /// \brief Emits all things necessary for making debug info for a local
   /// variable vd.
-  /// \param ll       LLVM Value of the variable.
+  /// \param ll       LL lvalue of the variable.
   /// \param vd       Variable declaration to emit debug info for.
-  /// \param type     Type of parameter if different from vd->type
-  /// \param isThisPtr Parameter is hidden this pointer
-  /// \param bool rewrittenToLocal Parameter is copied to local stack frame/closure
+  /// \param type     Type of variable if different from vd->type
+  /// \param isThisPtr Variable is hidden this pointer
+  /// \param forceAsLocal Emit as local even if the variable is a parameter
   /// \param addr     An array of complex address operations.
   void
   EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd, Type *type = nullptr,
-                    bool isThisPtr = false, bool rewrittenToLocal = false,
+                    bool isThisPtr = false, bool forceAsLocal = false,
 #if LDC_LLVM_VER >= 306
                     llvm::ArrayRef<int64_t> addr = llvm::ArrayRef<int64_t>()
 #else

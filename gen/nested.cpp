@@ -155,7 +155,8 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
   }
 
   if (dwarfValue && global.params.symdebug) {
-    gIR->DBuilder.EmitLocalVariable(dwarfValue, vd, nullptr, false, /*fromNested=*/ true, dwarfAddr);
+    gIR->DBuilder.EmitLocalVariable(dwarfValue, vd, nullptr, false, true,
+                                    dwarfAddr);
   }
 
   return makeVarDValue(astype, vd, val);

@@ -19,5 +19,5 @@ void encloser(int arg0, int arg1)
 // CHECK: !DISubprogram(name:{{.*}}"{{.*}}.encloser"
 // CHECK-SAME: function: void {{.*}} @_D{{.*}}8encloserFiiZv
 // CHECK-LABEL: !DISubprogram(name:{{.*}}"{{.*}}.encloser.nested"
-// CHECK: !DILocalVariable{{.*}}DW_TAG_auto_variable{{.*}}nes_i
+// CHECK: !DILocalVariable{{.*}}DW_TAG_arg_variable{{.*}}nes_i
 // CHECK: !DILocalVariable{{.*}}DW_TAG_auto_variable{{.*}}arg1
