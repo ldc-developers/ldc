@@ -28,6 +28,7 @@
 
 #if LDC_LLVM_VER >= 307
 #include "driver/cl_options.h"
+#include "llvm/Support/TargetParser.h"
 
 static const char *getABI(const llvm::Triple &triple) {
   llvm::StringRef ABIName(opts::mABI);
@@ -165,42 +166,54 @@ static std::string getX86TargetCPU(const llvm::Triple &triple) {
 }
 
 static std::string getARMTargetCPU(const llvm::Triple &triple) {
-  const char *result = llvm::StringSwitch<const char *>(triple.getArchName())
-                           .Cases("armv2", "armv2a", "arm2")
-                           .Case("armv3", "arm6")
-                           .Case("armv3m", "arm7m")
-                           .Case("armv4", "strongarm")
-                           .Case("armv4t", "arm7tdmi")
-                           .Cases("armv5", "armv5t", "arm10tdmi")
-                           .Cases("armv5e", "armv5te", "arm1026ejs")
-                           .Case("armv5tej", "arm926ej-s")
-                           .Cases("armv6", "armv6k", "arm1136jf-s")
-                           .Case("armv6j", "arm1136j-s")
-                           .Cases("armv6z", "armv6zk", "arm1176jzf-s")
-                           .Case("armv6t2", "arm1156t2-s")
-                           .Cases("armv6m", "armv6-m", "cortex-m0")
-                           .Cases("armv7", "armv7a", "armv7-a", "cortex-a8")
-                           .Cases("armv7l", "armv7-l", "cortex-a8")
-                           .Cases("armv7f", "armv7-f", "cortex-a9-mp")
-                           .Cases("armv7s", "armv7-s", "swift")
-                           .Cases("armv7r", "armv7-r", "cortex-r4")
-                           .Cases("armv7m", "armv7-m", "cortex-m3")
-                           .Cases("armv7em", "armv7e-m", "cortex-m4")
-                           .Cases("armv8", "armv8a", "armv8-a", "cortex-a53")
-                           .Case("ep9312", "ep9312")
-                           .Case("iwmmxt", "iwmmxt")
-                           .Case("xscale", "xscale")
-                           // If all else failed, return the most base CPU with
-                           // thumb interworking
-                           // supported by LLVM.
-                           .Default(nullptr);
+#if LDC_LLVM_VER >= 308
+  auto defaultCPU = llvm::ARM::getDefaultCPU(triple.getArchName());
+  if (!defaultCPU.empty())
+    return defaultCPU;
+#else
+  auto defaultCPU = llvm::StringSwitch<const char *>(triple.getArchName())
+                        .Cases("armv2", "armv2a", "arm2")
+                        .Case("armv3", "arm6")
+                        .Case("armv3m", "arm7m")
+                        .Case("armv4", "strongarm")
+                        .Case("armv4t", "arm7tdmi")
+                        .Cases("armv5", "armv5t", "arm10tdmi")
+                        .Cases("armv5e", "armv5te", "arm1026ejs")
+                        .Case("armv5tej", "arm926ej-s")
+                        .Cases("armv6", "armv6k", "arm1136jf-s")
+                        .Case("armv6j", "arm1136j-s")
+                        .Cases("armv6z", "armv6zk", "arm1176jzf-s")
+                        .Case("armv6t2", "arm1156t2-s")
+                        .Cases("armv6m", "armv6-m", "cortex-m0")
+                        .Cases("armv7", "armv7a", "armv7-a", "cortex-a8")
+                        .Cases("armv7l", "armv7-l", "cortex-a8")
+                        .Cases("armv7f", "armv7-f", "cortex-a9-mp")
+                        .Cases("armv7s", "armv7-s", "swift")
+                        .Cases("armv7r", "armv7-r", "cortex-r4")
+                        .Cases("armv7m", "armv7-m", "cortex-m3")
+                        .Cases("armv7em", "armv7e-m", "cortex-m4")
+                        .Cases("armv8", "armv8a", "armv8-a", "cortex-a53")
+                        .Case("ep9312", "ep9312")
+                        .Case("iwmmxt", "iwmmxt")
+                        .Case("xscale", "xscale")
+                        .Default(nullptr);
+  if (defaultCPU)
+    return defaultCPU;
+#endif
 
-  if (result) {
-    return result;
-  }
-
+  // Return the most base CPU with thumb interworking supported by LLVM.
   return (triple.getEnvironment() == llvm::Triple::GNUEABIHF) ? "arm1176jzf-s"
                                                               : "arm7tdmi";
+}
+
+static std::string getAArch64TargetCPU(const llvm::Triple &triple) {
+#if LDC_LLVM_VER >= 309
+  auto defaultCPU = llvm::AArch64::getDefaultCPU(triple.getArchName());
+  if (!defaultCPU.empty())
+    return defaultCPU;
+#endif
+
+  return "generic";
 }
 
 /// Returns the LLVM name of the target CPU to use given the provided
@@ -229,7 +242,16 @@ static std::string getTargetCPU(const std::string &cpu,
   case llvm::Triple::x86_64:
     return getX86TargetCPU(triple);
   case llvm::Triple::arm:
+  case llvm::Triple::armeb:
+  case llvm::Triple::thumb:
     return getARMTargetCPU(triple);
+#if LDC_LLVM_VER == 305
+  case llvm::Triple::arm64:
+  case llvm::Triple::arm64_be:
+#endif
+  case llvm::Triple::aarch64:
+  case llvm::Triple::aarch64_be:
+    return getAArch64TargetCPU(triple);
   }
 }
 
