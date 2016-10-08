@@ -658,15 +658,15 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type, bool derefclass) {
     t = type->toBasetype();
   }
 
-#if LDC_LLVM_VER >= 309
-  if (t->ty == Tnull)
-      return DBuilder.createNullPtrType();
   if (t->ty == Tvoid)
-      return nullptr;
+#if LDC_LLVM_VER >= 309
+    return nullptr;
 #else
-  if (t->ty == Tvoid || t->ty == Tnull)
     return DBuilder.createUnspecifiedType(t->toChars());
 #endif
+  if (t->ty == Tnull) // display null as void*
+    return DBuilder.createPointerType(CreateTypeDescription(Type::tvoid, false),
+                                      8, 8, "typeof(null)");
   if (t->ty == Tvector)
     return CreateVectorType(type);
   if (t->isintegral() || t->isfloating()) {
