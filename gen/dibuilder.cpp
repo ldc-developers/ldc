@@ -994,7 +994,7 @@ void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
 
 void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
                                        Type *type, bool isThisPtr,
-                                       bool rewrittenToLocal,
+                                       bool forceAsLocal,
 #if LDC_LLVM_VER >= 306
                                        llvm::ArrayRef<int64_t> addr
 #else
@@ -1013,17 +1013,18 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     return; // ensure that the debug variable is created only once
 
   // get type description
-  ldc::DIType TD = CreateTypeDescription(type ? type : vd->type, true);
+  if (!type)
+    type = vd->type;
+  ldc::DIType TD = CreateTypeDescription(type, true);
   if (static_cast<llvm::MDNode *>(TD) == nullptr)
     return; // unsupported
 
   if (vd->storage_class & (STCref | STCout)) {
 #if LDC_LLVM_VER >= 308
-    auto vt = type ? type : vd->type;
-    auto T = DtoType(vt);
+    auto T = DtoType(type);
     TD = DBuilder.createReferenceType(llvm::dwarf::DW_TAG_reference_type, TD,
                                       getTypeAllocSize(T) * 8, // size (bits)
-                                      DtoAlignment(vt) * 8);   // align (bits)
+                                      DtoAlignment(type) * 8); // align (bits)
 #else
     TD = DBuilder.createReferenceType(llvm::dwarf::DW_TAG_reference_type, TD);
 #endif
@@ -1034,7 +1035,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 
 #if LDC_LLVM_VER < 308
   unsigned tag;
-  if (!rewrittenToLocal && vd->isParameter()) {
+  if (!forceAsLocal && vd->isParameter()) {
     tag = llvm::dwarf::DW_TAG_arg_variable;
   } else {
     tag = llvm::dwarf::DW_TAG_auto_variable;
@@ -1077,7 +1078,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
                                                Flags                // flags
                                                );
 #else
-  if (!rewrittenToLocal && vd->isParameter()) {
+  if (!forceAsLocal && vd->isParameter()) {
     FuncDeclaration *fd = vd->parent->isFuncDeclaration();
     assert(fd);
     size_t argNo = 0;
