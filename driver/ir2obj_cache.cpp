@@ -282,7 +282,7 @@ void cacheObjectFile(llvm::StringRef objectFile,
     return;
 
   if (!llvm::sys::fs::exists(opts::ir2objCacheDir) &&
-      llvm::sys::fs::create_directory(opts::ir2objCacheDir)) {
+      llvm::sys::fs::create_directories(opts::ir2objCacheDir)) {
     error(Loc(), "Unable to create cache directory: %s",
           opts::ir2objCacheDir.c_str());
     fatal();
