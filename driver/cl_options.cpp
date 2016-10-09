@@ -60,10 +60,10 @@ cl::list<std::string> runargs(
 
 static cl::opt<ubyte, true> useDeprecated(
     cl::desc("Allow deprecated code/language features:"), cl::ZeroOrMore,
-    cl::values(clEnumValN(0, "de", "Do not allow deprecated features"),
-               clEnumValN(1, "d", "Silently allow deprecated features"),
-               clEnumValN(2, "dw", "Warn about the use of deprecated features"),
-               clEnumValEnd),
+    clEnumValues(clEnumValN(0, "de", "Do not allow deprecated features"),
+                 clEnumValN(1, "d", "Silently allow deprecated features"),
+                 clEnumValN(2, "dw",
+                            "Warn about the use of deprecated features")),
     cl::location(global.params.useDeprecated), cl::init(2));
 
 cl::opt<bool, true>
@@ -106,21 +106,19 @@ static cl::opt<unsigned, true> errorLimit(
 
 static cl::opt<ubyte, true>
     warnings(cl::desc("Warnings:"), cl::ZeroOrMore,
-             cl::values(clEnumValN(1, "w", "Enable warnings"),
-                        clEnumValN(2, "wi", "Enable informational warnings"),
-                        clEnumValEnd),
+             clEnumValues(clEnumValN(1, "w", "Enable warnings"),
+                          clEnumValN(2, "wi", "Enable informational warnings")),
              cl::location(global.params.warnings), cl::init(0));
 
 static cl::opt<bool, true> ignoreUnsupportedPragmas(
     "ignore", cl::desc("Ignore unsupported pragmas"), cl::ZeroOrMore,
     cl::location(global.params.ignoreUnsupportedPragmas));
 
-static cl::opt<ubyte, true>
-    debugInfo(cl::desc("Generating debug information:"), cl::ZeroOrMore,
-              cl::values(clEnumValN(1, "g", "Generate debug information"),
-                         clEnumValN(2, "gc", "Same as -g, but pretend to be C"),
-                         clEnumValEnd),
-              cl::location(global.params.symdebug), cl::init(0));
+static cl::opt<ubyte, true> debugInfo(
+    cl::desc("Generating debug information:"), cl::ZeroOrMore,
+    clEnumValues(clEnumValN(1, "g", "Generate debug information"),
+                 clEnumValN(2, "gc", "Same as -g, but pretend to be C")),
+    cl::location(global.params.symdebug), cl::init(0));
 
 static cl::opt<unsigned, true>
     dwarfVersion("dwarf-version", cl::desc("Dwarf version"),
@@ -299,7 +297,7 @@ cl::opt<llvm::Reloc::Model> mRelocModel(
 #if LDC_LLVM_VER < 309
     cl::init(llvm::Reloc::Default),
 #endif
-    cl::values(
+    clEnumValues(
 #if LDC_LLVM_VER < 309
         clEnumValN(llvm::Reloc::Default, "default",
                    "Target default relocation model"),
@@ -308,24 +306,22 @@ cl::opt<llvm::Reloc::Model> mRelocModel(
         clEnumValN(llvm::Reloc::PIC_, "pic",
                    "Fully relocatable, position independent code"),
         clEnumValN(llvm::Reloc::DynamicNoPIC, "dynamic-no-pic",
-                   "Relocatable external references, non-relocatable code"),
-        clEnumValEnd));
+                   "Relocatable external references, non-relocatable code")));
 
 cl::opt<llvm::CodeModel::Model> mCodeModel(
     "code-model", cl::desc("Code model"), cl::init(llvm::CodeModel::Default),
-    cl::values(
+    clEnumValues(
         clEnumValN(llvm::CodeModel::Default, "default",
                    "Target default code model"),
         clEnumValN(llvm::CodeModel::Small, "small", "Small code model"),
         clEnumValN(llvm::CodeModel::Kernel, "kernel", "Kernel code model"),
         clEnumValN(llvm::CodeModel::Medium, "medium", "Medium code model"),
-        clEnumValN(llvm::CodeModel::Large, "large", "Large code model"),
-        clEnumValEnd));
+        clEnumValN(llvm::CodeModel::Large, "large", "Large code model")));
 
 cl::opt<FloatABI::Type> mFloatABI(
     "float-abi", cl::desc("ABI/operations to use for floating-point types:"),
     cl::init(FloatABI::Default),
-    cl::values(
+    clEnumValues(
         clEnumValN(FloatABI::Default, "default",
                    "Target default floating-point ABI"),
         clEnumValN(FloatABI::Soft, "soft",
@@ -333,8 +329,7 @@ cl::opt<FloatABI::Type> mFloatABI(
         clEnumValN(FloatABI::SoftFP, "softfp",
                    "Soft-float ABI, but hardware floating-point instructions"),
         clEnumValN(FloatABI::Hard, "hard",
-                   "Hardware floating-point ABI and instructions"),
-        clEnumValEnd));
+                   "Hardware floating-point ABI and instructions")));
 
 cl::opt<bool>
     disableFpElim("disable-fp-elim",
@@ -348,12 +343,11 @@ static cl::opt<bool, true, FlagParser<bool>>
 
 cl::opt<BOUNDSCHECK> boundsCheck(
     "boundscheck", cl::desc("Enable array bounds check"),
-    cl::values(clEnumValN(BOUNDSCHECKoff, "off", "no array bounds checks"),
-               clEnumValN(BOUNDSCHECKsafeonly, "safeonly",
-                          "array bounds checks for safe functions only"),
-               clEnumValN(BOUNDSCHECKon, "on",
-                          "array bounds checks for all functions"),
-               clEnumValEnd),
+    clEnumValues(clEnumValN(BOUNDSCHECKoff, "off", "no array bounds checks"),
+                 clEnumValN(BOUNDSCHECKsafeonly, "safeonly",
+                            "array bounds checks for safe functions only"),
+                 clEnumValN(BOUNDSCHECKon, "on",
+                            "array bounds checks for all functions")),
     cl::init(BOUNDSCHECKdefault));
 
 static cl::opt<bool, true, FlagParser<bool>>

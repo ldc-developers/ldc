@@ -206,4 +206,16 @@ public:
 };
 }
 
+
+#if LDC_LLVM_VER >= 400
+#define clEnumValues llvm::cl::values
+#else
+template <typename DataType, typename... OptsTy>
+llvm::cl::ValuesClass<DataType> clEnumValues(const char *Arg, DataType Val,
+                                             const char *Desc,
+                                             OptsTy... Options) {
+  return llvm::cl::values(Arg, Val, Desc, Options..., clEnumValEnd);
+}
+#endif
+
 #endif
