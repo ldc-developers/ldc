@@ -45,7 +45,7 @@ static llvm::cl::opt<bool> staticFlag(
 static void CreateDirectoryOnDisk(llvm::StringRef fileName) {
   auto dir = llvm::sys::path::parent_path(fileName);
   if (!dir.empty() && !llvm::sys::fs::exists(dir)) {
-    if (auto ec = llvm::sys::fs::create_directory(dir)) {
+    if (auto ec = llvm::sys::fs::create_directories(dir)) {
       error(Loc(), "failed to create path to file: %s\n%s", dir.data(),
             ec.message().c_str());
       fatal();
