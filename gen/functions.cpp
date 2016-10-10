@@ -705,7 +705,6 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
     // E.g., for a lazy parameter of type T, vd->type is T (with lazy storage
     // class) while irparam->arg->type is the delegate type.
     Type *const paramType = (irparam ? irparam->arg->type : vd->type);
-    bool rewrittenToLocal = false;
 
     if (!irparam) {
       // This is a parameter that is not passed on the LLVM level.
@@ -722,10 +721,8 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
         assert(irparam->value->getType() == DtoPtrToType(paramType));
       } else {
         // Let the ABI transform the parameter back to an lvalue.
-        auto Lvalue =
+        irparam->value =
             irFty.getParamLVal(paramType, llArgIdx, irparam->value);
-        rewrittenToLocal = Lvalue != irparam->value;
-        irparam->value = Lvalue;
       }
 
       irparam->value->setName(vd->ident->toChars());
@@ -734,7 +731,7 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
     }
 
     if (global.params.symdebug)
-      gIR->DBuilder.EmitLocalVariable(irparam->value, vd, paramType, false, rewrittenToLocal);
+      gIR->DBuilder.EmitLocalVariable(irparam->value, vd, paramType);
   }
 }
 
