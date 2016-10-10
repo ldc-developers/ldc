@@ -40,17 +40,21 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 // x64: int delegate() * dg =
 // x86: int delegate() dg =
 // CHECK: <function> * fun = {{0x[0-9a-f`]*}}
-// x64: struct int[] * slice =
 // x86: struct int[] slice =
 // CHECK: unsigned char * aa = {{0x[0-9a-f`]*}}
 // "Internal implementation error for fa" with cdb on x64, ok in VS
 // x86: unsigned char [16] fa
-// CHECK: float [4] f4 = float [4]
-// CHECK: double [4] d4 = double [4]
+// x86: float [4] f4 = float [4]
+// x86: double [4] d4 = double [4]
 // x64: Interface * ifc
 // x86: Interface ifc
 // CHECK: struct TypeInfo_Class * ti = {{0x[0-9a-f`]*}}
 // CHECK: void * np = {{0x[0`]*}}
+
+// params emitted as locals (listed after params) for Win64:
+// x64: struct int[] slice
+// x64: float [4] f4 = float [4]
+// x64: double [4] d4 = double [4]
 
 // check arguments with indirections
 // CDB: ?? c
@@ -64,9 +68,20 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 // CHECK-NEXT: funcptr
 // CHECK-SAME: args_cdb.main.__lambda
 
+// CDB: ?? slice
+// CHECK: struct int[]
+// CHECK-NEXT: length : 2
+// CHECK-NEXT: ptr
+
 // CDB: ?? fa[1]
 // "Internal implementation error for fa" with cdb on x64, ok in VS
 // no-x86: unsigned char 0x0e (displays 0xf6)
+
+// CDB: ?? f4[1]
+// CHECK: float 16
+
+// CDB: ?? d4[2]
+// CHECK: double 17
 
 // CDB: ?? ifc
 // CHECK: Interface
@@ -87,7 +102,7 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
           float4* f4, double4* d4,
           Interface* ifc, TypeInfo_Class* ti, typeof(null)* np)
 {
-// CDB: bp `args_cdb.d:91`
+// CDB: bp `args_cdb.d:106`
 // CDB: g
     return 3;
 // CHECK: !args_cdb.byPtr
@@ -148,7 +163,7 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
           ref float4 f4, ref double4 d4,
           ref Interface ifc, ref TypeInfo_Class ti, ref typeof(null) np)
 {
-// CDB: bp `args_cdb.d:203`
+// CDB: bp `args_cdb.d:218`
 // CDB: g
 // CHECK: !args_cdb.byRef
 

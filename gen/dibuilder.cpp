@@ -98,7 +98,9 @@ Module *ldc::DIBuilder::getDefinedModule(Dsymbol *s) {
 ////////////////////////////////////////////////////////////////////////////////
 
 ldc::DIBuilder::DIBuilder(IRState *const IR)
-    : IR(IR), DBuilder(IR->module), CUNode(nullptr) {}
+    : IR(IR), DBuilder(IR->module), CUNode(nullptr),
+      isTargetMSVCx64(global.params.targetTriple->isWindowsMSVCEnvironment() &&
+                      global.params.targetTriple->isArch64Bit()) {}
 
 llvm::LLVMContext &ldc::DIBuilder::getContext() { return IR->context(); }
 
@@ -1028,6 +1030,14 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 #else
     TD = DBuilder.createReferenceType(llvm::dwarf::DW_TAG_reference_type, TD);
 #endif
+  } else {
+    // FIXME: For MSVC x64 targets, declare dynamic array and vector parameters
+    //        as DI locals to work around garbage for both cdb and VS debuggers.
+    if (isTargetMSVCx64) {
+      TY ty = type->toBasetype()->ty;
+      if (ty == Tarray || ty == Tvector)
+        forceAsLocal = true;
+    }
   }
 
   // get variable description
