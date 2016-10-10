@@ -43,8 +43,7 @@ int main(string[] args)
 // CHECK: +[[OFF]] ptr {{ *}}: [[PTR]]
 
 // CDB: dv /t
-// x64: string[] * args
-// x86: string[] args
+// CHECK: string[] args
 // CHECK: string[] nargs
 // CHECK: string ns
 // CHECK: string ws
@@ -53,7 +52,7 @@ int main(string[] args)
 // CDB: ?? ns
 // CHECK: +0x000 length {{ *}}: 1
 // CHECK: +[[OFF]] ptr {{ *}}: 0x{{[0-9a-f`]* *}} "a"
-// CDB: ?? nargs.ptr[0]
+// CDB: ?? args.ptr[0]
 // CHECK: +0x000 length
 // CHECK: +[[OFF]] ptr {{ *}}: 0x{{[0-9a-f`]* *".*exe.*"}}
 }

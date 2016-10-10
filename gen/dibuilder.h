@@ -79,6 +79,8 @@ class DIBuilder {
   const llvm::MDNode *CUNode;
 #endif
 
+  const bool isTargetMSVCx64;
+
   DICompileUnit GetCU() {
 #if LDC_LLVM_VER >= 307
     return CUNode;
