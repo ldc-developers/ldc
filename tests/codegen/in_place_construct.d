@@ -108,16 +108,9 @@ struct Container { S s; }
 void hierarchyOfLiterals()
 {
     // CHECK: %sa = alloca [1 x %in_place_construct.Container]
-    // CHECK: %1 = getelementptr inbounds {{.*}}[1 x %in_place_construct.Container]* %sa, i32 0, i32 0
-    // CHECK: %2 = getelementptr inbounds {{.*}}%in_place_construct.Container* %1, i32 0, i32 0
-    // CHECK: %3 = getelementptr inbounds {{.*}}%in_place_construct.S* %2, i32 0, i32 0
-    // CHECK: store i64 11, i64* %3
-    // CHECK: %4 = getelementptr inbounds {{.*}}%in_place_construct.S* %2, i32 0, i32 1
-    // CHECK: store i64 12, i64* %4
-    // CHECK: %5 = getelementptr inbounds {{.*}}%in_place_construct.S* %2, i32 0, i32 2
-    // CHECK: store i64 13, i64* %5
-    // CHECK: %6 = getelementptr inbounds {{.*}}%in_place_construct.S* %2, i32 0, i32 3
-    // CHECK: store i64 14, i64* %6
+    // CHECK: %1 = bitcast [1 x %in_place_construct.Container]* %sa to [1 x { { i64, i64, i64, i64 } }]*
+    // CHECK: store [{{.*}}]* %1
+    // CHECK: ret void
     Container[1] sa = [ Container(S(11, 12, 13, 14)) ];
 }
 
