@@ -148,7 +148,8 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
 unsigned getFieldGEPIndex(AggregateDeclaration *ad, VarDeclaration *vd);
 
 ///
-DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments);
+DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
+                         LLValue *sretPointer = nullptr);
 
 /// Returns the size the LLVM type for a member variable of the given type will
 /// take up in a struct (in bytes). This does not include padding in any way.
