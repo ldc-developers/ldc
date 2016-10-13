@@ -6,10 +6,14 @@
 align(32) struct Outer { int a; }
 struct Inner { align(32) int a; }
 
+align(1) ubyte globalByte1;
+// CHECK-DAG: align11globalByte1h = {{.*}} align 1
 static Outer globalOuter;
-// CHECK: constant %align.Outer_init zeroinitializer{{(, comdat)?}}, align 32
+// CHECK-DAG: constant %align.Outer_init zeroinitializer{{(, comdat)?}}, align 32
+// CHECK-DAG: align11globalOuterS5align5Outer = {{.*}} align 32
 static Inner globalInner;
-// CHECK: constant %align.Inner_init zeroinitializer{{(, comdat)?}}, align 32
+// CHECK-DAG: constant %align.Inner_init zeroinitializer{{(, comdat)?}}, align 32
+// CHECK-DAG: align11globalInnerS5align5Inner = {{.*}} align 32
 
 Outer passAndReturnOuterByVal(Outer arg) { return arg; }
 // CHECK: define{{.*}} void @{{.*}}_D5align23passAndReturnOuterByValFS5align5OuterZS5align5Outer
@@ -29,6 +33,8 @@ void main() {
   Inner inner;
   // CHECK: %inner = alloca %align.Inner, align 32
 
+  align(1) byte byte1;
+  // CHECK: %byte1 = alloca i8, align 1
   align(16) byte byte16;
   // CHECK: %byte16 = alloca i8, align 16
   align(64) Outer outer64;
