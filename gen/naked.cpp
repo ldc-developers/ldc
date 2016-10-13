@@ -435,6 +435,12 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd,
   LLType *ret_type = DtoType(type);
   llvm::FunctionType *FT = llvm::FunctionType::get(ret_type, argtypes, false);
 
+  // make sure the constraints are valid
+  if (!llvm::InlineAsm::Verify(FT, constraints)) {
+    e->error("__asm constraint argument is invalid");
+    fatal();
+  }
+
   // build asm call
   bool sideeffect = true;
   llvm::InlineAsm *ia = llvm::InlineAsm::get(FT, code, constraints, sideeffect);
