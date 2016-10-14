@@ -16,31 +16,32 @@
 
 #include <string>
 #include <vector>
-#include "llvm/ADT/SmallString.h"
-#include "libconfig.h"
+
+struct ConfigData {
+    const char** switches_beg;
+    const char** switches_end;
+};
 
 class ConfigFile {
 public:
-  typedef std::vector<const char *> s_vector;
-  typedef s_vector::iterator s_iterator;
+  typedef const char ** s_iterator;
 
 public:
   ConfigFile();
 
   bool read(const char *explicitConfFile, const char* section);
 
-  s_iterator switches_begin() { return switches.begin(); }
-  s_iterator switches_end() { return switches.end(); }
+  s_iterator switches_begin() { return data.switches_beg; }
+  s_iterator switches_end() { return data.switches_end; }
 
   const std::string &path() { return pathstr; }
 
 private:
   bool locate();
 
-  config_t *cfg;
-  std::string pathstr;
 
-  s_vector switches;
+  std::string pathstr;
+  ConfigData data;
 };
 
 #endif // LDC_DRIVER_CONFIGFILE_H

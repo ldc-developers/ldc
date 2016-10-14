@@ -10,7 +10,6 @@
 #include "driver/configfile.h"
 #include "driver/exe_path.h"
 #include "mars.h"
-#include "libconfig.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
@@ -85,10 +84,7 @@ static bool ReadPathFromRegistry(llvm::SmallString<128> &p) {
 }
 #endif
 
-ConfigFile::ConfigFile() {
-  cfg = new config_t;
-  config_init(cfg);
-}
+ConfigFile::ConfigFile() {}
 
 bool ConfigFile::locate() {
   // temporary configuration
@@ -174,6 +170,12 @@ bool ConfigFile::locate() {
   return false;
 }
 
+bool readDataFromConfigFile (   const char * pathcstr,
+                                const char * sectioncstr,
+                                const char * bindircstr,
+                                ConfigData & data);
+
+
 bool ConfigFile::read(const char *explicitConfFile, const char* section) {
   // explicitly provided by user in command line?
   if (explicitConfFile) {
@@ -198,51 +200,7 @@ bool ConfigFile::read(const char *explicitConfFile, const char* section) {
     }
   }
 
-  // read the cfg
-  if (!config_read_file(cfg, pathstr.c_str())) {
-    std::cerr << "error reading configuration file" << std::endl;
-    return false;
-  }
-
-  config_setting_t *root = nullptr;
-  if (section && *section)
-    root = config_lookup(cfg, section);
-
-  // make sure there's a default group
-  if (!root) {
-    section = "default";
-    root = config_lookup(cfg, section);
-  }
-  if (!root) {
-    std::cerr << "no default settings in configuration file" << std::endl;
-    return false;
-  }
-  if (!config_setting_is_group(root)) {
-    std::cerr << section << " is not a group" << std::endl;
-    return false;
-  }
-
-  // handle switches
-  if (config_setting_t *sw = config_setting_get_member(root, "switches")) {
-    // replace all %%ldcbinarypath%% occurrences by the path to the
-    // LDC bin directory (using forward slashes)
-    std::string binpathkey = "%%ldcbinarypath%%";
-
-    std::string binpath = exe_path::getBinDir();
-    std::replace(binpath.begin(), binpath.end(), '\\', '/');
-
-    int len = config_setting_length(sw);
-    for (int i = 0; i < len; i++) {
-      std::string v(config_setting_get_string(config_setting_get_elem(sw, i)));
-
-      size_t p;
-      while (std::string::npos != (p = v.find(binpathkey))) {
-        v.replace(p, binpathkey.size(), binpath);
-      }
-
-      switches.push_back(strdup(v.c_str()));
-    }
-  }
-
-  return true;
+  std::string bd = exe_path::getBinDir();
+  // retrieve data from config file
+  return readDataFromConfigFile(pathstr.c_str(), section, bd.c_str(), data);
 }
