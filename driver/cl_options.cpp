@@ -151,6 +151,12 @@ cl::opt<bool> output_s("output-s", cl::desc("Write native assembly"));
 cl::opt<cl::boolOrDefault> output_o("output-o",
                                     cl::desc("Write native object"));
 
+static cl::opt<bool, true>
+    cleanupObjectFiles("cleanup-obj",
+                       cl::desc("Remove generated object files on success"),
+                       cl::ZeroOrMore, cl::ReallyHidden,
+                       cl::location(global.params.cleanupObjectFiles));
+
 // Disabling Red Zone
 cl::opt<bool, true>
     disableRedZone("disable-red-zone",

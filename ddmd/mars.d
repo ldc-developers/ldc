@@ -1754,6 +1754,17 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
             status = linkObjToBinary();
         else if (global.params.lib)
             status = createStaticLibrary();
+
+        if (status == EXIT_SUCCESS &&
+            (global.params.cleanupObjectFiles || global.params.run))
+        {
+            for (size_t i = 0; i < modules.dim; i++)
+            {
+                modules[i].deleteObjFile();
+                if (global.params.oneobj)
+                    break;
+            }
+        }
       }
       else
       {
@@ -1767,12 +1778,15 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
                 status = runProgram();
                 /* Delete .obj files and .exe file
                  */
+              version (IN_LLVM) {} else
+              {
                 for (size_t i = 0; i < modules.dim; i++)
                 {
                     modules[i].deleteObjFile();
                     if (global.params.oneobj)
                         break;
                 }
+              }
                 deleteExeFile();
             }
         }
