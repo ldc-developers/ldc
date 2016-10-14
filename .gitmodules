@@ -7,3 +7,9 @@
 [submodule "tests/d2/dmd-testsuite"]
 	path = tests/d2/dmd-testsuite
 	url = git://github.com/ldc-developers/dmd-testsuite.git
+[submodule "3rdparty/pegged"]
+	path = 3rdparty/pegged
+	url = https://github.com/PhilippeSigaud/Pegged.git
+[submodule "3rdparty/libconfig-d"]
+	path = 3rdparty/libconfig-d
+	url = https://github.com/rtbo/libconfig-d.git
