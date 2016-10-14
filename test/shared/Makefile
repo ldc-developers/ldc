@@ -7,7 +7,13 @@ include ../common.mak
 # to be able to actually run the test executables.
 include ../../osmodel.mak
 
-TESTS:=link load linkD linkDR loadDR host finalize
+TESTS:=link load linkD linkDR loadDR finalize
+# LDC_FIXME: host loads two modules with the same name, which is currently
+# disallowed by the (potentially overly eager) module collision detection
+# on OS X.
+ifneq ($(OS), osx)
+	TESTS+=host
+endif
 TESTS+=link_linkdep load_linkdep link_loaddep load_loaddep load_13414
 TESTS+=link_mod_collision load_mod_collision
 
