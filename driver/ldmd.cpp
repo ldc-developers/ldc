@@ -839,6 +839,11 @@ void buildCommandLine(std::vector<const char *> &r, const Params &p) {
   }
   if (p.objDir) {
     r.push_back(concat("-od=", p.objDir));
+
+    // DMD creates static libraries in the objects directory (unless using an
+    // absolute output path via `-of`).
+    if (p.emitStaticLib)
+      r.push_back("-create-static-lib-in-objdir");
   }
   if (p.objName) {
     r.push_back(concat("-of=", p.objName));
