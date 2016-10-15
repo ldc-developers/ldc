@@ -86,7 +86,7 @@ static bool ReadPathFromRegistry(llvm::SmallString<128> &p) {
 }
 #endif
 
-ConfigFile::ConfigFile() {}
+ConfigFile::ConfigFile() : pathcstr(0), switches_b(0), switches_e(0) {}
 
 bool ConfigFile::locate() {
   // temporary configuration
@@ -98,7 +98,7 @@ bool ConfigFile::locate() {
   {                                                                            \
     sys::path::append(p, filename);                                            \
     if (sys::fs::exists(p.str())) {                                            \
-      pathstr = p.str();                                                       \
+      pathcstr = strdup(p.c_str());                                            \
       return true;                                                             \
     }                                                                          \
   }
@@ -172,9 +172,6 @@ bool ConfigFile::locate() {
   return false;
 }
 
-bool readDataFromConfigFile(const char *pathcstr, const char *sectioncstr,
-                            const char *bindircstr, ConfigData &data);
-
 bool ConfigFile::read(const char *explicitConfFile, const char *section) {
   // explicitly provided by user in command line?
   if (explicitConfFile) {
@@ -183,7 +180,7 @@ bool ConfigFile::read(const char *explicitConfFile, const char *section) {
     // defaulting to an auto-located config file, analogous to DMD
     if (!clPath.empty()) {
       if (sys::fs::exists(clPath)) {
-        pathstr = clPath;
+        pathcstr = clPath.c_str();
       } else {
         fprintf(stderr, "Warning: configuration file '%s' not found, falling "
                         "back to default\n",
@@ -193,7 +190,7 @@ bool ConfigFile::read(const char *explicitConfFile, const char *section) {
   }
 
   // locate file automatically if path is not set yet
-  if (pathstr.empty()) {
+  if (!pathcstr) {
     if (!locate()) {
       return false;
     }
@@ -201,5 +198,5 @@ bool ConfigFile::read(const char *explicitConfFile, const char *section) {
 
   std::string bd = exe_path::getBinDir();
   // retrieve data from config file
-  return readDataFromConfigFile(pathstr.c_str(), section, bd.c_str(), data);
+  return readConfig(section, bd.c_str());
 }

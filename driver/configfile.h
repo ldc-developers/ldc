@@ -17,11 +17,6 @@
 #include <string>
 #include <vector>
 
-struct ConfigData {
-  const char **switches_beg;
-  const char **switches_end;
-};
-
 class ConfigFile {
 public:
   typedef const char **s_iterator;
@@ -29,18 +24,24 @@ public:
 public:
   ConfigFile();
 
+  /// Read data from the config file
+  /// Returns a boolean indicating if data was succesfully read.
   bool read(const char *explicitConfFile, const char *section);
 
-  s_iterator switches_begin() { return data.switches_beg; }
-  s_iterator switches_end() { return data.switches_end; }
+  s_iterator switches_begin() { return switches_b; }
+  s_iterator switches_end() { return switches_e; }
 
-  const std::string &path() { return pathstr; }
+  std::string path() { return std::string(pathcstr); }
 
 private:
   bool locate();
 
-  std::string pathstr;
-  ConfigData data;
+  // impl in D
+  bool readConfig(const char *sectioncstr, const char *bindircstr);
+
+  const char *pathcstr;
+  s_iterator switches_b;
+  s_iterator switches_e;
 };
 
 #endif // LDC_DRIVER_CONFIGFILE_H
