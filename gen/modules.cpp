@@ -95,9 +95,52 @@ void Module::makeObjectFilenameUnique() {
 }
 
 namespace {
+/// Ways the druntime module registry system can be implemented.
+enum class RegistryStyle {
+  /// Modules are inserted into a linked list starting at the _Dmodule_ref
+  /// global.
+  legacyLinkedList,
 
-// build ModuleReference and register function, to register the module info in
-// the global linked list
+  /// Module references are emitted into the .minfo section, bracketed with
+  /// extra sections to access the .minfo range. Global constructors/
+  /// destructors make sure _d_dso_registry is invoked once per ELF object.
+  sectionELF,
+
+  /// Module references are emitted into the .minfo section. Global
+  /// constructors/destructors make sure _d_dso_registry is invoked once per
+  /// shared object. A "TLS anchor" function to identify the TLS range
+  /// corresponding to this image is also passed to druntime.
+  sectionDarwin
+};
+
+/// Returns the module registry style to use for the current target triple.
+RegistryStyle getModuleRegistryStyle() {
+  const auto t = global.params.targetTriple;
+
+  if (t->isMacOSX()) {
+    return RegistryStyle::sectionDarwin;
+  }
+
+  if ((t->isOSLinux() && t->getEnvironment() != llvm::Triple::Android) ||
+      t->isOSFreeBSD() ||
+#if LDC_LLVM_VER > 305
+      t->isOSNetBSD() || t->isOSOpenBSD() || t->isOSDragonFly()
+#else
+      t->getOS() == llvm::Triple::NetBSD ||
+      t->getOS() == llvm::Triple::OpenBSD ||
+      t->getOS() == llvm::Triple::DragonFly
+#endif
+          ) {
+    return RegistryStyle::sectionELF;
+  }
+
+  return RegistryStyle::legacyLinkedList;
+}
+
+/// Build ModuleReference and register function, to register the module info in
+/// the global linked list.
+///
+/// Implements getModuleRegistryStyle() == RegistryStyle::legacyLinkedList.
 LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
                                             LLConstant *moduleinfo) {
   // build ctor type
@@ -170,17 +213,49 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
   return ctor;
 }
 
-/// Builds the body for the ldc.dso_ctor and ldc.dso_dtor functions.
+/// Builds a void*() function with hidden visibility that returns the address of
+/// a dummy TLS global (also with hidden visibility).
+///
+/// The global is non-zero-initialised and aligned to 16 bytes.
+llvm::Function *buildGetTLSAnchor() {
+  // Create a dummmy TLS global private to this module.
+  const auto one =
+      llvm::ConstantInt::get(llvm::Type::getInt8Ty(gIR->context()), 1);
+  const auto anchor = getOrCreateGlobal(
+      Loc(), gIR->module, one->getType(), false,
+      llvm::GlobalValue::LinkOnceODRLinkage, one, "ldc.tls_anchor", true);
+  anchor->setVisibility(llvm::GlobalValue::HiddenVisibility);
+  anchor->setAlignment(16);
+
+  const auto getAnchor =
+      llvm::Function::Create(llvm::FunctionType::get(getVoidPtrType(), false),
+                             llvm::GlobalValue::LinkOnceODRLinkage,
+                             "ldc.get_tls_anchor", &gIR->module);
+  getAnchor->setVisibility(llvm::GlobalValue::HiddenVisibility);
+
+  IRBuilder<> builder(llvm::BasicBlock::Create(gIR->context(), "", getAnchor));
+  builder.CreateRet(anchor);
+
+  return getAnchor;
+}
+
+/// Builds the ldc.register_dso function, which is called by the global
+/// {c, d}tors to invoke _d_dso_registry.
 ///
 /// Pseudocode:
 /// void ldc.register_dso(bool isShutdown, void* minfoUsedPointer) {
 ///   if (dsoInitialized == isShutdown) {
 ///     dsoInitialized = !isShutdown;
-///     auto record = {1, dsoSlot, minfoBeg, minfoEnd, minfoUsedPointer};
+///     auto record = {1, dsoSlot, minfoBeg, minfoEnd[, getTlsAnchor],
+///       minfoUsedPointer};
 ///     _d_dso_registry(cast(CompilerDSOData*)&record);
 ///   }
 /// }
-llvm::Function *buildRegisterDSO(llvm::Value *dsoInitialized,
+///
+/// On Darwin platforms, the record contains an extra pointer to a function
+/// which returns the address of a TLS global.
+llvm::Function *buildRegisterDSO(RegistryStyle style,
+                                 llvm::Value *dsoInitialized,
                                  llvm::Value *dsoSlot, llvm::Value *minfoBeg,
                                  llvm::Value *minfoEnd) {
   llvm::Type *argTypes[] = {llvm::Type::getInt1Ty(gIR->context()),
@@ -206,6 +281,11 @@ llvm::Function *buildRegisterDSO(llvm::Value *dsoInitialized,
       getRuntimeFunction(Loc(), gIR->module, "_d_dso_registry");
   const auto recordPtrTy = dsoRegistry->getFunctionType()->getContainedType(1);
 
+  llvm::Function *getTlsAnchorPtr;
+  if (style == RegistryStyle::sectionDarwin) {
+    getTlsAnchorPtr = buildGetTLSAnchor();
+  }
+
   const auto entryBB = llvm::BasicBlock::Create(gIR->context(), "", fn);
   const auto initBB = llvm::BasicBlock::Create(gIR->context(), "init", fn);
   const auto endBB = llvm::BasicBlock::Create(gIR->context(), "end", fn);
@@ -223,24 +303,38 @@ llvm::Function *buildRegisterDSO(llvm::Value *dsoInitialized,
     b.CreateStore(b.CreateZExt(newFlag, b.getInt8Ty()), dsoInitialized);
 
     llvm::Constant *version = DtoConstSize_t(1);
-    llvm::Type *memberTypes[] = {version->getType(), dsoSlot->getType(),
-                                 minfoBeg->getType(), minfoEnd->getType(),
-                                 minfoUsedPointer->getType()};
+    llvm::SmallVector<llvm::Type *, 6> memberTypes;
+    memberTypes.push_back(version->getType());
+    memberTypes.push_back(dsoSlot->getType());
+    memberTypes.push_back(minfoBeg->getType());
+    memberTypes.push_back(minfoEnd->getType());
+    if (style == RegistryStyle::sectionDarwin) {
+      memberTypes.push_back(getTlsAnchorPtr->getType());
+    }
+    memberTypes.push_back(minfoUsedPointer->getType());
     llvm::StructType *stype =
         llvm::StructType::get(gIR->context(), memberTypes, false);
     llvm::Value *record = b.CreateAlloca(stype);
+
+    unsigned i = 0;
 #if LDC_LLVM_VER >= 307
-    b.CreateStore(version, b.CreateStructGEP(stype, record, 0)); // version
-    b.CreateStore(dsoSlot, b.CreateStructGEP(stype, record, 1)); // slot
-    b.CreateStore(minfoBeg, b.CreateStructGEP(stype, record, 2));
-    b.CreateStore(minfoEnd, b.CreateStructGEP(stype, record, 3));
-    b.CreateStore(minfoUsedPointer, b.CreateStructGEP(stype, record, 4));
+    b.CreateStore(version, b.CreateStructGEP(stype, record, i++));
+    b.CreateStore(dsoSlot, b.CreateStructGEP(stype, record, i++));
+    b.CreateStore(minfoBeg, b.CreateStructGEP(stype, record, i++));
+    b.CreateStore(minfoEnd, b.CreateStructGEP(stype, record, i++));
+    if (style == RegistryStyle::sectionDarwin) {
+      b.CreateStore(getTlsAnchorPtr, b.CreateStructGEP(stype, record, i++));
+    }
+    b.CreateStore(minfoUsedPointer, b.CreateStructGEP(stype, record, i++));
 #else
-    b.CreateStore(version, b.CreateStructGEP(record, 0)); // version
-    b.CreateStore(dsoSlot, b.CreateStructGEP(record, 1)); // slot
-    b.CreateStore(minfoBeg, b.CreateStructGEP(record, 2));
-    b.CreateStore(minfoEnd, b.CreateStructGEP(record, 3));
-    b.CreateStore(minfoUsedPointer, b.CreateStructGEP(record, 4));
+    b.CreateStore(version, b.CreateStructGEP(record, i++));
+    b.CreateStore(dsoSlot, b.CreateStructGEP(record, i++));
+    b.CreateStore(minfoBeg, b.CreateStructGEP(record, i++));
+    b.CreateStore(minfoEnd, b.CreateStructGEP(record, i++));
+    if (style == RegistryStyle::sectionDarwin) {
+      b.CreateStore(getTlsAnchorPtr, b.CreateStructGEP(record, i++));
+    }
+    b.CreateStore(minfoUsedPointer, b.CreateStructGEP(record, i++));
 #endif
 
     b.CreateCall(dsoRegistry, b.CreateBitCast(record, recordPtrTy));
@@ -254,8 +348,10 @@ llvm::Function *buildRegisterDSO(llvm::Value *dsoInitialized,
   return fn;
 }
 
-void build_module_ref(std::string moduleMangle,
-                      llvm::Constant *thisModuleInfo) {
+void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
+                            llvm::Constant *thisModuleInfo) {
+  assert(style == RegistryStyle::sectionELF ||
+         style == RegistryStyle::sectionDarwin);
   // Only for the first D module to be emitted into this llvm::Module we need to
   // create the _minfo_beg/_minfo_end symbols and the global ctors/dtors. For
   // all subsequent ones, we just need to emit an additional reference into the
@@ -265,18 +361,24 @@ void build_module_ref(std::string moduleMangle,
 
   llvm::Type *const moduleInfoPtrTy = DtoPtrToType(Module::moduleinfo->type);
 
-  // Order is important here: We must create the symbols in the
+  // Order is important here: For ELF, we must create the symbols in the
   // bracketing sections right before/after the ModuleInfo reference
   // so that they end up in the correct order in the object file.
   llvm::GlobalVariable *minfoBeg;
   if (isFirst) {
-    minfoBeg = new llvm::GlobalVariable(
-        gIR->module, moduleInfoPtrTy,
-        false, // FIXME: mRelocModel != llvm::Reloc::PIC_
-        llvm::GlobalValue::LinkOnceODRLinkage, getNullPtr(moduleInfoPtrTy),
-        "_minfo_beg");
-    minfoBeg->setSection(".minfo_beg");
-    minfoBeg->setVisibility(llvm::GlobalValue::HiddenVisibility);
+    if (style == RegistryStyle::sectionDarwin) {
+      minfoBeg =
+          new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy, false,
+                                   llvm::GlobalValue::ExternalLinkage, nullptr,
+                                   "\1section$start$__DATA$.minfo");
+    } else {
+      minfoBeg =
+          new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy, false,
+                                   llvm::GlobalValue::LinkOnceODRLinkage,
+                                   getNullPtr(moduleInfoPtrTy), "_minfo_beg");
+      minfoBeg->setSection(".minfo_beg");
+      minfoBeg->setVisibility(llvm::GlobalValue::HiddenVisibility);
+    }
   }
 
   std::string thismrefname = "_D";
@@ -287,7 +389,8 @@ void build_module_ref(std::string moduleMangle,
       false, // FIXME: mRelocModel != llvm::Reloc::PIC_
       llvm::GlobalValue::LinkOnceODRLinkage,
       DtoBitCast(thisModuleInfo, moduleInfoPtrTy), thismrefname);
-  thismref->setSection(".minfo");
+  thismref->setSection((style == RegistryStyle::sectionDarwin) ? "__DATA,.minfo"
+                                                               : ".minfo");
   gIR->usedArray.push_back(thismref);
 
   if (!isFirst) {
@@ -295,13 +398,19 @@ void build_module_ref(std::string moduleMangle,
     return;
   }
 
-  auto minfoEnd =
-      new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy,
-                               false, // FIXME: mRelocModel != llvm::Reloc::PIC_
-                               llvm::GlobalValue::LinkOnceODRLinkage,
-                               getNullPtr(moduleInfoPtrTy), "_minfo_end");
-  minfoEnd->setSection(".minfo_end");
-  minfoEnd->setVisibility(llvm::GlobalValue::HiddenVisibility);
+  llvm::GlobalVariable *minfoEnd;
+  if (style == RegistryStyle::sectionDarwin) {
+    minfoEnd = new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy, false,
+                                        llvm::GlobalValue::ExternalLinkage,
+                                        nullptr, "\1section$end$__DATA$.minfo");
+  } else {
+    minfoEnd =
+        new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy, false,
+                                 llvm::GlobalValue::LinkOnceODRLinkage,
+                                 getNullPtr(moduleInfoPtrTy), "_minfo_end");
+    minfoEnd->setSection(".minfo_end");
+    minfoEnd->setVisibility(llvm::GlobalValue::HiddenVisibility);
+  }
 
   // Build the ctor to invoke _d_dso_registry.
 
@@ -356,7 +465,7 @@ void build_module_ref(std::string moduleMangle,
   llvm::Value *minfoRefPtr = DtoBitCast(thismref, getVoidPtrType());
 
   const auto registerDSO =
-      buildRegisterDSO(dsoInitialized, dsoSlot, minfoBeg, minfoEnd);
+      buildRegisterDSO(style, dsoInitialized, dsoSlot, minfoBeg, minfoEnd);
 
   std::string ctorName = "ldc.dso_ctor.";
   ctorName += moduleMangle;
@@ -604,26 +713,13 @@ void loadInstrProfileData(IRState *irs) {
 
 void registerModuleInfo(Module *m) {
   const auto moduleInfoSym = genModuleInfo(m);
-
-  if ((global.params.targetTriple->isOSLinux() &&
-       global.params.targetTriple->getEnvironment() != llvm::Triple::Android) ||
-      global.params.targetTriple->isOSFreeBSD() ||
-#if LDC_LLVM_VER > 305
-      global.params.targetTriple->isOSNetBSD() ||
-      global.params.targetTriple->isOSOpenBSD() ||
-      global.params.targetTriple->isOSDragonFly()
-#else
-      global.params.targetTriple->getOS() == llvm::Triple::NetBSD ||
-      global.params.targetTriple->getOS() == llvm::Triple::OpenBSD ||
-      global.params.targetTriple->getOS() == llvm::Triple::DragonFly
-#endif
-          ) {
-    build_module_ref(mangle(m), moduleInfoSym);
-  } else {
-    // build the modulereference and ctor for registering it
-    LLFunction *mictor =
+  const auto style = getModuleRegistryStyle();
+  if (style == RegistryStyle::legacyLinkedList) {
+    const auto miCtor =
         build_module_reference_and_ctor(mangle(m), moduleInfoSym);
-    AppendFunctionToLLVMGlobalCtorsDtors(mictor, 65535, true);
+    AppendFunctionToLLVMGlobalCtorsDtors(miCtor, 65535, true);
+  } else {
+    emitModuleRefToSection(style, mangle(m), moduleInfoSym);
   }
 }
 }

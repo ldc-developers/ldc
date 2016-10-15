@@ -677,29 +677,14 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
 
   // void invariant._d_invariant(Object o)
-  createFwdDecl(
-      LINKd, voidTy,
-      {gABI->mangleFunctionForLLVM("_D9invariant12_d_invariantFC6ObjectZv", LINKd)},
-      {objectTy});
+  createFwdDecl(LINKd, voidTy,
+                {gABI->mangleFunctionForLLVM(
+                    "_D9invariant12_d_invariantFC6ObjectZv", LINKd)},
+                {objectTy});
 
-  // void _d_dso_registry(CompilerDSOData* data)
-  llvm::StringRef fname("_d_dso_registry");
-
-  LLType *LLvoidTy = LLType::getVoidTy(gIR->context());
-  LLType *LLvoidPtrPtrTy = getPtrToType(getPtrToType(LLvoidTy));
-  LLType *moduleInfoPtrPtrTy =
-      getPtrToType(getPtrToType(DtoType(Module::moduleinfo->type)));
-
-  llvm::StructType *dsoDataTy =
-      llvm::StructType::get(DtoSize_t(),        // version
-                            LLvoidPtrPtrTy,     // slot
-                            moduleInfoPtrPtrTy, // _minfo_beg
-                            moduleInfoPtrPtrTy, // _minfo_end
-                            NULL);
-
-  llvm::Type *types[] = {getPtrToType(dsoDataTy)};
-  llvm::FunctionType *fty = llvm::FunctionType::get(LLvoidTy, types, false);
-  llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+  // void _d_dso_registry(void* data)
+  // (the argument is really a pointer to rt.sections_elf_shared.CompilerDSOData)
+  createFwdDecl(LINKc, voidTy, {"_d_dso_registry"}, {voidPtrTy});
 
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
@@ -717,9 +702,9 @@ static void buildRuntimeModule() {
 
     // The types of these functions don't really matter because they are always
     // bitcast to correct signature before calling.
-    Type* objectPtrTy = voidPtrTy;
-    Type* selectorPtrTy = voidPtrTy;
-    Type* realTy = Type::tfloat80;
+    Type *objectPtrTy = voidPtrTy;
+    Type *selectorPtrTy = voidPtrTy;
+    Type *realTy = Type::tfloat80;
 
     // id objc_msgSend(id self, SEL op, ...)
     // Function called early and/or often, so lazy binding isn't worthwhile.
@@ -732,13 +717,13 @@ static void buildRuntimeModule() {
       // creal objc_msgSend_fp2ret(id self, SEL op, ...)
       createFwdDecl(LINKc, Type::tcomplex80, {"objc_msgSend_fp2ret"},
                     {objectPtrTy, selectorPtrTy});
-      // fall-thru
+    // fall-thru
     case llvm::Triple::x86:
       // x86_64 real return only,  x86 float, double, real return
       // real objc_msgSend_fpret(id self, SEL op, ...)
       createFwdDecl(LINKc, realTy, {"objc_msgSend_fpret"},
                     {objectPtrTy, selectorPtrTy});
-      // fall-thru
+    // fall-thru
     case llvm::Triple::arm:
     case llvm::Triple::thumb:
       // used when return value is aggregate via a hidden sret arg
