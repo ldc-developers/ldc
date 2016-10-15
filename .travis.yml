@@ -21,6 +21,9 @@ matrix:
     - os: osx
       d: ldc
       env: LLVM_CONFIG="llvm-config-3.8"
+    - os: osx
+      d: ldc
+      env: LLVM_CONFIG="llvm-config-3.8" OPTS="-DBUILD_SHARED_LIBS=ON"
   allow_failures:
     #- env: LLVM_VERSION=3.9
 
