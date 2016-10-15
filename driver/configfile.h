@@ -18,18 +18,18 @@
 #include <vector>
 
 struct ConfigData {
-    const char** switches_beg;
-    const char** switches_end;
+  const char **switches_beg;
+  const char **switches_end;
 };
 
 class ConfigFile {
 public:
-  typedef const char ** s_iterator;
+  typedef const char **s_iterator;
 
 public:
   ConfigFile();
 
-  bool read(const char *explicitConfFile, const char* section);
+  bool read(const char *explicitConfFile, const char *section);
 
   s_iterator switches_begin() { return data.switches_beg; }
   s_iterator switches_end() { return data.switches_end; }
@@ -38,7 +38,6 @@ public:
 
 private:
   bool locate();
-
 
   std::string pathstr;
   ConfigData data;
