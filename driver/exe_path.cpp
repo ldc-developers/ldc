@@ -46,8 +46,20 @@ string exe_path::getBaseDir() {
   return path::parent_path(binDir);
 }
 
+string exe_path::getLibDir() {
+  llvm::SmallString<128> r(getBaseDir());
+  path::append(r, "lib");
+  return r.str();
+}
+
 string exe_path::prependBinDir(const char *suffix) {
   llvm::SmallString<128> r(getBinDir());
+  path::append(r, suffix);
+  return r.str();
+}
+
+string exe_path::prependLibDir(const char *suffix) {
+  llvm::SmallString<128> r(getLibDir());
   path::append(r, suffix);
   return r.str();
 }

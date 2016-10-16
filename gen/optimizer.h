@@ -47,6 +47,8 @@ bool willInline();
 
 bool willCrossModuleInline();
 
+unsigned optLevel();
+
 bool isOptimizationEnabled();
 
 llvm::CodeGenOpt::Level codeGenOptLevel();
