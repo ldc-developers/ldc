@@ -423,7 +423,7 @@ include_directories( SYSTEM
 append("-I${PROJECT_SOURCE_DIR}" DDMD_DFLAGS)
 append("-I${PROJECT_BINARY_DIR}" DDMD_DFLAGS)
 foreach(IMP_D ${DRV_3RDPARTY_IMP_D})
-    append("-I{PROJECT_SOURCE_DIR}/${IMP_D}", DDMD_DFLAGS)
+    append("-I{PROJECT_SOURCE_DIR}/${IMP_D}" DDMD_DFLAGS)
 endforeach(IMP_D)
 
 if(MSVC)
