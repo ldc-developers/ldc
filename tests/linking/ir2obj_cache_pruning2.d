@@ -1,20 +1,20 @@
-// Test ir2obj-cache pruning for size
+// Test cache pruning for size
 
 // This test assumes that the `void main(){}` object file size is below 200_000 bytes and above 200_000/2,
 // such that rebuilding with version(NEW_OBJ_FILE) will clear the cache of all but the latest object file.
 
-// RUN: %ldc %s -ir2obj-cache=%T/prunecache2 \
-// RUN: && %ldc %s -ir2obj-cache=%T/prunecache2 -ir2obj-cache-prune -ir2obj-cache-prune-interval=0 -d-version=SLEEP \
-// RUN: && %ldc %s -ir2obj-cache=%T/prunecache2 -ir2obj-cache-prune -ir2obj-cache-prune-interval=0 -vv | FileCheck --check-prefix=MUST_HIT %s \
-// RUN: && %ldc %s -ir2obj-cache=%T/prunecache2 -ir2obj-cache-prune -ir2obj-cache-prune-interval=0 -vv -d-version=NEW_OBJ_FILE | FileCheck --check-prefix=NO_HIT %s \
-// RUN: && %ldc %s -ir2obj-cache=%T/prunecache2 -ir2obj-cache-prune -ir2obj-cache-prune-interval=0 -vv | FileCheck --check-prefix=MUST_HIT %s \
+// RUN: %ldc %s -cache=%T/prunecache2 \
+// RUN: && %ldc %s -cache=%T/prunecache2 -cache-prune -cache-prune-interval=0 -d-version=SLEEP \
+// RUN: && %ldc %s -cache=%T/prunecache2 -cache-prune -cache-prune-interval=0 -vv | FileCheck --check-prefix=MUST_HIT %s \
+// RUN: && %ldc %s -cache=%T/prunecache2 -cache-prune -cache-prune-interval=0 -vv -d-version=NEW_OBJ_FILE | FileCheck --check-prefix=NO_HIT %s \
+// RUN: && %ldc %s -cache=%T/prunecache2 -cache-prune -cache-prune-interval=0 -vv | FileCheck --check-prefix=MUST_HIT %s \
 // RUN: && %ldc -d-version=SLEEP -run %s \
-// RUN: && %ldc %s -c -of=%t%obj -ir2obj-cache=%T/prunecache2 -ir2obj-cache-prune-interval=0 -ir2obj-cache-prune-maxbytes=200000 -vv | FileCheck --check-prefix=MUST_HIT %s \
+// RUN: && %ldc %s -c -of=%t%obj -cache=%T/prunecache2 -cache-prune-interval=0 -cache-prune-maxbytes=200000 -vv | FileCheck --check-prefix=MUST_HIT %s \
 // RUN: && %ldc %t%obj \
-// RUN: && %ldc %s -ir2obj-cache=%T/prunecache2 -d-version=SLEEP -vv | FileCheck --check-prefix=NO_HIT %s \
+// RUN: && %ldc %s -cache=%T/prunecache2 -d-version=SLEEP -vv | FileCheck --check-prefix=NO_HIT %s \
 // RUN: && %ldc -d-version=SLEEP -run %s \
-// RUN: && %ldc %s -ir2obj-cache=%T/prunecache2 -ir2obj-cache-prune-interval=1 -ir2obj-cache-prune-maxbytes=200000 -d-version=NEW_OBJ_FILE \
-// RUN: && %ldc %s -ir2obj-cache=%T/prunecache2 -ir2obj-cache-prune -ir2obj-cache-prune-interval=0 -vv | FileCheck --check-prefix=NO_HIT %s
+// RUN: && %ldc %s -cache=%T/prunecache2 -cache-prune-interval=1 -cache-prune-maxbytes=200000 -d-version=NEW_OBJ_FILE \
+// RUN: && %ldc %s -cache=%T/prunecache2 -cache-prune -cache-prune-interval=0 -vv | FileCheck --check-prefix=NO_HIT %s
 
 // MUST_HIT: Cache object found!
 // NO_HIT-NOT: Cache object found!

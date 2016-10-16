@@ -10,7 +10,7 @@
 #include "driver/toobj.h"
 
 #include "driver/cl_options.h"
-#include "driver/ir2obj_cache.h"
+#include "driver/cache.h"
 #include "driver/targetmachine.h"
 #include "driver/tool.h"
 #include "gen/irstate.h"
@@ -375,21 +375,21 @@ void writeModule(llvm::Module *m, std::string filename) {
        global.params.targetTriple->getOS() == llvm::Triple::AIX);
 
   // Use cached object code if possible
-  bool useIR2ObjCache = !opts::ir2objCacheDir.empty();
+  bool useIR2ObjCache = !opts::cacheDir.empty();
   llvm::SmallString<32> moduleHash;
   if (useIR2ObjCache && global.params.output_o && !assembleExternally) {
-    llvm::SmallString<128> cacheDir(opts::ir2objCacheDir.c_str());
+    llvm::SmallString<128> cacheDir(opts::cacheDir.c_str());
     llvm::sys::fs::make_absolute(cacheDir);
-    opts::ir2objCacheDir = cacheDir.c_str();
+    opts::cacheDir = cacheDir.c_str();
 
     IF_LOG Logger::println("Use IR-to-Object cache in %s",
-                           opts::ir2objCacheDir.c_str());
+                           opts::cacheDir.c_str());
     LOG_SCOPE
 
-    ir2obj::calculateModuleHash(m, moduleHash);
-    std::string cacheFile = ir2obj::cacheLookup(moduleHash);
+    cache::calculateModuleHash(m, moduleHash);
+    std::string cacheFile = cache::cacheLookup(moduleHash);
     if (!cacheFile.empty()) {
-      ir2obj::recoverObjectFile(moduleHash, filename);
+      cache::recoverObjectFile(moduleHash, filename);
       return;
     }
   }
@@ -479,7 +479,7 @@ void writeModule(llvm::Module *m, std::string filename) {
   if (global.params.output_o && !assembleExternally) {
     writeObjectFile(m, filename);
     if (useIR2ObjCache) {
-      ir2obj::cacheObjectFile(filename, moduleHash);
+      cache::cacheObjectFile(filename, moduleHash);
     }
   }
 }

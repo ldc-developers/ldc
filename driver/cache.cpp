@@ -1,4 +1,4 @@
-//===-- driver/ir2obj_cache.cpp -------------------------------------------===//
+//===-- driver/cache.cpp --------------------------------------------------===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -27,12 +27,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "driver/ir2obj_cache.h"
+#include "driver/cache.h"
 
 #include "ddmd/errors.h"
+#include "driver/cache_pruning.h"
 #include "driver/cl_options.h"
 #include "driver/ldc-version.h"
-#include "driver/ir2obj_cache_pruning.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"
 
@@ -52,31 +52,31 @@
 namespace {
 
 // Options for the cache pruning algorithm
-llvm::cl::opt<bool> pruneEnabled("ir2obj-cache-prune",
+llvm::cl::opt<bool> pruneEnabled("cache-prune",
                                  llvm::cl::desc("Enable cache pruning."),
                                  llvm::cl::ZeroOrMore);
 llvm::cl::opt<unsigned long long> pruneSizeLimitInBytes(
-    "ir2obj-cache-prune-maxbytes",
+    "cache-prune-maxbytes",
     llvm::cl::desc("Sets the maximum cache size to <size> bytes. Implies "
-                   "-ir2obj-cache-prune."),
+                   "-cache-prune."),
     llvm::cl::value_desc("size"), llvm::cl::init(0));
 llvm::cl::opt<unsigned> pruneInterval(
-    "ir2obj-cache-prune-interval",
+    "cache-prune-interval",
     llvm::cl::desc("Sets the cache pruning interval to <dur> seconds "
                    "(default: 20 min). Set to 0 to force pruning. Implies "
-                   "-ir2obj-cache-prune."),
+                   "-cache-prune."),
     llvm::cl::value_desc("dur"), llvm::cl::init(20 * 60));
 llvm::cl::opt<unsigned> pruneExpiration(
-    "ir2obj-cache-prune-expiration",
+    "cache-prune-expiration",
     llvm::cl::desc(
         "Sets the pruning expiration time of cache files to "
-        "<dur> seconds (default: 1 week). Implies -ir2obj-cache-prune."),
+        "<dur> seconds (default: 1 week). Implies -cache-prune."),
     llvm::cl::value_desc("dur"), llvm::cl::init(7 * 24 * 3600));
 llvm::cl::opt<unsigned> pruneSizeLimitPercentage(
-    "ir2obj-cache-prune-maxpercentage",
+    "cache-prune-maxpercentage",
     llvm::cl::desc(
         "Sets the cache size limit to <perc> percent of the available "
-        "space (default: 75%). Implies -ir2obj-cache-prune."),
+        "space (default: 75%). Implies -cache-prune."),
     llvm::cl::value_desc("perc"), llvm::cl::init(75));
 
 bool isPruningEnabled() {
@@ -123,7 +123,7 @@ public:
 
 void storeCacheFileName(llvm::StringRef cacheObjectHash,
                         llvm::SmallString<128> &filePath) {
-  filePath = opts::ir2objCacheDir;
+  filePath = opts::cacheDir;
   llvm::sys::path::append(filePath, llvm::Twine("ircache_") + cacheObjectHash +
                                         "." + global.obj_ext);
 }
@@ -186,8 +186,8 @@ void outputIR2ObjRelevantCmdlineArgs(llvm::raw_ostream &hash_os)
       // "-od..." can be ignored
       if (arg[1] == 'o' && arg[2] == 'd')
         continue;
-      // All  "-ir2..." options can be ignored
-      if (arg[1] == 'i' && arg[2] == 'r' && arg[3] == '2')
+      // All  "-cache..." options can be ignored
+      if (strncmp(arg+1, "cache", 5) == 0)
         continue;
       // Ignore "-lib"
       if (arg[1] == 'l' && arg[2] == 'i' && arg[3] == 'b' && !arg[4])
@@ -234,9 +234,9 @@ void outputIR2ObjRelevantEnvironmentOpts(llvm::raw_ostream &hash_os)
   // There are no relevant environment options at the moment.
 }
 
-}
+} // anonymous namespace
 
-namespace ir2obj {
+namespace cache {
 
 void calculateModuleHash(llvm::Module *m, llvm::SmallString<32> &str) {
   raw_hash_ostream hash_os;
@@ -257,10 +257,10 @@ void calculateModuleHash(llvm::Module *m, llvm::SmallString<32> &str) {
 }
 
 std::string cacheLookup(llvm::StringRef cacheObjectHash) {
-  if (opts::ir2objCacheDir.empty())
+  if (opts::cacheDir.empty())
     return "";
 
-  if (!llvm::sys::fs::exists(opts::ir2objCacheDir)) {
+  if (!llvm::sys::fs::exists(opts::cacheDir)) {
     IF_LOG Logger::println("Cache directory does not exist, no object found.");
     return "";
   }
@@ -278,13 +278,13 @@ std::string cacheLookup(llvm::StringRef cacheObjectHash) {
 
 void cacheObjectFile(llvm::StringRef objectFile,
                      llvm::StringRef cacheObjectHash) {
-  if (opts::ir2objCacheDir.empty())
+  if (opts::cacheDir.empty())
     return;
 
-  if (!llvm::sys::fs::exists(opts::ir2objCacheDir) &&
-      llvm::sys::fs::create_directories(opts::ir2objCacheDir)) {
+  if (!llvm::sys::fs::exists(opts::cacheDir) &&
+      llvm::sys::fs::create_directories(opts::cacheDir)) {
     error(Loc(), "Unable to create cache directory: %s",
-          opts::ir2objCacheDir.c_str());
+          opts::cacheDir.c_str());
     fatal();
   }
 
@@ -342,10 +342,10 @@ void recoverObjectFile(llvm::StringRef cacheObjectHash,
 }
 
 void pruneCache() {
-  if (!opts::ir2objCacheDir.empty() && isPruningEnabled()) {
-    ::pruneCache(opts::ir2objCacheDir.data(), opts::ir2objCacheDir.size(),
+  if (!opts::cacheDir.empty() && isPruningEnabled()) {
+    ::pruneCache(opts::cacheDir.data(), opts::cacheDir.size(),
                  pruneInterval, pruneExpiration, pruneSizeLimitInBytes,
                  pruneSizeLimitPercentage);
   }
 }
-}
+} // namespace cache

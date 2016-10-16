@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Prunes the ir2obj cache.
+// Prunes LDC's cache.
 //
 // TODO: Let the commandline parameters accept units, e.g.
 //       `--interval=30m`, or `--max-bytes=5GB`.
@@ -20,7 +20,7 @@ import std.stdio;
 import std.getopt;
 import std.file: isDir;
 
-import driver.ir2obj_cache_pruning;
+import driver.cache_pruning;
 
 // System exit codes:
 enum EX_OK = 0;
@@ -65,7 +65,7 @@ OVERVIEW: LDC-PRUNE-CACHE
 
 USAGE: ldc-prune-cache [OPTION]... PATH
   PATH should be a directory where LDC has placed its object files cache (see
-  LDC's --ir2obj-cache option).
+  LDC's -cache option).
 
 OPTIONS:
   --expiration=<dur>     Sets the pruning expiration time of cache files to
