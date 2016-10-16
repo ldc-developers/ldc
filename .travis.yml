@@ -13,7 +13,7 @@ matrix:
       d: ldc
       env: LLVM_VERSION=3.7.1 OPTS="-DMULTILIB=ON"
     - os: linux
-      d: ldc-0.17.1
+      d: ldc-0.17.2
       env: LLVM_VERSION=3.6.2 OPTS="-DBUILD_SHARED_LIBS=ON"
     - os: linux
       d: dmd
