@@ -460,6 +460,16 @@ cl::opt<bool>
                         cl::desc("Instrument function entry and exit with "
                                  "GCC-compatible profiling calls"));
 
+#if LDC_LLVM_VER >= 309
+cl::opt<LTOKind> ltoMode(
+    "flto", cl::desc("Set LTO mode, requires linker support"),
+    cl::init(LTO_None),
+    clEnumValues(
+        clEnumValN(LTO_Full, "full", "Merges all input into a single module"),
+        clEnumValN(LTO_Thin, "thin",
+                   "Parallel importing and codegen (faster than 'full')")));
+#endif
+
 static cl::extrahelp footer(
     "\n"
     "-d-debug can also be specified without options, in which case it enables "

@@ -19,6 +19,9 @@
 #include "gen/programs.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/Verifier.h"
+#if LDC_LLVM_VER >= 309
+#include "llvm/Analysis/ModuleSummaryAnalysis.h"
+#endif
 #include "llvm/Bitcode/ReaderWriter.h"
 #if LDC_LLVM_VER >= 307
 #include "llvm/IR/LegacyPassManager.h"
@@ -364,20 +367,47 @@ void writeObjectFile(llvm::Module *m, std::string &filename) {
     }
   }
 }
+
+bool shouldAssembleExternally() {
+  // There is no integrated assembler on AIX because XCOFF is not supported.
+  // Starting with LLVM 3.5 the integrated assembler can be used with MinGW.
+  return global.params.output_o &&
+         (NoIntegratedAssembler ||
+          global.params.targetTriple->getOS() == llvm::Triple::AIX);
+}
+
+bool shouldOutputObjectFile() {
+  return global.params.output_o && !shouldAssembleExternally();
+}
+
+bool shouldDoLTO(llvm::Module *m) {
+#if LDC_LLVM_VER < 309
+  return false;
+#else
+#if LDC_LLVM_VER == 309
+  // LLVM 3.9 bug: can't do ThinLTO with modules that have module-scope inline
+  // assembly blocks (duplicate definitions upon importing from such a module).
+  // https://llvm.org/bugs/show_bug.cgi?id=30610
+  if (opts::isUsingThinLTO() && !m->getModuleInlineAsm().empty())
+    return false;
+#endif
+  return opts::isUsingLTO();
+#endif
+}
 } // end of anonymous namespace
 
 void writeModule(llvm::Module *m, std::string filename) {
-  // There is no integrated assembler on AIX because XCOFF is not supported.
-  // Starting with LLVM 3.5 the integrated assembler can be used with MinGW.
-  bool const assembleExternally =
-      global.params.output_o &&
-      (NoIntegratedAssembler ||
-       global.params.targetTriple->getOS() == llvm::Triple::AIX);
+  const bool doLTO = shouldDoLTO(m);
+  const bool outputObj = shouldOutputObjectFile();
+  const bool assembleExternally = shouldAssembleExternally();
 
-  // Use cached object code if possible
-  bool useIR2ObjCache = !opts::cacheDir.empty();
+  // Use cached object code if possible.
+  // TODO: combine LDC's cache and LTO (the advantage is skipping the IR
+  // optimization).
+  const bool useIR2ObjCache =
+      !opts::cacheDir.empty() && outputObj && !doLTO;
   llvm::SmallString<32> moduleHash;
-  if (useIR2ObjCache && global.params.output_o && !assembleExternally) {
+  if (useIR2ObjCache) {
     llvm::SmallString<128> cacheDir(opts::cacheDir.c_str());
     llvm::sys::fs::make_absolute(cacheDir);
     opts::cacheDir = cacheDir.c_str();
@@ -411,9 +441,10 @@ void writeModule(llvm::Module *m, std::string filename) {
   }
 
   // write LLVM bitcode
-  if (global.params.output_bc) {
+  if (global.params.output_bc || (doLTO && outputObj)) {
     LLPath bcpath(filename);
-    llvm::sys::path::replace_extension(bcpath, global.bc_ext);
+    if (global.params.output_bc)
+      llvm::sys::path::replace_extension(bcpath, global.bc_ext);
     Logger::println("Writing LLVM bitcode to: %s\n", bcpath.c_str());
     LLErrorInfo errinfo;
     llvm::raw_fd_ostream bos(bcpath.c_str(), errinfo, llvm::sys::fs::F_None);
@@ -422,7 +453,25 @@ void writeModule(llvm::Module *m, std::string filename) {
             ERRORINFO_STRING(errinfo));
       fatal();
     }
-    llvm::WriteBitcodeToFile(m, bos);
+    if (opts::isUsingThinLTO()) {
+#if LDC_LLVM_VER >= 309
+      Logger::println("Creating module summary for ThinLTO");
+#if LDC_LLVM_VER == 309
+      // TODO: add PGO data in here when available (function freq info).
+      llvm::ModuleSummaryIndexBuilder indexBuilder(m, nullptr);
+      auto &moduleSummaryIndex = indexBuilder.getIndex();
+#else
+      // TODO: add PGO data in here when available (function freq info and
+      // profile summary info).
+      auto moduleSummaryIndex = buildModuleSummaryIndex(*m, nullptr, nullptr);
+#endif
+
+      llvm::WriteBitcodeToFile(m, bos, true, &moduleSummaryIndex,
+                               /* generate ThinLTO hash */ true);
+#endif
+    } else {
+      llvm::WriteBitcodeToFile(m, bos);
+    }
   }
 
   // write LLVM IR
@@ -476,7 +525,7 @@ void writeModule(llvm::Module *m, std::string filename) {
     }
   }
 
-  if (global.params.output_o && !assembleExternally) {
+  if (outputObj && !doLTO) {
     writeObjectFile(m, filename);
     if (useIR2ObjCache) {
       cache::cacheObjectFile(filename, moduleHash);
