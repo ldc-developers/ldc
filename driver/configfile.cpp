@@ -172,31 +172,8 @@ bool ConfigFile::locate() {
   return false;
 }
 
-bool ConfigFile::read(const char *explicitConfFile, const char *section) {
-  // explicitly provided by user in command line?
-  if (explicitConfFile) {
-    const std::string clPath = explicitConfFile;
-    // treat an empty path (`-conf=`) as missing command-line option,
-    // defaulting to an auto-located config file, analogous to DMD
-    if (!clPath.empty()) {
-      if (sys::fs::exists(clPath)) {
-        pathcstr = clPath.c_str();
-      } else {
-        fprintf(stderr, "Warning: configuration file '%s' not found, falling "
-                        "back to default\n",
-                clPath.c_str());
-      }
-    }
-  }
-
-  // locate file automatically if path is not set yet
-  if (!pathcstr) {
-    if (!locate()) {
-      return false;
-    }
-  }
-
+const char *getExePathBinDirCStr()
+{
   std::string bd = exe_path::getBinDir();
-  // retrieve data from config file
-  return readConfig(section, bd.c_str());
+  return strdup(bd.c_str());
 }

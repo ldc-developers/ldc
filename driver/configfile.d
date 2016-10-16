@@ -6,38 +6,66 @@ import std.algorithm : map;
 import std.string : fromStringz, toStringz;
 import std.stdio : stderr;
 import std.array : replace;
+import std.file : exists;
 
 
 extern(C++)
+const(char)* getExePathBinDirCStr();
+
+
 struct ConfigFile
 {
 public:
 
     alias s_iterator = const(char)**;
 
-    // impl in C++
-    final bool read(const char *explicitConfFile, const char *section);
+    /// Read data from the config file
+    /// Returns a boolean indicating if data was succesfully read.
+    extern(C++)
+    bool read(const(char)* explicitConfFile, const(char)* section)
+    {
+        // explicitly provided by user in command line?
+        if (explicitConfFile)
+        {
+            auto cfPath = fromStringz(explicitConfFile);
+
+            // treat an empty path (`-conf=`) as missing command-line option,
+            // defaulting to an auto-located config file, analogous to DMD
+            if (cfPath.length && !exists(cfPath))
+            {
+                stderr.writefln("Warning: configuration file '%s' not found, falling " ~
+                    "back to default", cfPath);
+                cfPath = null;
+            }
+            else if (cfPath.length)
+            {
+                pathcstr = toStringz(cfPath);
+            }
+        }
+
+        // locate file automatically if path is not set yet
+        if (!pathcstr)
+        {
+            if (!locate()) return false;
+        }
+
+        // retrieve data from config file
+        return readConfig(fromStringz(section).idup);
+    }
 
 private:
 
     // impl in C++
-    final bool locate();
+    extern(C++) bool locate();
 
-    final bool readConfig(const(char)* sectioncstr, const(char)* bindircstr)
-    in
+    bool readConfig(string section)
     {
-        assert(this.pathcstr);
-        assert(bindircstr);
-    }
-    body
-    {
-        auto path = fromStringz(this.pathcstr).idup;
-        auto section = sectioncstr ? fromStringz(sectioncstr).idup : "default";
-        auto bindir = fromStringz(bindircstr).replace("\\", "/");
+        auto cfPath = fromStringz(pathcstr).idup;
+        auto bindir = fromStringz(getExePathBinDirCStr()).replace("\\", "/");
 
         try
         {
-            auto conf = Config.readFile(path);
+            auto conf = Config.readFile(cfPath);
 
             auto setting = conf.lookUp(section~".switches");
             if (!setting && section != "default")
@@ -48,14 +76,14 @@ private:
 
             if (!setting)
             {
-                stderr.writeln("could not look up setting \""~section~".switches\" in config file "~path);
+                stderr.writeln("could not look up setting \""~section~".switches\" in config file "~cfPath);
                 return false;
             }
 
             auto switches = setting.asArray;
             if (!switches)
             {
-                stderr.writeln("ill-formed config file "~path~":\n\""~section~".switches\" should be an array.");
+                stderr.writeln("ill-formed config file "~cfPath~":\n\""~section~".switches\" should be an array.");
                 return false;
             }
 
@@ -73,12 +101,12 @@ private:
         }
         catch (ConfigException ex)
         {
-            stderr.writeln("could not read switches from config file \""~path~"\":\n"~ex.msg);
+            stderr.writeln("could not read switches from config file \""~cfPath~"\":\n"~ex.msg);
             return false;
         }
         catch (Exception ex)
         {
-            stderr.writeln("unexpected error while reading config file \""~path~"\":\n"~ex.msg);
+            stderr.writeln("unexpected error while reading config file \""~cfPath~"\":\n"~ex.msg);
             return false;
         }
     }

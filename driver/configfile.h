@@ -24,8 +24,7 @@ public:
 public:
   ConfigFile();
 
-  /// Read data from the config file
-  /// Returns a boolean indicating if data was succesfully read.
+  // impl in D
   bool read(const char *explicitConfFile, const char *section);
 
   s_iterator switches_begin() { return switches_b; }
@@ -35,9 +34,6 @@ public:
 
 private:
   bool locate();
-
-  // impl in D
-  bool readConfig(const char *sectioncstr, const char *bindircstr);
 
   const char *pathcstr;
   s_iterator switches_b;
