@@ -387,8 +387,8 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
 
 // sort of kinda related to naked ...
 
-DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd,
-                         Expressions *arguments) {
+DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
+                         LLValue *sretPointer) {
   IF_LOG Logger::println("DtoInlineAsmExpr @ %s", loc.toChars());
   LOG_SCOPE;
 
@@ -431,8 +431,8 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd,
   }
 
   // build asm function type
-  Type *type = fd->type->nextOf()->toBasetype();
-  LLType *ret_type = DtoType(type);
+  Type *type = fd->type->nextOf();
+  LLType *ret_type = DtoType(type->toBasetype());
   llvm::FunctionType *FT = llvm::FunctionType::get(ret_type, argtypes, false);
 
   // make sure the constraints are valid
@@ -447,14 +447,19 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd,
 
   llvm::Value *rv = gIR->ir->CreateCall(ia, args, "");
 
+  if (sretPointer) {
+    DtoStore(rv, DtoBitCast(sretPointer, getPtrToType(ret_type)));
+    return new DLValue(type, sretPointer);
+  }
+
   // work around missing tuple support for users of the return value
   if (type->ty == Tstruct) {
     // make a copy
     llvm::Value *mem = DtoAlloca(type, ".__asm_tuple_ret");
-    DtoStore(rv, DtoBitCast(mem, getPtrToType(rv->getType())));
-    return new DLValue(fd->type->nextOf(), mem);
+    DtoStore(rv, DtoBitCast(mem, getPtrToType(ret_type)));
+    return new DLValue(type, mem);
   }
 
   // return call as im value
-  return new DImValue(fd->type->nextOf(), rv);
+  return new DImValue(type, rv);
 }

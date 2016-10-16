@@ -654,10 +654,10 @@ public:
       VarExp *ve = static_cast<VarExp *>(e->e1);
       if (FuncDeclaration *fd = ve->var->isFuncDeclaration()) {
         if (fd->llvmInternal == LLVMinline_asm) {
-          return DtoInlineAsmExpr(e->loc, fd, e->arguments);
+          return DtoInlineAsmExpr(e->loc, fd, e->arguments, sretPointer);
         }
         if (fd->llvmInternal == LLVMinline_ir) {
-          return DtoInlineIRExpr(e->loc, fd, e->arguments);
+          return DtoInlineIRExpr(e->loc, fd, e->arguments, sretPointer);
         }
       }
     }

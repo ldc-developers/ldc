@@ -43,7 +43,7 @@ void copyFnAttributes(llvm::Function *wannabe, llvm::Function *idol) {
 } // anonymous namespace
 
 DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
-                        Expressions *arguments) {
+                        Expressions *arguments, LLValue *sretPointer) {
   IF_LOG Logger::println("DtoInlineIRExpr @ %s", loc.toChars());
   LOG_SCOPE;
 
@@ -172,17 +172,22 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
     }
 
     llvm::Value *rv = gIR->ir->CreateCall(fun, args);
+    Type *type = fdecl->type->nextOf();
+
+    if (sretPointer) {
+      DtoStore(rv, DtoBitCast(sretPointer, getPtrToType(rv->getType())));
+      return new DLValue(type, sretPointer);
+    }
 
     // work around missing tuple support for users of the return value
-    Type *type = fdecl->type->nextOf()->toBasetype();
-    if (type->ty == Tstruct) {
+    if (type->toBasetype()->ty == Tstruct) {
       // make a copy
       llvm::Value *mem = DtoAlloca(type, ".__ir_tuple_ret");
       DtoStore(rv, DtoBitCast(mem, getPtrToType(rv->getType())));
-      return new DLValue(fdecl->type->nextOf(), mem);
+      return new DLValue(type, mem);
     }
 
     // return call as im value
-    return new DImValue(fdecl->type->nextOf(), rv);
+    return new DImValue(type, rv);
   }
 }
