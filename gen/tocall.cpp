@@ -329,11 +329,18 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
   // fence instruction
   if (fndecl->llvmInternal == LLVMfence) {
-    if (e->arguments->dim != 1) {
-      e->error("fence instruction expects 1 arguments");
+    if (e->arguments->dim < 1 || e->arguments->dim > 2) {
+      e->error("fence instruction expects 1 (or 2) arguments");
       fatal();
     }
-    p->ir->CreateFence(llvm::AtomicOrdering((*e->arguments)[0]->toInteger()));
+    auto atomicOrdering =
+        static_cast<llvm::AtomicOrdering>((*e->arguments)[0]->toInteger());
+    auto scope = llvm::SynchronizationScope::CrossThread;
+    if (e->arguments->dim == 2) {
+      scope = static_cast<llvm::SynchronizationScope>(
+          (*e->arguments)[1]->toInteger());
+    }
+    p->ir->CreateFence(atomicOrdering, scope);
     return true;
   }
 
