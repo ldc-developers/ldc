@@ -330,11 +330,18 @@ enum AtomicOrdering {
 };
 alias AtomicOrdering.SequentiallyConsistent DefaultOrdering;
 
+enum SynchronizationScope {
+  SingleThread = 0,
+  CrossThread  = 1,
+  Default = CrossThread
+}
+
 enum AtomicRmwSizeLimit = size_t.sizeof;
 
 /// Used to introduce happens-before edges between operations.
 pragma(LDC_fence)
-    void llvm_memory_fence(AtomicOrdering ordering = DefaultOrdering);
+    void llvm_memory_fence(AtomicOrdering ordering = DefaultOrdering,
+                           SynchronizationScope syncScope = SynchronizationScope.Default);
 
 /// Atomically loads and returns a value from memory at ptr.
 pragma(LDC_atomic_load)
