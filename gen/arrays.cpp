@@ -496,16 +496,37 @@ Expression *indexArrayLiteral(ArrayLiteralExp *ale, unsigned idx) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-bool isConstLiteral(ArrayLiteralExp *ale) {
-  // FIXME: This is overly pessemistic, isConst() always returns 0 e.g. for
-  // StructLiteralExps. Thus, we waste optimization potential (GitHub #506).
-  for (size_t i = 0; i < ale->elements->dim; ++i) {
-    // We have to check specifically for '1', as SymOffExp is classified as
-    // '2' and the address of a local variable is not an LLVM constant.
-    if (indexArrayLiteral(ale, i)->isConst() != 1) {
-      return false;
+bool isConstLiteral(Expression *e) {
+  // We have to check the return value of isConst specifically for '1',
+  // as SymOffExp is classified as '2' and the address of a local variable is
+  // not an LLVM constant.
+  //
+  // Examine the ArrayLiteralExps and the StructLiteralExps element by element
+  // as isConst always returns 0 on those.
+  switch (e->op) {
+  case TOKarrayliteral: {
+    auto ale = static_cast<ArrayLiteralExp *>(e);
+    for (auto el : *ale->elements) {
+      if (!isConstLiteral(el ? el : ale->basis))
+        return false;
     }
+  } break;
+
+  case TOKstructliteral: {
+    auto sle = static_cast<StructLiteralExp *>(e);
+    if (sle->sd->isNested())
+      return false;
+    for (auto el : *sle->elements) {
+      if (el && !isConstLiteral(el))
+        return false;
+    }
+  } break;
+
+  default:
+    if (e->isConst() != 1)
+      return false;
   }
+
   return true;
 }
 
