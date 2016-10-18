@@ -522,6 +522,10 @@ bool isConstLiteral(Expression *e) {
     }
   } break;
 
+  // isConst also returns 0 for string literals that are obviously constant.
+  case TOKstring:
+    return true;
+
   default:
     if (e->isConst() != 1)
       return false;
