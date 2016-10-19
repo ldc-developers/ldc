@@ -134,6 +134,8 @@ public:
     FuncDeclaration *const fd = f->decl;
     LLFunction *const llFunc = f->func;
 
+    emitInstrumentationFnLeave(fd);
+
     // is there a return value expression?
     if (stmt->exp || (!stmt->exp && (llFunc == irs->mainFunc))) {
       // if the function's return type is void, it uses sret

@@ -21,6 +21,7 @@
 #include "ir/irfunction.h"
 #include "ir/irtype.h"
 #include "ir/irtypefunction.h"
+#include "driver/cl_options.h"
 #include "ldcbindings.h"
 #include "mars.h"
 #include "module.h"
@@ -324,6 +325,16 @@ static void buildRuntimeModule() {
       Attr_1_2_NoCapture(Attr_1_NoCapture, 2, llvm::Attribute::NoCapture),
       Attr_1_3_NoCapture(Attr_1_NoCapture, 3, llvm::Attribute::NoCapture),
       Attr_1_4_NoCapture(Attr_1_NoCapture, 4, llvm::Attribute::NoCapture);
+
+  //////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
+
+  // void __cyg_profile_func_enter(void *callee, void *caller)
+  // void __cyg_profile_func_exit(void *callee, void *caller)
+  createFwdDecl(LINKc, voidTy,
+                {"__cyg_profile_func_exit", "__cyg_profile_func_enter"},
+                {voidPtrTy, voidPtrTy}, {}, Attr_NoUnwind);
 
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
@@ -738,4 +749,29 @@ static void buildRuntimeModule() {
       break;
     }
   }
+}
+
+static void emitInstrumentationFn(const char *name) {
+  LLFunction *fn = getRuntimeFunction(Loc(), gIR->module, name);
+
+  // Grab the address of the calling function
+  auto *caller =
+      gIR->ir->CreateCall(GET_INTRINSIC_DECL(returnaddress), DtoConstInt(1));
+  auto callee = DtoBitCast(gIR->topfunc(), getVoidPtrType());
+
+#if LDC_LLVM_VER >= 307
+  gIR->ir->CreateCall(fn, {callee, caller});
+#else
+  gIR->ir->CreateCall2(fn, callee, caller);
+#endif
+}
+
+void emitInstrumentationFnEnter(FuncDeclaration *decl) {
+  if (opts::instrumentFunctions && decl->emitInstrumentation)
+    emitInstrumentationFn("__cyg_profile_func_enter");
+}
+
+void emitInstrumentationFnLeave(FuncDeclaration *decl) {
+  if (opts::instrumentFunctions && decl->emitInstrumentation)
+    emitInstrumentationFn("__cyg_profile_func_exit");
 }
