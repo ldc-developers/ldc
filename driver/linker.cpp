@@ -40,6 +40,12 @@ static llvm::cl::opt<bool> staticFlag(
         "Create a statically linked binary, including all system dependencies"),
     llvm::cl::ZeroOrMore);
 
+// used by LDMD
+static llvm::cl::opt<bool> createStaticLibInObjdir(
+    "create-static-lib-in-objdir",
+    llvm::cl::desc("Create static library in -od directory (DMD-compliant)"),
+    llvm::cl::ZeroOrMore, llvm::cl::ReallyHidden);
+
 //////////////////////////////////////////////////////////////////////////////
 
 static void CreateDirectoryOnDisk(llvm::StringRef fileName) {
@@ -717,8 +723,10 @@ int createStaticLibrary() {
     libName.push_back('.');
     libName.append(global.lib_ext);
   }
-  if (global.params.objdir && !FileName::absolute(libName.c_str()))
+  if (createStaticLibInObjdir && global.params.objdir &&
+      !FileName::absolute(libName.c_str())) {
     libName = FileName::combine(global.params.objdir, libName.c_str());
+  }
 
   if (isTargetMSVC) {
     args.push_back("/OUT:" + libName);
