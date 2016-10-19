@@ -101,9 +101,9 @@ enum class RegistryStyle {
   /// global.
   legacyLinkedList,
 
-  /// Module references are emitted into the .minfo section, bracketed with
-  /// extra sections to access the .minfo range. Global constructors/
-  /// destructors make sure _d_dso_registry is invoked once per ELF object.
+  /// Module references are emitted into the .minfo section. Global
+  /// constructors/destructors make sure _d_dso_registry is invoked once per ELF
+  /// object.
   sectionELF,
 
   /// Module references are emitted into the .minfo section. Global
@@ -353,33 +353,16 @@ void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
   assert(style == RegistryStyle::sectionELF ||
          style == RegistryStyle::sectionDarwin);
   // Only for the first D module to be emitted into this llvm::Module we need to
-  // create the _minfo_beg/_minfo_end symbols and the global ctors/dtors. For
-  // all subsequent ones, we just need to emit an additional reference into the
-  // .minfo section (even with --gc-sections, the section is already kept alive
-  // by the first module's reference being used in the ctor/dtor functions).
+  // create the global ctors/dtors. The magic linker symbols used to get the
+  // start and end of the .minfo section also only need to be emitted for the
+  // first D module.
+  // For all subsequent ones, we just need to emit an additional reference into
+  // the .minfo section (even with --gc-sections, the section is already kept
+  // alive by the first module's reference being used in the ctor/dtor
+  // functions).
   const bool isFirst = !gIR->module.getGlobalVariable("ldc.dso_slot");
 
   llvm::Type *const moduleInfoPtrTy = DtoPtrToType(Module::moduleinfo->type);
-
-  // Order is important here: For ELF, we must create the symbols in the
-  // bracketing sections right before/after the ModuleInfo reference
-  // so that they end up in the correct order in the object file.
-  llvm::GlobalVariable *minfoBeg;
-  if (isFirst) {
-    if (style == RegistryStyle::sectionDarwin) {
-      minfoBeg =
-          new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy, false,
-                                   llvm::GlobalValue::ExternalLinkage, nullptr,
-                                   "\1section$start$__DATA$.minfo");
-    } else {
-      minfoBeg =
-          new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy, false,
-                                   llvm::GlobalValue::LinkOnceODRLinkage,
-                                   getNullPtr(moduleInfoPtrTy), "_minfo_beg");
-      minfoBeg->setSection(".minfo_beg");
-      minfoBeg->setVisibility(llvm::GlobalValue::HiddenVisibility);
-    }
-  }
 
   std::string thismrefname = "_D";
   thismrefname += moduleMangle;
@@ -390,7 +373,7 @@ void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
       llvm::GlobalValue::LinkOnceODRLinkage,
       DtoBitCast(thisModuleInfo, moduleInfoPtrTy), thismrefname);
   thismref->setSection((style == RegistryStyle::sectionDarwin) ? "__DATA,.minfo"
-                                                               : ".minfo");
+                                                               : "__minfo");
   gIR->usedArray.push_back(thismref);
 
   if (!isFirst) {
@@ -398,19 +381,22 @@ void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
     return;
   }
 
-  llvm::GlobalVariable *minfoEnd;
-  if (style == RegistryStyle::sectionDarwin) {
-    minfoEnd = new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy, false,
-                                        llvm::GlobalValue::ExternalLinkage,
-                                        nullptr, "\1section$end$__DATA$.minfo");
-  } else {
-    minfoEnd =
-        new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy, false,
-                                 llvm::GlobalValue::LinkOnceODRLinkage,
-                                 getNullPtr(moduleInfoPtrTy), "_minfo_end");
-    minfoEnd->setSection(".minfo_end");
-    minfoEnd->setVisibility(llvm::GlobalValue::HiddenVisibility);
-  }
+  // Use magic linker symbol names to obtain the begin and end of the .minfo
+  // section.
+  const auto magicBeginSymbolName = (style == RegistryStyle::sectionDarwin)
+                                        ? "\1section$start$__DATA$.minfo"
+                                        : "__start___minfo";
+  const auto magicEndSymbolName = (style == RegistryStyle::sectionDarwin)
+                                      ? "\1section$end$__DATA$.minfo"
+                                      : "__stop___minfo";
+  auto minfoBeg = new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy, false,
+                                           llvm::GlobalValue::ExternalLinkage,
+                                           nullptr, magicBeginSymbolName);
+  auto minfoEnd = new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy, false,
+                                           llvm::GlobalValue::ExternalLinkage,
+                                           nullptr, magicEndSymbolName);
+  minfoBeg->setVisibility(llvm::GlobalValue::HiddenVisibility);
+  minfoEnd->setVisibility(llvm::GlobalValue::HiddenVisibility);
 
   // Build the ctor to invoke _d_dso_registry.
 
