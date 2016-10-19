@@ -15,7 +15,6 @@
 #define LDC_DRIVER_CONFIGFILE_H
 
 #include <string>
-#include <vector>
 
 class ConfigFile {
 public:
@@ -33,8 +32,6 @@ public:
   std::string path() { return std::string(pathcstr); }
 
 private:
-  bool locate();
-
   const char *pathcstr;
   s_iterator switches_b;
   s_iterator switches_e;
