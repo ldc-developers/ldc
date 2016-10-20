@@ -106,6 +106,18 @@ static cl::opt<bool> linkDebugLib(
     cl::desc("Link with libraries specified in -debuglib, not -defaultlib"),
     cl::ZeroOrMore);
 
+#if LDC_LLVM_VER >= 309
+static inline llvm::Optional<llvm::Reloc::Model> getRelocModel() {
+  if (mRelocModel.getNumOccurrences()) {
+    llvm::Reloc::Model R = mRelocModel;
+    return R;
+  }
+  return llvm::None;
+}
+#else
+static inline llvm::Reloc::Model getRelocModel() { return mRelocModel; }
+#endif
+
 static cl::opt<bool> staticFlag(
     "static",
     cl::desc(
@@ -515,7 +527,12 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     error(Loc(), "-lib and -shared switches cannot be used together");
   }
 
+
+#if LDC_LLVM_VER >= 309
+  if (createSharedLib && !mRelocModel.getNumOccurrences()) {
+#else
   if (createSharedLib && mRelocModel == llvm::Reloc::Default) {
+#endif
     mRelocModel = llvm::Reloc::PIC_;
   }
 
@@ -919,7 +936,11 @@ static void emitJson(Modules &modules) {
 }
 
 int cppmain(int argc, char **argv) {
+#if LDC_LLVM_VER >= 309
+  llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
+#else
   llvm::sys::PrintStackTraceOnErrorSignal();
+#endif
 
   exe_path::initialize(argv[0], reinterpret_cast<void *>(main));
 
@@ -973,7 +994,7 @@ int cppmain(int argc, char **argv) {
   }
 
   gTargetMachine = createTargetMachine(
-      mTargetTriple, mArch, mCPU, mAttrs, bitness, mFloatABI, mRelocModel,
+      mTargetTriple, mArch, mCPU, mAttrs, bitness, mFloatABI, getRelocModel(),
       mCodeModel, codeGenOptLevel(), disableFpElim, disableLinkerStripDead);
 
 #if LDC_LLVM_VER >= 308

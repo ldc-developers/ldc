@@ -15,6 +15,9 @@
 #ifndef LDC_DRIVER_TARGET_H
 #define LDC_DRIVER_TARGET_H
 
+#if LDC_LLVM_VER >= 309
+#include "llvm/ADT/Optional.h"
+#endif
 #include "llvm/Support/CodeGen.h"
 #include <string>
 #include <vector>
@@ -41,13 +44,18 @@ class TargetMachine;
  *
  * Does not depend on any global state.
  */
-llvm::TargetMachine *createTargetMachine(
-    std::string targetTriple, std::string arch, std::string cpu,
-    std::vector<std::string> attrs, ExplicitBitness::Type bitness,
-    FloatABI::Type floatABI, llvm::Reloc::Model relocModel,
-    llvm::CodeModel::Model codeModel, llvm::CodeGenOpt::Level codeGenOptLevel,
-    bool noFramePointerElim, bool noLinkerStripDead);
-
+llvm::TargetMachine *
+createTargetMachine(std::string targetTriple, std::string arch, std::string cpu,
+                    std::vector<std::string> attrs,
+                    ExplicitBitness::Type bitness, FloatABI::Type floatABI,
+#if LDC_LLVM_VER >= 309
+                    llvm::Optional<llvm::Reloc::Model> relocModel,
+#else
+                    llvm::Reloc::Model relocModel,
+#endif
+                    llvm::CodeModel::Model codeModel,
+                    llvm::CodeGenOpt::Level codeGenOptLevel,
+                    bool noFramePointerElim, bool noLinkerStripDead);
 /**
  * Returns the Mips ABI which is used for code generation.
  *

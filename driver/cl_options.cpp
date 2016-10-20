@@ -274,10 +274,14 @@ cl::opt<std::string>
 
 cl::opt<llvm::Reloc::Model> mRelocModel(
     "relocation-model", cl::desc("Relocation model"),
+#if LDC_LLVM_VER < 309
     cl::init(llvm::Reloc::Default),
+#endif
     cl::values(
+#if LDC_LLVM_VER < 309
         clEnumValN(llvm::Reloc::Default, "default",
                    "Target default relocation model"),
+#endif
         clEnumValN(llvm::Reloc::Static, "static", "Non-relocatable code"),
         clEnumValN(llvm::Reloc::PIC_, "pic",
                    "Fully relocatable, position independent code"),
