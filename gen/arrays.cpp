@@ -544,6 +544,9 @@ llvm::Constant *arrayLiteralToConst(IRState *p, ArrayLiteralExp *ale) {
   vals.reserve(ale->elements->dim);
   for (unsigned i = 0; i < ale->elements->dim; ++i) {
     llvm::Constant *val = toConstElem(indexArrayLiteral(ale, i), p);
+    // extend i1 to i8
+    if (val->getType() == LLType::getInt1Ty(p->context()))
+      val = llvm::ConstantExpr::getZExt(val, LLType::getInt8Ty(p->context()));
     if (!elementType) {
       elementType = val->getType();
     } else {

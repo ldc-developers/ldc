@@ -26,11 +26,18 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-IrAggr::IrAggr(AggregateDeclaration *aggr)
-    : aggrdecl(aggr), type(aggr->type),
-      // above still need to be looked at
-      init_type(LLStructType::create(
-          gIR->context(), std::string(aggr->toPrettyChars()) + "_init")) {}
+llvm::StructType *IrAggr::getLLStructType() {
+  if (llStructType)
+    return llStructType;
+
+  LLType *llType = DtoType(type);
+  if (auto irClassType = type->ctype->isClass())
+    llType = irClassType->getMemoryLLType();
+
+  llStructType = llvm::dyn_cast<LLStructType>(llType);
+
+  return llStructType;
+}
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -43,7 +50,7 @@ LLGlobalVariable *IrAggr::getInitSymbol() {
   auto initname = getMangledInitSymbolName(aggrdecl);
 
   init =
-      getOrCreateGlobal(aggrdecl->loc, gIR->module, init_type, true,
+      getOrCreateGlobal(aggrdecl->loc, gIR->module, getLLStructType(), true,
                         llvm::GlobalValue::ExternalLinkage, nullptr, initname);
 
   // set alignment
@@ -63,9 +70,8 @@ llvm::Constant *IrAggr::getDefaultInit() {
                          aggrdecl->toPrettyChars());
   LOG_SCOPE;
 
-  DtoType(type);
   VarInitMap noExplicitInitializers;
-  constInit = createInitializerConstant(noExplicitInitializers, init_type);
+  constInit = createInitializerConstant(noExplicitInitializers);
   return constInit;
 }
 
@@ -134,8 +140,7 @@ static llvm::Constant *FillSArrayDims(Type *arrTypeD, llvm::Constant *init) {
 }
 
 llvm::Constant *
-IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers,
-                                  llvm::StructType *initializerType) {
+IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
   IF_LOG Logger::println("Creating initializer constant for %s",
                          aggrdecl->toChars());
   LOG_SCOPE;
@@ -167,23 +172,30 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers,
   if (offset < structsize)
     add_zeros(constants, offset, structsize);
 
-  // get initializer type
-  if (!initializerType || initializerType->isOpaque()) {
-    llvm::SmallVector<llvm::Type *, 16> types;
-    types.reserve(constants.size());
-    for (auto c : constants) {
-      types.push_back(c->getType());
-    }
-    if (!initializerType) {
-      initializerType = LLStructType::get(gIR->context(), types, isPacked());
-    } else {
-      initializerType->setBody(types, isPacked());
+  assert(!constants.empty());
+
+  // get LL field types
+  llvm::SmallVector<llvm::Type *, 16> types;
+  types.reserve(constants.size());
+  for (auto c : constants)
+    types.push_back(c->getType());
+
+  auto llStructType = getLLStructType();
+  bool isCompatible = (types.size() == llStructType->getNumElements());
+  if (isCompatible) {
+    for (size_t i = 0; i < types.size(); i++) {
+      if (types[i] != llStructType->getElementType(i)) {
+        isCompatible = false;
+        break;
+      }
     }
   }
 
   // build constant
-  assert(!constants.empty());
-  llvm::Constant *c = LLConstantStruct::get(initializerType, constants);
+  LLStructType *llType =
+      isCompatible ? llStructType
+                   : LLStructType::get(gIR->context(), types, isPacked());
+  llvm::Constant *c = LLConstantStruct::get(llType, constants);
   IF_LOG Logger::cout() << "final initializer: " << *c << std::endl;
   return c;
 }
