@@ -9,10 +9,10 @@ struct Inner { align(32) int a; }
 align(1) ubyte globalByte1;
 // CHECK-DAG: align11globalByte1h = {{.*}} align 1
 static Outer globalOuter;
-// CHECK-DAG: constant %align.Outer_init zeroinitializer{{(, comdat)?}}, align 32
+// CHECK-DAG: constant %align.Outer zeroinitializer{{(, comdat)?}}, align 32
 // CHECK-DAG: align11globalOuterS5align5Outer = {{.*}} align 32
 static Inner globalInner;
-// CHECK-DAG: constant %align.Inner_init zeroinitializer{{(, comdat)?}}, align 32
+// CHECK-DAG: constant %align.Inner zeroinitializer{{(, comdat)?}}, align 32
 // CHECK-DAG: align11globalInnerS5align5Inner = {{.*}} align 32
 
 Outer passAndReturnOuterByVal(Outer arg) { return arg; }
