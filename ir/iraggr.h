@@ -48,6 +48,11 @@ struct IrAggr {
 
   //////////////////////////////////////////////////////////////////////////
 
+  // Returns the static default initializer of a field.
+  static llvm::Constant *getDefaultInitializer(VarDeclaration *field);
+
+  //////////////////////////////////////////////////////////////////////////
+
   /// Create the __initZ symbol lazily.
   llvm::GlobalVariable *getInitSymbol();
   /// Builds the __initZ initializer constant lazily.

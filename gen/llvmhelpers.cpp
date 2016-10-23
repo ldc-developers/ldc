@@ -1120,17 +1120,14 @@ LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp) {
   if (val->isNullValue())
     return llvm::Constant::getNullValue(targetLLType);
 
-  if (llType == targetLLType)
-    return val;
-
   // extend i1 to i8
   if (llType == LLType::getInt1Ty(gIR->context())) {
     llType = LLType::getInt8Ty(gIR->context());
     val = llvm::ConstantExpr::getZExt(val, llType);
-
-    if (llType == targetLLType)
-      return val;
   }
+
+  if (llType == targetLLType)
+    return val;
 
   if (baseTargetType->ty == Tsarray) {
     Logger::println("Building constant array initializer from scalar.");

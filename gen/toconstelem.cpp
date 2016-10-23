@@ -590,7 +590,11 @@ public:
       const size_t nexprs = e->elements->dim;
       for (size_t i = 0; i < nexprs; i++) {
         if ((*e->elements)[i]) {
-          varInits[e->sd->fields[i]] = toConstElem((*e->elements)[i]);
+          LLConstant *c = toConstElem((*e->elements)[i]);
+          // extend i1 to i8
+          if (c->getType() == LLType::getInt1Ty(p->context()))
+            c = llvm::ConstantExpr::getZExt(c, LLType::getInt8Ty(p->context()));
+          varInits[e->sd->fields[i]] = c;
         }
       }
 
