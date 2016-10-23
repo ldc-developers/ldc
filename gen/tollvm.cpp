@@ -533,15 +533,16 @@ void DtoAlignedStore(LLValue *src, LLValue *dst) {
 
 LLType *StripAddrSpaces(LLType *t)
 {
-    int indirections = 0;
-    while (t->isPointerTy()) {
-        indirections++;
-        t = t->getPointerElementType();
-    }
-    while (indirections-- != 0) {
+  //if(!gDcomputeTarget) return t;
+  int indirections = 0;
+  while (t->isPointerTy()) {
+    indirections++;
+    t = t->getPointerElementType();
+  }
+  while (indirections-- != 0) {
         t = t->getPointerTo(0);
-    }
-    return t;
+  }
+  return t;
 }
 
 LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name) {
