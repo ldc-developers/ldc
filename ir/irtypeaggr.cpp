@@ -116,20 +116,22 @@ void AggrTypeBuilder::addAggregate(
 
       // check for overlapping existing fields
       bool overlaps = false;
-      for (const auto vd : data) {
-        if (!vd)
-          continue;
+      if (field->overlapped) {
+        for (const auto vd : data) {
+          if (!vd)
+            continue;
 
-        const size_t v_begin = vd->offset;
-        const size_t v_end = v_begin + vd->type->size();
+          const size_t v_begin = vd->offset;
+          const size_t v_end = v_begin + vd->type->size();
 
-        if (v_begin < f_end && v_end > f_begin) {
-          if (aliases == Aliases::AddToVarGEPIndices && v_begin == f_begin &&
-              DtoMemType(vd->type) == DtoMemType(field->type)) {
-            aliasPairs.push_back(std::make_pair(field, vd));
+          if (v_begin < f_end && v_end > f_begin) {
+            if (aliases == Aliases::AddToVarGEPIndices && v_begin == f_begin &&
+                DtoMemType(vd->type) == DtoMemType(field->type)) {
+              aliasPairs.push_back(std::make_pair(field, vd));
+            }
+            overlaps = true;
+            break;
           }
-          overlaps = true;
-          break;
         }
       }
 
