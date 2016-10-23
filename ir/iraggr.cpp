@@ -98,23 +98,18 @@ add_zeros(llvm::SmallVectorImpl<llvm::Constant *> &constants,
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-// helper function that returns the static default initializer of a variable
-LLConstant *get_default_initializer(VarDeclaration *vd) {
-  if (vd->_init) {
+LLConstant *IrAggr::getDefaultInitializer(VarDeclaration *field) {
+  if (field->_init) {
     // Issue 9057 workaround caused by issue 14666 fix, see DMD upstream
     // commit 069f570005.
-    if (vd->sem < Semantic2Done && vd->_scope) {
-      vd->semantic2(vd->_scope);
+    if (field->sem < Semantic2Done && field->_scope) {
+      field->semantic2(field->_scope);
     }
-    return DtoConstInitializer(vd->_init->loc, vd->type, vd->_init);
+    return DtoConstInitializer(field->_init->loc, field->type, field->_init);
   }
 
-  if (vd->type->size(vd->loc) == 0) {
-    // We need to be able to handle void[0] struct members even if void has
-    // no default initializer.
-    return llvm::ConstantPointerNull::get(DtoPtrToType(vd->type));
-  }
-  return DtoConstExpInit(vd->loc, vd->type, vd->type->defaultInit(vd->loc));
+  return DtoConstExpInit(field->loc, field->type,
+                         field->type->defaultInit(field->loc));
 }
 
 // return a constant array of type arrTypeD initialized with a constant value,
@@ -252,7 +247,7 @@ void IrAggr::addFieldInitializers(
     const auto explicitIt = explicitInitializers.find(field);
     llvm::Constant *init = (explicitIt != explicitInitializers.end()
                                 ? explicitIt->second
-                                : get_default_initializer(field));
+                                : getDefaultInitializer(field));
 
     constants[baseLLFieldIndex + fieldIndex] =
         FillSArrayDims(field->type, init);
