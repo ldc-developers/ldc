@@ -546,7 +546,6 @@ LLType *StripAddrSpaces(LLType *t)
 }
 
 LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name) {
-  // Dont generate an invalid bitcast from say float addrspace(1)** to float**
   if (StripAddrSpaces(v->getType()) == t) {
     return v;
   }
