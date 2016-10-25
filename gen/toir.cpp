@@ -60,7 +60,6 @@ llvm::cl::opt<bool> checkPrintf(
     llvm::cl::ZeroOrMore);
 
 bool walkPostorder(Expression *e, StoppableVisitor *v);
-extern LLConstant *get_default_initializer(VarDeclaration *vd);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -76,57 +75,64 @@ static LLValue *write_zeroes(LLValue *mem, unsigned start, unsigned end) {
 static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
                                  Expressions *elements) {
   assert(elements && "struct literal has null elements");
+  const auto numMissingElements = sd->fields.dim - elements->dim;
+  assert(numMissingElements == 0 || (sd->vthis && numMissingElements == 1));
 
   // might be reset to an actual i8* value so only a single bitcast is emitted
   LLValue *voidptr = mem;
-  unsigned offset = 0;
 
-  // go through fields
+  struct Data {
+    VarDeclaration *field;
+    Expression *expr;
+  };
+  LLSmallVector<Data, 16> data;
+
+  // collect init expressions in fields declaration order
   for (size_t index = 0; index < sd->fields.dim; ++index) {
-    VarDeclaration *vd = sd->fields[index];
+    VarDeclaration *field = sd->fields[index];
 
     // Skip zero-sized fields such as zero-length static arrays: `ubyte[0]
     // data`.
-    if (vd->size(loc) == 0)
+    if (field->type->size() == 0)
       continue;
 
-    // get initializer expression
-    Expression *expr =
-        (index < elements->dim) ? elements->data[index] : nullptr;
+    // the initializer expression may be null for overridden overlapping fields
+    Expression *expr = (index < elements->dim ? (*elements)[index] : nullptr);
+    if (expr || field == sd->vthis) {
+      // DMD issue #16471:
+      // There may be overlapping initializer expressions in some cases.
+      // Prefer the last expression in lexical (declaration) order to mimic DMD.
+      if (field->overlapped) {
+        const unsigned f_begin = field->offset;
+        const unsigned f_end = f_begin + field->type->size();
+        const auto newEndIt =
+            std::remove_if(data.begin(), data.end(), [=](const Data &d) {
+              unsigned v_begin = d.field->offset;
+              unsigned v_end = v_begin + d.field->type->size();
+              return v_begin < f_end && v_end > f_begin;
+            });
+        data.erase(newEndIt, data.end());
+      }
 
-    if (vd->overlapped && !expr) {
-      // In case of a union (overlapped field), we can't simply use the default
-      // initializer.
-      // Consider the type union U7727A1 { int i; double d; } and
-      // the declaration U7727A1 u = { d: 1.225 };
-      // The loop will first visit variable i and then d. Since d has an
-      // explicit initializer, we must use this one. We should therefore skip
-      // union fields with no explicit initializer.
-      IF_LOG Logger::println(
-          "skipping overlapped field without init expr: %s %s (+%u)",
-          vd->type->toChars(), vd->toChars(), vd->offset);
-      continue;
+      data.push_back({field, expr});
     }
+  }
 
-    // don't re-initialize unions
-    if (vd->offset < offset) {
-      IF_LOG Logger::println("skipping field: %s %s (+%u)", vd->type->toChars(),
-                             vd->toChars(), vd->offset);
-      continue;
-    }
+  // sort by offset
+  std::sort(data.begin(), data.end(), [](const Data &l, const Data &r) {
+    return l.field->offset < r.field->offset;
+  });
+
+  unsigned offset = 0;
+  for (const auto &d : data) {
+    const auto vd = d.field;
+    const auto expr = d.expr;
 
     // initialize any padding so struct comparisons work
-    if (vd->offset != offset)
+    if (vd->offset != offset) {
+      assert(vd->offset > offset);
       voidptr = write_zeroes(voidptr, offset, vd->offset);
-    offset = vd->offset + vd->type->size();
-
-    // skip fields with a void initializer
-    if (!expr && vd != sd->vthis && vd->_init &&
-        vd->_init->isVoidInitializer()) {
-      IF_LOG Logger::println(
-          "skipping field with void initializer: %s %s (+%u)",
-          vd->type->toChars(), vd->toChars(), vd->offset);
-      continue;
+      offset = vd->offset;
     }
 
     IF_LOG Logger::println("initializing field: %s %s (+%u)",
@@ -138,29 +144,25 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
                                    "vars, although it can easily be made to.");
     DLValue field(vd->type, DtoIndexAggregate(mem, sd, vd));
 
-    // get initializer
+    // initialize the field
     if (expr) {
-      IF_LOG Logger::println("expr %llu = %s",
-                             static_cast<unsigned long long>(index),
-                             expr->toChars());
+      IF_LOG Logger::println("expr = %s", expr->toChars());
       // try to construct it in-place
       if (!toInPlaceConstruction(&field, expr)) {
         DtoAssign(loc, &field, toElem(expr), TOKblit);
         if (expr->isLvalue())
           callPostblit(loc, expr, DtoLVal(&field));
       }
-    } else if (vd == sd->vthis) {
+    } else {
+      assert(vd == sd->vthis);
       IF_LOG Logger::println("initializing vthis");
       LOG_SCOPE
       DImValue val(vd->type,
                    DtoBitCast(DtoNestedContext(loc, sd), DtoType(vd->type)));
       DtoAssign(loc, &field, &val, TOKblit);
-    } else {
-      IF_LOG Logger::println("using default initializer");
-      LOG_SCOPE
-      DConstValue val(vd->type, get_default_initializer(vd));
-      DtoAssign(loc, &field, &val, TOKblit);
     }
+
+    offset += vd->type->size();
 
     // Also zero out padding bytes counted as being part of the type in DMD
     // but not in LLVM; e.g. real/x86_fp80.
@@ -565,7 +567,7 @@ public:
                                                                                \
     errorOnIllegalArrayOp(e, e->e1, e->e2);                                    \
                                                                                \
-    auto &PGO = gIR->funcGen().pgo;                                              \
+    auto &PGO = gIR->funcGen().pgo;                                            \
     PGO.setCurrentStmt(e);                                                     \
                                                                                \
     result = Func(e->loc, e->type, toElem(e->e1), e->e2);                      \
@@ -606,7 +608,7 @@ public:
     DtoAssign(e->loc, lhsLVal, assignedResult, TOKassign);
 
     if (e->type->equals(lhsLVal->type))
-        return lhsLVal;
+      return lhsLVal;
 
     return new DLValue(e->type, DtoLVal(lhsLVal));
   }
@@ -619,7 +621,7 @@ public:
                                                                                \
     errorOnIllegalArrayOp(e, e->e1, e->e2);                                    \
                                                                                \
-    auto &PGO = gIR->funcGen().pgo;                                              \
+    auto &PGO = gIR->funcGen().pgo;                                            \
     PGO.setCurrentStmt(e);                                                     \
                                                                                \
     result = binAssign<Func, useLValTypeForBinOp>(e);                          \
@@ -1414,7 +1416,7 @@ public:
     // The real part of the complex number has already been updated, skip the
     // store
     if (!e1type->iscomplex()) {
-	DtoStore(post, lval);
+      DtoStore(post, lval);
     }
     result = new DImValue(e->type, val);
   }

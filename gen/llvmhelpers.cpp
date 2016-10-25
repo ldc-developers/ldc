@@ -1099,48 +1099,70 @@ LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp) {
   LOG_SCOPE
 
   LLConstant *val = toConstElem(exp, gIR);
+  Type *baseValType = exp->type->toBasetype();
+  Type *baseTargetType = targetType->toBasetype();
 
   // The situation here is a bit tricky: In an ideal world, we would always
   // have val->getType() == DtoType(targetType). But there are two reasons
   // why this is not true. One is that the LLVM type system cannot represent
   // all the C types, leading to differences in types being necessary e.g. for
   // union initializers. The second is that the frontend actually does not
-  // explicitly lowers things like initializing an array/vector with a scalar
+  // explicitly lower things like initializing an array/vector with a scalar
   // constant, or since 2.061 sometimes does not get implicit conversions for
   // integers right. However, we cannot just rely on the actual Types being
   // equal if there are no rewrites to do because of – as usual – AST
   // inconsistency bugs.
 
-  Type *expBase = stripModifiers(exp->type->toBasetype())->merge();
-  Type *targetBase = stripModifiers(targetType->toBasetype())->merge();
+  LLType *llType = val->getType();
+  LLType *targetLLType = DtoMemType(baseTargetType);
 
-  if (expBase->equals(targetBase) && targetBase->ty != Tbool) {
+  // shortcut for zeros
+  if (val->isNullValue())
+    return llvm::Constant::getNullValue(targetLLType);
+
+  // extend i1 to i8
+  if (llType == LLType::getInt1Ty(gIR->context())) {
+    llType = LLType::getInt8Ty(gIR->context());
+    val = llvm::ConstantExpr::getZExt(val, llType);
+  }
+
+  if (llType == targetLLType)
+    return val;
+
+  if (baseTargetType->ty == Tsarray) {
+    Logger::println("Building constant array initializer from scalar.");
+
+    assert(baseValType->size() > 0);
+    const auto numTotalVals = baseTargetType->size() / baseValType->size();
+    assert(baseTargetType->size() % baseValType->size() == 0);
+
+    // may be a multi-dimensional array init, e.g., `char[2][3] x = 0xff`
+    baseValType = stripModifiers(baseValType);
+    LLSmallVector<size_t, 4> dims; // { 3, 2 }
+    for (auto t = baseTargetType; t->ty == Tsarray;) {
+      dims.push_back(static_cast<TypeSArray *>(t)->dim->toUInteger());
+      auto elementType = stripModifiers(t->nextOf()->toBasetype());
+      if (elementType->equals(baseValType))
+        break;
+      t = elementType;
+    }
+
+    size_t product = 1;
+    for (size_t i = dims.size(); i--;) {
+      product *= dims[i];
+      auto at = llvm::ArrayType::get(val->getType(), dims[i]);
+      LLSmallVector<llvm::Constant *, 16> elements(dims[i], val);
+      val = llvm::ConstantArray::get(at, elements);
+    }
+
+    assert(product == numTotalVals);
     return val;
   }
 
-  llvm::Type *llType = val->getType();
-  llvm::Type *targetLLType = DtoMemType(targetBase);
-  if (llType == targetLLType) {
-    Logger::println("Matching LLVM types, ignoring frontend glitch.");
-    return val;
-  }
+  if (baseTargetType->ty == Tvector) {
+    Logger::println("Building constant vector initializer from scalar.");
 
-  if (targetBase->ty == Tsarray) {
-    Logger::println("Building constant array initializer to single value.");
-
-    assert(expBase->size() > 0);
-    d_uns64 elemCount = targetBase->size() / expBase->size();
-    assert(targetBase->size() % expBase->size() == 0);
-
-    std::vector<llvm::Constant *> initVals(elemCount, val);
-    return llvm::ConstantArray::get(llvm::ArrayType::get(llType, elemCount),
-                                    initVals);
-  }
-
-  if (targetBase->ty == Tvector) {
-    Logger::println("Building vector initializer from scalar.");
-
-    TypeVector *tv = static_cast<TypeVector *>(targetBase);
+    TypeVector *tv = static_cast<TypeVector *>(baseTargetType);
     assert(tv->basetype->ty == Tsarray);
     dinteger_t elemCount =
         static_cast<TypeSArray *>(tv->basetype)->dim->toInteger();
@@ -1154,10 +1176,9 @@ LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp) {
     llvm::IntegerType *source = llvm::cast<llvm::IntegerType>(llType);
     llvm::IntegerType *target = llvm::cast<llvm::IntegerType>(targetLLType);
 
-    assert(
-        target->getBitWidth() > source->getBitWidth() &&
-        "On initializer "
-        "integer type mismatch, the target should be wider than the source.");
+    assert(target->getBitWidth() > source->getBitWidth() &&
+           "On initializer integer type mismatch, the target should be wider "
+           "than the source.");
     return llvm::ConstantExpr::getZExtOrBitCast(val, target);
   }
 
