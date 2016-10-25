@@ -702,7 +702,7 @@ public:
       DotVarExp *dve = static_cast<DotVarExp *>(e->e1);
       FuncDeclaration *fdecl = dve->var->isFuncDeclaration();
       assert(fdecl);
-      DtoResolveFunction(fdecl);
+      DtoDeclareFunction(fdecl);
       fnval = new DFuncValue(fdecl, getIrFunc(fdecl)->func, DtoRVal(dve->e1));
     } else {
       fnval = toElem(e->e1);
