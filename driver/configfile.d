@@ -258,78 +258,17 @@ private {
     version(Windows)
     {
         // bindings missing in LDC LTS
-        import core.sys.windows.windows : HRESULT, HWND, HANDLE, DWORD, LPSTR, LPWSTR;
+        import core.sys.windows.windows : HRESULT, HWND, HANDLE, DWORD, LPSTR;
 
         extern(Windows)
         HRESULT SHGetFolderPathA(HWND, int, HANDLE, DWORD, LPSTR);
-        extern(Windows)
-        HRESULT SHGetFolderPathW(HWND, int, HANDLE, DWORD, LPWSTR);
 
         enum {
             SHGFP_TYPE_CURRENT = 0,
-            SHGFP_TYPE_DEFAULT = 1,
         }
-
         enum {
-            CSIDL_DESKTOP            =  0,
-            CSIDL_INTERNET,
-            CSIDL_PROGRAMS,
-            CSIDL_CONTROLS,
-            CSIDL_PRINTERS,
-            CSIDL_PERSONAL,
-            CSIDL_FAVORITES,
-            CSIDL_STARTUP,
-            CSIDL_RECENT,
-            CSIDL_SENDTO,
-            CSIDL_BITBUCKET,
-            CSIDL_STARTMENU,      // = 11
-            CSIDL_MYMUSIC            = 13,
-            CSIDL_MYVIDEO,        // = 14
-            CSIDL_DESKTOPDIRECTORY   = 16,
-            CSIDL_DRIVES,
-            CSIDL_NETWORK,
-            CSIDL_NETHOOD,
-            CSIDL_FONTS,
-            CSIDL_TEMPLATES,
-            CSIDL_COMMON_STARTMENU,
-            CSIDL_COMMON_PROGRAMS,
-            CSIDL_COMMON_STARTUP,
-            CSIDL_COMMON_DESKTOPDIRECTORY,
-            CSIDL_APPDATA,
-            CSIDL_PRINTHOOD,
-            CSIDL_LOCAL_APPDATA,
-            CSIDL_ALTSTARTUP,
-            CSIDL_COMMON_ALTSTARTUP,
-            CSIDL_COMMON_FAVORITES,
-            CSIDL_INTERNET_CACHE,
-            CSIDL_COOKIES,
-            CSIDL_HISTORY,
-            CSIDL_COMMON_APPDATA,
-            CSIDL_WINDOWS,
-            CSIDL_SYSTEM,
-            CSIDL_PROGRAM_FILES,
-            CSIDL_MYPICTURES,
-            CSIDL_PROFILE,
-            CSIDL_SYSTEMX86,
-            CSIDL_PROGRAM_FILESX86,
-            CSIDL_PROGRAM_FILES_COMMON,
-            CSIDL_PROGRAM_FILES_COMMONX86,
-            CSIDL_COMMON_TEMPLATES,
-            CSIDL_COMMON_DOCUMENTS,
-            CSIDL_COMMON_ADMINTOOLS,
-            CSIDL_ADMINTOOLS,
-            CSIDL_CONNECTIONS,  // = 49
-            CSIDL_COMMON_MUSIC     = 53,
-            CSIDL_COMMON_PICTURES,
-            CSIDL_COMMON_VIDEO,
-            CSIDL_RESOURCES,
-            CSIDL_RESOURCES_LOCALIZED,
-            CSIDL_COMMON_OEM_LINKS,
-            CSIDL_CDBURN_AREA,  // = 59
-            CSIDL_COMPUTERSNEARME  = 61,
-            CSIDL_FLAG_DONT_VERIFY = 0x4000,
-            CSIDL_FLAG_CREATE      = 0x8000,
-            CSIDL_FLAG_MASK        = 0xFF00
+            CSIDL_APPDATA       = 26,
+            CSIDL_FLAG_CREATE   = 0x8000,
         }
     }
 }
