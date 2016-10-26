@@ -254,13 +254,16 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
     auto name = sle->sd->ident->string;
     if (name == attr::section) {
       applyAttrSection(sle, gvar);
-    } else if (name == attr::weak  ) {
+    } else if (name == attr::weak) {
       // @weak is applied elsewhere
-    } else if (name == attr::optStrategy || name == attr::target || name == attr::kernel) {
+    } else if (name == attr::optStrategy || name == attr::target ||
+               name == attr::kernel) {
       sle->error(
-          "Special attribute 'ldc.attributes.%s' is only valid for functions", name);
+          "Special attribute 'ldc.attributes.%s' is only valid for functions",
+          name);
     } else if (name == attr::compute) {
-      sle->error("Special attribute 'ldc.attributes.compute' is only valid for modules");
+      sle->error("Special attribute 'ldc.attributes.compute' is only valid for "
+                 "modules");
     } else {
       sle->warning(
           "Ignoring unrecognized special attribute 'ldc.attributes.%s'",
@@ -297,7 +300,8 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
     } else if (name == attr::weak || name == attr::kernel) {
       // @weak and @kernel are applied elsewhere
     } else if (name == attr::compute) {
-      sle->error("Special attribute 'ldc.attributes.compute' is only valid for modules");
+      sle->error("Special attribute 'ldc.attributes.compute' is only valid for "
+                 "modules");
     } else {
       sle->warning(
           "ignoring unrecognized special attribute 'ldc.attributes.%s'",
@@ -306,8 +310,8 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
   }
 }
 
-StructLiteralExp * namedAttr(Dsymbol *sym,std::string name, bool errorIfFound,const char* errmsg)
-{
+StructLiteralExp *namedAttr(Dsymbol *sym, std::string name, bool errorIfFound,
+                            const char *errmsg) {
   if (!sym->userAttribDecl)
     return nullptr;
 
@@ -318,18 +322,17 @@ StructLiteralExp * namedAttr(Dsymbol *sym,std::string name, bool errorIfFound,co
     auto sle = getLdcAttributesStruct(attr);
     if (!sle)
       continue;
-    
+
     if (name == sle->sd->ident->string) {
       if (errorIfFound) {
-          sym->error(errmsg);
-          return nullptr;
+        sym->error(errmsg);
+        return nullptr;
       }
       return sle;
     }
   }
-  
-  return nullptr;
 
+  return nullptr;
 }
 /// Checks whether 'sym' has the @ldc.attributes._weak() UDA applied.
 bool hasWeakUDA(Dsymbol *sym) {
@@ -340,7 +343,7 @@ bool hasWeakUDA(Dsymbol *sym) {
   bool err = !(vd && vd->isDataseg()) && !sym->isFuncDeclaration();
   const char *errmsg = "@ldc.attributes.weak can only be applied to "
                        "functions or global variables";
-  return namedAttr(sym,attr::weak,err,errmsg) != nullptr;
+  return namedAttr(sym, attr::weak, err, errmsg) != nullptr;
 }
 
 /// Checks whether 'sym' has the @ldc.attributes._kernel() UDA applied.
@@ -349,9 +352,9 @@ bool hasKernelAttr(Dsymbol *sym) {
   // Because hasKernelAttr is currently only called for functions in modules
   // marked @compute, this never errors.
   bool err = !sym->isFuncDeclaration();
-  const char *errmsg =  "@ldc.attributes.kernel can only be applied to functions"
-                        " in modules marked @compute";
-  return namedAttr(sym,attr::kernel,err,errmsg) != nullptr;
+  const char *errmsg = "@ldc.attributes.kernel can only be applied to functions"
+                       " in modules marked @compute";
+  return namedAttr(sym, attr::kernel, err, errmsg) != nullptr;
 }
 
 /// Returns 0 if 'sym' does not have the @ldc.attributes.compute() UDA applied.
@@ -365,6 +368,6 @@ int hasComputeAttr(Dsymbol *sym) {
   // this never errors.
   bool err = !sym->isModule();
   const char *errmsg = "@ldc.attributes.compute can only be applied to modules";
-  auto sle = namedAttr(sym,attr::compute,err,errmsg);
-  return sle ? 1 +(*sle->elements)[0]->toInteger() : 0;
+  auto sle = namedAttr(sym, attr::compute, err, errmsg);
+  return sle ? 1 + (*sle->elements)[0]->toInteger() : 0;
 }
