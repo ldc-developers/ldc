@@ -73,6 +73,26 @@ void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
 #endif
   }
 }
+
+void emitLLVMUsedArray(IRState &irs) {
+  if (irs.usedArray.empty()) {
+    return;
+  }
+
+  auto *i8PtrType = llvm::Type::getInt8PtrTy(irs.context());
+
+  // Convert all elements to i8* (the expected type for llvm.used)
+  for (auto &elem : irs.usedArray) {
+    elem = llvm::ConstantExpr::getBitCast(elem, i8PtrType);
+  }
+
+  auto *arrayType = llvm::ArrayType::get(i8PtrType, irs.usedArray.size());
+  auto *llvmUsed = new llvm::GlobalVariable(
+      irs.module, arrayType, false, llvm::GlobalValue::AppendingLinkage,
+      llvm::ConstantArray::get(arrayType, irs.usedArray), "llvm.used");
+  llvmUsed->setSection("llvm.metadata");
+}
+
 }
 
 namespace ldc {
@@ -153,6 +173,7 @@ void CodeGenerator::finishLLModule(Module *m) {
 void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   ir_->DBuilder.Finalize();
 
+  emitLLVMUsedArray(*ir_);
   emitLinkerOptions(*ir_, ir_->module, ir_->context());
 
   // Emit ldc version as llvm.ident metadata.
