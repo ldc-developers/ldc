@@ -260,7 +260,7 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
       sle->error(
           "Special attribute 'ldc.attributes.%s' is only valid for functions", name);
     } else if (name == attr::compute) {
-      sle->error("Special attribute 'ldc.attributes.compute' is only valid for functions");
+      sle->error("Special attribute 'ldc.attributes.compute' is only valid for modules");
     } else {
       sle->warning(
           "Ignoring unrecognized special attribute 'ldc.attributes.%s'",
@@ -297,7 +297,7 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
     } else if (name == attr::weak || name == attr::kernel) {
       // @weak and @kernel are applied elsewhere
     } else if (name == attr::compute) {
-      sle->error("Special attribute 'ldc.attributes.compute' is only valid for functions");
+      sle->error("Special attribute 'ldc.attributes.compute' is only valid for modules");
     } else {
       sle->warning(
           "ignoring unrecognized special attribute 'ldc.attributes.%s'",
