@@ -25,12 +25,6 @@ llvm::cl::opt<std::string>
            llvm::cl::value_desc("filename"));
 
 
-const char *getExePathBinDirCStr()
-{
-  std::string bd = exe_path::getBinDir();
-  return strdup(bd.c_str());
-}
-
 const char *getLdcInstallPrefixCStr()
 {
 #define STR(x) #x

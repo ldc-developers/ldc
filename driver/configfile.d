@@ -59,6 +59,7 @@ private:
 
     string locate()
     {
+        import exePath = driver.exe_path;
         import std.file : exists, getcwd;
         import std.path : chainPath, dirName;
         import std.stdio : stderr;
@@ -70,7 +71,7 @@ private:
         string p = chainPath(getcwd(), filename).to!string;
         if (exists(p)) return p;
 
-        immutable binDir = getExePathBinDir();
+        immutable binDir = exePath.binDir;
 
         // try next to the executable
         p = chainPath(binDir, filename).to!string;
@@ -133,12 +134,13 @@ private:
 
     bool readConfig(string cfPath, string section)
     {
+        import exePath = driver.exe_path;
         import config.config : Config, ConfigException;
         import std.array : replace;
         import std.string : toStringz;
         import std.stdio : stderr;
 
-        auto bindir = getExePathBinDir().replace("\\", "/");
+        immutable binDir = exePath.binDir.replace("\\", "/");
 
         try
         {
@@ -168,7 +170,7 @@ private:
             foreach (i, sw; switches.children)
             {
                 auto swstr = sw.asScalar.value!string;
-                slice[i] = toStringz(swstr.replace("%%ldcbinarypath%%", bindir));
+                slice[i] = toStringz(swstr.replace("%%ldcbinarypath%%", binDir));
             }
 
             switches_b = slice.ptr;
@@ -228,18 +230,6 @@ private {
             auto key = HKLM.getKey(`SOFTWARE\ldc-developers\LDC\0.11.0`);
             return key.getValue("Path").value_SZ;
         }
-    }
-
-
-    extern(C++)
-    const(char)* getExePathBinDirCStr();
-
-    string getExePathBinDir()
-    {
-        import std.exception : assumeUnique;
-        import std.string : fromStringz;
-
-        return assumeUnique(fromStringz(getExePathBinDirCStr()));
     }
 
 
