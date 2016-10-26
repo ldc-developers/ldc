@@ -930,8 +930,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   // On x86_64, always set 'uwtable' for System V ABI compatibility.
   // TODO: Find a better place for this.
-  // TODO: Is this required for Win64 as well?
-  if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
+  if (global.params.targetTriple->getArch() == llvm::Triple::x86_64 &&
+      !global.params.isWindows) {
     func->addFnAttr(LLAttribute::UWTable);
   }
   if (opts::sanitize != opts::None) {
