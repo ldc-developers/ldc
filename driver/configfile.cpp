@@ -25,9 +25,6 @@ llvm::cl::opt<std::string>
            llvm::cl::value_desc("filename"));
 
 
-ConfigFile::ConfigFile() : pathcstr(0), switches_b(0), switches_e(0) {}
-
-
 const char *getExePathBinDirCStr()
 {
   std::string bd = exe_path::getBinDir();

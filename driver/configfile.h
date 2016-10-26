@@ -21,7 +21,6 @@ public:
   typedef const char **s_iterator;
 
 public:
-  ConfigFile();
 
   // impl in D
   bool read(const char *explicitConfFile, const char *section);
@@ -32,9 +31,9 @@ public:
   std::string path() { return std::string(pathcstr); }
 
 private:
-  const char *pathcstr;
-  s_iterator switches_b;
-  s_iterator switches_e;
+  const char *pathcstr  =nullptr;
+  s_iterator switches_b =nullptr;
+  s_iterator switches_e =nullptr;
 };
 
 #endif // LDC_DRIVER_CONFIGFILE_H
