@@ -538,6 +538,12 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
 
   func->setCallingConv(gABI->callingConv(func->getFunctionType(), link, fdecl));
 
+  if (global.params.isWindows && fdecl->isExport()) {
+    func->setDLLStorageClass(fdecl->isImportedSymbol()
+                                 ? LLGlobalValue::DLLImportStorageClass
+                                 : LLGlobalValue::DLLExportStorageClass);
+  }
+
   IF_LOG Logger::cout() << "func = " << *func << std::endl;
 
   // add func to IRFunc
@@ -906,11 +912,12 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   const auto f = static_cast<TypeFunction *>(fd->type->toBasetype());
   IrFuncTy &irFty = irFunc->irFty;
-  llvm::Function *func = irFunc->func;;
+  llvm::Function *func = irFunc->func;
 
   const auto lwc = lowerFuncLinkage(fd);
   if (linkageAvailableExternally) {
     func->setLinkage(llvm::GlobalValue::AvailableExternallyLinkage);
+    func->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
     // Assert that we are not overriding a linkage type that disallows inlining
     assert(lwc.first != llvm::GlobalValue::WeakAnyLinkage &&
            lwc.first != llvm::GlobalValue::ExternalWeakLinkage &&
@@ -918,6 +925,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   } else {
     setLinkage(lwc, func);
   }
+
+  assert(!func->hasDLLImportStorageClass());
 
   // On x86_64, always set 'uwtable' for System V ABI compatibility.
   // TODO: Find a better place for this.
