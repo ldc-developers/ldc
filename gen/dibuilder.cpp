@@ -697,6 +697,37 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type, bool derefclass) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+#if LDC_LLVM_VER >= 309
+typedef llvm::DICompileUnit::DebugEmissionKind DebugEmissionKind;
+#else
+typedef llvm::DIBuilder::DebugEmissionKind DebugEmissionKind;
+#endif
+
+DebugEmissionKind getDebugEmissionKind()
+{
+#if LDC_LLVM_VER >= 309
+  switch (global.params.symdebug)
+  {
+    case 0:
+      return llvm::DICompileUnit::NoDebug;
+    case 1:
+      return llvm::DICompileUnit::LineTablesOnly;
+    case 2:
+    case 3:
+      return llvm::DICompileUnit::FullDebug;
+    default:
+      break;
+  }
+  llvm_unreachable("unknown DebugEmissionKind");
+#else
+  return global.params.symdebug < 2 ?
+      llvm::DIBuilder::LineTablesOnly :
+      llvm::DIBuilder::FullDebug;
+#endif
+}
+
+
+
 void ldc::DIBuilder::EmitCompileUnit(Module *m) {
   if (!mustEmitDebugInfo()) {
     return;
@@ -722,8 +753,6 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
   IR->module.addModuleFlag(llvm::Module::Warning, "Debug Info Version",
                            llvm::DEBUG_METADATA_VERSION);
 
-  llvm::DICompileUnit::DebugEmissionKind emissionKind = global.params.symdebug < 2 ?
-      llvm::DICompileUnit::LineTablesOnly : llvm::DICompileUnit::FullDebug;
 
   CUNode = DBuilder.createCompileUnit(
       global.params.symdebug == 3 ? llvm::dwarf::DW_LANG_C
@@ -734,7 +763,7 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
       llvm::StringRef(),       // Flags TODO
       1,                       // Runtime Version TODO
       llvm::StringRef(),       // SplitName
-      emissionKind             // DebugEmissionKind
+      getDebugEmissionKind()   // DebugEmissionKind
       );
 }
 
