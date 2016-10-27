@@ -323,8 +323,9 @@ extern (C)
         return &pthis;
     }
 
-    export
-    {
+    // LDC: Don't export these functions by default for each binary linked statically against druntime.
+    //export
+    //{
         void gc_setProxy( Proxy* p )
         {
             if( proxy !is null )
@@ -349,6 +350,6 @@ extern (C)
 
             proxy = null;
         }
-    }
+    //}
 
 }
