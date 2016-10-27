@@ -45,11 +45,6 @@
 
 #include "llvm/Support/CommandLine.h"
 
-#if LDC_LLVM_VER >= 400
-// trick clEnumValN() into prepending the llvm namesspace 
-namespace cl { using OptionEnumValue = llvm::cl::OptionEnumValue; }
-#endif
-
 llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel(
     "fthread-model", llvm::cl::desc("Thread model"),
     llvm::cl::init(llvm::GlobalVariable::GeneralDynamicTLSModel),

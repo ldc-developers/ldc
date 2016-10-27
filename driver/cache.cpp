@@ -41,6 +41,7 @@
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/TimeValue.h"
 
 // Include close() declaration.
 #if !defined(_MSC_VER) && !defined(__MINGW32__)
