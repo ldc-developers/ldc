@@ -722,14 +722,19 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
   IR->module.addModuleFlag(llvm::Module::Warning, "Debug Info Version",
                            llvm::DEBUG_METADATA_VERSION);
 
+  llvm::DICompileUnit::DebugEmissionKind emissionKind = global.params.symdebug < 2 ?
+      llvm::DICompileUnit::LineTablesOnly : llvm::DICompileUnit::FullDebug;
+
   CUNode = DBuilder.createCompileUnit(
-      global.params.symdebug == 2 ? llvm::dwarf::DW_LANG_C
+      global.params.symdebug == 3 ? llvm::dwarf::DW_LANG_C
                                   : llvm::dwarf::DW_LANG_D,
       llvm::sys::path::filename(srcpath), llvm::sys::path::parent_path(srcpath),
       "LDC (http://wiki.dlang.org/LDC)",
       isOptimizationEnabled(), // isOptimized
       llvm::StringRef(),       // Flags TODO
-      1                        // Runtime Version TODO
+      1,                       // Runtime Version TODO
+      llvm::StringRef(),       // SplitName
+      emissionKind             // DebugEmissionKind
       );
 }
 
