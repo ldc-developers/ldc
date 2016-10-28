@@ -236,7 +236,9 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
 
   return DBuilder.createBasicType(type->toChars(),         // name
                                   getTypeAllocSize(T) * 8, // size (bits)
+#if LDC_LLVM_VER < 400
                                   getABITypeAlign(T) * 8,  // align (bits)
+#endif
                                   Encoding);
 }
 
