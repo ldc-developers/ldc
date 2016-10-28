@@ -451,17 +451,6 @@ void applyTargetMachineAttributes(llvm::Function &func,
   func.addFnAttr("no-nans-fp-math", TO.NoNaNsFPMath ? "true" : "false");
 #if LDC_LLVM_VER < 307
   func.addFnAttr("use-soft-float", TO.UseSoftFloat ? "true" : "false");
-#else
-  switch (TO.FloatABIType) {
-  case llvm::FloatABI::Default:
-    break;
-  case llvm::FloatABI::Soft:
-    func.addFnAttr("use-soft-float", "true");
-    break;
-  case llvm::FloatABI::Hard:
-    func.addFnAttr("use-soft-float", "false");
-    break;
-  }
 #endif
 
   // Frame pointer elimination
