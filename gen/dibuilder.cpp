@@ -763,8 +763,11 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
       1,                       // Runtime Version TODO
       llvm::StringRef(),       // SplitName
       getDebugEmissionKind()   // DebugEmissionKind
+#if LDC_LLVM_VER > 306
+      , 0                      // DWOId
+#endif
 #if LDC_LLVM_VER < 309
-      , 0, global.params.symdebug != 3  // DWOId, EmitDebugInfo
+      , global.params.symdebug != 3  // EmitDebugInfo
 #endif
   );
 }
