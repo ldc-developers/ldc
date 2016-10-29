@@ -711,16 +711,15 @@ DebugEmissionKind getDebugEmissionKind()
     case 0:
       return llvm::DICompileUnit::NoDebug;
     case 1:
-      return llvm::DICompileUnit::LineTablesOnly;
     case 2:
-    case 3:
       return llvm::DICompileUnit::FullDebug;
+    case 3:
+      return llvm::DICompileUnit::LineTablesOnly;
     default:
-      break;
+      llvm_unreachable("unknown DebugEmissionKind");
   }
-  llvm_unreachable("unknown DebugEmissionKind");
 #else
-  return global.params.symdebug < 2 ?
+  return global.params.symdebug == 3 ?
       llvm::DIBuilder::LineTablesOnly :
       llvm::DIBuilder::FullDebug;
 #endif
@@ -755,7 +754,7 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
 
 
   CUNode = DBuilder.createCompileUnit(
-      global.params.symdebug == 3 ? llvm::dwarf::DW_LANG_C
+      global.params.symdebug == 2 ? llvm::dwarf::DW_LANG_C
                                   : llvm::dwarf::DW_LANG_D,
       llvm::sys::path::filename(srcpath), llvm::sys::path::parent_path(srcpath),
       "LDC (http://wiki.dlang.org/LDC)",

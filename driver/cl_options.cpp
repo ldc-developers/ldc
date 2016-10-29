@@ -116,9 +116,9 @@ static cl::opt<bool, true> ignoreUnsupportedPragmas(
 
 static cl::opt<ubyte, true> debugInfo(
     cl::desc("Generating debug information:"), cl::ZeroOrMore,
-    clEnumValues(clEnumValN(1, "gline-tables-only", "Generate line-tables-only"),
-                 clEnumValN(2, "g", "Generate debug information"),
-                 clEnumValN(3, "gc", "Same as -g, but pretend to be C")),
+    clEnumValues(clEnumValN(1, "g", "Generate debug information"),
+                 clEnumValN(2, "gc", "Same as -g, but pretend to be C"),
+                 clEnumValN(3, "gline-tables-only", "Generate line-tables-only")),
     cl::location(global.params.symdebug), cl::init(0));
 
 static cl::opt<unsigned, true>
