@@ -336,7 +336,6 @@ StructLiteralExp *namedAttr(Dsymbol *sym, std::string name, bool errorIfFound,
 }
 /// Checks whether 'sym' has the @ldc.attributes._weak() UDA applied.
 bool hasWeakUDA(Dsymbol *sym) {
-  // Check whether @weak can be applied to this symbol.
   // Because hasWeakUDA is currently only called for global symbols, this
   // never errors.
   auto vd = sym->isVarDeclaration();
@@ -348,10 +347,7 @@ bool hasWeakUDA(Dsymbol *sym) {
 
 /// Checks whether 'sym' has the @ldc.attributes._kernel() UDA applied.
 bool hasKernelAttr(Dsymbol *sym) {
-  // Check whether @kernel can be applied to this symbol.
-  // Because hasKernelAttr is currently only called for functions in modules
-  // marked @compute, this never errors.
-  bool err = !sym->isFuncDeclaration();
+  bool err = !sym->isFuncDeclaration() && hasComputeAttr(sym->getModule()) != 1;
   const char *errmsg = "@ldc.attributes.kernel can only be applied to functions"
                        " in modules marked @compute";
   return namedAttr(sym, attr::kernel, err, errmsg) != nullptr;
@@ -363,9 +359,6 @@ bool hasKernelAttr(Dsymbol *sym) {
 /// Returns 2 if 'sym' does and is @compute(true), meaning generate for compute
 ///     and for host.
 int hasComputeAttr(Dsymbol *sym) {
-  // Check whether @compute can be applied to this symbol.
-  // Because hasComputeAttr is currently only called for modules,
-  // this never errors.
   bool err = !sym->isModule();
   const char *errmsg = "@ldc.attributes.compute can only be applied to modules";
   auto sle = namedAttr(sym, attr::compute, err, errmsg);
