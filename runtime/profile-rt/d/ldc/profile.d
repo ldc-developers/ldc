@@ -6,7 +6,7 @@
  * Note that this only works for instrumented binaries.
  *
  * Copyright: Authors 2016-2016
- * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * License: University of Illinois Open Source License and MIT License. See LDC's LICENSE for details.
  * Authors:   Johan B C Engelen
  */
 module ldc.profile;

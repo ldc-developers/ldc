@@ -18,6 +18,7 @@
 #include "mtype.h"
 #include "statement.h"
 #include "template.h"
+#include "driver/cl_options.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
@@ -42,6 +43,8 @@
 #include "ir/irmodule.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/CFG.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
 #include <iostream>
 
 llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
@@ -419,18 +422,43 @@ void applyParamAttrsToLLFunc(TypeFunction *f, IrFuncTy &irFty,
   func->setAttributes(newAttrs);
 }
 
-void applyDefaultMathAttributes(IrFunction *irFunc) {
+/// Applies TargetMachine options as function attributes in the IR (options for
+/// which attributes exist).
+/// This is e.g. needed for LTO: it tells the linker/LTO-codegen what settings
+/// to use.
+/// It is also needed because "unsafe-fp-math" is not properly reset in LLVM
+/// between function definitions, i.e. if a function does not define a value for
+/// "unsafe-fp-math" it will be compiled using the value of the previous
+/// function. Therefore, each function must explicitly define the value (clang
+/// does the same). See https://llvm.org/bugs/show_bug.cgi?id=23172
+void applyTargetMachineAttributes(llvm::Function &func,
+                                  const llvm::TargetMachine &target) {
+  const llvm::TargetOptions &TO = target.Options;
+
   // TODO: implement commandline switches to change the default values.
 
-  // "unsafe-fp-math" is not properly reset in LLVM between function
-  // definitions, i.e. if a function does not define a value for
-  // "unsafe-fp-math" it will be compiled using the value of the previous
-  // function. Therefore, each function must explicitly define the value (clang
-  // does the same).
-  // See https://llvm.org/bugs/show_bug.cgi?id=23172
-  irFunc->func->addFnAttr("unsafe-fp-math", "false");
+  // Target CPU capabilities
+  func.addFnAttr("target-cpu", target.getTargetCPU());
+  auto featStr = target.getTargetFeatureString();
+  if (!featStr.empty())
+    func.addFnAttr("target-features", featStr);
+
+  // Floating point settings
+  func.addFnAttr("unsafe-fp-math", TO.UnsafeFPMath ? "true" : "false");
+  func.addFnAttr("less-precise-fpmad",
+                 TO.LessPreciseFPMADOption ? "true" : "false");
+  func.addFnAttr("no-infs-fp-math", TO.NoInfsFPMath ? "true" : "false");
+  func.addFnAttr("no-nans-fp-math", TO.NoNaNsFPMath ? "true" : "false");
+#if LDC_LLVM_VER < 307
+  func.addFnAttr("use-soft-float", TO.UseSoftFloat ? "true" : "false");
+#endif
+
+  // Frame pointer elimination
+  func.addFnAttr("no-frame-pointer-elim",
+                 opts::disableFpElim ? "true" : "false");
 }
-}
+
+} // anonymous namespace
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -523,9 +551,9 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     }
   }
 
-  // Set default math function attributes here, such that they can be overridden
+  // First apply the TargetMachine attributes, such that they can be overridden
   // by UDAs.
-  applyDefaultMathAttributes(irFunc);
+  applyTargetMachineAttributes(*func, *gTargetMachine);
   applyFuncDeclUDAs(fdecl, irFunc);
 
   // main
@@ -705,7 +733,6 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
     // E.g., for a lazy parameter of type T, vd->type is T (with lazy storage
     // class) while irparam->arg->type is the delegate type.
     Type *const paramType = (irparam ? irparam->arg->type : vd->type);
-    bool rewrittenToLocal = false;
 
     if (!irparam) {
       // This is a parameter that is not passed on the LLVM level.
@@ -722,10 +749,8 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
         assert(irparam->value->getType() == DtoPtrToType(paramType));
       } else {
         // Let the ABI transform the parameter back to an lvalue.
-        auto Lvalue =
+        irparam->value =
             irFty.getParamLVal(paramType, llArgIdx, irparam->value);
-        rewrittenToLocal = Lvalue != irparam->value;
-        irparam->value = Lvalue;
       }
 
       irparam->value->setName(vd->ident->toChars());
@@ -734,7 +759,7 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
     }
 
     if (global.params.symdebug)
-      gIR->DBuilder.EmitLocalVariable(irparam->value, vd, paramType, false, rewrittenToLocal);
+      gIR->DBuilder.EmitLocalVariable(irparam->value, vd, paramType);
   }
 }
 
@@ -1011,6 +1036,17 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     // copy _arguments to a memory location
     irFunc->_arguments =
         DtoAllocaDump(irFunc->_arguments, 0, "_arguments_mem");
+
+    // Push cleanup block that calls va_end to match the va_start call.
+    {
+      auto *vaendBB =
+          llvm::BasicBlock::Create(gIR->context(), "vaend", gIR->topfunc());
+      IRScope saveScope = gIR->scope();
+      gIR->scope() = IRScope(vaendBB);
+      gIR->ir->CreateCall(GET_INTRINSIC_DECL(vaend), llAp);
+      funcGen.scopes.pushCleanup(vaendBB, gIR->scopebb());
+      gIR->scope() = saveScope;
+    }
   }
 
   funcGen.pgo.emitCounterIncrement(fd->fbody);
@@ -1018,6 +1054,17 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   // output function body
   Statement_toIR(fd->fbody, gIR);
+
+  // D varargs: emit the cleanup block that calls va_end.
+  if (f->linkage == LINKd && f->varargs == 1) {
+    if (!gIR->scopereturned()) {
+      if (!funcGen.retBlock)
+        funcGen.retBlock = gIR->insertBB("return");
+      funcGen.scopes.runCleanups(0, funcGen.retBlock);
+      gIR->scope() = IRScope(funcGen.retBlock);
+    }
+    funcGen.scopes.popCleanups(0);
+  }
 
   llvm::BasicBlock *bb = gIR->scopebb();
   if (pred_begin(bb) == pred_end(bb) &&

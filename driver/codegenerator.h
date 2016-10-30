@@ -39,7 +39,6 @@ private:
   int moduleCount_;
   bool const singleObj_;
   IRState *ir_;
-  const char *firstModuleObjfileName_;
 };
 }
 

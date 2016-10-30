@@ -1,5 +1,9 @@
 # Requires the BETA setting to use Ubunty 14.04 Trusty
 
+# It appears that the current directory is reset at the start of each `-` line,
+# so for example to do an out-of-source build, you have to chain operations
+# after `cd`: `cd build && cmake .. `.
+
 machine:
   environment:
     PATH: "~/$CIRCLE_PROJECT_REPONAME/ldc2-1.0.0-linux-x86_64/bin:$PATH"
@@ -43,10 +47,15 @@ checkout:
 
 test:
   pre:
-    - CC=clang CXX=clang++ cmake .
-    #- CC=clang CXX=clang++ cmake -DLLVM_ROOT_DIR="~/$CIRCLE_PROJECT_REPONAME/clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04" -DD_COMPILER="~/$CIRCLE_PROJECT_REPONAME/ldc2-1.0.0-linux-x86_64/bin/ldmd2" .
+    # Build first with a released LDC
+    - mkdir build
+    - cd build && export CC=clang && export CXX=clang++ && cmake .. && make -j3 && bin/ldc2 -version || exit 1
+
+    # Now build LDC with itself and use this second build for further testing
+    - CC=clang CXX=clang++ cmake -DD_COMPILER="build/bin/ldmd2" .
     - make -j3
     - bin/ldc2 -version || exit 1
+
   override:
     - make -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest
     - make -j3 druntime-ldc-unittest-debug druntime-ldc-unittest

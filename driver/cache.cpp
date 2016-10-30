@@ -1,4 +1,4 @@
-//===-- driver/ir2obj_cache.cpp -------------------------------------------===//
+//===-- driver/cache.cpp --------------------------------------------------===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -27,12 +27,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "driver/ir2obj_cache.h"
+#include "driver/cache.h"
 
 #include "ddmd/errors.h"
+#include "driver/cache_pruning.h"
 #include "driver/cl_options.h"
 #include "driver/ldc-version.h"
-#include "driver/ir2obj_cache_pruning.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"
 
@@ -41,6 +41,7 @@
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/TimeValue.h"
 
 // Include close() declaration.
 #if !defined(_MSC_VER) && !defined(__MINGW32__)
@@ -52,31 +53,31 @@
 namespace {
 
 // Options for the cache pruning algorithm
-llvm::cl::opt<bool> pruneEnabled("ir2obj-cache-prune",
+llvm::cl::opt<bool> pruneEnabled("cache-prune",
                                  llvm::cl::desc("Enable cache pruning."),
                                  llvm::cl::ZeroOrMore);
 llvm::cl::opt<unsigned long long> pruneSizeLimitInBytes(
-    "ir2obj-cache-prune-maxbytes",
+    "cache-prune-maxbytes",
     llvm::cl::desc("Sets the maximum cache size to <size> bytes. Implies "
-                   "-ir2obj-cache-prune."),
+                   "-cache-prune."),
     llvm::cl::value_desc("size"), llvm::cl::init(0));
 llvm::cl::opt<unsigned> pruneInterval(
-    "ir2obj-cache-prune-interval",
+    "cache-prune-interval",
     llvm::cl::desc("Sets the cache pruning interval to <dur> seconds "
                    "(default: 20 min). Set to 0 to force pruning. Implies "
-                   "-ir2obj-cache-prune."),
+                   "-cache-prune."),
     llvm::cl::value_desc("dur"), llvm::cl::init(20 * 60));
 llvm::cl::opt<unsigned> pruneExpiration(
-    "ir2obj-cache-prune-expiration",
+    "cache-prune-expiration",
     llvm::cl::desc(
         "Sets the pruning expiration time of cache files to "
-        "<dur> seconds (default: 1 week). Implies -ir2obj-cache-prune."),
+        "<dur> seconds (default: 1 week). Implies -cache-prune."),
     llvm::cl::value_desc("dur"), llvm::cl::init(7 * 24 * 3600));
 llvm::cl::opt<unsigned> pruneSizeLimitPercentage(
-    "ir2obj-cache-prune-maxpercentage",
+    "cache-prune-maxpercentage",
     llvm::cl::desc(
         "Sets the cache size limit to <perc> percent of the available "
-        "space (default: 75%). Implies -ir2obj-cache-prune."),
+        "space (default: 75%). Implies -cache-prune."),
     llvm::cl::value_desc("perc"), llvm::cl::init(75));
 
 bool isPruningEnabled() {
@@ -123,24 +124,100 @@ public:
 
 void storeCacheFileName(llvm::StringRef cacheObjectHash,
                         llvm::SmallString<128> &filePath) {
-  filePath = opts::ir2objCacheDir;
+  filePath = opts::cacheDir;
   llvm::sys::path::append(filePath, llvm::Twine("ircache_") + cacheObjectHash +
                                         "." + global.obj_ext);
 }
-}
 
-namespace ir2obj {
+// Output to `hash_os` all commandline flags, and try to skip the ones that have
+// no influence on the object code output. The cmdline flags need to be added
+// to the ir2obj cache hash to uniquely identify the object file output.
+// Because the compiler version is part of the hash, differences in the
+// default settings between compiler versions are already taken care of.
+// (Note: config and response files may also add compiler flags.)
+void outputIR2ObjRelevantCmdlineArgs(llvm::raw_ostream &hash_os)
+{
+  // Use a "whitelist" of cmdline args that do not need to be added to the hash,
+  // and add all others. There is no harm (other than missed cache
+  // opportunities) in adding commandline arguments that also change the hashed
+  // IR, which simplifies the code here.
+  // The code does not deal well with options specified without equals sign, and
+  // will add those to the hash, resulting in missed cache opportunities.
 
-void calculateModuleHash(llvm::Module *m, llvm::SmallString<32> &str) {
-  raw_hash_ostream hash_os;
+  auto it = opts::allArguments.begin();
+  auto end_it = opts::allArguments.end();
+  // The first argument is the compiler executable filename: we can skip it.
+  ++it;
+  for (; it != end_it; ++it) {
+    const char *arg = *it;
+    if (!arg || !arg[0])
+      continue;
 
-  // Let hash depend on the compiler version:
-  hash_os << global.ldc_version << global.version << global.llvm_version
-          << ldc::built_with_Dcompiler_version;
+    // Out of pre-caution, all arguments that are not prefixed with '-' are
+    // added to the hash. Such an argument could be a source file "foo.d", but
+    // also a value for the previous argument when the equals sign is omitted,
+    // for example: "-code-model default" becomes "-code-model" "default".
+    // It results in missed cache opportunities. :(
+    if (arg[0] == '-') {
+      if (arg[1] == 'O') {
+        // We deal with -O later ("-O" and "-O3" should hash equally, "" and
+        // "-O0" too)
+        continue;
+      }
+      if (arg[1] == 'c' && !arg[2])
+        continue;
+      // All options starting with these characters can be ignored (LLVM does
+      // not have options starting with capitals)
+      if (arg[1] == 'D' || arg[1] == 'H' || arg[1] == 'I' || arg[1] == 'J' ||
+          arg[1] == 'L' || arg[1] == 'X')
+        continue;
+      if (arg[1] == 'd' || arg[1] == 'v' || arg[1] == 'w') {
+        // LLVM options are long, so short options starting with 'v' or 'w' can
+        // be ignored.
+        unsigned len = 2;
+        for (; len < 11; ++len)
+          if (!arg[len])
+            break;
+        if (len < 11)
+          continue;
+      }
+      // "-of..." can be ignored
+      if (arg[1] == 'o' && arg[2] == 'f')
+        continue;
+      // "-od..." can be ignored
+      if (arg[1] == 'o' && arg[2] == 'd')
+        continue;
+      // All  "-cache..." options can be ignored
+      if (strncmp(arg+1, "cache", 5) == 0)
+        continue;
+      // Ignore "-lib"
+      if (arg[1] == 'l' && arg[2] == 'i' && arg[3] == 'b' && !arg[4])
+        continue;
+      // All effects of -d-version... are already included in the IR hash.
+      if (strncmp(arg+1, "d-version", 9) == 0)
+        continue;
+      // All effects of -unittest are already included in the IR hash.
+      if (strcmp(arg + 1, "unittest") == 0) {
+        continue;
+      }
 
-  // Let hash depend on a few compile flags that change the outputted obj file,
-  // but whose changes are not always observable in the IR:
-  hash_os << codeGenOptLevel();
+      // All arguments following -run can safely be ignored
+      if (strcmp(arg + 1, "run") == 0) {
+        break;
+      }
+    }
+
+    // If we reach here, add the argument to the hash.
+    hash_os << arg;
+  }
+
+  // Adding these options to the hash should not be needed after adding all
+  // cmdline args. We keep this code here however, in case we find a different
+  // solution for dealing with LLVM commandline flags. See GH #1773.
+  // Also, having these options explicitly added to the hash protects against
+  // the possibility of different default settings on different platforms (while
+  // sharing the cache).
+  outputOptimizationSettings(hash_os);
   hash_os << opts::mCPU;
   for (auto &attr : opts::mAttrs) {
     hash_os << attr;
@@ -149,6 +226,31 @@ void calculateModuleHash(llvm::Module *m, llvm::SmallString<32> &str) {
   hash_os << opts::mRelocModel;
   hash_os << opts::mCodeModel;
   hash_os << opts::disableFpElim;
+}
+
+// Output to `hash_os` all environment flags that influence object code output
+// in ways that are not observable in the pre-LLVM passes IR used for hashing.
+void outputIR2ObjRelevantEnvironmentOpts(llvm::raw_ostream &hash_os)
+{
+  // There are no relevant environment options at the moment.
+}
+
+} // anonymous namespace
+
+namespace cache {
+
+void calculateModuleHash(llvm::Module *m, llvm::SmallString<32> &str) {
+  raw_hash_ostream hash_os;
+
+  // Let hash depend on the compiler version:
+  hash_os << global.ldc_version << global.version << global.llvm_version
+          << ldc::built_with_Dcompiler_version;
+
+  // Let hash depend on compile flags that change the outputted obj file,
+  // but whose changes are not always observable in the pre-optimized IR used
+  // for hashing:
+  outputIR2ObjRelevantCmdlineArgs(hash_os);
+  outputIR2ObjRelevantEnvironmentOpts(hash_os);
 
   llvm::WriteBitcodeToFile(m, hash_os);
   hash_os.resultAsString(str);
@@ -156,10 +258,10 @@ void calculateModuleHash(llvm::Module *m, llvm::SmallString<32> &str) {
 }
 
 std::string cacheLookup(llvm::StringRef cacheObjectHash) {
-  if (opts::ir2objCacheDir.empty())
+  if (opts::cacheDir.empty())
     return "";
 
-  if (!llvm::sys::fs::exists(opts::ir2objCacheDir)) {
+  if (!llvm::sys::fs::exists(opts::cacheDir)) {
     IF_LOG Logger::println("Cache directory does not exist, no object found.");
     return "";
   }
@@ -177,13 +279,13 @@ std::string cacheLookup(llvm::StringRef cacheObjectHash) {
 
 void cacheObjectFile(llvm::StringRef objectFile,
                      llvm::StringRef cacheObjectHash) {
-  if (opts::ir2objCacheDir.empty())
+  if (opts::cacheDir.empty())
     return;
 
-  if (!llvm::sys::fs::exists(opts::ir2objCacheDir) &&
-      llvm::sys::fs::create_directory(opts::ir2objCacheDir)) {
+  if (!llvm::sys::fs::exists(opts::cacheDir) &&
+      llvm::sys::fs::create_directories(opts::cacheDir)) {
     error(Loc(), "Unable to create cache directory: %s",
-          opts::ir2objCacheDir.c_str());
+          opts::cacheDir.c_str());
     fatal();
   }
 
@@ -241,10 +343,10 @@ void recoverObjectFile(llvm::StringRef cacheObjectHash,
 }
 
 void pruneCache() {
-  if (!opts::ir2objCacheDir.empty() && isPruningEnabled()) {
-    ::pruneCache(opts::ir2objCacheDir.data(), opts::ir2objCacheDir.size(),
+  if (!opts::cacheDir.empty() && isPruningEnabled()) {
+    ::pruneCache(opts::cacheDir.data(), opts::cacheDir.size(),
                  pruneInterval, pruneExpiration, pruneSizeLimitInBytes,
                  pruneSizeLimitPercentage);
   }
 }
-}
+} // namespace cache

@@ -207,6 +207,7 @@ struct Param
         bool verbose_cg;
         bool hasObjectiveC;
         bool fullyQualifiedObjectFiles;
+        bool cleanupObjectFiles;
 
         // Profile-guided optimization:
         bool genInstrProf;             // Whether to generate PGO instrumented code

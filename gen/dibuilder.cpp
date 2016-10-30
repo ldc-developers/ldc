@@ -74,6 +74,8 @@ llvm::StringRef uniqueIdent(Type* t) {
 
 } // namespace
 
+bool ldc::DIBuilder::mustEmitDebugInfo() { return global.params.symdebug; }
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // get the module the symbol is in, or - for template instances - the current
@@ -96,7 +98,9 @@ Module *ldc::DIBuilder::getDefinedModule(Dsymbol *s) {
 ////////////////////////////////////////////////////////////////////////////////
 
 ldc::DIBuilder::DIBuilder(IRState *const IR)
-    : IR(IR), DBuilder(IR->module), CUNode(nullptr) {}
+    : IR(IR), DBuilder(IR->module), CUNode(nullptr),
+      isTargetMSVCx64(global.params.targetTriple->isWindowsMSVCEnvironment() &&
+                      global.params.targetTriple->isArch64Bit()) {}
 
 llvm::LLVMContext &ldc::DIBuilder::getContext() { return IR->context(); }
 
@@ -131,7 +135,10 @@ void ldc::DIBuilder::Declare(const Loc &loc, llvm::Value *var,
 }
 
 ldc::DIFile ldc::DIBuilder::CreateFile(Loc &loc) {
-  llvm::SmallString<128> path(loc.filename ? loc.filename : "");
+  const char* filename = loc.filename;
+  if (!filename)
+    filename = IR->dmodule->srcfile->toChars();
+  llvm::SmallString<128> path(filename);
   llvm::sys::fs::make_absolute(path);
 
   return DBuilder.createFile(llvm::sys::path::filename(path),
@@ -141,6 +148,13 @@ ldc::DIFile ldc::DIBuilder::CreateFile(Loc &loc) {
 ldc::DIFile ldc::DIBuilder::CreateFile() {
   Loc loc(IR->dmodule->srcfile->toChars(), 0, 0);
   return CreateFile(loc);
+}
+
+ldc::DIFile ldc::DIBuilder::CreateFile(Dsymbol* decl) {
+  Loc loc;
+  for (Dsymbol* sym = decl; sym && !loc.filename; sym = sym->parent)
+    loc = sym->loc;
+  return loc.filename ? CreateFile(loc) : CreateFile();
 }
 
 ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
@@ -222,7 +236,9 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
 
   return DBuilder.createBasicType(type->toChars(),         // name
                                   getTypeAllocSize(T) * 8, // size (bits)
+#if LDC_LLVM_VER < 400
                                   getABITypeAlign(T) * 8,  // align (bits)
+#endif
                                   Encoding);
 }
 
@@ -243,7 +259,7 @@ ldc::DIType ldc::DIBuilder::CreateEnumType(Type *type) {
 
   llvm::StringRef Name = te->toChars();
   unsigned LineNumber = te->sym->loc.linnum;
-  ldc::DIFile File(CreateFile(te->sym->loc));
+  ldc::DIFile File(CreateFile(te->sym));
 
   return DBuilder.createEnumerationType(
       GetCU(), Name, File, LineNumber,
@@ -426,7 +442,7 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
   unsigned linnum = sd->loc.linnum;
   ldc::DICompileUnit CU(GetCU());
   assert(CU && "Compilation unit missing or corrupted");
-  ldc::DIFile file = CreateFile(sd->loc);
+  ldc::DIFile file = CreateFile(sd);
   ldc::DIType derivedFrom = getNullDIType();
 
   // set diCompositeType to handle recursive types properly
@@ -646,15 +662,15 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type, bool derefclass) {
     t = type->toBasetype();
   }
 
-#if LDC_LLVM_VER >= 309
-  if (t->ty == Tnull)
-      return DBuilder.createNullPtrType();
   if (t->ty == Tvoid)
-      return nullptr;
+#if LDC_LLVM_VER >= 309
+    return nullptr;
 #else
-  if (t->ty == Tvoid || t->ty == Tnull)
     return DBuilder.createUnspecifiedType(t->toChars());
 #endif
+  if (t->ty == Tnull) // display null as void*
+    return DBuilder.createPointerType(CreateTypeDescription(Type::tvoid, false),
+                                      8, 8, "typeof(null)");
   if (t->ty == Tvector)
     return CreateVectorType(type);
   if (t->isintegral() || t->isfloating()) {
@@ -684,7 +700,7 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type, bool derefclass) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void ldc::DIBuilder::EmitCompileUnit(Module *m) {
-  if (!global.params.symdebug) {
+  if (!mustEmitDebugInfo()) {
     return;
   }
 
@@ -720,7 +736,7 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
 }
 
 ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
-  if (!global.params.symdebug) {
+  if (!mustEmitDebugInfo()) {
 #if LDC_LLVM_VER >= 307
     return nullptr;
 #else
@@ -735,7 +751,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
   assert(CU &&
          "Compilation unit missing or corrupted in DIBuilder::EmitSubProgram");
 
-  ldc::DIFile file = CreateFile(fd->loc);
+  ldc::DIFile file = CreateFile(fd);
 
   // Create subroutine type
   ldc::DISubroutineType DIFnType =
@@ -768,7 +784,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
 
 ldc::DISubprogram ldc::DIBuilder::EmitThunk(llvm::Function *Thunk,
                                             FuncDeclaration *fd) {
-  if (!global.params.symdebug) {
+  if (!mustEmitDebugInfo()) {
 #if LDC_LLVM_VER >= 307
     return nullptr;
 #else
@@ -782,7 +798,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitThunk(llvm::Function *Thunk,
   ldc::DICompileUnit CU(GetCU());
   assert(CU && "Compilation unit missing or corrupted in DIBuilder::EmitThunk");
 
-  ldc::DIFile file = CreateFile(fd->loc);
+  ldc::DIFile file = CreateFile(fd);
 
   // Create subroutine type (thunk has same type as wrapped function)
   ldc::DISubroutineType DIFnType = CreateFunctionType(fd->type);
@@ -817,7 +833,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitThunk(llvm::Function *Thunk,
 
 ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function *Fn,
                                                  llvm::StringRef prettyname) {
-  if (!global.params.symdebug) {
+  if (!mustEmitDebugInfo()) {
 #if LDC_LLVM_VER >= 307
     return nullptr;
 #else
@@ -872,7 +888,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function *Fn,
 }
 
 void ldc::DIBuilder::EmitFuncStart(FuncDeclaration *fd) {
-  if (!global.params.symdebug)
+  if (!mustEmitDebugInfo())
     return;
 
   Logger::println("D to dwarf funcstart");
@@ -883,7 +899,7 @@ void ldc::DIBuilder::EmitFuncStart(FuncDeclaration *fd) {
 }
 
 void ldc::DIBuilder::EmitFuncEnd(FuncDeclaration *fd) {
-  if (!global.params.symdebug)
+  if (!mustEmitDebugInfo())
     return;
 
   Logger::println("D to dwarf funcend");
@@ -894,7 +910,7 @@ void ldc::DIBuilder::EmitFuncEnd(FuncDeclaration *fd) {
 }
 
 void ldc::DIBuilder::EmitBlockStart(Loc &loc) {
-  if (!global.params.symdebug)
+  if (!mustEmitDebugInfo())
     return;
 
   Logger::println("D to dwarf block start");
@@ -915,7 +931,7 @@ void ldc::DIBuilder::EmitBlockStart(Loc &loc) {
 }
 
 void ldc::DIBuilder::EmitBlockEnd() {
-  if (!global.params.symdebug)
+  if (!mustEmitDebugInfo())
     return;
 
   Logger::println("D to dwarf block end");
@@ -927,12 +943,12 @@ void ldc::DIBuilder::EmitBlockEnd() {
 }
 
 void ldc::DIBuilder::EmitStopPoint(Loc &loc) {
-  if (!global.params.symdebug)
+  if (!mustEmitDebugInfo())
     return;
 
-// If we already have a location set and the current loc is invalid
-// (line 0), then we can just ignore it (see GitHub issue #998 for why we
-// cannot do this in all cases).
+  // If we already have a location set and the current loc is invalid
+  // (line 0), then we can just ignore it (see GitHub issue #998 for why we
+  // cannot do this in all cases).
 #if LDC_LLVM_VER >= 307
   if (!loc.linnum && IR->ir->getCurrentDebugLocation())
     return;
@@ -940,13 +956,20 @@ void ldc::DIBuilder::EmitStopPoint(Loc &loc) {
   if (!loc.linnum && !IR->ir->getCurrentDebugLocation().isUnknown())
     return;
 #endif
+  unsigned linnum = loc.linnum;
+  // without proper loc use the line of the enclosing symbol that has line
+  // number debug info
+  for (Dsymbol *sym = IR->func()->decl; sym && !linnum; sym = sym->parent)
+    linnum = sym->loc.linnum;
+  if (!linnum)
+    linnum = 1;
 
   unsigned charnum = (loc.linnum ? loc.charnum : 0);
-  Logger::println("D to dwarf stoppoint at line %u, column %u", loc.linnum,
+  Logger::println("D to dwarf stoppoint at line %u, column %u", linnum,
                   charnum);
   LOG_SCOPE;
   IR->ir->SetCurrentDebugLocation(
-      llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope()));
+      llvm::DebugLoc::get(linnum, charnum, GetCurrentScope()));
   currentLoc = loc;
 }
 
@@ -958,7 +981,7 @@ void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
     return;
 
   ldc::DILocalVariable debugVariable = sub->second;
-  if (!global.params.symdebug || !debugVariable)
+  if (!mustEmitDebugInfo() || !debugVariable)
     return;
 
   llvm::Instruction *instr =
@@ -975,14 +998,14 @@ void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
 
 void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
                                        Type *type, bool isThisPtr,
-                                       bool rewrittenToLocal,
+                                       bool forceAsLocal,
 #if LDC_LLVM_VER >= 306
                                        llvm::ArrayRef<int64_t> addr
 #else
                                        llvm::ArrayRef<llvm::Value *> addr
 #endif
                                        ) {
-  if (!global.params.symdebug)
+  if (!mustEmitDebugInfo())
     return;
 
   Logger::println("D to dwarf local variable");
@@ -994,12 +1017,29 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     return; // ensure that the debug variable is created only once
 
   // get type description
-  ldc::DIType TD = CreateTypeDescription(type ? type : vd->type, true);
+  if (!type)
+    type = vd->type;
+  ldc::DIType TD = CreateTypeDescription(type, true);
   if (static_cast<llvm::MDNode *>(TD) == nullptr)
     return; // unsupported
 
   if (vd->storage_class & (STCref | STCout)) {
+#if LDC_LLVM_VER >= 308
+    auto T = DtoType(type);
+    TD = DBuilder.createReferenceType(llvm::dwarf::DW_TAG_reference_type, TD,
+                                      getTypeAllocSize(T) * 8, // size (bits)
+                                      DtoAlignment(type) * 8); // align (bits)
+#else
     TD = DBuilder.createReferenceType(llvm::dwarf::DW_TAG_reference_type, TD);
+#endif
+  } else {
+    // FIXME: For MSVC x64 targets, declare dynamic array and vector parameters
+    //        as DI locals to work around garbage for both cdb and VS debuggers.
+    if (isTargetMSVCx64) {
+      TY ty = type->toBasetype()->ty;
+      if (ty == Tarray || ty == Tvector)
+        forceAsLocal = true;
+    }
   }
 
   // get variable description
@@ -1007,7 +1047,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 
 #if LDC_LLVM_VER < 308
   unsigned tag;
-  if (!rewrittenToLocal && vd->isParameter()) {
+  if (!forceAsLocal && vd->isParameter()) {
     tag = llvm::dwarf::DW_TAG_arg_variable;
   } else {
     tag = llvm::dwarf::DW_TAG_auto_variable;
@@ -1024,7 +1064,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     debugVariable = DBuilder.createLocalVariable(tag,                 // tag
                                                  GetCurrentScope(),   // scope
                                                  vd->toChars(),       // name
-                                                 CreateFile(vd->loc), // file
+                                                 CreateFile(vd), // file
                                                  vd->loc.linnum, // line num
                                                  TD,             // type
                                                  true,           // preserve
@@ -1034,7 +1074,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     debugVariable = DBuilder.createComplexVariable(tag,                 // tag
                                                    GetCurrentScope(),   // scope
                                                    vd->toChars(),       // name
-                                                   CreateFile(vd->loc), // file
+                                                   CreateFile(vd), // file
                                                    vd->loc.linnum, // line num
                                                    TD,             // type
                                                    addr);
@@ -1043,14 +1083,14 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
   debugVariable = DBuilder.createLocalVariable(tag,                 // tag
                                                GetCurrentScope(),   // scope
                                                vd->toChars(),       // name
-                                               CreateFile(vd->loc), // file
+                                               CreateFile(vd),      // file
                                                vd->loc.linnum,      // line num
                                                TD,                  // type
                                                true,                // preserve
                                                Flags                // flags
                                                );
 #else
-  if (!rewrittenToLocal && vd->isParameter()) {
+  if (!forceAsLocal && vd->isParameter()) {
     FuncDeclaration *fd = vd->parent->isFuncDeclaration();
     assert(fd);
     size_t argNo = 0;
@@ -1065,24 +1105,23 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
         argNo++;
     }
 
-    debugVariable =
-        DBuilder.createParameterVariable(GetCurrentScope(), // scope
-                                         vd->toChars(),     // name
-                                         argNo + 1,
-                                         CreateFile(vd->loc), // file
-                                         vd->loc.linnum,      // line num
-                                         TD,                  // type
-                                         true,                // preserve
-                                         Flags                // flags
-                                         );
+    debugVariable = DBuilder.createParameterVariable(GetCurrentScope(), // scope
+                                                     vd->toChars(),     // name
+                                                     argNo + 1,
+                                                     CreateFile(vd), // file
+                                                     vd->loc.linnum, // line num
+                                                     TD,             // type
+                                                     true,           // preserve
+                                                     Flags           // flags
+                                                     );
   } else {
-    debugVariable = DBuilder.createAutoVariable(GetCurrentScope(),   // scope
-                                                vd->toChars(),       // name
-                                                CreateFile(vd->loc), // file
-                                                vd->loc.linnum,      // line num
-                                                TD,                  // type
-                                                true,                // preserve
-                                                Flags                // flags
+    debugVariable = DBuilder.createAutoVariable(GetCurrentScope(), // scope
+                                                vd->toChars(),     // name
+                                                CreateFile(vd),    // file
+                                                vd->loc.linnum,    // line num
+                                                TD,                // type
+                                                true,              // preserve
+                                                Flags              // flags
                                                 );
   }
 #endif
@@ -1100,7 +1139,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 
 void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
                                         VarDeclaration *vd) {
-  if (!global.params.symdebug)
+  if (!mustEmitDebugInfo())
     return;
 
   Logger::println("D to dwarf global_variable");
@@ -1118,7 +1157,7 @@ void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
 #endif
           vd->toChars(),                          // name
           mangle(vd),                             // linkage name
-          CreateFile(vd->loc),                    // file
+          CreateFile(vd),                         // file
           vd->loc.linnum,                         // line num
           CreateTypeDescription(vd->type, false), // type
           vd->protection.kind == PROTprivate,     // is local to unit
@@ -1135,7 +1174,7 @@ void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
 }
 
 void ldc::DIBuilder::Finalize() {
-  if (!global.params.symdebug)
+  if (!mustEmitDebugInfo())
     return;
 
   DBuilder.finalize();

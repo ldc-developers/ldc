@@ -1,4 +1,4 @@
-// REQUIRES: atleast_llvm308
+// REQUIRES: atleast_llvm309
 // REQUIRES: Windows
 // REQUIRES: cdb
 // RUN: %ldc -g -of=%t.exe %s
@@ -6,41 +6,43 @@
 // RUN:    | %cdb -snul -lines -y . %t.exe >%t.out
 // RUN: FileCheck %s -check-prefix=CHECK -check-prefix=%arch < %t.out
 
+// modulename explicitly unspecified to check implicit function name when breaking
 void main()
 {
-	basic_types();
+    basic_types();
 }
 
 int basic_types()
 {
-	char c = 'a';
-	wchar wc = 'b';
-	dchar dc = 'c';
-	byte b = 1;
-	ubyte ub = 2;
-	short s = 3;
-	ushort us = 4;
-	int i = 5;
-	uint ui = 6;
-	long l = 7;
-	ulong ul = 8;
+    char c = 'a';
+    wchar wc = 'b';
+    dchar dc = 'c';
+    byte b = 1;
+    ubyte ub = 2;
+    short s = 3;
+    ushort us = 4;
+    int i = 5;
+    uint ui = 6;
+    long l = 7;
+    ulong ul = 8;
 
-	float f = 9;
-	double d = 10;
-	real r = 11;
+    float f = 9;
+    double d = 10;
+    real r = 11;
 
-	ifloat iflt = 12i;
-	idouble id = 13i;
-	ireal ir = 14i;
-	cfloat cf = 15 + 16i;
-	cdouble cd = 17 + 18i;
-	creal cr = 19 + 20i;
-
+    ifloat iflt = 12i;
+    idouble id = 13i;
+    ireal ir = 14i;
+    cfloat cf = 15 + 16i;
+    cdouble cd = 17 + 18i;
+    creal cr = 19 + 20i;
+    typeof(null) np = null;
+    
     c = c;
-// CDB: ld cvbasictypes
-// CDB: bp `cvbasictypes.d:39`
+// CDB: ld basictypes_cdb*
+// CDB: bp `basictypes_cdb.d:41`
 // CDB: g
-// CHECK: !cvbasictypes.basic_types
+// CHECK: !basictypes_cdb.basic_types
 
 // enable case sensitive symbol lookup
 // CDB: .symopt-1
@@ -65,6 +67,7 @@ int basic_types()
 // CHECK: struct cfloat cf
 // CHECK: struct cdouble cd
 // CHECK: struct creal cr
+// CHECK: void * np = 0x{{[0`]+}}
 // CDB: ?? cf
 // CHECK: +0x000 re : 15
 // CHECK: +0x004 im : 16
@@ -74,7 +77,7 @@ int basic_types()
 // CDB: ?? cr
 // CHECK: +0x000 re : 19
 // CHECK: +0x008 im : 20
-	return 1;
+    return 1;
 }
 // CDB: q
 // CHECK: quit

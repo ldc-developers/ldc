@@ -839,6 +839,11 @@ void buildCommandLine(std::vector<const char *> &r, const Params &p) {
   }
   if (p.objDir) {
     r.push_back(concat("-od=", p.objDir));
+
+    // DMD creates static libraries in the objects directory (unless using an
+    // absolute output path via `-of`).
+    if (p.emitStaticLib)
+      r.push_back("-create-static-lib-in-objdir");
   }
   if (p.objName) {
     r.push_back(concat("-of=", p.objName));
@@ -883,6 +888,14 @@ void buildCommandLine(std::vector<const char *> &r, const Params &p) {
   }
   if (p.emitStaticLib) {
     r.push_back("-lib");
+
+    // DMD seems to emit objects directly into the static lib being generated.
+    // No object files are created and therefore they never collide due to
+    // duplicate .d filenames (in different dirs).
+    // Approximate that behavior by naming the object files uniquely via -oq and
+    // instructing LDC to remove the object files on success.
+    r.push_back("-oq");
+    r.push_back("-cleanup-obj");
   }
   // -quiet is the default in (newer?) frontend versions, just ignore it.
   if (p.release) {

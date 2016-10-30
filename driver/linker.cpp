@@ -40,12 +40,18 @@ static llvm::cl::opt<bool> staticFlag(
         "Create a statically linked binary, including all system dependencies"),
     llvm::cl::ZeroOrMore);
 
+// used by LDMD
+static llvm::cl::opt<bool> createStaticLibInObjdir(
+    "create-static-lib-in-objdir",
+    llvm::cl::desc("Create static library in -od directory (DMD-compliant)"),
+    llvm::cl::ZeroOrMore, llvm::cl::ReallyHidden);
+
 //////////////////////////////////////////////////////////////////////////////
 
 static void CreateDirectoryOnDisk(llvm::StringRef fileName) {
   auto dir = llvm::sys::path::parent_path(fileName);
   if (!dir.empty() && !llvm::sys::fs::exists(dir)) {
-    if (auto ec = llvm::sys::fs::create_directory(dir)) {
+    if (auto ec = llvm::sys::fs::create_directories(dir)) {
       error(Loc(), "failed to create path to file: %s\n%s", dir.data(),
             ec.message().c_str());
       fatal();
@@ -67,7 +73,7 @@ static std::string getOutputName(bool const sharedLib) {
   const char *extension = nullptr;
   if (sharedLib) {
     extension = global.dll_ext;
-    if (!global.params.mscoff)
+    if (!global.params.targetTriple->isWindowsMSVCEnvironment())
       result = "lib" + result;
   } else if (global.params.targetTriple->isOSWindows()) {
     extension = "exe";
@@ -137,6 +143,20 @@ void insertBitcodeFiles(llvm::Module &M, llvm::LLVMContext &Ctx,
 
 //////////////////////////////////////////////////////////////////////////////
 
+static void appendObjectFiles(std::vector<std::string> &args) {
+  for (unsigned i = 0; i < global.params.objfiles->dim; i++)
+    args.push_back((*global.params.objfiles)[i]);
+
+  if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+    if (global.params.resfile)
+      args.push_back(global.params.resfile);
+    if (global.params.deffile)
+      args.push_back(std::string("/DEF:") + global.params.deffile);
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 static std::string gExePath;
 
 static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
@@ -148,11 +168,7 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
   // build arguments
   std::vector<std::string> args;
 
-  // object files
-  for (unsigned i = 0; i < global.params.objfiles->dim; i++) {
-    const char *p = static_cast<const char *>(global.params.objfiles->data[i]);
-    args.push_back(p);
-  }
+  appendObjectFiles(args);
 
   // Link with profile-rt library when generating an instrumented binary.
   // profile-rt uses Phobos (MD5 hashing) and therefore must be passed on the
@@ -170,10 +186,8 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
   }
 
   // user libs
-  for (unsigned i = 0; i < global.params.libfiles->dim; i++) {
-    const char *p = static_cast<const char *>(global.params.libfiles->data[i]);
-    args.push_back(p);
-  }
+  for (unsigned i = 0; i < global.params.libfiles->dim; i++)
+    args.push_back((*global.params.libfiles)[i]);
 
   // output filename
   std::string output = getOutputName(sharedLib);
@@ -211,8 +225,7 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
 
   // additional linker switches
   for (unsigned i = 0; i < global.params.linkswitches->dim; i++) {
-    const char *p =
-        static_cast<const char *>(global.params.linkswitches->data[i]);
+    const char *p = (*global.params.linkswitches)[i];
     // Don't push -l and -L switches using -Xlinker, but pass them indirectly
     // via GCC. This makes sure user-defined paths take precedence over
     // GCC's builtin LIBRARY_PATHs.
@@ -546,7 +559,7 @@ int executeMsvcToolAndWait(const std::string &,
 
 //////////////////////////////////////////////////////////////////////////////
 
-static int linkObjToBinaryWin(bool sharedLib) {
+static int linkObjToBinaryMSVC(bool sharedLib) {
   Logger::println("*** Linking executable ***");
 
   std::string tool = "link.exe";
@@ -597,11 +610,7 @@ static int linkObjToBinaryWin(bool sharedLib) {
 
   args.push_back("/OUT:" + output);
 
-  // object files
-  for (unsigned i = 0; i < global.params.objfiles->dim; i++) {
-    const char *p = static_cast<const char *>(global.params.objfiles->data[i]);
-    args.push_back(p);
-  }
+  appendObjectFiles(args);
 
   // Link with profile-rt library when generating an instrumented binary
   // profile-rt depends on Phobos (MD5 hashing).
@@ -612,10 +621,8 @@ static int linkObjToBinaryWin(bool sharedLib) {
   }
 
   // user libs
-  for (unsigned i = 0; i < global.params.libfiles->dim; i++) {
-    const char *p = static_cast<const char *>(global.params.libfiles->data[i]);
-    args.push_back(p);
-  }
+  for (unsigned i = 0; i < global.params.libfiles->dim; i++)
+    args.push_back((*global.params.libfiles)[i]);
 
   // set the global gExePath
   gExePath = output;
@@ -670,7 +677,7 @@ static int linkObjToBinaryWin(bool sharedLib) {
 int linkObjToBinary() {
   if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
     // TODO: Choose dynamic/static MSVCRT version based on staticFlag?
-    return linkObjToBinaryWin(global.params.dll);
+    return linkObjToBinaryMSVC(global.params.dll);
   }
 
   return linkObjToBinaryGcc(global.params.dll, staticFlag);
@@ -681,27 +688,27 @@ int linkObjToBinary() {
 int createStaticLibrary() {
   Logger::println("*** Creating static library ***");
 
-  const bool isTargetWindows =
+  const bool isTargetMSVC =
       global.params.targetTriple->isWindowsMSVCEnvironment();
 
   // find archiver
-  std::string tool(isTargetWindows ? "lib.exe" : getArchiver());
+  std::string tool(isTargetMSVC ? "lib.exe" : getArchiver());
 
   // build arguments
   std::vector<std::string> args;
 
   // ask ar to create a new library
-  if (!isTargetWindows) {
+  if (!isTargetMSVC) {
     args.push_back("rcs");
   }
 
   // ask lib to be quiet
-  if (isTargetWindows) {
+  if (isTargetMSVC) {
     args.push_back("/NOLOGO");
   }
 
   // enable Link-time Code Generation (aka. whole program optimization)
-  if (isTargetWindows && global.params.optimize) {
+  if (isTargetMSVC && global.params.optimize) {
     args.push_back("/LTCG");
   }
 
@@ -716,25 +723,25 @@ int createStaticLibrary() {
     libName.push_back('.');
     libName.append(global.lib_ext);
   }
-  if (global.params.objdir && !FileName::absolute(libName.c_str()))
+  if (createStaticLibInObjdir && global.params.objdir &&
+      !FileName::absolute(libName.c_str())) {
     libName = FileName::combine(global.params.objdir, libName.c_str());
+  }
 
-  if (isTargetWindows) {
+  if (isTargetMSVC) {
     args.push_back("/OUT:" + libName);
   } else {
     args.push_back(libName);
   }
 
-  // object files
-  for (unsigned i = 0; i < global.params.objfiles->dim; i++)
-    args.push_back((*global.params.objfiles)[i]);
+  appendObjectFiles(args);
 
   // create path to the library
   CreateDirectoryOnDisk(libName);
 
   // try to call archiver
   int exitCode;
-  if (isTargetWindows) {
+  if (isTargetMSVC) {
     exitCode = executeMsvcToolAndWait(tool, args, global.params.verbose);
   } else {
     exitCode = executeToolAndWait(tool, args, global.params.verbose);

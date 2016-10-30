@@ -42,7 +42,7 @@ LLConstant *DtoConstSlice(LLConstant *dim, LLConstant *ptr,
 Expression *indexArrayLiteral(ArrayLiteralExp *ale, unsigned idx);
 
 /// Returns whether the array literal can be evaluated to a (LLVM) constant.
-bool isConstLiteral(ArrayLiteralExp *ale);
+bool isConstLiteral(Expression *e);
 
 /// Returns the constant for the given array literal expression.
 llvm::Constant *arrayLiteralToConst(IRState *p, ArrayLiteralExp *ale);

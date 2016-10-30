@@ -77,8 +77,7 @@ void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
 
 namespace ldc {
 CodeGenerator::CodeGenerator(llvm::LLVMContext &context, bool singleObj)
-    : context_(context), moduleCount_(0), singleObj_(singleObj), ir_(nullptr),
-      firstModuleObjfileName_(nullptr) {
+    : context_(context), moduleCount_(0), singleObj_(singleObj), ir_(nullptr) {
   if (!ClassDeclaration::object) {
     error(Loc(), "declaration for class Object not found; druntime not "
                  "configured properly");
@@ -95,17 +94,9 @@ CodeGenerator::CodeGenerator(llvm::LLVMContext &context, bool singleObj)
 
 CodeGenerator::~CodeGenerator() {
   if (singleObj_) {
-    const char *oname;
-    const char *filename;
-    if ((oname = global.params.exefile) || (oname = global.params.objname)) {
-      filename = FileName::forceExt(oname, global.obj_ext);
-      if (global.params.objdir) {
-        filename =
-            FileName::combine(global.params.objdir, FileName::name(filename));
-      }
-    } else {
-      filename = firstModuleObjfileName_;
-    }
+    // For singleObj builds, the first object file name is the one for the first
+    // source file (e.g., `b.o` for `ldc2 a.o b.d c.d`).
+    const char *filename = (*global.params.objfiles)[0];
 
     // If there are bitcode files passed on the cmdline, add them after all
     // other source files have been added to the (singleobj) module.
@@ -117,9 +108,6 @@ CodeGenerator::~CodeGenerator() {
 }
 
 void CodeGenerator::prepareLLModule(Module *m) {
-  if (!firstModuleObjfileName_) {
-    firstModuleObjfileName_ = m->objfile->name->str;
-  }
   ++moduleCount_;
 
   if (singleObj_ && ir_) {
@@ -181,7 +169,6 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   IdentMetadata->addOperand(llvm::MDNode::get(ir_->context(), IdentNode));
 
   writeModule(&ir_->module, filename);
-  global.params.objfiles->push(const_cast<char *>(filename));
   delete ir_;
   ir_ = nullptr;
 }

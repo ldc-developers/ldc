@@ -1,10 +1,11 @@
-// REQUIRES: atleast_llvm308
+// REQUIRES: atleast_llvm309
 // REQUIRES: Windows
 // REQUIRES: cdb
 // RUN: %ldc -g -of=%t.exe %s
 // RUN: sed -e "/^\\/\\/ CDB:/!d" -e "s,// CDB:,," %s \
 // RUN:    | %cdb -snul -lines -y . %t.exe >%t.out
 // RUN: FileCheck %s -check-prefix=CHECK -check-prefix=%arch < %t.out
+module strings_cdb;
 
 int main(string[] args)
 {
@@ -13,10 +14,10 @@ int main(string[] args)
     wstring ws = "b";
     dstring ds = "c";
 
-// CDB: ld /f codeview*
+// CDB: ld /f strings_cdb*
 // enable case sensitive symbol lookup
 // CDB: .symopt-1
-// CDB: bp `codeview.d:21`
+// CDB: bp `strings_cdb.d:22`
 // CDB: g
     return 0;
 // CHECK: !D main

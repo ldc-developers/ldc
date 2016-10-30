@@ -54,7 +54,7 @@ endfunction()
 #
 
 # Version information
-set(LDC_VERSION "1.0.0") # May be overridden by git hash tag
+set(LDC_VERSION "1.1.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
 set(DMDFE_PATCH_VERSION   71)
@@ -327,11 +327,11 @@ file(GLOB_RECURSE IR_SRC_D ir/*.d)
 file(GLOB IR_SRC ir/*.cpp)
 file(GLOB IR_HDR ir/*.h)
 set(DRV_SRC
+    driver/cache.cpp
     driver/cl_options.cpp
     driver/codegenerator.cpp
     driver/configfile.cpp
     driver/exe_path.cpp
-    driver/ir2obj_cache.cpp
     driver/targetmachine.cpp
     driver/toobj.cpp
     driver/tool.cpp
@@ -340,14 +340,14 @@ set(DRV_SRC
     ${CMAKE_BINARY_DIR}/driver/ldc-version.cpp
 )
 set(DRV_HDR
-    driver/linker.h
+    driver/cache.h
+    driver/cache_pruning.h
     driver/cl_options.h
     driver/codegenerator.h
     driver/configfile.h
     driver/exe_path.h
-    driver/ir2obj_cache.h
-    driver/ir2obj_cache_pruning.h
     driver/ldc-version.h
+    driver/linker.h
     driver/targetmachine.h
     driver/toobj.h
     driver/tool.h

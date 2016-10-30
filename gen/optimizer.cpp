@@ -42,17 +42,16 @@ using namespace llvm;
 
 static cl::opt<signed char> optimizeLevel(
     cl::desc("Setting the optimization level:"), cl::ZeroOrMore,
-    cl::values(clEnumValN(3, "O", "Equivalent to -O3"),
-               clEnumValN(0, "O0", "No optimizations (default)"),
-               clEnumValN(1, "O1", "Simple optimizations"),
-               clEnumValN(2, "O2", "Good optimizations"),
-               clEnumValN(3, "O3", "Aggressive optimizations"),
-               clEnumValN(4, "O4", "Equivalent to -O3"), // Not implemented yet.
-               clEnumValN(5, "O5", "Equivalent to -O3"), // Not implemented yet.
-               clEnumValN(-1, "Os",
-                          "Like -O2 with extra optimizations for size"),
-               clEnumValN(-2, "Oz", "Like -Os but reduces code size further"),
-               clEnumValEnd),
+    clEnumValues(
+        clEnumValN(3, "O", "Equivalent to -O3"),
+        clEnumValN(0, "O0", "No optimizations (default)"),
+        clEnumValN(1, "O1", "Simple optimizations"),
+        clEnumValN(2, "O2", "Good optimizations"),
+        clEnumValN(3, "O3", "Aggressive optimizations"),
+        clEnumValN(4, "O4", "Equivalent to -O3"), // Not implemented yet.
+        clEnumValN(5, "O5", "Equivalent to -O3"), // Not implemented yet.
+        clEnumValN(-1, "Os", "Like -O2 with extra optimizations for size"),
+        clEnumValN(-2, "Oz", "Like -Os but reduces code size further")),
     cl::init(0));
 
 static cl::opt<bool> noVerify("disable-verify",
@@ -108,10 +107,10 @@ static cl::opt<bool> stripDebug(
 cl::opt<opts::SanitizerCheck> opts::sanitize(
     "sanitize", cl::desc("Enable runtime instrumentation for bug detection"),
     cl::init(opts::None),
-    cl::values(clEnumValN(opts::AddressSanitizer, "address", "memory errors"),
-               clEnumValN(opts::MemorySanitizer, "memory", "memory errors"),
-               clEnumValN(opts::ThreadSanitizer, "thread", "race detection"),
-               clEnumValEnd));
+    clEnumValues(clEnumValN(opts::AddressSanitizer, "address", "memory errors"),
+                 clEnumValN(opts::MemorySanitizer, "memory", "memory errors"),
+                 clEnumValN(opts::ThreadSanitizer, "thread",
+                            "race detection")));
 
 static cl::opt<bool> disableLoopUnrolling(
     "disable-loop-unrolling",
@@ -454,4 +453,23 @@ void verifyModule(llvm::Module *m) {
     fatal();
   }
   Logger::println("Verification passed!");
+}
+
+// Output to `hash_os` all optimization settings that influence object code output
+// and that are not observable in the IR.
+// This is used to calculate the hash use for caching that uniquely identifies
+// the object file output.
+void outputOptimizationSettings(llvm::raw_ostream &hash_os) {
+  hash_os << optimizeLevel;
+  hash_os << willInline();
+  hash_os << disableLangSpecificPasses;
+  hash_os << disableSimplifyDruntimeCalls;
+  hash_os << disableSimplifyLibCalls;
+  hash_os << disableGCToStack;
+  hash_os << unitAtATime;
+  hash_os << stripDebug;
+  hash_os << opts::sanitize;
+  hash_os << disableLoopUnrolling;
+  hash_os << disableLoopVectorization;
+  hash_os << disableSLPVectorization;
 }

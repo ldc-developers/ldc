@@ -20,6 +20,10 @@
 
 #include "llvm/Support/CommandLine.h"
 
+namespace llvm {
+class raw_ostream;
+}
+
 namespace opts {
 
 enum SanitizerCheck {
@@ -48,5 +52,7 @@ bool isOptimizationEnabled();
 llvm::CodeGenOpt::Level codeGenOptLevel();
 
 void verifyModule(llvm::Module *m);
+
+void outputOptimizationSettings(llvm::raw_ostream &hash_os);
 
 #endif
