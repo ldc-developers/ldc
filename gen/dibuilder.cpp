@@ -74,7 +74,9 @@ llvm::StringRef uniqueIdent(Type* t) {
 
 } // namespace
 
-bool ldc::DIBuilder::mustEmitDebugInfo() { return global.params.symdebug; }
+bool ldc::DIBuilder::mustEmitDebugInfo() {
+  return global.params.symdebug == 1 || global.params.symdebug == 2;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -728,7 +730,7 @@ DebugEmissionKind getDebugEmissionKind()
 
 
 void ldc::DIBuilder::EmitCompileUnit(Module *m) {
-  if (!mustEmitDebugInfo()) {
+  if (!mustEmitDebugInfo() && global.params.symdebug != 3) {
     return;
   }
 
