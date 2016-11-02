@@ -347,11 +347,11 @@ public:
   }
 };
 
-void writeObjectFile(llvm::Module *m, std::string &filename) {
-  IF_LOG Logger::println("Writing object file to: %s", filename.c_str());
+void writeObjectFile(llvm::Module *m, const char *filename) {
+  IF_LOG Logger::println("Writing object file to: %s", filename);
   LLErrorInfo errinfo;
   {
-    llvm::raw_fd_ostream out(filename.c_str(), errinfo, llvm::sys::fs::F_None);
+    llvm::raw_fd_ostream out(filename, errinfo, llvm::sys::fs::F_None);
 #if LDC_LLVM_VER >= 306
     if (!errinfo)
 #else
@@ -361,7 +361,7 @@ void writeObjectFile(llvm::Module *m, std::string &filename) {
       codegenModule(*gTargetMachine, *m, out,
                     llvm::TargetMachine::CGFT_ObjectFile);
     } else {
-      error(Loc(), "cannot write object file '%s': %s", filename.c_str(),
+      error(Loc(), "cannot write object file '%s': %s", filename,
             ERRORINFO_STRING(errinfo));
       fatal();
     }
@@ -396,7 +396,7 @@ bool shouldDoLTO(llvm::Module *m) {
 }
 } // end of anonymous namespace
 
-void writeModule(llvm::Module *m, std::string filename) {
+void writeModule(llvm::Module *m, const char *filename) {
   const bool doLTO = shouldDoLTO(m);
   const bool outputObj = shouldOutputObjectFile();
   const bool assembleExternally = shouldAssembleExternally();
@@ -427,9 +427,6 @@ void writeModule(llvm::Module *m, std::string filename) {
   // run optimizer
   ldc_optimize_module(m);
 
-  // eventually do our own path stuff, dmd's is a bit strange.
-  using LLPath = llvm::SmallString<128>;
-
   // make sure the output directory exists
   const auto directory = llvm::sys::path::parent_path(filename);
   if (!directory.empty()) {
@@ -440,11 +437,24 @@ void writeModule(llvm::Module *m, std::string filename) {
     }
   }
 
+  const auto outputFlags = {global.params.output_o, global.params.output_bc,
+                            global.params.output_ll, global.params.output_s};
+  const auto numOutputFiles =
+      std::count_if(outputFlags.begin(), outputFlags.end(),
+                    [](OUTPUTFLAG flag) { return flag != 0; });
+
+  const auto replaceExtensionWith = [=](const char *ext) -> std::string {
+    if (numOutputFiles == 1)
+      return filename;
+    llvm::SmallString<128> buffer(filename);
+    llvm::sys::path::replace_extension(buffer, ext);
+    return buffer.str();
+  };
+
   // write LLVM bitcode
   if (global.params.output_bc || (doLTO && outputObj)) {
-    LLPath bcpath(filename);
-    if (global.params.output_bc)
-      llvm::sys::path::replace_extension(bcpath, global.bc_ext);
+    std::string bcpath =
+        (doLTO && outputObj) ? filename : replaceExtensionWith(global.bc_ext);
     Logger::println("Writing LLVM bitcode to: %s\n", bcpath.c_str());
     LLErrorInfo errinfo;
     llvm::raw_fd_ostream bos(bcpath.c_str(), errinfo, llvm::sys::fs::F_None);
@@ -476,8 +486,7 @@ void writeModule(llvm::Module *m, std::string filename) {
 
   // write LLVM IR
   if (global.params.output_ll) {
-    LLPath llpath(filename);
-    llvm::sys::path::replace_extension(llpath, global.ll_ext);
+    const auto llpath = replaceExtensionWith(global.ll_ext);
     Logger::println("Writing LLVM IR to: %s\n", llpath.c_str());
     LLErrorInfo errinfo;
     llvm::raw_fd_ostream aos(llpath.c_str(), errinfo, llvm::sys::fs::F_None);
@@ -492,10 +501,13 @@ void writeModule(llvm::Module *m, std::string filename) {
 
   // write native assembly
   if (global.params.output_s || assembleExternally) {
-    LLPath spath(filename);
-    llvm::sys::path::replace_extension(spath, global.s_ext);
+    std::string spath;
     if (!global.params.output_s) {
-      llvm::sys::fs::createUniqueFile("ldc-%%%%%%%.s", spath);
+      llvm::SmallString<16> buffer;
+      llvm::sys::fs::createUniqueFile("ldc-%%%%%%%.s", buffer);
+      spath = buffer.str();
+    } else {
+      spath = replaceExtensionWith(global.s_ext);
     }
 
     Logger::println("Writing asm to: %s\n", spath.c_str());
@@ -517,11 +529,11 @@ void writeModule(llvm::Module *m, std::string filename) {
     }
 
     if (assembleExternally) {
-      assemble(spath.str(), filename);
+      assemble(spath, filename);
     }
 
     if (!global.params.output_s) {
-      llvm::sys::fs::remove(spath.str());
+      llvm::sys::fs::remove(spath);
     }
   }
 
