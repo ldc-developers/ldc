@@ -91,7 +91,7 @@ pragma(LDC_intrinsic, "llvm.stackrestore")
 /// the data (1) or instruction (0) cache. The rw, locality and cache type
 /// arguments must be constant integers.
 pragma(LDC_intrinsic, "llvm.prefetch")
-    void llvm_prefetch(void* ptr, uint rw, uint locality, uint cachetype);
+    void llvm_prefetch(void* ptr, uint rw, uint locality, uint cachetype) pure @safe;
 
 /// The 'llvm.pcmarker' intrinsic is a method to export a Program Counter (PC)
 /// in a region of code to simulators and other tools. The method is target
@@ -110,7 +110,7 @@ pragma(LDC_intrinsic, "llvm.pcmarker")
 /// As the backing counters overflow quickly (on the order of 9 seconds on
 /// alpha), this should only be used for small timings.
 pragma(LDC_intrinsic, "llvm.readcyclecounter")
-    ulong llvm_readcyclecounter();
+    ulong llvm_readcyclecounter() @safe;
 
 // Backwards compatibility - but it is doubtful whether somebody actually ever
 // used that intrinsic.
