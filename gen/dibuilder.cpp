@@ -74,22 +74,13 @@ llvm::StringRef uniqueIdent(Type* t) {
 
 } // namespace
 
-bool ldc::DIBuilder::mustEmitAnyDebugInfo() {
-  // for -g -gc and -gline-tables-only
-  return global.params.symdebug > 0;
-}
 
 bool ldc::DIBuilder::mustEmitFullDebugInfo() {
   // only for -g and -gc
   return global.params.symdebug == 1 || global.params.symdebug == 2;
 }
 
-bool ldc::DIBuilder::mustEmitVariablesDebugInfo() {
-  // only for -g and -gc
-  return global.params.symdebug == 1 || global.params.symdebug == 2;
-}
-
-bool ldc::DIBuilder::mustEmitLocationDebugInfo() {
+bool ldc::DIBuilder::mustEmitLocationsDebugInfo() {
   // for -g -gc and -gline-tables-only
   return global.params.symdebug > 0;
 }
@@ -747,7 +738,7 @@ DebugEmissionKind getDebugEmissionKind()
 
 
 void ldc::DIBuilder::EmitCompileUnit(Module *m) {
-  if (!mustEmitLocationDebugInfo()) {
+  if (!mustEmitLocationsDebugInfo()) {
     return;
   }
 
@@ -792,7 +783,7 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
 }
 
 ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
-  if (!mustEmitLocationDebugInfo()) {
+  if (!mustEmitLocationsDebugInfo()) {
 #if LDC_LLVM_VER >= 307
     return nullptr;
 #else
@@ -840,7 +831,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
 
 ldc::DISubprogram ldc::DIBuilder::EmitThunk(llvm::Function *Thunk,
                                             FuncDeclaration *fd) {
-  if (!mustEmitLocationDebugInfo()) {
+  if (!mustEmitLocationsDebugInfo()) {
 #if LDC_LLVM_VER >= 307
     return nullptr;
 #else
@@ -889,7 +880,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitThunk(llvm::Function *Thunk,
 
 ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function *Fn,
                                                  llvm::StringRef prettyname) {
-  if (!mustEmitLocationDebugInfo()) {
+  if (!mustEmitLocationsDebugInfo()) {
 #if LDC_LLVM_VER >= 307
     return nullptr;
 #else
@@ -913,10 +904,9 @@ ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function *Fn,
   auto paramsArray = DBuilder.getOrCreateArray(params);
 #endif
 #if LDC_LLVM_VER >= 308
-  ldc::DISubroutineType DIFnType = DBuilder.createSubroutineType(paramsArray);
+   ldc::DISubroutineType DIFnType = DBuilder.createSubroutineType(paramsArray);
 #else
-  ldc::DISubroutineType DIFnType =
-      DBuilder.createSubroutineType(file, paramsArray);
+   ldc::DISubroutineType DIFnType = DBuilder.createSubroutineType(file, paramsArray);
 #endif
 
   // FIXME: duplicates?
@@ -944,7 +934,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function *Fn,
 }
 
 void ldc::DIBuilder::EmitFuncStart(FuncDeclaration *fd) {
-  if (!mustEmitLocationDebugInfo())
+  if (!mustEmitLocationsDebugInfo())
     return;
 
   Logger::println("D to dwarf funcstart");
@@ -955,7 +945,7 @@ void ldc::DIBuilder::EmitFuncStart(FuncDeclaration *fd) {
 }
 
 void ldc::DIBuilder::EmitFuncEnd(FuncDeclaration *fd) {
-  if (!mustEmitLocationDebugInfo())
+  if (!mustEmitLocationsDebugInfo())
     return;
 
   Logger::println("D to dwarf funcend");
@@ -966,7 +956,7 @@ void ldc::DIBuilder::EmitFuncEnd(FuncDeclaration *fd) {
 }
 
 void ldc::DIBuilder::EmitBlockStart(Loc &loc) {
-  if (!mustEmitLocationDebugInfo())
+  if (!mustEmitLocationsDebugInfo())
     return;
 
   Logger::println("D to dwarf block start");
@@ -987,7 +977,7 @@ void ldc::DIBuilder::EmitBlockStart(Loc &loc) {
 }
 
 void ldc::DIBuilder::EmitBlockEnd() {
-  if (!mustEmitLocationDebugInfo())
+  if (!mustEmitLocationsDebugInfo())
     return;
 
   Logger::println("D to dwarf block end");
@@ -999,7 +989,7 @@ void ldc::DIBuilder::EmitBlockEnd() {
 }
 
 void ldc::DIBuilder::EmitStopPoint(Loc &loc) {
-  if (!mustEmitLocationDebugInfo())
+  if (!mustEmitLocationsDebugInfo())
     return;
 
   // If we already have a location set and the current loc is invalid
@@ -1037,7 +1027,7 @@ void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
     return;
 
   ldc::DILocalVariable debugVariable = sub->second;
-  if (!mustEmitVariablesDebugInfo() || !debugVariable)
+  if (!mustEmitFullDebugInfo() || !debugVariable)
     return;
 
   llvm::Instruction *instr =
@@ -1061,7 +1051,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
                                        llvm::ArrayRef<llvm::Value *> addr
 #endif
                                        ) {
-  if (!mustEmitVariablesDebugInfo())
+  if (!mustEmitFullDebugInfo())
     return;
 
   Logger::println("D to dwarf local variable");
@@ -1195,7 +1185,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 
 void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
                                         VarDeclaration *vd) {
-  if (!mustEmitVariablesDebugInfo())
+  if (!mustEmitFullDebugInfo())
     return;
 
   Logger::println("D to dwarf global_variable");
@@ -1230,7 +1220,7 @@ void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
 }
 
 void ldc::DIBuilder::Finalize() {
-  if (!mustEmitAnyDebugInfo())
+  if (!mustEmitFullDebugInfo() && !mustEmitLocationsDebugInfo())
     return;
 
   DBuilder.finalize();

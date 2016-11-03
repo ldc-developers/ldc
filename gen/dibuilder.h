@@ -199,10 +199,8 @@ private:
   DIType CreateDelegateType(Type *type);
   DIType CreateTypeDescription(Type *type, bool derefclass = false);
 
-  bool mustEmitAnyDebugInfo();
   bool mustEmitFullDebugInfo();
-  bool mustEmitVariablesDebugInfo();
-  bool mustEmitLocationDebugInfo();
+  bool mustEmitLocationsDebugInfo();
 
 public:
   template <typename T>
