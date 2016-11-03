@@ -10,3 +10,4 @@ int main()
 }
 
 // CHECK-NOT: DW_TAG
+// CHECK-NOT: DW_AT
