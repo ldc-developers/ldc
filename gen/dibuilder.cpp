@@ -620,6 +620,19 @@ ldc::DISubroutineType ldc::DIBuilder::CreateFunctionType(Type *type) {
 #endif
 }
 
+ldc::DISubroutineType ldc::DIBuilder::CreateEmptyFunctionType() {
+#if LDC_LLVM_VER == 305
+  auto paramsArray = DBuilder.getOrCreateArray(llvm::None);
+#else
+  auto paramsArray = DBuilder.getOrCreateTypeArray(llvm::None);
+#endif
+#if LDC_LLVM_VER >= 308
+  return DBuilder.createSubroutineType(paramsArray);
+#else
+  return DBuilder.createSubroutineType(CreateFile(), paramsArray);
+#endif
+}
+
 ldc::DIType ldc::DIBuilder::CreateDelegateType(Type *type) {
   assert(type->toBasetype()->ty == Tdelegate);
 
@@ -801,8 +814,9 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
   ldc::DIFile file = CreateFile(fd);
 
   // Create subroutine type
-  ldc::DISubroutineType DIFnType =
-      CreateFunctionType(static_cast<TypeFunction *>(fd->type));
+  ldc::DISubroutineType DIFnType = mustEmitFullDebugInfo() ?
+      CreateFunctionType(static_cast<TypeFunction *>(fd->type)) :
+      CreateEmptyFunctionType();
 
   // FIXME: duplicates?
   auto SP = DBuilder.createFunction(

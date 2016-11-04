@@ -196,6 +196,7 @@ private:
   DIType CreateSArrayType(Type *type);
   DIType CreateAArrayType(Type *type);
   DISubroutineType CreateFunctionType(Type *type);
+  DISubroutineType CreateEmptyFunctionType();
   DIType CreateDelegateType(Type *type);
   DIType CreateTypeDescription(Type *type, bool derefclass = false);
 
