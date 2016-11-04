@@ -49,7 +49,7 @@ LLGlobalVariable *IrAggr::getVtblSymbol() {
   // create the vtblZ symbol
   auto initname = getMangledVTableSymbolName(aggrdecl);
 
-  LLType *vtblTy = stripModifiers(type)->ctype->isClass()->getVtbl();
+  LLType *vtblTy = stripModifiers(type)->ctype->isClass()->getVtblType(false);
 
   vtbl =
       getOrCreateGlobal(aggrdecl->loc, gIR->module, vtblTy, true,
@@ -224,7 +224,7 @@ LLConstant *IrAggr::getVtblInit() {
   }
 
   // build the constant struct
-  LLType *vtblTy = stripModifiers(type)->ctype->isClass()->getVtbl();
+  LLType *vtblTy = stripModifiers(type)->ctype->isClass()->getVtblType(true);
 #ifndef NDEBUG
   size_t nc = constants.size();
 
@@ -240,10 +240,6 @@ LLConstant *IrAggr::getVtblInit() {
 
 #endif
   constVtbl = LLConstantStruct::get(isaStruct(vtblTy), constants);
-
-  assert(constVtbl->getType() ==
-             stripModifiers(type)->ctype->isClass()->getVtbl() &&
-         "vtbl initializer type mismatch");
 
   return constVtbl;
 }

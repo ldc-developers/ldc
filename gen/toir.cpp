@@ -2664,6 +2664,7 @@ public:
       LLValue *val = DtoRVal(ex);
 
       // Get and load vtbl pointer.
+      stripModifiers(t)->ctype->isClass()->getVtblType(true);
       llvm::Value *vtbl = DtoLoad(DtoGEPi(val, 0, 0));
 
       // TypeInfo ptr is first vtbl entry.

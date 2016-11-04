@@ -117,19 +117,6 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
   isaStruct(t->type)->setBody(builder.defaultTypes(), t->packed);
   t->varGEPIndices = builder.varGEPIndices();
 
-  // set vtbl type body
-  FuncDeclarations vtbl;
-  vtbl.reserve(cd->vtbl.dim);
-  if (!cd->isCPPclass())
-    vtbl.push(nullptr);
-  for (size_t i = cd->vtblOffset(); i < cd->vtbl.dim; ++i) {
-    FuncDeclaration *fd = cd->vtbl[i]->isFuncDeclaration();
-    assert(fd);
-    vtbl.push(fd);
-  }
-  Type* first = cd->isCPPclass() ? nullptr : Type::typeinfoclass->type;
-  t->vtbl_type->setBody(t->buildVtblType(first, &vtbl));
-
   IF_LOG Logger::cout() << "class type: " << *t->type << std::endl;
 
   return t;
@@ -193,6 +180,24 @@ IrTypeClass::buildVtblType(Type *first, FuncDeclarations *vtbl_array) {
 llvm::Type *IrTypeClass::getLLType() { return llvm::PointerType::get(type, 0); }
 
 llvm::Type *IrTypeClass::getMemoryLLType() { return type; }
+
+llvm::StructType *IrTypeClass::getVtblType(bool notOpaque) {
+  if (notOpaque && vtbl_type->isOpaque()) {
+    FuncDeclarations vtbl;
+    vtbl.reserve(cd->vtbl.dim);
+    if (!cd->isCPPclass())
+      vtbl.push(nullptr);
+    for (size_t i = cd->vtblOffset(); i < cd->vtbl.dim; ++i) {
+      FuncDeclaration *fd = cd->vtbl[i]->isFuncDeclaration();
+      assert(fd);
+      vtbl.push(fd);
+    }
+    Type* first = cd->isCPPclass() ? nullptr : Type::typeinfoclass->type;
+    vtbl_type->setBody(buildVtblType(first, &vtbl));
+  }
+
+  return vtbl_type;
+}
 
 size_t IrTypeClass::getInterfaceIndex(ClassDeclaration *inter) {
   auto it = interfaceMap.find(inter);

@@ -390,6 +390,7 @@ LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl,
 
   LLValue *funcval = vthis;
   // get the vtbl for objects
+  stripModifiers(inst->type->toBasetype())->ctype->isClass()->getVtblType(true);
   funcval = DtoGEPi(funcval, 0, 0);
   // load vtbl ptr
   funcval = DtoLoad(funcval);

@@ -37,7 +37,7 @@ public:
   llvm::Type *getMemoryLLType();
 
   /// Returns the vtable type for this class.
-  llvm::Type *getVtbl() { return vtbl_type; }
+  llvm::StructType *getVtblType(bool notOpaque);
 
   /// Get index to interface implementation.
   /// Returns the index of a specific interface implementation in this
