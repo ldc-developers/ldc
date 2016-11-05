@@ -390,7 +390,6 @@ LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl,
 
   LLValue *funcval = vthis;
   // get the vtbl for objects
-  stripModifiers(inst->type->toBasetype())->ctype->isClass()->getVtblType(true);
   funcval = DtoGEPi(funcval, 0, 0);
   // load vtbl ptr
   funcval = DtoLoad(funcval);
@@ -398,12 +397,12 @@ LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl,
   std::string vtblname = name;
   vtblname.append("@vtbl");
   funcval = DtoGEPi(funcval, 0, fdecl->vtblIndex, vtblname.c_str());
-  // load funcptr
+  // load opaque pointer
   funcval = DtoAlignedLoad(funcval);
 
   IF_LOG Logger::cout() << "funcval: " << *funcval << '\n';
 
-  // cast to final funcptr type
+  // cast to funcptr type
   funcval = DtoBitCast(funcval, getPtrToType(DtoFunctionType(fdecl)));
 
   // postpone naming until after casting to get the name in call instructions

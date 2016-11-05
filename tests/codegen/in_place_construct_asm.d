@@ -1,6 +1,7 @@
 // Tests in-place construction of structs returned by inline assembly (issue #1823).
 
 // Target Win64 for simplicity (e.g., 4x32-bit struct not returned in memory for non-Windows x64).
+// REQUIRES: target_X86
 // RUN: %ldc -mtriple=x86_64-pc-windows-msvc -c -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 
 import ldc.llvmasm;

@@ -2664,13 +2664,12 @@ public:
       LLValue *val = DtoRVal(ex);
 
       // Get and load vtbl pointer.
-      stripModifiers(t)->ctype->isClass()->getVtblType(true);
       llvm::Value *vtbl = DtoLoad(DtoGEPi(val, 0, 0));
 
       // TypeInfo ptr is first vtbl entry.
       llvm::Value *typinf = DtoGEPi(vtbl, 0, 0);
 
-      Type *resultType = Type::typeinfoclass->type;
+      Type *resultType;
       if (static_cast<TypeClass *>(t)->sym->isInterfaceDeclaration()) {
         // For interfaces, the first entry in the vtbl is actually a pointer
         // to an Interface instance, which has the type info as its first
@@ -2678,6 +2677,9 @@ public:
         resultType = Type::typeinfointerface->type;
         typinf = DtoLoad(
             DtoBitCast(typinf, DtoType(resultType->pointerTo()->pointerTo())));
+      } else {
+        resultType = Type::typeinfoclass->type;
+        typinf = DtoBitCast(typinf, DtoType(resultType->pointerTo()));
       }
 
       result = new DLValue(resultType, typinf);
