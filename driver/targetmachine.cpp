@@ -598,6 +598,8 @@ createTargetMachine(std::string targetTriple, std::string arch, std::string cpu,
   case FloatABI::Soft:
 #if LDC_LLVM_VER < 307
     targetOptions.UseSoftFloat = true;
+#else
+    features.AddFeature("+soft-float");
 #endif
     targetOptions.FloatABIType = llvm::FloatABI::Soft;
     break;
