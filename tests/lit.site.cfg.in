@@ -10,6 +10,7 @@ config.ldc2_bin            = "@LDC2_BIN@"
 config.ldcprofdata_bin     = "@LDCPROFDATA_BIN@"
 config.ldcprunecache_bin   = "@LDCPRUNECACHE_BIN@"
 config.ldc2_bin_dir        = "@LDC2_BIN_DIR@"
+config.ldc2_lib_dir        = "@LDC2_LIB_DIR@"
 config.test_source_root    = "@TESTS_IR_DIR@"
 config.llvm_tools_dir      = "@LLVM_TOOLS_DIR@"
 config.llvm_version        = @LDC_LLVM_VER@
@@ -112,6 +113,11 @@ config.substitutions.append( ('%prunecache', config.ldcprunecache_bin) )
 
 # Add platform-dependent file extension substitutions
 if (platform.system() == 'Windows'):
+    # add LDC lib dir to the path so app will be able to find rtcompile.dll
+    # TODO: Something more robust
+    path = os.path.pathsep.join( (config.ldc2_lib_dir, config.environment['PATH']) )
+    config.environment['PATH'] = path
+
     config.substitutions.append( ('%obj', '.obj') )
     config.substitutions.append( ('%exe', '.exe') )
 else:
