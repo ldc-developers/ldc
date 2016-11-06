@@ -80,8 +80,9 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 
   if (isSpirv) {
 #ifdef LDC_WITH_DCOMPUTE_SPIRV
-    IF_LOG Logger::println("adding createSPIRVWriterPass()");
-    llvm::createSPIRVWriterPass(fout)->runOnModule(m);
+    IF_LOG Logger::println("running createSPIRVWriterPass()");
+    llvm::createSPIRVWriterPass(out)->runOnModule(m);
+    IF_LOG Logger::println("Success.");
 #else
     IF_LOG Logger::println("Trying to target SPIRV, but LDC is not built to do so!");
 #endif
