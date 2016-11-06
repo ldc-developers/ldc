@@ -144,14 +144,8 @@ void insertBitcodeFiles(llvm::Module &M, llvm::LLVMContext &Ctx,
 //////////////////////////////////////////////////////////////////////////////
 
 static void appendObjectFiles(std::vector<std::string> &args) {
-  for (unsigned i = 0; i < global.params.objfiles->dim; i++) {
-    const char *p = static_cast<const char *>(global.params.objfiles->data[i]);
-    llvm::SmallString<24> s(p);
-    if (s.endswith(".spv") || s.endswith(".ptx")) {
-      continue;
-    }
-    args.push_back(p);
-  }
+  for (unsigned i = 0; i < global.params.objfiles->dim; i++)
+    args.push_back((*global.params.objfiles)[i]);
 
   if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
     if (global.params.resfile)
