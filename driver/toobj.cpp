@@ -74,10 +74,6 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
   const bool isSpirv = a == Triple::spir || a == Triple::spir64;
   const bool isNvptx = a == Triple::nvptx || a == Triple::nvptx64;
 
-#if LDC_LLVM_VER < 307
-  llvm::formatted_raw_ostream fout(out);
-#endif
-
   if (isSpirv) {
 #ifdef LDC_WITH_DCOMPUTE_SPIRV
     IF_LOG Logger::println("running createSPIRVWriterPass()");
@@ -110,6 +106,9 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
   Target.addAnalysisPasses(Passes);
 #endif
 
+#if LDC_LLVM_VER < 307
+  llvm::formatted_raw_ostream fout(out);
+#endif
   if (Target.addPassesToEmitFile(Passes,
 #if LDC_LLVM_VER >= 307
                                  out,
