@@ -455,6 +455,11 @@ cl::opt<std::string> usefileInstrProf(
     cl::ValueRequired);
 #endif
 
+cl::opt<bool>
+    instrumentFunctions("finstrument-functions",
+                        cl::desc("Instrument function entry and exit with "
+                                 "GCC-compatible profiling calls"));
+
 static cl::extrahelp footer(
     "\n"
     "-d-debug can also be specified without options, in which case it enables "

@@ -87,6 +87,7 @@ extern cl::opt<unsigned, true> nestedTemplateDepth;
 extern cl::opt<std::string> genfileInstrProf;
 extern cl::opt<std::string> usefileInstrProf;
 #endif
+extern cl::opt<bool> instrumentFunctions;
 
 // Arguments to -d-debug
 extern std::vector<std::string> debugArgs;
