@@ -18,7 +18,7 @@ extern (C++, Logger)
 {
     void indent();
     void undent();
-    private void printIndentation();
+    void printIndentation();
 }
 
 struct Log
