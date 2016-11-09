@@ -722,8 +722,8 @@ void codegenModule(IRState *irs, Module *m) {
   }
 
   // Skip emission of all the additional module metadata if requested by the
-  // user.
-  if (!m->noModuleInfo) {
+  // user or the betterC switch is on.
+  if (!global.params.betterC && !m->noModuleInfo) {
     // generate ModuleInfo
     registerModuleInfo(m);
   }
