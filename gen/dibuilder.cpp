@@ -722,9 +722,9 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type, bool derefclass) {
 ////////////////////////////////////////////////////////////////////////////////
 
 #if LDC_LLVM_VER >= 309
-typedef llvm::DICompileUnit::DebugEmissionKind DebugEmissionKind;
+using DebugEmissionKind = llvm::DICompileUnit::DebugEmissionKind;
 #else
-typedef llvm::DIBuilder::DebugEmissionKind DebugEmissionKind;
+using DebugEmissionKind = llvm::DIBuilder::DebugEmissionKind;
 #endif
 
 DebugEmissionKind getDebugEmissionKind()
