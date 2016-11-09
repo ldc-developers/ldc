@@ -105,8 +105,9 @@ struct CachePruner
             return;
 
         // Only delete files that match LDC's cache file naming.
-        // E.g.            "ircache_00a13b6f918d18f9f9de499fc661ec0d.o"
-        auto filePattern = "ircache_????????????????????????????????.{o,obj}";
+        // E.g. "ircache_00a13b6f918d18f9f9de499fc661ec0d.o"
+        // or "manifest_ddfe50accab6f86e033384c429f1be99"
+        auto filePattern = "{ircache,manifest}_????????????????????????????????{,.o,.obj}";
         auto cacheFiles = dirEntries(cachePath, filePattern, SpanMode.shallow, /+ followSymlink +/ false);
 
         // Files that have not yet expired, may still be removed during pruning for size later.

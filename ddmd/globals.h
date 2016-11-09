@@ -219,6 +219,12 @@ struct Param
     uint32_t dwarfVersion;
 
     uint32_t hashThreshold; // MD5 hash symbols larger than this threshold (0 = no hashing)
+
+    const char *useCompileCache;
+    const char *compileHash;
+
+    const char *dateUsedByLexer; // null when Lexer did not use the date.
+    const char *timeUsedByLexer; // null when Lexer did not use the time.
 #endif
 };
 

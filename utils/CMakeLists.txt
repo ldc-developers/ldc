@@ -51,3 +51,40 @@ set_target_properties(
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
 target_link_libraries(not  ${LLVM_LIBRARIES} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
+
+
+#############################################################################
+function(build_d_util output_exe compiler_args linker_args compile_deps link_deps)
+    set(lflags "")
+    foreach(f ${linker_args})
+        append("-L\"${f}\"" lflags)
+    endforeach()
+    add_custom_command(
+        OUTPUT ${output_exe}
+        COMMAND ${D_COMPILER} ${lflags} -release -O -of${output_exe} ${compiler_args} ${linker_args}
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        DEPENDS ${compile_deps} ${link_deps}
+    )
+endfunction()
+
+# Build `copyfile` for testing
+set(COPYFILE_EXE ${PROJECT_BINARY_DIR}/bin/copyfile${CMAKE_EXECUTABLE_SUFFIX})
+add_custom_target(copyfile ALL DEPENDS ${COPYFILE_EXE})
+build_d_util(
+    ${COPYFILE_EXE}
+    "${PROJECT_SOURCE_DIR}/utils/copyfile.d"
+    ""
+    ${PROJECT_SOURCE_DIR}/utils/copyfile.d
+    ""
+)
+
+# Build `removefile` for testing
+set(REMOVEFILE_EXE ${PROJECT_BINARY_DIR}/bin/removefile${CMAKE_EXECUTABLE_SUFFIX})
+add_custom_target(removefile ALL DEPENDS ${REMOVEFILE_EXE})
+build_d_util(
+    ${REMOVEFILE_EXE}
+    "${PROJECT_SOURCE_DIR}/utils/removefile.d"
+    ""
+    ${PROJECT_SOURCE_DIR}/utils/removefile.d
+    ""
+)

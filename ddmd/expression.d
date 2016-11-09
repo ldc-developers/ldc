@@ -8090,6 +8090,14 @@ public:
                 f._ref = 1;
                 se = new StringExp(loc, f.buffer, f.len);
             }
+
+            // Add to global array of all text import files
+            Module.allTextImports.push(name);
+            if (global.params.useCompileCache)
+            {
+                // Calculate hash of the file
+                Module.allTextImportsHash.push(f.hashToChars());
+            }
         }
         return se.semantic(sc);
     Lerror:

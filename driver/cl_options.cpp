@@ -208,6 +208,11 @@ cl::opt<std::string>
                                "store cache files (experimental)"),
              cl::value_desc("cache dir"));
 
+cl::opt<bool>
+    cacheSourceFiles("cache-sourcefiles",
+                     cl::desc("Enable compile caching based on source file "
+                              "input, similar to ccache (experimental)"));
+
 static StringsAdapter strImpPathStore("J", global.params.fileImppath);
 static cl::list<std::string, StringsAdapter>
     stringImportPaths("J", cl::desc("Where to look for string imports"),

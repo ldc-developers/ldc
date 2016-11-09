@@ -264,6 +264,8 @@ public:
     extern (C++) static __gshared Module rootModule;
     extern (C++) static __gshared DsymbolTable modules; // symbol table of all modules
     extern (C++) static __gshared Modules amodules;     // array of all modules
+    extern (C++) static __gshared Strings allTextImports;  // array of all text import files
+    extern (C++) static __gshared Strings allTextImportsHash; // array of the hashes of all text import files
     extern (C++) static __gshared Dsymbols deferred;    // deferred Dsymbol's needing semantic() run on them
     extern (C++) static __gshared Dsymbols deferred3;   // deferred Dsymbol's needing semantic3() run on them
     extern (C++) static __gshared uint dprogress;       // progress resolving the deferred list
@@ -448,6 +450,8 @@ else
             m.srcfile = new File(result);
         if (!m.read(loc))
             return null;
+        if (global.params.useCompileCache)
+            m.srcfile.calculateHash();
         if (global.params.verbose)
         {
             fprintf(global.stdmsg, "import    ");

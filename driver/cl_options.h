@@ -60,6 +60,7 @@ extern cl::list<std::string> versions;
 extern cl::list<std::string> transitions;
 extern cl::opt<std::string> moduleDeps;
 extern cl::opt<std::string> cacheDir;
+extern cl::opt<bool> cacheSourceFiles;
 
 extern cl::opt<std::string> mArch;
 extern cl::opt<bool> m32bits;

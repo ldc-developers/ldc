@@ -20,6 +20,9 @@ version (Windows) extern (Windows) DWORD GetFullPathNameA(LPCSTR lpFileName, DWO
 alias Strings = Array!(const(char)*);
 alias Files = Array!(File*);
 
+// List of paths/files that did not exist during compilation (this is "input" to the compilation, and needed for source caching)
+__gshared string[] nonExistantPaths;
+
 /***********************************************************
  */
 struct FileName
@@ -542,6 +545,14 @@ struct FileName
     }
 
     extern (C++) static int exists(const(char)* name)
+    {
+        auto ret = existsImpl(name);
+        if (!ret)
+            nonExistantPaths ~= name[0..strlen(name)].dup;
+        return ret;
+    }
+
+    private static int existsImpl(const(char)* name)
     {
         version (Posix)
         {
