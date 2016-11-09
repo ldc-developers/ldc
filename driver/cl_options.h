@@ -96,5 +96,20 @@ extern std::vector<std::string> debugArgs;
 #if LDC_LLVM_VER >= 307
 void CreateColorOption();
 #endif
+
+#if LDC_LLVM_VER >= 309
+// LTO options
+enum LTOKind {
+  LTO_None,
+  LTO_Full,
+  LTO_Thin,
+};
+extern cl::opt<LTOKind> ltoMode;
+inline bool isUsingLTO() { return ltoMode != LTO_None; }
+inline bool isUsingThinLTO() { return ltoMode == LTO_Thin; }
+#else
+inline bool isUsingLTO() { return false; }
+inline bool isUsingThinLTO() { return false; }
+#endif
 }
 #endif

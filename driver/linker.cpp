@@ -14,6 +14,7 @@
 #include "driver/cl_options.h"
 #include "driver/exe_path.h"
 #include "driver/tool.h"
+#include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"
@@ -26,11 +27,15 @@
 #include "llvm/Support/Program.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/SourceMgr.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
 #if _WIN32
 #include "llvm/Support/SystemUtils.h"
 #include "llvm/Support/ConvertUTF.h"
 #include <Windows.h>
 #endif
+
+#include <algorithm>
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -45,6 +50,12 @@ static llvm::cl::opt<bool> createStaticLibInObjdir(
     "create-static-lib-in-objdir",
     llvm::cl::desc("Create static library in -od directory (DMD-compliant)"),
     llvm::cl::ZeroOrMore, llvm::cl::ReallyHidden);
+
+static llvm::cl::opt<std::string> ltoLibrary(
+    "flto-binary",
+    llvm::cl::desc(
+        "Set the path for LLVMgold.so (Unixes) or libLTO.dylib (Darwin)"),
+    llvm::cl::value_desc("file"));
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -98,6 +109,108 @@ static std::string getOutputName(bool const sharedLib) {
 
   return result;
 }
+
+//////////////////////////////////////////////////////////////////////////////
+// LTO functionality
+
+namespace {
+
+void addLinkerFlag(std::vector<std::string> &args, const llvm::Twine &flag) {
+  args.push_back("-Xlinker");
+  args.push_back(flag.str());
+}
+
+std::string getLTOGoldPluginPath() {
+  if (!ltoLibrary.empty()) {
+    if (llvm::sys::fs::exists(ltoLibrary))
+      return ltoLibrary;
+
+    error(Loc(), "-flto-binary: file '%s' not found", ltoLibrary.c_str());
+    fatal();
+  } else {
+    std::string searchPaths[] = {
+        exe_path::prependLibDir("LLVMgold.so"), "/usr/local/lib/LLVMgold.so",
+        "/usr/lib/bfd-plugins/LLVMgold.so",
+    };
+
+    // Try all searchPaths and early return upon the first path found.
+    for (auto p : searchPaths) {
+      if (llvm::sys::fs::exists(p))
+        return p;
+    }
+
+    error(Loc(), "The LLVMgold.so plugin (needed for LTO) was not found. You "
+                 "can specify its path with -flto-binary=<file>.");
+    fatal();
+  }
+}
+
+void addLTOGoldPluginFlags(std::vector<std::string> &args) {
+  addLinkerFlag(args, "-plugin");
+  addLinkerFlag(args, getLTOGoldPluginPath());
+
+  if (opts::isUsingThinLTO())
+    addLinkerFlag(args, "-plugin-opt=thinlto");
+
+  if (!opts::mCPU.empty())
+    addLinkerFlag(args, llvm::Twine("-plugin-opt=mcpu=") + opts::mCPU);
+
+  // Use the O-level passed to LDC as the O-level for LTO, but restrict it to
+  // the [0, 3] range that can be passed to the linker plugin.
+  static char optChars[15] = "-plugin-opt=O0";
+  optChars[13] = '0' + std::min<char>(optLevel(), 3);
+  addLinkerFlag(args, optChars);
+
+#if LDC_LLVM_VER >= 400
+  const llvm::TargetOptions &TO = gTargetMachine->Options;
+  if (TO.FunctionSections)
+    addLinkerFlag(args, "-plugin-opt=-function-sections");
+  if (TO.DataSections)
+    addLinkerFlag(args, "-plugin-opt=-data-sections");
+#endif
+}
+
+// Returns an empty string when libLTO.dylib was not specified nor found.
+std::string getLTOdylibPath() {
+  if (!ltoLibrary.empty()) {
+    if (llvm::sys::fs::exists(ltoLibrary))
+      return ltoLibrary;
+
+    error(Loc(), "-flto-binary: '%s' not found", ltoLibrary.c_str());
+    fatal();
+  } else {
+    std::string searchPath = exe_path::prependLibDir("libLTO.dylib");
+    if (llvm::sys::fs::exists(searchPath))
+      return searchPath;
+
+    return "";
+  }
+}
+
+void addDarwinLTOFlags(std::vector<std::string> &args) {
+  std::string dylibPath = getLTOdylibPath();
+  if (!dylibPath.empty()) {
+      args.push_back("-lto_library");
+      args.push_back(std::move(dylibPath));
+  }
+}
+
+/// Adds the required linker flags for LTO builds to args.
+void addLTOLinkFlags(std::vector<std::string> &args) {
+#if LDC_LLVM_VER >= 309
+  if (global.params.targetTriple->isOSLinux() ||
+      global.params.targetTriple->isOSFreeBSD() ||
+      global.params.targetTriple->isOSNetBSD() ||
+      global.params.targetTriple->isOSOpenBSD() ||
+      global.params.targetTriple->isOSDragonFly()) {
+    // Assume that ld.gold or ld.bfd is used with plugin support.
+    addLTOGoldPluginFlags(args);
+  } else if (global.params.targetTriple->isOSDarwin()) {
+    addDarwinLTOFlags(args);
+  }
+#endif
+}
+} // anonymous namespace
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -222,6 +335,11 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
   if (opts::sanitize == opts::ThreadSanitizer) {
     args.push_back("-fsanitize=thread");
   }
+
+  // Add LTO link flags before adding the user link switches, such that the user
+  // can pass additional options to the LTO plugin.
+  if (opts::isUsingLTO())
+    addLTOLinkFlags(args);
 
   // additional linker switches
   for (unsigned i = 0; i < global.params.linkswitches->dim; i++) {
