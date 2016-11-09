@@ -159,6 +159,7 @@ Usage:\n\
   files.d        D source files\n\
   @cmdfile       read arguments from cmdfile\n\
   -allinst       generate code for all template instantiations\n\
+  -betterC       omit generating some runtime information and helper functions\n\
   -c             do not link\n\
   -color[=on|off]   force colored console output on or off\n\
   -conf=path     use config file at path\n\

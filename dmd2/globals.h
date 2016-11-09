@@ -128,6 +128,7 @@ struct Param
     bool addMain; // LDC_FIXME: Implement.
     bool allInst; // LDC_FIXME: Implement.
     unsigned nestedTmpl; // maximum nested template instantiations
+    bool betterC;       // be a "better C" compiler; no dependency on D runtime
 #else
     bool pic;           // generate position-independent-code for shared libs
     bool color;         // use ANSI colors in console output
@@ -136,7 +137,6 @@ struct Param
     bool nofloat;       // code should not pull in floating point support
     bool ignoreUnsupportedPragmas;      // rather than error on them
     bool enforcePropertySyntax;
-    bool betterC;       // be a "better C" compiler; no dependency on D runtime
     bool addMain;       // add a default main() function
     bool allInst;       // generate code for all template instantiations
 #endif

@@ -408,6 +408,11 @@ cl::opt<bool, true>
              cl::desc("implement http://wiki.dlang.org/DIP25 (experimental)"),
              cl::location(global.params.useDIP25));
 
+cl::opt<bool, true> betterC(
+    "betterC",
+    cl::desc("omit generating some runtime information and helper functions"),
+    cl::location(global.params.betterC));
+
 cl::opt<unsigned char, true, CoverageParser> coverageAnalysis(
     "cov", cl::desc("Compile-in code coverage analysis\n(use -cov=n for n% "
                     "minimum required coverage)"),
