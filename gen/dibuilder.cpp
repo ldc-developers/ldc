@@ -777,7 +777,6 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
   IR->module.addModuleFlag(llvm::Module::Warning, "Debug Info Version",
                            llvm::DEBUG_METADATA_VERSION);
 
-
   CUNode = DBuilder.createCompileUnit(
       global.params.symdebug == 2 ? llvm::dwarf::DW_LANG_C
                                   : llvm::dwarf::DW_LANG_D,
@@ -792,7 +791,7 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
       , 0                      // DWOId
 #endif
 #if LDC_LLVM_VER < 309
-      , global.params.symdebug != 3  // EmitDebugInfo
+      , mustEmitFullDebugInfo()  // EmitDebugInfo
 #endif
   );
 }
