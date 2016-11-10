@@ -1235,7 +1235,7 @@ void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
 }
 
 void ldc::DIBuilder::Finalize() {
-  if (!mustEmitFullDebugInfo() && !mustEmitLocationsDebugInfo())
+  if (!mustEmitLocationsDebugInfo())
     return;
 
   DBuilder.finalize();
