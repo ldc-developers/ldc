@@ -919,9 +919,9 @@ ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function *Fn,
   auto paramsArray = DBuilder.getOrCreateArray(params);
 #endif
 #if LDC_LLVM_VER >= 308
-   ldc::DISubroutineType DIFnType = DBuilder.createSubroutineType(paramsArray);
+  auto DIFnType = DBuilder.createSubroutineType(paramsArray);
 #else
-   ldc::DISubroutineType DIFnType = DBuilder.createSubroutineType(file, paramsArray);
+  auto DIFnType = DBuilder.createSubroutineType(file, paramsArray);
 #endif
 
   // FIXME: duplicates?
