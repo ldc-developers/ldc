@@ -13,6 +13,10 @@ int main() {
 
 // CHECK: !llvm.dbg.cu = !{
 // CHECK: !DICompileUnit(
-// CHECK: !DISubprogram(
 // CHECK: !DIFile(
-// CHECK-NOT: DW_AT
+// CHECK: !DISubprogram(
+// CHECK-NOT: !DIBasicType(
+// CHECK: !DILocation
+// CHECK-NOT: !DILocalVariable(
+// CHECK-NOT: !DIDerivedType(
+// CHECK-NOT: !DIBasicType(
