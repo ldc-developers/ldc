@@ -14,12 +14,10 @@
 #ifndef LDC_DRIVER_TOOBJ_H
 #define LDC_DRIVER_TOOBJ_H
 
-#include <string>
-
 namespace llvm {
 class Module;
 }
 
-void writeModule(llvm::Module *m, std::string filename);
+void writeModule(llvm::Module *m, const char *filename);
 
 #endif
