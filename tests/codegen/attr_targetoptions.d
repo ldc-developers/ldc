@@ -13,7 +13,6 @@ void foo()
 
 // DEFAULT: attributes #[[KEYVALUE]]
 // DEFAULT-DAG: "target-cpu"=
-// DEFAULT-DAG: "use-soft-float"="{{(true|false)}}"
 // DEFAULT-DAG: "no-frame-pointer-elim"="false"
 // DEFAULT-DAG: "unsafe-fp-math"="false"
 // DEFAULT-DAG: "less-precise-fpmad"="false"
