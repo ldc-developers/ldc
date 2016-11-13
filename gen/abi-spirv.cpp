@@ -9,6 +9,7 @@
 
 #include "gen/abi.h"
 #include "gen/uda.h"
+#include "ddmd/declaration.h"
 
 struct SPIRVTargetABI : TargetABI {
   llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l,

@@ -9,6 +9,7 @@
 
 #include "gen/abi.h"
 #include "gen/uda.h"
+#include "ddmd/declaration.h"
 
 struct NVPTXTargetABI : TargetABI {
   llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l,
