@@ -28,7 +28,11 @@
 #include "mtype.h"
 #include "root.h"
 #include "tokens.h"
+#if LDC_LLVM_VER >= 400
+#include "llvm/Bitcode/BitcodeWriter.h"
+#else
 #include "llvm/Bitcode/ReaderWriter.h"
+#endif
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"

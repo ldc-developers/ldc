@@ -22,7 +22,11 @@
 #if LDC_LLVM_VER >= 309
 #include "llvm/Analysis/ModuleSummaryAnalysis.h"
 #endif
+#if LDC_LLVM_VER >= 400
+#include "llvm/Bitcode/BitcodeWriter.h"
+#else
 #include "llvm/Bitcode/ReaderWriter.h"
+#endif
 #if LDC_LLVM_VER >= 307
 #include "llvm/IR/LegacyPassManager.h"
 #else
