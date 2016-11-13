@@ -344,6 +344,12 @@ static void addOptimizationPasses(PassManagerBase &mpm,
 // This function runs optimization passes based on command line arguments.
 // Returns true if any optimization passes were invoked.
 bool ldc_optimize_module(llvm::Module *M) {
+  // Dont optimise spirv modules as turning GEPs into extracts triggers asserts
+  // in the IR -> SPIR-V translation pass
+  llvm::Triple::ArchType a = llvm::Triple(M->getTargetTriple()).getArch();
+  if (a == Triple::spir || a == Triple::spir64)
+    return false;
+
 // Create a PassManager to hold and optimize the collection of
 // per-module passes we are about to build.
 #if LDC_LLVM_VER >= 307
