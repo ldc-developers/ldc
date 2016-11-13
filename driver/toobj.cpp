@@ -70,18 +70,15 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
   legacy::
 #endif
       PassManager Passes;
-  llvm::Triple::ArchType a = llvm::Triple(m.getTargetTriple()).getArch();
-  const bool isSpirv = a == Triple::spir || a == Triple::spir64;
-  const bool isNvptx = a == Triple::nvptx || a == Triple::nvptx64;
+  ComputeBackend::Type cb = getComputeTargetType(&m);
 
-  if (isSpirv) {
+  if (cb == ComputeBackend::SPIRV) {
 #ifdef LDC_WITH_DCOMPUTE_SPIRV
     IF_LOG Logger::println("running createSPIRVWriterPass()");
     llvm::createSPIRVWriterPass(out)->runOnModule(m);
     IF_LOG Logger::println("Success.");
 #else
-    IF_LOG Logger::println(
-        "Trying to target SPIRV, but LDC is not built to do so!");
+    error(Loc(), "Trying to target SPIRV, but LDC is not built to do so!");
 #endif
     return;
   }
@@ -110,15 +107,17 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 #if LDC_LLVM_VER < 307
   llvm::formatted_raw_ostream fout(out);
 #endif
-  if (Target.addPassesToEmitFile(Passes,
+  if (Target.addPassesToEmitFile(
+          Passes,
 #if LDC_LLVM_VER >= 307
-                                 out,
+          out,
 #else
-                                 fout,
+          fout,
 #endif
-          // Always generate assembly for ptx as it is as assembly format
+          // Always generate assembly for ptx as it is an assembly format
           // The PTX backend fails if we pass anything esle.
-          isNvptx ? llvm::TargetMachine::CGFT_AssemblyFile : fileType,
+          (cb == ComputeBackend::NVPTX) ? llvm::TargetMachine::CGFT_AssemblyFile
+                                        : fileType,
           codeGenOptLevel())) {
     llvm_unreachable("no support for asm output");
   }
