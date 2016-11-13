@@ -21,6 +21,8 @@ void testNested() {
 // CHECK: @.immutablearray{{.*}} = internal constant [2 x double]
 // CHECK: @.immutablearray{{.*}} = internal constant [2 x { i{{32|64}}, i8* }]
 // CHECK: @.immutablearray{{.*}} = internal constant [1 x %const_struct.S2]
+// CHECK: @.immutablearray{{.*}} = internal constant [2 x i32*] {{.*}}globVar
+// CHECK: @.immutablearray{{.*}} = internal constant [2 x void ()*] {{.*}}Dmain
 
 void main () {
     // Simple types
@@ -35,6 +37,16 @@ void main () {
     // CHECK: %.gc_mem = call { i{{32|64}}, i8* } @_d_newarrayU
     // CHECK-SAME: @_D29TypeInfo_yAS12const_struct2C06__initZ
     immutable C0[] aF = [ { new int(42) }, { new int(24) } ];
+
+    // Pointer types
+    static immutable int globVar;
+    immutable auto globalVariables = [ &globVar, &globVar ];
+    immutable auto functionPointers = [ &main, &main ];
+    // Pointer arrays with non-const initializer
+    immutable int localVar;
+    immutable auto locA = [ &localVar, &localVar ];
+    // CHECK: %.gc_mem{{.*}} = call { i{{32|64}}, i8* } @_d_newarrayU
+    // CHECK-SAME: @_D13TypeInfo_yAPi6__initZ
 
     testNested();
 }
