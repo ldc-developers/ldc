@@ -16,12 +16,25 @@ void testNested() {
   assert(x == 3);
 }
 
-// CHECK: @.immutablearray = internal constant [1 x %const_struct.S2] [%const_struct.S2 { [3 x %const_struct.S1] [%const_struct.S1 { %const_struct.S0 { i32 42 } }, %const_struct.S1 { %const_struct.S0 { i32 43 } }, %const_struct.S1 { %const_struct.S0 { i32 44 } }] }] ;
+// CHECK: @.immutablearray{{.*}} = internal constant [4 x i32]
+// CHECK: @.immutablearray{{.*}} = internal constant [2 x float]
+// CHECK: @.immutablearray{{.*}} = internal constant [2 x double]
+// CHECK: @.immutablearray{{.*}} = internal constant [2 x { i{{32|64}}, i8* }]
+// CHECK: @.immutablearray{{.*}} = internal constant [1 x %const_struct.S2]
+
 void main () {
-    // CHECK: store %const_struct.S2* getelementptr inbounds ({{.*}}[1 x %const_struct.S2]* @.immutablearray, i32 0, i32 0), %const_struct.S2** %2
-    immutable S2[] xyz = [ { [ { { 42 } }, { { 43 } }, { { 44 } } ] } ];
-    // CHECK: %.gc_mem = call {{{.*}}} @_d_newarrayU(%object.TypeInfo* bitcast (%"typeid(immutable(C0[]))"* @{{.*}} to %object.TypeInfo*), i{{32|64}} 3)
-    immutable C0[] zyx = [ { new int(42) }, { null }, { null } ];
+    // Simple types
+    immutable int[] aA     = [ 1, 2, 3, 4 ];
+    immutable float[] aB   = [ 3.14, 3.33 ];
+    immutable double[] aC  = [ 3.14, 3.33 ];
+    immutable string[] aD  = [ "one", "two" ];
+
+    // Complex type
+    immutable S2[] aE = [ { [ { { 42 } }, { { 43 } }, { { 44 } } ] } ];
+    // Complex type with non-constant initializer
+    // CHECK: %.gc_mem = call { i{{32|64}}, i8* } @_d_newarrayU
+    // CHECK-SAME: @_D29TypeInfo_yAS12const_struct2C06__initZ
+    immutable C0[] aF = [ { new int(42) }, { new int(24) } ];
 
     testNested();
 }
