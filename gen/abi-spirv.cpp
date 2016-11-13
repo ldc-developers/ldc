@@ -21,8 +21,10 @@ struct SPIRVTargetABI : TargetABI {
   }
   // Since SPIR-V is an intermediate format and is subject to no optimisations
   // inside llvm, but are subject to further optimisations post-translation
-  // don't do anything.
-  bool passByVal(Type *t) override { return false; }
+  // don't bother doing anything too fancy.
+  bool passByVal(Type *t) override {
+    return t->size() <= 16; //enough for a float4
+  }
   void rewriteFunctionType(TypeFunction *t, IrFuncTy &fty) override {
     // Do nothing.
   }

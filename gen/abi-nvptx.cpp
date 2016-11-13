@@ -19,7 +19,9 @@ struct NVPTXTargetABI : TargetABI {
     else
       return llvm::CallingConv::PTX_Device;
   }
-  bool passByVal(Type *t) override { return false; }
+  bool passByVal(Type *t) override {
+    return t->size() <= 16; //enough for a float4
+  }
   void rewriteFunctionType(TypeFunction *t, IrFuncTy &fty) override {
     // Do nothing.
   }
