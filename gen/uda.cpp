@@ -88,6 +88,28 @@ void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
   }
 }
 
+/// Returns the StructLiteralExp magic attribute with name `name` if it is
+/// applied to `sym`, otherwise returns nullptr.
+StructLiteralExp *getMagicAttribute(Dsymbol *sym, std::string name) {
+  if (!sym->userAttribDecl)
+    return nullptr;
+
+  // Loop over all UDAs and early return the expression if a match was found.
+  Expressions *attrs = sym->userAttribDecl->getAttributes();
+  expandTuples(attrs);
+  for (auto &attr : *attrs) {
+    auto sle = getLdcAttributesStruct(attr);
+    if (!sle)
+      continue;
+
+    if (name == sle->sd->ident->string) {
+      return sle;
+    }
+  }
+
+  return nullptr;
+}
+
 /// Returns a null-terminated string
 const char *getStringElem(StructLiteralExp *sle, size_t idx) {
   auto arg = (*sle->elements)[idx];
@@ -266,8 +288,7 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
                  "modules");
     } else {
       sle->warning(
-          "Ignoring unrecognized special attribute 'ldc.attributes.%s'",
-          sle->sd->ident->string);
+          "Ignoring unrecognized special attribute 'ldc.attributes.%s'", name);
     }
   }
 }
@@ -304,49 +325,28 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
                  "modules");
     } else {
       sle->warning(
-          "ignoring unrecognized special attribute 'ldc.attributes.%s'",
-          sle->sd->ident->string);
+          "Ignoring unrecognized special attribute 'ldc.attributes.%s'", name);
     }
   }
 }
 
-StructLiteralExp *namedAttr(Dsymbol *sym, std::string name) {
-  if (!sym->userAttribDecl)
-    return nullptr;
-
-  // Loop over all UDAs and early return the expression if a match was found.
-  Expressions *attrs = sym->userAttribDecl->getAttributes();
-  expandTuples(attrs);
-  for (auto &attr : *attrs) {
-    auto sle = getLdcAttributesStruct(attr);
-    if (!sle)
-      continue;
-
-    if (name == sle->sd->ident->string) {
-      return sle;
-    }
-  }
-
-  return nullptr;
-}
 /// Checks whether 'sym' has the @ldc.attributes._weak() UDA applied.
 bool hasWeakUDA(Dsymbol *sym) {
-  // Because hasWeakUDA is currently only called for global symbols, this
-  auto sle = namedAttr(sym, attr::weak);
+  auto sle = getMagicAttribute(sym, attr::weak);
   if (!sle)
     return false;
 
   checkStructElems(sle, {});
   auto vd = sym->isVarDeclaration();
   if (!(vd && vd->isDataseg()) && !sym->isFuncDeclaration())
-    sym->error("@ldc.attributes.weak can only be applied to functions or"
+    sym->error("@ldc.attributes.weak can only be applied to functions or "
                "global variables");
   return true;
 }
 
 /// Checks whether 'sym' has the @ldc.attributes._kernel() UDA applied.
 bool hasKernelAttr(Dsymbol *sym) {
-  auto sle = namedAttr(sym, attr::kernel);
+  auto sle = getMagicAttribute(sym, attr::kernel);
   if (!sle)
     return false;
 
@@ -366,7 +366,7 @@ bool hasKernelAttr(Dsymbol *sym) {
 ///     and for host.
 int hasComputeAttr(Dsymbol *sym) {
 
-  auto sle = namedAttr(sym, attr::compute);
+  auto sle = getMagicAttribute(sym, attr::compute);
   if (!sle)
     return 0;
 

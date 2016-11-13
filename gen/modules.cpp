@@ -484,26 +484,6 @@ void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
   llvm::appendToGlobalDtors(gIR->module, dsoDtor, 65535);
 }
 
-void build_llvm_used_array(IRState *p) {
-  if (p->usedArray.empty()) {
-    return;
-  }
-
-  std::vector<llvm::Constant *> usedVoidPtrs;
-  usedVoidPtrs.reserve(p->usedArray.size());
-
-  for (auto constant : p->usedArray) {
-    usedVoidPtrs.push_back(DtoBitCast(constant, getVoidPtrType()));
-  }
-
-  llvm::ArrayType *arrayType =
-      llvm::ArrayType::get(getVoidPtrType(), usedVoidPtrs.size());
-  auto llvmUsed = new llvm::GlobalVariable(
-      p->module, arrayType, false, llvm::GlobalValue::AppendingLinkage,
-      llvm::ConstantArray::get(arrayType, usedVoidPtrs), "llvm.used");
-  llvmUsed->setSection("llvm.metadata");
-}
-
 // Add module-private variables and functions for coverage analysis.
 void addCoverageAnalysis(Module *m) {
   IF_LOG {
@@ -746,8 +726,6 @@ void codegenModule(IRState *irs, Module *m) {
   if (!m->noModuleInfo) {
     // generate ModuleInfo
     registerModuleInfo(m);
-
-    build_llvm_used_array(irs);
   }
 
   if (m->d_cover_valid) {

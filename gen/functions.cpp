@@ -962,6 +962,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // debug info - after all allocas, but before any llvm.dbg.declare etc
   gIR->DBuilder.EmitFuncStart(fd);
 
+  emitInstrumentationFnEnter(fd);
+
   // this hack makes sure the frame pointer elimination optimization is
   // disabled.
   // this this eliminates a bunch of inline asm related issues.
@@ -1076,6 +1078,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   } else if (!gIR->scopereturned()) {
     // llvm requires all basic blocks to end with a TerminatorInst but DMD does
     // not put a return statement in automatically, so we do it here.
+
+    emitInstrumentationFnLeave(fd);
 
     // pass the previous block into this block
     gIR->DBuilder.EmitStopPoint(fd->endloc);

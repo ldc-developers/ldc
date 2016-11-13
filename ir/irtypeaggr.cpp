@@ -43,7 +43,7 @@ bool var_offset_sort_cb(const VarDeclaration *v1, const VarDeclaration *v2) {
 }
 
 AggrTypeBuilder::AggrTypeBuilder(bool packed, unsigned offset)
-    : m_packed(packed), m_offset(offset) {
+    : m_offset(offset), m_packed(packed) {
   m_defaultTypes.reserve(32);
 }
 

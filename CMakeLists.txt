@@ -718,6 +718,19 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     install(DIRECTORY bash_completion.d/ DESTINATION ${BASH_COMPLETION_COMPLETIONSDIR})
 endif()
 
+# Also install LLVM's LTO binary if available
+if(APPLE)
+    set(LLVM_LTO_BINARY ${LLVM_LIBRARY_DIRS}/libLTO.dylib)
+elseif(UNIX)
+    set(LLVM_LTO_BINARY ${LLVM_LIBRARY_DIRS}/LLVMgold.so)
+endif()
+if(EXISTS ${LLVM_LTO_BINARY})
+    message(STATUS "Also installing LTO binary: ${LLVM_LTO_BINARY}")
+    install(PROGRAMS ${LLVM_LTO_BINARY} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+    file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+    configure_file(${LLVM_LTO_BINARY} ${PROJECT_BINARY_DIR}/lib COPYONLY)
+endif()
+
 #
 # Packaging
 #

@@ -117,7 +117,8 @@ static cl::opt<bool, true> ignoreUnsupportedPragmas(
 static cl::opt<ubyte, true> debugInfo(
     cl::desc("Generating debug information:"), cl::ZeroOrMore,
     clEnumValues(clEnumValN(1, "g", "Generate debug information"),
-                 clEnumValN(2, "gc", "Same as -g, but pretend to be C")),
+                 clEnumValN(2, "gc", "Same as -g, but pretend to be C"),
+                 clEnumValN(3, "gline-tables-only", "Generate line-tables-only")),
     cl::location(global.params.symdebug), cl::init(0));
 
 static cl::opt<unsigned, true>
@@ -453,6 +454,21 @@ cl::opt<std::string> usefileInstrProf(
     "fprofile-instr-use", cl::value_desc("filename"),
     cl::desc("Use instrumentation data for profile-guided optimization"),
     cl::ValueRequired);
+#endif
+
+cl::opt<bool>
+    instrumentFunctions("finstrument-functions",
+                        cl::desc("Instrument function entry and exit with "
+                                 "GCC-compatible profiling calls"));
+
+#if LDC_LLVM_VER >= 309
+cl::opt<LTOKind> ltoMode(
+    "flto", cl::desc("Set LTO mode, requires linker support"),
+    cl::init(LTO_None),
+    clEnumValues(
+        clEnumValN(LTO_Full, "full", "Merges all input into a single module"),
+        clEnumValN(LTO_Thin, "thin",
+                   "Parallel importing and codegen (faster than 'full')")));
 #endif
 
 static cl::extrahelp footer(

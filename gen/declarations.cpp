@@ -382,7 +382,7 @@ public:
       // artificial "use" for it, or it could be removed by the optimizer if
       // the only reference to it is in inline asm.
       if (irGlobal->nakedUse) {
-        irs->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
+        irs->usedArray.push_back(gvar);
       }
 
       IF_LOG Logger::cout() << *gvar << '\n';

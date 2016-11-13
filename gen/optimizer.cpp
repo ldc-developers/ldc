@@ -125,7 +125,7 @@ static cl::opt<bool>
                             cl::desc("Disable the slp vectorization pass"),
                             cl::init(false));
 
-static unsigned optLevel() {
+unsigned optLevel() {
   // Use -O2 as a base for the size-optimization levels.
   return optimizeLevel >= 0 ? optimizeLevel : 2;
 }
