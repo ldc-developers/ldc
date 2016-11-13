@@ -688,15 +688,9 @@ static int linkObjToBinaryMSVC(bool sharedLib) {
   args.push_back("/NOLOGO");
 
   // specify that the image will contain a table of safe exception handlers
-  // (32bit only)
+  // and can handle addresses >2GB (32bit only)
   if (!global.params.is64bit) {
     args.push_back("/SAFESEH");
-  }
-
-  // because of a LLVM bug, see LDC issue 442
-  if (global.params.symdebug) {
-    args.push_back("/LARGEADDRESSAWARE:NO");
-  } else {
     args.push_back("/LARGEADDRESSAWARE");
   }
 
