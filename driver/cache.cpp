@@ -36,7 +36,11 @@
 #include "gen/logger.h"
 #include "gen/optimizer.h"
 
+#if LDC_LLVM_VER >= 400
+#include "llvm/Bitcode/BitcodeWriter.h"
+#else
 #include "llvm/Bitcode/ReaderWriter.h"
+#endif
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/Path.h"
