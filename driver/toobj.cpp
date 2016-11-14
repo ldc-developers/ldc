@@ -39,6 +39,9 @@
 #if LDC_LLVM_VER >= 307
 #include "llvm/Support/Path.h"
 #endif
+#if LDC_WITH_COMPUTE_SPIRV
+#include "llvm/Support/SPIRV.h"
+#endif
 #include "llvm/Target/TargetMachine.h"
 #if LDC_LLVM_VER >= 307
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -74,6 +77,19 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
   legacy::
 #endif
       PassManager Passes;
+  ComputeBackend::Type cb = getComputeTargetType(&m);
+
+  if (cb == ComputeBackend::SPIRV) {
+#ifdef LDC_WITH_DCOMPUTE_SPIRV
+    IF_LOG Logger::println("running createSPIRVWriterPass()");
+    llvm::createSPIRVWriterPass(out)->runOnModule(m);
+    IF_LOG Logger::println("Success.");
+#else
+    error(Loc(), "Trying to target SPIRV, but LDC is not built to do so!");
+#endif
+
+    return;
+  }
 
 #if LDC_LLVM_VER >= 307
 // The DataLayout is already set at the module (in module.cpp,
@@ -100,13 +116,18 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 #if LDC_LLVM_VER < 307
   llvm::formatted_raw_ostream fout(out);
 #endif
-  if (Target.addPassesToEmitFile(Passes,
+  if (Target.addPassesToEmitFile(
+          Passes,
 #if LDC_LLVM_VER >= 307
-                                 out,
+          out,
 #else
-                                 fout,
+          fout,
 #endif
-                                 fileType, codeGenOptLevel())) {
+          // Always generate assembly for ptx as it is an assembly format
+          // The PTX backend fails if we pass anything else.
+          (cb == ComputeBackend::NVPTX) ? llvm::TargetMachine::CGFT_AssemblyFile
+                                        : fileType,
+          codeGenOptLevel())) {
     llvm_unreachable("no support for asm output");
   }
 

@@ -12,6 +12,7 @@
 #include "gen/cl_helpers.h"
 #include "gen/logger.h"
 #include "gen/passes/Passes.h"
+#include "driver/targetmachine.h"
 #include "llvm/LinkAllPasses.h"
 #if LDC_LLVM_VER >= 307
 #include "llvm/IR/LegacyPassManager.h"
@@ -344,6 +345,17 @@ static void addOptimizationPasses(PassManagerBase &mpm,
 // This function runs optimization passes based on command line arguments.
 // Returns true if any optimization passes were invoked.
 bool ldc_optimize_module(llvm::Module *M) {
+
+  // Dont optimise spirv modules because turning GEPs into extracts triggers
+  // asserts in the IR -> SPIR-V translation pass. SPIRV doesn't have a target
+  // machine, so any optimisation passes that rely on it to provide analysis,
+  // like DCE can't be run.
+  // The optimisation is supposed to happen between the SPIRV -> native machine
+  // code pass of the consumer of the binary.
+  // TODO: run rudimentary optimisations to improve IR debuggability.
+  if (getComputeTargetType(M) == ComputeBackend::SPIRV)
+    return false;
+
 // Create a PassManager to hold and optimize the collection of
 // per-module passes we are about to build.
 #if LDC_LLVM_VER >= 307
