@@ -116,7 +116,7 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
           fout,
 #endif
           // Always generate assembly for ptx as it is an assembly format
-          // The PTX backend fails if we pass anything esle.
+          // The PTX backend fails if we pass anything else.
           (cb == ComputeBackend::NVPTX) ? llvm::TargetMachine::CGFT_AssemblyFile
                                         : fileType,
           codeGenOptLevel())) {
