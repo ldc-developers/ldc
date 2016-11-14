@@ -83,6 +83,7 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 
     return;
   }
+
 #if LDC_LLVM_VER >= 307
 // The DataLayout is already set at the module (in module.cpp,
 // method Module::genLLVMModule())
