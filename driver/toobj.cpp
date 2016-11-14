@@ -80,6 +80,7 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 #else
     error(Loc(), "Trying to target SPIRV, but LDC is not built to do so!");
 #endif
+
     return;
   }
 #if LDC_LLVM_VER >= 307

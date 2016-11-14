@@ -346,12 +346,12 @@ static void addOptimizationPasses(PassManagerBase &mpm,
 // Returns true if any optimization passes were invoked.
 bool ldc_optimize_module(llvm::Module *M) {
   
-  // Dont optimise spirv modules as turning GEPs into extracts triggers asserts
+  // Dont optimise spirv modules because turning GEPs into extracts triggers asserts
   // in the IR -> SPIR-V translation pass. SPIRV doesn't have a target machine,
   // so any optimisation passes that rely on it to provide analysis, like DCE.
-  // The optimisation is supposed to bappen between the SPIRV -> native machine
+  // The optimisation is supposed to happen between the SPIRV -> native machine
   // code pass of the consumer of the binary.
-  // TODO: run rudimentary to improve IR debuggability.
+  // TODO: run rudimentary optimisations to improve IR debuggability.
   if (getComputeTargetType(M) == ComputeBackend::SPIRV)
     return false;
 
