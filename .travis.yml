@@ -16,7 +16,7 @@ matrix:
       d: ldc-0.17.2
       env: LLVM_VERSION=3.6.2 OPTS="-DBUILD_SHARED_LIBS=ON"
     - os: linux
-      d: dmd-2.071.2
+      d: dmd
       env: LLVM_VERSION=3.5.2 OPTS="-DTEST_COVERAGE=ON"
     - os: osx
       d: ldc

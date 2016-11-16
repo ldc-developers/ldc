@@ -8,8 +8,6 @@
 
 module ddmd.arraytypes;
 
-import ddmd.aggregate;
-import ddmd.gluelayer;
 import ddmd.dclass;
 import ddmd.declaration;
 import ddmd.dmodule;
@@ -17,12 +15,10 @@ import ddmd.dsymbol;
 import ddmd.dtemplate;
 import ddmd.expression;
 import ddmd.func;
-import ddmd.globals;
 import ddmd.identifier;
 import ddmd.init;
 import ddmd.mtype;
 import ddmd.root.array;
-import ddmd.root.file;
 import ddmd.root.rootobject;
 import ddmd.statement;
 

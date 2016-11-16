@@ -9,13 +9,10 @@
 module ddmd.aggregate;
 
 import core.stdc.stdio;
-import ddmd.access;
 import ddmd.arraytypes;
 import ddmd.gluelayer;
-import ddmd.clone;
 import ddmd.dclass;
 import ddmd.declaration;
-import ddmd.doc;
 import ddmd.dscope;
 import ddmd.dstruct;
 import ddmd.dsymbol;
@@ -24,13 +21,9 @@ import ddmd.errors;
 import ddmd.expression;
 import ddmd.func;
 import ddmd.globals;
-import ddmd.hdrgen;
 import ddmd.id;
 import ddmd.identifier;
 import ddmd.mtype;
-import ddmd.opover;
-import ddmd.root.outbuffer;
-import ddmd.statement;
 import ddmd.tokens;
 import ddmd.visitor;
 
