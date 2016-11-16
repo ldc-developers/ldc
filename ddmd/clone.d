@@ -16,7 +16,6 @@ import ddmd.dscope;
 import ddmd.dstruct;
 import ddmd.dsymbol;
 import ddmd.dtemplate;
-import ddmd.errors;
 import ddmd.expression;
 import ddmd.func;
 import ddmd.globals;
