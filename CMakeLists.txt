@@ -312,6 +312,12 @@ else()
         # Append git hash to LDC_VERSION
         string(SUBSTRING "${HASH}" 0 8 LDC_VERSION_HASH)
         set(LDC_VERSION "${LDC_VERSION}git-${LDC_VERSION_HASH}")
+
+        # Append "-dirty" when the working copy is dirty
+        git_describe(GIT_DIRTY --dirty)
+        if (GIT_DIRTY MATCHES ".*-dirty")
+            set(LDC_VERSION "${LDC_VERSION}-dirty")
+        endif()
     endif()
 endif()
 message(STATUS "LDC version identifier: ${LDC_VERSION}")
