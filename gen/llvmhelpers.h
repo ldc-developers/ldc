@@ -260,7 +260,7 @@ llvm::GlobalVariable *getOrCreateGlobal(const Loc &loc, llvm::Module &module,
                                         llvm::StringRef name,
                                         bool isThreadLocal = false);
 
-FuncDeclaration *getParentFunc(Dsymbol *sym, bool stopOnStatic);
+FuncDeclaration *getParentFunc(Dsymbol *sym);
 
 void Declaration_codegen(Dsymbol *decl);
 void Declaration_codegen(Dsymbol *decl, IRState *irs);
