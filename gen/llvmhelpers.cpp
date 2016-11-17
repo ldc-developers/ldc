@@ -1733,29 +1733,26 @@ llvm::GlobalVariable *getOrCreateGlobal(const Loc &loc, llvm::Module &module,
                                   nullptr, tlsModel);
 }
 
-FuncDeclaration *getParentFunc(Dsymbol *sym, bool stopOnStatic) {
+FuncDeclaration *getParentFunc(Dsymbol *sym) {
   if (!sym) {
     return nullptr;
   }
 
-  // check if symbol is itself a static function/aggregate
-  if (stopOnStatic) {
-    // Static functions and function (not delegate) literals don't allow
-    // access to a parent context, even if they are nested.
-    if (FuncDeclaration *fd = sym->isFuncDeclaration()) {
-      bool certainlyNewRoot =
-          fd->isStatic() ||
-          (fd->isFuncLiteralDeclaration() &&
-           static_cast<FuncLiteralDeclaration *>(fd)->tok == TOKfunction);
-      if (certainlyNewRoot) {
-        return nullptr;
-      }
+  // Static functions and function (not delegate) literals don't allow
+  // access to a parent context, even if they are nested.
+  if (FuncDeclaration *fd = sym->isFuncDeclaration()) {
+    bool certainlyNewRoot =
+        fd->isStatic() ||
+        (fd->isFuncLiteralDeclaration() &&
+         static_cast<FuncLiteralDeclaration *>(fd)->tok == TOKfunction);
+    if (certainlyNewRoot) {
+      return nullptr;
     }
-    // Fun fact: AggregateDeclarations are not Declarations.
-    else if (AggregateDeclaration *ad = sym->isAggregateDeclaration()) {
-      if (!ad->isNested()) {
-        return nullptr;
-      }
+  }
+  // Fun fact: AggregateDeclarations are not Declarations.
+  else if (AggregateDeclaration *ad = sym->isAggregateDeclaration()) {
+    if (!ad->isNested()) {
+      return nullptr;
     }
   }
 
@@ -1764,11 +1761,9 @@ FuncDeclaration *getParentFunc(Dsymbol *sym, bool stopOnStatic) {
       return fd;
     }
 
-    if (stopOnStatic) {
-      if (AggregateDeclaration *ad = parent->isAggregateDeclaration()) {
-        if (!ad->isNested()) {
-          return nullptr;
-        }
+    if (AggregateDeclaration *ad = parent->isAggregateDeclaration()) {
+      if (!ad->isNested()) {
+        return nullptr;
       }
     }
   }

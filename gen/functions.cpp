@@ -852,7 +852,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // data from the template function itself, but it would still mess up our
   // nested context creation code.
   FuncDeclaration *parent = fd;
-  while ((parent = getParentFunc(parent, true))) {
+  while ((parent = getParentFunc(parent))) {
     if (parent->semanticRun != PASSsemantic3done || parent->semantic3Errors) {
       IF_LOG Logger::println(
           "Ignoring nested function with unanalyzed parent.");
