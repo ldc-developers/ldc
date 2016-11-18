@@ -32,10 +32,8 @@ else()
 endif()
 
 if(BUILD_SHARED_LIBS)
-    if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Linux" AND
-       NOT ${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD" AND
-       NOT APPLE)
-        message(FATAL_ERROR "Shared libraries (BUILD_SHARED_LIBS) are only supported on Linux, macOS and FreeBSD for the time being.")
+    if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Linux" AND NOT ${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+        message(FATAL_ERROR "Shared libraries (BUILD_SHARED_LIBS) are only supported on Linux and FreeBSD for the time being.")
     endif()
 
     list(APPEND D_FLAGS -relocation-model=pic)
@@ -419,10 +417,10 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
     # C executables.
 
     if(BUILD_SHARED_LIBS)
-        if(${CMAKE_SYSTEM} MATCHES "Linux")
-            set(dso_system_libs "m" "pthread" "rt" "dl")
-        else()
+        if(${CMAKE_SYSTEM} MATCHES "FreeBSD")
             set(dso_system_libs "m" "pthread")
+        else()
+            set(dso_system_libs "m" "pthread" "rt" "dl")
         endif()
         target_link_libraries(druntime-ldc${target_suffix} ${dso_system_libs})
     endif()
