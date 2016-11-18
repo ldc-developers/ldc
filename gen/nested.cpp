@@ -42,14 +42,13 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
 
   // Check whether we can access the needed frame
   FuncDeclaration *fd = irfunc->decl;
-  while (fd != vdparent) {
-    if (fd->isStatic()) {
-      error(loc, "function %s cannot access frame of function %s",
-            irfunc->decl->toPrettyChars(), vdparent->toPrettyChars());
-      return new DLValue(astype, llvm::UndefValue::get(DtoPtrToType(astype)));
-    }
-    fd = getParentFunc(fd, false);
-    assert(fd);
+  while (fd && fd != vdparent) {
+    fd = getParentFunc(fd);
+  }
+  if (!fd) {
+    error(loc, "function %s cannot access frame of function %s",
+          irfunc->decl->toPrettyChars(), vdparent->toPrettyChars());
+    return new DLValue(astype, llvm::UndefValue::get(DtoPtrToType(astype)));
   }
 
   // is the nested variable in this scope?
@@ -261,7 +260,7 @@ LLValue *DtoNestedContext(Loc &loc, Dsymbol *sym) {
   } else if (FuncDeclaration *symfd = sym->isFuncDeclaration()) {
     // If sym is a nested function, and its parent context is different
     // than the one we got, adjust it.
-    frameToPass = getParentFunc(symfd, true);
+    frameToPass = getParentFunc(symfd);
   }
 
   if (frameToPass) {
@@ -269,7 +268,7 @@ LLValue *DtoNestedContext(Loc &loc, Dsymbol *sym) {
     FuncDeclaration *ctxfd = irFunc.decl;
     IF_LOG Logger::println("Current function is %s", ctxfd->toChars());
     if (fromParent) {
-      ctxfd = getParentFunc(ctxfd, true);
+      ctxfd = getParentFunc(ctxfd);
       assert(ctxfd && "Context from outer function, but no outer function?");
     }
     IF_LOG Logger::println("Context is from %s", ctxfd->toChars());
@@ -319,7 +318,7 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
   }
   irFunc.nestedContextCreated = true;
 
-  FuncDeclaration *parentFunc = getParentFunc(fd, true);
+  FuncDeclaration *parentFunc = getParentFunc(fd);
   // Make sure the parent has already been analyzed.
   if (parentFunc) {
     DtoCreateNestedContextType(parentFunc);
