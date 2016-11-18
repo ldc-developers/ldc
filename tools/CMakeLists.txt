@@ -33,7 +33,7 @@ endfunction()
 add_custom_target(${LDCPRUNECACHE_EXE} ALL DEPENDS ${LDCPRUNECACHE_EXE_FULL})
 set(LDCPRUNECACHE_D_SRC
     ${PROJECT_SOURCE_DIR}/tools/ldc-prune-cache.d
-    ${PROJECT_SOURCE_DIR}/driver/ir2obj_cache_pruning.d
+    ${PROJECT_SOURCE_DIR}/driver/cache_pruning.d
 )
 build_d_tool(
     "${LDCPRUNECACHE_EXE_FULL}"

@@ -18,7 +18,6 @@ module ddmd.mars;
 import core.stdc.ctype;
 import core.stdc.errno;
 import core.stdc.limits;
-import core.stdc.stdint;
 import core.stdc.stdio;
 import core.stdc.stdlib;
 import core.stdc.string;
@@ -40,7 +39,6 @@ import ddmd.id;
 import ddmd.identifier;
 import ddmd.inline;
 import ddmd.json;
-import ddmd.lexer;
 // IN_LLVM import ddmd.lib;
 // IN_LLVM import ddmd.link;
 import ddmd.mtype;
@@ -55,7 +53,6 @@ import ddmd.root.rmem;
 import ddmd.root.stringtable;
 import ddmd.target;
 import ddmd.tokens;
-import ddmd.traits;
 
 
 /**
@@ -1754,6 +1751,17 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
             status = linkObjToBinary();
         else if (global.params.lib)
             status = createStaticLibrary();
+
+        if (status == EXIT_SUCCESS &&
+            (global.params.cleanupObjectFiles || global.params.run))
+        {
+            for (size_t i = 0; i < modules.dim; i++)
+            {
+                modules[i].deleteObjFile();
+                if (global.params.oneobj)
+                    break;
+            }
+        }
       }
       else
       {
@@ -1767,12 +1775,15 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
                 status = runProgram();
                 /* Delete .obj files and .exe file
                  */
+              version (IN_LLVM) {} else
+              {
                 for (size_t i = 0; i < modules.dim; i++)
                 {
                     modules[i].deleteObjFile();
                     if (global.params.oneobj)
                         break;
                 }
+              }
                 deleteExeFile();
             }
         }

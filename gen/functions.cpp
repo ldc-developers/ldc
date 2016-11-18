@@ -18,6 +18,7 @@
 #include "mtype.h"
 #include "statement.h"
 #include "template.h"
+#include "driver/cl_options.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
@@ -42,6 +43,8 @@
 #include "ir/irmodule.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/CFG.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
 #include <iostream>
 
 llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
@@ -419,18 +422,43 @@ void applyParamAttrsToLLFunc(TypeFunction *f, IrFuncTy &irFty,
   func->setAttributes(newAttrs);
 }
 
-void applyDefaultMathAttributes(IrFunction *irFunc) {
+/// Applies TargetMachine options as function attributes in the IR (options for
+/// which attributes exist).
+/// This is e.g. needed for LTO: it tells the linker/LTO-codegen what settings
+/// to use.
+/// It is also needed because "unsafe-fp-math" is not properly reset in LLVM
+/// between function definitions, i.e. if a function does not define a value for
+/// "unsafe-fp-math" it will be compiled using the value of the previous
+/// function. Therefore, each function must explicitly define the value (clang
+/// does the same). See https://llvm.org/bugs/show_bug.cgi?id=23172
+void applyTargetMachineAttributes(llvm::Function &func,
+                                  const llvm::TargetMachine &target) {
+  const llvm::TargetOptions &TO = target.Options;
+
   // TODO: implement commandline switches to change the default values.
 
-  // "unsafe-fp-math" is not properly reset in LLVM between function
-  // definitions, i.e. if a function does not define a value for
-  // "unsafe-fp-math" it will be compiled using the value of the previous
-  // function. Therefore, each function must explicitly define the value (clang
-  // does the same).
-  // See https://llvm.org/bugs/show_bug.cgi?id=23172
-  irFunc->func->addFnAttr("unsafe-fp-math", "false");
+  // Target CPU capabilities
+  func.addFnAttr("target-cpu", target.getTargetCPU());
+  auto featStr = target.getTargetFeatureString();
+  if (!featStr.empty())
+    func.addFnAttr("target-features", featStr);
+
+  // Floating point settings
+  func.addFnAttr("unsafe-fp-math", TO.UnsafeFPMath ? "true" : "false");
+  func.addFnAttr("less-precise-fpmad",
+                 TO.LessPreciseFPMADOption ? "true" : "false");
+  func.addFnAttr("no-infs-fp-math", TO.NoInfsFPMath ? "true" : "false");
+  func.addFnAttr("no-nans-fp-math", TO.NoNaNsFPMath ? "true" : "false");
+#if LDC_LLVM_VER < 307
+  func.addFnAttr("use-soft-float", TO.UseSoftFloat ? "true" : "false");
+#endif
+
+  // Frame pointer elimination
+  func.addFnAttr("no-frame-pointer-elim",
+                 opts::disableFpElim ? "true" : "false");
 }
-}
+
+} // anonymous namespace
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -510,6 +538,12 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
 
   func->setCallingConv(gABI->callingConv(func->getFunctionType(), link, fdecl));
 
+  if (global.params.isWindows && fdecl->isExport()) {
+    func->setDLLStorageClass(fdecl->isImportedSymbol()
+                                 ? LLGlobalValue::DLLImportStorageClass
+                                 : LLGlobalValue::DLLExportStorageClass);
+  }
+
   IF_LOG Logger::cout() << "func = " << *func << std::endl;
 
   // add func to IRFunc
@@ -523,9 +557,9 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     }
   }
 
-  // Set default math function attributes here, such that they can be overridden
+  // First apply the TargetMachine attributes, such that they can be overridden
   // by UDAs.
-  applyDefaultMathAttributes(irFunc);
+  applyTargetMachineAttributes(*func, *gTargetMachine);
   applyFuncDeclUDAs(fdecl, irFunc);
 
   // main
@@ -705,7 +739,6 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
     // E.g., for a lazy parameter of type T, vd->type is T (with lazy storage
     // class) while irparam->arg->type is the delegate type.
     Type *const paramType = (irparam ? irparam->arg->type : vd->type);
-    bool rewrittenToLocal = false;
 
     if (!irparam) {
       // This is a parameter that is not passed on the LLVM level.
@@ -722,10 +755,8 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
         assert(irparam->value->getType() == DtoPtrToType(paramType));
       } else {
         // Let the ABI transform the parameter back to an lvalue.
-        auto Lvalue =
+        irparam->value =
             irFty.getParamLVal(paramType, llArgIdx, irparam->value);
-        rewrittenToLocal = Lvalue != irparam->value;
-        irparam->value = Lvalue;
       }
 
       irparam->value->setName(vd->ident->toChars());
@@ -734,7 +765,7 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
     }
 
     if (global.params.symdebug)
-      gIR->DBuilder.EmitLocalVariable(irparam->value, vd, paramType, false, rewrittenToLocal);
+      gIR->DBuilder.EmitLocalVariable(irparam->value, vd, paramType);
   }
 }
 
@@ -821,7 +852,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // data from the template function itself, but it would still mess up our
   // nested context creation code.
   FuncDeclaration *parent = fd;
-  while ((parent = getParentFunc(parent, true))) {
+  while ((parent = getParentFunc(parent))) {
     if (parent->semanticRun != PASSsemantic3done || parent->semantic3Errors) {
       IF_LOG Logger::println(
           "Ignoring nested function with unanalyzed parent.");
@@ -881,11 +912,12 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   const auto f = static_cast<TypeFunction *>(fd->type->toBasetype());
   IrFuncTy &irFty = irFunc->irFty;
-  llvm::Function *func = irFunc->func;;
+  llvm::Function *func = irFunc->func;
 
   const auto lwc = lowerFuncLinkage(fd);
   if (linkageAvailableExternally) {
     func->setLinkage(llvm::GlobalValue::AvailableExternallyLinkage);
+    func->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
     // Assert that we are not overriding a linkage type that disallows inlining
     assert(lwc.first != llvm::GlobalValue::WeakAnyLinkage &&
            lwc.first != llvm::GlobalValue::ExternalWeakLinkage &&
@@ -894,10 +926,12 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     setLinkage(lwc, func);
   }
 
+  assert(!func->hasDLLImportStorageClass());
+
   // On x86_64, always set 'uwtable' for System V ABI compatibility.
   // TODO: Find a better place for this.
-  // TODO: Is this required for Win64 as well?
-  if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
+  if (global.params.targetTriple->getArch() == llvm::Triple::x86_64 &&
+      !global.params.isWindows) {
     func->addFnAttr(LLAttribute::UWTable);
   }
   if (opts::sanitize != opts::None) {
@@ -936,6 +970,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   // debug info - after all allocas, but before any llvm.dbg.declare etc
   gIR->DBuilder.EmitFuncStart(fd);
+
+  emitInstrumentationFnEnter(fd);
 
   // this hack makes sure the frame pointer elimination optimization is
   // disabled.
@@ -1051,6 +1087,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   } else if (!gIR->scopereturned()) {
     // llvm requires all basic blocks to end with a TerminatorInst but DMD does
     // not put a return statement in automatically, so we do it here.
+
+    emitInstrumentationFnLeave(fd);
 
     // pass the previous block into this block
     gIR->DBuilder.EmitStopPoint(fd->endloc);

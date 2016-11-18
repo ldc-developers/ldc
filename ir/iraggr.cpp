@@ -26,11 +26,18 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-IrAggr::IrAggr(AggregateDeclaration *aggr)
-    : aggrdecl(aggr), type(aggr->type),
-      // above still need to be looked at
-      init_type(LLStructType::create(
-          gIR->context(), std::string(aggr->toPrettyChars()) + "_init")) {}
+llvm::StructType *IrAggr::getLLStructType() {
+  if (llStructType)
+    return llStructType;
+
+  LLType *llType = DtoType(type);
+  if (auto irClassType = type->ctype->isClass())
+    llType = irClassType->getMemoryLLType();
+
+  llStructType = llvm::dyn_cast<LLStructType>(llType);
+
+  return llStructType;
+}
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -43,7 +50,7 @@ LLGlobalVariable *IrAggr::getInitSymbol() {
   auto initname = getMangledInitSymbolName(aggrdecl);
 
   init =
-      getOrCreateGlobal(aggrdecl->loc, gIR->module, init_type, true,
+      getOrCreateGlobal(aggrdecl->loc, gIR->module, getLLStructType(), true,
                         llvm::GlobalValue::ExternalLinkage, nullptr, initname);
 
   // set alignment
@@ -63,9 +70,8 @@ llvm::Constant *IrAggr::getDefaultInit() {
                          aggrdecl->toPrettyChars());
   LOG_SCOPE;
 
-  DtoType(type);
   VarInitMap noExplicitInitializers;
-  constInit = createInitializerConstant(noExplicitInitializers, init_type);
+  constInit = createInitializerConstant(noExplicitInitializers);
   return constInit;
 }
 
@@ -92,30 +98,18 @@ add_zeros(llvm::SmallVectorImpl<llvm::Constant *> &constants,
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-typedef std::pair<VarDeclaration *, llvm::Constant *> VarInitConst;
-
-static bool struct_init_data_sort(const VarInitConst &a,
-                                  const VarInitConst &b) {
-  return (a.first && b.first) ? a.first->offset < b.first->offset : false;
-}
-
-// helper function that returns the static default initializer of a variable
-LLConstant *get_default_initializer(VarDeclaration *vd) {
-  if (vd->_init) {
+LLConstant *IrAggr::getDefaultInitializer(VarDeclaration *field) {
+  if (field->_init) {
     // Issue 9057 workaround caused by issue 14666 fix, see DMD upstream
     // commit 069f570005.
-    if (vd->sem < Semantic2Done && vd->_scope) {
-      vd->semantic2(vd->_scope);
+    if (field->sem < Semantic2Done && field->_scope) {
+      field->semantic2(field->_scope);
     }
-    return DtoConstInitializer(vd->_init->loc, vd->type, vd->_init);
+    return DtoConstInitializer(field->_init->loc, field->type, field->_init);
   }
 
-  if (vd->type->size(vd->loc) == 0) {
-    // We need to be able to handle void[0] struct members even if void has
-    // no default initializer.
-    return llvm::ConstantPointerNull::get(DtoPtrToType(vd->type));
-  }
-  return DtoConstExpInit(vd->loc, vd->type, vd->type->defaultInit(vd->loc));
+  return DtoConstExpInit(field->loc, field->type,
+                         field->type->defaultInit(field->loc));
 }
 
 // return a constant array of type arrTypeD initialized with a constant value,
@@ -141,8 +135,7 @@ static llvm::Constant *FillSArrayDims(Type *arrTypeD, llvm::Constant *init) {
 }
 
 llvm::Constant *
-IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers,
-                                  llvm::StructType *initializerType) {
+IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
   IF_LOG Logger::println("Creating initializer constant for %s",
                          aggrdecl->toChars());
   LOG_SCOPE;
@@ -171,27 +164,33 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers,
 
   // tail padding?
   const size_t structsize = aggrdecl->size(Loc());
-  if (offset < structsize) {
+  if (offset < structsize)
     add_zeros(constants, offset, structsize);
-  }
 
-  // get initializer type
-  if (!initializerType || initializerType->isOpaque()) {
-    llvm::SmallVector<llvm::Type *, 16> types;
-    types.reserve(constants.size());
-    for (auto c : constants) {
-      types.push_back(c->getType());
-    }
-    if (!initializerType) {
-      initializerType = LLStructType::get(gIR->context(), types, isPacked());
-    } else {
-      initializerType->setBody(types, isPacked());
+  assert(!constants.empty());
+
+  // get LL field types
+  llvm::SmallVector<llvm::Type *, 16> types;
+  types.reserve(constants.size());
+  for (auto c : constants)
+    types.push_back(c->getType());
+
+  auto llStructType = getLLStructType();
+  bool isCompatible = (types.size() == llStructType->getNumElements());
+  if (isCompatible) {
+    for (size_t i = 0; i < types.size(); i++) {
+      if (types[i] != llStructType->getElementType(i)) {
+        isCompatible = false;
+        break;
+      }
     }
   }
 
   // build constant
-  assert(!constants.empty());
-  llvm::Constant *c = LLConstantStruct::get(initializerType, constants);
+  LLStructType *llType =
+      isCompatible ? llStructType
+                   : LLStructType::get(gIR->context(), types, isPacked());
+  llvm::Constant *c = LLConstantStruct::get(llType, constants);
   IF_LOG Logger::cout() << "final initializer: " << *c << std::endl;
   return c;
 }
@@ -221,153 +220,44 @@ void IrAggr::addFieldInitializers(
       bool newinsts = (cd == aggrdecl->isClassDeclaration());
 
       size_t inter_idx = interfacesWithVtbls.size();
-
-      offset = (offset + Target::ptrsize - 1) & ~(Target::ptrsize - 1);
-
       for (auto bc : *cd->vtblInterfaces) {
         constants.push_back(getInterfaceVtbl(bc, newinsts, inter_idx));
         offset += Target::ptrsize;
         inter_idx++;
 
-        if (populateInterfacesWithVtbls) {
+        if (populateInterfacesWithVtbls)
           interfacesWithVtbls.push_back(bc);
-        }
       }
     }
   }
 
-  // Build up vector with one-to-one mapping to field indices.
-  const size_t n = decl->fields.dim;
-  llvm::SmallVector<VarInitConst, 16> data(n);
+  AggrTypeBuilder b(false, offset);
+  b.addAggregate(decl, &explicitInitializers, AggrTypeBuilder::Aliases::Skip);
+  offset = b.currentOffset();
 
-  // Fill in explicit initializers.
-  for (size_t i = 0; i < n; ++i) {
-    VarDeclaration *vd = decl->fields[i];
-    auto expl = explicitInitializers.find(vd);
-    if (expl != explicitInitializers.end()) {
-      const unsigned vd_begin = vd->offset;
-      const unsigned vd_end = vd_begin + vd->type->size();
+  const size_t baseLLFieldIndex = constants.size();
+  const size_t numNewLLFields = b.defaultTypes().size();
+  constants.resize(constants.size() + numNewLLFields, nullptr);
 
-      // Make sure it doesn't overlap any prior initializers (needed for
-      // unions). This effectively initializes only the first member with an
-      // explicit initializer of a union.
-      // Only classes and structs can contain unions / overlapping fields.
-      if (type->ty == Tstruct || type->ty == Tclass) {
-        bool overlaps = false;
-        for (size_t j = 0; j < i; ++j) {
-          if (!data[j].first) {
-            continue;
-          }
+  // add explicit and non-overlapping implicit initializers
+  for (const auto &pair : b.varGEPIndices()) {
+    const auto field = pair.first;
+    const size_t fieldIndex = pair.second;
 
-          const unsigned f_begin = decl->fields[j]->offset;
-          const unsigned f_end = f_begin + decl->fields[j]->type->size();
-          if (vd_begin >= f_end || vd_end <= f_begin) {
-            continue;
-          }
+    const auto explicitIt = explicitInitializers.find(field);
+    llvm::Constant *init = (explicitIt != explicitInitializers.end()
+                                ? explicitIt->second
+                                : getDefaultInitializer(field));
 
-          overlaps = true;
-          break;
-        }
-        if (overlaps)
-          continue;
-      }
-
-      data[i] = *expl;
-    }
+    constants[baseLLFieldIndex + fieldIndex] =
+        FillSArrayDims(field->type, init);
   }
 
-  // Fill in implicit initializers
-  for (size_t i = 0; i < n; i++) {
-    if (data[i].first) {
-      continue;
-    }
-
-    VarDeclaration *vd = decl->fields[i];
-
-    /* Skip void initializers for unions. DMD bug 3991:
-        union X
-        {
-            int   a = void;
-            dchar b = 'a';
-        }
-    */
-    // FIXME: decl->isUnionDeclaration() is always false, the FE lowers
-    // UnionDeclarations.
-    if (decl->isUnionDeclaration() && vd->_init &&
-        vd->_init->isVoidInitializer()) {
-      continue;
-    }
-
-    unsigned vd_begin = vd->offset;
-    unsigned vd_end = vd_begin + vd->type->size();
-
-    /* Skip zero size fields like zero-length static arrays, LDC issue 812:
-        class B {
-            ubyte[0] test;
-        }
-    */
-    if (vd_begin == vd_end) {
-      continue;
-    }
-
-    // make sure it doesn't overlap any explicit initializers.
-    bool overlaps = false;
-    if (type->ty == Tstruct || type->ty == Tclass) {
-      // Only classes and structs can have overlapping fields.
-      for (size_t j = 0; j < n; ++j) {
-        if (i == j || !data[j].first) {
-          continue;
-        }
-
-        VarDeclaration *it = decl->fields[j];
-        unsigned f_begin = it->offset;
-        unsigned f_end = f_begin + it->type->size();
-
-        if (vd_begin >= f_end || vd_end <= f_begin) {
-          continue;
-        }
-
-        overlaps = true;
-        break;
-      }
-    }
-    // add if no overlap found
-    if (!overlaps) {
-      IF_LOG Logger::println("Implicit initializer: %s @+%u", vd->toChars(),
-                             vd->offset);
-      LOG_SCOPE;
-
-      data[i].first = vd;
-      data[i].second = get_default_initializer(vd);
-    }
-  }
-
-  // Sort data array by offset.
-  // TODO: Figure out whether this is really necessary, fields should already
-  // be in offset order. Not having do do this would mean we could use a plain
-  // llvm::Constant* vector for initializers and avoid all the VarInitConst
-  // business.
-  std::sort(data.begin(), data.end(), struct_init_data_sort);
-
-  // build array of constants and make sure explicit zero padding is inserted
-  // when necessary.
-  for (size_t i = 0; i < n; i++) {
-    VarDeclaration *vd = data[i].first;
-    if (vd == nullptr) {
-      continue;
-    }
-
-    // Explicitly zero the padding as per TDPL §7.1.1. Otherwise, it would
-    // be left uninitialized by LLVM.
-    if (offset < vd->offset) {
-      add_zeros(constants, offset, vd->offset);
-      offset = vd->offset;
-    }
-
-    IF_LOG Logger::println("adding field %s", vd->toChars());
-
-    constants.push_back(FillSArrayDims(vd->type, data[i].second));
-    offset += getMemberSize(vd->type);
+  // zero out remaining padding fields
+  for (size_t i = 0; i < numNewLLFields; i++) {
+    auto &init = constants[baseLLFieldIndex + i];
+    if (!init)
+      init = llvm::Constant::getNullValue(b.defaultTypes()[i]);
   }
 }
 

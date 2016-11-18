@@ -3,6 +3,7 @@ import os
 import sys
 import platform
 import string
+import subprocess
 
 ## Auto-initialized variables by cmake:
 config.ldc2_bin            = "@LDC2_BIN@"
@@ -65,6 +66,26 @@ if (platform.system() == 'Windows') and (config.default_target_bits == 32):
     config.available_features.add('Windows_x86')
 if (platform.system() == 'Windows') and (config.default_target_bits == 64):
     config.available_features.add('Windows_x64')
+
+# Add "LTO" feature if linker support is available (LTO is supported from LLVM 3.9)
+canDoLTO = False
+if (config.llvm_version >= 309):
+    if (platform.system() == 'Darwin'):
+        command = ['ld', '-v']
+        p = subprocess.Popen(command, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, universal_newlines=True)
+        text = p.stderr.read()
+        if "LTO support" in text:
+            canDoLTO = True
+    elif (platform.system() == 'Linux'):
+        command = ['ld', '-plugin']
+        p = subprocess.Popen(command, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, universal_newlines=True)
+        text = p.stderr.read()
+        if "plugin: missing argument" in text:
+            canDoLTO = True
+if canDoLTO:
+    config.available_features.add('LTO')
 
 config.target_triple = '(unused)'
 

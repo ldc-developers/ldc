@@ -309,7 +309,15 @@ if(NOT TAG MATCHES "NOTFOUND")
 else()
     get_git_head_revision(REFSPEC HASH)
     if(NOT HASH STREQUAL "GITDIR-NOTFOUND")
-        string(SUBSTRING "${HASH}" 0 6 LDC_VERSION)
+        # Append git hash to LDC_VERSION
+        string(SUBSTRING "${HASH}" 0 7 LDC_VERSION_HASH)
+        set(LDC_VERSION "${LDC_VERSION}git-${LDC_VERSION_HASH}")
+
+        # Append "-dirty" when the working copy is dirty
+        git_describe(GIT_DIRTY --dirty)
+        if (GIT_DIRTY MATCHES ".*-dirty")
+            set(LDC_VERSION "${LDC_VERSION}-dirty")
+        endif()
     endif()
 endif()
 message(STATUS "LDC version identifier: ${LDC_VERSION}")
@@ -327,11 +335,11 @@ file(GLOB_RECURSE IR_SRC_D ir/*.d)
 file(GLOB IR_SRC ir/*.cpp)
 file(GLOB IR_HDR ir/*.h)
 set(DRV_SRC
+    driver/cache.cpp
     driver/cl_options.cpp
     driver/codegenerator.cpp
     driver/configfile.cpp
     driver/exe_path.cpp
-    driver/ir2obj_cache.cpp
     driver/targetmachine.cpp
     driver/toobj.cpp
     driver/tool.cpp
@@ -340,14 +348,14 @@ set(DRV_SRC
     ${CMAKE_BINARY_DIR}/driver/ldc-version.cpp
 )
 set(DRV_HDR
-    driver/linker.h
+    driver/cache.h
+    driver/cache_pruning.h
     driver/cl_options.h
     driver/codegenerator.h
     driver/configfile.h
     driver/exe_path.h
-    driver/ir2obj_cache.h
-    driver/ir2obj_cache_pruning.h
     driver/ldc-version.h
+    driver/linker.h
     driver/targetmachine.h
     driver/toobj.h
     driver/tool.h
@@ -716,6 +724,19 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         endif()
     endif()
     install(DIRECTORY bash_completion.d/ DESTINATION ${BASH_COMPLETION_COMPLETIONSDIR})
+endif()
+
+# Also install LLVM's LTO binary if available
+if(APPLE)
+    set(LLVM_LTO_BINARY ${LLVM_LIBRARY_DIRS}/libLTO.dylib)
+elseif(UNIX)
+    set(LLVM_LTO_BINARY ${LLVM_LIBRARY_DIRS}/LLVMgold.so)
+endif()
+if(EXISTS ${LLVM_LTO_BINARY})
+    message(STATUS "Also installing LTO binary: ${LLVM_LTO_BINARY}")
+    install(PROGRAMS ${LLVM_LTO_BINARY} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+    file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+    configure_file(${LLVM_LTO_BINARY} ${PROJECT_BINARY_DIR}/lib COPYONLY)
 endif()
 
 #

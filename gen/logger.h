@@ -92,17 +92,19 @@ private:
   short sfinae_bait(...);
 };
 
+extern bool _Logger_enabled;
+
 namespace Logger {
-extern bool _enabled;
 
 void indent();
 void undent();
 Stream cout();
+void printIndentation();
 void println(const char *fmt, ...) IS_PRINTF(1);
 void print(const char *fmt, ...) IS_PRINTF(1);
-inline void enable() { _enabled = true; }
-inline void disable() { _enabled = false; }
-inline bool enabled() { return _enabled; }
+inline void enable() { _Logger_enabled = true; }
+inline void disable() { _Logger_enabled = false; }
+inline bool enabled() { return _Logger_enabled; }
 
 void attention(Loc loc, const char *fmt, ...) IS_PRINTF(2);
 

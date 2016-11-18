@@ -1,4 +1,4 @@
-//===-- driver/ir2obj_cache_pruning.h ---------------------------*- C++ -*-===//
+//===-- driver/cache_pruning.h ----------------------------------*- C++ -*-===//
 //
 //                         LDC – the LLVM D compiler
 //

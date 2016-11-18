@@ -13,7 +13,7 @@ matrix:
       d: ldc
       env: LLVM_VERSION=3.7.1 OPTS="-DMULTILIB=ON"
     - os: linux
-      d: ldc-0.17.1
+      d: ldc-0.17.2
       env: LLVM_VERSION=3.6.2 OPTS="-DBUILD_SHARED_LIBS=ON"
     - os: linux
       d: dmd
@@ -21,6 +21,9 @@ matrix:
     - os: osx
       d: ldc
       env: LLVM_CONFIG="llvm-config-3.8"
+    - os: osx
+      d: ldc
+      env: LLVM_CONFIG="llvm-config-3.8" OPTS="-DBUILD_SHARED_LIBS=ON"
   allow_failures:
     #- env: LLVM_VERSION=3.9
 

@@ -356,6 +356,7 @@ public:
           setLinkage(lwc, newGvar);
 
           newGvar->setAlignment(gvar->getAlignment());
+          newGvar->setDLLStorageClass(gvar->getDLLStorageClass());
           applyVarDeclUDAs(decl, newGvar);
           newGvar->takeName(gvar);
 
@@ -367,6 +368,8 @@ public:
           gvar = newGvar;
           irGlobal->value = newGvar;
         }
+
+        assert(!gvar->hasDLLImportStorageClass());
 
         // Now, set the initializer.
         assert(!irGlobal->constInit);
@@ -382,7 +385,7 @@ public:
       // artificial "use" for it, or it could be removed by the optimizer if
       // the only reference to it is in inline asm.
       if (irGlobal->nakedUse) {
-        irs->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
+        irs->usedArray.push_back(gvar);
       }
 
       IF_LOG Logger::cout() << *gvar << '\n';

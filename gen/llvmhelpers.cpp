@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/llvmhelpers.h"
+#include "gen/cl_helpers.h"
 #include "declaration.h"
 #include "expression.h"
 #include "gen/abi.h"
@@ -47,16 +48,15 @@
 llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel(
     "fthread-model", llvm::cl::desc("Thread model"),
     llvm::cl::init(llvm::GlobalVariable::GeneralDynamicTLSModel),
-    llvm::cl::values(clEnumValN(llvm::GlobalVariable::GeneralDynamicTLSModel,
-                                "global-dynamic",
-                                "Global dynamic TLS model (default)"),
-                     clEnumValN(llvm::GlobalVariable::LocalDynamicTLSModel,
-                                "local-dynamic", "Local dynamic TLS model"),
-                     clEnumValN(llvm::GlobalVariable::InitialExecTLSModel,
-                                "initial-exec", "Initial exec TLS model"),
-                     clEnumValN(llvm::GlobalVariable::LocalExecTLSModel,
-                                "local-exec", "Local exec TLS model"),
-                     clEnumValEnd));
+    clEnumValues(clEnumValN(llvm::GlobalVariable::GeneralDynamicTLSModel,
+                            "global-dynamic",
+                            "Global dynamic TLS model (default)"),
+                 clEnumValN(llvm::GlobalVariable::LocalDynamicTLSModel,
+                            "local-dynamic", "Local dynamic TLS model"),
+                 clEnumValN(llvm::GlobalVariable::InitialExecTLSModel,
+                            "initial-exec", "Initial exec TLS model"),
+                 clEnumValN(llvm::GlobalVariable::LocalExecTLSModel,
+                            "local-exec", "Local exec TLS model")));
 
 /******************************************************************************
  * Simple Triple helpers for DFE
@@ -846,10 +846,18 @@ void DtoResolveVariable(VarDeclaration *vd) {
                           linkage, nullptr, llName, vd->isThreadlocal());
     getIrGlobal(vd)->value = gvar;
 
-    // Set the alignment and use the target pointer size as lower bound.
-    unsigned alignment =
-        std::max(DtoAlignment(vd), gDataLayout->getPointerSize());
-    gvar->setAlignment(alignment);
+    // Set the alignment (it is important not to use type->alignsize because
+    // VarDeclarations can have an align() attribute independent of the type
+    // as well).
+    gvar->setAlignment(DtoAlignment(vd));
+
+    /* TODO: set DLL storage class when `export` is fixed (an attribute)
+    if (global.params.isWindows && vd->isExport()) {
+      auto c = vd->isImportedSymbol() ? LLGlobalValue::DLLImportStorageClass
+                                      : LLGlobalValue::DLLExportStorageClass;
+      gvar->setDLLStorageClass(c);
+    }
+    */
 
     applyVarDeclUDAs(vd, gvar);
 
@@ -1094,48 +1102,70 @@ LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp) {
   LOG_SCOPE
 
   LLConstant *val = toConstElem(exp, gIR);
+  Type *baseValType = exp->type->toBasetype();
+  Type *baseTargetType = targetType->toBasetype();
 
   // The situation here is a bit tricky: In an ideal world, we would always
   // have val->getType() == DtoType(targetType). But there are two reasons
   // why this is not true. One is that the LLVM type system cannot represent
   // all the C types, leading to differences in types being necessary e.g. for
   // union initializers. The second is that the frontend actually does not
-  // explicitly lowers things like initializing an array/vector with a scalar
+  // explicitly lower things like initializing an array/vector with a scalar
   // constant, or since 2.061 sometimes does not get implicit conversions for
   // integers right. However, we cannot just rely on the actual Types being
   // equal if there are no rewrites to do because of – as usual – AST
   // inconsistency bugs.
 
-  Type *expBase = stripModifiers(exp->type->toBasetype())->merge();
-  Type *targetBase = stripModifiers(targetType->toBasetype())->merge();
+  LLType *llType = val->getType();
+  LLType *targetLLType = DtoMemType(baseTargetType);
 
-  if (expBase->equals(targetBase) && targetBase->ty != Tbool) {
+  // shortcut for zeros
+  if (val->isNullValue())
+    return llvm::Constant::getNullValue(targetLLType);
+
+  // extend i1 to i8
+  if (llType == LLType::getInt1Ty(gIR->context())) {
+    llType = LLType::getInt8Ty(gIR->context());
+    val = llvm::ConstantExpr::getZExt(val, llType);
+  }
+
+  if (llType == targetLLType)
+    return val;
+
+  if (baseTargetType->ty == Tsarray) {
+    Logger::println("Building constant array initializer from scalar.");
+
+    assert(baseValType->size() > 0);
+    const auto numTotalVals = baseTargetType->size() / baseValType->size();
+    assert(baseTargetType->size() % baseValType->size() == 0);
+
+    // may be a multi-dimensional array init, e.g., `char[2][3] x = 0xff`
+    baseValType = stripModifiers(baseValType);
+    LLSmallVector<size_t, 4> dims; // { 3, 2 }
+    for (auto t = baseTargetType; t->ty == Tsarray;) {
+      dims.push_back(static_cast<TypeSArray *>(t)->dim->toUInteger());
+      auto elementType = stripModifiers(t->nextOf()->toBasetype());
+      if (elementType->equals(baseValType))
+        break;
+      t = elementType;
+    }
+
+    size_t product = 1;
+    for (size_t i = dims.size(); i--;) {
+      product *= dims[i];
+      auto at = llvm::ArrayType::get(val->getType(), dims[i]);
+      LLSmallVector<llvm::Constant *, 16> elements(dims[i], val);
+      val = llvm::ConstantArray::get(at, elements);
+    }
+
+    assert(product == numTotalVals);
     return val;
   }
 
-  llvm::Type *llType = val->getType();
-  llvm::Type *targetLLType = DtoMemType(targetBase);
-  if (llType == targetLLType) {
-    Logger::println("Matching LLVM types, ignoring frontend glitch.");
-    return val;
-  }
+  if (baseTargetType->ty == Tvector) {
+    Logger::println("Building constant vector initializer from scalar.");
 
-  if (targetBase->ty == Tsarray) {
-    Logger::println("Building constant array initializer to single value.");
-
-    assert(expBase->size() > 0);
-    d_uns64 elemCount = targetBase->size() / expBase->size();
-    assert(targetBase->size() % expBase->size() == 0);
-
-    std::vector<llvm::Constant *> initVals(elemCount, val);
-    return llvm::ConstantArray::get(llvm::ArrayType::get(llType, elemCount),
-                                    initVals);
-  }
-
-  if (targetBase->ty == Tvector) {
-    Logger::println("Building vector initializer from scalar.");
-
-    TypeVector *tv = static_cast<TypeVector *>(targetBase);
+    TypeVector *tv = static_cast<TypeVector *>(baseTargetType);
     assert(tv->basetype->ty == Tsarray);
     dinteger_t elemCount =
         static_cast<TypeSArray *>(tv->basetype)->dim->toInteger();
@@ -1149,10 +1179,9 @@ LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp) {
     llvm::IntegerType *source = llvm::cast<llvm::IntegerType>(llType);
     llvm::IntegerType *target = llvm::cast<llvm::IntegerType>(targetLLType);
 
-    assert(
-        target->getBitWidth() > source->getBitWidth() &&
-        "On initializer "
-        "integer type mismatch, the target should be wider than the source.");
+    assert(target->getBitWidth() > source->getBitWidth() &&
+           "On initializer integer type mismatch, the target should be wider "
+           "than the source.");
     return llvm::ConstantExpr::getZExtOrBitCast(val, target);
   }
 
@@ -1704,29 +1733,26 @@ llvm::GlobalVariable *getOrCreateGlobal(const Loc &loc, llvm::Module &module,
                                   nullptr, tlsModel);
 }
 
-FuncDeclaration *getParentFunc(Dsymbol *sym, bool stopOnStatic) {
+FuncDeclaration *getParentFunc(Dsymbol *sym) {
   if (!sym) {
     return nullptr;
   }
 
-  // check if symbol is itself a static function/aggregate
-  if (stopOnStatic) {
-    // Static functions and function (not delegate) literals don't allow
-    // access to a parent context, even if they are nested.
-    if (FuncDeclaration *fd = sym->isFuncDeclaration()) {
-      bool certainlyNewRoot =
-          fd->isStatic() ||
-          (fd->isFuncLiteralDeclaration() &&
-           static_cast<FuncLiteralDeclaration *>(fd)->tok == TOKfunction);
-      if (certainlyNewRoot) {
-        return nullptr;
-      }
+  // Static functions and function (not delegate) literals don't allow
+  // access to a parent context, even if they are nested.
+  if (FuncDeclaration *fd = sym->isFuncDeclaration()) {
+    bool certainlyNewRoot =
+        fd->isStatic() ||
+        (fd->isFuncLiteralDeclaration() &&
+         static_cast<FuncLiteralDeclaration *>(fd)->tok == TOKfunction);
+    if (certainlyNewRoot) {
+      return nullptr;
     }
-    // Fun fact: AggregateDeclarations are not Declarations.
-    else if (AggregateDeclaration *ad = sym->isAggregateDeclaration()) {
-      if (!ad->isNested()) {
-        return nullptr;
-      }
+  }
+  // Fun fact: AggregateDeclarations are not Declarations.
+  else if (AggregateDeclaration *ad = sym->isAggregateDeclaration()) {
+    if (!ad->isNested()) {
+      return nullptr;
     }
   }
 
@@ -1735,11 +1761,9 @@ FuncDeclaration *getParentFunc(Dsymbol *sym, bool stopOnStatic) {
       return fd;
     }
 
-    if (stopOnStatic) {
-      if (AggregateDeclaration *ad = parent->isAggregateDeclaration()) {
-        if (!ad->isNested()) {
-          return nullptr;
-        }
+    if (AggregateDeclaration *ad = parent->isAggregateDeclaration()) {
+      if (!ad->isNested()) {
+        return nullptr;
       }
     }
   }
