@@ -21,9 +21,6 @@ matrix:
     - os: osx
       d: ldc
       env: LLVM_VERSION=3.9.0
-    - os: osx
-      d: ldc
-      env: LLVM_VERSION=3.9.0 OPTS="-DBUILD_SHARED_LIBS=ON"
   allow_failures:
     #- env: LLVM_VERSION=3.9
 
