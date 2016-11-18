@@ -20,12 +20,18 @@ struct NVPTXTargetABI : TargetABI {
       return llvm::CallingConv::PTX_Device;
   }
   bool passByVal(Type *t) override {
-    return t->size() <= 16; //enough for a float4
+    // TODO: Do some field testing to figure out the most optimal cutoff.
+    // 16 means that a float4 will be passed in registers.
+    return t->size() > 16 && DtoIsInMemoryOnly(t);
   }
   void rewriteFunctionType(TypeFunction *t, IrFuncTy &fty) override {
     // Do nothing.
   }
-  bool returnInArg(TypeFunction *tf) override { return false; }
+  bool returnInArg(TypeFunction *tf) override {
+    // Never use sret because we don't know what addrspace the implicit pointer
+    // should address.
+    return false;
+  }
 };
 
 TargetABI *createNVPTXABI() { return new NVPTXTargetABI(); }
