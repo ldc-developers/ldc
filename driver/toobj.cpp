@@ -23,6 +23,7 @@
 #include "llvm/Analysis/ModuleSummaryAnalysis.h"
 #endif
 #if LDC_LLVM_VER >= 400
+#include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #else
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -471,13 +472,22 @@ void writeModule(llvm::Module *m, const char *filename) {
 #if LDC_LLVM_VER >= 309
       Logger::println("Creating module summary for ThinLTO");
 #if LDC_LLVM_VER == 309
-      // TODO: add PGO data in here when available (function freq info).
-      llvm::ModuleSummaryIndexBuilder indexBuilder(m, nullptr);
+      // When the function freq info callback is set to nullptr, LLVM will
+      // calculate it automatically for us.
+      llvm::ModuleSummaryIndexBuilder indexBuilder(
+          m, /* function freq callback */ nullptr);
       auto &moduleSummaryIndex = indexBuilder.getIndex();
 #else
-      // TODO: add PGO data in here when available (function freq info and
-      // profile summary info).
-      auto moduleSummaryIndex = buildModuleSummaryIndex(*m, nullptr, nullptr);
+      llvm::ProfileSummaryInfo PSI(*m);
+      // Set PSIptr to nullptr when there is no PGO information available, such
+      // that LLVM will not try to find PGO information for each function inside
+      // `buildModuleSummaryIndex`. (micro-optimization)
+      auto PSIptr = m->getProfileSummary() ? &PSI : nullptr;
+
+      // When the function freq info callback is set to nullptr, LLVM will
+      // calculate it automatically for us.
+      auto moduleSummaryIndex = buildModuleSummaryIndex(
+          *m, /* function freq callback */ nullptr, PSIptr);
 #endif
 
       llvm::WriteBitcodeToFile(m, bos, true, &moduleSummaryIndex,
