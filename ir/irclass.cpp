@@ -49,7 +49,7 @@ LLGlobalVariable *IrAggr::getVtblSymbol() {
   // create the vtblZ symbol
   auto initname = getMangledVTableSymbolName(aggrdecl);
 
-  LLType *vtblTy = stripModifiers(type)->ctype->isClass()->getVtbl();
+  LLType *vtblTy = stripModifiers(type)->ctype->isClass()->getVtblType();
 
   vtbl =
       getOrCreateGlobal(aggrdecl->loc, gIR->module, vtblTy, true,
@@ -165,11 +165,13 @@ LLConstant *IrAggr::getVtblInit() {
   std::vector<llvm::Constant *> constants;
   constants.reserve(cd->vtbl.dim);
 
+  const auto voidPtrType = getVoidPtrType();
+
   // start with the classinfo
   llvm::Constant *c;
   if (!cd->isCPPclass()) {
     c = getClassInfoSymbol();
-    c = DtoBitCast(c, DtoType(Type::typeinfoclass->type));
+    c = DtoBitCast(c, voidPtrType);
     constants.push_back(c);
   }
 
@@ -220,30 +222,12 @@ LLConstant *IrAggr::getVtblInit() {
         }
       }
     }
-    constants.push_back(c);
+    constants.push_back(DtoBitCast(c, voidPtrType));
   }
 
-  // build the constant struct
-  LLType *vtblTy = stripModifiers(type)->ctype->isClass()->getVtbl();
-#ifndef NDEBUG
-  size_t nc = constants.size();
-
-  for (size_t i = 0; i < nc; ++i) {
-    if (constants[i]->getType() != vtblTy->getContainedType(i)) {
-      llvm::errs() << "type mismatch for entry # " << i
-                   << " in vtbl initializer\n";
-
-      constants[i]->getType()->dump();
-      vtblTy->getContainedType(i)->dump();
-    }
-  }
-
-#endif
-  constVtbl = LLConstantStruct::get(isaStruct(vtblTy), constants);
-
-  assert(constVtbl->getType() ==
-             stripModifiers(type)->ctype->isClass()->getVtbl() &&
-         "vtbl initializer type mismatch");
+  // build the constant array
+  LLArrayType *vtblTy = LLArrayType::get(voidPtrType, constants.size());
+  constVtbl = LLConstantArray::get(vtblTy, constants);
 
   return constVtbl;
 }
@@ -281,6 +265,8 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
   std::vector<llvm::Constant *> constants;
   constants.reserve(vtbl_array.dim);
 
+  const auto voidPtrTy = getVoidPtrType();
+
   if (!b->sym->isCPPinterface()) { // skip interface info for CPP interfaces
     // index into the interfaces array
     llvm::Constant *idxs[2] = {DtoConstSize_t(0),
@@ -293,7 +279,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
 #endif
         interfaceInfosZ, idxs, true);
 
-    constants.push_back(c);
+    constants.push_back(DtoBitCast(c, voidPtrTy));
   }
 
   // Thunk prefix
@@ -310,7 +296,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       // FIXME
       // why is this null?
       // happens for mini/s.d
-      constants.push_back(getNullValue(getVoidPtrType()));
+      constants.push_back(getNullValue(voidPtrTy));
       continue;
     }
 
@@ -331,7 +317,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
     if (fd->interfaceVirtual)
       thunkOffset -= fd->interfaceVirtual->offset;
     if (thunkOffset == 0) {
-      constants.push_back(irFunc->func);
+      constants.push_back(DtoBitCast(irFunc->func, voidPtrTy));
       continue;
     }
 
@@ -438,12 +424,12 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       gIR->funcGenStates.pop_back();
     }
 
-    constants.push_back(thunk);
+    constants.push_back(DtoBitCast(thunk, voidPtrTy));
   }
 
   // build the vtbl constant
-  llvm::Constant *vtbl_constant =
-      LLConstantStruct::getAnon(gIR->context(), constants, false);
+  llvm::Constant *vtbl_constant = LLConstantArray::get(
+      LLArrayType::get(voidPtrTy, constants.size()), constants);
 
   std::string mangledName("_D");
   mangledName.append(mangle(cd));
@@ -530,7 +516,8 @@ LLConstant *IrAggr::getClassInfoInterfaces() {
       assert(itv != interfaceVtblMap.end() && "interface vtbl not found");
       vtb = itv->second;
       vtb = DtoBitCast(vtb, voidptrptr_type);
-      vtb = DtoConstSlice(DtoConstSize_t(itc->getVtblSize()), vtb);
+      auto vtblSize = itc->getVtblType()->getNumContainedTypes();
+      vtb = DtoConstSlice(DtoConstSize_t(vtblSize), vtb);
     }
 
     // offset

@@ -25,10 +25,7 @@
 
 IrTypeClass::IrTypeClass(ClassDeclaration *cd)
     : IrTypeAggr(cd), cd(cd), tc(static_cast<TypeClass *>(cd->type)) {
-  std::string vtbl_name(cd->toPrettyChars());
-  vtbl_name.append(".__vtbl");
-  vtbl_type = LLStructType::create(gIR->context(), vtbl_name);
-  vtbl_size = cd->vtbl.dim;
+  vtbl_type = LLArrayType::get(getVoidPtrType(), cd->vtbl.dim);
 }
 
 void IrTypeClass::addClassData(AggrTypeBuilder &builder,
@@ -52,15 +49,10 @@ void IrTypeClass::addClassData(AggrTypeBuilder &builder,
       IF_LOG Logger::println("Adding interface vtbl for %s",
                              b->sym->toPrettyChars());
 
-      FuncDeclarations arr;
-      b->fillVtbl(cd, &arr, currCd == cd);
-
       // add to the interface map
       addInterfaceToMap(b->sym, builder.currentFieldIndex());
-      Type* first = b->sym->isCPPinterface() ? nullptr : interfacePtrType;
-      const auto ivtblType =
-          llvm::StructType::get(gIR->context(), buildVtblType(first, &arr));
-      builder.addType(llvm::PointerType::get(ivtblType, 0), Target::ptrsize);
+      auto vtblTy = LLArrayType::get(getVoidPtrType(), b->sym->vtbl.dim);
+      builder.addType(llvm::PointerType::get(vtblTy, 0), Target::ptrsize);
 
       ++num_interface_vtbls;
     }
@@ -117,77 +109,9 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
   isaStruct(t->type)->setBody(builder.defaultTypes(), t->packed);
   t->varGEPIndices = builder.varGEPIndices();
 
-  // set vtbl type body
-  FuncDeclarations vtbl;
-  vtbl.reserve(cd->vtbl.dim);
-  if (!cd->isCPPclass())
-    vtbl.push(nullptr);
-  for (size_t i = cd->vtblOffset(); i < cd->vtbl.dim; ++i) {
-    FuncDeclaration *fd = cd->vtbl[i]->isFuncDeclaration();
-    assert(fd);
-    vtbl.push(fd);
-  }
-  Type* first = cd->isCPPclass() ? nullptr : Type::typeinfoclass->type;
-  t->vtbl_type->setBody(t->buildVtblType(first, &vtbl));
-
   IF_LOG Logger::cout() << "class type: " << *t->type << std::endl;
 
   return t;
-}
-
-std::vector<llvm::Type *>
-IrTypeClass::buildVtblType(Type *first, FuncDeclarations *vtbl_array) {
-  IF_LOG Logger::println("Building vtbl type for class %s",
-                         cd->toPrettyChars());
-  LOG_SCOPE;
-
-  std::vector<llvm::Type *> types;
-  types.reserve(vtbl_array->dim);
-
-  auto I = vtbl_array->begin();
-  // first comes the classinfo for D interfaces
-  if (first) {
-    types.push_back(DtoType(first));
-    ++I;
-  }
-
-  // then come the functions
-  for (auto E = vtbl_array->end(); I != E; ++I) {
-    FuncDeclaration *fd = *I;
-    if (fd == nullptr) {
-      // FIXME: This stems from the ancient D1 days – can it still happen?
-      types.push_back(getVoidPtrType());
-      continue;
-    }
-
-    IF_LOG Logger::println("Adding type of %s", fd->toPrettyChars());
-
-    // If inferring return type and semantic3 has not been run, do it now.
-    // This pops up in some other places in the frontend as well, however
-    // it is probably a bug that it still occurs that late.
-    if (!fd->type->nextOf() && fd->inferRetType) {
-      Logger::println("Running late functionSemantic to infer return type.");
-      TemplateInstance *spec = fd->isSpeculative();
-      unsigned int olderrs = global.errors;
-      fd->functionSemantic();
-      if (spec && global.errors != olderrs) {
-        spec->errors = global.errors - olderrs;
-      }
-    }
-
-    if (!fd->type->nextOf()) {
-      // Return type of the function has not been inferred. This seems to
-      // happen with virtual functions and is probably a frontend bug.
-      IF_LOG Logger::println("Broken function type, semanticRun: %d",
-                             fd->semanticRun);
-      types.push_back(getVoidPtrType());
-      continue;
-    }
-
-    types.push_back(getPtrToType(DtoFunctionType(fd)));
-  }
-
-  return types;
 }
 
 llvm::Type *IrTypeClass::getLLType() { return llvm::PointerType::get(type, 0); }
