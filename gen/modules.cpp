@@ -256,6 +256,10 @@ llvm::Function *buildRegisterDSO(llvm::Value *dsoInitialized,
 
 void build_module_ref(std::string moduleMangle,
                       llvm::Constant *thisModuleInfo) {
+  // The linker on Darwin uses different magic section names than Unix. This
+  // convenience bool is used to decide which names to use.
+  const bool magicDarwin = global.params.targetTriple->isMacOSX();
+
   // Only for the first D module to be emitted into this llvm::Module we need to
   // create the global ctors/dtors. The magic linker symbols used to get the
   // start and end of the .minfo section also only need to be emitted for the
@@ -268,20 +272,6 @@ void build_module_ref(std::string moduleMangle,
 
   llvm::Type *const moduleInfoPtrTy = DtoPtrToType(Module::moduleinfo->type);
 
-  // Order is important here: We must create the symbols in the
-  // bracketing sections right before/after the ModuleInfo reference
-  // so that they end up in the correct order in the object file.
-  llvm::GlobalVariable *minfoBeg;
-  if (isFirst) {
-    minfoBeg = new llvm::GlobalVariable(
-        gIR->module, moduleInfoPtrTy,
-        false, // FIXME: mRelocModel != llvm::Reloc::PIC_
-        llvm::GlobalValue::LinkOnceODRLinkage, getNullPtr(moduleInfoPtrTy),
-        "_minfo_beg");
-    minfoBeg->setSection(".minfo_beg");
-    minfoBeg->setVisibility(llvm::GlobalValue::HiddenVisibility);
-  }
-
   std::string thismrefname = "_D";
   thismrefname += moduleMangle;
   thismrefname += "11__moduleRefZ";
@@ -290,7 +280,7 @@ void build_module_ref(std::string moduleMangle,
       false, // FIXME: mRelocModel != llvm::Reloc::PIC_
       llvm::GlobalValue::LinkOnceODRLinkage,
       DtoBitCast(thisModuleInfo, moduleInfoPtrTy), thismrefname);
-  thismref->setSection(".minfo");
+  thismref->setSection(magicDarwin ? "__DATA,.minfo" : "__minfo");
   gIR->usedArray.push_back(thismref);
 
   if (!isFirst) {
@@ -298,12 +288,19 @@ void build_module_ref(std::string moduleMangle,
     return;
   }
 
-  auto minfoEnd =
-      new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy,
-                               false, // FIXME: mRelocModel != llvm::Reloc::PIC_
-                               llvm::GlobalValue::LinkOnceODRLinkage,
-                               getNullPtr(moduleInfoPtrTy), "_minfo_end");
-  minfoEnd->setSection(".minfo_end");
+  // Use magic linker symbol names to obtain the begin and end of the .minfo
+  // section.
+  const auto magicBeginSymbolName =
+      magicDarwin ? "\1section$start$__DATA$.minfo" : "__start___minfo";
+  const auto magicEndSymbolName =
+      magicDarwin ? "\1section$end$__DATA$.minfo" : "__stop___minfo";
+  auto minfoBeg = new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy, false,
+                                           llvm::GlobalValue::ExternalLinkage,
+                                           nullptr, magicBeginSymbolName);
+  auto minfoEnd = new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy, false,
+                                           llvm::GlobalValue::ExternalLinkage,
+                                           nullptr, magicEndSymbolName);
+  minfoBeg->setVisibility(llvm::GlobalValue::HiddenVisibility);
   minfoEnd->setVisibility(llvm::GlobalValue::HiddenVisibility);
 
   // Build the ctor to invoke _d_dso_registry.
