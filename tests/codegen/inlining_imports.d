@@ -41,4 +41,6 @@ int call_weak_function()
     // OPT3: call
     return weak_function();
     // OPT3-NOT: 654
+    // Test for function end `}` to prevent matching "654" elsewhere (e.g. the LDC version git hash)
+    // OPT3: }
 }
