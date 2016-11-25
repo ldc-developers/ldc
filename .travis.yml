@@ -20,10 +20,10 @@ matrix:
       env: LLVM_VERSION=3.5.2 OPTS="-DTEST_COVERAGE=ON"
     - os: osx
       d: ldc
-      env: LLVM_CONFIG="llvm-config-3.8"
+      env: LLVM_VERSION=3.9.0
     - os: osx
       d: ldc
-      env: LLVM_CONFIG="llvm-config-3.8" OPTS="-DBUILD_SHARED_LIBS=ON"
+      env: LLVM_VERSION=3.9.0 OPTS="-DBUILD_SHARED_LIBS=ON"
   allow_failures:
     #- env: LLVM_VERSION=3.9
 
@@ -53,17 +53,20 @@ addons:
 before_install:
   -
     if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
-      if [ -z "$(ls -A llvm-$LLVM_VERSION)" ]; then
-        wget -O llvm-$LLVM_VERSION.tar.xz http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-x86_64-linux-gnu-ubuntu-14.04.tar.xz;
-        mkdir llvm-$LLVM_VERSION;
-        tar -xvf llvm-$LLVM_VERSION.tar.xz --strip 1 -C llvm-$LLVM_VERSION;
-      fi;
-      llvm-$LLVM_VERSION/bin/llvm-config --version;
-      export LLVM_CONFIG="llvm-$LLVM_VERSION/bin/llvm-config";
-    fi
+      export LLVM_ARCH="x86_64-linux-gnu-ubuntu-14.04";
+    else
+      export LLVM_ARCH="x86_64-apple-darwin";
+    fi;
+    if [ -z "$(ls -A llvm-$LLVM_VERSION)" ]; then
+      wget -O llvm-$LLVM_VERSION.tar.xz http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-${LLVM_ARCH}.tar.xz;
+      mkdir llvm-$LLVM_VERSION;
+      tar -xvf llvm-$LLVM_VERSION.tar.xz --strip 1 -C llvm-$LLVM_VERSION;
+    fi;
+    llvm-$LLVM_VERSION/bin/llvm-config --version;
+    export LLVM_CONFIG="llvm-$LLVM_VERSION/bin/llvm-config";
 install:
   - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then export CC="gcc-4.9"; export CXX="g++-4.9"; fi
-  - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then brew update; brew install llvm38; brew install libconfig; fi;
+  - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then brew update; brew install libconfig; fi;
   - eval "${DC} --version"
   - pip install --user lit
   - python -c "import lit; lit.main();" --version | head -n 1
