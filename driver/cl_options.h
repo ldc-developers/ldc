@@ -26,6 +26,11 @@
 // FIXME: Just for the BOUDNSCHECK enum; this is not pretty
 #include "globals.h"
 
+namespace llvm {
+class FastMathFlags;
+class TargetMachine;
+}
+
 namespace opts {
 namespace cl = llvm::cl;
 
@@ -77,6 +82,11 @@ extern cl::opt<FloatABI::Type> mFloatABI;
 extern cl::opt<bool, true> singleObj;
 extern cl::opt<bool> linkonceTemplates;
 extern cl::opt<bool> disableLinkerStripDead;
+
+// Math options
+extern bool fFastMath;
+extern llvm::FastMathFlags defaultFMF;
+void setDefaultMathOptions(llvm::TargetMachine &target);
 
 extern cl::opt<BOUNDSCHECK> boundsCheck;
 extern bool nonSafeBoundsChecks;

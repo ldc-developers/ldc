@@ -14,6 +14,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Operator.h"
 
 namespace opts {
 
@@ -410,6 +411,18 @@ cl::opt<bool> disableLinkerStripDead(
     cl::desc("Do not try to remove unused symbols during linking"),
     cl::init(false));
 
+// Math options
+bool fFastMath; // Storage for the dynamically created ffast-math option.
+llvm::FastMathFlags defaultFMF;
+void setDefaultMathOptions(llvm::TargetMachine &target) {
+  if (fFastMath) {
+    defaultFMF.setUnsafeAlgebra();
+
+    llvm::TargetOptions &TO = target.Options;
+    TO.UnsafeFPMath = true;
+  }
+}
+
 cl::opt<bool, true>
     allinst("allinst",
             cl::desc("generate code for all template instantiations"),
@@ -503,11 +516,15 @@ void createClashingOptions() {
   // LLVM 3.7 introduces compiling as shared library. The result
   // is a clash in the command line options.
   renameAndHide("color", "llvm-color");
+  renameAndHide("ffast-math", "llvm-ffast-math");
 
   // Step 2. Add the LDC options.
   new cl::opt<bool, true, FlagParser<bool>>(
       "color", cl::desc("Force colored console output"),
       cl::location(global.params.color));
+  new cl::opt<bool, true>(
+      "ffast-math", cl::desc("Set @fastmath for all functions."),
+      cl::location(fFastMath), cl::init(false), cl::ZeroOrMore);
 }
 
 /// Hides command line options exposed from within LLVM that are unlikely

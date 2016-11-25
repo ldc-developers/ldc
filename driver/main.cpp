@@ -981,6 +981,8 @@ int cppmain(int argc, char **argv) {
       global.obj_ext = "obj";
   }
 
+  opts::setDefaultMathOptions(*gTargetMachine);
+
   // allocate the target abi
   gABI = TargetABI::getTarget();
 
