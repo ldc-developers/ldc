@@ -9,7 +9,6 @@
 
 // SECOND: Use IR-to-Object cache in {{.*}}cachedirectory
 // SECOND: Cache object found!
-// SECOND: SymLink output to cached object file
 
 void main()
 {
