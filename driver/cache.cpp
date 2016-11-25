@@ -38,14 +38,15 @@
 
 #if LDC_LLVM_VER >= 400
 #include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/Support/Chrono.h"
 #else
 #include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Support/TimeValue.h"
 #endif
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/TimeValue.h"
 
 // Include close() declaration.
 #if !defined(_MSC_VER) && !defined(__MINGW32__)
@@ -97,6 +98,15 @@ bool isPruningEnabled() {
 
   return false;
 }
+
+#if LDC_LLVM_VER >= 400
+llvm::sys::TimePoint<std::chrono::seconds> getTimeNow() {
+  using namespace std::chrono;
+  return time_point_cast<seconds>(system_clock::now());
+}
+#else
+llvm::sys::TimeValue getTimeNow() { return llvm::sys::TimeValue::now(); }
+#endif
 
 /// A raw_ostream that creates a hash of what is written to it.
 /// This class does not encounter output errors.
@@ -335,8 +345,7 @@ void recoverObjectFile(llvm::StringRef cacheObjectHash,
       fatal();
     }
 
-    if (llvm::sys::fs::setLastModificationAndAccessTime(
-            FD, llvm::sys::TimeValue::now())) {
+    if (llvm::sys::fs::setLastModificationAndAccessTime(FD, getTimeNow())) {
       error(Loc(), "Failed to set the cached file modification time: %s",
             cacheFile.c_str());
       fatal();
