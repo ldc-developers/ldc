@@ -21,20 +21,14 @@ struct SPIRVTargetABI : TargetABI {
       return llvm::CallingConv::SPIR_FUNC;
   }
   bool passByVal(Type *t) override {
-    // TODO: Do some field testing to figure out the most optimal cutoff.
-    // 16 means that a float4 will be passed in registers. Must be greater than
-    // 8 so that e.g. { float* } does not get the byVal attribute so there are no
-    // double pointers, as this is disallowed in earlier versions of OpenCL.
-    return t->size() > 16 && DtoIsInMemoryOnly(t);
+    return DtoIsInMemoryOnly(t);
   }
   void rewriteFunctionType(TypeFunction *t, IrFuncTy &fty) override {
     // Do nothing.
   }
   bool returnInArg(TypeFunction *tf) override {
-    // Never use sret because we don't know what addrspace the implicit pointer
-    // should address.
-    return false;
-    }
+    return !tf->isref && DtoIsInMemoryOnly(tf->next);
+  }
 };
 
 TargetABI *createSPIRVABI() { return new SPIRVTargetABI(); }
