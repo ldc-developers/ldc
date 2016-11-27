@@ -48,7 +48,7 @@ namespace {
 bool compareCaseStrings(CaseStatement *lhs, CaseStatement *rhs) {
   return lhs->exp->compare(rhs->exp) < 0;
 }
-};
+}
 
 static LLValue *call_string_switch_runtime(llvm::Value *table, Expression *e) {
   Type *dt = e->type->toBasetype();
