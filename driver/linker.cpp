@@ -130,7 +130,7 @@ std::string getLTOGoldPluginPath() {
   } else {
     std::string searchPaths[] = {
         // The plugin packaged with LDC has a "-ldc" suffix.
-        exe_path::prependLibDir("LLVMgold-ldc.so"),
+        exe_path::prependBinDir("LLVMgold-ldc.so"),
         "/usr/local/lib/LLVMgold.so", "/usr/lib/bfd-plugins/LLVMgold.so",
     };
 
@@ -181,7 +181,7 @@ std::string getLTOdylibPath() {
     fatal();
   } else {
     // The plugin packaged with LDC has a "-ldc" suffix.
-    std::string searchPath = exe_path::prependLibDir("libLTO-ldc.dylib");
+    std::string searchPath = exe_path::prependBinDir("libLTO-ldc.dylib");
     if (llvm::sys::fs::exists(searchPath))
       return searchPath;
 
