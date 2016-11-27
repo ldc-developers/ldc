@@ -729,14 +729,16 @@ endif()
 # Also install LLVM's LTO binary if available
 if(APPLE)
     set(LLVM_LTO_BINARY ${LLVM_LIBRARY_DIRS}/libLTO.dylib)
+    set(LDC_LTO_BINARY_NAME libLTO-ldc.dylib)
 elseif(UNIX)
     set(LLVM_LTO_BINARY ${LLVM_LIBRARY_DIRS}/LLVMgold.so)
+    set(LDC_LTO_BINARY_NAME LLVMgold-ldc.so)
 endif()
 if(EXISTS ${LLVM_LTO_BINARY})
     message(STATUS "Also installing LTO binary: ${LLVM_LTO_BINARY}")
-    install(PROGRAMS ${LLVM_LTO_BINARY} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
     file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
-    configure_file(${LLVM_LTO_BINARY} ${PROJECT_BINARY_DIR}/lib COPYONLY)
+    configure_file(${LLVM_LTO_BINARY} ${PROJECT_BINARY_DIR}/lib/${LDC_LTO_BINARY_NAME} COPYONLY)
+    install(PROGRAMS ${PROJECT_BINARY_DIR}/lib/${LDC_LTO_BINARY_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 endif()
 
 #

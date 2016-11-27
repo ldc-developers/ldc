@@ -51,11 +51,11 @@ static llvm::cl::opt<bool> createStaticLibInObjdir(
     llvm::cl::desc("Create static library in -od directory (DMD-compliant)"),
     llvm::cl::ZeroOrMore, llvm::cl::ReallyHidden);
 
-static llvm::cl::opt<std::string> ltoLibrary(
-    "flto-binary",
-    llvm::cl::desc(
-        "Set the path for LLVMgold.so (Unixes) or libLTO.dylib (Darwin)"),
-    llvm::cl::value_desc("file"));
+static llvm::cl::opt<std::string>
+    ltoLibrary("flto-binary",
+               llvm::cl::desc("Set the linker LTO plugin library file (e.g. "
+                              "LLVMgold.so (Unixes) or libLTO.dylib (Darwin))"),
+               llvm::cl::value_desc("file"));
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -129,8 +129,9 @@ std::string getLTOGoldPluginPath() {
     fatal();
   } else {
     std::string searchPaths[] = {
-        exe_path::prependLibDir("LLVMgold.so"), "/usr/local/lib/LLVMgold.so",
-        "/usr/lib/bfd-plugins/LLVMgold.so",
+        // The plugin packaged with LDC has a "-ldc" suffix.
+        exe_path::prependLibDir("LLVMgold-ldc.so"),
+        "/usr/local/lib/LLVMgold.so", "/usr/lib/bfd-plugins/LLVMgold.so",
     };
 
     // Try all searchPaths and early return upon the first path found.
@@ -179,7 +180,8 @@ std::string getLTOdylibPath() {
     error(Loc(), "-flto-binary: '%s' not found", ltoLibrary.c_str());
     fatal();
   } else {
-    std::string searchPath = exe_path::prependLibDir("libLTO.dylib");
+    // The plugin packaged with LDC has a "-ldc" suffix.
+    std::string searchPath = exe_path::prependLibDir("libLTO-ldc.dylib");
     if (llvm::sys::fs::exists(searchPath))
       return searchPath;
 
