@@ -675,6 +675,21 @@ build_d_executable(
     "LDMD_CXX_LIB;${LDC_LIB}"
 )
 
+#
+# Locate LLVM's LTO binary and use it
+#
+if(APPLE)
+    set(LLVM_LTO_BINARY ${LLVM_LIBRARY_DIRS}/libLTO.dylib)
+    set(LDC_LTO_BINARY_NAME libLTO-ldc.dylib)
+elseif(UNIX)
+    set(LLVM_LTO_BINARY ${LLVM_LIBRARY_DIRS}/LLVMgold.so)
+    set(LDC_LTO_BINARY_NAME LLVMgold-ldc.so)
+endif()
+if(EXISTS ${LLVM_LTO_BINARY})
+    message(STATUS "Also installing LTO binary: ${LLVM_LTO_BINARY}")
+    file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX})
+    configure_file(${LLVM_LTO_BINARY} ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${LDC_LTO_BINARY_NAME} COPYONLY)
+endif()
 
 #
 # Auxiliary build and test utils.
@@ -731,17 +746,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 endif()
 
 # Also install LLVM's LTO binary if available
-if(APPLE)
-    set(LLVM_LTO_BINARY ${LLVM_LIBRARY_DIRS}/libLTO.dylib)
-    set(LDC_LTO_BINARY_NAME libLTO-ldc.dylib)
-elseif(UNIX)
-    set(LLVM_LTO_BINARY ${LLVM_LIBRARY_DIRS}/LLVMgold.so)
-    set(LDC_LTO_BINARY_NAME LLVMgold-ldc.so)
-endif()
 if(EXISTS ${LLVM_LTO_BINARY})
-    message(STATUS "Also installing LTO binary: ${LLVM_LTO_BINARY}")
-    file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX})
-    configure_file(${LLVM_LTO_BINARY} ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${LDC_LTO_BINARY_NAME} COPYONLY)
     install(PROGRAMS ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${LDC_LTO_BINARY_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 endif()
 
