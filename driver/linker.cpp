@@ -55,7 +55,7 @@ static llvm::cl::opt<std::string>
     ltoLibrary("flto-binary",
                llvm::cl::desc("Set the linker LTO plugin library file (e.g. "
                               "LLVMgold.so (Unixes) or libLTO.dylib (Darwin))"),
-               llvm::cl::value_desc("file"));
+               llvm::cl::value_desc("file"), llvm::cl::ZeroOrMore);
 
 //////////////////////////////////////////////////////////////////////////////
 
