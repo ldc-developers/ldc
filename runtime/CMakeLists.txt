@@ -19,11 +19,6 @@ if(MSVC)
     set(LINK_WITH_MSVCRT  OFF                                       CACHE BOOL    "Link with MSVCRT.lib (DLL) instead of LIBCMT.lib (static)")
 endif()
 
-# Note: In the below building helpers, this is more fittingly called
-# ${path_suffix}. ${lib_suffix} refers to the library file suffix there
-# (e.g. -debug).
-set(LIB_SUFFIX "" CACHE STRING "'64' to install libraries into ${PREFIX}/lib64")
-
 set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 
 include(CheckTypeSize)
