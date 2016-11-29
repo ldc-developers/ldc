@@ -83,6 +83,11 @@ struct PPC64LETargetABI : TargetABI {
         rewriteArgument(fty, *arg);
       }
     }
+
+    // extern(D): reverse parameter order for non variadics, for DMD-compliance
+    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
+      fty.reverseParams = true;
+    }
   }
 
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
