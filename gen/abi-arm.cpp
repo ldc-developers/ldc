@@ -33,11 +33,8 @@ struct ArmTargetABI : TargetABI {
       return false;
     Type *rt = tf->next->toBasetype();
 
-    // For extern(D), always return structs by arg because of problem with
-    // non-POD structs (failure in std.algorithm.move when struct has a ctor).
-    // TODO: figure out what the problem is
-    if (tf->linkage == LINKd)
-      return rt->ty == Tsarray || rt->ty == Tstruct;
+    if (!isPOD(rt))
+      return true;
 
     return rt->ty == Tsarray ||
            (rt->ty == Tstruct && rt->size() > 4 &&
