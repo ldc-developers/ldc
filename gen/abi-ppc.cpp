@@ -28,7 +28,6 @@
 #include "gen/tollvm.h"
 
 struct PPCTargetABI : TargetABI {
-  ExplicitByvalRewrite byvalRewrite;
   CompositeToArray32 compositeToArray32;
   CompositeToArray64 compositeToArray64;
   IntegerRewrite integerRewrite;
@@ -41,10 +40,7 @@ struct PPCTargetABI : TargetABI {
       return false;
     }
 
-    // FIXME
     Type *rt = tf->next->toBasetype();
-    if (tf->linkage == LINKd)
-      return rt->ty == Tsarray || rt->ty == Tstruct;
 
     // The ABI specifies that aggregates of size 8 bytes or less are
     // returned in r3/r4 (ppc) or in r3 (ppc64). Looking at the IR
@@ -58,37 +54,26 @@ struct PPCTargetABI : TargetABI {
     // On ppc64, they are always passed by value. However, clang
     // used byval for type > 64 bytes.
     t = t->toBasetype();
-    return (t->ty == Tsarray || t->ty == Tstruct) && (!Is64Bit || t->size() > 64);
+    return (t->ty == Tsarray || t->ty == Tstruct) &&
+           (!Is64Bit || t->size() > 64);
   }
 
   void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
-    // RETURN VALUE
-    Type *retTy = fty.ret->type->toBasetype();
+    // return value
     if (!fty.ret->byref) {
-      if (retTy->ty == Tstruct || retTy->ty == Tsarray) {
-        if (canRewriteAsInt(retTy, Is64Bit)) {
-          fty.ret->rewrite = &integerRewrite;
-          fty.ret->ltype = integerRewrite.type(fty.ret->type, fty.ret->ltype);
-        } else {
-          if (Is64Bit) {
-            fty.ret->rewrite = &compositeToArray64;
-            fty.ret->ltype =
-                compositeToArray64.type(fty.ret->type, fty.ret->ltype);
-          } else {
-            fty.ret->rewrite = &compositeToArray32;
-            fty.ret->ltype =
-                compositeToArray32.type(fty.ret->type, fty.ret->ltype);
-          }
-        }
-      } else if (retTy->isintegral())
-        fty.ret->attrs.add(retTy->isunsigned() ? LLAttribute::ZExt
-                                               : LLAttribute::SExt);
+      rewriteArgument(fty, *fty.ret);
     }
-    // EXPLICIT PARAMETERS
+
+    // explicit parameters
     for (auto arg : fty.args) {
       if (!arg->byref) {
         rewriteArgument(fty, *arg);
       }
+    }
+
+    // extern(D): reverse parameter order for non variadics, for DMD-compliance
+    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
+      fty.reverseParams = true;
     }
   }
 
@@ -108,12 +93,11 @@ struct PPCTargetABI : TargetABI {
           arg.ltype = compositeToArray32.type(arg.type, arg.ltype);
         }
       }
-    } else if (ty->isintegral())
+    } else if (ty->isintegral()) {
       arg.attrs.add(ty->isunsigned() ? LLAttribute::ZExt : LLAttribute::SExt);
+    }
   }
 };
 
 // The public getter for abi.cpp
-TargetABI *getPPCTargetABI(bool Is64Bit) {
-  return new PPCTargetABI(Is64Bit);
-}
+TargetABI *getPPCTargetABI(bool Is64Bit) { return new PPCTargetABI(Is64Bit); }
