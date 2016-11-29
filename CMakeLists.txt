@@ -676,19 +676,27 @@ build_d_executable(
 )
 
 #
-# Locate LLVM's LTO binary and use it
+# Locate LLVM's LTO binary and use it (LLVM >= 3.9)
 #
 if(APPLE)
-    set(LLVM_LTO_BINARY ${LLVM_LIBRARY_DIRS}/libLTO.dylib)
-    set(LDC_LTO_BINARY_NAME libLTO-ldc.dylib)
-elseif(UNIX)
-    set(LLVM_LTO_BINARY ${LLVM_LIBRARY_DIRS}/LLVMgold.so)
-    set(LDC_LTO_BINARY_NAME LLVMgold-ldc.so)
+    set(LDC_INSTALL_LTOPLUGIN_DEFAULT ON)
+else()
+    set(LDC_INSTALL_LTOPLUGIN_DEFAULT OFF)
 endif()
-if(EXISTS ${LLVM_LTO_BINARY})
-    message(STATUS "Also installing LTO binary: ${LLVM_LTO_BINARY}")
-    file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX})
-    configure_file(${LLVM_LTO_BINARY} ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${LDC_LTO_BINARY_NAME} COPYONLY)
+set(LDC_INSTALL_LTOPLUGIN ${LDC_INSTALL_LTOPLUGIN_DEFAULT} CACHE BOOL "Copy/install the LTO plugin from the LLVM package when available (LLVM >= 3.9).")
+if (NOT (LDC_LLVM_VER LESS 309) AND LDC_INSTALL_LTOPLUGIN)
+    if(APPLE)
+        set(LLVM_LTO_BINARY ${LLVM_LIBRARY_DIRS}/libLTO.dylib)
+        set(LDC_LTO_BINARY_NAME libLTO-ldc.dylib)
+    elseif(UNIX)
+        set(LLVM_LTO_BINARY ${LLVM_LIBRARY_DIRS}/LLVMgold.so)
+        set(LDC_LTO_BINARY_NAME LLVMgold-ldc.so)
+    endif()
+    if(EXISTS ${LLVM_LTO_BINARY})
+        message(STATUS "Also installing LTO binary: ${LLVM_LTO_BINARY}")
+        file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX})
+        configure_file(${LLVM_LTO_BINARY} ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${LDC_LTO_BINARY_NAME} COPYONLY)
+    endif()
 endif()
 
 #
