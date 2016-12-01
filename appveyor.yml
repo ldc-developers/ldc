@@ -47,17 +47,17 @@ install:
   - git checkout 7585cf6
   - cd ..
   ## Download & extract LLVM source
-  #- ps: Start-FileDownload 'http://llvm.org/pre-releases/3.7.0/rc3/llvm-3.7.0rc3.src.tar.xz' -FileName 'llvm.src.tar.xz'
+  #- appveyor DownloadFile 'http://llvm.org/pre-releases/3.7.0/rc3/llvm-3.7.0rc3.src.tar.xz' -FileName 'llvm.src.tar.xz'
   #- 7z x llvm.src.tar.xz -so | 7z x -si -ttar > nul
   #- ren llvm-3.7.0rc3.src llvm
-  # Download a pre-built LLVM & extract
-  - ps: Start-FileDownload 'https://dl.dropboxusercontent.com/s/5cok3dvmohtduy6/llvm-x64-release.7z?dl=0' -FileName 'llvm-x64.7z'
+  # Download & extract a pre-built LLVM (CMAKE_BUILD_TYPE=Release, LLVM_ENABLE_ASSERTIONS=ON)
+  - appveyor DownloadFile 'https://dl.dropboxusercontent.com/s/kkmr30ntlay843f/LLVM-3.9.0-x64.7z?dl=0' -FileName llvm-x64.7z
   - md llvm-x64
   - cd llvm-x64
   - 7z x ..\llvm-x64.7z > nul
   - cd ..
   # Download & install Ninja
-  - ps: Start-FileDownload 'https://github.com/ninja-build/ninja/releases/download/v1.6.0/ninja-win.zip' -FileName 'ninja.zip'
+  - appveyor DownloadFile 'https://github.com/ninja-build/ninja/releases/download/v1.6.0/ninja-win.zip' -FileName 'ninja.zip'
   - md ninja
   - cd ninja
   - 7z x ..\ninja.zip > nul
@@ -65,7 +65,7 @@ install:
   - set PATH=c:\projects\ninja;%PATH%
   - ninja --version
   # Download & extract libcurl
-  - ps: Start-FileDownload 'http://d.darktech.org/libcurl-7.43.0-WinSSL-zlib-x86-x64.zip' -FileName 'libcurl.zip'
+  - appveyor DownloadFile 'http://d.darktech.org/libcurl-7.43.0-WinSSL-zlib-x86-x64.zip' -FileName 'libcurl.zip'
   - md libcurl
   - cd libcurl
   - 7z x ..\libcurl.zip > nul
