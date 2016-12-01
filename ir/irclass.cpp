@@ -178,27 +178,38 @@ LLConstant *IrAggr::getVtblInit() {
   // add virtual function pointers
   size_t n = cd->vtbl.dim;
   for (size_t i = cd->vtblOffset(); i < n; i++) {
-    Dsymbol *dsym = static_cast<Dsymbol *>(cd->vtbl.data[i]);
+    Dsymbol *dsym = cd->vtbl[i];
     assert(dsym && "null vtbl member");
 
     FuncDeclaration *fd = dsym->isFuncDeclaration();
     assert(fd && "vtbl entry not a function");
 
     if (cd->isAbstract() || (fd->isAbstract() && !fd->fbody)) {
-      c = getNullValue(getPtrToType(DtoFunctionType(fd)));
+      c = getNullValue(voidPtrType);
     } else {
+      // If inferring return type and semantic3 has not been run, do it now.
+      // This pops up in some other places in the frontend as well, however
+      // it is probably a bug that it still occurs that late.
+      if (fd->inferRetType && !fd->type->nextOf()) {
+        Logger::println("Running late functionSemantic to infer return type.");
+        if (!fd->functionSemantic()) {
+          fd->error("failed to infer return type for vtbl initializer");
+          fatal();
+        }
+      }
+
       DtoResolveFunction(fd);
       assert(isIrFuncCreated(fd) && "invalid vtbl function");
-      c = getIrFunc(fd)->func;
+      c = DtoBitCast(getIrFunc(fd)->func, voidPtrType);
+
       if (cd->isFuncHidden(fd)) {
         // fd is hidden from the view of this class. If fd overlaps with any
         // function in the vtbl[], issue error.
-        for (size_t j = 1; j < n; j++) {
+        for (size_t j = cd->vtblOffset(); j < n; j++) {
           if (j == i) {
             continue;
           }
-          auto fd2 =
-              static_cast<Dsymbol *>(cd->vtbl.data[j])->isFuncDeclaration();
+          auto fd2 = cd->vtbl[j]->isFuncDeclaration();
           if (!fd2->ident->equals(fd->ident)) {
             continue;
           }
@@ -209,9 +220,8 @@ LLConstant *IrAggr::getVtblInit() {
                         "to introduce base class overload set",
                         fd->toPrettyChars(),
                         parametersTypeToChars(tf->parameters, tf->varargs),
-                        cd->toChars(),
-
-                        fd->toChars(), fd->parent->toChars(), fd->toChars());
+                        cd->toChars(), fd->toChars(), fd->parent->toChars(),
+                        fd->toChars());
             } else {
               cd->error("use of %s is hidden by %s", fd->toPrettyChars(),
                         cd->toChars());
@@ -222,7 +232,8 @@ LLConstant *IrAggr::getVtblInit() {
         }
       }
     }
-    constants.push_back(DtoBitCast(c, voidPtrType));
+
+    constants.push_back(c);
   }
 
   // build the constant array
