@@ -7,6 +7,7 @@
 #include "declaration.h"
 #include "expression.h"
 #include "ir/irfunction.h"
+#include "ir/irvar.h"
 #include "module.h"
 
 #include "llvm/ADT/StringExtras.h"
@@ -22,14 +23,17 @@ const std::string optStrategy = "optStrategy";
 const std::string section = "section";
 const std::string target = "target";
 const std::string weak = "_weak";
+const std::string runtimeCompile = "_runtimeCompile";
 }
 
 /// Checks whether `moduleDecl` is the ldc.attributes module.
 bool isLdcAttibutes(const ModuleDeclaration *moduleDecl) {
-  if (!moduleDecl)
+  if (!moduleDecl) {
     return false;
+  }
 
-  if (strcmp("attributes", moduleDecl->id->toChars())) {
+  if (strcmp("attributes", moduleDecl->id->toChars()) &&
+      strcmp("runtimecompile", moduleDecl->id->toChars())) {
     return false;
   }
 
@@ -349,6 +353,8 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
           name);
     } else if (name == attr::weak) {
       // @weak is applied elsewhere
+    } else if (name == attr::runtimeCompile) {
+      getIrGlobal(decl)->runtimeCompile = true;
     } else {
       sle->warning(
           "Ignoring unrecognized special attribute 'ldc.attributes.%s'", name);
@@ -385,6 +391,8 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
       applyAttrTarget(sle, func);
     } else if (name == attr::weak) {
       // @weak is applied elsewhere
+    } else if (name == attr::runtimeCompile) {
+      irFunc->runtimeCompile = true;
     } else {
       sle->warning(
           "Ignoring unrecognized special attribute 'ldc.attributes.%s'", name);

@@ -435,6 +435,10 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   }
 #endif
 
+  if (enableRuntimeCompile) {
+    global.params.enableRuntimeCompile = true;
+  }
+
   processVersions(debugArgs, "debug", DebugCondition::setGlobalLevel,
                   DebugCondition::addGlobalIdent);
   processVersions(versions, "version", VersionCondition::setGlobalLevel,
