@@ -210,7 +210,7 @@ if((${CMAKE_SYSTEM_NAME} MATCHES "Linux") OR (${CMAKE_SYSTEM_NAME} MATCHES "Free
     endif()
 
     if(BUILD_SHARED_LIBS)
-        set(SHARED_LIBS_RPATH "\n        \"-L-rpath=${CMAKE_BINARY_DIR}/lib\",")
+        set(SHARED_LIBS_RPATH "\n        \"-L-rpath=${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}\",")
     endif()
 endif()
 
@@ -379,7 +379,7 @@ endmacro()
 macro(compile_phobos2 d_flags lib_suffix path_suffix outlist_o outlist_bc)
     get_target_suffix("${lib_suffix}" "${path_suffix}" target_suffix)
     foreach(f ${PHOBOS2_D})
-         dc(
+        dc(
             ${f}
             "${d_flags};-I${PHOBOS2_DIR}"
             ${PHOBOS2_DIR}
@@ -614,7 +614,7 @@ endforeach()
 # enabled. When linking statically, we have to directly pass the object files
 # to the linking command instead so that all tests are pulled in.
 
-macro(build_test_runner name_suffix d_flags c_flags)
+macro(build_test_runner name_suffix path_suffix d_flags c_flags)
     set(flags "${D_FLAGS};${d_flags};-unittest")
     if(BUILD_SHARED_LIBS)
         set(unittest_libs "")
@@ -623,7 +623,7 @@ macro(build_test_runner name_suffix d_flags c_flags)
             "${RT_CFLAGS} ${c_flags}"
             "${LD_FLAGS} ${c_flags}"
             "-unittest${name_suffix}"
-            ""
+            "${path_suffix}"
             unittest_libs
         )
 
@@ -663,8 +663,8 @@ macro(build_test_runner name_suffix d_flags c_flags)
     else()
         set(druntime_o "")
         set(druntime_bc "")
-        set(casm_lib_path "${CMAKE_BINARY_DIR}/lib")
-        compile_druntime("${flags}" "-unittest${name_suffix}" "" druntime_o druntime_bc)
+        set(casm_lib_path "${CMAKE_BINARY_DIR}/lib${path_suffix}")
+        compile_druntime("${flags}" "-unittest${name_suffix}" "${path_suffix}" druntime_o druntime_bc)
 
         # We need to compile a small static library with the C/ASM files, as
         # there is no easy way of getting the object file names used when
@@ -702,7 +702,7 @@ macro(build_test_runner name_suffix d_flags c_flags)
         if(PHOBOS2_DIR)
             set(phobos2_o "")
             set(phobos2_bc "")
-            compile_phobos2("${flags}" "-unittest${name_suffix}" "" phobos2_o phobos2_bc)
+            compile_phobos2("${flags}" "-unittest${name_suffix}" "${path_suffix}" phobos2_o phobos2_bc)
 
             set(phobos2-casm phobos2-ldc-casm${name_suffix})
             add_library(${phobos2-casm} STATIC ${ZLIB_C})
@@ -731,11 +731,11 @@ macro(build_test_runner name_suffix d_flags c_flags)
         endif()
     endif()
 endmacro()
-build_test_runner("" "${D_FLAGS_RELEASE}" "")
-build_test_runner("-debug" "${D_FLAGS_DEBUG}" "")
+build_test_runner("" "${LIB_SUFFIX}" "${D_FLAGS_RELEASE}" "")
+build_test_runner("-debug" "${LIB_SUFFIX}" "${D_FLAGS_DEBUG}" "")
 if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
-    build_test_runner("-32" "${D_FLAGS_RELEASE};-m32" "-m32")
-    build_test_runner("-debug-32" "${D_FLAGS_DEBUG};-m32" "-m32")
+    build_test_runner("-32" "${MULTILIB_SUFFIX}" "${D_FLAGS_RELEASE};-m32" "-m32")
+    build_test_runner("-debug-32" "${MULTILIB_SUFFIX}" "${D_FLAGS_DEBUG};-m32" "-m32")
 endif()
 
 # Add the druntime/Phobos test runner invocations for all the different modules.
@@ -765,7 +765,7 @@ function(add_tests d_files runner name_suffix)
         )
         set_tests_properties("${module}${name_suffix}" PROPERTIES
             DEPENDS build-${runner}-test-runner${name_suffix}
-	)
+        )
     endforeach()
 endfunction()
 function(add_runtime_tests name_suffix)
@@ -800,7 +800,7 @@ if(BUILD_SHARED_LIBS)
     add_test(NAME druntime-test-shared
         COMMAND make -C ${PROJECT_SOURCE_DIR}/druntime/test/shared
             ROOT=${outdir} DMD=${LDMD_EXE_FULL} MODEL=default DRUNTIMESO=${druntime_path}
-            CFLAGS=-Wall\ -Wl,-rpath,${CMAKE_BINARY_DIR}/lib ${linkflags}
+            CFLAGS=-Wall\ -Wl,-rpath,${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX} ${linkflags}
     )
 
     set_tests_properties(druntime-test-shared PROPERTIES DEPENDS clean-druntime-test-shared)
