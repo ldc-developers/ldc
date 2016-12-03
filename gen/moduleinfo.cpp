@@ -48,7 +48,7 @@ llvm::Function *buildForwarderFunction(
     }
 
     if (funcs.size() == 1) {
-      return getIrFunc(funcs.front())->func;
+      return DtoCallee(funcs.front());
     }
   }
 
@@ -74,7 +74,7 @@ llvm::Function *buildForwarderFunction(
 
   // ... calling the given functions, and...
   for (auto func : funcs) {
-    const auto f = getIrFunc(func)->func;
+    const auto f = DtoCallee(func);
 #if LDC_LLVM_VER < 307
     const auto call = builder.CreateCall(f, "");
     const auto ft = call->getCalledFunction()->getFunctionType();

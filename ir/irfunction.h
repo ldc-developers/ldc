@@ -34,7 +34,25 @@ struct IrFunction {
   void setNeverInline();
   void setAlwaysInline();
 
-  llvm::Function *func = nullptr;
+  void setLLVMFunc(llvm::Function *function);
+
+  /// Get 'real' llvm function, this function should be used if your need to
+  /// access to function IR or attributes
+  llvm::Function *getLLVMFunc() const;
+  llvm::CallingConv::ID getCallingConv() const;
+  llvm::FunctionType *getLLVMFuncType() const;
+
+#if LDC_LLVM_VER >= 307
+  bool hasLLVMPersonalityFn() const;
+  void setLLVMPersonalityFn(llvm::Constant *personality);
+#endif
+
+  llvm::StringRef getLLVMFuncName() const;
+
+  /// Get llvm function suitable for a calling, this function should be used
+  /// if you need to make a call or to take function address
+  llvm::Function *getCallee() const;
+
   FuncDeclaration *decl = nullptr;
   TypeFunction *type = nullptr;
 
@@ -71,9 +89,26 @@ struct IrFunction {
   /// Stores the FastMath options for this functions.
   /// These are set e.g. by math related UDA's from ldc.attributes.
   llvm::FastMathFlags FMF;
+
+private:
+  llvm::Function *func = nullptr;
 };
 
 IrFunction *getIrFunc(FuncDeclaration *decl, bool create = false);
 bool isIrFuncCreated(FuncDeclaration *decl);
+
+/// Get 'real' llvm function, this function should be used if your need to
+/// access to function IR or attributes
+llvm::Function *DtoFunc(FuncDeclaration *decl, bool create = false);
+
+/// Get llvm function suitable for a calling, this function should be used
+/// if you need to make a call or to take function address
+llvm::Function *DtoCallee(FuncDeclaration *decl, bool create = false);
+
+llvm::StringRef DtoFuncName(FuncDeclaration *decl);
+
+#if LDC_LLVM_VER >= 308
+void DtoSetFuncSubprogram(FuncDeclaration *decl, llvm::DISubprogram *SP);
+#endif
 
 #endif

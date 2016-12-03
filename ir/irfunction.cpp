@@ -38,6 +38,47 @@ void IrFunction::setAlwaysInline() {
   func->addFnAttr(llvm::Attribute::AlwaysInline);
 }
 
+void IrFunction::setLLVMFunc(llvm::Function *function) {
+  assert(function != nullptr);
+  func = function;
+}
+
+llvm::Function *IrFunction::getLLVMFunc() const {
+  return func;
+}
+
+llvm::CallingConv::ID IrFunction::getCallingConv() const {
+  assert(func != nullptr);
+  return func->getCallingConv();
+}
+
+llvm::FunctionType *IrFunction::getLLVMFuncType() const {
+  assert(func != nullptr);
+  return func->getFunctionType();
+}
+
+#if LDC_LLVM_VER >= 307
+bool IrFunction::hasLLVMPersonalityFn() const {
+  assert(func != nullptr);
+  return func->hasPersonalityFn();
+}
+
+void IrFunction::setLLVMPersonalityFn(llvm::Constant *personality) {
+  assert(func != nullptr);
+  func->setPersonalityFn(personality);
+}
+#endif
+
+llvm::StringRef IrFunction::getLLVMFuncName() const {
+  assert(func != nullptr);
+  return func->getName();
+}
+
+llvm::Function *IrFunction::getCallee() const {
+  assert(func != nullptr);
+  return func;
+}
+
 IrFunction *getIrFunc(FuncDeclaration *decl, bool create) {
   if (!isIrFuncCreated(decl) && create) {
     assert(decl->ir->irFunc == NULL);
@@ -55,3 +96,25 @@ bool isIrFuncCreated(FuncDeclaration *decl) {
   assert(t == IrDsymbol::FuncType || t == IrDsymbol::NotSet);
   return t == IrDsymbol::FuncType;
 }
+
+llvm::Function *DtoFunc(FuncDeclaration *decl, bool create) {
+  assert(decl != nullptr);
+  return getIrFunc(decl, create)->getLLVMFunc();
+}
+
+llvm::Function *DtoCallee(FuncDeclaration *decl, bool create) {
+  assert(decl != nullptr);
+  return getIrFunc(decl, create)->getCallee();
+}
+
+llvm::StringRef DtoFuncName(FuncDeclaration *decl) {
+  assert(decl != nullptr);
+  return getIrFunc(decl)->getLLVMFuncName();
+}
+
+#if LDC_LLVM_VER >= 308
+void DtoSetFuncSubprogram(FuncDeclaration *decl, llvm::DISubprogram *SP) {
+  assert(decl != nullptr);
+  getIrFunc(decl)->getLLVMFunc()->setSubprogram(SP);
+}
+#endif

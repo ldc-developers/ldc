@@ -133,7 +133,7 @@ void RTTIBuilder::push_size_as_vp(uint64_t s) {
 void RTTIBuilder::push_funcptr(FuncDeclaration *fd, Type *castto) {
   if (fd) {
     DtoResolveFunction(fd);
-    LLConstant *F = getIrFunc(fd)->func;
+    LLConstant *F = DtoCallee(fd);
     if (castto) {
       F = DtoBitCast(F, DtoType(castto));
     }

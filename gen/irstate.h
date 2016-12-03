@@ -161,6 +161,8 @@ struct IRState {
                                     LLValue *Arg2, LLValue *Arg3, LLValue *Arg4,
                                     const char *Name = "");
 
+  bool isMainFunc(const IrFunction *func) const;
+
   // this holds the array being indexed or sliced so $ will work
   // might be a better way but it works. problem is I only get a
   // VarDeclaration for __dollar, but I can't see how to get the
