@@ -7,6 +7,7 @@
 #include "declaration.h"
 #include "expression.h"
 #include "ir/irfunction.h"
+#include "ir/irvar.h"
 #include "module.h"
 #include "id.h"
 
@@ -359,6 +360,8 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
           ident->toChars());
     } else if (ident == Id::udaWeak) {
       // @weak is applied elsewhere
+    } else if (ident == Id::udaRuntimeCompile) {
+      getIrGlobal(decl)->runtimeCompile = true;
     } else {
       sle->warning(
           "Ignoring unrecognized special attribute 'ldc.attributes.%s'", ident->toChars());
@@ -395,6 +398,8 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
       applyAttrTarget(sle, func);
     } else if (ident == Id::udaWeak || ident == Id::udaKernel) {
       // @weak and @kernel are applied elsewhere
+    } else if (ident == Id::udaRuntimeCompile) {
+      irFunc->runtimeCompile = true;
     } else {
       sle->warning(
           "Ignoring unrecognized special attribute 'ldc.attributes.%s'", ident->toChars());

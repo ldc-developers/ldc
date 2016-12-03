@@ -27,6 +27,8 @@ struct IrVar {
 
   VarDeclaration *V = nullptr;
   llvm::Value *value = nullptr;
+
+  bool runtimeCompile = false;
 };
 
 // represents a global variable

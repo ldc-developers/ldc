@@ -412,6 +412,7 @@ Msgtable[] msgtable =
     { "udaWeak", "_weak" },
     { "udaCompute", "compute" },
     { "udaKernel", "_kernel" },
+    { "udaRuntimeCompile", "_runtimeCompile" },
     
     // IN_LLVM: DCompute specific types and functionss
     { "dcompute" },

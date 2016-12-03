@@ -219,6 +219,14 @@ public:
   // setGlobalVarInitializer().
   void replaceGlobals();
 
+  struct RtCompiledFuncDesc {
+    llvm::GlobalVariable* thunkVar;
+    llvm::Function* thunkFunc;
+  };
+
+  std::map<llvm::Function*,RtCompiledFuncDesc> runtimeCompiledFunctions;
+  std::set<IrGlobal*> runtimeCompiledVars;
+
 /// Vector of options passed to the linker as metadata in object file.
 #if LDC_LLVM_VER >= 500
   llvm::SmallVector<llvm::MDNode *, 5> LinkerMetadataArgs;

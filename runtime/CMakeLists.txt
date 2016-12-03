@@ -116,6 +116,7 @@ get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT
 set(RUNTIME_DIR ${PROJECT_SOURCE_DIR}/druntime CACHE PATH "druntime root directory")
 set(PHOBOS2_DIR ${PROJECT_SOURCE_DIR}/phobos CACHE PATH "Phobos root directory")
 set(PROFILERT_DIR ${PROJECT_SOURCE_DIR}/profile-rt CACHE PATH "profile-rt root directory")
+set(JITRT_DIR ${PROJECT_SOURCE_DIR}/jit-rt CACHE PATH "jit runtime root directory")
 
 #
 # Gather source files.
@@ -600,10 +601,16 @@ macro(build_all_runtime_variants d_flags c_flags ld_flags path_suffix outlist_ta
         get_target_suffix("" "${path_suffix}" target_suffix)
         set_common_library_properties(ldc-profile-rt${target_suffix})
     endif()
+
+    build_jit_runtime ("${d_flags}" "${c_flags}" "${ld_flags}" "${path_suffix}" ${outlist_targets})
 endmacro()
+
 
 # Setup the build of profile-rt
 include(profile-rt/DefineBuildProfileRT.cmake)
+
+# Setup the build of jit runtime
+include(jit-rt/DefineBuildJitRT.cmake)
 
 #
 # Set up build and install targets

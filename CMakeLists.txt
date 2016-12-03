@@ -415,6 +415,17 @@ message(STATUS "Building LDC with PGO support")
 append("-DLDC_WITH_PGO" LDC_CXXFLAGS)
 
 #
+# Enable Runtime compilation if supported for this platform and LLVM version.
+# LLVM >= 3.9 is required
+#
+set(LDC_RUNTIME_COMPILE False)  # must be a valid Python boolean constant (case sensitive)
+if (NOT (LDC_LLVM_VER LESS 400))
+    message(STATUS "Building LDC with runtime compilation support")
+    add_definitions(-DLDC_RUNTIME_COMPILE)
+    set(LDC_RUNTIME_COMPILE True)
+endif()
+
+#
 # Includes, defines.
 #
 

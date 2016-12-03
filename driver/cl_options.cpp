@@ -511,7 +511,7 @@ cl::opt<std::string>
                                     "of optimizations performed by LLVM"),
                            cl::ValueOptional);
 #endif
-    
+
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
 cl::list<std::string>
     dcomputeTargets("mdcompute-targets", cl::CommaSeparated,
@@ -519,6 +519,14 @@ cl::list<std::string>
                              " list. Use 'ocl-xy0' for OpenCL x.y, and "
                              "'cuda-xy0' for CUDA CC x.y"),
                      cl::value_desc("targets"));
+#endif
+
+#if defined(LDC_RUNTIME_COMPILE)
+static cl::opt<bool, true> enableRuntimeCompile(
+    "enable-runtime-compile",
+    cl::desc("Enable runtime compilation"),
+    cl::location(global.params.enableRuntimeCompile),
+    cl::init(false));
 #endif
 
 static cl::extrahelp footer(
@@ -583,7 +591,7 @@ void hideLLVMOptions() {
       "mno-fixup", "mno-ldc1-sdc1", "mno-pairing", "mwarn-missing-parenthesis",
       "mwarn-noncontigious-register", "mwarn-sign-mismatch", "nvptx-sched4reg",
       "no-discriminators", "objc-arc-annotation-target-identifier",
-      "polly-dump-after", "polly-dump-after-file", "polly-dump-before", 
+      "polly-dump-after", "polly-dump-after-file", "polly-dump-before",
       "polly-dump-before-file",
       "pre-RA-sched", "print-after-all", "print-before-all",
       "print-machineinstrs", "profile-estimator-loop-weight",

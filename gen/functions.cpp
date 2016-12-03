@@ -39,6 +39,7 @@
 #include "gen/pgo.h"
 #include "gen/pragma.h"
 #include "gen/runtime.h"
+#include "gen/runtimecompile.h"
 #include "gen/scope_exit.h"
 #include "gen/tollvm.h"
 #include "gen/uda.h"
@@ -463,6 +464,18 @@ void applyTargetMachineAttributes(llvm::Function &func,
                  opts::disableFpElim ? "true" : "false");
 }
 
+LLFunction* getFunction(llvm::Module& module, LLFunctionType *functype, const std::string& name) {
+  assert(nullptr != functype);
+  LLFunction* func = module.getFunction(name);
+  if (!func) {
+    // All function declarations are "external" - any other linkage type
+    // is set when actually defining the function.
+    func = LLFunction::Create(functype, llvm::GlobalValue::ExternalLinkage,
+                              name, &module);
+  }
+  return func;
+}
+
 } // anonymous namespace
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -522,7 +535,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   const auto link = forceC ? LINKc : f->linkage;
 
   // mangled name
-  std::string mangledName = getMangledName(fdecl, link);
+  const std::string mangledName = getMangledName(fdecl, link);
 
   // construct function
   LLFunctionType *functype = DtoFunctionType(fdecl);
@@ -565,6 +578,10 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   // by UDAs.
   applyTargetMachineAttributes(*func, *gTargetMachine);
   applyFuncDeclUDAs(fdecl, irFunc);
+
+  if(irFunc->runtimeCompile) {
+    declareRuntimeCompiledFunction(gIR, irFunc);
+  }
 
   // main
   if (fdecl->isMain()) {
@@ -909,13 +926,19 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     }
   }
 
+  IrFunction *irFunc = getIrFunc(fd);
+
+  SCOPE_EXIT {
+    if (irFunc->runtimeCompile) {
+      defineRuntimeCompiledFunction(gIR, irFunc);
+    }
+  };
+
   // if this function is naked, we take over right away! no standard processing!
   if (fd->naked) {
     DtoDefineNakedFunction(fd);
     return;
   }
-
-  IrFunction *irFunc = getIrFunc(fd);
 
   // debug info
   irFunc->diSubprogram = gIR->DBuilder.EmitSubProgram(fd);

@@ -118,6 +118,11 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
     args.push_back("ws2_32.lib");
   }
 
+  if (global.params.enableRuntimeCompile) {
+    args.push_back("ldc-jit-rt.lib");
+    args.push_back("ldc-jit.lib");
+  }
+
   // user libs
   for (auto libfile : *global.params.libfiles) {
     args.push_back(libfile);

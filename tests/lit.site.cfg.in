@@ -20,6 +20,7 @@ config.llvm_version        = @LDC_LLVM_VER@
 config.llvm_targetsstr     = "@LLVM_TARGETS_TO_BUILD@"
 config.default_target_bits = @DEFAULT_TARGET_BITS@
 config.with_PGO            = @LDC_WITH_PGO@
+config.runtime_compile     = @LDC_RUNTIME_COMPILE@
 
 config.name = 'LDC'
 
@@ -44,6 +45,10 @@ config.excludes = [
 # Exclude profile test dir when PGO is disabled
 if not config.with_PGO:
     config.excludes.append('PGO')
+
+# Exclude runtime compilation tests when it's disabled
+if not config.runtime_compile:
+    config.excludes.append('runtimecompile')
 
 
 # Define available features so that we can disable tests depending on LLVM version
@@ -113,6 +118,11 @@ config.substitutions.append( ('%llvm-spirv', os.path.join(config.llvm_tools_dir,
 
 # Add platform-dependent file extension substitutions
 if (platform.system() == 'Windows'):
+    # add LDC lib dir to the path so app will be able to find jit.dll
+    # TODO: Something more robust
+    path = os.path.pathsep.join( (config.ldc2_lib_dir, config.environment['PATH']) )
+    config.environment['PATH'] = path
+
     config.substitutions.append( ('%obj', '.obj') )
     config.substitutions.append( ('%exe', '.exe') )
 else:
