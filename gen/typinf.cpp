@@ -458,20 +458,19 @@ public:
     // On x86_64, class TypeInfo_Struct contains 2 additional fields
     // (m_arg1/m_arg2) which are used for the X86_64 System V ABI varargs
     // implementation. They are not present on any other cpu/os.
-    unsigned expectedFields = 12;
-    if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
-      expectedFields += 2;
-    }
+    const bool isX86_64 =
+        global.params.targetTriple->getArch() == llvm::Triple::x86_64;
+    const unsigned expectedFields = 12 + (isX86_64 ? 2 : 0);
     if (Type::typeinfostruct->fields.dim != expectedFields) {
       error(Loc(), "Unexpected number of object.TypeInfo_Struct fields; "
                    "druntime version does not match compiler");
       fatal();
     }
 
-    // char[] name
+    // string name
     b.push_string(sd->toPrettyChars());
 
-    // void[] init
+    // void[] m_init
     // The protocol is to write a null pointer for zero-initialized arrays. The
     // length field is always needed for tsize().
     llvm::Constant *initPtr;
@@ -482,42 +481,42 @@ public:
     }
     b.push_void_array(getTypeStoreSize(DtoType(tc)), initPtr);
 
-    // toHash
+    // function xtoHash
     FuncDeclaration *fd = sd->xhash;
     b.push_funcptr(fd);
 
-    // opEquals
+    // function xopEquals
     fd = sd->xeq;
     b.push_funcptr(fd);
 
-    // opCmp
+    // function xopCmp
     fd = sd->xcmp;
     b.push_funcptr(fd);
 
-    // toString
+    // function xtoString
     fd = search_toString(sd);
     b.push_funcptr(fd);
 
-    // uint m_flags;
+    // uint m_flags
     unsigned hasptrs = tc->hasPointers() ? 1 : 0;
     b.push_uint(hasptrs);
 
-    // void function(void*)                    xdtor;
+    // function xdtor/xdtorti
     b.push_funcptr(sd->dtor);
 
-    // void function(void*)                    xpostblit;
+    // function xpostblit
     FuncDeclaration *xpostblit = sd->postblit;
     if (xpostblit && sd->postblit->storage_class & STCdisable) {
       xpostblit = nullptr;
     }
     b.push_funcptr(xpostblit);
 
-    // uint m_align;
+    // uint m_align
     b.push_uint(DtoAlignment(tc));
 
-    if (global.params.is64bit) {
-      // TypeInfo m_arg1;
-      // TypeInfo m_arg2;
+    if (isX86_64) {
+      // TypeInfo m_arg1
+      // TypeInfo m_arg2
       Type *t = sd->arg1type;
       for (unsigned i = 0; i < 2; i++) {
         if (t) {
@@ -531,7 +530,7 @@ public:
       }
     }
 
-    // immutable(void)* m_RTInfo;
+    // immutable(void)* m_RTInfo
     // The cases where getRTInfo is null are not quite here, but the code is
     // modelled after what DMD does.
     if (sd->getRTInfo) {
