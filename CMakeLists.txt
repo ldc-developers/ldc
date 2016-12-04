@@ -569,7 +569,6 @@ else()
     # Use D compiler for linking, trying to translate a few common linker flags.
     set(LDC_TRANSLATED_LINKER_FLAGS "")
     foreach(f ${LDC_LINKERFLAG_LIST})
-        string(REPLACE "-Wl," "" f ${f})
         string(REPLACE "-LIBPATH:" "/LIBPATH:" f ${f})
         append("-L\"${f}\"" LDC_TRANSLATED_LINKER_FLAGS)
     endforeach()
