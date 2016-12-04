@@ -55,7 +55,7 @@ test:
     - cd build && export CC=clang && export CXX=clang++ && cmake .. && make -j3 && bin/ldc2 -version || exit 1
 
     # Now build LDC with itself and use this second build for further testing
-    - CC=clang CXX=clang++ cmake -DD_COMPILER="build/bin/ldmd2" .
+    - CC=clang CXX=clang++ cmake -DD_COMPILER="build/bin/ldmd2" -DLDC_INSTALL_LTOPLUGIN=ON .
     - make -j3
     - bin/ldc2 -version || exit 1
 
