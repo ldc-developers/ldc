@@ -145,7 +145,7 @@ std::string getLTOGoldPluginPath() {
     };
 
     // Try all searchPaths and early return upon the first path found.
-    for (auto p : searchPaths) {
+    for (const auto &p : searchPaths) {
       if (llvm::sys::fs::exists(p))
         return p;
     }
@@ -359,10 +359,11 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
     // Don't push -l and -L switches using -Xlinker, but pass them indirectly
     // via GCC. This makes sure user-defined paths take precedence over
     // GCC's builtin LIBRARY_PATHs.
-    // Options starting with -shared and -static are not handled by
+    // Options starting with `-Wl,`, -shared or -static are not handled by
     // the linker and must be passed to the driver.
     auto str = llvm::StringRef(p);
     if (!(str.startswith("-l") || str.startswith("-L") ||
+          str.startswith("-Wl,") ||
           str.startswith("-shared") || str.startswith("-static"))) {
       args.push_back("-Xlinker");
     }
