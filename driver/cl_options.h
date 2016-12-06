@@ -93,9 +93,8 @@ extern cl::opt<bool> instrumentFunctions;
 extern std::vector<std::string> debugArgs;
 // Arguments to -run
 
-#if LDC_LLVM_VER >= 307
-void CreateColorOption();
-#endif
+void createClashingOptions();
+void hideLLVMOptions();
 
 #if LDC_LLVM_VER >= 309
 // LTO options

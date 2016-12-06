@@ -231,113 +231,6 @@ void initFromPathString(const char *&dest, const cl::opt<std::string> &src) {
   }
 }
 
-void hide(llvm::StringMap<cl::Option *> &map, const char *name) {
-  // Check if option exists first for resilience against LLVM changes
-  // between versions.
-  if (map.count(name)) {
-    map[name]->setHiddenFlag(cl::Hidden);
-  }
-}
-
-#if LDC_LLVM_VER >= 307
-void rename(llvm::StringMap<cl::Option *> &map, const char *from,
-            const char *to) {
-  auto i = map.find(from);
-  if (i != map.end()) {
-    cl::Option *opt = i->getValue();
-    map.erase(i);
-    opt->setArgStr(to);
-    map[to] = opt;
-  }
-}
-#endif
-
-/// Removes command line options exposed from within LLVM that are unlikely
-/// to be useful for end users from the -help output.
-void hideLLVMOptions() {
-#if LDC_LLVM_VER >= 307
-  llvm::StringMap<cl::Option *> &map = cl::getRegisteredOptions();
-#else
-  llvm::StringMap<cl::Option *> map;
-  cl::getRegisteredOptions(map);
-#endif
-  hide(map, "bounds-checking-single-trap");
-  hide(map, "disable-debug-info-verifier");
-  hide(map, "disable-objc-arc-checkforcfghazards");
-  hide(map, "disable-spill-fusing");
-  hide(map, "cppfname");
-  hide(map, "cppfor");
-  hide(map, "cppgen");
-  hide(map, "enable-correct-eh-support");
-  hide(map, "enable-load-pre");
-  hide(map, "enable-misched");
-  hide(map, "enable-objc-arc-annotations");
-  hide(map, "enable-objc-arc-opts");
-  hide(map, "enable-scoped-noalias");
-  hide(map, "enable-tbaa");
-  hide(map, "exhaustive-register-search");
-  hide(map, "fatal-assembler-warnings");
-  hide(map, "internalize-public-api-file");
-  hide(map, "internalize-public-api-list");
-  hide(map, "join-liveintervals");
-  hide(map, "limit-float-precision");
-  hide(map, "mc-x86-disable-arith-relaxation");
-  hide(map, "mips16-constant-islands");
-  hide(map, "mips16-hard-float");
-  hide(map, "mlsm");
-  hide(map, "mno-ldc1-sdc1");
-  hide(map, "nvptx-sched4reg");
-  hide(map, "no-discriminators");
-  hide(map, "objc-arc-annotation-target-identifier"), hide(map, "pre-RA-sched");
-  hide(map, "print-after-all");
-  hide(map, "print-before-all");
-  hide(map, "print-machineinstrs");
-  hide(map, "profile-estimator-loop-weight");
-  hide(map, "profile-estimator-loop-weight");
-  hide(map, "profile-file");
-  hide(map, "profile-info-file");
-  hide(map, "profile-verifier-noassert");
-  hide(map, "regalloc");
-  hide(map, "rewrite-map-file");
-  hide(map, "rng-seed");
-  hide(map, "sample-profile-max-propagate-iterations");
-  hide(map, "shrink-wrap");
-  hide(map, "spiller");
-  hide(map, "stackmap-version");
-  hide(map, "stats");
-  hide(map, "strip-debug");
-  hide(map, "struct-path-tbaa");
-  hide(map, "time-passes");
-  hide(map, "unit-at-a-time");
-  hide(map, "verify-debug-info");
-  hide(map, "verify-dom-info");
-  hide(map, "verify-loop-info");
-  hide(map, "verify-regalloc");
-  hide(map, "verify-region-info");
-  hide(map, "verify-scev");
-  hide(map, "x86-early-ifcvt");
-  hide(map, "x86-use-vzeroupper");
-  hide(map, "x86-recip-refinement-steps");
-
-  // We enable -fdata-sections/-ffunction-sections by default where it makes
-  // sense for reducing code size, so hide them to avoid confusion.
-  //
-  // We need our own switch as these two are defined by LLVM and linked to
-  // static TargetMachine members, but the default we want to use depends
-  // on the target triple (and thus we do not know it until after the command
-  // line has been parsed).
-  hide(map, "fdata-sections");
-  hide(map, "ffunction-sections");
-
-#if LDC_LLVM_VER >= 307
-  // LLVM 3.7 introduces compiling as shared library. The result
-  // is a clash in the command line options.
-  rename(map, "color", "llvm-color");
-  hide(map, "llvm-color");
-  opts::CreateColorOption();
-#endif
-}
-
 const char *tryGetExplicitConfFile(int argc, char **argv) {
   // begin at the back => use latest -conf= specification
   for (int i = argc - 1; i >= 1; --i) {
@@ -425,7 +318,9 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   opts::allArguments.insert(opts::allArguments.end(), &argv[1], &argv[argc]);
 
   cl::SetVersionPrinter(&printVersion);
-  hideLLVMOptions();
+
+  opts::hideLLVMOptions();
+  opts::createClashingOptions();
 
 // pre-expand response files (LLVM's ParseCommandLineOptions() always uses
 // TokenizeGNUCommandLine which eats backslashes)
