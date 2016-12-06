@@ -210,7 +210,7 @@ if((${CMAKE_SYSTEM_NAME} MATCHES "Linux") OR (${CMAKE_SYSTEM_NAME} MATCHES "Free
     endif()
 
     if(BUILD_SHARED_LIBS)
-        set(SHARED_LIBS_RPATH "\n        \"-L-rpath=${CMAKE_BINARY_DIR}/lib\",")
+        set(SHARED_LIBS_RPATH "\n        \"-L-rpath=${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}\",")
     endif()
 endif()
 
@@ -379,7 +379,7 @@ endmacro()
 macro(compile_phobos2 d_flags lib_suffix path_suffix outlist_o outlist_bc)
     get_target_suffix("${lib_suffix}" "${path_suffix}" target_suffix)
     foreach(f ${PHOBOS2_D})
-         dc(
+        dc(
             ${f}
             "${d_flags};-I${PHOBOS2_DIR}"
             ${PHOBOS2_DIR}
@@ -609,133 +609,85 @@ endforeach()
 #
 
 # Build the "test runner" executables containing the druntime and Phobos unit
-# tests. They are invoked with the modules to test later. When using a shared
-# runtime, we just build another copy of the two libraries with -unittest
-# enabled. When linking statically, we have to directly pass the object files
-# to the linking command instead so that all tests are pulled in.
+# tests. They are invoked with the modules to test later.
+# We just build another copy of the two libraries with -unittest enabled and
+# link the test runners against those. Some linker command-line magic is
+# required to make sure all objects are pulled in.
 
-macro(build_test_runner name_suffix d_flags c_flags)
-    set(flags "${D_FLAGS};${d_flags};-unittest")
+macro(append_flags_to_pull_in_all_objects lib name_suffix target_suffix output_flags)
     if(BUILD_SHARED_LIBS)
-        set(unittest_libs "")
-        build_runtime(
-            "${flags}"
-            "${RT_CFLAGS} ${c_flags}"
-            "${LD_FLAGS} ${c_flags}"
-            "-unittest${name_suffix}"
-            ""
-            unittest_libs
-        )
-
-        # Only build the unittest libraries when running the tests. Unfortunately,
-        # I couldn't find an easier way to make a test depend on a CMake target than
-        # just invoking the build command through the CMake executable.
-        set_target_properties(${unittest_libs} PROPERTIES EXCLUDE_FROM_ALL ON EXCLUDE_FROM_DEFAULT_BUILD ON)
-        foreach(l ${unittest_libs})
-            add_test(build-${l} "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ${l})
-        endforeach()
-
-        if(NOT APPLE)
-            list(APPEND flags -L--no-as-needed)
-        endif()
-
-        set(libarg "druntime-ldc-unittest${name_suffix}")
-        add_test(NAME build-druntime-test-runner${name_suffix}
-            COMMAND ${LDC_EXE_FULL}
-                -of${PROJECT_BINARY_DIR}/druntime-test-runner${name_suffix}${CMAKE_EXECUTABLE_SUFFIX}
-                -defaultlib=${libarg} -debuglib=${libarg}
-                -singleobj ${flags} ${RUNTIME_DIR}/src/test_runner.d
-        )
-        set_tests_properties(build-druntime-test-runner${name_suffix} PROPERTIES
-            DEPENDS build-druntime-ldc-unittest${name_suffix})
-
-        if(PHOBOS2_DIR)
-            set(libarg "phobos2-ldc-unittest${name_suffix},druntime-ldc-unittest${name_suffix}")
-            add_test(NAME build-phobos2-test-runner${name_suffix}
-                COMMAND ${LDC_EXE_FULL}
-                    -of${PROJECT_BINARY_DIR}/phobos2-test-runner${name_suffix}${CMAKE_EXECUTABLE_SUFFIX}
-                    -defaultlib=${libarg} -debuglib=${libarg}
-                    -singleobj ${flags} ${RUNTIME_DIR}/src/test_runner.d
-            )
-            set_tests_properties(build-phobos2-test-runner${name_suffix} PROPERTIES
-                DEPENDS build-phobos2-ldc-unittest${name_suffix})
+        if(MSVC OR APPLE)
+            list(APPEND ${output_flags} "-L$<TARGET_LINKER_FILE:${lib}${target_suffix}>")
+        else()
+            list(APPEND ${output_flags} -L--no-as-needed -L-l${lib}${name_suffix} -L--as-needed)
         endif()
     else()
-        set(druntime_o "")
-        set(druntime_bc "")
-        set(casm_lib_path "${CMAKE_BINARY_DIR}/lib")
-        compile_druntime("${flags}" "-unittest${name_suffix}" "" druntime_o druntime_bc)
-
-        # We need to compile a small static library with the C/ASM files, as
-        # there is no easy way of getting the object file names used when
-        # compiling the main libraries. If we could require CMake 2.8.8, we
-        # would be able to just build the files once (resp. twice for multilib)
-        # for both the runtime debug/release builds and the tests. Oh well.
-        set(druntime-casm druntime-ldc-casm${name_suffix})
-        add_library(${druntime-casm} STATIC
-            ${CORE_C} ${DCRT_C} ${DCRT_ASM})
-        set_target_properties(
-            ${druntime-casm} PROPERTIES
-            LINKER_LANGUAGE             C
-            COMPILE_FLAGS               "${RT_CFLAGS} ${c_flags}"
-            LINK_FLAGS                  "${LD_FLAGS} ${ld_flags}"
-            ARCHIVE_OUTPUT_DIRECTORY    ${casm_lib_path}
-        )
-
-        # See shared library case for explanation.
-        set_target_properties(${druntime-casm} PROPERTIES EXCLUDE_FROM_ALL ON EXCLUDE_FROM_DEFAULT_BUILD ON)
-        add_custom_target(druntime-ldc-unittest${name_suffix} DEPENDS ${druntime_o} ${druntime-casm})
-        add_test(build-druntime-ldc-unittest${name_suffix} "${CMAKE_COMMAND}"
-            --build ${CMAKE_BINARY_DIR} --target druntime-ldc-unittest${name_suffix})
-
-        add_test(NAME build-druntime-test-runner${name_suffix}
-            COMMAND ${LDC_EXE_FULL}
-                -of${PROJECT_BINARY_DIR}/druntime-test-runner${name_suffix}${CMAKE_EXECUTABLE_SUFFIX}
-                -defaultlib=${druntime-casm} -debuglib=${druntime-casm}
-                -singleobj ${flags} ${druntime_o} ${RUNTIME_DIR}/src/test_runner.d
-        )
-        set_tests_properties(build-druntime-test-runner${name_suffix} PROPERTIES
-            DEPENDS build-druntime-ldc-unittest${name_suffix}
-        )
-
-        # And the same for Phobos.
-        if(PHOBOS2_DIR)
-            set(phobos2_o "")
-            set(phobos2_bc "")
-            compile_phobos2("${flags}" "-unittest${name_suffix}" "" phobos2_o phobos2_bc)
-
-            set(phobos2-casm phobos2-ldc-casm${name_suffix})
-            add_library(${phobos2-casm} STATIC ${ZLIB_C})
-            set_target_properties(
-                ${phobos2-casm} PROPERTIES
-                LINKER_LANGUAGE             C
-                COMPILE_FLAGS               "${RT_CFLAGS} ${c_flags}"
-                LINK_FLAGS                  "${LD_FLAGS} ${ld_flags}"
-                ARCHIVE_OUTPUT_DIRECTORY    ${casm_lib_path}
-            )
-
-            set_target_properties(${phobos2-casm} PROPERTIES EXCLUDE_FROM_ALL ON EXCLUDE_FROM_DEFAULT_BUILD ON)
-            add_custom_target(phobos2-ldc-unittest${name_suffix} DEPENDS ${phobos2_o} ${phobos2-casm})
-            add_test(build-phobos2-ldc-unittest${name_suffix} "${CMAKE_COMMAND}"
-                --build ${CMAKE_BINARY_DIR} --target phobos2-ldc-unittest${name_suffix})
-
-            add_test(NAME build-phobos2-test-runner${name_suffix}
-                COMMAND ${LDC_EXE_FULL}
-                    -of${PROJECT_BINARY_DIR}/phobos2-test-runner${name_suffix}${CMAKE_EXECUTABLE_SUFFIX}
-                    -defaultlib=druntime-ldc,${phobos2-casm} -debuglib=druntime-ldc,${phobos2-casm}
-                    -singleobj ${flags} ${phobos2_o} ${RUNTIME_DIR}/src/test_runner.d
-            )
-            set_tests_properties(build-phobos2-test-runner${name_suffix} PROPERTIES
-                DEPENDS build-phobos2-ldc-unittest${name_suffix}
-            )
+        if(MSVC)
+            # the MS linker supports /WHOLEARCHIVE since VS 2015 Update 2
+            list(APPEND ${output_flags} -L/WHOLEARCHIVE:${lib}${name_suffix})
+        elseif(APPLE)
+            list(APPEND ${output_flags} "-L-Wl,-force_load,$<TARGET_LINKER_FILE:${lib}${target_suffix}>")
+        else()
+            list(APPEND ${output_flags} -L--whole-archive -L-l${lib}${name_suffix} -L--no-whole-archive)
         endif()
     endif()
 endmacro()
-build_test_runner("" "${D_FLAGS_RELEASE}" "")
-build_test_runner("-debug" "${D_FLAGS_DEBUG}" "")
+
+macro(build_test_runner name_suffix path_suffix d_flags c_flags)
+    set(flags "${D_FLAGS};${d_flags};-unittest")
+
+    set(unittest_libs "")
+    build_runtime(
+        "${flags}"
+        "${RT_CFLAGS} ${c_flags}"
+        "${LD_FLAGS} ${c_flags}"
+        "-unittest${name_suffix}"
+        "${path_suffix}"
+        unittest_libs
+    )
+
+    # Only build the unittest libraries when running the tests. Unfortunately,
+    # I couldn't find an easier way to make a test depend on a CMake target than
+    # just invoking the build command through the CMake executable.
+    set_target_properties(${unittest_libs} PROPERTIES EXCLUDE_FROM_ALL ON EXCLUDE_FROM_DEFAULT_BUILD ON)
+    foreach(l ${unittest_libs})
+        add_test(build-${l} "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ${l})
+    endforeach()
+
+    get_target_suffix("${name_suffix}" "${path_suffix}" target_suffix)
+
+    set(tmpflags "${flags}")
+    append_flags_to_pull_in_all_objects("druntime-ldc-unittest" "${name_suffix}" "${target_suffix}" tmpflags)
+    add_test(NAME build-druntime-test-runner${target_suffix}
+        COMMAND ${LDC_EXE_FULL}
+            -of${PROJECT_BINARY_DIR}/druntime-test-runner${target_suffix}${CMAKE_EXECUTABLE_SUFFIX}
+            -defaultlib= -debuglib=
+            ${tmpflags} ${RUNTIME_DIR}/src/test_runner.d
+    )
+    set_tests_properties(build-druntime-test-runner${target_suffix} PROPERTIES
+        DEPENDS build-druntime-ldc-unittest${target_suffix})
+
+    if(PHOBOS2_DIR)
+        set(tmpflags "${flags}")
+        append_flags_to_pull_in_all_objects("phobos2-ldc-unittest" "${name_suffix}" "${target_suffix}" tmpflags)
+        set(libarg "druntime-ldc-unittest${name_suffix}")
+        add_test(NAME build-phobos2-test-runner${target_suffix}
+            COMMAND ${LDC_EXE_FULL}
+                -of${PROJECT_BINARY_DIR}/phobos2-test-runner${target_suffix}${CMAKE_EXECUTABLE_SUFFIX}
+                -defaultlib=${libarg} -debuglib=${libarg}
+                ${tmpflags} ${RUNTIME_DIR}/src/test_runner.d
+        )
+        set_tests_properties(build-phobos2-test-runner${target_suffix} PROPERTIES
+            DEPENDS "build-druntime-ldc-unittest${target_suffix};build-phobos2-ldc-unittest${target_suffix}"
+        )
+    endif()
+endmacro()
+
+build_test_runner("" "${LIB_SUFFIX}" "${D_FLAGS_RELEASE}" "")
+build_test_runner("-debug" "${LIB_SUFFIX}" "${D_FLAGS_DEBUG}" "")
 if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
-    build_test_runner("-32" "${D_FLAGS_RELEASE};-m32" "-m32")
-    build_test_runner("-debug-32" "${D_FLAGS_DEBUG};-m32" "-m32")
+    build_test_runner("" "${MULTILIB_SUFFIX}" "${D_FLAGS_RELEASE};-m32" "-m32")
+    build_test_runner("-debug" "${MULTILIB_SUFFIX}" "${D_FLAGS_DEBUG};-m32" "-m32")
 endif()
 
 # Add the druntime/Phobos test runner invocations for all the different modules.
@@ -756,30 +708,31 @@ macro(file_to_module_name file_name out_module_name)
     string(REPLACE "rt.invariant" "invariant" ${out_module_name} ${module})
 endmacro()
 
-function(add_tests d_files runner name_suffix)
+function(add_tests d_files runner target_suffix)
     foreach(file ${d_files})
         file_to_module_name(${file} module)
-        add_test(NAME "${module}${name_suffix}"
+        add_test(NAME "${module}${target_suffix}"
             WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
-            COMMAND ${runner}-test-runner${name_suffix} ${module}
+            COMMAND ${runner}-test-runner${target_suffix} ${module}
         )
-        set_tests_properties("${module}${name_suffix}" PROPERTIES
-            DEPENDS build-${runner}-test-runner${name_suffix}
-	)
+        set_tests_properties("${module}${target_suffix}" PROPERTIES
+            DEPENDS build-${runner}-test-runner${target_suffix}
+        )
     endforeach()
 endfunction()
-function(add_runtime_tests name_suffix)
-    add_tests("${CORE_D};${DCRT_D};${GC_D}" "druntime" "${name_suffix}")
+function(add_runtime_tests name_suffix path_suffix)
+    get_target_suffix("${name_suffix}" "${path_suffix}" target_suffix)
+    add_tests("${CORE_D};${DCRT_D};${GC_D}" "druntime" "${target_suffix}")
     if(PHOBOS2_DIR)
-        add_tests("${PHOBOS2_D}" "phobos2" "${name_suffix}")
+        add_tests("${PHOBOS2_D}" "phobos2" "${target_suffix}")
     endif()
 endfunction()
 
-add_runtime_tests("")
-add_runtime_tests("-debug")
+add_runtime_tests("" "${LIB_SUFFIX}")
+add_runtime_tests("-debug" "${LIB_SUFFIX}")
 if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
-    add_runtime_tests("-32")
-    add_runtime_tests("-debug-32")
+    add_runtime_tests("" "${MULTILIB_SUFFIX}")
+    add_runtime_tests("-debug" "${MULTILIB_SUFFIX}")
 endif()
 
 # Add the standalone druntime tests.
@@ -800,7 +753,7 @@ if(BUILD_SHARED_LIBS)
     add_test(NAME druntime-test-shared
         COMMAND make -C ${PROJECT_SOURCE_DIR}/druntime/test/shared
             ROOT=${outdir} DMD=${LDMD_EXE_FULL} MODEL=default DRUNTIMESO=${druntime_path}
-            CFLAGS=-Wall\ -Wl,-rpath,${CMAKE_BINARY_DIR}/lib ${linkflags}
+            CFLAGS=-Wall\ -Wl,-rpath,${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX} ${linkflags}
     )
 
     set_tests_properties(druntime-test-shared PROPERTIES DEPENDS clean-druntime-test-shared)

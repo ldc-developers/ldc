@@ -440,9 +440,9 @@ endif()
 append("-version=IN_LLVM" DDMD_DFLAGS)
 append("-DIN_LLVM" CMAKE_CXX_FLAGS)
 append("-DOPAQUE_VTBLS" CMAKE_CXX_FLAGS)
-append("-DLDC_INSTALL_PREFIX=\"${CMAKE_INSTALL_PREFIX}\"" CMAKE_CXX_FLAGS)
+append("\"-DLDC_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}\"" CMAKE_CXX_FLAGS)
 append("-DLDC_LLVM_VER=${LDC_LLVM_VER}" CMAKE_CXX_FLAGS)
-append("-DLDC_LIBDIR_SUFFIX=\"\\\"${LIB_SUFFIX}\\\"\"" CMAKE_CXX_FLAGS)
+append("\"-DLDC_LIBDIR_SUFFIX=\\\"${LIB_SUFFIX}\\\"\"" CMAKE_CXX_FLAGS)
 
 if(GENERATE_OFFTI)
     append("-DGENERATE_OFFTI" CMAKE_CXX_FLAGS)
@@ -569,9 +569,8 @@ else()
     # Use D compiler for linking, trying to translate a few common linker flags.
     set(LDC_TRANSLATED_LINKER_FLAGS "")
     foreach(f ${LDC_LINKERFLAG_LIST})
-        string(REPLACE "-Wl," "" f ${f})
         string(REPLACE "-LIBPATH:" "/LIBPATH:" f ${f})
-        append("-L\"${f}\"" LDC_TRANSLATED_LINKER_FLAGS)
+        append("\"-L${f}\"" LDC_TRANSLATED_LINKER_FLAGS)
     endforeach()
 
     if(MSVC)
@@ -606,7 +605,7 @@ function(build_d_executable output_exe compiler_args linker_args compile_deps li
           separate_arguments(lflags WINDOWS_COMMAND "${lflags}")
         endif()
         foreach(f ${linker_args})
-            append("-L\"${f}\"" lflags)
+            append("\"-L${f}\"" lflags)
         endforeach()
         add_custom_command(
             OUTPUT ${output_exe}

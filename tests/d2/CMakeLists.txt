@@ -53,6 +53,6 @@ add_testsuite("" -O3 "OFF" ${host_model})
 
 if(MULTILIB AND host_model EQUAL 64)
     # Also test in 32 bit mode on x86_64 multilib builds.
-    add_testsuite("-debug-32" "-g -link-debuglib" "${gdb_flags}" 32)
-    add_testsuite("-32" -O3 "OFF" 32)
+    add_testsuite("-debug_32" "-g -link-debuglib" "${gdb_flags}" 32)
+    add_testsuite("_32" -O3 "OFF" 32)
 endif()

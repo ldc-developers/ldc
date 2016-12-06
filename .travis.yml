@@ -11,7 +11,7 @@ matrix:
       env: LLVM_VERSION=3.8.1
     - os: linux
       d: ldc
-      env: LLVM_VERSION=3.7.1 OPTS="-DMULTILIB=ON"
+      env: LLVM_VERSION=3.7.1 OPTS="-DMULTILIB=ON -DLIB_SUFFIX=64"
     - os: linux
       d: ldc-0.17.2
       env: LLVM_VERSION=3.6.2 OPTS="-DBUILD_SHARED_LIBS=ON"
@@ -81,9 +81,9 @@ script:
   - bin/ldc2 -version || exit 1
   # Build Phobos & druntime unittest modules.
   -
-    if [ "${OPTS}" = "-DMULTILIB=ON" ]; then
-      make -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest phobos2-ldc-unittest-debug-32 phobos2-ldc-unittest-32;
-      make -j3 druntime-ldc-unittest-debug druntime-ldc-unittest druntime-ldc-unittest-debug-32 druntime-ldc-unittest-32;
+    if [[ "${OPTS}" == *-DMULTILIB?ON* ]]; then
+      make -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest phobos2-ldc-unittest-debug_32 phobos2-ldc-unittest_32;
+      make -j3 druntime-ldc-unittest-debug druntime-ldc-unittest druntime-ldc-unittest-debug_32 druntime-ldc-unittest_32;
     else
       make -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest;
       make -j3 druntime-ldc-unittest-debug druntime-ldc-unittest;
@@ -97,7 +97,7 @@ script:
 
 after_success:
   -
-    if [[ "${OPTS}" == *TEST_COVERAGE*ON* ]]; then
+    if [[ "${OPTS}" == *-DTEST_COVERAGE?ON* ]]; then
       coveralls -e runtime -e tests -e vcbuild --gcov gcov-4.9 --gcov-options '\-lp' > /dev/null 2>&1;
     fi
 
