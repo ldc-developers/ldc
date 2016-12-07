@@ -4612,7 +4612,7 @@ public:
             if (d1 != d2)
             {
             Loverflow:
-                error(loc, "%s size %llu * %llu exceeds 16MiB size limit for static array", toChars(), cast(ulong)tbn.size(loc), cast(ulong)d1);
+                error(loc, "%s size %llu * %llu exceeds the size limit for static arrays (overflow)", toChars(), cast(ulong)tbn.size(loc), cast(ulong)d1);
                 goto Lerror;
             }
             Type tbx = tbn.baseElemOf();
@@ -4628,8 +4628,20 @@ public:
                  * run on them for the size, since they may be forward referenced.
                  */
                 bool overflow = false;
+version(IN_LLVM)
+{
+                /+ The size limit that DMD imposes here is only there to work around an optlink bug, which doesn't apply to LDC.
+                 + https://issues.dlang.org/show_bug.cgi?id=14859
+                 +/
+                mulu(tbn.size(loc), d2, overflow);
+                if (overflow)
+                    goto Loverflow;
+}
+else
+{
                 if (mulu(tbn.size(loc), d2, overflow) >= 0x1000000 || overflow) // put a 'reasonable' limit on it
                     goto Loverflow;
+}
             }
         }
         switch (tbn.ty)
