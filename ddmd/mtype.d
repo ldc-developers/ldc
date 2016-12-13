@@ -4633,7 +4633,7 @@ version(IN_LLVM)
                 /+ The size limit that DMD imposes here is only there to work around an optlink bug, which doesn't apply to LDC.
                  + https://issues.dlang.org/show_bug.cgi?id=14859
                  +/
-                mulu(tbn.size(loc), d2, overflow);
+                auto _ = mulu(tbn.size(loc), d2, overflow);
                 if (overflow)
                     goto Loverflow;
 }
