@@ -26,6 +26,11 @@
 // FIXME: Just for the BOUDNSCHECK enum; this is not pretty
 #include "globals.h"
 
+namespace llvm {
+class FastMathFlags;
+class TargetMachine;
+}
+
 namespace opts {
 namespace cl = llvm::cl;
 
@@ -78,6 +83,11 @@ extern cl::opt<bool, true> singleObj;
 extern cl::opt<bool> linkonceTemplates;
 extern cl::opt<bool> disableLinkerStripDead;
 
+// Math options
+extern bool fFastMath;
+extern llvm::FastMathFlags defaultFMF;
+void setDefaultMathOptions(llvm::TargetMachine &target);
+
 extern cl::opt<BOUNDSCHECK> boundsCheck;
 extern bool nonSafeBoundsChecks;
 
@@ -93,9 +103,8 @@ extern cl::opt<bool> instrumentFunctions;
 extern std::vector<std::string> debugArgs;
 // Arguments to -run
 
-#if LDC_LLVM_VER >= 307
-void CreateColorOption();
-#endif
+void createClashingOptions();
+void hideLLVMOptions();
 
 #if LDC_LLVM_VER >= 309
 // LTO options
