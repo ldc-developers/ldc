@@ -15,6 +15,7 @@
 struct SPIRVTargetABI : TargetABI {
   llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l,
                                     FuncDeclaration *fdecl = nullptr) override {
+    assert(fdecl);
     if (hasKernelAttr(fdecl))
       return llvm::CallingConv::SPIR_KERNEL;
     else

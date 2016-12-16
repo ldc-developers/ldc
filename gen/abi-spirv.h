@@ -1,4 +1,4 @@
-//===-- gen/abi-spirv.h - PPC64 ABI description ----------------*- C++ -*-===//
+//===-- gen/abi-spirv.h - SPIRV ABI description ----------------*- C++ -*-===//
 //
 //                         LDC - the LLVM D compiler
 //

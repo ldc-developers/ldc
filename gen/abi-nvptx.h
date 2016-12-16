@@ -1,4 +1,4 @@
-//===-- gen/abi-nvptx.h - PPC64 ABI description ----------------*- C++ -*-===//
+//===-- gen/abi-nvptx.h - NVPTX ABI description ----------------*- C++ -*-===//
 //
 //                         LDC - the LLVM D compiler
 //
@@ -11,8 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_ABI_SPIRV_H
-#define LDC_GEN_ABI_SPIRV_H
+#ifndef LDC_GEN_ABI_NVPTX_H
+#define LDC_GEN_ABI_NVPTX_H
 
 struct TargetABI;
 
