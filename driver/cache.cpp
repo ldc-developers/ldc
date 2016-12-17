@@ -38,20 +38,76 @@
 
 #if LDC_LLVM_VER >= 400
 #include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/Support/Chrono.h"
 #else
 #include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Support/TimeValue.h"
 #endif
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/TimeValue.h"
 
 // Include close() declaration.
 #if !defined(_MSC_VER) && !defined(__MINGW32__)
 #include <unistd.h>
 #else
 #include <io.h>
+#endif
+
+#if LDC_POSIX
+#include <unistd.h>
+// Returns true upon error.
+static bool createHardLink(const char *to, const char *from) {
+  return link(to, from) == -1;
+}
+// Returns true upon error.
+static bool createSymLink(const char *to, const char *from) {
+  return symlink(to, from) == -1;
+}
+#elif _WIN32
+#include <windows.h>
+namespace llvm {
+namespace sys {
+namespace path {
+// Fwd declaration to an internal LLVM function.
+std::error_code widenPath(const llvm::Twine &Path8,
+                          llvm::SmallVectorImpl<wchar_t> &Path16);
+}
+}
+}
+// Returns true upon error.
+namespace {
+template <typename FType>
+bool createLink(FType f, const char *to, const char *from) {
+  //===----------------------------------------------------------------------===//
+  //
+  // Code copied from LLVM 3.9 llvm/Support/Windows/Path.inc, distributed under
+  // the University of Illinois Open Source License. See LICENSE for details.
+  //
+  //===----------------------------------------------------------------------===//
+
+  llvm::SmallVector<wchar_t, 128> wide_from;
+  llvm::SmallVector<wchar_t, 128> wide_to;
+  if (llvm::sys::path::widenPath(from, wide_from))
+    return true;
+  if (llvm::sys::path::widenPath(to, wide_to))
+    return true;
+
+  if (!(*f)(wide_from.begin(), wide_to.begin(), NULL))
+    return true;
+
+  return false;
+}
+}
+// Returns true upon error.
+static bool createHardLink(const char *to, const char *from) {
+  return createLink(&CreateHardLinkW, to, from);
+}
+// Returns true upon error.
+static bool createSymLink(const char *to, const char *from) {
+  return createLink(&CreateSymbolicLinkW, to, from);
+}
 #endif
 
 namespace {
@@ -84,6 +140,22 @@ llvm::cl::opt<unsigned> pruneSizeLimitPercentage(
         "space (default: 75%). Implies -cache-prune."),
     llvm::cl::value_desc("perc"), llvm::cl::init(75));
 
+enum class RetrievalMode { Copy, HardLink, AnyLink, SymLink };
+llvm::cl::opt<RetrievalMode> cacheRecoveryMode(
+    "cache-retrieval",
+    llvm::cl::desc("Set the cache retrieval mechanism (default: copy)."),
+    llvm::cl::init(RetrievalMode::Copy),
+    clEnumValues(
+        clEnumValN(RetrievalMode::Copy, "copy",
+                   "Make a copy of the cache file"),
+        clEnumValN(RetrievalMode::HardLink, "hardlink",
+                   "Create a hard link to the cache file (recommended)"),
+        clEnumValN(
+            RetrievalMode::AnyLink, "link",
+            "Equal to 'hardlink' on Windows, but 'symlink' on Unix and OS X"),
+        clEnumValN(RetrievalMode::SymLink, "symlink",
+                   "Create a symbolic link to the cache file")));
+
 bool isPruningEnabled() {
   if (pruneEnabled)
     return true;
@@ -97,6 +169,15 @@ bool isPruningEnabled() {
 
   return false;
 }
+
+#if LDC_LLVM_VER >= 400
+llvm::sys::TimePoint<std::chrono::seconds> getTimeNow() {
+  using namespace std::chrono;
+  return time_point_cast<seconds>(system_clock::now());
+}
+#else
+llvm::sys::TimeValue getTimeNow() { return llvm::sys::TimeValue::now(); }
+#endif
 
 /// A raw_ostream that creates a hash of what is written to it.
 /// This class does not encounter output errors.
@@ -313,12 +394,44 @@ void recoverObjectFile(llvm::StringRef cacheObjectHash,
   // Remove the potentially pre-existing output file.
   llvm::sys::fs::remove(objectFile);
 
-  IF_LOG Logger::println("SymLink output to cached object file: %s -> %s",
-                         objectFile.str().c_str(), cacheFile.c_str());
-  if (llvm::sys::fs::create_link(cacheFile.c_str(), objectFile)) {
-    error(Loc(), "Failed to create a symlink to the cached file: %s -> %s",
-          cacheFile.c_str(), objectFile.str().c_str());
-    fatal();
+  switch (cacheRecoveryMode) {
+  case RetrievalMode::Copy: {
+    IF_LOG Logger::println("Copy cached object file: %s -> %s",
+                           cacheFile.c_str(), objectFile.str().c_str());
+    if (llvm::sys::fs::copy_file(cacheFile.c_str(), objectFile)) {
+      error(Loc(), "Failed to copy the cached file: %s -> %s",
+            cacheFile.c_str(), objectFile.str().c_str());
+      fatal();
+    }
+  } break;
+  case RetrievalMode::HardLink: {
+    IF_LOG Logger::println("HardLink output to cached object file: %s -> %s",
+                           objectFile.str().c_str(), cacheFile.c_str());
+    if (createHardLink(cacheFile.c_str(), objectFile.str().c_str())) {
+      error(Loc(), "Failed to create a hard link to the cached file: %s -> %s",
+            cacheFile.c_str(), objectFile.str().c_str());
+      fatal();
+    }
+  } break;
+  case RetrievalMode::AnyLink: {
+    IF_LOG Logger::println("Link output to cached object file: %s -> %s",
+                           objectFile.str().c_str(), cacheFile.c_str());
+    if (llvm::sys::fs::create_link(cacheFile.c_str(), objectFile)) {
+      error(Loc(), "Failed to create a link to the cached file: %s -> %s",
+            cacheFile.c_str(), objectFile.str().c_str());
+      fatal();
+    }
+  } break;
+  case RetrievalMode::SymLink: {
+    IF_LOG Logger::println("SymLink output to cached object file: %s -> %s",
+                           objectFile.str().c_str(), cacheFile.c_str());
+    if (createSymLink(cacheFile.c_str(), objectFile.str().c_str())) {
+      error(Loc(),
+            "Failed to create a symbolic link to the cached file: %s -> %s",
+            cacheFile.c_str(), objectFile.str().c_str());
+      fatal();
+    }
+  } break;
   }
 
   // We reset the modification time to "now" such that the pruning algorithm
@@ -335,8 +448,7 @@ void recoverObjectFile(llvm::StringRef cacheObjectHash,
       fatal();
     }
 
-    if (llvm::sys::fs::setLastModificationAndAccessTime(
-            FD, llvm::sys::TimeValue::now())) {
+    if (llvm::sys::fs::setLastModificationAndAccessTime(FD, getTimeNow())) {
       error(Loc(), "Failed to set the cached file modification time: %s",
             cacheFile.c_str());
       fatal();

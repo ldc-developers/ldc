@@ -37,15 +37,12 @@ public:
   llvm::Type *getMemoryLLType();
 
   /// Returns the vtable type for this class.
-  llvm::Type *getVtbl() { return vtbl_type; }
+  llvm::ArrayType *getVtblType() { return vtbl_type; }
 
   /// Get index to interface implementation.
   /// Returns the index of a specific interface implementation in this
   /// class or ~0 if not found.
   size_t getInterfaceIndex(ClassDeclaration *inter);
-
-  /// Returns the total number of pointers in the vtable.
-  unsigned getVtblSize() { return vtbl_size; }
 
   /// Returns the number of interface implementations (vtables) in this
   /// class.
@@ -61,10 +58,7 @@ protected:
   TypeClass *tc = nullptr;
 
   /// Vtable type.
-  llvm::StructType *vtbl_type = nullptr;
-
-  /// Number of pointers in vtable.
-  unsigned vtbl_size = 0;
+  llvm::ArrayType *vtbl_type = nullptr;
 
   /// Number of interface implementations (vtables) in this class.
   unsigned num_interface_vtbls = 0;
@@ -77,13 +71,6 @@ protected:
   ClassIndexMap interfaceMap;
 
   //////////////////////////////////////////////////////////////////////////
-
-  /// Builds a vtable type given the type of the first entry and an array
-  /// of all entries.
-  /// If first is nullptr for C++ interfaces, the vtbl_array will be added
-  /// as is without replacing the first entry.
-  std::vector<llvm::Type *> buildVtblType(Type *first,
-                                          FuncDeclarations *vtbl_array);
 
   /// Adds the data members for the given class to the type builder, including
   /// those inherited from base classes/interfaces.

@@ -356,6 +356,7 @@ public:
           setLinkage(lwc, newGvar);
 
           newGvar->setAlignment(gvar->getAlignment());
+          newGvar->setDLLStorageClass(gvar->getDLLStorageClass());
           applyVarDeclUDAs(decl, newGvar);
           newGvar->takeName(gvar);
 
@@ -367,6 +368,8 @@ public:
           gvar = newGvar;
           irGlobal->value = newGvar;
         }
+
+        assert(!gvar->hasDLLImportStorageClass());
 
         // Now, set the initializer.
         assert(!irGlobal->constInit);

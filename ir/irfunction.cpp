@@ -8,13 +8,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "ir/irfunction.h"
+
+#include "driver/cl_options.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/irstate.h"
 #include "gen/tollvm.h"
 #include "ir/irdsymbol.h"
 
-IrFunction::IrFunction(FuncDeclaration *fd) : FMF() {
+IrFunction::IrFunction(FuncDeclaration *fd) : FMF(opts::defaultFMF) {
   decl = fd;
 
   Type *t = fd->type->toBasetype();

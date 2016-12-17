@@ -51,11 +51,11 @@ static llvm::cl::opt<bool> createStaticLibInObjdir(
     llvm::cl::desc("Create static library in -od directory (DMD-compliant)"),
     llvm::cl::ZeroOrMore, llvm::cl::ReallyHidden);
 
-static llvm::cl::opt<std::string> ltoLibrary(
-    "flto-binary",
-    llvm::cl::desc(
-        "Set the path for LLVMgold.so (Unixes) or libLTO.dylib (Darwin)"),
-    llvm::cl::value_desc("file"));
+static llvm::cl::opt<std::string>
+    ltoLibrary("flto-binary",
+               llvm::cl::desc("Set the linker LTO plugin library file (e.g. "
+                              "LLVMgold.so (Unixes) or libLTO.dylib (Darwin))"),
+               llvm::cl::value_desc("file"), llvm::cl::ZeroOrMore);
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -129,12 +129,23 @@ std::string getLTOGoldPluginPath() {
     fatal();
   } else {
     std::string searchPaths[] = {
-        exe_path::prependLibDir("LLVMgold.so"), "/usr/local/lib/LLVMgold.so",
-        "/usr/lib/bfd-plugins/LLVMgold.so",
+      // The plugin packaged with LDC has a "-ldc" suffix.
+      exe_path::prependLibDir("LLVMgold-ldc.so"),
+      // Perhaps the user copied the plugin to LDC's lib dir.
+      exe_path::prependLibDir("LLVMgold.so"),
+#if __LP64__
+      "/usr/local/lib64/LLVMgold.so",
+#endif
+      "/usr/local/lib/LLVMgold.so",
+#if __LP64__
+      "/usr/lib64/LLVMgold.so",
+#endif
+      "/usr/lib/LLVMgold.so",
+      "/usr/lib/bfd-plugins/LLVMgold.so",
     };
 
     // Try all searchPaths and early return upon the first path found.
-    for (auto p : searchPaths) {
+    for (const auto &p : searchPaths) {
       if (llvm::sys::fs::exists(p))
         return p;
     }
@@ -179,7 +190,8 @@ std::string getLTOdylibPath() {
     error(Loc(), "-flto-binary: '%s' not found", ltoLibrary.c_str());
     fatal();
   } else {
-    std::string searchPath = exe_path::prependLibDir("libLTO.dylib");
+    // The plugin packaged with LDC has a "-ldc" suffix.
+    std::string searchPath = exe_path::prependLibDir("libLTO-ldc.dylib");
     if (llvm::sys::fs::exists(searchPath))
       return searchPath;
 
@@ -347,10 +359,11 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
     // Don't push -l and -L switches using -Xlinker, but pass them indirectly
     // via GCC. This makes sure user-defined paths take precedence over
     // GCC's builtin LIBRARY_PATHs.
-    // Options starting with -shared and -static are not handled by
+    // Options starting with `-Wl,`, -shared or -static are not handled by
     // the linker and must be passed to the driver.
     auto str = llvm::StringRef(p);
     if (!(str.startswith("-l") || str.startswith("-L") ||
+          str.startswith("-Wl,") ||
           str.startswith("-shared") || str.startswith("-static"))) {
       args.push_back("-Xlinker");
     }

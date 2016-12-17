@@ -49,7 +49,7 @@ LLGlobalVariable *IrAggr::getVtblSymbol() {
   // create the vtblZ symbol
   auto initname = getMangledVTableSymbolName(aggrdecl);
 
-  LLType *vtblTy = stripModifiers(type)->ctype->isClass()->getVtbl();
+  LLType *vtblTy = stripModifiers(type)->ctype->isClass()->getVtblType();
 
   vtbl =
       getOrCreateGlobal(aggrdecl->loc, gIR->module, vtblTy, true,
@@ -165,38 +165,51 @@ LLConstant *IrAggr::getVtblInit() {
   std::vector<llvm::Constant *> constants;
   constants.reserve(cd->vtbl.dim);
 
+  const auto voidPtrType = getVoidPtrType();
+
   // start with the classinfo
   llvm::Constant *c;
   if (!cd->isCPPclass()) {
     c = getClassInfoSymbol();
-    c = DtoBitCast(c, DtoType(Type::typeinfoclass->type));
+    c = DtoBitCast(c, voidPtrType);
     constants.push_back(c);
   }
 
   // add virtual function pointers
   size_t n = cd->vtbl.dim;
   for (size_t i = cd->vtblOffset(); i < n; i++) {
-    Dsymbol *dsym = static_cast<Dsymbol *>(cd->vtbl.data[i]);
+    Dsymbol *dsym = cd->vtbl[i];
     assert(dsym && "null vtbl member");
 
     FuncDeclaration *fd = dsym->isFuncDeclaration();
     assert(fd && "vtbl entry not a function");
 
     if (cd->isAbstract() || (fd->isAbstract() && !fd->fbody)) {
-      c = getNullValue(getPtrToType(DtoFunctionType(fd)));
+      c = getNullValue(voidPtrType);
     } else {
+      // If inferring return type and semantic3 has not been run, do it now.
+      // This pops up in some other places in the frontend as well, however
+      // it is probably a bug that it still occurs that late.
+      if (fd->inferRetType && !fd->type->nextOf()) {
+        Logger::println("Running late functionSemantic to infer return type.");
+        if (!fd->functionSemantic()) {
+          fd->error("failed to infer return type for vtbl initializer");
+          fatal();
+        }
+      }
+
       DtoResolveFunction(fd);
       assert(isIrFuncCreated(fd) && "invalid vtbl function");
-      c = getIrFunc(fd)->func;
+      c = DtoBitCast(getIrFunc(fd)->func, voidPtrType);
+
       if (cd->isFuncHidden(fd)) {
         // fd is hidden from the view of this class. If fd overlaps with any
         // function in the vtbl[], issue error.
-        for (size_t j = 1; j < n; j++) {
+        for (size_t j = cd->vtblOffset(); j < n; j++) {
           if (j == i) {
             continue;
           }
-          auto fd2 =
-              static_cast<Dsymbol *>(cd->vtbl.data[j])->isFuncDeclaration();
+          auto fd2 = cd->vtbl[j]->isFuncDeclaration();
           if (!fd2->ident->equals(fd->ident)) {
             continue;
           }
@@ -207,9 +220,8 @@ LLConstant *IrAggr::getVtblInit() {
                         "to introduce base class overload set",
                         fd->toPrettyChars(),
                         parametersTypeToChars(tf->parameters, tf->varargs),
-                        cd->toChars(),
-
-                        fd->toChars(), fd->parent->toChars(), fd->toChars());
+                        cd->toChars(), fd->toChars(), fd->parent->toChars(),
+                        fd->toChars());
             } else {
               cd->error("use of %s is hidden by %s", fd->toPrettyChars(),
                         cd->toChars());
@@ -220,30 +232,13 @@ LLConstant *IrAggr::getVtblInit() {
         }
       }
     }
+
     constants.push_back(c);
   }
 
-  // build the constant struct
-  LLType *vtblTy = stripModifiers(type)->ctype->isClass()->getVtbl();
-#ifndef NDEBUG
-  size_t nc = constants.size();
-
-  for (size_t i = 0; i < nc; ++i) {
-    if (constants[i]->getType() != vtblTy->getContainedType(i)) {
-      llvm::errs() << "type mismatch for entry # " << i
-                   << " in vtbl initializer\n";
-
-      constants[i]->getType()->dump();
-      vtblTy->getContainedType(i)->dump();
-    }
-  }
-
-#endif
-  constVtbl = LLConstantStruct::get(isaStruct(vtblTy), constants);
-
-  assert(constVtbl->getType() ==
-             stripModifiers(type)->ctype->isClass()->getVtbl() &&
-         "vtbl initializer type mismatch");
+  // build the constant array
+  LLArrayType *vtblTy = LLArrayType::get(voidPtrType, constants.size());
+  constVtbl = LLConstantArray::get(vtblTy, constants);
 
   return constVtbl;
 }
@@ -281,6 +276,8 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
   std::vector<llvm::Constant *> constants;
   constants.reserve(vtbl_array.dim);
 
+  const auto voidPtrTy = getVoidPtrType();
+
   if (!b->sym->isCPPinterface()) { // skip interface info for CPP interfaces
     // index into the interfaces array
     llvm::Constant *idxs[2] = {DtoConstSize_t(0),
@@ -293,7 +290,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
 #endif
         interfaceInfosZ, idxs, true);
 
-    constants.push_back(c);
+    constants.push_back(DtoBitCast(c, voidPtrTy));
   }
 
   // Thunk prefix
@@ -310,7 +307,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       // FIXME
       // why is this null?
       // happens for mini/s.d
-      constants.push_back(getNullValue(getVoidPtrType()));
+      constants.push_back(getNullValue(voidPtrTy));
       continue;
     }
 
@@ -331,7 +328,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
     if (fd->interfaceVirtual)
       thunkOffset -= fd->interfaceVirtual->offset;
     if (thunkOffset == 0) {
-      constants.push_back(irFunc->func);
+      constants.push_back(DtoBitCast(irFunc->func, voidPtrTy));
       continue;
     }
 
@@ -438,12 +435,12 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       gIR->funcGenStates.pop_back();
     }
 
-    constants.push_back(thunk);
+    constants.push_back(DtoBitCast(thunk, voidPtrTy));
   }
 
   // build the vtbl constant
-  llvm::Constant *vtbl_constant =
-      LLConstantStruct::getAnon(gIR->context(), constants, false);
+  llvm::Constant *vtbl_constant = LLConstantArray::get(
+      LLArrayType::get(voidPtrTy, constants.size()), constants);
 
   std::string mangledName("_D");
   mangledName.append(mangle(cd));
@@ -530,7 +527,8 @@ LLConstant *IrAggr::getClassInfoInterfaces() {
       assert(itv != interfaceVtblMap.end() && "interface vtbl not found");
       vtb = itv->second;
       vtb = DtoBitCast(vtb, voidptrptr_type);
-      vtb = DtoConstSlice(DtoConstSize_t(itc->getVtblSize()), vtb);
+      auto vtblSize = itc->getVtblType()->getNumContainedTypes();
+      vtb = DtoConstSlice(DtoConstSize_t(vtblSize), vtb);
     }
 
     // offset

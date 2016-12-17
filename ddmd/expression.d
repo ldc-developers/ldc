@@ -66,7 +66,8 @@ import ddmd.sideeffect;
 import ddmd.statement;
 import ddmd.target;
 import ddmd.tokens;
-import ddmd.traits;
+// IN_LLVM Forward reference from ddmd.traits, to break import cycle. Should not be needed for 2.072 fe.
+extern (C++) Expression semanticTraits(TraitsExp e, Scope* sc);
 // IN_LLVM import ddmd.typinf;
 import ddmd.utf;
 import ddmd.visitor;

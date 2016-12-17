@@ -35,18 +35,10 @@ struct PPC64LETargetABI : TargetABI {
 
     Type *rt = tf->next->toBasetype();
 
-    // FIXME: The return value of this function translates
-    // to RETstack or RETregs in function retStyle(), which
-    // directly influences if NRVO is possible or not
-    // (false -> RETregs -> nrvo_can = false). Depending on
-    // NRVO, the postblit constructor is called or not.
-    // Thus using the rules of the C ABI here (as mandated by
-    // the D specification) leads to crashes.
-    if (tf->linkage == LINKd)
-      return rt->ty == Tsarray || rt->ty == Tstruct;
+    if (!isPOD(rt))
+      return true;
 
-    return rt->ty == Tsarray || (rt->ty == Tstruct && rt->size() > 16 &&
-                                 !isHFA((TypeStruct *)rt, nullptr, 8));
+    return passByVal(rt);
   }
 
   bool passByVal(Type *t) override {
@@ -56,32 +48,22 @@ struct PPC64LETargetABI : TargetABI {
   }
 
   void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
-    // RETURN VALUE
+    // return value
     Type *retTy = fty.ret->type->toBasetype();
     if (!fty.ret->byref) {
-      if (retTy->ty == Tstruct || retTy->ty == Tsarray) {
-        if (retTy->ty == Tstruct &&
-            isHFA((TypeStruct *)retTy, &fty.ret->ltype, 8)) {
-          fty.ret->rewrite = &hfaToArray;
-          fty.ret->ltype = hfaToArray.type(fty.ret->type);
-        } else if (canRewriteAsInt(retTy, true)) {
-          fty.ret->rewrite = &integerRewrite;
-          fty.ret->ltype = integerRewrite.type(fty.ret->type);
-        } else {
-          fty.ret->rewrite = &compositeToArray64;
-          fty.ret->ltype =
-              compositeToArray64.type(fty.ret->type);
-        }
-      } else if (retTy->isintegral())
-        fty.ret->attrs.add(retTy->isunsigned() ? LLAttribute::ZExt
-                                               : LLAttribute::SExt);
+      rewriteArgument(fty, *fty.ret);
     }
 
-    // EXPLICIT PARAMETERS
+    // explicit parameters
     for (auto arg : fty.args) {
       if (!arg->byref) {
         rewriteArgument(fty, *arg);
       }
+    }
+
+    // extern(D): reverse parameter order for non variadics, for DMD-compliance
+    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
+      fty.reverseParams = true;
     }
   }
 
@@ -98,8 +80,9 @@ struct PPC64LETargetABI : TargetABI {
         arg.rewrite = &compositeToArray64;
         arg.ltype = compositeToArray64.type(arg.type);
       }
-    } else if (ty->isintegral())
+    } else if (ty->isintegral()) {
       arg.attrs.add(ty->isunsigned() ? LLAttribute::ZExt : LLAttribute::SExt);
+    }
   }
 };
 

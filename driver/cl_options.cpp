@@ -14,6 +14,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Operator.h"
 
 namespace opts {
 
@@ -410,6 +411,18 @@ cl::opt<bool> disableLinkerStripDead(
     cl::desc("Do not try to remove unused symbols during linking"),
     cl::init(false));
 
+// Math options
+bool fFastMath; // Storage for the dynamically created ffast-math option.
+llvm::FastMathFlags defaultFMF;
+void setDefaultMathOptions(llvm::TargetMachine &target) {
+  if (fFastMath) {
+    defaultFMF.setUnsafeAlgebra();
+
+    llvm::TargetOptions &TO = target.Options;
+    TO.UnsafeFPMath = true;
+  }
+}
+
 cl::opt<bool, true>
     allinst("allinst",
             cl::desc("generate code for all template instantiations"),
@@ -421,22 +434,15 @@ cl::opt<unsigned, true> nestedTemplateDepth(
         "(experimental) set maximum number of nested template instantiations"),
     cl::location(global.params.nestedTmpl), cl::init(500));
 
-#if LDC_LLVM_VER < 307
-cl::opt<bool, true, FlagParser<bool>>
-    color("color", cl::desc("Force colored console output"),
-          cl::location(global.params.color));
-#else
-void CreateColorOption() {
-  new cl::opt<bool, true, FlagParser<bool>>(
-      "color", cl::desc("Force colored console output"),
-      cl::location(global.params.color));
-}
-#endif
-
 cl::opt<bool, true>
     useDIP25("dip25",
              cl::desc("implement http://wiki.dlang.org/DIP25 (experimental)"),
              cl::location(global.params.useDIP25));
+
+cl::opt<bool, true> betterC(
+    "betterC",
+    cl::desc("omit generating some runtime information and helper functions"),
+    cl::location(global.params.betterC));
 
 cl::opt<unsigned char, true, CoverageParser> coverageAnalysis(
     "cov", cl::desc("Compile-in code coverage analysis\n(use -cov=n for n% "
@@ -446,8 +452,9 @@ cl::opt<unsigned char, true, CoverageParser> coverageAnalysis(
 #if LDC_WITH_PGO
 cl::opt<std::string>
     genfileInstrProf("fprofile-instr-generate", cl::value_desc("filename"),
-                     cl::desc("Generate instrumented code to collect "
-                              "execution counts (e.g. for PGO)"),
+                     cl::desc("Generate instrumented code to collect a runtime "
+                              "profile into default.profraw (overriden by "
+                              "'=<filename>' or LLVM_PROFILE_FILE env var)"),
                      cl::ValueOptional);
 
 cl::opt<std::string> usefileInstrProf(
@@ -480,5 +487,132 @@ static cl::extrahelp footer(
     "as acting as -d-debug=1\n\n"
     "Options marked with (*) also have a -disable-FOO variant with inverted\n"
     "meaning.\n");
+
+/// Create commandline options that may clash with LLVM's options (depending on
+/// LLVM version and on LLVM configuration), and that thus cannot be created
+/// using static construction.
+/// The clashing LLVM options are suffixed with "llvm-" and hidden from the
+/// -help output.
+void createClashingOptions() {
+#if LDC_LLVM_VER >= 307
+  llvm::StringMap<cl::Option *> &map = cl::getRegisteredOptions();
+#else
+  llvm::StringMap<cl::Option *> map;
+  cl::getRegisteredOptions(map);
+#endif
+
+  auto renameAndHide = [&map](const char *from, const char *to) {
+    auto i = map.find(from);
+    if (i != map.end()) {
+      cl::Option *opt = i->getValue();
+      map.erase(i);
+      opt->setArgStr(to);
+      opt->setHiddenFlag(cl::Hidden);
+      map[to] = opt;
+    }
+  };
+
+  // Step 1. Hide the clashing LLVM options.
+  // LLVM 3.7 introduces compiling as shared library. The result
+  // is a clash in the command line options.
+  renameAndHide("color", "llvm-color");
+  renameAndHide("ffast-math", "llvm-ffast-math");
+
+  // Step 2. Add the LDC options.
+  new cl::opt<bool, true, FlagParser<bool>>(
+      "color", cl::desc("Force colored console output"),
+      cl::location(global.params.color));
+  new cl::opt<bool, true>(
+      "ffast-math", cl::desc("Set @fastmath for all functions."),
+      cl::location(fFastMath), cl::init(false), cl::ZeroOrMore);
+}
+
+/// Hides command line options exposed from within LLVM that are unlikely
+/// to be useful for end users from the -help output.
+void hideLLVMOptions() {
+#if LDC_LLVM_VER >= 307
+  llvm::StringMap<cl::Option *> &map = cl::getRegisteredOptions();
+#else
+  llvm::StringMap<cl::Option *> map;
+  cl::getRegisteredOptions(map);
+#endif
+
+  auto hide = [&map](const char *name) {
+    // Check if option exists first for resilience against LLVM changes
+    // between versions.
+    if (map.count(name)) {
+      map[name]->setHiddenFlag(cl::Hidden);
+    }
+  };
+
+  hide("bounds-checking-single-trap");
+  hide("disable-debug-info-verifier");
+  hide("disable-objc-arc-checkforcfghazards");
+  hide("disable-spill-fusing");
+  hide("cppfname");
+  hide("cppfor");
+  hide("cppgen");
+  hide("enable-correct-eh-support");
+  hide("enable-load-pre");
+  hide("enable-misched");
+  hide("enable-objc-arc-annotations");
+  hide("enable-objc-arc-opts");
+  hide("enable-scoped-noalias");
+  hide("enable-tbaa");
+  hide("exhaustive-register-search");
+  hide("fatal-assembler-warnings");
+  hide("internalize-public-api-file");
+  hide("internalize-public-api-list");
+  hide("join-liveintervals");
+  hide("limit-float-precision");
+  hide("mc-x86-disable-arith-relaxation");
+  hide("mips16-constant-islands");
+  hide("mips16-hard-float");
+  hide("mlsm");
+  hide("mno-ldc1-sdc1");
+  hide("nvptx-sched4reg");
+  hide("no-discriminators");
+  hide("objc-arc-annotation-target-identifier");
+  hide("pre-RA-sched");
+  hide("print-after-all");
+  hide("print-before-all");
+  hide("print-machineinstrs");
+  hide("profile-estimator-loop-weight");
+  hide("profile-estimator-loop-weight");
+  hide("profile-file");
+  hide("profile-info-file");
+  hide("profile-verifier-noassert");
+  hide("regalloc");
+  hide("rewrite-map-file");
+  hide("rng-seed");
+  hide("sample-profile-max-propagate-iterations");
+  hide("shrink-wrap");
+  hide("spiller");
+  hide("stackmap-version");
+  hide("stats");
+  hide("strip-debug");
+  hide("struct-path-tbaa");
+  hide("time-passes");
+  hide("unit-at-a-time");
+  hide("verify-debug-info");
+  hide("verify-dom-info");
+  hide("verify-loop-info");
+  hide("verify-regalloc");
+  hide("verify-region-info");
+  hide("verify-scev");
+  hide("x86-early-ifcvt");
+  hide("x86-use-vzeroupper");
+  hide("x86-recip-refinement-steps");
+
+  // We enable -fdata-sections/-ffunction-sections by default where it makes
+  // sense for reducing code size, so hide them to avoid confusion.
+  //
+  // We need our own switch as these two are defined by LLVM and linked to
+  // static TargetMachine members, but the default we want to use depends
+  // on the target triple (and thus we do not know it until after the command
+  // line has been parsed).
+  hide("fdata-sections");
+  hide("ffunction-sections");
+}
 
 } // namespace opts
