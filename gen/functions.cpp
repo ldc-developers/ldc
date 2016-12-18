@@ -25,6 +25,7 @@
 #include "gen/dvalue.h"
 #include "gen/funcgenstate.h"
 #include "gen/function-inlining.h"
+#include "gen/helpers.h"
 #include "gen/inlineir.h"
 #include "gen/irstate.h"
 #include "gen/linkage.h"
@@ -909,6 +910,10 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   IF_LOG Logger::println("Doing function body for: %s", fd->toChars());
   gIR->funcGenStates.emplace_back(new FuncGenState(*irFunc, *gIR));
   auto &funcGen = gIR->funcGen();
+  SCOPE_EXIT {
+    assert(&gIR->funcGen() == &funcGen);
+    gIR->funcGenStates.pop_back();
+  };
 
   const auto f = static_cast<TypeFunction *>(fd->type->toBasetype());
   IrFuncTy &irFty = irFunc->irFty;
@@ -1116,9 +1121,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   gIR->scopes.pop_back();
-
-  assert(&gIR->funcGen() == &funcGen);
-  gIR->funcGenStates.pop_back();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
