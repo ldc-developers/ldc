@@ -55,6 +55,8 @@ public:
   }
 
   void handleKernelFunc(FuncDeclaration *df, llvm::Function *llf) override {
+    //Fix 3.5.2 build failures. Remove when dropping 3.5 support.
+#if LDC_LLVM_VER >= 306
     // TODO: Handle Function attibutes
     llvm::NamedMDNode *na =
         _ir->module.getOrInsertNamedMetadata("nvvm.annotations");
@@ -67,6 +69,7 @@ public:
     llvm::MDNode *tup = llvm::MDTuple::get(ctx, arr);
     na->addOperand(tup);
   }
+#endif
 };
 }
 

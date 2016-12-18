@@ -54,6 +54,9 @@ public:
 
   // Adapted from clang
   void addMetadata() override {
+    //Fix 3.5.2 build failures. Remove when dropping 3.5 support.
+    //OCL is only supported for 3.6.1 and 3.8 anyway.
+#if LDC_LLVM_VER >= 306
     // opencl.ident?
     // spirv.Source // debug only
     // stuff from clang's CGSPIRMetadataAdder.cpp
@@ -79,9 +82,13 @@ public:
     llvm::NamedMDNode *OCLVerMD =
         _ir->module.getOrInsertNamedMetadata("opencl.ocl.version");
     OCLVerMD->addOperand(llvm::MDNode::get(ctx, OCLVerElts));
+#endif
   }
 
   void handleKernelFunc(FuncDeclaration *df, llvm::Function *llf) override {
+    //Fix 3.5.2 build failures. Remove when dropping 3.5 support.
+    //OCL is only supported for 3.6.1 and 3.8 anyway.
+#if LDC_LLVM_VER >= 306
     // TODO: Handle Function attibutes
 
     // mostly copied from clang
@@ -203,6 +210,7 @@ public:
         _ir->module.getOrInsertNamedMetadata("opencl.kernels");
     OpenCLKernelMetadata->addOperand(kernelMDNode);
   }
+#endif
 };
 }
 DComputeTarget *createOCLTarget(llvm::LLVMContext &c, int oclver) {
