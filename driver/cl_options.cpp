@@ -478,6 +478,11 @@ cl::opt<LTOKind> ltoMode(
                    "Parallel importing and codegen (faster than 'full')")));
 #endif
 
+cl::list<std::string>
+    dcomputeTargets("mdcompute-targets", cl::CommaSeparated,
+                     cl::desc("DCompute targets to generate for:OpenCl "
+                              "(ocl-xy0 for x.y) CUDA (cuda-xy0 for cc x.y)"),
+                     cl::value_desc("ocl-210,cuda-350"));
 static cl::extrahelp footer(
     "\n"
     "-d-debug can also be specified without options, in which case it enables "
@@ -588,6 +593,12 @@ void hideLLVMOptions() {
   hide("sample-profile-max-propagate-iterations");
   hide("shrink-wrap");
   hide("spiller");
+  hide("spirv-debug");
+  hide("spirv-erase-cl-md");
+  hide("spirv-lower-const-expr");
+  hide("spirv-mem2reg");
+  hide("spirv-text");
+  hide("spvbool-validate");
   hide("stackmap-version");
   hide("stats");
   hide("strip-debug");
