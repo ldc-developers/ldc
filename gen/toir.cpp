@@ -2253,7 +2253,7 @@ public:
       result = new DSliceValue(e->type, DtoConstSize_t(0),
                                getNullPtr(getPtrToType(llElemType)));
     } else if (dyn) {
-      if (arrayType->isImmutable() && isConstLiteral(e)) {
+      if (arrayType->isImmutable() && isConstLiteral(e, true)) {
         llvm::Constant *init = arrayLiteralToConst(p, e);
         auto global = new llvm::GlobalVariable(
             gIR->module, init->getType(), true,
