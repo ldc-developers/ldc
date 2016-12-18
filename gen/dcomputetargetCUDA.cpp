@@ -68,8 +68,8 @@ public:
     llvm::Metadata *arr[] = {fn, kstr, one};
     llvm::MDNode *tup = llvm::MDTuple::get(ctx, arr);
     na->addOperand(tup);
-  }
 #endif
+  }
 };
 }
 

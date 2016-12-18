@@ -209,8 +209,8 @@ public:
     llvm::NamedMDNode *OpenCLKernelMetadata =
         _ir->module.getOrInsertNamedMetadata("opencl.kernels");
     OpenCLKernelMetadata->addOperand(kernelMDNode);
-  }
 #endif
+  }
 };
 }
 DComputeTarget *createOCLTarget(llvm::LLVMContext &c, int oclver) {
