@@ -7,14 +7,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "dcompute/target.h"
-#include "dsymbol.h"
-#include "module.h"
+#include "gen/dcomputetarget.h"
+#include "ddmd/dsymbol.h"
+#include "ddmd/module.h"
 #include "gen/llvmhelpers.h"
 #include "id.h"
-#include "mars.h"
-#include "module.h"
-#include "scope.h"
+#include "ddmd/mars.h"
+#include "ddmd/module.h"
+#include "ddmd/scope.h"
 #include "driver/linker.h"
 #include "driver/toobj.h"
 #include "gen/logger.h"
