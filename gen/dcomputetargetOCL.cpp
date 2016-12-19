@@ -5,6 +5,9 @@
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
 //
+// Parts of this file are adapted from CodeGenFunction.cpp (Clang, LLVM).
+// Therefore, this file is distributed under the LLVM license.
+// See the LICENSE file for details.
 //===----------------------------------------------------------------------===//
 
 #include "gen/dcomputetarget.h"
@@ -91,7 +94,6 @@ public:
 #if LDC_LLVM_VER >= 306
     // TODO: Handle Function attibutes
 
-    // mostly copied from clang
     llvm::SmallVector<llvm::Metadata *, 8> kernelMDArgs;
     kernelMDArgs.push_back(llvm::ConstantAsMetadata::get(llf));
     // MDNode for the kernel argument address space qualifiers.

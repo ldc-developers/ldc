@@ -22,8 +22,9 @@ class FuncDeclaration;
 
 class DComputeTarget {
 public:
-  int tversion;
-  int target;
+  int tversion; // OpenCL or CUDA CC version:major*100 + minor*10
+  int target;   // For cheap "dynamic casts" and ID for codegen time
+                // conditional compilation. 0. host 1. OpenCL. 2. CUDA
   IRState *_ir;
   llvm::LLVMContext &ctx;
   TargetABI *abi;
@@ -33,6 +34,7 @@ public:
   int mapping[MAX_NUM_TARGET_ADDRSPACES];
   void doCodeGen(Module *m);
   void writeModule();
+  //HACK:Resets the gTargetMachine to one appropriate for this dcompute target
   virtual void setGTargetMachine() = 0;
   virtual void addMetadata() = 0;
   virtual void handleKernelFunc(FuncDeclaration *df, llvm::Function *llf) = 0;

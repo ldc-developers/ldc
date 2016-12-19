@@ -17,12 +17,6 @@
 // we do singleobj only
 class DComputeCodeGenManager {
 
-  struct target {
-    int platform; // 0 - host, 1 - OpenCL, 2 - CUDA
-    int _version; // platform specific. OpenCL version we are pretending to be
-                  // OR sm for CUDA
-  };
-
   llvm::LLVMContext &ctx;
   llvm::SmallVector<DComputeTarget *, 2> targets;
   DComputeTarget *createComputeTarget(const std::string &s);

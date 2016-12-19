@@ -38,6 +38,9 @@ void DComputeTarget::doCodeGen(Module *m) {
 }
 
 void DComputeTarget::emit(Module *m) {
+  //Reset the global ABI to the target's ABI. Necessary because we have
+  //multiple ABI we are trying to target. Also reset gIR. These are both
+  //reused. Somewhat of a HACK.
   gABI = abi;
   gIR = _ir;
   doCodeGen(m);

@@ -480,9 +480,10 @@ cl::opt<LTOKind> ltoMode(
 
 cl::list<std::string>
     dcomputeTargets("mdcompute-targets", cl::CommaSeparated,
-                     cl::desc("DCompute targets to generate for:OpenCl "
-                              "(ocl-xy0 for x.y) CUDA (cuda-xy0 for cc x.y)"),
-                     cl::value_desc("ocl-210,cuda-350"));
+                     cl::desc("Generates code for the specified DCompute target"
+                              " list. Use 'ocl-xy0' for OpenCL x.y, and "
+                              "'cuda-xy0' for CUDA x.y"),
+                     cl::value_desc("targets"));
 static cl::extrahelp footer(
     "\n"
     "-d-debug can also be specified without options, in which case it enables "
