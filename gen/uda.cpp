@@ -15,6 +15,7 @@ namespace {
 
 /// Names of the attribute structs we recognize.
 namespace attr {
+const std::string allocSize = "allocSize";
 const std::string llvmAttr = "llvmAttr";
 const std::string llvmFastMathFlag = "llvmFastMathFlag";
 const std::string optStrategy = "optStrategy";
@@ -108,6 +109,11 @@ StructLiteralExp *getMagicAttribute(Dsymbol *sym, std::string name) {
   return nullptr;
 }
 
+sinteger_t getIntElem(StructLiteralExp *sle, size_t idx) {
+  auto arg = (*sle->elements)[idx];
+  return arg->toInteger();
+}
+
 /// Returns a null-terminated string
 const char *getStringElem(StructLiteralExp *sle, size_t idx) {
   auto arg = (*sle->elements)[idx];
@@ -123,6 +129,68 @@ const char *getStringElem(StructLiteralExp *sle, size_t idx) {
 /// Returns a null-terminated string
 const char *getFirstElemString(StructLiteralExp *sle) {
   return getStringElem(sle, 0);
+}
+
+// @allocSize(1)
+// @allocSize(0,2)
+void applyAttrAllocSize(StructLiteralExp *sle, IrFunction *irFunc) {
+  llvm::Function *func = irFunc->func;
+
+  checkStructElems(sle, {Type::tint32, Type::tint32});
+  auto sizeArgIdx = getIntElem(sle, 0);
+  auto numArgIdx = getIntElem(sle, 1);
+
+  // Get the number of parameters that the user specified (excluding the
+  // implicit `this` parameter)
+  auto numUserParams = irFunc->irFty.args.size();
+
+  // Get the number of parameters of the function in LLVM IR. This includes
+  // the `this` and sret parameters.
+  auto llvmNumParams = irFunc->irFty.funcType->getNumParams();
+
+  // Verify that the index values are valid
+  bool error = false;
+  if (sizeArgIdx + 1 > sinteger_t(numUserParams)) {
+    sle->error("@ldc.attributes.allocSize.sizeArgIdx=%d too large for function "
+               "`%s` with %d arguments.",
+               (int)sizeArgIdx, irFunc->decl->toChars(), (int)numUserParams);
+    error = true;
+  }
+  if (numArgIdx + 1 > sinteger_t(numUserParams)) {
+    sle->error("@ldc.attributes.allocSize.numArgIdx=%d too large for function "
+               "`%s` with %d arguments.",
+               (int)numArgIdx, irFunc->decl->toChars(), (int)numUserParams);
+    error = true;
+  }
+  if (error)
+    return;
+
+// The allocSize attribute is only effective for LLVM >= 3.9.
+#if LDC_LLVM_VER >= 309
+  // Offset to correct indices for sret and this parameters.
+  // These parameters can never be used for allocsize, and the user-specified
+  // index does not account for these.
+  unsigned offset = llvmNumParams - numUserParams;
+
+  // Calculate the param indices for the function as defined in LLVM IR
+  auto llvmSizeIdx =
+      irFunc->irFty.reverseParams ? numUserParams - sizeArgIdx - 1 : sizeArgIdx;
+  auto llvmNumIdx =
+      irFunc->irFty.reverseParams ? numUserParams - numArgIdx - 1 : numArgIdx;
+  llvmSizeIdx += offset;
+  llvmNumIdx += offset;
+
+  llvm::AttrBuilder builder;
+  if (numArgIdx >= 0) {
+    builder.addAllocSizeAttr(llvmSizeIdx, llvmNumIdx);
+  } else {
+    builder.addAllocSizeAttr(llvmSizeIdx, llvm::Optional<unsigned>());
+  }
+  func->addAttributes(llvm::AttributeSet::FunctionIndex,
+                      llvm::AttributeSet::get(func->getContext(),
+                                              llvm::AttributeSet::FunctionIndex,
+                                              builder));
+#endif
 }
 
 // @llvmAttr("key", "value")
@@ -302,7 +370,9 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
       continue;
 
     auto name = sle->sd->ident->string;
-    if (name == attr::llvmAttr) {
+    if (name == attr::allocSize) {
+      applyAttrAllocSize(sle, irFunc);
+    } else if (name == attr::llvmAttr) {
       applyAttrLLVMAttr(sle, func);
     } else if (name == attr::llvmFastMathFlag) {
       applyAttrLLVMFastMathFlag(sle, irFunc);
