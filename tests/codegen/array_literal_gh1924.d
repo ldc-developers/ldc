@@ -11,6 +11,17 @@ auto simple2d()
     return [[1.0]];
 }
 
+// GitHub issue #1925
+// CHECK-LABEL: define{{.*}} @{{.*}}make2d
+auto make2d()
+{
+    // CHECK: _d_newarrayU
+    // CHECK-NOT: _d_newarrayU
+    double[][1] a = [[1.0]];
+    // CHECK: ret
+    return a;
+}
+
 // CHECK-LABEL: define{{.*}} @{{.*}}make3d
 auto make3d()
 {
@@ -54,10 +65,17 @@ version (RUN)
             assert(a[0].ptr !is b[0].ptr);
         }
         {
+            auto a = make2d();
+            auto b = make2d();
+            assert(a.ptr !is b.ptr);
+            assert(a[0].ptr !is b[0].ptr);
+        }
+        {
             auto a = make3d();
             auto b = make3d();
             assert(a.ptr !is b.ptr);
             assert(a[0].ptr !is b[0].ptr);
+            assert(a[0][0].ptr !is b[0][0].ptr);
         }
         {
             enum e = [[1.0]];
