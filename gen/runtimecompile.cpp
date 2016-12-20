@@ -1,5 +1,7 @@
 #include "runtimecompile.h"
 
+#if defined(LDC_RUNTIME_COMPILE)
+
 #include "globals.h"
 
 #include "gen/irstate.h"
@@ -676,3 +678,21 @@ void addRuntimeCompiledVar(IRState *irs, IrGlobal *var) {
   irs->runtimeCompiledVars.insert(var);
 }
 
+#else //defined(LDC_RUNTIME_COMPILE)
+void generateBitcodeForRuntimeCompile(IRState *) {
+  // nothing
+}
+
+void declareRuntimeCompiledFunction(IRState *, IrFunction *) {
+  // nothing
+}
+
+void defineRuntimeCompiledFunction(IRState *, IrFunction *) {
+  // nothing
+}
+
+void addRuntimeCompiledVar(IRState *, IrGlobal *) {
+  // nothing
+}
+
+#endif

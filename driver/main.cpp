@@ -436,7 +436,11 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
 #endif
 
   if (enableRuntimeCompile) {
+#if defined(LDC_RUNTIME_COMPILE)
     global.params.enableRuntimeCompile = true;
+#else
+    error(Loc(), "Compiler was built without runtime compilation support\n");
+#endif
   }
 
   processVersions(debugArgs, "debug", DebugCondition::setGlobalLevel,
