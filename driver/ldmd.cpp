@@ -154,6 +154,7 @@ Usage:\n\
   @cmdfile       read arguments from cmdfile\n\
   -allinst       generate code for all template instantiations\n\
   -betterC       omit generating some runtime information and helper functions\n\
+  -boundscheck=[on|safeonly|off]   bounds checks on, in @safe only, or off\n\
   -c             do not link\n\
   -color[=on|off]   force colored console output on or off\n\
   -conf=path     use config file at path\n\
@@ -175,53 +176,58 @@ Usage:\n\
   -dip25         implement http://wiki.dlang.org/DIP25 (experimental)\n\
   -fPIC          generate position independent code\n\
   -g             add symbolic debug info\n\
-  -gc            add symbolic debug info, pretend to be C\n\
-  -gs            always emit stack frame\n\
-  -H             generate 'header' file\n\
+  -gc            add symbolic debug info, optimize for non D debuggers\n\
+  -gs            always emit stack frame\n"
+#if 0
+"  -gx            add stack stomp code\n"
+#endif
+"  -H             generate 'header' file\n\
   -Hddirectory   write 'header' file to directory\n\
   -Hffilename    write 'header' file to filename\n\
-  --help         print help\n\
+  --help         print help and exit\n\
   -Ipath         where to look for imports\n\
   -ignore        ignore unsupported pragmas\n\
   -inline        do function inlining\n\
   -Jpath         where to look for string imports\n\
   -Llinkerflag   pass linkerflag to link\n\
   -lib           generate library rather than object files\n\
-  -m32           generate 32 bit code\n\
-  -m64           generate 64 bit code\n\
+  -m32           generate 32 bit code\n"
+#if 0
+"  -m32mscoff     generate 32 bit code and write MS-COFF object files\n"
+#endif
+"  -m64           generate 64 bit code\n\
+  -main          add default main() (e.g. for unittesting)\n\
   -man           open web browser on manual page\n"
 #if 0
 "  -map           generate linker .map file\n"
 #endif
-"  -boundscheck=[on|safeonly|off]   bounds checks on, in @safe only, or off\n\
-  -noboundscheck no array bounds checking (deprecated, use -boundscheck=off)\n\
+"  -noboundscheck no array bounds checking (deprecated, use -boundscheck=off)\n\
   -O             optimize\n\
   -o-            do not write object file\n\
   -odobjdir      write object & library files to directory objdir\n\
   -offilename    name output file to filename\n\
-  -op            do not strip paths from source file\n"
+  -op            preserve source path for output files\n"
 #if 0
-"  -profile       profile runtime performance of generated code\n"
+"  -profile       profile runtime performance of generated code\n\
+  -profile=gc    profile runtime allocations\n"
 #endif
-"  -property      enforce property syntax (deprecated, no effect)\n\
-  -quiet         suppress unnecessary messages\n\
-  -release       compile release version\n\
+"  -release       compile release version\n\
   -run srcfile args...   run resulting program, passing args\n\
-  -shared        generate shared library\n\
-  -transition=id show additional info about language change identified by 'id'\n\
+  -shared        generate shared library (DLL)\n\
+  -transition=id help with language change identified by 'id'\n\
   -transition=?  list all language changes\n\
   -unittest      compile in unit tests\n\
   -v             verbose\n\
   -vcolumns      print character (column) numbers in diagnostics\n\
   -vdmd          print the command used to invoke the underlying compiler\n\
+  -verrors=num   limit the number of error messages (0 means unlimited)\n\
+  -vgc           list all gc allocations including hidden ones\n\
+  -vtls          list all variables going into thread local storage\n\
   --version      print compiler version and exit\n\
   -version=level compile in version code >= level\n\
   -version=ident compile in version code identified by ident\n\
-  -vtls          list all variables going into thread local storage\n\
-  -vgc           list all gc allocations including hidden ones\n\
-  -verrors=num   limit the number of error messages (0 means unlimited)\n\
-  -w             enable warnings\n\
-  -wi            enable informational warnings\n\
+  -w             warnings as errors (compilation will halt)\n\
+  -wi            warnings as messages (compilation will continue)\n\
   -X             generate JSON file\n\
   -Xffilename    write JSON file to filename\n\n",
       argv0);
@@ -365,7 +371,6 @@ struct Params {
   bool enforcePropertySyntax = false;
   bool enableInline = false;
   bool emitStaticLib = false;
-  bool quiet = false;
   bool release = false;
   BoundsCheck::Type boundsChecks = BoundsCheck::defaultVal;
   bool emitUnitTests = false;
@@ -617,7 +622,7 @@ Params parseArgs(size_t originalArgc, char **originalArgv,
       } else if (strcmp(p + 1, "lib") == 0) {
         result.emitStaticLib = true;
       } else if (strcmp(p + 1, "quiet") == 0) {
-        result.quiet = 1;
+        // ignore
       } else if (strcmp(p + 1, "release") == 0) {
         result.release = 1;
       } else if (strcmp(p + 1, "noboundscheck") == 0) {
@@ -898,7 +903,6 @@ void buildCommandLine(std::vector<const char *> &r, const Params &p) {
     r.push_back("-oq");
     r.push_back("-cleanup-obj");
   }
-  // -quiet is the default in (newer?) frontend versions, just ignore it.
   if (p.release) {
     r.push_back("-release"); // Also disables boundscheck.
   }
