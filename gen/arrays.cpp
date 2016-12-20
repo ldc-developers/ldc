@@ -496,7 +496,7 @@ Expression *indexArrayLiteral(ArrayLiteralExp *ale, unsigned idx) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-bool isConstLiteral(Expression *e) {
+bool isConstLiteral(Expression *e, bool immutableType) {
   // We have to check the return value of isConst specifically for '1',
   // as SymOffExp is classified as '2' and the address of a local variable is
   // not an LLVM constant.
@@ -506,8 +506,17 @@ bool isConstLiteral(Expression *e) {
   switch (e->op) {
   case TOKarrayliteral: {
     auto ale = static_cast<ArrayLiteralExp *>(e);
+
+    if (!immutableType) {
+      // If dynamic array: assume not constant because the array is expected to
+      // be newly allocated. See GH 1924.
+      Type *arrayType = ale->type->toBasetype();
+      if (arrayType->ty == Tarray)
+        return false;
+    }
+
     for (auto el : *ale->elements) {
-      if (!isConstLiteral(el ? el : ale->basis))
+      if (!isConstLiteral(el ? el : ale->basis, immutableType))
         return false;
     }
   } break;
@@ -517,7 +526,7 @@ bool isConstLiteral(Expression *e) {
     if (sle->sd->isNested())
       return false;
     for (auto el : *sle->elements) {
-      if (el && !isConstLiteral(el))
+      if (el && !isConstLiteral(el, immutableType))
         return false;
     }
   } break;
