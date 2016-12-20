@@ -23,8 +23,8 @@ class FuncDeclaration;
 class DComputeTarget {
 public:
   int tversion; // OpenCL or CUDA CC version:major*100 + minor*10
-  int target;   // For cheap "dynamic casts" and ID for codegen time
-                // conditional compilation. 0. host 1. OpenCL. 2. CUDA
+  int target;   // ID for codegen time conditional compilation.
+                // 0. host 1. OpenCL. 2. CUDA
   IRState *_ir;
   llvm::LLVMContext &ctx;
   TargetABI *abi;
