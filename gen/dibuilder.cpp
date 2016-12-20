@@ -780,7 +780,12 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
   CUNode = DBuilder.createCompileUnit(
       global.params.symdebug == 2 ? llvm::dwarf::DW_LANG_C
                                   : llvm::dwarf::DW_LANG_D,
+#if LDC_LLVM_VER >= 400
+      DBuilder.createFile(llvm::sys::path::filename(srcpath),
+                          llvm::sys::path::parent_path(srcpath)),
+#else
       llvm::sys::path::filename(srcpath), llvm::sys::path::parent_path(srcpath),
+#endif
       "LDC (http://wiki.dlang.org/LDC)",
       isOptimizationEnabled(), // isOptimized
       llvm::StringRef(),       // Flags TODO
@@ -1210,24 +1215,25 @@ void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
          (vd->storage_class & (STCconst | STCimmutable) && vd->_init));
 
 #if LDC_LLVM_VER >= 400
-  auto DIVar =
-#endif
-      DBuilder.createGlobalVariable(
-#if LDC_LLVM_VER >= 306
-          GetCU(), // context
-#endif
-          vd->toChars(),                          // name
-          mangle(vd),                             // linkage name
-          CreateFile(vd),                         // file
-          vd->loc.linnum,                         // line num
-          CreateTypeDescription(vd->type, false), // type
-          vd->protection.kind == PROTprivate,     // is local to unit
-#if LDC_LLVM_VER >= 400
-          nullptr // relative location of field
+  auto DIVar = DBuilder.createGlobalVariableExpression(
 #else
-          llVar // value
+  DBuilder.createGlobalVariable(
 #endif
-          );
+#if LDC_LLVM_VER >= 306
+      GetCU(), // context
+#endif
+      vd->toChars(),                          // name
+      mangle(vd),                             // linkage name
+      CreateFile(vd),                         // file
+      vd->loc.linnum,                         // line num
+      CreateTypeDescription(vd->type, false), // type
+      vd->protection.kind == PROTprivate,     // is local to unit
+#if LDC_LLVM_VER >= 400
+      nullptr // relative location of field
+#else
+      llVar // value
+#endif
+      );
 
 #if LDC_LLVM_VER >= 400
   llVar->addDebugInfo(DIVar);
