@@ -21,7 +21,6 @@ IRState *gIR = nullptr;
 llvm::TargetMachine *gTargetMachine = nullptr;
 const llvm::DataLayout *gDataLayout = nullptr;
 TargetABI *gABI = nullptr;
-DComputeTarget *gDComputeTarget = nullptr;
 
 ////////////////////////////////////////////////////////////////////////////////
 IRScope::IRScope() : builder(gIR->context()) { begin = nullptr; }
@@ -44,6 +43,7 @@ IRState::IRState(const char *name, llvm::LLVMContext &context)
   mainFunc = nullptr;
   ir.state = this;
   asmBlock = nullptr;
+  dcomputetarget = nullptr;
 }
 
 IRState::~IRState() {}

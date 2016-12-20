@@ -43,6 +43,7 @@ void DComputeTarget::emit(Module *m) {
   //reused. Somewhat of a HACK.
   gABI = abi;
   gIR = _ir;
+  gIR->dcomputetarget = this;
   doCodeGen(m);
 }
 
@@ -52,7 +53,7 @@ void DComputeTarget::writeModule() {
 
   char tmp[20];
   const char *fmt = "kernels_%s%d_%d";
-  int len = sprintf(tmp, fmt, (target == 1) ? "ocl" : "cuda", tversion,
+  int len = sprintf(tmp, fmt, short_name, tversion,
                     global.params.is64bit ? 64 : 32);
   tmp[len] = '\0';
   filename = FileName::forceExt(tmp, binSuffix);

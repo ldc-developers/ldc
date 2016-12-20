@@ -45,9 +45,11 @@ public:
 
     _ir->module.setDataLayout(global.params.is64bit ? SPIR_DATALAYOUT64
                                                     : SPIR_DATALAYOUT32);
+    _ir->dcomputetarget = this;
     target = 1;
     abi = createSPIRVABI();
     binSuffix = "spv";
+    short_name = "ocl";
     int _mapping[MAX_NUM_TARGET_ADDRSPACES] = {
         0, 1, 2, 3, 4,
     };

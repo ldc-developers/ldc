@@ -33,8 +33,9 @@ public:
     }
     _ir->module.setDataLayout(dl);
     abi = createNVPTXABI();
-
+    _ir->dcomputetarget = this;
     binSuffix = "ptx";
+    short_name = "cuda";
     int _mapping[MAX_NUM_TARGET_ADDRSPACES] = {5, 1, 3, 4, 0};
     memcpy(mapping, _mapping, sizeof(_mapping));
   }

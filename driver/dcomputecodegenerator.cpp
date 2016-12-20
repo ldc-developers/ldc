@@ -20,12 +20,11 @@
 DComputeTarget *
 DComputeCodeGenManager::createComputeTarget(const std::string &s) {
   int v;
-  const llvm::SmallVector<int, 6> valid_ocl_versions =
-          {100, 110, 120, 200, 210, 220};
-    
-  const llvm::SmallVector<int, 14> vaild_cuda_versions =
-          {100, 110, 120, 130, 200, 210, 300, 350, 370, 500, 520,
-              600, 610, 620};
+#define OCL_VER_INIT 100, 110, 120, 200, 210, 220
+  const llvm::SmallVector<int, 6> valid_ocl_versions = { OCL_VER_INIT };
+#define CUDA_VER_INIT 100, 110, 120, 130, 200, 210, 300, 350, 370, 500, 520, \
+600, 610, 620
+  const llvm::SmallVector<int, 14> vaild_cuda_versions = { CUDA_VER_INIT };
     
   if (s.substr(0, 4) == "ocl-") {
     v = atoi(s.c_str() + 4);
@@ -41,11 +40,12 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
       return createOCLTarget(ctx, v);
     }
   }
+#define STR(x) #x
   error(Loc(),
         "unrecognised or invalid DCompute targets: the format is ocl-xy0 "
         "for OpenCl x.y and cuda-xy0 for CUDA CC x.y. Valid versions "
-        "for OpenCl are 100,110,120,200,210,220. Valid version for CUDA "
-        "are 100,110,120,130,200,210,300,350,370,500,520,600,610,620");
+        "for OpenCl are " STR(OCL_VER_INIT) ". Valid version for CUDA "
+        "are " STR(CUDA_VER_INIT));
   fatal();
   return nullptr;
 }
@@ -58,7 +58,6 @@ DComputeCodeGenManager::DComputeCodeGenManager(llvm::LLVMContext &c) : ctx(c) {
 
 void DComputeCodeGenManager::emit(Module *m) {
   for (int i = 0; i < targets.size(); i++) {
-    gDComputeTarget = targets[i];
     targets[i]->emit(m);
     IrDsymbol::resetAll();
   }
@@ -66,7 +65,6 @@ void DComputeCodeGenManager::emit(Module *m) {
 
 void DComputeCodeGenManager::writeModules() {
   for (int i = 0; i < targets.size(); i++) {
-    gDComputeTarget = targets[i];
     targets[i]->writeModule();
   }
 }

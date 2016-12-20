@@ -30,6 +30,7 @@ public:
   TargetABI *abi;
   DComputeTarget(llvm::LLVMContext &c, int v);
   const char *binSuffix;
+  const char *short_name;
   void emit(Module *m);
   int mapping[MAX_NUM_TARGET_ADDRSPACES];
   void doCodeGen(Module *m);

@@ -44,7 +44,6 @@ extern IRState *gIR;
 extern llvm::TargetMachine *gTargetMachine;
 extern const llvm::DataLayout *gDataLayout;
 extern TargetABI *gABI;
-extern DComputeTarget *gDComputeTarget;
 
 class TypeFunction;
 class TypeStruct;
@@ -211,6 +210,9 @@ struct IRState {
   llvm::DenseMap<size_t, llvm::StructType *> TypeDescriptorTypeMap;
   llvm::DenseMap<llvm::Constant *, llvm::GlobalVariable *> TypeDescriptorMap;
 #endif
+
+  //Target for dcompute
+  DComputeTarget *dcomputetarget;
 };
 
 void Statement_toIR(Statement *s, IRState *irs);
