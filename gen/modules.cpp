@@ -55,7 +55,7 @@
 #endif
 
 static llvm::cl::opt<bool, true>
-    preservePaths("op", llvm::cl::desc("Do not strip paths from source file"),
+    preservePaths("op", llvm::cl::desc("Preserve source path for output files"),
                   llvm::cl::ZeroOrMore,
                   llvm::cl::location(global.params.preservePaths));
 
