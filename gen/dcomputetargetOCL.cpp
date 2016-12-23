@@ -2,9 +2,6 @@
 //
 //                         LDC – the LLVM D compiler
 //
-// This file is distributed under the BSD-style LDC license. See the LICENSE
-// file for details.
-//
 // Parts of this file are adapted from CodeGenFunction.cpp (Clang, LLVM).
 // Therefore, this file is distributed under the LLVM license.
 // See the LICENSE file for details.
@@ -68,7 +65,7 @@ public:
     // opencl.used.extensions
     // opencl.used.optional.core.features
     // opencl.compiler.options
-    // opencl.enable.FP_CONTRACT
+    // opencl.enable.FP_CONTRACT (-ffast-math)
     llvm::Metadata *SPIRVerElts[] = {
         llvm::ConstantAsMetadata::get(
             llvm::ConstantInt::get(llvm::Type::getInt32Ty(ctx), 1)),
@@ -113,7 +110,7 @@ public:
     // MDNode for the kernel argument base type names.
     llvm::SmallVector<llvm::Metadata *, 8> argBaseTypeNames;
     argBaseTypeNames.push_back(
-        +llvm::MDString::get(ctx, "kernel_arg_base_type"));
+        llvm::MDString::get(ctx, "kernel_arg_base_type"));
 
     // MDNode for the kernel argument type qualifiers.
     llvm::SmallVector<llvm::Metadata *, 8> argTypeQuals;
