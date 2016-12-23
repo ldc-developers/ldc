@@ -29,7 +29,7 @@ void DComputeTarget::doCodeGen(Module *m) {
   for (unsigned k = 0; k < m->members->dim; k++) {
     Dsymbol *dsym = (*m->members)[k];
     assert(dsym);
-    Declaration_codegen(dsym, _ir); // Declaration_codegen(dsym, _ir, this);
+    Declaration_codegen(dsym, _ir);
   }
 
   if (global.errors) {
