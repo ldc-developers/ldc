@@ -121,7 +121,7 @@ public:
     llvm::SmallVector<llvm::Metadata *, 8> argNames;
     if (df->parameters) {
       VarDeclarations *vs = df->parameters;
-      for (int i = 0; i < df->parameters->dim; i++) {
+      for (unsigned i = 0; i < vs->dim; i++) {
         std::string typeQuals;
         std::string baseTyName;
         std::string tyName;
@@ -185,11 +185,13 @@ public:
               v->storage_class & (STCconst | STCimmutable) ? "const" : "";
           // there is no volatile or restrict (yet) in D
         }
-        // Adding the type and base type to the metadata.
+        // Add the type and base type to the metadata.
         assert(!tyName.empty() && "Empty type name");
         argTypeNames.push_back(llvm::MDString::get(ctx, tyName));
+
         assert(!baseTyName.empty() && "Empty base type name");
         argBaseTypeNames.push_back(llvm::MDString::get(ctx, baseTyName));
+
         argTypeQuals.push_back(llvm::MDString::get(ctx, typeQuals));
         accessQuals.push_back(llvm::MDString::get(ctx, accessQual));
         addressQuals.push_back(
