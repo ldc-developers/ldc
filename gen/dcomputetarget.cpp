@@ -43,7 +43,6 @@ void DComputeTarget::emit(Module *m) {
   //reused. Somewhat of a HACK.
   gABI = abi;
   gIR = _ir;
-  gIR->dcomputetarget = this;
   doCodeGen(m);
 }
 
