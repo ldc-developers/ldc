@@ -60,7 +60,6 @@ void DComputeTarget::writeModule() {
   setGTargetMachine();
   ::writeModule(&_ir->module, filename);
 
-  global.params.objfiles->push(filename);
   delete _ir;
   _ir = nullptr;
 }
