@@ -23,7 +23,7 @@ public:
       : DComputeTarget(
             c, sm, CUDA, "cuda", "ptx", createNVPTXABI(),
 
-            // Map from nominal DCompute address spaceto NVPTX address space.
+            // Map from nominal DCompute address space to NVPTX address space.
             // see $LLVM_ROOT/docs/docs/NVPTXUsage.rst section Address Spaces
             {5, 1, 3, 4, 0}) {
     std::string dl;

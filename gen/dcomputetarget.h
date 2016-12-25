@@ -27,8 +27,8 @@ public:
   ID target;    // ID for codegen time conditional compilation.
   int tversion; // OpenCL or CUDA CC version:major*100 + minor*10
 
-  // The nominal address spaces in DCompute are Private = 0, Global = 1, Shared
-  // = 2, Constant = 3, Generic = 4
+  // The nominal address spaces in DCompute are Private = 0, Global = 1,
+  // Shared = 2, Constant = 3, Generic = 4
   std::array<int, 5> mapping;
 
   IRState *_ir;
