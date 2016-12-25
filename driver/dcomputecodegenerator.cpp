@@ -8,35 +8,34 @@
 //===----------------------------------------------------------------------===//
 
 #include "driver/dcomputecodegenmanager.h"
-#include "ir/irdsymbol.h"
 #include "driver/cl_options.h"
-#include "gen/cl_helpers.h"
-#include "llvm/Support/CommandLine.h"
 #include "ddmd/errors.h"
+#include "gen/cl_helpers.h"
+#include "ir/irdsymbol.h"
+#include "llvm/Support/CommandLine.h"
 #include <string>
 #include <algorithm>
-#include "driver/cl_options.h"
 
 DComputeTarget *
 DComputeCodeGenManager::createComputeTarget(const std::string &s) {
   int v;
-#define OCL_VER_INIT 100, 110, 120, 200, 210, 220
-  const llvm::SmallVector<int, 6> valid_ocl_versions = { OCL_VER_INIT };
-#define CUDA_VER_INIT 100, 110, 120, 130, 200, 210, 300, 350, 370, 500, 520, \
-600, 610, 620
-  const llvm::SmallVector<int, 14> vaild_cuda_versions = { CUDA_VER_INIT };
-    
+#define OCL_VALID_VER_INIT 100, 110, 120, 200, 210, 220
+  const llvm::SmallVector<int, 6> valid_ocl_versions = {OCL_VALID_VER_INIT};
+#define CUDA_VALID_VER_INIT 100, 110, 120, 130, 200, 210, 300, 350, 370,\
+ 500, 520, 600, 610, 620
+  const llvm::SmallVector<int, 14> vaild_cuda_versions = {CUDA_VALID_VER_INIT};
+
   if (s.substr(0, 4) == "ocl-") {
     v = atoi(s.c_str() + 4);
-    if (find(valid_ocl_versions.begin(), valid_ocl_versions.end(), v)
-        != valid_ocl_versions.end()) {
+    if (find(valid_ocl_versions.begin(), valid_ocl_versions.end(), v) !=
+        valid_ocl_versions.end()) {
       return createOCLTarget(ctx, v);
     }
   } else if (s.substr(0, 5) == "cuda-") {
     v = atoi(s.c_str() + 5);
-    
-    if (find(vaild_cuda_versions.begin(), vaild_cuda_versions.end(), v)
-        != vaild_cuda_versions.end()) {
+
+    if (find(vaild_cuda_versions.begin(), vaild_cuda_versions.end(), v) !=
+        vaild_cuda_versions.end()) {
       return createOCLTarget(ctx, v);
     }
   }
@@ -44,8 +43,8 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
   error(Loc(),
         "unrecognised or invalid DCompute targets: the format is ocl-xy0 "
         "for OpenCl x.y and cuda-xy0 for CUDA CC x.y. Valid versions "
-        "for OpenCl are " STR(OCL_VER_INIT) ". Valid versions for CUDA "
-        "are " STR(CUDA_VER_INIT));
+        "for OpenCl are " STR(OCL_VALID_VER_INIT) ". Valid versions for CUDA "
+        "are " STR(CUDA_VALID_VER_INIT));
   fatal();
   return nullptr;
 }

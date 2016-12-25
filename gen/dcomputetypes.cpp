@@ -13,6 +13,7 @@
 #include "ddmd/module.h"
 #include "ddmd/identifier.h"
 #include "gen/logger.h"
+
 bool isFromLDC_DComputeTypes(Dsymbol *sym) {
   IF_LOG Logger::println("isFromLDC_DComputeTypes(%s)", sym->toPrettyChars());
   LOG_SCOPE

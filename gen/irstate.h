@@ -211,7 +211,7 @@ struct IRState {
   llvm::DenseMap<llvm::Constant *, llvm::GlobalVariable *> TypeDescriptorMap;
 #endif
 
-  //Target for dcompute
+  //Target for dcompute. If not nullptr, it owns this.
   DComputeTarget *dcomputetarget;
 };
 

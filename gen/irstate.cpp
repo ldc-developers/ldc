@@ -35,7 +35,7 @@ IRScope &IRScope::operator=(const IRScope &rhs) {
 
 ////////////////////////////////////////////////////////////////////////////////
 IRState::IRState(const char *name, llvm::LLVMContext &context)
-    : module(name, context), DBuilder(this) {
+    : module(name, context), DBuilder(this), dcomputetarget(nullptr) {
   mutexType = nullptr;
   moduleRefType = nullptr;
 
@@ -43,7 +43,6 @@ IRState::IRState(const char *name, llvm::LLVMContext &context)
   mainFunc = nullptr;
   ir.state = this;
   asmBlock = nullptr;
-  dcomputetarget = nullptr;
 }
 
 IRState::~IRState() {}

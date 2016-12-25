@@ -35,7 +35,11 @@ namespace {
 class TargetOCL : public DComputeTarget {
 public:
   TargetOCL(llvm::LLVMContext &c, int oclversion)
-      : DComputeTarget(c, oclversion) {
+      : DComputeTarget(c, oclversion, OpenCL, "ocl", "spv", createSPIRVABI(),
+                       // Map from nomimal DCompute address space to OpenCL
+                       // address. For OpenCL this is a no-op.
+                       {0, 1, 2, 3, 4}) {
+
     _ir = new IRState("dcomputeTargetOCL", ctx);
     _ir->module.setTargetTriple(global.params.is64bit ? SPIR_TARGETTRIPLE64
                                                       : SPIR_TARGETTRIPLE32);
@@ -43,21 +47,13 @@ public:
     _ir->module.setDataLayout(global.params.is64bit ? SPIR_DATALAYOUT64
                                                     : SPIR_DATALAYOUT32);
     _ir->dcomputetarget = this;
-    target = 1;
-    abi = createSPIRVABI();
-    binSuffix = "spv";
-    short_name = "ocl";
-    int _mapping[MAX_NUM_TARGET_ADDRSPACES] = {
-        0, 1, 2, 3, 4,
-    };
-    memcpy(mapping, _mapping, sizeof(_mapping));
   }
   void setGTargetMachine() override { gTargetMachine = nullptr; }
 
   // Adapted from clang
   void addMetadata() override {
-    //Fix 3.5.2 build failures. Remove when dropping 3.5 support.
-    //OCL is only supported for 3.6.1 and 3.8 anyway.
+// Fix 3.5.2 build failures. Remove when dropping 3.5 support.
+// OCL is only supported for 3.6.1 and 3.8 anyway.
 #if LDC_LLVM_VER >= 306
     // opencl.ident?
     // spirv.Source // debug only
@@ -87,9 +83,9 @@ public:
 #endif
   }
 
-  void handleKernelFunc(FuncDeclaration *df, llvm::Function *llf) override {
-    //Fix 3.5.2 build failures. Remove when dropping 3.5 support.
-    //OCL is only supported for 3.6.1 and 3.8 anyway.
+  void addKernelMetadata(FuncDeclaration *df, llvm::Function *llf) override {
+// Fix 3.5.2 build failures. Remove when dropping 3.5 support.
+// OCL is only supported for 3.6.1 and 3.8 anyway.
 #if LDC_LLVM_VER >= 306
     // TODO: Handle Function attibutes
 
@@ -132,7 +128,7 @@ public:
         Type *ty = v->type;
         TemplateInstance *t;
         IF_LOG Logger::println(
-            "TargetOCL::handleKernelFunc: proceesing parameter(%s,type=%s)",
+            "TargetOCL::handleKernelFunc: processing parameter(%s,type=%s)",
             v->toPrettyChars(), ty->toPrettyChars());
 
         if (ty->ty == Tstruct &&
@@ -215,7 +211,8 @@ public:
 #endif
   }
 };
-}
+} // anonymous namespace.
+
 DComputeTarget *createOCLTarget(llvm::LLVMContext &c, int oclver) {
   return new TargetOCL(c, oclver);
 }

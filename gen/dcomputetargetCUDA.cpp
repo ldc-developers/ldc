@@ -15,14 +15,17 @@
 #include "llvm/Transforms/Scalar.h"
 #include "driver/targetmachine.h"
 #include <cstring>
+
 namespace {
 class TargetCUDA : public DComputeTarget {
 public:
-  TargetCUDA(llvm::LLVMContext &c, int sm) : DComputeTarget(c, sm) {
-    _ir = new IRState("dcomputeTargetCUDA", ctx);
-    _ir->module.setTargetTriple(global.params.is64bit ? "nvptx64-nvidia-cuda"
-                                                      : "nvptx-nvidia-cuda");
-    target = 2;
+  TargetCUDA(llvm::LLVMContext &c, int sm)
+      : DComputeTarget(
+            c, sm, CUDA, "cuda", "ptx", createNVPTXABI(),
+
+            // Map from nominal DCompute address spaceto NVPTX address space.
+            // see $LLVM_ROOT/docs/docs/NVPTXUsage.rst section Address Spaces
+            {5, 1, 3, 4, 0}) {
     std::string dl;
     if (global.params.is64bit) {
       dl = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-"
@@ -31,13 +34,12 @@ public:
       dl = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-"
            "f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64";
     }
+
+    _ir = new IRState("dcomputeTargetCUDA", ctx);
+    _ir->module.setTargetTriple(global.params.is64bit ? "nvptx64-nvidia-cuda"
+                                                      : "nvptx-nvidia-cuda");
     _ir->module.setDataLayout(dl);
-    abi = createNVPTXABI();
     _ir->dcomputetarget = this;
-    binSuffix = "ptx";
-    short_name = "cuda";
-    int _mapping[MAX_NUM_TARGET_ADDRSPACES] = {5, 1, 3, 4, 0};
-    memcpy(mapping, _mapping, sizeof(_mapping));
   }
 
   void addMetadata() override {
@@ -55,8 +57,8 @@ public:
         false);
   }
 
-  void handleKernelFunc(FuncDeclaration *df, llvm::Function *llf) override {
-    //Fix 3.5.2 build failures. Remove when dropping 3.5 support.
+  void addKernelMetadata(FuncDeclaration *df, llvm::Function *llf) override {
+// Fix 3.5.2 build failures. Remove when dropping 3.5 support.
 #if LDC_LLVM_VER >= 306
     // TODO: Handle Function attibutes
     llvm::NamedMDNode *na =
@@ -72,7 +74,7 @@ public:
 #endif
   }
 };
-}
+} // anonymous namespace.
 
 DComputeTarget *createCUDATarget(llvm::LLVMContext &c, int sm) {
   return new TargetCUDA(c, sm);

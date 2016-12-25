@@ -14,7 +14,7 @@
 #include "llvm/ADT/SmallVector.h"
 
 // gets run on modules marked @compute
-// we do singleobj only
+// All @compute D modules are emitted into one LLVM module once per target.
 class DComputeCodeGenManager {
 
   llvm::LLVMContext &ctx;
