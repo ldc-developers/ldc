@@ -42,7 +42,7 @@ install:
   - git checkout 7585cf6
   - cd ..
   # Download & extract libcurl
-  - appveyor DownloadFile "http://d.darktech.org/libcurl-7.47.0-WinSSL-zlib-x86-x64.zip" -FileName libcurl.zip
+  - appveyor DownloadFile "http://d.darktech.org/libcurl-7.51.0-WinSSL-zlib-x86-x64.zip" -FileName libcurl.zip
   - md libcurl
   - cd libcurl
   - 7z x ..\libcurl.zip > nul
@@ -53,7 +53,7 @@ install:
   - if "%APPVEYOR_JOB_ARCH%"=="x86" ( copy libcurl\dmd2\windows\bin\libcurl.dll ldc-x86\bin )
   - set PATH=%CD%\ldc-%APPVEYOR_JOB_ARCH%\bin;%PATH%
   # Download & extract Ninja
-  - appveyor DownloadFile "https://github.com/ninja-build/ninja/releases/download/v1.6.0/ninja-win.zip" -FileName ninja.zip
+  - appveyor DownloadFile "https://github.com/ninja-build/ninja/releases/download/v1.7.2/ninja-win.zip" -FileName ninja.zip
   - md ninja
   - cd ninja
   - 7z x ..\ninja.zip > nul
@@ -66,7 +66,7 @@ install:
   # Download & extract D compiler
   - ps: |
         If ($Env:D_COMPILER -eq 'dmd') {
-            $dmdVersion = '2.071.1'
+            $dmdVersion = '2.071.2'
             appveyor DownloadFile "http://downloads.dlang.org/releases/2.x/$dmdVersion/dmd.$dmdVersion.windows.7z" -FileName dmd2.7z
             7z x dmd2.7z > $null
             Set-Item -path env:DMD -value c:\projects\dmd2\windows\bin\dmd.exe
@@ -95,9 +95,9 @@ install:
   # Download & extract a pre-built LLVM (CMAKE_BUILD_TYPE=Release, LLVM_ENABLE_ASSERTIONS=ON)
   - ps: |
         If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
-            appveyor DownloadFile 'https://dl.dropboxusercontent.com/s/kkmr30ntlay843f/LLVM-3.9.0-x64.7z?dl=0' -FileName llvm-x64.7z
+            appveyor DownloadFile 'https://dl.dropboxusercontent.com/s/6jc2wld5wqgf1jg/LLVM-3.9.1-x64.7z?dl=0' -FileName llvm-x64.7z
         } Else {
-            appveyor DownloadFile 'https://dl.dropboxusercontent.com/s/7xbpwnf8zyeokw3/LLVM-3.9.0-x86.7z?dl=0' -FileName llvm-x86.7z
+            appveyor DownloadFile 'https://dl.dropboxusercontent.com/s/zhlt3x8xyqlx2n4/LLVM-3.9.1-x86.7z?dl=0' -FileName llvm-x86.7z
         }
   - md llvm-%APPVEYOR_JOB_ARCH%
   - cd llvm-%APPVEYOR_JOB_ARCH%

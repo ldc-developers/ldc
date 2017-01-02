@@ -5,7 +5,7 @@ matrix:
   include:
     - os: linux
       d: ldc
-      env: LLVM_VERSION=3.9.0
+      env: LLVM_VERSION=3.9.1
     - os: linux
       d: ldc-beta
       env: LLVM_VERSION=3.8.1
@@ -26,6 +26,7 @@ matrix:
 
 cache:
   directories:
+    - llvm-3.9.1
     - llvm-3.9.0
     - llvm-3.8.1
     - llvm-3.7.1
@@ -50,7 +51,11 @@ addons:
 before_install:
   -
     if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
-      export LLVM_ARCH="x86_64-linux-gnu-ubuntu-14.04";
+      if [ "${LLVM_VERSION}" = "3.9.1" ]; then
+        export LLVM_ARCH="x86_64-linux-gnu-debian8";
+      else
+        export LLVM_ARCH="x86_64-linux-gnu-ubuntu-14.04";
+      fi;
     else
       export LLVM_ARCH="x86_64-apple-darwin";
     fi;
