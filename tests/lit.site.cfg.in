@@ -34,6 +34,8 @@ config.excludes = [
 config.available_features.add("llvm%d" % config.llvm_version)
 for version in range(305, config.llvm_version+1):
     config.available_features.add("atleast_llvm%d" % version)
+for version in reversed(range(config.llvm_version, 310)):
+    config.available_features.add("atmost_llvm%d" % version)
 
 # Define OS as available feature (Windows, Darwin, Linux)
 config.available_features.add(platform.system())
