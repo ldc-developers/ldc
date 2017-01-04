@@ -241,6 +241,19 @@ const char *tryGetExplicitConfFile(int argc, char **argv) {
   return nullptr;
 }
 
+template <int N> // option length incl. terminating null
+void tryParse(int argc, char **argv, int i, const char *&output,
+              const char (&option)[N]) {
+  if (strncmp(argv[i], option, N - 1) != 0)
+    return;
+
+  char nextChar = argv[i][N - 1];
+  if (nextChar == '=')
+    output = argv[i] + N;
+  else if (nextChar == 0 && i < argc - 1)
+    output = argv[i + 1];
+}
+
 llvm::Triple tryGetExplicitTriple(int argc, char **argv) {
   // most combinations of flags are illegal, this mimicks command line
   //  behaviour for legal ones only
@@ -258,10 +271,8 @@ llvm::Triple tryGetExplicitTriple(int argc, char **argv) {
     if (sizeof(void *) != 8 && strcmp(argv[i], "-m64") == 0)
       return triple.get64BitArchVariant();
 
-    if (strncmp(argv[i], "-mtriple=", 9) == 0)
-      mtriple = argv[i] + 9;
-    else if (strncmp(argv[i], "-march=", 7) == 0)
-      march = argv[i] + 7;
+    tryParse(argc, argv, i, mtriple, "-mtriple");
+    tryParse(argc, argv, i, march, "-march");
   }
   if (mtriple)
     triple = llvm::Triple(llvm::Triple::normalize(mtriple));
@@ -298,7 +309,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
 
   ConfigFile cfg_file;
   const char *explicitConfFile = tryGetExplicitConfFile(argc, argv);
-  std::string cfg_triple = tryGetExplicitTriple(argc, argv).getTriple();
+  const std::string cfg_triple = tryGetExplicitTriple(argc, argv).getTriple();
   // just ignore errors for now, they are still printed
   cfg_file.read(explicitConfFile, cfg_triple.c_str());
   opts::allArguments.insert(opts::allArguments.end(), cfg_file.switches_begin(),
@@ -343,7 +354,8 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
             global.ldc_version, global.version, global.llvm_version);
     const std::string &path = cfg_file.path();
     if (!path.empty()) {
-      fprintf(global.stdmsg, "config    %s\n", path.c_str());
+      fprintf(global.stdmsg, "config    %s (%s)\n", path.c_str(),
+              cfg_triple.c_str());
     }
   }
 
