@@ -533,14 +533,17 @@ void DtoAlignedStore(LLValue *src, LLValue *dst) {
 
 LLType *StripAddrSpaces(LLType *t)
 {
-  //if(!gDcomputeTarget) return t;
+  // Fastpath for normal compilation.
+  if(gIR->dcomputetarget == nullptr)
+    return t;
+
   int indirections = 0;
   while (t->isPointerTy()) {
     indirections++;
     t = t->getPointerElementType();
   }
   while (indirections-- != 0) {
-        t = t->getPointerTo(0);
+    t = t->getPointerTo(0);
   }
   return t;
 }
