@@ -28,6 +28,7 @@
 #include "driver/linker.h"
 #include "driver/targetmachine.h"
 #include "gen/cl_helpers.h"
+#include "gen/dcomputecodegenerator.h"
 #include "gen/irstate.h"
 #include "gen/linkage.h"
 #include "gen/llvm.h"
@@ -39,6 +40,7 @@
 #include "gen/optimizer.h"
 #include "gen/passes/Passes.h"
 #include "gen/runtime.h"
+#include "gen/uda.h"
 #include "gen/abi.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/LinkAllPasses.h"
@@ -704,14 +706,6 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("SPARC64");
     registerPredefinedFloatABI("SPARC_SoftFloat", "SPARC_HardFloat");
     break;
-  case llvm::Triple::nvptx:
-    VersionCondition::addPredefinedGlobalIdent("NVPTX");
-    VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
-    break;
-  case llvm::Triple::nvptx64:
-    VersionCondition::addPredefinedGlobalIdent("NVPTX64");
-    VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
-    break;
   case llvm::Triple::systemz:
     VersionCondition::addPredefinedGlobalIdent("SystemZ");
     VersionCondition::addPredefinedGlobalIdent(
@@ -826,6 +820,7 @@ void registerPredefinedVersions() {
   VersionCondition::addPredefinedGlobalIdent("LDC");
   VersionCondition::addPredefinedGlobalIdent("all");
   VersionCondition::addPredefinedGlobalIdent("D_Version2");
+  VersionCondition::addPredefinedGlobalIdent("D_DCompute");
 
   if (global.params.doDocComments) {
     VersionCondition::addPredefinedGlobalIdent("D_Ddoc");
@@ -1007,6 +1002,8 @@ void codegenModules(Modules &modules) {
   // Generate one or more object/IR/bitcode files.
   if (global.params.obj && !modules.empty()) {
     ldc::CodeGenerator cg(getGlobalContext(), global.params.oneobj);
+    DComputeCodeGenManager dccg(getGlobalContext());
+    std::vector<Module *> compute_modules;
 
     // When inlining is enabled, we are calling semantic3 on function
     // declarations, which may _add_ members to the first module in the modules
@@ -1020,14 +1017,26 @@ void codegenModules(Modules &modules) {
       Module *const m = modules[i];
       if (global.params.verbose)
         fprintf(global.stdmsg, "code      %s\n", m->toChars());
-
-      cg.emit(m);
+      int atCompute = hasComputeAttr(m);
+      if (atCompute == 0 || atCompute == 2)
+        cg.emit(m);
+      if (atCompute)
+        compute_modules.push_back(m);
+        
 
       if (global.errors)
         fatal();
     }
-  }
 
+    IF_LOG Logger::println("number of Modules for computecodgenning %d",
+                            compute_modules.size());
+    if (compute_modules.size()) {
+      for (int i = 0; i < compute_modules.size(); i++)
+        dccg.emit(compute_modules[i]);
+        
+      dccg.writeModules();
+    }
+  }
   cache::pruneCache();
 
   freeRuntime();
