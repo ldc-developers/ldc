@@ -22,6 +22,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
+#include "gen/dcomputetarget.h"
 #include "gen/typinf.h"
 #include "gen/uda.h"
 #include "ir/irtype.h"
@@ -147,6 +148,10 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE
 
+    if (irs->dcomputetarget)  {
+      decl->error("Interfaces not allowed in @compute code");
+      return;
+    }
     if (decl->ir->isDefined()) {
       return;
     }
@@ -205,14 +210,18 @@ public:
       m->accept(this);
     }
 
-    // Define the __initZ symbol.
-    IrAggr *ir = getIrAggr(decl);
-    llvm::GlobalVariable *initZ = ir->getInitSymbol();
-    initZ->setInitializer(ir->getDefaultInit());
-    setLinkage(decl, initZ);
+    // Skip __initZ and typeinfo for @compute device code.
+    // TODO: support global variables and thus __initZ
+    if (!irs->dcomputetarget) {
+      // Define the __initZ symbol.
+      IrAggr *ir = getIrAggr(decl);
+      llvm::GlobalVariable *initZ = ir->getInitSymbol();
+      initZ->setInitializer(ir->getDefaultInit());
+      setLinkage(decl, initZ);
 
-    // emit typeinfo
-    DtoTypeInfoOf(decl->type);
+      // emit typeinfo
+      DtoTypeInfoOf(decl->type);
+    }
 
     // Emit __xopEquals/__xopCmp/__xtoHash.
     if (decl->xeq && decl->xeq != decl->xerreq) {
@@ -232,6 +241,11 @@ public:
     IF_LOG Logger::println("ClassDeclaration::codegen: '%s'",
                            decl->toPrettyChars());
     LOG_SCOPE
+
+    if (irs->dcomputetarget) {
+      decl->error("Classes not allowed in @compute code");
+      return;
+    }
 
     if (decl->ir->isDefined()) {
       return;
@@ -326,6 +340,11 @@ public:
       assert(!(decl->storage_class & STCmanifest) &&
              "manifest constant being codegen'd!");
 
+      if (irs->dcomputetarget) {
+        decl->error("global variables currently not allowed in @compute code");
+        return;
+      }
+
       IrGlobal *irGlobal = getIrGlobal(decl);
       LLGlobalVariable *gvar = llvm::cast<LLGlobalVariable>(irGlobal->value);
       assert(gvar && "DtoResolveVariable should have created value");
@@ -410,6 +429,12 @@ public:
     // don't touch function aliases, they don't contribute any new symbols
     if (!decl->isFuncAliasDeclaration()) {
       DtoDefineFunction(decl);
+      if (irs->dcomputetarget) {
+        if (hasKernelAttr(decl)) {
+          auto fn = irs->module.getFunction(decl->mangleString);
+          irs->dcomputetarget->addKernelMetadata(decl, fn);
+        }
+      }
     }
   }
 
@@ -493,6 +518,11 @@ public:
     if (decl->ident == Id::lib) {
       assert(decl->args && decl->args->dim == 1);
 
+      if (irs->dcomputetarget) {
+        decl->error("pragma(lib, \"...\") not currently allowed in @compute code");
+        return;
+      }
+
       Expression *e = static_cast<Expression *>(decl->args->data[0]);
 
       assert(e->op == TOKstring);
@@ -553,7 +583,7 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(TypeInfoDeclaration *decl) LLVM_OVERRIDE {
-    if (isSpeculativeType(decl->tinfo)) {
+    if (irs->dcomputetarget || isSpeculativeType(decl->tinfo)) {
       return;
     }
     TypeInfoDeclaration_codegen(decl, irs);
@@ -562,7 +592,7 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(TypeInfoClassDeclaration *decl) LLVM_OVERRIDE {
-    if (isSpeculativeType(decl->tinfo)) {
+    if (irs->dcomputetarget || isSpeculativeType(decl->tinfo)) {
       return;
     }
     TypeInfoClassDeclaration_codegen(decl, irs);

@@ -17,6 +17,7 @@
 #include "gen/classes.h"
 #include "gen/coverage.h"
 #include "gen/dvalue.h"
+#include "gen/dcomputetarget.h"
 #include "gen/funcgenstate.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
@@ -336,6 +337,26 @@ public:
       DtoRawVarDeclaration(stmt->match);
     }
 
+    // This is a (dirty) hack to get codegen time conditional
+    // compilation, on account of the fact that we are trying
+    // to target multiple backends "simultaneously" with one
+    // pass through the front end.
+    if (stmt->condition->op == TOKcall) {
+      auto ce = (CallExp *)stmt->condition;
+      if (!strcmp(ce->f->ident->string, "__dcompute_reflect")) {
+        auto arg1 = (DComputeTarget::ID)(*ce->arguments)[0]->toInteger();
+        auto arg2 = (*ce->arguments)[1]->toInteger();
+        auto dct = irs->dcomputetarget;
+        if ((arg1 == DComputeTarget::Host && !irs->dcomputetarget)
+            || (arg1 == dct->target
+            && (!arg2 || arg2 == dct->tversion))) {
+          stmt->ifbody->accept(this);
+        } else if (stmt->elsebody) {
+          stmt->elsebody->accept(this);
+        }
+        return;
+      }
+    }
     DValue *cond_e = toElemDtor(stmt->condition);
     LLValue *cond_val = DtoRVal(cond_e);
 
@@ -717,6 +738,22 @@ public:
     // emit dwarf stop point
     irs->DBuilder.EmitStopPoint(stmt->loc);
 
+    // While exceptions are not allowed in @compute code TryFinally is useful
+    // for lower scpoe exit. for this we lower it to trystmts; finallystmts;
+    if (irs->dcomputetarget) {
+      if (stmt->_body) {
+        irs->DBuilder.EmitBlockStart(stmt->_body->loc);
+        stmt->_body->accept(this);
+        irs->DBuilder.EmitBlockEnd();
+      }
+      if (stmt->finalbody) {
+        irs->DBuilder.EmitBlockStart(stmt->finalbody->loc);
+        stmt->finalbody->accept(this);
+        irs->DBuilder.EmitBlockEnd();
+      }
+      return;
+    }
+
     // We only need to consider exception handling/cleanup issues if there
     // is both a try and a finally block. If not, just directly emit what
     // is present.
@@ -776,7 +813,12 @@ public:
     IF_LOG Logger::println("TryCatchStatement::toIR(): %s",
                            stmt->loc.toChars());
     LOG_SCOPE;
-
+    
+    if (irs->dcomputetarget) {
+      stmt->error("no exceptions allowed in @compute code");
+      return;
+    }
+      
     auto &PGO = irs->funcGen().pgo;
 
     // Emit dwarf stop point
@@ -816,6 +858,11 @@ public:
   void visit(ThrowStatement *stmt) LLVM_OVERRIDE {
     IF_LOG Logger::println("ThrowStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
+
+    if (irs->dcomputetarget) {
+      stmt->error("no exceptions allowed in @compute code");
+      return;
+    }
 
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
@@ -875,6 +922,10 @@ public:
     const bool isStringSwitch = !stmt->condition->type->isintegral();
     if (isStringSwitch) {
       Logger::println("is string switch");
+      if (irs->dcomputetarget) {
+        stmt->error("cannot switch on strings in @compute code");
+        return;
+      }
 
       // Sort the cases, taking care not to modify the original AST.
       cases = cases->copy();
@@ -1602,6 +1653,14 @@ public:
                            stmt->loc.toChars());
     LOG_SCOPE;
 
+    if(irs->dcomputetarget) {
+      // SwitchErrorStatement emits a call to a runtime function.
+      // This is not available in @compute code. For lack of anything better:
+      // ingore it.
+      IF_LOG Logger::println("ignoring SwitchErrorStatement ");
+      return;
+    }
+
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
@@ -1620,11 +1679,19 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(AsmStatement *stmt) LLVM_OVERRIDE { AsmStatement_toIR(stmt, irs); }
+  void visit(AsmStatement *stmt) LLVM_OVERRIDE {
+    if (irs->dcomputetarget)
+      stmt->error("no asm statements allowed in @compute code");
+
+    AsmStatement_toIR(stmt, irs);
+  }
 
   //////////////////////////////////////////////////////////////////////////
 
   void visit(CompoundAsmStatement *stmt) LLVM_OVERRIDE {
+    if (irs->dcomputetarget)
+        stmt->error("no asm statements allowed in @compute code");
+
     CompoundAsmStatement_toIR(stmt, irs);
   }
 

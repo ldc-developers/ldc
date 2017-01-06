@@ -25,7 +25,7 @@ class DComputeTarget {
 public:
   enum ID { Host = 0, OpenCL = 1, CUDA = 2 };
   ID target;    // ID for codegen time conditional compilation.
-  int tversion; // OpenCL or CUDA CC version:major*100 + minor*10
+  unsigned int tversion; // OpenCL or CUDA CC version:major*100 + minor*10
 
   // The nominal address spaces in DCompute are Private = 0, Global = 1,
   // Shared = 2, Constant = 3, Generic = 4
