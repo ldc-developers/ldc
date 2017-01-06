@@ -343,7 +343,8 @@ public:
     // pass through the front end.
     if (stmt->condition->op == TOKcall) {
       auto ce = (CallExp *)stmt->condition;
-      if (!strcmp(ce->f->ident->string, "__dcompute_reflect")) {
+      if (ce->f && ce->f->ident && ! strcmp(ce->f->ident->string,
+                                            "__dcompute_reflect")) {
         auto arg1 = (DComputeTarget::ID)(*ce->arguments)[0]->toInteger();
         auto arg2 = (*ce->arguments)[1]->toInteger();
         auto dct = irs->dcomputetarget;
