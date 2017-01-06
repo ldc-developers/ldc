@@ -1,4 +1,4 @@
-//===-- gen/helpers.h - General helpers -------------------------*- C++ -*-===//
+//===-- gen/scope_exit.h - scope exit helper --------------------*- C++ -*-===//
 //
 //                         LDC - the LLVM D compiler
 //
@@ -7,12 +7,12 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// General helper constructs.
+// SCOPE_EXIT helper construct.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef HELPERS_H
-#define HELPERS_H
+#ifndef SCOPE_EXIT_H
+#define SCOPE_EXIT_H
 
 #include <utility>
 #include <type_traits>
@@ -81,4 +81,4 @@ inline ScopeExit<typename std::decay<Func>::type> operator<<(const ScopeExitTag&
 
 #define SCOPE_EXIT auto LDC_UNNAME_VAR(scope_exit) = details::ScopeExitTag{} << [&]()
 
-#endif // HELPERS_H
+#endif // SCOPE_EXIT_H
