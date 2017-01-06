@@ -932,7 +932,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // But don't set if for dcompute.
   // TODO: Find a better place for this.
   if (global.params.targetTriple->getArch() == llvm::Triple::x86_64 &&
-      !global.params.isWindows && gIR->dcomputetarget != nullptr) {
+      !global.params.isWindows && gIR->dcomputetarget == nullptr) {
     func->addFnAttr(LLAttribute::UWTable);
   }
   if (opts::sanitize != opts::None) {
