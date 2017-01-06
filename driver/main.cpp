@@ -1031,7 +1031,7 @@ void codegenModules(Modules &modules) {
     IF_LOG Logger::println("number of Modules for computecodgenning %d",
                             compute_modules.size());
     if (compute_modules.size()) {
-      for (int i = 0; i < compute_modules.size(); i++)
+      for (d_size_t i = 0; i < compute_modules.size(); i++)
         dccg.emit(compute_modules[i]);
         
       dccg.writeModules();
