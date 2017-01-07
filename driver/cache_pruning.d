@@ -109,6 +109,9 @@ struct CachePruner
         auto filePattern = "ircache_????????????????????????????????.{o,obj}";
         auto cacheFiles = dirEntries(cachePath, filePattern, SpanMode.shallow, /+ followSymlink +/ false);
 
+        // Delete all temporary files.
+        deleteFiles(cachePath, filePattern ~ ".tmp???????");
+
         // Files that have not yet expired, may still be removed during pruning for size later.
         // This array holds the prune candidates after pruning for expiry.
         DirEntry[] pruneForSizeCandidates;
@@ -121,6 +124,22 @@ struct CachePruner
     }
 
 private:
+    void deleteFiles(string path, string filePattern)
+    {
+        foreach (DirEntry f; dirEntries(path, filePattern, SpanMode.shallow, /+ followSymlink +/ false))
+        {
+            try
+            {
+                remove(f.name);
+            }
+            catch (FileException)
+            {
+                // Simply skip the file when an error occurs.
+                continue;
+            }
+        }
+    }
+
     void pruneForExpiry(T)(T cacheFiles, out DirEntry[] remainingPruneCandidates, out ulong cacheSize)
     {
         foreach (DirEntry f; cacheFiles)
