@@ -117,7 +117,6 @@ struct IRState {
 
   Module *dmodule;
 
-  LLStructType *mutexType;
   LLStructType *moduleRefType;
 
   // Stack of currently codegen'd functions (more than one for lambdas or other
