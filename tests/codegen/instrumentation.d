@@ -2,8 +2,10 @@
 
 void fun0 () {
   // CHECK-LABEL: define{{.*}} @{{.*}}4fun0FZv
-  // CHECK: call void @__cyg_profile_func_enter
-  // CHECK: call void @__cyg_profile_func_exit
+  // CHECK: [[RET1:%[0-9]]] = call i8* @llvm.returnaddress(i32 0)
+  // CHECK: call void @__cyg_profile_func_enter{{.*}}4fun0FZv{{.*}}[[RET1]]
+  // CHECK: [[RET2:%[0-9]]] = call i8* @llvm.returnaddress(i32 0)
+  // CHECK: call void @__cyg_profile_func_exit{{.*}}4fun0FZv{{.*}}[[RET2]]
   // CHECK-NEXT: ret
   return;
 }
@@ -11,8 +13,8 @@ void fun0 () {
 pragma(LDC_profile_instr, false)
 int fun1 (int x) {
   // CHECK-LABEL: define{{.*}} @{{.*}}4fun1FiZi
-  // CHECK-NOT: call void @__cyg_profile_func_enter
-  // CHECK-NOT: call void @__cyg_profile_func_exit
+  // CHECK-NOT: __cyg_profile_func_enter
+  // CHECK-NOT: __cyg_profile_func_exit
   return 42;
 }
 
