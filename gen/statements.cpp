@@ -740,7 +740,7 @@ public:
     irs->DBuilder.EmitStopPoint(stmt->loc);
 
     // While exceptions are not allowed in @compute code TryFinally is useful
-    // for lower scpoe exit. for this we lower it to trystmts; finallystmts;
+    // for lower scope exit. for this we lower it to trystmts; finallystmts;
     if (irs->dcomputetarget) {
       if (stmt->_body) {
         irs->DBuilder.EmitBlockStart(stmt->_body->loc);
