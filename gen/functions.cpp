@@ -37,6 +37,7 @@
 #include "gen/pgo.h"
 #include "gen/pragma.h"
 #include "gen/runtime.h"
+#include "gen/scope_exit.h"
 #include "gen/tollvm.h"
 #include "gen/uda.h"
 #include "ir/irfunction.h"
@@ -909,6 +910,10 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   IF_LOG Logger::println("Doing function body for: %s", fd->toChars());
   gIR->funcGenStates.emplace_back(new FuncGenState(*irFunc, *gIR));
   auto &funcGen = gIR->funcGen();
+  SCOPE_EXIT {
+    assert(&gIR->funcGen() == &funcGen);
+    gIR->funcGenStates.pop_back();
+  };
 
   const auto f = static_cast<TypeFunction *>(fd->type->toBasetype());
   IrFuncTy &irFty = irFunc->irFty;
@@ -1116,9 +1121,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   gIR->scopes.pop_back();
-
-  assert(&gIR->funcGen() == &funcGen);
-  gIR->funcGenStates.pop_back();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
