@@ -1,5 +1,7 @@
 // Test that llvm.used is emitted correctly when multiple D modules are compiled into one LLVM module.
 
+// REQUIRES: target_X86
+
 // Explicitly use a Linux triple, so that llvm.used is used for moduleinfo globals.
 // RUN: %ldc -c -output-ll -O3 %S/inputs/module_ctor.d %s -of=%t.ll -mtriple=x86_64-pc-linux-gnu && FileCheck --check-prefix=LLVM %s < %t.ll
 
