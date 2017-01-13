@@ -71,7 +71,6 @@ void setLinkage(Dsymbol *sym, llvm::GlobalObject *obj);
 
 // some types
 LLIntegerType *DtoSize_t();
-LLStructType *DtoMutexType();
 LLStructType *DtoModuleReferenceType();
 
 // getelementptr helpers
