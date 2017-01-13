@@ -33,13 +33,13 @@ installing it might not be necessary. For several platforms, there
 are also stand-alone binary builds available at the
 [GitHub release page](https://github.com/ldc-developers/ldc/releases).
 
-| Distribution | Command               |
+|              | Command               |
 | ------------ | --------------------- |
 | Arch Linux   | `pacman -S ldc`       |
 | Debian       | `apt-get install ldc` |
 | Fedora       | `yum install ldc`     |
 | Gentoo       | `layman -a ldc`       |
-| HomeBrew     | `brew install ldc`    |
+| Homebrew     | `brew install ldc`    |
 | Ubuntu       | `apt-get install ldc` |
 
 ##### Windows
