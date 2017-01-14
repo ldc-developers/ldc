@@ -148,10 +148,6 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE
 
-    if (irs->dcomputetarget)  {
-      decl->error("Interfaces not allowed in @compute code");
-      return;
-    }
     if (decl->ir->isDefined()) {
       return;
     }
@@ -241,11 +237,6 @@ public:
     IF_LOG Logger::println("ClassDeclaration::codegen: '%s'",
                            decl->toPrettyChars());
     LOG_SCOPE
-
-    if (irs->dcomputetarget) {
-      decl->error("Classes not allowed in @compute code");
-      return;
-    }
 
     if (decl->ir->isDefined()) {
       return;
@@ -339,11 +330,6 @@ public:
 
       assert(!(decl->storage_class & STCmanifest) &&
              "manifest constant being codegen'd!");
-
-      if (irs->dcomputetarget) {
-        decl->error("global variables currently not allowed in @compute code");
-        return;
-      }
 
       IrGlobal *irGlobal = getIrGlobal(decl);
       LLGlobalVariable *gvar = llvm::cast<LLGlobalVariable>(irGlobal->value);
@@ -517,11 +503,6 @@ public:
   void visit(PragmaDeclaration *decl) LLVM_OVERRIDE {
     if (decl->ident == Id::lib) {
       assert(decl->args && decl->args->dim == 1);
-
-      if (irs->dcomputetarget) {
-        decl->error("pragma(lib, \"...\") not currently allowed in @compute code");
-        return;
-      }
 
       Expression *e = static_cast<Expression *>(decl->args->data[0]);
 
