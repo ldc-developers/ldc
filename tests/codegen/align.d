@@ -3,8 +3,8 @@
 // Fails on Windows_x86, see https://github.com/ldc-developers/ldc/issues/1356
 // XFAIL: Windows_x86
 
-align(32) struct Outer { int a; }
-struct Inner { align(32) int a; }
+align(32) struct Outer { int a; bool b; double c = 0; long d; }
+struct Inner { align(32) int a; bool b; double c = 0; long d; }
 
 align(1) ubyte globalByte1;
 // CHECK-DAG: align11globalByte1h = {{.*}} align 1
