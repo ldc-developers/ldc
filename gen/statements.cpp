@@ -1666,7 +1666,6 @@ public:
 
   void visit(AsmStatement *stmt) LLVM_OVERRIDE {
     assert(!irs->dcomputetarget);
-    stmt->error("no asm statements allowed in @compute code");
 
     AsmStatement_toIR(stmt, irs);
   }
@@ -1675,7 +1674,6 @@ public:
 
   void visit(CompoundAsmStatement *stmt) LLVM_OVERRIDE {
     assert(!irs->dcomputetarget);
-    stmt->error("no asm statements allowed in @compute code");
 
     CompoundAsmStatement_toIR(stmt, irs);
   }
