@@ -58,6 +58,7 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
 
   // get the nested context
   LLValue *ctx = nullptr;
+  bool skipDIDeclaration = false;
   auto currentCtx = gIR->funcGen().nestedVar;
   if (currentCtx) {
     Logger::println("Using own nested context of current function");
@@ -72,6 +73,7 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
       val = DtoLoad(val);
     }
     ctx = DtoLoad(DtoGEPi(val, 0, getVthisIdx(cd), ".vthis"));
+    skipDIDeclaration = true;
   } else {
     Logger::println("Regular nested function, loading context arg");
 
@@ -144,7 +146,7 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     }
   }
 
-  if (global.params.symdebug) {
+  if (!skipDIDeclaration && global.params.symdebug) {
     // Because we are passing a GEP instead of an alloca to
     // llvm.dbg.declare, we have to make the address dereference explicit.
     gIR->DBuilder.OpDeref(dwarfAddrOps);
