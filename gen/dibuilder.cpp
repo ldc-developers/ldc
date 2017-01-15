@@ -1089,7 +1089,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
   if (static_cast<llvm::MDNode *>(TD) == nullptr)
     return; // unsupported
 
-  if (vd->storage_class & (STCref | STCout)) {
+  if (vd->isRef() || vd->isOut()) {
 #if LDC_LLVM_VER >= 308
     auto T = DtoType(type);
     TD = DBuilder.createReferenceType(llvm::dwarf::DW_TAG_reference_type, TD,

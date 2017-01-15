@@ -131,8 +131,13 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     Logger::cout() << "Addr: " << *val << '\n';
     Logger::cout() << "of type: " << *val->getType() << '\n';
   }
-  if (!isSpecialRefVar(vd) && (byref || vd->isRef() || vd->isOut())) {
+  const bool isRefOrOut = vd->isRef() || vd->isOut();
+  if (!isSpecialRefVar(vd) && (byref || isRefOrOut)) {
     val = DtoAlignedLoad(val);
+    // ref/out variables get a reference-debuginfo-type in
+    // DIBuilder::EmitLocalVariable()
+    if (!isRefOrOut)
+      gIR->DBuilder.OpDeref(dwarfAddrOps);
     IF_LOG {
       Logger::cout() << "Was byref, now: " << *irLocal->value << '\n';
       Logger::cout() << "of type: " << *irLocal->value->getType() << '\n';
