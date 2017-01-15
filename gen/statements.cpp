@@ -739,22 +739,6 @@ public:
     // emit dwarf stop point
     irs->DBuilder.EmitStopPoint(stmt->loc);
 
-    // While exceptions are not allowed in @compute code TryFinally is useful
-    // for lower scope exit. for this we lower it to trystmts; finallystmts;
-    if (irs->dcomputetarget) {
-      if (stmt->_body) {
-        irs->DBuilder.EmitBlockStart(stmt->_body->loc);
-        stmt->_body->accept(this);
-        irs->DBuilder.EmitBlockEnd();
-      }
-      if (stmt->finalbody) {
-        irs->DBuilder.EmitBlockStart(stmt->finalbody->loc);
-        stmt->finalbody->accept(this);
-        irs->DBuilder.EmitBlockEnd();
-      }
-      return;
-    }
-
     // We only need to consider exception handling/cleanup issues if there
     // is both a try and a finally block. If not, just directly emit what
     // is present.
@@ -788,8 +772,14 @@ public:
     stmt->finalbody->accept(this);
     irs->DBuilder.EmitBlockEnd();
 
-    CleanupCursor cleanupBefore = irs->funcGen().scopes.currentCleanupScope();
-    irs->funcGen().scopes.pushCleanup(finallybb, irs->scopebb());
+    CleanupCursor cleanupBefore;
+    // For @compute code, don't emit any exception handling as there are no
+    // exceptions anyway.
+    const bool compute_code = !!irs->dcomputetarget;
+    if (!compute_code) {
+      cleanupBefore  = irs->funcGen().scopes.currentCleanupScope();
+      irs->funcGen().scopes.pushCleanup(finallybb, irs->scopebb());
+    }
 
     // Emit the try block.
     irs->scope() = IRScope(trybb);
@@ -800,12 +790,14 @@ public:
     irs->DBuilder.EmitBlockEnd();
 
     if (successbb) {
-      irs->funcGen().scopes.runCleanups(cleanupBefore, successbb);
+      if (!compute_code)
+        irs->funcGen().scopes.runCleanups(cleanupBefore, successbb);
       irs->scope() = IRScope(successbb);
       // PGO counter tracks the continuation of the try-finally statement
       PGO.emitCounterIncrement(stmt);
     }
-    irs->funcGen().scopes.popCleanups(cleanupBefore);
+    if (!compute_code)
+      irs->funcGen().scopes.popCleanups(cleanupBefore);
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -815,11 +807,8 @@ public:
                            stmt->loc.toChars());
     LOG_SCOPE;
     
-    if (irs->dcomputetarget) {
-      stmt->error("no exceptions allowed in @compute code");
-      return;
-    }
-      
+    assert(!irs->dcomputetarget);
+
     auto &PGO = irs->funcGen().pgo;
 
     // Emit dwarf stop point
@@ -860,10 +849,7 @@ public:
     IF_LOG Logger::println("ThrowStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
-    if (irs->dcomputetarget) {
-      stmt->error("no exceptions allowed in @compute code");
-      return;
-    }
+    assert(!irs->dcomputetarget);
 
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
@@ -923,10 +909,8 @@ public:
     const bool isStringSwitch = !stmt->condition->type->isintegral();
     if (isStringSwitch) {
       Logger::println("is string switch");
-      if (irs->dcomputetarget) {
-        stmt->error("cannot switch on strings in @compute code");
-        return;
-      }
+      
+      assert(!irs->dcomputetarget);
 
       // Sort the cases, taking care not to modify the original AST.
       cases = cases->copy();

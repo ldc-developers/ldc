@@ -148,6 +148,8 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE
 
+    assert(!irs->dcomputetarget);
+
     if (decl->ir->isDefined()) {
       return;
     }
@@ -237,6 +239,8 @@ public:
     IF_LOG Logger::println("ClassDeclaration::codegen: '%s'",
                            decl->toPrettyChars());
     LOG_SCOPE
+
+    assert(!irs->dcomputetarget);
 
     if (decl->ir->isDefined()) {
       return;
@@ -330,6 +334,7 @@ public:
 
       assert(!(decl->storage_class & STCmanifest) &&
              "manifest constant being codegen'd!");
+      assert(!irs->dcomputetarget);
 
       IrGlobal *irGlobal = getIrGlobal(decl);
       LLGlobalVariable *gvar = llvm::cast<LLGlobalVariable>(irGlobal->value);
@@ -503,6 +508,7 @@ public:
   void visit(PragmaDeclaration *decl) LLVM_OVERRIDE {
     if (decl->ident == Id::lib) {
       assert(decl->args && decl->args->dim == 1);
+      assert(!irs->dcomputetarget);
 
       Expression *e = static_cast<Expression *>(decl->args->data[0]);
 
