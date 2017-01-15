@@ -258,7 +258,8 @@ void TryCatchScope::emitCatchBodiesMSVC(IRState &irs, llvm::Value *) {
   // so we can just set it unconditionally
   if (!irs.func()->hasLLVMPersonalityFn()) {
     const char *personality = "__CxxFrameHandler3";
-    irs.func()->setLLVMPersonalityFn(getRuntimeFunction(Loc(), irs.module, personality));
+    irs.func()->setLLVMPersonalityFn(
+        getRuntimeFunction(Loc(), irs.module, personality));
   }
 }
 
@@ -622,7 +623,8 @@ llvm::LandingPadInst *createLandingPadInst(IRState &irs) {
                         LLType::getInt32Ty(irs.context()), nullptr);
 #if LDC_LLVM_VER >= 307
   if (!irs.func()->hasLLVMPersonalityFn()) {
-    irs.func()->setLLVMPersonalityFn(getRuntimeFunction(Loc(), irs.module, "_d_eh_personality"));
+    irs.func()->setLLVMPersonalityFn(
+        getRuntimeFunction(Loc(), irs.module, "_d_eh_personality"));
   }
   return irs.ir->CreateLandingPad(retType, 0);
 #else
@@ -750,7 +752,8 @@ llvm::BasicBlock *
 TryCatchFinallyScopes::emitLandingPadMSVC(CleanupCursor cleanupScope) {
   if (!irs.func()->hasLLVMPersonalityFn()) {
     const char *personality = "__CxxFrameHandler3";
-    irs.func()->setLLVMPersonalityFn(getRuntimeFunction(Loc(), irs.module, personality));
+    irs.func()->setLLVMPersonalityFn(
+        getRuntimeFunction(Loc(), irs.module, personality));
   }
 
   if (cleanupScope == 0)

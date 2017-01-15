@@ -36,22 +36,21 @@ struct IrFunction {
 
   void setLLVMFunc(llvm::Function *function);
 
-  /// Get 'real' llvm function, this function should be used if your need to
-  /// access to function IR or attributes
+  /// Returns the associated LLVM function.
+  /// Use getLLVMCallee() for the LLVM function to be used for calls.
   llvm::Function *getLLVMFunc() const;
   llvm::CallingConv::ID getCallingConv() const;
   llvm::FunctionType *getLLVMFuncType() const;
+  llvm::StringRef getLLVMFuncName() const;
 
 #if LDC_LLVM_VER >= 307
   bool hasLLVMPersonalityFn() const;
   void setLLVMPersonalityFn(llvm::Constant *personality);
 #endif
 
-  llvm::StringRef getLLVMFuncName() const;
-
-  /// Get llvm function suitable for a calling, this function should be used
-  /// if you need to make a call or to take function address
-  llvm::Function *getCallee() const;
+  /// Returns the associated LLVM function to be used for calls (potentially
+  /// some sort of wrapper, e.g., a JIT wrapper).
+  llvm::Function *getLLVMCallee() const;
 
   FuncDeclaration *decl = nullptr;
   TypeFunction *type = nullptr;
@@ -97,18 +96,12 @@ private:
 IrFunction *getIrFunc(FuncDeclaration *decl, bool create = false);
 bool isIrFuncCreated(FuncDeclaration *decl);
 
-/// Get 'real' llvm function, this function should be used if your need to
-/// access to function IR or attributes
-llvm::Function *DtoFunc(FuncDeclaration *decl, bool create = false);
+/// Returns the associated LLVM function.
+/// Use DtoCallee() for the LLVM function to be used for calls.
+llvm::Function *DtoFunction(FuncDeclaration *decl, bool create = false);
 
-/// Get llvm function suitable for a calling, this function should be used
-/// if you need to make a call or to take function address
+/// Returns the associated LLVM function to be used for calls (potentially
+/// some sort of wrapper, e.g., a JIT wrapper).
 llvm::Function *DtoCallee(FuncDeclaration *decl, bool create = false);
-
-llvm::StringRef DtoFuncName(FuncDeclaration *decl);
-
-#if LDC_LLVM_VER >= 308
-void DtoSetFuncSubprogram(FuncDeclaration *decl, llvm::DISubprogram *SP);
-#endif
 
 #endif

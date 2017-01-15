@@ -74,7 +74,7 @@ llvm::StringRef IrFunction::getLLVMFuncName() const {
   return func->getName();
 }
 
-llvm::Function *IrFunction::getCallee() const {
+llvm::Function *IrFunction::getLLVMCallee() const {
   assert(func != nullptr);
   return func;
 }
@@ -97,24 +97,12 @@ bool isIrFuncCreated(FuncDeclaration *decl) {
   return t == IrDsymbol::FuncType;
 }
 
-llvm::Function *DtoFunc(FuncDeclaration *decl, bool create) {
+llvm::Function *DtoFunction(FuncDeclaration *decl, bool create) {
   assert(decl != nullptr);
   return getIrFunc(decl, create)->getLLVMFunc();
 }
 
 llvm::Function *DtoCallee(FuncDeclaration *decl, bool create) {
   assert(decl != nullptr);
-  return getIrFunc(decl, create)->getCallee();
+  return getIrFunc(decl, create)->getLLVMCallee();
 }
-
-llvm::StringRef DtoFuncName(FuncDeclaration *decl) {
-  assert(decl != nullptr);
-  return getIrFunc(decl)->getLLVMFuncName();
-}
-
-#if LDC_LLVM_VER >= 308
-void DtoSetFuncSubprogram(FuncDeclaration *decl, llvm::DISubprogram *SP) {
-  assert(decl != nullptr);
-  getIrFunc(decl)->getLLVMFunc()->setSubprogram(SP);
-}
-#endif

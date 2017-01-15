@@ -828,7 +828,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
   auto SP = DBuilder.createFunction(
       CU,                                 // context
       fd->toPrettyChars(),                // name
-      DtoFuncName(fd),                    // linkage name
+      getIrFunc(fd)->getLLVMFuncName(),   // linkage name
       file,                               // file
       fd->loc.linnum,                     // line no
       DIFnType,                           // type
@@ -839,12 +839,12 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
       isOptimizationEnabled()             // isOptimized
 #if LDC_LLVM_VER < 308
       ,
-      DtoFunc(fd)
+      DtoFunction(fd)
 #endif
       );
 #if LDC_LLVM_VER >= 308
   if (fd->fbody)
-    DtoSetFuncSubprogram(fd, SP);
+    DtoFunction(fd)->setSubprogram(SP);
 #endif
   return SP;
 }
@@ -888,12 +888,12 @@ ldc::DISubprogram ldc::DIBuilder::EmitThunk(llvm::Function *Thunk,
       isOptimizationEnabled()             // isOptimized
 #if LDC_LLVM_VER < 308
       ,
-      DtoFunc(fd)
+      DtoFunction(fd)
 #endif
       );
 #if LDC_LLVM_VER >= 308
   if (fd->fbody)
-    DtoSetFuncSubprogram(fd, SP);
+    DtoFunction(fd)->setSubprogram(SP);
 #endif
   return SP;
 }
