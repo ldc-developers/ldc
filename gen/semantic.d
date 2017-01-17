@@ -10,17 +10,18 @@
 module gen.semantic;
 
 import ddmd.arraytypes;
-import gen.semanticdcompute;
+import ddmd.dsymbol;
+import ddmd.dmodule;
 
 extern(C++) void dcomputeSemanticAnalysis(Module m);
-extern(C++) int 
+extern(C++) int hasComputeAttr(Dsymbol m);
 
-void extraLDCSpecificSemanticAnalysis(Modules modules)
+extern(C++) void extraLDCSpecificSemanticAnalysis(ref Modules modules)
 {
     for (size_t i = 0; i < modules.dim; i++)
     {
         Module m = modules[i];
-        if (hasComputeAttr(m)
+        if (hasComputeAttr(m))
             dcomputeSemanticAnalysis(m);
     }
     

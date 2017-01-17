@@ -6,6 +6,7 @@ import ldc.attributes;
 import tests.semantic.inputs.notatcompute : somefunc;
 
 extern(C) bool perhaps();
+extern(C) bool __dcompute_reflect(int,int);
 //CHECK: Error: interfaces and classes not allowed in @compute code
 interface I {}
 
@@ -47,6 +48,9 @@ void func()
     
     //CHECK: Error: can only call functions from other @compute modules in @compute code
     somefunc();
+    if (__dcompute_reflect(0,0))
+        //CHECK-NOT: Error: can only call functions from other @compute modules in @compute code
+        somefunc();
     
     //CHECK: Error: no exceptions in @compute code
     try

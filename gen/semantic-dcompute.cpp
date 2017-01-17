@@ -16,151 +16,152 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #include "gen/recursivevisitor.h"
+#include "gen/uda.h"
+#include "gen/dcomputetarget.h"
+#include "ddmd/declaration.h"
+#include "ddmd/module.h"
+#include "ddmd/identifier.h"
+#include "id.h"
 
 struct DComputeSemantic : public StoppableVisitor {
-    // InterfaceDeclaration
-    // ClassDeclaration
-    // VarDeclaration : isDataSeg (global variable)
-    // PragmaDeclaration : pragma(lib, "...")
-    // nogc
-    // nothrow
-    // no typeid
-    // no string switches
-    // no synchronized
+  // InterfaceDeclaration
+  // ClassDeclaration
+  // VarDeclaration : isDataSeg (global variable)
+  // PragmaDeclaration : pragma(lib, "...")
+  // nogc
+  // nothrow
+  // no typeid
+  // no string switches
+  // no synchronized
+
+  void visit(InterfaceDeclaration *decl) override {
+    decl->error("interfaces and classes not allowed in @compute code");
+    stop = true;
+  }
+  void visit(ClassDeclaration *decl) override {
+    decl->error("interfaces and classes not allowed in @compute code");
+    stop = true;
+  }
+  void visit(VarDeclaration *decl) override {
+    if (decl->isDataseg()) {
+      decl->error("global variables not allowed in @compute code");
+      stop = true;
+    }
+    if (decl->type->ty == Taarray) {
+      decl->error("associative arrays not allowed in @compute code");
+      stop = true;
+    }
+  }
+  void visit(PragmaDeclaration *decl) override {
+    if (decl->ident == Id::lib) {
+      decl->error(
+          "linking additional libraries not supported in @compute code");
+      stop = true;
+    }
+  }
+
+  // Nogc enforcement.
+  // No need to check AssocArrayLiteral because AA's are benned anyway
+  void visit(ArrayLiteralExp *e) override {
+    if (e->type->ty != Tarray || !e->elements || !e->elements->dim)
+      return;
+    e->error("array literal in @compute code not allowed");
+    stop = true;
+  }
+  void visit(NewExp *e) override {
+    e->error("cannot use 'new' in @compute code");
+    stop = true;
+  }
+
+  void visit(DeleteExp *e) override {
+    e->error("cannot use 'delete' in @compute code");
+    stop = true;
+  }
+  // No need to check IndexExp because AA's are banned anyway
+  void visit(AssignExp *e) override {
+    if (e->e1->op == TOKarraylength) {
+      e->error("setting 'length' in @compute code not allowed");
+      stop = true;
+    }
+  }
+
+  void visit(CatAssignExp *e) override {
+    e->error("cannot use operator ~= in @compute code");
+    stop = true;
+  }
+  void visit(CatExp *e) override {
+    e->error("cannot use operator ~ in @compute code");
+    stop = true;
+  }
+  // Ban typeid(T)
+  void visit(TypeidExp *e) override {
+    e->error("typeinfo not available in @compute code");
+    stop = true;
+  }
+  void visit(SynchronizedStatement *e) override {
+    e->error("cannot use 'synchronized' in @compute code");
+    stop = true;
+  }
+
+  void visit(StringExp *e) override {
+    e->error("string literals not allowed in @compue code");
+    stop = true;
+  }
+  void visit(CompoundAsmStatement *e) override {
+    e->error("asm not allowed in @compute code");
+    stop = true;
+  }
+  void visit(AsmStatement *e) override {
+    e->error("asm not allowed in @compute code");
+    stop = true;
+  }
+  // nothrow
+
+  void visit(TryCatchStatement *e) override {
+    e->error("no exceptions in @compute code");
+    stop = true;
+  }
+  void visit(ThrowStatement *e) override {
+    e->error("no exceptions in @compute code");
+    stop = true;
+  }
+  void visit(SwitchStatement *e) override {
+    if (!e->condition->type->isintegral()) {
+      e->error("cannot switch on strings in @compute code");
+      stop = true;
+    }
+  }
     
-    void visit(InterfaceDeclaration *decl) {
-        decl->error("interfaces and classes not allowed in @compute code");
-        stop = true;
-    }
-    void visit(ClassDeclaration *decl) {
-        decl->error("interfaces and classes not allowed in @compute code");
-        stop = true;
-    }
-    void visit(VarDeclaration *decl) {
-        if (decl->isDataseg())
-        {
-            decl->error("global variables not allowed in @compute code");
+  void visit(IfStatement *stmt) override {
+    if (stmt->condition->op == TOKcall) {
+      auto ce = (CallExp *)stmt->condition;
+      if (ce->f && ce->f->ident && ! strcmp(ce->f->ident->string,
+                                            "__dcompute_reflect")) {
+        auto arg1 = (DComputeTarget::ID)(*ce->arguments)[0]->toInteger();
+        if (arg1 == DComputeTarget::Host)
+            // Alllow code explicily for host to bypass the call only @conpute
+            // restriction below.
             stop = true;
-        }
-        if (decl->type->ty == Taarray)
-        {
-            decl->error("associative arrays not allowed in @compute code");
-            stop = true;
-        }
+      }
     }
-    void visit(PragmaDeclaration *decl) {
-        if (decl->ident == Id::lib)
-        {
-            decl->error("linking additional libraries not supported in @compute code");
-            stop = true;
-        }
+  }
+  void visit(CallExp *e) override {
+    if (!hasComputeAttr(e->f->getModule())) {
+      e->error("can only call functions from other @compute modules in "
+                "@compute code");
+      stop = true;
     }
-    
-    // Nogc enforcement.
-    // No need to check AssocArrayLiteral because AA's are benned anyway
-    void visit(ArrayLiteralExp* e) override
-    {
-        if (e->type.ty != Tarray || !e->elements || !e->elements->dim)
-            return;
-        e->error("array literal in @compute code not allowed");
-        stop = true;
-    }
-    void visit(NewExp* e) override
-    {
-        e->error("cannot use 'new' in @compute code");
-        stop = true;
-    }
-    
-    void visit(DeleteExp* e) override
-    {
-        e->error("cannot use 'delete' in @compute code");
-        stop = true;
-    }
-    // No need to check IndexExp because AA's are banned anyway
-    void visit(AssignExp* e) override
-    {
-        if (e->e1->op == TOKarraylength)
-        {
-            e->error("setting 'length' in @compute code not allowed");
-            stop = true;
-        }
-    }
-    
-    void visit(CatAssignExp* e) override
-    {
-        e->error("cannot use operator ~= in @compute code");
-        stop = true;
-    }
-    void visit(CatExp* e) override
-    {
-        e->error("cannot use operator ~ in @compute code");
-        stop = true;
-    }
-    // Ban typeid(T)
-    void visit(TypeIdExpression *e) override
-    {
-        e->error("typeinfo not available in @compute code");
-        stop = true;
-    }
-    void visit(SynchronizedStatement *e)
-    {
-        e->error("cannot use 'synchronized' in @compute code");
-        stop = true;
-    }
-    
-    void visit(CallExp *e)
-    {
-        if (!hasComputeAttr(e->f->getModule())) {
-            e->error("can only call functions from other @compute modules in @compute code");
-            stop = true;
-        }
-    }
-    void visit(StringLiteralExp *e)
-    {
-        e->error("string literals not allowed in @compue code");
-        stop = true;
-    }
-    void visit(CompoundAsmStatement *e)
-    {
-        e->error("asm not allowed in @compute code");
-        stop = true;
-    }
-    void visit(AsmStatement *e)
-    {
-        e->error("asm not allowed in @compute code");
-        stop = true;
-    }
-    // nothrow
-    
-    void visit(TryCatchStatement *e)
-    {
-        e->error("no exceptions in @compute code");
-        stop = true;
-    }
-    void visit(ThrowStatement *e)
-    {
-        e->error("no exceptions in @compute code");
-        stop = true;
-    }
-    void visit(SwitchStatement *e)
-    {
-        if (!s->condition->type->isintegral())
-        {
-            e->error("cannot switch on strings in @compute code");
-            stop = true;
-        }
-    }
-}
+  }
+};
 
 void dcomputeSemanticAnalysis(Module * m)
 {
-    DComputeSemantic v;
-    RecursiveWalker r(&v);
-    for (unsigned k = 0; k < m->members->dim; k++) {
-        Dsymbol *dsym = (*m->members)[k];
-        assert(dsym);
-        dsym->accept(&r);
-    }
+  DComputeSemantic v;
+  RecursiveWalker r(&v);
+  for (unsigned k = 0; k < m->members->dim; k++) {
+    Dsymbol *dsym = (*m->members)[k];
+    assert(dsym);
+    dsym->accept(&r);
+  }
 }
