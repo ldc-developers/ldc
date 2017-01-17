@@ -134,7 +134,7 @@ const char *getFirstElemString(StructLiteralExp *sle) {
 // @allocSize(1)
 // @allocSize(0,2)
 void applyAttrAllocSize(StructLiteralExp *sle, IrFunction *irFunc) {
-  llvm::Function *func = irFunc->func;
+  llvm::Function *func = irFunc->getLLVMFunc();
 
   checkStructElems(sle, {Type::tint32, Type::tint32});
   auto sizeArgIdx = getIntElem(sle, 0);
@@ -236,6 +236,7 @@ void applyAttrOptStrategy(StructLiteralExp *sle, IrFunction *irFunc) {
   checkStructElems(sle, {Type::tstring});
   llvm::StringRef value = getStringElem(sle, 0);
 
+  llvm::Function *func = irFunc->getLLVMFunc();
   if (value == "none") {
     if (irFunc->decl->inlining == PINLINEalways) {
       sle->error("cannot combine '@ldc.attributes.%s(\"none\")' with "
@@ -244,11 +245,11 @@ void applyAttrOptStrategy(StructLiteralExp *sle, IrFunction *irFunc) {
       return;
     }
     irFunc->decl->inlining = PINLINEnever;
-    irFunc->func->addFnAttr(llvm::Attribute::OptimizeNone);
+    func->addFnAttr(llvm::Attribute::OptimizeNone);
   } else if (value == "optsize") {
-    irFunc->func->addFnAttr(llvm::Attribute::OptimizeForSize);
+    func->addFnAttr(llvm::Attribute::OptimizeForSize);
   } else if (value == "minsize") {
-    irFunc->func->addFnAttr(llvm::Attribute::MinSize);
+    func->addFnAttr(llvm::Attribute::MinSize);
   } else {
     sle->warning(
         "ignoring unrecognized parameter '%s' for '@ldc.attributes.%s'",
@@ -359,7 +360,7 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
   if (!decl->userAttribDecl)
     return;
 
-  llvm::Function *func = irFunc->func;
+  llvm::Function *func = irFunc->getLLVMFunc();
   assert(func);
 
   Expressions *attrs = decl->userAttribDecl->getAttributes();

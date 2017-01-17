@@ -602,7 +602,7 @@ void addCoverageAnalysis(Module *m) {
         FuncDeclaration::genCfunc(nullptr, Type::tvoid, ctorname.c_str());
     fd->linkage = LINKd;
     IrFunction *irfunc = getIrFunc(fd, true);
-    irfunc->func = ctor;
+    irfunc->setLLVMFunc(ctor);
     getIrModule(m)->sharedCtors.push_back(fd);
   }
 
