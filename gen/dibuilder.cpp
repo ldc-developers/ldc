@@ -695,7 +695,9 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type, bool derefclass) {
                                       8, 8, "typeof(null)");
   if (t->ty == Tvector)
     return CreateVectorType(type);
-  if (t->isintegral() || t->isfloating()) {
+  if (t->isfloating())
+    return CreateBasicType(type);
+  if (t->isintegral()) {
     if (type->ty == Tenum)
       return CreateEnumType(type);
     return CreateBasicType(type);
