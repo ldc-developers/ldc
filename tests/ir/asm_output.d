@@ -4,7 +4,6 @@
 int main() {
     return 42;
 // Try to keep these very simple checks independent of architecture:
-// LLVM:  ret i32 42 
-// ASM:  $42
-// ASM:  ret
+// LLVM:  ret i32 42
+// ASM:  {{(\$|#|.long )}}42
 }
