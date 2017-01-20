@@ -94,6 +94,8 @@ struct CxxExceptionInfo
     version(Win64) void* ImgBase;
 }
 
+extern(C) Throwable.TraceInfo _d_traceContext(void* ptr = null);
+
 extern(C) void _d_throw_exception(Object e)
 {
     if (e is null)
@@ -109,12 +111,16 @@ extern(C) void _d_throw_exception(Object e)
         if (!old_terminate_handler)
             old_terminate_handler = set_terminate(&msvc_eh_terminate);
     }
-    auto t = cast(Throwable) e;
-    exceptionStack.push(t);
+    
+    auto throwable = cast(Throwable) e;
+    exceptionStack.push(throwable);
+
+    if (throwable.info is null && cast(byte*)throwable !is typeid(throwable).init.ptr)
+        throwable.info = _d_traceContext();
 
     CxxExceptionInfo info;
     info.Magic = EH_MAGIC_NUMBER1;
-    info.pThrowable = &t;
+    info.pThrowable = &throwable;
     info.ThrowInfo = getThrowInfo(ti).toPointer;
     version(Win64) info.ImgBase = ehHeap.base;
 

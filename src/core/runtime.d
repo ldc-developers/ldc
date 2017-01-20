@@ -760,11 +760,17 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
     {
         version (Win64)
         {
-            static enum FIRSTFRAME = 4;
+            version (LDC)
+                static enum FIRSTFRAME = 1;
+            else
+                static enum FIRSTFRAME = 4;
         }
         else version (Win32)
         {
-            static enum FIRSTFRAME = 0;
+            version (LDC)
+                static enum FIRSTFRAME = 1;
+            else
+                static enum FIRSTFRAME = 0;
         }
         import core.sys.windows.windows : CONTEXT;
         auto s = new StackTrace(FIRSTFRAME, cast(CONTEXT*)ptr);
