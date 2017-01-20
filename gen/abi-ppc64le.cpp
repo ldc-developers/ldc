@@ -49,7 +49,6 @@ struct PPC64LETargetABI : TargetABI {
 
   void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
     // return value
-    Type *retTy = fty.ret->type->toBasetype();
     if (!fty.ret->byref) {
       rewriteArgument(fty, *fty.ret);
     }
