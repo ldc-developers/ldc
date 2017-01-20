@@ -69,10 +69,10 @@ USAGE: ldc-prune-cache [OPTION]... PATH
 
 OPTIONS:
   --expiration=<dur>     Sets the pruning expiration time of cache files to
-                         <duration> seconds (default: 1 week).
+                         <dur> seconds (default: 1 week).
   -f, --force            Force pruning, ignoring the prune interval.
   -h, --help             Show this message.
-  --interval=<dur>       Sets the cache pruning interval to <duration> seconds
+  --interval=<dur>       Sets the cache pruning interval to <dur> seconds
                          (default: 20 min). Set to 0 to force pruning, see -f.
   --max-bytes=<size>     Sets the cache size absolute limit to <size> bytes
                          (default: no absolute limit).
