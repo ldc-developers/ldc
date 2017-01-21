@@ -107,28 +107,24 @@ void DtoSetArrayToNull(LLValue *v) {
 ////////////////////////////////////////////////////////////////////////////////
 
 static void DtoArrayInit(Loc &loc, LLValue *ptr, LLValue *length,
-                         DValue *dvalue) {
+                         DValue *elementValue) {
   IF_LOG Logger::println("DtoArrayInit");
   LOG_SCOPE;
 
-  // lets first optimize all zero/constant i8 initializations down to a memset.
-  // this simplifies codegen later on as llvm null's have no address!
-  if (!dvalue->isLVal()) {
-    LLConstant *constantVal = isaConstant(DtoRVal(dvalue));
-    if (constantVal &&
-        (constantVal->isNullValue() ||
-         constantVal->getType() == LLType::getInt8Ty(gIR->context()))) {
+  // Let's first optimize all zero/i8 initializations down to a memset.
+  // This simplifies codegen later on as llvm null's have no address!
+  if (!elementValue->isLVal() || !DtoIsInMemoryOnly(elementValue->type)) {
+    LLValue *val = DtoRVal(elementValue);
+    LLConstant *constantVal = isaConstant(val);
+    bool isNullConstant = (constantVal && constantVal->isNullValue());
+    if (isNullConstant || val->getType() == LLType::getInt8Ty(gIR->context())) {
       LLValue *size = length;
-      size_t elementSize = getTypeAllocSize(constantVal->getType());
+      size_t elementSize = getTypeAllocSize(val->getType());
       if (elementSize != 1) {
         size = gIR->ir->CreateMul(length, DtoConstSize_t(elementSize),
                                   ".arraysize");
       }
-      if (constantVal->isNullValue()) {
-        DtoMemSetZero(ptr, size);
-      } else {
-        DtoMemSet(ptr, constantVal, size);
-      }
+      DtoMemSet(ptr, isNullConstant ? DtoConstUbyte(0) : val, size);
       return;
     }
   }
@@ -161,9 +157,9 @@ static void DtoArrayInit(Loc &loc, LLValue *ptr, LLValue *length,
 
   LLValue *itr_val = DtoLoad(itr);
   // assign array element value
-  DLValue arrayelem(dvalue->type->toBasetype(),
+  DLValue arrayelem(elementValue->type->toBasetype(),
                     DtoGEP1(ptr, itr_val, true, "arrayinit.arrayelem"));
-  DtoAssign(loc, &arrayelem, dvalue, TOKblit);
+  DtoAssign(loc, &arrayelem, elementValue, TOKblit);
 
   // increment iterator
   DtoStore(gIR->ir->CreateAdd(itr_val, DtoConstSize_t(1), "arrayinit.new_itr"),
