@@ -248,6 +248,12 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
   LLValue *lhsPtr = DtoBitCast(realLhsPtr, getVoidPtrType());
   LLValue *lhsLength = DtoArrayLen(lhs);
 
+  auto computeSize = [](LLValue *length, size_t elementSize) {
+    return elementSize == 1
+               ? length
+               : gIR->ir->CreateMul(length, DtoConstSize_t(elementSize));
+  };
+
   // Be careful to handle void arrays correctly when modifying this (see tests
   // for DMD issue 7493).
   // TODO: This should use AssignExp::memset.
@@ -264,14 +270,13 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
 
     if (!needsDestruction && !needsPostblit) {
       // fast version
-      LLValue *elemSize =
-          DtoConstSize_t(getTypeAllocSize(DtoMemType(elemType)));
-      LLValue *lhsSize = gIR->ir->CreateMul(elemSize, lhsLength);
+      const size_t elementSize = getTypeAllocSize(DtoMemType(elemType));
+      LLValue *lhsSize = computeSize(lhsLength, elementSize);
 
       if (rhs->isNull()) {
         DtoMemSetZero(lhsPtr, lhsSize);
       } else {
-        LLValue *rhsSize = gIR->ir->CreateMul(elemSize, rhsLength);
+        LLValue *rhsSize = computeSize(rhsLength, elementSize);
         const bool knownInBounds =
             isConstructing || (t->ty == Tsarray && t2->ty == Tsarray);
         copySlice(loc, lhsPtr, lhsSize, rhsPtr, rhsSize, knownInBounds);
@@ -302,13 +307,19 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
 
     if (!needsDestruction && !needsPostblit) {
       // fast version
-      LLValue *elemSize = DtoConstSize_t(
-          getTypeAllocSize(realLhsPtr->getType()->getContainedType(0)));
-      LLValue *lhsSize = gIR->ir->CreateMul(elemSize, lhsLength);
+      const size_t lhsElementSize =
+          getTypeAllocSize(realLhsPtr->getType()->getContainedType(0));
       LLType *rhsType = DtoMemType(t2);
-      LLValue *rhsSize = DtoConstSize_t(getTypeAllocSize(rhsType));
-      LLValue *actualPtr = DtoBitCast(lhsPtr, rhsType->getPointerTo());
-      LLValue *actualLength = gIR->ir->CreateExactUDiv(lhsSize, rhsSize);
+      const size_t rhsSize = getTypeAllocSize(rhsType);
+      LLValue *actualPtr = DtoBitCast(realLhsPtr, rhsType->getPointerTo());
+      LLValue *actualLength = lhsLength;
+      if (rhsSize != lhsElementSize) {
+        LLValue *lhsSize = computeSize(lhsLength, lhsElementSize);
+        actualLength =
+            rhsSize == 1
+                ? lhsSize
+                : gIR->ir->CreateExactUDiv(lhsSize, DtoConstSize_t(rhsSize));
+      }
       DtoArrayInit(loc, actualPtr, actualLength, rhs);
     } else {
       LLFunction *fn = getRuntimeFunction(loc, gIR->module,
