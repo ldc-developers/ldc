@@ -116,25 +116,27 @@ struct RegCount {
         int_regs += elementRegCount.int_regs;
         sse_regs += elementRegCount.sse_regs;
       }
-
-      assert(int_regs + sse_regs <= 2);
-    } else { // not a struct
-      if (ty->isIntegerTy() || ty->isPointerTy()) {
-        ++int_regs;
-      } else if (ty->isFloatingPointTy() || ty->isVectorTy()) {
-        // X87 reals are passed on the stack
-        if (!ty->isX86_FP80Ty()) {
-          ++sse_regs;
-        }
-      } else {
-        unsigned sizeInBits = gDataLayout->getTypeSizeInBits(ty);
-        IF_LOG Logger::cout()
-            << "SysV RegCount: assuming 1 GP register for type " << *ty << " ("
-            << sizeInBits << " bits)\n";
-        assert(sizeInBits > 0 && sizeInBits <= 64);
-        ++int_regs;
+    } else if (LLArrayType *arrayTy = isaArray(ty)) {
+      char N = static_cast<char>(arrayTy->getNumElements());
+      RegCount elementRegCount(arrayTy->getElementType());
+      int_regs = N * elementRegCount.int_regs;
+      sse_regs = N * elementRegCount.sse_regs;
+    } else if (ty->isIntegerTy() || ty->isPointerTy()) {
+      ++int_regs;
+    } else if (ty->isFloatingPointTy() || ty->isVectorTy()) {
+      // X87 reals are passed on the stack
+      if (!ty->isX86_FP80Ty()) {
+        ++sse_regs;
       }
+    } else {
+      unsigned sizeInBits = gDataLayout->getTypeSizeInBits(ty);
+      IF_LOG Logger::cout() << "SysV RegCount: assuming 1 GP register for type "
+                            << *ty << " (" << sizeInBits << " bits)\n";
+      assert(sizeInBits > 0 && sizeInBits <= 64);
+      ++int_regs;
     }
+
+    assert(int_regs + sse_regs <= 2);
   }
 
   enum SubtractionResult {

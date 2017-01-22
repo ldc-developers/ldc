@@ -55,7 +55,7 @@
 #endif
 
 static llvm::cl::opt<bool, true>
-    preservePaths("op", llvm::cl::desc("Do not strip paths from source file"),
+    preservePaths("op", llvm::cl::desc("Preserve source path for output files"),
                   llvm::cl::ZeroOrMore,
                   llvm::cl::location(global.params.preservePaths));
 
@@ -602,7 +602,7 @@ void addCoverageAnalysis(Module *m) {
         FuncDeclaration::genCfunc(nullptr, Type::tvoid, ctorname.c_str());
     fd->linkage = LINKd;
     IrFunction *irfunc = getIrFunc(fd, true);
-    irfunc->func = ctor;
+    irfunc->setLLVMFunc(ctor);
     getIrModule(m)->sharedCtors.push_back(fd);
   }
 

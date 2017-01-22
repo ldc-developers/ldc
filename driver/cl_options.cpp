@@ -69,7 +69,7 @@ static cl::opt<ubyte, true> useDeprecated(
 
 cl::opt<bool, true>
     enforcePropertySyntax("property", cl::desc("Enforce property syntax"),
-                          cl::ZeroOrMore,
+                          cl::ZeroOrMore, cl::ReallyHidden,
                           cl::location(global.params.enforcePropertySyntax));
 
 cl::opt<bool> compileOnly("c", cl::desc("Do not link"), cl::ZeroOrMore);
@@ -79,10 +79,9 @@ static cl::opt<bool, true> createStaticLib("lib",
                                            cl::ZeroOrMore,
                                            cl::location(global.params.lib));
 
-static cl::opt<bool, true> createSharedLib("shared",
-                                           cl::desc("Create shared library"),
-                                           cl::ZeroOrMore,
-                                           cl::location(global.params.dll));
+static cl::opt<bool, true>
+    createSharedLib("shared", cl::desc("Create shared library (DLL)"),
+                    cl::ZeroOrMore, cl::location(global.params.dll));
 
 static cl::opt<bool, true> verbose("v", cl::desc("Verbose"), cl::ZeroOrMore,
                                    cl::location(global.params.verbose));
@@ -105,11 +104,13 @@ static cl::opt<unsigned, true> errorLimit(
     cl::desc("limit the number of error messages (0 means unlimited)"),
     cl::location(global.errorLimit));
 
-static cl::opt<ubyte, true>
-    warnings(cl::desc("Warnings:"), cl::ZeroOrMore,
-             clEnumValues(clEnumValN(1, "w", "Enable warnings"),
-                          clEnumValN(2, "wi", "Enable informational warnings")),
-             cl::location(global.params.warnings), cl::init(0));
+static cl::opt<ubyte, true> warnings(
+    cl::desc("Warnings:"), cl::ZeroOrMore,
+    clEnumValues(
+        clEnumValN(1, "w", "Enable warnings as errors (compilation will halt)"),
+        clEnumValN(2, "wi",
+                   "Enable warnings as messages (compilation will continue)")),
+    cl::location(global.params.warnings), cl::init(0));
 
 static cl::opt<bool, true> ignoreUnsupportedPragmas(
     "ignore", cl::desc("Ignore unsupported pragmas"), cl::ZeroOrMore,
@@ -117,9 +118,11 @@ static cl::opt<bool, true> ignoreUnsupportedPragmas(
 
 static cl::opt<ubyte, true> debugInfo(
     cl::desc("Generating debug information:"), cl::ZeroOrMore,
-    clEnumValues(clEnumValN(1, "g", "Generate debug information"),
-                 clEnumValN(2, "gc", "Same as -g, but pretend to be C"),
-                 clEnumValN(3, "gline-tables-only", "Generate line-tables-only")),
+    clEnumValues(
+        clEnumValN(1, "g", "Add symbolic debug info"),
+        clEnumValN(2, "gc",
+                   "Add symbolic debug info, optimize for non D debuggers"),
+        clEnumValN(3, "gline-tables-only", "Add line tables only")),
     cl::location(global.params.symdebug), cl::init(0));
 
 static cl::opt<unsigned, true>
@@ -217,7 +220,7 @@ static cl::list<std::string, StringsAdapter>
                       cl::Prefix);
 
 static cl::opt<bool, true>
-    addMain("main", cl::desc("Add empty main() (e.g. for unittesting)"),
+    addMain("main", cl::desc("Add default main() (e.g. for unittesting)"),
             cl::ZeroOrMore, cl::location(global.params.addMain));
 
 // -d-debug is a bit messy, it has 3 modes:
