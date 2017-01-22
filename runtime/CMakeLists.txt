@@ -314,7 +314,7 @@ macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
                 ${LDC_EXE}
                 ${LDC_EXE_FULL}
                 ${GCCBUILTINS}
-                ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
+                ${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in
     )
 endmacro()
 
