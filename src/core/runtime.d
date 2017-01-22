@@ -758,19 +758,17 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
     }
     else static if( __traits( compiles, new StackTrace(0, null) ) )
     {
-        version (Win64)
+        version (LDC)
         {
-            version (LDC)
-                static enum FIRSTFRAME = 1;
-            else
-                static enum FIRSTFRAME = 4;
+            static enum FIRSTFRAME = 0;
+        }
+        else version (Win64)
+        {
+            static enum FIRSTFRAME = 4;
         }
         else version (Win32)
         {
-            version (LDC)
-                static enum FIRSTFRAME = 1;
-            else
-                static enum FIRSTFRAME = 0;
+            static enum FIRSTFRAME = 0;
         }
         import core.sys.windows.windows : CONTEXT;
         auto s = new StackTrace(FIRSTFRAME, cast(CONTEXT*)ptr);

@@ -45,7 +45,9 @@ public:
     {
         if(context is null)
         {
-            version(Win64)
+            version(LDC)
+                static enum INTERNALFRAMES = 0;
+            else version(Win64)
                 static enum INTERNALFRAMES = 3;
             else version(Win32)
                 static enum INTERNALFRAMES = 2;
@@ -251,6 +253,7 @@ private:
         symbol.MaxNameLength = bufSymbol._buf.length;
 
         char[][] trace;
+        version (LDC) bool haveEncounteredDThrowException = false;
         foreach(pc; addresses)
         {
             if( pc != 0 )
@@ -259,6 +262,24 @@ private:
                 if (dbghelp.SymGetSymFromAddr64(hProcess, pc, null, symbol) &&
                     *symbol.Name.ptr)
                 {
+                    version (LDC)
+                    {
+                        // when encountering the first `_d_throw_exception()` frame,
+                        // clear the current trace and continue with the next frame
+                        if (!haveEncounteredDThrowException)
+                        {
+                            auto len = strlen(symbol.Name.ptr);
+                            // ignore missing leading underscore (Win64 release) or additional module prefix (Win64 debug)
+                            //import core.stdc.stdio; printf("RAW: %s\n", symbol.Name.ptr);
+                            if (len >= 17 && symbol.Name.ptr[len-17 .. len] == "d_throw_exception")
+                            {
+                                haveEncounteredDThrowException = true;
+                                trace.length = 0;
+                                continue;
+                            }
+                        }
+                    }
+
                     DWORD disp;
                     IMAGEHLP_LINEA64 line=void;
                     line.SizeOfStruct = IMAGEHLP_LINEA64.sizeof;
@@ -411,6 +432,7 @@ shared static this()
     if (!dbghelp.SymInitialize(hProcess, generateSearchPath().ptr, TRUE))
         return;
 
+  version (LDC) {} else
     dbghelp.SymRegisterCallback64(hProcess, &FixupDebugHeader, 0);
 
     initialized = true;
