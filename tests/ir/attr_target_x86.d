@@ -1,9 +1,10 @@
 // Tests @target attribute for x86
 
 // REQUIRES: atleast_llvm307
+// REQUIRES: target_X86
 
-// RUN: %ldc -O -c -mcpu=i386 -mtriple i386-linux-gnu -output-ll -of=%t.ll %s && FileCheck %s --check-prefix LLVM < %t.ll
-// RUN: %ldc -O -c -mcpu=i386 -mtriple i386-linux-gnu -output-s -of=%t.s %s && FileCheck %s  --check-prefix ASM < %t.s
+// RUN: %ldc -O -c -mcpu=i386 -mtriple=i386-linux-gnu -output-ll -of=%t.ll %s && FileCheck %s --check-prefix LLVM < %t.ll
+// RUN: %ldc -O -c -mcpu=i386 -mtriple=i386-linux-gnu -output-s -of=%t.s %s && FileCheck %s  --check-prefix ASM < %t.s
 
 import ldc.attributes;
 
