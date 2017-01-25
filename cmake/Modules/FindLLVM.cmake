@@ -27,7 +27,7 @@
 # We also want an user-specified LLVM_ROOT_DIR to take precedence over the
 # system default locations such as /usr/local/bin. Executing find_program()
 # multiples times is the approach recommended in the docs.
-set(llvm_config_names llvm-config-4.1 llvm-config41
+set(llvm_config_names llvm-config-5.0 llvm-config50
                       llvm-config-4.0 llvm-config40
                       llvm-config-3.9 llvm-config39
                       llvm-config-3.8 llvm-config38
@@ -105,7 +105,7 @@ if ((WIN32 AND NOT(MINGW OR CYGWIN)) OR NOT LLVM_CONFIG)
             # Versions below 4.0 do not support component debuginfomsf
             list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfomsf" index)
         endif()
-        if(${LLVM_VERSION_STRING} MATCHES "^4\\.[\\.0-9A-Za-z]*")
+        if(${LLVM_VERSION_STRING} MATCHES "^[4-9]\\.[\\.0-9A-Za-z]*")
             # Versions beginning with 4. do not support component ipa
             list(REMOVE_ITEM LLVM_FIND_COMPONENTS "ipa" index)
         endif()
@@ -206,7 +206,7 @@ else()
         # Versions below 4.0 do not support component debuginfomsf
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfomsf" index)
     endif()
-    if(${LLVM_VERSION_STRING} MATCHES "^4\\.[\\.0-9A-Za-z]*")
+    if(${LLVM_VERSION_STRING} MATCHES "^[4-9]\\.[\\.0-9A-Za-z]*")
         # Versions beginning with 4. do not support component ipa
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "ipa" index)
     endif()

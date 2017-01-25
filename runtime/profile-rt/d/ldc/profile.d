@@ -13,6 +13,7 @@ module ldc.profile;
 
 version(LDC_LLVM_309) version = HASHED_FUNC_NAMES;
 version(LDC_LLVM_400) version = HASHED_FUNC_NAMES;
+version(LDC_LLVM_500) version = HASHED_FUNC_NAMES;
 
 @nogc:
 nothrow:
@@ -53,6 +54,16 @@ extern(C++) struct ProfileData {
         ushort NumValueSites;
     }
     else version(LDC_LLVM_400)
+    {
+        ulong NameRef;
+        ulong FuncHash;
+        ulong* Counters;
+        void* FunctionPointer;
+        void* Values;
+        uint NumCounters;
+        ushort NumValueSites;
+    }
+    else version(LDC_LLVM_500)
     {
         ulong NameRef;
         ulong FuncHash;
