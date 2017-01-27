@@ -15,6 +15,15 @@ module core.stdc.math;
 
 private import core.stdc.config;
 
+version (OSX)
+    version = Darwin;
+else version (iOS)
+    version = Darwin;
+else version (TVOS)
+    version = Darwin;
+else version (WatchOS)
+    version = Darwin;
+
 extern (C):
 @trusted: // All functions here operate on floating point and integer values only.
 nothrow:
@@ -58,6 +67,62 @@ else version (CRuntime_Bionic)
     enum int FP_ILOGB0        = -int.max;
     ///
     enum int FP_ILOGBNAN      = int.max;
+}
+else version (CRuntime_Glibc)
+{
+    version (X86)
+    {
+        ///
+        enum int FP_ILOGB0        = int.min;
+        ///
+        enum int FP_ILOGBNAN      = int.min;
+    }
+    else version (X86_64)
+    {
+        ///
+        enum int FP_ILOGB0        = int.min;
+        ///
+        enum int FP_ILOGBNAN      = int.min;
+    }
+    else version (ARM)
+    {
+        ///
+        enum int FP_ILOGB0        = -2147483647;
+        ///
+        enum int FP_ILOGBNAN      = 2147483647;
+    }
+    else version (AArch64)
+    {
+        ///
+        enum int FP_ILOGB0        = -2147483647;
+        ///
+        enum int FP_ILOGBNAN      = 2147483647;
+    }
+    else version (MIPS64)
+    {
+        ///
+        enum int FP_ILOGB0        = -2147483647;
+        ///
+        enum int FP_ILOGBNAN      = 2147483647;
+    }
+    else version (PPC)
+    {
+        ///
+        enum int FP_ILOGB0        = -2147483647;
+        ///
+        enum int FP_ILOGBNAN      = 2147483647;
+    }
+    else version (PPC64)
+    {
+        ///
+        enum int FP_ILOGB0        = -2147483647;
+        ///
+        enum int FP_ILOGBNAN      = 2147483647;
+    }
+    else
+    {
+        static assert(false, "Architecture not supported.");
+    }
 }
 else
 {
@@ -603,7 +668,7 @@ else version( MinGW )
     }
   }
 }
-else version( OSX )
+else version( Darwin )
 {
     enum
     {
@@ -617,8 +682,6 @@ else version( OSX )
         FP_NORMAL      = 4,
         ///
         FP_SUBNORMAL   = 5,
-        ///
-        FP_SUPERNORMAL = 6,
     }
 
     enum
@@ -633,38 +696,55 @@ else version( OSX )
 
     int __fpclassifyf(float x);
     int __fpclassifyd(double x);
-    int __fpclassify(real x);
 
     int __isfinitef(float x);
     int __isfinited(double x);
-    int __isfinite(real x);
 
     int __isinff(float x);
     int __isinfd(double x);
-    int __isinf(real x);
 
     int __isnanf(float x);
     int __isnand(double x);
-    int __isnan(real x);
+
+    // __isnormal family exists, but iOS implementation returns wrong results
+    // for subnormals
 
     int __signbitf(float x);
     int __signbitd(double x);
     int __signbitl(real x);
 
+    // Support of OSX < 10.8 needs legacy function names without "l" suffix
+    // with exception of __signbitl.  Otherwise could use else version like
+    // other Darwins
+    version (OSX)
+    {
+        int __fpclassify(real x);
+        int __isfinite(real x);
+        int __isinf(real x);
+        int __isnan(real x);
+        alias __fpclassifyl = __fpclassify;
+        alias __isfinitel = __isfinite;
+        alias __isinfl = __isinf;
+        alias __isnanl = __isnan;
+    }
+    else
+    {
+        // Available OSX >= 10.8, iOS >= 6.0, all TVOS and WatchOS
+        int __fpclassifyl(real x);
+        int __isfinitel(real x);
+        int __isinfl(real x);
+        int __isnanl(real x);
+    }
+
   extern (D)
   {
     //int fpclassify(real-floating x);
-      ///
+    ///
     int fpclassify(float x)     { return __fpclassifyf(x); }
     ///
     int fpclassify(double x)    { return __fpclassifyd(x); }
     ///
-    int fpclassify(real x)
-    {
-        return (real.sizeof == double.sizeof)
-            ? __fpclassifyd(x)
-            : __fpclassify(x);
-    }
+    int fpclassify(real x)      { return __fpclassifyl(x); }
 
     //int isfinite(real-floating x);
     ///
@@ -672,12 +752,7 @@ else version( OSX )
     ///
     int isfinite(double x)      { return __isfinited(x); }
     ///
-    int isfinite(real x)
-    {
-        return (real.sizeof == double.sizeof)
-            ? __isfinited(x)
-            : __isfinite(x);
-    }
+    int isfinite(real x)        { return __isfinitel(x); }
 
     //int isinf(real-floating x);
     ///
@@ -685,12 +760,7 @@ else version( OSX )
     ///
     int isinf(double x)         { return __isinfd(x); }
     ///
-    int isinf(real x)
-    {
-        return (real.sizeof == double.sizeof)
-            ? __isinfd(x)
-            : __isinf(x);
-    }
+    int isinf(real x)           { return __isinfl(x); }
 
     //int isnan(real-floating x);
     ///
@@ -698,12 +768,7 @@ else version( OSX )
     ///
     int isnan(double x)         { return __isnand(x); }
     ///
-    int isnan(real x)
-    {
-        return (real.sizeof == double.sizeof)
-            ? __isnand(x)
-            : __isnan(x);
-    }
+    int isnan(real x)           { return __isnanl(x); }
 
     //int isnormal(real-floating x);
     ///
@@ -719,12 +784,7 @@ else version( OSX )
     ///
     int signbit(double x)    { return __signbitd(x); }
     ///
-    int signbit(real x)
-    {
-        return (real.sizeof == double.sizeof)
-            ? __signbitd(x)
-            : __signbitl(x);
-    }
+    int signbit(real x)      { return __signbitl(x); }
   }
 }
 else version( FreeBSD )

@@ -12,18 +12,32 @@ module rt.sections;
 
 version (LDC)
     public import rt.sections_ldc;
+
+version (OSX)
+    version = Darwin;
+else version (iOS)
+    version = Darwin;
+else version (TVOS)
+    version = Darwin;
+else version (WatchOS)
+    version = Darwin;
+
 version (CRuntime_Glibc)
     public import rt.sections_elf_shared;
 else version (FreeBSD)
     public import rt.sections_elf_shared;
 else version (Solaris)
     public import rt.sections_solaris;
-else version (OSX)
+else version (Darwin)
 {
     version (LDC)
         public import rt.sections_elf_shared;
+    else version (X86_64)
+        public import rt.sections_osx_x86_64;
+    else version (X86)
+        public import rt.sections_osx_x86;
     else
-        public import rt.sections_osx;
+        static assert(0, "unimplemented");
 }
 else version (CRuntime_DigitalMars)
     public import rt.sections_win32;

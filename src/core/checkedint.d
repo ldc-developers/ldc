@@ -134,11 +134,11 @@ unittest
 static if (is(cent))
 {
 /// ditto
+pragma(inline, true)
 cent adds(cent x, cent y, ref bool overflow)
 {
     version(LDC)
     {
-        pragma(inline, true);
         if (!__ctfe)
         {
             auto res = llvm_sadd_with_overflow(x, y);
@@ -262,11 +262,11 @@ unittest
 static if (is(ucent))
 {
 /// ditto
+pragma(inline, true)
 ucent addu(ucent x, ucent y, ref bool overflow)
 {
     version(LDC)
     {
-        pragma(inline, true);
         if (!__ctfe)
         {
             auto res = llvm_uadd_with_overflow(x, y);
@@ -285,14 +285,14 @@ unittest
     bool overflow;
     assert(addu(cast(ucent)2L, 3L, overflow) == 5);
     assert(!overflow);
-    assert(addu(1, ulong.max - 1, overflow) == ulong.max);
+    assert(addu(1, ucent.max - 1, overflow) == ucent.max);
     assert(!overflow);
-    assert(addu(ulong.min, -1L, overflow) == ulong.max);
+    assert(addu(ucent.min, -1L, overflow) == ucent.max);
     assert(!overflow);
-    assert(addu(ulong.max, 1, overflow) == ulong.min);
+    assert(addu(ucent.max, 1, overflow) == ucent.min);
     assert(overflow);
     overflow = false;
-    assert(addu(ulong.min + 1, -1L, overflow) == ulong.min);
+    assert(addu(ucent.min + 1, -1L, overflow) == ucent.min);
     assert(overflow);
     assert(addu(cast(ucent)0L, 0L, overflow) == 0);
     assert(overflow);                   // sticky
@@ -392,11 +392,11 @@ unittest
 static if (is(cent))
 {
 /// ditto
+pragma(inline, true)
 cent subs(cent x, cent y, ref bool overflow)
 {
     version(LDC)
     {
-        pragma(inline, true);
         if (!__ctfe)
         {
             auto res = llvm_ssub_with_overflow(x, y);
@@ -406,8 +406,7 @@ cent subs(cent x, cent y, ref bool overflow)
     }
     cent r = cast(ucent)x - cast(ucent)y;
     if (x <  0 && y >= 0 && r >= 0 ||
-        x >= 0 && y <  0 && r <  0 ||
-        y == cent.min)
+        x >= 0 && y <  0 && (r <  0 || y == long.min))
         overflow = true;
     return r;
 }
@@ -420,6 +419,8 @@ unittest
     assert(subs(1L, -cent.max + 1, overflow) == cent.max);
     assert(!overflow);
     assert(subs(cent.min + 1, 1, overflow) == cent.min);
+    assert(!overflow);
+    assert(subs(-1L, cent.min, overflow) == cent.max);
     assert(!overflow);
     assert(subs(cent.max, -1, overflow) == cent.min);
     assert(overflow);
@@ -520,11 +521,11 @@ unittest
 static if (is(ucent))
 {
 /// ditto
+pragma(inline, true)
 ucent subu(ucent x, ucent y, ref bool overflow)
 {
     version(LDC)
     {
-        pragma(inline, true);
         if (!__ctfe)
         {
             auto res = llvm_usub_with_overflow(x, y);
@@ -546,7 +547,7 @@ unittest
     assert(!overflow);
     assert(subu(1UL, 1UL, overflow) == ucent.min);
     assert(!overflow);
-    assert(subu(0UL, 1UL, overflow) == ucent.max);
+    assert(subu(cast(ucent)0UL, 1UL, overflow) == ucent.max);
     assert(overflow);
     overflow = false;
     assert(subu(ucent.max - 1, ucent.max, overflow) == ucent.max);
@@ -617,6 +618,7 @@ unittest
 static if (is(cent))
 {
 /// ditto
+pragma(inline, true)
 cent negs(cent x, ref bool overflow)
 {
     if (x == cent.min)
@@ -738,6 +740,7 @@ unittest
 static if (is(cent))
 {
 /// ditto
+pragma(inline, true)
 cent muls(cent x, cent y, ref bool overflow)
 {
     version(LDC_HasNativeI64Mul)
@@ -750,7 +753,8 @@ cent muls(cent x, cent y, ref bool overflow)
         }
     }
     cent r = cast(ucent)x * cast(ucent)y;
-    if (x && (r / x) != y)
+    enum not0or1 = ~1L;
+    if((x & not0or1) && ((r == y)? r : (r / x) != y))
         overflow = true;
     return r;
 }
@@ -767,6 +771,9 @@ unittest
     assert(muls(cent.min, 1L, overflow) == cent.min);
     assert(!overflow);
     assert(muls(cent.max, 2L, overflow) == (cent.max * 2));
+    assert(overflow);
+    overflow = false;
+    assert(muls(-1L, cent.min, overflow) == cent.min);
     assert(overflow);
     overflow = false;
     assert(muls(cent.min, -1L, overflow) == cent.min);
@@ -867,9 +874,10 @@ unittest
     assert(overflow);                   // sticky
 }
 
-static if(is(ucent))
+static if (is(ucent))
 {
 /// ditto
+pragma(inline, true)
 ucent mulu(ucent x, ucent y, ref bool overflow)
 {
     version(LDC_HasNativeI64Mul)
@@ -881,13 +889,10 @@ ucent mulu(ucent x, ucent y, ref bool overflow)
             return res.result;
         }
     }
-    else
-    {
-        ucent r = x * y;
-        if (x && (r / x) != y)
-            overflow = true;
-        return r;
-    }
+    ucent r = x * y;
+    if (x && (r / x) != y)
+        overflow = true;
+    return r;
 }
 
 unittest

@@ -53,27 +53,512 @@ struct ModuleGroup
         return _modules;
     }
 
+    // this function initializes the bookeeping necessary to create the
+    // cycle path, and then creates it. It is a precondition that src and
+    // target modules are involved in a cycle.
+    //
+    // The return value is malloc'd using C, so it must be freed after use.
+    private size_t[] genCyclePath(size_t srcidx, size_t targetidx, int[][] edges)
+    {
+        import core.bitop : bt, btc, bts;
+
+        // set up all the arrays.
+        size_t[] cyclePath = (cast(size_t*)malloc(size_t.sizeof * _modules.length * 2))[0 .. _modules.length * 2];
+        size_t totalMods;
+        int[] distance = (cast(int*)malloc(int.sizeof * _modules.length))[0 .. _modules.length];
+        scope(exit)
+            .free(distance.ptr);
+
+        // determine the shortest path between two modules. Uses dijkstra
+        // without a priority queue. (we can be a bit slow here, in order to
+        // get a better printout).
+        void shortest(size_t start, size_t target)
+        {
+            // initial setup
+            distance[] = int.max;
+            int curdist = 0;
+            distance[start] = 0;
+            while (true)
+            {
+                bool done = true;
+                foreach (i, x; distance)
+                {
+                    if (x == curdist)
+                    {
+                        if (i == target)
+                        {
+                            done = true;
+                            break;
+                        }
+                        foreach (n; edges[i])
+                        {
+                            if (distance[n] == int.max)
+                            {
+                                distance[n] = curdist + 1;
+                                done = false;
+                            }
+                        }
+                    }
+                }
+                if (done)
+                    break;
+                ++curdist;
+            }
+            // it should be impossible to not get to target, this is just a
+            // sanity check. Not an assert, because druntime is compiled in
+            // release mode.
+            if (distance[target] != curdist)
+            {
+                throw new Error("internal error printing module cycle");
+            }
+
+            // determine the path. This is tricky, because we have to
+            // follow the edges in reverse to get back to the original. We
+            // don't have a reverse mapping, so it takes a bit of looping.
+            totalMods += curdist;
+            auto subpath = cyclePath[totalMods - curdist .. totalMods];
+            while (true)
+            {
+                --curdist;
+                subpath[curdist] = target;
+                if (curdist == 0)
+                    break;
+            distloop:
+                // search for next (previous) module in cycle.
+                foreach (int m, d; distance)
+                {
+                    if (d == curdist)
+                    {
+                        // determine if m can reach target
+                        foreach (e; edges[m])
+                        {
+                            if (e == target)
+                            {
+                                // recurse
+                                target = m;
+                                break distloop;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // first get to the target
+        shortest(srcidx, targetidx);
+        // now get back.
+        shortest(targetidx, srcidx);
+
+        return cyclePath[0 .. totalMods];
+    }
+
     /******************************
      * Allocate and fill in _ctors[] and _tlsctors[].
      * Modules are inserted into the arrays in the order in which the constructors
      * need to be run.
+     *
+     * Params:
+     *  cycleHandling - string indicating option for cycle handling
      * Throws:
      *  Exception if it fails.
      */
+    void sortCtors(string cycleHandling)
+    {
+        import core.bitop : bts, btr, bt, BitRange;
+        import rt.util.container.hashtab;
+
+        // used to unwind stack for printing deprecation message.
+        static class DeprecatedCycleException : Exception
+        {
+            this() { super(""); }
+        }
+        scope deprecation = new DeprecatedCycleException();
+
+        enum OnCycle
+        {
+            deprecate,
+            abort,
+            print,
+            ignore
+        }
+
+        // Change default to .abort in 2.073
+        auto onCycle = OnCycle.deprecate;
+
+        switch(cycleHandling) with(OnCycle)
+        {
+        case "deprecate":
+            onCycle = deprecate;
+            break;
+        case "abort":
+            onCycle = abort;
+            break;
+        case "print":
+            onCycle = print;
+            break;
+        case "ignore":
+            onCycle = ignore;
+            break;
+        case "":
+            // no option passed
+            break;
+        default:
+            // invalid cycle handling option.
+            throw new Error("DRT invalid cycle handling option: " ~ cycleHandling);
+        }
+
+        debug (printModuleDependencies)
+        {
+            import core.stdc.stdio : printf;
+
+            foreach (_m; _modules)
+            {
+                printf("%s%s%s:", _m.name.ptr, (_m.flags & MIstandalone)
+                        ? "+".ptr : "".ptr, (_m.flags & (MIctor | MIdtor)) ? "*".ptr : "".ptr);
+                foreach (_i; _m.importedModules)
+                    printf(" %s", _i.name.ptr);
+                printf("\n");
+            }
+        }
+
+        immutable uint len = cast(uint) _modules.length;
+        if (!len)
+            return; // nothing to do.
+
+        // allocate some stack arrays that will be used throughout the process.
+        immutable nwords = (len + 8 * size_t.sizeof - 1) / (8 * size_t.sizeof);
+        immutable flagbytes = nwords * size_t.sizeof;
+        auto ctorstart = cast(size_t*) malloc(flagbytes); // ctor/dtor seen
+        auto ctordone = cast(size_t*) malloc(flagbytes); // ctor/dtor processed
+        auto relevant = cast(size_t*) malloc(flagbytes); // has ctors/dtors
+        scope (exit)
+        {
+            .free(ctorstart);
+            .free(ctordone);
+            .free(relevant);
+        }
+
+        void clearFlags(size_t* flags)
+        {
+            memset(flags, 0, flagbytes);
+        }
+
+
+        // build the edges between each module. We may need this for printing,
+        // and also allows avoiding keeping a hash around for module lookups.
+        int[][] edges = (cast(int[]*)malloc((int[]).sizeof * _modules.length))[0 .. _modules.length];
+        {
+            HashTab!(immutable(ModuleInfo)*, int) modIndexes;
+            foreach (i, m; _modules)
+                modIndexes[m] = cast(int) i;
+
+            auto reachable = cast(size_t*) malloc(flagbytes);
+            scope(exit)
+                .free(reachable);
+
+            foreach (i, m; _modules)
+            {
+                // use bit array to prevent duplicates
+                // https://issues.dlang.org/show_bug.cgi?id=16208
+                clearFlags(reachable);
+                // preallocate enough space to store all the indexes
+                int *edge = cast(int*)malloc(int.sizeof * _modules.length);
+                size_t nEdges = 0;
+                foreach (imp; m.importedModules)
+                {
+                    if (imp is m) // self-import
+                        continue;
+                    if (auto impidx = imp in modIndexes)
+                    {
+                        if (!bts(reachable, *impidx))
+                            edge[nEdges++] = *impidx;
+                    }
+                }
+                // trim space to what is needed.
+                edges[i] = (cast(int*)realloc(edge, int.sizeof * nEdges))[0 .. nEdges];
+            }
+        }
+
+        // free all the edges after we are done
+        scope(exit)
+        {
+            foreach(e; edges)
+                if(e.ptr)
+                    .free(e.ptr);
+            .free(edges.ptr);
+        }
+
+        void buildCycleMessage(size_t sourceIdx, size_t cycleIdx, scope void delegate(string) sink)
+        {
+            version (Windows)
+                enum EOL = "\r\n";
+            else
+                enum EOL = "\n";
+
+            sink("Cyclic dependency between module ");
+            sink(_modules[sourceIdx].name);
+            sink(" and ");
+            sink(_modules[cycleIdx].name);
+            sink(EOL);
+            auto cyclePath = genCyclePath(sourceIdx, cycleIdx, edges);
+            scope(exit) .free(cyclePath.ptr);
+
+            sink(_modules[sourceIdx].name);
+            sink("* ->" ~ EOL);
+            foreach (x; cyclePath[0 .. $ - 1])
+            {
+                sink(_modules[x].name);
+                sink(bt(relevant, x) ? "* ->" ~ EOL : " ->" ~ EOL);
+            }
+            sink(_modules[sourceIdx].name);
+            sink("*" ~ EOL);
+        }
+
+        // find all the non-trivial dependencies (that is, dependencies that have a
+        // ctor or dtor) of a given module.  Doing this, we can 'skip over' the
+        // trivial modules to get at the non-trivial ones.
+        //
+        // If a cycle is detected, returns the index of the module that completes the cycle.
+        void findDeps(size_t idx, size_t* reachable)
+        {
+            static struct stackFrame
+            {
+                size_t curMod;
+                size_t curDep;
+            }
+
+            // initialize "stack"
+            auto stack = cast(stackFrame*) malloc(stackFrame.sizeof * len);
+            scope (exit)
+                .free(stack);
+            auto stacktop = stack + len;
+            auto sp = stack;
+            sp.curMod = cast(int) idx;
+            sp.curDep = 0;
+
+            // initialize reachable by flagging source module
+            clearFlags(reachable);
+            bts(reachable, idx);
+
+            for (;;)
+            {
+                auto m = _modules[sp.curMod];
+                if (sp.curDep >= edges[sp.curMod].length)
+                {
+                    // return
+                    if (sp == stack) // finished the algorithm
+                        break;
+                    --sp;
+                }
+                else
+                {
+                    auto midx = edges[sp.curMod][sp.curDep];
+                    if (!bts(reachable, midx))
+                    {
+                        if (bt(relevant, midx))
+                        {
+                            // need to process this node, don't recurse.
+                            if (bt(ctorstart, midx))
+                            {
+                                // was already started, this is a cycle.
+                                final switch(onCycle) with(OnCycle)
+                                {
+                                case deprecate:
+                                    // check with old algorithm
+                                    if(sortCtorsOld(edges))
+                                    {
+                                        // unwind to print deprecation message.
+                                        throw deprecation;
+                                    }
+                                    goto case abort; // fall through
+                                case abort:
+
+                                    string errmsg = "";
+                                    buildCycleMessage(idx, midx, (string x) {errmsg ~= x;});
+                                    throw new Error(errmsg, __FILE__, __LINE__);
+                                case ignore:
+                                    break;
+                                case print:
+                                    // print the message
+                                    buildCycleMessage(idx, midx, (string x) {
+                                                      import core.stdc.stdio : fprintf, stderr;
+                                                      fprintf(stderr, "%.*s", cast(int) x.length, x.ptr);
+                                                      });
+                                    // continue on as if this is correct.
+                                    break;
+                                }
+                            }
+                        }
+                        else if (!bt(ctordone, midx))
+                        {
+                            // non-relevant, and hasn't been exhaustively processed, recurse.
+                            if (++sp >= stacktop)
+                            {
+                                // stack overflow, this shouldn't happen.
+                                import core.internal.abort : abort;
+
+                                abort("stack overflow on dependency search");
+                            }
+                            sp.curMod = midx;
+                            sp.curDep = 0;
+                            continue;
+                        }
+                    }
+                }
+
+                // next dependency
+                ++sp.curDep;
+            }
+        }
+
+        // The list of constructors that will be returned by the sorting.
+        immutable(ModuleInfo)** ctors;
+        // current element being inserted into ctors list.
+        size_t ctoridx = 0;
+
+        // This function will determine the order of construction/destruction and
+        // check for cycles. If a cycle is found, the cycle path is transformed
+        // into a string and thrown as an error.
+        //
+        // Each call into this function is given a module that has static
+        // ctor/dtors that must be dealt with. It recurses only when it finds
+        // dependencies that also have static ctor/dtors.
+        void processMod(size_t curidx)
+        {
+            immutable ModuleInfo* current = _modules[curidx];
+
+            // First, determine what modules are reachable.
+            auto reachable = cast(size_t*) malloc(flagbytes);
+            scope (exit)
+                .free(reachable);
+            findDeps(curidx, reachable);
+
+            // process the dependencies. First, we process all relevant ones
+            bts(ctorstart, curidx);
+            auto brange = BitRange(reachable, len);
+            foreach (i; brange)
+            {
+                // note, don't check for cycles here, because the config could have been set to ignore cycles.
+                // however, don't recurse if there is one, so still check for started ctor.
+                if (i != curidx && bt(relevant, i) && !bt(ctordone, i) && !bt(ctorstart, i))
+                    processMod(i);
+            }
+
+            // now mark this node, and all nodes reachable from this module as done.
+            bts(ctordone, curidx);
+            btr(ctorstart, curidx);
+            foreach (i; brange)
+            {
+                // Since relevant dependencies are already marked as done
+                // from recursion above (or are going to be handled up the call
+                // stack), no reason to check for relevance, that is a wasted
+                // op.
+                bts(ctordone, i);
+            }
+
+            // add this module to the construction order list
+            ctors[ctoridx++] = current;
+        }
+
+        immutable(ModuleInfo)*[] doSort(size_t relevantFlags)
+        {
+            clearFlags(relevant);
+            clearFlags(ctorstart);
+            clearFlags(ctordone);
+
+            // pre-allocate enough space to hold all modules.
+            ctors = (cast(immutable(ModuleInfo)**).malloc(len * (void*).sizeof));
+            ctoridx = 0;
+            foreach (int idx, m; _modules)
+            {
+                if (m.flags & relevantFlags)
+                {
+                    if (m.flags & MIstandalone)
+                    {
+                        // can run at any time. Just run it first.
+                        ctors[ctoridx++] = m;
+                    }
+                    else
+                    {
+                        bts(relevant, idx);
+                    }
+                }
+            }
+
+            // now run the algorithm in the relevant ones
+            foreach (idx; BitRange(relevant, len))
+            {
+                if (!bt(ctordone, idx))
+                    processMod(idx);
+            }
+
+            if (ctoridx == 0)
+            {
+                // no ctors in the list.
+                .free(ctors);
+                return null;
+            }
+
+            ctors = cast(immutable(ModuleInfo)**).realloc(ctors, ctoridx * (void*).sizeof);
+            if (ctors is null)
+                assert(0);
+            return ctors[0 .. ctoridx];
+        }
+
+        // finally, do the sorting for both shared and tls ctors.
+        try
+        {
+            _ctors = doSort(MIctor | MIdtor);
+            _tlsctors = doSort(MItlsctor | MItlsdtor);
+        }
+        catch(DeprecatedCycleException)
+        {
+            // print a warning
+            import core.stdc.stdio : fprintf, stderr;
+            fprintf(stderr, "Deprecation 16211 warning:\n"
+                ~ "A cycle has been detected in your program that was undetected prior to DMD\n"
+                ~ "2.072. This program will continue, but will not operate when using DMD 2.073\n"
+                ~ "to compile. Use runtime option --DRT-oncycle=print to see the cycle details.\n");
+
+        }
+    }
+
+    /// ditto
     void sortCtors()
     {
-        immutable len = _modules.length;
-        if (!len)
-            return;
+        import rt.config : rt_configOption;
+        sortCtors(rt_configOption("oncycle"));
+    }
+
+    /******************************
+     * This is the old ctor sorting algorithm that does not find all cycles.
+     *
+     * It is here to allow the deprecated behavior from the original algorithm
+     * until people have fixed their code.
+     *
+     * If no cycles are found, the _ctors and _tlsctors are replaced with the
+     * ones generated by this algorithm to preserve the old incorrect ordering
+     * behavior.
+     *
+     * Params:
+     *   edges - The module edges as found in the `importedModules` member of
+     *          each ModuleInfo. Generated in sortCtors.
+     * Returns:
+     *   true if no cycle is found, false if one was.
+     */
+    bool sortCtorsOld(int[][] edges)
+    {
+        immutable len = edges.length;
+        assert(len == _modules.length);
 
         static struct StackRec
         {
-            @property immutable(ModuleInfo)* mod()
+            @property int mod()
             {
                 return _mods[_idx];
             }
 
-            immutable(ModuleInfo*)[] _mods;
+            int[] _mods;
             size_t         _idx;
         }
 
@@ -82,18 +567,22 @@ struct ModuleGroup
         immutable nwords = (len + 8 * size_t.sizeof - 1) / (8 * size_t.sizeof);
         auto ctorstart = cast(size_t*).malloc(nwords * size_t.sizeof);
         auto ctordone = cast(size_t*).malloc(nwords * size_t.sizeof);
-        if (!stack.ptr || ctorstart is null || ctordone is null)
+        int[] initialEdges = (cast(int *)malloc(int.sizeof * len))[0 .. len];
+        if (!stack.ptr || ctorstart is null || ctordone is null || !initialEdges.ptr)
             assert(0);
-        scope (exit) { .free(stack.ptr); .free(ctorstart); .free(ctordone); }
-
-        int findModule(in ModuleInfo* mi)
+        scope (exit)
         {
-            foreach (i, m; _modules)
-                if (m is mi) return cast(int)i;
-            return -1;
+            .free(stack.ptr);
+            .free(ctorstart);
+            .free(ctordone);
+            .free(initialEdges.ptr);
         }
 
-        void sort(ref immutable(ModuleInfo)*[] ctors, uint mask)
+        // initialize the initial edges
+        foreach (int i, ref v; initialEdges)
+            v = i;
+
+        bool sort(ref immutable(ModuleInfo)*[] ctors, uint mask)
         {
             import core.bitop;
 
@@ -107,7 +596,8 @@ struct ModuleGroup
             size_t stackidx = 0;
             size_t cidx;
 
-            immutable(ModuleInfo*)[] mods = _modules;
+            int[] mods = initialEdges;
+
             size_t idx;
             while (true)
             {
@@ -115,20 +605,13 @@ struct ModuleGroup
                 {
                     auto m = mods[idx];
 
-                    immutable bitnum = findModule(m);
-
-                    if (bitnum < 0 || bt(ctordone, bitnum))
+                    if (bt(ctordone, m))
                     {
-                        /* If the module can't be found among the ones to be
-                         * sorted it's an imported module from another DSO.
-                         * Those don't need to be considered during sorting as
-                         * the OS is responsible for the DSO load order and
-                         * module construction is done during DSO loading.
-                         */
+                        // this module has already been processed, skip
                         ++idx;
                         continue;
                     }
-                    else if (bt(ctorstart, bitnum))
+                    else if (bt(ctorstart, m))
                     {
                         /* Trace back to the begin of the cycle.
                          */
@@ -139,32 +622,14 @@ struct ModuleGroup
                             auto sm = stack[start].mod;
                             if (sm == m)
                                 break;
-                            immutable sbitnum = findModule(sm);
-                            assert(sbitnum >= 0);
-                            if (bt(ctorstart, sbitnum))
+                            assert(sm >= 0);
+                            if (bt(ctorstart, sm))
                                 ctorInCycle = true;
                         }
                         assert(stack[start].mod == m);
                         if (ctorInCycle)
                         {
-                            /* This is an illegal cycle, no partial order can be established
-                             * because the import chain have contradicting ctor/dtor
-                             * constraints.
-                             */
-                            string msg = "Aborting: Cycle detected between modules with ";
-                            if (mask & (MIctor | MIdtor))
-                                msg ~= "shared ";
-                            msg ~= "ctors/dtors:\n";
-                            foreach (e; stack[start .. stackidx])
-                            {
-                                msg ~= e.mod.name;
-                                if (e.mod.flags & mask)
-                                    msg ~= '*';
-                                msg ~= " ->\n";
-                            }
-                            msg ~= stack[start].mod.name;
-                            free();
-                            throw new Exception(msg);
+                            return false;
                         }
                         else
                         {
@@ -177,33 +642,34 @@ struct ModuleGroup
                     }
                     else
                     {
-                        if (m.flags & mask)
+                        auto curmod = _modules[m];
+                        if (curmod.flags & mask)
                         {
-                            if (m.flags & MIstandalone || !m.importedModules.length)
+                            if (curmod.flags & MIstandalone || !edges[m].length)
                             {   // trivial ctor => sort in
-                                ctors[cidx++] = m;
-                                bts(ctordone, bitnum);
+                                ctors[cidx++] = curmod;
+                                bts(ctordone, m);
                             }
                             else
                             {   // non-trivial ctor => defer
-                                bts(ctorstart, bitnum);
+                                bts(ctorstart, m);
                             }
                         }
                         else    // no ctor => mark as visited
                         {
-                            bts(ctordone, bitnum);
+                            bts(ctordone, m);
                         }
 
-                        if (m.importedModules.length)
+                        if (edges[m].length)
                         {
                             /* Internal runtime error, recursion exceeds number of modules.
                              */
-                            (stackidx < _modules.length) || assert(0);
+                            (stackidx < len) || assert(0);
 
                             // recurse
                             stack[stackidx++] = StackRec(mods, idx);
                             idx  = 0;
-                            mods = m.importedModules;
+                            mods = edges[m];
                         }
                     }
                 }
@@ -214,22 +680,41 @@ struct ModuleGroup
                     mods    = stack[stackidx]._mods;
                     idx     = stack[stackidx]._idx;
                     auto m  = mods[idx++];
-                    immutable bitnum = findModule(m);
-                    assert(bitnum >= 0);
-                    if (m.flags & mask && !bts(ctordone, bitnum))
-                        ctors[cidx++] = m;
+                    if (bt(ctorstart, m) && !bts(ctordone, m))
+                        ctors[cidx++] = _modules[m];
                 }
                 else // done
                     break;
             }
             // store final number and shrink array
             ctors = (cast(immutable(ModuleInfo)**).realloc(ctors.ptr, cidx * size_t.sizeof))[0 .. cidx];
+            return true;
         }
 
         /* Do two passes: ctor/dtor, tlsctor/tlsdtor
          */
-        sort(_ctors, MIctor | MIdtor);
-        sort(_tlsctors, MItlsctor | MItlsdtor);
+        immutable(ModuleInfo)*[] _ctors2;
+        immutable(ModuleInfo)*[] _tlsctors2;
+        auto result = sort(_ctors2, MIctor | MIdtor) && sort(_tlsctors2, MItlsctor | MItlsdtor);
+        if (result) // no cycle
+        {
+            // fall back to original ordering as part of the deprecation.
+            if(_ctors.ptr)
+                .free(_ctors.ptr);
+            _ctors = _ctors2;
+            if(_tlsctors.ptr)
+                .free(_tlsctors.ptr);
+            _tlsctors = _tlsctors2;
+        }
+        else
+        {
+            // free any allocated memory that will be forgotten
+            if (_ctors2.ptr)
+                .free(_ctors2.ptr);
+            if (_tlsctors2.ptr)
+                .free(_tlsctors2.ptr);
+        }
+        return result;
     }
 
     void runCtors()
@@ -382,13 +867,13 @@ void runModuleFuncsRev(alias getfp)(const(immutable(ModuleInfo)*)[] modules)
 
 unittest
 {
-    static void assertThrown(T : Throwable, E)(lazy E expr)
+    static void assertThrown(T : Throwable, E)(lazy E expr, string msg)
     {
         try
             expr;
         catch (T)
             return;
-        assert(0);
+        assert(0, msg);
     }
 
     static void stub()
@@ -435,79 +920,92 @@ unittest
         return mi;
     }
 
-    static void checkExp(
+    static void checkExp2(string testname, bool shouldThrow, string oncycle,
         immutable(ModuleInfo*)[] modules,
         immutable(ModuleInfo*)[] dtors=null,
         immutable(ModuleInfo*)[] tlsdtors=null)
     {
         auto mgroup = ModuleGroup(modules);
-        mgroup.sortCtors();
-        foreach (m; mgroup._modules)
-            assert(!(m.flags & (MIctorstart | MIctordone)));
-        assert(mgroup._ctors    == dtors);
-        assert(mgroup._tlsctors == tlsdtors);
+        mgroup.sortCtors(oncycle);
+
+        // if we are expecting sort to throw, don't throw because of unexpected
+        // success!
+        if (!shouldThrow)
+        {
+            foreach (m; mgroup._modules)
+                assert(!(m.flags & (MIctorstart | MIctordone)), testname);
+            assert(mgroup._ctors    == dtors, testname);
+            assert(mgroup._tlsctors == tlsdtors, testname);
+        }
     }
 
-    // no ctors
+    static void checkExp(string testname, bool shouldThrow,
+        immutable(ModuleInfo*)[] modules,
+        immutable(ModuleInfo*)[] dtors=null,
+        immutable(ModuleInfo*)[] tlsdtors=null)
+    {
+        checkExp2(testname, shouldThrow, "abort", modules, dtors, tlsdtors);
+    }
+
+
     {
         auto m0 = mockMI(0);
         auto m1 = mockMI(0);
         auto m2 = mockMI(0);
-        checkExp([&m0.mi, &m1.mi, &m2.mi]);
+        checkExp("no ctors", false, [&m0.mi, &m1.mi, &m2.mi]);
     }
 
-    // independent ctors
     {
         auto m0 = mockMI(MIictor);
         auto m1 = mockMI(0);
         auto m2 = mockMI(MIictor);
         auto mgroup = ModuleGroup([&m0.mi, &m1.mi, &m2.mi]);
-        checkExp([&m0.mi, &m1.mi, &m2.mi]);
+        checkExp("independent ctors", false, [&m0.mi, &m1.mi, &m2.mi]);
     }
 
-    // standalone ctor
     {
         auto m0 = mockMI(MIstandalone | MIctor);
         auto m1 = mockMI(0);
         auto m2 = mockMI(0);
         auto mgroup = ModuleGroup([&m0.mi, &m1.mi, &m2.mi]);
-        checkExp([&m0.mi, &m1.mi, &m2.mi], [&m0.mi]);
-    }
-
-    // imported standalone => no dependency
-    {
-        auto m0 = mockMI(MIstandalone | MIctor);
-        auto m1 = mockMI(MIstandalone | MIctor);
-        auto m2 = mockMI(0);
-        m1.setImports(&m0.mi);
-        checkExp([&m0.mi, &m1.mi, &m2.mi], [&m0.mi, &m1.mi]);
+        checkExp("standalone ctor", false, [&m0.mi, &m1.mi, &m2.mi], [&m0.mi]);
     }
 
     {
         auto m0 = mockMI(MIstandalone | MIctor);
         auto m1 = mockMI(MIstandalone | MIctor);
         auto m2 = mockMI(0);
-        m0.setImports(&m1.mi);
-        checkExp([&m0.mi, &m1.mi, &m2.mi], [&m0.mi, &m1.mi]);
+        m1.setImports(&m0.mi);
+        checkExp("imported standalone => no dependency", false,
+                 [&m0.mi, &m1.mi, &m2.mi], [&m0.mi, &m1.mi]);
     }
 
-    // standalone may have cycle
+    {
+        auto m0 = mockMI(MIstandalone | MIctor);
+        auto m1 = mockMI(MIstandalone | MIctor);
+        auto m2 = mockMI(0);
+        m0.setImports(&m1.mi);
+        checkExp("imported standalone => no dependency (2)", false,
+                [&m0.mi, &m1.mi, &m2.mi], [&m0.mi, &m1.mi]);
+    }
+
     {
         auto m0 = mockMI(MIstandalone | MIctor);
         auto m1 = mockMI(MIstandalone | MIctor);
         auto m2 = mockMI(0);
         m0.setImports(&m1.mi);
         m1.setImports(&m0.mi);
-        checkExp([&m0.mi, &m1.mi, &m2.mi], [&m0.mi, &m1.mi]);
+        checkExp("standalone may have cycle", false,
+                [&m0.mi, &m1.mi, &m2.mi], [&m0.mi, &m1.mi]);
     }
 
-    // imported ctor => ordered ctors
     {
         auto m0 = mockMI(MIctor);
         auto m1 = mockMI(MIctor);
         auto m2 = mockMI(0);
         m1.setImports(&m0.mi);
-        checkExp([&m0.mi, &m1.mi, &m2.mi], [&m0.mi, &m1.mi], []);
+        checkExp("imported ctor => ordered ctors", false,
+                [&m0.mi, &m1.mi, &m2.mi], [&m0.mi, &m1.mi], []);
     }
 
     {
@@ -515,27 +1013,41 @@ unittest
         auto m1 = mockMI(MIctor);
         auto m2 = mockMI(0);
         m0.setImports(&m1.mi);
-        assert(m0.importedModules == [&m1.mi]);
-        checkExp([&m0.mi, &m1.mi, &m2.mi], [&m1.mi, &m0.mi], []);
+        checkExp("imported ctor => ordered ctors (2)", false,
+                [&m0.mi, &m1.mi, &m2.mi], [&m1.mi, &m0.mi], []);
     }
 
-    // detects ctors cycles
     {
         auto m0 = mockMI(MIctor);
         auto m1 = mockMI(MIctor);
         auto m2 = mockMI(0);
         m0.setImports(&m1.mi);
         m1.setImports(&m0.mi);
-        assertThrown!Throwable(checkExp([&m0.mi, &m1.mi, &m2.mi]));
+        assertThrown!Throwable(checkExp("", true, [&m0.mi, &m1.mi, &m2.mi]),
+                "detects ctors cycles");
+        assertThrown!Throwable(checkExp2("", true, "deprecate",
+                                        [&m0.mi, &m1.mi, &m2.mi]),
+                "detects ctors cycles (dep)");
     }
 
-    // imported ctor/tlsctor => ordered ctors/tlsctors
+    {
+        auto m0 = mockMI(MIctor);
+        auto m1 = mockMI(MIctor);
+        auto m2 = mockMI(0);
+        m0.setImports(&m2.mi);
+        m1.setImports(&m2.mi);
+        m2.setImports(&m0.mi, &m1.mi);
+        assertThrown!Throwable(checkExp("", true, [&m0.mi, &m1.mi, &m2.mi]),
+                "detects cycle with repeats");
+    }
+
     {
         auto m0 = mockMI(MIctor);
         auto m1 = mockMI(MIctor);
         auto m2 = mockMI(MItlsctor);
         m0.setImports(&m1.mi, &m2.mi);
-        checkExp([&m0.mi, &m1.mi, &m2.mi], [&m1.mi, &m0.mi], [&m2.mi]);
+        checkExp("imported ctor/tlsctor => ordered ctors/tlsctors", false,
+                [&m0.mi, &m1.mi, &m2.mi], [&m1.mi, &m0.mi], [&m2.mi]);
     }
 
     {
@@ -543,30 +1055,44 @@ unittest
         auto m1 = mockMI(MIctor);
         auto m2 = mockMI(MItlsctor);
         m0.setImports(&m1.mi, &m2.mi);
-        checkExp([&m0.mi, &m1.mi, &m2.mi], [&m1.mi, &m0.mi], [&m2.mi, &m0.mi]);
+        checkExp("imported ctor/tlsctor => ordered ctors/tlsctors (2)", false,
+                [&m0.mi, &m1.mi, &m2.mi], [&m1.mi, &m0.mi], [&m2.mi, &m0.mi]);
     }
 
-    // no cycle between ctors/tlsctors
     {
         auto m0 = mockMI(MIctor);
         auto m1 = mockMI(MIctor);
         auto m2 = mockMI(MItlsctor);
         m0.setImports(&m1.mi, &m2.mi);
         m2.setImports(&m0.mi);
-        checkExp([&m0.mi, &m1.mi, &m2.mi], [&m1.mi, &m0.mi], [&m2.mi]);
+        checkExp("no cycle between ctors/tlsctors", false,
+                [&m0.mi, &m1.mi, &m2.mi], [&m1.mi, &m0.mi], [&m2.mi]);
     }
 
-    // detects tlsctors cycle
     {
         auto m0 = mockMI(MItlsctor);
         auto m1 = mockMI(MIctor);
         auto m2 = mockMI(MItlsctor);
         m0.setImports(&m2.mi);
         m2.setImports(&m0.mi);
-        assertThrown!Throwable(checkExp([&m0.mi, &m1.mi, &m2.mi]));
+        assertThrown!Throwable(checkExp("", true, [&m0.mi, &m1.mi, &m2.mi]),
+                "detects tlsctors cycle");
+        assertThrown!Throwable(checkExp2("", true, "deprecate",
+                                         [&m0.mi, &m1.mi, &m2.mi]),
+                "detects tlsctors cycle (dep)");
     }
 
-    // closed ctors cycle
+    {
+        auto m0 = mockMI(MItlsctor);
+        auto m1 = mockMI(MIctor);
+        auto m2 = mockMI(MItlsctor);
+        m0.setImports(&m1.mi);
+        m1.setImports(&m0.mi, &m2.mi);
+        m2.setImports(&m1.mi);
+        assertThrown!Throwable(checkExp("", true, [&m0.mi, &m1.mi, &m2.mi]),
+                "detects tlsctors cycle with repeats");
+    }
+
     {
         auto m0 = mockMI(MIctor);
         auto m1 = mockMI(MIstandalone | MIctor);
@@ -574,7 +1100,10 @@ unittest
         m0.setImports(&m1.mi);
         m1.setImports(&m2.mi);
         m2.setImports(&m0.mi);
-        checkExp([&m0.mi, &m1.mi, &m2.mi], [&m1.mi, &m2.mi, &m0.mi]);
+        // NOTE: this is implementation dependent, sorted order shouldn't be tested.
+        checkExp("closed ctors cycle", false, [&m0.mi, &m1.mi, &m2.mi],
+                [&m1.mi, &m2.mi, &m0.mi]);
+        //checkExp("closed ctors cycle", false, [&m0.mi, &m1.mi, &m2.mi], [&m0.mi, &m1.mi, &m2.mi]);
     }
 }
 

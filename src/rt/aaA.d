@@ -352,7 +352,19 @@ extern (C) size_t _aaLen(in AA aa) pure nothrow @nogc
     return aa ? aa.length : 0;
 }
 
-/// Get LValue for key
+/******************************
+ * Lookup *pkey in aa.
+ * Called only from implementation of (aa[key]) expressions when value is mutable.
+ * Params:
+ *      aa = associative array opaque pointer
+ *      ti = TypeInfo for the associative array
+ *      valsz = ignored
+ *      pkey = pointer to the key value
+ * Returns:
+ *      if key was in the aa, a mutable pointer to the existing value.
+ *      If key was not in the aa, a mutable pointer to newly inserted value which
+ *      is set to all zeros
+ */
 extern (C) void* _aaGetY(AA* aa, const TypeInfo_AssociativeArray ti, in size_t valsz,
     in void* pkey)
 {
@@ -393,14 +405,33 @@ extern (C) void* _aaGetY(AA* aa, const TypeInfo_AssociativeArray ti, in size_t v
     return p.entry + aa.valoff;
 }
 
-/// Get RValue for key, returns null if not present
+/******************************
+ * Lookup *pkey in aa.
+ * Called only from implementation of (aa[key]) expressions when value is not mutable.
+ * Params:
+ *      aa = associative array opaque pointer
+ *      keyti = TypeInfo for the key
+ *      valsz = ignored
+ *      pkey = pointer to the key value
+ * Returns:
+ *      pointer to value if present, null otherwise
+ */
 extern (C) inout(void)* _aaGetRvalueX(inout AA aa, in TypeInfo keyti, in size_t valsz,
     in void* pkey)
 {
     return _aaInX(aa, keyti, pkey);
 }
 
-/// Return pointer to value if present, null otherwise
+/******************************
+ * Lookup *pkey in aa.
+ * Called only from implementation of (key in aa) expressions.
+ * Params:
+ *      aa = associative array opaque pointer
+ *      keyti = TypeInfo for the key
+ *      pkey = pointer to the key value
+ * Returns:
+ *      pointer to value if present, null otherwise
+ */
 extern (C) inout(void)* _aaInX(inout AA aa, in TypeInfo keyti, in void* pkey)
 {
     if (aa.empty)
@@ -631,7 +662,7 @@ extern (C) hash_t _aaGetHash(in AA* aa, in TypeInfo tiRaw) nothrow
             continue;
         size_t[2] h2 = [b.hash, valHash(b.entry + off)];
         // use XOR here, so that hash is independent of element order
-        h ^= hashOf(h2.ptr, h2.length * h2[0].sizeof);
+        h ^= hashOf(h2);
     }
     return h;
 }
@@ -912,6 +943,7 @@ unittest
 {
     static struct T
     {
+        ubyte field;
         static size_t postblit, dtor;
         this(this)
         {
@@ -973,6 +1005,18 @@ pure nothrow unittest
     aa2[5] = 6;
     assert(aa.length == 1);
     assert(aa[5] == 6);
+}
+
+// test AA as key (Issue 16974)
+unittest
+{
+    int[int] a = [1 : 2], a2 = [1 : 2];
+
+    assert([a : 3] == [a : 3]);
+    assert([a : 3] == [a2 : 3]);
+
+    assert(typeid(a).getHash(&a) == typeid(a).getHash(&a));
+    assert(typeid(a).getHash(&a) == typeid(a).getHash(&a2));
 }
 
 } // !version(LDC)

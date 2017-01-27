@@ -12,6 +12,15 @@
 
 module core.stdc.config;
 
+version (OSX)
+    version = Darwin;
+else version (iOS)
+    version = Darwin;
+else version (TVOS)
+    version = Darwin;
+else version (WatchOS)
+    version = Darwin;
+
 extern (C):
 @trusted: // Types only.
 nothrow:
@@ -120,7 +129,7 @@ else version( DigitalMars )
             alias real c_long_double;
         else version( Solaris )
             alias real c_long_double;
-        else version( OSX )
+        else version( Darwin )
             alias real c_long_double;
     }
 }

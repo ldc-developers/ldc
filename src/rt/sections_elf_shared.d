@@ -89,9 +89,9 @@ struct DSO
         return _moduleGroup;
     }
 
-    version (DigitalMars) @property immutable(FuncTable)[] ehTables() const nothrow
+    @property immutable(FuncTable)[] ehTables() const nothrow
     {
-        return _ehTables[];
+        return null;
     }
 
     @property inout(void[])[] gcRanges() inout nothrow
@@ -110,7 +110,6 @@ private:
         }
     }
 
-    version (DigitalMars) immutable(FuncTable)[] _ehTables;
     ModuleGroup _moduleGroup;
     Array!(void[]) _gcRanges;
     static if (SharedELF)
@@ -398,7 +397,6 @@ struct CompilerDSOData
     size_t _version;                                       // currently 1
     void** _slot;                                          // can be used to store runtime data
     immutable(object.ModuleInfo*)* _minfo_beg, _minfo_end; // array of modules in this object file
-    version (DigitalMars) immutable(rt.deh.FuncTable)* _deh_beg, _deh_end; // array of exception handling data
     static if (SharedDarwin) GetTLSAnchor _getTLSAnchor;
 }
 
