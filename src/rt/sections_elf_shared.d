@@ -89,7 +89,7 @@ struct DSO
         return _moduleGroup;
     }
 
-    @property immutable(FuncTable)[] ehTables() const nothrow
+    version (DigitalMars) @property immutable(FuncTable)[] ehTables() const nothrow
     {
         return null;
     }
