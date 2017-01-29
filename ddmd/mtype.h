@@ -753,6 +753,7 @@ class TypeStruct : public Type
 public:
     StructDeclaration *sym;
     AliasThisRec att;
+    CPPMANGLE cppmangle;
 
 #if IN_LLVM
     // cache the hasUnalignedFields check
