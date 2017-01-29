@@ -1052,6 +1052,7 @@ public:
 class CommaExp : public BinExp
 {
 public:
+    CommaExp(Loc loc, Expression *e1, Expression *e2);
     const bool isGenerated;
     bool allowCommaExp;
     Expression *semantic(Scope *sc);
