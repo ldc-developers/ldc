@@ -402,7 +402,7 @@ public:
     d_uns64 size(Loc loc) /*const*/;
     unsigned alignsize();
 #if IN_LLVM
-    uint32_t alignment();
+    structalign_t alignment();
 #endif
     Expression *getProperty(Loc loc, Identifier *ident, int flag);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);

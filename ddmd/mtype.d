@@ -3670,7 +3670,7 @@ extern (C++) final class TypeBasic : Type
 
 version(IN_LLVM)
 {
-    override uint alignment()
+    override structalign_t alignment()
     {
         if ( (ty == Tfloat80 || ty == Timaginary80) && (size(Loc()) > 8)
              && isArchx86_64() )
