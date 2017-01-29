@@ -1,10 +1,12 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2015 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// Distributed under the Boost Software License, Version 1.0.
-// http://www.boost.org/LICENSE_1_0.txt
+/**
+ * Compiler implementation of the
+ * $(LINK2 http://www.dlang.org, D programming language).
+ *
+ * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Source:      $(DMDSRC _builtin.d)
+ */
 
 module ddmd.builtin;
 
@@ -17,7 +19,7 @@ import ddmd.expression;
 import ddmd.func;
 import ddmd.globals;
 import ddmd.mtype;
-import ddmd.root.port;
+import ddmd.root.ctfloat;
 import ddmd.root.stringtable;
 import ddmd.tokens;
 version(IN_LLVM) {
@@ -26,18 +28,29 @@ version(IN_LLVM) {
 
 private:
 
+/**
+ * Handler for evaluating builtins during CTFE.
+ *
+ * Params:
+ *  loc = The call location, for error reporting.
+ *  fd = The callee declaration, e.g. to disambiguate between different overloads
+ *       in a single handler (LDC).
+ *  arguments = The function call arguments.
+ * Returns:
+ *  An Expression containing the return value of the call.
+ */
 extern (C++) alias builtin_fp = Expression function(Loc loc, FuncDeclaration fd, Expressions* arguments);
 
 __gshared StringTable builtins;
 
 public extern (C++) void add_builtin(const(char)* mangle, builtin_fp fp)
 {
-    builtins.insert(mangle, strlen(mangle)).ptrvalue = cast(void*)fp;
+    builtins.insert(mangle, strlen(mangle), cast(void*)fp);
 }
 
 builtin_fp builtin_lookup(const(char)* mangle)
 {
-    if (StringValue* sv = builtins.lookup(mangle, strlen(mangle)))
+    if (const sv = builtins.lookup(mangle, strlen(mangle)))
         return cast(builtin_fp)sv.ptrvalue;
     return null;
 }
@@ -51,35 +64,67 @@ extern (C++) Expression eval_sin(Loc loc, FuncDeclaration fd, Expressions* argum
 {
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, sinl(arg0.toReal()), arg0.type);
+    return new RealExp(loc, CTFloat.sin(arg0.toReal()), arg0.type);
 }
 
 extern (C++) Expression eval_cos(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, cosl(arg0.toReal()), arg0.type);
+    return new RealExp(loc, CTFloat.cos(arg0.toReal()), arg0.type);
 }
 
 extern (C++) Expression eval_tan(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, tanl(arg0.toReal()), arg0.type);
+    return new RealExp(loc, CTFloat.tan(arg0.toReal()), arg0.type);
 }
 
 extern (C++) Expression eval_sqrt(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, Port.sqrt(arg0.toReal()), arg0.type);
+    return new RealExp(loc, CTFloat.sqrt(arg0.toReal()), arg0.type);
 }
 
 extern (C++) Expression eval_fabs(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, fabsl(arg0.toReal()), arg0.type);
+    return new RealExp(loc, CTFloat.fabs(arg0.toReal()), arg0.type);
+}
+
+extern (C++) Expression eval_bsf(Loc loc, FuncDeclaration fd, Expressions* arguments)
+{
+    Expression arg0 = (*arguments)[0];
+    assert(arg0.op == TOKint64);
+    uinteger_t n = arg0.toInteger();
+    if (n == 0)
+        error(loc, "bsf(0) is undefined");
+    n = (n ^ (n - 1)) >> 1; // convert trailing 0s to 1, and zero rest
+    int k = 0;
+    while (n)
+    {
+        ++k;
+        n >>= 1;
+    }
+    return new IntegerExp(loc, k, Type.tint32);
+}
+
+extern (C++) Expression eval_bsr(Loc loc, FuncDeclaration fd, Expressions* arguments)
+{
+    Expression arg0 = (*arguments)[0];
+    assert(arg0.op == TOKint64);
+    uinteger_t n = arg0.toInteger();
+    if (n == 0)
+        error(loc, "bsr(0) is undefined");
+    int k = 0;
+    while (n >>= 1)
+    {
+        ++k;
+    }
+    return new IntegerExp(loc, k, Type.tint32);
 }
 
 version(IN_LLVM)
@@ -132,7 +177,7 @@ extern (C++) Expression eval_llvmsin(Loc loc, FuncDeclaration fd, Expressions *a
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, sinl(arg0.toReal()), type);
+    return new RealExp(loc, CTFloat.sin(arg0.toReal()), type);
 }
 
 extern (C++) Expression eval_llvmcos(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -140,7 +185,7 @@ extern (C++) Expression eval_llvmcos(Loc loc, FuncDeclaration fd, Expressions *a
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, cosl(arg0.toReal()), type);
+    return new RealExp(loc, CTFloat.cos(arg0.toReal()), type);
 }
 
 extern (C++) Expression eval_llvmsqrt(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -148,7 +193,7 @@ extern (C++) Expression eval_llvmsqrt(Loc loc, FuncDeclaration fd, Expressions *
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, sqrtl(arg0.toReal()), type);
+    return new RealExp(loc, CTFloat.sqrt(arg0.toReal()), type);
 }
 
 extern (C++) Expression eval_llvmlog(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -156,7 +201,7 @@ extern (C++) Expression eval_llvmlog(Loc loc, FuncDeclaration fd, Expressions *a
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, logl(arg0.toReal()), type);
+    return new RealExp(loc, CTFloat.log(arg0.toReal()), type);
 }
 
 extern (C++) Expression eval_llvmfabs(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -164,7 +209,7 @@ extern (C++) Expression eval_llvmfabs(Loc loc, FuncDeclaration fd, Expressions *
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, fabsl(arg0.toReal()), type);
+    return new RealExp(loc, CTFloat.fabs(arg0.toReal()), type);
 }
 
 extern (C++) Expression eval_llvmminnum(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -174,7 +219,7 @@ extern (C++) Expression eval_llvmminnum(Loc loc, FuncDeclaration fd, Expressions
     assert(arg0.op == TOKfloat64);
     Expression arg1 = (*arguments)[1];
     assert(arg1.op == TOKfloat64);
-    return new RealExp(loc, fminl(arg0.toReal(), arg1.toReal()), type);
+    return new RealExp(loc, CTFloat.fmin(arg0.toReal(), arg1.toReal()), type);
 }
 
 extern (C++) Expression eval_llvmmaxnum(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -184,7 +229,7 @@ extern (C++) Expression eval_llvmmaxnum(Loc loc, FuncDeclaration fd, Expressions
     assert(arg0.op == TOKfloat64);
     Expression arg1 = (*arguments)[1];
     assert(arg1.op == TOKfloat64);
-    return new RealExp(loc, fmaxl(arg0.toReal(), arg1.toReal()), type);
+    return new RealExp(loc, CTFloat.fmax(arg0.toReal(), arg1.toReal()), type);
 }
 
 extern (C++) Expression eval_llvmfloor(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -192,7 +237,7 @@ extern (C++) Expression eval_llvmfloor(Loc loc, FuncDeclaration fd, Expressions 
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, floor(arg0.toReal()), type);
+    return new RealExp(loc, CTFloat.floor(arg0.toReal()), type);
 }
 
 extern (C++) Expression eval_llvmceil(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -200,7 +245,7 @@ extern (C++) Expression eval_llvmceil(Loc loc, FuncDeclaration fd, Expressions *
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, ceil(arg0.toReal()), type);
+    return new RealExp(loc, CTFloat.ceil(arg0.toReal()), type);
 }
 
 extern (C++) Expression eval_llvmtrunc(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -208,7 +253,7 @@ extern (C++) Expression eval_llvmtrunc(Loc loc, FuncDeclaration fd, Expressions 
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, trunc(arg0.toReal()), type);
+    return new RealExp(loc, CTFloat.trunc(arg0.toReal()), type);
 }
 
 extern (C++) Expression eval_llvmround(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -216,7 +261,7 @@ extern (C++) Expression eval_llvmround(Loc loc, FuncDeclaration fd, Expressions 
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, round(arg0.toReal()), type);
+    return new RealExp(loc, CTFloat.round(arg0.toReal()), type);
 }
 
 extern (C++) Expression eval_cttz(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -324,41 +369,9 @@ extern (C++) Expression eval_ctpop(Loc loc, FuncDeclaration fd, Expressions *arg
     return new IntegerExp(loc, cnt, type);
 }
 
-} // IN_LLVM
-else
-{ // !IN_LLVM
-
-extern (C++) Expression eval_bsf(Loc loc, FuncDeclaration fd, Expressions* arguments)
-{
-    Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKint64);
-    uinteger_t n = arg0.toInteger();
-    if (n == 0)
-        error(loc, "bsf(0) is undefined");
-    n = (n ^ (n - 1)) >> 1; // convert trailing 0s to 1, and zero rest
-    int k = 0;
-    while (n)
-    {
-        ++k;
-        n >>= 1;
-    }
-    return new IntegerExp(loc, k, Type.tint32);
 }
-
-extern (C++) Expression eval_bsr(Loc loc, FuncDeclaration fd, Expressions* arguments)
+else // !IN_LLVM
 {
-    Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKint64);
-    uinteger_t n = arg0.toInteger();
-    if (n == 0)
-        error(loc, "bsr(0) is undefined");
-    int k = 0;
-    while (n >>= 1)
-    {
-        ++k;
-    }
-    return new IntegerExp(loc, k, Type.tint32);
-}
 
 extern (C++) Expression eval_bswap(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
@@ -401,10 +414,10 @@ extern (C++) Expression eval_yl2x(Loc loc, FuncDeclaration fd, Expressions* argu
     assert(arg0.op == TOKfloat64);
     Expression arg1 = (*arguments)[1];
     assert(arg1.op == TOKfloat64);
-    real x = arg0.toReal();
-    real y = arg1.toReal();
-    real result;
-    Port.yl2x_impl(&x, &y, &result);
+    const x = arg0.toReal();
+    const y = arg1.toReal();
+    real_t result = 0;
+    CTFloat.yl2x(&x, &y, &result);
     return new RealExp(loc, result, arg0.type);
 }
 
@@ -414,10 +427,10 @@ extern (C++) Expression eval_yl2xp1(Loc loc, FuncDeclaration fd, Expressions* ar
     assert(arg0.op == TOKfloat64);
     Expression arg1 = (*arguments)[1];
     assert(arg1.op == TOKfloat64);
-    real x = arg0.toReal();
-    real y = arg1.toReal();
-    real result;
-    Port.yl2xp1_impl(&x, &y, &result);
+    const x = arg0.toReal();
+    const y = arg1.toReal();
+    real_t result = 0;
+    CTFloat.yl2xp1(&x, &y, &result);
     return new RealExp(loc, result, arg0.type);
 }
 
@@ -453,7 +466,7 @@ else
     add_builtin("_D4core4math4sqrtFNaNbNiNffZf", &eval_sqrt);
     // @safe @nogc pure nothrow real function(real, real)
     add_builtin("_D4core4math5atan2FNaNbNiNfeeZe", &eval_unimp);
-    if (Port.yl2x_supported)
+    if (CTFloat.yl2x_supported)
     {
         add_builtin("_D4core4math4yl2xFNaNbNiNfeeZe", &eval_yl2x);
     }
@@ -461,7 +474,7 @@ else
     {
         add_builtin("_D4core4math4yl2xFNaNbNiNfeeZe", &eval_unimp);
     }
-    if (Port.yl2xp1_supported)
+    if (CTFloat.yl2xp1_supported)
     {
         add_builtin("_D4core4math6yl2xp1FNaNbNiNfeeZe", &eval_yl2xp1);
     }
@@ -493,7 +506,7 @@ else
     add_builtin("_D3std4math4sqrtFNaNbNiNffZf", &eval_sqrt);
     // @safe @nogc pure nothrow real function(real, real)
     add_builtin("_D3std4math5atan2FNaNbNiNfeeZe", &eval_unimp);
-    if (Port.yl2x_supported)
+    if (CTFloat.yl2x_supported)
     {
         add_builtin("_D3std4math4yl2xFNaNbNiNfeeZe", &eval_yl2x);
     }
@@ -501,7 +514,7 @@ else
     {
         add_builtin("_D3std4math4yl2xFNaNbNiNfeeZe", &eval_unimp);
     }
-    if (Port.yl2xp1_supported)
+    if (CTFloat.yl2xp1_supported)
     {
         add_builtin("_D3std4math6yl2xp1FNaNbNiNfeeZe", &eval_yl2xp1);
     }
@@ -618,8 +631,7 @@ version(IN_LLVM)
     add_builtin("llvm.ctpop.i64", &eval_ctpop);
     add_builtin("llvm.ctpop.i128", &eval_ctpop);
 }
-else
-{
+
     // @safe @nogc pure nothrow int function(uint)
     add_builtin("_D4core5bitop3bsfFNaNbNiNfkZi", &eval_bsf);
     add_builtin("_D4core5bitop3bsrFNaNbNiNfkZi", &eval_bsr);
@@ -635,7 +647,6 @@ else
     // @safe @nogc pure nothrow int function(ulong)
     if (global.params.is64bit)
         add_builtin("_D4core5bitop7_popcntFNaNbNiNfmZi", &eval_popcnt);
-}
 }
 
 /**********************************

@@ -571,6 +571,8 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   if (soname.getNumOccurrences() > 0 && !global.params.dll) {
     error(Loc(), "-soname can be used only when building a shared library");
   }
+
+  global.params.hdrStripPlainFunctions = !opts::hdrKeepAllBodies;
 }
 
 void initializePasses() {

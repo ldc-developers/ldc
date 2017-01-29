@@ -200,9 +200,10 @@ cl::opt<std::string> hdrFile("Hf",
                              cl::desc("Write 'header' file to <filename>"),
                              cl::value_desc("filename"), cl::Prefix);
 
-static cl::opt<bool, true> hdrKeepAllBodies(
-    "Hkeep-all-bodies", cl::desc("Keep all function bodies in .di files"),
-    cl::ZeroOrMore, cl::location(global.params.hdrKeepAllBodies));
+cl::opt<bool>
+    hdrKeepAllBodies("Hkeep-all-bodies",
+                     cl::desc("Keep all function bodies in .di files"),
+                     cl::ZeroOrMore);
 
 static cl::opt<bool, true> unittest("unittest",
                                     cl::desc("Compile in unit tests"),

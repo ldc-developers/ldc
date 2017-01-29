@@ -86,7 +86,7 @@ TypeInfoDeclaration *createUnqualified(Type *t) {
       return TypeInfoClassDeclaration::create(t);
     }
   default:
-    return TypeInfoDeclaration::create(t, 0);
+    return TypeInfoDeclaration::create(t);
   }
 }
 }
@@ -193,8 +193,11 @@ static void emitTypeMetadata(TypeInfoDeclaration *tid) {
   if (t->ty < Terror && t->ty != Tvoid && t->ty != Tfunction &&
       t->ty != Tident) {
     // Add some metadata for use by optimization passes.
-    std::string metaname(TD_PREFIX);
-    metaname += mangle(tid);
+    OutBuffer buf;
+    buf.writestring(TD_PREFIX);
+    mangleToBuffer(tid, &buf);
+    const char *metaname = buf.peekString();
+
     llvm::NamedMDNode *meta = gIR->module.getNamedMetadata(metaname);
 
     if (!meta) {
@@ -695,10 +698,13 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
   }
   decl->ir->setDefined();
 
-  std::string mangled(mangle(decl));
+  OutBuffer mangleBuf;
+  mangleToBuffer(decl, &mangleBuf);
+  const char *mangled = mangleBuf.peekString();
+
   IF_LOG {
     Logger::println("type = '%s'", decl->tinfo->toChars());
-    Logger::println("typeinfo mangle: %s", mangled.c_str());
+    Logger::println("typeinfo mangle: %s", mangled);
   }
 
   IrGlobal *irg = getIrGlobal(decl, true);

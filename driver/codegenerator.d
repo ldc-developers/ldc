@@ -50,7 +50,7 @@ extern (C++) void genCmain(Scope *sc) {
   Identifier id = Id.entrypoint;
   auto m = new Module("__entrypoint.d", id, 0, 0);
 
-  scope Parser p = new Parser(m, code.ptr, code.length, 0);
+  scope Parser p = new Parser(m, code, false);
   p.scanloc = Loc();
   p.nextToken();
   m.members = p.parseModule();
