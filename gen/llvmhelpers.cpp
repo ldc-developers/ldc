@@ -936,6 +936,21 @@ void DtoVarDeclaration(VarDeclaration *vd) {
   }
 }
 
+namespace {
+void pushVarDtorCleanup(IRState *p, VarDeclaration *vd) {
+  auto *beginBB = llvm::BasicBlock::Create(
+      gIR->context(), llvm::Twine("dtor.") + vd->toChars(), gIR->topfunc());
+
+  // TODO: Clean this up with push/pop insertion point methods.
+  IRScope oldScope = p->scope();
+  p->scope() = IRScope(beginBB);
+  toElemDtor(vd->edtor);
+  p->funcGen().scopes.pushCleanup(beginBB, p->scopebb());
+  p->scope() = oldScope;
+}
+}
+
+
 DValue *DtoDeclarationExp(Dsymbol *declaration) {
   IF_LOG Logger::print("DtoDeclarationExp: %s\n", declaration->toChars());
   LOG_SCOPE;
@@ -960,7 +975,12 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
       Declaration_codegen(vd);
     } else {
       DtoVarDeclaration(vd);
+
+      if (vd->needsScopeDtor()) {
+        pushVarDtorCleanup(gIR, vd);
+      }
     }
+
     return makeVarDValue(vd->type, vd);
   }
 

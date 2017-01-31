@@ -278,7 +278,7 @@ public:
 
     if (auto vd = e->declaration->isVarDeclaration()) {
       if (!vd->isDataseg() && vd->needsScopeDtor()) {
-        pushVarDtorCleanup(p, vd);
+        //pushVarDtorCleanup(p, vd);
       }
     }
   }
