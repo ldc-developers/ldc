@@ -5302,8 +5302,8 @@ private:
             else if (tobj !is m_curThread)
             {
                 m_unhandled = new ThreadException
-                    ("Migrating Fibers between Threads on this platform may lead "
-                     "to incorrect thread local variable access.  To allow "
+                    ("Migrating Fibers between Threads on this platform may lead " ~
+                     "to incorrect thread local variable access.  To allow " ~
                      "migration anyway, call Fiber.allowMigration()");
                 return;
             }
@@ -5514,8 +5514,8 @@ unittest
         // If thread local addr not cached (correct behavior), then tls should
         // still be 1.
         assert(tls != 2,
-               "Not safe to migrate Fibers between Threads on your system. "
-               "Consider setting version CheckFiberMigration for this system "
+               "Not safe to migrate Fibers between Threads on your system. " ~
+               "Consider setting version CheckFiberMigration for this system " ~
                "in thread.d");
         // verify un-cached correct case
         assert(tls == 1);
@@ -5525,8 +5525,8 @@ unittest
         if (tls == 2)
         {
             import core.stdc.stdio : puts;
-            puts("Not safe to migrate Fibers between Threads on your system. "
-                 "Consider setting version CheckFiberMigration for this system "
+            puts("Not safe to migrate Fibers between Threads on your system. " ~
+                 "Consider setting version CheckFiberMigration for this system " ~
                  "in thread.d");
         }
     }
