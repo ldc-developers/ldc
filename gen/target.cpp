@@ -57,7 +57,17 @@ void Target::_init() {
   classinfosize = 0; // unused
 
   const auto pTargetRealSemantics = &real->getFltSemantics();
-  if (pTargetRealSemantics == &APFloat::x87DoubleExtended) {
+#if LDC_LLVM_VER >= 400
+  const auto x87DoubleExtended = &APFloat::x87DoubleExtended();
+  const auto IEEEdouble = &APFloat::IEEEdouble();
+  const auto PPCDoubleDouble = &APFloat::PPCDoubleDouble();
+#else
+  const auto x87DoubleExtended = &APFloat::x87DoubleExtended;
+  const auto IEEEdouble = &APFloat::IEEEdouble;
+  const auto PPCDoubleDouble = &APFloat::PPCDoubleDouble;
+#endif
+
+  if (pTargetRealSemantics == x87DoubleExtended) {
     real_max = CTFloat::parse("0x1.fffffffffffffffep+16383");
     real_min_normal = CTFloat::parse("0x1p-16382");
     real_epsilon = CTFloat::parse("0x1p-63");
@@ -67,8 +77,8 @@ void Target::_init() {
     RealProperties::min_exp = -16381;
     RealProperties::max_10_exp = 4932;
     RealProperties::min_10_exp = -4932;
-  } else if (pTargetRealSemantics == &APFloat::IEEEdouble ||
-             pTargetRealSemantics == &APFloat::PPCDoubleDouble) {
+  } else if (pTargetRealSemantics == IEEEdouble ||
+             pTargetRealSemantics == PPCDoubleDouble) {
     real_max = CTFloat::parse("0x1.fffffffffffffp+1023");
     real_min_normal = CTFloat::parse("0x1p-1022");
     real_epsilon = CTFloat::parse("0x1p-52");
