@@ -19,6 +19,7 @@
 #include "gen/recursivevisitor.h"
 #include "gen/uda.h"
 #include "gen/dcomputetarget.h"
+#include "gen/logger.h"
 #include "ddmd/declaration.h"
 #include "ddmd/module.h"
 #include "ddmd/identifier.h"
@@ -153,6 +154,14 @@ struct DComputeSemantic : public StoppableVisitor {
       stop = true;
     }
   }
+    
+  // Override the default assert(0) behavior of Visitor:
+  void visit(Statement *) override {}   // do nothing
+  void visit(Expression *) override {}  // do nothing
+  void visit(Declaration *) override {} // do nothing
+  void visit(Initializer *) override {} // do nothing
+  void visit(Dsymbol *) override {}     // do nothing
+
 };
 
 void dcomputeSemanticAnalysis(Module * m)
@@ -162,6 +171,8 @@ void dcomputeSemanticAnalysis(Module * m)
   for (unsigned k = 0; k < m->members->dim; k++) {
     Dsymbol *dsym = (*m->members)[k];
     assert(dsym);
+    IF_LOG Logger::println("dcomputeSema: %s: %s",m->toPrettyChars(),
+                           dsym->toPrettyChars());
     dsym->accept(&r);
   }
 }  

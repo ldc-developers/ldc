@@ -36,7 +36,7 @@ void func()
     cast(void) (quux ~ 1);
     //CHECK: Error: typeinfo not available in @compute code
     cast(void) typeid(int);
-    synchronized {}
+    //synchronized {}
     //CHECK: Error: string literals not allowed in @compue code
     auto s = "geaxsese";
     //CHECK: Error: cannot switch on strings in @compute code
