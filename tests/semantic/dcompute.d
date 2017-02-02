@@ -11,7 +11,7 @@ extern(C) bool __dcompute_reflect(int,int);
 interface I {}
 
 //CHECK: Error: interfaces and classes not allowed in @compute code
-class C : Throwable {}
+class C : Throwable { this() { super(""); } }
 
 //CHECK: Error: global variables not allowed in @compute code
 C c;
@@ -57,7 +57,7 @@ void func()
     {
         func1();
     }
-    catch(...)
+    catch(C c)
     {
     }
 
