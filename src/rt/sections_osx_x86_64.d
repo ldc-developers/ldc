@@ -20,6 +20,7 @@ else version (TVOS)
 else version (WatchOS)
     version = Darwin;
 
+version (LDC) {} else
 version(Darwin):
 version(X86_64):
 
