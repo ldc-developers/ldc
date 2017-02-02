@@ -6,6 +6,7 @@
 #include "attrib.h"
 #include "declaration.h"
 #include "expression.h"
+#include "enum.h"
 #include "ir/irfunction.h"
 #include "module.h"
 
@@ -441,7 +442,20 @@ int hasComputeAttr(Dsymbol *sym) {
   if (!sle)
     return 0;
 
-  checkStructElems(sle, {Type::tint32});
+  if (sle->elements->dim != 1) {
+    sle->error(
+                "unexpected field count in 'ldc.attributes.%s'; does druntime not "
+                "match compiler version?",
+                sle->sd->ident->string);
+    fatal();
+  }
+  auto type = (*sle->elements)[0]->type;
+    
+  if (type->ty != Tenum || !isLdcAttibutes(((TypeEnum*)type)->sym->getModule()->md)) {
+    sle->error("invalid field type in 'ldc.attributes.%s'; does druntime not "
+                "match compiler version?");
+    fatal();
+  }
 
   if (!sym->isModule())
     sym->error("@ldc.attributes.compute can only be applied to modules");
