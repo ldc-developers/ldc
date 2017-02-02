@@ -13,12 +13,12 @@ interface I {}
 //CHECK: Error: interfaces and classes not allowed in @compute code
 class C : Throwable { this() { super(""); } }
 
-//CHECK: Error: global variables not allowed in @compute code
+//CHECK: Error: {.*} global variables not allowed in @compute code
 C c;
 
 void func()
 {
-    //CHECK: Error: associative arrays not allowed in @compute code
+    //CHECK: Error: {.*} associative arrays not allowed in @compute code
     int[int] foo;
     //CHECK: Error: array literal in @compute code not allowed
     auto bar = [0, 1, 2];
@@ -36,7 +36,8 @@ void func()
     cast(void) (quux ~ 1);
     //CHECK: Error: typeinfo not available in @compute code
     cast(void) typeid(int);
-    //synchronized {}
+    //CHECK: Error: cannot use 'synchronized' in @compute code
+    synchronized {}
     //CHECK: Error: string literals not allowed in @compue code
     auto s = "geaxsese";
     //CHECK: Error: cannot switch on strings in @compute code

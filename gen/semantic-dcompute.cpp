@@ -45,7 +45,8 @@ struct DComputeSemantic : public StoppableVisitor {
     stop = true;
   }
   void visit(VarDeclaration *decl) override {
-    if (decl->isDataseg()) {
+    // Don't print multiple errors for 'synchronized'
+    if (decl->isDataseg() && strncmp(decl->toChars(),"__critsec",9)) {
       decl->error("global variables not allowed in @compute code");
       stop = true;
     }
@@ -100,10 +101,6 @@ struct DComputeSemantic : public StoppableVisitor {
     e->error("typeinfo not available in @compute code");
     stop = true;
   }
-  void visit(SynchronizedStatement *e) override {
-    e->error("cannot use 'synchronized' in @compute code");
-    stop = true;
-  }
 
   void visit(StringExp *e) override {
     e->error("string literals not allowed in @compue code");
@@ -148,7 +145,24 @@ struct DComputeSemantic : public StoppableVisitor {
     }
   }
   void visit(CallExp *e) override {
-    if (!hasComputeAttr(e->f->getModule())) {
+    // SynchronizedStatement is lowered to
+    //    Critsec __critsec105; // 105 == line number
+    //    _d_criticalenter(& __critsec105); <--
+    //    ...                                 |
+    //    _d_criticalexit( & __critsec105);   |
+    // So we intercept it with the CallExp ----
+
+    if (!strncmp(e->toChars(),"_d_criticalenter",16)) {
+      e->error("cannot use 'synchronized' in @compute code");
+      stop = true;
+      return;
+    }
+        
+    if (!strncmp(e->toChars(),"_d_criticalexit",15)) {
+      stop = true;
+      return;
+    }
+    if (e->f->getModule() == nullptr || !hasComputeAttr(e->f->getModule())) {
       e->error("can only call functions from other @compute modules in "
                 "@compute code");
       stop = true;
