@@ -1,4 +1,4 @@
-//===-- dcomputevailditychecker.cpp ---------------------------------------===//
+//===-- semantic-dcompute.cpp ---------------------------------------------===//
 //
 //                         LDC – the LLVM D compiler
 //
