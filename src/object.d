@@ -339,7 +339,10 @@ version(LDC)
     //   %"typeid(typeof(null))" = type { %object.TypeInfo.__vtbl*, i8* }
     // Therefore this class cannot be abstract, and all methods need implementations.
     // Tested by test14754() in runnable/inline.d, and a unittest below.
-    const(void)[] initializer() nothrow pure const @safe @nogc { return null; }
+    const(void)[] initializer() nothrow pure const @trusted @nogc
+    {
+        return (cast(const(void)*) null)[0 .. typeof(null).sizeof];
+    }
 }
 else
 {
