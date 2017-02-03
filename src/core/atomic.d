@@ -185,7 +185,7 @@ else version( LDC )
 
     pragma(inline, true):
 
-    HeadUnshared!(T) atomicOp(string op, T, V1)( ref shared T val, V1 mod )
+    HeadUnshared!(T) atomicOp(string op, T, V1)( ref shared T val, V1 mod ) pure nothrow @nogc @trusted
         if( __traits( compiles, mixin( "*cast(T*)&val" ~ op ~ "mod" ) ) )
     {
         enum suitedForAtomicRmw = (__traits(isIntegral, T) && __traits(isIntegral, V1) &&
@@ -255,25 +255,25 @@ else version( LDC )
         }
     }
 
-    bool cas(T,V1,V2)( shared(T)* here, const V1 ifThis, V2 writeThis )
+    bool cas(T,V1,V2)( shared(T)* here, const V1 ifThis, V2 writeThis ) pure nothrow @nogc @safe
         if( !is(T == class) && !is(T U : U*) && __traits( compiles, { *here = writeThis; } ) )
     {
         return casImpl(here, ifThis, writeThis);
     }
 
-    bool cas(T,V1,V2)( shared(T)* here, const shared(V1) ifThis, shared(V2) writeThis )
+    bool cas(T,V1,V2)( shared(T)* here, const shared(V1) ifThis, shared(V2) writeThis ) pure nothrow @nogc @safe
         if( is(T == class) && __traits( compiles, { *here = writeThis; } ) )
     {
         return casImpl(here, ifThis, writeThis);
     }
 
-    bool cas(T,V1,V2)( shared(T)* here, const shared(V1)* ifThis, shared(V2)* writeThis )
+    bool cas(T,V1,V2)( shared(T)* here, const shared(V1)* ifThis, shared(V2)* writeThis ) pure nothrow @nogc @safe
         if( is(T U : U*) && __traits( compiles, { *here = writeThis; } ) )
     {
         return casImpl(here, ifThis, writeThis);
     }
 
-    private bool casImpl(T,V1,V2)( shared(T)* here, V1 ifThis, V2 writeThis )
+    private bool casImpl(T,V1,V2)( shared(T)* here, V1 ifThis, V2 writeThis ) pure nothrow @nogc @trusted
     {
         T res = void;
         static if (__traits(isFloating, T))
@@ -372,7 +372,7 @@ else version( LDC )
     // This could also handle floating-point types, the constraint is just there
     // to avoid ambiguities with below "general" floating point definition from
     // the upstream runtime.
-    HeadUnshared!T atomicLoad(MemoryOrder ms = MemoryOrder.seq, T)(ref const shared T val)
+    HeadUnshared!T atomicLoad(MemoryOrder ms = MemoryOrder.seq, T)(ref const shared T val) pure nothrow @nogc @trusted
         if( !__traits(isFloating, T) )
     {
         alias Int = _AtomicType!T;
@@ -380,7 +380,7 @@ else version( LDC )
         return *cast(HeadUnshared!T*)&asInt;
     }
 
-    void atomicStore(MemoryOrder ms = MemoryOrder.seq, T, V1)( ref shared T val, V1 newval )
+    void atomicStore(MemoryOrder ms = MemoryOrder.seq, T, V1)( ref shared T val, V1 newval ) pure nothrow @nogc @trusted
         if( __traits( compiles, { val = newval; } ) )
     {
         alias Int = _AtomicType!T;
@@ -389,7 +389,7 @@ else version( LDC )
         llvm_atomic_store!Int(*newPtr, target, _ordering!(ms));
     }
 
-    void atomicFence() nothrow
+    void atomicFence() nothrow @nogc @safe
     {
         llvm_memory_fence();
     }
