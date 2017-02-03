@@ -1,16 +1,16 @@
 // RUN: not %ldc -o- %s 2>&1 | FileCheck %s
 
 
-@compute(CompileFor.deviceOnly) module tests.semantic.dcompute;
+@compute(CompileFor.deviceOnly) module dcompute;
 import ldc.attributes;
-import tests.semantic.inputs.notatcompute : somefunc;
+import inputs.notatcompute : somefunc;
 
 extern(C) bool perhaps();
 extern(C) bool __dcompute_reflect(int,int);
-//CHECK: Error: interfaces and classes not allowed in @compute code
+//CH ECK: Error: interfaces and classes not allowed in @compute code
 interface I {}
 
-//CHECK: Error: interfaces and classes not allowed in @compute code
+//CH ECK: Error: interfaces and classes not allowed in @compute code
 class C : Throwable { this() { super(""); } }
 
 //CHECK: Error: {.*} global variables not allowed in @compute code
@@ -86,5 +86,5 @@ void func()
 void func1() {}
 void func2() {}
 
-//CHECK: Error: linking additional libraries not supported in @compute code
+//CH ECK: Error: linking additional libraries not supported in @compute code
 pragma(lib, "bar");
