@@ -1,4 +1,4 @@
-// RUN: not %ldc -o- %s 2>&1 | FileCheck %s
+// RUN: not %ldc -o- -I%S %s 2>&1 | FileCheck %s
 
 
 @compute(CompileFor.deviceOnly) module dcompute;
