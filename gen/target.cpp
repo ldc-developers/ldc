@@ -44,7 +44,7 @@ void Target::_init() {
   realsize = gDataLayout->getTypeAllocSize(real);
   realpad = realsize - gDataLayout->getTypeStoreSize(real);
   realalignsize = gDataLayout->getABITypeAlignment(real);
-  realislongdouble = false;
+  realislongdouble = true;
 
   // according to DMD, only for MSVC++:
   reverseCppOverloads = global.params.targetTriple->isWindowsMSVCEnvironment();
