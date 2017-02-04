@@ -25,7 +25,7 @@
 #include "ddmd/identifier.h"
 #include "id.h"
 
-struct DComputeSemantic : public StoppableVisitor {
+struct DComputeSemanticAnalyser : public StoppableVisitor {
   // InterfaceDeclaration
   // ClassDeclaration
   // VarDeclaration : isDataSeg (global variable)
