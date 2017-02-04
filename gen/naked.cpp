@@ -17,6 +17,7 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/mangling.h"
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
 #include "llvm/IR/InlineAsm.h"
@@ -150,7 +151,16 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
 
   // FIXME: could we perhaps use llvm asmwriter to give us these details ?
 
-  const char *mangle = mangleExact(fd);
+  std::string mangle = getMangledName(fd, fd->linkage);
+  // strip special leading 1-byte (prevents LLVM from additional mangling)
+  if (mangle[0] == '\1')
+    mangle.erase(0, 1);
+  // leading ? apparently needs quoting, at least for x86(_64)
+  if (mangle[0] == '?') {
+    mangle.insert(0, "\"");
+    mangle += '"';
+  }
+
   std::ostringstream tmpstr;
 
   bool const isWin = global.params.targetTriple->isOSWindows();
@@ -178,13 +188,7 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   }
   // Windows is different
   else if (isWin) {
-    std::string fullMangle;
-    if (!global.params.targetTriple->isArch64Bit()) {
-      fullMangle = "_";
-    }
-    fullMangle += mangle;
-
-    asmstr << "\t.def\t" << fullMangle << ";" << std::endl;
+    asmstr << "\t.def\t" << mangle << ";" << std::endl;
     // hard code these two numbers for now since gas ignores .scl and llvm
     // is defaulting to .type 32 for everything I have seen
     asmstr << "\t.scl 2;" << std::endl;
@@ -192,14 +196,14 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
     asmstr << "\t.endef" << std::endl;
 
     if (DtoIsTemplateInstance(fd)) {
-      asmstr << "\t.section\t.text$" << fullMangle << ",\"xr\"" << std::endl;
+      asmstr << "\t.section\t.text$" << mangle << ",\"xr\"" << std::endl;
       asmstr << "\t.linkonce\tdiscard" << std::endl;
     } else {
       asmstr << "\t.text" << std::endl;
     }
-    asmstr << "\t.globl\t" << fullMangle << std::endl;
+    asmstr << "\t.globl\t" << mangle << std::endl;
     asmstr << "\t.align\t16, 0x90" << std::endl;
-    asmstr << fullMangle << ":" << std::endl;
+    asmstr << mangle << ":" << std::endl;
   } else {
     if (DtoIsTemplateInstance(fd)) {
       asmstr << "\t.section\t.text." << mangle << ",\"axG\",@progbits,"
