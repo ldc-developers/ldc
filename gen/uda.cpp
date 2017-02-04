@@ -81,7 +81,7 @@ void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
   }
 
   for (size_t i = 0; i < sle->elements->dim; ++i) {
-    if ((*sle->elements)[i]->type != elemTypes[i]) {
+    if ((*sle->elements)[i]->type->toBasetype() != elemTypes[i]) {
       sle->error("invalid field type in 'ldc.attributes.%s'; does druntime not "
                  "match compiler version?",
                  sle->sd->ident->string);

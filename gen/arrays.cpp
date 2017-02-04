@@ -107,28 +107,24 @@ void DtoSetArrayToNull(LLValue *v) {
 ////////////////////////////////////////////////////////////////////////////////
 
 static void DtoArrayInit(Loc &loc, LLValue *ptr, LLValue *length,
-                         DValue *dvalue) {
+                         DValue *elementValue) {
   IF_LOG Logger::println("DtoArrayInit");
   LOG_SCOPE;
 
-  // lets first optimize all zero/constant i8 initializations down to a memset.
-  // this simplifies codegen later on as llvm null's have no address!
-  if (!dvalue->isLVal()) {
-    LLConstant *constantVal = isaConstant(DtoRVal(dvalue));
-    if (constantVal &&
-        (constantVal->isNullValue() ||
-         constantVal->getType() == LLType::getInt8Ty(gIR->context()))) {
+  // Let's first optimize all zero/i8 initializations down to a memset.
+  // This simplifies codegen later on as llvm null's have no address!
+  if (!elementValue->isLVal() || !DtoIsInMemoryOnly(elementValue->type)) {
+    LLValue *val = DtoRVal(elementValue);
+    LLConstant *constantVal = isaConstant(val);
+    bool isNullConstant = (constantVal && constantVal->isNullValue());
+    if (isNullConstant || val->getType() == LLType::getInt8Ty(gIR->context())) {
       LLValue *size = length;
-      size_t elementSize = getTypeAllocSize(constantVal->getType());
+      size_t elementSize = getTypeAllocSize(val->getType());
       if (elementSize != 1) {
         size = gIR->ir->CreateMul(length, DtoConstSize_t(elementSize),
                                   ".arraysize");
       }
-      if (constantVal->isNullValue()) {
-        DtoMemSetZero(ptr, size);
-      } else {
-        DtoMemSet(ptr, constantVal, size);
-      }
+      DtoMemSet(ptr, isNullConstant ? DtoConstUbyte(0) : val, size);
       return;
     }
   }
@@ -161,9 +157,9 @@ static void DtoArrayInit(Loc &loc, LLValue *ptr, LLValue *length,
 
   LLValue *itr_val = DtoLoad(itr);
   // assign array element value
-  DLValue arrayelem(dvalue->type->toBasetype(),
+  DLValue arrayelem(elementValue->type->toBasetype(),
                     DtoGEP1(ptr, itr_val, true, "arrayinit.arrayelem"));
-  DtoAssign(loc, &arrayelem, dvalue, TOKblit);
+  DtoAssign(loc, &arrayelem, elementValue, TOKblit);
 
   // increment iterator
   DtoStore(gIR->ir->CreateAdd(itr_val, DtoConstSize_t(1), "arrayinit.new_itr"),
@@ -248,6 +244,12 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
   LLValue *lhsPtr = DtoBitCast(realLhsPtr, getVoidPtrType());
   LLValue *lhsLength = DtoArrayLen(lhs);
 
+  auto computeSize = [](LLValue *length, size_t elementSize) {
+    return elementSize == 1
+               ? length
+               : gIR->ir->CreateMul(length, DtoConstSize_t(elementSize));
+  };
+
   // Be careful to handle void arrays correctly when modifying this (see tests
   // for DMD issue 7493).
   // TODO: This should use AssignExp::memset.
@@ -264,14 +266,13 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
 
     if (!needsDestruction && !needsPostblit) {
       // fast version
-      LLValue *elemSize =
-          DtoConstSize_t(getTypeAllocSize(DtoMemType(elemType)));
-      LLValue *lhsSize = gIR->ir->CreateMul(elemSize, lhsLength);
+      const size_t elementSize = getTypeAllocSize(DtoMemType(elemType));
+      LLValue *lhsSize = computeSize(lhsLength, elementSize);
 
       if (rhs->isNull()) {
         DtoMemSetZero(lhsPtr, lhsSize);
       } else {
-        LLValue *rhsSize = gIR->ir->CreateMul(elemSize, rhsLength);
+        LLValue *rhsSize = computeSize(rhsLength, elementSize);
         const bool knownInBounds =
             isConstructing || (t->ty == Tsarray && t2->ty == Tsarray);
         copySlice(loc, lhsPtr, lhsSize, rhsPtr, rhsSize, knownInBounds);
@@ -302,13 +303,19 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
 
     if (!needsDestruction && !needsPostblit) {
       // fast version
-      LLValue *elemSize = DtoConstSize_t(
-          getTypeAllocSize(realLhsPtr->getType()->getContainedType(0)));
-      LLValue *lhsSize = gIR->ir->CreateMul(elemSize, lhsLength);
+      const size_t lhsElementSize =
+          getTypeAllocSize(realLhsPtr->getType()->getContainedType(0));
       LLType *rhsType = DtoMemType(t2);
-      LLValue *rhsSize = DtoConstSize_t(getTypeAllocSize(rhsType));
-      LLValue *actualPtr = DtoBitCast(lhsPtr, rhsType->getPointerTo());
-      LLValue *actualLength = gIR->ir->CreateExactUDiv(lhsSize, rhsSize);
+      const size_t rhsSize = getTypeAllocSize(rhsType);
+      LLValue *actualPtr = DtoBitCast(realLhsPtr, rhsType->getPointerTo());
+      LLValue *actualLength = lhsLength;
+      if (rhsSize != lhsElementSize) {
+        LLValue *lhsSize = computeSize(lhsLength, lhsElementSize);
+        actualLength =
+            rhsSize == 1
+                ? lhsSize
+                : gIR->ir->CreateExactUDiv(lhsSize, DtoConstSize_t(rhsSize));
+      }
       DtoArrayInit(loc, actualPtr, actualLength, rhs);
     } else {
       LLFunction *fn = getRuntimeFunction(loc, gIR->module,
