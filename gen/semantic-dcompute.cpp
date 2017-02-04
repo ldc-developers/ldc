@@ -181,7 +181,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
 
 void dcomputeSemanticAnalysis(Module * m)
 {
-  DComputeSemantic v;
+  DComputeSemanticAnalyser v;
   RecursiveWalker r(&v);
   for (unsigned k = 0; k < m->members->dim; k++) {
     Dsymbol *dsym = (*m->members)[k];
