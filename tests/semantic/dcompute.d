@@ -24,7 +24,7 @@ void func()
     auto bar = [0, 1, 2];
     //CHECK: Error: cannot use 'new' in @compute code
     auto baz = new int;
-    //CHECK: Error cannot use 'delete' in @compute code
+    //CHECK: Error: cannot use 'delete' in @compute code
     delete baz;
 
     int[] quux;
