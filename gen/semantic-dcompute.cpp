@@ -56,7 +56,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
       decl->error("associative arrays not allowed in @compute code");
       stop = true;
     }
-    else if (decl->isClassMember())
+    else if (decl->type->ty == Tclass) // includes interfaces
     {
         decl->error("interfaces and classes not allowed in @compute code");
     }
