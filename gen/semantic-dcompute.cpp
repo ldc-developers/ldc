@@ -191,6 +191,7 @@ void dcomputeSemanticAnalysis(Module *m) {
     assert(dsym);
     IF_LOG Logger::println("dcomputeSema: %s: %s", m->toPrettyChars(),
                            dsym->toPrettyChars());
+    LOG_SCOPE
     dsym->accept(&r);
   }
 }
