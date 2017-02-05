@@ -148,89 +148,96 @@ void printUsage(const char *argv0, const std::string &ldcPath) {
   printf(
       "\n\
 Usage:\n\
-  %s files.d ... { -switch }\n\
+  %s [<option>...] <file>...\n\
+  %s [<option>...] -run <file> [<arg>...]\n\
 \n\
-  files.d        D source files\n\
-  @cmdfile       read arguments from cmdfile\n\
-  -allinst       generate code for all template instantiations\n\
-  -betterC       omit generating some runtime information and helper functions\n\
+Where:\n\
+  <file>           D source file\n\
+  <arg>            Argument to pass when running the resulting program\n\
+\n\
+<option>:\n\
+  @<cmdfile>       read arguments from cmdfile\n\
+  -allinst         generate code for all template instantiations\n\
+  -betterC         omit generating some runtime information and helper functions\n\
   -boundscheck=[on|safeonly|off]   bounds checks on, in @safe only, or off\n\
-  -c             do not link\n\
-  -color[=on|off]   force colored console output on or off\n\
-  -conf=path     use config file at path\n\
-  -cov           do code coverage analysis\n\
-  -cov=nnn       require at least nnn%% code coverage\n\
-  -D             generate documentation\n\
-  -Dddocdir      write documentation file to docdir directory\n\
-  -Dffilename    write documentation file to filename\n\
-  -d             silently allow deprecated features\n\
-  -dw            show use of deprecated features as warnings (default)\n\
-  -de            show use of deprecated features as errors (halt compilation)\n\
-  -debug         compile in debug code\n\
-  -debug=level   compile in debug code <= level\n\
-  -debug=ident   compile in debug code identified by ident\n\
-  -debuglib=name    set symbolic debug library to name\n\
-  -defaultlib=name  set default library to name\n\
-  -deps          print module dependencies (imports/file/version/debug/lib)\n\
-  -deps=filename write module dependencies to filename (only imports)\n\
-  -dip25         implement http://wiki.dlang.org/DIP25 (experimental)\n\
-  -fPIC          generate position independent code\n\
-  -g             add symbolic debug info\n\
-  -gc            add symbolic debug info, optimize for non D debuggers\n\
-  -gs            always emit stack frame\n"
+  -c               do not link\n\
+  -color           turn colored console output on\n\
+  -color=[on|off]  force colored console output on or off\n\
+  -conf=<filename> use config file at filename\n\
+  -cov             do code coverage analysis\n\
+  -cov=<nnn>       require at least nnn%% code coverage\n\
+  -D               generate documentation\n\
+  -Dd<directory>   write documentation file to directory\n\
+  -Df<filename>    write documentation file to filename\n\
+  -d               silently allow deprecated features\n\
+  -dw              show use of deprecated features as warnings (default)\n\
+  -de              show use of deprecated features as errors (halt compilation)\n\
+  -debug           compile in debug code\n\
+  -debug=<level>   compile in debug code <= level\n\
+  -debug=<ident>   compile in debug code identified by ident\n\
+  -debuglib=<name> set symbolic debug library to name\n\
+  -defaultlib=<name>\n\
+                   set default library to name\n\
+  -deps            print module dependencies (imports/file/version/debug/lib)\n\
+  -deps=<filename> write module dependencies to filename (only imports)\n\
+  -fPIC            generate position independent code\n\
+  -dip25           implement http://wiki.dlang.org/DIP25 (experimental)\n\
+  -g               add symbolic debug info\n\
+  -gc              add symbolic debug info, optimize for non D debuggers\n\
+  -gs              always emit stack frame\n"
 #if 0
-"  -gx            add stack stomp code\n"
+"  -gx              add stack stomp code\n"
 #endif
-"  -H             generate 'header' file\n\
-  -Hddirectory   write 'header' file to directory\n\
-  -Hffilename    write 'header' file to filename\n\
-  --help         print help and exit\n\
-  -Ipath         where to look for imports\n\
-  -ignore        ignore unsupported pragmas\n\
-  -inline        do function inlining\n\
-  -Jpath         where to look for string imports\n\
-  -Llinkerflag   pass linkerflag to link\n\
-  -lib           generate library rather than object files\n\
-  -m32           generate 32 bit code\n"
+"  -H               generate 'header' file\n\
+  -Hd=<directory>  write 'header' file to directory\n\
+  -Hf=<filename>   write 'header' file to filename\n\
+  --help           print help and exit\n\
+  -I=<directory>   look for imports also in directory\n\
+  -ignore          ignore unsupported pragmas\n\
+  -inline          do function inlining\n\
+  -J=<directory>   look for string imports also in directory\n\
+  -L=<linkerflag>  pass linkerflag to link\n\
+  -lib             generate library rather than object files\n\
+  -m32             generate 32 bit code\n"
 #if 0
-"  -m32mscoff     generate 32 bit code and write MS-COFF object files\n"
+"  -m32mscoff       generate 32 bit code and write MS-COFF object files\n"
 #endif
-"  -m64           generate 64 bit code\n\
-  -main          add default main() (e.g. for unittesting)\n\
-  -man           open web browser on manual page\n"
+"  -m64             generate 64 bit code\n\
+  -main            add default main() (e.g. for unittesting)\n\
+  -man             open web browser on manual page\n"
 #if 0
-"  -map           generate linker .map file\n"
+"  -map             generate linker .map file\n"
 #endif
-"  -noboundscheck no array bounds checking (deprecated, use -boundscheck=off)\n\
-  -O             optimize\n\
-  -o-            do not write object file\n\
-  -odobjdir      write object & library files to directory objdir\n\
-  -offilename    name output file to filename\n\
-  -op            preserve source path for output files\n"
+"  -noboundscheck   no array bounds checking (deprecated, use -boundscheck=off)\n\
+  -O               optimize\n\
+  -o-              do not write object file\n\
+  -od=<directory>  write object & library files to directory\n\
+  -of=<filename>   name output file to filename\n\
+  -op              preserve source path for output files\n"
 #if 0
-"  -profile       profile runtime performance of generated code\n\
-  -profile=gc    profile runtime allocations\n"
+"  -profile         profile runtime performance of generated code\n\
+  -profile=gc      profile runtime allocations\n"
 #endif
-"  -release       compile release version\n\
-  -run srcfile args...   run resulting program, passing args\n\
-  -shared        generate shared library (DLL)\n\
-  -transition=id help with language change identified by 'id'\n\
-  -transition=?  list all language changes\n\
-  -unittest      compile in unit tests\n\
-  -v             verbose\n\
-  -vcolumns      print character (column) numbers in diagnostics\n\
-  -vdmd          print the command used to invoke the underlying compiler\n\
-  -verrors=num   limit the number of error messages (0 means unlimited)\n\
-  -vgc           list all gc allocations including hidden ones\n\
-  -vtls          list all variables going into thread local storage\n\
-  --version      print compiler version and exit\n\
-  -version=level compile in version code >= level\n\
-  -version=ident compile in version code identified by ident\n\
-  -w             warnings as errors (compilation will halt)\n\
-  -wi            warnings as messages (compilation will continue)\n\
-  -X             generate JSON file\n\
-  -Xffilename    write JSON file to filename\n\n",
-      argv0);
+"  -release         compile release version\n\
+  -shared          generate shared library (DLL)\n\
+  -transition=<id> help with language change identified by 'id'\n\
+  -transition=?    list all language changes\n\
+  -unittest        compile in unit tests\n\
+  -v               verbose\n\
+  -vcolumns        print character (column) numbers in diagnostics\n\
+  -vdmd            print the command used to invoke the underlying compiler\n\
+  -verrors=<num>   limit the number of error messages (0 means unlimited)\n\
+  -verrors=spec    show errors from speculative compiles such as __traits(compiles,...)\n\
+  -vgc             list all gc allocations including hidden ones\n\
+  -vtls            list all variables going into thread local storage\n\
+  --version        print compiler version and exit\n\
+  -version=<level> compile in version code >= level\n\
+  -version=<ident> compile in version code identified by ident\n\
+  -w               warnings as errors (compilation will halt)\n\
+  -wi              warnings as messages (compilation will continue)\n\
+  -X               generate JSON file\n\
+  -Xf=<filename>   write JSON file to filename\n\n",
+      argv0, argv0);
 }
 
 /**
@@ -309,107 +316,13 @@ void appendEnvVar(const char *envVarName, std::vector<char *> &args) {
   }
 }
 
-struct BoundsCheck {
-  enum Type { defaultVal, off, safeOnly, on };
-};
-
-struct Color {
-  enum Type { automatic, on, off };
-};
-
-struct Debug {
-  enum Type { none, normal, pretendC };
-};
-
-struct Deprecated {
-  enum Type { allow, warn, error };
-};
-
-struct Model {
-  enum Type { automatic, m32, m64 };
-};
-
-struct Warnings {
-  enum Type { none, asErrors, informational };
-};
-
-struct Params {
-  bool allinst = false;
-  Deprecated::Type useDeprecated = Deprecated::warn;
-  bool compileOnly = false;
-  bool coverage = false;
-  bool emitSharedLib = false;
-  bool pic = false;
-  bool emitMap = false;
-  bool multiObj = false;
-  Debug::Type debugInfo = Debug::none;
-  bool alwaysStackFrame = false;
-  Model::Type targetModel = Model::automatic;
-  bool profile = false;
-  bool verbose = false;
-  bool vcolumns = false;
-  bool vdmd = false;
-  bool vgc = false;
-  bool logTlsUse = false;
-  unsigned errorLimit = 0;
-  bool errorLimitSet = false;
-  Warnings::Type warnings = Warnings::none;
-  bool optimize = false;
-  bool noObj = false;
-  char *objDir = nullptr;
-  char *objName = nullptr;
-  bool preservePaths = false;
-  bool generateDocs = false;
-  char *docDir = nullptr;
-  char *docName = nullptr;
-  bool generateHeaders = false;
-  char *headerDir = nullptr;
-  char *headerName = nullptr;
-  bool generateJson = false;
-  char *jsonName = nullptr;
-  bool ignoreUnsupportedPragmas = false;
-  bool enforcePropertySyntax = false;
-  bool enableInline = false;
-  bool emitStaticLib = false;
-  bool release = false;
-  BoundsCheck::Type boundsChecks = BoundsCheck::defaultVal;
-  bool emitUnitTests = false;
-  std::vector<char *> modulePaths;
-  std::vector<char *> importPaths;
-  bool debugFlag = false;
-  unsigned debugLevel = 0;
-  std::vector<char *> debugIdentifiers;
-  unsigned versionLevel = 0;
-  std::vector<char *> versionIdentifiers;
-  std::vector<char *> linkerSwitches;
-  std::vector<char *> transitions;
-  char *defaultLibName = nullptr;
-  char *debugLibName = nullptr;
-  char *moduleDepsFile = nullptr;
-  Color::Type color = Color::automatic;
-  bool useDIP25 = false;
-  char *conf = nullptr;
-
-  bool hiddenDebugB = false;
-  bool hiddenDebugC = false;
-  bool hiddenDebugF = false;
-  bool hiddenDebugR = false;
-  bool hiddenDebugX = false;
-  bool hiddenDebugY = false;
-
-  std::vector<char *> unknownSwitches;
-
-  bool run = false;
-  std::vector<char *> files;
-  std::vector<char *> runArgs;
-};
-
 /**
- * Parses the flags from the given command line and the DFLAGS environment
- * variable into a Params struct.
+ * Translates the LDMD command-line args (incl. DFLAGS environment variable)
+ * to LDC args.
+ * `ldcArgs` needs to be initialized with the path to the LDC executable.
  */
-Params parseArgs(size_t originalArgc, char **originalArgv,
-                 const std::string &ldcPath) {
+void translateArgs(size_t originalArgc, char **originalArgv,
+                   std::vector<const char *> &ldcArgs) {
   // Expand any response files present into the list of arguments.
   size_t argc = originalArgc;
   char **argv = originalArgv;
@@ -419,235 +332,167 @@ Params parseArgs(size_t originalArgc, char **originalArgv,
 
   std::vector<char *> args(argv, argv + argc);
 
-  appendEnvVar("DFLAGS", args);
+  std::vector<char *> dflags;
+  appendEnvVar("DFLAGS", dflags);
+  if (!dflags.empty()) {
+    // append, but before a first potential '-run'
+    size_t runIndex = 0;
+    for (size_t i = 1; i < args.size(); ++i) {
+      if (strcmp(args[i], "-run") == 0) {
+        runIndex = i;
+        break;
+      }
+    }
+    args.insert(runIndex == 0 ? args.end() : args.begin() + runIndex,
+                dflags.begin(), dflags.end());
+  }
 
-  Params result = Params();
+  assert(ldcArgs.size() == 1);
+  const std::string ldcPath = ldcArgs[0];
+
+  bool vdmd = false;
+  bool noFiles = true;
+
   for (size_t i = 1; i < args.size(); i++) {
     char *p = args[i];
     if (*p == '-') {
-      if (strcmp(p + 1, "allinst") == 0) {
-        result.allinst = true;
-      } else if (strcmp(p + 1, "de") == 0) {
-        result.useDeprecated = Deprecated::error;
-      } else if (strcmp(p + 1, "d") == 0) {
-        result.useDeprecated = Deprecated::allow;
-      } else if (strcmp(p + 1, "dw") == 0) {
-        result.useDeprecated = Deprecated::warn;
-      } else if (strcmp(p + 1, "c") == 0) {
-        result.compileOnly = true;
-      } else if (strncmp(p + 1, "color", 5) == 0) {
-        result.color = Color::on;
+      if (strcmp(p + 1, "vdmd") == 0) {
+        vdmd = true;
+      }
+      /* Most args are handled directly by LDC.
+       * Order corresponds to parsing order in dmd's mars.d.
+       *
+       * -allinst
+       * -de
+       * -d
+       * -dw
+       * -c
+       */
+      else if (strncmp(p + 1, "color", 5) == 0) {
+        bool color = true;
         // Parse:
         //      -color
         //      -color=on|off
         if (p[6] == '=') {
           if (strcmp(p + 7, "off") == 0) {
-            result.color = Color::off;
+            color = false;
           } else if (strcmp(p + 7, "on") != 0) {
             goto Lerror;
           }
         } else if (p[6]) {
           goto Lerror;
         }
-      } else if (strncmp(p + 1, "conf=", 5) == 0) {
-        result.conf = p + 1 + 5;
-      } else if (strcmp(p + 1, "cov") == 0) {
-        // For "-cov=...", the whole cmdline switch is forwarded to LDC.
-        // For plain "-cov", the cmdline switch must be explicitly forwarded
-        // and result.coverage must be set to true to that effect.
-        result.coverage = (p[4] != '=');
-      } else if (strcmp(p + 1, "dip25") == 0) {
-        result.useDIP25 = true;
-      } else if (strcmp(p + 1, "shared") == 0
-                 // backwards compatibility with old switch
-                 || strcmp(p + 1, "dylib") == 0) {
-        result.emitSharedLib = true;
+        ldcArgs.push_back(color ? "-enable-color" : "-disable-color");
+      }
+      /* -conf
+       * -cov
+       * -shared
+       */
+      else if (strcmp(p + 1, "dylib") == 0) {
+        ldcArgs.push_back("-shared");
       } else if (strcmp(p + 1, "fPIC") == 0) {
-        result.pic = true;
+        ldcArgs.push_back("-relocation-model=pic");
       } else if (strcmp(p + 1, "map") == 0) {
-        result.emitMap = true;
+        warning("command-line option '-map' not yet supported by LDC.");
       } else if (strcmp(p + 1, "multiobj") == 0) {
-        result.multiObj = true;
-      } else if (strcmp(p + 1, "g") == 0) {
-        result.debugInfo = Debug::normal;
-      } else if (strcmp(p + 1, "gc") == 0) {
-        result.debugInfo = Debug::pretendC;
-      } else if (strcmp(p + 1, "gs") == 0) {
-        result.alwaysStackFrame = true;
+        // TODO
+      }
+      /* -g
+       * -gc
+       */
+      else if (strcmp(p + 1, "gs") == 0) {
+        ldcArgs.push_back("-disable-fp-elim");
+      } else if (strcmp(p + 1, "gx") == 0) {
+        warning("command-line option '-gx' not yet supported by LDC.");
       } else if (strcmp(p + 1, "gt") == 0) {
         error("use -profile instead of -gt\n");
-      } else if (strcmp(p + 1, "m32") == 0) {
-        result.targetModel = Model::m32;
-      } else if (strcmp(p + 1, "m64") == 0) {
-        result.targetModel = Model::m64;
+      }
+      /* -m32
+       * -m64
+       */
+      else if (strcmp(p + 1, "m32mscoff") == 0) {
+        ldcArgs.push_back("-m32");
       } else if (strcmp(p + 1, "profile") == 0) {
-        result.profile = true;
-      } else if (memcmp(p + 1, "transition=", 11) == 0) {
-        result.transitions.push_back(p + 1 + 11);
-      } else if (strcmp(p + 1, "v") == 0) {
-        result.verbose = true;
-      } else if (strcmp(p + 1, "vcolumns") == 0) {
-        result.vcolumns = true;
-      } else if (strcmp(p + 1, "vdmd") == 0) {
-        result.vdmd = true;
-      } else if (strcmp(p + 1, "vgc") == 0) {
-        result.vgc = true;
-      } else if (strcmp(p + 1, "vtls") == 0) {
-        result.logTlsUse = true;
-      } else if (strcmp(p + 1, "v1") == 0) {
-        error("use DMD 1.0 series compilers for -v1 switch");
-        break;
-      } else if (memcmp(p + 1, "verrors", 7) == 0) {
+        warning("command-line option '-profile' not yet supported by LDC.");
+      }
+      /* -v
+       */
+      else if (strcmp(p + 1, "vtls") == 0) {
+        ldcArgs.push_back("-transition=tls");
+      }
+      /* -vcolumns
+       * -vgc
+       */
+      else if (memcmp(p + 1, "verrors", 7) == 0) {
         if (p[8] == '=' && isdigit(static_cast<unsigned char>(p[9]))) {
-          long num;
-          char *endp;
-          errno = 0;
-          num = strtol(p + 9, &endp, 10);
-          if (*endp || errno || num > INT_MAX) {
-            goto Lerror;
-          }
-          // Bugzilla issue number
-          result.errorLimit = static_cast<unsigned>(num);
-          result.errorLimitSet = true;
+          ldcArgs.push_back(p);
+        } else if (memcmp(p + 9, "spec", 4) == 0) {
+          ldcArgs.push_back("-verrors-spec");
         } else {
           goto Lerror;
         }
-      } else if (strcmp(p + 1, "w") == 0) {
-        result.warnings = Warnings::asErrors;
-      } else if (strcmp(p + 1, "wi") == 0) {
-        result.warnings = Warnings::informational;
-      } else if (strcmp(p + 1, "O") == 0) {
-        result.optimize = true;
-      } else if (p[1] == 'o') {
-        switch (p[2]) {
-        case '-':
-          result.noObj = true;
-          break;
-
-        case 'd':
-          if (!p[3]) {
-            goto Lnoarg;
-          }
-          result.objDir = p + 3;
-          break;
-
-        case 'f':
-          if (!p[3]) {
-            goto Lnoarg;
-          }
-          result.objName = p + 3;
-          break;
-
-        case 'p':
-          if (p[3]) {
-            goto Lerror;
-          }
-          result.preservePaths = 1;
-          break;
-
-        case 0:
-          error("-o no longer supported, use -of or -od");
-          break;
-
-        default:
-          goto Lerror;
-        }
-      } else if (p[1] == 'D') {
-        result.generateDocs = true;
-        switch (p[2]) {
-        case 'd':
-          if (!p[3]) {
-            goto Lnoarg;
-          }
-          result.docDir = p + 3;
-          break;
-        case 'f':
-          if (!p[3]) {
-            goto Lnoarg;
-          }
-          result.docName = p + 3;
-          break;
-
-        case 0:
-          break;
-
-        default:
-          goto Lerror;
-        }
-      } else if (p[1] == 'H') {
-        result.generateHeaders = true;
-        switch (p[2]) {
-        case 'd':
-          if (!p[3]) {
-            goto Lnoarg;
-          }
-          result.headerDir = p + 3;
-          break;
-
-        case 'f':
-          if (!p[3]) {
-            goto Lnoarg;
-          }
-          result.headerName = p + 3;
-          break;
-
-        case 0:
-          break;
-
-        default:
-          goto Lerror;
-        }
-      } else if (p[1] == 'X') {
-        result.generateJson = true;
-        switch (p[2]) {
-        case 'f':
-          if (!p[3]) {
-            goto Lnoarg;
-          }
-          result.jsonName = p + 3;
-          break;
-
-        case 0:
-          break;
-
-        default:
-          goto Lerror;
-        }
-      } else if (strcmp(p + 1, "ignore") == 0) {
-        result.ignoreUnsupportedPragmas = true;
-      } else if (strcmp(p + 1, "property") == 0) {
-        result.enforcePropertySyntax = true;
-      } else if (strcmp(p + 1, "inline") == 0) {
-        result.enableInline = true;
-      } else if (strcmp(p + 1, "lib") == 0) {
-        result.emitStaticLib = true;
+      }
+      /* -transition
+       * -w
+       * -wi
+       * -O
+       * -o-
+       */
+      else if (strcmp(p + 1, "od") == 0) {
+        ldcArgs.push_back(p);
+        // DMD creates static libraries in the objects directory (unless using
+        // an absolute output path via `-of`).
+        ldcArgs.push_back("-create-static-lib-in-objdir");
+      }
+      /* -of
+       * -op
+       */
+      else if (strcmp(p + 1, "o") == 0) {
+        error("-o no longer supported, use -of or -od");
+      }
+      /* -D
+       * -Dd
+       * -Df
+       * -H
+       * -Hd
+       * -Hf
+       * -X
+       * -Xf
+       * -ignore
+       * -property
+       */
+      else if (strcmp(p + 1, "inline") == 0) {
+        ldcArgs.push_back("-enable-inlining");
+        ldcArgs.push_back("-Hkeep-all-bodies");
+      }
+      /* -dip25
+       */
+      else if (strcmp(p + 1, "lib") == 0) {
+        ldcArgs.push_back(p);
+        // DMD seems to emit objects directly into the static lib being
+        // generated. No object files are created and therefore they never
+        // collide due to duplicate .d filenames (in different dirs).
+        // Approximate that behavior by naming the object files uniquely via -oq
+        // and instructing LDC to remove the object files on success.
+        ldcArgs.push_back("-oq");
+        ldcArgs.push_back("-cleanup-obj");
+      } else if (strcmp(p + 1, "nofloat") == 0) {
+        warning("command-line option '-nofloat' not yet supported by LDC.");
       } else if (strcmp(p + 1, "quiet") == 0) {
         // ignore
-      } else if (strcmp(p + 1, "release") == 0) {
-        result.release = 1;
-      } else if (strcmp(p + 1, "noboundscheck") == 0) {
-        warning("The -noboundscheck switch is deprecated, use -boundscheck=off "
-                "instead.");
-        result.boundsChecks = BoundsCheck::off;
-      } else if (memcmp(p + 1, "boundscheck", 11) == 0) {
-        if (p[12] == '=') {
-          if (strcmp(p + 13, "on") == 0) {
-            result.boundsChecks = BoundsCheck::on;
-          } else if (strcmp(p + 13, "safeonly") == 0) {
-            result.boundsChecks = BoundsCheck::safeOnly;
-          } else if (strcmp(p + 13, "off") == 0) {
-            result.boundsChecks = BoundsCheck::off;
-          } else {
-            goto Lerror;
-          }
-        }
-      } else if (strcmp(p + 1, "unittest") == 0) {
-        result.emitUnitTests = 1;
-      } else if (p[1] == 'I') {
-        result.modulePaths.push_back(p + 2);
-      } else if (p[1] == 'J') {
-        result.importPaths.push_back(p + 2);
-      } else if (memcmp(p + 1, "debug", 5) == 0 && p[6] != 'l') {
+      }
+      /* -release
+       * -betterC
+       */
+      else if (strcmp(p + 1, "noboundscheck") == 0) {
+        ldcArgs.push_back("-boundscheck=off");
+      }
+      /* -boundscheck
+       * -unittest
+       * -I
+       * -J
+       */
+      else if (memcmp(p + 1, "debug", 5) == 0 && p[6] != 'l') {
         // Parse:
         //      -debug
         //      -debug=number
@@ -655,48 +500,44 @@ Params parseArgs(size_t originalArgc, char **originalArgv,
         if (p[6] == '=') {
           if (isdigit(static_cast<unsigned char>(p[7]))) {
             long level;
-
             errno = 0;
             level = strtol(p + 7, &p, 10);
             if (*p || errno || level > INT_MAX) {
               goto Lerror;
             }
-            result.debugLevel = static_cast<int>(level);
+            ldcArgs.push_back(concat("-d-debug=", static_cast<int>(level)));
           } else {
-            result.debugIdentifiers.push_back(p + 7);
+            ldcArgs.push_back(concat("-d-debug=", p + 7));
           }
         } else if (p[6]) {
           goto Lerror;
         } else {
-          result.debugFlag = true;
+          ldcArgs.push_back("-d-debug");
         }
-      } else if (memcmp(p + 1, "version", 5) == 0) {
+      } else if (memcmp(p + 1, "version", 7) == 0) {
         // Parse:
         //      -version=number
         //      -version=identifier
         if (p[8] == '=') {
           if (isdigit(static_cast<unsigned char>(p[9]))) {
             long level;
-
             errno = 0;
             level = strtol(p + 9, &p, 10);
             if (*p || errno || level > INT_MAX) {
               goto Lerror;
             }
-            result.versionLevel = static_cast<int>(level);
+            ldcArgs.push_back(concat("-d-version=", static_cast<int>(level)));
           } else {
-            result.versionIdentifiers.push_back(p + 9);
+            ldcArgs.push_back(concat("-d-version=", p + 9));
           }
         } else {
           goto Lerror;
         }
-      } else if (strcmp(p + 1, "-b") == 0) {
-        result.hiddenDebugB = 1;
-      } else if (strcmp(p + 1, "-c") == 0) {
-        result.hiddenDebugC = 1;
-      } else if (strcmp(p + 1, "-f") == 0) {
-        result.hiddenDebugF = 1;
-      } else if (strcmp(p + 1, "-help") == 0) {
+      } else if (strcmp(p + 1, "-b") == 0 || strcmp(p + 1, "-c") == 0 ||
+                 strcmp(p + 1, "-f") == 0 || strcmp(p + 1, "-r") == 0 ||
+                 strcmp(p + 1, "-x") == 0 || strcmp(p + 1, "-y") == 0) {
+        ldcArgs.push_back(concat("-hidden-debug-", p + 2));
+      } else if (strcmp(p + 1, "-help") == 0 || strcmp(p + 1, "h") == 0) {
         printUsage(originalArgv[0], ldcPath);
         exit(EXIT_SUCCESS);
       } else if (strcmp(p + 1, "-version") == 0) {
@@ -704,281 +545,56 @@ Params parseArgs(size_t originalArgc, char **originalArgv,
         const char *versionargs[] = {ldcPath.c_str(), "-version", nullptr};
         execute(ldcPath, versionargs);
         exit(EXIT_SUCCESS);
-      } else if (strcmp(p + 1, "-r") == 0) {
-        result.hiddenDebugR = 1;
-      } else if (strcmp(p + 1, "-x") == 0) {
-        result.hiddenDebugX = 1;
-      } else if (strcmp(p + 1, "-y") == 0) {
-        result.hiddenDebugY = 1;
-      } else if (p[1] == 'L') {
-        result.linkerSwitches.push_back(p + 2);
-      } else if (memcmp(p + 1, "defaultlib=", 11) == 0) {
-        result.defaultLibName = p + 1 + 11;
-      } else if (memcmp(p + 1, "debuglib=", 9) == 0) {
-        result.debugLibName = p + 1 + 9;
-      } else if (memcmp(p + 1, "deps", 4) == 0) {
-        result.moduleDepsFile = p + 1 + (p[1 + 4] == '=' ? 5 : 4);
-      } else if (memcmp(p + 1, "man", 3) == 0) {
+      }
+      /* -L
+       * -defaultlib
+       * -debuglib
+       * -deps
+       * -main
+       */
+      else if (memcmp(p + 1, "man", 3) == 0) {
         browse("http://wiki.dlang.org/LDC");
         exit(EXIT_SUCCESS);
       } else if (strcmp(p + 1, "run") == 0) {
-        result.run = true;
-        int runargCount = ((i >= originalArgc) ? argc : originalArgc) - i - 1;
-        if (runargCount) {
-          result.files.push_back(argv[i + 1]);
-          result.runArgs =
-              std::vector<char *>(argv + i + 2, argv + i + runargCount + 1);
-          i += runargCount;
-        } else {
-          result.run = false;
-          goto Lnoarg;
-        }
+        ldcArgs.insert(ldcArgs.end(), args.begin() + i, args.end());
+        noFiles = (i == args.size() - 1);
+        break;
       } else if (p[1] == 'C') {
-        result.unknownSwitches.push_back(concat("-", p + 2));
+        ldcArgs.push_back(concat("-", p + 2));
       } else {
       Lerror:
-        result.unknownSwitches.push_back(p);
-        continue;
-
-      Lnoarg:
-        error("argument expected for switch '%s'", p);
-        continue;
+        ldcArgs.push_back(p);
       }
     } else {
-      // FIXME: #if TARGET_WINDOS
-      llvm::StringRef ext = ls::path::extension(p);
+      const auto ext = ls::path::extension(p);
       if (ext.equals_lower("exe")) {
-        result.objName = p;
+        // should be for Windows targets only
+        ldcArgs.push_back(concat("-of=", p));
         continue;
       }
-      // #endif
-      result.files.push_back(p);
+#ifdef _WIN32
+      else if (strcmp(p, "/?") == 0) {
+        printUsage(originalArgv[0], ldcPath);
+        exit(EXIT_SUCCESS);
+      }
+#endif
+      ldcArgs.push_back(p);
+      noFiles = false;
     }
   }
-  if (result.files.empty()) {
+
+  if (noFiles) {
     printUsage(originalArgv[0], ldcPath);
     error("No source file specified.");
   }
-  return result;
-}
 
-void pushSwitches(const char *prefix, const std::vector<char *> &vals,
-                  std::vector<const char *> &r) {
-  for (auto v : vals) {
-    r.push_back(concat(prefix, v));
+  if (vdmd) {
+    printf(" -- Invoking:");
+    for (const auto &arg : ldcArgs) {
+      printf(" %s", arg);
+    }
+    puts("");
   }
-}
-
-/**
- * Appends the LDC command line parameters corresponding to the given set of
- * parameters to r.
- */
-void buildCommandLine(std::vector<const char *> &r, const Params &p) {
-  if (p.allinst) {
-    r.push_back("-allinst");
-  }
-  if (p.useDeprecated == Deprecated::allow) {
-    r.push_back("-d");
-  }
-  if (p.useDeprecated == Deprecated::error) {
-    r.push_back("-de");
-  }
-  if (p.compileOnly) {
-    r.push_back("-c");
-  }
-  if (p.coverage) {
-    r.push_back("-cov");
-  }
-  if (p.emitSharedLib) {
-    r.push_back("-shared");
-  }
-  if (p.pic) {
-    r.push_back("-relocation-model=pic");
-  }
-  if (p.emitMap) {
-    warning("Map file generation not yet supported by LDC.");
-  }
-  if (!p.emitStaticLib && ((!p.multiObj && !p.compileOnly) || p.objName)) {
-    r.push_back("-singleobj");
-  }
-  if (p.debugInfo == Debug::normal) {
-    r.push_back("-g");
-  } else if (p.debugInfo == Debug::pretendC) {
-    r.push_back("-gc");
-  }
-  if (p.alwaysStackFrame) {
-    r.push_back("-disable-fp-elim");
-  }
-  if (p.targetModel == Model::m32) {
-    r.push_back("-m32");
-  } else if (p.targetModel == Model::m64) {
-    r.push_back("-m64");
-  }
-  if (p.profile) {
-    warning("CPU profile generation not yet supported by LDC.");
-  }
-  if (p.verbose) {
-    r.push_back("-v");
-  }
-  if (p.vcolumns) {
-    r.push_back("-vcolumns");
-  }
-  if (p.vgc) {
-    r.push_back("-vgc");
-  }
-  if (p.logTlsUse) {
-    r.push_back("-transition=tls");
-  }
-  if (p.errorLimitSet) {
-    r.push_back(concat("-verrors=", p.errorLimit));
-  }
-  if (p.warnings == Warnings::asErrors) {
-    r.push_back("-w");
-  } else if (p.warnings == Warnings::informational) {
-    r.push_back("-wi");
-  }
-  if (p.optimize) {
-    r.push_back("-O3");
-  }
-  if (p.noObj) {
-    r.push_back("-o-");
-  }
-  if (p.objDir) {
-    r.push_back(concat("-od=", p.objDir));
-
-    // DMD creates static libraries in the objects directory (unless using an
-    // absolute output path via `-of`).
-    if (p.emitStaticLib)
-      r.push_back("-create-static-lib-in-objdir");
-  }
-  if (p.objName) {
-    r.push_back(concat("-of=", p.objName));
-  }
-  if (p.preservePaths) {
-    r.push_back("-op");
-  }
-  if (p.generateDocs) {
-    r.push_back("-D");
-  }
-  if (p.docDir) {
-    r.push_back(concat("-Dd=", p.docDir));
-  }
-  if (p.docName) {
-    r.push_back(concat("-Df=", p.docName));
-  }
-  if (p.generateHeaders) {
-    r.push_back("-H");
-  }
-  if (p.headerDir) {
-    r.push_back(concat("-Hd=", p.headerDir));
-  }
-  if (p.headerName) {
-    r.push_back(concat("-Hf=", p.headerName));
-  }
-  if (p.generateJson) {
-    r.push_back("-X");
-  }
-  if (p.jsonName) {
-    r.push_back(concat("-Xf=", p.jsonName));
-  }
-  if (p.ignoreUnsupportedPragmas) {
-    r.push_back("-ignore");
-  }
-  if (p.enforcePropertySyntax) {
-    r.push_back("-property");
-  }
-  if (p.enableInline) {
-    // -inline also influences .di generation with DMD.
-    r.push_back("-enable-inlining");
-    r.push_back("-Hkeep-all-bodies");
-  }
-  if (p.emitStaticLib) {
-    r.push_back("-lib");
-
-    // DMD seems to emit objects directly into the static lib being generated.
-    // No object files are created and therefore they never collide due to
-    // duplicate .d filenames (in different dirs).
-    // Approximate that behavior by naming the object files uniquely via -oq and
-    // instructing LDC to remove the object files on success.
-    r.push_back("-oq");
-    r.push_back("-cleanup-obj");
-  }
-  if (p.release) {
-    r.push_back("-release"); // Also disables boundscheck.
-  }
-  if (p.boundsChecks == BoundsCheck::on) {
-    r.push_back("-boundscheck=on");
-  }
-  if (p.boundsChecks == BoundsCheck::safeOnly) {
-    r.push_back("-boundscheck=safeonly");
-  }
-  if (p.boundsChecks == BoundsCheck::off) {
-    r.push_back("-boundscheck=off");
-  }
-  if (p.emitUnitTests) {
-    r.push_back("-unittest");
-  }
-  pushSwitches("-I=", p.modulePaths, r);
-  pushSwitches("-J=", p.importPaths, r);
-  if (p.debugFlag) {
-    r.push_back("-d-debug");
-  }
-  if (p.debugLevel) {
-    r.push_back(concat("-d-debug=", p.debugLevel));
-  }
-  pushSwitches("-d-debug=", p.debugIdentifiers, r);
-  if (p.versionLevel) {
-    r.push_back(concat("-d-version=", p.versionLevel));
-  }
-  pushSwitches("-d-version=", p.versionIdentifiers, r);
-  pushSwitches("-L=", p.linkerSwitches, r);
-  pushSwitches("-transition=", p.transitions, r);
-  if (p.defaultLibName) {
-    r.push_back(concat("-defaultlib=", p.defaultLibName));
-  }
-  if (p.debugLibName) {
-    r.push_back(concat("-debuglib=", p.debugLibName));
-  }
-  if (p.moduleDepsFile) {
-    r.push_back(p.moduleDepsFile[0] == 0 ? "-deps"
-                                         : concat("-deps=", p.moduleDepsFile));
-  }
-  if (p.color == Color::on) {
-    r.push_back("-enable-color");
-  }
-  if (p.color == Color::off) {
-    r.push_back("-disable-color");
-  }
-  if (p.useDIP25) {
-    r.push_back("-dip25");
-  }
-  if (p.conf) {
-    r.push_back(concat("-conf=", p.conf));
-  }
-  if (p.hiddenDebugB) {
-    r.push_back("-hidden-debug-b");
-  }
-  if (p.hiddenDebugC) {
-    r.push_back("-hidden-debug-c");
-  }
-  if (p.hiddenDebugF) {
-    r.push_back("-hidden-debug-f");
-  }
-  if (p.hiddenDebugR) {
-    r.push_back("-hidden-debug-r");
-  }
-  if (p.hiddenDebugX) {
-    r.push_back("-hidden-debug-x");
-  }
-  if (p.hiddenDebugY) {
-    r.push_back("-hidden-debug-y");
-  }
-  r.insert(r.end(), p.unknownSwitches.begin(), p.unknownSwitches.end());
-  if (p.run) {
-    r.push_back("-run");
-  }
-  r.insert(r.end(), p.files.begin(), p.files.end());
-  r.insert(r.end(), p.runArgs.begin(), p.runArgs.end());
 }
 
 /**
@@ -1023,10 +639,7 @@ std::string locateBinary(std::string exeName) {
 }
 
 static size_t addStrlen(size_t acc, const char *str) {
-  if (!str) {
-    return acc;
-  }
-  return acc + strlen(str);
+  return acc + (str ? strlen(str) : 0);
 }
 
 // In driver/main.d
@@ -1039,7 +652,7 @@ int cppmain(int argc, char **argv) {
 #ifdef _WIN32
   ldcExeName += ".exe";
 #endif
-  std::string ldcPath = locateBinary(ldcExeName);
+  const std::string ldcPath = locateBinary(ldcExeName);
   if (ldcPath.empty()) {
     error("Could not locate " LDC_EXE_NAME " executable.");
   }
@@ -1048,15 +661,7 @@ int cppmain(int argc, char **argv) {
   std::vector<const char *> args;
   args.push_back(ldcPath.c_str());
 
-  Params p = parseArgs(argc, argv, ldcPath);
-  buildCommandLine(args, p);
-  if (p.vdmd) {
-    printf(" -- Invoking:");
-    for (auto &arg : args) {
-      printf(" %s", arg);
-    }
-    puts("");
-  }
+  translateArgs(argc, argv, args);
 
   args.push_back(nullptr);
 
@@ -1092,5 +697,6 @@ int cppmain(int argc, char **argv) {
 
     return rc;
   }
+
   return execute(ldcPath, &args[0]);
 }

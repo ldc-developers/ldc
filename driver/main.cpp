@@ -87,8 +87,8 @@ static cl::opt<bool>
 
 static StringsAdapter impPathsStore("I", global.params.imppath);
 static cl::list<std::string, StringsAdapter>
-    importPaths("I", cl::desc("Where to look for imports"),
-                cl::value_desc("path"), cl::location(impPathsStore),
+    importPaths("I", cl::desc("Look for imports also in <directory>"),
+                cl::value_desc("directory"), cl::location(impPathsStore),
                 cl::Prefix);
 
 static cl::opt<std::string>
@@ -959,21 +959,16 @@ int cppmain(int argc, char **argv) {
   }
 
   // Set up the TargetMachine.
-  ExplicitBitness::Type bitness = ExplicitBitness::None;
   if ((m32bits || m64bits) && (!mArch.empty() || !mTargetTriple.empty())) {
     error(Loc(), "-m32 and -m64 switches cannot be used together with -march "
                  "and -mtriple switches");
   }
 
-  if (m32bits) {
+  ExplicitBitness::Type bitness = ExplicitBitness::None;
+  if (m32bits)
     bitness = ExplicitBitness::M32;
-  }
-  if (m64bits) {
-    if (bitness != ExplicitBitness::None) {
-      error(Loc(), "cannot use both -m32 and -m64 options");
-    }
+  if (m64bits && (!m32bits || m32bits.getPosition() < m64bits.getPosition()))
     bitness = ExplicitBitness::M64;
-  }
 
   if (global.errors) {
     fatal();
