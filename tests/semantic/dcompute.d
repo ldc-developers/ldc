@@ -1,4 +1,4 @@
-// RUN: not %ldc -o- -I%S %s 2>&1 | FileCheck %s
+// RUN: not %ldc -o- -verrors=0 -I%S %s 2>&1 | FileCheck %s
 
 
 @compute(CompileFor.deviceOnly) module dcompute;
@@ -7,10 +7,10 @@ import inputs.notatcompute : somefunc;
 
 extern(C) bool perhaps();
 extern(C) bool __dcompute_reflect(int,int);
-//XFAIL: dcompute.d([[@LINE+1]]): Error: interfaces and classes not allowed in @compute code
+//CHECK: dcompute.d([[@LINE+1]]): Error: interfaces and classes not allowed in @compute code
 interface I {}
 
-//XFAIL: dcompute.d([[@LINE+1]]): Error: interfaces and classes not allowed in @compute code
+//CHECK: dcompute.d([[@LINE+1]]): Error: interfaces and classes not allowed in @compute code
 class C : Throwable { this() { super(""); } }
 
 //CHECK: dcompute.d([[@LINE+1]]): Error: {{.*}} global variables not allowed in @compute code
