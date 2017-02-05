@@ -309,6 +309,8 @@ struct MapRegionCounters : public StoppableVisitor {
     Hash.combine(PGOHash::OrOrExpr);
   }
 
+  void visit(Dsymbol *) override {}
+
 #undef SKIP_VISITED
 };
 
