@@ -26,7 +26,11 @@ void func()
     auto baz = new int;
     //CHECK: Error: cannot use 'delete' in @compute code
     delete baz;
-
+    
+    //CHECK: Error: {{.*}} interfaces and classes not allowed in @compute code
+    I i;
+    //CHECK: Error: {{.*}} interfaces and classes not allowed in @compute code
+    C cc;
     int[] quux;
     //CHECK: Error: setting 'length' in @compute code not allowed
     quux.length = 1;

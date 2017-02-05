@@ -49,10 +49,16 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     if (decl->isDataseg() && strncmp(decl->toChars(),"__critsec",9)) {
       decl->error("global variables not allowed in @compute code");
       stop = true;
+      return;
     }
+
     if (decl->type->ty == Taarray) {
       decl->error("associative arrays not allowed in @compute code");
       stop = true;
+    }
+    else if (decl->isClassMember())
+    {
+        decl->error("interfaces and classes not allowed in @compute code");
     }
   }
   void visit(PragmaDeclaration *decl) override {
