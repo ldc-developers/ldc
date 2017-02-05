@@ -46,7 +46,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
   }
   void visit(VarDeclaration *decl) override {
     // Don't print multiple errors for 'synchronized'
-    if (decl->isDataseg() && strncmp(decl->toChars(),"__critsec",9)) {
+    if (decl->isDataseg() && strncmp(decl->toChars(), "__critsec", 9)) {
       decl->error("global variables not allowed in @compute code");
       stop = true;
       return;
@@ -55,10 +55,9 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     if (decl->type->ty == Taarray) {
       decl->error("associative arrays not allowed in @compute code");
       stop = true;
-    }
-    else if (decl->type->ty == Tclass) // includes interfaces
+    } else if (decl->type->ty == Tclass) // includes interfaces
     {
-        decl->error("interfaces and classes not allowed in @compute code");
+      decl->error("interfaces and classes not allowed in @compute code");
     }
   }
   void visit(PragmaDeclaration *decl) override {
@@ -145,9 +144,9 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
       {
         auto arg1 = (DComputeTarget::ID)(*ce->arguments)[0]->toInteger();
         if (arg1 == DComputeTarget::Host)
-            // Alllow code explicily for host to bypass the call only @conpute
-            // restriction below.
-            stop = true;
+          // Alllow code explicily for host to bypass the call only @conpute
+          // restriction below.
+          stop = true;
       }
     }
   }
@@ -159,41 +158,39 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     //    _d_criticalexit( & __critsec105);   |
     // So we intercept it with the CallExp ----
 
-    if (!strncmp(e->toChars(),"_d_criticalenter",16)) {
+    if (!strncmp(e->toChars(), "_d_criticalenter", 16)) {
       e->error("cannot use 'synchronized' in @compute code");
       stop = true;
       return;
     }
-        
-    if (!strncmp(e->toChars(),"_d_criticalexit",15)) {
+
+    if (!strncmp(e->toChars(), "_d_criticalexit", 15)) {
       stop = true;
       return;
     }
     if (e->f->getModule() == nullptr || !hasComputeAttr(e->f->getModule())) {
       e->error("can only call functions from other @compute modules in "
-                "@compute code");
+               "@compute code");
       stop = true;
     }
   }
-    
+
   // Override the default assert(0) behavior of Visitor:
   void visit(Statement *) override {}   // do nothing
   void visit(Expression *) override {}  // do nothing
   void visit(Declaration *) override {} // do nothing
   void visit(Initializer *) override {} // do nothing
   void visit(Dsymbol *) override {}     // do nothing
-
 };
 
-void dcomputeSemanticAnalysis(Module * m)
-{
+void dcomputeSemanticAnalysis(Module *m) {
   DComputeSemanticAnalyser v;
   RecursiveWalker r(&v);
   for (unsigned k = 0; k < m->members->dim; k++) {
     Dsymbol *dsym = (*m->members)[k];
     assert(dsym);
-    IF_LOG Logger::println("dcomputeSema: %s: %s",m->toPrettyChars(),
+    IF_LOG Logger::println("dcomputeSema: %s: %s", m->toPrettyChars(),
                            dsym->toPrettyChars());
     dsym->accept(&r);
   }
-}  
+}
