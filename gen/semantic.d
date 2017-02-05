@@ -18,9 +18,8 @@ extern(C++) int hasComputeAttr(Dsymbol m);
 
 extern(C++) void extraLDCSpecificSemanticAnalysis(ref Modules modules)
 {
-    for (size_t i = 0; i < modules.dim; i++)
+    foreach(m; modules[])
     {
-        Module m = modules[i];
         if (hasComputeAttr(m))
             dcomputeSemanticAnalysis(m);
     }
