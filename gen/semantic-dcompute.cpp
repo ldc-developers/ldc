@@ -139,8 +139,8 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
   void visit(IfStatement *stmt) override {
     if (stmt->condition->op == TOKcall) {
       auto ce = (CallExp *)stmt->condition;
-      if (ce->f && ce->f->ident && !strcmp(ce->f->ident->string,
-                                           "__dcompute_reflect"))
+      if (ce->f && ce->f->ident &&
+          !strcmp(ce->f->ident->string, "__dcompute_reflect"))
       {
         auto arg1 = (DComputeTarget::ID)(*ce->arguments)[0]->toInteger();
         if (arg1 == DComputeTarget::Host)
