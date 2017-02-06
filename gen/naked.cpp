@@ -17,7 +17,6 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
-#include "gen/mangling.h"
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
 #include "llvm/IR/InlineAsm.h"
@@ -151,26 +150,23 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
 
   // FIXME: could we perhaps use llvm asmwriter to give us these details ?
 
-  std::string mangle = getMangledName(fd, fd->linkage);
-  // strip special leading 1-byte (prevents LLVM from additional mangling)
-  if (mangle[0] == '\1')
-    mangle.erase(0, 1);
-  // leading ? apparently needs quoting, at least for x86(_64)
-  if (mangle[0] == '?') {
-    mangle.insert(0, "\"");
-    mangle += '"';
-  }
+  const char *mangle = mangleExact(fd);
+  std::string fullmangle; // buffer only
 
   std::ostringstream tmpstr;
 
-  bool const isWin = global.params.targetTriple->isOSWindows();
-  bool const isOSX =
-      (global.params.targetTriple->getOS() == llvm::Triple::Darwin ||
-       global.params.targetTriple->getOS() == llvm::Triple::MacOSX);
+  const auto &triple = *global.params.targetTriple;
+  bool const isWin = triple.isOSWindows();
+  bool const isOSX = (triple.getOS() == llvm::Triple::Darwin ||
+                      triple.getOS() == llvm::Triple::MacOSX);
 
   // osx is different
   // also mangling has an extra underscore prefixed
   if (isOSX) {
+    fullmangle += '_';
+    fullmangle += mangle;
+    mangle = fullmangle.c_str();
+
     std::string section = "text";
     bool weak = false;
     if (DtoIsTemplateInstance(fd)) {
@@ -180,14 +176,28 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
     }
     asmstr << "\t." << section << std::endl;
     asmstr << "\t.align\t4, 0x90" << std::endl;
-    asmstr << "\t.globl\t_" << mangle << std::endl;
+    asmstr << "\t.globl\t" << mangle << std::endl;
     if (weak) {
-      asmstr << "\t.weak_definition\t_" << mangle << std::endl;
+      asmstr << "\t.weak_definition\t" << mangle << std::endl;
     }
-    asmstr << "_" << mangle << ":" << std::endl;
+    asmstr << mangle << ":" << std::endl;
   }
   // Windows is different
   else if (isWin) {
+    // prepend extra underscore for Win32
+    if (triple.isArch32Bit()) {
+      fullmangle += '_';
+      fullmangle += mangle;
+      mangle = fullmangle.c_str();
+    }
+    // leading ? apparently needs quoting, at least for Win64
+    else if (mangle[0] == '?') {
+      fullmangle += '"';
+      fullmangle += mangle;
+      fullmangle += '"';
+      mangle = fullmangle.c_str();
+    }
+
     asmstr << "\t.def\t" << mangle << ";" << std::endl;
     // hard code these two numbers for now since gas ignores .scl and llvm
     // is defaulting to .type 32 for everything I have seen
