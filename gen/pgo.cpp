@@ -180,6 +180,7 @@ struct MapRegionCounters : public StoppableVisitor {
   void visit(Expression *exp) override {}
   void visit(Declaration *decl) override {}
   void visit(Initializer *init) override {}
+  void visit(Dsymbol *dsym) override {}
 
   void visit(FuncDeclaration *fd) override {
     if (NextCounter) {
@@ -308,8 +309,6 @@ struct MapRegionCounters : public StoppableVisitor {
     CounterMap[expr] = NextCounter++;
     Hash.combine(PGOHash::OrOrExpr);
   }
-
-  void visit(Dsymbol *) override {}
 
 #undef SKIP_VISITED
 };
