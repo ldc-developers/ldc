@@ -1,6 +1,6 @@
 project(runtime)
 
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 2.8.5)
 
 #
 # Main configuration.
@@ -53,14 +53,20 @@ set(PROFILERT_DIR ${PROJECT_SOURCE_DIR}/profile-rt CACHE PATH "profile-rt root d
 # Gather source files.
 #
 
-file(GLOB CORE_D ${RUNTIME_DIR}/src/core/*.d)
-file(GLOB_RECURSE CORE_D_INTERNAL ${RUNTIME_DIR}/src/core/internal/*.d)
-file(GLOB CORE_D_SYNC ${RUNTIME_DIR}/src/core/sync/*.d)
-file(GLOB CORE_D_STDC ${RUNTIME_DIR}/src/core/stdc/*.d)
-file(GLOB_RECURSE GC_D ${RUNTIME_DIR}/src/gc/*.d)
-file(GLOB_RECURSE DCRT_D ${RUNTIME_DIR}/src/rt/*.d)
-file(GLOB_RECURSE LDC_D ${RUNTIME_DIR}/src/ldc/*.d)
-list(REMOVE_ITEM DCRT_D
+# druntime D parts
+file(GLOB_RECURSE DRUNTIME_D ${RUNTIME_DIR}/src/*.d)
+list(REMOVE_ITEM DRUNTIME_D ${RUNTIME_DIR}/src/test_runner.d)
+# remove unsupported etc/linux/memoryerror.d (see issue #1915)
+list(REMOVE_ITEM DRUNTIME_D ${RUNTIME_DIR}/src/etc/linux/memoryerror.d)
+# FIXME: Remove all modules in core/stdcpp/ due to alpha quality.
+#        See PR #1917; partly fixed upstream.
+file(GLOB_RECURSE DRUNTIME_D_STDCPP ${RUNTIME_DIR}/src/core/stdcpp/*.d)
+list(REMOVE_ITEM DRUNTIME_D ${DRUNTIME_D_STDCPP})
+# remove all modules in gcstub/
+file(GLOB_RECURSE DRUNTIME_D_GCSTUB ${RUNTIME_DIR}/src/gcstub/*.d)
+list(REMOVE_ITEM DRUNTIME_D ${DRUNTIME_D_GCSTUB})
+# remove some modules in rt/
+list(REMOVE_ITEM DRUNTIME_D
     ${RUNTIME_DIR}/src/rt/alloca.d
     ${RUNTIME_DIR}/src/rt/deh.d
     ${RUNTIME_DIR}/src/rt/deh_win32.d
@@ -69,120 +75,85 @@ list(REMOVE_ITEM DCRT_D
     ${RUNTIME_DIR}/src/rt/llmath.d
     ${RUNTIME_DIR}/src/rt/trace.d
 )
-file(GLOB DCRT_C ${RUNTIME_DIR}/src/rt/*.c)
-list(REMOVE_ITEM DCRT_C ${RUNTIME_DIR}/src/rt/deh.c ${RUNTIME_DIR}/src/rt/dylib_fixes.c)
-if(APPLE)
-    list(APPEND DCRT_C ${RUNTIME_DIR}/src/ldc/osx_tls.c)
-endif()
-if(MSVC)
-    list(APPEND DCRT_C ${RUNTIME_DIR}/src/ldc/msvc.c)
-else()
-    list(REMOVE_ITEM DCRT_C ${RUNTIME_DIR}/src/rt/msvc.c)
-    list(REMOVE_ITEM DCRT_C ${RUNTIME_DIR}/src/rt/msvc_math.c)
-    list(REMOVE_ITEM DCRT_C ${RUNTIME_DIR}/src/rt/stdio_msvc.c)
-endif()
-file(GLOB_RECURSE CORE_D_UNIX ${RUNTIME_DIR}/src/core/sys/posix/*.d)
-file(GLOB_RECURSE CORE_D_FREEBSD ${RUNTIME_DIR}/src/core/sys/freebsd/*.d)
-file(GLOB_RECURSE CORE_D_NETBSD ${RUNTIME_DIR}/src/core/sys/netbsd/*.d)
-file(GLOB_RECURSE CORE_D_LINUX ${RUNTIME_DIR}/src/core/sys/linux/*.d)
-file(GLOB_RECURSE CORE_D_OSX ${RUNTIME_DIR}/src/core/sys/osx/*.d)
-file(GLOB_RECURSE CORE_D_SOLARIS ${RUNTIME_DIR}/src/core/sys/solaris/*.d)
-file(GLOB_RECURSE CORE_D_WIN ${RUNTIME_DIR}/src/core/sys/windows/*.d)
-set(CORE_D_SYS)
-set(DCRT_ASM)
+# only include core/sys/ modules matching the platform
+file(GLOB_RECURSE DRUNTIME_D_BIONIC ${RUNTIME_DIR}/src/core/sys/bionic/*.d)
+file(GLOB_RECURSE DRUNTIME_D_FREEBSD ${RUNTIME_DIR}/src/core/sys/freebsd/*.d)
+file(GLOB_RECURSE DRUNTIME_D_LINUX ${RUNTIME_DIR}/src/core/sys/linux/*.d)
+file(GLOB_RECURSE DRUNTIME_D_OSX ${RUNTIME_DIR}/src/core/sys/osx/*.d)
+file(GLOB_RECURSE DRUNTIME_D_POSIX ${RUNTIME_DIR}/src/core/sys/posix/*.d)
+file(GLOB_RECURSE DRUNTIME_D_SOLARIS ${RUNTIME_DIR}/src/core/sys/solaris/*.d)
+file(GLOB_RECURSE DRUNTIME_D_WINDOWS ${RUNTIME_DIR}/src/core/sys/windows/*.d)
+list(REMOVE_ITEM DRUNTIME_D
+    ${DRUNTIME_D_BIONIC} ${DRUNTIME_D_FREEBSD} ${DRUNTIME_D_LINUX} ${DRUNTIME_D_OSX}
+    ${DRUNTIME_D_POSIX} ${DRUNTIME_D_SOLARIS} ${DRUNTIME_D_WINDOWS}
+)
 if(UNIX)
-    list(APPEND CORE_D_SYS ${CORE_D_UNIX})
-    if(${CMAKE_SYSTEM} MATCHES "FreeBSD")
-        list(APPEND CORE_D_SYS ${CORE_D_FREEBSD})
-    endif()
-    if(${CMAKE_SYSTEM} MATCHES "NetBSD")
-        list(APPEND CORE_D_SYS ${CORE_D_NETBSD})
-    endif()
-    if(${CMAKE_SYSTEM} MATCHES "Linux")
-        list(APPEND CORE_D_SYS ${CORE_D_LINUX})
-    endif()
-    if(${CMAKE_SYSTEM} MATCHES "SunOS")
-        list(APPEND CORE_D_SYS ${CORE_D_SOLARIS})
-    endif()
-    # Assembler support was rewritten in CMake 2.8.5.
-    # The assembler file must be passed to gcc but prior to this
-    # version it is passed to as. This results in a bunch of
-    # error message. This is only critical for non-x86 platforms.
-    # On x86/x86-64 the file can safely be ignored.
-    if("${CMAKE_VERSION}" MATCHES "^2\\.8\\.[01234]($|\\..*)")
-        message(WARNING "Excluding core/threadasm.S from build because of missing CMake support.")
-        message(WARNING "This file is required for certain non-x86 platforms.")
-        message(WARNING "Please consider updating CMake to at least 2.8.5.")
-    else()
-        list(APPEND DCRT_ASM ${RUNTIME_DIR}/src/core/threadasm.S)
-        list(APPEND DCRT_ASM ${RUNTIME_DIR}/src/ldc/eh_asm.S)
-    endif()
+    list(APPEND DRUNTIME_D ${DRUNTIME_D_POSIX})
     if(APPLE)
-        list(APPEND CORE_D_SYS ${CORE_D_OSX})
+        list(APPEND DRUNTIME_D ${DRUNTIME_D_OSX})
+    elseif(${CMAKE_SYSTEM} MATCHES "FreeBSD")
+        list(APPEND DRUNTIME_D ${DRUNTIME_D_FREEBSD})
+    elseif(${CMAKE_SYSTEM} MATCHES "Linux")
+        list(APPEND DRUNTIME_D ${DRUNTIME_D_LINUX})
+        list(APPEND DRUNTIME_D ${DRUNTIME_D_BIONIC})
+    elseif(${CMAKE_SYSTEM} MATCHES "SunOS")
+        list(APPEND DRUNTIME_D ${DRUNTIME_D_SOLARIS})
     endif()
-
-    # Using CMAKE_SYSTEM_PROCESSOR might be inacurrate when somebody is
-    # cross-compiling by just setting the tool executbles to a cross toolchain,
-    # so just always include the file.
-    list(APPEND DCRT_C ${RUNTIME_DIR}/src/ldc/arm_unwind.c)
 elseif(WIN32)
-    list(APPEND CORE_D_SYS ${CORE_D_WIN})
-    list(REMOVE_ITEM DCRT_C ${RUNTIME_DIR}/src/rt/monitor.c)
-    list(REMOVE_ITEM DCRT_C ${RUNTIME_DIR}/src/rt/bss_section.c)
+    list(APPEND DRUNTIME_D ${DRUNTIME_D_WINDOWS})
 endif()
-list(APPEND CORE_D ${CORE_D_INTERNAL} ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC})
-list(APPEND CORE_D ${LDC_D} ${RUNTIME_DIR}/src/object.d)
-file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
+
+# druntime C parts
+file(GLOB_RECURSE DRUNTIME_C ${RUNTIME_DIR}/src/*.c)
+list(REMOVE_ITEM DRUNTIME_C ${RUNTIME_DIR}/src/rt/dylib_fixes.c)
+if(NOT APPLE)
+    list(REMOVE_ITEM DRUNTIME_C ${RUNTIME_DIR}/src/ldc/osx_tls.c)
+endif()
+if(NOT MSVC)
+    list(REMOVE_ITEM DRUNTIME_C ${RUNTIME_DIR}/src/rt/msvc.c ${RUNTIME_DIR}/src/rt/msvc_math.c)
+endif()
+
+# druntime ASM parts
+set(DRUNTIME_ASM)
+if(UNIX)
+    list(APPEND DRUNTIME_ASM ${RUNTIME_DIR}/src/core/threadasm.S ${RUNTIME_DIR}/src/ldc/eh_asm.S)
+endif()
 
 if(PHOBOS2_DIR)
-    file(GLOB PHOBOS2_D ${PHOBOS2_DIR}/std/*.d)
-    file(GLOB PHOBOS2_D_ALGORITHM ${PHOBOS2_DIR}/std/algorithm/*.d)
-    file(GLOB PHOBOS2_D_CONTAINER ${PHOBOS2_DIR}/std/container/*.d)
-    file(GLOB PHOBOS2_D_DIGEST ${PHOBOS2_DIR}/std/digest/*.d)
-    file(GLOB_RECURSE PHOBOS2_D_EXPERIMENTAL ${PHOBOS2_DIR}/std/experimental/*.d)
-    file(GLOB PHOBOS2_D_NET ${PHOBOS2_DIR}/std/net/*.d)
-    file(GLOB PHOBOS2_D_RANGE ${PHOBOS2_DIR}/std/range/*.d)
-    file(GLOB_RECURSE PHOBOS2_D_REGEX ${PHOBOS2_DIR}/std/regex/*.d)
-    file(GLOB_RECURSE PHOBOS2_D_INTERNAL ${PHOBOS2_DIR}/std/internal/*.d)
-    file(GLOB PHOBOS2_D_C ${PHOBOS2_DIR}/std/c/*.d)
-    file(GLOB PHOBOS2_ETC ${PHOBOS2_DIR}/etc/c/*.d)
-    if(APPLE)
-        file(GLOB PHOBOS2_D_C_SYS ${PHOBOS2_DIR}/std/c/osx/*.d)
-    elseif(FreeBSD)
-        file(GLOB PHOBOS2_D_C_SYS ${PHOBOS2_DIR}/std/c/freebsd/*.d)
-    elseif(UNIX)
-        # Install Linux headers on all non-Apple *nixes - not correct, but
-        # shouldn't cause any harm either.
-        file(GLOB PHOBOS2_D_C_SYS ${PHOBOS2_DIR}/std/c/linux/*.d)
-    elseif(WIN32)
-        file(GLOB PHOBOS2_D_C_SYS ${PHOBOS2_DIR}/std/c/windows/*.d)
-    endif()
-    file(GLOB ZLIB_C ${PHOBOS2_DIR}/etc/c/zlib/*.c)
-    list(REMOVE_ITEM ZLIB_C
-        ${PHOBOS2_DIR}/etc/c/zlib/minigzip.c
-        ${PHOBOS2_DIR}/etc/c/zlib/example.c
-        ${PHOBOS2_DIR}/etc/c/zlib/gzio.c
-    )
-    if(WIN32)
-        file(GLOB PHOBOS2_D_WIN ${PHOBOS2_DIR}/std/windows/*.d)
-    endif()
-    list(APPEND PHOBOS2_D
-            ${PHOBOS2_D_ALGORITHM}
-            ${PHOBOS2_D_CONTAINER}
-            ${PHOBOS2_D_DIGEST}
-            ${PHOBOS2_D_EXPERIMENTAL}
-            ${PHOBOS2_D_NET}
-            ${PHOBOS2_D_RANGE}
-            ${PHOBOS2_D_REGEX}
-            ${PHOBOS2_D_INTERNAL}
-            ${PHOBOS2_D_WIN}
-            ${PHOBOS2_D_C}
-            ${PHOBOS2_D_C_SYS}
-            ${PHOBOS2_ETC}
-    )
+    # Phobos D parts
+    file(GLOB_RECURSE PHOBOS2_D ${PHOBOS2_DIR}/*.d)
+    # remove top-level modules index.d and unittest.d
+    list(REMOVE_ITEM PHOBOS2_D ${PHOBOS2_DIR}/index.d ${PHOBOS2_DIR}/unittest.d)
+    # only include std/c/ modules matching the platform
+    file(GLOB_RECURSE PHOBOS2_D_FREEBSD ${PHOBOS2_DIR}/std/c/freebsd/*.d)
+    file(GLOB_RECURSE PHOBOS2_D_LINUX ${PHOBOS2_DIR}/std/c/linux/*.d)
+    file(GLOB_RECURSE PHOBOS2_D_OSX ${PHOBOS2_DIR}/std/c/osx/*.d)
+    file(GLOB_RECURSE PHOBOS2_D_WINDOWS ${PHOBOS2_DIR}/std/c/windows/*.d)
     list(REMOVE_ITEM PHOBOS2_D
-            ${PHOBOS2_DIR}/std/intrinsic.d
+        ${PHOBOS2_D_FREEBSD} ${PHOBOS2_D_LINUX} ${PHOBOS2_D_OSX} ${PHOBOS2_D_WINDOWS}
     )
+    if(UNIX)
+        if(APPLE)
+            list(APPEND PHOBOS2_D ${PHOBOS2_D_OSX})
+        elseif(${CMAKE_SYSTEM} MATCHES "FreeBSD")
+            list(APPEND PHOBOS2_D ${PHOBOS2_D_FREEBSD})
+        elseif(${CMAKE_SYSTEM} MATCHES "Linux")
+            list(APPEND PHOBOS2_D ${PHOBOS2_D_LINUX})
+        endif()
+    elseif(WIN32)
+        list(APPEND PHOBOS2_D ${PHOBOS2_D_WINDOWS})
+    endif()
+    # only include std/windows/ modules on Windows
+    if(NOT WIN32)
+        file(GLOB_RECURSE PHOBOS2_D_WINDOWS ${PHOBOS2_DIR}/std/windows/*.d)
+        list(REMOVE_ITEM PHOBOS2_D ${PHOBOS2_D_WINDOWS})
+    endif()
+
+    # Phobos C parts
+    file(GLOB_RECURSE PHOBOS2_C ${PHOBOS2_DIR}/*.c)
+    # remove some obsolete zlib modules
+    list(REMOVE_ITEM PHOBOS2_C ${PHOBOS2_DIR}/etc/c/zlib/minigzip.c ${PHOBOS2_DIR}/etc/c/zlib/example.c)
+
     set(CONFIG_NAME ${LDC_EXE}_phobos)
 else()
     set(CONFIG_NAME ${LDC_EXE})
@@ -339,29 +310,13 @@ endmacro()
 macro(compile_druntime d_flags lib_suffix path_suffix outlist_o outlist_bc)
     get_target_suffix("${lib_suffix}" "${path_suffix}" target_suffix)
 
-    # Always disable invariants for debug builds of core.* and gc.* (there
-    # are/were some broken invariants around; druntime is always built in
-    # release mode in upstream builds).
-    set(rt_flags "${d_flags};-disable-invariants")
-
     if(BUILD_SHARED_LIBS)
         set(shared ";-d-version=Shared")
     else()
         set(shared)
     endif()
 
-    foreach(f ${CORE_D} ${GC_D})
-        dc(
-            ${f}
-            "${rt_flags}${shared}"
-            "${RUNTIME_DIR}"
-            "${target_suffix}"
-            ${outlist_o}
-            ${outlist_bc}
-        )
-    endforeach()
-
-    foreach(f ${DCRT_D})
+    foreach(f ${DRUNTIME_D})
         dc(
             ${f}
             "${d_flags}${shared}"
@@ -400,7 +355,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
     compile_druntime("${d_flags}" "${lib_suffix}" "${path_suffix}" druntime_o druntime_bc)
 
     add_library(druntime-ldc${target_suffix} ${D_LIBRARY_TYPE}
-        ${druntime_o} ${CORE_C} ${DCRT_C} ${DCRT_ASM})
+        ${druntime_o} ${DRUNTIME_C} ${DRUNTIME_ASM})
     set_target_properties(
         druntime-ldc${target_suffix} PROPERTIES
         OUTPUT_NAME                 druntime-ldc${lib_suffix}
@@ -434,7 +389,8 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
         set(phobos2_bc "")
         compile_phobos2("${d_flags}" "${lib_suffix}" "${path_suffix}" phobos2_o phobos2_bc)
 
-        add_library(phobos2-ldc${target_suffix} ${D_LIBRARY_TYPE} ${ZLIB_C} ${phobos2_o})
+        add_library(phobos2-ldc${target_suffix} ${D_LIBRARY_TYPE}
+            ${phobos2_o} ${PHOBOS2_C})
         set_target_properties(
             phobos2-ldc${target_suffix} PROPERTIES
             OUTPUT_NAME                 phobos2-ldc${lib_suffix}
@@ -722,7 +678,7 @@ function(add_tests d_files runner target_suffix)
 endfunction()
 function(add_runtime_tests name_suffix path_suffix)
     get_target_suffix("${name_suffix}" "${path_suffix}" target_suffix)
-    add_tests("${CORE_D};${DCRT_D};${GC_D}" "druntime" "${target_suffix}")
+    add_tests("${DRUNTIME_D}" "druntime" "${target_suffix}")
     if(PHOBOS2_DIR)
         add_tests("${PHOBOS2_D}" "phobos2" "${target_suffix}")
     endif()
