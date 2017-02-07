@@ -110,16 +110,14 @@ private int getBitsizeOfType(Loc loc, Type type)
 {
     switch (type.toBasetype().ty)
     {
+      case Tint128:
+      case Tuns128: return 128;
       case Tint64:
       case Tuns64: return 64;
       case Tint32:
       case Tuns32: return 32;
       case Tint16:
       case Tuns16: return 16;
-      case Tint128:
-      case Tuns128:
-          error(loc, "cent/ucent not supported");
-          break;
       default:
           error(loc, "unsupported type");
           break;
@@ -279,8 +277,14 @@ extern (C++) Expression eval_bswap(Loc loc, FuncDeclaration fd, Expressions *arg
     enum ulong BYTEMASK = 0x00FF00FF00FF00FF;
     enum ulong SHORTMASK = 0x0000FFFF0000FFFF;
     enum ulong INTMASK = 0x00000000FFFFFFFF;
+    enum ulong LONGMASK = 0xFFFFFFFFFFFFFFFF;
     switch (type.toBasetype().ty)
     {
+      case Tint128:
+      case Tuns128:
+          // swap high and low uints
+          n = ((n >> 64) & LONGMASK) | ((n & LONGMASK) << 64);
+          goto case Tuns64;
       case Tint64:
       case Tuns64:
           // swap high and low uints
@@ -295,10 +299,6 @@ extern (C++) Expression eval_bswap(Loc loc, FuncDeclaration fd, Expressions *arg
       case Tuns16:
           // swap adjacent ubytes
           n = ((n >> 8 ) & BYTEMASK)  | ((n & BYTEMASK) << 8 );
-          break;
-      case Tint128:
-      case Tuns128:
-          error(loc, "cent/ucent not supported");
           break;
       default:
           error(loc, "unsupported type");

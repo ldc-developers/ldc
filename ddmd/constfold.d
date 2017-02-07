@@ -639,6 +639,12 @@ extern (C++) UnionExp Shr(Loc loc, Type type, Expression e1, Expression e2)
     case Tuns64:
         value = cast(d_uns64)value >> count;
         break;
+    case Tint128:
+        value = cast(d_int128)value >> count;
+        break;
+    case Tuns128:
+        value = cast(d_uns128)value >> count;
+        break;
     case Terror:
         emplaceExp!(ErrorExp)(&ue);
         return ue;
@@ -677,7 +683,11 @@ extern (C++) UnionExp Ushr(Loc loc, Type type, Expression e1, Expression e2)
         break;
     case Tint64:
     case Tuns64:
-        value = cast(d_uns64)value >> count;
+        value = (value & 0xFFFFFFFFFFFFFFFF) >> count;
+        break;
+    case Tint128:
+    case Tuns128:
+        value = cast(d_uns128)value >> count;
         break;
     case Terror:
         emplaceExp!(ErrorExp)(&ue);
@@ -1108,6 +1118,12 @@ extern (C++) UnionExp Cast(Loc loc, Type type, Type to, Expression e1)
                 break;
             case Tuns64:
                 result = cast(d_uns64)r;
+                break;
+            case Tint128:
+                result = cast(d_int128)r;
+                break;
+            case Tuns128:
+                result = cast(d_uns128)r;
                 break;
             default:
                 assert(0);

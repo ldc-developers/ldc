@@ -15,7 +15,7 @@ import ddmd.mtype;
 import ddmd.expression;
 import ddmd.globals;
 
-enum UINT64_MAX = 0xFFFFFFFFFFFFFFFFUL;
+enum UINT128_MAX = 0xFFFFFFFFFFFFFFFF_FFFFFFFFFFFFFFFF;
 
 static uinteger_t copySign(uinteger_t x, bool sign)
 {
@@ -29,7 +29,7 @@ struct SignExtendedNumber
     bool negative;
     static SignExtendedNumber fromInteger(uinteger_t value_)
     {
-        return SignExtendedNumber(value_, value_ >> 63);
+        return SignExtendedNumber(value_, value_ >> 127);
     }
 
     static SignExtendedNumber extreme(bool minimum)
@@ -39,7 +39,7 @@ struct SignExtendedNumber
 
     static SignExtendedNumber max()
     {
-        return SignExtendedNumber(UINT64_MAX, false);
+        return SignExtendedNumber(UINT128_MAX, false);
     }
 
     static SignExtendedNumber min()
@@ -91,7 +91,7 @@ struct SignExtendedNumber
         else if (negative)
             return SignExtendedNumber(carry ? sum : 0, true);
         else
-            return SignExtendedNumber(carry ? UINT64_MAX : sum, false);
+            return SignExtendedNumber(carry ? UINT128_MAX : sum, false);
     }
 
     SignExtendedNumber opSub(const SignExtendedNumber a) const
@@ -130,7 +130,7 @@ struct SignExtendedNumber
         uinteger_t tAbs = copySign(value, negative);
         uinteger_t aAbs = copySign(a.value, a.negative);
         rv.negative = negative != a.negative;
-        if (UINT64_MAX / tAbs < aAbs)
+        if (UINT128_MAX / tAbs < aAbs)
             rv.value = rv.negative - 1;
         else
             rv.value = copySign(tAbs * aAbs, rv.negative);
@@ -159,22 +159,23 @@ struct SignExtendedNumber
         if (!isMinimum())
             rvVal = copySign(value, negative) / aAbs;
         // Special handling for INT65_MIN
-        //  if the denominator is not a power of 2, it is same as UINT64_MAX / x.
+        //  if the denominator is not a power of 2, it is same as UINT128_MAX / x.
         else if (aAbs & (aAbs - 1))
-            rvVal = UINT64_MAX / aAbs;
+            rvVal = UINT128_MAX / aAbs;
         // otherwise, it's the same as reversing the bits of x.
         else
         {
             if (aAbs == 1)
                 return extreme(!a.negative);
-            rvVal = 1UL << 63;
+            rvVal = (cast(ucent)1) << 63;
             aAbs >>= 1;
-            if (aAbs & 0xAAAAAAAAAAAAAAAAUL) rvVal >>= 1;
-            if (aAbs & 0xCCCCCCCCCCCCCCCCUL) rvVal >>= 2;
-            if (aAbs & 0xF0F0F0F0F0F0F0F0UL) rvVal >>= 4;
-            if (aAbs & 0xFF00FF00FF00FF00UL) rvVal >>= 8;
-            if (aAbs & 0xFFFF0000FFFF0000UL) rvVal >>= 16;
-            if (aAbs & 0xFFFFFFFF00000000UL) rvVal >>= 32;
+            if (aAbs & 0xAAAAAAAAAAAAAAAA_AAAAAAAAAAAAAAAA) rvVal >>= 1;
+            if (aAbs & 0xCCCCCCCCCCCCCCCC_CCCCCCCCCCCCCCCC) rvVal >>= 2;
+            if (aAbs & 0xF0F0F0F0F0F0F0F0_F0F0F0F0F0F0F0F0) rvVal >>= 4;
+            if (aAbs & 0xFF00FF00FF00FF00_FF00FF00FF00FF00) rvVal >>= 8;
+            if (aAbs & 0xFFFF0000FFFF0000_FFFF0000FFFF0000) rvVal >>= 16;
+            if (aAbs & 0xFFFFFFFF00000000_FFFFFFFF00000000) rvVal >>= 32;
+            if (aAbs & 0xFFFFFFFFFFFFFFFF_0000000000000000) rvVal >>= 64;
         }
         bool rvNeg = negative != a.negative;
         rvVal = copySign(rvVal, rvNeg);
@@ -194,9 +195,9 @@ struct SignExtendedNumber
         if (!isMinimum())
             rvVal = copySign(value, negative) % aAbs;
         // Special handling for INT65_MIN
-        //  if the denominator is not a power of 2, it is same as UINT64_MAX%x + 1.
+        //  if the denominator is not a power of 2, it is same as UINT128_MAX%x + 1.
         else if (aAbs & (aAbs - 1))
-            rvVal = UINT64_MAX % aAbs + 1;
+            rvVal = UINT128_MAX % aAbs + 1;
         //  otherwise, the modulus is trivially zero.
         else
             rvVal = 0;
@@ -208,7 +209,7 @@ struct SignExtendedNumber
     ref SignExtendedNumber opAddAssign(int a)
     {
         assert(a == 1);
-        if (value != UINT64_MAX)
+        if (value != UINT128_MAX)
             ++value;
         else if (negative)
         {
@@ -235,14 +236,15 @@ struct SignExtendedNumber
         // Why is this a size_t? Looks like a bug.
         size_t r, s;
 
-        r = (v > 0xFFFFFFFFUL) << 5; v >>= r;
+        r = (v > 0xFFFFFFFF_FFFFFFFFUL) << 6; v >>= r;
+        s = (v > 0xFFFFFFFFUL) << 5; v >>= s; r |= s;
         s = (v > 0xFFFFUL    ) << 4; v >>= s; r |= s;
         s = (v > 0xFFUL      ) << 3; v >>= s; r |= s;
         s = (v > 0xFUL       ) << 2; v >>= s; r |= s;
         s = (v > 0x3UL       ) << 1; v >>= s; r |= s;
                                                r |= (v >> 1);
 
-        uinteger_t allowableShift = 63 - r;
+        uinteger_t allowableShift = 127 - r;
         if (a.value > allowableShift)
             return extreme(negative);
         else
@@ -251,10 +253,10 @@ struct SignExtendedNumber
 
     SignExtendedNumber opShr(const SignExtendedNumber a)
     {
-        if (a.negative || a.value > 64)
+        if (a.negative || a.value > 128)
             return negative ? SignExtendedNumber(-1, true) : SignExtendedNumber(0);
         else if (isMinimum())
-            return a.value == 0 ? this : SignExtendedNumber(-1UL << (64 - a.value), true);
+            return a.value == 0 ? this : SignExtendedNumber(-1UL << (128 - a.value), true);
 
         uinteger_t x = value ^ -cast(int)negative;
         x >>= a.value;
@@ -420,7 +422,7 @@ struct IntRange
     IntRange castUnsigned(Type type)
     {
         if (!type.isintegral())
-            return castUnsigned(UINT64_MAX);
+            return castUnsigned(UINT128_MAX);
         else if (type.toBasetype().ty == Tdchar)
             return castDchar();
         else

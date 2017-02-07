@@ -936,11 +936,6 @@ public:
 
     Type semantic(Loc loc, Scope* sc)
     {
-        if (ty == Tint128 || ty == Tuns128)
-        {
-            error(loc, "cent and ucent types not implemented");
-            return terror;
-        }
         return merge();
     }
 
@@ -2856,6 +2851,10 @@ public:
         case Tuns64:
             m = 0xFFFFFFFFFFFFFFFFUL;
             break;
+        case Tint128:
+        case Tuns128:
+            m = 0xFFFFFFFFFFFFFFFF_FFFFFFFFFFFFFFFF;
+            break;
         default:
             assert(0);
         }
@@ -3534,6 +3533,12 @@ version(IN_LLVM)
             case Tuns64:
                 ivalue = 0xFFFFFFFFFFFFFFFFUL;
                 goto Livalue;
+            case Tint128:
+                ivalue = 0x7FFFFFFFFFFFFFFF_FFFFFFFFFFFFFFFF;
+                goto Livalue;
+            case Tuns128:
+                ivalue = 0xFFFFFFFFFFFFFFFF_FFFFFFFFFFFFFFFF;
+                goto Livalue;
             case Tbool:
                 ivalue = 1;
                 goto Livalue;
@@ -3591,6 +3596,12 @@ version(IN_LLVM)
                 ivalue = (-9223372036854775807L - 1L);
                 goto Livalue;
             case Tuns64:
+                ivalue = 0;
+                goto Livalue;
+            case Tint128:
+                ivalue = cast(cent)0x8000000000000000_000000000000000;
+                goto Livalue;
+            case Tuns128:
                 ivalue = 0;
                 goto Livalue;
             case Tbool:
@@ -4530,17 +4541,18 @@ public:
 
     override d_uns64 size(Loc loc)
     {
-        dinteger_t sz;
         if (!dim)
             return Type.size(loc);
-        sz = dim.toInteger();
+        dinteger_t sz = dim.toInteger();
         {
             bool overflow = false;
             sz = mulu(next.size(), sz, overflow);
             if (overflow)
                 goto Loverflow;
         }
-        return sz;
+        if (sz > d_uns64.max)
+            goto Loverflow;
+        return cast(d_uns64)sz;
     Loverflow:
         error(loc, "index %lld overflow for static array", cast(long)sz);
         return SIZE_INVALID;

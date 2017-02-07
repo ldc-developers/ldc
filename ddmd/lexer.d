@@ -295,7 +295,7 @@ public:
                 if (!isZeroSecond(p[1]))        // if numeric literal does not continue
                 {
                     ++p;
-                    t.uns64value = 0;
+                    t.uns128value = 0;
                     t.value = TOKint32v;
                     return;
                 }
@@ -304,7 +304,7 @@ public:
             case '1': .. case '9':
                 if (!isDigitSecond(p[1]))       // if numeric literal does not continue
                 {
-                    t.uns64value = *p - '0';
+                    t.uns128value = *p - '0';
                     ++p;
                     t.value = TOKint32v;
                     return;
@@ -316,7 +316,7 @@ public:
             case '\'':
                 if (issinglechar(p[1]) && p[2] == '\'')
                 {
-                    t.uns64value = p[1];        // simple one character literal
+                    t.uns128value = p[1];        // simple one character literal
                     t.value = TOKcharv;
                     p += 3;
                 }
@@ -492,7 +492,7 @@ public:
                                     break;
                             }
                             t.value = TOKint64v;
-                            t.uns64value = major * 1000 + minor;
+                            t.uns128value = major * 1000 + minor;
                         }
                         else if (id == Id.EOFX)
                         {
@@ -1642,16 +1642,16 @@ public:
             switch (*p)
             {
             case 'u':
-                t.uns64value = escapeSequence();
+                t.uns128value = escapeSequence();
                 tk = TOKwcharv;
                 break;
             case 'U':
             case '&':
-                t.uns64value = escapeSequence();
+                t.uns128value = escapeSequence();
                 tk = TOKdcharv;
                 break;
             default:
-                t.uns64value = escapeSequence();
+                t.uns128value = escapeSequence();
                 break;
             }
             break;
@@ -1664,7 +1664,7 @@ public:
         case 0x1A:
         case '\'':
             error("unterminated character constant");
-            t.uns64value = '?';
+            t.uns128value = '?';
             return tk;
         default:
             if (c & 0x80)
@@ -1679,13 +1679,13 @@ public:
                 else
                     tk = TOKdcharv;
             }
-            t.uns64value = c;
+            t.uns128value = c;
             break;
         }
         if (*p != '\'')
         {
             error("unterminated character constant");
-            t.uns64value = '?';
+            t.uns128value = '?';
             return tk;
         }
         p++;
@@ -2006,7 +2006,7 @@ public:
             }
             assert(0);
         }
-        t.uns64value = n;
+        t.uns128value = n;
         return result;
     }
 
@@ -2219,9 +2219,9 @@ public:
         scan(&tok);
         if (tok.value == TOKint32v || tok.value == TOKint64v)
         {
-            const lin = cast(int)(tok.uns64value - 1);
-            if (lin != tok.uns64value - 1)
-                error("line number %lld out of range", cast(ulong)tok.uns64value);
+            const lin = cast(int)(tok.uns128value - 1);
+            if (lin != tok.uns128value - 1)
+                error("line number %lld out of range", cast(ulong)tok.uns128value);
             else
                 linnum = lin;
         }

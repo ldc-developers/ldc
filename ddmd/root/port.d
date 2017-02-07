@@ -377,14 +377,15 @@ extern (C++) struct Port
         }
     }
 
-    static void valcpy(void *dst, ulong val, size_t size)
+    static void valcpy(void *dst, ucent val, size_t size)
     {
         switch (size)
         {
-            case 1: *cast(ubyte *)dst = cast(ubyte)val; break;
-            case 2: *cast(ushort *)dst = cast(ushort)val; break;
-            case 4: *cast(uint *)dst = cast(uint)val; break;
-            case 8: *cast(ulong *)dst = cast(ulong)val; break;
+            case  1: *cast(ubyte *)dst = cast(ubyte)val; break;
+            case  2: *cast(ushort *)dst = cast(ushort)val; break;
+            case  4: *cast(uint *)dst = cast(uint)val; break;
+            case  8: *cast(ulong *)dst = cast(ulong)val; break;
+            case 16: *cast(ucent *)dst = cast(ucent)val; break;
             default: assert(0);
         }
     }

@@ -3430,6 +3430,12 @@ private:
         case Tuns64:
             value = cast(d_uns64)value;
             break;
+        case Tint128:
+            value = cast(d_int128)value;
+            break;
+        case Tuns128:
+            value = cast(d_uns128)value;
+            break;
         case Tpointer:
             if (Target.ptrsize == 4)
                 value = cast(d_uns32)value;
