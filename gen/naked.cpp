@@ -184,13 +184,13 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   }
   // Windows is different
   else if (isWin) {
-    // prepend extra underscore for Win32
-    if (triple.isArch32Bit()) {
+    // prepend extra underscore for Win32 (except for extern(C++))
+    if (triple.isArch32Bit() && fd->linkage != LINKcpp) {
       fullmangle += '_';
       fullmangle += mangle;
       mangle = fullmangle.c_str();
     }
-    // leading ? apparently needs quoting, at least for Win64
+    // leading ? apparently needs quoting
     else if (mangle[0] == '?') {
       fullmangle += '"';
       fullmangle += mangle;
