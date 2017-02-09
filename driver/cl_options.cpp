@@ -263,7 +263,8 @@ cl::list<std::string> versions(
 
 cl::list<std::string> transitions(
     "transition",
-    cl::desc("help with language change identified by <idents>, use ? for list"),
+    cl::desc(
+        "help with language change identified by <idents>, use ? for list"),
     cl::value_desc("idents"), cl::CommaSeparated);
 
 static StringsAdapter linkSwitchStore("L", global.params.linkswitches);
@@ -534,75 +535,37 @@ void createClashingOptions() {
 /// to be useful for end users from the -help output.
 void hideLLVMOptions() {
   static const char *const hiddenOptions[] = {
-    "bounds-checking-single-trap",
-    "disable-debug-info-verifier",
-    "disable-objc-arc-checkforcfghazards",
-    "disable-spill-fusing",
-    "cppfname",
-    "cppfor",
-    "cppgen",
-    "enable-correct-eh-support",
-    "enable-load-pre",
-    "enable-misched",
-    "enable-objc-arc-annotations",
-    "enable-objc-arc-opts",
-    "enable-scoped-noalias",
-    "enable-tbaa",
-    "exhaustive-register-search",
-    "fatal-assembler-warnings",
-    "internalize-public-api-file",
-    "internalize-public-api-list",
-    "join-liveintervals",
-    "limit-float-precision",
-    "mc-x86-disable-arith-relaxation",
-    "mips16-constant-islands",
-    "mips16-hard-float",
-    "mlsm",
-    "mno-ldc1-sdc1",
-    "nvptx-sched4reg",
-    "no-discriminators",
-    "objc-arc-annotation-target-identifier",
-    "pre-RA-sched",
-    "print-after-all",
-    "print-before-all",
-    "print-machineinstrs",
-    "profile-estimator-loop-weight",
-    "profile-estimator-loop-weight",
-    "profile-file",
-    "profile-info-file",
-    "profile-verifier-noassert",
-    "regalloc",
-    "rewrite-map-file",
-    "rng-seed",
-    "sample-profile-max-propagate-iterations",
-    "shrink-wrap",
-    "spiller",
-    "stackmap-version",
-    "stats",
-    "strip-debug",
-    "struct-path-tbaa",
-    "time-passes",
-    "unit-at-a-time",
-    "verify-debug-info",
-    "verify-dom-info",
-    "verify-loop-info",
-    "verify-regalloc",
-    "verify-region-info",
-    "verify-scev",
-    "x86-early-ifcvt",
-    "x86-use-vzeroupper",
-    "x86-recip-refinement-steps",
+      "bounds-checking-single-trap", "disable-debug-info-verifier",
+      "disable-objc-arc-checkforcfghazards", "disable-spill-fusing", "cppfname",
+      "cppfor", "cppgen", "enable-correct-eh-support", "enable-load-pre",
+      "enable-misched", "enable-objc-arc-annotations", "enable-objc-arc-opts",
+      "enable-scoped-noalias", "enable-tbaa", "exhaustive-register-search",
+      "fatal-assembler-warnings", "internalize-public-api-file",
+      "internalize-public-api-list", "join-liveintervals",
+      "limit-float-precision", "mc-x86-disable-arith-relaxation",
+      "mips16-constant-islands", "mips16-hard-float", "mlsm", "mno-ldc1-sdc1",
+      "nvptx-sched4reg", "no-discriminators",
+      "objc-arc-annotation-target-identifier", "pre-RA-sched",
+      "print-after-all", "print-before-all", "print-machineinstrs",
+      "profile-estimator-loop-weight", "profile-estimator-loop-weight",
+      "profile-file", "profile-info-file", "profile-verifier-noassert",
+      "regalloc", "rewrite-map-file", "rng-seed",
+      "sample-profile-max-propagate-iterations", "shrink-wrap", "spiller",
+      "stackmap-version", "stats", "strip-debug", "struct-path-tbaa",
+      "time-passes", "unit-at-a-time", "verify-debug-info", "verify-dom-info",
+      "verify-loop-info", "verify-regalloc", "verify-region-info",
+      "verify-scev", "x86-early-ifcvt", "x86-use-vzeroupper",
+      "x86-recip-refinement-steps",
 
-    // We enable -fdata-sections/-ffunction-sections by default where it makes
-    // sense for reducing code size, so hide them to avoid confusion.
-    //
-    // We need our own switch as these two are defined by LLVM and linked to
-    // static TargetMachine members, but the default we want to use depends
-    // on the target triple (and thus we do not know it until after the command
-    // line has been parsed).
-    "fdata-sections",
-    "ffunction-sections"
-  };
+      // We enable -fdata-sections/-ffunction-sections by default where it makes
+      // sense for reducing code size, so hide them to avoid confusion.
+      //
+      // We need our own switch as these two are defined by LLVM and linked to
+      // static TargetMachine members, but the default we want to use depends
+      // on the target triple (and thus we do not know it until after the
+      // command
+      // line has been parsed).
+      "fdata-sections", "ffunction-sections"};
 
 #if LDC_LLVM_VER >= 307
   llvm::StringMap<cl::Option *> &map = cl::getRegisteredOptions();
