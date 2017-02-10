@@ -56,29 +56,18 @@ void Target::_init() {
   c_long_doublesize = realsize;
   classinfosize = 0; // unused
 
-  const auto pTargetRealSemantics = &real->getFltSemantics();
+  const auto targetRealSemantics = &real->getFltSemantics();
 #if LDC_LLVM_VER >= 400
-  const auto x87DoubleExtended = &APFloat::x87DoubleExtended();
   const auto IEEEdouble = &APFloat::IEEEdouble();
-  const auto PPCDoubleDouble = &APFloat::PPCDoubleDouble();
+  const auto x87DoubleExtended = &APFloat::x87DoubleExtended();
+  const auto IEEEquad = &APFloat::IEEEquad();
 #else
-  const auto x87DoubleExtended = &APFloat::x87DoubleExtended;
   const auto IEEEdouble = &APFloat::IEEEdouble;
-  const auto PPCDoubleDouble = &APFloat::PPCDoubleDouble;
+  const auto x87DoubleExtended = &APFloat::x87DoubleExtended;
+  const auto IEEEquad = &APFloat::IEEEquad;
 #endif
 
-  if (pTargetRealSemantics == x87DoubleExtended) {
-    real_max = CTFloat::parse("0x1.fffffffffffffffep+16383");
-    real_min_normal = CTFloat::parse("0x1p-16382");
-    real_epsilon = CTFloat::parse("0x1p-63");
-    RealProperties::dig = 18;
-    RealProperties::mant_dig = 64;
-    RealProperties::max_exp = 16384;
-    RealProperties::min_exp = -16381;
-    RealProperties::max_10_exp = 4932;
-    RealProperties::min_10_exp = -4932;
-  } else if (pTargetRealSemantics == IEEEdouble ||
-             pTargetRealSemantics == PPCDoubleDouble) {
+  if (targetRealSemantics == IEEEdouble) {
     real_max = CTFloat::parse("0x1.fffffffffffffp+1023");
     real_min_normal = CTFloat::parse("0x1p-1022");
     real_epsilon = CTFloat::parse("0x1p-52");
@@ -88,7 +77,30 @@ void Target::_init() {
     RealProperties::min_exp = -1021;
     RealProperties::max_10_exp = 308;
     RealProperties::min_10_exp = -307;
+  } else if (targetRealSemantics == x87DoubleExtended) {
+    real_max = CTFloat::parse("0x1.fffffffffffffffep+16383");
+    real_min_normal = CTFloat::parse("0x1p-16382");
+    real_epsilon = CTFloat::parse("0x1p-63");
+    RealProperties::dig = 18;
+    RealProperties::mant_dig = 64;
+    RealProperties::max_exp = 16384;
+    RealProperties::min_exp = -16381;
+    RealProperties::max_10_exp = 4932;
+    RealProperties::min_10_exp = -4931;
+  } else if (targetRealSemantics == IEEEquad) {
+    // FIXME: hex constants
+    real_max = CTFloat::parse("1.18973149535723176508575932662800702e+4932");
+    real_min_normal =
+        CTFloat::parse("3.36210314311209350626267781732175260e-4932");
+    real_epsilon = CTFloat::parse("1.92592994438723585305597794258492732e-34");
+    RealProperties::dig = 33;
+    RealProperties::mant_dig = 113;
+    RealProperties::max_exp = 16384;
+    RealProperties::min_exp = -16381;
+    RealProperties::max_10_exp = 4932;
+    RealProperties::min_10_exp = -4931;
   } else {
+    // rely on host compiler
     real_max = RealProperties::host_max();
     real_min_normal = RealProperties::host_min_normal();
     real_epsilon = RealProperties::host_epsilon();

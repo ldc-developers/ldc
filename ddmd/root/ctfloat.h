@@ -14,9 +14,15 @@
 
 // Type used by the front-end for compile-time reals
 #if IN_LLVM && _MSC_VER
+// Make sure LDC built with MSVC uses double-precision compile-time reals,
+// independent of whether it was built with DMD (80-bit reals) or LDC.
 typedef double real_t;
 #else
 typedef longdouble real_t;
+#endif
+
+#if IN_LLVM
+namespace llvm { class APFloat; }
 #endif
 
 // Compile-time floating-point helper
@@ -42,6 +48,9 @@ struct CTFloat
     static real_t ceil(real_t x);
     static real_t trunc(real_t x);
     static real_t round(real_t x);
+
+    // implemented in gen/ctfloat.cpp
+    static void toAPFloat(real_t src, llvm::APFloat &dst);
 #endif
 
     static bool isIdentical(real_t a, real_t b);
