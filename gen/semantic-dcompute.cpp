@@ -10,9 +10,11 @@
 // Validation for @compute code:
 //      enforce: @nogc, nothrow, all function calls are to modules that are also
 //          @compute. The enforcemnt of nothrow is simpler because all functions
-//          are assumed to not throw. We only need to check for ThrowStatement
+//          are assumed to not throw. We only need to check for ThrowStatement.
+//          We dont use dmd's nothrow detection because it still allows errors.
 //
-//      ban: classes, interfaces, asm, typeid, global variables
+//      ban: classes, interfaces, asm, typeid, global variables, synhronized,
+//          associative arrays, pragma(lib,...)
 //
 //===----------------------------------------------------------------------===//
 
@@ -26,15 +28,6 @@
 #include "id.h"
 
 struct DComputeSemanticAnalyser : public StoppableVisitor {
-  // InterfaceDeclaration
-  // ClassDeclaration
-  // VarDeclaration : isDataSeg (global variable)
-  // PragmaDeclaration : pragma(lib, "...")
-  // nogc
-  // nothrow
-  // no typeid
-  // no string switches
-  // no synchronized
 
   void visit(InterfaceDeclaration *decl) override {
     decl->error("interfaces and classes not allowed in @compute code");
@@ -45,7 +38,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     stop = true;
   }
   void visit(VarDeclaration *decl) override {
-    // Don't print multiple errors for 'synchronized'
+    // Don't print multiple errors for 'synchronized'. see visit(CallExp*)
     if (decl->isDataseg() && strncmp(decl->toChars(), "__critsec", 9)) {
       decl->error("global variables not allowed in @compute code");
       stop = true;
@@ -55,7 +48,9 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     if (decl->type->ty == Taarray) {
       decl->error("associative arrays not allowed in @compute code");
       stop = true;
-    } else if (decl->type->ty == Tclass) // includes interfaces
+    }
+    // includes interfaces
+    else if (decl->type->ty == Tclass)
     {
       decl->error("interfaces and classes not allowed in @compute code");
     }
@@ -69,7 +64,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
   }
 
   // Nogc enforcement.
-  // No need to check AssocArrayLiteral because AA's are benned anyway
+  // No need to check AssocArrayLiteral because AA's are banned anyway
   void visit(ArrayLiteralExp *e) override {
     if (e->type->ty != Tarray || !e->elements || !e->elements->dim)
       return;
@@ -119,8 +114,9 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     e->error("asm not allowed in @compute code");
     stop = true;
   }
-  // nothrow
 
+  // Enforce nothrow. Disallow 'catch' as it is dead code.
+  // try...finally is allowed to facilitate scope(exit)
   void visit(TryCatchStatement *e) override {
     e->error("no exceptions in @compute code");
     stop = true;
@@ -140,11 +136,10 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     if (stmt->condition->op == TOKcall) {
       auto ce = (CallExp *)stmt->condition;
       if (ce->f && ce->f->ident &&
-          !strcmp(ce->f->ident->string, "__dcompute_reflect"))
-      {
+          !strcmp(ce->f->ident->string, "__dcompute_reflect")) {
         auto arg1 = (DComputeTarget::ID)(*ce->arguments)[0]->toInteger();
         if (arg1 == DComputeTarget::Host)
-          // Alllow code explicily for host to bypass the call only @conpute
+          // Allow code explicily for host to bypass the call only @compute
           // restriction below.
           stop = true;
       }
