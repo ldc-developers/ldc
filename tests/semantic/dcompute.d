@@ -90,5 +90,5 @@ void func()
 void func1() {}
 void func2() {}
 
-//XFAIL: Error: linking additional libraries not supported in @compute code
+//CHECK: Error: linking additional libraries not supported in @compute code
 pragma(lib, "bar");
