@@ -90,5 +90,5 @@ void func()
 void func1() {}
 void func2() {}
 
-//CHECK: Error: linking additional libraries not supported in @compute code
+//CHECK: dcompute.d([[@LINE+1]]): Error: linking additional libraries not supported in @compute code
 pragma(lib, "bar");
