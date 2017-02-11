@@ -596,8 +596,9 @@ void hideLLVMOptions() {
   for (const auto name : hiddenOptions) {
     // Check if option exists first for resilience against LLVM changes
     // between versions.
-    if (map.count(name)) {
-      map[name]->setHiddenFlag(cl::Hidden);
+    auto it = map.find(name);
+    if (it != map.end()) {
+      it->second->setHiddenFlag(cl::Hidden);
     }
   }
 }
