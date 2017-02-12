@@ -393,9 +393,9 @@ void translateArgs(size_t originalArgc, char **originalArgv,
       } else if (strcmp(p + 1, "fPIC") == 0) {
         ldcArgs.push_back("-relocation-model=pic");
       } else if (strcmp(p + 1, "map") == 0) {
-        warning("command-line option '-map' not yet supported by LDC.");
+        goto Lnot_in_ldc;
       } else if (strcmp(p + 1, "multiobj") == 0) {
-        // TODO
+        goto Lnot_in_ldc;
       }
       /* -g
        * -gc
@@ -403,7 +403,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
       else if (strcmp(p + 1, "gs") == 0) {
         ldcArgs.push_back("-disable-fp-elim");
       } else if (strcmp(p + 1, "gx") == 0) {
-        warning("command-line option '-gx' not yet supported by LDC.");
+        goto Lnot_in_ldc;
       } else if (strcmp(p + 1, "gt") == 0) {
         error("use -profile instead of -gt\n");
       }
@@ -413,7 +413,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
       else if (strcmp(p + 1, "m32mscoff") == 0) {
         ldcArgs.push_back("-m32");
       } else if (strcmp(p + 1, "profile") == 0) {
-        warning("command-line option '-profile' not yet supported by LDC.");
+        goto Lnot_in_ldc;
       }
       /* -v
        */
@@ -481,7 +481,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
         ldcArgs.push_back("-oq");
         ldcArgs.push_back("-cleanup-obj");
       } else if (strcmp(p + 1, "nofloat") == 0) {
-        warning("command-line option '-nofloat' not yet supported by LDC.");
+        goto Lnot_in_ldc;
       } else if (strcmp(p + 1, "quiet") == 0) {
         // ignore
       }
@@ -568,6 +568,11 @@ void translateArgs(size_t originalArgc, char **originalArgv,
       } else {
       Lerror:
         ldcArgs.push_back(p);
+        continue;
+
+      Lnot_in_ldc:
+        warning("command-line option '%s' not yet supported by LDC.", p);
+        continue;
       }
     } else {
       const auto ext = ls::path::extension(p);
