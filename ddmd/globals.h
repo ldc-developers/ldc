@@ -124,10 +124,9 @@ struct Param
     bool betterC;       // be a "better C" compiler; no dependency on D runtime
     bool addMain;       // add a default main() function
     bool allInst;       // generate code for all template instantiations
-// LDC_FIXME: Implement "addMain" and "allInst".
     bool check10378;    // check for issues transitioning to 10738
     bool bug10378;      // use pre-bugzilla 10378 search strategy
-    bool safe;          // use enhanced @safe checking
+    bool vsafe;         // use enhanced @safe checking
     bool showGaggedErrors;  // print gagged errors anyway
 
     BOUNDSCHECK useArrayBounds;

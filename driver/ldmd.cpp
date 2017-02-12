@@ -431,8 +431,12 @@ void translateArgs(size_t originalArgc, char **originalArgv,
         } else {
           goto Lerror;
         }
+      } else if (strcmp(p + 1, "transition=?") == 0) {
+        const char *transitionargs[] = {ldcPath.c_str(), p, nullptr};
+        execute(ldcPath, transitionargs);
+        exit(EXIT_SUCCESS);
       }
-      /* -transition
+      /* -transition=<id>
        * -w
        * -wi
        * -O
@@ -585,7 +589,10 @@ void translateArgs(size_t originalArgc, char **originalArgv,
 
   if (noFiles) {
     printUsage(originalArgv[0], ldcPath);
-    error("No source file specified.");
+    if (originalArgc == 1)
+      exit(EXIT_FAILURE); // compatible with DMD
+    else
+      error("No source file specified.");
   }
 
   if (vdmd) {
