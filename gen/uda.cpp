@@ -443,8 +443,5 @@ int hasComputeAttr(Dsymbol *sym) {
 
   checkStructElems(sle, {Type::tint32});
 
-  if (!sym->isModule())
-    sym->error("@ldc.attributes.compute can only be applied to modules");
-
   return 1 + (*sle->elements)[0]->toInteger();
 }
