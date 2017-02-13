@@ -133,14 +133,17 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
   }
 
   void visit(IfStatement *stmt) override {
+    // Code inside an if(__dcompute_reflect(0,0)) { ...} is explicitly
+    // for the host and is therefore allowed to call non @compute functions.
+    // Thus, the if-statement body's code should not be checked for
+    // @compute semantics and the recursive visitor should stop here.
     if (stmt->condition->op == TOKcall) {
       auto ce = (CallExp *)stmt->condition;
       if (ce->f && ce->f->ident &&
-          !strcmp(ce->f->ident->string, "__dcompute_reflect")) {
+          !strcmp(ce->f->ident->string, "__dcompute_reflect"))
+      {
         auto arg1 = (DComputeTarget::ID)(*ce->arguments)[0]->toInteger();
         if (arg1 == DComputeTarget::Host)
-          // Allow code explicily for host to bypass the call only @compute
-          // restriction below.
           stop = true;
       }
     }
