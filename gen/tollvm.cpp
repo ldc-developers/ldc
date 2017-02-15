@@ -531,7 +531,7 @@ void DtoAlignedStore(LLValue *src, LLValue *dst) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLType *StripAddrSpaces(LLType *t)
+LLType *stripAddrSpaces(LLType *t)
 {
   // Fastpath for normal compilation.
   if(gIR->dcomputetarget == nullptr)
@@ -549,7 +549,7 @@ LLType *StripAddrSpaces(LLType *t)
 }
 
 LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name) {
-  if (StripAddrSpaces(v->getType()) == t) {
+  if (stripAddrSpaces(v->getType()) == t) {
     return v;
   }
   assert(!isaStruct(t));

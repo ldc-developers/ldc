@@ -62,7 +62,7 @@ DRValue::DRValue(Type *t, LLValue *v) : DValue(t, v) {
 
 DImValue::DImValue(Type *t, llvm::Value *v) : DRValue(t, v) {
   // TODO: get rid of Tfunction exception
-  assert(t->toBasetype()->ty == Tfunction || StripAddrSpaces(v->getType()) == DtoType(t));
+  assert(t->toBasetype()->ty == Tfunction || stripAddrSpaces(v->getType()) == DtoType(t));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -75,7 +75,7 @@ DConstValue::DConstValue(Type *t, LLConstant *con) : DRValue(t, con) {
 
 DSliceValue::DSliceValue(Type *t, LLValue *pair) : DRValue(t, pair) {
   assert(t->toBasetype()->ty == Tarray);
-  assert(StripAddrSpaces(pair->getType()) == DtoType(t));
+  assert(stripAddrSpaces(pair->getType()) == DtoType(t));
 }
 
 DSliceValue::DSliceValue(Type *t, LLValue *length, LLValue *ptr)
@@ -101,7 +101,7 @@ bool DFuncValue::definedInFuncEntryBB() {
 ////////////////////////////////////////////////////////////////////////////////
 
 DLValue::DLValue(Type *t, LLValue *v) : DValue(t, v) {
-  assert(t->toBasetype()->ty == Ttuple || StripAddrSpaces(v->getType()) == DtoPtrToType(t));
+  assert(t->toBasetype()->ty == Ttuple || stripAddrSpaces(v->getType()) == DtoPtrToType(t));
 }
 
 DRValue *DLValue::getRVal() {
