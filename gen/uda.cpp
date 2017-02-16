@@ -29,12 +29,12 @@ bool isLdcAttibutes(const ModuleDeclaration *moduleDecl) {
   if (!moduleDecl)
     return false;
 
-  if (strcmp("attributes", moduleDecl->id->string)) {
+  if (strcmp("attributes", moduleDecl->id->toChars())) {
     return false;
   }
 
   if (moduleDecl->packages->dim != 1 ||
-      strcmp("ldc", (*moduleDecl->packages)[0]->string)) {
+      strcmp("ldc", (*moduleDecl->packages)[0]->toChars())) {
     return false;
   }
   return true;
@@ -73,7 +73,7 @@ void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
     sle->error(
         "unexpected field count in 'ldc.attributes.%s'; does druntime not "
         "match compiler version?",
-        sle->sd->ident->string);
+        sle->sd->ident->toChars());
     fatal();
   }
 
@@ -81,7 +81,7 @@ void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
     if ((*sle->elements)[i]->type->toBasetype() != elemTypes[i]) {
       sle->error("invalid field type in 'ldc.attributes.%s'; does druntime not "
                  "match compiler version?",
-                 sle->sd->ident->string);
+                 sle->sd->ident->toChars());
       fatal();
     }
   }
@@ -101,7 +101,7 @@ StructLiteralExp *getMagicAttribute(Dsymbol *sym, std::string name) {
     if (!sle)
       continue;
 
-    if (name == sle->sd->ident->string) {
+    if (name == sle->sd->ident->toChars()) {
       return sle;
     }
   }
@@ -228,7 +228,7 @@ void applyAttrLLVMFastMathFlag(StructLiteralExp *sle, IrFunction *irFunc) {
     // to warning("... %s ...").
     sle->warning(
         "ignoring unrecognized flag parameter '%s' for '@ldc.attributes.%s'",
-        value.data(), sle->sd->ident->string);
+        value.data(), sle->sd->ident->toChars());
   }
 }
 
@@ -241,7 +241,7 @@ void applyAttrOptStrategy(StructLiteralExp *sle, IrFunction *irFunc) {
     if (irFunc->decl->inlining == PINLINEalways) {
       sle->error("cannot combine '@ldc.attributes.%s(\"none\")' with "
                  "'pragma(inline, true)'",
-                 sle->sd->ident->string);
+                 sle->sd->ident->toChars());
       return;
     }
     irFunc->decl->inlining = PINLINEnever;
@@ -253,7 +253,7 @@ void applyAttrOptStrategy(StructLiteralExp *sle, IrFunction *irFunc) {
   } else {
     sle->warning(
         "ignoring unrecognized parameter '%s' for '@ldc.attributes.%s'",
-        value.data(), sle->sd->ident->string);
+        value.data(), sle->sd->ident->toChars());
   }
 }
 
@@ -340,7 +340,7 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
     if (!sle)
       continue;
 
-    auto name = sle->sd->ident->string;
+    auto name = sle->sd->ident->toChars();
     if (name == attr::section) {
       applyAttrSection(sle, gvar);
     } else if (name == attr::optStrategy || name == attr::target) {
@@ -370,7 +370,7 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
     if (!sle)
       continue;
 
-    auto name = sle->sd->ident->string;
+    auto name = sle->sd->ident->toChars();
     if (name == attr::allocSize) {
       applyAttrAllocSize(sle, irFunc);
     } else if (name == attr::llvmAttr) {

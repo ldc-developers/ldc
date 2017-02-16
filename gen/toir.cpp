@@ -728,7 +728,7 @@ public:
       // valid.
       if (global.params.warnings && checkPrintf) {
         if (fndecl->linkage == LINKc &&
-            strcmp(fndecl->ident->string, "printf") == 0) {
+            strcmp(fndecl->ident->toChars(), "printf") == 0) {
           warnInvalidPrintfCall(e->loc, (*e->arguments)[0], e->arguments->dim);
         }
       }
@@ -2545,17 +2545,6 @@ public:
     LOG_SCOPE;
 
     result = toGEP(e, 1);
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  void visit(BoolExp *e) override {
-    IF_LOG Logger::print("BoolExp::toElem: %s @ %s\n", e->toChars(),
-                         e->type->toChars());
-    LOG_SCOPE;
-
-    result = new DImValue(e->type,
-                          DtoRVal(DtoCast(e->loc, toElem(e->e1), Type::tbool)));
   }
 
   //////////////////////////////////////////////////////////////////////////////

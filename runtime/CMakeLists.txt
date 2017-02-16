@@ -77,25 +77,31 @@ list(REMOVE_ITEM DRUNTIME_D
 )
 # only include core/sys/ modules matching the platform
 file(GLOB_RECURSE DRUNTIME_D_BIONIC ${RUNTIME_DIR}/src/core/sys/bionic/*.d)
+file(GLOB_RECURSE DRUNTIME_D_DARWIN ${RUNTIME_DIR}/src/core/sys/darwin/*.d)
 file(GLOB_RECURSE DRUNTIME_D_FREEBSD ${RUNTIME_DIR}/src/core/sys/freebsd/*.d)
 file(GLOB_RECURSE DRUNTIME_D_LINUX ${RUNTIME_DIR}/src/core/sys/linux/*.d)
+file(GLOB_RECURSE DRUNTIME_D_OPENBSD ${RUNTIME_DIR}/src/core/sys/openbsd/*.d)
 file(GLOB_RECURSE DRUNTIME_D_OSX ${RUNTIME_DIR}/src/core/sys/osx/*.d)
 file(GLOB_RECURSE DRUNTIME_D_POSIX ${RUNTIME_DIR}/src/core/sys/posix/*.d)
 file(GLOB_RECURSE DRUNTIME_D_SOLARIS ${RUNTIME_DIR}/src/core/sys/solaris/*.d)
 file(GLOB_RECURSE DRUNTIME_D_WINDOWS ${RUNTIME_DIR}/src/core/sys/windows/*.d)
 list(REMOVE_ITEM DRUNTIME_D
-    ${DRUNTIME_D_BIONIC} ${DRUNTIME_D_FREEBSD} ${DRUNTIME_D_LINUX} ${DRUNTIME_D_OSX}
-    ${DRUNTIME_D_POSIX} ${DRUNTIME_D_SOLARIS} ${DRUNTIME_D_WINDOWS}
+    ${DRUNTIME_D_BIONIC}  ${DRUNTIME_D_DARWIN} ${DRUNTIME_D_FREEBSD} ${DRUNTIME_D_LINUX}
+    ${DRUNTIME_D_OPENBSD} ${DRUNTIME_D_OSX}    ${DRUNTIME_D_POSIX}   ${DRUNTIME_D_SOLARIS}
+    ${DRUNTIME_D_WINDOWS}
 )
 if(UNIX)
     list(APPEND DRUNTIME_D ${DRUNTIME_D_POSIX})
     if(APPLE)
+        list(APPEND DRUNTIME_D ${DRUNTIME_D_DARWIN})
         list(APPEND DRUNTIME_D ${DRUNTIME_D_OSX})
     elseif(${CMAKE_SYSTEM} MATCHES "FreeBSD")
         list(APPEND DRUNTIME_D ${DRUNTIME_D_FREEBSD})
     elseif(${CMAKE_SYSTEM} MATCHES "Linux")
         list(APPEND DRUNTIME_D ${DRUNTIME_D_LINUX})
         list(APPEND DRUNTIME_D ${DRUNTIME_D_BIONIC})
+    elseif(${CMAKE_SYSTEM} MATCHES "OpenBSD")
+        list(APPEND DRUNTIME_D ${DRUNTIME_D_OPENBSD})
     elseif(${CMAKE_SYSTEM} MATCHES "SunOS")
         list(APPEND DRUNTIME_D ${DRUNTIME_D_SOLARIS})
     endif()
@@ -107,7 +113,7 @@ endif()
 file(GLOB_RECURSE DRUNTIME_C ${RUNTIME_DIR}/src/*.c)
 list(REMOVE_ITEM DRUNTIME_C ${RUNTIME_DIR}/src/rt/dylib_fixes.c)
 if(NOT APPLE)
-    list(REMOVE_ITEM DRUNTIME_C ${RUNTIME_DIR}/src/ldc/osx_tls.c)
+    list(REMOVE_ITEM DRUNTIME_C ${RUNTIME_DIR}/src/rt/osx_tls.c)
 endif()
 if(NOT MSVC)
     list(REMOVE_ITEM DRUNTIME_C ${RUNTIME_DIR}/src/rt/msvc.c ${RUNTIME_DIR}/src/rt/msvc_math.c)

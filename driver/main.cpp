@@ -87,8 +87,8 @@ static cl::opt<bool>
 
 static StringsAdapter impPathsStore("I", global.params.imppath);
 static cl::list<std::string, StringsAdapter>
-    importPaths("I", cl::desc("Where to look for imports"),
-                cl::value_desc("path"), cl::location(impPathsStore),
+    importPaths("I", cl::desc("Look for imports also in <directory>"),
+                cl::value_desc("directory"), cl::location(impPathsStore),
                 cl::Prefix);
 
 static cl::opt<std::string>
@@ -178,16 +178,18 @@ void processVersions(std::vector<std::string> &list, const char *type,
 void processTransitions(std::vector<std::string> &list) {
   for (const auto &i : list) {
     if (i == "?") {
-      printf("Language changes listed by -transition=id:\n");
-      printf("  = all           list information on all language changes\n");
-      printf("  = checkimports  give deprecation messages about 10378 "
-             "anomalies\n");
-      printf(
-          "  = complex,14488 list all usages of complex or imaginary types\n");
-      printf("  = field,3449    list all non - mutable fields which occupy an "
-             "object instance\n");
-      printf("  = import,10378  revert to single phase name lookup\n");
-      printf("  = tls           list all variables going into thread local "
+      printf("\n"
+             "Language changes listed by -transition=id:\n"
+             "  =all           list information on all language changes\n"
+             "  =checkimports  give deprecation messages about 10378 "
+             "anomalies\n"
+             "  =complex,14488 list all usages of complex or imaginary types\n"
+             "  =field,3449    list all non-mutable fields which occupy an "
+             "object instance\n"
+             "  =import,10378  revert to single phase name lookup\n"
+             "  =safe          shows places with hidden change in semantics "
+             "needed for better @safe guarantees\n"
+             "  =tls           list all variables going into thread local "
              "storage\n");
       exit(EXIT_SUCCESS);
     } else if (i == "all") {
@@ -204,6 +206,8 @@ void processTransitions(std::vector<std::string> &list) {
       global.params.vfield = true;
     } else if (i == "import" || i == "10378") {
       global.params.bug10378 = true;
+    } else if (i == "safe") {
+      global.params.vsafe = true;
     } else if (i == "tls") {
       global.params.vtls = true;
     } else {
@@ -571,6 +575,8 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   if (soname.getNumOccurrences() > 0 && !global.params.dll) {
     error(Loc(), "-soname can be used only when building a shared library");
   }
+
+  global.params.hdrStripPlainFunctions = !opts::hdrKeepAllBodies;
 }
 
 void initializePasses() {
@@ -957,21 +963,16 @@ int cppmain(int argc, char **argv) {
   }
 
   // Set up the TargetMachine.
-  ExplicitBitness::Type bitness = ExplicitBitness::None;
   if ((m32bits || m64bits) && (!mArch.empty() || !mTargetTriple.empty())) {
     error(Loc(), "-m32 and -m64 switches cannot be used together with -march "
                  "and -mtriple switches");
   }
 
-  if (m32bits) {
+  ExplicitBitness::Type bitness = ExplicitBitness::None;
+  if (m32bits)
     bitness = ExplicitBitness::M32;
-  }
-  if (m64bits) {
-    if (bitness != ExplicitBitness::None) {
-      error(Loc(), "cannot use both -m32 and -m64 options");
-    }
+  if (m64bits && (!m32bits || m32bits.getPosition() < m64bits.getPosition()))
     bitness = ExplicitBitness::M64;
-  }
 
   if (global.errors) {
     fatal();

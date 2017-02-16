@@ -1,12 +1,12 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (c) 1999-2014 by Digital Mars
+ * Copyright (c) 1999-2016 by Digital Mars
  * All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
  * http://www.boost.org/LICENSE_1_0.txt
- * https://github.com/D-Programming-Language/dmd/blob/master/src/ctfe.h
+ * https://github.com/dlang/dmd/blob/master/src/ctfe.h
  */
 
 #ifndef DMD_CTFE_H
@@ -42,9 +42,7 @@ class ClassReferenceExp : public Expression
 {
 public:
     StructLiteralExp *value;
-    ClassReferenceExp(Loc loc, StructLiteralExp *lit, Type *type);
     ClassDeclaration *originalClass();
-    VarDeclaration *getFieldAt(unsigned index);
 
     /// Return index of the field, or -1 if not found
     int getFieldIndex(Type *fieldtype, unsigned fieldoffset);
@@ -73,7 +71,6 @@ class VoidInitExp : public Expression
 public:
     VarDeclaration *var;
 
-    VoidInitExp(VarDeclaration *var, Type *type);
     const char *toChars();
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -88,7 +85,6 @@ class ThrownExceptionExp : public Expression
 {
 public:
     ClassReferenceExp *thrown; // the thing being tossed
-    ThrownExceptionExp(Loc loc, ClassReferenceExp *victim);
     const char *toChars();
     /// Generate an error message when this exception is not caught
     void generateUncaughtError();

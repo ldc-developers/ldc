@@ -1,12 +1,12 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (c) 1999-2014 by Digital Mars
+ * Copyright (c) 1999-2016 by Digital Mars
  * All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
  * http://www.boost.org/LICENSE_1_0.txt
- * https://github.com/D-Programming-Language/dmd/blob/master/src/module.h
+ * https://github.com/dlang/dmd/blob/master/src/module.h
  */
 
 #ifndef DMD_MODULE_H
@@ -52,7 +52,6 @@ public:
     unsigned tag;       // auto incremented tag, used to mask package tree in scopes
     Module *mod;        // != NULL if isPkgMod == PKGmodule
 
-    Package(Identifier *ident);
     const char *kind();
 
     static DsymbolTable *resolve(Identifiers *packages, Dsymbol **pparent, Package **ppkg);
@@ -75,6 +74,7 @@ public:
     static DsymbolTable *modules;       // symbol table of all modules
     static Modules amodules;            // array of all modules
     static Dsymbols deferred;   // deferred Dsymbol's needing semantic() run on them
+    static Dsymbols deferred2;  // deferred Dsymbol's needing semantic2() run on them
     static Dsymbols deferred3;  // deferred Dsymbol's needing semantic3() run on them
     static unsigned dprogress;  // progress resolving the deferred list
     static void _init();
@@ -85,6 +85,7 @@ public:
     const char *arg;    // original argument name
     ModuleDeclaration *md; // if !NULL, the contents of the ModuleDeclaration declaration
     File *srcfile;      // input source file
+    const char* srcfilePath; // the path prefix to the srcfile if it applies
     File *objfile;      // output .obj file
     File *hdrfile;      // 'header' file
     File *docfile;      // output documentation file
@@ -128,7 +129,6 @@ public:
     size_t nameoffset;          // offset of module name from start of ModuleInfo
     size_t namelen;             // length of module name in characters
 
-    Module(const char *arg, Identifier *ident, int doDocComment, int doHdrGen);
     static Module* create(const char *arg, Identifier *ident, int doDocComment, int doHdrGen);
 
     static Module *load(Loc loc, Identifiers *packages, Identifier *ident);
@@ -137,7 +137,7 @@ public:
     File *setOutfile(const char *name, const char *dir, const char *arg, const char *ext);
     void setDocfile();
     bool read(Loc loc); // read file, returns 'true' if succeed, 'false' otherwise.
-    Module *parse();       // syntactic parse
+    Module *parse();    // syntactic parse
     void importAll(Scope *sc);
     void semantic(Scope *);    // semantic analysis
     void semantic2(Scope *);   // pass 2 semantic analysis
@@ -147,8 +147,10 @@ public:
     Dsymbol *symtabInsert(Dsymbol *s);
     void deleteObjFile();
     static void addDeferredSemantic(Dsymbol *s);
-    static void runDeferredSemantic();
+    static void addDeferredSemantic2(Dsymbol *s);
     static void addDeferredSemantic3(Dsymbol *s);
+    static void runDeferredSemantic();
+    static void runDeferredSemantic2();
     static void runDeferredSemantic3();
     static void clearCache();
     int imports(Module *m);
@@ -199,6 +201,7 @@ public:
     void accept(Visitor *v) { v->visit(this); }
 };
 
+
 struct ModuleDeclaration
 {
     Loc loc;
@@ -206,8 +209,6 @@ struct ModuleDeclaration
     Identifiers *packages;            // array of Identifier's representing packages
     bool isdeprecated;  // if it is a deprecated module
     Expression *msg;
-
-    ModuleDeclaration(Loc loc, Identifiers *packages, Identifier *id);
 
     const char *toChars();
 };

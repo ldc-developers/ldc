@@ -332,10 +332,6 @@ public:
     irs->DBuilder.EmitBlockStart(stmt->loc);
     emitCoverageLinecountInc(stmt->loc);
 
-    if (stmt->match) {
-      DtoRawVarDeclaration(stmt->match);
-    }
-
     DValue *cond_e = toElemDtor(stmt->condition);
     LLValue *cond_val = DtoRVal(cond_e);
 

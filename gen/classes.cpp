@@ -517,7 +517,7 @@ static ClassFlags::Type build_classinfo_flags(ClassDeclaration *cd) {
       break;
     }
   }
-  if (cd->isabstract) {
+  if (cd->isAbstract()) {
     flags |= ClassFlags::isAbstract;
   }
   for (ClassDeclaration *pc = cd; pc; pc = pc->baseClass) {

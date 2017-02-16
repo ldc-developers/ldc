@@ -22,13 +22,14 @@ llvm::GlobalVariable *IrModule::moduleInfoSymbol() {
     return moduleInfoVar;
   }
 
-  std::string name("_D");
-  name.append(mangle(M));
-  name.append("12__ModuleInfoZ");
+  OutBuffer mangledName;
+  mangledName.writestring("_D");
+  mangleToBuffer(M, &mangledName);
+  mangledName.writestring("12__ModuleInfoZ");
 
   moduleInfoVar = new llvm::GlobalVariable(
       gIR->module, llvm::StructType::create(gIR->context()), false,
-      llvm::GlobalValue::ExternalLinkage, nullptr, name);
+      llvm::GlobalValue::ExternalLinkage, nullptr, mangledName.peekString());
   return moduleInfoVar;
 }
 
