@@ -42,15 +42,8 @@ LLType *voidToI8(LLType *t);
 LLType *i1ToI8(LLType *t);
 
 // Removes all addrspace qualifications. float addrspace(1)** -> float**
-// Used to avoid invalid bitcasts between addrspaces when comparing pointer
-// types for equality when GEP'ing a struct containing a pointer with an
-// addrspace qualifier. Needed because we turn
-//      struct Pointer!(uint n ,T) {T* ptr; alias ptr this;}
-// into { T addrspace(n)* } instead of { T* }, so when dereferencing this type
-// we would GEP the pointer, see that the types are not equal, bitcast and then
-// load. The generated bitcast crosses addrspace boundries and is thus invalid.
-// By considering pointer types equal by ignoring the addrspace we avert
-// this problem (see DtoBitCast).
+// Use when compare pointers LLType* for equality with `== ` when one side
+// may be addrspace qualified.
 LLType *stripAddrSpaces(LLType *v);
 
 // Returns true if the type is a value type which LDC keeps exclusively in
