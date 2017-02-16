@@ -557,7 +557,7 @@ LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name) {
 }
 
 LLConstant *DtoBitCast(LLConstant *v, LLType *t) {
-  if (StripAddrSpaces(v->getType()) == t) {
+  if (stripAddrSpaces(v->getType()) == t) {
     return v;
   }
   return llvm::ConstantExpr::getBitCast(v, t);
