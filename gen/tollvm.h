@@ -42,7 +42,7 @@ LLType *voidToI8(LLType *t);
 LLType *i1ToI8(LLType *t);
 
 // Removes all addrspace qualifications. float addrspace(1)** -> float**
-// Use when compare pointers LLType* for equality with `== ` when one side
+// Use when comparing pointers LLType* for equality with `== ` when one side
 // may be addrspace qualified.
 LLType *stripAddrSpaces(LLType *v);
 
