@@ -553,8 +553,8 @@ LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name) {
   // equality. This avoids the case where the pointer in { T addrspace(n)* }
   // is dereferenced and generates a GEP -> (invalid) bitcast -> load sequence.
   // Bitcasting of pointers between addrspaces is invalid in LLVM IR. Even if
-  // te were, it wouldn't be the desired outcome as we would always load from
-  // addrspace(0), not the addrspace of the pointer.
+  // it were valid, it wouldn't be the desired outcome as we would always load
+  // from addrspace(0), instead of the addrspace of the pointer.
   if (stripAddrSpaces(v->getType()) == t) {
     return v;
   }
@@ -563,7 +563,7 @@ LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name) {
 }
 
 LLConstant *DtoBitCast(LLConstant *v, LLType *t) {
-  // Same as above.
+  // Refer to the explanation in the other DtoBitCast overloaded function.
   if (stripAddrSpaces(v->getType()) == t) {
     return v;
   }
