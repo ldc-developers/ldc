@@ -1,16 +1,17 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2015 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// Distributed under the Boost Software License, Version 1.0.
-// http://www.boost.org/LICENSE_1_0.txt
+/**
+ * Compiler implementation of the
+ * $(LINK2 http://www.dlang.org, D programming language).
+ *
+ * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Source:      $(DMDSRC _globals.d)
+ */
 
 module ddmd.globals;
 
 import core.stdc.stdint;
 import core.stdc.stdio;
-import core.stdc.string;
 import ddmd.root.array;
 import ddmd.root.filename;
 import ddmd.root.outbuffer;
@@ -26,12 +27,6 @@ private string stripRight(string s)
         s = s[0 .. $ - 1];
     return s;
 }
-
-enum __linux__      = xversion!`linux`;
-enum __APPLE__      = xversion!`OSX`;
-enum __FreeBSD__    = xversion!`FreeBSD`;
-enum __OpenBSD__    = xversion!`OpenBSD`;
-enum __sun          = xversion!`Solaris`;
 
 enum IN_GCC     = xversion!`IN_GCC`;
 enum IN_LLVM    = xversion!`IN_LLVM`;
@@ -99,6 +94,7 @@ struct Param
     bool isFreeBSD;         // generate code for FreeBSD
     bool isOpenBSD;         // generate code for OpenBSD
     bool isSolaris;         // generate code for Solaris
+    bool hasObjectiveC;     // target supports Objective-C
     bool mscoff;            // for Win32: write COFF object files instead of OMF
     // 0: don't allow use of deprecated features
     // 1: silently allow use of deprecated features
@@ -129,9 +125,11 @@ struct Param
     bool betterC;           // be a "better C" compiler; no dependency on D runtime
     bool addMain;           // add a default main() function
     bool allInst;           // generate code for all template instantiations
-    bool dwarfeh;           // generate dwarf eh exception handling
     bool check10378;        // check for issues transitioning to 10738
     bool bug10378;          // use pre-bugzilla 10378 search strategy
+    bool vsafe;             // shows places with hidden change in semantics needed
+                            // for better @safe guarantees
+    bool showGaggedErrors;  // print gagged errors anyway
 
     BOUNDSCHECK useArrayBounds;
 
@@ -150,6 +148,7 @@ struct Param
     bool doHdrGeneration;               // process embedded documentation comments
     const(char)* hdrdir;                // write 'header' file to docdir directory
     const(char)* hdrname;               // write 'header' file to docname
+    bool hdrStripPlainFunctions;        // strip the bodies of plain (non-template) functions
 
     bool doJsonGeneration;              // write JSON file
     const(char)* jsonfilename;          // write JSON file to jsonfilename
@@ -193,11 +192,6 @@ struct Param
 
         uint nestedTmpl; // maximum nested template instantiations
 
-        // Whether to keep all function bodies in .di file generation or to strip
-        // those of plain functions. For DMD, this is govenered by the -inline
-        // flag, which does not directly translate to LDC.
-        bool hdrKeepAllBodies;
-
         // LDC stuff
         OUTPUTFLAG output_ll;
         OUTPUTFLAG output_bc;
@@ -205,7 +199,6 @@ struct Param
         OUTPUTFLAG output_o;
         bool useInlineAsm;
         bool verbose_cg;
-        bool hasObjectiveC;
         bool fullyQualifiedObjectFiles;
         bool cleanupObjectFiles;
 
@@ -321,10 +314,10 @@ struct Global
         map_ext = "map";
 version(IN_LLVM)
 {
+        obj_ext = "o";
         ll_ext  = "ll";
         bc_ext  = "bc";
         s_ext   = "s";
-        obj_ext = "o";
 }
 else
 {
@@ -419,17 +412,6 @@ alias d_int32 = int32_t;
 alias d_uns32 = uint32_t;
 alias d_int64 = int64_t;
 alias d_uns64 = uint64_t;
-alias d_float32 = float;
-alias d_float64 = double;
-alias d_float80 = real;
-version(IN_LLVM_MSVC)
-{
-    alias real_t = double;
-}
-else
-{
-    alias real_t = real;
-}
 
 // file location
 struct Loc

@@ -107,10 +107,10 @@ static cl::opt<bool> stripDebug(
 cl::opt<opts::SanitizerCheck> opts::sanitize(
     "sanitize", cl::desc("Enable runtime instrumentation for bug detection"),
     cl::init(opts::None),
-    clEnumValues(clEnumValN(opts::AddressSanitizer, "address", "memory errors"),
-                 clEnumValN(opts::MemorySanitizer, "memory", "memory errors"),
+    clEnumValues(clEnumValN(opts::AddressSanitizer, "address", "Memory errors"),
+                 clEnumValN(opts::MemorySanitizer, "memory", "Memory errors"),
                  clEnumValN(opts::ThreadSanitizer, "thread",
-                            "race detection")));
+                            "Race detection")));
 
 static cl::opt<bool> disableLoopUnrolling(
     "disable-loop-unrolling",

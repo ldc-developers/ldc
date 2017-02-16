@@ -81,7 +81,7 @@ std::string hashSymbolName(llvm::StringRef name, Dsymbol *symb) {
   ret += hashedName;
 
   // top aggregate
-  if (auto agg = symb->isAggregateMember()) {
+  if (auto agg = symb->isMember()) {
     llvm::StringRef topaggr = agg->ident->toChars();
     ret += std::to_string(topaggr.size());
     ret += topaggr;
@@ -118,54 +118,44 @@ std::string getMangledName(VarDeclaration *vd) {
 
   // TODO: Cache the result?
 
-  return gABI->mangleVariableForLLVM(mangle(vd), vd->linkage);
+  OutBuffer mangleBuf;
+  mangleToBuffer(vd, &mangleBuf);
+
+  return gABI->mangleVariableForLLVM(mangleBuf.peekString(), vd->linkage);
+}
+
+namespace {
+std::string getMangledAggregateName(AggregateDeclaration *ad,
+                                    const char *suffix) {
+  std::string ret = "_D";
+
+  OutBuffer mangleBuf;
+  mangleToBuffer(ad, &mangleBuf);
+  llvm::StringRef mangledAggrName = mangleBuf.peekString();
+
+  if (shouldHashAggrName(mangledAggrName)) {
+    ret += hashSymbolName(mangledAggrName, ad);
+  } else {
+    ret += mangledAggrName;
+  }
+
+  if (suffix)
+    ret += suffix;
+
+  return gABI->mangleVariableForLLVM(std::move(ret), LINKd);
+}
 }
 
 std::string getMangledInitSymbolName(AggregateDeclaration *aggrdecl) {
-  std::string ret = "_D";
-
-  std::string mangledName = mangle(aggrdecl);
-  if (shouldHashAggrName(mangledName)) {
-    ret += hashSymbolName(mangledName, aggrdecl);
-  } else {
-    ret += mangledName;
-  }
-
-  ret += "6__initZ";
-
-  return gABI->mangleVariableForLLVM(std::move(ret), LINKd);
+  return getMangledAggregateName(aggrdecl, "6__initZ");
 }
 
 std::string getMangledVTableSymbolName(AggregateDeclaration *aggrdecl) {
-  std::string ret = "_D";
-
-  std::string mangledName = mangle(aggrdecl);
-  if (shouldHashAggrName(mangledName)) {
-    ret += hashSymbolName(mangledName, aggrdecl);
-  } else {
-    ret += mangledName;
-  }
-
-  ret += "6__vtblZ";
-
-  return gABI->mangleVariableForLLVM(std::move(ret), LINKd);
+  return getMangledAggregateName(aggrdecl, "6__vtblZ");
 }
 
 std::string getMangledClassInfoSymbolName(AggregateDeclaration *aggrdecl) {
-  std::string ret = "_D";
-
-  std::string mangledName = mangle(aggrdecl);
-  if (shouldHashAggrName(mangledName)) {
-    ret += hashSymbolName(mangledName, aggrdecl);
-  } else {
-    ret += mangledName;
-  }
-
-  if (aggrdecl->isInterfaceDeclaration()) {
-    ret += "11__InterfaceZ";
-  } else {
-    ret += "7__ClassZ";
-  }
-
-  return gABI->mangleVariableForLLVM(std::move(ret), LINKd);
+  const char *suffix =
+      aggrdecl->isInterfaceDeclaration() ? "11__InterfaceZ" : "7__ClassZ";
+  return getMangledAggregateName(aggrdecl, suffix);
 }

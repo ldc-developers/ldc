@@ -497,18 +497,18 @@ public:
 
       assert(e->op == TOKstring);
       StringExp *se = static_cast<StringExp *>(e);
-      auto name = se->toStringz();
-      auto nameLen = strlen(name);
+      const std::string name(se->toPtr(), se->numberOfCodeUnits());
+      auto nameLen = name.size();
 
       if (global.params.targetTriple->isWindowsGNUEnvironment()) {
-        if (nameLen > 4 && !memcmp(name + nameLen - 4, ".lib", 4)) {
+        if (nameLen > 4 && !memcmp(&name[nameLen - 4], ".lib", 4)) {
           // On MinGW, strip the .lib suffix, if any, to improve
           // compatibility with code written for DMD (we pass the name to GCC
           // via -l, just as on Posix).
           nameLen -= 4;
         }
 
-        if (nameLen >= 7 && !memcmp(name, "shell32", 7)) {
+        if (nameLen >= 7 && !memcmp(name.data(), "shell32", 7)) {
           // Another DMD compatibility kludge: Ignore
           // pragma(lib, "shell32.lib"), it is implicitly provided by
           // MinGW.
@@ -519,7 +519,7 @@ public:
       // With LLVM 3.3 or later we can place the library name in the object
       // file. This seems to be supported only on Windows.
       if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
-        llvm::SmallString<24> LibName(llvm::StringRef(name, nameLen));
+        llvm::SmallString<24> LibName(name);
 
         // Win32: /DEFAULTLIB:"curl"
         if (LibName.endswith(".a")) {
@@ -542,7 +542,7 @@ public:
         char *arg = static_cast<char *>(mem.xmalloc(n));
         arg[0] = '-';
         arg[1] = 'l';
-        memcpy(arg + 2, name, nameLen);
+        memcpy(arg + 2, name.data(), nameLen);
         arg[n - 1] = 0;
         global.params.linkswitches->push(arg);
       }

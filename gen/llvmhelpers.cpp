@@ -1392,7 +1392,7 @@ void callPostblit(Loc &loc, Expression *exp, LLValue *val) {
 ////////////////////////////////////////////////////////////////////////////////
 
 bool isSpecialRefVar(VarDeclaration *vd) {
-  return (vd->storage_class & STCref) && (vd->storage_class & STCforeach);
+  return (vd->storage_class & (STCref | STCparameter)) == STCref;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
