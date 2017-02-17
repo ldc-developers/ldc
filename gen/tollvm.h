@@ -41,6 +41,11 @@ LLPointerType *DtoPtrToType(Type *t);
 LLType *voidToI8(LLType *t);
 LLType *i1ToI8(LLType *t);
 
+// Removes all addrspace qualifications. float addrspace(1)** -> float**
+// Use when comparing pointers LLType* for equality with `== ` when one side
+// may be addrspace qualified.
+LLType *stripAddrSpaces(LLType *v);
+
 // Returns true if the type is a value type which LDC keeps exclusively in
 // memory, referencing all values via LL pointers (structs and static arrays).
 bool DtoIsInMemoryOnly(Type *type);
