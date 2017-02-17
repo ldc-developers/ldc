@@ -80,17 +80,17 @@ install:
 script:
   - cmake --version
   - cmake -DLLVM_CONFIG=$(which ${LLVM_CONFIG}) $OPTS .
-  - travis_wait make -j3 > /dev/null
+  - travis_wait make -j3
   # Outputs some environment info, plus makes sure we only run the test suite
   # if we could actually build the executable.
   - bin/ldc2 -version || exit 1
   # Build Phobos & druntime unittest modules.
   -
     if [[ "${OPTS}" == *-DMULTILIB?ON* ]]; then
-      travis_wait 40 make -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest phobos2-ldc-unittest-debug_32 phobos2-ldc-unittest_32 > /dev/null;
+      travis_wait 40 "make -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest phobos2-ldc-unittest-debug_32 phobos2-ldc-unittest_32 > /dev/null";
       travis_wait make -j3 druntime-ldc-unittest-debug druntime-ldc-unittest druntime-ldc-unittest-debug_32 druntime-ldc-unittest_32 > /dev/null;
     else
-      travis_wait 40 make -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest > /dev/null;
+      travis_wait 40 "make -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest > /dev/null";
       travis_wait make -j3 druntime-ldc-unittest-debug druntime-ldc-unittest > /dev/null;
     fi
   # Run dmd-testsuite.
