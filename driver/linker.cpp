@@ -73,22 +73,27 @@ static void CreateDirectoryOnDisk(llvm::StringRef fileName) {
 //////////////////////////////////////////////////////////////////////////////
 
 static std::string getOutputName(bool const sharedLib) {
-  if (global.params.exefile)
-    return global.params.exefile;
+  const auto &triple = *global.params.targetTriple;
+
+  const char *extension = nullptr;
+  if (sharedLib) {
+    extension = global.dll_ext;
+  } else if (triple.isOSWindows()) {
+    extension = "exe";
+  }
+
+  if (global.params.exefile) {
+    return extension ? FileName::defaultExt(global.params.exefile, extension)
+                     : global.params.exefile;
+  }
 
   // Infer output name from first object file.
   std::string result = global.params.objfiles->dim
                            ? FileName::removeExt((*global.params.objfiles)[0])
                            : "a.out";
 
-  const char *extension = nullptr;
-  if (sharedLib) {
-    extension = global.dll_ext;
-    if (!global.params.targetTriple->isWindowsMSVCEnvironment())
-      result = "lib" + result;
-  } else if (global.params.targetTriple->isOSWindows()) {
-    extension = "exe";
-  }
+  if (sharedLib && !triple.isWindowsMSVCEnvironment())
+    result = "lib" + result;
 
   if (global.params.run) {
     // If `-run` is passed, the executable is temporary and is removed
@@ -100,11 +105,9 @@ static std::string getOutputName(bool const sharedLib) {
                                                  tempFilename);
     if (!EC)
       result = tempFilename.str();
-  } else {
-    if (extension) {
-      result += ".";
-      result += extension;
-    }
+  } else if (extension) {
+    result += '.';
+    result += extension;
   }
 
   return result;
@@ -840,13 +843,13 @@ int createStaticLibrary() {
   // output filename
   std::string libName;
   if (global.params.libname) { // explicit
-    libName = global.params.libname;
+    libName = FileName::defaultExt(global.params.libname, global.lib_ext);
   } else { // infer from first object file
     libName = global.params.objfiles->dim
                   ? FileName::removeExt((*global.params.objfiles)[0])
                   : "a.out";
-    libName.push_back('.');
-    libName.append(global.lib_ext);
+    libName += '.';
+    libName += global.lib_ext;
   }
   if (createStaticLibInObjdir && global.params.objdir &&
       !FileName::absolute(libName.c_str())) {
