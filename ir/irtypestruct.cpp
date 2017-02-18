@@ -54,16 +54,15 @@ IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
 
   // For ldc.dcomptetypes.Pointer!(uint n,T),
   // emit { T addrspace(gIR->dcomputetarget->mapping[n])* }
-  std::pair<int, Type *> p;
-  if (gIR->dcomputetarget &&
-      ((p = isDComputeTypesPointer(sd)) != notDComputeTypesPointer)) {
+  DcomputePointer p(sd);
+  if (gIR->dcomputetarget && p) {
 
     // Translate the virtual dcompute address space into the real one for
     // the target
-    int realAS = gIR->dcomputetarget->mapping[p.first];
+    int realAS = gIR->dcomputetarget->mapping[p.addrspace];
 
-    llvm::SmallVector<llvm::Type *, 1> x;
-    x.push_back(DtoMemType(p.second)->getPointerTo(realAS));
+    llvm::SmallVector<LLType *, 1> x;
+    x.push_back(DtoMemType(p.type)->getPointerTo(realAS));
 
     isaStruct(t->type)->setBody(x, t->packed);
     VarGEPIndices v;

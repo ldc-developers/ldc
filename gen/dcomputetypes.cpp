@@ -38,13 +38,16 @@ bool isFromLDC_DComputeTypes(Dsymbol *sym) {
   return true;
 }
 
-std::pair<int, Type *> isDComputeTypesPointer(StructDeclaration *sd) {
-  if (!isFromLDC_DComputeTypes(sd) || strcmp(sd->ident->string, "Pointer"))
-    return notDComputeTypesPointer;
+DcomputePointer::DcomputePointer(StructDeclaration *sd)
+{
+  if (!isFromLDC_DComputeTypes(sd) || strcmp(sd->ident->string, "Pointer")) {
+    addrspace = -1;
+    type = nullptr;
+    return;
+  }
 
   TemplateInstance *ti = sd->isInstantiated();
-  int addrspace = isExpression((*ti->tiargs)[0])->toInteger();
-  Type *T = isType((*ti->tiargs)[1]);
-
-  return std::make_pair(addrspace, T);
+  addrspace = isExpression((*ti->tiargs)[0])->toInteger();
+  type = isType((*ti->tiargs)[1]);
 }
+

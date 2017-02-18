@@ -10,16 +10,20 @@
 #ifndef LDC_GEN_DCOMPUTETYPES_H
 #define LDC_GEN_DCOMPUTETYPES_H
 
-#include <utility>
+#include "ddmd/aggregate.h"
+#include "ddmd/mtype.h"
 
 class Dsymbol;
 class Type;
-class StructDeclaration;
+
 
 bool isFromLDC_DComputeTypes(Dsymbol *sym);
 
-std::pair<int, Type *> isDComputeTypesPointer(StructDeclaration *sd);
-const std::pair<int, Type *> notDComputeTypesPointer =
-    std::make_pair(-1, nullptr);
+struct DcomputePointer {
+    int addrspace;
+    Type* type;
+    DcomputePointer(StructDeclaration *sd);
+    operator bool() const { return addrspace != -1 && type; }
+};
 
 #endif
