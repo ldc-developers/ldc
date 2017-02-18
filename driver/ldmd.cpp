@@ -207,8 +207,12 @@ Where:\n\
   -main            add default main() (e.g. for unittesting)\n\
   -man             open web browser on manual page\n"
 #if 0
-"  -map             generate linker .map file\n\
-  -mscrtlib=<name> MS C runtime library to reference from main/WinMain/DllMain\n"
+"  -map             generate linker .map file\n"
+#endif
+"  -mcpu=<id>       generate instructions for architecture identified by 'id'\n\
+  -mcpu=?          list all architecture options\n"
+#if 0
+"  -mscrtlib=<name> MS C runtime library to reference from main/WinMain/DllMain\n"
 #endif
 "  -noboundscheck   no array bounds checking (deprecated, use -boundscheck=off)\n\
   -O               optimize\n\
@@ -432,6 +436,20 @@ void translateArgs(size_t originalArgc, char **originalArgv,
           ldcArgs.push_back(p);
         } else if (memcmp(p + 9, "spec", 4) == 0) {
           ldcArgs.push_back("-verrors-spec");
+        } else {
+          goto Lerror;
+        }
+      } else if (strcmp(p + 1, "mcpu=?") == 0) {
+        const char *mcpuargs[] = {ldcPath.c_str(), "-mcpu=help", nullptr};
+        execute(ldcPath, mcpuargs);
+        exit(EXIT_SUCCESS);
+      } else if (memcmp(p + 1, "mcpu=", 5) == 0) {
+        if (strcmp(p + 6, "baseline") == 0) {
+          // ignore
+        } else if (strcmp(p + 6, "avx") == 0) {
+          ldcArgs.push_back("-mattr=+avx");
+        } else if (strcmp(p + 6, "native") == 0) {
+          ldcArgs.push_back(p);
         } else {
           goto Lerror;
         }
