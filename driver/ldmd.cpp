@@ -206,7 +206,8 @@ Where:\n\
   -main            add default main() (e.g. for unittesting)\n\
   -man             open web browser on manual page\n"
 #if 0
-"  -map             generate linker .map file\n"
+"  -map             generate linker .map file\n\
+  -mscrtlib=<name> MS C runtime library to reference from main/WinMain/DllMain\n"
 #endif
 "  -noboundscheck   no array bounds checking (deprecated, use -boundscheck=off)\n\
   -O               optimize\n\
@@ -412,6 +413,8 @@ void translateArgs(size_t originalArgc, char **originalArgv,
        */
       else if (strcmp(p + 1, "m32mscoff") == 0) {
         ldcArgs.push_back("-m32");
+      } else if (strncmp(p + 1, "mscrtlib=", 9) == 0) {
+        goto Lnot_in_ldc;
       } else if (strcmp(p + 1, "profile") == 0) {
         goto Lnot_in_ldc;
       }
