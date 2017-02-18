@@ -39,7 +39,7 @@ bool isFromLDC_DComputeTypes(Dsymbol *sym) {
 }
 
 std::pair<int, Type *> isDComputeTypesPointer(StructDeclaration *sd) {
-  if (!isFromLDC_DComputeTypes(sd) || !strcmp(sd->ident->string, "Pointer"))
+  if (!isFromLDC_DComputeTypes(sd) || strcmp(sd->ident->string, "Pointer"))
     return notDComputeTypesPointer;
 
   TemplateInstance *ti = sd->isInstantiated();
