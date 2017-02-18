@@ -64,7 +64,6 @@ libraries is available on the project wiki for
 [Windows](http://wiki.dlang.org/Building_and_hacking_LDC_on_Windows_using_MSVC).
 
 If you have a working C++ build environment, CMake, a current LLVM (>= 3.5),
-and [libconfig](http://hyperrealm.com/libconfig/libconfig.html) available
 there should be no big surprises.
 Building LDC also requires a working D compiler, DMD and LDC are supported.
 (LDC 0.17 is the last version that does not need a D compiler,

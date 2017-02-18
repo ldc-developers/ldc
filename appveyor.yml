@@ -36,11 +36,6 @@ install:
   - cd ldc
   - git submodule update --init --recursive
   - cd ..
-  # Clone libconfig (v1.6 does not work due to https://github.com/hyperrealm/libconfig/issues/47)
-  - git clone https://github.com/hyperrealm/libconfig.git libconfig
-  - cd libconfig
-  - git checkout 7585cf6
-  - cd ..
   # Download & extract libcurl
   - appveyor DownloadFile "http://d.darktech.org/libcurl-7.48.0-WinSSL-zlib-x86-x64.zip" -FileName libcurl.zip
   - md libcurl
@@ -118,18 +113,14 @@ install:
 #---------------------------------#
 
 before_build:
-  - cd c:\projects
-  # Build libconfig
-  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( msbuild libconfig\lib\libconfig.vcxproj /p:Configuration=ReleaseStatic /p:Platform=x64 )
-  - if "%APPVEYOR_JOB_ARCH%"=="x86" ( msbuild libconfig\lib\libconfig.vcxproj /p:Configuration=ReleaseStatic /p:Platform=Win32 )
 
 build_script:
   - cd c:\projects
   # Generate build files for LDC
   - md ninja-ldc
   - cd ninja-ldc
-  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\ldc-x64 -DLLVM_ROOT_DIR=c:/projects/llvm-x64 -DLIBCONFIG_INCLUDE_DIR=c:/projects/libconfig/lib -DLIBCONFIG_LIBRARY=c:/projects/libconfig/lib/x64/ReleaseStatic/libconfig.lib ..\ldc )
-  - if "%APPVEYOR_JOB_ARCH%"=="x86" ( cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\ldc-x86 -DLLVM_ROOT_DIR=c:/projects/llvm-x86 -DLIBCONFIG_INCLUDE_DIR=c:/projects/libconfig/lib -DLIBCONFIG_LIBRARY=c:/projects/libconfig/lib/ReleaseStatic/libconfig.lib ..\ldc )
+  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\ldc-x64 -DLLVM_ROOT_DIR=c:/projects/llvm-x64 ..\ldc )
+  - if "%APPVEYOR_JOB_ARCH%"=="x86" ( cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\ldc-x86 -DLLVM_ROOT_DIR=c:/projects/llvm-x86 ..\ldc )
   # Build LDC, druntime and phobos
   - ninja -j2
 

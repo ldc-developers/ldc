@@ -40,7 +40,6 @@ addons:
     sources:
     - ubuntu-toolchain-r-test
     packages:
-    - libconfig++8-dev
     - gdb
     - gcc-4.9
     - g++-4.9
@@ -71,7 +70,6 @@ before_install:
     export LLVM_CONFIG="llvm-$LLVM_VERSION/bin/llvm-config";
 install:
   - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then export CC="gcc-4.9"; export CXX="g++-4.9"; fi
-  - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then brew update; brew install libconfig; fi;
   - eval "${DC} --version"
   - pip install --user lit
   - python -c "import lit; lit.main();" --version | head -n 1
