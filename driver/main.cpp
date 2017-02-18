@@ -187,8 +187,6 @@ void processTransitions(std::vector<std::string> &list) {
              "  =field,3449    list all non-mutable fields which occupy an "
              "object instance\n"
              "  =import,10378  revert to single phase name lookup\n"
-             "  =safe          shows places with hidden change in semantics "
-             "needed for better @safe guarantees\n"
              "  =tls           list all variables going into thread local "
              "storage\n");
       exit(EXIT_SUCCESS);
@@ -206,8 +204,6 @@ void processTransitions(std::vector<std::string> &list) {
       global.params.vfield = true;
     } else if (i == "import" || i == "10378") {
       global.params.bug10378 = true;
-    } else if (i == "safe") {
-      global.params.vsafe = true;
     } else if (i == "tls") {
       global.params.vtls = true;
     } else {
@@ -444,6 +440,11 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
                   VersionCondition::addGlobalIdent);
 
   processTransitions(transitions);
+
+  if (useDIP1000) {
+    global.params.useDIP25 = true;
+    global.params.vsafe = true;
+  }
 
   global.params.output_o =
       (opts::output_o == cl::BOU_UNSET &&

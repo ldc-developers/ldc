@@ -182,6 +182,7 @@ Where:\n\
   -deps=<filename> write module dependencies to filename (only imports)\n\
   -fPIC            generate position independent code\n\
   -dip25           implement http://wiki.dlang.org/DIP25 (experimental)\n\
+  -dip1000         implement http://wiki.dlang.org/DIP1000 (experimental)\n\
   -g               add symbolic debug info\n\
   -gc              add symbolic debug info, optimize for non D debuggers\n\
   -gs              always emit stack frame\n"
@@ -473,6 +474,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
         ldcArgs.push_back("-Hkeep-all-bodies");
       }
       /* -dip25
+       * -dip1000
        */
       else if (strcmp(p + 1, "lib") == 0) {
         ldcArgs.push_back(p);
