@@ -167,7 +167,7 @@ if(MSVC)
     endif()
 endif()
 
-append("-J${PROJECT_SOURCE_DIR}/${DDMDFE_PATH}" DDMD_DFLAGS) # Needed for importing text files
+append("-J${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -J${PROJECT_SOURCE_DIR}/res" DDMD_DFLAGS) # Needed for importing text files
 string(STRIP "${DDMD_DFLAGS}" DDMD_DFLAGS)
 
 # Use separate compiler flags for the frontend and for the LDC-specific parts,
@@ -331,6 +331,7 @@ configure_file(driver/ldc-version.cpp.in driver/ldc-version.cpp)
 # project files generated via CMake.
 file(GLOB_RECURSE FE_SRC_D ${DDMDFE_PATH}/*.d)
 file(GLOB_RECURSE FE_HDR   ${DDMDFE_PATH}/*.h)
+file(GLOB_RECURSE FE_RES   res/*.*)
 file(GLOB_RECURSE GEN_SRC gen/*.cpp)
 file(GLOB_RECURSE GEN_HDR gen/*.h)
 file(GLOB_RECURSE GEN_SRC_D gen/*.d)
@@ -629,14 +630,14 @@ if(MSVC_IDE)
         OUTPUT ${LDC_EXE_FULL}
         COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:${LDC_LIB}> ${LDC_FLAG_LIST} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${LDC_EXE_FULL} ${LDC_D_SOURCE_FILES} $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:-g> $<$<NOT:$<CONFIG:Debug>>:-O> $<$<NOT:$<CONFIG:Debug>>:-inline> $<$<NOT:$<CONFIG:Debug>>:-release>
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        DEPENDS ${LDC_D_SOURCE_FILES} ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d ${LDC_LIB}
+        DEPENDS ${LDC_D_SOURCE_FILES} ${FE_RES} ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d ${LDC_LIB}
     )
 else()
     build_d_executable(
         "${LDC_EXE_FULL}"
         "${LDC_D_SOURCE_FILES}"
         "$<TARGET_LINKER_FILE:${LDC_LIB}>"
-        "${LDC_D_SOURCE_FILES};${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d"
+        "${LDC_D_SOURCE_FILES};${FE_RES};${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d"
         "${LDC_LIB}"
     )
 endif()
