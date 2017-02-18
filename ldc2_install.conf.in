@@ -1,16 +1,17 @@
-// This configuration file uses libconfig.
-// See http://www.hyperrealm.com/libconfig/ for syntax details.
-
-// The default group is required
-default:
 {
-    // 'switches' holds array of string that are appends to the command line
-    // arguments before they are parsed.
-    switches = [
-        "-I@INCLUDE_INSTALL_DIR@/ldc",
-        "-I@INCLUDE_INSTALL_DIR@",
-        "-L-L@CMAKE_INSTALL_LIBDIR@", @MULTILIB_ADDITIONAL_INSTALL_PATH@
-        "-defaultlib=phobos2-ldc,druntime-ldc",
-        "-debuglib=phobos2-ldc-debug,druntime-ldc-debug"@ADDITIONAL_DEFAULT_LDC_SWITCHES@
-    ];
-};
+    "comment": "This file uses the JSON format",
+    "comment": "The default group is required",
+    "default": {
+        "comment": [
+            "'switches' holds array of strings that are appends to the command",
+            " line arguments before they are parsed"
+        ],
+        "switches": [
+            "-I@INCLUDE_INSTALL_DIR@/ldc",
+            "-I@INCLUDE_INSTALL_DIR@",
+            "-L-L@CMAKE_INSTALL_LIBDIR@", @MULTILIB_ADDITIONAL_INSTALL_PATH@
+            "-defaultlib=phobos2-ldc,druntime-ldc",
+            "-debuglib=phobos2-ldc-debug,druntime-ldc-debug"@ADDITIONAL_DEFAULT_LDC_SWITCHES@
+        ]
+    }
+}
