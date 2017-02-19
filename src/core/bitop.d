@@ -80,15 +80,16 @@ unittest
  */
 int bsf(uint v) pure
 {
-    version (LDC)
-    {
-        if (!__ctfe)
-        {
-            pragma(inline, true);
-            return cast(int) llvm_cttz(cast(size_t) v, true);
-        }
-    }
+  version (LDC)
+  {
+    pragma(inline, true);
+    if (!__ctfe)
+        return cast(int) llvm_cttz(cast(size_t) v, true);
+  }
+  else
+  {
     pragma(inline, false);  // so intrinsic detection will work
+  }
     return softBsf!uint(v);
 }
 
@@ -97,15 +98,16 @@ int bsf(ulong v) pure
 {
     static if (size_t.sizeof == ulong.sizeof)  // 64 bit code gen
     {
-        version (LDC)
-        {
-            if (!__ctfe)
-            {
-                pragma(inline, true);
-                return cast(int) llvm_cttz(v, true);
-            }
-        }
+      version (LDC)
+      {
+        pragma(inline, true);
+        if (!__ctfe)
+            return cast(int) llvm_cttz(v, true);
+      }
+      else
+      {
         pragma(inline, false);   // so intrinsic detection will work
+      }
         return softBsf!ulong(v);
     }
     else
@@ -144,15 +146,16 @@ unittest
  */
 int bsr(uint v) pure
 {
-    version (LDC)
-    {
-        if (!__ctfe)
-        {
-            pragma(inline, true);
-            return cast(int) (size_t.sizeof * 8 - 1 - llvm_ctlz(cast(size_t) v, true));
-        }
-    }
+  version (LDC)
+  {
+    pragma(inline, true);
+    if (!__ctfe)
+        return cast(int) (size_t.sizeof * 8 - 1 - llvm_ctlz(cast(size_t) v, true));
+  }
+  else
+  {
     pragma(inline, false);  // so intrinsic detection will work
+  }
     return softBsr!uint(v);
 }
 
@@ -161,15 +164,16 @@ int bsr(ulong v) pure
 {
     static if (size_t.sizeof == ulong.sizeof)  // 64 bit code gen
     {
-        version (LDC)
-        {
-            if (!__ctfe)
-            {
-                pragma(inline, true);
-                return cast(int) (size_t.sizeof * 8 - 1 - llvm_ctlz(v, true));
-            }
-        }
+      version (LDC)
+      {
+        pragma(inline, true);
+        if (!__ctfe)
+            return cast(int) (size_t.sizeof * 8 - 1 - llvm_ctlz(v, true));
+      }
+      else
+      {
         pragma(inline, false);   // so intrinsic detection will work
+      }
         return softBsr!ulong(v);
     }
     else
