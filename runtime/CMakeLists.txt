@@ -351,6 +351,24 @@ macro(compile_phobos2 d_flags lib_suffix path_suffix outlist_o outlist_bc)
     endforeach()
 endmacro()
 
+# Sets the common properties for all library targets.
+function(set_common_library_properties target)
+    set_target_properties(${target} PROPERTIES
+        VERSION ${DMDFE_VERSION}
+        SOVERSION ${DMDFE_PATCH_VERSION}
+        LINKER_LANGUAGE C
+    )
+
+    # ldc2 defaults to position-independent code on Linux to match the implicit
+    # linker default on Ubuntu 16.10 and above. As we might be building on an
+    # older system (e.g. binary packages), we need to make sure the C parts are
+    # built as PIC as well.
+    if(${CMAKE_SYSTEM} MATCHES "Linux")
+        set_target_properties(${target} PROPERTIES
+            POSITION_INDEPENDENT_CODE ON)
+    endif()
+endfunction()
+
 # Builds a copy of druntime/Phobos from the source files gathered above. The
 # names of the added library targets are appended to outlist_targets.
 macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targets)
@@ -365,15 +383,13 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
     set_target_properties(
         druntime-ldc${target_suffix} PROPERTIES
         OUTPUT_NAME                 druntime-ldc${lib_suffix}
-        VERSION                     ${DMDFE_VERSION}
-        SOVERSION                   ${DMDFE_PATCH_VERSION}
-        LINKER_LANGUAGE             C
         ARCHIVE_OUTPUT_DIRECTORY    ${output_path}
         LIBRARY_OUTPUT_DIRECTORY    ${output_path}
         RUNTIME_OUTPUT_DIRECTORY    ${output_path}
         COMPILE_FLAGS               "${c_flags}"
         LINK_FLAGS                  "${ld_flags}"
     )
+    set_common_library_properties(druntime-ldc${target_suffix})
 
     # When building a shared library, we need to link in all the default
     # libraries otherwise implicitly added by LDC to make it loadable from
@@ -400,15 +416,13 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
         set_target_properties(
             phobos2-ldc${target_suffix} PROPERTIES
             OUTPUT_NAME                 phobos2-ldc${lib_suffix}
-            VERSION                     ${DMDFE_VERSION}
-            SOVERSION                   ${DMDFE_PATCH_VERSION}
-            LINKER_LANGUAGE             C
             ARCHIVE_OUTPUT_DIRECTORY    ${output_path}
             LIBRARY_OUTPUT_DIRECTORY    ${output_path}
             RUNTIME_OUTPUT_DIRECTORY    ${output_path}
             COMPILE_FLAGS               "${c_flags}"
             LINK_FLAGS                  "${ld_flags}"
         )
+        set_common_library_properties(phobos2-ldc${target_suffix})
 
         if(BUILD_SHARED_LIBS)
             # TODO: As for druntime, adapt once shared libraries are supported
