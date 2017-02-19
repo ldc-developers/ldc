@@ -542,6 +542,19 @@ bool isConstLiteral(Expression *e, bool immutableType) {
   case TOKstring:
     return true;
 
+  case TOKsymoff: {
+    // Note: dllimported symbols are not link-time constant.
+    auto soe = static_cast<SymOffExp *>(e);
+    if (VarDeclaration *vd = soe->var->isVarDeclaration()) {
+       return vd->isDataseg() && !vd->isImportedSymbol();
+    }
+    if (FuncDeclaration *fd = soe->var->isFuncDeclaration()) {
+        return !fd->isImportedSymbol();
+    }
+    // Assume the symbol is non-const if we can't prove it is const.
+    return false;
+  } break;
+
   default:
     if (e->isConst() != 1)
       return false;
