@@ -775,14 +775,14 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("D_PIC");
   }
 
+  /* LDC doesn't support DMD's core.simd interface.
   if (arch == llvm::Triple::x86 || arch == llvm::Triple::x86_64) {
-    if (traitsTargetHasFeature("sse2")) {
+    if (traitsTargetHasFeature("sse2"))
       VersionCondition::addPredefinedGlobalIdent("D_SIMD");
-    }
-    if (traitsTargetHasFeature("avx")) {
+    if (traitsTargetHasFeature("avx"))
       VersionCondition::addPredefinedGlobalIdent("D_AVX");
-    }
   }
+  */
 
   // parse the OS out of the target triple
   // see http://gcc.gnu.org/install/specific.html for details
