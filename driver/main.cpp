@@ -918,24 +918,6 @@ void registerPredefinedVersions() {
 #undef STR
 }
 
-/// Dump all predefined version identifiers.
-void dumpPredefinedVersions() {
-  if (global.params.verbose && global.params.versionids) {
-    fprintf(global.stdmsg, "predefs  ");
-    int col = 10;
-    for (auto id : *global.params.versionids) {
-      int len = strlen(id) + 1;
-      if (col + len > 80) {
-        col = 10;
-        fprintf(global.stdmsg, "\n         ");
-      }
-      col += len;
-      fprintf(global.stdmsg, " %s", id);
-    }
-    fprintf(global.stdmsg, "\n");
-  }
-}
-
 } // anonymous namespace
 
 int cppmain(int argc, char **argv) {
@@ -1039,7 +1021,7 @@ int cppmain(int argc, char **argv) {
 
 void addDefaultVersionIdentifiers() {
   registerPredefinedVersions();
-  dumpPredefinedVersions();
+  printPredefinedVersions();
 }
 
 void codegenModules(Modules &modules) {

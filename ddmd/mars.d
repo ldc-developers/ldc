@@ -2198,7 +2198,10 @@ private void addDefaultVersionIdentifiers()
     printPredefinedVersions();
 }
 
-private void printPredefinedVersions()
+} // !IN_LLVM
+
+// IN_LLVM replaced: `private` by `extern (C++)`
+extern (C++) void printPredefinedVersions()
 {
     if (global.params.verbose && global.params.versionids)
     {
@@ -2209,6 +2212,9 @@ private void printPredefinedVersions()
     }
 }
 
+
+version (IN_LLVM) {} else
+{
 
 /****************************************
  * Determine the instruction set to be used.
