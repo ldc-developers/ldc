@@ -29,6 +29,7 @@
 #include "driver/targetmachine.h"
 #include "gen/cl_helpers.h"
 #include "gen/irstate.h"
+#include "gen/ldctraits.h"
 #include "gen/linkage.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
@@ -664,7 +665,9 @@ void registerPredefinedFloatABI(const char *soft, const char *hard,
 /// Registers the predefined versions specific to the current target triple
 /// and other target specific options with VersionCondition.
 void registerPredefinedTargetVersions() {
-  switch (global.params.targetTriple->getArch()) {
+  const auto arch = global.params.targetTriple->getArch();
+
+  switch (arch) {
   case llvm::Triple::x86:
     VersionCondition::addPredefinedGlobalIdent("X86");
     if (global.params.useInlineAsm) {
@@ -770,6 +773,15 @@ void registerPredefinedTargetVersions() {
 
   if (gTargetMachine->getRelocationModel() == llvm::Reloc::PIC_) {
     VersionCondition::addPredefinedGlobalIdent("D_PIC");
+  }
+
+  if (arch == llvm::Triple::x86 || arch == llvm::Triple::x86_64) {
+    if (traitsTargetHasFeature("sse2")) {
+      VersionCondition::addPredefinedGlobalIdent("D_SIMD");
+    }
+    if (traitsTargetHasFeature("avx")) {
+      VersionCondition::addPredefinedGlobalIdent("D_AVX");
+    }
   }
 
   // parse the OS out of the target triple
