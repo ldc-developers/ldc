@@ -319,6 +319,13 @@ cl::opt<std::string>
          cl::Hidden, cl::init(""));
 #endif
 
+static StringsAdapter
+    modFileAliasStringsStore("mv", global.params.modFileAliasStrings);
+static cl::list<std::string, StringsAdapter> modFileAliasStrings(
+    "mv", cl::desc("Use <filespec> as source file for <package.module>"),
+    cl::value_desc("<package.module>=<filespec>"),
+    cl::location(modFileAliasStringsStore));
+
 cl::opt<llvm::Reloc::Model> mRelocModel(
     "relocation-model", cl::desc("Relocation model"),
 #if LDC_LLVM_VER < 309

@@ -214,7 +214,8 @@ Where:\n\
 #if 0
 "  -mscrtlib=<name> MS C runtime library to reference from main/WinMain/DllMain\n"
 #endif
-"  -noboundscheck   no array bounds checking (deprecated, use -boundscheck=off)\n\
+"  -mv=<package.module>=<filespec>  use <filespec> as source file for <package.module>\n\
+  -noboundscheck   no array bounds checking (deprecated, use -boundscheck=off)\n\
   -O               optimize\n\
   -o-              do not write object file\n\
   -od=<directory>  write object & library files to directory\n\
