@@ -93,15 +93,6 @@ pragma(inline, true) auto get_typeid_A()
     return typeid(A);
 }
 
-pragma(inline, true) extern (C) void naked_asm_func()
-{
-    asm pure nothrow @nogc
-    {
-        naked;
-        nop;
-    }
-}
-
 pragma(inline, true) int call_template_foo(int i)
 {
     return template_foo(i);

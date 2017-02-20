@@ -42,7 +42,10 @@ LLConstant *DtoConstSlice(LLConstant *dim, LLConstant *ptr,
 Expression *indexArrayLiteral(ArrayLiteralExp *ale, unsigned idx);
 
 /// Returns whether the array literal can be evaluated to a (LLVM) constant.
-bool isConstLiteral(Expression *e);
+/// immutableType indicates whether the literal is used to initialize an
+/// immutable type, in which case allocated dynamic arrays are considered
+/// constant too.
+bool isConstLiteral(Expression *e, bool immutableType = false);
 
 /// Returns the constant for the given array literal expression.
 llvm::Constant *arrayLiteralToConst(IRState *p, ArrayLiteralExp *ale);

@@ -34,7 +34,24 @@ struct IrFunction {
   void setNeverInline();
   void setAlwaysInline();
 
-  llvm::Function *func = nullptr;
+  void setLLVMFunc(llvm::Function *function);
+
+  /// Returns the associated LLVM function.
+  /// Use getLLVMCallee() for the LLVM function to be used for calls.
+  llvm::Function *getLLVMFunc() const;
+  llvm::CallingConv::ID getCallingConv() const;
+  llvm::FunctionType *getLLVMFuncType() const;
+  llvm::StringRef getLLVMFuncName() const;
+
+#if LDC_LLVM_VER >= 307
+  bool hasLLVMPersonalityFn() const;
+  void setLLVMPersonalityFn(llvm::Constant *personality);
+#endif
+
+  /// Returns the associated LLVM function to be used for calls (potentially
+  /// some sort of wrapper, e.g., a JIT wrapper).
+  llvm::Function *getLLVMCallee() const;
+
   FuncDeclaration *decl = nullptr;
   TypeFunction *type = nullptr;
 
@@ -71,9 +88,20 @@ struct IrFunction {
   /// Stores the FastMath options for this functions.
   /// These are set e.g. by math related UDA's from ldc.attributes.
   llvm::FastMathFlags FMF;
+
+private:
+  llvm::Function *func = nullptr;
 };
 
 IrFunction *getIrFunc(FuncDeclaration *decl, bool create = false);
 bool isIrFuncCreated(FuncDeclaration *decl);
+
+/// Returns the associated LLVM function.
+/// Use DtoCallee() for the LLVM function to be used for calls.
+llvm::Function *DtoFunction(FuncDeclaration *decl, bool create = false);
+
+/// Returns the associated LLVM function to be used for calls (potentially
+/// some sort of wrapper, e.g., a JIT wrapper).
+llvm::Function *DtoCallee(FuncDeclaration *decl, bool create = false);
 
 #endif

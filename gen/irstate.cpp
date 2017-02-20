@@ -36,7 +36,6 @@ IRScope &IRScope::operator=(const IRScope &rhs) {
 ////////////////////////////////////////////////////////////////////////////////
 IRState::IRState(const char *name, llvm::LLVMContext &context)
     : module(name, context), DBuilder(this), dcomputetarget(nullptr) {
-  mutexType = nullptr;
   moduleRefType = nullptr;
 
   dmodule = nullptr;
@@ -57,7 +56,7 @@ IrFunction *IRState::func() {
 }
 
 llvm::Function *IRState::topfunc() {
-  return func()->func;
+  return func()->getLLVMFunc();
 }
 
 llvm::Instruction *IRState::topallocapoint() {
@@ -125,6 +124,11 @@ LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
                                        LLValue *Arg4, const char *Name) {
   LLValue *args[] = {Arg1, Arg2, Arg3, Arg4};
   return funcGen().callOrInvoke(Callee, args, Name);
+}
+
+bool IRState::isMainFunc(const IrFunction *func) const {
+  assert(func != nullptr);
+  return func->getLLVMFunc() == mainFunc;
 }
 
 bool IRState::emitArrayBoundsChecks() {

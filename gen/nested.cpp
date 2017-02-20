@@ -56,20 +56,13 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     return makeVarDValue(astype, vd);
   }
 
-  LLValue *dwarfValue = nullptr;
-#if LDC_LLVM_VER >= 306
-  std::vector<int64_t> dwarfAddr;
-#else
-  std::vector<LLValue *> dwarfAddr;
-#endif
-
   // get the nested context
   LLValue *ctx = nullptr;
+  bool skipDIDeclaration = false;
   auto currentCtx = gIR->funcGen().nestedVar;
   if (currentCtx) {
     Logger::println("Using own nested context of current function");
     ctx = currentCtx;
-    dwarfValue = currentCtx;
   } else if (irfunc->decl->isMember2()) {
     Logger::println(
         "Current function is member of nested class, loading vthis");
@@ -80,14 +73,11 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
       val = DtoLoad(val);
     }
     ctx = DtoLoad(DtoGEPi(val, 0, getVthisIdx(cd), ".vthis"));
+    skipDIDeclaration = true;
   } else {
     Logger::println("Regular nested function, loading context arg");
 
     ctx = DtoLoad(irfunc->nestArg);
-    dwarfValue = irfunc->nestArg;
-    if (global.params.symdebug) {
-      gIR->DBuilder.OpDeref(dwarfAddr);
-    }
   }
 
   assert(ctx);
@@ -120,10 +110,6 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     IF_LOG Logger::println("Same depth");
   } else {
     // Load frame pointer and index that...
-    if (dwarfValue && global.params.symdebug) {
-      gIR->DBuilder.OpOffset(dwarfAddr, val, vardepth);
-      gIR->DBuilder.OpDeref(dwarfAddr);
-    }
     IF_LOG Logger::println("Lower depth");
     val = DtoGEPi(val, 0, vardepth);
     IF_LOG Logger::cout() << "Frame index: " << *val << '\n';
@@ -135,27 +121,37 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
   const auto idx = irLocal->nestedIndex;
   assert(idx != -1 && "Nested context not yet resolved for variable.");
 
-  if (dwarfValue && global.params.symdebug) {
-    gIR->DBuilder.OpOffset(dwarfAddr, val, idx);
-  }
+#if LDC_LLVM_VER >= 306
+    LLSmallVector<int64_t, 2> dwarfAddrOps;
+#else
+    LLSmallVector<LLValue *, 2> dwarfAddrOps;
+#endif
 
-  val = DtoGEPi(val, 0, idx, vd->toChars());
+  LLValue *gep = DtoGEPi(val, 0, idx, vd->toChars());
+  val = gep;
   IF_LOG {
     Logger::cout() << "Addr: " << *val << '\n';
     Logger::cout() << "of type: " << *val->getType() << '\n';
   }
-  if (!isSpecialRefVar(vd) && (byref || vd->isRef() || vd->isOut())) {
+  const bool isRefOrOut = vd->isRef() || vd->isOut();
+  if (!isSpecialRefVar(vd) && (byref || isRefOrOut)) {
     val = DtoAlignedLoad(val);
-    // dwarfOpDeref(dwarfAddr);
+    // ref/out variables get a reference-debuginfo-type in
+    // DIBuilder::EmitLocalVariable()
+    if (!isRefOrOut)
+      gIR->DBuilder.OpDeref(dwarfAddrOps);
     IF_LOG {
       Logger::cout() << "Was byref, now: " << *irLocal->value << '\n';
       Logger::cout() << "of type: " << *irLocal->value->getType() << '\n';
     }
   }
 
-  if (dwarfValue && global.params.symdebug) {
-    gIR->DBuilder.EmitLocalVariable(dwarfValue, vd, nullptr, false, true,
-                                    dwarfAddr);
+  if (!skipDIDeclaration && global.params.symdebug) {
+    // Because we are passing a GEP instead of an alloca to
+    // llvm.dbg.declare, we have to make the address dereference explicit.
+    gIR->DBuilder.OpDeref(dwarfAddrOps);
+    gIR->DBuilder.EmitLocalVariable(gep, vd, nullptr, false, true,
+                                    dwarfAddrOps);
   }
 
   return makeVarDValue(astype, vd, val);

@@ -12,11 +12,6 @@ import inputs.inlinables;
 
 extern (C): // simplify mangling for easier matching
 
-// Inlined naked asm func could end up as global symbols, definitely bad!
-// (would give multiple definition linker error)
-// OPT0-NOT: module asm {{.*}}.globl{{.*}}_naked_asm_func
-// OPT3-NOT: module asm {{.*}}.globl{{.*}}_naked_asm_func
-
 // Check that the global variables that are added due to "available_externally
 // inlining" do not have initializers, i.e. they are declared only and not definined.
 
@@ -43,15 +38,6 @@ void dont_leak_module_variables()
     write_module_variable(987);
     write_function_static_variable(167);
     get_typeid_A();
-    // OPT0: ret void
-    // OPT3: ret void
-}
-
-// OPT0-LABEL: define{{.*}} @asm_func(
-// OPT3-LABEL: define{{.*}} @asm_func(
-void asm_func()
-{
-    naked_asm_func();
     // OPT0: ret void
     // OPT3: ret void
 }

@@ -90,7 +90,7 @@ DValue *DtoNewClass(Loc &loc, TypeClass *tc, NewExp *newexp) {
   // custom allocator
   else if (newexp->allocator) {
     DtoResolveFunction(newexp->allocator);
-    DFuncValue dfn(newexp->allocator, getIrFunc(newexp->allocator)->func);
+    DFuncValue dfn(newexp->allocator, DtoCallee(newexp->allocator));
     DValue *res = DtoCallFunction(newexp->loc, nullptr, &dfn, newexp->newargs);
     mem = DtoBitCast(DtoRVal(res), DtoType(tc), ".newclass_custom");
   }
@@ -133,7 +133,7 @@ DValue *DtoNewClass(Loc &loc, TypeClass *tc, NewExp *newexp) {
     Logger::println("Calling constructor");
     assert(newexp->arguments != NULL);
     DtoResolveFunction(newexp->member);
-    DFuncValue dfn(newexp->member, getIrFunc(newexp->member)->func, mem);
+    DFuncValue dfn(newexp->member, DtoCallee(newexp->member), mem);
     return DtoCallFunction(newexp->loc, tc, &dfn, newexp->arguments);
   }
 
@@ -485,7 +485,7 @@ static LLConstant *build_class_dtor(ClassDeclaration *cd) {
 
   DtoResolveFunction(dtor);
   return llvm::ConstantExpr::getBitCast(
-      getIrFunc(dtor)->func, getPtrToType(LLType::getInt8Ty(gIR->context())));
+      DtoCallee(dtor), getPtrToType(LLType::getInt8Ty(gIR->context())));
 }
 
 static ClassFlags::Type build_classinfo_flags(ClassDeclaration *cd) {

@@ -53,6 +53,7 @@ import ddmd.root.rmem;
 import ddmd.root.stringtable;
 import ddmd.target;
 import ddmd.tokens;
+version (IN_LLVM) import gen.semantic : extraLDCSpecificSemanticAnalysis;
 
 
 /**
@@ -1578,6 +1579,14 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
     Module.runDeferredSemantic3();
     if (global.errors)
         fatal();
+  
+  version (IN_LLVM)
+  {
+    extraLDCSpecificSemanticAnalysis(modules);
+    if (global.errors)
+        fatal();
+  }
+
   version (IN_LLVM) {} else
   {
     // Scan for functions to inline

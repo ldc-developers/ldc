@@ -118,7 +118,6 @@ struct IRState {
 
   Module *dmodule;
 
-  LLStructType *mutexType;
   LLStructType *moduleRefType;
 
   // Stack of currently codegen'd functions (more than one for lambdas or other
@@ -162,6 +161,8 @@ struct IRState {
   llvm::CallSite CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
                                     LLValue *Arg2, LLValue *Arg3, LLValue *Arg4,
                                     const char *Name = "");
+
+  bool isMainFunc(const IrFunction *func) const;
 
   // this holds the array being indexed or sliced so $ will work
   // might be a better way but it works. problem is I only get a

@@ -133,14 +133,14 @@ public:
     auto &funcGen = irs->funcGen();
     IrFunction *const f = &funcGen.irFunc;
     FuncDeclaration *const fd = f->decl;
-    LLFunction *const llFunc = f->func;
+    llvm::FunctionType *funcType = f->getLLVMFuncType();
 
     emitInstrumentationFnLeave(fd);
 
     // is there a return value expression?
-    if (stmt->exp || (!stmt->exp && (llFunc == irs->mainFunc))) {
+    if (stmt->exp || (!stmt->exp && irs->isMainFunc(f))) {
       // if the function's return type is void, it uses sret
-      if (llFunc->getReturnType() == LLType::getVoidTy(irs->context())) {
+      if (funcType->getReturnType() == LLType::getVoidTy(irs->context())) {
         assert(!f->type->isref);
 
         LLValue *sretPointer = getIrFunc(fd)->sretArg;
@@ -182,7 +182,7 @@ public:
         }
       } else {
         // the return type is not void, so this is a normal "register" return
-        if (!stmt->exp && (llFunc == irs->mainFunc)) {
+        if (!stmt->exp && irs->isMainFunc(f)) {
           returnValue =
               LLConstant::getNullValue(irs->mainFunc->getReturnType());
         } else {
@@ -208,7 +208,7 @@ public:
         // If the function returns a struct or a static array, and the return
         // value is a pointer to a struct or a static array, load from it
         // before returning.
-        if (returnValue->getType() != llFunc->getReturnType() &&
+        if (returnValue->getType() != funcType->getReturnType() &&
             DtoIsInMemoryOnly(f->type->next) &&
             isaPointer(returnValue->getType())) {
           Logger::println("Loading value for return");
@@ -216,18 +216,18 @@ public:
         }
 
         // can happen for classes and void main
-        if (returnValue->getType() != llFunc->getReturnType()) {
+        if (returnValue->getType() != funcType->getReturnType()) {
           // for the main function this only happens if it is declared as void
           // and then contains a return (exp); statement. Since the actual
           // return type remains i32, we just throw away the exp value
           // and return 0 instead
           // if we're not in main, just bitcast
-          if (llFunc == irs->mainFunc) {
+          if (irs->isMainFunc(f)) {
             returnValue =
                 LLConstant::getNullValue(irs->mainFunc->getReturnType());
           } else {
             returnValue =
-                irs->ir->CreateBitCast(returnValue, llFunc->getReturnType());
+                irs->ir->CreateBitCast(returnValue, funcType->getReturnType());
           }
 
           IF_LOG Logger::cout() << "return value after cast: " << *returnValue
@@ -236,7 +236,7 @@ public:
       }
     } else {
       // no return value expression means it's a void function.
-      assert(llFunc->getReturnType() == LLType::getVoidTy(irs->context()));
+      assert(funcType->getReturnType() == LLType::getVoidTy(irs->context()));
     }
 
     // If there are no cleanups to run, we try to keep the IR simple and

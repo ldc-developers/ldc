@@ -5104,7 +5104,16 @@ public:
             cs.push(s);
 
             s = new CompoundStatement(loc, cs);
+          version(IN_LLVM) // backport alignment fix for issue #1955
+          {
+            s = s.semantic(sc);
+            tmp.alignment = Target.ptrsize; // must be set after semantic()
+            return s;
+          }
+          else
+          {
             return s.semantic(sc);
+          }
         }
     Lbody:
         if (_body)

@@ -40,8 +40,6 @@ void IrTypeClass::addClassData(AggrTypeBuilder &builder,
     // KLUDGE: The first pointer in the vtbl will be of type object.Interface;
     // extract that from the "well-known" object.TypeInfo_Class definition.
     // For C++ interfaces, this vtbl entry has to be omitted
-    const auto interfaceArrayType = Type::typeinfoclass->fields[3]->type;
-    const auto interfacePtrType = interfaceArrayType->nextOf()->pointerTo();
 
     builder.alignCurrentOffset(Target::ptrsize);
 
