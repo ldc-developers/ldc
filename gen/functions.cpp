@@ -1120,6 +1120,11 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   assert(&gIR->funcGen() == &funcGen);
   gIR->funcGenStates.pop_back();
+
+  if (gIR->dcomputetarget && hasKernelAttr(decl)) {
+    auto fn = gIR->module.getFunction(decl->mangleString);
+    gIR->dcomputetarget->addKernelMetadata(decl, fn);
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -420,12 +420,6 @@ public:
     // don't touch function aliases, they don't contribute any new symbols
     if (!decl->isFuncAliasDeclaration()) {
       DtoDefineFunction(decl);
-      if (irs->dcomputetarget) {
-        if (hasKernelAttr(decl)) {
-          auto fn = irs->module.getFunction(decl->mangleString);
-          irs->dcomputetarget->addKernelMetadata(decl, fn);
-        }
-      }
     }
   }
 
