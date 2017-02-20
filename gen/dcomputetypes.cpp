@@ -51,3 +51,8 @@ DcomputePointer::DcomputePointer(StructDeclaration *sd)
   type = isType((*ti->tiargs)[1]);
 }
 
+DcomputePointer::DcomputePointer()
+{
+  addrspace = -1;
+  type = nullptr;
+}

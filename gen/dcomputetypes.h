@@ -23,6 +23,7 @@ struct DcomputePointer {
     int addrspace;
     Type* type;
     DcomputePointer(StructDeclaration *sd);
+    DcomputePointer();
     operator bool() const { return addrspace != -1 && type; }
 };
 
