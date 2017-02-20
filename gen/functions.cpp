@@ -22,6 +22,7 @@
 #include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
+#include "gen/dcomputetarget.h"
 #include "gen/dvalue.h"
 #include "gen/funcgenstate.h"
 #include "gen/function-inlining.h"
