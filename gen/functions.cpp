@@ -1126,9 +1126,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   gIR->scopes.pop_back();
 
-  assert(&gIR->funcGen() == &funcGen);
-  gIR->funcGenStates.pop_back();
-
   if (gIR->dcomputetarget && hasKernelAttr(fd)) {
     auto fn = gIR->module.getFunction(fd->mangleString);
     gIR->dcomputetarget->addKernelMetadata(fd, fn);
