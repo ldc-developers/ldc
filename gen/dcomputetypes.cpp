@@ -38,21 +38,15 @@ bool isFromLDC_DComputeTypes(Dsymbol *sym) {
   return true;
 }
 
-DcomputePointer::DcomputePointer(StructDeclaration *sd)
+llvm::Optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd)
 {
   if (!isFromLDC_DComputeTypes(sd) || strcmp(sd->ident->string, "Pointer")) {
-    addrspace = -1;
-    type = nullptr;
-    return;
+      return llvm::Optional<DcomputePointer>(llvm::None);
   }
 
   TemplateInstance *ti = sd->isInstantiated();
-  addrspace = isExpression((*ti->tiargs)[0])->toInteger();
-  type = isType((*ti->tiargs)[1]);
+  int addrspace = isExpression((*ti->tiargs)[0])->toInteger();
+  Type* type = isType((*ti->tiargs)[1]);
+  return llvm::Optional<DcomputePointer>(DcomputePointer(addrspace,type));
 }
 
-DcomputePointer::DcomputePointer()
-{
-  addrspace = -1;
-  type = nullptr;
-}
