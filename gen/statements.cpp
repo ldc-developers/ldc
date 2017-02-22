@@ -775,8 +775,8 @@ public:
     CleanupCursor cleanupBefore;
     // For @compute code, don't emit any exception handling as there are no
     // exceptions anyway.
-    const bool compute_code = !!irs->dcomputetarget;
-    if (!compute_code) {
+    const bool computeCode = !!irs->dcomputetarget;
+    if (!computeCode) {
       cleanupBefore  = irs->funcGen().scopes.currentCleanupScope();
       irs->funcGen().scopes.pushCleanup(finallybb, irs->scopebb());
     }
@@ -790,13 +790,13 @@ public:
     irs->DBuilder.EmitBlockEnd();
 
     if (successbb) {
-      if (!compute_code)
+      if (!computeCode)
         irs->funcGen().scopes.runCleanups(cleanupBefore, successbb);
       irs->scope() = IRScope(successbb);
       // PGO counter tracks the continuation of the try-finally statement
       PGO.emitCounterIncrement(stmt);
     }
-    if (!compute_code)
+    if (!computeCode)
       irs->funcGen().scopes.popCleanups(cleanupBefore);
   }
 
