@@ -22,6 +22,7 @@
 #include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
+#include "gen/dcomputetarget.h"
 #include "gen/dvalue.h"
 #include "gen/funcgenstate.h"
 #include "gen/function-inlining.h"
@@ -936,9 +937,10 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   assert(!func->hasDLLImportStorageClass());
 
   // On x86_64, always set 'uwtable' for System V ABI compatibility.
+  // But don't set if for dcompute.
   // TODO: Find a better place for this.
   if (global.params.targetTriple->getArch() == llvm::Triple::x86_64 &&
-      !global.params.isWindows) {
+      !global.params.isWindows && gIR->dcomputetarget == nullptr) {
     func->addFnAttr(LLAttribute::UWTable);
   }
   if (opts::sanitize != opts::None) {
@@ -972,7 +974,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // this gets erased when the function is complete, so alignment etc does not
   // matter at all
   llvm::Instruction *allocaPoint = new llvm::AllocaInst(
-      LLType::getInt32Ty(gIR->context()), "alloca point", beginbb);
+      LLType::getInt32Ty(gIR->context()), "allocaPoint", beginbb);
   funcGen.allocapoint = allocaPoint;
 
   // debug info - after all allocas, but before any llvm.dbg.declare etc
@@ -1123,6 +1125,12 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   gIR->scopes.pop_back();
+
+  if (gIR->dcomputetarget && hasKernelAttr(fd)) {
+    auto fn = gIR->module.getFunction(fd->mangleString);
+    gIR->dcomputetarget->addKernelMetadata(fd, fn);
+  }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
