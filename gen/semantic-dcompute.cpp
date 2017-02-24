@@ -166,7 +166,8 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
       stop = true;
       return;
     }
-    if (e->f->getModule() == nullptr || !hasComputeAttr(e->f->getModule())) {
+    Module *m = e->f->getModule();
+    if (m == nullptr || hasComputeAttr(m) == DComputeCompileFor::hostOnly) {
       e->error("can only call functions from other @compute modules in "
                "@compute code");
       stop = true;

@@ -1036,7 +1036,7 @@ void codegenModules(Modules &modules) {
   if (global.params.obj && !modules.empty()) {
     ldc::CodeGenerator cg(getGlobalContext(), global.params.oneobj);
     DComputeCodeGenManager dccg(getGlobalContext());
-    std::vector<Module *> compute_modules;
+    std::vector<Module *> computeModules;
 
     // When inlining is enabled, we are calling semantic3 on function
     // declarations, which may _add_ members to the first module in the modules
@@ -1050,14 +1050,14 @@ void codegenModules(Modules &modules) {
       Module *const m = modules[i];
       if (global.params.verbose)
         fprintf(global.stdmsg, "code      %s\n", m->toChars());
-      auto atCompute = hasComputeAttr(m);
+      const auto atCompute = hasComputeAttr(m);
       if (atCompute == DComputeCompileFor::hostOnly ||
           atCompute == DComputeCompileFor::hostAndDevice)
       {
         cg.emit(m);
       }
       if (atCompute != DComputeCompileFor::hostOnly)
-        compute_modules.push_back(m);
+        computeModules.push_back(m);
         
 
       if (global.errors)
@@ -1065,9 +1065,9 @@ void codegenModules(Modules &modules) {
     }
 
     IF_LOG Logger::println("number of Modules for DCompute: %d",
-                            compute_modules.size());
-    if (compute_modules.size()) {
-      for (auto& mod : compute_modules)
+                            (int)computeModules.size());
+    if (!computeModules.empty()) {
+      for (auto& mod : computeModules)
         dccg.emit(mod);
         
       dccg.writeModules();
