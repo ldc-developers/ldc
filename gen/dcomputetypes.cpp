@@ -31,16 +31,16 @@ bool isFromLDC_DComputeTypes(Dsymbol *sym) {
     return false;
   if (moduleDecl->packages->dim != 2)
     return false;
-  if (strcmp("ldc", (*moduleDecl->packages)[0]->string))
+  if (strcmp("ldc", (*moduleDecl->packages)[0]->toChars()))
     return false;
-  if (strcmp("dcomputetypes", (*moduleDecl->packages)[1]->string))
+  if (strcmp("dcomputetypes", (*moduleDecl->packages)[1]->toChars()))
     return false;
   return true;
 }
 
 llvm::Optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd)
 {
-  if (!isFromLDC_DComputeTypes(sd) || strcmp(sd->ident->string, "Pointer")) {
+  if (!isFromLDC_DComputeTypes(sd) || strcmp(sd->ident->toChars(), "Pointer")) {
       return llvm::Optional<DcomputePointer>(llvm::None);
   }
 
