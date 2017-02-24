@@ -374,14 +374,32 @@ void cacheObjectFile(llvm::StringRef objectFile,
     fatal();
   }
 
+  // To prevent bad cache files, add files to the cache atomically: first copy
+  // to a temporary file and then rename that temp file to the cache entry
+  // filename (rename is atomic).
+
   llvm::SmallString<128> cacheFile;
   storeCacheFileName(cacheObjectHash, cacheFile);
 
-  IF_LOG Logger::println("Copy object file to cache: %s to %s",
-                         objectFile.str().c_str(), cacheFile.c_str());
-  if (llvm::sys::fs::copy_file(objectFile, cacheFile.c_str())) {
+  llvm::SmallString<128> tempFile;
+  if (llvm::sys::fs::createUniqueFile(llvm::Twine(cacheFile) + ".tmp%%%%%%%",
+                                      tempFile)) {
+    error(Loc(), "Could not create name of temporary file in the cache.");
+    fatal();
+  }
+
+  IF_LOG Logger::println("Copy object file to temp file: %s to %s",
+                         objectFile.str().c_str(), tempFile.c_str());
+  if (llvm::sys::fs::copy_file(objectFile, tempFile.c_str())) {
     error(Loc(), "Failed to copy object file to cache: %s to %s",
-          objectFile.str().c_str(), cacheFile.c_str());
+          objectFile.str().c_str(), tempFile.c_str());
+    fatal();
+  }
+  IF_LOG Logger::println("Rename temp file to cache file: %s to %s",
+                         tempFile.c_str(), cacheFile.c_str());
+  if (llvm::sys::fs::rename(tempFile.c_str(), cacheFile.c_str())) {
+    error(Loc(), "Failed to rename temp file to cache file: %s to %s",
+          tempFile.c_str(), cacheFile.c_str());
     fatal();
   }
 }

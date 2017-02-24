@@ -17,6 +17,7 @@
 #include "gen/classes.h"
 #include "gen/coverage.h"
 #include "gen/dvalue.h"
+#include "gen/dcomputetarget.h"
 #include "gen/funcgenstate.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
@@ -132,14 +133,14 @@ public:
     auto &funcGen = irs->funcGen();
     IrFunction *const f = &funcGen.irFunc;
     FuncDeclaration *const fd = f->decl;
-    LLFunction *const llFunc = f->func;
+    llvm::FunctionType *funcType = f->getLLVMFuncType();
 
     emitInstrumentationFnLeave(fd);
 
     // is there a return value expression?
-    if (stmt->exp || (!stmt->exp && (llFunc == irs->mainFunc))) {
+    if (stmt->exp || (!stmt->exp && irs->isMainFunc(f))) {
       // if the function's return type is void, it uses sret
-      if (llFunc->getReturnType() == LLType::getVoidTy(irs->context())) {
+      if (funcType->getReturnType() == LLType::getVoidTy(irs->context())) {
         assert(!f->type->isref);
 
         LLValue *sretPointer = getIrFunc(fd)->sretArg;
@@ -181,7 +182,7 @@ public:
         }
       } else {
         // the return type is not void, so this is a normal "register" return
-        if (!stmt->exp && (llFunc == irs->mainFunc)) {
+        if (!stmt->exp && irs->isMainFunc(f)) {
           returnValue =
               LLConstant::getNullValue(irs->mainFunc->getReturnType());
         } else {
@@ -207,7 +208,7 @@ public:
         // If the function returns a struct or a static array, and the return
         // value is a pointer to a struct or a static array, load from it
         // before returning.
-        if (returnValue->getType() != llFunc->getReturnType() &&
+        if (returnValue->getType() != funcType->getReturnType() &&
             DtoIsInMemoryOnly(f->type->next) &&
             isaPointer(returnValue->getType())) {
           Logger::println("Loading value for return");
@@ -215,18 +216,18 @@ public:
         }
 
         // can happen for classes and void main
-        if (returnValue->getType() != llFunc->getReturnType()) {
+        if (returnValue->getType() != funcType->getReturnType()) {
           // for the main function this only happens if it is declared as void
           // and then contains a return (exp); statement. Since the actual
           // return type remains i32, we just throw away the exp value
           // and return 0 instead
           // if we're not in main, just bitcast
-          if (llFunc == irs->mainFunc) {
+          if (irs->isMainFunc(f)) {
             returnValue =
                 LLConstant::getNullValue(irs->mainFunc->getReturnType());
           } else {
             returnValue =
-                irs->ir->CreateBitCast(returnValue, llFunc->getReturnType());
+                irs->ir->CreateBitCast(returnValue, funcType->getReturnType());
           }
 
           IF_LOG Logger::cout() << "return value after cast: " << *returnValue
@@ -235,7 +236,7 @@ public:
       }
     } else {
       // no return value expression means it's a void function.
-      assert(llFunc->getReturnType() == LLType::getVoidTy(irs->context()));
+      assert(funcType->getReturnType() == LLType::getVoidTy(irs->context()));
     }
 
     // If there are no cleanups to run, we try to keep the IR simple and
@@ -336,6 +337,27 @@ public:
       DtoRawVarDeclaration(stmt->match);
     }
 
+    // This is a (dirty) hack to get codegen time conditional
+    // compilation, on account of the fact that we are trying
+    // to target multiple backends "simultaneously" with one
+    // pass through the front end.
+    if (stmt->condition->op == TOKcall) {
+      auto ce = (CallExp *)stmt->condition;
+      if (ce->f && ce->f->ident && ! strcmp(ce->f->ident->string,
+                                            "__dcompute_reflect")) {
+        auto arg1 = (DComputeTarget::ID)(*ce->arguments)[0]->toInteger();
+        auto arg2 = (*ce->arguments)[1]->toInteger();
+        auto dct = irs->dcomputetarget;
+        if ((arg1 == DComputeTarget::Host && !irs->dcomputetarget)
+            || (arg1 == dct->target
+            && (!arg2 || arg2 == dct->tversion))) {
+          stmt->ifbody->accept(this);
+        } else if (stmt->elsebody) {
+          stmt->elsebody->accept(this);
+        }
+        return;
+      }
+    }
     DValue *cond_e = toElemDtor(stmt->condition);
     LLValue *cond_val = DtoRVal(cond_e);
 
@@ -750,8 +772,14 @@ public:
     stmt->finalbody->accept(this);
     irs->DBuilder.EmitBlockEnd();
 
-    CleanupCursor cleanupBefore = irs->funcGen().scopes.currentCleanupScope();
-    irs->funcGen().scopes.pushCleanup(finallybb, irs->scopebb());
+    CleanupCursor cleanupBefore;
+    // For @compute code, don't emit any exception handling as there are no
+    // exceptions anyway.
+    const bool computeCode = !!irs->dcomputetarget;
+    if (!computeCode) {
+      cleanupBefore  = irs->funcGen().scopes.currentCleanupScope();
+      irs->funcGen().scopes.pushCleanup(finallybb, irs->scopebb());
+    }
 
     // Emit the try block.
     irs->scope() = IRScope(trybb);
@@ -762,12 +790,14 @@ public:
     irs->DBuilder.EmitBlockEnd();
 
     if (successbb) {
-      irs->funcGen().scopes.runCleanups(cleanupBefore, successbb);
+      if (!computeCode)
+        irs->funcGen().scopes.runCleanups(cleanupBefore, successbb);
       irs->scope() = IRScope(successbb);
       // PGO counter tracks the continuation of the try-finally statement
       PGO.emitCounterIncrement(stmt);
     }
-    irs->funcGen().scopes.popCleanups(cleanupBefore);
+    if (!computeCode)
+      irs->funcGen().scopes.popCleanups(cleanupBefore);
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -776,6 +806,8 @@ public:
     IF_LOG Logger::println("TryCatchStatement::toIR(): %s",
                            stmt->loc.toChars());
     LOG_SCOPE;
+    
+    assert(!irs->dcomputetarget);
 
     auto &PGO = irs->funcGen().pgo;
 
@@ -816,6 +848,8 @@ public:
   void visit(ThrowStatement *stmt) LLVM_OVERRIDE {
     IF_LOG Logger::println("ThrowStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
+
+    assert(!irs->dcomputetarget);
 
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
@@ -875,6 +909,8 @@ public:
     const bool isStringSwitch = !stmt->condition->type->isintegral();
     if (isStringSwitch) {
       Logger::println("is string switch");
+      
+      assert(!irs->dcomputetarget);
 
       // Sort the cases, taking care not to modify the original AST.
       cases = cases->copy();
@@ -1602,6 +1638,14 @@ public:
                            stmt->loc.toChars());
     LOG_SCOPE;
 
+    if(irs->dcomputetarget) {
+      // SwitchErrorStatement emits a call to a runtime function.
+      // This is not available in @compute code. For lack of anything better:
+      // ingore it.
+      IF_LOG Logger::println("ignoring SwitchErrorStatement ");
+      return;
+    }
+
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
@@ -1620,11 +1664,17 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(AsmStatement *stmt) LLVM_OVERRIDE { AsmStatement_toIR(stmt, irs); }
+  void visit(AsmStatement *stmt) LLVM_OVERRIDE {
+    assert(!irs->dcomputetarget);
+
+    AsmStatement_toIR(stmt, irs);
+  }
 
   //////////////////////////////////////////////////////////////////////////
 
   void visit(CompoundAsmStatement *stmt) LLVM_OVERRIDE {
+    assert(!irs->dcomputetarget);
+
     CompoundAsmStatement_toIR(stmt, irs);
   }
 

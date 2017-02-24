@@ -780,7 +780,12 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
   CUNode = DBuilder.createCompileUnit(
       global.params.symdebug == 2 ? llvm::dwarf::DW_LANG_C
                                   : llvm::dwarf::DW_LANG_D,
+#if LDC_LLVM_VER >= 400
+      DBuilder.createFile(llvm::sys::path::filename(srcpath),
+                          llvm::sys::path::parent_path(srcpath)),
+#else
       llvm::sys::path::filename(srcpath), llvm::sys::path::parent_path(srcpath),
+#endif
       "LDC (http://wiki.dlang.org/LDC)",
       isOptimizationEnabled(), // isOptimized
       llvm::StringRef(),       // Flags TODO
@@ -823,7 +828,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
   auto SP = DBuilder.createFunction(
       CU,                                 // context
       fd->toPrettyChars(),                // name
-      getIrFunc(fd)->func->getName(),     // linkage name
+      getIrFunc(fd)->getLLVMFuncName(),   // linkage name
       file,                               // file
       fd->loc.linnum,                     // line no
       DIFnType,                           // type
@@ -834,12 +839,12 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
       isOptimizationEnabled()             // isOptimized
 #if LDC_LLVM_VER < 308
       ,
-      getIrFunc(fd)->func
+      DtoFunction(fd)
 #endif
       );
 #if LDC_LLVM_VER >= 308
   if (fd->fbody)
-    getIrFunc(fd)->func->setSubprogram(SP);
+    DtoFunction(fd)->setSubprogram(SP);
 #endif
   return SP;
 }
@@ -883,12 +888,12 @@ ldc::DISubprogram ldc::DIBuilder::EmitThunk(llvm::Function *Thunk,
       isOptimizationEnabled()             // isOptimized
 #if LDC_LLVM_VER < 308
       ,
-      getIrFunc(fd)->func
+      DtoFunction(fd)
 #endif
       );
 #if LDC_LLVM_VER >= 308
   if (fd->fbody)
-    getIrFunc(fd)->func->setSubprogram(SP);
+    DtoFunction(fd)->setSubprogram(SP);
 #endif
   return SP;
 }
@@ -1084,7 +1089,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
   if (static_cast<llvm::MDNode *>(TD) == nullptr)
     return; // unsupported
 
-  if (vd->storage_class & (STCref | STCout)) {
+  if (vd->isRef() || vd->isOut()) {
 #if LDC_LLVM_VER >= 308
     auto T = DtoType(type);
     TD = DBuilder.createReferenceType(llvm::dwarf::DW_TAG_reference_type, TD,
@@ -1210,24 +1215,25 @@ void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
          (vd->storage_class & (STCconst | STCimmutable) && vd->_init));
 
 #if LDC_LLVM_VER >= 400
-  auto DIVar =
-#endif
-      DBuilder.createGlobalVariable(
-#if LDC_LLVM_VER >= 306
-          GetCU(), // context
-#endif
-          vd->toChars(),                          // name
-          mangle(vd),                             // linkage name
-          CreateFile(vd),                         // file
-          vd->loc.linnum,                         // line num
-          CreateTypeDescription(vd->type, false), // type
-          vd->protection.kind == PROTprivate,     // is local to unit
-#if LDC_LLVM_VER >= 400
-          nullptr // relative location of field
+  auto DIVar = DBuilder.createGlobalVariableExpression(
 #else
-          llVar // value
+  DBuilder.createGlobalVariable(
 #endif
-          );
+#if LDC_LLVM_VER >= 306
+      GetCU(), // context
+#endif
+      vd->toChars(),                          // name
+      mangle(vd),                             // linkage name
+      CreateFile(vd),                         // file
+      vd->loc.linnum,                         // line num
+      CreateTypeDescription(vd->type, false), // type
+      vd->protection.kind == PROTprivate,     // is local to unit
+#if LDC_LLVM_VER >= 400
+      nullptr // relative location of field
+#else
+      llVar // value
+#endif
+      );
 
 #if LDC_LLVM_VER >= 400
   llVar->addDebugInfo(DIVar);

@@ -12,8 +12,10 @@ if (LDC_WITH_PGO)
         # Omit Default Library Name from the library, so it will work with both release and debug builds
         set(PROFRT_EXTRA_FLAGS "/Zl")
 
-        # Add library needed for `gethostname`
-        set(PROFRT_EXTRA_LDFLAGS "Ws2_32.lib")
+        # Add library needed for `gethostname` (LLVM <= 3.9)
+        if (NOT (LDC_LLVM_VER GREATER 309))
+            set(PROFRT_EXTRA_LDFLAGS "Ws2_32.lib")
+        endif()
     else()
         set(PROFRT_EXTRA_FLAGS "-fPIC -O3")
     endif()

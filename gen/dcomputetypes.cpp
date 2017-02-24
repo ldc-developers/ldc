@@ -9,10 +9,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/dcomputetypes.h"
+#include "gen/logger.h"
 #include "ddmd/dsymbol.h"
 #include "ddmd/module.h"
 #include "ddmd/identifier.h"
-#include "gen/logger.h"
+#include "ddmd/template.h"
+#include "ddmd/declaration.h"
+#include "ddmd/aggregate.h"
 
 bool isFromLDC_DComputeTypes(Dsymbol *sym) {
   IF_LOG Logger::println("isFromLDC_DComputeTypes(%s)", sym->toPrettyChars());
@@ -34,3 +37,16 @@ bool isFromLDC_DComputeTypes(Dsymbol *sym) {
     return false;
   return true;
 }
+
+llvm::Optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd)
+{
+  if (!isFromLDC_DComputeTypes(sd) || strcmp(sd->ident->string, "Pointer")) {
+      return llvm::Optional<DcomputePointer>(llvm::None);
+  }
+
+  TemplateInstance *ti = sd->isInstantiated();
+  int addrspace = isExpression((*ti->tiargs)[0])->toInteger();
+  Type* type = isType((*ti->tiargs)[1]);
+  return llvm::Optional<DcomputePointer>(DcomputePointer(addrspace,type));
+}
+

@@ -62,7 +62,9 @@ DRValue::DRValue(Type *t, LLValue *v) : DValue(t, v) {
 
 DImValue::DImValue(Type *t, llvm::Value *v) : DRValue(t, v) {
   // TODO: get rid of Tfunction exception
-  assert(t->toBasetype()->ty == Tfunction || v->getType() == DtoType(t));
+  // v may be an addrspace qualified pointer so strip it before doing a pointer
+  // equality check.
+  assert(t->toBasetype()->ty == Tfunction || stripAddrSpaces(v->getType()) == DtoType(t));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -75,7 +77,9 @@ DConstValue::DConstValue(Type *t, LLConstant *con) : DRValue(t, con) {
 
 DSliceValue::DSliceValue(Type *t, LLValue *pair) : DRValue(t, pair) {
   assert(t->toBasetype()->ty == Tarray);
-  assert(pair->getType() == DtoType(t));
+  // v may have an addrspace qualified pointer so strip it before doing a pointer
+  // equality check.
+  assert(stripAddrSpaces(pair->getType()) == DtoType(t));
 }
 
 DSliceValue::DSliceValue(Type *t, LLValue *length, LLValue *ptr)
@@ -101,7 +105,9 @@ bool DFuncValue::definedInFuncEntryBB() {
 ////////////////////////////////////////////////////////////////////////////////
 
 DLValue::DLValue(Type *t, LLValue *v) : DValue(t, v) {
-  assert(t->toBasetype()->ty == Ttuple || v->getType() == DtoPtrToType(t));
+  // v may be an addrspace qualified pointer so strip it before doing a pointer
+  // equality check.
+  assert(t->toBasetype()->ty == Ttuple || stripAddrSpaces(v->getType()) == DtoPtrToType(t));
 }
 
 DRValue *DLValue::getRVal() {

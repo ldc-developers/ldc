@@ -22,6 +22,7 @@
 #include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
+#include "gen/dcomputetarget.h"
 #include "gen/dvalue.h"
 #include "gen/funcgenstate.h"
 #include "gen/function-inlining.h"
@@ -37,6 +38,7 @@
 #include "gen/pgo.h"
 #include "gen/pragma.h"
 #include "gen/runtime.h"
+#include "gen/scope_exit.h"
 #include "gen/tollvm.h"
 #include "gen/uda.h"
 #include "ir/irfunction.h"
@@ -322,7 +324,7 @@ static llvm::Function *DtoDeclareVaFunction(FuncDeclaration *fdecl) {
   }
   assert(func);
 
-  getIrFunc(fdecl)->func = func;
+  getIrFunc(fdecl)->setLLVMFunc(func);
   return func;
 }
 
@@ -547,7 +549,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   IF_LOG Logger::cout() << "func = " << *func << std::endl;
 
   // add func to IRFunc
-  irFunc->func = func;
+  irFunc->setLLVMFunc(func);
 
   // parameter attributes
   if (!DtoIsIntrinsic(fdecl)) {
@@ -780,12 +782,14 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   if (fd->ir->isDefined()) {
+    llvm::Function *func = getIrFunc(fd)->getLLVMFunc();
+    assert(nullptr != func);
     if (!linkageAvailableExternally &&
-        (getIrFunc(fd)->func->getLinkage() ==
+        (func->getLinkage() ==
          llvm::GlobalValue::AvailableExternallyLinkage)) {
       // Fix linkage
       const auto lwc = lowerFuncLinkage(fd);
-      setLinkage(lwc, getIrFunc(fd)->func);
+      setLinkage(lwc, func);
     }
     return;
   }
@@ -909,10 +913,14 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   IF_LOG Logger::println("Doing function body for: %s", fd->toChars());
   gIR->funcGenStates.emplace_back(new FuncGenState(*irFunc, *gIR));
   auto &funcGen = gIR->funcGen();
+  SCOPE_EXIT {
+    assert(&gIR->funcGen() == &funcGen);
+    gIR->funcGenStates.pop_back();
+  };
 
   const auto f = static_cast<TypeFunction *>(fd->type->toBasetype());
   IrFuncTy &irFty = irFunc->irFty;
-  llvm::Function *func = irFunc->func;
+  llvm::Function *func = irFunc->getLLVMFunc();
 
   const auto lwc = lowerFuncLinkage(fd);
   if (linkageAvailableExternally) {
@@ -929,9 +937,10 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   assert(!func->hasDLLImportStorageClass());
 
   // On x86_64, always set 'uwtable' for System V ABI compatibility.
+  // But don't set if for dcompute.
   // TODO: Find a better place for this.
   if (global.params.targetTriple->getArch() == llvm::Triple::x86_64 &&
-      !global.params.isWindows) {
+      !global.params.isWindows && gIR->dcomputetarget == nullptr) {
     func->addFnAttr(LLAttribute::UWTable);
   }
   if (opts::sanitize != opts::None) {
@@ -965,7 +974,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // this gets erased when the function is complete, so alignment etc does not
   // matter at all
   llvm::Instruction *allocaPoint = new llvm::AllocaInst(
-      LLType::getInt32Ty(gIR->context()), "alloca point", beginbb);
+      LLType::getInt32Ty(gIR->context()), "allocaPoint", beginbb);
   funcGen.allocapoint = allocaPoint;
 
   // debug info - after all allocas, but before any llvm.dbg.declare etc
@@ -1022,7 +1031,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     defineParameters(irFty, *fd->parameters);
 
   // Initialize PGO state for this function
-  funcGen.pgo.assignRegionCounters(fd, irFunc->func);
+  funcGen.pgo.assignRegionCounters(fd, func);
 
   DtoCreateNestedContext(funcGen);
 
@@ -1117,8 +1126,11 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   gIR->scopes.pop_back();
 
-  assert(&gIR->funcGen() == &funcGen);
-  gIR->funcGenStates.pop_back();
+  if (gIR->dcomputetarget && hasKernelAttr(fd)) {
+    auto fn = gIR->module.getFunction(fd->mangleString);
+    gIR->dcomputetarget->addKernelMetadata(fd, fn);
+  }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
