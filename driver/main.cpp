@@ -1065,7 +1065,7 @@ void codegenModules(Modules &modules) {
     }
 
     IF_LOG Logger::println("number of Modules for DCompute: %d",
-                            computeModules.size());
+                            (int)computeModules.size());
     if (!computeModules.empty()) {
       for (auto& mod : computeModules)
         dccg.emit(mod);

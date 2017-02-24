@@ -20,7 +20,7 @@ extern(C++) void extraLDCSpecificSemanticAnalysis(ref Modules modules)
 {
     foreach(m; modules[])
     {
-        if (hasComputeAttr(m))
+        if (hasComputeAttrBool(m))
             dcomputeSemanticAnalysis(m);
     }
     
