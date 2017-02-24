@@ -1007,7 +1007,7 @@ void addDefaultVersionIdentifiers() {
 }
 
 void codegenModules(Modules &modules) {
-  // Generate one or more object/IR/bitcode files.
+  // Generate one or more object/IR/bitcode files/DCompute kernels.
   if (global.params.obj && !modules.empty()) {
     ldc::CodeGenerator cg(getGlobalContext(), global.params.oneobj);
     DComputeCodeGenManager dccg(getGlobalContext());
@@ -1025,10 +1025,13 @@ void codegenModules(Modules &modules) {
       Module *const m = modules[i];
       if (global.params.verbose)
         fprintf(global.stdmsg, "code      %s\n", m->toChars());
-      int atCompute = hasComputeAttr(m);
-      if (atCompute == 0 || atCompute == 2)
+      auto atCompute = hasComputeAttr(m);
+      if (atCompute == DComputeCompileFor::hostOnly ||
+          atCompute == DComputeCompileFor::hostAndDevice)
+      {
         cg.emit(m);
-      if (atCompute)
+      }
+      if (atCompute != DComputeCompileFor::hostOnly)
         compute_modules.push_back(m);
         
 
