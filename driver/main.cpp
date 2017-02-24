@@ -706,6 +706,14 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("SPARC64");
     registerPredefinedFloatABI("SPARC_SoftFloat", "SPARC_HardFloat");
     break;
+  case llvm::Triple::nvptx:
+    VersionCondition::addPredefinedGlobalIdent("NVPTX");
+    VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
+    break;
+  case llvm::Triple::nvptx64:
+    VersionCondition::addPredefinedGlobalIdent("NVPTX64");
+    VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
+    break;
   case llvm::Triple::systemz:
     VersionCondition::addPredefinedGlobalIdent("SystemZ");
     VersionCondition::addPredefinedGlobalIdent(
@@ -820,7 +828,7 @@ void registerPredefinedVersions() {
   VersionCondition::addPredefinedGlobalIdent("LDC");
   VersionCondition::addPredefinedGlobalIdent("all");
   VersionCondition::addPredefinedGlobalIdent("D_Version2");
-  VersionCondition::addPredefinedGlobalIdent("D_DCompute");
+  VersionCondition::addPredefinedGlobalIdent("LDC_DCompute");
 
   if (global.params.doDocComments) {
     VersionCondition::addPredefinedGlobalIdent("D_Ddoc");
