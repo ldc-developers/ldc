@@ -14,7 +14,7 @@ import ddmd.dsymbol;
 import ddmd.dmodule;
 
 extern(C++) void dcomputeSemanticAnalysis(Module m);
-extern(C++) int hasComputeAttr(Dsymbol m);
+extern(C++) bool hasComputeAttrBool(Dsymbol m);
 
 extern(C++) void extraLDCSpecificSemanticAnalysis(ref Modules modules)
 {

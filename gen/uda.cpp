@@ -451,3 +451,8 @@ DComputeCompileFor hasComputeAttr(Dsymbol *sym) {
   return static_cast<DComputeCompileFor>(1 + (*sle->elements)[0]->toInteger());
 
 }
+
+/// For semantic.d
+bool hasComputeAttrBool(Dsymbol *sym) {
+  return hasComputeAttr(sym) != DComputeCompileFor::hostOnly;
+}
