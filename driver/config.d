@@ -107,7 +107,9 @@ private:
 
 /+
 
-What follows is a recursive descent parser that reads the following EBNF grammar
+What follows is a recursive descent parser that reads the following
+EBNF grammar.
+It is a subset of the libconfig grammar (http://www.hyperrealm.com/libconfig).
 
 config  =   { ows , setting } , ows ;
 setting =   name , (":" | "=") , value , [";" | ","] ;
@@ -127,11 +129,19 @@ ows     =   [ ws ] ; (* optional white space *)
 ws      =   ? white space (space, tab, line feed ...) ? ;
 
 
-Single line comments are also supported in the form of "//" until line feed.
+Single line comments are also supported. They start with "//" and span until
+line feed.
 The "//" sequence is however allowed within strings and doesn't need to be
 escaped.
-Line feed are not allowed within strings. To span a string over multiple lines,
-use concatenation. ("string 1" "string 2")
+White space are significant only within strings.
+Physical line feeds are not allowed within strings. To span a string over
+multiple lines, use concatenation ("hello " "world" == "hello world").
+The following escape sequences are allowed in strings:
+  - \\
+  - \"
+  - \r
+  - \n
+  - \t
 
 +/
 
