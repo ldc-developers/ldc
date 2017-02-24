@@ -411,51 +411,38 @@ llvm::ConstantInt *DtoConstUbyte(unsigned char i) {
   return LLConstantInt::get(LLType::getInt8Ty(gIR->context()), i, false);
 }
 
-LLConstant *DtoConstFP(Type *t, longdouble value) {
-#if LDC_LLVM_VER >= 400
-  auto &x87DoubleExtended = APFloat::x87DoubleExtended();
-  auto &IEEEquad = APFloat::IEEEquad();
-  auto &PPCDoubleDouble = APFloat::PPCDoubleDouble();
-#else
-  auto &x87DoubleExtended = APFloat::x87DoubleExtended;
-  auto &IEEEquad = APFloat::IEEEquad;
-  auto &PPCDoubleDouble = APFloat::PPCDoubleDouble;
-#endif
-
+LLConstant *DtoConstFP(Type *t, const real_t value) {
   LLType *llty = DtoType(t);
   assert(llty->isFloatingPointTy());
 
-  if (llty == LLType::getFloatTy(gIR->context()) ||
-      llty == LLType::getDoubleTy(gIR->context())) {
-    return LLConstantFP::get(llty, value);
-  }
-  if (llty == LLType::getX86_FP80Ty(gIR->context())) {
-    uint64_t bits[] = {0, 0};
-    bits[0] = *reinterpret_cast<uint64_t *>(&value);
-    bits[1] =
-        *reinterpret_cast<uint16_t *>(reinterpret_cast<uint64_t *>(&value) + 1);
+  assert(sizeof(real_t) >= 8 && "real_t < 64 bits?");
+
+  if (llty->isFloatTy()) {
+    // let host narrow to single-precision target
     return LLConstantFP::get(gIR->context(),
-                             APFloat(x87DoubleExtended, APInt(80, 2, bits)));
-  }
-  if (llty == LLType::getFP128Ty(gIR->context())) {
-    union {
-      longdouble ld;
-      uint64_t bits[2];
-    } t;
-    t.ld = value;
-    return LLConstantFP::get(gIR->context(),
-                             APFloat(IEEEquad, APInt(128, 2, t.bits)));
-  }
-  if (llty == LLType::getPPC_FP128Ty(gIR->context())) {
-    uint64_t bits[] = {0, 0};
-    bits[0] = *reinterpret_cast<uint64_t *>(&value);
-    bits[1] =
-        *reinterpret_cast<uint16_t *>(reinterpret_cast<uint64_t *>(&value) + 1);
-    return LLConstantFP::get(gIR->context(),
-                             APFloat(PPCDoubleDouble, APInt(128, 2, bits)));
+                             APFloat(static_cast<float>(value)));
   }
 
-  llvm_unreachable("Unknown floating point type encountered");
+  if (llty->isDoubleTy()) {
+    // let host (potentially) narrow to double-precision target
+    return LLConstantFP::get(gIR->context(),
+                             APFloat(static_cast<double>(value)));
+  }
+
+  // host real_t => target real
+
+  // 1) represent host real_t as llvm::APFloat
+  const auto &targetRealSemantics = llty->getFltSemantics();
+  APFloat v(targetRealSemantics, APFloat::uninitialized);
+  CTFloat::toAPFloat(value, v);
+
+  // 2) convert to target real
+  if (&v.getSemantics() != &targetRealSemantics) {
+    bool ignored;
+    v.convert(targetRealSemantics, APFloat::rmNearestTiesToEven, &ignored);
+  }
+
+  return LLConstantFP::get(gIR->context(), v);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

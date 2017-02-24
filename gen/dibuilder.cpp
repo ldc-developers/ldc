@@ -1214,6 +1214,9 @@ void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
   assert(vd->isDataseg() ||
          (vd->storage_class & (STCconst | STCimmutable) && vd->_init));
 
+  OutBuffer mangleBuf;
+  mangleToBuffer(vd, &mangleBuf);
+
 #if LDC_LLVM_VER >= 400
   auto DIVar = DBuilder.createGlobalVariableExpression(
 #else
@@ -1223,7 +1226,7 @@ void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
       GetCU(), // context
 #endif
       vd->toChars(),                          // name
-      mangle(vd),                             // linkage name
+      mangleBuf.peekString(),                 // linkage name
       CreateFile(vd),                         // file
       vd->loc.linnum,                         // line num
       CreateTypeDescription(vd->type, false), // type

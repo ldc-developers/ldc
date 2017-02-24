@@ -6,10 +6,10 @@
 
 machine:
   environment:
-    PATH: "~/$CIRCLE_PROJECT_REPONAME/ldc2-1.0.0-linux-x86_64/bin:$PATH"
+    PATH: "~/$CIRCLE_PROJECT_REPONAME/ldc2-1.1.0-linux-x86_64/bin:$PATH"
 dependencies:
   cache_directories:
-    - ldc2-1.0.0-linux-x86_64
+    - ldc2-1.1.0-linux-x86_64
     #- clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04
   pre:
     # LLVM's official APT repo:
@@ -22,7 +22,7 @@ dependencies:
     #- if [[ ! -e clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04 ]]; then wget http://llvm.org/releases/3.8.0/clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04.tar.xz && xzcat clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04.tar.xz | tar -xvf - ; fi
 
     # Download and cache a prebuilt LDC package:
-    - if [[ ! -e ldc2-1.0.0-linux-x86_64/bin/ldc2 ]]; then wget https://github.com/ldc-developers/ldc/releases/download/v1.0.0/ldc2-1.0.0-linux-x86_64.tar.xz && xzcat ldc2-1.0.0-linux-x86_64.tar.xz | tar -xvf - ; fi
+    - if [[ ! -e ldc2-1.1.0-linux-x86_64/bin/ldc2 ]]; then wget https://github.com/ldc-developers/ldc/releases/download/v1.1.0/ldc2-1.1.0-linux-x86_64.tar.xz && xzcat ldc2-1.1.0-linux-x86_64.tar.xz | tar -xvf - ; fi
 
   override:
     - sudo apt-get remove clang llvm

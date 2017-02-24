@@ -95,7 +95,7 @@ LLConstantInt *DtoConstSize_t(uint64_t);
 LLConstantInt *DtoConstUint(unsigned i);
 LLConstantInt *DtoConstInt(int i);
 LLConstantInt *DtoConstUbyte(unsigned char i);
-LLConstant *DtoConstFP(Type *t, longdouble value);
+LLConstant *DtoConstFP(Type *t, real_t value);
 
 LLConstant *DtoConstString(const char *);
 LLConstant *DtoConstBool(bool);

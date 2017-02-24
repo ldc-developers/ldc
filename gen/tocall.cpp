@@ -208,18 +208,16 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static LLValue *getTypeinfoArrayArgumentForDVarArg(Expressions *arguments,
-                                                   int begin) {
+static LLValue *
+getTypeinfoArrayArgumentForDVarArg(const std::vector<DValue *> &argvals,
+                                   int begin) {
   IF_LOG Logger::println("doing d-style variadic arguments");
   LOG_SCOPE
 
   // number of non variadic args
   IF_LOG Logger::println("num non vararg params = %d", begin);
 
-  // get n args in arguments list
-  size_t n_arguments = arguments ? arguments->dim : 0;
-
-  const size_t numVariadicArgs = n_arguments - begin;
+  const size_t numVariadicArgs = argvals.size() - begin;
 
   // build type info array
   LLType *typeinfotype = DtoType(Type::dtypeinfo->type);
@@ -232,9 +230,9 @@ static LLValue *getTypeinfoArrayArgumentForDVarArg(Expressions *arguments,
   IF_LOG Logger::cout() << "_arguments storage: " << *typeinfomem << '\n';
 
   std::vector<LLConstant *> vtypeinfos;
-  vtypeinfos.reserve(n_arguments);
-  for (size_t i = begin; i < n_arguments; i++) {
-    vtypeinfos.push_back(DtoTypeInfoOf((*arguments)[i]->type));
+  vtypeinfos.reserve(argvals.size());
+  for (size_t i = begin; i < argvals.size(); i++) {
+    vtypeinfos.push_back(DtoTypeInfoOf(argvals[i]->type));
   }
 
   // apply initializer
@@ -634,13 +632,15 @@ public:
 
   ImplicitArgumentsBuilder(std::vector<LLValue *> &args, AttrSet &attrs,
                            Loc &loc, DValue *fnval,
-                           LLFunctionType *llCalleeType, Expressions *arguments,
+                           LLFunctionType *llCalleeType,
+                           const std::vector<DValue *> &argvals,
                            Type *resulttype, LLValue *sretPointer)
-      : args(args), attrs(attrs), loc(loc), fnval(fnval), arguments(arguments),
+      : args(args), attrs(attrs), loc(loc), fnval(fnval), argvals(argvals),
         resulttype(resulttype), sretPointer(sretPointer),
         // computed:
-        calleeType(fnval->type), dfnval(fnval->isFunc()),
-        irFty(DtoIrTypeFunction(fnval)), tf(DtoTypeFunction(fnval)),
+        isDelegateCall(fnval->type->toBasetype()->ty == Tdelegate),
+        dfnval(fnval->isFunc()), irFty(DtoIrTypeFunction(fnval)),
+        tf(DtoTypeFunction(fnval)),
         llArgTypesBegin(llCalleeType->param_begin()) {}
 
   void addImplicitArgs() {
@@ -661,12 +661,12 @@ private:
   AttrSet &attrs;
   Loc &loc;
   DValue *const fnval;
-  Expressions *const arguments;
+  const std::vector<DValue *> &argvals;
   Type *const resulttype;
   LLValue *const sretPointer;
 
   // computed:
-  Type *const calleeType;
+  const bool isDelegateCall;
   DFuncValue *const dfnval;
   IrFuncTy &irFty;
   TypeFunction *const tf;
@@ -700,10 +700,9 @@ private:
   // Adds an optional context/this pointer argument.
   void addContext() {
     bool thiscall = irFty.arg_this;
-    bool delegatecall = (calleeType->toBasetype()->ty == Tdelegate);
     bool nestedcall = irFty.arg_nest;
 
-    if (!thiscall && !delegatecall && !nestedcall)
+    if (!thiscall && !isDelegateCall && !nestedcall)
       return;
 
     size_t index = args.size();
@@ -734,7 +733,7 @@ private:
       // ... or a normal 'this' argument
       LLValue *thisarg = DtoBitCast(dfnval->vthis, llArgType);
       args.push_back(thisarg);
-    } else if (delegatecall) {
+    } else if (isDelegateCall) {
       // ... or a delegate context arg
       LLValue *ctxarg;
       if (fnval->isLVal()) {
@@ -767,7 +766,7 @@ private:
 
     if (irFty.arg_objcSelector && dfnval) {
       if (auto sel = dfnval->func->objc.selector) {
-        LLGlobalVariable* selptr = objc_getMethVarRef(*sel);
+        LLGlobalVariable *selptr = objc_getMethVarRef(*sel);
         args.push_back(DtoBitCast(DtoLoad(selptr), getVoidPtrType()));
         hasObjcSelector = true;
       }
@@ -782,7 +781,7 @@ private:
 
     int numFormalParams = Parameter::dim(tf->parameters);
     LLValue *argumentsArg =
-        getTypeinfoArrayArgumentForDVarArg(arguments, numFormalParams);
+        getTypeinfoArrayArgumentForDVarArg(argvals, numFormalParams);
 
     args.push_back(argumentsArg);
     attrs.add(args.size(), irFty.arg_arguments->attrs);
@@ -791,18 +790,17 @@ private:
 
 ////////////////////////////////////////////////////////////////////////////////
 
+namespace {
+
 // FIXME: this function is a mess !
-
-DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
-                        Expressions *arguments, LLValue *sretPointer) {
-  IF_LOG Logger::println("DtoCallFunction()");
-  LOG_SCOPE
-
+DValue *DtoCallFunctionImpl(Loc &loc, Type *resulttype, DValue *fnval,
+                            const std::vector<DValue *> &argvals,
+                            LLValue *sretPointer) {
   // make sure the D callee type has been processed
   DtoType(fnval->type);
 
   // get func value if any
-  DFuncValue *dfnval = fnval->isFunc();
+  DFuncValue *const dfnval = fnval->isFunc();
 
   // get function type info
   IrFuncTy &irFty = DtoIrTypeFunction(fnval);
@@ -834,7 +832,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   args.reserve(irFty.args.size());
 
   // handle implicit arguments (sret, context/this, _arguments)
-  ImplicitArgumentsBuilder iab(args, attrs, loc, fnval, callableTy, arguments,
+  ImplicitArgumentsBuilder iab(args, attrs, loc, fnval, callableTy, argvals,
                                resulttype, sretPointer);
   iab.addImplicitArgs();
 
@@ -853,34 +851,6 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   const int numFormalParams = Parameter::dim(tf->parameters); // excl. variadics
-  const size_t n_arguments =
-      arguments ? arguments->dim : 0; // number of explicit arguments
-
-  std::vector<DValue *> argvals(n_arguments, static_cast<DValue *>(nullptr));
-  if (dfnval && dfnval->func && dfnval->func->isArrayOp) {
-    // For array ops, the druntime implementation signatures are crafted
-    // specifically such that the evaluation order is as expected with
-    // the strange DMD reverse parameter passing order. Thus, we need
-    // to actually build the arguments right-to-left for them.
-    for (int i = numFormalParams - 1; i >= 0; --i) {
-      Parameter *fnarg = Parameter::getNth(tf->parameters, i);
-      assert(fnarg);
-      DValue *argval = DtoArgument(fnarg, (*arguments)[i]);
-      argvals[i] = argval;
-    }
-  } else {
-    for (int i = 0; i < numFormalParams; ++i) {
-      Parameter *fnarg = Parameter::getNth(tf->parameters, i);
-      assert(fnarg);
-      DValue *argval = DtoArgument(fnarg, (*arguments)[i]);
-      argvals[i] = argval;
-    }
-  }
-  // add varargs
-  for (size_t i = numFormalParams; i < n_arguments; ++i) {
-    argvals[i] = DtoArgument(nullptr, (*arguments)[i]);
-  }
-
   addExplicitArguments(args, attrs, irFty, callableTy, argvals,
                        numFormalParams);
 
@@ -911,7 +881,8 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
                                                                         : 0);
   LLValue *retllval =
       (irFty.arg_sret ? args[sretArgIndex] : call.getInstruction());
-  bool retValIsLVal = (tf->isref && returnTy != Tvoid) || (irFty.arg_sret != nullptr);
+  bool retValIsLVal =
+      (tf->isref && returnTy != Tvoid) || (irFty.arg_sret != nullptr);
 
   if (!retValIsLVal) {
     // let the ABI transform the return value back
@@ -1043,4 +1014,58 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   return new DImValue(resulttype, retllval);
+}
+
+std::vector<DValue *> evaluateArgExpressions(DValue *fnval,
+                                             Expressions *arguments) {
+  IF_LOG Logger::println("Evaluating argument expressions");
+  LOG_SCOPE
+
+  const auto tf = DtoTypeFunction(fnval);
+
+  const size_t numArguments = arguments ? arguments->dim : 0;
+  std::vector<DValue *> argvals(numArguments);
+
+  // For array ops, the druntime implementation signatures are crafted
+  // specifically such that the evaluation order is as expected with
+  // the strange DMD reverse parameter passing order. Thus, we need
+  // to actually evaluate the arguments right-to-left for them.
+  const auto dfnval = fnval->isFunc();
+  const bool reverse = (dfnval && dfnval->func && dfnval->func->isArrayOp);
+
+  // formal params (excl. variadics)
+  const size_t numFormalParams = Parameter::dim(tf->parameters);
+  for (size_t j = 0; j < numFormalParams; ++j) {
+    size_t i = (!reverse ? j : numFormalParams - 1 - j);
+    Parameter *fnarg = Parameter::getNth(tf->parameters, i);
+    assert(fnarg);
+    argvals[i] = DtoArgument(fnarg, (*arguments)[i]);
+  }
+
+  // append variadics
+  for (size_t i = numFormalParams; i < numArguments; ++i) {
+    argvals[i] = DtoArgument(nullptr, (*arguments)[i]);
+  }
+
+  return argvals;
+}
+
+} // anonymous namespace
+
+DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
+                        const std::vector<DValue *> &argvals,
+                        LLValue *sretPointer) {
+  IF_LOG Logger::println("DtoCallFunction()");
+  LOG_SCOPE
+
+  return DtoCallFunctionImpl(loc, resulttype, fnval, argvals, sretPointer);
+}
+
+DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
+                        Expressions *arguments, llvm::Value *sretPointer) {
+  IF_LOG Logger::println("DtoCallFunction()");
+  LOG_SCOPE
+
+  const auto argvals = evaluateArgExpressions(fnval, arguments);
+  return DtoCallFunctionImpl(loc, resulttype, fnval, argvals, sretPointer);
 }

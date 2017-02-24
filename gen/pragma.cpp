@@ -15,6 +15,7 @@
 #include "module.h"
 #include "scope.h"
 #include "template.h"
+#include "gen/llvmhelpers.h"
 #include "llvm/Support/CommandLine.h"
 
 static bool parseStringExp(Expression *e, const char *&res) {
@@ -315,7 +316,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
       TypeFunction *type = static_cast<TypeFunction *>(fd->type);
       Type *retType = type->next;
       if (retType->ty != Tvoid || type->parameters->dim > 0 ||
-          (fd->isAggregateMember() && !fd->isStatic())) {
+          (fd->isMember() && !fd->isStatic())) {
         error(s->loc, "the '%s' pragma is only allowed on void functions which "
                       "take no arguments",
               ident->toChars());

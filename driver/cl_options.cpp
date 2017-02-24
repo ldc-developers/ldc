@@ -88,11 +88,11 @@ static cl::opt<bool, true> verbose("v", cl::desc("Verbose"), cl::ZeroOrMore,
 
 static cl::opt<bool, true>
     vcolumns("vcolumns",
-             cl::desc("print character (column) numbers in diagnostics"),
+             cl::desc("Print character (column) numbers in diagnostics"),
              cl::ZeroOrMore, cl::location(global.params.showColumns));
 
 static cl::opt<bool, true>
-    vgc("vgc", cl::desc("list all gc allocations including hidden ones"),
+    vgc("vgc", cl::desc("List all gc allocations including hidden ones"),
         cl::ZeroOrMore, cl::location(global.params.vgc));
 
 static cl::opt<bool, true> verbose_cg("v-cg", cl::desc("Verbose codegen"),
@@ -100,9 +100,15 @@ static cl::opt<bool, true> verbose_cg("v-cg", cl::desc("Verbose codegen"),
                                       cl::location(global.params.verbose_cg));
 
 static cl::opt<unsigned, true> errorLimit(
-    "verrors",
-    cl::desc("limit the number of error messages (0 means unlimited)"),
+    "verrors", cl::ZeroOrMore,
+    cl::desc("Limit the number of error messages (0 means unlimited)"),
     cl::location(global.errorLimit));
+
+static cl::opt<bool, true>
+    showGaggedErrors("verrors-spec", cl::ZeroOrMore,
+                     cl::location(global.params.showGaggedErrors),
+                     cl::desc("Show errors from speculative compiles such as "
+                              "__traits(compiles,...)"));
 
 static cl::opt<ubyte, true> warnings(
     cl::desc("Warnings:"), cl::ZeroOrMore,
@@ -133,27 +139,31 @@ static cl::opt<unsigned, true>
 cl::opt<bool> noAsm("noasm", cl::desc("Disallow use of inline assembler"));
 
 // Output file options
-cl::opt<bool> dontWriteObj("o-", cl::desc("Do not write object file"));
+cl::opt<bool> dontWriteObj("o-", cl::desc("Do not write object file"),
+                           cl::ZeroOrMore);
 
 cl::opt<std::string> objectFile("of", cl::value_desc("filename"), cl::Prefix,
-                                cl::desc("Use <filename> as output file name"));
+                                cl::desc("Use <filename> as output file name"),
+                                cl::ZeroOrMore);
 
-cl::opt<std::string>
-    objectDir("od", cl::value_desc("objdir"), cl::Prefix,
-              cl::desc("Write object files to directory <objdir>"));
+cl::opt<std::string> objectDir("od", cl::value_desc("directory"), cl::Prefix,
+                               cl::ZeroOrMore,
+                               cl::desc("Write object files to <directory>"));
 
 cl::opt<std::string>
     soname("soname", cl::value_desc("soname"), cl::Hidden, cl::Prefix,
            cl::desc("Use <soname> as output shared library soname"));
 
 // Output format options
-cl::opt<bool> output_bc("output-bc", cl::desc("Write LLVM bitcode"));
+cl::opt<bool> output_bc("output-bc", cl::desc("Write LLVM bitcode"),
+                        cl::ZeroOrMore);
 
-cl::opt<bool> output_ll("output-ll", cl::desc("Write LLVM IR"));
+cl::opt<bool> output_ll("output-ll", cl::desc("Write LLVM IR"), cl::ZeroOrMore);
 
-cl::opt<bool> output_s("output-s", cl::desc("Write native assembly"));
+cl::opt<bool> output_s("output-s", cl::desc("Write native assembly"),
+                       cl::ZeroOrMore);
 
-cl::opt<cl::boolOrDefault> output_o("output-o",
+cl::opt<cl::boolOrDefault> output_o("output-o", cl::ZeroOrMore,
                                     cl::desc("Write native object"));
 
 static cl::opt<bool, true>
@@ -170,41 +180,46 @@ cl::opt<bool, true>
 
 // DDoc options
 static cl::opt<bool, true> doDdoc("D", cl::desc("Generate documentation"),
-                                  cl::location(global.params.doDocComments));
+                                  cl::location(global.params.doDocComments),
+                                  cl::ZeroOrMore);
 
 cl::opt<std::string>
-    ddocDir("Dd", cl::desc("Write documentation file to <docdir> directory"),
-            cl::value_desc("docdir"), cl::Prefix);
+    ddocDir("Dd", cl::desc("Write documentation file to <directory>"),
+            cl::value_desc("directory"), cl::Prefix, cl::ZeroOrMore);
 
 cl::opt<std::string>
     ddocFile("Df", cl::desc("Write documentation file to <filename>"),
-             cl::value_desc("filename"), cl::Prefix);
+             cl::value_desc("filename"), cl::Prefix, cl::ZeroOrMore);
 
 // Json options
 static cl::opt<bool, true> doJson("X", cl::desc("Generate JSON file"),
+                                  cl::ZeroOrMore,
                                   cl::location(global.params.doJsonGeneration));
 
 cl::opt<std::string> jsonFile("Xf", cl::desc("Write JSON file to <filename>"),
-                              cl::value_desc("filename"), cl::Prefix);
+                              cl::value_desc("filename"), cl::Prefix,
+                              cl::ZeroOrMore);
 
 // Header generation options
 static cl::opt<bool, true>
-    doHdrGen("H", cl::desc("Generate 'header' file"),
+    doHdrGen("H", cl::desc("Generate 'header' file"), cl::ZeroOrMore,
              cl::location(global.params.doHdrGeneration));
 
-cl::opt<std::string>
-    hdrDir("Hd", cl::desc("Write 'header' file to <hdrdir> directory"),
-           cl::value_desc("hdrdir"), cl::Prefix);
+cl::opt<std::string> hdrDir("Hd",
+                            cl::desc("Write 'header' file to <directory>"),
+                            cl::value_desc("directory"), cl::Prefix,
+                            cl::ZeroOrMore);
 
-cl::opt<std::string> hdrFile("Hf",
+cl::opt<std::string> hdrFile("Hf", cl::ZeroOrMore,
                              cl::desc("Write 'header' file to <filename>"),
                              cl::value_desc("filename"), cl::Prefix);
 
-static cl::opt<bool, true> hdrKeepAllBodies(
-    "Hkeep-all-bodies", cl::desc("Keep all function bodies in .di files"),
-    cl::ZeroOrMore, cl::location(global.params.hdrKeepAllBodies));
+cl::opt<bool>
+    hdrKeepAllBodies("Hkeep-all-bodies",
+                     cl::desc("Keep all function bodies in .di files"),
+                     cl::ZeroOrMore);
 
-static cl::opt<bool, true> unittest("unittest",
+static cl::opt<bool, true> unittest("unittest", cl::ZeroOrMore,
                                     cl::desc("Compile in unit tests"),
                                     cl::location(global.params.useUnitTests));
 
@@ -214,10 +229,9 @@ cl::opt<std::string>
              cl::value_desc("cache dir"));
 
 static StringsAdapter strImpPathStore("J", global.params.fileImppath);
-static cl::list<std::string, StringsAdapter>
-    stringImportPaths("J", cl::desc("Where to look for string imports"),
-                      cl::value_desc("path"), cl::location(strImpPathStore),
-                      cl::Prefix);
+static cl::list<std::string, StringsAdapter> stringImportPaths(
+    "J", cl::desc("Look for string imports also in <directory>"),
+    cl::value_desc("directory"), cl::location(strImpPathStore), cl::Prefix);
 
 static cl::opt<bool, true>
     addMain("main", cl::desc("Add default main() (e.g. for unittesting)"),
@@ -251,7 +265,7 @@ static D_DebugStorage dds;
 // so we need to be a bit more verbose.
 static cl::list<std::string, D_DebugStorage> debugVersionsOption(
     "d-debug",
-    cl::desc("Compile in debug code >= <level> or identified by <idents>."),
+    cl::desc("Compile in debug code >= <level> or identified by <idents>"),
     cl::value_desc("level/idents"), cl::location(dds), cl::CommaSeparated,
     cl::ValueOptional);
 
@@ -263,7 +277,8 @@ cl::list<std::string> versions(
 
 cl::list<std::string> transitions(
     "transition",
-    cl::desc("help with language change identified by <idents>, use ? for list"),
+    cl::desc(
+        "Help with language change identified by <idents>, use ? for list"),
     cl::value_desc("idents"), cl::CommaSeparated);
 
 static StringsAdapter linkSwitchStore("L", global.params.linkswitches);
@@ -274,7 +289,9 @@ static cl::list<std::string, StringsAdapter>
 
 cl::opt<std::string>
     moduleDeps("deps",
-               cl::desc("Write module dependencies to filename (only imports)"),
+               cl::desc("Write module dependencies to filename (only imports). "
+                        "'-deps' alone prints module dependencies "
+                        "(imports/file/version/debug/lib)"),
                cl::value_desc("filename"), cl::ValueOptional);
 
 cl::opt<std::string> mArch("march",
@@ -344,7 +361,7 @@ cl::opt<FloatABI::Type> mFloatABI(
                    "Hardware floating-point ABI and instructions")));
 
 cl::opt<bool>
-    disableFpElim("disable-fp-elim",
+    disableFpElim("disable-fp-elim", cl::ZeroOrMore,
                   cl::desc("Disable frame pointer elimination optimization"),
                   cl::init(false));
 
@@ -354,12 +371,11 @@ static cl::opt<bool, true, FlagParser<bool>>
             cl::init(true));
 
 cl::opt<BOUNDSCHECK> boundsCheck(
-    "boundscheck", cl::desc("Enable array bounds check"),
-    clEnumValues(clEnumValN(BOUNDSCHECKoff, "off", "no array bounds checks"),
+    "boundscheck", cl::desc("Array bounds check"),
+    clEnumValues(clEnumValN(BOUNDSCHECKoff, "off", "Disabled"),
                  clEnumValN(BOUNDSCHECKsafeonly, "safeonly",
-                            "array bounds checks for safe functions only"),
-                 clEnumValN(BOUNDSCHECKon, "on",
-                            "array bounds checks for all functions")),
+                            "Enabled for @safe functions only"),
+                 clEnumValN(BOUNDSCHECKon, "on", "Enabled for all functions")),
     cl::init(BOUNDSCHECKdefault));
 
 static cl::opt<bool, true, FlagParser<bool>>
@@ -400,7 +416,7 @@ cl::opt<bool, true>
 
 cl::opt<uint32_t, true> hashThreshold(
     "hash-threshold",
-    cl::desc("hash symbol names longer than this threshold (experimental)"),
+    cl::desc("Hash symbol names longer than this threshold (experimental)"),
     cl::location(global.params.hashThreshold), cl::init(0));
 
 cl::opt<bool> linkonceTemplates(
@@ -427,24 +443,23 @@ void setDefaultMathOptions(llvm::TargetMachine &target) {
 }
 
 cl::opt<bool, true>
-    allinst("allinst",
-            cl::desc("generate code for all template instantiations"),
+    allinst("allinst", cl::ZeroOrMore,
+            cl::desc("Generate code for all template instantiations"),
             cl::location(global.params.allInst));
 
 cl::opt<unsigned, true> nestedTemplateDepth(
-    "template-depth",
+    "template-depth", cl::location(global.params.nestedTmpl), cl::init(500),
     cl::desc(
-        "(experimental) set maximum number of nested template instantiations"),
-    cl::location(global.params.nestedTmpl), cl::init(500));
+        "Set maximum number of nested template instantiations (experimental)"));
 
 cl::opt<bool, true>
-    useDIP25("dip25",
-             cl::desc("implement http://wiki.dlang.org/DIP25 (experimental)"),
+    useDIP25("dip25", cl::ZeroOrMore,
+             cl::desc("Implement http://wiki.dlang.org/DIP25 (experimental)"),
              cl::location(global.params.useDIP25));
 
 cl::opt<bool, true> betterC(
-    "betterC",
-    cl::desc("omit generating some runtime information and helper functions"),
+    "betterC", cl::ZeroOrMore,
+    cl::desc("Omit generating some runtime information and helper functions"),
     cl::location(global.params.betterC));
 
 cl::opt<unsigned char, true, CoverageParser> coverageAnalysis(
@@ -491,7 +506,7 @@ static cl::extrahelp footer(
     "\n"
     "-d-debug can also be specified without options, in which case it enables "
     "all\n"
-    "debug checks (i.e. (asserts, boundchecks, contracts and invariants) as "
+    "debug checks (i.e. (asserts, boundschecks, contracts and invariants) as "
     "well\n"
     "as acting as -d-debug=1\n\n"
     "Options marked with (*) also have a -disable-FOO variant with inverted\n"
@@ -539,6 +554,44 @@ void createClashingOptions() {
 /// Hides command line options exposed from within LLVM that are unlikely
 /// to be useful for end users from the -help output.
 void hideLLVMOptions() {
+  static const char *const hiddenOptions[] = {
+      "bounds-checking-single-trap", "disable-debug-info-verifier",
+      "disable-objc-arc-checkforcfghazards", "disable-spill-fusing", "cppfname",
+      "cppfor", "cppgen", "enable-correct-eh-support", "enable-load-pre",
+      "enable-implicit-null-checks", "enable-misched",
+      "enable-objc-arc-annotations", "enable-objc-arc-opts",
+      "enable-scoped-noalias", "enable-tbaa", "exhaustive-register-search",
+      "fatal-assembler-warnings", "gpsize", "imp-null-check-page-size",
+      "internalize-public-api-file", "internalize-public-api-list",
+      "join-liveintervals", "limit-float-precision",
+      "mc-x86-disable-arith-relaxation", "merror-missing-parenthesis",
+      "merror-noncontigious-register", "mfuture-regs", "mips-compact-branches",
+      "mips16-constant-islands", "mips16-hard-float", "mlsm", "mno-compound",
+      "mno-fixup", "mno-ldc1-sdc1", "mno-pairing", "mwarn-missing-parenthesis",
+      "mwarn-noncontigious-register", "mwarn-sign-mismatch", "nvptx-sched4reg",
+      "no-discriminators", "objc-arc-annotation-target-identifier",
+      "pre-RA-sched", "print-after-all", "print-before-all",
+      "print-machineinstrs", "profile-estimator-loop-weight",
+      "profile-estimator-loop-weight", "profile-file", "profile-info-file",
+      "profile-verifier-noassert", "r600-ir-structurize", "rdf-dump",
+      "rdf-limit", "regalloc", "rewrite-map-file", "rng-seed",
+      "sample-profile-max-propagate-iterations", "shrink-wrap", "spiller",
+      "stackmap-version", "stats", "strip-debug", "struct-path-tbaa",
+      "time-passes", "unit-at-a-time", "verify-debug-info", "verify-dom-info",
+      "verify-loop-info", "verify-machine-dom-info", "verify-regalloc",
+      "verify-region-info", "verify-scev", "verify-scev-maps",
+      "x86-early-ifcvt", "x86-use-vzeroupper", "x86-recip-refinement-steps",
+
+      // We enable -fdata-sections/-ffunction-sections by default where it makes
+      // sense for reducing code size, so hide them to avoid confusion.
+      //
+      // We need our own switch as these two are defined by LLVM and linked to
+      // static TargetMachine members, but the default we want to use depends
+      // on the target triple (and thus we do not know it until after the
+      // command
+      // line has been parsed).
+      "fdata-sections", "ffunction-sections"};
+
 #if LDC_LLVM_VER >= 307
   llvm::StringMap<cl::Option *> &map = cl::getRegisteredOptions();
 #else
@@ -546,88 +599,14 @@ void hideLLVMOptions() {
   cl::getRegisteredOptions(map);
 #endif
 
-  auto hide = [&map](const char *name) {
+  for (const auto name : hiddenOptions) {
     // Check if option exists first for resilience against LLVM changes
     // between versions.
-    if (map.count(name)) {
-      map[name]->setHiddenFlag(cl::Hidden);
+    auto it = map.find(name);
+    if (it != map.end()) {
+      it->second->setHiddenFlag(cl::Hidden);
     }
-  };
-
-  hide("bounds-checking-single-trap");
-  hide("disable-debug-info-verifier");
-  hide("disable-objc-arc-checkforcfghazards");
-  hide("disable-spill-fusing");
-  hide("cppfname");
-  hide("cppfor");
-  hide("cppgen");
-  hide("enable-correct-eh-support");
-  hide("enable-load-pre");
-  hide("enable-misched");
-  hide("enable-objc-arc-annotations");
-  hide("enable-objc-arc-opts");
-  hide("enable-scoped-noalias");
-  hide("enable-tbaa");
-  hide("exhaustive-register-search");
-  hide("fatal-assembler-warnings");
-  hide("internalize-public-api-file");
-  hide("internalize-public-api-list");
-  hide("join-liveintervals");
-  hide("limit-float-precision");
-  hide("mc-x86-disable-arith-relaxation");
-  hide("mips16-constant-islands");
-  hide("mips16-hard-float");
-  hide("mlsm");
-  hide("mno-ldc1-sdc1");
-  hide("nvptx-sched4reg");
-  hide("no-discriminators");
-  hide("objc-arc-annotation-target-identifier");
-  hide("pre-RA-sched");
-  hide("print-after-all");
-  hide("print-before-all");
-  hide("print-machineinstrs");
-  hide("profile-estimator-loop-weight");
-  hide("profile-estimator-loop-weight");
-  hide("profile-file");
-  hide("profile-info-file");
-  hide("profile-verifier-noassert");
-  hide("regalloc");
-  hide("rewrite-map-file");
-  hide("rng-seed");
-  hide("sample-profile-max-propagate-iterations");
-  hide("shrink-wrap");
-  hide("spiller");
-  hide("spirv-debug");
-  hide("spirv-erase-cl-md");
-  hide("spirv-lower-const-expr");
-  hide("spirv-mem2reg");
-  hide("spirv-text");
-  hide("spvbool-validate");
-  hide("stackmap-version");
-  hide("stats");
-  hide("strip-debug");
-  hide("struct-path-tbaa");
-  hide("time-passes");
-  hide("unit-at-a-time");
-  hide("verify-debug-info");
-  hide("verify-dom-info");
-  hide("verify-loop-info");
-  hide("verify-regalloc");
-  hide("verify-region-info");
-  hide("verify-scev");
-  hide("x86-early-ifcvt");
-  hide("x86-use-vzeroupper");
-  hide("x86-recip-refinement-steps");
-
-  // We enable -fdata-sections/-ffunction-sections by default where it makes
-  // sense for reducing code size, so hide them to avoid confusion.
-  //
-  // We need our own switch as these two are defined by LLVM and linked to
-  // static TargetMachine members, but the default we want to use depends
-  // on the target triple (and thus we do not know it until after the command
-  // line has been parsed).
-  hide("fdata-sections");
-  hide("ffunction-sections");
+  }
 }
 
 } // namespace opts

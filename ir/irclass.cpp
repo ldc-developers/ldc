@@ -136,15 +136,16 @@ LLGlobalVariable *IrAggr::getInterfaceArraySymbol() {
   LLArrayType *array_type = llvm::ArrayType::get(InterfaceTy, n);
 
   // put it in a global
-  std::string name("_D");
-  name.append(mangle(cd));
-  name.append("16__interfaceInfosZ");
+  OutBuffer mangledName;
+  mangledName.writestring("_D");
+  mangleToBuffer(cd, &mangledName);
+  mangledName.writestring("16__interfaceInfosZ");
 
   // We keep this as external for now and only consider template linkage if
   // we emit the initializer later.
-  classInterfacesArray =
-      getOrCreateGlobal(cd->loc, gIR->module, array_type, true,
-                        llvm::GlobalValue::ExternalLinkage, nullptr, name);
+  classInterfacesArray = getOrCreateGlobal(
+      cd->loc, gIR->module, array_type, true,
+      llvm::GlobalValue::ExternalLinkage, nullptr, mangledName.peekString());
 
   return classInterfacesArray;
 }
@@ -443,18 +444,19 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
   llvm::Constant *vtbl_constant = LLConstantArray::get(
       LLArrayType::get(voidPtrTy, constants.size()), constants);
 
-  std::string mangledName("_D");
-  mangledName.append(mangle(cd));
-  mangledName.append("11__interface");
-  mangledName.append(mangle(b->sym));
-  mangledName.append(thunkPrefixLen);
-  mangledName.append(thunkPrefix);
-  mangledName.append("6__vtblZ");
+  OutBuffer mangledName;
+  mangledName.writestring("_D");
+  mangleToBuffer(cd, &mangledName);
+  mangledName.writestring("11__interface");
+  mangleToBuffer(b->sym, &mangledName);
+  mangledName.writestring(thunkPrefixLen);
+  mangledName.writestring(thunkPrefix);
+  mangledName.writestring("6__vtblZ");
 
   const auto lwc = DtoLinkage(cd);
   LLGlobalVariable *GV =
       getOrCreateGlobal(cd->loc, gIR->module, vtbl_constant->getType(), true,
-                        lwc.first, vtbl_constant, mangledName);
+                        lwc.first, vtbl_constant, mangledName.peekString());
   setLinkage(lwc, GV);
 
   // insert into the vtbl map

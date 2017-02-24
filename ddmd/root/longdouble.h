@@ -1,9 +1,9 @@
-/* Copyright (c) 1999-2014 by Digital Mars
+/* Copyright (c) 1999-2016 by Digital Mars
  * All Rights Reserved, written by Rainer Schuetze
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
  * (See accompanying file LICENSE or copy at http://www.boost.org/LICENSE_1_0.txt)
- * https://github.com/D-Programming-Language/dmd/blob/master/src/root/longdouble.h
+ * https://github.com/dlang/dmd/blob/master/src/root/longdouble.h
  */
 
 // 80 bit floating point value implementation for Microsoft compiler
@@ -11,6 +11,7 @@
 #ifndef __LONG_DOUBLE_H__
 #define __LONG_DOUBLE_H__
 
+// LDC: Don't provide 'manual' x87 longdouble when compiling with MS compiler.
 #if IN_LLVM || !_MSC_VER // has native 10 byte doubles
 #include <stdio.h>
 typedef long double longdouble;
@@ -64,6 +65,8 @@ extern "C"
     void ld_set(longdouble* ld, double d);
     void ld_setll(longdouble* ld, long long d);
     void ld_setull(longdouble* ld, unsigned long long d);
+    int ld_statusfpu();
+    void ld_clearfpu();
 }
 
 #pragma pack(push, 1)

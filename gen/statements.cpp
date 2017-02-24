@@ -333,10 +333,6 @@ public:
     irs->DBuilder.EmitBlockStart(stmt->loc);
     emitCoverageLinecountInc(stmt->loc);
 
-    if (stmt->match) {
-      DtoRawVarDeclaration(stmt->match);
-    }
-
     // This is a (dirty) hack to get codegen time conditional
     // compilation, on account of the fact that we are trying
     // to target multiple backends "simultaneously" with one
