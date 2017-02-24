@@ -7,8 +7,6 @@
  */
 module rt.util.typeinfo;
 
-public import rt.util.hash;
-
 private enum isX87Real(T) = (T.sizeof == 16 && T.mant_dig == 64 && T.max_exp == 16384);
 
 template Floating(T)
@@ -43,10 +41,14 @@ if (is(T == float) || is(T == double) || is(T == real))
 
         static if (is(T == float))  // special case?
             return *cast(uint*)&value;
-        else static if (isX87Real!T) // Only consider the non-padding bytes.
-            return rt.util.hash.hashOf(&value, 10);
         else
-            return rt.util.hash.hashOf(&value, T.sizeof);
+        {
+            import rt.util.hash;
+            static if (isX87Real!T) // Only consider the non-padding bytes.
+                return rt.util.hash.hashOf((cast(void*) &value)[0 .. 10], 0);
+            else
+                return rt.util.hash.hashOf((&value)[0 .. 1], 0);
+        }
     }
 }
 template Floating(T)
@@ -80,11 +82,15 @@ if (is(T == cfloat) || is(T == cdouble) || is(T == creal))
     {
         if (value == 0 + 0i)
             value = 0 + 0i;
+        import rt.util.hash;
         static if (isX87Real!(typeof(T.init.re))) // Only consider the non-padding bytes.
-            return rt.util.hash.hashOf(&value, 10,
-                rt.util.hash.hashOf((cast(real*)&value) + 1, 10));
+        {
+            real* ptr = cast(real*) &value;
+            return rt.util.hash.hashOf((cast(void*) &ptr[0])[0 .. 10],
+                rt.util.hash.hashOf((cast(void*) &ptr[1])[0 .. 10], 0));
+        }
         else
-            return rt.util.hash.hashOf(&value, T.sizeof);
+            return rt.util.hash.hashOf((&value)[0 .. 1], 0);
     }
 }
 

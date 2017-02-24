@@ -9,8 +9,10 @@
  * Authors:   David Nadlinger
  */
 
+#ifndef __APPLE__
 #ifndef __BLOCKS__
- #error "Need a C compiler with Apple Blocks support – not building on OS X?"
+ #error "Need a C compiler with Apple Blocks support – not building on OS X with Clang?"
+#endif
 #endif
 
 #include <assert.h>
