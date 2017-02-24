@@ -51,20 +51,20 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
 }
 
 DComputeCodeGenManager::DComputeCodeGenManager(llvm::LLVMContext &c) : ctx(c) {
-  for (d_size_t i = 0; i < opts::dcomputeTargets.size(); i++) {
-    targets.push_back(createComputeTarget(opts::dcomputeTargets[i]));
+  for (auto& option : opts::dcomputeTargets) {
+    targets.push_back(createComputeTarget(option));
   }
 }
 
 void DComputeCodeGenManager::emit(Module *m) {
-  for (d_size_t i = 0; i < targets.size(); i++) {
-    targets[i]->emit(m);
+  for (auto& target : targets) {
+    target->emit(m);
     IrDsymbol::resetAll();
   }
 }
 
 void DComputeCodeGenManager::writeModules() {
-  for (d_size_t i = 0; i < targets.size(); i++) {
-    targets[i]->writeModule();
+  for (auto& target : targets) {
+    target->writeModule();
   }
 }
