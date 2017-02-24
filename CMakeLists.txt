@@ -342,6 +342,7 @@ set(DRV_SRC
     driver/cl_options.cpp
     driver/codegenerator.cpp
     driver/configfile.cpp
+    driver/dcomputecodegenerator.cpp
     driver/exe_path.cpp
     driver/targetmachine.cpp
     driver/toobj.cpp
@@ -356,6 +357,7 @@ set(DRV_HDR
     driver/cl_options.h
     driver/codegenerator.h
     driver/configfile.h
+    driver/dcomputecodegenerator.h
     driver/exe_path.h
     driver/ldc-version.h
     driver/linker.h

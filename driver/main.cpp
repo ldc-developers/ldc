@@ -23,6 +23,7 @@
 #include "driver/cl_options.h"
 #include "driver/codegenerator.h"
 #include "driver/configfile.h"
+#include "driver/dcomputecodegenerator.h"
 #include "driver/exe_path.h"
 #include "driver/ldc-version.h"
 #include "driver/linker.h"
@@ -39,6 +40,7 @@
 #include "gen/optimizer.h"
 #include "gen/passes/Passes.h"
 #include "gen/runtime.h"
+#include "gen/uda.h"
 #include "gen/abi.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/LinkAllPasses.h"
@@ -851,6 +853,7 @@ void registerPredefinedVersions() {
   VersionCondition::addPredefinedGlobalIdent("LDC");
   VersionCondition::addPredefinedGlobalIdent("all");
   VersionCondition::addPredefinedGlobalIdent("D_Version2");
+  VersionCondition::addPredefinedGlobalIdent("LDC_DCompute");
 
   if (global.params.doDocComments) {
     VersionCondition::addPredefinedGlobalIdent("D_Ddoc");
@@ -1029,9 +1032,11 @@ void addDefaultVersionIdentifiers() {
 }
 
 void codegenModules(Modules &modules) {
-  // Generate one or more object/IR/bitcode files.
+  // Generate one or more object/IR/bitcode files/DCompute kernels.
   if (global.params.obj && !modules.empty()) {
     ldc::CodeGenerator cg(getGlobalContext(), global.params.oneobj);
+    DComputeCodeGenManager dccg(getGlobalContext());
+    std::vector<Module *> compute_modules;
 
     // When inlining is enabled, we are calling semantic3 on function
     // declarations, which may _add_ members to the first module in the modules
@@ -1045,14 +1050,29 @@ void codegenModules(Modules &modules) {
       Module *const m = modules[i];
       if (global.params.verbose)
         fprintf(global.stdmsg, "code      %s\n", m->toChars());
-
-      cg.emit(m);
+      auto atCompute = hasComputeAttr(m);
+      if (atCompute == DComputeCompileFor::hostOnly ||
+          atCompute == DComputeCompileFor::hostAndDevice)
+      {
+        cg.emit(m);
+      }
+      if (atCompute != DComputeCompileFor::hostOnly)
+        compute_modules.push_back(m);
+        
 
       if (global.errors)
         fatal();
     }
-  }
 
+    IF_LOG Logger::println("number of Modules for DCompute: %d",
+                            compute_modules.size());
+    if (compute_modules.size()) {
+      for (auto& mod : compute_modules)
+        dccg.emit(mod);
+        
+      dccg.writeModules();
+    }
+  }
   cache::pruneCache();
 
   freeRuntime();

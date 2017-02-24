@@ -423,25 +423,31 @@ bool hasKernelAttr(Dsymbol *sym) {
 
   checkStructElems(sle, {});
 
-  if (!sym->isFuncDeclaration() && !hasComputeAttr(sym->getModule()))
+  if (!sym->isFuncDeclaration() &&
+      hasComputeAttr(sym->getModule()) == DComputeCompileFor::hostOnly)
     sym->error("@ldc.attributes.kernel can only be applied to functions"
                " in modules marked @compute");
 
   return true;
 }
 
-/// Returns 0 if 'sym' does not have the @ldc.attributes.compute() UDA applied.
-/// Returns 1 if 'sym' does but is @compute(false), meaning generate only for
-///     compute.
-/// Returns 2 if 'sym' does and is @compute(true), meaning generate for compute
-///     and for host.
-int hasComputeAttr(Dsymbol *sym) {
+/// Returns DComputeCompileFor::hostOnly if 'sym' does not have the
+///     @ldc.attributes.compute() UDA applied.
+/// Returns DComputeCompileFor::deviceOnly if 'sym' does, and is
+///     @compute(CompileFor.deviceOnly)
+/// Returns DComputeCompileFor::hostAndDevice if 'sym' does and is
+///     @compute(CompileFor.hostAndDevice)
+DComputeCompileFor hasComputeAttr(Dsymbol *sym) {
 
   auto sle = getMagicAttribute(sym, attr::compute);
   if (!sle)
-    return 0;
+    return DComputeCompileFor::hostOnly;
 
   checkStructElems(sle, {Type::tint32});
 
-  return 1 + (*sle->elements)[0]->toInteger();
+  if (!sym->isModule())
+    sym->error("@ldc.attributes.compute can only be applied to modules");
+
+  return static_cast<DComputeCompileFor>(1 + (*sle->elements)[0]->toInteger());
+
 }
