@@ -344,12 +344,22 @@ public:
         auto arg1 = (DComputeTarget::ID)(*ce->arguments)[0]->toInteger();
         auto arg2 = (*ce->arguments)[1]->toInteger();
         auto dct = irs->dcomputetarget;
-        if ((arg1 == DComputeTarget::Host && !irs->dcomputetarget)
-            || (arg1 == dct->target
-            && (!arg2 || arg2 == dct->tversion))) {
-          stmt->ifbody->accept(this);
-        } else if (stmt->elsebody) {
-          stmt->elsebody->accept(this);
+        Logger::println("here %p, %d, %d",dct,arg1,arg2);
+        if (!dct) {
+          if (arg1 == DComputeTarget::Host)
+            stmt->ifbody->accept(this);
+          else if (stmt->elsebody)
+            stmt->elsebody->accept(this);
+
+        }
+        else {
+          if (arg1 == dct->target && (!arg2 || arg2 == dct->tversion)) {
+            Logger::println("here1");
+            stmt->ifbody->accept(this);
+          } else if (stmt->elsebody) {
+            Logger::println("here2");
+            stmt->elsebody->accept(this);
+          }
         }
         return;
       }
