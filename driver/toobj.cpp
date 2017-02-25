@@ -16,7 +16,11 @@
 #include "gen/programs.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/Verifier.h"
+#if LDC_LLVM_VER >= 400
+#include "llvm/Bitcode/BitcodeWriter.h"
+#else
 #include "llvm/Bitcode/ReaderWriter.h"
+#endif
 #if LDC_LLVM_VER >= 307
 #include "llvm/IR/LegacyPassManager.h"
 #else

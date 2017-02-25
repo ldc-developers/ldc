@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/llvmhelpers.h"
+#include "gen/cl_helpers.h"
 #include "expression.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
@@ -44,16 +45,15 @@
 llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel(
     "fthread-model", llvm::cl::desc("Thread model"),
     llvm::cl::init(llvm::GlobalVariable::GeneralDynamicTLSModel),
-    llvm::cl::values(clEnumValN(llvm::GlobalVariable::GeneralDynamicTLSModel,
-                                "global-dynamic",
-                                "Global dynamic TLS model (default)"),
-                     clEnumValN(llvm::GlobalVariable::LocalDynamicTLSModel,
-                                "local-dynamic", "Local dynamic TLS model"),
-                     clEnumValN(llvm::GlobalVariable::InitialExecTLSModel,
-                                "initial-exec", "Initial exec TLS model"),
-                     clEnumValN(llvm::GlobalVariable::LocalExecTLSModel,
-                                "local-exec", "Local exec TLS model"),
-                     clEnumValEnd));
+    clEnumValues(clEnumValN(llvm::GlobalVariable::GeneralDynamicTLSModel,
+                            "global-dynamic",
+                            "Global dynamic TLS model (default)"),
+                 clEnumValN(llvm::GlobalVariable::LocalDynamicTLSModel,
+                            "local-dynamic", "Local dynamic TLS model"),
+                 clEnumValN(llvm::GlobalVariable::InitialExecTLSModel,
+                            "initial-exec", "Initial exec TLS model"),
+                 clEnumValN(llvm::GlobalVariable::LocalExecTLSModel,
+                            "local-exec", "Local exec TLS model")));
 
 Type *getTypeInfoType(Type *t, Scope *sc);
 
@@ -1416,6 +1416,9 @@ bool isLLVMUnsigned(Type *t) { return t->isunsigned() || t->ty == Tpointer; }
 void printLabelName(std::ostream &target, const char *func_mangle,
                     const char *label_name) {
   target << gTargetMachine->getMCAsmInfo()->getPrivateGlobalPrefix()
+#if LDC_LLVM_VER >= 400
+              .str()
+#endif
          << func_mangle << "_" << label_name;
 }
 

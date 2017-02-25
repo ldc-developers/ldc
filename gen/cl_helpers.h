@@ -87,7 +87,13 @@ public:
 
   // Implement virtual functions needed by generic_parser_base
   unsigned getNumOptions() const LLVM_OVERRIDE { return 1; }
-  const char *getOption(unsigned N) const LLVM_OVERRIDE {
+
+#if LDC_LLVM_VER >= 400
+  llvm::StringRef
+#else
+  const char *
+#endif
+  getOption(unsigned N) const LLVM_OVERRIDE {
     assert(N == 0);
 #if LDC_LLVM_VER >= 308
     return owner().ArgStr.data();
@@ -96,7 +102,12 @@ public:
 #endif
   }
 
-  const char *getDescription(unsigned N) const LLVM_OVERRIDE {
+#if LDC_LLVM_VER >= 400
+  llvm::StringRef
+#else
+  const char *
+#endif
+  getDescription(unsigned N) const LLVM_OVERRIDE {
     assert(N == 0);
 #if LDC_LLVM_VER >= 308
     return owner().HelpStr.data();
@@ -195,5 +206,16 @@ public:
   void push_back(const std::string &str) { push_back(str.c_str()); }
 };
 }
+
+#if LDC_LLVM_VER >= 400
+#define clEnumValues llvm::cl::values
+#else
+template <typename DataType, typename... OptsTy>
+llvm::cl::ValuesClass<DataType> clEnumValues(const char *Arg, DataType Val,
+                                             const char *Desc,
+                                             OptsTy... Options) {
+  return llvm::cl::values(Arg, Val, Desc, Options..., clEnumValEnd);
+}
+#endif
 
 #endif
