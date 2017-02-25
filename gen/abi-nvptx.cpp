@@ -23,11 +23,11 @@ struct NVPTXTargetABI : TargetABI {
       return llvm::CallingConv::PTX_Device;
   }
   bool passByVal(Type *t) override {
-    Type *typ = type->toBasetype();
-    TY t = typ->ty;
-    if (t == Tstruct)
+    Type *typ = t->toBasetype();
+    TY ty = typ->ty;
+    if (ty == Tstruct)
       return !bool(toDcomputePointer(((TypeStruct*)typ)->sym));
-    return (t == Tsarray);
+    return (ty == Tsarray);
   }
   void rewriteFunctionType(TypeFunction *t, IrFuncTy &fty) override {
     // Do nothing.
