@@ -269,7 +269,7 @@ class Parser
                 name ~= cast(char)lastChar;
                 lastChar = getChar();
             }
-            while (isalnum(lastChar) || lastChar == '-');
+            while (isalnum(lastChar) || lastChar == '_' || lastChar == '-');
             outStr = name;
             return Token.name;
         }
