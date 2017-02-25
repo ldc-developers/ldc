@@ -73,6 +73,20 @@ string replace(string str, string pattern, string replacement)
     return res;
 }
 
+unittest
+{
+    enum pattern = "pattern";
+    enum test1 = "find the pattern in a sentence";
+    enum test2 = "find the pattern";
+    enum test3 = "pattern in a sentence";
+    enum test4 = "a pattern, yet other patterns";
+
+    assert(replace(test1, pattern, "word") == "find the word in a sentence");
+    assert(replace(test2, pattern, "word") == "find the word");
+    assert(replace(test3, pattern, "word") == "word in a sentence");
+    assert(replace(test4, pattern, "word") == "a word, yet other words");
+}
+
 
 struct ConfigFile
 {
