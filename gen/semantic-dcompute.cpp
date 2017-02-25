@@ -66,8 +66,6 @@ bool isNonComputeCallExpVaild(CallExp *ce) {
 }
 
 struct DComputeSemanticAnalyser : public StoppableVisitor {
-  // Keep track of the outermost (i.e. not nested) function
-
 
   void visit(InterfaceDeclaration *decl) override {
     decl->error("interfaces and classes not allowed in @compute code");

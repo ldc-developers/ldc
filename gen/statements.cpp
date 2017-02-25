@@ -344,13 +344,11 @@ public:
         auto arg1 = (DComputeTarget::ID)(*ce->arguments)[0]->toInteger();
         auto arg2 = (*ce->arguments)[1]->toInteger();
         auto dct = irs->dcomputetarget;
-        Logger::println("here %p, %d, %d",dct,arg1,arg2);
         if (!dct) {
           if (arg1 == DComputeTarget::Host)
             stmt->ifbody->accept(this);
           else if (stmt->elsebody)
             stmt->elsebody->accept(this);
-
         }
         else {
           if (arg1 == dct->target && (!arg2 || arg2 == dct->tversion)) {
