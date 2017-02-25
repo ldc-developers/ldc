@@ -709,6 +709,31 @@ add_subdirectory(tools)
 # Test and runtime targets. Note that enable_testing() is order-sensitive!
 #
 enable_testing()
+
+# build unittest executable
+
+set(LDC_TEST_EXE ldc2_test)
+set(LDC_TEST_EXE_NAME ${PROGRAM_PREFIX}${LDC_TEST_EXE}${PROGRAM_SUFFIX})
+set(LDC_TEST_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_TEST_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
+add_custom_target(${LDC_TEST_EXE} ALL DEPENDS ${LDC_TEST_EXE_FULL})
+
+set(LDC_TEST_D_COMPILE_ARGS
+    -unittest
+    ${LDC_D_SOURCE_FILES}
+)
+
+build_d_executable(
+    "${LDC_TEST_EXE_FULL}"
+    "${LDC_TEST_D_COMPILE_ARGS}"
+    "$<TARGET_LINKER_FILE:${LDC_LIB}>"
+    "${LDC_D_SOURCE_FILES};${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d"
+    "${LDC_LIB}"
+)
+
+add_test(NAME ldc2-unittest
+    COMMAND ${LDC_TEST_EXE_FULL} --version
+)
+
 add_subdirectory(runtime)
 if(D_VERSION EQUAL 2)
     add_subdirectory(tests/d2)
