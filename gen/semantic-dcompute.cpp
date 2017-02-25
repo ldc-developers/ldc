@@ -33,9 +33,7 @@
 // allowed, but while the alias appears in the symbol table of the module of the
 // template declaration, it's module of origin is the module at the point of
 // instansiation so we need to check for that.
-FuncDeclaration *currentKernel;
-
-bool isNonComputeCallExpVaild(CallExp *ce) {
+bool isNonComputeCallExpVaild(CallExp *ce,FuncDeclaration *currentKernel) {
   if (currentKernel == nullptr)
     return false;
 
@@ -66,6 +64,7 @@ bool isNonComputeCallExpVaild(CallExp *ce) {
 }
 
 struct DComputeSemanticAnalyser : public StoppableVisitor {
+  FuncDeclaration *currentKernel;
 
   void visit(InterfaceDeclaration *decl) override {
     decl->error("interfaces and classes not allowed in @compute code");
@@ -208,7 +207,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
       return;
     Module *m = e->f->getModule();
     if (m == nullptr || ((hasComputeAttr(m) == DComputeCompileFor::hostOnly)
-        && !isNonComputeCallExpVaild(e))) {
+        && !isNonComputeCallExpVaild(e,currentKernel))) {
       e->error("can only call functions from other @compute modules in "
                "@compute code");
       stop = true;
@@ -244,7 +243,7 @@ void dcomputeSemanticAnalysis(Module *m) {
     IF_LOG Logger::println("dcomputeSema: %s: %s", m->toPrettyChars(),
                            dsym->toPrettyChars());
     LOG_SCOPE
-    currentKernel = nullptr;
+    v.currentKernel = nullptr;
     dsym->accept(&r);
   }
 }
