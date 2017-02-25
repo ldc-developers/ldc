@@ -52,7 +52,7 @@ string replace(string str, string pattern, string replacement)
         cap += replacement.length - pattern.length;
     reserve(res, cap);
 
-    while(str.length)
+    while (str.length)
     {
         if (str.length < pattern.length)
         {
@@ -91,7 +91,7 @@ private:
     bool readConfig(const(char)* cfPath, const(char)* section, const(char)* binDir)
     {
         immutable dBinDir = prepareBinDir(binDir);
-        immutable dSec = fromStringz(section);
+        const dSec = section[0 .. strlen(section)];
 
         try
         {
@@ -102,7 +102,8 @@ private:
 
             foreach (s; settings)
             {
-                if (s.name == dSec) {
+                if (s.name == dSec)
+                {
                     secSwitches = findSwitches(s);
                 }
                 else if (s.name == "default")
@@ -114,23 +115,25 @@ private:
             auto switches = secSwitches ? secSwitches : defSwitches;
             if (!switches)
             {
-                throw new Exception("could not look up switches in "~cfPath[0 .. strlen(cfPath)].idup);
+                const dCfPath = cfPath[0 .. strlen(cfPath)];
+                throw new Exception("could not look up switches in " ~ cast(string) dCfPath);
             }
 
-            auto slice = new const(char)*[switches.vals.length];
+            auto finalSwitches = new const(char)*[switches.vals.length];
             foreach (i, sw; switches.vals)
             {
-                slice[i] = toStringz(sw.replace("%%ldcbinarypath%%", dBinDir));
+                const finalSwitch = sw.replace("%%ldcbinarypath%%", dBinDir) ~ '\0';
+                finalSwitches[i] = finalSwitch.ptr;
             }
 
-            switches_b = slice.ptr;
-            switches_e = slice.ptr+slice.length;
+            switches_b = finalSwitches.ptr;
+            switches_e = finalSwitches.ptr + finalSwitches.length;
 
             return true;
         }
         catch (Exception ex)
         {
-            fprintf(stderr, "%s\n", toStringz(ex.msg));
+            fprintf(stderr, "%.*s\n", ex.msg.length, ex.msg.ptr);
             return false;
         }
     }

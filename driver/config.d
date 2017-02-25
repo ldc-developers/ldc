@@ -1,4 +1,4 @@
-//===-- driver/configfile.d - LDC config file parsing -------------*- D -*-===//
+//===-- driver/config.d - LDC config file parsing -----------------*- D -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -49,7 +49,7 @@ class Setting
 
 class ScalarSetting : Setting
 {
-    this (string name, string val)
+    this(string name, string val)
     {
         super(name, Type.scalar);
         _val = val;
@@ -66,7 +66,7 @@ class ScalarSetting : Setting
 
 class ArraySetting : Setting
 {
-    this (string name, string[] vals)
+    this(string name, string[] vals)
     {
         super(name, Type.array);
         _vals = vals;
@@ -82,7 +82,7 @@ class ArraySetting : Setting
 
 class GroupSetting : Setting
 {
-    this (string name, Setting[] children)
+    this(string name, Setting[] children)
     {
         super(name, Type.group);
         _children = children;
@@ -103,17 +103,6 @@ Setting[] parseConfigFile(const(char)* filename)
     return parser.parseConfig();
 }
 
-
-string fromStringz(const(char)* cstr)
-{
-    return cstr[0 .. strlen(cstr)].idup;
-}
-
-immutable(char)* toStringz(in string s)
-{
-    auto nullTerm = s ~ '\0';
-    return nullTerm.ptr;
-}
 
 private:
 
@@ -176,29 +165,29 @@ string humanReadableToken(in Token tok)
 {
     final switch(tok)
     {
-    case Token.name:        return "\"name\"";
-    case Token.assign:      return "':' or '='";
-    case Token.str:         return "\"string\"";
-    case Token.lbrace:      return "'{'";
-    case Token.rbrace:      return "'}'";
-    case Token.lbracket:    return "'['";
-    case Token.rbracket:    return "']'";
-    case Token.semicolon:   return "';'";
-    case Token.comma:       return "','";
-    case Token.unknown:     return "\"unknown token\"";
-    case Token.eof:         return "\"end of file\"";
+    case Token.name:        return `"name"`;
+    case Token.assign:      return `':' or '='`;
+    case Token.str:         return `"string"`;
+    case Token.lbrace:      return `'{'`;
+    case Token.rbrace:      return `'}'`;
+    case Token.lbracket:    return `'['`;
+    case Token.rbracket:    return `']'`;
+    case Token.semicolon:   return `';'`;
+    case Token.comma:       return `','`;
+    case Token.unknown:     return `"unknown token"`;
+    case Token.eof:         return `"end of file"`;
     }
 }
 
 class Parser
 {
-    const(char)[] filename;
+    string filename;
     FILE* file;
     int lineNum;
 
     int lastChar = ' ';
 
-    struct Ahead
+    static struct Ahead
     {
         Token tok;
         string s;
@@ -206,26 +195,25 @@ class Parser
     Ahead ahead;
     Ahead* aheadp;
 
-    this (const(char)* filename)
+    this(const(char)* filename)
     {
-        this.filename = filename[0 .. strlen(filename)];
+        this.filename = filename[0 .. strlen(filename)].idup;
         file = fopen(filename, "r");
         if (!file)
         {
             throw new Exception(
                 "could not open config file " ~
-                this.filename.idup ~ " for reading");
+                this.filename ~ " for reading");
         }
         this.file = file;
     }
 
     void error(in string msg)
     {
-        enum fmt = "Error while reading config file: %s\nline %d: %s";
+        enum fmt = "Error while reading config file: %.*s\nline %d: %.*s";
         char[1024] buf;
-        // filename was null terminated
-        auto len = snprintf(buf.ptr, 1024, fmt,
-                filename.ptr, lineNum, toStringz(msg));
+        auto len = snprintf(buf.ptr, buf.length, fmt,
+                filename.length, filename.ptr, lineNum, msg.length, msg.ptr);
         throw new Exception(buf[0 .. len].idup);
     }
 
@@ -251,7 +239,7 @@ class Parser
             return tok;
         }
 
-        while(isspace(lastChar))
+        while (isspace(lastChar))
         {
             lastChar = getChar();
         }
@@ -264,11 +252,12 @@ class Parser
                 outStr = "/";
                 return Token.unknown;
             }
-            else do
+
+            do
             {
                 lastChar = getChar();
-            }
-            while(lastChar != '\n' && lastChar != EOF);
+            } while (lastChar != '\n' && lastChar != EOF);
+
             return getTok(outStr);
         }
 
@@ -320,7 +309,7 @@ class Parser
             string str;
             while (lastChar == '"')
             {
-                while(1)
+                while (1)
                 {
                     lastChar = getChar();
                     if (lastChar == '"') break;
@@ -357,7 +346,7 @@ class Parser
                     str ~= cast(char)lastChar;
                 }
                 lastChar = getChar();
-                while(isspace(lastChar)) lastChar = getChar();
+                while (isspace(lastChar)) lastChar = getChar();
             }
 
             outStr = str;
@@ -380,8 +369,8 @@ class Parser
     void unexpectedTokenError(in Token tok, in Token expected, string s)
     {
         s = s.length ? " ("~s~")" : "";
-        error("Was expecting token "~humanReadableToken(expected)~
-                ". Got "~humanReadableToken(tok)~s~" instead.");
+        error("Was expecting token " ~ humanReadableToken(expected) ~
+                ". Got " ~ humanReadableToken(tok) ~ s ~ " instead.");
     }
 
     string accept(in Token expected)
@@ -398,13 +387,16 @@ class Parser
     Setting[] parseConfig()
     {
         Setting[] res;
-        while(1)
+        while (1)
         {
             {
                 string s;
                 auto t = getTok(s);
-                if (t == Token.eof) break;
-                else ungetTok(t, s);
+                if (t == Token.eof)
+                {
+                    break;
+                }
+                ungetTok(t, s);
             }
             res ~= parseSetting();
         }

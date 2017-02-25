@@ -21,8 +21,6 @@ class ConfigFile {
 public:
   using s_iterator = const char **;
 
-public:
-
   bool read(const char *explicitConfFile, const char *section);
 
   s_iterator switches_begin() { return switches_b; }
@@ -31,14 +29,14 @@ public:
   std::string path() { return std::string(pathcstr); }
 
 private:
-  bool locate(std::string& pathstr);
+  bool locate(std::string &pathstr);
 
   // implemented in D
-  bool readConfig(const char* cfPath, const char* section, const char* binDir);
+  bool readConfig(const char *cfPath, const char *section, const char *binDir);
 
-  const char *pathcstr  =nullptr;
-  s_iterator switches_b =nullptr;
-  s_iterator switches_e =nullptr;
+  const char *pathcstr = nullptr;
+  s_iterator switches_b = nullptr;
+  s_iterator switches_e = nullptr;
 };
 
 #endif // LDC_DRIVER_CONFIGFILE_H
