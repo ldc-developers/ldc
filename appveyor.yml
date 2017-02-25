@@ -184,6 +184,8 @@ test_script:
   - ps: 'echo "import std.stdio; void main() { writeln(""Hello world!""); }" > hello.d'
   - bin\ldc2 hello.d
   - hello.exe
+  # Run general unittests
+  - bin\ldc2_test -version
   # Compile the druntime & phobos unit tests
   - ninja -j2 druntime-ldc-unittest-debug phobos2-ldc-unittest-debug druntime-ldc-unittest phobos2-ldc-unittest
   # Execute dmd-testsuite

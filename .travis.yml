@@ -82,6 +82,8 @@ script:
   # Outputs some environment info, plus makes sure we only run the test suite
   # if we could actually build the executable.
   - bin/ldc2 -version || exit 1
+  # run the general unittests
+  - bin/ldc2_test -version
   # Build Phobos & druntime unittest modules.
   -
     if [[ "${OPTS}" == *-DMULTILIB?ON* ]]; then

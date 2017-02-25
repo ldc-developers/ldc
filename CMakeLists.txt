@@ -730,10 +730,6 @@ build_d_executable(
     "${LDC_LIB}"
 )
 
-add_test(NAME ldc2-unittest
-    COMMAND ${LDC_TEST_EXE_FULL} --version
-)
-
 add_subdirectory(runtime)
 if(D_VERSION EQUAL 2)
     add_subdirectory(tests/d2)

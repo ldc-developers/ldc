@@ -61,6 +61,7 @@ test:
     - bin/ldc2 -version || exit 1
 
   override:
+    - bin/ldc2_test -version
     - make -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest
     - make -j3 druntime-ldc-unittest-debug druntime-ldc-unittest
     - CC="" DMD_TESTSUITE_MAKE_ARGS=-j3 ctest --verbose -R "dmd-testsuite"
