@@ -103,6 +103,18 @@ Setting[] parseConfigFile(const(char)* filename)
     return parser.parseConfig();
 }
 
+
+string fromStringz(const(char)* cstr)
+{
+    return cstr[0 .. strlen(cstr)].idup;
+}
+
+immutable(char)* toStringz(in string s)
+{
+    auto nullTerm = s ~ '\0';
+    return nullTerm.ptr;
+}
+
 private:
 
 /+
@@ -144,14 +156,6 @@ The following escape sequences are allowed in strings:
   - \t
 
 +/
-
-
-immutable(char)* toStringz(in string s)
-{
-    auto nullTerm = s ~ '\0';
-    return nullTerm.ptr;
-}
-
 
 enum Token
 {

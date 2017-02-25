@@ -17,18 +17,6 @@ import core.stdc.stdio;
 import core.stdc.string;
 
 
-string fromStringz(const(char)* cstr)
-{
-    return cstr[0 .. strlen(cstr)].idup;
-}
-
-immutable(char)* toStringz(in string s)
-{
-    auto nullTerm = s ~ '\0';
-    return nullTerm.ptr;
-}
-
-
 string prepareBinDir(const(char)* binDir)
 {
     immutable len = strlen(binDir);
