@@ -8,9 +8,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/abi.h"
+#include "gen/dcomputetypes.h"
 #include "gen/uda.h"
 #include "ddmd/declaration.h"
-#include "tollvm.h"
+#include "gen/tollvm.h"
 
 struct NVPTXTargetABI : TargetABI {
   llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l,
