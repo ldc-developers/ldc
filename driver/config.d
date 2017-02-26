@@ -104,9 +104,8 @@ Setting[] parseConfigFile(const(char)* filename)
     auto file = fopen(filename, "r");
     if (!file)
     {
-        throw new Exception(
-            "could not open config file " ~
-            dFilename ~ " for reading");
+        throw new Exception("could not open config file " ~
+                            dFilename ~ " for reading");
     }
 
     fseek(file, 0, SEEK_END);
@@ -118,7 +117,7 @@ Setting[] parseConfigFile(const(char)* filename)
     content = content[0 .. numRead];
     fclose(file);
 
-    auto parser = new Parser(cast(string) content, dFilename);
+    auto parser = Parser(cast(string) content, dFilename);
     return parser.parseConfig();
 }
 
@@ -198,7 +197,7 @@ string humanReadableToken(in Token tok)
     }
 }
 
-class Parser
+struct Parser
 {
     string filename;
     string content;
@@ -225,8 +224,8 @@ class Parser
     {
         enum fmt = "Error while reading config file: %.*s\nline %d: %.*s";
         char[1024] buf;
-        auto len = snprintf(buf.ptr, buf.length, fmt,
-                filename.length, filename.ptr, lineNum, msg.length, msg.ptr);
+        auto len = snprintf(buf.ptr, buf.length, fmt, filename.length,
+                            filename.ptr, lineNum, msg.length, msg.ptr);
         throw new Exception(buf[0 .. len].idup);
     }
 
@@ -267,8 +266,8 @@ class Parser
             do
             {
                 lastChar = getChar();
-            } while (lastChar != '\n' && lastChar != '\0');
-
+            }
+            while (lastChar != '\n' && lastChar != '\0');
             return getTok(outStr);
         }
 
@@ -381,7 +380,7 @@ class Parser
     {
         s = s.length ? " ("~s~")" : "";
         error("Was expecting token " ~ humanReadableToken(expected) ~
-                ". Got " ~ humanReadableToken(tok) ~ s ~ " instead.");
+              ". Got " ~ humanReadableToken(tok) ~ s ~ " instead.");
     }
 
     string accept(in Token expected)
@@ -466,7 +465,7 @@ class Parser
                 case Token.comma:
                     break;
                 case Token.rbracket:
-                    return new ArraySetting(name, arrVal);;
+                    return new ArraySetting(name, arrVal);
                 default:
                     unexpectedTokenError(t, Token.comma, s);
                     assert(false);
@@ -501,61 +500,68 @@ unittest
         assert((cast(ScalarSetting) setting).val == expected);
     }
 
+    testScalar(`""`, "");
     testScalar(`"abc\r\ndef\t\"quoted/\\123\""`,
                 "abc\r\ndef\t\"quoted/\\123\"");
     testScalar(`"concatenated" " multiline"
                 " strings"`, "concatenated multiline strings");
+}
 
+unittest
+{
+    static void testArray(string input, string[] expected)
+    {
+        auto setting = new Parser(input).parseValue(null);
+        assert(setting.type == Setting.Type.array);
+        assert((cast(ArraySetting) setting).vals == expected);
+    }
+
+    testArray(`[]`, []);
+    testArray(`[ "a" ]`, [ "a" ]);
+    testArray(`[ "a", ]`, [ "a" ]);
+    testArray(`[ "a", "b" ]`, [ "a", "b" ]);
+    testArray(`[
+            // comment
+            "a",
+            // comment
+            "b"
+        ]`, [ "a", "b" ]);
+}
+
+unittest
+{
     enum input =
 `// comment
 
 // comment
-group-1:
+group-1: {};
+// comment
+Group-2:
 {
     // comment
     scalar = "abc";
     // comment
-    array_1 = [ "a", "b" ];
-    array_2 = [
-        "c",
-    ];
+    Array_1 = [ "a" ];
 };
-// comment
-group-2: { emptyArray = []; };
 `;
 
-    auto settings = new Parser(input).parseConfig();
+    auto settings = Parser(input).parseConfig();
     assert(settings.length == 2);
 
     assert(settings[0].name == "group-1");
     assert(settings[0].type == Setting.Type.group);
-    auto group1 = cast(GroupSetting) settings[0];
-    assert(group1.children.length == 3);
+    assert((cast(GroupSetting) settings[0]).children == []);
 
-    assert(group1.children[0].name == "scalar");
-    assert(group1.children[0].type == Setting.Type.scalar);
-    assert((cast(ScalarSetting) group1.children[0]).val == "abc");
-
-    assert(group1.children[1].name == "array_1");
-    assert(group1.children[1].type == Setting.Type.array);
-    auto array1 = cast(ArraySetting) group1.children[1];
-    assert(array1.vals.length == 2);
-    assert(array1.vals[0] == "a");
-    assert(array1.vals[1] == "b");
-
-    assert(group1.children[2].name == "array_2");
-    assert(group1.children[2].type == Setting.Type.array);
-    auto array2 = cast(ArraySetting) group1.children[2];
-    assert(array2.vals.length == 1);
-    assert(array2.vals[0] == "c");
-
-    assert(settings[1].name == "group-2");
+    assert(settings[1].name == "Group-2");
     assert(settings[1].type == Setting.Type.group);
     auto group2 = cast(GroupSetting) settings[1];
-    assert(group2.children.length == 1);
+    assert(group2.children.length == 2);
 
-    assert(group2.children[0].name == "emptyArray");
-    assert(group2.children[0].type == Setting.Type.array);
-    auto emptyArray = cast(ArraySetting) group2.children[0];
-    assert(emptyArray.vals.length == 0);
+    assert(group2.children[0].name == "scalar");
+    assert(group2.children[0].type == Setting.Type.scalar);
+    assert((cast(ScalarSetting) group2.children[0]).val == "abc");
+
+    assert(group2.children[1].name == "Array_1");
+    assert(group2.children[1].type == Setting.Type.array);
+    assert((cast(ArraySetting) group2.children[1]).vals == [ "a" ]);
 }
