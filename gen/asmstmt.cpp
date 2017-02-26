@@ -372,7 +372,7 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState *irs) {
     llvmInConstraints += ",";
   }
 
-  std::string clobstr;
+  llvm::SmallString<10> clobstr;
   for (const auto &c : clobbers) {
     clobstr = "~{" + c + "},";
     asmblock->clobs.insert(clobstr);

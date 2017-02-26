@@ -25,9 +25,46 @@
 #include "ddmd/declaration.h"
 #include "ddmd/module.h"
 #include "ddmd/identifier.h"
+#include "ddmd/template.h"
 #include "id.h"
 
+// In @compute code only calls to other function in @compute core are allowed.
+// However, a @kernel function taking a template alias function parameter is
+// allowed, but while the alias appears in the symbol table of the module of the
+// template declaration, it's module of origin is the module at the point of
+// instansiation so we need to check for that.
+bool isNonComputeCallExpVaild(CallExp *ce,FuncDeclaration *currentKernel) {
+  if (currentKernel == nullptr)
+    return false;
+
+  TemplateInstance* inst;
+  if (!(inst =currentKernel->isInstantiated()))
+    return false;
+
+  FuncDeclaration* f = ce->f;
+  Objects *tiargs = inst->tiargs;
+  size_t i = 0,len = tiargs->dim;
+  IF_LOG Logger::println("checking against: %s (%p) (dyncast=%d)",
+                  f->toPrettyChars(),(void*)f, f->dyncast());
+  LOG_SCOPE
+  for (; i < len; i++) {
+    RootObject *o = (*tiargs)[i];
+    int d = o->dyncast();
+    if (d != DYNCAST_EXPRESSION)
+      continue;
+    Expression *e = (Expression*)o;
+    if (e->op != TOKfunction)
+      continue;
+    if (f->equals((((FuncExp*)e)->fd))) {
+      IF_LOG Logger::println("match");
+      return true;
+    }
+  }
+  return false;
+}
+
 struct DComputeSemanticAnalyser : public StoppableVisitor {
+  FuncDeclaration *currentKernel;
 
   void visit(InterfaceDeclaration *decl) override {
     decl->error("interfaces and classes not allowed in @compute code");
@@ -140,7 +177,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     if (stmt->condition->op == TOKcall) {
       auto ce = (CallExp *)stmt->condition;
       if (ce->f && ce->f->ident &&
-          !strcmp(ce->f->ident->string, "__dcompute_reflect"))
+          !strcmp(ce->f->ident->toChars(), "__dcompute_reflect"))
       {
         auto arg1 = (DComputeTarget::ID)(*ce->arguments)[0]->toInteger();
         if (arg1 == DComputeTarget::Host)
@@ -166,14 +203,29 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
       stop = true;
       return;
     }
+    if (!e->f)
+      return;
     Module *m = e->f->getModule();
-    if (m == nullptr || hasComputeAttr(m) == DComputeCompileFor::hostOnly) {
+    if (m == nullptr || ((hasComputeAttr(m) == DComputeCompileFor::hostOnly)
+        && !isNonComputeCallExpVaild(e,currentKernel))) {
       e->error("can only call functions from other @compute modules in "
                "@compute code");
       stop = true;
     }
   }
-
+    
+  void visit(FuncDeclaration * fd) override {
+    if (hasKernelAttr(fd)) {
+      if (fd->vthis) {
+        fd->error("@kernel functions msut not require 'this'");
+        stop = true;
+        return;
+      }
+        
+      Logger::println("current kernel = %s",fd->toChars());
+      currentKernel = fd;
+    }
+  }
   // Override the default assert(0) behavior of Visitor:
   void visit(Statement *) override {}   // do nothing
   void visit(Expression *) override {}  // do nothing
@@ -191,6 +243,7 @@ void dcomputeSemanticAnalysis(Module *m) {
     IF_LOG Logger::println("dcomputeSema: %s: %s", m->toPrettyChars(),
                            dsym->toPrettyChars());
     LOG_SCOPE
+    v.currentKernel = nullptr;
     dsym->accept(&r);
   }
 }

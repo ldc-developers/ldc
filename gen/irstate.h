@@ -26,6 +26,7 @@
 #include "ir/iraggr.h"
 #include "ir/irvar.h"
 #include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/ProfileData/InstrProfReader.h"
 #include "llvm/IR/CallSite.h"
 
@@ -88,7 +89,7 @@ struct IRAsmStmt {
 
 struct IRAsmBlock {
   std::deque<IRAsmStmt *> s;
-  std::set<std::string> clobs;
+  std::set<llvm::SmallString<10>> clobs;
   size_t outputcount;
 
   // stores the labels within the asm block

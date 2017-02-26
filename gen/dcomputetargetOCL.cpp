@@ -38,7 +38,7 @@ public:
       : DComputeTarget(c, oclversion, OpenCL, "ocl", "spv", createSPIRVABI(),
                        // Map from nomimal DCompute address space to OpenCL
                        // address. For OpenCL this is a no-op.
-                       {0, 1, 2, 3, 4}) {
+                       {{0, 1, 2, 3, 4}}) {
 
     _ir = new IRState("dcomputeTargetOCL", ctx);
     _ir->module.setTargetTriple(global.params.is64bit ? SPIR_TARGETTRIPLE64
@@ -135,7 +135,7 @@ public:
             (t = ((TypeStruct *)(ty))->sym->isInstantiated()) &&
             isFromLDC_DComputeTypes(((TypeStruct *)(ty))->sym)) {
           IF_LOG Logger::println("From dcompute.types");
-          if (!strcmp(t->tempdecl->ident->string, "Pointer")) {
+          if (!strcmp(t->tempdecl->ident->toChars(), "Pointer")) {
             // We have a pointer in an address space
             // struct Pointer(uint addrspace, T)
             addrspace = isExpression((*t->tiargs)[0])->toInteger();

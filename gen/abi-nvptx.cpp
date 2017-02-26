@@ -8,9 +8,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/abi.h"
+#include "gen/dcomputetypes.h"
 #include "gen/uda.h"
 #include "ddmd/declaration.h"
-#include "tollvm.h"
+#include "gen/tollvm.h"
 
 struct NVPTXTargetABI : TargetABI {
   llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l,
@@ -22,7 +23,11 @@ struct NVPTXTargetABI : TargetABI {
       return llvm::CallingConv::PTX_Device;
   }
   bool passByVal(Type *t) override {
-    return DtoIsInMemoryOnly(t);
+    Type *typ = t->toBasetype();
+    TY ty = typ->ty;
+    if (ty == Tstruct)
+      return !bool(toDcomputePointer(((TypeStruct*)typ)->sym));
+    return (ty == Tsarray);
   }
   void rewriteFunctionType(TypeFunction *t, IrFuncTy &fty) override {
     // Do nothing.

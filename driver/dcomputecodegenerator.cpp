@@ -37,7 +37,7 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
 
   if (std::find(vaild_cuda_versions.begin(), vaild_cuda_versions.end(), v) !=
         vaild_cuda_versions.end()) {
-      return createOCLTarget(ctx, v);
+      return createCUDATarget(ctx, v);
     }
   }
 #define STR(x) #x

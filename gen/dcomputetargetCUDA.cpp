@@ -25,7 +25,7 @@ public:
 
             // Map from nominal DCompute address space to NVPTX address space.
             // see $LLVM_ROOT/docs/docs/NVPTXUsage.rst section Address Spaces
-            {5, 1, 3, 4, 0}) {
+            {{5, 1, 3, 4, 0}}) {
     std::string dl;
     if (global.params.is64bit) {
       dl = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-"

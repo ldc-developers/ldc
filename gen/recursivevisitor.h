@@ -286,7 +286,7 @@ public:
 
   using Visitor::visit;
     
-  void visit(AttribDeclaration* ad) {
+  void visit(AttribDeclaration* ad) override {
     call_visitor(ad) || recurse(ad->decl);
   }
 

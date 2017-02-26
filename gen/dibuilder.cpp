@@ -77,12 +77,14 @@ llvm::StringRef uniqueIdent(Type* t) {
 
 bool ldc::DIBuilder::mustEmitFullDebugInfo() {
   // only for -g and -gc
-  return global.params.symdebug == 1 || global.params.symdebug == 2;
+  return IR->dcomputetarget == nullptr &&
+         (global.params.symdebug == 1 || global.params.symdebug == 2);
 }
 
 bool ldc::DIBuilder::mustEmitLocationsDebugInfo() {
   // for -g -gc and -gline-tables-only
-  return global.params.symdebug > 0;
+  return IR->dcomputetarget == nullptr &&
+         global.params.symdebug > 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
