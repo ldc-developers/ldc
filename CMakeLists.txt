@@ -710,25 +710,19 @@ add_subdirectory(tools)
 #
 enable_testing()
 
-# build unittest executable
-
-set(LDC_TEST_EXE ldc2_test)
-set(LDC_TEST_EXE_NAME ${PROGRAM_PREFIX}${LDC_TEST_EXE}${PROGRAM_SUFFIX})
-set(LDC_TEST_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_TEST_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
-add_custom_target(${LDC_TEST_EXE} ALL DEPENDS ${LDC_TEST_EXE_FULL})
-
-set(LDC_TEST_D_COMPILE_ARGS
-    -unittest
-    ${LDC_D_SOURCE_FILES}
-)
-
+# LDC unittest executable (D unittests only).
+set(LDC_UNITTEST_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_EXE_NAME}-unittest${CMAKE_EXECUTABLE_SUFFIX})
 build_d_executable(
-    "${LDC_TEST_EXE_FULL}"
-    "${LDC_TEST_D_COMPILE_ARGS}"
+    "${LDC_UNITTEST_EXE_FULL}"
+    "-unittest;${LDC_D_SOURCE_FILES}"
     "$<TARGET_LINKER_FILE:${LDC_LIB}>"
-    "${LDC_D_SOURCE_FILES};${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d"
+    "${LDC_D_SOURCE_FILES}"
     "${LDC_LIB}"
 )
+add_custom_target(ldc2-unittest DEPENDS ${LDC_UNITTEST_EXE_FULL})
+add_test(NAME build-ldc2-unittest COMMAND "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ldc2-unittest)
+add_test(NAME ldc2-unittest COMMAND ${LDC_UNITTEST_EXE_FULL} --version)
+set_tests_properties(ldc2-unittest PROPERTIES DEPENDS build-ldc2-unittest)
 
 add_subdirectory(runtime)
 if(D_VERSION EQUAL 2)

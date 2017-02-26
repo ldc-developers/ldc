@@ -82,8 +82,6 @@ script:
   # Outputs some environment info, plus makes sure we only run the test suite
   # if we could actually build the executable.
   - bin/ldc2 -version || exit 1
-  # run the general unittests
-  - bin/ldc2_test -version
   # Build Phobos & druntime unittest modules.
   -
     if [[ "${OPTS}" == *-DMULTILIB?ON* ]]; then
@@ -94,11 +92,13 @@ script:
       make -j3 druntime-ldc-unittest-debug druntime-ldc-unittest;
     fi
   # Run dmd-testsuite.
-  - CC="" DMD_TESTSUITE_MAKE_ARGS=-j3 ctest --verbose -R "dmd-testsuite"
-  # Run LLVM IR testsuite.
-  - ctest --output-on-failure -V -R "lit-tests"
+  - CC="" DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R "dmd-testsuite"
+  # Run lit testsuite.
+  - ctest -V -R "lit-tests"
+  # Build and run LDC D unittests.
+  - ctest --output-on-failure -R "ldc2-unittest"
   # Link and run Phobos & druntime unittest runners.
-  - ctest -j3 --output-on-failure -E "dmd-testsuite|lit-tests"
+  - ctest -j3 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
 
 after_success:
   -

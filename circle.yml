@@ -61,12 +61,12 @@ test:
     - bin/ldc2 -version || exit 1
 
   override:
-    - bin/ldc2_test -version
     - make -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest
     - make -j3 druntime-ldc-unittest-debug druntime-ldc-unittest
-    - CC="" DMD_TESTSUITE_MAKE_ARGS=-j3 ctest --verbose -R "dmd-testsuite"
-    - ctest --output-on-failure -V -R "lit-tests"
-    - ctest -j3 --output-on-failure -E "dmd-testsuite|lit-tests"
+    - CC="" DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R "dmd-testsuite"
+    - ctest -V -R "lit-tests"
+    - ctest --output-on-failure -R "ldc2-unittest"
+    - ctest -j3 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
 
 # To add more value the test results could be collected, see https://circleci.com/docs/test-metadata
 # A way how to convert the ctest output is described here:
