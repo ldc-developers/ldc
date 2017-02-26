@@ -138,9 +138,11 @@ array   =   "[" , ows ,
                 { string , ows , "," , ows } ,
             "]" ;
 group   =   "{" , ows , { setting , ows } , "}" ;
-string  =   quotstr, { ows , quotstr } ;
+string  =   ( quotstr , { ows , quotstr } ) |
+            ( btstr , { ows, btstr } ) ;
 quotstr =   '"' , { ? any char but '"', '\n' and '\r' ? | escseq } , '"' ;
 escseq  =   "\" , ["\" | '"' | "r" | "n" | "t" ] ;
+btstr   =   '`' , { ? any char but '`' ? } , '`' ;
 alpha   =   ? any char between "a" and "z" included
                     or between "A" and "Z" included ? ;
 digit   =   ? any char between "0" and "9" included ? ;
@@ -214,7 +216,7 @@ struct Parser
     Ahead ahead;
     Ahead* aheadp;
 
-    this(string content, string filename = "")
+    this(string content, string filename = null)
     {
         this.filename = filename;
         this.content = content;
@@ -352,6 +354,29 @@ struct Parser
                             error("Unexpected escape sequence: \\" ~ lastChar);
                             break;
                         }
+                    }
+                    str ~= lastChar;
+                }
+                lastChar = getChar();
+                while (isspace(lastChar)) lastChar = getChar();
+            }
+
+            outStr = str;
+            return Token.str;
+        }
+
+        if (lastChar == '`')
+        {
+            string str;
+            while (lastChar == '`')
+            {
+                while (1)
+                {
+                    lastChar = getChar();
+                    if (lastChar == '`') break;
+                    if (lastChar == '\0')
+                    {
+                        error("Unexpected end of file in string literal");
                     }
                     str ~= lastChar;
                 }
@@ -505,6 +530,8 @@ unittest
                 "abc\r\ndef\t\"quoted/\\123\"");
     testScalar(`"concatenated" " multiline"
                 " strings"`, "concatenated multiline strings");
+    testScalar("`abc\n\\ //comment \"`",
+                "abc\n\\ //comment \"");
 }
 
 unittest
