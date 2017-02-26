@@ -114,8 +114,13 @@ Setting[] parseConfigFile(const(char)* filename)
 
     auto content = new char[fileLength];
     const numRead = fread(content.ptr, 1, fileLength, file);
-    content = content[0 .. numRead];
     fclose(file);
+
+    // skip UTF-8 BOM
+    int start = 0;
+    if (numRead >= 3 && content[0 .. 3] == "\xEF\xBB\xBF")
+        start = 3;
+    content = content[start .. numRead];
 
     auto parser = Parser(cast(string) content, dFilename);
     return parser.parseConfig();
@@ -520,7 +525,7 @@ unittest
 {
     static void testScalar(string input, string expected)
     {
-        auto setting = new Parser(input).parseValue(null);
+        auto setting = Parser(input).parseValue(null);
         assert(setting.type == Setting.Type.scalar);
         assert((cast(ScalarSetting) setting).val == expected);
     }
@@ -532,13 +537,14 @@ unittest
                 " strings"`, "concatenated multiline strings");
     testScalar("`abc\n\\ //comment \"`",
                 "abc\n\\ //comment \"");
+    testScalar(`"Üņïčöđë"`, "Üņïčöđë");
 }
 
 unittest
 {
     static void testArray(string input, string[] expected)
     {
-        auto setting = new Parser(input).parseValue(null);
+        auto setting = Parser(input).parseValue(null);
         assert(setting.type == Setting.Type.array);
         assert((cast(ArraySetting) setting).vals == expected);
     }
