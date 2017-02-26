@@ -116,6 +116,7 @@ Setting[] parseConfigFile(const(char)* filename)
     auto content = new char[fileLength];
     const numRead = fread(content.ptr, 1, fileLength, file);
     content = content[0 .. numRead];
+    fclose(file);
 
     auto parser = new Parser(cast(string) content, dFilename);
     return parser.parseConfig();
