@@ -1,29 +1,48 @@
 # Requires the BETA setting to use Ubunty 14.04 Trusty
 
+# It appears that the current directory is reset at the start of each `-` line,
+# so for example to do an out-of-source build, you have to chain operations
+# after `cd`: `cd build && cmake .. `.
+
 machine:
   environment:
-    PATH: "~/$CIRCLE_PROJECT_REPONAME/ldc2-1.0.0-alpha1-linux-x86_64/bin:$PATH"
+    PATH: "~/$CIRCLE_PROJECT_REPONAME/ldc2-1.1.0-linux-x86_64/bin:$PATH"
 dependencies:
   cache_directories:
-    - ldc2-1.0.0-alpha1-linux-x86_64
+    - ldc2-1.1.0-linux-x86_64
+    #- clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04
   pre:
-    - sudo add-apt-repository -y 'deb http://llvm.org/apt/trusty/ llvm-toolchain-trusty main'
-    - wget -q -O - http://llvm.org/apt/llvm-snapshot.gpg.key | sudo apt-key add -
+    # LLVM's official APT repo:
+    - sudo add-apt-repository -y 'deb http://apt.llvm.org/trusty/ llvm-toolchain-trusty main'
+    - sudo add-apt-repository -y 'deb http://apt.llvm.org/trusty/ llvm-toolchain-trusty-4.0 main'
+    - wget -O - http://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
     - sudo apt-get update
-    - if [[ ! -e ldc2-1.0.0-alpha1-linux-x86_64/bin/ldc2 ]]; then wget https://github.com/ldc-developers/ldc/releases/download/v1.0.0-alpha1/ldc2-1.0.0-alpha1-linux-x86_64.tar.xz && xzcat ldc2-1.0.0-alpha1-linux-x86_64.tar.xz | tar -xvf - ; fi
+
+    # Download and cache a prebuilt LLVM package:
+    #- if [[ ! -e clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04 ]]; then wget http://llvm.org/releases/3.8.0/clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04.tar.xz && xzcat clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04.tar.xz | tar -xvf - ; fi
+
+    # Download and cache a prebuilt LDC package:
+    - if [[ ! -e ldc2-1.1.0-linux-x86_64/bin/ldc2 ]]; then wget https://github.com/ldc-developers/ldc/releases/download/v1.1.0/ldc2-1.1.0-linux-x86_64.tar.xz && xzcat ldc2-1.1.0-linux-x86_64.tar.xz | tar -xvf - ; fi
+
   override:
-    - sudo apt-get remove clang
-    - sudo apt-get install gcc-4.9 g++-4.9 gcc-4.9-multilib g++-4.9-multilib libconfig++8-dev llvm-3.9 llvm-3.9-dev clang-3.9 libedit-dev
+    - sudo apt-get remove clang llvm
+    - sudo apt-get install libconfig++8-dev libedit-dev
+    - sudo apt-get install llvm-4.0 llvm-4.0-dev clang-4.0
     - pip install --user lit
   post:
-    - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 99
-    - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.9 99
-    - sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-3.9 99
-    - sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-3.9 99
+    - sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-4.0 99
+    - sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-4.0 99
+    #- sudo update-alternatives --install /usr/bin/clang clang ~/$CIRCLE_PROJECT_REPONAME/clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04/bin/clang 99
+    #- sudo update-alternatives --install /usr/bin/clang++ clang++ ~/$CIRCLE_PROJECT_REPONAME/clang+llvm-3.8.0-x86_64-linux-gnu-ubuntu-14.04/bin/clang++ 99
     - gcc --version
     - clang --version
     - ldc2 -version
+    - cmake --version
     - python -c "import lit; lit.main();" --version | head -n 1
+    - gdb --version
+    # Use ld.gold per default, so that LTO is tested.
+    - sudo update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
+    - ld --version
 
 checkout:
   post:
@@ -32,15 +51,21 @@ checkout:
 
 test:
   pre:
-    - CC=clang CXX=clang++ cmake .
-    - make -j4
+    # Build first with a released LDC
+    - mkdir build
+    - cd build && export CC=clang && export CXX=clang++ && cmake .. && make -j3 && bin/ldc2 -version || exit 1
+
+    # Now build LDC with itself and use this second build for further testing
+    - CC=clang CXX=clang++ cmake -DD_COMPILER="build/bin/ldmd2" -DLDC_INSTALL_LTOPLUGIN=ON .
+    - make -j3
     - bin/ldc2 -version || exit 1
+
   override:
-    - MAKEOPTS=-j2 ctest -j 2 --verbose -R "build-"
-    - CC="" MAKEOPTS=-j4 ctest --verbose -R "dmd-testsuite"
-    - ctest --output-on-failure -R "lit-tests"
-    - MAKEOPTS=-j3 ctest --verbose -R "-test-runner"
-    - ctest -j4 --output-on-failure -E "testsuite"
+    - make -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest
+    - make -j3 druntime-ldc-unittest-debug druntime-ldc-unittest
+    - CC="" DMD_TESTSUITE_MAKE_ARGS=-j3 ctest --verbose -R "dmd-testsuite"
+    - ctest --output-on-failure -V -R "lit-tests"
+    - ctest -j3 --output-on-failure -E "dmd-testsuite|lit-tests"
 
 # To add more value the test results could be collected, see https://circleci.com/docs/test-metadata
 # A way how to convert the ctest output is described here:

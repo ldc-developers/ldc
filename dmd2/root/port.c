@@ -704,20 +704,32 @@ PortInitializer::PortInitializer()
 {
 #if IN_LLVM
 
+#if LDC_LLVM_VER >= 400
+  const auto &IEEEdouble = llvm::APFloat::IEEEdouble();
+  const auto &x87DoubleExtended = llvm::APFloat::x87DoubleExtended();
+  const auto &PPCDoubleDouble = llvm::APFloat::PPCDoubleDouble();
+  const auto &IEEEquad = llvm::APFloat::IEEEquad();
+#else
+  const auto &IEEEdouble = llvm::APFloat::IEEEdouble;
+  const auto &x87DoubleExtended = llvm::APFloat::x87DoubleExtended;
+  const auto &PPCDoubleDouble = llvm::APFloat::PPCDoubleDouble;
+  const auto &IEEEquad = llvm::APFloat::IEEEquad;
+#endif
+
 // Derive LLVM APFloat::fltSemantics from native format
 #if LDBL_MANT_DIG == 53
-#define FLT_SEMANTIC llvm::APFloat::IEEEdouble
+#define FLT_SEMANTIC IEEEdouble
 #elif LDBL_MANT_DIG == 64
-#define FLT_SEMANTIC llvm::APFloat::x87DoubleExtended
+#define FLT_SEMANTIC x87DoubleExtended
 #elif LDBL_MANT_DIG == 106
-#define FLT_SEMANTIC llvm::APFloat::PPCDoubleDouble
+#define FLT_SEMANTIC PPCDoubleDouble
 #elif LDBL_MANT_DIG == 113
-#define FLT_SEMANTIC llvm::APFloat::IEEEquad
+#define FLT_SEMANTIC IEEEquad
 #else
 #error "Unsupported native floating point format"
 #endif
 
-    Port::nan = *reinterpret_cast<const double*>(llvm::APFloat::getNaN(llvm::APFloat::IEEEdouble).bitcastToAPInt().getRawData());
+    Port::nan = *reinterpret_cast<const double*>(llvm::APFloat::getNaN(IEEEdouble).bitcastToAPInt().getRawData());
     Port::ldbl_nan = *reinterpret_cast<const long double*>(llvm::APFloat::getNaN(FLT_SEMANTIC).bitcastToAPInt().getRawData());
     Port::snan = *reinterpret_cast<const long double*>(llvm::APFloat::getSNaN(FLT_SEMANTIC).bitcastToAPInt().getRawData());
 

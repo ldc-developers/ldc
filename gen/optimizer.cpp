@@ -42,7 +42,7 @@ using namespace llvm;
 
 static cl::opt<signed char> optimizeLevel(
     cl::desc("Setting the optimization level:"), cl::ZeroOrMore,
-    cl::values(
+    clEnumValues(
         clEnumValN(3, "O", "Equivalent to -O3"),
         clEnumValN(0, "O0", "No optimizations (default)"),
         clEnumValN(1, "O1", "Simple optimizations"),
@@ -51,8 +51,7 @@ static cl::opt<signed char> optimizeLevel(
         clEnumValN(4, "O4", "Link-time optimization"), // Not implemented yet.
         clEnumValN(5, "O5", "Link-time optimization"), // Not implemented yet.
         clEnumValN(-1, "Os", "Like -O2 with extra optimizations for size"),
-        clEnumValN(-2, "Oz", "Like -Os but reduces code size further"),
-        clEnumValEnd),
+        clEnumValN(-2, "Oz", "Like -Os but reduces code size further")),
     cl::init(0));
 
 static cl::opt<bool> noVerify("disable-verify",
@@ -100,10 +99,10 @@ static cl::opt<bool> stripDebug(
 cl::opt<opts::SanitizerCheck> opts::sanitize(
     "sanitize", cl::desc("Enable runtime instrumentation for bug detection"),
     cl::init(opts::None),
-    cl::values(clEnumValN(opts::AddressSanitizer, "address", "memory errors"),
-               clEnumValN(opts::MemorySanitizer, "memory", "memory errors"),
-               clEnumValN(opts::ThreadSanitizer, "thread", "race detection"),
-               clEnumValEnd));
+    clEnumValues(clEnumValN(opts::AddressSanitizer, "address", "memory errors"),
+                 clEnumValN(opts::MemorySanitizer, "memory", "memory errors"),
+                 clEnumValN(opts::ThreadSanitizer, "thread",
+                            "race detection")));
 
 static cl::opt<bool> disableLoopUnrolling(
     "disable-loop-unrolling",
@@ -235,7 +234,11 @@ static void addOptimizationPasses(PassManagerBase &mpm,
     }
     builder.Inliner = createFunctionInliningPass(threshold);
   } else {
+#if LDC_LLVM_VER >= 400
+    builder.Inliner = createAlwaysInlinerLegacyPass();
+#else
     builder.Inliner = createAlwaysInlinerPass();
+#endif
   }
   builder.DisableUnitAtATime = !unitAtATime;
   builder.DisableUnrollLoops = optLevel == 0;

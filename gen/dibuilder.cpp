@@ -32,6 +32,14 @@ typedef llvm::DINode DIFlags;
 typedef llvm::DIDescriptor DIFlags;
 #endif
 
+namespace {
+#if LDC_LLVM_VER >= 400
+const auto DIFlagZero = DIFlags::FlagZero;
+#else
+const unsigned DIFlagZero = 0;
+#endif
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // get the module the symbol is in, or - for template instances - the current
@@ -152,7 +160,9 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
 
   return DBuilder.createBasicType(type->toChars(),         // name
                                   getTypeAllocSize(T) * 8, // size (bits)
+#if LDC_LLVM_VER < 400
                                   getABITypeAlign(T) * 8,  // align (bits)
+#endif
                                   Encoding);
 }
 
@@ -241,7 +251,7 @@ ldc::DIType ldc::DIBuilder::CreateMemberType(unsigned linnum, Type *type,
   // find base type
   ldc::DIType basetype(CreateTypeDescription(t, true));
 
-  unsigned Flags = 0;
+  auto Flags = DIFlagZero;
   switch (prot) {
   case PROTprivate:
     Flags = DIFlags::FlagPrivate;
@@ -435,7 +445,7 @@ ldc::DIType ldc::DIBuilder::CreateArrayType(Type *type) {
       0,                 // LineNo
       getTypeAllocSize(T) * 8, // size in bits
       getABITypeAlign(T) * 8,  // alignment in bits
-      0,                       // What here?
+      DIFlagZero,              // What here?
 #if LDC_LLVM_VER >= 307
       nullptr, // DerivedFrom
 #else
@@ -605,7 +615,12 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
   CUNode = DBuilder.createCompileUnit(
       global.params.symdebug == 2 ? llvm::dwarf::DW_LANG_C
                                   : llvm::dwarf::DW_LANG_D,
+#if LDC_LLVM_VER >= 400
+      DBuilder.createFile(llvm::sys::path::filename(srcpath),
+                          llvm::sys::path::parent_path(srcpath)),
+#else
       llvm::sys::path::filename(srcpath), llvm::sys::path::parent_path(srcpath),
+#endif
       "LDC (http://wiki.dlang.org/LDC)",
       isOptimizationEnabled(), // isOptimized
       llvm::StringRef(),       // Flags TODO
@@ -868,7 +883,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 #endif
 
   ldc::DILocalVariable debugVariable;
-  unsigned Flags = 0;
+  auto Flags = DIFlagZero;
   if (isThisPtr) {
     Flags |= DIFlags::FlagArtificial | DIFlags::FlagObjectPointer;
   }
@@ -954,16 +969,11 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 #endif
 }
 
-ldc::DIGlobalVariable
-ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *ll,
+void
+ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
                                    VarDeclaration *vd) {
-  if (!global.params.symdebug) {
-#if LDC_LLVM_VER >= 307
-    return nullptr;
-#else
-    return llvm::DIGlobalVariable();
-#endif
-  }
+  if (!global.params.symdebug)
+    return;
 
   Logger::println("D to dwarf global_variable");
   LOG_SCOPE;
@@ -971,7 +981,11 @@ ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *ll,
   assert(vd->isDataseg() ||
          (vd->storage_class & (STCconst | STCimmutable) && vd->init));
 
-  return DBuilder.createGlobalVariable(
+#if LDC_LLVM_VER >= 400
+  auto DIVar = DBuilder.createGlobalVariableExpression(
+#else
+  DBuilder.createGlobalVariable(
+#endif
 #if LDC_LLVM_VER >= 306
       GetCU(), // context
 #endif
@@ -981,8 +995,16 @@ ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *ll,
       vd->loc.linnum,                         // line num
       CreateTypeDescription(vd->type, false), // type
       vd->protection == PROTprivate,          // is local to unit
-      ll                                      // value
+#if LDC_LLVM_VER >= 400
+      nullptr // relative location of field
+#else
+      llVar // value
+#endif
       );
+
+#if LDC_LLVM_VER >= 400
+  llVar->addDebugInfo(DIVar);
+#endif
 }
 
 void ldc::DIBuilder::Finalize() {
