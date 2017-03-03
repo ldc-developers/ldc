@@ -726,6 +726,18 @@ void registerPredefinedTargetVersions() {
     registerPredefinedFloatABI("MIPS_SoftFloat", "MIPS_HardFloat");
     registerMipsABI();
     break;
+#if defined RISCV_LLVM_DEV || LDC_LLVM_VER >= 400
+#if defined RISCV_LLVM_DEV
+  case llvm::Triple::riscv:
+#else
+  case llvm::Triple::riscv32:
+#endif
+    VersionCondition::addPredefinedGlobalIdent("RISCV32");
+    break;
+  case llvm::Triple::riscv64:
+    VersionCondition::addPredefinedGlobalIdent("RISCV64");
+    break;
+#endif
   case llvm::Triple::sparc:
     // FIXME: Detect SPARC v8+ (SPARC_V8Plus).
     VersionCondition::addPredefinedGlobalIdent("SPARC");
