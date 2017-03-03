@@ -77,8 +77,10 @@ static std::string getOutputName(bool const sharedLib) {
   }
 
   if (global.params.exefile) {
-    return extension ? FileName::defaultExt(global.params.exefile, extension)
-                     : global.params.exefile;
+    // DMD adds the default extension if there is none
+    return opts::invokedByLDMD && extension
+               ? FileName::defaultExt(global.params.exefile, extension)
+               : global.params.exefile;
   }
 
   // Infer output name from first object file.
@@ -837,7 +839,10 @@ int createStaticLibrary() {
   // output filename
   std::string libName;
   if (global.params.libname) { // explicit
-    libName = FileName::defaultExt(global.params.libname, global.lib_ext);
+    // DMD adds the default extension if there is none
+    libName = opts::invokedByLDMD
+                  ? FileName::defaultExt(global.params.libname, global.lib_ext)
+                  : global.params.libname;
   } else { // infer from first object file
     libName = global.params.objfiles->dim
                   ? FileName::removeExt((*global.params.objfiles)[0])
