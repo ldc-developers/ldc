@@ -110,28 +110,41 @@ private:
 
         try
         {
-            auto settings = parseConfigFile(cfPath);
+            auto settingSections = parseConfigFile(cfPath);
 
+            bool sectionFound;
             ArraySetting secSwitches;
             ArraySetting defSwitches;
 
-            foreach (s; settings)
+            foreach (s; settingSections)
             {
                 if (s.name == dSec)
                 {
+                    sectionFound = true;
                     secSwitches = findSwitches(s);
                 }
                 else if (s.name == "default")
                 {
+                    sectionFound = true;
                     defSwitches = findSwitches(s);
                 }
+            }
+
+            if (!sectionFound)
+            {
+                const dCfPath = cfPath[0 .. strlen(cfPath)];
+                if (section)
+                    throw new Exception("Could not look up section '" ~ cast(string) dSec
+                                        ~ "' nor the 'default' section in " ~ cast(string) dCfPath);
+                else
+                    throw new Exception("Could not look up 'default' section in " ~ cast(string) dCfPath);
             }
 
             auto switches = secSwitches ? secSwitches : defSwitches;
             if (!switches)
             {
                 const dCfPath = cfPath[0 .. strlen(cfPath)];
-                throw new Exception("could not look up switches in " ~ cast(string) dCfPath);
+                throw new Exception("Could not look up switches in " ~ cast(string) dCfPath);
             }
 
             auto finalSwitches = new const(char)*[switches.vals.length];
@@ -148,7 +161,7 @@ private:
         }
         catch (Exception ex)
         {
-            fprintf(stderr, "%.*s\n", ex.msg.length, ex.msg.ptr);
+            fprintf(stderr, "Error: %.*s\n", ex.msg.length, ex.msg.ptr);
             return false;
         }
     }
