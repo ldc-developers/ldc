@@ -11,7 +11,7 @@ set(DMDFE_VERSION         ${D_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERS
 set(MULTILIB              OFF                                       CACHE BOOL    "Build both 32/64 bit runtime libraries")
 set(BUILD_BC_LIBS         OFF                                       CACHE BOOL    "Build the runtime as LLVM bitcode libraries")
 set(INCLUDE_INSTALL_DIR   ${CMAKE_INSTALL_PREFIX}/include/d         CACHE PATH    "Path to install D modules to")
-set(BUILD_SHARED_LIBS     OFF                                       CACHE STRING  "Whether to build the runtime as a shared library (ON|OFF|BOTH)")
+set(BUILD_SHARED_LIBS     AUTO                                      CACHE STRING  "Whether to build the runtime as a shared library (ON|OFF|BOTH)")
 set(D_FLAGS               -w                                        CACHE STRING  "Runtime build flags, separated by ;")
 set(D_FLAGS_DEBUG         -g;-link-debuglib                         CACHE STRING  "Runtime build flags (debug libraries), separated by ;")
 set(D_FLAGS_RELEASE       -O3;-release                              CACHE STRING  "Runtime build flags (release libraries), separated by ;")
@@ -31,11 +31,24 @@ else()
     set(MULTILIB_SUFFIX 64)
 endif()
 
+set(SHARED_LIBS_SUPPORTED OFF)
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR
+   ${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD" OR
+   APPLE)
+    set(SHARED_LIBS_SUPPORTED ON)
+endif()
+
+if(${BUILD_SHARED_LIBS} STREQUAL "AUTO")
+    if(SHARED_LIBS_SUPPORTED)
+        set(BUILD_SHARED_LIBS BOTH)
+    else()
+        set(BUILD_SHARED_LIBS OFF)
+    endif()
+endif()
+
 set(SHARED_LIB_SUFFIX "")
 if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
-    if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Linux" AND
-       NOT ${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD" AND
-       NOT APPLE)
+    if(NOT SHARED_LIBS_SUPPORTED)
         message(FATAL_ERROR "Shared libraries (BUILD_SHARED_LIBS) are only supported on Linux, macOS and FreeBSD for the time being.")
     endif()
 
