@@ -59,6 +59,9 @@ cl::list<std::string> runargs(
         "Runs the resulting program, passing the remaining arguments to it"),
     cl::Positional, cl::PositionalEatsArgs);
 
+cl::opt<bool> invokedByLDMD("ldmd", cl::desc("Invoked by LDMD?"),
+                            cl::ZeroOrMore, cl::ReallyHidden);
+
 static cl::opt<ubyte, true> useDeprecated(
     cl::desc("Allow deprecated code/language features:"), cl::ZeroOrMore,
     clEnumValues(clEnumValN(0, "de", "Do not allow deprecated features"),

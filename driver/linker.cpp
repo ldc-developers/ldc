@@ -45,12 +45,6 @@ static llvm::cl::opt<bool> staticFlag(
         "Create a statically linked binary, including all system dependencies"),
     llvm::cl::ZeroOrMore);
 
-// used by LDMD
-static llvm::cl::opt<bool> createStaticLibInObjdir(
-    "create-static-lib-in-objdir",
-    llvm::cl::desc("Create static library in -od directory (DMD-compliant)"),
-    llvm::cl::ZeroOrMore, llvm::cl::ReallyHidden);
-
 static llvm::cl::opt<std::string>
     ltoLibrary("flto-binary",
                llvm::cl::desc("Set the linker LTO plugin library file (e.g. "
@@ -851,7 +845,10 @@ int createStaticLibrary() {
     libName += '.';
     libName += global.lib_ext;
   }
-  if (createStaticLibInObjdir && global.params.objdir &&
+
+  // DMD creates static libraries in the objects directory (unless using an
+  // absolute output path via `-of`).
+  if (opts::invokedByLDMD && global.params.objdir &&
       !FileName::absolute(libName.c_str())) {
     libName = FileName::combine(global.params.objdir, libName.c_str());
   }
