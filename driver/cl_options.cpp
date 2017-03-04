@@ -325,7 +325,7 @@ cl::opt<std::string>
 #endif
 
 cl::opt<llvm::Reloc::Model> mRelocModel(
-    "relocation-model", cl::desc("Relocation model"),
+    "relocation-model", cl::desc("Relocation model"), cl::ZeroOrMore,
 #if LDC_LLVM_VER < 309
     cl::init(llvm::Reloc::Default),
 #endif
