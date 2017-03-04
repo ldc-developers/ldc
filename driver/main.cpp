@@ -1028,7 +1028,7 @@ int cppmain(int argc, char **argv) {
     global.dll_ext = "dll";
     global.lib_ext = (global.params.mscoff ? "lib" : "a");
   } else {
-    global.dll_ext = "so";
+    global.dll_ext = global.params.targetTriple->isOSDarwin() ? "dylib" : "so";
     global.lib_ext = "a";
   }
 
