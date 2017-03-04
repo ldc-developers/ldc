@@ -1,4 +1,4 @@
-// This configuration file uses libconfig.
+// This configuration file uses libconfig-d.
 // See http://www.hyperrealm.com/libconfig/ for syntax details.
 
 // The default group is required

@@ -3,10 +3,6 @@ project(ldc)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
-if(MSVC)
-    set(LIBCONFIG_DLL OFF CACHE BOOL "Use libconfig DLL instead of static library")
-endif()
-
 include(FindDCompiler)
 include(CheckIncludeFile)
 include(CheckLibraryExists)
@@ -28,11 +24,6 @@ math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 # Remove LLVMTableGen library from list of libraries
 string(REGEX MATCH "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" LLVM_TABLEGEN_LIBRARY "${LLVM_LIBRARIES}")
 string(REGEX REPLACE "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" "" LLVM_LIBRARIES "${LLVM_LIBRARIES}")
-
-#
-# Locate libconfig.
-#
-find_package(LibConfig REQUIRED)
 
 #
 # Get info about used Linux distribution.
@@ -327,6 +318,23 @@ endif()
 message(STATUS "LDC version identifier: ${LDC_VERSION}")
 configure_file(driver/ldc-version.cpp.in driver/ldc-version.cpp)
 
+# D 3rdparty sources are directly built in with the main executable
+set(DRV_3RDPARTY_SRC_D
+    3rdparty/pegged/pegged/dynamic/peg.d
+    3rdparty/pegged/pegged/dynamic/grammar.d
+    3rdparty/pegged/pegged/peg.d
+    3rdparty/pegged/pegged/parser.d
+    3rdparty/libconfig-d/src/config/config.d
+    3rdparty/libconfig-d/src/config/grammar.d
+    3rdparty/libconfig-d/src/config/package.d
+    3rdparty/libconfig-d/src/config/setting.d
+    3rdparty/libconfig-d/src/config/util.d
+)
+set(DRV_3RDPARTY_IMP_D
+    3rdparty/pegged
+    3rdparty/libconfig-d/src
+)
+
 # Also add the header files to the build so that they are available in IDE
 # project files generated via CMake.
 file(GLOB_RECURSE FE_SRC_D ${DDMDFE_PATH}/*.d)
@@ -387,6 +395,7 @@ set(LDC_D_SOURCE_FILES
     ${GEN_SRC_D}
     ${DRV_SRC_D}
     ${IR_SRC_D}
+    ${DRV_3RDPARTY_SRC_D}
 )
 
 source_group("Source Files\\${DDMDFE_PATH}" FILES ${FE_SRC_D})
@@ -427,17 +436,15 @@ include_directories(
 )
 include_directories( SYSTEM
     ${LLVM_INCLUDE_DIRS}
-    ${LIBCONFIG_INCLUDE_DIR}
 )
 append("-I${PROJECT_SOURCE_DIR}" DDMD_DFLAGS)
 append("-I${PROJECT_BINARY_DIR}" DDMD_DFLAGS)
-
+foreach(IMP_D ${DRV_3RDPARTY_IMP_D})
+    append("-I{PROJECT_SOURCE_DIR}/${IMP_D}" DDMD_DFLAGS)
+endforeach(IMP_D)
 
 if(MSVC)
     include_directories(${PROJECT_SOURCE_DIR}/vcbuild)
-    if(NOT LIBCONFIG_DLL)
-        append("-DLIBCONFIG_STATIC" CMAKE_CXX_FLAGS)
-    endif()
 endif()
 
 if(MSVC)
@@ -552,8 +559,8 @@ add_custom_target(${LDC_EXE} ALL DEPENDS ${LDC_EXE_FULL})
 add_custom_target(${LDMD_EXE} ALL DEPENDS ${LDMD_EXE_FULL})
 
 # Figure out how to link the main LDC executable, for which we need to take the
-# libconfig/LLVM flags into account.
-set(LDC_LINKERFLAG_LIST "${SANITIZE_LDFLAGS};${LIBCONFIG_LIBRARY};${LLVM_LIBRARIES};${LLVM_LDFLAGS}")
+# LLVM flags into account.
+set(LDC_LINKERFLAG_LIST "${SANITIZE_LDFLAGS};${LLVM_LIBRARIES};${LLVM_LDFLAGS}")
 
 set(LDC_LINK_MANUALLY OFF)
 if(UNIX AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")))

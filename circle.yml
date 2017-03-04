@@ -26,7 +26,7 @@ dependencies:
 
   override:
     - sudo apt-get remove clang llvm
-    - sudo apt-get install libconfig++8-dev libedit-dev
+    - sudo apt-get install libedit-dev
     - sudo apt-get install llvm-4.0 llvm-4.0-dev clang-4.0
     - pip install --user lit
   post:
@@ -75,7 +75,7 @@ test:
 # The containers were started but only the tests from container 0 were run.
 # Containers 1-3 also started the tests but stop with the message
 # "No tests were found!!!"
-#   
+#
 #    - ? |
 #        echo $CIRCLE_NODE_INDEX
 #        case $CIRCLE_NODE_INDEX in
