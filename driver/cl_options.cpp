@@ -146,9 +146,9 @@ cl::opt<std::string> objectFile("of", cl::value_desc("filename"), cl::Prefix,
                                 cl::desc("Use <filename> as output file name"),
                                 cl::ZeroOrMore);
 
-cl::opt<std::string>
-    objectDir("od", cl::value_desc("directory"), cl::Prefix, cl::ZeroOrMore,
-              cl::desc("Write object files to <directory>"));
+cl::opt<std::string> objectDir("od", cl::value_desc("directory"), cl::Prefix,
+                               cl::ZeroOrMore,
+                               cl::desc("Write object files to <directory>"));
 
 cl::opt<std::string>
     soname("soname", cl::value_desc("soname"), cl::Hidden, cl::Prefix,
@@ -205,9 +205,10 @@ static cl::opt<bool, true>
     doHdrGen("H", cl::desc("Generate 'header' file"), cl::ZeroOrMore,
              cl::location(global.params.doHdrGeneration));
 
-cl::opt<std::string>
-    hdrDir("Hd", cl::desc("Write 'header' file to <directory>"),
-           cl::value_desc("directory"), cl::Prefix, cl::ZeroOrMore);
+cl::opt<std::string> hdrDir("Hd",
+                            cl::desc("Write 'header' file to <directory>"),
+                            cl::value_desc("directory"), cl::Prefix,
+                            cl::ZeroOrMore);
 
 cl::opt<std::string> hdrFile("Hf", cl::ZeroOrMore,
                              cl::desc("Write 'header' file to <filename>"),
@@ -276,7 +277,8 @@ cl::list<std::string> versions(
 
 cl::list<std::string> transitions(
     "transition",
-    cl::desc("Help with language change identified by <idents>, use ? for list"),
+    cl::desc(
+        "Help with language change identified by <idents>, use ? for list"),
     cl::value_desc("idents"), cl::CommaSeparated);
 
 static StringsAdapter linkSwitchStore("L", global.params.linkswitches);
@@ -557,6 +559,44 @@ void createClashingOptions() {
 /// Hides command line options exposed from within LLVM that are unlikely
 /// to be useful for end users from the -help output.
 void hideLLVMOptions() {
+  static const char *const hiddenOptions[] = {
+      "bounds-checking-single-trap", "disable-debug-info-verifier",
+      "disable-objc-arc-checkforcfghazards", "disable-spill-fusing", "cppfname",
+      "cppfor", "cppgen", "enable-correct-eh-support", "enable-load-pre",
+      "enable-implicit-null-checks", "enable-misched",
+      "enable-objc-arc-annotations", "enable-objc-arc-opts",
+      "enable-scoped-noalias", "enable-tbaa", "exhaustive-register-search",
+      "fatal-assembler-warnings", "gpsize", "imp-null-check-page-size",
+      "internalize-public-api-file", "internalize-public-api-list",
+      "join-liveintervals", "limit-float-precision",
+      "mc-x86-disable-arith-relaxation", "merror-missing-parenthesis",
+      "merror-noncontigious-register", "mfuture-regs", "mips-compact-branches",
+      "mips16-constant-islands", "mips16-hard-float", "mlsm", "mno-compound",
+      "mno-fixup", "mno-ldc1-sdc1", "mno-pairing", "mwarn-missing-parenthesis",
+      "mwarn-noncontigious-register", "mwarn-sign-mismatch", "nvptx-sched4reg",
+      "no-discriminators", "objc-arc-annotation-target-identifier",
+      "pre-RA-sched", "print-after-all", "print-before-all",
+      "print-machineinstrs", "profile-estimator-loop-weight",
+      "profile-estimator-loop-weight", "profile-file", "profile-info-file",
+      "profile-verifier-noassert", "r600-ir-structurize", "rdf-dump",
+      "rdf-limit", "regalloc", "rewrite-map-file", "rng-seed",
+      "sample-profile-max-propagate-iterations", "shrink-wrap", "spiller",
+      "stackmap-version", "stats", "strip-debug", "struct-path-tbaa",
+      "time-passes", "unit-at-a-time", "verify-debug-info", "verify-dom-info",
+      "verify-loop-info", "verify-machine-dom-info", "verify-regalloc",
+      "verify-region-info", "verify-scev", "verify-scev-maps",
+      "x86-early-ifcvt", "x86-use-vzeroupper", "x86-recip-refinement-steps",
+
+      // We enable -fdata-sections/-ffunction-sections by default where it makes
+      // sense for reducing code size, so hide them to avoid confusion.
+      //
+      // We need our own switch as these two are defined by LLVM and linked to
+      // static TargetMachine members, but the default we want to use depends
+      // on the target triple (and thus we do not know it until after the
+      // command
+      // line has been parsed).
+      "fdata-sections", "ffunction-sections"};
+
 #if LDC_LLVM_VER >= 307
   llvm::StringMap<cl::Option *> &map = cl::getRegisteredOptions();
 #else
@@ -564,82 +604,14 @@ void hideLLVMOptions() {
   cl::getRegisteredOptions(map);
 #endif
 
-  auto hide = [&map](const char *name) {
+  for (const auto name : hiddenOptions) {
     // Check if option exists first for resilience against LLVM changes
     // between versions.
-    if (map.count(name)) {
-      map[name]->setHiddenFlag(cl::Hidden);
+    auto it = map.find(name);
+    if (it != map.end()) {
+      it->second->setHiddenFlag(cl::Hidden);
     }
-  };
-
-  hide("bounds-checking-single-trap");
-  hide("disable-debug-info-verifier");
-  hide("disable-objc-arc-checkforcfghazards");
-  hide("disable-spill-fusing");
-  hide("cppfname");
-  hide("cppfor");
-  hide("cppgen");
-  hide("enable-correct-eh-support");
-  hide("enable-load-pre");
-  hide("enable-misched");
-  hide("enable-objc-arc-annotations");
-  hide("enable-objc-arc-opts");
-  hide("enable-scoped-noalias");
-  hide("enable-tbaa");
-  hide("exhaustive-register-search");
-  hide("fatal-assembler-warnings");
-  hide("internalize-public-api-file");
-  hide("internalize-public-api-list");
-  hide("join-liveintervals");
-  hide("limit-float-precision");
-  hide("mc-x86-disable-arith-relaxation");
-  hide("mips16-constant-islands");
-  hide("mips16-hard-float");
-  hide("mlsm");
-  hide("mno-ldc1-sdc1");
-  hide("nvptx-sched4reg");
-  hide("no-discriminators");
-  hide("objc-arc-annotation-target-identifier");
-  hide("pre-RA-sched");
-  hide("print-after-all");
-  hide("print-before-all");
-  hide("print-machineinstrs");
-  hide("profile-estimator-loop-weight");
-  hide("profile-estimator-loop-weight");
-  hide("profile-file");
-  hide("profile-info-file");
-  hide("profile-verifier-noassert");
-  hide("regalloc");
-  hide("rewrite-map-file");
-  hide("rng-seed");
-  hide("sample-profile-max-propagate-iterations");
-  hide("shrink-wrap");
-  hide("spiller");
-  hide("stackmap-version");
-  hide("stats");
-  hide("strip-debug");
-  hide("struct-path-tbaa");
-  hide("time-passes");
-  hide("unit-at-a-time");
-  hide("verify-debug-info");
-  hide("verify-dom-info");
-  hide("verify-loop-info");
-  hide("verify-regalloc");
-  hide("verify-region-info");
-  hide("verify-scev");
-  hide("x86-early-ifcvt");
-  hide("x86-use-vzeroupper");
-  hide("x86-recip-refinement-steps");
-
-  // We enable -fdata-sections/-ffunction-sections by default where it makes
-  // sense for reducing code size, so hide them to avoid confusion.
-  //
-  // We need our own switch as these two are defined by LLVM and linked to
-  // static TargetMachine members, but the default we want to use depends
-  // on the target triple (and thus we do not know it until after the command
-  // line has been parsed).
-  hide("fdata-sections");
-  hide("ffunction-sections");
+  }
 }
 
 } // namespace opts

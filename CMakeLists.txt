@@ -455,6 +455,16 @@ if(GENERATE_OFFTI)
     append("-DGENERATE_OFFTI" CMAKE_CXX_FLAGS)
 endif()
 
+option(RISCV_LLVM_DEV, "full RISC-V support with riscv-llvm")
+mark_as_advanced(RISCV_LLVM_DEV)
+
+#
+# Enable building with riscv-llvm, for full RISC-V support.
+#
+if(RISCV_LLVM_DEV)
+    append("-DRISCV_LLVM_DEV" CMAKE_CXX_FLAGS)
+endif()
+
 # if llvm was built with assertions we have to do the same
 # as there are some headers with differing behavior based on NDEBUG
 if(LLVM_ENABLE_ASSERTIONS)
