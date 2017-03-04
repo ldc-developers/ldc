@@ -22,6 +22,6 @@ S17237 globalStruct;
 extern(C) int8 foo(S17237* s)
 {
     // CHECK: %[[GEP:[0-9]]] = getelementptr {{.*}}S17237* %s_arg
-    // CHECK: = load <8 x i32>, <8 x i32>* %[[GEP]], align 32
+    // CHECK: = load {{.*}}<8 x i32>* %[[GEP]], align 32
     return s.c;
 }
