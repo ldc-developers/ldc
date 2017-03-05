@@ -12,17 +12,15 @@
 
 struct Dstring
 {
-    size_t length = 0;
-    const char *ptr = nullptr;
-
-    Dstring(size_t length, const char *ptr) : length(length), ptr(ptr) {}
+    size_t length;
+    const char *ptr;
 };
 
 Dstring traitsGetTargetCPU();
 bool traitsTargetHasFeature(Dstring feature);
 
 template <int N> bool traitsTargetHasFeature(const char (&feature)[N]) {
-  return traitsTargetHasFeature(Dstring(N - 1, feature));
+  return traitsTargetHasFeature({N - 1, feature});
 }
 
 #endif
