@@ -576,7 +576,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
       }
     } else {
       const auto ext = ls::path::extension(p);
-      if (ext.equals_lower("exe")) {
+      if (ext.equals_lower(".exe")) {
         // should be for Windows targets only
         ldcArgs.push_back(concat("-of=", p));
         continue;
@@ -650,10 +650,6 @@ std::string locateBinary(std::string exeName) {
   return "";
 }
 
-static size_t addStrlen(size_t acc, const char *str) {
-  return acc + (str ? strlen(str) : 0);
-}
-
 // In driver/main.d
 int main(int argc, char **argv);
 
@@ -677,38 +673,41 @@ int cppmain(int argc, char **argv) {
 
   args.push_back(nullptr);
 
-  // Check if we need to write out a response file.
-  size_t totalLen = std::accumulate(args.begin(), args.end(), 0, addStrlen);
-  if (totalLen > maxCommandLineLen()) {
-    int rspFd;
-    llvm::SmallString<128> rspPath;
-    if (ls::fs::createUniqueFile("ldmd-%%-%%-%%-%%.rsp", rspFd, rspPath)) {
-      error("Could not open temporary response file.");
-    }
-
-    {
-      llvm::raw_fd_ostream rspOut(rspFd, /*shouldClose=*/true);
-      for (auto arg : args) {
-        rspOut << arg << '\n';
-      }
-    }
-
-    std::string rspArg = "@";
-    rspArg += rspPath.str();
-
-    std::vector<const char *> newArgs;
-    newArgs.push_back(argv[0]);
-    newArgs.push_back(rspArg.c_str());
-    newArgs.push_back(nullptr);
-
-    int rc = execute(ldcPath, &newArgs[0]);
-
-    if (ls::fs::remove(rspPath.str())) {
-      warning("Could not remove response file.");
-    }
-
-    return rc;
+  // Check if we can get away without a response file.
+  const size_t totalLen = std::accumulate(
+      args.begin(), args.end() - 1,
+      args.size() * 3, // quotes + space
+      [](size_t acc, const char *arg) { return acc + strlen(arg); });
+  if (totalLen <= maxCommandLineLen()) {
+    return execute(ldcPath, args.data());
   }
 
-  return execute(ldcPath, &args[0]);
+  int rspFd;
+  llvm::SmallString<128> rspPath;
+  if (ls::fs::createUniqueFile("ldmd-%%-%%-%%-%%.rsp", rspFd, rspPath)) {
+    error("Could not open temporary response file.");
+  }
+
+  {
+    llvm::raw_fd_ostream rspOut(rspFd, /*shouldClose=*/true);
+    // skip argv[0] and terminating NULL
+    for (auto it = args.begin() + 1, end = args.end() - 1; it != end; ++it) {
+      rspOut << *it << '\n';
+    }
+  }
+
+  std::string rspArg = "@";
+  rspArg += rspPath.str();
+
+  args.resize(1);
+  args.push_back(rspArg.c_str());
+  args.push_back(nullptr);
+
+  int rc = execute(ldcPath, args.data());
+
+  if (ls::fs::remove(rspPath.str())) {
+    warning("Could not remove response file.");
+  }
+
+  return rc;
 }
