@@ -350,6 +350,8 @@ void translateArgs(size_t originalArgc, char **originalArgv,
   assert(ldcArgs.size() == 1);
   const std::string ldcPath = ldcArgs[0];
 
+  ldcArgs.push_back("-ldmd");
+
   bool vdmd = false;
   bool noFiles = true;
 
@@ -441,14 +443,8 @@ void translateArgs(size_t originalArgc, char **originalArgv,
        * -wi
        * -O
        * -o-
-       */
-      else if (strcmp(p + 1, "od") == 0) {
-        ldcArgs.push_back(p);
-        // DMD creates static libraries in the objects directory (unless using
-        // an absolute output path via `-of`).
-        ldcArgs.push_back("-create-static-lib-in-objdir");
-      }
-      /* -of
+       * -od
+       * -of
        * -op
        */
       else if (strcmp(p + 1, "o") == 0) {

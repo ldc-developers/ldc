@@ -44,6 +44,7 @@ extern llvm::SmallVector<const char *, 32> allArguments;
  */
 extern cl::list<std::string> fileList;
 extern cl::list<std::string> runargs;
+extern cl::opt<bool> invokedByLDMD;
 extern cl::opt<bool> compileOnly;
 extern cl::opt<bool, true> enforcePropertySyntax;
 extern cl::opt<bool> noAsm;

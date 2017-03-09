@@ -39,6 +39,7 @@ addons:
   apt:
     sources:
     - ubuntu-toolchain-r-test
+    - george-edison55-precise-backports # more recent CMake
     packages:
     - libconfig++8-dev
     - gdb
@@ -51,6 +52,8 @@ addons:
     - libedit2
     - libedit-dev
     - libcurl3:i386
+    - cmake
+    - cmake-data
 before_install:
   -
     if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
