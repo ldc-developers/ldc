@@ -14489,7 +14489,7 @@ extern (C++) final class MulExp : BinExp
             // Only short[8] and ushort[8] work with multiply
             return incompatibleTypes();
           }
-        }        
+        }
         return this;
     }
 
