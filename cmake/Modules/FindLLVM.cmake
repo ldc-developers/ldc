@@ -105,6 +105,10 @@ if ((WIN32 AND NOT(MINGW OR CYGWIN)) OR NOT LLVM_CONFIG)
             # Versions below 4.0 do not support component debuginfomsf
             list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfomsf" index)
         endif()
+        if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-6][\\.0-9A-Za-z]*")
+            # Versions below 3.7 do not support component libdriver
+            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "libdriver" index)
+        endif()
 
         llvm_map_components_to_libnames(tmplibs ${LLVM_FIND_COMPONENTS})
         if(MSVC)
@@ -197,6 +201,10 @@ else()
     if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-9][\\.0-9A-Za-z]*")
         # Versions below 4.0 do not support component debuginfomsf
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfomsf" index)
+    endif()
+    if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-6][\\.0-9A-Za-z]*")
+        # Versions below 3.7 do not support component libdriver
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "libdriver" index)
     endif()
 
     llvm_set(LDFLAGS ldflags)

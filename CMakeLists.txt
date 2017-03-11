@@ -23,7 +23,7 @@ endif()
 #
 
 find_package(LLVM 3.5 REQUIRED
-    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel instcombine ipa ipo instrumentation irreader linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
+    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel instcombine ipa ipo instrumentation irreader libdriver linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 # Remove LLVMTableGen library from list of libraries
 string(REGEX MATCH "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" LLVM_TABLEGEN_LIBRARY "${LLVM_LIBRARIES}")
@@ -347,6 +347,7 @@ set(DRV_SRC
     driver/targetmachine.cpp
     driver/toobj.cpp
     driver/tool.cpp
+    driver/archiver.cpp
     driver/linker.cpp
     driver/main.cpp
     ${CMAKE_BINARY_DIR}/driver/ldc-version.cpp
@@ -359,6 +360,7 @@ set(DRV_HDR
     driver/configfile.h
     driver/exe_path.h
     driver/ldc-version.h
+    driver/archiver.h
     driver/linker.h
     driver/targetmachine.h
     driver/toobj.h

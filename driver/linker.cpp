@@ -11,6 +11,7 @@
 #include "mars.h"
 #include "module.h"
 #include "root.h"
+#include "driver/archiver.h"
 #include "driver/cl_options.h"
 #include "driver/exe_path.h"
 #include "driver/tool.h"
@@ -50,6 +51,11 @@ static llvm::cl::opt<std::string>
                llvm::cl::desc("Set the linker LTO plugin library file (e.g. "
                               "LLVMgold.so (Unixes) or libLTO.dylib (Darwin))"),
                llvm::cl::value_desc("file"), llvm::cl::ZeroOrMore);
+
+static llvm::cl::opt<std::string>
+    externalArchiver("archiver",
+                     llvm::cl::desc("External static library archiver"),
+                     llvm::cl::value_desc("file"), llvm::cl::ZeroOrMore);
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -815,8 +821,21 @@ int createStaticLibrary() {
   const bool isTargetMSVC =
       global.params.targetTriple->isWindowsMSVCEnvironment();
 
+#if LDC_LLVM_VER >= 309
+  const bool useInternalArchiver = externalArchiver.empty();
+#else
+  const bool useInternalArchiver = false;
+#endif
+
   // find archiver
-  std::string tool(isTargetMSVC ? "lib.exe" : getArchiver());
+  std::string tool;
+  if (useInternalArchiver) {
+    tool = isTargetMSVC ? "llvm-lib.exe" : "llvm-ar";
+  } else if (!externalArchiver.empty()) {
+    tool = externalArchiver;
+  } else {
+    tool = isTargetMSVC ? "lib.exe" : getArchiver();
+  }
 
   // build arguments
   std::vector<std::string> args;
@@ -869,13 +888,35 @@ int createStaticLibrary() {
   // create path to the library
   CreateDirectoryOnDisk(libName);
 
-  // try to call archiver
-  int exitCode;
-  if (isTargetMSVC) {
-    exitCode = executeMsvcToolAndWait(tool, args, global.params.verbose);
-  } else {
-    exitCode = executeToolAndWait(tool, args, global.params.verbose);
+#if LDC_LLVM_VER >= 309
+  if (useInternalArchiver) {
+    std::vector<const char *> fullArgs;
+    fullArgs.reserve(1 + args.size());
+    fullArgs.push_back(tool.c_str());
+    for (const auto &arg : args)
+      fullArgs.push_back(arg.c_str());
+
+    if (global.params.verbose) {
+      for (auto arg : fullArgs) {
+        fprintf(global.stdmsg, "%s ", arg);
+      }
+      fprintf(global.stdmsg, "\n");
+      fflush(global.stdmsg);
+    }
+
+    const int exitCode = isTargetMSVC ? ldc::lib(fullArgs) : ldc::ar(fullArgs);
+    if (exitCode)
+      error(Loc(), "%s failed with status: %d", tool.c_str(), exitCode);
+
+    return exitCode;
   }
+#endif
+
+  // try to call archiver
+  const int exitCode =
+      isTargetMSVC ? executeMsvcToolAndWait(tool, args, global.params.verbose)
+                   : executeToolAndWait(tool, args, global.params.verbose);
+
   return exitCode;
 }
 
