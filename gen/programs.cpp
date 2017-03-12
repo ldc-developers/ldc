@@ -21,7 +21,7 @@ static cl::opt<std::string>
 static cl::opt<std::string> ar("ar", cl::desc("Archiver"), cl::Hidden,
                                cl::ZeroOrMore);
 
-static std::string findProgramByName(const std::string &name) {
+static std::string findProgramByName(llvm::StringRef name) {
 #if LDC_LLVM_VER >= 306
   llvm::ErrorOr<std::string> res = llvm::sys::findProgramByName(name);
   return res ? res.get() : std::string();
@@ -35,9 +35,8 @@ static std::string getProgram(const char *name, const cl::opt<std::string> *opt,
   std::string path;
   const char *prog = nullptr;
 
-  if (opt && opt->getNumOccurrences() > 0 && opt->length() > 0 &&
-      (prog = opt->c_str())) {
-    path = findProgramByName(prog);
+  if (opt && !opt->empty()) {
+    path = findProgramByName(opt->c_str());
   }
 
   if (path.empty() && envVar && (prog = getenv(envVar)) && prog[0] != '\0') {

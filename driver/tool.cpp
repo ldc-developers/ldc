@@ -11,8 +11,16 @@
 #include "mars.h"
 #include "llvm/Support/Program.h"
 
-int executeToolAndWait(const std::string &tool,
+int executeToolAndWait(const std::string &tool_,
                        std::vector<std::string> const &args, bool verbose) {
+  auto fullToolOrError = llvm::sys::findProgramByName(tool_);
+  if (fullToolOrError.getError()) {
+    error(Loc(), "failed to locate binary %s", tool_.c_str());
+    return -1;
+  }
+
+  const auto tool = std::move(*fullToolOrError);
+
   // Construct real argument list.
   // First entry is the tool itself, last entry must be NULL.
   std::vector<const char *> realargs;

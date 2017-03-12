@@ -164,8 +164,7 @@ static void assemble(const std::string &asmpath, const std::string &objpath) {
   }
 
   // Run the compiler to assembly the program.
-  std::string gcc(getGcc());
-  int R = executeToolAndWait(gcc, args, global.params.verbose);
+  int R = executeToolAndWait(getGcc(), args, global.params.verbose);
   if (R) {
     error(Loc(), "Error while invoking external assembler.");
     fatal();

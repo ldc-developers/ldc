@@ -501,6 +501,7 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
 #ifdef _WIN32
 
 namespace windows {
+
 bool needsQuotes(const llvm::StringRef &arg) {
   return // not already quoted
       !(arg.size() > 1 && arg[0] == '"' &&
@@ -508,7 +509,7 @@ bool needsQuotes(const llvm::StringRef &arg) {
       (arg.empty() || arg.find(' ') != arg.npos || arg.find('"') != arg.npos);
 }
 
-size_t countPrecedingBackslashes(const std::string &arg, size_t index) {
+size_t countPrecedingBackslashes(llvm::StringRef arg, size_t index) {
   size_t count = 0;
 
   for (size_t i = index - 1; i >= 0; --i) {
@@ -520,7 +521,7 @@ size_t countPrecedingBackslashes(const std::string &arg, size_t index) {
   return count;
 }
 
-std::string quoteArg(const std::string &arg) {
+std::string quoteArg(llvm::StringRef arg) {
   if (!needsQuotes(arg))
     return arg;
 
@@ -529,7 +530,7 @@ std::string quoteArg(const std::string &arg) {
 
   quotedArg.push_back('"');
 
-  const size_t argLength = arg.length();
+  const size_t argLength = arg.size();
   for (size_t i = 0; i < argLength; ++i) {
     if (arg[i] == '"') {
       // Escape all preceding backslashes (if any).
@@ -587,109 +588,110 @@ int executeAndWait(const char *commandLine) {
 
   return exitCode;
 }
-}
 
-int executeMsvcToolAndWait(const std::string &tool,
-                           const std::vector<std::string> &args, bool verbose) {
-  llvm::SmallString<1024> commandLine; // full command line incl. executable
+bool setupMsvcEnvironment() {
+  if (getenv("VSINSTALLDIR"))
+    return true;
 
-  // if the VSINSTALLDIR environment variable is NOT set,
-  // the MSVC environment needs to be set up
-  const bool needMsvcSetup = !getenv("VSINSTALLDIR");
-  if (needMsvcSetup) {
-    /* <command line> => %ComSpec% /s /c "<batch file> <command line>"
-     *
-     * cmd.exe /c treats the following string argument (the command)
-     * in a very peculiar way if it starts with a double-quote.
-     * By adding /s and enclosing the command in extra double-quotes
-     * (WITHOUT additionally escaping the command), the command will
-     * be parsed properly.
-     */
+  llvm::SmallString<128> tmpFilePath;
+  if (llvm::sys::fs::createTemporaryFile("ldc_dumpEnv", "", tmpFilePath))
+    return false;
 
-    auto comspecEnv = getenv("ComSpec");
-    if (!comspecEnv) {
-      warning(Loc(),
-              "'ComSpec' environment variable is not set, assuming 'cmd.exe'.");
-      comspecEnv = "cmd.exe";
-    }
-    std::string cmdExecutable = comspecEnv;
-    std::string batchFile = exe_path::prependBinDir(
-        global.params.targetTriple->isArch64Bit() ? "amd64.bat" : "x86.bat");
+  /* Run `%ComSpec% /s /c "...\dumpEnv.bat <x86|amd64> > <tmpFilePath>"` to dump
+   * the MSVC environment to the temporary file.
+   *
+   * cmd.exe /c treats the following string argument (the command)
+   * in a very peculiar way if it starts with a double-quote.
+   * By adding /s and enclosing the command in extra double-quotes
+   * (WITHOUT additionally escaping the command), the command will
+   * be parsed properly.
+   */
 
-    commandLine.append(windows::quoteArg(cmdExecutable));
-    commandLine.append(" /s /c \"");
-    commandLine.append(windows::quoteArg(batchFile));
-    commandLine.push_back(' ');
-    commandLine.append(windows::quoteArg(tool));
-  } else {
-    std::string toolPath = getProgram(tool.c_str());
-    commandLine.append(windows::quoteArg(toolPath));
+  auto comspecEnv = getenv("ComSpec");
+  if (!comspecEnv) {
+    warning(Loc(),
+            "'ComSpec' environment variable is not set, assuming 'cmd.exe'.");
+    comspecEnv = "cmd.exe";
   }
+  std::string cmdExecutable = comspecEnv;
+  std::string batchFile = exe_path::prependBinDir("dumpEnv.bat");
+  std::string arch =
+      global.params.targetTriple->isArch64Bit() ? "amd64" : "x86";
 
-  const size_t commandLineLengthAfterTool = commandLine.size();
+  llvm::SmallString<512> commandLine;
+  commandLine += quoteArg(cmdExecutable);
+  commandLine += " /s /c \"";
+  commandLine += quoteArg(batchFile);
+  commandLine += ' ';
+  commandLine += arch;
+  commandLine += " > ";
+  commandLine += quoteArg(tmpFilePath);
+  commandLine += '"';
 
-  // append (quoted) args
-  for (size_t i = 0; i < args.size(); ++i) {
-    commandLine.push_back(' ');
-    commandLine.append(windows::quoteArg(args[i]));
-  }
-
-  const bool useResponseFile = (!args.empty() && commandLine.size() > 2000);
-  llvm::SmallString<128> responseFilePath;
-  if (useResponseFile) {
-    const size_t firstArgIndex = commandLineLengthAfterTool + 1;
-    llvm::StringRef content(commandLine.data() + firstArgIndex,
-                            commandLine.size() - firstArgIndex);
-
-    if (llvm::sys::fs::createTemporaryFile("ldc_link", "rsp",
-                                           responseFilePath) ||
-        llvm::sys::writeFileWithEncoding(
-            responseFilePath,
-            content)) // keep encoding (LLVM assumes UTF-8 input)
-    {
-      error(Loc(), "cannot write temporary response file for %s", tool.c_str());
-      return -1;
-    }
-
-    // replace all args by @<responseFilePath>
-    std::string responseFileArg = ("@" + responseFilePath).str();
-    commandLine.resize(firstArgIndex);
-    commandLine.append(windows::quoteArg(responseFileArg));
-  }
-
-  if (needMsvcSetup)
-    commandLine.push_back('"');
-
-  const char *finalCommandLine = commandLine.c_str();
-
-  if (verbose) {
-    fprintf(global.stdmsg, finalCommandLine);
-    fprintf(global.stdmsg, "\n");
-    fflush(global.stdmsg);
-  }
-
-  const int exitCode = windows::executeAndWait(finalCommandLine);
-
+  const int exitCode = executeAndWait(commandLine.c_str());
   if (exitCode != 0) {
-    commandLine.resize(commandLineLengthAfterTool);
-    if (needMsvcSetup)
-      commandLine.push_back('"');
     error(Loc(), "`%s` failed with status: %d", commandLine.c_str(), exitCode);
+    llvm::sys::fs::remove(tmpFilePath);
+    return false;
   }
 
-  if (useResponseFile)
-    llvm::sys::fs::remove(responseFilePath);
+  auto fileBuffer = llvm::MemoryBuffer::getFile(tmpFilePath);
+  llvm::sys::fs::remove(tmpFilePath);
+  if (fileBuffer.getError())
+    return false;
 
-  return exitCode;
+  const auto contents = (*fileBuffer)->getBuffer();
+  const auto size = contents.size();
+
+  // Parse the file.
+  std::vector<std::pair<llvm::StringRef, llvm::StringRef>> env;
+
+  size_t i = 0;
+  // for each line
+  while (i < size) {
+    llvm::StringRef key, value;
+
+    for (size_t j = i; j < size; ++j) {
+      const char c = contents[j];
+      if (c == '=' && key.empty()) {
+        key = contents.slice(i, j);
+        i = j + 1;
+      } else if (c == '\n' || c == '\r' || c == '\0') {
+        if (!key.empty()) {
+          value = contents.slice(i, j);
+        }
+        // break and continue with next line
+        i = j + 1;
+        break;
+      }
+    }
+
+    if (!key.empty() && !value.empty())
+      env.emplace_back(key, value);
+  }
+
+  if (global.params.verbose)
+    fprintf(global.stdmsg, "Applying environment variables:\n");
+
+  bool haveVsInstallDir = false;
+
+  for (const auto &pair : env) {
+    const std::string key = pair.first.str();
+    const std::string value = pair.second.str();
+
+    if (global.params.verbose)
+      fprintf(global.stdmsg, "  %s=%s\n", key.c_str(), value.c_str());
+
+    SetEnvironmentVariableA(key.c_str(), value.c_str());
+
+    if (key == "VSINSTALLDIR")
+      haveVsInstallDir = true;
+  }
+
+  return haveVsInstallDir;
 }
 
-#else // !_WIN32
-
-int executeMsvcToolAndWait(const std::string &,
-                           const std::vector<std::string> &, bool) {
-  assert(0);
-  return -1;
-}
+} // namespace windows
 
 #endif
 
@@ -698,7 +700,7 @@ int executeMsvcToolAndWait(const std::string &,
 static int linkObjToBinaryMSVC(bool sharedLib) {
   Logger::println("*** Linking executable ***");
 
-  std::string tool = "link.exe";
+  const std::string tool = "link.exe";
 
   // build arguments
   std::vector<std::string> args;
@@ -798,8 +800,12 @@ static int linkObjToBinaryMSVC(bool sharedLib) {
   }
   logstr << "\n"; // FIXME where's flush ?
 
+#ifdef _WIN32
+  windows::setupMsvcEnvironment();
+#endif
+
   // try to call linker
-  return executeMsvcToolAndWait(tool, args, global.params.verbose);
+  return executeToolAndWait(tool, args, global.params.verbose);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -912,12 +918,13 @@ int createStaticLibrary() {
   }
 #endif
 
-  // try to call archiver
-  const int exitCode =
-      isTargetMSVC ? executeMsvcToolAndWait(tool, args, global.params.verbose)
-                   : executeToolAndWait(tool, args, global.params.verbose);
+#ifdef _WIN32
+  if (isTargetMSVC)
+    windows::setupMsvcEnvironment();
+#endif
 
-  return exitCode;
+  // try to call archiver
+  return executeToolAndWait(tool, args, global.params.verbose);
 }
 
 //////////////////////////////////////////////////////////////////////////////
