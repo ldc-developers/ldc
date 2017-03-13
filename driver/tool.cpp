@@ -209,7 +209,7 @@ int executeAndWait(const char *commandLine) {
   return exitCode;
 }
 
-bool setupMsvcEnvironment() {
+bool setupMsvcEnvironmentImpl() {
   if (getenv("VSINSTALLDIR"))
     return true;
 
@@ -309,6 +309,13 @@ bool setupMsvcEnvironment() {
   }
 
   return haveVsInstallDir;
+}
+
+bool setupMsvcEnvironment() {
+  const bool success = setupMsvcEnvironmentImpl();
+  if (!success)
+    warning(Loc(), "no Visual C++ installation detected");
+  return success;
 }
 
 } // namespace windows

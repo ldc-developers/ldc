@@ -492,6 +492,10 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
 static int linkObjToBinaryMSVC(bool sharedLib) {
   Logger::println("*** Linking executable ***");
 
+#ifdef _WIN32
+  windows::setupMsvcEnvironment();
+#endif
+
   const std::string tool = "link.exe";
 
   // build arguments
@@ -592,10 +596,6 @@ static int linkObjToBinaryMSVC(bool sharedLib) {
   }
   logstr << "\n"; // FIXME where's flush ?
 
-#ifdef _WIN32
-  windows::setupMsvcEnvironment();
-#endif
-
   // try to call linker
   return executeToolAndWait(tool, args, global.params.verbose);
 }
@@ -630,6 +630,11 @@ int createStaticLibrary() {
   if (useInternalArchiver) {
     tool = isTargetMSVC ? "llvm-lib.exe" : "llvm-ar";
   } else {
+#ifdef _WIN32
+    if (isTargetMSVC)
+      windows::setupMsvcEnvironment();
+#endif
+
     tool = getProgram(isTargetMSVC ? "lib.exe" : "ar", &ar);
   }
 
@@ -706,11 +711,6 @@ int createStaticLibrary() {
 
     return exitCode;
   }
-#endif
-
-#ifdef _WIN32
-  if (isTargetMSVC)
-    windows::setupMsvcEnvironment();
 #endif
 
   // try to call archiver
