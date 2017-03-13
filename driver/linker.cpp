@@ -45,10 +45,8 @@ static llvm::cl::opt<std::string>
                               "LLVMgold.so (Unixes) or libLTO.dylib (Darwin))"),
                llvm::cl::value_desc("file"), llvm::cl::ZeroOrMore);
 
-static llvm::cl::opt<std::string>
-    externalArchiver("archiver",
-                     llvm::cl::desc("External static library archiver"),
-                     llvm::cl::value_desc("file"), llvm::cl::ZeroOrMore);
+static llvm::cl::opt<std::string> ar("ar", llvm::cl::desc("Archiver"),
+                                     llvm::cl::Hidden, llvm::cl::ZeroOrMore);
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -286,7 +284,7 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
   Logger::println("*** Linking executable ***");
 
   // find gcc for linking
-  std::string gcc(getGcc());
+  const std::string tool = getGcc();
 
   // build arguments
   std::vector<std::string> args;
@@ -486,7 +484,7 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
   logstr << "\n"; // FIXME where's flush ?
 
   // try to call linker
-  return executeToolAndWait(gcc, args, global.params.verbose);
+  return executeToolAndWait(tool, args, global.params.verbose);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -622,7 +620,7 @@ int createStaticLibrary() {
       global.params.targetTriple->isWindowsMSVCEnvironment();
 
 #if LDC_LLVM_VER >= 309
-  const bool useInternalArchiver = externalArchiver.empty();
+  const bool useInternalArchiver = ar.empty();
 #else
   const bool useInternalArchiver = false;
 #endif
@@ -631,10 +629,8 @@ int createStaticLibrary() {
   std::string tool;
   if (useInternalArchiver) {
     tool = isTargetMSVC ? "llvm-lib.exe" : "llvm-ar";
-  } else if (!externalArchiver.empty()) {
-    tool = externalArchiver;
   } else {
-    tool = isTargetMSVC ? "lib.exe" : getArchiver();
+    tool = getProgram(isTargetMSVC ? "lib.exe" : "ar", &ar);
   }
 
   // build arguments

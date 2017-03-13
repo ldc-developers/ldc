@@ -10,7 +10,6 @@
 #include "driver/tool.h"
 #include "mars.h"
 #include "driver/exe_path.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -25,14 +24,9 @@ static llvm::cl::opt<std::string>
     gcc("gcc", llvm::cl::desc("GCC to use for assembling and linking"),
         llvm::cl::Hidden, llvm::cl::ZeroOrMore);
 
-static llvm::cl::opt<std::string> ar("ar", llvm::cl::desc("Archiver"),
-                                     llvm::cl::Hidden, llvm::cl::ZeroOrMore);
-
 //////////////////////////////////////////////////////////////////////////////
 
-namespace {
-
-std::string findProgramByName(llvm::StringRef name) {
+static std::string findProgramByName(llvm::StringRef name) {
 #if LDC_LLVM_VER >= 306
   llvm::ErrorOr<std::string> res = llvm::sys::findProgramByName(name);
   return res ? res.get() : std::string();
@@ -41,9 +35,10 @@ std::string findProgramByName(llvm::StringRef name) {
 #endif
 }
 
-std::string getProgram(const char *name,
-                       const llvm::cl::opt<std::string> *opt = nullptr,
-                       const char *envVar = nullptr) {
+//////////////////////////////////////////////////////////////////////////////
+
+std::string getProgram(const char *name, const llvm::cl::opt<std::string> *opt,
+                       const char *envVar) {
   std::string path;
   const char *prog = nullptr;
 
@@ -67,8 +62,6 @@ std::string getProgram(const char *name,
   return path;
 }
 
-} // anonymous namespace
-
 ////////////////////////////////////////////////////////////////////////////////
 
 std::string getGcc() {
@@ -80,15 +73,13 @@ std::string getGcc() {
 #endif
 }
 
-std::string getArchiver() { return getProgram("ar", &ar); }
-
 ////////////////////////////////////////////////////////////////////////////////
 
 int executeToolAndWait(const std::string &tool_,
                        std::vector<std::string> const &args, bool verbose) {
   const auto tool = findProgramByName(tool_);
   if (tool.empty()) {
-    error(Loc(), "failed to locate binary %s", tool_.c_str());
+    error(Loc(), "failed to locate %s", tool_.c_str());
     return -1;
   }
 

@@ -18,8 +18,13 @@
 #include <vector>
 #include <string>
 
+#include "llvm/Support/CommandLine.h"
+
 std::string getGcc();
-std::string getArchiver();
+
+std::string getProgram(const char *name,
+                       const llvm::cl::opt<std::string> *opt = nullptr,
+                       const char *envVar = nullptr);
 
 int executeToolAndWait(const std::string &tool,
                        std::vector<std::string> const &args,
