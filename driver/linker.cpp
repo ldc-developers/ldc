@@ -19,7 +19,6 @@
 #include "gen/llvm.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"
-#include "gen/programs.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Linker/Linker.h"

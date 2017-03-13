@@ -10,6 +10,7 @@
 #include "driver/tool.h"
 #include "mars.h"
 #include "driver/exe_path.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -18,15 +19,78 @@
 #include <Windows.h>
 #endif
 
+//////////////////////////////////////////////////////////////////////////////
+
+static llvm::cl::opt<std::string>
+    gcc("gcc", llvm::cl::desc("GCC to use for assembling and linking"),
+        llvm::cl::Hidden, llvm::cl::ZeroOrMore);
+
+static llvm::cl::opt<std::string> ar("ar", llvm::cl::desc("Archiver"),
+                                     llvm::cl::Hidden, llvm::cl::ZeroOrMore);
+
+//////////////////////////////////////////////////////////////////////////////
+
+namespace {
+
+std::string findProgramByName(llvm::StringRef name) {
+#if LDC_LLVM_VER >= 306
+  llvm::ErrorOr<std::string> res = llvm::sys::findProgramByName(name);
+  return res ? res.get() : std::string();
+#else
+  return llvm::sys::FindProgramByName(name);
+#endif
+}
+
+std::string getProgram(const char *name,
+                       const llvm::cl::opt<std::string> *opt = nullptr,
+                       const char *envVar = nullptr) {
+  std::string path;
+  const char *prog = nullptr;
+
+  if (opt && !opt->empty()) {
+    path = findProgramByName(opt->c_str());
+  }
+
+  if (path.empty() && envVar && (prog = getenv(envVar)) && prog[0] != '\0') {
+    path = findProgramByName(prog);
+  }
+
+  if (path.empty()) {
+    path = findProgramByName(name);
+  }
+
+  if (path.empty()) {
+    error(Loc(), "failed to locate %s", name);
+    fatal();
+  }
+
+  return path;
+}
+
+} // anonymous namespace
+
+////////////////////////////////////////////////////////////////////////////////
+
+std::string getGcc() {
+#if defined(__FreeBSD__) && __FreeBSD__ >= 10
+  // Default compiler on FreeBSD 10 is clang
+  return getProgram("clang", &gcc, "CC");
+#else
+  return getProgram("gcc", &gcc, "CC");
+#endif
+}
+
+std::string getArchiver() { return getProgram("ar", &ar); }
+
+////////////////////////////////////////////////////////////////////////////////
+
 int executeToolAndWait(const std::string &tool_,
                        std::vector<std::string> const &args, bool verbose) {
-  auto fullToolOrError = llvm::sys::findProgramByName(tool_);
-  if (fullToolOrError.getError()) {
+  const auto tool = findProgramByName(tool_);
+  if (tool.empty()) {
     error(Loc(), "failed to locate binary %s", tool_.c_str());
     return -1;
   }
-
-  const auto tool = std::move(*fullToolOrError);
 
   // Construct real argument list.
   // First entry is the tool itself, last entry must be NULL.
@@ -61,7 +125,7 @@ int executeToolAndWait(const std::string &tool_,
   return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 #ifdef _WIN32
 
@@ -139,8 +203,8 @@ int executeAndWait(const char *commandLine) {
 #endif
   // according to MSDN, only CreateProcessW (unicode) may modify the passed
   // command line
-  if (!CreateProcess(NULL, cmdline, NULL, NULL, TRUE, 0,
-                     NULL, NULL, &si, &pi)) {
+  if (!CreateProcess(NULL, cmdline, NULL, NULL, TRUE, 0, NULL, NULL, &si,
+                     &pi)) {
     exitCode = -1;
   } else {
     if (WaitForSingleObject(pi.hProcess, INFINITE) != 0 ||

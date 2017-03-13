@@ -18,6 +18,9 @@
 #include <vector>
 #include <string>
 
+std::string getGcc();
+std::string getArchiver();
+
 int executeToolAndWait(const std::string &tool,
                        std::vector<std::string> const &args,
                        bool verbose = false);

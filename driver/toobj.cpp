@@ -16,7 +16,6 @@
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"
-#include "gen/programs.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/Verifier.h"
 #if LDC_LLVM_VER >= 309
