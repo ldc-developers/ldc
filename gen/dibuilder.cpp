@@ -289,9 +289,18 @@ ldc::DIType ldc::DIBuilder::CreatePointerType(Type *type) {
   if (nt->toBasetype()->ty == Tvoid)
     nt = Type::tuns8;
 
+#if LDC_LLVM_VER >= 500
+  // TODO: The addressspace is important for dcompute targets.
+  // See e.g. https://www.mail-archive.com/dwarf-discuss@lists.dwarfstd.org/msg00326.html
+  const llvm::Optional<unsigned> DWARFAddressSpace = llvm::None;
+#endif
+
   return DBuilder.createPointerType(CreateTypeDescription(nt, false),
                                     getTypeAllocSize(T) * 8, // size (bits)
                                     getABITypeAlign(T) * 8,  // align (bits)
+#if LDC_LLVM_VER >= 500
+                                    DWARFAddressSpace,
+#endif
                                     type->toChars()          // name
                                     );
 }
@@ -692,7 +701,12 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type, bool derefclass) {
 #endif
   if (t->ty == Tnull) // display null as void*
     return DBuilder.createPointerType(CreateTypeDescription(Type::tvoid, false),
-                                      8, 8, "typeof(null)");
+                                      8, 8,
+#if LDC_LLVM_VER >= 500
+                                      /* DWARFAddressSpace */ llvm::None,
+#endif
+
+                                      "typeof(null)");
   if (t->ty == Tvector)
     return CreateVectorType(type);
   if (t->isintegral() || t->isfloating()) {
