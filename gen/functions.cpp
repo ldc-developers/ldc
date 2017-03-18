@@ -446,8 +446,17 @@ void applyTargetMachineAttributes(llvm::Function &func,
 
   // Floating point settings
   func.addFnAttr("unsafe-fp-math", TO.UnsafeFPMath ? "true" : "false");
+  const bool lessPreciseFPMADOption =
+#if LDC_LLVM_VER >= 500
+      // This option was removed from llvm::TargetOptions in LLVM 5.0.
+      // Clang sets this to true when `-cl-mad-enable` is passed (OpenCL only).
+      // TODO: implement interface for this option.
+      false;
+#else
+      TO.LessPreciseFPMADOption;
+#endif
   func.addFnAttr("less-precise-fpmad",
-                 TO.LessPreciseFPMADOption ? "true" : "false");
+                 lessPreciseFPMADOption ? "true" : "false");
   func.addFnAttr("no-infs-fp-math", TO.NoInfsFPMath ? "true" : "false");
   func.addFnAttr("no-nans-fp-math", TO.NoNaNsFPMath ? "true" : "false");
 #if LDC_LLVM_VER < 307
