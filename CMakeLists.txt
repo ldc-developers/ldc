@@ -3,10 +3,6 @@ project(ldc)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
-if(MSVC)
-    set(LIBCONFIG_DLL OFF CACHE BOOL "Use libconfig DLL instead of static library")
-endif()
-
 include(FindDCompiler)
 include(CheckIncludeFile)
 include(CheckLibraryExists)
@@ -28,11 +24,6 @@ math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 # Remove LLVMTableGen library from list of libraries
 string(REGEX MATCH "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" LLVM_TABLEGEN_LIBRARY "${LLVM_LIBRARIES}")
 string(REGEX REPLACE "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" "" LLVM_LIBRARIES "${LLVM_LIBRARIES}")
-
-#
-# Locate libconfig.
-#
-find_package(LibConfig REQUIRED)
 
 #
 # Get info about used Linux distribution.
@@ -553,8 +544,8 @@ add_custom_target(${LDC_EXE} ALL DEPENDS ${LDC_EXE_FULL})
 add_custom_target(${LDMD_EXE} ALL DEPENDS ${LDMD_EXE_FULL})
 
 # Figure out how to link the main LDC executable, for which we need to take the
-# libconfig/LLVM flags into account.
-set(LDC_LINKERFLAG_LIST "${SANITIZE_LDFLAGS};${LIBCONFIG_LIBRARY};${LLVM_LIBRARIES};${LLVM_LDFLAGS}")
+# LLVM flags into account.
+set(LDC_LINKERFLAG_LIST "${SANITIZE_LDFLAGS};${LLVM_LIBRARIES};${LLVM_LDFLAGS}")
 
 set(LDC_LINK_MANUALLY OFF)
 if(UNIX AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")))
@@ -729,6 +720,21 @@ add_subdirectory(tools)
 # Test and runtime targets. Note that enable_testing() is order-sensitive!
 #
 enable_testing()
+
+# LDC unittest executable (D unittests only).
+set(LDC_UNITTEST_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_EXE_NAME}-unittest${CMAKE_EXECUTABLE_SUFFIX})
+build_d_executable(
+    "${LDC_UNITTEST_EXE_FULL}"
+    "-unittest;${LDC_D_SOURCE_FILES}"
+    "$<TARGET_LINKER_FILE:${LDC_LIB}>"
+    "${LDC_D_SOURCE_FILES}"
+    "${LDC_LIB}"
+)
+add_custom_target(ldc2-unittest DEPENDS ${LDC_UNITTEST_EXE_FULL})
+add_test(NAME build-ldc2-unittest COMMAND "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ldc2-unittest)
+add_test(NAME ldc2-unittest COMMAND ${LDC_UNITTEST_EXE_FULL} --version)
+set_tests_properties(ldc2-unittest PROPERTIES DEPENDS build-ldc2-unittest)
+
 add_subdirectory(runtime)
 if(D_VERSION EQUAL 2)
     add_subdirectory(tests/d2)
