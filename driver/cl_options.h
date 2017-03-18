@@ -46,7 +46,7 @@ extern cl::list<std::string> fileList;
 extern cl::list<std::string> runargs;
 extern cl::opt<bool> invokedByLDMD;
 extern cl::opt<bool> compileOnly;
-extern cl::opt<bool, true> enforcePropertySyntax;
+extern cl::opt<bool> useDIP1000;
 extern cl::opt<bool> noAsm;
 extern cl::opt<bool> dontWriteObj;
 extern cl::opt<std::string> objectFile;
@@ -56,7 +56,6 @@ extern cl::opt<bool> output_bc;
 extern cl::opt<bool> output_ll;
 extern cl::opt<bool> output_s;
 extern cl::opt<cl::boolOrDefault> output_o;
-extern cl::opt<bool, true> disableRedZone;
 extern cl::opt<std::string> ddocDir;
 extern cl::opt<std::string> ddocFile;
 extern cl::opt<std::string> jsonFile;
@@ -81,7 +80,6 @@ extern cl::opt<llvm::Reloc::Model> mRelocModel;
 extern cl::opt<llvm::CodeModel::Model> mCodeModel;
 extern cl::opt<bool> disableFpElim;
 extern cl::opt<FloatABI::Type> mFloatABI;
-extern cl::opt<bool, true> singleObj;
 extern cl::opt<bool> linkonceTemplates;
 extern cl::opt<bool> disableLinkerStripDead;
 
@@ -92,8 +90,6 @@ void setDefaultMathOptions(llvm::TargetMachine &target);
 
 extern cl::opt<BOUNDSCHECK> boundsCheck;
 extern bool nonSafeBoundsChecks;
-
-extern cl::opt<unsigned, true> nestedTemplateDepth;
 
 #if LDC_WITH_PGO
 extern cl::opt<std::string> genfileInstrProf;

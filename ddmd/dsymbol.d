@@ -388,7 +388,7 @@ extern (C++) class Dsymbol : RootObject
         Dsymbol s = this;
         while (s)
         {
-            //printf("\ts = %s '%s'\n", s->kind(), s->toPrettyChars());
+            //printf("\ts = %s '%s'\n", s.kind(), s.toPrettyChars());
             Module m = s.isModule();
             if (m)
                 return m;
@@ -408,7 +408,7 @@ extern (C++) class Dsymbol : RootObject
         Dsymbol s = this;
         while (s)
         {
-            //printf("\ts = %s '%s'\n", s->kind(), s->toPrettyChars());
+            //printf("\ts = %s '%s'\n", s.kind(), s.toPrettyChars());
             Module m = s.isModule();
             if (m)
                 return m;
@@ -640,8 +640,8 @@ extern (C++) class Dsymbol : RootObject
     void addMember(Scope* sc, ScopeDsymbol sds)
     {
         //printf("Dsymbol::addMember('%s')\n", toChars());
-        //printf("Dsymbol::addMember(this = %p, '%s' scopesym = '%s')\n", this, toChars(), sds->toChars());
-        //printf("Dsymbol::addMember(this = %p, '%s' sds = %p, sds->symtab = %p)\n", this, toChars(), sds, sds->symtab);
+        //printf("Dsymbol::addMember(this = %p, '%s' scopesym = '%s')\n", this, toChars(), sds.toChars());
+        //printf("Dsymbol::addMember(this = %p, '%s' sds = %p, sds.symtab = %p)\n", this, toChars(), sds, sds.symtab);
         parent = sds;
         if (!isAnonymous()) // no name, so can't add it to symbol table
         {
@@ -671,7 +671,7 @@ extern (C++) class Dsymbol : RootObject
      */
     void setScope(Scope* sc)
     {
-        //printf("Dsymbol::setScope() %p %s, %p stc = %llx\n", this, toChars(), sc, sc->stc);
+        //printf("Dsymbol::setScope() %p %s, %p stc = %llx\n", this, toChars(), sc, sc.stc);
         if (!sc.nofree)
             sc.setNoFree(); // may need it even after semantic() finishes
         _scope = sc;
@@ -759,7 +759,7 @@ extern (C++) class Dsymbol : RootObject
      */
     final Dsymbol searchX(Loc loc, Scope* sc, RootObject id)
     {
-        //printf("Dsymbol::searchX(this=%p,%s, ident='%s')\n", this, toChars(), ident->toChars());
+        //printf("Dsymbol::searchX(this=%p,%s, ident='%s')\n", this, toChars(), ident.toChars());
         Dsymbol s = toAlias();
         Dsymbol sm;
         if (Declaration d = s.isDeclaration())
@@ -814,7 +814,7 @@ extern (C++) class Dsymbol : RootObject
 
     bool overloadInsert(Dsymbol s)
     {
-        //printf("Dsymbol::overloadInsert('%s')\n", s->toChars());
+        //printf("Dsymbol::overloadInsert('%s')\n", s.toChars());
         return false;
     }
 
@@ -1326,7 +1326,7 @@ public:
     override Dsymbol search(Loc loc, Identifier ident, int flags = SearchLocalsOnly)
     {
         //printf("%s.ScopeDsymbol::search(ident='%s', flags=x%x)\n", toChars(), ident.toChars(), flags);
-        //if (strcmp(ident->toChars(),"c") == 0) *(char*)0=0;
+        //if (strcmp(ident.toChars(),"c") == 0) *(char*)0=0;
 
         // Look in symbols declared in this module
         if (symtab && !(flags & SearchImportsOnly))
@@ -1355,7 +1355,7 @@ public:
                     continue;
                 int sflags = flags & (IgnoreErrors | IgnoreAmbiguous | IgnoreSymbolVisibility); // remember these in recursive searches
                 Dsymbol ss = (*importedScopes)[i];
-                //printf("\tscanning import '%s', prots = %d, isModule = %p, isImport = %p\n", ss->toChars(), prots[i], ss->isModule(), ss->isImport());
+                //printf("\tscanning import '%s', prots = %d, isModule = %p, isImport = %p\n", ss.toChars(), prots[i], ss.isModule(), ss.isImport());
 
                 if (ss.isModule())
                 {
@@ -1506,7 +1506,7 @@ public:
 
     final void importScope(Dsymbol s, Prot protection)
     {
-        //printf("%s->ScopeDsymbol::importScope(%s, %d)\n", toChars(), s->toChars(), protection);
+        //printf("%s.ScopeDsymbol::importScope(%s, %d)\n", toChars(), s.toChars(), protection);
         // No circular or redundant import's
         if (s != this)
         {
@@ -1818,7 +1818,7 @@ extern (C++) final class ArrayScopeSymbol : ScopeDsymbol
 
     override Dsymbol search(Loc loc, Identifier ident, int flags = IgnoreNone)
     {
-        //printf("ArrayScopeSymbol::search('%s', flags = %d)\n", ident->toChars(), flags);
+        //printf("ArrayScopeSymbol::search('%s', flags = %d)\n", ident.toChars(), flags);
         if (ident == Id.dollar)
         {
             VarDeclaration* pvar;
@@ -2047,14 +2047,14 @@ extern (C++) final class DsymbolTable : RootObject
     // Look up Identifier. Return Dsymbol if found, NULL if not.
     Dsymbol lookup(const Identifier ident)
     {
-        //printf("DsymbolTable::lookup(%s)\n", (char*)ident->string);
+        //printf("DsymbolTable::lookup(%s)\n", (char*)ident.string);
         return cast(Dsymbol)dmd_aaGetRvalue(tab, cast(void*)ident);
     }
 
     // Insert Dsymbol in table. Return NULL if already there.
     Dsymbol insert(Dsymbol s)
     {
-        //printf("DsymbolTable::insert(this = %p, '%s')\n", this, s->ident->toChars());
+        //printf("DsymbolTable::insert(this = %p, '%s')\n", this, s.ident.toChars());
         const ident = s.ident;
         Dsymbol* ps = cast(Dsymbol*)dmd_aaGet(&tab, cast(void*)ident);
         if (*ps)

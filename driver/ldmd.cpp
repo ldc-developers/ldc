@@ -182,6 +182,7 @@ Where:\n\
   -deps=<filename> write module dependencies to filename (only imports)\n\
   -fPIC            generate position independent code\n\
   -dip25           implement http://wiki.dlang.org/DIP25 (experimental)\n\
+  -dip1000         implement http://wiki.dlang.org/DIP1000 (experimental)\n\
   -g               add symbolic debug info\n\
   -gc              add symbolic debug info, optimize for non D debuggers\n\
   -gs              always emit stack frame\n"
@@ -208,7 +209,13 @@ Where:\n\
 #if 0
 "  -map             generate linker .map file\n"
 #endif
-"  -noboundscheck   no array bounds checking (deprecated, use -boundscheck=off)\n\
+"  -mcpu=<id>       generate instructions for architecture identified by 'id'\n\
+  -mcpu=?          list all architecture options\n"
+#if 0
+"  -mscrtlib=<name> MS C runtime library to reference from main/WinMain/DllMain\n"
+#endif
+"  -mv=<package.module>=<filespec>  use <filespec> as source file for <package.module>\n\
+  -noboundscheck   no array bounds checking (deprecated, use -boundscheck=off)\n\
   -O               optimize\n\
   -o-              do not write object file\n\
   -od=<directory>  write object & library files to directory\n\
@@ -414,6 +421,8 @@ void translateArgs(size_t originalArgc, char **originalArgv,
        */
       else if (strcmp(p + 1, "m32mscoff") == 0) {
         ldcArgs.push_back("-m32");
+      } else if (strncmp(p + 1, "mscrtlib=", 9) == 0) {
+        goto Lnot_in_ldc;
       } else if (strcmp(p + 1, "profile") == 0) {
         goto Lnot_in_ldc;
       }
@@ -430,6 +439,20 @@ void translateArgs(size_t originalArgc, char **originalArgv,
           ldcArgs.push_back(p);
         } else if (memcmp(p + 9, "spec", 4) == 0) {
           ldcArgs.push_back("-verrors-spec");
+        } else {
+          goto Lerror;
+        }
+      } else if (strcmp(p + 1, "mcpu=?") == 0) {
+        const char *mcpuargs[] = {ldcPath.c_str(), "-mcpu=help", nullptr};
+        execute(ldcPath, mcpuargs);
+        exit(EXIT_SUCCESS);
+      } else if (memcmp(p + 1, "mcpu=", 5) == 0) {
+        if (strcmp(p + 6, "baseline") == 0) {
+          // ignore
+        } else if (strcmp(p + 6, "avx") == 0) {
+          ldcArgs.push_back("-mattr=+avx");
+        } else if (strcmp(p + 6, "native") == 0) {
+          ldcArgs.push_back(p);
         } else {
           goto Lerror;
         }
@@ -466,6 +489,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
         ldcArgs.push_back("-Hkeep-all-bodies");
       }
       /* -dip25
+       * -dip1000
        */
       else if (strcmp(p + 1, "lib") == 0) {
         ldcArgs.push_back(p);
