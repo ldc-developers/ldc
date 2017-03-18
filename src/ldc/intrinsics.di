@@ -19,7 +19,10 @@ else
     static assert(false, "This module is only valid for LDC");
 }
 
-version(LDC_LLVM_306)
+version(LDC_LLVM_305)
+{
+}
+else version(LDC_LLVM_306)
 {
     version = INTRINSICS_FROM_306;
 }
