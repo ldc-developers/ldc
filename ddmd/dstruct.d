@@ -152,7 +152,7 @@ extern (C++) void semanticTypeInfo(Scope* sc, Type t)
             {
                 if (sd.inNonRoot())
                 {
-                    //printf("deferred sem3 for TypeInfo - sd = %s, inNonRoot = %d\n", sd->toChars(), sd->inNonRoot());
+                    //printf("deferred sem3 for TypeInfo - sd = %s, inNonRoot = %d\n", sd.toChars(), sd.inNonRoot());
                     Module.addDeferredSemantic3(sd);
                 }
             }

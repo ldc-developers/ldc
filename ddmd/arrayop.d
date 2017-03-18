@@ -612,7 +612,7 @@ extern (C++) bool isBinAssignArrayOp(TOK op)
  */
 extern (C++) bool isArrayOpOperand(Expression e)
 {
-    //printf("Expression.isArrayOpOperand() %s\n", e->toChars());
+    //printf("Expression.isArrayOpOperand() %s\n", e.toChars());
     if (e.op == TOKslice)
         return true;
     if (e.op == TOKarrayliteral)

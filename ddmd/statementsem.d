@@ -16,6 +16,7 @@ import ddmd.aggregate;
 import ddmd.aliasthis;
 import ddmd.arrayop;
 import ddmd.arraytypes;
+import ddmd.blockexit;
 import ddmd.clone;
 import ddmd.cond;
 import ddmd.dcast;
@@ -105,7 +106,8 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
                 if (f.checkForwardRef(s.exp.loc))
                     s.exp = new ErrorExp();
             }
-            discardValue(s.exp);
+            if (discardValue(s.exp))
+                s.exp = new ErrorExp();
 
             s.exp = s.exp.optimize(WANTvalue);
             s.exp = checkGC(sc, s.exp);
@@ -117,7 +119,7 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
 
     override void visit(CompileStatement cs)
     {
-        //printf("CompileStatement::semantic() %s\n", exp->toChars());
+        //printf("CompileStatement::semantic() %s\n", exp.toChars());
         Statements* a = cs.flatten(sc);
         if (!a)
             return;
@@ -299,7 +301,7 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
         {
             if (s)
             {
-                //printf("[%d]: %s\n", i, s->toChars());
+                //printf("[%d]: %s\n", i, s.toChars());
                 s = s.semantic(scd);
                 if (s && !serror)
                     serror = s.isErrorStatement();
@@ -566,7 +568,7 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
                 }
             }
 
-            //printf("dim = %d, parameters->dim = %d\n", dim, parameters->dim);
+            //printf("dim = %d, parameters.dim = %d\n", dim, parameters.dim);
             if (foundMismatch && dim != foreachParamCount)
             {
                 const(char)* plural = foreachParamCount > 1 ? "s" : "";
@@ -599,7 +601,7 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
 
             TypeTuple tuple = cast(TypeTuple)tab;
             auto statements = new Statements();
-            //printf("aggr: op = %d, %s\n", fs.aggr->op, fs.aggr->toChars());
+            //printf("aggr: op = %d, %s\n", fs.aggr.op, fs.aggr.toChars());
             size_t n;
             TupleExp te = null;
             if (fs.aggr.op == TOKtuple) // expression tuple
@@ -1201,7 +1203,7 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
                     {
                         tfld = cast(TypeFunction)tab.nextOf();
                     Lget:
-                        //printf("tfld = %s\n", tfld->toChars());
+                        //printf("tfld = %s\n", tfld.toChars());
                         if (tfld.parameters.dim == 1)
                         {
                             Parameter p = Parameter.getNth(tfld.parameters, 0);
@@ -1211,6 +1213,7 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
                                 assert(t.ty == Tdelegate);
                                 tfld = cast(TypeFunction)t.nextOf();
                             }
+                            //printf("tfld = %s\n", tfld.toChars());
                         }
                     }
                 }
@@ -1235,7 +1238,7 @@ version(IN_LLVM)
                     if (tfld)
                     {
                         Parameter prm = Parameter.getNth(tfld.parameters, i);
-                        //printf("\tprm = %s%s\n", (prm->storageClass&STCref?"ref ":""), prm->ident->toChars());
+                        //printf("\tprm = %s%s\n", (prm.storageClass&STCref?"ref ":"").ptr, prm.ident.toChars());
                         stc = prm.storageClass & STCref;
                         id = p.ident; // argument copy is not need.
                         if ((p.storageClass & STCref) != stc)
@@ -1484,6 +1487,24 @@ else
                 }
                 else
                 {
+version (none)
+{
+                    if (global.params.vsafe)
+                    {
+                        fprintf(
+                            global.stdmsg,
+                            "%s: To enforce @safe compiler allocates a closure unless the opApply() uses 'scope'\n",
+                            loc.toChars()
+                        );
+                        fflush(global.stdmsg);
+                    }
+                    fld.tookAddressOf = 1;
+}
+else
+{
+                    if (global.params.vsafe)
+                        fld.tookAddressOf = 1;  // allocate a closure unless the opApply() uses 'scope'
+}
                     assert(tab.ty == Tstruct || tab.ty == Tclass);
                     assert(sapply);
                     /* Call:
@@ -1581,7 +1602,7 @@ else
             }
             else
             {
-                // See if upr-1 fits in prm->type
+                // See if upr-1 fits in prm.type
                 Expression limit = new MinExp(loc, fs.upr, new IntegerExp(1));
                 limit = limit.semantic(sc);
                 limit = limit.optimize(WANTvalue);
@@ -2246,6 +2267,15 @@ version(IN_LLVM)
                      * for this, i.e. generate a sequence of if-then-else
                      */
                     sw.hasVars = 1;
+
+                    /* TODO check if v can be uninitialized at that point.
+                     * Also check if the VarExp is declared in a scope outside of this one
+                     */
+                    if (!v.isConst() && !v.isImmutable())
+                    {
+                        cs.deprecation("case variables have to be const or immutable");
+                    }
+
                     if (sw.isFinal)
                     {
                         cs.error("case variables not allowed in final switch statements");
@@ -2268,7 +2298,7 @@ version(IN_LLVM)
         L1:
             foreach (cs2; *sw.cases)
             {
-                //printf("comparing '%s' with '%s'\n", exp->toChars(), cs->exp->toChars());
+                //printf("comparing '%s' with '%s'\n", exp.toChars(), cs.exp.toChars());
                 if (cs2.exp.equals(cs.exp))
                 {
                     cs.error("duplicate case %s in switch statement", cs.exp.toChars());
@@ -2486,7 +2516,7 @@ version(IN_LLVM)
 
     override void visit(ReturnStatement rs)
     {
-        //printf("ReturnStatement.semantic() %s\n", rs.toChars());
+        //printf("ReturnStatement.semantic() %p, %s\n", rs, rs.toChars());
 
         FuncDeclaration fd = sc.parent.isFuncDeclaration();
         if (fd.fes)
@@ -2623,7 +2653,7 @@ version(IN_LLVM)
                 {
                     int m1 = rs.exp.type.implicitConvTo(tret);
                     int m2 = tret.implicitConvTo(rs.exp.type);
-                    //printf("exp->type = %s m2<-->m1 tret %s\n", exp->type->toChars(), tret->toChars());
+                    //printf("exp.type = %s m2<-->m1 tret %s\n", exp.type.toChars(), tret.toChars());
                     //printf("m1 = %d, m2 = %d\n", m1, m2);
 
                     if (m1 && m2)
@@ -2685,7 +2715,7 @@ version(IN_LLVM)
                 {
                     if (!v.isDataseg() && !v.isParameter() && v.toParent2() == fd)
                     {
-                        //printf("Setting nrvo to %s\n", v->toChars());
+                        //printf("Setting nrvo to %s\n", v.toChars());
                         fd.nrvo_var = v;
                     }
                     else
@@ -2694,7 +2724,7 @@ version(IN_LLVM)
                 else if (fd.nrvo_var != v)
                     fd.nrvo_can = 0;
             }
-            else //if (!exp->isLvalue())    // keep NRVO-ability
+            else //if (!exp.isLvalue())    // keep NRVO-ability
                 fd.nrvo_can = 0;
         }
         else
@@ -2775,7 +2805,7 @@ version(IN_LLVM)
                 sc.fes.cases.push(s);
 
                 // Immediately rewrite "this" return statement as:
-                //  return cases->dim+1;
+                //  return cases.dim+1;
                 rs.exp = new IntegerExp(sc.fes.cases.dim + 1);
                 if (e0)
                 {
@@ -3539,7 +3569,7 @@ Statement semantic(Statement s, Scope* sc)
 
 void semantic(Catch c, Scope* sc)
 {
-    //printf("Catch::semantic(%s)\n", ident->toChars());
+    //printf("Catch::semantic(%s)\n", ident.toChars());
 
     static if (!IN_GCC)
     {
