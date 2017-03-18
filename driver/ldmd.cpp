@@ -210,11 +210,9 @@ Where:\n\
 "  -map             generate linker .map file\n"
 #endif
 "  -mcpu=<id>       generate instructions for architecture identified by 'id'\n\
-  -mcpu=?          list all architecture options\n"
-#if 0
-"  -mscrtlib=<name> MS C runtime library to reference from main/WinMain/DllMain\n"
-#endif
-"  -mv=<package.module>=<filespec>  use <filespec> as source file for <package.module>\n\
+  -mcpu=?          list all architecture options\n\
+  -mscrtlib=<name> MS C runtime library to reference from main/WinMain/DllMain\n\
+  -mv=<package.module>=<filespec>  use <filespec> as source file for <package.module>\n\
   -noboundscheck   no array bounds checking (deprecated, use -boundscheck=off)\n\
   -O               optimize\n\
   -o-              do not write object file\n\
@@ -421,9 +419,10 @@ void translateArgs(size_t originalArgc, char **originalArgv,
        */
       else if (strcmp(p + 1, "m32mscoff") == 0) {
         ldcArgs.push_back("-m32");
-      } else if (strncmp(p + 1, "mscrtlib=", 9) == 0) {
-        goto Lnot_in_ldc;
-      } else if (strcmp(p + 1, "profile") == 0) {
+      }
+      /* -mscrtlib
+       */
+      else if (strcmp(p + 1, "profile") == 0) {
         goto Lnot_in_ldc;
       }
       /* -v

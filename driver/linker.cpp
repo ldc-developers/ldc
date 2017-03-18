@@ -39,6 +39,12 @@ static llvm::cl::opt<bool> staticFlag(
         "Create a statically linked binary, including all system dependencies"),
     llvm::cl::ZeroOrMore);
 
+static llvm::cl::opt<std::string> mscrtlib(
+    "mscrtlib",
+    llvm::cl::desc(
+        "MS C runtime library to link against (libcmt[d] / msvcrt[d])"),
+    llvm::cl::value_desc("name"), llvm::cl::ZeroOrMore);
+
 static llvm::cl::opt<std::string>
     ltoLibrary("flto-binary",
                llvm::cl::desc("Set the linker LTO plugin library file (e.g. "
@@ -280,7 +286,7 @@ static void appendObjectFiles(std::vector<std::string> &args) {
 
 static std::string gExePath;
 
-static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
+static int linkObjToBinaryGcc(bool sharedLib) {
   Logger::println("*** Linking executable ***");
 
   // find gcc for linking
@@ -317,7 +323,7 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
     args.push_back("-shared");
   }
 
-  if (fullyStatic) {
+  if (staticFlag) {
     args.push_back("-static");
   }
 
@@ -489,6 +495,26 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
 
 //////////////////////////////////////////////////////////////////////////////
 
+static void addMscrtLibs(std::vector<std::string> &args) {
+  llvm::StringRef mscrtlibName = mscrtlib;
+  if (mscrtlibName.empty()) {
+    // default to static release variant
+    mscrtlibName =
+        staticFlag || staticFlag.getNumOccurrences() == 0 ? "libcmt" : "msvcrt";
+  }
+
+  args.push_back(("/DEFAULTLIB:" + mscrtlibName).str());
+
+  const bool isStatic = mscrtlibName.startswith_lower("libcmt");
+  const bool isDebug =
+      mscrtlibName.endswith_lower("d") || mscrtlibName.endswith_lower("d.lib");
+
+  const llvm::StringRef prefix = isStatic ? "lib" : "";
+  const llvm::StringRef suffix = isDebug ? "d" : "";
+
+  args.push_back(("/DEFAULTLIB:" + prefix + "vcruntime" + suffix).str());
+}
+
 static int linkObjToBinaryMSVC(bool sharedLib) {
   Logger::println("*** Linking executable ***");
 
@@ -527,6 +553,9 @@ static int linkObjToBinaryMSVC(bool sharedLib) {
     args.push_back("/OPT:REF");
     args.push_back("/OPT:ICF");
   }
+
+  // add C runtime libs
+  addMscrtLibs(args);
 
   // specify creation of DLL
   if (sharedLib) {
@@ -604,11 +633,10 @@ static int linkObjToBinaryMSVC(bool sharedLib) {
 
 int linkObjToBinary() {
   if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
-    // TODO: Choose dynamic/static MSVCRT version based on staticFlag?
     return linkObjToBinaryMSVC(global.params.dll);
   }
 
-  return linkObjToBinaryGcc(global.params.dll, staticFlag);
+  return linkObjToBinaryGcc(global.params.dll);
 }
 
 //////////////////////////////////////////////////////////////////////////////
