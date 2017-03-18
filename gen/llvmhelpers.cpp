@@ -727,8 +727,12 @@ DValue *DtoPaintType(Loc &loc, DValue *val, Type *to) {
     LLValue *ptr = DtoBitCast(DtoRVal(val), DtoType(b));
     return new DImValue(to, ptr);
   }
-  // assert(!val->isLVal()); TODO: what is it needed for?
-  assert(DtoType(to) == DtoType(to));
+  if (from->ty == Tsarray) {
+    assert(to->toBasetype()->ty == Tsarray);
+    LLValue *ptr = DtoBitCast(DtoLVal(val), DtoPtrToType(to));
+    return new DLValue(to, ptr);
+  }
+  assert(DtoType(from) == DtoType(to));
   return new DImValue(to, DtoRVal(val));
 }
 
