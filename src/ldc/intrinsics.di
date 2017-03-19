@@ -19,27 +19,51 @@ else
     static assert(false, "This module is only valid for LDC");
 }
 
-version(LDC_LLVM_306)
+version(LDC_LLVM_305)
+{
+}
+else version(LDC_LLVM_306)
 {
     version = INTRINSICS_FROM_306;
 }
-version(LDC_LLVM_307)
+else version(LDC_LLVM_307)
 {
     version = INTRINSICS_FROM_306;
     version = INTRINSICS_FROM_307;
 }
-version(LDC_LLVM_308)
+else version(LDC_LLVM_308)
 {
     version = INTRINSICS_FROM_306;
     version = INTRINSICS_FROM_307;
     version = INTRINSICS_FROM_308;
 }
-version(LDC_LLVM_309)
+else version(LDC_LLVM_309)
 {
     version = INTRINSICS_FROM_306;
     version = INTRINSICS_FROM_307;
     version = INTRINSICS_FROM_308;
     version = INTRINSICS_FROM_309;
+}
+else version(LDC_LLVM_400)
+{
+    version = INTRINSICS_FROM_306;
+    version = INTRINSICS_FROM_307;
+    version = INTRINSICS_FROM_308;
+    version = INTRINSICS_FROM_309;
+    version = INTRINSICS_FROM_400;
+}
+else version(LDC_LLVM_500)
+{
+    version = INTRINSICS_FROM_306;
+    version = INTRINSICS_FROM_307;
+    version = INTRINSICS_FROM_308;
+    version = INTRINSICS_FROM_309;
+    version = INTRINSICS_FROM_400;
+    version = INTRINSICS_FROM_500;
+}
+else
+{
+    static assert(false, "LDC LLVM version not supported");
 }
 
 // All intrinsics are nothrow and @nogc. The codegen intrinsics are not categorized

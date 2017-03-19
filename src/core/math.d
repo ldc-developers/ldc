@@ -29,6 +29,7 @@ version (LDC)
 {
     import stdc = core.stdc.math;
     import ldc.intrinsics;
+    import ldc.llvmasm;
 }
 
 public:
@@ -228,11 +229,34 @@ real rint(real x) @safe pure nothrow;      /* intrinsic */
  * translate to a single x87 instruction.
  */
 
-version (LDC) {}
+version (LDC)
+{
+    version (X86)    version = X86_Any;
+    version (X86_64) version = X86_Any;
+
+    version (X86_Any)
+    {
+        static if (real.mant_dig == 64)
+        {
+            // y * log2(x)
+            real yl2x(real x, real y)   @trusted pure nothrow
+            {
+                return __asm!real("fyl2x", "={st},{st(1)},{st},~{st(1)}", y, x);
+            }
+
+            // y * log2(x + 1)
+            real yl2xp1(real x, real y) @trusted pure nothrow
+            {
+                return __asm!real("fyl2xp1", "={st},{st(1)},{st},~{st(1)}", y, x);
+            }
+        }
+    }
+}
 else
 {
 real yl2x(real x, real y)   @safe pure nothrow;       // y * log2(x)
 real yl2xp1(real x, real y) @safe pure nothrow;       // y * log2(x + 1)
+}
 
 unittest
 {
@@ -241,5 +265,4 @@ unittest
         assert(yl2x(1024, 1) == 10);
         assert(yl2xp1(1023, 1) == 10);
     }
-}
 }

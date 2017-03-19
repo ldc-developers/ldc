@@ -115,7 +115,7 @@ extern(C) void _d_throw_exception(Object e)
     auto throwable = cast(Throwable) e;
     exceptionStack.push(throwable);
 
-    if (throwable.info is null && cast(byte*)throwable !is typeid(throwable).init.ptr)
+    if (throwable.info is null && cast(byte*)throwable !is typeid(throwable).initializer.ptr)
         throwable.info = _d_traceContext();
 
     CxxExceptionInfo info;

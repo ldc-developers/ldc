@@ -80,40 +80,46 @@ unittest
  */
 int bsf(uint v) pure
 {
-    version (LDC)
-    {
-        pragma(inline, true);
-        if (!__ctfe)
-            return cast(int) llvm_cttz(cast(size_t) v, true);
-    }
-    static if (size_t.sizeof == ulong.sizeof)
-    {
-        pragma(inline, true);
-        return bsf(cast(ulong) v);
-    }
-    else
-        return softBsf!uint(v);
+  version (LDC)
+  {
+    pragma(inline, true);
+    if (!__ctfe)
+        return cast(int) llvm_cttz(cast(size_t) v, true);
+  }
+  else
+  {
+    pragma(inline, false);  // so intrinsic detection will work
+  }
+    return softBsf!uint(v);
 }
 
 /// ditto
 int bsf(ulong v) pure
 {
-    version (LDC)
+    static if (size_t.sizeof == ulong.sizeof)  // 64 bit code gen
     {
+      version (LDC)
+      {
         pragma(inline, true);
-        static if (size_t.sizeof == ulong.sizeof)
-            if (!__ctfe)
-                return cast(int) llvm_cttz(v, true);
+        if (!__ctfe)
+            return cast(int) llvm_cttz(v, true);
+      }
+      else
+      {
+        pragma(inline, false);   // so intrinsic detection will work
+      }
+        return softBsf!ulong(v);
     }
-    static if (size_t.sizeof == uint.sizeof)
+    else
     {
+        /* intrinsic not available for 32 bit code,
+         * make do with 32 bit bsf
+         */
         const sv = Split64(v);
         return (sv.lo == 0)?
             bsf(sv.hi) + 32 :
             bsf(sv.lo);
     }
-    else
-        return softBsf!ulong(v);
 }
 
 ///
@@ -140,40 +146,46 @@ unittest
  */
 int bsr(uint v) pure
 {
-    version (LDC)
-    {
-        pragma(inline, true);
-        if (!__ctfe)
-            return cast(int) (size_t.sizeof * 8 - 1 - llvm_ctlz(cast(size_t) v, true));
-    }
-    static if (size_t.sizeof == ulong.sizeof)
-    {
-        pragma(inline, true);
-        return bsr(cast(ulong) v);
-    }
-    else
-        return softBsr!uint(v);
+  version (LDC)
+  {
+    pragma(inline, true);
+    if (!__ctfe)
+        return cast(int) (size_t.sizeof * 8 - 1 - llvm_ctlz(cast(size_t) v, true));
+  }
+  else
+  {
+    pragma(inline, false);  // so intrinsic detection will work
+  }
+    return softBsr!uint(v);
 }
 
 /// ditto
 int bsr(ulong v) pure
 {
-    version (LDC)
+    static if (size_t.sizeof == ulong.sizeof)  // 64 bit code gen
     {
+      version (LDC)
+      {
         pragma(inline, true);
-        static if (size_t.sizeof == ulong.sizeof)
-            if (!__ctfe)
-                return cast(int) (size_t.sizeof * 8 - 1 - llvm_ctlz(v, true));
+        if (!__ctfe)
+            return cast(int) (size_t.sizeof * 8 - 1 - llvm_ctlz(v, true));
+      }
+      else
+      {
+        pragma(inline, false);   // so intrinsic detection will work
+      }
+        return softBsr!ulong(v);
     }
-    static if (size_t.sizeof == uint.sizeof)
+    else
     {
+        /* intrinsic not available for 32 bit code,
+         * make do with 32 bit bsr
+         */
         const sv = Split64(v);
         return (sv.hi == 0)?
             bsr(sv.lo) :
             bsr(sv.hi) + 32;
     }
-    else
-        return softBsr!ulong(v);
 }
 
 ///
