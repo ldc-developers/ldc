@@ -5,6 +5,9 @@ matrix:
   include:
     - os: linux
       d: ldc
+      env: LLVM_VERSION=4.0.0
+    - os: linux
+      d: ldc
       env: LLVM_VERSION=3.9.1
     - os: linux
       d: ldc-beta
@@ -29,6 +32,7 @@ matrix:
 
 cache:
   directories:
+    - llvm-4.0.0
     - llvm-3.9.1
     - llvm-3.9.0
     - llvm-3.8.1
