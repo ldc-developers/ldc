@@ -182,6 +182,7 @@ Where:\n\
   -deps=<filename> write module dependencies to filename (only imports)\n\
   -fPIC            generate position independent code\n\
   -dip25           implement http://wiki.dlang.org/DIP25 (experimental)\n\
+  -dip1000         implement http://wiki.dlang.org/DIP1000 (experimental)\n\
   -g               add symbolic debug info\n\
   -gc              add symbolic debug info, optimize for non D debuggers\n\
   -gs              always emit stack frame\n"
@@ -208,7 +209,13 @@ Where:\n\
 #if 0
 "  -map             generate linker .map file\n"
 #endif
-"  -noboundscheck   no array bounds checking (deprecated, use -boundscheck=off)\n\
+"  -mcpu=<id>       generate instructions for architecture identified by 'id'\n\
+  -mcpu=?          list all architecture options\n"
+#if 0
+"  -mscrtlib=<name> MS C runtime library to reference from main/WinMain/DllMain\n"
+#endif
+"  -mv=<package.module>=<filespec>  use <filespec> as source file for <package.module>\n\
+  -noboundscheck   no array bounds checking (deprecated, use -boundscheck=off)\n\
   -O               optimize\n\
   -o-              do not write object file\n\
   -od=<directory>  write object & library files to directory\n\
@@ -350,6 +357,8 @@ void translateArgs(size_t originalArgc, char **originalArgv,
   assert(ldcArgs.size() == 1);
   const std::string ldcPath = ldcArgs[0];
 
+  ldcArgs.push_back("-ldmd");
+
   bool vdmd = false;
   bool noFiles = true;
 
@@ -412,6 +421,8 @@ void translateArgs(size_t originalArgc, char **originalArgv,
        */
       else if (strcmp(p + 1, "m32mscoff") == 0) {
         ldcArgs.push_back("-m32");
+      } else if (strncmp(p + 1, "mscrtlib=", 9) == 0) {
+        goto Lnot_in_ldc;
       } else if (strcmp(p + 1, "profile") == 0) {
         goto Lnot_in_ldc;
       }
@@ -431,6 +442,20 @@ void translateArgs(size_t originalArgc, char **originalArgv,
         } else {
           goto Lerror;
         }
+      } else if (strcmp(p + 1, "mcpu=?") == 0) {
+        const char *mcpuargs[] = {ldcPath.c_str(), "-mcpu=help", nullptr};
+        execute(ldcPath, mcpuargs);
+        exit(EXIT_SUCCESS);
+      } else if (memcmp(p + 1, "mcpu=", 5) == 0) {
+        if (strcmp(p + 6, "baseline") == 0) {
+          // ignore
+        } else if (strcmp(p + 6, "avx") == 0) {
+          ldcArgs.push_back("-mattr=+avx");
+        } else if (strcmp(p + 6, "native") == 0) {
+          ldcArgs.push_back(p);
+        } else {
+          goto Lerror;
+        }
       } else if (strcmp(p + 1, "transition=?") == 0) {
         const char *transitionargs[] = {ldcPath.c_str(), p, nullptr};
         execute(ldcPath, transitionargs);
@@ -441,14 +466,8 @@ void translateArgs(size_t originalArgc, char **originalArgv,
        * -wi
        * -O
        * -o-
-       */
-      else if (strcmp(p + 1, "od") == 0) {
-        ldcArgs.push_back(p);
-        // DMD creates static libraries in the objects directory (unless using
-        // an absolute output path via `-of`).
-        ldcArgs.push_back("-create-static-lib-in-objdir");
-      }
-      /* -of
+       * -od
+       * -of
        * -op
        */
       else if (strcmp(p + 1, "o") == 0) {
@@ -470,6 +489,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
         ldcArgs.push_back("-Hkeep-all-bodies");
       }
       /* -dip25
+       * -dip1000
        */
       else if (strcmp(p + 1, "lib") == 0) {
         ldcArgs.push_back(p);
@@ -576,7 +596,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
       }
     } else {
       const auto ext = ls::path::extension(p);
-      if (ext.equals_lower("exe")) {
+      if (ext.equals_lower(".exe")) {
         // should be for Windows targets only
         ldcArgs.push_back(concat("-of=", p));
         continue;
@@ -650,10 +670,6 @@ std::string locateBinary(std::string exeName) {
   return "";
 }
 
-static size_t addStrlen(size_t acc, const char *str) {
-  return acc + (str ? strlen(str) : 0);
-}
-
 // In driver/main.d
 int main(int argc, char **argv);
 
@@ -677,38 +693,41 @@ int cppmain(int argc, char **argv) {
 
   args.push_back(nullptr);
 
-  // Check if we need to write out a response file.
-  size_t totalLen = std::accumulate(args.begin(), args.end(), 0, addStrlen);
-  if (totalLen > maxCommandLineLen()) {
-    int rspFd;
-    llvm::SmallString<128> rspPath;
-    if (ls::fs::createUniqueFile("ldmd-%%-%%-%%-%%.rsp", rspFd, rspPath)) {
-      error("Could not open temporary response file.");
-    }
-
-    {
-      llvm::raw_fd_ostream rspOut(rspFd, /*shouldClose=*/true);
-      for (auto arg : args) {
-        rspOut << arg << '\n';
-      }
-    }
-
-    std::string rspArg = "@";
-    rspArg += rspPath.str();
-
-    std::vector<const char *> newArgs;
-    newArgs.push_back(argv[0]);
-    newArgs.push_back(rspArg.c_str());
-    newArgs.push_back(nullptr);
-
-    int rc = execute(ldcPath, &newArgs[0]);
-
-    if (ls::fs::remove(rspPath.str())) {
-      warning("Could not remove response file.");
-    }
-
-    return rc;
+  // Check if we can get away without a response file.
+  const size_t totalLen = std::accumulate(
+      args.begin(), args.end() - 1,
+      args.size() * 3, // quotes + space
+      [](size_t acc, const char *arg) { return acc + strlen(arg); });
+  if (totalLen <= maxCommandLineLen()) {
+    return execute(ldcPath, args.data());
   }
 
-  return execute(ldcPath, &args[0]);
+  int rspFd;
+  llvm::SmallString<128> rspPath;
+  if (ls::fs::createUniqueFile("ldmd-%%-%%-%%-%%.rsp", rspFd, rspPath)) {
+    error("Could not open temporary response file.");
+  }
+
+  {
+    llvm::raw_fd_ostream rspOut(rspFd, /*shouldClose=*/true);
+    // skip argv[0] and terminating NULL
+    for (auto it = args.begin() + 1, end = args.end() - 1; it != end; ++it) {
+      rspOut << *it << '\n';
+    }
+  }
+
+  std::string rspArg = "@";
+  rspArg += rspPath.str();
+
+  args.resize(1);
+  args.push_back(rspArg.c_str());
+  args.push_back(nullptr);
+
+  int rc = execute(ldcPath, args.data());
+
+  if (ls::fs::remove(rspPath.str())) {
+    warning("Could not remove response file.");
+  }
+
+  return rc;
 }

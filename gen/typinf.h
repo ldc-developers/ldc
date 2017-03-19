@@ -24,6 +24,9 @@ void DtoResolveTypeInfo(TypeInfoDeclaration *tid);
 TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(Type *t, Scope *sc);
 void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p);
 void TypeInfoClassDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p);
+
+// defined in ddmd/typinf.d:
 Type *getTypeInfoType(Type *t, Scope *sc);
+bool isSpeculativeType(Type *t);
 
 #endif

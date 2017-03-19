@@ -45,12 +45,6 @@ static llvm::cl::opt<bool> staticFlag(
         "Create a statically linked binary, including all system dependencies"),
     llvm::cl::ZeroOrMore);
 
-// used by LDMD
-static llvm::cl::opt<bool> createStaticLibInObjdir(
-    "create-static-lib-in-objdir",
-    llvm::cl::desc("Create static library in -od directory (DMD-compliant)"),
-    llvm::cl::ZeroOrMore, llvm::cl::ReallyHidden);
-
 static llvm::cl::opt<std::string>
     ltoLibrary("flto-binary",
                llvm::cl::desc("Set the linker LTO plugin library file (e.g. "
@@ -73,22 +67,29 @@ static void CreateDirectoryOnDisk(llvm::StringRef fileName) {
 //////////////////////////////////////////////////////////////////////////////
 
 static std::string getOutputName(bool const sharedLib) {
-  if (global.params.exefile)
-    return global.params.exefile;
+  const auto &triple = *global.params.targetTriple;
+
+  const char *extension = nullptr;
+  if (sharedLib) {
+    extension = global.dll_ext;
+  } else if (triple.isOSWindows()) {
+    extension = "exe";
+  }
+
+  if (global.params.exefile) {
+    // DMD adds the default extension if there is none
+    return opts::invokedByLDMD && extension
+               ? FileName::defaultExt(global.params.exefile, extension)
+               : global.params.exefile;
+  }
 
   // Infer output name from first object file.
   std::string result = global.params.objfiles->dim
                            ? FileName::removeExt((*global.params.objfiles)[0])
                            : "a.out";
 
-  const char *extension = nullptr;
-  if (sharedLib) {
-    extension = global.dll_ext;
-    if (!global.params.targetTriple->isWindowsMSVCEnvironment())
-      result = "lib" + result;
-  } else if (global.params.targetTriple->isOSWindows()) {
-    extension = "exe";
-  }
+  if (sharedLib && !triple.isWindowsMSVCEnvironment())
+    result = "lib" + result;
 
   if (global.params.run) {
     // If `-run` is passed, the executable is temporary and is removed
@@ -100,11 +101,9 @@ static std::string getOutputName(bool const sharedLib) {
                                                  tempFilename);
     if (!EC)
       result = tempFilename.str();
-  } else {
-    if (extension) {
-      result += ".";
-      result += extension;
-    }
+  } else if (extension) {
+    result += '.';
+    result += extension;
   }
 
   return result;
@@ -840,15 +839,21 @@ int createStaticLibrary() {
   // output filename
   std::string libName;
   if (global.params.libname) { // explicit
-    libName = global.params.libname;
+    // DMD adds the default extension if there is none
+    libName = opts::invokedByLDMD
+                  ? FileName::defaultExt(global.params.libname, global.lib_ext)
+                  : global.params.libname;
   } else { // infer from first object file
     libName = global.params.objfiles->dim
                   ? FileName::removeExt((*global.params.objfiles)[0])
                   : "a.out";
-    libName.push_back('.');
-    libName.append(global.lib_ext);
+    libName += '.';
+    libName += global.lib_ext;
   }
-  if (createStaticLibInObjdir && global.params.objdir &&
+
+  // DMD creates static libraries in the objects directory (unless using an
+  // absolute output path via `-of`).
+  if (opts::invokedByLDMD && global.params.objdir &&
       !FileName::absolute(libName.c_str())) {
     libName = FileName::combine(global.params.objdir, libName.c_str());
   }

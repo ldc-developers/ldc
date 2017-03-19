@@ -27,21 +27,17 @@ void CTFloat::toAPFloat(const real_t src, APFloat &dst) {
   u.fp = src;
 
 #if LDC_LLVM_VER >= 400
-  const auto &x87DoubleExtended = APFloat::x87DoubleExtended();
-  const auto &IEEEquad = APFloat::IEEEquad();
-  const auto &PPCDoubleDouble = APFloat::PPCDoubleDouble();
+  #define PARENS ()
 #else
-  const auto &x87DoubleExtended = APFloat::x87DoubleExtended;
-  const auto &IEEEquad = APFloat::IEEEquad;
-  const auto &PPCDoubleDouble = APFloat::PPCDoubleDouble;
+  #define PARENS
 #endif
 
 #if __i386__ || __x86_64__
-  dst = APFloat(x87DoubleExtended, APInt(80, 2, u.bits));
+  dst = APFloat(APFloat::x87DoubleExtended PARENS, APInt(80, 2, u.bits));
 #elif __aarch64__
-  dst = APFloat(IEEEquad, APInt(128, 2, u.bits));
+  dst = APFloat(APFloat::IEEEquad PARENS, APInt(128, 2, u.bits));
 #elif __ppc__ || __ppc64__
-  dst = APFloat(PPCDoubleDouble, APInt(128, 2, u.bits));
+  dst = APFloat(APFloat::PPCDoubleDouble PARENS, APInt(128, 2, u.bits));
 #else
   llvm_unreachable("Unknown host real_t type for compile-time reals");
 #endif

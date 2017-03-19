@@ -75,8 +75,7 @@ else
     public import ddmd.backend.cc : block, Blockx, Symbol;
     public import ddmd.backend.type : type;
     public import ddmd.backend.el : elem;
-
-    public alias code = ddmd.backend.type.code;
+    public import ddmd.backend.code : code;
 
     extern (C++)
     {

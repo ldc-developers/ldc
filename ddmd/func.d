@@ -14,6 +14,7 @@ import core.stdc.stdio;
 import core.stdc.string;
 import ddmd.aggregate;
 import ddmd.arraytypes;
+import ddmd.blockexit;
 import ddmd.gluelayer;
 import ddmd.dclass;
 import ddmd.declaration;
@@ -356,13 +357,13 @@ public:
              * But for nrvo_var, its dtor should be called only when exception is thrown.
              *
              * Rewrite:
-             *      try { s->body; } finally { nrvo_var->edtor; }
+             *      try { s.body; } finally { nrvo_var.edtor; }
              *      // equivalent with:
-             *      //    s->body; scope(exit) nrvo_var->edtor;
+             *      //    s.body; scope(exit) nrvo_var.edtor;
              * as:
-             *      try { s->body; } catch(Throwable __o) { nrvo_var->edtor; throw __o; }
+             *      try { s.body; } catch(Throwable __o) { nrvo_var.edtor; throw __o; }
              *      // equivalent with:
-             *      //    s->body; scope(failure) nrvo_var->edtor;
+             *      //    s.body; scope(failure) nrvo_var.edtor;
              */
             Statement sexception = new DtorExpStatement(Loc(), fd.nrvo_var.edtor, fd.nrvo_var);
             Identifier id = Identifier.generateId("__o");
@@ -396,6 +397,7 @@ enum FUNCFLAGnothrowInprocess = 4;      /// working on determining nothrow
 enum FUNCFLAGnogcInprocess    = 8;      /// working on determining @nogc
 enum FUNCFLAGreturnInprocess  = 0x10;   /// working on inferring 'return' for parameters
 enum FUNCFLAGinlineScanned    = 0x20;   /// function has been scanned for inline possibilities
+enum FUNCFLAGinferScope       = 0x40;   /// infer 'scope' for parameters
 
 
 /***********************************************************
@@ -514,7 +516,7 @@ extern (C++) class FuncDeclaration : Declaration
     {
         super(id);
         objc = Objc_FuncDeclaration(this);
-        //printf("FuncDeclaration(id = '%s', type = %p)\n", id->toChars(), type);
+        //printf("FuncDeclaration(id = '%s', type = %p)\n", id.toChars(), type);
         //printf("storage_class = x%x\n", storage_class);
         this.storage_class = storage_class;
         this.type = type;
@@ -583,7 +585,7 @@ extern (C++) class FuncDeclaration : Declaration
             printf("FuncDeclaration::semantic(sc = %p, this = %p, '%s', linkage = %d)\n", sc, this, toPrettyChars(), sc.linkage);
             if (isFuncLiteralDeclaration())
                 printf("\tFuncLiteralDeclaration()\n");
-            printf("sc->parent = %s, parent = %s\n", sc.parent.toChars(), parent ? parent.toChars() : "");
+            printf("sc.parent = %s, parent = %s\n", sc.parent.toChars(), parent ? parent.toChars() : "");
             printf("type: %p, %s\n", type, type.toChars());
         }
 
@@ -628,7 +630,7 @@ extern (C++) class FuncDeclaration : Declaration
         if ((storage_class & STC_TYPECTOR) && !(ad || isNested()))
             storage_class &= ~STC_TYPECTOR;
 
-        //printf("function storage_class = x%llx, sc->stc = x%llx, %x\n", storage_class, sc->stc, Declaration::isFinal());
+        //printf("function storage_class = x%llx, sc.stc = x%llx, %x\n", storage_class, sc.stc, Declaration::isFinal());
 
         FuncLiteralDeclaration fld = isFuncLiteralDeclaration();
         if (fld && fld.treq)
@@ -796,16 +798,18 @@ extern (C++) class FuncDeclaration : Declaration
         if ((storage_class & STCauto) && !f.isref && !inferRetType)
             error("storage class 'auto' has no effect if return type is not inferred");
 
-        /* Functions can only be 'scope' if they have a 'this' that is a pointer, not a ref
+        /* Functions can only be 'scope' if they have a 'this'
          */
-        if (f.isscope && !isNested() &&
-            !(ad && ad.isClassDeclaration()))
+        if (f.isscope && !isNested() && !ad)
         {
             error("functions cannot be scope");
         }
 
-        if (f.isreturn && !needThis())
+        if (f.isreturn && !needThis() && !isNested())
         {
+            /* Non-static nested functions have a hidden 'this' pointer to which
+             * the 'return' applies
+             */
             error("static member has no 'this' to which 'return' can apply");
         }
 
@@ -1035,9 +1039,9 @@ extern (C++) class FuncDeclaration : Declaration
                     if (fdc.toParent() == parent)
                     {
                         //printf("vi = %d,\tthis = %p %s %s @ [%s]\n\tfdc  = %p %s %s @ [%s]\n\tfdv  = %p %s %s @ [%s]\n",
-                        //        vi, this, this->toChars(), this->type->toChars(), this->loc.toChars(),
-                        //            fdc,  fdc ->toChars(), fdc ->type->toChars(), fdc ->loc.toChars(),
-                        //            fdv,  fdv ->toChars(), fdv ->type->toChars(), fdv ->loc.toChars());
+                        //        vi, this, this.toChars(), this.type.toChars(), this.loc.toChars(),
+                        //            fdc,  fdc .toChars(), fdc .type.toChars(), fdc .loc.toChars(),
+                        //            fdv,  fdv .toChars(), fdv .type.toChars(), fdv .loc.toChars());
 
                         // fdc overrides fdv exactly, then this introduces new function.
                         if (fdc.type.mod == fdv.type.mod && this.type.mod != fdv.type.mod)
@@ -1129,7 +1133,7 @@ extern (C++) class FuncDeclaration : Declaration
                          * an interface function?
                          */
                         //if (!isOverride())
-                        //    warning(loc, "overrides base class function %s, but is not marked with 'override'", fdv->toPrettyChars());
+                        //    warning(loc, "overrides base class function %s, but is not marked with 'override'", fdv.toPrettyChars());
 
                         if (fdv.tintro)
                             ti = fdv.tintro;
@@ -1204,7 +1208,7 @@ extern (C++) class FuncDeclaration : Declaration
         else if (isOverride() && !parent.isTemplateInstance())
             error("override only applies to class member functions");
 
-        // Reflect this->type to f because it could be changed by findVtblIndex
+        // Reflect this.type to f because it could be changed by findVtblIndex
         assert(type.ty == Tfunction);
         f = cast(TypeFunction)type;
 
@@ -1235,34 +1239,7 @@ extern (C++) class FuncDeclaration : Declaration
         }
 
         if (isMain())
-        {
-            // Check parameters to see if they are either () or (char[][] args)
-            switch (nparams)
-            {
-            case 0:
-                break;
-
-            case 1:
-                {
-                    Parameter fparam0 = Parameter.getNth(f.parameters, 0);
-                    if (fparam0.type.ty != Tarray || fparam0.type.nextOf().ty != Tarray || fparam0.type.nextOf().nextOf().ty != Tchar || fparam0.storageClass & (STCout | STCref | STClazy))
-                        goto Lmainerr;
-                    break;
-                }
-            default:
-                goto Lmainerr;
-            }
-
-            if (!f.nextOf())
-                error("must return int or void");
-            else if (f.nextOf().ty != Tint32 && f.nextOf().ty != Tvoid)
-                error("must return int or void, not %s", f.nextOf().toChars());
-            if (f.varargs)
-            {
-            Lmainerr:
-                error("parameters must be main() or main(string[] args)");
-            }
-        }
+            checkDmain();       // Check main() parameters and return type
 
         if (isVirtual() && semanticRun != PASSsemanticdone)
         {
@@ -1464,11 +1441,11 @@ extern (C++) class FuncDeclaration : Declaration
             errors = true;
             return;
         }
-        //printf("FuncDeclaration::semantic3('%s.%s', %p, sc = %p, loc = %s)\n", parent->toChars(), toChars(), this, sc, loc.toChars());
+        //printf("FuncDeclaration::semantic3('%s.%s', %p, sc = %p, loc = %s)\n", parent.toChars(), toChars(), this, sc, loc.toChars());
         //fflush(stdout);
-        //printf("storage class = x%x %x\n", sc->stc, storage_class);
+        //printf("storage class = x%x %x\n", sc.stc, storage_class);
         //{ static int x; if (++x == 2) *(char*)0=0; }
-        //printf("\tlinkage = %d\n", sc->linkage);
+        //printf("\tlinkage = %d\n", sc.linkage);
 
         if (ident == Id.assign && !inuse)
         {
@@ -1492,7 +1469,7 @@ extern (C++) class FuncDeclaration : Declaration
             }
         }
 
-        //printf(" sc->incontract = %d\n", (sc->flags & SCOPEcontract));
+        //printf(" sc.incontract = %d\n", (sc.flags & SCOPEcontract));
         if (semanticRun >= PASSsemantic3)
             return;
         semanticRun = PASSsemantic3;
@@ -1630,7 +1607,7 @@ extern (C++) class FuncDeclaration : Declaration
                     sc2.insert(v_arguments);
                     v_arguments.parent = this;
 
-                    //Type *t = Type::typeinfo->type->constOf()->arrayOf();
+                    //Type *t = Type::typeinfo.type.constOf().arrayOf();
                     Type t = Type.dtypeinfo.type.arrayOf();
                     _arguments = new VarDeclaration(Loc(), t, Id._arguments, null);
                     _arguments.storage_class |= STCtemp;
@@ -1706,10 +1683,12 @@ extern (C++) class FuncDeclaration : Declaration
                     }
                     Type vtype = fparam.type;
                     auto v = new VarDeclaration(loc, vtype, id, null);
-                    //printf("declaring parameter %s of type %s\n", v->toChars(), v->type->toChars());
+                    //printf("declaring parameter %s of type %s\n", v.toChars(), v.type.toChars());
                     stc |= STCparameter;
                     if (f.varargs == 2 && i + 1 == nparams)
                         stc |= STCvariadic;
+                    if (flags & FUNCFLAGinferScope)
+                        stc |= STCmaybescope;
                     stc |= fparam.storageClass & (STCin | STCout | STCref | STCreturn | STCscope | STClazy | STCfinal | STC_TYPECTOR | STCnodtor);
                     v.storage_class = stc;
                     v.semantic(sc2);
@@ -1755,7 +1734,7 @@ extern (C++) class FuncDeclaration : Declaration
                         }
                         assert(fparam.ident);
                         auto v = new TupleDeclaration(loc, fparam.ident, exps);
-                        //printf("declaring tuple %s\n", v->toChars());
+                        //printf("declaring tuple %s\n", v.toChars());
                         v.isexp = true;
                         if (!sc2.insert(v))
                             error("parameter %s.%s is already defined", toChars(), v.toChars());
@@ -1791,7 +1770,7 @@ extern (C++) class FuncDeclaration : Declaration
                     returnLabel = new LabelDsymbol(Id.returnLabel);
                 }
 
-                // scope of out contract (need for vresult->semantic)
+                // scope of out contract (need for vresult.semantic)
                 auto sym = new ScopeDsymbol();
                 sym.parent = sc2.scopesym;
                 sym.loc = loc;
@@ -1953,7 +1932,7 @@ extern (C++) class FuncDeclaration : Declaration
                             fbody = new CompoundStatement(Loc(), s, fbody);
                         }
                     }
-                    //printf("callSuper = x%x\n", sc2->callSuper);
+                    //printf("callSuper = x%x\n", sc2.callSuper);
                 }
 
                 int blockexit = BEnone;
@@ -2130,6 +2109,7 @@ extern (C++) class FuncDeclaration : Declaration
                 // BUG: need to disallow returns and throws
                 // BUG: verify that all in and ref parameters are read
                 freq = freq.semantic(sc2);
+                freq.blockExit(this, false);
 
                 sc2 = sc2.pop();
 
@@ -2158,6 +2138,7 @@ extern (C++) class FuncDeclaration : Declaration
                     p.type = f.next;
                 }
                 fens = fens.semantic(sc2);
+                fens.blockExit(this, false);
 
                 sc2 = sc2.pop();
 
@@ -2397,7 +2378,37 @@ else
             f.isnogc = true;
         }
 
-        flags &= ~FUNCFLAGreturnInprocess;
+        if (flags & FUNCFLAGreturnInprocess)
+        {
+            flags &= ~FUNCFLAGreturnInprocess;
+            if (storage_class & STCreturn)
+            {
+                if (type == f)
+                    f = cast(TypeFunction)f.copy();
+                f.isreturn = true;
+            }
+        }
+
+        flags &= ~FUNCFLAGinferScope;
+
+        // Infer STCscope
+        if (parameters)
+        {
+            size_t nfparams = Parameter.dim(f.parameters);
+            assert(nfparams == parameters.dim);
+            foreach (u, v; *parameters)
+            {
+                if (v.storage_class & STCmaybescope)
+                {
+                    //printf("Inferring scope for %s\n", v.toChars());
+                    Parameter p = Parameter.getNth(f.parameters, u);
+                    v.storage_class &= ~STCmaybescope;
+                    v.storage_class |= STCscope;
+                    p.storageClass |= STCscope;
+                    assert(!(p.storageClass & STCmaybescope));
+                }
+            }
+        }
 
         // reset deco to apply inference result to mangled name
         if (f != type)
@@ -2423,7 +2434,7 @@ else
         semantic3Errors = (global.errors != oldErrors) || (fbody && fbody.isErrorStatement());
         if (type.ty == Terror)
             errors = true;
-        //printf("-FuncDeclaration::semantic3('%s.%s', sc = %p, loc = %s)\n", parent->toChars(), toChars(), sc, loc.toChars());
+        //printf("-FuncDeclaration::semantic3('%s.%s', sc = %p, loc = %s)\n", parent.toChars(), toChars(), sc, loc.toChars());
         //fflush(stdout);
     }
 
@@ -2468,9 +2479,9 @@ else
             {
                 /* Currently dmd cannot resolve forward references per methods,
                  * then setting SIZOKfwd is too conservative and would break existing code.
-                 * So, just stop method attributes inference until ad->semantic() done.
+                 * So, just stop method attributes inference until ad.semantic() done.
                  */
-                //ad->sizeok = SIZEOKfwd;
+                //ad.sizeok = SIZEOKfwd;
             }
             else
                 return functionSemantic3() || !errors;
@@ -2562,8 +2573,14 @@ else
                 if (type.ty == Tfunction && (cast(TypeFunction)type).iswild & 2)
                     v.storage_class |= STCreturn;
             }
-            if (type.ty == Tfunction && (cast(TypeFunction)type).isreturn)
-                v.storage_class |= STCreturn;
+            if (type.ty == Tfunction)
+            {
+                TypeFunction tf = cast(TypeFunction)type;
+                if (tf.isreturn)
+                    v.storage_class |= STCreturn;
+                if (tf.isscope)
+                    v.storage_class |= STCscope;
+            }
 
             v.semantic(sc);
             if (!sc.insert(v))
@@ -2707,9 +2724,9 @@ else
         }
         if (bestvi == -1 && mismatch)
         {
-            //type->print();
-            //mismatch->type->print();
-            //printf("%s %s\n", type->deco, mismatch->type->deco);
+            //type.print();
+            //mismatch.type.print();
+            //printf("%s %s\n", type.deco, mismatch.type.deco);
             //printf("stc = %llx\n", mismatchstc);
             if (mismatchstc)
             {
@@ -2747,7 +2764,7 @@ else
      */
     override bool overloadInsert(Dsymbol s)
     {
-        //printf("FuncDeclaration::overloadInsert(s = %s) this = %s\n", s->toChars(), toChars());
+        //printf("FuncDeclaration::overloadInsert(s = %s) this = %s\n", s.toChars(), toChars());
         assert(s != this);
         AliasDeclaration ad = s.isAliasDeclaration();
         if (ad)
@@ -2756,7 +2773,7 @@ else
                 return overnext.overloadInsert(ad);
             if (!ad.aliassym && ad.type.ty != Tident && ad.type.ty != Tinstance)
             {
-                //printf("\tad = '%s'\n", ad->type->toChars());
+                //printf("\tad = '%s'\n", ad.type.toChars());
                 return false;
             }
             overnext = ad;
@@ -2787,9 +2804,9 @@ else
             if (type)
             {
                 printf("type = %s\n", type.toChars());
-                printf("fd->type = %s\n", fd.type.toChars());
+                printf("fd.type = %s\n", fd.type.toChars());
             }
-            // fd->type can be NULL for overloaded constructors
+            // fd.type can be NULL for overloaded constructors
             if (type && fd.type && fd.type.covariant(type) && fd.type.mod == type.mod && !isFuncAliasDeclaration())
             {
                 //printf("\tfalse: conflict %s\n", kind());
@@ -2877,7 +2894,7 @@ else
             m.anyf = f;
 
             auto tf = cast(TypeFunction)f.type;
-            //printf("tf = %s\n", tf->toChars());
+            //printf("tf = %s\n", tf.toChars());
 
             MATCH match;
             if (tthis) // non-static functions are preferred than static ones
@@ -2962,7 +2979,7 @@ else
         FuncDeclaration f = this;
         while (f && f.overnext)
         {
-            //printf("f->overnext = %p %s\n", f->overnext, f->overnext->toChars());
+            //printf("f.overnext = %p %s\n", f.overnext, f.overnext.toChars());
             TemplateDeclaration td = f.overnext.isTemplateDeclaration();
             if (td)
                 return td;
@@ -3205,6 +3222,11 @@ else
         return ident == Id.DllMain && linkage != LINKc && !isMember();
     }
 
+    final bool isRtInit()
+    {
+        return ident == Id.rt_init && linkage == LINKc && !isMember() && !isNested();
+    }
+
     override final bool isExport()
     {
         return protection.kind == PROTexport;
@@ -3282,6 +3304,10 @@ else
 
         if (!isVirtual() || introducing)
             flags |= FUNCFLAGreturnInprocess;
+
+        // Initialize for inferring STCscope
+        if (global.params.vsafe)
+            flags |= FUNCFLAGinferScope;
     }
 
     final PURE isPure()
@@ -3454,7 +3480,7 @@ else
         assert(type.ty == Tfunction);
         TypeFunction tf = cast(TypeFunction)type;
 
-        //printf("parametersIntersect(%s) t = %s\n", tf->toChars(), t->toChars());
+        //printf("parametersIntersect(%s) t = %s\n", tf.toChars(), t.toChars());
 
         size_t dim = Parameter.dim(tf.parameters);
         for (size_t i = 0; i < dim; i++)
@@ -3466,14 +3492,14 @@ else
             if (!tprmi)
                 continue; // there is no mutable indirection
 
-            //printf("\t[%d] tprmi = %d %s\n", i, tprmi->ty, tprmi->toChars());
+            //printf("\t[%d] tprmi = %d %s\n", i, tprmi.ty, tprmi.toChars());
             if (traverseIndirections(tprmi, t))
                 return false;
         }
         if (AggregateDeclaration ad = isCtorDeclaration() ? null : isThis())
         {
             Type tthis = ad.getType().addMod(tf.mod);
-            //printf("\ttthis = %s\n", tthis->toChars());
+            //printf("\ttthis = %s\n", tthis.toChars());
             if (traverseIndirections(tthis, t))
                 return false;
         }
@@ -3729,14 +3755,14 @@ else
         for (size_t i = 0; i < closureVars.dim; i++)
         {
             VarDeclaration v = closureVars[i];
-            //printf("\tv = %s\n", v->toChars());
+            //printf("\tv = %s\n", v.toChars());
 
             for (size_t j = 0; j < v.nestedrefs.dim; j++)
             {
                 FuncDeclaration f = v.nestedrefs[j];
                 assert(f != this);
 
-                //printf("\t\tf = %s, isVirtual=%d, isThis=%p, tookAddressOf=%d\n", f->toChars(), f->isVirtual(), f->isThis(), f->tookAddressOf);
+                //printf("\t\tf = %p, %s, isVirtual=%d, isThis=%p, tookAddressOf=%d\n", f, f.toChars(), f.isVirtual(), f.isThis(), f.tookAddressOf);
 
                 /* Look to see if f escapes. We consider all parents of f within
                  * this, and also all siblings which call f; if any of them escape,
@@ -3750,7 +3776,7 @@ else
                         continue;
                     if (fx.isThis() || fx.tookAddressOf)
                     {
-                        //printf("\t\tfx = %s, isVirtual=%d, isThis=%p, tookAddressOf=%d\n", fx->toChars(), fx->isVirtual(), fx->isThis(), fx->tookAddressOf);
+                        //printf("\t\tfx = %s, isVirtual=%d, isThis=%p, tookAddressOf=%d\n", fx.toChars(), fx.isVirtual(), fx.isThis(), fx.tookAddressOf);
 
                         /* Mark as needing closure any functions between this and f
                          */
@@ -3783,17 +3809,17 @@ else
             Type tret = (cast(TypeFunction)type).next;
             assert(tret);
             tret = tret.toBasetype();
-            //printf("\t\treturning %s\n", tret->toChars());
+            //printf("\t\treturning %s\n", tret.toChars());
             if (tret.ty == Tclass || tret.ty == Tstruct)
             {
                 Dsymbol st = tret.toDsymbol(null);
-                //printf("\t\treturning class/struct %s\n", tret->toChars());
+                //printf("\t\treturning class/struct %s\n", tret.toChars());
                 for (Dsymbol s = st.parent; s; s = s.parent)
                 {
-                    //printf("\t\t\tparent = %s %s\n", s->kind(), s->toChars());
+                    //printf("\t\t\tparent = %s %s\n", s.kind(), s.toChars());
                     if (s == this)
                     {
-                        //printf("\t\treturning local %s\n", st->toChars());
+                        //printf("\t\treturning local %s\n", st.toChars());
                         goto Lyes;
                     }
                 }
@@ -3908,7 +3934,7 @@ else
 
             /* If inferRetType is true, tret may not be a correct return type yet.
              * So, in here it may be a temporary type for vresult, and after
-             * fbody->semantic() running, vresult->type might be modified.
+             * fbody.semantic() running, vresult.type might be modified.
              */
             vresult = new VarDeclaration(loc, tret, outId ? outId : Id.result, null);
             vresult.storage_class |= STCnodtor;
@@ -4010,7 +4036,7 @@ else
             sf = fdv.mergeFrequire(sf);
             if (sf && fdv.fdrequire)
             {
-                //printf("fdv->frequire: %s\n", fdv->frequire->toChars());
+                //printf("fdv.frequire: %s\n", fdv.frequire.toChars());
                 /* Make the call:
                  *   try { __require(); }
                  *   catch (Throwable) { frequire; }
@@ -4080,7 +4106,7 @@ else
             sf = fdv.mergeFensure(sf, oid);
             if (fdv.fdensure)
             {
-                //printf("fdv->fensure: %s\n", fdv->fensure->toChars());
+                //printf("fdv.fensure: %s\n", fdv.fensure.toChars());
                 // Make the call: __ensure(result)
                 Expression eresult = null;
                 if (outId)
@@ -4172,8 +4198,8 @@ else
         Dsymbol s;
         static __gshared DsymbolTable st = null;
 
-        //printf("genCfunc(name = '%s')\n", id->toChars());
-        //printf("treturn\n\t"); treturn->print();
+        //printf("genCfunc(name = '%s')\n", id.toChars());
+        //printf("treturn\n\t"); treturn.print();
 
         // See if already in table
         if (!st)
@@ -4195,6 +4221,36 @@ else
             st.insert(fd);
         }
         return fd;
+    }
+
+    /******************
+     * Check parameters and return type of D main() function.
+     * Issue error messages.
+     */
+    final void checkDmain()
+    {
+        TypeFunction tf = cast(TypeFunction)type;
+        const nparams = Parameter.dim(tf.parameters);
+        bool argerr;
+        if (nparams == 1)
+        {
+            auto fparam0 = Parameter.getNth(tf.parameters, 0);
+            auto t = fparam0.type.toBasetype();
+            if (t.ty != Tarray ||
+                t.nextOf().ty != Tarray ||
+                t.nextOf().nextOf().ty != Tchar ||
+                fparam0.storageClass & (STCout | STCref | STClazy))
+            {
+                argerr = true;
+            }
+        }
+
+        if (!tf.nextOf())
+            error("must return int or void");
+        else if (tf.nextOf().ty != Tint32 && tf.nextOf().ty != Tvoid)
+            error("must return int or void, not %s", tf.nextOf().toChars());
+        else if (tf.varargs || nparams >= 2 || argerr)
+            error("parameters must be main() or main(string[] args)");
     }
 
     override final inout(FuncDeclaration) isFuncDeclaration() inout
@@ -4249,7 +4305,7 @@ extern (C++) Expression addInvariant(Loc loc, Scope* sc, AggregateDeclaration ad
 
             //e = new DsymbolExp(Loc(), inv);
             //e = new CallExp(Loc(), e);
-            //e = e->semantic(sc2);
+            //e = e.semantic(sc2);
 
             /* Bugzilla 13113: Currently virtual invariant calls completely
              * bypass attribute enforcement.
@@ -4544,7 +4600,7 @@ extern (C++) FuncDeclaration resolveFuncCall(Loc loc, Scope* sc, Dsymbol s,
             }
             else
             {
-                //printf("tf = %s, args = %s\n", tf->deco, (*fargs)[0]->type->deco);
+                //printf("tf = %s, args = %s\n", tf.deco, (*fargs)[0].type.deco);
                 if (hasOverloads)
                 {
                     .error(loc, "none of the overloads of '%s' are callable using argument types %s, candidates are:",
@@ -4664,7 +4720,7 @@ extern (C++) bool traverseIndirections(Type ta, Type tb, void* p = null, bool re
         {
             VarDeclaration v = sym.fields[i];
             Type tprmi = v.type.addMod(tb.mod);
-            //printf("\ttb = %s, tprmi = %s\n", tb->toChars(), tprmi->toChars());
+            //printf("\ttb = %s, tprmi = %s\n", tb.toChars(), tprmi.toChars());
             if (traverseIndirections(ta, tprmi, &c, reversePass))
                 return true;
         }
@@ -4726,7 +4782,7 @@ extern (C++) bool checkEscapingSiblings(FuncDeclaration f, FuncDeclaration outer
     ps.p = cast(PrevSibling*)p;
     ps.f = f;
 
-    //printf("checkEscapingSiblings(f = %s, outerfunc = %s)\n", f->toChars(), outerFunc->toChars());
+    //printf("checkEscapingSiblings(f = %s, outerfunc = %s)\n", f.toChars(), outerFunc.toChars());
     bool bAnyClosures = false;
     for (size_t i = 0; i < f.siblingCallers.dim; ++i)
     {
@@ -4820,7 +4876,7 @@ extern (C++) final class FuncLiteralDeclaration : FuncDeclaration
         this.ident = id ? id : Id.empty;
         this.tok = tok;
         this.fes = fes;
-        //printf("FuncLiteralDeclaration() id = '%s', type = '%s'\n", this->ident->toChars(), type->toChars());
+        //printf("FuncLiteralDeclaration() id = '%s', type = '%s'\n", this.ident.toChars(), type.toChars());
     }
 
     override Dsymbol syntaxCopy(Dsymbol s)
@@ -5088,8 +5144,8 @@ extern (C++) final class PostBlitDeclaration : FuncDeclaration
     override void semantic(Scope* sc)
     {
         //printf("PostBlitDeclaration::semantic() %s\n", toChars());
-        //printf("ident: %s, %s, %p, %p\n", ident->toChars(), Id::dtor->toChars(), ident, Id::dtor);
-        //printf("stc = x%llx\n", sc->stc);
+        //printf("ident: %s, %s, %p, %p\n", ident.toChars(), Id::dtor.toChars(), ident, Id::dtor);
+        //printf("stc = x%llx\n", sc.stc);
         if (semanticRun >= PASSsemanticdone)
             return;
         if (_scope)
@@ -5177,7 +5233,7 @@ extern (C++) final class DtorDeclaration : FuncDeclaration
     override void semantic(Scope* sc)
     {
         //printf("DtorDeclaration::semantic() %s\n", toChars());
-        //printf("ident: %s, %s, %p, %p\n", ident->toChars(), Id::dtor->toChars(), ident, Id::dtor);
+        //printf("ident: %s, %s, %p, %p\n", ident.toChars(), Id::dtor.toChars(), ident, Id::dtor);
         if (semanticRun >= PASSsemanticdone)
             return;
         if (_scope)
@@ -5338,7 +5394,7 @@ extern (C++) class StaticCtorDeclaration : FuncDeclaration
         if (m)
         {
             m.needmoduleinfo = 1;
-            //printf("module1 %s needs moduleinfo\n", m->toChars());
+            //printf("module1 %s needs moduleinfo\n", m.toChars());
         }
     }
 
@@ -5494,7 +5550,7 @@ extern (C++) class StaticDtorDeclaration : FuncDeclaration
         if (m)
         {
             m.needmoduleinfo = 1;
-            //printf("module2 %s needs moduleinfo\n", m->toChars());
+            //printf("module2 %s needs moduleinfo\n", m.toChars());
         }
     }
 
@@ -5719,7 +5775,7 @@ extern (C++) final class UnitTestDeclaration : FuncDeclaration
                 m = sc._module;
             if (m)
             {
-                //printf("module3 %s needs moduleinfo\n", m->toChars());
+                //printf("module3 %s needs moduleinfo\n", m.toChars());
                 m.needmoduleinfo = 1;
             }
         }

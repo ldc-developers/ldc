@@ -53,127 +53,19 @@
 #include <cstdio>
 #include <ir/irtypeclass.h>
 
-static bool builtinTypeInfo(Type *t);
 FuncDeclaration *search_toString(StructDeclaration *sd);
 
-namespace {
-TypeInfoDeclaration *createUnqualified(Type *t) {
-  switch (t->ty) {
-  case Tpointer:
-    return TypeInfoPointerDeclaration::create(t);
-  case Tarray:
-    return TypeInfoArrayDeclaration::create(t);
-  case Tsarray:
-    return TypeInfoStaticArrayDeclaration::create(t);
-  case Taarray:
-    return TypeInfoAssociativeArrayDeclaration::create(t);
-  case Tstruct:
-    return TypeInfoStructDeclaration::create(t);
-  case Tvector:
-    return TypeInfoVectorDeclaration::create(t);
-  case Tenum:
-    return TypeInfoEnumDeclaration::create(t);
-  case Tfunction:
-    return TypeInfoFunctionDeclaration::create(t);
-  case Tdelegate:
-    return TypeInfoDelegateDeclaration::create(t);
-  case Ttuple:
-    return TypeInfoTupleDeclaration::create(t);
-  case Tclass:
-    if ((static_cast<TypeClass *>(t))->sym->isInterfaceDeclaration()) {
-      return TypeInfoInterfaceDeclaration::create(t);
-    } else {
-      return TypeInfoClassDeclaration::create(t);
-    }
-  default:
-    return TypeInfoDeclaration::create(t);
-  }
-}
-}
+// defined in ddmd/typinf.d:
+void genTypeInfo(Type *torig, Scope *sc);
+bool builtinTypeInfo(Type *t);
 
 TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(Type *torig, Scope *sc) {
   IF_LOG Logger::println("Type::getTypeInfo(): %s", torig->toChars());
   LOG_SCOPE
 
-  if (!Type::dtypeinfo) {
-    torig->error(Loc(), "TypeInfo not found. object.d may be incorrectly "
-                        "installed or corrupt, compile with -v switch");
-    fatal();
-  }
+  genTypeInfo(torig, sc);
 
-  Type *t = torig->merge2(); // do this since not all Type's are merge'd
-  if (!t->vtinfo) {
-    if (t->isShared()) { // does both 'shared' and 'shared const'
-      t->vtinfo = TypeInfoSharedDeclaration::create(t);
-    } else if (t->isConst()) {
-      t->vtinfo = TypeInfoConstDeclaration::create(t);
-    } else if (t->isImmutable()) {
-      t->vtinfo = TypeInfoInvariantDeclaration::create(t);
-    } else if (t->isWild()) {
-      t->vtinfo = TypeInfoWildDeclaration::create(t);
-    } else {
-      t->vtinfo = createUnqualified(t);
-    }
-    assert(t->vtinfo);
-    torig->vtinfo = t->vtinfo;
-
-    /* If this has a custom implementation in std/typeinfo, then
-     * do not generate a COMDAT for it.
-     */
-    if (!builtinTypeInfo(t)) { // Generate COMDAT
-      if (sc)                  // if in semantic() pass
-      {
-        // Find module that will go all the way to an object file
-        Module *m = sc->module->importedFrom;
-        m->members->push(t->vtinfo);
-
-        semanticTypeInfo(sc, t);
-      } else // if in obj generation pass
-      {
-        Declaration_codegen(t->vtinfo);
-      }
-    }
-  }
-  if (!torig->vtinfo) {
-    torig->vtinfo =
-        t->vtinfo; // Types aren't merged, but we can share the vtinfo's
-  }
-  assert(torig->vtinfo);
   return torig->vtinfo;
-}
-
-Type *getTypeInfoType(Type *t, Scope *sc) {
-  assert(t->ty != Terror);
-  getOrCreateTypeInfoDeclaration(t, sc);
-  return t->vtinfo->type;
-}
-
-/* ========================================================================= */
-
-/* These decide if there's an instance for them already in std.typeinfo,
- * because then the compiler doesn't need to build one.
- */
-
-static bool builtinTypeInfo(Type *t) {
-#if 0
-    // FIXME if I enable for Tclass, the way LDC does typeinfo will cause a
-    // bunch of linker errors to missing class typeinfo definitions.
-    if (t->isTypeBasic() || t->ty == Tclass)
-        return !t->mod;
-#else
-  if (t->isTypeBasic()) {
-    return !t->mod;
-  }
-#endif
-
-  if (t->ty == Tarray) {
-    Type *next = t->nextOf();
-    return !t->mod && ((next->isTypeBasic() != nullptr && !next->mod) ||
-                       // strings are so common, make them builtin
-                       (next->ty == Tchar && next->mod == MODimmutable) ||
-                       (next->ty == Tchar && next->mod == MODconst));
-  }
-  return false;
 }
 
 /* ========================================================================= */

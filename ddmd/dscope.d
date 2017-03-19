@@ -238,7 +238,7 @@ version(IN_LLVM)
                 assert(!(enclosing.flags & SCOPEfree));
             if (s == enclosing)
             {
-                printf("this = %p, enclosing = %p, enclosing->enclosing = %p\n", s, &this, enclosing);
+                printf("this = %p, enclosing = %p, enclosing.enclosing = %p\n", s, &this, enclosing);
             }
             assert(s != enclosing);
         }
@@ -254,7 +254,7 @@ version(IN_LLVM)
 
     extern (C++) Scope* push(ScopeDsymbol ss)
     {
-        //printf("Scope::push(%s)\n", ss->toChars());
+        //printf("Scope::push(%s)\n", ss.toChars());
         Scope* s = push();
         s.scopesym = ss;
         return s;
@@ -679,7 +679,7 @@ else
             //printf("\tsc = %p\n", sc);
             if (sc.scopesym)
             {
-                //printf("\t\tsc->scopesym = %p\n", sc->scopesym);
+                //printf("\t\tsc.scopesym = %p\n", sc.scopesym);
                 if (!sc.scopesym.symtab)
                     sc.scopesym.symtab = new DsymbolTable();
                 return sc.scopesym.symtabInsert(s);
@@ -737,8 +737,8 @@ else
             //printf("\tsc = %p\n", sc);
             sc.nofree = 1;
             assert(!(flags & SCOPEfree));
-            //assert(sc != sc->enclosing);
-            //assert(!sc->enclosing || sc != sc->enclosing->enclosing);
+            //assert(sc != sc.enclosing);
+            //assert(!sc.enclosing || sc != sc.enclosing.enclosing);
             //if (++i == 10)
             //    assert(0);
         }

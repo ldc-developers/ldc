@@ -99,10 +99,12 @@ private  void usage()
     static if (TARGET_WINDOS)
     {
         const(char)* m32mscoff = "\n  -m32mscoff       generate 32 bit code and write MS-COFF object files";
+        const(char)* mscrtlib  = "\n  -mscrtlib=<name> MS C runtime library to reference from main/WinMain/DllMain";
     }
     else
     {
         const(char)* m32mscoff = "";
+        const(char)* mscrtlib  = "";
     }
     logo();
     printf("
@@ -143,6 +145,7 @@ Where:
   -deps=<filename> write module dependencies to filename (only imports)" ~
   "%s" /* placeholder for fpic */ ~ "
   -dip25           implement http://wiki.dlang.org/DIP25 (experimental)
+  -dip1000         implement http://wiki.dlang.org/DIP1000 (experimental)
   -g               add symbolic debug info
   -gc              add symbolic debug info, optimize for non D debuggers
   -gs              always emit stack frame
@@ -163,6 +166,10 @@ Where:
   -main            add default main() (e.g. for unittesting)
   -man             open web browser on manual page
   -map             generate linker .map file
+  -mcpu=<id>       generate instructions for architecture identified by 'id'
+  -mcpu=?          list all architecture options " ~
+  "%s" /* placeholder for mscrtlib */ ~ "
+  -mv=<package.module>=<filespec>  use <filespec> as source file for <package.module>
   -noboundscheck   no array bounds checking (deprecated, use -boundscheck=off)
   -O               optimize
   -o-              do not write object file
@@ -189,7 +196,7 @@ Where:
   -wi              warnings as messages (compilation will continue)
   -X               generate JSON file
   -Xf=<filename>   write JSON file to filename
-", FileName.canonicalName(global.inifilename), fpic, m32mscoff);
+", FileName.canonicalName(global.inifilename), fpic, m32mscoff, mscrtlib);
 }
 
 /// DMD-generated module `__entrypoint` where the C main resides
@@ -318,6 +325,7 @@ private int tryMain(size_t argc, const(char)** argv)
     // Default to -m32 for 32 bit dmd, -m64 for 64 bit dmd
     global.params.is64bit = (size_t.sizeof == 8);
     global.params.mscoff = false;
+    global.params.cpu = CPU.baseline;
 
     // Temporary: Use 32 bits as the default on Windows, for config parsing
     static if (TARGET_WINDOS)
@@ -506,6 +514,17 @@ private int tryMain(size_t argc, const(char)** argv)
                     error(Loc(), "-m32mscoff can only be used on windows");
                 }
             }
+            else if (strncmp(p + 1, "mscrtlib=", 9) == 0)
+            {
+                static if (TARGET_WINDOS)
+                {
+                    global.params.mscrtlib = p + 10;
+                }
+                else
+                {
+                    error(Loc(), "-mscrtlib");
+                }
+            }
             else if (memcmp(p + 1, cast(char*)"profile", 7) == 0)
             {
                 // Parse:
@@ -549,6 +568,47 @@ private int tryMain(size_t argc, const(char)** argv)
                 else
                     goto Lerror;
             }
+            else if (memcmp(p + 1, "mcpu".ptr, 4) == 0)
+            {
+                // Parse:
+                //      -mcpu=identifier
+                if (p[5] == '=')
+                {
+                    if (strcmp(p + 6, "?") == 0)
+                    {
+                        printf("
+CPU architectures supported by -mcpu=id:
+  =?             list information on all architecture choices
+  =baseline      use default architecture as determined by target
+  =avx           use AVX 1 instructions
+  =native        use CPU architecture that this compiler is running on
+");
+                        exit(EXIT_SUCCESS);
+                    }
+                    else if (Identifier.isValidIdentifier(p + 6))
+                    {
+                        const ident = p + 6;
+                        switch (ident[0 .. strlen(ident)])
+                        {
+                        case "baseline":
+                            global.params.cpu = CPU.baseline;
+                            break;
+                        case "avx":
+                            global.params.cpu = CPU.avx;
+                            break;
+                        case "native":
+                            global.params.cpu = CPU.native;
+                            break;
+                        default:
+                            goto Lerror;
+                        }
+                    }
+                    else
+                        goto Lerror;
+                }
+                else
+                    goto Lerror;
+            }
             else if (memcmp(p + 1, cast(char*)"transition", 10) == 0)
             {
                 // Parse:
@@ -564,7 +624,6 @@ Language changes listed by -transition=id:
   =complex,14488 list all usages of complex or imaginary types
   =field,3449    list all non-mutable fields which occupy an object instance
   =import,10378  revert to single phase name lookup
-  =safe          shows places with hidden change in semantics needed for better @safe guarantees
   =tls           list all variables going into thread local storage
 ");
                         exit(EXIT_SUCCESS);
@@ -613,9 +672,6 @@ Language changes listed by -transition=id:
                             break;
                         case "import":
                             global.params.bug10378 = true;
-                            break;
-                        case "safe":
-                            global.params.vsafe = true;
                             break;
                         case "tls":
                             global.params.vtls = true;
@@ -745,6 +801,11 @@ Language changes listed by -transition=id:
             }
             else if (strcmp(p + 1, "dip25") == 0)
                 global.params.useDIP25 = true;
+            else if (strcmp(p + 1, "dip1000") == 0)
+            {
+                global.params.useDIP25 = true;
+                global.params.vsafe = true;
+            }
             else if (strcmp(p + 1, "lib") == 0)
                 global.params.lib = true;
             else if (strcmp(p + 1, "nofloat") == 0)
@@ -792,6 +853,17 @@ Language changes listed by -transition=id:
                 if (!global.params.imppath)
                     global.params.imppath = new Strings();
                 global.params.imppath.push(p + 2 + (p[2] == '='));
+            }
+            else if (p[1] == 'm' && p[2] == 'v' && p[3] == '=')
+            {
+                if (p[4] && strchr(p + 5, '='))
+                {
+                    if (!global.params.modFileAliasStrings)
+                        global.params.modFileAliasStrings = new Strings();
+                    global.params.modFileAliasStrings.push(p + 4);
+                }
+                else
+                    goto Lerror;
             }
             else if (p[1] == 'J')
             {
@@ -987,6 +1059,7 @@ Language changes listed by -transition=id:
             files.push(p);
         }
     }
+    global.params.cpu = setTargetCPU(global.params.cpu);
     if (global.params.is64bit != is64bit)
         error(Loc(), "the architecture must not be changed in the %s section of %s", envsection.ptr, global.inifilename);
     if (global.params.enforcePropertySyntax)
@@ -1025,6 +1098,11 @@ Language changes listed by -transition=id:
     {
         if (global.params.lib && global.params.dll)
             error(Loc(), "cannot mix -lib and -shared");
+    }
+    static if (TARGET_WINDOS)
+    {
+        if (!global.params.mscrtlib)
+            global.params.mscrtlib = "libcmt";
     }
     if (global.params.useArrayBounds == BOUNDSCHECKdefault)
     {
@@ -1125,36 +1203,31 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
     }
   }
     //printf("%d source files\n",files.dim);
+
     // Build import search path
-    if (global.params.imppath)
+
+    static Strings* buildPath(Strings* imppath)
     {
-        for (size_t i = 0; i < global.params.imppath.dim; i++)
+        Strings* result = null;
+        if (imppath)
         {
-            const(char)* path = (*global.params.imppath)[i];
-            Strings* a = FileName.splitPath(path);
-            if (a)
+            foreach (const path; *imppath)
             {
-                if (!global.path)
-                    global.path = new Strings();
-                global.path.append(a);
+                Strings* a = FileName.splitPath(path);
+                if (a)
+                {
+                    if (!result)
+                        result = new Strings();
+                    result.append(a);
+                }
             }
         }
+        return result;
     }
-    // Build string import search path
-    if (global.params.fileImppath)
-    {
-        for (size_t i = 0; i < global.params.fileImppath.dim; i++)
-        {
-            const(char)* path = (*global.params.fileImppath)[i];
-            Strings* a = FileName.splitPath(path);
-            if (a)
-            {
-                if (!global.filePath)
-                    global.filePath = new Strings();
-                global.filePath.append(a);
-            }
-        }
-    }
+
+    global.path = buildPath(global.params.imppath);
+    global.filePath = buildPath(global.params.fileImppath);
+
     if (global.params.addMain)
     {
         files.push(cast(char*)global.main_d); // a dummy name, we never actually look up this file
@@ -1370,7 +1443,7 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
             fprintf(global.stdmsg, "parse     %s\n", m.toChars());
         if (!Module.rootModule)
             Module.rootModule = m;
-        m.importedFrom = m; // m->isRoot() == true
+        m.importedFrom = m; // m.isRoot() == true
       version (IN_LLVM) {} else
       {
         if (!global.params.oneobj || modi == 0 || m.isDocFile)
@@ -2074,11 +2147,19 @@ private void addDefaultVersionIdentifiers()
     VersionCondition.addPredefinedGlobalIdent("D_Version2");
     VersionCondition.addPredefinedGlobalIdent("all");
 
+    if (global.params.cpu >= CPU.sse2)
+    {
+        VersionCondition.addPredefinedGlobalIdent("D_SIMD");
+        if (global.params.cpu >= CPU.avx)
+        {
+            VersionCondition.addPredefinedGlobalIdent("D_AVX");
+        }
+    }
+
     if (global.params.is64bit)
     {
         VersionCondition.addPredefinedGlobalIdent("D_InlineAsm_X86_64");
         VersionCondition.addPredefinedGlobalIdent("X86_64");
-        VersionCondition.addPredefinedGlobalIdent("D_SIMD");
         static if (TARGET_WINDOS)
         {
             VersionCondition.addPredefinedGlobalIdent("Win64");
@@ -2089,10 +2170,6 @@ private void addDefaultVersionIdentifiers()
         VersionCondition.addPredefinedGlobalIdent("D_InlineAsm"); //legacy
         VersionCondition.addPredefinedGlobalIdent("D_InlineAsm_X86");
         VersionCondition.addPredefinedGlobalIdent("X86");
-        static if (TARGET_OSX)
-        {
-            VersionCondition.addPredefinedGlobalIdent("D_SIMD");
-        }
         static if (TARGET_WINDOS)
         {
             VersionCondition.addPredefinedGlobalIdent("Win32");
@@ -2125,6 +2202,72 @@ private void addDefaultVersionIdentifiers()
     if (global.params.useArrayBounds == BOUNDSCHECKoff)
         VersionCondition.addPredefinedGlobalIdent("D_NoBoundsChecks");
     VersionCondition.addPredefinedGlobalIdent("D_HardFloat");
+
+    printPredefinedVersions();
+}
+
+} // !IN_LLVM
+
+// IN_LLVM replaced: `private` by `extern (C++)`
+extern (C++) void printPredefinedVersions()
+{
+    if (global.params.verbose && global.params.versionids)
+    {
+        fprintf(global.stdmsg, "predefs  ");
+        foreach (const s; *global.params.versionids)
+            fprintf(global.stdmsg, " %s", s);
+        fprintf(global.stdmsg, "\n");
+    }
+}
+
+
+version (IN_LLVM) {} else
+{
+
+/****************************************
+ * Determine the instruction set to be used.
+ * Params:
+ *      cpu = value set by command line switch
+ * Returns:
+ *      value to generate code for
+ */
+
+private CPU setTargetCPU(CPU cpu)
+{
+    // Determine base line for target
+    CPU baseline = CPU.x87;
+    if (global.params.is64bit)
+        baseline = CPU.sse2;
+    else
+    {
+        static if (TARGET_OSX)
+        {
+            baseline = CPU.sse2;
+        }
+    }
+
+    if (baseline < CPU.sse2)
+        return baseline;        // can't support other instruction sets
+
+    switch (cpu)
+    {
+        case CPU.baseline:
+            cpu = baseline;
+            break;
+
+        case CPU.native:
+        {
+            import core.cpuid;
+            cpu = baseline;
+            if (core.cpuid.avx)
+                cpu = CPU.avx;
+            break;
+        }
+
+        default:
+            break;
+    }
+    return cpu;
 }
 
 } // !IN_LLVM
