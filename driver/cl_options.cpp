@@ -86,6 +86,10 @@ static cl::opt<bool, true>
     createSharedLib("shared", cl::desc("Create shared library (DLL)"),
                     cl::ZeroOrMore, cl::location(global.params.dll));
 
+cl::opt<bool> staticFlag("static", cl::ZeroOrMore,
+                         cl::desc("Create a statically linked binary, "
+                                  "including all system dependencies"));
+
 static cl::opt<bool, true> verbose("v", cl::desc("Verbose"), cl::ZeroOrMore,
                                    cl::location(global.params.verbose));
 

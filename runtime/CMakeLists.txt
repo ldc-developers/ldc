@@ -49,10 +49,7 @@ if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
         message(FATAL_ERROR "Shared libraries (BUILD_SHARED_LIBS) are only supported on Linux, macOS and FreeBSD for the time being.")
     endif()
 
-    # Only use the `-shared` lib suffix if static libs are generated too
-    if(NOT ${BUILD_SHARED_LIBS} STREQUAL "ON")
-        set(SHARED_LIB_SUFFIX "-shared")
-    endif()
+    set(SHARED_LIB_SUFFIX "-shared")
 endif()
 
 get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
@@ -204,6 +201,14 @@ if((${CMAKE_SYSTEM_NAME} MATCHES "Linux") OR (${CMAKE_SYSTEM_NAME} MATCHES "Free
             set(SHARED_LIBS_RPATH "\n        \"-L-rpath=${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}\",")
         endif()
     endif()
+endif()
+
+# Only have either shared or static libs?
+# Then explicitly default to linking against them via default LDC switch.
+if(${BUILD_SHARED_LIBS} STREQUAL "ON")
+    set(ADDITIONAL_DEFAULT_LDC_SWITCHES ",\n        \"-link-sharedlib\"")
+elseif(${BUILD_SHARED_LIBS} STREQUAL "OFF")
+    set(ADDITIONAL_DEFAULT_LDC_SWITCHES ",\n        \"-link-sharedlib=false\"")
 endif()
 
 configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
@@ -667,8 +672,8 @@ function(build_test_runners name_suffix path_suffix is_shared)
     add_test(NAME build-druntime-test-runner${target_suffix}
         COMMAND ${LDC_EXE_FULL}
             -of${PROJECT_BINARY_DIR}/druntime-test-runner${target_suffix}${CMAKE_EXECUTABLE_SUFFIX}
-            -defaultlib= -debuglib=
-            ${tmpflags} ${RUNTIME_DIR}/src/test_runner.d
+            ${tmpflags} -defaultlib=
+            ${RUNTIME_DIR}/src/test_runner.d
     )
     set_tests_properties(build-druntime-test-runner${target_suffix} PROPERTIES
         DEPENDS build-druntime-ldc-unittest${target_suffix})
@@ -680,8 +685,8 @@ function(build_test_runners name_suffix path_suffix is_shared)
         add_test(NAME build-phobos2-test-runner${target_suffix}
             COMMAND ${LDC_EXE_FULL}
                 -of${PROJECT_BINARY_DIR}/phobos2-test-runner${target_suffix}${CMAKE_EXECUTABLE_SUFFIX}
-                -defaultlib=${libarg} -debuglib=${libarg}
-                ${tmpflags} ${RUNTIME_DIR}/src/test_runner.d
+                ${tmpflags} -defaultlib=${libarg} -link-debuglib=false -link-sharedlib=false
+                ${RUNTIME_DIR}/src/test_runner.d
         )
         set_tests_properties(build-phobos2-test-runner${target_suffix} PROPERTIES
             DEPENDS "build-druntime-ldc-unittest${target_suffix};build-phobos2-ldc-unittest${target_suffix}"
