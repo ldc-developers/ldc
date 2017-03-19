@@ -40,8 +40,8 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
       return createCUDATarget(ctx, v);
     }
   }
-#define STR(x) XSTR(x)
 #define XSTR(x) #x
+#define STR(x) XSTR(x)
   error(Loc(),
         "unrecognised or invalid DCompute targets: the format is ocl-xy0 "
         "for OpenCl x.y and cuda-xy0 for CUDA CC x.y. Valid versions "
