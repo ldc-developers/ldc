@@ -10,6 +10,7 @@
 #include "target.h"
 #include "gen/nested.h"
 #include "gen/dvalue.h"
+#include "gen/funcgenstate.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
@@ -41,14 +42,13 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
 
   // Check whether we can access the needed frame
   FuncDeclaration *fd = irfunc->decl;
-  while (fd != vdparent) {
-    if (fd->isStatic()) {
-      error(loc, "function %s cannot access frame of function %s",
-            irfunc->decl->toPrettyChars(), vdparent->toPrettyChars());
-      return new DLValue(astype, llvm::UndefValue::get(DtoPtrToType(astype)));
-    }
-    fd = getParentFunc(fd, false);
-    assert(fd);
+  while (fd && fd != vdparent) {
+    fd = getParentFunc(fd);
+  }
+  if (!fd) {
+    error(loc, "function %s cannot access frame of function %s",
+          irfunc->decl->toPrettyChars(), vdparent->toPrettyChars());
+    return new DLValue(astype, llvm::UndefValue::get(DtoPtrToType(astype)));
   }
 
   // is the nested variable in this scope?
@@ -56,20 +56,13 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     return makeVarDValue(astype, vd);
   }
 
-  LLValue *dwarfValue = nullptr;
-#if LDC_LLVM_VER >= 306
-  std::vector<int64_t> dwarfAddr;
-#else
-  std::vector<LLValue *> dwarfAddr;
-#endif
-
   // get the nested context
   LLValue *ctx = nullptr;
-  if (irfunc->nestedVar) {
+  bool skipDIDeclaration = false;
+  auto currentCtx = gIR->funcGen().nestedVar;
+  if (currentCtx) {
     Logger::println("Using own nested context of current function");
-
-    ctx = irfunc->nestedVar;
-    dwarfValue = ctx;
+    ctx = currentCtx;
   } else if (irfunc->decl->isMember2()) {
     Logger::println(
         "Current function is member of nested class, loading vthis");
@@ -80,14 +73,11 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
       val = DtoLoad(val);
     }
     ctx = DtoLoad(DtoGEPi(val, 0, getVthisIdx(cd), ".vthis"));
+    skipDIDeclaration = true;
   } else {
     Logger::println("Regular nested function, loading context arg");
 
     ctx = DtoLoad(irfunc->nestArg);
-    dwarfValue = irfunc->nestArg;
-    if (global.params.symdebug) {
-      gIR->DBuilder.OpDeref(dwarfAddr);
-    }
   }
 
   assert(ctx);
@@ -120,10 +110,6 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     IF_LOG Logger::println("Same depth");
   } else {
     // Load frame pointer and index that...
-    if (dwarfValue && global.params.symdebug) {
-      gIR->DBuilder.OpOffset(dwarfAddr, val, vardepth);
-      gIR->DBuilder.OpDeref(dwarfAddr);
-    }
     IF_LOG Logger::println("Lower depth");
     val = DtoGEPi(val, 0, vardepth);
     IF_LOG Logger::cout() << "Frame index: " << *val << '\n';
@@ -135,26 +121,37 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
   const auto idx = irLocal->nestedIndex;
   assert(idx != -1 && "Nested context not yet resolved for variable.");
 
-  if (dwarfValue && global.params.symdebug) {
-    gIR->DBuilder.OpOffset(dwarfAddr, val, idx);
-  }
+#if LDC_LLVM_VER >= 306
+    LLSmallVector<int64_t, 2> dwarfAddrOps;
+#else
+    LLSmallVector<LLValue *, 2> dwarfAddrOps;
+#endif
 
-  val = DtoGEPi(val, 0, idx, vd->toChars());
+  LLValue *gep = DtoGEPi(val, 0, idx, vd->toChars());
+  val = gep;
   IF_LOG {
     Logger::cout() << "Addr: " << *val << '\n';
     Logger::cout() << "of type: " << *val->getType() << '\n';
   }
-  if (!isSpecialRefVar(vd) && (byref || vd->isRef() || vd->isOut())) {
+  const bool isRefOrOut = vd->isRef() || vd->isOut();
+  if (!isSpecialRefVar(vd) && (byref || isRefOrOut)) {
     val = DtoAlignedLoad(val);
-    // dwarfOpDeref(dwarfAddr);
+    // ref/out variables get a reference-debuginfo-type in
+    // DIBuilder::EmitLocalVariable()
+    if (!isRefOrOut)
+      gIR->DBuilder.OpDeref(dwarfAddrOps);
     IF_LOG {
       Logger::cout() << "Was byref, now: " << *irLocal->value << '\n';
       Logger::cout() << "of type: " << *irLocal->value->getType() << '\n';
     }
   }
 
-  if (dwarfValue && global.params.symdebug) {
-    gIR->DBuilder.EmitLocalVariable(dwarfValue, vd, nullptr, false, dwarfAddr);
+  if (!skipDIDeclaration && global.params.symdebug) {
+    // Because we are passing a GEP instead of an alloca to
+    // llvm.dbg.declare, we have to make the address dereference explicit.
+    gIR->DBuilder.OpDeref(dwarfAddrOps);
+    gIR->DBuilder.EmitLocalVariable(gep, vd, nullptr, false, true,
+                                    dwarfAddrOps);
   }
 
   return makeVarDValue(astype, vd, val);
@@ -213,23 +210,24 @@ LLValue *DtoNestedContext(Loc &loc, Dsymbol *sym) {
 
   // The function we are currently in, and the constructed object/called
   // function might inherit a context pointer from.
-  IrFunction *irfunc = gIR->func();
+  auto &funcGen = gIR->funcGen();
+  auto &irFunc = funcGen.irFunc;
 
   bool fromParent = true;
 
   LLValue *val;
-  if (irfunc->nestedVar) {
+  if (funcGen.nestedVar) {
     // if this func has its own vars that are accessed by nested funcs
     // use its own context
-    val = irfunc->nestedVar;
+    val = funcGen.nestedVar;
     fromParent = false;
-  } else if (irfunc->nestArg) {
+  } else if (irFunc.nestArg) {
     // otherwise, it may have gotten a context from the caller
-    val = DtoLoad(irfunc->nestArg);
-  } else if (irfunc->thisArg) {
+    val = DtoLoad(irFunc.nestArg);
+  } else if (irFunc.thisArg) {
     // or just have a this argument
-    AggregateDeclaration *ad = irfunc->decl->isMember2();
-    val = ad->isClassDeclaration() ? DtoLoad(irfunc->thisArg) : irfunc->thisArg;
+    AggregateDeclaration *ad = irFunc.decl->isMember2();
+    val = ad->isClassDeclaration() ? DtoLoad(irFunc.thisArg) : irFunc.thisArg;
     if (!ad->vthis) {
       // This is just a plain 'outer' reference of a class nested in a
       // function (but without any variables in the nested context).
@@ -244,7 +242,7 @@ LLValue *DtoNestedContext(Loc &loc, Dsymbol *sym) {
       // tries to call a nested function from the parent scope).
       error(loc,
             "function %s is a nested function and cannot be accessed from %s",
-            sym->toPrettyChars(), irfunc->decl->toPrettyChars());
+            sym->toPrettyChars(), irFunc.decl->toPrettyChars());
       fatal();
     }
     return llvm::ConstantPointerNull::get(getVoidPtrType());
@@ -258,15 +256,15 @@ LLValue *DtoNestedContext(Loc &loc, Dsymbol *sym) {
   } else if (FuncDeclaration *symfd = sym->isFuncDeclaration()) {
     // If sym is a nested function, and its parent context is different
     // than the one we got, adjust it.
-    frameToPass = getParentFunc(symfd, true);
+    frameToPass = getParentFunc(symfd);
   }
 
   if (frameToPass) {
     IF_LOG Logger::println("Parent frame is from %s", frameToPass->toChars());
-    FuncDeclaration *ctxfd = irfunc->decl;
+    FuncDeclaration *ctxfd = irFunc.decl;
     IF_LOG Logger::println("Current function is %s", ctxfd->toChars());
     if (fromParent) {
-      ctxfd = getParentFunc(ctxfd, true);
+      ctxfd = getParentFunc(ctxfd);
       assert(ctxfd && "Context from outer function, but no outer function?");
     }
     IF_LOG Logger::println("Context is from %s", ctxfd->toChars());
@@ -316,7 +314,7 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
   }
   irFunc.nestedContextCreated = true;
 
-  FuncDeclaration *parentFunc = getParentFunc(fd, true);
+  FuncDeclaration *parentFunc = getParentFunc(fd);
   // Make sure the parent has already been analyzed.
   if (parentFunc) {
     DtoCreateNestedContextType(parentFunc);
@@ -408,7 +406,8 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
   irFunc.frameTypeAlignment = builder.overallAlignment();
 }
 
-void DtoCreateNestedContext(FuncDeclaration *fd) {
+void DtoCreateNestedContext(FuncGenState &funcGen) {
+  const auto fd = funcGen.irFunc.decl;
   IF_LOG Logger::println("DtoCreateNestedContext for %s", fd->toPrettyChars());
   LOG_SCOPE
 
@@ -416,9 +415,9 @@ void DtoCreateNestedContext(FuncDeclaration *fd) {
 
   // construct nested variables array
   if (fd->closureVars.dim > 0) {
-    IrFunction *irfunction = getIrFunc(fd);
-    unsigned depth = irfunction->depth;
-    LLStructType *frameType = irfunction->frameType;
+    auto &irFunc = funcGen.irFunc;
+    unsigned depth = irFunc.depth;
+    LLStructType *frameType = irFunc.frameType;
     // Create frame for current function and append to frames list
     LLValue *frame = nullptr;
     bool needsClosure = fd->needsClosure();
@@ -427,17 +426,17 @@ void DtoCreateNestedContext(FuncDeclaration *fd) {
       frame = DtoGcMalloc(fd->loc, frameType, ".frame");
     } else {
       unsigned alignment =
-          std::max(getABITypeAlign(frameType), irfunction->frameTypeAlignment);
+          std::max(getABITypeAlign(frameType), irFunc.frameTypeAlignment);
       frame = DtoRawAlloca(frameType, alignment, ".frame");
     }
 
     // copy parent frames into beginning
     if (depth != 0) {
-      LLValue *src = irfunction->nestArg;
+      LLValue *src = irFunc.nestArg;
       if (!src) {
-        assert(irfunction->thisArg);
+        assert(irFunc.thisArg);
         assert(fd->isMember2());
-        LLValue *thisval = DtoLoad(irfunction->thisArg);
+        LLValue *thisval = DtoLoad(irFunc.thisArg);
         AggregateDeclaration *cd = fd->isMember2();
         assert(cd);
         assert(cd->vthis);
@@ -463,8 +462,7 @@ void DtoCreateNestedContext(FuncDeclaration *fd) {
       DtoAlignedStore(src, gep);
     }
 
-    // store context in IrFunction
-    irfunction->nestedVar = frame;
+    funcGen.nestedVar = frame;
 
     // go through all nested vars and assign addresses where possible.
     for (auto vd : fd->closureVars) {
@@ -507,8 +505,10 @@ void DtoCreateNestedContext(FuncDeclaration *fd) {
 #else
         LLSmallVector<LLValue *, 2> addr;
 #endif
-        gIR->DBuilder.OpOffset(addr, frameType, irLocal->nestedIndex);
-        gIR->DBuilder.EmitLocalVariable(gep, vd, nullptr, false, addr);
+        // Because we are passing a GEP instead of an alloca to
+        // llvm.dbg.declare, we have to make the address dereference explicit.
+        gIR->DBuilder.OpDeref(addr);
+        gIR->DBuilder.EmitLocalVariable(gep, vd, nullptr, false, false, addr);
       }
     }
   }

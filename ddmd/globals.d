@@ -1,16 +1,17 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2015 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// Distributed under the Boost Software License, Version 1.0.
-// http://www.boost.org/LICENSE_1_0.txt
+/**
+ * Compiler implementation of the
+ * $(LINK2 http://www.dlang.org, D programming language).
+ *
+ * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Source:      $(DMDSRC _globals.d)
+ */
 
 module ddmd.globals;
 
 import core.stdc.stdint;
 import core.stdc.stdio;
-import core.stdc.string;
 import ddmd.root.array;
 import ddmd.root.filename;
 import ddmd.root.outbuffer;
@@ -26,12 +27,6 @@ private string stripRight(string s)
         s = s[0 .. $ - 1];
     return s;
 }
-
-enum __linux__      = xversion!`linux`;
-enum __APPLE__      = xversion!`OSX`;
-enum __FreeBSD__    = xversion!`FreeBSD`;
-enum __OpenBSD__    = xversion!`OpenBSD`;
-enum __sun          = xversion!`Solaris`;
 
 enum IN_GCC     = xversion!`IN_GCC`;
 enum IN_LLVM    = xversion!`IN_LLVM`;
@@ -70,6 +65,25 @@ alias BOUNDSCHECKoff = BOUNDSCHECK.BOUNDSCHECKoff;
 alias BOUNDSCHECKon = BOUNDSCHECK.BOUNDSCHECKon;
 alias BOUNDSCHECKsafeonly = BOUNDSCHECK.BOUNDSCHECKsafeonly;
 
+enum CPU
+{
+    x87,
+    mmx,
+    sse,
+    sse2,
+    sse3,
+    ssse3,
+    sse4_1,
+    sse4_2,
+    avx,                // AVX1 instruction set
+    avx2,               // AVX2 instruction set
+    avx512,             // AVX-512 instruction set
+
+    // Special values that don't survive past the command line processing
+    baseline,           // (default) the minimum capability CPU
+    native              // the machine the compiler is being run on
+}
+
 // Put command line switches in here
 struct Param
 {
@@ -99,6 +113,7 @@ struct Param
     bool isFreeBSD;         // generate code for FreeBSD
     bool isOpenBSD;         // generate code for OpenBSD
     bool isSolaris;         // generate code for Solaris
+    bool hasObjectiveC;     // target supports Objective-C
     bool mscoff;            // for Win32: write COFF object files instead of OMF
     // 0: don't allow use of deprecated features
     // 1: silently allow use of deprecated features
@@ -129,13 +144,22 @@ struct Param
     bool betterC;           // be a "better C" compiler; no dependency on D runtime
     bool addMain;           // add a default main() function
     bool allInst;           // generate code for all template instantiations
-    bool dwarfeh;           // generate dwarf eh exception handling
     bool check10378;        // check for issues transitioning to 10738
     bool bug10378;          // use pre-bugzilla 10378 search strategy
+    bool vsafe;             // use enhanced @safe checking
+    /** The --transition=safe switch should only be used to show code with
+     * silent semantics changes related to @safe improvements.  It should not be
+     * used to hide a feature that will have to go through deprecate-then-error
+     * before becoming default.
+     */
 
+    bool showGaggedErrors;  // print gagged errors anyway
+
+    CPU cpu;                // CPU instruction set to target
     BOUNDSCHECK useArrayBounds;
 
     const(char)* argv0;                 // program name
+    Array!(const(char)*)* modFileAliasStrings; // array of char*'s of -I module filename alias strings
     Array!(const(char)*)* imppath;      // array of char*'s of where to look for import modules
     Array!(const(char)*)* fileImppath;  // array of char*'s of where to look for file import modules
     const(char)* objdir;                // .obj/.lib file output directory
@@ -150,6 +174,7 @@ struct Param
     bool doHdrGeneration;               // process embedded documentation comments
     const(char)* hdrdir;                // write 'header' file to docdir directory
     const(char)* hdrname;               // write 'header' file to docname
+    bool hdrStripPlainFunctions;        // strip the bodies of plain (non-template) functions
 
     bool doJsonGeneration;              // write JSON file
     const(char)* jsonfilename;          // write JSON file to jsonfilename
@@ -162,6 +187,7 @@ struct Param
 
     const(char)* defaultlibname;        // default library for non-debug builds
     const(char)* debuglibname;          // default library for debug builds
+    const(char)* mscrtlib;              // MS C runtime library
 
     const(char)* moduleDepsFile;        // filename for deps output
     OutBuffer* moduleDeps;              // contents to be written to deps file
@@ -193,11 +219,6 @@ struct Param
 
         uint nestedTmpl; // maximum nested template instantiations
 
-        // Whether to keep all function bodies in .di file generation or to strip
-        // those of plain functions. For DMD, this is govenered by the -inline
-        // flag, which does not directly translate to LDC.
-        bool hdrKeepAllBodies;
-
         // LDC stuff
         OUTPUTFLAG output_ll;
         OUTPUTFLAG output_bc;
@@ -205,7 +226,8 @@ struct Param
         OUTPUTFLAG output_o;
         bool useInlineAsm;
         bool verbose_cg;
-        bool hasObjectiveC;
+        bool fullyQualifiedObjectFiles;
+        bool cleanupObjectFiles;
 
         // Profile-guided optimization:
         bool genInstrProf;             // Whether to generate PGO instrumented code
@@ -215,8 +237,8 @@ struct Param
         const(void)* targetTriple; // const llvm::Triple*
 
         // Codegen cl options
-        bool singleObj;
         bool disableRedZone;
+        uint dwarfVersion;
 
         uint hashThreshold; // MD5 hash symbols larger than this threshold (0 = no hashing)
     }
@@ -240,7 +262,6 @@ struct Global
     const(char)* obj_ext;
     version(IN_LLVM)
     {
-        const(char)* obj_ext_alt;
         const(char)* ll_ext;
         const(char)* bc_ext;
         const(char)* s_ext;
@@ -320,11 +341,10 @@ struct Global
         map_ext = "map";
 version(IN_LLVM)
 {
+        obj_ext = "o";
         ll_ext  = "ll";
         bc_ext  = "bc";
         s_ext   = "s";
-        obj_ext = "o";
-        obj_ext_alt = "obj";
 }
 else
 {
@@ -419,17 +439,6 @@ alias d_int32 = int32_t;
 alias d_uns32 = uint32_t;
 alias d_int64 = int64_t;
 alias d_uns64 = uint64_t;
-alias d_float32 = float;
-alias d_float64 = double;
-alias d_float80 = real;
-version(IN_LLVM_MSVC)
-{
-    alias real_t = double;
-}
-else
-{
-    alias real_t = real;
-}
 
 // file location
 struct Loc
@@ -493,6 +502,10 @@ enum CPPMANGLE : int
     asStruct,
     asClass,
 }
+
+alias CPPMANGLEdefault = CPPMANGLE.def;
+alias CPPMANGLEstruct = CPPMANGLE.asStruct;
+alias CPPMANGLEclass = CPPMANGLE.asClass;
 
 enum DYNCAST : int
 {

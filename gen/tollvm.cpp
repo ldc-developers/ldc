@@ -411,41 +411,38 @@ llvm::ConstantInt *DtoConstUbyte(unsigned char i) {
   return LLConstantInt::get(LLType::getInt8Ty(gIR->context()), i, false);
 }
 
-LLConstant *DtoConstFP(Type *t, longdouble value) {
+LLConstant *DtoConstFP(Type *t, const real_t value) {
   LLType *llty = DtoType(t);
   assert(llty->isFloatingPointTy());
 
-  if (llty == LLType::getFloatTy(gIR->context()) ||
-      llty == LLType::getDoubleTy(gIR->context())) {
-    return LLConstantFP::get(llty, value);
-  }
-  if (llty == LLType::getX86_FP80Ty(gIR->context())) {
-    uint64_t bits[] = {0, 0};
-    bits[0] = *reinterpret_cast<uint64_t *>(&value);
-    bits[1] =
-        *reinterpret_cast<uint16_t *>(reinterpret_cast<uint64_t *>(&value) + 1);
-    return LLConstantFP::get(gIR->context(), APFloat(APFloat::x87DoubleExtended,
-                                                     APInt(80, 2, bits)));
-  }
-  if (llty == LLType::getFP128Ty(gIR->context())) {
-    union {
-      longdouble ld;
-      uint64_t bits[2];
-    } t;
-    t.ld = value;
+  assert(sizeof(real_t) >= 8 && "real_t < 64 bits?");
+
+  if (llty->isFloatTy()) {
+    // let host narrow to single-precision target
     return LLConstantFP::get(gIR->context(),
-                             APFloat(APFloat::IEEEquad, APInt(128, 2, t.bits)));
-  }
-  if (llty == LLType::getPPC_FP128Ty(gIR->context())) {
-    uint64_t bits[] = {0, 0};
-    bits[0] = *reinterpret_cast<uint64_t *>(&value);
-    bits[1] =
-        *reinterpret_cast<uint16_t *>(reinterpret_cast<uint64_t *>(&value) + 1);
-    return LLConstantFP::get(
-        gIR->context(), APFloat(APFloat::PPCDoubleDouble, APInt(128, 2, bits)));
+                             APFloat(static_cast<float>(value)));
   }
 
-  llvm_unreachable("Unknown floating point type encountered");
+  if (llty->isDoubleTy()) {
+    // let host (potentially) narrow to double-precision target
+    return LLConstantFP::get(gIR->context(),
+                             APFloat(static_cast<double>(value)));
+  }
+
+  // host real_t => target real
+
+  // 1) represent host real_t as llvm::APFloat
+  const auto &targetRealSemantics = llty->getFltSemantics();
+  APFloat v(targetRealSemantics, APFloat::uninitialized);
+  CTFloat::toAPFloat(value, v);
+
+  // 2) convert to target real
+  if (&v.getSemantics() != &targetRealSemantics) {
+    bool ignored;
+    v.convert(targetRealSemantics, APFloat::rmNearestTiesToEven, &ignored);
+  }
+
+  return LLConstantFP::get(gIR->context(), v);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -482,11 +479,7 @@ LLConstant *DtoConstString(const char *str) {
 ////////////////////////////////////////////////////////////////////////////////
 
 LLValue *DtoLoad(LLValue *src, const char *name) {
-  //     if (Logger::enabled())
-  //         Logger::cout() << "loading " << *src <<  '\n';
-  llvm::LoadInst *ld = gIR->ir->CreateLoad(src, name);
-  // ld->setVolatile(gIR->func()->inVolatile);
-  return ld;
+  return gIR->ir->CreateLoad(src, name);
 }
 
 // Like DtoLoad, but the pointer is guaranteed to be aligned appropriately for
@@ -630,14 +623,13 @@ llvm::GlobalVariable *isaGlobalVar(LLValue *v) {
 ////////////////////////////////////////////////////////////////////////////////
 
 LLPointerType *getPtrToType(LLType *t) {
-  if (t == LLType::getVoidTy(gIR->context())) {
+  if (t == LLType::getVoidTy(gIR->context()))
     t = LLType::getInt8Ty(gIR->context());
-  }
-  return LLPointerType::get(t, 0);
+  return t->getPointerTo();
 }
 
 LLPointerType *getVoidPtrType() {
-  return getPtrToType(LLType::getInt8Ty(gIR->context()));
+  return LLType::getInt8Ty(gIR->context())->getPointerTo();
 }
 
 llvm::ConstantPointerNull *getNullPtr(LLType *t) {
@@ -657,83 +649,6 @@ size_t getTypeAllocSize(LLType *t) { return gDataLayout->getTypeAllocSize(t); }
 
 unsigned int getABITypeAlign(LLType *t) {
   return gDataLayout->getABITypeAlignment(t);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-LLStructType *DtoMutexType() {
-  if (gIR->mutexType) {
-    return gIR->mutexType;
-  }
-
-  // The structures defined here must be the same as in
-  // druntime/src/rt/critical.c
-
-  // Windows
-  if (global.params.targetTriple->isOSWindows()) {
-    llvm::Type *VoidPtrTy = llvm::Type::getInt8PtrTy(gIR->context());
-    llvm::Type *Int32Ty = llvm::Type::getInt32Ty(gIR->context());
-
-    // Build RTL_CRITICAL_SECTION; size is 24 (32bit) or 40 (64bit)
-    LLType *rtl_types[] = {
-        VoidPtrTy, // Pointer to DebugInfo
-        Int32Ty,   // LockCount
-        Int32Ty,   // RecursionCount
-        VoidPtrTy, // Handle of OwningThread
-        VoidPtrTy, // Handle of LockSemaphore
-        VoidPtrTy  // SpinCount
-    };
-    LLStructType *rtl =
-        LLStructType::create(gIR->context(), rtl_types, "RTL_CRITICAL_SECTION");
-
-    // Build D_CRITICAL_SECTION; size is 28 (32bit) or 48 (64bit)
-    LLStructType *mutex =
-        LLStructType::create(gIR->context(), "D_CRITICAL_SECTION");
-    LLType *types[] = {getPtrToType(mutex), rtl};
-    mutex->setBody(types);
-
-    // Cache type
-    gIR->mutexType = mutex;
-
-    return mutex;
-  }
-
-  // FreeBSD, NetBSD, OpenBSD, DragonFly
-  if (global.params.targetTriple->isOSFreeBSD() ||
-#if LDC_LLVM_VER > 305
-      global.params.targetTriple->isOSNetBSD() ||
-      global.params.targetTriple->isOSOpenBSD() ||
-      global.params.targetTriple->isOSDragonFly()
-#else
-      global.params.targetTriple->getOS() == llvm::Triple::NetBSD ||
-      global.params.targetTriple->getOS() == llvm::Triple::OpenBSD ||
-      global.params.targetTriple->getOS() == llvm::Triple::DragonFly
-#endif
-          ) {
-    // Just a pointer
-    return LLStructType::get(gIR->context(), DtoSize_t());
-  }
-
-  // pthread_fastlock
-  LLType *types2[] = {DtoSize_t(), LLType::getInt32Ty(gIR->context())};
-  LLStructType *fastlock = LLStructType::get(gIR->context(), types2, false);
-
-  // pthread_mutex
-  LLType *types1[] = {LLType::getInt32Ty(gIR->context()),
-                      LLType::getInt32Ty(gIR->context()), getVoidPtrType(),
-                      LLType::getInt32Ty(gIR->context()), fastlock};
-  LLStructType *pmutex = LLStructType::get(gIR->context(), types1, false);
-
-  // D_CRITICAL_SECTION
-  LLStructType *mutex =
-      LLStructType::create(gIR->context(), "D_CRITICAL_SECTION");
-  LLType *types[] = {getPtrToType(mutex), pmutex};
-  mutex->setBody(types);
-
-  // Cache type
-  gIR->mutexType = mutex;
-
-  return pmutex;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

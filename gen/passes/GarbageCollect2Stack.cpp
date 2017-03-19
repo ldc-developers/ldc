@@ -255,7 +255,7 @@ public:
   }
 };
 
-// FunctionInfo for _d_newclass
+// FunctionInfo for _d_allocclass
 class AllocClassFI : public FunctionInfo {
 public:
   bool analyze(CallSite CS, const Analysis &A) override {
@@ -436,7 +436,7 @@ GarbageCollect2Stack::GarbageCollect2Stack()
   KnownFunctions["_d_allocmemoryT"] = &AllocMemoryT;
   KnownFunctions["_d_newarrayU"] = &NewArrayU;
   KnownFunctions["_d_newarrayT"] = &NewArrayT;
-  KnownFunctions["_d_newclass"] = &AllocClass;
+  KnownFunctions["_d_allocclass"] = &AllocClass;
   KnownFunctions["_d_allocmemory"] = &AllocMemory;
 }
 
@@ -474,7 +474,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
   const DataLayout &DL = F.getParent()->getDataLayout();
   DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   CallGraphWrapperPass *CGPass = getAnalysisIfAvailable<CallGraphWrapperPass>();
-  CallGraph *CG = CGPass ? &CGPass->getCallGraph() : 0;
+  CallGraph *CG = CGPass ? &CGPass->getCallGraph() : nullptr;
 #else
   DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
   assert(DLP && "required DataLayoutPass is null");

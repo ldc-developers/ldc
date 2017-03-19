@@ -4,7 +4,7 @@
  * Copyright: Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
  * Authors: Walter Bright, http://www.digitalmars.com
  * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:    $(DMDSRC cppmangle.d)
+ * Source:    $(DMDSRC _cppmangle.d)
  */
 
 module ddmd.cppmangle;
@@ -14,7 +14,6 @@ import core.stdc.stdio;
 
 import ddmd.arraytypes;
 import ddmd.declaration;
-import ddmd.dstruct;
 import ddmd.dsymbol;
 import ddmd.dtemplate;
 import ddmd.errors;
@@ -22,7 +21,6 @@ import ddmd.expression;
 import ddmd.func;
 import ddmd.globals;
 import ddmd.id;
-import ddmd.identifier;
 import ddmd.mtype;
 import ddmd.root.outbuffer;
 import ddmd.root.rootobject;
@@ -123,7 +121,7 @@ static if (IN_LLVM || TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPE
                 if (!skipname && !substitute(ti.tempdecl))
                 {
                     store(ti.tempdecl);
-                    const(char)* name = ti.toAlias().ident.toChars();
+                    const(char)* name = ti.tempdecl.toAlias().ident.toChars();
                     buf.printf("%d%s", strlen(name), name);
                 }
                 buf.writeByte('I');
@@ -337,7 +335,7 @@ static if (IN_LLVM || TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPE
                         if (buf.offset - off >= 26 && memcmp(buf.data + off, "IcSt11char_traitsIcESaIcEE".ptr, 26) == 0)
                         {
                             buf.remove(off - 2, 28);
-                            buf.insert(off - 2, "Ss".ptr, 2);
+                            buf.insert(off - 2, "Ss");
                             return;
                         }
                         buf.setsize(off);
@@ -365,7 +363,7 @@ static if (IN_LLVM || TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPE
                                 mbuf[1] = 'o';
                             else if (s.ident == Id.basic_iostream)
                                 mbuf[1] = 'd';
-                            buf.insert(off, mbuf.ptr, 2);
+                            buf.insert(off, mbuf[]);
                             return;
                         }
                         buf.setsize(off);
@@ -394,7 +392,8 @@ static if (IN_LLVM || TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPE
 
         void mangle_variable(VarDeclaration d, bool is_temp_arg_ref)
         {
-            if (!(d.storage_class & (STCextern | STCgshared)))
+            // fake mangling for fields to fix https://issues.dlang.org/show_bug.cgi?id=16525
+            if (!(d.storage_class & (STCextern | STCfield | STCgshared)))
             {
                 d.error("Internal Compiler Error: C++ static non- __gshared non-extern variables not supported");
                 fatal();
@@ -433,7 +432,9 @@ static if (IN_LLVM || TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPE
             TypeFunction tf = cast(TypeFunction)d.type;
             buf.writestring("_Z");
             Dsymbol p = d.toParent();
-            if (p && !p.isModule() && tf.linkage == LINKcpp)
+            TemplateDeclaration ftd = getFuncTemplateDecl(d);
+
+            if (p && !p.isModule() && tf.linkage == LINKcpp && !ftd)
             {
                 buf.writeByte('N');
                 if (d.type.isConst())
@@ -444,24 +445,24 @@ static if (IN_LLVM || TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPE
                 if (buf.offset >= 17 && memcmp(buf.data, "_ZN3std9allocator".ptr, 17) == 0)
                 {
                     buf.remove(3, 14);
-                    buf.insert(3, "Sa".ptr, 2);
+                    buf.insert(3, "Sa");
                 }
                 // Replace ::std::basic_string with Sb
                 if (buf.offset >= 21 && memcmp(buf.data, "_ZN3std12basic_string".ptr, 21) == 0)
                 {
                     buf.remove(3, 18);
-                    buf.insert(3, "Sb".ptr, 2);
+                    buf.insert(3, "Sb");
                 }
                 // Replace ::std with St
                 if (buf.offset >= 7 && memcmp(buf.data, "_ZN3std".ptr, 7) == 0)
                 {
                     buf.remove(3, 4);
-                    buf.insert(3, "St".ptr, 2);
+                    buf.insert(3, "St");
                 }
                 if (buf.offset >= 8 && memcmp(buf.data, "_ZNK3std".ptr, 8) == 0)
                 {
                     buf.remove(4, 4);
-                    buf.insert(4, "St".ptr, 2);
+                    buf.insert(4, "St");
                 }
                 if (d.isDtorDeclaration())
                 {
@@ -472,6 +473,13 @@ static if (IN_LLVM || TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPE
                     source_name(d);
                 }
                 buf.writeByte('E');
+            }
+            else if (ftd)
+            {
+                source_name(p);
+                this.is_top_level = true;
+                tf.nextOf().accept(this);
+                this.is_top_level = false;
             }
             else
             {
@@ -635,12 +643,7 @@ static if (IN_LLVM || TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPE
                 c = 'd';
                 break;
             case Tfloat80:
-version(IN_LLVM) {
-                // There is no platform which uses __float128 for real.
-                c = 'e';
-} else {
-                c = (Target.realsize - Target.realpad == 16) ? 'g' : 'e';
-}
+                c = Target.realislongdouble ? 'e' : 'g';
                 break;
             case Tbool:
                 c = 'b';
@@ -785,20 +788,20 @@ version(IN_LLVM) {
              *  # types are possible return type, then parameter types
              */
             /* ABI says:
-             "The type of a non-static member function is considered to be different,
-             for the purposes of substitution, from the type of a namespace-scope or
-             static member function whose type appears similar. The types of two
-             non-static member functions are considered to be different, for the
-             purposes of substitution, if the functions are members of different
-             classes. In other words, for the purposes of substitution, the class of
-             which the function is a member is considered part of the type of
-             function."
+                "The type of a non-static member function is considered to be different,
+                for the purposes of substitution, from the type of a namespace-scope or
+                static member function whose type appears similar. The types of two
+                non-static member functions are considered to be different, for the
+                purposes of substitution, if the functions are members of different
+                classes. In other words, for the purposes of substitution, the class of
+                which the function is a member is considered part of the type of
+                function."
 
-             BUG: Right now, types of functions are never merged, so our simplistic
-             component matcher always finds them to be different.
-             We should use Type.equals on these, and use different
-             TypeFunctions for non-static member functions, and non-static
-             member functions of different classes.
+                BUG: Right now, types of functions are never merged, so our simplistic
+                component matcher always finds them to be different.
+                We should use Type.equals on these, and use different
+                TypeFunctions for non-static member functions, and non-static
+                member functions of different classes.
              */
             if (substitute(t))
                 return;
@@ -951,6 +954,13 @@ static if (IN_LLVM || TARGET_WINDOS)
         alias visit = super.visit;
         const(char)*[VC_SAVED_IDENT_CNT] saved_idents;
         Type[VC_SAVED_TYPE_CNT] saved_types;
+
+        // IS_NOT_TOP_TYPE: when we mangling one argument, we can call visit several times (for base types of arg type)
+        // but we must save only arg type:
+        // For example: if we have an int** argument, we should save "int**" but visit will be called for "int**", "int*", "int"
+        // This flag is set up by the visit(NextType, ) function  and should be reset when the arg type output is finished.
+        // MANGLE_RETURN_TYPE: return type shouldn't be saved and substituted in arguments
+        // IGNORE_CONST: in some cases we should ignore CV-modifiers.
 
         enum Flags : int
         {
@@ -1455,15 +1465,21 @@ static if (IN_LLVM || TARGET_WINDOS)
         {
             // <static variable mangle> ::= ? <qualified name> <protection flag> <const/volatile flag> <type>
             assert(d);
-            if (!(d.storage_class & (STCextern | STCgshared)))
+            // fake mangling for fields to fix https://issues.dlang.org/show_bug.cgi?id=16525
+            if (!(d.storage_class & (STCextern | STCfield | STCgshared)))
             {
                 d.error("Internal Compiler Error: C++ static non- __gshared non-extern variables not supported");
                 fatal();
             }
             buf.writeByte('?');
             mangleIdent(d);
-            assert(!d.needThis());
-            if (d.parent && d.parent.isModule()) // static member
+            assert((d.storage_class & STCfield) || !d.needThis());
+            Dsymbol parent = d.toParent();
+            while (parent && parent.isNspace())
+            {
+                parent = parent.toParent();
+            }
+            if (parent && parent.isModule()) // static member
             {
                 buf.writeByte('3');
             }
@@ -1985,5 +2001,3 @@ else
 {
     static assert(0, "fix this");
 }
-
-

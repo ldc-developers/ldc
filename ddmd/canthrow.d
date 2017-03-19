@@ -1,10 +1,12 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2015 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// Distributed under the Boost Software License, Version 1.0.
-// http://www.boost.org/LICENSE_1_0.txt
+/**
+ * Compiler implementation of the
+ * $(LINK2 http://www.dlang.org, D programming language).
+ *
+ * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Source:      $(DMDSRC _canthrow.d)
+ */
 
 module ddmd.canthrow;
 
@@ -236,7 +238,7 @@ extern (C++) bool Dsymbol_canThrow(Dsymbol s, FuncDeclaration func, bool mustNot
     VarDeclaration vd;
     TemplateMixin tm;
     TupleDeclaration td;
-    //printf("Dsymbol_toElem() %s\n", s->toChars());
+    //printf("Dsymbol_toElem() %s\n", s.toChars());
     ad = s.isAttribDeclaration();
     if (ad)
     {
@@ -276,7 +278,7 @@ extern (C++) bool Dsymbol_canThrow(Dsymbol s, FuncDeclaration func, bool mustNot
     }
     else if ((tm = s.isTemplateMixin()) !is null)
     {
-        //printf("%s\n", tm->toChars());
+        //printf("%s\n", tm.toChars());
         if (tm.members)
         {
             for (size_t i = 0; i < tm.members.dim; i++)

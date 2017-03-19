@@ -83,13 +83,14 @@ void RTTIBuilder::push_void_array(uint64_t dim, llvm::Constant *ptr) {
 
 void RTTIBuilder::push_void_array(llvm::Constant *CI, Type *valtype,
                                   Dsymbol *mangle_sym) {
-  std::string initname(mangle(mangle_sym));
-  initname.append(".rtti.voidarr.data");
+  OutBuffer initname;
+  mangleToBuffer(mangle_sym, &initname);
+  initname.writestring(".rtti.voidarr.data");
 
   const LinkageWithCOMDAT lwc(TYPEINFO_LINKAGE_TYPE, supportsCOMDAT());
 
   auto G = new LLGlobalVariable(gIR->module, CI->getType(), true,
-                                lwc.first, CI, initname);
+                                lwc.first, CI, initname.peekString());
   setLinkage(lwc, G);
   G->setAlignment(DtoAlignment(valtype));
 
@@ -103,15 +104,19 @@ void RTTIBuilder::push_array(llvm::Constant *CI, uint64_t dim, Type *valtype,
   tmpStr.erase(remove(tmpStr.begin(), tmpStr.end(), ']'), tmpStr.end());
   tmpStr.append("arr");
 
-  std::string initname(mangle_sym ? mangle(mangle_sym) : ".ldc");
-  initname.append(".rtti.");
-  initname.append(tmpStr);
-  initname.append(".data");
+  OutBuffer initname;
+  if (mangle_sym)
+    mangleToBuffer(mangle_sym, &initname);
+  else
+    initname.writestring(".ldc");
+  initname.writestring(".rtti.");
+  initname.writestring(tmpStr.c_str());
+  initname.writestring(".data");
 
   const LinkageWithCOMDAT lwc(TYPEINFO_LINKAGE_TYPE, supportsCOMDAT());
 
   auto G = new LLGlobalVariable(gIR->module, CI->getType(), true,
-                                lwc.first, CI, initname);
+                                lwc.first, CI, initname.peekString());
   setLinkage(lwc, G);
   G->setAlignment(DtoAlignment(valtype));
 
@@ -133,7 +138,7 @@ void RTTIBuilder::push_size_as_vp(uint64_t s) {
 void RTTIBuilder::push_funcptr(FuncDeclaration *fd, Type *castto) {
   if (fd) {
     DtoResolveFunction(fd);
-    LLConstant *F = getIrFunc(fd)->func;
+    LLConstant *F = DtoCallee(fd);
     if (castto) {
       F = DtoBitCast(F, DtoType(castto));
     }

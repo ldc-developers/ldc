@@ -15,16 +15,16 @@
 #ifndef LDC_GEN_IRSTATE_H
 #define LDC_GEN_IRSTATE_H
 
-#include "aggregate.h"
-#include "root.h"
-#include "ir/iraggr.h"
-#include "ir/irvar.h"
-#include "gen/dibuilder.h"
 #include <deque>
-#include <list>
+#include <memory>
 #include <set>
 #include <sstream>
 #include <vector>
+#include "aggregate.h"
+#include "root.h"
+#include "gen/dibuilder.h"
+#include "ir/iraggr.h"
+#include "ir/irvar.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ProfileData/InstrProfReader.h"
 #include "llvm/IR/CallSite.h"
@@ -35,7 +35,7 @@ class TargetMachine;
 class IndexedInstrProfReader;
 }
 
-// global ir state for current module
+class FuncGenState;
 struct IRState;
 struct TargetABI;
 
@@ -107,20 +107,24 @@ struct IRAsmBlock {
 // represents the module
 struct IRState {
   IRState(const char *name, llvm::LLVMContext &context);
+  ~IRState();
+
+  IRState(IRState const &) = delete;
+  IRState &operator=(IRState const &) = delete;
 
   llvm::Module module;
   llvm::LLVMContext &context() const { return module.getContext(); }
 
   Module *dmodule;
 
-  LLStructType *mutexType;
   LLStructType *moduleRefType;
 
-  // functions
-  typedef std::vector<IrFunction *> FunctionVector;
-  FunctionVector functions;
+  // Stack of currently codegen'd functions (more than one for lambdas or other
+  // nested functions, inlining-only codegen'ing, etc.), and some convenience
+  // accessors for the top-most one.
+  std::vector<std::unique_ptr<FuncGenState>> funcGenStates;
+  FuncGenState &funcGen();
   IrFunction *func();
-
   llvm::Function *topfunc();
   llvm::Instruction *topallocapoint();
 
@@ -134,6 +138,16 @@ struct IRState {
   llvm::BasicBlock *scopebb();
   bool scopereturned();
 
+  // Creates a new basic block and inserts it before the specified one.
+  llvm::BasicBlock *insertBBBefore(llvm::BasicBlock *successor,
+                                   const llvm::Twine &name);
+  // Creates a new basic block and inserts it after the specified one.
+  llvm::BasicBlock *insertBBAfter(llvm::BasicBlock *predecessor,
+                                  const llvm::Twine &name);
+  // Creates a new basic block and inserts it after the current scope basic
+  // block (`scopebb()`).
+  llvm::BasicBlock *insertBB(const llvm::Twine &name);
+
   // create a call or invoke, depending on the landing pad info
   llvm::CallSite CreateCallOrInvoke(LLValue *Callee, const char *Name = "");
   llvm::CallSite CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
@@ -146,6 +160,8 @@ struct IRState {
   llvm::CallSite CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
                                     LLValue *Arg2, LLValue *Arg3, LLValue *Arg4,
                                     const char *Name = "");
+
+  bool isMainFunc(const IrFunction *func) const;
 
   // this holds the array being indexed or sliced so $ will work
   // might be a better way but it works. problem is I only get a
@@ -197,5 +213,7 @@ struct IRState {
 };
 
 void Statement_toIR(Statement *s, IRState *irs);
+
+bool useMSVCEH();
 
 #endif // LDC_GEN_IRSTATE_H

@@ -104,7 +104,7 @@ AttrSet IrFuncTy::getParamAttrs(bool passThisBeforeSret) {
 // handle implicit args
 #define ADD_PA(X)                                                              \
   if (X) {                                                                     \
-    newAttrs.add(idx, X->attrs);                                               \
+    newAttrs.add(idx, (X)->attrs);                                             \
     idx++;                                                                     \
   }
 

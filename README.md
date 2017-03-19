@@ -2,7 +2,6 @@ LDC – the LLVM-based D Compiler
 ===============================
 
 [![Build Status](https://travis-ci.org/ldc-developers/ldc.png?branch=master)][1]
-[![Test Coverage](https://coveralls.io/repos/ldc-developers/ldc/badge.svg)][2]
 [![Bountysource](https://www.bountysource.com/badge/tracker?tracker_id=283332)][3]
 
 The LDC project aims to provide a portable D programming language
@@ -34,13 +33,13 @@ installing it might not be necessary. For several platforms, there
 are also stand-alone binary builds available at the
 [GitHub release page](https://github.com/ldc-developers/ldc/releases).
 
-| Distribution | Command               |
+|              | Command               |
 | ------------ | --------------------- |
 | Arch Linux   | `pacman -S ldc`       |
 | Debian       | `apt-get install ldc` |
 | Fedora       | `yum install ldc`     |
 | Gentoo       | `layman -a ldc`       |
-| HomeBrew     | `brew install ldc`    |
+| Homebrew     | `brew install ldc`    |
 | Ubuntu       | `apt-get install ldc` |
 
 ##### Windows
@@ -56,8 +55,6 @@ LDC for Windows relies on the Microsoft linker. So you'll either need
 (2015 is greatly encouraged; 2013 works too if you build LDC yourself)
 with Visual C++, or the stand-alone
 [Visual C++ Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools).
-For the latter to work, you'll need to create the environment variable `LDC_VSDIR`
-and set it to something like `C:\Program Files (x86)\Microsoft Visual Studio 14.0\`.
 
 ### Building from source
 
@@ -66,9 +63,8 @@ libraries is available on the project wiki for
 [Linux and OS X](http://wiki.dlang.org/Building_LDC_from_source) and
 [Windows](http://wiki.dlang.org/Building_and_hacking_LDC_on_Windows_using_MSVC).
 
-If you have a working C++ build environment, CMake, a current LLVM (>= 3.5),
-and [libconfig](http://hyperrealm.com/libconfig/libconfig.html) available
-there should be no big surprises.
+If you have a working C++ build environment, CMake, and a current LLVM (>= 3.5)
+available, there should be no big surprises.
 Building LDC also requires a working D compiler, DMD and LDC are supported.
 (LDC 0.17 is the last version that does not need a D compiler,
 and for that reason we try to maintain it in the 'ltsmaster' branch).

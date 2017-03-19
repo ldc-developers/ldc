@@ -6,10 +6,14 @@
  * Note that this only works for instrumented binaries.
  *
  * Copyright: Authors 2016-2016
- * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * License: University of Illinois Open Source License and MIT License. See LDC's LICENSE for details.
  * Authors:   Johan B C Engelen
  */
 module ldc.profile;
+
+version(LDC_LLVM_309) version = HASHED_FUNC_NAMES;
+version(LDC_LLVM_400) version = HASHED_FUNC_NAMES;
+version(LDC_LLVM_500) version = HASHED_FUNC_NAMES;
 
 @nogc:
 nothrow:
@@ -40,6 +44,26 @@ extern(C++) struct ProfileData {
         ushort NumValueSites;
     }
     else version(LDC_LLVM_309)
+    {
+        ulong NameRef;
+        ulong FuncHash;
+        ulong* Counters;
+        void* FunctionPointer;
+        void* Values;
+        uint NumCounters;
+        ushort NumValueSites;
+    }
+    else version(LDC_LLVM_400)
+    {
+        ulong NameRef;
+        ulong FuncHash;
+        ulong* Counters;
+        void* FunctionPointer;
+        void* Values;
+        uint NumCounters;
+        ushort NumValueSites;
+    }
+    else version(LDC_LLVM_500)
     {
         ulong NameRef;
         ulong FuncHash;
@@ -110,7 +134,7 @@ void resetCounts(alias F)()
  */
 const(ProfileData)* getData(string funcname)
 {
-    version(LDC_LLVM_309)
+    version(HASHED_FUNC_NAMES)
     {
         import std.digest.md;
         import std.bitmanip;
@@ -122,7 +146,7 @@ const(ProfileData)* getData(string funcname)
               e = __llvm_profile_end_data();
         data < e; ++data)
     {
-        version(LDC_LLVM_309)
+        version(HASHED_FUNC_NAMES)
         {
             if (nameref == (*data).NameRef)
                 return data;

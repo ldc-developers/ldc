@@ -18,12 +18,15 @@
 #include <string>
 
 namespace exe_path {
-void initialize(const char *arg0, void *mainAddress);
+
+void initialize(const char *arg0);
 
 const std::string &getExePath();               // <baseDir>/bin/ldc2
 std::string getBinDir();                       // <baseDir>/bin
 std::string getBaseDir();                      // <baseDir>
+std::string getLibDir();                       // <baseDir>/lib
 std::string prependBinDir(const char *suffix); // <baseDir>/bin/<suffix>
+std::string prependLibDir(const char *suffix); // <baseDir>/lib/<suffix>
 }
 
 #endif // LDC_DRIVER_EXE_PATH_H

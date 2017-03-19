@@ -7,10 +7,10 @@
  * utilities needed for arguments parsing, path manipulation, etc...
  * This file is not shared with other compilers which use the DMD front-end.
  *
- * Copyright:   Copyright (c) 1999-2015 by Digital Mars, All Rights Reserved
+ * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC mars.d)
+ * Source:      $(DMDSRC _mars.d)
  */
 
 module ddmd.mars;
@@ -18,7 +18,6 @@ module ddmd.mars;
 import core.stdc.ctype;
 import core.stdc.errno;
 import core.stdc.limits;
-import core.stdc.stdint;
 import core.stdc.stdio;
 import core.stdc.stdlib;
 import core.stdc.string;
@@ -39,8 +38,7 @@ import ddmd.hdrgen;
 import ddmd.id;
 import ddmd.identifier;
 import ddmd.inline;
-// IN_LLVM import ddmd.json;
-import ddmd.lexer;
+import ddmd.json;
 // IN_LLVM import ddmd.lib;
 // IN_LLVM import ddmd.link;
 import ddmd.mtype;
@@ -55,90 +53,25 @@ import ddmd.root.rmem;
 import ddmd.root.stringtable;
 import ddmd.target;
 import ddmd.tokens;
-import ddmd.traits;
+import ddmd.utils;
 
 
-/**
- * Normalize path by turning forward slashes into backslashes
- *
- * Params:
- *   src = Source path, using unix-style ('/') path separators
- *
- * Returns:
- *   A newly-allocated string with '/' turned into backslashes
- */
-extern (C++) const(char)* toWinPath(const(char)* src)
+version(IN_LLVM)
 {
-    if (src is null)
-        return null;
-    char* result = strdup(src);
-    char* p = result;
-    while (*p != '\0')
-    {
-        if (*p == '/')
-            *p = '\\';
-        p++;
-    }
-    return result;
+    extern (C++):
+
+    void genCmain(Scope* sc);
+    // in driver/main.cpp
+    void addDefaultVersionIdentifiers();
+    void codegenModules(ref Modules modules);
+    // in driver/linker.cpp
+    int linkObjToBinary();
+    int createStaticLibrary();
+    void deleteExeFile();
+    int runProgram();
 }
-
-
-/**
- * Reads a file, terminate the program on error
- *
- * Params:
- *   loc = The line number information from where the call originates
- *   f = a `ddmd.root.file.File` handle to read
- */
-extern (C++) void readFile(Loc loc, File* f)
+else
 {
-    if (f.read())
-    {
-        error(loc, "Error reading file '%s'", f.name.toChars());
-        fatal();
-    }
-}
-
-
-/**
- * Writes a file, terminate the program on error
- *
- * Params:
- *   loc = The line number information from where the call originates
- *   f = a `ddmd.root.file.File` handle to write
- */
-extern (C++) void writeFile(Loc loc, File* f)
-{
-    if (f.write())
-    {
-        error(loc, "Error writing file '%s'", f.name.toChars());
-        fatal();
-    }
-}
-
-
-/**
- * Ensure the root path (the path minus the name) of the provided path
- * exists, and terminate the process if it doesn't.
- *
- * Params:
- *   loc = The line number information from where the call originates
- *   name = a path to check (the name is stripped)
- */
-extern (C++) void ensurePathToNameExists(Loc loc, const(char)* name)
-{
-    const(char)* pt = FileName.path(name);
-    if (*pt)
-    {
-        if (FileName.ensurePathExists(pt))
-        {
-            error(loc, "cannot create directory %s", pt);
-            fatal();
-        }
-    }
-    FileName.free(pt);
-}
-
 
 /**
  * Print DMD's logo on stdout
@@ -148,12 +81,7 @@ private void logo()
     printf("DMD%llu D Compiler %s\n%s %s\n", cast(ulong)size_t.sizeof * 8, global._version, global.copyright, global.written);
 }
 
-version(IN_LLVM)
-{
-    extern (C++) void genCmain(Scope* sc);
-}
-else
-{
+
 /**
  * Print DMD's usage message on stdout
  */
@@ -161,7 +89,7 @@ private  void usage()
 {
     static if (TARGET_LINUX)
     {
-        const(char)* fpic = "  -fPIC          generate position independent code\n";
+        const(char)* fpic = "\n  -fPIC            generate position independent code";
     }
     else
     {
@@ -169,89 +97,105 @@ private  void usage()
     }
     static if (TARGET_WINDOS)
     {
-        const(char)* m32mscoff = "  -m32mscoff     generate 32 bit code and write MS-COFF object files\n";
+        const(char)* m32mscoff = "\n  -m32mscoff       generate 32 bit code and write MS-COFF object files";
+        const(char)* mscrtlib  = "\n  -mscrtlib=<name> MS C runtime library to reference from main/WinMain/DllMain";
     }
     else
     {
         const(char)* m32mscoff = "";
+        const(char)* mscrtlib  = "";
     }
     logo();
     printf("
 Documentation: http://dlang.org/
 Config file: %s
 Usage:
-  dmd files.d ... { -switch }
+  dmd [<option>...] <file>...
+  dmd [<option>...] -run <file> [<arg>...]
 
-  files.d        D source files
-  @cmdfile       read arguments from cmdfile
-  -allinst       generate code for all template instantiations
-  -betterC       omit generating some runtime information and helper functions
+Where:
+  <file>           D source file
+  <arg>            Argument to pass when running the resulting program
+
+<option>:
+  @<cmdfile>       read arguments from cmdfile
+  -allinst         generate code for all template instantiations
+  -betterC         omit generating some runtime information and helper functions
   -boundscheck=[on|safeonly|off]   bounds checks on, in @safe only, or off
-  -c             do not link
-  -color[=on|off]   force colored console output on or off
-  -conf=path     use config file at path
-  -cov           do code coverage analysis
-  -cov=nnn       require at least nnn%% code coverage
-  -D             generate documentation
-  -Dddocdir      write documentation file to docdir directory
-  -Dffilename    write documentation file to filename
-  -d             silently allow deprecated features
-  -dw            show use of deprecated features as warnings (default)
-  -de            show use of deprecated features as errors (halt compilation)
-  -debug         compile in debug code
-  -debug=level   compile in debug code <= level
-  -debug=ident   compile in debug code identified by ident
-  -debuglib=name    set symbolic debug library to name
-  -defaultlib=name  set default library to name
-  -deps          print module dependencies (imports/file/version/debug/lib)
-  -deps=filename write module dependencies to filename (only imports)
-%s  -dip25         implement http://wiki.dlang.org/DIP25 (experimental)
-  -g             add symbolic debug info
-  -gc            add symbolic debug info, optimize for non D debuggers
-  -gs            always emit stack frame
-  -gx            add stack stomp code
-  -H             generate 'header' file
-  -Hddirectory   write 'header' file to directory
-  -Hffilename    write 'header' file to filename
-  --help         print help and exit
-  -Ipath         where to look for imports
-  -ignore        ignore unsupported pragmas
-  -inline        do function inlining
-  -Jpath         where to look for string imports
-  -Llinkerflag   pass linkerflag to link
-  -lib           generate library rather than object files
-  -m32           generate 32 bit code
-%s  -m64           generate 64 bit code
-  -main          add default main() (e.g. for unittesting)
-  -man           open web browser on manual page
-  -map           generate linker .map file
-  -noboundscheck no array bounds checking (deprecated, use -boundscheck=off)
-  -O             optimize
-  -o-            do not write object file
-  -odobjdir      write object & library files to directory objdir
-  -offilename    name output file to filename
-  -op            preserve source path for output files
-  -profile       profile runtime performance of generated code
-  -profile=gc    profile runtime allocations
-  -release       compile release version
-  -run srcfile args...   run resulting program, passing args
-  -shared        generate shared library (DLL)
-  -transition=id help with language change identified by 'id'
-  -transition=?  list all language changes
-  -unittest      compile in unit tests
-  -v             verbose
-  -vcolumns      print character (column) numbers in diagnostics
-  -verrors=num   limit the number of error messages (0 means unlimited)
-  -vgc           list all gc allocations including hidden ones
-  -vtls          list all variables going into thread local storage
-  --version      print compiler version and exit
-  -version=level compile in version code >= level
-  -version=ident compile in version code identified by ident
-  -w             warnings as errors (compilation will halt)
-  -wi            warnings as messages (compilation will continue)
-  -X             generate JSON file
-  -Xffilename    write JSON file to filename
-", FileName.canonicalName(global.inifilename), fpic, m32mscoff);
+  -c               do not link
+  -color           turn colored console output on
+  -color=[on|off]  force colored console output on or off
+  -conf=<filename> use config file at filename
+  -cov             do code coverage analysis
+  -cov=<nnn>       require at least nnn%% code coverage
+  -D               generate documentation
+  -Dd<directory>   write documentation file to directory
+  -Df<filename>    write documentation file to filename
+  -d               silently allow deprecated features
+  -dw              show use of deprecated features as warnings (default)
+  -de              show use of deprecated features as errors (halt compilation)
+  -debug           compile in debug code
+  -debug=<level>   compile in debug code <= level
+  -debug=<ident>   compile in debug code identified by ident
+  -debuglib=<name> set symbolic debug library to name
+  -defaultlib=<name>
+                   set default library to name
+  -deps            print module dependencies (imports/file/version/debug/lib)
+  -deps=<filename> write module dependencies to filename (only imports)" ~
+  "%s" /* placeholder for fpic */ ~ "
+  -dip25           implement http://wiki.dlang.org/DIP25 (experimental)
+  -dip1000         implement http://wiki.dlang.org/DIP1000 (experimental)
+  -g               add symbolic debug info
+  -gc              add symbolic debug info, optimize for non D debuggers
+  -gs              always emit stack frame
+  -gx              add stack stomp code
+  -H               generate 'header' file
+  -Hd=<directory>  write 'header' file to directory
+  -Hf=<filename>   write 'header' file to filename
+  --help           print help and exit
+  -I=<directory>   look for imports also in directory
+  -ignore          ignore unsupported pragmas
+  -inline          do function inlining
+  -J=<directory>   look for string imports also in directory
+  -L=<linkerflag>  pass linkerflag to link
+  -lib             generate library rather than object files
+  -m32             generate 32 bit code" ~
+  "%s" /* placeholder for m32mscoff */ ~ "
+  -m64             generate 64 bit code
+  -main            add default main() (e.g. for unittesting)
+  -man             open web browser on manual page
+  -map             generate linker .map file
+  -mcpu=<id>       generate instructions for architecture identified by 'id'
+  -mcpu=?          list all architecture options " ~
+  "%s" /* placeholder for mscrtlib */ ~ "
+  -mv=<package.module>=<filespec>  use <filespec> as source file for <package.module>
+  -noboundscheck   no array bounds checking (deprecated, use -boundscheck=off)
+  -O               optimize
+  -o-              do not write object file
+  -od=<directory>  write object & library files to directory
+  -of=<filename>   name output file to filename
+  -op              preserve source path for output files
+  -profile         profile runtime performance of generated code
+  -profile=gc      profile runtime allocations
+  -release         compile release version
+  -shared          generate shared library (DLL)
+  -transition=<id> help with language change identified by 'id'
+  -transition=?    list all language changes
+  -unittest        compile in unit tests
+  -v               verbose
+  -vcolumns        print character (column) numbers in diagnostics
+  -verrors=<num>   limit the number of error messages (0 means unlimited)
+  -verrors=spec    show errors from speculative compiles such as __traits(compiles,...)
+  -vgc             list all gc allocations including hidden ones
+  -vtls            list all variables going into thread local storage
+  --version        print compiler version and exit
+  -version=<level> compile in version code >= level
+  -version=<ident> compile in version code identified by ident
+  -w               warnings as errors (compilation will halt)
+  -wi              warnings as messages (compilation will continue)
+  -X               generate JSON file
+  -Xf=<filename>   write JSON file to filename
+", FileName.canonicalName(global.inifilename), fpic, m32mscoff, mscrtlib);
 }
 
 /// DMD-generated module `__entrypoint` where the C main resides
@@ -281,7 +225,7 @@ extern (C++) void genCmain(Scope* sc)
     /* The D code to be generated is provided as D source code in the form of a string.
      * Note that Solaris, for unknown reasons, requires both a main() and an _main()
      */
-    static __gshared const(char)* cmaincode =
+    immutable cmaincode =
     q{
         extern(C)
         {
@@ -296,7 +240,7 @@ extern (C++) void genCmain(Scope* sc)
     };
     Identifier id = Id.entrypoint;
     auto m = new Module("__entrypoint.d", id, 0, 0);
-    scope Parser p = new Parser(m, cmaincode, strlen(cmaincode), 0);
+    scope Parser p = new Parser(m, cmaincode, false);
     p.scanloc = Loc();
     p.nextToken();
     m.members = p.parseModule();
@@ -306,9 +250,9 @@ extern (C++) void genCmain(Scope* sc)
     global.params.verbose = false;
     m.importedFrom = m;
     m.importAll(null);
-    m.semantic();
-    m.semantic2();
-    m.semantic3();
+    m.semantic(null);
+    m.semantic2(null);
+    m.semantic3(null);
     global.params.verbose = v;
     entrypoint = m;
     rootHasMain = sc._module;
@@ -332,11 +276,6 @@ private int tryMain(size_t argc, const(char)** argv)
 {
     Strings files;
     Strings libmodules;
-    bool setdebuglib = false;
-    static if (TARGET_WINDOS)
-    {
-        bool setdefaultlib = false;
-    }
     global._init();
     debug
     {
@@ -376,6 +315,7 @@ private int tryMain(size_t argc, const(char)** argv)
     global.params.useInline = false;
     global.params.obj = true;
     global.params.useDeprecated = 2;
+    global.params.hdrStripPlainFunctions = true;
     global.params.linkswitches = new Strings();
     global.params.libfiles = new Strings();
     global.params.dllfiles = new Strings();
@@ -384,6 +324,7 @@ private int tryMain(size_t argc, const(char)** argv)
     // Default to -m32 for 32 bit dmd, -m64 for 64 bit dmd
     global.params.is64bit = (size_t.sizeof == 8);
     global.params.mscoff = false;
+    global.params.cpu = CPU.baseline;
 
     // Temporary: Use 32 bits as the default on Windows, for config parsing
     static if (TARGET_WINDOS)
@@ -402,7 +343,7 @@ private int tryMain(size_t argc, const(char)** argv)
         {
             global.inifilename = findConfFile(global.params.argv0, "sc.ini");
         }
-        else static if (__linux__ || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __sun)
+        else version (Posix)
         {
             global.inifilename = findConfFile(global.params.argv0, "dmd.conf");
         }
@@ -459,8 +400,6 @@ private int tryMain(size_t argc, const(char)** argv)
                 global.params.useDeprecated = 1;
             else if (strcmp(p + 1, "dw") == 0)
                 global.params.useDeprecated = 2;
-            else if (strcmp(p + 1, "dwarfeh") == 0)
-                global.params.dwarfeh = true;
             else if (strcmp(p + 1, "c") == 0)
                 global.params.link = false;
             else if (memcmp(p + 1, cast(char*)"color", 5) == 0)
@@ -512,7 +451,8 @@ private int tryMain(size_t argc, const(char)** argv)
             {
                 static if (TARGET_OSX)
                 {
-                    deprecation(Loc(), "use -shared instead of -dylib");
+                    Loc loc;
+                    deprecation(loc, "use -shared instead of -dylib");
                     global.params.dll = true;
                 }
                 else
@@ -573,6 +513,17 @@ private int tryMain(size_t argc, const(char)** argv)
                     error(Loc(), "-m32mscoff can only be used on windows");
                 }
             }
+            else if (strncmp(p + 1, "mscrtlib=", 9) == 0)
+            {
+                static if (TARGET_WINDOS)
+                {
+                    global.params.mscrtlib = p + 10;
+                }
+                else
+                {
+                    error(Loc(), "-mscrtlib");
+                }
+            }
             else if (memcmp(p + 1, cast(char*)"profile", 7) == 0)
             {
                 // Parse:
@@ -609,6 +560,51 @@ private int tryMain(size_t argc, const(char)** argv)
                         goto Lerror;
                     global.errorLimit = cast(uint)num;
                 }
+                else if (memcmp(p + 9, cast(char*)"spec", 4) == 0)
+                {
+                    global.params.showGaggedErrors = true;
+                }
+                else
+                    goto Lerror;
+            }
+            else if (memcmp(p + 1, "mcpu".ptr, 4) == 0)
+            {
+                // Parse:
+                //      -mcpu=identifier
+                if (p[5] == '=')
+                {
+                    if (strcmp(p + 6, "?") == 0)
+                    {
+                        printf("
+CPU architectures supported by -mcpu=id:
+  =?             list information on all architecture choices
+  =baseline      use default architecture as determined by target
+  =avx           use AVX 1 instructions
+  =native        use CPU architecture that this compiler is running on
+");
+                        exit(EXIT_SUCCESS);
+                    }
+                    else if (Identifier.isValidIdentifier(p + 6))
+                    {
+                        const ident = p + 6;
+                        switch (ident[0 .. strlen(ident)])
+                        {
+                        case "baseline":
+                            global.params.cpu = CPU.baseline;
+                            break;
+                        case "avx":
+                            global.params.cpu = CPU.avx;
+                            break;
+                        case "native":
+                            global.params.cpu = CPU.native;
+                            break;
+                        default:
+                            goto Lerror;
+                        }
+                    }
+                    else
+                        goto Lerror;
+                }
                 else
                     goto Lerror;
             }
@@ -629,7 +625,7 @@ Language changes listed by -transition=id:
   =import,10378  revert to single phase name lookup
   =tls           list all variables going into thread local storage
 ");
-                        return EXIT_FAILURE;
+                        exit(EXIT_SUCCESS);
                     }
                     if (isdigit(cast(char)p[12]))
                     {
@@ -706,7 +702,7 @@ Language changes listed by -transition=id:
                 case 'd':
                     if (!p[3])
                         goto Lnoarg;
-                    path = p + 3;
+                    path = p + 3 + (p[3] == '=');
                     version (Windows)
                     {
                         path = toWinPath(path);
@@ -716,7 +712,7 @@ Language changes listed by -transition=id:
                 case 'f':
                     if (!p[3])
                         goto Lnoarg;
-                    path = p + 3;
+                    path = p + 3 + (p[3] == '=');
                     version (Windows)
                     {
                         path = toWinPath(path);
@@ -743,12 +739,12 @@ Language changes listed by -transition=id:
                 case 'd':
                     if (!p[3])
                         goto Lnoarg;
-                    global.params.docdir = p + 3;
+                    global.params.docdir = p + 3 + (p[3] == '=');
                     break;
                 case 'f':
                     if (!p[3])
                         goto Lnoarg;
-                    global.params.docname = p + 3;
+                    global.params.docname = p + 3 + (p[3] == '=');
                     break;
                 case 0:
                     break;
@@ -764,12 +760,12 @@ Language changes listed by -transition=id:
                 case 'd':
                     if (!p[3])
                         goto Lnoarg;
-                    global.params.hdrdir = p + 3;
+                    global.params.hdrdir = p + 3 + (p[3] == '=');
                     break;
                 case 'f':
                     if (!p[3])
                         goto Lnoarg;
-                    global.params.hdrname = p + 3;
+                    global.params.hdrname = p + 3 + (p[3] == '=');
                     break;
                 case 0:
                     break;
@@ -785,7 +781,7 @@ Language changes listed by -transition=id:
                 case 'f':
                     if (!p[3])
                         goto Lnoarg;
-                    global.params.jsonfilename = p + 3;
+                    global.params.jsonfilename = p + 3 + (p[3] == '=');
                     break;
                 case 0:
                     break;
@@ -798,9 +794,17 @@ Language changes listed by -transition=id:
             else if (strcmp(p + 1, "property") == 0)
                 global.params.enforcePropertySyntax = true;
             else if (strcmp(p + 1, "inline") == 0)
+            {
                 global.params.useInline = true;
+                global.params.hdrStripPlainFunctions = false;
+            }
             else if (strcmp(p + 1, "dip25") == 0)
                 global.params.useDIP25 = true;
+            else if (strcmp(p + 1, "dip1000") == 0)
+            {
+                global.params.useDIP25 = true;
+                global.params.vsafe = true;
+            }
             else if (strcmp(p + 1, "lib") == 0)
                 global.params.lib = true;
             else if (strcmp(p + 1, "nofloat") == 0)
@@ -847,13 +851,24 @@ Language changes listed by -transition=id:
             {
                 if (!global.params.imppath)
                     global.params.imppath = new Strings();
-                global.params.imppath.push(p + 2);
+                global.params.imppath.push(p + 2 + (p[2] == '='));
+            }
+            else if (p[1] == 'm' && p[2] == 'v' && p[3] == '=')
+            {
+                if (p[4] && strchr(p + 5, '='))
+                {
+                    if (!global.params.modFileAliasStrings)
+                        global.params.modFileAliasStrings = new Strings();
+                    global.params.modFileAliasStrings.push(p + 4);
+                }
+                else
+                    goto Lerror;
             }
             else if (p[1] == 'J')
             {
                 if (!global.params.fileImppath)
                     global.params.fileImppath = new Strings();
-                global.params.fileImppath.push(p + 2);
+                global.params.fileImppath.push(p + 2 + (p[2] == '='));
             }
             else if (memcmp(p + 1, cast(char*)"debug", 5) == 0 && p[6] != 'l')
             {
@@ -873,14 +888,14 @@ Language changes listed by -transition=id:
                         DebugCondition.setGlobalLevel(cast(int)level);
                     }
                     else if (Identifier.isValidIdentifier(p + 7))
-                        DebugCondition.addGlobalIdent(p + 7);
+                        DebugCondition.addGlobalIdent(p[7 .. p.strlen]);
                     else
                         goto Lerror;
                 }
                 else if (p[6])
                     goto Lerror;
                 else
-                    global.params.debuglevel = 1;
+                    DebugCondition.setGlobalLevel(1);
             }
             else if (memcmp(p + 1, cast(char*)"version", 7) == 0)
             {
@@ -899,7 +914,7 @@ Language changes listed by -transition=id:
                         VersionCondition.setGlobalLevel(cast(int)level);
                     }
                     else if (Identifier.isValidIdentifier(p + 9))
-                        VersionCondition.addGlobalIdent(p + 9);
+                        VersionCondition.addGlobalIdent(p[9 .. p.strlen]);
                     else
                         goto Lerror;
                 }
@@ -912,7 +927,7 @@ Language changes listed by -transition=id:
                 global.params.debugc = true;
             else if (strcmp(p + 1, "-f") == 0)
                 global.params.debugf = true;
-            else if (strcmp(p + 1, "-help") == 0)
+            else if (strcmp(p + 1, "-help") == 0 || strcmp(p + 1, "h") == 0)
             {
                 usage();
                 exit(EXIT_SUCCESS);
@@ -930,7 +945,7 @@ Language changes listed by -transition=id:
                 global.params.debugy = true;
             else if (p[1] == 'L')
             {
-                global.params.linkswitches.push(p + 2);
+                global.params.linkswitches.push(p + 2 + (p[2] == '='));
             }
             else if (memcmp(p + 1, cast(char*)"defaultlib=", 11) == 0)
             {
@@ -1034,10 +1049,16 @@ Language changes listed by -transition=id:
                     global.params.objname = p;
                     continue;
                 }
+                if (strcmp(p, `/?`) == 0)
+                {
+                    usage();
+                    exit(EXIT_SUCCESS);
+                }
             }
             files.push(p);
         }
     }
+    global.params.cpu = setTargetCPU(global.params.cpu);
     if (global.params.is64bit != is64bit)
         error(Loc(), "the architecture must not be changed in the %s section of %s", envsection.ptr, global.inifilename);
     if (global.params.enforcePropertySyntax)
@@ -1048,7 +1069,8 @@ Language changes listed by -transition=id:
          that the switch has effectively not been supported. Time to
          remove it from dmd.
          Step 1 (2.069): Deprecate -property and ignore it. */
-        deprecation(Loc(), "The -property switch is deprecated and has no " ~
+        Loc loc;
+        deprecation(loc, "The -property switch is deprecated and has no " ~
             "effect anymore.");
         /* Step 2: Remove -property. Throw an error when it's set.
          Do this by removing global.params.enforcePropertySyntax and the code
@@ -1076,6 +1098,11 @@ Language changes listed by -transition=id:
         if (global.params.lib && global.params.dll)
             error(Loc(), "cannot mix -lib and -shared");
     }
+    static if (TARGET_WINDOS)
+    {
+        if (!global.params.mscrtlib)
+            global.params.mscrtlib = "libcmt";
+    }
     if (global.params.useArrayBounds == BOUNDSCHECKdefault)
     {
         // Set the real default value
@@ -1093,6 +1120,14 @@ Language changes listed by -transition=id:
         global.params.useAssert = true;
     if (!global.params.obj || global.params.lib)
         global.params.link = false;
+
+    return mars_mainBody(files, libmodules);
+}
+
+} // !IN_LLVM
+
+extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
+{
     if (global.params.link)
     {
         global.params.exefile = global.params.objname;
@@ -1122,9 +1157,12 @@ Language changes listed by -transition=id:
     {
         global.params.libname = global.params.objname;
         global.params.objname = null;
+      version (IN_LLVM) {} else
+      {
         // Haven't investigated handling these options with multiobj
         if (!global.params.cov && !global.params.trace)
             global.params.multiobj = true;
+      }
     }
     else
     {
@@ -1138,9 +1176,12 @@ Language changes listed by -transition=id:
 
     // Predefined version identifiers
     addDefaultVersionIdentifiers();
+  version (IN_LLVM) {} else
+  {
     objc_tryMain_dObjc();
 
     setDefaultLibrary();
+  }
 
     // Initialization
     Type._init();
@@ -1151,43 +1192,41 @@ Language changes listed by -transition=id:
     objc_tryMain_init();
     builtin_init();
 
+  version (IN_LLVM) {} else
+  {
     if (global.params.verbose)
     {
         fprintf(global.stdmsg, "binary    %s\n", global.params.argv0);
         fprintf(global.stdmsg, "version   %s\n", global._version);
         fprintf(global.stdmsg, "config    %s\n", global.inifilename ? global.inifilename : "(none)");
     }
+  }
     //printf("%d source files\n",files.dim);
+
     // Build import search path
-    if (global.params.imppath)
+
+    static Strings* buildPath(Strings* imppath)
     {
-        for (size_t i = 0; i < global.params.imppath.dim; i++)
+        Strings* result = null;
+        if (imppath)
         {
-            const(char)* path = (*global.params.imppath)[i];
-            Strings* a = FileName.splitPath(path);
-            if (a)
+            foreach (const path; *imppath)
             {
-                if (!global.path)
-                    global.path = new Strings();
-                global.path.append(a);
+                Strings* a = FileName.splitPath(path);
+                if (a)
+                {
+                    if (!result)
+                        result = new Strings();
+                    result.append(a);
+                }
             }
         }
+        return result;
     }
-    // Build string import search path
-    if (global.params.fileImppath)
-    {
-        for (size_t i = 0; i < global.params.fileImppath.dim; i++)
-        {
-            const(char)* path = (*global.params.fileImppath)[i];
-            Strings* a = FileName.splitPath(path);
-            if (a)
-            {
-                if (!global.filePath)
-                    global.filePath = new Strings();
-                global.filePath.append(a);
-            }
-        }
-    }
+
+    global.path = buildPath(global.params.imppath);
+    global.filePath = buildPath(global.params.fileImppath);
+
     if (global.params.addMain)
     {
         files.push(cast(char*)global.main_d); // a dummy name, we never actually look up this file
@@ -1195,14 +1234,24 @@ Language changes listed by -transition=id:
     // Create Modules
     Modules modules;
     modules.reserve(files.dim);
+  version (IN_LLVM)
+  {
+    size_t firstModuleObjectFileIndex = size_t.max;
+  }
+  else
+  {
     bool firstmodule = true;
+  }
     for (size_t i = 0; i < files.dim; i++)
     {
         const(char)* name;
+      version (IN_LLVM) {} else
+      {
         version (Windows)
         {
             files[i] = toWinPath(files[i]);
         }
+      }
         const(char)* p = files[i];
         p = FileName.name(p); // strip path
         const(char)* ext = FileName.ext(p);
@@ -1217,12 +1266,22 @@ Language changes listed by -transition=id:
                 libmodules.push(files[i]);
                 continue;
             }
+          version (IN_LLVM)
+          {
+            // Detect LLVM bitcode files on commandline
+            if (FileName.equals(ext, global.bc_ext)) {
+              global.params.bitcodeFiles.push(files[i]);
+              continue;
+            }
+          }
             if (FileName.equals(ext, global.lib_ext))
             {
                 global.params.libfiles.push(files[i]);
                 libmodules.push(files[i]);
                 continue;
             }
+          version (IN_LLVM) {} else
+          {
             static if (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS)
             {
                 if (FileName.equals(ext, global.dll_ext))
@@ -1232,6 +1291,7 @@ Language changes listed by -transition=id:
                     continue;
                 }
             }
+          }
             if (strcmp(ext, global.ddoc_ext) == 0)
             {
                 global.params.ddocfiles.push(files[i]);
@@ -1248,7 +1308,8 @@ Language changes listed by -transition=id:
                 global.params.mapfile = files[i];
                 continue;
             }
-            static if (TARGET_WINDOS)
+            // IN_LLVM replaced: static if (TARGET_WINDOS)
+            if (global.params.isWindows)
             {
                 if (FileName.equals(ext, "res"))
                 {
@@ -1301,12 +1362,37 @@ Language changes listed by -transition=id:
         auto id = Identifier.idPool(name, strlen(name));
         auto m = new Module(files[i], id, global.params.doDocComments, global.params.doHdrGeneration);
         modules.push(m);
+      version (IN_LLVM)
+      {
+        if (!global.params.oneobj || firstModuleObjectFileIndex == size_t.max)
+        {
+            global.params.objfiles.push(cast(const(char)*)m); // defer to a later stage after parsing
+            if (firstModuleObjectFileIndex == size_t.max)
+                firstModuleObjectFileIndex = global.params.objfiles.dim - 1;
+        }
+      }
+      else
+      {
         if (firstmodule)
         {
             global.params.objfiles.push(m.objfile.name.str);
             firstmodule = false;
         }
+      }
     }
+  version (IN_LLVM)
+  {
+    if (global.params.oneobj && modules.dim < 2)
+        global.params.oneobj = false;
+    // global.params.oneobj => move object file for first source file to
+    // beginning of object files list
+    if (global.params.oneobj && firstModuleObjectFileIndex != 0)
+    {
+        auto fn = (*global.params.objfiles)[firstModuleObjectFileIndex];
+        global.params.objfiles.remove(firstModuleObjectFileIndex);
+        global.params.objfiles.insert(0, fn);
+    }
+  }
     // Read files
     /* Start by "reading" the dummy main.d file
      */
@@ -1356,9 +1442,12 @@ Language changes listed by -transition=id:
             fprintf(global.stdmsg, "parse     %s\n", m.toChars());
         if (!Module.rootModule)
             Module.rootModule = m;
-        m.importedFrom = m; // m->isRoot() == true
+        m.importedFrom = m; // m.isRoot() == true
+      version (IN_LLVM) {} else
+      {
         if (!global.params.oneobj || modi == 0 || m.isDocFile)
             m.deleteObjFile();
+      }
         static if (ASYNCREAD)
         {
             if (aw.read(filei))
@@ -1368,6 +1457,39 @@ Language changes listed by -transition=id:
             }
         }
         m.parse();
+      version (IN_LLVM)
+      {
+        // Finalize output filenames. Update if `-oq` was specified (only feasible after parsing).
+        if (global.params.fullyQualifiedObjectFiles && m.md)
+        {
+            m.objfile = m.setOutfile(global.params.objname, global.params.objdir, m.arg, FileName.ext(m.objfile.name.str));
+            if (m.docfile)
+                m.setDocfile();
+            if (m.hdrfile)
+                m.hdrfile = m.setOutfile(global.params.hdrname, global.params.hdrdir, m.arg, global.hdr_ext);
+        }
+
+        // If `-run` is passed, the obj file is temporary and is removed after execution.
+        // Make sure the name does not collide with other files from other processes by
+        // creating a unique filename.
+        if (global.params.run)
+            m.makeObjectFilenameUnique();
+
+        // Set object filename in global.params.objfiles.
+        for (size_t j = 0; j < global.params.objfiles.dim; j++)
+        {
+            if ((*global.params.objfiles)[j] == cast(const(char)*)m)
+            {
+                (*global.params.objfiles)[j] = m.objfile.name.str;
+                if (!m.isDocFile && global.params.obj)
+                    m.checkAndAddOutputFile(m.objfile);
+                break;
+            }
+        }
+
+        if (!global.params.oneobj || modi == 0 || m.isDocFile)
+            m.deleteObjFile();
+      }
         if (m.isDocFile)
         {
             anydocfiles = true;
@@ -1399,6 +1521,7 @@ Language changes listed by -transition=id:
     }
     if (global.errors)
         fatal();
+
     if (global.params.doHdrGeneration)
     {
         /* Generate 'header' import files.
@@ -1416,6 +1539,7 @@ Language changes listed by -transition=id:
     }
     if (global.errors)
         fatal();
+
     // load all unconditional imports for better symbol resolving
     for (size_t i = 0; i < modules.dim; i++)
     {
@@ -1426,17 +1550,22 @@ Language changes listed by -transition=id:
     }
     if (global.errors)
         fatal();
+
+  version (IN_LLVM) {} else
+  {
     backend_init();
+  }
+
     // Do semantic analysis
     for (size_t i = 0; i < modules.dim; i++)
     {
         Module m = modules[i];
         if (global.params.verbose)
             fprintf(global.stdmsg, "semantic  %s\n", m.toChars());
-        m.semantic();
+        m.semantic(null);
     }
-    if (global.errors)
-        fatal();
+    //if (global.errors)
+    //    fatal();
     Module.dprogress = 1;
     Module.runDeferredSemantic();
     if (Module.deferred.dim)
@@ -1446,29 +1575,35 @@ Language changes listed by -transition=id:
             Dsymbol sd = Module.deferred[i];
             sd.error("unable to resolve forward reference in definition");
         }
-        fatal();
+        //fatal();
     }
+
     // Do pass 2 semantic analysis
     for (size_t i = 0; i < modules.dim; i++)
     {
         Module m = modules[i];
         if (global.params.verbose)
             fprintf(global.stdmsg, "semantic2 %s\n", m.toChars());
-        m.semantic2();
+        m.semantic2(null);
     }
+    Module.runDeferredSemantic2();
     if (global.errors)
         fatal();
+
     // Do pass 3 semantic analysis
     for (size_t i = 0; i < modules.dim; i++)
     {
         Module m = modules[i];
         if (global.params.verbose)
             fprintf(global.stdmsg, "semantic3 %s\n", m.toChars());
-        m.semantic3();
+        m.semantic3(null);
     }
     Module.runDeferredSemantic3();
     if (global.errors)
         fatal();
+
+  version (IN_LLVM) {} else
+  {
     // Scan for functions to inline
     if (global.params.useInline)
     {
@@ -1480,9 +1615,11 @@ Language changes listed by -transition=id:
             inlineScanModule(m);
         }
     }
+  }
     // Do not attempt to generate output files if errors or warnings occurred
     if (global.errors || global.warnings)
         fatal();
+
     // inlineScan incrementally run semantic3 of each expanded functions.
     // So deps file generation should be moved after the inlinig stage.
     if (global.params.moduleDeps)
@@ -1493,11 +1630,21 @@ Language changes listed by -transition=id:
             auto deps = File(global.params.moduleDepsFile);
             deps.setbuffer(cast(void*)ob.data, ob.offset);
             writeFile(Loc(), &deps);
+          version (IN_LLVM)
+          {
+            // fix LDC issue #1625
+            global.params.moduleDeps = null;
+            global.params.moduleDepsFile = null;
+          }
         }
         else
             printf("%.*s", cast(int)ob.offset, ob.data);
     }
+
     printCtfePerformanceStats();
+
+  version (IN_LLVM) {} else
+  {
     Library library = null;
     if (global.params.lib)
     {
@@ -1507,9 +1654,10 @@ Language changes listed by -transition=id:
         for (size_t i = 0; i < libmodules.dim; i++)
         {
             const(char)* p = libmodules[i];
-            library.addObject(p, null, 0);
+            library.addObject(p, null);
         }
     }
+  }
     // Generate output files
     if (global.params.doJsonGeneration)
     {
@@ -1538,7 +1686,7 @@ Language changes listed by -transition=id:
                 const(char)* n = (*global.params.objfiles)[0];
                 n = FileName.name(n);
                 //if (!FileName::absolute(name))
-                //name = FileName::combine(dir, name);
+                //    name = FileName::combine(dir, name);
                 jsonfilename = FileName.forceExt(n, global.json_ext);
             }
             ensurePathToNameExists(Loc(), jsonfilename);
@@ -1556,6 +1704,12 @@ Language changes listed by -transition=id:
             gendocfile(m);
         }
     }
+  version (IN_LLVM)
+  {
+    codegenModules(modules);
+  }
+  else
+  {
     if (!global.params.obj)
     {
     }
@@ -1597,18 +1751,50 @@ Language changes listed by -transition=id:
     if (global.params.lib && !global.errors)
         library.write();
     backend_term();
+  }
     if (global.errors)
         fatal();
     int status = EXIT_SUCCESS;
     if (!global.params.objfiles.dim)
     {
+      version (IN_LLVM)
+      {
         if (global.params.link)
             error(Loc(), "no object files to link");
+        else if (global.params.lib)
+            error(Loc(), "no object files");
+      }
+      else
+      {
+        if (global.params.link)
+            error(Loc(), "no object files to link");
+      }
     }
     else
     {
+      version (IN_LLVM)
+      {
+        if (global.params.link)
+            status = linkObjToBinary();
+        else if (global.params.lib)
+            status = createStaticLibrary();
+
+        if (status == EXIT_SUCCESS &&
+            (global.params.cleanupObjectFiles || global.params.run))
+        {
+            for (size_t i = 0; i < modules.dim; i++)
+            {
+                modules[i].deleteObjFile();
+                if (global.params.oneobj)
+                    break;
+            }
+        }
+      }
+      else
+      {
         if (global.params.link)
             status = runLINK();
+      }
         if (global.params.run)
         {
             if (!status)
@@ -1616,19 +1802,25 @@ Language changes listed by -transition=id:
                 status = runProgram();
                 /* Delete .obj files and .exe file
                  */
+              version (IN_LLVM) {} else
+              {
                 for (size_t i = 0; i < modules.dim; i++)
                 {
                     modules[i].deleteObjFile();
                     if (global.params.oneobj)
                         break;
                 }
-                deleteExeFile();
+              }
+                remove(global.params.exefile);
             }
         }
     }
     return status;
 }
 
+
+version (IN_LLVM) {} else
+{
 
 /**
  * Entry point which forwards to `tryMain`.
@@ -1647,6 +1839,27 @@ int main()
     else
     {
         GC.disable();
+    }
+    version(D_Coverage)
+    {
+        // for now we need to manually set the source path
+        string dirName(string path, char separator)
+        {
+            for (size_t i = path.length - 1; i > 0; i--)
+            {
+                if (path[i] == separator)
+                    return path[0..i];
+            }
+            return path;
+        }
+        version (Windows)
+            enum sourcePath = dirName(__FILE_FULL_PATH__, `\`);
+        else
+            enum sourcePath = dirName(__FILE_FULL_PATH__, '/');
+
+        dmd_coverSourcePath(sourcePath);
+        dmd_coverDestPath(sourcePath);
+        dmd_coverSetMerge(true);
     }
 
     auto args = Runtime.cArgs();
@@ -1712,7 +1925,7 @@ private void getenv_setargv(const(char)* envvalue, Strings* args)
                         goto Laddc;
                     *p = 0;
                     //if (wildcard)
-                    //wildcardexpand();     // not implemented
+                    //    wildcardexpand();     // not implemented
                     break;
                 case '\\':
                     slash++;
@@ -1721,7 +1934,7 @@ private void getenv_setargv(const(char)* envvalue, Strings* args)
                 case 0:
                     *p = 0;
                     //if (wildcard)
-                    //wildcardexpand();     // not implemented
+                    //    wildcardexpand();     // not implemented
                     return;
                 default:
                 Laddc:
@@ -1734,38 +1947,6 @@ private void getenv_setargv(const(char)* envvalue, Strings* args)
         }
     }
 }
-
-} // !IN_LLVM
-
-
-/**
- * Takes a path, and escapes '(', ')' and backslashes
- *
- * Params:
- *   buf = Buffer to write the escaped path to
- *   fname = Path to escape
- */
-extern (C++) void escapePath(OutBuffer* buf, const(char)* fname)
-{
-    while (1)
-    {
-        switch (*fname)
-        {
-        case 0:
-            return;
-        case '(':
-        case ')':
-        case '\\':
-            buf.writeByte('\\');
-            goto default;
-        default:
-            buf.writeByte(*fname);
-            break;
-        }
-        fname++;
-    }
-}
-
 
 /**
  * Parse command line arguments for -m32 or -m64
@@ -1941,7 +2122,7 @@ private void addDefaultVersionIdentifiers()
         VersionCondition.addPredefinedGlobalIdent("Posix");
         VersionCondition.addPredefinedGlobalIdent("OpenBSD");
         VersionCondition.addPredefinedGlobalIdent("ELFv1");
-        global.params.isFreeBSD = true;
+        global.params.isOpenBSD = true;
     }
     else static if (TARGET_SOLARIS)
     {
@@ -1958,11 +2139,19 @@ private void addDefaultVersionIdentifiers()
     VersionCondition.addPredefinedGlobalIdent("D_Version2");
     VersionCondition.addPredefinedGlobalIdent("all");
 
+    if (global.params.cpu >= CPU.sse2)
+    {
+        VersionCondition.addPredefinedGlobalIdent("D_SIMD");
+        if (global.params.cpu >= CPU.avx)
+        {
+            VersionCondition.addPredefinedGlobalIdent("D_AVX");
+        }
+    }
+
     if (global.params.is64bit)
     {
         VersionCondition.addPredefinedGlobalIdent("D_InlineAsm_X86_64");
         VersionCondition.addPredefinedGlobalIdent("X86_64");
-        VersionCondition.addPredefinedGlobalIdent("D_SIMD");
         static if (TARGET_WINDOS)
         {
             VersionCondition.addPredefinedGlobalIdent("Win64");
@@ -1973,10 +2162,6 @@ private void addDefaultVersionIdentifiers()
         VersionCondition.addPredefinedGlobalIdent("D_InlineAsm"); //legacy
         VersionCondition.addPredefinedGlobalIdent("D_InlineAsm_X86");
         VersionCondition.addPredefinedGlobalIdent("X86");
-        static if (TARGET_OSX)
-        {
-            VersionCondition.addPredefinedGlobalIdent("D_SIMD");
-        }
         static if (TARGET_WINDOS)
         {
             VersionCondition.addPredefinedGlobalIdent("Win32");
@@ -2009,4 +2194,72 @@ private void addDefaultVersionIdentifiers()
     if (global.params.useArrayBounds == BOUNDSCHECKoff)
         VersionCondition.addPredefinedGlobalIdent("D_NoBoundsChecks");
     VersionCondition.addPredefinedGlobalIdent("D_HardFloat");
+
+    printPredefinedVersions();
 }
+
+} // !IN_LLVM
+
+// IN_LLVM replaced: `private` by `extern (C++)`
+extern (C++) void printPredefinedVersions()
+{
+    if (global.params.verbose && global.params.versionids)
+    {
+        fprintf(global.stdmsg, "predefs  ");
+        foreach (const s; *global.params.versionids)
+            fprintf(global.stdmsg, " %s", s);
+        fprintf(global.stdmsg, "\n");
+    }
+}
+
+
+version (IN_LLVM) {} else
+{
+
+/****************************************
+ * Determine the instruction set to be used.
+ * Params:
+ *      cpu = value set by command line switch
+ * Returns:
+ *      value to generate code for
+ */
+
+private CPU setTargetCPU(CPU cpu)
+{
+    // Determine base line for target
+    CPU baseline = CPU.x87;
+    if (global.params.is64bit)
+        baseline = CPU.sse2;
+    else
+    {
+        static if (TARGET_OSX)
+        {
+            baseline = CPU.sse2;
+        }
+    }
+
+    if (baseline < CPU.sse2)
+        return baseline;        // can't support other instruction sets
+
+    switch (cpu)
+    {
+        case CPU.baseline:
+            cpu = baseline;
+            break;
+
+        case CPU.native:
+        {
+            import core.cpuid;
+            cpu = baseline;
+            if (core.cpuid.avx)
+                cpu = CPU.avx;
+            break;
+        }
+
+        default:
+            break;
+    }
+    return cpu;
+}
+
+} // !IN_LLVM

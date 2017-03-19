@@ -1,36 +1,91 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2015 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// Distributed under the Boost Software License, Version 1.0.
-// http://www.boost.org/LICENSE_1_0.txt
+/**
+ * Compiler implementation of the
+ * $(LINK2 http://www.dlang.org, D programming language).
+ *
+ * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Source:      $(DMDSRC _target.d)
+ */
 
 module ddmd.target;
 
-import core.stdc.string;
 import ddmd.dmodule;
 import ddmd.expression;
 import ddmd.globals;
 import ddmd.identifier;
 import ddmd.mtype;
-import ddmd.root.longdouble;
+import ddmd.root.ctfloat;
 import ddmd.root.outbuffer;
 
 version(IN_LLVM)
 {
 
-extern(C++) struct Target
+extern(C++):
+
+struct Target
 {
     static __gshared int ptrsize;
     static __gshared int realsize;             // size a real consumes in memory
     static __gshared int realpad;              // 'padding' added to the CPU real size to bring it up to realsize
     static __gshared int realalignsize;        // alignment for reals
+    static __gshared bool realislongdouble;    // distinguish between C 'long double' and '__float128'
     static __gshared bool reverseCppOverloads; // with dmc and cl, overloaded functions are grouped and in reverse order
     static __gshared bool cppExceptions;       // set if catching C++ exceptions is supported
     static __gshared int c_longsize;           // size of a C 'long' or 'unsigned long' type
     static __gshared int c_long_doublesize;    // size of a C 'long double'
     static __gshared int classinfosize;        // size of 'ClassInfo'
+
+    extern(D) static struct FPTypeProperties(T)
+    {
+        static real_t max() { return real_t(T.max); }
+        static real_t min_normal() { return real_t(T.min_normal); }
+        static real_t nan() { return real_t(T.nan); }
+        static real_t snan() { return real_t(T.init); }
+        static real_t infinity() { return real_t(T.infinity); }
+        static real_t epsilon() { return real_t(T.epsilon); }
+
+        enum : long
+        {
+            dig = T.dig,
+            mant_dig = T.mant_dig,
+            max_exp = T.max_exp,
+            min_exp = T.min_exp,
+            max_10_exp = T.max_10_exp,
+            min_10_exp = T.min_10_exp
+        }
+    }
+
+    alias FloatProperties = FPTypeProperties!float;
+    alias DoubleProperties = FPTypeProperties!double;
+
+    static struct RealProperties
+    {
+        // implemented in gen/target.cpp
+        static real_t max();
+        static real_t min_normal();
+        static real_t nan();
+        static real_t snan();
+        static real_t infinity();
+        static real_t epsilon();
+
+        static real_t host_max() { return real_t.max; }
+        static real_t host_min_normal() { return real_t.min_normal; }
+        static real_t host_nan() { return real_t.nan; }
+        static real_t host_snan() { return real_t.init; }
+        static real_t host_infinity() { return real_t.infinity; }
+        static real_t host_epsilon() { return real_t.epsilon; }
+
+        static __gshared
+        {
+            long dig = real_t.dig;
+            long mant_dig = real_t.mant_dig;
+            long max_exp = real_t.max_exp;
+            long min_exp = real_t.min_exp;
+            long max_10_exp = real_t.max_10_exp;
+            long min_10_exp = real_t.min_10_exp;
+        }
+    }
 
     static void _init();
     // Type sizes and support.
@@ -47,7 +102,7 @@ extern(C++) struct Target
 }
 
 }
-else
+else // !IN_LLVM
 {
 
 /***********************************************************
@@ -58,11 +113,39 @@ struct Target
     extern (C++) static __gshared int realsize;             // size a real consumes in memory
     extern (C++) static __gshared int realpad;              // 'padding' added to the CPU real size to bring it up to realsize
     extern (C++) static __gshared int realalignsize;        // alignment for reals
+    extern (C++) static __gshared bool realislongdouble;    // distinguish between C 'long double' and '__float128'
     extern (C++) static __gshared bool reverseCppOverloads; // with dmc and cl, overloaded functions are grouped and in reverse order
     extern (C++) static __gshared bool cppExceptions;       // set if catching C++ exceptions is supported
     extern (C++) static __gshared int c_longsize;           // size of a C 'long' or 'unsigned long' type
     extern (C++) static __gshared int c_long_doublesize;    // size of a C 'long double'
     extern (C++) static __gshared int classinfosize;        // size of 'ClassInfo'
+
+    template FPTypeProperties(T)
+    {
+        enum : real_t
+        {
+            max = T.max,
+            min_normal = T.min_normal,
+            nan = T.nan,
+            snan = T.init,
+            infinity = T.infinity,
+            epsilon = T.epsilon
+        }
+
+        enum : long
+        {
+            dig = T.dig,
+            mant_dig = T.mant_dig,
+            max_exp = T.max_exp,
+            min_exp = T.min_exp,
+            max_10_exp = T.max_10_exp,
+            min_10_exp = T.min_10_exp
+        }
+    }
+
+    alias FloatProperties = FPTypeProperties!float;
+    alias DoubleProperties = FPTypeProperties!double;
+    alias RealProperties = FPTypeProperties!real;
 
     extern (C++) static void _init()
     {
@@ -113,12 +196,13 @@ struct Target
                 c_longsize = 8;
             }
         }
+        realislongdouble = true;
         c_long_doublesize = realsize;
         if (global.params.is64bit && global.params.isWindows)
             c_long_doublesize = 8;
 
-        cppExceptions = global.params.dwarfeh || global.params.isLinux || global.params.isFreeBSD ||
-            (global.params.isOSX && global.params.is64bit);
+        cppExceptions = global.params.isLinux || global.params.isFreeBSD ||
+            global.params.isOSX;
     }
 
     /******************************
@@ -156,7 +240,12 @@ struct Target
      */
     extern (C++) static uint fieldalign(Type type)
     {
-        return type.alignsize();
+        const size = type.alignsize();
+
+        if ((global.params.is64bit || global.params.isOSX) && (size == 16 || size == 32))
+            return size;
+
+        return (8 < size) ? 8 : size;
     }
 
     /***********************************
@@ -231,8 +320,13 @@ struct Target
         }
     }
 
-    /*
-     * Return true if the given type is supported for this target
+    /**
+     * Checks whether the target supports a vector type with total size `sz`
+     * (in bytes) and element type `type`.
+     *
+     * Returns: 0 if the type is supported, or else: 1 if vector types are not
+     *     supported on the target at all, 2 if the given size isn't, or 3 if
+     *     the element type isn't.
      */
     extern (C++) static int checkVectorType(int sz, Type type)
     {
@@ -359,7 +453,7 @@ extern (C++) static Expression decodeInteger(Loc loc, Type type, ubyte* buffer)
     return new IntegerExp(loc, value, type);
 }
 
-// Write the real value of 'e' into a unsigned byte buffer.
+// Write the real_t value of 'e' into a unsigned byte buffer.
 extern (C++) static void encodeReal(Expression e, ubyte* buffer)
 {
     switch (e.type.ty)
@@ -381,23 +475,23 @@ extern (C++) static void encodeReal(Expression e, ubyte* buffer)
     }
 }
 
-// Write the bytes encoded in 'buffer' into a longdouble and returns
+// Write the bytes encoded in 'buffer' into a real_t and returns
 // the value as a new RealExp.
 extern (C++) static Expression decodeReal(Loc loc, Type type, ubyte* buffer)
 {
-    real value;
+    real_t value;
     switch (type.ty)
     {
     case Tfloat32:
         {
             float* p = cast(float*)buffer;
-            value = ldouble(*p);
+            value = real_t(*p);
             break;
         }
     case Tfloat64:
         {
             double* p = cast(double*)buffer;
-            value = ldouble(*p);
+            value = real_t(*p);
             break;
         }
     default:

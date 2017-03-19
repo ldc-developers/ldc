@@ -28,15 +28,23 @@ using VarGEPIndices = std::map<VarDeclaration *, unsigned>;
 
 class AggrTypeBuilder {
 public:
-  explicit AggrTypeBuilder(bool packed);
+  using VarInitMap = std::map<VarDeclaration *, llvm::Constant *>;
+  enum class Aliases { Skip, AddToVarGEPIndices };
+
+  explicit AggrTypeBuilder(bool packed, unsigned offset = 0);
   void addType(llvm::Type *type, unsigned size);
   void addAggregate(AggregateDeclaration *ad);
+  void addAggregate(AggregateDeclaration *ad, const VarInitMap *explicitInits,
+                    Aliases aliases);
   void alignCurrentOffset(unsigned alignment);
   void addTailPadding(unsigned aggregateSize);
   unsigned currentFieldIndex() const { return m_fieldIndex; }
-  std::vector<llvm::Type *> defaultTypes() const { return m_defaultTypes; }
-  VarGEPIndices varGEPIndices() const { return m_varGEPIndices; }
+  const std::vector<llvm::Type *> &defaultTypes() const {
+    return m_defaultTypes;
+  }
+  const VarGEPIndices &varGEPIndices() const { return m_varGEPIndices; }
   unsigned overallAlignment() const { return m_overallAlignment; }
+  unsigned currentOffset() const { return m_offset; }
 
 protected:
   std::vector<llvm::Type *> m_defaultTypes;

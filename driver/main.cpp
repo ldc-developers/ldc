@@ -19,6 +19,7 @@
 #include "root.h"
 #include "scope.h"
 #include "ddmd/target.h"
+#include "driver/cache.h"
 #include "driver/cl_options.h"
 #include "driver/codegenerator.h"
 #include "driver/configfile.h"
@@ -28,11 +29,13 @@
 #include "driver/targetmachine.h"
 #include "gen/cl_helpers.h"
 #include "gen/irstate.h"
+#include "gen/ldctraits.h"
 #include "gen/linkage.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/metadata.h"
+#include "gen/modules.h"
 #include "gen/objcgen.h"
 #include "gen/optimizer.h"
 #include "gen/passes/Passes.h"
@@ -44,6 +47,9 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Path.h"
+#if LDC_LLVM_VER >= 308
+#include "llvm/Support/StringSaver.h"
+#endif
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
@@ -56,9 +62,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#if LDC_POSIX
-#include <errno.h>
-#elif _WIN32
+#if _WIN32
 #include <windows.h>
 #endif
 
@@ -73,9 +77,6 @@ int rt_init();
 // In ddmd/doc.d
 void gendocfile(Module *m);
 
-// In driver/main.d
-void writeModuleDependencyFile();
-
 using namespace opts;
 
 extern void getenv_setargv(const char *envvar, int *pargc, char ***pargv);
@@ -87,8 +88,8 @@ static cl::opt<bool>
 
 static StringsAdapter impPathsStore("I", global.params.imppath);
 static cl::list<std::string, StringsAdapter>
-    importPaths("I", cl::desc("Where to look for imports"),
-                cl::value_desc("path"), cl::location(impPathsStore),
+    importPaths("I", cl::desc("Look for imports also in <directory>"),
+                cl::value_desc("directory"), cl::location(impPathsStore),
                 cl::Prefix);
 
 static cl::opt<std::string>
@@ -106,12 +107,6 @@ static cl::opt<bool> linkDebugLib(
     cl::desc("Link with libraries specified in -debuglib, not -defaultlib"),
     cl::ZeroOrMore);
 
-static cl::opt<bool> staticFlag(
-    "static",
-    cl::desc(
-        "Create a statically linked binary, including all system dependencies"),
-    cl::ZeroOrMore);
-
 #if LDC_LLVM_VER >= 309
 static inline llvm::Optional<llvm::Reloc::Model> getRelocModel() {
   if (mRelocModel.getNumOccurrences()) {
@@ -121,9 +116,7 @@ static inline llvm::Optional<llvm::Reloc::Model> getRelocModel() {
   return llvm::None;
 }
 #else
-static inline llvm::Reloc::Model getRelocModel() {
-  return mRelocModel;
-}
+static inline llvm::Reloc::Model getRelocModel() { return mRelocModel; }
 #endif
 
 void printVersion() {
@@ -153,10 +146,12 @@ void printVersion() {
   exit(EXIT_SUCCESS);
 }
 
+namespace {
+
 // Helper function to handle -d-debug=* and -d-version=*
-static void processVersions(std::vector<std::string> &list, const char *type,
-                            void (*setLevel)(unsigned),
-                            void (*addIdent)(const char *)) {
+void processVersions(std::vector<std::string> &list, const char *type,
+                     void (*setLevel)(unsigned),
+                     void (*addIdent)(const char *)) {
   for (const auto &i : list) {
     const char *value = i.c_str();
     if (isdigit(value[0])) {
@@ -181,204 +176,137 @@ static void processVersions(std::vector<std::string> &list, const char *type,
 }
 
 // Helper function to handle -transition=*
-static void processTransitions(std::vector<std::string> &list) {
-    for (const auto &i : list) {
-        if (i == "?") {
-            printf("Language changes listed by -transition=id:\n");
-            printf("  = all           list information on all language changes\n");
-            printf("  = checkimports  give deprecation messages about 10378 anomalies\n");
-            printf("  = complex,14488 list all usages of complex or imaginary types\n");
-            printf("  = field,3449    list all non - mutable fields which occupy an object instance\n");
-            printf("  = import,10378  revert to single phase name lookup\n");
-            printf("  = tls           list all variables going into thread local storage\n");
-            exit(EXIT_SUCCESS);
-        } else if (i == "all") {
-            global.params.vtls = true;
-            global.params.vfield = true;
-            global.params.vcomplex = true;
-            global.params.bug10378 = true; // not set in DMD
-            global.params.check10378 = true; // not set in DMD
-        } else if (i == "checkimports") {
-            global.params.check10378 = true;
-        } else if (i == "complex" || i == "14488") {
-            global.params.vcomplex = true;
-        } else if (i == "field" || i == "3449") {
-            global.params.vfield = true;
-        } else if (i == "import" || i == "10378") {
-            global.params.bug10378 = true;
-        } else if (i == "tls") {
-            global.params.vtls = true;
-        } else {
-            error(Loc(), "Invalid transition %s", i.c_str());
-        }
+void processTransitions(std::vector<std::string> &list) {
+  for (const auto &i : list) {
+    if (i == "?") {
+      printf("\n"
+             "Language changes listed by -transition=id:\n"
+             "  =all           list information on all language changes\n"
+             "  =checkimports  give deprecation messages about 10378 "
+             "anomalies\n"
+             "  =complex,14488 list all usages of complex or imaginary types\n"
+             "  =field,3449    list all non-mutable fields which occupy an "
+             "object instance\n"
+             "  =import,10378  revert to single phase name lookup\n"
+             "  =tls           list all variables going into thread local "
+             "storage\n");
+      exit(EXIT_SUCCESS);
+    } else if (i == "all") {
+      global.params.vtls = true;
+      global.params.vfield = true;
+      global.params.vcomplex = true;
+      global.params.bug10378 = true;   // not set in DMD
+      global.params.check10378 = true; // not set in DMD
+    } else if (i == "checkimports") {
+      global.params.check10378 = true;
+    } else if (i == "complex" || i == "14488") {
+      global.params.vcomplex = true;
+    } else if (i == "field" || i == "3449") {
+      global.params.vfield = true;
+    } else if (i == "import" || i == "10378") {
+      global.params.bug10378 = true;
+    } else if (i == "tls") {
+      global.params.vtls = true;
+    } else {
+      error(Loc(), "Invalid transition %s", i.c_str());
     }
+  }
+}
+
+char *dupPathString(const std::string &src) {
+  char *r = mem.xstrdup(src.c_str());
+#if _WIN32
+  std::replace(r, r + src.length(), '/', '\\');
+#endif
+  return r;
 }
 
 // Helper function to handle -of, -od, etc.
-static void initFromString(const char *&dest, const cl::opt<std::string> &src) {
+void initFromPathString(const char *&dest, const cl::opt<std::string> &src) {
   dest = nullptr;
   if (src.getNumOccurrences() != 0) {
     if (src.empty()) {
       error(Loc(), "Expected argument to '-%s'", src.ArgStr);
     }
-    dest = mem.xstrdup(src.c_str());
+    dest = dupPathString(src);
   }
 }
 
-static void hide(llvm::StringMap<cl::Option *> &map, const char *name) {
-  // Check if option exists first for resilience against LLVM changes
-  // between versions.
-  if (map.count(name)) {
-    map[name]->setHiddenFlag(cl::Hidden);
+template <int N> // option length incl. terminating null
+void tryParse(const llvm::SmallVectorImpl<const char *> &args, size_t i,
+              const char *&output, const char (&option)[N]) {
+  if (strncmp(args[i], option, N - 1) != 0)
+    return;
+
+  char nextChar = args[i][N - 1];
+  if (nextChar == '=')
+    output = args[i] + N;
+  else if (nextChar == 0 && i < args.size() - 1)
+    output = args[i + 1];
+}
+
+const char *
+tryGetExplicitConfFile(const llvm::SmallVectorImpl<const char *> &args) {
+  const char *conf = nullptr;
+  // begin at the back => use latest -conf specification
+  assert(args.size() >= 1);
+  for (size_t i = args.size() - 1; !conf && i >= 1; --i) {
+    tryParse(args, i, conf, "-conf");
   }
+  return conf;
 }
 
-#if LDC_LLVM_VER >= 307
-static void rename(llvm::StringMap<cl::Option *> &map, const char *from,
-                   const char *to) {
-  auto i = map.find(from);
-  if (i != map.end()) {
-    cl::Option *opt = i->getValue();
-    map.erase(i);
-    opt->setArgStr(to);
-    map[to] = opt;
-  }
-}
-#endif
-
-/// Removes command line options exposed from within LLVM that are unlikely
-/// to be useful for end users from the -help output.
-static void hideLLVMOptions() {
-#if LDC_LLVM_VER >= 307
-  llvm::StringMap<cl::Option *> &map = cl::getRegisteredOptions();
-#else
-  llvm::StringMap<cl::Option *> map;
-  cl::getRegisteredOptions(map);
-#endif
-  hide(map, "bounds-checking-single-trap");
-  hide(map, "disable-debug-info-verifier");
-  hide(map, "disable-objc-arc-checkforcfghazards");
-  hide(map, "disable-spill-fusing");
-  hide(map, "cppfname");
-  hide(map, "cppfor");
-  hide(map, "cppgen");
-  hide(map, "enable-correct-eh-support");
-  hide(map, "enable-load-pre");
-  hide(map, "enable-misched");
-  hide(map, "enable-objc-arc-annotations");
-  hide(map, "enable-objc-arc-opts");
-  hide(map, "enable-scoped-noalias");
-  hide(map, "enable-tbaa");
-  hide(map, "exhaustive-register-search");
-  hide(map, "fatal-assembler-warnings");
-  hide(map, "internalize-public-api-file");
-  hide(map, "internalize-public-api-list");
-  hide(map, "join-liveintervals");
-  hide(map, "limit-float-precision");
-  hide(map, "mc-x86-disable-arith-relaxation");
-  hide(map, "mips16-constant-islands");
-  hide(map, "mips16-hard-float");
-  hide(map, "mlsm");
-  hide(map, "mno-ldc1-sdc1");
-  hide(map, "nvptx-sched4reg");
-  hide(map, "no-discriminators");
-  hide(map, "objc-arc-annotation-target-identifier"), hide(map, "pre-RA-sched");
-  hide(map, "print-after-all");
-  hide(map, "print-before-all");
-  hide(map, "print-machineinstrs");
-  hide(map, "profile-estimator-loop-weight");
-  hide(map, "profile-estimator-loop-weight");
-  hide(map, "profile-file");
-  hide(map, "profile-info-file");
-  hide(map, "profile-verifier-noassert");
-  hide(map, "regalloc");
-  hide(map, "rewrite-map-file");
-  hide(map, "rng-seed");
-  hide(map, "sample-profile-max-propagate-iterations");
-  hide(map, "shrink-wrap");
-  hide(map, "spiller");
-  hide(map, "stackmap-version");
-  hide(map, "stats");
-  hide(map, "strip-debug");
-  hide(map, "struct-path-tbaa");
-  hide(map, "time-passes");
-  hide(map, "unit-at-a-time");
-  hide(map, "verify-debug-info");
-  hide(map, "verify-dom-info");
-  hide(map, "verify-loop-info");
-  hide(map, "verify-regalloc");
-  hide(map, "verify-region-info");
-  hide(map, "verify-scev");
-  hide(map, "x86-early-ifcvt");
-  hide(map, "x86-use-vzeroupper");
-  hide(map, "x86-recip-refinement-steps");
-
-  // We enable -fdata-sections/-ffunction-sections by default where it makes
-  // sense for reducing code size, so hide them to avoid confusion.
-  //
-  // We need our own switch as these two are defined by LLVM and linked to
-  // static TargetMachine members, but the default we want to use depends
-  // on the target triple (and thus we do not know it until after the command
-  // line has been parsed).
-  hide(map, "fdata-sections");
-  hide(map, "ffunction-sections");
-
-#if LDC_LLVM_VER >= 307
-  // LLVM 3.7 introduces compiling as shared library. The result
-  // is a clash in the command line options.
-  rename(map, "color", "llvm-color");
-  hide(map, "llvm-color");
-  opts::CreateColorOption();
-#endif
-}
-
-// In driver/main.d
-int main(int argc, char **argv);
-
-static const char *tryGetExplicitConfFile(int argc, char **argv) {
-  // begin at the back => use latest -conf= specification
-  for (int i = argc - 1; i >= 1; --i) {
-    if (strncmp(argv[i], "-conf=", 6) == 0) {
-      return argv[i] + 6;
-    }
-  }
-  return nullptr;
-}
-
-static llvm::Triple tryGetExplicitTriple(int argc, char **argv) {
+llvm::Triple
+tryGetExplicitTriple(const llvm::SmallVectorImpl<const char *> &args) {
   // most combinations of flags are illegal, this mimicks command line
   //  behaviour for legal ones only
   llvm::Triple triple(llvm::sys::getDefaultTargetTriple());
-  const char* mtriple = nullptr;
-  const char* march = nullptr;
-  for (int i = 1; i < argc; ++i) {
-    if (sizeof(void *) != 4 && strcmp(argv[i], "-m32") == 0) {
+  const char *mtriple = nullptr;
+  const char *march = nullptr;
+  for (size_t i = 1; i < args.size(); ++i) {
+    if (sizeof(void *) != 4 && strcmp(args[i], "-m32") == 0) {
       triple = triple.get32BitArchVariant();
       if (triple.getArch() == llvm::Triple::ArchType::x86)
         triple.setArchName("i686"); // instead of i386
       return triple;
-    } else if (sizeof(void *) != 8 && strcmp(argv[i], "-m64") == 0)
+    }
+
+    if (sizeof(void *) != 8 && strcmp(args[i], "-m64") == 0)
       return triple.get64BitArchVariant();
-    else if (strncmp(argv[i], "-mtriple=", 9) == 0)
-      mtriple = argv[i] + 9;
-    else if (strncmp(argv[i], "-march=", 7) == 0)
-      march = argv[i] + 7;
+
+    tryParse(args, i, mtriple, "-mtriple");
+    tryParse(args, i, march, "-march");
   }
   if (mtriple)
-      triple = llvm::Triple(llvm::Triple::normalize(mtriple));
+    triple = llvm::Triple(llvm::Triple::normalize(mtriple));
   if (march) {
-      std::string errorMsg; // ignore error, will show up later anyway
-      lookupTarget(march, triple, errorMsg); // modifies triple
+    std::string errorMsg; // ignore error, will show up later anyway
+    lookupTarget(march, triple, errorMsg); // modifies triple
   }
   return triple;
+}
+
+void expandResponseFiles(llvm::BumpPtrAllocator &A,
+                         llvm::SmallVectorImpl<const char *> &args) {
+#if LDC_LLVM_VER >= 308
+  llvm::StringSaver Saver(A);
+  cl::ExpandResponseFiles(Saver,
+#ifdef _WIN32
+                          cl::TokenizeWindowsCommandLine
+#else
+                          cl::TokenizeGNUCommandLine
+#endif
+                          ,
+                          args);
+#endif
 }
 
 /// Parses switches from the command line, any response files and the global
 /// config file and sets up global.params accordingly.
 ///
 /// Returns a list of source file names.
-static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
-                             bool &helpOnly) {
+void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
+                      bool &helpOnly) {
   global.params.argv0 = exe_path::getExePath().data();
 
   // Set some default values.
@@ -394,24 +322,37 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   global.params.moduleDeps = nullptr;
   global.params.moduleDepsFile = nullptr;
 
-  // Build combined list of command line arguments.
-  std::vector<const char *> final_args;
-  final_args.push_back(argv[0]);
+  // Set up `opts::allArguments`, the combined list of command line arguments.
+  using opts::allArguments;
 
+  // initialize with the actual command line
+  allArguments.insert(allArguments.end(), argv, argv + argc);
+
+  // expand response files (`@<file>`) in-place
+  llvm::BumpPtrAllocator allocator;
+  expandResponseFiles(allocator, allArguments);
+
+  // read config file
   ConfigFile cfg_file;
-  const char *explicitConfFile = tryGetExplicitConfFile(argc, argv);
-  std::string cfg_triple = tryGetExplicitTriple(argc, argv).getTriple();
+  const char *explicitConfFile = tryGetExplicitConfFile(allArguments);
+  const std::string cfg_triple = tryGetExplicitTriple(allArguments).getTriple();
   // just ignore errors for now, they are still printed
   cfg_file.read(explicitConfFile, cfg_triple.c_str());
-  final_args.insert(final_args.end(), cfg_file.switches_begin(),
-                    cfg_file.switches_end());
 
-  final_args.insert(final_args.end(), &argv[1], &argv[argc]);
+  // insert switches from config file before all explicit ones
+  allArguments.insert(allArguments.begin() + 1, cfg_file.switches_begin(),
+                      cfg_file.switches_end());
+
+  // finalize by expanding response files specified in config file
+  expandResponseFiles(allocator, allArguments);
 
   cl::SetVersionPrinter(&printVersion);
-  hideLLVMOptions();
-  cl::ParseCommandLineOptions(final_args.size(),
-                              const_cast<char **>(final_args.data()),
+
+  opts::hideLLVMOptions();
+  opts::createClashingOptions();
+
+  cl::ParseCommandLineOptions(allArguments.size(),
+                              const_cast<char **>(allArguments.data()),
                               "LDC - the LLVM D compiler\n");
 
   helpOnly = mCPU == "help" ||
@@ -427,7 +368,8 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
             global.ldc_version, global.version, global.llvm_version);
     const std::string &path = cfg_file.path();
     if (!path.empty()) {
-      fprintf(global.stdmsg, "config    %s\n", path.c_str());
+      fprintf(global.stdmsg, "config    %s (%s)\n", path.c_str(),
+              cfg_triple.c_str());
     }
   }
 
@@ -437,46 +379,60 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   global.params.useInlineAsm = !noAsm;
 
   // String options: std::string --> char*
-  initFromString(global.params.objname, objectFile);
-  initFromString(global.params.objdir, objectDir);
+  initFromPathString(global.params.objname, objectFile);
+  initFromPathString(global.params.objdir, objectDir);
 
-  initFromString(global.params.docdir, ddocDir);
-  initFromString(global.params.docname, ddocFile);
+  initFromPathString(global.params.docdir, ddocDir);
+  initFromPathString(global.params.docname, ddocFile);
   global.params.doDocComments |= global.params.docdir || global.params.docname;
 
-  initFromString(global.params.jsonfilename, jsonFile);
+  initFromPathString(global.params.jsonfilename, jsonFile);
   if (global.params.jsonfilename) {
     global.params.doJsonGeneration = true;
   }
 
-  initFromString(global.params.hdrdir, hdrDir);
-  initFromString(global.params.hdrname, hdrFile);
+  initFromPathString(global.params.hdrdir, hdrDir);
+  initFromPathString(global.params.hdrname, hdrFile);
   global.params.doHdrGeneration |=
       global.params.hdrdir || global.params.hdrname;
 
-  initFromString(global.params.moduleDepsFile, moduleDepsFile);
-  if (global.params.moduleDepsFile != nullptr) {
+  if (moduleDeps.getNumOccurrences() != 0) {
     global.params.moduleDeps = new OutBuffer;
+    if (!moduleDeps.empty())
+      global.params.moduleDepsFile = dupPathString(moduleDeps);
   }
+
+#if _WIN32
+  const auto toWinPaths = [](Strings *paths) {
+    if (!paths)
+      return;
+    for (unsigned i = 0; i < paths->dim; ++i)
+      (*paths)[i] = dupPathString((*paths)[i]);
+  };
+  toWinPaths(global.params.imppath);
+  toWinPaths(global.params.fileImppath);
+#endif
 
 // PGO options
 #if LDC_WITH_PGO
   if (genfileInstrProf.getNumOccurrences() > 0) {
     global.params.genInstrProf = true;
     if (genfileInstrProf.empty()) {
+#if LDC_LLVM_VER >= 309
+      // profile-rt provides a default filename by itself
+      global.params.datafileInstrProf = nullptr;
+#else
       global.params.datafileInstrProf = "default.profraw";
+#endif
     } else {
-      initFromString(global.params.datafileInstrProf, genfileInstrProf);
+      initFromPathString(global.params.datafileInstrProf, genfileInstrProf);
     }
   } else {
     global.params.genInstrProf = false;
     // If we don't have to generate instrumentation, we could be given a
     // profdata file:
-    initFromString(global.params.datafileInstrProf, usefileInstrProf);
+    initFromPathString(global.params.datafileInstrProf, usefileInstrProf);
   }
-#else
-  global.params.datafileInstrProf = nullptr;
-  global.params.genInstrProf = false;
 #endif
 
   processVersions(debugArgs, "debug", DebugCondition::setGlobalLevel,
@@ -485,6 +441,11 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
                   VersionCondition::addGlobalIdent);
 
   processTransitions(transitions);
+
+  if (useDIP1000) {
+    global.params.useDIP25 = true;
+    global.params.vsafe = true;
+  }
 
   global.params.output_o =
       (opts::output_o == cl::BOU_UNSET &&
@@ -527,10 +488,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   sourceFiles.reserve(fileList.size());
   for (const auto &file : fileList) {
     if (!file.empty()) {
-      char *copy = mem.xstrdup(file.c_str());
-#ifdef _WIN32
-      std::replace(copy, copy + file.length(), '/', '\\');
-#endif
+      char *copy = dupPathString(file);
       sourceFiles.push(copy);
     }
   }
@@ -573,7 +531,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   // LDC output determination
 
   // if we don't link, autodetect target from extension
-  if (!global.params.link && !createStaticLib && global.params.objname) {
+  if (!global.params.link && !global.params.lib && global.params.objname) {
     const char *ext = FileName::ext(global.params.objname);
     bool autofound = false;
     if (!ext) {
@@ -587,19 +545,12 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     } else if (strcmp(ext, global.s_ext) == 0) {
       global.params.output_s = OUTPUTFLAGset;
       autofound = true;
-    } else if (strcmp(ext, global.obj_ext) == 0 ||
-               strcmp(ext, global.obj_ext_alt) == 0) {
+    } else if (strcmp(ext, global.obj_ext) == 0 || strcmp(ext, "obj") == 0) {
+      // global.obj_ext hasn't been corrected yet for MSVC targets as we first
+      // need the command line to figure out the target...
+      // so treat both 'o' and 'obj' extensions as object files
       global.params.output_o = OUTPUTFLAGset;
       autofound = true;
-    } else {
-      // append dot, so forceExt won't change existing name even if it contains
-      // dots
-      size_t len = strlen(global.params.objname);
-      char *s = static_cast<char *>(mem.xmalloc(len + 1 + 1));
-      memcpy(s, global.params.objname, len);
-      s[len] = '.';
-      s[len + 1] = 0;
-      global.params.objname = s;
     }
     if (autofound && global.params.output_o == OUTPUTFLAGdefault) {
       global.params.output_o = OUTPUTFLAGno;
@@ -607,41 +558,30 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   }
 
   // only link if possible
-  if (!global.params.obj || !global.params.output_o || createStaticLib) {
+  if (!global.params.obj || !global.params.output_o || global.params.lib) {
     global.params.link = 0;
   }
 
-  if (createStaticLib && createSharedLib) {
+  if (global.params.lib && global.params.dll) {
     error(Loc(), "-lib and -shared switches cannot be used together");
   }
 
 #if LDC_LLVM_VER >= 309
-  if (createSharedLib && !mRelocModel.getNumOccurrences()) {
+  if (global.params.dll && !mRelocModel.getNumOccurrences()) {
 #else
-  if (createSharedLib && mRelocModel == llvm::Reloc::Default) {
+  if (global.params.dll && mRelocModel == llvm::Reloc::Default) {
 #endif
     mRelocModel = llvm::Reloc::PIC_;
   }
 
-  if (global.params.link && !createSharedLib) {
-    global.params.exefile = global.params.objname;
-    if (sourceFiles.dim > 1) {
-      global.params.objname = nullptr;
-    }
-  } else if (global.params.run) {
-    error(Loc(), "flags conflict with -run");
-  } else if (global.params.objname && sourceFiles.dim > 1) {
-    if (!(createStaticLib || createSharedLib) && !singleObj) {
-      error(Loc(), "multiple source files, but only one .obj name");
-    }
-  }
-
-  if (soname.getNumOccurrences() > 0 && !createSharedLib) {
+  if (soname.getNumOccurrences() > 0 && !global.params.dll) {
     error(Loc(), "-soname can be used only when building a shared library");
   }
+
+  global.params.hdrStripPlainFunctions = !opts::hdrKeepAllBodies;
 }
 
-static void initializePasses() {
+void initializePasses() {
   using namespace llvm;
   // Initialize passes
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
@@ -660,14 +600,16 @@ static void initializePasses() {
 #endif
   initializeTarget(Registry);
 
-  // Initialize passes not included above
+// Initialize passes not included above
 #if LDC_LLVM_VER < 306
   initializeDebugIRPass(Registry);
 #endif
 #if LDC_LLVM_VER < 308
   initializeIPA(Registry);
 #endif
-#if LDC_LLVM_VER >= 306
+#if LDC_LLVM_VER >= 400
+  initializeRewriteSymbolsLegacyPassPass(Registry);
+#elif LDC_LLVM_VER >= 306
   initializeRewriteSymbolsPass(Registry);
 #endif
 #if LDC_LLVM_VER >= 307
@@ -697,8 +639,8 @@ static void registerMipsABI() {
 
 /// Register the float ABI.
 /// Also defines D_HardFloat or D_SoftFloat depending if FPU should be used
-static void registerPredefinedFloatABI(const char *soft, const char *hard,
-                                       const char *softfp = nullptr) {
+void registerPredefinedFloatABI(const char *soft, const char *hard,
+                                const char *softfp = nullptr) {
 // Use target floating point unit instead of s/w float routines
 #if LDC_LLVM_VER >= 307
   // FIXME: This is a semantic change!
@@ -722,8 +664,10 @@ static void registerPredefinedFloatABI(const char *soft, const char *hard,
 
 /// Registers the predefined versions specific to the current target triple
 /// and other target specific options with VersionCondition.
-static void registerPredefinedTargetVersions() {
-  switch (global.params.targetTriple->getArch()) {
+void registerPredefinedTargetVersions() {
+  const auto arch = global.params.targetTriple->getArch();
+
+  switch (arch) {
   case llvm::Triple::x86:
     VersionCondition::addPredefinedGlobalIdent("X86");
     if (global.params.useInlineAsm) {
@@ -786,6 +730,18 @@ static void registerPredefinedTargetVersions() {
     registerPredefinedFloatABI("MIPS_SoftFloat", "MIPS_HardFloat");
     registerMipsABI();
     break;
+#if defined RISCV_LLVM_DEV || LDC_LLVM_VER >= 400
+#if defined RISCV_LLVM_DEV
+  case llvm::Triple::riscv:
+#else
+  case llvm::Triple::riscv32:
+#endif
+    VersionCondition::addPredefinedGlobalIdent("RISCV32");
+    break;
+  case llvm::Triple::riscv64:
+    VersionCondition::addPredefinedGlobalIdent("RISCV64");
+    break;
+#endif
   case llvm::Triple::sparc:
     // FIXME: Detect SPARC v8+ (SPARC_V8Plus).
     VersionCondition::addPredefinedGlobalIdent("SPARC");
@@ -831,6 +787,15 @@ static void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("D_PIC");
   }
 
+  /* LDC doesn't support DMD's core.simd interface.
+  if (arch == llvm::Triple::x86 || arch == llvm::Triple::x86_64) {
+    if (traitsTargetHasFeature("sse2"))
+      VersionCondition::addPredefinedGlobalIdent("D_SIMD");
+    if (traitsTargetHasFeature("avx"))
+      VersionCondition::addPredefinedGlobalIdent("D_AVX");
+  }
+  */
+
   // parse the OS out of the target triple
   // see http://gcc.gnu.org/install/specific.html for details
   // also llvm's different SubTargets have useful information
@@ -839,7 +804,7 @@ static void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("Windows");
     VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64"
                                                                      : "Win32");
-    if (global.params.targetTriple->isKnownWindowsMSVCEnvironment()) {
+    if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Microsoft");
     }
     if (global.params.targetTriple->isWindowsGNUEnvironment()) {
@@ -913,7 +878,7 @@ static void registerPredefinedTargetVersions() {
 
 /// Registers all predefined D version identifiers for the current
 /// configuration with VersionCondition.
-static void registerPredefinedVersions() {
+void registerPredefinedVersions() {
   VersionCondition::addPredefinedGlobalIdent("LDC");
   VersionCondition::addPredefinedGlobalIdent("all");
   VersionCondition::addPredefinedGlobalIdent("D_Version2");
@@ -965,66 +930,7 @@ static void registerPredefinedVersions() {
 #undef STR
 }
 
-/// Dump all predefined version identifiers.
-static void dumpPredefinedVersions() {
-  if (global.params.verbose && global.params.versionids) {
-    fprintf(global.stdmsg, "predefs  ");
-    int col = 10;
-    for (auto id : *global.params.versionids) {
-      int len = strlen(id) + 1;
-      if (col + len > 80) {
-        col = 10;
-        fprintf(global.stdmsg, "\n         ");
-      }
-      col += len;
-      fprintf(global.stdmsg, " %s", id);
-    }
-    fprintf(global.stdmsg, "\n");
-  }
-}
-
-/// Emits the .json AST description file.
-///
-/// This (ugly) piece of code has been taken from DMD's mars.c and should be
-/// kept in sync with the former.
-static void emitJson(Modules &modules) {
-  OutBuffer buf;
-  json_generate(&buf, &modules);
-
-  // Write buf to file
-  const char *name = global.params.jsonfilename;
-
-  if (name && name[0] == '-' &&
-      name[1] == 0) { // Write to stdout; assume it succeeds
-    (void)fwrite(buf.data, 1, buf.offset, stdout);
-  } else {
-    /* The filename generation code here should be harmonized with
-     * Module::setOutfile()
-     */
-    const char *jsonfilename;
-
-    if (name && *name) {
-      jsonfilename = FileName::defaultExt(name, global.json_ext);
-    } else {
-      // Generate json file name from first obj name
-      const char *n = (*global.params.objfiles)[0];
-      n = FileName::name(n);
-
-      // if (!FileName::absolute(name))
-      // name = FileName::combine(dir, name);
-
-      jsonfilename = FileName::forceExt(n, global.json_ext);
-    }
-
-    ensurePathToNameExists(Loc(), jsonfilename);
-
-    auto jsonfile = File::create(jsonfilename);
-
-    jsonfile->setbuffer(buf.data, buf.offset);
-    jsonfile->ref = 1;
-    writeFile(Loc(), jsonfile);
-  }
-}
+} // anonymous namespace
 
 int cppmain(int argc, char **argv) {
 #if LDC_LLVM_VER >= 309
@@ -1033,7 +939,7 @@ int cppmain(int argc, char **argv) {
   llvm::sys::PrintStackTraceOnErrorSignal();
 #endif
 
-  exe_path::initialize(argv[0], reinterpret_cast<void *>(main));
+  exe_path::initialize(argv[0]);
 
   global._init();
   global.version = ldc::dmd_version;
@@ -1064,21 +970,16 @@ int cppmain(int argc, char **argv) {
   }
 
   // Set up the TargetMachine.
-  ExplicitBitness::Type bitness = ExplicitBitness::None;
   if ((m32bits || m64bits) && (!mArch.empty() || !mTargetTriple.empty())) {
     error(Loc(), "-m32 and -m64 switches cannot be used together with -march "
                  "and -mtriple switches");
   }
 
-  if (m32bits) {
+  ExplicitBitness::Type bitness = ExplicitBitness::None;
+  if (m32bits)
     bitness = ExplicitBitness::M32;
-  }
-  if (m64bits) {
-    if (bitness != ExplicitBitness::None) {
-      error(Loc(), "cannot use both -m32 and -m64 options");
-    }
+  if (m64bits && (!m32bits || m32bits.getPosition() < m64bits.getPosition()))
     bitness = ExplicitBitness::M64;
-  }
 
   if (global.errors) {
     fatal();
@@ -1106,292 +1007,39 @@ int cppmain(int argc, char **argv) {
     global.params.isLP64 = gDataLayout->getPointerSizeInBits() == 64;
     global.params.is64bit = triple->isArch64Bit();
     global.params.hasObjectiveC = objc_isSupported(*triple);
-    // mscoff enables slightly different handling of interface functions 
+    // mscoff enables slightly different handling of interface functions
     // in the front end
     global.params.mscoff = triple->isKnownWindowsMSVCEnvironment();
+    if (global.params.mscoff)
+      global.obj_ext = "obj";
   }
+
+  opts::setDefaultMathOptions(*gTargetMachine);
 
   // allocate the target abi
   gABI = TargetABI::getTarget();
 
-  // Set predefined version identifiers.
-  registerPredefinedVersions();
-  dumpPredefinedVersions();
-
   if (global.params.targetTriple->isOSWindows()) {
     global.dll_ext = "dll";
-    global.lib_ext = "lib";
+    global.lib_ext = (global.params.mscoff ? "lib" : "a");
   } else {
-    global.dll_ext = "so";
+    global.dll_ext = global.params.targetTriple->isOSDarwin() ? "dylib" : "so";
     global.lib_ext = "a";
   }
 
-  // Initialization
-  Type::_init();
-  Id::initialize();
-  Module::_init();
-  Target::_init();
-  Expression::_init();
-  builtin_init();
-  objc_init();
+  Strings libmodules;
+  return mars_mainBody(files, libmodules);
+}
 
-  // Build import search path
-  if (global.params.imppath) {
-    for (unsigned i = 0; i < global.params.imppath->dim; i++) {
-      const char *path =
-          static_cast<const char *>(global.params.imppath->data[i]);
-      Strings *a = FileName::splitPath(path);
+void addDefaultVersionIdentifiers() {
+  registerPredefinedVersions();
+  printPredefinedVersions();
+}
 
-      if (a) {
-        if (!global.path) {
-          global.path = new Strings();
-        }
-        global.path->append(a);
-      }
-    }
-  }
-
-  // Build string import search path
-  if (global.params.fileImppath) {
-    for (unsigned i = 0; i < global.params.fileImppath->dim; i++) {
-      const char *path =
-          static_cast<const char *>(global.params.fileImppath->data[i]);
-      Strings *a = FileName::splitPath(path);
-
-      if (a) {
-        if (!global.filePath) {
-          global.filePath = new Strings();
-        }
-        global.filePath->append(a);
-      }
-    }
-  }
-
-  if (global.params.addMain) {
-    // a dummy name, we never actually look up this file
-    files.push(const_cast<char *>(global.main_d));
-  }
-
-  // Create Modules
-  Modules modules;
-  modules.reserve(files.dim);
-  for (unsigned i = 0; i < files.dim; i++) {
-    Identifier *id;
-    const char *ext;
-    const char *name;
-
-    const char *p = files.data[i];
-
-    p = FileName::name(p); // strip path
-    ext = FileName::ext(p);
-    if (ext) {
-#if LDC_POSIX
-      if (strcmp(ext, global.obj_ext) == 0)
-#else
-      if (Port::stricmp(ext, global.obj_ext) == 0 ||
-          Port::stricmp(ext, global.obj_ext_alt) == 0)
-#endif
-      {
-        global.params.objfiles->push(static_cast<const char *>(files.data[i]));
-        continue;
-      }
-
-      // Detect LLVM bitcode files on commandline
-#if LDC_POSIX
-      if (strcmp(ext, global.bc_ext) == 0)
-#else
-      if (Port::stricmp(ext, global.bc_ext) == 0)
-#endif
-      {
-        global.params.bitcodeFiles->push(static_cast<const char *>(files.data[i]));
-        continue;
-      }
-
-#if LDC_POSIX
-      if (strcmp(ext, "a") == 0)
-#elif __MINGW32__
-      if (Port::stricmp(ext, "a") == 0)
-#else
-      if (Port::stricmp(ext, "lib") == 0)
-#endif
-      {
-        global.params.libfiles->push(static_cast<const char *>(files.data[i]));
-        continue;
-      }
-
-      if (strcmp(ext, global.ddoc_ext) == 0) {
-        global.params.ddocfiles->push(static_cast<const char *>(files.data[i]));
-        continue;
-      }
-
-      if (FileName::equals(ext, global.json_ext)) {
-        global.params.doJsonGeneration = 1;
-        global.params.jsonfilename = static_cast<const char *>(files.data[i]);
-        continue;
-      }
-
-#if !LDC_POSIX
-      if (Port::stricmp(ext, "res") == 0) {
-        global.params.resfile = static_cast<const char *>(files.data[i]);
-        continue;
-      }
-
-      if (Port::stricmp(ext, "def") == 0) {
-        global.params.deffile = static_cast<const char *>(files.data[i]);
-        continue;
-      }
-
-      if (Port::stricmp(ext, "exe") == 0) {
-        global.params.exefile = static_cast<const char *>(files.data[i]);
-        continue;
-      }
-#endif
-
-      if (Port::stricmp(ext, global.mars_ext) == 0 ||
-          Port::stricmp(ext, global.hdr_ext) == 0 ||
-          FileName::equals(ext, "dd")) {
-        ext--; // skip onto '.'
-        assert(*ext == '.');
-        char *tmp = static_cast<char *>(mem.xmalloc((ext - p) + 1));
-        memcpy(tmp, p, ext - p);
-        tmp[ext - p] = 0; // strip extension
-        name = tmp;
-
-        if (name[0] == 0 || strcmp(name, "..") == 0 || strcmp(name, ".") == 0) {
-          goto Linvalid;
-        }
-      } else {
-        error(Loc(), "unrecognized file extension %s\n", ext);
-        fatal();
-      }
-    } else {
-      name = p;
-      if (!*p) {
-      Linvalid:
-        error(Loc(), "invalid file name '%s'",
-              static_cast<const char *>(files.data[i]));
-        fatal();
-      }
-      name = p;
-    }
-
-    id = Identifier::idPool(name, strlen(name));
-    auto m = Module::create(files.data[i], id, global.params.doDocComments,
-                            global.params.doHdrGeneration);
-    modules.push(m);
-  }
-
-  // Read files, parse them
-  for (unsigned i = 0; i < modules.dim; i++) {
-    Module *m = modules[i];
-    if (global.params.verbose) {
-      fprintf(global.stdmsg, "parse     %s\n", m->toChars());
-    }
-    if (!Module::rootModule) {
-      Module::rootModule = m;
-    }
-    m->importedFrom = m;
-
-    if (strcmp(m->srcfile->name->str, global.main_d) == 0) {
-      static const char buf[] = "void main(){}";
-      m->srcfile->setbuffer(const_cast<char *>(buf), sizeof(buf));
-      m->srcfile->ref = 1;
-    } else {
-      m->read(Loc());
-    }
-
-    m->parse(global.params.doDocComments);
-    buildTargetFiles(m, singleObj, createSharedLib || createStaticLib);
-    m->deleteObjFile();
-    if (m->isDocFile) {
-      gendocfile(m);
-
-      // Remove m from list of modules
-      modules.remove(i);
-      i--;
-    }
-  }
-  if (global.errors) {
-    fatal();
-  }
-
-  if (global.params.doHdrGeneration) {
-    /* Generate 'header' import files.
-     * Since 'header' import files must be independent of command
-     * line switches and what else is imported, they are generated
-     * before any semantic analysis.
-     */
-    for (unsigned i = 0; i < modules.dim; i++) {
-      if (global.params.verbose) {
-        fprintf(global.stdmsg, "import    %s\n", modules[i]->toChars());
-      }
-      genhdrfile(modules[i]);
-    }
-  }
-  if (global.errors) {
-    fatal();
-  }
-
-  // load all unconditional imports for better symbol resolving
-  for (unsigned i = 0; i < modules.dim; i++) {
-    if (global.params.verbose) {
-      fprintf(global.stdmsg, "importall %s\n", modules[i]->toChars());
-    }
-    modules[i]->importAll(nullptr);
-  }
-  if (global.errors) {
-    fatal();
-  }
-
-  // Do semantic analysis
-  for (unsigned i = 0; i < modules.dim; i++) {
-    if (global.params.verbose) {
-      fprintf(global.stdmsg, "semantic  %s\n", modules[i]->toChars());
-    }
-    modules[i]->semantic();
-  }
-  if (global.errors) {
-    fatal();
-  }
-
-  Module::dprogress = 1;
-  Module::runDeferredSemantic();
-
-  // Do pass 2 semantic analysis
-  for (unsigned i = 0; i < modules.dim; i++) {
-    if (global.params.verbose) {
-      fprintf(global.stdmsg, "semantic2 %s\n", modules[i]->toChars());
-    }
-    modules[i]->semantic2();
-  }
-  if (global.errors) {
-    fatal();
-  }
-
-  // Do pass 3 semantic analysis
-  for (unsigned i = 0; i < modules.dim; i++) {
-    if (global.params.verbose) {
-      fprintf(global.stdmsg, "semantic3 %s\n", modules[i]->toChars());
-    }
-    modules[i]->semantic3();
-  }
-  if (global.errors) {
-    fatal();
-  }
-
-  Module::runDeferredSemantic3();
-
-  if (global.errors || global.warnings) {
-    fatal();
-  }
-
-  // Now that we analyzed all modules, write the module dependency file if
-  // the user requested it.
-  writeModuleDependencyFile();
-
+void codegenModules(Modules &modules) {
   // Generate one or more object/IR/bitcode files.
   if (global.params.obj && !modules.empty()) {
-    ldc::CodeGenerator cg(getGlobalContext(), singleObj);
+    ldc::CodeGenerator cg(getGlobalContext(), global.params.oneobj);
 
     // When inlining is enabled, we are calling semantic3 on function
     // declarations, which may _add_ members to the first module in the modules
@@ -1403,63 +1051,18 @@ int cppmain(int argc, char **argv) {
     // codegenned.
     for (d_size_t i = modules.dim; i-- > 0;) {
       Module *const m = modules[i];
-      if (global.params.verbose) {
+      if (global.params.verbose)
         fprintf(global.stdmsg, "code      %s\n", m->toChars());
-      }
 
       cg.emit(m);
 
-      if (global.errors) {
+      if (global.errors)
         fatal();
-      }
     }
   }
 
-  // Generate DDoc output files.
-  if (global.params.doDocComments) {
-    for (unsigned i = 0; i < modules.dim; i++) {
-      gendocfile(modules[i]);
-    }
-  }
-
-  // Generate the AST-describing JSON file.
-  if (global.params.doJsonGeneration) {
-    emitJson(modules);
-  }
+  cache::pruneCache();
 
   freeRuntime();
   llvm::llvm_shutdown();
-
-  if (global.errors) {
-    fatal();
-  }
-
-  // Finally, produce the final executable/archive and run it, if we are
-  // supposed to.
-  int status = EXIT_SUCCESS;
-  if (!global.params.objfiles->dim) {
-    if (global.params.link) {
-      error(Loc(), "no object files to link");
-    } else if (createStaticLib) {
-      error(Loc(), "no object files");
-    }
-  } else {
-    if (global.params.link) {
-      status = linkObjToBinary(createSharedLib, staticFlag);
-    } else if (createStaticLib) {
-      status = createStaticLibrary();
-    }
-
-    if (global.params.run && status == EXIT_SUCCESS) {
-      status = runExecutable();
-
-      /// Delete .obj files and .exe file.
-      for (unsigned i = 0; i < modules.dim; i++) {
-        modules[i]->deleteObjFile();
-      }
-      deleteExecutable();
-    }
-  }
-
-  return status;
 }

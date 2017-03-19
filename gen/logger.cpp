@@ -42,29 +42,32 @@ void Stream::writeValue(std::ostream &OS, const llvm::Value &V) {
   }
 }
 
+// This variable is pulled out of the Logger namespace to work around D bug 15576.
+// https://issues.dlang.org/show_bug.cgi?id=15576
+bool _Logger_enabled;
+
 namespace Logger {
 static std::string indent_str;
-bool _enabled;
 
 static llvm::cl::opt<bool, true>
     enabledopt("vv", llvm::cl::desc("Print front-end/glue code debug log"),
-               llvm::cl::location(_enabled), llvm::cl::ZeroOrMore);
+               llvm::cl::location(_Logger_enabled), llvm::cl::ZeroOrMore);
 
 void indent() {
-  if (_enabled) {
+  if (_Logger_enabled) {
     indent_str += "* ";
   }
 }
 
 void undent() {
-  if (_enabled) {
+  if (_Logger_enabled) {
     assert(!indent_str.empty());
     indent_str.resize(indent_str.size() - 2);
   }
 }
 
 Stream cout() {
-  if (_enabled) {
+  if (_Logger_enabled) {
     return Stream(std::cout << indent_str);
   }
   return Stream(nullptr);
@@ -89,8 +92,10 @@ static inline void search_and_replace(std::string &str, const std::string &what,
 #define WORKAROUND_C99_SPECIFIERS_BUG(f)
 #endif
 
+void printIndentation() { printf("%s", indent_str.c_str()); }
+
 void println(const char *fmt, ...) {
-  if (_enabled) {
+  if (_Logger_enabled) {
     printf("%s", indent_str.c_str());
     va_list va;
     va_start(va, fmt);
@@ -101,7 +106,7 @@ void println(const char *fmt, ...) {
   }
 }
 void print(const char *fmt, ...) {
-  if (_enabled) {
+  if (_Logger_enabled) {
     printf("%s", indent_str.c_str());
     va_list va;
     va_start(va, fmt);

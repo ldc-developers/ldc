@@ -14,6 +14,7 @@
 #include "driver/cl_options.h"
 #include "driver/exe_path.h"
 #include "driver/tool.h"
+#include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"
@@ -26,25 +27,36 @@
 #include "llvm/Support/Program.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/SourceMgr.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
 #if _WIN32
 #include "llvm/Support/SystemUtils.h"
 #include "llvm/Support/ConvertUTF.h"
 #include <Windows.h>
 #endif
 
+#include <algorithm>
+
 //////////////////////////////////////////////////////////////////////////////
 
-static bool endsWith(const std::string &str, const std::string &end) {
-  return (str.length() >= end.length() &&
-          std::equal(end.rbegin(), end.rend(), str.rbegin()));
-}
+static llvm::cl::opt<bool> staticFlag(
+    "static",
+    llvm::cl::desc(
+        "Create a statically linked binary, including all system dependencies"),
+    llvm::cl::ZeroOrMore);
+
+static llvm::cl::opt<std::string>
+    ltoLibrary("flto-binary",
+               llvm::cl::desc("Set the linker LTO plugin library file (e.g. "
+                              "LLVMgold.so (Unixes) or libLTO.dylib (Darwin))"),
+               llvm::cl::value_desc("file"), llvm::cl::ZeroOrMore);
 
 //////////////////////////////////////////////////////////////////////////////
 
 static void CreateDirectoryOnDisk(llvm::StringRef fileName) {
   auto dir = llvm::sys::path::parent_path(fileName);
   if (!dir.empty() && !llvm::sys::fs::exists(dir)) {
-    if (auto ec = llvm::sys::fs::create_directory(dir)) {
+    if (auto ec = llvm::sys::fs::create_directories(dir)) {
       error(Loc(), "failed to create path to file: %s\n%s", dir.data(),
             ec.message().c_str());
       fatal();
@@ -55,56 +67,161 @@ static void CreateDirectoryOnDisk(llvm::StringRef fileName) {
 //////////////////////////////////////////////////////////////////////////////
 
 static std::string getOutputName(bool const sharedLib) {
-  if (!sharedLib && global.params.exefile) {
-    return global.params.exefile;
-  }
-
-  if (sharedLib && global.params.objname) {
-    return global.params.objname;
-  }
-
-  // Output name is inferred.
-  std::string result;
-
-  // try root module name
-  if (Module::rootModule) {
-    result = Module::rootModule->toChars();
-  } else if (global.params.objfiles->dim) {
-    result = FileName::removeExt(
-        static_cast<const char *>(global.params.objfiles->data[0]));
-  } else {
-    result = "a.out";
-  }
+  const auto &triple = *global.params.targetTriple;
 
   const char *extension = nullptr;
   if (sharedLib) {
     extension = global.dll_ext;
-    if (global.params.targetTriple->getOS() != llvm::Triple::Win32) {
-      result = "lib" + result;
-    }
-  } else if (global.params.targetTriple->isOSWindows()) {
+  } else if (triple.isOSWindows()) {
     extension = "exe";
   }
+
+  if (global.params.exefile) {
+    // DMD adds the default extension if there is none
+    return opts::invokedByLDMD && extension
+               ? FileName::defaultExt(global.params.exefile, extension)
+               : global.params.exefile;
+  }
+
+  // Infer output name from first object file.
+  std::string result = global.params.objfiles->dim
+                           ? FileName::removeExt((*global.params.objfiles)[0])
+                           : "a.out";
+
+  if (sharedLib && !triple.isWindowsMSVCEnvironment())
+    result = "lib" + result;
 
   if (global.params.run) {
     // If `-run` is passed, the executable is temporary and is removed
     // after execution. Make sure the name does not collide with other files
     // from other processes by creating a unique filename.
     llvm::SmallString<128> tempFilename;
-    auto EC = llvm::sys::fs::createTemporaryFile(
-        result, extension ? extension : "", tempFilename);
-    if (!EC) {
+    auto EC = llvm::sys::fs::createTemporaryFile(FileName::name(result.c_str()),
+                                                 extension ? extension : "",
+                                                 tempFilename);
+    if (!EC)
       result = tempFilename.str();
-    }
-  } else {
-    if (extension) {
-      result += ".";
-      result += extension;
-    }
+  } else if (extension) {
+    result += '.';
+    result += extension;
   }
 
   return result;
 }
+
+//////////////////////////////////////////////////////////////////////////////
+// LTO functionality
+
+namespace {
+
+void addLinkerFlag(std::vector<std::string> &args, const llvm::Twine &flag) {
+  args.push_back("-Xlinker");
+  args.push_back(flag.str());
+}
+
+std::string getLTOGoldPluginPath() {
+  if (!ltoLibrary.empty()) {
+    if (llvm::sys::fs::exists(ltoLibrary))
+      return ltoLibrary;
+
+    error(Loc(), "-flto-binary: file '%s' not found", ltoLibrary.c_str());
+    fatal();
+  } else {
+    std::string searchPaths[] = {
+      // The plugin packaged with LDC has a "-ldc" suffix.
+      exe_path::prependLibDir("LLVMgold-ldc.so"),
+      // Perhaps the user copied the plugin to LDC's lib dir.
+      exe_path::prependLibDir("LLVMgold.so"),
+#if __LP64__
+      "/usr/local/lib64/LLVMgold.so",
+#endif
+      "/usr/local/lib/LLVMgold.so",
+#if __LP64__
+      "/usr/lib64/LLVMgold.so",
+#endif
+      "/usr/lib/LLVMgold.so",
+      "/usr/lib/bfd-plugins/LLVMgold.so",
+    };
+
+    // Try all searchPaths and early return upon the first path found.
+    for (const auto &p : searchPaths) {
+      if (llvm::sys::fs::exists(p))
+        return p;
+    }
+
+    error(Loc(), "The LLVMgold.so plugin (needed for LTO) was not found. You "
+                 "can specify its path with -flto-binary=<file>.");
+    fatal();
+  }
+}
+
+void addLTOGoldPluginFlags(std::vector<std::string> &args) {
+  addLinkerFlag(args, "-plugin");
+  addLinkerFlag(args, getLTOGoldPluginPath());
+
+  if (opts::isUsingThinLTO())
+    addLinkerFlag(args, "-plugin-opt=thinlto");
+
+  if (!opts::mCPU.empty())
+    addLinkerFlag(args, llvm::Twine("-plugin-opt=mcpu=") + opts::mCPU);
+
+  // Use the O-level passed to LDC as the O-level for LTO, but restrict it to
+  // the [0, 3] range that can be passed to the linker plugin.
+  static char optChars[15] = "-plugin-opt=O0";
+  optChars[13] = '0' + std::min<char>(optLevel(), 3);
+  addLinkerFlag(args, optChars);
+
+#if LDC_LLVM_VER >= 400
+  const llvm::TargetOptions &TO = gTargetMachine->Options;
+  if (TO.FunctionSections)
+    addLinkerFlag(args, "-plugin-opt=-function-sections");
+  if (TO.DataSections)
+    addLinkerFlag(args, "-plugin-opt=-data-sections");
+#endif
+}
+
+// Returns an empty string when libLTO.dylib was not specified nor found.
+std::string getLTOdylibPath() {
+  if (!ltoLibrary.empty()) {
+    if (llvm::sys::fs::exists(ltoLibrary))
+      return ltoLibrary;
+
+    error(Loc(), "-flto-binary: '%s' not found", ltoLibrary.c_str());
+    fatal();
+  } else {
+    // The plugin packaged with LDC has a "-ldc" suffix.
+    std::string searchPath = exe_path::prependLibDir("libLTO-ldc.dylib");
+    if (llvm::sys::fs::exists(searchPath))
+      return searchPath;
+
+    return "";
+  }
+}
+
+void addDarwinLTOFlags(std::vector<std::string> &args) {
+  std::string dylibPath = getLTOdylibPath();
+  if (!dylibPath.empty()) {
+      args.push_back("-lto_library");
+      args.push_back(std::move(dylibPath));
+  }
+}
+
+/// Adds the required linker flags for LTO builds to args.
+void addLTOLinkFlags(std::vector<std::string> &args) {
+#if LDC_LLVM_VER >= 309
+  if (global.params.targetTriple->isOSLinux() ||
+      global.params.targetTriple->isOSFreeBSD() ||
+      global.params.targetTriple->isOSNetBSD() ||
+      global.params.targetTriple->isOSOpenBSD() ||
+      global.params.targetTriple->isOSDragonFly()) {
+    // Assume that ld.gold or ld.bfd is used with plugin support.
+    addLTOGoldPluginFlags(args);
+  } else if (global.params.targetTriple->isOSDarwin()) {
+    addDarwinLTOFlags(args);
+  }
+#endif
+}
+} // anonymous namespace
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -150,6 +267,20 @@ void insertBitcodeFiles(llvm::Module &M, llvm::LLVMContext &Ctx,
 
 //////////////////////////////////////////////////////////////////////////////
 
+static void appendObjectFiles(std::vector<std::string> &args) {
+  for (unsigned i = 0; i < global.params.objfiles->dim; i++)
+    args.push_back((*global.params.objfiles)[i]);
+
+  if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+    if (global.params.resfile)
+      args.push_back(global.params.resfile);
+    if (global.params.deffile)
+      args.push_back(std::string("/DEF:") + global.params.deffile);
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 static std::string gExePath;
 
 static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
@@ -161,11 +292,7 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
   // build arguments
   std::vector<std::string> args;
 
-  // object files
-  for (unsigned i = 0; i < global.params.objfiles->dim; i++) {
-    const char *p = static_cast<const char *>(global.params.objfiles->data[i]);
-    args.push_back(p);
-  }
+  appendObjectFiles(args);
 
   // Link with profile-rt library when generating an instrumented binary.
   // profile-rt uses Phobos (MD5 hashing) and therefore must be passed on the
@@ -183,10 +310,8 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
   }
 
   // user libs
-  for (unsigned i = 0; i < global.params.libfiles->dim; i++) {
-    const char *p = static_cast<const char *>(global.params.libfiles->data[i]);
-    args.push_back(p);
-  }
+  for (unsigned i = 0; i < global.params.libfiles->dim; i++)
+    args.push_back((*global.params.libfiles)[i]);
 
   // output filename
   std::string output = getOutputName(sharedLib);
@@ -222,17 +347,22 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
     args.push_back("-fsanitize=thread");
   }
 
+  // Add LTO link flags before adding the user link switches, such that the user
+  // can pass additional options to the LTO plugin.
+  if (opts::isUsingLTO())
+    addLTOLinkFlags(args);
+
   // additional linker switches
   for (unsigned i = 0; i < global.params.linkswitches->dim; i++) {
-    const char *p =
-        static_cast<const char *>(global.params.linkswitches->data[i]);
+    const char *p = (*global.params.linkswitches)[i];
     // Don't push -l and -L switches using -Xlinker, but pass them indirectly
     // via GCC. This makes sure user-defined paths take precedence over
     // GCC's builtin LIBRARY_PATHs.
-    // Options starting with -shared and -static are not handled by
+    // Options starting with `-Wl,`, -shared or -static are not handled by
     // the linker and must be passed to the driver.
     auto str = llvm::StringRef(p);
     if (!(str.startswith("-l") || str.startswith("-L") ||
+          str.startswith("-Wl,") ||
           str.startswith("-shared") || str.startswith("-static"))) {
       args.push_back("-Xlinker");
     }
@@ -339,7 +469,7 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
     }
   }
 
-  if (opts::createSharedLib && addSoname) {
+  if (global.params.dll && addSoname) {
     std::string soname = opts::soname;
     if (!soname.empty()) {
       args.push_back("-Wl,-soname," + soname);
@@ -559,7 +689,7 @@ int executeMsvcToolAndWait(const std::string &,
 
 //////////////////////////////////////////////////////////////////////////////
 
-static int linkObjToBinaryWin(bool sharedLib) {
+static int linkObjToBinaryMSVC(bool sharedLib) {
   Logger::println("*** Linking executable ***");
 
   std::string tool = "link.exe";
@@ -570,15 +700,9 @@ static int linkObjToBinaryWin(bool sharedLib) {
   args.push_back("/NOLOGO");
 
   // specify that the image will contain a table of safe exception handlers
-  // (32bit only)
+  // and can handle addresses >2GB (32bit only)
   if (!global.params.is64bit) {
     args.push_back("/SAFESEH");
-  }
-
-  // because of a LLVM bug, see LDC issue 442
-  if (global.params.symdebug) {
-    args.push_back("/LARGEADDRESSAWARE:NO");
-  } else {
     args.push_back("/LARGEADDRESSAWARE");
   }
 
@@ -610,11 +734,7 @@ static int linkObjToBinaryWin(bool sharedLib) {
 
   args.push_back("/OUT:" + output);
 
-  // object files
-  for (unsigned i = 0; i < global.params.objfiles->dim; i++) {
-    const char *p = static_cast<const char *>(global.params.objfiles->data[i]);
-    args.push_back(p);
-  }
+  appendObjectFiles(args);
 
   // Link with profile-rt library when generating an instrumented binary
   // profile-rt depends on Phobos (MD5 hashing).
@@ -625,10 +745,8 @@ static int linkObjToBinaryWin(bool sharedLib) {
   }
 
   // user libs
-  for (unsigned i = 0; i < global.params.libfiles->dim; i++) {
-    const char *p = static_cast<const char *>(global.params.libfiles->data[i]);
-    args.push_back(p);
-  }
+  for (unsigned i = 0; i < global.params.libfiles->dim; i++)
+    args.push_back((*global.params.libfiles)[i]);
 
   // set the global gExePath
   gExePath = output;
@@ -680,13 +798,13 @@ static int linkObjToBinaryWin(bool sharedLib) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-int linkObjToBinary(bool sharedLib, bool fullyStatic) {
+int linkObjToBinary() {
   if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
-    // TODO: Choose dynamic/static MSVCRT version based on fullyStatic?
-    return linkObjToBinaryWin(sharedLib);
+    // TODO: Choose dynamic/static MSVCRT version based on staticFlag?
+    return linkObjToBinaryMSVC(global.params.dll);
   }
 
-  return linkObjToBinaryGcc(sharedLib, fullyStatic);
+  return linkObjToBinaryGcc(global.params.dll, staticFlag);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -694,72 +812,66 @@ int linkObjToBinary(bool sharedLib, bool fullyStatic) {
 int createStaticLibrary() {
   Logger::println("*** Creating static library ***");
 
-  const bool isTargetWindows =
+  const bool isTargetMSVC =
       global.params.targetTriple->isWindowsMSVCEnvironment();
 
   // find archiver
-  std::string tool(isTargetWindows ? "lib.exe" : getArchiver());
+  std::string tool(isTargetMSVC ? "lib.exe" : getArchiver());
 
   // build arguments
   std::vector<std::string> args;
 
   // ask ar to create a new library
-  if (!isTargetWindows) {
+  if (!isTargetMSVC) {
     args.push_back("rcs");
   }
 
   // ask lib to be quiet
-  if (isTargetWindows) {
+  if (isTargetMSVC) {
     args.push_back("/NOLOGO");
   }
 
   // enable Link-time Code Generation (aka. whole program optimization)
-  if (isTargetWindows && global.params.optimize) {
+  if (isTargetMSVC && global.params.optimize) {
     args.push_back("/LTCG");
   }
 
   // output filename
   std::string libName;
-  if (global.params.objname) { // explicit
-    libName = global.params.objname;
-  } else { // inferred
-    // try root module name
-    if (Module::rootModule) {
-      libName = Module::rootModule->toChars();
-    } else if (global.params.objfiles->dim) {
-      libName = FileName::removeExt(
-          static_cast<const char *>(global.params.objfiles->data[0]));
-    } else {
-      libName = "a.out";
-    }
+  if (global.params.libname) { // explicit
+    // DMD adds the default extension if there is none
+    libName = opts::invokedByLDMD
+                  ? FileName::defaultExt(global.params.libname, global.lib_ext)
+                  : global.params.libname;
+  } else { // infer from first object file
+    libName = global.params.objfiles->dim
+                  ? FileName::removeExt((*global.params.objfiles)[0])
+                  : "a.out";
+    libName += '.';
+    libName += global.lib_ext;
   }
-  // KN: The following lines were added to fix a test case failure
-  // (runnable/test13774.sh).
-  //     Root cause is that dmd handles it in this why.
-  //     As a side effect this change broke compiling with dub.
-  //    if (!FileName::absolute(libName.c_str()))
-  //        libName = FileName::combine(global.params.objdir, libName.c_str());
-  if (llvm::sys::path::extension(libName).empty()) {
-    libName.append(std::string(".") + global.lib_ext);
+
+  // DMD creates static libraries in the objects directory (unless using an
+  // absolute output path via `-of`).
+  if (opts::invokedByLDMD && global.params.objdir &&
+      !FileName::absolute(libName.c_str())) {
+    libName = FileName::combine(global.params.objdir, libName.c_str());
   }
-  if (isTargetWindows) {
+
+  if (isTargetMSVC) {
     args.push_back("/OUT:" + libName);
   } else {
     args.push_back(libName);
   }
 
-  // object files
-  for (unsigned i = 0; i < global.params.objfiles->dim; i++) {
-    const char *p = static_cast<const char *>(global.params.objfiles->data[i]);
-    args.push_back(p);
-  }
+  appendObjectFiles(args);
 
   // create path to the library
   CreateDirectoryOnDisk(libName);
 
   // try to call archiver
   int exitCode;
-  if (isTargetWindows) {
+  if (isTargetMSVC) {
     exitCode = executeMsvcToolAndWait(tool, args, global.params.verbose);
   } else {
     exitCode = executeToolAndWait(tool, args, global.params.verbose);
@@ -769,19 +881,15 @@ int createStaticLibrary() {
 
 //////////////////////////////////////////////////////////////////////////////
 
-void deleteExecutable() {
-  if (!gExePath.empty()) {
-    // assert(gExePath.isValid());
-    bool is_directory;
-    assert(!(!llvm::sys::fs::is_directory(gExePath, is_directory) &&
-             is_directory));
+void deleteExeFile() {
+  if (!gExePath.empty() && !llvm::sys::fs::is_directory(gExePath)) {
     llvm::sys::fs::remove(gExePath);
   }
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-int runExecutable() {
+int runProgram() {
   assert(!gExePath.empty());
   // assert(gExePath.isValid());
 

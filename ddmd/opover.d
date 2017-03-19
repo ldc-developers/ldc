@@ -1,15 +1,16 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2015 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// Distributed under the Boost Software License, Version 1.0.
-// http://www.boost.org/LICENSE_1_0.txt
+/**
+ * Compiler implementation of the
+ * $(LINK2 http://www.dlang.org, D programming language).
+ *
+ * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Source:      $(DMDSRC _opover.d)
+ */
 
 module ddmd.opover;
 
 import core.stdc.stdio;
-import core.stdc.string;
 import ddmd.aggregate;
 import ddmd.aliasthis;
 import ddmd.arraytypes;
@@ -43,22 +44,14 @@ extern (C++) bool isCommutative(TOK op)
     case TOKand:
     case TOKor:
     case TOKxor:
-        // EqualExp
+    // EqualExp
     case TOKequal:
     case TOKnotequal:
-        // CmpExp
+    // CmpExp
     case TOKlt:
     case TOKle:
     case TOKgt:
     case TOKge:
-    case TOKunord:
-    case TOKlg:
-    case TOKleg:
-    case TOKule:
-    case TOKul:
-    case TOKuge:
-    case TOKug:
-    case TOKue:
         return true;
     default:
         break;
@@ -469,7 +462,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
 
         override void visit(UnaExp e)
         {
-            //printf("UnaExp::op_overload() (%s)\n", e->toChars());
+            //printf("UnaExp::op_overload() (%s)\n", e.toChars());
             if (e.e1.op == TOKarray)
             {
                 ArrayExp ae = cast(ArrayExp)e.e1;
@@ -605,7 +598,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     /* Rewrite op(e1) as:
                      *      op(e1.aliasthis)
                      */
-                    //printf("att una %s e1 = %s\n", Token::toChars(op), this->e1->type->toChars());
+                    //printf("att una %s e1 = %s\n", Token::toChars(op), this.e1.type.toChars());
                     Expression e1 = new DotIdExp(e.loc, e.e1, ad.aliasthis.ident);
                     UnaExp ue = cast(UnaExp)e.copy();
                     if (!ue.att1 && e.e1.type.checkAliasThisRec())
@@ -619,7 +612,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
 
         override void visit(ArrayExp ae)
         {
-            //printf("ArrayExp::op_overload() (%s)\n", ae->toChars());
+            //printf("ArrayExp::op_overload() (%s)\n", ae.toChars());
             ae.e1 = ae.e1.semantic(sc);
             ae.e1 = resolveProperties(sc, ae.e1);
             Expression ae1old = ae.e1;
@@ -644,9 +637,10 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                 AggregateDeclaration ad = isAggregate(t1b);
                 if (!ad)
                 {
-                    // If the non-aggregate expression ae->e1 is indexable or sliceable,
+                    // If the non-aggregate expression ae.e1 is indexable or sliceable,
                     // convert it to the corresponding concrete expression.
-                    if (t1b.ty == Tpointer || t1b.ty == Tsarray || t1b.ty == Tarray || t1b.ty == Taarray || t1b.ty == Ttuple || ae.e1.op == TOKtype)
+                    if (t1b.ty == Tpointer || t1b.ty == Tsarray || t1b.ty == Tarray || t1b.ty == Taarray ||
+                        t1b.ty == Ttuple || t1b.ty == Tvector || ae.e1.op == TOKtype)
                     {
                         // Convert to SliceExp
                         if (maybeSlice)
@@ -723,7 +717,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                 {
                     if (!ae.att1 && t1b.checkAliasThisRec())
                         ae.att1 = t1b;
-                    //printf("att arr e1 = %s\n", this->e1->type->toChars());
+                    //printf("att arr e1 = %s\n", this.e1.type.toChars());
                     /* Rewrite op(a[arguments]) as:
                      *      op(a.aliasthis[arguments])
                      */
@@ -743,7 +737,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
          */
         override void visit(CastExp e)
         {
-            //printf("CastExp::op_overload() (%s)\n", e->toChars());
+            //printf("CastExp::op_overload() (%s)\n", e.toChars());
             AggregateDeclaration ad = isAggregate(e.e1.type);
             if (ad)
             {
@@ -788,7 +782,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
 
         override void visit(BinExp e)
         {
-            //printf("BinExp::op_overload() (%s)\n", e->toChars());
+            //printf("BinExp::op_overload() (%s)\n", e.toChars());
             Identifier id = opId(e);
             Identifier id_r = opId_r(e);
             Expressions args1;
@@ -1020,25 +1014,6 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                         case TOKge:
                             e.op = TOKle;
                             break;
-                            // Floating point compares
-                        case TOKule:
-                            e.op = TOKuge;
-                            break;
-                        case TOKul:
-                            e.op = TOKug;
-                            break;
-                        case TOKuge:
-                            e.op = TOKule;
-                            break;
-                        case TOKug:
-                            e.op = TOKul;
-                            break;
-                            // These are symmetric
-                        case TOKunord:
-                        case TOKlg:
-                        case TOKleg:
-                        case TOKue:
-                            break;
                         default:
                             break;
                         }
@@ -1054,7 +1029,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                  */
                 if (e.att1 && e.e1.type == e.att1)
                     return;
-                //printf("att bin e1 = %s\n", this->e1->type->toChars());
+                //printf("att bin e1 = %s\n", this.e1.type.toChars());
                 Expression e1 = new DotIdExp(e.loc, e.e1, ad1.aliasthis.ident);
                 BinExp be = cast(BinExp)e.copy();
                 if (!be.att1 && e.e1.type.checkAliasThisRec())
@@ -1074,7 +1049,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                  */
                 if (e.att2 && e.e2.type == e.att2)
                     return;
-                //printf("att bin e2 = %s\n", e->e2->type->toChars());
+                //printf("att bin e2 = %s\n", e.e2.type.toChars());
                 Expression e2 = new DotIdExp(e.loc, e.e2, ad2.aliasthis.ident);
                 BinExp be = cast(BinExp)e.copy();
                 if (!be.att2 && e.e2.type.checkAliasThisRec())
@@ -1088,7 +1063,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
 
         override void visit(EqualExp e)
         {
-            //printf("EqualExp::op_overload() (%s)\n", e->toChars());
+            //printf("EqualExp::op_overload() (%s)\n", e.toChars());
             Type t1 = e.e1.type.toBasetype();
             Type t2 = e.e2.type.toBasetype();
 
@@ -1318,7 +1293,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
 
         override void visit(CmpExp e)
         {
-            //printf("CmpExp::op_overload() (%s)\n", e->toChars());
+            //printf("CmpExp::op_overload() (%s)\n", e.toChars());
             result = compare_overload(e, sc, Id.cmp);
         }
 
@@ -1327,7 +1302,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
          */
         override void visit(BinAssignExp e)
         {
-            //printf("BinAssignExp::op_overload() (%s)\n", e->toChars());
+            //printf("BinAssignExp::op_overload() (%s)\n", e.toChars());
             if (e.e1.op == TOKarray)
             {
                 ArrayExp ae = cast(ArrayExp)e.e1;
@@ -1516,7 +1491,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                  */
                 if (e.att1 && e.e1.type == e.att1)
                     return;
-                //printf("att %s e1 = %s\n", Token::toChars(e->op), e->e1->type->toChars());
+                //printf("att %s e1 = %s\n", Token::toChars(e.op), e.e1.type.toChars());
                 Expression e1 = new DotIdExp(e.loc, e.e1, ad1.aliasthis.ident);
                 BinExp be = cast(BinExp)e.copy();
                 if (!be.att1 && e.e1.type.checkAliasThisRec())
@@ -1534,7 +1509,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                  */
                 if (e.att2 && e.e2.type == e.att2)
                     return;
-                //printf("att %s e2 = %s\n", Token::toChars(e->op), e->e2->type->toChars());
+                //printf("att %s e2 = %s\n", Token::toChars(e.op), e.e2.type.toChars());
                 Expression e2 = new DotIdExp(e.loc, e.e2, ad2.aliasthis.ident);
                 BinExp be = cast(BinExp)e.copy();
                 if (!be.att2 && e.e2.type.checkAliasThisRec())
@@ -1556,7 +1531,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
  */
 extern (C++) Expression compare_overload(BinExp e, Scope* sc, Identifier id)
 {
-    //printf("BinExp::compare_overload(id = %s) %s\n", id->toChars(), e->toChars());
+    //printf("BinExp::compare_overload(id = %s) %s\n", id.toChars(), e.toChars());
     AggregateDeclaration ad1 = isAggregate(e.e1.type);
     AggregateDeclaration ad2 = isAggregate(e.e2.type);
     Dsymbol s = null;
@@ -1657,20 +1632,6 @@ extern (C++) Expression compare_overload(BinExp e, Scope* sc, Identifier id)
             case TOKge:
                 e.op = TOKle;
                 break;
-                // Floating point compares
-            case TOKule:
-                e.op = TOKuge;
-                break;
-            case TOKul:
-                e.op = TOKug;
-                break;
-            case TOKuge:
-                e.op = TOKule;
-                break;
-            case TOKug:
-                e.op = TOKul;
-                break;
-                // The rest are symmetric
             default:
                 break;
             }
@@ -1685,7 +1646,7 @@ extern (C++) Expression compare_overload(BinExp e, Scope* sc, Identifier id)
          */
         if (e.att1 && e.e1.type == e.att1)
             return null;
-        //printf("att cmp_bin e1 = %s\n", e->e1->type->toChars());
+        //printf("att cmp_bin e1 = %s\n", e.e1.type.toChars());
         Expression e1 = new DotIdExp(e.loc, e.e1, ad1.aliasthis.ident);
         BinExp be = cast(BinExp)e.copy();
         if (!be.att1 && e.e1.type.checkAliasThisRec())
@@ -1701,7 +1662,7 @@ extern (C++) Expression compare_overload(BinExp e, Scope* sc, Identifier id)
          */
         if (e.att2 && e.e2.type == e.att2)
             return null;
-        //printf("att cmp_bin e2 = %s\n", e->e2->type->toChars());
+        //printf("att cmp_bin e2 = %s\n", e.e2.type.toChars());
         Expression e2 = new DotIdExp(e.loc, e.e2, ad2.aliasthis.ident);
         BinExp be = cast(BinExp)e.copy();
         if (!be.att2 && e.e2.type.checkAliasThisRec())
@@ -1719,9 +1680,9 @@ extern (C++) Expression build_overload(Loc loc, Scope* sc, Expression ethis, Exp
 {
     assert(d);
     Expression e;
-    //printf("build_overload(id = '%s')\n", id->toChars());
-    //earg->print();
-    //earg->type->print();
+    //printf("build_overload(id = '%s')\n", id.toChars());
+    //earg.print();
+    //earg.type.print();
     Declaration decl = d.isDeclaration();
     if (decl)
         e = new DotVarExp(loc, ethis, decl, false);
@@ -1740,9 +1701,9 @@ extern (C++) Dsymbol search_function(ScopeDsymbol ad, Identifier funcid)
     Dsymbol s = ad.search(Loc(), funcid);
     if (s)
     {
-        //printf("search_function: s = '%s'\n", s->kind());
+        //printf("search_function: s = '%s'\n", s.kind());
         Dsymbol s2 = s.toAlias();
-        //printf("search_function: s2 = '%s'\n", s2->kind());
+        //printf("search_function: s2 = '%s'\n", s2.kind());
         FuncDeclaration fd = s2.isFuncDeclaration();
         if (fd && fd.type.ty == Tfunction)
             return fd;
@@ -1755,6 +1716,7 @@ extern (C++) Dsymbol search_function(ScopeDsymbol ad, Identifier funcid)
 
 extern (C++) bool inferAggregate(ForeachStatement fes, Scope* sc, ref Dsymbol sapply)
 {
+    //printf("inferAggregate(%s)\n", fes.aggr.toChars());
     Identifier idapply = (fes.op == TOKforeach) ? Id.apply : Id.applyReverse;
     Identifier idfront = (fes.op == TOKforeach) ? Id.Ffront : Id.Fback;
     int sliced = 0;
@@ -1764,7 +1726,10 @@ extern (C++) bool inferAggregate(ForeachStatement fes, Scope* sc, ref Dsymbol sa
     AggregateDeclaration ad;
     while (1)
     {
-        if (!aggr.type)
+        aggr = aggr.semantic(sc);
+        aggr = resolveProperties(sc, aggr);
+        aggr = aggr.optimize(WANTvalue);
+        if (!aggr.type || aggr.op == TOKerror)
             goto Lerr;
         tab = aggr.type.toBasetype();
         switch (tab.ty)
@@ -1973,8 +1938,7 @@ extern (C++) bool inferApplyArgTypes(ForeachStatement fes, Scope* sc, ref Dsymbo
             break;
         }
     default:
-        break;
-        // ignore error, caught later
+        break; // ignore error, caught later
     }
     return true;
 }
@@ -2049,11 +2013,9 @@ extern (C++) static int inferApplyArgTypesY(TypeFunction tf, Parameters* paramet
      */
     nparams = Parameter.dim(tf.parameters);
     if (nparams == 0 || tf.varargs)
-        goto Lnomatch;
-    // not enough parameters
+        goto Lnomatch; // not enough parameters
     if (parameters.dim != nparams)
-        goto Lnomatch;
-    // not enough parameters
+        goto Lnomatch; // not enough parameters
     for (size_t u = 0; u < nparams; u++)
     {
         p = (*parameters)[u];

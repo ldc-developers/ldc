@@ -1,12 +1,17 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2015 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// Distributed under the Boost Software License, Version 1.0.
-// http://www.boost.org/LICENSE_1_0.txt
+/**
+ * Compiler implementation of the
+ * $(LINK2 http://www.dlang.org, D programming language).
+ *
+ * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Source:      $(DMDSRC _init.d)
+ */
 
 module ddmd.init;
+
+import core.stdc.stdio;
+import core.checkedint;
 
 import ddmd.aggregate;
 import ddmd.arraytypes;
@@ -43,7 +48,6 @@ alias INITinterpret = NeedInterpret.INITinterpret;
  */
 extern (C++) class Initializer : RootObject
 {
-public:
     Loc loc;
 
     final extern (D) this(Loc loc)
@@ -53,7 +57,7 @@ public:
 
     abstract Initializer syntaxCopy();
 
-    final static Initializers* arraySyntaxCopy(Initializers* ai)
+    static Initializers* arraySyntaxCopy(Initializers* ai)
     {
         Initializers* a = null;
         if (ai)
@@ -119,7 +123,6 @@ public:
  */
 extern (C++) final class VoidInitializer : Initializer
 {
-public:
     Type type;      // type that this will initialize to
 
     extern (D) this(Loc loc)
@@ -165,7 +168,6 @@ public:
  */
 extern (C++) final class ErrorInitializer : Initializer
 {
-public:
     extern (D) this()
     {
         super(Loc());
@@ -207,7 +209,6 @@ public:
  */
 extern (C++) final class StructInitializer : Initializer
 {
-public:
     Identifiers field;      // of Identifier *'s
     Initializers value;     // parallel array of Initializer *'s
 
@@ -245,7 +246,7 @@ public:
 
     override Initializer semantic(Scope* sc, Type t, NeedInterpret needInterpret)
     {
-        //printf("StructInitializer::semantic(t = %s) %s\n", t->toChars(), toChars());
+        //printf("StructInitializer::semantic(t = %s) %s\n", t.toChars(), toChars());
         t = t.toBasetype();
         if (t.ty == Tsarray && t.nextOf().toBasetype().ty == Tstruct)
             t = t.nextOf().toBasetype();
@@ -328,7 +329,7 @@ public:
                     continue;
                 }
                 value[i] = iz;
-                (*elements)[fieldi] = ex;
+                (*elements)[fieldi] = doCopyOrMove(sc, ex);
                 ++fieldi;
             }
             if (errors)
@@ -384,10 +385,9 @@ public:
  */
 extern (C++) final class ArrayInitializer : Initializer
 {
-public:
     Expressions index;      // indices
     Initializers value;     // of Initializer *'s
-    size_t dim;             // length of array being initialized
+    uint dim;               // length of array being initialized
     Type type;              // type that array will be used to initialize
     bool sem;               // true if semantic() is run
 
@@ -496,10 +496,10 @@ public:
 
     override Initializer semantic(Scope* sc, Type t, NeedInterpret needInterpret)
     {
-        size_t length;
+        uint length;
         const(uint) amax = 0x80000000;
         bool errors = false;
-        //printf("ArrayInitializer::semantic(%s)\n", t->toChars());
+        //printf("ArrayInitializer::semantic(%s)\n", t.toChars());
         if (sem) // if semantic() already run
             return this;
         sem = true;
@@ -513,8 +513,7 @@ public:
             t = (cast(TypeVector)t).basetype;
             break;
         case Taarray:
-        case Tstruct:
-            // consider implicit constructor call
+        case Tstruct: // consider implicit constructor call
             {
                 Expression e;
                 // note: MyStruct foo = [1:2, 3:4] is correct code if MyStruct has a this(int[int])
@@ -550,7 +549,13 @@ public:
                 sc = sc.endCTFE();
                 idx = idx.ctfeInterpret();
                 index[i] = idx;
-                length = cast(size_t)idx.toInteger();
+                const uinteger_t idxvalue = idx.toInteger();
+                if (idxvalue >= amax)
+                {
+                    error(loc, "array index %llu overflow", ulong(idxvalue));
+                    errors = true;
+                }
+                length = cast(uint)idxvalue;
                 if (idx.op == TOKerror)
                     errors = true;
             }
@@ -592,21 +597,26 @@ public:
         }
         if (t.ty == Tsarray)
         {
-            dinteger_t edim = (cast(TypeSArray)t).dim.toInteger();
+            uinteger_t edim = (cast(TypeSArray)t).dim.toInteger();
             if (dim > edim)
             {
-                error(loc, "array initializer has %u elements, but array length is %lld", dim, edim);
+                error(loc, "array initializer has %u elements, but array length is %llu", dim, edim);
                 goto Lerr;
             }
         }
         if (errors)
             goto Lerr;
-        if (cast(uinteger_t)dim * t.nextOf().size() >= amax)
         {
-            error(loc, "array dimension %u exceeds max of %u", cast(uint)dim, cast(uint)(amax / t.nextOf().size()));
-            goto Lerr;
+            const sz = t.nextOf().size();
+            bool overflow;
+            const max = mulu(dim, sz, overflow);
+            if (overflow || max >= amax)
+            {
+                error(loc, "array dimension %llu exceeds max of %llu", ulong(dim), ulong(amax / sz));
+                goto Lerr;
+            }
+            return this;
         }
-        return this;
     Lerr:
         return new ErrorInitializer();
     }
@@ -620,7 +630,8 @@ public:
         //printf("ArrayInitializer::toExpression(), dim = %d\n", dim);
         //static int i; if (++i == 2) assert(0);
         Expressions* elements;
-        size_t edim;
+        uint edim;
+        const(uint) amax = 0x80000000;
         Type t = null;
         if (type)
         {
@@ -629,35 +640,45 @@ public:
             t = type.toBasetype();
             switch (t.ty)
             {
-            case Tsarray:
-                edim = cast(size_t)(cast(TypeSArray)t).dim.toInteger();
-                break;
             case Tvector:
                 t = (cast(TypeVector)t).basetype;
-                edim = cast(size_t)(cast(TypeSArray)t).dim.toInteger();
+                goto case Tsarray;
+
+            case Tsarray:
+                uinteger_t adim = (cast(TypeSArray)t).dim.toInteger();
+                if (adim >= amax)
+                    goto Lno;
+                edim = cast(uint)adim;
                 break;
+
             case Tpointer:
             case Tarray:
                 edim = dim;
                 break;
+
             default:
                 assert(0);
             }
         }
         else
         {
-            edim = value.dim;
+            edim = cast(uint)value.dim;
             for (size_t i = 0, j = 0; i < value.dim; i++, j++)
             {
                 if (index[i])
                 {
                     if (index[i].op == TOKint64)
-                        j = cast(size_t)index[i].toInteger();
+                    {
+                        const uinteger_t idxval = index[i].toInteger();
+                        if (idxval >= amax)
+                            goto Lno;
+                        j = cast(size_t)idxval;
+                    }
                     else
                         goto Lno;
                 }
                 if (j >= edim)
-                    edim = j + 1;
+                    edim = cast(uint)(j + 1);
             }
         }
         elements = new Expressions();
@@ -678,9 +699,9 @@ public:
             }
             (*elements)[j] = ex;
         }
-        /* Fill in any missing elements with the default initializer
-         */
         {
+            /* Fill in any missing elements with the default initializer
+             */
             Expression _init = null;
             for (size_t i = 0; i < edim; i++)
             {
@@ -693,12 +714,41 @@ public:
                     (*elements)[i] = _init;
                 }
             }
+
+            /* Expand any static array initializers that are a single expression
+             * into an array of them
+             */
+            if (t)
+            {
+                Type tn = t.nextOf().toBasetype();
+                if (tn.ty == Tsarray)
+                {
+                    const dim = cast(size_t)(cast(TypeSArray)tn).dim.toInteger();
+                    Type te = tn.nextOf().toBasetype();
+                    foreach (ref e; *elements)
+                    {
+                        if (te.equals(e.type))
+                        {
+                            auto elements2 = new Expressions();
+                            elements2.setDim(dim);
+                            foreach (ref e2; *elements2)
+                                e2 = e;
+                            e = new ArrayLiteralExp(e.loc, elements2);
+                            e.type = tn;
+                        }
+                    }
+                }
+            }
+
+            /* If any elements are errors, then the whole thing is an error
+             */
             for (size_t i = 0; i < edim; i++)
             {
                 Expression e = (*elements)[i];
                 if (e.op == TOKerror)
                     return e;
             }
+
             Expression e = new ArrayLiteralExp(loc, elements);
             e.type = type;
             return e;
@@ -755,7 +805,6 @@ public:
  */
 extern (C++) final class ExpInitializer : Initializer
 {
-public:
     Expression exp;
     bool expandTuples;
 
@@ -816,7 +865,7 @@ public:
 
     override Initializer semantic(Scope* sc, Type t, NeedInterpret needInterpret)
     {
-        //printf("ExpInitializer::semantic(%s), type = %s\n", exp->toChars(), t->toChars());
+        //printf("ExpInitializer::semantic(%s), type = %s\n", exp.toChars(), t.toChars());
         if (needInterpret)
             sc = sc.startCTFE();
         exp = exp.semantic(sc);
@@ -949,7 +998,7 @@ public:
             exp = exp.ctfeInterpret();
         else
             exp = exp.optimize(WANTvalue);
-        //printf("-ExpInitializer::semantic(): "); exp->print();
+        //printf("-ExpInitializer::semantic(): "); exp.print();
         return this;
     }
 
@@ -957,7 +1006,7 @@ public:
     {
         if (t)
         {
-            //printf("ExpInitializer::toExpression(t = %s) exp = %s\n", t->toChars(), exp->toChars());
+            //printf("ExpInitializer::toExpression(t = %s) exp = %s\n", t.toChars(), exp.toChars());
             Type tb = t.toBasetype();
             Expression e = (exp.op == TOKconstruct || exp.op == TOKblit) ? (cast(AssignExp)exp).e2 : exp;
             if (tb.ty == Tsarray && e.implicitConvTo(tb.nextOf()))
@@ -991,6 +1040,16 @@ version (all)
 {
     extern (C++) bool hasNonConstPointers(Expression e)
     {
+        static bool checkArray(Expressions* elems)
+        {
+            foreach (e; *elems)
+            {
+                if (e && hasNonConstPointers(e))
+                    return true;
+            }
+            return false;
+        }
+
         if (e.type.ty == Terror)
             return false;
         if (e.op == TOKnull)
@@ -998,22 +1057,22 @@ version (all)
         if (e.op == TOKstructliteral)
         {
             StructLiteralExp se = cast(StructLiteralExp)e;
-            return arrayHasNonConstPointers(se.elements);
+            return checkArray(se.elements);
         }
         if (e.op == TOKarrayliteral)
         {
             if (!e.type.nextOf().hasPointers())
                 return false;
             ArrayLiteralExp ae = cast(ArrayLiteralExp)e;
-            return arrayHasNonConstPointers(ae.elements);
+            return checkArray(ae.elements);
         }
         if (e.op == TOKassocarrayliteral)
         {
             AssocArrayLiteralExp ae = cast(AssocArrayLiteralExp)e;
-            if (ae.type.nextOf().hasPointers() && arrayHasNonConstPointers(ae.values))
+            if (ae.type.nextOf().hasPointers() && checkArray(ae.values))
                 return true;
             if ((cast(TypeAArray)ae.type).index.hasPointers())
-                return arrayHasNonConstPointers(ae.keys);
+                return checkArray(ae.keys);
             return false;
         }
         if (e.op == TOKaddress)
@@ -1026,7 +1085,7 @@ version (all)
                 {
                     int old = se.stageflags;
                     se.stageflags |= stageSearchPointers;
-                    bool ret = arrayHasNonConstPointers(se.elements);
+                    bool ret = checkArray(se.elements);
                     se.stageflags = old;
                     return ret;
                 }
@@ -1046,17 +1105,6 @@ version (all)
             if (e.op == TOKstring) // "abc".ptr is OK
                 return false;
             return true;
-        }
-        return false;
-    }
-
-    extern (C++) bool arrayHasNonConstPointers(Expressions* elems)
-    {
-        for (size_t i = 0; i < elems.dim; i++)
-        {
-            Expression e = (*elems)[i];
-            if (e && hasNonConstPointers(e))
-                return true;
         }
         return false;
     }

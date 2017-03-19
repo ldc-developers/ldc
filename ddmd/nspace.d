@@ -1,10 +1,12 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2015 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// Distributed under the Boost Software License, Version 1.0.
-// http://www.boost.org/LICENSE_1_0.txt
+/**
+ * Compiler implementation of the
+ * $(LINK2 http://www.dlang.org, D programming language).
+ *
+ * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Source:      $(DMDSRC _nspace.d)
+ */
 
 module ddmd.nspace;
 
@@ -13,9 +15,7 @@ import ddmd.arraytypes;
 import ddmd.dscope;
 import ddmd.dsymbol;
 import ddmd.globals;
-import ddmd.hdrgen;
 import ddmd.identifier;
-import ddmd.root.outbuffer;
 import ddmd.visitor;
 import core.stdc.stdio;
 
@@ -27,11 +27,10 @@ private enum LOG = false;
  */
 extern (C++) final class Nspace : ScopeDsymbol
 {
-public:
     extern (D) this(Loc loc, Identifier ident, Dsymbols* members)
     {
         super(ident);
-        //printf("Nspace::Nspace(ident = %s)\n", ident->toChars());
+        //printf("Nspace::Nspace(ident = %s)\n", ident.toChars());
         this.loc = loc;
         this.members = members;
     }
@@ -65,7 +64,7 @@ public:
             sc.parent = this;
             foreach (s; *members)
             {
-                //printf("add %s to scope %s\n", s->toChars(), toChars());
+                //printf("add %s to scope %s\n", s.toChars(), toChars());
                 s.addMember(sc, this);
             }
             sc.pop();
@@ -224,7 +223,7 @@ public:
         {
             foreach (s; *members)
             {
-                //printf(" s = %s %s\n", s->kind(), s->toChars());
+                //printf(" s = %s %s\n", s.kind(), s.toChars());
                 if (s.hasPointers())
                 {
                     return true;
@@ -243,7 +242,7 @@ public:
         {
             foreach (s; *members)
             {
-                //printf("\t%s\n", s->toChars());
+                //printf("\t%s\n", s.toChars());
                 s.setFieldOffset(ad, poffset, isunion);
             }
         }

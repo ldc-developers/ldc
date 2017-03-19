@@ -15,7 +15,6 @@
 #define LDC_GEN_COMPLEX_H
 
 #include "tokens.h"
-#include "longdouble.h"
 #include "dvalue.h"
 
 struct Loc;
@@ -30,7 +29,7 @@ class Value;
 llvm::StructType *DtoComplexType(Type *t);
 llvm::Type *DtoComplexBaseType(Type *t);
 
-llvm::Constant *DtoConstComplex(Type *t, longdouble re, longdouble im);
+llvm::Constant *DtoConstComplex(Type *t, real_t re, real_t im);
 
 llvm::Constant *DtoComplexShuffleMask(unsigned a, unsigned b);
 
@@ -44,10 +43,10 @@ void DtoGetComplexParts(Loc &loc, Type *to, DValue *c, llvm::Value *&re,
                         llvm::Value *&im);
 
 DImValue *DtoComplexAdd(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
-DImValue *DtoComplexSub(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
+DImValue *DtoComplexMin(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
 DImValue *DtoComplexMul(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
 DImValue *DtoComplexDiv(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
-DImValue *DtoComplexRem(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
+DImValue *DtoComplexMod(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
 DImValue *DtoComplexNeg(Loc &loc, Type *type, DRValue *val);
 
 llvm::Value *DtoComplexEquals(Loc &loc, TOK op, DValue *lhs, DValue *rhs);

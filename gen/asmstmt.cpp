@@ -93,10 +93,13 @@ AsmParserCommon *asmparser = nullptr;
 static void replace_func_name(IRState *p, std::string &insnt) {
   static const std::string needle("<<func>>");
 
+  OutBuffer mangleBuf;
+  mangleToBuffer(p->func()->decl, &mangleBuf);
+
   size_t pos;
   while (std::string::npos != (pos = insnt.find(needle))) {
     // This will only happen for few instructions, and only once for those.
-    insnt.replace(pos, needle.size(), mangle(p->func()->decl));
+    insnt.replace(pos, needle.size(), mangleBuf.peekString());
   }
 }
 
@@ -497,7 +500,9 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
 
   {
     FuncDeclaration *fd = gIR->func()->decl;
-    const char *fdmangle = mangle(fd);
+    OutBuffer mangleBuf;
+    mangleToBuffer(fd, &mangleBuf);
+    const char *fdmangle = mangleBuf.peekString();
 
     // we use a simple static counter to make sure the new end labels are unique
     static size_t uniqueLabelsId = 0;
@@ -546,8 +551,8 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
       // provide an in-asm target for the branch and set value
       IF_LOG Logger::println(
           "statement '%s' references outer label '%s': creating forwarder",
-          a->code.c_str(), a->isBranchToLabel->ident->string);
-      printLabelName(code, fdmangle, a->isBranchToLabel->ident->string);
+          a->code.c_str(), a->isBranchToLabel->ident->toChars());
+      printLabelName(code, fdmangle, a->isBranchToLabel->ident->toChars());
       code << ":\n\t";
       code << "movl $<<in" << n_goto << ">>, $<<out0>>\n";
       // FIXME: Store the value -> label mapping somewhere, so it can be
@@ -716,8 +721,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     assert(jump_target);
 
     // make new blocks
-    llvm::BasicBlock *bb = llvm::BasicBlock::Create(
-        gIR->context(), "afterasmgotoforwarder", p->topfunc());
+    llvm::BasicBlock *bb = p->insertBB("afterasmgotoforwarder");
 
     llvm::LoadInst *val =
         p->ir->CreateLoad(jump_target, "__llvm_jump_target_value");
@@ -725,8 +729,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
 
     // add all cases
     for (const auto &pair : gotoToVal) {
-      llvm::BasicBlock *casebb =
-          llvm::BasicBlock::Create(gIR->context(), "case", p->topfunc(), bb);
+      llvm::BasicBlock *casebb = p->insertBBBefore(bb, "case");
       sw->addCase(LLConstantInt::get(llvm::IntegerType::get(gIR->context(), 32),
                                      pair.second),
                   casebb);

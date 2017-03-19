@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/arrays.h"
+#include "gen/binops.h"
 #include "gen/classes.h"
 #include "gen/complex.h"
 #include "gen/irstate.h"
@@ -23,8 +24,6 @@
 #include "template.h"
 // Needs other includes.
 #include "ctfe.h"
-
-extern dinteger_t undoStrideMul(Loc &loc, Type *t, dinteger_t offset);
 
 /// Emits an LLVM constant corresponding to the expression.
 ///
@@ -312,11 +311,9 @@ public:
 #endif
       }
       result = DtoBitCast(value, DtoType(tb));
-    } else if (tb->ty == Tclass && e->e1->type->ty == Tclass) {
-      assert(e->e1->op == TOKclassreference);
-      ClassDeclaration *cd =
-          static_cast<ClassReferenceExp *>(e->e1)->originalClass();
-
+    } else if (tb->ty == Tclass && e->e1->type->ty == Tclass &&
+               e->e1->op == TOKclassreference) {
+      auto cd = static_cast<ClassReferenceExp *>(e->e1)->originalClass();
       llvm::Constant *instance = toConstElem(e->e1);
       if (InterfaceDeclaration *it =
               static_cast<TypeClass *>(tb)->sym->isInterfaceDeclaration()) {
@@ -373,7 +370,7 @@ public:
         // We can turn this into a "nice" GEP.
         result = llvm::ConstantExpr::getGetElementPtr(
 #if LDC_LLVM_VER >= 307
-            NULL,
+            nullptr,
 #endif
             base, DtoConstSize_t(e->offset / elemSize));
       } else {
@@ -381,7 +378,7 @@ public:
         // apply the byte offset.
         result = llvm::ConstantExpr::getGetElementPtr(
 #if LDC_LLVM_VER >= 307
-            NULL,
+            nullptr,
 #endif
             DtoBitCast(base, getVoidPtrType()), DtoConstSize_t(e->offset));
       }
@@ -511,9 +508,9 @@ public:
       // added
       // to the module member list.
       Declaration_codegen(fd, p);
-      assert(getIrFunc(fd)->func);
+      assert(DtoCallee(fd));
 
-      result = getIrFunc(fd)->func;
+      result = DtoCallee(fd);
     }
   }
 
@@ -593,7 +590,11 @@ public:
       const size_t nexprs = e->elements->dim;
       for (size_t i = 0; i < nexprs; i++) {
         if ((*e->elements)[i]) {
-          varInits[e->sd->fields[i]] = toConstElem((*e->elements)[i]);
+          LLConstant *c = toConstElem((*e->elements)[i]);
+          // extend i1 to i8
+          if (c->getType() == LLType::getInt1Ty(p->context()))
+            c = llvm::ConstantExpr::getZExt(c, LLType::getInt8Ty(p->context()));
+          varInits[e->sd->fields[i]] = c;
         }
       }
 

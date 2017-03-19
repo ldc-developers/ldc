@@ -17,13 +17,13 @@
 #include "gen/classes.h"
 #include "gen/coverage.h"
 #include "gen/dvalue.h"
+#include "gen/funcgenstate.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
-#include "gen/ms-cxx-helper.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "llvm/IR/CFG.h"
@@ -43,20 +43,12 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p);
 
 //////////////////////////////////////////////////////////////////////////////
 
-// used to build the sorted list of cases
-struct Case {
-  StringExp *str;
-  size_t index;
-
-  Case(StringExp *s, size_t i) {
-    str = s;
-    index = i;
-  }
-
-  friend bool operator<(const Case &l, const Case &r) {
-    return l.str->compare(r.str) < 0;
-  }
-};
+// For sorting string switch cases lexicographically.
+namespace {
+bool compareCaseStrings(CaseStatement *lhs, CaseStatement *rhs) {
+  return lhs->exp->compare(rhs->exp) < 0;
+}
+}
 
 static LLValue *call_string_switch_runtime(llvm::Value *table, Expression *e) {
   Type *dt = e->type->toBasetype();
@@ -110,7 +102,7 @@ public:
                            stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
     for (auto s : *stmt->statements) {
@@ -126,7 +118,7 @@ public:
     IF_LOG Logger::println("ReturnStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
     // emit dwarf stop point
@@ -135,52 +127,70 @@ public:
     emitCoverageLinecountInc(stmt->loc);
 
     // The LLVM value to return, or null for void returns.
-    llvm::Value *returnValue = nullptr;
+    LLValue *returnValue = nullptr;
+
+    auto &funcGen = irs->funcGen();
+    IrFunction *const f = &funcGen.irFunc;
+    FuncDeclaration *const fd = f->decl;
+    llvm::FunctionType *funcType = f->getLLVMFuncType();
+
+    emitInstrumentationFnLeave(fd);
 
     // is there a return value expression?
-    if (stmt->exp || (!stmt->exp && (irs->topfunc() == irs->mainFunc))) {
-      // if the functions return type is void this means that
-      // we are returning through a pointer argument
-      if (irs->topfunc()->getReturnType() ==
-          LLType::getVoidTy(irs->context())) {
-        // sanity check
-        IrFunction *f = irs->func();
-        assert(getIrFunc(f->decl)->sretArg);
+    if (stmt->exp || (!stmt->exp && irs->isMainFunc(f))) {
+      // if the function's return type is void, it uses sret
+      if (funcType->getReturnType() == LLType::getVoidTy(irs->context())) {
+        assert(!f->type->isref);
 
-        // FIXME: is there ever a case where a sret return needs to be rewritten
-        // for the ABI?
+        LLValue *sretPointer = getIrFunc(fd)->sretArg;
+        assert(sretPointer);
 
-        LLValue *sretPointer = getIrFunc(f->decl)->sretArg;
-        DValue *e = toElemDtor(stmt->exp);
-        // store return value
-        if (!e->isLVal() || DtoLVal(e) != sretPointer) {
-          DLValue rvar(f->type->next, sretPointer);
-          DtoAssign(stmt->loc, &rvar, e, TOKblit);
+        assert(!f->irFty.arg_sret->rewrite &&
+               "ABI shouldn't have to rewrite sret returns");
+        DLValue returnValue(f->type->next, sretPointer);
 
-          // call postblit if the expression is a D lvalue
-          // exceptions: NRVO and special __result variable (for out contracts)
-          bool doPostblit = !(f->decl->nrvo_can && f->decl->nrvo_var);
-          if (doPostblit && stmt->exp->op == TOKvar) {
-            auto ve = static_cast<VarExp *>(stmt->exp);
-            if (ve->var->isResult())
-              doPostblit = false;
+        // try to construct the return value in-place
+        const auto initialCleanupScope = funcGen.scopes.currentCleanupScope();
+        const bool constructed = toInPlaceConstruction(&returnValue, stmt->exp);
+        if (constructed) {
+          // cleanup manually (otherwise done by toElemDtor())
+          if (funcGen.scopes.currentCleanupScope() != initialCleanupScope) {
+            auto endbb = irs->insertBB("inPlaceSretConstruct.success");
+            funcGen.scopes.runCleanups(initialCleanupScope, endbb);
+            funcGen.scopes.popCleanups(initialCleanupScope);
+            irs->scope() = IRScope(endbb);
           }
-          if (doPostblit)
-            callPostblit(stmt->loc, stmt->exp, sretPointer);
+        } else {
+          DValue *e = toElemDtor(stmt->exp);
+
+          // store the return value unless NRVO already used the sret pointer
+          if (!e->isLVal() || DtoLVal(e) != sretPointer) {
+            // call postblit if the expression is a D lvalue
+            // exceptions: NRVO and special __result variable (out contracts)
+            bool doPostblit = !(fd->nrvo_can && fd->nrvo_var);
+            if (doPostblit && stmt->exp->op == TOKvar) {
+              auto ve = static_cast<VarExp *>(stmt->exp);
+              if (ve->var->isResult())
+                doPostblit = false;
+            }
+
+            DtoAssign(stmt->loc, &returnValue, e, TOKblit);
+            if (doPostblit)
+              callPostblit(stmt->loc, stmt->exp, sretPointer);
+          }
         }
-      }
-      // the return type is not void, so this is a normal "register" return
-      else {
-        if (!stmt->exp && (irs->topfunc() == irs->mainFunc)) {
+      } else {
+        // the return type is not void, so this is a normal "register" return
+        if (!stmt->exp && irs->isMainFunc(f)) {
           returnValue =
               LLConstant::getNullValue(irs->mainFunc->getReturnType());
         } else {
           if (stmt->exp->op == TOKnull) {
-            stmt->exp->type = irs->func()->type->next;
+            stmt->exp->type = f->type->next;
           }
           DValue *dval = nullptr;
           // call postblit if necessary
-          if (!irs->func()->type->isref) {
+          if (!f->type->isref) {
             dval = toElemDtor(stmt->exp);
             LLValue *vthis =
                 (DtoIsInMemoryOnly(dval->type) ? DtoLVal(dval) : DtoRVal(dval));
@@ -190,15 +200,14 @@ public:
             dval = toElemDtor(ae);
           }
           // do abi specific transformations on the return value
-          returnValue = getIrFunc(irs->func()->decl)->irFty.putRet(dval);
+          returnValue = getIrFunc(fd)->irFty.putRet(dval);
         }
 
-        IrFunction *f = irs->func();
         // Hack around LDC assuming structs and static arrays are in memory:
         // If the function returns a struct or a static array, and the return
         // value is a pointer to a struct or a static array, load from it
         // before returning.
-        if (returnValue->getType() != irs->topfunc()->getReturnType() &&
+        if (returnValue->getType() != funcType->getReturnType() &&
             DtoIsInMemoryOnly(f->type->next) &&
             isaPointer(returnValue->getType())) {
           Logger::println("Loading value for return");
@@ -206,18 +215,18 @@ public:
         }
 
         // can happen for classes and void main
-        if (returnValue->getType() != irs->topfunc()->getReturnType()) {
+        if (returnValue->getType() != funcType->getReturnType()) {
           // for the main function this only happens if it is declared as void
           // and then contains a return (exp); statement. Since the actual
           // return type remains i32, we just throw away the exp value
           // and return 0 instead
           // if we're not in main, just bitcast
-          if (irs->topfunc() == irs->mainFunc) {
+          if (irs->isMainFunc(f)) {
             returnValue =
                 LLConstant::getNullValue(irs->mainFunc->getReturnType());
           } else {
-            returnValue = irs->ir->CreateBitCast(
-                returnValue, irs->topfunc()->getReturnType());
+            returnValue =
+                irs->ir->CreateBitCast(returnValue, funcType->getReturnType());
           }
 
           IF_LOG Logger::cout() << "return value after cast: " << *returnValue
@@ -226,22 +235,20 @@ public:
       }
     } else {
       // no return value expression means it's a void function.
-      assert(irs->topfunc()->getReturnType() ==
-             LLType::getVoidTy(irs->context()));
+      assert(funcType->getReturnType() == LLType::getVoidTy(irs->context()));
     }
 
     // If there are no cleanups to run, we try to keep the IR simple and
     // just directly emit the return instruction. If there are cleanups to run
     // first, we need to store the return value to a stack slot, in which case
     // we can use a shared return bb for all these cases.
-    const bool useRetValSlot = irs->func()->scopes->currentCleanupScope() != 0;
-    const bool sharedRetBlockExists = !!irs->func()->retBlock;
+    const bool useRetValSlot = funcGen.scopes.currentCleanupScope() != 0;
+    const bool sharedRetBlockExists = !!funcGen.retBlock;
     if (useRetValSlot) {
       if (!sharedRetBlockExists) {
-        irs->func()->retBlock =
-            llvm::BasicBlock::Create(irs->context(), "return", irs->topfunc());
+        funcGen.retBlock = irs->insertBB("return");
         if (returnValue) {
-          irs->func()->retValSlot =
+          funcGen.retValSlot =
               DtoRawAlloca(returnValue->getType(), 0, "return.slot");
         }
       }
@@ -249,13 +256,13 @@ public:
       // Create the store to the slot at the end of our current basic
       // block, before we run the cleanups.
       if (returnValue) {
-        irs->ir->CreateStore(returnValue, irs->func()->retValSlot);
+        irs->ir->CreateStore(returnValue, funcGen.retValSlot);
       }
 
       // Now run the cleanups.
-      irs->func()->scopes->runAllCleanups(irs->func()->retBlock);
+      funcGen.scopes.runCleanups(0, funcGen.retBlock);
 
-      irs->scope() = IRScope(irs->func()->retBlock);
+      irs->scope() = IRScope(funcGen.retBlock);
     }
 
     // If we need to emit the actual return instruction, do so.
@@ -264,11 +271,11 @@ public:
         // Hack: the frontend generates 'return 0;' as last statement of
         // 'void main()'. But the debug location is missing. Use the end
         // of function as debug location.
-        if (irs->func()->decl->isMain() && !stmt->loc.linnum) {
-          irs->DBuilder.EmitStopPoint(irs->func()->decl->endloc);
+        if (fd->isMain() && !stmt->loc.linnum) {
+          irs->DBuilder.EmitStopPoint(fd->endloc);
         }
 
-        irs->ir->CreateRet(useRetValSlot ? DtoLoad(irs->func()->retValSlot)
+        irs->ir->CreateRet(useRetValSlot ? DtoLoad(funcGen.retValSlot)
                                          : returnValue);
       } else {
         irs->ir->CreateRetVoid();
@@ -278,8 +285,7 @@ public:
     // Finally, create a new predecessor-less dummy bb as the current IRScope
     // to make sure we do not emit any extra instructions after the terminating
     // instruction (ret or branch to return bb), which would be illegal IR.
-    irs->scope() = IRScope(llvm::BasicBlock::Create(
-        gIR->context(), "dummy.afterreturn", irs->topfunc()));
+    irs->scope() = IRScope(irs->insertBB("dummy.afterreturn"));
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -288,7 +294,7 @@ public:
     IF_LOG Logger::println("ExpStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
     // emit dwarf stop point
@@ -316,7 +322,7 @@ public:
     IF_LOG Logger::println("IfStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
     auto truecount = PGO.getRegionCount(stmt);
     auto elsecount = PGO.getCurrentRegionCount() - truecount;
@@ -326,21 +332,13 @@ public:
     irs->DBuilder.EmitBlockStart(stmt->loc);
     emitCoverageLinecountInc(stmt->loc);
 
-    if (stmt->match) {
-      DtoRawVarDeclaration(stmt->match);
-    }
-
     DValue *cond_e = toElemDtor(stmt->condition);
     LLValue *cond_val = DtoRVal(cond_e);
 
-    llvm::BasicBlock *ifbb =
-        llvm::BasicBlock::Create(irs->context(), "if", irs->topfunc());
-    llvm::BasicBlock *endbb =
-        llvm::BasicBlock::Create(irs->context(), "endif", irs->topfunc());
+    llvm::BasicBlock *ifbb = irs->insertBB("if");
+    llvm::BasicBlock *endbb = irs->insertBBAfter(ifbb, "endif");
     llvm::BasicBlock *elsebb =
-        stmt->elsebody ? llvm::BasicBlock::Create(irs->context(), "else",
-                                                  irs->topfunc(), endbb)
-                       : endbb;
+        stmt->elsebody ? irs->insertBBAfter(ifbb, "else") : endbb;
 
     if (cond_val->getType() != LLType::getInt1Ty(irs->context())) {
       IF_LOG Logger::cout() << "if conditional: " << *cond_val << '\n';
@@ -388,7 +386,7 @@ public:
     IF_LOG Logger::println("ScopeStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
     if (stmt->statement) {
@@ -404,7 +402,7 @@ public:
     IF_LOG Logger::println("WhileStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
     // start a dwarf lexical block
@@ -412,12 +410,9 @@ public:
 
     // create while blocks
 
-    llvm::BasicBlock *whilebb =
-        llvm::BasicBlock::Create(irs->context(), "whilecond", irs->topfunc());
-    llvm::BasicBlock *whilebodybb =
-        llvm::BasicBlock::Create(irs->context(), "whilebody", irs->topfunc());
-    llvm::BasicBlock *endbb =
-        llvm::BasicBlock::Create(irs->context(), "endwhile", irs->topfunc());
+    llvm::BasicBlock *whilebb = irs->insertBB("whilecond");
+    llvm::BasicBlock *whilebodybb = irs->insertBBAfter(whilebb, "whilebody");
+    llvm::BasicBlock *endbb = irs->insertBBAfter(whilebodybb, "endwhile");
 
     // move into the while block
     irs->ir->CreateBr(whilebb);
@@ -445,12 +440,12 @@ public:
     irs->scope() = IRScope(whilebodybb);
 
     // while body code
-    irs->func()->scopes->pushLoopTarget(stmt, whilebb, endbb);
+    irs->funcGen().jumpTargets.pushLoopTarget(stmt, whilebb, endbb);
     PGO.emitCounterIncrement(stmt);
     if (stmt->_body) {
       stmt->_body->accept(this);
     }
-    irs->func()->scopes->popLoopTarget();
+    irs->funcGen().jumpTargets.popLoopTarget();
 
     // loop
     if (!irs->scopereturned()) {
@@ -470,19 +465,16 @@ public:
     IF_LOG Logger::println("DoStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &PGO = irs->funcGen().pgo;
     auto entryCount = PGO.setCurrentStmt(stmt);
 
     // start a dwarf lexical block
     irs->DBuilder.EmitBlockStart(stmt->loc);
 
     // create while blocks
-    llvm::BasicBlock *dowhilebb =
-        llvm::BasicBlock::Create(irs->context(), "dowhile", irs->topfunc());
-    llvm::BasicBlock *condbb =
-        llvm::BasicBlock::Create(irs->context(), "dowhilecond", irs->topfunc());
-    llvm::BasicBlock *endbb =
-        llvm::BasicBlock::Create(irs->context(), "enddowhile", irs->topfunc());
+    llvm::BasicBlock *dowhilebb = irs->insertBB("dowhile");
+    llvm::BasicBlock *condbb = irs->insertBBAfter(dowhilebb, "dowhilecond");
+    llvm::BasicBlock *endbb = irs->insertBBAfter(condbb, "enddowhile");
 
     // move into the while block
     assert(!irs->scopereturned());
@@ -492,12 +484,12 @@ public:
     irs->scope() = IRScope(dowhilebb);
 
     // do-while body code
-    irs->func()->scopes->pushLoopTarget(stmt, condbb, endbb);
+    irs->funcGen().jumpTargets.pushLoopTarget(stmt, condbb, endbb);
     PGO.emitCounterIncrement(stmt);
     if (stmt->_body) {
       stmt->_body->accept(this);
     }
-    irs->func()->scopes->popLoopTarget();
+    irs->funcGen().jumpTargets.popLoopTarget();
 
     // branch to condition block
     llvm::BranchInst::Create(condbb, irs->scopebb());
@@ -522,10 +514,6 @@ public:
       PGO.addBranchWeights(branchinst, brweights);
     }
 
-    // Order the blocks in a logical order in IR
-    condbb->moveAfter(&irs->topfunc()->back());
-    endbb->moveAfter(condbb);
-
     // rewrite the scope
     irs->scope() = IRScope(endbb);
 
@@ -539,21 +527,17 @@ public:
     IF_LOG Logger::println("ForStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
     // start new dwarf lexical block
     irs->DBuilder.EmitBlockStart(stmt->loc);
 
     // create for blocks
-    llvm::BasicBlock *forbb =
-        llvm::BasicBlock::Create(irs->context(), "forcond", irs->topfunc());
-    llvm::BasicBlock *forbodybb =
-        llvm::BasicBlock::Create(irs->context(), "forbody", irs->topfunc());
-    llvm::BasicBlock *forincbb =
-        llvm::BasicBlock::Create(irs->context(), "forinc", irs->topfunc());
-    llvm::BasicBlock *endbb =
-        llvm::BasicBlock::Create(irs->context(), "endfor", irs->topfunc());
+    llvm::BasicBlock *forbb = irs->insertBB("forcond");
+    llvm::BasicBlock *forbodybb = irs->insertBBAfter(forbb, "forbody");
+    llvm::BasicBlock *forincbb = irs->insertBBAfter(forbodybb, "forinc");
+    llvm::BasicBlock *endbb = irs->insertBBAfter(forincbb, "endfor");
 
     // init
     if (stmt->_init != nullptr) {
@@ -571,7 +555,7 @@ public:
     while (ScopeStatement *scope = scopeStart->isScopeStatement()) {
       scopeStart = scope->statement;
     }
-    irs->func()->scopes->pushLoopTarget(scopeStart, forincbb, endbb);
+    irs->funcGen().jumpTargets.pushLoopTarget(scopeStart, forincbb, endbb);
 
     // replace current scope
     irs->scope() = IRScope(forbb);
@@ -605,10 +589,6 @@ public:
       stmt->_body->accept(this);
     }
 
-    // Order the blocks in a logical order in IR
-    forincbb->moveAfter(&irs->topfunc()->back());
-    endbb->moveAfter(forincbb);
-
     // move into the for increment block
     if (!irs->scopereturned()) {
       llvm::BranchInst::Create(forincbb, irs->scopebb());
@@ -627,7 +607,7 @@ public:
       llvm::BranchInst::Create(forbb, irs->scopebb());
     }
 
-    irs->func()->scopes->popLoopTarget();
+    irs->funcGen().jumpTargets.popLoopTarget();
 
     // rewrite the scope
     irs->scope() = IRScope(endbb);
@@ -642,7 +622,7 @@ public:
     IF_LOG Logger::println("BreakStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
     // don't emit two terminators in a row
@@ -667,14 +647,13 @@ public:
         targetStatement = tmp->statement;
       }
 
-      irs->func()->scopes->breakToStatement(targetStatement);
+      irs->funcGen().jumpTargets.breakToStatement(targetStatement);
     } else {
-      irs->func()->scopes->breakToClosest();
+      irs->funcGen().jumpTargets.breakToClosest();
     }
 
     // the break terminated this basicblock, start a new one
-    llvm::BasicBlock *bb =
-        llvm::BasicBlock::Create(irs->context(), "afterbreak", irs->topfunc());
+    llvm::BasicBlock *bb = irs->insertBB("afterbreak");
     irs->scope() = IRScope(bb);
   }
 
@@ -685,7 +664,7 @@ public:
                            stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
     // emit dwarf stop point
@@ -703,14 +682,13 @@ public:
         targetLoopStatement = tmp->statement;
       }
 
-      irs->func()->scopes->continueWithLoop(targetLoopStatement);
+      irs->funcGen().jumpTargets.continueWithLoop(targetLoopStatement);
     } else {
-      irs->func()->scopes->continueWithClosest();
+      irs->funcGen().jumpTargets.continueWithClosest();
     }
 
-    // the break terminated this basicblock, start a new one
-    llvm::BasicBlock *bb =
-        llvm::BasicBlock::Create(irs->context(), "afterbreak", irs->topfunc());
+    // the continue terminated this basicblock, start a new one
+    llvm::BasicBlock *bb = irs->insertBB("aftercontinue");
     irs->scope() = IRScope(bb);
   }
 
@@ -729,7 +707,7 @@ public:
                            stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &PGO = irs->funcGen().pgo;
     /*auto entryCount = */ PGO.setCurrentStmt(stmt);
 
     // emit dwarf stop point
@@ -755,16 +733,21 @@ public:
     // for an extra one (we'd need to branch to it unconditionally anyway).
     llvm::BasicBlock *trybb = irs->scopebb();
 
+    llvm::BasicBlock *finallybb = irs->insertBB("finally");
+    // Create a block to branch to after successfully running the try block
+    // and any cleanups.
+    llvm::BasicBlock *successbb =
+        irs->scopereturned() ? nullptr
+                             : irs->insertBBAfter(finallybb, "try.success");
+
     // Emit the finally block and set up the cleanup scope for it.
-    llvm::BasicBlock *finallybb =
-        llvm::BasicBlock::Create(irs->context(), "finally", irs->topfunc());
     irs->scope() = IRScope(finallybb);
     irs->DBuilder.EmitBlockStart(stmt->finalbody->loc);
     stmt->finalbody->accept(this);
     irs->DBuilder.EmitBlockEnd();
 
-    CleanupCursor cleanupBefore = irs->func()->scopes->currentCleanupScope();
-    irs->func()->scopes->pushCleanup(finallybb, irs->scopebb());
+    CleanupCursor cleanupBefore = irs->funcGen().scopes.currentCleanupScope();
+    irs->funcGen().scopes.pushCleanup(finallybb, irs->scopebb());
 
     // Emit the try block.
     irs->scope() = IRScope(trybb);
@@ -774,108 +757,23 @@ public:
     stmt->_body->accept(this);
     irs->DBuilder.EmitBlockEnd();
 
-    // Create a block to branch to after successfully running the try block
-    // and any cleanups.
-    if (!irs->scopereturned()) {
-      llvm::BasicBlock *successbb = llvm::BasicBlock::Create(
-          irs->context(), "try.success", irs->topfunc());
-      irs->func()->scopes->runCleanups(cleanupBefore, successbb);
+    if (successbb) {
+      irs->funcGen().scopes.runCleanups(cleanupBefore, successbb);
       irs->scope() = IRScope(successbb);
       // PGO counter tracks the continuation of the try-finally statement
       PGO.emitCounterIncrement(stmt);
     }
-    irs->func()->scopes->popCleanups(cleanupBefore);
+    irs->funcGen().scopes.popCleanups(cleanupBefore);
   }
 
-//////////////////////////////////////////////////////////////////////////
-
-#if LDC_LLVM_VER >= 308
-  void emitBeginCatchMSVCEH(Catch *ctch, llvm::BasicBlock *endbb,
-                            llvm::CatchSwitchInst *catchSwitchInst) {
-    VarDeclaration *var = ctch->var;
-    // The MSVC/x86 build uses C++ exception handling
-    // This needs a series of catch pads to match the exception
-    // and the catch handler must be terminated by a catch return instruction
-    LLValue *exnObj = nullptr;
-    LLValue *cpyObj = nullptr;
-    LLValue *typeDesc = nullptr;
-    LLValue *clssInfo = nullptr;
-    if (var) {
-      // alloca storage for the variable, it always needs a place on the stack
-      // do not initialize, this will be done by the C++ exception handler
-      var->_init = nullptr;
-
-      // redirect scope to avoid the generation of debug info before the
-      // catchpad
-      IRScope save = irs->scope();
-      irs->scope() = IRScope(gIR->topallocapoint()->getParent());
-      irs->scope().builder.SetInsertPoint(gIR->topallocapoint());
-      DtoDeclarationExp(var);
-
-      // catch handler will be outlined, so always treat as a nested reference
-      exnObj = getIrValue(var);
-
-      if (var->nestedrefs.dim) {
-        // if variable needed in a closure, use a stack temporary and copy it
-        // when caught
-        cpyObj = exnObj;
-        exnObj = DtoAlloca(var->type, "exnObj");
-      }
-      irs->scope() = save;
-    } else if (ctch->type) {
-      // catch without var
-      exnObj = DtoAlloca(ctch->type, "exnObj");
-    } else {
-      // catch all
-      exnObj = LLConstant::getNullValue(getVoidPtrType());
-    }
-
-    if (ctch->type) {
-      ClassDeclaration *cd = ctch->type->toBasetype()->isClassHandle();
-      typeDesc = getTypeDescriptor(*irs, cd);
-      clssInfo = getIrAggr(cd)->getClassInfoSymbol();
-    } else {
-      // catch all
-      typeDesc = LLConstant::getNullValue(getVoidPtrType());
-      clssInfo = LLConstant::getNullValue(DtoType(Type::typeinfoclass->type));
-    }
-
-    // "catchpad within %switch [TypeDescriptor, 0, &caughtObject]" must be
-    // first instruction
-    int flags = var ? 0 : 64; // just mimicking clang here
-    LLValue *args[] = {typeDesc, DtoConstUint(flags), exnObj};
-    auto catchpad = irs->ir->CreateCatchPad(
-        catchSwitchInst, llvm::ArrayRef<LLValue *>(args), "");
-    catchSwitchInst->addHandler(irs->scopebb());
-
-    if (cpyObj) {
-      // assign the caught exception to the location in the closure
-      auto val = irs->ir->CreateLoad(exnObj);
-      irs->ir->CreateStore(val, cpyObj);
-      exnObj = cpyObj;
-    }
-
-    // Exceptions are never rethrown by D code (but thrown again), so
-    // we can leave the catch handler right away and continue execution
-    // outside the catch funclet
-    llvm::BasicBlock *catchhandler = llvm::BasicBlock::Create(
-        irs->context(), "catchhandler", irs->topfunc());
-    llvm::CatchReturnInst::Create(catchpad, catchhandler, irs->scopebb());
-    irs->scope() = IRScope(catchhandler);
-    auto enterCatchFn =
-        getRuntimeFunction(Loc(), irs->module, "_d_eh_enter_catch");
-    irs->CreateCallOrInvoke(enterCatchFn, DtoBitCast(exnObj, getVoidPtrType()),
-                            clssInfo);
-  }
-#endif
+  //////////////////////////////////////////////////////////////////////////
 
   void visit(TryCatchStatement *stmt) LLVM_OVERRIDE {
     IF_LOG Logger::println("TryCatchStatement::toIR(): %s",
                            stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
-    auto entryCount = PGO.setCurrentStmt(stmt);
+    auto &PGO = irs->funcGen().pgo;
 
     // Emit dwarf stop point
     irs->DBuilder.EmitStopPoint(stmt->loc);
@@ -886,153 +784,9 @@ public:
 
     // Create a basic block to branch to after leaving the try or an
     // associated catch block successfully.
-    llvm::BasicBlock *endbb = llvm::BasicBlock::Create(
-        irs->context(), "try.success.or.caught", irs->topfunc());
+    llvm::BasicBlock *endbb = irs->insertBB("try.success.or.caught");
 
-    assert(stmt->catches);
-
-    struct CatchBlock {
-      ClassDeclaration *classdecl;
-      llvm::BasicBlock *BB;
-      uint64_t catchcount;
-    };
-
-    llvm::SmallVector<CatchBlock, 6> catchBlocks;
-    catchBlocks.reserve(stmt->catches->dim);
-
-#if LDC_LLVM_VER >= 308
-    if (useMSVCEH()) {
-      ScopeStack *scopes = irs->func()->scopes;
-      auto catchSwitchBlock = llvm::BasicBlock::Create(
-          irs->context(), "catch.dispatch", irs->topfunc());
-      llvm::BasicBlock *unwindto =
-          scopes->currentCleanupScope() > 0 || scopes->currentCatchScope() > 0
-              ? scopes->getLandingPad()
-              : nullptr;
-      auto funclet = scopes->getFunclet();
-      auto catchSwitchInst = llvm::CatchSwitchInst::Create(
-          funclet ? funclet : llvm::ConstantTokenNone::get(irs->context()),
-          unwindto, stmt->catches->dim, "", catchSwitchBlock);
-
-      for (auto it = stmt->catches->begin(), end = stmt->catches->end();
-           it != end; ++it) {
-        llvm::BasicBlock *catchBB = llvm::BasicBlock::Create(
-            irs->context(), llvm::Twine("catch.") + (*it)->type->toChars(),
-            irs->topfunc(), endbb);
-
-        irs->scope() = IRScope(catchBB);
-        irs->DBuilder.EmitBlockStart((*it)->loc);
-        PGO.emitCounterIncrement(*it);
-
-        emitBeginCatchMSVCEH(*it, endbb, catchSwitchInst);
-
-        // Emit handler, if there is one. The handler is zero, for instance,
-        // when building 'catch { debug foo(); }' in non-debug mode.
-        if ((*it)->handler) {
-          Statement_toIR((*it)->handler, irs);
-        }
-
-        if (!irs->scopereturned()) {
-          irs->ir->CreateBr(endbb);
-        }
-
-        irs->DBuilder.EmitBlockEnd();
-      }
-
-      // TODO: PGO has not yet been implemented for MSVC EH, set catchCount
-      // temporarily to 0
-      uint64_t catchCount = 0;
-
-      CatchBlock cb = {nullptr, catchSwitchBlock, catchCount};
-      catchBlocks.push_back(cb); // just for cleanup
-      scopes->pushCatch(nullptr, catchSwitchBlock);
-
-      // if no landing pad is created, the catch blocks are unused, but
-      // the verifier complains if there are catchpads without personality
-      // so we can just set it unconditionally
-      if (!irs->func()->func->hasPersonalityFn()) {
-        const char *personality = "__CxxFrameHandler3";
-        LLFunction *personalityFn =
-            getRuntimeFunction(Loc(), irs->module, personality);
-        irs->func()->func->setPersonalityFn(personalityFn);
-      }
-    } else
-#endif
-    {
-      for (Catches::reverse_iterator it = stmt->catches->rbegin(),
-                                     end = stmt->catches->rend();
-           it != end; ++it) {
-        llvm::BasicBlock *catchBB = llvm::BasicBlock::Create(
-            irs->context(), llvm::Twine("catch.") + (*it)->type->toChars(),
-            irs->topfunc(), endbb);
-
-        irs->scope() = IRScope(catchBB);
-        irs->DBuilder.EmitBlockStart((*it)->loc);
-        PGO.emitCounterIncrement(*it);
-
-        const auto enterCatchFn =
-            getRuntimeFunction(Loc(), irs->module, "_d_eh_enter_catch");
-        auto ptr = DtoLoad(irs->func()->getOrCreateEhPtrSlot());
-        auto throwableObj = irs->ir->CreateCall(enterCatchFn, ptr);
-
-        // For catches that use the Throwable object, create storage for it.
-        // We will set it in the code that branches from the landing pads
-        // (there might be more than one) to catchBB.
-        auto var = (*it)->var;
-        if (var) {
-          // This will alloca if we haven't already and take care of nested refs
-          // if there are any.
-          DtoDeclarationExp(var);
-
-          // Copy the exception reference over from the _d_eh_enter_catch return
-          // value.
-          DtoStore(DtoBitCast(throwableObj, DtoType((*it)->var->type)),
-                   getIrLocal(var)->value);
-        }
-
-        // Emit handler, if there is one. The handler is zero, for instance,
-        // when building 'catch { debug foo(); }' in non-debug mode.
-        if ((*it)->handler) {
-          Statement_toIR((*it)->handler, irs);
-        }
-
-        if (!irs->scopereturned()) {
-          irs->ir->CreateBr(endbb);
-        }
-
-        irs->DBuilder.EmitBlockEnd();
-
-        // PGO information, currently unused
-        auto catchCount = PGO.getRegionCount(*it);
-
-        CatchBlock cb = {(*it)->type->toBasetype()->isClassHandle(), catchBB,
-                         catchCount};
-        catchBlocks.push_back(cb);
-      }
-
-      // Total number of uncaught exceptions is equal to the execution count at
-      // the start of the try block minus the one after the continuation.
-      // uncaughtCount keeps track of the exception type mismatch count while
-      // iterating through the catchBlocks list.
-      auto uncaughtCount = entryCount - PGO.getRegionCount(stmt);
-
-      // Only after emitting all the catch bodies, register the catch scopes.
-      // This is so that (re)throwing inside a catch does not match later
-      // catches.
-      for (const auto &cb : catchBlocks) {
-        auto matchWeights =
-            PGO.createProfileWeights(cb.catchcount, uncaughtCount);
-        // Add this exception type's match count to the uncaughtCount, because
-        // these failed to match the exception types of the remaining
-        // iterations.
-        uncaughtCount += cb.catchcount;
-
-        DtoResolveClass(cb.classdecl);
-
-        irs->func()->scopes->pushCatch(
-            getIrAggr(cb.classdecl)->getClassInfoSymbol(), cb.BB, matchWeights);
-      }
-    }
+    irs->funcGen().scopes.pushTryCatch(stmt, endbb);
 
     // Emit the try block.
     irs->scope() = IRScope(trybb);
@@ -1042,20 +796,13 @@ public:
     stmt->_body->accept(this);
     irs->DBuilder.EmitBlockEnd();
 
-    if (!irs->scopereturned()) {
+    if (!irs->scopereturned())
       llvm::BranchInst::Create(endbb, irs->scopebb());
-    }
 
-    // Now that we have done the try block, remove the catches and continue
-    // codegen in the end block the try and all the catches branch to.
-    for (size_t i = 0; i < catchBlocks.size(); ++i) {
-      irs->func()->scopes->popCatch();
-    }
-
-    // Move end block after all generated blocks
-    endbb->moveAfter(&irs->topfunc()->back());
+    irs->funcGen().scopes.popTryCatch();
 
     irs->scope() = IRScope(endbb);
+
     // PGO counter tracks the continuation of the try statement
     PGO.emitCounterIncrement(stmt);
   }
@@ -1066,7 +813,7 @@ public:
     IF_LOG Logger::println("ThrowStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
     // emit dwarf stop point
@@ -1086,8 +833,7 @@ public:
     irs->ir->CreateUnreachable();
 
     // TODO: Should not be needed.
-    llvm::BasicBlock *bb =
-        llvm::BasicBlock::Create(irs->context(), "afterthrow", irs->topfunc());
+    llvm::BasicBlock *bb = irs->insertBB("afterthrow");
     irs->scope() = IRScope(bb);
   }
 
@@ -1097,165 +843,150 @@ public:
     IF_LOG Logger::println("SwitchStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &funcGen = irs->funcGen();
+
+    auto &PGO = funcGen.pgo;
     PGO.setCurrentStmt(stmt);
-    auto incoming_count = PGO.getCurrentRegionCount();
+    const auto incomingPGORegionCount = PGO.getCurrentRegionCount();
 
-    // emit dwarf stop point
     irs->DBuilder.EmitStopPoint(stmt->loc);
-
     emitCoverageLinecountInc(stmt->loc);
+    llvm::BasicBlock *const oldbb = irs->scopebb();
 
-    llvm::BasicBlock *oldbb = irs->scopebb();
+    // The cases of the switch statement, in codegen order. For string switches,
+    // we reorder them lexicographically later to match what the _d_switch_*
+    // druntime dispatch functions expect.
+    auto cases = stmt->cases;
+    const auto caseCount = cases->dim;
 
-    // If one of the case expressions is non-constant, we can't use
-    // 'switch' instruction (that can happen because D2 allows to
-    // initialize a global variable in a static constructor).
+    // llvm::Values for the case indices. Might not be llvm::Constants for
+    // runtime-initialised immutable globals as case indices, in which case we
+    // need to emit a `br` chain instead of `switch`.
+    llvm::SmallVector<llvm::Value *, 16> indices;
+    indices.reserve(caseCount);
     bool useSwitchInst = true;
-    for (auto cs : *stmt->cases) {
-      VarDeclaration *vd = nullptr;
-      if (cs->exp->op == TOKvar) {
-        vd = static_cast<VarExp *>(cs->exp)->var->isVarDeclaration();
+
+    // For string switches, sort the cases and emit the table data.
+    llvm::Value *stringTableSlice = nullptr;
+    const bool isStringSwitch = !stmt->condition->type->isintegral();
+    if (isStringSwitch) {
+      Logger::println("is string switch");
+
+      // Sort the cases, taking care not to modify the original AST.
+      cases = cases->copy();
+      std::sort(cases->begin(), cases->end(), compareCaseStrings);
+
+      // Emit constants for the case values.
+      llvm::SmallVector<llvm::Constant *, 16> stringConsts;
+      stringConsts.reserve(caseCount);
+      for (size_t i = 0; i < caseCount; ++i) {
+        stringConsts.push_back(toConstElem((*cases)[i]->exp, irs));
+        indices.push_back(DtoConstUint(i));
       }
-      if (vd && (!vd->_init || !vd->isConst())) {
-        cs->llvmIdx = DtoRVal(toElemDtor(cs->exp));
-        useSwitchInst = false;
+
+      // Create internal global with the data table.
+      const auto elemTy = DtoType(stmt->condition->type);
+      const auto arrTy = llvm::ArrayType::get(elemTy, stringConsts.size());
+      const auto arrInit = LLConstantArray::get(arrTy, stringConsts);
+      const auto arr = new llvm::GlobalVariable(
+          irs->module, arrTy, true, llvm::GlobalValue::InternalLinkage, arrInit,
+          ".string_switch_table_data");
+
+      // Create D slice to pass to runtime later.
+      const auto arrPtr =
+          llvm::ConstantExpr::getBitCast(arr, getPtrToType(elemTy));
+      const auto arrLen = DtoConstSize_t(stringConsts.size());
+      stringTableSlice = DtoConstSlice(arrLen, arrPtr);
+    } else {
+      for (auto cs : *cases) {
+        if (cs->exp->op == TOKvar) {
+          const auto vd =
+              static_cast<VarExp *>(cs->exp)->var->isVarDeclaration();
+          if (vd && (!vd->_init || !vd->isConst())) {
+            indices.push_back(DtoRVal(toElemDtor(cs->exp)));
+            useSwitchInst = false;
+            continue;
+          }
+        }
+        indices.push_back(toConstElem(cs->exp, irs));
       }
     }
+    assert(indices.size() == caseCount);
 
     // body block.
     // FIXME: that block is never used
-    llvm::BasicBlock *bodybb =
-        llvm::BasicBlock::Create(irs->context(), "switchbody", irs->topfunc());
+    llvm::BasicBlock *bodybb = irs->insertBB("switchbody");
 
     // end (break point)
-    llvm::BasicBlock *endbb =
-        llvm::BasicBlock::Create(irs->context(), "switchend", irs->topfunc());
-    // PGO counter tracks exit point of switch statement:
-    {
-      irs->scope() = IRScope(endbb);
-      PGO.emitCounterIncrement(stmt);
-    }
+    llvm::BasicBlock *endbb = irs->insertBBAfter(bodybb, "switchend");
 
     // default
-    llvm::BasicBlock *defbb = nullptr;
+    auto defaultTargetBB = endbb;
     if (stmt->sdefault) {
       Logger::println("has default");
-      defbb =
-          llvm::BasicBlock::Create(irs->context(), "default", irs->topfunc());
-      stmt->sdefault->bodyBB = defbb;
+      defaultTargetBB =
+          funcGen.switchTargets.getOrCreate(stmt->sdefault, "default", *irs);
     }
 
     // do switch body
     assert(stmt->_body);
     irs->scope() = IRScope(bodybb);
-    irs->func()->scopes->pushBreakTarget(stmt, endbb);
+    funcGen.jumpTargets.pushBreakTarget(stmt, endbb);
     stmt->_body->accept(this);
-    irs->func()->scopes->popBreakTarget();
+    funcGen.jumpTargets.popBreakTarget();
     if (!irs->scopereturned()) {
       llvm::BranchInst::Create(endbb, irs->scopebb());
     }
 
     irs->scope() = IRScope(oldbb);
     if (useSwitchInst) {
-      // string switch?
-      llvm::Value *switchTable = nullptr;
-      std::vector<Case> caseArray;
-      if (!stmt->condition->type->isintegral()) {
-        Logger::println("is string switch");
-        // build array of the stringexpS
-        caseArray.reserve(stmt->cases->dim);
-        for (unsigned i = 0; i < stmt->cases->dim; ++i) {
-          CaseStatement *cs =
-              static_cast<CaseStatement *>(stmt->cases->data[i]);
-
-          assert(cs->exp->op == TOKstring);
-          caseArray.emplace_back(static_cast<StringExp *>(cs->exp), i);
-        }
-        // first sort it
-        std::sort(caseArray.begin(), caseArray.end());
-        // iterate and add indices to cases
-        std::vector<llvm::Constant *> inits(caseArray.size(), nullptr);
-        for (size_t i = 0, e = caseArray.size(); i < e; ++i) {
-          Case &c = caseArray[i];
-          CaseStatement *cs =
-              static_cast<CaseStatement *>(stmt->cases->data[c.index]);
-          cs->llvmIdx = DtoConstUint(i);
-          inits[i] = toConstElem(c.str, irs);
-        }
-        // build static array for ptr or final array
-        llvm::Type *elemTy = DtoType(stmt->condition->type);
-        LLArrayType *arrTy = llvm::ArrayType::get(elemTy, inits.size());
-        LLConstant *arrInit = LLConstantArray::get(arrTy, inits);
-        auto arr = new llvm::GlobalVariable(
-            irs->module, arrTy, true, llvm::GlobalValue::InternalLinkage,
-            arrInit, ".string_switch_table_data");
-
-        LLType *elemPtrTy = getPtrToType(elemTy);
-        LLConstant *arrPtr = llvm::ConstantExpr::getBitCast(arr, elemPtrTy);
-
-        // build the static table
-        LLType *types[] = {DtoSize_t(), elemPtrTy};
-        LLStructType *sTy = llvm::StructType::get(irs->context(), types, false);
-        LLConstant *sinits[] = {DtoConstSize_t(inits.size()), arrPtr};
-        switchTable = llvm::ConstantStruct::get(
-            sTy, llvm::ArrayRef<LLConstant *>(sinits));
-      }
-
-      // condition var
+      // The case index value.
       LLValue *condVal;
-      // integral switch
-      if (stmt->condition->type->isintegral()) {
-        DValue *cond = toElemDtor(stmt->condition);
-        condVal = DtoRVal(cond);
-      }
-      // string switch
-      else {
-        condVal = call_string_switch_runtime(switchTable, stmt->condition);
+      if (isStringSwitch) {
+        condVal = call_string_switch_runtime(stringTableSlice, stmt->condition);
+      } else {
+        condVal = DtoRVal(toElemDtor(stmt->condition));
       }
 
       // Create switch and add the cases.
       // For PGO instrumentation, we need to add counters /before/ the case
       // statement bodies, because the counters should only count the jumps
-      // directly from the switch statement.
+      // directly from the switch statement and not "goto default", etc.
       llvm::SwitchInst *si;
-      if (!global.params.genInstrProf) {
-        si = llvm::SwitchInst::Create(condVal, defbb ? defbb : endbb,
-                                      stmt->cases->dim, irs->scopebb());
-        for (auto cs : *stmt->cases) {
-          si->addCase(isaConstantInt(cs->llvmIdx), cs->bodyBB);
+      if (!PGO.emitsInstrumentation()) {
+        si = llvm::SwitchInst::Create(condVal, defaultTargetBB, caseCount,
+                                      irs->scopebb());
+        for (size_t i = 0; i < caseCount; ++i) {
+          si->addCase(isaConstantInt(indices[i]),
+                      funcGen.switchTargets.get((*cases)[i]));
         }
       } else {
         auto switchbb = irs->scopebb();
         // Add PGO instrumentation.
-        // Create "default" counter
+        // Create "default" counter bb.
         {
-          llvm::BasicBlock *defaultcntr = llvm::BasicBlock::Create(
-              irs->context(), "defaultcntr", irs->topfunc());
+          llvm::BasicBlock *defaultcntr =
+              irs->insertBBBefore(defaultTargetBB, "defaultcntr");
           irs->scope() = IRScope(defaultcntr);
           PGO.emitCounterIncrement(stmt->sdefault);
-          llvm::BranchInst::Create(defbb ? defbb : endbb, irs->scopebb());
-          defaultcntr->moveBefore(defbb ? defbb : endbb);
+          llvm::BranchInst::Create(defaultTargetBB, defaultcntr);
           // Create switch
-          si = llvm::SwitchInst::Create(condVal, defaultcntr, stmt->cases->dim,
+          si = llvm::SwitchInst::Create(condVal, defaultcntr, caseCount,
                                         switchbb);
         }
-        // Create and add case counters
-        for (auto cs : *stmt->cases) {
-          llvm::BasicBlock *casecntr = llvm::BasicBlock::Create(
-              irs->context(), "casecntr", irs->topfunc());
+
+        // Create and add case counter bbs.
+        for (size_t i = 0; i < caseCount; ++i) {
+          const auto cs = (*cases)[i];
+          const auto body = funcGen.switchTargets.get(cs);
+
+          auto casecntr = irs->insertBBBefore(body, "casecntr");
           irs->scope() = IRScope(casecntr);
           PGO.emitCounterIncrement(cs);
-          llvm::BranchInst::Create(cs->bodyBB, irs->scopebb());
-          casecntr->moveBefore(cs->bodyBB);
-
-          si->addCase(isaConstantInt(cs->llvmIdx), casecntr);
+          llvm::BranchInst::Create(body, casecntr);
+          si->addCase(isaConstantInt(indices[i]), casecntr);
         }
       }
-
-      // Put the switchend block after the last block, for a more logical IR
-      // layout.
-      endbb->moveAfter(&irs->topfunc()->back());
 
       // Apply PGO switch branch weights:
       {
@@ -1263,7 +994,7 @@ public:
         std::vector<uint64_t> case_prof_counts;
         case_prof_counts.push_back(
             stmt->sdefault ? PGO.getRegionCount(stmt->sdefault) : 0);
-        for (auto cs : *stmt->cases) {
+        for (auto cs : *cases) {
           auto w = PGO.getRegionCount(cs);
           case_prof_counts.push_back(w);
         }
@@ -1271,46 +1002,43 @@ public:
         auto brweights = PGO.createProfileWeights(case_prof_counts);
         PGO.addBranchWeights(si, brweights);
       }
+    } else {
+      // We can't use switch, so we will use a bunch of br instructions
+      // instead.
 
-    } else { // we can't use switch, so we will use a bunch of br instructions
-             // instead
       DValue *cond = toElemDtor(stmt->condition);
       LLValue *condVal = DtoRVal(cond);
 
-      llvm::BasicBlock *nextbb =
-          llvm::BasicBlock::Create(irs->context(), "checkcase", irs->topfunc());
+      llvm::BasicBlock *nextbb = irs->insertBBBefore(endbb, "checkcase");
       llvm::BranchInst::Create(nextbb, irs->scopebb());
 
-      auto defaultjumptarget = defbb ? defbb : endbb;
-      // Create "default:" counter for profiling
-      if (global.params.genInstrProf) {
-        llvm::BasicBlock *defaultcntr = llvm::BasicBlock::Create(
-            irs->context(), "defaultcntr", irs->topfunc());
+      if (PGO.emitsInstrumentation()) {
+        // Prepend extra BB to "default:" to increment profiling counter.
+        llvm::BasicBlock *defaultcntr =
+            irs->insertBBBefore(defaultTargetBB, "defaultcntr");
         irs->scope() = IRScope(defaultcntr);
         PGO.emitCounterIncrement(stmt->sdefault);
-        llvm::BranchInst::Create(defbb ? defbb : endbb, irs->scopebb());
-        defaultcntr->moveBefore(defbb ? defbb : endbb);
-        defaultjumptarget = defaultcntr;
+        llvm::BranchInst::Create(defaultTargetBB, defaultcntr);
+        defaultTargetBB = defaultcntr;
       }
 
       irs->scope() = IRScope(nextbb);
-      auto failedCompareCount = incoming_count;
-      for (auto cs : *stmt->cases) {
-        LLValue *cmp = irs->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ, cs->llvmIdx,
+      auto failedCompareCount = incomingPGORegionCount;
+      for (size_t i = 0; i < caseCount; ++i) {
+        LLValue *cmp = irs->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ, indices[i],
                                            condVal, "checkcase");
-        nextbb = llvm::BasicBlock::Create(irs->context(), "checkcase",
-                                          irs->topfunc());
+        nextbb = irs->insertBBBefore(endbb, "checkcase");
 
         // Add case counters for PGO in front of case body
-        auto casejumptargetbb = cs->bodyBB;
-        if (global.params.genInstrProf) {
-          llvm::BasicBlock *casecntr = llvm::BasicBlock::Create(
-              irs->context(), "casecntr", irs->topfunc());
+        const auto cs = (*cases)[i];
+        auto casejumptargetbb = funcGen.switchTargets.get(cs);
+        if (PGO.emitsInstrumentation()) {
+          llvm::BasicBlock *casecntr =
+              irs->insertBBBefore(casejumptargetbb, "casecntr");
           auto savedbb = irs->scope();
           irs->scope() = IRScope(casecntr);
           PGO.emitCounterIncrement(cs);
-          llvm::BranchInst::Create(cs->bodyBB, irs->scopebb());
-          casecntr->moveBefore(cs->bodyBB);
+          llvm::BranchInst::Create(casejumptargetbb, casecntr);
           irs->scope() = savedbb;
 
           casejumptargetbb = casecntr;
@@ -1334,12 +1062,12 @@ public:
         irs->scope() = IRScope(nextbb);
       }
 
-      llvm::BranchInst::Create(defaultjumptarget, irs->scopebb());
-
-      endbb->moveAfter(nextbb);
+      llvm::BranchInst::Create(defaultTargetBB, irs->scopebb());
     }
 
     irs->scope() = IRScope(endbb);
+    // PGO counter tracks exit point of switch statement:
+    PGO.emitCounterIncrement(stmt);
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -1348,26 +1076,20 @@ public:
     IF_LOG Logger::println("CaseStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &funcGen = irs->funcGen();
+    auto &PGO = funcGen.pgo;
     PGO.setCurrentStmt(stmt);
 
-    llvm::BasicBlock *nbb =
-        llvm::BasicBlock::Create(irs->context(), "case", irs->topfunc());
-    if (stmt->bodyBB && !stmt->bodyBB->getTerminator()) {
-      llvm::BranchInst::Create(nbb, stmt->bodyBB);
-    }
-    stmt->bodyBB = nbb;
-
-    if (stmt->llvmIdx == nullptr) {
-      llvm::Constant *c = toConstElem(stmt->exp, irs);
-      stmt->llvmIdx = isaConstantInt(c);
-    }
+    const auto body = funcGen.switchTargets.getOrCreate(stmt, "case", *irs);
+    // The BB may have already been created by a `goto case` statement.
+    // Move it after the current scope BB for lexical order.
+    body->moveAfter(irs->scopebb());
 
     if (!irs->scopereturned()) {
-      llvm::BranchInst::Create(stmt->bodyBB, irs->scopebb());
+      llvm::BranchInst::Create(body, irs->scopebb());
     }
 
-    irs->scope() = IRScope(stmt->bodyBB);
+    irs->scope() = IRScope(body);
 
     assert(stmt->statement);
     irs->DBuilder.EmitBlockStart(stmt->statement->loc);
@@ -1385,24 +1107,20 @@ public:
     IF_LOG Logger::println("DefaultStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &funcGen = irs->funcGen();
+    auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
-    assert(stmt->bodyBB);
-
-    llvm::BasicBlock *nbb =
-        llvm::BasicBlock::Create(irs->context(), "default", irs->topfunc());
-
-    if (!stmt->bodyBB->getTerminator()) {
-      llvm::BranchInst::Create(nbb, stmt->bodyBB);
-    }
-    stmt->bodyBB = nbb;
+    const auto body = funcGen.switchTargets.getOrCreate(stmt, "default", *irs);
+    // The BB may have already been created.
+    // Move it after the current scope BB for lexical order.
+    body->moveAfter(irs->scopebb());
 
     if (!irs->scopereturned()) {
-      llvm::BranchInst::Create(stmt->bodyBB, irs->scopebb());
+      llvm::BranchInst::Create(body, irs->scopebb());
     }
 
-    irs->scope() = IRScope(stmt->bodyBB);
+    irs->scope() = IRScope(body);
 
     assert(stmt->statement);
     irs->DBuilder.EmitBlockStart(stmt->statement->loc);
@@ -1421,7 +1139,7 @@ public:
                            stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
     // if no statements, there's nothing to do
@@ -1433,22 +1151,17 @@ public:
     irs->DBuilder.EmitBlockStart(stmt->loc);
 
     // DMD doesn't fold stuff like continue/break, and since this isn't really a
-    // loop
-    // we have to keep track of each statement and jump to the next/end on
-    // continue/break
+    // loop we have to keep track of each statement and jump to the next/end
+    // on continue/break
+
+    // create end block
+    llvm::BasicBlock *endbb = irs->insertBB("unrolledend");
 
     // create a block for each statement
     size_t nstmt = stmt->statements->dim;
     llvm::SmallVector<llvm::BasicBlock *, 4> blocks(nstmt, nullptr);
-
-    for (size_t i = 0; i < nstmt; i++) {
-      blocks[i] = llvm::BasicBlock::Create(irs->context(), "unrolledstmt",
-                                           irs->topfunc());
-    }
-
-    // create end block
-    llvm::BasicBlock *endbb =
-        llvm::BasicBlock::Create(irs->context(), "unrolledend", irs->topfunc());
+    for (size_t i = 0; i < nstmt; i++)
+      blocks[i] = irs->insertBBBefore(endbb, "unrolledstmt");
 
     // enter first stmt
     if (!irs->scopereturned()) {
@@ -1470,13 +1183,13 @@ public:
 
       // push loop scope
       // continue goes to next statement, break goes to end
-      irs->func()->scopes->pushLoopTarget(stmt, nextbb, endbb);
+      irs->funcGen().jumpTargets.pushLoopTarget(stmt, nextbb, endbb);
 
       // do statement
       s->accept(this);
 
       // pop loop scope
-      irs->func()->scopes->popLoopTarget();
+      irs->funcGen().jumpTargets.popLoopTarget();
 
       // next stmt
       if (!irs->scopereturned()) {
@@ -1484,10 +1197,6 @@ public:
       }
     }
 
-    // finish scope
-    if (!irs->scopereturned()) {
-      irs->ir->CreateBr(endbb);
-    }
     irs->scope() = IRScope(endbb);
 
     // end the dwarf lexical block
@@ -1500,7 +1209,7 @@ public:
     IF_LOG Logger::println("ForeachStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
     // start a dwarf lexical block
@@ -1560,14 +1269,10 @@ public:
       new llvm::StoreInst(niters, keyvar, irs->scopebb());
     }
 
-    llvm::BasicBlock *condbb =
-        llvm::BasicBlock::Create(irs->context(), "foreachcond", irs->topfunc());
-    llvm::BasicBlock *bodybb =
-        llvm::BasicBlock::Create(irs->context(), "foreachbody", irs->topfunc());
-    llvm::BasicBlock *nextbb =
-        llvm::BasicBlock::Create(irs->context(), "foreachnext", irs->topfunc());
-    llvm::BasicBlock *endbb =
-        llvm::BasicBlock::Create(irs->context(), "foreachend", irs->topfunc());
+    llvm::BasicBlock *condbb = irs->insertBB("foreachcond");
+    llvm::BasicBlock *bodybb = irs->insertBBAfter(condbb, "foreachbody");
+    llvm::BasicBlock *nextbb = irs->insertBBAfter(bodybb, "foreachnext");
+    llvm::BasicBlock *endbb = irs->insertBBAfter(nextbb, "foreachend");
 
     llvm::BranchInst::Create(condbb, irs->scopebb());
 
@@ -1602,7 +1307,7 @@ public:
       // Copy value to local variable, and use it as the value variable.
       DLValue dst(stmt->value->type, valvar);
       DLValue src(stmt->value->type, gep);
-      DtoAssign(stmt->loc, &dst, &src);
+      DtoAssign(stmt->loc, &dst, &src, TOKassign);
       getIrLocal(stmt->value)->value = valvar;
     } else {
       // Use the GEP as the address of the value variable.
@@ -1610,11 +1315,11 @@ public:
     }
 
     // emit body
-    irs->func()->scopes->pushLoopTarget(stmt, nextbb, endbb);
+    irs->funcGen().jumpTargets.pushLoopTarget(stmt, nextbb, endbb);
     if (stmt->_body) {
       stmt->_body->accept(this);
     }
-    irs->func()->scopes->popLoopTarget();
+    irs->funcGen().jumpTargets.popLoopTarget();
 
     if (!irs->scopereturned()) {
       llvm::BranchInst::Create(nextbb, irs->scopebb());
@@ -1643,7 +1348,7 @@ public:
                            stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
     // start a dwarf lexical block
@@ -1667,14 +1372,10 @@ public:
     }
 
     // set up the block we'll need
-    llvm::BasicBlock *condbb = llvm::BasicBlock::Create(
-        irs->context(), "foreachrange_cond", irs->topfunc());
-    llvm::BasicBlock *bodybb = llvm::BasicBlock::Create(
-        irs->context(), "foreachrange_body", irs->topfunc());
-    llvm::BasicBlock *nextbb = llvm::BasicBlock::Create(
-        irs->context(), "foreachrange_next", irs->topfunc());
-    llvm::BasicBlock *endbb = llvm::BasicBlock::Create(
-        irs->context(), "foreachrange_end", irs->topfunc());
+    llvm::BasicBlock *condbb = irs->insertBB("foreachrange_cond");
+    llvm::BasicBlock *bodybb = irs->insertBBAfter(condbb, "foreachrange_body");
+    llvm::BasicBlock *nextbb = irs->insertBBAfter(bodybb, "foreachrange_next");
+    llvm::BasicBlock *endbb = irs->insertBBAfter(nextbb, "foreachrange_end");
 
     // jump to condition
     llvm::BranchInst::Create(condbb, irs->scopebb());
@@ -1716,11 +1417,11 @@ public:
     }
 
     // emit body
-    irs->func()->scopes->pushLoopTarget(stmt, nextbb, endbb);
+    irs->funcGen().jumpTargets.pushLoopTarget(stmt, nextbb, endbb);
     if (stmt->_body) {
       stmt->_body->accept(this);
     }
-    irs->func()->scopes->popLoopTarget();
+    irs->funcGen().jumpTargets.popLoopTarget();
 
     // jump to next iteration
     if (!irs->scopereturned()) {
@@ -1754,7 +1455,7 @@ public:
     IF_LOG Logger::println("LabelStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
     // if it's an inline asm label, we don't create a basicblock, just emit it
@@ -1772,10 +1473,9 @@ public:
       // disable inlining
       irs->func()->setNeverInline();
     } else {
-      llvm::BasicBlock *labelBB = llvm::BasicBlock::Create(
-          irs->context(), llvm::Twine("label.") + stmt->ident->toChars(),
-          irs->topfunc());
-      irs->func()->scopes->addLabelTarget(stmt->ident, labelBB);
+      llvm::BasicBlock *labelBB =
+          irs->insertBB(llvm::Twine("label.") + stmt->ident->toChars());
+      irs->funcGen().jumpTargets.addLabelTarget(stmt->ident, labelBB);
 
       if (!irs->scopereturned()) {
         llvm::BranchInst::Create(labelBB, irs->scopebb());
@@ -1797,7 +1497,7 @@ public:
     IF_LOG Logger::println("GotoStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
     irs->DBuilder.EmitStopPoint(stmt->loc);
@@ -1807,8 +1507,7 @@ public:
     DtoGoto(stmt->loc, stmt->label);
 
     // TODO: Should not be needed.
-    llvm::BasicBlock *bb =
-        llvm::BasicBlock::Create(irs->context(), "aftergoto", irs->topfunc());
+    llvm::BasicBlock *bb = irs->insertBB("aftergoto");
     irs->scope() = IRScope(bb);
   }
 
@@ -1819,7 +1518,8 @@ public:
                            stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &funcGen = irs->funcGen();
+    auto &PGO = funcGen.pgo;
     PGO.setCurrentStmt(stmt);
 
     irs->DBuilder.EmitStopPoint(stmt->loc);
@@ -1827,18 +1527,12 @@ public:
     emitCoverageLinecountInc(stmt->loc);
 
     assert(!irs->scopereturned());
-    assert(stmt->sw->sdefault->bodyBB);
 
-#if 0
-        // TODO: Store switch scopes.
-        DtoEnclosingHandlers(stmt->loc, stmt->sw);
-#endif
-
-    llvm::BranchInst::Create(stmt->sw->sdefault->bodyBB, irs->scopebb());
+    const auto defaultBB = funcGen.switchTargets.get(stmt->sw->sdefault);
+    llvm::BranchInst::Create(defaultBB, irs->scopebb());
 
     // TODO: Should not be needed.
-    llvm::BasicBlock *bb = llvm::BasicBlock::Create(
-        irs->context(), "aftergotodefault", irs->topfunc());
+    llvm::BasicBlock *bb = irs->insertBB("aftergotodefault");
     irs->scope() = IRScope(bb);
   }
 
@@ -1849,7 +1543,8 @@ public:
                            stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &funcGen = irs->funcGen();
+    auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
     irs->DBuilder.EmitStopPoint(stmt->loc);
@@ -1857,21 +1552,13 @@ public:
     emitCoverageLinecountInc(stmt->loc);
 
     assert(!irs->scopereturned());
-    if (!stmt->cs->bodyBB) {
-      stmt->cs->bodyBB =
-          llvm::BasicBlock::Create(irs->context(), "goto_case", irs->topfunc());
-    }
 
-#if 0
-        // TODO: Store switch scopes.
-        DtoEnclosingHandlers(stmt->loc, stmt->sw);
-#endif
-
-    llvm::BranchInst::Create(stmt->cs->bodyBB, irs->scopebb());
+    const auto caseBB =
+        funcGen.switchTargets.getOrCreate(stmt->cs, "goto_case", *irs);
+    llvm::BranchInst::Create(caseBB, irs->scopebb());
 
     // TODO: Should not be needed.
-    llvm::BasicBlock *bb = llvm::BasicBlock::Create(
-        irs->context(), "aftergotocase", irs->topfunc());
+    llvm::BasicBlock *bb = irs->insertBB("aftergotocase");
     irs->scope() = IRScope(bb);
   }
 
@@ -1881,7 +1568,7 @@ public:
     IF_LOG Logger::println("WithStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
     irs->DBuilder.EmitBlockStart(stmt->loc);
@@ -1911,7 +1598,7 @@ public:
                            stmt->loc.toChars());
     LOG_SCOPE;
 
-    auto &PGO = irs->func()->pgo;
+    auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
     llvm::Function *fn =

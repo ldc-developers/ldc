@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/llvmhelpers.h"
+#include "gen/cl_helpers.h"
 #include "declaration.h"
 #include "expression.h"
 #include "gen/abi.h"
@@ -15,6 +16,7 @@
 #include "gen/classes.h"
 #include "gen/complex.h"
 #include "gen/dvalue.h"
+#include "gen/funcgenstate.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
@@ -46,16 +48,15 @@
 llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel(
     "fthread-model", llvm::cl::desc("Thread model"),
     llvm::cl::init(llvm::GlobalVariable::GeneralDynamicTLSModel),
-    llvm::cl::values(clEnumValN(llvm::GlobalVariable::GeneralDynamicTLSModel,
-                                "global-dynamic",
-                                "Global dynamic TLS model (default)"),
-                     clEnumValN(llvm::GlobalVariable::LocalDynamicTLSModel,
-                                "local-dynamic", "Local dynamic TLS model"),
-                     clEnumValN(llvm::GlobalVariable::InitialExecTLSModel,
-                                "initial-exec", "Initial exec TLS model"),
-                     clEnumValN(llvm::GlobalVariable::LocalExecTLSModel,
-                                "local-exec", "Local exec TLS model"),
-                     clEnumValEnd));
+    clEnumValues(clEnumValN(llvm::GlobalVariable::GeneralDynamicTLSModel,
+                            "global-dynamic",
+                            "Global dynamic TLS model (default)"),
+                 clEnumValN(llvm::GlobalVariable::LocalDynamicTLSModel,
+                            "local-dynamic", "Local dynamic TLS model"),
+                 clEnumValN(llvm::GlobalVariable::InitialExecTLSModel,
+                            "initial-exec", "Initial exec TLS model"),
+                 clEnumValN(llvm::GlobalVariable::LocalExecTLSModel,
+                            "local-exec", "Local exec TLS model")));
 
 /******************************************************************************
  * Simple Triple helpers for DFE
@@ -74,7 +75,7 @@ bool isTargetWindowsMSVC() {
 ******************************************************************************/
 static llvm::ManagedStatic<llvm::LLVMContext> GlobalContext;
 
-llvm::LLVMContext& getGlobalContext() { return *GlobalContext; }
+llvm::LLVMContext &getGlobalContext() { return *GlobalContext; }
 
 /******************************************************************************
  * DYNAMIC MEMORY HELPERS
@@ -262,7 +263,7 @@ void DtoAssert(Module *M, Loc &loc, DValue *msg) {
   args.push_back(DtoConstUint(loc.linnum));
 
   // call
-  gIR->func()->scopes->callOrInvoke(fn, args);
+  gIR->funcGen().callOrInvoke(fn, args);
 
   // after assert is always unreachable
   gIR->ir->CreateUnreachable();
@@ -290,7 +291,7 @@ void DtoGoto(Loc &loc, LabelDsymbol *target) {
     fatal();
   }
 
-  gIR->func()->scopes->jumpToLabel(loc, target->ident);
+  gIR->funcGen().jumpTargets.jumpToLabel(loc, target->ident);
 }
 
 /******************************************************************************
@@ -365,7 +366,7 @@ void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
       }
 #if 1
       if (r->getType() !=
-          lit) { // It's wierd but it happens. TODO: try to remove this hack
+          lit) { // It's weird but it happens. TODO: try to remove this hack
         r = DtoBitCast(r, lit);
       }
 #else
@@ -396,7 +397,7 @@ DValue *DtoNullValue(Type *type, Loc loc) {
   // representation
   if (basetype->isintegral() || basetype->isfloating() || basety == Tpointer ||
       basety == Tclass || basety == Tdelegate || basety == Taarray) {
-    return new DConstValue(type, LLConstant::getNullValue(lltype));
+    return new DNullValue(type, LLConstant::getNullValue(lltype));
   }
   // dynamic array
   if (basety == Tarray) {
@@ -523,8 +524,7 @@ DValue *DtoCastFloat(Loc &loc, DValue *val, Type *to) {
     } else if (fromsz < tosz) {
       rval = new llvm::FPExtInst(DtoRVal(val), tolltype, "", gIR->scopebb());
     } else if (fromsz > tosz) {
-      rval =
-          new llvm::FPTruncInst(DtoRVal(val), tolltype, "", gIR->scopebb());
+      rval = new llvm::FPTruncInst(DtoRVal(val), tolltype, "", gIR->scopebb());
     } else {
       error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
             to->toChars());
@@ -550,8 +550,8 @@ DValue *DtoCastDelegate(Loc &loc, DValue *val, Type *to) {
     return DtoPaintType(loc, val, to);
   }
   if (to->toBasetype()->ty == Tbool) {
-    return new DImValue(
-        to, DtoDelegateEquals(TOKnotequal, DtoRVal(val), nullptr));
+    return new DImValue(to,
+                        DtoDelegateEquals(TOKnotequal, DtoRVal(val), nullptr));
   }
   error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
         to->toChars());
@@ -562,7 +562,6 @@ DValue *DtoCastVector(Loc &loc, DValue *val, Type *to) {
   assert(val->type->toBasetype()->ty == Tvector);
   Type *totype = to->toBasetype();
   LLType *tolltype = DtoType(to);
-  TypeVector *type = static_cast<TypeVector *>(val->type->toBasetype());
 
   if (totype->ty == Tsarray) {
     // If possible, we need to cast only the address of the vector without
@@ -728,8 +727,12 @@ DValue *DtoPaintType(Loc &loc, DValue *val, Type *to) {
     LLValue *ptr = DtoBitCast(DtoRVal(val), DtoType(b));
     return new DImValue(to, ptr);
   }
-  // assert(!val->isLVal()); TODO: what is it needed for?
-  assert(DtoType(to) == DtoType(to));
+  if (from->ty == Tsarray) {
+    assert(to->toBasetype()->ty == Tsarray);
+    LLValue *ptr = DtoBitCast(DtoLVal(val), DtoPtrToType(to));
+    return new DLValue(to, ptr);
+  }
+  assert(DtoType(from) == DtoType(to));
   return new DImValue(to, DtoRVal(val));
 }
 
@@ -847,10 +850,18 @@ void DtoResolveVariable(VarDeclaration *vd) {
                           linkage, nullptr, llName, vd->isThreadlocal());
     getIrGlobal(vd)->value = gvar;
 
-    // Set the alignment and use the target pointer size as lower bound.
-    unsigned alignment =
-        std::max(DtoAlignment(vd), gDataLayout->getPointerSize());
-    gvar->setAlignment(alignment);
+    // Set the alignment (it is important not to use type->alignsize because
+    // VarDeclarations can have an align() attribute independent of the type
+    // as well).
+    gvar->setAlignment(DtoAlignment(vd));
+
+    /* TODO: set DLL storage class when `export` is fixed (an attribute)
+    if (global.params.isWindows && vd->isExport()) {
+      auto c = vd->isImportedSymbol() ? LLGlobalValue::DLLImportStorageClass
+                                      : LLGlobalValue::DLLExportStorageClass;
+      gvar->setDLLStorageClass(c);
+    }
+    */
 
     applyVarDeclUDAs(vd, gvar);
 
@@ -1095,48 +1106,70 @@ LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp) {
   LOG_SCOPE
 
   LLConstant *val = toConstElem(exp, gIR);
+  Type *baseValType = exp->type->toBasetype();
+  Type *baseTargetType = targetType->toBasetype();
 
   // The situation here is a bit tricky: In an ideal world, we would always
   // have val->getType() == DtoType(targetType). But there are two reasons
   // why this is not true. One is that the LLVM type system cannot represent
   // all the C types, leading to differences in types being necessary e.g. for
   // union initializers. The second is that the frontend actually does not
-  // explicitly lowers things like initializing an array/vector with a scalar
+  // explicitly lower things like initializing an array/vector with a scalar
   // constant, or since 2.061 sometimes does not get implicit conversions for
   // integers right. However, we cannot just rely on the actual Types being
   // equal if there are no rewrites to do because of – as usual – AST
   // inconsistency bugs.
 
-  Type *expBase = stripModifiers(exp->type->toBasetype())->merge();
-  Type *targetBase = stripModifiers(targetType->toBasetype())->merge();
+  LLType *llType = val->getType();
+  LLType *targetLLType = DtoMemType(baseTargetType);
 
-  if (expBase->equals(targetBase) && targetBase->ty != Tbool) {
+  // shortcut for zeros
+  if (val->isNullValue())
+    return llvm::Constant::getNullValue(targetLLType);
+
+  // extend i1 to i8
+  if (llType == LLType::getInt1Ty(gIR->context())) {
+    llType = LLType::getInt8Ty(gIR->context());
+    val = llvm::ConstantExpr::getZExt(val, llType);
+  }
+
+  if (llType == targetLLType)
+    return val;
+
+  if (baseTargetType->ty == Tsarray) {
+    Logger::println("Building constant array initializer from scalar.");
+
+    assert(baseValType->size() > 0);
+    const auto numTotalVals = baseTargetType->size() / baseValType->size();
+    assert(baseTargetType->size() % baseValType->size() == 0);
+
+    // may be a multi-dimensional array init, e.g., `char[2][3] x = 0xff`
+    baseValType = stripModifiers(baseValType);
+    LLSmallVector<size_t, 4> dims; // { 3, 2 }
+    for (auto t = baseTargetType; t->ty == Tsarray;) {
+      dims.push_back(static_cast<TypeSArray *>(t)->dim->toUInteger());
+      auto elementType = stripModifiers(t->nextOf()->toBasetype());
+      if (elementType->equals(baseValType))
+        break;
+      t = elementType;
+    }
+
+    size_t product = 1;
+    for (size_t i = dims.size(); i--;) {
+      product *= dims[i];
+      auto at = llvm::ArrayType::get(val->getType(), dims[i]);
+      LLSmallVector<llvm::Constant *, 16> elements(dims[i], val);
+      val = llvm::ConstantArray::get(at, elements);
+    }
+
+    assert(product == numTotalVals);
     return val;
   }
 
-  llvm::Type *llType = val->getType();
-  llvm::Type *targetLLType = DtoMemType(targetBase);
-  if (llType == targetLLType) {
-    Logger::println("Matching LLVM types, ignoring frontend glitch.");
-    return val;
-  }
+  if (baseTargetType->ty == Tvector) {
+    Logger::println("Building constant vector initializer from scalar.");
 
-  if (targetBase->ty == Tsarray) {
-    Logger::println("Building constant array initializer to single value.");
-
-    assert(expBase->size() > 0);
-    d_uns64 elemCount = targetBase->size() / expBase->size();
-    assert(targetBase->size() % expBase->size() == 0);
-
-    std::vector<llvm::Constant *> initVals(elemCount, val);
-    return llvm::ConstantArray::get(llvm::ArrayType::get(llType, elemCount),
-                                    initVals);
-  }
-
-  if (targetBase->ty == Tvector) {
-    Logger::println("Building vector initializer from scalar.");
-
-    TypeVector *tv = static_cast<TypeVector *>(targetBase);
+    TypeVector *tv = static_cast<TypeVector *>(baseTargetType);
     assert(tv->basetype->ty == Tsarray);
     dinteger_t elemCount =
         static_cast<TypeSArray *>(tv->basetype)->dim->toInteger();
@@ -1150,10 +1183,9 @@ LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp) {
     llvm::IntegerType *source = llvm::cast<llvm::IntegerType>(llType);
     llvm::IntegerType *target = llvm::cast<llvm::IntegerType>(targetLLType);
 
-    assert(
-        target->getBitWidth() > source->getBitWidth() &&
-        "On initializer "
-        "integer type mismatch, the target should be wider than the source.");
+    assert(target->getBitWidth() > source->getBitWidth() &&
+           "On initializer integer type mismatch, the target should be wider "
+           "than the source.");
     return llvm::ConstantExpr::getZExtOrBitCast(val, target);
   }
 
@@ -1327,30 +1359,16 @@ Type *stripModifiers(Type *type, bool transitive) {
 ////////////////////////////////////////////////////////////////////////////////
 
 LLValue *makeLValue(Loc &loc, DValue *value) {
-  Type *valueType = value->type;
-  bool needsMemory;
-  LLValue *valuePointer;
-  if (value->isIm()) {
-    valuePointer = DtoRVal(value);
-    needsMemory = !DtoIsInMemoryOnly(valueType);
-  } else if (value->isLVal()) {
-    valuePointer = DtoLVal(value);
-    needsMemory = false;
-  } else if (value->isConst()) {
-    valuePointer = DtoRVal(value);
-    needsMemory = true;
-  } else {
-    valuePointer = DtoAlloca(valueType, ".makelvaluetmp");
-    DLValue var(valueType, valuePointer);
-    DtoAssign(loc, &var, value);
-    needsMemory = false;
-  }
+  if (value->isLVal())
+    return DtoLVal(value);
 
-  if (needsMemory) {
-    valuePointer = DtoAllocaDump(value, ".makelvaluetmp");
-  }
+  if (value->isIm() || value->isConst())
+    return DtoAllocaDump(value, ".makelvaluetmp");
 
-  return valuePointer;
+  LLValue *mem = DtoAlloca(value->type, ".makelvaluetmp");
+  DLValue var(value->type, mem);
+  DtoAssign(loc, &var, value, TOKblit);
+  return mem;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1369,7 +1387,7 @@ void callPostblit(Loc &loc, Expression *exp, LLValue *val) {
       }
       DtoResolveFunction(fd);
       Expressions args;
-      DFuncValue dfn(fd, getIrFunc(fd)->func, val);
+      DFuncValue dfn(fd, DtoCallee(fd), val);
       DtoCallFunction(loc, Type::basic[Tvoid], &dfn, &args);
     }
   }
@@ -1378,7 +1396,7 @@ void callPostblit(Loc &loc, Expression *exp, LLValue *val) {
 ////////////////////////////////////////////////////////////////////////////////
 
 bool isSpecialRefVar(VarDeclaration *vd) {
-  return (vd->storage_class & STCref) && (vd->storage_class & STCforeach);
+  return (vd->storage_class & (STCref | STCparameter)) == STCref;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1390,6 +1408,9 @@ bool isLLVMUnsigned(Type *t) { return t->isunsigned() || t->ty == Tpointer; }
 void printLabelName(std::ostream &target, const char *func_mangle,
                     const char *label_name) {
   target << gTargetMachine->getMCAsmInfo()->getPrivateGlobalPrefix()
+#if LDC_LLVM_VER >= 400
+              .str()
+#endif
          << func_mangle << "_" << label_name;
 }
 
@@ -1553,17 +1574,27 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       assert(!isSpecialRefVar(vd) && "Code not expected to handle special "
                                      "ref vars, although it can easily be "
                                      "made to.");
-      return new DLValue(type, getIrValue(vd));
-    } else {
-      Logger::println("a normal variable");
-
-      // take care of forward references of global variables
-      if (vd->isDataseg() || (vd->storage_class & STCextern)) {
-        DtoResolveVariable(vd);
-      }
-
-      return makeVarDValue(type, vd);
+      return new DLValue(type, DtoBitCast(getIrValue(vd), DtoPtrToType(type)));
     }
+    Logger::println("a normal variable");
+
+    // take care of forward references of global variables
+    if (vd->isDataseg() || (vd->storage_class & STCextern)) {
+      DtoResolveVariable(vd);
+    }
+
+    return makeVarDValue(type, vd);
+  }
+
+  if (FuncLiteralDeclaration *flitdecl = decl->isFuncLiteralDeclaration()) {
+    Logger::println("FuncLiteralDeclaration");
+
+    // We need to codegen the function here, because literals are not added
+    // to the module member list.
+    DtoDefineFunction(flitdecl);
+    assert(DtoCallee(flitdecl));
+
+    return new DFuncValue(flitdecl, DtoCallee(flitdecl));
   }
 
   if (FuncDeclaration *fdecl = decl->isFuncDeclaration()) {
@@ -1580,7 +1611,7 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
     }
     DtoResolveFunction(fdecl);
     return new DFuncValue(fdecl, fdecl->llvmInternal != LLVMva_arg
-                                     ? getIrFunc(fdecl)->func
+                                     ? DtoCallee(fdecl)
                                      : nullptr);
   }
 
@@ -1634,7 +1665,7 @@ llvm::Constant *DtoConstSymbolAddress(Loc &loc, Declaration *decl) {
   // static function
   if (FuncDeclaration *fd = decl->isFuncDeclaration()) {
     DtoResolveFunction(fd);
-    return getIrFunc(fd)->func;
+    return DtoCallee(fd);
   }
 
   llvm_unreachable("Taking constant address not implemented.");
@@ -1676,7 +1707,7 @@ llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm) {
   return LLConstantArray::get(at, vals);
 }
 
-llvm::GlobalVariable *getOrCreateGlobal(Loc &loc, llvm::Module &module,
+llvm::GlobalVariable *getOrCreateGlobal(const Loc &loc, llvm::Module &module,
                                         llvm::Type *type, bool isConstant,
                                         llvm::GlobalValue::LinkageTypes linkage,
                                         llvm::Constant *init,
@@ -1706,29 +1737,26 @@ llvm::GlobalVariable *getOrCreateGlobal(Loc &loc, llvm::Module &module,
                                   nullptr, tlsModel);
 }
 
-FuncDeclaration *getParentFunc(Dsymbol *sym, bool stopOnStatic) {
+FuncDeclaration *getParentFunc(Dsymbol *sym) {
   if (!sym) {
     return nullptr;
   }
 
-  // check if symbol is itself a static function/aggregate
-  if (stopOnStatic) {
-    // Static functions and function (not delegate) literals don't allow
-    // access to a parent context, even if they are nested.
-    if (FuncDeclaration *fd = sym->isFuncDeclaration()) {
-      bool certainlyNewRoot =
-          fd->isStatic() ||
-          (fd->isFuncLiteralDeclaration() &&
-           static_cast<FuncLiteralDeclaration *>(fd)->tok == TOKfunction);
-      if (certainlyNewRoot) {
-        return nullptr;
-      }
+  // Static functions and function (not delegate) literals don't allow
+  // access to a parent context, even if they are nested.
+  if (FuncDeclaration *fd = sym->isFuncDeclaration()) {
+    bool certainlyNewRoot =
+        fd->isStatic() ||
+        (fd->isFuncLiteralDeclaration() &&
+         static_cast<FuncLiteralDeclaration *>(fd)->tok == TOKfunction);
+    if (certainlyNewRoot) {
+      return nullptr;
     }
-    // Fun fact: AggregateDeclarations are not Declarations.
-    else if (AggregateDeclaration *ad = sym->isAggregateDeclaration()) {
-      if (!ad->isNested()) {
-        return nullptr;
-      }
+  }
+  // Fun fact: AggregateDeclarations are not Declarations.
+  else if (AggregateDeclaration *ad = sym->isAggregateDeclaration()) {
+    if (!ad->isNested()) {
+      return nullptr;
     }
   }
 
@@ -1737,11 +1765,9 @@ FuncDeclaration *getParentFunc(Dsymbol *sym, bool stopOnStatic) {
       return fd;
     }
 
-    if (stopOnStatic) {
-      if (AggregateDeclaration *ad = parent->isAggregateDeclaration()) {
-        if (!ad->isNested()) {
-          return nullptr;
-        }
+    if (AggregateDeclaration *ad = parent->isAggregateDeclaration()) {
+      if (!ad->isNested()) {
+        return nullptr;
       }
     }
   }
@@ -1806,22 +1832,29 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
     val = getIrValue(vd);
   }
 
-  if (vd->isDataseg() || (vd->storage_class & STCextern)) {
-    // The type of globals is determined by their initializer, so
-    // we might need to cast. Make sure that the type sizes fit -
-    // '==' instead of '<=' should probably work as well.
-    llvm::Type *expectedType = llvm::PointerType::getUnqual(DtoMemType(type));
+  // We might need to cast.
+  llvm::Type *expectedType = DtoPtrToType(type);
+  const bool isSpecialRef = isSpecialRefVar(vd);
+  if (isSpecialRef)
+    expectedType = expectedType->getPointerTo();
 
-    if (val->getType() != expectedType) {
-      llvm::Type *t =
-          llvm::cast<llvm::PointerType>(val->getType())->getElementType();
-      assert(getTypeStoreSize(DtoType(type)) <= getTypeStoreSize(t) &&
-             "Global type mismatch, encountered type too small.");
-      val = DtoBitCast(val, expectedType);
-    }
+  if (val->getType() != expectedType) {
+    // The type of globals is determined by their initializer, and the front-end
+    // may inject implicit casts for class references and static arrays.
+    assert(vd->isDataseg() || (vd->storage_class & STCextern) ||
+           type->toBasetype()->ty == Tclass ||
+           type->toBasetype()->ty == Tsarray);
+    llvm::Type *pointeeType = val->getType()->getPointerElementType();
+    if (isSpecialRef)
+      pointeeType = pointeeType->getPointerElementType();
+    // Make sure that the type sizes fit - '==' instead of '<=' should probably
+    // work as well.
+    assert(getTypeStoreSize(DtoType(type)) <= getTypeStoreSize(pointeeType) &&
+           "LValue type mismatch, encountered type too small.");
+    val = DtoBitCast(val, expectedType);
   }
 
-  if (isSpecialRefVar(vd))
+  if (isSpecialRef)
     return new DSpecialRefValue(type, val);
 
   return new DLValue(type, val);

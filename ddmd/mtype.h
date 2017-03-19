@@ -1,12 +1,12 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (c) 1999-2014 by Digital Mars
+ * Copyright (c) 1999-2016 by Digital Mars
  * All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
  * http://www.boost.org/LICENSE_1_0.txt
- * https://github.com/D-Programming-Language/dmd/blob/master/src/mtype.h
+ * https://github.com/dlang/dmd/blob/master/src/mtype.h
  */
 
 #ifndef DMD_MTYPE_H
@@ -112,6 +112,8 @@ typedef unsigned char TY;       // ENUMTY
 
 extern int Tsize_t;
 extern int Tptrdiff_t;
+
+#define SIZE_INVALID (~(d_uns64)0)   // error return from size() functions
 
 
 /**
@@ -234,7 +236,6 @@ public:
     static unsigned char sizeTy[TMAX];
     static StringTable stringtable;
 
-    Type(TY ty);
     virtual const char *kind();
     Type *copy();
     virtual Type *syntaxCopy();
@@ -243,12 +244,10 @@ public:
     // kludge for template.isType()
     int dyncast() { return DYNCAST_TYPE; }
     int covariant(Type *t, StorageClass *pstc = NULL);
-    char *toChars();
+    const char *toChars();
     char *toPrettyChars(bool QualifyTypes = false);
-    static char needThisPrefix();
     static void _init();
 
-    #define SIZE_INVALID (~(d_uns64)0)
     d_uns64 size();
     virtual d_uns64 size(Loc loc);
     virtual unsigned alignsize();
@@ -335,11 +334,12 @@ public:
     virtual Expression *defaultInit(Loc loc = Loc());
     virtual Expression *defaultInitLiteral(Loc loc);
     virtual bool isZeroInit(Loc loc = Loc());                // if initializer is 0
-    Identifier *getTypeInfoIdent(int internal);
+    Identifier *getTypeInfoIdent();
     virtual void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     virtual int hasWild() const;
     virtual Expression *toExpression();
     virtual bool hasPointers();
+    virtual bool hasVoidInitPointers();
     virtual Type *nextOf();
     Type *baseElemOf();
     uinteger_t sizemask();
@@ -359,7 +359,6 @@ public:
 class TypeError : public Type
 {
 public:
-    TypeError();
     Type *syntaxCopy();
 
     d_uns64 size(Loc loc);
@@ -375,7 +374,6 @@ class TypeNext : public Type
 public:
     Type *next;
 
-    TypeNext(TY ty, Type *next);
     void checkDeprecated(Loc loc, Scope *sc);
     int hasWild() const;
     Type *nextOf();
@@ -400,13 +398,12 @@ public:
     const char *dstring;
     unsigned flags;
 
-    TypeBasic(TY ty);
     const char *kind();
     Type *syntaxCopy();
     d_uns64 size(Loc loc) /*const*/;
     unsigned alignsize();
 #if IN_LLVM
-    uint32_t alignment();
+    structalign_t alignment();
 #endif
     Expression *getProperty(Loc loc, Identifier *ident, int flag);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
@@ -431,7 +428,6 @@ class TypeVector : public Type
 public:
     Type *basetype;
 
-    TypeVector(Loc loc, Type *basetype);
     const char *kind();
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
@@ -456,7 +452,6 @@ public:
 class TypeArray : public TypeNext
 {
 public:
-    TypeArray(TY ty, Type *next);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -467,7 +462,6 @@ class TypeSArray : public TypeArray
 public:
     Expression *dim;
 
-    TypeSArray(Type *t, Expression *dim);
     const char *kind();
     Type *syntaxCopy();
     d_uns64 size(Loc loc);
@@ -494,7 +488,6 @@ public:
 class TypeDArray : public TypeArray
 {
 public:
-    TypeDArray(Type *t);
     const char *kind();
     Type *syntaxCopy();
     d_uns64 size(Loc loc) /*const*/;
@@ -519,7 +512,6 @@ public:
     Loc loc;
     Scope *sc;
 
-    TypeAArray(Type *t, Type *index);
     static TypeAArray *create(Type *t, Type *index);
     const char *kind();
     Type *syntaxCopy();
@@ -541,7 +533,6 @@ public:
 class TypePointer : public TypeNext
 {
 public:
-    TypePointer(Type *t);
     const char *kind();
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
@@ -559,7 +550,6 @@ public:
 class TypeReference : public TypeNext
 {
 public:
-    TypeReference(Type *t);
     const char *kind();
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
@@ -616,6 +606,7 @@ public:
     bool isproperty;    // can be called without parentheses
     bool isref;         // true: returns a reference
     bool isreturn;      // true: 'this' is returned by ref
+    bool isscope;       // true: 'this' is scope
     LINK linkage;  // calling convention
     TRUST trust;   // level of trust
     PURE purity;   // PURExxxx
@@ -624,7 +615,6 @@ public:
 
     int inuse;
 
-    TypeFunction(Parameters *parameters, Type *treturn, int varargs, LINK linkage, StorageClass stc = 0);
     static TypeFunction *create(Parameters *parameters, Type *treturn, int varargs, LINK linkage, StorageClass stc = 0);
     const char *kind();
     Type *syntaxCopy();
@@ -651,7 +641,6 @@ class TypeDelegate : public TypeNext
 public:
     // .next is a TypeFunction
 
-    TypeDelegate(Type *t);
     const char *kind();
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
@@ -675,7 +664,6 @@ public:
     // representing ident.ident!tiargs.ident. ... etc.
     Objects idents;
 
-    TypeQualified(TY ty, Loc loc);
     void syntaxCopyHelper(TypeQualified *t);
     void addIdent(Identifier *ident);
     void addInst(TemplateInstance *inst);
@@ -698,7 +686,6 @@ public:
     Identifier *ident;
     Dsymbol *originalSymbol; // The symbol representing this identifier, before alias resolution
 
-    TypeIdentifier(Loc loc, Identifier *ident);
     const char *kind();
     Type *syntaxCopy();
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
@@ -715,7 +702,6 @@ class TypeInstance : public TypeQualified
 public:
     TemplateInstance *tempinst;
 
-    TypeInstance(Loc loc, TemplateInstance *tempinst);
     const char *kind();
     Type *syntaxCopy();
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
@@ -731,7 +717,6 @@ public:
     Expression *exp;
     int inuse;
 
-    TypeTypeof(Loc loc, Expression *exp);
     const char *kind();
     Type *syntaxCopy();
     Dsymbol *toDsymbol(Scope *sc);
@@ -744,7 +729,6 @@ public:
 class TypeReturn : public TypeQualified
 {
 public:
-    TypeReturn(Loc loc);
     const char *kind();
     Type *syntaxCopy();
     Dsymbol *toDsymbol(Scope *sc);
@@ -770,6 +754,7 @@ class TypeStruct : public Type
 public:
     StructDeclaration *sym;
     AliasThisRec att;
+    CPPMANGLE cppmangle;
 
 #if IN_LLVM
     // cache the hasUnalignedFields check
@@ -777,7 +762,6 @@ public:
     int32_t unaligned;
 #endif
 
-    TypeStruct(StructDeclaration *sym);
     const char *kind();
     d_uns64 size(Loc loc);
     unsigned alignsize();
@@ -794,6 +778,7 @@ public:
     bool needsDestruction() /*const*/;
     bool needsNested();
     bool hasPointers();
+    bool hasVoidInitPointers();
     MATCH implicitConvTo(Type *to);
     MATCH constConv(Type *to);
     unsigned char deduceWild(Type *t, bool isRef);
@@ -807,7 +792,6 @@ class TypeEnum : public Type
 public:
     EnumDeclaration *sym;
 
-    TypeEnum(EnumDeclaration *sym);
     const char *kind();
     Type *syntaxCopy();
     d_uns64 size(Loc loc);
@@ -834,6 +818,7 @@ public:
     Expression *defaultInit(Loc loc);
     bool isZeroInit(Loc loc);
     bool hasPointers();
+    bool hasVoidInitPointers();
     Type *nextOf();
 
     void accept(Visitor *v) { v->visit(this); }
@@ -844,8 +829,8 @@ class TypeClass : public Type
 public:
     ClassDeclaration *sym;
     AliasThisRec att;
+    CPPMANGLE cppmangle;
 
-    TypeClass(ClassDeclaration *sym);
     const char *kind();
     d_uns64 size(Loc loc) /*const*/;
     Type *syntaxCopy();
@@ -872,12 +857,7 @@ class TypeTuple : public Type
 public:
     Parameters *arguments;      // types making up the tuple
 
-    TypeTuple(Parameters *arguments);
-    TypeTuple(Expressions *exps);
     static TypeTuple *create(Parameters *arguments);
-    TypeTuple();
-    TypeTuple(Type *t1);
-    TypeTuple(Type *t1, Type *t2);
     const char *kind();
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
@@ -893,7 +873,6 @@ public:
     Expression *lwr;
     Expression *upr;
 
-    TypeSlice(Type *next, Expression *lwr, Expression *upr);
     const char *kind();
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
@@ -904,7 +883,6 @@ public:
 class TypeNull : public Type
 {
 public:
-    TypeNull();
     const char *kind();
 
     Type *syntaxCopy();
@@ -929,8 +907,6 @@ public:
     Identifier *ident;
     Expression *defaultArg;
 
-    Parameter(StorageClass storageClass, Type *type, Identifier *ident, Expression *defaultArg);
-
     static Parameter *create(StorageClass storageClass, Type *type, Identifier *ident, Expression *defaultArg);
     Parameter *syntaxCopy();
     Type *isLazyArray();
@@ -945,10 +921,5 @@ public:
 
 bool arrayTypeCompatible(Loc loc, Type *t1, Type *t2);
 bool arrayTypeCompatibleWithoutCasting(Loc loc, Type *t1, Type *t2);
-void MODtoBuffer(OutBuffer *buf, MOD mod);
-char *MODtoChars(MOD mod);
-bool MODimplicitConv(MOD modfrom, MOD modto);
-MATCH MODmethodConv(MOD modfrom, MOD modto);
-MOD MODmerge(MOD mod1, MOD mod2);
 
 #endif /* DMD_MTYPE_H */

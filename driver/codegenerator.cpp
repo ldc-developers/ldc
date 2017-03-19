@@ -16,9 +16,8 @@
 #include "driver/linker.h"
 #include "driver/toobj.h"
 #include "gen/logger.h"
+#include "gen/modules.h"
 #include "gen/runtime.h"
-
-void codegenModule(IRState *irs, Module *m, bool emitFullModuleInfo);
 
 /// The module with the frontend-generated C main() definition.
 extern Module *g_entrypointModule;
@@ -74,34 +73,50 @@ void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
 #endif
   }
 }
+
+void emitLLVMUsedArray(IRState &irs) {
+  if (irs.usedArray.empty()) {
+    return;
+  }
+
+  auto *i8PtrType = llvm::Type::getInt8PtrTy(irs.context());
+
+  // Convert all elements to i8* (the expected type for llvm.used)
+  for (auto &elem : irs.usedArray) {
+    elem = llvm::ConstantExpr::getBitCast(elem, i8PtrType);
+  }
+
+  auto *arrayType = llvm::ArrayType::get(i8PtrType, irs.usedArray.size());
+  auto *llvmUsed = new llvm::GlobalVariable(
+      irs.module, arrayType, false, llvm::GlobalValue::AppendingLinkage,
+      llvm::ConstantArray::get(arrayType, irs.usedArray), "llvm.used");
+  llvmUsed->setSection("llvm.metadata");
+}
+
 }
 
 namespace ldc {
 CodeGenerator::CodeGenerator(llvm::LLVMContext &context, bool singleObj)
-    : context_(context), moduleCount_(0), singleObj_(singleObj), ir_(nullptr),
-      firstModuleObjfileName_(nullptr) {
+    : context_(context), moduleCount_(0), singleObj_(singleObj), ir_(nullptr) {
   if (!ClassDeclaration::object) {
     error(Loc(), "declaration for class Object not found; druntime not "
                  "configured properly");
     fatal();
   }
+
+#if LDC_LLVM_VER >= 309
+  // Set the context to discard value names when not generating textual IR.
+  if (!global.params.output_ll) {
+    context_.setDiscardValueNames(true);
+  }
+#endif
 }
 
 CodeGenerator::~CodeGenerator() {
   if (singleObj_) {
-    const char *oname;
-    const char *filename;
-    if ((oname = global.params.exefile) || (oname = global.params.objname)) {
-      filename = FileName::forceExt(
-          oname, global.params.targetTriple->isOSWindows() ? global.obj_ext_alt
-                                                           : global.obj_ext);
-      if (global.params.objdir) {
-        filename =
-            FileName::combine(global.params.objdir, FileName::name(filename));
-      }
-    } else {
-      filename = firstModuleObjfileName_;
-    }
+    // For singleObj builds, the first object file name is the one for the first
+    // source file (e.g., `b.o` for `ldc2 a.o b.d c.d`).
+    const char *filename = (*global.params.objfiles)[0];
 
     // If there are bitcode files passed on the cmdline, add them after all
     // other source files have been added to the (singleobj) module.
@@ -113,9 +128,6 @@ CodeGenerator::~CodeGenerator() {
 }
 
 void CodeGenerator::prepareLLModule(Module *m) {
-  if (!firstModuleObjfileName_) {
-    firstModuleObjfileName_ = m->objfile->name->str;
-  }
   ++moduleCount_;
 
   if (singleObj_ && ir_) {
@@ -136,7 +148,7 @@ void CodeGenerator::prepareLLModule(Module *m) {
 #endif
 
   // TODO: Make ldc::DIBuilder per-Module to be able to emit several CUs for
-  // singleObj compilations?
+  // single-object compilations?
   ir_->DBuilder.EmitCompileUnit(m);
 
   IrDsymbol::resetAll();
@@ -154,13 +166,13 @@ void CodeGenerator::finishLLModule(Module *m) {
                        *global.params.bitcodeFiles);
   }
 
-  m->deleteObjFile();
   writeAndFreeLLModule(m->objfile->name->str);
 }
 
 void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   ir_->DBuilder.Finalize();
 
+  emitLLVMUsedArray(*ir_);
   emitLinkerOptions(*ir_, ir_->module, ir_->context());
 
   // Emit ldc version as llvm.ident metadata.
@@ -177,7 +189,6 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   IdentMetadata->addOperand(llvm::MDNode::get(ir_->context(), IdentNode));
 
   writeModule(&ir_->module, filename);
-  global.params.objfiles->push(const_cast<char *>(filename));
   delete ir_;
   ir_ = nullptr;
 }
@@ -219,15 +230,9 @@ void CodeGenerator::emit(Module *m) {
 
   prepareLLModule(m);
 
-  // If we are compiling to a single object file then only the first module
-  // needs to generate a call to _d_dso_registry(). All other modules only add
-  // a module reference.
-  // FIXME Find better name.
-  const bool emitFullModuleInfo =
-      !singleObj_ || (singleObj_ && moduleCount_ == 1);
-  codegenModule(ir_, m, emitFullModuleInfo);
+  codegenModule(ir_, m);
   if (m == g_dMainModule) {
-    codegenModule(ir_, g_entrypointModule, emitFullModuleInfo);
+    codegenModule(ir_, g_entrypointModule);
 
     if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
       // On Android, bracket TLS data with the symbols _tlsstart and _tlsend, as

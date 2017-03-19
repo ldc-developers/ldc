@@ -19,9 +19,15 @@ namespace {
 string exePath;
 }
 
-void exe_path::initialize(const char *arg0, void *mainAddress) {
+void exe_path::initialize(const char *arg0) {
   assert(exePath.empty());
-  exePath = llvm::sys::fs::getMainExecutable(arg0, mainAddress);
+
+  // Some platforms can't implement LLVM's getMainExecutable
+  // without being given the address of a function in the main executable.
+  // Thus getMainExecutable needs the address of a function;
+  // any function address in the main executable will do.
+  exePath = llvm::sys::fs::getMainExecutable(
+      arg0, reinterpret_cast<void *>(&exe_path::initialize));
 }
 
 const string &exe_path::getExePath() {
@@ -40,8 +46,20 @@ string exe_path::getBaseDir() {
   return path::parent_path(binDir);
 }
 
+string exe_path::getLibDir() {
+  llvm::SmallString<128> r(getBaseDir());
+  path::append(r, "lib" LDC_LIBDIR_SUFFIX);
+  return r.str();
+}
+
 string exe_path::prependBinDir(const char *suffix) {
   llvm::SmallString<128> r(getBinDir());
+  path::append(r, suffix);
+  return r.str();
+}
+
+string exe_path::prependLibDir(const char *suffix) {
+  llvm::SmallString<128> r(getLibDir());
   path::append(r, suffix);
   return r.str();
 }

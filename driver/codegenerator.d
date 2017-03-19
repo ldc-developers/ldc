@@ -50,7 +50,7 @@ extern (C++) void genCmain(Scope *sc) {
   Identifier id = Id.entrypoint;
   auto m = new Module("__entrypoint.d", id, 0, 0);
 
-  scope Parser p = new Parser(m, code.ptr, code.length, 0);
+  scope Parser p = new Parser(m, code, false);
   p.scanloc = Loc();
   p.nextToken();
   m.members = p.parseModule();
@@ -60,9 +60,9 @@ extern (C++) void genCmain(Scope *sc) {
   global.params.verbose = false;
   m.importedFrom = m;
   m.importAll(null);
-  m.semantic();
-  m.semantic2();
-  m.semantic3();
+  m.semantic(null);
+  m.semantic2(null);
+  m.semantic3(null);
   global.params.verbose = v;
 
   g_entrypointModule = m;

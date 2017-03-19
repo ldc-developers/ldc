@@ -29,12 +29,10 @@ struct AArch64TargetABI : TargetABI {
 
     Type *rt = tf->next->toBasetype();
 
-    // FIXME
-    if (tf->linkage == LINKd)
-      return rt->ty == Tsarray || rt->ty == Tstruct;
+    if (!isPOD(rt))
+      return true;
 
-    return rt->ty == Tsarray ||
-      (rt->ty == Tstruct && rt->size() > 16 && !isHFA((TypeStruct *)rt));
+    return passByVal(rt);
   }
 
   bool passByVal(Type *t) override {
@@ -61,8 +59,11 @@ struct AArch64TargetABI : TargetABI {
     for (auto arg : fty.args) {
       if (!arg->byref)
         rewriteArgument(fty, *arg);
-      else if (passByVal(arg->type))
-        arg->attrs.remove(LLAttribute::ByVal);
+    }
+
+    // extern(D): reverse parameter order for non variadics, for DMD-compliance
+    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
+      fty.reverseParams = true;
     }
   }
 

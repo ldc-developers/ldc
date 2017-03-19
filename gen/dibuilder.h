@@ -79,6 +79,8 @@ class DIBuilder {
   const llvm::MDNode *CUNode;
 #endif
 
+  const bool isTargetMSVCx64;
+
   DICompileUnit GetCU() {
 #if LDC_LLVM_VER >= 307
     return CUNode;
@@ -86,6 +88,8 @@ class DIBuilder {
     return llvm::DICompileUnit(CUNode);
 #endif
   }
+
+  Loc currentLoc;
 
 public:
   explicit DIBuilder(IRState *const IR);
@@ -103,8 +107,7 @@ public:
   /// \param Thunk    llvm::Function pointer.
   /// \param fd       The function wrapped by this thunk.
   /// \returns        the Dwarf subprogram global.
-  DISubprogram EmitThunk(llvm::Function *Thunk,
-                              FuncDeclaration *fd); // FIXME
+  DISubprogram EmitThunk(llvm::Function *Thunk, FuncDeclaration *fd); // FIXME
 
   /// \brief Emit the Dwarf subprogram global for a module ctor.
   /// This is used for generated functions like moduleinfoctors,
@@ -127,20 +130,23 @@ public:
   /// \brief Emits debug info for block end
   void EmitBlockEnd();
 
+  Loc GetCurrentLoc() const;
+
   void EmitStopPoint(Loc &loc);
 
   void EmitValue(llvm::Value *val, VarDeclaration *vd);
 
   /// \brief Emits all things necessary for making debug info for a local
   /// variable vd.
-  /// \param ll       LLVM Value of the variable.
+  /// \param ll       LL lvalue of the variable.
   /// \param vd       Variable declaration to emit debug info for.
-  /// \param type     Type of parameter if diferent from vd->type
-  /// \param isThisPtr Parameter is hidden this pointer
+  /// \param type     Type of variable if different from vd->type
+  /// \param isThisPtr Variable is hidden this pointer
+  /// \param forceAsLocal Emit as local even if the variable is a parameter
   /// \param addr     An array of complex address operations.
   void
   EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd, Type *type = nullptr,
-                    bool isThisPtr = false,
+                    bool isThisPtr = false, bool forceAsLocal = false,
 #if LDC_LLVM_VER >= 306
                     llvm::ArrayRef<int64_t> addr = llvm::ArrayRef<int64_t>()
 #else
@@ -153,8 +159,8 @@ public:
   /// variable vd.
   /// \param ll       LLVM global variable
   /// \param vd       Variable declaration to emit debug info for.
-  DIGlobalVariable EmitGlobalVariable(llvm::GlobalVariable *ll,
-                                      VarDeclaration *vd); // FIXME
+  void EmitGlobalVariable(llvm::GlobalVariable *ll,
+                          VarDeclaration *vd); // FIXME
 
   void Finalize();
 
@@ -168,18 +174,21 @@ private:
                ldc::DIExpression diexpr
 #endif
                );
-  void AddBaseFields(ClassDeclaration *sd, ldc::DIFile file,
+  void AddFields(AggregateDeclaration *sd, ldc::DIFile file,
 #if LDC_LLVM_VER >= 306
-                     std::vector<llvm::Metadata *> &elems
+                 llvm::SmallVector<llvm::Metadata *, 16> &elems
 #else
-                     std::vector<llvm::Value *> &elems
+                 llvm::SmallVector<llvm::Value *, 16> &elems
 #endif
-                     );
+                 );
   DIFile CreateFile(Loc &loc);
+  DIFile CreateFile();
+  DIFile CreateFile(Dsymbol* decl);
   DIType CreateBasicType(Type *type);
   DIType CreateEnumType(Type *type);
   DIType CreatePointerType(Type *type);
   DIType CreateVectorType(Type *type);
+  DIType CreateComplexType(Type *type);
   DIType CreateMemberType(unsigned linnum, Type *type, DIFile file,
                           const char *c_name, unsigned offset, PROTKIND);
   DIType CreateCompositeType(Type *type);
@@ -187,8 +196,12 @@ private:
   DIType CreateSArrayType(Type *type);
   DIType CreateAArrayType(Type *type);
   DISubroutineType CreateFunctionType(Type *type);
-  DISubroutineType CreateDelegateType(Type *type);
+  DISubroutineType CreateEmptyFunctionType();
+  DIType CreateDelegateType(Type *type);
   DIType CreateTypeDescription(Type *type, bool derefclass = false);
+
+  bool mustEmitFullDebugInfo();
+  bool mustEmitLocationsDebugInfo();
 
 public:
   template <typename T>

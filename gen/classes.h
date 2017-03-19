@@ -40,6 +40,6 @@ DValue *DtoDynamicCastObject(Loc &loc, DValue *val, Type *to);
 DValue *DtoDynamicCastInterface(Loc &loc, DValue *val, Type *to);
 
 llvm::Value *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl,
-                                       char *name);
+                                       const char *name);
 
 #endif

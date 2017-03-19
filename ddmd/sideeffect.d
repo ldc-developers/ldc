@@ -1,18 +1,23 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2015 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// Distributed under the Boost Software License, Version 1.0.
-// http://www.boost.org/LICENSE_1_0.txt
+/**
+ * Compiler implementation of the
+ * $(LINK2 http://www.dlang.org, D programming language).
+ *
+ * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Source:      $(DMDSRC _sideeffect.d)
+ */
 
 module ddmd.sideeffect;
 
 import ddmd.apply;
 import ddmd.declaration;
+import ddmd.dscope;
 import ddmd.expression;
 import ddmd.func;
 import ddmd.globals;
+import ddmd.identifier;
+import ddmd.init;
 import ddmd.mtype;
 import ddmd.tokens;
 import ddmd.visitor;
@@ -136,7 +141,7 @@ extern (C++) bool lambdaHasSideEffect(Expression e)
 {
     switch (e.op)
     {
-        // Sort the cases by most frequently used first
+    // Sort the cases by most frequently used first
     case TOKassign:
     case TOKplusplus:
     case TOKminusminus:
@@ -201,12 +206,14 @@ extern (C++) bool lambdaHasSideEffect(Expression e)
 
 /***********************************
  * The result of this expression will be discarded.
- * Complain if the operation has no side effects (and hence is meaningless).
+ * Print error messages if the operation has no side effects (and hence is meaningless).
+ * Returns:
+ *      true if expression has no side effects
  */
-extern (C++) void discardValue(Expression e)
+extern (C++) bool discardValue(Expression e)
 {
     if (lambdaHasSideEffect(e)) // check side-effect shallowly
-        return;
+        return false;
     switch (e.op)
     {
     case TOKcast:
@@ -217,20 +224,19 @@ extern (C++) void discardValue(Expression e)
                 /*
                  * Don't complain about an expression with no effect if it was cast to void
                  */
-                return;
+                return false;
             }
-            break;
-            // complain
+            break; // complain
         }
     case TOKerror:
-        return;
+        return false;
     case TOKvar:
         {
             VarDeclaration v = (cast(VarExp)e).var.isVarDeclaration();
             if (v && (v.storage_class & STCtemp))
             {
                 // Bugzilla 5810: Don't complain about an internal generated variable.
-                return;
+                return false;
             }
             break;
         }
@@ -261,7 +267,7 @@ extern (C++) void discardValue(Expression e)
                         s = ce.f.toPrettyChars();
                     else if (ce.e1.op == TOKstar)
                     {
-                        // print 'fp' if ce->e1 is (*fp)
+                        // print 'fp' if ce.e1 is (*fp)
                         s = (cast(PtrExp)ce.e1).e1.toChars();
                     }
                     else
@@ -270,21 +276,19 @@ extern (C++) void discardValue(Expression e)
                 }
             }
         }
-        return;
+        return false;
     case TOKscope:
         e.error("%s has no effect", e.toChars());
-        return;
+        return true;
     case TOKandand:
         {
             AndAndExp aae = cast(AndAndExp)e;
-            discardValue(aae.e2);
-            return;
+            return discardValue(aae.e2);
         }
     case TOKoror:
         {
             OrOrExp ooe = cast(OrOrExp)e;
-            discardValue(ooe.e2);
-            return;
+            return discardValue(ooe.e2);
         }
     case TOKquestion:
         {
@@ -309,10 +313,10 @@ extern (C++) void discardValue(Expression e)
              */
             if (!lambdaHasSideEffect(ce.e1) && !lambdaHasSideEffect(ce.e2))
             {
-                discardValue(ce.e1);
-                discardValue(ce.e2);
+                return discardValue(ce.e1) |
+                       discardValue(ce.e2);
             }
-            return;
+            return false;
         }
     case TOKcomma:
         {
@@ -327,12 +331,11 @@ extern (C++) void discardValue(Expression e)
                 firstComma = cast(CommaExp)firstComma.e1;
             if (firstComma.e1.op == TOKdeclaration && ce.e2.op == TOKvar && (cast(DeclarationExp)firstComma.e1).declaration == (cast(VarExp)ce.e2).var)
             {
-                return;
+                return false;
             }
             // Don't check e1 until we cast(void) the a,b code generation
-            //discardValue(ce->e1);
-            discardValue(ce.e2);
-            return;
+            //discardValue(ce.e1);
+            return discardValue(ce.e2);
         }
     case TOKtuple:
         /* Pass without complaint if any of the tuple elements have side effects.
@@ -341,9 +344,66 @@ extern (C++) void discardValue(Expression e)
          */
         if (!hasSideEffect(e))
             break;
-        return;
+        return false;
     default:
         break;
     }
     e.error("%s has no effect in expression (%s)", Token.toChars(e.op), e.toChars());
+    return true;
+}
+
+/**************************************************
+ * Build a temporary variable to copy the value of e into.
+ * Params:
+ *  stc = storage classes will be added to the made temporary variable
+ *  name = name for temporary variable
+ *  e = original expression
+ * Returns:
+ *  Newly created temporary variable.
+ */
+VarDeclaration copyToTemp(StorageClass stc, const char* name, Expression e)
+{
+    assert(name && name[0] == '_' && name[1] == '_');
+    auto id = Identifier.generateId(name);
+    auto ez = new ExpInitializer(e.loc, e);
+    auto vd = new VarDeclaration(e.loc, e.type, id, ez);
+    vd.storage_class = stc;
+    vd.storage_class |= STCtemp;
+    vd.storage_class |= STCctfe; // temporary is always CTFEable
+    return vd;
+}
+
+/**************************************************
+ * Build a temporary variable to extract e's evaluation, if e is not trivial.
+ * Params:
+ *  sc = scope
+ *  name = name for temporary variable
+ *  e0 = a new side effect part will be appended to it.
+ *  e = original expression
+ *  alwaysCopy = if true, build new temporary variable even if e is trivial.
+ * Returns:
+ *  When e is trivial and alwaysCopy == false, e itself is returned.
+ *  Otherwise, a new VarExp is returned.
+ * Note:
+ *  e's lvalue-ness will be handled well by STCref or STCrvalue.
+ */
+Expression extractSideEffect(Scope* sc, const char* name,
+    ref Expression e0, Expression e, bool alwaysCopy = false)
+{
+    if (!alwaysCopy && isTrivialExp(e))
+        return e;
+
+    auto vd = copyToTemp(0, name, e);
+    if (e.isLvalue())
+        vd.storage_class |= STCref;
+    else
+        vd.storage_class |= STCrvalue;
+
+    Expression de = new DeclarationExp(vd.loc, vd);
+    Expression ve = new VarExp(vd.loc, vd);
+    de = de.semantic(sc);
+    ve = ve.semantic(sc);
+
+    e0 = Expression.combine(e0, de);
+    return ve;
 }

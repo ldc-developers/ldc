@@ -1,5 +1,5 @@
-// This configuration file uses libconfig.
-// See http://www.hyperrealm.com/libconfig/ for syntax details.
+// See comments in driver/config.d in ldc source tree for grammar description of
+// this config file.
 
 // The default group is required
 default:

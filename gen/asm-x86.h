@@ -2159,7 +2159,7 @@ struct AsmProcessor {
     }
 
     opIdent = token->ident;
-    const char *opcode = token->ident->string;
+    const char *opcode = token->ident->toChars();
 
     nextToken();
 
@@ -2362,7 +2362,9 @@ struct AsmProcessor {
             if (prependExtraUnderscore()) {
               insnTemplate << "_";
             }
-            insnTemplate << mangle(vd);
+            OutBuffer buf;
+            mangleToBuffer(vd, &buf);
+            insnTemplate << buf.peekString();
             getIrGlobal(vd, true)->nakedUse = true;
             break;
           }
@@ -2396,7 +2398,7 @@ struct AsmProcessor {
     asmcode->args.push_back(AsmArg(type, e, mode));
   }
 
-  void addLabel(char *id) {
+  void addLabel(const char *id) {
     // We need to delay emitting the actual function name, see
     // replace_func_name in asmstmt.cpp for details.
     printLabelName(insnTemplate, "<<func>>", id);
@@ -2582,7 +2584,7 @@ struct AsmProcessor {
     if (opInfo->linkType == Out_Mnemonic) {
       mnemonic = alternateMnemonics[opInfo->link];
     } else {
-      mnemonic = opIdent->string;
+      mnemonic = opIdent->toChars();
     }
 
     // handle two-operand form where second arg is ignored.
@@ -3042,7 +3044,9 @@ struct AsmProcessor {
               if (prependExtraUnderscore()) {
                 insnTemplate << "_";
               }
-              insnTemplate << mangle(decl);
+              OutBuffer buf;
+              mangleToBuffer(decl, &buf);
+              insnTemplate << buf.peekString();
               //              addOperand2("${", ":c}", Arg_Pointer, e,
               //              asmcode);
             } else {
@@ -3294,7 +3298,7 @@ struct AsmProcessor {
       e = e->semantic(sc);
       return e->ctfeInterpret();
     }
-    stmt->error("expected integer operand(s) for '%s'", Token::tochars[op]);
+    stmt->error("expected integer operand(s) for '%s'", Token::toChars(op));
     return newIntExp(0);
   }
 
@@ -3718,7 +3722,7 @@ struct AsmProcessor {
     case TOKfloat64v:
     case TOKfloat80v:
       // %% need different types?
-      e = createRealExp(stmt->loc, token->float80value, Type::tfloat80);
+      e = createRealExp(stmt->loc, token->floatvalue, Type::tfloat80);
       nextToken();
       break;
     case TOKidentifier: {
@@ -3791,7 +3795,7 @@ struct AsmProcessor {
               } else if (i >= Reg_CS && i <= Reg_GS) {
                 operand->segmentPrefix = static_cast<Reg>(i);
               } else {
-                stmt->error("'%s' is not a segment register", ident->string);
+                stmt->error("'%s' is not a segment register", ident->toChars());
               }
               return parseAsmExp();
             }
@@ -3939,7 +3943,7 @@ struct AsmProcessor {
         if (token->value == TOKfloat32v || token->value == TOKfloat64v ||
             token->value == TOKfloat80v) {
           long words[3];
-          real_to_target(words, & token->float80value.rv(), mode);
+          real_to_target(words, & token->floatvalue.rv(), mode);
           // don't use directives..., just use .long like GCC
           insnTemplate->printf(".long\t%u", words[0]);
           if (mode != SFmode)

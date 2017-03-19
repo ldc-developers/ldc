@@ -32,7 +32,7 @@ void insertBitcodeFiles(llvm::Module &M, llvm::LLVMContext &Ctx,
  * Link an executable only from object files.
  * @return 0 on success.
  */
-int linkObjToBinary(bool sharedLib, bool fullyStatic);
+int linkObjToBinary();
 
 /**
  * Create a static library from object files.
@@ -43,12 +43,12 @@ int createStaticLibrary();
 /**
  * Delete the executable that was previously linked with linkObjToBinary.
  */
-void deleteExecutable();
+void deleteExeFile();
 
 /**
  * Runs the executable that was previously linked with linkObjToBinary.
  * @return the return status of the executable.
  */
-int runExecutable();
+int runProgram();
 
 #endif // LDC_DRIVER_LINKER_H

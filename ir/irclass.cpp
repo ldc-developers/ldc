@@ -19,7 +19,7 @@
 #include "hdrgen.h" // for parametersTypeToChars()
 #include "mtype.h"
 #include "target.h"
-
+#include "gen/funcgenstate.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
@@ -49,7 +49,7 @@ LLGlobalVariable *IrAggr::getVtblSymbol() {
   // create the vtblZ symbol
   auto initname = getMangledVTableSymbolName(aggrdecl);
 
-  LLType *vtblTy = stripModifiers(type)->ctype->isClass()->getVtbl();
+  LLType *vtblTy = stripModifiers(type)->ctype->isClass()->getVtblType();
 
   vtbl =
       getOrCreateGlobal(aggrdecl->loc, gIR->module, vtblTy, true,
@@ -136,15 +136,16 @@ LLGlobalVariable *IrAggr::getInterfaceArraySymbol() {
   LLArrayType *array_type = llvm::ArrayType::get(InterfaceTy, n);
 
   // put it in a global
-  std::string name("_D");
-  name.append(mangle(cd));
-  name.append("16__interfaceInfosZ");
+  OutBuffer mangledName;
+  mangledName.writestring("_D");
+  mangleToBuffer(cd, &mangledName);
+  mangledName.writestring("16__interfaceInfosZ");
 
   // We keep this as external for now and only consider template linkage if
   // we emit the initializer later.
-  classInterfacesArray =
-      getOrCreateGlobal(cd->loc, gIR->module, array_type, true,
-                        llvm::GlobalValue::ExternalLinkage, nullptr, name);
+  classInterfacesArray = getOrCreateGlobal(
+      cd->loc, gIR->module, array_type, true,
+      llvm::GlobalValue::ExternalLinkage, nullptr, mangledName.peekString());
 
   return classInterfacesArray;
 }
@@ -165,38 +166,51 @@ LLConstant *IrAggr::getVtblInit() {
   std::vector<llvm::Constant *> constants;
   constants.reserve(cd->vtbl.dim);
 
+  const auto voidPtrType = getVoidPtrType();
+
   // start with the classinfo
   llvm::Constant *c;
   if (!cd->isCPPclass()) {
     c = getClassInfoSymbol();
-    c = DtoBitCast(c, DtoType(Type::typeinfoclass->type));
+    c = DtoBitCast(c, voidPtrType);
     constants.push_back(c);
   }
 
   // add virtual function pointers
   size_t n = cd->vtbl.dim;
   for (size_t i = cd->vtblOffset(); i < n; i++) {
-    Dsymbol *dsym = static_cast<Dsymbol *>(cd->vtbl.data[i]);
+    Dsymbol *dsym = cd->vtbl[i];
     assert(dsym && "null vtbl member");
 
     FuncDeclaration *fd = dsym->isFuncDeclaration();
     assert(fd && "vtbl entry not a function");
 
     if (cd->isAbstract() || (fd->isAbstract() && !fd->fbody)) {
-      c = getNullValue(getPtrToType(DtoFunctionType(fd)));
+      c = getNullValue(voidPtrType);
     } else {
+      // If inferring return type and semantic3 has not been run, do it now.
+      // This pops up in some other places in the frontend as well, however
+      // it is probably a bug that it still occurs that late.
+      if (fd->inferRetType && !fd->type->nextOf()) {
+        Logger::println("Running late functionSemantic to infer return type.");
+        if (!fd->functionSemantic()) {
+          fd->error("failed to infer return type for vtbl initializer");
+          fatal();
+        }
+      }
+
       DtoResolveFunction(fd);
       assert(isIrFuncCreated(fd) && "invalid vtbl function");
-      c = getIrFunc(fd)->func;
+      c = DtoBitCast(DtoCallee(fd), voidPtrType);
+
       if (cd->isFuncHidden(fd)) {
         // fd is hidden from the view of this class. If fd overlaps with any
         // function in the vtbl[], issue error.
-        for (size_t j = 1; j < n; j++) {
+        for (size_t j = cd->vtblOffset(); j < n; j++) {
           if (j == i) {
             continue;
           }
-          auto fd2 =
-              static_cast<Dsymbol *>(cd->vtbl.data[j])->isFuncDeclaration();
+          auto fd2 = cd->vtbl[j]->isFuncDeclaration();
           if (!fd2->ident->equals(fd->ident)) {
             continue;
           }
@@ -207,9 +221,8 @@ LLConstant *IrAggr::getVtblInit() {
                         "to introduce base class overload set",
                         fd->toPrettyChars(),
                         parametersTypeToChars(tf->parameters, tf->varargs),
-                        cd->toChars(),
-
-                        fd->toChars(), fd->parent->toChars(), fd->toChars());
+                        cd->toChars(), fd->toChars(), fd->parent->toChars(),
+                        fd->toChars());
             } else {
               cd->error("use of %s is hidden by %s", fd->toPrettyChars(),
                         cd->toChars());
@@ -220,30 +233,13 @@ LLConstant *IrAggr::getVtblInit() {
         }
       }
     }
+
     constants.push_back(c);
   }
 
-  // build the constant struct
-  LLType *vtblTy = stripModifiers(type)->ctype->isClass()->getVtbl();
-#ifndef NDEBUG
-  size_t nc = constants.size();
-
-  for (size_t i = 0; i < nc; ++i) {
-    if (constants[i]->getType() != vtblTy->getContainedType(i)) {
-      llvm::errs() << "type mismatch for entry # " << i
-                   << " in vtbl initializer\n";
-
-      constants[i]->getType()->dump();
-      vtblTy->getContainedType(i)->dump();
-    }
-  }
-
-#endif
-  constVtbl = LLConstantStruct::get(isaStruct(vtblTy), constants);
-
-  assert(constVtbl->getType() ==
-             stripModifiers(type)->ctype->isClass()->getVtbl() &&
-         "vtbl initializer type mismatch");
+  // build the constant array
+  LLArrayType *vtblTy = LLArrayType::get(voidPtrType, constants.size());
+  constVtbl = LLConstantArray::get(vtblTy, constants);
 
   return constVtbl;
 }
@@ -281,6 +277,8 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
   std::vector<llvm::Constant *> constants;
   constants.reserve(vtbl_array.dim);
 
+  const auto voidPtrTy = getVoidPtrType();
+
   if (!b->sym->isCPPinterface()) { // skip interface info for CPP interfaces
     // index into the interfaces array
     llvm::Constant *idxs[2] = {DtoConstSize_t(0),
@@ -293,12 +291,12 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
 #endif
         interfaceInfosZ, idxs, true);
 
-    constants.push_back(c);
+    constants.push_back(DtoBitCast(c, voidPtrTy));
   }
 
   // Thunk prefix
   char thunkPrefix[16];
-  int thunkLen = sprintf(thunkPrefix, "Th%d", b->offset);
+  int thunkLen = sprintf(thunkPrefix, "Thn%d_", b->offset);
   char thunkPrefixLen[16];
   sprintf(thunkPrefixLen, "%d", thunkLen);
 
@@ -310,7 +308,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       // FIXME
       // why is this null?
       // happens for mini/s.d
-      constants.push_back(getNullValue(getVoidPtrType()));
+      constants.push_back(getNullValue(voidPtrTy));
       continue;
     }
 
@@ -331,28 +329,31 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
     if (fd->interfaceVirtual)
       thunkOffset -= fd->interfaceVirtual->offset;
     if (thunkOffset == 0) {
-      constants.push_back(irFunc->func);
+      constants.push_back(DtoBitCast(irFunc->getLLVMCallee(), voidPtrTy));
       continue;
     }
 
     // Create the thunk function if it does not already exist in this
     // module.
     OutBuffer nameBuf;
+    const auto mangledTargetName = mangleExact(fd);
+    nameBuf.write(mangledTargetName, 2);
     nameBuf.writestring(thunkPrefix);
-    nameBuf.writestring(mangleExact(fd));
+    nameBuf.writestring(mangledTargetName + 2);
     const char *thunkName = nameBuf.extractString();
     llvm::Function *thunk = gIR->module.getFunction(thunkName);
     if (!thunk) {
       const LinkageWithCOMDAT lwc(LLGlobalValue::LinkOnceODRLinkage,
                                   supportsCOMDAT());
+      const auto callee = irFunc->getLLVMCallee();
       thunk = LLFunction::Create(
-          isaFunction(irFunc->func->getType()->getContainedType(0)), lwc.first,
+          isaFunction(callee->getType()->getContainedType(0)), lwc.first,
           thunkName, &gIR->module);
       setLinkage(lwc, thunk);
-      thunk->copyAttributesFrom(irFunc->func);
+      thunk->copyAttributesFrom(callee);
 
-      // Thunks themselves don't have an identity, only the target
-      // function has.
+// Thunks themselves don't have an identity, only the target
+// function has.
 #if LDC_LLVM_VER >= 309
       thunk->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
 #else
@@ -371,13 +372,14 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
 
       // Create a dummy FuncDeclaration with enough information to satisfy the
       // DIBuilder
-      FuncDeclaration *thunkFd = reinterpret_cast<FuncDeclaration *>(memcpy(
-          new char[sizeof(FuncDeclaration)], fd, sizeof(FuncDeclaration)));
+      FuncDeclaration *thunkFd = reinterpret_cast<FuncDeclaration *>(
+          memcpy(new char[sizeof(FuncDeclaration)], (void *)fd,
+                 sizeof(FuncDeclaration)));
       thunkFd->ir = new IrDsymbol();
       auto thunkFunc = getIrFunc(thunkFd, true); // create the IrFunction
-      thunkFunc->func = thunk;
+      thunkFunc->setLLVMFunc(thunk);
       thunkFunc->type = irFunc->type;
-      gIR->functions.push_back(thunkFunc);
+      gIR->funcGenStates.emplace_back(new FuncGenState(*thunkFunc, *gIR));
 
       // debug info
       thunkFunc->diSubprogram = gIR->DBuilder.EmitThunk(thunk, thunkFd);
@@ -394,7 +396,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       // latter being just for IR readablilty).
       std::vector<LLValue *> args;
       llvm::Function::arg_iterator thunkArg = thunk->arg_begin();
-      llvm::Function::arg_iterator origArg = irFunc->func->arg_begin();
+      llvm::Function::arg_iterator origArg = callee->arg_begin();
       for (; thunkArg != thunk->arg_end(); ++thunkArg, ++origArg) {
         thunkArg->setName(origArg->getName());
         args.push_back(&(*thunkArg));
@@ -416,15 +418,15 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       gIR->DBuilder.EmitStopPoint(fd->loc);
 
       // call the real vtbl function.
-      llvm::CallSite call = gIR->ir->CreateCall(irFunc->func, args);
-      call.setCallingConv(irFunc->func->getCallingConv());
+      llvm::CallInst *call = gIR->ir->CreateCall(callee, args);
+      call->setCallingConv(irFunc->getCallingConv());
+      call->setTailCallKind(llvm::CallInst::TCK_Tail);
 
       // return from the thunk
       if (thunk->getReturnType() == LLType::getVoidTy(gIR->context())) {
         llvm::ReturnInst::Create(gIR->context(), beginbb);
       } else {
-        llvm::ReturnInst::Create(gIR->context(), call.getInstruction(),
-                                 beginbb);
+        llvm::ReturnInst::Create(gIR->context(), call, beginbb);
       }
 
       gIR->DBuilder.EmitFuncEnd(thunkFd);
@@ -432,28 +434,29 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       // clean up
       gIR->scopes.pop_back();
 
-      gIR->functions.pop_back();
+      gIR->funcGenStates.pop_back();
     }
 
-    constants.push_back(thunk);
+    constants.push_back(DtoBitCast(thunk, voidPtrTy));
   }
 
   // build the vtbl constant
-  llvm::Constant *vtbl_constant =
-      LLConstantStruct::getAnon(gIR->context(), constants, false);
+  llvm::Constant *vtbl_constant = LLConstantArray::get(
+      LLArrayType::get(voidPtrTy, constants.size()), constants);
 
-  std::string mangledName("_D");
-  mangledName.append(mangle(cd));
-  mangledName.append("11__interface");
-  mangledName.append(mangle(b->sym));
-  mangledName.append(thunkPrefixLen);
-  mangledName.append(thunkPrefix);
-  mangledName.append("6__vtblZ");
+  OutBuffer mangledName;
+  mangledName.writestring("_D");
+  mangleToBuffer(cd, &mangledName);
+  mangledName.writestring("11__interface");
+  mangleToBuffer(b->sym, &mangledName);
+  mangledName.writestring(thunkPrefixLen);
+  mangledName.writestring(thunkPrefix);
+  mangledName.writestring("6__vtblZ");
 
   const auto lwc = DtoLinkage(cd);
   LLGlobalVariable *GV =
       getOrCreateGlobal(cd->loc, gIR->module, vtbl_constant->getType(), true,
-                        lwc.first, vtbl_constant, mangledName);
+                        lwc.first, vtbl_constant, mangledName.peekString());
   setLinkage(lwc, GV);
 
   // insert into the vtbl map
@@ -527,7 +530,8 @@ LLConstant *IrAggr::getClassInfoInterfaces() {
       assert(itv != interfaceVtblMap.end() && "interface vtbl not found");
       vtb = itv->second;
       vtb = DtoBitCast(vtb, voidptrptr_type);
-      vtb = DtoConstSlice(DtoConstSize_t(itc->getVtblSize()), vtb);
+      auto vtblSize = itc->getVtblType()->getNumContainedTypes();
+      vtb = DtoConstSlice(DtoConstSize_t(vtblSize), vtb);
     }
 
     // offset

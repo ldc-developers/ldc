@@ -84,7 +84,6 @@ function(git_describe _var)
 	execute_process(COMMAND
 		git
 		describe
-		HEAD
 		${ARGN}
 		WORKING_DIRECTORY
 		"${CMAKE_SOURCE_DIR}"
@@ -102,6 +101,6 @@ function(git_describe _var)
 endfunction()
 
 function(git_get_exact_tag _var)
-	git_describe(out --exact-match --tag ${ARGN})
+	git_describe(out HEAD --exact-match --tag ${ARGN})
 	set(${_var} "${out}" PARENT_SCOPE)
 endfunction()

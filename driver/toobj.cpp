@@ -10,7 +10,7 @@
 #include "driver/toobj.h"
 
 #include "driver/cl_options.h"
-#include "driver/ir2obj_cache.h"
+#include "driver/cache.h"
 #include "driver/targetmachine.h"
 #include "driver/tool.h"
 #include "gen/irstate.h"
@@ -19,7 +19,15 @@
 #include "gen/programs.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/Verifier.h"
+#if LDC_LLVM_VER >= 309
+#include "llvm/Analysis/ModuleSummaryAnalysis.h"
+#endif
+#if LDC_LLVM_VER >= 400
+#include "llvm/Analysis/ProfileSummaryInfo.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
+#else
 #include "llvm/Bitcode/ReaderWriter.h"
+#endif
 #if LDC_LLVM_VER >= 307
 #include "llvm/IR/LegacyPassManager.h"
 #else
@@ -344,11 +352,11 @@ public:
   }
 };
 
-void writeObjectFile(llvm::Module *m, std::string &filename) {
-  IF_LOG Logger::println("Writing object file to: %s", filename.c_str());
+void writeObjectFile(llvm::Module *m, const char *filename) {
+  IF_LOG Logger::println("Writing object file to: %s", filename);
   LLErrorInfo errinfo;
   {
-    llvm::raw_fd_ostream out(filename.c_str(), errinfo, llvm::sys::fs::F_None);
+    llvm::raw_fd_ostream out(filename, errinfo, llvm::sys::fs::F_None);
 #if LDC_LLVM_VER >= 306
     if (!errinfo)
 #else
@@ -358,37 +366,65 @@ void writeObjectFile(llvm::Module *m, std::string &filename) {
       codegenModule(*gTargetMachine, *m, out,
                     llvm::TargetMachine::CGFT_ObjectFile);
     } else {
-      error(Loc(), "cannot write object file: %s", ERRORINFO_STRING(errinfo));
+      error(Loc(), "cannot write object file '%s': %s", filename,
+            ERRORINFO_STRING(errinfo));
       fatal();
     }
   }
 }
-} // end of anonymous namespace
 
-void writeModule(llvm::Module *m, std::string filename) {
+bool shouldAssembleExternally() {
   // There is no integrated assembler on AIX because XCOFF is not supported.
   // Starting with LLVM 3.5 the integrated assembler can be used with MinGW.
-  bool const assembleExternally =
-      global.params.output_o &&
-      (NoIntegratedAssembler ||
-       global.params.targetTriple->getOS() == llvm::Triple::AIX);
+  return global.params.output_o &&
+         (NoIntegratedAssembler ||
+          global.params.targetTriple->getOS() == llvm::Triple::AIX);
+}
 
-  // Use cached object code if possible
-  bool useIR2ObjCache = !opts::ir2objCacheDir.empty();
+bool shouldOutputObjectFile() {
+  return global.params.output_o && !shouldAssembleExternally();
+}
+
+bool shouldDoLTO(llvm::Module *m) {
+#if LDC_LLVM_VER < 309
+  return false;
+#else
+#if LDC_LLVM_VER == 309
+  // LLVM 3.9 bug: can't do ThinLTO with modules that have module-scope inline
+  // assembly blocks (duplicate definitions upon importing from such a module).
+  // https://llvm.org/bugs/show_bug.cgi?id=30610
+  if (opts::isUsingThinLTO() && !m->getModuleInlineAsm().empty())
+    return false;
+#endif
+  return opts::isUsingLTO();
+#endif
+}
+} // end of anonymous namespace
+
+void writeModule(llvm::Module *m, const char *filename) {
+  const bool doLTO = shouldDoLTO(m);
+  const bool outputObj = shouldOutputObjectFile();
+  const bool assembleExternally = shouldAssembleExternally();
+
+  // Use cached object code if possible.
+  // TODO: combine LDC's cache and LTO (the advantage is skipping the IR
+  // optimization).
+  const bool useIR2ObjCache =
+      !opts::cacheDir.empty() && outputObj && !doLTO;
   llvm::SmallString<32> moduleHash;
-  if (useIR2ObjCache && global.params.output_o && !assembleExternally) {
-    llvm::SmallString<128> cacheDir(opts::ir2objCacheDir.c_str());
+  if (useIR2ObjCache) {
+    llvm::SmallString<128> cacheDir(opts::cacheDir.c_str());
     llvm::sys::fs::make_absolute(cacheDir);
-    opts::ir2objCacheDir = cacheDir.c_str();
+    opts::cacheDir = cacheDir.c_str();
 
     IF_LOG Logger::println("Use IR-to-Object cache in %s",
-                           opts::ir2objCacheDir.c_str());
+                           opts::cacheDir.c_str());
     LOG_SCOPE
 
-    ir2obj::calculateModuleHash(m, moduleHash);
-    std::string cacheFile = ir2obj::cacheLookup(moduleHash);
+    cache::calculateModuleHash(m, moduleHash);
+    std::string cacheFile = cache::cacheLookup(moduleHash);
     if (!cacheFile.empty()) {
-      ir2obj::recoverObjectFile(moduleHash, filename);
+      cache::recoverObjectFile(moduleHash, filename);
       return;
     }
   }
@@ -396,13 +432,34 @@ void writeModule(llvm::Module *m, std::string filename) {
   // run optimizer
   ldc_optimize_module(m);
 
-  // eventually do our own path stuff, dmd's is a bit strange.
-  using LLPath = llvm::SmallString<128>;
+  // make sure the output directory exists
+  const auto directory = llvm::sys::path::parent_path(filename);
+  if (!directory.empty()) {
+    if (auto ec = llvm::sys::fs::create_directories(directory)) {
+      error(Loc(), "failed to create output directory: %s\n%s",
+            directory.data(), ec.message().c_str());
+      fatal();
+    }
+  }
+
+  const auto outputFlags = {global.params.output_o, global.params.output_bc,
+                            global.params.output_ll, global.params.output_s};
+  const auto numOutputFiles =
+      std::count_if(outputFlags.begin(), outputFlags.end(),
+                    [](OUTPUTFLAG flag) { return flag != 0; });
+
+  const auto replaceExtensionWith = [=](const char *ext) -> std::string {
+    if (numOutputFiles == 1)
+      return filename;
+    llvm::SmallString<128> buffer(filename);
+    llvm::sys::path::replace_extension(buffer, ext);
+    return buffer.str();
+  };
 
   // write LLVM bitcode
-  if (global.params.output_bc) {
-    LLPath bcpath(filename);
-    llvm::sys::path::replace_extension(bcpath, global.bc_ext);
+  if (global.params.output_bc || (doLTO && outputObj)) {
+    std::string bcpath =
+        (doLTO && outputObj) ? filename : replaceExtensionWith(global.bc_ext);
     Logger::println("Writing LLVM bitcode to: %s\n", bcpath.c_str());
     LLErrorInfo errinfo;
     llvm::raw_fd_ostream bos(bcpath.c_str(), errinfo, llvm::sys::fs::F_None);
@@ -411,18 +468,44 @@ void writeModule(llvm::Module *m, std::string filename) {
             ERRORINFO_STRING(errinfo));
       fatal();
     }
-    llvm::WriteBitcodeToFile(m, bos);
+    if (opts::isUsingThinLTO()) {
+#if LDC_LLVM_VER >= 309
+      Logger::println("Creating module summary for ThinLTO");
+#if LDC_LLVM_VER == 309
+      // When the function freq info callback is set to nullptr, LLVM will
+      // calculate it automatically for us.
+      llvm::ModuleSummaryIndexBuilder indexBuilder(
+          m, /* function freq callback */ nullptr);
+      auto &moduleSummaryIndex = indexBuilder.getIndex();
+#else
+      llvm::ProfileSummaryInfo PSI(*m);
+      // Set PSIptr to nullptr when there is no PGO information available, such
+      // that LLVM will not try to find PGO information for each function inside
+      // `buildModuleSummaryIndex`. (micro-optimization)
+      auto PSIptr = m->getProfileSummary() ? &PSI : nullptr;
+
+      // When the function freq info callback is set to nullptr, LLVM will
+      // calculate it automatically for us.
+      auto moduleSummaryIndex = buildModuleSummaryIndex(
+          *m, /* function freq callback */ nullptr, PSIptr);
+#endif
+
+      llvm::WriteBitcodeToFile(m, bos, true, &moduleSummaryIndex,
+                               /* generate ThinLTO hash */ true);
+#endif
+    } else {
+      llvm::WriteBitcodeToFile(m, bos);
+    }
   }
 
   // write LLVM IR
   if (global.params.output_ll) {
-    LLPath llpath(filename);
-    llvm::sys::path::replace_extension(llpath, global.ll_ext);
-    Logger::println("Writing LLVM asm to: %s\n", llpath.c_str());
+    const auto llpath = replaceExtensionWith(global.ll_ext);
+    Logger::println("Writing LLVM IR to: %s\n", llpath.c_str());
     LLErrorInfo errinfo;
     llvm::raw_fd_ostream aos(llpath.c_str(), errinfo, llvm::sys::fs::F_None);
     if (aos.has_error()) {
-      error(Loc(), "cannot write LLVM asm file '%s': %s", llpath.c_str(),
+      error(Loc(), "cannot write LLVM IR file '%s': %s", llpath.c_str(),
             ERRORINFO_STRING(errinfo));
       fatal();
     }
@@ -432,13 +515,16 @@ void writeModule(llvm::Module *m, std::string filename) {
 
   // write native assembly
   if (global.params.output_s || assembleExternally) {
-    LLPath spath(filename);
-    llvm::sys::path::replace_extension(spath, global.s_ext);
+    std::string spath;
     if (!global.params.output_s) {
-      llvm::sys::fs::createUniqueFile("ldc-%%%%%%%.s", spath);
+      llvm::SmallString<16> buffer;
+      llvm::sys::fs::createUniqueFile("ldc-%%%%%%%.s", buffer);
+      spath = buffer.str();
+    } else {
+      spath = replaceExtensionWith(global.s_ext);
     }
 
-    Logger::println("Writing native asm to: %s\n", spath.c_str());
+    Logger::println("Writing asm to: %s\n", spath.c_str());
     LLErrorInfo errinfo;
     {
       llvm::raw_fd_ostream out(spath.c_str(), errinfo, llvm::sys::fs::F_None);
@@ -451,24 +537,24 @@ void writeModule(llvm::Module *m, std::string filename) {
         codegenModule(*gTargetMachine, *m, out,
                       llvm::TargetMachine::CGFT_AssemblyFile);
       } else {
-        error(Loc(), "cannot write native asm: %s", ERRORINFO_STRING(errinfo));
+        error(Loc(), "cannot write asm: %s", ERRORINFO_STRING(errinfo));
         fatal();
       }
     }
 
     if (assembleExternally) {
-      assemble(spath.str(), filename);
+      assemble(spath, filename);
     }
 
     if (!global.params.output_s) {
-      llvm::sys::fs::remove(spath.str());
+      llvm::sys::fs::remove(spath);
     }
   }
 
-  if (global.params.output_o && !assembleExternally) {
+  if (outputObj && !doLTO) {
     writeObjectFile(m, filename);
     if (useIR2ObjCache) {
-      ir2obj::cacheObjectFile(filename, moduleHash);
+      cache::cacheObjectFile(filename, moduleHash);
     }
   }
 }

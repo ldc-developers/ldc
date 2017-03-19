@@ -12,6 +12,7 @@
 #include "statement.h"
 #include "template.h"
 #include "gen/dvalue.h"
+#include "gen/funcgenstate.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
@@ -138,7 +139,7 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   IF_LOG Logger::println("DtoDefineNakedFunction(%s)", mangleExact(fd));
   LOG_SCOPE;
 
-  gIR->functions.push_back(getIrFunc(fd));
+  gIR->funcGenStates.emplace_back(new FuncGenState(*getIrFunc(fd), *gIR));
 
   // we need to do special processing on the body, since we only want
   // to allow actual inline asm blocks to reach the final asm output
@@ -150,16 +151,22 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   // FIXME: could we perhaps use llvm asmwriter to give us these details ?
 
   const char *mangle = mangleExact(fd);
+  std::string fullmangle; // buffer only
+
   std::ostringstream tmpstr;
 
-  bool const isWin = global.params.targetTriple->isOSWindows();
-  bool const isOSX =
-      (global.params.targetTriple->getOS() == llvm::Triple::Darwin ||
-       global.params.targetTriple->getOS() == llvm::Triple::MacOSX);
+  const auto &triple = *global.params.targetTriple;
+  bool const isWin = triple.isOSWindows();
+  bool const isOSX = (triple.getOS() == llvm::Triple::Darwin ||
+                      triple.getOS() == llvm::Triple::MacOSX);
 
   // osx is different
   // also mangling has an extra underscore prefixed
   if (isOSX) {
+    fullmangle += '_';
+    fullmangle += mangle;
+    mangle = fullmangle.c_str();
+
     std::string section = "text";
     bool weak = false;
     if (DtoIsTemplateInstance(fd)) {
@@ -169,21 +176,29 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
     }
     asmstr << "\t." << section << std::endl;
     asmstr << "\t.align\t4, 0x90" << std::endl;
-    asmstr << "\t.globl\t_" << mangle << std::endl;
+    asmstr << "\t.globl\t" << mangle << std::endl;
     if (weak) {
-      asmstr << "\t.weak_definition\t_" << mangle << std::endl;
+      asmstr << "\t.weak_definition\t" << mangle << std::endl;
     }
-    asmstr << "_" << mangle << ":" << std::endl;
+    asmstr << mangle << ":" << std::endl;
   }
   // Windows is different
   else if (isWin) {
-    std::string fullMangle;
-    if (!global.params.targetTriple->isArch64Bit()) {
-      fullMangle = "_";
+    // prepend extra underscore for Win32 (except for extern(C++))
+    if (triple.isArch32Bit() && fd->linkage != LINKcpp) {
+      fullmangle += '_';
+      fullmangle += mangle;
+      mangle = fullmangle.c_str();
     }
-    fullMangle += mangle;
+    // leading ? apparently needs quoting
+    else if (mangle[0] == '?') {
+      fullmangle += '"';
+      fullmangle += mangle;
+      fullmangle += '"';
+      mangle = fullmangle.c_str();
+    }
 
-    asmstr << "\t.def\t" << fullMangle << ";" << std::endl;
+    asmstr << "\t.def\t" << mangle << ";" << std::endl;
     // hard code these two numbers for now since gas ignores .scl and llvm
     // is defaulting to .type 32 for everything I have seen
     asmstr << "\t.scl 2;" << std::endl;
@@ -191,14 +206,14 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
     asmstr << "\t.endef" << std::endl;
 
     if (DtoIsTemplateInstance(fd)) {
-      asmstr << "\t.section\t.text$" << fullMangle << ",\"xr\"" << std::endl;
+      asmstr << "\t.section\t.text$" << mangle << ",\"xr\"" << std::endl;
       asmstr << "\t.linkonce\tdiscard" << std::endl;
     } else {
       asmstr << "\t.text" << std::endl;
     }
-    asmstr << "\t.globl\t" << fullMangle << std::endl;
+    asmstr << "\t.globl\t" << mangle << std::endl;
     asmstr << "\t.align\t16, 0x90" << std::endl;
-    asmstr << fullMangle << ":" << std::endl;
+    asmstr << mangle << ":" << std::endl;
   } else {
     if (DtoIsTemplateInstance(fd)) {
       asmstr << "\t.section\t.text." << mangle << ",\"axG\",@progbits,"
@@ -233,7 +248,7 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   gIR->module.appendModuleInlineAsm(asmstr.str());
   asmstr.str("");
 
-  gIR->functions.pop_back();
+  gIR->funcGenStates.pop_back();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -386,8 +401,8 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
 
 // sort of kinda related to naked ...
 
-DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd,
-                         Expressions *arguments) {
+DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
+                         LLValue *sretPointer) {
   IF_LOG Logger::println("DtoInlineAsmExpr @ %s", loc.toChars());
   LOG_SCOPE;
 
@@ -430,9 +445,15 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd,
   }
 
   // build asm function type
-  Type *type = fd->type->nextOf()->toBasetype();
-  LLType *ret_type = DtoType(type);
+  Type *type = fd->type->nextOf();
+  LLType *ret_type = DtoType(type->toBasetype());
   llvm::FunctionType *FT = llvm::FunctionType::get(ret_type, argtypes, false);
+
+  // make sure the constraints are valid
+  if (!llvm::InlineAsm::Verify(FT, constraints)) {
+    e->error("__asm constraint argument is invalid");
+    fatal();
+  }
 
   // build asm call
   bool sideeffect = true;
@@ -440,14 +461,19 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd,
 
   llvm::Value *rv = gIR->ir->CreateCall(ia, args, "");
 
+  if (sretPointer) {
+    DtoStore(rv, DtoBitCast(sretPointer, getPtrToType(ret_type)));
+    return new DLValue(type, sretPointer);
+  }
+
   // work around missing tuple support for users of the return value
   if (type->ty == Tstruct) {
     // make a copy
     llvm::Value *mem = DtoAlloca(type, ".__asm_tuple_ret");
-    DtoStore(rv, DtoBitCast(mem, getPtrToType(rv->getType())));
-    return new DLValue(fd->type->nextOf(), mem);
+    DtoStore(rv, DtoBitCast(mem, getPtrToType(ret_type)));
+    return new DLValue(type, mem);
   }
 
   // return call as im value
-  return new DImValue(fd->type->nextOf(), rv);
+  return new DImValue(type, rv);
 }

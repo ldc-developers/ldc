@@ -1,17 +1,18 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2015 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// Distributed under the Boost Software License, Version 1.0.
-// http://www.boost.org/LICENSE_1_0.txt
+/**
+ * Compiler implementation of the
+ * $(LINK2 http://www.dlang.org, D programming language).
+ *
+ * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Source:      $(DMDSRC _dscope.d)
+ */
 
 module ddmd.dscope;
 
 import core.stdc.stdio;
 import core.stdc.string;
 import ddmd.aggregate;
-import ddmd.arraytypes;
 import ddmd.attrib;
 import ddmd.dclass;
 import ddmd.declaration;
@@ -22,14 +23,11 @@ import ddmd.dtemplate;
 import ddmd.errors;
 import ddmd.func;
 import ddmd.globals;
-import ddmd.globals;
 import ddmd.id;
 import ddmd.identifier;
-import ddmd.mtype;
 import ddmd.root.outbuffer;
 import ddmd.root.rmem;
 import ddmd.root.speller;
-import ddmd.root.stringtable;
 import ddmd.statement;
 
 //version=LOGSEARCH;
@@ -80,64 +78,64 @@ extern (C++) bool mergeFieldInit(Loc loc, ref uint fieldInit, uint fi, bool must
     return true;
 }
 
-enum CSXthis_ctor       = 0x01;     // called this()
-enum CSXsuper_ctor      = 0x02;     // called super()
-enum CSXthis            = 0x04;     // referenced this
-enum CSXsuper           = 0x08;     // referenced super
-enum CSXlabel           = 0x10;     // seen a label
-enum CSXreturn          = 0x20;     // seen a return statement
-enum CSXany_ctor        = 0x40;     // either this() or super() was called
-enum CSXhalt            = 0x80;     // assert(0)
+enum CSXthis_ctor       = 0x01;     /// called this()
+enum CSXsuper_ctor      = 0x02;     /// called super()
+enum CSXthis            = 0x04;     /// referenced this
+enum CSXsuper           = 0x08;     /// referenced super
+enum CSXlabel           = 0x10;     /// seen a label
+enum CSXreturn          = 0x20;     /// seen a return statement
+enum CSXany_ctor        = 0x40;     /// either this() or super() was called
+enum CSXhalt            = 0x80;     /// assert(0)
 
 // Flags that would not be inherited beyond scope nesting
-enum SCOPEctor          = 0x0001;   // constructor type
-enum SCOPEnoaccesscheck = 0x0002;   // don't do access checks
-enum SCOPEcondition     = 0x0004;   // inside static if/assert condition
-enum SCOPEdebug         = 0x0008;   // inside debug conditional
+enum SCOPEctor          = 0x0001;   /// constructor type
+enum SCOPEcondition     = 0x0004;   /// inside static if/assert condition
+enum SCOPEdebug         = 0x0008;   /// inside debug conditional
 
 // Flags that would be inherited beyond scope nesting
-enum SCOPEconstraint    = 0x0010;   // inside template constraint
-enum SCOPEinvariant     = 0x0020;   // inside invariant code
-enum SCOPErequire       = 0x0040;   // inside in contract code
-enum SCOPEensure        = 0x0060;   // inside out contract code
-enum SCOPEcontract      = 0x0060;   // [mask] we're inside contract code
-enum SCOPEctfe          = 0x0080;   // inside a ctfe-only expression
-enum SCOPEcompile       = 0x0100;   // inside __traits(compile)
-enum SCOPEfree          = 0x8000;   // is on free list
+enum SCOPEnoaccesscheck = 0x0002;   /// don't do access checks
+enum SCOPEconstraint    = 0x0010;   /// inside template constraint
+enum SCOPEinvariant     = 0x0020;   /// inside invariant code
+enum SCOPErequire       = 0x0040;   /// inside in contract code
+enum SCOPEensure        = 0x0060;   /// inside out contract code
+enum SCOPEcontract      = 0x0060;   /// [mask] we're inside contract code
+enum SCOPEctfe          = 0x0080;   /// inside a ctfe-only expression
+enum SCOPEcompile       = 0x0100;   /// inside __traits(compile)
+enum SCOPEignoresymbolvisibility    = 0x0200;   /// ignore symbol visibility (Bugzilla 15907)
+enum SCOPEfree          = 0x8000;   /// is on free list
 
-enum SCOPEfullinst      = 0x10000;  // fully instantiate templates
+enum SCOPEfullinst      = 0x10000;  /// fully instantiate templates
 
 struct Scope
 {
-    Scope* enclosing;               // enclosing Scope
+    Scope* enclosing;               /// enclosing Scope
 
-    Module _module;                 // Root module
-    ScopeDsymbol scopesym;          // current symbol
-    ScopeDsymbol sds;               // if in static if, and declaring new symbols,
-                                    // sds gets the addMember()
-    FuncDeclaration func;           // function we are in
-    Dsymbol parent;                 // parent to use
-    LabelStatement slabel;          // enclosing labelled statement
-    SwitchStatement sw;             // enclosing switch statement
-    TryFinallyStatement tf;         // enclosing try finally statement
-    OnScopeStatement os;            // enclosing scope(xxx) statement
-    Statement sbreak;               // enclosing statement that supports "break"
-    Statement scontinue;            // enclosing statement that supports "continue"
-    ForeachStatement fes;           // if nested function for ForeachStatement, this is it
-    Scope* callsc;                  // used for __FUNCTION__, __PRETTY_FUNCTION__ and __MODULE__
-    int inunion;                    // we're processing members of a union
-    int nofree;                     // set if shouldn't free it
-    int noctor;                     // set if constructor calls aren't allowed
-    int intypeof;                   // in typeof(exp)
-    VarDeclaration lastVar;         // Previous symbol used to prevent goto-skips-init
+    Module _module;                 /// Root module
+    ScopeDsymbol scopesym;          /// current symbol
+    ScopeDsymbol sds;               /// if in static if, and declaring new symbols, sds gets the addMember()
+    FuncDeclaration func;           /// function we are in
+    Dsymbol parent;                 /// parent to use
+    LabelStatement slabel;          /// enclosing labelled statement
+    SwitchStatement sw;             /// enclosing switch statement
+    TryFinallyStatement tf;         /// enclosing try finally statement
+    OnScopeStatement os;            /// enclosing scope(xxx) statement
+    Statement sbreak;               /// enclosing statement that supports "break"
+    Statement scontinue;            /// enclosing statement that supports "continue"
+    ForeachStatement fes;           /// if nested function for ForeachStatement, this is it
+    Scope* callsc;                  /// used for __FUNCTION__, __PRETTY_FUNCTION__ and __MODULE__
+    int inunion;                    /// we're processing members of a union
+    int nofree;                     /// set if shouldn't free it
+    int noctor;                     /// set if constructor calls aren't allowed
+    int intypeof;                   /// in typeof(exp)
+    VarDeclaration lastVar;         /// Previous symbol used to prevent goto-skips-init
 
     /* If  minst && !tinst, it's in definitely non-speculative scope (eg. module member scope).
      * If !minst && !tinst, it's in definitely speculative scope (eg. template constraint).
      * If  minst &&  tinst, it's in instantiated code scope without speculation.
      * If !minst &&  tinst, it's in instantiated code scope with speculation.
      */
-    Module minst;                   // root module where the instantiated templates should belong to
-    TemplateInstance tinst;         // enclosing template instance
+    Module minst;                   /// root module where the instantiated templates should belong to
+    TemplateInstance tinst;         /// enclosing template instance
 
     // primitive flow analysis for constructors
     uint callSuper;
@@ -146,24 +144,25 @@ struct Scope
     uint* fieldinit;
     size_t fieldinit_dim;
 
-    // alignment for struct members
-    structalign_t structalign = STRUCTALIGN_DEFAULT;
+    /// alignment for struct members
+    AlignDeclaration aligndecl;
 
-    // linkage for external functions
+    /// linkage for external functions
     LINK linkage = LINKd;
 
-    // mangle type
+    /// mangle type
     CPPMANGLE cppmangle = CPPMANGLE.def;
 
-    // inlining strategy for functions
+    /// inlining strategy for functions
     PINLINE inlining = PINLINEdefault;
 
-    // protection for class members
+    /// protection for class members
     Prot protection = Prot(PROTpublic);
-    int explicitProtection;         // set if in an explicit protection attribute
+    int explicitProtection;         /// set if in an explicit protection attribute
 
-    StorageClass stc;               // storage class
-    DeprecatedDeclaration depdecl;  // customized deprecation message
+    StorageClass stc;               /// storage class
+
+    DeprecatedDeclaration depdecl;  /// customized deprecation message
 
     uint flags;
 
@@ -175,9 +174,9 @@ version(IN_LLVM)
     bool emitInstrumentation = true;   // whether to emit instrumentation with -fprofile-instr-generate
 }
 
-    DocComment* lastdc;        // documentation comment for last symbol at this scope
-    uint[void*] anchorCounts;  // lookup duplicate anchor name count
-    Identifier prevAnchor;     // qualified symbol name of last doc anchor
+    DocComment* lastdc;        /// documentation comment for last symbol at this scope
+    uint[void*] anchorCounts;  /// lookup duplicate anchor name count
+    Identifier prevAnchor;     /// qualified symbol name of last doc anchor
 
     extern (C++) static __gshared Scope* freelist;
 
@@ -239,14 +238,15 @@ version(IN_LLVM)
                 assert(!(enclosing.flags & SCOPEfree));
             if (s == enclosing)
             {
-                printf("this = %p, enclosing = %p, enclosing->enclosing = %p\n", s, &this, enclosing);
+                printf("this = %p, enclosing = %p, enclosing.enclosing = %p\n", s, &this, enclosing);
             }
             assert(s != enclosing);
         }
         s.slabel = null;
         s.nofree = 0;
         s.fieldinit = saveFieldInit();
-        s.flags = (flags & (SCOPEcontract | SCOPEdebug | SCOPEctfe | SCOPEcompile | SCOPEconstraint));
+        s.flags = (flags & (SCOPEcontract | SCOPEdebug | SCOPEctfe | SCOPEcompile | SCOPEconstraint |
+                            SCOPEnoaccesscheck | SCOPEignoresymbolvisibility));
         s.lastdc = null;
         assert(&this != s);
         return s;
@@ -254,7 +254,7 @@ version(IN_LLVM)
 
     extern (C++) Scope* push(ScopeDsymbol ss)
     {
-        //printf("Scope::push(%s)\n", ss->toChars());
+        //printf("Scope::push(%s)\n", ss.toChars());
         Scope* s = push();
         s.scopesym = ss;
         return s;
@@ -418,7 +418,7 @@ else
             FuncDeclaration f = func;
             if (fes)
                 f = fes.func;
-            AggregateDeclaration ad = f.isAggregateMember2();
+            auto ad = f.isMember2();
             assert(ad);
             for (size_t i = 0; i < ad.fields.dim; i++)
             {
@@ -527,6 +527,9 @@ else
             return null;
         }
 
+        if (this.flags & SCOPEignoresymbolvisibility)
+            flags |= IgnoreSymbolVisibility;
+
         Dsymbol sold = void;
         if (global.params.bug10378 || global.params.check10378)
         {
@@ -553,7 +556,7 @@ else
              * checked by the compiler remain usable.  Once the deprecation is over,
              * this should be moved to search_correct instead.
              */
-            if (!s)
+            if (!s && !(flags & IgnoreSymbolVisibility))
             {
                 s = searchScopes(flags | SearchLocalsOnly | IgnoreSymbolVisibility);
                 if (!s)
@@ -579,14 +582,30 @@ else
      */
     extern (C++) static void deprecation10378(Loc loc, Dsymbol sold, Dsymbol snew)
     {
+        // Bugzilla 15857
+        //
+        // The overloadset found via the new lookup rules is either
+        // equal or a subset of the overloadset found via the old
+        // lookup rules, so it suffices to compare the dimension to
+        // check for equality.
+        OverloadSet osold, osnew;
+        if (sold && (osold = sold.isOverloadSet()) !is null &&
+            snew && (osnew = snew.isOverloadSet()) !is null &&
+            osold.a.dim == osnew.a.dim)
+            return;
+
         OutBuffer buf;
         buf.writestring("local import search method found ");
-        if (sold)
+        if (osold)
+            buf.printf("%s %s (%d overloads)", sold.kind(), sold.toPrettyChars(), cast(int) osold.a.dim);
+        else if (sold)
             buf.printf("%s %s", sold.kind(), sold.toPrettyChars());
         else
             buf.writestring("nothing");
         buf.writestring(" instead of ");
-        if (snew)
+        if (osnew)
+            buf.printf("%s %s (%d overloads)", snew.kind(), snew.toPrettyChars(), cast(int) osnew.a.dim);
+        else if (snew)
             buf.printf("%s %s", snew.kind(), snew.toPrettyChars());
         else
             buf.writestring("nothing");
@@ -660,7 +679,7 @@ else
             //printf("\tsc = %p\n", sc);
             if (sc.scopesym)
             {
-                //printf("\t\tsc->scopesym = %p\n", sc->scopesym);
+                //printf("\t\tsc.scopesym = %p\n", sc.scopesym);
                 if (!sc.scopesym.symtab)
                     sc.scopesym.symtab = new DsymbolTable();
                 return sc.scopesym.symtabInsert(s);
@@ -718,10 +737,10 @@ else
             //printf("\tsc = %p\n", sc);
             sc.nofree = 1;
             assert(!(flags & SCOPEfree));
-            //assert(sc != sc->enclosing);
-            //assert(!sc->enclosing || sc != sc->enclosing->enclosing);
+            //assert(sc != sc.enclosing);
+            //assert(!sc.enclosing || sc != sc.enclosing.enclosing);
             //if (++i == 10)
-            //assert(0);
+            //    assert(0);
         }
     }
 
@@ -741,7 +760,7 @@ else
         this.scontinue = sc.scontinue;
         this.fes = sc.fes;
         this.callsc = sc.callsc;
-        this.structalign = sc.structalign;
+        this.aligndecl = sc.aligndecl;
         this.func = sc.func;
         this.slabel = sc.slabel;
         this.linkage = sc.linkage;
@@ -764,5 +783,13 @@ else
         this.anchorCounts = sc.anchorCounts;
         this.prevAnchor = sc.prevAnchor;
         this.userAttribDecl = sc.userAttribDecl;
+    }
+
+    structalign_t alignment()
+    {
+        if (aligndecl)
+            return aligndecl.getAlignment(&this);
+        else
+            return STRUCTALIGN_DEFAULT;
     }
 }

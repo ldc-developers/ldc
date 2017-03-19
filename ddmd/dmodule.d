@@ -1,10 +1,12 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2015 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// Distributed under the Boost Software License, Version 1.0.
-// http://www.boost.org/LICENSE_1_0.txt
+/**
+ * Compiler implementation of the
+ * $(LINK2 http://www.dlang.org, D programming language).
+ *
+ * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Source:      $(DMDSRC _dmodule.d)
+ */
 
 module ddmd.dmodule;
 
@@ -22,36 +24,43 @@ import ddmd.dsymbol;
 import ddmd.errors;
 import ddmd.expression;
 import ddmd.globals;
-import ddmd.hdrgen;
 import ddmd.id;
 import ddmd.identifier;
-import ddmd.lexer;
 import ddmd.parse;
 version(IN_LLVM) {
     import ddmd.root.aav;
     import ddmd.root.array;
+    import ddmd.root.rmem;
 }
 import ddmd.root.file;
 import ddmd.root.filename;
 import ddmd.root.outbuffer;
 import ddmd.root.port;
-import ddmd.root.rmem;
 import ddmd.target;
 import ddmd.visitor;
+
+version(Windows) {
+    extern (C) char* getcwd(char* buffer, size_t maxlen);
+} else {
+    import core.sys.posix.unistd : getcwd;
+}
 
 /* ===========================  ===================== */
 /********************************************
  * Look for the source file if it's different from filename.
  * Look for .di, .d, directory, and along global.path.
  * Does not open the file.
+ * Output:
+ *      path            the path where the file was found if it was not the current directory
  * Input:
  *      filename        as supplied by the user
  *      global.path
  * Returns:
  *      NULL if it's not different from filename.
  */
-extern (C++) const(char)* lookForSourceFile(const(char)* filename)
+extern (C++) const(char)* lookForSourceFile(const(char)** path, const(char)* filename)
 {
+    *path = null;
     /* Search along global.path for .di file, then .d file.
      */
     const(char)* sdi = FileName.forceExt(filename, global.hdr_ext);
@@ -79,12 +88,16 @@ extern (C++) const(char)* lookForSourceFile(const(char)* filename)
     {
         const(char)* p = (*global.path)[i];
         const(char)* n = FileName.combine(p, sdi);
-        if (FileName.exists(n) == 1)
+        if (FileName.exists(n) == 1) {
+            *path = p;
             return n;
+        }
         FileName.free(n);
         n = FileName.combine(p, sd);
-        if (FileName.exists(n) == 1)
+        if (FileName.exists(n) == 1) {
+            *path = p;
             return n;
+        }
         FileName.free(n);
         const(char)* b = FileName.removeExt(filename);
         n = FileName.combine(p, b);
@@ -92,8 +105,10 @@ extern (C++) const(char)* lookForSourceFile(const(char)* filename)
         if (FileName.exists(n) == 2)
         {
             const(char)* n2 = FileName.combine(n, "package.d");
-            if (FileName.exists(n2) == 1)
+            if (FileName.exists(n2) == 1) {
+                *path = p;
                 return n2;
+            }
             FileName.free(n2);
         }
         FileName.free(n);
@@ -116,7 +131,6 @@ alias PKGpackage = PKG.PKGpackage;
  */
 extern (C++) class Package : ScopeDsymbol
 {
-public:
     PKG isPkgMod;
     uint tag;        // auto incremented tag, used to mask package tree in scopes
     Module mod;     // !=null if isPkgMod == PKGmodule
@@ -143,7 +157,7 @@ public:
      *      *pparent        the rightmost package, i.e. pkg2, or NULL if no packages
      *      *ppkg           the leftmost package, i.e. pkg1, or NULL if no packages
      */
-    final static DsymbolTable resolve(Identifiers* packages, Dsymbol* pparent, Package* ppkg)
+    static DsymbolTable resolve(Identifiers* packages, Dsymbol* pparent, Package* ppkg)
     {
         DsymbolTable dst = Module.modules;
         Dsymbol parent = null;
@@ -221,7 +235,7 @@ public:
         return isAncestorPackageOf(pkg.parent.isPackage());
     }
 
-    override final void semantic(Scope* sc)
+    override void semantic(Scope* sc)
     {
     }
 
@@ -260,11 +274,11 @@ public:
  */
 extern (C++) final class Module : Package
 {
-public:
     extern (C++) static __gshared Module rootModule;
     extern (C++) static __gshared DsymbolTable modules; // symbol table of all modules
     extern (C++) static __gshared Modules amodules;     // array of all modules
     extern (C++) static __gshared Dsymbols deferred;    // deferred Dsymbol's needing semantic() run on them
+    extern (C++) static __gshared Dsymbols deferred2;   // deferred Dsymbol's needing semantic2() run on them
     extern (C++) static __gshared Dsymbols deferred3;   // deferred Dsymbol's needing semantic3() run on them
     extern (C++) static __gshared uint dprogress;       // progress resolving the deferred list
 
@@ -278,6 +292,7 @@ public:
     const(char)* arg;           // original argument name
     ModuleDeclaration* md;      // if !=null, the contents of the ModuleDeclaration declaration
     File* srcfile;              // input source file
+    const(char)* srcfilePath;   // the path prefix to the srcfile if it applies
     File* objfile;              // output .obj file
     File* hdrfile;              // 'header' file
     File* docfile;              // output documentation file
@@ -362,17 +377,11 @@ public:
     size_t nameoffset;          // offset of module name from start of ModuleInfo
     size_t namelen;             // length of module name in characters
 
-    version(IN_LLVM)
-    {
-        int doDocComment;       // enable generating doc comments for this module
-        int doHdrGen;           // enable generating header file for this module
-    }
-
     extern (D) this(const(char)* filename, Identifier ident, int doDocComment, int doHdrGen)
     {
         super(ident);
         const(char)* srcfilename;
-        //    printf("Module::Module(filename = '%s', ident = '%s')\n", filename, ident->toChars());
+        //printf("Module::Module(filename = '%s', ident = '%s')\n", filename, ident.toChars());
         this.arg = filename;
         srcfilename = FileName.defaultExt(filename, global.mars_ext);
         if (global.run_noext && global.params.run && !FileName.ext(filename) && FileName.exists(srcfilename) == 0 && FileName.exists(filename) == 1)
@@ -386,20 +395,33 @@ public:
             fatal();
         }
         srcfile = new File(srcfilename);
+        if(!FileName.absolute(srcfilename)) {
+            srcfilePath = getcwd(null, 0);
+        }
 version(IN_LLVM)
 {
-        this.doDocComment = doDocComment;
-        this.doHdrGen = doHdrGen;
+        const(char)* objExt;
+        if (global.params.output_o)
+            objExt = global.obj_ext;
+        else if (global.params.output_bc)
+            objExt = global.bc_ext;
+        else if (global.params.output_ll)
+            objExt = global.ll_ext;
+        else if (global.params.output_s)
+            objExt = global.s_ext;
+
+        if (objExt)
+            objfile = setOutfile(global.params.objname, global.params.objdir, filename, objExt);
 }
 else
 {
         objfile = setOutfile(global.params.objname, global.params.objdir, filename, global.obj_ext);
+}
         if (doDocComment)
             setDocfile();
         if (doHdrGen)
             hdrfile = setOutfile(global.params.hdrname, global.params.hdrdir, arg, global.hdr_ext);
         //objfile = new File(objfilename);
-}
     }
 
     static Module create(const(char)* filename, Identifier ident, int doDocComment, int doHdrGen)
@@ -409,7 +431,7 @@ else
 
     static Module load(Loc loc, Identifiers* packages, Identifier ident)
     {
-        //printf("Module::load(ident = '%s')\n", ident->toChars());
+        //printf("Module::load(ident = '%s')\n", ident.toChars());
         // Build module filename by turning:
         //  foo.bar.baz
         // into:
@@ -418,10 +440,42 @@ else
         if (packages && packages.dim)
         {
             OutBuffer buf;
+            OutBuffer dotmods;
+            auto ms = global.params.modFileAliasStrings;
+            const msdim = ms ? ms.dim : 0;
+
+            void checkModFileAlias(const(char)* p)
+            {
+                /* Check and replace the contents of buf[] with
+                 * an alias string from global.params.modFileAliasStrings[]
+                 */
+                dotmods.writestring(p);
+            Lmain:
+                for (size_t j = msdim; j--;)
+                {
+                    const m = (*ms)[j];
+                    const q = strchr(m, '=');
+                    assert(q);
+                    if (dotmods.offset <= q - m && memcmp(dotmods.peekString(), m, q - m) == 0)
+                    {
+                        buf.reset();
+                        auto qlen = strlen(q + 1);
+                        if (qlen && (q[qlen] == '/' || q[qlen] == '\\'))
+                            --qlen;             // remove trailing separator
+                        buf.writestring(q[1 .. qlen + 1]);
+                        break Lmain;            // last matching entry in ms[] wins
+                    }
+                }
+                dotmods.writeByte('.');
+            }
+
             for (size_t i = 0; i < packages.dim; i++)
             {
                 Identifier pid = (*packages)[i];
-                buf.writestring(pid.toChars());
+                const p = pid.toChars();
+                buf.writestring(p);
+                if (msdim)
+                    checkModFileAlias(p);
                 version (Windows)
                 {
                     buf.writeByte('\\');
@@ -432,6 +486,8 @@ else
                 }
             }
             buf.writestring(filename);
+            if (msdim)
+                checkModFileAlias(filename);
             buf.writeByte(0);
             filename = buf.extractData();
         }
@@ -439,9 +495,17 @@ else
         m.loc = loc;
         /* Look for the source file
          */
-        const(char)* result = lookForSourceFile(filename);
+        const(char)* path;
+        const(char)* result = lookForSourceFile(&path, filename);
         if (result)
+        {
             m.srcfile = new File(result);
+            if(path) {
+                m.srcfilePath = path;
+            } else if(!FileName.absolute(result)) {
+                m.srcfilePath = getcwd(null, 0);
+            }
+        }
         if (!m.read(loc))
             return null;
         if (global.params.verbose)
@@ -491,6 +555,23 @@ else
                 argdoc = arg;
             else
                 argdoc = FileName.name(arg);
+          version (IN_LLVM)
+          {
+            if (global.params.fullyQualifiedObjectFiles)
+            {
+                const fqn = md ? md.toChars() : toChars();
+                argdoc = FileName.replaceName(argdoc, fqn);
+
+                // add ext, otherwise forceExt will make nested.module into nested.<ext>
+                const len = strlen(argdoc);
+                const extlen = strlen(ext);
+                char* s = cast(char*)mem.xmalloc(len + 1 + extlen + 1);
+                memcpy(s, argdoc, len);
+                s[len] = '.';
+                memcpy(s + len + 1, ext, extlen + 1); // incl. terminating null
+                argdoc = s;
+            }
+          }
             // If argdoc doesn't have an absolute path, make it relative to dir
             if (!FileName.absolute(argdoc))
             {
@@ -515,7 +596,7 @@ else
     // read file, returns 'true' if succeed, 'false' otherwise.
     bool read(Loc loc)
     {
-        //printf("Module::read('%s') file '%s'\n", toChars(), srcfile->toChars());
+        //printf("Module::read('%s') file '%s'\n", toChars(), srcfile.toChars());
         if (srcfile.read())
         {
             if (!strcmp(srcfile.toChars(), "object.d"))
@@ -564,10 +645,9 @@ else
     }
 
     // syntactic parse
-    // IN_LLVM replaced: Module parse()
-    Module parse(bool gen_docs = false)
+    Module parse()
     {
-        //printf("Module::parse(srcfile='%s') this=%p\n", srcfile->name->toChars(), this);
+        //printf("Module::parse(srcfile='%s') this=%p\n", srcfile.name.toChars(), this);
         const(char)* srcname = srcfile.name.toChars();
         //printf("Module::parse(srcname = '%s')\n", srcname);
         isPackageFile = (strcmp(srcfile.name.name(), "package.d") == 0);
@@ -749,15 +829,8 @@ else
         {
             comment = buf + 4;
             isDocFile = 1;
-version(IN_LLVM)
-{
-            doDocComment = true;
-}
-else
-{
             if (!docfile)
                 setDocfile();
-}
             return this;
         }
         /* If it has the extension ".dd", it is also a documentation
@@ -774,10 +847,7 @@ else
             return this;
         }
         {
-version(IN_LLVM)
-            scope Parser p = new Parser(this, buf, buflen, gen_docs);
-else
-            scope Parser p = new Parser(this, buf, buflen, docfile !is null);
+            scope Parser p = new Parser(this, buf[0 .. buflen], docfile !is null);
             p.nextToken();
             members = p.parseModule();
             md = p.md;
@@ -822,11 +892,11 @@ else
         // Add internal used functions in 'object' module members.
         if (!parent && ident == Id.object)
         {
-            static __gshared const(char)* code_ArrayEq = "bool _ArrayEq(T1, T2)(T1[] a, T2[] b) {\n if (a.length != b.length) return false;\n foreach (size_t i; 0 .. a.length) { if (a[i] != b[i]) return false; }\n return true; }\n";
-            static __gshared const(char)* code_ArrayPostblit = "void _ArrayPostblit(T)(T[] a) { foreach (ref T e; a) e.__xpostblit(); }\n";
-            static __gshared const(char)* code_ArrayDtor = "void _ArrayDtor(T)(T[] a) { foreach_reverse (ref T e; a) e.__xdtor(); }\n";
-            static __gshared const(char)* code_xopEquals = "bool _xopEquals(in void*, in void*) { throw new Error(\"TypeInfo.equals is not implemented\"); }\n";
-            static __gshared const(char)* code_xopCmp = "bool _xopCmp(in void*, in void*) { throw new Error(\"TypeInfo.compare is not implemented\"); }\n";
+            immutable code_ArrayEq = "bool _ArrayEq(T1, T2)(T1[] a, T2[] b) {\n if (a.length != b.length) return false;\n foreach (size_t i; 0 .. a.length) { if (a[i] != b[i]) return false; }\n return true; }\n";
+            immutable code_ArrayPostblit = "void _ArrayPostblit(T)(T[] a) { foreach (ref T e; a) e.__xpostblit(); }\n";
+            immutable code_ArrayDtor = "void _ArrayDtor(T)(T[] a) { foreach_reverse (ref T e; a) e.__xdtor(); }\n";
+            immutable code_xopEquals = "bool _xopEquals(in void*, in void*) { throw new Error(\"TypeInfo.equals is not implemented\"); }\n";
+            immutable code_xopCmp = "bool _xopCmp(in void*, in void*) { throw new Error(\"TypeInfo.compare is not implemented\"); }\n";
             Identifier arreq = Id._ArrayEq;
             Identifier xopeq = Identifier.idPool("_xopEquals");
             Identifier xopcmp = Identifier.idPool("_xopCmp");
@@ -844,29 +914,29 @@ else
             }
             if (arreq)
             {
-                scope Parser p = new Parser(loc, this, code_ArrayEq, strlen(code_ArrayEq), 0);
+                scope Parser p = new Parser(loc, this, code_ArrayEq, false);
                 p.nextToken();
                 members.append(p.parseDeclDefs(0));
             }
             {
-                scope Parser p = new Parser(loc, this, code_ArrayPostblit, strlen(code_ArrayPostblit), 0);
+                scope Parser p = new Parser(loc, this, code_ArrayPostblit, false);
                 p.nextToken();
                 members.append(p.parseDeclDefs(0));
             }
             {
-                scope Parser p = new Parser(loc, this, code_ArrayDtor, strlen(code_ArrayDtor), 0);
+                scope Parser p = new Parser(loc, this, code_ArrayDtor, false);
                 p.nextToken();
                 members.append(p.parseDeclDefs(0));
             }
             if (xopeq)
             {
-                scope Parser p = new Parser(loc, this, code_xopEquals, strlen(code_xopEquals), 0);
+                scope Parser p = new Parser(loc, this, code_xopEquals, false);
                 p.nextToken();
                 members.append(p.parseDeclDefs(0));
             }
             if (xopcmp)
             {
-                scope Parser p = new Parser(loc, this, code_xopCmp, strlen(code_xopCmp), 0);
+                scope Parser p = new Parser(loc, this, code_xopCmp, false);
                 p.nextToken();
                 members.append(p.parseDeclDefs(0));
             }
@@ -1007,7 +1077,7 @@ else
     }
 
     // semantic analysis
-    void semantic()
+    override void semantic(Scope*)
     {
         if (semanticRun != PASSinit)
             return;
@@ -1021,7 +1091,7 @@ else
         {
             Scope.createGlobal(this); // create root scope
         }
-        //printf("Module = %p, linkage = %d\n", sc->scopesym, sc->linkage);
+        //printf("Module = %p, linkage = %d\n", sc.scopesym, sc.linkage);
         // Pass 1 semantic routines: do public side of the definition
         for (size_t i = 0; i < members.dim; i++)
         {
@@ -1044,7 +1114,7 @@ else
     }
 
     // pass 2 semantic analysis
-    void semantic2()
+    override void semantic2(Scope*)
     {
         //printf("Module::semantic2('%s'): parent = %p\n", toChars(), parent);
         if (semanticRun != PASSsemanticdone) // semantic() not completed yet - could be recursive call
@@ -1072,7 +1142,7 @@ else
     }
 
     // pass 3 semantic analysis
-    void semantic3()
+    override void semantic3(Scope*)
     {
         //printf("Module::semantic3('%s'): parent = %p\n", toChars(), parent);
         if (semanticRun != PASSsemantic2done)
@@ -1087,8 +1157,10 @@ else
         for (size_t i = 0; i < members.dim; i++)
         {
             Dsymbol s = (*members)[i];
-            //printf("Module %s: %s.semantic3()\n", toChars(), s->toChars());
+            //printf("Module %s: %s.semantic3()\n", toChars(), s.toChars());
             s.semantic3(sc);
+
+            runDeferredSemantic2();
         }
         if (userAttribDecl)
         {
@@ -1131,7 +1203,7 @@ else
         if (searchCacheIdent == ident && searchCacheFlags == flags)
         {
             //printf("%s Module::search('%s', flags = %d) insearch = %d searchCacheSymbol = %s\n",
-            //        toChars(), ident->toChars(), flags, insearch, searchCacheSymbol ? searchCacheSymbol->toChars() : "null");
+            //        toChars(), ident.toChars(), flags, insearch, searchCacheSymbol ? searchCacheSymbol.toChars() : "null");
             return searchCacheSymbol;
         }
 
@@ -1152,6 +1224,18 @@ else
         return s;
     }
 
+    override bool isPackageAccessible(Package p, Prot protection, int flags = 0)
+    {
+        if (insearch) // don't follow import cycles
+            return false;
+        insearch = true;
+        scope (exit)
+            insearch = false;
+        if (flags & IgnorePrivateImports)
+            protection = Prot(PROTpublic); // only consider public imports
+        return super.isPackageAccessible(p, protection);
+    }
+
     override Dsymbol symtabInsert(Dsymbol s)
     {
         searchCacheIdent = null; // symbol is inserted, so invalidate cache
@@ -1162,8 +1246,7 @@ else
     {
         if (global.params.obj)
             objfile.remove();
-        // IN_LLVM replaced: if (docfile)
-        if (doDocComment && docfile)
+        if (docfile)
             docfile.remove();
     }
 
@@ -1172,16 +1255,20 @@ else
      */
     static void addDeferredSemantic(Dsymbol s)
     {
-        // Don't add it if it is already there
-        for (size_t i = 0; i < deferred.dim; i++)
-        {
-            Dsymbol sd = deferred[i];
-            if (sd == s)
-                return;
-        }
-
         //printf("Module::addDeferredSemantic('%s')\n", s.toChars());
         deferred.push(s);
+    }
+
+    static void addDeferredSemantic2(Dsymbol s)
+    {
+        //printf("Module::addDeferredSemantic2('%s')\n", s.toChars());
+        deferred2.push(s);
+    }
+
+    static void addDeferredSemantic3(Dsymbol s)
+    {
+        //printf("Module::addDeferredSemantic3('%s')\n", s.toChars());
+        deferred3.push(s);
     }
 
     /******************************************
@@ -1237,20 +1324,27 @@ else
         //printf("-Module::runDeferredSemantic(), len = %d\n", deferred.dim);
     }
 
-    static void addDeferredSemantic3(Dsymbol s)
+    static void runDeferredSemantic2()
     {
-        // Don't add it if it is already there
-        for (size_t i = 0; i < deferred3.dim; i++)
+        Module.runDeferredSemantic();
+
+        Dsymbols* a = &Module.deferred2;
+        for (size_t i = 0; i < a.dim; i++)
         {
-            Dsymbol sd = deferred3[i];
-            if (sd == s)
-                return;
+            Dsymbol s = (*a)[i];
+            //printf("[%d] %s semantic2a\n", i, s.toPrettyChars());
+            s.semantic2(null);
+
+            if (global.errors)
+                break;
         }
-        deferred3.push(s);
+        a.setDim(0);
     }
 
     static void runDeferredSemantic3()
     {
+        Module.runDeferredSemantic2();
+
         Dsymbols* a = &Module.deferred3;
         for (size_t i = 0; i < a.dim; i++)
         {
@@ -1261,6 +1355,7 @@ else
             if (global.errors)
                 break;
         }
+        a.setDim(0);
     }
 
     static void clearCache()
@@ -1279,7 +1374,7 @@ else
      */
     int imports(Module m)
     {
-        //printf("%s Module::imports(%s)\n", toChars(), m->toChars());
+        //printf("%s Module::imports(%s)\n", toChars(), m.toChars());
         version (none)
         {
             for (size_t i = 0; i < aimports.dim; i++)
@@ -1334,44 +1429,8 @@ else
     version(IN_LLVM)
     {
         //llvm::Module* genLLVMModule(llvm::LLVMContext& context);
-        File* buildFilePath(const(char)* forcename, const(char)* path, const(char)* ext, bool preservePaths, bool fqnNames)
-        {
-            const(char)* argobj;
-            if (forcename) {
-                argobj = forcename;
-            } else {
-                if (preservePaths) {
-                    argobj = this.arg;
-                } else {
-                    argobj = FileName.name(this.arg);
-                }
-
-                if (fqnNames) {
-                    const name = md ? md.toChars() : toChars();
-                    argobj = FileName.replaceName(argobj, name);
-
-                    // add ext, otherwise forceExt will make nested.module into nested.bc
-                    size_t len = strlen(argobj);
-                    size_t extlen = strlen(ext);
-                    char* s = cast(char *)alloca(len + 1 + extlen + 1);
-                    memcpy(s, argobj, len);
-                    s[len] = '.';
-                    memcpy(s + len + 1, ext, extlen + 1);
-                    s[len + 1 + extlen] = 0;
-                    argobj = s;
-                }
-            }
-
-            if (!FileName.absolute(argobj)) {
-                argobj = FileName.combine(path, argobj);
-            }
-
-            FileName.ensurePathExists(FileName.path(argobj));
-
-            // always append the extension! otherwise hard to make output switches
-            // consistent
-            return new File(FileName.forceExt(argobj, ext));
-        }
+        void checkAndAddOutputFile(File* file);
+        void makeObjectFilenameUnique();
 
         bool llvmForceLogging;
         bool noModuleInfo; /// Do not emit any module metadata.
@@ -1397,6 +1456,8 @@ else
     }
 }
 
+/***********************************************************
+ */
 struct ModuleDeclaration
 {
     Loc loc;
@@ -1405,12 +1466,13 @@ struct ModuleDeclaration
     bool isdeprecated;      // if it is a deprecated module
     Expression msg;
 
-    /* =========================== ModuleDeclaration ===================== */
-    extern (D) this(Loc loc, Identifiers* packages, Identifier id)
+    extern (D) this(Loc loc, Identifiers* packages, Identifier id, Expression msg, bool isdeprecated)
     {
         this.loc = loc;
         this.packages = packages;
         this.id = id;
+        this.msg = msg;
+        this.isdeprecated = isdeprecated;
     }
 
     extern (C++) const(char)* toChars()

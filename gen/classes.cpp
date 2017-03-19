@@ -84,20 +84,20 @@ DValue *DtoNewClass(Loc &loc, TypeClass *tc, NewExp *newexp) {
   // allocate
   LLValue *mem;
   if (newexp->onstack) {
-    // FIXME align scope class to its largest member
-    mem = DtoRawAlloca(DtoType(tc)->getContainedType(0), 0, ".newclass_alloca");
+    mem = DtoRawAlloca(DtoType(tc)->getContainedType(0), DtoAlignment(tc),
+                       ".newclass_alloca");
   }
   // custom allocator
   else if (newexp->allocator) {
     DtoResolveFunction(newexp->allocator);
-    DFuncValue dfn(newexp->allocator, getIrFunc(newexp->allocator)->func);
+    DFuncValue dfn(newexp->allocator, DtoCallee(newexp->allocator));
     DValue *res = DtoCallFunction(newexp->loc, nullptr, &dfn, newexp->newargs);
     mem = DtoBitCast(DtoRVal(res), DtoType(tc), ".newclass_custom");
   }
   // default allocator
   else {
     llvm::Function *fn =
-        getRuntimeFunction(loc, gIR->module, "_d_newclass");
+        getRuntimeFunction(loc, gIR->module, "_d_allocclass");
     LLConstant *ci = DtoBitCast(getIrAggr(tc->sym)->getClassInfoSymbol(),
                                 DtoType(Type::typeinfoclass->type));
     mem =
@@ -133,7 +133,7 @@ DValue *DtoNewClass(Loc &loc, TypeClass *tc, NewExp *newexp) {
     Logger::println("Calling constructor");
     assert(newexp->arguments != NULL);
     DtoResolveFunction(newexp->member);
-    DFuncValue dfn(newexp->member, getIrFunc(newexp->member)->func, mem);
+    DFuncValue dfn(newexp->member, DtoCallee(newexp->member), mem);
     return DtoCallFunction(newexp->loc, tc, &dfn, newexp->arguments);
   }
 
@@ -375,7 +375,7 @@ DValue *DtoDynamicCastInterface(Loc &loc, DValue *val, Type *_to) {
 ////////////////////////////////////////////////////////////////////////////////
 
 LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl,
-                                   char *name) {
+                                   const char *name) {
   // sanity checks
   assert(fdecl->isVirtual());
   assert(!fdecl->isFinalFunc());
@@ -397,12 +397,12 @@ LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl,
   std::string vtblname = name;
   vtblname.append("@vtbl");
   funcval = DtoGEPi(funcval, 0, fdecl->vtblIndex, vtblname.c_str());
-  // load funcptr
+  // load opaque pointer
   funcval = DtoAlignedLoad(funcval);
 
   IF_LOG Logger::cout() << "funcval: " << *funcval << '\n';
 
-  // cast to final funcptr type
+  // cast to funcptr type
   funcval = DtoBitCast(funcval, getPtrToType(DtoFunctionType(fdecl)));
 
   // postpone naming until after casting to get the name in call instructions
@@ -485,7 +485,7 @@ static LLConstant *build_class_dtor(ClassDeclaration *cd) {
 
   DtoResolveFunction(dtor);
   return llvm::ConstantExpr::getBitCast(
-      getIrFunc(dtor)->func, getPtrToType(LLType::getInt8Ty(gIR->context())));
+      DtoCallee(dtor), getPtrToType(LLType::getInt8Ty(gIR->context())));
 }
 
 static ClassFlags::Type build_classinfo_flags(ClassDeclaration *cd) {
@@ -517,7 +517,7 @@ static ClassFlags::Type build_classinfo_flags(ClassDeclaration *cd) {
       break;
     }
   }
-  if (cd->isabstract) {
+  if (cd->isAbstract()) {
     flags |= ClassFlags::isAbstract;
   }
   for (ClassDeclaration *pc = cd; pc; pc = pc->baseClass) {

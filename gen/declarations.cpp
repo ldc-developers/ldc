@@ -30,86 +30,6 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-namespace {
-// from dmd/src/typinf.c
-bool isSpeculativeType(Type *t) {
-  class SpeculativeTypeVisitor : public Visitor {
-  public:
-    bool result;
-
-    SpeculativeTypeVisitor() : result(false) {}
-
-    using Visitor::visit;
-    void visit(Type *t) override {
-      Type *tb = t->toBasetype();
-      if (tb != t) {
-        tb->accept(this);
-      }
-    }
-    void visit(TypeNext *t) override {
-      if (t->next) {
-        t->next->accept(this);
-      }
-    }
-    void visit(TypeBasic *t) override {}
-    void visit(TypeVector *t) override { t->basetype->accept(this); }
-    void visit(TypeAArray *t) override {
-      t->index->accept(this);
-      visit((TypeNext *)t);
-    }
-    void visit(TypeFunction *t) override {
-      visit((TypeNext *)t);
-      // Currently TypeInfo_Function doesn't store parameter types.
-    }
-    void visit(TypeStruct *t) override {
-      StructDeclaration *sd = t->sym;
-      if (TemplateInstance *ti = sd->isInstantiated()) {
-        if (!ti->needsCodegen()) {
-          if (ti->minst || sd->requestTypeInfo) {
-            return;
-          }
-
-          /* Bugzilla 14425: TypeInfo_Struct would refer the members of
-           * struct (e.g. opEquals via xopEquals field), so if it's instantiated
-           * in speculative context, TypeInfo creation should also be
-           * stopped to avoid 'unresolved symbol' linker errors.
-           */
-          /* When -debug/-unittest is specified, all of non-root instances are
-           * automatically changed to speculative, and here is always reached
-           * from those instantiated non-root structs.
-           * Therefore, if the TypeInfo is not auctually requested,
-           * we have to elide its codegen.
-           */
-          result |= true;
-          return;
-        }
-      } else {
-        // assert(!sd->inNonRoot() || sd->requestTypeInfo);  // valid?
-      }
-    }
-    void visit(TypeClass *t) override {}
-    void visit(TypeTuple *t) override {
-      if (t->arguments) {
-        for (size_t i = 0; i < t->arguments->dim; i++) {
-          Type *tprm = (*t->arguments)[i]->type;
-          if (tprm) {
-            tprm->accept(this);
-          }
-          if (result) {
-            return;
-          }
-        }
-      }
-    }
-  };
-  SpeculativeTypeVisitor v;
-  t->accept(&v);
-  return v.result;
-}
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
 class CodegenVisitor : public Visitor {
   IRState *irs;
 
@@ -356,6 +276,7 @@ public:
           setLinkage(lwc, newGvar);
 
           newGvar->setAlignment(gvar->getAlignment());
+          newGvar->setDLLStorageClass(gvar->getDLLStorageClass());
           applyVarDeclUDAs(decl, newGvar);
           newGvar->takeName(gvar);
 
@@ -367,6 +288,8 @@ public:
           gvar = newGvar;
           irGlobal->value = newGvar;
         }
+
+        assert(!gvar->hasDLLImportStorageClass());
 
         // Now, set the initializer.
         assert(!irGlobal->constInit);
@@ -382,7 +305,7 @@ public:
       // artificial "use" for it, or it could be removed by the optimizer if
       // the only reference to it is in inline asm.
       if (irGlobal->nakedUse) {
-        irs->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
+        irs->usedArray.push_back(gvar);
       }
 
       IF_LOG Logger::cout() << *gvar << '\n';
@@ -494,18 +417,18 @@ public:
 
       assert(e->op == TOKstring);
       StringExp *se = static_cast<StringExp *>(e);
-      auto name = se->toStringz();
-      auto nameLen = strlen(name);
+      const std::string name(se->toPtr(), se->numberOfCodeUnits());
+      auto nameLen = name.size();
 
       if (global.params.targetTriple->isWindowsGNUEnvironment()) {
-        if (nameLen > 4 && !memcmp(name + nameLen - 4, ".lib", 4)) {
+        if (nameLen > 4 && !memcmp(&name[nameLen - 4], ".lib", 4)) {
           // On MinGW, strip the .lib suffix, if any, to improve
           // compatibility with code written for DMD (we pass the name to GCC
           // via -l, just as on Posix).
           nameLen -= 4;
         }
 
-        if (nameLen >= 7 && !memcmp(name, "shell32", 7)) {
+        if (nameLen >= 7 && !memcmp(name.data(), "shell32", 7)) {
           // Another DMD compatibility kludge: Ignore
           // pragma(lib, "shell32.lib"), it is implicitly provided by
           // MinGW.
@@ -516,7 +439,7 @@ public:
       // With LLVM 3.3 or later we can place the library name in the object
       // file. This seems to be supported only on Windows.
       if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
-        llvm::SmallString<24> LibName(llvm::StringRef(name, nameLen));
+        llvm::SmallString<24> LibName(name);
 
         // Win32: /DEFAULTLIB:"curl"
         if (LibName.endswith(".a")) {
@@ -530,22 +453,16 @@ public:
         tmp.append("\"");
         LibName = tmp;
 
-// Embedd library name as linker option in object file
-#if LDC_LLVM_VER >= 306
-        llvm::Metadata *Value = llvm::MDString::get(gIR->context(), LibName);
+        // Embed library name as linker option in object file
+        auto Value = llvm::MDString::get(gIR->context(), LibName);
         gIR->LinkerMetadataArgs.push_back(
             llvm::MDNode::get(gIR->context(), Value));
-#else
-        llvm::Value *Value = llvm::MDString::get(gIR->context(), LibName);
-        gIR->LinkerMetadataArgs.push_back(
-            llvm::MDNode::get(gIR->context(), Value));
-#endif
       } else {
         size_t const n = nameLen + 3;
         char *arg = static_cast<char *>(mem.xmalloc(n));
         arg[0] = '-';
         arg[1] = 'l';
-        memcpy(arg + 2, name, nameLen);
+        memcpy(arg + 2, name.data(), nameLen);
         arg[n - 1] = 0;
         global.params.linkswitches->push(arg);
       }

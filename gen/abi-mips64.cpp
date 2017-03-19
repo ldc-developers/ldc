@@ -30,11 +30,15 @@ struct MIPS64TargetABI : TargetABI {
       return false;
     }
 
+    Type *rt = tf->next->toBasetype();
+
+    if (!isPOD(rt))
+      return true;
+
     // Return structs and static arrays on the stack. The latter is needed
     // because otherwise LLVM tries to actually return the array in a number
     // of physical registers, which leads, depending on the target, to
     // either horrendous codegen or backend crashes.
-    Type *rt = tf->next->toBasetype();
     return (rt->ty == Tstruct || rt->ty == Tsarray);
   }
 
@@ -44,10 +48,19 @@ struct MIPS64TargetABI : TargetABI {
   }
 
   void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
+    if (!fty.ret->byref) {
+      rewriteArgument(fty, *fty.ret);
+    }
+
     for (auto arg : fty.args) {
       if (!arg->byref) {
         rewriteArgument(fty, *arg);
       }
+    }
+
+    // extern(D): reverse parameter order for non variadics, for DMD-compliance
+    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
+      fty.reverseParams = true;
     }
   }
 

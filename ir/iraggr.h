@@ -33,7 +33,8 @@ class StructType;
 // it is used during codegen to hold all the vital info we need
 struct IrAggr {
   /// Constructor.
-  explicit IrAggr(AggregateDeclaration *agg);
+  explicit IrAggr(AggregateDeclaration *aggr)
+      : aggrdecl(aggr), type(aggr->type) {}
 
   //////////////////////////////////////////////////////////////////////////
   // public fields,
@@ -44,6 +45,11 @@ struct IrAggr {
 
   /// Aggregate D type.
   Type *type = nullptr;
+
+  //////////////////////////////////////////////////////////////////////////
+
+  // Returns the static default initializer of a field.
+  static llvm::Constant *getDefaultInitializer(VarDeclaration *field);
 
   //////////////////////////////////////////////////////////////////////////
 
@@ -78,24 +84,16 @@ struct IrAggr {
   /// fields set to the provided constants. The remaining space (not
   /// explicitly specified fields, padding) is default-initialized.
   ///
-  /// The optional initializerType parmeter can be used to specify the exact
-  /// LLVM type to use for the initializer. If non-null and non-opaque, the
-  /// type must exactly match the generated constant. This parameter is used
-  /// mainly for supporting legacy code.
-  ///
   /// Note that in the general case (if e.g. unions are involved), the
   /// returned type is not necessarily the same as getLLType().
   llvm::Constant *
-  createInitializerConstant(const VarInitMap &explicitInitializers,
-                            llvm::StructType *initializerType = nullptr);
+  createInitializerConstant(const VarInitMap &explicitInitializers);
 
 protected:
   /// Static default initializer global.
   llvm::GlobalVariable *init = nullptr;
   /// Static default initializer constant.
   llvm::Constant *constInit = nullptr;
-  /// Static default initialier type.
-  llvm::StructType *init_type = nullptr;
 
   /// Vtbl global.
   llvm::GlobalVariable *vtbl = nullptr;
@@ -107,7 +105,8 @@ protected:
   /// ClassInfo initializer constant.
   llvm::Constant *constClassInfo = nullptr;
 
-  using ClassGlobalMap = std::map<std::pair<ClassDeclaration *, size_t>, llvm::GlobalVariable *>;
+  using ClassGlobalMap =
+      std::map<std::pair<ClassDeclaration *, size_t>, llvm::GlobalVariable *>;
 
   /// Map from pairs of <interface vtbl,index> to global variable, implemented
   /// by this class. The same interface can appear multiple times, so index is
@@ -144,6 +143,10 @@ protected:
   bool isPacked() const;
 
 private:
+  llvm::StructType *llStructType = nullptr;
+
+  llvm::StructType *getLLStructType();
+
   /// Recursively adds all the initializers for the given aggregate and, in
   /// case of a class type, all its base classes.
   void addFieldInitializers(llvm::SmallVectorImpl<llvm::Constant *> &constants,

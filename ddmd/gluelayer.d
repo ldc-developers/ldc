@@ -1,18 +1,18 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2015 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// Distributed under the Boost Software License, Version 1.0.
-// http://www.boost.org/LICENSE_1_0.txt
+/**
+ * Compiler implementation of the
+ * $(LINK2 http://www.dlang.org, D programming language).
+ *
+ * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Source:      $(DMDSRC _gluelayer.d)
+ */
 
 module ddmd.gluelayer;
 
-import ddmd.aggregate;
 import ddmd.dmodule;
 import ddmd.dscope;
 import ddmd.dsymbol;
-import ddmd.expression;
 // IN_LLVM import ddmd.lib;
 import ddmd.mtype;
 import ddmd.statement;
@@ -28,13 +28,23 @@ version (IN_LLVM)
     struct TYPE;
     alias type = TYPE;
 
-    extern (C++) RET retStyle(TypeFunction tf);
-    extern (C++) Statement asmSemantic(AsmStatement s, Scope* sc);
-
-    extern(C++) void objc_initSymbols() {}
+    extern (C++)
+    {
+        Statement asmSemantic(AsmStatement s, Scope* sc);
+        RET retStyle(TypeFunction tf);
+        void objc_initSymbols(); // in gen/objcgen.cpp
+    }
 }
 else version (NoBackend)
 {
+    struct Symbol;
+    struct code;
+    struct block;
+    struct Blockx;
+    struct elem;
+    struct TYPE;
+    alias type = TYPE;
+
     extern (C++)
     {
         // glue
@@ -62,14 +72,10 @@ else version (NoBackend)
 }
 else
 {
-    import ddmd.backend;
-
-    alias Symbol = ddmd.backend.Symbol;
-    alias code = ddmd.backend.code;
-    alias block = ddmd.backend.block;
-    alias Blockx = ddmd.backend.Blockx;
-    alias elem = ddmd.backend.elem;
-    alias type = ddmd.backend.type;
+    public import ddmd.backend.cc : block, Blockx, Symbol;
+    public import ddmd.backend.type : type;
+    public import ddmd.backend.el : elem;
+    public import ddmd.backend.code : code;
 
     extern (C++)
     {

@@ -53,127 +53,19 @@
 #include <cstdio>
 #include <ir/irtypeclass.h>
 
-static bool builtinTypeInfo(Type *t);
 FuncDeclaration *search_toString(StructDeclaration *sd);
 
-namespace {
-TypeInfoDeclaration *createUnqualified(Type *t) {
-  switch (t->ty) {
-  case Tpointer:
-    return TypeInfoPointerDeclaration::create(t);
-  case Tarray:
-    return TypeInfoArrayDeclaration::create(t);
-  case Tsarray:
-    return TypeInfoStaticArrayDeclaration::create(t);
-  case Taarray:
-    return TypeInfoAssociativeArrayDeclaration::create(t);
-  case Tstruct:
-    return TypeInfoStructDeclaration::create(t);
-  case Tvector:
-    return TypeInfoVectorDeclaration::create(t);
-  case Tenum:
-    return TypeInfoEnumDeclaration::create(t);
-  case Tfunction:
-    return TypeInfoFunctionDeclaration::create(t);
-  case Tdelegate:
-    return TypeInfoDelegateDeclaration::create(t);
-  case Ttuple:
-    return TypeInfoTupleDeclaration::create(t);
-  case Tclass:
-    if ((static_cast<TypeClass *>(t))->sym->isInterfaceDeclaration()) {
-      return TypeInfoInterfaceDeclaration::create(t);
-    } else {
-      return TypeInfoClassDeclaration::create(t);
-    }
-  default:
-    return TypeInfoDeclaration::create(t, 0);
-  }
-}
-}
+// defined in ddmd/typinf.d:
+void genTypeInfo(Type *torig, Scope *sc);
+bool builtinTypeInfo(Type *t);
 
 TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(Type *torig, Scope *sc) {
   IF_LOG Logger::println("Type::getTypeInfo(): %s", torig->toChars());
   LOG_SCOPE
 
-  if (!Type::dtypeinfo) {
-    torig->error(Loc(), "TypeInfo not found. object.d may be incorrectly "
-                        "installed or corrupt, compile with -v switch");
-    fatal();
-  }
+  genTypeInfo(torig, sc);
 
-  Type *t = torig->merge2(); // do this since not all Type's are merge'd
-  if (!t->vtinfo) {
-    if (t->isShared()) { // does both 'shared' and 'shared const'
-      t->vtinfo = TypeInfoSharedDeclaration::create(t);
-    } else if (t->isConst()) {
-      t->vtinfo = TypeInfoConstDeclaration::create(t);
-    } else if (t->isImmutable()) {
-      t->vtinfo = TypeInfoInvariantDeclaration::create(t);
-    } else if (t->isWild()) {
-      t->vtinfo = TypeInfoWildDeclaration::create(t);
-    } else {
-      t->vtinfo = createUnqualified(t);
-    }
-    assert(t->vtinfo);
-    torig->vtinfo = t->vtinfo;
-
-    /* If this has a custom implementation in std/typeinfo, then
-     * do not generate a COMDAT for it.
-     */
-    if (!builtinTypeInfo(t)) { // Generate COMDAT
-      if (sc)                  // if in semantic() pass
-      {
-        // Find module that will go all the way to an object file
-        Module *m = sc->module->importedFrom;
-        m->members->push(t->vtinfo);
-
-        semanticTypeInfo(sc, t);
-      } else // if in obj generation pass
-      {
-        Declaration_codegen(t->vtinfo);
-      }
-    }
-  }
-  if (!torig->vtinfo) {
-    torig->vtinfo =
-        t->vtinfo; // Types aren't merged, but we can share the vtinfo's
-  }
-  assert(torig->vtinfo);
   return torig->vtinfo;
-}
-
-Type *getTypeInfoType(Type *t, Scope *sc) {
-  assert(t->ty != Terror);
-  getOrCreateTypeInfoDeclaration(t, sc);
-  return t->vtinfo->type;
-}
-
-/* ========================================================================= */
-
-/* These decide if there's an instance for them already in std.typeinfo,
- * because then the compiler doesn't need to build one.
- */
-
-static bool builtinTypeInfo(Type *t) {
-#if 0
-    // FIXME if I enable for Tclass, the way LDC does typeinfo will cause a
-    // bunch of linker errors to missing class typeinfo definitions.
-    if (t->isTypeBasic() || t->ty == Tclass)
-        return !t->mod;
-#else
-  if (t->isTypeBasic()) {
-    return !t->mod;
-  }
-#endif
-
-  if (t->ty == Tarray) {
-    Type *next = t->nextOf();
-    return !t->mod && ((next->isTypeBasic() != nullptr && !next->mod) ||
-                       // strings are so common, make them builtin
-                       (next->ty == Tchar && next->mod == MODimmutable) ||
-                       (next->ty == Tchar && next->mod == MODconst));
-  }
-  return false;
 }
 
 /* ========================================================================= */
@@ -193,8 +85,11 @@ static void emitTypeMetadata(TypeInfoDeclaration *tid) {
   if (t->ty < Terror && t->ty != Tvoid && t->ty != Tfunction &&
       t->ty != Tident) {
     // Add some metadata for use by optimization passes.
-    std::string metaname(TD_PREFIX);
-    metaname += mangle(tid);
+    OutBuffer buf;
+    buf.writestring(TD_PREFIX);
+    mangleToBuffer(tid, &buf);
+    const char *metaname = buf.peekString();
+
     llvm::NamedMDNode *meta = gIR->module.getNamedMetadata(metaname);
 
     if (!meta) {
@@ -428,22 +323,25 @@ public:
         assert(ti->minst || sd->requestTypeInfo);
 
         // We won't emit ti, so emit the special member functions in here.
-        if (sd->xeq && sd->xeq != StructDeclaration::xerreq) {
+        if (sd->xeq && sd->xeq != StructDeclaration::xerreq &&
+            sd->xeq->semanticRun >= PASSsemantic3) {
           Declaration_codegen(sd->xeq);
         }
-        if (sd->xcmp && sd->xcmp != StructDeclaration::xerrcmp) {
+        if (sd->xcmp && sd->xcmp != StructDeclaration::xerrcmp &&
+            sd->xcmp->semanticRun >= PASSsemantic3) {
           Declaration_codegen(sd->xcmp);
         }
         if (FuncDeclaration *ftostr = search_toString(sd)) {
-          Declaration_codegen(ftostr);
+          if (ftostr->semanticRun >= PASSsemantic3)
+            Declaration_codegen(ftostr);
         }
-        if (sd->xhash) {
+        if (sd->xhash && sd->xhash->semanticRun >= PASSsemantic3) {
           Declaration_codegen(sd->xhash);
         }
-        if (sd->postblit) {
+        if (sd->postblit && sd->postblit->semanticRun >= PASSsemantic3) {
           Declaration_codegen(sd->postblit);
         }
-        if (sd->dtor) {
+        if (sd->dtor && sd->dtor->semanticRun >= PASSsemantic3) {
           Declaration_codegen(sd->dtor);
         }
       }
@@ -455,20 +353,19 @@ public:
     // On x86_64, class TypeInfo_Struct contains 2 additional fields
     // (m_arg1/m_arg2) which are used for the X86_64 System V ABI varargs
     // implementation. They are not present on any other cpu/os.
-    unsigned expectedFields = 12;
-    if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
-      expectedFields += 2;
-    }
+    const bool isX86_64 =
+        global.params.targetTriple->getArch() == llvm::Triple::x86_64;
+    const unsigned expectedFields = 12 + (isX86_64 ? 2 : 0);
     if (Type::typeinfostruct->fields.dim != expectedFields) {
       error(Loc(), "Unexpected number of object.TypeInfo_Struct fields; "
                    "druntime version does not match compiler");
       fatal();
     }
 
-    // char[] name
+    // string name
     b.push_string(sd->toPrettyChars());
 
-    // void[] init
+    // void[] m_init
     // The protocol is to write a null pointer for zero-initialized arrays. The
     // length field is always needed for tsize().
     llvm::Constant *initPtr;
@@ -479,42 +376,42 @@ public:
     }
     b.push_void_array(getTypeStoreSize(DtoType(tc)), initPtr);
 
-    // toHash
+    // function xtoHash
     FuncDeclaration *fd = sd->xhash;
     b.push_funcptr(fd);
 
-    // opEquals
+    // function xopEquals
     fd = sd->xeq;
     b.push_funcptr(fd);
 
-    // opCmp
+    // function xopCmp
     fd = sd->xcmp;
     b.push_funcptr(fd);
 
-    // toString
+    // function xtoString
     fd = search_toString(sd);
     b.push_funcptr(fd);
 
-    // uint m_flags;
+    // uint m_flags
     unsigned hasptrs = tc->hasPointers() ? 1 : 0;
     b.push_uint(hasptrs);
 
-    // void function(void*)                    xdtor;
+    // function xdtor/xdtorti
     b.push_funcptr(sd->dtor);
 
-    // void function(void*)                    xpostblit;
+    // function xpostblit
     FuncDeclaration *xpostblit = sd->postblit;
     if (xpostblit && sd->postblit->storage_class & STCdisable) {
       xpostblit = nullptr;
     }
     b.push_funcptr(xpostblit);
 
-    // uint m_align;
+    // uint m_align
     b.push_uint(DtoAlignment(tc));
 
-    if (global.params.is64bit) {
-      // TypeInfo m_arg1;
-      // TypeInfo m_arg2;
+    if (isX86_64) {
+      // TypeInfo m_arg1
+      // TypeInfo m_arg2
       Type *t = sd->arg1type;
       for (unsigned i = 0; i < 2; i++) {
         if (t) {
@@ -528,7 +425,7 @@ public:
       }
     }
 
-    // immutable(void)* m_RTInfo;
+    // immutable(void)* m_RTInfo
     // The cases where getRTInfo is null are not quite here, but the code is
     // modelled after what DMD does.
     if (sd->getRTInfo) {
@@ -693,10 +590,13 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
   }
   decl->ir->setDefined();
 
-  std::string mangled(mangle(decl));
+  OutBuffer mangleBuf;
+  mangleToBuffer(decl, &mangleBuf);
+  const char *mangled = mangleBuf.peekString();
+
   IF_LOG {
     Logger::println("type = '%s'", decl->tinfo->toChars());
-    Logger::println("typeinfo mangle: %s", mangled.c_str());
+    Logger::println("typeinfo mangle: %s", mangled);
   }
 
   IrGlobal *irg = getIrGlobal(decl, true);

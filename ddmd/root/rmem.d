@@ -1,10 +1,12 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2015 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// Distributed under the Boost Software License, Version 1.0.
-// http://www.boost.org/LICENSE_1_0.txt
+/**
+ * Compiler implementation of the D programming language
+ * http://dlang.org
+ *
+ * Copyright: Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Authors:   Walter Bright, http://www.digitalmars.com
+ * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Source:    $(DMDSRC root/_rmem.d)
+ */
 
 module ddmd.root.rmem;
 
@@ -41,7 +43,7 @@ version (GC)
         }
     }
 
-    extern (C++) __gshared Mem mem;
+    extern (C++) const __gshared Mem mem;
 }
 else
 {
@@ -120,7 +122,7 @@ else
         }
     }
 
-    extern (C++) __gshared Mem mem;
+    extern (C++) const __gshared Mem mem;
 
     enum CHUNK_SIZE = (256 * 4096 - 64);
 
@@ -192,6 +194,14 @@ else
             return cast(Object)p;
         }
 
+        version (LDC)
+        {
+            extern (C) Object _d_allocclass(const ClassInfo ci) nothrow
+            {
+                return cast(Object)allocmemory(ci.init.length);
+            }
+        }
+
         extern (C) void* _d_newitemT(TypeInfo ti) nothrow
         {
             auto p = allocmemory(ti.tsize);
@@ -207,3 +217,18 @@ else
         }
     }
 }
+
+extern (D) static char[] xarraydup(const(char)[] s) nothrow
+{
+    if (s)
+    {
+        auto p = cast(char*)mem.xmalloc(s.length + 1);
+        char[] a = p[0 .. s.length];
+        a[] = s[0 .. s.length];
+        p[s.length] = 0;    // preserve 0 terminator semantics
+        return a;
+    }
+    return null;
+}
+
+

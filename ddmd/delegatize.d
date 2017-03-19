@@ -1,13 +1,16 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2015 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// Distributed under the Boost Software License, Version 1.0.
-// http://www.boost.org/LICENSE_1_0.txt
+/**
+ * Compiler implementation of the
+ * $(LINK2 http://www.dlang.org, D programming language).
+ *
+ * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Source:      $(DMDSRC _delegatize.d)
+ */
 
 module ddmd.delegatize;
 
+import core.stdc.stdio;
 import ddmd.apply;
 import ddmd.declaration;
 import ddmd.dscope;
@@ -22,7 +25,7 @@ import ddmd.visitor;
 
 extern (C++) Expression toDelegate(Expression e, Type t, Scope* sc)
 {
-    //printf("Expression::toDelegate(t = %s) %s\n", t->toChars(), e->toChars());
+    //printf("Expression::toDelegate(t = %s) %s\n", t.toChars(), e.toChars());
     Loc loc = e.loc;
     auto tf = new TypeFunction(null, t, 0, LINKd);
     if (t.hasWild())

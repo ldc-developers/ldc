@@ -18,10 +18,12 @@
 #include "mtype.h"
 #include "statement.h"
 #include "template.h"
+#include "driver/cl_options.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/dvalue.h"
+#include "gen/funcgenstate.h"
 #include "gen/function-inlining.h"
 #include "gen/inlineir.h"
 #include "gen/irstate.h"
@@ -35,12 +37,15 @@
 #include "gen/pgo.h"
 #include "gen/pragma.h"
 #include "gen/runtime.h"
+#include "gen/scope_exit.h"
 #include "gen/tollvm.h"
 #include "gen/uda.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/CFG.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
 #include <iostream>
 
 llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
@@ -291,7 +296,7 @@ llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl) {
   if (fdecl->linkage == LINKobjc && dthis) {
     if (fdecl->objc.selector) {
       hasSel = true;
-    } else if (ClassDeclaration *cd = fdecl->parent->isClassDeclaration()) {
+    } else if (fdecl->parent->isClassDeclaration()) {
       fdecl->error("Objective-C @selector is missing");
     }
   }
@@ -318,7 +323,7 @@ static llvm::Function *DtoDeclareVaFunction(FuncDeclaration *fdecl) {
   }
   assert(func);
 
-  getIrFunc(fdecl)->func = func;
+  getIrFunc(fdecl)->setLLVMFunc(func);
   return func;
 }
 
@@ -418,18 +423,52 @@ void applyParamAttrsToLLFunc(TypeFunction *f, IrFuncTy &irFty,
   func->setAttributes(newAttrs);
 }
 
-void applyDefaultMathAttributes(IrFunction *irFunc) {
+/// Applies TargetMachine options as function attributes in the IR (options for
+/// which attributes exist).
+/// This is e.g. needed for LTO: it tells the linker/LTO-codegen what settings
+/// to use.
+/// It is also needed because "unsafe-fp-math" is not properly reset in LLVM
+/// between function definitions, i.e. if a function does not define a value for
+/// "unsafe-fp-math" it will be compiled using the value of the previous
+/// function. Therefore, each function must explicitly define the value (clang
+/// does the same). See https://llvm.org/bugs/show_bug.cgi?id=23172
+void applyTargetMachineAttributes(llvm::Function &func,
+                                  const llvm::TargetMachine &target) {
+  const llvm::TargetOptions &TO = target.Options;
+
   // TODO: implement commandline switches to change the default values.
 
-  // "unsafe-fp-math" is not properly reset in LLVM between function
-  // definitions, i.e. if a function does not define a value for
-  // "unsafe-fp-math" it will be compiled using the value of the previous
-  // function. Therefore, each function must explicitly define the value (clang
-  // does the same).
-  // See https://llvm.org/bugs/show_bug.cgi?id=23172
-  irFunc->func->addFnAttr("unsafe-fp-math", "false");
+  // Target CPU capabilities
+  func.addFnAttr("target-cpu", target.getTargetCPU());
+  auto featStr = target.getTargetFeatureString();
+  if (!featStr.empty())
+    func.addFnAttr("target-features", featStr);
+
+  // Floating point settings
+  func.addFnAttr("unsafe-fp-math", TO.UnsafeFPMath ? "true" : "false");
+  const bool lessPreciseFPMADOption =
+#if LDC_LLVM_VER >= 500
+      // This option was removed from llvm::TargetOptions in LLVM 5.0.
+      // Clang sets this to true when `-cl-mad-enable` is passed (OpenCL only).
+      // TODO: implement interface for this option.
+      false;
+#else
+      TO.LessPreciseFPMADOption;
+#endif
+  func.addFnAttr("less-precise-fpmad",
+                 lessPreciseFPMADOption ? "true" : "false");
+  func.addFnAttr("no-infs-fp-math", TO.NoInfsFPMath ? "true" : "false");
+  func.addFnAttr("no-nans-fp-math", TO.NoNaNsFPMath ? "true" : "false");
+#if LDC_LLVM_VER < 307
+  func.addFnAttr("use-soft-float", TO.UseSoftFloat ? "true" : "false");
+#endif
+
+  // Frame pointer elimination
+  func.addFnAttr("no-frame-pointer-elim",
+                 opts::disableFpElim ? "true" : "false");
 }
-}
+
+} // anonymous namespace
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -509,10 +548,16 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
 
   func->setCallingConv(gABI->callingConv(func->getFunctionType(), link, fdecl));
 
+  if (global.params.isWindows && fdecl->isExport()) {
+    func->setDLLStorageClass(fdecl->isImportedSymbol()
+                                 ? LLGlobalValue::DLLImportStorageClass
+                                 : LLGlobalValue::DLLExportStorageClass);
+  }
+
   IF_LOG Logger::cout() << "func = " << *func << std::endl;
 
   // add func to IRFunc
-  irFunc->func = func;
+  irFunc->setLLVMFunc(func);
 
   // parameter attributes
   if (!DtoIsIntrinsic(fdecl)) {
@@ -522,9 +567,9 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     }
   }
 
-  // Set default math function attributes here, such that they can be overridden
+  // First apply the TargetMachine attributes, such that they can be overridden
   // by UDAs.
-  applyDefaultMathAttributes(irFunc);
+  applyTargetMachineAttributes(*func, *gTargetMachine);
   applyFuncDeclUDAs(fdecl, irFunc);
 
   // main
@@ -745,12 +790,14 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   if (fd->ir->isDefined()) {
+    llvm::Function *func = getIrFunc(fd)->getLLVMFunc();
+    assert(nullptr != func);
     if (!linkageAvailableExternally &&
-        (getIrFunc(fd)->func->getLinkage() ==
+        (func->getLinkage() ==
          llvm::GlobalValue::AvailableExternallyLinkage)) {
       // Fix linkage
       const auto lwc = lowerFuncLinkage(fd);
-      setLinkage(lwc, getIrFunc(fd)->func);
+      setLinkage(lwc, func);
     }
     return;
   }
@@ -817,7 +864,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // data from the template function itself, but it would still mess up our
   // nested context creation code.
   FuncDeclaration *parent = fd;
-  while ((parent = getParentFunc(parent, true))) {
+  while ((parent = getParentFunc(parent))) {
     if (parent->semanticRun != PASSsemantic3done || parent->semantic3Errors) {
       IF_LOG Logger::println(
           "Ignoring nested function with unanalyzed parent.");
@@ -863,28 +910,30 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   IrFunction *irFunc = getIrFunc(fd);
-  IrFuncTy &irFty = irFunc->irFty;
 
   // debug info
   irFunc->diSubprogram = gIR->DBuilder.EmitSubProgram(fd);
 
-  Type *t = fd->type->toBasetype();
-  TypeFunction *f = static_cast<TypeFunction *>(t);
-  // assert(f->ctype);
-
-  llvm::Function *func = irFunc->func;
-
-  // is there a body?
-  if (fd->fbody == nullptr) {
+  if (!fd->fbody) {
     return;
   }
 
   IF_LOG Logger::println("Doing function body for: %s", fd->toChars());
-  gIR->functions.push_back(irFunc);
+  gIR->funcGenStates.emplace_back(new FuncGenState(*irFunc, *gIR));
+  auto &funcGen = gIR->funcGen();
+  SCOPE_EXIT {
+    assert(&gIR->funcGen() == &funcGen);
+    gIR->funcGenStates.pop_back();
+  };
+
+  const auto f = static_cast<TypeFunction *>(fd->type->toBasetype());
+  IrFuncTy &irFty = irFunc->irFty;
+  llvm::Function *func = irFunc->getLLVMFunc();
 
   const auto lwc = lowerFuncLinkage(fd);
   if (linkageAvailableExternally) {
     func->setLinkage(llvm::GlobalValue::AvailableExternallyLinkage);
+    func->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
     // Assert that we are not overriding a linkage type that disallows inlining
     assert(lwc.first != llvm::GlobalValue::WeakAnyLinkage &&
            lwc.first != llvm::GlobalValue::ExternalWeakLinkage &&
@@ -893,10 +942,12 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     setLinkage(lwc, func);
   }
 
+  assert(!func->hasDLLImportStorageClass());
+
   // On x86_64, always set 'uwtable' for System V ABI compatibility.
   // TODO: Find a better place for this.
-  // TODO: Is this required for Win64 as well?
-  if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
+  if (global.params.targetTriple->getArch() == llvm::Triple::x86_64 &&
+      !global.params.isWindows) {
     func->addFnAttr(LLAttribute::UWTable);
   }
   if (opts::sanitize != opts::None) {
@@ -917,7 +968,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   llvm::BasicBlock *beginbb =
       llvm::BasicBlock::Create(gIR->context(), "", func);
 
-  // assert(gIR->scopes.empty());
   gIR->scopes.push_back(IRScope(beginbb));
 
 // Set the FastMath options for this function scope.
@@ -932,10 +982,12 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // matter at all
   llvm::Instruction *allocaPoint = new llvm::AllocaInst(
       LLType::getInt32Ty(gIR->context()), "alloca point", beginbb);
-  irFunc->allocapoint = allocaPoint;
+  funcGen.allocapoint = allocaPoint;
 
   // debug info - after all allocas, but before any llvm.dbg.declare etc
   gIR->DBuilder.EmitFuncStart(fd);
+
+  emitInstrumentationFnEnter(fd);
 
   // this hack makes sure the frame pointer elimination optimization is
   // disabled.
@@ -986,44 +1038,59 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     defineParameters(irFty, *fd->parameters);
 
   // Initialize PGO state for this function
-  irFunc->pgo.assignRegionCounters(fd, irFunc->func);
+  funcGen.pgo.assignRegionCounters(fd, func);
 
+  DtoCreateNestedContext(funcGen);
+
+  if (fd->vresult && !fd->vresult->nestedrefs.dim) // FIXME: not sure here :/
   {
-    ScopeStack scopeStack(gIR);
-    irFunc->scopes = &scopeStack;
+    DtoVarDeclaration(fd->vresult);
+  }
 
-    DtoCreateNestedContext(fd);
+  // D varargs: prepare _argptr and _arguments
+  if (f->linkage == LINKd && f->varargs == 1) {
+    // allocate _argptr (of type core.stdc.stdarg.va_list)
+    Type *const argptrType = Type::tvalist->semantic(fd->loc, fd->_scope);
+    LLValue *argptrMem = DtoAlloca(argptrType, "_argptr_mem");
+    irFunc->_argptr = argptrMem;
 
-    if (fd->vresult && !fd->vresult->nestedrefs.dim) // FIXME: not sure here :/
+    // initialize _argptr with a call to the va_start intrinsic
+    DLValue argptrVal(argptrType, argptrMem);
+    LLValue *llAp = gABI->prepareVaStart(&argptrVal);
+    llvm::CallInst::Create(GET_INTRINSIC_DECL(vastart), llAp, "",
+                           gIR->scopebb());
+
+    // copy _arguments to a memory location
+    irFunc->_arguments =
+        DtoAllocaDump(irFunc->_arguments, 0, "_arguments_mem");
+
+    // Push cleanup block that calls va_end to match the va_start call.
     {
-      DtoVarDeclaration(fd->vresult);
+      auto *vaendBB =
+          llvm::BasicBlock::Create(gIR->context(), "vaend", gIR->topfunc());
+      IRScope saveScope = gIR->scope();
+      gIR->scope() = IRScope(vaendBB);
+      gIR->ir->CreateCall(GET_INTRINSIC_DECL(vaend), llAp);
+      funcGen.scopes.pushCleanup(vaendBB, gIR->scopebb());
+      gIR->scope() = saveScope;
     }
+  }
 
-    // D varargs: prepare _argptr and _arguments
-    if (f->linkage == LINKd && f->varargs == 1) {
-      // allocate _argptr (of type core.stdc.stdarg.va_list)
-      Type *const argptrType = Type::tvalist->semantic(fd->loc, fd->_scope);
-      LLValue *argptrMem = DtoAlloca(argptrType, "_argptr_mem");
-      irFunc->_argptr = argptrMem;
+  funcGen.pgo.emitCounterIncrement(fd->fbody);
+  funcGen.pgo.setCurrentStmt(fd->fbody);
 
-      // initialize _argptr with a call to the va_start intrinsic
-      DLValue argptrVal(argptrType, argptrMem);
-      LLValue *llAp = gABI->prepareVaStart(&argptrVal);
-      llvm::CallInst::Create(GET_INTRINSIC_DECL(vastart), llAp, "",
-                             gIR->scopebb());
+  // output function body
+  Statement_toIR(fd->fbody, gIR);
 
-      // copy _arguments to a memory location
-      irFunc->_arguments =
-          DtoAllocaDump(irFunc->_arguments, 0, "_arguments_mem");
+  // D varargs: emit the cleanup block that calls va_end.
+  if (f->linkage == LINKd && f->varargs == 1) {
+    if (!gIR->scopereturned()) {
+      if (!funcGen.retBlock)
+        funcGen.retBlock = gIR->insertBB("return");
+      funcGen.scopes.runCleanups(0, funcGen.retBlock);
+      gIR->scope() = IRScope(funcGen.retBlock);
     }
-
-    irFunc->pgo.emitCounterIncrement(fd->fbody);
-    irFunc->pgo.setCurrentStmt(fd->fbody);
-
-    // output function body
-    Statement_toIR(fd->fbody, gIR);
-
-    irFunc->scopes = nullptr;
+    funcGen.scopes.popCleanups(0);
   }
 
   llvm::BasicBlock *bb = gIR->scopebb();
@@ -1036,6 +1103,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   } else if (!gIR->scopereturned()) {
     // llvm requires all basic blocks to end with a TerminatorInst but DMD does
     // not put a return statement in automatically, so we do it here.
+
+    emitInstrumentationFnLeave(fd);
 
     // pass the previous block into this block
     gIR->DBuilder.EmitStopPoint(fd->endloc);
@@ -1057,14 +1126,12 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   // erase alloca point
   if (allocaPoint->getParent()) {
+    funcGen.allocapoint = nullptr;
     allocaPoint->eraseFromParent();
+    allocaPoint = nullptr;
   }
-  allocaPoint = nullptr;
-  gIR->func()->allocapoint = nullptr;
 
   gIR->scopes.pop_back();
-
-  gIR->functions.pop_back();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1088,14 +1155,6 @@ DValue *DtoArgument(Parameter *fnarg, Expression *argexp) {
     assert(argexp->type->toBasetype()->ty == Tdelegate);
     assert(!arg->isLVal());
     return arg;
-  }
-
-  // byval arg, but expr has no storage yet
-  if (DtoIsInMemoryOnly(argexp->type) && (arg->isSlice() || arg->isNull())) {
-    LLValue *alloc = DtoAlloca(argexp->type, ".tmp_arg");
-    auto vv = new DLValue(argexp->type, alloc);
-    DtoAssign(argexp->loc, vv, arg);
-    arg = vv;
   }
 
   return arg;
@@ -1235,7 +1294,7 @@ int isDruntimeArrayOp(FuncDeclaration *fd) {
       "_arraySliceSliceMulass_s",         "_arraySliceSliceMulass_t",
       "_arraySliceSliceMulass_u",         "_arraySliceSliceMulass_w",
   };
-  char *name = fd->ident->toChars();
+  const char *name = fd->ident->toChars();
   int i =
       binary(name, libArrayopFuncs, sizeof(libArrayopFuncs) / sizeof(char *));
   if (i != -1) {
@@ -1243,8 +1302,8 @@ int isDruntimeArrayOp(FuncDeclaration *fd) {
   }
 
 #ifdef DEBUG // Make sure our array is alphabetized
-  for (i = 0; i < sizeof(libArrayopFuncs) / sizeof(char *); i++) {
-    if (strcmp(name, libArrayopFuncs[i]) == 0)
+  for (size_t j = 0; j < sizeof(libArrayopFuncs) / sizeof(char *); j++) {
+    if (strcmp(name, libArrayopFuncs[j]) == 0)
       assert(0);
   }
 #endif

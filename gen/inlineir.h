@@ -22,9 +22,11 @@ struct Loc;
 
 namespace llvm {
 class Function;
+class Value;
 }
 
 DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
-                        Expressions *arguments);
+                        Expressions *arguments,
+                        llvm::Value *sretPointer = nullptr);
 
 #endif

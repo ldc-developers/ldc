@@ -7,102 +7,295 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/llvm.h"
+#include "gen/binops.h"
 #include "declaration.h"
 #include "gen/complex.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"
+#include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 
 //////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoBinAdd(DRValue *lhs, DRValue *rhs) {
-  Type *t = lhs->type;
-  LLValue *l = DtoRVal(lhs);
-  LLValue *r = DtoRVal(rhs);
+dinteger_t undoStrideMul(Loc &loc, Type *t, dinteger_t offset) {
+  assert(t->ty == Tpointer);
+  d_uns64 elemSize = t->nextOf()->size(loc);
+  assert((offset % elemSize) == 0 &&
+         "Expected offset by an integer amount of elements");
 
-  LLValue *res;
-  if (t->isfloating()) {
-    res = gIR->ir->CreateFAdd(l, r);
-  } else {
-    res = gIR->ir->CreateAdd(l, r);
-  }
-
-  return new DImValue(t, res);
+  return offset / elemSize;
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoBinSub(DRValue *lhs, DRValue *rhs) {
-  Type *t = lhs->type;
-  LLValue *l = DtoRVal(lhs);
-  LLValue *r = DtoRVal(rhs);
+namespace {
+struct RVals {
+  DRValue *lhs, *rhs;
+};
 
-  LLValue *res;
-  if (t->isfloating()) {
-    res = gIR->ir->CreateFSub(l, r);
+RVals evalSides(DValue *lhs, Expression *rhs, bool loadLhsAfterRhs) {
+  RVals rvals;
+
+  if (!loadLhsAfterRhs) {
+    rvals.lhs = lhs->getRVal();
+    rvals.rhs = toElem(rhs)->getRVal();
   } else {
-    res = gIR->ir->CreateSub(l, r);
+    rvals.rhs = toElem(rhs)->getRVal();
+    rvals.lhs = lhs->getRVal();
   }
 
-  return new DImValue(t, res);
+  return rvals;
+}
+
+/// Tries to remove a MulExp by a constant value of baseSize from e. Returns
+/// NULL if not possible.
+Expression *extractNoStrideInc(Expression *e, d_uns64 baseSize, bool &negate) {
+  MulExp *mul;
+  while (true) {
+    if (e->op == TOKneg) {
+      negate = !negate;
+      e = static_cast<NegExp *>(e)->e1;
+      continue;
+    }
+
+    if (e->op == TOKmul) {
+      mul = static_cast<MulExp *>(e);
+      break;
+    }
+
+    return nullptr;
+  }
+
+  if (!mul->e2->isConst()) {
+    return nullptr;
+  }
+  dinteger_t stride = mul->e2->toInteger();
+
+  if (stride != baseSize) {
+    return nullptr;
+  }
+
+  return mul->e1;
+}
+
+DValue *emitPointerOffset(Loc loc, DValue *base, Expression *offset,
+                          bool negateOffset, Type *resultType,
+                          bool loadLhsAfterRhs) {
+  // The operand emitted by the frontend is in units of bytes, and not
+  // pointer elements. We try to undo this before resorting to
+  // temporarily bitcasting the pointer to i8.
+
+  LLValue *llBase = nullptr;
+  LLValue *llOffset = nullptr;
+  LLValue *llResult = nullptr;
+
+  if (offset->isConst()) {
+    llBase = DtoRVal(base);
+    dinteger_t byteOffset = offset->toInteger();
+    if (byteOffset == 0) {
+      llResult = llBase;
+    } else {
+      llOffset = DtoConstSize_t(undoStrideMul(loc, base->type, byteOffset));
+    }
+  } else {
+    Expression *noStrideInc = extractNoStrideInc(
+        offset, base->type->nextOf()->size(loc), negateOffset);
+    auto rvals =
+        evalSides(base, noStrideInc ? noStrideInc : offset, loadLhsAfterRhs);
+    llBase = DtoRVal(rvals.lhs);
+    llOffset = DtoRVal(rvals.rhs);
+    if (!noStrideInc) // byte offset => cast base to i8*
+      llBase = DtoBitCast(llBase, getVoidPtrType());
+  }
+
+  if (!llResult) {
+    if (negateOffset)
+      llOffset = gIR->ir->CreateNeg(llOffset);
+    llResult = DtoGEP1(llBase, llOffset, false);
+  }
+
+  return new DImValue(resultType, DtoBitCast(llResult, DtoType(resultType)));
+}
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoBinMul(Type *targettype, DRValue *lhs, DRValue *rhs) {
-  Type *t = lhs->type;
-  LLValue *l = DtoRVal(lhs);
-  LLValue *r = DtoRVal(rhs);
+DValue *binAdd(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+               bool loadLhsAfterRhs) {
+  Type *lhsType = lhs->type->toBasetype();
+  Type *rhsType = rhs->type->toBasetype();
 
-  LLValue *res;
-  if (t->isfloating()) {
-    res = gIR->ir->CreateFMul(l, r);
-  } else {
-    res = gIR->ir->CreateMul(l, r);
+  if (lhsType != rhsType && lhsType->ty == Tpointer && rhsType->isintegral()) {
+    Logger::println("Adding integer to pointer");
+    return emitPointerOffset(loc, lhs, rhs, false, type, loadLhsAfterRhs);
   }
 
-  return new DImValue(targettype, res);
+  auto rvals = evalSides(lhs, rhs, loadLhsAfterRhs);
+
+  if (type->iscomplex())
+    return DtoComplexAdd(loc, type, rvals.lhs, rvals.rhs);
+
+  LLValue *l = DtoRVal(DtoCast(loc, rvals.lhs, type));
+  LLValue *r = DtoRVal(DtoCast(loc, rvals.rhs, type));
+  LLValue *res = (type->isfloating() ? gIR->ir->CreateFAdd(l, r)
+                                     : gIR->ir->CreateAdd(l, r));
+
+  return new DImValue(type, res);
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoBinDiv(Type *targettype, DRValue *lhs, DRValue *rhs) {
-  Type *t = lhs->type;
-  LLValue *l = DtoRVal(lhs);
-  LLValue *r = DtoRVal(rhs);
+DValue *binMin(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+               bool loadLhsAfterRhs) {
+  Type *lhsType = lhs->type->toBasetype();
+  Type *rhsType = rhs->type->toBasetype();
 
+  if (lhsType != rhsType && lhsType->ty == Tpointer && rhsType->isintegral()) {
+    Logger::println("Subtracting integer from pointer");
+    return emitPointerOffset(loc, lhs, rhs, true, type, loadLhsAfterRhs);
+  }
+
+  auto rvals = evalSides(lhs, rhs, loadLhsAfterRhs);
+
+  if (lhsType->ty == Tpointer && rhsType->ty == Tpointer) {
+    LLValue *l = DtoRVal(rvals.lhs);
+    LLValue *r = DtoRVal(rvals.rhs);
+    LLType *llSizeT = DtoSize_t();
+    l = gIR->ir->CreatePtrToInt(l, llSizeT);
+    r = gIR->ir->CreatePtrToInt(r, llSizeT);
+    LLValue *diff = gIR->ir->CreateSub(l, r);
+    LLType *llType = DtoType(type);
+    if (diff->getType() != llType)
+      diff = gIR->ir->CreateIntToPtr(diff, llType);
+    return new DImValue(type, diff);
+  }
+
+  if (type->iscomplex())
+    return DtoComplexMin(loc, type, rvals.lhs, rvals.rhs);
+
+  LLValue *l = DtoRVal(DtoCast(loc, rvals.lhs, type));
+  LLValue *r = DtoRVal(DtoCast(loc, rvals.rhs, type));
+  LLValue *res = (type->isfloating() ? gIR->ir->CreateFSub(l, r)
+                                     : gIR->ir->CreateSub(l, r));
+
+  return new DImValue(type, res);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+DValue *binMul(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+               bool loadLhsAfterRhs) {
+  auto rvals = evalSides(lhs, rhs, loadLhsAfterRhs);
+
+  if (type->iscomplex())
+    return DtoComplexMul(loc, type, rvals.lhs, rvals.rhs);
+
+  LLValue *l = DtoRVal(DtoCast(loc, rvals.lhs, type));
+  LLValue *r = DtoRVal(DtoCast(loc, rvals.rhs, type));
+  LLValue *res = (type->isfloating() ? gIR->ir->CreateFMul(l, r)
+                                     : gIR->ir->CreateMul(l, r));
+
+  return new DImValue(type, res);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+DValue *binDiv(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+               bool loadLhsAfterRhs) {
+  auto rvals = evalSides(lhs, rhs, loadLhsAfterRhs);
+
+  if (type->iscomplex())
+    return DtoComplexDiv(loc, type, rvals.lhs, rvals.rhs);
+
+  LLValue *l = DtoRVal(DtoCast(loc, rvals.lhs, type));
+  LLValue *r = DtoRVal(DtoCast(loc, rvals.rhs, type));
   LLValue *res;
-  if (t->isfloating()) {
+  if (type->isfloating()) {
     res = gIR->ir->CreateFDiv(l, r);
-  } else if (!isLLVMUnsigned(t)) {
+  } else if (!isLLVMUnsigned(type)) {
     res = gIR->ir->CreateSDiv(l, r);
   } else {
     res = gIR->ir->CreateUDiv(l, r);
   }
 
-  return new DImValue(targettype, res);
+  return new DImValue(type, res);
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoBinRem(Type *targettype, DRValue *lhs, DRValue *rhs) {
-  Type *t = lhs->type;
-  LLValue *l = DtoRVal(lhs);
-  LLValue *r = DtoRVal(rhs);
+DValue *binMod(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+               bool loadLhsAfterRhs) {
+  auto rvals = evalSides(lhs, rhs, loadLhsAfterRhs);
 
+  if (type->iscomplex())
+    return DtoComplexMod(loc, type, rvals.lhs, rvals.rhs);
+
+  LLValue *l = DtoRVal(DtoCast(loc, rvals.lhs, type));
+  LLValue *r = DtoRVal(DtoCast(loc, rvals.rhs, type));
   LLValue *res;
-  if (t->isfloating()) {
+  if (type->isfloating()) {
     res = gIR->ir->CreateFRem(l, r);
-  } else if (!isLLVMUnsigned(t)) {
+  } else if (!isLLVMUnsigned(type)) {
     res = gIR->ir->CreateSRem(l, r);
   } else {
     res = gIR->ir->CreateURem(l, r);
   }
 
-  return new DImValue(targettype, res);
+  return new DImValue(type, res);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+namespace {
+DValue *binBitwise(llvm::Instruction::BinaryOps binOp, Loc &loc, Type *type,
+                   DValue *lhs, Expression *rhs, bool loadLhsAfterRhs) {
+  auto rvals = evalSides(lhs, rhs, loadLhsAfterRhs);
+
+  LLValue *l = DtoRVal(DtoCast(loc, rvals.lhs, type));
+  LLValue *r = DtoRVal(DtoCast(loc, rvals.rhs, type));
+  LLValue *res = llvm::BinaryOperator::Create(binOp, l, r, "", gIR->scopebb());
+
+  return new DImValue(type, res);
+}
+}
+
+DValue *binAnd(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+               bool loadLhsAfterRhs) {
+  return binBitwise(llvm::Instruction::And, loc, type, lhs, rhs,
+                    loadLhsAfterRhs);
+}
+
+DValue *binOr(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+              bool loadLhsAfterRhs) {
+  return binBitwise(llvm::Instruction::Or, loc, type, lhs, rhs,
+                    loadLhsAfterRhs);
+}
+
+DValue *binXor(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+               bool loadLhsAfterRhs) {
+  return binBitwise(llvm::Instruction::Xor, loc, type, lhs, rhs,
+                    loadLhsAfterRhs);
+}
+
+DValue *binShl(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+               bool loadLhsAfterRhs) {
+  return binBitwise(llvm::Instruction::Shl, loc, type, lhs, rhs,
+                    loadLhsAfterRhs);
+}
+
+DValue *binShr(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+               bool loadLhsAfterRhs) {
+  auto op = (isLLVMUnsigned(type) ? llvm::Instruction::LShr
+                                  : llvm::Instruction::AShr);
+  return binBitwise(op, loc, type, lhs, rhs, loadLhsAfterRhs);
+}
+
+DValue *binUshr(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+                bool loadLhsAfterRhs) {
+  return binBitwise(llvm::Instruction::LShr, loc, type, lhs, rhs,
+                    loadLhsAfterRhs);
 }
 
 //////////////////////////////////////////////////////////////////////////////

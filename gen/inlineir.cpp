@@ -16,6 +16,24 @@
 
 namespace {
 
+/// Sets LLVMContext::setDiscardValueNames(false) upon construction and restores
+/// the previous value upon destruction.
+struct TempDisableDiscardValueNames {
+#if LDC_LLVM_VER >= 309
+  llvm::LLVMContext &ctx;
+  bool previousValue;
+
+  TempDisableDiscardValueNames(llvm::LLVMContext &context)
+      : ctx(context), previousValue(context.shouldDiscardValueNames()) {
+    ctx.setDiscardValueNames(false);
+  }
+
+  ~TempDisableDiscardValueNames() { ctx.setDiscardValueNames(previousValue); }
+#else
+  TempDisableDiscardValueNames(llvm::LLVMContext &context) {}
+#endif
+};
+
 /// Adds the idol's function attributes to the wannabe
 void copyFnAttributes(llvm::Function *wannabe, llvm::Function *idol) {
   auto attrSet = idol->getAttributes();
@@ -25,9 +43,13 @@ void copyFnAttributes(llvm::Function *wannabe, llvm::Function *idol) {
 } // anonymous namespace
 
 DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
-                        Expressions *arguments) {
+                        Expressions *arguments, LLValue *sretPointer) {
   IF_LOG Logger::println("DtoInlineIRExpr @ %s", loc.toChars());
   LOG_SCOPE;
+
+  // LLVM can't read textual IR with a Context that discards named Values, so
+  // temporarily disable value name discarding.
+  TempDisableDiscardValueNames tempDisable(gIR->context());
 
   // Generate a random new function name. Because the inlineIR function is
   // always inlined, this name does not escape the current compiled module; not
@@ -97,7 +119,7 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
 #endif
 
     std::string errstr = err.getMessage();
-    if (errstr != "") {
+    if (!errstr.empty()) {
       error(
           tinst->loc,
           "can't parse inline LLVM IR:\n%s\n%s\n%s\nThe input string was: \n%s",
@@ -106,16 +128,19 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
           stream.str().c_str());
     }
 
+    m->setDataLayout(gIR->module.getDataLayout());
+
 #if LDC_LLVM_VER >= 308
     llvm::Linker(gIR->module).linkInModule(std::move(m));
 #elif LDC_LLVM_VER >= 306
     llvm::Linker(&gIR->module).linkInModule(m.get());
 #else
-    std::string errstr2 = "";
-    llvm::Linker(&gIR->module).linkInModule(m, &errstr2);
-    if (errstr2 != "")
+    errstr.clear();
+    llvm::Linker(&gIR->module).linkInModule(m, &errstr);
+    if (!errstr.empty()) {
       error(tinst->loc, "Error when linking in llvm inline ir: %s",
-            errstr2.c_str());
+            errstr.c_str());
+    }
 #endif
   }
 
@@ -127,13 +152,14 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
     // is needed e.g. when the parent function has "unsafe-fp-math"="true"
     // applied.
     {
-      assert(!gIR->functions.empty() && "Inline ir outside function");
+      assert(!gIR->funcGenStates.empty() && "Inline ir outside function");
       auto enclosingFunc = gIR->topfunc();
       assert(enclosingFunc);
       copyFnAttributes(fun, enclosingFunc);
     }
 
     fun->setLinkage(llvm::GlobalValue::PrivateLinkage);
+    fun->removeFnAttr(llvm::Attribute::NoInline);
     fun->addFnAttr(llvm::Attribute::AlwaysInline);
     fun->setCallingConv(llvm::CallingConv::C);
 
@@ -146,17 +172,22 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
     }
 
     llvm::Value *rv = gIR->ir->CreateCall(fun, args);
+    Type *type = fdecl->type->nextOf();
+
+    if (sretPointer) {
+      DtoStore(rv, DtoBitCast(sretPointer, getPtrToType(rv->getType())));
+      return new DLValue(type, sretPointer);
+    }
 
     // work around missing tuple support for users of the return value
-    Type *type = fdecl->type->nextOf()->toBasetype();
-    if (type->ty == Tstruct) {
+    if (type->toBasetype()->ty == Tstruct) {
       // make a copy
       llvm::Value *mem = DtoAlloca(type, ".__ir_tuple_ret");
       DtoStore(rv, DtoBitCast(mem, getPtrToType(rv->getType())));
-      return new DLValue(fdecl->type->nextOf(), mem);
+      return new DLValue(type, mem);
     }
 
     // return call as im value
-    return new DImValue(fdecl->type->nextOf(), rv);
+    return new DImValue(type, rv);
   }
 }

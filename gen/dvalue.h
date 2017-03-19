@@ -93,7 +93,7 @@ protected:
 /// integral and floating-point types.
 class DImValue : public DRValue {
 public:
-  DImValue(Type *t, llvm::Value *v) : DRValue(t, v) {}
+  DImValue(Type *t, llvm::Value *v);
 
   DImValue *isIm() override { return this; }
 };
@@ -119,6 +119,7 @@ public:
 /// Represents a D slice (dynamic array).
 class DSliceValue : public DRValue {
 public:
+  DSliceValue(Type *t, llvm::Value *pair);
   DSliceValue(Type *t, llvm::Value *length, llvm::Value *ptr);
 
   DSliceValue *isSlice() override { return this; }
@@ -171,7 +172,6 @@ public:
 
   DSpecialRefValue *isSpecialRef() override { return this; }
 };
-
 
 inline llvm::Value *DtoRVal(DValue *v) { return v->getRVal()->val; }
 llvm::Value *DtoLVal(DValue *v);
