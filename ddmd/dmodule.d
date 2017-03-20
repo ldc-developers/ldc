@@ -381,7 +381,7 @@ extern (C++) final class Module : Package
     {
         super(ident);
         const(char)* srcfilename;
-        //printf("Module::Module(filename = '%s', ident = '%s')\n", filename, ident->toChars());
+        //printf("Module::Module(filename = '%s', ident = '%s')\n", filename, ident.toChars());
         this.arg = filename;
         srcfilename = FileName.defaultExt(filename, global.mars_ext);
         if (global.run_noext && global.params.run && !FileName.ext(filename) && FileName.exists(srcfilename) == 0 && FileName.exists(filename) == 1)
@@ -431,7 +431,7 @@ else
 
     static Module load(Loc loc, Identifiers* packages, Identifier ident)
     {
-        //printf("Module::load(ident = '%s')\n", ident->toChars());
+        //printf("Module::load(ident = '%s')\n", ident.toChars());
         // Build module filename by turning:
         //  foo.bar.baz
         // into:
@@ -440,10 +440,42 @@ else
         if (packages && packages.dim)
         {
             OutBuffer buf;
+            OutBuffer dotmods;
+            auto ms = global.params.modFileAliasStrings;
+            const msdim = ms ? ms.dim : 0;
+
+            void checkModFileAlias(const(char)* p)
+            {
+                /* Check and replace the contents of buf[] with
+                 * an alias string from global.params.modFileAliasStrings[]
+                 */
+                dotmods.writestring(p);
+            Lmain:
+                for (size_t j = msdim; j--;)
+                {
+                    const m = (*ms)[j];
+                    const q = strchr(m, '=');
+                    assert(q);
+                    if (dotmods.offset <= q - m && memcmp(dotmods.peekString(), m, q - m) == 0)
+                    {
+                        buf.reset();
+                        auto qlen = strlen(q + 1);
+                        if (qlen && (q[qlen] == '/' || q[qlen] == '\\'))
+                            --qlen;             // remove trailing separator
+                        buf.writestring(q[1 .. qlen + 1]);
+                        break Lmain;            // last matching entry in ms[] wins
+                    }
+                }
+                dotmods.writeByte('.');
+            }
+
             for (size_t i = 0; i < packages.dim; i++)
             {
                 Identifier pid = (*packages)[i];
-                buf.writestring(pid.toChars());
+                const p = pid.toChars();
+                buf.writestring(p);
+                if (msdim)
+                    checkModFileAlias(p);
                 version (Windows)
                 {
                     buf.writeByte('\\');
@@ -454,6 +486,8 @@ else
                 }
             }
             buf.writestring(filename);
+            if (msdim)
+                checkModFileAlias(filename);
             buf.writeByte(0);
             filename = buf.extractData();
         }
@@ -562,7 +596,7 @@ else
     // read file, returns 'true' if succeed, 'false' otherwise.
     bool read(Loc loc)
     {
-        //printf("Module::read('%s') file '%s'\n", toChars(), srcfile->toChars());
+        //printf("Module::read('%s') file '%s'\n", toChars(), srcfile.toChars());
         if (srcfile.read())
         {
             if (!strcmp(srcfile.toChars(), "object.d"))
@@ -613,7 +647,7 @@ else
     // syntactic parse
     Module parse()
     {
-        //printf("Module::parse(srcfile='%s') this=%p\n", srcfile->name->toChars(), this);
+        //printf("Module::parse(srcfile='%s') this=%p\n", srcfile.name.toChars(), this);
         const(char)* srcname = srcfile.name.toChars();
         //printf("Module::parse(srcname = '%s')\n", srcname);
         isPackageFile = (strcmp(srcfile.name.name(), "package.d") == 0);
@@ -1057,7 +1091,7 @@ else
         {
             Scope.createGlobal(this); // create root scope
         }
-        //printf("Module = %p, linkage = %d\n", sc->scopesym, sc->linkage);
+        //printf("Module = %p, linkage = %d\n", sc.scopesym, sc.linkage);
         // Pass 1 semantic routines: do public side of the definition
         for (size_t i = 0; i < members.dim; i++)
         {
@@ -1123,7 +1157,7 @@ else
         for (size_t i = 0; i < members.dim; i++)
         {
             Dsymbol s = (*members)[i];
-            //printf("Module %s: %s.semantic3()\n", toChars(), s->toChars());
+            //printf("Module %s: %s.semantic3()\n", toChars(), s.toChars());
             s.semantic3(sc);
 
             runDeferredSemantic2();
@@ -1169,7 +1203,7 @@ else
         if (searchCacheIdent == ident && searchCacheFlags == flags)
         {
             //printf("%s Module::search('%s', flags = %d) insearch = %d searchCacheSymbol = %s\n",
-            //        toChars(), ident->toChars(), flags, insearch, searchCacheSymbol ? searchCacheSymbol->toChars() : "null");
+            //        toChars(), ident.toChars(), flags, insearch, searchCacheSymbol ? searchCacheSymbol.toChars() : "null");
             return searchCacheSymbol;
         }
 
@@ -1340,7 +1374,7 @@ else
      */
     int imports(Module m)
     {
-        //printf("%s Module::imports(%s)\n", toChars(), m->toChars());
+        //printf("%s Module::imports(%s)\n", toChars(), m.toChars());
         version (none)
         {
             for (size_t i = 0; i < aimports.dim; i++)

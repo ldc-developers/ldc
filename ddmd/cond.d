@@ -297,6 +297,8 @@ extern (C++) final class VersionCondition : DVCondition
             "MIPS_HardFloat",
             "NVPTX",
             "NVPTX64",
+            "RISCV32",
+            "RISCV64",
             "SPARC",
             "SPARC_V8Plus",
             "SPARC_SoftFloat",
@@ -430,7 +432,7 @@ extern (C++) final class VersionCondition : DVCondition
     override int include(Scope* sc, ScopeDsymbol sds)
     {
         //printf("VersionCondition::include() level = %d, versionlevel = %d\n", level, global.params.versionlevel);
-        //if (ident) printf("\tident = '%s'\n", ident->toChars());
+        //if (ident) printf("\tident = '%s'\n", ident.toChars());
         if (inc == 0)
         {
             inc = 2;
@@ -517,7 +519,7 @@ extern (C++) final class StaticIfCondition : Condition
             ++nest;
             sc = sc.push(sc.scopesym);
             sc.sds = sds; // sds gets any addMember()
-            //sc->speculative = true;       // TODO: static if (is(T U)) { /* U is available */ }
+            //sc.speculative = true;       // TODO: static if (is(T U)) { /* U is available */ }
             sc.flags |= SCOPEcondition;
             sc = sc.startCTFE();
             Expression e = exp.semantic(sc);

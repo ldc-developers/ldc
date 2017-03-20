@@ -59,6 +59,9 @@ cl::list<std::string> runargs(
         "Runs the resulting program, passing the remaining arguments to it"),
     cl::Positional, cl::PositionalEatsArgs);
 
+cl::opt<bool> invokedByLDMD("ldmd", cl::desc("Invoked by LDMD?"),
+                            cl::ZeroOrMore, cl::ReallyHidden);
+
 static cl::opt<ubyte, true> useDeprecated(
     cl::desc("Allow deprecated code/language features:"), cl::ZeroOrMore,
     clEnumValues(clEnumValN(0, "de", "Do not allow deprecated features"),
@@ -321,8 +324,15 @@ cl::opt<std::string>
          cl::Hidden, cl::init(""));
 #endif
 
+static StringsAdapter
+    modFileAliasStringsStore("mv", global.params.modFileAliasStrings);
+static cl::list<std::string, StringsAdapter> modFileAliasStrings(
+    "mv", cl::desc("Use <filespec> as source file for <package.module>"),
+    cl::value_desc("<package.module>=<filespec>"),
+    cl::location(modFileAliasStringsStore));
+
 cl::opt<llvm::Reloc::Model> mRelocModel(
-    "relocation-model", cl::desc("Relocation model"),
+    "relocation-model", cl::desc("Relocation model"), cl::ZeroOrMore,
 #if LDC_LLVM_VER < 309
     cl::init(llvm::Reloc::Default),
 #endif
@@ -456,6 +466,10 @@ cl::opt<bool, true>
     useDIP25("dip25", cl::ZeroOrMore,
              cl::desc("Implement http://wiki.dlang.org/DIP25 (experimental)"),
              cl::location(global.params.useDIP25));
+
+cl::opt<bool> useDIP1000(
+    "dip1000", cl::ZeroOrMore,
+    cl::desc("Implement http://wiki.dlang.org/DIP1000 (experimental)"));
 
 cl::opt<bool, true> betterC(
     "betterC", cl::ZeroOrMore,

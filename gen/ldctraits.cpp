@@ -8,18 +8,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/irstate.h"
+#include "gen/ldctraits.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 
-// TODO: move this to a D interfacing helper file
-struct Dstring {
-  const char *ptr;
-  size_t len;
-};
-
 Dstring traitsGetTargetCPU() {
   auto cpu = gTargetMachine->getTargetCPU();
-  return {cpu.data(), cpu.size()};
+  return {cpu.size(), cpu.data()};
 }
 
 bool traitsTargetHasFeature(Dstring feature) {
@@ -28,7 +23,7 @@ bool traitsTargetHasFeature(Dstring feature) {
   // return the safe "feature not enabled".
   return false;
 #else
-  auto feat = llvm::StringRef(feature.ptr, feature.len);
+  auto feat = llvm::StringRef(feature.ptr, feature.length);
 
   // This is a work-around to a missing interface in LLVM to query whether a
   // feature is set.

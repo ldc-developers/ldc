@@ -16,8 +16,6 @@ if (LDC_WITH_PGO)
         if (NOT (LDC_LLVM_VER GREATER 309))
             set(PROFRT_EXTRA_LDFLAGS "Ws2_32.lib")
         endif()
-    else()
-        set(PROFRT_EXTRA_FLAGS "-fPIC -O3")
     endif()
 
     CHECK_CXX_SOURCE_COMPILES("
@@ -115,9 +113,4 @@ if (LDC_WITH_PGO)
 
     # Install D interface files to profile-rt.
     install(DIRECTORY ${PROFILERT_DIR}/d/ldc DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
-
-else()
-    # No profiling supported, define NOP macro
-    macro(build_profile_runtime c_flags ld_flags path_suffix outlist_targets)
-    endmacro()
 endif()

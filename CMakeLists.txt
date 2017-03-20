@@ -3,10 +3,6 @@ project(ldc)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
-if(MSVC)
-    set(LIBCONFIG_DLL OFF CACHE BOOL "Use libconfig DLL instead of static library")
-endif()
-
 include(FindDCompiler)
 include(CheckIncludeFile)
 include(CheckLibraryExists)
@@ -30,11 +26,6 @@ string(REGEX MATCH "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" LLVM_TABLEGEN_
 string(REGEX REPLACE "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" "" LLVM_LIBRARIES "${LLVM_LIBRARIES}")
 
 #
-# Locate libconfig.
-#
-find_package(LibConfig REQUIRED)
-
-#
 # Get info about used Linux distribution.
 #
 include(GetLinuxDistribution)
@@ -55,10 +46,10 @@ endfunction()
 #
 
 # Version information
-set(LDC_VERSION "1.2.0") # May be overridden by git hash tag
+set(LDC_VERSION "1.3.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   72)
+set(DMDFE_PATCH_VERSION   73)
 set(DMDFE_FIX_LEVEL       2) # Comment out if not used
 
 set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}${DMDFE_PATCH_VERSION})
@@ -167,7 +158,7 @@ if(MSVC)
     endif()
 endif()
 
-append("-J${PROJECT_SOURCE_DIR}/${DDMDFE_PATH}" DDMD_DFLAGS) # Needed for importing text files
+append("-J${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -J${PROJECT_SOURCE_DIR}/res" DDMD_DFLAGS) # Needed for importing text files
 string(STRIP "${DDMD_DFLAGS}" DDMD_DFLAGS)
 
 # Use separate compiler flags for the frontend and for the LDC-specific parts,
@@ -331,6 +322,7 @@ configure_file(driver/ldc-version.cpp.in driver/ldc-version.cpp)
 # project files generated via CMake.
 file(GLOB_RECURSE FE_SRC_D ${DDMDFE_PATH}/*.d)
 file(GLOB_RECURSE FE_HDR   ${DDMDFE_PATH}/*.h)
+file(GLOB_RECURSE FE_RES   res/*.*)
 file(GLOB_RECURSE GEN_SRC gen/*.cpp)
 file(GLOB_RECURSE GEN_HDR gen/*.h)
 file(GLOB_RECURSE GEN_SRC_D gen/*.d)
@@ -429,7 +421,6 @@ include_directories(
 )
 include_directories( SYSTEM
     ${LLVM_INCLUDE_DIRS}
-    ${LIBCONFIG_INCLUDE_DIR}
 )
 append("-I${PROJECT_SOURCE_DIR}" DDMD_DFLAGS)
 append("-I${PROJECT_BINARY_DIR}" DDMD_DFLAGS)
@@ -437,9 +428,6 @@ append("-I${PROJECT_BINARY_DIR}" DDMD_DFLAGS)
 
 if(MSVC)
     include_directories(${PROJECT_SOURCE_DIR}/vcbuild)
-    if(NOT LIBCONFIG_DLL)
-        append("-DLIBCONFIG_STATIC" CMAKE_CXX_FLAGS)
-    endif()
 endif()
 
 if(MSVC)
@@ -454,6 +442,16 @@ append("\"-DLDC_LIBDIR_SUFFIX=\\\"${LIB_SUFFIX}\\\"\"" CMAKE_CXX_FLAGS)
 
 if(GENERATE_OFFTI)
     append("-DGENERATE_OFFTI" CMAKE_CXX_FLAGS)
+endif()
+
+option(RISCV_LLVM_DEV, "full RISC-V support with riscv-llvm")
+mark_as_advanced(RISCV_LLVM_DEV)
+
+#
+# Enable building with riscv-llvm, for full RISC-V support.
+#
+if(RISCV_LLVM_DEV)
+    append("-DRISCV_LLVM_DEV" CMAKE_CXX_FLAGS)
 endif()
 
 # if llvm was built with assertions we have to do the same
@@ -544,8 +542,8 @@ add_custom_target(${LDC_EXE} ALL DEPENDS ${LDC_EXE_FULL})
 add_custom_target(${LDMD_EXE} ALL DEPENDS ${LDMD_EXE_FULL})
 
 # Figure out how to link the main LDC executable, for which we need to take the
-# libconfig/LLVM flags into account.
-set(LDC_LINKERFLAG_LIST "${SANITIZE_LDFLAGS};${LIBCONFIG_LIBRARY};${LLVM_LIBRARIES};${LLVM_LDFLAGS}")
+# LLVM flags into account.
+set(LDC_LINKERFLAG_LIST "${SANITIZE_LDFLAGS};${LLVM_LIBRARIES};${LLVM_LDFLAGS}")
 
 set(LDC_LINK_MANUALLY OFF)
 if(UNIX AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")))
@@ -631,14 +629,14 @@ if(MSVC_IDE)
         OUTPUT ${LDC_EXE_FULL}
         COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:${LDC_LIB}> ${LDC_FLAG_LIST} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${LDC_EXE_FULL} ${LDC_D_SOURCE_FILES} $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:-g> $<$<NOT:$<CONFIG:Debug>>:-O> $<$<NOT:$<CONFIG:Debug>>:-inline> $<$<NOT:$<CONFIG:Debug>>:-release>
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        DEPENDS ${LDC_D_SOURCE_FILES} ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d ${LDC_LIB}
+        DEPENDS ${LDC_D_SOURCE_FILES} ${FE_RES} ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d ${LDC_LIB}
     )
 else()
     build_d_executable(
         "${LDC_EXE_FULL}"
         "${LDC_D_SOURCE_FILES}"
         "$<TARGET_LINKER_FILE:${LDC_LIB}>"
-        "${LDC_D_SOURCE_FILES};${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d"
+        "${LDC_D_SOURCE_FILES};${FE_RES};${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d"
         "${LDC_LIB}"
     )
 endif()
@@ -720,6 +718,21 @@ add_subdirectory(tools)
 # Test and runtime targets. Note that enable_testing() is order-sensitive!
 #
 enable_testing()
+
+# LDC unittest executable (D unittests only).
+set(LDC_UNITTEST_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_EXE_NAME}-unittest${CMAKE_EXECUTABLE_SUFFIX})
+build_d_executable(
+    "${LDC_UNITTEST_EXE_FULL}"
+    "-unittest;${LDC_D_SOURCE_FILES}"
+    "$<TARGET_LINKER_FILE:${LDC_LIB}>"
+    "${LDC_D_SOURCE_FILES}"
+    "${LDC_LIB}"
+)
+add_custom_target(ldc2-unittest DEPENDS ${LDC_UNITTEST_EXE_FULL})
+add_test(NAME build-ldc2-unittest COMMAND "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ldc2-unittest)
+add_test(NAME ldc2-unittest COMMAND ${LDC_UNITTEST_EXE_FULL} --version)
+set_tests_properties(ldc2-unittest PROPERTIES DEPENDS build-ldc2-unittest)
+
 add_subdirectory(runtime)
 if(D_VERSION EQUAL 2)
     add_subdirectory(tests/d2)
