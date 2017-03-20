@@ -6,10 +6,6 @@
 // file for details.
 //
 //===----------------------------------------------------------------------===//
-//
-//
-//
-//===----------------------------------------------------------------------===//
 
 module gen.ldctraits;
 
@@ -18,15 +14,14 @@ import ddmd.dscope;
 import ddmd.dtemplate;
 import ddmd.expression;
 import ddmd.errors;
-import ddmd.mtype;
 import ddmd.id;
+import ddmd.mtype;
 
-// TODO: move this to a D interfacing helper file
 extern(C++) struct Dstring
 {
-  const(char)* ptr;
-  size_t len;
-};
+    size_t length;
+    const(char)* ptr;
+}
 
 extern(C++) Dstring traitsGetTargetCPU();
 extern(C++) bool traitsTargetHasFeature(Dstring feature);
@@ -43,7 +38,7 @@ Expression semanticTraitsLDC(TraitsExp e, Scope* sc)
         }
 
         auto cpu = traitsGetTargetCPU();
-        auto se = new StringExp(e.loc, cast(void*)cpu.ptr, cpu.len);
+        auto se = new StringExp(e.loc, cast(void*)cpu.ptr, cpu.length);
         return se.semantic(sc);
     }
     if (e.ident == Id.targetHasFeature)
@@ -70,7 +65,7 @@ Expression semanticTraitsLDC(TraitsExp e, Scope* sc)
         }
 
         se = se.toUTF8(sc);
-        auto featureFound = traitsTargetHasFeature(Dstring(se.toPtr(), se.len));
+        auto featureFound = traitsTargetHasFeature(Dstring(se.len, se.toPtr()));
         return new IntegerExp(e.loc, featureFound ? 1 : 0, Type.tbool);
     }
     return null;

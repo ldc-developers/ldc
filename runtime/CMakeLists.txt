@@ -1,6 +1,6 @@
 project(runtime)
 
-cmake_minimum_required(VERSION 2.8.5)
+cmake_minimum_required(VERSION 2.8.9)
 
 #
 # Main configuration.
@@ -480,7 +480,12 @@ macro(build_runtime_variants d_flags c_flags ld_flags path_suffix outlist_target
         "${path_suffix}"
         ${outlist_targets}
     )
-    build_profile_runtime ("${d_flags}" "${c_flags}" "${ld_flags}" "${path_suffix}" ${outlist_targets})
+
+    if(LDC_WITH_PGO)
+        build_profile_runtime("${d_flags};${D_FLAGS};${D_FLAGS_RELEASE}" "${c_flags}" "${ld_flags}" "${path_suffix}" ${outlist_targets})
+        get_target_suffix("" "${path_suffix}" target_suffix)
+        set_common_library_properties(ldc-profile-rt${target_suffix})
+    endif()
 endmacro()
 
 # Setup the build of profile-rt

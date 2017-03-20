@@ -323,6 +323,8 @@ static void buildRuntimeModule() {
                                   llvm::Attribute::NoCapture),
       Attr_ReadOnly_NoUnwind_1_NoCapture(Attr_ReadOnly_1_NoCapture, ~0U,
                                          llvm::Attribute::NoUnwind),
+      Attr_ReadOnly_NoUnwind_1_2_NoCapture(Attr_ReadOnly_NoUnwind_1_NoCapture,
+                                           2, llvm::Attribute::NoCapture),
       Attr_ReadNone(NoAttrs, ~0U, llvm::Attribute::ReadNone),
       Attr_1_NoCapture(NoAttrs, 1, llvm::Attribute::NoCapture),
       Attr_NoAlias_1_NoCapture(Attr_1_NoCapture, 0, llvm::Attribute::NoAlias),
@@ -753,6 +755,14 @@ static void buildRuntimeModule() {
       break;
     }
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
+  ////// C standard library functions (a druntime link dependency)
+
+  // int memcmp(const void *s1, const void *s2, size_t n);
+  createFwdDecl(LINKc, intTy, {"memcmp"}, {voidPtrTy, voidPtrTy, sizeTy}, {},
+                Attr_ReadOnly_NoUnwind_1_2_NoCapture);
 }
 
 static void emitInstrumentationFn(const char *name) {

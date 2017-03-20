@@ -30,6 +30,7 @@
 #include "driver/targetmachine.h"
 #include "gen/cl_helpers.h"
 #include "gen/irstate.h"
+#include "gen/ldctraits.h"
 #include "gen/linkage.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
@@ -189,8 +190,6 @@ void processTransitions(std::vector<std::string> &list) {
              "  =field,3449    list all non-mutable fields which occupy an "
              "object instance\n"
              "  =import,10378  revert to single phase name lookup\n"
-             "  =safe          shows places with hidden change in semantics "
-             "needed for better @safe guarantees\n"
              "  =tls           list all variables going into thread local "
              "storage\n");
       exit(EXIT_SUCCESS);
@@ -208,8 +207,6 @@ void processTransitions(std::vector<std::string> &list) {
       global.params.vfield = true;
     } else if (i == "import" || i == "10378") {
       global.params.bug10378 = true;
-    } else if (i == "safe") {
-      global.params.vsafe = true;
     } else if (i == "tls") {
       global.params.vtls = true;
     } else {
@@ -447,6 +444,11 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
 
   processTransitions(transitions);
 
+  if (useDIP1000) {
+    global.params.useDIP25 = true;
+    global.params.vsafe = true;
+  }
+
   global.params.output_o =
       (opts::output_o == cl::BOU_UNSET &&
        !(opts::output_bc || opts::output_ll || opts::output_s))
@@ -665,7 +667,9 @@ void registerPredefinedFloatABI(const char *soft, const char *hard,
 /// Registers the predefined versions specific to the current target triple
 /// and other target specific options with VersionCondition.
 void registerPredefinedTargetVersions() {
-  switch (global.params.targetTriple->getArch()) {
+  const auto arch = global.params.targetTriple->getArch();
+
+  switch (arch) {
   case llvm::Triple::x86:
     VersionCondition::addPredefinedGlobalIdent("X86");
     if (global.params.useInlineAsm) {
@@ -728,6 +732,18 @@ void registerPredefinedTargetVersions() {
     registerPredefinedFloatABI("MIPS_SoftFloat", "MIPS_HardFloat");
     registerMipsABI();
     break;
+#if defined RISCV_LLVM_DEV || LDC_LLVM_VER >= 400
+#if defined RISCV_LLVM_DEV
+  case llvm::Triple::riscv:
+#else
+  case llvm::Triple::riscv32:
+#endif
+    VersionCondition::addPredefinedGlobalIdent("RISCV32");
+    break;
+  case llvm::Triple::riscv64:
+    VersionCondition::addPredefinedGlobalIdent("RISCV64");
+    break;
+#endif
   case llvm::Triple::sparc:
     // FIXME: Detect SPARC v8+ (SPARC_V8Plus).
     VersionCondition::addPredefinedGlobalIdent("SPARC");
@@ -772,6 +788,15 @@ void registerPredefinedTargetVersions() {
   if (gTargetMachine->getRelocationModel() == llvm::Reloc::PIC_) {
     VersionCondition::addPredefinedGlobalIdent("D_PIC");
   }
+
+  /* LDC doesn't support DMD's core.simd interface.
+  if (arch == llvm::Triple::x86 || arch == llvm::Triple::x86_64) {
+    if (traitsTargetHasFeature("sse2"))
+      VersionCondition::addPredefinedGlobalIdent("D_SIMD");
+    if (traitsTargetHasFeature("avx"))
+      VersionCondition::addPredefinedGlobalIdent("D_AVX");
+  }
+  */
 
   // parse the OS out of the target triple
   // see http://gcc.gnu.org/install/specific.html for details
@@ -908,24 +933,6 @@ void registerPredefinedVersions() {
 #undef STR
 }
 
-/// Dump all predefined version identifiers.
-void dumpPredefinedVersions() {
-  if (global.params.verbose && global.params.versionids) {
-    fprintf(global.stdmsg, "predefs  ");
-    int col = 10;
-    for (auto id : *global.params.versionids) {
-      int len = strlen(id) + 1;
-      if (col + len > 80) {
-        col = 10;
-        fprintf(global.stdmsg, "\n         ");
-      }
-      col += len;
-      fprintf(global.stdmsg, " %s", id);
-    }
-    fprintf(global.stdmsg, "\n");
-  }
-}
-
 } // anonymous namespace
 
 int cppmain(int argc, char **argv) {
@@ -1019,7 +1026,7 @@ int cppmain(int argc, char **argv) {
     global.dll_ext = "dll";
     global.lib_ext = (global.params.mscoff ? "lib" : "a");
   } else {
-    global.dll_ext = "so";
+    global.dll_ext = global.params.targetTriple->isOSDarwin() ? "dylib" : "so";
     global.lib_ext = "a";
   }
 
@@ -1029,7 +1036,7 @@ int cppmain(int argc, char **argv) {
 
 void addDefaultVersionIdentifiers() {
   registerPredefinedVersions();
-  dumpPredefinedVersions();
+  printPredefinedVersions();
 }
 
 void codegenModules(Modules &modules) {
