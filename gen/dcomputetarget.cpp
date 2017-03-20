@@ -61,6 +61,7 @@ void DComputeTarget::writeModule() {
   setGTargetMachine();
   ::writeModule(&_ir->module, tmp);
 
+
   delete _ir;
   _ir = nullptr;
 }

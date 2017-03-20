@@ -62,6 +62,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     }
     return false;
   }
+
   void visit(InterfaceDeclaration *decl) override {
     decl->error("interfaces and classes not allowed in @compute code");
     stop = true;
@@ -239,6 +240,7 @@ void dcomputeSemanticAnalysis(Module *m) {
                            dsym->toPrettyChars());
     LOG_SCOPE
     v.currentFunction = nullptr;
+
     dsym->accept(&r);
   }
 }
