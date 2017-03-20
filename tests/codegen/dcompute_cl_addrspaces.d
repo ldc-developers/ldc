@@ -1,7 +1,7 @@
 // Test addrspace
 
 // REQUIRES: target_SPIRV
-// RUN: %ldc -mdcompute-targets=ocl-220 -m64 -output-ll -output-o %s && FileCheck %s --check-prefix=LL < kernels_ocl220_64.ll && llvm-spirv -to-text kernels_ocl220_64.spv && FileCheck %s --check-prefix=SPT < kernels_ocl220_64.spt
+// RUN: %ldc -c -mdcompute-targets=ocl-220 -m64 -output-ll -output-o %s && FileCheck %s --check-prefix=LL < kernels_ocl220_64.ll && llvm-spirv -to-text kernels_ocl220_64.spv && FileCheck %s --check-prefix=SPT < kernels_ocl220_64.spt
 @compute(CompileFor.deviceOnly) module dcompute_cl_addrspaces;
 import ldc.attributes;
 import ldc.dcomputetypes;
