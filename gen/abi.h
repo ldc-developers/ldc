@@ -107,6 +107,14 @@ struct TargetABI {
     return name;
   }
 
+  /// Returns true if all functions require the LLVM uwtable attribute.
+  virtual bool needsUnwindTables() {
+    // Condensed logic of Clang implementations of
+    // `clang::ToolChain::IsUnwindTablesDefault()` based on early Clang 5.0.
+    return global.params.targetTriple->getArch() == llvm::Triple::x86_64 ||
+           global.params.targetTriple->getOS() == llvm::Triple::NetBSD;
+  }
+
   /// Returns true if the D function uses sret (struct return).
   ///
   /// A LL sret function doesn't really return a struct (in fact, it returns
