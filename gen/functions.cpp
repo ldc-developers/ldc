@@ -944,10 +944,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   assert(!func->hasDLLImportStorageClass());
 
-  // On x86_64, always set 'uwtable' for System V ABI compatibility.
-  // TODO: Find a better place for this.
-  if (global.params.targetTriple->getArch() == llvm::Triple::x86_64 &&
-      !global.params.isWindows) {
+  // function attributes
+  if (gABI->needsUnwindTables()) {
     func->addFnAttr(LLAttribute::UWTable);
   }
   if (opts::sanitize != opts::None) {
