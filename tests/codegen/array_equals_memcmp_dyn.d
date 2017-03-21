@@ -2,6 +2,7 @@
 
 // RUN: %ldc -c -output-ll -of=%t.ll %s && FileCheck %s --check-prefix=LLVM < %t.ll
 // RUN: %ldc -c -output-s -O3 -of=%t.s  %s && FileCheck %s --check-prefix=ASM  < %t.s
+// RUN: %ldc -O0 -run %s
 // RUN: %ldc -O3 -run %s
 
 module mod;
@@ -36,4 +37,8 @@ void main()
     assert( inv_dynamic_dynamic([true, false, true, false], [true, false, true, true]));
     assert( inv_dynamic_dynamic([true, false], [true]));
     assert( inv_dynamic_dynamic([true, false, true, false], [true, false, true]));
+
+    // Make sure that comparing zero-length arrays with ptr=null is allowed.
+    bool* ptr = null;
+    assert(!inv_dynamic_dynamic(ptr[0..0], ptr[0..0]));
 }
