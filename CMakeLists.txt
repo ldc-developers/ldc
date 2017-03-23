@@ -311,7 +311,7 @@ if(NOT TAG MATCHES "NOTFOUND")
         set(LDC_VERSION "${TAG}")
     endif()
 else()
-    get_git_head_revision(REFSPEC HASH)
+    get_git_head_revision(REFSPEC HASH FALSE)
     if(NOT HASH STREQUAL "GITDIR-NOTFOUND")
         # Append git hash to LDC_VERSION
         string(SUBSTRING "${HASH}" 0 7 LDC_VERSION_HASH)
