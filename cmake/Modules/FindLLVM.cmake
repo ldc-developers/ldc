@@ -238,6 +238,10 @@ if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang"))
         set(LLVM_CXXFLAGS "${LLVM_CXXFLAGS} -fno-rtti")
     endif()
 endif()
+# GCC (at least on Travis) does not know the -Wstring-conversion flag, so remove it.
+if(CMAKE_COMPILER_IS_GNUCXX)
+    STRING(REGEX REPLACE "-Wstring-conversion" "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+endif()
 
 string(REGEX REPLACE "([0-9]+).*" "\\1" LLVM_VERSION_MAJOR "${LLVM_VERSION_STRING}" )
 string(REGEX REPLACE "[0-9]+\\.([0-9]+).*[A-Za-z]*" "\\1" LLVM_VERSION_MINOR "${LLVM_VERSION_STRING}" )

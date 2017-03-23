@@ -207,11 +207,13 @@ ldc::DIType ldc::DIBuilder::CreatePointerType(Type *type) {
 
   // find base type
   Type *nt = t->nextOf();
-  ldc::DIType basetype(CreateTypeDescription(nt, false));
 
-  return DBuilder.createPointerType(basetype,
+  return DBuilder.createPointerType(CreateTypeDescription(nt, false),
                                     getTypeAllocSize(T) * 8, // size (bits)
                                     getABITypeAlign(T) * 8,  // align (bits)
+#if LDC_LLVM_VER >= 500
+                                    llvm::None,              // DWARFAddressSpace
+#endif
                                     type->toChars()          // name
                                     );
 }
