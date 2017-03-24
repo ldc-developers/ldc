@@ -40,7 +40,7 @@
 #if LDC_LLVM_VER >= 307
 #include "llvm/Support/Path.h"
 #endif
-#if LDC_WITH_COMPUTE_SPIRV
+#ifdef LDC_LLVM_SUPPORTED_TARGET_SPIRV
 #include "llvm/Support/SPIRV.h"
 #endif
 #include "llvm/Target/TargetMachine.h"
@@ -81,7 +81,7 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
   ComputeBackend::Type cb = getComputeTargetType(&m);
 
   if (cb == ComputeBackend::SPIRV) {
-#ifdef LDC_WITH_DCOMPUTE_SPIRV
+#ifdef LDC_LLVM_SUPPORTED_TARGET_SPIRV
     IF_LOG Logger::println("running createSPIRVWriterPass()");
     llvm::createSPIRVWriterPass(out)->runOnModule(m);
     IF_LOG Logger::println("Success.");

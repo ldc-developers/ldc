@@ -28,43 +28,40 @@
 #include "ddmd/template.h"
 #include "id.h"
 
-// In @compute code only calls to other function in @compute core are allowed.
-// However, a @kernel function taking a template alias function parameter is
-// allowed, but while the alias appears in the symbol table of the module of the
-// template declaration, it's module of origin is the module at the point of
-// instansiation so we need to check for that.
-bool isNonComputeCallExpVaild(CallExp *ce,FuncDeclaration *currentKernel) {
-  if (currentKernel == nullptr)
-    return false;
-
-  TemplateInstance* inst;
-  if (!(inst =currentKernel->isInstantiated()))
-    return false;
-
-  FuncDeclaration* f = ce->f;
-  Objects *tiargs = inst->tiargs;
-  size_t i = 0,len = tiargs->dim;
-  IF_LOG Logger::println("checking against: %s (%p) (dyncast=%d)",
-                  f->toPrettyChars(),(void*)f, f->dyncast());
-  LOG_SCOPE
-  for (; i < len; i++) {
-    RootObject *o = (*tiargs)[i];
-    int d = o->dyncast();
-    if (d != DYNCAST_EXPRESSION)
-      continue;
-    Expression *e = (Expression*)o;
-    if (e->op != TOKfunction)
-      continue;
-    if (f->equals((((FuncExp*)e)->fd))) {
-      IF_LOG Logger::println("match");
-      return true;
-    }
-  }
-  return false;
-}
-
 struct DComputeSemanticAnalyser : public StoppableVisitor {
-  FuncDeclaration *currentKernel;
+  FuncDeclaration *currentFunction;
+  // In @compute code only calls to other functions in @compute code are allowed.
+  // However, a @kernel function taking a template alias function parameter is
+  // allowed, but while the alias appears in the symbol table of the module of the
+  // template declaration, it's module of origin is the module at the point of
+  // instansiation so we need to check for that.
+  bool isNonComputeCallExpVaild(CallExp *ce) {
+    if (currentFunction == nullptr)
+      return false;
+    TemplateInstance* inst = currentFunction->isInstantiated();
+    if (!inst)
+      return false;
+    
+    FuncDeclaration* f = ce->f;
+    Objects *tiargs = inst->tiargs;
+    size_t i = 0,len = tiargs->dim;
+    IF_LOG Logger::println("checking against: %s (%p) (dyncast=%d)",
+                           f->toPrettyChars(),(void*)f, f->dyncast());
+    LOG_SCOPE
+    for (; i < len; i++) {
+      RootObject *o = (*tiargs)[i];
+      if (o->dyncast() != DYNCAST_EXPRESSION)
+      continue;
+      Expression *e = (Expression*)o;
+      if (e->op != TOKfunction)
+      continue;
+      if (f->equals((((FuncExp*)e)->fd))) {
+        IF_LOG Logger::println("match");
+        return true;
+      }
+    }
+    return false;
+  }
 
   void visit(InterfaceDeclaration *decl) override {
     decl->error("interfaces and classes not allowed in @compute code");
@@ -206,8 +203,8 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     if (!e->f)
       return;
     Module *m = e->f->getModule();
-    if (m == nullptr || ((hasComputeAttr(m) == DComputeCompileFor::hostOnly)
-        && !isNonComputeCallExpVaild(e,currentKernel))) {
+    if ((m == nullptr || (hasComputeAttr(m) == DComputeCompileFor::hostOnly))
+        && !isNonComputeCallExpVaild(e)) {
       e->error("can only call functions from other @compute modules in "
                "@compute code");
       stop = true;
@@ -221,10 +218,9 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
         stop = true;
         return;
       }
-        
-      Logger::println("current kernel = %s",fd->toChars());
-      currentKernel = fd;
     }
+    Logger::println("current function = %s",fd->toChars());
+    currentFunction = fd;
   }
   // Override the default assert(0) behavior of Visitor:
   void visit(Statement *) override {}   // do nothing
@@ -243,7 +239,8 @@ void dcomputeSemanticAnalysis(Module *m) {
     IF_LOG Logger::println("dcomputeSema: %s: %s", m->toPrettyChars(),
                            dsym->toPrettyChars());
     LOG_SCOPE
-    v.currentKernel = nullptr;
+    v.currentFunction = nullptr;
+
     dsym->accept(&r);
   }
 }

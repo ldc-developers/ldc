@@ -52,16 +52,15 @@ void DComputeTarget::emit(Module *m) {
 
 void DComputeTarget::writeModule() {
   addMetadata();
-  const char *filename;
 
-  char tmp[20];
-  const char *fmt = "kernels_%s%d_%d";
-  int len =
-      sprintf(tmp, fmt, short_name, tversion, global.params.is64bit ? 64 : 32);
+  char tmp[32];
+  const char *fmt = "kernels_%s%d_%d.%s";
+  int len = sprintf(tmp, fmt, short_name, tversion,
+                    global.params.is64bit ? 64 : 32, binSuffix);
   tmp[len] = '\0';
-  filename = FileName::forceExt(tmp, binSuffix);
   setGTargetMachine();
-  ::writeModule(&_ir->module, filename);
+  ::writeModule(&_ir->module, tmp);
+
 
   delete _ir;
   _ir = nullptr;

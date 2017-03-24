@@ -29,11 +29,12 @@ bool isFromLDC_DComputeTypes(Dsymbol *sym) {
     return false;
   if (!moduleDecl->packages)
     return false;
-  if (moduleDecl->packages->dim != 2)
+    
+  if (moduleDecl->packages->dim != 1)
     return false;
   if (strcmp("ldc", (*moduleDecl->packages)[0]->toChars()))
     return false;
-  if (strcmp("dcomputetypes", (*moduleDecl->packages)[1]->toChars()))
+  if (strcmp("dcomputetypes", moduleDecl->id->toChars()))
     return false;
   return true;
 }
