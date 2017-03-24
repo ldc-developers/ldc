@@ -11,8 +11,11 @@ import ldc.dcomputetypes;
 // LL: %"ldc.dcomputetypes.Pointer!(2u, float).Pointer" = type { float addrspace(2)* }
 // LL: %"ldc.dcomputetypes.Pointer!(3u, immutable(float)).Pointer" = type { float addrspace(3)* }
 // LL: %"ldc.dcomputetypes.Pointer!(4u, float).Pointer" = type { float addrspace(4)* }
-// SPT: 3 TypeFloat [[FLOAT_ID:[0-9]+]] 32
+
+//Note void comes before float as it will always(?) have the lowest ID (2) that we care about.
+// ID of 1 is the OpExtInstImport for the OpenCL builtins: 5 ExtInstImport 1 "OpenCL.std"
 // SPT: 2 TypeVoid [[VOID_ID:[0-9]+]]
+// SPT: 3 TypeFloat [[FLOAT_ID:[0-9]+]] 32
 
 //See section 3.7 of the SPIR-V Specification for the numbers in the 4th column.
 // SPT: 4 TypePointer [[SHARED_FLOAT_POINTER_ID:[0-9]+]] 4 [[FLOAT_ID]]
