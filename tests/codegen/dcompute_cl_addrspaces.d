@@ -18,7 +18,7 @@ import ldc.dcomputetypes;
 //See section 3.7 of the SPIR-V Specification for the numbers in the 4th column.
 // SPT-DAG: 4 TypePointer [[SHARED_FLOAT_POINTER_ID:[0-9]+]] 4 [[FLOAT_ID]]
 // SPT-DAG: 4 TypePointer [[CONSTANT_FLOAT_POINTER_ID:[0-9]+]] 0 [[FLOAT_ID]]
-// SPT-DAG: 4 TypePointer [[GLOABL_FLOAT_POINTER_ID:[0-9]+]] 5 [[FLOAT_ID]]
+// SPT-DAG: 4 TypePointer [[GLOBAL_FLOAT_POINTER_ID:[0-9]+]] 5 [[FLOAT_ID]]
 // SPT-DAG: 4 TypePointer [[GENERIC_FLOAT_POINTER_ID:[0-9]+]] 8 [[FLOAT_ID]]
 // SPT-DAG: 4 TypePointer [[PRIVATE_FLOAT_POINTER_ID:[0-9]+]] 7 [[FLOAT_ID]]
 
