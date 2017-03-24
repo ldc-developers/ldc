@@ -7,7 +7,7 @@
  */
 module rt.util.typeinfo;
 
-private enum isX87Real(T) = (T.sizeof == 16 && T.mant_dig == 64 && T.max_exp == 16384);
+private enum isX87Real(T) = (T.mant_dig == 64 && T.max_exp == 16384);
 
 template Floating(T)
 if (is(T == float) || is(T == double) || is(T == real))
