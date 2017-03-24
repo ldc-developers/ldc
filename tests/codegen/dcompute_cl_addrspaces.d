@@ -38,26 +38,26 @@ import ldc.dcomputetypes;
 
 void foo(PrivatePointer!float f) {
     // LL: load float, float*
-    // SPT-DAG: 5 Function [[VOID_ID]] 0 [0-9]+ [[FOO_PRIVATE]]
+    // SPT-DAG: 5 Function [[VOID_ID]] [0-9]+ 0 [[FOO_PRIVATE]]
     float g = *f;
 }
 void foo(GlobalPointer!float f) {
     // LL: load float, float addrspace(1)*
-    // SPT-DAG: 5 Function [[VOID_ID]] 0 [0-9]+ [[FOO_GLOBAL]]
+    // SPT-DAG: 5 Function [[VOID_ID]] [0-9]+ 0 [[FOO_GLOBAL]]
     float g = *f;
 }
 void foo(SharedPointer!float f) {
     // LL: load float, float addrspace(2)*
-    // SPT-DAG: 5 Function [[VOID_ID]] 0 [0-9]+ [[FOO_SHARED]]
+    // SPT-DAG: 5 Function [[VOID_ID]] [0-9]+ 0 [[FOO_SHARED]]
     float g = *f;
 }
 void foo(ConstantPointer!float f) {
     // LL: load float, float addrspace(3)*
-    // SPT-DAG: 5 Function [[VOID_ID]] 0 [0-9]+ [[FOO_CONSTANT]]
+    // SPT-DAG: 5 Function [[VOID_ID]] [0-9]+ 0 [[FOO_CONSTANT]]
     float g = *f;
 }
 void foo(GenericPointer!float f) {
     // LL: load float, float addrspace(4)*
-    // SPT-DAG: 5 Function [[VOID_ID]] 0 [0-9]+ [[FOO_GENERIC]]
+    // SPT-DAG: 5 Function [[VOID_ID]] [0-9]+ 0 [[FOO_GENERIC]]
     float g = *f;
 }
