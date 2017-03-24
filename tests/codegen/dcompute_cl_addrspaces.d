@@ -12,54 +12,52 @@ import ldc.dcomputetypes;
 // LL: %"ldc.dcomputetypes.Pointer!(3u, immutable(float)).Pointer" = type { float addrspace(3)* }
 // LL: %"ldc.dcomputetypes.Pointer!(4u, float).Pointer" = type { float addrspace(4)* }
 
-//Note void comes before float as it will always(?) have the lowest ID (2) that we care about.
-// ID of 1 is the OpExtInstImport for the OpenCL builtins: 5 ExtInstImport 1 "OpenCL.std"
-// SPT: 2 TypeVoid [[VOID_ID:[0-9]+]]
-// SPT: 3 TypeFloat [[FLOAT_ID:[0-9]+]] 32
+// SPT-DAG: 2 TypeVoid [[VOID_ID:[0-9]+]]
+// SPT-DAG: 3 TypeFloat [[FLOAT_ID:[0-9]+]] 32
 
 //See section 3.7 of the SPIR-V Specification for the numbers in the 4th column.
-// SPT: 4 TypePointer [[SHARED_FLOAT_POINTER_ID:[0-9]+]] 4 [[FLOAT_ID]]
-// SPT: 4 TypePointer [[CONSTANT_FLOAT_POINTER_ID:[0-9]+]] 0 [[FLOAT_ID]]
-// SPT: 4 TypePointer [[GLOABL_FLOAT_POINTER_ID:[0-9]+]] 5 [[FLOAT_ID]]
-// SPT: 4 TypePointer [[GENERIC_FLOAT_POINTER_ID:[0-9]+]] 8 [[FLOAT_ID]]
-// SPT: 4 TypePointer [[PRIVATE_FLOAT_POINTER_ID:[0-9]+]] 7 [[FLOAT_ID]]
+// SPT-DAG: 4 TypePointer [[SHARED_FLOAT_POINTER_ID:[0-9]+]] 4 [[FLOAT_ID]]
+// SPT-DAG: 4 TypePointer [[CONSTANT_FLOAT_POINTER_ID:[0-9]+]] 0 [[FLOAT_ID]]
+// SPT-DAG: 4 TypePointer [[GLOABL_FLOAT_POINTER_ID:[0-9]+]] 5 [[FLOAT_ID]]
+// SPT-DAG: 4 TypePointer [[GENERIC_FLOAT_POINTER_ID:[0-9]+]] 8 [[FLOAT_ID]]
+// SPT-DAG: 4 TypePointer [[PRIVATE_FLOAT_POINTER_ID:[0-9]+]] 7 [[FLOAT_ID]]
 
 //PrivatePointer and friends are { T addrspace(n)* }
-// SPT: 3 TypeStruct [[STRUCT_PRIVATE_FLOAT_POINTER_ID:[0-9]+]] [[PRIVATE_FLOAT_POINTER_ID]]
-// SPT: 3 TypeStruct [[STRUCT_SHARED_FLOAT_POINTER_ID:[0-9]+]] [[SHARED_FLOAT_POINTER_ID]]
-// SPT: 3 TypeStruct [[STRUCT_CONSTANT_FLOAT_POINTER_ID:[0-9]+]] [[CONSTANT_FLOAT_POINTER_ID]]
-// SPT: 3 TypeStruct [[STRUCT_GLOBAL_FLOAT_POINTER_ID:[0-9]+]] [[GLOBAL_FLOAT_POINTER_ID]]
-// SPT: 3 TypeStruct [[STRUCT_GENERIC_FLOAT_POINTER_ID:[0-9]+]] [[GENERIC_FLOAT_POINTER_ID]]
+// SPT-DAG: 3 TypeStruct [[STRUCT_PRIVATE_FLOAT_POINTER_ID:[0-9]+]] [[PRIVATE_FLOAT_POINTER_ID]]
+// SPT-DAG: 3 TypeStruct [[STRUCT_SHARED_FLOAT_POINTER_ID:[0-9]+]] [[SHARED_FLOAT_POINTER_ID]]
+// SPT-DAG: 3 TypeStruct [[STRUCT_CONSTANT_FLOAT_POINTER_ID:[0-9]+]] [[CONSTANT_FLOAT_POINTER_ID]]
+// SPT-DAG: 3 TypeStruct [[STRUCT_GLOBAL_FLOAT_POINTER_ID:[0-9]+]] [[GLOBAL_FLOAT_POINTER_ID]]
+// SPT-DAG: 3 TypeStruct [[STRUCT_GENERIC_FLOAT_POINTER_ID:[0-9]+]] [[GENERIC_FLOAT_POINTER_ID]]
 
 //void function({ T addrspace(n)* })
-// SPT: 4 TypeFunction [[FOO_PRIVATE:[0-9]+]] [[VOID_ID]] [[STRUCT_PRIVATE_FLOAT_POINTER_ID]]
-// SPT: 4 TypeFunction [[FOO_GLOBAL:[0-9]+]] [[VOID_ID]] [[STRUCT_GLOBAL_FLOAT_POINTER_ID]]
-// SPT: 4 TypeFunction [[FOO_SHARED:[0-9]+]] [[VOID_ID]] [[STRUCT_SHARED_FLOAT_POINTER_ID]]
-// SPT: 4 TypeFunction [[FOO_CONSTANT:[0-9]+]] [[VOID_ID]] [[STRUCT_CONSTANT_FLOAT_POINTER_ID]]
-// SPT: 4 TypeFunction [[FOO_GENERIC:[0-9]+]] [[VOID_ID]] [[STRUCT_GENERIC_FLOAT_POINTER_ID]]
+// SPT-DAG: 4 TypeFunction [[FOO_PRIVATE:[0-9]+]] [[VOID_ID]] [[STRUCT_PRIVATE_FLOAT_POINTER_ID]]
+// SPT-DAG: 4 TypeFunction [[FOO_GLOBAL:[0-9]+]] [[VOID_ID]] [[STRUCT_GLOBAL_FLOAT_POINTER_ID]]
+// SPT-DAG: 4 TypeFunction [[FOO_SHARED:[0-9]+]] [[VOID_ID]] [[STRUCT_SHARED_FLOAT_POINTER_ID]]
+// SPT-DAG: 4 TypeFunction [[FOO_CONSTANT:[0-9]+]] [[VOID_ID]] [[STRUCT_CONSTANT_FLOAT_POINTER_ID]]
+// SPT-DAG: 4 TypeFunction [[FOO_GENERIC:[0-9]+]] [[VOID_ID]] [[STRUCT_GENERIC_FLOAT_POINTER_ID]]
 
 void foo(PrivatePointer!float f) {
     // LL: load float, float*
-    // SPT: 5 Function [[VOID_ID]] 0 [0-9]+ [[FOO_PRIVATE]]
+    // SPT-DAG: 5 Function [[VOID_ID]] 0 [0-9]+ [[FOO_PRIVATE]]
     float g = *f;
 }
 void foo(GlobalPointer!float f) {
     // LL: load float, float addrspace(1)*
-    // SPT: 5 Function [[VOID_ID]] 0 [0-9]+ [[FOO_GLOBAL]]
+    // SPT-DAG: 5 Function [[VOID_ID]] 0 [0-9]+ [[FOO_GLOBAL]]
     float g = *f;
 }
 void foo(SharedPointer!float f) {
     // LL: load float, float addrspace(2)*
-    // SPT: 5 Function [[VOID_ID]] 0 [0-9]+ [[FOO_SHARED]]
+    // SPT-DAG: 5 Function [[VOID_ID]] 0 [0-9]+ [[FOO_SHARED]]
     float g = *f;
 }
 void foo(ConstantPointer!float f) {
     // LL: load float, float addrspace(3)*
-    // SPT: 5 Function [[VOID_ID]] 0 [0-9]+ [[FOO_CONSTANT]]
+    // SPT-DAG: 5 Function [[VOID_ID]] 0 [0-9]+ [[FOO_CONSTANT]]
     float g = *f;
 }
 void foo(GenericPointer!float f) {
     // LL: load float, float addrspace(4)*
-    // SPT: 5 Function [[VOID_ID]] 0 [0-9]+ [[FOO_GENERIC]]
+    // SPT-DAG: 5 Function [[VOID_ID]] 0 [0-9]+ [[FOO_GENERIC]]
     float g = *f;
 }
