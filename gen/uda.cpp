@@ -186,10 +186,10 @@ void applyAttrAllocSize(StructLiteralExp *sle, IrFunction *irFunc) {
   } else {
     builder.addAllocSizeAttr(llvmSizeIdx, llvm::Optional<unsigned>());
   }
-  func->addAttributes(llvm::AttributeSet::FunctionIndex,
-                      llvm::AttributeSet::get(func->getContext(),
-                                              llvm::AttributeSet::FunctionIndex,
-                                              builder));
+  func->addAttributes(LLAttributeSet::FunctionIndex,
+                      LLAttributeSet::get(func->getContext(),
+                                          LLAttributeSet::FunctionIndex,
+                                          builder));
 #endif
 }
 

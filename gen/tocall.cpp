@@ -979,7 +979,7 @@ DValue *DtoCallFunctionImpl(Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   // set calling convention and parameter attributes
-  llvm::AttributeSet &attrlist = attrs;
+  LLAttributeSet &attrlist = attrs;
   if (dfnval && dfnval->func) {
     LLFunction *llfunc = llvm::dyn_cast<LLFunction>(DtoRVal(dfnval));
     if (llfunc && llfunc->isIntrinsic()) // override intrinsic attrs
@@ -995,7 +995,7 @@ DValue *DtoCallFunctionImpl(Loc &loc, Type *resulttype, DValue *fnval,
   }
   // merge in function attributes set in callOrInvoke
   attrlist = attrlist.addAttributes(
-      gIR->context(), llvm::AttributeSet::FunctionIndex, call.getAttributes());
+      gIR->context(), LLAttributeSet::FunctionIndex, call.getAttributes());
 
   call.setAttributes(attrlist);
 
