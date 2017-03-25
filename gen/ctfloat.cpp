@@ -12,33 +12,104 @@
 
 using llvm::APFloat;
 
+#if LDC_LLVM_VER >= 400
+#define AP_SEMANTICS_PARENS ()
+#else
+#define AP_SEMANTICS_PARENS
+#endif
+
+namespace {
+
+const llvm::fltSemantics *apSemantics = nullptr;
+
+constexpr unsigned numUint64Parts = (sizeof(real_t) + 7) / 8;
+union CTFloatUnion {
+  real_t fp;
+  uint64_t bits[numUint64Parts];
+};
+
+APFloat parseLiteral(const llvm::fltSemantics &semantics, const char *literal,
+                     bool *isOutOfRange = nullptr) {
+  APFloat ap(semantics, APFloat::uninitialized);
+  const auto r = ap.convertFromString(literal, APFloat::rmNearestTiesToEven);
+  if (isOutOfRange) {
+    *isOutOfRange = (r & (APFloat::opOverflow | APFloat::opUnderflow)) != 0;
+  }
+  return ap;
+}
+
+} // anonymous namespace
+
+////////////////////////////////////////////////////////////////////////////////
+
+void CTFloat::_init() {
+  static_assert(sizeof(real_t) >= 8, "real_t < 64 bits?");
+
+  if (sizeof(real_t) == 8) {
+    apSemantics = &(APFloat::IEEEdouble AP_SEMANTICS_PARENS);
+    return;
+  }
+
+#if __i386__ || __x86_64__
+  apSemantics = &(APFloat::x87DoubleExtended AP_SEMANTICS_PARENS);
+#elif __aarch64__
+  apSemantics = &(APFloat::IEEEquad AP_SEMANTICS_PARENS);
+#elif __ppc__ || __ppc64__
+  apSemantics = &(APFloat::PPCDoubleDouble AP_SEMANTICS_PARENS);
+#else
+  llvm_unreachable("Unknown host real_t type for compile-time reals");
+#endif
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 void CTFloat::toAPFloat(const real_t src, APFloat &dst) {
   if (sizeof(real_t) == 8) {
     dst = APFloat(static_cast<double>(src));
     return;
   }
 
-  assert(sizeof(real_t) > 8 && "real_t < 64 bits?");
-
-  union {
-    real_t fp;
-    uint64_t bits[(sizeof(real_t) + 7) / 8];
-  } u;
+  CTFloatUnion u;
   u.fp = src;
 
-#if LDC_LLVM_VER >= 400
-  #define PARENS ()
+#if LDC_LLVM_VER >= 307
+  const unsigned sizeInBits = APFloat::getSizeInBits(*apSemantics);
 #else
-  #define PARENS
-#endif
-
 #if __i386__ || __x86_64__
-  dst = APFloat(APFloat::x87DoubleExtended PARENS, APInt(80, 2, u.bits));
+  const unsigned sizeInBits = 80;
 #elif __aarch64__
-  dst = APFloat(APFloat::IEEEquad PARENS, APInt(128, 2, u.bits));
+  const unsigned sizeInBits = 128;
 #elif __ppc__ || __ppc64__
-  dst = APFloat(APFloat::PPCDoubleDouble PARENS, APInt(128, 2, u.bits));
+  const unsigned sizeInBits = 128;
 #else
   llvm_unreachable("Unknown host real_t type for compile-time reals");
 #endif
+#endif
+
+  const APInt bits = APInt(sizeInBits, numUint64Parts, u.bits);
+
+  dst = APFloat(*apSemantics, bits);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+real_t CTFloat::parse(const char *literal, bool *isOutOfRange) {
+  const APFloat ap = parseLiteral(*apSemantics, literal, isOutOfRange);
+  const APInt bits = ap.bitcastToAPInt();
+
+  CTFloatUnion u;
+  memcpy(u.bits, bits.getRawData(), bits.getBitWidth() / 8);
+  return u.fp;
+}
+
+bool CTFloat::isFloat32LiteralOutOfRange(const char *literal) {
+  bool isOutOfRange;
+  parseLiteral(APFloat::IEEEsingle AP_SEMANTICS_PARENS, literal, &isOutOfRange);
+  return isOutOfRange;
+}
+
+bool CTFloat::isFloat64LiteralOutOfRange(const char *literal) {
+  bool isOutOfRange;
+  parseLiteral(APFloat::IEEEdouble AP_SEMANTICS_PARENS, literal, &isOutOfRange);
+  return isOutOfRange;
 }

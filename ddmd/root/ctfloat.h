@@ -50,7 +50,11 @@ struct CTFloat
     static real_t round(real_t x);
 
     // implemented in gen/ctfloat.cpp
+    static void _init();
     static void toAPFloat(real_t src, llvm::APFloat &dst);
+
+    static bool isFloat32LiteralOutOfRange(const char *literal);
+    static bool isFloat64LiteralOutOfRange(const char *literal);
 #endif
 
     static bool isIdentical(real_t a, real_t b);

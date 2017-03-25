@@ -81,6 +81,11 @@ extern (C++) struct CTFloat
     static real_t ceil(real_t x) { return std.math.ceil(x); }
     static real_t trunc(real_t x) { return std.math.trunc(x); }
     static real_t round(real_t x) { return std.math.round(x); }
+
+    static void _init();
+
+    static bool isFloat32LiteralOutOfRange(const(char)* literal);
+    static bool isFloat64LiteralOutOfRange(const(char)* literal);
   }
 
     static bool isIdentical(real_t a, real_t b)
@@ -118,6 +123,13 @@ extern (C++) struct CTFloat
         return r is real_t.infinity || r is -real_t.infinity;
     }
 
+version (IN_LLVM)
+{
+    // implemented in gen/ctfloat.cpp
+    static real_t parse(const(char)* literal, bool* isOutOfRange = null);
+}
+else
+{
     static real_t parse(const(char)* literal, bool* isOutOfRange = null)
     {
         errno = 0;
@@ -136,6 +148,7 @@ extern (C++) struct CTFloat
             *isOutOfRange = (errno == ERANGE);
         return r;
     }
+}
 
     static int sprint(char* str, char fmt, real_t x)
     {
@@ -169,4 +182,12 @@ extern (C++) struct CTFloat
     static __gshared real_t one = real_t(1);
     static __gshared real_t minusone = real_t(-1);
     static __gshared real_t half = real_t(0.5);
+}
+
+version (IN_LLVM)
+{
+    shared static this()
+    {
+        CTFloat._init();
+    }
 }
