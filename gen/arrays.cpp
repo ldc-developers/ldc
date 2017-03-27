@@ -1087,19 +1087,19 @@ LLValue *DtoArrayEqCmp_memcmp(Loc &loc, DValue *l, DValue *r, IRState &irs) {
 
   auto *l_ptr = DtoArrayPtr(l);
   auto *r_ptr = DtoArrayPtr(r);
-  auto *l_size = DtoArrayLen(l);
+  auto *l_length = DtoArrayLen(l);
 
   // Early return for the simple case of comparing two static arrays.
   const bool staticArrayComparison = (l->type->toBasetype()->ty == Tsarray) &&
                                      (r->type->toBasetype()->ty == Tsarray);
   if (staticArrayComparison) {
     // TODO: simply codegen when comparing static arrays with different length (int[3] == int[2])
-    return callMemcmp(loc, irs, l_ptr, r_ptr, l_size);
+    return callMemcmp(loc, irs, l_ptr, r_ptr, l_length);
   }
 
   // First compare the array lengths
   auto lengthsCompareEqual =
-      irs.ir->CreateICmp(llvm::ICmpInst::ICMP_EQ, l_size, DtoArrayLen(r));
+      irs.ir->CreateICmp(llvm::ICmpInst::ICMP_EQ, l_length, DtoArrayLen(r));
 
   llvm::BasicBlock *incomingBB = irs.scopebb();
   llvm::BasicBlock *memcmpBB = irs.insertBB("domemcmp");
@@ -1111,7 +1111,7 @@ LLValue *DtoArrayEqCmp_memcmp(Loc &loc, DValue *l, DValue *r, IRState &irs) {
   // The array comparison is UB for non-zero length, and memcmp will correctly
   // return 0 (equality) when the length is zero.
   irs.scope() = IRScope(memcmpBB);
-  auto memcmpAnswer = callMemcmp(loc, irs, l_ptr, r_ptr, l_size);
+  auto memcmpAnswer = callMemcmp(loc, irs, l_ptr, r_ptr, l_length);
   irs.ir->CreateBr(memcmpEndBB);
 
   // Merge the result of length check and memcmp call into a phi node.
