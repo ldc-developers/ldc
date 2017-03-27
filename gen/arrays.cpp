@@ -1046,12 +1046,12 @@ bool validCompareWithMemcmpType(Type *t) {
 /// - User-defined opEquals
 bool validCompareWithMemcmp(DValue *l, DValue *r) {
   auto *ltype = l->type->toBasetype();
-
-  // TODO: optimize comparing static arrays with different length (int[3] == int[2])
-
   auto *rtype = r->type->toBasetype();
+
   // Only memcmp equivalent types (memcmp should be used for `const int[3] ==
   // int[3]`, but not for `int[3] == short[3]`).
+  // Note: Type::equivalent returns true for `int[4]` and `int[]`, and also for
+  // `int[4]` and `int[3]`! That is exactly what we want in this case.
   if (!ltype->equivalent(rtype))
     return false;
 
@@ -1093,6 +1093,7 @@ LLValue *DtoArrayEqCmp_memcmp(Loc &loc, DValue *l, DValue *r, IRState &irs) {
   const bool staticArrayComparison = (l->type->toBasetype()->ty == Tsarray) &&
                                      (r->type->toBasetype()->ty == Tsarray);
   if (staticArrayComparison) {
+    // TODO: simply codegen when comparing static arrays with different length (int[3] == int[2])
     return callMemcmp(loc, irs, l_ptr, r_ptr, l_size);
   }
 
