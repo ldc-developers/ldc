@@ -37,7 +37,7 @@ install:
   - git submodule update --init --recursive
   - cd ..
   # Download & extract libcurl
-  - appveyor DownloadFile "http://d.darktech.org/libcurl-7.48.0-WinSSL-zlib-x86-x64.zip" -FileName libcurl.zip
+  - appveyor DownloadFile "https://dl.dropboxusercontent.com/s/jxwohqax4e2avyt/libcurl-7.48.0-WinSSL-zlib-x86-x64.zip?dl=0" -FileName libcurl.zip
   - md libcurl
   - cd libcurl
   - 7z x ..\libcurl.zip > nul
