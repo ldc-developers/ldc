@@ -143,8 +143,12 @@ public:
     // Finalize the MD5 and return the hash.
     llvm::MD5::MD5Result Result;
     MD5.final(Result);
+#if LDC_LLVM_VER >= 500
+    return Result.low();
+#else
     using namespace llvm::support;
     return endian::read<uint64_t, little, unaligned>(Result);
+#endif
   }
 };
 

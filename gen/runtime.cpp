@@ -306,17 +306,16 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
 
   // Construct some attribute lists used below (possibly multiple times)
-  AttrSet NoAttrs, Attr_NoAlias(NoAttrs, llvm::AttributeSet::ReturnIndex,
+  AttrSet NoAttrs, Attr_NoAlias(NoAttrs, LLAttributeSet::ReturnIndex,
                                 llvm::Attribute::NoAlias),
-      Attr_NoUnwind(NoAttrs, llvm::AttributeSet::FunctionIndex,
+      Attr_NoUnwind(NoAttrs, LLAttributeSet::FunctionIndex,
                     llvm::Attribute::NoUnwind),
-      Attr_ReadOnly(NoAttrs, llvm::AttributeSet::FunctionIndex,
+      Attr_ReadOnly(NoAttrs, LLAttributeSet::FunctionIndex,
                     llvm::Attribute::ReadOnly),
-      Attr_Cold(NoAttrs, llvm::AttributeSet::FunctionIndex,
-                llvm::Attribute::Cold),
-      Attr_Cold_NoReturn(Attr_Cold, llvm::AttributeSet::FunctionIndex,
+      Attr_Cold(NoAttrs, LLAttributeSet::FunctionIndex, llvm::Attribute::Cold),
+      Attr_Cold_NoReturn(Attr_Cold, LLAttributeSet::FunctionIndex,
                          llvm::Attribute::NoReturn),
-      Attr_ReadOnly_NoUnwind(Attr_ReadOnly, llvm::AttributeSet::FunctionIndex,
+      Attr_ReadOnly_NoUnwind(Attr_ReadOnly, LLAttributeSet::FunctionIndex,
                              llvm::Attribute::NoUnwind),
       Attr_ReadOnly_1_NoCapture(Attr_ReadOnly, 1, llvm::Attribute::NoCapture),
       Attr_ReadOnly_1_3_NoCapture(Attr_ReadOnly_1_NoCapture, 3,
