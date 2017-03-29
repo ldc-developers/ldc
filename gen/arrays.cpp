@@ -1046,15 +1046,12 @@ bool validCompareWithMemcmpType(Type *t) {
 /// - User-defined opEquals
 bool validCompareWithMemcmp(DValue *l, DValue *r) {
   auto *ltype = l->type->toBasetype();
-
-  // TODO: Remove this check once `DtoArrayEqCmp_memcmp` can handle dynamic
-  // array comparisons.
-  if (ltype->ty != Tsarray)
-    return false;
-
   auto *rtype = r->type->toBasetype();
+
   // Only memcmp equivalent types (memcmp should be used for `const int[3] ==
   // int[3]`, but not for `int[3] == short[3]`).
+  // Note: Type::equivalent returns true for `int[4]` and `int[]`, and also for
+  // `int[4]` and `int[3]`! That is exactly what we want in this case.
   if (!ltype->equivalent(rtype))
     return false;
 
@@ -1062,32 +1059,69 @@ bool validCompareWithMemcmp(DValue *l, DValue *r) {
   return validCompareWithMemcmpType(elemType);
 }
 
-/// Compare `l` and `r` using memcmp. No checks are done for validity.
-///
-/// This function can currently only deal with comparisons of static arrays
-/// with memcmp.
-/// TODO: Implement dynamic array comparison: length equality check
-/// (and perhaps pointer equality check) before memcmp.
-LLValue *DtoArrayEqCmp_memcmp(Loc &loc, DValue *l, DValue *r, IRState &irs) {
-  IF_LOG Logger::println("Comparing arrays using memcmp");
+// Create a call instruction to memcmp.
+llvm::CallInst *callMemcmp(Loc &loc, IRState &irs, LLValue *l_ptr,
+                           LLValue *r_ptr, LLValue *numElements) {
+  assert(l_ptr && r_ptr && numElements);
   LLFunction *fn = getRuntimeFunction(loc, gIR->module, "memcmp");
   assert(fn);
+  auto sizeInBytes = numElements;
+  size_t elementSize = getTypeAllocSize(l_ptr->getType()->getContainedType(0));
+  if (elementSize != 1) {
+    sizeInBytes = irs.ir->CreateMul(sizeInBytes, DtoConstSize_t(elementSize));
+  }
+  // Call memcmp.
+  LLValue *args[] = {DtoBitCast(l_ptr, getVoidPtrType()),
+                     DtoBitCast(r_ptr, getVoidPtrType()), sizeInBytes};
+  return irs.ir->CreateCall(fn, args);
+}
 
-  // TODO: Remove this check once dynamic arrays are correctly dealt with.
-  assert(l->type->toBasetype()->ty == Tsarray);
+/// Compare `l` and `r` using memcmp. No checks are done for validity.
+///
+/// This function can deal with comparisons of static and dynamic arrays
+/// with memcmp.
+///
+/// Note: the dynamic array length check is not covered by (LDC's) PGO.
+LLValue *DtoArrayEqCmp_memcmp(Loc &loc, DValue *l, DValue *r, IRState &irs) {
+  IF_LOG Logger::println("Comparing arrays using memcmp");
 
   auto *l_ptr = DtoArrayPtr(l);
   auto *r_ptr = DtoArrayPtr(r);
+  auto *l_length = DtoArrayLen(l);
 
-  auto *size = DtoArrayLen(l);
-  size_t elementSize = getTypeAllocSize(l_ptr->getType()->getContainedType(0));
-  if (elementSize != 1) {
-    size = irs.ir->CreateMul(size, DtoConstSize_t(elementSize));
+  // Early return for the simple case of comparing two static arrays.
+  const bool staticArrayComparison = (l->type->toBasetype()->ty == Tsarray) &&
+                                     (r->type->toBasetype()->ty == Tsarray);
+  if (staticArrayComparison) {
+    // TODO: simply codegen when comparing static arrays with different length (int[3] == int[2])
+    return callMemcmp(loc, irs, l_ptr, r_ptr, l_length);
   }
 
-  LLValue *args[] = {DtoBitCast(l_ptr, getVoidPtrType()),
-                     DtoBitCast(r_ptr, getVoidPtrType()), size};
-  return irs.funcGen().callOrInvoke(fn, args).getInstruction();
+  // First compare the array lengths
+  auto lengthsCompareEqual =
+      irs.ir->CreateICmp(llvm::ICmpInst::ICMP_EQ, l_length, DtoArrayLen(r));
+
+  llvm::BasicBlock *incomingBB = irs.scopebb();
+  llvm::BasicBlock *memcmpBB = irs.insertBB("domemcmp");
+  llvm::BasicBlock *memcmpEndBB = irs.insertBBAfter(memcmpBB, "memcmpend");
+  irs.ir->CreateCondBr(lengthsCompareEqual, memcmpBB, memcmpEndBB);
+
+  // If lengths are equal: call memcmp.
+  // Note: no extra null checks are needed before passing the pointers to memcmp.
+  // The array comparison is UB for non-zero length, and memcmp will correctly
+  // return 0 (equality) when the length is zero.
+  irs.scope() = IRScope(memcmpBB);
+  auto memcmpAnswer = callMemcmp(loc, irs, l_ptr, r_ptr, l_length);
+  irs.ir->CreateBr(memcmpEndBB);
+
+  // Merge the result of length check and memcmp call into a phi node.
+  irs.scope() = IRScope(memcmpEndBB);
+  llvm::PHINode *phi =
+      irs.ir->CreatePHI(LLType::getInt32Ty(gIR->context()), 2, "cmp_result");
+  phi->addIncoming(DtoConstInt(1), incomingBB);
+  phi->addIncoming(memcmpAnswer, memcmpBB);
+
+  return phi;
 }
 } // end anonymous namespace
 
