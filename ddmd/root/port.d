@@ -67,6 +67,13 @@ extern (C++) struct Port
 
     static bool isFloat32LiteralOutOfRange(const(char)* s)
     {
+      version (IN_LLVM)
+      {
+        import ddmd.root.ctfloat;
+        return CTFloat.isFloat32LiteralOutOfRange(s);
+      }
+      else
+      {
         errno = 0;
         version (CRuntime_DigitalMars)
         {
@@ -86,10 +93,18 @@ extern (C++) struct Port
         }
         version (CRuntime_DigitalMars) __locale_decpoint = save;
         return errno == ERANGE;
+      }
     }
 
     static bool isFloat64LiteralOutOfRange(const(char)* s)
     {
+      version (IN_LLVM)
+      {
+        import ddmd.root.ctfloat;
+        return CTFloat.isFloat64LiteralOutOfRange(s);
+      }
+      else
+      {
         errno = 0;
         version (CRuntime_DigitalMars)
         {
@@ -109,6 +124,7 @@ extern (C++) struct Port
         }
         version (CRuntime_DigitalMars) __locale_decpoint = save;
         return errno == ERANGE;
+      }
     }
 
     // Little endian
