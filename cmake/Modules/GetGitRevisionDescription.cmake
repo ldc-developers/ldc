@@ -39,9 +39,18 @@ set(__get_git_revision_description YES)
 # to find the path to this module rather than the path to a calling list file
 get_filename_component(_gitdescmoddir ${CMAKE_CURRENT_LIST_FILE} PATH)
 
-function(get_git_head_revision _refspecvar _hashvar)
+function(get_git_head_revision _refspecvar _hashvar _use_recursion)
 	set(GIT_PARENT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 	set(GIT_DIR "${GIT_PARENT_DIR}/.git")
+	# if we're not recursing and GIT_DIR does not exist,
+	# we are not in git
+	if(NOT _use_recursion AND NOT EXISTS "${GIT_DIR}")
+		set(${_refspecvar} "GITDIR-NOTFOUND" PARENT_SCOPE)
+		set(${_hashvar} "GITDIR-NOTFOUND" PARENT_SCOPE)
+		return()
+	endif()
+	# otherwise, either GIT_DIR exists, or we recurse
+	# until we find it or we reach the root dir
 	while(NOT EXISTS "${GIT_DIR}")	# .git dir not found, search parent directories
 		set(GIT_PREVIOUS_PARENT "${GIT_PARENT_DIR}")
 		get_filename_component(GIT_PARENT_DIR ${GIT_PARENT_DIR} PATH)
