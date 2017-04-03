@@ -215,6 +215,10 @@ void applyAttrLLVMFastMathFlag(StructLiteralExp *sle, IrFunction *irFunc) {
     irFunc->FMF.clear();
   } else if (value == "fast") {
     irFunc->FMF.setUnsafeAlgebra();
+#if LDC_LLVM_VER >= 500
+  } else if (value == "contract") {
+    irFunc->FMF.setAllowContract(true);
+#endif
   } else if (value == "nnan") {
     irFunc->FMF.setNoNaNs();
   } else if (value == "ninf") {
