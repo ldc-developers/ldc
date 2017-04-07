@@ -161,7 +161,7 @@ static bool builtinTypeInfo(Type *t) {
     if (t->isTypeBasic() || t->ty == Tclass)
         return !t->mod;
 #else
-  if (t->isTypeBasic()) {
+  if (t->isTypeBasic() || t->ty == Tnull) {
     return !t->mod;
   }
 #endif
