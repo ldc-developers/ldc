@@ -19,7 +19,7 @@ endif()
 #
 
 find_package(LLVM 3.5 REQUIRED
-    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel instcombine ipa ipo instrumentation irreader linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
+    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel instcombine ipa ipo instrumentation irreader libdriver linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 # Remove LLVMTableGen library from list of libraries
 string(REGEX MATCH "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" LLVM_TABLEGEN_LIBRARY "${LLVM_LIBRARIES}")
@@ -339,6 +339,7 @@ set(DRV_SRC
     driver/targetmachine.cpp
     driver/toobj.cpp
     driver/tool.cpp
+    driver/archiver.cpp
     driver/linker.cpp
     driver/main.cpp
     ${CMAKE_BINARY_DIR}/driver/ldc-version.cpp
@@ -351,6 +352,7 @@ set(DRV_HDR
     driver/configfile.h
     driver/exe_path.h
     driver/ldc-version.h
+    driver/archiver.h
     driver/linker.h
     driver/targetmachine.h
     driver/toobj.h
@@ -755,9 +757,8 @@ if(MSVC)
     install(DIRECTORY vcbuild/ DESTINATION ${CMAKE_INSTALL_PREFIX}/bin FILES_MATCHING PATTERN "*.bat")
     # Also put the VCBuild scripts in the build/bin folder, so that ${PROJECT_BINARY_DIR}/bin/ldc2 is functional.
     # This is necessary for the IR tests that use ${PROJECT_BINARY_DIR}/bin/ldc2.
-    configure_file(vcbuild/amd64.bat   ${PROJECT_BINARY_DIR}/bin/amd64.bat   COPYONLY)
+    configure_file(vcbuild/dumpEnv.bat ${PROJECT_BINARY_DIR}/bin/dumpEnv.bat COPYONLY)
     configure_file(vcbuild/msvcEnv.bat ${PROJECT_BINARY_DIR}/bin/msvcEnv.bat COPYONLY)
-    configure_file(vcbuild/x86.bat     ${PROJECT_BINARY_DIR}/bin/x86.bat     COPYONLY)
 endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")

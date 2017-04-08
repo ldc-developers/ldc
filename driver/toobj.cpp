@@ -16,7 +16,6 @@
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"
-#include "gen/programs.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/Verifier.h"
 #if LDC_LLVM_VER >= 309
@@ -164,8 +163,7 @@ static void assemble(const std::string &asmpath, const std::string &objpath) {
   }
 
   // Run the compiler to assembly the program.
-  std::string gcc(getGcc());
-  int R = executeToolAndWait(gcc, args, global.params.verbose);
+  int R = executeToolAndWait(getGcc(), args, global.params.verbose);
   if (R) {
     error(Loc(), "Error while invoking external assembler.");
     fatal();
