@@ -15,9 +15,6 @@ set(BUILD_SHARED_LIBS     AUTO                                      CACHE STRING
 set(D_FLAGS               -w                                        CACHE STRING  "Runtime build flags, separated by ;")
 set(D_FLAGS_DEBUG         -g;-link-debuglib                         CACHE STRING  "Runtime build flags (debug libraries), separated by ;")
 set(D_FLAGS_RELEASE       -O3;-release                              CACHE STRING  "Runtime build flags (release libraries), separated by ;")
-if(MSVC)
-    set(LINK_WITH_MSVCRT  OFF                                       CACHE BOOL    "Link with MSVCRT.lib (DLL) instead of LIBCMT.lib (static)")
-endif()
 
 set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 
@@ -246,17 +243,10 @@ endforeach()
 # of what the user chose for LDC itself.
 # 1) Set up CMAKE_C_FLAGS_RELEASE
 if(MSVC)
-    if(NOT LINK_WITH_MSVCRT)
-        string(REGEX REPLACE "(^| )[/-]MD( |$)" "\\2" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
-        if(NOT CMAKE_C_FLAGS_RELEASE MATCHES "(^| )[/-]MT( |$)")
-            append("/MT" CMAKE_C_FLAGS_RELEASE)
-        endif()
-    else()
-        string(REGEX REPLACE "(^| )[/-]MT( |$)" "\\2" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
-        if(NOT CMAKE_C_FLAGS_RELEASE MATCHES "(^| )[/-]MD( |$)")
-            append("/MD" CMAKE_C_FLAGS_RELEASE)
-        endif()
-    endif()
+    # Omit all references to the default C runtime libs.
+    # We want to be able to link against all 4 C runtime variants (libcmt[d] / msvcrt[d]).
+    string(REGEX REPLACE "(^| )[/-]M[TD]d?( |$)" "\\2" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
+    append("/MT /Zl" CMAKE_C_FLAGS_RELEASE)
     # warning C4996: zlib uses 'deprecated' POSIX names
     append("/wd4996" CMAKE_C_FLAGS_RELEASE)
 endif()
