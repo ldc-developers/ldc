@@ -58,8 +58,8 @@ extern (C) double dot160(double[160] a, double[160] b)
 // ASM-NOT: vfmadd
     foreach (size_t i; 0 .. a.length)
     {
-        s = inlineIR!(`%p = fmul fast double %0, %1
-                       %r = fadd fast double %p, %2
+        s = inlineIR!(`%p = fmul double %0, %1
+                       %r = fadd double %p, %2
                        ret double %r`, double)(a[i], b[i], s);
     }
     return s;
@@ -68,6 +68,10 @@ extern (C) double dot160(double[160] a, double[160] b)
 // Test inlineIR alias defined outside any function
 alias inlineIR!(`%p = fmul fast double %0, %1
                  %r = fadd fast double %p, %2
+                 ret double %r`,
+                 double, double, double, double) muladdFast;
+alias inlineIR!(`%p = fmul double %0, %1
+                 %r = fadd double %p, %2
                  ret double %r`,
                  double, double, double, double) muladd;
 
@@ -82,7 +86,7 @@ extern (C) double aliasInlineUnsafe(double[] a, double[] b)
 // ASM: vfmadd{{[123][123][123]}}pd
     foreach (size_t i; 0 .. a.length)
     {
-        s = muladd(a[i], b[i], s);
+        s = muladdFast(a[i], b[i], s);
     }
     return s;
 }
