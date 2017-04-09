@@ -13,7 +13,7 @@
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/RuntimeDyld.h"
 #include "llvm/ExecutionEngine/SectionMemoryManager.h"
-#include "llvm/ExecutionEngine/Orc/JITSymbol.h"
+#include "llvm/ExecutionEngine/JITSymbol.h"
 #include "llvm/ExecutionEngine/Orc/CompileUtils.h"
 #include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
 #include "llvm/ExecutionEngine/Orc/LambdaResolver.h"
@@ -24,7 +24,7 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Bitcode/BitcodeReader.h"
 
 namespace {
 
@@ -123,22 +123,22 @@ public:
     //           the same "logical dylib".
     // Lambda 2: Search for external symbols in the host process.
     auto Resolver = llvm::orc::createLambdaResolver(
-                      [&](const std::string& name)->llvm::RuntimeDyld::SymbolInfo {
+                      [&](const std::string& name) {
       if (auto Sym = compileLayer.findSymbol(name, false)) {
-        return llvm::RuntimeDyld::SymbolInfo(Sym.getAddress(), Sym.getFlags());
+        return Sym;
       }
-      return llvm::RuntimeDyld::SymbolInfo(nullptr);
+      return llvm::JITSymbol(nullptr);
     },
-    [&](const std::string& name)->llvm::RuntimeDyld::SymbolInfo {
+    [&](const std::string& name) {
       auto it = symMap.find(name);
       if (symMap.end() != it) {
-        return llvm::RuntimeDyld::SymbolInfo(reinterpret_cast<uint64_t>(it->second),
-                                             llvm::JITSymbolFlags::Exported);
+        return llvm::JITSymbol(reinterpret_cast<llvm::JITTargetAddress>(it->second),
+                               llvm::JITSymbolFlags::Exported);
       }
       if (auto SymAddr = llvm::RTDyldMemoryManager::getSymbolAddressInProcess(name)) {
-        return llvm::RuntimeDyld::SymbolInfo(SymAddr, llvm::JITSymbolFlags::Exported);
+        return llvm::JITSymbol(SymAddr, llvm::JITSymbolFlags::Exported);
       }
-      return llvm::RuntimeDyld::SymbolInfo(nullptr);
+      return llvm::JITSymbol(nullptr);
     });
 
     // Add the set to the JIT with the resolver we created above and a newly
@@ -149,7 +149,7 @@ public:
     compiled = true;
   }
 
-  llvm::orc::JITSymbol findSymbol(const std::string &name) {
+  llvm::JITSymbol findSymbol(const std::string &name) {
     return compileLayer.findSymbol(name, false);
   }
 

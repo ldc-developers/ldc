@@ -44,8 +44,6 @@ void addOptimizationPasses(llvm::legacy::PassManagerBase &mpm,
       threshold = 275;
     }
     builder.Inliner = llvm::createFunctionInliningPass(threshold);
-  } else {
-    builder.Inliner = llvm::createAlwaysInlinerPass();
   }
 //  builder.DisableUnitAtATime = !unitAtATime;
   builder.DisableUnrollLoops = optLevel == 0;

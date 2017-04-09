@@ -413,7 +413,7 @@ endif()
 # LLVM >= 3.9 is required
 #
 set(LDC_RUNTIME_COMPILE False)  # must be a valid Python boolean constant (case sensitive)
-if (NOT (LDC_LLVM_VER LESS 309))
+if (NOT (LDC_LLVM_VER LESS 400))
     message(STATUS "Building LDC with runtime compilation support")
     add_definitions(-DLDC_RUNTIME_COMPILE)
     set(LDC_RUNTIME_COMPILE True)
