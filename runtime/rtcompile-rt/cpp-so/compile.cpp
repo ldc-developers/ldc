@@ -17,7 +17,12 @@
 #include "llvm/ExecutionEngine/Orc/CompileUtils.h"
 #include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
 #include "llvm/ExecutionEngine/Orc/LambdaResolver.h"
+
+#if LDC_LLVM_VER >= 500
+#include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
+#else
 #include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
+#endif
 
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/raw_ostream.h"
@@ -89,7 +94,11 @@ private:
   llvm::llvm_shutdown_obj shutdownObj;
   std::unique_ptr<llvm::TargetMachine> targetmachine;
   const llvm::DataLayout dataLayout;
+#if LDC_LLVM_VER >= 500
+  using ObjectLayerT = llvm::orc::RTDyldObjectLinkingLayer<>;
+#else
   using ObjectLayerT = llvm::orc::ObjectLinkingLayer<>;
+#endif
   ObjectLayerT objectLayer;
   using CompileLayerT = llvm::orc::IRCompileLayer<ObjectLayerT>;
   CompileLayerT compileLayer;
