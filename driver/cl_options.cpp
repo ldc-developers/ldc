@@ -510,11 +510,13 @@ cl::opt<LTOKind> ltoMode(
                    "Parallel importing and codegen (faster than 'full')")));
 #endif
 
-cl::opt<bool> enableRuntimeCompile(
+#if defined(LDC_RUNTIME_COMPILE)
+static cl::opt<bool, true> enableRuntimeCompile(
     "enable-runtime-compile",
     cl::desc("Enable runtime compilation"),
+    cl::location(global.params.enableRuntimeCompile),
     cl::init(false));
-
+#endif
 
 static cl::extrahelp footer(
     "\n"
