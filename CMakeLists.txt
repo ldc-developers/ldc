@@ -141,21 +141,16 @@ if(MSVC)
         endif()
     endif()
 
-    # LDC and LDMD are both linked against the dynamic MSVC runtime by
-    # default (due to default CMAKE_C[XX]_FLAGS_*).
-    # Host DMD/LDMD will default to linking against the static MSVC runtime.
-    # So disable some default libs based on CMAKE_C_FLAGS_RELEASE.
-    if(CMAKE_C_FLAGS_RELEASE MATCHES "(^| )[/-]MD( |$)")
-        append("-L/NODEFAULTLIB:libcmt" DDMD_LFLAGS)
-        if(MSVC_VERSION GREATER 1800) # VS 2015+
-            append("-L/NODEFAULTLIB:libvcruntime" DDMD_LFLAGS)
-        endif()
-    else()
-        append("-L/NODEFAULTLIB:msvcrt" DDMD_LFLAGS)
-        if(MSVC_VERSION GREATER 1800) # VS 2015+
-            append("-L/NODEFAULTLIB:vcruntime" DDMD_LFLAGS)
-        endif()
-    endif()
+    # Link against the static MSVC runtime; CMake's C(++) flags apparently default to the dynamic one.
+    # Host DMD/LDMD already defaults to linking against the static MSVC runtime.
+    # NOTE: Requires LLVM to be built with CMake variable LLVM_USE_CRT_{RELEASE,DEBUG,...}=MT[d].
+    foreach(flag_var
+            CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
+            CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+       if(${flag_var} MATCHES "/MD")
+          string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
+       endif()
+    endforeach()
 endif()
 
 append("-J${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -J${PROJECT_SOURCE_DIR}/res" DDMD_DFLAGS) # Needed for importing text files
