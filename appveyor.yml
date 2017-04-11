@@ -12,14 +12,14 @@ skip_tags: true
 #---------------------------------#
 
 # Operating system (build VM template)
-os: Visual Studio 2015
+os: Visual Studio 2017
 
 environment:
   matrix:
     - APPVEYOR_JOB_ARCH:   x64
       D_COMPILER:          ldc
     - APPVEYOR_JOB_ARCH:   x86
-      D_COMPILER:          dmd
+      D_COMPILER:          ldc
 
 #matrix:
 #  allow_failures:
@@ -100,8 +100,7 @@ install:
   - cd ..
   # Set environment variables
   - set PATH=%CD%\ninja;%CD%\make;%PATH%
-  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64 )
-  - if "%APPVEYOR_JOB_ARCH%"=="x86" ( call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86 )
+  - call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tools\VsDevCmd.bat" -arch=%APPVEYOR_JOB_ARCH%
   # Print environment info
   - set
   - msbuild /version
