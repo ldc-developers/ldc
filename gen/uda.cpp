@@ -215,9 +215,13 @@ void applyAttrLLVMFastMathFlag(StructLiteralExp *sle, IrFunction *irFunc) {
     irFunc->FMF.clear();
   } else if (value == "fast") {
     irFunc->FMF.setUnsafeAlgebra();
-#if LDC_LLVM_VER >= 500
   } else if (value == "contract") {
+#if LDC_LLVM_VER >= 500
     irFunc->FMF.setAllowContract(true);
+#else
+    sle->warning("ignoring parameter \"contract\" for @ldc.attributes.%s: "
+                 "LDC needs to be built against LLVM 5.0+ for support",
+                 sle->sd->ident->toChars());
 #endif
   } else if (value == "nnan") {
     irFunc->FMF.setNoNaNs();
