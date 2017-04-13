@@ -826,7 +826,7 @@ DValue *DtoCallFunctionImpl(Loc &loc, Type *resulttype, DValue *fnval,
   AttrSet attrs;
 
   // return attrs
-  attrs.add(0, irFty.ret->attrs);
+  attrs.add(LLAttributeSet::ReturnIndex, irFty.ret->attrs);
 
   std::vector<LLValue *> args;
   args.reserve(irFty.args.size());

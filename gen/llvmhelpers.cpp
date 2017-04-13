@@ -180,15 +180,24 @@ llvm::AllocaInst *DtoAlloca(VarDeclaration *vd, const char *name) {
 llvm::AllocaInst *DtoArrayAlloca(Type *type, unsigned arraysize,
                                  const char *name) {
   LLType *lltype = DtoType(type);
-  auto ai = new llvm::AllocaInst(lltype, DtoConstUint(arraysize), name,
-                                 gIR->topallocapoint());
+  auto ai = new llvm::AllocaInst(
+      lltype,
+#if LDC_LLVM_VER >= 500
+      gIR->module.getDataLayout().getAllocaAddrSpace(),
+#endif
+      DtoConstUint(arraysize), name, gIR->topallocapoint());
   ai->setAlignment(DtoAlignment(type));
   return ai;
 }
 
 llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
                                const char *name) {
-  auto ai = new llvm::AllocaInst(lltype, name, gIR->topallocapoint());
+  auto ai =
+      new llvm::AllocaInst(lltype,
+#if LDC_LLVM_VER >= 500
+                           gIR->module.getDataLayout().getAllocaAddrSpace(),
+#endif
+                           name, gIR->topallocapoint());
   if (alignment) {
     ai->setAlignment(alignment);
   }

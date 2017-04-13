@@ -115,8 +115,16 @@ public:
   virtual Value *promote(CallSite CS, IRBuilder<> &B, const Analysis &A) {
     NumGcToStack++;
 
-    Instruction *Begin = &(*CS.getCaller()->getEntryBlock().begin());
-    return new AllocaInst(Ty, ".nongc_mem", Begin); // FIXME: align?
+    auto &BB = CS.getCaller()->getEntryBlock();
+    Instruction *Begin = &(*BB.begin());
+
+    // FIXME: set alignment on alloca?
+    return new AllocaInst(
+        Ty,
+#if LDC_LLVM_VER >= 500
+        BB.getModule()->getDataLayout().getAllocaAddrSpace(),
+#endif
+        ".nongc_mem", Begin);
   }
 
   explicit FunctionInfo(ReturnType::Type returnType) : ReturnType(returnType) {}
