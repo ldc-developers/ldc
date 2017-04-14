@@ -19,7 +19,7 @@ endif()
 #
 
 find_package(LLVM 3.5 REQUIRED
-    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel instcombine ipa ipo instrumentation irreader linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
+    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel instcombine ipa ipo instrumentation irreader libdriver linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 # Remove LLVMTableGen library from list of libraries
 string(REGEX MATCH "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" LLVM_TABLEGEN_LIBRARY "${LLVM_LIBRARIES}")
@@ -141,21 +141,16 @@ if(MSVC)
         endif()
     endif()
 
-    # LDC and LDMD are both linked against the dynamic MSVC runtime by
-    # default (due to default CMAKE_C[XX]_FLAGS_*).
-    # Host DMD/LDMD will default to linking against the static MSVC runtime.
-    # So disable some default libs based on CMAKE_C_FLAGS_RELEASE.
-    if(CMAKE_C_FLAGS_RELEASE MATCHES "(^| )[/-]MD( |$)")
-        append("-L/NODEFAULTLIB:libcmt" DDMD_LFLAGS)
-        if(MSVC_VERSION GREATER 1800) # VS 2015+
-            append("-L/NODEFAULTLIB:libvcruntime" DDMD_LFLAGS)
-        endif()
-    else()
-        append("-L/NODEFAULTLIB:msvcrt" DDMD_LFLAGS)
-        if(MSVC_VERSION GREATER 1800) # VS 2015+
-            append("-L/NODEFAULTLIB:vcruntime" DDMD_LFLAGS)
-        endif()
-    endif()
+    # Link against the static MSVC runtime; CMake's C(++) flags apparently default to the dynamic one.
+    # Host DMD/LDMD already defaults to linking against the static MSVC runtime.
+    # NOTE: Requires LLVM to be built with CMake variable LLVM_USE_CRT_{RELEASE,DEBUG,...}=MT[d].
+    foreach(flag_var
+            CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
+            CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+       if(${flag_var} MATCHES "/MD")
+          string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
+       endif()
+    endforeach()
 endif()
 
 append("-J${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -J${PROJECT_SOURCE_DIR}/res" DDMD_DFLAGS) # Needed for importing text files
@@ -302,7 +297,7 @@ if(NOT TAG MATCHES "NOTFOUND")
         set(LDC_VERSION "${TAG}")
     endif()
 else()
-    get_git_head_revision(REFSPEC HASH)
+    get_git_head_revision(REFSPEC HASH FALSE)
     if(NOT HASH STREQUAL "GITDIR-NOTFOUND")
         # Append git hash to LDC_VERSION
         string(SUBSTRING "${HASH}" 0 7 LDC_VERSION_HASH)
@@ -339,6 +334,7 @@ set(DRV_SRC
     driver/targetmachine.cpp
     driver/toobj.cpp
     driver/tool.cpp
+    driver/archiver.cpp
     driver/linker.cpp
     driver/main.cpp
     ${CMAKE_BINARY_DIR}/driver/ldc-version.cpp
@@ -351,6 +347,7 @@ set(DRV_HDR
     driver/configfile.h
     driver/exe_path.h
     driver/ldc-version.h
+    driver/archiver.h
     driver/linker.h
     driver/targetmachine.h
     driver/toobj.h
@@ -419,7 +416,6 @@ include_directories(
 )
 include_directories( SYSTEM
     ${LLVM_INCLUDE_DIRS}
-    ${LIBCONFIG_INCLUDE_DIR}
 )
 append("-I${PROJECT_SOURCE_DIR}" DDMD_DFLAGS)
 append("-I${PROJECT_BINARY_DIR}" DDMD_DFLAGS)
@@ -427,9 +423,6 @@ append("-I${PROJECT_BINARY_DIR}" DDMD_DFLAGS)
 
 if(MSVC)
     include_directories(${PROJECT_SOURCE_DIR}/vcbuild)
-    if(NOT LIBCONFIG_DLL)
-        append("-DLIBCONFIG_STATIC" CMAKE_CXX_FLAGS)
-    endif()
 endif()
 
 if(MSVC)
@@ -759,9 +752,8 @@ if(MSVC)
     install(DIRECTORY vcbuild/ DESTINATION ${CMAKE_INSTALL_PREFIX}/bin FILES_MATCHING PATTERN "*.bat")
     # Also put the VCBuild scripts in the build/bin folder, so that ${PROJECT_BINARY_DIR}/bin/ldc2 is functional.
     # This is necessary for the IR tests that use ${PROJECT_BINARY_DIR}/bin/ldc2.
-    configure_file(vcbuild/amd64.bat   ${PROJECT_BINARY_DIR}/bin/amd64.bat   COPYONLY)
+    configure_file(vcbuild/dumpEnv.bat ${PROJECT_BINARY_DIR}/bin/dumpEnv.bat COPYONLY)
     configure_file(vcbuild/msvcEnv.bat ${PROJECT_BINARY_DIR}/bin/msvcEnv.bat COPYONLY)
-    configure_file(vcbuild/x86.bat     ${PROJECT_BINARY_DIR}/bin/x86.bat     COPYONLY)
 endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")

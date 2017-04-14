@@ -25,14 +25,14 @@ IrFunction::IrFunction(FuncDeclaration *fd) : FMF(opts::defaultFMF) {
 }
 
 void IrFunction::setNeverInline() {
-  assert(!func->getAttributes().hasAttribute(llvm::AttributeSet::FunctionIndex,
+  assert(!func->getAttributes().hasAttribute(LLAttributeSet::FunctionIndex,
                                              llvm::Attribute::AlwaysInline) &&
          "function can't be never- and always-inline at the same time");
   func->addFnAttr(llvm::Attribute::NoInline);
 }
 
 void IrFunction::setAlwaysInline() {
-  assert(!func->getAttributes().hasAttribute(llvm::AttributeSet::FunctionIndex,
+  assert(!func->getAttributes().hasAttribute(LLAttributeSet::FunctionIndex,
                                              llvm::Attribute::NoInline) &&
          "function can't be never- and always-inline at the same time");
   func->addFnAttr(llvm::Attribute::AlwaysInline);

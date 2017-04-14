@@ -1,5 +1,4 @@
-//===-- driver/tool.h - External tool invocation helpers ---------*- C++
-//-*-===//
+//===-- driver/tool.h - External tool invocation helpers --------*- C++ -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -8,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Functionaliy for invoking external tools executables, such as the system
+// Functionality for invoking external tools executables, such as the system
 // assembler, linker, ...
 //
 //===----------------------------------------------------------------------===//
@@ -19,8 +18,26 @@
 #include <vector>
 #include <string>
 
+#include "llvm/Support/CommandLine.h"
+
+std::string getGcc();
+
+std::string getProgram(const char *name,
+                       const llvm::cl::opt<std::string> *opt = nullptr,
+                       const char *envVar = nullptr);
+
 int executeToolAndWait(const std::string &tool,
                        std::vector<std::string> const &args,
                        bool verbose = false);
+
+#ifdef _WIN32
+
+namespace windows {
+// Tries to set up the MSVC environment variables and returns true if
+// successful.
+bool setupMsvcEnvironment();
+}
+
+#endif
 
 #endif

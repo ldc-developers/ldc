@@ -31,7 +31,6 @@
 #include "gen/logger.h"
 #include "gen/moduleinfo.h"
 #include "gen/optimizer.h"
-#include "gen/programs.h"
 #include "gen/runtime.h"
 #include "gen/structs.h"
 #include "gen/tollvm.h"

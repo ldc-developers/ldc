@@ -12,14 +12,14 @@ skip_tags: true
 #---------------------------------#
 
 # Operating system (build VM template)
-os: Visual Studio 2015
+os: Visual Studio 2017
 
 environment:
   matrix:
     - APPVEYOR_JOB_ARCH:   x64
       D_COMPILER:          ldc
     - APPVEYOR_JOB_ARCH:   x86
-      D_COMPILER:          dmd
+      D_COMPILER:          ldc
 
 #matrix:
 #  allow_failures:
@@ -37,7 +37,7 @@ install:
   - git submodule update --init --recursive
   - cd ..
   # Download & extract libcurl
-  - appveyor DownloadFile "http://d.darktech.org/libcurl-7.48.0-WinSSL-zlib-x86-x64.zip" -FileName libcurl.zip
+  - appveyor DownloadFile "https://dl.dropboxusercontent.com/s/jxwohqax4e2avyt/libcurl-7.48.0-WinSSL-zlib-x86-x64.zip?dl=0" -FileName libcurl.zip
   - md libcurl
   - cd libcurl
   - 7z x ..\libcurl.zip > nul
@@ -90,9 +90,9 @@ install:
   # Download & extract a pre-built LLVM (CMAKE_BUILD_TYPE=Release, LLVM_ENABLE_ASSERTIONS=ON)
   - ps: |
         If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
-            appveyor DownloadFile 'https://dl.dropboxusercontent.com/s/6jc2wld5wqgf1jg/LLVM-3.9.1-x64.7z?dl=0' -FileName llvm-x64.7z
+            appveyor DownloadFile 'https://dl.dropboxusercontent.com/s/phhwfs01jpcx74l/LLVM-3.9.1-x64-MT.7z?dl=0' -FileName llvm-x64.7z
         } Else {
-            appveyor DownloadFile 'https://dl.dropboxusercontent.com/s/zhlt3x8xyqlx2n4/LLVM-3.9.1-x86.7z?dl=0' -FileName llvm-x86.7z
+            appveyor DownloadFile 'https://dl.dropboxusercontent.com/s/cx5k09yablneyv3/LLVM-3.9.1-x86-MT.7z?dl=0' -FileName llvm-x86.7z
         }
   - md llvm-%APPVEYOR_JOB_ARCH%
   - cd llvm-%APPVEYOR_JOB_ARCH%
@@ -100,8 +100,7 @@ install:
   - cd ..
   # Set environment variables
   - set PATH=%CD%\ninja;%CD%\make;%PATH%
-  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64 )
-  - if "%APPVEYOR_JOB_ARCH%"=="x86" ( call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86 )
+  - call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tools\VsDevCmd.bat" -arch=%APPVEYOR_JOB_ARCH%
   # Print environment info
   - set
   - msbuild /version
