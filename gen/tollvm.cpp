@@ -240,15 +240,14 @@ LLValue *DtoDelegateEquals(TOK op, LLValue *lhs, LLValue *rhs) {
 ////////////////////////////////////////////////////////////////////////////////
 
 LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
-  auto linkage = (DtoIsTemplateInstance(sym) ? templateLinkage
-                                             : LLGlobalValue::ExternalLinkage);
-
-  // If @(ldc.attributes.weak) is applied, override the linkage to WeakAny
-  if (hasWeakUDA(sym)) {
-    linkage = LLGlobalValue::WeakAnyLinkage;
+  if (DtoIsTemplateInstance(sym)) {
+    return {templateLinkage, supportsCOMDAT()};
+  } else if (hasWeakUDA(sym)) {
+    // If @(ldc.attributes.weak) is applied, override the linkage to WeakAny
+    return {LLGlobalValue::WeakAnyLinkage, supportsCOMDAT()};
+  } else {
+    return {LLGlobalValue::ExternalLinkage, false};
   }
-
-  return {linkage, supportsCOMDAT()};
 }
 
 bool supportsCOMDAT() {
