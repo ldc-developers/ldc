@@ -102,6 +102,14 @@ static cl::opt<std::string> debugLib(
     cl::desc("Debug versions of default libraries (overrides previous)"),
     cl::value_desc("lib1,lib2,..."), cl::ZeroOrMore);
 
+#if LDC_POSIX
+static cl::opt<bool> linkSharedDefaultLib(
+    "link-shared-defaultlib",
+    cl::desc("If both static and shared builds of default/debug libraries are present,"
+             " use the shared one. Ignored if -static is supplied."),
+    cl::ZeroOrMore);
+#endif
+
 static cl::opt<bool> linkDebugLib(
     "link-debuglib",
     cl::desc("Link with libraries specified in -debuglib, not -defaultlib"),
@@ -502,18 +510,33 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   } else {
     // Parse comma-separated default library list.
     std::stringstream libNames(linkDebugLib ? debugLib : defaultLib);
+
+#if LDC_POSIX
+    // link either libphobos-ldc.so or libphobos-ldc.a
+    if (linkSharedDefaultLib && !staticFlag)
+        global.params.linkswitches->push("-Bdynamic");
+    else
+        global.params.linkswitches->push("-Bstatic");
+#endif        
+
     while (libNames.good()) {
       std::string lib;
       std::getline(libNames, lib, ',');
       if (lib.empty()) {
         continue;
       }
-
       char *arg = static_cast<char *>(mem.xmalloc(lib.size() + 3));
+
       strcpy(arg, "-l");
       strcpy(arg + 2, lib.c_str());
       global.params.linkswitches->push(arg);
     }
+
+#if LDC_POSIX
+    // ensure user-supplied libraries are still linked dynamically
+    // by default
+    global.params.linkswitches->push("-Bdynamic");
+#endif
   }
 
   if (global.params.useUnitTests) {
