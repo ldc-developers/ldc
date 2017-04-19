@@ -870,7 +870,13 @@ bool isSafeToStackAllocate(BasicBlock::iterator Alloc, Value *V, DominatorTree &
       CallSite::arg_iterator B = CS.arg_begin(), E = CS.arg_end();
       for (CallSite::arg_iterator A = B; A != E; ++A) {
         if (A->get() == V) {
-          if (!CS.paramHasAttr(A - B + 1, LLAttribute::NoCapture)) {
+#if LDC_LLVM_VER < 500
+          const unsigned paramHasAttr_firstArg = 1;
+#else
+          const unsigned paramHasAttr_firstArg = 0;
+#endif
+          if (!CS.paramHasAttr(A - B + paramHasAttr_firstArg,
+                               LLAttribute::NoCapture)) {
             // The parameter is not marked 'nocapture' - captured.
             return false;
           }
