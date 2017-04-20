@@ -14,10 +14,25 @@ if (NOT D_COMPILER_DMD_COMPAT)
     message(FATAL_ERROR "We currently only support building using a D compiler with a DMD-compatible commandline interface. (try 'ldmd2' or 'gdmd')")
 endif()
 
+# Helper function
+function(append value)
+    foreach(variable ${ARGN})
+        if(${variable} STREQUAL "")
+            set(${variable} "${value}" PARENT_SCOPE)
+        else()
+            set(${variable} "${${variable}} ${value}" PARENT_SCOPE)
+        endif()
+    endforeach(variable)
+endfunction()
+
+option(LDC_WITH_DCOMPUTE_SPIRV "Enable Dcompute to generate SPIR-V kernels for targetting OpenCL, requires a Khronos llvm")
+mark_as_advanced(LDC_WITH_DCOMPUTE_SPIRV)
+if(LDC_WITH_DCOMPUTE_SPIRV)
+    append(EXTRA_LLVM_MODULES spirvlib)
+endif()
 #
 # Locate LLVM.
 #
-
 find_package(LLVM 3.5 REQUIRED
     all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel instcombine ipa ipo instrumentation irreader libdriver linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
@@ -30,16 +45,7 @@ string(REGEX REPLACE "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" "" LLVM_LIBR
 #
 include(GetLinuxDistribution)
 
-# Helper function
-function(append value)
-    foreach(variable ${ARGN})
-        if(${variable} STREQUAL "")
-            set(${variable} "${value}" PARENT_SCOPE)
-        else()
-            set(${variable} "${${variable}} ${value}" PARENT_SCOPE)
-        endif()
-    endforeach(variable)
-endfunction()
+
 
 #
 # Main configuration.
