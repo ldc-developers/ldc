@@ -465,8 +465,8 @@ endmacro()
 
 # Builds a static and/or shared copy of druntime/Phobos.
 macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix outlist_targets)
-    # Only build Phobos module once. If a shared Phobos lib is generated (too),
-    # compile explicitly with `-relocation-model=pic`.
+    # Only compile Phobos modules once for static+shared libs.
+    # If a shared Phobos lib is generated (too), compile explicitly with `-relocation-model=pic`.
     set(phobos2_d_flags "${d_flags}")
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
         list(APPEND ${phobos2_d_flags} -relocation-model=pic)
@@ -475,6 +475,13 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix outl
     set(phobos2_o "")
     set(phobos2_bc "")
     compile_phobos2("${phobos2_d_flags}" "${lib_suffix}" "${path_suffix}" phobos2_o phobos2_bc)
+
+    # Use a dummy custom target ('phobos2-ldc…-common') depending solely on the Phobos D objects
+    # (custom commands) as dependency for static+shared Phobos libs.
+    # Otherwise building both libs in parallel may result in conflicting Phobos module compilations
+    # (at least with the make generator), a known CMake issue.
+    set(phobos2_common phobos2-ldc${target_suffix}-common)
+    add_custom_target(${phobos2_common} DEPENDS ${phobos2_o} ${phobos2_bc})
 
     # static druntime/Phobos
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "ON")
@@ -485,6 +492,7 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix outl
         build_runtime_libs("${druntime_o}" "${druntime_bc}" "${phobos2_o}" "${phobos2_bc}"
                            "${c_flags}" "${ld_flags}" "${lib_suffix}" "${path_suffix}" "OFF"
                            ${outlist_targets})
+        add_dependencies(phobos2-ldc${target_suffix} ${phobos2_common})
     endif()
     # shared druntime/Phobos
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
@@ -495,6 +503,7 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix outl
         build_runtime_libs("${druntime_o}" "${druntime_bc}" "${phobos2_o}" "${phobos2_bc}"
                            "${c_flags}" "${ld_flags}" "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}" "ON"
                            ${outlist_targets})
+        add_dependencies(phobos2-ldc${target_suffix} ${phobos2_common})
     endif()
 endmacro()
 
