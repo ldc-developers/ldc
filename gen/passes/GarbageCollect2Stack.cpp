@@ -115,8 +115,16 @@ public:
   virtual Value *promote(CallSite CS, IRBuilder<> &B, const Analysis &A) {
     NumGcToStack++;
 
-    Instruction *Begin = &(*CS.getCaller()->getEntryBlock().begin());
-    return new AllocaInst(Ty, ".nongc_mem", Begin); // FIXME: align?
+    auto &BB = CS.getCaller()->getEntryBlock();
+    Instruction *Begin = &(*BB.begin());
+
+    // FIXME: set alignment on alloca?
+    return new AllocaInst(
+        Ty,
+#if LDC_LLVM_VER >= 500
+        BB.getModule()->getDataLayout().getAllocaAddrSpace(),
+#endif
+        ".nongc_mem", Begin);
   }
 
   explicit FunctionInfo(ReturnType::Type returnType) : ReturnType(returnType) {}
@@ -862,7 +870,13 @@ bool isSafeToStackAllocate(BasicBlock::iterator Alloc, Value *V, DominatorTree &
       CallSite::arg_iterator B = CS.arg_begin(), E = CS.arg_end();
       for (CallSite::arg_iterator A = B; A != E; ++A) {
         if (A->get() == V) {
-          if (!CS.paramHasAttr(A - B + 1, LLAttribute::NoCapture)) {
+#if LDC_LLVM_VER < 500
+          const unsigned paramHasAttr_firstArg = 1;
+#else
+          const unsigned paramHasAttr_firstArg = 0;
+#endif
+          if (!CS.paramHasAttr(A - B + paramHasAttr_firstArg,
+                               LLAttribute::NoCapture)) {
             // The parameter is not marked 'nocapture' - captured.
             return false;
           }

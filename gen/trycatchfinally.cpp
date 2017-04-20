@@ -306,6 +306,9 @@ llvm::BasicBlock *CleanupScope::run(IRState &irs, llvm::BasicBlock *sourceBlock,
   if (!branchSelector) {
     // ... and have not created one yet, so do so now.
     branchSelector = new llvm::AllocaInst(llvm::Type::getInt32Ty(irs.context()),
+#if LDC_LLVM_VER >= 500
+                                          irs.module.getDataLayout().getAllocaAddrSpace(),
+#endif
                                           llvm::Twine("branchsel.") +
                                               beginBlock()->getName(),
                                           irs.topallocapoint());
