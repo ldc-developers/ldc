@@ -7,7 +7,7 @@
  * utilities needed for arguments parsing, path manipulation, etc...
  * This file is not shared with other compilers which use the DMD front-end.
  *
- * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(DMDSRC _mars.d)
@@ -55,6 +55,9 @@ import ddmd.target;
 import ddmd.tokens;
 import ddmd.utils;
 
+// strtol redeclared here because its signature changed from 2.073 to 2.074
+import core.stdc.config;
+extern(C) c_long strtol(inout(char)* nptr, inout(char)** endptr, int base);
 
 version(IN_LLVM)
 {
@@ -434,7 +437,7 @@ private int tryMain(size_t argc, const(char)** argv)
                     {
                         long percent;
                         errno = 0;
-                        percent = strtol(p + 5, cast(char**)&p, 10);
+                        percent = strtol(p + 5, &p, 10);
                         if (*p || errno || percent > 100)
                             goto Lerror;
                         global.params.covPercent = cast(ubyte)percent;
@@ -543,6 +546,8 @@ private int tryMain(size_t argc, const(char)** argv)
             }
             else if (strcmp(p + 1, "v") == 0)
                 global.params.verbose = true;
+            else if (strcmp(p + 1, "vcg-ast") == 0)
+                global.params.vcg_ast = true;
             else if (strcmp(p + 1, "vtls") == 0)
                 global.params.vtls = true;
             else if (strcmp(p + 1, "vcolumns") == 0)
@@ -555,7 +560,7 @@ private int tryMain(size_t argc, const(char)** argv)
                 {
                     long num;
                     errno = 0;
-                    num = strtol(p + 9, cast(char**)&p, 10);
+                    num = strtol(p + 9, &p, 10);
                     if (*p || errno || num > INT_MAX)
                         goto Lerror;
                     global.errorLimit = cast(uint)num;
@@ -631,7 +636,7 @@ Language changes listed by -transition=id:
                     {
                         long num;
                         errno = 0;
-                        num = strtol(p + 12, cast(char**)&p, 10);
+                        num = strtol(p + 12, &p, 10);
                         if (*p || errno || num > INT_MAX)
                             goto Lerror;
                         // Bugzilla issue number
@@ -882,7 +887,7 @@ Language changes listed by -transition=id:
                     {
                         long level;
                         errno = 0;
-                        level = strtol(p + 7, cast(char**)&p, 10);
+                        level = strtol(p + 7, &p, 10);
                         if (*p || errno || level > INT_MAX)
                             goto Lerror;
                         DebugCondition.setGlobalLevel(cast(int)level);
@@ -908,7 +913,7 @@ Language changes listed by -transition=id:
                     {
                         long level;
                         errno = 0;
-                        level = strtol(p + 9, cast(char**)&p, 10);
+                        level = strtol(p + 9, &p, 10);
                         if (*p || errno || level > INT_MAX)
                             goto Lerror;
                         VersionCondition.setGlobalLevel(cast(int)level);
@@ -1702,6 +1707,29 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
         {
             Module m = modules[i];
             gendocfile(m);
+        }
+    }
+    if (global.params.vcg_ast)
+    {
+        import ddmd.hdrgen;
+        foreach (mod; modules)
+        {
+            auto buf = new OutBuffer;
+            buf.doindent = 1;
+            scope HdrGenState hgs;
+            hgs.fullDump = 1;
+            scope PrettyPrintVisitor ppv = new PrettyPrintVisitor(buf, &hgs);
+            mod.accept(ppv);
+
+            // write the output to $(filename).cg
+            auto modFilename = mod.srcfile.toChars();
+            auto modFilenameLength = strlen(modFilename);
+            auto cgFilename = cast(char*)allocmemory(modFilenameLength + 4);
+            memcpy(cgFilename, modFilename, modFilenameLength);
+            cgFilename[modFilenameLength .. modFilenameLength + 4] = ".cg\0";
+            auto cgFile = File(cgFilename);
+            cgFile.setbuffer(buf.data, buf.offset);
+            cgFile.write();
         }
     }
   version (IN_LLVM)

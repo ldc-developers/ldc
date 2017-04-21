@@ -205,7 +205,7 @@ public:
     Ungag ungagSpeculative();
 
     // kludge for template.isSymbol()
-    int dyncast() { return DYNCAST_DSYMBOL; }
+    int dyncast() const { return DYNCAST_DSYMBOL; }
 
     static Dsymbols *arraySyntaxCopy(Dsymbols *a);
 
@@ -318,7 +318,8 @@ public:
     Dsymbol *search(Loc loc, Identifier *ident, int flags = SearchLocalsOnly);
     OverloadSet *mergeOverloadSet(Identifier *ident, OverloadSet *os, Dsymbol *s);
     void importScope(Dsymbol *s, Prot protection);
-    virtual bool isPackageAccessible(Package p, Prot protection, int flags = 0);
+    void addAccessiblePackage(Package *p, Prot protection);
+    virtual bool isPackageAccessible(Package *p, Prot protection, int flags = 0);
     bool isforwardRef();
     static void multiplyDefined(Loc loc, Dsymbol *s1, Dsymbol *s2);
     const char *kind();

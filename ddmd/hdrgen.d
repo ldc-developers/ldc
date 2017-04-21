@@ -2,7 +2,7 @@
  * Compiler implementation of the
  * $(LINK2 http://www.dlang.org, D programming language).
  *
- * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(DMDSRC _hdrgen.d)
@@ -51,9 +51,11 @@ import ddmd.visitor;
 
 struct HdrGenState
 {
-    bool hdrgen;        // true if generating header file
-    bool ddoc;          // true if generating Ddoc file
-    bool fullQual;      // fully qualify types when printing
+    bool hdrgen;        /// true if generating header file
+    bool ddoc;          /// true if generating Ddoc file
+    bool fullDump;      /// true if generating a full AST dump file
+
+    bool fullQual;      /// fully qualify types when printing
     int tpltMember;
     int autoMember;
     int forStmtInit;
@@ -89,6 +91,7 @@ public:
     OutBuffer* buf;
     HdrGenState* hgs;
     bool declstring; // set while declaring alias for string,wstring or dstring
+    EnumDeclaration inEnumDecl;
 
     extern (D) this(OutBuffer* buf, HdrGenState* hgs)
     {
@@ -327,11 +330,18 @@ public:
         if (s.elsebody)
         {
             buf.writestring("else");
-            buf.writenl();
-            if (!s.elsebody.isScopeStatement())
+            if (!s.elsebody.isIfStatement)
+            {
+                buf.writenl();
+            }
+            else
+            {
+                buf.writeByte(' ');
+            }
+            if (!s.elsebody.isScopeStatement() && !s.elsebody.isIfStatement)
                 buf.level++;
             s.elsebody.accept(this);
-            if (!s.elsebody.isScopeStatement())
+            if (!s.elsebody.isScopeStatement() && !s.elsebody.isIfStatement)
                 buf.level--;
         }
     }
@@ -920,19 +930,19 @@ public:
     {
         foreach (id; t.idents)
         {
-            if (id.dyncast() == DYNCAST_DSYMBOL)
+            if (id.dyncast() == DYNCAST.dsymbol)
             {
                 buf.writeByte('.');
                 TemplateInstance ti = cast(TemplateInstance)id;
                 ti.accept(this);
             }
-            else if (id.dyncast() == DYNCAST_EXPRESSION)
+            else if (id.dyncast() == DYNCAST.expression)
             {
                 buf.writeByte('[');
                 (cast(Expression)id).accept(this);
                 buf.writeByte(']');
             }
-            else if (id.dyncast() == DYNCAST_TYPE)
+            else if (id.dyncast() == DYNCAST.type)
             {
                 buf.writeByte('[');
                 (cast(Type)id).accept(this);
@@ -1323,7 +1333,7 @@ public:
             if (onemember && onemember.isFuncDeclaration())
                 buf.writestring("foo ");
         }
-        if (hgs.hdrgen && visitEponymousMember(d))
+        if ((hgs.hdrgen || hgs.fullDump) && visitEponymousMember(d))
             return;
         if (hgs.ddoc)
             buf.writestring(d.kind());
@@ -1335,7 +1345,7 @@ public:
         visitTemplateParameters(hgs.ddoc ? d.origParameters : d.parameters);
         buf.writeByte(')');
         visitTemplateConstraint(d.constraint);
-        if (hgs.hdrgen)
+        if (hgs.hdrgen || hgs.fullDump)
         {
             hgs.tpltMember++;
             buf.writenl();
@@ -1452,6 +1462,17 @@ public:
     {
         buf.writestring(ti.name.toChars());
         tiargsToBuffer(ti);
+
+        if (hgs.fullDump)
+        {
+            buf.writenl();
+            if (ti.aliasdecl)
+            {
+                // the ti.aliasDecl is the instantiated body
+                // if we have it, print it.
+                ti.aliasdecl.accept(this);
+            }
+        }
     }
 
     override void visit(TemplateMixin tm)
@@ -1567,6 +1588,9 @@ public:
 
     override void visit(EnumDeclaration d)
     {
+        auto oldInEnumDecl = inEnumDecl;
+        scope(exit) inEnumDecl = oldInEnumDecl;
+        inEnumDecl = d;
         buf.writestring("enum ");
         if (d.ident)
         {
@@ -1747,10 +1771,13 @@ public:
         //printf("FuncDeclaration::toCBuffer() '%s'\n", f.toChars());
         if (stcToBuffer(buf, f.storage_class))
             buf.writeByte(' ');
-        typeToBuffer(f.type, f.ident);
-        if (hgs.hdrgen == 1)
+        auto tf = cast(TypeFunction)f.type;
+        typeToBuffer(tf, f.ident);
+
+        if (hgs.hdrgen)
         {
-            if (f.storage_class & STCauto)
+            // if the return type is missing (e.g. ref functions or auto)
+            if (!tf.next || f.storage_class & STCauto)
             {
                 hgs.autoMember++;
                 bodyToBuffer(f);
@@ -1858,12 +1885,23 @@ public:
 
     override void visit(PostBlitDeclaration d)
     {
+        if (stcToBuffer(buf, d.storage_class))
+            buf.writeByte(' ');
         buf.writestring("this(this)");
         bodyToBuffer(d);
     }
 
     override void visit(DtorDeclaration d)
     {
+        if (d.storage_class & STCtrusted)
+            buf.writestring("@trusted ");
+        if (d.storage_class & STCsafe)
+            buf.writestring("@safe ");
+        if (d.storage_class & STCnogc)
+            buf.writestring("@nogc ");
+        if (d.storage_class & STCdisable)
+            buf.writestring("@disable ");
+
         buf.writestring("~this()");
         bodyToBuffer(d);
     }
@@ -2100,6 +2138,21 @@ public:
             case Tenum:
                 {
                     TypeEnum te = cast(TypeEnum)t;
+                    if (hgs.fullDump)
+                    {
+                        auto sym = te.sym;
+                        if (inEnumDecl != sym)  foreach(i;0 .. sym.members.dim)
+                        {
+                            EnumMember em = cast(EnumMember) (*sym.members)[i];
+                            if (em.value.toInteger == v)
+                            {
+                                buf.printf("%s.%s", sym.toChars(), em.ident.toChars());
+                                return ;
+                            }
+                        }
+                        //assert(0, "We could not find the EmumMember");// for some reason it won't append char* ~ e.toChars() ~ " in " ~ sym.toChars() );
+                    }
+
                     buf.printf("cast(%s)", te.sym.toChars());
                     t = te.sym.memtype;
                     goto L1;

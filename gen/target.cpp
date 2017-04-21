@@ -55,6 +55,7 @@ void Target::_init() {
   c_longsize = global.params.is64bit ? 8 : 4;
   c_long_doublesize = realsize;
   classinfosize = 0; // unused
+  maxStaticDataSize = std::numeric_limits<unsigned long long>::max();
 
   const auto targetRealSemantics = &real->getFltSemantics();
 #if LDC_LLVM_VER >= 400

@@ -2,7 +2,7 @@
  * Compiler implementation of the
  * $(LINK2 http://www.dlang.org, D programming language).
  *
- * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(DMDSRC _arrayop.d)
@@ -321,7 +321,7 @@ extern (C++) void buildArrayIdent(Expression e, OutBuffer* buf, Expressions* arg
             switch (e.op)
             {
             case TOKaddass: s = "Addass";   break;
-            case TOKminass: s = "Subass";   break;
+            case TOKminass: s = "Minass";   break;
             case TOKmulass: s = "Mulass";   break;
             case TOKdivass: s = "Divass";   break;
             case TOKmodass: s = "Modass";   break;
@@ -355,7 +355,7 @@ extern (C++) void buildArrayIdent(Expression e, OutBuffer* buf, Expressions* arg
             switch (e.op)
             {
             case TOKadd:    s = "Add";  break;
-            case TOKmin:    s = "Sub";  break;
+            case TOKmin:    s = "Min";  break;
             case TOKmul:    s = "Mul";  break;
             case TOKdiv:    s = "Div";  break;
             case TOKmod:    s = "Mod";  break;

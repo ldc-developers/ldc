@@ -2,7 +2,7 @@
  * Compiler implementation of the
  * $(LINK2 http://www.dlang.org, D programming language).
  *
- * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(DMDSRC _escape.d)
@@ -66,13 +66,16 @@ bool checkParamArgumentEscape(Scope* sc, FuncDeclaration fdc, Identifier par, Ex
         {
             if (!gag)
                 error(arg.loc, "%s %s assigned to non-scope parameter %s calling %s",
-                    desc, v.toChars(), par.toChars(), fdc ? fdc.toPrettyChars() : "indirectly");
+                    desc, v.toChars(),
+                    par ? par.toChars() : "unnamed",
+                    fdc ? fdc.toPrettyChars() : "indirectly");
             result = true;
         }
     }
 
     foreach (VarDeclaration v; er.byvalue)
     {
+        //printf("byvalue %s\n", v.toChars());
         if (v.isDataseg())
             continue;
 
@@ -126,8 +129,7 @@ bool checkParamArgumentEscape(Scope* sc, FuncDeclaration fdc, Identifier par, Ex
         foreach (v; vars)
         {
             //printf("v = %s\n", v.toChars());
-            if (v.isDataseg())
-                continue;
+            assert(!v.isDataseg());     // these are not put in the closureVars[]
 
             Dsymbol p = v.toParent2();
 
@@ -147,7 +149,8 @@ bool checkParamArgumentEscape(Scope* sc, FuncDeclaration fdc, Identifier par, Ex
         {
             if (!gag)
                 error(ee.loc, "reference to stack allocated value returned by %s assigned to non-scope parameter %s",
-                    ee.toChars(), par.toChars());
+                    ee.toChars(),
+                    par ? par.toChars() : "unnamed");
             result = true;
         }
     }
@@ -218,6 +221,9 @@ bool checkAssignEscape(Scope* sc, Expression e, bool gag)
         if (v.isDataseg())
             continue;
 
+        if (v == va)
+            continue;
+
         Dsymbol p = v.toParent2();
 
         if (!(va && va.isScope()))
@@ -225,8 +231,19 @@ bool checkAssignEscape(Scope* sc, Expression e, bool gag)
 
         if (v.isScope())
         {
+            if (va && va.isScope() && va.storage_class & STCreturn && !(v.storage_class & STCreturn) &&
+                sc.func.setUnsafe())
+            {
+                if (!gag)
+                    error(ae.loc, "scope variable %s assigned to return scope %s", v.toChars(), va.toChars());
+                result = true;
+                continue;
+            }
+
             // If va's lifetime encloses v's, then error
-            if (va && va.enclosesLifetimeOf(v) && !(v.storage_class & STCparameter) && sc.func.setUnsafe())
+            if (va &&
+                (va.enclosesLifetimeOf(v) && !(v.storage_class & STCparameter) || va.storage_class & STCref) &&
+                sc.func.setUnsafe())
             {
                 if (!gag)
                     error(ae.loc, "scope variable %s assigned to %s with longer lifetime", v.toChars(), va.toChars());
@@ -239,6 +256,7 @@ bool checkAssignEscape(Scope* sc, Expression e, bool gag)
                 if (!va.isScope() && inferScope)
                 {   //printf("inferring scope for %s\n", va.toChars());
                     va.storage_class |= STCscope;
+                    va.storage_class |= v.storage_class & STCreturn;
                 }
                 continue;
             }
@@ -288,7 +306,9 @@ bool checkAssignEscape(Scope* sc, Expression e, bool gag)
         Dsymbol p = v.toParent2();
 
         // If va's lifetime encloses v's, then error
-        if (va && va.enclosesLifetimeOf(v) && !(v.storage_class & STCparameter) && sc.func.setUnsafe())
+        if (va &&
+            (va.enclosesLifetimeOf(v) && !(v.storage_class & STCparameter) || va.storage_class & STCref) &&
+            sc.func.setUnsafe())
         {
             if (!gag)
                 error(ae.loc, "address of variable %s assigned to %s with longer lifetime", v.toChars(), va.toChars());
@@ -329,8 +349,7 @@ bool checkAssignEscape(Scope* sc, Expression e, bool gag)
         foreach (v; vars)
         {
             //printf("v = %s\n", v.toChars());
-            if (v.isDataseg())
-                continue;
+            assert(!v.isDataseg());     // these are not put in the closureVars[]
 
             Dsymbol p = v.toParent2();
 
@@ -595,7 +614,7 @@ private void inferReturn(FuncDeclaration fd, VarDeclaration v)
 {
     // v is a local in the current function
 
-    //printf("inferring 'return' for variable '%s'\n", v.toChars());
+    //printf("for function '%s' inferring 'return' for variable '%s'\n", fd.toChars(), v.toChars());
     v.storage_class |= STCreturn;
 
     TypeFunction tf = cast(TypeFunction)fd.type;
@@ -711,10 +730,7 @@ private void escapeByValue(Expression e, EscapeByResults* er)
 
         override void visit(TupleExp e)
         {
-            if (e.exps.dim)
-            {
-                (*e.exps)[e.exps.dim - 1].accept(this); // last one only
-            }
+            assert(0); // should have been lowered by now
         }
 
         override void visit(ArrayLiteralExp e)
@@ -1123,6 +1139,7 @@ private struct EscapeByResults
  */
 void findAllOuterAccessedVariables(FuncDeclaration fd, VarDeclarations* vars)
 {
+    //printf("findAllOuterAccessedVariables(fd: %s)\n", fd.toChars());
     for (auto p = fd.parent; p; p = p.parent)
     {
         auto fdp = p.isFuncDeclaration();

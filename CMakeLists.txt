@@ -46,11 +46,11 @@ endfunction()
 #
 
 # Version information
-set(LDC_VERSION "1.3.0") # May be overridden by git hash tag
+set(LDC_VERSION "1.4.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   73)
-set(DMDFE_FIX_LEVEL       2) # Comment out if not used
+set(DMDFE_PATCH_VERSION   74)
+set(DMDFE_FIX_LEVEL       0) # Comment out if not used
 
 set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}${DMDFE_PATCH_VERSION})
 if(DEFINED DMDFE_FIX_LEVEL)
@@ -263,15 +263,15 @@ endmacro()
 #
 # Build idgen.
 #
-build_idgen(${DDMDFE_PATH}/idgen.d ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/idgen${CMAKE_EXECUTABLE_SUFFIX}  ${DDMD_DFLAGS} "" "")
+build_idgen(${DDMDFE_PATH}/idgen.d ${PROJECT_BINARY_DIR}/idgen${CMAKE_EXECUTABLE_SUFFIX}  ${DDMD_DFLAGS} "" "")
 # Run idgen.
 add_custom_command(
     OUTPUT
         ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d
         ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.h
-    COMMAND ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/idgen  #provide full path to avoid clash with idgen on path
-    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}
-    DEPENDS ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/idgen${CMAKE_EXECUTABLE_SUFFIX}
+    COMMAND ${PROJECT_BINARY_DIR}/idgen  #provide full path to avoid clash with idgen on path
+    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+    DEPENDS ${PROJECT_BINARY_DIR}/idgen${CMAKE_EXECUTABLE_SUFFIX}
 )
 set(LDC_CXX_GENERATED
     ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.h
