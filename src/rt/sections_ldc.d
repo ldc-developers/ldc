@@ -78,25 +78,7 @@ private __gshared SectionGroup globalSectionGroup;
 
 private
 {
-    version (OSX)
-    {
-        import core.sys.osx.mach.dyld;
-        import core.sys.osx.mach.getsect;
-        import core.sys.osx.mach.loader;
-
-        struct Section
-        {
-            immutable(char)* segment;
-            immutable(char)* section;
-        }
-
-        immutable Section[3] dataSections = [
-            Section(SEG_DATA, SECT_DATA),
-            Section(SEG_DATA, SECT_BSS),
-            Section(SEG_DATA, SECT_COMMON)
-        ];
-    }
-    else version (CRuntime_Microsoft)
+    version (CRuntime_Microsoft)
     {
         extern extern (C) __gshared
         {
@@ -346,30 +328,7 @@ void initSections() nothrow @nogc
         globalSectionGroup._gcRanges.insertBack(start[0 .. (end - start)]);
     }
 
-    version (OSX)
-    {
-        static extern(C) void scanSections(in mach_header* hdr, ptrdiff_t slide) nothrow @nogc
-        {
-            foreach (s; dataSections)
-            {
-                // Should probably be decided at runtime by actual image bitness
-                // (mach_header.magic) rather than at build-time?
-                version (D_LP64)
-                    auto sec = getsectbynamefromheader_64(
-                        cast(mach_header_64*)hdr, s.segment, s.section);
-                else
-                    auto sec = getsectbynamefromheader(hdr, s.segment, s.section);
-
-                if (sec == null || sec.size == 0)
-                    continue;
-
-                globalSectionGroup._gcRanges.insertBack(
-                    (cast(void*)(sec.addr + slide))[0 .. sec.size]);
-            }
-        }
-        _dyld_register_func_for_add_image(&scanSections);
-    }
-    else version (CRuntime_Microsoft)
+    version (CRuntime_Microsoft)
     {
         pushRange(_data_start__, _data_end__);
         if (_bss_start__ != null)
@@ -402,15 +361,7 @@ void finiSections() nothrow @nogc
 
 private
 {
-    version (OSX)
-    {
-        extern(C) void _d_dyld_getTLSRange(void*, void**, size_t*) nothrow @nogc;
-        private align(16) ubyte dummyTlsSymbol = 42;
-        // By initalizing dummyTlsSymbol with something non-zero and aligning
-        // to 16-bytes, section __thread_data will be aligned as a workaround
-        // for https://github.com/ldc-developers/ldc/issues/1252
-    }
-    else version (Windows)
+    version (Windows)
     {
         extern(C) extern
         {
@@ -426,21 +377,7 @@ private
 void[] initTLSRanges() nothrow @nogc
 {
     debug(PRINTF) printf("initTLSRanges called\n");
-    version (OSX)
-    {
-        void* start = null;
-        size_t size = 0;
-        _d_dyld_getTLSRange(&dummyTlsSymbol, &start, &size);
-        assert(start && size, "Could not determine TLS range.");
-        return start[0 .. size];
-    }
-    else version (linux)
-    {
-        // glibc allocates the TLS area for each new thread at the stack of
-        // the stack, so we only need to do something for the main thread.
-        return null;
-    }
-    else version (UseELF)
+    version (UseELF)
     {
         auto rng = getTLSRange(&globalSectionGroup);
         debug(PRINTF) printf("Add range %p %d\n", rng ? rng.ptr : cast(void*)0, rng ? rng.length : 0);
