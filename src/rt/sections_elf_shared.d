@@ -1245,9 +1245,9 @@ void[] getTLSRange(size_t mod, size_t sz) nothrow @nogc
     version (Static_Linux_X86_Any)
     {
         version (X86)
-            static void* endOfBlock() { asm { naked; mov EAX, GS:[0]; ret; } }
+            static void* endOfBlock() nothrow @nogc { asm nothrow @nogc { naked; mov EAX, GS:[0]; ret; } }
         else version (X86_64)
-            static void* endOfBlock() { asm { naked; mov RAX, FS:[0]; ret; } }
+            static void* endOfBlock() nothrow @nogc { asm nothrow @nogc { naked; mov RAX, FS:[0]; ret; } }
 
         // FIXME: It is unclear whether aligning the area down to the next
         // double-word is necessary and if so, on what systems, but at least
