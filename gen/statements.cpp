@@ -899,15 +899,20 @@ public:
       stringTableSlice = DtoConstSlice(arrLen, arrPtr);
     } else {
       for (auto cs : *cases) {
-        if (cs->exp->op == TOKvar) {
-          const auto vd =
-              static_cast<VarExp *>(cs->exp)->var->isVarDeclaration();
+        // skip over casts
+        auto ce = cs->exp;
+        while (ce->op == TOKcast)
+          ce = static_cast<CastExp *>(ce)->e1;
+
+        if (ce->op == TOKvar) {
+          const auto vd = static_cast<VarExp *>(ce)->var->isVarDeclaration();
           if (vd && (!vd->_init || !vd->isConst())) {
             indices.push_back(DtoRVal(toElemDtor(cs->exp)));
             useSwitchInst = false;
             continue;
           }
         }
+
         indices.push_back(toConstElem(cs->exp, irs));
       }
     }
