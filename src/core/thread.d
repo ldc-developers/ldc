@@ -78,7 +78,7 @@ else version (Windows)
  */
 class ThreadException : Exception
 {
-    @safe pure nothrow this(string msg, string file = __FILE__, size_t line = __LINE__, Throwable next = null)
+    @safe pure nothrow @nogc this(string msg, string file = __FILE__, size_t line = __LINE__, Throwable next = null)
     {
         super(msg, file, line, next);
     }
@@ -5332,10 +5332,20 @@ private:
                 m_curThread = tobj;
             else if (tobj !is m_curThread)
             {
-                m_unhandled = new ThreadException
-                    ("Migrating Fibers between Threads on this platform may lead " ~
-                     "to incorrect thread local variable access.  To allow " ~
-                     "migration anyway, call Fiber.allowMigration()");
+                // allocate and construct a ThreadException manually for @nogc
+                import core.stdc.stdlib : malloc;
+                enum threadExceptionSize = __traits(classInstanceSize, ThreadException);
+                if (void* p = malloc(threadExceptionSize))
+                {
+                    p[0 .. threadExceptionSize] = typeid(ThreadException).initializer[];
+                    auto e = cast(ThreadException) p;
+                    e.__ctor(
+                        "Migrating Fibers between Threads on this platform may lead " ~
+                        "to incorrect thread local variable access.  To allow " ~
+                        "migration anyway, call Fiber.allowMigration()");
+                    m_unhandled = e;
+                    // the exception will leak...
+                }
                 return;
             }
         }
