@@ -155,6 +155,10 @@ else version( LDC )
         alias real c_long_double;
     else version( PPC64 )
         alias real c_long_double;
+    else version( RISCV32 )
+        alias real c_long_double;
+    else version( RISCV64 )
+        alias real c_long_double;
     else version( SPARC )
         alias real c_long_double;
     else version( SPARC64 )
