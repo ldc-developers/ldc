@@ -79,6 +79,12 @@ before_install:
 install:
   - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then export CC="gcc-4.9"; export CXX="g++-4.9"; fi
   - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then brew update; brew install ninja; fi;
+  - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
+      wget -O ldc.tar.xz https://github.com/ldc-developers/ldc/releases/download/v1.2.0/ldc2-1.2.1-osx-x86_64.tar.xz;
+      mkdir ldc-LTO;
+      tar -xvf ldc.tar.xz --strip 1 -C ldc-LTO;
+      export DMD="ldc-LTO/bin/ldmd2";
+    fi;
   - eval "${DC} --version"
   - pip install --user lit
   - python -c "import lit; lit.main();" --version | head -n 1
