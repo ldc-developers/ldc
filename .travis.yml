@@ -23,10 +23,10 @@ matrix:
       env: LLVM_VERSION=3.5.2 OPTS="-DBUILD_SHARED_LIBS=OFF -DTEST_COVERAGE=ON"
     - os: osx
       d: ldc
-      env: LLVM_VERSION=3.9.0 OPTS="-DBUILD_SHARED_LIBS=OFF"
+      env: LLVM_VERSION=4.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF"
     - os: osx
       d: ldc
-      env: LLVM_VERSION=3.9.0 OPTS="-DBUILD_SHARED_LIBS=ON"
+      env: LLVM_VERSION=4.0.0 OPTS="-DBUILD_SHARED_LIBS=ON"
   allow_failures:
     #- env: LLVM_VERSION=3.9
 
