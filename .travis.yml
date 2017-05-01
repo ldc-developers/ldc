@@ -22,7 +22,7 @@ matrix:
       d: dmd
       env: LLVM_VERSION=3.5.2 OPTS="-DBUILD_SHARED_LIBS=OFF -DTEST_COVERAGE=ON"
     - os: osx
-      d: ldc
+      d: ldc-beta
       env: LLVM_VERSION=4.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF"
     - os: osx
       d: ldc
