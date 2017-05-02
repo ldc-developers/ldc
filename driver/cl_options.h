@@ -118,5 +118,9 @@ inline bool isUsingThinLTO() { return ltoMode == LTO_Thin; }
 inline bool isUsingLTO() { return false; }
 inline bool isUsingThinLTO() { return false; }
 #endif
+
+#if LDC_LLVM_VER >= 400
+extern cl::opt<std::string> saveOptimizationRecord;
+#endif
 }
 #endif
