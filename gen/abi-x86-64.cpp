@@ -102,7 +102,34 @@ bool passByVal(Type *ty) {
 }
 } // namespace dmd_abi
 
-LLType *getAbiType(Type *ty) { return dmd_abi::getAbiType(ty->toBasetype()); }
+LLType *getAbiType(Type *ty) {
+  ty = ty->toBasetype();
+
+  LLType *dmdLLType = dmd_abi::getAbiType(ty);
+
+  if (dmdLLType) {
+    // Check for Homogeneous Floating-point Aggregates, and rewrite to a vector
+    // type in that case.
+    if (ty->ty == Tcomplex32) {
+      return llvm::VectorType::get(LLType::getFloatTy(gIR->context()), 2);
+    }
+    if (ty->ty == Tstruct) {
+      // TODO: check restrictions
+      const int maxElements = 8;
+      LLType *arrayType = nullptr;
+      if (TargetABI::isHFA(static_cast<TypeStruct *>(ty), &arrayType,
+                           maxElements)) {
+        LLType *elementType = arrayType->getArrayElementType();
+        if (elementType->isFloatTy() || elementType->isDoubleTy()) {
+          return llvm::VectorType::get(elementType,
+                                       arrayType->getArrayNumElements());
+        }
+      }
+    }
+  }
+
+  return dmdLLType;
+}
 
 struct RegCount {
   char int_regs, sse_regs;

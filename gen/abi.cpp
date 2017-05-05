@@ -135,9 +135,6 @@ bool isNestedHFA(const TypeStruct *t, d_uns64 &floatSize, int &num,
         floatSize = sz;
       else if (sz != floatSize) // different float size, reject
         return false;
-
-      //if (n > 4)
-      //  return false; // too many floats for HFA, reject
     } else {
       return false; // reject all other types
     }
