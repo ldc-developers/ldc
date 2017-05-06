@@ -542,7 +542,7 @@ static int linkObjToBinaryMSVC(bool sharedLib) {
   }
 
   // enable Link-time Code Generation (aka. whole program optimization)
-  if (global.params.optimize) {
+  if (isOptimizationEnabled()) {
     args.push_back("/LTCG");
   }
 
@@ -680,7 +680,7 @@ int createStaticLibrary() {
   }
 
   // enable Link-time Code Generation (aka. whole program optimization)
-  if (isTargetMSVC && global.params.optimize) {
+  if (isTargetMSVC && isOptimizationEnabled()) {
     args.push_back("/LTCG");
   }
 

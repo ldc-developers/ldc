@@ -310,7 +310,7 @@ void outputIR2ObjRelevantCmdlineArgs(llvm::raw_ostream &hash_os)
   hash_os << opts::mFloatABI;
   hash_os << opts::mRelocModel;
   hash_os << opts::mCodeModel;
-  hash_os << opts::disableFpElim;
+  hash_os << global.params.alwaysframe;
 }
 
 // Output to `hash_os` all environment flags that influence object code output
