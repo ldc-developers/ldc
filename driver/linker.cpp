@@ -541,11 +541,6 @@ static int linkObjToBinaryMSVC(bool sharedLib) {
     args.push_back("/DEBUG");
   }
 
-  // enable Link-time Code Generation (aka. whole program optimization)
-  if (isOptimizationEnabled()) {
-    args.push_back("/LTCG");
-  }
-
   // remove dead code and fold identical COMDATs
   if (opts::disableLinkerStripDead) {
     args.push_back("/OPT:NOREF");
@@ -677,11 +672,6 @@ int createStaticLibrary() {
   // ask lib to be quiet
   if (isTargetMSVC) {
     args.push_back("/NOLOGO");
-  }
-
-  // enable Link-time Code Generation (aka. whole program optimization)
-  if (isTargetMSVC && isOptimizationEnabled()) {
-    args.push_back("/LTCG");
   }
 
   // output filename
