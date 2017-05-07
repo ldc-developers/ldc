@@ -399,7 +399,7 @@ include(HandleLTOPGOBuildOptions)
 set(LDC_WITH_PGO False)  # must be a valid Python boolean constant (case sensitive)
 if (NOT (LDC_LLVM_VER LESS 307))
     message(STATUS "Building LDC with PGO support")
-    add_definitions(-DLDC_WITH_PGO)
+    append("-DLDC_WITH_PGO" LDC_CXXFLAGS)
     set(LDC_WITH_PGO True)
 endif()
 
@@ -429,14 +429,14 @@ if(MSVC)
     append("-version=IN_LLVM_MSVC" DDMD_DFLAGS)
 endif()
 append("-version=IN_LLVM" DDMD_DFLAGS)
-append("-DIN_LLVM" CMAKE_CXX_FLAGS)
-append("-DOPAQUE_VTBLS" CMAKE_CXX_FLAGS)
-append("\"-DLDC_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}\"" CMAKE_CXX_FLAGS)
-append("-DLDC_LLVM_VER=${LDC_LLVM_VER}" CMAKE_CXX_FLAGS)
-append("\"-DLDC_LIBDIR_SUFFIX=\\\"${LIB_SUFFIX}\\\"\"" CMAKE_CXX_FLAGS)
+append("-DIN_LLVM" LDC_CXXFLAGS)
+append("-DOPAQUE_VTBLS" LDC_CXXFLAGS)
+append("\"-DLDC_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}\"" LDC_CXXFLAGS)
+append("-DLDC_LLVM_VER=${LDC_LLVM_VER}" LDC_CXXFLAGS)
+append("\"-DLDC_LIBDIR_SUFFIX=\\\"${LIB_SUFFIX}\\\"\"" LDC_CXXFLAGS)
 
 if(GENERATE_OFFTI)
-    append("-DGENERATE_OFFTI" CMAKE_CXX_FLAGS)
+    append("-DGENERATE_OFFTI" LDC_CXXFLAGS)
 endif()
 
 option(RISCV_LLVM_DEV, "full RISC-V support with riscv-llvm")
@@ -446,7 +446,7 @@ mark_as_advanced(RISCV_LLVM_DEV)
 # Enable building with riscv-llvm, for full RISC-V support.
 #
 if(RISCV_LLVM_DEV)
-    append("-DRISCV_LLVM_DEV" CMAKE_CXX_FLAGS)
+    append("-DRISCV_LLVM_DEV" LDC_CXXFLAGS)
 endif()
 
 # if llvm was built with assertions we have to do the same
