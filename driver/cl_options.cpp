@@ -285,10 +285,13 @@ cl::list<std::string> transitions(
     cl::value_desc("idents"), cl::CommaSeparated);
 
 static StringsAdapter linkSwitchStore("L", global.params.linkswitches);
-static cl::list<std::string, StringsAdapter>
+cl::list<std::string, StringsAdapter>
     linkerSwitches("L", cl::desc("Pass <linkerflag> to the linker"),
                    cl::value_desc("linkerflag"), cl::location(linkSwitchStore),
                    cl::Prefix);
+
+cl::list<std::string> ccSwitches("Xcc", cl::Hidden,
+    cl::desc("Pass <ccflag> to GCC/Clang"), cl::value_desc("ccflag"));
 
 cl::opt<std::string>
     moduleDeps("deps",

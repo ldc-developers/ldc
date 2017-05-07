@@ -355,21 +355,33 @@ static int linkObjToBinaryGcc(bool sharedLib) {
   if (opts::isUsingLTO())
     addLTOLinkFlags(args);
 
-  // additional linker switches
-  for (unsigned i = 0; i < global.params.linkswitches->dim; i++) {
-    const char *p = (*global.params.linkswitches)[i];
-    // Don't push -l and -L switches using -Xlinker, but pass them indirectly
-    // via GCC. This makes sure user-defined paths take precedence over
-    // GCC's builtin LIBRARY_PATHs.
-    // Options starting with `-Wl,`, -shared or -static are not handled by
-    // the linker and must be passed to the driver.
-    auto str = llvm::StringRef(p);
-    if (!(str.startswith("-l") || str.startswith("-L") ||
-          str.startswith("-Wl,") ||
-          str.startswith("-shared") || str.startswith("-static"))) {
-      args.push_back("-Xlinker");
+  // additional linker and cc switches (preserve order across both lists)
+  for (unsigned ilink = 0, icc = 0;;) {
+    unsigned linkpos = ilink < global.params.linkswitches->dim
+      ? opts::linkerSwitches.getPosition(ilink)
+      : std::numeric_limits<unsigned>::max();
+    unsigned ccpos = icc < opts::ccSwitches.size()
+      ? opts::ccSwitches.getPosition(icc)
+      : std::numeric_limits<unsigned>::max();
+    if (linkpos < ccpos) {
+      const char *p = (*global.params.linkswitches)[ilink++];
+      // Don't push -l and -L switches using -Xlinker, but pass them indirectly
+      // via GCC. This makes sure user-defined paths take precedence over
+      // GCC's builtin LIBRARY_PATHs.
+      // Options starting with `-Wl,`, -shared or -static are not handled by
+      // the linker and must be passed to the driver.
+      auto str = llvm::StringRef(p);
+      if (!(str.startswith("-l") || str.startswith("-L") ||
+            str.startswith("-Wl,") ||
+            str.startswith("-shared") || str.startswith("-static"))) {
+        args.push_back("-Xlinker");
+      }
+      args.push_back(p);
+    } else if (ccpos < linkpos) {
+      args.push_back(opts::ccSwitches[icc++]);
+    } else {
+      break;
     }
-    args.push_back(p);
   }
 
   // default libs
