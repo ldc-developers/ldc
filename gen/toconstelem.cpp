@@ -702,20 +702,35 @@ public:
     TypeVector *tv = static_cast<TypeVector *>(e->to->toBasetype());
     assert(tv->ty == Tvector);
 
-    // The AST for
-    //   static immutable ubyte16 vec1 = 123;
-    // differs from
-    //    static immutable ubyte[16] vec1 = 123;
-    // In the vector case the AST contains an IntegerExp (of type int) and a
-    // CastExp to type ubyte. In the static array case the AST only contains an
-    // IntegerExp of type ubyte. Simply call optimize to get  rid of the cast.
-    // FIXME: Check DMD source to understand why two different ASTs are
-    //        constructed.
-    llvm::Constant *val = toConstElem(e->e1->optimize(WANTvalue));
-
-    dinteger_t elemCount =
+    const auto elemCount =
         static_cast<TypeSArray *>(tv->basetype)->dim->toInteger();
-    result = llvm::ConstantVector::getSplat(elemCount, val);
+
+    // Array literals are assigned element-for-element; other expressions splat
+    // across the whole vector.
+    if (e->e1->op == TOKarrayliteral) {
+      const auto ale = static_cast<ArrayLiteralExp *>(e->e1);
+
+      llvm::SmallVector<llvm::Constant *, 16> elements;
+      elements.reserve(elemCount);
+      for (size_t i = 0; i < elemCount; ++i) {
+        elements.push_back(toConstElem(indexArrayLiteral(ale, i)));
+      }
+
+      result = llvm::ConstantVector::get(elements);
+    } else {
+      // The AST for
+      //   static immutable ubyte16 vec1 = 123;
+      // differs from
+      //    static immutable ubyte[16] vec1 = 123;
+      // In the vector case the AST contains an IntegerExp (of type int) and a
+      // CastExp to type ubyte. In the static array case the AST only contains
+      // an IntegerExp of type ubyte. Simply call optimize to get rid of the
+      // cast.
+      // FIXME: Check DMD source to understand why two different ASTs are
+      //        constructed.
+      result = llvm::ConstantVector::getSplat(
+          elemCount, toConstElem(e->e1->optimize(WANTvalue)));
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
