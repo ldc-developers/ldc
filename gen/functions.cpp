@@ -1085,7 +1085,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   Statement_toIR(fd->fbody, gIR);
 
   // D varargs: emit the cleanup block that calls va_end.
-  if (f->linkage == LINKd && f->varargs == 1) {
+  //if (f->linkage == LINKd && f->varargs == 1) {
+  if (funcGen.scopes.currentCleanupScope() > 0) {
     if (!gIR->scopereturned()) {
       if (!funcGen.retBlock)
         funcGen.retBlock = gIR->insertBB("return");

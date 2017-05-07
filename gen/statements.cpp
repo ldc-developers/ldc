@@ -302,15 +302,21 @@ public:
 
     emitCoverageLinecountInc(stmt->loc);
 
-    if (stmt->exp) {
+    auto expr = stmt->exp;
+
+    // A cast(void) around the expression is allowed, but doesn't require any
+    // code
+    if (expr && expr->op == TOKcast && expr->type == Type::tvoid) {
+      CastExp *cexp = static_cast<CastExp *>(expr);
+      expr = cexp->e1;
+    }
+
+    if (expr) {
       elem *e;
-      // a cast(void) around the expression is allowed, but doesn't require any
-      // code
-      if (stmt->exp->op == TOKcast && stmt->exp->type == Type::tvoid) {
-        CastExp *cexp = static_cast<CastExp *>(stmt->exp);
-        e = toElemDtor(cexp->e1);
+      if (expr->op == TOKdeclaration) {
+        e = toElem(expr);
       } else {
-        e = toElemDtor(stmt->exp);
+        e = toElemDtor(expr);
       }
       delete e;
     }
