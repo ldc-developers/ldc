@@ -157,8 +157,8 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    Type * const t = e->type->toBasetype();
-    Type * const cty = t->nextOf()->toBasetype();
+    Type *const t = e->type->toBasetype();
+    Type *const cty = t->nextOf()->toBasetype();
 
     auto _init = buildStringLiteralConstant(e, t->ty != Tsarray);
 
@@ -199,7 +199,8 @@ public:
     if (t->ty == Tpointer) {
       result = arrptr;
     } else if (t->ty == Tarray) {
-      LLConstant *clen = LLConstantInt::get(DtoSize_t(), e->numberOfCodeUnits(), false);
+      LLConstant *clen =
+          LLConstantInt::get(DtoSize_t(), e->numberOfCodeUnits(), false);
       result = DtoConstSlice(clen, arrptr, e->type);
     } else {
       llvm_unreachable("Unknown type for StringExp.");
@@ -437,8 +438,8 @@ public:
       StructLiteralExp *se = static_cast<StructLiteralExp *>(e->e1);
 
       if (se->globalVar) {
-        IF_LOG Logger::cout() << "Returning existing global: " << *se->globalVar
-                              << '\n';
+        IF_LOG Logger::cout()
+            << "Returning existing global: " << *se->globalVar << '\n';
         result = se->globalVar;
         return;
       }
@@ -545,7 +546,8 @@ public:
         gIR->module, initval->getType(), canBeConst,
         llvm::GlobalValue::InternalLinkage, initval, ".dynarrayStorage");
 #if LDC_LLVM_VER >= 309
-    gvar->setUnnamedAddr(canBeConst ? llvm::GlobalValue::UnnamedAddr::Global : llvm::GlobalValue::UnnamedAddr::None);
+    gvar->setUnnamedAddr(canBeConst ? llvm::GlobalValue::UnnamedAddr::Global
+                                    : llvm::GlobalValue::UnnamedAddr::None);
 #else
     gvar->setUnnamedAddr(canBeConst);
 #endif
@@ -614,8 +616,8 @@ public:
     StructLiteralExp *value = e->value;
 
     if (value->globalVar) {
-      IF_LOG Logger::cout() << "Using existing global: " << *value->globalVar
-                            << '\n';
+      IF_LOG Logger::cout()
+          << "Using existing global: " << *value->globalVar << '\n';
     } else {
       value->globalVar = new llvm::GlobalVariable(
           p->module, origClass->type->ctype->isClass()->getMemoryLLType(),
