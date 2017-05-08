@@ -290,7 +290,7 @@ cl::list<std::string, StringsAdapter>
                    cl::value_desc("linkerflag"), cl::location(linkSwitchStore),
                    cl::Prefix);
 
-cl::list<std::string> ccSwitches("Xcc", cl::Hidden,
+cl::list<std::string> ccSwitches("Xcc", cl::CommaSeparated,
     cl::desc("Pass <ccflag> to GCC/Clang"), cl::value_desc("ccflag"));
 
 cl::opt<std::string>
