@@ -357,14 +357,14 @@ static int linkObjToBinaryGcc(bool sharedLib) {
 
   // additional linker and cc switches (preserve order across both lists)
   for (unsigned ilink = 0, icc = 0;;) {
-    unsigned linkpos = ilink < global.params.linkswitches->dim
+    unsigned linkpos = ilink < opts::linkerSwitches.size()
       ? opts::linkerSwitches.getPosition(ilink)
       : std::numeric_limits<unsigned>::max();
     unsigned ccpos = icc < opts::ccSwitches.size()
       ? opts::ccSwitches.getPosition(icc)
       : std::numeric_limits<unsigned>::max();
     if (linkpos < ccpos) {
-      const char *p = (*global.params.linkswitches)[ilink++];
+      const std::string& p = opts::linkerSwitches[ilink++];
       // Don't push -l and -L switches using -Xlinker, but pass them indirectly
       // via GCC. This makes sure user-defined paths take precedence over
       // GCC's builtin LIBRARY_PATHs.
@@ -382,6 +382,11 @@ static int linkObjToBinaryGcc(bool sharedLib) {
     } else {
       break;
     }
+  }
+
+  // libs added via pragma(lib, libname)
+  for (unsigned i = 0; i < global.params.linkswitches->dim; i++) {
+    args.push_back((*global.params.linkswitches)[i]);
   }
 
   // default libs

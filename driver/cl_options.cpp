@@ -284,11 +284,9 @@ cl::list<std::string> transitions(
         "Help with language change identified by <idents>, use ? for list"),
     cl::value_desc("idents"), cl::CommaSeparated);
 
-static StringsAdapter linkSwitchStore("L", global.params.linkswitches);
-cl::list<std::string, StringsAdapter>
-    linkerSwitches("L", cl::desc("Pass <linkerflag> to the linker"),
-                   cl::value_desc("linkerflag"), cl::location(linkSwitchStore),
-                   cl::Prefix);
+cl::list<std::string> linkerSwitches("L",
+    cl::desc("Pass <linkerflag> to the linker"),
+    cl::value_desc("linkerflag"), cl::Prefix);
 
 cl::list<std::string> ccSwitches("Xcc", cl::CommaSeparated,
     cl::desc("Pass <ccflag> to GCC/Clang"), cl::value_desc("ccflag"));

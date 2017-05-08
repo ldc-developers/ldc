@@ -66,7 +66,7 @@ extern cl::list<std::string> versions;
 extern cl::list<std::string> transitions;
 extern cl::opt<std::string> moduleDeps;
 extern cl::opt<std::string> cacheDir;
-extern cl::list<std::string, StringsAdapter> linkerSwitches;
+extern cl::list<std::string> linkerSwitches;
 extern cl::list<std::string> ccSwitches;
 
 extern cl::opt<std::string> mArch;
