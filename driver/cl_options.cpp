@@ -289,7 +289,8 @@ cl::list<std::string> linkerSwitches("L",
     cl::value_desc("linkerflag"), cl::Prefix);
 
 cl::list<std::string> ccSwitches("Xcc", cl::CommaSeparated,
-    cl::desc("Pass <ccflag> to GCC/Clang"), cl::value_desc("ccflag"));
+    cl::desc("Pass <ccflag> to GCC/Clang for linking"),
+    cl::value_desc("ccflag"));
 
 cl::opt<std::string>
     moduleDeps("deps",
