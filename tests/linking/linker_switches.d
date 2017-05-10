@@ -1,6 +1,6 @@
 // Test if global order of flags passed with -Xcc, -L and pragma(lib) is preserved
 
-// REQUIRES: Linux
+// UNSUPPORTED: Windows
 
 // RUN: %ldc %s -of=%t -Xcc -DOPT1,-DOPT2 -L-L/usr/lib -L--defsym -Lfoo=5 -Xcc -DOPT3 -v | FileCheck %s
 
