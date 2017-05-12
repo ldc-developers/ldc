@@ -535,6 +535,11 @@ static void addMscrtLibs(std::vector<std::string> &args) {
 static int linkObjToBinaryMSVC(bool sharedLib) {
   Logger::println("*** Linking executable ***");
 
+  if (!opts::ccSwitches.empty()) {
+    error(Loc(), "-Xcc is not supported for MSVC");
+    fatal();
+  }
+
 #ifdef _WIN32
   windows::setupMsvcEnvironment();
 #endif
