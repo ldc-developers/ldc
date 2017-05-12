@@ -601,8 +601,7 @@ static int linkObjToBinaryMSVC(bool sharedLib) {
   CreateDirectoryOnDisk(gExePath);
 
   // additional linker switches
-  for (unsigned i = 0; i < global.params.linkswitches->dim; i++) {
-    std::string str = global.params.linkswitches->data[i];
+  auto addSwitch = [&](std::string str) {
     if (str.length() > 2) {
       // rewrite common -L and -l switches
       if (str[0] == '-' && str[1] == 'L') {
@@ -612,6 +611,14 @@ static int linkObjToBinaryMSVC(bool sharedLib) {
       }
     }
     args.push_back(str);
+  };
+
+  for (const auto& str : opts::linkerSwitches) {
+    addSwitch(str);
+  }
+
+  for (unsigned i = 0; i < global.params.linkswitches->dim; i++) {
+    addSwitch(global.params.linkswitches->data[i]);
   }
 
   // default libs
