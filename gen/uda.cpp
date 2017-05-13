@@ -186,10 +186,15 @@ void applyAttrAllocSize(StructLiteralExp *sle, IrFunction *irFunc) {
   } else {
     builder.addAllocSizeAttr(llvmSizeIdx, llvm::Optional<unsigned>());
   }
+
+#if LDC_LLVM_VER >= 500
+  func->addAttributes(LLAttributeSet::FunctionIndex, builder);
+#else
   func->addAttributes(LLAttributeSet::FunctionIndex,
                       LLAttributeSet::get(func->getContext(),
                                           LLAttributeSet::FunctionIndex,
                                           builder));
+#endif
 #endif
 }
 

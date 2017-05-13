@@ -39,14 +39,7 @@ struct TempDisableDiscardValueNames {
 void copyFnAttributes(llvm::Function *wannabe, llvm::Function *idol) {
   auto attrSet = idol->getAttributes();
   auto fnAttrSet = attrSet.getFnAttributes();
-#if LDC_LLVM_VER >= 500
-  wannabe->addAttributes(LLAttributeSet::FunctionIndex,
-                         LLAttributeSet::get(gIR->context(),
-                                             LLAttributeSet::FunctionIndex,
-                                             fnAttrSet));
-#else
   wannabe->addAttributes(LLAttributeSet::FunctionIndex, fnAttrSet);
-#endif
 }
 } // anonymous namespace
 

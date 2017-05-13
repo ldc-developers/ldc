@@ -79,8 +79,12 @@ AttrSet::extractFunctionAndReturnAttributes(const llvm::Function *function) {
 
 AttrSet &AttrSet::add(unsigned index, const AttrBuilder &builder) {
   if (builder.hasAttributes()) {
+#if LDC_LLVM_VER >= 500
+    set = set.addAttributes(gIR->context(), index, builder);
+#else
     auto as = LLAttributeSet::get(gIR->context(), index, builder);
     set = set.addAttributes(gIR->context(), index, as);
+#endif
   }
   return *this;
 }
