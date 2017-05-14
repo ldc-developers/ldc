@@ -382,8 +382,8 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
       applyAttrSection(sle, func);
     } else if (ident == Id::udaTarget) {
       applyAttrTarget(sle, func);
-    } else if (ident == attr::weak) {
-      // @weak is applied elsewhere
+    } else if (ident == Id::udaWeak || ident == Id::udaKernel) {
+      // @weak and @kernel are applied elsewhere
     } else {
       sle->warning(
           "Ignoring unrecognized special attribute 'ldc.attributes.%s'", ident->toChars());
@@ -404,3 +404,35 @@ bool hasWeakUDA(Dsymbol *sym) {
                "global variables");
   return true;
 }
+
+/// Returns 0 if 'sym' does not have the @ldc.attributes.compute() UDA applied.
+/// Returns 1 if 'sym' does but is @compute(0), meaning generate only for
+///     compute.
+/// Returns 2 if 'sym' does and is @compute(1), meaning generate for compute
+///     and for host.
+int hasComputeAttr(Dsymbol *sym) {
+
+  auto sle = getMagicAttribute(sym, Id::udaCompute);
+  if (!sle)
+    return 0;
+
+  checkStructElems(sle, {Type::tint32});
+
+  return 1 + (*sle->elements)[0]->toInteger();
+}
+
+/// Checks whether 'sym' has the @ldc.attributes._kernel() UDA applied.
+bool hasKernelAttr(Dsymbol *sym) {
+  auto sle = getMagicAttribute(sym, Id::udaKernel);
+  if (!sle)
+    return false;
+
+  checkStructElems(sle, {});
+
+  if (!sym->isFuncDeclaration() && !hasComputeAttr(sym->getModule()))
+    sym->error("@ldc.dcompute.kernel can only be applied to functions"
+               " in modules marked @lcd.dcompute.compute");
+
+  return true;
+}
+
