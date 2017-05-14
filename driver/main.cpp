@@ -530,29 +530,24 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
 
   // LDC output determination
 
-  // if we don't link, autodetect target from extension
-  if (!global.params.link && !global.params.lib && global.params.objname) {
+  // if we don't link and there's no `-output-*` switch but an `-of` one,
+  // autodetect type of desired 'object' file from file extension
+  if (!global.params.link && !global.params.lib && global.params.objname &&
+      global.params.output_o == OUTPUTFLAGdefault) {
     const char *ext = FileName::ext(global.params.objname);
-    bool autofound = false;
     if (!ext) {
       // keep things as they are
-    } else if (strcmp(ext, global.ll_ext) == 0) {
+    } else if (opts::output_ll != cl::BOU_FALSE &&
+               strcmp(ext, global.ll_ext) == 0) {
       global.params.output_ll = OUTPUTFLAGset;
-      autofound = true;
-    } else if (strcmp(ext, global.bc_ext) == 0) {
+      global.params.output_o = OUTPUTFLAGno;
+    } else if (opts::output_bc != cl::BOU_FALSE &&
+               strcmp(ext, global.bc_ext) == 0) {
       global.params.output_bc = OUTPUTFLAGset;
-      autofound = true;
-    } else if (strcmp(ext, global.s_ext) == 0) {
+      global.params.output_o = OUTPUTFLAGno;
+    } else if (opts::output_s != cl::BOU_FALSE &&
+               strcmp(ext, global.s_ext) == 0) {
       global.params.output_s = OUTPUTFLAGset;
-      autofound = true;
-    } else if (strcmp(ext, global.obj_ext) == 0 || strcmp(ext, "obj") == 0) {
-      // global.obj_ext hasn't been corrected yet for MSVC targets as we first
-      // need the command line to figure out the target...
-      // so treat both 'o' and 'obj' extensions as object files
-      global.params.output_o = OUTPUTFLAGset;
-      autofound = true;
-    }
-    if (autofound && global.params.output_o == OUTPUTFLAGdefault) {
       global.params.output_o = OUTPUTFLAGno;
     }
   }
