@@ -15,12 +15,11 @@
 namespace {
 
 /// Checks whether `moduleDecl` is the ldc.attributes module.
-bool isMagicModule(const ModuleDeclaration *moduleDecl) {
+bool isMagicModule(const ModuleDeclaration *moduleDecl, const Identifier* id) {
   if (!moduleDecl)
     return false;
 
-  if (moduleDecl->id != Id::attributes &&
-      moduleDecl->id != Id::dcompute) {
+  if (moduleDecl->id != id) {
     return false;
   }
 
@@ -32,9 +31,9 @@ bool isMagicModule(const ModuleDeclaration *moduleDecl) {
 }
 
 /// Checks whether the type of `e` is a struct from the ldc.attributes module.
-bool isFromMagicModule(const StructLiteralExp *e) {
+bool isFromMagicModule(const StructLiteralExp *e,const Identifier* id) {
   auto moduleDecl = e->sd->getModule()->md;
-  return isMagicModule(moduleDecl);
+  return isMagicModule(moduleDecl,id);
 }
 
 StructLiteralExp *getLdcAttributesStruct(Expression *attr) {
@@ -52,7 +51,7 @@ StructLiteralExp *getLdcAttributesStruct(Expression *attr) {
   }
 
   auto sle = static_cast<StructLiteralExp *>(e);
-  if (isFromMagicModule(sle)) {
+  if (isFromMagicModule(sle,Id::attributes)) {
     return sle;
   }
 
@@ -78,9 +77,10 @@ void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
   }
 }
 
-/// Returns the StructLiteralExp magic attribute with name `name` if it is
+/// Returns the StructLiteralExp magic attribute with identifier `id` if it is
 /// applied to `sym`, otherwise returns nullptr.
-StructLiteralExp *getMagicAttribute(Dsymbol *sym, Identifier* id) {
+StructLiteralExp *getMagicAttribute(Dsymbol *sym, const Identifier* id,
+                                    const Identifier* from) {
   if (!sym->userAttribDecl)
     return nullptr;
 
@@ -88,9 +88,11 @@ StructLiteralExp *getMagicAttribute(Dsymbol *sym, Identifier* id) {
   Expressions *attrs = sym->userAttribDecl->getAttributes();
   expandTuples(attrs);
   for (auto &attr : *attrs) {
-    auto sle = getLdcAttributesStruct(attr);
-    if (!sle)
-      continue;
+    if (attr->op != TOKstructliteral)
+        continue;
+    auto sle = static_cast<StructLiteralExp *>(e);
+    if (!isFromMagicModule(sle,from))
+        continue;
 
     if (id == sle->sd->ident) {
       return sle;
@@ -393,7 +395,7 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
 
 /// Checks whether 'sym' has the @ldc.attributes._weak() UDA applied.
 bool hasWeakUDA(Dsymbol *sym) {
-  auto sle = getMagicAttribute(sym, Id::udaWeak);
+  auto sle = getMagicAttribute(sym, Id::udaWeak, Id::attributes);
   if (!sle)
     return false;
 
@@ -412,7 +414,7 @@ bool hasWeakUDA(Dsymbol *sym) {
 ///     and for host.
 int hasComputeAttr(Dsymbol *sym) {
 
-  auto sle = getMagicAttribute(sym, Id::udaCompute);
+  auto sle = getMagicAttribute(sym, Id::udaCompute, Id::dcompute);
   if (!sle)
     return 0;
 
@@ -423,7 +425,7 @@ int hasComputeAttr(Dsymbol *sym) {
 
 /// Checks whether 'sym' has the @ldc.attributes._kernel() UDA applied.
 bool hasKernelAttr(Dsymbol *sym) {
-  auto sle = getMagicAttribute(sym, Id::udaKernel);
+  auto sle = getMagicAttribute(sym, Id::udaKernel, Id::dcompute);
   if (!sle)
     return false;
 
