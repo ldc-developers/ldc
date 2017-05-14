@@ -50,7 +50,7 @@ StructLiteralExp *getLdcAttributesStruct(Expression *attr) {
     return nullptr;
   }
 
-  auto sle = static_cast<StructLiteralExp *>(e);
+  auto sle = static_cast<StructLiteralExp *>(attr);
   if (isFromMagicModule(sle,Id::attributes)) {
     return sle;
   }
