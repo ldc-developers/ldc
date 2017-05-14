@@ -50,7 +50,7 @@ StructLiteralExp *getLdcAttributesStruct(Expression *attr) {
     return nullptr;
   }
 
-  auto sle = static_cast<StructLiteralExp *>(attr);
+  auto sle = static_cast<StructLiteralExp *>(e);
   if (isFromMagicModule(sle,Id::attributes)) {
     return sle;
   }
@@ -90,7 +90,7 @@ StructLiteralExp *getMagicAttribute(Dsymbol *sym, const Identifier* id,
   for (auto &attr : *attrs) {
     if (attr->op != TOKstructliteral)
         continue;
-    auto sle = static_cast<StructLiteralExp *>(e);
+    auto sle = static_cast<StructLiteralExp *>(attr);
     if (!isFromMagicModule(sle,from))
         continue;
 
