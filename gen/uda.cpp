@@ -8,33 +8,23 @@
 #include "expression.h"
 #include "ir/irfunction.h"
 #include "module.h"
+#include "ddmd/id.h"
 
 #include "llvm/ADT/StringExtras.h"
 
 namespace {
-
-/// Names of the attribute structs we recognize.
-namespace attr {
-const std::string allocSize = "allocSize";
-const std::string llvmAttr = "llvmAttr";
-const std::string llvmFastMathFlag = "llvmFastMathFlag";
-const std::string optStrategy = "optStrategy";
-const std::string section = "section";
-const std::string target = "target";
-const std::string weak = "_weak";
-}
 
 /// Checks whether `moduleDecl` is the ldc.attributes module.
 bool isLdcAttibutes(const ModuleDeclaration *moduleDecl) {
   if (!moduleDecl)
     return false;
 
-  if (strcmp("attributes", moduleDecl->id->toChars())) {
+  if (moduleDecl->id != Id::attributes) {
     return false;
   }
 
   if (moduleDecl->packages->dim != 1 ||
-      strcmp("ldc", (*moduleDecl->packages)[0]->toChars())) {
+      (*moduleDecl->packages)[0] != Id::ldc)) {
     return false;
   }
   return true;
@@ -89,7 +79,7 @@ void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
 
 /// Returns the StructLiteralExp magic attribute with name `name` if it is
 /// applied to `sym`, otherwise returns nullptr.
-StructLiteralExp *getMagicAttribute(Dsymbol *sym, std::string name) {
+StructLiteralExp *getMagicAttribute(Dsymbol *sym, Identifier* id) {
   if (!sym->userAttribDecl)
     return nullptr;
 
@@ -101,7 +91,7 @@ StructLiteralExp *getMagicAttribute(Dsymbol *sym, std::string name) {
     if (!sle)
       continue;
 
-    if (name == sle->sd->ident->toChars()) {
+    if (id == sle->sd->ident) {
       return sle;
     }
   }
@@ -348,18 +338,18 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
     if (!sle)
       continue;
 
-    auto name = sle->sd->ident->toChars();
-    if (name == attr::section) {
+    auto ident = sle->sd->ident;
+    if (ident == Id::udaSection) {
       applyAttrSection(sle, gvar);
-    } else if (name == attr::optStrategy || name == attr::target) {
+    } else if (ident == Id::udaOptStrategy || ident == Id::udaTarget) {
       sle->error(
           "Special attribute 'ldc.attributes.%s' is only valid for functions",
-          name);
-    } else if (name == attr::weak) {
+          ident->toChars());
+    } else if (ident == Id::udaWeak) {
       // @weak is applied elsewhere
     } else {
       sle->warning(
-          "Ignoring unrecognized special attribute 'ldc.attributes.%s'", name);
+          "Ignoring unrecognized special attribute 'ldc.attributes.%s'", ident->toChars());
     }
   }
 }
@@ -378,31 +368,31 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
     if (!sle)
       continue;
 
-    auto name = sle->sd->ident->toChars();
-    if (name == attr::allocSize) {
+    auto ident = sle->sd->ident;
+    if (ident == Id::udaAllocSize) {
       applyAttrAllocSize(sle, irFunc);
-    } else if (name == attr::llvmAttr) {
+    } else if (ident == Id::udaLlvmAttr) {
       applyAttrLLVMAttr(sle, func);
-    } else if (name == attr::llvmFastMathFlag) {
+    } else if (ident == Id::udaLlvmFastMathFlag) {
       applyAttrLLVMFastMathFlag(sle, irFunc);
-    } else if (name == attr::optStrategy) {
+    } else if (ident == Id::udaOptStrategy) {
       applyAttrOptStrategy(sle, irFunc);
-    } else if (name == attr::section) {
+    } else if (ident == Id::udaSection) {
       applyAttrSection(sle, func);
-    } else if (name == attr::target) {
+    } else if (ident == Id::udaTarget) {
       applyAttrTarget(sle, func);
-    } else if (name == attr::weak) {
+    } else if (ident == attr::weak) {
       // @weak is applied elsewhere
     } else {
       sle->warning(
-          "Ignoring unrecognized special attribute 'ldc.attributes.%s'", name);
+          "Ignoring unrecognized special attribute 'ldc.attributes.%s'", ident->toChars());
     }
   }
 }
 
 /// Checks whether 'sym' has the @ldc.attributes._weak() UDA applied.
 bool hasWeakUDA(Dsymbol *sym) {
-  auto sle = getMagicAttribute(sym, attr::weak);
+  auto sle = getMagicAttribute(sym, Id::udaWeak);
   if (!sle)
     return false;
 
