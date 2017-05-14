@@ -15,11 +15,12 @@
 namespace {
 
 /// Checks whether `moduleDecl` is the ldc.attributes module.
-bool isLdcAttibutes(const ModuleDeclaration *moduleDecl) {
+bool isMagicModule(const ModuleDeclaration *moduleDecl) {
   if (!moduleDecl)
     return false;
 
-  if (moduleDecl->id != Id::attributes) {
+  if (moduleDecl->id != Id::attributes &&
+      moduleDecl->id != Id::dcompute) {
     return false;
   }
 
@@ -31,9 +32,9 @@ bool isLdcAttibutes(const ModuleDeclaration *moduleDecl) {
 }
 
 /// Checks whether the type of `e` is a struct from the ldc.attributes module.
-bool isFromLdcAttibutes(const StructLiteralExp *e) {
+bool isFromMagicModule(const StructLiteralExp *e) {
   auto moduleDecl = e->sd->getModule()->md;
-  return isLdcAttibutes(moduleDecl);
+  return isMagicModule(moduleDecl);
 }
 
 StructLiteralExp *getLdcAttributesStruct(Expression *attr) {
@@ -51,7 +52,7 @@ StructLiteralExp *getLdcAttributesStruct(Expression *attr) {
   }
 
   auto sle = static_cast<StructLiteralExp *>(e);
-  if (isFromLdcAttibutes(sle)) {
+  if (isFromMagicModule(sle)) {
     return sle;
   }
 
