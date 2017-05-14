@@ -43,10 +43,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 static llvm::cl::opt<bool> nogc(
-    "nogc",
+    "nogc", llvm::cl::ZeroOrMore,
     llvm::cl::desc(
-        "Do not allow code that generates implicit garbage collector calls"),
-    llvm::cl::ZeroOrMore);
+        "Do not allow code that generates implicit garbage collector calls"));
 
 ////////////////////////////////////////////////////////////////////////////////
 

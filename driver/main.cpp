@@ -81,10 +81,9 @@ using namespace opts;
 
 extern void getenv_setargv(const char *envvar, int *pargc, char ***pargv);
 
-static cl::opt<bool>
-    noDefaultLib("nodefaultlib",
-                 cl::desc("Don't add a default library for linking implicitly"),
-                 cl::ZeroOrMore, cl::Hidden);
+static cl::opt<bool> noDefaultLib(
+    "nodefaultlib", cl::ZeroOrMore, cl::Hidden,
+    cl::desc("Don't add a default library for linking implicitly"));
 
 static StringsAdapter impPathsStore("I", global.params.imppath);
 static cl::list<std::string, StringsAdapter>
@@ -93,19 +92,16 @@ static cl::list<std::string, StringsAdapter>
                 cl::Prefix);
 
 static cl::opt<std::string>
-    defaultLib("defaultlib",
-               cl::desc("Default libraries to link with (overrides previous)"),
-               cl::value_desc("lib1,lib2,..."), cl::ZeroOrMore);
+    defaultLib("defaultlib", cl::ZeroOrMore, cl::value_desc("lib1,lib2,..."),
+               cl::desc("Default libraries to link with (overrides previous)"));
 
 static cl::opt<std::string> debugLib(
-    "debuglib",
-    cl::desc("Debug versions of default libraries (overrides previous)"),
-    cl::value_desc("lib1,lib2,..."), cl::ZeroOrMore);
+    "debuglib", cl::ZeroOrMore, cl::value_desc("lib1,lib2,..."),
+    cl::desc("Debug versions of default libraries (overrides previous)"));
 
 static cl::opt<bool> linkDebugLib(
-    "link-debuglib",
-    cl::desc("Link with libraries specified in -debuglib, not -defaultlib"),
-    cl::ZeroOrMore);
+    "link-debuglib", cl::ZeroOrMore,
+    cl::desc("Link with libraries specified in -debuglib, not -defaultlib"));
 
 #if LDC_LLVM_VER >= 309
 static inline llvm::Optional<llvm::Reloc::Model> getRelocModel() {

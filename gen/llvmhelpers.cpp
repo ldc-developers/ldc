@@ -46,7 +46,7 @@
 #include "llvm/Support/CommandLine.h"
 
 llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel(
-    "fthread-model", llvm::cl::desc("Thread model"),
+    "fthread-model", llvm::cl::ZeroOrMore, llvm::cl::desc("Thread model"),
     llvm::cl::init(llvm::GlobalVariable::GeneralDynamicTLSModel),
     clEnumValues(clEnumValN(llvm::GlobalVariable::GeneralDynamicTLSModel,
                             "global-dynamic",

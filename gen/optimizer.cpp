@@ -54,54 +54,46 @@ static cl::opt<signed char> optimizeLevel(
         clEnumValN(-2, "Oz", "Like -Os but reduces code size further")),
     cl::init(0));
 
-static cl::opt<bool> noVerify("disable-verify",
-                              cl::desc("Do not verify result module"),
-                              cl::Hidden);
+static cl::opt<bool> noVerify("disable-verify", cl::ZeroOrMore, cl::Hidden,
+                              cl::desc("Do not verify result module"));
 
 static cl::opt<bool>
-    verifyEach("verify-each",
+    verifyEach("verify-each", cl::ZeroOrMore, cl::Hidden,
                cl::desc("Run verifier after D-specific and explicitly "
-                        "specified optimization passes"),
-               cl::Hidden, cl::ZeroOrMore);
+                        "specified optimization passes"));
 
 static cl::opt<bool>
-    disableLangSpecificPasses("disable-d-passes",
-                              cl::desc("Disable all D-specific passes"),
-                              cl::ZeroOrMore);
+    disableLangSpecificPasses("disable-d-passes", cl::ZeroOrMore,
+                              cl::desc("Disable all D-specific passes"));
 
 static cl::opt<bool> disableSimplifyDruntimeCalls(
-    "disable-simplify-drtcalls",
-    cl::desc("Disable simplification of druntime calls"), cl::ZeroOrMore);
+    "disable-simplify-drtcalls", cl::ZeroOrMore,
+    cl::desc("Disable simplification of druntime calls"));
 
 static cl::opt<bool> disableSimplifyLibCalls(
-    "disable-simplify-libcalls",
-    cl::desc("Disable simplification of well-known C runtime calls"),
-    cl::ZeroOrMore);
+    "disable-simplify-libcalls", cl::ZeroOrMore,
+    cl::desc("Disable simplification of well-known C runtime calls"));
 
 static cl::opt<bool> disableGCToStack(
-    "disable-gc2stack",
-    cl::desc("Disable promotion of GC allocations to stack memory"),
-    cl::ZeroOrMore);
+    "disable-gc2stack", cl::ZeroOrMore,
+    cl::desc("Disable promotion of GC allocations to stack memory"));
 
 static cl::opt<cl::boolOrDefault, false, opts::FlagParser<cl::boolOrDefault>>
     enableInlining(
-        "inlining",
-        cl::desc("Enable function inlining (default in -O2 and higher)"),
-        cl::ZeroOrMore);
+        "inlining", cl::ZeroOrMore,
+        cl::desc("(*) Enable function inlining (default in -O2 and higher)"));
 
-static llvm::cl::opt<llvm::cl::boolOrDefault, false,
-                     opts::FlagParser<llvm::cl::boolOrDefault>>
+static cl::opt<cl::boolOrDefault, false, opts::FlagParser<cl::boolOrDefault>>
     enableCrossModuleInlining(
-        "cross-module-inlining",
-        llvm::cl::desc("Enable cross-module function inlining (default "
-                       "disabled) (LLVM >= 3.7)"),
-        llvm::cl::ZeroOrMore, llvm::cl::Hidden);
+        "cross-module-inlining", cl::ZeroOrMore, cl::Hidden,
+        cl::desc("(*) Enable cross-module function inlining (default disabled) "
+                 "(LLVM >= 3.7)"));
 
 static cl::opt<bool> unitAtATime("unit-at-a-time", cl::desc("Enable basic IPO"),
-                                 cl::init(true));
+                                 cl::ZeroOrMore, cl::init(true));
 
 static cl::opt<bool> stripDebug(
-    "strip-debug",
+    "strip-debug", cl::ZeroOrMore,
     cl::desc("Strip symbolic debug information before optimization"));
 
 cl::opt<opts::SanitizerCheck> opts::sanitize(
@@ -113,17 +105,15 @@ cl::opt<opts::SanitizerCheck> opts::sanitize(
                             "Race detection")));
 
 static cl::opt<bool> disableLoopUnrolling(
-    "disable-loop-unrolling",
-    cl::desc("Disable loop unrolling in all relevant passes"), cl::init(false));
+    "disable-loop-unrolling", cl::ZeroOrMore,
+    cl::desc("Disable loop unrolling in all relevant passes"));
 static cl::opt<bool>
-    disableLoopVectorization("disable-loop-vectorization",
-                             cl::desc("Disable the loop vectorization pass"),
-                             cl::init(false));
+    disableLoopVectorization("disable-loop-vectorization", cl::ZeroOrMore,
+                             cl::desc("Disable the loop vectorization pass"));
 
 static cl::opt<bool>
-    disableSLPVectorization("disable-slp-vectorization",
-                            cl::desc("Disable the slp vectorization pass"),
-                            cl::init(false));
+    disableSLPVectorization("disable-slp-vectorization", cl::ZeroOrMore,
+                            cl::desc("Disable the slp vectorization pass"));
 
 unsigned optLevel() {
   // Use -O2 as a base for the size-optimization levels.

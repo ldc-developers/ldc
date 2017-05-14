@@ -59,7 +59,8 @@ using LLErrorInfo = std::string;
 #endif
 
 static llvm::cl::opt<bool>
-    NoIntegratedAssembler("no-integrated-as", llvm::cl::Hidden,
+    NoIntegratedAssembler("no-integrated-as", llvm::cl::ZeroOrMore,
+                          llvm::cl::Hidden,
                           llvm::cl::desc("Disable integrated assembler"));
 
 // based on llc code, University of Illinois Open Source License
