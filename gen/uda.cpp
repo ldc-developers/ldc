@@ -8,7 +8,7 @@
 #include "expression.h"
 #include "ir/irfunction.h"
 #include "module.h"
-#include "ddmd/id.h"
+#include "id.h"
 
 #include "llvm/ADT/StringExtras.h"
 
