@@ -25,7 +25,7 @@ bool isMagicModule(const ModuleDeclaration *moduleDecl) {
   }
 
   if (moduleDecl->packages->dim != 1 ||
-      (*moduleDecl->packages)[0] != Id::ldc)) {
+      (*moduleDecl->packages)[0] != Id::ldc) {
     return false;
   }
   return true;
