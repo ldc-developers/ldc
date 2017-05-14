@@ -89,6 +89,9 @@ struct IrFunction {
   /// These are set e.g. by math related UDA's from ldc.attributes.
   llvm::FastMathFlags FMF;
 
+  bool runtimeCompile = false;
+  llvm::Function *rtCompileFunc = nullptr;
+
 private:
   llvm::Function *func = nullptr;
 };

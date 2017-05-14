@@ -18,6 +18,7 @@
 #include "gen/logger.h"
 #include "gen/modules.h"
 #include "gen/runtime.h"
+#include "gen/runtimecompile.h"
 
 /// The module with the frontend-generated C main() definition.
 extern Module *g_entrypointModule;
@@ -171,6 +172,7 @@ void CodeGenerator::finishLLModule(Module *m) {
 
 void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   ir_->DBuilder.Finalize();
+  generateBitcodeForRuntimeCompile(ir_);
 
   emitLLVMUsedArray(*ir_);
   emitLinkerOptions(*ir_, ir_->module, ir_->context());

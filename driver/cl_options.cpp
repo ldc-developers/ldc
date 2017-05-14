@@ -510,6 +510,14 @@ cl::opt<LTOKind> ltoMode(
                    "Parallel importing and codegen (faster than 'full')")));
 #endif
 
+#if defined(LDC_RUNTIME_COMPILE)
+static cl::opt<bool, true> enableRuntimeCompile(
+    "enable-runtime-compile",
+    cl::desc("Enable runtime compilation"),
+    cl::location(global.params.enableRuntimeCompile),
+    cl::init(false));
+#endif
+
 static cl::extrahelp footer(
     "\n"
     "-d-debug can also be specified without options, in which case it enables "

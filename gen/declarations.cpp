@@ -28,6 +28,8 @@
 #include "ir/irvar.h"
 #include "llvm/ADT/SmallString.h"
 
+#include "runtimecompile.h"
+
 //////////////////////////////////////////////////////////////////////////////
 
 class CodegenVisitor : public Visitor {
@@ -278,6 +280,9 @@ public:
           newGvar->setAlignment(gvar->getAlignment());
           newGvar->setDLLStorageClass(gvar->getDLLStorageClass());
           applyVarDeclUDAs(decl, newGvar);
+          if (irGlobal->runtimeCompile) {
+            addRuntimeCompiledVar(gIR, irGlobal);
+          }
           newGvar->takeName(gvar);
 
           llvm::Constant *newValue =

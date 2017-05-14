@@ -9,6 +9,7 @@ default:
     switches = [
         "-I@RUNTIME_DIR@/src",
         "-I@PROFILERT_DIR@/d",
+        "-I@RTCOMPILE_DIR@/d",
         "-I@PHOBOS2_DIR@",
         "-L-L@CMAKE_BINARY_DIR@/lib@LIB_SUFFIX@", @MULTILIB_ADDITIONAL_PATH@@SHARED_LIBS_RPATH@
         "-defaultlib=phobos2-ldc,druntime-ldc",
