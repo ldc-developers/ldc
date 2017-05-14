@@ -28,6 +28,6 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar);
 
 bool hasWeakUDA(Dsymbol *sym);
 int hasComputeAttr(Dsymbol *sym);
-bool hasKernelAttr(Dsymbol *sym)
+bool hasKernelAttr(Dsymbol *sym);
 
 #endif
