@@ -896,7 +896,14 @@ pure @nogc nothrow unittest
     //  the size to the Windows API
     void* z = pureMalloc(size_t.max - 2); // won't affect `errno`
     assert(errno == fakePureGetErrno()); // errno shouldn't change
-    assert(z is null);
+    version(LDC) {
+        // LLVM's 'Combine redundant instructions' optimization pass
+        // completely elides allocating `y` and `z`. Allocations with
+        // sizes > 0 are apparently assumed to always succeed (and
+        // return non-null), so the following assert fails with -O3.
+    } else {
+        assert(z is null);
+    }
 }
 
 // locally purified for internal use here only
