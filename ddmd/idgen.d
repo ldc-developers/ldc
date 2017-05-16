@@ -404,8 +404,8 @@ Msgtable[] msgtable =
     { "udaAllocSize", "allocSize" },
     // fastmath is an AliasSeq of llvmAttr and llvmFastMathFlag
     { "udaOptStrategy", "optStrategy" },
-    { "udaLlvmAttr", "llvmAttr" },
-    { "udaLlvmFastMathFlag", "llvmFastMathFlag" },
+    { "udaLLVMAttr", "llvmAttr" },
+    { "udaLLVMFastMathFlag", "llvmFastMathFlag" },
     { "udaSection", "section" },
     { "udaTarget", "target" },
     { "udaWeak", "_weak" },
