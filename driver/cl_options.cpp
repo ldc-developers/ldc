@@ -512,6 +512,15 @@ cl::opt<LTOKind> ltoMode(
                    "Parallel importing and codegen (faster than 'full')")));
 #endif
 
+#if LDC_LLVM_VER >= 400
+cl::opt<std::string>
+    saveOptimizationRecord("fsave-optimization-record",
+                           cl::value_desc("filename"),
+                           cl::desc("Generate a YAML optimization record file "
+                                    "of optimizations performed by LLVM"),
+                           cl::ValueOptional);
+#endif
+
 static cl::extrahelp footer(
     "\n"
     "-d-debug can also be specified without options, in which case it enables "

@@ -413,6 +413,12 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   toWinPaths(global.params.fileImppath);
 #endif
 
+#if LDC_LLVM_VER >= 400
+  if (saveOptimizationRecord.getNumOccurrences() > 0) {
+    global.params.outputSourceLocations = true;
+  }
+#endif
+
 // PGO options
 #if LDC_WITH_PGO
   if (genfileInstrProf.getNumOccurrences() > 0) {
