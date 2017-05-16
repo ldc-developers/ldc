@@ -434,7 +434,7 @@ bool hasKernelAttr(Dsymbol *sym) {
 
   if (!sym->isFuncDeclaration() && !hasComputeAttr(sym->getModule()))
     sym->error("@ldc.dcompute.kernel can only be applied to functions"
-               " in modules marked @lcd.dcompute.compute");
+               " in modules marked @ldc.dcompute.compute");
 
   return true;
 }
