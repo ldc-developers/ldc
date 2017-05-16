@@ -8,42 +8,33 @@
 #include "expression.h"
 #include "ir/irfunction.h"
 #include "module.h"
+#include "id.h"
 
 #include "llvm/ADT/StringExtras.h"
 
 namespace {
 
-/// Names of the attribute structs we recognize.
-namespace attr {
-const std::string allocSize = "allocSize";
-const std::string llvmAttr = "llvmAttr";
-const std::string llvmFastMathFlag = "llvmFastMathFlag";
-const std::string optStrategy = "optStrategy";
-const std::string section = "section";
-const std::string target = "target";
-const std::string weak = "_weak";
-}
-
-/// Checks whether `moduleDecl` is the ldc.attributes module.
-bool isLdcAttibutes(const ModuleDeclaration *moduleDecl) {
+/// Checks whether `moduleDecl` is in the ldc package and it's identifier is `id`.
+bool isMagicModule(const ModuleDeclaration *moduleDecl, const Identifier* id) {
   if (!moduleDecl)
     return false;
 
-  if (strcmp("attributes", moduleDecl->id->toChars())) {
+  if (moduleDecl->id != id) {
     return false;
   }
 
   if (moduleDecl->packages->dim != 1 ||
-      strcmp("ldc", (*moduleDecl->packages)[0]->toChars())) {
+      (*moduleDecl->packages)[0] != Id::ldc) {
     return false;
   }
   return true;
 }
 
-/// Checks whether the type of `e` is a struct from the ldc.attributes module.
-bool isFromLdcAttibutes(const StructLiteralExp *e) {
+/// Checks whether the type of `e` is a struct from an ldc recognised module,
+/// i.e. ldc.attributes or ldc.dcompute.
+bool isFromMagicModule(const StructLiteralExp *e, const Identifier* id) {
   auto moduleDecl = e->sd->getModule()->md;
-  return isLdcAttibutes(moduleDecl);
+  return isMagicModule(moduleDecl,id);
 }
 
 StructLiteralExp *getLdcAttributesStruct(Expression *attr) {
@@ -61,7 +52,7 @@ StructLiteralExp *getLdcAttributesStruct(Expression *attr) {
   }
 
   auto sle = static_cast<StructLiteralExp *>(e);
-  if (isFromLdcAttibutes(sle)) {
+  if (isFromMagicModule(sle,Id::attributes)) {
     return sle;
   }
 
@@ -71,25 +62,29 @@ StructLiteralExp *getLdcAttributesStruct(Expression *attr) {
 void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
   if (sle->elements->dim != elemTypes.size()) {
     sle->error(
-        "unexpected field count in 'ldc.attributes.%s'; does druntime not "
+        "unexpected field count in 'ldc.%s.%s'; does druntime not "
         "match compiler version?",
+        sle->sd->getModule()->md->id->toChars(),
         sle->sd->ident->toChars());
     fatal();
   }
 
   for (size_t i = 0; i < sle->elements->dim; ++i) {
     if ((*sle->elements)[i]->type->toBasetype() != elemTypes[i]) {
-      sle->error("invalid field type in 'ldc.attributes.%s'; does druntime not "
+      sle->error("invalid field type in 'ldc.%s.%s'; does druntime not "
                  "match compiler version?",
+                 sle->sd->getModule()->md->id->toChars(),
                  sle->sd->ident->toChars());
       fatal();
     }
   }
 }
 
-/// Returns the StructLiteralExp magic attribute with name `name` if it is
-/// applied to `sym`, otherwise returns nullptr.
-StructLiteralExp *getMagicAttribute(Dsymbol *sym, std::string name) {
+/// Returns the StructLiteralExp magic attribute with identifier `id` from
+/// the ldc magic module with identifier `from` (attributes or dcompute)
+/// if it is applied to `sym`, otherwise returns nullptr.
+StructLiteralExp *getMagicAttribute(Dsymbol *sym, const Identifier* id,
+                                    const Identifier* from) {
   if (!sym->userAttribDecl)
     return nullptr;
 
@@ -97,11 +92,13 @@ StructLiteralExp *getMagicAttribute(Dsymbol *sym, std::string name) {
   Expressions *attrs = sym->userAttribDecl->getAttributes();
   expandTuples(attrs);
   for (auto &attr : *attrs) {
-    auto sle = getLdcAttributesStruct(attr);
-    if (!sle)
+    if (attr->op != TOKstructliteral)
+      continue;
+    auto sle = static_cast<StructLiteralExp *>(attr);
+    if (!isFromMagicModule(sle,from))
       continue;
 
-    if (name == sle->sd->ident->toChars()) {
+    if (id == sle->sd->ident) {
       return sle;
     }
   }
@@ -186,10 +183,15 @@ void applyAttrAllocSize(StructLiteralExp *sle, IrFunction *irFunc) {
   } else {
     builder.addAllocSizeAttr(llvmSizeIdx, llvm::Optional<unsigned>());
   }
+
+#if LDC_LLVM_VER >= 500
+  func->addAttributes(LLAttributeSet::FunctionIndex, builder);
+#else
   func->addAttributes(LLAttributeSet::FunctionIndex,
                       LLAttributeSet::get(func->getContext(),
                                           LLAttributeSet::FunctionIndex,
                                           builder));
+#endif
 #endif
 }
 
@@ -348,18 +350,18 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
     if (!sle)
       continue;
 
-    auto name = sle->sd->ident->toChars();
-    if (name == attr::section) {
+    auto ident = sle->sd->ident;
+    if (ident == Id::udaSection) {
       applyAttrSection(sle, gvar);
-    } else if (name == attr::optStrategy || name == attr::target) {
+    } else if (ident == Id::udaOptStrategy || ident == Id::udaTarget) {
       sle->error(
           "Special attribute 'ldc.attributes.%s' is only valid for functions",
-          name);
-    } else if (name == attr::weak) {
+          ident->toChars());
+    } else if (ident == Id::udaWeak) {
       // @weak is applied elsewhere
     } else {
       sle->warning(
-          "Ignoring unrecognized special attribute 'ldc.attributes.%s'", name);
+          "Ignoring unrecognized special attribute 'ldc.attributes.%s'", ident->toChars());
     }
   }
 }
@@ -378,31 +380,31 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
     if (!sle)
       continue;
 
-    auto name = sle->sd->ident->toChars();
-    if (name == attr::allocSize) {
+    auto ident = sle->sd->ident;
+    if (ident == Id::udaAllocSize) {
       applyAttrAllocSize(sle, irFunc);
-    } else if (name == attr::llvmAttr) {
+    } else if (ident == Id::udaLLVMAttr) {
       applyAttrLLVMAttr(sle, func);
-    } else if (name == attr::llvmFastMathFlag) {
+    } else if (ident == Id::udaLLVMFastMathFlag) {
       applyAttrLLVMFastMathFlag(sle, irFunc);
-    } else if (name == attr::optStrategy) {
+    } else if (ident == Id::udaOptStrategy) {
       applyAttrOptStrategy(sle, irFunc);
-    } else if (name == attr::section) {
+    } else if (ident == Id::udaSection) {
       applyAttrSection(sle, func);
-    } else if (name == attr::target) {
+    } else if (ident == Id::udaTarget) {
       applyAttrTarget(sle, func);
-    } else if (name == attr::weak) {
-      // @weak is applied elsewhere
+    } else if (ident == Id::udaWeak || ident == Id::udaKernel) {
+      // @weak and @kernel are applied elsewhere
     } else {
       sle->warning(
-          "Ignoring unrecognized special attribute 'ldc.attributes.%s'", name);
+          "Ignoring unrecognized special attribute 'ldc.attributes.%s'", ident->toChars());
     }
   }
 }
 
 /// Checks whether 'sym' has the @ldc.attributes._weak() UDA applied.
 bool hasWeakUDA(Dsymbol *sym) {
-  auto sle = getMagicAttribute(sym, attr::weak);
+  auto sle = getMagicAttribute(sym, Id::udaWeak, Id::attributes);
   if (!sle)
     return false;
 
@@ -413,3 +415,32 @@ bool hasWeakUDA(Dsymbol *sym) {
                "global variables");
   return true;
 }
+
+/// Returns 0 if 'sym' does not have the @ldc.dcompute.compute() UDA applied.
+/// Returns 1 + n if 'sym' does and is @compute(n).
+int hasComputeAttr(Dsymbol *sym) {
+
+  auto sle = getMagicAttribute(sym, Id::udaCompute, Id::dcompute);
+  if (!sle)
+    return 0;
+
+  checkStructElems(sle, {Type::tint32});
+
+  return 1 + (*sle->elements)[0]->toInteger();
+}
+
+/// Checks whether 'sym' has the @ldc.dcompute._kernel() UDA applied.
+bool hasKernelAttr(Dsymbol *sym) {
+  auto sle = getMagicAttribute(sym, Id::udaKernel, Id::dcompute);
+  if (!sle)
+    return false;
+
+  checkStructElems(sle, {});
+
+  if (!sym->isFuncDeclaration() && !hasComputeAttr(sym->getModule()))
+    sym->error("@ldc.dcompute.kernel can only be applied to functions"
+               " in modules marked @ldc.dcompute.compute");
+
+  return true;
+}
+

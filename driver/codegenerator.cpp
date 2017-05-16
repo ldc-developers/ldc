@@ -13,17 +13,63 @@
 #include "mars.h"
 #include "module.h"
 #include "scope.h"
+#include "driver/cl_options.h"
 #include "driver/linker.h"
 #include "driver/toobj.h"
 #include "gen/logger.h"
 #include "gen/modules.h"
 #include "gen/runtime.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
+#include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Support/YAMLTraits.h"
 
 /// The module with the frontend-generated C main() definition.
 extern Module *g_entrypointModule;
 
 /// The module that contains the actual D main() (_Dmain) definition.
 extern Module *g_dMainModule;
+
+namespace {
+
+std::unique_ptr<llvm::tool_output_file>
+createAndSetDiagnosticsOutputFile(IRState &irs, llvm::LLVMContext &ctx,
+                                  llvm::StringRef filename) {
+  std::unique_ptr<llvm::tool_output_file> diagnosticsOutputFile;
+
+#if LDC_LLVM_VER >= 400
+  // Set LLVM Diagnostics outputfile if requested
+  if (opts::saveOptimizationRecord.getNumOccurrences() > 0) {
+    llvm::SmallString<128> diagnosticsFilename;
+    if (!opts::saveOptimizationRecord.empty()) {
+      diagnosticsFilename = opts::saveOptimizationRecord.getValue();
+    } else {
+      diagnosticsFilename = filename;
+      llvm::sys::path::replace_extension(diagnosticsFilename, "opt.yaml");
+    }
+
+    std::error_code EC;
+    diagnosticsOutputFile = llvm::make_unique<llvm::tool_output_file>(
+        diagnosticsFilename, EC, llvm::sys::fs::F_None);
+    if (EC) {
+      irs.dmodule->error("Could not create file %s: %s",
+                         diagnosticsFilename.c_str(), EC.message().c_str());
+      fatal();
+    }
+
+    ctx.setDiagnosticsOutputFile(
+        llvm::make_unique<llvm::yaml::Output>(diagnosticsOutputFile->os()));
+
+    // If there is instrumentation data available, also output function hotness
+    if (!global.params.genInstrProf && global.params.datafileInstrProf)
+      ctx.setDiagnosticHotnessRequested(true);
+  }
+#endif
+
+  return diagnosticsOutputFile;
+}
+
+} // anonymous namespace
 
 namespace {
 
@@ -188,7 +234,14 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename) {
       {llvm::MDString::get(ir_->context(), Version)};
   IdentMetadata->addOperand(llvm::MDNode::get(ir_->context(), IdentNode));
 
+  std::unique_ptr<llvm::tool_output_file> diagnosticsOutputFile =
+      createAndSetDiagnosticsOutputFile(*ir_, context_, filename);
+
   writeModule(&ir_->module, filename);
+
+  if (diagnosticsOutputFile)
+    diagnosticsOutputFile->keep();
+
   delete ir_;
   ir_ = nullptr;
 }

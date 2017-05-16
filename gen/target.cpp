@@ -152,9 +152,11 @@ unsigned Target::critsecsize() {
 
   case llvm::Triple::MacOSX:
     return is64bit ? 64 : 44;
+  
+  case llvm::Triple::NetBSD:
+    return is64bit ? 48 : 28;
 
   case llvm::Triple::FreeBSD:
-  case llvm::Triple::NetBSD:
   case llvm::Triple::OpenBSD:
   case llvm::Triple::DragonFly:
     return Target::ptrsize;
