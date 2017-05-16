@@ -927,7 +927,7 @@ else version (OSX) bool findImageHeaderForAddr(in void* addr, mach_header** resu
     if (result) *result = header;
     return !!header;
 }
-else version (NetBSD) bool findDSOInfoForAddr(in void* addr, dl_phdr_info* result=null) nothrow @nogc
+else version (NetBSD) bool findImageHeaderForAddr(in void* addr, dl_phdr_info* result=null) nothrow @nogc
 {
     static struct DG { const(void)* addr; dl_phdr_info* result; }
 

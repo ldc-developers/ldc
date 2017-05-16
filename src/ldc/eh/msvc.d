@@ -111,7 +111,7 @@ extern(C) void _d_throw_exception(Object e)
         if (!old_terminate_handler)
             old_terminate_handler = set_terminate(&msvc_eh_terminate);
     }
-    
+
     auto throwable = cast(Throwable) e;
     exceptionStack.push(throwable);
 
@@ -396,6 +396,7 @@ void msvc_eh_terminate() nothrow
             jmp L_retTerminate;
 
         L_addESP_found:
+            xor RBX,RBX;                // debug version: RBX not pushed inside terminate()
             movzx RDX,byte ptr[RAX+3];  // read nn
 
             cmp byte ptr [RAX+4], 0xC3; // ret?
@@ -421,7 +422,11 @@ void msvc_eh_terminate() nothrow
             cmp RBX,[RAX+0x29];          // dec [rax+30h]; xor eax,eax; add rsp,nn (vcruntime140.dll)
             jne L_term;
 
-            lea RAX, [RAX+0x2F];
+            lea RAX, [RAX+0x2E];         // vcruntime140 14.00.23026.0 or later?
+            cmp word ptr[RAX], 0x8348;   // add rsp,nn?
+            je L_xorSkipped;
+
+            inc RAX;                     // vcruntime140 earlier than 14.00.23026.0?
             jmp L_xorSkipped;
 
         L_retFound:
