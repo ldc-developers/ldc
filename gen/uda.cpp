@@ -64,7 +64,7 @@ void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
     sle->error(
         "unexpected field count in 'ldc.%s.%s'; does druntime not "
         "match compiler version?",
-        sle->->sd->getModule()->md->id->toChars(),
+        sle->sd->getModule()->md->id->toChars(),
         sle->sd->ident->toChars());
     fatal();
   }
@@ -73,7 +73,7 @@ void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
     if ((*sle->elements)[i]->type->toBasetype() != elemTypes[i]) {
       sle->error("invalid field type in 'ldc.%s.%s'; does druntime not "
                  "match compiler version?",
-                 sle->->sd->getModule()->md->id->toChars(),
+                 sle->sd->getModule()->md->id->toChars(),
                  sle->sd->ident->toChars());
       fatal();
     }
