@@ -93,10 +93,10 @@ StructLiteralExp *getMagicAttribute(Dsymbol *sym, const Identifier* id,
   expandTuples(attrs);
   for (auto &attr : *attrs) {
     if (attr->op != TOKstructliteral)
-        continue;
+      continue;
     auto sle = static_cast<StructLiteralExp *>(attr);
     if (!isFromMagicModule(sle,from))
-        continue;
+      continue;
 
     if (id == sle->sd->ident) {
       return sle;
