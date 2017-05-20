@@ -9,6 +9,7 @@
 
 #include "errors.h"
 #include "driver/cl_options.h"
+#include "driver/cl_options_sanitizers.h"
 #include "driver/exe_path.h"
 #include "driver/tool.h"
 #include "gen/irstate.h"
@@ -242,13 +243,17 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
 
 // Requires clang.
 void ArgsBuilder::addSanitizers() {
-  if (opts::sanitize == opts::AddressSanitizer) {
+  // TODO: instead of this, we should link with our own sanitizer libraries
+  // because LDC's LLVM version could be different from the system clang.
+  if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
     args.push_back("-fsanitize=address");
   }
-  if (opts::sanitize == opts::MemorySanitizer) {
+
+  if (opts::isSanitizerEnabled(opts::MemorySanitizer)) {
     args.push_back("-fsanitize=memory");
   }
-  if (opts::sanitize == opts::ThreadSanitizer) {
+
+  if (opts::isSanitizerEnabled(opts::ThreadSanitizer)) {
     args.push_back("-fsanitize=thread");
   }
 }

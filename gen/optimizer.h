@@ -24,18 +24,6 @@ namespace llvm {
 class raw_ostream;
 }
 
-namespace opts {
-
-enum SanitizerCheck {
-  None,
-  AddressSanitizer,
-  MemorySanitizer,
-  ThreadSanitizer
-};
-
-extern llvm::cl::opt<SanitizerCheck> sanitize;
-}
-
 namespace llvm {
 class Module;
 }
