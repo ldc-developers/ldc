@@ -38,6 +38,7 @@ class IndexedInstrProfReader;
 class FuncGenState;
 struct IRState;
 struct TargetABI;
+class DComputeTarget;
 
 extern IRState *gIR;
 extern llvm::TargetMachine *gTargetMachine;
@@ -210,6 +211,9 @@ struct IRState {
   llvm::DenseMap<size_t, llvm::StructType *> TypeDescriptorTypeMap;
   llvm::DenseMap<llvm::Constant *, llvm::GlobalVariable *> TypeDescriptorMap;
 #endif
+
+  //Target for dcompute. If not nullptr, it owns this.
+  DComputeTarget *dcomputetarget;
 };
 
 void Statement_toIR(Statement *s, IRState *irs);
