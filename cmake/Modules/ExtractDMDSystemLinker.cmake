@@ -25,9 +25,9 @@ file(WRITE ${source_file} "void main() {}")
 set(result_code)
 set(stdout)
 if(UNIX)
-    separate_arguments(cmdflags UNIX_COMMAND "${D_COMPILER_FLAGS}")
+    separate_arguments(cmdflags UNIX_COMMAND "${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS}")
 else()
-    separate_arguments(cmdflags WINDOWS_COMMAND "${D_COMPILER_FLAGS}")
+    separate_arguments(cmdflags WINDOWS_COMMAND "${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS}")
 endif()
 execute_process(
     COMMAND ${D_COMPILER} ${cmdflags} -v ${source_file}

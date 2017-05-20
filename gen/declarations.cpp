@@ -492,8 +492,7 @@ public:
 //////////////////////////////////////////////////////////////////////////////
 
 void Declaration_codegen(Dsymbol *decl) {
-  CodegenVisitor v(gIR);
-  decl->accept(&v);
+  Declaration_codegen(decl, gIR);
 }
 
 void Declaration_codegen(Dsymbol *decl, IRState *irs) {

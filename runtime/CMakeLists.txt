@@ -87,19 +87,20 @@ list(REMOVE_ITEM DRUNTIME_D
     ${RUNTIME_DIR}/src/rt/trace.d
 )
 # only include core/sys/ modules matching the platform
-file(GLOB_RECURSE DRUNTIME_D_BIONIC ${RUNTIME_DIR}/src/core/sys/bionic/*.d)
-file(GLOB_RECURSE DRUNTIME_D_DARWIN ${RUNTIME_DIR}/src/core/sys/darwin/*.d)
+file(GLOB_RECURSE DRUNTIME_D_BIONIC  ${RUNTIME_DIR}/src/core/sys/bionic/*.d)
+file(GLOB_RECURSE DRUNTIME_D_DARWIN  ${RUNTIME_DIR}/src/core/sys/darwin/*.d)
 file(GLOB_RECURSE DRUNTIME_D_FREEBSD ${RUNTIME_DIR}/src/core/sys/freebsd/*.d)
-file(GLOB_RECURSE DRUNTIME_D_LINUX ${RUNTIME_DIR}/src/core/sys/linux/*.d)
+file(GLOB_RECURSE DRUNTIME_D_LINUX   ${RUNTIME_DIR}/src/core/sys/linux/*.d)
+file(GLOB_RECURSE DRUNTIME_D_NETBSD  ${RUNTIME_DIR}/src/core/sys/netbsd/*.d)
 file(GLOB_RECURSE DRUNTIME_D_OPENBSD ${RUNTIME_DIR}/src/core/sys/openbsd/*.d)
-file(GLOB_RECURSE DRUNTIME_D_OSX ${RUNTIME_DIR}/src/core/sys/osx/*.d)
-file(GLOB_RECURSE DRUNTIME_D_POSIX ${RUNTIME_DIR}/src/core/sys/posix/*.d)
+file(GLOB_RECURSE DRUNTIME_D_OSX     ${RUNTIME_DIR}/src/core/sys/osx/*.d)
+file(GLOB_RECURSE DRUNTIME_D_POSIX   ${RUNTIME_DIR}/src/core/sys/posix/*.d)
 file(GLOB_RECURSE DRUNTIME_D_SOLARIS ${RUNTIME_DIR}/src/core/sys/solaris/*.d)
 file(GLOB_RECURSE DRUNTIME_D_WINDOWS ${RUNTIME_DIR}/src/core/sys/windows/*.d)
 list(REMOVE_ITEM DRUNTIME_D
-    ${DRUNTIME_D_BIONIC}  ${DRUNTIME_D_DARWIN} ${DRUNTIME_D_FREEBSD} ${DRUNTIME_D_LINUX}
-    ${DRUNTIME_D_OPENBSD} ${DRUNTIME_D_OSX}    ${DRUNTIME_D_POSIX}   ${DRUNTIME_D_SOLARIS}
-    ${DRUNTIME_D_WINDOWS}
+    ${DRUNTIME_D_BIONIC}  ${DRUNTIME_D_DARWIN}  ${DRUNTIME_D_FREEBSD} ${DRUNTIME_D_LINUX}
+    ${DRUNTIME_D_NETBSD}  ${DRUNTIME_D_OPENBSD} ${DRUNTIME_D_OSX}     ${DRUNTIME_D_POSIX}
+    ${DRUNTIME_D_SOLARIS} ${DRUNTIME_D_WINDOWS}
 )
 if(UNIX)
     list(APPEND DRUNTIME_D ${DRUNTIME_D_POSIX})
@@ -111,6 +112,8 @@ if(UNIX)
     elseif(${CMAKE_SYSTEM} MATCHES "Linux")
         list(APPEND DRUNTIME_D ${DRUNTIME_D_LINUX})
         list(APPEND DRUNTIME_D ${DRUNTIME_D_BIONIC})
+    elseif(${CMAKE_SYSTEM} MATCHES "NetBSD")
+        list(APPEND DRUNTIME_D ${DRUNTIME_D_NETBSD})
     elseif(${CMAKE_SYSTEM} MATCHES "OpenBSD")
         list(APPEND DRUNTIME_D ${DRUNTIME_D_OPENBSD})
     elseif(${CMAKE_SYSTEM} MATCHES "SunOS")
@@ -465,8 +468,8 @@ endmacro()
 
 # Builds a static and/or shared copy of druntime/Phobos.
 macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix outlist_targets)
-    # Only build Phobos module once. If a shared Phobos lib is generated (too),
-    # compile explicitly with `-relocation-model=pic`.
+    # Only compile Phobos modules once for static+shared libs.
+    # If a shared Phobos lib is generated (too), compile explicitly with `-relocation-model=pic`.
     set(phobos2_d_flags "${d_flags}")
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
         list(APPEND ${phobos2_d_flags} -relocation-model=pic)
@@ -475,6 +478,13 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix outl
     set(phobos2_o "")
     set(phobos2_bc "")
     compile_phobos2("${phobos2_d_flags}" "${lib_suffix}" "${path_suffix}" phobos2_o phobos2_bc)
+
+    # Use a dummy custom target ('phobos2-ldc…-common') depending solely on the Phobos D objects
+    # (custom commands) as dependency for static+shared Phobos libs.
+    # Otherwise building both libs in parallel may result in conflicting Phobos module compilations
+    # (at least with the make generator), a known CMake issue.
+    set(phobos2_common phobos2-ldc${target_suffix}-common)
+    add_custom_target(${phobos2_common} DEPENDS ${phobos2_o} ${phobos2_bc})
 
     # static druntime/Phobos
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "ON")
@@ -485,6 +495,7 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix outl
         build_runtime_libs("${druntime_o}" "${druntime_bc}" "${phobos2_o}" "${phobos2_bc}"
                            "${c_flags}" "${ld_flags}" "${lib_suffix}" "${path_suffix}" "OFF"
                            ${outlist_targets})
+        add_dependencies(phobos2-ldc${target_suffix} ${phobos2_common})
     endif()
     # shared druntime/Phobos
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
@@ -495,6 +506,7 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix outl
         build_runtime_libs("${druntime_o}" "${druntime_bc}" "${phobos2_o}" "${phobos2_bc}"
                            "${c_flags}" "${ld_flags}" "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}" "ON"
                            ${outlist_targets})
+        add_dependencies(phobos2-ldc${target_suffix} ${phobos2_common})
     endif()
 endmacro()
 
