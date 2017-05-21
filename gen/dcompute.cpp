@@ -38,9 +38,8 @@ bool isFromLDC_DCompute(Dsymbol *sym) {
 
 llvm::Optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd)
 {
-    if (sd->ident != Id::dcPointer || !isFromLDC_DCompute(sd)) {
+  if (sd->ident != Id::dcPointer || !isFromLDC_DCompute(sd))
       return llvm::Optional<DcomputePointer>(llvm::None);
-  }
 
   TemplateInstance *ti = sd->isInstantiated();
   int addrspace = isExpression((*ti->tiargs)[0])->toInteger();
