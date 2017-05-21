@@ -17,7 +17,6 @@
 #include "driver/archiver.h"
 
 #include "llvm/ADT/Triple.h"
-#include "llvm/LibDriver/LibDriver.h"
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/ArchiveWriter.h"
 #include "llvm/Object/MachO.h"
@@ -25,6 +24,12 @@
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
+
+#if LDC_LLVM_VER >= 500
+#include "llvm/ToolDrivers/llvm-lib/LibDriver.h"
+#else
+#include "llvm/LibDriver/LibDriver.h"
+#endif
 
 #include <cstring>
 
