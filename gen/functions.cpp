@@ -123,20 +123,14 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     ++nextLLArgIdx;
   }
 
-  // vararg functions are special too
-  if (f->varargs) {
-    if (f->linkage == LINKd) {
-      // d style with hidden args
-      // 2 (array) is handled by the frontend
-      if (f->varargs == 1) {
-        // _arguments
-        newIrFty.arg_arguments =
-            new IrFuncTyArg(Type::dtypeinfo->type->arrayOf(), false);
-        ++nextLLArgIdx;
-      }
-    }
-
-    newIrFty.c_vararg = true;
+  // Non-typesafe variadics (both C and D styles) are also variadics on the LLVM
+  // level.
+  const bool isLLVMVariadic = (f->varargs == 1);
+  if (isLLVMVariadic && f->linkage == LINKd) {
+    // Add extra `_arguments` parameter for D-style variadic functions.
+    newIrFty.arg_arguments =
+        new IrFuncTyArg(Type::dtypeinfo->type->arrayOf(), false);
+    ++nextLLArgIdx;
   }
 
   // if this _Dmain() doesn't have an argument, we force it to have one
@@ -226,7 +220,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   }
 
   irFty.funcType =
-      LLFunctionType::get(irFty.ret->ltype, argtypes, irFty.c_vararg);
+      LLFunctionType::get(irFty.ret->ltype, argtypes, isLLVMVariadic);
 
   IF_LOG Logger::cout() << "Final function type: " << *irFty.funcType << "\n";
 

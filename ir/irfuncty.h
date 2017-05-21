@@ -101,9 +101,6 @@ struct IrFuncTy {
   using ArgList = std::vector<IrFuncTyArg *>;
   ArgList args;
 
-  // C varargs
-  bool c_vararg = false;
-
   // range of normal parameters to reverse
   bool reverseParams = false;
 
