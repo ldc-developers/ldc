@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/dcompute.hpp"
+#include "gen/dcompute.h"
 #include "gen/dcomputetypes.h"
 #include "gen/logger.h"
 #include "ddmd/dsymbol.h"
