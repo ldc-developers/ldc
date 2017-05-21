@@ -12,7 +12,7 @@
 #include "gen/uda.h"
 #include "ddmd/declaration.h"
 #include "gen/tollvm.h"
-#inculde "gen/dcompute/abi-rewrites.h"
+#include "gen/dcompute/abi-rewrites.h"
 
 struct SPIRVTargetABI : TargetABI {
   DComputePointerRewrite pointerRewite;
