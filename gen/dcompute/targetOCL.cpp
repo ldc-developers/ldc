@@ -152,8 +152,8 @@ public:
       TypeVector* vec = static_cast<TypeVector*>(t);
       auto size = vec->size(Loc());
       auto basety = vec->basetype->ty;
-      if      (basety == Tbyte)  ss << "char";
-      else if (basety == Tubyte) ss << "uchar";
+      if      (basety == Tint8)  ss << "char";
+      else if (basety == Tuns8) ss << "uchar";
       else ss << vec->basetype->toChars();
       ss << (int)size;
     }
