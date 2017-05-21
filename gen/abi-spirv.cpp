@@ -47,6 +47,10 @@ struct SPIRVTargetABI : TargetABI {
       arg.ltype = pointerRewite.type(arg.type);
     }
   }
+  // There are no exceptions at all, so no need for unwind tables.
+  bool needsUnwindTables() override {
+    return false;
+  }
 };
 
 TargetABI *createSPIRVABI() { return new SPIRVTargetABI(); }
