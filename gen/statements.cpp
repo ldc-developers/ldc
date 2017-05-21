@@ -320,7 +320,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
   
-  bool dcomputeReflectMatches(CallExp *e) {
+  bool dcomputeReflectMatches(CallExp *ce) {
     auto arg1 = (DComputeTarget::ID)(*ce->arguments)[0]->toInteger();
     auto arg2 = (*ce->arguments)[1]->toInteger();
     auto dct = irs->dcomputetarget;
@@ -333,7 +333,7 @@ public:
     else {
       if (arg1 == dct->target && (!arg2 || arg2 == dct->tversion))
         return true;
-      else 
+      else
         return false;
     }
   }
