@@ -225,7 +225,9 @@ class AssemblyAnnotator : public AssemblyAnnotationWriter {
     if (MDNode *N = FindSubprogram(F, Finder))
 #endif
     {
-#if LDC_LLVM_VER >= 307
+#if LDC_LLVM_VER >= 500
+      return N->getName();
+#elif LDC_LLVM_VER >= 307
       return N->getDisplayName();
 #else
       llvm::DISubprogram sub(N);

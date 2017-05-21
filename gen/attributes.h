@@ -44,15 +44,31 @@ public:
 class AttrSet {
   LLAttributeSet set;
 
+  AttrSet &add(unsigned index, const AttrBuilder &builder);
+
 public:
   AttrSet() = default;
   AttrSet(const LLAttributeSet &nativeSet) : set(nativeSet) {}
   AttrSet(const AttrSet &base, unsigned index, LLAttribute attribute);
 
+#if LDC_LLVM_VER >= 500
+  static const unsigned FirstArgIndex = LLAttributeSet::FirstArgIndex;
+#else
+  static const unsigned FirstArgIndex = 1;
+#endif
+
   static AttrSet
   extractFunctionAndReturnAttributes(const llvm::Function *function);
 
-  AttrSet &add(unsigned index, const AttrBuilder &builder);
+  AttrSet &addToParam(unsigned paramIndex, const AttrBuilder &builder) {
+    return add(paramIndex + FirstArgIndex, builder);
+  }
+  AttrSet &addToFunction(const AttrBuilder &builder) {
+    return add(LLAttributeSet::FunctionIndex, builder);
+  }
+  AttrSet &addToReturn(const AttrBuilder &builder) {
+    return add(LLAttributeSet::ReturnIndex, builder);
+  }
   AttrSet &merge(const AttrSet &other);
 
   operator LLAttributeSet &() { return set; }

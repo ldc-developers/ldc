@@ -9,6 +9,7 @@
 
 #include "gen/dibuilder.h"
 
+#include "driver/cl_options.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
@@ -82,7 +83,7 @@ bool ldc::DIBuilder::mustEmitFullDebugInfo() {
 
 bool ldc::DIBuilder::mustEmitLocationsDebugInfo() {
   // for -g -gc and -gline-tables-only
-  return global.params.symdebug > 0;
+  return (global.params.symdebug > 0) || global.params.outputSourceLocations;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

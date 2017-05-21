@@ -66,6 +66,8 @@ extern cl::list<std::string> versions;
 extern cl::list<std::string> transitions;
 extern cl::opt<std::string> moduleDeps;
 extern cl::opt<std::string> cacheDir;
+extern cl::list<std::string> linkerSwitches;
+extern cl::list<std::string> ccSwitches;
 
 extern cl::opt<std::string> mArch;
 extern cl::opt<bool> m32bits;
@@ -117,6 +119,10 @@ inline bool isUsingThinLTO() { return ltoMode == LTO_Thin; }
 #else
 inline bool isUsingLTO() { return false; }
 inline bool isUsingThinLTO() { return false; }
+#endif
+
+#if LDC_LLVM_VER >= 400
+extern cl::opt<std::string> saveOptimizationRecord;
 #endif
 }
 #endif

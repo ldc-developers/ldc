@@ -39,6 +39,9 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#if LDC_LLVM_VER >= 500
+#include "llvm/Support/KnownBits.h"
+#endif
 
 #include <algorithm>
 
@@ -146,16 +149,23 @@ static bool isKnownLessThan(Value *Val, uint64_t Limit, const Analysis &A) {
   if (Bits > BitsLimit) {
     APInt Mask = APInt::getLowBitsSet(Bits, BitsLimit);
     Mask.flipAllBits();
+#if LDC_LLVM_VER >= 500
+    KnownBits Known(Bits);
+    computeKnownBits(Val, Known, A.DL);
+    if ((Known.Zero & Mask) != Mask) {
+      return false;
+    }
+#else
     APInt KnownZero(Bits, 0), KnownOne(Bits, 0);
 #if LDC_LLVM_VER >= 307
     computeKnownBits(Val, KnownZero, KnownOne, A.DL);
 #else
     computeKnownBits(Val, KnownZero, KnownOne, &A.DL);
 #endif
-
     if ((KnownZero & Mask) != Mask) {
       return false;
     }
+#endif
   }
 
   return true;
