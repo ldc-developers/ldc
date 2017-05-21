@@ -85,13 +85,13 @@ public:
     OCLVerMD->addOperand(llvm::MDNode::get(ctx, OCLVerElts));
 #endif
   }
-  enum class KernArgMD {
-      addr_space,
-      access_qual,
-      type,
-      base_type,
-      type_qual,
-      name
+  enum KernArgMD {
+      KernArgMD_addr_space,
+      KernArgMD_access_qual,
+      KernArgMD_type,
+      KernArgMD_base_type,
+      KernArgMD_type_qual,
+      KernArgMD_name
   };
   void addKernelMetadata(FuncDeclaration *fd, llvm::Function *llf) override {
     // By the time we get here the ABI should have rewritten the function
@@ -189,14 +189,14 @@ public:
       typeQuals = mod2str(v->type->mod);
     }
 #if LDC_LLVM_VER >= 306
-    attrs[KernArgMD::addr_space].push_back( // i32 addrspace
+    attrs[KernArgMD_addr_space].push_back( // i32 addrspace
         llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
             llvm::IntegerType::get(ctx, 32), addrspace)));
-    attrs[KernArgMD::access_qual].push_back(llvm::MDString::get(ctx, accessQual));
-    attrs[KernArgMD::type].push_back(llvm::MDString::get(ctx, tyName));
-    attrs[KernArgMD::base_type].push_back(llvm::MDString::get(ctx, baseTyName));
-    attrs[KernArgMD::type_qual].push_back(llvm::MDString::get(ctx, typeQuals));
-    attrs[KernArgMD::name].push_back(llvm::MDString::get(ctx, v->ident->toChars()));
+    attrs[KernArgMD_access_qual].push_back(llvm::MDString::get(ctx, accessQual));
+    attrs[KernArgMD_type].push_back(llvm::MDString::get(ctx, tyName));
+    attrs[KernArgMD_base_type].push_back(llvm::MDString::get(ctx, baseTyName));
+    attrs[KernArgMD_type_qual].push_back(llvm::MDString::get(ctx, typeQuals));
+    attrs[KernArgMD_name].push_back(llvm::MDString::get(ctx, v->ident->toChars()));
 #endif
   }
 };
