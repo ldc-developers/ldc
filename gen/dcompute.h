@@ -9,8 +9,8 @@
 // Functionality related to ldc.dcompute in druntime
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_DCOMPUTETYPES_H
-#define LDC_GEN_DCOMPUTETYPES_H
+#ifndef LDC_GEN_DCOMPUTE_H
+#define LDC_GEN_DCOMPUTE_H
 
 #include "ddmd/aggregate.h"
 #include "ddmd/mtype.h"
