@@ -124,5 +124,8 @@ inline bool isUsingThinLTO() { return false; }
 #if LDC_LLVM_VER >= 400
 extern cl::opt<std::string> saveOptimizationRecord;
 #endif
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
+extern cl::list<std::string> dcomputeTargets;
+#endif
 }
 #endif

@@ -67,6 +67,8 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE
 
+    assert(!irs->dcomputetarget);
+
     if (decl->ir->isDefined()) {
       return;
     }
@@ -125,14 +127,18 @@ public:
       m->accept(this);
     }
 
-    // Define the __initZ symbol.
-    IrAggr *ir = getIrAggr(decl);
-    llvm::GlobalVariable *initZ = ir->getInitSymbol();
-    initZ->setInitializer(ir->getDefaultInit());
-    setLinkage(decl, initZ);
+    // Skip __initZ and typeinfo for @compute device code.
+    // TODO: support global variables and thus __initZ
+    if (!irs->dcomputetarget) {
+      // Define the __initZ symbol.
+      IrAggr *ir = getIrAggr(decl);
+      llvm::GlobalVariable *initZ = ir->getInitSymbol();
+      initZ->setInitializer(ir->getDefaultInit());
+      setLinkage(decl, initZ);
 
-    // emit typeinfo
-    DtoTypeInfoOf(decl->type);
+      // emit typeinfo
+      DtoTypeInfoOf(decl->type);
+    }
 
     // Emit __xopEquals/__xopCmp/__xtoHash.
     if (decl->xeq && decl->xeq != decl->xerreq) {
@@ -152,6 +158,8 @@ public:
     IF_LOG Logger::println("ClassDeclaration::codegen: '%s'",
                            decl->toPrettyChars());
     LOG_SCOPE
+
+    assert(!irs->dcomputetarget);
 
     if (decl->ir->isDefined()) {
       return;
@@ -245,6 +253,7 @@ public:
 
       assert(!(decl->storage_class & STCmanifest) &&
              "manifest constant being codegen'd!");
+      assert(!irs->dcomputetarget);
 
       IrGlobal *irGlobal = getIrGlobal(decl);
       LLGlobalVariable *gvar = llvm::cast<LLGlobalVariable>(irGlobal->value);
@@ -412,7 +421,8 @@ public:
   void visit(PragmaDeclaration *decl) LLVM_OVERRIDE {
     if (decl->ident == Id::lib) {
       assert(decl->args && decl->args->dim == 1);
-
+      assert(!irs->dcomputetarget);
+        
       Expression *e = static_cast<Expression *>(decl->args->data[0]);
 
       assert(e->op == TOKstring);
@@ -473,7 +483,7 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(TypeInfoDeclaration *decl) LLVM_OVERRIDE {
-    if (isSpeculativeType(decl->tinfo)) {
+    if (irs->dcomputetarget || isSpeculativeType(decl->tinfo)) {
       return;
     }
     TypeInfoDeclaration_codegen(decl, irs);
@@ -482,7 +492,7 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(TypeInfoClassDeclaration *decl) LLVM_OVERRIDE {
-    if (isSpeculativeType(decl->tinfo)) {
+    if (irs->dcomputetarget || isSpeculativeType(decl->tinfo)) {
       return;
     }
     TypeInfoClassDeclaration_codegen(decl, irs);

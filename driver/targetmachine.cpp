@@ -23,6 +23,7 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
+#include "llvm/IR/Module.h"
 #include "mars.h"
 #include "gen/logger.h"
 
@@ -631,4 +632,14 @@ createTargetMachine(std::string targetTriple, std::string arch, std::string cpu,
   return target->createTargetMachine(triple.str(), cpu, features.getString(),
                                      targetOptions, relocModel, codeModel,
                                      codeGenOptLevel);
+}
+    
+ComputeBackend::Type getComputeTargetType(llvm::Module* m) {
+  llvm::Triple::ArchType a = llvm::Triple(m->getTargetTriple()).getArch();
+  if (a == llvm::Triple::spir || a == llvm::Triple::spir64)
+    return ComputeBackend::SPIRV;
+  else if (a == llvm::Triple::nvptx || a == llvm::Triple::nvptx64)
+    return ComputeBackend::NVPTX;
+  else
+    return ComputeBackend::None;
 }

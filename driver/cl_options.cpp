@@ -520,6 +520,15 @@ cl::opt<std::string>
                                     "of optimizations performed by LLVM"),
                            cl::ValueOptional);
 #endif
+    
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
+cl::list<std::string>
+    dcomputeTargets("mdcompute-targets", cl::CommaSeparated,
+                    cl::desc("Generates code for the specified DCompute target"
+                              " list. Use 'ocl-xy0' for OpenCL x.y, and "
+                              "'cuda-xy0' for CUDA x.y"),
+                     cl::value_desc("targets"));
+#endif
 
 static cl::extrahelp footer(
     "\n"

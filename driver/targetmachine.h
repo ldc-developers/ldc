@@ -38,7 +38,14 @@ namespace llvm {
 class Triple;
 class Target;
 class TargetMachine;
+class Module;
 }
+
+namespace ComputeBackend {
+enum Type { None, SPIRV, NVPTX };
+}
+
+ComputeBackend::Type getComputeTargetType(llvm::Module*);
 
 /**
  * Creates an LLVM TargetMachine suitable for the given (usually command-line)

@@ -25,6 +25,11 @@ math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 string(REGEX MATCH "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" LLVM_TABLEGEN_LIBRARY "${LLVM_LIBRARIES}")
 string(REGEX REPLACE "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" "" LLVM_LIBRARIES "${LLVM_LIBRARIES}")
 
+# Information about which targets LLVM was built to target
+foreach(LLVM_SUPPORTED_TARGET ${LLVM_TARGETS_TO_BUILD})
+    add_definitions("-DLDC_LLVM_SUPPORTED_TARGET_${LLVM_SUPPORTED_TARGET}=1")
+endforeach()
+
 #
 # Get info about used Linux distribution.
 #
@@ -330,6 +335,7 @@ set(DRV_SRC
     driver/cl_options.cpp
     driver/codegenerator.cpp
     driver/configfile.cpp
+    driver/dcomputecodegenerator.cpp
     driver/exe_path.cpp
     driver/targetmachine.cpp
     driver/toobj.cpp
@@ -345,6 +351,7 @@ set(DRV_HDR
     driver/cl_options.h
     driver/codegenerator.h
     driver/configfile.h
+    driver/dcomputecodegenerator.h
     driver/exe_path.h
     driver/ldc-version.h
     driver/archiver.h
