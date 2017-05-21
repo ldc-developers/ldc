@@ -14,8 +14,8 @@
 
 #include "ddmd/aggregate.h"
 #include "ddmd/mtype.h"
-
 #include "llvm/ADT/Optional.h"
+#include "gen/llvm.h"
 
 class Dsymbol;
 class Type;

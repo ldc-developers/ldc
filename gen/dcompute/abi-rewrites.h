@@ -28,7 +28,7 @@ struct DComputePointerRewrite : ABIRewrite {
     return ptr->toLLVMType();
   }
   LLValue *getLVal(Type *dty, LLValue *v) override {
-    return isaStruct(v)->getElement(0);
+    return DtoBitCast(v,this->type(dty));
   }
   LLValue *put(DValue *dv) override {
     LLValue *address = getAddressOf(dv);
