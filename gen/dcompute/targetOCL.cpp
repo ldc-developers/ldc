@@ -140,7 +140,7 @@ public:
   }
 
   std::string mod2str(MOD mod) {
-    return mod & (MODconst | MODimmutable) ? "const" : ""'
+    return mod & (MODconst | MODimmutable) ? "const" : "";
   }
 
   std::string basicTypeToString(Type *t) {
