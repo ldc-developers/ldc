@@ -14,8 +14,9 @@
 
 #include "ddmd/aggregate.h"
 #include "ddmd/mtype.h"
-
 #include "llvm/ADT/Optional.h"
+#include "gen/llvm.h"
+#include "gen/tollvm.h"
 
 class Dsymbol;
 class Type;
@@ -24,9 +25,13 @@ class Type;
 bool isFromLDC_DCompute(Dsymbol *sym);
 
 struct DcomputePointer {
-    int addrspace;
-    Type* type;
-    DcomputePointer(int as,Type* ty) : addrspace(as),type(ty) {}
+  int addrspace;
+  Type* type;
+  DcomputePointer(int as,Type* ty) : addrspace(as),type(ty) {}
+  LLType *toLLVMType() {
+    auto llType = DtoMemType(type);
+    return llType->getPointerElementType()->getPointerTo(addrspace);
+  }
 };
 llvm::Optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd);
 #endif
