@@ -27,6 +27,10 @@ struct DcomputePointer {
     int addrspace;
     Type* type;
     DcomputePointer(int as,Type* ty) : addrspace(as),type(ty) {}
+    LLType *toLLVMType() {
+        auto llType = DtoMemType(type);
+        return llType->getPointerElementType()->getPointerTo(addrspace);
+    }
 };
 llvm::Optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd);
 #endif
