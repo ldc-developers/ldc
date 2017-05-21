@@ -28,6 +28,7 @@ struct DComputePointerRewrite : ABIRewrite {
     return ptr->toLLVMType();
   }
   LLValue *getLVal(Type *dty, LLValue *v) override {
+    // TODO: Is this correct?
     return DtoBitCast(v,this->type(dty));
   }
   LLValue *put(DValue *dv) override {
