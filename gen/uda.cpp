@@ -438,7 +438,7 @@ bool hasKernelAttr(Dsymbol *sym) {
   checkStructElems(sle, {});
 
   if (!sym->isFuncDeclaration() &&
-      hasComputeAttr(sym->getModule() != DComputeCompileFor::hostOnly))
+      hasComputeAttr(sym->getModule()) != DComputeCompileFor::hostOnly)
     sym->error("@ldc.dcompute.kernel can only be applied to functions"
                " in modules marked @ldc.dcompute.compute");
 
