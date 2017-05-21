@@ -121,7 +121,7 @@ public:
       paramArgs.push_back(tmp);
     }
 
-    VarDeclarations *vs = df->parameters;
+    VarDeclarations *vs = fd->parameters;
     for (unsigned i = 0; i < vs->dim; i++) {
       VarDeclaration *v = (*vs)[i];
       decodeTypes(paramArgs,v);
@@ -146,10 +146,10 @@ public:
   std::string basicTypeToString(Type *t) {
     std::stringstream ss;
     auto ty = t->ty;
-    if      (ty == Tbyte)  ss << "char";
-    else if (ty == Tubyte) ss << "uchar";
+    if      (ty == Tint8)  ss << "char";
+    else if (ty == Tuns8) ss << "uchar";
     else if (ty == Tvector) {
-      Type* vec = static_cast<TypeVector*>(ptr->type);
+      TypeVector* vec = static_cast<TypeVector*>(t);
       auto size = vec->size(Loc());
       auto basety = vec->basetype->ty;
       if      (basety == Tbyte)  ss << "char";
@@ -158,7 +158,7 @@ public:
       ss << (int)size;
     }
     else
-        ss << ptr->type->toChars();
+        ss << t->toChars();
     return ss.str();
   }
 
@@ -175,9 +175,9 @@ public:
     int addrspace = 0;
     if (v->type->ty == Tstruct && (ptr = toDcomputePointer(static_cast<TypeStruct*>(v->type)->sym)))
     {
-      addrspcace = ptr->addrspace;
+      addrspace = ptr->addrspace;
       tyName = basicTypeToString(ptr->type) + "*";
-      baseTyName = typName;
+      baseTyName = tyName;
       // there is no volatile or restrict (yet) in D
       typeQuals = mod2str(ptr->type->mod);
       // TODO: Images and Pipes They are global pointers to opaques
@@ -185,7 +185,7 @@ public:
     else
     {
       tyName = basicTypeToString(v->type);
-      baseTyName = typName;
+      baseTyName = tyName;
       typeQuals = mod2str(v->type->mod);
     }
 #if LDC_LLVM_VER >= 306
