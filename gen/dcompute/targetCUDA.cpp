@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/dcomputetarget.h"
+#include "gen/dcompute/druntime.h"
 #include "gen/metadata.h"
 #include "gen/abi-nvptx.h"
 #include "gen/logger.h"
