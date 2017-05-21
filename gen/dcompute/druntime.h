@@ -16,6 +16,7 @@
 #include "ddmd/mtype.h"
 #include "llvm/ADT/Optional.h"
 #include "gen/llvm.h"
+#include "gen/tollvm.h"
 
 class Dsymbol;
 class Type;
