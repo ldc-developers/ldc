@@ -518,15 +518,13 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     vafunc = DtoDeclareVaFunction(fdecl);
   }
 
-  // calling convention
-  LINK link = f->linkage;
-  if (vafunc || DtoIsIntrinsic(fdecl)
-      // DMD treats _Dmain as having C calling convention and this has been
-      // hardcoded into druntime, even if the frontend type has D linkage.
-      // See Bugzilla issue 9028.
-      || fdecl->isMain()) {
-    link = LINKc;
-  }
+  // Calling convention.
+  //
+  // DMD treats _Dmain as having C calling convention and this has been
+  // hardcoded into druntime, even if the frontend type has D linkage (Bugzilla
+  // issue 9028).
+  const bool forceC = vafunc || DtoIsIntrinsic(fdecl) || fdecl->isMain();
+  const auto link = forceC ? LINKc : f->linkage;
 
   // mangled name
   std::string mangledName = getMangledName(fdecl, link);
@@ -540,8 +538,9 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     func = LLFunction::Create(functype, llvm::GlobalValue::ExternalLinkage,
                               mangledName, &gIR->module);
   } else if (func->getFunctionType() != functype) {
-    error(fdecl->loc, "Function type does not match previously declared "
-                      "function with the same mangled name: %s",
+    error(fdecl->loc,
+          "Function type does not match previously declared "
+          "function with the same mangled name: %s",
           mangleExact(fdecl));
     fatal();
   }
@@ -793,8 +792,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     llvm::Function *func = getIrFunc(fd)->getLLVMFunc();
     assert(nullptr != func);
     if (!linkageAvailableExternally &&
-        (func->getLinkage() ==
-         llvm::GlobalValue::AvailableExternallyLinkage)) {
+        (func->getLinkage() == llvm::GlobalValue::AvailableExternallyLinkage)) {
       // Fix linkage
       const auto lwc = lowerFuncLinkage(fd);
       setLinkage(lwc, func);
@@ -817,8 +815,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     // This function failed semantic3() with errors but the errors were gagged.
     // In contrast to DMD we immediately bail out here, since other parts of
     // the codegen expect irFunc to be set for defined functions.
-    error(fd->loc, "Internal Compiler Error: function not fully analyzed; "
-                   "previous unreported errors compiling %s?",
+    error(fd->loc,
+          "Internal Compiler Error: function not fully analyzed; "
+          "previous unreported errors compiling %s?",
           fd->toPrettyChars());
     fatal();
   }
@@ -878,8 +877,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   assert(fd->ident != Id::empty);
 
   if (fd->semanticRun != PASSsemantic3done) {
-    error(fd->loc, "Internal Compiler Error: function not fully analyzed; "
-                   "previous unreported errors compiling %s?",
+    error(fd->loc,
+          "Internal Compiler Error: function not fully analyzed; "
+          "previous unreported errors compiling %s?",
           fd->toPrettyChars());
     fatal();
   }
@@ -1063,8 +1063,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
                            gIR->scopebb());
 
     // copy _arguments to a memory location
-    irFunc->_arguments =
-        DtoAllocaDump(irFunc->_arguments, 0, "_arguments_mem");
+    irFunc->_arguments = DtoAllocaDump(irFunc->_arguments, 0, "_arguments_mem");
 
     // Push cleanup block that calls va_end to match the va_start call.
     {
