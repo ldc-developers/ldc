@@ -35,7 +35,7 @@ IRScope &IRScope::operator=(const IRScope &rhs) {
 
 ////////////////////////////////////////////////////////////////////////////////
 IRState::IRState(const char *name, llvm::LLVMContext &context)
-    : module(name, context), DBuilder(this) {
+    : module(name, context), DBuilder(this), dcomputetarget(nullptr) {
   moduleRefType = nullptr;
 
   dmodule = nullptr;
