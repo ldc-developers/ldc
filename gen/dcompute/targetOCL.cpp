@@ -161,7 +161,7 @@ public:
         ss << t->toChars();
     return ss.str();
   }
-
+#if LDC_LLVM_VER >= 306
   void decodeTypes(llvm::SmallVector<
                         llvm::SmallVector<llvm::Metadata *, 8>,
                     6>& attrs,
@@ -188,7 +188,7 @@ public:
       baseTyName = tyName;
       typeQuals = mod2str(v->type->mod);
     }
-#if LDC_LLVM_VER >= 306
+
     attrs[KernArgMD_addr_space].push_back( // i32 addrspace
         llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
             llvm::IntegerType::get(ctx, 32), addrspace)));
@@ -197,8 +197,8 @@ public:
     attrs[KernArgMD_base_type].push_back(llvm::MDString::get(ctx, baseTyName));
     attrs[KernArgMD_type_qual].push_back(llvm::MDString::get(ctx, typeQuals));
     attrs[KernArgMD_name].push_back(llvm::MDString::get(ctx, v->ident->toChars()));
-#endif
   }
+#endif
 };
 } // anonymous namespace.
 
