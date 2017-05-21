@@ -327,13 +327,13 @@ public:
     if (!dct) {
       if (arg1 == DComputeTarget::Host)
         return true;
-      else if (stmt->elsebody)
+      else
         return false;
     }
     else {
       if (arg1 == dct->target && (!arg2 || arg2 == dct->tversion))
         return true;
-      else if (stmt->elsebody)
+      else 
         return false;
     }
   }
