@@ -15,6 +15,7 @@
 #include "ddmd/aggregate.h"
 #include "ddmd/mtype.h"
 #include "llvm/ADT/Optional.h"
+#include "gen/dcompute/target.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/tollvm.h"
