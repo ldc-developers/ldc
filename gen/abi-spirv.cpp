@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/abi.h"
-#include "gen/dcomputetypes.h"
+#include "gen/dcompute/druntime.h"
 #include "gen/uda.h"
 #include "ddmd/declaration.h"
 #include "gen/tollvm.h"
