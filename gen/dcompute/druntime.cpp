@@ -1,4 +1,4 @@
-//===-- gen/dcompute.cpp -------------------------------------------------===//
+//===-- gen/dcompute/druntime.cpp -----------------------------------------===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -7,8 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/dcompute.h"
-#include "gen/logger.h"
+#include "gen/dcompute/druntime.h"
 #include "ddmd/dsymbol.h"
 #include "ddmd/module.h"
 #include "ddmd/identifier.h"

@@ -1,4 +1,4 @@
-//===-- gen/dcompute.h ------------------------------------------*- C++ -*-===//
+//===-- gen/dcompute/druntime.h ---------------------------------*- C++ -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -9,8 +9,8 @@
 // Functionality related to ldc.dcompute in druntime
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_DCOMPUTE_H
-#define LDC_GEN_DCOMPUTE_H
+#ifndef LDC_GEN_DCOMPUTE_DRUNTIME_H
+#define LDC_GEN_DCOMPUTE_DRUNTIME_H
 
 #include "ddmd/aggregate.h"
 #include "ddmd/mtype.h"
