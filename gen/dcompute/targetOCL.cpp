@@ -86,12 +86,13 @@ public:
 #endif
   }
   enum KernArgMD {
-    KernArgMD_addr_space,
-    KernArgMD_access_qual,
-    KernArgMD_type,
-    KernArgMD_base_type,
-    KernArgMD_type_qual,
-    KernArgMD_name
+      KernArgMD_addr_space,
+      KernArgMD_access_qual,
+      KernArgMD_type,
+      KernArgMD_base_type,
+      KernArgMD_type_qual,
+      KernArgMD_name,
+      count_KernArgMD
   };
   void addKernelMetadata(FuncDeclaration *fd, llvm::Function *llf) override {
 // By the time we get here the ABI should have rewritten the function
@@ -100,24 +101,29 @@ public:
 
 // Fix 3.5.2 build failures. Remove when dropping 3.5 support.
 #if LDC_LLVM_VER >= 306
-
+    unsigned i = 0;
     // TODO: Handle Function attibutes
     llvm::SmallVector<llvm::Metadata *, 8> kernelMDArgs;
     kernelMDArgs.push_back(llvm::ConstantAsMetadata::get(llf));
     // MDNode for the kernel argument address space qualifiers.
-    llvm::SmallVector<llvm::SmallVector<llvm::Metadata *, 8>, 6> paramArgs;
-    llvm::SmallVector<const char *, 6> args = {
-        "kernel_arg_addr_space", "kernel_arg_access_qual", "kernel_arg_type",
-        "kernel_arg_type_qual",  "kernel_arg_base_type",   "kernel_arg_name"};
 
-    for (auto &str : args) {
-      llvm::SmallVector<llvm::Metadata *, 8> tmp;
-      tmp.push_back(llvm::MDString::get(ctx, str));
-      paramArgs.push_back(tmp);
+    std::array<llvm::SmallVector<llvm::Metadata *, 8>,count_KernArgMD> paramArgs;
+    std::array<const char*,count_KernArgMD> args = {
+      "kernel_arg_addr_space",
+      "kernel_arg_access_qual",
+      "kernel_arg_type",
+      "kernel_arg_type_qual",
+      "kernel_arg_base_type",
+      "kernel_arg_name"
+    };
+      
+    for (auto md : args) {
+      paramArgs[i].push_back(llvm::MDString::get(ctx, md));
+      i++;
     }
 
     VarDeclarations *vs = fd->parameters;
-    for (unsigned i = 0; i < vs->dim; i++) {
+    for (i = 0; i < vs->dim; i++) {
       VarDeclaration *v = (*vs)[i];
       decodeTypes(paramArgs, v);
     }
@@ -160,10 +166,8 @@ public:
       ss << t->toChars();
     return ss.str();
   }
-
-  void decodeTypes(llvm::SmallVector<
-                        llvm::SmallVector<llvm::Metadata *, 8>,
-                    6>& attrs,
+#if LDC_LLVM_VER >= 306
+  void decodeTypes(std::array<llvm::SmallVector<llvm::Metadata *, 8>,count_KernArgMD> attrs,
                    VarDeclaration *v)
   {
     llvm::Optional<DcomputePointer> ptr;
@@ -185,7 +189,7 @@ public:
       baseTyName = tyName;
       typeQuals = mod2str(v->type->mod);
     }
-#if LDC_LLVM_VER >= 306
+
     attrs[KernArgMD_addr_space].push_back( // i32 addrspace
         llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
             llvm::IntegerType::get(ctx, 32), addrspace)));
@@ -194,8 +198,8 @@ public:
     attrs[KernArgMD_base_type].push_back(llvm::MDString::get(ctx, baseTyName));
     attrs[KernArgMD_type_qual].push_back(llvm::MDString::get(ctx, typeQuals));
     attrs[KernArgMD_name].push_back(llvm::MDString::get(ctx, v->ident->toChars()));
-#endif
   }
+#endif
 };
 } // anonymous namespace.
 
