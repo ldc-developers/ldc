@@ -53,9 +53,11 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
 }
 
 DComputeCodeGenManager::DComputeCodeGenManager(llvm::LLVMContext &c) : ctx(c) {
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
   for (auto &option : opts::dcomputeTargets) {
     targets.push_back(createComputeTarget(option));
   }
+#endif
 }
 
 void DComputeCodeGenManager::emit(Module *m) {
