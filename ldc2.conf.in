@@ -8,7 +8,6 @@ default:
     switches = [
         "-I@RUNTIME_DIR@/src",
         "-L-L@PROJECT_BINARY_DIR@/../lib@LIB_SUFFIX@", @MULTILIB_ADDITIONAL_PATH@@SHARED_LIBS_RPATH@
-        "-defaultlib=druntime-ldc",
-        "-debuglib=druntime-ldc-debug"@ADDITIONAL_DEFAULT_LDC_SWITCHES@
+        "-defaultlib=druntime-ldc"@ADDITIONAL_DEFAULT_LDC_SWITCHES@
     ];
 };

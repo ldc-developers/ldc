@@ -33,12 +33,6 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-static llvm::cl::opt<bool> staticFlag(
-    "static",
-    llvm::cl::desc(
-        "Create a statically linked binary, including all system dependencies"),
-    llvm::cl::ZeroOrMore);
-
 static llvm::cl::opt<std::string> mscrtlib(
     "mscrtlib",
     llvm::cl::desc(
@@ -323,7 +317,7 @@ static int linkObjToBinaryGcc(bool sharedLib) {
     args.push_back("-shared");
   }
 
-  if (staticFlag) {
+  if (opts::staticFlag) {
     args.push_back("-static");
   }
 
@@ -516,8 +510,9 @@ static void addMscrtLibs(std::vector<std::string> &args) {
   llvm::StringRef mscrtlibName = mscrtlib;
   if (mscrtlibName.empty()) {
     // default to static release variant
-    mscrtlibName =
-        staticFlag || staticFlag.getNumOccurrences() == 0 ? "libcmt" : "msvcrt";
+    mscrtlibName = opts::staticFlag || opts::staticFlag.getNumOccurrences() == 0
+                       ? "libcmt"
+                       : "msvcrt";
   }
 
   args.push_back(("/DEFAULTLIB:" + mscrtlibName).str());

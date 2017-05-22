@@ -99,13 +99,20 @@ static cl::opt<std::string>
 
 static cl::opt<std::string> debugLib(
     "debuglib",
-    cl::desc("Debug versions of default libraries (overrides previous)"),
-    cl::value_desc("lib1,lib2,..."), cl::ZeroOrMore);
+    cl::desc("Debug versions of default libraries (overrides previous). If the "
+             "option is omitted, LDC will append -debug to the -defaultlib "
+             "names when linking with -link-debuglib"),
+    cl::value_desc("lib1,lib2,..."), cl::ZeroOrMore, cl::Hidden);
 
-static cl::opt<bool> linkDebugLib(
-    "link-debuglib",
-    cl::desc("Link with libraries specified in -debuglib, not -defaultlib"),
-    cl::ZeroOrMore);
+static cl::opt<bool>
+    linkDebugLib("link-debuglib",
+                 cl::desc("Link with debug versions of default libraries"),
+                 cl::ZeroOrMore);
+
+static cl::opt<bool>
+    linkSharedLib("link-sharedlib",
+                  cl::desc("Link with shared versions of default libraries"),
+                  cl::ZeroOrMore);
 
 #if LDC_LLVM_VER >= 309
 static inline llvm::Optional<llvm::Reloc::Model> getRelocModel() {
@@ -499,15 +506,25 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     }
   }
 
+  if (linkSharedLib && staticFlag) {
+    error(Loc(), "Can't use -link-sharedlib and -static together");
+  }
+
+  // default libraries
   if (noDefaultLib) {
-    deprecation(
-        Loc(),
-        "-nodefaultlib is deprecated, as "
-        "-defaultlib/-debuglib now override the existing list instead of "
-        "appending to it. Please use the latter instead.");
+    deprecation(Loc(), "-nodefaultlib is deprecated, as -defaultlib now "
+                       "overrides the existing list instead of appending to "
+                       "it. Please use the latter instead.");
   } else {
+    const bool addDebugSuffix =
+        (linkDebugLib && debugLib.getNumOccurrences() == 0);
+    const bool addSharedSuffix =
+        linkSharedLib || (linkSharedLib.getNumOccurrences() == 0 &&
+                          global.params.dll && !staticFlag);
+
     // Parse comma-separated default library list.
-    std::stringstream libNames(linkDebugLib ? debugLib : defaultLib);
+    std::stringstream libNames(linkDebugLib && !addDebugSuffix ? debugLib
+                                                               : defaultLib);
     while (libNames.good()) {
       std::string lib;
       std::getline(libNames, lib, ',');
@@ -515,9 +532,16 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
         continue;
       }
 
-      char *arg = static_cast<char *>(mem.xmalloc(lib.size() + 3));
+      const size_t size =
+          lib.size() + 3 + (addDebugSuffix ? 6 : 0) + (addSharedSuffix ? 7 : 0);
+      char *arg = static_cast<char *>(mem.xmalloc(size));
       strcpy(arg, "-l");
       strcpy(arg + 2, lib.c_str());
+      if (addDebugSuffix)
+        strcpy(arg + 2 + lib.length(), "-debug");
+      if (addSharedSuffix)
+        strcpy(arg + size - 8, "-shared");
+
       global.params.linkswitches->push(arg);
     }
   }

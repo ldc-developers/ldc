@@ -96,6 +96,9 @@ script:
     if [[ "${OPTS}" == *-DMULTILIB?ON* ]]; then
       ninja -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest phobos2-ldc-unittest-debug_32 phobos2-ldc-unittest_32;
       ninja -j3 druntime-ldc-unittest-debug druntime-ldc-unittest druntime-ldc-unittest-debug_32 druntime-ldc-unittest_32;
+    elif [[ "${OPTS}" == *-DBUILD_SHARED_LIBS?ON* ]]; then
+      ninja -j2 phobos2-ldc-unittest-debug-shared phobos2-ldc-unittest-shared;
+      ninja -j3 druntime-ldc-unittest-debug-shared druntime-ldc-unittest-shared;
     else
       ninja -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest;
       ninja -j3 druntime-ldc-unittest-debug druntime-ldc-unittest;
