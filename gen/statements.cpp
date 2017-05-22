@@ -325,16 +325,10 @@ public:
     auto arg2 = (*ce->arguments)[1]->toInteger();
     auto dct = irs->dcomputetarget;
     if (!dct) {
-      if (arg1 == DComputeTarget::Host)
-        return true;
-      else
-        return false;
+      return arg1 == DComputeTarget::Host;
     }
     else {
-      if (arg1 == dct->target && (!arg2 || arg2 == dct->tversion))
-        return true;
-      else
-        return false;
+      return arg1 == dct->target && (!arg2 || arg2 == dct->tversion);
     }
   }
 
