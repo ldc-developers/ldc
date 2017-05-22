@@ -525,8 +525,8 @@ cl::opt<std::string>
 cl::list<std::string>
     dcomputeTargets("mdcompute-targets", cl::CommaSeparated,
                     cl::desc("Generates code for the specified DCompute target"
-                              " list. Use 'ocl-xy0' for OpenCL x.y, and "
-                              "'cuda-xy0' for CUDA x.y"),
+                             " list. Use 'ocl-xy0' for OpenCL x.y, and "
+                             "'cuda-xy0' for CUDA CC x.y"),
                      cl::value_desc("targets"));
 #endif
 

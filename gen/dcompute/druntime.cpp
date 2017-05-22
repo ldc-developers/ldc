@@ -32,16 +32,14 @@ bool isFromLDC_DCompute(Dsymbol *sym) {
     return false;
 
   return moduleDecl->id == Id::dcompute;
-
 }
 
-llvm::Optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd)
-{
+llvm::Optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd) {
   if (sd->ident != Id::dcPointer || !isFromLDC_DCompute(sd))
-      return llvm::Optional<DcomputePointer>(llvm::None);
+    return llvm::Optional<DcomputePointer>(llvm::None);
 
   TemplateInstance *ti = sd->isInstantiated();
   int addrspace = isExpression((*ti->tiargs)[0])->toInteger();
-  Type* type = isType((*ti->tiargs)[1]);
-  return llvm::Optional<DcomputePointer>(DcomputePointer(addrspace,type));
+  Type *type = isType((*ti->tiargs)[1]);
+  return llvm::Optional<DcomputePointer>(DcomputePointer(addrspace, type));
 }

@@ -21,17 +21,20 @@ namespace {
 class TargetCUDA : public DComputeTarget {
 public:
   TargetCUDA(llvm::LLVMContext &c, int sm)
-     : DComputeTarget(
+      : DComputeTarget(
             c, sm, CUDA, "cuda", "ptx", createNVPTXABI(),
 
             // Map from nominal DCompute address space to NVPTX address space.
             // see $LLVM_ROOT/docs/docs/NVPTXUsage.rst section Address Spaces
             {{5, 1, 3, 4, 0}}) {
-    std::string dl = global.params.is64bit ?
-        "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-"
-        "f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64" :
-        "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-"
-        "f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64";
+    std::string dl =
+        global.params.is64bit
+            ? "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:"
+              "32-"
+              "f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64"
+            : "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:"
+              "32-"
+              "f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64";
 
     _ir = new IRState("dcomputeTargetCUDA", ctx);
     _ir->module.setTargetTriple(global.params.is64bit ? "nvptx64-nvidia-cuda"
@@ -40,20 +43,20 @@ public:
     _ir->dcomputetarget = this;
   }
 
- void addMetadata() override {
+  void addMetadata() override {
     // sm version?
   }
- void setGTargetMachine() override {
-   char buf[8];
-   bool is64 = global.params.is64bit;
-   snprintf(buf, sizeof(buf), "sm_%d", tversion / 10);
-   gTargetMachine = createTargetMachine(
+  void setGTargetMachine() override {
+    char buf[8];
+    bool is64 = global.params.is64bit;
+    snprintf(buf, sizeof(buf), "sm_%d", tversion / 10);
+    gTargetMachine = createTargetMachine(
         is64 ? "nvptx64-nvidia-cuda" : "nvptx-nvidia-cuda",
         is64 ? "nvptx64" : "nvptx", buf, {},
         is64 ? ExplicitBitness::M64 : ExplicitBitness::M32, ::FloatABI::Hard,
         llvm::Reloc::Static, llvm::CodeModel::Medium, codeGenOptLevel(), false,
         false);
- }
+  }
 
   void addKernelMetadata(FuncDeclaration *df, llvm::Function *llf) override {
 // Fix 3.5.2 build failures. Remove when dropping 3.5 support.

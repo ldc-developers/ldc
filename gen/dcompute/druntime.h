@@ -23,13 +23,12 @@
 class Dsymbol;
 class Type;
 
-
 bool isFromLDC_DCompute(Dsymbol *sym);
 
 struct DcomputePointer {
   int addrspace;
-  Type* type;
-  DcomputePointer(int as,Type* ty) : addrspace(as),type(ty) {}
+  Type *type;
+  DcomputePointer(int as, Type *ty) : addrspace(as), type(ty) {}
   LLType *toLLVMType(bool translate) {
     auto llType = DtoMemType(type);
     int as = addrspace;

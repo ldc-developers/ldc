@@ -28,14 +28,14 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
 
   if (s.substr(0, 4) == "ocl-") {
     v = atoi(s.c_str() + 4);
-  if (std::find(valid_ocl_versions.begin(), valid_ocl_versions.end(), v) !=
+    if (std::find(valid_ocl_versions.begin(), valid_ocl_versions.end(), v) !=
         valid_ocl_versions.end()) {
       return createOCLTarget(ctx, v);
     }
   } else if (s.substr(0, 5) == "cuda-") {
     v = atoi(s.c_str() + 5);
 
-  if (std::find(vaild_cuda_versions.begin(), vaild_cuda_versions.end(), v) !=
+    if (std::find(vaild_cuda_versions.begin(), vaild_cuda_versions.end(), v) !=
         vaild_cuda_versions.end()) {
       return createCUDATarget(ctx, v);
     }
@@ -47,26 +47,27 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
         "unrecognised or invalid DCompute targets: the format is ocl-xy0 "
         "for OpenCl x.y and cuda-xy0 for CUDA CC x.y. Valid versions "
         "for OpenCl are " STR(OCL_VALID_VER_INIT) ". Valid versions for CUDA "
-        "are " STR(CUDA_VALID_VER_INIT));
+                                                  "are " STR(
+                                                      CUDA_VALID_VER_INIT));
   fatal();
   return nullptr;
 }
 
 DComputeCodeGenManager::DComputeCodeGenManager(llvm::LLVMContext &c) : ctx(c) {
-  for (auto& option : opts::dcomputeTargets) {
+  for (auto &option : opts::dcomputeTargets) {
     targets.push_back(createComputeTarget(option));
   }
 }
 
 void DComputeCodeGenManager::emit(Module *m) {
-  for (auto& target : targets) {
+  for (auto &target : targets) {
     target->emit(m);
     IrDsymbol::resetAll();
   }
 }
 
 void DComputeCodeGenManager::writeModules() {
-  for (auto& target : targets) {
+  for (auto &target : targets) {
     target->writeModule();
   }
 }

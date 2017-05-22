@@ -39,8 +39,8 @@ public:
 
   DComputeTarget(llvm::LLVMContext &c, int v, ID id, const char *_short_name,
                  const char *suffix, TargetABI *a, std::array<int, 5> map)
-    : ctx(c), tversion(v), target(id), short_name(_short_name),
-      binSuffix(suffix), abi(a), mapping(map) { }
+      : ctx(c), tversion(v), target(id), short_name(_short_name),
+        binSuffix(suffix), abi(a), mapping(map) {}
 
   void emit(Module *m);
   void doCodeGen(Module *m);
