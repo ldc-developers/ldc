@@ -543,15 +543,15 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     const char *ext = FileName::ext(global.params.objname);
     if (!ext) {
       // keep things as they are
-    } else if (opts::output_ll != cl::BOU_FALSE &&
+    } else if (opts::output_ll.getNumOccurrences() == 0 &&
                strcmp(ext, global.ll_ext) == 0) {
       global.params.output_ll = OUTPUTFLAGset;
       global.params.output_o = OUTPUTFLAGno;
-    } else if (opts::output_bc != cl::BOU_FALSE &&
+    } else if (opts::output_bc.getNumOccurrences() == 0 &&
                strcmp(ext, global.bc_ext) == 0) {
       global.params.output_bc = OUTPUTFLAGset;
       global.params.output_o = OUTPUTFLAGno;
-    } else if (opts::output_s != cl::BOU_FALSE &&
+    } else if (opts::output_s.getNumOccurrences() == 0 &&
                strcmp(ext, global.s_ext) == 0) {
       global.params.output_s = OUTPUTFLAGset;
       global.params.output_o = OUTPUTFLAGno;
