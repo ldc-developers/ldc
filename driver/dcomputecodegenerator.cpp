@@ -47,8 +47,7 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
         "unrecognised or invalid DCompute targets: the format is ocl-xy0 "
         "for OpenCl x.y and cuda-xy0 for CUDA CC x.y. Valid versions "
         "for OpenCl are " STR(OCL_VALID_VER_INIT) ". Valid versions for CUDA "
-                                                  "are " STR(
-                                                      CUDA_VALID_VER_INIT));
+        "are " STR(CUDA_VALID_VER_INIT));
   fatal();
   return nullptr;
 }
