@@ -91,7 +91,9 @@ public:
       KernArgMD_type,
       KernArgMD_base_type,
       KernArgMD_type_qual,
-      KernArgMD_name
+      KernArgMD_name,
+      count_KernArgMD
+      
   };
   void addKernelMetadata(FuncDeclaration *fd, llvm::Function *llf) override {
     // By the time we get here the ABI should have rewritten the function
@@ -105,8 +107,8 @@ public:
     llvm::SmallVector<llvm::Metadata *, 8> kernelMDArgs;
     kernelMDArgs.push_back(llvm::ConstantAsMetadata::get(llf));
     // MDNode for the kernel argument address space qualifiers.
-    llvm::SmallVector<llvm::SmallVector<llvm::Metadata *, 8>,6> paramArgs;
-    llvm::SmallVector<const char*,6> args = {
+    llvm::SmallVector<llvm::Metadata *, 8>[count_KernArgMD] paramArgs;
+    const char*[count_KernArgMD] args = {
       "kernel_arg_addr_space",
       "kernel_arg_access_qual",
       "kernel_arg_type",
@@ -115,10 +117,8 @@ public:
       "kernel_arg_name"
     };
       
-    for (auto &str : args) {
-      llvm::SmallVector<llvm::Metadata *, 8> tmp;
-      tmp.push_back(llvm::MDString::get(ctx, str));
-      paramArgs.push_back(tmp);
+    for (int i=0; i<count_KernArgMD; i++) {
+      paramArgs[i].push_back(llvm::MDString::get(ctx, str));
     }
 
     VarDeclarations *vs = fd->parameters;
@@ -127,8 +127,8 @@ public:
       decodeTypes(paramArgs,v);
     }
   
-    for(auto& md : paramArgs)
-      kernelMDArgs.push_back(llvm::MDNode::get(ctx, md));
+    for (int i=0; i<count_KernArgMD; i++)
+      kernelMDArgs.push_back(llvm::MDNode::get(ctx, paramArgs[i]));
     ///-------------------------------
     /// TODO: Handle Function attibutes
     ///-------------------------------
@@ -162,9 +162,7 @@ public:
     return ss.str();
   }
 #if LDC_LLVM_VER >= 306
-  void decodeTypes(llvm::SmallVector<
-                        llvm::SmallVector<llvm::Metadata *, 8>,
-                    6>& attrs,
+  void decodeTypes(llvm::SmallVector<llvm::Metadata *, 8>[count_KernArgMD] attrs
                    VarDeclaration *v)
   {
     llvm::Optional<DcomputePointer> ptr;
@@ -173,7 +171,8 @@ public:
     std::string tyName;
     std::string accessQual = "none";
     int addrspace = 0;
-    if (v->type->ty == Tstruct && (ptr = toDcomputePointer(static_cast<TypeStruct*>(v->type)->sym)))
+    if (v->type->ty == Tstruct &&
+        (ptr = toDcomputePointer(static_cast<TypeStruct*>(v->type)->sym)))
     {
       addrspace = ptr->addrspace;
       tyName = basicTypeToString(ptr->type) + "*";
