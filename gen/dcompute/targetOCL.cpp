@@ -102,13 +102,13 @@ public:
 
     // Fix 3.5.2 build failures. Remove when dropping 3.5 support.
 #if LDC_LLVM_VER >= 306
-
+    unsigned i = 0;
     // TODO: Handle Function attibutes
     llvm::SmallVector<llvm::Metadata *, 8> kernelMDArgs;
     kernelMDArgs.push_back(llvm::ConstantAsMetadata::get(llf));
     // MDNode for the kernel argument address space qualifiers.
     llvm::SmallVector<llvm::Metadata *, 8>[count_KernArgMD] paramArgs;
-    const char*[count_KernArgMD] args = {
+    const char*[] args = {
       "kernel_arg_addr_space",
       "kernel_arg_access_qual",
       "kernel_arg_type",
@@ -117,18 +117,19 @@ public:
       "kernel_arg_name"
     };
       
-    for (int i=0; i<count_KernArgMD; i++) {
-      paramArgs[i].push_back(llvm::MDString::get(ctx, str));
+    for (auto md : args) {
+      paramArgs[i].push_back(llvm::MDString::get(ctx, md));
+      i++;
     }
 
     VarDeclarations *vs = fd->parameters;
-    for (unsigned i = 0; i < vs->dim; i++) {
+    for (i = 0; i < vs->dim; i++) {
       VarDeclaration *v = (*vs)[i];
       decodeTypes(paramArgs,v);
     }
   
-    for (int i=0; i<count_KernArgMD; i++)
-      kernelMDArgs.push_back(llvm::MDNode::get(ctx, paramArgs[i]));
+    for (auto& md : paramArgs)
+      kernelMDArgs.push_back(llvm::MDNode::get(ctx, md));
     ///-------------------------------
     /// TODO: Handle Function attibutes
     ///-------------------------------
@@ -162,7 +163,7 @@ public:
     return ss.str();
   }
 #if LDC_LLVM_VER >= 306
-  void decodeTypes(llvm::SmallVector<llvm::Metadata *, 8>[count_KernArgMD] attrs
+  void decodeTypes(llvm::SmallVector<llvm::Metadata *, 8>[count_KernArgMD] attrs,
                    VarDeclaration *v)
   {
     llvm::Optional<DcomputePointer> ptr;
