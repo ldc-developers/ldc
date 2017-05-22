@@ -107,8 +107,8 @@ public:
     llvm::SmallVector<llvm::Metadata *, 8> kernelMDArgs;
     kernelMDArgs.push_back(llvm::ConstantAsMetadata::get(llf));
     // MDNode for the kernel argument address space qualifiers.
-    llvm::SmallVector<llvm::Metadata *, 8>[count_KernArgMD] paramArgs;
-    const char*[] args = {
+    std::array<llvm::SmallVector<llvm::Metadata *, 8>,count_KernArgMD> paramArgs;
+    std::array<const char*,count_KernArgMD> args = {
       "kernel_arg_addr_space",
       "kernel_arg_access_qual",
       "kernel_arg_type",
@@ -163,7 +163,7 @@ public:
     return ss.str();
   }
 #if LDC_LLVM_VER >= 306
-  void decodeTypes(llvm::SmallVector<llvm::Metadata *, 8>[count_KernArgMD] attrs,
+  void decodeTypes(std::array<llvm::SmallVector<llvm::Metadata *, 8>,count_KernArgMD> attrs,
                    VarDeclaration *v)
   {
     llvm::Optional<DcomputePointer> ptr;
