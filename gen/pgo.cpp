@@ -37,9 +37,9 @@
 #if LDC_LLVM_VER >= 309
 namespace {
 llvm::cl::opt<bool, false, opts::FlagParser<bool>> enablePGOIndirectCalls(
-    "pgo-indirect-calls",
+    "pgo-indirect-calls", llvm::cl::ZeroOrMore, llvm::cl::Hidden,
     llvm::cl::desc("(*) Enable PGO of indirect calls (LLVM >= 3.9)"),
-    llvm::cl::init(true), llvm::cl::Hidden);
+    llvm::cl::init(true));
 }
 #endif
 

@@ -114,8 +114,7 @@ namespace {
 
 // Options for the cache pruning algorithm
 llvm::cl::opt<bool> pruneEnabled("cache-prune",
-                                 llvm::cl::desc("Enable cache pruning."),
-                                 llvm::cl::ZeroOrMore);
+                                 llvm::cl::desc("Enable cache pruning."));
 llvm::cl::opt<unsigned long long> pruneSizeLimitInBytes(
     "cache-prune-maxbytes",
     llvm::cl::desc("Sets the maximum cache size to <size> bytes. Implies "
@@ -142,7 +141,7 @@ llvm::cl::opt<unsigned> pruneSizeLimitPercentage(
 
 enum class RetrievalMode { Copy, HardLink, AnyLink, SymLink };
 llvm::cl::opt<RetrievalMode> cacheRecoveryMode(
-    "cache-retrieval",
+    "cache-retrieval", llvm::cl::ZeroOrMore,
     llvm::cl::desc("Set the cache retrieval mechanism (default: copy)."),
     llvm::cl::init(RetrievalMode::Copy),
     clEnumValues(

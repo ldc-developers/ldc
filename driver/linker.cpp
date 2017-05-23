@@ -33,23 +33,21 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-static llvm::cl::opt<bool> staticFlag(
-    "static",
-    llvm::cl::desc(
-        "Create a statically linked binary, including all system dependencies"),
-    llvm::cl::ZeroOrMore);
+static llvm::cl::opt<bool>
+    staticFlag("static", llvm::cl::ZeroOrMore,
+               llvm::cl::desc("Create a statically linked binary, including "
+                              "all system dependencies"));
 
 static llvm::cl::opt<std::string> mscrtlib(
-    "mscrtlib",
+    "mscrtlib", llvm::cl::ZeroOrMore, llvm::cl::value_desc("name"),
     llvm::cl::desc(
-        "MS C runtime library to link against (libcmt[d] / msvcrt[d])"),
-    llvm::cl::value_desc("name"), llvm::cl::ZeroOrMore);
+        "MS C runtime library to link against (libcmt[d] / msvcrt[d])"));
 
 static llvm::cl::opt<std::string>
-    ltoLibrary("flto-binary",
+    ltoLibrary("flto-binary", llvm::cl::ZeroOrMore,
                llvm::cl::desc("Set the linker LTO plugin library file (e.g. "
                               "LLVMgold.so (Unixes) or libLTO.dylib (Darwin))"),
-               llvm::cl::value_desc("file"), llvm::cl::ZeroOrMore);
+               llvm::cl::value_desc("file"));
 
 static llvm::cl::opt<std::string> ar("ar", llvm::cl::desc("Archiver"),
                                      llvm::cl::Hidden, llvm::cl::ZeroOrMore);

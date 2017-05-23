@@ -31,9 +31,9 @@ namespace sys = llvm::sys;
 
 // dummy only; needs to be parsed manually earlier as the switches contained in
 // the config file are injected into the command line options fed to the parser
-llvm::cl::opt<std::string>
+static llvm::cl::opt<std::string>
     clConf("conf", llvm::cl::desc("Use configuration file <filename>"),
-           llvm::cl::value_desc("filename"));
+           llvm::cl::value_desc("filename"), llvm::cl::ZeroOrMore);
 
 #if _WIN32
 std::string getUserHomeDirectory() {

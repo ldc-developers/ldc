@@ -54,7 +54,8 @@ STATISTIC(NumDeleted,
           "Number of GC calls deleted because the return value was unused");
 
 static cl::opt<unsigned>
-    SizeLimit("dgc2stack-size-limit", cl::init(1024), cl::Hidden,
+    SizeLimit("dgc2stack-size-limit", cl::ZeroOrMore, cl::Hidden,
+              cl::init(1024),
               cl::desc("Require allocs to be smaller than n bytes to be "
                        "promoted, 0 to ignore."));
 
