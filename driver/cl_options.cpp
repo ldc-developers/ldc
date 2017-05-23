@@ -372,10 +372,10 @@ cl::opt<FloatABI::Type> mFloatABI(
         clEnumValN(FloatABI::Hard, "hard",
                    "Hardware floating-point ABI and instructions")));
 
-cl::opt<bool>
+cl::opt<bool, true>
     disableFpElim("disable-fp-elim", cl::ZeroOrMore,
                   cl::desc("Disable frame pointer elimination optimization"),
-                  cl::init(false));
+                  cl::location(global.params.alwaysframe));
 
 static cl::opt<bool, true, FlagParser<bool>>
     asserts("asserts", cl::desc("(*) Enable assertions"),

@@ -580,6 +580,11 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   }
 
   global.params.hdrStripPlainFunctions = !opts::hdrKeepAllBodies;
+
+  if (opts::disableFpElim.getNumOccurrences() == 0) {
+    global.params.alwaysframe =
+        global.params.symdebug && !isOptimizationEnabled();
+  }
 }
 
 void initializePasses() {
@@ -988,7 +993,8 @@ int cppmain(int argc, char **argv) {
 
   gTargetMachine = createTargetMachine(
       mTargetTriple, mArch, mCPU, mAttrs, bitness, mFloatABI, getRelocModel(),
-      mCodeModel, codeGenOptLevel(), disableFpElim, disableLinkerStripDead);
+      mCodeModel, codeGenOptLevel(), global.params.alwaysframe,
+      disableLinkerStripDead);
 
 #if LDC_LLVM_VER >= 308
   static llvm::DataLayout DL = gTargetMachine->createDataLayout();

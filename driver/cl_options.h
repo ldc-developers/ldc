@@ -80,7 +80,7 @@ extern cl::opt<std::string> mABI;
 #endif
 extern cl::opt<llvm::Reloc::Model> mRelocModel;
 extern cl::opt<llvm::CodeModel::Model> mCodeModel;
-extern cl::opt<bool> disableFpElim;
+extern cl::opt<bool, true> disableFpElim;
 extern cl::opt<FloatABI::Type> mFloatABI;
 extern cl::opt<bool> linkonceTemplates;
 extern cl::opt<bool> disableLinkerStripDead;
