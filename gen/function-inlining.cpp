@@ -152,18 +152,21 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
     return false;
   }
 
-  if (fdecl.semanticRun >= PASSsemantic3) {
+  if ((fdecl.inlining != PINLINEalways) && fdecl.semanticRun >= PASSsemantic3) {
     // If semantic analysis has come this far, the function will be defined
     // elsewhere and should not get the available_externally attribute from
-    // here.
+    // here. However, pragma(inline, true) functions should remain
+    // defineAsExternallyAvailable candidates to fix GH #1712.
     // TODO: This check prevents inlining of nested functions.
     IF_LOG Logger::println("Semantic analysis already completed");
     return false;
   }
 
-  if (alreadyOrWillBeDefined(fdecl)) {
+  if ((fdecl.inlining != PINLINEalways) && alreadyOrWillBeDefined(fdecl)) {
     // This check is needed because of ICEs happening because of unclear issues
     // upon changing the codegen order without this check.
+    // pragma(inline, true) functions remain defineAsExternallyAvailable
+    // candidates to fix GH #1712.
     IF_LOG Logger::println("Function will be defined later.");
     return false;
   }
@@ -179,6 +182,7 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
 
   IF_LOG Logger::println("Potential inlining candidate");
 
+  if (fdecl.semanticRun < PASSsemantic3)
   {
     IF_LOG Logger::println("Do semantic analysis");
     LOG_SCOPE

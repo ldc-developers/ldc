@@ -323,7 +323,9 @@ static llvm::Function *DtoDeclareVaFunction(FuncDeclaration *fdecl) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoResolveFunction(FuncDeclaration *fdecl) {
+/// When mayDefine is true, the call to this function may possibly define the
+/// function too (e.g. for cross-module inlining).
+void DtoResolveFunction(FuncDeclaration *fdecl, bool mayDefine) {
   if ((!global.params.useUnitTests || !fdecl->type) &&
       fdecl->isUnitTestDeclaration()) {
     IF_LOG Logger::println("Ignoring unittest %s", fdecl->toPrettyChars());
@@ -402,7 +404,7 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
 
   // queue declaration unless the function is abstract without body
   if (!fdecl->isAbstract() || fdecl->fbody) {
-    DtoDeclareFunction(fdecl);
+    DtoDeclareFunction(fdecl, mayDefine);
   }
 }
 
@@ -466,8 +468,10 @@ void applyTargetMachineAttributes(llvm::Function &func,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoDeclareFunction(FuncDeclaration *fdecl) {
-  DtoResolveFunction(fdecl);
+/// When mayDefine is true, the call to this function may possibly define the
+/// function too (e.g. for cross-module inlining).
+void DtoDeclareFunction(FuncDeclaration *fdecl, bool mayDefine) {
+  DtoResolveFunction(fdecl, mayDefine);
 
   if (fdecl->ir->isDeclared()) {
     return;
@@ -494,7 +498,8 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   // Check if fdecl should be defined too for cross-module inlining.
   // If true, semantic is fully done for fdecl which is needed for some code
   // below (e.g. code that uses fdecl->vthis).
-  const bool defineAtEnd = defineAsExternallyAvailable(*fdecl);
+  const bool defineAtEnd =
+      mayDefine && defineAsExternallyAvailable(*fdecl);
   if (defineAtEnd) {
     IF_LOG Logger::println(
         "Function is an externally_available inline candidate.");
@@ -779,7 +784,16 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
                          fd->loc.toChars());
   LOG_SCOPE;
   if (linkageAvailableExternally) {
-    IF_LOG Logger::println("linkageAvailableExternally = true");
+    IF_LOG Logger::println("linkageAvailableExternally == true");
+  }
+
+  if ((fd->getModule() != gIR->dmodule) && !fd->isInstantiated()) {
+    // The function is being emitted cross-module for inlining. We reach here
+    // for nested functions inside cross-module emitted functions. We have to
+    // explicitly set `linkageAvailableExternally` to true.
+    linkageAvailableExternally = true;
+    IF_LOG Logger::println("Cross-module emitted nested function: "
+                           "linkageAvailableExternally = true");
   }
 
   if (fd->ir->isDefined()) {
@@ -788,6 +802,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     if (!linkageAvailableExternally &&
         (func->getLinkage() == llvm::GlobalValue::AvailableExternallyLinkage)) {
       // Fix linkage
+      IF_LOG Logger::println("Remove available_externally linkage.");
       const auto lwc = lowerFuncLinkage(fd);
       setLinkage(lwc, func);
     }
@@ -816,7 +831,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     fatal();
   }
 
-  DtoResolveFunction(fd);
+  DtoResolveFunction(fd, false);
 
   if (fd->isUnitTestDeclaration() && !global.params.useUnitTests) {
     IF_LOG Logger::println("No code generation for unit test declaration %s",
@@ -840,7 +855,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     return;
   }
 
-  DtoDeclareFunction(fd);
+  DtoDeclareFunction(fd, false);
   assert(fd->ir->isDeclared());
 
   // DtoResolveFunction might also set the defined flag for functions we

@@ -126,10 +126,15 @@ public:
     }
 
     // Define the __initZ symbol.
-    IrAggr *ir = getIrAggr(decl);
-    llvm::GlobalVariable *initZ = ir->getInitSymbol();
-    initZ->setInitializer(ir->getDefaultInit());
-    setLinkage(decl, initZ);
+    // If we reach here during codegen of an available_externally function,
+    // the struct initializer should stay external and therefore must not
+    // have an initializer.
+    if ((decl->getModule() == gIR->dmodule) || decl->isInstantiated()) {
+      IrAggr *ir = getIrAggr(decl);
+      llvm::GlobalVariable *initZ = ir->getInitSymbol();
+      initZ->setInitializer(ir->getDefaultInit());
+      setLinkage(decl, initZ);
+    }
 
     // emit typeinfo
     DtoTypeInfoOf(decl->type);
@@ -261,7 +266,8 @@ public:
       // If we reach here during codegen of an available_externally function,
       // new variable declarations should stay external and therefore must not
       // have an initializer.
-      if (!(decl->storage_class & STCextern) && !decl->inNonRoot()) {
+      if (!(decl->storage_class & STCextern) &&
+          ((decl->getModule() == gIR->dmodule) || decl->isInstantiated())) {
         // Build the initializer. Might use this->ir.irGlobal->value!
         LLConstant *initVal =
             DtoConstInitializer(decl->loc, decl->type, decl->_init);
