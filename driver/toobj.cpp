@@ -429,8 +429,7 @@ void writeModule(llvm::Module *m, const char *filename) {
   // Use cached object code if possible.
   // TODO: combine LDC's cache and LTO (the advantage is skipping the IR
   // optimization).
-  const bool useIR2ObjCache =
-      !opts::cacheDir.empty() && outputObj && !doLTO;
+  const bool useIR2ObjCache = !opts::cacheDir.empty() && outputObj && !doLTO;
   llvm::SmallString<32> moduleHash;
   if (useIR2ObjCache) {
     llvm::SmallString<128> cacheDir(opts::cacheDir.c_str());

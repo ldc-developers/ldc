@@ -70,8 +70,9 @@ void Module::checkAndAddOutputFile(File *file) {
   auto i = files.find(key);
   if (i != files.end()) {
     Module *previousMod = i->second;
-    ::error(Loc(), "Output file '%s' for module '%s' collides with previous "
-                   "module '%s'. See the -oq option",
+    ::error(Loc(),
+            "Output file '%s' for module '%s' collides with previous "
+            "module '%s'. See the -oq option",
             key.c_str(), toPrettyChars(), previousMod->toPrettyChars());
     fatal();
   }
@@ -290,7 +291,8 @@ llvm::Function *buildRegisterDSO(RegistryStyle style,
 
   {
     IRBuilder<> b(entryBB);
-    const auto loadedFlag = b.CreateTrunc(b.CreateLoad(dsoInitialized), b.getInt1Ty());
+    const auto loadedFlag =
+        b.CreateTrunc(b.CreateLoad(dsoInitialized), b.getInt1Ty());
     const auto condEval =
         b.CreateICmp(llvm::ICmpInst::ICMP_EQ, loadedFlag, isShutdown);
     b.CreateCondBr(condEval, initBB, endBB);
@@ -687,8 +689,7 @@ void registerModuleInfo(Module *m) {
   const char *mangle = mangleBuf.peekString();
 
   if (style == RegistryStyle::legacyLinkedList) {
-    const auto miCtor =
-        build_module_reference_and_ctor(mangle, moduleInfoSym);
+    const auto miCtor = build_module_reference_and_ctor(mangle, moduleInfoSym);
     AppendFunctionToLLVMGlobalCtorsDtors(miCtor, 65535, true);
   } else {
     emitModuleRefToSection(style, mangle, moduleInfoSym);

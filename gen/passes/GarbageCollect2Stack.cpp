@@ -123,12 +123,11 @@ public:
     Instruction *Begin = &(*BB.begin());
 
     // FIXME: set alignment on alloca?
-    return new AllocaInst(
-        Ty,
+    return new AllocaInst(Ty,
 #if LDC_LLVM_VER >= 500
-        BB.getModule()->getDataLayout().getAllocaAddrSpace(),
+                          BB.getModule()->getDataLayout().getAllocaAddrSpace(),
 #endif
-        ".nongc_mem", Begin);
+                          ".nongc_mem", Begin);
   }
 
   explicit FunctionInfo(ReturnType::Type returnType) : ReturnType(returnType) {}
@@ -840,7 +839,8 @@ bool isSafeToStackAllocateArray(
 /// the attribute has to be removed before promoting the memory to the
 /// stack. The affected instructions are added to RemoveTailCallInsts. If
 /// the function returns false, these entries are meaningless.
-bool isSafeToStackAllocate(BasicBlock::iterator Alloc, Value *V, DominatorTree &DT,
+bool isSafeToStackAllocate(BasicBlock::iterator Alloc, Value *V,
+                           DominatorTree &DT,
                            SmallVector<CallInst *, 4> &RemoveTailCallInsts) {
   assert(isa<PointerType>(V->getType()) && "Allocated value is not a pointer?");
 

@@ -223,8 +223,9 @@ static cl::opt<bool, true> unittest("unittest", cl::ZeroOrMore,
                                     cl::location(global.params.useUnitTests));
 
 cl::opt<std::string>
-    cacheDir("cache", cl::desc("Enable compilation cache, using <cache dir> to "
-                               "store cache files (experimental)"),
+    cacheDir("cache",
+             cl::desc("Enable compilation cache, using <cache dir> to "
+                      "store cache files (experimental)"),
              cl::value_desc("cache dir"), cl::ZeroOrMore);
 
 static StringsAdapter strImpPathStore("J", global.params.fileImppath);
@@ -277,13 +278,14 @@ cl::list<std::string> transitions(
     cl::desc(
         "Help with language change identified by <idents>, use ? for list"));
 
-cl::list<std::string> linkerSwitches("L",
-    cl::desc("Pass <linkerflag> to the linker"),
-    cl::value_desc("linkerflag"), cl::Prefix);
+cl::list<std::string>
+    linkerSwitches("L", cl::desc("Pass <linkerflag> to the linker"),
+                   cl::value_desc("linkerflag"), cl::Prefix);
 
-cl::list<std::string> ccSwitches("Xcc", cl::CommaSeparated,
-    cl::desc("Pass <ccflag> to GCC/Clang for linking"),
-    cl::value_desc("ccflag"));
+cl::list<std::string>
+    ccSwitches("Xcc", cl::CommaSeparated,
+               cl::desc("Pass <ccflag> to GCC/Clang for linking"),
+               cl::value_desc("ccflag"));
 
 cl::opt<std::string>
     moduleDeps("deps", cl::ValueOptional, cl::ZeroOrMore,
@@ -304,8 +306,7 @@ cl::opt<std::string>
          cl::desc("Target a specific cpu type (-mcpu=help for details)"));
 
 cl::list<std::string>
-    mAttrs("mattr", cl::CommaSeparated,
-           cl::value_desc("a1,+a2,-a3,..."),
+    mAttrs("mattr", cl::CommaSeparated, cl::value_desc("a1,+a2,-a3,..."),
            cl::desc("Target specific attributes (-mattr=help for details)"));
 
 cl::opt<std::string> mTargetTriple("mtriple", cl::ZeroOrMore,

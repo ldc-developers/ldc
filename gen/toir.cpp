@@ -1698,8 +1698,9 @@ public:
     // struct invariants
     else if (global.params.useInvariants && condty->ty == Tpointer &&
              condty->nextOf()->ty == Tstruct &&
-             (invdecl = static_cast<TypeStruct *>(condty->nextOf())
-                            ->sym->inv) != nullptr) {
+             (invdecl =
+                  static_cast<TypeStruct *>(condty->nextOf())->sym->inv) !=
+                 nullptr) {
       Logger::print("calling struct invariant");
       DtoResolveFunction(invdecl);
       DFuncValue invfunc(invdecl, DtoCallee(invdecl), DtoRVal(cond));
@@ -2217,8 +2218,7 @@ public:
       }
       cval = DtoBitCast(cval, dgty->getContainedType(0));
 
-      LLValue *castfptr =
-          DtoBitCast(DtoCallee(fd), dgty->getContainedType(1));
+      LLValue *castfptr = DtoBitCast(DtoCallee(fd), dgty->getContainedType(1));
 
       result = new DImValue(e->type, DtoAggrPair(cval, castfptr, ".func"));
 
