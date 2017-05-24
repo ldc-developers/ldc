@@ -52,10 +52,10 @@ public:
   }
   void setGTargetMachine() override { gTargetMachine = nullptr; }
 
-    // Adapted from clang
+  // Adapted from clang
   void addMetadata() override {
-    // Fix 3.5.2 build failures. Remove when dropping 3.5 support.
-    // OCL is only supported for 3.6.1 and 3.8 anyway.
+// Fix 3.5.2 build failures. Remove when dropping 3.5 support.
+// OCL is only supported for 3.6.1 and 3.8 anyway.
 #if LDC_LLVM_VER >= 306
     // opencl.ident?
     // spirv.Source // debug only
@@ -70,7 +70,7 @@ public:
         llvm::ConstantAsMetadata::get(
             llvm::ConstantInt::get(llvm::Type::getInt32Ty(ctx), 2))};
     llvm::NamedMDNode *SPIRVerMD =
-      _ir->module.getOrInsertNamedMetadata("opencl.spir.version");
+        _ir->module.getOrInsertNamedMetadata("opencl.spir.version");
     SPIRVerMD->addOperand(llvm::MDNode::get(ctx, SPIRVerElts));
 
     // Add OpenCL version
@@ -81,7 +81,7 @@ public:
             llvm::Type::getInt32Ty(ctx), (tversion % 100) / 10))};
     llvm::NamedMDNode *OCLVerMD =
         _ir->module.getOrInsertNamedMetadata("opencl.ocl.version");
-      
+
     OCLVerMD->addOperand(llvm::MDNode::get(ctx, OCLVerElts));
 #endif
   }
@@ -93,20 +93,20 @@ public:
       KernArgMD_type_qual,
       KernArgMD_name,
       count_KernArgMD
-      
   };
   void addKernelMetadata(FuncDeclaration *fd, llvm::Function *llf) override {
-    // By the time we get here the ABI should have rewritten the function
-    // type so that the magic types in ldc.dcompute are transformed into
-    // what the LLVM backend expects.
+// By the time we get here the ABI should have rewritten the function
+// type so that the magic types in ldc.dcompute are transformed into
+// what the LLVM backend expects.
 
-    // Fix 3.5.2 build failures. Remove when dropping 3.5 support.
+// Fix 3.5.2 build failures. Remove when dropping 3.5 support.
 #if LDC_LLVM_VER >= 306
     unsigned i = 0;
     // TODO: Handle Function attibutes
     llvm::SmallVector<llvm::Metadata *, 8> kernelMDArgs;
     kernelMDArgs.push_back(llvm::ConstantAsMetadata::get(llf));
     // MDNode for the kernel argument address space qualifiers.
+
     std::array<llvm::SmallVector<llvm::Metadata *, 8>,count_KernArgMD> paramArgs;
     std::array<const char*,count_KernArgMD> args = {
       "kernel_arg_addr_space",
@@ -125,17 +125,17 @@ public:
     VarDeclarations *vs = fd->parameters;
     for (i = 0; i < vs->dim; i++) {
       VarDeclaration *v = (*vs)[i];
-      decodeTypes(paramArgs,v);
+      decodeTypes(paramArgs, v);
     }
-  
-    for (auto& md : paramArgs)
+
+    for (auto &md : paramArgs)
       kernelMDArgs.push_back(llvm::MDNode::get(ctx, md));
     ///-------------------------------
     /// TODO: Handle Function attibutes
     ///-------------------------------
     llvm::MDNode *kernelMDNode = llvm::MDNode::get(ctx, kernelMDArgs);
     llvm::NamedMDNode *OpenCLKernelMetadata =
-      _ir->module.getOrInsertNamedMetadata("opencl.kernels");
+        _ir->module.getOrInsertNamedMetadata("opencl.kernels");
     OpenCLKernelMetadata->addOperand(kernelMDNode);
 #endif
   }
@@ -147,19 +147,23 @@ public:
   std::string basicTypeToString(Type *t) {
     std::stringstream ss;
     auto ty = t->ty;
-    if      (ty == Tint8)  ss << "char";
-    else if (ty == Tuns8) ss << "uchar";
+    if (ty == Tint8)
+      ss << "char";
+    else if (ty == Tuns8)
+      ss << "uchar";
     else if (ty == Tvector) {
-      TypeVector* vec = static_cast<TypeVector*>(t);
+      TypeVector *vec = static_cast<TypeVector *>(t);
       auto size = vec->size(Loc());
       auto basety = vec->basetype->ty;
-      if      (basety == Tint8)  ss << "char";
-      else if (basety == Tuns8) ss << "uchar";
-      else ss << vec->basetype->toChars();
+      if (basety == Tint8)
+        ss << "char";
+      else if (basety == Tuns8)
+        ss << "uchar";
+      else
+        ss << vec->basetype->toChars();
       ss << (int)size;
-    }
-    else
-        ss << t->toChars();
+    } else
+      ss << t->toChars();
     return ss.str();
   }
 #if LDC_LLVM_VER >= 306
@@ -173,17 +177,14 @@ public:
     std::string accessQual = "none";
     int addrspace = 0;
     if (v->type->ty == Tstruct &&
-        (ptr = toDcomputePointer(static_cast<TypeStruct*>(v->type)->sym)))
-    {
+        (ptr = toDcomputePointer(static_cast<TypeStruct *>(v->type)->sym))) {
       addrspace = ptr->addrspace;
       tyName = basicTypeToString(ptr->type) + "*";
       baseTyName = tyName;
       // there is no volatile or restrict (yet) in D
       typeQuals = mod2str(ptr->type->mod);
       // TODO: Images and Pipes They are global pointers to opaques
-    }
-    else
-    {
+    } else {
       tyName = basicTypeToString(v->type);
       baseTyName = tyName;
       typeQuals = mod2str(v->type->mod);

@@ -22,6 +22,7 @@
 #include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
+#include "gen/dcompute/target.h"
 #include "gen/dvalue.h"
 #include "gen/funcgenstate.h"
 #include "gen/function-inlining.h"
@@ -977,7 +978,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 #if LDC_LLVM_VER >= 500
                            0, // Address space
 #endif
-                           "alloca point", beginbb);
+                           "alloca_point", beginbb);
   funcGen.allocapoint = allocaPoint;
 
   // debug info - after all allocas, but before any llvm.dbg.declare etc
@@ -1127,6 +1128,11 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   gIR->scopes.pop_back();
+
+  if (gIR->dcomputetarget && hasKernelAttr(fd)) {
+    auto fn = gIR->module.getFunction(fd->mangleString);
+    gIR->dcomputetarget->addKernelMetadata(fd, fn);
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

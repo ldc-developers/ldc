@@ -23,6 +23,7 @@
 #include "driver/cl_options.h"
 #include "driver/codegenerator.h"
 #include "driver/configfile.h"
+#include "driver/dcomputecodegenerator.h"
 #include "driver/exe_path.h"
 #include "driver/ldc-version.h"
 #include "driver/linker.h"
@@ -40,6 +41,7 @@
 #include "gen/optimizer.h"
 #include "gen/passes/Passes.h"
 #include "gen/runtime.h"
+#include "gen/uda.h"
 #include "gen/abi.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/LinkAllPasses.h"
@@ -879,6 +881,9 @@ void registerPredefinedVersions() {
   VersionCondition::addPredefinedGlobalIdent("LDC");
   VersionCondition::addPredefinedGlobalIdent("all");
   VersionCondition::addPredefinedGlobalIdent("D_Version2");
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
+  VersionCondition::addPredefinedGlobalIdent("LDC_DCompute");
+#endif
 
   if (global.params.doDocComments) {
     VersionCondition::addPredefinedGlobalIdent("D_Ddoc");
@@ -1034,10 +1039,11 @@ void addDefaultVersionIdentifiers() {
 }
 
 void codegenModules(Modules &modules) {
-  // Generate one or more object/IR/bitcode files.
+  // Generate one or more object/IR/bitcode files/dcompute kernels.
   if (global.params.obj && !modules.empty()) {
     ldc::CodeGenerator cg(getGlobalContext(), global.params.oneobj);
-
+    DComputeCodeGenManager dccg(getGlobalContext());
+    std::vector<Module *> computeModules;
     // When inlining is enabled, we are calling semantic3 on function
     // declarations, which may _add_ members to the first module in the modules
     // array. These added functions must be codegenned, because these functions
@@ -1051,10 +1057,24 @@ void codegenModules(Modules &modules) {
       if (global.params.verbose)
         fprintf(global.stdmsg, "code      %s\n", m->toChars());
 
-      cg.emit(m);
+      const auto atCompute = hasComputeAttr(m);
+      if (atCompute == DComputeCompileFor::hostOnly ||
+           atCompute == DComputeCompileFor::hostAndDevice)
+      {
+        cg.emit(m);
+      }
+      if (atCompute != DComputeCompileFor::hostOnly)
+        computeModules.push_back(m);
 
       if (global.errors)
         fatal();
+    }
+
+    if (!computeModules.empty()) {
+      for (auto& mod : computeModules)
+        dccg.emit(mod);
+
+      dccg.writeModules();
     }
   }
 

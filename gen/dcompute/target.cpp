@@ -30,7 +30,6 @@ void DComputeTarget::doCodeGen(Module *m) {
 
   if (global.errors)
     fatal();
-
 }
 
 void DComputeTarget::emit(Module *m) {

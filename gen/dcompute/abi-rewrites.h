@@ -23,13 +23,13 @@
 #include "gen/dcompute/druntime.h"
 
 struct DComputePointerRewrite : ABIRewrite {
-  LLType* type(Type* t) override {
-    auto ptr = toDcomputePointer(static_cast<TypeStruct*>(t)->sym);
-    return ptr->toLLVMType();
+  LLType *type(Type *t) override {
+    auto ptr = toDcomputePointer(static_cast<TypeStruct *>(t)->sym);
+    return ptr->toLLVMType(true);
   }
   LLValue *getLVal(Type *dty, LLValue *v) override {
     // TODO: Is this correct?
-    return DtoBitCast(v,this->type(dty));
+    return DtoBitCast(v, this->type(dty));
   }
   LLValue *put(DValue *dv) override {
     LLValue *address = getAddressOf(dv);

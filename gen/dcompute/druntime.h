@@ -15,22 +15,26 @@
 #include "ddmd/aggregate.h"
 #include "ddmd/mtype.h"
 #include "llvm/ADT/Optional.h"
+#include "gen/dcompute/target.h"
+#include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/tollvm.h"
 
 class Dsymbol;
 class Type;
 
-
 bool isFromLDC_DCompute(Dsymbol *sym);
 
 struct DcomputePointer {
   int addrspace;
-  Type* type;
-  DcomputePointer(int as,Type* ty) : addrspace(as),type(ty) {}
-  LLType *toLLVMType() {
+  Type *type;
+  DcomputePointer(int as, Type *ty) : addrspace(as), type(ty) {}
+  LLType *toLLVMType(bool translate) {
     auto llType = DtoMemType(type);
-    return llType->getPointerElementType()->getPointerTo(addrspace);
+    int as = addrspace;
+    if (translate)
+      as = gIR->dcomputetarget->mapping[as];
+    return llType->getPointerElementType()->getPointerTo(as);
   }
 };
 llvm::Optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd);
