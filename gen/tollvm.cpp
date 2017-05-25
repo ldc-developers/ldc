@@ -285,6 +285,7 @@ llvm::GetElementPtrInst *DtoGEP(LLValue *ptr, llvm::ArrayRef<LLValue *> indices,
                                 bool inBounds, const char *name,
                                 llvm::BasicBlock *bb) {
   LLPointerType *p = isaPointer(ptr);
+  (void)p;
   assert(p && "GEP expects a pointer type");
   auto gep = llvm::GetElementPtrInst::Create(
 #if LDC_LLVM_VER >= 307
@@ -320,6 +321,7 @@ LLValue *DtoGEPi(LLValue *ptr, unsigned i0, unsigned i1, const char *name,
 
 LLConstant *DtoGEPi(LLConstant *ptr, unsigned i0, unsigned i1) {
   LLPointerType *p = isaPointer(ptr);
+  (void)p;
   assert(p && "GEP expects a pointer type");
   LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
   return llvm::ConstantExpr::getGetElementPtr(

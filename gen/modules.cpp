@@ -280,7 +280,7 @@ llvm::Function *buildRegisterDSO(RegistryStyle style,
       getRuntimeFunction(Loc(), gIR->module, "_d_dso_registry");
   const auto recordPtrTy = dsoRegistry->getFunctionType()->getContainedType(1);
 
-  llvm::Function *getTlsAnchorPtr;
+  llvm::Function *getTlsAnchorPtr = nullptr;
   if (style == RegistryStyle::sectionDarwin) {
     getTlsAnchorPtr = buildGetTLSAnchor();
   }

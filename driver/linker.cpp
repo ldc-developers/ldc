@@ -113,6 +113,8 @@ static std::string getOutputName(bool const sharedLib) {
 //////////////////////////////////////////////////////////////////////////////
 // LTO functionality
 
+#if LDC_LLVM_VER >= 309
+
 namespace {
 
 void addLinkerFlag(std::vector<std::string> &args, const llvm::Twine &flag) {
@@ -209,7 +211,6 @@ void addDarwinLTOFlags(std::vector<std::string> &args) {
 
 /// Adds the required linker flags for LTO builds to args.
 void addLTOLinkFlags(std::vector<std::string> &args) {
-#if LDC_LLVM_VER >= 309
   if (global.params.targetTriple->isOSLinux() ||
       global.params.targetTriple->isOSFreeBSD() ||
       global.params.targetTriple->isOSNetBSD() ||
@@ -220,9 +221,10 @@ void addLTOLinkFlags(std::vector<std::string> &args) {
   } else if (global.params.targetTriple->isOSDarwin()) {
     addDarwinLTOFlags(args);
   }
-#endif
 }
 } // anonymous namespace
+
+#endif // LDC_LLVM_VER >= 309
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -348,10 +350,12 @@ static int linkObjToBinaryGcc(bool sharedLib) {
     args.push_back("-fsanitize=thread");
   }
 
+#if LDC_LLVM_VER >= 309
   // Add LTO link flags before adding the user link switches, such that the user
   // can pass additional options to the LTO plugin.
   if (opts::isUsingLTO())
     addLTOLinkFlags(args);
+#endif
 
   // additional linker and cc switches (preserve order across both lists)
   for (unsigned ilink = 0, icc = 0;;) {

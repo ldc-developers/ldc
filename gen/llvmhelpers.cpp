@@ -315,8 +315,6 @@ void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
   LOG_SCOPE;
 
   Type *t = lhs->type->toBasetype();
-  Type *t2 = rhs->type->toBasetype();
-
   assert(t->ty != Tvoid && "Cannot assign values of type void.");
 
   if (t->ty == Tbool) {
@@ -344,7 +342,7 @@ void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
     }
     DtoStore(r, l);
   } else if (t->ty == Tclass) {
-    assert(t2->ty == Tclass);
+    assert(rhs->type->toBasetype()->ty == Tclass);
     LLValue *l = DtoLVal(lhs);
     LLValue *r = DtoRVal(rhs);
     IF_LOG {
@@ -478,6 +476,7 @@ DValue *DtoCastPtr(Loc &loc, DValue *val, Type *to) {
 
   Type *totype = to->toBasetype();
   Type *fromtype = val->type->toBasetype();
+  (void)fromtype;
   assert(fromtype->ty == Tpointer || fromtype->ty == Tfunction);
 
   LLValue *rval;
@@ -1171,6 +1170,7 @@ LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp) {
       val = llvm::ConstantArray::get(at, elements);
     }
 
+    (void)numTotalVals;
     assert(product == numTotalVals);
     return val;
   }
@@ -1192,9 +1192,11 @@ LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp) {
     llvm::IntegerType *source = llvm::cast<llvm::IntegerType>(llType);
     llvm::IntegerType *target = llvm::cast<llvm::IntegerType>(targetLLType);
 
+    (void)source;
     assert(target->getBitWidth() > source->getBitWidth() &&
            "On initializer integer type mismatch, the target should be wider "
            "than the source.");
+
     return llvm::ConstantExpr::getZExtOrBitCast(val, target);
   }
 
