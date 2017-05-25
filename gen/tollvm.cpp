@@ -56,24 +56,9 @@ bool DtoIsReturnInArg(CallExp *ce) {
 
 LLAttribute DtoShouldExtend(Type *type) {
   type = type->toBasetype();
-  if (type->isintegral()) {
-    switch (type->ty) {
-    case Tint8:
-    case Tint16:
-      return LLAttribute::SExt;
-
-    case Tuns8:
-    case Tuns16:
-    case Tchar:
-    case Twchar:
-      return LLAttribute::ZExt;
-
-    default:
-      // Do not extend.
-      break;
-    }
+  if (type->isintegral() && type->ty != Tvector && type->size() <= 2) {
+    return type->isunsigned() ? LLAttribute::ZExt : LLAttribute::SExt;
   }
-
   return LLAttribute::None;
 }
 
