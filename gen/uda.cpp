@@ -418,15 +418,15 @@ bool hasWeakUDA(Dsymbol *sym) {
 
 /// Returns 0 if 'sym' does not have the @ldc.dcompute.compute() UDA applied.
 /// Returns 1 + n if 'sym' does and is @compute(n).
-int hasComputeAttr(Dsymbol *sym) {
+DComputeCompileFor hasComputeAttr(Dsymbol *sym) {
 
   auto sle = getMagicAttribute(sym, Id::udaCompute, Id::dcompute);
   if (!sle)
-    return 0;
+    return DComputeCompileFor::hostOnly;
 
   checkStructElems(sle, {Type::tint32});
 
-  return 1 + (*sle->elements)[0]->toInteger();
+  return static_cast<DComputeCompileFor>(1 + (*sle->elements)[0]->toInteger());
 }
 
 /// Checks whether 'sym' has the @ldc.dcompute._kernel() UDA applied.
@@ -437,7 +437,8 @@ bool hasKernelAttr(Dsymbol *sym) {
 
   checkStructElems(sle, {});
 
-  if (!sym->isFuncDeclaration() && !hasComputeAttr(sym->getModule()))
+  if (!sym->isFuncDeclaration() &&
+      hasComputeAttr(sym->getModule()) != DComputeCompileFor::hostOnly)
     sym->error("@ldc.dcompute.kernel can only be applied to functions"
                " in modules marked @ldc.dcompute.compute");
 

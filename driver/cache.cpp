@@ -114,8 +114,7 @@ namespace {
 
 // Options for the cache pruning algorithm
 llvm::cl::opt<bool> pruneEnabled("cache-prune",
-                                 llvm::cl::desc("Enable cache pruning."),
-                                 llvm::cl::ZeroOrMore);
+                                 llvm::cl::desc("Enable cache pruning."));
 llvm::cl::opt<unsigned long long> pruneSizeLimitInBytes(
     "cache-prune-maxbytes",
     llvm::cl::desc("Sets the maximum cache size to <size> bytes. Implies "
@@ -129,9 +128,8 @@ llvm::cl::opt<unsigned> pruneInterval(
     llvm::cl::value_desc("dur"), llvm::cl::init(20 * 60));
 llvm::cl::opt<unsigned> pruneExpiration(
     "cache-prune-expiration",
-    llvm::cl::desc(
-        "Sets the pruning expiration time of cache files to "
-        "<dur> seconds (default: 1 week). Implies -cache-prune."),
+    llvm::cl::desc("Sets the pruning expiration time of cache files to "
+                   "<dur> seconds (default: 1 week). Implies -cache-prune."),
     llvm::cl::value_desc("dur"), llvm::cl::init(7 * 24 * 3600));
 llvm::cl::opt<unsigned> pruneSizeLimitPercentage(
     "cache-prune-maxpercentage",
@@ -142,7 +140,7 @@ llvm::cl::opt<unsigned> pruneSizeLimitPercentage(
 
 enum class RetrievalMode { Copy, HardLink, AnyLink, SymLink };
 llvm::cl::opt<RetrievalMode> cacheRecoveryMode(
-    "cache-retrieval",
+    "cache-retrieval", llvm::cl::ZeroOrMore,
     llvm::cl::desc("Set the cache retrieval mechanism (default: copy)."),
     llvm::cl::init(RetrievalMode::Copy),
     clEnumValues(
@@ -220,8 +218,7 @@ void storeCacheFileName(llvm::StringRef cacheObjectHash,
 // Because the compiler version is part of the hash, differences in the
 // default settings between compiler versions are already taken care of.
 // (Note: config and response files may also add compiler flags.)
-void outputIR2ObjRelevantCmdlineArgs(llvm::raw_ostream &hash_os)
-{
+void outputIR2ObjRelevantCmdlineArgs(llvm::raw_ostream &hash_os) {
   // Use a "whitelist" of cmdline args that do not need to be added to the hash,
   // and add all others. There is no harm (other than missed cache
   // opportunities) in adding commandline arguments that also change the hashed
@@ -273,13 +270,13 @@ void outputIR2ObjRelevantCmdlineArgs(llvm::raw_ostream &hash_os)
       if (arg[1] == 'o' && arg[2] == 'd')
         continue;
       // All  "-cache..." options can be ignored
-      if (strncmp(arg+1, "cache", 5) == 0)
+      if (strncmp(arg + 1, "cache", 5) == 0)
         continue;
       // Ignore "-lib"
       if (arg[1] == 'l' && arg[2] == 'i' && arg[3] == 'b' && !arg[4])
         continue;
       // All effects of -d-version... are already included in the IR hash.
-      if (strncmp(arg+1, "d-version", 9) == 0)
+      if (strncmp(arg + 1, "d-version", 9) == 0)
         continue;
       // All effects of -unittest are already included in the IR hash.
       if (strcmp(arg + 1, "unittest") == 0) {
@@ -315,8 +312,7 @@ void outputIR2ObjRelevantCmdlineArgs(llvm::raw_ostream &hash_os)
 
 // Output to `hash_os` all environment flags that influence object code output
 // in ways that are not observable in the pre-LLVM passes IR used for hashing.
-void outputIR2ObjRelevantEnvironmentOpts(llvm::raw_ostream &hash_os)
-{
+void outputIR2ObjRelevantEnvironmentOpts(llvm::raw_ostream &hash_os) {
   // There are no relevant environment options at the moment.
 }
 
@@ -478,8 +474,8 @@ void recoverObjectFile(llvm::StringRef cacheObjectHash,
 
 void pruneCache() {
   if (!opts::cacheDir.empty() && isPruningEnabled()) {
-    ::pruneCache(opts::cacheDir.data(), opts::cacheDir.size(),
-                 pruneInterval, pruneExpiration, pruneSizeLimitInBytes,
+    ::pruneCache(opts::cacheDir.data(), opts::cacheDir.size(), pruneInterval,
+                 pruneExpiration, pruneSizeLimitInBytes,
                  pruneSizeLimitPercentage);
   }
 }

@@ -43,10 +43,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 static llvm::cl::opt<bool> nogc(
-    "nogc",
+    "nogc", llvm::cl::ZeroOrMore,
     llvm::cl::desc(
-        "Do not allow code that generates implicit garbage collector calls"),
-    llvm::cl::ZeroOrMore);
+        "Do not allow code that generates implicit garbage collector calls"));
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -97,8 +96,9 @@ static void checkForImplicitGCCall(const Loc &loc, const char *name) {
 
     if (binary_search(&GCNAMES[0],
                       &GCNAMES[sizeof(GCNAMES) / sizeof(std::string)], name)) {
-      error(loc, "No implicit garbage collector calls allowed with -nogc "
-                 "option enabled: %s",
+      error(loc,
+            "No implicit garbage collector calls allowed with -nogc "
+            "option enabled: %s",
             name);
       fatal();
     }
@@ -306,8 +306,9 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
 
   // Construct some attribute lists used below (possibly multiple times)
-  AttrSet NoAttrs, Attr_NoAlias(NoAttrs, LLAttributeSet::ReturnIndex,
-                                llvm::Attribute::NoAlias),
+  AttrSet NoAttrs,
+      Attr_NoAlias(NoAttrs, LLAttributeSet::ReturnIndex,
+                   llvm::Attribute::NoAlias),
       Attr_NoUnwind(NoAttrs, LLAttributeSet::FunctionIndex,
                     llvm::Attribute::NoUnwind),
       Attr_ReadOnly(NoAttrs, LLAttributeSet::FunctionIndex,
@@ -712,7 +713,8 @@ static void buildRuntimeModule() {
                 {objectTy});
 
   // void _d_dso_registry(void* data)
-  // (the argument is really a pointer to rt.sections_elf_shared.CompilerDSOData)
+  // (the argument is really a pointer to
+  // rt.sections_elf_shared.CompilerDSOData)
   createFwdDecl(LINKc, voidTy, {"_d_dso_registry"}, {voidPtrTy});
 
   //////////////////////////////////////////////////////////////////////////////

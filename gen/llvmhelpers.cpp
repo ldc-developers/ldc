@@ -46,7 +46,7 @@
 #include "llvm/Support/CommandLine.h"
 
 llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel(
-    "fthread-model", llvm::cl::desc("Thread model"),
+    "fthread-model", llvm::cl::ZeroOrMore, llvm::cl::desc("Thread model"),
     llvm::cl::init(llvm::GlobalVariable::GeneralDynamicTLSModel),
     clEnumValues(clEnumValN(llvm::GlobalVariable::GeneralDynamicTLSModel,
                             "global-dynamic",
@@ -71,8 +71,8 @@ bool isTargetWindowsMSVC() {
 }
 
 /******************************************************************************
-* Global context
-******************************************************************************/
+ * Global context
+ ******************************************************************************/
 static llvm::ManagedStatic<llvm::LLVMContext> GlobalContext;
 
 llvm::LLVMContext &getGlobalContext() { return *GlobalContext; }
@@ -1416,9 +1416,10 @@ bool isLLVMUnsigned(Type *t) { return t->isunsigned() || t->ty == Tpointer; }
 
 void printLabelName(std::ostream &target, const char *func_mangle,
                     const char *label_name) {
-  target << gTargetMachine->getMCAsmInfo()->getPrivateGlobalPrefix()
+  target << gTargetMachine->getMCAsmInfo()
+                ->getPrivateGlobalPrefix()
 #if LDC_LLVM_VER >= 400
-              .str()
+                .str()
 #endif
          << func_mangle << "_" << label_name;
 }
@@ -1619,9 +1620,9 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       fatal();
     }
     DtoResolveFunction(fdecl);
-    return new DFuncValue(fdecl, fdecl->llvmInternal != LLVMva_arg
-                                     ? DtoCallee(fdecl)
-                                     : nullptr);
+    const auto llValue =
+        fdecl->llvmInternal != LLVMva_arg ? DtoCallee(fdecl) : nullptr;
+    return new DFuncValue(fdecl, llValue);
   }
 
   if (SymbolDeclaration *sdecl = decl->isSymbolDeclaration()) {
@@ -1657,8 +1658,9 @@ llvm::Constant *DtoConstSymbolAddress(Loc &loc, Declaration *decl) {
       // needed for the current hacky implementation of
       // AssocArrayLiteralExp::toElem, which requires on error
       // gagging to check for constantness of the initializer.
-      error(loc, "cannot use address of non-global variable '%s' "
-                 "as constant initializer",
+      error(loc,
+            "cannot use address of non-global variable '%s' as constant "
+            "initializer",
             vd->toChars());
       if (!global.gag) {
         fatal();
@@ -1725,8 +1727,9 @@ llvm::GlobalVariable *getOrCreateGlobal(const Loc &loc, llvm::Module &module,
   llvm::GlobalVariable *existing = module.getGlobalVariable(name, true);
   if (existing) {
     if (existing->getType()->getElementType() != type) {
-      error(loc, "Global variable type does not match previous "
-                 "declaration with same mangled name: %s",
+      error(loc,
+            "Global variable type does not match previous declaration with "
+            "same mangled name: %s",
             name.str().c_str());
       fatal();
     }

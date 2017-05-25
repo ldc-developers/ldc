@@ -16,6 +16,7 @@
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/coverage.h"
+#include "gen/dcompute/target.h"
 #include "gen/dvalue.h"
 #include "gen/funcgenstate.h"
 #include "gen/irstate.h"
@@ -24,6 +25,7 @@
 #include "gen/logger.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
+#include "id.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "llvm/IR/CFG.h"
@@ -317,6 +319,18 @@ public:
   }
 
   //////////////////////////////////////////////////////////////////////////
+  
+  bool dcomputeReflectMatches(CallExp *ce) {
+    auto arg1 = (DComputeTarget::ID)(*ce->arguments)[0]->toInteger();
+    auto arg2 = (*ce->arguments)[1]->toInteger();
+    auto dct = irs->dcomputetarget;
+    if (!dct) {
+      return arg1 == DComputeTarget::Host;
+    }
+    else {
+      return arg1 == dct->target && (!arg2 || arg2 == dct->tversion);
+    }
+  }
 
   void visit(IfStatement *stmt) LLVM_OVERRIDE {
     IF_LOG Logger::println("IfStatement::toIR(): %s", stmt->loc.toChars());
@@ -331,6 +345,22 @@ public:
     // start a dwarf lexical block
     irs->DBuilder.EmitBlockStart(stmt->loc);
     emitCoverageLinecountInc(stmt->loc);
+
+    // This is a (dirty) hack to get codegen time conditional
+    // compilation, on account of the fact that we are trying
+    // to target multiple backends "simultaneously" with one
+    // pass through the front end, to have a single "static"
+    // context.
+    if (stmt->condition->op == TOKcall) {
+      auto ce = (CallExp *)stmt->condition;
+      if (ce->f && ce->f->ident == Id::dcReflect) {
+        if (dcomputeReflectMatches(ce))
+          stmt->ifbody->accept(this);
+        else if (stmt->elsebody)
+          stmt->elsebody->accept(this);
+        return;
+      }
+    }
 
     DValue *cond_e = toElemDtor(stmt->condition);
     LLValue *cond_val = DtoRVal(cond_e);
@@ -745,10 +775,15 @@ public:
     irs->DBuilder.EmitBlockStart(stmt->finalbody->loc);
     stmt->finalbody->accept(this);
     irs->DBuilder.EmitBlockEnd();
+    CleanupCursor cleanupBefore;
 
-    CleanupCursor cleanupBefore = irs->funcGen().scopes.currentCleanupScope();
-    irs->funcGen().scopes.pushCleanup(finallybb, irs->scopebb());
-
+    // For @compute code, don't emit any exception handling as there are no
+    // exceptions anyway.
+    const bool computeCode = !!irs->dcomputetarget;
+    if (!computeCode) {
+      cleanupBefore = irs->funcGen().scopes.currentCleanupScope();
+      irs->funcGen().scopes.pushCleanup(finallybb, irs->scopebb());
+    }
     // Emit the try block.
     irs->scope() = IRScope(trybb);
 
@@ -758,12 +793,14 @@ public:
     irs->DBuilder.EmitBlockEnd();
 
     if (successbb) {
-      irs->funcGen().scopes.runCleanups(cleanupBefore, successbb);
+      if (!computeCode)
+        irs->funcGen().scopes.runCleanups(cleanupBefore, successbb);
       irs->scope() = IRScope(successbb);
       // PGO counter tracks the continuation of the try-finally statement
       PGO.emitCounterIncrement(stmt);
     }
-    irs->funcGen().scopes.popCleanups(cleanupBefore);
+    if (!computeCode)
+      irs->funcGen().scopes.popCleanups(cleanupBefore);
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -772,6 +809,7 @@ public:
     IF_LOG Logger::println("TryCatchStatement::toIR(): %s",
                            stmt->loc.toChars());
     LOG_SCOPE;
+    assert(!irs->dcomputetarget);
 
     auto &PGO = irs->funcGen().pgo;
 
@@ -812,6 +850,7 @@ public:
   void visit(ThrowStatement *stmt) LLVM_OVERRIDE {
     IF_LOG Logger::println("ThrowStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
+    assert(!irs->dcomputetarget);
 
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
@@ -871,6 +910,7 @@ public:
     const bool isStringSwitch = !stmt->condition->type->isintegral();
     if (isStringSwitch) {
       Logger::println("is string switch");
+      assert(!irs->dcomputetarget);
 
       // Sort the cases, taking care not to modify the original AST.
       cases = cases->copy();
@@ -1597,7 +1637,8 @@ public:
     IF_LOG Logger::println("SwitchErrorStatement::toIR(): %s",
                            stmt->loc.toChars());
     LOG_SCOPE;
-
+    assert(!irs->dcomputetarget);
+      
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
@@ -1616,11 +1657,15 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(AsmStatement *stmt) LLVM_OVERRIDE { AsmStatement_toIR(stmt, irs); }
+  void visit(AsmStatement *stmt) LLVM_OVERRIDE {
+    assert(!irs->dcomputetarget);
+    AsmStatement_toIR(stmt, irs);
+  }
 
   //////////////////////////////////////////////////////////////////////////
 
   void visit(CompoundAsmStatement *stmt) LLVM_OVERRIDE {
+    assert(!irs->dcomputetarget);
     CompoundAsmStatement_toIR(stmt, irs);
   }
 

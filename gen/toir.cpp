@@ -56,9 +56,8 @@
 #include "ctfe.h"
 
 llvm::cl::opt<bool> checkPrintf(
-    "check-printf-calls",
-    llvm::cl::desc("Validate printf call format strings against arguments"),
-    llvm::cl::ZeroOrMore);
+    "check-printf-calls", llvm::cl::ZeroOrMore,
+    llvm::cl::desc("Validate printf call format strings against arguments"));
 
 bool walkPostorder(Expression *e, StoppableVisitor *v);
 
@@ -1681,30 +1680,35 @@ public:
     // passed:
     p->scope() = IRScope(passedbb);
 
-    FuncDeclaration *invdecl;
-    // class invariants
-    if (global.params.useInvariants && condty->ty == Tclass &&
-        !(static_cast<TypeClass *>(condty)->sym->isInterfaceDeclaration()) &&
-        !(static_cast<TypeClass *>(condty)->sym->isCPPclass())) {
+    // class/struct invariants
+    if (!global.params.useInvariants)
+      return;
+    if (condty->ty == Tclass) {
+      const auto sym = static_cast<TypeClass *>(condty)->sym;
+      if (sym->isInterfaceDeclaration() || sym->isCPPclass())
+        return;
+
       Logger::println("calling class invariant");
-      llvm::Function *fn = getRuntimeFunction(
-          e->loc, gIR->module,
-          gABI->mangleFunctionForLLVM("_D9invariant12_d_invariantFC6ObjectZv",
-                                      LINKd)
-              .c_str());
-      LLValue *arg =
+
+      const auto fnMangle = gABI->mangleFunctionForLLVM(
+          "_D9invariant12_d_invariantFC6ObjectZv", LINKd);
+      const auto fn = getRuntimeFunction(e->loc, gIR->module, fnMangle.c_str());
+
+      const auto arg =
           DtoBitCast(DtoRVal(cond), fn->getFunctionType()->getParamType(0));
+
       gIR->CreateCallOrInvoke(fn, arg);
-    }
-    // struct invariants
-    else if (global.params.useInvariants && condty->ty == Tpointer &&
-             condty->nextOf()->ty == Tstruct &&
-             (invdecl = static_cast<TypeStruct *>(condty->nextOf())
-                            ->sym->inv) != nullptr) {
+    } else if (condty->ty == Tpointer && condty->nextOf()->ty == Tstruct) {
+      const auto invDecl =
+          static_cast<TypeStruct *>(condty->nextOf())->sym->inv;
+      if (!invDecl)
+        return;
+
       Logger::print("calling struct invariant");
-      DtoResolveFunction(invdecl);
-      DFuncValue invfunc(invdecl, DtoCallee(invdecl), DtoRVal(cond));
-      DtoCallFunction(e->loc, nullptr, &invfunc, nullptr);
+
+      DtoResolveFunction(invDecl);
+      DFuncValue invFunc(invDecl, DtoCallee(invDecl), DtoRVal(cond));
+      DtoCallFunction(e->loc, nullptr, &invFunc, nullptr);
     }
   }
 
@@ -2218,8 +2222,7 @@ public:
       }
       cval = DtoBitCast(cval, dgty->getContainedType(0));
 
-      LLValue *castfptr =
-          DtoBitCast(DtoCallee(fd), dgty->getContainedType(1));
+      LLValue *castfptr = DtoBitCast(DtoCallee(fd), dgty->getContainedType(1));
 
       result = new DImValue(e->type, DtoAggrPair(cval, castfptr, ".func"));
 
