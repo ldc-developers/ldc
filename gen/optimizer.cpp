@@ -133,10 +133,10 @@ bool willCrossModuleInline() {
 #if LDC_LLVM_VER >= 307
   return enableCrossModuleInlining == llvm::cl::BOU_TRUE;
 #else
-// Cross-module inlining is disabled for <3.7 because we don't emit symbols in
-// COMDAT any groups pre-LLVM3.7. With cross-module inlining enabled, without
-// COMDAT any there are multiple-def linker errors when linking druntime.
-// See supportsCOMDAT().
+  // Cross-module inlining is disabled for <3.7 because we don't emit symbols in
+  // COMDAT any groups pre-LLVM3.7. With cross-module inlining enabled, without
+  // COMDAT any there are multiple-def linker errors when linking druntime.
+  // See supportsCOMDAT().
   return false;
 #endif
 }
@@ -456,10 +456,9 @@ void verifyModule(llvm::Module *m) {
   Logger::println("Verification passed!");
 }
 
-// Output to `hash_os` all optimization settings that influence object code output
-// and that are not observable in the IR.
-// This is used to calculate the hash use for caching that uniquely identifies
-// the object file output.
+// Output to `hash_os` all optimization settings that influence object code
+// output and that are not observable in the IR. This is used to calculate the
+// hash use for caching that uniquely identifies the object file output.
 void outputOptimizationSettings(llvm::raw_ostream &hash_os) {
   hash_os << optimizeLevel;
   hash_os << willInline();

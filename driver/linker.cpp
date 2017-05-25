@@ -202,8 +202,8 @@ std::string getLTOdylibPath() {
 void addDarwinLTOFlags(std::vector<std::string> &args) {
   std::string dylibPath = getLTOdylibPath();
   if (!dylibPath.empty()) {
-      args.push_back("-lto_library");
-      args.push_back(std::move(dylibPath));
+    args.push_back("-lto_library");
+    args.push_back(std::move(dylibPath));
   }
 }
 
@@ -356,13 +356,13 @@ static int linkObjToBinaryGcc(bool sharedLib) {
   // additional linker and cc switches (preserve order across both lists)
   for (unsigned ilink = 0, icc = 0;;) {
     unsigned linkpos = ilink < opts::linkerSwitches.size()
-      ? opts::linkerSwitches.getPosition(ilink)
-      : std::numeric_limits<unsigned>::max();
+                           ? opts::linkerSwitches.getPosition(ilink)
+                           : std::numeric_limits<unsigned>::max();
     unsigned ccpos = icc < opts::ccSwitches.size()
-      ? opts::ccSwitches.getPosition(icc)
-      : std::numeric_limits<unsigned>::max();
+                         ? opts::ccSwitches.getPosition(icc)
+                         : std::numeric_limits<unsigned>::max();
     if (linkpos < ccpos) {
-      const std::string& p = opts::linkerSwitches[ilink++];
+      const std::string &p = opts::linkerSwitches[ilink++];
       // Don't push -l and -L switches using -Xlinker, but pass them indirectly
       // via GCC. This makes sure user-defined paths take precedence over
       // GCC's builtin LIBRARY_PATHs.
@@ -370,8 +370,8 @@ static int linkObjToBinaryGcc(bool sharedLib) {
       // the linker and must be passed to the driver.
       auto str = llvm::StringRef(p);
       if (!(str.startswith("-l") || str.startswith("-L") ||
-            str.startswith("-Wl,") ||
-            str.startswith("-shared") || str.startswith("-static"))) {
+            str.startswith("-Wl,") || str.startswith("-shared") ||
+            str.startswith("-static"))) {
         args.push_back("-Xlinker");
       }
       args.push_back(p);
@@ -616,7 +616,7 @@ static int linkObjToBinaryMSVC(bool sharedLib) {
     args.push_back(str);
   };
 
-  for (const auto& str : opts::linkerSwitches) {
+  for (const auto &str : opts::linkerSwitches) {
     addSwitch(str);
   }
 

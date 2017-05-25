@@ -928,15 +928,17 @@ void CodeGenPGO::loadRegionCounts(llvm::IndexedInstrProfReader *PGOReader,
       IF_LOG Logger::println(
           "Ignoring profile data: hash mismatch for function: %s",
           FuncName.c_str());
-      warning(fd->loc, "Ignoring profile data for function '%s' ('%s'): "
-                       "control-flow hash mismatch",
+      warning(fd->loc,
+              "Ignoring profile data for function '%s' ('%s'): "
+              "control-flow hash mismatch",
               const_cast<FuncDeclaration *>(fd)->toPrettyChars(),
               FuncName.c_str());
     } else if (IPE == llvm::instrprof_error::malformed) {
       IF_LOG Logger::println("Profile data is malformed for function: %s",
                              FuncName.c_str());
-      warning(fd->loc, "Ignoring profile data for function '%s' ('%s'): "
-                       "control-flow hash mismatch",
+      warning(fd->loc,
+              "Ignoring profile data for function '%s' ('%s'): "
+              "control-flow hash mismatch",
               const_cast<FuncDeclaration *>(fd)->toPrettyChars(),
               FuncName.c_str());
     } else {
