@@ -76,6 +76,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
                                  Expressions *elements) {
   assert(elements && "struct literal has null elements");
   const auto numMissingElements = sd->fields.dim - elements->dim;
+  (void)numMissingElements;
   assert(numMissingElements == 0 || (sd->vthis && numMissingElements == 1));
 
   // might be reset to an actual i8* value so only a single bitcast is emitted
@@ -1550,6 +1551,7 @@ public:
       result = new DImValue(e->type, mem);
     }
 
+    (void)isArgprefixHandled;
     assert(e->argprefix == NULL || isArgprefixHandled);
   }
 

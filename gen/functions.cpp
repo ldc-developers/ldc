@@ -268,6 +268,7 @@ llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl) {
     FuncDeclaration *p = fdecl->parent->isFuncDeclaration();
     assert(p);
     AggregateDeclaration *ad = p->isMember2();
+    (void)ad;
     assert(ad);
     dnest = Type::tvoid->pointerTo();
   } else if (fdecl->needThis()) {

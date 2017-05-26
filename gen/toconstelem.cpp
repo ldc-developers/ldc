@@ -651,6 +651,8 @@ public:
             ++i;
           }
         }
+
+        (void)nexprs;
         assert(i == nexprs);
       }
 
