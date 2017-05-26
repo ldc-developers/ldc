@@ -38,11 +38,6 @@ static llvm::cl::opt<bool>
                llvm::cl::desc("Create a statically linked binary, including "
                               "all system dependencies"));
 
-static llvm::cl::opt<std::string> mscrtlib(
-    "mscrtlib", llvm::cl::ZeroOrMore, llvm::cl::value_desc("name"),
-    llvm::cl::desc(
-        "MS C runtime library to link against (libcmt[d] / msvcrt[d])"));
-
 static llvm::cl::opt<std::string>
     ltoLibrary("flto-binary", llvm::cl::ZeroOrMore,
                llvm::cl::desc("Set the linker LTO plugin library file (e.g. "
@@ -51,8 +46,9 @@ static llvm::cl::opt<std::string>
 
 //////////////////////////////////////////////////////////////////////////////
 
-static std::string getOutputName(bool const sharedLib) {
+static std::string getOutputName() {
   const auto &triple = *global.params.targetTriple;
+  const bool sharedLib = global.params.dll;
 
   const char *extension = nullptr;
   if (sharedLib) {
@@ -254,32 +250,17 @@ void insertBitcodeFiles(llvm::Module &M, llvm::LLVMContext &Ctx,
 
 //////////////////////////////////////////////////////////////////////////////
 
-static void appendObjectFiles(std::vector<std::string> &args) {
-  for (unsigned i = 0; i < global.params.objfiles->dim; i++)
-    args.push_back((*global.params.objfiles)[i]);
-
-  if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
-    if (global.params.resfile)
-      args.push_back(global.params.resfile);
-    if (global.params.deffile)
-      args.push_back(std::string("/DEF:") + global.params.deffile);
-  }
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
-static std::string gExePath;
-
-static int linkObjToBinaryGcc(bool sharedLib) {
-  Logger::println("*** Linking executable ***");
-
+static int linkObjToBinaryGcc(llvm::StringRef outputPath,
+                              llvm::cl::boolOrDefault fullyStaticFlag) {
   // find gcc for linking
   const std::string tool = getGcc();
 
   // build arguments
   std::vector<std::string> args;
 
-  appendObjectFiles(args);
+  // object files
+  for (unsigned i = 0; i < global.params.objfiles->dim; i++)
+    args.push_back((*global.params.objfiles)[i]);
 
   // Link with profile-rt library when generating an instrumented binary.
   // profile-rt uses Phobos (MD5 hashing) and therefore must be passed on the
@@ -300,26 +281,16 @@ static int linkObjToBinaryGcc(bool sharedLib) {
   for (unsigned i = 0; i < global.params.libfiles->dim; i++)
     args.push_back((*global.params.libfiles)[i]);
 
-  // output filename
-  std::string output = getOutputName(sharedLib);
-
-  if (sharedLib) {
+  if (global.params.dll) {
     args.push_back("-shared");
   }
 
-  if (staticFlag) {
+  if (fullyStaticFlag == llvm::cl::BOU_TRUE) {
     args.push_back("-static");
   }
 
   args.push_back("-o");
-  args.push_back(output);
-
-  // set the global gExePath
-  gExePath = output;
-  // assert(gExePath.isValid());
-
-  // create path to exe
-  createDirectoryForFileOrFail(gExePath);
+  args.push_back(outputPath);
 
   // Pass sanitizer arguments to linker. Requires clang.
   if (opts::sanitize == opts::AddressSanitizer) {
@@ -498,155 +469,33 @@ static int linkObjToBinaryGcc(bool sharedLib) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-static void addMscrtLibs(std::vector<std::string> &args) {
-  llvm::StringRef mscrtlibName = mscrtlib;
-  if (mscrtlibName.empty()) {
-    // default to static release variant
-    mscrtlibName =
-        staticFlag || staticFlag.getNumOccurrences() == 0 ? "libcmt" : "msvcrt";
-  }
-
-  args.push_back(("/DEFAULTLIB:" + mscrtlibName).str());
-
-  const bool isStatic = mscrtlibName.startswith_lower("libcmt");
-  const bool isDebug =
-      mscrtlibName.endswith_lower("d") || mscrtlibName.endswith_lower("d.lib");
-
-  const llvm::StringRef prefix = isStatic ? "lib" : "";
-  const llvm::StringRef suffix = isDebug ? "d" : "";
-
-  args.push_back(("/DEFAULTLIB:" + prefix + "vcruntime" + suffix).str());
-}
-
-static int linkObjToBinaryMSVC(bool sharedLib) {
-  Logger::println("*** Linking executable ***");
-
-  if (!opts::ccSwitches.empty()) {
-    error(Loc(), "-Xcc is not supported for MSVC");
-    fatal();
-  }
-
-#ifdef _WIN32
-  windows::setupMsvcEnvironment();
-#endif
-
-  const std::string tool = "link.exe";
-
-  // build arguments
-  std::vector<std::string> args;
-
-  args.push_back("/NOLOGO");
-
-  // specify that the image will contain a table of safe exception handlers
-  // and can handle addresses >2GB (32bit only)
-  if (!global.params.is64bit) {
-    args.push_back("/SAFESEH");
-    args.push_back("/LARGEADDRESSAWARE");
-  }
-
-  // output debug information
-  if (global.params.symdebug) {
-    args.push_back("/DEBUG");
-  }
-
-  // remove dead code and fold identical COMDATs
-  if (opts::disableLinkerStripDead) {
-    args.push_back("/OPT:NOREF");
-  } else {
-    args.push_back("/OPT:REF");
-    args.push_back("/OPT:ICF");
-  }
-
-  // add C runtime libs
-  addMscrtLibs(args);
-
-  // specify creation of DLL
-  if (sharedLib) {
-    args.push_back("/DLL");
-  }
-
-  // output filename
-  std::string output = getOutputName(sharedLib);
-
-  args.push_back("/OUT:" + output);
-
-  appendObjectFiles(args);
-
-  // Link with profile-rt library when generating an instrumented binary
-  // profile-rt depends on Phobos (MD5 hashing).
-  if (global.params.genInstrProf) {
-    args.push_back("ldc-profile-rt.lib");
-    // profile-rt depends on ws2_32 for symbol `gethostname`
-    args.push_back("ws2_32.lib");
-  }
-
-  // user libs
-  for (unsigned i = 0; i < global.params.libfiles->dim; i++)
-    args.push_back((*global.params.libfiles)[i]);
-
-  // set the global gExePath
-  gExePath = output;
-  // assert(gExePath.isValid());
-
-  // create path to exe
-  createDirectoryForFileOrFail(gExePath);
-
-  // additional linker switches
-  auto addSwitch = [&](std::string str) {
-    if (str.length() > 2) {
-      // rewrite common -L and -l switches
-      if (str[0] == '-' && str[1] == 'L') {
-        str = "/LIBPATH:" + str.substr(2);
-      } else if (str[0] == '-' && str[1] == 'l') {
-        str = str.substr(2) + ".lib";
-      }
-    }
-    args.push_back(str);
-  };
-
-  for (const auto &str : opts::linkerSwitches) {
-    addSwitch(str);
-  }
-
-  for (unsigned i = 0; i < global.params.linkswitches->dim; i++) {
-    addSwitch(global.params.linkswitches->data[i]);
-  }
-
-  // default libs
-  // TODO check which libaries are necessary
-  args.push_back("kernel32.lib");
-  args.push_back("user32.lib");
-  args.push_back("gdi32.lib");
-  args.push_back("winspool.lib");
-  args.push_back("shell32.lib"); // required for dmain2.d
-  args.push_back("ole32.lib");
-  args.push_back("oleaut32.lib");
-  args.push_back("uuid.lib");
-  args.push_back("comdlg32.lib");
-  args.push_back("advapi32.lib");
-
-  Logger::println("Linking with: ");
-  Stream logstr = Logger::cout();
-  for (const auto &arg : args) {
-    if (!arg.empty()) {
-      logstr << "'" << arg << "'"
-             << " ";
-    }
-  }
-  logstr << "\n"; // FIXME where's flush ?
-
-  // try to call linker
-  return executeToolAndWait(tool, args, global.params.verbose);
-}
+// path to the produced executable/shared library
+static std::string gExePath;
 
 //////////////////////////////////////////////////////////////////////////////
 
+// linker-msvc.cpp
+int linkObjToBinaryMSVC(llvm::StringRef outputPath,
+                        llvm::cl::boolOrDefault fullyStaticFlag);
+
 int linkObjToBinary() {
-  if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
-    return linkObjToBinaryMSVC(global.params.dll);
+  Logger::println("*** Linking executable ***");
+
+  // remember output path for later
+  gExePath = getOutputName();
+
+  createDirectoryForFileOrFail(gExePath);
+
+  llvm::cl::boolOrDefault fullyStaticFlag = llvm::cl::BOU_UNSET;
+  if (staticFlag.getNumOccurrences() != 0) {
+    fullyStaticFlag = staticFlag ? llvm::cl::BOU_TRUE : llvm::cl::BOU_FALSE;
   }
 
-  return linkObjToBinaryGcc(global.params.dll);
+  if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+    return linkObjToBinaryMSVC(gExePath, fullyStaticFlag);
+  }
+
+  return linkObjToBinaryGcc(gExePath, fullyStaticFlag);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -661,7 +510,6 @@ void deleteExeFile() {
 
 int runProgram() {
   assert(!gExePath.empty());
-  // assert(gExePath.isValid());
 
   // Run executable
   int status =
