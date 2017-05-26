@@ -62,7 +62,7 @@ immutable kernel = _kernel();
  *   Private    __private   __local__
  *   Generic    __generic   (no qualifier)
  */
-struct Pointer(Addrspace as, T)
+struct Pointer(AddrSpace as, T)
 {
     T* ptr;
     alias ptr this;
