@@ -26,6 +26,8 @@ std::string getProgram(const char *name,
                        const llvm::cl::opt<std::string> *opt = nullptr,
                        const char *envVar = nullptr);
 
+void createDirectoryForFileOrFail(llvm::StringRef fileName);
+
 int executeToolAndWait(const std::string &tool,
                        std::vector<std::string> const &args,
                        bool verbose = false);

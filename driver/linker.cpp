@@ -49,22 +49,6 @@ static llvm::cl::opt<std::string>
                               "LLVMgold.so (Unixes) or libLTO.dylib (Darwin))"),
                llvm::cl::value_desc("file"));
 
-static llvm::cl::opt<std::string> ar("ar", llvm::cl::desc("Archiver"),
-                                     llvm::cl::Hidden, llvm::cl::ZeroOrMore);
-
-//////////////////////////////////////////////////////////////////////////////
-
-static void CreateDirectoryOnDisk(llvm::StringRef fileName) {
-  auto dir = llvm::sys::path::parent_path(fileName);
-  if (!dir.empty() && !llvm::sys::fs::exists(dir)) {
-    if (auto ec = llvm::sys::fs::create_directories(dir)) {
-      error(Loc(), "failed to create path to file: %s\n%s", dir.data(),
-            ec.message().c_str());
-      fatal();
-    }
-  }
-}
-
 //////////////////////////////////////////////////////////////////////////////
 
 static std::string getOutputName(bool const sharedLib) {
@@ -335,7 +319,7 @@ static int linkObjToBinaryGcc(bool sharedLib) {
   // assert(gExePath.isValid());
 
   // create path to exe
-  CreateDirectoryOnDisk(gExePath);
+  createDirectoryForFileOrFail(gExePath);
 
   // Pass sanitizer arguments to linker. Requires clang.
   if (opts::sanitize == opts::AddressSanitizer) {
@@ -605,7 +589,7 @@ static int linkObjToBinaryMSVC(bool sharedLib) {
   // assert(gExePath.isValid());
 
   // create path to exe
-  CreateDirectoryOnDisk(gExePath);
+  createDirectoryForFileOrFail(gExePath);
 
   // additional linker switches
   auto addSwitch = [&](std::string str) {
@@ -663,107 +647,6 @@ int linkObjToBinary() {
   }
 
   return linkObjToBinaryGcc(global.params.dll);
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
-int createStaticLibrary() {
-  Logger::println("*** Creating static library ***");
-
-  const bool isTargetMSVC =
-      global.params.targetTriple->isWindowsMSVCEnvironment();
-
-#if LDC_LLVM_VER >= 309
-  const bool useInternalArchiver = ar.empty();
-#else
-  const bool useInternalArchiver = false;
-#endif
-
-  // find archiver
-  std::string tool;
-  if (useInternalArchiver) {
-    tool = isTargetMSVC ? "llvm-lib.exe" : "llvm-ar";
-  } else {
-#ifdef _WIN32
-    if (isTargetMSVC)
-      windows::setupMsvcEnvironment();
-#endif
-
-    tool = getProgram(isTargetMSVC ? "lib.exe" : "ar", &ar);
-  }
-
-  // build arguments
-  std::vector<std::string> args;
-
-  // ask ar to create a new library
-  if (!isTargetMSVC) {
-    args.push_back("rcs");
-  }
-
-  // ask lib to be quiet
-  if (isTargetMSVC) {
-    args.push_back("/NOLOGO");
-  }
-
-  // output filename
-  std::string libName;
-  if (global.params.libname) { // explicit
-    // DMD adds the default extension if there is none
-    libName = opts::invokedByLDMD
-                  ? FileName::defaultExt(global.params.libname, global.lib_ext)
-                  : global.params.libname;
-  } else { // infer from first object file
-    libName = global.params.objfiles->dim
-                  ? FileName::removeExt((*global.params.objfiles)[0])
-                  : "a.out";
-    libName += '.';
-    libName += global.lib_ext;
-  }
-
-  // DMD creates static libraries in the objects directory (unless using an
-  // absolute output path via `-of`).
-  if (opts::invokedByLDMD && global.params.objdir &&
-      !FileName::absolute(libName.c_str())) {
-    libName = FileName::combine(global.params.objdir, libName.c_str());
-  }
-
-  if (isTargetMSVC) {
-    args.push_back("/OUT:" + libName);
-  } else {
-    args.push_back(libName);
-  }
-
-  appendObjectFiles(args);
-
-  // create path to the library
-  CreateDirectoryOnDisk(libName);
-
-#if LDC_LLVM_VER >= 309
-  if (useInternalArchiver) {
-    std::vector<const char *> fullArgs;
-    fullArgs.reserve(1 + args.size());
-    fullArgs.push_back(tool.c_str());
-    for (const auto &arg : args)
-      fullArgs.push_back(arg.c_str());
-
-    if (global.params.verbose) {
-      for (auto arg : fullArgs) {
-        fprintf(global.stdmsg, "%s ", arg);
-      }
-      fprintf(global.stdmsg, "\n");
-      fflush(global.stdmsg);
-    }
-
-    const int exitCode = isTargetMSVC ? ldc::lib(fullArgs) : ldc::ar(fullArgs);
-    if (exitCode)
-      error(Loc(), "%s failed with status: %d", tool.c_str(), exitCode);
-
-    return exitCode;
-  }
-#endif
-
-  // try to call archiver
-  return executeToolAndWait(tool, args, global.params.verbose);
 }
 
 //////////////////////////////////////////////////////////////////////////////

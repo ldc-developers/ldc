@@ -13,6 +13,7 @@
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
 #ifdef _WIN32
 #include <Windows.h>
@@ -71,6 +72,19 @@ std::string getGcc() {
 #else
   return getProgram("gcc", &gcc, "CC");
 #endif
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+void createDirectoryForFileOrFail(llvm::StringRef fileName) {
+  auto dir = llvm::sys::path::parent_path(fileName);
+  if (!dir.empty() && !llvm::sys::fs::exists(dir)) {
+    if (auto ec = llvm::sys::fs::create_directories(dir)) {
+      error(Loc(), "failed to create path to file: %s\n%s", dir.data(),
+            ec.message().c_str());
+      fatal();
+    }
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

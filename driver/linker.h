@@ -35,12 +35,6 @@ void insertBitcodeFiles(llvm::Module &M, llvm::LLVMContext &Ctx,
 int linkObjToBinary();
 
 /**
- * Create a static library from object files.
- * @return 0 on success.
- */
-int createStaticLibrary();
-
-/**
  * Delete the executable that was previously linked with linkObjToBinary.
  */
 void deleteExeFile();
