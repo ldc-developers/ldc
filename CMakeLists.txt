@@ -342,6 +342,7 @@ set(DRV_SRC
     driver/tool.cpp
     driver/archiver.cpp
     driver/linker.cpp
+    driver/linker-gcc.cpp
     driver/linker-msvc.cpp
     driver/main.cpp
     ${CMAKE_BINARY_DIR}/driver/ldc-version.cpp
