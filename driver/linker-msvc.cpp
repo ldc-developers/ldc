@@ -12,6 +12,10 @@
 #include "driver/tool.h"
 #include "gen/logger.h"
 
+#if LDC_WITH_LLD
+#include "lld/Driver/Driver.h"
+#endif
+
 //////////////////////////////////////////////////////////////////////////////
 
 static llvm::cl::opt<std::string> mscrtlib(
@@ -159,6 +163,20 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
     }
   }
   logstr << "\n"; // FIXME where's flush ?
+
+#if LDC_WITH_LLD
+  const bool useInternalLinker = true; // TODO
+  if (useInternalLinker) {
+    const auto fullArgs =
+        getFullArgs("lld-link.exe", args, global.params.verbose);
+
+    const bool success = lld::coff::link(fullArgs);
+    if (!success)
+      error(Loc(), "linking with LLD failed");
+
+    return success ? 0 : 1;
+  }
+#endif
 
   // try to call linker
   return executeToolAndWait(tool, args, global.params.verbose);

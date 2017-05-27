@@ -28,6 +28,10 @@ std::string getProgram(const char *name,
 
 void createDirectoryForFileOrFail(llvm::StringRef fileName);
 
+std::vector<const char *> getFullArgs(const std::string &tool,
+                                      const std::vector<std::string> &args,
+                                      bool printVerbose);
+
 int executeToolAndWait(const std::string &tool,
                        std::vector<std::string> const &args,
                        bool verbose = false);

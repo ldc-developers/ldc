@@ -80,9 +80,11 @@ set(CONF_INST_DIR ${SYSCONF_INSTALL_DIR} CACHE PATH "Directory ldc.conf is insta
 # Note: LIB_SUFFIX should perhaps be renamed to LDC_LIBDIR_SUFFIX.
 set(LIB_SUFFIX "" CACHE STRING "Appended to the library installation directory. Set to '64' to install libraries into ${PREFIX}/lib64.")
 
-# The following flags are currently not well tested, expect the build to fail.
+# The following flag is currently not well tested, expect the build to fail.
 option(GENERATE_OFFTI "generate complete ClassInfo.offTi arrays")
 mark_as_advanced(GENERATE_OFFTI)
+
+option(LDC_WITH_LLD "Integrate LLD, the LLVM cross-linker")
 
 if(D_VERSION EQUAL 1)
     message(FATAL_ERROR "D version 1 is no longer supported.
@@ -428,8 +430,6 @@ include_directories( SYSTEM
 )
 append("-I${PROJECT_SOURCE_DIR}" DDMD_DFLAGS)
 append("-I${PROJECT_BINARY_DIR}" DDMD_DFLAGS)
-
-
 if(MSVC)
     include_directories(${PROJECT_SOURCE_DIR}/vcbuild)
 endif()
@@ -446,6 +446,10 @@ append("\"-DLDC_LIBDIR_SUFFIX=\\\"${LIB_SUFFIX}\\\"\"" LDC_CXXFLAGS)
 
 if(GENERATE_OFFTI)
     append("-DGENERATE_OFFTI" LDC_CXXFLAGS)
+endif()
+
+if(LDC_WITH_LLD)
+    append("-DLDC_WITH_LLD" LDC_CXXFLAGS)
 endif()
 
 option(RISCV_LLVM_DEV, "full RISC-V support with riscv-llvm")
@@ -548,6 +552,13 @@ add_custom_target(${LDMD_EXE} ALL DEPENDS ${LDMD_EXE_FULL})
 # Figure out how to link the main LDC executable, for which we need to take the
 # LLVM flags into account.
 set(LDC_LINKERFLAG_LIST "${SANITIZE_LDFLAGS};${LLVM_LIBRARIES};${LLVM_LDFLAGS}")
+if(LDC_WITH_LLD)
+    if(MSVC)
+        list(APPEND LDC_LINKERFLAG_LIST lldCOFF.lib lldCore.lib lldDriver.lib)
+    else()
+        set(LDC_LINKERFLAG_LIST "-llldCOFF;-llldCore;-llldDriver;${LDC_LINKERFLAG_LIST}")
+    endif()
+endif()
 
 set(LDC_LINK_MANUALLY OFF)
 if(UNIX AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")))

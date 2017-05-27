@@ -362,19 +362,7 @@ int createStaticLibrary() {
 
 #if LDC_LLVM_VER >= 309
   if (useInternalArchiver) {
-    std::vector<const char *> fullArgs;
-    fullArgs.reserve(1 + args.size());
-    fullArgs.push_back(tool.c_str());
-    for (const auto &arg : args)
-      fullArgs.push_back(arg.c_str());
-
-    if (global.params.verbose) {
-      for (auto arg : fullArgs) {
-        fprintf(global.stdmsg, "%s ", arg);
-      }
-      fprintf(global.stdmsg, "\n");
-      fflush(global.stdmsg);
-    }
+    const auto fullArgs = getFullArgs(tool, args, global.params.verbose);
 
     const int exitCode =
         isTargetMSVC ? internalLib(fullArgs) : internalAr(fullArgs);

@@ -89,6 +89,30 @@ void createDirectoryForFileOrFail(llvm::StringRef fileName) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+std::vector<const char *> getFullArgs(const std::string &tool,
+                                      const std::vector<std::string> &args,
+                                      bool printVerbose) {
+  std::vector<const char *> fullArgs;
+  fullArgs.reserve(args.size() +
+                   2); // executeToolAndWait() appends an additional null
+
+  fullArgs.push_back(tool.c_str());
+  for (const auto &arg : args)
+    fullArgs.push_back(arg.c_str());
+
+  // Print command line if requested
+  if (printVerbose) {
+    for (auto arg : fullArgs)
+      fprintf(global.stdmsg, "%s ", arg);
+    fprintf(global.stdmsg, "\n");
+    fflush(global.stdmsg);
+  }
+
+  return fullArgs;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 int executeToolAndWait(const std::string &tool_,
                        std::vector<std::string> const &args, bool verbose) {
   const auto tool = findProgramByName(tool_);
@@ -99,23 +123,8 @@ int executeToolAndWait(const std::string &tool_,
 
   // Construct real argument list.
   // First entry is the tool itself, last entry must be NULL.
-  std::vector<const char *> realargs;
-  realargs.reserve(args.size() + 2);
-  realargs.push_back(tool.c_str());
-  for (const auto &arg : args) {
-    realargs.push_back(arg.c_str());
-  }
+  auto realargs = getFullArgs(tool, args, verbose);
   realargs.push_back(nullptr);
-
-  // Print command line if requested
-  if (verbose) {
-    // Print it
-    for (size_t i = 0; i < realargs.size() - 1; i++) {
-      fprintf(global.stdmsg, "%s ", realargs[i]);
-    }
-    fprintf(global.stdmsg, "\n");
-    fflush(global.stdmsg);
-  }
 
   // Execute tool.
   std::string errstr;
