@@ -145,14 +145,26 @@ void addLTOLinkFlags(std::vector<std::string> &args) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-int linkObjToBinaryGcc(llvm::StringRef outputPath,
-                       llvm::cl::boolOrDefault fullyStaticFlag) {
-  // find gcc for linking
-  const std::string tool = getGcc();
+namespace {
 
-  // build arguments
+class ArgsBuilder {
+public:
   std::vector<std::string> args;
 
+  void build(llvm::StringRef outputPath,
+             llvm::cl::boolOrDefault fullyStaticFlag);
+
+private:
+  void addSanitizers();
+  void addUserSwitches();
+  void addDefaultLibs();
+  void addArch();
+};
+
+//////////////////////////////////////////////////////////////////////////////
+
+void ArgsBuilder::build(llvm::StringRef outputPath,
+                        llvm::cl::boolOrDefault fullyStaticFlag) {
   // object files
   for (unsigned i = 0; i < global.params.objfiles->dim; i++)
     args.push_back((*global.params.objfiles)[i]);
@@ -187,18 +199,7 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
   args.push_back("-o");
   args.push_back(outputPath);
 
-  // Pass sanitizer arguments to linker. Requires clang.
-  if (opts::sanitize == opts::AddressSanitizer) {
-    args.push_back("-fsanitize=address");
-  }
-
-  if (opts::sanitize == opts::MemorySanitizer) {
-    args.push_back("-fsanitize=memory");
-  }
-
-  if (opts::sanitize == opts::ThreadSanitizer) {
-    args.push_back("-fsanitize=thread");
-  }
+  addSanitizers();
 
 #if LDC_LLVM_VER >= 309
   // Add LTO link flags before adding the user link switches, such that the user
@@ -207,6 +208,46 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
     addLTOLinkFlags(args);
 #endif
 
+  addUserSwitches();
+
+  // libs added via pragma(lib, libname)
+  for (unsigned i = 0; i < global.params.linkswitches->dim; i++) {
+    args.push_back((*global.params.linkswitches)[i]);
+  }
+
+  if (global.params.targetTriple->getOS() == llvm::Triple::Linux) {
+    // Make sure we don't do --gc-sections when generating a profile-
+    // instrumented binary. The runtime relies on magic sections, which
+    // would be stripped by gc-section on older version of ld, see bug:
+    // https://sourceware.org/bugzilla/show_bug.cgi?id=19161
+    if (!opts::disableLinkerStripDead && !global.params.genInstrProf) {
+      args.push_back("-Wl,--gc-sections");
+    }
+  }
+
+  addDefaultLibs();
+
+  addArch();
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+// Requires clang.
+void ArgsBuilder::addSanitizers() {
+  if (opts::sanitize == opts::AddressSanitizer) {
+    args.push_back("-fsanitize=address");
+  }
+  if (opts::sanitize == opts::MemorySanitizer) {
+    args.push_back("-fsanitize=memory");
+  }
+  if (opts::sanitize == opts::ThreadSanitizer) {
+    args.push_back("-fsanitize=thread");
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+void ArgsBuilder::addUserSwitches() {
   // additional linker and cc switches (preserve order across both lists)
   for (unsigned ilink = 0, icc = 0;;) {
     unsigned linkpos = ilink < opts::linkerSwitches.size()
@@ -235,24 +276,16 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
       break;
     }
   }
+}
 
-  // libs added via pragma(lib, libname)
-  for (unsigned i = 0; i < global.params.linkswitches->dim; i++) {
-    args.push_back((*global.params.linkswitches)[i]);
-  }
+//////////////////////////////////////////////////////////////////////////////
 
-  // default libs
+void ArgsBuilder::addDefaultLibs() {
   bool addSoname = false;
+
   switch (global.params.targetTriple->getOS()) {
   case llvm::Triple::Linux:
     addSoname = true;
-    // Make sure we don't do --gc-sections when generating a profile-
-    // instrumented binary. The runtime relies on magic sections, which
-    // would be stripped by gc-section on older version of ld, see bug:
-    // https://sourceware.org/bugzilla/show_bug.cgi?id=19161
-    if (!opts::disableLinkerStripDead && !global.params.genInstrProf) {
-      args.push_back("-Wl,--gc-sections");
-    }
     if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
       args.push_back("-ldl");
       args.push_back("-lm");
@@ -293,6 +326,14 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
     args.push_back("-lws2_32");
   }
 
+  if (global.params.dll && addSoname && !opts::soname.empty()) {
+    args.push_back("-Wl,-soname," + opts::soname);
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+void ArgsBuilder::addArch() {
   // Only specify -m32/-m64 for architectures where the two variants actually
   // exist (as e.g. the GCC ARM toolchain doesn't recognize the switches).
   // MIPS does not have -m32/-m64 but requires -mabi=.
@@ -340,24 +381,30 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
       }
     }
   }
+}
 
-  if (global.params.dll && addSoname) {
-    std::string soname = opts::soname;
-    if (!soname.empty()) {
-      args.push_back("-Wl,-soname," + soname);
-    }
-  }
+} // anonymous namespace
+
+//////////////////////////////////////////////////////////////////////////////
+
+int linkObjToBinaryGcc(llvm::StringRef outputPath,
+                       llvm::cl::boolOrDefault fullyStaticFlag) {
+  // find gcc for linking
+  const std::string tool = getGcc();
+
+  // build arguments
+  ArgsBuilder argsBuilder;
+  argsBuilder.build(outputPath, fullyStaticFlag);
 
   Logger::println("Linking with: ");
   Stream logstr = Logger::cout();
-  for (const auto &arg : args) {
+  for (const auto &arg : argsBuilder.args) {
     if (!arg.empty()) {
-      logstr << "'" << arg << "'"
-             << " ";
+      logstr << "'" << arg << "' ";
     }
   }
   logstr << "\n"; // FIXME where's flush ?
 
   // try to call linker
-  return executeToolAndWait(tool, args, global.params.verbose);
+  return executeToolAndWait(tool, argsBuilder.args, global.params.verbose);
 }

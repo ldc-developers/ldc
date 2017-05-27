@@ -155,8 +155,7 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
   Stream logstr = Logger::cout();
   for (const auto &arg : args) {
     if (!arg.empty()) {
-      logstr << "'" << arg << "'"
-             << " ";
+      logstr << "'" << arg << "' ";
     }
   }
   logstr << "\n"; // FIXME where's flush ?
