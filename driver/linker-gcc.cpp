@@ -35,14 +35,16 @@ class ArgsBuilder {
 public:
   std::vector<std::string> args;
 
+  virtual ~ArgsBuilder() = default;
+
   void build(llvm::StringRef outputPath,
              llvm::cl::boolOrDefault fullyStaticFlag);
 
 private:
-  void addSanitizers();
-  void addUserSwitches();
+  virtual void addSanitizers();
+  virtual void addUserSwitches();
   void addDefaultLibs();
-  void addArch();
+  virtual void addArch();
 
 #if LDC_LLVM_VER >= 309
   void addLTOGoldPluginFlags();
@@ -50,11 +52,11 @@ private:
   void addLTOLinkFlags();
 #endif
 
-  void addLdFlag(const llvm::Twine &flag) {
+  virtual void addLdFlag(const llvm::Twine &flag) {
     args.push_back(("-Wl," + flag).str());
   }
 
-  void addLdFlag(const llvm::Twine &flag1, const llvm::Twine &flag2) {
+  virtual void addLdFlag(const llvm::Twine &flag1, const llvm::Twine &flag2) {
     args.push_back(("-Wl," + flag1 + "," + flag2).str());
   }
 };
@@ -386,6 +388,33 @@ void ArgsBuilder::addArch() {
     }
   }
 }
+
+//////////////////////////////////////////////////////////////////////////////
+// (Yet unused) specialization for plain ld.
+
+class LdArgsBuilder : public ArgsBuilder {
+  void addSanitizers() override {}
+
+  void addUserSwitches() override {
+    if (!opts::ccSwitches.empty()) {
+      warning(Loc(), "Ignoring -Xcc options");
+    }
+
+    args.insert(args.end(), opts::linkerSwitches.begin(),
+                opts::linkerSwitches.end());
+  }
+
+  void addArch() override {}
+
+  void addLdFlag(const llvm::Twine &flag) override {
+    args.push_back(flag.str());
+  }
+
+  void addLdFlag(const llvm::Twine &flag1, const llvm::Twine &flag2) override {
+    args.push_back(flag1.str());
+    args.push_back(flag2.str());
+  }
+};
 
 } // anonymous namespace
 
