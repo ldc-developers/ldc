@@ -29,7 +29,7 @@ struct DComputePointerRewrite : ABIRewrite {
   }
   LLValue *getLVal(Type *dty, LLValue *v) override {
     // TODO: Is this correct?
-    return DtoBitCast(v, this->type(dty));
+    return DtoAllocaDump(v,this->type(dty));
   }
   LLValue *put(DValue *dv) override {
     LLValue *address = getAddressOf(dv);

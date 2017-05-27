@@ -30,11 +30,11 @@ struct DcomputePointer {
   Type *type;
   DcomputePointer(int as, Type *ty) : addrspace(as), type(ty) {}
   LLType *toLLVMType(bool translate) {
-    auto llType = DtoMemType(type);
+    auto llType = DtoType(type);
     int as = addrspace;
     if (translate)
       as = gIR->dcomputetarget->mapping[as];
-    return llType->getPointerElementType()->getPointerTo(as);
+    return llType->getPointerTo(as);
   }
 };
 llvm::Optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd);
