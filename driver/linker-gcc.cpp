@@ -49,17 +49,20 @@ private:
   void addDarwinLTOFlags();
   void addLTOLinkFlags();
 #endif
+
+  void addLdFlag(const llvm::Twine &flag) {
+    args.push_back(("-Wl," + flag).str());
+  }
+
+  void addLdFlag(const llvm::Twine &flag1, const llvm::Twine &flag2) {
+    args.push_back(("-Wl," + flag1 + "," + flag2).str());
+  }
 };
 
 //////////////////////////////////////////////////////////////////////////////
 // LTO functionality
 
 #if LDC_LLVM_VER >= 309
-
-void addLinkerFlag(std::vector<std::string> &args, const llvm::Twine &flag) {
-  args.push_back("-Xlinker");
-  args.push_back(flag.str());
-}
 
 std::string getLTOGoldPluginPath() {
   if (!ltoLibrary.empty()) {
@@ -98,27 +101,26 @@ std::string getLTOGoldPluginPath() {
 }
 
 void ArgsBuilder::addLTOGoldPluginFlags() {
-  addLinkerFlag(args, "-plugin");
-  addLinkerFlag(args, getLTOGoldPluginPath());
+  addLdFlag("-plugin", getLTOGoldPluginPath());
 
   if (opts::isUsingThinLTO())
-    addLinkerFlag(args, "-plugin-opt=thinlto");
+    addLdFlag("-plugin-opt=thinlto");
 
   if (!opts::mCPU.empty())
-    addLinkerFlag(args, llvm::Twine("-plugin-opt=mcpu=") + opts::mCPU);
+    addLdFlag(llvm::Twine("-plugin-opt=mcpu=") + opts::mCPU);
 
   // Use the O-level passed to LDC as the O-level for LTO, but restrict it to
   // the [0, 3] range that can be passed to the linker plugin.
   static char optChars[15] = "-plugin-opt=O0";
   optChars[13] = '0' + std::min<char>(optLevel(), 3);
-  addLinkerFlag(args, optChars);
+  addLdFlag(optChars);
 
 #if LDC_LLVM_VER >= 400
   const llvm::TargetOptions &TO = gTargetMachine->Options;
   if (TO.FunctionSections)
-    addLinkerFlag(args, "-plugin-opt=-function-sections");
+    addLdFlag("-plugin-opt=-function-sections");
   if (TO.DataSections)
-    addLinkerFlag(args, "-plugin-opt=-data-sections");
+    addLdFlag("-plugin-opt=-data-sections");
 #endif
 }
 
@@ -180,8 +182,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
     if (global.params.targetTriple->isOSLinux()) {
       // For Linux, explicitly define __llvm_profile_runtime as undefined
       // symbol, so that the initialization part of profile-rt is linked in.
-      args.push_back(
-          ("-Wl,-u," + llvm::getInstrProfRuntimeHookVarName()).str());
+      addLdFlag("-u", llvm::getInstrProfRuntimeHookVarName());
     }
 #endif
     args.push_back("-lldc-profile-rt");
@@ -224,7 +225,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
     // would be stripped by gc-section on older version of ld, see bug:
     // https://sourceware.org/bugzilla/show_bug.cgi?id=19161
     if (!opts::disableLinkerStripDead && !global.params.genInstrProf) {
-      args.push_back("-Wl,--gc-sections");
+      addLdFlag("--gc-sections");
     }
   }
 
@@ -330,7 +331,7 @@ void ArgsBuilder::addDefaultLibs() {
   }
 
   if (global.params.dll && addSoname && !opts::soname.empty()) {
-    args.push_back("-Wl,-soname," + opts::soname);
+    addLdFlag("-soname", opts::soname);
   }
 }
 
