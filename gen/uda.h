@@ -28,8 +28,8 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar);
 
 bool hasWeakUDA(Dsymbol *sym);
 bool hasKernelAttr(Dsymbol *sym);
-/// Must match ldc.attributes.Compilefor + 1 == DComputeCompileFor
-enum class DComputeCompileFor
+/// Must match ldc.dcompute.Compilefor + 1 == DComputeCompileFor
+enum class DComputeCompileFor : int
 {
   hostOnly = 0,
   deviceOnly = 1,
