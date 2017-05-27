@@ -4,11 +4,11 @@
 @compute(CompileFor.deviceOnly) module dcompute_cu_addrspaces;
 import ldc.dcompute;
 
-// LL: %"ldc.dcomputetypes.Pointer!(0u, float).Pointer" = type { float addrspace(5)* }
-// LL: %"ldc.dcomputetypes.Pointer!(1u, float).Pointer" = type { float addrspace(1)* }
-// LL: %"ldc.dcomputetypes.Pointer!(2u, float).Pointer" = type { float addrspace(3)* }
-// LL: %"ldc.dcomputetypes.Pointer!(3u, immutable(float)).Pointer" = type { float addrspace(4)* }
-// LL: %"ldc.dcomputetypes.Pointer!(4u, float).Pointer" = type { float* }
+// LL: %"ldc.dcomputetypes.Pointer!(cast(AddrSpace)0u, float).Pointer" = type { float addrspace(5)* }
+// LL: %"ldc.dcomputetypes.Pointer!(cast(AddrSpace)1u, float).Pointer" = type { float addrspace(1)* }
+// LL: %"ldc.dcomputetypes.Pointer!(cast(AddrSpace)2u, float).Pointer" = type { float addrspace(3)* }
+// LL: %"ldc.dcomputetypes.Pointer!(cast(AddrSpace)3u, immutable(float)).Pointer" = type { float addrspace(4)* }
+// LL: %"ldc.dcomputetypes.Pointer!(cast(AddrSpace)4u, float).Pointer" = type { float* }
 
 void foo(PrivatePointer!float f) {
     // LL: load float, float addrspace(5)*

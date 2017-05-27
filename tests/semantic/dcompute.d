@@ -52,7 +52,7 @@ void func()
 
     //CHECK: dcompute.d([[@LINE+1]]): Error: can only call functions from other @compute modules in @compute code
     somefunc();
-    if (__dcompute_reflect(0,0))
+    if (__dcompute_reflect(ReflectTarget.Host,0))
         //CHECK-NOT: Error:
         somefunc();
 
