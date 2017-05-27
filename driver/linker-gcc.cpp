@@ -28,11 +28,33 @@ static llvm::cl::opt<std::string>
                llvm::cl::value_desc("file"));
 
 //////////////////////////////////////////////////////////////////////////////
+
+namespace {
+
+class ArgsBuilder {
+public:
+  std::vector<std::string> args;
+
+  void build(llvm::StringRef outputPath,
+             llvm::cl::boolOrDefault fullyStaticFlag);
+
+private:
+  void addSanitizers();
+  void addUserSwitches();
+  void addDefaultLibs();
+  void addArch();
+
+#if LDC_LLVM_VER >= 309
+  void addLTOGoldPluginFlags();
+  void addDarwinLTOFlags();
+  void addLTOLinkFlags();
+#endif
+};
+
+//////////////////////////////////////////////////////////////////////////////
 // LTO functionality
 
 #if LDC_LLVM_VER >= 309
-
-namespace {
 
 void addLinkerFlag(std::vector<std::string> &args, const llvm::Twine &flag) {
   args.push_back("-Xlinker");
@@ -75,7 +97,7 @@ std::string getLTOGoldPluginPath() {
   }
 }
 
-void addLTOGoldPluginFlags(std::vector<std::string> &args) {
+void ArgsBuilder::addLTOGoldPluginFlags() {
   addLinkerFlag(args, "-plugin");
   addLinkerFlag(args, getLTOGoldPluginPath());
 
@@ -118,7 +140,7 @@ std::string getLTOdylibPath() {
   }
 }
 
-void addDarwinLTOFlags(std::vector<std::string> &args) {
+void ArgsBuilder::addDarwinLTOFlags() {
   std::string dylibPath = getLTOdylibPath();
   if (!dylibPath.empty()) {
     args.push_back("-lto_library");
@@ -127,39 +149,20 @@ void addDarwinLTOFlags(std::vector<std::string> &args) {
 }
 
 /// Adds the required linker flags for LTO builds to args.
-void addLTOLinkFlags(std::vector<std::string> &args) {
+void ArgsBuilder::addLTOLinkFlags() {
   if (global.params.targetTriple->isOSLinux() ||
       global.params.targetTriple->isOSFreeBSD() ||
       global.params.targetTriple->isOSNetBSD() ||
       global.params.targetTriple->isOSOpenBSD() ||
       global.params.targetTriple->isOSDragonFly()) {
     // Assume that ld.gold or ld.bfd is used with plugin support.
-    addLTOGoldPluginFlags(args);
+    addLTOGoldPluginFlags();
   } else if (global.params.targetTriple->isOSDarwin()) {
-    addDarwinLTOFlags(args);
+    addDarwinLTOFlags();
   }
 }
-} // anonymous namespace
 
 #endif // LDC_LLVM_VER >= 309
-
-//////////////////////////////////////////////////////////////////////////////
-
-namespace {
-
-class ArgsBuilder {
-public:
-  std::vector<std::string> args;
-
-  void build(llvm::StringRef outputPath,
-             llvm::cl::boolOrDefault fullyStaticFlag);
-
-private:
-  void addSanitizers();
-  void addUserSwitches();
-  void addDefaultLibs();
-  void addArch();
-};
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -205,7 +208,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   // Add LTO link flags before adding the user link switches, such that the user
   // can pass additional options to the LTO plugin.
   if (opts::isUsingLTO())
-    addLTOLinkFlags(args);
+    addLTOLinkFlags();
 #endif
 
   addUserSwitches();
