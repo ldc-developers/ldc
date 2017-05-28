@@ -257,7 +257,15 @@ class CppMangleVisitor : public Visitor
         }
         else
         {
+#if IN_LLVM
+            // Issue #1312: Mangle constructor with class/struct
+            // name instead of __ctor.
+            const char *name = s->isCtorDeclaration()
+                               ? s->parent->ident->toChars()
+                               : s->ident->toChars();
+#else
             const char *name = s->ident->toChars();
+#endif
             buf.printf("%d%s", strlen(name), name);
         }
     }
@@ -1689,7 +1697,15 @@ private:
         }
         else
         {
+#if IN_LLVM
+            // Issue #1312: Mangle constructor with class/struct
+            // name instead of __ctor.
+            name = sym->isCtorDeclaration()
+                   ? sym->parent->ident->toChars()
+                   : sym->ident->toChars();
+#else
             name = sym->ident->toChars();
+#endif
         }
         assert(name);
         if (!is_dmc_template)
