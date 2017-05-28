@@ -20,19 +20,27 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-static llvm::cl::opt<bool>
+static llvm::cl::opt<llvm::cl::boolOrDefault>
     staticFlag("static", llvm::cl::ZeroOrMore,
                llvm::cl::desc("Create a statically linked binary, including "
                               "all system dependencies"));
 
+#if LDC_WITH_LLD
+static llvm::cl::opt<bool>
+    useInternalLinker("link-internally", llvm::cl::ZeroOrMore, llvm::cl::Hidden,
+                      llvm::cl::desc("Use internal LLD for linking"));
+#else
+constexpr bool useInternalLinker = false;
+#endif
+
 //////////////////////////////////////////////////////////////////////////////
 
 // linker-gcc.cpp
-int linkObjToBinaryGcc(llvm::StringRef outputPath,
+int linkObjToBinaryGcc(llvm::StringRef outputPath, bool useInternalLinker,
                        llvm::cl::boolOrDefault fullyStaticFlag);
 
 // linker-msvc.cpp
-int linkObjToBinaryMSVC(llvm::StringRef outputPath,
+int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
                         llvm::cl::boolOrDefault fullyStaticFlag);
 
 //////////////////////////////////////////////////////////////////////////////
@@ -135,16 +143,11 @@ int linkObjToBinary() {
 
   createDirectoryForFileOrFail(gExePath);
 
-  llvm::cl::boolOrDefault fullyStaticFlag = llvm::cl::BOU_UNSET;
-  if (staticFlag.getNumOccurrences() != 0) {
-    fullyStaticFlag = staticFlag ? llvm::cl::BOU_TRUE : llvm::cl::BOU_FALSE;
-  }
-
   if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
-    return linkObjToBinaryMSVC(gExePath, fullyStaticFlag);
+    return linkObjToBinaryMSVC(gExePath, useInternalLinker, staticFlag);
   }
 
-  return linkObjToBinaryGcc(gExePath, fullyStaticFlag);
+  return linkObjToBinaryGcc(gExePath, useInternalLinker, staticFlag);
 }
 
 //////////////////////////////////////////////////////////////////////////////

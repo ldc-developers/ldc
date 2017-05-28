@@ -420,7 +420,7 @@ class LdArgsBuilder : public ArgsBuilder {
 
 //////////////////////////////////////////////////////////////////////////////
 
-int linkObjToBinaryGcc(llvm::StringRef outputPath,
+int linkObjToBinaryGcc(llvm::StringRef outputPath, bool useInternalLinker,
                        llvm::cl::boolOrDefault fullyStaticFlag) {
   // find gcc for linking
   const std::string tool = getGcc();

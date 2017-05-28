@@ -51,7 +51,7 @@ void addMscrtLibs(std::vector<std::string> &args,
 
 //////////////////////////////////////////////////////////////////////////////
 
-int linkObjToBinaryMSVC(llvm::StringRef outputPath,
+int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
                         llvm::cl::boolOrDefault fullyStaticFlag) {
   if (!opts::ccSwitches.empty()) {
     error(Loc(), "-Xcc is not supported for MSVC");
@@ -165,7 +165,6 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
   logstr << "\n"; // FIXME where's flush ?
 
 #if LDC_WITH_LLD
-  const bool useInternalLinker = true; // TODO
   if (useInternalLinker) {
     const auto fullArgs =
         getFullArgs("lld-link.exe", args, global.params.verbose);

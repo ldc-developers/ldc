@@ -5,6 +5,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
 include(FindDCompiler)
 include(CheckIncludeFile)
+include(CheckIncludeFileCXX)
 include(CheckLibraryExists)
 include(CheckCXXCompilerFlag)
 include(CheckDSourceCompiles)
@@ -83,8 +84,6 @@ set(LIB_SUFFIX "" CACHE STRING "Appended to the library installation directory. 
 # The following flag is currently not well tested, expect the build to fail.
 option(GENERATE_OFFTI "generate complete ClassInfo.offTi arrays")
 mark_as_advanced(GENERATE_OFFTI)
-
-option(LDC_WITH_LLD "Integrate LLD, the LLVM cross-linker")
 
 if(D_VERSION EQUAL 1)
     message(FATAL_ERROR "D version 1 is no longer supported.
@@ -448,16 +447,31 @@ if(GENERATE_OFFTI)
     append("-DGENERATE_OFFTI" LDC_CXXFLAGS)
 endif()
 
-if(LDC_WITH_LLD)
-    append("-DLDC_WITH_LLD" LDC_CXXFLAGS)
+#
+# LLD integration (requires LLVM >= 3.9 with LLD headers & libs)
+#
+set(LDC_WITH_LLD OFF)
+if(LDC_LLVM_VER GREATER 308)
+    # check for LLD header
+    unset(LDC_WITH_LLD)
+    if(NOT MSVC)
+        set(CMAKE_REQUIRED_FLAGS -std=c++11)
+    endif()
+    set(CMAKE_REQUIRED_INCLUDES ${LLVM_INCLUDE_DIRS})
+    CHECK_INCLUDE_FILE_CXX(lld/Driver/Driver.h LDC_WITH_LLD)
+    unset(CMAKE_REQUIRED_FLAGS)
+    unset(CMAKE_REQUIRED_INCLUDES)
+    if(LDC_WITH_LLD)
+        message(STATUS "Building LDC with LLD support")
+        append("-DLDC_WITH_LLD" LDC_CXXFLAGS)
+    endif()
 endif()
-
-option(RISCV_LLVM_DEV, "full RISC-V support with riscv-llvm")
-mark_as_advanced(RISCV_LLVM_DEV)
 
 #
 # Enable building with riscv-llvm, for full RISC-V support.
 #
+option(RISCV_LLVM_DEV, "full RISC-V support with riscv-llvm")
+mark_as_advanced(RISCV_LLVM_DEV)
 if(RISCV_LLVM_DEV)
     append("-DRISCV_LLVM_DEV" LDC_CXXFLAGS)
 endif()
