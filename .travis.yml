@@ -81,8 +81,14 @@ before_install:
         tar -xvf llvm-$LLVM_VERSION.tar.xz --strip 1 -C llvm-$LLVM_VERSION;
       fi;
     fi;
-    llvm-$LLVM_VERSION/bin/llvm-config --version;
-    export LLVM_CONFIG="llvm-$LLVM_VERSION/bin/llvm-config";
+
+    if [ -n "${LLVM_SPIRV_AVAILABLE}" ]; then
+      llvm-spirv-$LLVM_VERSION/bin/llvm-config --version;
+      export LLVM_CONFIG="llvm-spirv-$LLVM_VERSION/bin/llvm-config";
+    else
+      llvm-$LLVM_VERSION/bin/llvm-config --version;
+      export LLVM_CONFIG="llvm-$LLVM_VERSION/bin/llvm-config";
+    fi;
 install:
   - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then export CC="gcc-4.9"; export CXX="g++-4.9"; fi
   - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then brew update; brew install ninja; fi;
