@@ -35,5 +35,5 @@ enum class DComputeCompileFor : int
   deviceOnly = 1,
   hostAndDevice = 2
 };
-DComputeCompileFor hasComputeAttr(Dsymbol *sym);
+extern "C" DComputeCompileFor hasComputeAttr(Dsymbol *sym);
 #endif
