@@ -8242,8 +8242,11 @@ extern (C++) class BinAssignExp : BinExp
 
         int isvector = type.toBasetype().ty == Tvector;
 
+      version (IN_LLVM) {} else
+      {
         if (op == TOKmulass && isvector && !e2.type.isfloating() && (cast(TypeVector)type.toBasetype()).elementType().size(loc) != 2)
             return incompatibleTypes(); // Only short[8] and ushort[8] work with multiply
+      }
 
         if (op == TOKdivass && isvector && !e1.type.isfloating())
             return incompatibleTypes();
@@ -14595,8 +14598,11 @@ extern (C++) final class MulExp : BinExp
         }
         else if (tb.ty == Tvector && (cast(TypeVector)tb).elementType().size(loc) != 2)
         {
+          version (IN_LLVM) {} else
+          {
             // Only short[8] and ushort[8] work with multiply
             return incompatibleTypes();
+          }
         }
         return this;
     }
