@@ -19,19 +19,12 @@ import ldc.dcompute;
 // SPT-DAG: 4 TypePointer [[GENERIC_FLOAT_POINTER_ID:[0-9]+]] 8 [[FLOAT_ID]]
 // SPT-DAG: 4 TypePointer [[PRIVATE_FLOAT_POINTER_ID:[0-9]+]] 7 [[FLOAT_ID]]
 
-//PrivatePointer and friends are { T addrspace(n)* }
-// SPT-DAG: 3 TypeStruct [[STRUCT_PRIVATE_FLOAT_POINTER_ID:[0-9]+]] [[PRIVATE_FLOAT_POINTER_ID]]
-// SPT-DAG: 3 TypeStruct [[STRUCT_SHARED_FLOAT_POINTER_ID:[0-9]+]] [[SHARED_FLOAT_POINTER_ID]]
-// SPT-DAG: 3 TypeStruct [[STRUCT_CONSTANT_FLOAT_POINTER_ID:[0-9]+]] [[CONSTANT_FLOAT_POINTER_ID]]
-// SPT-DAG: 3 TypeStruct [[STRUCT_GLOBAL_FLOAT_POINTER_ID:[0-9]+]] [[GLOBAL_FLOAT_POINTER_ID]]
-// SPT-DAG: 3 TypeStruct [[STRUCT_GENERIC_FLOAT_POINTER_ID:[0-9]+]] [[GENERIC_FLOAT_POINTER_ID]]
-
 //void function({ T addrspace(n)* })
-// SPT-DAG: 4 TypeFunction [[FOO_PRIVATE:[0-9]+]] [[VOID_ID]] [[STRUCT_PRIVATE_FLOAT_POINTER_ID]]
-// SPT-DAG: 4 TypeFunction [[FOO_GLOBAL:[0-9]+]] [[VOID_ID]] [[STRUCT_GLOBAL_FLOAT_POINTER_ID]]
-// SPT-DAG: 4 TypeFunction [[FOO_SHARED:[0-9]+]] [[VOID_ID]] [[STRUCT_SHARED_FLOAT_POINTER_ID]]
-// SPT-DAG: 4 TypeFunction [[FOO_CONSTANT:[0-9]+]] [[VOID_ID]] [[STRUCT_CONSTANT_FLOAT_POINTER_ID]]
-// SPT-DAG: 4 TypeFunction [[FOO_GENERIC:[0-9]+]] [[VOID_ID]] [[STRUCT_GENERIC_FLOAT_POINTER_ID]]
+// SPT-DAG: 4 TypeFunction [[FOO_PRIVATE:[0-9]+]] [[VOID_ID]] [[PRIVATE_FLOAT_POINTER_ID]]
+// SPT-DAG: 4 TypeFunction [[FOO_GLOBAL:[0-9]+]] [[VOID_ID]] [[GLOBAL_FLOAT_POINTER_ID]]
+// SPT-DAG: 4 TypeFunction [[FOO_SHARED:[0-9]+]] [[VOID_ID]] [[SHARED_FLOAT_POINTER_ID]]
+// SPT-DAG: 4 TypeFunction [[FOO_CONSTANT:[0-9]+]] [[VOID_ID]] [[CONSTANT_FLOAT_POINTER_ID]]
+// SPT-DAG: 4 TypeFunction [[FOO_GENERIC:[0-9]+]] [[VOID_ID]] [[GENERIC_FLOAT_POINTER_ID]]
 
 void foo(PrivatePointer!float f) {
     // LL: load float, float*
