@@ -58,6 +58,7 @@ import ddmd.utils;
 
 version(IN_LLVM)
 {
+    import gen.semantic : extraLDCSpecificSemanticAnalysis;
     extern (C++):
 
     void genCmain(Scope* sc);
@@ -1601,6 +1602,13 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
     Module.runDeferredSemantic3();
     if (global.errors)
         fatal();
+
+  version (IN_LLVM)
+  {
+    extraLDCSpecificSemanticAnalysis(modules);
+    if (global.errors)
+        fatal();
+  }
 
   version (IN_LLVM) {} else
   {

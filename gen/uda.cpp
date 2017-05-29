@@ -418,7 +418,7 @@ bool hasWeakUDA(Dsymbol *sym) {
 
 /// Returns 0 if 'sym' does not have the @ldc.dcompute.compute() UDA applied.
 /// Returns 1 + n if 'sym' does and is @compute(n).
-DComputeCompileFor hasComputeAttr(Dsymbol *sym) {
+extern "C" DComputeCompileFor hasComputeAttr(Dsymbol *sym) {
 
   auto sle = getMagicAttribute(sym, Id::udaCompute, Id::dcompute);
   if (!sle)

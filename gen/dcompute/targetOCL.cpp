@@ -108,14 +108,14 @@ public:
     // MDNode for the kernel argument address space qualifiers.
 
     std::array<llvm::SmallVector<llvm::Metadata *, 8>,count_KernArgMD> paramArgs;
-    std::array<const char*,count_KernArgMD> args = {
+    std::array<const char*,count_KernArgMD> args = {{
       "kernel_arg_addr_space",
       "kernel_arg_access_qual",
       "kernel_arg_type",
       "kernel_arg_type_qual",
       "kernel_arg_base_type",
       "kernel_arg_name"
-    };
+    }};
       
     for (auto md : args) {
       paramArgs[i].push_back(llvm::MDString::get(ctx, md));

@@ -433,13 +433,14 @@ void applyTargetMachineAttributes(llvm::Function &func,
   const llvm::TargetOptions &TO = target.Options;
 
   // TODO: implement commandline switches to change the default values.
-
-  // Target CPU capabilities
-  func.addFnAttr("target-cpu", target.getTargetCPU());
-  auto featStr = target.getTargetFeatureString();
-  if (!featStr.empty())
-    func.addFnAttr("target-features", featStr);
-
+  // TODO: (correctly) apply these for NVPTX (but not for SPIRV).
+  if (!gIR->dcomputetarget) {
+    // Target CPU capabilities
+    func.addFnAttr("target-cpu", target.getTargetCPU());
+    auto featStr = target.getTargetFeatureString();
+    if (!featStr.empty())
+      func.addFnAttr("target-features", featStr);
+  }
   // Floating point settings
   func.addFnAttr("unsafe-fp-math", TO.UnsafeFPMath ? "true" : "false");
   const bool lessPreciseFPMADOption =
