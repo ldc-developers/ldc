@@ -191,11 +191,11 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     //    _d_criticalexit( & __critsec105);   |
     // So we intercept it with the CallExp ----
 
-    if (e->ident == Id::criticalenter)) {
+    if (e->ident == Id::criticalenter) {
         e->error("cannot use 'synchronized' in @compute code");
         stop = true;
         return;
-      }
+    }
 
     if (e->ident == Id::criticalexit) {
       stop = true;
