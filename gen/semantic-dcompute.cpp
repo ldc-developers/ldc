@@ -18,44 +18,46 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/recursivevisitor.h"
-#include "gen/uda.h"
+#include "ddmd/declaration.h"
+#include "ddmd/identifier.h"
+#include "ddmd/module.h"
+#include "ddmd/template.h"
 #include "gen/dcompute/target.h"
 #include "gen/logger.h"
-#include "ddmd/declaration.h"
-#include "ddmd/module.h"
-#include "ddmd/identifier.h"
-#include "ddmd/template.h"
+#include "gen/recursivevisitor.h"
+#include "gen/uda.h"
 #include "id.h"
 
 struct DComputeSemanticAnalyser : public StoppableVisitor {
   FuncDeclaration *currentFunction;
-  // In @compute code only calls to other functions in @compute code are allowed.
+  // In @compute code only calls to other functions in @compute code are
+  // allowed.
   // However, a @kernel function taking a template alias function parameter is
-  // allowed, but while the alias appears in the symbol table of the module of the
+  // allowed, but while the alias appears in the symbol table of the module of
+  // the
   // template declaration, it's module of origin is the module at the point of
   // instansiation so we need to check for that.
   bool isNonComputeCallExpVaild(CallExp *ce) {
     if (currentFunction == nullptr)
       return false;
-    TemplateInstance* inst = currentFunction->isInstantiated();
+    TemplateInstance *inst = currentFunction->isInstantiated();
     if (!inst)
       return false;
 
-    FuncDeclaration* f = ce->f;
+    FuncDeclaration *f = ce->f;
     Objects *tiargs = inst->tiargs;
-    size_t i = 0,len = tiargs->dim;
+    size_t i = 0, len = tiargs->dim;
     IF_LOG Logger::println("checking against: %s (%p) (dyncast=%d)",
-                           f->toPrettyChars(),(void*)f, f->dyncast());
+                           f->toPrettyChars(), (void *)f, f->dyncast());
     LOG_SCOPE
     for (; i < len; i++) {
       RootObject *o = (*tiargs)[i];
       if (o->dyncast() != DYNCAST_EXPRESSION)
-      continue;
-      Expression *e = (Expression*)o;
+        continue;
+      Expression *e = (Expression *)o;
       if (e->op != TOKfunction)
-      continue;
-      if (f->equals((((FuncExp*)e)->fd))) {
+        continue;
+      if (f->equals((((FuncExp *)e)->fd))) {
         IF_LOG Logger::println("match");
         return true;
       }
@@ -86,14 +88,14 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
       stop = true;
     }
     // includes interfaces
-    else if (decl->type->ty == Tclass)
-    {
+    else if (decl->type->ty == Tclass) {
       decl->error("interfaces and classes not allowed in @compute code");
     }
   }
   void visit(PragmaDeclaration *decl) override {
     if (decl->ident == Id::lib) {
-      decl->error("linking additional libraries not supported in @compute code");
+      decl->error(
+          "linking additional libraries not supported in @compute code");
       stop = true;
     }
   }
@@ -174,8 +176,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     // @compute semantics and the recursive visitor should stop here.
     if (stmt->condition->op == TOKcall) {
       auto ce = (CallExp *)stmt->condition;
-      if (ce->f && ce->f->ident == Id::dcReflect)
-      {
+      if (ce->f && ce->f->ident == Id::dcReflect) {
         auto arg1 = (DComputeTarget::ID)(*ce->arguments)[0]->toInteger();
         if (arg1 == DComputeTarget::Host)
           stop = true;
@@ -190,35 +191,35 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     //    _d_criticalexit( & __critsec105);   |
     // So we intercept it with the CallExp ----
 
-    if (!strncmp(e->toChars(), "_d_criticalenter", 16)) {
-      e->error("cannot use 'synchronized' in @compute code");
-      stop = true;
-      return;
-    }
+    if (e->ident == Id::criticalenter)) {
+        e->error("cannot use 'synchronized' in @compute code");
+        stop = true;
+        return;
+      }
 
-    if (!strncmp(e->toChars(), "_d_criticalexit", 15)) {
+    if (e->ident == Id::criticalexit) {
       stop = true;
       return;
     }
     if (!e->f)
       return;
     Module *m = e->f->getModule();
-    if ((m == nullptr || (hasComputeAttr(m) == DComputeCompileFor::hostOnly))
-        && !isNonComputeCallExpVaild(e)) {
+    if ((m == nullptr || (hasComputeAttr(m) == DComputeCompileFor::hostOnly)) &&
+        !isNonComputeCallExpVaild(e)) {
       e->error("can only call functions from other @compute modules in "
                "@compute code");
       stop = true;
     }
   }
-    
-  void visit(FuncDeclaration * fd) override {
+
+  void visit(FuncDeclaration *fd) override {
     if (hasKernelAttr(fd) && fd->vthis) {
       fd->error("@kernel functions msut not require 'this'");
       stop = true;
       return;
     }
 
-    Logger::println("current function = %s",fd->toChars());
+    Logger::println("current function = %s", fd->toChars());
     currentFunction = fd;
   }
   // Override the default assert(0) behavior of Visitor:
