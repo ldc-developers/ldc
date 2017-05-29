@@ -191,20 +191,17 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     //    _d_criticalexit( & __critsec105);   |
     // So we intercept it with the CallExp ----
 
-    if (!e->f)
-      return;
-
     if (e->f->ident == Id::criticalenter) {
-        e->error("cannot use 'synchronized' in @compute code");
-        stop = true;
-        return;
+      e->error("cannot use 'synchronized' in @compute code");
+      stop = true;
+      return;
     }
 
     if (e->f->ident == Id::criticalexit) {
       stop = true;
       return;
     }
-    
+      
     Module *m = e->f->getModule();
     if ((m == nullptr || (hasComputeAttr(m) == DComputeCompileFor::hostOnly)) &&
         !isNonComputeCallExpVaild(e)) {
@@ -221,7 +218,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
       return;
     }
 
-    Logger::println("current function = %s", fd->toChars());
+    IF_LOG Logger::println("current function = %s", fd->toChars());
     currentFunction = fd;
   }
   // Override the default assert(0) behavior of Visitor:
