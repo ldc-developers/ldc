@@ -255,9 +255,9 @@ endif()
 # The installed config file doesn't use SHARED_LIBS_RPATH.
 if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
     if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
-        set(SHARED_LIBS_RPATH "\n        \"-L-Wl,-rpath,${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}:${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",")
+        set(SHARED_LIBS_RPATH "\n        \"-L-rpath\", \"-L${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}:${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",")
     else()
-        set(SHARED_LIBS_RPATH "\n        \"-L-Wl,-rpath,${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}\",")
+        set(SHARED_LIBS_RPATH "\n        \"-L-rpath\", \"-L${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}\",")
     endif()
 endif()
 

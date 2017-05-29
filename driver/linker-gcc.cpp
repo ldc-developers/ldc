@@ -23,6 +23,10 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 
+#if LDC_WITH_LLD && LDC_LLVM_VER >= 600
+#include "lld/Common/Driver.h"
+#endif
+
 //////////////////////////////////////////////////////////////////////////////
 
 static llvm::cl::opt<std::string>
@@ -594,7 +598,7 @@ void ArgsBuilder::addTargetFlags() {
 }
 
 //////////////////////////////////////////////////////////////////////////////
-// (Yet unused) specialization for plain ld.
+// Specialization for plain ld.
 
 class LdArgsBuilder : public ArgsBuilder {
   void addSanitizers(const llvm::Triple &triple) override {}
@@ -628,6 +632,30 @@ class LdArgsBuilder : public ArgsBuilder {
 
 int linkObjToBinaryGcc(llvm::StringRef outputPath, bool useInternalLinker,
                        llvm::cl::boolOrDefault fullyStaticFlag) {
+#if LDC_WITH_LLD && LDC_LLVM_VER >= 600
+  if (useInternalLinker) {
+    LdArgsBuilder argsBuilder;
+    argsBuilder.build(outputPath, fullyStaticFlag);
+
+    const auto fullArgs =
+        getFullArgs("ld.lld", argsBuilder.args, global.params.verbose);
+
+    bool success = false;
+    if (global.params.targetTriple->isOSBinFormatELF()) {
+      success = lld::elf::link(fullArgs, /*CanExitEarly*/ false);
+    } else if (global.params.targetTriple->isOSBinFormatMachO()) {
+      success = lld::mach_o::link(fullArgs);
+    } else {
+      error(Loc(), "unknown target binary format for internal linking");
+    }
+
+    if (!success)
+      error(Loc(), "linking with LLD failed");
+
+    return success ? 0 : 1;
+  }
+#endif
+
   // find gcc for linking
   const std::string tool = getGcc();
 
