@@ -198,7 +198,7 @@ private:
   DISubroutineType CreateFunctionType(Type *type);
   DISubroutineType CreateEmptyFunctionType();
   DIType CreateDelegateType(Type *type);
-  DIType CreateTypeDescription(Type *type, bool derefclass = false);
+  DIType CreateTypeDescription(Type *type);
 
   bool mustEmitFullDebugInfo();
   bool mustEmitLocationsDebugInfo();

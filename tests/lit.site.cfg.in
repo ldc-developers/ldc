@@ -1,9 +1,12 @@
 import lit.formats
+import lit.util
 import os
 import sys
 import platform
 import string
+import re
 import subprocess
+from distutils.version import LooseVersion
 
 ## Auto-initialized variables by cmake:
 config.ldc2_bin            = "@LDC2_BIN@"
@@ -129,3 +132,18 @@ if (platform.system() == 'Windows') and (config.default_target_bits == 64):
 if (platform.system() == 'Windows') and os.path.isfile( cdb ):
     config.available_features.add('cdb')
     config.substitutions.append( ('%cdb', '"' + string.replace( cdb, '\\', '\\\\') + '"') )
+
+# Check whether GDB is present
+if lit.util.which('gdb', config.environment['PATH']):
+    config.available_features.add('gdb')
+    gdb_dflags = ''
+    command = ['gdb', '--version']
+    p = subprocess.Popen(command, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, universal_newlines=True)
+    text = p.stdout.readline()
+    m = re.compile('[^0-9]*([0-9]+[0-9.]*).*').match(text)
+    if m is not None:
+        gdb_version = m.group(1)
+        if LooseVersion(gdb_version) < LooseVersion('7.8'):
+            gdb_dflags = '-dwarf-version=2'
+    config.substitutions.append( ('%_gdb_dflags', gdb_dflags) )
