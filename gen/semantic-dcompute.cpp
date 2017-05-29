@@ -46,7 +46,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     Objects *tiargs = inst->tiargs;
     size_t i = 0,len = tiargs->dim;
     IF_LOG Logger::println("checking against: %s (%p) (dyncast=%d)",
-                           +                           f->toPrettyChars(),(void*)f, f->dyncast());
+                           f->toPrettyChars(),(void*)f, f->dyncast());
     LOG_SCOPE
     for (; i < len; i++) {
       RootObject *o = (*tiargs)[i];
