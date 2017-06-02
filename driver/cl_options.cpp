@@ -134,10 +134,6 @@ static cl::opt<ubyte, true> debugInfo(
         clEnumValN(3, "gline-tables-only", "Add line tables only")),
     cl::location(global.params.symdebug), cl::init(0));
 
-static cl::opt<unsigned, true>
-    dwarfVersion("dwarf-version", cl::desc("Dwarf version"), cl::ZeroOrMore,
-                 cl::location(global.params.dwarfVersion), cl::Hidden);
-
 cl::opt<bool> noAsm("noasm", cl::desc("Disallow use of inline assembler"),
                     cl::ZeroOrMore);
 
@@ -174,12 +170,6 @@ static cl::opt<bool, true>
     cleanupObjectFiles("cleanup-obj", cl::ZeroOrMore, cl::ReallyHidden,
                        cl::desc("Remove generated object files on success"),
                        cl::location(global.params.cleanupObjectFiles));
-
-// Disabling Red Zone
-cl::opt<bool, true>
-    disableRedZone("disable-red-zone", cl::ZeroOrMore,
-                   cl::desc("Do not emit code that uses the red zone."),
-                   cl::location(global.params.disableRedZone));
 
 // DDoc options
 static cl::opt<bool, true> doDdoc("D", cl::desc("Generate documentation"),
@@ -296,20 +286,9 @@ cl::opt<std::string>
                         "'-deps' alone prints module dependencies "
                         "(imports/file/version/debug/lib)"));
 
-cl::opt<std::string> mArch("march", cl::ZeroOrMore,
-                           cl::desc("Architecture to generate code for:"));
-
 cl::opt<bool> m32bits("m32", cl::desc("32 bit target"), cl::ZeroOrMore);
 
 cl::opt<bool> m64bits("m64", cl::desc("64 bit target"), cl::ZeroOrMore);
-
-cl::opt<std::string>
-    mCPU("mcpu", cl::ZeroOrMore, cl::value_desc("cpu-name"), cl::init(""),
-         cl::desc("Target a specific cpu type (-mcpu=help for details)"));
-
-cl::list<std::string>
-    mAttrs("mattr", cl::CommaSeparated, cl::value_desc("a1,+a2,-a3,..."),
-           cl::desc("Target specific attributes (-mattr=help for details)"));
 
 cl::opt<std::string> mTargetTriple("mtriple", cl::ZeroOrMore,
                                    cl::desc("Override target triple"));
@@ -325,54 +304,7 @@ static cl::list<std::string, StringsAdapter> modFileAliasStrings(
     cl::value_desc("<package.module>=<filespec>"),
     cl::location(modFileAliasStringsStore));
 
-cl::opt<llvm::Reloc::Model> mRelocModel(
-    "relocation-model", cl::desc("Relocation model"), cl::ZeroOrMore,
-#if LDC_LLVM_VER < 309
-    cl::init(llvm::Reloc::Default),
-#endif
-    clEnumValues(
-#if LDC_LLVM_VER < 309
-        clEnumValN(llvm::Reloc::Default, "default",
-                   "Target default relocation model"),
-#endif
-        clEnumValN(llvm::Reloc::Static, "static", "Non-relocatable code"),
-        clEnumValN(llvm::Reloc::PIC_, "pic",
-                   "Fully relocatable, position independent code"),
-        clEnumValN(llvm::Reloc::DynamicNoPIC, "dynamic-no-pic",
-                   "Relocatable external references, non-relocatable code")));
-
-cl::opt<llvm::CodeModel::Model> mCodeModel(
-    "code-model", cl::desc("Code model"), cl::ZeroOrMore,
-#if LDC_LLVM_VER < 600
-    cl::init(llvm::CodeModel::Default),
-    clEnumValues(
-        clEnumValN(llvm::CodeModel::Default, "default",
-                   "Target default code model"),
-#else
-    cl::init(llvm::CodeModel::Small),
-    clEnumValues(
-#endif
-        clEnumValN(llvm::CodeModel::Small, "small", "Small code model"),
-        clEnumValN(llvm::CodeModel::Kernel, "kernel", "Kernel code model"),
-        clEnumValN(llvm::CodeModel::Medium, "medium", "Medium code model"),
-        clEnumValN(llvm::CodeModel::Large, "large", "Large code model")));
-
-cl::opt<FloatABI::Type> mFloatABI(
-    "float-abi", cl::desc("ABI/operations to use for floating-point types:"),
-    cl::ZeroOrMore, cl::init(FloatABI::Default),
-    clEnumValues(
-        clEnumValN(FloatABI::Default, "default",
-                   "Target default floating-point ABI"),
-        clEnumValN(FloatABI::Soft, "soft",
-                   "Software floating-point ABI and operations"),
-        clEnumValN(FloatABI::SoftFP, "softfp",
-                   "Soft-float ABI, but hardware floating-point instructions"),
-        clEnumValN(FloatABI::Hard, "hard",
-                   "Hardware floating-point ABI and instructions")));
-
-cl::opt<bool>
-    disableFpElim("disable-fp-elim", cl::ZeroOrMore,
-                  cl::desc("Disable frame pointer elimination optimization"));
+FloatABI::Type floatABI; // Storage for the dynamically created float-abi option.
 
 static cl::opt<bool, true, FlagParser<bool>>
     asserts("asserts", cl::ZeroOrMore, cl::desc("(*) Enable assertions"),
@@ -437,12 +369,10 @@ cl::opt<bool> disableLinkerStripDead(
 // Math options
 bool fFastMath; // Storage for the dynamically created ffast-math option.
 llvm::FastMathFlags defaultFMF;
-void setDefaultMathOptions(llvm::TargetMachine &target) {
+void setDefaultMathOptions(llvm::TargetOptions &targetOptions) {
   if (fFastMath) {
     defaultFMF.setUnsafeAlgebra();
-
-    llvm::TargetOptions &TO = target.Options;
-    TO.UnsafeFPMath = true;
+    targetOptions.UnsafeFPMath = true;
   }
 }
 
@@ -560,6 +490,7 @@ void createClashingOptions() {
   // is a clash in the command line options.
   renameAndHide("color", "llvm-color");
   renameAndHide("ffast-math", "llvm-ffast-math");
+  renameAndHide("float-abi", "llvm-float-abi");
 
   // Step 2. Add the LDC options.
   new cl::opt<bool, true, FlagParser<bool>>(
@@ -567,6 +498,19 @@ void createClashingOptions() {
       cl::desc("(*) Force colored console output"));
   new cl::opt<bool, true>("ffast-math", cl::ZeroOrMore, cl::location(fFastMath),
                           cl::desc("Set @fastmath for all functions."));
+  new cl::opt<FloatABI::Type, true>(
+      "float-abi", cl::desc("ABI/operations to use for floating-point types:"),
+      cl::ZeroOrMore, cl::location(floatABI), cl::init(FloatABI::Default),
+      clEnumValues(
+          clEnumValN(FloatABI::Default, "default",
+                     "Target default floating-point ABI"),
+          clEnumValN(FloatABI::Soft, "soft",
+                     "Software floating-point ABI and operations"),
+          clEnumValN(
+              FloatABI::SoftFP, "softfp",
+              "Soft-float ABI, but hardware floating-point instructions"),
+          clEnumValN(FloatABI::Hard, "hard",
+                     "Hardware floating-point ABI and instructions")));
 }
 
 /// Hides command line options exposed from within LLVM that are unlikely
@@ -603,6 +547,15 @@ void hideLLVMOptions() {
       "verify-region-info", "verify-scev", "verify-scev-maps",
       "x86-early-ifcvt", "x86-use-vzeroupper", "x86-recip-refinement-steps",
 
+      "thread-model", "exception-model", "enable-fp-mad",
+      "enable-unsafe-fp-math", "enable-no-infs-fp-math",
+      "enable-no-nans-fp-math", "enable-no-trapping-fp-math",
+      "denormal-fp-math", "recip", "nozero-initialized-in-bss", "tailcallopt",
+      "stack-symbol-ordering", "stack-alignment", "enable-pie", "use-ctors",
+      "emulated-tls", "unique-section-names", "jump-table-type", "meabi",
+      "debugger-tune", "asm-instrumentation", "mc-relax-all",
+      "incremental-linker-compatible", "asm-show-inst", "pie-copy-relocations",
+
       // We enable -fdata-sections/-ffunction-sections by default where it makes
       // sense for reducing code size, so hide them to avoid confusion.
       //
@@ -611,7 +564,20 @@ void hideLLVMOptions() {
       // on the target triple (and thus we do not know it until after the
       // command
       // line has been parsed).
-      "fdata-sections", "ffunction-sections"};
+      "fdata-sections", "ffunction-sections", "data-sections",
+      "function-sections"};
+
+  // pulled in from shared LLVM headers, but unused or not desired in LDC
+  static const char *const removedOptions[] = {"disable-tail-calls",
+                                               "fatal-warnings",
+                                               "filetype",
+                                               "no-deprecated-warn",
+                                               "no-warn",
+                                               "stackrealign",
+                                               "start-after",
+                                               "stop-after",
+                                               "trap-func",
+                                               "W"};
 
   llvm::StringMap<cl::Option *> &map = cl::getRegisteredOptions();
   for (const auto name : hiddenOptions) {
@@ -620,6 +586,13 @@ void hideLLVMOptions() {
     auto it = map.find(name);
     if (it != map.end()) {
       it->second->setHiddenFlag(cl::Hidden);
+    }
+  }
+
+  for (const auto name : removedOptions) {
+    auto it = map.find(name);
+    if (it != map.end()) {
+      map.erase(it);
     }
   }
 }

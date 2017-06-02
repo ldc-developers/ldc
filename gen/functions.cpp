@@ -460,7 +460,7 @@ void applyTargetMachineAttributes(llvm::Function &func,
 
   // Frame pointer elimination
   func.addFnAttr("no-frame-pointer-elim",
-                 opts::disableFpElim ? "true" : "false");
+                 opts::disableFPElim() ? "true" : "false");
 }
 
 } // anonymous namespace

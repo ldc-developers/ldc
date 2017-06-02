@@ -56,7 +56,7 @@ public:
         is64 ? "nvptx64-nvidia-cuda" : "nvptx-nvidia-cuda",
         is64 ? "nvptx64" : "nvptx", "sm_" + ldc::to_string(tversion / 10), {},
         is64 ? ExplicitBitness::M64 : ExplicitBitness::M32, ::FloatABI::Hard,
-        llvm::Reloc::Static, llvm::CodeModel::Medium, codeGenOptLevel(), false,
+        llvm::Reloc::Static, llvm::CodeModel::Medium, codeGenOptLevel(),
         false);
   }
 
