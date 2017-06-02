@@ -1210,7 +1210,7 @@ public:
     }
 
     // do statements
-    Statement **stmts = static_cast<Statement **>(stmt->statements->data);
+    Statement **stmts = stmt->statements->data;
 
     for (size_t i = 0; i < nstmt; i++) {
       Statement *s = stmts[i];

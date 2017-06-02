@@ -58,8 +58,8 @@ std::string hashSymbolName(llvm::StringRef name, Dsymbol *symb) {
     auto moddecl = symb->getModule()->md;
     assert(moddecl);
     if (auto packages = moddecl->packages) {
-      for (size_t i = 0; i < packages->dim; ++i) {
-        llvm::StringRef str = (*packages)[i]->toChars();
+      for (auto package : *packages) {
+        llvm::StringRef str = package->toChars();
         ret += std::to_string(str.size());
         ret += str;
       }

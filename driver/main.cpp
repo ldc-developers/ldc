@@ -404,8 +404,8 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   const auto toWinPaths = [](Strings *paths) {
     if (!paths)
       return;
-    for (unsigned i = 0; i < paths->dim; ++i)
-      (*paths)[i] = dupPathString((*paths)[i]);
+    for (auto &path : *paths)
+      path = dupPathString(path);
   };
   toWinPaths(global.params.imppath);
   toWinPaths(global.params.fileImppath);

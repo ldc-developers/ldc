@@ -480,8 +480,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
 
   // do asm statements
   for (unsigned i = 0; i < stmt->statements->dim; i++) {
-    Statement *s = (*stmt->statements)[i];
-    if (s) {
+    if (Statement *s = (*stmt->statements)[i]) {
       Statement_toIR(s, p);
     }
   }

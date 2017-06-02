@@ -346,8 +346,9 @@ int createStaticLibrary() {
   }
 
   // object files
-  for (unsigned i = 0; i < global.params.objfiles->dim; i++)
-    args.push_back((*global.params.objfiles)[i]);
+  for (auto objfile : *global.params.objfiles) {
+    args.push_back(objfile);
+  }
 
   // .res/.def files for lib.exe
   if (isTargetMSVC) {

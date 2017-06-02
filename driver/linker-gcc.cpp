@@ -173,8 +173,9 @@ void ArgsBuilder::addLTOLinkFlags() {
 void ArgsBuilder::build(llvm::StringRef outputPath,
                         llvm::cl::boolOrDefault fullyStaticFlag) {
   // object files
-  for (unsigned i = 0; i < global.params.objfiles->dim; i++)
-    args.push_back((*global.params.objfiles)[i]);
+  for (auto objfile : *global.params.objfiles) {
+    args.push_back(objfile);
+  }
 
   // Link with profile-rt library when generating an instrumented binary.
   // profile-rt uses Phobos (MD5 hashing) and therefore must be passed on the
@@ -191,8 +192,9 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   }
 
   // user libs
-  for (unsigned i = 0; i < global.params.libfiles->dim; i++)
-    args.push_back((*global.params.libfiles)[i]);
+  for (auto libfile : *global.params.libfiles) {
+    args.push_back(libfile);
+  }
 
   if (global.params.dll) {
     args.push_back("-shared");
@@ -217,8 +219,8 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   addUserSwitches();
 
   // libs added via pragma(lib, libname)
-  for (unsigned i = 0; i < global.params.linkswitches->dim; i++) {
-    args.push_back((*global.params.linkswitches)[i]);
+  for (auto ls : *global.params.linkswitches) {
+    args.push_back(ls);
   }
 
   if (global.params.targetTriple->getOS() == llvm::Triple::Linux) {
