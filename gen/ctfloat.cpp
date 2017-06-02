@@ -22,11 +22,36 @@ namespace {
 
 const llvm::fltSemantics *apSemantics = nullptr;
 
+////////////////////////////////////////////////////////////////////////////////
+
 constexpr unsigned numUint64Parts = (sizeof(real_t) + 7) / 8;
 union CTFloatUnion {
   real_t fp;
   uint64_t bits[numUint64Parts];
 };
+
+////////////////////////////////////////////////////////////////////////////////
+
+unsigned getUnpaddedSizeInBits() {
+#if LDC_LLVM_VER >= 307
+  return APFloat::getSizeInBits(*apSemantics);
+#else
+  if (sizeof(real_t) == 8)
+    return 64;
+#if __i386__ || __x86_64__
+  return 80;
+#elif __aarch64__
+  return 128;
+#elif __ppc__ || __ppc64__
+  return 128;
+#else
+  llvm_unreachable("Unknown host real_t type for compile-time reals");
+  return sizeof(real_t) * 8;
+#endif
+#endif
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 APFloat parseLiteral(const llvm::fltSemantics &semantics, const char *literal,
                      bool *isOutOfRange = nullptr) {
@@ -72,23 +97,20 @@ void CTFloat::toAPFloat(const real_t src, APFloat &dst) {
   CTFloatUnion u;
   u.fp = src;
 
-#if LDC_LLVM_VER >= 307
-  const unsigned sizeInBits = APFloat::getSizeInBits(*apSemantics);
-#else
-#if __i386__ || __x86_64__
-  const unsigned sizeInBits = 80;
-#elif __aarch64__
-  const unsigned sizeInBits = 128;
-#elif __ppc__ || __ppc64__
-  const unsigned sizeInBits = 128;
-#else
-  llvm_unreachable("Unknown host real_t type for compile-time reals");
-#endif
-#endif
-
-  const APInt bits = APInt(sizeInBits, numUint64Parts, u.bits);
+  const APInt bits = APInt(getUnpaddedSizeInBits(), numUint64Parts, u.bits);
 
   dst = APFloat(*apSemantics, bits);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+// implemented in C++ to avoid relying on host D compiler's `real_t.infinity`
+bool CTFloat::isInfinity(real_t r) {
+  const real_t inf = std::numeric_limits<real_t>::infinity();
+  const real_t ninf = -inf;
+  const auto unpaddedSize = getUnpaddedSizeInBits() / 8;
+  return memcmp(&r, &inf, unpaddedSize) == 0 ||
+         memcmp(&r, &ninf, unpaddedSize) == 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

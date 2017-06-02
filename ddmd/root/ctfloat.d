@@ -8,7 +8,13 @@
 
 module ddmd.root.ctfloat;
 
-static import core.math, core.stdc.math;
+version(IN_LLVM)
+{
+    static import core.stdc.tgmath;
+    version(DigitalMars) static import core.math; // yl2x
+}
+else
+    static import core.math, core.stdc.math;
 import core.stdc.errno;
 import core.stdc.stdio;
 import core.stdc.stdlib;
@@ -64,28 +70,34 @@ extern (C++) struct CTFloat
             assert(0);
     }
 
-    static real_t sin(real_t x) { return core.math.sin(x); }
-    static real_t cos(real_t x) { return core.math.cos(x); }
-    static real_t tan(real_t x) { return core.stdc.math.tanl(x); }
-    static real_t sqrt(real_t x) { return core.math.sqrt(x); }
-    static real_t fabs(real_t x) { return core.math.fabs(x); }
-
   version(IN_LLVM)
   {
-    static import std.math;
+    static real_t sin(real_t x) { return core.stdc.tgmath.sin(x); }
+    static real_t cos(real_t x) { return core.stdc.tgmath.cos(x); }
+    static real_t tan(real_t x) { return core.stdc.tgmath.tan(x); }
+    static real_t sqrt(real_t x) { return x < 0 ? real_t.nan : core.stdc.tgmath.sqrt(x); }
+    static real_t fabs(real_t x) { return core.stdc.tgmath.fabs(x); }
 
-    static real_t log(real_t x) { return std.math.log(x); }
-    static real_t fmin(real_t l, real_t r) { return std.math.fmin(l, r); }
-    static real_t fmax(real_t l, real_t r) { return std.math.fmax(l, r); }
-    static real_t floor(real_t x) { return std.math.floor(x); }
-    static real_t ceil(real_t x) { return std.math.ceil(x); }
-    static real_t trunc(real_t x) { return std.math.trunc(x); }
-    static real_t round(real_t x) { return std.math.round(x); }
+    static real_t log(real_t x) { return core.stdc.tgmath.log(x); }
+    static real_t fmin(real_t l, real_t r) { return core.stdc.tgmath.fmin(l, r); }
+    static real_t fmax(real_t l, real_t r) { return core.stdc.tgmath.fmax(l, r); }
+    static real_t floor(real_t x) { return core.stdc.tgmath.floor(x); }
+    static real_t ceil(real_t x) { return core.stdc.tgmath.ceil(x); }
+    static real_t trunc(real_t x) { return core.stdc.tgmath.trunc(x); }
+    static real_t round(real_t x) { return core.stdc.tgmath.round(x); }
 
     static void _init();
 
     static bool isFloat32LiteralOutOfRange(const(char)* literal);
     static bool isFloat64LiteralOutOfRange(const(char)* literal);
+  }
+  else
+  {
+    static real_t sin(real_t x) { return core.math.sin(x); }
+    static real_t cos(real_t x) { return core.math.cos(x); }
+    static real_t tan(real_t x) { return core.stdc.math.tanl(x); }
+    static real_t sqrt(real_t x) { return core.math.sqrt(x); }
+    static real_t fabs(real_t x) { return core.math.fabs(x); }
   }
 
     static bool isIdentical(real_t a, real_t b)
@@ -104,15 +116,24 @@ extern (C++) struct CTFloat
     {
         static if (real_t.sizeof == 8)
             return isNaN(r) && !(((cast(ubyte*)&r)[6]) & 8);
-        else
+        else static if (real_t.mant_dig == 64)
             return isNaN(r) && !(((cast(ubyte*)&r)[7]) & 0x40);
+        else
+            assert(0);
     }
 
+  version (IN_LLVM)
+  {
+    // implemented in gen/ctfloat.cpp
+    static bool isInfinity(real_t r);
+    static real_t parse(const(char)* literal, bool* isOutOfRange = null);
+  }
+  else
+  {
     // the implementation of longdouble for MSVC is a struct, so mangling
     //  doesn't match with the C++ header.
     // add a wrapper just for isSNaN as this is the only function called from C++
-    // IN_LLVM replaced: version(CRuntime_Microsoft)
-    version(none)
+    version(CRuntime_Microsoft)
         static bool isSNaN(longdouble ld)
         {
             return isSNaN(ld.r);
@@ -123,13 +144,6 @@ extern (C++) struct CTFloat
         return r is real_t.infinity || r is -real_t.infinity;
     }
 
-version (IN_LLVM)
-{
-    // implemented in gen/ctfloat.cpp
-    static real_t parse(const(char)* literal, bool* isOutOfRange = null);
-}
-else
-{
     static real_t parse(const(char)* literal, bool* isOutOfRange = null)
     {
         errno = 0;
@@ -138,8 +152,7 @@ else
             auto save = __locale_decpoint;
             __locale_decpoint = ".";
         }
-        // IN_LLVM replaced: version(CRuntime_Microsoft)
-        version(none)
+        version(CRuntime_Microsoft)
             auto r = strtold_dm(literal, null).r;
         else
             auto r = strtold(literal, null);
@@ -148,7 +161,7 @@ else
             *isOutOfRange = (errno == ERANGE);
         return r;
     }
-}
+  }
 
     static int sprint(char* str, char fmt, real_t x)
     {
