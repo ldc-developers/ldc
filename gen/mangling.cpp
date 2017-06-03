@@ -19,6 +19,7 @@
 #include "ddmd/module.h"
 #include "gen/abi.h"
 #include "gen/irstate.h"
+#include "gen/to_string.h"
 #include "llvm/Support/MD5.h"
 
 namespace {
@@ -60,18 +61,18 @@ std::string hashSymbolName(llvm::StringRef name, Dsymbol *symb) {
     if (auto packages = moddecl->packages) {
       for (size_t i = 0; i < packages->dim; ++i) {
         llvm::StringRef str = (*packages)[i]->toChars();
-        ret += std::to_string(str.size());
+        ret += ldc::to_string(str.size());
         ret += str;
       }
     }
     llvm::StringRef str = moddecl->id->toChars();
-    ret += std::to_string(str.size());
+    ret += ldc::to_string(str.size());
     ret += str;
   }
 
   // source line number
-  auto lineNo = std::to_string(symb->loc.linnum);
-  ret += std::to_string(lineNo.size()+1);
+  auto lineNo = ldc::to_string(symb->loc.linnum);
+  ret += ldc::to_string(lineNo.size()+1);
   ret += 'L';
   ret += lineNo;
 
@@ -83,13 +84,13 @@ std::string hashSymbolName(llvm::StringRef name, Dsymbol *symb) {
   // top aggregate
   if (auto agg = symb->isMember()) {
     llvm::StringRef topaggr = agg->ident->toChars();
-    ret += std::to_string(topaggr.size());
+    ret += ldc::to_string(topaggr.size());
     ret += topaggr;
   }
 
   // identifier
   llvm::StringRef identifier = symb->toChars();
-  ret += std::to_string(identifier.size());
+  ret += ldc::to_string(identifier.size());
   ret += identifier;
 
   return ret;
