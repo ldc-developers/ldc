@@ -988,8 +988,7 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
   } else if (AttribDeclaration *a = declaration->isAttribDeclaration()) {
     Logger::println("AttribDeclaration");
     // choose the right set in case this is a conditional declaration
-    Dsymbols *d = a->include(nullptr, nullptr);
-    if (d) {
+    if (auto d = a->include(nullptr, nullptr)) {
       for (unsigned i = 0; i < d->dim; ++i) {
         DtoDeclarationExp((*d)[i]);
       }
@@ -1004,7 +1003,7 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
     assert(tupled->isexp && "Non-expression tuple decls not handled yet.");
     assert(tupled->objects);
     for (unsigned i = 0; i < tupled->objects->dim; ++i) {
-      DsymbolExp *exp = static_cast<DsymbolExp *>(tupled->objects->data[i]);
+      auto exp = static_cast<DsymbolExp *>((*tupled->objects)[i]);
       DtoDeclarationExp(exp->s);
     }
   } else {

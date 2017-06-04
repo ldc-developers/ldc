@@ -1,4 +1,4 @@
-//===-- driver/archiver.h - Creating static libs via LLVM--------*- C++ -*-===//
+//===-- driver/archiver.h - Creating static libraries -----------*- C++ -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -6,22 +6,14 @@
 // file for details.
 //
 //===----------------------------------------------------------------------===//
-//
-// Provides an interface to LLVM built-in static lib generation via llvm-lib
-// (MSVC targets) or llvm-ar (all other targets).
-//
-//===----------------------------------------------------------------------===//
 
 #ifndef LDC_DRIVER_ARCHIVER_H
 #define LDC_DRIVER_ARCHIVER_H
 
-#if LDC_LLVM_VER >= 309
-#include "llvm/ADT/ArrayRef.h"
-
-namespace ldc {
-int ar(llvm::ArrayRef<const char *> args);
-int lib(llvm::ArrayRef<const char *> args);
-}
-#endif // LDC_LLVM_VER >= 309
+/**
+ * Create a static library from object files.
+ * @return 0 on success.
+ */
+int createStaticLibrary();
 
 #endif // !LDC_DRIVER_ARCHIVER_H

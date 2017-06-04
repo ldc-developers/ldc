@@ -1184,11 +1184,9 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     size_t argNo = 0;
     if (fd->vthis != vd) {
       assert(fd->parameters);
-      for (argNo = 0; argNo < fd->parameters->dim; argNo++) {
-        if ((*fd->parameters)[argNo] == vd)
-          break;
-      }
-      assert(argNo < fd->parameters->dim);
+      auto it = std::find(fd->parameters->begin(), fd->parameters->end(), vd);
+      assert(it != fd->parameters->end());
+      argNo = it - fd->parameters->begin();
       if (fd->vthis)
         argNo++;
     }
