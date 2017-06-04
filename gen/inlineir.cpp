@@ -166,11 +166,10 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
     fun->setCallingConv(llvm::CallingConv::C);
 
     // Build the runtime arguments
-    size_t n = arguments->dim;
     llvm::SmallVector<llvm::Value *, 8> args;
-    args.reserve(n);
-    for (size_t i = 0; i < n; i++) {
-      args.push_back(DtoRVal((*arguments)[i]));
+    args.reserve(arguments->dim);
+    for (auto arg : *arguments) {
+      args.push_back(DtoRVal(arg));
     }
 
     llvm::Value *rv = gIR->ir->CreateCall(fun, args);

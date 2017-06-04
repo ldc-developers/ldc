@@ -1466,8 +1466,8 @@ public:
         size_t ndims = e->arguments->dim;
         std::vector<DValue *> dims;
         dims.reserve(ndims);
-        for (size_t i = 0; i < ndims; ++i) {
-          dims.push_back(toElem((*e->arguments)[i]));
+        for (auto arg : *e->arguments) {
+          dims.push_back(toElem(arg));
         }
         result = DtoNewMulDimDynArray(e->loc, e->newtype, &dims[0], ndims);
       }
@@ -2272,7 +2272,7 @@ public:
         auto global = new llvm::GlobalVariable(
             gIR->module, init->getType(), true,
             llvm::GlobalValue::InternalLinkage, init, ".immutablearray");
-        result = new DSliceValue(arrayType, DtoConstSize_t(e->elements->dim),
+        result = new DSliceValue(arrayType, DtoConstSize_t(len),
                                  DtoBitCast(global, getPtrToType(llElemType)));
       } else {
         DSliceValue *dynSlice = DtoNewDynArray(
@@ -2431,8 +2431,8 @@ public:
       keysInits.reserve(e->keys->dim);
       valuesInits.reserve(e->keys->dim);
       for (size_t i = 0, n = e->keys->dim; i < n; ++i) {
-        Expression *ekey = e->keys->tdata()[i];
-        Expression *eval = e->values->tdata()[i];
+        Expression *ekey = (*e->keys)[i];
+        Expression *eval = (*e->values)[i];
         IF_LOG Logger::println("(%llu) aa[%s] = %s",
                                static_cast<unsigned long long>(i),
                                ekey->toChars(), eval->toChars());
@@ -2585,8 +2585,8 @@ public:
 
     std::vector<LLType *> types;
     types.reserve(e->exps->dim);
-    for (size_t i = 0; i < e->exps->dim; i++) {
-      types.push_back(DtoMemType((*e->exps)[i]->type));
+    for (auto exp : *e->exps) {
+      types.push_back(DtoMemType(exp->type));
     }
     LLValue *val =
         DtoRawAlloca(LLStructType::get(gIR->context(), types), 0, ".tuple");

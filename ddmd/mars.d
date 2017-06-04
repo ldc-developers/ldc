@@ -65,9 +65,10 @@ version(IN_LLVM)
     // in driver/main.cpp
     void addDefaultVersionIdentifiers();
     void codegenModules(ref Modules modules);
+    // in driver/archiver.cpp
+    int createStaticLibrary();
     // in driver/linker.cpp
     int linkObjToBinary();
-    int createStaticLibrary();
     void deleteExeFile();
     int runProgram();
 }
