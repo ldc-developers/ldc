@@ -355,6 +355,19 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
 
   helpOnly = mCPU == "help" ||
              (std::find(mAttrs.begin(), mAttrs.end(), "help") != mAttrs.end());
+  if (helpOnly) {
+    auto triple = llvm::Triple(cfg_triple);
+    std::string errMsg;
+    if (auto target = lookupTarget("", triple, errMsg)) {
+      llvm::errs() << "Targeting " << target->getName() << ". ";
+      // this prints the available CPUs and features of the target to stderr...
+      target->createMCSubtargetInfo(cfg_triple, "help", "");
+    } else {
+      error(Loc(), "%s", errMsg.c_str());
+      fatal();
+    }
+    return;
+  }
 
   // Print some information if -v was passed
   // - path to compiler binary
@@ -962,7 +975,11 @@ int cppmain(int argc, char **argv) {
   Strings files;
   parseCommandLine(argc, argv, files, helpOnly);
 
-  if (files.dim == 0 && !helpOnly) {
+  if (helpOnly) {
+    return 0;
+  }
+
+  if (files.dim == 0) {
     cl::PrintHelpMessage();
     return EXIT_FAILURE;
   }
