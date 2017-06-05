@@ -12,6 +12,7 @@
 #include "gen/cl_helpers.h"
 #include "gen/logger.h"
 #include "gen/passes/Passes.h"
+#include "driver/cl_options.h"
 #include "driver/targetmachine.h"
 #include "llvm/LinkAllPasses.h"
 #if LDC_LLVM_VER >= 307
@@ -250,6 +251,10 @@ static void addOptimizationPasses(PassManagerBase &mpm,
   PassManagerBuilder builder;
   builder.OptLevel = optLevel;
   builder.SizeLevel = sizeLevel;
+#if LDC_LLVM_VER >= 309
+  builder.PrepareForLTO = opts::isUsingLTO();
+  builder.PrepareForThinLTO = opts::isUsingThinLTO();
+#endif
 
   if (willInline()) {
     unsigned threshold = 225;
