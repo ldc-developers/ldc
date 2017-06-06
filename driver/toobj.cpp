@@ -498,15 +498,11 @@ void writeModule(llvm::Module *m, const char *filename) {
       auto &moduleSummaryIndex = indexBuilder.getIndex();
 #else
       llvm::ProfileSummaryInfo PSI(*m);
-      // Set PSIptr to nullptr when there is no PGO information available, such
-      // that LLVM will not try to find PGO information for each function inside
-      // `buildModuleSummaryIndex`. (micro-optimization)
-      auto PSIptr = m->getProfileSummary() ? &PSI : nullptr;
 
       // When the function freq info callback is set to nullptr, LLVM will
       // calculate it automatically for us.
       auto moduleSummaryIndex = buildModuleSummaryIndex(
-          *m, /* function freq callback */ nullptr, PSIptr);
+          *m, /* function freq callback */ nullptr, &PSI);
 #endif
 
       llvm::WriteBitcodeToFile(m, bos, true, &moduleSummaryIndex,
