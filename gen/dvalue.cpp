@@ -13,7 +13,9 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/optimizer.h"
 #include "gen/tollvm.h"
+#include "llvm/IR/MDBuilder.h"
 
 namespace {
 bool isDefinedInFuncEntryBB(LLValue *v) {
@@ -121,6 +123,16 @@ DRValue *DLValue::getRVal() {
   LLValue *rval = DtoLoad(val);
   if (type->toBasetype()->ty == Tbool) {
     assert(rval->getType() == llvm::Type::getInt8Ty(gIR->context()));
+
+    if (isOptimizationEnabled()) {
+      // attach range metadata for i8 being loaded: [0, 2)
+      llvm::MDBuilder mdBuilder(gIR->context());
+      llvm::cast<llvm::LoadInst>(rval)->setMetadata(
+          llvm::LLVMContext::MD_range,
+          mdBuilder.createRange(llvm::APInt(8, 0), llvm::APInt(8, 2)));
+    }
+
+    // truncate to i1
     rval = gIR->ir->CreateTrunc(rval, llvm::Type::getInt1Ty(gIR->context()));
   }
 

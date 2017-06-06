@@ -328,7 +328,8 @@ public:
       return arg1 == DComputeTarget::Host;
     }
     else {
-      return arg1 == dct->target && (!arg2 || arg2 == dct->tversion);
+      return arg1 == dct->target &&
+             (!arg2 || arg2 == static_cast<dinteger_t>(dct->tversion));
     }
   }
 
@@ -1209,7 +1210,7 @@ public:
     }
 
     // do statements
-    Statement **stmts = static_cast<Statement **>(stmt->statements->data);
+    Statement **stmts = stmt->statements->data;
 
     for (size_t i = 0; i < nstmt; i++) {
       Statement *s = stmts[i];

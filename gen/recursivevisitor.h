@@ -29,6 +29,7 @@
 #ifndef LDC_GEN_RECURSIVEVISITOR_H
 #define LDC_GEN_RECURSIVEVISITOR_H
 
+#include "ddmd/attrib.h"
 #include "ddmd/declaration.h"
 #include "ddmd/init.h"
 #include "ddmd/statement.h"
@@ -285,6 +286,10 @@ public:
 
   using Visitor::visit;
 
+  void visit(AttribDeclaration* ad) override {
+    call_visitor(ad) || recurse(ad->decl);
+  }
+
   void visit(FuncDeclaration *fd) override {
     call_visitor(fd) || recurse(fd->fbody);
   }
@@ -383,6 +388,9 @@ public:
         recurse(stmt->_body);
   }
 
+  void visit(PragmaStatement* stmt) override {
+    call_visitor(stmt) || recurse(stmt->_body);
+  }
   void visit(DebugStatement *stmt) override {
     call_visitor(stmt) || recurse(stmt->statement);
   }
@@ -455,6 +463,10 @@ public:
 
   void visit(ExpInitializer *init) override {
     call_visitor(init) || recurse(init->exp);
+  }
+
+  void visit(ScopeDsymbol *s) override {
+    call_visitor(s) || recurse(s->members);
   }
 
   // Override the default assert(0) behavior of Visitor:

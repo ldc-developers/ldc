@@ -691,6 +691,7 @@ private:
 
     // verify that sret and/or inreg attributes are set
     const AttrBuilder &sretAttrs = irFty.arg_sret->attrs;
+    (void)sretAttrs;
     assert((sretAttrs.contains(LLAttribute::StructRet) ||
             sretAttrs.contains(LLAttribute::InReg)) &&
            "Sret arg not sret or inreg?");

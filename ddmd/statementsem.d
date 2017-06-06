@@ -3100,6 +3100,10 @@ version(IN_LLVM)
             Expression e = new DotIdExp(ss.loc, new VarExp(ss.loc, tmp), Id.ptr);
             e = e.semantic(sc);
             e = new CallExp(ss.loc, new VarExp(ss.loc, fdenter, false), e);
+            
+            //IN_LLVM - dmd#6840
+            (cast(CallExp)e).f = fdenter;
+            
             e.type = Type.tvoid; // do not run semantic on e
             cs.push(new ExpStatement(ss.loc, e));
 
@@ -3107,6 +3111,10 @@ version(IN_LLVM)
             e = new DotIdExp(ss.loc, new VarExp(ss.loc, tmp), Id.ptr);
             e = e.semantic(sc);
             e = new CallExp(ss.loc, new VarExp(ss.loc, fdexit, false), e);
+            
+            //IN_LLVM - dmd#6840
+            (cast(CallExp)e).f = fdexit;
+            
             e.type = Type.tvoid; // do not run semantic on e
             Statement s = new ExpStatement(ss.loc, e);
             s = new TryFinallyStatement(ss.loc, ss._body, s);

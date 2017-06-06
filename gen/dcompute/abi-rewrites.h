@@ -15,12 +15,12 @@
 #define LDC_GEN_DCOMPUTE_ABI_REWRITES_H
 
 #include "gen/abi.h"
+#include "gen/dcompute/druntime.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/structs.h"
 #include "gen/tollvm.h"
-#include "gen/dcompute/druntime.h"
 
 struct DComputePointerRewrite : ABIRewrite {
   LLType *type(Type *t) override {
@@ -29,7 +29,7 @@ struct DComputePointerRewrite : ABIRewrite {
   }
   LLValue *getLVal(Type *dty, LLValue *v) override {
     // TODO: Is this correct?
-    return DtoBitCast(v, this->type(dty));
+    return DtoAllocaDump(v, this->type(dty));
   }
   LLValue *put(DValue *dv) override {
     LLValue *address = getAddressOf(dv);

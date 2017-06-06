@@ -280,7 +280,7 @@ llvm::Function *buildRegisterDSO(RegistryStyle style,
       getRuntimeFunction(Loc(), gIR->module, "_d_dso_registry");
   const auto recordPtrTy = dsoRegistry->getFunctionType()->getContainedType(1);
 
-  llvm::Function *getTlsAnchorPtr;
+  llvm::Function *getTlsAnchorPtr = nullptr;
   if (style == RegistryStyle::sectionDarwin) {
     getTlsAnchorPtr = buildGetTLSAnchor();
   }
@@ -718,6 +718,7 @@ void codegenModule(IRState *irs, Module *m) {
   }
 
   // process module members
+  // NOTE: m->members may grow during codegen
   for (unsigned k = 0; k < m->members->dim; k++) {
     Dsymbol *dsym = (*m->members)[k];
     assert(dsym);
