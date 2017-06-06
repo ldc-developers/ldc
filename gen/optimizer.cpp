@@ -213,9 +213,11 @@ static void addSanitizerCoveragePass(const PassManagerBuilder &Builder,
 #endif
 }
 
-static void addInstrProfilingPass(legacy::PassManagerBase &mpm) {
+// Adds PGO instrumentation generation and use passes.
+static void addPGOPasses(legacy::PassManagerBase &mpm, unsigned optLevel) {
 #if LDC_WITH_PGO
   if (global.params.genInstrProf) {
+    // We are generating PGO instrumented code.
     InstrProfOptions options;
     options.NoRedZone = global.params.disableRedZone;
     if (global.params.datafileInstrProf)
@@ -224,6 +226,14 @@ static void addInstrProfilingPass(legacy::PassManagerBase &mpm) {
     mpm.add(createInstrProfilingLegacyPass(options));
 #else
     mpm.add(createInstrProfilingPass(options));
+#endif
+  } else if (global.params.datafileInstrProf) {
+// We are generating code with PGO profile information available.
+#if LDC_LLVM_VER >= 500
+    // Do indirect call promotion from -O1
+    if (optLevel > 0) {
+      mpm.add(createPGOIndirectCallPromotionLegacyPass());
+    }
 #endif
   }
 #endif
@@ -333,7 +343,7 @@ static void addOptimizationPasses(PassManagerBase &mpm,
   builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
                        addStripExternalsPass);
 
-  addInstrProfilingPass(mpm);
+  addPGOPasses(mpm, optLevel);
 
   builder.populateFunctionPassManager(fpm);
   builder.populateModulePassManager(mpm);
