@@ -39,7 +39,7 @@ function(add_testsuite config_name dflags gdbflags model)
     # testsuite build system provides no way to run the test cases with a
     # given set of flags without trying all combinations of them.
     add_test(NAME ${name}
-        COMMAND make -k -C ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite RESULTS_DIR=${outdir} DMD=${LDMD_EXE_FULL} DFLAGS=${all_dflags} MODEL=${model} GDB_FLAGS=${gdbflags} quick
+        COMMAND ${CMAKE_MAKE_PROGRAM} -k -C ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite RESULTS_DIR=${outdir} DMD=${LDMD_EXE_FULL} DFLAGS=${all_dflags} MODEL=${model} GDB_FLAGS=${gdbflags} quick
     )
     set_tests_properties(${name} PROPERTIES DEPENDS clean-${name})
 endfunction()
