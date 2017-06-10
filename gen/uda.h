@@ -27,7 +27,13 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc);
 void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar);
 
 bool hasWeakUDA(Dsymbol *sym);
-int hasComputeAttr(Dsymbol *sym);
 bool hasKernelAttr(Dsymbol *sym);
-
+/// Must match ldc.dcompute.Compilefor + 1 == DComputeCompileFor
+enum class DComputeCompileFor : int
+{
+  hostOnly = 0,
+  deviceOnly = 1,
+  hostAndDevice = 2
+};
+extern "C" DComputeCompileFor hasComputeAttr(Dsymbol *sym);
 #endif

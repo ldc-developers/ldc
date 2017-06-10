@@ -6,18 +6,16 @@
 // License. See LLVM LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-//
-// Builds up (relatively) standard unix archive files (.a) containing LLVM
-// bitcode or other files.
-//
-//===----------------------------------------------------------------------===//
+
+#include "errors.h"
+#include "globals.h"
+#include "driver/cl_options.h"
+#include "driver/tool.h"
+#include "gen/logger.h"
+#include "llvm/ADT/Triple.h"
 
 #if LDC_LLVM_VER >= 309
 
-#include "driver/archiver.h"
-
-#include "llvm/ADT/Triple.h"
-#include "llvm/LibDriver/LibDriver.h"
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/ArchiveWriter.h"
 #include "llvm/Object/MachO.h"
@@ -25,6 +23,12 @@
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
+
+#if LDC_LLVM_VER >= 500
+#include "llvm/ToolDrivers/llvm-lib/LibDriver.h"
+#else
+#include "llvm/LibDriver/LibDriver.h"
+#endif
 
 #include <cstring>
 
@@ -37,7 +41,7 @@ using namespace llvm;
  * support for `llvm-ar rcs <archive name> <member> ...`.
  * It also makes sure the process isn't simply exited whenever a problem arises.
  */
-namespace {
+namespace llvm_ar {
 
 StringRef ArchiveName;
 std::vector<const char *> Members;
@@ -232,13 +236,13 @@ int performWriteOperation() {
   return performWriteOperation(nullptr, nullptr);
 }
 
-} // anonymous namespace
+} // namespace llvm_ar
 
 ////////////////////////////////////////////////////////////////////////////////
 
-namespace ldc {
+namespace {
 
-int ar(ArrayRef<const char *> args) {
+int internalAr(ArrayRef<const char *> args) {
   if (args.size() < 4 || strcmp(args[0], "llvm-ar") != 0 ||
       strcmp(args[1], "rcs") != 0) {
     llvm_unreachable(
@@ -247,16 +251,17 @@ int ar(ArrayRef<const char *> args) {
     return -1;
   }
 
-  ArchiveName = args[2];
+  llvm_ar::ArchiveName = args[2];
 
   auto membersSlice = args.slice(3);
-  Members.clear();
-  Members.insert(Members.end(), membersSlice.begin(), membersSlice.end());
+  llvm_ar::Members.clear();
+  llvm_ar::Members.insert(llvm_ar::Members.end(), membersSlice.begin(),
+                          membersSlice.end());
 
-  return performWriteOperation();
+  return llvm_ar::performWriteOperation();
 }
 
-int lib(ArrayRef<const char *> args) {
+int internalLib(ArrayRef<const char *> args) {
   if (args.size() < 1 || strcmp(args[0], "llvm-lib.exe") != 0) {
     llvm_unreachable("Expected archiver command line: llvm-lib.exe ...");
     return -1;
@@ -265,6 +270,110 @@ int lib(ArrayRef<const char *> args) {
   return libDriverMain(args);
 }
 
-} // namespace ldc
+} // anonymous namespace
 
 #endif // LDC_LLVM_VER >= 309
+
+////////////////////////////////////////////////////////////////////////////////
+
+static llvm::cl::opt<std::string> ar("ar", llvm::cl::desc("Archiver"),
+                                     llvm::cl::Hidden, llvm::cl::ZeroOrMore);
+
+int createStaticLibrary() {
+  Logger::println("*** Creating static library ***");
+
+  const bool isTargetMSVC =
+      global.params.targetTriple->isWindowsMSVCEnvironment();
+
+#if LDC_LLVM_VER >= 309
+  const bool useInternalArchiver = ar.empty();
+#else
+  const bool useInternalArchiver = false;
+#endif
+
+  // find archiver
+  std::string tool;
+  if (useInternalArchiver) {
+    tool = isTargetMSVC ? "llvm-lib.exe" : "llvm-ar";
+  } else {
+#ifdef _WIN32
+    if (isTargetMSVC)
+      windows::setupMsvcEnvironment();
+#endif
+
+    tool = getProgram(isTargetMSVC ? "lib.exe" : "ar", &ar);
+  }
+
+  // build arguments
+  std::vector<std::string> args;
+
+  // ask ar to create a new library
+  if (!isTargetMSVC) {
+    args.push_back("rcs");
+  }
+
+  // ask lib.exe to be quiet
+  if (isTargetMSVC) {
+    args.push_back("/NOLOGO");
+  }
+
+  // output filename
+  std::string libName;
+  if (global.params.libname) { // explicit
+    // DMD adds the default extension if there is none
+    libName = opts::invokedByLDMD
+                  ? FileName::defaultExt(global.params.libname, global.lib_ext)
+                  : global.params.libname;
+  } else { // infer from first object file
+    libName = global.params.objfiles->dim
+                  ? FileName::removeExt((*global.params.objfiles)[0])
+                  : "a.out";
+    libName += '.';
+    libName += global.lib_ext;
+  }
+
+  // DMD creates static libraries in the objects directory (unless using an
+  // absolute output path via `-of`).
+  if (opts::invokedByLDMD && global.params.objdir &&
+      !FileName::absolute(libName.c_str())) {
+    libName = FileName::combine(global.params.objdir, libName.c_str());
+  }
+
+  if (isTargetMSVC) {
+    args.push_back("/OUT:" + libName);
+  } else {
+    args.push_back(libName);
+  }
+
+  // object files
+  for (auto objfile : *global.params.objfiles) {
+    args.push_back(objfile);
+  }
+
+  // .res/.def files for lib.exe
+  if (isTargetMSVC) {
+    if (global.params.resfile)
+      args.push_back(global.params.resfile);
+    if (global.params.deffile)
+      args.push_back(std::string("/DEF:") + global.params.deffile);
+  }
+
+  // create path to the library
+  createDirectoryForFileOrFail(libName);
+
+#if LDC_LLVM_VER >= 309
+  if (useInternalArchiver) {
+    const auto fullArgs = getFullArgs(tool, args, global.params.verbose);
+
+    const int exitCode =
+        isTargetMSVC ? internalLib(fullArgs) : internalAr(fullArgs);
+    if (exitCode)
+      error(Loc(), "%s failed with status: %d", tool.c_str(), exitCode);
+
+    return exitCode;
+  }
+#endif
+
+  // invoke external archiver
+  return executeToolAndWait(tool, args, global.params.verbose);
+}

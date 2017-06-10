@@ -26,7 +26,7 @@ Installation
 
 ### From a pre-built package
 
-##### Linux and OS X
+#### Linux and OS X
 
 Some package managers include recent versions of LDC, so manually
 installing it might not be necessary. For several platforms, there
@@ -36,13 +36,13 @@ are also stand-alone binary builds available at the
 |              | Command               |
 | ------------ | --------------------- |
 | Arch Linux   | `pacman -S ldc`       |
-| Debian       | `apt-get install ldc` |
-| Fedora       | `yum install ldc`     |
+| Debian       | `apt install ldc` |
+| Fedora       | `dnf install ldc`     |
 | Gentoo       | `layman -a ldc`       |
 | Homebrew     | `brew install ldc`    |
-| Ubuntu       | `apt-get install ldc` |
+| Ubuntu       | `apt install ldc` |
 
-##### Windows
+#### Windows
 
 The latest official releases can be downloaded from the
 [GitHub release page](https://github.com/ldc-developers/ldc/releases).
@@ -51,8 +51,7 @@ For bleeding-edge users, we also provide the
 [latest successful continuous integration builds](https://github.com/ldc-developers/ldc/releases/tag/LDC-Win64-master).
 
 LDC for Windows relies on the Microsoft linker. So you'll either need
-[Visual Studio](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx)
-(2015 is greatly encouraged; 2013 works too if you build LDC yourself)
+[Visual Studio](https://www.visualstudio.com/downloads/) 2015 or 2017
 with Visual C++, or the stand-alone
 [Visual C++ Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools).
 
@@ -63,7 +62,7 @@ libraries is available on the project wiki for
 [Linux and OS X](http://wiki.dlang.org/Building_LDC_from_source) and
 [Windows](http://wiki.dlang.org/Building_and_hacking_LDC_on_Windows_using_MSVC).
 
-If you have a working C++ build environment, CMake, and a current LLVM (>= 3.5)
+If you have a working C++ build environment, CMake, and a current LLVM (≥ 3.5)
 available, there should be no big surprises.
 Building LDC also requires a working D compiler, DMD and LDC are supported.
 (LDC 0.17 is the last version that does not need a D compiler,
@@ -73,7 +72,7 @@ Do not forget to make sure all the submodules (druntime, phobos, dmd-testsuite)
 are up to date:
 
     $ cd ldc
-    $ git submodule update --recursive --init
+    $ git submodule update --init
 
 Contact
 -------

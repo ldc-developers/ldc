@@ -61,15 +61,17 @@ extern(C) c_long strtol(inout(char)* nptr, inout(char)** endptr, int base);
 
 version(IN_LLVM)
 {
+    import gen.semantic : extraLDCSpecificSemanticAnalysis;
     extern (C++):
 
     void genCmain(Scope* sc);
     // in driver/main.cpp
     void addDefaultVersionIdentifiers();
     void codegenModules(ref Modules modules);
+    // in driver/archiver.cpp
+    int createStaticLibrary();
     // in driver/linker.cpp
     int linkObjToBinary();
-    int createStaticLibrary();
     void deleteExeFile();
     int runProgram();
 }
@@ -1606,6 +1608,13 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
     Module.runDeferredSemantic3();
     if (global.errors)
         fatal();
+
+  version (IN_LLVM)
+  {
+    extraLDCSpecificSemanticAnalysis(modules);
+    if (global.errors)
+        fatal();
+  }
 
   version (IN_LLVM) {} else
   {

@@ -23,6 +23,7 @@
 #include "driver/cl_options.h"
 #include "driver/codegenerator.h"
 #include "driver/configfile.h"
+#include "driver/dcomputecodegenerator.h"
 #include "driver/exe_path.h"
 #include "driver/ldc-version.h"
 #include "driver/linker.h"
@@ -40,6 +41,7 @@
 #include "gen/optimizer.h"
 #include "gen/passes/Passes.h"
 #include "gen/runtime.h"
+#include "gen/uda.h"
 #include "gen/abi.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/LinkAllPasses.h"
@@ -81,10 +83,9 @@ using namespace opts;
 
 extern void getenv_setargv(const char *envvar, int *pargc, char ***pargv);
 
-static cl::opt<bool>
-    noDefaultLib("nodefaultlib",
-                 cl::desc("Don't add a default library for linking implicitly"),
-                 cl::ZeroOrMore, cl::Hidden);
+static cl::opt<bool> noDefaultLib(
+    "nodefaultlib", cl::ZeroOrMore, cl::Hidden,
+    cl::desc("Don't add a default library for linking implicitly"));
 
 static StringsAdapter impPathsStore("I", global.params.imppath);
 static cl::list<std::string, StringsAdapter>
@@ -93,19 +94,16 @@ static cl::list<std::string, StringsAdapter>
                 cl::Prefix);
 
 static cl::opt<std::string>
-    defaultLib("defaultlib",
-               cl::desc("Default libraries to link with (overrides previous)"),
-               cl::value_desc("lib1,lib2,..."), cl::ZeroOrMore);
+    defaultLib("defaultlib", cl::ZeroOrMore, cl::value_desc("lib1,lib2,..."),
+               cl::desc("Default libraries to link with (overrides previous)"));
 
 static cl::opt<std::string> debugLib(
-    "debuglib",
-    cl::desc("Debug versions of default libraries (overrides previous)"),
-    cl::value_desc("lib1,lib2,..."), cl::ZeroOrMore);
+    "debuglib", cl::ZeroOrMore, cl::value_desc("lib1,lib2,..."),
+    cl::desc("Debug versions of default libraries (overrides previous)"));
 
 static cl::opt<bool> linkDebugLib(
-    "link-debuglib",
-    cl::desc("Link with libraries specified in -debuglib, not -defaultlib"),
-    cl::ZeroOrMore);
+    "link-debuglib", cl::ZeroOrMore,
+    cl::desc("Link with libraries specified in -debuglib, not -defaultlib"));
 
 #if LDC_LLVM_VER >= 309
 static inline llvm::Optional<llvm::Reloc::Model> getRelocModel() {
@@ -357,6 +355,19 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
 
   helpOnly = mCPU == "help" ||
              (std::find(mAttrs.begin(), mAttrs.end(), "help") != mAttrs.end());
+  if (helpOnly) {
+    auto triple = llvm::Triple(cfg_triple);
+    std::string errMsg;
+    if (auto target = lookupTarget("", triple, errMsg)) {
+      llvm::errs() << "Targeting " << target->getName() << ". ";
+      // this prints the available CPUs and features of the target to stderr...
+      target->createMCSubtargetInfo(cfg_triple, "help", "");
+    } else {
+      error(Loc(), "%s", errMsg.c_str());
+      fatal();
+    }
+    return;
+  }
 
   // Print some information if -v was passed
   // - path to compiler binary
@@ -406,8 +417,8 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   const auto toWinPaths = [](Strings *paths) {
     if (!paths)
       return;
-    for (unsigned i = 0; i < paths->dim; ++i)
-      (*paths)[i] = dupPathString((*paths)[i]);
+    for (auto &path : *paths)
+      path = dupPathString(path);
   };
   toWinPaths(global.params.imppath);
   toWinPaths(global.params.fileImppath);
@@ -536,29 +547,24 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
 
   // LDC output determination
 
-  // if we don't link, autodetect target from extension
-  if (!global.params.link && !global.params.lib && global.params.objname) {
+  // if we don't link and there's no `-output-*` switch but an `-of` one,
+  // autodetect type of desired 'object' file from file extension
+  if (!global.params.link && !global.params.lib && global.params.objname &&
+      global.params.output_o == OUTPUTFLAGdefault) {
     const char *ext = FileName::ext(global.params.objname);
-    bool autofound = false;
     if (!ext) {
       // keep things as they are
-    } else if (strcmp(ext, global.ll_ext) == 0) {
+    } else if (opts::output_ll.getNumOccurrences() == 0 &&
+               strcmp(ext, global.ll_ext) == 0) {
       global.params.output_ll = OUTPUTFLAGset;
-      autofound = true;
-    } else if (strcmp(ext, global.bc_ext) == 0) {
+      global.params.output_o = OUTPUTFLAGno;
+    } else if (opts::output_bc.getNumOccurrences() == 0 &&
+               strcmp(ext, global.bc_ext) == 0) {
       global.params.output_bc = OUTPUTFLAGset;
-      autofound = true;
-    } else if (strcmp(ext, global.s_ext) == 0) {
+      global.params.output_o = OUTPUTFLAGno;
+    } else if (opts::output_s.getNumOccurrences() == 0 &&
+               strcmp(ext, global.s_ext) == 0) {
       global.params.output_s = OUTPUTFLAGset;
-      autofound = true;
-    } else if (strcmp(ext, global.obj_ext) == 0 || strcmp(ext, "obj") == 0) {
-      // global.obj_ext hasn't been corrected yet for MSVC targets as we first
-      // need the command line to figure out the target...
-      // so treat both 'o' and 'obj' extensions as object files
-      global.params.output_o = OUTPUTFLAGset;
-      autofound = true;
-    }
-    if (autofound && global.params.output_o == OUTPUTFLAGdefault) {
       global.params.output_o = OUTPUTFLAGno;
     }
   }
@@ -888,6 +894,9 @@ void registerPredefinedVersions() {
   VersionCondition::addPredefinedGlobalIdent("LDC");
   VersionCondition::addPredefinedGlobalIdent("all");
   VersionCondition::addPredefinedGlobalIdent("D_Version2");
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
+  VersionCondition::addPredefinedGlobalIdent("LDC_DCompute");
+#endif
 
   if (global.params.doDocComments) {
     VersionCondition::addPredefinedGlobalIdent("D_Ddoc");
@@ -966,7 +975,11 @@ int cppmain(int argc, char **argv) {
   Strings files;
   parseCommandLine(argc, argv, files, helpOnly);
 
-  if (files.dim == 0 && !helpOnly) {
+  if (helpOnly) {
+    return 0;
+  }
+
+  if (files.dim == 0) {
     cl::PrintHelpMessage();
     return EXIT_FAILURE;
   }
@@ -1043,10 +1056,11 @@ void addDefaultVersionIdentifiers() {
 }
 
 void codegenModules(Modules &modules) {
-  // Generate one or more object/IR/bitcode files.
+  // Generate one or more object/IR/bitcode files/dcompute kernels.
   if (global.params.obj && !modules.empty()) {
     ldc::CodeGenerator cg(getGlobalContext(), global.params.oneobj);
-
+    DComputeCodeGenManager dccg(getGlobalContext());
+    std::vector<Module *> computeModules;
     // When inlining is enabled, we are calling semantic3 on function
     // declarations, which may _add_ members to the first module in the modules
     // array. These added functions must be codegenned, because these functions
@@ -1060,10 +1074,24 @@ void codegenModules(Modules &modules) {
       if (global.params.verbose)
         fprintf(global.stdmsg, "code      %s\n", m->toChars());
 
-      cg.emit(m);
+      const auto atCompute = hasComputeAttr(m);
+      if (atCompute == DComputeCompileFor::hostOnly ||
+           atCompute == DComputeCompileFor::hostAndDevice)
+      {
+        cg.emit(m);
+      }
+      if (atCompute != DComputeCompileFor::hostOnly)
+        computeModules.push_back(m);
 
       if (global.errors)
         fatal();
+    }
+
+    if (!computeModules.empty()) {
+      for (auto& mod : computeModules)
+        dccg.emit(mod);
+
+      dccg.writeModules();
     }
   }
 

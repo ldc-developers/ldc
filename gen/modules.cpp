@@ -54,14 +54,13 @@
 #endif
 
 static llvm::cl::opt<bool, true>
-    preservePaths("op", llvm::cl::desc("Preserve source path for output files"),
-                  llvm::cl::ZeroOrMore,
+    preservePaths("op", llvm::cl::ZeroOrMore,
+                  llvm::cl::desc("Preserve source path for output files"),
                   llvm::cl::location(global.params.preservePaths));
 
 static llvm::cl::opt<bool, true>
-    fqnNames("oq",
+    fqnNames("oq", llvm::cl::ZeroOrMore,
              llvm::cl::desc("Write object files with fully qualified names"),
-             llvm::cl::ZeroOrMore,
              llvm::cl::location(global.params.fullyQualifiedObjectFiles));
 
 void Module::checkAndAddOutputFile(File *file) {
@@ -71,8 +70,9 @@ void Module::checkAndAddOutputFile(File *file) {
   auto i = files.find(key);
   if (i != files.end()) {
     Module *previousMod = i->second;
-    ::error(Loc(), "Output file '%s' for module '%s' collides with previous "
-                   "module '%s'. See the -oq option",
+    ::error(Loc(),
+            "Output file '%s' for module '%s' collides with previous "
+            "module '%s'. See the -oq option",
             key.c_str(), toPrettyChars(), previousMod->toPrettyChars());
     fatal();
   }
@@ -280,7 +280,7 @@ llvm::Function *buildRegisterDSO(RegistryStyle style,
       getRuntimeFunction(Loc(), gIR->module, "_d_dso_registry");
   const auto recordPtrTy = dsoRegistry->getFunctionType()->getContainedType(1);
 
-  llvm::Function *getTlsAnchorPtr;
+  llvm::Function *getTlsAnchorPtr = nullptr;
   if (style == RegistryStyle::sectionDarwin) {
     getTlsAnchorPtr = buildGetTLSAnchor();
   }
@@ -291,7 +291,8 @@ llvm::Function *buildRegisterDSO(RegistryStyle style,
 
   {
     IRBuilder<> b(entryBB);
-    const auto loadedFlag = b.CreateTrunc(b.CreateLoad(dsoInitialized), b.getInt1Ty());
+    const auto loadedFlag =
+        b.CreateTrunc(b.CreateLoad(dsoInitialized), b.getInt1Ty());
     const auto condEval =
         b.CreateICmp(llvm::ICmpInst::ICMP_EQ, loadedFlag, isShutdown);
     b.CreateCondBr(condEval, initBB, endBB);
@@ -688,8 +689,7 @@ void registerModuleInfo(Module *m) {
   const char *mangle = mangleBuf.peekString();
 
   if (style == RegistryStyle::legacyLinkedList) {
-    const auto miCtor =
-        build_module_reference_and_ctor(mangle, moduleInfoSym);
+    const auto miCtor = build_module_reference_and_ctor(mangle, moduleInfoSym);
     AppendFunctionToLLVMGlobalCtorsDtors(miCtor, 65535, true);
   } else {
     emitModuleRefToSection(style, mangle, moduleInfoSym);
@@ -718,6 +718,7 @@ void codegenModule(IRState *irs, Module *m) {
   }
 
   // process module members
+  // NOTE: m->members may grow during codegen
   for (unsigned k = 0; k < m->members->dim; k++) {
     Dsymbol *dsym = (*m->members)[k];
     assert(dsym);

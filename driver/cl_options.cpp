@@ -77,9 +77,8 @@ cl::opt<bool, true>
 
 cl::opt<bool> compileOnly("c", cl::desc("Do not link"), cl::ZeroOrMore);
 
-static cl::opt<bool, true> createStaticLib("lib",
+static cl::opt<bool, true> createStaticLib("lib", cl::ZeroOrMore,
                                            cl::desc("Create static library"),
-                                           cl::ZeroOrMore,
                                            cl::location(global.params.lib));
 
 static cl::opt<bool, true>
@@ -107,9 +106,8 @@ static cl::opt<bool, true> verbose_cg_ast("vcg-ast", cl::ZeroOrMore, cl::Hidden,
                                           cl::location(global.params.vcg_ast));
 
 static cl::opt<unsigned, true> errorLimit(
-    "verrors", cl::ZeroOrMore,
-    cl::desc("Limit the number of error messages (0 means unlimited)"),
-    cl::location(global.errorLimit));
+    "verrors", cl::ZeroOrMore, cl::location(global.errorLimit),
+    cl::desc("Limit the number of error messages (0 means unlimited)"));
 
 static cl::opt<bool, true>
     showGaggedErrors("verrors-spec", cl::ZeroOrMore,
@@ -118,12 +116,12 @@ static cl::opt<bool, true>
                               "__traits(compiles,...)"));
 
 static cl::opt<ubyte, true> warnings(
-    cl::desc("Warnings:"), cl::ZeroOrMore,
+    cl::desc("Warnings:"), cl::ZeroOrMore, cl::location(global.params.warnings),
     clEnumValues(
         clEnumValN(1, "w", "Enable warnings as errors (compilation will halt)"),
         clEnumValN(2, "wi",
                    "Enable warnings as messages (compilation will continue)")),
-    cl::location(global.params.warnings), cl::init(0));
+    cl::init(0));
 
 static cl::opt<bool, true> ignoreUnsupportedPragmas(
     "ignore", cl::desc("Ignore unsupported pragmas"), cl::ZeroOrMore,
@@ -139,11 +137,11 @@ static cl::opt<ubyte, true> debugInfo(
     cl::location(global.params.symdebug), cl::init(0));
 
 static cl::opt<unsigned, true>
-    dwarfVersion("dwarf-version", cl::desc("Dwarf version"),
-                 cl::location(global.params.dwarfVersion), cl::init(0),
-                 cl::Hidden);
+    dwarfVersion("dwarf-version", cl::desc("Dwarf version"), cl::ZeroOrMore,
+                 cl::location(global.params.dwarfVersion), cl::Hidden);
 
-cl::opt<bool> noAsm("noasm", cl::desc("Disallow use of inline assembler"));
+cl::opt<bool> noAsm("noasm", cl::desc("Disallow use of inline assembler"),
+                    cl::ZeroOrMore);
 
 // Output file options
 cl::opt<bool> dontWriteObj("o-", cl::desc("Do not write object file"),
@@ -154,12 +152,13 @@ cl::opt<std::string> objectFile("of", cl::value_desc("filename"), cl::Prefix,
                                 cl::ZeroOrMore);
 
 cl::opt<std::string> objectDir("od", cl::value_desc("directory"), cl::Prefix,
-                               cl::ZeroOrMore,
-                               cl::desc("Write object files to <directory>"));
+                               cl::desc("Write object files to <directory>"),
+                               cl::ZeroOrMore);
 
 cl::opt<std::string>
     soname("soname", cl::value_desc("soname"), cl::Hidden, cl::Prefix,
-           cl::desc("Use <soname> as output shared library soname"));
+           cl::desc("Use <soname> as output shared library soname"),
+           cl::ZeroOrMore);
 
 // Output format options
 cl::opt<bool> output_bc("output-bc", cl::desc("Write LLVM bitcode"),
@@ -174,16 +173,15 @@ cl::opt<cl::boolOrDefault> output_o("output-o", cl::ZeroOrMore,
                                     cl::desc("Write native object"));
 
 static cl::opt<bool, true>
-    cleanupObjectFiles("cleanup-obj",
+    cleanupObjectFiles("cleanup-obj", cl::ZeroOrMore, cl::ReallyHidden,
                        cl::desc("Remove generated object files on success"),
-                       cl::ZeroOrMore, cl::ReallyHidden,
                        cl::location(global.params.cleanupObjectFiles));
 
 // Disabling Red Zone
 cl::opt<bool, true>
-    disableRedZone("disable-red-zone",
+    disableRedZone("disable-red-zone", cl::ZeroOrMore,
                    cl::desc("Do not emit code that uses the red zone."),
-                   cl::location(global.params.disableRedZone), cl::init(false));
+                   cl::location(global.params.disableRedZone));
 
 // DDoc options
 static cl::opt<bool, true> doDdoc("D", cl::desc("Generate documentation"),
@@ -212,28 +210,27 @@ static cl::opt<bool, true>
     doHdrGen("H", cl::desc("Generate 'header' file"), cl::ZeroOrMore,
              cl::location(global.params.doHdrGeneration));
 
-cl::opt<std::string> hdrDir("Hd",
+cl::opt<std::string> hdrDir("Hd", cl::ZeroOrMore, cl::Prefix,
                             cl::desc("Write 'header' file to <directory>"),
-                            cl::value_desc("directory"), cl::Prefix,
-                            cl::ZeroOrMore);
+                            cl::value_desc("directory"));
 
-cl::opt<std::string> hdrFile("Hf", cl::ZeroOrMore,
+cl::opt<std::string> hdrFile("Hf", cl::ZeroOrMore, cl::Prefix,
                              cl::desc("Write 'header' file to <filename>"),
-                             cl::value_desc("filename"), cl::Prefix);
+                             cl::value_desc("filename"));
 
 cl::opt<bool>
-    hdrKeepAllBodies("Hkeep-all-bodies",
-                     cl::desc("Keep all function bodies in .di files"),
-                     cl::ZeroOrMore);
+    hdrKeepAllBodies("Hkeep-all-bodies", cl::ZeroOrMore,
+                     cl::desc("Keep all function bodies in .di files"));
 
 static cl::opt<bool, true> unittest("unittest", cl::ZeroOrMore,
                                     cl::desc("Compile in unit tests"),
                                     cl::location(global.params.useUnitTests));
 
 cl::opt<std::string>
-    cacheDir("cache", cl::desc("Enable compilation cache, using <cache dir> to "
-                               "store cache files (experimental)"),
-             cl::value_desc("cache dir"));
+    cacheDir("cache",
+             cl::desc("Enable compilation cache, using <cache dir> to "
+                      "store cache files (experimental)"),
+             cl::value_desc("cache dir"), cl::ZeroOrMore);
 
 static StringsAdapter strImpPathStore("J", global.params.fileImppath);
 static cl::list<std::string, StringsAdapter> stringImportPaths(
@@ -271,39 +268,37 @@ static D_DebugStorage dds;
 // -debug is already declared in LLVM (at least, in debug builds),
 // so we need to be a bit more verbose.
 static cl::list<std::string, D_DebugStorage> debugVersionsOption(
-    "d-debug",
+    "d-debug", cl::location(dds), cl::CommaSeparated, cl::ValueOptional,
     cl::desc("Compile in debug code >= <level> or identified by <idents>"),
-    cl::value_desc("level/idents"), cl::location(dds), cl::CommaSeparated,
-    cl::ValueOptional);
+    cl::value_desc("level/idents"));
 
 // -version is also declared in LLVM, so again we need to be a bit more verbose.
 cl::list<std::string> versions(
-    "d-version",
-    cl::desc("Compile in version code >= <level> or identified by <idents>"),
-    cl::value_desc("level/idents"), cl::CommaSeparated);
+    "d-version", cl::CommaSeparated, cl::value_desc("level/idents"),
+    cl::desc("Compile in version code >= <level> or identified by <idents>"));
 
 cl::list<std::string> transitions(
-    "transition",
+    "transition", cl::CommaSeparated, cl::value_desc("idents"),
     cl::desc(
-        "Help with language change identified by <idents>, use ? for list"),
-    cl::value_desc("idents"), cl::CommaSeparated);
+        "Help with language change identified by <idents>, use ? for list"));
 
-cl::list<std::string> linkerSwitches("L",
-    cl::desc("Pass <linkerflag> to the linker"),
-    cl::value_desc("linkerflag"), cl::Prefix);
+cl::list<std::string>
+    linkerSwitches("L", cl::desc("Pass <linkerflag> to the linker"),
+                   cl::value_desc("linkerflag"), cl::Prefix);
 
-cl::list<std::string> ccSwitches("Xcc", cl::CommaSeparated,
-    cl::desc("Pass <ccflag> to GCC/Clang for linking"),
-    cl::value_desc("ccflag"));
+cl::list<std::string>
+    ccSwitches("Xcc", cl::CommaSeparated,
+               cl::desc("Pass <ccflag> to GCC/Clang for linking"),
+               cl::value_desc("ccflag"));
 
 cl::opt<std::string>
-    moduleDeps("deps",
+    moduleDeps("deps", cl::ValueOptional, cl::ZeroOrMore,
+               cl::value_desc("filename"),
                cl::desc("Write module dependencies to filename (only imports). "
                         "'-deps' alone prints module dependencies "
-                        "(imports/file/version/debug/lib)"),
-               cl::value_desc("filename"), cl::ValueOptional);
+                        "(imports/file/version/debug/lib)"));
 
-cl::opt<std::string> mArch("march",
+cl::opt<std::string> mArch("march", cl::ZeroOrMore,
                            cl::desc("Architecture to generate code for:"));
 
 cl::opt<bool> m32bits("m32", cl::desc("32 bit target"), cl::ZeroOrMore);
@@ -311,23 +306,20 @@ cl::opt<bool> m32bits("m32", cl::desc("32 bit target"), cl::ZeroOrMore);
 cl::opt<bool> m64bits("m64", cl::desc("64 bit target"), cl::ZeroOrMore);
 
 cl::opt<std::string>
-    mCPU("mcpu",
-         cl::desc("Target a specific cpu type (-mcpu=help for details)"),
-         cl::value_desc("cpu-name"), cl::init(""));
+    mCPU("mcpu", cl::ZeroOrMore, cl::value_desc("cpu-name"), cl::init(""),
+         cl::desc("Target a specific cpu type (-mcpu=help for details)"));
 
 cl::list<std::string>
-    mAttrs("mattr", cl::CommaSeparated,
-           cl::desc("Target specific attributes (-mattr=help for details)"),
-           cl::value_desc("a1,+a2,-a3,..."));
+    mAttrs("mattr", cl::CommaSeparated, cl::value_desc("a1,+a2,-a3,..."),
+           cl::desc("Target specific attributes (-mattr=help for details)"));
 
-cl::opt<std::string> mTargetTriple("mtriple",
+cl::opt<std::string> mTargetTriple("mtriple", cl::ZeroOrMore,
                                    cl::desc("Override target triple"));
 
 #if LDC_LLVM_VER >= 307
 cl::opt<std::string>
-    mABI("mabi",
-         cl::desc("The name of the ABI to be targeted from the backend"),
-         cl::Hidden, cl::init(""));
+    mABI("mabi", cl::ZeroOrMore, cl::Hidden, cl::init(""),
+         cl::desc("The name of the ABI to be targeted from the backend"));
 #endif
 
 static StringsAdapter
@@ -354,7 +346,8 @@ cl::opt<llvm::Reloc::Model> mRelocModel(
                    "Relocatable external references, non-relocatable code")));
 
 cl::opt<llvm::CodeModel::Model> mCodeModel(
-    "code-model", cl::desc("Code model"), cl::init(llvm::CodeModel::Default),
+    "code-model", cl::desc("Code model"), cl::ZeroOrMore,
+    cl::init(llvm::CodeModel::Default),
     clEnumValues(
         clEnumValN(llvm::CodeModel::Default, "default",
                    "Target default code model"),
@@ -365,7 +358,7 @@ cl::opt<llvm::CodeModel::Model> mCodeModel(
 
 cl::opt<FloatABI::Type> mFloatABI(
     "float-abi", cl::desc("ABI/operations to use for floating-point types:"),
-    cl::init(FloatABI::Default),
+    cl::ZeroOrMore, cl::init(FloatABI::Default),
     clEnumValues(
         clEnumValN(FloatABI::Default, "default",
                    "Target default floating-point ABI"),
@@ -378,73 +371,67 @@ cl::opt<FloatABI::Type> mFloatABI(
 
 cl::opt<bool>
     disableFpElim("disable-fp-elim", cl::ZeroOrMore,
-                  cl::desc("Disable frame pointer elimination optimization"),
-                  cl::init(false));
+                  cl::desc("Disable frame pointer elimination optimization"));
 
 static cl::opt<bool, true, FlagParser<bool>>
-    asserts("asserts", cl::desc("(*) Enable assertions"),
+    asserts("asserts", cl::ZeroOrMore, cl::desc("(*) Enable assertions"),
             cl::value_desc("bool"), cl::location(global.params.useAssert),
             cl::init(true));
 
 cl::opt<BOUNDSCHECK> boundsCheck(
-    "boundscheck", cl::desc("Array bounds check"),
+    "boundscheck", cl::ZeroOrMore, cl::desc("Array bounds check"),
+    cl::init(BOUNDSCHECKdefault),
     clEnumValues(clEnumValN(BOUNDSCHECKoff, "off", "Disabled"),
                  clEnumValN(BOUNDSCHECKsafeonly, "safeonly",
                             "Enabled for @safe functions only"),
-                 clEnumValN(BOUNDSCHECKon, "on", "Enabled for all functions")),
-    cl::init(BOUNDSCHECKdefault));
+                 clEnumValN(BOUNDSCHECKon, "on", "Enabled for all functions")));
 
 static cl::opt<bool, true, FlagParser<bool>>
-    invariants("invariants", cl::desc("(*) Enable invariants"),
+    invariants("invariants", cl::ZeroOrMore, cl::desc("(*) Enable invariants"),
                cl::location(global.params.useInvariants), cl::init(true));
 
-static cl::opt<bool, true, FlagParser<bool>>
-    preconditions("preconditions",
-                  cl::desc("(*) Enable function preconditions"),
-                  cl::location(global.params.useIn), cl::init(true));
+static cl::opt<bool, true, FlagParser<bool>> preconditions(
+    "preconditions", cl::ZeroOrMore, cl::location(global.params.useIn),
+    cl::desc("(*) Enable function preconditions"), cl::init(true));
 
 static cl::opt<bool, true, FlagParser<bool>>
-    postconditions("postconditions",
-                   cl::desc("(*) Enable function postconditions"),
-                   cl::location(global.params.useOut), cl::init(true));
+    postconditions("postconditions", cl::ZeroOrMore,
+                   cl::location(global.params.useOut), cl::init(true),
+                   cl::desc("(*) Enable function postconditions"));
 
 static MultiSetter ContractsSetter(false, &global.params.useIn,
-                                   &global.params.useOut, NULL);
+                                   &global.params.useOut, nullptr);
 static cl::opt<MultiSetter, true, FlagParser<bool>>
-    contracts("contracts",
-              cl::desc("(*) Enable function pre- and post-conditions"),
-              cl::location(ContractsSetter));
+    contracts("contracts", cl::ZeroOrMore, cl::location(ContractsSetter),
+              cl::desc("(*) Enable function pre- and post-conditions"));
 
 bool nonSafeBoundsChecks = true;
 static MultiSetter ReleaseSetter(true, &global.params.useAssert,
                                  &nonSafeBoundsChecks,
                                  &global.params.useInvariants,
                                  &global.params.useOut, &global.params.useIn,
-                                 NULL);
+                                 nullptr);
 static cl::opt<MultiSetter, true, cl::parser<bool>>
-    release("release",
+    release("release", cl::ZeroOrMore, cl::location(ReleaseSetter),
             cl::desc("Disables asserts, invariants, contracts and boundscheck"),
-            cl::location(ReleaseSetter), cl::ValueDisallowed);
+            cl::ValueDisallowed);
 
 cl::opt<bool, true>
     singleObj("singleobj", cl::desc("Create only a single output object file"),
-              cl::location(global.params.oneobj));
+              cl::ZeroOrMore, cl::location(global.params.oneobj));
 
 cl::opt<uint32_t, true> hashThreshold(
-    "hash-threshold",
-    cl::desc("Hash symbol names longer than this threshold (experimental)"),
-    cl::location(global.params.hashThreshold), cl::init(0));
+    "hash-threshold", cl::ZeroOrMore, cl::location(global.params.hashThreshold),
+    cl::desc("Hash symbol names longer than this threshold (experimental)"));
 
 cl::opt<bool> linkonceTemplates(
-    "linkonce-templates",
+    "linkonce-templates", cl::ZeroOrMore,
     cl::desc(
-        "Use linkonce_odr linkage for template symbols instead of weak_odr"),
-    cl::ZeroOrMore);
+        "Use linkonce_odr linkage for template symbols instead of weak_odr"));
 
 cl::opt<bool> disableLinkerStripDead(
-    "disable-linker-strip-dead",
-    cl::desc("Do not try to remove unused symbols during linking"),
-    cl::init(false));
+    "disable-linker-strip-dead", cl::ZeroOrMore,
+    cl::desc("Do not try to remove unused symbols during linking"));
 
 // Math options
 bool fFastMath; // Storage for the dynamically created ffast-math option.
@@ -459,33 +446,32 @@ void setDefaultMathOptions(llvm::TargetMachine &target) {
 }
 
 cl::opt<bool, true>
-    allinst("allinst", cl::ZeroOrMore,
-            cl::desc("Generate code for all template instantiations"),
-            cl::location(global.params.allInst));
+    allinst("allinst", cl::ZeroOrMore, cl::location(global.params.allInst),
+            cl::desc("Generate code for all template instantiations"));
 
 cl::opt<unsigned, true> nestedTemplateDepth(
-    "template-depth", cl::location(global.params.nestedTmpl), cl::init(500),
+    "template-depth", cl::ZeroOrMore, cl::location(global.params.nestedTmpl),
+    cl::init(500),
     cl::desc(
         "Set maximum number of nested template instantiations (experimental)"));
 
 cl::opt<bool, true>
-    useDIP25("dip25", cl::ZeroOrMore,
-             cl::desc("Implement http://wiki.dlang.org/DIP25 (experimental)"),
-             cl::location(global.params.useDIP25));
+    useDIP25("dip25", cl::ZeroOrMore, cl::location(global.params.useDIP25),
+             cl::desc("Implement http://wiki.dlang.org/DIP25 (experimental)"));
 
 cl::opt<bool> useDIP1000(
     "dip1000", cl::ZeroOrMore,
     cl::desc("Implement http://wiki.dlang.org/DIP1000 (experimental)"));
 
 cl::opt<bool, true> betterC(
-    "betterC", cl::ZeroOrMore,
-    cl::desc("Omit generating some runtime information and helper functions"),
-    cl::location(global.params.betterC));
+    "betterC", cl::ZeroOrMore, cl::location(global.params.betterC),
+    cl::desc("Omit generating some runtime information and helper functions"));
 
 cl::opt<unsigned char, true, CoverageParser> coverageAnalysis(
-    "cov", cl::desc("Compile-in code coverage analysis\n(use -cov=n for n% "
-                    "minimum required coverage)"),
-    cl::location(global.params.covPercent), cl::ValueOptional, cl::init(127));
+    "cov", cl::ZeroOrMore, cl::location(global.params.covPercent),
+    cl::desc("Compile-in code coverage analysis\n(use -cov=n for n% "
+             "minimum required coverage)"),
+    cl::ValueOptional, cl::init(127));
 
 #if LDC_WITH_PGO
 cl::opt<std::string>
@@ -493,22 +479,22 @@ cl::opt<std::string>
                      cl::desc("Generate instrumented code to collect a runtime "
                               "profile into default.profraw (overriden by "
                               "'=<filename>' or LLVM_PROFILE_FILE env var)"),
-                     cl::ValueOptional);
+                     cl::ZeroOrMore, cl::ValueOptional);
 
 cl::opt<std::string> usefileInstrProf(
-    "fprofile-instr-use", cl::value_desc("filename"),
+    "fprofile-instr-use", cl::ZeroOrMore, cl::value_desc("filename"),
     cl::desc("Use instrumentation data for profile-guided optimization"),
     cl::ValueRequired);
 #endif
 
 cl::opt<bool>
-    instrumentFunctions("finstrument-functions",
+    instrumentFunctions("finstrument-functions", cl::ZeroOrMore,
                         cl::desc("Instrument function entry and exit with "
                                  "GCC-compatible profiling calls"));
 
 #if LDC_LLVM_VER >= 309
 cl::opt<LTOKind> ltoMode(
-    "flto", cl::desc("Set LTO mode, requires linker support"),
+    "flto", cl::ZeroOrMore, cl::desc("Set LTO mode, requires linker support"),
     cl::init(LTO_None),
     clEnumValues(
         clEnumValN(LTO_Full, "full", "Merges all input into a single module"),
@@ -523,6 +509,15 @@ cl::opt<std::string>
                            cl::desc("Generate a YAML optimization record file "
                                     "of optimizations performed by LLVM"),
                            cl::ValueOptional);
+#endif
+    
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
+cl::list<std::string>
+    dcomputeTargets("mdcompute-targets", cl::CommaSeparated,
+                    cl::desc("Generates code for the specified DCompute target"
+                             " list. Use 'ocl-xy0' for OpenCL x.y, and "
+                             "'cuda-xy0' for CUDA CC x.y"),
+                     cl::value_desc("targets"));
 #endif
 
 static cl::extrahelp footer(
@@ -567,11 +562,10 @@ void createClashingOptions() {
 
   // Step 2. Add the LDC options.
   new cl::opt<bool, true, FlagParser<bool>>(
-      "color", cl::desc("Force colored console output"),
-      cl::location(global.params.color));
-  new cl::opt<bool, true>(
-      "ffast-math", cl::desc("Set @fastmath for all functions."),
-      cl::location(fFastMath), cl::init(false), cl::ZeroOrMore);
+      "color", cl::ZeroOrMore, cl::location(global.params.color),
+      cl::desc("(*) Force colored console output"));
+  new cl::opt<bool, true>("ffast-math", cl::ZeroOrMore, cl::location(fFastMath),
+                          cl::desc("Set @fastmath for all functions."));
 }
 
 /// Hides command line options exposed from within LLVM that are unlikely

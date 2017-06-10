@@ -591,8 +591,8 @@ public:
       std::map<VarDeclaration *, llvm::Constant *> varInits;
       const size_t nexprs = e->elements->dim;
       for (size_t i = 0; i < nexprs; i++) {
-        if ((*e->elements)[i]) {
-          LLConstant *c = toConstElem((*e->elements)[i]);
+        if (auto elem = (*e->elements)[i]) {
+          LLConstant *c = toConstElem(elem);
           // extend i1 to i8
           if (c->getType() == LLType::getInt1Ty(p->context()))
             c = llvm::ConstantExpr::getZExt(c, LLType::getInt8Ty(p->context()));
@@ -641,16 +641,18 @@ public:
           cur = classHierachy.top();
           classHierachy.pop();
           for (size_t j = 0; j < cur->fields.dim; ++j) {
-            if ((*value->elements)[i]) {
+            if (auto elem = (*value->elements)[i]) {
               VarDeclaration *field = cur->fields[j];
               IF_LOG Logger::println("Getting initializer for: %s",
                                      field->toChars());
               LOG_SCOPE;
-              varInits[field] = toConstElem((*value->elements)[i]);
+              varInits[field] = toConstElem(elem);
             }
             ++i;
           }
         }
+
+        (void)nexprs;
         assert(i == nexprs);
       }
 

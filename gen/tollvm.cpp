@@ -56,24 +56,9 @@ bool DtoIsReturnInArg(CallExp *ce) {
 
 LLAttribute DtoShouldExtend(Type *type) {
   type = type->toBasetype();
-  if (type->isintegral()) {
-    switch (type->ty) {
-    case Tint8:
-    case Tint16:
-      return LLAttribute::SExt;
-
-    case Tuns8:
-    case Tuns16:
-    case Tchar:
-    case Twchar:
-      return LLAttribute::ZExt;
-
-    default:
-      // Do not extend.
-      break;
-    }
+  if (type->isintegral() && type->ty != Tvector && type->size() <= 2) {
+    return type->isunsigned() ? LLAttribute::ZExt : LLAttribute::SExt;
   }
-
   return LLAttribute::None;
 }
 
@@ -285,6 +270,7 @@ llvm::GetElementPtrInst *DtoGEP(LLValue *ptr, llvm::ArrayRef<LLValue *> indices,
                                 bool inBounds, const char *name,
                                 llvm::BasicBlock *bb) {
   LLPointerType *p = isaPointer(ptr);
+  (void)p;
   assert(p && "GEP expects a pointer type");
   auto gep = llvm::GetElementPtrInst::Create(
 #if LDC_LLVM_VER >= 307
@@ -320,6 +306,7 @@ LLValue *DtoGEPi(LLValue *ptr, unsigned i0, unsigned i1, const char *name,
 
 LLConstant *DtoGEPi(LLConstant *ptr, unsigned i0, unsigned i1) {
   LLPointerType *p = isaPointer(ptr);
+  (void)p;
   assert(p && "GEP expects a pointer type");
   LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
   return llvm::ConstantExpr::getGetElementPtr(
@@ -528,8 +515,31 @@ void DtoAlignedStore(LLValue *src, LLValue *dst) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+LLType *stripAddrSpaces(LLType *t)
+{
+  // Fastpath for normal compilation.
+  if(gIR->dcomputetarget == nullptr)
+    return t;
+
+  int indirections = 0;
+  while (t->isPointerTy()) {
+    indirections++;
+    t = t->getPointerElementType();
+  }
+  while (indirections-- != 0)
+     t = t->getPointerTo(0);
+
+  return t;
+}
+
 LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name) {
-  if (v->getType() == t) {
+  // Strip addrspace qualifications from v before comparing types by pointer
+  // equality. This avoids the case where the pointer in { T addrspace(n)* }
+  // is dereferenced and generates a GEP -> (invalid) bitcast -> load sequence.
+  // Bitcasting of pointers between addrspaces is invalid in LLVM IR. Even if
+  // it were valid, it wouldn't be the desired outcome as we would always load
+  // from addrspace(0), instead of the addrspace of the pointer.
+  if (stripAddrSpaces(v->getType()) == t) {
     return v;
   }
   assert(!isaStruct(t));
@@ -537,7 +547,8 @@ LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name) {
 }
 
 LLConstant *DtoBitCast(LLConstant *v, LLType *t) {
-  if (v->getType() == t) {
+  // Refer to the explanation in the other DtoBitCast overloaded function.
+  if (stripAddrSpaces(v->getType()) == t) {
     return v;
   }
   return llvm::ConstantExpr::getBitCast(v, t);

@@ -12,6 +12,7 @@
 #include "gen/cl_helpers.h"
 #include "gen/logger.h"
 #include "gen/passes/Passes.h"
+#include "driver/targetmachine.h"
 #include "llvm/LinkAllPasses.h"
 #if LDC_LLVM_VER >= 307
 #include "llvm/IR/LegacyPassManager.h"
@@ -54,54 +55,46 @@ static cl::opt<signed char> optimizeLevel(
         clEnumValN(-2, "Oz", "Like -Os but reduces code size further")),
     cl::init(0));
 
-static cl::opt<bool> noVerify("disable-verify",
-                              cl::desc("Do not verify result module"),
-                              cl::Hidden);
+static cl::opt<bool> noVerify("disable-verify", cl::ZeroOrMore, cl::Hidden,
+                              cl::desc("Do not verify result module"));
 
 static cl::opt<bool>
-    verifyEach("verify-each",
+    verifyEach("verify-each", cl::ZeroOrMore, cl::Hidden,
                cl::desc("Run verifier after D-specific and explicitly "
-                        "specified optimization passes"),
-               cl::Hidden, cl::ZeroOrMore);
+                        "specified optimization passes"));
 
 static cl::opt<bool>
-    disableLangSpecificPasses("disable-d-passes",
-                              cl::desc("Disable all D-specific passes"),
-                              cl::ZeroOrMore);
+    disableLangSpecificPasses("disable-d-passes", cl::ZeroOrMore,
+                              cl::desc("Disable all D-specific passes"));
 
 static cl::opt<bool> disableSimplifyDruntimeCalls(
-    "disable-simplify-drtcalls",
-    cl::desc("Disable simplification of druntime calls"), cl::ZeroOrMore);
+    "disable-simplify-drtcalls", cl::ZeroOrMore,
+    cl::desc("Disable simplification of druntime calls"));
 
 static cl::opt<bool> disableSimplifyLibCalls(
-    "disable-simplify-libcalls",
-    cl::desc("Disable simplification of well-known C runtime calls"),
-    cl::ZeroOrMore);
+    "disable-simplify-libcalls", cl::ZeroOrMore,
+    cl::desc("Disable simplification of well-known C runtime calls"));
 
 static cl::opt<bool> disableGCToStack(
-    "disable-gc2stack",
-    cl::desc("Disable promotion of GC allocations to stack memory"),
-    cl::ZeroOrMore);
+    "disable-gc2stack", cl::ZeroOrMore,
+    cl::desc("Disable promotion of GC allocations to stack memory"));
 
 static cl::opt<cl::boolOrDefault, false, opts::FlagParser<cl::boolOrDefault>>
     enableInlining(
-        "inlining",
-        cl::desc("Enable function inlining (default in -O2 and higher)"),
-        cl::ZeroOrMore);
+        "inlining", cl::ZeroOrMore,
+        cl::desc("(*) Enable function inlining (default in -O2 and higher)"));
 
-static llvm::cl::opt<llvm::cl::boolOrDefault, false,
-                     opts::FlagParser<llvm::cl::boolOrDefault>>
+static cl::opt<cl::boolOrDefault, false, opts::FlagParser<cl::boolOrDefault>>
     enableCrossModuleInlining(
-        "cross-module-inlining",
-        llvm::cl::desc("Enable cross-module function inlining (default "
-                       "disabled) (LLVM >= 3.7)"),
-        llvm::cl::ZeroOrMore, llvm::cl::Hidden);
+        "cross-module-inlining", cl::ZeroOrMore, cl::Hidden,
+        cl::desc("(*) Enable cross-module function inlining (default disabled) "
+                 "(LLVM >= 3.7)"));
 
 static cl::opt<bool> unitAtATime("unit-at-a-time", cl::desc("Enable basic IPO"),
-                                 cl::init(true));
+                                 cl::ZeroOrMore, cl::init(true));
 
 static cl::opt<bool> stripDebug(
-    "strip-debug",
+    "strip-debug", cl::ZeroOrMore,
     cl::desc("Strip symbolic debug information before optimization"));
 
 cl::opt<opts::SanitizerCheck> opts::sanitize(
@@ -113,17 +106,15 @@ cl::opt<opts::SanitizerCheck> opts::sanitize(
                             "Race detection")));
 
 static cl::opt<bool> disableLoopUnrolling(
-    "disable-loop-unrolling",
-    cl::desc("Disable loop unrolling in all relevant passes"), cl::init(false));
+    "disable-loop-unrolling", cl::ZeroOrMore,
+    cl::desc("Disable loop unrolling in all relevant passes"));
 static cl::opt<bool>
-    disableLoopVectorization("disable-loop-vectorization",
-                             cl::desc("Disable the loop vectorization pass"),
-                             cl::init(false));
+    disableLoopVectorization("disable-loop-vectorization", cl::ZeroOrMore,
+                             cl::desc("Disable the loop vectorization pass"));
 
 static cl::opt<bool>
-    disableSLPVectorization("disable-slp-vectorization",
-                            cl::desc("Disable the slp vectorization pass"),
-                            cl::init(false));
+    disableSLPVectorization("disable-slp-vectorization", cl::ZeroOrMore,
+                            cl::desc("Disable the slp vectorization pass"));
 
 unsigned optLevel() {
   // Use -O2 as a base for the size-optimization levels.
@@ -142,10 +133,10 @@ bool willCrossModuleInline() {
 #if LDC_LLVM_VER >= 307
   return enableCrossModuleInlining == llvm::cl::BOU_TRUE;
 #else
-// Cross-module inlining is disabled for <3.7 because we don't emit symbols in
-// COMDAT any groups pre-LLVM3.7. With cross-module inlining enabled, without
-// COMDAT any there are multiple-def linker errors when linking druntime.
-// See supportsCOMDAT().
+  // Cross-module inlining is disabled for <3.7 because we don't emit symbols in
+  // COMDAT any groups pre-LLVM3.7. With cross-module inlining enabled, without
+  // COMDAT any there are multiple-def linker errors when linking druntime.
+  // See supportsCOMDAT().
   return false;
 #endif
 }
@@ -221,9 +212,11 @@ static void addThreadSanitizerPass(const PassManagerBuilder &Builder,
   PM.add(createThreadSanitizerPass());
 }
 
-static void addInstrProfilingPass(legacy::PassManagerBase &mpm) {
+// Adds PGO instrumentation generation and use passes.
+static void addPGOPasses(legacy::PassManagerBase &mpm, unsigned optLevel) {
 #if LDC_WITH_PGO
   if (global.params.genInstrProf) {
+    // We are generating PGO instrumented code.
     InstrProfOptions options;
     options.NoRedZone = global.params.disableRedZone;
     if (global.params.datafileInstrProf)
@@ -232,6 +225,14 @@ static void addInstrProfilingPass(legacy::PassManagerBase &mpm) {
     mpm.add(createInstrProfilingLegacyPass(options));
 #else
     mpm.add(createInstrProfilingPass(options));
+#endif
+  } else if (global.params.datafileInstrProf) {
+// We are generating code with PGO profile information available.
+#if LDC_LLVM_VER >= 500
+    // Do indirect call promotion from -O1
+    if (optLevel > 0) {
+      mpm.add(createPGOIndirectCallPromotionLegacyPass());
+    }
 #endif
   }
 #endif
@@ -334,7 +335,7 @@ static void addOptimizationPasses(PassManagerBase &mpm,
   builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
                        addStripExternalsPass);
 
-  addInstrProfilingPass(mpm);
+  addPGOPasses(mpm, optLevel);
 
   builder.populateFunctionPassManager(fpm);
   builder.populateModulePassManager(mpm);
@@ -350,6 +351,16 @@ bool ldc_optimize_module(llvm::Module *M) {
   legacy::
 #endif
       PassManager mpm;
+
+  // Dont optimise spirv modules because turning GEPs into extracts triggers
+  // asserts in the IR -> SPIR-V translation pass. SPIRV doesn't have a target
+  // machine, so any optimisation passes that rely on it to provide analysis,
+  // like DCE can't be run.
+  // The optimisation is supposed to happen between the SPIRV -> native machine
+  // code pass of the consumer of the binary.
+  // TODO: run rudimentary optimisations to improve IR debuggability.
+  if (getComputeTargetType(M) == ComputeBackend::SPIRV)
+    return false;
 
 #if LDC_LLVM_VER >= 307
   // Add an appropriate TargetLibraryInfo pass for the module's triple.
@@ -455,10 +466,9 @@ void verifyModule(llvm::Module *m) {
   Logger::println("Verification passed!");
 }
 
-// Output to `hash_os` all optimization settings that influence object code output
-// and that are not observable in the IR.
-// This is used to calculate the hash use for caching that uniquely identifies
-// the object file output.
+// Output to `hash_os` all optimization settings that influence object code
+// output and that are not observable in the IR. This is used to calculate the
+// hash use for caching that uniquely identifies the object file output.
 void outputOptimizationSettings(llvm::raw_ostream &hash_os) {
   hash_os << optimizeLevel;
   hash_os << willInline();

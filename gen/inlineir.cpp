@@ -9,6 +9,7 @@
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
+#include "gen/to_string.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/AsmParser/Parser.h"
@@ -56,7 +57,7 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
   // always inlined, this name does not escape the current compiled module; not
   // even at -O0.
   static size_t namecounter = 0;
-  std::string mangled_name = "inline.ir." + std::to_string(namecounter++);
+  std::string mangled_name = "inline.ir." + ldc::to_string(namecounter++);
   TemplateInstance *tinst = fdecl->parent->isTemplateInstance();
   assert(tinst);
 
@@ -165,11 +166,10 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
     fun->setCallingConv(llvm::CallingConv::C);
 
     // Build the runtime arguments
-    size_t n = arguments->dim;
     llvm::SmallVector<llvm::Value *, 8> args;
-    args.reserve(n);
-    for (size_t i = 0; i < n; i++) {
-      args.push_back(DtoRVal((*arguments)[i]));
+    args.reserve(arguments->dim);
+    for (auto arg : *arguments) {
+      args.push_back(DtoRVal(arg));
     }
 
     llvm::Value *rv = gIR->ir->CreateCall(fun, args);

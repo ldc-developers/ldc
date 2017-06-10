@@ -486,8 +486,7 @@ public:
 
     LLType *tiTy = DtoType(Type::dtypeinfo->type);
 
-    for (size_t i = 0; i < dim; i++) {
-      Parameter *arg = static_cast<Parameter *>(tu->arguments->data[i]);
+    for (auto arg : *tu->arguments) {
       arrInits.push_back(DtoTypeInfoOf(arg->type, true));
     }
 

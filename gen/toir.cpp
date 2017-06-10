@@ -56,9 +56,8 @@
 #include "ctfe.h"
 
 llvm::cl::opt<bool> checkPrintf(
-    "check-printf-calls",
-    llvm::cl::desc("Validate printf call format strings against arguments"),
-    llvm::cl::ZeroOrMore);
+    "check-printf-calls", llvm::cl::ZeroOrMore,
+    llvm::cl::desc("Validate printf call format strings against arguments"));
 
 bool walkPostorder(Expression *e, StoppableVisitor *v);
 
@@ -77,6 +76,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
                                  Expressions *elements) {
   assert(elements && "struct literal has null elements");
   const auto numMissingElements = sd->fields.dim - elements->dim;
+  (void)numMissingElements;
   assert(numMissingElements == 0 || (sd->vthis && numMissingElements == 1));
 
   // might be reset to an actual i8* value so only a single bitcast is emitted
@@ -1466,8 +1466,8 @@ public:
         size_t ndims = e->arguments->dim;
         std::vector<DValue *> dims;
         dims.reserve(ndims);
-        for (size_t i = 0; i < ndims; ++i) {
-          dims.push_back(toElem((*e->arguments)[i]));
+        for (auto arg : *e->arguments) {
+          dims.push_back(toElem(arg));
         }
         result = DtoNewMulDimDynArray(e->loc, e->newtype, &dims[0], ndims);
       }
@@ -1551,6 +1551,7 @@ public:
       result = new DImValue(e->type, mem);
     }
 
+    (void)isArgprefixHandled;
     assert(e->argprefix == NULL || isArgprefixHandled);
   }
 
@@ -1681,30 +1682,35 @@ public:
     // passed:
     p->scope() = IRScope(passedbb);
 
-    FuncDeclaration *invdecl;
-    // class invariants
-    if (global.params.useInvariants && condty->ty == Tclass &&
-        !(static_cast<TypeClass *>(condty)->sym->isInterfaceDeclaration()) &&
-        !(static_cast<TypeClass *>(condty)->sym->isCPPclass())) {
+    // class/struct invariants
+    if (!global.params.useInvariants)
+      return;
+    if (condty->ty == Tclass) {
+      const auto sym = static_cast<TypeClass *>(condty)->sym;
+      if (sym->isInterfaceDeclaration() || sym->isCPPclass())
+        return;
+
       Logger::println("calling class invariant");
-      llvm::Function *fn = getRuntimeFunction(
-          e->loc, gIR->module,
-          gABI->mangleFunctionForLLVM("_D9invariant12_d_invariantFC6ObjectZv",
-                                      LINKd)
-              .c_str());
-      LLValue *arg =
+
+      const auto fnMangle = gABI->mangleFunctionForLLVM(
+          "_D9invariant12_d_invariantFC6ObjectZv", LINKd);
+      const auto fn = getRuntimeFunction(e->loc, gIR->module, fnMangle.c_str());
+
+      const auto arg =
           DtoBitCast(DtoRVal(cond), fn->getFunctionType()->getParamType(0));
+
       gIR->CreateCallOrInvoke(fn, arg);
-    }
-    // struct invariants
-    else if (global.params.useInvariants && condty->ty == Tpointer &&
-             condty->nextOf()->ty == Tstruct &&
-             (invdecl = static_cast<TypeStruct *>(condty->nextOf())
-                            ->sym->inv) != nullptr) {
+    } else if (condty->ty == Tpointer && condty->nextOf()->ty == Tstruct) {
+      const auto invDecl =
+          static_cast<TypeStruct *>(condty->nextOf())->sym->inv;
+      if (!invDecl)
+        return;
+
       Logger::print("calling struct invariant");
-      DtoResolveFunction(invdecl);
-      DFuncValue invfunc(invdecl, DtoCallee(invdecl), DtoRVal(cond));
-      DtoCallFunction(e->loc, nullptr, &invfunc, nullptr);
+
+      DtoResolveFunction(invDecl);
+      DFuncValue invFunc(invDecl, DtoCallee(invDecl), DtoRVal(cond));
+      DtoCallFunction(e->loc, nullptr, &invFunc, nullptr);
     }
   }
 
@@ -2218,8 +2224,7 @@ public:
       }
       cval = DtoBitCast(cval, dgty->getContainedType(0));
 
-      LLValue *castfptr =
-          DtoBitCast(DtoCallee(fd), dgty->getContainedType(1));
+      LLValue *castfptr = DtoBitCast(DtoCallee(fd), dgty->getContainedType(1));
 
       result = new DImValue(e->type, DtoAggrPair(cval, castfptr, ".func"));
 
@@ -2267,7 +2272,7 @@ public:
         auto global = new llvm::GlobalVariable(
             gIR->module, init->getType(), true,
             llvm::GlobalValue::InternalLinkage, init, ".immutablearray");
-        result = new DSliceValue(arrayType, DtoConstSize_t(e->elements->dim),
+        result = new DSliceValue(arrayType, DtoConstSize_t(len),
                                  DtoBitCast(global, getPtrToType(llElemType)));
       } else {
         DSliceValue *dynSlice = DtoNewDynArray(
@@ -2426,8 +2431,8 @@ public:
       keysInits.reserve(e->keys->dim);
       valuesInits.reserve(e->keys->dim);
       for (size_t i = 0, n = e->keys->dim; i < n; ++i) {
-        Expression *ekey = e->keys->tdata()[i];
-        Expression *eval = e->values->tdata()[i];
+        Expression *ekey = (*e->keys)[i];
+        Expression *eval = (*e->values)[i];
         IF_LOG Logger::println("(%llu) aa[%s] = %s",
                                static_cast<unsigned long long>(i),
                                ekey->toChars(), eval->toChars());
@@ -2580,8 +2585,8 @@ public:
 
     std::vector<LLType *> types;
     types.reserve(e->exps->dim);
-    for (size_t i = 0; i < e->exps->dim; i++) {
-      types.push_back(DtoMemType((*e->exps)[i]->type));
+    for (auto exp : *e->exps) {
+      types.push_back(DtoMemType(exp->type));
     }
     LLValue *val =
         DtoRawAlloca(LLStructType::get(gIR->context(), types), 0, ".tuple");

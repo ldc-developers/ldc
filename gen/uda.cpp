@@ -131,8 +131,6 @@ const char *getFirstElemString(StructLiteralExp *sle) {
 // @allocSize(1)
 // @allocSize(0,2)
 void applyAttrAllocSize(StructLiteralExp *sle, IrFunction *irFunc) {
-  llvm::Function *func = irFunc->getLLVMFunc();
-
   checkStructElems(sle, {Type::tint32, Type::tint32});
   auto sizeArgIdx = getIntElem(sle, 0);
   auto numArgIdx = getIntElem(sle, 1);
@@ -140,10 +138,6 @@ void applyAttrAllocSize(StructLiteralExp *sle, IrFunction *irFunc) {
   // Get the number of parameters that the user specified (excluding the
   // implicit `this` parameter)
   auto numUserParams = irFunc->irFty.args.size();
-
-  // Get the number of parameters of the function in LLVM IR. This includes
-  // the `this` and sret parameters.
-  auto llvmNumParams = irFunc->irFty.funcType->getNumParams();
 
   // Verify that the index values are valid
   bool error = false;
@@ -164,6 +158,10 @@ void applyAttrAllocSize(StructLiteralExp *sle, IrFunction *irFunc) {
 
 // The allocSize attribute is only effective for LLVM >= 3.9.
 #if LDC_LLVM_VER >= 309
+  // Get the number of parameters of the function in LLVM IR. This includes
+  // the `this` and sret parameters.
+  const auto llvmNumParams = irFunc->irFty.funcType->getNumParams();
+
   // Offset to correct indices for sret and this parameters.
   // These parameters can never be used for allocsize, and the user-specified
   // index does not account for these.
@@ -183,6 +181,8 @@ void applyAttrAllocSize(StructLiteralExp *sle, IrFunction *irFunc) {
   } else {
     builder.addAllocSizeAttr(llvmSizeIdx, llvm::Optional<unsigned>());
   }
+
+  llvm::Function *func = irFunc->getLLVMFunc();
 
 #if LDC_LLVM_VER >= 500
   func->addAttributes(LLAttributeSet::FunctionIndex, builder);
@@ -418,15 +418,15 @@ bool hasWeakUDA(Dsymbol *sym) {
 
 /// Returns 0 if 'sym' does not have the @ldc.dcompute.compute() UDA applied.
 /// Returns 1 + n if 'sym' does and is @compute(n).
-int hasComputeAttr(Dsymbol *sym) {
+extern "C" DComputeCompileFor hasComputeAttr(Dsymbol *sym) {
 
   auto sle = getMagicAttribute(sym, Id::udaCompute, Id::dcompute);
   if (!sle)
-    return 0;
+    return DComputeCompileFor::hostOnly;
 
   checkStructElems(sle, {Type::tint32});
 
-  return 1 + (*sle->elements)[0]->toInteger();
+  return static_cast<DComputeCompileFor>(1 + (*sle->elements)[0]->toInteger());
 }
 
 /// Checks whether 'sym' has the @ldc.dcompute._kernel() UDA applied.
@@ -437,7 +437,8 @@ bool hasKernelAttr(Dsymbol *sym) {
 
   checkStructElems(sle, {});
 
-  if (!sym->isFuncDeclaration() && !hasComputeAttr(sym->getModule()))
+  if (!sym->isFuncDeclaration() &&
+      hasComputeAttr(sym->getModule()) != DComputeCompileFor::hostOnly)
     sym->error("@ldc.dcompute.kernel can only be applied to functions"
                " in modules marked @ldc.dcompute.compute");
 

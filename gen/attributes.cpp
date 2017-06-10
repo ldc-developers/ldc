@@ -91,9 +91,13 @@ AttrSet &AttrSet::add(unsigned index, const AttrBuilder &builder) {
 
 AttrSet &AttrSet::merge(const AttrSet &other) {
   auto &os = other.set;
+#if LDC_LLVM_VER >= 500
+  set = LLAttributeSet::get(gIR->context(), {set,os});
+#else
   for (unsigned i = 0; i < os.getNumSlots(); ++i) {
     unsigned index = os.getSlotIndex(i);
     set = set.addAttributes(gIR->context(), index, os.getSlotAttributes(i));
   }
+#endif
   return *this;
 }

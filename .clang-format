@@ -1,2 +1,3 @@
 BasedOnStyle: LLVM
 SortIncludes: false
+FixNamespaceComments: false

@@ -5,6 +5,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
 include(FindDCompiler)
 include(CheckIncludeFile)
+include(CheckIncludeFileCXX)
 include(CheckLibraryExists)
 include(CheckCXXCompilerFlag)
 include(CheckDSourceCompiles)
@@ -24,6 +25,11 @@ math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 # Remove LLVMTableGen library from list of libraries
 string(REGEX MATCH "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" LLVM_TABLEGEN_LIBRARY "${LLVM_LIBRARIES}")
 string(REGEX REPLACE "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" "" LLVM_LIBRARIES "${LLVM_LIBRARIES}")
+
+# Information about which targets LLVM was built to target
+foreach(LLVM_SUPPORTED_TARGET ${LLVM_TARGETS_TO_BUILD})
+    add_definitions("-DLDC_LLVM_SUPPORTED_TARGET_${LLVM_SUPPORTED_TARGET}=1")
+endforeach()
 
 #
 # Get info about used Linux distribution.
@@ -75,7 +81,7 @@ set(CONF_INST_DIR ${SYSCONF_INSTALL_DIR} CACHE PATH "Directory ldc.conf is insta
 # Note: LIB_SUFFIX should perhaps be renamed to LDC_LIBDIR_SUFFIX.
 set(LIB_SUFFIX "" CACHE STRING "Appended to the library installation directory. Set to '64' to install libraries into ${PREFIX}/lib64.")
 
-# The following flags are currently not well tested, expect the build to fail.
+# The following flag is currently not well tested, expect the build to fail.
 option(GENERATE_OFFTI "generate complete ClassInfo.offTi arrays")
 mark_as_advanced(GENERATE_OFFTI)
 
@@ -330,12 +336,15 @@ set(DRV_SRC
     driver/cl_options.cpp
     driver/codegenerator.cpp
     driver/configfile.cpp
+    driver/dcomputecodegenerator.cpp
     driver/exe_path.cpp
     driver/targetmachine.cpp
     driver/toobj.cpp
     driver/tool.cpp
     driver/archiver.cpp
     driver/linker.cpp
+    driver/linker-gcc.cpp
+    driver/linker-msvc.cpp
     driver/main.cpp
     ${CMAKE_BINARY_DIR}/driver/ldc-version.cpp
 )
@@ -345,6 +354,7 @@ set(DRV_HDR
     driver/cl_options.h
     driver/codegenerator.h
     driver/configfile.h
+    driver/dcomputecodegenerator.h
     driver/exe_path.h
     driver/ldc-version.h
     driver/archiver.h
@@ -419,8 +429,6 @@ include_directories( SYSTEM
 )
 append("-I${PROJECT_SOURCE_DIR}" DDMD_DFLAGS)
 append("-I${PROJECT_BINARY_DIR}" DDMD_DFLAGS)
-
-
 if(MSVC)
     include_directories(${PROJECT_SOURCE_DIR}/vcbuild)
 endif()
@@ -439,12 +447,31 @@ if(GENERATE_OFFTI)
     append("-DGENERATE_OFFTI" LDC_CXXFLAGS)
 endif()
 
-option(RISCV_LLVM_DEV, "full RISC-V support with riscv-llvm")
-mark_as_advanced(RISCV_LLVM_DEV)
+#
+# LLD integration (requires LLVM >= 3.9 with LLD headers & libs)
+#
+set(LDC_WITH_LLD OFF)
+if(LDC_LLVM_VER GREATER 308)
+    # check for LLD header
+    unset(LDC_WITH_LLD)
+    if(NOT MSVC)
+        set(CMAKE_REQUIRED_FLAGS -std=c++11)
+    endif()
+    set(CMAKE_REQUIRED_INCLUDES ${LLVM_INCLUDE_DIRS})
+    CHECK_INCLUDE_FILE_CXX(lld/Driver/Driver.h LDC_WITH_LLD)
+    unset(CMAKE_REQUIRED_FLAGS)
+    unset(CMAKE_REQUIRED_INCLUDES)
+    if(LDC_WITH_LLD)
+        message(STATUS "Building LDC with LLD support")
+        append("-DLDC_WITH_LLD" LDC_CXXFLAGS)
+    endif()
+endif()
 
 #
 # Enable building with riscv-llvm, for full RISC-V support.
 #
+option(RISCV_LLVM_DEV, "full RISC-V support with riscv-llvm")
+mark_as_advanced(RISCV_LLVM_DEV)
 if(RISCV_LLVM_DEV)
     append("-DRISCV_LLVM_DEV" LDC_CXXFLAGS)
 endif()
@@ -539,6 +566,13 @@ add_custom_target(${LDMD_EXE} ALL DEPENDS ${LDMD_EXE_FULL})
 # Figure out how to link the main LDC executable, for which we need to take the
 # LLVM flags into account.
 set(LDC_LINKERFLAG_LIST "${SANITIZE_LDFLAGS};${LLVM_LIBRARIES};${LLVM_LDFLAGS}")
+if(LDC_WITH_LLD)
+    if(MSVC)
+        list(APPEND LDC_LINKERFLAG_LIST lldCOFF.lib lldCore.lib lldDriver.lib)
+    else()
+        set(LDC_LINKERFLAG_LIST "-llldCOFF;-llldCore;-llldDriver;${LDC_LINKERFLAG_LIST}")
+    endif()
+endif()
 
 set(LDC_LINK_MANUALLY OFF)
 if(UNIX AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")))

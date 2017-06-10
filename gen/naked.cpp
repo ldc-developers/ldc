@@ -269,7 +269,8 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
 
   // x86
   if (global.params.targetTriple->getArch() == llvm::Triple::x86) {
-    LINK l = fdecl->linkage;
+    const LINK l = fdecl->linkage;
+    (void)l;
     assert((l == LINKd || l == LINKc || l == LINKwindows) &&
            "invalid linkage for asm implicit return");
 
@@ -406,9 +407,7 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
   IF_LOG Logger::println("DtoInlineAsmExpr @ %s", loc.toChars());
   LOG_SCOPE;
 
-  TemplateInstance *ti = fd->toParent()->isTemplateInstance();
-  assert(ti && "invalid inline __asm expr");
-
+  assert(fd->toParent()->isTemplateInstance() && "invalid inline __asm expr");
   assert(arguments->dim >= 2 && "invalid __asm call");
 
   // get code param
