@@ -43,13 +43,20 @@ class TemplateInstance;
 class TemplateDeclaration;
 class ClassDeclaration;
 class BinExp;
-struct Symbol;          // back end symbol
 class OverloadSet;
 class Initializer;
 class StringExp;
 class ArrayExp;
 class SliceExp;
 struct UnionExp;
+#ifdef IN_GCC
+typedef union tree_node Symbol;
+#else
+struct Symbol;          // back end symbol
+#endif
+
+void initPrecedence();
+
 #if IN_LLVM
 class SymbolDeclaration;
 namespace llvm {
@@ -1013,6 +1020,7 @@ public:
     Expression *semantic(Scope *sc);
     bool isLvalue();
     Expression *toLvalue(Scope *sc, Expression *e);
+    Expression *modifiableLvalue(Scope *sc, Expression *e);
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -1022,6 +1030,7 @@ public:
     Expression *semantic(Scope *sc);
     bool isLvalue();
     Expression *toLvalue(Scope *sc, Expression *e);
+    Expression *modifiableLvalue(Scope *sc, Expression *e);
     void accept(Visitor *v) { v->visit(this); }
 };
 
