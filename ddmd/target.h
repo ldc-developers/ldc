@@ -56,7 +56,11 @@ struct Target
 
     typedef FPTypeProperties<float> FloatProperties;
     typedef FPTypeProperties<double> DoubleProperties;
+#if IN_LLVM
+    static FPTypeProperties<real_t> RealProperties;
+#else
     typedef FPTypeProperties<real_t> RealProperties;
+#endif
 
     static void _init();
     // Type sizes and support.

@@ -56,7 +56,12 @@ struct Target
 
     alias FloatProperties = FPTypeProperties!float;
     alias DoubleProperties = FPTypeProperties!double;
+  version(IN_LLVM) {
+    // host real_t may be double => make sure not to alias target's DoubleProperties
+    extern (C++) static __gshared FPTypeProperties!real_t RealProperties;
+  } else {
     alias RealProperties = FPTypeProperties!real_t;
+  }
 
   version(IN_LLVM)
   {

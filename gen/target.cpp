@@ -56,39 +56,39 @@ void Target::_init() {
 #endif
 
   if (targetRealSemantics == IEEEdouble) {
-    RealProperties::max = CTFloat::parse("0x1.fffffffffffffp+1023");
-    RealProperties::min_normal = CTFloat::parse("0x1p-1022");
-    RealProperties::epsilon = CTFloat::parse("0x1p-52");
-    RealProperties::dig = 15;
-    RealProperties::mant_dig = 53;
-    RealProperties::max_exp = 1024;
-    RealProperties::min_exp = -1021;
-    RealProperties::max_10_exp = 308;
-    RealProperties::min_10_exp = -307;
+    RealProperties.max = CTFloat::parse("0x1.fffffffffffffp+1023");
+    RealProperties.min_normal = CTFloat::parse("0x1p-1022");
+    RealProperties.epsilon = CTFloat::parse("0x1p-52");
+    RealProperties.dig = 15;
+    RealProperties.mant_dig = 53;
+    RealProperties.max_exp = 1024;
+    RealProperties.min_exp = -1021;
+    RealProperties.max_10_exp = 308;
+    RealProperties.min_10_exp = -307;
   } else if (targetRealSemantics == x87DoubleExtended) {
-    RealProperties::max = CTFloat::parse("0x1.fffffffffffffffep+16383");
-    RealProperties::min_normal = CTFloat::parse("0x1p-16382");
-    RealProperties::epsilon = CTFloat::parse("0x1p-63");
-    RealProperties::dig = 18;
-    RealProperties::mant_dig = 64;
-    RealProperties::max_exp = 16384;
-    RealProperties::min_exp = -16381;
-    RealProperties::max_10_exp = 4932;
-    RealProperties::min_10_exp = -4931;
+    RealProperties.max = CTFloat::parse("0x1.fffffffffffffffep+16383");
+    RealProperties.min_normal = CTFloat::parse("0x1p-16382");
+    RealProperties.epsilon = CTFloat::parse("0x1p-63");
+    RealProperties.dig = 18;
+    RealProperties.mant_dig = 64;
+    RealProperties.max_exp = 16384;
+    RealProperties.min_exp = -16381;
+    RealProperties.max_10_exp = 4932;
+    RealProperties.min_10_exp = -4931;
   } else if (targetRealSemantics == IEEEquad) {
     // FIXME: hex constants
-    RealProperties::max =
+    RealProperties.max =
         CTFloat::parse("1.18973149535723176508575932662800702e+4932");
-    RealProperties::min_normal =
+    RealProperties.min_normal =
         CTFloat::parse("3.36210314311209350626267781732175260e-4932");
-    RealProperties::epsilon =
+    RealProperties.epsilon =
         CTFloat::parse("1.92592994438723585305597794258492732e-34");
-    RealProperties::dig = 33;
-    RealProperties::mant_dig = 113;
-    RealProperties::max_exp = 16384;
-    RealProperties::min_exp = -16381;
-    RealProperties::max_10_exp = 4932;
-    RealProperties::min_10_exp = -4931;
+    RealProperties.dig = 33;
+    RealProperties.mant_dig = 113;
+    RealProperties.max_exp = 16384;
+    RealProperties.min_exp = -16381;
+    RealProperties.max_10_exp = 4932;
+    RealProperties.min_10_exp = -4931;
   } else {
     // leave initialized with host real_t values
     warning(Loc(), "unknown properties for target real type");
