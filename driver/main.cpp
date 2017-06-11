@@ -225,7 +225,13 @@ void initFromPathString(const char *&dest, const cl::opt<std::string> &src) {
   dest = nullptr;
   if (src.getNumOccurrences() != 0) {
     if (src.empty()) {
-      error(Loc(), "Expected argument to '-%s'", src.ArgStr);
+      error(Loc(), "Expected argument to '-%s'",
+#if LDC_LLVM_VER >= 308
+            src.ArgStr.str().c_str()
+#else
+            src.ArgStr
+#endif
+      );
     }
     dest = dupPathString(src);
   }
