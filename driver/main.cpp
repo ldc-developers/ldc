@@ -21,6 +21,7 @@
 #include "ddmd/target.h"
 #include "driver/cache.h"
 #include "driver/cl_options.h"
+#include "driver/cl_options_sanitizers.h"
 #include "driver/codegenerator.h"
 #include "driver/configfile.h"
 #include "driver/dcomputecodegenerator.h"
@@ -457,6 +458,8 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     initFromPathString(global.params.datafileInstrProf, usefileInstrProf);
   }
 #endif
+
+  initializeSanitizerOptionsFromCmdline();
 
   processVersions(debugArgs, "debug", DebugCondition::setGlobalLevel,
                   DebugCondition::addGlobalIdent);
@@ -930,16 +933,17 @@ void registerPredefinedVersions() {
     VersionCondition::addPredefinedGlobalIdent("D_ObjectiveC");
   }
 
-  // Pass sanitizer arguments to linker. Requires clang.
-  if (opts::sanitize == opts::AddressSanitizer) {
+  // Define sanitizer versions.
+  if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
     VersionCondition::addPredefinedGlobalIdent("LDC_AddressSanitizer");
   }
-
-  if (opts::sanitize == opts::MemorySanitizer) {
+  if (opts::isSanitizerEnabled(opts::CoverageSanitizer)) {
+    VersionCondition::addPredefinedGlobalIdent("LDC_CoverageSanitizer");
+  }
+  if (opts::isSanitizerEnabled(opts::MemorySanitizer)) {
     VersionCondition::addPredefinedGlobalIdent("LDC_MemorySanitizer");
   }
-
-  if (opts::sanitize == opts::ThreadSanitizer) {
+  if (opts::isSanitizerEnabled(opts::ThreadSanitizer)) {
     VersionCondition::addPredefinedGlobalIdent("LDC_ThreadSanitizer");
   }
 

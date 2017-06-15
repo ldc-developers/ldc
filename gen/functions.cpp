@@ -19,6 +19,7 @@
 #include "statement.h"
 #include "template.h"
 #include "driver/cl_options.h"
+#include "driver/cl_options_sanitizers.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
@@ -945,17 +946,17 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   if (gABI->needsUnwindTables()) {
     func->addFnAttr(LLAttribute::UWTable);
   }
-  if (opts::sanitize != opts::None) {
+  if (opts::isAnySanitizerEnabled()) {
     // Set the required sanitizer attribute.
-    if (opts::sanitize == opts::AddressSanitizer) {
+    if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
       func->addFnAttr(LLAttribute::SanitizeAddress);
     }
 
-    if (opts::sanitize == opts::MemorySanitizer) {
+    if (opts::isSanitizerEnabled(opts::MemorySanitizer)) {
       func->addFnAttr(LLAttribute::SanitizeMemory);
     }
 
-    if (opts::sanitize == opts::ThreadSanitizer) {
+    if (opts::isSanitizerEnabled(opts::ThreadSanitizer)) {
       func->addFnAttr(LLAttribute::SanitizeThread);
     }
   }
