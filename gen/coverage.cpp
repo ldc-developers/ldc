@@ -15,16 +15,18 @@
 #include "gen/logger.h"
 
 void emitCoverageLinecountInc(Loc &loc) {
+  Module *m = gIR->dmodule;
+
   // Only emit coverage increment for locations in the source of the current
   // module
   // (for example, 'inlined' methods from other source files should be skipped).
-  if (!global.params.cov || !loc.linnum || !loc.filename ||
-      strcmp(gIR->dmodule->srcfile->name->toChars(), loc.filename) != 0) {
+  if (!global.params.cov || !loc.linnum || !loc.filename || !m->d_cover_data ||
+      strcmp(m->srcfile->name->toChars(), loc.filename) != 0) {
     return;
   }
 
   const unsigned line = loc.linnum - 1; // convert to 0-based line# index
-  assert(line < gIR->dmodule->numlines);
+  assert(line < m->numlines);
 
   IF_LOG Logger::println("Coverage: increment _d_cover_data[%d]", line);
   LOG_SCOPE;
@@ -33,10 +35,9 @@ void emitCoverageLinecountInc(Loc &loc) {
   LLConstant *idxs[] = {DtoConstUint(0), DtoConstUint(line)};
   LLValue *ptr = llvm::ConstantExpr::getGetElementPtr(
 #if LDC_LLVM_VER >= 307
-      LLArrayType::get(LLType::getInt32Ty(gIR->context()),
-                       gIR->dmodule->numlines),
+      LLArrayType::get(LLType::getInt32Ty(gIR->context()), m->numlines),
 #endif
-      gIR->dmodule->d_cover_data, idxs, true);
+      m->d_cover_data, idxs, true);
 
   // Do an atomic increment, so this works when multiple threads are executed.
   gIR->ir->CreateAtomicRMW(llvm::AtomicRMWInst::Add, ptr, DtoConstUint(1),
@@ -45,7 +46,7 @@ void emitCoverageLinecountInc(Loc &loc) {
 #else
                            llvm::Monotonic
 #endif
-                           );
+  );
 
   unsigned num_sizet_bits = gDataLayout->getTypeSizeInBits(DtoSize_t());
   unsigned idx = line / num_sizet_bits;
@@ -53,5 +54,5 @@ void emitCoverageLinecountInc(Loc &loc) {
 
   IF_LOG Logger::println("_d_cover_valid[%d] |= (1 << %d)", idx, bitidx);
 
-  gIR->dmodule->d_cover_valid_init[idx] |= (size_t(1) << bitidx);
+  m->d_cover_valid_init[idx] |= (size_t(1) << bitidx);
 }
