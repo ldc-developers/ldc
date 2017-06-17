@@ -200,12 +200,13 @@ struct IRState {
   llvm::StringMap<llvm::GlobalVariable *> stringLiteral4ByteCache;
 
   // Sets the initializer for a global LL variable.
-  // If the types don't match, this entails a helper global matching the
-  // initializer type and replacing all existing uses of globalVar by a bitcast
-  // pointer to the helper global's payload.
+  // If the types don't match, this entails creating a new helper global
+  // matching the initializer type and replacing all existing uses of globalVar
+  // by a bitcast pointer to the helper global's payload.
   // Returns either the specified globalVar if the types match, or the bitcast
-  // pointer replacing globalVar.
-  llvm::Constant *setGlobalVarInitializer(llvm::GlobalVariable *globalVar,
+  // pointer replacing globalVar (and resets globalVar to the new helper
+  // global).
+  llvm::Constant *setGlobalVarInitializer(llvm::GlobalVariable *&globalVar,
                                           llvm::Constant *initializer);
 
 /// Vector of options passed to the linker as metadata in object file.

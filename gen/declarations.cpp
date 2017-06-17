@@ -266,45 +266,26 @@ public:
         const char *p = decl->loc.toChars();
         fprintf(global.stdmsg, "%s: %s is thread local\n", p, decl->toChars());
       }
+
       // Check if we are defining or just declaring the global in this module.
       // If we reach here during codegen of an available_externally function,
       // new variable declarations should stay external and therefore must not
       // have an initializer.
       if (!(decl->storage_class & STCextern) && !decl->inNonRoot()) {
-        // Build the initializer. Might use this->ir.irGlobal->value!
+        assert(!gvar->hasDLLImportStorageClass());
+
+        // Build the initializer. Might use irGlobal->value!
         LLConstant *initVal =
             DtoConstInitializer(decl->loc, decl->type, decl->_init);
 
+        setLinkage(lwc, gvar);
+
         // In case of type mismatch, swap out the variable.
-        if (initVal->getType() != gvar->getType()->getElementType()) {
-          llvm::GlobalVariable *newGvar = getOrCreateGlobal(
-              decl->loc, irs->module, initVal->getType(), gvar->isConstant(),
-              lwc.first, nullptr,
-              "", // We take on the name of the old global below.
-              gvar->isThreadLocal());
-          setLinkage(lwc, newGvar);
-
-          newGvar->setAlignment(gvar->getAlignment());
-          newGvar->setDLLStorageClass(gvar->getDLLStorageClass());
-          applyVarDeclUDAs(decl, newGvar);
-          newGvar->takeName(gvar);
-
-          llvm::Constant *newValue =
-              llvm::ConstantExpr::getBitCast(newGvar, gvar->getType());
-          gvar->replaceAllUsesWith(newValue);
-
-          gvar->eraseFromParent();
-          gvar = newGvar;
-          irGlobal->value = newGvar;
-        }
-
-        assert(!gvar->hasDLLImportStorageClass());
+        irGlobal->value = irs->setGlobalVarInitializer(gvar, initVal);
 
         // Now, set the initializer.
         assert(!irGlobal->constInit);
         irGlobal->constInit = initVal;
-        gvar->setInitializer(initVal);
-        setLinkage(lwc, gvar);
 
         // Also set up the debug info.
         irs->DBuilder.EmitGlobalVariable(gvar, decl);
