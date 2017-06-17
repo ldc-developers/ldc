@@ -167,12 +167,23 @@ LLConstant *IRState::setGlobalVarInitializer(LLGlobalVariable *&globalVar,
   // Replace all existing uses of globalVar by the bitcast pointer.
   auto castHelperVar = DtoBitCast(globalHelperVar, globalVar->getType());
   globalVar->replaceAllUsesWith(castHelperVar);
-  globalVar->eraseFromParent();
+
+  // Register replacement for later occurrences of the original globalVar.
+  globalsToReplace.emplace_back(globalVar, castHelperVar);
 
   // Reset globalVar to the helper variable.
   globalVar = globalHelperVar;
 
   return castHelperVar;
+}
+
+void IRState::replaceGlobals() {
+  for (const auto &pair : globalsToReplace) {
+    pair.first->replaceAllUsesWith(pair.second);
+    pair.first->eraseFromParent();
+  }
+
+  globalsToReplace.resize(0);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

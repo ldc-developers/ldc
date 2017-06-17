@@ -282,14 +282,14 @@ public:
         LLConstant *initVal =
             DtoConstInitializer(decl->loc, decl->type, decl->_init);
 
-        setLinkage(lwc, gvar);
-
-        // In case of type mismatch, swap out the variable.
-        irGlobal->value = irs->setGlobalVarInitializer(gvar, initVal);
-
-        // Now, set the initializer.
+        // Cache it.
         assert(!irGlobal->constInit);
         irGlobal->constInit = initVal;
+
+        // Set the initializer, swapping out the variable if the types do not
+        // match.
+        setLinkage(lwc, gvar);
+        irGlobal->value = irs->setGlobalVarInitializer(gvar, initVal);
 
         // Also set up the debug info.
         irs->DBuilder.EmitGlobalVariable(gvar, decl);
