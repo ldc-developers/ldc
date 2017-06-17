@@ -447,23 +447,11 @@ public:
       auto globalVar = new llvm::GlobalVariable(
           p->module, DtoType(se->type), false,
           llvm::GlobalValue::InternalLinkage, nullptr, ".structliteral");
-      se->globalVar = globalVar;
-
-      llvm::Constant *constValue = toConstElem(se);
-      if (constValue->getType() !=
-          globalVar->getType()->getContainedType(0)) {
-        auto rawGlobalVar = new llvm::GlobalVariable(
-            p->module, constValue->getType(), false,
-            llvm::GlobalValue::InternalLinkage, nullptr, ".structliteral");
-        auto castGlobalVar = DtoBitCast(rawGlobalVar, globalVar->getType());
-        globalVar->replaceAllUsesWith(castGlobalVar);
-        globalVar->eraseFromParent();
-        globalVar = rawGlobalVar;
-        se->globalVar = castGlobalVar;
-      }
-
-      globalVar->setInitializer(constValue);
       globalVar->setAlignment(DtoAlignment(se->type));
+
+      se->globalVar = globalVar;
+      llvm::Constant *constValue = toConstElem(se);
+      se->globalVar = p->setGlobalVarInitializer(globalVar, constValue);
 
       result = se->globalVar;
     } else if (e->e1->op == TOKslice) {
@@ -663,18 +651,7 @@ public:
       llvm::Constant *constValue =
           getIrAggr(origClass)->createInitializerConstant(varInits);
 
-      if (constValue->getType() != globalVar->getType()->getContainedType(0)) {
-        auto rawGlobalVar = new llvm::GlobalVariable(
-            p->module, constValue->getType(), false,
-            llvm::GlobalValue::InternalLinkage, nullptr, ".classref");
-        auto castGlobalVar = DtoBitCast(rawGlobalVar, globalVar->getType());
-        globalVar->replaceAllUsesWith(castGlobalVar);
-        globalVar->eraseFromParent();
-        globalVar = rawGlobalVar;
-        value->globalVar = castGlobalVar;
-      }
-
-      globalVar->setInitializer(constValue);
+      value->globalVar = p->setGlobalVarInitializer(globalVar, constValue);
     }
 
     result = value->globalVar;
