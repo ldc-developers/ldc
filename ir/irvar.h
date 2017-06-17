@@ -32,15 +32,13 @@ struct IrVar {
 // represents a global variable
 struct IrGlobal : IrVar {
   explicit IrGlobal(VarDeclaration *v) : IrVar(v) {}
-  IrGlobal(VarDeclaration *v, llvm::Type *type,
-           llvm::Constant *constInit = nullptr)
-      : IrVar(v), type(type), constInit(constInit) {}
 
-  llvm::Type *type = nullptr;
   llvm::Constant *constInit = nullptr;
 
   // This var is used by a naked function.
   bool nakedUse = false;
+
+  llvm::Type *getType() { return value->getType()->getContainedType(0); }
 };
 
 // represents a local variable variable
