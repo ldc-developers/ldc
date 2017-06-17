@@ -132,9 +132,11 @@ public:
     if (!irs->dcomputetarget) {
       // Define the __initZ symbol.
       IrAggr *ir = getIrAggr(decl);
-      llvm::GlobalVariable *initZ = ir->getInitSymbol();
-      initZ->setInitializer(ir->getDefaultInit());
-      setLinkage(decl, initZ);
+      auto &initZ = ir->getInitSymbol();
+      auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
+      assert(initGlobal);
+      setLinkage(decl, initGlobal);
+      initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
 
       // emit typeinfo
       DtoTypeInfoOf(decl->type);
@@ -182,9 +184,11 @@ public:
       IrAggr *ir = getIrAggr(decl);
       const auto lwc = DtoLinkage(decl);
 
-      llvm::GlobalVariable *initZ = ir->getInitSymbol();
-      initZ->setInitializer(ir->getDefaultInit());
-      setLinkage(lwc, initZ);
+      auto &initZ = ir->getInitSymbol();
+      auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
+      assert(initGlobal);
+      setLinkage(lwc, initGlobal);
+      initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
 
       llvm::GlobalVariable *vtbl = ir->getVtblSymbol();
       vtbl->setInitializer(ir->getVtblInit());
