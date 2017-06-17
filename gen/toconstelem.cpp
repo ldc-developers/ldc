@@ -444,23 +444,26 @@ public:
         return;
       }
 
-      se->globalVar = new llvm::GlobalVariable(
-          p->module, DtoType(e->e1->type), false,
+      auto globalVar = new llvm::GlobalVariable(
+          p->module, DtoType(se->type), false,
           llvm::GlobalValue::InternalLinkage, nullptr, ".structliteral");
+      se->globalVar = globalVar;
 
       llvm::Constant *constValue = toConstElem(se);
       if (constValue->getType() !=
-          se->globalVar->getType()->getContainedType(0)) {
-        auto finalGlobalVar = new llvm::GlobalVariable(
+          globalVar->getType()->getContainedType(0)) {
+        auto rawGlobalVar = new llvm::GlobalVariable(
             p->module, constValue->getType(), false,
             llvm::GlobalValue::InternalLinkage, nullptr, ".structliteral");
-        se->globalVar->replaceAllUsesWith(
-            DtoBitCast(finalGlobalVar, se->globalVar->getType()));
-        se->globalVar->eraseFromParent();
-        se->globalVar = finalGlobalVar;
+        auto castGlobalVar = DtoBitCast(rawGlobalVar, globalVar->getType());
+        globalVar->replaceAllUsesWith(castGlobalVar);
+        globalVar->eraseFromParent();
+        globalVar = rawGlobalVar;
+        se->globalVar = castGlobalVar;
       }
-      se->globalVar->setInitializer(constValue);
-      se->globalVar->setAlignment(DtoAlignment(se->type));
+
+      globalVar->setInitializer(constValue);
+      globalVar->setAlignment(DtoAlignment(se->type));
 
       result = se->globalVar;
     } else if (e->e1->op == TOKslice) {
@@ -619,9 +622,10 @@ public:
       IF_LOG Logger::cout()
           << "Using existing global: " << *value->globalVar << '\n';
     } else {
-      value->globalVar = new llvm::GlobalVariable(
+      auto globalVar = new llvm::GlobalVariable(
           p->module, origClass->type->ctype->isClass()->getMemoryLLType(),
           false, llvm::GlobalValue::InternalLinkage, nullptr, ".classref");
+      value->globalVar = globalVar;
 
       std::map<VarDeclaration *, llvm::Constant *> varInits;
 
@@ -659,17 +663,18 @@ public:
       llvm::Constant *constValue =
           getIrAggr(origClass)->createInitializerConstant(varInits);
 
-      if (constValue->getType() !=
-          value->globalVar->getType()->getContainedType(0)) {
-        auto finalGlobalVar = new llvm::GlobalVariable(
+      if (constValue->getType() != globalVar->getType()->getContainedType(0)) {
+        auto rawGlobalVar = new llvm::GlobalVariable(
             p->module, constValue->getType(), false,
             llvm::GlobalValue::InternalLinkage, nullptr, ".classref");
-        value->globalVar->replaceAllUsesWith(
-            DtoBitCast(finalGlobalVar, value->globalVar->getType()));
-        value->globalVar->eraseFromParent();
-        value->globalVar = finalGlobalVar;
+        auto castGlobalVar = DtoBitCast(rawGlobalVar, globalVar->getType());
+        globalVar->replaceAllUsesWith(castGlobalVar);
+        globalVar->eraseFromParent();
+        globalVar = rawGlobalVar;
+        value->globalVar = castGlobalVar;
       }
-      value->globalVar->setInitializer(constValue);
+
+      globalVar->setInitializer(constValue);
     }
 
     result = value->globalVar;
