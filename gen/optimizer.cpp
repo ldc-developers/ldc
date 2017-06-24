@@ -25,6 +25,9 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/ADT/Triple.h"
+#if LDC_LLVM_VER >= 400
+#include "llvm/Analysis/InlineCost.h"
+#endif
 #if LDC_LLVM_VER >= 307
 #include "llvm/Analysis/TargetTransformInfo.h"
 #endif
@@ -269,16 +272,12 @@ static void addOptimizationPasses(PassManagerBase &mpm,
 #endif
 
   if (willInline()) {
-    unsigned threshold = 225;
-    if (sizeLevel == 1) { // -Os
-      threshold = 75;
-    } else if (sizeLevel == 2) { // -Oz
-      threshold = 25;
-    }
-    if (optLevel > 2) {
-      threshold = 275;
-    }
-    builder.Inliner = createFunctionInliningPass(threshold);
+#if LDC_LLVM_VER >= 400
+    auto params = llvm::getInlineParams(optLevel, sizeLevel);
+    builder.Inliner = createFunctionInliningPass(params);
+#else
+    builder.Inliner = createFunctionInliningPass(optLevel, sizeLevel);
+#endif
   } else {
 #if LDC_LLVM_VER >= 400
     builder.Inliner = createAlwaysInlinerLegacyPass();
