@@ -52,7 +52,7 @@ endfunction()
 #
 
 # Version information
-set(LDC_VERSION "1.3.0") # May be overridden by git hash tag
+set(LDC_VERSION "1.4.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
 set(DMDFE_PATCH_VERSION   73)
