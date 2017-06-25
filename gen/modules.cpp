@@ -120,8 +120,7 @@ RegistryStyle getModuleRegistryStyle() {
     return RegistryStyle::sectionDarwin;
   }
 
-  if ((t->isOSLinux() && t->getEnvironment() != llvm::Triple::Android) ||
-      t->isOSFreeBSD() ||
+  if (t->isOSLinux() || t->isOSFreeBSD() ||
 #if LDC_LLVM_VER > 305
       t->isOSNetBSD() || t->isOSOpenBSD() || t->isOSDragonFly()
 #else
@@ -376,7 +375,10 @@ void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
                                                                : "__minfo");
   gIR->usedArray.push_back(thismref);
 
-  if (!isFirst) {
+  // Android doesn't need register_dso and friends- see rt.sections_android-
+  // so bail out here.
+  if (!isFirst ||
+      global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
     // Nothing left to do.
     return;
   }

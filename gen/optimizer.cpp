@@ -8,10 +8,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/optimizer.h"
+
 #include "errors.h"
 #include "gen/cl_helpers.h"
 #include "gen/logger.h"
 #include "gen/passes/Passes.h"
+#include "driver/cl_options.h"
+#include "driver/cl_options_sanitizers.h"
 #include "driver/targetmachine.h"
 #include "llvm/LinkAllPasses.h"
 #if LDC_LLVM_VER >= 307
@@ -22,6 +25,9 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/ADT/Triple.h"
+#if LDC_LLVM_VER >= 400
+#include "llvm/Analysis/InlineCost.h"
+#endif
 #if LDC_LLVM_VER >= 307
 #include "llvm/Analysis/TargetTransformInfo.h"
 #endif
@@ -96,14 +102,6 @@ static cl::opt<bool> unitAtATime("unit-at-a-time", cl::desc("Enable basic IPO"),
 static cl::opt<bool> stripDebug(
     "strip-debug", cl::ZeroOrMore,
     cl::desc("Strip symbolic debug information before optimization"));
-
-cl::opt<opts::SanitizerCheck> opts::sanitize(
-    "sanitize", cl::desc("Enable runtime instrumentation for bug detection"),
-    cl::init(opts::None),
-    clEnumValues(clEnumValN(opts::AddressSanitizer, "address", "Memory errors"),
-                 clEnumValN(opts::MemorySanitizer, "memory", "Memory errors"),
-                 clEnumValN(opts::ThreadSanitizer, "thread",
-                            "Race detection")));
 
 static cl::opt<bool> disableLoopUnrolling(
     "disable-loop-unrolling", cl::ZeroOrMore,
@@ -212,6 +210,14 @@ static void addThreadSanitizerPass(const PassManagerBuilder &Builder,
   PM.add(createThreadSanitizerPass());
 }
 
+static void addSanitizerCoveragePass(const PassManagerBuilder &Builder,
+                                     legacy::PassManagerBase &PM) {
+#ifdef ENABLE_COVERAGE_SANITIZER
+  PM.add(
+      createSanitizerCoverageModulePass(opts::getSanitizerCoverageOptions()));
+#endif
+}
+
 // Adds PGO instrumentation generation and use passes.
 static void addPGOPasses(legacy::PassManagerBase &mpm, unsigned optLevel) {
 #if LDC_WITH_PGO
@@ -260,18 +266,18 @@ static void addOptimizationPasses(PassManagerBase &mpm,
   PassManagerBuilder builder;
   builder.OptLevel = optLevel;
   builder.SizeLevel = sizeLevel;
+#if LDC_LLVM_VER >= 309
+  builder.PrepareForLTO = opts::isUsingLTO();
+  builder.PrepareForThinLTO = opts::isUsingThinLTO();
+#endif
 
   if (willInline()) {
-    unsigned threshold = 225;
-    if (sizeLevel == 1) { // -Os
-      threshold = 75;
-    } else if (sizeLevel == 2) { // -Oz
-      threshold = 25;
-    }
-    if (optLevel > 2) {
-      threshold = 275;
-    }
-    builder.Inliner = createFunctionInliningPass(threshold);
+#if LDC_LLVM_VER >= 400
+    auto params = llvm::getInlineParams(optLevel, sizeLevel);
+    builder.Inliner = createFunctionInliningPass(params);
+#else
+    builder.Inliner = createFunctionInliningPass(optLevel, sizeLevel);
+#endif
   } else {
 #if LDC_LLVM_VER >= 400
     builder.Inliner = createAlwaysInlinerLegacyPass();
@@ -298,25 +304,32 @@ static void addOptimizationPasses(PassManagerBase &mpm,
   builder.SLPVectorize =
       disableSLPVectorization ? false : optLevel > 1 && sizeLevel < 2;
 
-  if (opts::sanitize == opts::AddressSanitizer) {
+  if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
     builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
                          addAddressSanitizerPasses);
     builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
                          addAddressSanitizerPasses);
   }
 
-  if (opts::sanitize == opts::MemorySanitizer) {
+  if (opts::isSanitizerEnabled(opts::MemorySanitizer)) {
     builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
                          addMemorySanitizerPass);
     builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
                          addMemorySanitizerPass);
   }
 
-  if (opts::sanitize == opts::ThreadSanitizer) {
+  if (opts::isSanitizerEnabled(opts::ThreadSanitizer)) {
     builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
                          addThreadSanitizerPass);
     builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
                          addThreadSanitizerPass);
+  }
+
+  if (opts::isSanitizerEnabled(opts::CoverageSanitizer)) {
+    builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
+                         addSanitizerCoveragePass);
+    builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
+                         addSanitizerCoveragePass);
   }
 
   if (!disableLangSpecificPasses) {
@@ -478,7 +491,6 @@ void outputOptimizationSettings(llvm::raw_ostream &hash_os) {
   hash_os << disableGCToStack;
   hash_os << unitAtATime;
   hash_os << stripDebug;
-  hash_os << opts::sanitize;
   hash_os << disableLoopUnrolling;
   hash_os << disableLoopVectorization;
   hash_os << disableSLPVectorization;

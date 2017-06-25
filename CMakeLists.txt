@@ -334,6 +334,7 @@ file(GLOB IR_HDR ir/*.h)
 set(DRV_SRC
     driver/cache.cpp
     driver/cl_options.cpp
+    driver/cl_options_sanitizers.cpp
     driver/codegenerator.cpp
     driver/configfile.cpp
     driver/dcomputecodegenerator.cpp
@@ -352,6 +353,7 @@ set(DRV_HDR
     driver/cache.h
     driver/cache_pruning.h
     driver/cl_options.h
+    driver/cl_options_sanitizers.h
     driver/codegenerator.h
     driver/configfile.h
     driver/dcomputecodegenerator.h

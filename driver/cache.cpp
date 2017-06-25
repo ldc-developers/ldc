@@ -32,6 +32,7 @@
 #include "ddmd/errors.h"
 #include "driver/cache_pruning.h"
 #include "driver/cl_options.h"
+#include "driver/cl_options_sanitizers.h"
 #include "driver/ldc-version.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"
@@ -300,6 +301,7 @@ void outputIR2ObjRelevantCmdlineArgs(llvm::raw_ostream &hash_os) {
   // the possibility of different default settings on different platforms (while
   // sharing the cache).
   outputOptimizationSettings(hash_os);
+  opts::outputSanitizerSettings(hash_os);
   hash_os << opts::mCPU;
   for (auto &attr : opts::mAttrs) {
     hash_os << attr;
