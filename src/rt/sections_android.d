@@ -63,8 +63,16 @@ void initSections()
 {
     pthread_key_create(&_tlsKey, null);
 
-    auto mbeg = cast(immutable ModuleInfo**)&__start_minfo;
-    auto mend = cast(immutable ModuleInfo**)&__stop_minfo;
+    version(LDC)
+    {
+        auto mbeg = cast(immutable ModuleInfo**)&__start___minfo;
+        auto mend = cast(immutable ModuleInfo**)&__stop___minfo;
+    }
+    else
+    {
+        auto mbeg = cast(immutable ModuleInfo**)&__start_minfo;
+        auto mend = cast(immutable ModuleInfo**)&__stop_minfo;
+    }
     _sections.moduleGroup = ModuleGroup(mbeg[0 .. mend - mbeg]);
 
     auto pbeg = cast(void*)&_tlsend;
@@ -177,8 +185,16 @@ extern(C)
     {
         void* __start_deh;
         void* __stop_deh;
-        void* __start_minfo;
-        void* __stop_minfo;
+        version(LDC)
+        {
+            void* __start___minfo;
+            void* __stop___minfo;
+        }
+        else
+        {
+            void* __start_minfo;
+            void* __stop_minfo;
+        }
 
         size_t __bss_end__;
 
