@@ -121,7 +121,7 @@ static inline llvm::Reloc::Model getRelocModel() { return mRelocModel; }
 // This function exits the program.
 void printVersion(llvm::raw_ostream &OS) {
   OS << "LDC - the LLVM D compiler (" << global.ldc_version << "):\n";
-  OS << "  based on DMD " << global.version << "and LLVM " << global.llvm_version << "\n";
+  OS << "  based on DMD " << global.version << " and LLVM " << global.llvm_version << "\n";
   OS << "  built with " << ldc::built_with_Dcompiler_version << "\n";
 #if defined(__has_feature)
 #if __has_feature(address_sanitizer)
