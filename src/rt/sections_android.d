@@ -63,11 +63,19 @@ void initSections() nothrow @nogc
 {
     pthread_key_create(&_tlsKey, null);
 
-    auto mbeg = cast(immutable ModuleInfo**)&__start_minfo;
-    auto mend = cast(immutable ModuleInfo**)&__stop_minfo;
+    version(LDC)
+    {
+        auto mbeg = cast(immutable ModuleInfo**)&__start___minfo;
+        auto mend = cast(immutable ModuleInfo**)&__stop___minfo;
+    }
+    else
+    {
+        auto mbeg = cast(immutable ModuleInfo**)&__start_minfo;
+        auto mend = cast(immutable ModuleInfo**)&__stop_minfo;
+    }
     _sections.moduleGroup = ModuleGroup(mbeg[0 .. mend - mbeg]);
 
-    auto pbeg = cast(void*)&_tls_end;
+    auto pbeg = cast(void*)&_tlsend;
     auto pend = cast(void*)&__bss_end__;
     _sections._gcRanges[0] = pbeg[0 .. pend - pbeg];
 }
@@ -93,11 +101,12 @@ void scanTLSRanges(void[]* rng, scope void delegate(void* pbeg, void* pend) noth
     dg(rng.ptr, rng.ptr + rng.length);
 }
 
-/* NOTE: The Bionic C library does not allow storing thread-local data
- *       in the normal .tbss/.tdata ELF sections. So instead we roll our
- *       own by simply putting tls into the non-tls .data/.bss sections
- *       and using the _tlsstart/_tlsend symbols as delimiters of the tls
- *       data.
+/* NOTE: The Bionic C library ignores thread-local data stored in the normal
+ *       .tbss/.tdata ELF sections, which are marked with the SHF_TLS/STT_TLS
+ *       flags.  So instead we roll our own by keeping TLS data in the
+ *       .tdata/.tbss sections but removing the SHF_TLS/STT_TLS flags, and
+ *       access the TLS data using this function and the _tlsstart/_tlsend
+ *       symbols as delimiters.
  *
  *       This function is called by the code emitted by the compiler.  It
  *       is expected to translate an address in the TLS static data to
@@ -176,8 +185,16 @@ extern(C)
     {
         void* __start_deh;
         void* __stop_deh;
-        void* __start_minfo;
-        void* __stop_minfo;
+        version(LDC)
+        {
+            void* __start___minfo;
+            void* __stop___minfo;
+        }
+        else
+        {
+            void* __start_minfo;
+            void* __stop_minfo;
+        }
 
         size_t __bss_end__;
 
