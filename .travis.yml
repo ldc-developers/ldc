@@ -5,7 +5,7 @@ matrix:
   include:
     - os: linux
       d: ldc
-      env: LLVM_VERSION=4.0.0
+      env: LLVM_VERSION=4.0.1
     - os: linux
       d: ldc-beta
       env: LLVM_VERSION=3.9.1 OPTS="-DLIB_SUFFIX=64"
@@ -26,16 +26,15 @@ matrix:
       env: LLVM_VERSION=5.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF" LLVM_SPIRV_AVAILABLE=ON
     - os: osx
       d: ldc
-      env: LLVM_VERSION=4.0.0 OPTS="-DBUILD_SHARED_LIBS=ON"
+      env: LLVM_VERSION=4.0.1 OPTS="-DBUILD_SHARED_LIBS=ON"
   allow_failures:
     #- env: LLVM_VERSION=3.9
 
 cache:
   directories:
     - llvm-spirv-5.0.0
-    - llvm-4.0.0
+    - llvm-4.0.1
     - llvm-3.9.1
-    - llvm-3.9.0
     - llvm-3.8.1
     - llvm-3.7.1
     - llvm-3.6.2
@@ -62,7 +61,7 @@ addons:
 before_install:
   -
     if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
-      if [ "${LLVM_VERSION}" = "3.9.1" ]; then
+      if [ "${LLVM_VERSION}" = "4.0.1" ]; then
         export LLVM_ARCH="x86_64-linux-gnu-debian8";
       else
         export LLVM_ARCH="x86_64-linux-gnu-ubuntu-14.04";
