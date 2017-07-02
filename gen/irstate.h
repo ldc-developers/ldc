@@ -200,7 +200,9 @@ struct IRState {
   llvm::StringMap<llvm::GlobalVariable *> stringLiteral4ByteCache;
 
 /// Vector of options passed to the linker as metadata in object file.
-#if LDC_LLVM_VER >= 306
+#if LDC_LLVM_VER >= 500
+  llvm::SmallVector<llvm::MDNode *, 5> LinkerMetadataArgs;
+#elif LDC_LLVM_VER >= 306
   llvm::SmallVector<llvm::Metadata *, 5> LinkerMetadataArgs;
 #else
   llvm::SmallVector<llvm::Value *, 5> LinkerMetadataArgs;

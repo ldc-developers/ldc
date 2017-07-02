@@ -73,7 +73,8 @@ createAndSetDiagnosticsOutputFile(IRState &irs, llvm::LLVMContext &ctx,
 
 namespace {
 
-/// Add the linker options metadata flag.
+#if LDC_LLVM_VER < 500
+/// Add the Linker Options module flag.
 /// If the flag is already present, merge it with the new data.
 void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
   if (!M.getModuleFlag("Linker Options")) {
@@ -119,6 +120,31 @@ void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
 #endif
   }
 }
+#else
+/// Add the "llvm.linker.options" metadata.
+/// If the metadata is already present, merge it with the new data.
+void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
+  auto *linkerOptionsMD = M.getOrInsertNamedMetadata("llvm.linker.options");
+
+  // Add the new operands in front of the existing ones, such that linker
+  // options of .bc files passed on the cmdline are put _after_ the compiled .d
+  // file.
+
+  // Temporarily store metadata nodes that are already present
+  llvm::SmallVector<llvm::MDNode *, 5> oldMDNodes;
+  for (auto *MD : linkerOptionsMD->operands())
+    oldMDNodes.push_back(MD);
+
+  // Clear the list and add the new metadata nodes.
+  linkerOptionsMD->clearOperands();
+  for (auto *MD : irs.LinkerMetadataArgs)
+    linkerOptionsMD->addOperand(MD);
+
+  // Re-add metadata nodes that were already present
+  for (auto *MD : oldMDNodes)
+    linkerOptionsMD->addOperand(MD);
+}
+#endif
 
 void emitLLVMUsedArray(IRState &irs) {
   if (irs.usedArray.empty()) {
