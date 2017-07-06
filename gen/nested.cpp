@@ -421,6 +421,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
     // Create frame for current function and append to frames list
     LLValue *frame = nullptr;
     bool needsClosure = fd->needsClosure();
+    IF_LOG Logger::println("Needs closure (GC) flag: %d", (int)needsClosure);
     if (needsClosure) {
       // FIXME: alignment ?
       frame = DtoGcMalloc(fd->loc, frameType, ".frame");
@@ -440,7 +441,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
         AggregateDeclaration *cd = fd->isMember2();
         assert(cd);
         assert(cd->vthis);
-        Logger::println("Indexing to 'this'");
+        IF_LOG Logger::println("Indexing to 'this'");
         if (cd->isStructDeclaration()) {
           src = DtoExtractValue(thisval, getVthisIdx(cd), ".vthis");
         } else {
