@@ -23,7 +23,7 @@ matrix:
       env: LLVM_VERSION=3.5.2 OPTS="-DTEST_COVERAGE=ON"
     - os: osx
       d: ldc-beta
-      env: LLVM_VERSION=5.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF" LLVM_SPIRV_AVAILABLE=ON
+      env: LLVM_VERSION=5.0.0-2 OPTS="-DBUILD_SHARED_LIBS=OFF" LLVM_SPIRV_AVAILABLE=ON
     - os: osx
       d: ldc
       env: LLVM_VERSION=4.0.0 OPTS="-DBUILD_SHARED_LIBS=ON"
@@ -32,7 +32,7 @@ matrix:
 
 cache:
   directories:
-    - llvm-spirv-5.0.0
+    - llvm-spirv-5.0.0-2
     - llvm-4.0.1
     - llvm-4.0.0
     - llvm-3.9.1
