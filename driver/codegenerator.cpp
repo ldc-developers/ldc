@@ -61,8 +61,13 @@ createAndSetDiagnosticsOutputFile(IRState &irs, llvm::LLVMContext &ctx,
         llvm::make_unique<llvm::yaml::Output>(diagnosticsOutputFile->os()));
 
     // If there is instrumentation data available, also output function hotness
-    if (!global.params.genInstrProf && global.params.datafileInstrProf)
+    if (!global.params.genInstrProf && global.params.datafileInstrProf) {
+#if LDC_LLVM_VER >= 500
+      ctx.setDiagnosticsHotnessRequested(true);
+#else
       ctx.setDiagnosticHotnessRequested(true);
+#endif
+    }
   }
 #endif
 
