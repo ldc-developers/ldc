@@ -257,8 +257,20 @@ LLIntegerType *DtoSize_t() {
   // the type of size_t does not change once set
   static LLIntegerType *t = nullptr;
   if (t == nullptr) {
-    t = (global.params.isLP64) ? LLType::getInt64Ty(gIR->context())
-                               : LLType::getInt32Ty(gIR->context());
+    auto triple = global.params.targetTriple;
+
+    if (triple->isArch64Bit()) {
+      t = LLType::getInt64Ty(gIR->context());
+    }
+    else if (triple->isArch32Bit()) {
+      t = LLType::getInt32Ty(gIR->context());
+    }
+    else if (triple->isArch16Bit()) {
+      t = LLType::getInt16Ty(gIR->context());
+    }
+    else {
+      llvm_unreachable("Unsupported size_t width");
+    }
   }
   return t;
 }
