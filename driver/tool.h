@@ -19,8 +19,9 @@
 #include <string>
 
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Target/TargetMachine.h"
 
-std::string getGcc();
+std::string getGcc(const llvm::Triple *triple = nullptr);
 
 std::string getProgram(const char *name,
                        const llvm::cl::opt<std::string> *opt = nullptr,

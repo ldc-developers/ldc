@@ -65,7 +65,22 @@ std::string getProgram(const char *name, const llvm::cl::opt<std::string> *opt,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-std::string getGcc() {
+std::string getGcc(const llvm::Triple *triple) {
+  if(triple != nullptr && triple->getArch() == llvm::Triple::msp430) {
+    std::string path = findProgramByName("msp430-gcc");
+
+    if(path.empty()) {
+      path = findProgramByName("msp430-elf-gcc");
+    }
+
+    if (path.empty()) {
+      error(Loc(), "Could not find MSP430 GCC cross-compiler for external assembly");
+      fatal();
+    }
+
+    return path;
+  }
+
 #if defined(__FreeBSD__) && __FreeBSD__ >= 10
   // Default compiler on FreeBSD 10 is clang
   return getProgram("clang", &gcc, "CC");
