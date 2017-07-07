@@ -72,7 +72,7 @@ struct compute
 + ---
 +/
 private struct _kernel {}
-immutable kernel = _kernel();
+enum kernel = _kernel();
 
 /++
  + DCompute has the notion of adress spaces, provide by the magic struct below.
