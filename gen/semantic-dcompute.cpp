@@ -213,7 +213,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
 
   void visit(FuncDeclaration *fd) override {
     if (hasKernelAttr(fd) && fd->vthis) {
-      fd->error("@kernel functions msut not require 'this'");
+      fd->error("@kernel functions must not require 'this'");
       stop = true;
       return;
     }
