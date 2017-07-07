@@ -77,7 +77,8 @@ llvm::StringRef uniqueIdent(Type* t) {
 
 
 bool ldc::DIBuilder::mustEmitFullDebugInfo() {
-  // only for -g and -gc but not dcompute (yet)
+  // only for -g and -gc 
+  // TODO: but not dcompute (yet)
 
   if (IR->dcomputetarget) return false;
 
@@ -85,7 +86,8 @@ bool ldc::DIBuilder::mustEmitFullDebugInfo() {
 }
 
 bool ldc::DIBuilder::mustEmitLocationsDebugInfo() {
-  // for -g -gc and -gline-tables-onlybut not dcompute (yet)
+  // for -g -gc and -gline-tables-only 
+  // TODO:but not dcompute (yet)
     
   if (IR->dcomputetarget) return false;
 
