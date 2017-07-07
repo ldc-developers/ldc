@@ -221,6 +221,11 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     IF_LOG Logger::println("current function = %s", fd->toChars());
     currentFunction = fd;
   }
+    
+  void visit(TemplateDeclaration*) override {
+    // Don't try to analyse uninstansiated templates.
+    stop = true;
+  }
   // Override the default assert(0) behavior of Visitor:
   void visit(Statement *) override {}   // do nothing
   void visit(Expression *) override {}  // do nothing
