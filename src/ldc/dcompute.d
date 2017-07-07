@@ -6,7 +6,7 @@
  * Authors:   Nicholas Wilson
  */
 
-module ldc.dcompute;
+@compute(CompileFor.deviceOnly) module ldc.dcompute;
 
 enum ReflectTarget : uint
 {
@@ -48,7 +48,7 @@ enum CompileFor : int
 + Examples:
 + ---
 + @compute(CompileFor.deviceOnly) module foo;
-+ import ldc.attributes;
++ import ldc.dcompute;
 + ---
 +/
 struct compute
@@ -63,7 +63,7 @@ struct compute
 + Examples:
 + ---
 + @compute(CompileFor.deviceOnly) module foo;
-+ import ldc.attributes;
++ import ldc.dcompute;
 +
 + @kernel void bar()
 + {
