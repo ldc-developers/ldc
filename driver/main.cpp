@@ -1106,9 +1106,19 @@ void codegenModules(Modules &modules) {
       {
         cg.emit(m);
       }
-      if (atCompute != DComputeCompileFor::hostOnly)
+      if (atCompute != DComputeCompileFor::hostOnly) {
         computeModules.push_back(m);
-
+        if (atCompute == DComputeCompileFor::deviceOnly) {
+          // Remove m's object file from list of object files
+          auto s = m->objfile->name->str;
+          for (size_t j = 0; j < global.params.objfiles->dim; j++) {
+            if (s == (*global.params.objfiles)[j]) {
+              global.params.objfiles->remove(j);
+              break;
+            }
+          }
+        }
+      }
       if (global.errors)
         fatal();
     }
@@ -1119,6 +1129,10 @@ void codegenModules(Modules &modules) {
 
       dccg.writeModules();
     }
+    // We may have removed all object files, if so don't link.
+    if (global.params.objfiles->dim == 0)
+      global.params.link = false;
+
   }
 
   cache::pruneCache();
