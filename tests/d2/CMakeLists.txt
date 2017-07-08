@@ -33,7 +33,7 @@ function(add_testsuite config_name dflags gdbflags model)
     add_test(NAME clean-${name}
         COMMAND ${CMAKE_COMMAND} -E remove_directory ${outdir})
 
-    set(all_dflags "${dflags} ${gdb_dflags}")
+    set(all_dflags "-conf=${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf ${dflags} ${gdb_dflags}")
 
     # The DFLAGS environment variable read by LDMD is used because the DMD
     # testsuite build system provides no way to run the test cases with a
