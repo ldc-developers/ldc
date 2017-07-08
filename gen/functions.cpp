@@ -840,7 +840,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   if (gIR->dcomputetarget) {
     auto id = fd->ident;
-    if (id == Id::xopEquals || id == Id::xopCmp || id == Id::xtoHash)
+    if (id == Id::xopEquals || id == Id::xopCmp || id == Id::xtoHash) {
       IF_LOG Logger::println(
           "No code generation for typeinfo member %s in @compute code",
           fd->toChars());
