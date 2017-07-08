@@ -38,13 +38,15 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
   // template declaration, it's module of origin is the module at the point of
   // instansiation so we need to check for that.
   bool isNonComputeCallExpVaild(CallExp *ce) {
+    FuncDeclaration *f = ce->f;
+    if (f->ident == Id::dcReflect)
+      return true;
     if (currentFunction == nullptr)
       return false;
     TemplateInstance *inst = currentFunction->isInstantiated();
     if (!inst)
       return false;
 
-    FuncDeclaration *f = ce->f;
     Objects *tiargs = inst->tiargs;
     size_t i = 0, len = tiargs->dim;
     IF_LOG Logger::println("checking against: %s (%p) (dyncast=%d)",
