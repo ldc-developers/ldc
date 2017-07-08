@@ -6,7 +6,7 @@
  * Authors:   Nicholas Wilson
  */
 
-@compute(CompileFor.deviceOnly) module ldc.dcompute;
+module ldc.dcompute;
 
 enum ReflectTarget : uint
 {
