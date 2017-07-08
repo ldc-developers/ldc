@@ -302,7 +302,6 @@ macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
                 ${LDC_EXE}
                 ${LDC_EXE_FULL}
                 ${GCCBUILTINS}
-                ${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in
     )
 endmacro()
 
@@ -326,11 +325,10 @@ endmacro()
 # outlist_o (outlist_bc).
 macro(compile_druntime d_flags lib_suffix path_suffix outlist_o outlist_bc)
     get_target_suffix("${lib_suffix}" "${path_suffix}" target_suffix)
-
     foreach(f ${DRUNTIME_D})
         dc(
             ${f}
-            "${d_flags}"
+            "-conf=;${d_flags};-I${RUNTIME_DIR}/src"
             "${RUNTIME_DIR}"
             "${target_suffix}"
             ${outlist_o}
@@ -347,7 +345,7 @@ macro(compile_phobos2 d_flags lib_suffix path_suffix outlist_o outlist_bc)
     foreach(f ${PHOBOS2_D})
         dc(
             ${f}
-            "${d_flags};-I${PHOBOS2_DIR}"
+            "-conf=;${d_flags};-I${RUNTIME_DIR}/src;-I${PHOBOS2_DIR}"
             ${PHOBOS2_DIR}
             "${target_suffix}"
             ${outlist_o}
