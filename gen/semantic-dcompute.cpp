@@ -77,8 +77,12 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
 
   void visit(VarDeclaration *decl) override {
     // Don't print multiple errors for 'synchronized'. see visit(CallExp*)
-    if (decl->isDataseg() && strncmp(decl->toChars(), "__critsec", 9)) {
-      decl->error("global variables not allowed in @compute code");
+    if (decl->isDataseg()) {
+      if (strncmp(decl->toChars(), "__critsec", 9) &&
+        strncmp(decl->toChars(), "typeid", 6)) {
+        decl->error("global variables not allowed in @compute code variable=%s",decl->toChars());
+      }
+      // Allow typeid to be ignored and in turn ignored by codegen.
       stop = true;
       return;
     }

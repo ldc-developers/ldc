@@ -838,6 +838,16 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     return;
   }
 
+  if (gIR->dcomputetarget) {
+    auto id = fd->ident;
+    if (id == Id::xopEquals || id == Id::xopCmp || id == Id::xtoHash) {
+      IF_LOG Logger::println(
+          "No code generation for typeinfo member %s in @compute code"
+          fd->toChars());
+      fd->ir->setDefined();
+    }
+  }
+
   if (!linkageAvailableExternally && !alreadyOrWillBeDefined(*fd)) {
     IF_LOG Logger::println("Skipping '%s'.", fd->toPrettyChars());
     fd->ir->setDefined();
