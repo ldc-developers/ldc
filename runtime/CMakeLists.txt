@@ -2,6 +2,16 @@ project(runtime)
 
 cmake_minimum_required(VERSION 2.8.9)
 
+# Verify required variables if this CMake project is NOT embedded in the LDC CMake project.
+if(NOT LDC_EXE)
+    if(NOT LDC_EXE_FULL)
+        message(FATAL_ERROR "Please define the path to the LDC executable via -DLDC_EXE_FULL=...")
+    endif()
+    if(NOT D_VERSION OR NOT DMDFE_MINOR_VERSION OR NOT DMDFE_PATCH_VERSION)
+        message(FATAL_ERROR "Please define the CMake variables D_VERSION, DMDFE_MINOR_VERSION and DMDFE_PATCH_VERSION.")
+    endif()
+endif()
+
 #
 # Main configuration.
 #
@@ -173,18 +183,6 @@ if(PHOBOS2_DIR)
     file(GLOB_RECURSE PHOBOS2_C ${PHOBOS2_DIR}/*.c)
     # remove some obsolete zlib modules
     list(REMOVE_ITEM PHOBOS2_C ${PHOBOS2_DIR}/etc/c/zlib/minigzip.c ${PHOBOS2_DIR}/etc/c/zlib/example.c)
-
-    set(CONFIG_NAME ${LDC_EXE}_phobos)
-else()
-    set(CONFIG_NAME ${LDC_EXE})
-endif()
-
-# should only be necessary if run independently from ldc cmake project
-if(NOT LDC_EXE)
-    find_program(LDC_EXE ldc2 ${PROJECT_BINARY_DIR}/../bin DOC "path to ldc binary")
-    if(NOT LDC_EXE)
-        message(SEND_ERROR "ldc not found")
-    endif()
 endif()
 
 #
@@ -209,9 +207,16 @@ if((${CMAKE_SYSTEM_NAME} MATCHES "Linux") OR (${CMAKE_SYSTEM_NAME} MATCHES "Free
     endif()
 endif()
 
-configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
-# Prepare the config files we are going to install later in bin.
-configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf)
+# Only generate the config files if this CMake project is embedded in the LDC CMake project.
+if(LDC_EXE)
+    if(PHOBOS2_DIR)
+        set(CONFIG_NAME ${LDC_EXE}_phobos)
+    else()
+        set(CONFIG_NAME ${LDC_EXE})
+    endif()
+    configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
+    configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf)
+endif()
 
 #
 # druntime/Phobos compilation helpers.
