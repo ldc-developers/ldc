@@ -82,7 +82,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
         strncmp(decl->toChars(), "typeid", 6)) {
         decl->error("global variables not allowed in @compute code variable=%s",decl->toChars());
       }
-      // Allow typeid to be ignored and in turn ignored by codegen.
+      // Ignore typeid: it is ignored by codegen.
       stop = true;
       return;
     }
