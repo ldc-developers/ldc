@@ -845,6 +845,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
           "No code generation for typeinfo member %s in @compute code
           fd->toChars());
       fd->ir->setDefined();
+      return;
     }
   }
 
