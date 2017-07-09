@@ -776,6 +776,9 @@ add_subdirectory(tests)
 
 install(PROGRAMS ${LDC_EXE_FULL} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(PROGRAMS ${LDMD_EXE_FULL} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+if(NOT CMAKE_INSTALL_PREFIX STREQUAL "/usr")
+    install(PROGRAMS ${PROJECT_BINARY_DIR}/bin/build-ldc-runtime.sh DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+endif()
 if(${BUILD_SHARED})
     # For now, only install libldc if explicitly building the shared library.
     # While it might theoretically be possible to use LDC as a static library
