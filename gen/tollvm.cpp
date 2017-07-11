@@ -261,14 +261,11 @@ LLIntegerType *DtoSize_t() {
 
     if (triple->isArch64Bit()) {
       t = LLType::getInt64Ty(gIR->context());
-    }
-    else if (triple->isArch32Bit()) {
+    } else if (triple->isArch32Bit()) {
       t = LLType::getInt32Ty(gIR->context());
-    }
-    else if (triple->isArch16Bit()) {
+    } else if (triple->isArch16Bit()) {
       t = LLType::getInt16Ty(gIR->context());
-    }
-    else {
+    } else {
       llvm_unreachable("Unsupported size_t width");
     }
   }
