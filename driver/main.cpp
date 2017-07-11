@@ -818,13 +818,10 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("BigEndian");
   }
 
-  // a generic 64bit version
+  // Set versions for arch bitwidth
   if (global.params.isLP64) {
     VersionCondition::addPredefinedGlobalIdent("D_LP64");
-  }
-
-  // 16 bit version for 16 bit targets
-  if(arch == llvm::Triple::msp430) {
+  } else if (global.params.targetTriple->isArch16Bit()) {
     VersionCondition::addPredefinedGlobalIdent("D_P16");
   }
 
@@ -909,7 +906,7 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("Posix");
     break;
   case llvm::Triple::UnknownOS:
-    if(arch == llvm::Triple::msp430)
+    if (arch == llvm::Triple::msp430)
       break;
     // fallthrough
   default:
