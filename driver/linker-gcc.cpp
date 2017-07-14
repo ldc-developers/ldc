@@ -177,7 +177,7 @@ void ArgsBuilder::addLTOLinkFlags() {
 // Returns true on success.
 bool addDarwinASanLinkFlags(std::vector<std::string> &args) {
   std::string searchPaths[] = {
-    exe_path::prependLibDir("libldc.asan_osx_dynamic.dylib"),
+    exe_path::prependLibDir("libldc_rt.asan_osx_dynamic.dylib"),
     exe_path::prependLibDir("libclang_rt.asan_osx_dynamic.dylib"),
   };
 
