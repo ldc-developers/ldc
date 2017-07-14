@@ -10,6 +10,7 @@
 #include "gen/dibuilder.h"
 
 #include "driver/cl_options.h"
+#include "driver/ldc-version.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
@@ -796,6 +797,10 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
   llvm::SmallString<128> srcpath(m->srcfile->name->toChars());
   llvm::sys::fs::make_absolute(srcpath);
 
+  // prepare producer name string
+  auto producerName = std::string("LDC ") + ldc::ldc_version + " (LLVM " +
+                      ldc::llvm_version + ")";
+
 #if LDC_LLVM_VER >= 308
   if (global.params.targetTriple->isWindowsMSVCEnvironment())
     IR->module.addModuleFlag(llvm::Module::Warning, "CodeView", 1);
@@ -816,7 +821,7 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
 #else
       llvm::sys::path::filename(srcpath), llvm::sys::path::parent_path(srcpath),
 #endif
-      "LDC (http://wiki.dlang.org/LDC)",
+      producerName,
       isOptimizationEnabled(), // isOptimized
       llvm::StringRef(),       // Flags TODO
       1,                       // Runtime Version TODO
