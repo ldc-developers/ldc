@@ -48,7 +48,7 @@ enum CompileFor : int
 + Examples:
 + ---
 + @compute(CompileFor.deviceOnly) module foo;
-+ import ldc.attributes;
++ import ldc.dcompute;
 + ---
 +/
 struct compute
@@ -63,7 +63,7 @@ struct compute
 + Examples:
 + ---
 + @compute(CompileFor.deviceOnly) module foo;
-+ import ldc.attributes;
++ import ldc.dcompute;
 +
 + @kernel void bar()
 + {
@@ -72,7 +72,7 @@ struct compute
 + ---
 +/
 private struct _kernel {}
-immutable kernel = _kernel();
+enum kernel = _kernel();
 
 /++
  + DCompute has the notion of adress spaces, provide by the magic struct below.
