@@ -1746,7 +1746,7 @@ extern (C++) class FuncDeclaration : Declaration
 
             // Precondition invariant
             Statement fpreinv = null;
-            if (addPreInvariant() && isCtorDeclaration() is null)
+            if (addPreInvariant())
             {
                 Expression e = addInvariant(loc, sc, ad, vthis);
                 if (e)
@@ -1755,7 +1755,7 @@ extern (C++) class FuncDeclaration : Declaration
 
             // Postcondition invariant
             Statement fpostinv = null;
-            if (addPostInvariant() && isDtorDeclaration() is null)
+            if (addPostInvariant())
             {
                 Expression e = addInvariant(loc, sc, ad, vthis);
                 if (e)
