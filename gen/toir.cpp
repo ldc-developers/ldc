@@ -1072,19 +1072,23 @@ public:
     PGO.setCurrentStmt(e);
 
     // value being sliced
+    Type *const etype = e->e1->type->toBasetype();
+    LLValue *eptr = nullptr;
     LLValue *elen = nullptr;
-    LLValue *eptr;
-    DValue *v = toElem(e->e1);
 
-    Type *etype = e->e1->type->toBasetype();
-    if (etype->ty == Tpointer) {
-      // pointer slicing
-      assert(e->lwr);
-      eptr = DtoRVal(v);
-    } else {
-      // array slice
-      eptr = DtoArrayPtr(v);
-    }
+    // evaluate the base expression but delay getting its pointer until the
+    // potential bounds have been evaluated
+    DValue *v = toElem(e->e1);
+    auto getBasePointer = [e, v, etype]() {
+      if (etype->ty == Tpointer) {
+        // pointer slicing
+        assert(e->lwr);
+        return DtoRVal(v);
+      } else {
+        // array slice
+        return DtoArrayPtr(v);
+      }
+    };
 
     // has lower bound, pointer needs adjustment
     if (e->lwr) {
@@ -1133,14 +1137,15 @@ public:
       }
 
       // offset by lower
-      eptr = DtoGEP1(eptr, vlo, !needCheckLower, "lowerbound");
+      eptr = DtoGEP1(getBasePointer(), vlo, !needCheckLower, "lowerbound");
 
       // adjust length
       elen = p->ir->CreateSub(vup, vlo);
     }
     // no bounds or full slice -> just convert to slice
     else {
-      assert(e->e1->type->toBasetype()->ty != Tpointer);
+      assert(etype->ty != Tpointer);
+      eptr = getBasePointer();
       // if the slicee is a static array, we use the length of that as DMD seems
       // to give contrary inconsistent sizesin some multidimensional static
       // array cases.

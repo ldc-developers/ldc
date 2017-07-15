@@ -38,13 +38,15 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
   // template declaration, it's module of origin is the module at the point of
   // instansiation so we need to check for that.
   bool isNonComputeCallExpVaild(CallExp *ce) {
+    FuncDeclaration *f = ce->f;
+    if (f->ident == Id::dcReflect)
+      return true;
     if (currentFunction == nullptr)
       return false;
     TemplateInstance *inst = currentFunction->isInstantiated();
     if (!inst)
       return false;
 
-    FuncDeclaration *f = ce->f;
     Objects *tiargs = inst->tiargs;
     size_t i = 0, len = tiargs->dim;
     IF_LOG Logger::println("checking against: %s (%p) (dyncast=%d)",
@@ -77,8 +79,12 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
 
   void visit(VarDeclaration *decl) override {
     // Don't print multiple errors for 'synchronized'. see visit(CallExp*)
-    if (decl->isDataseg() && strncmp(decl->toChars(), "__critsec", 9)) {
-      decl->error("global variables not allowed in @compute code");
+    if (decl->isDataseg()) {
+      if (strncmp(decl->toChars(), "__critsec", 9) &&
+        strncmp(decl->toChars(), "typeid", 6)) {
+        decl->error("global variables not allowed in @compute code variable=%s",decl->toChars());
+      }
+      // Ignore typeid: it is ignored by codegen.
       stop = true;
       return;
     }
@@ -213,13 +219,18 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
 
   void visit(FuncDeclaration *fd) override {
     if (hasKernelAttr(fd) && fd->vthis) {
-      fd->error("@kernel functions msut not require 'this'");
+      fd->error("@kernel functions must not require 'this'");
       stop = true;
       return;
     }
 
     IF_LOG Logger::println("current function = %s", fd->toChars());
     currentFunction = fd;
+  }
+    
+  void visit(TemplateDeclaration*) override {
+    // Don't try to analyse uninstansiated templates.
+    stop = true;
   }
   // Override the default assert(0) behavior of Visitor:
   void visit(Statement *) override {}   // do nothing

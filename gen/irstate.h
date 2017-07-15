@@ -107,6 +107,11 @@ struct IRAsmBlock {
 
 // represents the module
 struct IRState {
+private:
+  std::vector<std::pair<llvm::GlobalVariable *, llvm::Constant *>>
+      globalsToReplace;
+
+public:
   IRState(const char *name, llvm::LLVMContext &context);
   ~IRState();
 
@@ -198,6 +203,21 @@ struct IRState {
   llvm::StringMap<llvm::GlobalVariable *> stringLiteral1ByteCache;
   llvm::StringMap<llvm::GlobalVariable *> stringLiteral2ByteCache;
   llvm::StringMap<llvm::GlobalVariable *> stringLiteral4ByteCache;
+
+  // Sets the initializer for a global LL variable.
+  // If the types don't match, this entails creating a new helper global
+  // matching the initializer type and replacing all existing uses of globalVar
+  // by a bitcast pointer to the helper global's payload.
+  // Returns either the specified globalVar if the types match, or the bitcast
+  // pointer replacing globalVar (and resets globalVar to the new helper
+  // global).
+  llvm::Constant *setGlobalVarInitializer(llvm::GlobalVariable *&globalVar,
+                                          llvm::Constant *initializer);
+
+  // To be called when finalizing the IR module in order to perform a second
+  // replacement pass for global variables replaced (and registered) by
+  // setGlobalVarInitializer().
+  void replaceGlobals();
 
 /// Vector of options passed to the linker as metadata in object file.
 #if LDC_LLVM_VER >= 500

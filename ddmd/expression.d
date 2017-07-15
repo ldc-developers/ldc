@@ -5423,7 +5423,7 @@ extern (C++) final class StructLiteralExp : Expression
 
         // A global variable for taking the address of this struct literal constant,
         // if it already exists. Used to resolve self-references.
-        void* globalVar; // llvm::GlobalVariable*
+        void* globalVar; // llvm::Constant*
     }
 
     bool useStaticInit;     /// if this is true, use the StructDeclaration's init symbol

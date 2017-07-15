@@ -60,7 +60,7 @@ void initPrecedence();
 #if IN_LLVM
 class SymbolDeclaration;
 namespace llvm {
-    class GlobalVariable;
+    class Constant;
     class Value;
 }
 #endif
@@ -476,7 +476,7 @@ public:
 
     // A global variable for taking the address of this struct literal constant,
     // if it already exists. Used to resolve self-references.
-    llvm::GlobalVariable *globalVar;
+    llvm::Constant *globalVar;
 #endif
 
     bool useStaticInit;         // if this is true, use the StructDeclaration's init symbol

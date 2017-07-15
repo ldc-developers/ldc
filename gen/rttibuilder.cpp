@@ -150,7 +150,9 @@ void RTTIBuilder::push_funcptr(FuncDeclaration *fd, Type *castto) {
   }
 }
 
-void RTTIBuilder::finalize(IrGlobal *tid) { finalize(tid->type, tid->value); }
+void RTTIBuilder::finalize(IrGlobal *tid) {
+  finalize(tid->getType(), tid->value);
+}
 
 void RTTIBuilder::finalize(LLType *type, LLValue *value) {
   llvm::ArrayRef<LLConstant *> inits = llvm::makeArrayRef(this->inits);
