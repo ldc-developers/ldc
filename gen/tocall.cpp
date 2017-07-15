@@ -27,6 +27,7 @@
 #include "gen/runtime.h"
 #include "ir/irfunction.h"
 #include "ir/irtype.h"
+#include "llvm/IR/LLVMContext.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 
