@@ -444,23 +444,14 @@ public:
         return;
       }
 
-      se->globalVar = new llvm::GlobalVariable(
-          p->module, DtoType(e->e1->type), false,
+      auto globalVar = new llvm::GlobalVariable(
+          p->module, DtoType(se->type), false,
           llvm::GlobalValue::InternalLinkage, nullptr, ".structliteral");
+      globalVar->setAlignment(DtoAlignment(se->type));
 
+      se->globalVar = globalVar;
       llvm::Constant *constValue = toConstElem(se);
-      if (constValue->getType() !=
-          se->globalVar->getType()->getContainedType(0)) {
-        auto finalGlobalVar = new llvm::GlobalVariable(
-            p->module, constValue->getType(), false,
-            llvm::GlobalValue::InternalLinkage, nullptr, ".structliteral");
-        se->globalVar->replaceAllUsesWith(
-            DtoBitCast(finalGlobalVar, se->globalVar->getType()));
-        se->globalVar->eraseFromParent();
-        se->globalVar = finalGlobalVar;
-      }
-      se->globalVar->setInitializer(constValue);
-      se->globalVar->setAlignment(DtoAlignment(se->type));
+      se->globalVar = p->setGlobalVarInitializer(globalVar, constValue);
 
       result = se->globalVar;
     } else if (e->e1->op == TOKslice) {
@@ -619,9 +610,10 @@ public:
       IF_LOG Logger::cout()
           << "Using existing global: " << *value->globalVar << '\n';
     } else {
-      value->globalVar = new llvm::GlobalVariable(
+      auto globalVar = new llvm::GlobalVariable(
           p->module, origClass->type->ctype->isClass()->getMemoryLLType(),
           false, llvm::GlobalValue::InternalLinkage, nullptr, ".classref");
+      value->globalVar = globalVar;
 
       std::map<VarDeclaration *, llvm::Constant *> varInits;
 
@@ -659,17 +651,7 @@ public:
       llvm::Constant *constValue =
           getIrAggr(origClass)->createInitializerConstant(varInits);
 
-      if (constValue->getType() !=
-          value->globalVar->getType()->getContainedType(0)) {
-        auto finalGlobalVar = new llvm::GlobalVariable(
-            p->module, constValue->getType(), false,
-            llvm::GlobalValue::InternalLinkage, nullptr, ".classref");
-        value->globalVar->replaceAllUsesWith(
-            DtoBitCast(finalGlobalVar, value->globalVar->getType()));
-        value->globalVar->eraseFromParent();
-        value->globalVar = finalGlobalVar;
-      }
-      value->globalVar->setInitializer(constValue);
+      value->globalVar = p->setGlobalVarInitializer(globalVar, constValue);
     }
 
     result = value->globalVar;

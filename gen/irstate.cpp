@@ -145,6 +145,47 @@ bool IRState::emitArrayBoundsChecks() {
   return t->ty == Tfunction && ((TypeFunction *)t)->trust == TRUSTsafe;
 }
 
+LLConstant *IRState::setGlobalVarInitializer(LLGlobalVariable *&globalVar,
+                                             LLConstant *initializer) {
+  if (initializer->getType() == globalVar->getType()->getContainedType(0)) {
+    globalVar->setInitializer(initializer);
+    return globalVar;
+  }
+
+  // Create the global helper variable matching the initializer type.
+  // It inherits most properties from the existing globalVar.
+  auto globalHelperVar = new LLGlobalVariable(
+      module, initializer->getType(), globalVar->isConstant(),
+      globalVar->getLinkage(), initializer, "", nullptr,
+      globalVar->getThreadLocalMode());
+  globalHelperVar->setAlignment(globalVar->getAlignment());
+  globalHelperVar->setComdat(globalVar->getComdat());
+  globalHelperVar->setDLLStorageClass(globalVar->getDLLStorageClass());
+  globalHelperVar->setSection(globalVar->getSection());
+  globalHelperVar->takeName(globalVar);
+
+  // Replace all existing uses of globalVar by the bitcast pointer.
+  auto castHelperVar = DtoBitCast(globalHelperVar, globalVar->getType());
+  globalVar->replaceAllUsesWith(castHelperVar);
+
+  // Register replacement for later occurrences of the original globalVar.
+  globalsToReplace.emplace_back(globalVar, castHelperVar);
+
+  // Reset globalVar to the helper variable.
+  globalVar = globalHelperVar;
+
+  return castHelperVar;
+}
+
+void IRState::replaceGlobals() {
+  for (const auto &pair : globalsToReplace) {
+    pair.first->replaceAllUsesWith(pair.second);
+    pair.first->eraseFromParent();
+  }
+
+  globalsToReplace.resize(0);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 IRBuilder<> *IRBuilderHelper::operator->() {

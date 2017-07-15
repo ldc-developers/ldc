@@ -22,6 +22,7 @@ __gshared S defaultS;
 __gshared S explicitS = { 3, 56, [false, true], false /* implicit multidim */ };
 
 
+
 struct SWithUnion
 {
     char c;
@@ -46,6 +47,35 @@ __gshared SWithUnion explicitCompatibleSWithUnion = { ul_dummy: 53 }; // ul_dumm
 // the regular LL type cannot be used, and an anonymous one is used instead.
 // CHECK-DAG: @_D5union30explicitIncompatibleSWithUnionS5union10SWithUnion = global   { i8, [3 x i8], %union.S, [4 x i8], i32, i32, i64, i64 } { i8 -1, [3 x i8] zeroinitializer, %union.S { i8 -1, [3 x i8] zeroinitializer, i32 0, [2 x i8] zeroinitializer, i8 1, [1 x [2 x i8]] {{\[}}[2 x i8] c"\FF\FF"], [3 x i8] zeroinitializer }, [4 x i8] zeroinitializer, i32 23, i32 84, i64 666, i64 123 }
 __gshared SWithUnion explicitIncompatibleSWithUnion = { ui1: 23 }; // // ui1 dominated by ub and us
+
+
+
+struct Quat
+{
+    static struct Vec { int x; }
+
+    union
+    {
+        Vec v;
+        struct { float x; }
+    }
+
+    static Quat identity()
+    {
+        Quat q;
+        q.x = 1.0f;
+        return q;
+    }
+}
+
+// T.init may feature explicit initializers for dominated members in nested unions (GitHub issue #2108).
+// In that case, the init constant has an anonymous LL type as well.
+// CHECK-DAG: @_D5union33QuatContainerWithIncompatibleInit6__initZ = constant { { float } } { { float } { float 1.000000e+00 } }
+struct QuatContainerWithIncompatibleInit
+{
+    Quat q = Quat.identity;
+}
+
 
 
 void main()
@@ -82,5 +112,10 @@ void main()
         assert(s.ui2 == 84);
         assert(s.ul == 666);
         assert(s.last == 123);
+    }
+
+    {
+        QuatContainerWithIncompatibleInit c;
+        assert(c.q.x == 1.0f);
     }
 }
