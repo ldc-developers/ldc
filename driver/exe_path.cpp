@@ -9,8 +9,8 @@
 
 #include "exe_path.h"
 
-#include <llvm/Support/Path.h>
-#include <llvm/Support/FileSystem.h>
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 
 using std::string;
 namespace path = llvm::sys::path;
