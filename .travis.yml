@@ -98,6 +98,10 @@ script:
   - bin/ldc2 -version || exit 1
   # Build Phobos & druntime unittest modules.
   - ninja -j3 phobos2-ldc-unittest-debug phobos2-ldc-unittest druntime-ldc-unittest-debug druntime-ldc-unittest
+  -
+    if [[ ! "${OPTS}" == *-DBUILD_SHARED_LIBS* ]]; then
+      ninja -j3 phobos2-ldc-unittest-debug-shared phobos2-ldc-unittest-shared druntime-ldc-unittest-debug-shared druntime-ldc-unittest-shared;
+    fi
   # Build and run LDC D unittests.
   - ctest --output-on-failure -R "ldc2-unittest"
   # Run LIT testsuite.

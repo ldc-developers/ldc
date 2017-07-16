@@ -66,7 +66,10 @@ jobs:
             cd ..
       - run:
           name: Compile stdlib unittests
-          command: cd build && ninja -j3 phobos2-ldc-unittest-debug phobos2-ldc-unittest druntime-ldc-unittest-debug druntime-ldc-unittest
+          command: |
+            cd build
+            ninja -j3 phobos2-ldc-unittest-debug phobos2-ldc-unittest druntime-ldc-unittest-debug druntime-ldc-unittest
+            ninja -j3 phobos2-ldc-unittest-debug-shared phobos2-ldc-unittest-shared druntime-ldc-unittest-debug-shared druntime-ldc-unittest-shared
       - run:
           name: Run LDC unittests
           command: cd build && ctest --output-on-failure -R ldc2-unittest
