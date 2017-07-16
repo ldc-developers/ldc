@@ -59,7 +59,9 @@ struct CTFloat
 
     static bool isIdentical(real_t a, real_t b);
     static bool isNaN(real_t r);
+#if !IN_LLVM
     static bool isSNaN(real_t r);
+#endif
     static bool isInfinity(real_t r);
 
     static real_t parse(const char *literal, bool *isOutOfRange = NULL);
