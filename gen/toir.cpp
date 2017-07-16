@@ -1649,17 +1649,8 @@ public:
     DValue *cond;
     Type *condty;
 
-    // special case for dmd generated assert(this); when not in -release mode
-    if (e->e1->op == TOKthis && static_cast<ThisExp *>(e->e1)->var == nullptr) {
-      LLValue *thisarg = p->func()->thisArg;
-      assert(thisarg && "null thisarg, but we're in assert(this) exp;");
-      LLValue *thisptr = DtoLoad(thisarg);
-      condty = e->e1->type->toBasetype();
-      cond = new DImValue(condty, thisptr);
-    } else {
-      cond = toElem(e->e1);
-      condty = e->e1->type->toBasetype();
-    }
+    cond = toElem(e->e1);
+    condty = e->e1->type->toBasetype();
 
     // create basic blocks
     llvm::BasicBlock *passedbb = p->insertBB("assertPassed");
