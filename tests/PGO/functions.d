@@ -117,8 +117,6 @@ class Klass {
   // PROFUSE-LABEL: define {{.*}} @{{.*}}Klass{{.*}}stdmethod{{.*}}(
   // PROFGEN: store {{.*}} @[[KMTH]], i64 0, i64 0
   // PROFUSE-SAME: !prof ![[KMTH0:[0-9]+]]
-  // Explicitly test that the assert(this) branch is *not* profiled
-  // PROFUSE:  br i1 %{{.*}}, label %assertPassed, label %assertFailed{{$}}
   // PROFGEN: store {{.*}} @[[KMTH]], i64 0, i64 1
   // PROFUSE: br {{.*}} !prof ![[KMTH1:[0-9]+]]
   void stdmethod() {
@@ -155,8 +153,6 @@ struct Strukt {
   // PROFUSE-LABEL: define {{.*}} @{{.*}}Strukt{{.*}}stdmethod{{.*}}(
   // PROFGEN: store {{.*}} @[[SMTH]], i64 0, i64 0
   // PROFUSE-SAME: !prof ![[SMTH0:[0-9]+]]
-  // Explicitly test that the assert(this) branch is *not* profiled
-  // PROFUSE:  br i1 %{{.*}}, label %assertPassed, label %assertFailed{{$}}
   // PROFGEN: store {{.*}} @[[SMTH]], i64 0, i64 1
   // PROFUSE: br {{.*}} !prof ![[SMTH1:[0-9]+]]
   void stdmethod() {
