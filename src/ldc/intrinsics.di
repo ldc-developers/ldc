@@ -19,43 +19,26 @@ else
     static assert(false, "This module is only valid for LDC");
 }
 
-version(LDC_LLVM_305)
+version(LDC_LLVM_307)
 {
-}
-else version(LDC_LLVM_306)
-{
-    version = INTRINSICS_FROM_306;
-}
-else version(LDC_LLVM_307)
-{
-    version = INTRINSICS_FROM_306;
-    version = INTRINSICS_FROM_307;
 }
 else version(LDC_LLVM_308)
 {
-    version = INTRINSICS_FROM_306;
-    version = INTRINSICS_FROM_307;
     version = INTRINSICS_FROM_308;
 }
 else version(LDC_LLVM_309)
 {
-    version = INTRINSICS_FROM_306;
-    version = INTRINSICS_FROM_307;
     version = INTRINSICS_FROM_308;
     version = INTRINSICS_FROM_309;
 }
 else version(LDC_LLVM_400)
 {
-    version = INTRINSICS_FROM_306;
-    version = INTRINSICS_FROM_307;
     version = INTRINSICS_FROM_308;
     version = INTRINSICS_FROM_309;
     version = INTRINSICS_FROM_400;
 }
 else version(LDC_LLVM_500)
 {
-    version = INTRINSICS_FROM_306;
-    version = INTRINSICS_FROM_307;
     version = INTRINSICS_FROM_308;
     version = INTRINSICS_FROM_309;
     version = INTRINSICS_FROM_400;
@@ -279,8 +262,6 @@ pragma(LDC_intrinsic, "llvm.round.f#")
 pragma(LDC_intrinsic, "llvm.fmuladd.f#")
     T llvm_fmuladd(T)(T vala, T valb, T valc);
 
-version(INTRINSICS_FROM_306)
-{
 /// The ‘llvm.minnum.*‘ intrinsics return the minimum of the two arguments.
 /// Follows the IEEE-754 semantics for minNum, which also match for libm’s fmin.
 /// If either operand is a NaN, returns the other non-NaN operand. Returns NaN
@@ -298,7 +279,6 @@ pragma(LDC_intrinsic, "llvm.minnum.f#")
 /// could return either -0.0 or 0.0.
 pragma(LDC_intrinsic, "llvm.maxnum.f#")
     T llvm_maxnum(T)(T vala, T valb);
-}
 
 
 

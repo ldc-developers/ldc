@@ -2,10 +2,6 @@ module ldc.simd;
 
 import core.simd;
 
-// The syntax of e.g. `load` changed with LLVM 3.7
-version (LDC_LLVM_305) version = LDC_LLVM_PRE307;
-version (LDC_LLVM_306) version = LDC_LLVM_PRE307;
-
 pure:
 nothrow:
 @nogc:
@@ -209,20 +205,10 @@ if(is(typeof(llvmVecType!V)))
     alias BaseType!V T;
     enum llvmT = llvmType!T;
     enum llvmV = llvmVecType!V;
-    version (LDC_LLVM_PRE307)
-    {
-        enum ir = `
-            %p = bitcast `~llvmT~`* %0 to `~llvmV~`*
-            %r = load `~llvmV~`* %p, align 1
-            ret `~llvmV~` %r`;
-    }
-    else
-    {
-        enum ir = `
-            %p = bitcast `~llvmT~`* %0 to `~llvmV~`*
-            %r = load `~llvmV~`, `~llvmV~`* %p, align 1
-            ret `~llvmV~` %r`;
-    }
+    enum ir = `
+        %p = bitcast `~llvmT~`* %0 to `~llvmV~`*
+        %r = load `~llvmV~`, `~llvmV~`* %p, align 1
+        ret `~llvmV~` %r`;
 
     alias inlineIR!(ir, V, const(T)*) loadUnaligned;
 }
