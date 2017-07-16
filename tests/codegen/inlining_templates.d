@@ -1,8 +1,6 @@
 // Test inlining of templates
 // Templates that would otherwise not be codegenned, _should_ be codegenned for inlining when pragma(inline, true) is specified.
 
-// REQUIRES: atleast_llvm307
-
 // RUN: %ldc %s -I%S -c -output-ll -release -enable-inlining -enable-cross-module-inlining -O0 -of=%t.O0.ll && FileCheck %s < %t.O0.ll
 
 // RUN: %ldc -singleobj %S/inputs/inlinables.d %s -I%S -c -output-ll -release -enable-inlining -enable-cross-module-inlining -O0 -of=%t.singleobj.O0.ll && FileCheck %s < %t.singleobj.O0.ll

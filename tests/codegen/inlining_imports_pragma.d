@@ -5,8 +5,6 @@
 // FIXME: Currently cross-module inlining is completely disabled per default, also for pragma(inline,true) functions.
 //        The `-enable-cross-module-inlining` flag is therefore necessary for now, but should be removed in the future.
 
-// REQUIRES: atleast_llvm307
-
 // RUN: %ldc %s -I%S -c -output-ll -O0 -enable-cross-module-inlining -of=%t.O0.ll && FileCheck %s --check-prefix OPTNONE < %t.O0.ll
 // RUN: %ldc %s -I%S -c -output-ll -O3 -enable-cross-module-inlining -of=%t.O3.ll && FileCheck %s --check-prefix OPT3 < %t.O3.ll
 

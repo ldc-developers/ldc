@@ -1,7 +1,5 @@
 // Test cross-module inlining involving static variables
 
-// REQUIRES: atleast_llvm307
-
 // RUN: %ldc %s -I%S -c -output-ll                  -O3 -of=%t.O3.ll && FileCheck %s --check-prefix OPT3 < %t.O3.ll
 // RUN: %ldc %s -I%S -c -output-ll -enable-inlining -O0 -of=%t.O0.ll && FileCheck %s --check-prefix OPT0 < %t.O0.ll
 // RUN: %ldc -I%S -enable-inlining %S/inputs/inlinables_staticvar.d -run %s

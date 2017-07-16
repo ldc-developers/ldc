@@ -96,9 +96,6 @@ bool objc_isSupported(const llvm::Triple &triple) {
   if (triple.isOSDarwin()) {
     // Objective-C only supported on Darwin at this time
     switch (triple.getArch()) {
-#if LDC_LLVM_VER == 305
-    case llvm::Triple::arm64:
-#endif
     case llvm::Triple::aarch64:              // arm64 iOS, tvOS
     case llvm::Triple::arm:                  // armv6 iOS
     case llvm::Triple::thumb:                // thumbv7 iOS, watchOS

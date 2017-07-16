@@ -656,12 +656,8 @@ std::string locateBinary(std::string exeName) {
     return path;
   }
 
-#if LDC_LLVM_VER >= 306
   llvm::ErrorOr<std::string> res = ls::findProgramByName(exeName);
   path = res ? res.get() : std::string();
-#else
-  path = ls::FindProgramByName(exeName);
-#endif
   if (ls::fs::can_execute(path)) {
     return path;
   }

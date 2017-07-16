@@ -75,13 +75,8 @@ llvm::Function *buildForwarderFunction(
   // ... calling the given functions, and...
   for (auto func : funcs) {
     const auto f = DtoCallee(func);
-#if LDC_LLVM_VER < 307
-    const auto call = builder.CreateCall(f, "");
-    const auto ft = call->getCalledFunction()->getFunctionType();
-#else
     const auto call = builder.CreateCall(f, {});
     const auto ft = call->getFunctionType();
-#endif
     call->setCallingConv(gABI->callingConv(ft, LINKd));
   }
 

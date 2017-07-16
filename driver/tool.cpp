@@ -28,12 +28,8 @@ static llvm::cl::opt<std::string>
 //////////////////////////////////////////////////////////////////////////////
 
 static std::string findProgramByName(llvm::StringRef name) {
-#if LDC_LLVM_VER >= 306
   llvm::ErrorOr<std::string> res = llvm::sys::findProgramByName(name);
   return res ? res.get() : std::string();
-#else
-  return llvm::sys::FindProgramByName(name);
-#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////

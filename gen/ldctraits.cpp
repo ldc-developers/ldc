@@ -18,11 +18,6 @@ Dstring traitsGetTargetCPU() {
 }
 
 bool traitsTargetHasFeature(Dstring feature) {
-#if LDC_LLVM_VER < 307
-  // LLVM below 3.7 does not provide the necessary means to obtain the needed information,
-  // return the safe "feature not enabled".
-  return false;
-#else
   auto feat = llvm::StringRef(feature.ptr, feature.length);
 
   // This is a work-around to a missing interface in LLVM to query whether a
@@ -47,5 +42,4 @@ bool traitsTargetHasFeature(Dstring feature) {
     auto newFeatbits = mcinfo.ApplyFeatureFlag(("+" + feat).str());
     return savedFeatbits == newFeatbits;
   }
-#endif
 }
