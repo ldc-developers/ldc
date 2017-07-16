@@ -52,6 +52,7 @@ struct CTFloat
     // implemented in gen/ctfloat.cpp
     static void _init();
     static void toAPFloat(real_t src, llvm::APFloat &dst);
+    static real_t fromAPFloat(const llvm::APFloat &src);
 
     static bool isFloat32LiteralOutOfRange(const char *literal);
     static bool isFloat64LiteralOutOfRange(const char *literal);

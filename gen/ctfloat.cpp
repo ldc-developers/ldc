@@ -80,13 +80,25 @@ void CTFloat::toAPFloat(const real_t src, APFloat &dst) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-real_t CTFloat::parse(const char *literal, bool *isOutOfRange) {
-  const APFloat ap = parseLiteral(*apSemantics, literal, isOutOfRange);
-  const APInt bits = ap.bitcastToAPInt();
+real_t CTFloat::fromAPFloat(const APFloat &src_) {
+  APFloat src = src_;
+  if (&src.getSemantics() != apSemantics) {
+    bool ignored;
+    src.convert(*apSemantics, APFloat::rmNearestTiesToEven, &ignored);
+  }
+
+  const APInt bits = src.bitcastToAPInt();
 
   CTFloatUnion u;
   memcpy(u.bits, bits.getRawData(), bits.getBitWidth() / 8);
   return u.fp;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+real_t CTFloat::parse(const char *literal, bool *isOutOfRange) {
+  const APFloat ap = parseLiteral(*apSemantics, literal, isOutOfRange);
+  return fromAPFloat(ap);
 }
 
 bool CTFloat::isFloat32LiteralOutOfRange(const char *literal) {
