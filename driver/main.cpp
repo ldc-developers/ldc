@@ -767,6 +767,9 @@ void registerPredefinedTargetVersions() {
     registerPredefinedFloatABI("MIPS_SoftFloat", "MIPS_HardFloat");
     registerMipsABI();
     break;
+  case llvm::Triple::msp430:
+    VersionCondition::addPredefinedGlobalIdent("MSP430");
+    break;
 #if defined RISCV_LLVM_DEV || LDC_LLVM_VER >= 400
 #if defined RISCV_LLVM_DEV
   case llvm::Triple::riscv:
@@ -815,9 +818,11 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("BigEndian");
   }
 
-  // a generic 64bit version
+  // Set versions for arch bitwidth
   if (global.params.isLP64) {
     VersionCondition::addPredefinedGlobalIdent("D_LP64");
+  } else if (global.params.targetTriple->isArch16Bit()) {
+    VersionCondition::addPredefinedGlobalIdent("D_P16");
   }
 
   if (gTargetMachine->getRelocationModel() == llvm::Reloc::PIC_) {
@@ -900,6 +905,10 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("AIX");
     VersionCondition::addPredefinedGlobalIdent("Posix");
     break;
+  case llvm::Triple::UnknownOS:
+    if (arch == llvm::Triple::msp430)
+      break;
+    // fallthrough
   default:
     switch (global.params.targetTriple->getEnvironment()) {
     case llvm::Triple::Android:

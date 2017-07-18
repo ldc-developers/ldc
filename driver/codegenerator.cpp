@@ -247,6 +247,10 @@ void CodeGenerator::finishLLModule(Module *m) {
 }
 
 void CodeGenerator::writeAndFreeLLModule(const char *filename) {
+  // Issue #1829: make sure all replaced global variables are replaced
+  // everywhere.
+  ir_->replaceGlobals();
+
   ir_->DBuilder.Finalize();
 
   emitLLVMUsedArray(*ir_);

@@ -54,7 +54,7 @@ struct IrAggr {
   //////////////////////////////////////////////////////////////////////////
 
   /// Create the __initZ symbol lazily.
-  llvm::GlobalVariable *getInitSymbol();
+  llvm::Constant *&getInitSymbol();
   /// Builds the __initZ initializer constant lazily.
   llvm::Constant *getDefaultInit();
 
@@ -91,7 +91,7 @@ struct IrAggr {
 
 protected:
   /// Static default initializer global.
-  llvm::GlobalVariable *init = nullptr;
+  llvm::Constant *init = nullptr;
   /// Static default initializer constant.
   llvm::Constant *constInit = nullptr;
 
