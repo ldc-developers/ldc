@@ -724,6 +724,9 @@ extern (C++) Expression semanticTraits(TraitsExp e, Scope* sc)
         }
         else if (e.ident == Id.getMember)
         {
+            if (ex.op == TOKdotid)
+                // Prevent semantic() from replacing Symbol with its initializer
+                (cast(DotIdExp)ex).wantsym = true;
             ex = ex.semantic(scx);
             return ex;
         }
