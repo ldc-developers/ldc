@@ -732,6 +732,42 @@ if (NOT (LDC_LLVM_VER LESS 309) AND LDC_INSTALL_LTOPLUGIN)
 endif()
 
 #
+# Locate ASan and other runtime libraries, and copy them to our lib folder
+# Location is LLVM_LIBRARY_DIRS/clang/<version>/lib/<OS>/ , for example LLVM_LIBRARY_DIRS/clang/4.0.0/lib/darwin/
+#
+if(APPLE)
+    set(LDC_INSTALL_LLVM_RUNTIME_LIBS_DEFAULT ON)
+else()
+    set(LDC_INSTALL_LLVM_RUNTIME_LIBS_DEFAULT OFF)
+endif()
+set(LDC_INSTALL_LLVM_RUNTIME_LIBS ${LDC_INSTALL_LLVM_RUNTIME_LIBS_DEFAULT} CACHE BOOL "Copy/install runtime libraries (ASan, libFuzzer) from LLVM/Clang into LDC lib dir when available.")
+function(copy_compilerrt_lib llvm_lib_name ldc_lib_name)
+    # The LLVM version string can contain the SVN revision number, so cut that off
+    string(SUBSTRING "${LLVM_VERSION_STRING}" 0 5 LLVM_VERSION_STRING_CROPPED)
+    set(llvm_lib_path ${LLVM_LIBRARY_DIRS}/clang/${LLVM_VERSION_STRING_CROPPED}/lib/${llvm_lib_name})
+    if(EXISTS ${llvm_lib_path})
+        message(STATUS "Copying runtime library: ${llvm_lib_path} --> ${ldc_lib_name}")
+        file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX})
+        configure_file(${llvm_lib_path} ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${ldc_lib_name} COPYONLY)
+    endif()
+endfunction()
+if (LDC_INSTALL_LLVM_RUNTIME_LIBS)
+    if(APPLE)
+        copy_compilerrt_lib("darwin/libclang_rt.asan_osx_dynamic.dylib" "libldc_rt.asan_osx_dynamic.dylib")
+    elseif(UNIX)
+        copy_compilerrt_lib("linux/libclang_rt.asan-x86_64.a" "libldc_rt.asan-x86_64.a")
+    endif()
+
+    # Locate libFuzzer runtime library, and copy it to our lib folder
+    set(LLVM_LIBFUZZER_PATH ${LLVM_LIBRARY_DIRS}/libLLVMFuzzer.a)
+    if(EXISTS ${LLVM_LIBFUZZER_PATH})
+        message(STATUS "Copying libFuzzer library: ${LLVM_LIBFUZZER_PATH} --> libFuzzer.a")
+        file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX})
+        configure_file(${LLVM_LIBFUZZER_PATH} ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/libFuzzer.a COPYONLY)
+    endif()
+endif()
+
+#
 # Auxiliary build and test utils.
 #
 add_subdirectory(utils)
