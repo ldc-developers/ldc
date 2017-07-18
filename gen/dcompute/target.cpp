@@ -49,8 +49,10 @@ void DComputeTarget::writeModule() {
   int len = sprintf(tmp, fmt, short_name, tversion,
                     global.params.is64bit ? 64 : 32, binSuffix);
   tmp[len] = '\0';
+  const char* tmp2 = FileName::combine(global.params.objdir,tmp);
+
   setGTargetMachine();
-  ::writeModule(&_ir->module, tmp);
+  ::writeModule(&_ir->module, tmp2);
 
   delete _ir;
   _ir = nullptr;
