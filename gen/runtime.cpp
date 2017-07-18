@@ -784,11 +784,7 @@ static void emitInstrumentationFn(const char *name) {
       gIR->ir->CreateCall(GET_INTRINSIC_DECL(returnaddress), DtoConstInt(0));
   auto callee = DtoBitCast(gIR->topfunc(), getVoidPtrType());
 
-#if LDC_LLVM_VER >= 307
   gIR->ir->CreateCall(fn, {callee, caller});
-#else
-  gIR->ir->CreateCall2(fn, callee, caller);
-#endif
 }
 
 void emitInstrumentationFnEnter(FuncDeclaration *decl) {

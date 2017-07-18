@@ -21,8 +21,6 @@
 
 #if LDC_LLVM_VER >= 500
 #define LLVM_END_WITH_NULL
-#elif LDC_LLVM_VER < 306
-#define LLVM_END_WITH_NULL END_WITH_NULL
 #endif
 
 template <typename TYPE> struct Array;
@@ -47,39 +45,23 @@ template <> struct FlagParserDataType<cl::boolOrDefault> {
 template <class DataType> class FlagParser : public cl::generic_parser_base {
 protected:
   llvm::SmallVector<std::pair<std::string, DataType>, 2> switches;
-#if LDC_LLVM_VER >= 307
   cl::Option &owner() const { return Owner; }
-#else
-  cl::Option *Owner;
-  cl::Option &owner() const { return *Owner; }
-#endif
 
 public:
-#if LDC_LLVM_VER >= 307
   FlagParser(cl::Option &O) : generic_parser_base(O) {}
-#else
-  FlagParser() : generic_parser_base(), Owner(nullptr) {}
-#endif
   typedef DataType parser_data_type;
 
-#if LDC_LLVM_VER >= 307
   void initialize() {
-#else
-  void initialize(cl::Option &O) {
-    Owner = &O;
-#endif
     std::string Name(owner().ArgStr);
     switches.push_back(
         make_pair("enable-" + Name, FlagParserDataType<DataType>::true_val()));
     switches.push_back(make_pair("disable-" + Name,
                                  FlagParserDataType<DataType>::false_val()));
-// Replace <foo> with -enable-<foo> and register -disable-<foo>
-#if LDC_LLVM_VER >= 307
+    // Replace <foo> with -enable-<foo> and register -disable-<foo>.
     // A literal option can only registered if the argstr is empty -
     // just do this first.
     owner().setArgStr("");
     AddLiteralOption(Owner, strdup(switches[1].first.data()));
-#endif
     owner().setArgStr(switches[0].first.data());
   }
 

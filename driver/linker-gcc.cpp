@@ -429,10 +429,6 @@ void ArgsBuilder::addArch() {
       case llvm::Triple::armeb:
       case llvm::Triple::aarch64:
       case llvm::Triple::aarch64_be:
-#if LDC_LLVM_VER == 305
-      case llvm::Triple::arm64:
-      case llvm::Triple::arm64_be:
-#endif
         break;
       default:
         if (global.params.is64bit) {

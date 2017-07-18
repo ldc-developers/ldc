@@ -18,9 +18,7 @@
 
 #include "Passes.h"
 #include "llvm/Pass.h"
-#if LDC_LLVM_VER >= 307
 #include "llvm/IR/Module.h"
-#endif
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
@@ -327,11 +325,6 @@ public:
   bool runOnce(Function &F, const DataLayout *DL, AliasAnalysisPass &AA);
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-#if LDC_LLVM_VER >= 307
-// The DataLayoutPass is removed.
-#else
-    AU.addRequired<DataLayoutPass>();
-#endif
     AU.addRequired<AliasAnalysisPass>();
   }
 };
@@ -382,12 +375,7 @@ bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
     InitOptimizations();
   }
 
-#if LDC_LLVM_VER >= 307
   const DataLayout *DL = &F.getParent()->getDataLayout();
-#else
-  DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
-  const DataLayout *DL = DLP ? &DLP->getDataLayout() : nullptr;
-#endif
   AliasAnalysisPass &AA = getAnalysis<AliasAnalysisPass>();
 
   // Iterate to catch opportunities opened up by other optimizations,

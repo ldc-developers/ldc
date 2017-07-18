@@ -121,14 +121,7 @@ RegistryStyle getModuleRegistryStyle() {
   }
 
   if (t->isOSLinux() || t->isOSFreeBSD() ||
-#if LDC_LLVM_VER > 305
-      t->isOSNetBSD() || t->isOSOpenBSD() || t->isOSDragonFly()
-#else
-      t->getOS() == llvm::Triple::NetBSD ||
-      t->getOS() == llvm::Triple::OpenBSD ||
-      t->getOS() == llvm::Triple::DragonFly
-#endif
-          ) {
+      t->isOSNetBSD() || t->isOSOpenBSD() || t->isOSDragonFly()) {
     return RegistryStyle::sectionELF;
   }
 
@@ -196,10 +189,7 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
 
   // put current beginning as the next of this one
   LLValue *gep = builder.CreateStructGEP(
-#if LDC_LLVM_VER >= 307
-      modulerefTy,
-#endif
-      thismref, 0, "next");
+      modulerefTy, thismref, 0, "next");
   builder.CreateStore(curbeg, gep);
 
   // replace beginning
@@ -316,7 +306,6 @@ llvm::Function *buildRegisterDSO(RegistryStyle style,
     llvm::Value *record = b.CreateAlloca(stype);
 
     unsigned i = 0;
-#if LDC_LLVM_VER >= 307
     b.CreateStore(version, b.CreateStructGEP(stype, record, i++));
     b.CreateStore(dsoSlot, b.CreateStructGEP(stype, record, i++));
     b.CreateStore(minfoBeg, b.CreateStructGEP(stype, record, i++));
@@ -325,16 +314,6 @@ llvm::Function *buildRegisterDSO(RegistryStyle style,
       b.CreateStore(getTlsAnchorPtr, b.CreateStructGEP(stype, record, i++));
     }
     b.CreateStore(minfoUsedPointer, b.CreateStructGEP(stype, record, i++));
-#else
-    b.CreateStore(version, b.CreateStructGEP(record, i++));
-    b.CreateStore(dsoSlot, b.CreateStructGEP(record, i++));
-    b.CreateStore(minfoBeg, b.CreateStructGEP(record, i++));
-    b.CreateStore(minfoEnd, b.CreateStructGEP(record, i++));
-    if (style == RegistryStyle::sectionDarwin) {
-      b.CreateStore(getTlsAnchorPtr, b.CreateStructGEP(record, i++));
-    }
-    b.CreateStore(minfoUsedPointer, b.CreateStructGEP(record, i++));
-#endif
 
     b.CreateCall(dsoRegistry, b.CreateBitCast(record, recordPtrTy));
     b.CreateBr(endBB);
@@ -520,10 +499,7 @@ void addCoverageAnalysis(Module *m) {
     d_cover_valid_slice =
         DtoConstSlice(DtoConstSize_t(type->getArrayNumElements()),
                       llvm::ConstantExpr::getGetElementPtr(
-#if LDC_LLVM_VER >= 307
-                          type,
-#endif
-                          m->d_cover_valid, idxs, true));
+                          type, m->d_cover_valid, idxs, true));
 
     // Assert that initializer array elements have enough bits
     assert(sizeof(m->d_cover_valid_init[0]) * 8 >=
@@ -549,10 +525,7 @@ void addCoverageAnalysis(Module *m) {
     d_cover_data_slice =
         DtoConstSlice(DtoConstSize_t(type->getArrayNumElements()),
                       llvm::ConstantExpr::getGetElementPtr(
-#if LDC_LLVM_VER >= 307
-                          type,
-#endif
-                          m->d_cover_data, idxs, true));
+                          type, m->d_cover_data, idxs, true));
   }
 
   // Create "static constructor" that calls _d_cover_register2(string filename,

@@ -414,12 +414,8 @@ public:
     llvm::ConstantInt *zero =
         LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0, false);
     LLConstant *idxs[2] = {zero, zero};
-#if LDC_LLVM_VER >= 307
     LLConstant *arrptr = llvm::ConstantExpr::getGetElementPtr(
         isaPointer(gvar)->getElementType(), gvar, idxs, true);
-#else
-    LLConstant *arrptr = llvm::ConstantExpr::getGetElementPtr(gvar, idxs, true);
-#endif
 
     if (dtype->ty == Tarray) {
       LLConstant *clen =
@@ -1856,11 +1852,7 @@ public:
     IF_LOG Logger::print("HaltExp::toElem: %s\n", e->toChars());
     LOG_SCOPE;
 
-#if LDC_LLVM_VER >= 307
     p->ir->CreateCall(GET_INTRINSIC_DECL(trap), {});
-#else
-    p->ir->CreateCall(GET_INTRINSIC_DECL(trap), "");
-#endif
     p->ir->CreateUnreachable();
 
     // this terminated the basicblock, start a new one
@@ -2460,13 +2452,8 @@ public:
       LLConstant *globalstore = new LLGlobalVariable(
           gIR->module, initval->getType(), false,
           LLGlobalValue::InternalLinkage, initval, ".aaKeysStorage");
-#if LDC_LLVM_VER >= 307
       LLConstant *slice = llvm::ConstantExpr::getGetElementPtr(
           isaPointer(globalstore)->getElementType(), globalstore, idxs, true);
-#else
-      LLConstant *slice =
-          llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, true);
-#endif
       slice = DtoConstSlice(DtoConstSize_t(e->keys->dim), slice);
       LLValue *keysArray = DtoAggrPaint(slice, funcTy->getParamType(1));
 
@@ -2474,12 +2461,8 @@ public:
       globalstore = new LLGlobalVariable(gIR->module, initval->getType(), false,
                                          LLGlobalValue::InternalLinkage,
                                          initval, ".aaValuesStorage");
-#if LDC_LLVM_VER >= 307
       slice = llvm::ConstantExpr::getGetElementPtr(
           isaPointer(globalstore)->getElementType(), globalstore, idxs, true);
-#else
-      slice = llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, true);
-#endif
       slice = DtoConstSlice(DtoConstSize_t(e->keys->dim), slice);
       LLValue *valuesArray = DtoAggrPaint(slice, funcTy->getParamType(2));
 

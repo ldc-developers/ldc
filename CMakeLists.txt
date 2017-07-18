@@ -19,7 +19,7 @@ endif()
 # Locate LLVM.
 #
 
-find_package(LLVM 3.5 REQUIRED
+find_package(LLVM 3.7 REQUIRED
     all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel instcombine ipa ipo instrumentation irreader libdriver linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 # Remove LLVMTableGen library from list of libraries
@@ -405,15 +405,11 @@ source_group("Generated Files" REGULAR_EXPRESSION "(id\\.[cdh]|impcnvtab\\.c)$")
 include(HandleLTOPGOBuildOptions)
 
 #
-# Enable PGO if supported for this platform and LLVM version.
-# LLVM >= 3.7 is required for PGO.
+# Enable PGO if supported for this platform.
 #
-set(LDC_WITH_PGO False)  # must be a valid Python boolean constant (case sensitive)
-if (NOT (LDC_LLVM_VER LESS 307))
-    message(STATUS "Building LDC with PGO support")
-    append("-DLDC_WITH_PGO" LDC_CXXFLAGS)
-    set(LDC_WITH_PGO True)
-endif()
+set(LDC_WITH_PGO True)  # must be a valid Python boolean constant (case sensitive)
+message(STATUS "Building LDC with PGO support")
+append("-DLDC_WITH_PGO" LDC_CXXFLAGS)
 
 #
 # Includes, defines.

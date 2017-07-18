@@ -89,8 +89,7 @@ LLGlobalVariable *IrAggr::getClassInfoSymbol() {
     LLType *bodyType = llvm::cast<LLPointerType>(type)->getElementType();
     bool hasDestructor = (classdecl->dtor != nullptr);
     bool hasCustomDelete = (classdecl->aggDelete != nullptr);
-// Construct the fields
-#if LDC_LLVM_VER >= 306
+    // Construct the fields
     llvm::Metadata *mdVals[CD_NumFields];
     mdVals[CD_BodyType] =
         llvm::ConstantAsMetadata::get(llvm::UndefValue::get(bodyType));
@@ -98,14 +97,6 @@ LLGlobalVariable *IrAggr::getClassInfoSymbol() {
         LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasDestructor));
     mdVals[CD_CustomDelete] = llvm::ConstantAsMetadata::get(
         LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasCustomDelete));
-#else
-    MDNodeField *mdVals[CD_NumFields];
-    mdVals[CD_BodyType] = llvm::UndefValue::get(bodyType);
-    mdVals[CD_Finalize] =
-        LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasDestructor);
-    mdVals[CD_CustomDelete] =
-        LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasCustomDelete);
-#endif
     // Construct the metadata and insert it into the module.
     llvm::SmallString<64> name;
     llvm::NamedMDNode *node = gIR->module.getOrInsertNamedMetadata(
@@ -286,9 +277,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
 
     llvm::GlobalVariable *interfaceInfosZ = getInterfaceArraySymbol();
     llvm::Constant *c = llvm::ConstantExpr::getGetElementPtr(
-#if LDC_LLVM_VER >= 307
         isaPointer(interfaceInfosZ)->getElementType(),
-#endif
         interfaceInfosZ, idxs, true);
 
     constants.push_back(DtoBitCast(c, voidPtrTy));
@@ -360,10 +349,8 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       thunk->setUnnamedAddr(true);
 #endif
 
-#if LDC_LLVM_VER >= 307
       // thunks don't need exception handling themselves
       thunk->setPersonalityFn(nullptr);
-#endif
 
       // It is necessary to add debug information to the thunk in case it is
       // subject to inlining. See https://llvm.org/bugs/show_bug.cgi?id=26833
@@ -564,10 +551,7 @@ LLConstant *IrAggr::getClassInfoInterfaces() {
                          DtoConstSize_t(n - cd->vtblInterfaces->dim)};
 
   LLConstant *ptr = llvm::ConstantExpr::getGetElementPtr(
-#if LDC_LLVM_VER >= 307
-      isaPointer(ciarr)->getElementType(),
-#endif
-      ciarr, idxs, true);
+      isaPointer(ciarr)->getElementType(), ciarr, idxs, true);
 
   // return as a slice
   return DtoConstSlice(DtoConstSize_t(cd->vtblInterfaces->dim), ptr);

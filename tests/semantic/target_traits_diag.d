@@ -16,10 +16,7 @@ void main()
 // CHECK: Error: string expected as argument of __traits targetHasFeature instead of 1
     enum e = __traits(targetHasFeature, 1);
 
-// Diagnostics of an unrecognized feature depends on the LLVM version (LLVM < 3.7 does not warn at all)
-// Newer LLVM versions do warn.
-// TODO: Re-enable test when LLVM < 3.7 is no longer supported.
-// CHE CK: 夜畔' is not a recognized feature for this target (ignoring feature)
+// CHECK: 夜畔' is not a recognized feature for this target (ignoring feature)
     enum f = __traits(targetHasFeature, "夜畔");
 }
 

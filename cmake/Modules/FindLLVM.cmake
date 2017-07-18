@@ -32,8 +32,6 @@ set(llvm_config_names llvm-config-5.0 llvm-config50
                       llvm-config-3.9 llvm-config39
                       llvm-config-3.8 llvm-config38
                       llvm-config-3.7 llvm-config37
-                      llvm-config-3.6 llvm-config36
-                      llvm-config-3.5 llvm-config35
                       llvm-config)
 find_program(LLVM_CONFIG
     NAMES ${llvm_config_names}
@@ -85,13 +83,6 @@ if ((WIN32 AND NOT(MINGW OR CYGWIN)) OR NOT LLVM_CONFIG)
         if(TARGET_AMDGPU GREATER -1)
             list(APPEND LLVM_FIND_COMPONENTS AMDGPUUtils)
         endif()
-        if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-6][\\.0-9A-Za-z]*")
-            # Versions below 3.7 do not support components debuginfo[dwarf|pdb]
-            # Only debuginfo is available
-            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfodwarf" index)
-            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfopdb" index)
-            list(APPEND LLVM_FIND_COMPONENTS "debuginfo")
-        endif()
         if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-8][\\.0-9A-Za-z]*")
             # Versions below 3.9 do not support components debuginfocodeview, globalisel
             list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfocodeview" index)
@@ -104,10 +95,6 @@ if ((WIN32 AND NOT(MINGW OR CYGWIN)) OR NOT LLVM_CONFIG)
         if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-9][\\.0-9A-Za-z]*")
             # Versions below 4.0 do not support component debuginfomsf
             list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfomsf" index)
-        endif()
-        if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-6][\\.0-9A-Za-z]*")
-            # Versions below 3.7 do not support component libdriver
-            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "libdriver" index)
         endif()
 
         llvm_map_components_to_libnames(tmplibs ${LLVM_FIND_COMPONENTS})
@@ -182,13 +169,6 @@ else()
     llvm_set(ROOT_DIR prefix true)
     llvm_set(ENABLE_ASSERTIONS assertion-mode)
 
-    if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-6][\\.0-9A-Za-z]*")
-        # Versions below 3.7 do not support components debuginfo[dwarf|pdb]
-        # Only debuginfo is available
-        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfodwarf" index)
-        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfopdb" index)
-        list(APPEND LLVM_FIND_COMPONENTS "debuginfo")
-    endif()
     if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-8][\\.0-9A-Za-z]*")
         # Versions below 3.9 do not support components debuginfocodeview, globalisel
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfocodeview" index)
@@ -202,18 +182,12 @@ else()
         # Versions below 4.0 do not support component debuginfomsf
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfomsf" index)
     endif()
-    if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-6][\\.0-9A-Za-z]*")
-        # Versions below 3.7 do not support component libdriver
-        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "libdriver" index)
-    endif()
 
     llvm_set(LDFLAGS ldflags)
-    if(NOT ${LLVM_VERSION_STRING} MATCHES "^3\\.[0-4][\\.0-9A-Za-z]*")
-        # In LLVM 3.5+, the system library dependencies (e.g. "-lz") are accessed
-        # using the separate "--system-libs" flag.
-        llvm_set(SYSTEM_LIBS system-libs)
-        string(REPLACE "\n" " " LLVM_LDFLAGS "${LLVM_LDFLAGS} ${LLVM_SYSTEM_LIBS}")
-    endif()
+    # In LLVM 3.5+, the system library dependencies (e.g. "-lz") are accessed
+    # using the separate "--system-libs" flag.
+    llvm_set(SYSTEM_LIBS system-libs)
+    string(REPLACE "\n" " " LLVM_LDFLAGS "${LLVM_LDFLAGS} ${LLVM_SYSTEM_LIBS}")
     llvm_set(LIBRARY_DIRS libdir true)
     llvm_set_libs(LIBRARIES libs)
     # LLVM bug: llvm-config --libs tablegen returns -lLLVM-3.8.0
