@@ -40,10 +40,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 static llvm::cl::opt<bool> nogc(
-    "nogc",
+    "nogc", llvm::cl::ZeroOrMore,
     llvm::cl::desc(
-        "Do not allow code that generates implicit garbage collector calls"),
-    llvm::cl::ZeroOrMore);
+        "Do not allow code that generates implicit garbage collector calls"));
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -93,8 +92,9 @@ static void checkForImplicitGCCall(const Loc &loc, const char *name) {
 
     if (binary_search(&GCNAMES[0],
                       &GCNAMES[sizeof(GCNAMES) / sizeof(std::string)], name)) {
-      error(loc, "No implicit garbage collector calls allowed with -nogc "
-                 "option enabled: %s",
+      error(loc,
+            "No implicit garbage collector calls allowed with -nogc "
+            "option enabled: %s",
             name);
       fatal();
     }
@@ -307,29 +307,40 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
 
   // Construct some attribute lists used below (possibly multiple times)
-  AttrSet NoAttrs, Attr_NoAlias(NoAttrs, llvm::AttributeSet::ReturnIndex,
+  AttrSet NoAttrs, Attr_NoAlias(NoAttrs, LLAttributeSet::ReturnIndex,
                                 llvm::Attribute::NoAlias),
-      Attr_NoUnwind(NoAttrs, llvm::AttributeSet::FunctionIndex,
+      Attr_NoUnwind(NoAttrs, LLAttributeSet::FunctionIndex,
                     llvm::Attribute::NoUnwind),
-      Attr_ReadOnly(NoAttrs, llvm::AttributeSet::FunctionIndex,
+      Attr_ReadOnly(NoAttrs, LLAttributeSet::FunctionIndex,
                     llvm::Attribute::ReadOnly),
-      Attr_Cold(NoAttrs, llvm::AttributeSet::FunctionIndex,
-                llvm::Attribute::Cold),
-      Attr_Cold_NoReturn(Attr_Cold, llvm::AttributeSet::FunctionIndex,
+      Attr_Cold(NoAttrs, LLAttributeSet::FunctionIndex, llvm::Attribute::Cold),
+      Attr_Cold_NoReturn(Attr_Cold, LLAttributeSet::FunctionIndex,
                          llvm::Attribute::NoReturn),
-      Attr_ReadOnly_NoUnwind(Attr_ReadOnly, llvm::AttributeSet::FunctionIndex,
+      Attr_ReadOnly_NoUnwind(Attr_ReadOnly, LLAttributeSet::FunctionIndex,
                              llvm::Attribute::NoUnwind),
-      Attr_ReadOnly_1_NoCapture(Attr_ReadOnly, 1, llvm::Attribute::NoCapture),
-      Attr_ReadOnly_1_3_NoCapture(Attr_ReadOnly_1_NoCapture, 3,
+      Attr_ReadOnly_1_NoCapture(Attr_ReadOnly, AttrSet::FirstArgIndex,
+                                llvm::Attribute::NoCapture),
+      Attr_ReadOnly_1_3_NoCapture(Attr_ReadOnly_1_NoCapture,
+                                  AttrSet::FirstArgIndex + 2,
                                   llvm::Attribute::NoCapture),
-      Attr_ReadOnly_NoUnwind_1_NoCapture(Attr_ReadOnly_1_NoCapture, ~0U,
+      Attr_ReadOnly_NoUnwind_1_NoCapture(Attr_ReadOnly_1_NoCapture,
+                                         LLAttributeSet::FunctionIndex,
                                          llvm::Attribute::NoUnwind),
-      Attr_ReadNone(NoAttrs, ~0U, llvm::Attribute::ReadNone),
-      Attr_1_NoCapture(NoAttrs, 1, llvm::Attribute::NoCapture),
-      Attr_NoAlias_1_NoCapture(Attr_1_NoCapture, 0, llvm::Attribute::NoAlias),
-      Attr_1_2_NoCapture(Attr_1_NoCapture, 2, llvm::Attribute::NoCapture),
-      Attr_1_3_NoCapture(Attr_1_NoCapture, 3, llvm::Attribute::NoCapture),
-      Attr_1_4_NoCapture(Attr_1_NoCapture, 4, llvm::Attribute::NoCapture);
+      Attr_ReadOnly_NoUnwind_1_2_NoCapture(Attr_ReadOnly_NoUnwind_1_NoCapture,
+                                           AttrSet::FirstArgIndex + 1,
+                                           llvm::Attribute::NoCapture),
+      Attr_ReadNone(NoAttrs, LLAttributeSet::FunctionIndex,
+                    llvm::Attribute::ReadNone),
+      Attr_1_NoCapture(NoAttrs, AttrSet::FirstArgIndex,
+                       llvm::Attribute::NoCapture),
+      Attr_1_2_NoCapture(Attr_1_NoCapture, AttrSet::FirstArgIndex + 1,
+                         llvm::Attribute::NoCapture),
+      Attr_1_3_NoCapture(Attr_1_NoCapture, AttrSet::FirstArgIndex + 2,
+                         llvm::Attribute::NoCapture),
+      Attr_1_4_NoCapture(Attr_1_NoCapture, AttrSet::FirstArgIndex + 3,
+                         llvm::Attribute::NoCapture),
+      Attr_NoAlias_1_NoCapture(Attr_1_NoCapture, LLAttributeSet::ReturnIndex,
+                               llvm::Attribute::NoAlias);
 
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
@@ -614,7 +625,8 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
 
   // void _d_throw_exception(Object e)
-  createFwdDecl(LINKc, voidTy, {"_d_throw_exception"}, {objectTy});
+  createFwdDecl(LINKc, voidTy, {"_d_throw_exception"}, {objectTy}, {},
+                Attr_Cold_NoReturn);
 
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
@@ -671,24 +683,10 @@ static void buildRuntimeModule() {
       {gABI->mangleForLLVM("_D9invariant12_d_invariantFC6ObjectZv", LINKd)},
       {objectTy});
 
-  // void _d_dso_registry(CompilerDSOData* data)
-  llvm::StringRef fname("_d_dso_registry");
-
-  LLType *LLvoidTy = LLType::getVoidTy(gIR->context());
-  LLType *LLvoidPtrPtrTy = getPtrToType(getPtrToType(LLvoidTy));
-  LLType *moduleInfoPtrPtrTy =
-      getPtrToType(getPtrToType(DtoType(Module::moduleinfo->type)));
-
-  llvm::StructType *dsoDataTy =
-      llvm::StructType::get(DtoSize_t(),        // version
-                            LLvoidPtrPtrTy,     // slot
-                            moduleInfoPtrPtrTy, // _minfo_beg
-                            moduleInfoPtrPtrTy, // _minfo_end
-                            NULL);
-
-  llvm::Type *types[] = {getPtrToType(dsoDataTy)};
-  llvm::FunctionType *fty = llvm::FunctionType::get(LLvoidTy, types, false);
-  llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+  // void _d_dso_registry(void* data)
+  // (the argument is really a pointer to
+  // rt.sections_elf_shared.CompilerDSOData)
+  createFwdDecl(LINKc, voidTy, {"_d_dso_registry"}, {voidPtrTy});
 
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////

@@ -94,16 +94,18 @@ void IrFuncTy::getParam(Type *dty, size_t idx, LLValue *val, LLValue *address) {
 AttrSet IrFuncTy::getParamAttrs(bool passThisBeforeSret) {
   AttrSet newAttrs;
 
+  if (ret) {
+    newAttrs.addToReturn(ret->attrs);
+  }
+
   int idx = 0;
 
 // handle implicit args
 #define ADD_PA(X)                                                              \
   if (X) {                                                                     \
-    newAttrs.add(idx, X->attrs);                                               \
+    newAttrs.addToParam(idx, (X)->attrs);                                      \
     idx++;                                                                     \
   }
-
-  ADD_PA(ret)
 
   if (arg_sret && arg_this && passThisBeforeSret) {
     ADD_PA(arg_this)
@@ -122,7 +124,7 @@ AttrSet IrFuncTy::getParamAttrs(bool passThisBeforeSret) {
   const size_t n = args.size();
   for (size_t k = 0; k < n; k++) {
     const size_t i = idx + (reverseParams ? (n - k - 1) : k);
-    newAttrs.add(i, args[k]->attrs);
+    newAttrs.addToParam(i, args[k]->attrs);
   }
 
   return newAttrs;

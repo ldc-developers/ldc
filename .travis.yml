@@ -4,7 +4,7 @@ sudo: false
 matrix:
   include:
     - os: linux
-      env: LLVM_VERSION=4.0.0
+      env: LLVM_VERSION=4.0.1
     - os: linux
       env: LLVM_VERSION=3.9.0
     - os: linux
@@ -22,6 +22,7 @@ matrix:
 
 cache:
   directories:
+    - llvm-4.0.1
     - llvm-4.0.0
     - llvm-3.9.0
     - llvm-3.8.1

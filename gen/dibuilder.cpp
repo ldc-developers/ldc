@@ -83,19 +83,16 @@ void ldc::DIBuilder::Declare(const Loc &loc, llvm::Value *var,
 #endif
                              ) {
   unsigned charnum = (loc.linnum ? loc.charnum : 0);
+  auto debugLoc = llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope());
 #if LDC_LLVM_VER < 307
   llvm::Instruction *instr = DBuilder.insertDeclare(var, divar,
 #if LDC_LLVM_VER >= 306
                                                     diexpr,
 #endif
                                                     IR->scopebb());
-  instr->setDebugLoc(
-      llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope()));
+  instr->setDebugLoc(debugLoc);
 #else // if LLVM >= 3.7
-  DBuilder.insertDeclare(
-      var, divar, diexpr,
-      llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope()),
-      IR->scopebb());
+  DBuilder.insertDeclare(var, divar, diexpr, debugLoc, IR->scopebb());
 #endif
 }
 
