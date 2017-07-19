@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "gen/dcompute/target.h"
 #include "ddmd/dsymbol.h"
 #include "ddmd/module.h"
 #include "ddmd/mars.h"
@@ -14,7 +15,6 @@
 #include "ddmd/scope.h"
 #include "driver/linker.h"
 #include "driver/toobj.h"
-#include "gen/dcompute/target.h"
 #include "gen/llvmhelpers.h"
 #include "gen/runtime.h"
 #include <string>
@@ -49,7 +49,7 @@ void DComputeTarget::writeModule() {
   int len = sprintf(tmp, fmt, short_name, tversion,
                     global.params.is64bit ? 64 : 32, binSuffix);
   tmp[len] = '\0';
-  const char* tmp2 = FileName::combine(global.params.objdir,tmp);
+  const char *tmp2 = FileName::combine(global.params.objdir, tmp);
 
   setGTargetMachine();
   ::writeModule(&_ir->module, tmp2);
