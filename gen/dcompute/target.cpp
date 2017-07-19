@@ -44,12 +44,12 @@ void DComputeTarget::emit(Module *m) {
 void DComputeTarget::writeModule() {
   addMetadata();
 
-  char fname[32];
+  char filename[32];
   const char *fmt = "kernels_%s%d_%d.%s";
-  int len = sprintf(tmp, fmt, short_name, tversion,
+  int len = sprintf(filename, fmt, short_name, tversion,
                     global.params.is64bit ? 64 : 32, binSuffix);
-  tmp[len] = '\0';
-  const char *fullname = FileName::combine(global.params.objdir, tmp);
+  filename[len] = '\0';
+  const char *fullname = FileName::combine(global.params.objdir, filename);
 
   setGTargetMachine();
   ::writeModule(&_ir->module, fullname);
