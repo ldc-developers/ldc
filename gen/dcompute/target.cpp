@@ -9,7 +9,6 @@
 
 #include "gen/dcompute/target.h"
 #include "ddmd/dsymbol.h"
-#include "ddmd/module.h"
 #include "ddmd/mars.h"
 #include "ddmd/module.h"
 #include "ddmd/scope.h"
