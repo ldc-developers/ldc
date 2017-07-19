@@ -7,13 +7,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/dcompute/target.h"
 #include "ddmd/dsymbol.h"
 #include "ddmd/mars.h"
 #include "ddmd/module.h"
 #include "ddmd/scope.h"
 #include "driver/linker.h"
 #include "driver/toobj.h"
+#include "gen/dcompute/target.h"
 #include "gen/llvmhelpers.h"
 #include "gen/runtime.h"
 #include <string>
@@ -43,15 +43,15 @@ void DComputeTarget::emit(Module *m) {
 void DComputeTarget::writeModule() {
   addMetadata();
 
-  char filename[32];
-  const char *fmt = "kernels_%s%d_%d.%s";
-  int len = sprintf(filename, fmt, short_name, tversion,
-                    global.params.is64bit ? 64 : 32, binSuffix);
-  filename[len] = '\0';
-  const char *fullname = FileName::combine(global.params.objdir, filename);
+  std::string filename;
+  llvm::raw_string_ostream os(filename);
+  os << "kernels_" << short_name << tversion << '_'
+     << (global.params.is64bit ? 64 : 32) << '.' << binSuffix;
+
+  const char *path = FileName::combine(global.params.objdir, os.str().c_str());
 
   setGTargetMachine();
-  ::writeModule(&_ir->module, fullname);
+  ::writeModule(&_ir->module, path);
 
   delete _ir;
   _ir = nullptr;
