@@ -4,15 +4,11 @@
 alias D2 = __vector(double[2]);
 
 // CHECK: @_D11vector_init12ImplicitInit6__initZ =
-// double.init (as well as float.init) may be silenced from a signalling to a quiet NaN,
-// so don't check the most significant mantissa bit (quietness), but make sure the
-// second-most significant one is (still) set.
-// See https://github.com/ldc-developers/ldc/pull/2207.
-// CHECK-SAME: { <2 x double> <double 0x7FF{{4|C}}000000000000, double 0x7FF{{4|C}}000000000000> }
+// CHECK-SAME: { <2 x double> <double 0x7FFC000000000000, double 0x7FFC000000000000> }
 struct ImplicitInit { D2 a; }
 
 // CHECK: @_D11vector_init12ExplicitInit6__initZ =
-// CHECK-SAME: { <2 x double> <double 0x7FF{{4|C}}000000000000, double 0x7FF{{4|C}}000000000000> }
+// CHECK-SAME: { <2 x double> <double 0x7FFC000000000000, double 0x7FFC000000000000> }
 struct ExplicitInit { D2 a = D2.init; }
 
 // CHECK: @_D11vector_init10SplatValue6__initZ =

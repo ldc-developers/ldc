@@ -47,18 +47,26 @@ void CTFloat::_init() {
 
   if (sizeof(real_t) == 8) {
     apSemantics = &(APFloat::IEEEdouble AP_SEMANTICS_PARENS);
-    return;
+  } else {
+#if __i386__ || __x86_64__
+    apSemantics = &(APFloat::x87DoubleExtended AP_SEMANTICS_PARENS);
+#elif __aarch64__
+    apSemantics = &(APFloat::IEEEquad AP_SEMANTICS_PARENS);
+#elif __ppc__ || __ppc64__
+    apSemantics = &(APFloat::PPCDoubleDouble AP_SEMANTICS_PARENS);
+#else
+    llvm_unreachable("Unknown host real_t type for compile-time reals");
+#endif
   }
 
-#if __i386__ || __x86_64__
-  apSemantics = &(APFloat::x87DoubleExtended AP_SEMANTICS_PARENS);
-#elif __aarch64__
-  apSemantics = &(APFloat::IEEEquad AP_SEMANTICS_PARENS);
-#elif __ppc__ || __ppc64__
-  apSemantics = &(APFloat::PPCDoubleDouble AP_SEMANTICS_PARENS);
-#else
-  llvm_unreachable("Unknown host real_t type for compile-time reals");
-#endif
+  // init value: use a special quiet NaN (with 2nd-most significant mantissa bit
+  //             set too, like signalling NaNs)
+  APInt initMantissa(APFloat::getSizeInBits(*apSemantics), 0);
+  initMantissa.setBit(APFloat::semanticsPrecision(*apSemantics) -
+                      3); // #mantissaBits = precision - 1
+  initVal = fromAPFloat(APFloat::getQNaN(*apSemantics, false, &initMantissa));
+  nan = fromAPFloat(APFloat::getQNaN(*apSemantics));
+  infinity = fromAPFloat(APFloat::getInf(*apSemantics));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

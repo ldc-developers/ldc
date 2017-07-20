@@ -199,6 +199,13 @@ else
     static __gshared real_t one = real_t(1);
     static __gshared real_t minusone = real_t(-1);
     static __gshared real_t half = real_t(0.5);
+  version(IN_LLVM)
+  {
+    // Initialized via LLVM in C++.
+    static __gshared real_t initVal;
+    static __gshared real_t nan;
+    static __gshared real_t infinity;
+  }
 }
 
 version (IN_LLVM)
