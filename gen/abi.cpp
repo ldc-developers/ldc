@@ -323,10 +323,6 @@ TargetABI *TargetABI::getTarget() {
     return getPPCTargetABI(global.params.targetTriple->isArch64Bit());
   case llvm::Triple::ppc64le:
     return getPPC64LETargetABI();
-#if LDC_LLVM_VER == 305
-  case llvm::Triple::arm64:
-  case llvm::Triple::arm64_be:
-#endif
   case llvm::Triple::aarch64:
   case llvm::Triple::aarch64_be:
     return getAArch64TargetABI();

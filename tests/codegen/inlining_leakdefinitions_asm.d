@@ -2,7 +2,6 @@
 // "Leaking" = symbols definitions in .o file that shouldn't be declarations instead (undefined symbols).
 
 // REQUIRES: target_X86
-// REQUIRES: atleast_llvm307
 
 // RUN: %ldc %s -mtriple=x86_64-linux-gnu -I%S -c -output-ll -release                  -O3 -enable-cross-module-inlining -of=%t.O3.ll && FileCheck %s --check-prefix OPT3 < %t.O3.ll
 // RUN: %ldc %s -mtriple=x86_64-linux-gnu -I%S -c -output-ll -release -enable-inlining -O0 -enable-cross-module-inlining -of=%t.O0.ll && FileCheck %s --check-prefix OPT0 < %t.O0.ll

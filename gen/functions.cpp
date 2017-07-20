@@ -457,9 +457,6 @@ void applyTargetMachineAttributes(llvm::Function &func,
                  lessPreciseFPMADOption ? "true" : "false");
   func.addFnAttr("no-infs-fp-math", TO.NoInfsFPMath ? "true" : "false");
   func.addFnAttr("no-nans-fp-math", TO.NoNaNsFPMath ? "true" : "false");
-#if LDC_LLVM_VER < 307
-  func.addFnAttr("use-soft-float", TO.UseSoftFloat ? "true" : "false");
-#endif
 
   // Frame pointer elimination
   func.addFnAttr("no-frame-pointer-elim",
@@ -1007,11 +1004,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   {
     // emit a call to llvm_eh_unwind_init
     LLFunction *hack = GET_INTRINSIC_DECL(eh_unwind_init);
-#if LDC_LLVM_VER >= 307
     gIR->ir->CreateCall(hack, {});
-#else
-    gIR->ir->CreateCall(hack, "");
-#endif
   }
 
   // give the 'this' parameter (an lvalue) storage and debug info

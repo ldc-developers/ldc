@@ -36,8 +36,7 @@ class ForStatement;
 class ForeachStatement;
 class ForeachRangeStatement;
 
-// Disable PGO for LLVM < 3.7, and provide stub CodeGenPGO class with its
-// public functions
+// Provide stub CodeGenPGO class with its public functions if PGO is disabled.
 #if !defined(LDC_WITH_PGO)
 class CodeGenPGO {
 public:

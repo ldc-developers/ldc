@@ -628,17 +628,11 @@ namespace {
         , nullptr
 #endif
       );
-#if LDC_LLVM_VER >= 307
   if (!irs.func()->hasLLVMPersonalityFn()) {
     irs.func()->setLLVMPersonalityFn(
         getRuntimeFunction(Loc(), irs.module, "_d_eh_personality"));
   }
   return irs.ir->CreateLandingPad(retType, 0);
-#else
-  LLFunction *personalityFn =
-      getRuntimeFunction(Loc(), irs.module, "_d_eh_personality");
-  return irs.ir->CreateLandingPad(retType, personalityFn, 0);
-#endif
 }
 }
 

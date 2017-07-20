@@ -56,9 +56,7 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
-#if LDC_LLVM_VER >= 306
 #include "llvm/Target/TargetSubtargetInfo.h"
-#endif
 #include "llvm/LinkAllIR.h"
 #include "llvm/IR/LLVMContext.h"
 #include <assert.h>
@@ -638,20 +636,15 @@ void initializePasses() {
   initializeTarget(Registry);
 
 // Initialize passes not included above
-#if LDC_LLVM_VER < 306
-  initializeDebugIRPass(Registry);
-#endif
 #if LDC_LLVM_VER < 308
   initializeIPA(Registry);
 #endif
 #if LDC_LLVM_VER >= 400
   initializeRewriteSymbolsLegacyPassPass(Registry);
-#elif LDC_LLVM_VER >= 306
+#else
   initializeRewriteSymbolsPass(Registry);
 #endif
-#if LDC_LLVM_VER >= 307
   initializeSjLjEHPreparePass(Registry);
-#endif
 }
 
 /// Register the MIPS ABI.
@@ -678,13 +671,9 @@ static void registerMipsABI() {
 /// Also defines D_HardFloat or D_SoftFloat depending if FPU should be used
 void registerPredefinedFloatABI(const char *soft, const char *hard,
                                 const char *softfp = nullptr) {
-// Use target floating point unit instead of s/w float routines
-#if LDC_LLVM_VER >= 307
+  // Use target floating point unit instead of s/w float routines
   // FIXME: This is a semantic change!
   bool useFPU = gTargetMachine->Options.FloatABIType == llvm::FloatABI::Hard;
-#else
-  bool useFPU = !gTargetMachine->Options.UseSoftFloat;
-#endif
   VersionCondition::addPredefinedGlobalIdent(useFPU ? "D_HardFloat"
                                                     : "D_SoftFloat");
 
@@ -746,10 +735,6 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("ARM_Thumb");
     registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat", "ARM_SoftFP");
     break;
-#if LDC_LLVM_VER == 305
-  case llvm::Triple::arm64:
-  case llvm::Triple::arm64_be:
-#endif
   case llvm::Triple::aarch64:
   case llvm::Triple::aarch64_be:
     VersionCondition::addPredefinedGlobalIdent("AArch64");
@@ -1046,10 +1031,6 @@ int cppmain(int argc, char **argv) {
 #if LDC_LLVM_VER >= 308
   static llvm::DataLayout DL = gTargetMachine->createDataLayout();
   gDataLayout = &DL;
-#elif LDC_LLVM_VER >= 307
-  gDataLayout = gTargetMachine->getDataLayout();
-#elif LDC_LLVM_VER >= 306
-  gDataLayout = gTargetMachine->getSubtargetImpl()->getDataLayout();
 #else
   gDataLayout = gTargetMachine->getDataLayout();
 #endif

@@ -6,22 +6,16 @@ matrix:
   include:
     - os: linux
       d: ldc
-      env: LLVM_VERSION=4.0.1
+      env: LLVM_VERSION=4.0.1 OPTS="-DLIB_SUFFIX=64"
     - os: linux
       d: ldc-beta
-      env: LLVM_VERSION=3.9.1 OPTS="-DLIB_SUFFIX=64"
-    - os: linux
-      d: ldc
-      env: LLVM_VERSION=3.8.1 OPTS="-DBUILD_SHARED_LIBS=ON"
-    - os: linux
-      d: ldc
-      env: LLVM_VERSION=3.7.1 OPTS="-DBUILD_SHARED_LIBS=OFF -DLIB_SUFFIX=64"
+      env: LLVM_VERSION=3.9.1 OPTS="-DBUILD_SHARED_LIBS=ON"
     - os: linux
       d: ldc-0.17.2
-      env: LLVM_VERSION=3.6.2
+      env: LLVM_VERSION=3.8.1 OPTS="-DBUILD_SHARED_LIBS=OFF -DLIB_SUFFIX=64"
     - os: linux
       d: dmd
-      env: LLVM_VERSION=3.5.2 OPTS="-DTEST_COVERAGE=ON"
+      env: LLVM_VERSION=3.7.1 OPTS="-DTEST_COVERAGE=ON"
     - os: osx
       d: ldc-beta
       env: LLVM_VERSION=5.0.0-3 OPTS="-DBUILD_SHARED_LIBS=OFF" LLVM_SPIRV_AVAILABLE=ON
@@ -39,8 +33,6 @@ cache:
     - llvm-3.9.1
     - llvm-3.8.1
     - llvm-3.7.1
-    - llvm-3.6.2
-    - llvm-3.5.2
 addons:
   apt:
     sources:
@@ -91,13 +83,17 @@ install:
   - eval "${DC} --version"
 
 script:
-  - cmake -G Ninja -DLLVM_CONFIG=$(which ${LLVM_CONFIG}) $OPTS .
+  - cmake -G Ninja -DLLVM_CONFIG=$(which ${LLVM_CONFIG}) -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON $OPTS .
   - ninja -j3
   # Output some environment info, plus make sure we only run the test suite
   # if we could actually build the executable.
   - bin/ldc2 -version || exit 1
   # Build Phobos & druntime unittest modules.
   - ninja -j3 phobos2-ldc-unittest-debug phobos2-ldc-unittest druntime-ldc-unittest-debug druntime-ldc-unittest
+  -
+    if [[ ! "${OPTS}" == *-DBUILD_SHARED_LIBS* ]]; then
+      ninja -j3 phobos2-ldc-unittest-debug-shared phobos2-ldc-unittest-shared druntime-ldc-unittest-debug-shared druntime-ldc-unittest-shared;
+    fi
   # Build and run LDC D unittests.
   - ctest --output-on-failure -R "ldc2-unittest"
   # Run LIT testsuite.
