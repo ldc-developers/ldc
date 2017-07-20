@@ -766,7 +766,7 @@ if (LDC_INSTALL_LLVM_RUNTIME_LIBS)
     endif()
 
     # Locate libFuzzer runtime library, and copy it to our lib folder
-    set(LLVM_LIBFUZZER_PATH ${LLVM_LIBRARY_DIRS}/libLLVMFuzzer.a)
+    set(LLVM_LIBFUZZER_PATH ${LLVM_LIBRARY_DIRS}/libFuzzer.a)
     if(EXISTS ${LLVM_LIBFUZZER_PATH})
         message(STATUS "Copying libFuzzer library: ${LLVM_LIBFUZZER_PATH} --> libFuzzer.a")
         file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX})
