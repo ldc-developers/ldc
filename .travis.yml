@@ -1,3 +1,4 @@
+dist: trusty
 language: cpp
 sudo: false
 
@@ -16,7 +17,7 @@ matrix:
     - os: linux
       env: LLVM_VERSION=3.5.2 OPTS="-DTEST_COVERAGE=ON"
     - os: osx
-      env: LLVM_CONFIG="llvm-config-3.8"
+      env: LLVM_VERSION=4.0.0 OPTS="-DBUILD_SHARED_LIBS=ON"
   allow_failures:
     #- env: LLVM_VERSION=3.9
 
@@ -35,56 +36,62 @@ addons:
     - ubuntu-toolchain-r-test
     packages:
     - libconfig++8-dev
-    - gdb
-    - gcc-4.9
     - g++-4.9
     - gcc-4.9-multilib
     - g++-4.9-multilib
     - gcc-multilib
     - g++-multilib
-    - libedit2
-    - libedit-dev
+    - gdb
+    - ninja-build
     - libcurl3:i386
 before_install:
   -
     if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
-      if [ -z "$(ls -A llvm-$LLVM_VERSION)" ]; then
-        wget -O llvm-$LLVM_VERSION.tar.xz http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-x86_64-linux-gnu-ubuntu-14.04.tar.xz;
-        mkdir llvm-$LLVM_VERSION;
-        tar -xvf llvm-$LLVM_VERSION.tar.xz --strip 1 -C llvm-$LLVM_VERSION;
+      if [ "${LLVM_VERSION}" = "4.0.1" ]; then
+        export LLVM_ARCH="x86_64-linux-gnu-debian8";
+      else
+        export LLVM_ARCH="x86_64-linux-gnu-ubuntu-14.04";
       fi;
-      llvm-$LLVM_VERSION/bin/llvm-config --version;
-      export LLVM_CONFIG="llvm-$LLVM_VERSION/bin/llvm-config";
-    fi
+    else
+      export LLVM_ARCH="x86_64-apple-darwin";
+    fi;
+    if [ -z "$(ls -A llvm-$LLVM_VERSION)" ]; then
+      wget -O llvm-$LLVM_VERSION.tar.xz http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-${LLVM_ARCH}.tar.xz;
+      mkdir llvm-$LLVM_VERSION;
+      tar -xf llvm-$LLVM_VERSION.tar.xz --strip 1 -C llvm-$LLVM_VERSION;
+    fi;
+    llvm-$LLVM_VERSION/bin/llvm-config --version;
+    export LLVM_CONFIG="llvm-$LLVM_VERSION/bin/llvm-config";
+
 install:
   - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then export CC="gcc-4.9"; export CXX="g++-4.9"; fi
-  - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then brew update; brew install llvm38; brew install libconfig; fi;
+  - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then brew update; brew install ninja; fi
   - pip install --user lit
+  - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then ld --version; gdb --version; fi
+  - cmake --version
+  - ninja --version
   - python -c "import lit; lit.main();" --version | head -n 1
-  - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then gdb --version; fi
 
 script:
-  - cmake --version
-  - cmake -DLLVM_CONFIG=$(which ${LLVM_CONFIG}) $OPTS .
-  - make -j3
+  - cmake -G Ninja -DLLVM_CONFIG=$(which ${LLVM_CONFIG}) $OPTS .
+  - ninja -j3
   # Outputs some environment info, plus makes sure we only run the test suite
   # if we could actually build the executable.
   - bin/ldc2 -version || exit 1
   # Build Phobos & druntime unittest modules.
+  - ninja -j3 phobos2-ldc-unittest-debug phobos2-ldc-unittest druntime-ldc-unittest-debug druntime-ldc-unittest
   -
-    if [ "${OPTS}" = "-DMULTILIB=ON" ]; then
-      make -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest phobos2-ldc-unittest-debug-32 phobos2-ldc-unittest-32;
-      make -j3 druntime-ldc-unittest-debug druntime-ldc-unittest druntime-ldc-unittest-debug-32 druntime-ldc-unittest-32;
-    else
-      make -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest;
-      make -j3 druntime-ldc-unittest-debug druntime-ldc-unittest;
+    if [[ "${OPTS}" == *-DDMULTILIB=ON* ]]; then
+      ninja -j3 phobos2-ldc-unittest-debug-32 phobos2-ldc-unittest-32 druntime-ldc-unittest-debug-32 druntime-ldc-unittest-32;
     fi
-  # Run dmd-testsuite.
-  - CC="" DMD_TESTSUITE_MAKE_ARGS=-j3 ctest --verbose -R "dmd-testsuite"
-  # Run LLVM IR testsuite.
-  - ctest --output-on-failure -V -R "lit-tests"
+  # Build and run LDC D unittests.
+  - ctest --output-on-failure -R "ldc2-unittest"
+  # Run LIT testsuite.
+  - ctest -V -R "lit-tests"
+  # Run DMD testsuite.
+  - DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R "dmd-testsuite"
   # Link and run Phobos & druntime unittest runners.
-  - ctest -j3 --output-on-failure -E "dmd-testsuite|lit-tests"
+  - ctest -j3 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
 
 after_success:
   -
