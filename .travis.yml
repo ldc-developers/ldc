@@ -83,7 +83,7 @@ install:
   - eval "${DC} --version"
 
 script:
-  - cmake -G Ninja -DLLVM_CONFIG=$(which ${LLVM_CONFIG}) $OPTS .
+  - cmake -G Ninja -DLLVM_CONFIG=$(which ${LLVM_CONFIG}) -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON $OPTS .
   - ninja -j3
   # Output some environment info, plus make sure we only run the test suite
   # if we could actually build the executable.
