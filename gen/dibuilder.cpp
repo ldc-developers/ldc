@@ -162,6 +162,7 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
       Encoding = DW_ATE_unsigned_char;
       break;
     }
+    // fall through
   case Twchar:
   case Tdchar:
     Encoding = DW_ATE_UTF;
@@ -172,6 +173,7 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
       Encoding = DW_ATE_signed_char;
       break;
     }
+    // fall through
   case Tint16:
   case Tint32:
   case Tint64:
@@ -184,6 +186,7 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
       Encoding = DW_ATE_unsigned_char;
       break;
     }
+    // fall through
   case Tuns16:
   case Tuns32:
   case Tuns64:
