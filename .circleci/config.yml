@@ -30,7 +30,7 @@ jobs:
             add-apt-repository -y 'deb http://apt.llvm.org/unstable/ llvm-toolchain main'
             wget -O - http://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
             apt update
-            apt install -y llvm-5.0 llvm-5.0-dev
+            apt install -y llvm-5.0 llvm-5.0-dev libclang-common-5.0-dev libfuzzer-5.0-dev
       - restore_cache:
           key: host-ldc-{{ .Environment.HOST_LDC_VERSION }}
       - run:
