@@ -203,12 +203,53 @@ bool addDarwinASanLinkFlags(std::vector<std::string> &args) {
   return false;
 }
 
+// Returns the arch name as used in the compiler_rt libs.
+// FIXME: implement correctly for non-x86 platforms (e.g. ARM)
+llvm::StringRef getCompilerRTArchName() {
+  return global.params.targetTriple->getArchName();
+}
+
+bool addUnixlikeASanLinkFlags(std::vector<std::string> &args) {
+  // Examples: "libclang_rt.asan-x86_64.a" or "libclang_rt.asan-arm.a" and
+  // "libclang_rt.asan-x86_64.so"
+
+  auto arch = getCompilerRTArchName();
+
+  // TODO: let user choose to link with shared lib. In case of shared ASan, I
+  // think we also need to statically link with
+  // libclang_rt.asan-preinit-<arch>.a
+  bool linkSharedASan = false;
+  const char *extension = linkSharedASan ? ".so" : ".a";
+
+  std::string searchPaths[] = {
+      exe_path::prependLibDir("libldc_rt.asan-" + llvm::Twine(arch) +
+                              extension),
+      exe_path::prependLibDir("libclang_rt.asan-" + llvm::Twine(arch) +
+                              extension),
+  };
+
+  for (const auto &filepath : searchPaths) {
+    if (llvm::sys::fs::exists(filepath)) {
+      args.push_back(filepath);
+
+      if (linkSharedASan) {
+        // TODO: add -rpath
+      }
+
+      return true;
+    }
+  }
+
+  // We did not find the library.
+  return false;
+}
+
 void ArgsBuilder::addASanLinkFlags() {
   bool success = false;
   if (global.params.targetTriple->isOSDarwin()) {
     success = addDarwinASanLinkFlags(args);
   } else {
-    success = false; // TODO: implement
+    success = addUnixlikeASanLinkFlags(args);
   }
 
   if (!success) {
