@@ -25,6 +25,7 @@ set(BUILD_SHARED_LIBS     AUTO                                      CACHE STRING
 set(D_FLAGS               -w                                        CACHE STRING  "Runtime build flags, separated by ;")
 set(D_FLAGS_DEBUG         -g;-link-debuglib                         CACHE STRING  "Runtime build flags (debug libraries), separated by ;")
 set(D_FLAGS_RELEASE       -O3;-release                              CACHE STRING  "Runtime build flags (release libraries), separated by ;")
+set(COMPILE_ALL_D_FILES_AT_ONCE ON                                  CACHE BOOL    "Compile all D files for a lib in a single command line instead of separately")
 
 set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 
@@ -269,46 +270,63 @@ foreach(variable ${variables})
     set(${variable} "${CMAKE_C_FLAGS_RELEASE}")
 endforeach()
 
-# Compiles the given D module into an object file, and if enabled, a bitcode
-# file. The output is written to a path based on output_dir. The paths of the
-# output files are appended to outlist_o and outlist_bc, respectively.
-macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
-    file(RELATIVE_PATH output ${output_dir} ${input_d})
-
-    get_filename_component(name ${output} NAME_WE)
-    get_filename_component(path ${output} PATH)
-    if("${path}" STREQUAL "")
-        set(output_root ${name})
-    else()
-        set(output_root ${path}/${name})
-    endif()
-
-    set(output_o  ${PROJECT_BINARY_DIR}/${output_root}${output_suffix}${CMAKE_C_OUTPUT_EXTENSION})
-    set(output_bc ${PROJECT_BINARY_DIR}/${output_root}${output_suffix}.bc)
-    list(APPEND ${outlist_o} ${output_o})
+# Compiles the given D modules to object files, and if enabled, bitcode files.
+# The paths of the output files are appended to outlist_o and outlist_bc, respectively.
+macro(dc src_files src_basedir d_flags output_basedir all_at_once outlist_o outlist_bc)
+    set(dc_flags -c --output-o ${d_flags})
     if(BUILD_BC_LIBS)
-        list(APPEND ${outlist_bc} ${output_bc})
+        list(APPEND dc_flags --output-bc)
     endif()
 
-    # Compile
-    if(BUILD_BC_LIBS)
-        set(outfiles ${output_o} ${output_bc})
-        set(dc_flags --output-o --output-bc)
-    else()
-        set(outfiles ${output_o})
-        set(dc_flags --output-o)
-    endif()
-
-    add_custom_command(
-        OUTPUT
-            ${outfiles}
-        COMMAND ${LDC_EXE_FULL} ${dc_flags} -c -I${RUNTIME_DIR}/src -I${RUNTIME_DIR}/src/gc ${input_d} -of${output_o} ${d_flags}
-        WORKING_DIRECTORY ${PROJECT_PARENT_DIR}
-        DEPENDS ${input_d}
-                ${LDC_EXE}
+    set(dc_deps ${LDC_EXE}
                 ${LDC_EXE_FULL}
                 ${GCCBUILTINS}
     )
+
+    set(relative_src_files "")
+
+    foreach(f ${src_files})
+        file(RELATIVE_PATH relative_src_file ${src_basedir} ${f})
+        get_filename_component(name ${relative_src_file} NAME_WE)
+        get_filename_component(path ${relative_src_file} PATH)
+        if("${path}" STREQUAL "")
+            set(output_root ${name})
+        else()
+            set(output_root ${path}/${name})
+        endif()
+
+        set(output_o  ${output_basedir}/${output_root}${CMAKE_C_OUTPUT_EXTENSION})
+        set(output_bc ${output_basedir}/${output_root}.bc)
+        list(APPEND ${outlist_o} ${output_o})
+        if(BUILD_BC_LIBS)
+            list(APPEND ${outlist_bc} ${output_bc})
+        endif()
+
+        if(${all_at_once})
+            list(APPEND relative_src_files ${relative_src_file})
+        else()
+            set(outfiles ${output_o})
+            if(BUILD_BC_LIBS)
+                list(APPEND outfiles ${output_bc})
+            endif()
+
+            add_custom_command(
+                OUTPUT  ${outfiles}
+                COMMAND ${LDC_EXE_FULL} ${dc_flags} -of=${output_o} ${relative_src_file}
+                WORKING_DIRECTORY ${src_basedir}
+                DEPENDS ${f} ${dc_deps}
+            )
+        endif()
+    endforeach()
+
+    if(${all_at_once})
+        add_custom_command(
+            OUTPUT  ${${outlist_o}} ${${outlist_bc}}
+            COMMAND ${LDC_EXE_FULL} ${dc_flags} -od=${output_basedir} -op ${relative_src_files}
+            WORKING_DIRECTORY ${src_basedir}
+            DEPENDS ${src_files} ${dc_deps}
+        )
+    endif()
 endmacro()
 
 # Sets target_suffix to a purely cosmetical suffix for the CMake target names
@@ -326,38 +344,32 @@ macro(get_target_suffix lib_suffix path_suffix target_suffix)
     endif()
 endmacro()
 
-# Sets up the targets for building the individual druntime object files,
-# appending the names of the (bitcode) files to link into the library to
-# outlist_o (outlist_bc).
-macro(compile_druntime d_flags lib_suffix path_suffix outlist_o outlist_bc)
+# Sets up the target(s) for building the druntime D object files, appending the
+# names of the (bitcode) files to link into the library to outlist_o (outlist_bc).
+macro(compile_druntime d_flags lib_suffix path_suffix all_at_once outlist_o outlist_bc)
     get_target_suffix("${lib_suffix}" "${path_suffix}" target_suffix)
-    foreach(f ${DRUNTIME_D})
-        dc(
-            ${f}
-            "-conf=;${d_flags};-I${RUNTIME_DIR}/src"
-            "${RUNTIME_DIR}"
-            "${target_suffix}"
-            ${outlist_o}
-            ${outlist_bc}
-        )
-    endforeach()
+    dc("${DRUNTIME_D}"
+       "${RUNTIME_DIR}/src"
+       "-conf=;${d_flags};-I${RUNTIME_DIR}/src"
+       "${PROJECT_BINARY_DIR}/objects${target_suffix}"
+       "${all_at_once}"
+       ${outlist_o}
+       ${outlist_bc}
+    )
 endmacro()
 
-# Sets up the targets for building the individual Phobos object files,
-# appending the names of the (bitcode) files to link into the library to
-# outlist_o (outlist_bc).
-macro(compile_phobos2 d_flags lib_suffix path_suffix outlist_o outlist_bc)
+# Sets up the targets for building the Phobos D object files, appending the
+# names of the (bitcode) files to link into the library to outlist_o (outlist_bc).
+macro(compile_phobos2 d_flags lib_suffix path_suffix all_at_once outlist_o outlist_bc)
     get_target_suffix("${lib_suffix}" "${path_suffix}" target_suffix)
-    foreach(f ${PHOBOS2_D})
-        dc(
-            ${f}
-            "-conf=;${d_flags};-I${RUNTIME_DIR}/src;-I${PHOBOS2_DIR}"
-            ${PHOBOS2_DIR}
-            "${target_suffix}"
-            ${outlist_o}
-            ${outlist_bc}
-        )
-    endforeach()
+    dc("${PHOBOS2_D}"
+       "${PHOBOS2_DIR}"
+       "-conf=;${d_flags};-I${RUNTIME_DIR}/src;-I${PHOBOS2_DIR}"
+       "${PROJECT_BINARY_DIR}/objects${target_suffix}"
+       "${all_at_once}"
+       ${outlist_o}
+       ${outlist_bc}
+    )
 endmacro()
 
 # Sets the common properties for all library targets.
@@ -471,7 +483,7 @@ macro(build_runtime_libs druntime_o druntime_bc phobos2_o phobos2_bc c_flags ld_
 endmacro()
 
 # Builds a static and/or shared copy of druntime/Phobos.
-macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix outlist_targets)
+macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix all_d_files_at_once outlist_targets)
     # Only compile Phobos modules once for static+shared libs.
     # If a shared Phobos lib is generated (too), compile explicitly with `-relocation-model=pic`.
     set(phobos2_d_flags "${d_flags}")
@@ -481,7 +493,7 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix outl
 
     set(phobos2_o "")
     set(phobos2_bc "")
-    compile_phobos2("${phobos2_d_flags}" "${lib_suffix}" "${path_suffix}" phobos2_o phobos2_bc)
+    compile_phobos2("${phobos2_d_flags}" "${lib_suffix}" "${path_suffix}" "${all_d_files_at_once}" phobos2_o phobos2_bc)
 
     # Use a dummy custom target ('phobos2-ldc…-common') depending solely on the Phobos D objects
     # (custom commands) as dependency for static+shared Phobos libs.
@@ -494,7 +506,7 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix outl
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "ON")
         set(druntime_o "")
         set(druntime_bc "")
-        compile_druntime("${d_flags}" "${lib_suffix}" "${path_suffix}" druntime_o druntime_bc)
+        compile_druntime("${d_flags}" "${lib_suffix}" "${path_suffix}" "${all_d_files_at_once}" druntime_o druntime_bc)
 
         build_runtime_libs("${druntime_o}" "${druntime_bc}" "${phobos2_o}" "${phobos2_bc}"
                            "${c_flags}" "${ld_flags}" "${lib_suffix}" "${path_suffix}" "OFF"
@@ -505,7 +517,7 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix outl
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
         set(druntime_o "")
         set(druntime_bc "")
-        compile_druntime("${d_flags};-relocation-model=pic;-d-version=Shared" "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}" druntime_o druntime_bc)
+        compile_druntime("${d_flags};-relocation-model=pic;-d-version=Shared" "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}" "${all_d_files_at_once}" druntime_o druntime_bc)
 
         build_runtime_libs("${druntime_o}" "${druntime_bc}" "${phobos2_o}" "${phobos2_bc}"
                            "${c_flags}" "${ld_flags}" "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}" "ON"
@@ -523,6 +535,7 @@ macro(build_runtime_variants d_flags c_flags ld_flags path_suffix outlist_target
         "${ld_flags}"
         ""
         "${path_suffix}"
+        "${COMPILE_ALL_D_FILES_AT_ONCE}"
         ${outlist_targets}
     )
     # static and/or shared debug druntime/Phobos
@@ -532,6 +545,7 @@ macro(build_runtime_variants d_flags c_flags ld_flags path_suffix outlist_target
         "${ld_flags}"
         "-debug"
         "${path_suffix}"
+        "${COMPILE_ALL_D_FILES_AT_ONCE}"
         ${outlist_targets}
     )
 endmacro()
@@ -708,6 +722,7 @@ function(build_test_runner_variant name_suffix path_suffix d_flags c_flags)
         "${LD_FLAGS} ${c_flags}"
         "-unittest${name_suffix}"
         "${path_suffix}"
+        "OFF" # compile separately
         unittest_libs
     )
 
