@@ -678,43 +678,52 @@ macro(append_flags_to_pull_in_all_objects lib name_suffix target_suffix is_share
     endif()
 endmacro()
 
-# Adds test targets for a pair of druntime/Phobos test runners.
+set(_GLOBAL_TESTRUNNERS "" CACHE INTERNAL "List all test runner build targets")
+
+# Generates targets for a pair of druntime/Phobos test runners.
+# The build targets are also appended to the _GLOBAL_TESTRUNNERS list.
 function(build_test_runners name_suffix path_suffix is_shared)
     set(target_suffix)
     get_target_suffix("${name_suffix}" "${path_suffix}" target_suffix)
 
     set(tmpflags "${flags}")
     append_flags_to_pull_in_all_objects("druntime-ldc-unittest" "${name_suffix}" "${target_suffix}" "${is_shared}" tmpflags)
-    add_test(NAME build-druntime-test-runner${target_suffix}
-        COMMAND ${LDC_EXE_FULL}
-            -of${PROJECT_BINARY_DIR}/druntime-test-runner${target_suffix}${CMAKE_EXECUTABLE_SUFFIX}
-            -defaultlib= -debuglib=
-            ${tmpflags} ${RUNTIME_DIR}/src/test_runner.d
+    set(druntime_name druntime-test-runner${target_suffix})
+    set(druntime_exe ${PROJECT_BINARY_DIR}/${druntime_name}${CMAKE_EXECUTABLE_SUFFIX})
+    add_custom_command(
+        OUTPUT  ${druntime_exe}
+        COMMAND ${LDC_EXE_FULL} -of=${druntime_exe} -defaultlib= -debuglib= ${tmpflags}
+                ${RUNTIME_DIR}/src/test_runner.d
+        DEPENDS druntime-ldc-unittest${target_suffix} ${RUNTIME_DIR}/src/test_runner.d
     )
-    set_tests_properties(build-druntime-test-runner${target_suffix} PROPERTIES
-        DEPENDS build-druntime-ldc-unittest${target_suffix})
+    add_custom_target(build-${druntime_name} DEPENDS ${druntime_exe})
+    add_test(build-${druntime_name} "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target build-${druntime_name})
+    set(_GLOBAL_TESTRUNNERS "${_GLOBAL_TESTRUNNERS};build-${druntime_name}" CACHE INTERNAL "")
 
     if(PHOBOS2_DIR)
         set(tmpflags "${flags}")
         append_flags_to_pull_in_all_objects("phobos2-ldc-unittest" "${name_suffix}" "${target_suffix}" "${is_shared}" tmpflags)
         set(libarg "druntime-ldc-unittest${name_suffix}")
-        add_test(NAME build-phobos2-test-runner${target_suffix}
-            COMMAND ${LDC_EXE_FULL}
-                -of${PROJECT_BINARY_DIR}/phobos2-test-runner${target_suffix}${CMAKE_EXECUTABLE_SUFFIX}
-                -defaultlib=${libarg} -debuglib=${libarg}
-                ${tmpflags} ${RUNTIME_DIR}/src/test_runner.d
+        set(phobos_name phobos2-test-runner${target_suffix})
+        set(phobos_exe ${PROJECT_BINARY_DIR}/${phobos_name}${CMAKE_EXECUTABLE_SUFFIX})
+        add_custom_command(
+            OUTPUT  ${phobos_exe}
+            COMMAND ${LDC_EXE_FULL} -of=${phobos_exe} -defaultlib=${libarg} -debuglib=${libarg} ${tmpflags}
+                    ${RUNTIME_DIR}/src/test_runner.d
+            DEPENDS druntime-ldc-unittest${target_suffix} phobos2-ldc-unittest${target_suffix}
+                    ${RUNTIME_DIR}/src/test_runner.d
         )
-        set_tests_properties(build-phobos2-test-runner${target_suffix} PROPERTIES
-            DEPENDS "build-druntime-ldc-unittest${target_suffix};build-phobos2-ldc-unittest${target_suffix}"
-        )
+        add_custom_target(build-${phobos_name} DEPENDS ${phobos_exe})
+        add_test(build-${phobos_name} "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target build-${phobos_name})
+        set(_GLOBAL_TESTRUNNERS "${_GLOBAL_TESTRUNNERS};build-${phobos_name}" CACHE INTERNAL "")
     endif()
 endfunction()
 
-# Generates build and test targets for a static and/or shared pair of druntime/Phobos unittests.
+# Generates targets for static and/or shared pairs of druntime/Phobos test runners.
 function(build_test_runner_variant name_suffix path_suffix d_flags c_flags)
     set(flags "${D_FLAGS};${d_flags};-unittest")
 
-    # static and/or shared pair(s) of druntime/Phobos unittests
+    # static and/or shared pair(s) of druntime/Phobos unittest libs
     set(unittest_libs "")
     build_runtime_variant(
         "${flags}"
@@ -726,23 +735,8 @@ function(build_test_runner_variant name_suffix path_suffix d_flags c_flags)
         unittest_libs
     )
 
-    # Only build the unittest libraries when running the tests. Unfortunately,
-    # I couldn't find an easier way to make a test depend on a CMake target than
-    # just invoking the build command through the CMake executable.
+    # Only build the unittest libraries when running the tests.
     set_target_properties(${unittest_libs} PROPERTIES EXCLUDE_FROM_ALL ON EXCLUDE_FROM_DEFAULT_BUILD ON)
-    foreach(l ${unittest_libs})
-        add_test(build-${l} "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ${l})
-
-        # Shared Phobos libraries depend on druntime (linked in).
-        # Reflect this via a CTest dependency to prevent problematic parallel builds
-        # of shared druntime, e.g., via parallel execution of tests
-        # build-druntime-ldc-unittest-shared and build-phobos2-ldc-unittest-shared.
-        if(${l} MATCHES "^phobos2-")
-            set(suffix "")
-            string(SUBSTRING ${l} 8 -1 suffix)
-            set_tests_properties(build-${l} PROPERTIES DEPENDS build-druntime-${suffix})
-        endif()
-    endforeach()
 
     # static druntime/Phobos test runners
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "ON")
@@ -754,16 +748,20 @@ function(build_test_runner_variant name_suffix path_suffix d_flags c_flags)
     endif()
 endfunction()
 
-# Generates build and test targets for static and/or shared debug+release druntime/Phobos unittests.
+# Generates targets for static and/or shared debug+release druntime/Phobos test runners.
 function(build_test_runner_variants path_suffix d_flags c_flags)
     build_test_runner_variant("" "${path_suffix}" "${D_FLAGS_RELEASE};${d_flags}" "${c_flags}")
     build_test_runner_variant("-debug" "${path_suffix}" "${D_FLAGS_DEBUG};${d_flags}" "${c_flags}")
 endfunction()
 
+# Now generate all test runner targets.
 build_test_runner_variants("${LIB_SUFFIX}" "" "")
 if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
     build_test_runner_variants("${MULTILIB_SUFFIX}" "-m32" "-m32")
 endif()
+
+# Let's add a meta build target for all test runners.
+add_custom_target(all-test-runners DEPENDS ${_GLOBAL_TESTRUNNERS})
 
 # Add the druntime/Phobos test runner invocations for all the different modules.
 
