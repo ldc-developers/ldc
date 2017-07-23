@@ -27,8 +27,24 @@ set(D_FLAGS_DEBUG         -g;-link-debuglib                   CACHE STRING "Runt
 set(D_FLAGS_RELEASE       -O3;-release                        CACHE STRING "Runtime build flags (release libraries), separated by ;")
 set(COMPILE_ALL_D_FILES_AT_ONCE ON                            CACHE BOOL   "Compile all D files for a lib in a single command line instead of separately")
 set(C_SYSTEM_LIBS         AUTO                                CACHE STRING "C system libraries for linking shared libraries and test runners, separated by ;")
+set(TARGET_SYSTEM         AUTO                                CACHE STRING "Targeted platform for cross-compilation (e.g., 'Linux;UNIX', 'Darwin;APPLE;UNIX', 'Windows;MSVC')")
 
 set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
+
+# Auto-detect TARGET_SYSTEM
+if("${TARGET_SYSTEM}" STREQUAL "AUTO")
+    set(TARGET_SYSTEM ${CMAKE_SYSTEM_NAME})
+    # Additionally add MSVC, APPLE and/or UNIX
+    if(MSVC)
+        list(APPEND TARGET_SYSTEM "MSVC")
+    endif()
+    if(APPLE)
+        list(APPEND TARGET_SYSTEM "APPLE")
+    endif()
+    if(UNIX)
+        list(APPEND TARGET_SYSTEM "UNIX")
+    endif()
+endif()
 
 include(CheckTypeSize)
 check_type_size(void* ptr_size)
@@ -41,9 +57,7 @@ else()
 endif()
 
 set(SHARED_LIBS_SUPPORTED OFF)
-if(${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR
-   ${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD" OR
-   APPLE)
+if("${TARGET_SYSTEM}" MATCHES "Linux|FreeBSD|APPLE")
     set(SHARED_LIBS_SUPPORTED ON)
 endif()
 
@@ -69,7 +83,7 @@ endif()
 
 # Auto-detect C system libraries
 if("${C_SYSTEM_LIBS}" STREQUAL "AUTO")
-    if(${CMAKE_SYSTEM} MATCHES "Linux")
+    if("${TARGET_SYSTEM}" MATCHES "Linux")
         set(C_SYSTEM_LIBS m pthread rt dl)
     else()
         set(C_SYSTEM_LIBS m pthread)
@@ -123,40 +137,40 @@ list(REMOVE_ITEM DRUNTIME_D
     ${DRUNTIME_D_NETBSD}  ${DRUNTIME_D_OPENBSD} ${DRUNTIME_D_OSX}     ${DRUNTIME_D_POSIX}
     ${DRUNTIME_D_SOLARIS} ${DRUNTIME_D_WINDOWS}
 )
-if(UNIX)
+if("${TARGET_SYSTEM}" MATCHES "Windows")
+    list(APPEND DRUNTIME_D ${DRUNTIME_D_WINDOWS})
+elseif("${TARGET_SYSTEM}" MATCHES "UNIX")
     list(APPEND DRUNTIME_D ${DRUNTIME_D_POSIX})
-    if(APPLE)
+    if("${TARGET_SYSTEM}" MATCHES "APPLE")
         list(APPEND DRUNTIME_D ${DRUNTIME_D_DARWIN})
         list(APPEND DRUNTIME_D ${DRUNTIME_D_OSX})
-    elseif(${CMAKE_SYSTEM} MATCHES "FreeBSD")
+    elseif("${TARGET_SYSTEM}" MATCHES "FreeBSD")
         list(APPEND DRUNTIME_D ${DRUNTIME_D_FREEBSD})
-    elseif(${CMAKE_SYSTEM} MATCHES "Linux")
+    elseif("${TARGET_SYSTEM}" MATCHES "Linux")
         list(APPEND DRUNTIME_D ${DRUNTIME_D_LINUX})
         list(APPEND DRUNTIME_D ${DRUNTIME_D_BIONIC})
-    elseif(${CMAKE_SYSTEM} MATCHES "NetBSD")
+    elseif("${TARGET_SYSTEM}" MATCHES "NetBSD")
         list(APPEND DRUNTIME_D ${DRUNTIME_D_NETBSD})
-    elseif(${CMAKE_SYSTEM} MATCHES "OpenBSD")
+    elseif("${TARGET_SYSTEM}" MATCHES "OpenBSD")
         list(APPEND DRUNTIME_D ${DRUNTIME_D_OPENBSD})
-    elseif(${CMAKE_SYSTEM} MATCHES "SunOS")
+    elseif("${TARGET_SYSTEM}" MATCHES "SunOS")
         list(APPEND DRUNTIME_D ${DRUNTIME_D_SOLARIS})
     endif()
-elseif(WIN32)
-    list(APPEND DRUNTIME_D ${DRUNTIME_D_WINDOWS})
 endif()
 
 # druntime C parts
 file(GLOB_RECURSE DRUNTIME_C ${RUNTIME_DIR}/src/*.c)
 list(REMOVE_ITEM DRUNTIME_C ${RUNTIME_DIR}/src/rt/dylib_fixes.c)
-if(NOT APPLE)
+if(NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
     list(REMOVE_ITEM DRUNTIME_C ${RUNTIME_DIR}/src/rt/osx_tls.c)
 endif()
-if(NOT MSVC)
+if(NOT "${TARGET_SYSTEM}" MATCHES "MSVC")
     list(REMOVE_ITEM DRUNTIME_C ${RUNTIME_DIR}/src/rt/msvc.c ${RUNTIME_DIR}/src/rt/msvc_math.c)
 endif()
 
 # druntime ASM parts
 set(DRUNTIME_ASM)
-if(UNIX)
+if("${TARGET_SYSTEM}" MATCHES "UNIX")
     list(APPEND DRUNTIME_ASM ${RUNTIME_DIR}/src/core/threadasm.S ${RUNTIME_DIR}/src/ldc/eh_asm.S)
 endif()
 
@@ -173,19 +187,19 @@ if(PHOBOS2_DIR)
     list(REMOVE_ITEM PHOBOS2_D
         ${PHOBOS2_D_FREEBSD} ${PHOBOS2_D_LINUX} ${PHOBOS2_D_OSX} ${PHOBOS2_D_WINDOWS}
     )
-    if(UNIX)
-        if(APPLE)
+    if("${TARGET_SYSTEM}" MATCHES "UNIX")
+        if("${TARGET_SYSTEM}" MATCHES "APPLE")
             list(APPEND PHOBOS2_D ${PHOBOS2_D_OSX})
-        elseif(${CMAKE_SYSTEM} MATCHES "FreeBSD")
+        elseif("${TARGET_SYSTEM}" MATCHES "FreeBSD")
             list(APPEND PHOBOS2_D ${PHOBOS2_D_FREEBSD})
-        elseif(${CMAKE_SYSTEM} MATCHES "Linux")
+        elseif("${TARGET_SYSTEM}" MATCHES "Linux")
             list(APPEND PHOBOS2_D ${PHOBOS2_D_LINUX})
         endif()
-    elseif(WIN32)
+    elseif("${TARGET_SYSTEM}" MATCHES "Windows")
         list(APPEND PHOBOS2_D ${PHOBOS2_D_WINDOWS})
     endif()
     # only include std/windows/ modules on Windows
-    if(NOT WIN32)
+    if(NOT "${TARGET_SYSTEM}" MATCHES "Windows")
         file(GLOB_RECURSE PHOBOS2_D_WINDOWS ${PHOBOS2_DIR}/std/windows/*.d)
         list(REMOVE_ITEM PHOBOS2_D ${PHOBOS2_D_WINDOWS})
     endif()
@@ -203,7 +217,7 @@ endif()
 # Add extra paths on Linux and disable linker arch mismatch warnings (like
 # DMD and GDC do). OS X doesn't need extra configuration due to the use of
 # fat binaries. Other Posixen might need to be added here.
-if((${CMAKE_SYSTEM_NAME} MATCHES "Linux") OR (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD"))
+if("${TARGET_SYSTEM}" MATCHES "Linux|FreeBSD")
     if(MULTILIB)
         set(MULTILIB_ADDITIONAL_PATH         "\n        \"-L-L${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
         set(MULTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
@@ -262,7 +276,7 @@ endforeach()
 # Always build zlib and other C parts of the runtime in release mode, regardless
 # of what the user chose for LDC itself.
 # 1) Set up CMAKE_C_FLAGS_RELEASE
-if(MSVC)
+if("${TARGET_SYSTEM}" MATCHES "MSVC")
     # Omit all references to the default C runtime libs.
     # We want to be able to link against all 4 C runtime variants (libcmt[d] / msvcrt[d]).
     string(REGEX REPLACE "(^| )[/-]M[TD]d?( |$)" "\\2" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
@@ -394,7 +408,7 @@ function(set_common_library_properties target)
     # linker default on Ubuntu 16.10 and above. As we might be building on an
     # older system (e.g. binary packages), we need to make sure the C parts are
     # built as PIC as well.
-    if(${CMAKE_SYSTEM} MATCHES "Linux")
+    if("${TARGET_SYSTEM}" MATCHES "Linux")
         set_target_properties(${target} PROPERTIES
             POSITION_INDEPENDENT_CODE ON)
     endif()
@@ -573,7 +587,7 @@ include(profile-rt/DefineBuildProfileRT.cmake)
 
 set(RT_CFLAGS "")
 
-if(APPLE AND MULTILIB)
+if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
     # On OS X, build "fat" libraries containing code for both architectures.
 
     # Some suffix for the target/file names of the host-native arch so
@@ -662,7 +676,7 @@ install(FILES ${GCCBUILTINS} DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
 # required to make sure all objects are pulled in.
 
 macro(append_testrunner_linkflags lib name_suffix path_suffix target_suffix is_shared output_flags)
-    if(MSVC)
+    if("${TARGET_SYSTEM}" MATCHES "MSVC")
         set(lib_path "lib${path_suffix}/${lib}${name_suffix}.lib")
         if("${is_shared}" STREQUAL "ON")
             append("${lib_path}" ${output_flags})
@@ -675,14 +689,14 @@ macro(append_testrunner_linkflags lib name_suffix path_suffix target_suffix is_s
         append("-Llib${path_suffix}" ${output_flags})
         set(lib_switch "-l${lib}${name_suffix}")
         if("${is_shared}" STREQUAL "ON")
-            if(APPLE)
+            if("${TARGET_SYSTEM}" MATCHES "APPLE")
                 append("${lib_switch}" ${output_flags})
             else()
                 append("-Wl,--no-as-needed,${lib_switch},--as-needed" ${output_flags})
             endif()
             append("-Wl,-rpath,${CMAKE_BINARY_DIR}/lib${path_suffix}" ${output_flags})
         else()
-            if(APPLE)
+            if("${TARGET_SYSTEM}" MATCHES "APPLE")
                 append("-Wl,-force_load,${CMAKE_BINARY_DIR}/lib${path_suffix}/lib${lib}${name_suffix}.a" ${output_flags})
             else()
                 append("-Wl,--whole-archive,${lib_switch},--no-whole-archive" ${output_flags})
@@ -843,7 +857,7 @@ endif()
 # Add the standalone druntime tests.
 # TODO: Add test/excetions and test/init_fini.
 if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
-    if(MULTILIB AND APPLE)
+    if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
         # KLUDGE: The library target is a custom command for multilib builds (lipo),
         # so cannot use TARGET_FILE directly. Should stash away that name instead.
         set(druntime_path "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/libdruntime-ldc${SHARED_LIB_SUFFIX}.dylib")
@@ -855,7 +869,7 @@ if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
     add_test(NAME clean-druntime-test-shared
         COMMAND ${CMAKE_COMMAND} -E remove_directory ${outdir})
 
-    if(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+    if("${TARGET_SYSTEM}" MATCHES "FreeBSD")
         set(linkflags "")
     else()
         set(linkflags "LINKDL=-L-ldl")

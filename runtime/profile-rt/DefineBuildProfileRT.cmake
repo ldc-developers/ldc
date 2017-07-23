@@ -8,7 +8,7 @@ if (LDC_WITH_PGO)
     file(GLOB LDC_PROFRT_CXX ${PROFILERT_LIBSRC_DIR}/*.cc)
 
     # Set compiler-dependent flags
-    if(MSVC)
+    if("${TARGET_SYSTEM}" MATCHES "MSVC")
         # Omit Default Library Name from the library, so it will work with both release and debug builds
         set(PROFRT_EXTRA_FLAGS "/Zl")
 
