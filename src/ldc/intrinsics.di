@@ -44,6 +44,14 @@ else version(LDC_LLVM_500)
     version = INTRINSICS_FROM_400;
     version = INTRINSICS_FROM_500;
 }
+else version(LDC_LLVM_600)
+{
+    version = INTRINSICS_FROM_308;
+    version = INTRINSICS_FROM_309;
+    version = INTRINSICS_FROM_400;
+    version = INTRINSICS_FROM_500;
+    version = INTRINSICS_FROM_600;
+}
 else
 {
     static assert(false, "LDC LLVM version not supported");
