@@ -919,8 +919,11 @@ void registerPredefinedVersions() {
   VersionCondition::addPredefinedGlobalIdent("LDC");
   VersionCondition::addPredefinedGlobalIdent("all");
   VersionCondition::addPredefinedGlobalIdent("D_Version2");
+
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
-  VersionCondition::addPredefinedGlobalIdent("LDC_DCompute");
+  if (dcomputeTargets.size() != 0) {
+    VersionCondition::addPredefinedGlobalIdent("LDC_DCompute");
+  }
 #endif
 
   if (global.params.doDocComments) {
