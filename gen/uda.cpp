@@ -393,8 +393,9 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
       applyAttrSection(sle, func);
     } else if (ident == Id::udaTarget) {
       applyAttrTarget(sle, func);
-    } else if (ident == Id::udaWeak || ident == Id::udaKernel) {
+    } else if (ident == Id::udaWeak || ident == Id::udaKernel || Id::udaPolly) {
       // @weak and @kernel are applied elsewhere
+      // @polly is an inverted attribute and is applied elsewhere
     } else {
       sle->warning(
           "Ignoring unrecognized special attribute 'ldc.attributes.%s'", ident->toChars());
@@ -442,6 +443,21 @@ bool hasKernelAttr(Dsymbol *sym) {
     sym->error("@ldc.dcompute.kernel can only be applied to functions"
                " in modules marked @ldc.dcompute.compute");
 
+  return true;
+}
+
+/// Checks whether 'sym' has the @ldc.attributes._polly() UDA applied.
+bool hasPollyAttr(Dsymbol *sym) {
+  auto sle = getMagicAttribute(sym, Id::udaPolly, Id::attributes);
+  if (!sle)
+    return false;
+    
+  checkStructElems(sle, {});
+
+  if (!sym->isFuncDeclaration()) {
+    sle->error("@ldc.attributes.polly can only be applied to functions");
+  }
+  
   return true;
 }
 

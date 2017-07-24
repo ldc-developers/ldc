@@ -50,6 +50,10 @@
 #include "llvm/Target/TargetOptions.h"
 #include <iostream>
 
+#ifdef LDC_WITH_POLLY
+#include <polly/ScopDetection.h>
+#endif
+
 llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
                                     Type *nesttype, bool isMain, bool isCtor,
                                     bool isIntrinsic, bool hasSel) {
@@ -566,6 +570,10 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   applyTargetMachineAttributes(*func, *gTargetMachine);
   applyFuncDeclUDAs(fdecl, irFunc);
 
+#ifdef LDC_WITH_POLLY
+  if (!hasPollyAttr(fdecl)
+    fdecl->addFnAttr(polly::PollySkipFnAttr);
+#endif
   // main
   if (fdecl->isMain()) {
     // Detect multiple main functions, which is disallowed. DMD checks this
