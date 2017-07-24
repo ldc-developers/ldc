@@ -563,7 +563,7 @@ if(LDC_WITH_POLLY)
     #clang only links with Polly: are the other two necessary?
     #append("-DLDC_WITH_POLLY" LDC_CXXFLAGS)
     add_definitions(-DLDC_WITH_POLLY)
-    set(POLLY_LIBS "-lPolly -lPollyISL -lPollyPPCG")
+    set(POLLY_LIBS "-lPolly;-lPollyISL;-lPollyPPCG")
 else()
     set(POLLY_LIBS "")
 endif()
