@@ -14,6 +14,7 @@ module ldc.profile;
 version(LDC_LLVM_309) version = HASHED_FUNC_NAMES;
 version(LDC_LLVM_400) version = HASHED_FUNC_NAMES;
 version(LDC_LLVM_500) version = HASHED_FUNC_NAMES;
+version(LDC_LLVM_600) version = HASHED_FUNC_NAMES;
 
 @nogc:
 nothrow:
