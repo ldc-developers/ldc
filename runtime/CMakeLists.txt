@@ -676,30 +676,36 @@ install(FILES ${GCCBUILTINS} DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
 # required to make sure all objects are pulled in.
 
 macro(append_testrunner_linkflags lib name_suffix path_suffix target_suffix is_shared output_flags)
+    # (Re)set variable 'tested_lib_path', initialize to directory containing the tested lib.
+    # It'll contain the full path to the linked-in library when 'returning' to calling build_test_runners().
+    set(tested_lib_path "${CMAKE_BINARY_DIR}/lib${path_suffix}")
+
     if("${TARGET_SYSTEM}" MATCHES "MSVC")
-        set(lib_path "lib${path_suffix}/${lib}${name_suffix}.lib")
+        set(tested_lib_path "${tested_lib_path}/${lib}${name_suffix}.lib")
         if("${is_shared}" STREQUAL "ON")
-            append("${lib_path}" ${output_flags})
+            append("${tested_lib_path}" ${output_flags})
+            append("msvcrt.lib vcruntime.lib" ${output_flags})
         else()
             # the MS linker supports /WHOLEARCHIVE since VS 2015 Update 2
-            append("/WHOLEARCHIVE:${lib_path}" ${output_flags})
+            append("/WHOLEARCHIVE:${tested_lib_path}" ${output_flags})
             append("libcmt.lib libvcruntime.lib" ${output_flags})
         endif()
     else()
-        append("-Llib${path_suffix}" ${output_flags})
-        set(lib_switch "-l${lib}${name_suffix}")
         if("${is_shared}" STREQUAL "ON")
+            append("-Wl,-rpath,${tested_lib_path}" ${output_flags})
             if("${TARGET_SYSTEM}" MATCHES "APPLE")
-                append("${lib_switch}" ${output_flags})
+                set(tested_lib_path "${tested_lib_path}/lib${lib}${name_suffix}.dylib")
+                append("${tested_lib_path}" ${output_flags})
             else()
-                append("-Wl,--no-as-needed,${lib_switch},--as-needed" ${output_flags})
+                set(tested_lib_path "${tested_lib_path}/lib${lib}${name_suffix}.so")
+                append("-Wl,--no-as-needed,${tested_lib_path},--as-needed" ${output_flags})
             endif()
-            append("-Wl,-rpath,${CMAKE_BINARY_DIR}/lib${path_suffix}" ${output_flags})
         else()
+            set(tested_lib_path "${tested_lib_path}/lib${lib}${name_suffix}.a")
             if("${TARGET_SYSTEM}" MATCHES "APPLE")
-                append("-Wl,-force_load,${CMAKE_BINARY_DIR}/lib${path_suffix}/lib${lib}${name_suffix}.a" ${output_flags})
+                append("-Wl,-force_load,${tested_lib_path}" ${output_flags})
             else()
-                append("-Wl,--whole-archive,${lib_switch},--no-whole-archive" ${output_flags})
+                append("-Wl,--whole-archive,${tested_lib_path},--no-whole-archive" ${output_flags})
             endif()
             foreach(l ${C_SYSTEM_LIBS})
                 append("-l${l}" ${output_flags})
@@ -727,28 +733,30 @@ function(build_test_runners name_suffix path_suffix d_flags linkflags is_shared)
        test_runner_bc
     )
 
-    set(full_linkflags ${linkflags})
-    append_testrunner_linkflags("druntime-ldc-unittest" "${name_suffix}" "${path_suffix}" "${target_suffix}" "${is_shared}" full_linkflags)
     set(druntime_name druntime-test-runner${target_suffix})
     add_executable(${druntime_name} EXCLUDE_FROM_ALL ${test_runner_o})
+    set(full_linkflags ${linkflags})
+    append_testrunner_linkflags("druntime-ldc-unittest" "${name_suffix}" "${path_suffix}" "${target_suffix}" "${is_shared}" full_linkflags)
     add_dependencies(${druntime_name} druntime-ldc-unittest${target_suffix})
     set_target_properties(${druntime_name} PROPERTIES
         LINKER_LANGUAGE C
-        LINK_FLAGS ${full_linkflags}
+        LINK_FLAGS      ${full_linkflags}
+        LINK_DEPENDS    ${tested_lib_path}
     )
     add_test(build-${druntime_name} "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ${druntime_name})
     set(_GLOBAL_TESTRUNNERS "${_GLOBAL_TESTRUNNERS};${druntime_name}" CACHE INTERNAL "")
 
     if(PHOBOS2_DIR)
-        set(full_linkflags ${linkflags})
-        append_testrunner_linkflags("phobos2-ldc-unittest" "${name_suffix}" "${path_suffix}" "${target_suffix}" "${is_shared}" full_linkflags)
         set(phobos_name phobos2-test-runner${target_suffix})
         add_executable(${phobos_name} EXCLUDE_FROM_ALL ${test_runner_o})
         target_link_libraries(${phobos_name} druntime-ldc-unittest${target_suffix})
+        set(full_linkflags ${linkflags})
+        append_testrunner_linkflags("phobos2-ldc-unittest" "${name_suffix}" "${path_suffix}" "${target_suffix}" "${is_shared}" full_linkflags)
         add_dependencies(${phobos_name} phobos2-ldc-unittest${target_suffix})
         set_target_properties(${phobos_name} PROPERTIES
             LINKER_LANGUAGE C
-            LINK_FLAGS ${full_linkflags}
+            LINK_FLAGS      ${full_linkflags}
+            LINK_DEPENDS    ${tested_lib_path}
         )
         add_test(build-${phobos_name} "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ${phobos_name})
         set(_GLOBAL_TESTRUNNERS "${_GLOBAL_TESTRUNNERS};${phobos_name}" CACHE INTERNAL "")
