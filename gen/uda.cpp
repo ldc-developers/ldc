@@ -399,7 +399,7 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
       // @kernel is applied elsewhere but warn if dcompute is
       // either not supported or enabled
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
-      if (!dcomputeTargets.size)
+      if (!opts::dcomputeTargets.size())
         sle->warning("dcompute not enabled: @kernel has no effect");
 #else
       sle->warning("dcompute not supported: @kernel has no effect");
