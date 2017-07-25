@@ -38,6 +38,8 @@
 namespace polly {
 void registerPollyPasses(llvm::legacy::PassManagerBase &PM);
 }
+#include "polly/LinkAllPasses.h"
+#include "polly/CodeGen/CodegenCleanup.h"
 #endif
 
 extern llvm::TargetMachine *gTargetMachine;
@@ -232,11 +234,14 @@ static void addPGOPasses(legacy::PassManagerBase &mpm, unsigned optLevel) {
 }
 
 static void addPollyPasses(const PassManagerBuilder &Builder,
-                           legacy::PassManagerBase &PM)) {
+                           legacy::PassManagerBase &PM) {
 #ifdef LDC_WITH_POLLY
     // Enable at -O4 as a hack for not yet having a CLO for it.
   if (Builder.OptLevel > 3) {
-    polly::registerPollyPasses(mpm);
+    PM.add(createInstructionCombiningPass());
+    PM.add(polly::createCodePreparationPass());
+    polly::registerPollyPasses(PM);
+    PM.add(polly::createCodegenCleanupPass());
   }
 #endif
 }
@@ -299,7 +304,7 @@ static void addOptimizationPasses(legacy::PassManagerBase &mpm,
       disableSLPVectorization ? false : optLevel > 1 && sizeLevel < 2;
 
   // EP_ScalarOptimizerLate is a guess. TODO: find out where in the
-  // pipeline to put this.
+  // pipeline to put this. Maybe this should be prior to loop opts?
   builder.addExtension(PassManagerBuilder::EP_ScalarOptimizerLate,
                        addPollyPasses);
 

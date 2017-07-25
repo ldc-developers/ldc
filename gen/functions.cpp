@@ -51,7 +51,9 @@
 #include <iostream>
 
 #ifdef LDC_WITH_POLLY
-#include <polly/ScopDetection.h>
+namespace polly {
+  extern llvm::StringRef PollySkipFnAttr;
+}
 #endif
 
 llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
@@ -571,8 +573,8 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   applyFuncDeclUDAs(fdecl, irFunc);
 
 #ifdef LDC_WITH_POLLY
-  if (!hasPollyAttr(fdecl)
-    fdecl->addFnAttr(polly::PollySkipFnAttr);
+  if (!hasPollyAttr(fdecl))
+    func->addFnAttr(polly::PollySkipFnAttr);
 #endif
   // main
   if (fdecl->isMain()) {

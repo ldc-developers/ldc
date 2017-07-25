@@ -411,6 +411,11 @@ set(LDC_WITH_PGO True)  # must be a valid Python boolean constant (case sensitiv
 message(STATUS "Building LDC with PGO support")
 append("-DLDC_WITH_PGO" LDC_CXXFLAGS)
 
+option(LDC_WITH_POLLY "Enable Polly Optimisations")
+if(LDC_WITH_POLLY)
+    set(POLLY_INCLUDE_DIRS "" CACHE PATH "Path to polly include directory if different from the LLVM include directory. Set this if you built polly yourself. Note needs polly/Config/config.h to exist, if it doesn't install the built polly.")
+endif()
+mark_as_advanced(LDC_WITH_POLLY)
 #
 # Includes, defines.
 #
@@ -424,7 +429,9 @@ include_directories(
 )
 include_directories( SYSTEM
     ${LLVM_INCLUDE_DIRS}
+    ${POLLY_INCLUDE_DIRS}
 )
+
 append("-I${PROJECT_SOURCE_DIR}" DDMD_DFLAGS)
 append("-I${PROJECT_BINARY_DIR}" DDMD_DFLAGS)
 if(MSVC)
@@ -555,9 +562,6 @@ if(WIN32)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(${LDC_LIB} dl)
 endif()
-
-option(LDC_WITH_POLLY "Enable Polly Optimisations")
-mark_as_advanced(LDC_WITH_POLLY)
 
 if(LDC_WITH_POLLY)
     #clang only links with Polly: are the other two necessary?
