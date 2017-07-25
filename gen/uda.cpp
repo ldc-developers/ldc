@@ -395,7 +395,10 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
       applyAttrTarget(sle, func);
     } else if (ident == Id::udaWeak || ident == Id::udaKernel || Id::udaPolly) {
       // @weak and @kernel are applied elsewhere
-      // @polly is an inverted attribute and is applied elsewhere
+      // @polly is negation of polly::PollySkipFnAttr.
+      // polly::PollySkipFnAttr is applied to all other function after
+      // applyFuncDeclUDAs.
+        
     } else {
       sle->warning(
           "Ignoring unrecognized special attribute 'ldc.attributes.%s'", ident->toChars());
