@@ -1,0 +1,58 @@
+#!/bin/bash
+
+set -eo pipefail
+
+# Use LDC executable in the same directory as this script.
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+LDC_EXE="$DIR/ldc2"
+if [ ! -e "$LDC_EXE" ]; then
+    echo "Aborting: LDC executable '$LDC_EXE' not found."
+    exit 1
+fi
+
+# Use environment variable LDC_SRC_DIR to use an existing LDC source tree.
+if [ ! -z "$LDC_SRC_DIR" ]; then
+    if [ ! -d "$LDC_SRC_DIR" ]; then
+        echo "Aborting: LDC source directory '$LDC_SRC_DIR' not found."
+        exit 1
+    fi
+    LDC_SRC_DIR="$( cd "$LDC_SRC_DIR" && pwd )"
+fi
+
+# Set up build directory, using environment variable BUILD_DIR if set.
+if [ -z "$BUILD_DIR" ]; then
+    BUILD_DIR="build-ldc-runtime.tmp"
+fi
+if [ -d "$BUILD_DIR" ]; then
+    echo "WARNING: build directory '$BUILD_DIR' already exists."
+else
+    mkdir "$BUILD_DIR"
+fi
+
+set -x
+
+cd "$BUILD_DIR"
+
+if [ -z "$LDC_SRC_DIR" ]; then
+    LDC_SRC_DIR=ldc-src
+    # Download & extract LDC source archive if the directory doesn't exist yet.
+    if [ ! -d "$LDC_SRC_DIR" ]; then
+        wget -O ldc-src.tar.gz https://github.com/ldc-developers/ldc/releases/download/v@LDC_VERSION@/ldc-@LDC_VERSION@-src.tar.gz
+        mkdir "$LDC_SRC_DIR"
+        tar -xzf ldc-src.tar.gz --strip 1 -C "$LDC_SRC_DIR"
+    fi
+fi
+
+# Forward all script args to the CMake command line.
+cmake "-DLDC_EXE_FULL=$LDC_EXE" -DD_VERSION=@D_VERSION@ \
+  -DDMDFE_MINOR_VERSION=@DMDFE_MINOR_VERSION@ \
+  -DDMDFE_PATCH_VERSION=@DMDFE_PATCH_VERSION@ "$@" "$LDC_SRC_DIR/runtime"
+
+# Build.
+if [ -z "$MAKE_ARGS" ]; then
+    MAKE_ARGS=-j4
+    echo "Environment variable MAKE_ARGS not set, defaulting to '$MAKE_ARGS'."
+fi
+make $MAKE_ARGS
+
+echo "Runtime libraries built successfully into '$BUILD_DIR'."
