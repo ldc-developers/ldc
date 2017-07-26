@@ -1,4 +1,4 @@
-//===-- driver/ldmd.d - General LLVM codegen helpers ----------*- D -*-===//
+//===-- driver/ldmd.d ---------------------------------------------*- D -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -19,11 +19,6 @@ extern(C++) int cppmain(int argc, char **argv);
  +/
 int main()
 {
-    // For now, even just the frontend does not work with GC enabled, so we need
-    // to disable it entirely.
-    import core.memory;
-    GC.disable();
-
     import core.runtime;
     auto args = Runtime.cArgs();
     return cppmain(args.argc, cast(char**)args.argv);

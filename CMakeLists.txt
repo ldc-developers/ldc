@@ -720,7 +720,7 @@ build_d_executable(
     "${LDMD_D_SOURCE_FILES}"
     "$<TARGET_LINKER_FILE:LDMD_CXX_LIB>"
     "${LDMD_D_SOURCE_FILES}"
-    "LDMD_CXX_LIB;${LDC_LIB}"
+    "LDMD_CXX_LIB"
 )
 
 #
