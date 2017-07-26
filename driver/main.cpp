@@ -75,6 +75,12 @@ extern "C" {
 int rt_init();
 }
 
+#ifdef LDC_WITH_POLLY
+namespace polly {
+    void initializePollyPasses(llvm::PassRegistry &Registry);
+}
+#endif
+
 // In ddmd/doc.d
 void gendocfile(Module *m);
 
@@ -645,6 +651,10 @@ void initializePasses() {
   initializeRewriteSymbolsPass(Registry);
 #endif
   initializeSjLjEHPreparePass(Registry);
+#ifdef LDC_WITH_POLLY
+  polly::initializePollyPasses(Registry);
+#endif
+    
 }
 
 /// Register the MIPS ABI.

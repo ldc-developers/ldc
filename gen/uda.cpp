@@ -1,5 +1,5 @@
+#include "driver/cl_options.h"
 #include "gen/uda.h"
-
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "aggregate.h"
@@ -393,8 +393,25 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
       applyAttrSection(sle, func);
     } else if (ident == Id::udaTarget) {
       applyAttrTarget(sle, func);
-    } else if (ident == Id::udaWeak || ident == Id::udaKernel) {
-      // @weak and @kernel are applied elsewhere
+    } else if (ident == Id::udaWeak) {
+      // @weak is applied elsewhere
+    } else if (ident == Id::udaKernel) {
+      // @kernel is applied elsewhere but warn if dcompute is
+      // either not supported or enabled
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
+      if (!opts::dcomputeTargets.size())
+        sle->warning("dcompute not enabled: @kernel has no effect");
+#else
+      sle->warning("dcompute not supported: @kernel has no effect");
+#endif
+    } else if(Id::udaPolly) {
+      // @polly is negation of polly::PollySkipFnAttr.
+      // polly::PollySkipFnAttr is applied to all other function after
+      // applyFuncDeclUDAs.
+#ifndef LDC_WITH_POLLY
+      sle->warning("LDC not built with polly, @polly has no effect");
+#endif
+        
     } else {
       sle->warning(
           "Ignoring unrecognized special attribute 'ldc.attributes.%s'", ident->toChars());
@@ -442,6 +459,21 @@ bool hasKernelAttr(Dsymbol *sym) {
     sym->error("@ldc.dcompute.kernel can only be applied to functions"
                " in modules marked @ldc.dcompute.compute");
 
+  return true;
+}
+
+/// Checks whether 'sym' has the @ldc.attributes._polly() UDA applied.
+bool hasPollyAttr(Dsymbol *sym) {
+  auto sle = getMagicAttribute(sym, Id::udaPolly, Id::attributes);
+  if (!sle)
+    return false;
+    
+  checkStructElems(sle, {});
+
+  if (!sym->isFuncDeclaration()) {
+    sle->error("@ldc.attributes.polly can only be applied to functions");
+  }
+  
   return true;
 }
 

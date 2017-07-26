@@ -411,6 +411,11 @@ set(LDC_WITH_PGO True)  # must be a valid Python boolean constant (case sensitiv
 message(STATUS "Building LDC with PGO support")
 append("-DLDC_WITH_PGO" LDC_CXXFLAGS)
 
+option(LDC_WITH_POLLY "Enable Polly Optimisations")
+if(LDC_WITH_POLLY)
+    set(POLLY_INCLUDE_DIRS "" CACHE PATH "Path to polly include directory if different from the LLVM include directory. Set this if you built polly yourself. Note needs polly/Config/config.h to exist, if it doesn't install the built polly.")
+endif()
+mark_as_advanced(LDC_WITH_POLLY)
 #
 # Includes, defines.
 #
@@ -424,7 +429,9 @@ include_directories(
 )
 include_directories( SYSTEM
     ${LLVM_INCLUDE_DIRS}
+    ${POLLY_INCLUDE_DIRS}
 )
+
 append("-I${PROJECT_SOURCE_DIR}" DDMD_DFLAGS)
 append("-I${PROJECT_BINARY_DIR}" DDMD_DFLAGS)
 if(MSVC)
@@ -556,6 +563,15 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(${LDC_LIB} dl)
 endif()
 
+if(LDC_WITH_POLLY)
+    #clang only links with Polly: are the other two necessary?
+    #append("-DLDC_WITH_POLLY" LDC_CXXFLAGS)
+    add_definitions(-DLDC_WITH_POLLY)
+    set(POLLY_LIBS "-lPolly;-lPollyISL;-lPollyPPCG")
+else()
+    set(POLLY_LIBS "")
+endif()
+
 set(LDC_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
 set(LDMD_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDMD_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
 add_custom_target(${LDC_EXE} ALL DEPENDS ${LDC_EXE_FULL})
@@ -563,7 +579,7 @@ add_custom_target(${LDMD_EXE} ALL DEPENDS ${LDMD_EXE_FULL})
 
 # Figure out how to link the main LDC executable, for which we need to take the
 # LLVM flags into account.
-set(LDC_LINKERFLAG_LIST "${SANITIZE_LDFLAGS};${LLVM_LIBRARIES};${LLVM_LDFLAGS}")
+set(LDC_LINKERFLAG_LIST "${SANITIZE_LDFLAGS};${LLVM_LIBRARIES};${POLLY_LIBS};${LLVM_LDFLAGS}")
 if(LDC_WITH_LLD)
     if(MSVC)
         list(APPEND LDC_LINKERFLAG_LIST lldCOFF.lib lldCore.lib lldDriver.lib)
