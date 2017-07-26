@@ -29,6 +29,10 @@ static llvm::cl::opt<std::string>
                               "LLVMgold.so (Unixes) or libLTO.dylib (Darwin))"),
                llvm::cl::value_desc("file"));
 
+static llvm::cl::opt<bool> linkNoCpp(
+    "link-no-cpp", llvm::cl::ZeroOrMore, llvm::cl::Hidden,
+    llvm::cl::desc("Disable automatic linking with the C++ standard library."));
+
 //////////////////////////////////////////////////////////////////////////////
 
 namespace {
@@ -283,6 +287,9 @@ void ArgsBuilder::addFuzzLinkFlags() {
 }
 
 void ArgsBuilder::addCppStdlibLinkFlags() {
+  if (linkNoCpp)
+    return;
+
   switch (global.params.targetTriple->getOS()) {
   case llvm::Triple::Linux:
     if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
