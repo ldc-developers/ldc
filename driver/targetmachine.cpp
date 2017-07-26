@@ -13,12 +13,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "driver/cl_options.h"
 #include "driver/targetmachine.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/TargetParser.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
@@ -26,10 +28,6 @@
 #include "llvm/IR/Module.h"
 #include "mars.h"
 #include "gen/logger.h"
-
-#if LDC_LLVM_VER >= 307
-#include "driver/cl_options.h"
-#include "llvm/Support/TargetParser.h"
 
 static const char *getABI(const llvm::Triple &triple) {
   llvm::StringRef ABIName(opts::mABI);
@@ -81,12 +79,10 @@ static const char *getABI(const llvm::Triple &triple) {
     return "";
   }
 }
-#endif
 
 extern llvm::TargetMachine *gTargetMachine;
 
 MipsABI::Type getMipsABI() {
-#if LDC_LLVM_VER >= 307
   // eabi can only be set on the commandline
   if (strncmp(opts::mABI.c_str(), "eabi", 4) == 0)
     return MipsABI::EABI;
@@ -106,22 +102,6 @@ MipsABI::Type getMipsABI() {
   const auto largestInt = dl.getLargestLegalIntTypeSize();
 #endif
   return (largestInt == 64) ? MipsABI::N32 : MipsABI::O32;
-#else // LDC_LLVM_VER < 307
-  llvm::StringRef features = gTargetMachine->getTargetFeatureString();
-  if (features.find("+o32") != std::string::npos) {
-    return MipsABI::O32;
-  }
-  if (features.find("+n32") != std::string::npos) {
-    return MipsABI::N32;
-  }
-  if (features.find("+n64") != std::string::npos) {
-    return MipsABI::N32;
-  }
-  if (features.find("+eabi") != std::string::npos) {
-    return MipsABI::EABI;
-  }
-  return MipsABI::Unknown;
-#endif
 }
 
 static std::string getX86TargetCPU(const llvm::Triple &triple) {
@@ -246,10 +226,6 @@ static std::string getTargetCPU(const std::string &cpu,
   case llvm::Triple::armeb:
   case llvm::Triple::thumb:
     return getARMTargetCPU(triple);
-#if LDC_LLVM_VER == 305
-  case llvm::Triple::arm64:
-  case llvm::Triple::arm64_be:
-#endif
   case llvm::Triple::aarch64:
   case llvm::Triple::aarch64_be:
     return getAArch64TargetCPU(triple);
@@ -329,67 +305,6 @@ static FloatABI::Type getARMFloatABI(const llvm::Triple &triple,
   }
 }
 
-#if LDC_LLVM_VER < 307
-/// Sanitizes the MIPS ABI in the feature string.
-static void addMipsABI(const llvm::Triple &triple,
-                       std::vector<std::string> &attrs) {
-  enum ABI { O32 = 1 << 0, N32 = 1 << 1, N64 = 1 << 2, EABI = 1 << 3 };
-  const bool is64Bit = triple.getArch() == llvm::Triple::mips64 ||
-                       triple.getArch() == llvm::Triple::mips64el;
-  const uint32_t defaultABI = is64Bit ? N64 : O32;
-  uint32_t bits = defaultABI;
-  auto I = attrs.begin();
-  while (I != attrs.end()) {
-    std::string str = *I;
-    bool enabled = str[0] == '+';
-    std::string flag = (str[0] == '+' || str[0] == '-') ? str.substr(1) : str;
-    uint32_t newBit = 0;
-    if (flag == "o32") {
-      newBit = O32;
-    }
-    if (flag == "n32") {
-      newBit = N32;
-    }
-    if (flag == "n64") {
-      newBit = N64;
-    }
-    if (flag == "eabi") {
-      newBit = EABI;
-    }
-    if (newBit) {
-      I = attrs.erase(I);
-      if (enabled) {
-        bits |= newBit;
-      } else {
-        bits &= ~newBit;
-      }
-    } else {
-      ++I;
-    }
-  }
-  switch (bits) {
-  case O32:
-    attrs.push_back("+o32");
-    break;
-  case N32:
-    attrs.push_back("+n32");
-    break;
-  case N64:
-    attrs.push_back("+n64");
-    break;
-  case EABI:
-    attrs.push_back("+eabi");
-    break;
-  default:
-    error(Loc(), "Only one ABI argument is supported");
-    fatal();
-  }
-  if (bits != defaultABI) {
-    attrs.push_back(is64Bit ? "-n64" : "-o32");
-  }
-}
-#endif
-
 /// Looks up a target based on an arch name and a target triple.
 ///
 /// If the arch name is non-empty, then the lookup is done by arch. Otherwise,
@@ -405,14 +320,7 @@ const llvm::Target *lookupTarget(const std::string &arch, llvm::Triple &triple,
   // name, because it might be a backend that has no mapping to a target triple.
   const llvm::Target *target = nullptr;
   if (!arch.empty()) {
-#if LDC_LLVM_VER >= 307
     for (const llvm::Target &T : llvm::TargetRegistry::targets()) {
-#else
-    for (auto it = llvm::TargetRegistry::begin(),
-              ie = llvm::TargetRegistry::end();
-         it != ie; ++it) {
-      const llvm::Target &T = *it;
-#endif
       if (arch == T.getName()) {
         target = &T;
         break;
@@ -502,14 +410,6 @@ createTargetMachine(std::string targetTriple, std::string arch, std::string cpu,
       }
     }
   }
-#if LDC_LLVM_VER < 307
-  if (triple.getArch() == llvm::Triple::mips ||
-      triple.getArch() == llvm::Triple::mipsel ||
-      triple.getArch() == llvm::Triple::mips64 ||
-      triple.getArch() == llvm::Triple::mips64el) {
-    addMipsABI(triple, attrs);
-  }
-#endif
   for (auto &attr : attrs) {
     features.AddFeature(attr);
   }
@@ -586,34 +486,19 @@ createTargetMachine(std::string targetTriple, std::string arch, std::string cpu,
   }
 
   llvm::TargetOptions targetOptions;
-#if LDC_LLVM_VER < 307
-  targetOptions.NoFramePointerElim = noFramePointerElim;
-#endif
-#if LDC_LLVM_VER >= 307
   targetOptions.MCOptions.ABIName = getABI(triple);
-#endif
 
   switch (floatABI) {
   default:
     llvm_unreachable("Floating point ABI type unknown.");
   case FloatABI::Soft:
-#if LDC_LLVM_VER < 307
-    targetOptions.UseSoftFloat = true;
-#else
     features.AddFeature("+soft-float");
-#endif
     targetOptions.FloatABIType = llvm::FloatABI::Soft;
     break;
   case FloatABI::SoftFP:
-#if LDC_LLVM_VER < 307
-    targetOptions.UseSoftFloat = false;
-#endif
     targetOptions.FloatABIType = llvm::FloatABI::Soft;
     break;
   case FloatABI::Hard:
-#if LDC_LLVM_VER < 307
-    targetOptions.UseSoftFloat = false;
-#endif
     targetOptions.FloatABIType = llvm::FloatABI::Hard;
     break;
   }

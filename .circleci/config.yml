@@ -1,0 +1,88 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: gcc
+    environment:
+      - HOST_LDC_VERSION: 1.3.0
+    steps:
+      - checkout
+      - run:
+          name: Checkout git submodules
+          command: git submodule update --init
+      - run:
+          name: Install basic dependencies
+          command: |
+            apt update
+            apt install -y software-properties-common cmake ninja-build gdb python-pip unzip
+            pip install --user lit
+            # Use ld.gold per default, so that LTO is tested.
+            update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
+            g++ --version
+            ld --version
+            cmake --version
+            ninja --version
+            gdb --version
+            python -c "import lit; lit.main();" --version | head -n 1
+      - run:
+          name: Install LLVM nightly
+          command: |
+            add-apt-repository -y 'deb http://apt.llvm.org/unstable/ llvm-toolchain main'
+            wget -O - http://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
+            apt update
+            apt install -y llvm-5.0 llvm-5.0-dev libclang-common-5.0-dev libfuzzer-5.0-dev
+      - restore_cache:
+          key: host-ldc-{{ .Environment.HOST_LDC_VERSION }}
+      - run:
+          name: Install LDC host compiler
+          command: |
+            if [[ ! -e ldc2-$HOST_LDC_VERSION-linux-x86_64/bin/ldmd2 ]]; then
+              wget https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-x86_64.tar.xz
+              tar -xf ldc2-$HOST_LDC_VERSION-linux-x86_64.tar.xz
+            fi
+      - save_cache:
+          key: host-ldc-{{ .Environment.HOST_LDC_VERSION }}
+          paths:
+            - ldc2-$HOST_LDC_VERSION-linux-x86_64
+      - run:
+          name: Build bootstrap LDC
+          command: |
+            export HOST_LDMD=$PWD/ldc2-$HOST_LDC_VERSION-linux-x86_64/bin/ldmd2
+            mkdir bootstrap
+            cd bootstrap
+            cmake -G Ninja -DBUILD_SHARED_LIBS=OFF -DD_COMPILER=$HOST_LDMD ..
+            ninja -j3
+            bin/ldc2 -version
+            cd ..
+      - run:
+          name: Build LDC
+          command: |
+            export HOST_LDMD=$PWD/bootstrap/bin/ldmd2
+            mkdir build
+            cd build
+            cmake -G Ninja -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=$HOST_LDMD ..
+            ninja -j3
+            bin/ldc2 -version
+            cd ..
+      - run:
+          name: Compile stdlib unittests
+          command: |
+            cd build
+            ninja -j3 phobos2-ldc-unittest-debug phobos2-ldc-unittest druntime-ldc-unittest-debug druntime-ldc-unittest
+            ninja -j3 phobos2-ldc-unittest-debug-shared phobos2-ldc-unittest-shared druntime-ldc-unittest-debug-shared druntime-ldc-unittest-shared
+      - run:
+          name: Run LDC unittests
+          command: cd build && ctest --output-on-failure -R ldc2-unittest
+          when: always
+      - run:
+          name: Run LIT tests
+          command: cd build && ctest -V -R lit-tests
+          when: always
+      - run:
+          name: Run DMD testsuite
+          command: cd build && DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R dmd-testsuite
+          when: always
+      - run:
+          name: Run stdlib unittests
+          command: cd build && ctest -j3 --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests"
+          when: always

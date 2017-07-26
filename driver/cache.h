@@ -28,8 +28,6 @@ void recoverObjectFile(llvm::StringRef cacheObjectHash,
                        llvm::StringRef objectFile);
 
 /// Prune the cache to avoid filling up disk space.
-///
-/// Note: Does nothing for LLVM < 3.7.
 void pruneCache();
 }
 

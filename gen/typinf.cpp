@@ -93,17 +93,11 @@ static void emitTypeMetadata(TypeInfoDeclaration *tid) {
     llvm::NamedMDNode *meta = gIR->module.getNamedMetadata(metaname);
 
     if (!meta) {
-// Construct the fields
-#if LDC_LLVM_VER >= 306
+      // Construct the fields
       llvm::Metadata *mdVals[TD_NumFields];
       mdVals[TD_TypeInfo] = llvm::ValueAsMetadata::get(getIrGlobal(tid)->value);
       mdVals[TD_Type] = llvm::ConstantAsMetadata::get(
           llvm::UndefValue::get(DtoType(tid->tinfo)));
-#else
-      MDNodeField *mdVals[TD_NumFields];
-      mdVals[TD_TypeInfo] = llvm::cast<MDNodeField>(getIrGlobal(tid)->value);
-      mdVals[TD_Type] = llvm::UndefValue::get(DtoType(tid->tinfo));
-#endif
 
       // Construct the metadata and insert it into the module.
       llvm::NamedMDNode *node = gIR->module.getOrInsertNamedMetadata(metaname);
@@ -603,19 +597,19 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
 
   irg->value = gIR->module.getGlobalVariable(mangled);
   if (irg->value) {
-    irg->type = irg->value->getType()->getContainedType(0);
-    assert(irg->type->isStructTy());
+    assert(irg->getType()->isStructTy());
   } else {
+    LLType *type;
     if (builtinTypeInfo(
             decl->tinfo)) { // this is a declaration of a builtin __initZ var
-      irg->type = Type::dtypeinfo->type->ctype->isClass()->getMemoryLLType();
+      type = Type::dtypeinfo->type->ctype->isClass()->getMemoryLLType();
     } else {
-      irg->type = LLStructType::create(gIR->context(), decl->toPrettyChars());
+      type = LLStructType::create(gIR->context(), decl->toPrettyChars());
     }
     // Create the symbol. We need to keep it mutable as the type is not declared
     // as immutable on the D side, and e.g. synchronized() can be used on the
     // implicit monitor.
-    auto g = new LLGlobalVariable(gIR->module, irg->type, false, lwc.first,
+    auto g = new LLGlobalVariable(gIR->module, type, false, lwc.first,
                                   nullptr, mangled);
     setLinkage(lwc, g);
     irg->value = g;
@@ -650,7 +644,6 @@ void TypeInfoClassDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
   DtoResolveClass(tc->sym);
 
   irg->value = getIrAggr(tc->sym)->getClassInfoSymbol();
-  irg->type = irg->value->getType()->getContainedType(0);
 
   if (!tc->sym->isInterfaceDeclaration()) {
     emitTypeMetadata(decl);

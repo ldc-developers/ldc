@@ -67,13 +67,9 @@ public:
   void getMemberLocation(VarDeclaration *var, unsigned &fieldIndex,
                          unsigned &byteOffset) const;
 
-/// Composite type debug description. This is not only to cache, but also
-/// used for resolving forward references.
-#if LDC_LLVM_VER >= 307
+  /// Composite type debug description. This is not only to cache, but also
+  /// used for resolving forward references.
   llvm::DIType *diCompositeType = nullptr;
-#else
-  llvm::DIType diCompositeType;
-#endif
 
   /// true, if the LLVM struct type for the aggregate is declared as packed
   bool packed = false;

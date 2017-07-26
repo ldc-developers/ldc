@@ -234,11 +234,7 @@ LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
 }
 
 bool supportsCOMDAT() {
-#if LDC_LLVM_VER >= 307
   return !global.params.targetTriple->isOSBinFormatMachO();
-#else
-  return false;
-#endif
 }
 
 void setLinkage(LinkageWithCOMDAT lwc, llvm::GlobalObject *obj) {
@@ -257,8 +253,17 @@ LLIntegerType *DtoSize_t() {
   // the type of size_t does not change once set
   static LLIntegerType *t = nullptr;
   if (t == nullptr) {
-    t = (global.params.isLP64) ? LLType::getInt64Ty(gIR->context())
-                               : LLType::getInt32Ty(gIR->context());
+    auto triple = global.params.targetTriple;
+
+    if (triple->isArch64Bit()) {
+      t = LLType::getInt64Ty(gIR->context());
+    } else if (triple->isArch32Bit()) {
+      t = LLType::getInt32Ty(gIR->context());
+    } else if (triple->isArch16Bit()) {
+      t = LLType::getInt16Ty(gIR->context());
+    } else {
+      llvm_unreachable("Unsupported size_t width");
+    }
   }
   return t;
 }
@@ -273,10 +278,7 @@ llvm::GetElementPtrInst *DtoGEP(LLValue *ptr, llvm::ArrayRef<LLValue *> indices,
   (void)p;
   assert(p && "GEP expects a pointer type");
   auto gep = llvm::GetElementPtrInst::Create(
-#if LDC_LLVM_VER >= 307
-      p->getElementType(),
-#endif
-      ptr, indices, name, bb ? bb : gIR->scopebb());
+      p->getElementType(), ptr, indices, name, bb ? bb : gIR->scopebb());
   gep->setIsInBounds(inBounds);
   return gep;
 }
@@ -310,10 +312,7 @@ LLConstant *DtoGEPi(LLConstant *ptr, unsigned i0, unsigned i1) {
   assert(p && "GEP expects a pointer type");
   LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
   return llvm::ConstantExpr::getGetElementPtr(
-#if LDC_LLVM_VER >= 307
-      p->getElementType(),
-#endif
-      ptr, indices, /* InBounds = */ true);
+      p->getElementType(), ptr, indices, /* InBounds = */ true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -373,11 +372,7 @@ LLValue *DtoMemCmp(LLValue *lhs, LLValue *rhs, LLValue *nbytes) {
   lhs = DtoBitCast(lhs, VoidPtrTy);
   rhs = DtoBitCast(rhs, VoidPtrTy);
 
-#if LDC_LLVM_VER >= 307
   return gIR->ir->CreateCall(fn, {lhs, rhs, nbytes});
-#else
-  return gIR->ir->CreateCall3(fn, lhs, rhs, nbytes);
-#endif
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -456,9 +451,7 @@ LLConstant *DtoConstString(const char *str) {
   LLConstant *idxs[] = {DtoConstUint(0), DtoConstUint(0)};
   return DtoConstSlice(DtoConstSize_t(s.size()),
                        llvm::ConstantExpr::getGetElementPtr(
-#if LDC_LLVM_VER >= 307
                            gvar->getInitializer()->getType(),
-#endif
                            gvar, idxs, true),
                        Type::tchar->arrayOf());
 }

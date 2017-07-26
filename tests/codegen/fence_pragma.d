@@ -1,5 +1,7 @@
 // RUN: %ldc %s -c -output-ll -of=%t.ll && FileCheck %s < %t.ll
 
+// REQUIRES: atmost_llvm400
+
 import ldc.intrinsics;
 
 void fun0 () {

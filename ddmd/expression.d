@@ -5381,7 +5381,7 @@ extern (C++) final class StructLiteralExp : Expression
 
         // A global variable for taking the address of this struct literal constant,
         // if it already exists. Used to resolve self-references.
-        void* globalVar; // llvm::GlobalVariable*
+        void* globalVar; // llvm::Constant*
     }
 
     bool useStaticInit;     /// if this is true, use the StructDeclaration's init symbol
@@ -8500,6 +8500,7 @@ extern (C++) final class DotIdExp : UnaExp
 {
     Identifier ident;
     bool noderef;       // true if the result of the expression will never be dereferenced
+    bool wantsym;       // do not replace Symbol with its initializer during semantic()
 
     extern (D) this(Loc loc, Expression e, Identifier ident)
     {
@@ -8751,8 +8752,12 @@ extern (C++) final class DotIdExp : UnaExp
                     if (v.type.ty == Terror)
                         return new ErrorExp();
 
-                    if ((v.storage_class & STCmanifest) && v._init)
+                    if ((v.storage_class & STCmanifest) && v._init && !wantsym)
                     {
+                        /* Normally, the replacement of a symbol with its initializer is supposed to be in semantic2().
+                         * Introduced by https://github.com/dlang/dmd/pull/5588 which should probably
+                         * be reverted. `wantsym` is the hack to work around the problem.
+                         */
                         if (v.inuse)
                         {
                             .error(loc, "circular initialization of %s '%s'", v.kind(), v.toPrettyChars());

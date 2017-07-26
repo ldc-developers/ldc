@@ -87,13 +87,6 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
   IF_LOG Logger::println("Enter defineAsExternallyAvailable");
   LOG_SCOPE
 
-#if LDC_LLVM_VER < 307
-  // Pre-3.7, cross-module inlining is disabled completely.
-  // See the commandline flag definition for more details.
-  IF_LOG Logger::println("LLVM < 3.7: Cross-module inlining disabled.");
-  return false;
-#endif
-
   // FIXME: For now, disable all cross-module inlining (also of pragma(inline, true)
   // functions). This check should be removed when cross-module inlining has
   // become more stable.

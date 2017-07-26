@@ -1,7 +1,5 @@
 // Test linking with an LLVM bitcode file
 
-// REQUIRES: atleast_llvm306
-
 // RUN: %ldc -c -output-bc -I%S %S/inputs/link_bitcode_input.d -of=%t.bc
 // RUN: %ldc -c -output-bc -I%S %S/inputs/link_bitcode_import.d -of=%t2.bc
 // RUN: %ldc -c -output-bc -I%S %S/inputs/link_bitcode_input3.d -of=%t3.bc

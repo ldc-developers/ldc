@@ -414,12 +414,8 @@ public:
     llvm::ConstantInt *zero =
         LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0, false);
     LLConstant *idxs[2] = {zero, zero};
-#if LDC_LLVM_VER >= 307
     LLConstant *arrptr = llvm::ConstantExpr::getGetElementPtr(
         isaPointer(gvar)->getElementType(), gvar, idxs, true);
-#else
-    LLConstant *arrptr = llvm::ConstantExpr::getGetElementPtr(gvar, idxs, true);
-#endif
 
     if (dtype->ty == Tarray) {
       LLConstant *clen =
@@ -1072,19 +1068,23 @@ public:
     PGO.setCurrentStmt(e);
 
     // value being sliced
+    Type *const etype = e->e1->type->toBasetype();
+    LLValue *eptr = nullptr;
     LLValue *elen = nullptr;
-    LLValue *eptr;
-    DValue *v = toElem(e->e1);
 
-    Type *etype = e->e1->type->toBasetype();
-    if (etype->ty == Tpointer) {
-      // pointer slicing
-      assert(e->lwr);
-      eptr = DtoRVal(v);
-    } else {
-      // array slice
-      eptr = DtoArrayPtr(v);
-    }
+    // evaluate the base expression but delay getting its pointer until the
+    // potential bounds have been evaluated
+    DValue *v = toElem(e->e1);
+    auto getBasePointer = [e, v, etype]() {
+      if (etype->ty == Tpointer) {
+        // pointer slicing
+        assert(e->lwr);
+        return DtoRVal(v);
+      } else {
+        // array slice
+        return DtoArrayPtr(v);
+      }
+    };
 
     // has lower bound, pointer needs adjustment
     if (e->lwr) {
@@ -1133,14 +1133,15 @@ public:
       }
 
       // offset by lower
-      eptr = DtoGEP1(eptr, vlo, !needCheckLower, "lowerbound");
+      eptr = DtoGEP1(getBasePointer(), vlo, !needCheckLower, "lowerbound");
 
       // adjust length
       elen = p->ir->CreateSub(vup, vlo);
     }
     // no bounds or full slice -> just convert to slice
     else {
-      assert(e->e1->type->toBasetype()->ty != Tpointer);
+      assert(etype->ty != Tpointer);
+      eptr = getBasePointer();
       // if the slicee is a static array, we use the length of that as DMD seems
       // to give contrary inconsistent sizesin some multidimensional static
       // array cases.
@@ -1644,17 +1645,8 @@ public:
     DValue *cond;
     Type *condty;
 
-    // special case for dmd generated assert(this); when not in -release mode
-    if (e->e1->op == TOKthis && static_cast<ThisExp *>(e->e1)->var == nullptr) {
-      LLValue *thisarg = p->func()->thisArg;
-      assert(thisarg && "null thisarg, but we're in assert(this) exp;");
-      LLValue *thisptr = DtoLoad(thisarg);
-      condty = e->e1->type->toBasetype();
-      cond = new DImValue(condty, thisptr);
-    } else {
-      cond = toElem(e->e1);
-      condty = e->e1->type->toBasetype();
-    }
+    cond = toElem(e->e1);
+    condty = e->e1->type->toBasetype();
 
     // create basic blocks
     llvm::BasicBlock *passedbb = p->insertBB("assertPassed");
@@ -1860,11 +1852,7 @@ public:
     IF_LOG Logger::print("HaltExp::toElem: %s\n", e->toChars());
     LOG_SCOPE;
 
-#if LDC_LLVM_VER >= 307
     p->ir->CreateCall(GET_INTRINSIC_DECL(trap), {});
-#else
-    p->ir->CreateCall(GET_INTRINSIC_DECL(trap), "");
-#endif
     p->ir->CreateUnreachable();
 
     // this terminated the basicblock, start a new one
@@ -2464,13 +2452,8 @@ public:
       LLConstant *globalstore = new LLGlobalVariable(
           gIR->module, initval->getType(), false,
           LLGlobalValue::InternalLinkage, initval, ".aaKeysStorage");
-#if LDC_LLVM_VER >= 307
       LLConstant *slice = llvm::ConstantExpr::getGetElementPtr(
           isaPointer(globalstore)->getElementType(), globalstore, idxs, true);
-#else
-      LLConstant *slice =
-          llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, true);
-#endif
       slice = DtoConstSlice(DtoConstSize_t(e->keys->dim), slice);
       LLValue *keysArray = DtoAggrPaint(slice, funcTy->getParamType(1));
 
@@ -2478,12 +2461,8 @@ public:
       globalstore = new LLGlobalVariable(gIR->module, initval->getType(), false,
                                          LLGlobalValue::InternalLinkage,
                                          initval, ".aaValuesStorage");
-#if LDC_LLVM_VER >= 307
       slice = llvm::ConstantExpr::getGetElementPtr(
           isaPointer(globalstore)->getElementType(), globalstore, idxs, true);
-#else
-      slice = llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, true);
-#endif
       slice = DtoConstSlice(DtoConstSize_t(e->keys->dim), slice);
       LLValue *valuesArray = DtoAggrPaint(slice, funcTy->getParamType(2));
 

@@ -64,7 +64,7 @@ libraries is available on the project wiki for
 [Linux and OS X](http://wiki.dlang.org/Building_LDC_from_source) and
 [Windows](http://wiki.dlang.org/Building_and_hacking_LDC_on_Windows_using_MSVC).
 
-If you have a working C++ build environment, CMake, and a current LLVM (≥ 3.5)
+If you have a working C++ build environment, CMake, and a current LLVM (≥ 3.7)
 available, there should be no big surprises.
 Building LDC also requires a working D compiler, DMD and LDC are supported.
 (LDC 0.17 is the last version that does not need a D compiler,

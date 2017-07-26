@@ -218,7 +218,7 @@ template <typename DECL> static void ensureDecl(DECL *decl, const char *msg) {
     Logger::println("Missing class declaration: %s\n", msg);
     error(Loc(), "Missing class declaration: %s", msg);
     errorSupplemental(Loc(),
-                      "Please check that object.di is included and valid");
+                      "Please check that object.d is included and valid");
     fatal();
   }
 }
@@ -289,7 +289,7 @@ static void buildRuntimeModule() {
   // Ensure that the declarations exist before creating llvm types for them.
   ensureDecl(ClassDeclaration::object, "Object");
   ensureDecl(Type::typeinfoclass, "TypeInfo_Class");
-  ensureDecl(Type::dtypeinfo, "DTypeInfo");
+  ensureDecl(Type::dtypeinfo, "TypeInfo");
   ensureDecl(Type::typeinfoassociativearray, "TypeInfo_AssociativeArray");
   ensureDecl(Module::moduleinfo, "ModuleInfo");
 
@@ -784,11 +784,7 @@ static void emitInstrumentationFn(const char *name) {
       gIR->ir->CreateCall(GET_INTRINSIC_DECL(returnaddress), DtoConstInt(0));
   auto callee = DtoBitCast(gIR->topfunc(), getVoidPtrType());
 
-#if LDC_LLVM_VER >= 307
   gIR->ir->CreateCall(fn, {callee, caller});
-#else
-  gIR->ir->CreateCall2(fn, callee, caller);
-#endif
 }
 
 void emitInstrumentationFnEnter(FuncDeclaration *decl) {

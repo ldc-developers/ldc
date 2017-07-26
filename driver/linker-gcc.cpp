@@ -17,6 +17,7 @@
 #include "gen/optimizer.h"
 #include "llvm/ProfileData/InstrProf.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 
@@ -43,6 +44,8 @@ public:
 
 private:
   virtual void addSanitizers();
+  virtual void addASanLinkFlags();
+
   virtual void addUserSwitches();
   void addDefaultLibs();
   virtual void addArch();
@@ -171,6 +174,112 @@ void ArgsBuilder::addLTOLinkFlags() {
 
 //////////////////////////////////////////////////////////////////////////////
 
+// Returns true on success.
+bool addDarwinASanLinkFlags(std::vector<std::string> &args) {
+  std::string searchPaths[] = {
+    exe_path::prependLibDir("libldc_rt.asan_osx_dynamic.dylib"),
+    exe_path::prependLibDir("libclang_rt.asan_osx_dynamic.dylib"),
+  };
+
+  for (const auto &filepath : searchPaths) {
+    if (llvm::sys::fs::exists(filepath)) {
+      args.push_back(filepath);
+
+      // Add @executable_path to rpath to support having the dylib copied with
+      // the executable.
+      args.push_back("-rpath");
+      args.push_back("@executable_path");
+
+      // Add the path to the resource dir to rpath to support using the dylib
+      // from the default location without copying.
+      args.push_back("-rpath");
+      args.push_back(llvm::sys::path::parent_path(filepath));
+
+      return true;
+    }
+  }
+
+  // We did not find the library.
+  return false;
+}
+
+// Returns the arch name as used in the compiler_rt libs.
+// FIXME: implement correctly for non-x86 platforms (e.g. ARM)
+llvm::StringRef getCompilerRTArchName() {
+  return global.params.targetTriple->getArchName();
+}
+
+bool addUnixlikeASanLinkFlags(std::vector<std::string> &args) {
+  // Examples: "libclang_rt.asan-x86_64.a" or "libclang_rt.asan-arm.a" and
+  // "libclang_rt.asan-x86_64.so"
+
+  auto arch = getCompilerRTArchName();
+
+  // TODO: let user choose to link with shared lib. In case of shared ASan, I
+  // think we also need to statically link with
+  // libclang_rt.asan-preinit-<arch>.a
+  bool linkSharedASan = false;
+  const char *extension = linkSharedASan ? ".so" : ".a";
+
+  std::string searchPaths[] = {
+      exe_path::prependLibDir("libldc_rt.asan-" + llvm::Twine(arch) +
+                              extension),
+      exe_path::prependLibDir("libclang_rt.asan-" + llvm::Twine(arch) +
+                              extension),
+  };
+
+  for (const auto &filepath : searchPaths) {
+    if (llvm::sys::fs::exists(filepath)) {
+      args.push_back(filepath);
+
+      if (linkSharedASan) {
+        // TODO: add -rpath
+      }
+
+      return true;
+    }
+  }
+
+  // We did not find the library.
+  return false;
+}
+
+void ArgsBuilder::addASanLinkFlags() {
+  bool success = false;
+  if (global.params.targetTriple->isOSDarwin()) {
+    success = addDarwinASanLinkFlags(args);
+  } else {
+    success = addUnixlikeASanLinkFlags(args);
+  }
+
+  if (!success) {
+    // Fallback, requires Clang. The asan library contains a versioned symbol
+    // name and a linker error will happen when the LDC-LLVM and Clang-LLVM
+    // versions don't match.
+    args.push_back("-fsanitize=address");
+  }
+}
+
+void ArgsBuilder::addSanitizers() {
+  if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
+    addASanLinkFlags();
+  }
+
+  // TODO: instead of this, we should link with our own sanitizer libraries
+  // because LDC's LLVM version could be different from the system clang.
+  if (opts::isSanitizerEnabled(opts::MemorySanitizer)) {
+    args.push_back("-fsanitize=memory");
+  }
+
+  // TODO: instead of this, we should link with our own sanitizer libraries
+  // because LDC's LLVM version could be different from the system clang.
+  if (opts::isSanitizerEnabled(opts::ThreadSanitizer)) {
+    args.push_back("-fsanitize=thread");
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 void ArgsBuilder::build(llvm::StringRef outputPath,
                         llvm::cl::boolOrDefault fullyStaticFlag) {
   // object files
@@ -237,25 +346,6 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   addDefaultLibs();
 
   addArch();
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
-// Requires clang.
-void ArgsBuilder::addSanitizers() {
-  // TODO: instead of this, we should link with our own sanitizer libraries
-  // because LDC's LLVM version could be different from the system clang.
-  if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
-    args.push_back("-fsanitize=address");
-  }
-
-  if (opts::isSanitizerEnabled(opts::MemorySanitizer)) {
-    args.push_back("-fsanitize=memory");
-  }
-
-  if (opts::isSanitizerEnabled(opts::ThreadSanitizer)) {
-    args.push_back("-fsanitize=thread");
-  }
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -380,10 +470,6 @@ void ArgsBuilder::addArch() {
       case llvm::Triple::armeb:
       case llvm::Triple::aarch64:
       case llvm::Triple::aarch64_be:
-#if LDC_LLVM_VER == 305
-      case llvm::Triple::arm64:
-      case llvm::Triple::arm64_be:
-#endif
         break;
       default:
         if (global.params.is64bit) {

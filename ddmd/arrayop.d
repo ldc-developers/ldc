@@ -203,9 +203,12 @@ extern (C++) Expression arrayOp(BinExp e, Scope* sc)
 
     version(IN_LLVM)
     {
-        auto arrayfuncs = sc._module.arrayfuncs;
+        FuncDeclaration* pFd = cast(void*)ident in sc._module.arrayfuncs;
     }
-    FuncDeclaration* pFd = cast(void*)ident in arrayfuncs;
+    else
+    {
+        FuncDeclaration* pFd = cast(void*)ident in arrayfuncs;
+    }
     FuncDeclaration fd;
     if (pFd)
         fd = *pFd;
@@ -226,7 +229,16 @@ extern (C++) Expression arrayOp(BinExp e, Scope* sc)
     }
 
     if (!pFd)
-        arrayfuncs[cast(void*)ident] = fd;
+    {
+        version(IN_LLVM)
+        {
+            sc._module.arrayfuncs[cast(void*)ident] = fd;
+        }
+        else
+        {
+            arrayfuncs[cast(void*)ident] = fd;
+        }
+    }
 
     Expression ev = new VarExp(e.loc, fd);
     Expression ec = new CallExp(e.loc, ev, arguments);

@@ -89,11 +89,6 @@ void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
     // Merge the Linker Options with the pre-existing one
     // (this can happen when passing a .bc file on the commandline)
 
-#if LDC_LLVM_VER < 306
-    // Passing a bitcode file on the commandline is not supported for LLVM 3.5.
-    llvm_unreachable(
-        "Merging of Linker Options is not implemented for LLVM 3.5");
-#else
     auto *moduleFlags = M.getModuleFlagsMetadata();
     for (unsigned i = 0, e = moduleFlags->getNumOperands(); i < e; ++i) {
       auto *flag = moduleFlags->getOperand(i);
@@ -122,7 +117,6 @@ void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
 
       break;
     }
-#endif
   }
 }
 #else
@@ -247,6 +241,10 @@ void CodeGenerator::finishLLModule(Module *m) {
 }
 
 void CodeGenerator::writeAndFreeLLModule(const char *filename) {
+  // Issue #1829: make sure all replaced global variables are replaced
+  // everywhere.
+  ir_->replaceGlobals();
+
   ir_->DBuilder.Finalize();
 
   emitLLVMUsedArray(*ir_);
@@ -257,12 +255,7 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename) {
       ir_->module.getOrInsertNamedMetadata("llvm.ident");
   std::string Version("ldc version ");
   Version.append(global.ldc_version);
-#if LDC_LLVM_VER >= 306
-  llvm::Metadata *IdentNode[] =
-#else
-  llvm::Value *IdentNode[] =
-#endif
-      {llvm::MDString::get(ir_->context(), Version)};
+  llvm::Metadata *IdentNode[] = {llvm::MDString::get(ir_->context(), Version)};
   IdentMetadata->addOperand(llvm::MDNode::get(ir_->context(), IdentNode));
 
   std::unique_ptr<llvm::tool_output_file> diagnosticsOutputFile =

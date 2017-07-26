@@ -41,7 +41,7 @@ llvm::StructType *IrAggr::getLLStructType() {
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLGlobalVariable *IrAggr::getInitSymbol() {
+LLConstant *&IrAggr::getInitSymbol() {
   if (init) {
     return init;
   }
@@ -49,12 +49,12 @@ LLGlobalVariable *IrAggr::getInitSymbol() {
   // create the initZ symbol
   auto initname = getMangledInitSymbolName(aggrdecl);
 
-  init =
+  auto initGlobal =
       getOrCreateGlobal(aggrdecl->loc, gIR->module, getLLStructType(), true,
                         llvm::GlobalValue::ExternalLinkage, nullptr, initname);
+  initGlobal->setAlignment(DtoAlignment(type));
 
-  // set alignment
-  init->setAlignment(DtoAlignment(type));
+  init = initGlobal;
 
   return init;
 }
