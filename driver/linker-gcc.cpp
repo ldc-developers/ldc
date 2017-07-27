@@ -29,6 +29,10 @@ static llvm::cl::opt<std::string>
                               "LLVMgold.so (Unixes) or libLTO.dylib (Darwin))"),
                llvm::cl::value_desc("file"));
 
+static llvm::cl::opt<bool> linkNoCpp(
+    "link-no-cpp", llvm::cl::ZeroOrMore, llvm::cl::Hidden,
+    llvm::cl::desc("Disable automatic linking with the C++ standard library."));
+
 //////////////////////////////////////////////////////////////////////////////
 
 namespace {
@@ -45,6 +49,8 @@ public:
 private:
   virtual void addSanitizers();
   virtual void addASanLinkFlags();
+  virtual void addFuzzLinkFlags();
+  virtual void addCppStdlibLinkFlags();
 
   virtual void addUserSwitches();
   void addDefaultLibs();
@@ -260,9 +266,62 @@ void ArgsBuilder::addASanLinkFlags() {
   }
 }
 
+// Adds all required link flags for -fsanitize=fuzzer when libFuzzer library is
+// found.
+void ArgsBuilder::addFuzzLinkFlags() {
+  std::string searchPaths[] = {
+    exe_path::prependLibDir("libFuzzer.a"),
+    exe_path::prependLibDir("libLLVMFuzzer.a"),
+  };
+
+  for (const auto &filepath : searchPaths) {
+    if (llvm::sys::fs::exists(filepath)) {
+      args.push_back(filepath);
+
+      // libFuzzer requires the C++ std library, but only add the link flags
+      // when libFuzzer was found.
+      addCppStdlibLinkFlags();
+      return;
+    }
+  }
+}
+
+void ArgsBuilder::addCppStdlibLinkFlags() {
+  if (linkNoCpp)
+    return;
+
+  switch (global.params.targetTriple->getOS()) {
+  case llvm::Triple::Linux:
+    if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
+      args.push_back("-lc++");
+    } else {
+      args.push_back("-lstdc++");
+    }
+    break;
+  case llvm::Triple::Solaris:
+  case llvm::Triple::NetBSD:
+  case llvm::Triple::OpenBSD:
+  case llvm::Triple::DragonFly:
+    args.push_back("-lstdc++");
+    break;
+  case llvm::Triple::Darwin:
+  case llvm::Triple::MacOSX:
+  case llvm::Triple::FreeBSD:
+    args.push_back("-lc++");
+    break;
+  default:
+    // Don't know: do nothing so the user can step in
+    break;
+  }
+}
+
 void ArgsBuilder::addSanitizers() {
   if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
     addASanLinkFlags();
+  }
+
+  if (opts::isSanitizerEnabled(opts::FuzzSanitizer)) {
+    addFuzzLinkFlags();
   }
 
   // TODO: instead of this, we should link with our own sanitizer libraries
