@@ -78,6 +78,7 @@ struct Param
     bool trace;         // insert profiling hooks
     bool tracegc;       // instrument calls to 'new'
     bool verbose;       // verbose compile
+    bool vcg_ast;       // write-out codegen-ast
     bool showColumns;   // print character (column) numbers in diagnostics
     bool vtls;          // identify thread local variables
 #if !IN_LLVM
@@ -382,17 +383,6 @@ enum CPPMANGLE
     CPPMANGLEdefault,
     CPPMANGLEstruct,
     CPPMANGLEclass,
-};
-
-enum DYNCAST
-{
-    DYNCAST_OBJECT,
-    DYNCAST_EXPRESSION,
-    DYNCAST_DSYMBOL,
-    DYNCAST_TYPE,
-    DYNCAST_IDENTIFIER,
-    DYNCAST_TUPLE,
-    DYNCAST_PARAMETER,
 };
 
 enum MATCH

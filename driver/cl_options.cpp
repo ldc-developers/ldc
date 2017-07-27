@@ -99,6 +99,10 @@ static cl::opt<bool, true> verbose_cg("v-cg", cl::desc("Verbose codegen"),
                                       cl::ZeroOrMore,
                                       cl::location(global.params.verbose_cg));
 
+static cl::opt<bool, true> verbose_cg_ast("vcg-ast", cl::ZeroOrMore, cl::Hidden,
+                                          cl::desc("Write AST to .cg file"),
+                                          cl::location(global.params.vcg_ast));
+
 static cl::opt<unsigned, true> errorLimit(
     "verrors", cl::ZeroOrMore, cl::location(global.errorLimit),
     cl::desc("Limit the number of error messages (0 means unlimited)"));

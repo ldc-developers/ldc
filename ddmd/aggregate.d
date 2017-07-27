@@ -2,7 +2,7 @@
  * Compiler implementation of the
  * $(LINK2 http://www.dlang.org, D programming language).
  *
- * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(DMDSRC _aggregate.d)
@@ -232,6 +232,8 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
             return true;
 
         //printf("determineFields() %s, fields.dim = %d\n", toChars(), fields.dim);
+        // determineFields can be called recursively from one of the fields's v.semantic
+        fields.setDim(0);
 
         extern (C++) static int func(Dsymbol s, void* param)
         {
@@ -241,8 +243,14 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
             if (v.storage_class & STCmanifest)
                 return 0;
 
+            auto ad = cast(AggregateDeclaration)param;
+
             if (v._scope)
                 v.semantic(null);
+            // Return in case a recursive determineFields triggered by v.semantic already finished
+            if (ad.sizeok != SIZEOKnone)
+                return 1;
+
             if (v.aliassym)
                 return 0;   // If this variable was really a tuple, skip it.
 
@@ -251,18 +259,6 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
             if (!v.isField() || v.semanticRun < PASSsemanticdone)
                 return 1;   // unresolvable forward reference
 
-            auto ad = cast(AggregateDeclaration)param;
-            version(IN_LLVM)
-            {
-                for (size_t i = 0; i < ad.fields.dim; i++)
-                {
-                    if (ad.fields[i] == v)
-                    {
-                        // already a field
-                        return 0;
-                    }
-                }
-            }
             ad.fields.push(v);
 
             if (v.storage_class & STCref)
@@ -281,13 +277,18 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
             return 0;
         }
 
-        fields.setDim(0);
-
         for (size_t i = 0; i < members.dim; i++)
         {
             auto s = (*members)[i];
             if (s.apply(&func, cast(void*)this))
+            {
+                if (sizeok != SIZEOKnone)
+                {
+                    // recursive determineFields already finished
+                    return true;
+                }
                 return false;
+            }
         }
 
         if (sizeok != SIZEOKdone)

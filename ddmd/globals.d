@@ -2,7 +2,7 @@
  * Compiler implementation of the
  * $(LINK2 http://www.dlang.org, D programming language).
  *
- * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(DMDSRC _globals.d)
@@ -96,6 +96,7 @@ struct Param
     bool trace;             // insert profiling hooks
     bool tracegc;           // instrument calls to 'new'
     bool verbose;           // verbose compile
+    bool vcg_ast;           // write-out codegen-ast
     bool showColumns;       // print character (column) numbers in diagnostics
     bool vtls;              // identify thread local variables
     bool vgc;               // identify gc usage
@@ -404,7 +405,7 @@ else
             static assert(0, "fix this");
         }
 }
-        copyright = "Copyright (c) 1999-2016 by Digital Mars";
+        copyright = "Copyright (c) 1999-2017 by Digital Mars";
         written = "written by Walter Bright";
 version(IN_LLVM)
 {
@@ -508,25 +509,6 @@ enum CPPMANGLE : int
 alias CPPMANGLEdefault = CPPMANGLE.def;
 alias CPPMANGLEstruct = CPPMANGLE.asStruct;
 alias CPPMANGLEclass = CPPMANGLE.asClass;
-
-enum DYNCAST : int
-{
-    object,
-    expression,
-    dsymbol,
-    type,
-    identifier,
-    tuple,
-    parameter,
-}
-
-alias DYNCAST_OBJECT = DYNCAST.object;
-alias DYNCAST_EXPRESSION = DYNCAST.expression;
-alias DYNCAST_DSYMBOL = DYNCAST.dsymbol;
-alias DYNCAST_TYPE = DYNCAST.type;
-alias DYNCAST_IDENTIFIER = DYNCAST.identifier;
-alias DYNCAST_TUPLE = DYNCAST.tuple;
-alias DYNCAST_PARAMETER = DYNCAST.parameter;
 
 enum MATCH : int
 {

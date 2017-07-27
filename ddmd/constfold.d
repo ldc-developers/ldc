@@ -2,7 +2,7 @@
  * Compiler implementation of the
  * $(LINK2 http://www.dlang.org, D programming language).
  *
- * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(DMDSRC _constfold.d)
@@ -449,6 +449,22 @@ extern (C++) UnionExp Div(Loc loc, Type type, Expression e1, Expression e2)
             e2.error("divide by 0");
             n2 = 1;
         }
+        if (n2 == -1 && !type.isunsigned())
+        {
+            // Check for int.min / -1
+            if (n1 == 0xFFFFFFFF80000000UL && type.toBasetype().ty != Tint64)
+            {
+                e2.error("integer overflow: int.min / -1");
+                emplaceExp!(ErrorExp)(&ue);
+                return ue;
+            }
+            else if (n1 == 0x8000000000000000L) // long.min / -1
+            {
+                e2.error("integer overflow: long.min / -1");
+                emplaceExp!(ErrorExp)(&ue);
+                return ue;
+            }
+        }
         if (e1.type.isunsigned() || e2.type.isunsigned())
             n = (cast(dinteger_t)n1) / (cast(dinteger_t)n2);
         else
@@ -502,13 +518,15 @@ extern (C++) UnionExp Mod(Loc loc, Type type, Expression e1, Expression e2)
             // Check for int.min % -1
             if (n1 == 0xFFFFFFFF80000000UL && type.toBasetype().ty != Tint64)
             {
-                e2.error("integer overflow: int.min % -1");
-                n2 = 1;
+                e2.error("integer overflow: int.min %% -1");
+                emplaceExp!(ErrorExp)(&ue);
+                return ue;
             }
             else if (n1 == 0x8000000000000000L) // long.min % -1
             {
-                e2.error("integer overflow: long.min % -1");
-                n2 = 1;
+                e2.error("integer overflow: long.min %% -1");
+                emplaceExp!(ErrorExp)(&ue);
+                return ue;
             }
         }
         if (e1.type.isunsigned() || e2.type.isunsigned())

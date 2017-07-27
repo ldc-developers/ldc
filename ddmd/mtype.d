@@ -2,7 +2,7 @@
  * Compiler implementation of the
  * $(LINK2 http://www.dlang.org, D programming language).
  *
- * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(DMDSRC _mtype.d)
@@ -643,9 +643,9 @@ extern (C++) abstract class Type : RootObject
     }
 
     // kludge for template.isType()
-    override final int dyncast()
+    override final DYNCAST dyncast() const
     {
-        return DYNCAST_TYPE;
+        return DYNCAST.type;
     }
 
     /*******************************
@@ -704,7 +704,7 @@ extern (C++) abstract class Type : RootObject
                 {
                     goto Ldistinct;
                 }
-                inoutmismatch = !fparam1.isCovariant(fparam2);
+                inoutmismatch = !fparam1.isCovariant(t1.isref, fparam2);
             }
         }
         else if (t1.parameters != t2.parameters)
@@ -765,8 +765,28 @@ extern (C++) abstract class Type : RootObject
         if (t1.isref != t2.isref)
             goto Lnotcovariant;
 
-        // We can subtract 'return' from 'this', but cannot add it
-        if (t1.isreturn && !t2.isreturn)
+        if (!t1.isref && (t1.isscope || t2.isscope))
+        {
+            StorageClass stc1 = t1.isscope ? STCscope : 0;
+            StorageClass stc2 = t2.isscope ? STCscope : 0;
+            if (t1.isreturn)
+            {
+                stc1 |= STCreturn;
+                if (!t1.isscope)
+                    stc1 |= STCref;
+            }
+            if (t2.isreturn)
+            {
+                stc2 |= STCreturn;
+                if (!t2.isscope)
+                    stc2 |= STCref;
+            }
+            if (!Parameter.isCovariantScope(t1.isref, stc1, stc2))
+                goto Lnotcovariant;
+        }
+
+        // We can subtract 'return ref' from 'this', but cannot add it
+        else if (t1.isreturn && !t2.isreturn)
             goto Lnotcovariant;
 
         /* Can convert mutable to const
@@ -2642,7 +2662,7 @@ extern (C++) abstract class Type : RootObject
             e = getProperty(e.loc, ident, flag & DotExpFlag.gag);
 
     Lreturn:
-        if (!(flag & DotExpFlag.gag) || e)
+        if (e)
             e = e.semantic(sc);
         return e;
     }
@@ -4759,7 +4779,7 @@ extern (C++) final class TypeSArray : TypeArray
             }
 
             RootObject o = (*tup.objects)[cast(size_t)d];
-            if (o.dyncast() != DYNCAST_TYPE)
+            if (o.dyncast() != DYNCAST.type)
             {
                 error(loc, "%s is not a type", toChars());
                 return Type.terror;
@@ -4804,13 +4824,14 @@ extern (C++) final class TypeSArray : TypeArray
             if (d1 != d2)
             {
             Loverflow:
-                error(loc, "%s size %llu * %llu exceeds the size limit for static arrays (overflow)", toChars(), cast(ulong)tbn.size(loc), cast(ulong)d1);
+                error(loc, "%s size %llu * %llu exceeds 0x%llx size limit for static array",
+                        toChars(), cast(ulong)tbn.size(loc), cast(ulong)d1, Target.maxStaticDataSize);
                 goto Lerror;
             }
             Type tbx = tbn.baseElemOf();
             if (tbx.ty == Tstruct && !(cast(TypeStruct)tbx).sym.members || tbx.ty == Tenum && !(cast(TypeEnum)tbx).sym.members)
             {
-                /* To avoid meaningess error message, skip the total size limit check
+                /* To avoid meaningless error message, skip the total size limit check
                  * when the bottom of element type is opaque.
                  */
             }
@@ -4820,20 +4841,8 @@ extern (C++) final class TypeSArray : TypeArray
                  * run on them for the size, since they may be forward referenced.
                  */
                 bool overflow = false;
-version(IN_LLVM)
-{
-                /+ The size limit that DMD imposes here is only there to work around an optlink bug, which doesn't apply to LDC.
-                 + https://issues.dlang.org/show_bug.cgi?id=14859
-                 +/
-                auto _ = mulu(tbn.size(loc), d2, overflow);
-                if (overflow)
+                if (mulu(tbn.size(loc), d2, overflow) >= Target.maxStaticDataSize || overflow)
                     goto Loverflow;
-}
-else
-{
-                if (mulu(tbn.size(loc), d2, overflow) >= 0x100_0000 || overflow) // put a 'reasonable' limit on it
-                    goto Loverflow;
-}
             }
         }
         switch (tbn.ty)
@@ -4913,12 +4922,12 @@ else
                 }
 
                 RootObject o = (*tup.objects)[cast(size_t)d];
-                if (o.dyncast() == DYNCAST_DSYMBOL)
+                if (o.dyncast() == DYNCAST.dsymbol)
                 {
                     *ps = cast(Dsymbol)o;
                     return;
                 }
-                if (o.dyncast() == DYNCAST_EXPRESSION)
+                if (o.dyncast() == DYNCAST.expression)
                 {
                     Expression e = cast(Expression)o;
                     if (e.op == TOKdsymbol)
@@ -4933,7 +4942,7 @@ else
                     }
                     return;
                 }
-                if (o.dyncast() == DYNCAST_TYPE)
+                if (o.dyncast() == DYNCAST.type)
                 {
                     *ps = null;
                     *pt = (cast(Type)o).addMod(this.mod);
@@ -6165,8 +6174,8 @@ extern (C++) final class TypeFunction : TypeNext
         if (sc.stc & STCscope)
             tf.isscope = true;
 
-        if ((sc.stc & (STCreturn | STCref)) == STCreturn)
-            tf.isscope = true;                                  // return by itself means 'return scope'
+//        if (tf.isreturn && !tf.isref)
+//            tf.isscope = true;                                  // return by itself means 'return scope'
 
         if (tf.trust == TRUSTdefault)
         {
@@ -6220,7 +6229,7 @@ extern (C++) final class TypeFunction : TypeNext
 
             if (tf.isreturn && !tf.isref && !tf.next.hasPointers())
             {
-                error(loc, "function has 'return' but does not return any indirections");
+                error(loc, "function type '%s' has 'return' but does not return any indirections", tf.toChars());
             }
         }
 
@@ -6339,7 +6348,7 @@ extern (C++) final class TypeFunction : TypeNext
                     }
                 }
 
-                if (fparam.storageClass & STCscope && !fparam.type.hasPointers())
+                if (fparam.storageClass & STCscope && !fparam.type.hasPointers() && fparam.type.ty != Ttuple)
                 {
                     fparam.storageClass &= ~STCscope;
                     if (!(fparam.storageClass & STCref))
@@ -6665,6 +6674,7 @@ extern (C++) final class TypeFunction : TypeNext
      */
     final StorageClass parameterStorageClass(Parameter p)
     {
+        //printf("parameterStorageClass(p: %s)\n", p.toChars());
         auto stc = p.storageClass;
         if (!global.params.vsafe)
             return stc;
@@ -6686,6 +6696,8 @@ extern (C++) final class TypeFunction : TypeNext
             foreach (const i; 0 .. dim)
             {
                 Parameter fparam = Parameter.getNth(parameters, i);
+                if (fparam == p)
+                    continue;
                 Type t = fparam.type;
                 if (!t)
                     continue;
@@ -6708,13 +6720,21 @@ extern (C++) final class TypeFunction : TypeNext
 
         stc |= STCscope;
 
-        Type tret = nextOf().toBasetype();
-        if (isref || tret.hasPointers())
+        /* Inferring STCreturn here has false positives
+         * for pure functions, producing spurious error messages
+         * about escaping references.
+         * Give up on it for now.
+         */
+        version (none)
         {
-            /* The result has references, so p could be escaping
-             * that way.
-             */
-            stc |= STCreturn;
+            Type tret = nextOf().toBasetype();
+            if (isref || tret.hasPointers())
+            {
+                /* The result has references, so p could be escaping
+                 * that way.
+                 */
+                stc |= STCreturn;
+            }
         }
 
         return stc;
@@ -6722,8 +6742,13 @@ extern (C++) final class TypeFunction : TypeNext
 
     override Type addStorageClass(StorageClass stc)
     {
+        //printf("addStorageClass(%llx) %d\n", stc, (stc & STCscope) != 0);
         TypeFunction t = cast(TypeFunction)Type.addStorageClass(stc);
-        if ((stc & STCpure && !t.purity) || (stc & STCnothrow && !t.isnothrow) || (stc & STCnogc && !t.isnogc) || (stc & STCsafe && t.trust < TRUSTtrusted))
+        if ((stc & STCpure && !t.purity) ||
+            (stc & STCnothrow && !t.isnothrow) ||
+            (stc & STCnogc && !t.isnogc) ||
+            (stc & STCscope && !t.isscope) ||
+            (stc & STCsafe && t.trust < TRUSTtrusted))
         {
             // Klunky to change these
             auto tf = new TypeFunction(t.parameters, t.next, t.varargs, t.linkage, 0);
@@ -6747,6 +6772,8 @@ extern (C++) final class TypeFunction : TypeNext
                 tf.isnogc = true;
             if (stc & STCsafe)
                 tf.trust = TRUSTsafe;
+            if (stc & STCscope)
+                tf.isscope = true;
 
             tf.deco = tf.merge().deco;
             t = tf;
@@ -7216,6 +7243,25 @@ extern (C++) final class TypeDelegate : TypeNext
         }
     }
 
+    override Type addStorageClass(StorageClass stc)
+    {
+        TypeDelegate t = cast(TypeDelegate)Type.addStorageClass(stc);
+        if (!global.params.vsafe)
+            return t;
+
+        /* The rest is meant to add 'scope' to a delegate declaration if it is of the form:
+         *  alias dg_t = void* delegate();
+         *  scope dg_t dg = ...;
+         */
+        auto n = t.next.addStorageClass(stc & STCscope);
+        if (n != t.next)
+        {
+            t.next = n;
+            t.deco = t.merge().deco;
+        }
+        return t;
+    }
+
     override d_uns64 size(Loc loc) const
     {
         return Target.ptrsize * 2;
@@ -7340,19 +7386,19 @@ extern (C++) abstract class TypeQualified : Type
         for (size_t i = 0; i < idents.dim; i++)
         {
             RootObject id = t.idents[i];
-            if (id.dyncast() == DYNCAST_DSYMBOL)
+            if (id.dyncast() == DYNCAST.dsymbol)
             {
                 TemplateInstance ti = cast(TemplateInstance)id;
                 ti = cast(TemplateInstance)ti.syntaxCopy(null);
                 id = ti;
             }
-            else if (id.dyncast() == DYNCAST_EXPRESSION)
+            else if (id.dyncast() == DYNCAST.expression)
             {
                 Expression e = cast(Expression)id;
                 e = e.syntaxCopy();
                 id = e;
             }
-            else if (id.dyncast() == DYNCAST_TYPE)
+            else if (id.dyncast() == DYNCAST.type)
             {
                 Type tx = cast(Type)id;
                 tx = tx.syntaxCopy();
@@ -7459,24 +7505,24 @@ extern (C++) abstract class TypeQualified : Type
             switch (id.dyncast())
             {
                 // ... '. ident'
-                case DYNCAST_IDENTIFIER:
+                case DYNCAST.identifier:
                     e = new DotIdExp(e.loc, e, cast(Identifier)id);
                     break;
 
                 // ... '. name!(tiargs)'
-                case DYNCAST_DSYMBOL:
+                case DYNCAST.dsymbol:
                     auto ti = (cast(Dsymbol)id).isTemplateInstance();
                     assert(ti);
                     e = new DotTemplateInstanceExp(e.loc, e, ti.name, ti.tiargs);
                     break;
 
                 // ... '[type]'
-                case DYNCAST_TYPE:          // Bugzilla 1215
+                case DYNCAST.type:          // Bugzilla 1215
                     e = new ArrayExp(loc, e, new TypeExp(loc, cast(Type)id));
                     break;
 
                 // ... '[expr]'
-                case DYNCAST_EXPRESSION:    // Bugzilla 1215
+                case DYNCAST.expression:    // Bugzilla 1215
                     e = new ArrayExp(loc, e, cast(Expression)id);
                     break;
 
@@ -7519,8 +7565,8 @@ extern (C++) abstract class TypeQualified : Type
             for (size_t i = 0; i < idents.dim; i++)
             {
                 RootObject id = idents[i];
-                if (id.dyncast() == DYNCAST_EXPRESSION ||
-                    id.dyncast() == DYNCAST_TYPE)
+                if (id.dyncast() == DYNCAST.expression ||
+                    id.dyncast() == DYNCAST.type)
                 {
                     Type tx;
                     Expression ex;
@@ -7586,7 +7632,7 @@ extern (C++) abstract class TypeQualified : Type
                     if (t)
                     {
                         sm = t.toDsymbol(sc);
-                        if (sm && id.dyncast() == DYNCAST_IDENTIFIER)
+                        if (sm && id.dyncast() == DYNCAST.identifier)
                         {
                             sm = sm.search(loc, cast(Identifier)id);
                             if (sm)
@@ -7608,14 +7654,14 @@ extern (C++) abstract class TypeQualified : Type
                     }
                     else
                     {
-                        if (id.dyncast() == DYNCAST_DSYMBOL)
+                        if (id.dyncast() == DYNCAST.dsymbol)
                         {
                             // searchX already handles errors for template instances
                             assert(global.errors);
                         }
                         else
                         {
-                            assert(id.dyncast() == DYNCAST_IDENTIFIER);
+                            assert(id.dyncast() == DYNCAST.identifier);
                             sm = s.search_correct(cast(Identifier)id);
                             if (sm)
                                 error(loc, "identifier '%s' of '%s' is not defined, did you mean %s '%s'?", id.toChars(), toChars(), sm.kind(), sm.toChars());
@@ -8012,7 +8058,7 @@ extern (C++) final class TypeTypeof : TypeQualified
         *pt = null;
         *ps = null;
 
-        //printf("TypeTypeof::resolve(sc = %p, idents = '%s')\n", sc, toChars());
+        //printf("TypeTypeof::resolve(this = %p, sc = %p, idents = '%s')\n", this, sc, toChars());
         //static int nest; if (++nest == 50) *(char*)0=0;
         if (inuse)
         {
@@ -10075,7 +10121,7 @@ extern (C++) final class TypeNull : Type
             return m;
 
         // NULL implicitly converts to any pointer type or dynamic array
-        //if (type.ty == Tpointer && type.nextOf()->ty == Tvoid)
+        //if (type.ty == Tpointer && type.nextOf().ty == Tvoid)
         {
             Type tb = to.toBasetype();
             if (tb.ty == Tnull || tb.ty == Tpointer || tb.ty == Tarray || tb.ty == Taarray || tb.ty == Tclass || tb.ty == Tdelegate)
@@ -10162,9 +10208,9 @@ extern (C++) final class Parameter : RootObject
     }
 
     // kludge for template.isType()
-    override int dyncast()
+    override DYNCAST dyncast() const
     {
-        return DYNCAST_PARAMETER;
+        return DYNCAST.parameter;
     }
 
     void accept(Visitor v)
@@ -10298,15 +10344,99 @@ extern (C++) final class Parameter : RootObject
      *  true = `this` can be used in place of `p`
      *  false = nope
      */
-    final bool isCovariant(const Parameter p) const pure nothrow @nogc @safe
+    final bool isCovariant(bool returnByRef, const Parameter p) const pure nothrow @nogc @safe
     {
         enum stc = STCref | STCin | STCout | STClazy;
-        return !((this.storageClass & stc) != (p.storageClass & stc) ||
-
-                // We can add scope, but not subtract it
-                (!(this.storageClass & STCscope) && (p.storageClass & STCscope)) ||
-
-                // We can subtract return, but not add it
-                ((this.storageClass & STCreturn) && !(p.storageClass & STCreturn)));
+        if ((this.storageClass & stc) != (p.storageClass & stc))
+            return false;
+        return isCovariantScope(returnByRef, this.storageClass, p.storageClass);
     }
+
+    static bool isCovariantScope(bool returnByRef, StorageClass from, StorageClass to) pure nothrow @nogc @safe
+    {
+        if (from == to)
+            return true;
+
+        /* Shrinking the representation is necessary because StorageClass is so wide
+         * Params:
+         *   returnByRef = true if the function returns by ref
+         *   stc = storage class of parameter
+         */
+        static uint buildSR(bool returnByRef, StorageClass stc) pure nothrow @nogc @safe
+        {
+            uint result;
+            final switch (stc & (STCref | STCscope | STCreturn))
+            {
+                case 0:                    result = SR.None;        break;
+                case STCref:               result = SR.Ref;         break;
+                case STCscope:             result = SR.Scope;       break;
+                case STCreturn | STCref:   result = SR.ReturnRef;   break;
+                case STCreturn | STCscope: result = SR.ReturnScope; break;
+                case STCref    | STCscope: result = SR.RefScope;    break;
+                case STCreturn | STCref | STCscope:
+                    result = returnByRef ? SR.ReturnRef_Scope : SR.Ref_ReturnScope;
+                    break;
+            }
+            return result;
+        }
+
+        /* result is true if the 'from' can be used as a 'to'
+         */
+
+        if ((from ^ to) & STCref)               // differing in 'ref' means no covariance
+            return false;
+
+        return covariant[buildSR(returnByRef, from)][buildSR(returnByRef, to)];
+    }
+
+    /* Classification of 'scope-return-ref' possibilities
+     */
+    enum SR
+    {
+        None,
+        Scope,
+        ReturnScope,
+        Ref,
+        ReturnRef,
+        RefScope,
+        ReturnRef_Scope,
+        Ref_ReturnScope,
+    }
+
+    static bool[SR.max + 1][SR.max + 1] covariantInit() pure nothrow @nogc @safe
+    {
+        /* Initialize covariant[][] with this:
+
+             From\To           n   rs  s
+             None              X
+             ReturnScope       X   X
+             Scope             X   X   X
+
+             From\To           r   rr  rs  rr-s r-rs
+             Ref               X   X
+             ReturnRef             X
+             RefScope          X   X   X   X    X
+             ReturnRef-Scope       X       X
+             Ref-ReturnScope   X   X            X
+        */
+        bool[SR.max + 1][SR.max + 1] covariant;
+
+        foreach (i; 0 .. SR.max + 1)
+        {
+            covariant[i][i] = true;
+            covariant[SR.RefScope][i] = true;
+        }
+        covariant[SR.ReturnScope][SR.None]        = true;
+        covariant[SR.Scope      ][SR.None]        = true;
+        covariant[SR.Scope      ][SR.ReturnScope] = true;
+
+        covariant[SR.Ref            ][SR.ReturnRef] = true;
+        covariant[SR.ReturnRef_Scope][SR.ReturnRef] = true;
+        covariant[SR.Ref_ReturnScope][SR.Ref      ] = true;
+        covariant[SR.Ref_ReturnScope][SR.ReturnRef] = true;
+
+        return covariant;
+    }
+
+    extern (D) static immutable bool[SR.max + 1][SR.max + 1] covariant = covariantInit();
 }

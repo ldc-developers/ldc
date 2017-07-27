@@ -2,7 +2,7 @@
  * Compiler implementation of the
  * $(LINK2 http://www.dlang.org, D programming language).
  *
- * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(DMDSRC _doc.d)
@@ -939,7 +939,7 @@ extern (C++) void emitComment(Dsymbol s, OutBuffer* buf, Scope* sc)
                 if (isDitto(td.comment))
                     com = td.comment;
                 else
-                    com = Lexer.combineComments(td.comment, com);
+                    com = Lexer.combineComments(td.comment, com, true);
             }
             else
             {
@@ -971,7 +971,7 @@ extern (C++) void emitComment(Dsymbol s, OutBuffer* buf, Scope* sc)
                 if (isDitto(td.comment))
                     com = td.comment;
                 else
-                    com = Lexer.combineComments(td.comment, com);
+                    com = Lexer.combineComments(td.comment, com, true);
             }
             else
             {

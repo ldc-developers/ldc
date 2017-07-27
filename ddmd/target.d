@@ -2,7 +2,7 @@
  * Compiler implementation of the
  * $(LINK2 http://www.dlang.org, D programming language).
  *
- * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(DMDSRC _target.d)
@@ -18,93 +18,6 @@ import ddmd.mtype;
 import ddmd.root.ctfloat;
 import ddmd.root.outbuffer;
 
-version(IN_LLVM)
-{
-
-extern(C++):
-
-struct Target
-{
-    static __gshared int ptrsize;
-    static __gshared int realsize;             // size a real consumes in memory
-    static __gshared int realpad;              // 'padding' added to the CPU real size to bring it up to realsize
-    static __gshared int realalignsize;        // alignment for reals
-    static __gshared bool realislongdouble;    // distinguish between C 'long double' and '__float128'
-    static __gshared bool reverseCppOverloads; // with dmc and cl, overloaded functions are grouped and in reverse order
-    static __gshared bool cppExceptions;       // set if catching C++ exceptions is supported
-    static __gshared int c_longsize;           // size of a C 'long' or 'unsigned long' type
-    static __gshared int c_long_doublesize;    // size of a C 'long double'
-    static __gshared int classinfosize;        // size of 'ClassInfo'
-
-    extern(D) static struct FPTypeProperties(T)
-    {
-        static real_t max() { return real_t(T.max); }
-        static real_t min_normal() { return real_t(T.min_normal); }
-        static real_t nan() { return real_t(T.nan); }
-        static real_t snan() { return real_t(T.init); }
-        static real_t infinity() { return real_t(T.infinity); }
-        static real_t epsilon() { return real_t(T.epsilon); }
-
-        enum : long
-        {
-            dig = T.dig,
-            mant_dig = T.mant_dig,
-            max_exp = T.max_exp,
-            min_exp = T.min_exp,
-            max_10_exp = T.max_10_exp,
-            min_10_exp = T.min_10_exp
-        }
-    }
-
-    alias FloatProperties = FPTypeProperties!float;
-    alias DoubleProperties = FPTypeProperties!double;
-
-    static struct RealProperties
-    {
-        // implemented in gen/target.cpp
-        static real_t max();
-        static real_t min_normal();
-        static real_t nan();
-        static real_t snan();
-        static real_t infinity();
-        static real_t epsilon();
-
-        static real_t host_max() { return real_t.max; }
-        static real_t host_min_normal() { return real_t.min_normal; }
-        static real_t host_nan() { return real_t.nan; }
-        static real_t host_snan() { return real_t.init; }
-        static real_t host_infinity() { return real_t.infinity; }
-        static real_t host_epsilon() { return real_t.epsilon; }
-
-        static __gshared
-        {
-            long dig = real_t.dig;
-            long mant_dig = real_t.mant_dig;
-            long max_exp = real_t.max_exp;
-            long min_exp = real_t.min_exp;
-            long max_10_exp = real_t.max_10_exp;
-            long min_10_exp = real_t.min_10_exp;
-        }
-    }
-
-    static void _init();
-    // Type sizes and support.
-    static uint alignsize(Type type);
-    static uint fieldalign(Type type);
-    static uint critsecsize();
-    static Type va_listType();  // get type of va_list
-    static int checkVectorType(int sz, Type type);
-    // CTFE support for cross-compilation.
-    static Expression paintAsType(Expression e, Type type);
-    // ABI and backend.
-    static void loadModule(Module m);
-    static void prefixName(OutBuffer *buf, LINK linkage);
-}
-
-}
-else // !IN_LLVM
-{
-
 /***********************************************************
  */
 struct Target
@@ -119,40 +32,72 @@ struct Target
     extern (C++) static __gshared int c_longsize;           // size of a C 'long' or 'unsigned long' type
     extern (C++) static __gshared int c_long_doublesize;    // size of a C 'long double'
     extern (C++) static __gshared int classinfosize;        // size of 'ClassInfo'
+    extern (C++) static __gshared ulong maxStaticDataSize;  // maximum size of static data
 
-    template FPTypeProperties(T)
+    extern (C++) struct FPTypeProperties(T)
     {
-        enum : real_t
+        static __gshared
         {
-            max = T.max,
-            min_normal = T.min_normal,
-            nan = T.nan,
-            snan = T.init,
-            infinity = T.infinity,
-            epsilon = T.epsilon
-        }
+            real_t max = T.max;
+            real_t min_normal = T.min_normal;
+            real_t nan = T.nan;
+            real_t snan = T.init;
+            real_t infinity = T.infinity;
+            real_t epsilon = T.epsilon;
 
-        enum : long
-        {
-            dig = T.dig,
-            mant_dig = T.mant_dig,
-            max_exp = T.max_exp,
-            min_exp = T.min_exp,
-            max_10_exp = T.max_10_exp,
-            min_10_exp = T.min_10_exp
+            d_int64 dig = T.dig;
+            d_int64 mant_dig = T.mant_dig;
+            d_int64 max_exp = T.max_exp;
+            d_int64 min_exp = T.min_exp;
+            d_int64 max_10_exp = T.max_10_exp;
+            d_int64 min_10_exp = T.min_10_exp;
         }
     }
 
     alias FloatProperties = FPTypeProperties!float;
     alias DoubleProperties = FPTypeProperties!double;
-    alias RealProperties = FPTypeProperties!real;
+  version(IN_LLVM) {
+    // host real_t may be double => make sure not to alias target's DoubleProperties
+    extern (C++) static __gshared FPTypeProperties!real_t RealProperties;
+  } else {
+    alias RealProperties = FPTypeProperties!real_t;
+  }
 
+  version(IN_LLVM)
+  {
+    // implemented in gen/target.cpp:
+    extern (C++):
+
+    static void _init();
+    // Type sizes and support.
+    static uint alignsize(Type type);
+    static uint fieldalign(Type type);
+    static uint critsecsize();
+    static Type va_listType();  // get type of va_list
+    static int checkVectorType(int sz, Type type);
+    // CTFE support for cross-compilation.
+    static Expression paintAsType(Expression e, Type type);
+    // ABI and backend.
+    static void loadModule(Module m);
+    static void prefixName(OutBuffer *buf, LINK linkage);
+  }
+  else // !IN_LLVM
+  {
     extern (C++) static void _init()
     {
         // These have default values for 32 bit code, they get
         // adjusted for 64 bit code.
         ptrsize = 4;
         classinfosize = 0x4C; // 76
+
+        /* gcc uses int.max for 32 bit compilations, and long.max for 64 bit ones.
+         * Set to int.max for both, because the rest of the compiler cannot handle
+         * 2^64-1 without some pervasive rework. The trouble is that much of the
+         * front and back end uses 32 bit ints for sizes and offsets. Since C++
+         * silently truncates 64 bit ints to 32, finding all these dependencies will be a problem.
+         */
+        maxStaticDataSize = int.max;
+
         if (global.params.isLP64)
         {
             ptrsize = 8;
@@ -179,6 +124,13 @@ struct Target
             realalignsize = 2;
             reverseCppOverloads = true;
             c_longsize = 4;
+            if (ptrsize == 4)
+            {
+                /* Optlink cannot deal with individual data chunks
+                 * larger than 16Mb
+                 */
+                maxStaticDataSize = 0x100_0000;  // 16Mb
+            }
         }
         else
             assert(0);
@@ -422,7 +374,10 @@ struct Target
             break;
         }
     }
+  } // !IN_LLVM
 }
+
+version(IN_LLVM) {} else {
 
 /******************************
  * Private helpers for Target::paintAsType.
