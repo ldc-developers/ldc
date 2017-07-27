@@ -704,7 +704,7 @@ build_d_executable(
     "${LDMD_D_SOURCE_FILES}"
     "$<TARGET_LINKER_FILE:LDMD_CXX_LIB>"
     "${LDMD_D_SOURCE_FILES}"
-    "LDMD_CXX_LIB;${LDC_LIB}"
+    "LDMD_CXX_LIB"
 )
 
 #
@@ -754,6 +754,7 @@ function(copy_compilerrt_lib llvm_lib_name ldc_lib_name fixup_dylib)
         if (fixup_dylib)
             execute_process(COMMAND install_name_tool -id @rpath/${ldc_lib_name} ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${ldc_lib_name})
         endif()
+        install(FILES ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${ldc_lib_name} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
     else()
         message(STATUS "Not found: ${llvm_lib_path}")
     endif()
@@ -771,6 +772,7 @@ if (LDC_INSTALL_LLVM_RUNTIME_LIBS)
         message(STATUS "Copying libFuzzer library: ${LLVM_LIBFUZZER_PATH} --> libFuzzer.a")
         file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX})
         configure_file(${LLVM_LIBFUZZER_PATH} ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/libFuzzer.a COPYONLY)
+        install(FILES ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/libFuzzer.a DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
     else()
         message(STATUS "Not found: ${LLVM_LIBFUZZER_PATH}")
     endif()
@@ -817,6 +819,9 @@ add_subdirectory(tests)
 
 install(PROGRAMS ${LDC_EXE_FULL} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(PROGRAMS ${LDMD_EXE_FULL} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+if(NOT CMAKE_INSTALL_PREFIX STREQUAL "/usr")
+    install(PROGRAMS ${PROJECT_BINARY_DIR}/bin/build-ldc-runtime.sh DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+endif()
 if(${BUILD_SHARED})
     # For now, only install libldc if explicitly building the shared library.
     # While it might theoretically be possible to use LDC as a static library

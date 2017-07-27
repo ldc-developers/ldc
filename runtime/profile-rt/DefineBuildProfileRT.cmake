@@ -8,7 +8,7 @@ if (LDC_WITH_PGO)
     file(GLOB LDC_PROFRT_CXX ${PROFILERT_LIBSRC_DIR}/*.cc)
 
     # Set compiler-dependent flags
-    if(MSVC)
+    if("${TARGET_SYSTEM}" MATCHES "MSVC")
         # Omit Default Library Name from the library, so it will work with both release and debug builds
         set(PROFRT_EXTRA_FLAGS "/Zl")
 
@@ -65,19 +65,16 @@ if (LDC_WITH_PGO)
     # Sets up the targets for building the D-source profile-rt object files,
     # appending the names of the (bitcode) files to link into the library to
     # outlist_o (outlist_bc).
-    macro(compile_profilert_D d_flags lib_suffix path_suffix outlist_o outlist_bc)
+    macro(compile_profilert_D d_flags lib_suffix path_suffix all_at_once outlist_o outlist_bc)
         get_target_suffix("${lib_suffix}" "${path_suffix}" target_suffix)
-
-        foreach(f ${LDC_PROFRT_D})
-            dc(
-                ${f}
-                "${d_flags}"
-                "${PROFILERT_DIR}"
-                "${target_suffix}"
-                ${outlist_o}
-                ${outlist_bc}
-            )
-        endforeach()
+        dc("${LDC_PROFRT_D}"
+           "${PROFILERT_DIR}/d"
+           "${d_flags}"
+           "${PROJECT_BINARY_DIR}/objects${target_suffix}"
+           "${all_at_once}"
+           ${outlist_o}
+           ${outlist_bc}
+        )
     endmacro()
 
     macro(build_profile_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targets)
@@ -85,7 +82,7 @@ if (LDC_WITH_PGO)
 
         set(profilert_d_o "")
         set(profilert_d_bc "")
-        compile_profilert_D("${d_flags};-relocation-model=pic" "${lib_suffix}" "${path_suffix}" profilert_d_o profilert_d_bc)
+        compile_profilert_D("${d_flags};-relocation-model=pic" "${lib_suffix}" "${path_suffix}" "${COMPILE_ALL_D_FILES_AT_ONCE}" profilert_d_o profilert_d_bc)
 
         add_library(ldc-profile-rt${target_suffix} STATIC ${profilert_d_o} ${LDC_PROFRT_C} ${LDC_PROFRT_CXX})
         set_target_properties(

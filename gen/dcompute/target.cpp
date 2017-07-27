@@ -8,7 +8,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "ddmd/dsymbol.h"
-#include "ddmd/module.h"
 #include "ddmd/mars.h"
 #include "ddmd/module.h"
 #include "ddmd/scope.h"
@@ -44,13 +43,15 @@ void DComputeTarget::emit(Module *m) {
 void DComputeTarget::writeModule() {
   addMetadata();
 
-  char tmp[32];
-  const char *fmt = "kernels_%s%d_%d.%s";
-  int len = sprintf(tmp, fmt, short_name, tversion,
-                    global.params.is64bit ? 64 : 32, binSuffix);
-  tmp[len] = '\0';
+  std::string filename;
+  llvm::raw_string_ostream os(filename);
+  os << "kernels_" << short_name << tversion << '_'
+     << (global.params.is64bit ? 64 : 32) << '.' << binSuffix;
+
+  const char *path = FileName::combine(global.params.objdir, os.str().c_str());
+
   setGTargetMachine();
-  ::writeModule(&_ir->module, tmp);
+  ::writeModule(&_ir->module, path);
 
   delete _ir;
   _ir = nullptr;
