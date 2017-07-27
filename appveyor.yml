@@ -120,8 +120,8 @@ build_script:
   - cd ninja-ldc
   - if "%APPVEYOR_JOB_ARCH%"=="x64" ( cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\ldc-x64 -DLLVM_ROOT_DIR=c:/projects/llvm-x64 ..\ldc )
   - if "%APPVEYOR_JOB_ARCH%"=="x86" ( cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\ldc-x86 -DLLVM_ROOT_DIR=c:/projects/llvm-x86 ..\ldc )
-  # Build LDC, druntime and phobos
-  - ninja -j2
+  # Build LDC and stdlib unittest runners
+  - ninja -j2 all all-test-runners
 
 after_build:
   # install LDC, compress & publish as artifact
@@ -179,21 +179,15 @@ after_build:
 test_script:
   - cd c:\projects\ninja-ldc
   - bin\ldc2 -version
-  # Compile, link & execute a hello-world program
-  - ps: 'echo "import std.stdio; void main() { writeln(""Hello world!""); }" > hello.d'
-  - bin\ldc2 hello.d
-  - hello.exe
-  # Compile the druntime & phobos unit tests
-  - ninja -j2 druntime-ldc-unittest-debug phobos2-ldc-unittest-debug druntime-ldc-unittest phobos2-ldc-unittest
-  # Run dmd-testsuite
+  # Build and run LDC D unittests
+  - ctest --output-on-failure -R "ldc2-unittest"
+  # Run LIT testsuite
+  - ctest -V -R "lit-tests"
+  # Run DMD testsuite
   - if "%APPVEYOR_JOB_ARCH%"=="x64" ( set OS=Win_64) else ( set OS=Win_32)
   - set DMD_TESTSUITE_MAKE_ARGS=-j2
   - ctest -V -R "dmd-testsuite"
-  # Run lit testsuite
-  - ctest -V -R "lit-tests"
-  # Build and run LDC D unittests
-  - ctest --output-on-failure -R "ldc2-unittest"
-  # Link and run Phobos & druntime unittest runners
+  # Run stdlib unittests
   - ctest -j2 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
 
 #---------------------------------#
