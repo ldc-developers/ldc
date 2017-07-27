@@ -89,7 +89,7 @@ public:
     }
 
 
-    override string toString() const
+    @trusted override string toString() const
     {
         string result;
 
@@ -123,7 +123,7 @@ public:
      * Returns:
      *  An array of strings with the results.
      */
-    static char[][] resolve(const(ulong)[] addresses)
+    @trusted static char[][] resolve(const(ulong)[] addresses)
     {
         synchronized( typeid(StackTrace) )
         {

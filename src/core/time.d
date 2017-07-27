@@ -1104,6 +1104,22 @@ public:
         }
     }
 
+    /++
+        Allow Duration to be used as a boolean.
+        Returns: `true` if this duration is non-zero.
+      +/
+    bool opCast(T : bool)() const nothrow @nogc
+    {
+        return _hnsecs != 0;
+    }
+
+    unittest
+    {
+        auto d = 10.minutes;
+        assert(d);
+        assert(!(d - d));
+        assert(d + d);
+    }
 
     //Temporary hack until bug http://d.puremagic.com/issues/show_bug.cgi?id=5747 is fixed.
     Duration opCast(T)() const nothrow @nogc
@@ -1158,9 +1174,9 @@ public:
             foreach(i, unit; units)
             {
                 static if(unit == "nsecs")
-                    args[i] = cast(typeof(args[i]))convert!("hnsecs", "nsecs")(hnsecs);
+                    args[i] = cast(Args[i])convert!("hnsecs", "nsecs")(hnsecs);
                 else
-                    args[i] = cast(typeof(args[i]))splitUnitsFromHNSecs!unit(hnsecs);
+                    args[i] = cast(Args[i])splitUnitsFromHNSecs!unit(hnsecs);
             }
         }
 

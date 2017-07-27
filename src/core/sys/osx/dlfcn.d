@@ -12,8 +12,6 @@ module core.sys.osx.dlfcn;
 public import core.sys.posix.dlfcn;
 
 version (OSX):
-extern(C):
-nothrow:
 
 struct Dl_info
 {
@@ -23,7 +21,7 @@ struct Dl_info
     void*        dli_saddr;
 }
 
-int dladdr(in void* addr, Dl_info* info);
+extern(C) int dladdr(in void* addr, Dl_info* info) nothrow @nogc;
 
 enum RTLD_NOLOAD = 0x10;
 enum RTLD_NODELETE = 0x80;

@@ -43,17 +43,17 @@ struct SectionGroup
         return dg(globalSectionGroup);
     }
 
-    @property immutable(ModuleInfo*)[] modules() const
+    @property immutable(ModuleInfo*)[] modules() const nothrow @nogc
     {
         return _moduleGroup.modules;
     }
 
-    @property ref inout(ModuleGroup) moduleGroup() inout
+    @property ref inout(ModuleGroup) moduleGroup() inout nothrow @nogc
     {
         return _moduleGroup;
     }
 
-    @property inout(void[])[] gcRanges() inout
+    @property inout(void[])[] gcRanges() inout nothrow @nogc
     {
         return _gcRanges[];
     }
@@ -78,25 +78,7 @@ private __gshared SectionGroup globalSectionGroup;
 
 private
 {
-    version (OSX)
-    {
-        import core.sys.osx.mach.dyld;
-        import core.sys.osx.mach.getsect;
-        import core.sys.osx.mach.loader;
-
-        struct Section
-        {
-            immutable(char)* segment;
-            immutable(char)* section;
-        }
-
-        immutable Section[3] dataSections = [
-            Section(SEG_DATA, SECT_DATA),
-            Section(SEG_DATA, SECT_BSS),
-            Section(SEG_DATA, SECT_COMMON)
-        ];
-    }
-    else version (CRuntime_Microsoft)
+    version (CRuntime_Microsoft)
     {
         extern extern (C) __gshared
         {
@@ -120,7 +102,7 @@ private
          * Scan segments in Linux dl_phdr_info struct and store
          * the TLS and writeable data segments in *pdso.
          */
-        void scanSegments(in ref dl_phdr_info info, DSO* pdso)
+        void scanSegments(in ref dl_phdr_info info, DSO* pdso) nothrow @nogc
         {
             foreach (ref phdr; info.dlpi_phdr[0 .. info.dlpi_phnum])
             {
@@ -153,13 +135,12 @@ private
             }
         }
 
-        nothrow
-        bool findPhdrForAddr(in void* addr, dl_phdr_info* result=null)
+        bool findPhdrForAddr(in void* addr, dl_phdr_info* result=null) nothrow @nogc
         {
             static struct DG { const(void)* addr; dl_phdr_info* result; }
 
-            extern(C) nothrow
-            int callback(dl_phdr_info* info, size_t sz, void* arg)
+            extern(C)
+            int callback(dl_phdr_info* info, size_t sz, void* arg) nothrow @nogc
             {
                 auto p = cast(DG*)arg;
                 if (findSegmentForAddr(*info, p.addr))
@@ -174,8 +155,7 @@ private
             return dl_iterate_phdr(&callback, &dg) != 0;
         }
 
-        nothrow
-        bool findSegmentForAddr(in ref dl_phdr_info info, in void* addr, ElfW!"Phdr"* result=null)
+        bool findSegmentForAddr(in ref dl_phdr_info info, in void* addr, ElfW!"Phdr"* result=null) nothrow @nogc
         {
             if (addr < cast(void*)info.dlpi_addr) // quick reject
                 return false;
@@ -268,7 +248,7 @@ private
             }
 
             // Return the current thread pointer.
-            private ulwp_t* curthread() nothrow
+            private ulwp_t* curthread() nothrow @nogc
             {
                 import ldc.llvmasm;
 
@@ -292,7 +272,7 @@ private
             else
                 enum M_TLSSTATALIGN = 0x08;
 
-            void[] getTLSRange(DSO* pdso)
+            void[] getTLSRange(DSO* pdso) nothrow @nogc
             {
                 // See: http://src.illumos.org/source/xref/illumos-gate/usr/src/cmd/sgs/libld/common/machrel.intel.c#996
                 //     tlsstatsize = S_ROUND(ofl->ofl_tlsphdr->p_memsz, M_TLSSTATALIGN);
@@ -309,7 +289,7 @@ private
                 size_t ti_offset;
             }
 
-            extern(C) void* __tls_get_addr(tls_index* ti);
+            extern(C) void* __tls_get_addr(tls_index* ti) nothrow @nogc;
 
             /* The dynamic thread vector (DTV) pointers may point 0x8000 past the start of
              * each TLS block. This is at least true for PowerPC and Mips platforms.
@@ -325,7 +305,7 @@ private
             else
                 enum TLS_DTV_OFFSET = 0x;
 
-            void[] getTLSRange(DSO* pdso)
+            void[] getTLSRange(DSO* pdso) nothrow @nogc
             {
                 if (pdso._tlsMod == 0) return null;
                 auto ti = tls_index(pdso._tlsMod, 0);
@@ -338,40 +318,17 @@ private
 /****
  * Gets called on program startup just before GC is initialized.
  */
-void initSections()
+void initSections() nothrow @nogc
 {
     debug(PRINTF) printf("initSections called\n");
     globalSectionGroup.moduleGroup = ModuleGroup(getModuleInfos());
 
-    static void pushRange(void* start, void* end)
+    static void pushRange(void* start, void* end) nothrow @nogc
     {
         globalSectionGroup._gcRanges.insertBack(start[0 .. (end - start)]);
     }
 
-    version (OSX)
-    {
-        static extern(C) void scanSections(in mach_header* hdr, ptrdiff_t slide)
-        {
-            foreach (s; dataSections)
-            {
-                // Should probably be decided at runtime by actual image bitness
-                // (mach_header.magic) rather than at build-time?
-                version (D_LP64)
-                    auto sec = getsectbynamefromheader_64(
-                        cast(mach_header_64*)hdr, s.segment, s.section);
-                else
-                    auto sec = getsectbynamefromheader(hdr, s.segment, s.section);
-
-                if (sec == null || sec.size == 0)
-                    continue;
-
-                globalSectionGroup._gcRanges.insertBack(
-                    (cast(void*)(sec.addr + slide))[0 .. sec.size]);
-            }
-        }
-        _dyld_register_func_for_add_image(&scanSections);
-    }
-    else version (CRuntime_Microsoft)
+    version (CRuntime_Microsoft)
     {
         pushRange(_data_start__, _data_end__);
         if (_bss_start__ != null)
@@ -395,7 +352,7 @@ void initSections()
 /***
  * Gets called on program shutdown just after GC is terminated.
  */
-void finiSections()
+void finiSections() nothrow @nogc
 {
     debug(PRINTF) printf("finiSections called\n");
     import core.stdc.stdlib : free;
@@ -404,15 +361,7 @@ void finiSections()
 
 private
 {
-    version (OSX)
-    {
-        extern(C) void _d_dyld_getTLSRange(void*, void**, size_t*);
-        private align(16) ubyte dummyTlsSymbol = 42;
-        // By initalizing dummyTlsSymbol with something non-zero and aligning
-        // to 16-bytes, section __thread_data will be aligned as a workaround
-        // for https://github.com/ldc-developers/ldc/issues/1252
-    }
-    else version (Windows)
+    version (Windows)
     {
         extern(C) extern
         {
@@ -425,24 +374,10 @@ private
 /***
  * Called once per thread; returns array of thread local storage ranges
  */
-void[] initTLSRanges()
+void[] initTLSRanges() nothrow @nogc
 {
     debug(PRINTF) printf("initTLSRanges called\n");
-    version (OSX)
-    {
-        void* start = null;
-        size_t size = 0;
-        _d_dyld_getTLSRange(&dummyTlsSymbol, &start, &size);
-        assert(start && size, "Could not determine TLS range.");
-        return start[0 .. size];
-    }
-    else version (linux)
-    {
-        // glibc allocates the TLS area for each new thread at the stack of
-        // the stack, so we only need to do something for the main thread.
-        return null;
-    }
-    else version (UseELF)
+    version (UseELF)
     {
         auto rng = getTLSRange(&globalSectionGroup);
         debug(PRINTF) printf("Add range %p %d\n", rng ? rng.ptr : cast(void*)0, rng ? rng.length : 0);
@@ -458,7 +393,7 @@ void[] initTLSRanges()
 
 }
 
-void finiTLSRanges(void[] rng)
+void finiTLSRanges(void[] rng) nothrow @nogc
 {
     debug(PRINTF) printf("finiTLSRanges called\n");
 }
@@ -481,7 +416,7 @@ struct ModuleReference
     immutable(ModuleInfo)* mod;
 }
 
-immutable(ModuleInfo*)[] getModuleInfos()
+immutable(ModuleInfo*)[] getModuleInfos() nothrow @nogc
 out (result)
 {
     foreach(m; result)
