@@ -223,3 +223,17 @@ immutable weak = _weak();
 private struct _weak
 {
 }
+
+/++
+ + When applied to a function, specifies that the function should be optimzed by
+ + Polly, LLVM's polyhedral optimizer. Useful for optimizing loops for data locatily,
+ + vectorization and parallelism. Experimental. Only available if LLVM & LDC were 
+ + built with Polly.
+ +/
+
+ immutable polly = _polly();
+ private struct _polly 
+ {
+ }
+ 
+
