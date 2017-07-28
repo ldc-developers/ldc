@@ -203,16 +203,24 @@ IrTypeAggr::IrTypeAggr(AggregateDeclaration *ad)
       aggr(ad) {}
 
 bool IrTypeAggr::isPacked(AggregateDeclaration *ad) {
-  if (ad->isUnionDeclaration()) {
-    return true;
-  }
-  for (unsigned i = 0; i < ad->fields.dim; i++) {
-    VarDeclaration *vd = static_cast<VarDeclaration *>(ad->fields.data[i]);
-    unsigned a = vd->type->alignsize() - 1;
-    if (((vd->offset + a) & ~a) != vd->offset) {
+  const auto aggregateSize = (ad->sizeok == SIZEOKdone ? ad->structsize : ~0u);
+
+  // For unions, only a subset of the fields are actually used for the IR type -
+  // don't care.
+  for (const auto field : ad->fields) {
+    // The aggregate's size and the field offset need to be multiples of the
+    // field's natural alignment, otherwise the aggregate type is unnaturally
+    // aligned, and LLVM would insert padding.
+    const auto naturalFieldAlignment = field->type->alignsize();
+    const auto mask = naturalFieldAlignment - 1;
+
+    // If the aggregate's size is unknown, any field with natural alignment > 1
+    // will make it packed.
+    if ((aggregateSize & mask) != 0 || (field->offset & mask) != 0) {
       return true;
     }
   }
+
   return false;
 }
 

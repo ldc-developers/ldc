@@ -45,12 +45,7 @@ IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
     return t;
   }
 
-  t->packed = sd->alignment == 1;
-  if (!t->packed) {
-    // Unfortunately, the previous check is not enough in case the struct
-    // contains an align declaration. See issue 726.
-    t->packed = isPacked(sd);
-  }
+  t->packed = isPacked(sd);
 
   // For ldc.dcomptetypes.Pointer!(uint n,T),
   // emit { T addrspace(gIR->dcomputetarget->mapping[n])* }
