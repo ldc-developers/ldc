@@ -326,7 +326,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
 
   // Set some default values.
   global.params.useSwitchError = 1;
-  global.params.color = isConsoleColorSupported();
+  global.params.color = true;
 
   global.params.linkswitches = new Strings();
   global.params.libfiles = new Strings();

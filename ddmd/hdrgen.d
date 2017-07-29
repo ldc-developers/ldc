@@ -169,7 +169,7 @@ public:
 
     override void visit(UnrolledLoopStatement s)
     {
-        buf.writestring("unrolled {");
+        buf.writestring("/*unrolled*/ {");
         buf.writenl();
         buf.level++;
         foreach (sx; *s.statements)
@@ -989,7 +989,8 @@ public:
 
     override void visit(TypeStruct t)
     {
-        // Bugzilla 13776: Don't use ti.toAlias() to avoid forward reference error
+        // https://issues.dlang.org/show_bug.cgi?id=13776
+        // Don't use ti.toAlias() to avoid forward reference error
         // while printing messages.
         TemplateInstance ti = t.sym.parent ? t.sym.parent.isTemplateInstance() : null;
         if (ti && ti.aliasdecl == t.sym)
@@ -1000,7 +1001,8 @@ public:
 
     override void visit(TypeClass t)
     {
-        // Bugzilla 13776: Don't use ti.toAlias() to avoid forward reference error
+        // https://issues.dlang.org/show_bug.cgi?id=13776
+        // Don't use ti.toAlias() to avoid forward reference error
         // while printing messages.
         TemplateInstance ti = t.sym.parent.isTemplateInstance();
         if (ti && ti.aliasdecl == t.sym)
@@ -1466,12 +1468,7 @@ public:
         if (hgs.fullDump)
         {
             buf.writenl();
-            if (ti.aliasdecl)
-            {
-                // the ti.aliasDecl is the instantiated body
-                // if we have it, print it.
-                ti.aliasdecl.accept(this);
-            }
+            dumpTemplateInstance(ti);
         }
     }
 
@@ -1487,6 +1484,31 @@ public:
         }
         buf.writeByte(';');
         buf.writenl();
+        if (hgs.fullDump)
+            dumpTemplateInstance(tm);
+    }
+
+    void dumpTemplateInstance(TemplateInstance ti)
+    {
+        buf.writeByte('{');
+        buf.writenl();
+        buf.level++;
+
+        if (ti.aliasdecl)
+        {
+            ti.aliasdecl.accept(this);
+            buf.writenl();
+        }
+        else if (ti.members)
+        {
+            foreach(m;*ti.members)
+                m.accept(this);
+        }
+
+        buf.level--;
+        buf.writeByte('}');
+        buf.writenl();
+
     }
 
     void tiargsToBuffer(TemplateInstance ti)
@@ -1543,7 +1565,7 @@ public:
         //printf("objectToBuffer()\n");
         /* The logic of this should match what genIdent() does. The _dynamic_cast()
          * function relies on all the pretty strings to be unique for different classes
-         * (see Bugzilla 7375).
+         * See https://issues.dlang.org/show_bug.cgi?id=7375
          * Perhaps it would be better to demangle what genIdent() does.
          */
         if (auto t = isType(oarg))
@@ -1554,7 +1576,7 @@ public:
         else if (auto e = isExpression(oarg))
         {
             if (e.op == TOKvar)
-                e = e.optimize(WANTvalue); // added to fix Bugzilla 7375
+                e = e.optimize(WANTvalue); // added to fix https://issues.dlang.org/show_bug.cgi?id=7375
             e.accept(this);
         }
         else if (Dsymbol s = isDsymbol(oarg))
@@ -2955,7 +2977,7 @@ public:
         StorageClass stc = p.storageClass;
         if (p.type && p.type.mod & MODshared)
             stc &= ~STCshared;
-        if (stcToBuffer(buf, stc & (STCconst | STCimmutable | STCwild | STCshared | STCscope)))
+        if (stcToBuffer(buf, stc & (STCconst | STCimmutable | STCwild | STCshared | STCscope | STCscopeinferred)))
             buf.writeByte(' ');
         if (p.storageClass & STCalias)
         {
@@ -3073,6 +3095,8 @@ extern (C++) bool stcToBuffer(OutBuffer* buf, StorageClass stc)
     bool result = false;
     if ((stc & (STCreturn | STCscope)) == (STCreturn | STCscope))
         stc &= ~STCscope;
+    if (stc & STCscopeinferred)
+        stc &= ~(STCscope | STCscopeinferred);
     while (stc)
     {
         const(char)* p = stcToChars(stc);
@@ -3207,6 +3231,8 @@ extern (C++) const(char)* linkageToChars(LINK linkage)
         return "Pascal";
     case LINKobjc:
         return "Objective-C";
+    case LINKsystem:
+        return "System";
     default:
         assert(0);
     }

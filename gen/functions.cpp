@@ -291,7 +291,7 @@ llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl) {
   }
 
   if (fdecl->linkage == LINKobjc && dthis) {
-    if (fdecl->objc.selector) {
+    if (fdecl->selector) {
       hasSel = true;
     } else if (fdecl->parent->isClassDeclaration()) {
       fdecl->error("Objective-C @selector is missing");

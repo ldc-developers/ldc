@@ -772,7 +772,7 @@ private:
     }
 
     if (irFty.arg_objcSelector && dfnval) {
-      if (auto sel = dfnval->func->objc.selector) {
+      if (auto sel = dfnval->func->selector) {
         LLGlobalVariable *selptr = objc_getMethVarRef(*sel);
         args.push_back(DtoBitCast(DtoLoad(selptr), getVoidPtrType()));
         hasObjcSelector = true;

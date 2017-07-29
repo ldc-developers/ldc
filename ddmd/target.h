@@ -16,7 +16,10 @@
 // At present it is incomplete, but in future it should grow to contain
 // most or all target machine and target O/S specific information.
 #include "globals.h"
+#include "tokens.h"
 
+class ClassDeclaration;
+class Dsymbol;
 class Expression;
 class Type;
 class Module;
@@ -28,7 +31,6 @@ struct Target
     static int realsize;             // size a real consumes in memory
     static int realpad;              // 'padding' added to the CPU real size to bring it up to realsize
     static int realalignsize;        // alignment for reals
-    static bool realislongdouble;    // distinguish between C 'long double' and '__float128'
     static bool reverseCppOverloads; // with dmc and cl, overloaded functions are grouped and in reverse order
     static bool cppExceptions;       // set if catching C++ exceptions is supported
     static int c_longsize;           // size of a C 'long' or 'unsigned long' type
@@ -68,12 +70,17 @@ struct Target
     static unsigned fieldalign(Type *type);
     static unsigned critsecsize();
     static Type *va_listType();  // get type of va_list
-    static int checkVectorType(int sz, Type *type);
+    static int isVectorTypeSupported(int sz, Type *type);
+    static bool isVectorOpSupported(Type *type, TOK op, Type *t2 = nullptr);
     // CTFE support for cross-compilation.
     static Expression *paintAsType(Expression *e, Type *type);
     // ABI and backend.
     static void loadModule(Module *m);
     static void prefixName(OutBuffer *buf, LINK linkage);
+    static const char *toCppMangle(Dsymbol *s);
+    static const char *cppTypeInfoMangle(ClassDeclaration *cd);
+    static const char *cppTypeMangle(Type *t);
+    static LINK systemLinkage();
 };
 
 #endif

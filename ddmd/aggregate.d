@@ -131,7 +131,7 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
         // Might need a scope to resolve forward references. The check for
         // semanticRun prevents unnecessary setting of _scope during deferred
         // setScope phases for aggregates which already finished semantic().
-        // Also see https://issues.dlang.org/show_bug.cgi?id=16607
+        // See https://issues.dlang.org/show_bug.cgi?id=16607
         if (semanticRun < PASSsemanticdone)
             ScopeDsymbol.setScope(sc);
     }
@@ -164,7 +164,7 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
 
     override final void semantic3(Scope* sc)
     {
-        //printf("AggregateDeclaration::semantic3(%s) type = %s, errors = %d\n", toChars(), type.toChars(), errors);
+        //printf("AggregateDeclaration::semantic3(sc=%p, %s) type = %s, errors = %d\n", sc, toChars(), type.toChars(), errors);
         if (!members)
             return;
 
@@ -213,6 +213,7 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
         }
         if (sd)
             sd.semanticTypeInfoMembers();
+        semanticRun = PASSsemantic3done;
     }
 
     /***************************************
@@ -245,7 +246,7 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
 
             auto ad = cast(AggregateDeclaration)param;
 
-            if (v._scope)
+            if (v.semanticRun < PASSsemanticdone)
                 v.semantic(null);
             // Return in case a recursive determineFields triggered by v.semantic already finished
             if (ad.sizeok != SIZEOKnone)
@@ -269,7 +270,7 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
             if (ad == (cast(TypeStruct)tv).sym)
             {
                 const(char)* psz = (v.type.toBasetype().ty == Tsarray) ? "static array of " : "";
-                ad.error("cannot have field %s with %ssame struct type", v.toChars(), psz);
+                ad.error("cannot have field `%s` with %ssame struct type", v.toChars(), psz);
                 ad.type = Type.terror;
                 ad.errors = true;
                 return 1;
@@ -389,7 +390,10 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
         {
             auto vd = fields[i];
             if (vd.errors)
+            {
+                errors = true;
                 continue;
+            }
 
             auto vx = vd;
             if (vd._init && vd._init.isVoidInitializer())
@@ -401,6 +405,11 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
                 if (i == j)
                     continue;
                 auto v2 = fields[j];
+                if (v2.errors)
+                {
+                    errors = true;
+                    continue;
+                }
                 if (!vd.isOverlappedWith(v2))
                     continue;
 
@@ -420,7 +429,7 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
 
                 if (vx._init && v2._init)
                 {
-                    .error(loc, "overlapping default initialization for field %s and %s", v2.toChars(), vd.toChars());
+                    .error(loc, "overlapping default initialization for field `%s` and `%s`", v2.toChars(), vd.toChars());
                     errors = true;
                 }
             }
@@ -493,13 +502,13 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
                     }
                     else if (v2._init)
                     {
-                        .error(loc, "overlapping initialization for field %s and %s", v2.toChars(), vd.toChars());
+                        .error(loc, "overlapping initialization for field `%s` and `%s`", v2.toChars(), vd.toChars());
                         errors = true;
                     }
                 }
                 else
                 {
-                    // Will fix Bugzilla 1432 by enabling this path always
+                    // fixes https://issues.dlang.org/show_bug.cgi?id=1432 by enabling this path always
 
                     /* Prefer explicitly initialized field
                      * union U { int a; int b = 2; }
@@ -516,7 +525,7 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
                     }
                     else if (vx._init && v2._init)
                     {
-                        .error(loc, "overlapping default initialization for field %s and %s",
+                        .error(loc, "overlapping default initialization for field `%s` and `%s`",
                             v2.toChars(), vd.toChars());
                         errors = true;
                     }
@@ -540,11 +549,12 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
                 {
                     if ((vx.storage_class & STCnodefaultctor) && !ctorinit)
                     {
-                        .error(loc, "field %s.%s must be initialized because it has no default constructor",
+                        .error(loc, "field `%s.%s` must be initialized because it has no default constructor",
                             type.toChars(), vx.toChars());
                         errors = true;
                     }
-                    /* Bugzilla 12509: Get the element of static array type.
+                    /* https://issues.dlang.org/show_bug.cgi?id=12509
+                     * Get the element of static array type.
                      */
                     Type telem = vx.type;
                     if (telem.ty == Tsarray)
@@ -690,7 +700,8 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
         {
             enclosing = fd;
 
-            /* Bugzilla 14422: If a nested class parent is a function, its
+            /* https://issues.dlang.org/show_bug.cgi?id=14422
+             * If a nested class parent is a function, its
              * context pointer (== `outer`) should be void* always.
              */
             t = Type.tvoidptr;
