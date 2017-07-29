@@ -43,13 +43,20 @@ class TemplateInstance;
 class TemplateDeclaration;
 class ClassDeclaration;
 class BinExp;
-struct Symbol;          // back end symbol
 class OverloadSet;
 class Initializer;
 class StringExp;
 class ArrayExp;
 class SliceExp;
 struct UnionExp;
+#ifdef IN_GCC
+typedef union tree_node Symbol;
+#else
+struct Symbol;          // back end symbol
+#endif
+
+void initPrecedence();
+
 #if IN_LLVM
 class SymbolDeclaration;
 namespace llvm {
@@ -63,6 +70,7 @@ void initPrecedence();
 Expression *resolveProperties(Scope *sc, Expression *e);
 Expression *resolvePropertiesOnly(Scope *sc, Expression *e1);
 bool checkAccess(Loc loc, Scope *sc, Expression *e, Declaration *d);
+bool checkAccess(Loc loc, Scope *sc, Package *p);
 Expression *build_overload(Loc loc, Scope *sc, Expression *ethis, Expression *earg, Dsymbol *d);
 Dsymbol *search_function(ScopeDsymbol *ad, Identifier *funcid);
 void expandTuples(Expressions *exps);
@@ -142,7 +150,7 @@ public:
     Expression *trySemantic(Scope *sc);
 
     // kludge for template.isExpression()
-    int dyncast() { return DYNCAST_EXPRESSION; }
+    int dyncast() const { return DYNCAST_EXPRESSION; }
 
     void print();
     const char *toChars();
@@ -1014,6 +1022,7 @@ public:
     Expression *semantic(Scope *sc);
     bool isLvalue();
     Expression *toLvalue(Scope *sc, Expression *e);
+    Expression *modifiableLvalue(Scope *sc, Expression *e);
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -1023,6 +1032,7 @@ public:
     Expression *semantic(Scope *sc);
     bool isLvalue();
     Expression *toLvalue(Scope *sc, Expression *e);
+    Expression *modifiableLvalue(Scope *sc, Expression *e);
     void accept(Visitor *v) { v->visit(this); }
 };
 

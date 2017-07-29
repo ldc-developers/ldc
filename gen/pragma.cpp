@@ -135,7 +135,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
       error(Loc(), "takes no parameters");
       fatal();
     }
-    sc->module->noModuleInfo = true;
+    sc->_module->noModuleInfo = true;
     return LLVMignore;
   }
 
@@ -235,7 +235,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
       error(Loc(), "takes no parameters");
       fatal();
     }
-    sc->module->llvmForceLogging = true;
+    sc->_module->llvmForceLogging = true;
     return LLVMignore;
   }
 

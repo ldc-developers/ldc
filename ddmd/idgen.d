@@ -2,7 +2,7 @@
  * Compiler implementation of the
  * $(LINK2 http://www.dlang.org, D programming language).
  *
- * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(DMDSRC _idgen.d)
@@ -290,6 +290,7 @@ Msgtable[] msgtable =
     { "tls_get_addr", "___tls_get_addr" },
     { "entrypoint", "__entrypoint" },
     { "rt_init" },
+    { "__cmp" },
 
     // varargs implementation
     { "va_start" },
@@ -422,10 +423,10 @@ Msgtable[] msgtable =
 int main()
 {
     {
-        auto fp = fopen("id.h","wb");
+        auto fp = fopen("ddmd/id.h","wb");
         if (!fp)
         {
-            printf("can't open id.h\n");
+            printf("can't open ddmd/id.h\n");
             exit(EXIT_FAILURE);
         }
 
@@ -450,10 +451,10 @@ int main()
     }
 
     {
-        auto fp = fopen("id.d","wb");
+        auto fp = fopen("ddmd/id.d","wb");
         if (!fp)
         {
-            printf("can't open id.d\n");
+            printf("can't open ddmd/id.d\n");
             exit(EXIT_FAILURE);
         }
 

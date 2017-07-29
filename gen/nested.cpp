@@ -121,11 +121,7 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
   const auto idx = irLocal->nestedIndex;
   assert(idx != -1 && "Nested context not yet resolved for variable.");
 
-#if LDC_LLVM_VER >= 306
-    LLSmallVector<int64_t, 2> dwarfAddrOps;
-#else
-    LLSmallVector<LLValue *, 2> dwarfAddrOps;
-#endif
+  LLSmallVector<int64_t, 2> dwarfAddrOps;
 
   LLValue *gep = DtoGEPi(val, 0, idx, vd->toChars());
   val = gep;
@@ -501,11 +497,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
       }
 
       if (global.params.symdebug) {
-#if LDC_LLVM_VER >= 306
         LLSmallVector<int64_t, 2> addr;
-#else
-        LLSmallVector<LLValue *, 2> addr;
-#endif
         // Because we are passing a GEP instead of an alloca to
         // llvm.dbg.declare, we have to make the address dereference explicit.
         gIR->DBuilder.OpDeref(addr);

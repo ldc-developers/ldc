@@ -27,39 +27,21 @@
 #else
 #include "llvm/Bitcode/ReaderWriter.h"
 #endif
-#if LDC_LLVM_VER >= 307
 #include "llvm/IR/LegacyPassManager.h"
-#else
-#include "llvm/PassManager.h"
-#endif
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Program.h"
-#if LDC_LLVM_VER >= 307
 #include "llvm/Support/Path.h"
-#endif
 #ifdef LDC_LLVM_SUPPORTED_TARGET_SPIRV
 #include "llvm/Support/SPIRV.h"
 #endif
 #include "llvm/Target/TargetMachine.h"
-#if LDC_LLVM_VER >= 307
 #include "llvm/Analysis/TargetTransformInfo.h"
-#endif
-#if LDC_LLVM_VER >= 306
 #include "llvm/Target/TargetSubtargetInfo.h"
-#endif
 #include "llvm/IR/Module.h"
 #include <cstddef>
 #include <fstream>
-
-#if LDC_LLVM_VER >= 306
-using LLErrorInfo = std::error_code;
-#define ERRORINFO_STRING(errinfo) errinfo.message().c_str()
-#else
-using LLErrorInfo = std::string;
-#define ERRORINFO_STRING(errinfo) errinfo.c_str()
-#endif
 
 static llvm::cl::opt<bool>
     NoIntegratedAssembler("no-integrated-as", llvm::cl::ZeroOrMore,
@@ -74,10 +56,7 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 
 // Create a PassManager to hold and optimize the collection of passes we are
 // about to build.
-#if LDC_LLVM_VER >= 307
-  legacy::
-#endif
-      PassManager Passes;
+  legacy::PassManager Passes;
   ComputeBackend::Type cb = getComputeTargetType(&m);
 
   if (cb == ComputeBackend::SPIRV) {
@@ -91,37 +70,18 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 
     return;
   }
-#if LDC_LLVM_VER >= 307
-// The DataLayout is already set at the module (in module.cpp,
-// method Module::genLLVMModule())
-// FIXME: Introduce new command line switch default-data-layout to
-// override the module data layout
-#elif LDC_LLVM_VER == 306
-  Passes.add(new DataLayoutPass());
-#else
-  if (const DataLayout *DL = Target.getDataLayout())
-    Passes.add(new DataLayoutPass(*DL));
-  else
-    Passes.add(new DataLayoutPass(&m));
-#endif
 
-#if LDC_LLVM_VER >= 307
+  // The DataLayout is already set at the module (in module.cpp,
+  // method Module::genLLVMModule())
+  // FIXME: Introduce new command line switch default-data-layout to
+  // override the module data layout
+
   // Add internal analysis passes from the target machine.
   Passes.add(
       createTargetTransformInfoWrapperPass(Target.getTargetIRAnalysis()));
-#else
-  Target.addAnalysisPasses(Passes);
-#endif
 
-#if LDC_LLVM_VER < 307
-  llvm::formatted_raw_ostream fout(out);
-#endif
   if (Target.addPassesToEmitFile(Passes,
-#if LDC_LLVM_VER >= 307
                                  out,
-#else
-                                 fout,
-#endif
         // Always generate assembly for ptx as it is an assembly format
         // The PTX backend fails if we pass anything else.
         (cb == ComputeBackend::NVPTX) ? llvm::TargetMachine::CGFT_AssemblyFile
@@ -196,62 +156,32 @@ namespace {
 using namespace llvm;
 static void printDebugLoc(const DebugLoc &debugLoc, formatted_raw_ostream &os) {
   os << debugLoc.getLine() << ":" << debugLoc.getCol();
-#if LDC_LLVM_VER >= 307
   if (DILocation *IDL = debugLoc.getInlinedAt()) {
     os << "@";
     printDebugLoc(IDL, os);
   }
-#else
-  if (MDNode *N = debugLoc.getInlinedAt(getGlobalContext())) {
-    DebugLoc IDL = DebugLoc::getFromDILocation(N);
-    if (!IDL.isUnknown()) {
-      os << "@";
-      printDebugLoc(IDL, os);
-    }
-  }
-#endif
 }
 
 class AssemblyAnnotator : public AssemblyAnnotationWriter {
 // Find the MDNode which corresponds to the DISubprogram data that described F.
-#if LDC_LLVM_VER >= 307
   static DISubprogram *FindSubprogram(const Function *F,
                                       DebugInfoFinder &Finder)
-#else
-  static MDNode *FindSubprogram(const Function *F, DebugInfoFinder &Finder)
-#endif
   {
-#if LDC_LLVM_VER >= 307
     for (DISubprogram *Subprogram : Finder.subprograms())
       if (Subprogram->describes(F))
         return Subprogram;
     return nullptr;
-#else
-    for (DISubprogram Subprogram : Finder.subprograms()) {
-      if (Subprogram.describes(F)) {
-        return Subprogram;
-      }
-    }
-    return nullptr;
-#endif
   }
 
   static llvm::StringRef GetDisplayName(const Function *F) {
     llvm::DebugInfoFinder Finder;
     Finder.processModule(*F->getParent());
-#if LDC_LLVM_VER >= 307
     if (DISubprogram *N = FindSubprogram(F, Finder))
-#else
-    if (MDNode *N = FindSubprogram(F, Finder))
-#endif
     {
 #if LDC_LLVM_VER >= 500
       return N->getName();
-#elif LDC_LLVM_VER >= 307
-      return N->getDisplayName();
 #else
-      llvm::DISubprogram sub(N);
-      return sub.getDisplayName();
+      return N->getDisplayName();
 #endif
     }
     return "";
@@ -294,12 +224,7 @@ public:
       return;
     }
 
-#if LDC_LLVM_VER >= 307
     if (const DebugLoc &debugLoc = instr->getDebugLoc())
-#else
-    const DebugLoc &debugLoc = instr->getDebugLoc();
-    if (!debugLoc.isUnknown())
-#endif
     {
       if (!padding) {
         os.PadToColumn(50);
@@ -311,35 +236,19 @@ public:
       os << ']';
     }
     if (const DbgDeclareInst *DDI = dyn_cast<DbgDeclareInst>(instr)) {
-#if LDC_LLVM_VER >= 307
       DILocalVariable *Var(DDI->getVariable());
-#else
-      DIVariable Var(DDI->getVariable());
-#endif
       if (!padding) {
         os.PadToColumn(50);
         os << ";";
       }
-#if LDC_LLVM_VER >= 307
       os << " [debug variable = " << Var->getName() << ']';
-#else
-      os << " [debug variable = " << Var.getName() << ']';
-#endif
     } else if (const DbgValueInst *DVI = dyn_cast<DbgValueInst>(instr)) {
-#if LDC_LLVM_VER >= 307
       DILocalVariable *Var(DVI->getVariable());
-#else
-      DIVariable Var(DVI->getVariable());
-#endif
       if (!padding) {
         os.PadToColumn(50);
         os << ";";
       }
-#if LDC_LLVM_VER >= 307
       os << " [debug variable = " << Var->getName() << ']';
-#else
-      os << " [debug variable = " << Var.getName() << ']';
-#endif
     } else if (const CallInst *callinstr = dyn_cast<CallInst>(instr)) {
       const Function *F = callinstr->getCalledFunction();
       if (!F) {
@@ -374,20 +283,16 @@ public:
 
 void writeObjectFile(llvm::Module *m, const char *filename) {
   IF_LOG Logger::println("Writing object file to: %s", filename);
-  LLErrorInfo errinfo;
+  std::error_code errinfo;
   {
     llvm::raw_fd_ostream out(filename, errinfo, llvm::sys::fs::F_None);
-#if LDC_LLVM_VER >= 306
     if (!errinfo)
-#else
-    if (errinfo.empty())
-#endif
     {
       codegenModule(*gTargetMachine, *m, out,
                     llvm::TargetMachine::CGFT_ObjectFile);
     } else {
       error(Loc(), "cannot write object file '%s': %s", filename,
-            ERRORINFO_STRING(errinfo));
+            errinfo.message().c_str());
       fatal();
     }
   }
@@ -480,11 +385,11 @@ void writeModule(llvm::Module *m, const char *filename) {
     std::string bcpath =
         (doLTO && outputObj) ? filename : replaceExtensionWith(global.bc_ext);
     Logger::println("Writing LLVM bitcode to: %s\n", bcpath.c_str());
-    LLErrorInfo errinfo;
+    std::error_code errinfo;
     llvm::raw_fd_ostream bos(bcpath.c_str(), errinfo, llvm::sys::fs::F_None);
     if (bos.has_error()) {
       error(Loc(), "cannot write LLVM bitcode file '%s': %s", bcpath.c_str(),
-            ERRORINFO_STRING(errinfo));
+            errinfo.message().c_str());
       fatal();
     }
     if (opts::isUsingThinLTO()) {
@@ -517,11 +422,11 @@ void writeModule(llvm::Module *m, const char *filename) {
   if (global.params.output_ll) {
     const auto llpath = replaceExtensionWith(global.ll_ext);
     Logger::println("Writing LLVM IR to: %s\n", llpath.c_str());
-    LLErrorInfo errinfo;
+    std::error_code errinfo;
     llvm::raw_fd_ostream aos(llpath.c_str(), errinfo, llvm::sys::fs::F_None);
     if (aos.has_error()) {
       error(Loc(), "cannot write LLVM IR file '%s': %s", llpath.c_str(),
-            ERRORINFO_STRING(errinfo));
+            errinfo.message().c_str());
       fatal();
     }
     AssemblyAnnotator annotator;
@@ -540,19 +445,15 @@ void writeModule(llvm::Module *m, const char *filename) {
     }
 
     Logger::println("Writing asm to: %s\n", spath.c_str());
-    LLErrorInfo errinfo;
+    std::error_code errinfo;
     {
       llvm::raw_fd_ostream out(spath.c_str(), errinfo, llvm::sys::fs::F_None);
-#if LDC_LLVM_VER >= 306
       if (!errinfo)
-#else
-      if (errinfo.empty())
-#endif
       {
         codegenModule(*gTargetMachine, *m, out,
                       llvm::TargetMachine::CGFT_AssemblyFile);
       } else {
-        error(Loc(), "cannot write asm: %s", ERRORINFO_STRING(errinfo));
+        error(Loc(), "cannot write asm: %s", errinfo.message().c_str());
         fatal();
       }
     }
@@ -573,5 +474,3 @@ void writeModule(llvm::Module *m, const char *filename) {
     }
   }
 }
-
-#undef ERRORINFO_STRING

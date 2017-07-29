@@ -15,6 +15,8 @@
 #ifndef LDC_DRIVER_EXE_PATH_H
 #define LDC_DRIVER_EXE_PATH_H
 
+#include "llvm/ADT/Twine.h"
+
 #include <string>
 
 namespace exe_path {
@@ -25,8 +27,8 @@ const std::string &getExePath();               // <baseDir>/bin/ldc2
 std::string getBinDir();                       // <baseDir>/bin
 std::string getBaseDir();                      // <baseDir>
 std::string getLibDir();                       // <baseDir>/lib
-std::string prependBinDir(const char *suffix); // <baseDir>/bin/<suffix>
-std::string prependLibDir(const char *suffix); // <baseDir>/lib/<suffix>
+std::string prependBinDir(const llvm::Twine &suffix); // <baseDir>/bin/<suffix>
+std::string prependLibDir(const llvm::Twine &suffix); // <baseDir>/lib/<suffix>
 }
 
 #endif // LDC_DRIVER_EXE_PATH_H

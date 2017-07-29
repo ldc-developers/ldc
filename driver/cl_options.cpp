@@ -27,9 +27,7 @@ llvm::SmallVector<const char *, 32> allArguments;
  *        -cov=101 --> error, value must be in range [0..100]
  */
 struct CoverageParser : public cl::parser<unsigned char> {
-#if LDC_LLVM_VER >= 307
   explicit CoverageParser(cl::Option &O) : cl::parser<unsigned char>(O) {}
-#endif
 
   bool parse(cl::Option &O, llvm::StringRef /*ArgName*/, llvm::StringRef Arg,
              unsigned char &Val) {
@@ -100,6 +98,10 @@ static cl::opt<bool, true>
 static cl::opt<bool, true> verbose_cg("v-cg", cl::desc("Verbose codegen"),
                                       cl::ZeroOrMore,
                                       cl::location(global.params.verbose_cg));
+
+static cl::opt<bool, true> verbose_cg_ast("vcg-ast", cl::ZeroOrMore, cl::Hidden,
+                                          cl::desc("Write AST to .cg file"),
+                                          cl::location(global.params.vcg_ast));
 
 static cl::opt<unsigned, true> errorLimit(
     "verrors", cl::ZeroOrMore, cl::location(global.errorLimit),
@@ -312,11 +314,9 @@ cl::list<std::string>
 cl::opt<std::string> mTargetTriple("mtriple", cl::ZeroOrMore,
                                    cl::desc("Override target triple"));
 
-#if LDC_LLVM_VER >= 307
 cl::opt<std::string>
     mABI("mabi", cl::ZeroOrMore, cl::Hidden, cl::init(""),
          cl::desc("The name of the ABI to be targeted from the backend"));
-#endif
 
 static StringsAdapter
     modFileAliasStringsStore("mv", global.params.modFileAliasStrings);
@@ -532,12 +532,7 @@ static cl::extrahelp footer(
 /// The clashing LLVM options are suffixed with "llvm-" and hidden from the
 /// -help output.
 void createClashingOptions() {
-#if LDC_LLVM_VER >= 307
   llvm::StringMap<cl::Option *> &map = cl::getRegisteredOptions();
-#else
-  llvm::StringMap<cl::Option *> map;
-  cl::getRegisteredOptions(map);
-#endif
 
   auto renameAndHide = [&map](const char *from, const char *to) {
     auto i = map.find(from);
@@ -583,12 +578,15 @@ void hideLLVMOptions() {
       "mno-fixup", "mno-ldc1-sdc1", "mno-pairing", "mwarn-missing-parenthesis",
       "mwarn-noncontigious-register", "mwarn-sign-mismatch", "nvptx-sched4reg",
       "no-discriminators", "objc-arc-annotation-target-identifier",
+      "polly-dump-after", "polly-dump-after-file", "polly-dump-before", 
+      "polly-dump-before-file",
       "pre-RA-sched", "print-after-all", "print-before-all",
       "print-machineinstrs", "profile-estimator-loop-weight",
       "profile-estimator-loop-weight", "profile-file", "profile-info-file",
       "profile-verifier-noassert", "r600-ir-structurize", "rdf-dump",
       "rdf-limit", "regalloc", "rewrite-map-file", "rng-seed",
       "sample-profile-max-propagate-iterations", "shrink-wrap", "spiller",
+      "spirv-debug", "spirv-erase-cl-md", "spirv-mem2reg", "spvbool-validate",
       "stackmap-version", "stats", "strip-debug", "struct-path-tbaa",
       "time-passes", "unit-at-a-time", "verify-debug-info", "verify-dom-info",
       "verify-loop-info", "verify-machine-dom-info", "verify-regalloc",
@@ -605,13 +603,7 @@ void hideLLVMOptions() {
       // line has been parsed).
       "fdata-sections", "ffunction-sections"};
 
-#if LDC_LLVM_VER >= 307
   llvm::StringMap<cl::Option *> &map = cl::getRegisteredOptions();
-#else
-  llvm::StringMap<cl::Option *> map;
-  cl::getRegisteredOptions(map);
-#endif
-
   for (const auto name : hiddenOptions) {
     // Check if option exists first for resilience against LLVM changes
     // between versions.

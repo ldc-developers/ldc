@@ -54,9 +54,6 @@ public:
 
   // Adapted from clang
   void addMetadata() override {
-// Fix 3.5.2 build failures. Remove when dropping 3.5 support.
-// OCL is only supported for 3.6.1 and 3.8 anyway.
-#if LDC_LLVM_VER >= 306
     // opencl.ident?
     // spirv.Source // debug only
     // stuff from clang's CGSPIRMetadataAdder.cpp
@@ -83,7 +80,6 @@ public:
         _ir->module.getOrInsertNamedMetadata("opencl.ocl.version");
 
     OCLVerMD->addOperand(llvm::MDNode::get(ctx, OCLVerElts));
-#endif
   }
   enum KernArgMD {
       KernArgMD_addr_space,
@@ -95,12 +91,10 @@ public:
       count_KernArgMD
   };
   void addKernelMetadata(FuncDeclaration *fd, llvm::Function *llf) override {
-// By the time we get here the ABI should have rewritten the function
-// type so that the magic types in ldc.dcompute are transformed into
-// what the LLVM backend expects.
+    // By the time we get here the ABI should have rewritten the function
+    // type so that the magic types in ldc.dcompute are transformed into
+    // what the LLVM backend expects.
 
-// Fix 3.5.2 build failures. Remove when dropping 3.5 support.
-#if LDC_LLVM_VER >= 306
     unsigned i = 0;
     // TODO: Handle Function attibutes
     llvm::SmallVector<llvm::Metadata *, 8> kernelMDArgs;
@@ -137,7 +131,6 @@ public:
     llvm::NamedMDNode *OpenCLKernelMetadata =
         _ir->module.getOrInsertNamedMetadata("opencl.kernels");
     OpenCLKernelMetadata->addOperand(kernelMDNode);
-#endif
   }
 
   std::string mod2str(MOD mod) {
@@ -166,7 +159,7 @@ public:
       ss << t->toChars();
     return ss.str();
   }
-#if LDC_LLVM_VER >= 306
+
   void decodeTypes(std::array<llvm::SmallVector<llvm::Metadata *, 8>,count_KernArgMD> attrs,
                    VarDeclaration *v)
   {
@@ -199,7 +192,6 @@ public:
     attrs[KernArgMD_type_qual].push_back(llvm::MDString::get(ctx, typeQuals));
     attrs[KernArgMD_name].push_back(llvm::MDString::get(ctx, v->ident->toChars()));
   }
-#endif
 };
 } // anonymous namespace.
 

@@ -34,32 +34,32 @@ struct Target
     static int c_longsize;           // size of a C 'long' or 'unsigned long' type
     static int c_long_doublesize;    // size of a C 'long double'
     static int classinfosize;        // size of 'ClassInfo'
+    static unsigned long long maxStaticDataSize;  // maximum size of static data
 
-#ifdef IN_LLVM
-    struct RealProperties
+    template <typename T>
+    struct FPTypeProperties
     {
-        // implemented in gen/target.cpp
-        static real_t max();
-        static real_t min_normal();
-        static real_t nan();
-        static real_t snan();
-        static real_t infinity();
-        static real_t epsilon();
+        static real_t max;
+        static real_t min_normal;
+        static real_t nan;
+        static real_t snan;
+        static real_t infinity;
+        static real_t epsilon;
 
-        static real_t host_max();
-        static real_t host_min_normal();
-        static real_t host_nan();
-        static real_t host_snan();
-        static real_t host_infinity();
-        static real_t host_epsilon();
-
-        static int64_t dig;
-        static int64_t mant_dig;
-        static int64_t max_exp;
-        static int64_t min_exp;
-        static int64_t max_10_exp;
-        static int64_t min_10_exp;
+        static d_int64 dig;
+        static d_int64 mant_dig;
+        static d_int64 max_exp;
+        static d_int64 min_exp;
+        static d_int64 max_10_exp;
+        static d_int64 min_10_exp;
     };
+
+    typedef FPTypeProperties<float> FloatProperties;
+    typedef FPTypeProperties<double> DoubleProperties;
+#if IN_LLVM
+    static FPTypeProperties<real_t> RealProperties;
+#else
+    typedef FPTypeProperties<real_t> RealProperties;
 #endif
 
     static void _init();

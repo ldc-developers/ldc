@@ -19,7 +19,7 @@ endif()
 # Locate LLVM.
 #
 
-find_package(LLVM 3.5 REQUIRED
+find_package(LLVM 3.7 REQUIRED
     all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel instcombine ipa ipo instrumentation irreader libdriver linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 # Remove LLVMTableGen library from list of libraries
@@ -55,8 +55,8 @@ endfunction()
 set(LDC_VERSION "1.4.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   73)
-set(DMDFE_FIX_LEVEL       2) # Comment out if not used
+set(DMDFE_PATCH_VERSION   74)
+set(DMDFE_FIX_LEVEL       1) # Comment out if not used
 
 set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}${DMDFE_PATCH_VERSION})
 if(DEFINED DMDFE_FIX_LEVEL)
@@ -269,15 +269,15 @@ endmacro()
 #
 # Build idgen.
 #
-build_idgen(${DDMDFE_PATH}/idgen.d ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/idgen${CMAKE_EXECUTABLE_SUFFIX}  ${DDMD_DFLAGS} "" "")
+build_idgen(${DDMDFE_PATH}/idgen.d ${PROJECT_BINARY_DIR}/idgen${CMAKE_EXECUTABLE_SUFFIX}  ${DDMD_DFLAGS} "" "")
 # Run idgen.
 add_custom_command(
     OUTPUT
         ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d
         ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.h
-    COMMAND ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/idgen  #provide full path to avoid clash with idgen on path
-    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}
-    DEPENDS ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/idgen${CMAKE_EXECUTABLE_SUFFIX}
+    COMMAND ${PROJECT_BINARY_DIR}/idgen  #provide full path to avoid clash with idgen on path
+    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+    DEPENDS ${PROJECT_BINARY_DIR}/idgen${CMAKE_EXECUTABLE_SUFFIX}
 )
 set(LDC_CXX_GENERATED
     ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.h
@@ -405,15 +405,11 @@ source_group("Generated Files" REGULAR_EXPRESSION "(id\\.[cdh]|impcnvtab\\.c)$")
 include(HandleLTOPGOBuildOptions)
 
 #
-# Enable PGO if supported for this platform and LLVM version.
-# LLVM >= 3.7 is required for PGO.
+# Enable PGO if supported for this platform.
 #
-set(LDC_WITH_PGO False)  # must be a valid Python boolean constant (case sensitive)
-if (NOT (LDC_LLVM_VER LESS 307))
-    message(STATUS "Building LDC with PGO support")
-    append("-DLDC_WITH_PGO" LDC_CXXFLAGS)
-    set(LDC_WITH_PGO True)
-endif()
+set(LDC_WITH_PGO True)  # must be a valid Python boolean constant (case sensitive)
+message(STATUS "Building LDC with PGO support")
+append("-DLDC_WITH_PGO" LDC_CXXFLAGS)
 
 #
 # Includes, defines.
@@ -708,7 +704,7 @@ build_d_executable(
     "${LDMD_D_SOURCE_FILES}"
     "$<TARGET_LINKER_FILE:LDMD_CXX_LIB>"
     "${LDMD_D_SOURCE_FILES}"
-    "LDMD_CXX_LIB;${LDC_LIB}"
+    "LDMD_CXX_LIB"
 )
 
 #
@@ -732,6 +728,53 @@ if (NOT (LDC_LLVM_VER LESS 309) AND LDC_INSTALL_LTOPLUGIN)
         message(STATUS "Also installing LTO binary: ${LLVM_LTO_BINARY}")
         file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX})
         configure_file(${LLVM_LTO_BINARY} ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${LDC_LTO_BINARY_NAME} COPYONLY)
+    else()
+        message(STATUS "Not found: ${LLVM_LTO_BINARY}")
+    endif()
+endif()
+
+#
+# Locate ASan and other runtime libraries, and copy them to our lib folder
+# Location is LLVM_LIBRARY_DIRS/clang/<version>/lib/<OS>/ , for example LLVM_LIBRARY_DIRS/clang/4.0.0/lib/darwin/
+#
+if(APPLE)
+    set(LDC_INSTALL_LLVM_RUNTIME_LIBS_DEFAULT ON)
+else()
+    set(LDC_INSTALL_LLVM_RUNTIME_LIBS_DEFAULT OFF)
+endif()
+set(LDC_INSTALL_LLVM_RUNTIME_LIBS ${LDC_INSTALL_LLVM_RUNTIME_LIBS_DEFAULT} CACHE BOOL "Copy/install runtime libraries (ASan, libFuzzer) from LLVM/Clang into LDC lib dir when available.")
+function(copy_compilerrt_lib llvm_lib_name ldc_lib_name fixup_dylib)
+    # The LLVM version string can contain the SVN revision number, so cut that off
+    string(SUBSTRING "${LLVM_VERSION_STRING}" 0 5 LLVM_VERSION_STRING_CROPPED)
+    set(llvm_lib_path ${LLVM_LIBRARY_DIRS}/clang/${LLVM_VERSION_STRING_CROPPED}/lib/${llvm_lib_name})
+    if(EXISTS ${llvm_lib_path})
+        message(STATUS "Copying runtime library: ${llvm_lib_path} --> ${ldc_lib_name}")
+        file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX})
+        configure_file(${llvm_lib_path} ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${ldc_lib_name} COPYONLY)
+        if (fixup_dylib)
+            execute_process(COMMAND install_name_tool -id @rpath/${ldc_lib_name} ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${ldc_lib_name})
+        endif()
+        install(FILES ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${ldc_lib_name} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
+    else()
+        message(STATUS "Not found: ${llvm_lib_path}")
+    endif()
+endfunction()
+if (LDC_INSTALL_LLVM_RUNTIME_LIBS)
+    if(APPLE)
+        copy_compilerrt_lib("darwin/libclang_rt.asan_osx_dynamic.dylib" "libldc_rt.asan_osx_dynamic.dylib" TRUE)
+    elseif(UNIX)
+        copy_compilerrt_lib("linux/libclang_rt.asan-x86_64.a" "libldc_rt.asan-x86_64.a" FALSE)
+    endif()
+
+    # Locate libFuzzer runtime library, and copy it to our lib folder
+    set(LLVM_LIBFUZZER_PATH ${LLVM_LIBRARY_DIRS}/libFuzzer.a)
+    if(EXISTS ${LLVM_LIBFUZZER_PATH})
+        message(STATUS "Copying libFuzzer library: ${LLVM_LIBFUZZER_PATH} --> libFuzzer.a")
+        file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX})
+        configure_file(${LLVM_LIBFUZZER_PATH} ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/libFuzzer.a COPYONLY)
+        install(FILES ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/libFuzzer.a DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
+    else()
+        message(STATUS "Not found: ${LLVM_LIBFUZZER_PATH}")
     endif()
 endif()
 
@@ -776,6 +819,9 @@ add_subdirectory(tests)
 
 install(PROGRAMS ${LDC_EXE_FULL} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(PROGRAMS ${LDMD_EXE_FULL} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+if(NOT CMAKE_INSTALL_PREFIX STREQUAL "/usr")
+    install(PROGRAMS ${PROJECT_BINARY_DIR}/bin/build-ldc-runtime.sh DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+endif()
 if(${BUILD_SHARED})
     # For now, only install libldc if explicitly building the shared library.
     # While it might theoretically be possible to use LDC as a static library

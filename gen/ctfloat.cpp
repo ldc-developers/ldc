@@ -72,20 +72,7 @@ void CTFloat::toAPFloat(const real_t src, APFloat &dst) {
   CTFloatUnion u;
   u.fp = src;
 
-#if LDC_LLVM_VER >= 307
   const unsigned sizeInBits = APFloat::getSizeInBits(*apSemantics);
-#else
-#if __i386__ || __x86_64__
-  const unsigned sizeInBits = 80;
-#elif __aarch64__
-  const unsigned sizeInBits = 128;
-#elif __ppc__ || __ppc64__
-  const unsigned sizeInBits = 128;
-#else
-  llvm_unreachable("Unknown host real_t type for compile-time reals");
-#endif
-#endif
-
   const APInt bits = APInt(sizeInBits, numUint64Parts, u.bits);
 
   dst = APFloat(*apSemantics, bits);

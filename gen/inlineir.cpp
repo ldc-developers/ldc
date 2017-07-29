@@ -112,13 +112,8 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
 
     llvm::SMDiagnostic err;
 
-#if LDC_LLVM_VER >= 306
     std::unique_ptr<llvm::Module> m =
         llvm::parseAssemblyString(stream.str().c_str(), err, gIR->context());
-#else
-    llvm::Module *m = llvm::ParseAssemblyString(stream.str().c_str(), NULL, err,
-                                                gIR->context());
-#endif
 
     std::string errstr = err.getMessage();
     if (!errstr.empty()) {
@@ -134,15 +129,8 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
 
 #if LDC_LLVM_VER >= 308
     llvm::Linker(gIR->module).linkInModule(std::move(m));
-#elif LDC_LLVM_VER >= 306
-    llvm::Linker(&gIR->module).linkInModule(m.get());
 #else
-    errstr.clear();
-    llvm::Linker(&gIR->module).linkInModule(m, &errstr);
-    if (!errstr.empty()) {
-      error(tinst->loc, "Error when linking in llvm inline ir: %s",
-            errstr.c_str());
-    }
+    llvm::Linker(&gIR->module).linkInModule(m.get());
 #endif
   }
 

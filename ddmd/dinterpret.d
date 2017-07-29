@@ -1,5 +1,5 @@
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2016 by Digital Mars
+// Copyright (c) 1999-2017 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -2022,7 +2022,8 @@ public:
         }
         if (goal == ctfeNeedLvalue)
         {
-            if (istate.fd.vthis)
+            // We might end up here with istate being zero (see bugzilla 16382)
+            if (istate && istate.fd.vthis)
             {
                 result = new VarExp(e.loc, istate.fd.vthis);
                 result.type = e.type;

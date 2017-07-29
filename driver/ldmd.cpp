@@ -10,37 +10,12 @@
 //
 // Wrapper allowing use of LDC as drop-in replacement for DMD.
 //
-// The reason why full command line parsing is required instead of just
-// rewriting the names of a few switches is an annoying impedance mismatch
-// between the way how DMD handles arguments and the LLVM command line library:
-// DMD allows all switches to be specified multiple times – in case of
-// conflicts, the last one takes precedence. There is no easy way to replicate
-// this behavior with LLVM, save parsing the switches and re-emitting a cleaned
-// up string.
+// Most command-line options are passed through to LDC; some with different
+// names or semantics need to be translated.
 //
 // DMD also reads switches from the DFLAGS enviroment variable, if present. This
 // is contrary to what C compilers do, where CFLAGS is usually handled by the
-// build system. Thus, conflicts like mentioned above occur quite frequently in
-// practice in makefiles written for DMD, as DFLAGS is also a natural name for
-// handling flags there.
-//
-// In order to maintain backwards compatibility with earlier versions of LDMD,
-// unknown switches are passed through verbatim to LDC. Finding a better
-// solution for this is tricky, as some of the LLVM arguments can be
-// intentionally specified multiple times to get a certain effect (e.g. pass,
-// linker options).
-//
-// Just as with the old LDMD script, arguments can be passed through unmodified
-// to LDC by using -Csomearg.
-//
-// If maintaining this wrapper is deemed too messy at some point, an alternative
-// would be to either extend the LLVM command line library to support the DMD
-// semantics (unlikely to happen), or to abandon it altogether (except for
-// passing the LLVM-defined flags to the various passes).
-//
-// Note: This program inherited ugly C-style string handling and memory leaks
-// from DMD, but this should not be a problem due to the short-livedness of
-// the process.
+// build system.
 //
 //===----------------------------------------------------------------------===//
 
@@ -75,9 +50,11 @@
 
 namespace ls = llvm::sys;
 
-// We reuse DMD's response file parsing routine for maximum compatibilty - it
+// We reuse DMD's response file parsing routine for maximum compatibility - it
 // handles quotes in a very peculiar way.
 int response_expand(size_t *pargc, char ***pargv);
+
+// in ddmd/root/man.d
 void browse(const char *url);
 
 /**
@@ -656,12 +633,8 @@ std::string locateBinary(std::string exeName) {
     return path;
   }
 
-#if LDC_LLVM_VER >= 306
   llvm::ErrorOr<std::string> res = ls::findProgramByName(exeName);
   path = res ? res.get() : std::string();
-#else
-  path = ls::FindProgramByName(exeName);
-#endif
   if (ls::fs::can_execute(path)) {
     return path;
   }

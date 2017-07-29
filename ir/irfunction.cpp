@@ -57,7 +57,6 @@ llvm::FunctionType *IrFunction::getLLVMFuncType() const {
   return func->getFunctionType();
 }
 
-#if LDC_LLVM_VER >= 307
 bool IrFunction::hasLLVMPersonalityFn() const {
   assert(func != nullptr);
   return func->hasPersonalityFn();
@@ -67,7 +66,6 @@ void IrFunction::setLLVMPersonalityFn(llvm::Constant *personality) {
   assert(func != nullptr);
   func->setPersonalityFn(personality);
 }
-#endif
 
 llvm::StringRef IrFunction::getLLVMFuncName() const {
   assert(func != nullptr);

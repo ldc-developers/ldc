@@ -83,11 +83,7 @@ string dtype(Record* rec, bool readOnlyMem)
 string attributes(ListInit* propertyList)
 {
     string prop =
-#if LDC_LLVM_VER >= 307
         propertyList->size()
-#else
-         propertyList->getSize()
-#endif
         ? propertyList->getElementAsRecord(0)->getName() : "";
 
     return
@@ -117,24 +113,14 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
     ListInit* propsList = rec.getValueAsListInit("Properties");
 #endif
     string prop =
-#if LDC_LLVM_VER >= 307
         propsList->size()
-#else
-        propsList->getSize()
-#endif
         ? propsList->getElementAsRecord(0)->getName() : "";
 
     bool readOnlyMem = prop == "IntrReadArgMem" || prop == "IntrReadMem";
 
     ListInit* paramsList = rec.getValueAsListInit("ParamTypes");
     vector<string> params;
-    for(unsigned int i = 0; i <
-#if LDC_LLVM_VER >= 307
-        paramsList->size();
-#else
-        paramsList->getSize();
-#endif
-        i++)
+    for(unsigned int i = 0; i < paramsList->size(); i++)
     {
         string t = dtype(paramsList->getElementAsRecord(i), readOnlyMem);
         if(t == "")
@@ -145,11 +131,7 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
 
     ListInit* retList = rec.getValueAsListInit("RetTypes");
     string ret;
-#if LDC_LLVM_VER >= 307
     size_t sz = retList->size();
-#else
-    size_t sz = retList->getSize();
-#endif
     if(sz == 0)
         ret = "void";
     else if(sz == 1)
@@ -181,11 +163,7 @@ bool emit(raw_ostream& os, RecordKeeper& records)
     os << arch;
     os << "; \n\nimport core.simd;\n\nnothrow @nogc:\n\n";
 
-#if LDC_LLVM_VER >= 306
     const auto &defs = records.getDefs();
-#else
-    map<string, Record*> defs = records.getDefs();
-#endif
 
     for (const auto& d : defs)
         processRecord(os, *d.second, arch);

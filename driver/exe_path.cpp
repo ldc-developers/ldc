@@ -52,13 +52,13 @@ string exe_path::getLibDir() {
   return r.str();
 }
 
-string exe_path::prependBinDir(const char *suffix) {
+string exe_path::prependBinDir(const llvm::Twine &suffix) {
   llvm::SmallString<128> r(getBinDir());
   path::append(r, suffix);
   return r.str();
 }
 
-string exe_path::prependLibDir(const char *suffix) {
+string exe_path::prependLibDir(const llvm::Twine &suffix) {
   llvm::SmallString<128> r(getLibDir());
   path::append(r, suffix);
   return r.str();

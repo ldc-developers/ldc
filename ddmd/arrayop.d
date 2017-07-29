@@ -2,7 +2,7 @@
  * Compiler implementation of the
  * $(LINK2 http://www.dlang.org, D programming language).
  *
- * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(DMDSRC _arrayop.d)
@@ -203,9 +203,12 @@ extern (C++) Expression arrayOp(BinExp e, Scope* sc)
 
     version(IN_LLVM)
     {
-        auto arrayfuncs = sc._module.arrayfuncs;
+        FuncDeclaration* pFd = cast(void*)ident in sc._module.arrayfuncs;
     }
-    FuncDeclaration* pFd = cast(void*)ident in arrayfuncs;
+    else
+    {
+        FuncDeclaration* pFd = cast(void*)ident in arrayfuncs;
+    }
     FuncDeclaration fd;
     if (pFd)
         fd = *pFd;
@@ -226,7 +229,16 @@ extern (C++) Expression arrayOp(BinExp e, Scope* sc)
     }
 
     if (!pFd)
-        arrayfuncs[cast(void*)ident] = fd;
+    {
+        version(IN_LLVM)
+        {
+            sc._module.arrayfuncs[cast(void*)ident] = fd;
+        }
+        else
+        {
+            arrayfuncs[cast(void*)ident] = fd;
+        }
+    }
 
     Expression ev = new VarExp(e.loc, fd);
     Expression ec = new CallExp(e.loc, ev, arguments);
@@ -321,7 +333,7 @@ extern (C++) void buildArrayIdent(Expression e, OutBuffer* buf, Expressions* arg
             switch (e.op)
             {
             case TOKaddass: s = "Addass";   break;
-            case TOKminass: s = "Subass";   break;
+            case TOKminass: s = "Minass";   break;
             case TOKmulass: s = "Mulass";   break;
             case TOKdivass: s = "Divass";   break;
             case TOKmodass: s = "Modass";   break;
@@ -355,7 +367,7 @@ extern (C++) void buildArrayIdent(Expression e, OutBuffer* buf, Expressions* arg
             switch (e.op)
             {
             case TOKadd:    s = "Add";  break;
-            case TOKmin:    s = "Sub";  break;
+            case TOKmin:    s = "Min";  break;
             case TOKmul:    s = "Mul";  break;
             case TOKdiv:    s = "Div";  break;
             case TOKmod:    s = "Mod";  break;

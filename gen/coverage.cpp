@@ -34,9 +34,7 @@ void emitCoverageLinecountInc(Loc &loc) {
   // Get GEP into _d_cover_data array
   LLConstant *idxs[] = {DtoConstUint(0), DtoConstUint(line)};
   LLValue *ptr = llvm::ConstantExpr::getGetElementPtr(
-#if LDC_LLVM_VER >= 307
       LLArrayType::get(LLType::getInt32Ty(gIR->context()), m->numlines),
-#endif
       m->d_cover_data, idxs, true);
 
   // Do an atomic increment, so this works when multiple threads are executed.

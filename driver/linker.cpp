@@ -91,7 +91,6 @@ static std::string getOutputName() {
 
 //////////////////////////////////////////////////////////////////////////////
 
-#if LDC_LLVM_VER >= 306
 /// Insert an LLVM bitcode file into the module
 static void insertBitcodeIntoModule(const char *bcFile, llvm::Module &M,
                                     llvm::LLVMContext &Context) {
@@ -110,22 +109,13 @@ static void insertBitcodeIntoModule(const char *bcFile, llvm::Module &M,
   llvm::Linker(&M).linkInModule(loadedModule.release());
 #endif
 }
-#endif // LDC_LLVM_VER >= 306
 
 /// Insert LLVM bitcode files into the module
 void insertBitcodeFiles(llvm::Module &M, llvm::LLVMContext &Ctx,
                         Array<const char *> &bitcodeFiles) {
-#if LDC_LLVM_VER >= 306
   for (const char *fname : bitcodeFiles) {
     insertBitcodeIntoModule(fname, M, Ctx);
   }
-#else
-  if (!bitcodeFiles.empty()) {
-    error(Loc(),
-          "Passing LLVM bitcode files to LDC is not supported for LLVM < 3.6");
-    fatal();
-  }
-#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////

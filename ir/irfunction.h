@@ -43,10 +43,8 @@ struct IrFunction {
   llvm::FunctionType *getLLVMFuncType() const;
   llvm::StringRef getLLVMFuncName() const;
 
-#if LDC_LLVM_VER >= 307
   bool hasLLVMPersonalityFn() const;
   void setLLVMPersonalityFn(llvm::Constant *personality);
-#endif
 
   /// Returns the associated LLVM function to be used for calls (potentially
   /// some sort of wrapper, e.g., a JIT wrapper).
@@ -71,15 +69,9 @@ struct IrFunction {
   llvm::Value *_arguments = nullptr;
   llvm::Value *_argptr = nullptr;
 
-#if LDC_LLVM_VER >= 307
   llvm::DISubprogram *diSubprogram = nullptr;
   std::stack<llvm::DILexicalBlock *> diLexicalBlocks;
   using VariableMap = llvm::DenseMap<VarDeclaration *, llvm::DILocalVariable *>;
-#else
-  llvm::DISubprogram diSubprogram;
-  std::stack<llvm::DILexicalBlock> diLexicalBlocks;
-  using VariableMap = llvm::DenseMap<VarDeclaration *, llvm::DIVariable>;
-#endif
   // Debug info for all variables
   VariableMap variableMap;
 

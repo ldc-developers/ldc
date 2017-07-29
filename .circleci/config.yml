@@ -30,7 +30,7 @@ jobs:
             add-apt-repository -y 'deb http://apt.llvm.org/unstable/ llvm-toolchain main'
             wget -O - http://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
             apt update
-            apt install -y llvm-5.0 llvm-5.0-dev
+            apt install -y llvm-5.0 llvm-5.0-dev libclang-common-5.0-dev libfuzzer-5.0-dev
       - restore_cache:
           key: host-ldc-{{ .Environment.HOST_LDC_VERSION }}
       - run:
@@ -55,27 +55,21 @@ jobs:
             bin/ldc2 -version
             cd ..
       - run:
-          name: Build LDC
+          name: Build LDC and stdlib unittest runners
           command: |
             export HOST_LDMD=$PWD/bootstrap/bin/ldmd2
             mkdir build
             cd build
-            cmake -G Ninja -DLDC_INSTALL_LTOPLUGIN=ON -DD_COMPILER=$HOST_LDMD ..
-            ninja -j3
+            cmake -G Ninja -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=$HOST_LDMD ..
+            ninja -j3 all all-test-runners
             bin/ldc2 -version
             cd ..
       - run:
-          name: Compile stdlib unittests
-          command: |
-            cd build
-            ninja -j3 phobos2-ldc-unittest-debug phobos2-ldc-unittest druntime-ldc-unittest-debug druntime-ldc-unittest
-            ninja -j3 phobos2-ldc-unittest-debug-shared phobos2-ldc-unittest-shared druntime-ldc-unittest-debug-shared druntime-ldc-unittest-shared
-      - run:
-          name: Run LDC unittests
+          name: Build and run LDC D unittests
           command: cd build && ctest --output-on-failure -R ldc2-unittest
           when: always
       - run:
-          name: Run LIT tests
+          name: Run LIT testsuite
           command: cd build && ctest -V -R lit-tests
           when: always
       - run:
