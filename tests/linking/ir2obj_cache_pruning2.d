@@ -33,6 +33,6 @@ void main()
     {
         // Sleep for 2 seconds, so we are sure that the cache object file timestamps are "aging".
         import core.thread;
-        Thread.sleep( dur!"seconds"(2) );
+        Thread.sleep( dur!"seconds"(4) );
     }
 }
