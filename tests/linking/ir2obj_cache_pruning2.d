@@ -31,7 +31,7 @@ void main()
 
     version (SLEEP)
     {
-        // Sleep for 2 seconds, so we are sure that the cache object file timestamps are "aging".
+        // Sleep for 4 seconds, so we are sure that the cache object file timestamps are "aging".
         import core.thread;
         Thread.sleep( dur!"seconds"(4) );
     }
