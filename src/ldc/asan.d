@@ -10,6 +10,7 @@ module ldc.asan;
 
 @system:
 @nogc:
+nothrow:
 extern (C):
 
 // Poisons memory region [addr, addr+size) for AddressSanitizer.
