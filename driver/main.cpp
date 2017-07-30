@@ -118,30 +118,41 @@ static inline llvm::Reloc::Model getRelocModel() {
 }
 #endif
 
-void printVersion() {
-  printf("LDC - the LLVM D compiler (%s):\n", global.ldc_version);
-  printf("  based on DMD %s and LLVM %s\n", global.version,
-         global.llvm_version);
+// This function exits the program.
+void printVersion(llvm::raw_ostream &OS) {
+  OS << "LDC - the LLVM D compiler (" << global.ldc_version << "):\n";
+  OS << "  based on DMD " << global.version << " and LLVM " << global.llvm_version << "\n";
 #if defined(__has_feature)
 #if __has_feature(address_sanitizer)
-  printf("  compiled with address sanitizer enabled\n");
+  OS << "  compiled with address sanitizer enabled\n";
 #endif
 #endif
-  printf("  Default target: %s\n", llvm::sys::getDefaultTargetTriple().c_str());
+  OS << "  Default target: " << llvm::sys::getDefaultTargetTriple() << "\n";
   std::string CPU = llvm::sys::getHostCPUName();
   if (CPU == "generic") {
     CPU = "(unknown)";
   }
-  printf("  Host CPU: %s\n", CPU.c_str());
-  printf("  http://dlang.org - http://wiki.dlang.org/LDC\n");
-  printf("\n");
+  OS << "  Host CPU: " << CPU << "\n";
+  OS << "  http://dlang.org - http://wiki.dlang.org/LDC\n";
+  OS << "\n";
 
   // Without explicitly flushing here, only the target list is visible when
   // redirecting stdout to a file.
-  fflush(stdout);
+  OS.flush();
 
-  llvm::TargetRegistry::printRegisteredTargetsForVersion();
+  llvm::TargetRegistry::printRegisteredTargetsForVersion(
+#if LDC_LLVM_VER >= 500
+      OS
+#endif
+      );
+
   exit(EXIT_SUCCESS);
+}
+
+// This function exits the program.
+void printVersionStdout() {
+  printVersion(llvm::outs());
+  assert(false);
 }
 
 // Helper function to handle -d-debug=* and -d-version=*
@@ -334,7 +345,11 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
 
   final_args.insert(final_args.end(), &argv[1], &argv[argc]);
 
+#if LDC_LLVM_VER >= 500
   cl::SetVersionPrinter(&printVersion);
+#else
+  cl::SetVersionPrinter(&printVersionStdout);
+#endif
   hideLLVMOptions();
   cl::ParseCommandLineOptions(final_args.size(),
                               const_cast<char **>(final_args.data()),

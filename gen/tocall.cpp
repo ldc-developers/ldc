@@ -193,8 +193,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
     }
 
     args[llArgIdx] = llVal;
-    // +1 as index 0 contains the function attributes.
-    attrs.add(llArgIdx + 1, irArg->attrs);
+    attrs.addToParam(llArgIdx, irArg->attrs);
 
     if (isVararg) {
       delete irArg;
@@ -662,7 +661,7 @@ private:
     }
 
     args.push_back(var);
-    attrs.add(index + 1, irFty.arg_sret->attrs);
+    attrs.addToParam(index, irFty.arg_sret->attrs);
 
     // verify that sret and/or inreg attributes are set
     const AttrBuilder &sretAttrs = irFty.arg_sret->attrs;
@@ -724,9 +723,9 @@ private:
 
     // add attributes
     if (irFty.arg_this) {
-      attrs.add(index + 1, irFty.arg_this->attrs);
+      attrs.addToParam(index, irFty.arg_this->attrs);
     } else if (irFty.arg_nest) {
-      attrs.add(index + 1, irFty.arg_nest->attrs);
+      attrs.addToParam(index, irFty.arg_nest->attrs);
     }
   }
 
@@ -741,7 +740,7 @@ private:
         getTypeinfoArrayArgumentForDVarArg(arguments, numFormalParams);
 
     args.push_back(argumentsArg);
-    attrs.add(args.size(), irFty.arg_arguments->attrs);
+    attrs.addToParam(args.size() - 1, irFty.arg_arguments->attrs);
   }
 };
 
@@ -784,7 +783,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   AttrSet attrs;
 
   // return attrs
-  attrs.add(0, irFty.ret->attrs);
+  attrs.addToReturn(irFty.ret->attrs);
 
   std::vector<LLValue *> args;
   args.reserve(irFty.args.size());
@@ -972,7 +971,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   // set calling convention and parameter attributes
-  llvm::AttributeSet &attrlist = attrs;
+  LLAttributeSet &attrlist = attrs;
   if (dfnval && dfnval->func) {
     LLFunction *llfunc = llvm::dyn_cast<LLFunction>(dfnval->val);
     if (llfunc && llfunc->isIntrinsic()) // override intrinsic attrs
@@ -986,6 +985,15 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   } else {
     call.setCallingConv(callconv);
   }
+  // merge in function attributes set in callOrInvoke
+#if LDC_LLVM_VER >= 500
+  attrlist = attrlist.addAttributes(
+      gIR->context(), LLAttributeSet::FunctionIndex,
+      llvm::AttrBuilder(call.getAttributes(), LLAttributeSet::FunctionIndex));
+#else
+  attrlist = attrlist.addAttributes(
+      gIR->context(), LLAttributeSet::FunctionIndex, call.getAttributes());
+#endif
   call.setAttributes(attrlist);
 
   // Special case for struct constructor calls: For temporaries, using the

@@ -56,6 +56,9 @@ void executeCleanup(IRState *irs, CleanupScope &scope,
     // ... and have not created one yet, so do so now.
     scope.branchSelector = new llvm::AllocaInst(
         llvm::Type::getInt32Ty(gIR->context()),
+#if LDC_LLVM_VER >= 500
+        irs->module.getDataLayout().getAllocaAddrSpace(),
+#endif
         llvm::Twine("branchsel.") + scope.beginBlock->getName(),
         irs->topallocapoint());
 
@@ -286,7 +289,11 @@ namespace {
 llvm::LandingPadInst *createLandingPadInst(IRState *irs) {
   LLType *retType =
       LLStructType::get(LLType::getInt8PtrTy(irs->context()),
-                        LLType::getInt32Ty(irs->context()), nullptr);
+                        LLType::getInt32Ty(irs->context())
+#if LDC_LLVM_VER < 500
+                        , nullptr
+#endif
+                        );
 #if LDC_LLVM_VER >= 307
   LLFunction *currentFunction = irs->func()->func;
   if (!currentFunction->hasPersonalityFn()) {
@@ -393,14 +400,14 @@ IrFunction::IrFunction(FuncDeclaration *fd) {
 }
 
 void IrFunction::setNeverInline() {
-  assert(!func->getAttributes().hasAttribute(llvm::AttributeSet::FunctionIndex,
+  assert(!func->getAttributes().hasAttribute(LLAttributeSet::FunctionIndex,
                                              llvm::Attribute::AlwaysInline) &&
          "function can't be never- and always-inline at the same time");
   func->addFnAttr(llvm::Attribute::NoInline);
 }
 
 void IrFunction::setAlwaysInline() {
-  assert(!func->getAttributes().hasAttribute(llvm::AttributeSet::FunctionIndex,
+  assert(!func->getAttributes().hasAttribute(LLAttributeSet::FunctionIndex,
                                              llvm::Attribute::NoInline) &&
          "function can't be never- and always-inline at the same time");
   func->addFnAttr(llvm::Attribute::AlwaysInline);
