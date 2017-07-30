@@ -686,13 +686,13 @@ install(FILES ${GCCBUILTINS} DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
 # link the test runners against those. Some linker command-line magic is
 # required to make sure all objects are pulled in.
 
-macro(append_testrunner_linkflags lib name_suffix path_suffix target_suffix is_shared output_flags)
+macro(append_testrunner_linkflags libname path_suffix is_shared output_flags)
     # (Re)set variable 'tested_lib_path', initialize to directory containing the tested lib.
     # It'll contain the full path to the linked-in library when 'returning' to calling build_test_runners().
     set(tested_lib_path "${CMAKE_BINARY_DIR}/lib${path_suffix}")
 
     if("${TARGET_SYSTEM}" MATCHES "MSVC")
-        set(tested_lib_path "${tested_lib_path}/${lib}${name_suffix}.lib")
+        set(tested_lib_path "${tested_lib_path}/${libname}.lib")
         if("${is_shared}" STREQUAL "ON")
             append("${tested_lib_path}" ${output_flags})
             append("msvcrt.lib vcruntime.lib" ${output_flags})
@@ -705,14 +705,14 @@ macro(append_testrunner_linkflags lib name_suffix path_suffix target_suffix is_s
         if("${is_shared}" STREQUAL "ON")
             append("-Wl,-rpath,${tested_lib_path}" ${output_flags})
             if("${TARGET_SYSTEM}" MATCHES "APPLE")
-                set(tested_lib_path "${tested_lib_path}/lib${lib}${name_suffix}.dylib")
+                set(tested_lib_path "${tested_lib_path}/lib${libname}.dylib")
                 append("${tested_lib_path}" ${output_flags})
             else()
-                set(tested_lib_path "${tested_lib_path}/lib${lib}${name_suffix}.so")
+                set(tested_lib_path "${tested_lib_path}/lib${libname}.so")
                 append("-Wl,--no-as-needed,${tested_lib_path},--as-needed" ${output_flags})
             endif()
         else()
-            set(tested_lib_path "${tested_lib_path}/lib${lib}${name_suffix}.a")
+            set(tested_lib_path "${tested_lib_path}/lib${libname}.a")
             if("${TARGET_SYSTEM}" MATCHES "APPLE")
                 append("-Wl,-force_load,${tested_lib_path}" ${output_flags})
             else()
@@ -725,11 +725,12 @@ macro(append_testrunner_linkflags lib name_suffix path_suffix target_suffix is_s
     endif()
 endmacro()
 
-set(_GLOBAL_TESTRUNNERS "" CACHE INTERNAL "List all test runner build targets")
+set(_GLOBAL_TESTRUNNERS "" CACHE INTERNAL "List of all test runner build targets")
+file(WRITE ${PROJECT_BINARY_DIR}/dummy.c "")
 
 # Generates targets for a pair of druntime/Phobos test runners.
 # The build targets are also appended to the _GLOBAL_TESTRUNNERS list.
-function(build_test_runners name_suffix path_suffix d_flags linkflags is_shared)
+function(build_test_runners name_suffix path_suffix d_flags c_flags linkflags is_shared)
     set(target_suffix)
     get_target_suffix("${name_suffix}" "${path_suffix}" target_suffix)
 
@@ -743,31 +744,32 @@ function(build_test_runners name_suffix path_suffix d_flags linkflags is_shared)
        test_runner_o
        test_runner_bc
     )
+    add_custom_target(test_runner${target_suffix} DEPENDS ${test_runner_o})
 
     set(druntime_name druntime-test-runner${target_suffix})
-    add_executable(${druntime_name} EXCLUDE_FROM_ALL ${test_runner_o})
-    set(full_linkflags ${linkflags})
-    append_testrunner_linkflags("druntime-ldc-unittest" "${name_suffix}" "${path_suffix}" "${target_suffix}" "${is_shared}" full_linkflags)
-    add_dependencies(${druntime_name} druntime-ldc-unittest${target_suffix})
+    add_executable(${druntime_name} EXCLUDE_FROM_ALL ${PROJECT_BINARY_DIR}/dummy.c)
+    set(full_linkflags "${test_runner_o} ${linkflags}")
+    append_testrunner_linkflags("druntime-ldc-unittest${name_suffix}" "${path_suffix}" "${is_shared}" full_linkflags)
+    add_dependencies(${druntime_name} test_runner${target_suffix} druntime-ldc-unittest${target_suffix})
     set_target_properties(${druntime_name} PROPERTIES
-        LINKER_LANGUAGE C
+        COMPILE_FLAGS   ${c_flags}
         LINK_FLAGS      ${full_linkflags}
-        LINK_DEPENDS    ${tested_lib_path}
+        LINK_DEPENDS    "${test_runner_o};${tested_lib_path}"
     )
     add_test(build-${druntime_name} "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ${druntime_name})
     set(_GLOBAL_TESTRUNNERS "${_GLOBAL_TESTRUNNERS};${druntime_name}" CACHE INTERNAL "")
 
     if(PHOBOS2_DIR)
         set(phobos_name phobos2-test-runner${target_suffix})
-        add_executable(${phobos_name} EXCLUDE_FROM_ALL ${test_runner_o})
+        add_executable(${phobos_name} EXCLUDE_FROM_ALL ${PROJECT_BINARY_DIR}/dummy.c)
         target_link_libraries(${phobos_name} druntime-ldc-unittest${target_suffix})
-        set(full_linkflags ${linkflags})
-        append_testrunner_linkflags("phobos2-ldc-unittest" "${name_suffix}" "${path_suffix}" "${target_suffix}" "${is_shared}" full_linkflags)
-        add_dependencies(${phobos_name} phobos2-ldc-unittest${target_suffix})
+        set(full_linkflags "${test_runner_o} ${linkflags}")
+        append_testrunner_linkflags("phobos2-ldc-unittest${name_suffix}" "${path_suffix}" "${is_shared}" full_linkflags)
+        add_dependencies(${phobos_name} test_runner${target_suffix} phobos2-ldc-unittest${target_suffix})
         set_target_properties(${phobos_name} PROPERTIES
-            LINKER_LANGUAGE C
+            COMPILE_FLAGS   ${c_flags}
             LINK_FLAGS      ${full_linkflags}
-            LINK_DEPENDS    ${tested_lib_path}
+            LINK_DEPENDS    "${test_runner_o};${tested_lib_path}"
         )
         add_test(build-${phobos_name} "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ${phobos_name})
         set(_GLOBAL_TESTRUNNERS "${_GLOBAL_TESTRUNNERS};${phobos_name}" CACHE INTERNAL "")
@@ -777,6 +779,7 @@ endfunction()
 # Generates targets for static and/or shared pairs of druntime/Phobos test runners.
 function(build_test_runner_variant name_suffix path_suffix d_flags c_flags)
     set(full_d_flags ${D_FLAGS} ${d_flags} -unittest)
+    set(full_c_flags "${RT_CFLAGS} ${c_flags}")
     set(linkflags "${LD_FLAGS} ${c_flags}")
     if("${TARGET_SYSTEM}" MATCHES "MSVC")
         # enforce identical COMDAT folding, apparently needed for std.variant
@@ -787,7 +790,7 @@ function(build_test_runner_variant name_suffix path_suffix d_flags c_flags)
     set(unittest_libs "")
     build_runtime_variant(
         "${full_d_flags}"
-        "${RT_CFLAGS} ${c_flags}"
+        "${full_c_flags}"
         "${linkflags}"
         "-unittest${name_suffix}"
         "${path_suffix}"
@@ -800,11 +803,11 @@ function(build_test_runner_variant name_suffix path_suffix d_flags c_flags)
 
     # static druntime/Phobos test runners
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "ON")
-        build_test_runners("${name_suffix}" "${path_suffix}" "${full_d_flags}" "${linkflags}" "OFF")
+        build_test_runners("${name_suffix}" "${path_suffix}" "${full_d_flags}" "${full_c_flags}" "${linkflags}" "OFF")
     endif()
     # shared druntime/Phobos test runners
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
-        build_test_runners("${name_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}" "${full_d_flags}" "${linkflags}" "ON")
+        build_test_runners("${name_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}" "${full_d_flags}" "${full_c_flags}" "${linkflags}" "ON")
     endif()
 endfunction()
 
