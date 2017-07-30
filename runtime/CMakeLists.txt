@@ -10,6 +10,17 @@ if(NOT LDC_EXE)
     if(NOT DEFINED D_VERSION OR NOT DEFINED DMDFE_MINOR_VERSION OR NOT DEFINED DMDFE_PATCH_VERSION)
         message(FATAL_ERROR "Please define the CMake variables D_VERSION, DMDFE_MINOR_VERSION and DMDFE_PATCH_VERSION.")
     endif()
+
+    # Helper function
+    function(append value)
+        foreach(variable ${ARGN})
+            if(${variable} STREQUAL "")
+                set(${variable} "${value}" PARENT_SCOPE)
+            else()
+                set(${variable} "${${variable}} ${value}" PARENT_SCOPE)
+            endif()
+        endforeach(variable)
+    endfunction()
 endif()
 
 #
@@ -241,7 +252,7 @@ if(LDC_EXE)
     endif()
     configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf @ONLY)
     configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf @ONLY)
-    configure_file(${PROJECT_SOURCE_DIR}/build-ldc-runtime.sh.in ${PROJECT_BINARY_DIR}/../bin/build-ldc-runtime.sh @ONLY)
+    configure_file(${PROJECT_SOURCE_DIR}/build-ldc-runtime.d.in ${PROJECT_BINARY_DIR}/../build-ldc-runtime.d @ONLY)
 endif()
 
 #

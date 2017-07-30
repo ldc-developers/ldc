@@ -1,0 +1,201 @@
+module buildLdcRuntime;
+
+import core.stdc.stdlib : exit;
+import std.file;
+import std.path;
+import std.stdio;
+
+struct Config {
+    string ldcExecutable;
+    string buildDir;
+    string ldcSourceDir;
+    bool ninja;
+    bool buildTestrunners;
+    string[] dFlags;
+    string[] cFlags;
+    string[] linkerFlags;
+    string[string] cmakeVars;
+}
+
+Config config;
+
+int main(string[] args) {
+    parseCommandLine(args);
+
+    findLdcExecutable();
+    prepareBuildDir();
+    prepareLdcSource();
+    runCMake();
+    build();
+
+    writefln("Runtime libraries built successfully into: %s", config.buildDir);
+    return 0;
+}
+
+void findLdcExecutable() {
+    if (config.ldcExecutable !is null) {
+        if (!config.ldcExecutable.exists) {
+            writefln("Error: LDC executable not found: %s", config.ldcExecutable);
+            exit(1);
+        }
+        config.ldcExecutable = config.ldcExecutable.absolutePath;
+        return;
+    }
+
+    version(Windows)
+        enum exeName = "ldc2.exe";
+    else
+        enum exeName = "ldc2";
+
+    const candidate = buildPath(thisExePath.dirName, exeName);
+    if (candidate.exists) {
+        config.ldcExecutable = candidate;
+        return;
+    }
+
+    writeln("Please specify LDC executable via '--ldc=<path/to/ldc2[.exe]>'. Aborting.");
+    exit(1);
+}
+
+void prepareBuildDir() {
+    if (config.buildDir is null)
+        config.buildDir = "build-ldc-runtime.tmp";
+
+    if (config.buildDir.exists) {
+        writefln("Warning: build directory already exists: %s", config.buildDir);
+    } else {
+        writefln("Creating build directory: %s", config.buildDir);
+        mkdirRecurse(config.buildDir);
+    }
+
+    config.buildDir = config.buildDir.absolutePath;
+}
+
+void prepareLdcSource() {
+    if (config.ldcSourceDir !is null) {
+        if (!config.ldcSourceDir.exists) {
+            writefln("Error: LDC source directory not found: %s", config.ldcSourceDir);
+            exit(1);
+        }
+        config.ldcSourceDir = config.ldcSourceDir.absolutePath;
+        return;
+    }
+
+    config.ldcSourceDir = buildPath(config.buildDir, "ldc-src");
+    if (config.ldcSourceDir.exists)
+        return;
+
+    const wd = WorkingDirScope(config.buildDir);
+
+    // Download & extract LDC source archive if the directory doesn't exist yet.
+    const url = "https://github.com/ldc-developers/ldc/releases/download/v@LDC_VERSION@/ldc-@LDC_VERSION@-src.tar.gz";
+    writefln("Downloading LDC source archive: %s", url);
+    import std.net.curl : download;
+    download(url, "ldc-src.tar.gz");
+
+    mkdirRecurse("ldc-src");
+    import std.array : split;
+    exec("tar -xzf ldc-src.tar.gz --strip 1 -C ldc-src".split);
+}
+
+void runCMake() {
+    import std.array : byPair, join;
+
+    const wd = WorkingDirScope(config.buildDir);
+
+    string[] args = [
+        "cmake",
+        "-DLDC_EXE_FULL=" ~ config.ldcExecutable,
+        "-DD_VERSION=@D_VERSION@",
+        "-DDMDFE_MINOR_VERSION=@DMDFE_MINOR_VERSION@",
+        "-DDMDFE_PATCH_VERSION=@DMDFE_PATCH_VERSION@",
+        "-DD_FLAGS=" ~ config.dFlags.join(";"),
+        "-DRT_CFLAGS=" ~ config.cFlags.join(" "),
+        "-DLD_FLAGS=" ~ config.linkerFlags.join(" "),
+    ];
+    foreach (pair; config.cmakeVars.byPair)
+        args ~= "-D" ~ pair[0] ~ '=' ~ pair[1];
+    if (config.ninja)
+        args ~= [ "-G", "Ninja" ];
+    args ~= buildPath(config.ldcSourceDir, "runtime");
+
+    exec(args);
+}
+
+void build() {
+    const wd = WorkingDirScope(config.buildDir);
+
+    string[] args = [
+        config.ninja ? "ninja" : "make",
+        "all"
+    ];
+    if (config.buildTestrunners)
+        args ~= "all-test-runners";
+
+    exec(args);
+}
+
+/*** helpers ***/
+
+struct WorkingDirScope {
+    string originalPath;
+    this(string path) { originalPath = getcwd(); chdir(path); }
+    ~this() { chdir(originalPath); }
+}
+
+void exec(string[] command ...) {
+    writeln("Invoking: ", command);
+
+    import std.process;
+    auto pid = spawnProcess(command);
+    const exitStatus = wait(pid);
+
+    if (exitStatus != 0) {
+        writeln("Error: command failed with status ", exitStatus);
+        exit(1);
+    }
+}
+
+void parseCommandLine(string[] args) {
+    import std.getopt : arraySep, getopt, defaultGetoptPrinter;
+
+    arraySep = ";";
+    auto helpInformation = getopt(
+        args,
+        "ldc",         "Path to LDC executable", &config.ldcExecutable,
+        "buildDir",    "Path to temporary build directory", &config.buildDir,
+        "ldcSrcDir",   "Path to LDC source directory", &config.ldcSourceDir,
+        "ninja",       "Use Ninja as CMake build system", &config.ninja,
+        "testrunners", "Build the testrunner executables too", &config.buildTestrunners,
+        "dFlags",      "LDC flags for the D modules (separated by ';')", &config.dFlags,
+        "cFlags",      "C compiler flags for the C modules (separated by ';')", &config.cFlags,
+        "linkerFlags", "C linker flags for shared libraries and testrunner executables (separated by ';')", &config.linkerFlags
+    );
+
+    // getopt() removed all consumed args from `args`
+    import std.range : drop;
+    foreach (arg; args.drop(1)) {
+        import std.algorithm.searching : findSplit;
+        const r = arg.findSplit("=");
+        if (r[1].length == 0) {
+            helpInformation.helpWanted = true;
+            break;
+        }
+        config.cmakeVars[r[0]] = r[2];
+    }
+
+    if (helpInformation.helpWanted) {
+        defaultGetoptPrinter(
+            "Builds the LDC runtime libraries.\n" ~
+            "Programs required to be found in your PATH:\n" ~
+            "  * CMake\n" ~
+            "  * either Make or Ninja (recommended, enable with '--ninja')\n" ~
+            "  * C toolchain (compiler and linker)\n" ~
+            "  * tar (can be worked around via '--ldcSrcDir=path/to/src')\n" ~
+            "All arguments are optional.\n" ~
+            "CMake variables (see runtime/CMakeLists.txt in LDC source) can be specified via arguments like 'VAR=value'.\n",
+            helpInformation.options
+        );
+        exit(1);
+    }
+}
