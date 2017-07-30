@@ -776,8 +776,12 @@ void DtoDefineFunction(FuncDeclaration *fd) {
   // create alloca point
   // this gets erased when the function is complete, so alignment etc does not
   // matter at all
-  llvm::Instruction *allocaPoint = new llvm::AllocaInst(
-      LLType::getInt32Ty(gIR->context()), "alloca point", beginbb);
+  llvm::Instruction *allocaPoint =
+      new llvm::AllocaInst(LLType::getInt32Ty(gIR->context()),
+#if LDC_LLVM_VER >= 500
+                           0, // Address space
+#endif
+                           "alloca_point", beginbb);
   irFunc->allocapoint = allocaPoint;
 
   // debug info - after all allocas, but before any llvm.dbg.declare etc

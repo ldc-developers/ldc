@@ -1043,7 +1043,7 @@ static size_t addStrlen(size_t acc, const char *str) {
 }
 
 int main(int argc, char *argv[]) {
-  exe_path::initialize(argv[0], reinterpret_cast<void *>(main));
+  exe_path::initialize(argv[0]);
 
   std::string ldcExeName = LDC_EXE_NAME;
 #ifdef _WIN32

@@ -19,9 +19,15 @@ namespace {
 string exePath;
 }
 
-void exe_path::initialize(const char *arg0, void *mainAddress) {
+void exe_path::initialize(const char *arg0) {
   assert(exePath.empty());
-  exePath = llvm::sys::fs::getMainExecutable(arg0, mainAddress);
+
+  // Some platforms can't implement LLVM's getMainExecutable
+  // without being given the address of a function in the main executable.
+  // Thus getMainExecutable needs the address of a function;
+  // any function address in the main executable will do.
+  exePath = llvm::sys::fs::getMainExecutable(
+      arg0, reinterpret_cast<void *>(&exe_path::initialize));
 }
 
 const string &exe_path::getExePath() {
