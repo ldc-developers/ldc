@@ -80,12 +80,18 @@ extern (C++) struct CTFloat
     static import std.math;
 
     static real_t log(real_t x) { return std.math.log(x); }
+    static real_t log2(real_t x) { return std.math.log2(x); }
+    static real_t log10(real_t x) { return std.math.log10(x); }
     static real_t fmin(real_t l, real_t r) { return std.math.fmin(l, r); }
     static real_t fmax(real_t l, real_t r) { return std.math.fmax(l, r); }
     static real_t floor(real_t x) { return std.math.floor(x); }
     static real_t ceil(real_t x) { return std.math.ceil(x); }
     static real_t trunc(real_t x) { return std.math.trunc(x); }
+    static real_t rint(real_t x) { return std.math.rint(x); }
+    static real_t nearbyint(real_t x) { return std.math.nearbyint(x); }
     static real_t round(real_t x) { return std.math.round(x); }
+    static real_t fma(real_t x, real_t y, real_t z) { return std.math.fma(x, y, z); }
+    static real_t copysign(real_t to, real_t from) { return std.math.copysign(to, from); }
 
     static void _init();
 
