@@ -1,4 +1,4 @@
-module buildLdcRuntime;
+module ldcBuildRuntime;
 
 import core.stdc.stdlib : exit;
 import std.file;
@@ -60,7 +60,7 @@ void findLdcExecutable() {
 
 void prepareBuildDir() {
     if (config.buildDir is null)
-        config.buildDir = "build-ldc-runtime.tmp";
+        config.buildDir = "ldc-build-runtime.tmp";
 
     if (config.buildDir.exists) {
         writefln("Warning: build directory already exists: %s", config.buildDir);
@@ -164,7 +164,7 @@ void parseCommandLine(string[] args) {
     auto helpInformation = getopt(
         args,
         "ldc",         "Path to LDC executable (default: '" ~ defaultLdcExecutable ~ "')", &config.ldcExecutable,
-        "buildDir",    "Path to temporary build directory (default: './build-ldc-runtime.tmp')", &config.buildDir,
+        "buildDir",    "Path to temporary build directory (default: './ldc-build-runtime.tmp')", &config.buildDir,
         "ldcSrcDir",   "Path to LDC source directory (if not specified: downloads & extracts source archive into '<buildDir>/ldc-src')", &config.ldcSourceDir,
         "ninja",       "Use Ninja as CMake build system", &config.ninja,
         "testrunners", "Build the testrunner executables too", &config.buildTestrunners,

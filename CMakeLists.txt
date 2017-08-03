@@ -807,16 +807,16 @@ if(D_VERSION EQUAL 2)
 endif()
 add_subdirectory(tests)
 
-# build-ldc-runtime tool
-set(BUILD_LDC_RUNTIME_EXE_FULL ${PROJECT_BINARY_DIR}/bin/build-ldc-runtime${CMAKE_EXECUTABLE_SUFFIX})
+# ldc-build-runtime tool
+set(LDC_BUILD_RUNTIME_EXE_FULL ${PROJECT_BINARY_DIR}/bin/ldc-build-runtime${CMAKE_EXECUTABLE_SUFFIX})
 build_d_executable(
-    "${BUILD_LDC_RUNTIME_EXE_FULL}"
-    "${PROJECT_BINARY_DIR}/build-ldc-runtime.d"
+    "${LDC_BUILD_RUNTIME_EXE_FULL}"
+    "${PROJECT_BINARY_DIR}/ldc-build-runtime.d"
     ""
-    "${PROJECT_SOURCE_DIR}/runtime/build-ldc-runtime.d.in"
+    "${PROJECT_SOURCE_DIR}/runtime/ldc-build-runtime.d.in"
     ""
 )
-add_custom_target(build-ldc-runtime ALL DEPENDS ${BUILD_LDC_RUNTIME_EXE_FULL})
+add_custom_target(ldc-build-runtime ALL DEPENDS ${LDC_BUILD_RUNTIME_EXE_FULL})
 
 #
 # Install target.
@@ -824,7 +824,7 @@ add_custom_target(build-ldc-runtime ALL DEPENDS ${BUILD_LDC_RUNTIME_EXE_FULL})
 
 install(PROGRAMS ${LDC_EXE_FULL} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(PROGRAMS ${LDMD_EXE_FULL} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
-install(PROGRAMS ${BUILD_LDC_RUNTIME_EXE_FULL} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+install(PROGRAMS ${LDC_BUILD_RUNTIME_EXE_FULL} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 if(${BUILD_SHARED})
     # For now, only install libldc if explicitly building the shared library.
     # While it might theoretically be possible to use LDC as a static library
