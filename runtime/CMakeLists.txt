@@ -12,6 +12,17 @@ if(NOT LDC_EXE)
     endif()
 endif()
 
+# Helper function
+function(append value)
+    foreach(variable ${ARGN})
+        if(${variable} STREQUAL "")
+            set(${variable} "${value}" PARENT_SCOPE)
+        else()
+            set(${variable} "${${variable}} ${value}" PARENT_SCOPE)
+        endif()
+    endforeach(variable)
+endfunction()
+
 #
 # Main configuration.
 #
