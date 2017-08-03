@@ -108,12 +108,6 @@ file(MAKE_DIRECTORY
     ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}
 )
 
-if(UNIX)
-    ENABLE_LANGUAGE(ASM)
-elseif(MSVC)
-    ENABLE_LANGUAGE(ASM_MASM)
-endif()
-
 # Setup D compiler flags (DMD syntax, which also works with LDMD).
 set(DDMD_DFLAGS "-wi")
 set(DDMD_LFLAGS "")

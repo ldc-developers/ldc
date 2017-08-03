@@ -59,6 +59,12 @@ if("${TARGET_SYSTEM}" STREQUAL "AUTO")
     endif()
 endif()
 
+if("${TARGET_SYSTEM}" MATCHES "UNIX")
+    ENABLE_LANGUAGE(ASM)
+elseif("${TARGET_SYSTEM}" MATCHES "MSVC")
+    ENABLE_LANGUAGE(ASM_MASM)
+endif()
+
 include(CheckTypeSize)
 check_type_size(void* ptr_size)
 if(${ptr_size} MATCHES "^8$") ## if it's 64-bit OS
