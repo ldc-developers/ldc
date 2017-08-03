@@ -557,7 +557,7 @@ public:
     // valid array ops would have been transformed by optimize
     if ((t1->ty == Tarray || t1->ty == Tsarray) &&
         (t2->ty == Tarray || t2->ty == Tsarray)) {
-      base->error("Array operation %s not recognized", base->toChars());
+      base->error("Array operation `%s` not recognized", base->toChars());
       fatal();
     }
   }
@@ -1870,8 +1870,8 @@ public:
     LOG_SCOPE;
 
     if (e->func->isStatic()) {
-      e->error("can't take delegate of static function %s, it does not require "
-               "a context ptr",
+      e->error("can't take delegate of static function `%s`, it does not "
+               "require a context ptr",
                e->func->toChars());
     }
 
@@ -2545,7 +2545,7 @@ public:
   //////////////////////////////////////////////////////////////////////////////
 
   void visit(TypeExp *e) override {
-    e->error("type %s is not an expression", e->toChars());
+    e->error("type `%s` is not an expression", e->toChars());
     // TODO: Improve error handling. DMD just returns some value here and hopes
     // some more sensible error messages will be triggered.
     fatal();
@@ -2627,7 +2627,7 @@ public:
     IF_LOG Logger::print("PowExp::toElem() %s\n", e->toChars());
     LOG_SCOPE;
 
-    e->error("must import std.math to use ^^ operator");
+    e->error("must import `std.math` to use `^^` operator");
     result = new DNullValue(e->type, llvm::UndefValue::get(DtoType(e->type)));
   }
 
@@ -2674,7 +2674,7 @@ public:
 
 #define STUB(x)                                                                \
   void visit(x *e) override {                                                  \
-    e->error("Internal compiler error: Type " #x " not implemented: %s",       \
+    e->error("Internal compiler error: Type `" #x "` not implemented: `%s`",   \
              e->toChars());                                                    \
     fatal();                                                                   \
   }

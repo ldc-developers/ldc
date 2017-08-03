@@ -2,6 +2,6 @@
 
 void main () {
     import ldc.llvmasm : __asm;
-    // CHECK: Error: __asm constraint argument is invalid
+    // CHECK: Error: `__asm` constraint argument is invalid
     __asm("", "][");
 }

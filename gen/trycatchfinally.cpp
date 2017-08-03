@@ -434,7 +434,7 @@ TryCatchFinallyScopes::~TryCatchFinallyScopes() {
   // cleanup scopes, both of which are not allowed in D.
   if (!currentUnresolvedGotos().empty()) {
     for (const auto &i : currentUnresolvedGotos()) {
-      error(i.sourceLoc, "goto into try/finally scope is not allowed");
+      error(i.sourceLoc, "`goto` into `try`/`finally` scope is not allowed");
     }
     fatal();
   }

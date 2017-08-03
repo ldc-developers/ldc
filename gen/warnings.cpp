@@ -21,9 +21,9 @@ void warnInvalidPrintfCall(Loc loc, Expression *arguments, size_t nargs) {
 
   StringExp *strexp = static_cast<StringExp *>(arg);
 
-  // not wchar or dhar
+  // not wchar or dchar
   if (strexp->sz != 1) {
-    warning(loc, "printf does not support wchar and dchar strings");
+    warning(loc, "`printf` does not support `wchar` and `dchar` strings");
     return;
   }
 

@@ -195,7 +195,7 @@ llvm::Constant *buildLocalClasses(Module *m, size_t &count) {
 
 llvm::GlobalVariable *genModuleInfo(Module *m) {
   if (!Module::moduleinfo) {
-    m->error("object.d is missing the ModuleInfo struct");
+    m->error("object.d is missing the `ModuleInfo` struct");
     fatal();
   }
 
@@ -204,7 +204,7 @@ llvm::GlobalVariable *genModuleInfo(Module *m) {
   // should consist only of the _flags/_index fields (the latter of which is
   // unused).
   if (Module::moduleinfo->structsize != 4 + 4) {
-    m->error("Unexpected size of struct object.ModuleInfo; "
+    m->error("Unexpected size of struct `object.ModuleInfo`; "
              "druntime version does not match compiler (see -v)");
     fatal();
   }

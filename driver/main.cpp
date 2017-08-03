@@ -534,11 +534,9 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   }
 
   if (noDefaultLib) {
-    deprecation(
-        Loc(),
-        "-nodefaultlib is deprecated, as "
-        "-defaultlib/-debuglib now override the existing list instead of "
-        "appending to it. Please use the latter instead.");
+    deprecation(Loc(), "-nodefaultlib is deprecated, as -defaultlib/-debuglib "
+                       "now override the existing list instead of appending to "
+                       "it. Please use the latter instead.");
   } else {
     // Parse comma-separated default library list.
     std::stringstream libNames(linkDebugLib ? debugLib : defaultLib);

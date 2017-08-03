@@ -208,14 +208,14 @@ LLConstant *IrAggr::getVtblInit() {
           if (fd->leastAsSpecialized(fd2) || fd2->leastAsSpecialized(fd)) {
             TypeFunction *tf = static_cast<TypeFunction *>(fd->type);
             if (tf->ty == Tfunction) {
-              cd->error("use of %s%s is hidden by %s; use 'alias %s = %s.%s;' "
-                        "to introduce base class overload set",
+              cd->error("use of `%s%s` is hidden by `%s`; use `alias %s = "
+                        "%s.%s;` to introduce base class overload set",
                         fd->toPrettyChars(),
                         parametersTypeToChars(tf->parameters, tf->varargs),
                         cd->toChars(), fd->toChars(), fd->parent->toChars(),
                         fd->toChars());
             } else {
-              cd->error("use of %s is hidden by %s", fd->toPrettyChars(),
+              cd->error("use of `%s` is hidden by `%s`", fd->toPrettyChars(),
                         cd->toChars());
             }
             fatal();

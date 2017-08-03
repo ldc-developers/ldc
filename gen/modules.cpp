@@ -71,8 +71,8 @@ void Module::checkAndAddOutputFile(File *file) {
   if (i != files.end()) {
     Module *previousMod = i->second;
     ::error(Loc(),
-            "Output file '%s' for module '%s' collides with previous "
-            "module '%s'. See the -oq option",
+            "Output file '%s' for module `%s` collides with previous "
+            "module `%s`. See the -oq option",
             key.c_str(), toPrettyChars(), previousMod->toPrettyChars());
     fatal();
   }
@@ -617,7 +617,7 @@ void loadInstrProfileData(IRState *irs) {
 #if LDC_LLVM_VER >= 309
     if (auto E = readerOrErr.takeError()) {
       handleAllErrors(std::move(E), [&](const llvm::ErrorInfoBase &EI) {
-        irs->dmodule->error("Could not read profile file %s: %s",
+        irs->dmodule->error("Could not read profile file '%s': %s",
                             global.params.datafileInstrProf,
                             EI.message().c_str());
       });
@@ -626,7 +626,7 @@ void loadInstrProfileData(IRState *irs) {
 #else
     std::error_code EC = readerOrErr.getError();
     if (EC) {
-      irs->dmodule->error("Could not read profile file %s: %s",
+      irs->dmodule->error("Could not read profile file '%s': %s",
                           global.params.datafileInstrProf,
                           EC.message().c_str());
       fatal();

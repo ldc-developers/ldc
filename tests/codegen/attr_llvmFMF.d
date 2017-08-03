@@ -7,7 +7,7 @@ import ldc.attributes;
 
 version(WARNING)
 {
-    // WARNING: attr_llvmFMF.d(11): Warning: ignoring unrecognized flag parameter 'unrecognized' for '@ldc.attributes.llvmFastMathFlag'
+    // WARNING: attr_llvmFMF.d(11): Warning: ignoring unrecognized flag parameter `unrecognized` for `@ldc.attributes.llvmFastMathFlag`
     @llvmFastMathFlag("unrecognized")
     void foo() {}
 }

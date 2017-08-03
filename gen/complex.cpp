@@ -497,6 +497,7 @@ DValue *DtoCastComplex(Loc &loc, DValue *val, Type *_to) {
     auto re = new DImValue(extractty, repart);
     return DtoCastFloat(loc, re, to);
   }
-  error(loc, "Don't know how to cast %s to %s", vty->toChars(), to->toChars());
+  error(loc, "Don't know how to cast `%s` to `%s`", vty->toChars(),
+        to->toChars());
   fatal();
 }
