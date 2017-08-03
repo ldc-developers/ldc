@@ -162,9 +162,9 @@ void parseCommandLine(string[] args) {
     arraySep = ";";
     auto helpInformation = getopt(
         args,
-        "ldc",         "Path to LDC executable", &config.ldcExecutable,
-        "buildDir",    "Path to temporary build directory", &config.buildDir,
-        "ldcSrcDir",   "Path to LDC source directory", &config.ldcSourceDir,
+        "ldc",         "Path to LDC executable (default: <current dir>/ldc2)", &config.ldcExecutable,
+        "buildDir",    "Path to temporary build directory (default: <current dir>/build-ldc-runtime.tmp)", &config.buildDir,
+        "ldcSrcDir",   "Path to LDC source directory (if not specified: downloads source archive into <current dir>/ldc-src)", &config.ldcSourceDir,
         "ninja",       "Use Ninja as CMake build system", &config.ninja,
         "testrunners", "Build the testrunner executables too", &config.buildTestrunners,
         "dFlags",      "LDC flags for the D modules (separated by ';')", &config.dFlags,
