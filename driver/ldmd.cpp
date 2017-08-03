@@ -161,7 +161,6 @@ Where:\n\
   -dip25           implement http://wiki.dlang.org/DIP25 (experimental)\n\
   -dip1000         implement http://wiki.dlang.org/DIP1000 (experimental)\n\
   -g               add symbolic debug info\n\
-  -gc              add symbolic debug info, optimize for non D debuggers\n\
   -gs              always emit stack frame\n"
 #if 0
 "  -gx              add stack stomp code\n"
