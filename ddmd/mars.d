@@ -1144,6 +1144,12 @@ Language changes listed by -transition=id:
 
 extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
 {
+    version(IN_LLVM)
+    {
+        if (global.params.color)
+            global.console = Console.create(core.stdc.stdio.stderr);
+    }
+
     if (global.params.link)
     {
         global.params.exefile = global.params.objname;
