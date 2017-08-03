@@ -33,11 +33,13 @@ set(MULTILIB              OFF                                 CACHE BOOL   "Buil
 set(BUILD_BC_LIBS         OFF                                 CACHE BOOL   "Build the runtime as LLVM bitcode libraries")
 set(INCLUDE_INSTALL_DIR   ${CMAKE_INSTALL_PREFIX}/include/d   CACHE PATH   "Path to install D modules to")
 set(BUILD_SHARED_LIBS     AUTO                                CACHE STRING "Whether to build the runtime as a shared library (ON|OFF|BOTH)")
-set(D_FLAGS               -w                                  CACHE STRING "Runtime build flags, separated by ;")
-set(D_FLAGS_DEBUG         -g;-link-debuglib                   CACHE STRING "Runtime build flags (debug libraries), separated by ;")
-set(D_FLAGS_RELEASE       -O3;-release                        CACHE STRING "Runtime build flags (release libraries), separated by ;")
+set(D_FLAGS               -w                                  CACHE STRING "Runtime D compiler flags, separated by ';'")
+set(D_FLAGS_DEBUG         -g;-link-debuglib                   CACHE STRING "Runtime D compiler flags (debug libraries), separated by ';'")
+set(D_FLAGS_RELEASE       -O3;-release                        CACHE STRING "Runtime D compiler flags (release libraries), separated by ';'")
 set(COMPILE_ALL_D_FILES_AT_ONCE ON                            CACHE BOOL   "Compile all D files for a lib in a single command line instead of separately")
-set(C_SYSTEM_LIBS         AUTO                                CACHE STRING "C system libraries for linking shared libraries and test runners, separated by ;")
+set(RT_CFLAGS             ""                                  CACHE STRING "Runtime extra C compiler flags, separated by ' '")
+set(LD_FLAGS              ""                                  CACHE STRING "Runtime extra C linker flags, separated by ' '")
+set(C_SYSTEM_LIBS         AUTO                                CACHE STRING "C system libraries for linking shared libraries and test runners, separated by ';'")
 set(TARGET_SYSTEM         AUTO                                CACHE STRING "Targeted platform for cross-compilation (e.g., 'Linux;UNIX', 'Darwin;APPLE;UNIX', 'Windows;MSVC')")
 
 set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
@@ -595,8 +597,6 @@ include(profile-rt/DefineBuildProfileRT.cmake)
 #
 # Set up build and install targets
 #
-
-set(RT_CFLAGS "")
 
 if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
     # On OS X, build "fat" libraries containing code for both architectures.
