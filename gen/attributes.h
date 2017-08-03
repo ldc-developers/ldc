@@ -16,7 +16,7 @@ using LLAttribute = llvm::Attribute::AttrKind;
 #if LDC_LLVM_VER >= 500
   using LLAttributeSet = llvm::AttributeList;
 #else
-  using LLAttributeSet = LLAttributeSet;
+  using LLAttributeSet = llvm::AttributeSet;
 #endif
 
 class AttrBuilder {
