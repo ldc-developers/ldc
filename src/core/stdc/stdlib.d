@@ -219,6 +219,11 @@ else version( GNU )
 {
     void* alloca(size_t size) pure; // compiler intrinsic
 }
+else version( LDC )
+{
+    pragma(LDC_alloca)
+    void* alloca(size_t size) pure;
+}
 
 version( CRuntime_Microsoft )
 {
@@ -231,10 +236,4 @@ version( CRuntime_Microsoft )
     long  _strtoi64(scope inout(char)*, scope inout(char)**,int);
     ///
     long  _wcstoi64(scope inout(wchar)*, scope inout(wchar)**,int);
-}
-
-version( LDC )
-{
-    pragma(LDC_alloca)
-        void* alloca(size_t size);
 }
