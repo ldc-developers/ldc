@@ -6,6 +6,7 @@ import std.path;
 import std.stdio;
 
 struct Config {
+    uint numBuildJobs;
     string ldcExecutable;
     string buildDir;
     string ldcSourceDir;
@@ -126,10 +127,12 @@ void runCMake() {
 void build() {
     const wd = WorkingDirScope(config.buildDir);
 
-    string[] args = [
-        config.ninja ? "ninja" : "make",
-        "all"
-    ];
+    string[] args = [ config.ninja ? "ninja" : "make" ];
+    if (config.numBuildJobs != 0) {
+        import std.conv : to;
+        args ~= "-j" ~ config.numBuildJobs.to!string;
+    }
+    args ~= "all";
     if (config.buildTestrunners)
         args ~= "all-test-runners";
 
@@ -163,6 +166,7 @@ void parseCommandLine(string[] args) {
     arraySep = ";";
     auto helpInformation = getopt(
         args,
+        "j",           "Number of parallel build jobs", &config.numBuildJobs,
         "ldc",         "Path to LDC executable (default: '" ~ defaultLdcExecutable ~ "')", &config.ldcExecutable,
         "buildDir",    "Path to temporary build directory (default: './ldc-build-runtime.tmp')", &config.buildDir,
         "ldcSrcDir",   "Path to LDC source directory (if not specified: downloads & extracts source archive into '<buildDir>/ldc-src')", &config.ldcSourceDir,
