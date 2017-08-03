@@ -17,9 +17,16 @@ struct Config {
     string[string] cmakeVars;
 }
 
+string defaultLdcExecutable;
 Config config;
 
 int main(string[] args) {
+    version(Windows)
+        enum exeName = "ldc2.exe";
+    else
+        enum exeName = "ldc2";
+    defaultLdcExecutable = buildPath(thisExePath.dirName, exeName);
+
     parseCommandLine(args);
 
     findLdcExecutable();
@@ -42,14 +49,8 @@ void findLdcExecutable() {
         return;
     }
 
-    version(Windows)
-        enum exeName = "ldc2.exe";
-    else
-        enum exeName = "ldc2";
-
-    const candidate = buildPath(thisExePath.dirName, exeName);
-    if (candidate.exists) {
-        config.ldcExecutable = candidate;
+    if (defaultLdcExecutable.exists) {
+        config.ldcExecutable = defaultLdcExecutable;
         return;
     }
 
@@ -162,9 +163,9 @@ void parseCommandLine(string[] args) {
     arraySep = ";";
     auto helpInformation = getopt(
         args,
-        "ldc",         "Path to LDC executable (default: <current dir>/ldc2)", &config.ldcExecutable,
-        "buildDir",    "Path to temporary build directory (default: <current dir>/build-ldc-runtime.tmp)", &config.buildDir,
-        "ldcSrcDir",   "Path to LDC source directory (if not specified: downloads source archive into <current dir>/ldc-src)", &config.ldcSourceDir,
+        "ldc",         "Path to LDC executable (default: '" ~ defaultLdcExecutable ~ "')", &config.ldcExecutable,
+        "buildDir",    "Path to temporary build directory (default: './build-ldc-runtime.tmp')", &config.buildDir,
+        "ldcSrcDir",   "Path to LDC source directory (if not specified: downloads & extracts source archive into '<buildDir>/ldc-src')", &config.ldcSourceDir,
         "ninja",       "Use Ninja as CMake build system", &config.ninja,
         "testrunners", "Build the testrunner executables too", &config.buildTestrunners,
         "dFlags",      "LDC flags for the D modules (separated by ';')", &config.dFlags,
