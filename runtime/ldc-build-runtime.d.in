@@ -90,7 +90,15 @@ void prepareLdcSource() {
     const wd = WorkingDirScope(config.buildDir);
 
     // Download & extract LDC source archive if the directory doesn't exist yet.
-    const url = "https://github.com/ldc-developers/ldc/releases/download/v@LDC_VERSION@/ldc-@LDC_VERSION@-src.tar.gz";
+
+    auto ldcVersion = "@LDC_VERSION@";
+    import std.string : indexOf;
+    const gitSuffixIndex = ldcVersion.indexOf("git-");
+    if (gitSuffixIndex > 0)
+        ldcVersion = ldcVersion[0 .. gitSuffixIndex];
+
+    import std.format : format;
+    const url = "https://github.com/ldc-developers/ldc/releases/download/v%1$s/ldc-%1$s-src.tar.gz".format(ldcVersion);
     writefln("Downloading LDC source archive: %s", url);
     import std.net.curl : download;
     download(url, "ldc-src.tar.gz");
