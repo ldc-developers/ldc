@@ -25,6 +25,7 @@
 
 namespace llvm {
 class raw_ostream;
+class StringRef;
 }
 
 namespace opts {
@@ -53,6 +54,8 @@ llvm::SanitizerCoverageOptions getSanitizerCoverageOptions();
 #endif
 
 void outputSanitizerSettings(llvm::raw_ostream &hash_os);
+
+bool functionIsInSanitizerBlacklist(llvm::StringRef funcName);
 
 } // namespace opts
 
