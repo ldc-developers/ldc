@@ -2956,9 +2956,6 @@ struct AsmProcessor {
              operand->symbolDisplacement.dim == 0) ||
             operand->constDisplacement) {
           insnTemplate << operand->constDisplacement;
-          if (operand->symbolDisplacement.dim) {
-            insnTemplate << '+';
-          }
           operand->constDisplacement = 0;
           // addOperand(fmt, Arg_Integer,
           // newIntExp(operand->constDisplacement),
