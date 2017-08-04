@@ -83,27 +83,44 @@ void prepareLdcSource() {
         return;
     }
 
-    config.ldcSourceDir = buildPath(config.buildDir, "ldc-src");
-    if (config.ldcSourceDir.exists)
+    const ldcSrc = "ldc-src";
+    config.ldcSourceDir = buildPath(config.buildDir, ldcSrc);
+    if (buildPath(config.ldcSourceDir, "runtime").exists)
         return;
+
+    // Download & extract LDC source archive if <buildDir>/ldc-src/runtime doesn't exist yet.
 
     const wd = WorkingDirScope(config.buildDir);
 
-    // Download & extract LDC source archive if the directory doesn't exist yet.
-
     auto ldcVersion = "@LDC_VERSION@";
-    import std.string : indexOf;
-    const gitSuffixIndex = ldcVersion.indexOf("git-");
-    if (gitSuffixIndex > 0)
-        ldcVersion = ldcVersion[0 .. gitSuffixIndex];
+    void removeVersionSuffix(string beginning) {
+        import std.string : indexOf;
+        const suffixIndex = ldcVersion.indexOf(beginning);
+        if (suffixIndex > 0)
+            ldcVersion = ldcVersion[0 .. suffixIndex];
+    }
+    removeVersionSuffix("git-");
+    removeVersionSuffix("-dirty");
 
-    import std.format : format;
-    const url = "https://github.com/ldc-developers/ldc/releases/download/v%1$s/ldc-%1$s-src.tar.gz".format(ldcVersion);
-    writefln("Downloading LDC source archive: %s", url);
-    import std.net.curl : download;
-    download(url, "ldc-src.tar.gz");
+    const localArchiveFile = "ldc-src.tar.gz";
+    if (!localArchiveFile.exists) {
+        import std.format : format;
+        const url = "https://github.com/ldc-developers/ldc/releases/download/v%1$s/ldc-%1$s-src.tar.gz".format(ldcVersion);
+        writefln("Downloading LDC source archive: %s", url);
+        import std.net.curl : download;
+        download(url, localArchiveFile);
+        if (getSize(localArchiveFile) < 1_048_576) {
+            writefln("Error: downloaded file is corrupt; has LDC v%s been released?", ldcVersion);
+            writefln("You can work around this by manually downloading a src package and moving it to '%s'.",
+                     buildPath(config.buildDir, localArchiveFile));
+            localArchiveFile.remove;
+            exit(1);
+        }
+    }
 
-    mkdirRecurse("ldc-src");
+    if (!ldcSrc.exists)
+        mkdir(ldcSrc);
+
     import std.array : split;
     exec("tar -xzf ldc-src.tar.gz --strip 1 -C ldc-src".split);
 }
