@@ -12,4 +12,4 @@
 fun:blacklisted
 fun:*black_set*
 
-fun:_D*TiZ6ABCDEF6method*
+fun:*TiZ6ABCDEF6method*
