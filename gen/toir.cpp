@@ -1343,6 +1343,9 @@ public:
         Logger::cout() << "rv: " << *rv << '\n';
       }
       eval = p->ir->CreateICmp(cmpop, lv, rv);
+      if (t->ty == Tvector) {
+        eval = mergeVectorEquals(eval, e->op);
+      }
     } else if (t->isfloating()) // includes iscomplex
     {
       eval = DtoBinNumericEquals(e->loc, l, r, e->op);
