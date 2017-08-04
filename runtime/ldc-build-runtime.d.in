@@ -6,7 +6,6 @@ import std.path;
 import std.stdio;
 
 struct Config {
-    uint numBuildJobs;
     string ldcExecutable;
     string buildDir;
     string ldcSourceDir;
@@ -15,6 +14,7 @@ struct Config {
     string[] dFlags;
     string[] cFlags;
     string[] linkerFlags;
+    uint numBuildJobs;
     string[string] cmakeVars;
 }
 
@@ -174,15 +174,15 @@ void parseCommandLine(string[] args) {
     arraySep = ";";
     auto helpInformation = getopt(
         args,
-        "j",           "Number of parallel build jobs", &config.numBuildJobs,
         "ldc",         "Path to LDC executable (default: '" ~ defaultLdcExecutable ~ "')", &config.ldcExecutable,
         "buildDir",    "Path to temporary build directory (default: './ldc-build-runtime.tmp')", &config.buildDir,
         "ldcSrcDir",   "Path to LDC source directory (if not specified: downloads & extracts source archive into '<buildDir>/ldc-src')", &config.ldcSourceDir,
         "ninja",       "Use Ninja as CMake build system", &config.ninja,
         "testrunners", "Build the testrunner executables too", &config.buildTestrunners,
         "dFlags",      "LDC flags for the D modules (separated by ';')", &config.dFlags,
-        "cFlags",      "C compiler flags for the C modules (separated by ';')", &config.cFlags,
-        "linkerFlags", "C linker flags for shared libraries and testrunner executables (separated by ';')", &config.linkerFlags
+        "cFlags",      "C/ASM compiler flags for the handful of C/ASM files (separated by ';')", &config.cFlags,
+        "linkerFlags", "C linker flags for shared libraries and testrunner executables (separated by ';')", &config.linkerFlags,
+        "j",           "Number of parallel build jobs", &config.numBuildJobs
     );
 
     // getopt() removed all consumed args from `args`
