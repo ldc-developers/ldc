@@ -1,33 +1,28 @@
+dist: trusty
 language: cpp
 sudo: false
 
 matrix:
   include:
     - os: linux
-      env: LLVM_VERSION=4.0.0
+      env: LLVM_VERSION=4.0.1
     - os: linux
-      env: LLVM_VERSION=3.9.0
+      env: LLVM_VERSION=3.9.1 OPTS="-DBUILD_SHARED_LIBS=ON"
     - os: linux
-      env: LLVM_VERSION=3.8.1
+      env: LLVM_VERSION=3.8.1 OPTS="-DBUILD_SHARED_LIBS=OFF"
     - os: linux
       env: LLVM_VERSION=3.7.1 OPTS="-DMULTILIB=ON"
-    - os: linux
-      env: LLVM_VERSION=3.6.2 OPTS="-DBUILD_SHARED_LIBS=ON"
-    - os: linux
-      env: LLVM_VERSION=3.5.2 OPTS="-DTEST_COVERAGE=ON"
     - os: osx
-      env: LLVM_CONFIG="llvm-config-3.8"
+      env: LLVM_VERSION=4.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF"
   allow_failures:
     #- env: LLVM_VERSION=3.9
 
 cache:
   directories:
-    - llvm-4.0.0
+    - llvm-4.0.1
     - llvm-3.9.0
     - llvm-3.8.1
     - llvm-3.7.1
-    - llvm-3.6.2
-    - llvm-3.5.2
 addons:
   apt:
     sources:
@@ -47,20 +42,31 @@ addons:
 before_install:
   -
     if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
-      if [ -z "$(ls -A llvm-$LLVM_VERSION)" ]; then
-        wget -O llvm-$LLVM_VERSION.tar.xz http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-x86_64-linux-gnu-ubuntu-14.04.tar.xz;
-        mkdir llvm-$LLVM_VERSION;
-        tar -xvf llvm-$LLVM_VERSION.tar.xz --strip 1 -C llvm-$LLVM_VERSION;
+      if [ "${LLVM_VERSION}" = "4.0.1" ]; then
+        export LLVM_ARCH="x86_64-linux-gnu-debian8";
+      else
+        export LLVM_ARCH="x86_64-linux-gnu-ubuntu-14.04";
       fi;
-      llvm-$LLVM_VERSION/bin/llvm-config --version;
-      export LLVM_CONFIG="llvm-$LLVM_VERSION/bin/llvm-config";
-    fi
+    else
+      export LLVM_ARCH="x86_64-apple-darwin";
+    fi;
+
+    if [ -z "$(ls -A llvm-$LLVM_VERSION)" ]; then
+      wget -O llvm-$LLVM_VERSION.tar.xz http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-${LLVM_ARCH}.tar.xz;
+      mkdir llvm-$LLVM_VERSION;
+      tar -xf llvm-$LLVM_VERSION.tar.xz --strip 1 -C llvm-$LLVM_VERSION;
+    fi;
+
+    llvm-$LLVM_VERSION/bin/llvm-config --version;
+    export LLVM_CONFIG="llvm-$LLVM_VERSION/bin/llvm-config";
+
 install:
   - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then export CC="gcc-4.9"; export CXX="g++-4.9"; fi
-  - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then brew update; brew install llvm38; brew install libconfig; fi;
+  - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then brew update; brew install libconfig; fi;
   - pip install --user lit
+  - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then ld --version; gdb --version; fi
+  - cmake --version
   - python -c "import lit; lit.main();" --version | head -n 1
-  - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then gdb --version; fi
 
 script:
   - cmake --version
@@ -84,12 +90,6 @@ script:
   - ctest --output-on-failure -V -R "lit-tests"
   # Link and run Phobos & druntime unittest runners.
   - ctest -j3 --output-on-failure -E "dmd-testsuite|lit-tests"
-
-after_success:
-  -
-    if [[ "${OPTS}" == *TEST_COVERAGE*ON* ]]; then
-      coveralls -e runtime -e tests -e vcbuild --gcov gcov-4.9 --gcov-options '\-lp' > /dev/null 2>&1;
-    fi
 
 notifications:
   email:
