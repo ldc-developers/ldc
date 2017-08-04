@@ -27,7 +27,7 @@ jobs:
       - run:
           name: Install LLVM nightly
           command: |
-            add-apt-repository -y 'deb http://apt.llvm.org/unstable/ llvm-toolchain main'
+            add-apt-repository -y 'deb http://apt.llvm.org/unstable/ llvm-toolchain-5.0 main'
             wget -O - http://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
             apt update
             apt install -y llvm-5.0 llvm-5.0-dev libclang-common-5.0-dev libfuzzer-5.0-dev

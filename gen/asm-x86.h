@@ -2508,7 +2508,7 @@ struct AsmProcessor {
       if (ptrtype == Byte_Ptr) {
         return false;
       }
-    // drop through
+    // fallthrough
     case Int_Types:
       switch (ptrtype) {
       case Byte_Ptr:
@@ -2840,7 +2840,7 @@ struct AsmProcessor {
         // gas won't accept the two-operand form; skip to the source
         // operand
         i__ = 1;
-      // drop through
+      // fallthrough
       case Op_bound:
       case Op_enter:
         i = i__;
@@ -3938,7 +3938,7 @@ struct AsmProcessor {
 #define XFmode TFmode
 #endif
         mode = XFmode; // not TFmode
-        // drop through
+        // fallthrough
       do_float:
         if (token->value == TOKfloat32v || token->value == TOKfloat64v ||
             token->value == TOKfloat80v) {
