@@ -8,6 +8,7 @@ import std.stdio;
 struct Config {
     string ldcExecutable;
     string buildDir;
+    bool resetBuildDir;
     string ldcSourceDir;
     bool ninja;
     bool buildTestrunners;
@@ -64,7 +65,21 @@ void prepareBuildDir() {
         config.buildDir = "ldc-build-runtime.tmp";
 
     if (config.buildDir.exists) {
-        writefln("Warning: build directory already exists: %s", config.buildDir);
+        if (!config.resetBuildDir) {
+            writefln("Warning: build directory already exists: %s", config.buildDir);
+        } else {
+            writefln("Resetting build directory: %s", config.buildDir);
+            import std.array : array;
+            auto items = dirEntries(config.buildDir, SpanMode.shallow, false).array;
+            const ldcSrc = buildPath(config.buildDir, "ldc-src");
+            foreach (i; items) {
+                if (i.isFile) {
+                    remove(i.name);
+                } else if (i.isDir && i.name != ldcSrc) {
+                    rmdirRecurse(i.name);
+                }
+            }
+        }
     } else {
         writefln("Creating build directory: %s", config.buildDir);
         mkdirRecurse(config.buildDir);
@@ -111,7 +126,7 @@ void prepareLdcSource() {
         download(url, localArchiveFile);
         if (getSize(localArchiveFile) < 1_048_576) {
             writefln("Error: downloaded file is corrupt; has LDC v%s been released?", ldcVersion);
-            writefln("You can work around this by manually downloading a src package and moving it to '%s'.",
+            writefln("You can work around this by manually downloading a src package and moving it to: %s",
                      buildPath(config.buildDir, localArchiveFile));
             localArchiveFile.remove;
             exit(1);
@@ -192,7 +207,8 @@ void parseCommandLine(string[] args) {
     auto helpInformation = getopt(
         args,
         "ldc",         "Path to LDC executable (default: '" ~ defaultLdcExecutable ~ "')", &config.ldcExecutable,
-        "buildDir",    "Path to temporary build directory (default: './ldc-build-runtime.tmp')", &config.buildDir,
+        "buildDir",    "Path to build directory (default: './ldc-build-runtime.tmp')", &config.buildDir,
+        "reset",       "If build directory exists, start with removing everything but the ldc-src subdirectory", &config.resetBuildDir,
         "ldcSrcDir",   "Path to LDC source directory (if not specified: downloads & extracts source archive into '<buildDir>/ldc-src')", &config.ldcSourceDir,
         "ninja",       "Use Ninja as CMake build system", &config.ninja,
         "testrunners", "Build the testrunner executables too", &config.buildTestrunners,
