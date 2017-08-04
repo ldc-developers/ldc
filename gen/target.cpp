@@ -55,6 +55,10 @@ void Target::_init() {
   const auto IEEEquad = &APFloat::IEEEquad;
 #endif
 
+  RealProperties.nan = CTFloat::nan;
+  RealProperties.snan = CTFloat::initVal;
+  RealProperties.infinity = CTFloat::infinity;
+
   if (targetRealSemantics == IEEEdouble) {
     RealProperties.max = CTFloat::parse("0x1.fffffffffffffp+1023");
     RealProperties.min_normal = CTFloat::parse("0x1p-1022");
