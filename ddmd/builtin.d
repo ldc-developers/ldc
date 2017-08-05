@@ -555,6 +555,9 @@ else
     add_builtin("_D4core4math5atan2FNaNbNiNfeeZe", &eval_unimp);
     if (CTFloat.yl2x_supported)
     {
+        version(IN_LLVM) // @trusted
+            add_builtin("_D4core4math4yl2xFNaNbNiNeeeZe", &eval_yl2x);
+        else
         add_builtin("_D4core4math4yl2xFNaNbNiNfeeZe", &eval_yl2x);
     }
     else
@@ -563,6 +566,9 @@ else
     }
     if (CTFloat.yl2xp1_supported)
     {
+        version(IN_LLVM) // @trusted
+            add_builtin("_D4core4math6yl2xp1FNaNbNiNeeeZe", &eval_yl2xp1);
+        else
         add_builtin("_D4core4math6yl2xp1FNaNbNiNfeeZe", &eval_yl2xp1);
     }
     else
