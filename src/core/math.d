@@ -105,9 +105,11 @@ extern (C) real rndtonl(real x);
 {
   version (LDC)
   {
-    extern(D) float  sqrt(float  x) { return x < 0 ? float.nan  : llvm_sqrt(x); }
-    extern(D) double sqrt(double x) { return x < 0 ? double.nan : llvm_sqrt(x); }
-    extern(D) real   sqrt(real   x) { return x < 0 ? real.nan   : llvm_sqrt(x); }
+    // http://llvm.org/docs/LangRef.html#llvm-sqrt-intrinsic
+    // sqrt(x) when x is less than zero is undefined
+    float  sqrt(float  x) { return x < 0 ? float.nan  : llvm_sqrt(x); }
+    double sqrt(double x) { return x < 0 ? double.nan : llvm_sqrt(x); }
+    real   sqrt(real   x) { return x < 0 ? real.nan   : llvm_sqrt(x); }
   }
   else
   {
@@ -124,7 +126,7 @@ extern (C) real rndtonl(real x);
 
 version (LDC)
 {
-    real ldexp(real n, int exp) @trusted pure nothrow
+    real ldexp(real n, int exp) @safe pure nothrow
     {
         version (MinGW)
         {
@@ -134,7 +136,7 @@ version (LDC)
             // expression clobber list.
             version (D_InlineAsm_X86_64)
             {
-                asm
+                asm @trusted pure nothrow
                 {
                     naked;
                     push RCX;                // push exp (8 bytes), passed in ECX
@@ -148,7 +150,7 @@ version (LDC)
             }
             else
             {
-                asm
+                asm @trusted pure nothrow
                 {
                     naked;
                     push EAX;
