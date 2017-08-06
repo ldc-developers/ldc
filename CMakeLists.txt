@@ -150,7 +150,19 @@ elseif(MSVC)
         # Suppress noisy warning C4141 'modifier' used more than once', because of __forceinline combined with inline in LLVM headers
         append("/wd4141" DMD_CXXFLAGS LDC_CXXFLAGS)
     endif()
+
+    # Link against the static MSVC runtime; CMake's C(++) flags apparently default to the dynamic one.
+    # Host DMD/LDMD already defaults to linking against the static MSVC runtime.
+    # NOTE: Requires LLVM to be built with CMake variable LLVM_USE_CRT_{RELEASE,DEBUG,...}=MT[d].
+    foreach(flag_var
+            CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
+            CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+       if(${flag_var} MATCHES "/MD")
+          string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
+       endif()
+    endforeach()
 endif()
+
 # Append -mminimal-toc for gcc 4.0.x - 4.5.x on ppc64
 if( CMAKE_COMPILER_IS_GNUCXX
     AND CMAKE_SYSTEM_PROCESSOR MATCHES "ppc64|powerpc64"
