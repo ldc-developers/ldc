@@ -66,6 +66,9 @@ static bool ReadPathFromRegistry(llvm::SmallString<128> &p) {
       if (RegGetValue(hkey, NULL, _T("Path"), RRF_RT_REG_SZ, NULL, data, &length) ==
           ERROR_SUCCESS) {
 #if UNICODE
+#if LDC_LLVM_VER >= 400
+        using UTF16 = llvm::UTF16;
+#endif
         std::string out;
         res = llvm::convertUTF16ToUTF8String(
             llvm::ArrayRef<UTF16>(reinterpret_cast<UTF16 *>(data), length), out);
