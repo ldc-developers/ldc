@@ -11,5 +11,3 @@
 
 fun:blacklisted
 fun:*black_set*
-
-fun:*TiZ6ABCDEF6method*
