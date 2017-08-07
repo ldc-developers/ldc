@@ -158,12 +158,11 @@ void initializeSanitizerOptionsFromCmdline()
 #endif
 
   if (isAnySanitizerEnabled() && !fSanitizeBlacklist.empty()) {
-    std::string blacklistLoadError;
+    std::string loadError;
     sanitizerBlacklist =
-        llvm::SpecialCaseList::create(fSanitizeBlacklist, blacklistLoadError);
+        llvm::SpecialCaseList::create(fSanitizeBlacklist, loadError);
     if (!sanitizerBlacklist)
-      error(Loc(), "-fsanitize-blacklist error: %s",
-            blacklistLoadError.c_str());
+      error(Loc(), "-fsanitize-blacklist error: %s", loadError.c_str());
   }
 }
 
