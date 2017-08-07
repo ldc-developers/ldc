@@ -79,33 +79,6 @@ struct allocSize
 alias fastmath = AliasSeq!(llvmAttr("unsafe-fp-math", "true"), llvmFastMathFlag("fast"));
 
 /**
- * Sets the optimization strategy for a function.
- * Valid strategies are "none", "optsize", "minsize". The strategies are mutually exclusive.
- *
- * @optStrategy("none") in particular is useful to selectively debug functions when a
- * fully unoptimized program cannot be used (e.g. due to too low performance).
- *
- * Strategy "none":
- *     Disables most optimizations for a function.
- *     It implies `pragma(inline, false)`: the function is never inlined
- *     in a calling function, and the attribute cannot be combined with
- *     `pragma(inline, true)`.
- *     Functions with `pragma(inline, true)` are still candidates for inlining into
- *     the function.
- *
- * Strategy "optsize":
- *     Tries to keep the code size of the function low and does optimizations to
- *     reduce code size as long as they do not significantly impact runtime performance.
- *
- * Strategy "minsize":
- *     Tries to keep the code size of the function low and does optimizations to
- *     reduce code size that may reduce runtime performance.
- */
-struct optStrategy {
-    string strategy;
-}
-
-/**
  * Adds an LLVM attribute to a function, without checking the validity or
  * applicability of the attribute.
  * The attribute is specified as key-value pair:
@@ -147,6 +120,48 @@ struct llvmFastMathFlag
 {
     string flag;
 }
+
+/**
+ * Sets the optimization strategy for a function.
+ * Valid strategies are "none", "optsize", "minsize". The strategies are mutually exclusive.
+ *
+ * @optStrategy("none") in particular is useful to selectively debug functions when a
+ * fully unoptimized program cannot be used (e.g. due to too low performance).
+ *
+ * Strategy "none":
+ *     Disables most optimizations for a function.
+ *     It implies `pragma(inline, false)`: the function is never inlined
+ *     in a calling function, and the attribute cannot be combined with
+ *     `pragma(inline, true)`.
+ *     Functions with `pragma(inline, true)` are still candidates for inlining into
+ *     the function.
+ *
+ * Strategy "optsize":
+ *     Tries to keep the code size of the function low and does optimizations to
+ *     reduce code size as long as they do not significantly impact runtime performance.
+ *
+ * Strategy "minsize":
+ *     Tries to keep the code size of the function low and does optimizations to
+ *     reduce code size that may reduce runtime performance.
+ */
+struct optStrategy {
+    string strategy;
+}
+
+/++
+ + When applied to a function, specifies that the function should be optimzed by
+ + Polly, LLVM's polyhedral optimizer. Useful for optimizing loops for data locatily,
+ + vectorization and parallelism.
+ +
+ + Experimental!
+ +
+ + Only effective when LDC was built with Polly included.
+ +/
+
+ immutable polly = _polly();
+ private struct _polly
+ {
+ }
 
 /**
  * When applied to a global variable or function, causes it to be emitted to a
@@ -223,17 +238,3 @@ immutable weak = _weak();
 private struct _weak
 {
 }
-
-/++
- + When applied to a function, specifies that the function should be optimzed by
- + Polly, LLVM's polyhedral optimizer. Useful for optimizing loops for data locatily,
- + vectorization and parallelism. Experimental. Only available if LLVM & LDC were 
- + built with Polly.
- +/
-
- immutable polly = _polly();
- private struct _polly 
- {
- }
- 
-
