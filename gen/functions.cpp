@@ -955,7 +955,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     func->addFnAttr(LLAttribute::UWTable);
   }
   if (opts::isAnySanitizerEnabled() &&
-      !opts::functionIsInSanitizerBlacklist(func->getName())) {
+      !opts::functionIsInSanitizerBlacklist(*fd)) {
     // Set the required sanitizer attribute.
     if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
       func->addFnAttr(LLAttribute::SanitizeAddress);

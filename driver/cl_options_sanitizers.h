@@ -23,9 +23,9 @@
 #define ENABLE_COVERAGE_SANITIZER
 #endif
 
+class FuncDeclaration;
 namespace llvm {
 class raw_ostream;
-class StringRef;
 }
 
 namespace opts {
@@ -55,7 +55,7 @@ llvm::SanitizerCoverageOptions getSanitizerCoverageOptions();
 
 void outputSanitizerSettings(llvm::raw_ostream &hash_os);
 
-bool functionIsInSanitizerBlacklist(llvm::StringRef funcName);
+bool functionIsInSanitizerBlacklist(FuncDeclaration &funcDecl);
 
 } // namespace opts
 

@@ -15,6 +15,7 @@
 #include "driver/cl_options_sanitizers.h"
 
 #include "ddmd/errors.h"
+#include "ddmd/dsymbol.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/SpecialCaseList.h"
@@ -195,8 +196,9 @@ void outputSanitizerSettings(llvm::raw_ostream &hash_os) {
 #endif
 }
 
-bool functionIsInSanitizerBlacklist(llvm::StringRef funcName) {
-  return sanitizerBlacklist && sanitizerBlacklist->inSection("fun", funcName);
+bool functionIsInSanitizerBlacklist(FuncDeclaration &funcDecl) {
+  return sanitizerBlacklist &&
+         sanitizerBlacklist->inSection("fun", mangleExact(&funcDecl));
 }
 
 } // namespace opts
