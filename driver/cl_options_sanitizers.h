@@ -55,7 +55,7 @@ llvm::SanitizerCoverageOptions getSanitizerCoverageOptions();
 
 void outputSanitizerSettings(llvm::raw_ostream &hash_os);
 
-bool functionIsInSanitizerBlacklist(FuncDeclaration &funcDecl);
+bool functionIsInSanitizerBlacklist(FuncDeclaration *funcDecl);
 
 } // namespace opts
 

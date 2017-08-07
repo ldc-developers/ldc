@@ -196,9 +196,9 @@ void outputSanitizerSettings(llvm::raw_ostream &hash_os) {
 #endif
 }
 
-bool functionIsInSanitizerBlacklist(FuncDeclaration &funcDecl) {
+bool functionIsInSanitizerBlacklist(FuncDeclaration *funcDecl) {
   return sanitizerBlacklist &&
-         sanitizerBlacklist->inSection("fun", mangleExact(&funcDecl));
+         sanitizerBlacklist->inSection("fun", mangleExact(funcDecl));
 }
 
 } // namespace opts
