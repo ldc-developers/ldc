@@ -35,6 +35,8 @@ cl::list<std::string> fSanitizeBlacklist(
     cl::desc("Add <file> to the blacklist files for the sanitizers."),
     cl::value_desc("file"));
 
+std::unique_ptr<llvm::SpecialCaseList> sanitizerBlacklist;
+
 #ifdef ENABLE_COVERAGE_SANITIZER
 cl::list<std::string> fSanitizeCoverage(
     "fsanitize-coverage", cl::CommaSeparated,
@@ -131,7 +133,6 @@ void parseFSanitizeCoverageCmdlineParameter(llvm::SanitizerCoverageOptions &opts
 namespace opts {
 
 SanitizerBits enabledSanitizers = 0;
-std::unique_ptr<llvm::SpecialCaseList> sanitizerBlacklist;
 
 void initializeSanitizerOptionsFromCmdline()
 {
