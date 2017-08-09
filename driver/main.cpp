@@ -140,11 +140,7 @@ void printVersion(llvm::raw_ostream &OS) {
   // redirecting stdout to a file.
   OS.flush();
 
-  llvm::TargetRegistry::printRegisteredTargetsForVersion(
-#if LDC_LLVM_VER >= 500
-      OS
-#endif
-      );
+  llvm::TargetRegistry::printRegisteredTargetsForVersion();
 
   exit(EXIT_SUCCESS);
 }
@@ -346,11 +342,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
 
   final_args.insert(final_args.end(), &argv[1], &argv[argc]);
 
-#if LDC_LLVM_VER >= 500
-  cl::SetVersionPrinter(&printVersion);
-#else
   cl::SetVersionPrinter(&printVersionStdout);
-#endif
 
   hideLLVMOptions();
   cl::ParseCommandLineOptions(final_args.size(),
