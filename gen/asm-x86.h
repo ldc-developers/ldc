@@ -21,6 +21,7 @@
 #include "id.h"
 #include "ldcbindings.h"
 #include "gen/llvmhelpers.h" // printLabelName
+#include "llvm/Target/TargetMachine.h"
 #include <cctype>
 
 #ifndef ASM_X86_64
@@ -2973,6 +2974,17 @@ struct AsmProcessor {
 
           if (e->op == TOKvar) {
             decl = ((VarExp *)e)->var;
+          }
+
+          if (decl && decl->isVarDeclaration()) {
+            // Add 0 offset for local variables, but only in very specific
+            // cases. This is a workaround for LLVM problems.
+            // See Github https://github.com/ldc-developers/ldc/pull/2260
+            if (!decl->isDataseg() ||
+                (global.params.targetTriple->isOSLinux() &&
+                 gTargetMachine->getRelocationModel() == llvm::Reloc::PIC_)) {
+              insnTemplate << '0';
+            }
           }
 
           if (operand->baseReg != Reg_Invalid && decl && !decl->isDataseg()) {
