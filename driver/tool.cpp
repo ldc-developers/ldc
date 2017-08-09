@@ -74,22 +74,21 @@ std::string getGcc() {
 ////////////////////////////////////////////////////////////////////////////////
 
 void appendTargetArgsForGcc(std::vector<std::string> &args) {
+  using llvm::Triple;
+
+  const auto &triple = *global.params.targetTriple;
+  const auto arch64 = triple.get64BitArchVariant().getArch();
+  const auto arch32 = triple.get32BitArchVariant().getArch();
+
   // Only specify -m32/-m64 for architectures where the two variants actually
   // exist (as e.g. the GCC ARM toolchain doesn't recognize the switches).
-  const auto archVariant64 =
-      global.params.targetTriple->get64BitArchVariant().getArch();
-  const auto archVariant32 =
-      global.params.targetTriple->get32BitArchVariant().getArch();
-  if (archVariant64 == llvm::Triple::UnknownArch ||
-      archVariant32 == llvm::Triple::UnknownArch ||
-      archVariant64 == llvm::Triple::aarch64 ||
-      archVariant64 == llvm::Triple::aarch64_be) {
+  if (arch64 == Triple::UnknownArch || arch32 == Triple::UnknownArch ||
+      arch64 == Triple::aarch64 || arch64 == Triple::aarch64_be) {
     return;
   }
 
   // MIPS does not have -m32/-m64 but requires -mabi=.
-  if (archVariant64 == llvm::Triple::mips64 ||
-      archVariant64 == llvm::Triple::mips64el) {
+  if (arch64 == Triple::mips64 || arch64 == Triple::mips64el) {
     switch (getMipsABI()) {
     case MipsABI::EABI:
       args.push_back("-mabi=eabi");
@@ -110,11 +109,11 @@ void appendTargetArgsForGcc(std::vector<std::string> &args) {
     case MipsABI::Unknown:
       break;
     }
-  } else if (global.params.is64bit) {
-    args.push_back("-m64");
-  } else {
-    args.push_back("-m32");
+
+    return;
   }
+
+  args.push_back(triple.isArch64Bit() ? "-m64" : "-m32");
 }
 
 //////////////////////////////////////////////////////////////////////////////
