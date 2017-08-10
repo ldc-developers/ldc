@@ -2723,15 +2723,33 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
       rhs = castSource;
   }
 
-  // Direct construction by rhs call via sret?
-  // E.g., `T v = foo();` if the callee `T foo()` uses sret.
-  // In this case, pass `&v` as hidden sret argument, i.e., let `foo()`
-  // construct the return value directly into the lhs lvalue.
   if (rhs->op == TOKcall) {
     auto ce = static_cast<CallExp *>(rhs);
+
+    // Direct construction by rhs call via sret?
+    // E.g., `T v = foo();` if the callee `T foo()` uses sret.
+    // In this case, pass `&v` as hidden sret argument, i.e., let `foo()`
+    // construct the return value directly into the lhs lvalue.
     if (DtoIsReturnInArg(ce)) {
       ToElemVisitor::call(gIR, ce, DtoLVal(lhs));
       return true;
+    }
+
+    // DMD issue 17457: detect structliteral.ctor(args)
+    if (ce->e1->op == TOKdotvar) {
+      auto dve = static_cast<DotVarExp *>(ce->e1);
+      auto fd = dve->var->isFuncDeclaration();
+      if (fd && fd->isCtorDeclaration() && dve->e1->op == TOKstructliteral) {
+        // emit the struct literal directly into the lhs lvalue...
+        auto sle = static_cast<StructLiteralExp *>(dve->e1);
+        auto lval = DtoLVal(lhs);
+        ToElemVisitor::emitStructLiteral(sle, lval);
+        // ... and invoke the ctor directly on it
+        DtoDeclareFunction(fd);
+        auto fnval = new DFuncValue(fd, DtoCallee(fd), lval);
+        DtoCallFunction(ce->loc, ce->type, fnval, ce->arguments);
+        return true;
+      }
     }
   }
 
