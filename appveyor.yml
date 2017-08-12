@@ -65,21 +65,19 @@ install:
             appveyor DownloadFile "http://downloads.dlang.org/releases/2.x/$dmdVersion/dmd.$dmdVersion.windows.7z" -FileName dmd2.7z
             7z x dmd2.7z > $null
             Set-Item -path env:DMD -value c:\projects\dmd2\windows\bin\dmd.exe
-            c:\projects\dmd2\windows\bin\dmd.exe --version
         } Else {
             $ldcVersion = '1.3.0'
             If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
                 appveyor DownloadFile "http://github.com/ldc-developers/ldc/releases/download/v$ldcVersion/ldc2-$ldcVersion-win64-msvc.zip" -FileName ldc2.zip
                 7z x ldc2.zip > $null
                 Set-Item -path env:DMD -value c:\projects\ldc2-$ldcVersion-win64-msvc\bin\ldmd2.exe
-                c:\projects\ldc2-$ldcVersion-win64-msvc\bin\ldc2 --version
             } Else {
                 appveyor DownloadFile "http://github.com/ldc-developers/ldc/releases/download/v$ldcVersion/ldc2-$ldcVersion-win32-msvc.zip" -FileName ldc2.zip
                 7z x ldc2.zip > $null
                 Set-Item -path env:DMD -value c:\projects\ldc2-$ldcVersion-win32-msvc\bin\ldmd2.exe
-                c:\projects\ldc2-$ldcVersion-win32-msvc\bin\ldc2 --version
             }
         }
+        & $Env:DMD --version
   # Download & extract GNU make + utils (for dmd-testsuite)
   - bash --version
   - appveyor DownloadFile "https://dl.dropboxusercontent.com/s/4y36f5ydgrk4p5g/make-4.2.1.7z?dl=0" -FileName make.7z
