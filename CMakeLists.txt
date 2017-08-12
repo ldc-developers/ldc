@@ -108,12 +108,6 @@ file(MAKE_DIRECTORY
     ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}
 )
 
-if(UNIX)
-    ENABLE_LANGUAGE(ASM)
-elseif(MSVC)
-    ENABLE_LANGUAGE(ASM_MASM)
-endif()
-
 # Setup D compiler flags (DMD syntax, which also works with LDMD).
 set(DDMD_DFLAGS "-wi")
 set(DDMD_LFLAGS "")
@@ -813,15 +807,24 @@ if(D_VERSION EQUAL 2)
 endif()
 add_subdirectory(tests)
 
+# ldc-build-runtime tool
+set(LDC_BUILD_RUNTIME_EXE_FULL ${PROJECT_BINARY_DIR}/bin/ldc-build-runtime${CMAKE_EXECUTABLE_SUFFIX})
+build_d_executable(
+    "${LDC_BUILD_RUNTIME_EXE_FULL}"
+    "${PROJECT_BINARY_DIR}/ldc-build-runtime.d"
+    ""
+    "${PROJECT_SOURCE_DIR}/runtime/ldc-build-runtime.d.in"
+    ""
+)
+add_custom_target(ldc-build-runtime ALL DEPENDS ${LDC_BUILD_RUNTIME_EXE_FULL})
+
 #
 # Install target.
 #
 
 install(PROGRAMS ${LDC_EXE_FULL} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(PROGRAMS ${LDMD_EXE_FULL} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
-if(NOT CMAKE_INSTALL_PREFIX STREQUAL "/usr")
-    install(PROGRAMS ${PROJECT_BINARY_DIR}/bin/build-ldc-runtime.sh DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
-endif()
+install(PROGRAMS ${LDC_BUILD_RUNTIME_EXE_FULL} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 if(${BUILD_SHARED})
     # For now, only install libldc if explicitly building the shared library.
     # While it might theoretically be possible to use LDC as a static library

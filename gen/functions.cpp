@@ -954,7 +954,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   if (gABI->needsUnwindTables()) {
     func->addFnAttr(LLAttribute::UWTable);
   }
-  if (opts::isAnySanitizerEnabled()) {
+  if (opts::isAnySanitizerEnabled() &&
+      !opts::functionIsInSanitizerBlacklist(fd)) {
     // Set the required sanitizer attribute.
     if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
       func->addFnAttr(LLAttribute::SanitizeAddress);
@@ -997,14 +998,21 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   emitInstrumentationFnEnter(fd);
 
-  // this hack makes sure the frame pointer elimination optimization is
-  // disabled.
-  // this this eliminates a bunch of inline asm related issues.
+  // disable frame-pointer-elimination for functions with inline asm
   if (fd->hasReturnExp & 8) // has inline asm
   {
-    // emit a call to llvm_eh_unwind_init
+#if LDC_LLVM_VER >= 309
+    func->addAttribute(
+        LLAttributeSet::FunctionIndex,
+        llvm::Attribute::get(gIR->context(), "no-frame-pointer-elim", "true"));
+    func->addAttribute(
+        LLAttributeSet::FunctionIndex,
+        llvm::Attribute::get(gIR->context(), "no-frame-pointer-elim-non-leaf"));
+#else
+    // hack: emit a call to llvm_eh_unwind_init
     LLFunction *hack = GET_INTRINSIC_DECL(eh_unwind_init);
     gIR->ir->CreateCall(hack, {});
+#endif
   }
 
   // give the 'this' parameter (an lvalue) storage and debug info

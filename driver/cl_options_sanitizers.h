@@ -23,6 +23,7 @@
 #define ENABLE_COVERAGE_SANITIZER
 #endif
 
+class FuncDeclaration;
 namespace llvm {
 class raw_ostream;
 }
@@ -53,6 +54,8 @@ llvm::SanitizerCoverageOptions getSanitizerCoverageOptions();
 #endif
 
 void outputSanitizerSettings(llvm::raw_ostream &hash_os);
+
+bool functionIsInSanitizerBlacklist(FuncDeclaration *funcDecl);
 
 } // namespace opts
 

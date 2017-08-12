@@ -758,12 +758,6 @@ public:
     AliasThisRec att;
     CPPMANGLE cppmangle;
 
-#if IN_LLVM
-    // cache the hasUnalignedFields check
-    // 0 = not checked, 1 = aligned, 2 = unaligned
-    int32_t unaligned;
-#endif
-
     const char *kind();
     d_uns64 size(Loc loc);
     unsigned alignsize();

@@ -8261,13 +8261,6 @@ extern (C++) final class TypeStruct : Type
     AliasThisRec att = RECfwdref;
     CPPMANGLE cppmangle = CPPMANGLE.def;
 
-    version(IN_LLVM)
-    {
-        // cache the hasUnalignedFields check
-        // 0 = not checked, 1 = aligned, 2 = unaligned
-        int unaligned;
-    }
-
     extern (D) this(StructDeclaration sym)
     {
         super(Tstruct);
