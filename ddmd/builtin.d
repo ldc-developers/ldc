@@ -635,10 +635,6 @@ else
     add_builtin("_D3std4math15__T8isFiniteTdZ8isFiniteFNaNbNiNedZb", &eval_isfinite);
     add_builtin("_D3std4math15__T8isFiniteTfZ8isFiniteFNaNbNiNefZb", &eval_isfinite);
 
-    // @safe @nogc pure nothrow int function(uint)
-    add_builtin("_D4core5bitop3bsfFNaNbNiNfkZi", &eval_bsf);
-    add_builtin("_D4core5bitop3bsrFNaNbNiNfkZi", &eval_bsr);
-
 version(IN_LLVM)
 {
     // intrinsic llvm.sin.f32/f64/f80/f128/ppcf128
