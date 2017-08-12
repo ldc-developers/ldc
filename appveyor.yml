@@ -67,16 +67,17 @@ install:
             Set-Item -path env:DMD -value c:\projects\dmd2\windows\bin\dmd.exe
             c:\projects\dmd2\windows\bin\dmd.exe --version
         } Else {
+            $ldcVersion = '1.3.0'
             If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
-                appveyor DownloadFile 'http://github.com/ldc-developers/ldc/releases/download/v1.0.0/ldc2-1.0.0-win64-msvc.zip' -FileName ldc2.zip
+                appveyor DownloadFile "http://github.com/ldc-developers/ldc/releases/download/v$ldcVersion/ldc2-$ldcVersion-win64-msvc.zip" -FileName ldc2.zip
                 7z x ldc2.zip > $null
-                Set-Item -path env:DMD -value c:\projects\ldc2-1.0.0-win64-msvc\bin\ldmd2.exe
-                c:\projects\ldc2-1.0.0-win64-msvc\bin\ldc2 --version
+                Set-Item -path env:DMD -value c:\projects\ldc2-$ldcVersion-win64-msvc\bin\ldmd2.exe
+                c:\projects\ldc2-$ldcVersion-win64-msvc\bin\ldc2 --version
             } Else {
-                appveyor DownloadFile 'http://github.com/ldc-developers/ldc/releases/download/v1.0.0/ldc2-1.0.0-win32-msvc.zip' -FileName ldc2.zip
+                appveyor DownloadFile "http://github.com/ldc-developers/ldc/releases/download/v$ldcVersion/ldc2-$ldcVersion-win32-msvc.zip" -FileName ldc2.zip
                 7z x ldc2.zip > $null
-                Set-Item -path env:DMD -value c:\projects\ldc2-1.0.0-win32-msvc\bin\ldmd2.exe
-                c:\projects\ldc2-1.0.0-win32-msvc\bin\ldc2 --version
+                Set-Item -path env:DMD -value c:\projects\ldc2-$ldcVersion-win32-msvc\bin\ldmd2.exe
+                c:\projects\ldc2-$ldcVersion-win32-msvc\bin\ldc2 --version
             }
         }
   # Download & extract GNU make + utils (for dmd-testsuite)
@@ -100,7 +101,8 @@ install:
   - cd ..
   # Set environment variables
   - set PATH=%CD%\ninja;%CD%\make;%PATH%
-  - call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tools\VsDevCmd.bat" -arch=%APPVEYOR_JOB_ARCH%
+  - if "%APPVEYOR_BUILD_WORKER_IMAGE%" == "Visual Studio 2017" call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tools\VsDevCmd.bat" -arch=%APPVEYOR_JOB_ARCH%
+  - if "%APPVEYOR_BUILD_WORKER_IMAGE%" == "Visual Studio 2015" call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" %APPVEYOR_JOB_ARCH%
   # Print environment info
   - set
   - msbuild /version
