@@ -14654,8 +14654,15 @@ extern (C++) final class MulExp : BinExp
         }
         else if (tb.ty == Tvector && (cast(TypeVector)tb).elementType().size(loc) != 2)
         {
+version(IN_LLVM)
+{
+            // LLVM supports arbitrary vector sizes, so all is good here.
+}
+else
+{
             // Only short[8] and ushort[8] work with multiply
             return incompatibleTypes();
+}
         }
         return this;
     }
