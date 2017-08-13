@@ -10,6 +10,7 @@
 #include "driver/tool.h"
 #include "mars.h"
 #include "driver/exe_path.h"
+#include "driver/targetmachine.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -68,6 +69,51 @@ std::string getGcc() {
 #else
   return getProgram("gcc", &gcc, "CC");
 #endif
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void appendTargetArgsForGcc(std::vector<std::string> &args) {
+  using llvm::Triple;
+
+  const auto &triple = *global.params.targetTriple;
+  const auto arch64 = triple.get64BitArchVariant().getArch();
+  const auto arch32 = triple.get32BitArchVariant().getArch();
+
+  // Only specify -m32/-m64 for architectures where the two variants actually
+  // exist (as e.g. the GCC ARM toolchain doesn't recognize the switches).
+  if (arch64 == Triple::UnknownArch || arch32 == Triple::UnknownArch ||
+      arch64 == Triple::aarch64 || arch64 == Triple::aarch64_be) {
+    return;
+  }
+
+  // MIPS does not have -m32/-m64 but requires -mabi=.
+  if (arch64 == Triple::mips64 || arch64 == Triple::mips64el) {
+    switch (getMipsABI()) {
+    case MipsABI::EABI:
+      args.push_back("-mabi=eabi");
+      args.push_back("-march=mips32r2");
+      break;
+    case MipsABI::O32:
+      args.push_back("-mabi=32");
+      args.push_back("-march=mips32r2");
+      break;
+    case MipsABI::N32:
+      args.push_back("-mabi=n32");
+      args.push_back("-march=mips64r2");
+      break;
+    case MipsABI::N64:
+      args.push_back("-mabi=64");
+      args.push_back("-march=mips64r2");
+      break;
+    case MipsABI::Unknown:
+      break;
+    }
+
+    return;
+  }
+
+  args.push_back(triple.isArch64Bit() ? "-m64" : "-m32");
 }
 
 //////////////////////////////////////////////////////////////////////////////
