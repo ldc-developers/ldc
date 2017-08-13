@@ -386,10 +386,11 @@ set(LDC_D_SOURCE_FILES
 
 source_group("Source Files\\${DDMDFE_PATH}" FILES ${FE_SRC_D})
 source_group("Header Files\\${DDMDFE_PATH}" FILES ${FE_HDR})
-source_group("Source Files\\gen" FILES ${GEN_SRC})
+source_group("Source Files\\gen" FILES ${GEN_SRC} ${GEN_SRC_D})
 source_group("Header Files\\gen" FILES ${GEN_HDR})
-source_group("Source Files\\ir" FILES ${IR_SRC})
+source_group("Source Files\\ir" FILES ${IR_SRC} ${IR_SRC_D})
 source_group("Header Files\\ir" FILES ${IR_HDR})
+source_group("Source Files" FILES ${DRV_SRC_D})
 source_group("Generated Files" REGULAR_EXPRESSION "(id\\.[cdh]|impcnvtab\\.c)$")
 
 
@@ -530,7 +531,11 @@ else()
 endif()
 
 set(LDC_LIB LDCShared)
-add_library(${LDC_LIB} ${LDC_LIB_TYPE} ${LDC_CXX_SOURCE_FILES} ${DRV_SRC} ${DRV_HDR})
+set(LDC_LIB_EXTRA_SOURCES "")
+if(MSVC_IDE)
+    set(LDC_LIB_EXTRA_SOURCES ${LDC_D_SOURCE_FILES})
+endif()
+add_library(${LDC_LIB} ${LDC_LIB_TYPE} ${LDC_CXX_SOURCE_FILES} ${DRV_SRC} ${DRV_HDR} ${LDC_LIB_EXTRA_SOURCES})
 set_target_properties(
     ${LDC_LIB} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
