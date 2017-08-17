@@ -334,9 +334,10 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     auto atomicOrdering =
         static_cast<llvm::AtomicOrdering>((*e->arguments)[0]->toInteger());
 #if LDC_LLVM_VER >= 500
-    llvm::SyncScope::ID scope = (e->arguments->dim == 2)
-                                    ? (*e->arguments)[1]->toInteger()
-                                    : llvm::SyncScope::System;
+    llvm::SyncScope::ID scope = llvm::SyncScope::System;
+    if (e->arguments->dim == 2) {
+      scope = static_cast<llvm::SyncScope::ID>((*e->arguments)[1]->toInteger());
+    }
 #else
     auto scope = llvm::SynchronizationScope::CrossThread;
     if (e->arguments->dim == 2) {

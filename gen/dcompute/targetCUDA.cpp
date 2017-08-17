@@ -13,6 +13,7 @@
 #include "gen/abi-nvptx.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"
+#include "gen/to_string.h"
 #include "llvm/Transforms/Scalar.h"
 #include "driver/targetmachine.h"
 #include <cstring>
@@ -47,12 +48,11 @@ public:
     // sm version?
   }
   void setGTargetMachine() override {
-    char buf[8];
-    bool is64 = global.params.is64bit;
-    snprintf(buf, sizeof(buf), "sm_%d", tversion / 10);
+    const bool is64 = global.params.is64bit;
+
     gTargetMachine = createTargetMachine(
         is64 ? "nvptx64-nvidia-cuda" : "nvptx-nvidia-cuda",
-        is64 ? "nvptx64" : "nvptx", buf, {},
+        is64 ? "nvptx64" : "nvptx", "sm_" + ldc::to_string(tversion / 10), {},
         is64 ? ExplicitBitness::M64 : ExplicitBitness::M32, ::FloatABI::Hard,
         llvm::Reloc::Static, llvm::CodeModel::Medium, codeGenOptLevel(), false,
         false);

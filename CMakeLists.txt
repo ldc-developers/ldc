@@ -108,12 +108,6 @@ file(MAKE_DIRECTORY
     ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}
 )
 
-if(UNIX)
-    ENABLE_LANGUAGE(ASM)
-elseif(MSVC)
-    ENABLE_LANGUAGE(ASM_MASM)
-endif()
-
 # Setup D compiler flags (DMD syntax, which also works with LDMD).
 set(DDMD_DFLAGS "-wi")
 set(DDMD_LFLAGS "")
@@ -392,10 +386,11 @@ set(LDC_D_SOURCE_FILES
 
 source_group("Source Files\\${DDMDFE_PATH}" FILES ${FE_SRC_D})
 source_group("Header Files\\${DDMDFE_PATH}" FILES ${FE_HDR})
-source_group("Source Files\\gen" FILES ${GEN_SRC})
+source_group("Source Files\\gen" FILES ${GEN_SRC} ${GEN_SRC_D})
 source_group("Header Files\\gen" FILES ${GEN_HDR})
-source_group("Source Files\\ir" FILES ${IR_SRC})
+source_group("Source Files\\ir" FILES ${IR_SRC} ${IR_SRC_D})
 source_group("Header Files\\ir" FILES ${IR_HDR})
+source_group("Source Files" FILES ${DRV_SRC_D})
 source_group("Generated Files" REGULAR_EXPRESSION "(id\\.[cdh]|impcnvtab\\.c)$")
 
 
@@ -536,7 +531,11 @@ else()
 endif()
 
 set(LDC_LIB LDCShared)
-add_library(${LDC_LIB} ${LDC_LIB_TYPE} ${LDC_CXX_SOURCE_FILES} ${DRV_SRC} ${DRV_HDR})
+set(LDC_LIB_EXTRA_SOURCES "")
+if(MSVC_IDE)
+    set(LDC_LIB_EXTRA_SOURCES ${LDC_D_SOURCE_FILES})
+endif()
+add_library(${LDC_LIB} ${LDC_LIB_TYPE} ${LDC_CXX_SOURCE_FILES} ${DRV_SRC} ${DRV_HDR} ${LDC_LIB_EXTRA_SOURCES})
 set_target_properties(
     ${LDC_LIB} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
@@ -813,15 +812,24 @@ if(D_VERSION EQUAL 2)
 endif()
 add_subdirectory(tests)
 
+# ldc-build-runtime tool
+set(LDC_BUILD_RUNTIME_EXE_FULL ${PROJECT_BINARY_DIR}/bin/ldc-build-runtime${CMAKE_EXECUTABLE_SUFFIX})
+build_d_executable(
+    "${LDC_BUILD_RUNTIME_EXE_FULL}"
+    "${PROJECT_BINARY_DIR}/ldc-build-runtime.d"
+    ""
+    "${PROJECT_SOURCE_DIR}/runtime/ldc-build-runtime.d.in"
+    ""
+)
+add_custom_target(ldc-build-runtime ALL DEPENDS ${LDC_BUILD_RUNTIME_EXE_FULL})
+
 #
 # Install target.
 #
 
 install(PROGRAMS ${LDC_EXE_FULL} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(PROGRAMS ${LDMD_EXE_FULL} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
-if(NOT CMAKE_INSTALL_PREFIX STREQUAL "/usr")
-    install(PROGRAMS ${PROJECT_BINARY_DIR}/bin/build-ldc-runtime.sh DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
-endif()
+install(PROGRAMS ${LDC_BUILD_RUNTIME_EXE_FULL} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 if(${BUILD_SHARED})
     # For now, only install libldc if explicitly building the shared library.
     # While it might theoretically be possible to use LDC as a static library

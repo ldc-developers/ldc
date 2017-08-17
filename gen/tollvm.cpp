@@ -397,31 +397,15 @@ LLConstant *DtoConstFP(Type *t, const real_t value) {
   LLType *llty = DtoType(t);
   assert(llty->isFloatingPointTy());
 
-  assert(sizeof(real_t) >= 8 && "real_t < 64 bits?");
-
-  if (llty->isFloatTy()) {
-    // let host narrow to single-precision target
-    return LLConstantFP::get(gIR->context(),
-                             APFloat(static_cast<float>(value)));
-  }
-
-  if (llty->isDoubleTy()) {
-    // let host (potentially) narrow to double-precision target
-    return LLConstantFP::get(gIR->context(),
-                             APFloat(static_cast<double>(value)));
-  }
-
-  // host real_t => target real
-
   // 1) represent host real_t as llvm::APFloat
-  const auto &targetRealSemantics = llty->getFltSemantics();
-  APFloat v(targetRealSemantics, APFloat::uninitialized);
+  const auto &targetSemantics = llty->getFltSemantics();
+  APFloat v(targetSemantics, APFloat::uninitialized);
   CTFloat::toAPFloat(value, v);
 
-  // 2) convert to target real
-  if (&v.getSemantics() != &targetRealSemantics) {
+  // 2) convert to target format
+  if (&v.getSemantics() != &targetSemantics) {
     bool ignored;
-    v.convert(targetRealSemantics, APFloat::rmNearestTiesToEven, &ignored);
+    v.convert(targetSemantics, APFloat::rmNearestTiesToEven, &ignored);
   }
 
   return LLConstantFP::get(gIR->context(), v);
