@@ -1007,7 +1007,11 @@ void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
     return;
 
   llvm::Instruction *instr =
-      DBuilder.insertDbgValueIntrinsic(val, 0, debugVariable,
+      DBuilder.insertDbgValueIntrinsic(val,
+#if LDC_LLVM_VER < 600
+                                       0, 
+#endif
+                                       debugVariable,
                                        DBuilder.createExpression(),
                                        IR->ir->getCurrentDebugLocation(),
                                        IR->scopebb());
