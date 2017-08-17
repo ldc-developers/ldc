@@ -6,10 +6,10 @@
 // REQUIRES: Windows
 
 // 1) 2 object files compiled separately:
-// RUN: %ldc -c %S/inputs/foo.d -of=%T/foo%obj
-// RUN: %ldc %s %T/foo%obj -vv | FileCheck %s
+// RUN: %ldc -c %S/inputs/foo.d -of=%t-dir/foo%obj
+// RUN: %ldc %s %t-dir/foo%obj -vv | FileCheck %s
 // 2) singleObj build with external object file and 2 source files:
-// RUN: %ldc %T/foo%obj %s %S/inputs/attr_weak_input.d -vv | FileCheck %s
+// RUN: %ldc %t-dir/foo%obj %s %S/inputs/attr_weak_input.d -vv | FileCheck %s
 
 // CHECK: Linking with:
 // CHECK-NEXT: '/OUT:inferred_outputname.exe'
