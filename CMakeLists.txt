@@ -608,48 +608,47 @@ else()
     set(LDC_TRANSLATED_LINKER_FLAGS "")
     foreach(f ${LDC_LINKERFLAG_LIST})
         string(REPLACE "-LIBPATH:" "/LIBPATH:" f ${f})
-        append("\"-L${f}\"" LDC_TRANSLATED_LINKER_FLAGS)
+        list(APPEND LDC_TRANSLATED_LINKER_FLAGS "-L${f}")
     endforeach()
 
     if(MSVC)
         # Issue 1297 – set LDC's stack to 8 MiB like on Linux and Mac (default: 1 MiB).
-        append("-L/STACK:8388608" LDC_TRANSLATED_LINKER_FLAGS)
+        list(APPEND LDC_TRANSLATED_LINKER_FLAGS "-L/STACK:8388608")
     endif()
 endif()
 
 function(build_d_executable output_exe compiler_args linker_args compile_deps link_deps)
+    # Compile all D modules to a single object.
+    set(object_file ${output_exe}${CMAKE_CXX_OUTPUT_EXTENSION})
+    set(dflags "${D_COMPILER_FLAGS} ${DDMD_DFLAGS}")
+    if(UNIX)
+      separate_arguments(dflags UNIX_COMMAND "${dflags}")
+    else()
+      separate_arguments(dflags WINDOWS_COMMAND "${dflags}")
+    endif()
+    add_custom_command(
+        OUTPUT ${object_file}
+        COMMAND ${D_COMPILER} -c ${dflags} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${object_file} ${compiler_args}
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        DEPENDS ${compile_deps}
+    )
+    # Link to an executable.
     if(LDC_LINK_MANUALLY)
-        set(object_file ${output_exe}${CMAKE_CXX_OUTPUT_EXTENSION})
-        separate_arguments(dmd_flags UNIX_COMMAND "${D_COMPILER_FLAGS} ${DDMD_DFLAGS}")
-        add_custom_command(
-            OUTPUT ${object_file}
-            COMMAND ${D_COMPILER} -c ${dmd_flags} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${object_file} ${compiler_args}
-            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-            DEPENDS ${compile_deps}
-        )
         add_custom_command(
             OUTPUT ${output_exe}
             COMMAND ${CMAKE_CXX_COMPILER} -o ${output_exe} ${object_file} ${linker_args} ${LDC_LINKERFLAG_LIST}
             DEPENDS ${object_file} ${link_deps}
         )
     else()
-        set(dflags "${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS}")
-        set(lflags ${LDC_TRANSLATED_LINKER_FLAGS})
-        if(UNIX)
-          separate_arguments(dflags UNIX_COMMAND "${dflags}")
-          separate_arguments(lflags UNIX_COMMAND "${lflags}")
-        else()
-          separate_arguments(dflags WINDOWS_COMMAND "${dflags}")
-          separate_arguments(lflags WINDOWS_COMMAND "${lflags}")
-        endif()
+        set(translated_linker_flags "")
         foreach(f ${linker_args})
-            append("\"-L${f}\"" lflags)
+            list(APPEND translated_linker_flags "-L${f}")
         endforeach()
         add_custom_command(
             OUTPUT ${output_exe}
-            COMMAND ${D_COMPILER} ${dflags} ${lflags} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${output_exe} ${compiler_args} ${linker_args}
+            COMMAND ${D_COMPILER} ${dflags} ${DDMD_LFLAGS} -of${output_exe} ${object_file} ${translated_linker_flags} ${LDC_TRANSLATED_LINKER_FLAGS}
             WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-            DEPENDS ${compile_deps} ${link_deps}
+            DEPENDS ${object_file} ${link_deps}
         )
     endif()
 endfunction()
