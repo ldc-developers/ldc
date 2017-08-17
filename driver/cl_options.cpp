@@ -343,10 +343,15 @@ cl::opt<llvm::Reloc::Model> mRelocModel(
 
 cl::opt<llvm::CodeModel::Model> mCodeModel(
     "code-model", cl::desc("Code model"), cl::ZeroOrMore,
+#if LDC_LLVM_VER < 600
     cl::init(llvm::CodeModel::Default),
     clEnumValues(
         clEnumValN(llvm::CodeModel::Default, "default",
                    "Target default code model"),
+#else
+    cl::init(llvm::CodeModel::Small),
+    clEnumValues(
+#endif
         clEnumValN(llvm::CodeModel::Small, "small", "Small code model"),
         clEnumValN(llvm::CodeModel::Kernel, "kernel", "Kernel code model"),
         clEnumValN(llvm::CodeModel::Medium, "medium", "Medium code model"),
