@@ -139,7 +139,11 @@ void printVersion(llvm::raw_ostream &OS) {
   // redirecting stdout to a file.
   OS.flush();
 
-  llvm::TargetRegistry::printRegisteredTargetsForVersion();
+  llvm::TargetRegistry::printRegisteredTargetsForVersion(
+#if LDC_LLVM_VER >= 600
+    OS
+#endif
+    );
 
   exit(EXIT_SUCCESS);
 }
