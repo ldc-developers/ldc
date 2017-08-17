@@ -307,29 +307,41 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
 
   // Construct some attribute lists used below (possibly multiple times)
-  AttrSet NoAttrs, Attr_NoAlias(NoAttrs, llvm::AttributeSet::ReturnIndex,
-                                llvm::Attribute::NoAlias),
-      Attr_NoUnwind(NoAttrs, llvm::AttributeSet::FunctionIndex,
+  AttrSet NoAttrs,
+      Attr_NoAlias(NoAttrs, LLAttributeSet::ReturnIndex,
+                   llvm::Attribute::NoAlias),
+      Attr_NoUnwind(NoAttrs, LLAttributeSet::FunctionIndex,
                     llvm::Attribute::NoUnwind),
-      Attr_ReadOnly(NoAttrs, llvm::AttributeSet::FunctionIndex,
+      Attr_ReadOnly(NoAttrs, LLAttributeSet::FunctionIndex,
                     llvm::Attribute::ReadOnly),
-      Attr_Cold(NoAttrs, llvm::AttributeSet::FunctionIndex,
-                llvm::Attribute::Cold),
-      Attr_Cold_NoReturn(Attr_Cold, llvm::AttributeSet::FunctionIndex,
+      Attr_Cold(NoAttrs, LLAttributeSet::FunctionIndex, llvm::Attribute::Cold),
+      Attr_Cold_NoReturn(Attr_Cold, LLAttributeSet::FunctionIndex,
                          llvm::Attribute::NoReturn),
-      Attr_ReadOnly_NoUnwind(Attr_ReadOnly, llvm::AttributeSet::FunctionIndex,
+      Attr_ReadOnly_NoUnwind(Attr_ReadOnly, LLAttributeSet::FunctionIndex,
                              llvm::Attribute::NoUnwind),
-      Attr_ReadOnly_1_NoCapture(Attr_ReadOnly, 1, llvm::Attribute::NoCapture),
-      Attr_ReadOnly_1_3_NoCapture(Attr_ReadOnly_1_NoCapture, 3,
+      Attr_ReadOnly_1_NoCapture(Attr_ReadOnly, AttrSet::FirstArgIndex,
+                                llvm::Attribute::NoCapture),
+      Attr_ReadOnly_1_3_NoCapture(Attr_ReadOnly_1_NoCapture,
+                                  AttrSet::FirstArgIndex + 2,
                                   llvm::Attribute::NoCapture),
-      Attr_ReadOnly_NoUnwind_1_NoCapture(Attr_ReadOnly_1_NoCapture, ~0U,
+      Attr_ReadOnly_NoUnwind_1_NoCapture(Attr_ReadOnly_1_NoCapture,
+                                         LLAttributeSet::FunctionIndex,
                                          llvm::Attribute::NoUnwind),
-      Attr_ReadNone(NoAttrs, ~0U, llvm::Attribute::ReadNone),
-      Attr_1_NoCapture(NoAttrs, 1, llvm::Attribute::NoCapture),
-      Attr_NoAlias_1_NoCapture(Attr_1_NoCapture, 0, llvm::Attribute::NoAlias),
-      Attr_1_2_NoCapture(Attr_1_NoCapture, 2, llvm::Attribute::NoCapture),
-      Attr_1_3_NoCapture(Attr_1_NoCapture, 3, llvm::Attribute::NoCapture),
-      Attr_1_4_NoCapture(Attr_1_NoCapture, 4, llvm::Attribute::NoCapture);
+      Attr_ReadOnly_NoUnwind_1_2_NoCapture(Attr_ReadOnly_NoUnwind_1_NoCapture,
+                                           AttrSet::FirstArgIndex + 1,
+                                           llvm::Attribute::NoCapture),
+      Attr_ReadNone(NoAttrs, LLAttributeSet::FunctionIndex,
+                    llvm::Attribute::ReadNone),
+      Attr_1_NoCapture(NoAttrs, AttrSet::FirstArgIndex,
+                       llvm::Attribute::NoCapture),
+      Attr_1_2_NoCapture(Attr_1_NoCapture, AttrSet::FirstArgIndex + 1,
+                         llvm::Attribute::NoCapture),
+      Attr_1_3_NoCapture(Attr_1_NoCapture, AttrSet::FirstArgIndex + 2,
+                         llvm::Attribute::NoCapture),
+      Attr_1_4_NoCapture(Attr_1_NoCapture, AttrSet::FirstArgIndex + 3,
+                         llvm::Attribute::NoCapture),
+      Attr_NoAlias_1_NoCapture(Attr_1_NoCapture, LLAttributeSet::ReturnIndex,
+                               llvm::Attribute::NoAlias);
 
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
@@ -679,12 +691,14 @@ static void buildRuntimeModule() {
   LLType *moduleInfoPtrPtrTy =
       getPtrToType(getPtrToType(DtoType(Module::moduleinfo->type)));
 
+  llvm::Type *dsoDataTyElems[] = {
+      DtoSize_t(),        // version
+      LLvoidPtrPtrTy,     // slot
+      moduleInfoPtrPtrTy, // _minfo_beg
+      moduleInfoPtrPtrTy, // _minfo_end
+  };
   llvm::StructType *dsoDataTy =
-      llvm::StructType::get(DtoSize_t(),        // version
-                            LLvoidPtrPtrTy,     // slot
-                            moduleInfoPtrPtrTy, // _minfo_beg
-                            moduleInfoPtrPtrTy, // _minfo_end
-                            NULL);
+      llvm::StructType::get(gIR->context(), dsoDataTyElems, false);
 
   llvm::Type *types[] = {getPtrToType(dsoDataTy)};
   llvm::FunctionType *fty = llvm::FunctionType::get(LLvoidTy, types, false);

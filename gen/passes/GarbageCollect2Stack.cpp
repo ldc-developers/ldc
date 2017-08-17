@@ -39,6 +39,9 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#if LDC_LLVM_VER >= 500
+#include "llvm/Support/KnownBits.h"
+#endif
 
 #include <algorithm>
 
@@ -115,8 +118,15 @@ public:
   virtual Value *promote(CallSite CS, IRBuilder<> &B, const Analysis &A) {
     NumGcToStack++;
 
-    Instruction *Begin = &(*CS.getCaller()->getEntryBlock().begin());
-    return new AllocaInst(Ty, ".nongc_mem", Begin); // FIXME: align?
+    auto &BB = CS.getCaller()->getEntryBlock();
+    Instruction *Begin = &(*BB.begin());
+
+    // FIXME: set alignment on alloca?
+    return new AllocaInst(Ty,
+#if LDC_LLVM_VER >= 500
+                          BB.getModule()->getDataLayout().getAllocaAddrSpace(),
+#endif
+                          ".nongc_mem", Begin);
   }
 
   explicit FunctionInfo(ReturnType::Type returnType) : ReturnType(returnType) {}
@@ -138,16 +148,23 @@ static bool isKnownLessThan(Value *Val, uint64_t Limit, const Analysis &A) {
   if (Bits > BitsLimit) {
     APInt Mask = APInt::getLowBitsSet(Bits, BitsLimit);
     Mask.flipAllBits();
+#if LDC_LLVM_VER >= 500
+    KnownBits Known(Bits);
+    computeKnownBits(Val, Known, A.DL);
+    if ((Known.Zero & Mask) != Mask) {
+      return false;
+    }
+#else
     APInt KnownZero(Bits, 0), KnownOne(Bits, 0);
 #if LDC_LLVM_VER >= 307
     computeKnownBits(Val, KnownZero, KnownOne, A.DL);
 #else
     computeKnownBits(Val, KnownZero, KnownOne, &A.DL);
 #endif
-
     if ((KnownZero & Mask) != Mask) {
       return false;
     }
+#endif
   }
 
   return true;
@@ -862,7 +879,13 @@ bool isSafeToStackAllocate(BasicBlock::iterator Alloc, Value *V, DominatorTree &
       CallSite::arg_iterator B = CS.arg_begin(), E = CS.arg_end();
       for (CallSite::arg_iterator A = B; A != E; ++A) {
         if (A->get() == V) {
-          if (!CS.paramHasAttr(A - B + 1, LLAttribute::NoCapture)) {
+#if LDC_LLVM_VER < 500
+          const unsigned paramHasAttr_firstArg = 1;
+#else
+          const unsigned paramHasAttr_firstArg = 0;
+#endif
+          if (!CS.paramHasAttr(A - B + paramHasAttr_firstArg,
+                               LLAttribute::NoCapture)) {
             // The parameter is not marked 'nocapture' - captured.
             return false;
           }

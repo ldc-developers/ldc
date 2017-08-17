@@ -519,7 +519,6 @@ ldc::DISubroutineType ldc::DIBuilder::CreateFunctionType(Type *type) {
 
 ldc::DISubroutineType ldc::DIBuilder::CreateDelegateType(Type *type) {
   // FIXME: Implement
-  TypeDelegate *t = static_cast<TypeDelegate *>(type);
 
 // Create "dummy" subroutine type for the return type
 #if LDC_LLVM_VER >= 306
@@ -576,8 +575,18 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type, bool derefclass) {
   if (t->ty == Taarray) {
     return CreateAArrayType(type);
   }
-  if (t->ty == Tstruct || t->ty == Tclass) {
+  if (t->ty == Tstruct) {
     return CreateCompositeType(type);
+  }
+  if (t->ty == Tclass) {
+    LLType* T = DtoType(t);
+    return DBuilder.createPointerType(CreateCompositeType(type),
+                                      getTypeAllocSize(T) * 8,
+                                      getABITypeAlign(T) * 8,
+#if LDC_LLVM_VER >= 500
+                                      llvm::None,
+#endif
+                                      t->toChars());
   }
   if (t->ty == Tfunction) {
     return CreateFunctionType(type);

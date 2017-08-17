@@ -237,9 +237,6 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState *irs) {
         cns = mrw_cns;
         is_input = false;
         break;
-      default:
-        llvm_unreachable("Unknown inline asm reference mode.");
-        break;
       }
       break;
     case Arg_FrameRelative:
