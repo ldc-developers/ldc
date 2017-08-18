@@ -127,9 +127,6 @@ LLConstant *DtoTypeInfoOf(Type *ty, bool base = true);
 // target stuff
 void findDefaultTarget();
 
-/// Returns true if there is any unaligned type inside the aggregate.
-bool hasUnalignedFields(Type *t);
-
 /// Returns a pointer to the given member field of an aggregate.
 ///
 /// 'src' is a pointer to the start of the memory of an 'ad' instance.

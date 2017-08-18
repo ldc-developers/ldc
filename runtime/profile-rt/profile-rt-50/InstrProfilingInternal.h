@@ -48,21 +48,17 @@ typedef struct ProfDataIOVec {
   size_t NumElm;
 } ProfDataIOVec;
 
-struct ProfDataWriter;
-typedef uint32_t (*WriterCallback)(struct ProfDataWriter *This, ProfDataIOVec *,
-                                   uint32_t NumIOVecs);
-
-typedef struct ProfDataWriter {
-  WriterCallback Write;
-  void *WriterCtx;
-} ProfDataWriter;
+typedef uint32_t (*WriterCallback)(ProfDataIOVec *, uint32_t NumIOVecs,
+                                   void **WriterCtx);
 
 /*!
  * The data structure for buffered IO of profile data.
  */
 typedef struct ProfBufferIO {
-  ProfDataWriter *FileWriter;
-  uint32_t OwnFileWriter;
+  /* File handle.  */
+  void *File;
+  /* Low level IO callback. */
+  WriterCallback FileWriter;
   /* The start of the buffer. */
   uint8_t *BufferStart;
   /* Total size of the buffer. */
@@ -77,7 +73,7 @@ ProfBufferIO *lprofCreateBufferIOInternal(void *File, uint32_t BufferSz);
 /*!
  * This is the interface to create a handle for buffered IO.
  */
-ProfBufferIO *lprofCreateBufferIO(ProfDataWriter *FileWriter);
+ProfBufferIO *lprofCreateBufferIO(WriterCallback FileWriter, void *File);
 
 /*!
  * The interface to destroy the bufferIO handle and reclaim
@@ -100,9 +96,8 @@ int lprofBufferIOFlush(ProfBufferIO *BufferIO);
 /* The low level interface to write data into a buffer. It is used as the
  * callback by other high level writer methods such as buffered IO writer
  * and profile data writer.  */
-uint32_t lprofBufferWriter(ProfDataWriter *This, ProfDataIOVec *IOVecs,
-                           uint32_t NumIOVecs);
-void initBufferWriter(ProfDataWriter *BufferWriter, char *Buffer);
+uint32_t lprofBufferWriter(ProfDataIOVec *IOVecs, uint32_t NumIOVecs,
+                           void **WriterCtx);
 
 struct ValueProfData;
 struct ValueProfRecord;
@@ -138,17 +133,15 @@ typedef struct VPDataReaderType {
                                         uint32_t N);
 } VPDataReaderType;
 
-/* Write profile data to destinitation. If SkipNameDataWrite is set to 1,
-   the name data is already in destintation, we just skip over it. */
-int lprofWriteData(ProfDataWriter *Writer, VPDataReaderType *VPDataReader,
-                   int SkipNameDataWrite);
-int lprofWriteDataImpl(ProfDataWriter *Writer,
+int lprofWriteData(WriterCallback Writer, void *WriterCtx,
+                   VPDataReaderType *VPDataReader);
+int lprofWriteDataImpl(WriterCallback Writer, void *WriterCtx,
                        const __llvm_profile_data *DataBegin,
                        const __llvm_profile_data *DataEnd,
                        const uint64_t *CountersBegin,
                        const uint64_t *CountersEnd,
                        VPDataReaderType *VPDataReader, const char *NamesBegin,
-                       const char *NamesEnd, int SkipNameDataWrite);
+                       const char *NamesEnd);
 
 /* Merge value profile data pointed to by SrcValueProfData into
  * in-memory profile counters pointed by to DstData.  */

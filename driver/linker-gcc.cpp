@@ -54,7 +54,7 @@ private:
 
   virtual void addUserSwitches();
   void addDefaultLibs();
-  virtual void addArch();
+  virtual void addTargetFlags();
 
 #if LDC_LLVM_VER >= 309
   void addLTOGoldPluginFlags();
@@ -404,7 +404,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
 
   addDefaultLibs();
 
-  addArch();
+  addTargetFlags();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -495,50 +495,8 @@ void ArgsBuilder::addDefaultLibs() {
 
 //////////////////////////////////////////////////////////////////////////////
 
-void ArgsBuilder::addArch() {
-  // Only specify -m32/-m64 for architectures where the two variants actually
-  // exist (as e.g. the GCC ARM toolchain doesn't recognize the switches).
-  // MIPS does not have -m32/-m64 but requires -mabi=.
-  if (global.params.targetTriple->get64BitArchVariant().getArch() !=
-          llvm::Triple::UnknownArch &&
-      global.params.targetTriple->get32BitArchVariant().getArch() !=
-          llvm::Triple::UnknownArch) {
-    if (global.params.targetTriple->get64BitArchVariant().getArch() ==
-            llvm::Triple::mips64 ||
-        global.params.targetTriple->get64BitArchVariant().getArch() ==
-            llvm::Triple::mips64el) {
-      switch (getMipsABI()) {
-      case MipsABI::EABI:
-        args.push_back("-mabi=eabi");
-        break;
-      case MipsABI::O32:
-        args.push_back("-mabi=32");
-        break;
-      case MipsABI::N32:
-        args.push_back("-mabi=n32");
-        break;
-      case MipsABI::N64:
-        args.push_back("-mabi=64");
-        break;
-      case MipsABI::Unknown:
-        break;
-      }
-    } else {
-      switch (global.params.targetTriple->getArch()) {
-      case llvm::Triple::arm:
-      case llvm::Triple::armeb:
-      case llvm::Triple::aarch64:
-      case llvm::Triple::aarch64_be:
-        break;
-      default:
-        if (global.params.is64bit) {
-          args.push_back("-m64");
-        } else {
-          args.push_back("-m32");
-        }
-      }
-    }
-  }
+void ArgsBuilder::addTargetFlags() {
+  appendTargetArgsForGcc(args);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -556,7 +514,7 @@ class LdArgsBuilder : public ArgsBuilder {
                 opts::linkerSwitches.end());
   }
 
-  void addArch() override {}
+  void addTargetFlags() override {}
 
   void addLdFlag(const llvm::Twine &flag) override {
     args.push_back(flag.str());
