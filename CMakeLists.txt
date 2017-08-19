@@ -147,9 +147,10 @@ if(MSVC)
     foreach(flag_var
             CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
             CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-       if(${flag_var} MATCHES "/MD")
-          string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
-       endif()
+        string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
+        # CMake defaults to /W3, LLVM uses /W4 => MS compiler warns about cmdline mismatch.
+        # Simply replace with /W4.
+        string(REGEX REPLACE "/W[0-3]" "/W4" ${flag_var} "${${flag_var}}")
     endforeach()
 endif()
 
@@ -189,16 +190,13 @@ elseif(MSVC)
     # warning C4101: unreferenced local variable
     # warning C4102: unreferenced label
     # warning C4146: unary minus operator applied to unsigned type, result still unsigned
+    # warning C4201: nonstandard extension used: nameless struct/union
     # warnings C4244 and C4267: conversion from '...' to '...', possible loss of data
     # warnings C4456-4459: declaration of '...' hides ...
     # warning C4624: destructor was implicitly defined as deleted because a base class destructor is inaccessible or deleted
     # warning C4800: forcing value to bool 'true' or 'false' (performance warning)
     # warning C4996: we're not using Microsoft's secure stringOp_s() functions
-    append("/wd4018 /wd4101 /wd4102 /wd4146 /wd4244 /wd4267 /wd4456 /wd4457 /wd4458 /wd4459 /wd4624 /wd4800 /wd4996" LDC_CXXFLAGS)
-    if(LDC_LLVM_VER GREATER 307)
-        # Suppress noisy warning C4141 'modifier' used more than once', because of __forceinline combined with inline in LLVM headers
-        append("/wd4141" LDC_CXXFLAGS)
-    endif()
+    append("/wd4018 /wd4101 /wd4102 /wd4146 /wd4201 /wd4244 /wd4267 /wd4456 /wd4457 /wd4458 /wd4459 /wd4624 /wd4800 /wd4996" LDC_CXXFLAGS)
 endif()
 # Append -mminimal-toc for gcc 4.0.x - 4.5.x on ppc64
 if( CMAKE_COMPILER_IS_GNUCXX
@@ -232,6 +230,14 @@ if (UNIX AND NOT "${LLVM_LDFLAGS}" STREQUAL "")
 endif()
 if(MSVC)
     separate_arguments(LLVM_LDFLAGS WINDOWS_COMMAND "${LLVM_LDFLAGS}")
+    # LLVM 5.0+ requires diaguids.lib from MS Debug Interface Access SDK
+    if(NOT (LDC_LLVM_VER LESS 500))
+        if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+            list(APPEND LLVM_LDFLAGS "$ENV{VSINSTALLDIR}DIA SDK\\lib\\amd64\\diaguids.lib")
+        else()
+            list(APPEND LLVM_LDFLAGS "$ENV{VSINSTALLDIR}DIA SDK\\lib\\diaguids.lib")
+        endif()
+    endif()
 else()
     separate_arguments(LLVM_LDFLAGS UNIX_COMMAND "${LLVM_LDFLAGS}")
 endif()
@@ -602,48 +608,47 @@ else()
     set(LDC_TRANSLATED_LINKER_FLAGS "")
     foreach(f ${LDC_LINKERFLAG_LIST})
         string(REPLACE "-LIBPATH:" "/LIBPATH:" f ${f})
-        append("\"-L${f}\"" LDC_TRANSLATED_LINKER_FLAGS)
+        list(APPEND LDC_TRANSLATED_LINKER_FLAGS "-L${f}")
     endforeach()
 
     if(MSVC)
         # Issue 1297 – set LDC's stack to 8 MiB like on Linux and Mac (default: 1 MiB).
-        append("-L/STACK:8388608" LDC_TRANSLATED_LINKER_FLAGS)
+        list(APPEND LDC_TRANSLATED_LINKER_FLAGS "-L/STACK:8388608")
     endif()
 endif()
 
 function(build_d_executable output_exe compiler_args linker_args compile_deps link_deps)
+    # Compile all D modules to a single object.
+    set(object_file ${output_exe}${CMAKE_CXX_OUTPUT_EXTENSION})
+    set(dflags "${D_COMPILER_FLAGS} ${DDMD_DFLAGS}")
+    if(UNIX)
+      separate_arguments(dflags UNIX_COMMAND "${dflags}")
+    else()
+      separate_arguments(dflags WINDOWS_COMMAND "${dflags}")
+    endif()
+    add_custom_command(
+        OUTPUT ${object_file}
+        COMMAND ${D_COMPILER} -c ${dflags} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${object_file} ${compiler_args}
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        DEPENDS ${compile_deps}
+    )
+    # Link to an executable.
     if(LDC_LINK_MANUALLY)
-        set(object_file ${output_exe}${CMAKE_CXX_OUTPUT_EXTENSION})
-        separate_arguments(dmd_flags UNIX_COMMAND "${D_COMPILER_FLAGS} ${DDMD_DFLAGS}")
-        add_custom_command(
-            OUTPUT ${object_file}
-            COMMAND ${D_COMPILER} -c ${dmd_flags} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${object_file} ${compiler_args}
-            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-            DEPENDS ${compile_deps}
-        )
         add_custom_command(
             OUTPUT ${output_exe}
             COMMAND ${CMAKE_CXX_COMPILER} -o ${output_exe} ${object_file} ${linker_args} ${LDC_LINKERFLAG_LIST}
             DEPENDS ${object_file} ${link_deps}
         )
     else()
-        set(dflags "${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS}")
-        set(lflags ${LDC_TRANSLATED_LINKER_FLAGS})
-        if(UNIX)
-          separate_arguments(dflags UNIX_COMMAND "${dflags}")
-          separate_arguments(lflags UNIX_COMMAND "${lflags}")
-        else()
-          separate_arguments(dflags WINDOWS_COMMAND "${dflags}")
-          separate_arguments(lflags WINDOWS_COMMAND "${lflags}")
-        endif()
+        set(translated_linker_flags "")
         foreach(f ${linker_args})
-            append("\"-L${f}\"" lflags)
+            list(APPEND translated_linker_flags "-L${f}")
         endforeach()
         add_custom_command(
             OUTPUT ${output_exe}
-            COMMAND ${D_COMPILER} ${dflags} ${lflags} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${output_exe} ${compiler_args} ${linker_args}
+            COMMAND ${D_COMPILER} ${dflags} ${DDMD_LFLAGS} -of${output_exe} ${object_file} ${translated_linker_flags} ${LDC_TRANSLATED_LINKER_FLAGS}
             WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-            DEPENDS ${compile_deps} ${link_deps}
+            DEPENDS ${object_file} ${link_deps}
         )
     endif()
 endfunction()
