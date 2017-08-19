@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 module driver.configfile;
 
+import ddmd.root.array;
 import driver.config;
 import core.stdc.stdio;
 import core.stdc.string;
@@ -88,23 +89,19 @@ unittest
 }
 
 
-struct ConfigFile
+extern(C++) struct ConfigFile
 {
-public:
-
-    alias s_iterator = const(char)**;
-
 private:
 
     // representation
 
     const(char)* pathcstr;
-    s_iterator switches_b;
-    s_iterator switches_e;
+    Array!(const(char)*) switches;
 
-    extern(C++)
     bool readConfig(const(char)* cfPath, const(char)* section, const(char)* binDir)
     {
+        switches.setDim(0);
+
         immutable dBinDir = prepareBinDir(binDir);
         const dSec = section[0 .. strlen(section)];
 
@@ -140,22 +137,19 @@ private:
                     throw new Exception("Could not look up 'default' section in " ~ cast(string) dCfPath);
             }
 
-            auto switches = secSwitches ? secSwitches : defSwitches;
-            if (!switches)
+            auto usedSwitches = secSwitches ? secSwitches : defSwitches;
+            if (!usedSwitches)
             {
                 const dCfPath = cfPath[0 .. strlen(cfPath)];
                 throw new Exception("Could not look up switches in " ~ cast(string) dCfPath);
             }
 
-            auto finalSwitches = new const(char)*[switches.vals.length];
-            foreach (i, sw; switches.vals)
+            switches.reserve(usedSwitches.vals.length);
+            foreach (i, sw; usedSwitches.vals)
             {
                 const finalSwitch = sw.replace("%%ldcbinarypath%%", dBinDir) ~ '\0';
-                finalSwitches[i] = finalSwitch.ptr;
+                switches.push(finalSwitch.ptr);
             }
-
-            switches_b = finalSwitches.ptr;
-            switches_e = finalSwitches.ptr + finalSwitches.length;
 
             return true;
         }

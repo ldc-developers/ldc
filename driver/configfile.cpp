@@ -201,3 +201,8 @@ bool ConfigFile::read(const char *explicitConfFile, const char *section) {
 
   return readConfig(pathcstr, section, binpath.c_str());
 }
+
+void ConfigFile::extendCommandLine(llvm::SmallVectorImpl<const char *> &args) {
+  // insert switches from config file before all explicit ones
+  args.insert(args.begin() + 1, switches.begin(), switches.end());
+}
