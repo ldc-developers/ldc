@@ -744,7 +744,8 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
                 }
                 st.push(new ExpStatement(loc, var));
 
-                st.push(fs._body.syntaxCopy());
+                if (fs._body)
+                    st.push(fs._body.syntaxCopy());
                 s = new CompoundStatement(loc, st);
                 s = new ScopeStatement(loc, s, fs.endloc);
                 statements.push(s);
@@ -2598,7 +2599,7 @@ version(IN_LLVM)
         }
         else if (rs.exp)
         {
-            fd.hasReturnExp |= 1;
+            fd.hasReturnExp |= (fd.hasReturnExp & 1 ? 16 : 1);
 
             FuncLiteralDeclaration fld = fd.isFuncLiteralDeclaration();
             if (tret)

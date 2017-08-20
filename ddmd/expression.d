@@ -7956,6 +7956,13 @@ extern (C++) abstract class BinExp : Expression
         }
         Expression e1x = e1.semantic(sc);
         Expression e2x = e2.semantic(sc);
+
+        // for static alias this: https://issues.dlang.org/show_bug.cgi?id=17684
+        if (e1x.op == TOKtype)
+            e1x = resolveAliasThis(sc, e1x);
+        if (e2x.op == TOKtype)
+            e2x = resolveAliasThis(sc, e2x);
+
         if (e1x.op == TOKerror)
             return e1x;
         if (e2x.op == TOKerror)
@@ -12969,6 +12976,8 @@ extern (C++) class AssignExp : BinExp
             Expression e2x = inferType(e2, t1.baseElemOf());
             e2x = e2x.semantic(sc);
             e2x = resolveProperties(sc, e2x);
+            if (e2x.op == TOKtype)
+                e2x = resolveAliasThis(sc, e2x); //https://issues.dlang.org/show_bug.cgi?id=17684
             if (e2x.op == TOKerror)
                 return e2x;
             if (e2x.checkValue())
