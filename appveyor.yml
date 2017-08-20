@@ -11,14 +11,13 @@ skip_tags: true
 #    environment configuration    #
 #---------------------------------#
 
-# Operating system (build VM template)
-os: Visual Studio 2017
-
 environment:
   matrix:
     - APPVEYOR_JOB_ARCH:   x64
+      APPVEYOR_BUILD_WORKER_IMAGE: Previous Visual Studio 2017
       D_COMPILER:          ldc
     - APPVEYOR_JOB_ARCH:   x86
+      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
       D_COMPILER:          ldc
 
 #matrix:
@@ -61,7 +60,7 @@ install:
   # Download & extract D compiler
   - ps: |
         If ($Env:D_COMPILER -eq 'dmd') {
-            $dmdVersion = '2.071.2'
+            $dmdVersion = '2.075.1'
             appveyor DownloadFile "http://downloads.dlang.org/releases/2.x/$dmdVersion/dmd.$dmdVersion.windows.7z" -FileName dmd2.7z
             7z x dmd2.7z > $null
             Set-Item -path env:DMD -value c:\projects\dmd2\windows\bin\dmd.exe
@@ -87,20 +86,15 @@ install:
   - make --version
   - cd ..
   # Download & extract a pre-built LLVM (CMAKE_BUILD_TYPE=Release, LLVM_ENABLE_ASSERTIONS=ON)
-  - ps: |
-        If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
-            appveyor DownloadFile 'https://dl.dropboxusercontent.com/s/nxw73qdy4dqs23p/LLVM-4.0.1-x64.7z?dl=0' -FileName llvm-x64.7z
-        } Else {
-            appveyor DownloadFile 'https://dl.dropboxusercontent.com/s/probihgpillkpuk/LLVM-4.0.1-x86.7z?dl=0' -FileName llvm-x86.7z
-        }
-  - md llvm-%APPVEYOR_JOB_ARCH%
-  - cd llvm-%APPVEYOR_JOB_ARCH%
-  - 7z x ..\llvm-%APPVEYOR_JOB_ARCH%.7z > nul
+  - appveyor DownloadFile "https://github.com/ldc-developers/llvm/releases/download/ldc-v4.0.1/appveyor-llvm-4.0.1-%APPVEYOR_JOB_ARCH%.7z" -FileName llvm.7z
+  - md llvm
+  - cd llvm
+  - 7z x ..\llvm.7z > nul
   - cd ..
   # Set environment variables
   - set PATH=%CD%\ninja;%CD%\make;%PATH%
-  - if "%APPVEYOR_BUILD_WORKER_IMAGE%" == "Visual Studio 2017" call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tools\VsDevCmd.bat" -arch=%APPVEYOR_JOB_ARCH%
-  - if "%APPVEYOR_BUILD_WORKER_IMAGE%" == "Visual Studio 2015" call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" %APPVEYOR_JOB_ARCH%
+  - if "%APPVEYOR_BUILD_WORKER_IMAGE:~-4%" == "2017" call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tools\VsDevCmd.bat" -arch=%APPVEYOR_JOB_ARCH%
+  - if "%APPVEYOR_BUILD_WORKER_IMAGE:~-4%" == "2015" call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" %APPVEYOR_JOB_ARCH%
   # Print environment info
   - set
   - msbuild /version
@@ -118,8 +112,7 @@ build_script:
   # Generate build files for LDC
   - md ninja-ldc
   - cd ninja-ldc
-  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\ldc-x64 -DLLVM_ROOT_DIR=c:/projects/llvm-x64 ..\ldc )
-  - if "%APPVEYOR_JOB_ARCH%"=="x86" ( cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\ldc-x86 -DLLVM_ROOT_DIR=c:/projects/llvm-x86 ..\ldc )
+  - cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\ldc-%APPVEYOR_JOB_ARCH% -DLLVM_ROOT_DIR=c:/projects/llvm ..\ldc
   # Build LDC and stdlib unittest runners
   - ninja -j2 all all-test-runners
 

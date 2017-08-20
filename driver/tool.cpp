@@ -292,7 +292,7 @@ bool setupMsvcEnvironmentImpl() {
    * be parsed properly.
    */
 
-  auto comspecEnv = getenv("ComSpec");
+  const char *comspecEnv = getenv("ComSpec");
   if (!comspecEnv) {
     warning(Loc(),
             "'ComSpec' environment variable is not set, assuming 'cmd.exe'.");
