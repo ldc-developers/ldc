@@ -35,6 +35,7 @@ private:
 
   const char *pathcstr = nullptr;
   Array<const char *> switches;
+  Array<const char *> postSwitches;
 };
 
 #endif // LDC_DRIVER_CONFIGFILE_H

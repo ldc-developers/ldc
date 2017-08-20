@@ -203,6 +203,17 @@ bool ConfigFile::read(const char *explicitConfFile, const char *section) {
 }
 
 void ConfigFile::extendCommandLine(llvm::SmallVectorImpl<const char *> &args) {
-  // insert switches from config file before all explicit ones
+  // insert 'switches' before all user switches
   args.insert(args.begin() + 1, switches.begin(), switches.end());
+
+  // append 'post-switches', but before a first potential '-run'
+  size_t runIndex = 0;
+  for (size_t i = 1; i < args.size(); ++i) {
+    if (strcmp(args[i], "-run") == 0 || strcmp(args[i], "--run") == 0) {
+      runIndex = i;
+      break;
+    }
+  }
+  args.insert(runIndex == 0 ? args.end() : args.begin() + runIndex,
+              postSwitches.begin(), postSwitches.end());
 }
