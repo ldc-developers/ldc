@@ -180,58 +180,38 @@ void ArgsBuilder::addLTOLinkFlags() {
 
 //////////////////////////////////////////////////////////////////////////////
 
-// Returns true on success.
-bool addDarwinASanLinkFlags(std::vector<std::string> &args) {
-  std::string searchPaths[] = {
-    exe_path::prependLibDir("libldc_rt.asan_osx_dynamic.dylib"),
-    exe_path::prependLibDir("libclang_rt.asan_osx_dynamic.dylib"),
-  };
-
-  for (const auto &filepath : searchPaths) {
-    if (llvm::sys::fs::exists(filepath)) {
-      args.push_back(filepath);
-
-      // Add @executable_path to rpath to support having the dylib copied with
-      // the executable.
-      args.push_back("-rpath");
-      args.push_back("@executable_path");
-
-      // Add the path to the resource dir to rpath to support using the dylib
-      // from the default location without copying.
-      args.push_back("-rpath");
-      args.push_back(llvm::sys::path::parent_path(filepath));
-
-      return true;
-    }
-  }
-
-  // We did not find the library.
-  return false;
-}
-
 // Returns the arch name as used in the compiler_rt libs.
 // FIXME: implement correctly for non-x86 platforms (e.g. ARM)
 llvm::StringRef getCompilerRTArchName() {
   return global.params.targetTriple->getArchName();
 }
 
-bool addUnixlikeASanLinkFlags(std::vector<std::string> &args) {
+// Returns the libname as full path and with arch suffix and extension.
+// For example, with name="libldc_rt.fuzzer", the returned string is
+// "libldc_rt.fuzzer_osx.a" on Darwin.
+std::string getFullCompilerRTLibPath(llvm::StringRef name,
+                                     bool sharedLibrary = false) {
+  if (global.params.targetTriple->isOSDarwin()) {
+    return exe_path::prependLibDir(
+        name + (sharedLibrary ? "_osx_dynamic.dylib" : "_osx.a"));
+  } else {
+    return exe_path::prependLibDir(name + "-" + getCompilerRTArchName() +
+                                   (sharedLibrary ? ".so" : ".a"));
+  }
+}
+
+void ArgsBuilder::addASanLinkFlags() {
   // Examples: "libclang_rt.asan-x86_64.a" or "libclang_rt.asan-arm.a" and
   // "libclang_rt.asan-x86_64.so"
 
-  auto arch = getCompilerRTArchName();
-
-  // TODO: let user choose to link with shared lib. In case of shared ASan, I
-  // think we also need to statically link with
-  // libclang_rt.asan-preinit-<arch>.a
-  bool linkSharedASan = false;
-  const char *extension = linkSharedASan ? ".so" : ".a";
-
+  // TODO: let user choose to link with shared lib.
+  // In case of shared ASan, I think we also need to statically link with
+  // libclang_rt.asan-preinit-<arch>.a on Linux. On Darwin, the only option is
+  // to use the shared library.
+  bool linkSharedASan = global.params.targetTriple->isOSDarwin();
   std::string searchPaths[] = {
-      exe_path::prependLibDir("libldc_rt.asan-" + llvm::Twine(arch) +
-                              extension),
-      exe_path::prependLibDir("libclang_rt.asan-" + llvm::Twine(arch) +
-                              extension),
+      getFullCompilerRTLibPath("libldc_rt.asan", linkSharedASan),
+      getFullCompilerRTLibPath("libclang_rt.asan", linkSharedASan),
   };
 
   for (const auto &filepath : searchPaths) {
@@ -239,39 +219,39 @@ bool addUnixlikeASanLinkFlags(std::vector<std::string> &args) {
       args.push_back(filepath);
 
       if (linkSharedASan) {
-        // TODO: add -rpath
+        // Add @executable_path to rpath to support having the shared lib copied
+        // with the executable.
+        args.push_back("-rpath");
+        args.push_back("@executable_path");
+
+        // Add the path to the resource dir to rpath to support using the shared
+        // lib from the default location without copying.
+        args.push_back("-rpath");
+        args.push_back(llvm::sys::path::parent_path(filepath));
       }
 
-      return true;
+      return;
     }
   }
 
-  // We did not find the library.
-  return false;
-}
-
-void ArgsBuilder::addASanLinkFlags() {
-  bool success = false;
-  if (global.params.targetTriple->isOSDarwin()) {
-    success = addDarwinASanLinkFlags(args);
-  } else {
-    success = addUnixlikeASanLinkFlags(args);
-  }
-
-  if (!success) {
-    // Fallback, requires Clang. The asan library contains a versioned symbol
-    // name and a linker error will happen when the LDC-LLVM and Clang-LLVM
-    // versions don't match.
-    args.push_back("-fsanitize=address");
-  }
+  // When we reach here, we did not find the ASan library.
+  // Fallback, requires Clang. The asan library contains a versioned symbol
+  // name and a linker error will happen when the LDC-LLVM and Clang-LLVM
+  // versions don't match.
+  args.push_back("-fsanitize=address");
 }
 
 // Adds all required link flags for -fsanitize=fuzzer when libFuzzer library is
 // found.
 void ArgsBuilder::addFuzzLinkFlags() {
   std::string searchPaths[] = {
+#if LDC_LLVM_VER >= 600
+    getFullCompilerRTLibPath("libldc_rt.fuzzer"),
+    getFullCompilerRTLibPath("libclang_rt.fuzzer"),
+#else
     exe_path::prependLibDir("libFuzzer.a"),
     exe_path::prependLibDir("libLLVMFuzzer.a"),
+#endif
   };
 
   for (const auto &filepath : searchPaths) {
