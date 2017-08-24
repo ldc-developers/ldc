@@ -127,18 +127,20 @@ if(NOT MSVC_IDE)
 endif()
 
 if(MSVC)
-    if(${D_COMPILER_ID} STREQUAL "DigitalMars")
-        if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-            message(STATUS "Let DMD output 64bit object files")
-            append("-m64" DDMD_DFLAGS)
-        else()
-            message(STATUS "Let DMD output 32bit COFF object files")
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        message(STATUS "Let D host compiler output 64bit object files")
+        append("-m64" DDMD_DFLAGS)
+    else()
+        message(STATUS "Let D host compiler output 32bit COFF object files")
+        if(${D_COMPILER_ID} STREQUAL "DigitalMars")
             append("-m32mscoff" DDMD_DFLAGS)
+        else()
+            append("-m32" DDMD_DFLAGS)
         endif()
+    endif()
 
-        if(MSVC_VERSION GREATER 1800) # VS 2015+
-            append("-Llegacy_stdio_definitions.lib" DDMD_DFLAGS)
-        endif()
+    if(${D_COMPILER_ID} STREQUAL "DigitalMars" AND (MSVC_VERSION GREATER 1800)) # VS 2015+
+        append("-Llegacy_stdio_definitions.lib" DDMD_DFLAGS)
     endif()
 
     # Link against the static MSVC runtime; CMake's C(++) flags apparently default to the dynamic one.
