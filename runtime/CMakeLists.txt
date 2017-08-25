@@ -401,8 +401,10 @@ if("${TARGET_SYSTEM}" MATCHES "MSVC")
     # We want to be able to link against all 4 C runtime variants (libcmt[d] / msvcrt[d]).
     string(REGEX REPLACE "(^| )[/-]M[TD]d?( |$)" "\\2" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
     append("/MT /Zl" CMAKE_C_FLAGS_RELEASE)
+    # warning C4131: uses old-style declarator
+    # warning C4206: nonstandard extension used: translation unit is empty
     # warning C4996: zlib uses 'deprecated' POSIX names
-    append("/wd4996" CMAKE_C_FLAGS_RELEASE)
+    append("/wd4131 /wd4206 /wd4996" CMAKE_C_FLAGS_RELEASE)
 endif()
 # 2) Set all other CMAKE_C_FLAGS variants to CMAKE_C_FLAGS_RELEASE
 set(variables

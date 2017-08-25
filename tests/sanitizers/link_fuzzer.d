@@ -5,7 +5,8 @@
 // RUN: %ldc -v -fsanitize=fuzzer %s | FileCheck %s
 // RUN: not %ldc -v -fsanitize=fuzzer -link-no-cpp %s | FileCheck %s --check-prefix=NOCPP
 
-// CHECK: libFuzzer.a
+// "libFuzzer.a" before LLVM 6.0, "lib(ldc|clang)_rt.fuzzer.*.a" since LLVM 6.0
+// CHECK: {{(libFuzzer\.a|_rt\.fuzzer.*\.a)}}
 // CHECK-SAME: -l{{(c|stdc)}}++
 
 // NOCPP-NOT: -l{{(c|stdc)}}++

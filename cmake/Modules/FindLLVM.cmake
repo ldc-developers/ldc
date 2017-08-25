@@ -27,7 +27,8 @@
 # We also want an user-specified LLVM_ROOT_DIR to take precedence over the
 # system default locations such as /usr/local/bin. Executing find_program()
 # multiples times is the approach recommended in the docs.
-set(llvm_config_names llvm-config-5.0 llvm-config50
+set(llvm_config_names llvm-config-6.0 llvm-config60
+                      llvm-config-5.0 llvm-config50
                       llvm-config-4.0 llvm-config40
                       llvm-config-3.9 llvm-config39
                       llvm-config-3.8 llvm-config38
@@ -52,74 +53,9 @@ macro(_LLVM_FAIL _msg)
 endmacro()
 
 
-if ((WIN32 AND NOT(MINGW OR CYGWIN)) OR NOT LLVM_CONFIG)
-    if (WIN32)
-        # A bit of a sanity check:
-        if( NOT EXISTS ${LLVM_ROOT_DIR}/include/llvm )
-            message(FATAL_ERROR "LLVM_ROOT_DIR (${LLVM_ROOT_DIR}) is not a valid LLVM install")
-        endif()
-        # We incorporate the CMake features provided by LLVM:
-        set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${LLVM_ROOT_DIR}/share/llvm/cmake;${LLVM_ROOT_DIR}/lib/cmake/llvm")
-        include(LLVMConfig)
-        # Set properties
-        set(LLVM_HOST_TARGET ${TARGET_TRIPLE})
-        set(LLVM_VERSION_STRING ${LLVM_PACKAGE_VERSION})
-        set(LLVM_CXXFLAGS ${LLVM_DEFINITIONS})
-        set(LLVM_LDFLAGS "")
-        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "all-targets" index)
-        list(APPEND LLVM_FIND_COMPONENTS ${LLVM_TARGETS_TO_BUILD})
-        # Work around LLVM bug 21016
-        list(FIND LLVM_TARGETS_TO_BUILD "X86" TARGET_X86)
-        if(TARGET_X86 GREATER -1)
-            list(APPEND LLVM_FIND_COMPONENTS x86utils)
-        endif()
-        # Similar to the work around above, but for AArch64
-        list(FIND LLVM_TARGETS_TO_BUILD "AArch64" TARGET_AArch64)
-        if(TARGET_AArch64 GREATER -1)
-            list(APPEND LLVM_FIND_COMPONENTS AArch64Utils)
-        endif()
-        # Similar to the work around above, but for AMDGPU
-        list(FIND LLVM_TARGETS_TO_BUILD "AMDGPU" TARGET_AMDGPU)
-        if(TARGET_AMDGPU GREATER -1)
-            list(APPEND LLVM_FIND_COMPONENTS AMDGPUUtils)
-        endif()
-        if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-8][\\.0-9A-Za-z]*")
-            # Versions below 3.9 do not support components debuginfocodeview, globalisel
-            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfocodeview" index)
-            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "globalisel" index)
-        endif()
-        if(NOT ${LLVM_VERSION_STRING} MATCHES "^3\\.[0-7][\\.0-9A-Za-z]*")
-            # Versions beginning with 3.8 do not support component ipa
-            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "ipa" index)
-        endif()
-        if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-9][\\.0-9A-Za-z]*")
-            # Versions below 4.0 do not support component debuginfomsf
-            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfomsf" index)
-        endif()
-
-        llvm_map_components_to_libnames(tmplibs ${LLVM_FIND_COMPONENTS})
-        if(MSVC)
-            set(LLVM_LDFLAGS "-LIBPATH:\"${LLVM_LIBRARY_DIRS}\"")
-            foreach(lib ${tmplibs})
-                list(APPEND LLVM_LIBRARIES "${lib}.lib")
-            endforeach()
-        else()
-            # Rely on the library search path being set correctly via -L on
-            # MinGW and others, as the library list returned by
-            # llvm_map_components_to_libraries also includes imagehlp and psapi.
-            set(LLVM_LDFLAGS "-L${LLVM_LIBRARY_DIRS}")
-            set(LLVM_LIBRARIES ${tmplibs})
-        endif()
-
-        # When using the CMake LLVM module, LLVM_DEFINITIONS is a list
-        # instead of a string. Later, the list seperators would entirely
-        # disappear, replace them by spaces instead. A better fix would be
-        # to switch to add_definitions() instead of throwing strings around.
-        string(REPLACE ";" " " LLVM_CXXFLAGS "${LLVM_CXXFLAGS}")
-    else()
-        if (NOT LLVM_FIND_QUIETLY)
-            message(WARNING "Could not find llvm-config (LLVM >= ${LLVM_FIND_VERSION}). Try manually setting LLVM_CONFIG to the llvm-config executable of the installation to use.")
-        endif()
+if(NOT LLVM_CONFIG)
+    if(NOT LLVM_FIND_QUIETLY)
+        message(WARNING "Could not find llvm-config (LLVM >= ${LLVM_FIND_VERSION}). Try manually setting LLVM_CONFIG to the llvm-config executable of the installation to use.")
     endif()
 else()
     macro(llvm_set var flag)
