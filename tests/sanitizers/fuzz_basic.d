@@ -9,8 +9,7 @@
 
 void FuzzMe(const(ubyte*) data, size_t size)
 {
-    if ((size >= 6) && data[0] == 'F' && data[1] == 'U' && data[2] == 'Z'
-            && data[3] == 'L' && data[4] == 'D' && data[5] == 'C')
+    if ((size >= 3) && data[0] == 'F' && data[1] == 'U' && data[2] == 'Z')
     {
         assert(false);
     }
@@ -34,5 +33,5 @@ extern (C) int LLVMFuzzerTestOneInput(const(ubyte*) data, size_t size)
     return 0;
 }
 
-// The test unit should start with "FUZLDC"
-// CHECK: FUZLDC
+// The test unit should start with "FUZ"
+// CHECK: FUZ
