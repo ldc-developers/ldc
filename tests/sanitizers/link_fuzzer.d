@@ -1,5 +1,6 @@
 // Test linking C++ stdlib (or not) with -fsanitize=fuzzer
 
+// REQUIRES: atleast_llvm500
 // REQUIRES: Fuzzer
 
 // RUN: %ldc -v -fsanitize=fuzzer %s | FileCheck %s
