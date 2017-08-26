@@ -76,7 +76,8 @@ else()
 endif()
 
 set(SHARED_LIBS_SUPPORTED OFF)
-if("${TARGET_SYSTEM}" MATCHES "Linux|FreeBSD|APPLE")
+if("${TARGET_SYSTEM}" MATCHES "Linux|FreeBSD|APPLE"
+   AND (NOT "${TARGET_SYSTEM}" MATCHES "Android"))
     set(SHARED_LIBS_SUPPORTED ON)
 endif()
 
@@ -102,7 +103,9 @@ endif()
 
 # Auto-detect C system libraries
 if("${C_SYSTEM_LIBS}" STREQUAL "AUTO")
-    if("${TARGET_SYSTEM}" MATCHES "Linux")
+    if("${TARGET_SYSTEM}" MATCHES "Android")
+        set(C_SYSTEM_LIBS m c)
+    elseif("${TARGET_SYSTEM}" MATCHES "Linux")
         set(C_SYSTEM_LIBS m pthread rt dl)
     else()
         set(C_SYSTEM_LIBS m pthread)
