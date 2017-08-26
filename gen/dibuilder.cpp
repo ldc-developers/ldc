@@ -1042,10 +1042,16 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 
   if (vd->isRef() || vd->isOut()) {
 #if LDC_LLVM_VER >= 308
+/*
     auto T = DtoType(type);
-    TD = DBuilder.createReferenceType(llvm::dwarf::DW_TAG_reference_type, TD,
-                                      getTypeAllocSize(T) * 8, // size (bits)
-                                      DtoAlignment(type) * 8); // align (bits)
+    // Note: createReferenceType has to be applied to a pointer to the passed
+    // byref (pointer) value (i.e. the alloca that we do for normal pointer params).
+    // It also expects the size to be the size of a pointer.
+    TD = DBuilder.createReferenceType(
+        llvm::dwarf::DW_TAG_reference_type, TD,
+        gDataLayout->getPointerSizeInBits(), // size (bits)
+        DtoAlignment(type) * 8);             // align (bits)
+*/
 #else
     TD = DBuilder.createReferenceType(llvm::dwarf::DW_TAG_reference_type, TD);
 #endif
