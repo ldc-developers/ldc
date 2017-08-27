@@ -1,7 +1,6 @@
 [submodule "druntime"]
 	path = runtime/druntime
-	url = https://github.com/Hardcode84/druntime.git
-	branch = runtime_compile
+	url = https://github.com/ldc-developers/druntime.git
 [submodule "phobos"]
 	path = runtime/phobos
 	url = https://github.com/ldc-developers/phobos.git
