@@ -610,7 +610,7 @@ else()
     set(LDC_TRANSLATED_LINKER_FLAGS "")
     foreach(f ${LDC_LINKERFLAG_LIST})
         string(REPLACE "-LIBPATH:" "/LIBPATH:" f ${f})
-        list(APPEND LDC_TRANSLATED_LINKER_FLAGS "-L${f}")
+        list(APPEND LDC_TRANSLATED_LINKER_FLAGS "-L\"\\\"${f}\\\"\"")
     endforeach()
 
     if(MSVC)
