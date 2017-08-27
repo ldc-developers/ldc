@@ -3400,48 +3400,38 @@ struct AsmProcessor {
   }
 
   Expression *parseEqualExp() {
-    Expression *exp = parseRelExp();
-    while (1) {
-      switch (token->value) {
-      case TOKequal:
-      case TOKnotequal: {
-        TOK tok = token->value;
-        nextToken();
-        Expression *exp2 = parseRelExp();
-        if (isIntExp(exp) && isIntExp(exp2)) {
-          exp = intOp(tok, exp, exp2);
-        } else {
-          stmt->error("bad integral operand");
-        }
-      }
-      default:
-        return exp;
-      }
+    const auto exp = parseRelExp();
+    const auto tok = token->value;
+    if (tok != TOKequal && tok != TOKnotequal) {
+      return exp;
     }
+
+    nextToken();
+    const auto exp2 = parseRelExp();
+    if (isIntExp(exp) && isIntExp(exp2)) {
+      return intOp(tok, exp, exp2);
+    }
+
+    stmt->error("bad integral operand");
+    // TODO: Return ErrorExp?
     return exp;
   }
 
   Expression *parseRelExp() {
-    Expression *exp = parseShiftExp();
-    while (1) {
-      switch (token->value) {
-      case TOKgt:
-      case TOKge:
-      case TOKlt:
-      case TOKle: {
-        TOK tok = token->value;
-        nextToken();
-        Expression *exp2 = parseShiftExp();
-        if (isIntExp(exp) && isIntExp(exp2)) {
-          exp = intOp(tok, exp, exp2);
-        } else {
-          stmt->error("bad integral operand");
-        }
-      }
-      default:
-        return exp;
-      }
+    const auto exp = parseShiftExp();
+    const auto tok = token->value;
+    if (tok != TOKgt && tok != TOKge && tok != TOKlt && tok != TOKle) {
+      return exp;
     }
+
+    nextToken();
+    const auto exp2 = parseShiftExp();
+    if (isIntExp(exp) && isIntExp(exp2)) {
+      return intOp(tok, exp, exp2);
+    }
+
+    stmt->error("bad integral operand");
+    // TODO: Return ErrorExp?
     return exp;
   }
 
