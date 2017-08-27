@@ -1054,13 +1054,17 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
   if (static_cast<llvm::MDNode *>(TD) == nullptr)
     return; // unsupported
 
+  // llvm.dbg.declare only works properly with local allocas.
+  // Represent variables with non-alloca LL storage as DI references, like `ref`
+  // and `out` parameters.
+  const bool storedInAlloca = llvm::dyn_cast<llvm::AllocaInst>(ll);
   bool useDbgValueIntrinsic = false;
-  if (vd->isRef() || vd->isOut()) {
-    // `ref` and `out` parameters are not stored locally in an alloca slot, so
-    // llvm.dbg.declare cannot be used. Their values are constant though, so we
-    // don't have to attach the debug information to a memory location and can
-    // use llvm.dbg.value instead.
-    useDbgValueIntrinsic = !llvm::dyn_cast<llvm::AllocaInst>(ll);
+  if (!storedInAlloca || vd->isRef() || vd->isOut()) {
+    // With the exception of special-ref loop variables, the reference/pointer
+    // itself is constant. So we don't have to attach the debug information to a
+    // memory location and can use llvm.dbg.value to set the constant pointer
+    // for the DI reference.
+    useDbgValueIntrinsic = !storedInAlloca;
 #if LDC_LLVM_VER >= 308
     // Note: createReferenceType expects the size to be the size of a pointer,
     // not the size of the type the reference refers to.

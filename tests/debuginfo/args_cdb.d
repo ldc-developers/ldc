@@ -13,17 +13,21 @@ import core.simd;
 // enable case sensitive symbol lookup
 // CDB: .symopt-1
 
+struct Small { size_t val; }
+struct Large { size_t a, b, c, d, e, f, g, h; }
+
 int byValue(ubyte ub, ushort us, uint ui, ulong ul,
             float f, double d, real r,
             cdouble c, int delegate() dg, int function() fun,
             int[] slice, float[int] aa, ubyte[16] fa,
             float4 f4, double4 d4,
-            Interface ifc, TypeInfo_Class ti, typeof(null) np)
+            Small small, Large large,
+            TypeInfo_Class ti, typeof(null) np)
 {
-// CDB: bp `args_cdb.d:25`
+// CDB: bp `args_cdb.d:27`
 // CDB: g
-    // arguments implicitly passed by reference on x64 and not shown if unused
-    float cim = c.im + fa[7] + dg() + ifc.offset;
+    // arguments implicitly passed by reference aren't shown if unused
+    float cim = c.im + fa[7] + dg() + small.val + large.a;
     return 1;
 // CHECK: !args_cdb.byValue
 // CDB: dv /t
@@ -42,12 +46,12 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 // CHECK: <function> * fun = {{0x[0-9a-f`]*}}
 // x86: struct int[] slice =
 // CHECK: unsigned char * aa = {{0x[0-9a-f`]*}}
-// "Internal implementation error for fa" with cdb on x64, ok in VS
-// x86: unsigned char [16] fa
+// CHECK: unsigned char (*)[16] fa
 // x86: float [4] f4 = float [4]
 // x86: double [4] d4 = double [4]
-// x64: Interface * ifc
-// x86: Interface ifc
+// x64: Small small
+// x86: Small * small
+// CHECK: Large * large
 // CHECK: struct TypeInfo_Class * ti = {{0x[0-9a-f`]*}}
 // CHECK: void * np = {{0x[0`]*}}
 
@@ -64,31 +68,35 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 
 // CDB: ?? dg
 // CHECK: int delegate()
-// CHECK-NEXT: context
-// CHECK-NEXT: funcptr
+// CHECK-NEXT: context :
+// CHECK-NEXT: funcptr :
 // CHECK-SAME: args_cdb.main.__lambda
 
 // CDB: ?? slice
 // CHECK: struct int[]
 // CHECK-NEXT: length : 2
-// CHECK-NEXT: ptr
+// CHECK-NEXT: ptr :
+// CHECK-SAME: 0n10
 
-// CDB: ?? fa[1]
-// "Internal implementation error for fa" with cdb on x64, ok in VS
-// no-x86: unsigned char 0x0e (displays 0xf6)
+// CDB: ?? (*fa)[1]
+// x64: unsigned char 0x0e
+// no-x86: unsigned char 0x0e (displays garbage)
 
 // CDB: ?? f4[1]
 // CHECK: float 16
 
-// CDB: ?? d4[2]
+// CDB: ?? d4[1]
 // CHECK: double 17
 
-// CDB: ?? ifc
-// CHECK: Interface
-// CHECK-NEXT: classinfo
-// CHECK-NEXT: vtbl
-// x64-NEXT: offset : 0x12
-// no-x86-NEXT: offset : 0x12 (displays 0)
+// CDB: ?? small
+// CHECK: Small
+// x64-NEXT: val : 0x12
+// no-x86-NEXT: val : 0x12 (displays garbage)
+
+// CDB: ?? large
+// CHECK: Large
+// x64-NEXT: a : 0x13
+// no-x86-NEXT: a : 0x13 (displays garbage)
 
 // CDB: ?? ti
 // CHECK: TypeInfo_Class
@@ -100,9 +108,10 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
           cdouble* c, int delegate()* dg, int function()* fun,
           int[]* slice, float[int]* aa, ubyte[16]* fa,
           float4* f4, double4* d4,
-          Interface* ifc, TypeInfo_Class* ti, typeof(null)* np)
+          Small* small, Large* large,
+          TypeInfo_Class* ti, typeof(null)* np)
 {
-// CDB: bp `args_cdb.d:106`
+// CDB: bp `args_cdb.d:114`
 // CDB: g
     return 3;
 // CHECK: !args_cdb.byPtr
@@ -127,8 +136,8 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
 // CHECK-NEXT: im : 9
 // CDB: ?? *dg
 // CHECK: int delegate()
-// CHECK-NEXT: context
-// CHECK-NEXT: funcptr
+// CHECK-NEXT: context :
+// CHECK-NEXT: funcptr :
 // CHECK-SAME: args_cdb.main.__lambda
 // CDB: ?? *fun
 // CHECK: <function> *
@@ -145,13 +154,16 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
 // CHECK: float 16
 // CDB: ?? (*d4)[2]
 // CHECK: double 17
-// CDB: ?? *ifc
-// CHECK: struct Interface
-// CHECK: offset : 0x12
+// CDB: ?? *small
+// CHECK: struct Small
+// CHECK-NEXT: val : 0x12
+// CDB: ?? *large
+// CHECK: struct Large
+// CHECK-NEXT: a : 0x13
+// CHECK-NEXT: b :
 // CDB: ?? *ti
 // CHECK: struct TypeInfo_Class
 // CHECK-NEXT: m_init : byte[]
-// shows bad member values
 // CDB: ?? *np
 // CHECK: void * {{0x[0`]*}}
 }
@@ -161,9 +173,10 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
           ref cdouble c, ref int delegate() dg, ref int function() fun,
           ref int[] slice, ref float[int] aa, ref ubyte[16] fa,
           ref float4 f4, ref double4 d4,
-          ref Interface ifc, ref TypeInfo_Class ti, ref typeof(null) np)
+          ref Small small, ref Large large,
+          ref TypeInfo_Class ti, ref typeof(null) np)
 {
-// CDB: bp `args_cdb.d:218`
+// CDB: bp `args_cdb.d:179`
 // CDB: g
 // CHECK: !args_cdb.byRef
 
@@ -189,7 +202,7 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
 // CHECK-NEXT: im : 9
 // CDB: ?? *dg
 // CHECK: int delegate()
-// CHECK-NEXT: context
+// CHECK-NEXT: context :
 // CHECK-NEXT: funcptr : {{0x[0-9a-f`]*}}
 // CHECK-SAME: args_cdb.main.__lambda
 // CDB: ?? *fun
@@ -206,16 +219,23 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
 // CHECK: float 16
 // CDB: ?? (*d4)[2]
 // CHECK: double 17
-// CDB: ?? *ifc
-// CHECK: struct Interface
-// CHECK: offset : 0x12
+// CDB: ?? *small
+// CHECK: struct Small
+// CHECK-NEXT: val : 0x12
+// CDB: ?? *large
+// CHECK: struct Large
+// CHECK-NEXT: a : 0x13
+// CHECK-NEXT: b :
 // CDB: ?? *ti
 // CHECK: struct TypeInfo_Class * {{0x[0-9a-f`]*}}
 // CHECK-NEXT: m_init : byte[]
 // CDB: ?? *np
-// CHECK: void * {{0x[0`]*}}
+// no-CHECK: void * {{0x[0`]*}} (not available)
 
-// needs access to references to actually generate debug info
+    // needs access to references to actually generate debug info
+    float cim = c.im + fa[7] + dg() + fun() + slice.length + aa.length + f4[0] + d4[1] +
+                small.val + large.a + ti.initializer.length;
+
     ub++;
     us++;
     ui++;
@@ -231,7 +251,8 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
     fa[0]++;
     f4.array[0] = f4.array[0] + 1;
     d4.array[0] = d4.array[0] + 1;
-    ifc = Interface(typeid(Object), null, 18);
+    small.val++;
+    large.a++;
     ti = typeid(TypeInfo);
     np = null;
     return 2;
@@ -254,13 +275,14 @@ int main()
     ubyte[16] fa; fa[] = 14;
     float4 f4 = 16;
     double4 d4 = 17;
-    Interface ifc = Interface(typeid(Object), null, 18);
+    Small small = Small(18);
+    Large large = Large(19);
     TypeInfo_Class ti = typeid(TypeInfo);
     typeof(null) np = null;
     
-    byValue(ub, us, ui, ul, f, d, r, c, dg, fun, slice, aa, fa, f4, d4, ifc, ti, np);
-    byPtr(&ub, &us, &ui, &ul, &f, &d, &r, &c, &dg, &fun, &slice, &aa, &fa, &f4, &d4, &ifc, &ti, &np);
-    byRef(ub, us, ui, ul, f, d, r, c, dg, fun, slice, aa, fa, f4, d4, ifc, ti, np);
+    byValue(ub, us, ui, ul, f, d, r, c, dg, fun, slice, aa, fa, f4, d4, small, large, ti, np);
+    byPtr(&ub, &us, &ui, &ul, &f, &d, &r, &c, &dg, &fun, &slice, &aa, &fa, &f4, &d4, &small, &large, &ti, &np);
+    byRef(ub, us, ui, ul, f, d, r, c, dg, fun, slice, aa, fa, f4, d4, small, large, ti, np);
 
     return 0;
 }
