@@ -121,6 +121,20 @@ void ldc::DIBuilder::Declare(const Loc &loc, llvm::Value *var,
   DBuilder.insertDeclare(var, divar, diexpr, debugLoc, IR->scopebb());
 }
 
+// Use this to tag debuginfo onto a non-alloca LLVM value, e.g. a function
+// parameter.
+void ldc::DIBuilder::DbgValue(const Loc &loc, llvm::Value *var,
+                              ldc::DILocalVariable divar,
+                              ldc::DIExpression diexpr) {
+  unsigned charnum = (loc.linnum ? loc.charnum : 0);
+  auto debugLoc = llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope());
+  DBuilder.insertDbgValueIntrinsic(var,
+#if LDC_LLVM_VER < 600
+                                   0,
+#endif
+                                   divar, diexpr, debugLoc, IR->scopebb());
+}
+
 ldc::DIFile ldc::DIBuilder::CreateFile(Loc &loc) {
   const char* filename = loc.filename;
   if (!filename)
@@ -1040,18 +1054,21 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
   if (static_cast<llvm::MDNode *>(TD) == nullptr)
     return; // unsupported
 
+  bool useDbgValueIntrinsic = false;
   if (vd->isRef() || vd->isOut()) {
+    // `ref` and `out` parameters are not stored locally in an alloca slot, so
+    // llvm.dbg.declare cannot be used. Their values are constant though, so we
+    // don't have to attach the debug information to a memory location and can
+    // use llvm.dbg.value instead.
+    assert(!llvm::dyn_cast<llvm::AllocaInst>(ll));
+    useDbgValueIntrinsic = true;
 #if LDC_LLVM_VER >= 308
-/*
-    auto T = DtoType(type);
-    // Note: createReferenceType has to be applied to a pointer to the passed
-    // byref (pointer) value (i.e. the alloca that we do for normal pointer params).
-    // It also expects the size to be the size of a pointer.
+    // Note: createReferenceType expects the size to be the size of a pointer,
+    // not the size of the type the reference refers to.
     TD = DBuilder.createReferenceType(
         llvm::dwarf::DW_TAG_reference_type, TD,
         gDataLayout->getPointerSizeInBits(), // size (bits)
         DtoAlignment(type) * 8);             // align (bits)
-*/
 #else
     TD = DBuilder.createReferenceType(llvm::dwarf::DW_TAG_reference_type, TD);
 #endif
@@ -1128,10 +1145,15 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 #endif
   variableMap[vd] = debugVariable;
 
-  // declare
-  Declare(vd->loc, ll, debugVariable, addr.empty()
-                                          ? DBuilder.createExpression()
-                                          : DBuilder.createExpression(addr));
+  if (useDbgValueIntrinsic) {
+    DbgValue(vd->loc, ll, debugVariable,
+             addr.empty() ? DBuilder.createExpression()
+                          : DBuilder.createExpression(addr));
+  } else {
+    Declare(vd->loc, ll, debugVariable,
+            addr.empty() ? DBuilder.createExpression()
+                         : DBuilder.createExpression(addr));
+  }
 }
 
 void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
