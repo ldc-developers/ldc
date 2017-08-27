@@ -3411,6 +3411,7 @@ struct AsmProcessor {
         } else {
           stmt->error("bad integral operand");
         }
+        return exp;
       }
       default:
         return exp;
@@ -3435,6 +3436,7 @@ struct AsmProcessor {
         } else {
           stmt->error("bad integral operand");
         }
+        return exp;
       }
       default:
         return exp;
