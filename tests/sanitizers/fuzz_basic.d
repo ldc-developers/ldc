@@ -1,5 +1,6 @@
 // Test basic fuzz test crash
 
+// REQUIRES: atleast_llvm500
 // REQUIRES: Fuzzer
 
 // RUN: %ldc -g -fsanitize=fuzzer %s -of=%t%exe
