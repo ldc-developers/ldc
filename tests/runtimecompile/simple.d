@@ -5,6 +5,14 @@ import std.stdio;
 import ldc.attributes;
 import ldc.runtimecompile;
 
+version(LDC_RuntimeCompilation)
+{
+}
+else
+{
+static assert(false, "LDC_RuntimeCompilation is not defined");
+}
+
 @runtimeCompile int foo()
 {
   return 5;

@@ -53,7 +53,7 @@ if(LDC_RUNTIME_COMPILE)
 
         set(jitrt_d_o "")
         set(jitrt_d_bc "")
-        compile_jit_rt_D("${d_flags}" "" "${path_suffix}" "${COMPILE_ALL_D_FILES_AT_ONCE}" jitrt_d_o jitrt_d_bc)
+        compile_jit_rt_D("-enable-runtime-compile;${d_flags}" "" "${path_suffix}" "${COMPILE_ALL_D_FILES_AT_ONCE}" jitrt_d_o jitrt_d_bc)
 
         add_library(ldc-jit-rt${target_suffix} STATIC ${jitrt_d_o} ${LDC_JITRT_CXX})
         set_target_properties(

@@ -1,5 +1,8 @@
 module ldc.runtimecompile;
 
+version(LDC_RuntimeCompilation)
+{
+
 struct CompilerSettings
 {
   uint optLevel = 0;
@@ -68,4 +71,6 @@ align(1):
   void* dumpHandlerData = null;
 }
 extern void rtCompileProcessImpl(const ref Context context, size_t contextSize);
+}
+
 }
