@@ -2,6 +2,7 @@
 #include <cassert>
 #include <stdexcept>
 #include <map>
+#include <memory>
 
 #include "optimizer.h"
 #include "context.h"
@@ -20,6 +21,7 @@
 
 #if LDC_LLVM_VER >= 500
 #include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
+#include "llvm/ExecutionEngine/Orc/CompileUtils.h"
 #else
 #include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
 #endif
@@ -95,15 +97,17 @@ private:
   std::unique_ptr<llvm::TargetMachine> targetmachine;
   const llvm::DataLayout dataLayout;
 #if LDC_LLVM_VER >= 500
-  using ObjectLayerT = llvm::orc::RTDyldObjectLinkingLayer<>;
+  using ObjectLayerT = llvm::orc::RTDyldObjectLinkingLayer;
+  using CompileLayerT = llvm::orc::IRCompileLayer<ObjectLayerT, llvm::orc::SimpleCompiler>;
+  using ModuleHandleT = std::vector<CompileLayerT::ModuleHandleT>;
 #else
   using ObjectLayerT = llvm::orc::ObjectLinkingLayer<>;
+  using CompileLayerT = llvm::orc::IRCompileLayer<ObjectLayerT>;
+  using ModuleHandleT = CompileLayerT::ModuleSetHandleT;
 #endif
   ObjectLayerT objectLayer;
-  using CompileLayerT = llvm::orc::IRCompileLayer<ObjectLayerT>;
   CompileLayerT compileLayer;
   llvm::LLVMContext context;
-  typedef CompileLayerT::ModuleSetHandleT ModuleHandleT;
   bool compiled = false;
   ModuleHandleT moduleHandle;
 
@@ -117,6 +121,9 @@ public:
                                 llvm::sys::getHostCPUName(),
                                 getHostAttrs())),
     dataLayout(targetmachine->createDataLayout()),
+#if LDC_LLVM_VER >= 500
+    objectLayer([]() { return std::make_shared<llvm::SectionMemoryManager>(); }),
+#endif
     compileLayer(objectLayer, llvm::orc::SimpleCompiler(*targetmachine))
   {
     llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
@@ -150,11 +157,20 @@ public:
       return llvm::JITSymbol(nullptr);
     });
 
-    // Add the set to the JIT with the resolver we created above and a newly
-    // created SectionMemoryManager.
+    // Add the set to the JIT with the resolver we created above
+#if LDC_LLVM_VER >= 500
+    for (auto&& module: modules) {
+      auto handle = compileLayer.addModule(std::move(module),
+                                           Resolver);
+      assert(handle);
+      moduleHandle.push_back(handle.get());
+    }
+    modules.clear();
+#else
     moduleHandle = compileLayer.addModuleSet(std::move(modules),
                                              llvm::make_unique<llvm::SectionMemoryManager>(),
                                              std::move(Resolver));
+#endif
     compiled = true;
   }
 
@@ -164,13 +180,20 @@ public:
 
   llvm::LLVMContext& getContext() { return context; }
 
-//  void removeModule(ModuleHandle H) {
-//    CompileLayer.removeModuleSet(H);
-//  }
+  void removeModule(const ModuleHandleT& H) {
+#if LDC_LLVM_VER >= 500
+    for (auto&& handle: H) {
+      cantFail(compileLayer.removeModule(handle));
+    }
+#else
+    compileLayer.removeModuleSet(H);
+#endif
+  }
 
   void reset() {
     if (compiled) {
-      compileLayer.removeModuleSet(moduleHandle);
+      removeModule(moduleHandle);
+      moduleHandle = {};
       compiled = false;
     }
   }
@@ -273,7 +296,17 @@ void rtCompileProcessImplSoInternal(const RtComileModuleList* modlist_head, cons
   interruptPoint(context, "Resolve functions");
   for (auto&& fun: functions) {
     auto symbol = myJit.findSymbol(fun.first);
-    const auto addr = symbol.getAddress();
+    auto addr = symbol.getAddress();
+#if LDC_LLVM_VER >= 500
+    if (!addr) {
+      consumeError(addr.takeError());
+      std::string desc = std::string("Symbol not found in jitted code: ") + fun.first;
+      fatal(context, desc);
+    }
+    else {
+      *fun.second = reinterpret_cast<void*>(addr.get());
+    }
+#else
     if (0 == addr) {
       std::string desc = std::string("Symbol not found in jitted code: ") + fun.first;
       fatal(context, desc);
@@ -281,6 +314,7 @@ void rtCompileProcessImplSoInternal(const RtComileModuleList* modlist_head, cons
     else {
       *fun.second = reinterpret_cast<void*>(addr);
     }
+#endif
   }
   jitFinalizer.finalze();
 }
