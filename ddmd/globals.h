@@ -235,7 +235,7 @@ struct Param
 
     bool outputSourceLocations; // if true, output line tables.
 
-    bool enableRuntimeCompile;
+    bool enableRuntimeCompile; // Enable dynamic compilation
 #endif
 };
 
