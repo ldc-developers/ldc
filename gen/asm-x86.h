@@ -599,6 +599,7 @@ static const char *alternateMnemonics[N_AltMn] = {
 #define N Opr_NoType
 
 // D=dest, N=notype
+// clang-format off
 static AsmOpInfo asmOpInfo[N_AsmOpInfo] = {
     /* Op_Invalid   */ {},
     /* Op_Adjust    */ {{0, 0, 0}, 0, Clb_EAX /*just AX*/},
@@ -830,6 +831,7 @@ static AsmOpInfo asmOpInfo[N_AsmOpInfo] = {
     /// immediate does not contribute to size
     /// * Op_cmovCC    */  { D|rw,  mrw,  0,    1 } // ->dstsrc
 };
+// clang-format on
 
 #undef mri
 #undef mr
@@ -2062,14 +2064,14 @@ struct AsmProcessor {
         }
         regInfo[i].gccName = std::string(buf, p - buf);
         if ((i <= Reg_ST || i > Reg_ST7) && i != Reg_EFLAGS) {
-          regInfo[i].ident =
-              Identifier::idPool(regInfo[i].name.data(), regInfo[i].name.size());
+          regInfo[i].ident = Identifier::idPool(regInfo[i].name.data(),
+                                                regInfo[i].name.size());
         }
       }
 
       for (int i = 0; i < N_PtrNames; i++) {
-        ptrTypeIdentTable[i] = Identifier::idPool(ptrTypeNameTable[i],
-                                                  std::strlen(ptrTypeNameTable[i]));
+        ptrTypeIdentTable[i] = Identifier::idPool(
+            ptrTypeNameTable[i], std::strlen(ptrTypeNameTable[i]));
       }
 
       Handled = createExpression(Loc(), TOKvoid, sizeof(Expression));
