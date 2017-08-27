@@ -464,18 +464,6 @@ void applyTargetMachineAttributes(llvm::Function &func,
                  opts::disableFpElim ? "true" : "false");
 }
 
-LLFunction* getFunction(llvm::Module& module, LLFunctionType *functype, const std::string& name) {
-  assert(nullptr != functype);
-  LLFunction* func = module.getFunction(name);
-  if (!func) {
-    // All function declarations are "external" - any other linkage type
-    // is set when actually defining the function.
-    func = LLFunction::Create(functype, llvm::GlobalValue::ExternalLinkage,
-                              name, &module);
-  }
-  return func;
-}
-
 } // anonymous namespace
 
 ////////////////////////////////////////////////////////////////////////////////
