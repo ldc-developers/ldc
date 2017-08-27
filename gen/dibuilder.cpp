@@ -1060,8 +1060,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     // llvm.dbg.declare cannot be used. Their values are constant though, so we
     // don't have to attach the debug information to a memory location and can
     // use llvm.dbg.value instead.
-    assert(!llvm::dyn_cast<llvm::AllocaInst>(ll));
-    useDbgValueIntrinsic = true;
+    useDbgValueIntrinsic = !llvm::dyn_cast<llvm::AllocaInst>(ll);
 #if LDC_LLVM_VER >= 308
     // Note: createReferenceType expects the size to be the size of a pointer,
     // not the size of the type the reference refers to.
