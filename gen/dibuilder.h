@@ -141,6 +141,8 @@ private:
   DIScope GetCurrentScope();
   void Declare(const Loc &loc, llvm::Value *var, ldc::DILocalVariable divar,
                ldc::DIExpression diexpr);
+  void DbgValue(const Loc &loc, llvm::Value *var, ldc::DILocalVariable divar,
+                ldc::DIExpression diexpr);
   void AddFields(AggregateDeclaration *sd, ldc::DIFile file,
                  llvm::SmallVector<llvm::Metadata *, 16> &elems);
   DIFile CreateFile(Loc &loc);
