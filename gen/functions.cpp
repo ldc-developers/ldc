@@ -1037,7 +1037,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     assert(getIrParameter(fd->vthis)->value == thisvar);
     getIrParameter(fd->vthis)->value = thismem;
 
-    gIR->DBuilder.EmitLocalVariable(thismem, fd->vthis, nullptr, true);
+    gIR->DBuilder.EmitLocalVariable(thismem, fd->vthis, nullptr,
+                                    /*isThisPtr=*/true);
   }
 
   // give the 'nestArg' parameter (an lvalue) storage
