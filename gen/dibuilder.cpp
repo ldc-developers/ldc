@@ -113,22 +113,22 @@ ldc::DIScope ldc::DIBuilder::GetCurrentScope() {
   return fn->diLexicalBlocks.top();
 }
 
-void ldc::DIBuilder::Declare(const Loc &loc, llvm::Value *var,
+// Sets the memory address for a debuginfo variable.
+void ldc::DIBuilder::Declare(const Loc &loc, llvm::Value *storage,
                              ldc::DILocalVariable divar,
                              ldc::DIExpression diexpr) {
   unsigned charnum = (loc.linnum ? loc.charnum : 0);
   auto debugLoc = llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope());
-  DBuilder.insertDeclare(var, divar, diexpr, debugLoc, IR->scopebb());
+  DBuilder.insertDeclare(storage, divar, diexpr, debugLoc, IR->scopebb());
 }
 
-// Use this to tag debuginfo onto a non-alloca LLVM value, e.g. a function
-// parameter.
-void ldc::DIBuilder::DbgValue(const Loc &loc, llvm::Value *var,
+// Sets the (current) value for a debuginfo variable.
+void ldc::DIBuilder::SetValue(const Loc &loc, llvm::Value *value,
                               ldc::DILocalVariable divar,
                               ldc::DIExpression diexpr) {
   unsigned charnum = (loc.linnum ? loc.charnum : 0);
   auto debugLoc = llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope());
-  DBuilder.insertDbgValueIntrinsic(var,
+  DBuilder.insertDbgValueIntrinsic(value,
 #if LDC_LLVM_VER < 600
                                    0,
 #endif
@@ -1145,7 +1145,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
   variableMap[vd] = debugVariable;
 
   if (useDbgValueIntrinsic) {
-    DbgValue(vd->loc, ll, debugVariable,
+    SetValue(vd->loc, ll, debugVariable,
              addr.empty() ? DBuilder.createExpression()
                           : DBuilder.createExpression(addr));
   } else {

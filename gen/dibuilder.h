@@ -139,9 +139,9 @@ private:
   llvm::LLVMContext &getContext();
   Module *getDefinedModule(Dsymbol *s);
   DIScope GetCurrentScope();
-  void Declare(const Loc &loc, llvm::Value *var, ldc::DILocalVariable divar,
+  void Declare(const Loc &loc, llvm::Value *storage, ldc::DILocalVariable divar,
                ldc::DIExpression diexpr);
-  void DbgValue(const Loc &loc, llvm::Value *var, ldc::DILocalVariable divar,
+  void SetValue(const Loc &loc, llvm::Value *value, ldc::DILocalVariable divar,
                 ldc::DIExpression diexpr);
   void AddFields(AggregateDeclaration *sd, ldc::DIFile file,
                  llvm::SmallVector<llvm::Metadata *, 16> &elems);
