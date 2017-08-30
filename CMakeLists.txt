@@ -145,11 +145,9 @@ if(MSVC)
 
     # Link against the static MSVC runtime; CMake's C(++) flags apparently default to the dynamic one.
     # Host DMD/LDMD already defaults to linking against the static MSVC runtime.
-    # NOTE: Requires LLVM to be built with CMake variable LLVM_USE_CRT_{RELEASE,DEBUG,...}=MT[d].
-    if(${LLVM_CXXFLAGS} MATCHES "MD")
-        message(FATAL_ERROR "LLVM must be built with LLVM_USE_CRT_{RELEASE,DEBUG,...}=MT[d], not MD[d]")
+    if(${LLVM_CXXFLAGS} MATCHES "(^| )/MDd?( |$)")
+        message(FATAL_ERROR "LLVM must be built with CMake option LLVM_USE_CRT_<CMAKE_BUILD_TYPE>=MT[d]")
     endif()
-
     foreach(flag_var
             CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
             CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
