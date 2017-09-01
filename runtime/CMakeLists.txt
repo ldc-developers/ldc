@@ -1,6 +1,8 @@
-project(runtime)
+project(runtime C)
 
 cmake_minimum_required(VERSION 2.8.9)
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
 
 include(CheckIncludeFile)
 
@@ -42,11 +44,15 @@ set(COMPILE_ALL_D_FILES_AT_ONCE ON                            CACHE BOOL   "Comp
 set(RT_CFLAGS             ""                                  CACHE STRING "Runtime extra C compiler flags, separated by ' '")
 set(LD_FLAGS              ""                                  CACHE STRING "Runtime extra C linker flags, separated by ' '")
 set(C_SYSTEM_LIBS         AUTO                                CACHE STRING "C system libraries for linking shared libraries and test runners, separated by ';'")
-set(TARGET_SYSTEM         AUTO                                CACHE STRING "Targeted platform for cross-compilation (e.g., 'Linux;UNIX', 'Darwin;APPLE;UNIX', 'Windows;MSVC')")
+set(TARGET_SYSTEM         AUTO                                CACHE STRING "Target OS/toolchain for cross-compilation (e.g., 'Linux;UNIX', 'Darwin;APPLE;UNIX', 'Windows;MSVC')")
+set(LDC_TARGET_PRESET     ""                                  CACHE STRING "Use a preset target configuration for cross-compilation, by passing format OS-arch (e.g., 'Linux-arm', 'Mac-x64', 'Windows-aarch64', 'Android-x86')")
 
 set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 
-# Auto-detect TARGET_SYSTEM
+# Use LDC_TARGET_PRESET to configure target runtime
+include(PresetRuntimeConfiguration)
+
+# Auto-detect TARGET_SYSTEM from host
 if("${TARGET_SYSTEM}" STREQUAL "AUTO")
     set(TARGET_SYSTEM ${CMAKE_SYSTEM_NAME})
     # Additionally add MSVC, APPLE and/or UNIX
