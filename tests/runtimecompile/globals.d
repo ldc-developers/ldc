@@ -13,10 +13,10 @@ import ldc.runtimecompile;
 
 void main(string[] args)
 {
-  rtCompileProcess();
+  compileDynamicCode();
   assert(0 == foo());
   foovar = 42;
   assert(0 == foo());
-  rtCompileProcess();
+  compileDynamicCode();
   assert(42 == foo());
 }

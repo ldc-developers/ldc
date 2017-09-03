@@ -38,7 +38,7 @@ import ldc.runtimecompile;
 
 void main(string[] args)
 {
-  rtCompileProcess();
+  compileDynamicCode();
   assert(collectExceptionMsg(foo()) == "foo");
   assert(42 == bar());
   assert(42 == baz());

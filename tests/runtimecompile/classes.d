@@ -26,7 +26,7 @@ void main(string[] args)
   auto fun = &f1.foo;
   f1.val = 42;
 
-  rtCompileProcess();
+  compileDynamicCode();
   assert(42 == f1.foo());
   assert(42 == f2.foo());
   assert(42 == fun());

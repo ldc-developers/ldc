@@ -124,7 +124,7 @@ void setupPasses(llvm::TargetMachine &targetMachine,
   mpm.add(llvm::createStripDeadPrototypesPass());
   mpm.add(llvm::createStripDeadDebugInfoPass());
 
-  addOptimizationPasses(mpm, fpm, settings.optLevel, settings.sizeLeve);
+  addOptimizationPasses(mpm, fpm, settings.optLevel, settings.sizeLevel);
 }
 
 struct FuncFinalizer final {

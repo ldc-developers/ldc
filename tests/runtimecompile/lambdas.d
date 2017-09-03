@@ -18,7 +18,7 @@ void main(string[] args)
     return val1;
   }
 
-  rtCompileProcess();
+  compileDynamicCode();
   assert(42 == foo());
   assert(5 == bar());
   assert(8 == val2);

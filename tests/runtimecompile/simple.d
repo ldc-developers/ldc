@@ -30,7 +30,7 @@ static assert(false, "LDC_RuntimeCompilation is not defined");
 
 void main(string[] args)
 {
-  rtCompileProcess();
+  compileDynamicCode();
   assert(5 == foo());
   assert(12 == bar());
   baz();

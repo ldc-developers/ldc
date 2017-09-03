@@ -13,7 +13,7 @@ typedef void (*DumpHandlerT)(void*, const char* str, std::size_t len);
 struct Context final
 {
     unsigned optLevel = 0;
-    unsigned sizeLeve = 0;
+    unsigned sizeLevel = 0;
     InterruptPointHandlerT interruptPointHandler = nullptr;
     void* interruptPointHandlerData = nullptr;
     FatalHandlerT fatalHandler = nullptr;

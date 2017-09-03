@@ -15,7 +15,7 @@ void main(string[] args)
   bool dumpHandlerCalled = false;
   CompilerSettings settings;
   settings.dumpHandler = ((a) { dumpHandlerCalled = true; });
-  rtCompileProcess(settings);
+  compileDynamicCode(settings);
   assert(5 == foo());
   assert(dumpHandlerCalled);
 }

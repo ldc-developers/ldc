@@ -20,7 +20,7 @@ void bar()
 
 void main(string[] args)
 {
-  rtCompileProcess();
+  compileDynamicCode();
   bar();
   Thread[] threads = [new Thread(&bar),new Thread(&bar),new Thread(&bar)];
   foreach(t;threads[])

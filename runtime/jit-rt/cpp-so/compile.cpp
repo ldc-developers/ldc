@@ -243,7 +243,7 @@ void rtCompileProcessImplSoInternal(const RtComileModuleList* modlist_head, cons
   SymMap symMap;
   OptimizerSettings settings;
   settings.optLevel = context.optLevel;
-  settings.sizeLeve = context.sizeLeve;
+  settings.sizeLevel = context.sizeLevel;
   while (nullptr != current) {
     interruptPoint(context, "load IR");
     auto buff = llvm::MemoryBuffer::getMemBuffer(llvm::StringRef(current->irData, current->irDataSize), "", false);

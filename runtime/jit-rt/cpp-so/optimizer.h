@@ -16,7 +16,7 @@ struct Context;
 
 struct OptimizerSettings final {
   unsigned optLevel = 0;
-  unsigned sizeLeve = 0;
+  unsigned sizeLevel = 0;
 };
 
 void optimizeModule(const Context &context,

@@ -69,7 +69,7 @@ void test(T,F)(ref T val, F fun)
 
 void main(string[] args)
 {
-  rtCompileProcess();
+  compileDynamicCode();
 
   test(i8,  &foo_i8);
   test(i16, &foo_i16);

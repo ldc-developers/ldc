@@ -22,7 +22,7 @@ __gshared int[555] arr2 = 42;
 
 void main(string[] args)
 {
-  rtCompileProcess();
+  compileDynamicCode();
   assert(42 == foo());
   assert(0  == bar());
 }
