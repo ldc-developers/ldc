@@ -1058,7 +1058,9 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
   // llvm.dbg.declare only works properly with local allocas.
   // Represent variables with non-alloca LL storage as DI references, like `ref`
   // and `out` parameters.
-  const bool storedInAlloca = llvm::dyn_cast<llvm::AllocaInst>(ll);
+  const bool storedInAlloca =
+      llvm::dyn_cast<llvm::AllocaInst>(ll) ||
+      (isaArgument(ll) && isaArgument(ll)->hasByValAttr());
   bool useDbgValueIntrinsic = false;
   if (!storedInAlloca || vd->isRef() || vd->isOut()) {
     // With the exception of special-ref loop variables, the reference/pointer

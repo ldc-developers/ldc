@@ -46,12 +46,13 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 // CHECK: <function> * fun = {{0x[0-9a-f`]*}}
 // x86: struct int[] slice =
 // CHECK: unsigned char * aa = {{0x[0-9a-f`]*}}
-// CHECK: unsigned char (*)[16] fa
+// x64: unsigned char (*)[16] fa
+// x86: unsigned char [16] fa
 // x86: float [4] f4 = float [4]
 // x86: double [4] d4 = double [4]
-// x64: Small small
-// x86: Small * small
-// CHECK: Large * large
+// CHECK: Small small
+// x64: Large * large
+// x86: Large large
 // CHECK: struct TypeInfo_Class * ti = {{0x[0-9a-f`]*}}
 // CHECK: void * np = {{0x[0`]*}}
 
@@ -80,7 +81,7 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 
 // CDB: ?? (*fa)[1]
 // x64: unsigned char 0x0e
-// no-x86: unsigned char 0x0e (displays garbage)
+// no-x86: would be fa[1], but displays garbage anyway
 
 // CDB: ?? f4[1]
 // CHECK: float 16
@@ -111,7 +112,7 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
           Small* small, Large* large,
           TypeInfo_Class* ti, typeof(null)* np)
 {
-// CDB: bp `args_cdb.d:114`
+// CDB: bp `args_cdb.d:115`
 // CDB: g
     return 3;
 // CHECK: !args_cdb.byPtr
@@ -176,7 +177,7 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
           ref Small small, ref Large large,
           ref TypeInfo_Class ti, ref typeof(null) np)
 {
-// CDB: bp `args_cdb.d:179`
+// CDB: bp `args_cdb.d:180`
 // CDB: g
 // CHECK: !args_cdb.byRef
 
