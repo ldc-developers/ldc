@@ -81,7 +81,11 @@ struct IrFunction {
   /// These are set e.g. by math related UDA's from ldc.attributes.
   llvm::FastMathFlags FMF;
 
+  /// This functions was marked for dynamic compilation
   bool runtimeCompile = false;
+
+  /// Dynamic compilation thunk, all attempts to call or take address of the
+  /// original function will be redirected to it
   llvm::Function *rtCompileFunc = nullptr;
 
 private:

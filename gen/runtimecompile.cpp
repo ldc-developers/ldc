@@ -670,7 +670,7 @@ void addRuntimeCompiledVar(IRState *irs, IrGlobal *var) {
 
   if (var->V->isThreadlocal()) {
     error(Loc(),
-          "Invalid runtime compiled variable \"%s\" cannot be thread local",
+          "Runtime compiled variable \"%s\" cannot be thread local",
           var->V->toChars());
     fatal();
   }
