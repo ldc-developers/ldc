@@ -354,9 +354,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   // just ignore errors for now, they are still printed
   cfg_file.read(explicitConfFile, cfg_triple.c_str());
 
-  // insert switches from config file before all explicit ones
-  allArguments.insert(allArguments.begin() + 1, cfg_file.switches_begin(),
-                      cfg_file.switches_end());
+  cfg_file.extendCommandLine(allArguments);
 
   // finalize by expanding response files specified in config file
   expandResponseFiles(allocator, allArguments);
@@ -398,7 +396,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     fprintf(global.stdmsg, "binary    %s\n", exe_path::getExePath().c_str());
     fprintf(global.stdmsg, "version   %s (DMD %s, LLVM %s)\n",
             global.ldc_version, global.version, global.llvm_version);
-    const std::string &path = cfg_file.path();
+    const std::string path = cfg_file.path();
     if (!path.empty()) {
       fprintf(global.stdmsg, "config    %s (%s)\n", path.c_str(),
               cfg_triple.c_str());
