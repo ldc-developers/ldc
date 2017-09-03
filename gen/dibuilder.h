@@ -166,36 +166,43 @@ private:
 
   bool mustEmitFullDebugInfo();
   bool mustEmitLocationsDebugInfo();
+};
+
+template <int N> class DwarfExpression {
+  llvm::SmallVector<int64_t, N> ops;
 
 public:
-  template <typename T>
-  void OpOffset(T &addr, llvm::StructType *type, int index) {
-    if (!global.params.symdebug) {
-      return;
-    }
+  operator llvm::ArrayRef<int64_t>() const { return ops; }
 
-    uint64_t offset =
-        gDataLayout->getStructLayout(type)->getElementOffset(index);
-    addr.push_back(llvm::dwarf::DW_OP_plus);
-    addr.push_back(offset);
+  void deref() { ops.push_back(llvm::dwarf::DW_OP_deref); }
+
+  void offset(llvm::StructType *structType, unsigned index) {
+    if (index == 0 || !global.params.symdebug)
+      return;
+
+    const auto structLayout = gDataLayout->getStructLayout(structType);
+    if (const auto offset = structLayout->getElementOffset(index)) {
+#if LDC_LLVM_VER >= 500
+      ops.push_back(llvm::dwarf::DW_OP_plus_uconst);
+      ops.push_back(offset);
+#else
+      // although invalid according to the DWARF standard, this is what LLVM < 5
+      // expects
+      ops.push_back(llvm::dwarf::DW_OP_plus);
+      ops.push_back(offset);
+#endif
+    }
   }
 
-  template <typename T> void OpOffset(T &addr, llvm::Value *val, int index) {
-    if (!global.params.symdebug) {
+  void offset(llvm::Value *ptrToStruct, unsigned index) {
+    if (index == 0 || !global.params.symdebug)
       return;
-    }
 
-    llvm::StructType *type = isaStruct(val->getType()->getContainedType(0));
-    assert(type);
-    OpOffset(addr, type, index);
-  }
+    const auto structType =
+        isaStruct(ptrToStruct->getType()->getPointerElementType());
+    assert(structType);
 
-  template <typename T> void OpDeref(T &addr) {
-    if (!global.params.symdebug) {
-      return;
-    }
-
-    addr.push_back(llvm::dwarf::DW_OP_deref);
+    offset(structType, index);
   }
 };
 
