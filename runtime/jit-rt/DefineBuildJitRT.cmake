@@ -15,6 +15,18 @@ if(LDC_RUNTIME_COMPILE)
         set(JITRT_EXTRA_FLAGS "-fPIC -O3 -std=c++11")
     endif()
 
+    # LLVM_CXXFLAGS may contain -Wcovered-switch-default and -fcolor-diagnostics
+    # which are clang-only options
+    if(CMAKE_COMPILER_IS_GNUCXX)
+        string(REPLACE "-Wcovered-switch-default " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+        string(REPLACE "-fcolor-diagnostics " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+    endif()
+    # LLVM_CXXFLAGS may contain -Wno-maybe-uninitialized
+    # which is gcc-only options
+    if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
+        string(REPLACE "-Wno-maybe-uninitialized " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+    endif()
+
     # Sets up the targets for building the D-source jit-rt object files,
     # appending the names of the (bitcode) files to link into the library to
     # outlist_o (outlist_bc).
