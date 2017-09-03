@@ -768,7 +768,8 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
       ++llArgIdx;
     }
 
-    if (global.params.symdebug)
+    // the debuginfo for captured params is handled by nested.cpp
+    if (global.params.symdebug && vd->nestedrefs.dim == 0)
       gIR->DBuilder.EmitLocalVariable(irparam->value, vd, paramType);
   }
 }
