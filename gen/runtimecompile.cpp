@@ -62,6 +62,12 @@ void enumOperands(const llvm::User& usr, F&& handler) {
 template<typename F>
 void enumFuncSymbols(llvm::Function* fun, F&& handler) {
   assert(nullptr != fun);
+  if (fun->hasPersonalityFn()) {
+    if (auto personality = llvm::dyn_cast<llvm::GlobalValue>(fun->getPersonalityFn())) {
+      handler(personality);
+    }
+  }
+
   for (auto&& bb: *fun) {
     for (auto&& instr: bb) {
       enumOperands(instr, std::forward<F>(handler));
