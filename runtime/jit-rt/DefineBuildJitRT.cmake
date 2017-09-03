@@ -1,5 +1,5 @@
 if(LDC_RUNTIME_COMPILE)
-    find_package(LLVM REQUIRED CONFIG)
+    find_package(LLVM 3.9 REQUIRED support core irreader executionengine passes target nativecodegen)
     file(GLOB LDC_JITRT_D ${JITRT_DIR}/d/ldc/*.d)
 
     # Choose the correct subfolder depending on the LLVM version
@@ -48,8 +48,7 @@ if(LDC_RUNTIME_COMPILE)
             LINK_FLAGS                  "${ld_flags} ${JITRT_EXTRA_LDFLAGS}"
             )
 
-        llvm_map_components_to_libnames(llvm_libs support core irreader executionengine passes target nativecodegen)
-        target_link_libraries(ldc-jit-rt-so${target_suffix} ${llvm_libs})
+        target_link_libraries(ldc-jit-rt-so${target_suffix} ${LLVM_LIBRARIES})
 
         set(jitrt_d_o "")
         set(jitrt_d_bc "")
