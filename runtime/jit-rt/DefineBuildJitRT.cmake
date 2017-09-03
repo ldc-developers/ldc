@@ -12,7 +12,7 @@ if(LDC_RUNTIME_COMPILE)
         set(JITRT_EXTRA_FLAGS "/Zl")
 
     else()
-        set(JITRT_EXTRA_FLAGS "-fPIC -O3")
+        set(JITRT_EXTRA_FLAGS "-fPIC -O3 -std=c++11")
     endif()
 
     # Sets up the targets for building the D-source jit-rt object files,
@@ -63,7 +63,7 @@ if(LDC_RUNTIME_COMPILE)
             ARCHIVE_OUTPUT_DIRECTORY    ${output_path}
             LIBRARY_OUTPUT_DIRECTORY    ${output_path}
             RUNTIME_OUTPUT_DIRECTORY    ${output_path}
-            COMPILE_FLAGS               "${c_flags} ${JITRT_EXTRA_FLAGS} /Zl"
+            COMPILE_FLAGS               "${c_flags} ${JITRT_EXTRA_FLAGS}"
             LINK_FLAGS                  "${ld_flags} ${JITRT_EXTRA_LDFLAGS}"
             )
 

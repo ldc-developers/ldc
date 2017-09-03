@@ -159,20 +159,20 @@ void fixupRtThunks(llvm::Module &newModule,
   assert(objectsFixed = thunk2func.size());
 }
 
-void hideExternalSymbols(llvm::Module &newModule, const GlobalValsMap &filter) {
-  std::set<std::string> externalSymbols;
-  for (auto&& val: filter) {
-    if(GlobalValVisibility::External == val.second) {
-      externalSymbols.emplace(val.first->getName());
-    }
-  }
-  for (auto& obj: newModule.global_objects()) {
-    if ((llvm::GlobalValue::ExternalLinkage == obj.getLinkage()) &&
-        (!contains(externalSymbols, obj.getName()))) {
-      obj.setLinkage(llvm::GlobalValue::InternalLinkage);
-    }
-  }
-}
+//void hideExternalSymbols(llvm::Module &newModule, const GlobalValsMap &filter) {
+//  std::set<std::string> externalSymbols;
+//  for (auto&& val: filter) {
+//    if(GlobalValVisibility::External == val.second) {
+//      externalSymbols.emplace(val.first->getName());
+//    }
+//  }
+//  for (auto& obj: newModule.global_objects()) {
+//    if ((llvm::GlobalValue::ExternalLinkage == obj.getLinkage()) &&
+//        (!contains(externalSymbols, obj.getName()))) {
+//      obj.setLinkage(llvm::GlobalValue::InternalLinkage);
+//    }
+//  }
+//}
 
 llvm::Constant *getArrayPtr(llvm::Constant *array) {
   assert(nullptr != array);
@@ -242,24 +242,24 @@ llvm::Constant *createStringInitializer(llvm::Module &mod,
         llvm::Type::getInt8PtrTy(mod.getContext()));
 }
 
-void createStaticString(llvm::Module& mod,
-                        llvm::GlobalVariable* var,
-                        llvm::GlobalVariable* varLen, //can be null
-                        llvm::StringRef str) {
-  assert(nullptr != var);
-  const auto dataLen = str.size() + 1;
-  auto gvar = new llvm::GlobalVariable(
-                mod,
-                llvm::ArrayType::get(llvm::Type::getInt8Ty(mod.getContext()), dataLen),
-                true,
-                llvm::GlobalValue::InternalLinkage,
-                llvm::ConstantDataArray::getString(mod.getContext(), str, true),
-                ".str");
-  var->setInitializer(getArrayPtr(gvar));
-  if (nullptr != varLen) {
-    varLen->setInitializer(llvm::ConstantInt::get(mod.getContext(), APInt(32, dataLen)));
-  }
-}
+//void createStaticString(llvm::Module& mod,
+//                        llvm::GlobalVariable* var,
+//                        llvm::GlobalVariable* varLen, //can be null
+//                        llvm::StringRef str) {
+//  assert(nullptr != var);
+//  const auto dataLen = str.size() + 1;
+//  auto gvar = new llvm::GlobalVariable(
+//                mod,
+//                llvm::ArrayType::get(llvm::Type::getInt8Ty(mod.getContext()), dataLen),
+//                true,
+//                llvm::GlobalValue::InternalLinkage,
+//                llvm::ConstantDataArray::getString(mod.getContext(), str, true),
+//                ".str");
+//  var->setInitializer(getArrayPtr(gvar));
+//  if (nullptr != varLen) {
+//    varLen->setInitializer(llvm::ConstantInt::get(mod.getContext(), APInt(32, dataLen)));
+//  }
+//}
 
 // struct RtCompileVarList
 // {
