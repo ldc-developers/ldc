@@ -618,6 +618,12 @@ else()
     if(MSVC)
         # Issue 1297 – set LDC's stack to 8 MiB like on Linux and Mac (default: 1 MiB).
         list(APPEND LDC_TRANSLATED_LINKER_FLAGS "-L/STACK:8388608")
+        # VS 2017+: Use undocumented /NOOPTTLS MS linker switch to keep on emitting
+        # a .tls section. Required for older host druntime versions, otherwise the
+        # GC TLS ranges are garbage starting with VS 2017 Update 15.3.
+        if(MSVC_VERSION GREATER 1900) # VS 2017+
+            list(APPEND LDC_TRANSLATED_LINKER_FLAGS "-L/NOOPTTLS")
+        endif()
     endif()
 endif()
 
