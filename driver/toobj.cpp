@@ -112,6 +112,26 @@ static void assemble(const std::string &asmpath, const std::string &objpath) {
   }
 }
 
+static void compileWithLLC(const std::string &path, const std::string &objpath,
+                            const ComputeBackend::Type cb)
+{
+  std::vector<std::string> args;
+    
+  if (cb == ComputeBackend::SPIRV)
+    args.push_back("-filetype=obj");
+  else if (cb == ComputeBackend::NVPTX)
+    args.push_back("-filetype=asm");
+    
+  args.push_back("-o=" + objpath);
+  args.push_back(path);
+
+  int R = executeToolAndWait(getLLC(), args, global.params.verbose);
+  if (R) {
+    error(Loc(), "Error while invoking llc.");
+    fatal();
+  }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 namespace {
@@ -292,6 +312,7 @@ void writeModule(llvm::Module *m, const char *filename) {
   const bool doLTO = shouldDoLTO(m);
   const bool outputObj = shouldOutputObjectFile();
   const bool assembleExternally = shouldAssembleExternally();
+  const ComputeBackend::Type cb = getComputeTargetType(m);
 
   // Use cached object code if possible.
   // TODO: combine LDC's cache and LTO (the advantage is skipping the IR
@@ -342,6 +363,9 @@ void writeModule(llvm::Module *m, const char *filename) {
     return buffer.str();
   };
 
+  if (cb != ComputeBackend::None) {
+    goto LoutputDCompute;
+  }
   // write LLVM bitcode
   if (global.params.output_bc || (doLTO && outputObj)) {
     std::string bcpath =
@@ -382,6 +406,8 @@ void writeModule(llvm::Module *m, const char *filename) {
 
   // write LLVM IR
   if (global.params.output_ll) {
+    LoutputDCompute:
+
     const auto llpath = replaceExtensionWith(global.ll_ext);
     Logger::println("Writing LLVM IR to: %s\n", llpath.c_str());
     std::error_code errinfo;
@@ -393,6 +419,9 @@ void writeModule(llvm::Module *m, const char *filename) {
     }
     AssemblyAnnotator annotator;
     m->print(aos, &annotator);
+    if (cb != ComputeBackend::None) {
+      compileWithLLC(llpath,filename,cb);
+    }
   }
 
   // write native assembly

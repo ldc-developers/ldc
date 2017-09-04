@@ -26,6 +26,9 @@ static llvm::cl::opt<std::string>
     gcc("gcc", llvm::cl::desc("GCC to use for assembling and linking"),
         llvm::cl::Hidden, llvm::cl::ZeroOrMore);
 
+static llvm::cl::opt<std::string>
+    llc("llc", llvm::cl::desc("LLC to use for dcompute (workaround for #2307)"),
+    llvm::cl::ZeroOrMore);
 //////////////////////////////////////////////////////////////////////////////
 
 static std::string findProgramByName(llvm::StringRef name) {
@@ -71,6 +74,9 @@ std::string getGcc() {
 #endif
 }
 
+std::string getLLC() {
+    return getProgram("llc",&llc);
+}
 ////////////////////////////////////////////////////////////////////////////////
 
 void appendTargetArgsForGcc(std::vector<std::string> &args) {
