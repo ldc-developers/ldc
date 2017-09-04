@@ -133,11 +133,14 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     Logger::cout() << "Addr: " << *val << '\n';
     Logger::cout() << "of type: " << *val->getType() << '\n';
   }
-  const bool isRefOrOut = vd->isRef() || vd->isOut();
   if (isSpecialRefVar(vd)) {
-    dwarfExp.deref();
-    dwarfExp.deref();
-  } else if (byref || isRefOrOut) {
+    // Handled appropriately by makeVarDValue() and
+    // DIBuilder::EmitLocalVariable(), pass storage of pointer (reference
+    // lvalue).
+  } else if (byref || vd->isRef() || vd->isOut()) {
+    // makeVarDValue() and DIBuilder::EmitLocalVariable() expect the original
+    // variable's lvalue for ref/out params too (i.e., the reference rvalue),
+    // so always dereference.
     val = DtoAlignedLoad(val);
     dwarfExp.deref();
     IF_LOG {

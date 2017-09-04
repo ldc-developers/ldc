@@ -1067,7 +1067,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     // itself is constant. So we don't have to attach the debug information to a
     // memory location and can use llvm.dbg.value to set the constant pointer
     // for the DI reference.
-    useDbgValueIntrinsic = !storedInAlloca;
+    useDbgValueIntrinsic = !isSpecialRefVar(vd);
 #if LDC_LLVM_VER >= 308
     // Note: createReferenceType expects the size to be the size of a pointer,
     // not the size of the type the reference refers to.

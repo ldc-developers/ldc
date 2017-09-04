@@ -115,12 +115,17 @@ public:
 
   /// \brief Emits all things necessary for making debug info for a local
   /// variable vd.
-  /// \param ll       LL lvalue of the variable.
+  /// \param ll       LL value which, in combination with `addr`, yields the
+  /// storage/lvalue of the variable (not treating ref/out params as special
+  /// case; what's needed is the lvalue of the original variable).
+  /// For special-ref loop variables, specify the lvalue of the reference/
+  /// pointer.
   /// \param vd       Variable declaration to emit debug info for.
   /// \param type     Type of variable if different from vd->type
   /// \param isThisPtr Variable is hidden this pointer
   /// \param forceAsLocal Emit as local even if the variable is a parameter
-  /// \param addr     An array of complex address operations.
+  /// \param addr     An array of complex address operations encoding a DWARF
+  /// expression.
   void
   EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd, Type *type = nullptr,
                     bool isThisPtr = false, bool forceAsLocal = false,
