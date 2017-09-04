@@ -34,6 +34,14 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
+#ifdef LDC_WITH_POLLY
+namespace polly {
+  void registerPollyPasses(llvm::legacy::PassManagerBase &PM);
+}
+#include "polly/LinkAllPasses.h"
+#include "polly/CodeGen/CodegenCleanup.h"
+#endif
+
 extern llvm::TargetMachine *gTargetMachine;
 using namespace llvm;
 
@@ -225,6 +233,19 @@ static void addPGOPasses(legacy::PassManagerBase &mpm, unsigned optLevel) {
 #endif
 }
 
+static void addPollyPasses(const PassManagerBuilder &Builder,
+                           legacy::PassManagerBase &PM) {
+#ifdef LDC_WITH_POLLY
+    // Enable at -O4 as a hack for not yet having a CLO for it.
+  if (Builder.OptLevel > 3) {
+    PM.add(createInstructionCombiningPass());
+    PM.add(polly::createCodePreparationPass());
+    polly::registerPollyPasses(PM);
+    PM.add(polly::createCodegenCleanupPass());
+  }
+#endif
+}
+
 /**
  * Adds a set of optimization passes to the given module/function pass
  * managers based on the given optimization and size reduction levels.
@@ -279,6 +300,11 @@ static void addOptimizationPasses(legacy::PassManagerBase &mpm,
   // When #pragma vectorize is on for SLP, do the same as above
   builder.SLPVectorize =
       disableSLPVectorization ? false : optLevel > 1 && sizeLevel < 2;
+
+  // EP_ScalarOptimizerLate is a guess. TODO: find out where in the
+  // pipeline to put this. Maybe this should be prior to loop opts?
+  builder.addExtension(PassManagerBuilder::EP_ScalarOptimizerLate,
+                       addPollyPasses);
 
   if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
     builder.addExtension(PassManagerBuilder::EP_OptimizerLast,

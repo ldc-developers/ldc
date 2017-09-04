@@ -50,6 +50,11 @@
 #include "llvm/Target/TargetOptions.h"
 #include <iostream>
 
+#ifdef LDC_WITH_POLLY
+namespace polly {
+  extern llvm::StringRef PollySkipFnAttr;
+}
+#endif
 llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
                                     Type *nesttype, bool isMain, bool isCtor,
                                     bool isIntrinsic, bool hasSel) {
@@ -565,6 +570,13 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   // by UDAs.
   applyTargetMachineAttributes(*func, *gTargetMachine);
   applyFuncDeclUDAs(fdecl, irFunc);
+    
+#ifdef LDC_WITH_POLLY
+  // Polly is 'on by default' so add the skip attribute to anything not
+  // marked @polly
+  if (!hasPollyAttr(fdecl))
+    func->addFnAttr(polly::PollySkipFnAttr);
+#endif
 
   // main
   if (fdecl->isMain()) {
