@@ -602,7 +602,7 @@ macro(build_all_runtime_variants d_flags c_flags ld_flags path_suffix outlist_ta
         set_common_library_properties(ldc-profile-rt${target_suffix})
     endif()
 
-    build_jit_runtime ("${d_flags}" "${c_flags}" "${ld_flags}" "${path_suffix}" ${outlist_targets})
+    build_jit_runtime ("${d_flags};${D_FLAGS};${D_FLAGS_RELEASE}" "${c_flags}" "${ld_flags}" "${path_suffix}" ${outlist_targets})
 endmacro()
 
 
