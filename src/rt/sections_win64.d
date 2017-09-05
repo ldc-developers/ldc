@@ -12,8 +12,8 @@
 
 module rt.sections_win64;
 
-version (LDC) {} else
-version(CRuntime_Microsoft):
+// LDC: changed from `version(CRuntime_Microsoft):` to include MinGW as well
+version(Windows):
 
 // debug = PRINTF;
 debug(PRINTF) import core.stdc.stdio;
@@ -44,6 +44,7 @@ struct SectionGroup
         return _moduleGroup;
     }
 
+    version(LDC) {} else
     version(Win64)
     @property immutable(FuncTable)[] ehTables() const
     {
@@ -161,10 +162,25 @@ void scanTLSRanges(void[] rng, scope void delegate(void* pbeg, void* pend) nothr
 private:
 __gshared SectionGroup _sections;
 
-extern(C)
+version(LDC)
 {
-    extern __gshared void* _minfo_beg;
-    extern __gshared void* _minfo_end;
+    // This linked list is created by a compiler generated function inserted
+    // into the .ctor list by the compiler.
+    struct ModuleReference
+    {
+        ModuleReference* next;
+        immutable(ModuleInfo)* mod;
+    }
+
+    extern(C) __gshared ModuleReference* _Dmodule_ref; // start of linked list
+}
+else
+{
+    extern(C)
+    {
+        extern __gshared void* _minfo_beg;
+        extern __gshared void* _minfo_end;
+    }
 }
 
 immutable(ModuleInfo*)[] getModuleInfos() nothrow @nogc
@@ -175,6 +191,27 @@ out (result)
 }
 body
 {
+  version(LDC)
+  {
+    import core.stdc.stdlib : malloc;
+
+    size_t len = 0;
+    for (auto mr = _Dmodule_ref; mr; mr = mr.next)
+        len++;
+
+    auto result = (cast(immutable(ModuleInfo)**)malloc(len * size_t.sizeof))[0 .. len];
+
+    auto tip = _Dmodule_ref;
+    foreach (ref r; result)
+    {
+        r = tip.mod;
+        tip = tip.next;
+    }
+
+    return cast(immutable)result;
+  }
+  else
+  {
     auto m = (cast(immutable(ModuleInfo*)*)&_minfo_beg)[1 .. &_minfo_end - &_minfo_beg];
     /* Because of alignment inserted by the linker, various null pointers
      * are there. We need to filter them out.
@@ -197,6 +234,7 @@ body
         if (*p !is null) result[cnt++] = *p;
 
     return cast(immutable)result;
+  }
 }
 
 extern(C)
