@@ -1,5 +1,5 @@
 if(LDC_RUNTIME_COMPILE)
-    find_package(LLVM 3.9 REQUIRED support core irreader executionengine passes target nativecodegen)
+    find_package(LLVM 3.7 REQUIRED support core irreader executionengine passes target nativecodegen)
     file(GLOB LDC_JITRT_D ${JITRT_DIR}/d/ldc/*.d)
 
     # Choose the correct subfolder depending on the LLVM version
