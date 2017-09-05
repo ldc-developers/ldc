@@ -14,7 +14,7 @@ skip_tags: true
 environment:
   matrix:
     - APPVEYOR_JOB_ARCH:   x64
-      APPVEYOR_BUILD_WORKER_IMAGE: Previous Visual Studio 2017
+      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       D_COMPILER:          ldc
     - APPVEYOR_JOB_ARCH:   x86
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
