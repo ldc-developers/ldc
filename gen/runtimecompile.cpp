@@ -2,7 +2,7 @@
 
 #if defined(LDC_RUNTIME_COMPILE)
 
-#include "globals.h"
+#include "driver/cl_options.h"
 
 #include "gen/irstate.h"
 #include "gen/llvm.h"
@@ -630,7 +630,7 @@ void declareRuntimeCompiledFunction(IRState *irs, IrFunction *func) {
   assert(nullptr != irs);
   assert(nullptr != func);
   assert(nullptr != func->getLLVMFunc());
-  if (!global.params.enableRuntimeCompile) {
+  if (!opts::enableRuntimeCompile) {
     return;
   }
   auto srcFunc = func->getLLVMFunc();
@@ -647,7 +647,7 @@ void defineRuntimeCompiledFunction(IRState *irs, IrFunction *func)
   assert(nullptr != func);
   assert(nullptr != func->getLLVMFunc());
   assert(nullptr != func->rtCompileFunc);
-  if (!global.params.enableRuntimeCompile) {
+  if (!opts::enableRuntimeCompile) {
     return;
   }
   auto srcFunc = func->getLLVMFunc();
@@ -670,7 +670,7 @@ void addRuntimeCompiledVar(IRState *irs, IrGlobal *var) {
   assert(nullptr != var);
   assert(nullptr != var->value);
   assert(nullptr != var->V);
-  if (!global.params.enableRuntimeCompile) {
+  if (!opts::enableRuntimeCompile) {
     return;
   }
 

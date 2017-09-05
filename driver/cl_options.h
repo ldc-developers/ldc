@@ -125,5 +125,9 @@ extern cl::opt<std::string> saveOptimizationRecord;
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
 extern cl::list<std::string> dcomputeTargets;
 #endif
+
+#if defined(LDC_RUNTIME_COMPILE)
+extern cl::opt<bool> enableRuntimeCompile;
+#endif
 }
 #endif

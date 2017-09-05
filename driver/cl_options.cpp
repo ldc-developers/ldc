@@ -522,10 +522,9 @@ cl::list<std::string>
 #endif
 
 #if defined(LDC_RUNTIME_COMPILE)
-static cl::opt<bool, true> enableRuntimeCompile(
+cl::opt<bool> enableRuntimeCompile(
     "enable-runtime-compile",
     cl::desc("Enable runtime compilation"),
-    cl::location(global.params.enableRuntimeCompile),
     cl::init(false));
 #endif
 

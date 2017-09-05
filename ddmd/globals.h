@@ -234,8 +234,6 @@ struct Param
     uint32_t hashThreshold; // MD5 hash symbols larger than this threshold (0 = no hashing)
 
     bool outputSourceLocations; // if true, output line tables.
-
-    bool enableRuntimeCompile; // Enable dynamic compilation
 #endif
 };
 
