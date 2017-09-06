@@ -601,8 +601,6 @@ macro(build_all_runtime_variants d_flags c_flags ld_flags path_suffix outlist_ta
         get_target_suffix("" "${path_suffix}" target_suffix)
         set_common_library_properties(ldc-profile-rt${target_suffix})
     endif()
-
-    build_jit_runtime ("${d_flags};${D_FLAGS};${D_FLAGS_RELEASE}" "${c_flags}" "${ld_flags}" "${path_suffix}" ${outlist_targets})
 endmacro()
 
 
@@ -626,6 +624,9 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
     set(libtargets)
     build_all_runtime_variants("" "${RT_CFLAGS}" "${LD_FLAGS}" "${hostsuffix}" libtargets)
     build_all_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}" libtargets)
+
+    # Do not build multilib version of jit runtime
+    build_jit_runtime ("${D_FLAGS};${D_FLAGS_RELEASE}" "${RT_CFLAGS}" "${LD_FLAGS}" "${hostsuffix}" libtargets)
 
     # KLUDGE: Cannot use `$<TARGET_LINKER_FILE:target>` in custom command.
     # Set up the list of generated libs (without 'lib' prefix) to be merged manually.
@@ -665,6 +666,9 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
 else()
     set(libs_to_install)
     build_all_runtime_variants("" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libs_to_install)
+
+    # Do not build multilib version of jit runtime
+    build_jit_runtime ("${D_FLAGS};${D_FLAGS_RELEASE}" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libs_to_install)
 
     # don't add multilib targets to libs_to_install
     if(MULTILIB)
