@@ -667,8 +667,9 @@ else()
     set(libs_to_install)
     build_all_runtime_variants("" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libs_to_install)
 
+    set(libs_to_install_no_multilib)
     # Do not build multilib version of jit runtime
-    build_jit_runtime ("${D_FLAGS};${D_FLAGS_RELEASE}" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libs_to_install)
+    build_jit_runtime ("${D_FLAGS};${D_FLAGS_RELEASE}" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libs_to_install_no_multilib)
 
     # don't add multilib targets to libs_to_install
     if(MULTILIB)
@@ -682,6 +683,11 @@ else()
             install(TARGETS     ${libname}_${MULTILIB_SUFFIX}
                     DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX})
         endif()
+    endforeach()
+
+    foreach(libname ${libs_to_install_no_multilib})
+        install(TARGETS     ${libname}
+                DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
     endforeach()
 endif()
 
