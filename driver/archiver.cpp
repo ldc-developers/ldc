@@ -201,10 +201,17 @@ int performWriteOperation(object::Archive *OldArchive,
       writeArchive(ArchiveName, NewMembers, Symtab, Kind, Deterministic, Thin,
                    std::move(OldArchiveBuf));
 
+#if LDC_LLVM_VER >= 600
+  if (Result) {
+    fail("error writing '" + ArchiveName + "': " + Result.message());
+    return 1;
+  }
+#else
   if (Result.second) {
     fail(Result.second, Result.first);
     return 1;
   }
+#endif
 
   return 0;
 }
