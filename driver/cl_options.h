@@ -128,6 +128,9 @@ extern cl::list<std::string> dcomputeTargets;
 
 #if defined(LDC_RUNTIME_COMPILE)
 extern cl::opt<bool> enableRuntimeCompile;
+inline bool isRuntimeCompileEnabled() { return enableRuntimeCompile; }
+#else
+inline bool isRuntimeCompileEnabled() { return false; }
 #endif
 }
 #endif

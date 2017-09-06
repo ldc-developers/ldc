@@ -340,12 +340,10 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
     args.push_back("-lldc-profile-rt");
   }
 
-#if defined(LDC_RUNTIME_COMPILE)
-  if (opts::enableRuntimeCompile) {
+  if (opts::isRuntimeCompileEnabled()) {
     args.push_back("-lldc-jit-rt");
     args.push_back("-lldc-jit");
   }
-#endif
 
   // user libs
   for (auto libfile : *global.params.libfiles) {

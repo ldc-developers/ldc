@@ -944,11 +944,9 @@ void registerPredefinedVersions() {
     VersionCondition::addPredefinedGlobalIdent("D_ObjectiveC");
   }
 
-#if defined(LDC_RUNTIME_COMPILE)
-  if (opts::enableRuntimeCompile) {
+  if (opts::isRuntimeCompileEnabled()) {
     VersionCondition::addPredefinedGlobalIdent("LDC_RuntimeCompilation");
   }
-#endif
 
   // Define sanitizer versions.
   if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
