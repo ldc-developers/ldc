@@ -56,13 +56,16 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     return makeVarDValue(astype, vd);
   }
 
+  ldc::DwarfExpression<8> dwarfExp;
+
   // get the nested context
   LLValue *ctx = nullptr;
-  bool skipDIDeclaration = false;
+  LLValue *diStorage = nullptr;
   auto currentCtx = gIR->funcGen().nestedVar;
   if (currentCtx) {
     Logger::println("Using own nested context of current function");
     ctx = currentCtx;
+    diStorage = ctx;
   } else if (irfunc->decl->isMember2()) {
     Logger::println(
         "Current function is member of nested class, loading vthis");
@@ -73,11 +76,12 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
       val = DtoLoad(val);
     }
     ctx = DtoLoad(DtoGEPi(val, 0, getVthisIdx(cd), ".vthis"));
-    skipDIDeclaration = true;
+    // skip the DI declaration by leaving diStorage = null
   } else {
     Logger::println("Regular nested function, loading context arg");
-
     ctx = DtoLoad(irfunc->nestArg);
+    diStorage = irfunc->nestArg;
+    dwarfExp.deref();
   }
 
   assert(ctx);
@@ -111,6 +115,8 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
   } else {
     // Load frame pointer and index that...
     IF_LOG Logger::println("Lower depth");
+    dwarfExp.offset(val, vardepth);
+    dwarfExp.deref();
     val = DtoGEPi(val, 0, vardepth);
     IF_LOG Logger::cout() << "Frame index: " << *val << '\n';
     val = DtoAlignedLoad(
@@ -121,33 +127,31 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
   const auto idx = irLocal->nestedIndex;
   assert(idx != -1 && "Nested context not yet resolved for variable.");
 
-  LLSmallVector<int64_t, 2> dwarfAddrOps;
-
-  LLValue *gep = DtoGEPi(val, 0, idx, vd->toChars());
-  val = gep;
+  dwarfExp.offset(val, idx);
+  val = DtoGEPi(val, 0, idx, vd->toChars());
   IF_LOG {
     Logger::cout() << "Addr: " << *val << '\n';
     Logger::cout() << "of type: " << *val->getType() << '\n';
   }
-  const bool isRefOrOut = vd->isRef() || vd->isOut();
-  if (!isSpecialRefVar(vd) && (byref || isRefOrOut)) {
+  if (isSpecialRefVar(vd)) {
+    // Handled appropriately by makeVarDValue() and
+    // DIBuilder::EmitLocalVariable(), pass storage of pointer (reference
+    // lvalue).
+  } else if (byref || vd->isRef() || vd->isOut()) {
+    // makeVarDValue() and DIBuilder::EmitLocalVariable() expect the original
+    // variable's lvalue for ref/out params too (i.e., the reference rvalue),
+    // so always dereference.
     val = DtoAlignedLoad(val);
-    // ref/out variables get a reference-debuginfo-type in
-    // DIBuilder::EmitLocalVariable()
-    if (!isRefOrOut)
-      gIR->DBuilder.OpDeref(dwarfAddrOps);
+    dwarfExp.deref();
     IF_LOG {
       Logger::cout() << "Was byref, now: " << *irLocal->value << '\n';
       Logger::cout() << "of type: " << *irLocal->value->getType() << '\n';
     }
   }
 
-  if (!skipDIDeclaration && global.params.symdebug) {
-    // Because we are passing a GEP instead of an alloca to
-    // llvm.dbg.declare, we have to make the address dereference explicit.
-    gIR->DBuilder.OpDeref(dwarfAddrOps);
-    gIR->DBuilder.EmitLocalVariable(gep, vd, nullptr, false, true,
-                                    dwarfAddrOps);
+  if (diStorage && global.params.symdebug) {
+    gIR->DBuilder.EmitLocalVariable(diStorage, vd, nullptr, false,
+                                    /*forceAsLocal=*/true, dwarfExp);
   }
 
   return makeVarDValue(astype, vd, val);
@@ -471,24 +475,27 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
 
       IrLocal *irLocal = getIrLocal(vd);
       LLValue *gep = DtoGEPi(frame, 0, irLocal->nestedIndex, vd->toChars());
+      ldc::DwarfExpression<4> dwarfExp;
+      dwarfExp.offset(frame, irLocal->nestedIndex);
+
       if (vd->isParameter()) {
         IF_LOG Logger::println("nested param: %s", vd->toChars());
         LOG_SCOPE
-        IrParameter *parm = getIrParameter(vd);
-        assert(parm->value);
-        assert(parm->value->getType()->isPointerTy());
+        assert(irLocal->value);
+        assert(irLocal->value->getType()->isPointerTy());
 
         if (vd->isRef() || vd->isOut()) {
           Logger::println("Captured by reference, copying pointer to nested frame");
-          DtoAlignedStore(parm->value, gep);
+          DtoAlignedStore(irLocal->value, gep);
+          dwarfExp.deref();
         } else {
           Logger::println("Copying to nested frame");
           // The parameter value is an alloca'd stack slot.
           // Copy to the nesting frame and leave the alloca for
           // the optimizers to clean up.
-          DtoMemCpy(gep, parm->value);
-          gep->takeName(parm->value);
-          parm->value = gep;
+          DtoMemCpy(gep, irLocal->value);
+          gep->takeName(irLocal->value);
+          irLocal->value = gep;
         }
       } else {
         IF_LOG Logger::println("nested var:   %s", vd->toChars());
@@ -497,11 +504,8 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
       }
 
       if (global.params.symdebug) {
-        LLSmallVector<int64_t, 2> addr;
-        // Because we are passing a GEP instead of an alloca to
-        // llvm.dbg.declare, we have to make the address dereference explicit.
-        gIR->DBuilder.OpDeref(addr);
-        gIR->DBuilder.EmitLocalVariable(gep, vd, nullptr, false, false, addr);
+        gIR->DBuilder.EmitLocalVariable(frame, vd, nullptr, false, false,
+                                        dwarfExp);
       }
     }
   }

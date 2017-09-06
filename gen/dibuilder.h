@@ -115,12 +115,17 @@ public:
 
   /// \brief Emits all things necessary for making debug info for a local
   /// variable vd.
-  /// \param ll       LL lvalue of the variable.
+  /// \param ll       LL value which, in combination with `addr`, yields the
+  /// storage/lvalue of the variable (not treating ref/out params as special
+  /// case; what's needed is the lvalue of the original variable).
+  /// For special-ref loop variables, specify the lvalue of the reference/
+  /// pointer.
   /// \param vd       Variable declaration to emit debug info for.
   /// \param type     Type of variable if different from vd->type
   /// \param isThisPtr Variable is hidden this pointer
   /// \param forceAsLocal Emit as local even if the variable is a parameter
-  /// \param addr     An array of complex address operations.
+  /// \param addr     An array of complex address operations encoding a DWARF
+  /// expression.
   void
   EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd, Type *type = nullptr,
                     bool isThisPtr = false, bool forceAsLocal = false,
@@ -139,8 +144,10 @@ private:
   llvm::LLVMContext &getContext();
   Module *getDefinedModule(Dsymbol *s);
   DIScope GetCurrentScope();
-  void Declare(const Loc &loc, llvm::Value *var, ldc::DILocalVariable divar,
+  void Declare(const Loc &loc, llvm::Value *storage, ldc::DILocalVariable divar,
                ldc::DIExpression diexpr);
+  void SetValue(const Loc &loc, llvm::Value *value, ldc::DILocalVariable divar,
+                ldc::DIExpression diexpr);
   void AddFields(AggregateDeclaration *sd, ldc::DIFile file,
                  llvm::SmallVector<llvm::Metadata *, 16> &elems);
   DIFile CreateFile(Loc &loc);
@@ -164,36 +171,43 @@ private:
 
   bool mustEmitFullDebugInfo();
   bool mustEmitLocationsDebugInfo();
+};
+
+template <int N> class DwarfExpression {
+  llvm::SmallVector<int64_t, N> ops;
 
 public:
-  template <typename T>
-  void OpOffset(T &addr, llvm::StructType *type, int index) {
-    if (!global.params.symdebug) {
-      return;
-    }
+  operator llvm::ArrayRef<int64_t>() const { return ops; }
 
-    uint64_t offset =
-        gDataLayout->getStructLayout(type)->getElementOffset(index);
-    addr.push_back(llvm::dwarf::DW_OP_plus);
-    addr.push_back(offset);
+  void deref() { ops.push_back(llvm::dwarf::DW_OP_deref); }
+
+  void offset(llvm::StructType *structType, unsigned index) {
+    if (index == 0 || !global.params.symdebug)
+      return;
+
+    const auto structLayout = gDataLayout->getStructLayout(structType);
+    if (const auto offset = structLayout->getElementOffset(index)) {
+#if LDC_LLVM_VER >= 500
+      ops.push_back(llvm::dwarf::DW_OP_plus_uconst);
+      ops.push_back(offset);
+#else
+      // although invalid according to the DWARF standard, this is what LLVM < 5
+      // expects
+      ops.push_back(llvm::dwarf::DW_OP_plus);
+      ops.push_back(offset);
+#endif
+    }
   }
 
-  template <typename T> void OpOffset(T &addr, llvm::Value *val, int index) {
-    if (!global.params.symdebug) {
+  void offset(llvm::Value *ptrToStruct, unsigned index) {
+    if (index == 0 || !global.params.symdebug)
       return;
-    }
 
-    llvm::StructType *type = isaStruct(val->getType()->getContainedType(0));
-    assert(type);
-    OpOffset(addr, type, index);
-  }
+    const auto structType =
+        isaStruct(ptrToStruct->getType()->getPointerElementType());
+    assert(structType);
 
-  template <typename T> void OpDeref(T &addr) {
-    if (!global.params.symdebug) {
-      return;
-    }
-
-    addr.push_back(llvm::dwarf::DW_OP_deref);
+    offset(structType, index);
   }
 };
 

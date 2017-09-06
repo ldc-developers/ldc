@@ -768,7 +768,9 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
       ++llArgIdx;
     }
 
-    if (global.params.symdebug)
+    // The debuginfos for captured params are handled later by
+    // DtoCreateNestedContext().
+    if (global.params.symdebug && vd->nestedrefs.dim == 0)
       gIR->DBuilder.EmitLocalVariable(irparam->value, vd, paramType);
   }
 }
@@ -1037,7 +1039,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     assert(getIrParameter(fd->vthis)->value == thisvar);
     getIrParameter(fd->vthis)->value = thismem;
 
-    gIR->DBuilder.EmitLocalVariable(thismem, fd->vthis, nullptr, true);
+    gIR->DBuilder.EmitLocalVariable(thismem, fd->vthis, nullptr,
+                                    /*isThisPtr=*/true);
   }
 
   // give the 'nestArg' parameter (an lvalue) storage
