@@ -1,3 +1,4 @@
+// REQUIRES: atleast_llvm500
 // REQUIRES: Windows
 // REQUIRES: cdb
 // RUN: %ldc -g -of=%t.exe %s
@@ -12,7 +13,7 @@
 void encloser(int arg0, ref int arg1)
 {
     int enc_n = 123;
-// CDB: bp `nested_cdb.d:15`
+// CDB: bp `nested_cdb.d:16`
 // CDB: g
 // CDB: dv /t
 // CHECK: int arg0 = 0n1
@@ -26,7 +27,7 @@ void encloser(int arg0, ref int arg1)
     void nested(int nes_i)
     {
         int blub = arg0 + arg1 + enc_n;
-// CDB: bp `nested_cdb.d:29`
+// CDB: bp `nested_cdb.d:30`
 // CDB: g
 // CDB: dv /t
 // CHECK: int arg0 = 0n1
@@ -35,7 +36,7 @@ void encloser(int arg0, ref int arg1)
 // CDB: ?? *arg1
 // CHECK: int 0n2
         arg0 = arg1 = enc_n = nes_i;
-// CDB: bp `nested_cdb.d:38`
+// CDB: bp `nested_cdb.d:39`
 // CDB: g
 // CDB: dv /t
 // CHECK: int arg0 = 0n456
@@ -46,7 +47,7 @@ void encloser(int arg0, ref int arg1)
     }
 
     nested(456);
-// CDB: bp `nested_cdb.d:49`
+// CDB: bp `nested_cdb.d:50`
 // CDB: g
 // CDB: dv /t
 // CHECK: int arg0 = 0n456
