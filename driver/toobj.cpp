@@ -382,7 +382,6 @@ void writeModule(llvm::Module *m, const char *filename) {
 
   // write LLVM IR
   if (global.params.output_ll) {
-
     const auto llpath = replaceExtensionWith(global.ll_ext);
     Logger::println("Writing LLVM IR to: %s\n", llpath.c_str());
     std::error_code errinfo;
