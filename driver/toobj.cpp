@@ -112,25 +112,6 @@ static void assemble(const std::string &asmpath, const std::string &objpath) {
   }
 }
 
-static void compileWithLLC(const std::string &path, const std::string &objpath,
-                            const ComputeBackend::Type cb)
-{
-  std::vector<std::string> args;
-    
-  if (cb == ComputeBackend::SPIRV)
-    args.push_back("-filetype=obj");
-  else if (cb == ComputeBackend::NVPTX)
-    args.push_back("-filetype=asm");
-    
-  args.push_back("-o=" + objpath);
-  args.push_back(path);
-
-  int R = executeToolAndWait(getLLC(), args, global.params.verbose);
-  if (R) {
-    error(Loc(), "Error while invoking llc.");
-    fatal();
-  }
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -363,9 +344,7 @@ void writeModule(llvm::Module *m, const char *filename) {
     return buffer.str();
   };
 
-  if (cb != ComputeBackend::None) {
-    goto LoutputDCompute;
-  }
+
   // write LLVM bitcode
   if (global.params.output_bc || (doLTO && outputObj)) {
     std::string bcpath =
@@ -406,7 +385,6 @@ void writeModule(llvm::Module *m, const char *filename) {
 
   // write LLVM IR
   if (global.params.output_ll) {
-    LoutputDCompute:
 
     const auto llpath = replaceExtensionWith(global.ll_ext);
     Logger::println("Writing LLVM IR to: %s\n", llpath.c_str());
@@ -419,8 +397,9 @@ void writeModule(llvm::Module *m, const char *filename) {
     }
     AssemblyAnnotator annotator;
     m->print(aos, &annotator);
-    if (cb != ComputeBackend::None) {
+    if (outputDCompute) {
       compileWithLLC(llpath,filename,cb);
+      return;
     }
   }
 

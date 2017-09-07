@@ -21,7 +21,7 @@
 #include "llvm/Support/CommandLine.h"
 
 std::string getGcc();
-std::string getLLC();
+
 void appendTargetArgsForGcc(std::vector<std::string> &args);
 
 std::string getProgram(const char *name,
