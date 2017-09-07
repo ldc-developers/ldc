@@ -129,16 +129,16 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     Logger::cout() << "Addr: " << *val << '\n';
     Logger::cout() << "of type: " << *val->getType() << '\n';
   }
+  const bool isRefOrOut = vd->isRef() || vd->isOut();
   if (isSpecialRefVar(vd)) {
-    // Handled appropriately by makeVarDValue() and
-    // DIBuilder::EmitLocalVariable(), pass storage of pointer (reference
-    // lvalue).
-  } else if (byref || vd->isRef() || vd->isOut()) {
-    // makeVarDValue() and DIBuilder::EmitLocalVariable() expect the original
-    // variable's lvalue for ref/out params too (i.e., the reference rvalue),
-    // so always dereference.
+    // Handled appropriately by makeVarDValue() and EmitLocalVariable(), pass
+    // storage of pointer (reference lvalue).
+  } else if (byref || isRefOrOut) {
     val = DtoAlignedLoad(val);
-    gIR->DBuilder.OpDeref(dwarfAddrOps);
+    // ref/out variables get a reference-debuginfo-type in EmitLocalVariable();
+    // pass the GEP as reference lvalue in that case.
+    if (!isRefOrOut)
+      gIR->DBuilder.OpDeref(dwarfAddrOps);
     IF_LOG {
       Logger::cout() << "Was byref, now: " << *irLocal->value << '\n';
       Logger::cout() << "of type: " << *irLocal->value->getType() << '\n';
@@ -146,8 +146,8 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
   }
 
   if (!skipDIDeclaration && global.params.symdebug) {
-    gIR->DBuilder.EmitLocalVariable(gep, vd, nullptr, false, true,
-                                    dwarfAddrOps);
+    gIR->DBuilder.EmitLocalVariable(gep, vd, nullptr, false,
+                                    /*forceAsLocal=*/true, false, dwarfAddrOps);
   }
 
   return makeVarDValue(astype, vd, val);
@@ -482,7 +482,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
         if (vd->isRef() || vd->isOut()) {
           Logger::println("Captured by reference, copying pointer to nested frame");
           DtoAlignedStore(parm->value, gep);
-          gIR->DBuilder.OpDeref(dwarfAddrOps);
+          // pass GEP as reference lvalue to EmitLocalVariable()
         } else {
           Logger::println("Copying to nested frame");
           // The parameter value is an alloca'd stack slot.
@@ -499,7 +499,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
       }
 
       if (global.params.symdebug) {
-        gIR->DBuilder.EmitLocalVariable(gep, vd, nullptr, false, false,
+        gIR->DBuilder.EmitLocalVariable(gep, vd, nullptr, false, false, false,
                                         dwarfAddrOps);
       }
     }

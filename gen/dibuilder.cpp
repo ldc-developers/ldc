@@ -1034,7 +1034,7 @@ void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
 
 void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
                                        Type *type, bool isThisPtr,
-                                       bool forceAsLocal,
+                                       bool forceAsLocal, bool isRefRVal,
                                        llvm::ArrayRef<int64_t> addr) {
   if (!mustEmitFullDebugInfo())
     return;
@@ -1054,16 +1054,21 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
   if (static_cast<llvm::MDNode *>(TD) == nullptr)
     return; // unsupported
 
+  const bool isRefOrOut = vd->isRef() || vd->isOut(); // incl. special-ref vars
+
+  // For MSVC x64 targets, declare params rewritten by ExplicitByvalRewrite as
+  // DI references, as if they were ref parameters.
+  const bool isPassedExplicitlyByval =
+      isTargetMSVCx64 && !isRefOrOut && isaArgument(ll) && addr.empty();
+
   bool useDbgValueIntrinsic = false;
-  if (vd->isRef() || vd->isOut() ||
-      // For MSVC x64 targets, declare params rewritten by ExplicitByvalRewrite
-      // as DI references, as if they were ref parameters.
-      (isTargetMSVCx64 && isaArgument(ll) && addr.empty())) {
+  if (isRefOrOut || isPassedExplicitlyByval) {
     // With the exception of special-ref loop variables, the reference/pointer
     // itself is constant. So we don't have to attach the debug information to a
     // memory location and can use llvm.dbg.value to set the constant pointer
     // for the DI reference.
-    useDbgValueIntrinsic = !isSpecialRefVar(vd);
+    useDbgValueIntrinsic =
+        isPassedExplicitlyByval || (!isSpecialRefVar(vd) && isRefRVal);
 #if LDC_LLVM_VER >= 308
     // Note: createReferenceType expects the size to be the size of a pointer,
     // not the size of the type the reference refers to.

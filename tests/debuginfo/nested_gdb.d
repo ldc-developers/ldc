@@ -12,7 +12,7 @@ void encloser(int arg0, ref int arg1)
 // GDB: p arg0
 // CHECK: $1 = 1
 // GDB: p arg1
-// no-CHECK: $2 = 2 (<optimized out>)
+// CHECK: $2 = (int &) @{{0x[0-9a-f]*}}: 2
 // GDB: p enc_n
 // CHECK: $3 = 123
     enc_n += arg1;
@@ -25,7 +25,7 @@ void encloser(int arg0, ref int arg1)
 // GDB: p arg0
 // CHECK: $4 = 1
 // GDB: p arg1
-// no-CHECK: $5 = 2 (<optimized out>)
+// CHECK: $5 = (int &) @{{0x[0-9a-f]*}}: 2
 // GDB: p enc_n
 // CHECK: $6 = 125
         arg0 = arg1 = enc_n = nes_i;
@@ -34,7 +34,7 @@ void encloser(int arg0, ref int arg1)
 // GDB: p arg0
 // CHECK: $7 = 456
 // GDB: p arg1
-// no-CHECK: $8 = 456 (<optimized out>)
+// CHECK: $8 = (int &) @{{0x[0-9a-f]*}}: 456
 // GDB: p enc_n
 // CHECK: $9 = 456
     }
@@ -45,7 +45,7 @@ void encloser(int arg0, ref int arg1)
 // GDB: p arg0
 // CHECK: $10 = 456
 // GDB: p arg1
-// no-CHECK: $11 = 456 (<optimized out>)
+// CHECK: $11 = (int &) @{{0x[0-9a-f]*}}: 456
 // GDB: p enc_n
 // CHECK: $12 = 456
 }

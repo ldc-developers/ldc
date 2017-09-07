@@ -16,35 +16,44 @@ void encloser(int arg0, ref int arg1)
 // CDB: g
 // CDB: dv /t
 // CHECK: int arg0 = 0n1
-// arg1 is missing
+// (cdb displays references as pointers)
+// CHECK-NEXT: int * arg1 = {{0x[0-9a-f`]*}}
 // CHECK-NEXT: int enc_n = 0n123
+// CDB: ?? *arg1
+// CHECK: int 0n2
     enc_n += arg1;
 
     void nested(int nes_i)
     {
         int blub = arg0 + arg1 + enc_n;
-// CDB: bp `nested_cdb.d:26`
+// CDB: bp `nested_cdb.d:29`
 // CDB: g
 // CDB: dv /t
 // CHECK: int arg0 = 0n1
-// arg1 is missing
+// CHECK-NEXT: int * arg1 = {{0x[0-9a-f`]*}}
 // CHECK-NEXT: int enc_n = 0n125
+// CDB: ?? *arg1
+// CHECK: int 0n2
         arg0 = arg1 = enc_n = nes_i;
-// CDB: bp `nested_cdb.d:33`
+// CDB: bp `nested_cdb.d:38`
 // CDB: g
 // CDB: dv /t
 // CHECK: int arg0 = 0n456
-// arg1 is missing
+// CHECK-NEXT: int * arg1 = {{0x[0-9a-f`]*}}
 // CHECK-NEXT: int enc_n = 0n456
+// CDB: ?? *arg1
+// CHECK: int 0n456
     }
 
     nested(456);
-// CDB: bp `nested_cdb.d:42`
+// CDB: bp `nested_cdb.d:49`
 // CDB: g
 // CDB: dv /t
 // CHECK: int arg0 = 0n456
-// arg1 is missing
+// CHECK-NEXT: int * arg1 = {{0x[0-9a-f`]*}}
 // CHECK-NEXT: int enc_n = 0n456
+// CDB: ?? *arg1
+// CHECK: int 0n456
 }
 
 void main()
