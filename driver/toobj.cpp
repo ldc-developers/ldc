@@ -112,7 +112,6 @@ static void assemble(const std::string &asmpath, const std::string &objpath) {
   }
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 
 namespace {
@@ -293,7 +292,6 @@ void writeModule(llvm::Module *m, const char *filename) {
   const bool doLTO = shouldDoLTO(m);
   const bool outputObj = shouldOutputObjectFile();
   const bool assembleExternally = shouldAssembleExternally();
-  const ComputeBackend::Type cb = getComputeTargetType(m);
 
   // Use cached object code if possible.
   // TODO: combine LDC's cache and LTO (the advantage is skipping the IR
@@ -343,7 +341,6 @@ void writeModule(llvm::Module *m, const char *filename) {
     llvm::sys::path::replace_extension(buffer, ext);
     return buffer.str();
   };
-
 
   // write LLVM bitcode
   if (global.params.output_bc || (doLTO && outputObj)) {
@@ -397,10 +394,6 @@ void writeModule(llvm::Module *m, const char *filename) {
     }
     AssemblyAnnotator annotator;
     m->print(aos, &annotator);
-    if (outputDCompute) {
-      compileWithLLC(llpath,filename,cb);
-      return;
-    }
   }
 
   // write native assembly
