@@ -1055,7 +1055,10 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     return; // unsupported
 
   bool useDbgValueIntrinsic = false;
-  if (vd->isRef() || vd->isOut()) {
+  if (vd->isRef() || vd->isOut() ||
+      // For MSVC x64 targets, declare params rewritten by ExplicitByvalRewrite
+      // as DI references, as if they were ref parameters.
+      (isTargetMSVCx64 && isaArgument(ll) && addr.empty())) {
     // With the exception of special-ref loop variables, the reference/pointer
     // itself is constant. So we don't have to attach the debug information to a
     // memory location and can use llvm.dbg.value to set the constant pointer
