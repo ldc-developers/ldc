@@ -33,8 +33,6 @@ set(MULTILIB              OFF                                 CACHE BOOL   "Buil
 set(BUILD_BC_LIBS         OFF                                 CACHE BOOL   "Build the runtime as LLVM bitcode libraries")
 if((NOT DEFINED INCLUDE_INSTALL_DIR) AND (NOT DEFINED CMAKE_INSTALL_PREFIX))
 	set(INCLUDE_INSTALL_DIR		"/usr/include/d")
-elseif((DEFINED INCLUDE_INSTALL_DIR) AND (NOT DEFINED CMAKE_INSTALL_PREFIX))
-	set(INCLUDE_INSTALL_DIR		${INCLUDE_INSTALL_DIR})
 elseif((NOT DEFINED INCLUDE_INSTALL_DIR) AND (DEFINED CMAKE_INSTALL_PREFIX))
 	set(INCLUDE_INSTALL_DIR		${CMAKE_INSTALL_PREFIX}/include/d)
 else()
