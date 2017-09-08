@@ -13,6 +13,7 @@
 #include "ddmd/scope.h"
 #include "driver/linker.h"
 #include "driver/toobj.h"
+#include "driver/cl_options.h"
 #include "gen/dcompute/target.h"
 #include "gen/llvmhelpers.h"
 #include "gen/runtime.h"
@@ -45,7 +46,7 @@ void DComputeTarget::writeModule() {
 
   std::string filename;
   llvm::raw_string_ostream os(filename);
-  os << "kernels_" << short_name << tversion << '_'
+  os << opts::dcomputeFilePrefix << '_' << short_name << tversion << '_'
      << (global.params.is64bit ? 64 : 32) << '.' << binSuffix;
 
   const char *path = FileName::combine(global.params.objdir, os.str().c_str());
