@@ -58,6 +58,8 @@ DComputeCodeGenManager::DComputeCodeGenManager(llvm::LLVMContext &c) : ctx(c) {
     targets.push_back(createComputeTarget(option));
   }
 #endif
+  oldGIR = gIR;
+  oldGTargetMachine = gTargetMachine;
 }
 
 void DComputeCodeGenManager::emit(Module *m) {
@@ -71,4 +73,9 @@ void DComputeCodeGenManager::writeModules() {
   for (auto &target : targets) {
     target->writeModule();
   }
+}
+
+DComputeCodeGenManager::~DComputeCodeGenManager() {
+  gIR = oldGIR;
+  gTargetMachine = oldGTargetMachine;
 }

@@ -124,6 +124,7 @@ extern cl::opt<std::string> saveOptimizationRecord;
 #endif
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
 extern cl::list<std::string> dcomputeTargets;
+extern cl::opt<std::string> dcomputeFilePrefix;
 #endif
 }
 #endif

@@ -13,6 +13,10 @@
 #include "gen/dcompute/target.h"
 #include "llvm/ADT/SmallVector.h"
 
+namespace llvm {
+  class TargetMachine;
+}
+
 // gets run on modules marked @compute
 // All @compute D modules are emitted into one LLVM module once per target.
 class DComputeCodeGenManager {
@@ -20,12 +24,14 @@ class DComputeCodeGenManager {
   llvm::LLVMContext &ctx;
   llvm::SmallVector<DComputeTarget *, 2> targets;
   DComputeTarget *createComputeTarget(const std::string &s);
-
+  IRState *oldGIR;
+  llvm::TargetMachine *oldGTargetMachine;
 public:
   void emit(Module *m);
   void writeModules();
 
   DComputeCodeGenManager(llvm::LLVMContext &c);
+  ~DComputeCodeGenManager();
 };
 
 #endif
