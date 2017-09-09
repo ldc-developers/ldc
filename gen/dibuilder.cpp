@@ -113,12 +113,26 @@ ldc::DIScope ldc::DIBuilder::GetCurrentScope() {
   return fn->diLexicalBlocks.top();
 }
 
-void ldc::DIBuilder::Declare(const Loc &loc, llvm::Value *var,
+// Sets the memory address for a debuginfo variable.
+void ldc::DIBuilder::Declare(const Loc &loc, llvm::Value *storage,
                              ldc::DILocalVariable divar,
                              ldc::DIExpression diexpr) {
   unsigned charnum = (loc.linnum ? loc.charnum : 0);
   auto debugLoc = llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope());
-  DBuilder.insertDeclare(var, divar, diexpr, debugLoc, IR->scopebb());
+  DBuilder.insertDeclare(storage, divar, diexpr, debugLoc, IR->scopebb());
+}
+
+// Sets the (current) value for a debuginfo variable.
+void ldc::DIBuilder::SetValue(const Loc &loc, llvm::Value *value,
+                              ldc::DILocalVariable divar,
+                              ldc::DIExpression diexpr) {
+  unsigned charnum = (loc.linnum ? loc.charnum : 0);
+  auto debugLoc = llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope());
+  DBuilder.insertDbgValueIntrinsic(value,
+#if LDC_LLVM_VER < 600
+                                   0,
+#endif
+                                   divar, diexpr, debugLoc, IR->scopebb());
 }
 
 ldc::DIFile ldc::DIBuilder::CreateFile(Loc &loc) {
@@ -1020,7 +1034,7 @@ void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
 
 void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
                                        Type *type, bool isThisPtr,
-                                       bool forceAsLocal,
+                                       bool forceAsLocal, bool isRefRVal,
                                        llvm::ArrayRef<int64_t> addr) {
   if (!mustEmitFullDebugInfo())
     return;
@@ -1040,12 +1054,28 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
   if (static_cast<llvm::MDNode *>(TD) == nullptr)
     return; // unsupported
 
-  if (vd->isRef() || vd->isOut()) {
+  const bool isRefOrOut = vd->isRef() || vd->isOut(); // incl. special-ref vars
+
+  // For MSVC x64 targets, declare params rewritten by ExplicitByvalRewrite as
+  // DI references, as if they were ref parameters.
+  const bool isPassedExplicitlyByval =
+      isTargetMSVCx64 && !isRefOrOut && isaArgument(ll) && addr.empty();
+
+  bool useDbgValueIntrinsic = false;
+  if (isRefOrOut || isPassedExplicitlyByval) {
+    // With the exception of special-ref loop variables, the reference/pointer
+    // itself is constant. So we don't have to attach the debug information to a
+    // memory location and can use llvm.dbg.value to set the constant pointer
+    // for the DI reference.
+    useDbgValueIntrinsic =
+        isPassedExplicitlyByval || (!isSpecialRefVar(vd) && isRefRVal);
 #if LDC_LLVM_VER >= 308
-    auto T = DtoType(type);
-    TD = DBuilder.createReferenceType(llvm::dwarf::DW_TAG_reference_type, TD,
-                                      getTypeAllocSize(T) * 8, // size (bits)
-                                      DtoAlignment(type) * 8); // align (bits)
+    // Note: createReferenceType expects the size to be the size of a pointer,
+    // not the size of the type the reference refers to.
+    TD = DBuilder.createReferenceType(
+        llvm::dwarf::DW_TAG_reference_type, TD,
+        gDataLayout->getPointerSizeInBits(), // size (bits)
+        DtoAlignment(type) * 8);             // align (bits)
 #else
     TD = DBuilder.createReferenceType(llvm::dwarf::DW_TAG_reference_type, TD);
 #endif
@@ -1122,10 +1152,15 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 #endif
   variableMap[vd] = debugVariable;
 
-  // declare
-  Declare(vd->loc, ll, debugVariable, addr.empty()
-                                          ? DBuilder.createExpression()
-                                          : DBuilder.createExpression(addr));
+  if (useDbgValueIntrinsic) {
+    SetValue(vd->loc, ll, debugVariable,
+             addr.empty() ? DBuilder.createExpression()
+                          : DBuilder.createExpression(addr));
+  } else {
+    Declare(vd->loc, ll, debugVariable,
+            addr.empty() ? DBuilder.createExpression()
+                         : DBuilder.createExpression(addr));
+  }
 }
 
 void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,

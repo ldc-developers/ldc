@@ -115,15 +115,22 @@ public:
 
   /// \brief Emits all things necessary for making debug info for a local
   /// variable vd.
-  /// \param ll       LL lvalue of the variable.
+  /// \param ll       LL value which, in combination with `addr`, yields the
+  /// storage/lvalue of the variable. For special-ref loop variables, specify
+  /// the storage/lvalue of the reference/pointer.
   /// \param vd       Variable declaration to emit debug info for.
   /// \param type     Type of variable if different from vd->type
   /// \param isThisPtr Variable is hidden this pointer
   /// \param forceAsLocal Emit as local even if the variable is a parameter
-  /// \param addr     An array of complex address operations.
+  /// \param isRefRVal Only relevant for ref/out parameters: indicates whether
+  /// ll & addr specify the reference's rvalue, i.e., the lvalue of the original
+  /// variable, instead of the reference's lvalue.
+  /// \param addr     An array of complex address operations encoding a DWARF
+  /// expression.
   void
   EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd, Type *type = nullptr,
                     bool isThisPtr = false, bool forceAsLocal = false,
+                    bool isRefRVal = false,
                     llvm::ArrayRef<int64_t> addr = llvm::ArrayRef<int64_t>());
 
   /// \brief Emits all things necessary for making debug info for a global
@@ -139,8 +146,10 @@ private:
   llvm::LLVMContext &getContext();
   Module *getDefinedModule(Dsymbol *s);
   DIScope GetCurrentScope();
-  void Declare(const Loc &loc, llvm::Value *var, ldc::DILocalVariable divar,
+  void Declare(const Loc &loc, llvm::Value *storage, ldc::DILocalVariable divar,
                ldc::DIExpression diexpr);
+  void SetValue(const Loc &loc, llvm::Value *value, ldc::DILocalVariable divar,
+                ldc::DIExpression diexpr);
   void AddFields(AggregateDeclaration *sd, ldc::DIFile file,
                  llvm::SmallVector<llvm::Metadata *, 16> &elems);
   DIFile CreateFile(Loc &loc);
