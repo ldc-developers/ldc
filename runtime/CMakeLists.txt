@@ -2,6 +2,8 @@ project(runtime)
 
 cmake_minimum_required(VERSION 2.8.9)
 
+include(CheckIncludeFile)
+
 # Verify required variables if this CMake project is NOT embedded in the LDC CMake project.
 if(NOT LDC_EXE)
     if(NOT LDC_EXE_FULL)
@@ -296,7 +298,7 @@ foreach(target ${LLVM_TARGETS_TO_BUILD})
 endforeach()
 
 # Always build zlib and other C parts of the runtime in release mode, regardless
-# of what the user chose for LDC itself.
+# of what the user chose for LDC itself. Also add other C_FLAGS here.
 # 1) Set up CMAKE_C_FLAGS_RELEASE
 if("${TARGET_SYSTEM}" MATCHES "MSVC")
     # Omit all references to the default C runtime libs.
@@ -307,6 +309,11 @@ if("${TARGET_SYSTEM}" MATCHES "MSVC")
     # warning C4206: nonstandard extension used: translation unit is empty
     # warning C4996: zlib uses 'deprecated' POSIX names
     append("/wd4131 /wd4206 /wd4996" CMAKE_C_FLAGS_RELEASE)
+endif()
+CHECK_INCLUDE_FILE(unistd.h HAVE_UNISTD_H)
+if (HAVE_UNISTD_H)
+    # Needed for zlib
+    append("-DHAVE_UNISTD_H" CMAKE_C_FLAGS_RELEASE)
 endif()
 # 2) Set all other CMAKE_C_FLAGS variants to CMAKE_C_FLAGS_RELEASE
 set(variables
