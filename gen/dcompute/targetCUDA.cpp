@@ -7,6 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if LDC_LLVM_SUPPORTED_TARGET_NVPTX
+
 #include "gen/dcompute/target.h"
 #include "gen/dcompute/druntime.h"
 #include "gen/metadata.h"
@@ -77,3 +79,5 @@ public:
 DComputeTarget *createCUDATarget(llvm::LLVMContext &c, int sm) {
   return new TargetCUDA(c, sm);
 };
+
+#endif // LDC_LLVM_SUPPORTED_TARGET_NVPTX

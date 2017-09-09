@@ -7,6 +7,8 @@
 // See the LICENSE file for details.
 //===----------------------------------------------------------------------===//
 
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV
+
 #include "gen/dcompute/target.h"
 #include "gen/dcompute/druntime.h"
 #include "ddmd/template.h"
@@ -198,3 +200,5 @@ public:
 DComputeTarget *createOCLTarget(llvm::LLVMContext &c, int oclver) {
   return new TargetOCL(c, oclver);
 }
+
+#endif // LDC_LLVM_SUPPORTED_TARGET_SPIRV
