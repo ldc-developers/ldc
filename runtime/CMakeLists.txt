@@ -2,6 +2,8 @@ project(runtime)
 
 cmake_minimum_required(VERSION 2.6)
 
+include(CheckIncludeFile)
+
 #
 # Main configuration.
 #
@@ -244,7 +246,7 @@ foreach(target ${LLVM_TARGETS_TO_BUILD})
 endforeach()
 
 # Always build zlib and other C parts of the runtime in release mode, regardless
-# of what the user chose for LDC itself.
+# of what the user chose for LDC itself. Also add other C_FLAGS here.
 # 1) Set up CMAKE_C_FLAGS_RELEASE
 if(MSVC)
     if(NOT LINK_WITH_MSVCRT)
@@ -255,6 +257,11 @@ if(MSVC)
     endif()
     # warning C4996: zlib uses 'deprecated' POSIX names
     append("/wd4996" CMAKE_C_FLAGS_RELEASE)
+endif()
+CHECK_INCLUDE_FILE(unistd.h HAVE_UNISTD_H)
+if (HAVE_UNISTD_H)
+    # Needed for zlib
+    append("-DHAVE_UNISTD_H" CMAKE_C_FLAGS_RELEASE)
 endif()
 # 2) Set all other CMAKE_C_FLAGS variants to CMAKE_C_FLAGS_RELEASE
 set(variables
