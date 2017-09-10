@@ -117,10 +117,10 @@ void prepareLdcSource() {
     removeVersionSuffix("git-");
     removeVersionSuffix("-dirty");
 
-    const localArchiveFile = "ldc-src.tar.gz";
+    import std.format : format;
+    const localArchiveFile = "ldc-src.zip";
     if (!localArchiveFile.exists) {
-        import std.format : format;
-        const url = "https://github.com/ldc-developers/ldc/releases/download/v%1$s/ldc-%1$s-src.tar.gz".format(ldcVersion);
+        const url = "https://github.com/ldc-developers/ldc/releases/download/v%1$s/ldc-%1$s-src.zip".format(ldcVersion);
         writefln("Downloading LDC source archive: %s", url);
         import std.net.curl : download;
         download(url, localArchiveFile);
@@ -133,11 +133,8 @@ void prepareLdcSource() {
         }
     }
 
-    if (!ldcSrc.exists)
-        mkdir(ldcSrc);
-
-    import std.array : split;
-    exec("tar -xzf ldc-src.tar.gz --strip 1 -C ldc-src".split);
+    extractZipArchive(localArchiveFile, ".");
+    rename("ldc-%1$s-src".format(ldcVersion), ldcSrc);
 }
 
 void runCMake() {
@@ -200,6 +197,23 @@ void exec(string[] command ...) {
     }
 }
 
+void extractZipArchive(string archivePath, string destination) {
+    import std.string : endsWith;
+    import std.zip;
+
+    auto archive = new ZipArchive(std.file.read(archivePath));
+    foreach (name, am; archive.directory) {
+        const destPath = buildNormalizedPath(destination, name);
+
+        const isDir = name.endsWith("/");
+        const destDir = isDir ? destPath : destPath.dirName;
+        mkdirRecurse(destDir);
+
+        if (!isDir)
+            std.file.write(destPath, archive.expand(am));
+    }
+}
+
 void parseCommandLine(string[] args) {
     import std.getopt : arraySep, getopt, defaultGetoptPrinter;
 
@@ -237,7 +251,6 @@ void parseCommandLine(string[] args) {
             "  * CMake\n" ~
             "  * either Make or Ninja (recommended, enable with '--ninja')\n" ~
             "  * C toolchain (compiler and linker)\n" ~
-            "  * tar (can be worked around via '--ldcSrcDir=path/to/src')\n" ~
             "All arguments are optional.\n" ~
             "CMake variables (see runtime/CMakeLists.txt in LDC source) can be specified via arguments like 'VAR=value'.\n",
             helpInformation.options
