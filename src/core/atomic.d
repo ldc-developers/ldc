@@ -385,7 +385,17 @@ else version( LDC )
     {
         alias Int = _AtomicType!T;
         auto target = cast(shared(Int)*)cast(void*)&val;
-        auto newPtr = cast(Int*)&newval;
+
+        import core.internal.traits : Unqual;
+        static if (is(Unqual!T == Unqual!V1)) {
+            auto newPtr = cast(Int*)&newval;
+        } else {
+            // Type V1 must be converted to T (e.g. T==ulong, V1==int)
+            shared T assignedval;
+            assignedval = newval;
+            auto newPtr = cast(Int*)&assignedval;
+        }
+
         llvm_atomic_store!Int(*newPtr, target, _ordering!(ms));
     }
 
@@ -1652,6 +1662,33 @@ version( unittest )
             assert(cas(&head, shared(List)(0, null), shared(List)(1, cast(List*)1)));
             assert(head.gen == 1);
             assert(cast(size_t)head.next == 1);
+        }
+    }
+
+    pure nothrow unittest
+    {
+        // https://issues.dlang.org/show_bug.cgi?id=17821
+        {
+            shared ulong x = 0x1234_5678_8765_4321;
+            atomicStore(x, 0);
+            assert(x == 0);
+        }
+        {
+            struct S
+            {
+                ulong x;
+                alias x this;
+            }
+            shared S s;
+            s = 0x1234_5678_8765_4321;
+            atomicStore(s, 0);
+            assert(s.x == 0);
+        }
+        {
+            abstract class Logger {}
+            shared Logger s1;
+            Logger s2;
+            atomicStore(s1, cast(shared) s2);
         }
     }
 
