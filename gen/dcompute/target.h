@@ -9,10 +9,12 @@
 
 #ifndef LDC_GEN_DCOMPUTE_TARGET_H
 #define LDC_GEN_DCOMPUTE_TARGET_H
+
 #include "gen/irstate.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Function.h"
 #include <array>
+
 namespace llvm {
 class Module;
 class Function;
@@ -51,7 +53,12 @@ public:
   virtual void addKernelMetadata(FuncDeclaration *df, llvm::Function *llf) = 0;
 };
 
+#if LDC_LLVM_SUPPORTED_TARGET_NVPTX
 DComputeTarget *createCUDATarget(llvm::LLVMContext &c, int sm);
+#endif
+
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV
 DComputeTarget *createOCLTarget(llvm::LLVMContext &c, int oclver);
+#endif
 
 #endif

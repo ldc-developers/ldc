@@ -7,6 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
+
 #include "ddmd/dsymbol.h"
 #include "ddmd/mars.h"
 #include "ddmd/module.h"
@@ -20,7 +22,6 @@
 #include <string>
 
 void DComputeTarget::doCodeGen(Module *m) {
-
   // process module members
   for (unsigned k = 0; k < m->members->dim; k++) {
     Dsymbol *dsym = (*m->members)[k];
@@ -57,3 +58,5 @@ void DComputeTarget::writeModule() {
   delete _ir;
   _ir = nullptr;
 }
+
+#endif
