@@ -1,13 +1,13 @@
 // Tests that
-//  - we dont try to link with one file on the commandline that is @compute
-//  - truning on debugging doesn't ICE
-//  - dont analyse uninstansiated templates
+//  - we don't try to link with one file on the commandline that is @compute
+//  - turning on debugging doesn't ICE
+//  - don't analyse uninstantiated templates
 //  - typeid generated for hashing of struct (typeid(const(T))) is ignored and does not error
 
 // REQUIRES: target_NVPTX
-// RUN: %ldc -mdcompute-targets=cuda-350 -g
+// RUN: %ldc -mdcompute-targets=cuda-350 -g %s
 
-@compute(Compilefor.deviceOnly) module dcompute;
+@compute(CompileFor.deviceOnly) module dcompute;
 import ldc.dcompute;
 
 @kernel void foo()
