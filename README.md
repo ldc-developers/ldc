@@ -1,6 +1,7 @@
 LDC – the LLVM-based D Compiler
 ===============================
 
+[![Build Status](https://circleci.com/gh/ldc-developers/ldc/tree/master.svg?style=svg)][6]
 [![Build Status](https://semaphoreci.com/api/v1/ldc-developers/ldc/branches/master/shields_badge.svg)][4]
 [![Build Status](https://travis-ci.org/ldc-developers/ldc.png?branch=master)][1]
 [![Build Status](https://ci.appveyor.com/api/projects/status/2cfhvg79782n4nth/branch/master?svg=true)][5]
@@ -95,3 +96,4 @@ Feedback of any kind is very much appreciated!
 [3]: https://www.bountysource.com/trackers/283332-ldc?utm_source=283332&utm_medium=shield&utm_campaign=TRACKER_BADGE "Bountysource"
 [4]: https://semaphoreci.com/ldc-developers/ldc "Semaphore CI Build Status"
 [5]: https://ci.appveyor.com/project/kinke/ldc/history "AppVeyor CI Build Status"
+[6]: https://circleci.com/gh/ldc-developers/ldc/tree/master "Circle CI Build Status"
