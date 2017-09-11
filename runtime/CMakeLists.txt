@@ -935,31 +935,4 @@ if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
 endif()
 
 # Add the standalone druntime tests.
-# TODO: Add test/excetions and test/init_fini.
-if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
-    if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
-        # KLUDGE: The library target is a custom command for multilib builds (lipo),
-        # so cannot use TARGET_FILE directly. Should stash away that name instead.
-        set(druntime_path "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/libdruntime-ldc${SHARED_LIB_SUFFIX}.dylib")
-    else()
-        set(druntime_path "$<TARGET_FILE:druntime-ldc${SHARED_LIB_SUFFIX}>")
-    endif()
-    set(outdir ${PROJECT_BINARY_DIR}/druntime-test-shared)
-
-    add_test(NAME clean-druntime-test-shared
-        COMMAND ${CMAKE_COMMAND} -E remove_directory ${outdir})
-
-    if("${TARGET_SYSTEM}" MATCHES "FreeBSD")
-        set(linkflags "")
-    else()
-        set(linkflags "LINKDL=-L-ldl")
-    endif()
-
-    add_test(NAME druntime-test-shared
-        COMMAND make -C ${PROJECT_SOURCE_DIR}/druntime/test/shared
-            ROOT=${outdir} DMD=${LDMD_EXE_FULL} MODEL=default DRUNTIMESO=${druntime_path}
-            CFLAGS=-Wall\ -Wl,-rpath,${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX} ${linkflags}
-    )
-
-    set_tests_properties(druntime-test-shared PROPERTIES DEPENDS clean-druntime-test-shared)
-endif()
+include(StandaloneDRuntimeTests)
