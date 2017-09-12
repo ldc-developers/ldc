@@ -1,0 +1,68 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: gcc
+    environment:
+      - LLVM_VERSION: 5.0.0
+    steps:
+      - checkout
+      - run:
+          name: Checkout git submodules
+          command: git submodule update --init
+      - run:
+          name: Install basic dependencies
+          command: |
+            apt update
+            apt install -y software-properties-common cmake ninja-build libconfig++8-dev gdb python-pip unzip
+            pip install --user lit
+            g++ --version
+            ld --version
+            cmake --version
+            ninja --version
+            gdb --version
+            python -c "import lit; lit.main();" --version | head -n 1
+      - restore_cache:
+          keys:
+            - llvm-5.0.0
+      - run:
+          name: Install LLVM 5.0.0
+          command: |
+            if [[ ! -d llvm-$LLVM_VERSION ]]; then
+              wget -O llvm-$LLVM_VERSION.tar.xz http://releases.llvm.org/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-linux-x86_64-ubuntu16.04.tar.xz
+              mkdir llvm-$LLVM_VERSION
+              tar -xpf llvm-$LLVM_VERSION.tar.xz --strip 1 -C llvm-$LLVM_VERSION
+            fi
+      - save_cache:
+          key: llvm-5.0.0
+          paths:
+            - llvm-5.0.0
+      - run:
+          name: Build LDC
+          command: |
+            mkdir build
+            cd build
+            cmake -G Ninja -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION ..
+            ninja -j3
+            bin/ldc2 -version
+            cd ..
+      - run:
+          name: Build stdlib unittests
+          command: |
+            cd build
+            ninja -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest
+            ninja -j3 druntime-ldc-unittest-debug druntime-ldc-unittest
+            cd ..
+          when: always
+      - run:
+          name: Run LIT testsuite
+          command: cd build && ctest -V -R lit-tests
+          when: always
+      - run:
+          name: Run DMD testsuite
+          command: cd build && DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R dmd-testsuite
+          when: always
+      - run:
+          name: Run stdlib unittests
+          command: cd build && ctest -j3 --output-on-failure -E "dmd-testsuite|lit-tests"
+          when: always
