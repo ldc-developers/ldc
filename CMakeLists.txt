@@ -127,23 +127,27 @@ if(NOT MSVC_IDE)
 endif()
 
 if(MSVC)
-    if(${D_COMPILER_ID} STREQUAL "DigitalMars")
-        if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-            message(STATUS "Let DMD output 64bit object files")
-            append("-m64" DDMD_DFLAGS)
-        else()
-            message(STATUS "Let DMD output 32bit COFF object files")
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        message(STATUS "Let D host compiler output 64bit object files")
+        append("-m64" DDMD_DFLAGS)
+    else()
+        message(STATUS "Let D host compiler output 32bit COFF object files")
+        if(${D_COMPILER_ID} STREQUAL "DigitalMars")
             append("-m32mscoff" DDMD_DFLAGS)
+        else()
+            append("-m32" DDMD_DFLAGS)
         endif()
+    endif()
 
-        if(MSVC_VERSION GREATER 1800) # VS 2015+
-            append("-Llegacy_stdio_definitions.lib" DDMD_DFLAGS)
-        endif()
+    if(${D_COMPILER_ID} STREQUAL "DigitalMars" AND (MSVC_VERSION GREATER 1800)) # VS 2015+
+        append("-Llegacy_stdio_definitions.lib" DDMD_DFLAGS)
     endif()
 
     # Link against the static MSVC runtime; CMake's C(++) flags apparently default to the dynamic one.
     # Host DMD/LDMD already defaults to linking against the static MSVC runtime.
-    # NOTE: Requires LLVM to be built with CMake variable LLVM_USE_CRT_{RELEASE,DEBUG,...}=MT[d].
+    if(${LLVM_CXXFLAGS} MATCHES "(^| )/MDd?( |$)")
+        message(FATAL_ERROR "LLVM must be built with CMake option LLVM_USE_CRT_<CMAKE_BUILD_TYPE>=MT[d]")
+    endif()
     foreach(flag_var
             CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
             CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
@@ -449,21 +453,23 @@ endif()
 #
 # LLD integration (requires LLVM >= 3.9 with LLD headers & libs)
 #
-set(LDC_WITH_LLD OFF)
-if(LDC_LLVM_VER GREATER 308)
-    # check for LLD header
-    unset(LDC_WITH_LLD)
-    if(NOT MSVC)
-        set(CMAKE_REQUIRED_FLAGS -std=c++11)
+if(NOT DEFINED LDC_WITH_LLD)
+    if(LDC_LLVM_VER GREATER 308)
+        # check for LLD header
+        if(NOT MSVC)
+            set(CMAKE_REQUIRED_FLAGS -std=c++11)
+        endif()
+        set(CMAKE_REQUIRED_INCLUDES ${LLVM_INCLUDE_DIRS})
+        CHECK_INCLUDE_FILE_CXX(lld/Driver/Driver.h LDC_WITH_LLD)
+        unset(CMAKE_REQUIRED_FLAGS)
+        unset(CMAKE_REQUIRED_INCLUDES)
+    else()
+        set(LDC_WITH_LLD OFF)
     endif()
-    set(CMAKE_REQUIRED_INCLUDES ${LLVM_INCLUDE_DIRS})
-    CHECK_INCLUDE_FILE_CXX(lld/Driver/Driver.h LDC_WITH_LLD)
-    unset(CMAKE_REQUIRED_FLAGS)
-    unset(CMAKE_REQUIRED_INCLUDES)
-    if(LDC_WITH_LLD)
-        message(STATUS "Building LDC with LLD support")
-        append("-DLDC_WITH_LLD" LDC_CXXFLAGS)
-    endif()
+endif()
+if(LDC_WITH_LLD)
+    message(STATUS "Building LDC with LLD support")
+    append("-DLDC_WITH_LLD" LDC_CXXFLAGS)
 endif()
 
 #
@@ -614,6 +620,12 @@ else()
     if(MSVC)
         # Issue 1297 – set LDC's stack to 8 MiB like on Linux and Mac (default: 1 MiB).
         list(APPEND LDC_TRANSLATED_LINKER_FLAGS "-L/STACK:8388608")
+        # VS 2017+: Use undocumented /NOOPTTLS MS linker switch to keep on emitting
+        # a .tls section. Required for older host druntime versions, otherwise the
+        # GC TLS ranges are garbage starting with VS 2017 Update 15.3.
+        if(MSVC_VERSION GREATER 1900) # VS 2017+
+            list(APPEND LDC_TRANSLATED_LINKER_FLAGS "-L/NOOPTTLS")
+        endif()
     endif()
 endif()
 
@@ -764,21 +776,31 @@ function(copy_compilerrt_lib llvm_lib_name ldc_lib_name fixup_dylib)
     endif()
 endfunction()
 if (LDC_INSTALL_LLVM_RUNTIME_LIBS)
+    # Locate LLVM sanitizer runtime libraries, and copy them to our lib folder
+    # Note: libFuzzer is part of compiler-rt version >= 6.0, but was part of LLVM =< 5.0
+
     if(APPLE)
         copy_compilerrt_lib("darwin/libclang_rt.asan_osx_dynamic.dylib" "libldc_rt.asan_osx_dynamic.dylib" TRUE)
+        if(NOT (LDC_LLVM_VER LESS 600))
+            copy_compilerrt_lib("darwin/libclang_rt.fuzzer_osx.a" "libldc_rt.fuzzer_osx.a" FALSE)
+        endif()
     elseif(UNIX)
         copy_compilerrt_lib("linux/libclang_rt.asan-x86_64.a" "libldc_rt.asan-x86_64.a" FALSE)
+        if(NOT (LDC_LLVM_VER LESS 600))
+            copy_compilerrt_lib("linux/libclang_rt.fuzzer-x86_64.a" "libldc_rt.fuzzer-x86_64.a" FALSE)
+        endif()
     endif()
 
-    # Locate libFuzzer runtime library, and copy it to our lib folder
-    set(LLVM_LIBFUZZER_PATH ${LLVM_LIBRARY_DIRS}/libFuzzer.a)
-    if(EXISTS ${LLVM_LIBFUZZER_PATH})
-        message(STATUS "Copying libFuzzer library: ${LLVM_LIBFUZZER_PATH} --> libFuzzer.a")
-        file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX})
-        configure_file(${LLVM_LIBFUZZER_PATH} ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/libFuzzer.a COPYONLY)
-        install(FILES ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/libFuzzer.a DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
-    else()
-        message(STATUS "Not found: ${LLVM_LIBFUZZER_PATH}")
+    if(LDC_LLVM_VER LESS 600)
+        set(LLVM_LIBFUZZER_PATH ${LLVM_LIBRARY_DIRS}/libFuzzer.a)
+        if(EXISTS ${LLVM_LIBFUZZER_PATH})
+            message(STATUS "Copying libFuzzer library: ${LLVM_LIBFUZZER_PATH} --> libFuzzer.a")
+            file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX})
+            configure_file(${LLVM_LIBFUZZER_PATH} ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/libFuzzer.a COPYONLY)
+            install(FILES ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/libFuzzer.a DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
+        else()
+            message(STATUS "Not found: ${LLVM_LIBFUZZER_PATH}")
+        endif()
     endif()
 endif()
 

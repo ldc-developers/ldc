@@ -511,7 +511,7 @@ cl::opt<std::string>
                                     "of optimizations performed by LLVM"),
                            cl::ValueOptional);
 #endif
-    
+
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
 cl::list<std::string>
     dcomputeTargets("mdcompute-targets", cl::CommaSeparated,
@@ -519,6 +519,11 @@ cl::list<std::string>
                              " list. Use 'ocl-xy0' for OpenCL x.y, and "
                              "'cuda-xy0' for CUDA CC x.y"),
                      cl::value_desc("targets"));
+cl::opt<std::string>
+    dcomputeFilePrefix("mdcompute-file-prefix",
+                       cl::desc("Prefix to prepend to the generated kernel files."),
+                       cl::init("kernels"),
+                       cl::value_desc("prefix"));
 #endif
 
 static cl::extrahelp footer(

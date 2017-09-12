@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 module driver.configfile;
 
+import ddmd.root.array;
 import driver.config;
 import core.stdc.stdio;
 import core.stdc.string;
@@ -29,16 +30,13 @@ string prepareBinDir(const(char)* binDir)
 }
 
 
-ArraySetting findSwitches(Setting s)
+ArraySetting findArraySetting(GroupSetting section, string name)
 {
-    auto grp = cast(GroupSetting)s;
-    if (!grp) return null;
-    foreach (c; grp.children)
+    if (!section) return null;
+    foreach (c; section.children)
     {
-        if (c.name == "switches")
-        {
-            return cast(ArraySetting)c;
-        }
+        if (c.type == Setting.Type.array && c.name == name)
+            return cast(ArraySetting) c;
     }
     return null;
 }
@@ -88,74 +86,78 @@ unittest
 }
 
 
-struct ConfigFile
+extern(C++) struct ConfigFile
 {
-public:
-
-    alias s_iterator = const(char)**;
-
 private:
 
     // representation
 
     const(char)* pathcstr;
-    s_iterator switches_b;
-    s_iterator switches_e;
+    Array!(const(char)*) switches;
+    Array!(const(char)*) postSwitches;
 
-    extern(C++)
-    bool readConfig(const(char)* cfPath, const(char)* section, const(char)* binDir)
+    bool readConfig(const(char)* cfPath, const(char)* sectionName, const(char)* binDir)
     {
+        switches.setDim(0);
+        postSwitches.setDim(0);
+
         immutable dBinDir = prepareBinDir(binDir);
-        const dSec = section[0 .. strlen(section)];
+        const dSec = sectionName[0 .. strlen(sectionName)];
 
         try
         {
-            auto settingSections = parseConfigFile(cfPath);
-
-            bool sectionFound;
-            ArraySetting secSwitches;
-            ArraySetting defSwitches;
-
-            foreach (s; settingSections)
+            GroupSetting section, defaultSection;
+            foreach (s; parseConfigFile(cfPath))
             {
+                if (s.type != Setting.Type.group)
+                    continue;
                 if (s.name == dSec)
-                {
-                    sectionFound = true;
-                    secSwitches = findSwitches(s);
-                }
+                    section = cast(GroupSetting) s;
                 else if (s.name == "default")
-                {
-                    sectionFound = true;
-                    defSwitches = findSwitches(s);
-                }
+                    defaultSection = cast(GroupSetting) s;
             }
 
-            if (!sectionFound)
+            if (!section && !defaultSection)
             {
                 const dCfPath = cfPath[0 .. strlen(cfPath)];
-                if (section)
+                if (sectionName)
                     throw new Exception("Could not look up section '" ~ cast(string) dSec
                                         ~ "' nor the 'default' section in " ~ cast(string) dCfPath);
                 else
                     throw new Exception("Could not look up 'default' section in " ~ cast(string) dCfPath);
             }
 
-            auto switches = secSwitches ? secSwitches : defSwitches;
-            if (!switches)
+            ArraySetting findArray(string name)
+            {
+                auto r = findArraySetting(section, name);
+                if (!r)
+                    r = findArraySetting(defaultSection, name);
+                return r;
+            }
+
+            auto switches = findArray("switches");
+            auto postSwitches = findArray("post-switches");
+            if (!switches && !postSwitches)
             {
                 const dCfPath = cfPath[0 .. strlen(cfPath)];
                 throw new Exception("Could not look up switches in " ~ cast(string) dCfPath);
             }
 
-            auto finalSwitches = new const(char)*[switches.vals.length];
-            foreach (i, sw; switches.vals)
+            void applyArray(ref Array!(const(char)*) output, ArraySetting input)
             {
-                const finalSwitch = sw.replace("%%ldcbinarypath%%", dBinDir) ~ '\0';
-                finalSwitches[i] = finalSwitch.ptr;
+                if (!input)
+                    return;
+
+                output.reserve(input.vals.length);
+                foreach (sw; input.vals)
+                {
+                    const finalSwitch = sw.replace("%%ldcbinarypath%%", dBinDir) ~ '\0';
+                    output.push(finalSwitch.ptr);
+                }
             }
 
-            switches_b = finalSwitches.ptr;
-            switches_e = finalSwitches.ptr + finalSwitches.length;
+            applyArray(this.switches, switches);
+            applyArray(this.postSwitches, postSwitches);
 
             return true;
         }
