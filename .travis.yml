@@ -85,11 +85,11 @@ script:
       ninja -j3 druntime-ldc-unittest-debug druntime-ldc-unittest;
     fi
   # Run LIT testsuite.
-  - ctest -V -R "lit-tests"
+  - ctest -V -R "llvm-ir-testsuite"
   # Run DMD testsuite.
   - DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R "dmd-testsuite"
   # Link and run Phobos & druntime unittest runners.
-  - ctest -j3 --output-on-failure -E "dmd-testsuite|lit-tests"
+  - ctest -j3 --output-on-failure -E "dmd-testsuite|llvm-ir-testsuite"
 
 notifications:
   email:
