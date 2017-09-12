@@ -24,8 +24,8 @@ class DComputeCodeGenManager {
   llvm::LLVMContext &ctx;
   llvm::SmallVector<DComputeTarget *, 2> targets;
   DComputeTarget *createComputeTarget(const std::string &s);
-  IRState *oldGIR;
-  llvm::TargetMachine *oldGTargetMachine;
+  IRState *oldGIR = nullptr;
+  llvm::TargetMachine *oldGTargetMachine = nullptr;
 public:
   void emit(Module *m);
   void writeModules();

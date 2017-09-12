@@ -12,6 +12,8 @@ struct Config {
     string ldcSourceDir;
     bool ninja;
     bool buildTestrunners;
+    string targetPreset;
+    string[] targetSystem;
     string[] dFlags;
     string[] cFlags;
     string[] linkerFlags;
@@ -138,9 +140,16 @@ void prepareLdcSource() {
 }
 
 void runCMake() {
-    import std.array : byPair, join;
+    import std.array : empty, byPair, join;
+    import std.regex : matchFirst;
 
     const wd = WorkingDirScope(config.buildDir);
+
+    if(config.dFlags.empty)
+        config.dFlags ~= "-w";
+
+    if(config.targetSystem.empty)
+        config.targetSystem ~= "AUTO";
 
     string[] args = [
         "cmake",
@@ -148,10 +157,14 @@ void runCMake() {
         "-DD_VERSION=@D_VERSION@",
         "-DDMDFE_MINOR_VERSION=@DMDFE_MINOR_VERSION@",
         "-DDMDFE_PATCH_VERSION=@DMDFE_PATCH_VERSION@",
+        "-DLDC_TARGET_PRESET=" ~ config.targetPreset,
+        "-DTARGET_SYSTEM=" ~ config.targetSystem.join(";"),
         "-DD_FLAGS=" ~ config.dFlags.join(";"),
         "-DRT_CFLAGS=" ~ config.cFlags.join(" "),
         "-DLD_FLAGS=" ~ config.linkerFlags.join(" "),
     ];
+    if(config.targetPreset.matchFirst("^Android"))
+        args ~= ["-DCMAKE_SYSTEM_NAME=Linux", "-DCMAKE_C_COMPILER_WORKS=True"];
     foreach (pair; config.cmakeVars.byPair)
         args ~= "-D" ~ pair[0] ~ '=' ~ pair[1];
     if (config.ninja)
@@ -226,6 +239,8 @@ void parseCommandLine(string[] args) {
         "ldcSrcDir",   "Path to LDC source directory (if not specified: downloads & extracts source archive into '<buildDir>/ldc-src')", &config.ldcSourceDir,
         "ninja",       "Use Ninja as CMake build system", &config.ninja,
         "testrunners", "Build the testrunner executables too", &config.buildTestrunners,
+        "targetPreset","Target configuration preset by LDC devs, e.g. Android-arm", &config.targetPreset,
+        "targetSystem","Target OS/toolchain (separated by ';'), e.g. Windows;MSVC", &config.targetSystem,
         "dFlags",      "LDC flags for the D modules (separated by ';')", &config.dFlags,
         "cFlags",      "C/ASM compiler flags for the handful of C/ASM files (separated by ';')", &config.cFlags,
         "linkerFlags", "C linker flags for shared libraries and testrunner executables (separated by ';')", &config.linkerFlags,
@@ -251,6 +266,7 @@ void parseCommandLine(string[] args) {
             "  * CMake\n" ~
             "  * either Make or Ninja (recommended, enable with '--ninja')\n" ~
             "  * C toolchain (compiler and linker)\n" ~
+            "--targetPreset currently supports Android-arm or Android-aarch64.\n" ~
             "All arguments are optional.\n" ~
             "CMake variables (see runtime/CMakeLists.txt in LDC source) can be specified via arguments like 'VAR=value'.\n",
             helpInformation.options

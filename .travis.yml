@@ -6,6 +6,9 @@ matrix:
   include:
     - os: linux
       d: ldc
+      env: LLVM_VERSION=5.0.0 OPTS="-DLIB_SUFFIX=64 -DLDC_WITH_LLD=OFF"
+    - os: linux
+      d: ldc
       env: LLVM_VERSION=4.0.1 OPTS="-DLIB_SUFFIX=64"
     - os: linux
       d: ldc-beta
@@ -28,6 +31,7 @@ matrix:
 cache:
   directories:
     - llvm-spirv-6.0.0-2
+    - llvm-5.0.0
     - llvm-4.0.1
     - llvm-4.0.0
     - llvm-3.9.1
@@ -44,7 +48,9 @@ addons:
 before_install:
   -
     if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
-      if [ "${LLVM_VERSION}" = "4.0.1" ]; then
+      if [ "${LLVM_VERSION}" = "5.0.0" ]; then
+        export LLVM_ARCH="linux-x86_64-ubuntu14.04";
+      elif [ "${LLVM_VERSION}" = "4.0.1" ]; then
         export LLVM_ARCH="x86_64-linux-gnu-debian8";
       else
         export LLVM_ARCH="x86_64-linux-gnu-ubuntu-14.04";

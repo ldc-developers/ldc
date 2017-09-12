@@ -511,7 +511,7 @@ cl::opt<std::string>
                                     "of optimizations performed by LLVM"),
                            cl::ValueOptional);
 #endif
-    
+
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
 cl::list<std::string>
     dcomputeTargets("mdcompute-targets", cl::CommaSeparated,
@@ -521,7 +521,7 @@ cl::list<std::string>
                      cl::value_desc("targets"));
 cl::opt<std::string>
     dcomputeFilePrefix("mdcompute-file-prefix",
-                       cl::desc("Prefex to prepend to the generated kernel files."),
+                       cl::desc("Prefix to prepend to the generated kernel files."),
                        cl::init("kernels"),
                        cl::value_desc("prefix"));
 #endif
