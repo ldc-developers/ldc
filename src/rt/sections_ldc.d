@@ -16,7 +16,12 @@
 
 module rt.sections_ldc;
 
-version (linux) {} else version (OSX) {} else version (FreeBSD) {} else version (NetBSD) {} else version(LDC):
+version (linux) {}
+else version (OSX) {}
+else version (FreeBSD) {}
+else version (NetBSD) {}
+else version (Windows) {}
+else version(LDC):
 
 import core.stdc.stdlib : alloca;
 import rt.minfo;
@@ -78,25 +83,7 @@ private __gshared SectionGroup globalSectionGroup;
 
 private
 {
-    version (CRuntime_Microsoft)
-    {
-        extern extern (C) __gshared
-        {
-            void* _data_start__;
-            void* _data_end__;
-            void* _bss_start__;
-            void* _bss_end__;
-        }
-    }
-    else version (Windows)
-    {
-        extern extern (C) __gshared
-        {
-            int _data_start__;
-            int _bss_end__;
-        }
-    }
-    else version (UseELF)
+    version (UseELF)
     {
         /************
          * Scan segments in Linux dl_phdr_info struct and store
@@ -328,19 +315,7 @@ void initSections() nothrow @nogc
         globalSectionGroup._gcRanges.insertBack(start[0 .. (end - start)]);
     }
 
-    version (CRuntime_Microsoft)
-    {
-        pushRange(_data_start__, _data_end__);
-        if (_bss_start__ != null)
-        {
-            pushRange(_bss_start__, _bss_end__);
-        }
-    }
-    else version (Windows)
-    {
-        pushRange(&_data_start__, &_bss_end__);
-    }
-    else version (UseELF)
+    version (UseELF)
     {
         dl_phdr_info phdr = void;
         findPhdrForAddr(&globalSectionGroup, &phdr) || assert(0);
@@ -359,18 +334,6 @@ void finiSections() nothrow @nogc
     free(cast(void*)globalSectionGroup.modules.ptr);
 }
 
-private
-{
-    version (Windows)
-    {
-        extern(C) extern
-        {
-            int _tls_start;
-            int _tls_end;
-        }
-    }
-}
-
 /***
  * Called once per thread; returns array of thread local storage ranges
  */
@@ -382,12 +345,6 @@ void[] initTLSRanges() nothrow @nogc
         auto rng = getTLSRange(&globalSectionGroup);
         debug(PRINTF) printf("Add range %p %d\n", rng ? rng.ptr : cast(void*)0, rng ? rng.length : 0);
         return rng;
-    }
-    else version (Windows)
-    {
-        auto pbeg = cast(void*)&_tls_start;
-        auto pend = cast(void*)&_tls_end;
-        return pbeg[0 .. pend - pbeg];
     }
     else static assert(0, "TLS range detection not implemented for this OS.");
 
