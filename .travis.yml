@@ -23,7 +23,8 @@ cache:
   directories:
     - llvm-5.0.0
     - llvm-4.0.1
-    - llvm-3.9.0
+    - llvm-4.0.0
+    - llvm-3.9.1
     - llvm-3.8.1
     - llvm-3.7.1
 addons:
@@ -31,16 +32,11 @@ addons:
     sources:
     - ubuntu-toolchain-r-test
     packages:
-    - libconfig++8-dev
-    - gdb
-    - gcc-4.9
-    - g++-4.9
-    - gcc-4.9-multilib
     - g++-4.9-multilib
-    - gcc-multilib
     - g++-multilib
-    - libedit2
-    - libedit-dev
+    - gdb
+    - ninja-build
+    - libconfig++8-dev
     - libcurl3:i386
 before_install:
   -
@@ -55,7 +51,6 @@ before_install:
     else
       export LLVM_ARCH="x86_64-apple-darwin";
     fi;
-
     if [ -z "$(ls -A llvm-$LLVM_VERSION)" ]; then
       wget -O llvm-$LLVM_VERSION.tar.xz http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-${LLVM_ARCH}.tar.xz;
       mkdir llvm-$LLVM_VERSION;
@@ -67,32 +62,32 @@ before_install:
 
 install:
   - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then export CC="gcc-4.9"; export CXX="g++-4.9"; fi
-  - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then brew update; brew install libconfig; fi;
+  - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then brew update; brew install ninja libconfig; fi
   - pip install --user lit
   - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then ld --version; gdb --version; fi
   - cmake --version
+  - ninja --version
   - python -c "import lit; lit.main();" --version | head -n 1
 
 script:
-  - cmake --version
-  - cmake -DLLVM_CONFIG=$(which ${LLVM_CONFIG}) $OPTS .
-  - make -j3
-  # Outputs some environment info, plus makes sure we only run the test suite
+  - cmake -G Ninja -DLLVM_CONFIG=$(which ${LLVM_CONFIG}) $OPTS .
+  - ninja -j3
+  # Output some environment info, plus make sure we only run the test suite
   # if we could actually build the executable.
   - bin/ldc2 -version || exit 1
   # Build Phobos & druntime unittest modules.
   -
     if [ "${OPTS}" = "-DMULTILIB=ON" ]; then
-      make -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest phobos2-ldc-unittest-debug-32 phobos2-ldc-unittest-32;
-      make -j3 druntime-ldc-unittest-debug druntime-ldc-unittest druntime-ldc-unittest-debug-32 druntime-ldc-unittest-32;
+      ninja -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest phobos2-ldc-unittest-debug-32 phobos2-ldc-unittest-32;
+      ninja -j3 druntime-ldc-unittest-debug druntime-ldc-unittest druntime-ldc-unittest-debug-32 druntime-ldc-unittest-32;
     else
-      make -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest;
-      make -j3 druntime-ldc-unittest-debug druntime-ldc-unittest;
+      ninja -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest;
+      ninja -j3 druntime-ldc-unittest-debug druntime-ldc-unittest;
     fi
-  # Run dmd-testsuite.
-  - CC="" DMD_TESTSUITE_MAKE_ARGS=-j3 ctest --verbose -R "dmd-testsuite"
-  # Run LLVM IR testsuite.
-  - ctest --output-on-failure -V -R "lit-tests"
+  # Run LIT testsuite.
+  - ctest -V -R "lit-tests"
+  # Run DMD testsuite.
+  - DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R "dmd-testsuite"
   # Link and run Phobos & druntime unittest runners.
   - ctest -j3 --output-on-failure -E "dmd-testsuite|lit-tests"
 
