@@ -1,6 +1,6 @@
 [submodule "druntime"]
 	path = runtime/druntime
-	url = git@github.com:ldc-developers/druntime.git
+	url = https://github.com:ldc-developers/druntime.git
 [submodule "phobos"]
 	path = runtime/phobos
 	url = https://github.com/ldc-developers/phobos.git
