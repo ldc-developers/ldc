@@ -3,7 +3,7 @@
 // REQUIRES: atleast_llvm309
 // REQUIRES: LTO
 
-// RUN: %ldc -flto=thin -O3 -run %s | FileCheck %s
+// RUN: %ldc -flto=thin -O3 -Xcc -fuse-ld=gold -run %s | FileCheck %s
 
 // CHECK: ctor
 // CHECK: main
