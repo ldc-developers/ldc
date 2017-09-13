@@ -36,8 +36,6 @@ set(DMDFE_VERSION         ${D_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERS
 set(MULTILIB              OFF                                 CACHE BOOL   "Build both 32/64 bit runtime libraries")
 set(BUILD_BC_LIBS         OFF                                 CACHE BOOL   "Build the runtime as LLVM bitcode libraries")
 set(INCLUDE_INSTALL_DIR   ${CMAKE_INSTALL_PREFIX}/include/d   CACHE PATH   "Path to install D modules to")
-+set(INCLUDE_INSTALL_DIR	  ${INCLUDE_INSTALL_DIR}	  	  	  CACHE PATH   "Path to install D modules to" FORCE)
-set(INCLUDE_INSTALL_DIR	  ${INCLUDE_INSTALL_DIR}	  	  	  CACHE PATH   "Path to install D modules to" FORCE)
 set(BUILD_SHARED_LIBS     AUTO                                CACHE STRING "Whether to build the runtime as a shared library (ON|OFF|BOTH)")
 set(D_FLAGS               -w                                  CACHE STRING "Runtime D compiler flags, separated by ';'")
 set(D_FLAGS_DEBUG         -g;-link-debuglib                   CACHE STRING "Runtime D compiler flags (debug libraries), separated by ';'")
