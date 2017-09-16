@@ -158,7 +158,7 @@ if(MSVC)
     endforeach()
 endif()
 
-append("-J${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -J${PROJECT_SOURCE_DIR}/res" DDMD_DFLAGS) # Needed for importing text files
+append("-J${PROJECT_SOURCE_DIR}/source/${DDMDFE_PATH} -J${PROJECT_SOURCE_DIR}/res" DDMD_DFLAGS) # Needed for importing text files
 string(STRIP "${DDMD_DFLAGS}" DDMD_DFLAGS)
 
 # Use separate compiler flags for the frontend and for the LDC-specific parts,
@@ -263,7 +263,7 @@ macro(build_idgen  input_d  output_exec  extra_d_flags  link_flags  extra_deps)
     separate_arguments(FLAG_LIST WINDOWS_COMMAND "${D_COMPILER_FLAGS} ${extra_d_flags} ${link_flags}")
     add_custom_command(
         OUTPUT ${output_exec}
-        COMMAND ${D_COMPILER} ${FLAG_LIST} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${output_exec} ${input_d}
+        COMMAND ${D_COMPILER} ${FLAG_LIST} -I${PROJECT_SOURCE_DIR}/source/${DDMDFE_PATH} -of${output_exec} ${input_d}
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
         DEPENDS ${input_d} ${extra_deps}
     )
@@ -273,7 +273,7 @@ endmacro()
 #
 # Build idgen.
 #
-build_idgen(${DDMDFE_PATH}/idgen.d ${PROJECT_BINARY_DIR}/idgen${CMAKE_EXECUTABLE_SUFFIX}  ${DDMD_DFLAGS} "" "")
+build_idgen(source/${DDMDFE_PATH}/idgen.d ${PROJECT_BINARY_DIR}/idgen${CMAKE_EXECUTABLE_SUFFIX}  ${DDMD_DFLAGS} "" "")
 # Run idgen.
 add_custom_command(
     OUTPUT
@@ -321,62 +321,62 @@ else()
     endif()
 endif()
 message(STATUS "LDC version identifier: ${LDC_VERSION}")
-configure_file(driver/ldc-version.cpp.in driver/ldc-version.cpp)
+configure_file(source/driver/ldc-version.cpp.in driver/ldc-version.cpp)
 
 # Also add the header files to the build so that they are available in IDE
 # project files generated via CMake.
-file(GLOB_RECURSE FE_SRC_D ${DDMDFE_PATH}/*.d)
-file(GLOB_RECURSE FE_HDR   ${DDMDFE_PATH}/*.h)
+file(GLOB_RECURSE FE_SRC_D source/${DDMDFE_PATH}/*.d)
+file(GLOB_RECURSE FE_HDR   source/${DDMDFE_PATH}/*.h)
 file(GLOB_RECURSE FE_RES   res/*.*)
-file(GLOB_RECURSE GEN_SRC gen/*.cpp)
-file(GLOB_RECURSE GEN_HDR gen/*.h)
-file(GLOB_RECURSE GEN_SRC_D gen/*.d)
-file(GLOB_RECURSE DRV_SRC_D driver/*.d)
-file(GLOB_RECURSE IR_SRC_D ir/*.d)
-file(GLOB IR_SRC ir/*.cpp)
-file(GLOB IR_HDR ir/*.h)
+file(GLOB_RECURSE GEN_SRC source/gen/*.cpp)
+file(GLOB_RECURSE GEN_HDR source/gen/*.h)
+file(GLOB_RECURSE GEN_SRC_D source/gen/*.d)
+file(GLOB_RECURSE DRV_SRC_D source/driver/*.d)
+file(GLOB_RECURSE IR_SRC_D source/ir/*.d)
+file(GLOB IR_SRC source/ir/*.cpp)
+file(GLOB IR_HDR source/ir/*.h)
 set(DRV_SRC
-    driver/cache.cpp
-    driver/cl_options.cpp
-    driver/cl_options_sanitizers.cpp
-    driver/codegenerator.cpp
-    driver/configfile.cpp
-    driver/dcomputecodegenerator.cpp
-    driver/exe_path.cpp
-    driver/targetmachine.cpp
-    driver/toobj.cpp
-    driver/tool.cpp
-    driver/archiver.cpp
-    driver/linker.cpp
-    driver/linker-gcc.cpp
-    driver/linker-msvc.cpp
-    driver/main.cpp
+    source/driver/cache.cpp
+    source/driver/cl_options.cpp
+    source/driver/cl_options_sanitizers.cpp
+    source/driver/codegenerator.cpp
+    source/driver/configfile.cpp
+    source/driver/dcomputecodegenerator.cpp
+    source/driver/exe_path.cpp
+    source/driver/targetmachine.cpp
+    source/driver/toobj.cpp
+    source/driver/tool.cpp
+    source/driver/archiver.cpp
+    source/driver/linker.cpp
+    source/driver/linker-gcc.cpp
+    source/driver/linker-msvc.cpp
+    source/driver/main.cpp
     ${CMAKE_BINARY_DIR}/driver/ldc-version.cpp
 )
 set(DRV_HDR
-    driver/cache.h
-    driver/cache_pruning.h
-    driver/cl_options.h
-    driver/cl_options_sanitizers.h
-    driver/codegenerator.h
-    driver/configfile.h
-    driver/dcomputecodegenerator.h
-    driver/exe_path.h
-    driver/ldc-version.h
-    driver/archiver.h
-    driver/linker.h
-    driver/targetmachine.h
-    driver/toobj.h
-    driver/tool.h
+    source/driver/cache.h
+    source/driver/cache_pruning.h
+    source/driver/cl_options.h
+    source/driver/cl_options_sanitizers.h
+    source/driver/codegenerator.h
+    source/driver/configfile.h
+    source/driver/dcomputecodegenerator.h
+    source/driver/exe_path.h
+    source/driver/ldc-version.h
+    source/driver/archiver.h
+    source/driver/linker.h
+    source/driver/targetmachine.h
+    source/driver/toobj.h
+    source/driver/tool.h
 )
 # exclude idgen and man.d
 list(REMOVE_ITEM FE_SRC_D
-    ${PROJECT_SOURCE_DIR}/${DDMDFE_PATH}/idgen.d
-    ${PROJECT_SOURCE_DIR}/${DDMDFE_PATH}/root/man.d
+    ${PROJECT_SOURCE_DIR}/source/${DDMDFE_PATH}/idgen.d
+    ${PROJECT_SOURCE_DIR}/source/${DDMDFE_PATH}/root/man.d
 )
 # exclude ldmd.d from ldc
 list(REMOVE_ITEM DRV_SRC_D
-    ${PROJECT_SOURCE_DIR}/driver/ldmd.d
+    ${PROJECT_SOURCE_DIR}/source/driver/ldmd.d
 )
 set(LDC_CXX_SOURCE_FILES
     ${LDC_CXX_GENERATED}
@@ -422,15 +422,15 @@ append("-DLDC_WITH_PGO" LDC_CXXFLAGS)
 
 include_directories(
     .
-    ${DDMDFE_PATH}
-    ${DDMDFE_PATH}/root
+    source/${DDMDFE_PATH}
+    source/${DDMDFE_PATH}/root
     ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}
-    ${PROJECT_SOURCE_DIR}
+    ${PROJECT_SOURCE_DIR}/source
 )
 include_directories( SYSTEM
     ${LLVM_INCLUDE_DIRS}
 )
-append("-I${PROJECT_SOURCE_DIR}" DDMD_DFLAGS)
+append("-I${PROJECT_SOURCE_DIR}/source" DDMD_DFLAGS)
 append("-I${PROJECT_BINARY_DIR}" DDMD_DFLAGS)
 if(MSVC)
     include_directories(${PROJECT_SOURCE_DIR}/vcbuild)
@@ -640,7 +640,7 @@ function(build_d_executable output_exe compiler_args linker_args compile_deps li
     endif()
     add_custom_command(
         OUTPUT ${object_file}
-        COMMAND ${D_COMPILER} -c ${dflags} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${object_file} ${compiler_args}
+        COMMAND ${D_COMPILER} -c ${dflags} -I${PROJECT_SOURCE_DIR}/source/${DDMDFE_PATH} -of${object_file} ${compiler_args}
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
         DEPENDS ${compile_deps}
     )
@@ -670,7 +670,7 @@ if(MSVC_IDE)
     separate_arguments(LDC_FLAG_LIST WINDOWS_COMMAND "${LDC_TRANSLATED_LINKER_FLAGS} ${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS}")
     add_custom_command(
         OUTPUT ${LDC_EXE_FULL}
-        COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:${LDC_LIB}> ${LDC_FLAG_LIST} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${LDC_EXE_FULL} ${LDC_D_SOURCE_FILES} $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:-g> $<$<NOT:$<CONFIG:Debug>>:-O> $<$<NOT:$<CONFIG:Debug>>:-inline> $<$<NOT:$<CONFIG:Debug>>:-release>
+        COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:${LDC_LIB}> ${LDC_FLAG_LIST} -I${PROJECT_SOURCE_DIR}/source/${DDMDFE_PATH} -of${LDC_EXE_FULL} ${LDC_D_SOURCE_FILES} $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:-g> $<$<NOT:$<CONFIG:Debug>>:-O> $<$<NOT:$<CONFIG:Debug>>:-inline> $<$<NOT:$<CONFIG:Debug>>:-release>
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
         DEPENDS ${LDC_D_SOURCE_FILES} ${FE_RES} ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d ${LDC_LIB}
     )
@@ -701,12 +701,12 @@ if (HAVE_SC_ARG_MAX)
    append("-DHAVE_SC_ARG_MAX" CMAKE_CXX_FLAGS)
 endif()
 
-set_source_files_properties(driver/exe_path.cpp driver/ldmd.cpp driver/response.cpp PROPERTIES
+set_source_files_properties(source/driver/exe_path.cpp source/driver/ldmd.cpp source/driver/response.cpp PROPERTIES
     COMPILE_FLAGS "${LDC_CXXFLAGS} ${LLVM_CXXFLAGS}"
     COMPILE_DEFINITIONS LDC_EXE_NAME="${LDC_EXE_NAME}"
 )
 
-add_library(LDMD_CXX_LIB ${LDC_LIB_TYPE} driver/exe_path.cpp driver/ldmd.cpp driver/response.cpp driver/exe_path.h)
+add_library(LDMD_CXX_LIB ${LDC_LIB_TYPE} source/driver/exe_path.cpp source/driver/ldmd.cpp source/driver/response.cpp source/driver/exe_path.h)
 set_target_properties(
     LDMD_CXX_LIB PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}
@@ -714,7 +714,7 @@ set_target_properties(
     ARCHIVE_OUTPUT_NAME ldmd
     LIBRARY_OUTPUT_NAME ldmd
 )
-set(LDMD_D_SOURCE_FILES ${DDMDFE_PATH}/root/man.d driver/ldmd.d)
+set(LDMD_D_SOURCE_FILES source/${DDMDFE_PATH}/root/man.d source/driver/ldmd.d)
 build_d_executable(
     "${LDMD_EXE_FULL}"
     "${LDMD_D_SOURCE_FILES}"
