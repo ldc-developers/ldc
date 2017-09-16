@@ -22,7 +22,7 @@ function(build_d_tool output_exe compiler_args linker_args compile_deps link_dep
     endforeach()
     add_custom_command(
         OUTPUT ${output_exe}
-        COMMAND ${D_COMPILER} ${dflags} ${lflags} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${output_exe} ${compiler_args} ${linker_args}
+        COMMAND ${D_COMPILER} ${dflags} ${lflags} -I${PROJECT_SOURCE_DIR}/source/${DDMDFE_PATH} -of${output_exe} ${compiler_args} ${linker_args}
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
         DEPENDS ${compile_deps} ${link_deps}
     )
@@ -33,7 +33,7 @@ endfunction()
 add_custom_target(${LDCPRUNECACHE_EXE} ALL DEPENDS ${LDCPRUNECACHE_EXE_FULL})
 set(LDCPRUNECACHE_D_SRC
     ${PROJECT_SOURCE_DIR}/tools/ldc-prune-cache.d
-    ${PROJECT_SOURCE_DIR}/driver/cache_pruning.d
+    ${PROJECT_SOURCE_DIR}/source/driver/cache_pruning.d
 )
 build_d_tool(
     "${LDCPRUNECACHE_EXE_FULL}"
