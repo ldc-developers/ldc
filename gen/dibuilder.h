@@ -79,6 +79,8 @@ class DIBuilder {
   const llvm::MDNode *CUNode;
 #endif
 
+  const bool isTargetMSVCx64;
+
   DICompileUnit GetCU() {
 #if LDC_LLVM_VER >= 307
     return CUNode;
@@ -133,7 +135,8 @@ public:
   /// \param addr     An array of complex address operations.
   void
   EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd, Type *type = nullptr,
-                    bool isThisPtr = false,
+                    bool isThisPtr = false, bool forceAsLocal = false,
+                    bool isRefRVal = false,
 #if LDC_LLVM_VER >= 306
                     llvm::ArrayRef<int64_t> addr = llvm::ArrayRef<int64_t>()
 #else
@@ -155,12 +158,18 @@ private:
   llvm::LLVMContext &getContext();
   Module *getDefinedModule(Dsymbol *s);
   DIScope GetCurrentScope();
-  void Declare(const Loc &loc, llvm::Value *var, ldc::DILocalVariable divar
+  void Declare(const Loc &loc, llvm::Value *storage, ldc::DILocalVariable divar
 #if LDC_LLVM_VER >= 306
                ,
                ldc::DIExpression diexpr
 #endif
                );
+  void SetValue(const Loc &loc, llvm::Value *value, ldc::DILocalVariable divar
+#if LDC_LLVM_VER >= 306
+                ,
+                ldc::DIExpression diexpr
+#endif
+                );
   void AddBaseFields(ClassDeclaration *sd, ldc::DIFile file,
 #if LDC_LLVM_VER >= 306
                      std::vector<llvm::Metadata *> &elems
