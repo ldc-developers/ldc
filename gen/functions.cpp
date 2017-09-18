@@ -861,10 +861,13 @@ void DtoDefineFunction(FuncDeclaration *fd) {
         ++llArgIdx;
       }
 
-      if (global.params.symdebug &&
-          !(isaArgument(irparam->value) &&
-            isaArgument(irparam->value)->hasByValAttr())) {
-        gIR->DBuilder.EmitLocalVariable(irparam->value, vd, debugInfoType);
+      // The debuginfos for captured params are handled later by
+      // DtoCreateNestedContext().
+      if (global.params.symdebug && vd->nestedrefs.dim == 0) {
+        // Reference (ref/out) parameters have no storage themselves as they are
+        // constant pointers, so pass the reference rvalue to EmitLocalVariable().
+        gIR->DBuilder.EmitLocalVariable(irparam->value, vd, debugInfoType,
+                                        false, false, /*isRefRVal=*/true);
       }
     }
   }
