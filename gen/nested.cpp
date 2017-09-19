@@ -476,7 +476,6 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
 
       IrLocal *irLocal = getIrLocal(vd);
       LLValue *gep = DtoGEPi(frame, 0, irLocal->nestedIndex, vd->toChars());
-      LLSmallVector<int64_t, 2> dwarfAddrOps;
       if (vd->isParameter()) {
         IF_LOG Logger::println("nested param: %s", vd->toChars());
         LOG_SCOPE
@@ -504,6 +503,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
       }
 
       if (global.params.symdebug) {
+        LLSmallVector<int64_t, 1> dwarfAddrOps;
 #if LDC_LLVM_VER < 500
         // Because we are passing a GEP instead of an alloca to
         // llvm.dbg.declare, we have to make the address dereference explicit.
