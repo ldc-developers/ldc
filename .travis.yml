@@ -6,7 +6,7 @@ matrix:
   include:
     - os: linux
       d: ldc
-      env: LLVM_VERSION=5.0.0 OPTS="-DLIB_SUFFIX=64 -DLDC_WITH_LLD=OFF"
+      env: LLVM_VERSION=5.0.0 OPTS="-DLIB_SUFFIX=64"
     - os: linux
       d: ldc
       env: LLVM_VERSION=4.0.1 OPTS="-DLIB_SUFFIX=64"

@@ -118,8 +118,9 @@ void ArgsBuilder::addLTOGoldPluginFlags() {
   if (opts::isUsingThinLTO())
     addLdFlag("-plugin-opt=thinlto");
 
-  if (!opts::mCPU.empty())
-    addLdFlag(llvm::Twine("-plugin-opt=mcpu=") + opts::mCPU);
+  const auto cpu = gTargetMachine->getTargetCPU();
+  if (!cpu.empty())
+    addLdFlag(llvm::Twine("-plugin-opt=mcpu=") + cpu);
 
   // Use the O-level passed to LDC as the O-level for LTO, but restrict it to
   // the [0, 3] range that can be passed to the linker plugin.

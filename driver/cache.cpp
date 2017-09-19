@@ -302,14 +302,18 @@ void outputIR2ObjRelevantCmdlineArgs(llvm::raw_ostream &hash_os) {
   // sharing the cache).
   outputOptimizationSettings(hash_os);
   opts::outputSanitizerSettings(hash_os);
-  hash_os << opts::mCPU;
-  for (auto &attr : opts::mAttrs) {
-    hash_os << attr;
-  }
-  hash_os << opts::mFloatABI;
-  hash_os << opts::mRelocModel;
-  hash_os << opts::mCodeModel;
-  hash_os << opts::disableFpElim;
+  hash_os << opts::getCPUStr();
+  hash_os << opts::getFeaturesStr();
+  hash_os << opts::floatABI;
+#if LDC_LLVM_VER >= 309
+  const auto relocModel = opts::getRelocModel();
+  if (relocModel.hasValue())
+    hash_os << relocModel.getValue();
+#else
+  hash_os << opts::getRelocModel();
+#endif
+  hash_os << opts::getCodeModel();
+  hash_os << opts::disableFPElim();
 }
 
 // Output to `hash_os` all environment flags that influence object code output

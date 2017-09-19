@@ -15,6 +15,7 @@
 #ifndef LDC_DRIVER_CL_OPTIONS_H
 #define LDC_DRIVER_CL_OPTIONS_H
 
+#include "driver/cl_options-llvm.h"
 #include "driver/targetmachine.h"
 #include "gen/cl_helpers.h"
 #include "llvm/ADT/SmallVector.h"
@@ -69,24 +70,18 @@ extern cl::opt<std::string> cacheDir;
 extern cl::list<std::string> linkerSwitches;
 extern cl::list<std::string> ccSwitches;
 
-extern cl::opt<std::string> mArch;
 extern cl::opt<bool> m32bits;
 extern cl::opt<bool> m64bits;
-extern cl::opt<std::string> mCPU;
-extern cl::list<std::string> mAttrs;
 extern cl::opt<std::string> mTargetTriple;
 extern cl::opt<std::string> mABI;
-extern cl::opt<llvm::Reloc::Model> mRelocModel;
-extern cl::opt<llvm::CodeModel::Model> mCodeModel;
-extern cl::opt<bool> disableFpElim;
-extern cl::opt<FloatABI::Type> mFloatABI;
+extern FloatABI::Type floatABI;
 extern cl::opt<bool> linkonceTemplates;
 extern cl::opt<bool> disableLinkerStripDead;
 
 // Math options
 extern bool fFastMath;
 extern llvm::FastMathFlags defaultFMF;
-void setDefaultMathOptions(llvm::TargetMachine &target);
+void setDefaultMathOptions(llvm::TargetOptions &targetOptions);
 
 extern cl::opt<BOUNDSCHECK> boundsCheck;
 extern bool nonSafeBoundsChecks;
