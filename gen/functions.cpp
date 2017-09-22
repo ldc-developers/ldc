@@ -1060,8 +1060,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   DtoCreateNestedContext(funcGen);
 
-  if (fd->vresult && !fd->vresult->nestedrefs.dim) // FIXME: not sure here :/
-  {
+  // Declare the special __result variable. If it's captured, it has already
+  // been allocated by DtoCreateNestedContext().
+  if (fd->vresult) {
     DtoVarDeclaration(fd->vresult);
   }
 
