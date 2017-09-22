@@ -1102,8 +1102,13 @@ extern (C++) class FuncDeclaration : Declaration
                  * even if this functions doesn't have an out contract.
                  */
                 fdensureParams = new Expressions();
-                if (outId)
-                    fdensureParams.push(new IdentifierExp(loc, outId));
+                /* The return type may still need to be inferred, so we can't know for
+                 * sure whether there's a return value to be passed to the out contract.
+                 * Reserve a parameter for now and remove it later in semantic3() in case
+                 * the return type is void (or finalize its type).
+                 */
+                if (outId || inferRetType)
+                    fdensureParams.push(new IdentifierExp(loc, outId ? outId : Id.result));
             }
             if (fensure)
             {
@@ -1123,15 +1128,19 @@ extern (C++) class FuncDeclaration : Declaration
                 }
                 Loc loc = fensure.loc;
                 Parameter p = null;
-                if (outId)
+                version(IN_LLVM)
                 {
-                    p = new Parameter(STCref | STCconst, f.nextOf(), outId, null);
-                    version(IN_LLVM)
+                    if (outId || inferRetType)
                     {
+                        p = new Parameter(STCref | STCconst, f.nextOf(), outId ? outId : Id.result, null);
                         fparams.insert(0, p);
                     }
-                    else
+                }
+                else
+                {
+                    if (outId)
                     {
+                        p = new Parameter(STCref | STCconst, f.nextOf(), outId, null);
                         fparams.push(p);
                     }
                 }
@@ -1915,6 +1924,13 @@ extern (C++) class FuncDeclaration : Declaration
                 if (!global.params.useIn)
                     freq = null;
             }
+            version(IN_LLVM)
+            {
+                // If a void return type has been inferred, remove the return value
+                // parameter for the out contract reserved in the first semantic pass.
+                if (inferRetType && fdensureParams && f.next.toBasetype().ty == Tvoid)
+                    fdensureParams.remove(0);
+            }
             if (fens)
             {
                 /* fensure is composed of the [out] contracts
@@ -1934,7 +1950,17 @@ extern (C++) class FuncDeclaration : Declaration
                     if (out_params.dim > 0)
                     {
                         Parameter p = (*out_params)[0];
-                        p.type = f.next;
+                        version(IN_LLVM)
+                        {
+                            if (f.next.toBasetype().ty == Tvoid)
+                                out_params.remove(0);
+                            else
+                                p.type = f.next;
+                        }
+                        else
+                        {
+                            p.type = f.next;
+                        }
                     }
                 }
 
