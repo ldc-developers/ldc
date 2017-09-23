@@ -533,11 +533,10 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     func = LLFunction::Create(functype, llvm::GlobalValue::ExternalLinkage,
                               mangledName, &gIR->module);
   } else if (func->getFunctionType() != functype) {
-    error(fdecl->loc,
-          "Function type does not match previously declared "
-          "function with the same mangled name: `%s`",
-          mangleExact(fdecl));
-    fatal();
+    warning(fdecl->loc,
+            "type of function `%s` does not match previously declared "
+            "function with the same mangled name: %s",
+            fdecl->toPrettyChars(), mangleExact(fdecl));
   }
 
   func->setCallingConv(gABI->callingConv(func->getFunctionType(), link, fdecl));
@@ -921,7 +920,16 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     return;
   }
 
-  IrFunction *irFunc = getIrFunc(fd);
+  IrFunction *const irFunc = getIrFunc(fd);
+  llvm::Function *const func = irFunc->getLLVMFunc();
+
+  if (!func->empty()) {
+    warning(fd->loc,
+            "skipping definition of function `%s` due to previous definition "
+            "for the same mangled name: %s",
+            fd->toPrettyChars(), mangleExact(fd));
+    return;
+  }
 
   // debug info
   irFunc->diSubprogram = gIR->DBuilder.EmitSubProgram(fd);
@@ -940,7 +948,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   const auto f = static_cast<TypeFunction *>(fd->type->toBasetype());
   IrFuncTy &irFty = irFunc->irFty;
-  llvm::Function *func = irFunc->getLLVMFunc();
 
   const auto lwc = lowerFuncLinkage(fd);
   if (linkageAvailableExternally) {
