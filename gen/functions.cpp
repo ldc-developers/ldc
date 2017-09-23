@@ -921,14 +921,23 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     return;
   }
 
-  IrFunction *irFunc = getIrFunc(fd);
+  IrFunction *const irFunc = getIrFunc(fd);
+  llvm::Function *const func = irFunc->getLLVMFunc();
 
-  // debug info
-  irFunc->diSubprogram = gIR->DBuilder.EmitSubProgram(fd);
+  if (!func->empty()) {
+    warning(fd->loc,
+            "skipping definition of function `%s` due to previous definition "
+            "for the same mangled name: %s",
+            fd->toPrettyChars(), mangleExact(fd));
+    return;
+  }
 
   if (!fd->fbody) {
     return;
   }
+
+  // debug info
+  irFunc->diSubprogram = gIR->DBuilder.EmitSubProgram(fd);
 
   IF_LOG Logger::println("Doing function body for: %s", fd->toChars());
   gIR->funcGenStates.emplace_back(new FuncGenState(*irFunc, *gIR));
@@ -940,7 +949,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   const auto f = static_cast<TypeFunction *>(fd->type->toBasetype());
   IrFuncTy &irFty = irFunc->irFty;
-  llvm::Function *func = irFunc->getLLVMFunc();
 
   const auto lwc = lowerFuncLinkage(fd);
   if (linkageAvailableExternally) {
