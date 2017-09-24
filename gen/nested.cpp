@@ -383,12 +383,19 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
     irLocal.nestedDepth = depth;
 
     LLType *t = nullptr;
-    if (vd->isRef() || vd->isOut())
+    if (vd->isRef() || vd->isOut()) {
       t = DtoType(vd->type->pointerTo());
-    else if (vd->isParameter() && (vd->storage_class & STClazy))
-      t = getIrParameter(vd)->value->getType()->getContainedType(0);
-    else
+    } else if (vd->isParameter() && (vd->storage_class & STClazy)) {
+      // The LL type is a delegate (LL struct).
+      // Depending on the used TargetABI, the LL parameter is either a struct or
+      // a pointer to a struct (`byval` attribute, ExplicitByvalRewrite).
+      t = getIrParameter(vd)->value->getType();
+      if (t->isPointerTy())
+        t = t->getPointerElementType();
+      assert(t->isStructTy());
+    } else {
       t = DtoMemType(vd->type);
+    }
 
     builder.addType(t, getTypeAllocSize(t));
 
