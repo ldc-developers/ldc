@@ -203,22 +203,44 @@ IrTypeAggr::IrTypeAggr(AggregateDeclaration *ad)
       aggr(ad) {}
 
 bool IrTypeAggr::isPacked(AggregateDeclaration *ad) {
-  const auto aggregateSize = (ad->sizeok == SIZEOKdone ? ad->structsize : ~0u);
+  // If the aggregate's size is unknown, any field with type alignment > 1 will
+  // make it packed.
+  unsigned aggregateSize = ~0u;
+  unsigned aggregateAlignment = 1;
+  if (ad->sizeok == SIZEOKdone) {
+    aggregateSize = ad->structsize;
+
+    const auto naturalAlignment = ad->alignsize;
+    auto explicitAlignment = STRUCTALIGN_DEFAULT;
+    if (auto sd = ad->isStructDeclaration())
+      explicitAlignment = sd->alignment;
+
+    aggregateAlignment = explicitAlignment == STRUCTALIGN_DEFAULT
+                             ? naturalAlignment
+                             : explicitAlignment;
+  }
+
+  // Classes apparently aren't padded; their size may not match the alignment.
+  assert((ad->isClassDeclaration() ||
+          (aggregateSize & (aggregateAlignment - 1)) == 0) &&
+         "Size not a multiple of alignment?");
 
   // For unions, only a subset of the fields are actually used for the IR type -
-  // don't care.
+  // don't care (about a few potentially needlessly packed IR structs).
   for (const auto field : ad->fields) {
-    // The aggregate's size and the field offset need to be multiples of the
-    // field's natural alignment, otherwise the aggregate type is unnaturally
-    // aligned, and LLVM would insert padding.
-    const auto naturalFieldAlignment = field->type->alignsize();
-    const auto mask = naturalFieldAlignment - 1;
+    const auto naturalFieldTypeAlignment = field->type->alignsize();
+    const auto explicitFieldTypeAlignment = field->type->alignment();
+    const auto fieldTypeAlignment =
+        explicitFieldTypeAlignment == STRUCTALIGN_DEFAULT
+            ? naturalFieldTypeAlignment
+            : explicitFieldTypeAlignment;
 
-    // If the aggregate's size is unknown, any field with natural alignment > 1
-    // will make it packed.
-    if ((aggregateSize & mask) != 0 || (field->offset & mask) != 0) {
+    // The aggregate size, aggregate alignment and the field offset need to be
+    // multiples of the field type's alignment, otherwise the aggregate type is
+    // unnaturally aligned, and LLVM would insert padding.
+    const auto mask = fieldTypeAlignment - 1;
+    if ((aggregateSize | aggregateAlignment | field->offset) & mask)
       return true;
-    }
   }
 
   return false;
