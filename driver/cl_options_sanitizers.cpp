@@ -15,8 +15,10 @@
 #include "driver/cl_options_sanitizers.h"
 
 #include "ddmd/errors.h"
+#include "ddmd/dsymbol.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/SpecialCaseList.h"
 
 namespace {
 
@@ -27,6 +29,13 @@ cl::list<std::string> fSanitize(
     cl::desc("Turn on runtime checks for various forms of undefined or "
              "suspicious behavior."),
     cl::value_desc("checks"));
+
+cl::list<std::string> fSanitizeBlacklist(
+    "fsanitize-blacklist", cl::CommaSeparated,
+    cl::desc("Add <file> to the blacklist files for the sanitizers."),
+    cl::value_desc("file"));
+
+std::unique_ptr<llvm::SpecialCaseList> sanitizerBlacklist;
 
 #ifdef ENABLE_COVERAGE_SANITIZER
 cl::list<std::string> fSanitizeCoverage(
@@ -149,6 +158,14 @@ void initializeSanitizerOptionsFromCmdline()
     sancovOpts.CoverageType = llvm::SanitizerCoverageOptions::SCK_Edge;
   }
 #endif
+
+  if (isAnySanitizerEnabled() && !fSanitizeBlacklist.empty()) {
+    std::string loadError;
+    sanitizerBlacklist =
+        llvm::SpecialCaseList::create(fSanitizeBlacklist, loadError);
+    if (!sanitizerBlacklist)
+      error(Loc(), "-fsanitize-blacklist error: %s", loadError.c_str());
+  }
 }
 
 #ifdef ENABLE_COVERAGE_SANITIZER
@@ -178,6 +195,11 @@ void outputSanitizerSettings(llvm::raw_ostream &hash_os) {
   hash_os << sanitizerCoverageOptions.NoPrune;
 #endif
 #endif
+}
+
+bool functionIsInSanitizerBlacklist(FuncDeclaration *funcDecl) {
+  return sanitizerBlacklist &&
+         sanitizerBlacklist->inSection("fun", mangleExact(funcDecl));
 }
 
 } // namespace opts

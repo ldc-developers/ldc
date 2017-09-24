@@ -15,6 +15,7 @@
 
 #include "driver/cl_options.h"
 #include "driver/targetmachine.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/MC/SubtargetFeature.h"
@@ -27,6 +28,7 @@
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/IR/Module.h"
 #include "mars.h"
+#include "driver/cl_options.h"
 #include "gen/logger.h"
 
 static const char *getABI(const llvm::Triple &triple) {
@@ -197,28 +199,13 @@ static std::string getAArch64TargetCPU(const llvm::Triple &triple) {
   return "generic";
 }
 
-/// Returns the LLVM name of the target CPU to use given the provided
-/// -mcpu argument and target triple.
-static std::string getTargetCPU(const std::string &cpu,
-                                const llvm::Triple &triple) {
-  if (!cpu.empty()) {
-    if (cpu != "native") {
-      return cpu;
-    }
-
-    // FIXME: Reject attempts to use -mcpu=native unless the target matches
-    // the host.
-    std::string hostCPU = llvm::sys::getHostCPUName();
-    if (!hostCPU.empty() && hostCPU != "generic") {
-      return hostCPU;
-    }
-  }
-
+/// Returns the LLVM name of the default CPU for the provided target triple.
+static std::string getTargetCPU(const llvm::Triple &triple) {
   switch (triple.getArch()) {
   default:
     // We don't know about the specifics of this platform, just return the
     // empty string and let LLVM decide.
-    return cpu;
+    return "";
   case llvm::Triple::x86:
   case llvm::Triple::x86_64:
     return getX86TargetCPU(triple);
@@ -355,17 +342,18 @@ const llvm::Target *lookupTarget(const std::string &arch, llvm::Triple &triple,
 }
 
 llvm::TargetMachine *
-createTargetMachine(std::string targetTriple, std::string arch, std::string cpu,
-                    std::vector<std::string> attrs,
-                    ExplicitBitness::Type bitness, FloatABI::Type floatABI,
+createTargetMachine(const std::string targetTriple, const std::string arch,
+                    std::string cpu, const std::string featuresString,
+                    const ExplicitBitness::Type bitness,
+                    FloatABI::Type floatABI,
 #if LDC_LLVM_VER >= 309
                     llvm::Optional<llvm::Reloc::Model> relocModel,
 #else
                     llvm::Reloc::Model relocModel,
 #endif
-                    llvm::CodeModel::Model codeModel,
-                    llvm::CodeGenOpt::Level codeGenOptLevel,
-                    bool noFramePointerElim, bool noLinkerStripDead) {
+                    const llvm::CodeModel::Model codeModel,
+                    const llvm::CodeGenOpt::Level codeGenOptLevel,
+                    const bool noLinkerStripDead) {
   // Determine target triple. If the user didn't explicitly specify one, use
   // the one set at LLVM configure time.
   llvm::Triple triple;
@@ -398,47 +386,40 @@ createTargetMachine(std::string targetTriple, std::string arch, std::string cpu,
     fatal();
   }
 
-  // Package up features to be passed to target/subtarget.
-  llvm::SubtargetFeatures features;
-  features.getDefaultSubtargetFeatures(triple);
-  if (cpu == "native") {
-    llvm::StringMap<bool> hostFeatures;
-    if (llvm::sys::getHostCPUFeatures(hostFeatures)) {
-      for (const auto &hf : hostFeatures) {
-        features.AddFeature(
-            std::string(hf.second ? "+" : "-").append(hf.first()));
-      }
-    }
-  }
-  for (auto &attr : attrs) {
-    features.AddFeature(attr);
-  }
-
   // With an empty CPU string, LLVM will default to the host CPU, which is
   // usually not what we want (expected behavior from other compilers is
   // to default to "generic").
-  cpu = getTargetCPU(cpu, triple);
+  if (cpu.empty() || cpu == "generic") {
+    cpu = getTargetCPU(triple);
+    if (cpu.empty())
+      cpu = "generic";
+  }
+
+  // Package up features to be passed to target/subtarget.
+  llvm::SmallVector<llvm::StringRef, 8> features;
+
+  // NOTE: needs a persistent (non-temporary) string
+  auto splitAndAddFeatures = [&features](llvm::StringRef str) {
+    str.split(features, ",", -1, /* KeepEmpty */ false);
+  };
+
+  llvm::SubtargetFeatures defaultSubtargetFeatures;
+  defaultSubtargetFeatures.getDefaultSubtargetFeatures(triple);
+  const std::string defaultSubtargetFeaturesString =
+      defaultSubtargetFeatures.getString();
+  splitAndAddFeatures(defaultSubtargetFeaturesString);
+
+  splitAndAddFeatures(featuresString);
 
   // cmpxchg16b is not available on old 64bit CPUs. Enable code generation
   // if the user did not make an explicit choice.
   if (cpu == "x86-64") {
-    const char *cx16_plus = "+cx16";
-    const char *cx16_minus = "-cx16";
-    bool cx16 = false;
-    for (auto &attr : attrs) {
-      if (attr == cx16_plus || attr == cx16_minus) {
-        cx16 = true;
-      }
+    const bool has_cx16 =
+        std::any_of(features.begin(), features.end(),
+                    [](llvm::StringRef f) { return f.substr(1) == "cx16"; });
+    if (!has_cx16) {
+      features.push_back("+cx16");
     }
-    if (!cx16) {
-      features.AddFeature(cx16_plus);
-    }
-  }
-
-  if (Logger::enabled()) {
-    Logger::println("Targeting '%s' (CPU '%s' with features '%s')",
-                    triple.str().c_str(), cpu.c_str(),
-                    features.getString().c_str());
   }
 
 // Handle cases where LLVM picks wrong default relocModel
@@ -473,26 +454,28 @@ createTargetMachine(std::string targetTriple, std::string arch, std::string cpu,
     }
   }
 
-  if (floatABI == FloatABI::Default) {
+  llvm::TargetOptions targetOptions = opts::InitTargetOptionsFromCodeGenFlags();
+  if (targetOptions.MCOptions.ABIName.empty())
+    targetOptions.MCOptions.ABIName = getABI(triple);
+
+  auto ldcFloatABI = floatABI;
+  if (ldcFloatABI == FloatABI::Default) {
     switch (triple.getArch()) {
     default: // X86, ...
-      floatABI = FloatABI::Hard;
+      ldcFloatABI = FloatABI::Hard;
       break;
     case llvm::Triple::arm:
     case llvm::Triple::thumb:
-      floatABI = getARMFloatABI(triple, getLLVMArchSuffixForARM(cpu));
+      ldcFloatABI = getARMFloatABI(triple, getLLVMArchSuffixForARM(cpu));
       break;
     }
   }
 
-  llvm::TargetOptions targetOptions;
-  targetOptions.MCOptions.ABIName = getABI(triple);
-
-  switch (floatABI) {
+  switch (ldcFloatABI) {
   default:
     llvm_unreachable("Floating point ABI type unknown.");
   case FloatABI::Soft:
-    features.AddFeature("+soft-float");
+    features.push_back("+soft-float");
     targetOptions.FloatABIType = llvm::FloatABI::Soft;
     break;
   case FloatABI::SoftFP:
@@ -514,11 +497,20 @@ createTargetMachine(std::string targetTriple, std::string arch, std::string cpu,
     targetOptions.DataSections = true;
   }
 
-  return target->createTargetMachine(triple.str(), cpu, features.getString(),
-                                     targetOptions, relocModel, codeModel,
+  const std::string finalFeaturesString =
+      llvm::join(features.begin(), features.end(), ",");
+
+  if (Logger::enabled()) {
+    Logger::println("Targeting '%s' (CPU '%s' with features '%s')",
+                    triple.str().c_str(), cpu.c_str(),
+                    finalFeaturesString.c_str());
+  }
+
+  return target->createTargetMachine(triple.str(), cpu, finalFeaturesString,
+                                     targetOptions, relocModel, opts::getCodeModel(),
                                      codeGenOptLevel);
 }
-    
+
 ComputeBackend::Type getComputeTargetType(llvm::Module* m) {
   llvm::Triple::ArchType a = llvm::Triple(m->getTargetTriple()).getArch();
   if (a == llvm::Triple::spir || a == llvm::Triple::spir64)

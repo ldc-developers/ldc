@@ -14,19 +14,18 @@
 #ifndef LDC_DRIVER_CONFIGFILE_H
 #define LDC_DRIVER_CONFIGFILE_H
 
+#include "llvm/ADT/SmallVector.h"
 #include <string>
-#include <vector>
+
+#include "array.h"
 
 class ConfigFile {
 public:
-  using s_iterator = const char **;
-
   bool read(const char *explicitConfFile, const char *section);
 
-  s_iterator switches_begin() { return switches_b; }
-  s_iterator switches_end() { return switches_e; }
-
   std::string path() { return std::string(pathcstr); }
+
+  void extendCommandLine(llvm::SmallVectorImpl<const char *> &args);
 
 private:
   bool locate(std::string &pathstr);
@@ -35,8 +34,8 @@ private:
   bool readConfig(const char *cfPath, const char *section, const char *binDir);
 
   const char *pathcstr = nullptr;
-  s_iterator switches_b = nullptr;
-  s_iterator switches_e = nullptr;
+  Array<const char *> switches;
+  Array<const char *> postSwitches;
 };
 
 #endif // LDC_DRIVER_CONFIGFILE_H

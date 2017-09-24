@@ -54,7 +54,7 @@ private:
 
   virtual void addUserSwitches();
   void addDefaultLibs();
-  virtual void addArch();
+  virtual void addTargetFlags();
 
 #if LDC_LLVM_VER >= 309
   void addLTOGoldPluginFlags();
@@ -118,8 +118,9 @@ void ArgsBuilder::addLTOGoldPluginFlags() {
   if (opts::isUsingThinLTO())
     addLdFlag("-plugin-opt=thinlto");
 
-  if (!opts::mCPU.empty())
-    addLdFlag(llvm::Twine("-plugin-opt=mcpu=") + opts::mCPU);
+  const auto cpu = gTargetMachine->getTargetCPU();
+  if (!cpu.empty())
+    addLdFlag(llvm::Twine("-plugin-opt=mcpu=") + cpu);
 
   // Use the O-level passed to LDC as the O-level for LTO, but restrict it to
   // the [0, 3] range that can be passed to the linker plugin.
@@ -180,58 +181,38 @@ void ArgsBuilder::addLTOLinkFlags() {
 
 //////////////////////////////////////////////////////////////////////////////
 
-// Returns true on success.
-bool addDarwinASanLinkFlags(std::vector<std::string> &args) {
-  std::string searchPaths[] = {
-    exe_path::prependLibDir("libldc_rt.asan_osx_dynamic.dylib"),
-    exe_path::prependLibDir("libclang_rt.asan_osx_dynamic.dylib"),
-  };
-
-  for (const auto &filepath : searchPaths) {
-    if (llvm::sys::fs::exists(filepath)) {
-      args.push_back(filepath);
-
-      // Add @executable_path to rpath to support having the dylib copied with
-      // the executable.
-      args.push_back("-rpath");
-      args.push_back("@executable_path");
-
-      // Add the path to the resource dir to rpath to support using the dylib
-      // from the default location without copying.
-      args.push_back("-rpath");
-      args.push_back(llvm::sys::path::parent_path(filepath));
-
-      return true;
-    }
-  }
-
-  // We did not find the library.
-  return false;
-}
-
 // Returns the arch name as used in the compiler_rt libs.
 // FIXME: implement correctly for non-x86 platforms (e.g. ARM)
 llvm::StringRef getCompilerRTArchName() {
   return global.params.targetTriple->getArchName();
 }
 
-bool addUnixlikeASanLinkFlags(std::vector<std::string> &args) {
+// Returns the libname as full path and with arch suffix and extension.
+// For example, with name="libldc_rt.fuzzer", the returned string is
+// "libldc_rt.fuzzer_osx.a" on Darwin.
+std::string getFullCompilerRTLibPath(llvm::StringRef name,
+                                     bool sharedLibrary = false) {
+  if (global.params.targetTriple->isOSDarwin()) {
+    return exe_path::prependLibDir(
+        name + (sharedLibrary ? "_osx_dynamic.dylib" : "_osx.a"));
+  } else {
+    return exe_path::prependLibDir(name + "-" + getCompilerRTArchName() +
+                                   (sharedLibrary ? ".so" : ".a"));
+  }
+}
+
+void ArgsBuilder::addASanLinkFlags() {
   // Examples: "libclang_rt.asan-x86_64.a" or "libclang_rt.asan-arm.a" and
   // "libclang_rt.asan-x86_64.so"
 
-  auto arch = getCompilerRTArchName();
-
-  // TODO: let user choose to link with shared lib. In case of shared ASan, I
-  // think we also need to statically link with
-  // libclang_rt.asan-preinit-<arch>.a
-  bool linkSharedASan = false;
-  const char *extension = linkSharedASan ? ".so" : ".a";
-
+  // TODO: let user choose to link with shared lib.
+  // In case of shared ASan, I think we also need to statically link with
+  // libclang_rt.asan-preinit-<arch>.a on Linux. On Darwin, the only option is
+  // to use the shared library.
+  bool linkSharedASan = global.params.targetTriple->isOSDarwin();
   std::string searchPaths[] = {
-      exe_path::prependLibDir("libldc_rt.asan-" + llvm::Twine(arch) +
-                              extension),
-      exe_path::prependLibDir("libclang_rt.asan-" + llvm::Twine(arch) +
-                              extension),
+      getFullCompilerRTLibPath("libldc_rt.asan", linkSharedASan),
+      getFullCompilerRTLibPath("libclang_rt.asan", linkSharedASan),
   };
 
   for (const auto &filepath : searchPaths) {
@@ -239,39 +220,39 @@ bool addUnixlikeASanLinkFlags(std::vector<std::string> &args) {
       args.push_back(filepath);
 
       if (linkSharedASan) {
-        // TODO: add -rpath
+        // Add @executable_path to rpath to support having the shared lib copied
+        // with the executable.
+        args.push_back("-rpath");
+        args.push_back("@executable_path");
+
+        // Add the path to the resource dir to rpath to support using the shared
+        // lib from the default location without copying.
+        args.push_back("-rpath");
+        args.push_back(llvm::sys::path::parent_path(filepath));
       }
 
-      return true;
+      return;
     }
   }
 
-  // We did not find the library.
-  return false;
-}
-
-void ArgsBuilder::addASanLinkFlags() {
-  bool success = false;
-  if (global.params.targetTriple->isOSDarwin()) {
-    success = addDarwinASanLinkFlags(args);
-  } else {
-    success = addUnixlikeASanLinkFlags(args);
-  }
-
-  if (!success) {
-    // Fallback, requires Clang. The asan library contains a versioned symbol
-    // name and a linker error will happen when the LDC-LLVM and Clang-LLVM
-    // versions don't match.
-    args.push_back("-fsanitize=address");
-  }
+  // When we reach here, we did not find the ASan library.
+  // Fallback, requires Clang. The asan library contains a versioned symbol
+  // name and a linker error will happen when the LDC-LLVM and Clang-LLVM
+  // versions don't match.
+  args.push_back("-fsanitize=address");
 }
 
 // Adds all required link flags for -fsanitize=fuzzer when libFuzzer library is
 // found.
 void ArgsBuilder::addFuzzLinkFlags() {
   std::string searchPaths[] = {
+#if LDC_LLVM_VER >= 600
+    getFullCompilerRTLibPath("libldc_rt.fuzzer"),
+    getFullCompilerRTLibPath("libclang_rt.fuzzer"),
+#else
     exe_path::prependLibDir("libFuzzer.a"),
     exe_path::prependLibDir("libLLVMFuzzer.a"),
+#endif
   };
 
   for (const auto &filepath : searchPaths) {
@@ -404,7 +385,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
 
   addDefaultLibs();
 
-  addArch();
+  addTargetFlags();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -495,50 +476,8 @@ void ArgsBuilder::addDefaultLibs() {
 
 //////////////////////////////////////////////////////////////////////////////
 
-void ArgsBuilder::addArch() {
-  // Only specify -m32/-m64 for architectures where the two variants actually
-  // exist (as e.g. the GCC ARM toolchain doesn't recognize the switches).
-  // MIPS does not have -m32/-m64 but requires -mabi=.
-  if (global.params.targetTriple->get64BitArchVariant().getArch() !=
-          llvm::Triple::UnknownArch &&
-      global.params.targetTriple->get32BitArchVariant().getArch() !=
-          llvm::Triple::UnknownArch) {
-    if (global.params.targetTriple->get64BitArchVariant().getArch() ==
-            llvm::Triple::mips64 ||
-        global.params.targetTriple->get64BitArchVariant().getArch() ==
-            llvm::Triple::mips64el) {
-      switch (getMipsABI()) {
-      case MipsABI::EABI:
-        args.push_back("-mabi=eabi");
-        break;
-      case MipsABI::O32:
-        args.push_back("-mabi=32");
-        break;
-      case MipsABI::N32:
-        args.push_back("-mabi=n32");
-        break;
-      case MipsABI::N64:
-        args.push_back("-mabi=64");
-        break;
-      case MipsABI::Unknown:
-        break;
-      }
-    } else {
-      switch (global.params.targetTriple->getArch()) {
-      case llvm::Triple::arm:
-      case llvm::Triple::armeb:
-      case llvm::Triple::aarch64:
-      case llvm::Triple::aarch64_be:
-        break;
-      default:
-        if (global.params.is64bit) {
-          args.push_back("-m64");
-        } else {
-          args.push_back("-m32");
-        }
-      }
-    }
-  }
+void ArgsBuilder::addTargetFlags() {
+  appendTargetArgsForGcc(args);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -556,7 +495,7 @@ class LdArgsBuilder : public ArgsBuilder {
                 opts::linkerSwitches.end());
   }
 
-  void addArch() override {}
+  void addTargetFlags() override {}
 
   void addLdFlag(const llvm::Twine &flag) override {
     args.push_back(flag.str());

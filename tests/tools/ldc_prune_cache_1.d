@@ -3,26 +3,26 @@
 // This test assumes that the `void main(){}` object file size is below 200_000 bytes and above 200_000/2,
 // such that rebuilding with version(NEW_OBJ_FILE) will clear the cache of all but the latest object file.
 
-// RUN: %ldc %s -cache=%T/tempcache1 \
-// RUN: && %ldc %s -cache=%T/tempcache1 -d-version=SLEEP \
-// RUN: && %prunecache -f %T/tempcache1 \
-// RUN: && %ldc %s -cache=%T/tempcache1 -vv | FileCheck --check-prefix=MUST_HIT %s \
-// RUN: && %ldc %s -cache=%T/tempcache1 -vv -d-version=NEW_OBJ_FILE | FileCheck --check-prefix=NO_HIT %s \
-// RUN: && %prunecache %T/tempcache1 -f \
-// RUN: && %ldc %s -cache=%T/tempcache1 -vv | FileCheck --check-prefix=MUST_HIT %s \
-// RUN: && %ldc -d-version=SLEEP -run %s \
-// RUN: && %ldc %s -c -of=%t%obj -cache=%T/tempcache1 -vv | FileCheck --check-prefix=MUST_HIT %s \
-// RUN: && %prunecache --force --max-bytes=200000 %T/tempcache1 \
-// RUN: && %ldc %t%obj \
-// RUN: && %ldc %s -cache=%T/tempcache1 -d-version=SLEEP -vv | FileCheck --check-prefix=NO_HIT %s \
-// RUN: && %ldc -d-version=SLEEP -run %s \
-// RUN: && %ldc %s -cache=%T/tempcache1 -d-version=NEW_OBJ_FILE \
-// RUN: && %prunecache --interval=0 %T/tempcache1 --max-bytes=200000 \
-// RUN: && %ldc %s -cache=%T/tempcache1 -vv | FileCheck --check-prefix=NO_HIT %s \
-// RUN: && %ldc -d-version=SLEEP -run %s \
-// RUN: && %ldc -d-version=SLEEP -run %s \
-// RUN: && %prunecache %T/tempcache1 -f --expiry=2  \
-// RUN: && %ldc %s -cache=%T/tempcache1 -vv | FileCheck --check-prefix=NO_HIT %s
+// RUN: %ldc %s -cache=%t-dir
+// RUN: %ldc %s -cache=%t-dir -d-version=SLEEP
+// RUN: %prunecache -f %t-dir
+// RUN: %ldc %s -cache=%t-dir -vv | FileCheck --check-prefix=MUST_HIT %s
+// RUN: %ldc %s -cache=%t-dir -vv -d-version=NEW_OBJ_FILE | FileCheck --check-prefix=NO_HIT %s
+// RUN: %prunecache %t-dir -f
+// RUN: %ldc %s -cache=%t-dir -vv | FileCheck --check-prefix=MUST_HIT %s
+// RUN: %ldc -d-version=SLEEP -run %s
+// RUN: %ldc %s -c -of=%t%obj -cache=%t-dir -vv | FileCheck --check-prefix=MUST_HIT %s
+// RUN: %prunecache --force --max-bytes=200000 %t-dir
+// RUN: %ldc %t%obj
+// RUN: %ldc %s -cache=%t-dir -d-version=SLEEP -vv | FileCheck --check-prefix=NO_HIT %s
+// RUN: %ldc -d-version=SLEEP -run %s
+// RUN: %ldc %s -cache=%t-dir -d-version=NEW_OBJ_FILE
+// RUN: %prunecache --interval=0 %t-dir --max-bytes=200000
+// RUN: %ldc %s -cache=%t-dir -vv | FileCheck --check-prefix=NO_HIT %s
+// RUN: %ldc -d-version=SLEEP -run %s
+// RUN: %ldc -d-version=SLEEP -run %s
+// RUN: %prunecache %t-dir -f --expiry=2
+// RUN: %ldc %s -cache=%t-dir -vv | FileCheck --check-prefix=NO_HIT %s
 
 // MUST_HIT: Cache object found!
 // NO_HIT-NOT: Cache object found!

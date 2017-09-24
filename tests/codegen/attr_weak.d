@@ -1,7 +1,7 @@
 // Test linking+running a program with @weak function
 
-// RUN: %ldc -O3 %S/inputs/attr_weak_input.d -c -of=%T/attr_weak_input%obj
-// RUN: %ldc -O3 %T/attr_weak_input%obj %s -of=%t%exe
+// RUN: %ldc -O3 %S/inputs/attr_weak_input.d -c -of=%t-dir/attr_weak_input%obj
+// RUN: %ldc -O3 %t-dir/attr_weak_input%obj %s -of=%t%exe
 // RUN: %t%exe
 
 

@@ -599,6 +599,7 @@ static const char *alternateMnemonics[N_AltMn] = {
 #define N Opr_NoType
 
 // D=dest, N=notype
+// clang-format off
 static AsmOpInfo asmOpInfo[N_AsmOpInfo] = {
     /* Op_Invalid   */ {},
     /* Op_Adjust    */ {{0, 0, 0}, 0, Clb_EAX /*just AX*/},
@@ -830,6 +831,7 @@ static AsmOpInfo asmOpInfo[N_AsmOpInfo] = {
     /// immediate does not contribute to size
     /// * Op_cmovCC    */  { D|rw,  mrw,  0,    1 } // ->dstsrc
 };
+// clang-format on
 
 #undef mri
 #undef mr
@@ -2062,14 +2064,14 @@ struct AsmProcessor {
         }
         regInfo[i].gccName = std::string(buf, p - buf);
         if ((i <= Reg_ST || i > Reg_ST7) && i != Reg_EFLAGS) {
-          regInfo[i].ident =
-              Identifier::idPool(regInfo[i].name.data(), regInfo[i].name.size());
+          regInfo[i].ident = Identifier::idPool(regInfo[i].name.data(),
+                                                regInfo[i].name.size());
         }
       }
 
       for (int i = 0; i < N_PtrNames; i++) {
-        ptrTypeIdentTable[i] = Identifier::idPool(ptrTypeNameTable[i],
-                                                  std::strlen(ptrTypeNameTable[i]));
+        ptrTypeIdentTable[i] = Identifier::idPool(
+            ptrTypeNameTable[i], std::strlen(ptrTypeNameTable[i]));
       }
 
       Handled = createExpression(Loc(), TOKvoid, sizeof(Expression));
@@ -2508,7 +2510,7 @@ struct AsmProcessor {
       if (ptrtype == Byte_Ptr) {
         return false;
       }
-    // drop through
+    // fallthrough
     case Int_Types:
       switch (ptrtype) {
       case Byte_Ptr:
@@ -2840,7 +2842,7 @@ struct AsmProcessor {
         // gas won't accept the two-operand form; skip to the source
         // operand
         i__ = 1;
-      // drop through
+      // fallthrough
       case Op_bound:
       case Op_enter:
         i = i__;
@@ -3398,48 +3400,38 @@ struct AsmProcessor {
   }
 
   Expression *parseEqualExp() {
-    Expression *exp = parseRelExp();
-    while (1) {
-      switch (token->value) {
-      case TOKequal:
-      case TOKnotequal: {
-        TOK tok = token->value;
-        nextToken();
-        Expression *exp2 = parseRelExp();
-        if (isIntExp(exp) && isIntExp(exp2)) {
-          exp = intOp(tok, exp, exp2);
-        } else {
-          stmt->error("bad integral operand");
-        }
-      }
-      default:
-        return exp;
-      }
+    const auto exp = parseRelExp();
+    const auto tok = token->value;
+    if (tok != TOKequal && tok != TOKnotequal) {
+      return exp;
     }
+
+    nextToken();
+    const auto exp2 = parseRelExp();
+    if (isIntExp(exp) && isIntExp(exp2)) {
+      return intOp(tok, exp, exp2);
+    }
+
+    stmt->error("bad integral operand");
+    // TODO: Return ErrorExp?
     return exp;
   }
 
   Expression *parseRelExp() {
-    Expression *exp = parseShiftExp();
-    while (1) {
-      switch (token->value) {
-      case TOKgt:
-      case TOKge:
-      case TOKlt:
-      case TOKle: {
-        TOK tok = token->value;
-        nextToken();
-        Expression *exp2 = parseShiftExp();
-        if (isIntExp(exp) && isIntExp(exp2)) {
-          exp = intOp(tok, exp, exp2);
-        } else {
-          stmt->error("bad integral operand");
-        }
-      }
-      default:
-        return exp;
-      }
+    const auto exp = parseShiftExp();
+    const auto tok = token->value;
+    if (tok != TOKgt && tok != TOKge && tok != TOKlt && tok != TOKle) {
+      return exp;
     }
+
+    nextToken();
+    const auto exp2 = parseShiftExp();
+    if (isIntExp(exp) && isIntExp(exp2)) {
+      return intOp(tok, exp, exp2);
+    }
+
+    stmt->error("bad integral operand");
+    // TODO: Return ErrorExp?
     return exp;
   }
 
@@ -3938,7 +3930,7 @@ struct AsmProcessor {
 #define XFmode TFmode
 #endif
         mode = XFmode; // not TFmode
-        // drop through
+        // fallthrough
       do_float:
         if (token->value == TOKfloat32v || token->value == TOKfloat64v ||
             token->value == TOKfloat80v) {
@@ -3974,13 +3966,6 @@ struct AsmProcessor {
 #endif
   }
 };
-
-#if D_GCC_VER < 40
-// struct rtx was modified for c++; this macro from rtl.h needs to
-// be modified accordingly.
-#undef XEXP
-#define XEXP(RTX, N) (RTL_CHECK2(RTX, N, 'e', 'u').rt_rtx)
-#endif
 
 // FIXME
 #define HOST_WIDE_INT long

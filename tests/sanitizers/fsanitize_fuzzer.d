@@ -10,7 +10,7 @@
 bool FuzzMe(const ubyte* data, size_t dataSize)
 {
     // CHECK: call {{.*}}_sanitizer_cov_trace_pc_guard
-    // CHECK: call {{.*}}_sanitizer_cov_trace_cmp
+    // CHECK: call {{.*}}_sanitizer_cov_trace_{{(const_)?}}cmp
 
     return dataSize >= 3 &&
            data[0] == 'F' &&

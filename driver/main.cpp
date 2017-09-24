@@ -104,18 +104,6 @@ static cl::opt<bool> linkDebugLib(
     "link-debuglib", cl::ZeroOrMore,
     cl::desc("Link with libraries specified in -debuglib, not -defaultlib"));
 
-#if LDC_LLVM_VER >= 309
-static inline llvm::Optional<llvm::Reloc::Model> getRelocModel() {
-  if (mRelocModel.getNumOccurrences()) {
-    llvm::Reloc::Model R = mRelocModel;
-    return R;
-  }
-  return llvm::None;
-}
-#else
-static inline llvm::Reloc::Model getRelocModel() { return mRelocModel; }
-#endif
-
 // This function exits the program.
 void printVersion(llvm::raw_ostream &OS) {
   OS << "LDC - the LLVM D compiler (" << global.ldc_version << "):\n";
@@ -140,10 +128,10 @@ void printVersion(llvm::raw_ostream &OS) {
   OS.flush();
 
   llvm::TargetRegistry::printRegisteredTargetsForVersion(
-#if LDC_LLVM_VER >= 500
-      OS
+#if LDC_LLVM_VER >= 600
+    OS
 #endif
-      );
+    );
 
   exit(EXIT_SUCCESS);
 }
@@ -354,14 +342,12 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   // just ignore errors for now, they are still printed
   cfg_file.read(explicitConfFile, cfg_triple.c_str());
 
-  // insert switches from config file before all explicit ones
-  allArguments.insert(allArguments.begin() + 1, cfg_file.switches_begin(),
-                      cfg_file.switches_end());
+  cfg_file.extendCommandLine(allArguments);
 
   // finalize by expanding response files specified in config file
   expandResponseFiles(allocator, allArguments);
 
-#if LDC_LLVM_VER >= 500
+#if LDC_LLVM_VER >= 600
   cl::SetVersionPrinter(&printVersion);
 #else
   cl::SetVersionPrinter(&printVersionStdout);
@@ -374,8 +360,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
                               const_cast<char **>(allArguments.data()),
                               "LDC - the LLVM D compiler\n");
 
-  helpOnly = mCPU == "help" ||
-             (std::find(mAttrs.begin(), mAttrs.end(), "help") != mAttrs.end());
+  helpOnly = opts::printTargetFeaturesHelp();
   if (helpOnly) {
     auto triple = llvm::Triple(cfg_triple);
     std::string errMsg;
@@ -398,7 +383,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     fprintf(global.stdmsg, "binary    %s\n", exe_path::getExePath().c_str());
     fprintf(global.stdmsg, "version   %s (DMD %s, LLVM %s)\n",
             global.ldc_version, global.version, global.llvm_version);
-    const std::string &path = cfg_file.path();
+    const std::string path = cfg_file.path();
     if (!path.empty()) {
       fprintf(global.stdmsg, "config    %s (%s)\n", path.c_str(),
               cfg_triple.c_str());
@@ -601,19 +586,12 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     error(Loc(), "-lib and -shared switches cannot be used together");
   }
 
-#if LDC_LLVM_VER >= 309
-  if (global.params.dll && !mRelocModel.getNumOccurrences()) {
-#else
-  if (global.params.dll && mRelocModel == llvm::Reloc::Default) {
-#endif
-    mRelocModel = llvm::Reloc::PIC_;
-  }
-
   if (soname.getNumOccurrences() > 0 && !global.params.dll) {
     error(Loc(), "-soname can be used only when building a shared library");
   }
 
   global.params.hdrStripPlainFunctions = !opts::hdrKeepAllBodies;
+  global.params.disableRedZone = opts::disableRedZone();
 }
 
 void initializePasses() {
@@ -1012,7 +990,8 @@ int cppmain(int argc, char **argv) {
   }
 
   // Set up the TargetMachine.
-  if ((m32bits || m64bits) && (!mArch.empty() || !mTargetTriple.empty())) {
+  const auto arch = getArchStr();
+  if ((m32bits || m64bits) && (!arch.empty() || !mTargetTriple.empty())) {
     error(Loc(), "-m32 and -m64 switches cannot be used together with -march "
                  "and -mtriple switches");
   }
@@ -1027,9 +1006,21 @@ int cppmain(int argc, char **argv) {
     fatal();
   }
 
+  auto relocModel = getRelocModel();
+#if LDC_LLVM_VER >= 309
+  if (global.params.dll && !relocModel.hasValue()) {
+#else
+  if (global.params.dll && relocModel == llvm::Reloc::Default) {
+#endif
+    relocModel = llvm::Reloc::PIC_;
+  }
+
   gTargetMachine = createTargetMachine(
-      mTargetTriple, mArch, mCPU, mAttrs, bitness, mFloatABI, getRelocModel(),
-      mCodeModel, codeGenOptLevel(), disableFpElim, disableLinkerStripDead);
+      mTargetTriple, arch, opts::getCPUStr(), opts::getFeaturesStr(), bitness,
+      floatABI, relocModel, opts::getCodeModel(), codeGenOptLevel(),
+      disableLinkerStripDead);
+
+  opts::setDefaultMathOptions(gTargetMachine->Options);
 
 #if LDC_LLVM_VER >= 308
   static llvm::DataLayout DL = gTargetMachine->createDataLayout();
@@ -1045,14 +1036,13 @@ int cppmain(int argc, char **argv) {
     global.params.isLP64 = gDataLayout->getPointerSizeInBits() == 64;
     global.params.is64bit = triple->isArch64Bit();
     global.params.hasObjectiveC = objc_isSupported(*triple);
+    global.params.dwarfVersion = gTargetMachine->Options.MCOptions.DwarfVersion;
     // mscoff enables slightly different handling of interface functions
     // in the front end
     global.params.mscoff = triple->isKnownWindowsMSVCEnvironment();
     if (global.params.mscoff)
       global.obj_ext = "obj";
   }
-
-  opts::setDefaultMathOptions(*gTargetMachine);
 
   // allocate the target abi
   gABI = TargetABI::getTarget();

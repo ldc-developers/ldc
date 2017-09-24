@@ -1,5 +1,6 @@
 // Test Fuzz+ASan functionality
 
+// REQUIRES: atleast_llvm500
 // REQUIRES: Fuzzer, ASan
 
 // See https://github.com/ldc-developers/ldc/issues/2222 for -disable-fp-elim
@@ -8,18 +9,15 @@
 
 bool FuzzMe(ubyte* data, size_t dataSize)
 {
-    return dataSize >= 6 &&
+    return dataSize >= 3 &&
            data[0] == 'F' &&
            data[1] == 'U' &&
            data[2] == 'Z' &&
-           data[3] == 'F' &&
-           data[4] == 'U' &&
-           data[5] == 'Z' &&
     // CHECK: stack-buffer-overflow
     // CHECK-NEXT: READ of size 1
     // CHECK-NEXT: #0 {{.*}} in {{.*fuzz_asan6FuzzMe.*}} {{.*}}fuzz_asan.d:
     // FIXME, debug line info is wrong (Github issue #2090). Once fixed, add [[@LINE+1]]
-           data[6] == 'Z'; // :‑<
+           data[3] == 'Z'; // :‑<
 }
 
 extern (C) int LLVMFuzzerTestOneInput(const(ubyte*) data, size_t size)
@@ -33,7 +31,7 @@ extern (C) int LLVMFuzzerTestOneInput(const(ubyte*) data, size_t size)
         init = true;
     }
 
-    ubyte[6] stackdata;
+    ubyte[3] stackdata;
     if (data)
     {
         for (auto i = 0; (i < size) && (i < stackdata.length); ++i)
@@ -45,5 +43,5 @@ extern (C) int LLVMFuzzerTestOneInput(const(ubyte*) data, size_t size)
     return 0;
 }
 
-// The test unit should start with "FUZFUZ"
-// CHECK: FUZFUZ
+// The test unit should start with "FUZ"
+// CHECK: FUZ
