@@ -60,7 +60,7 @@ before_install:
     fi;
     if [ -z "$(ls -A llvm-$LLVM_VERSION)" ]; then
       if [ -n "${LLVM_SPIRV_AVAILABLE}" ]; then
-        wget -O llvm-spirv-$LLVM_VERSION.tar.bz2 https://github.com/thewilsonator/llvm/releases/download/pre-intrinsics/LLVM-6.0.0svn-Darwin.tar.bz2;
+        wget -O llvm-spirv-$LLVM_VERSION.tar.bz2 https://github.com/thewilsonator/llvm/releases/download/pre-intrinsics/LLVM-6.0.0svn-Darwin-1.tar.bz2;
         mkdir llvm-spirv-$LLVM_VERSION;
         tar -xjf llvm-spirv-$LLVM_VERSION.tar.bz2 --strip 1 -C llvm-spirv-$LLVM_VERSION;
       else
