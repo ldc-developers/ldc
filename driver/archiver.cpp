@@ -197,13 +197,15 @@ int performWriteOperation(object::Archive *OldArchive,
   else
     Kind = getKindFromMember(NewMembers.front());
 
-  const auto Result =
+  auto Result =
       writeArchive(ArchiveName, NewMembers, Symtab, Kind, Deterministic, Thin,
                    std::move(OldArchiveBuf));
 
 #if LDC_LLVM_VER >= 600
   if (Result) {
-    fail("error writing '" + ArchiveName + "': " + Result.message());
+    handleAllErrors(std::move(Result), [](ErrorInfoBase &EIB) {
+      fail("error writing '" + ArchiveName + "': " + EIB.message());
+    });
     return 1;
   }
 #else
