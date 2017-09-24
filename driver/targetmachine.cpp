@@ -524,7 +524,10 @@ llvm::TargetMachine *createTargetMachine(
       // Darwin defaults to PIC (and as of 10.7.5/LLVM 3.1-3.3, TLS use leads
       // to crashes for non-PIC code). LLVM doesn't handle this.
       relocModel = llvm::Reloc::PIC_;
-    } else if (triple.getEnvironment() == llvm::Triple::Android) {
+    } else if (triple.isOSLinux()) {
+      // Modern Linux distributions have their toolchain generate PIC code for additional security
+      // features (like ASLR). We default to PIC code to avoid linking issues on these OSes.
+      // On Android, PIC is default as well.
       relocModel = llvm::Reloc::PIC_;
     } else {
       // ARM for other than Darwin or Android defaults to static
