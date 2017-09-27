@@ -160,7 +160,8 @@ pure:
 /// Note that, unlike the standard libc function, the llvm.memcpy.* intrinsics do
 /// not return a value, and takes an extra alignment argument.
 pragma(LDC_intrinsic, "llvm.memcpy.p0i8.p0i8.i#")
-    void llvm_memcpy(T)(void* dst, void* src, T len, uint alignment, bool volatile_ = false);
+    void llvm_memcpy(T)(void* dst, void* src, T len, uint alignment, bool volatile_ = false)
+        if (__traits(isIntegral, T));
 
 /// The 'llvm.memmove.*' intrinsics move a block of memory from the source
 /// location to the destination location. It is similar to the 'llvm.memcpy'
@@ -168,14 +169,16 @@ pragma(LDC_intrinsic, "llvm.memcpy.p0i8.p0i8.i#")
 /// Note that, unlike the standard libc function, the llvm.memmove.* intrinsics
 /// do not return a value, and takes an extra alignment argument.
 pragma(LDC_intrinsic, "llvm.memmove.p0i8.p0i8.i#")
-    void llvm_memmove(T)(void* dst, void* src, T len, uint alignment, bool volatile_ = false);
+    void llvm_memmove(T)(void* dst, void* src, T len, uint alignment, bool volatile_ = false)
+        if (__traits(isIntegral, T));
 
 /// The 'llvm.memset.*' intrinsics fill a block of memory with a particular byte
 /// value.
 /// Note that, unlike the standard libc function, the llvm.memset intrinsic does
 /// not return a value, and takes an extra alignment argument.
 pragma(LDC_intrinsic, "llvm.memset.p0i8.i#")
-    void llvm_memset(T)(void* dst, ubyte val, T len, uint alignment, bool volatile_ = false);
+    void llvm_memset(T)(void* dst, ubyte val, T len, uint alignment, bool volatile_ = false)
+        if (__traits(isIntegral, T));
 
 @safe:
 
@@ -186,89 +189,109 @@ pragma(LDC_intrinsic, "llvm.memset.p0i8.i#")
 /// worry about errno being set). llvm.sqrt(-0.0) is defined to return -0.0 like
 /// IEEE sqrt.
 pragma(LDC_intrinsic, "llvm.sqrt.f#")
-    T llvm_sqrt(T)(T val);
+    T llvm_sqrt(T)(T val)
+        if (__traits(isFloating, T));
 
 /// The 'llvm.sin.*' intrinsics return the sine of the operand.
 pragma(LDC_intrinsic, "llvm.sin.f#")
-    T llvm_sin(T)(T val);
+    T llvm_sin(T)(T val)
+        if (__traits(isFloating, T));
 
 /// The 'llvm.cos.*' intrinsics return the cosine of the operand.
 pragma(LDC_intrinsic, "llvm.cos.f#")
-    T llvm_cos(T)(T val);
+    T llvm_cos(T)(T val)
+        if (__traits(isFloating, T));
 
 /// The 'llvm.powi.*' intrinsics return the first operand raised to the specified
 /// (positive or negative) power. The order of evaluation of multiplications is
 /// not defined. When a vector of floating point type is used, the second
 /// argument remains a scalar integer value.
 pragma(LDC_intrinsic, "llvm.powi.f#")
-    T llvm_powi(T)(T val, int power);
+    T llvm_powi(T)(T val, int power)
+        if (__traits(isFloating, T));
 
 /// The 'llvm.pow.*' intrinsics return the first operand raised to the specified
 /// (positive or negative) power.
 pragma(LDC_intrinsic, "llvm.pow.f#")
-    T llvm_pow(T)(T val, T power);
+    T llvm_pow(T)(T val, T power)
+        if (__traits(isFloating, T));
 
 /// The 'llvm.exp.*' intrinsics perform the exp function.
 pragma(LDC_intrinsic, "llvm.exp.f#")
-    T llvm_exp(T)(T val);
+    T llvm_exp(T)(T val)
+        if (__traits(isFloating, T));
 
 /// The 'llvm.log.*' intrinsics perform the log function.
 pragma(LDC_intrinsic, "llvm.log.f#")
-    T llvm_log(T)(T val);
+    T llvm_log(T)(T val)
+        if (__traits(isFloating, T));
 
 /// The 'llvm.fma.*' intrinsics perform the fused multiply-add operation.
 pragma(LDC_intrinsic, "llvm.fma.f#")
-    T llvm_fma(T)(T vala, T valb, T valc);
+    T llvm_fma(T)(T vala, T valb, T valc)
+        if (__traits(isFloating, T));
 
 /// The 'llvm.fabs.*' intrinsics return the absolute value of the operand.
 pragma(LDC_intrinsic, "llvm.fabs.f#")
-    T llvm_fabs(T)(T val);
+    T llvm_fabs(T)(T val)
+        if (__traits(isFloating, T));
 
 /// The 'llvm.floor.*' intrinsics return the floor of the operand.
 pragma(LDC_intrinsic, "llvm.floor.f#")
-    T llvm_floor(T)(T val);
+    T llvm_floor(T)(T val)
+        if (__traits(isFloating, T));
 
 /// The 'llvm.exp2.*' intrinsics perform the exp2 function.
 pragma(LDC_intrinsic, "llvm.exp2.f#")
-    T llvm_exp2(T)(T val);
+    T llvm_exp2(T)(T val)
+        if (__traits(isFloating, T));
 
 /// The 'llvm.log10.*' intrinsics perform the log10 function.
 pragma(LDC_intrinsic, "llvm.log10.f#")
-    T llvm_log10(T)(T val);
+    T llvm_log10(T)(T val)
+        if (__traits(isFloating, T));
 
 /// The 'llvm.log2.*' intrinsics perform the log2 function.
 pragma(LDC_intrinsic, "llvm.log2.f#")
-    T llvm_log2(T)(T val);
+    T llvm_log2(T)(T val)
+        if (__traits(isFloating, T));
 
 /// The 'llvm.ceil.*' intrinsics return the ceiling of the operand.
 pragma(LDC_intrinsic, "llvm.ceil.f#")
-    T llvm_ceil(T)(T val);
+    T llvm_ceil(T)(T val)
+        if (__traits(isFloating, T));
 
 /// The 'llvm.trunc.*' intrinsics returns the operand rounded to the nearest integer not larger in magnitude than the operand.
 pragma(LDC_intrinsic, "llvm.trunc.f#")
-    T llvm_trunc(T)(T val);
+    T llvm_trunc(T)(T val)
+        if (__traits(isFloating, T));
 
 /// The 'llvm.rint.*' intrinsics returns the operand rounded to the nearest integer. It may raise an inexact floating-point exception if the operand isn't an integer.
 pragma(LDC_intrinsic, "llvm.rint.f#")
-    T llvm_rint(T)(T val);
+    T llvm_rint(T)(T val)
+        if (__traits(isFloating, T));
 
 /// The 'llvm.nearbyint.*' intrinsics returns the operand rounded to the nearest integer.
 pragma(LDC_intrinsic, "llvm.nearbyint.f#")
-    T llvm_nearbyint(T)(T val);
+    T llvm_nearbyint(T)(T val)
+        if (__traits(isFloating, T));
 
 /// The 'llvm.copysign.*' intrinsics return a value with the magnitude of the first operand and the sign of the second operand.
 pragma(LDC_intrinsic, "llvm.copysign.f#")
-    T llvm_copysign(T)(T mag, T sgn);
+    T llvm_copysign(T)(T mag, T sgn)
+        if (__traits(isFloating, T));
 
 /// The 'llvm.round.*' intrinsics returns the operand rounded to the nearest integer.
 pragma(LDC_intrinsic, "llvm.round.f#")
-    T llvm_round(T)(T val);
+    T llvm_round(T)(T val)
+        if (__traits(isFloating, T));
 
 /// The 'llvm.fmuladd.*' intrinsic functions represent multiply-add expressions
 /// that can be fused if the code generator determines that the fused expression
 ///  would be legal and efficient.
 pragma(LDC_intrinsic, "llvm.fmuladd.f#")
-    T llvm_fmuladd(T)(T vala, T valb, T valc);
+    T llvm_fmuladd(T)(T vala, T valb, T valc)
+        if (__traits(isFloating, T));
 
 /// The ‘llvm.minnum.*‘ intrinsics return the minimum of the two arguments.
 /// Follows the IEEE-754 semantics for minNum, which also match for libm’s fmin.
@@ -277,7 +300,8 @@ pragma(LDC_intrinsic, "llvm.fmuladd.f#")
 /// that compares equal to both operands. This means that fmin(+/-0.0, +/-0.0)
 /// could return either -0.0 or 0.0.
 pragma(LDC_intrinsic, "llvm.minnum.f#")
-    T llvm_minnum(T)(T vala, T valb);
+    T llvm_minnum(T)(T vala, T valb)
+        if (__traits(isFloating, T));
 
 /// The ‘llvm.maxnum.*‘ intrinsics return the maximum of the two arguments.
 /// Follows the IEEE-754 semantics for maxNum, which also match for libm’s fmax.
@@ -286,7 +310,8 @@ pragma(LDC_intrinsic, "llvm.minnum.f#")
 /// that compares equal to both operands. This means that fmax(+/-0.0, +/-0.0)
 /// could return either -0.0 or 0.0.
 pragma(LDC_intrinsic, "llvm.maxnum.f#")
-    T llvm_maxnum(T)(T vala, T valb);
+    T llvm_maxnum(T)(T vala, T valb)
+        if (__traits(isFloating, T));
 
 
 
@@ -299,7 +324,8 @@ version(INTRINSICS_FROM_309)
 /// The 'llvm.bitreverse' family of intrinsics is used to reverse the bitpattern
 /// of an integer value; for example 0b10110110 becomes 0b01101101.
 pragma(LDC_intrinsic, "llvm.bitreverse.i#")
-    T llvm_bitreverse(T)(T val);
+    T llvm_bitreverse(T)(T val)
+        if (__traits(isIntegral, T));
 }
 
 /// The 'llvm.bswap' family of intrinsics is used to byte swap integer values
@@ -307,22 +333,26 @@ pragma(LDC_intrinsic, "llvm.bitreverse.i#")
 /// useful for performing operations on data that is not in the target's native
 /// byte order.
 pragma(LDC_intrinsic, "llvm.bswap.i#")
-    T llvm_bswap(T)(T val);
+    T llvm_bswap(T)(T val)
+        if (__traits(isIntegral, T) && T.sizeof >= 2);
 
 /// The 'llvm.ctpop' family of intrinsics counts the number of bits set in a
 /// value.
 pragma(LDC_intrinsic, "llvm.ctpop.i#")
-    T llvm_ctpop(T)(T src);
+    T llvm_ctpop(T)(T src)
+        if (__traits(isIntegral, T));
 
 /// The 'llvm.ctlz' family of intrinsic functions counts the number of leading
 /// zeros in a variable.
 pragma(LDC_intrinsic, "llvm.ctlz.i#")
-    T llvm_ctlz(T)(T src, bool isZeroUndefined);
+    T llvm_ctlz(T)(T src, bool isZeroUndefined)
+        if (__traits(isIntegral, T));
 
 /// The 'llvm.cttz' family of intrinsic functions counts the number of trailing
 /// zeros.
 pragma(LDC_intrinsic, "llvm.cttz.i#")
-    T llvm_cttz(T)(T src, bool isZeroUndefined);
+    T llvm_cttz(T)(T src, bool isZeroUndefined)
+        if (__traits(isIntegral, T));
 
 
 
@@ -433,27 +463,33 @@ struct OverflowRet(T) {
 
 /// Signed addition
 pragma(LDC_intrinsic, "llvm.sadd.with.overflow.i#")
-    OverflowRet!(T) llvm_sadd_with_overflow(T)(T lhs, T rhs);
+    OverflowRet!(T) llvm_sadd_with_overflow(T)(T lhs, T rhs)
+        if (__traits(isIntegral, T));
 
 /// Unsigned addition
 pragma(LDC_intrinsic, "llvm.uadd.with.overflow.i#")
-    OverflowRet!(T) llvm_uadd_with_overflow(T)(T lhs, T rhs); /// ditto
+    OverflowRet!(T) llvm_uadd_with_overflow(T)(T lhs, T rhs)
+        if (__traits(isIntegral, T));
 
 /// Signed subtraction
 pragma(LDC_intrinsic, "llvm.ssub.with.overflow.i#")
-    OverflowRet!(T) llvm_ssub_with_overflow(T)(T lhs, T rhs);
+    OverflowRet!(T) llvm_ssub_with_overflow(T)(T lhs, T rhs)
+        if (__traits(isIntegral, T));
 
 /// Unsigned subtraction
 pragma(LDC_intrinsic, "llvm.usub.with.overflow.i#")
-    OverflowRet!(T) llvm_usub_with_overflow(T)(T lhs, T rhs); /// ditto
+    OverflowRet!(T) llvm_usub_with_overflow(T)(T lhs, T rhs)
+        if (__traits(isIntegral, T));
 
 /// Signed multiplication
 pragma(LDC_intrinsic, "llvm.smul.with.overflow.i#")
-    OverflowRet!(T) llvm_smul_with_overflow(T)(T lhs, T rhs);
+    OverflowRet!(T) llvm_smul_with_overflow(T)(T lhs, T rhs)
+        if (__traits(isIntegral, T));
 
 /// Unsigned multiplication
 pragma(LDC_intrinsic, "llvm.umul.with.overflow.i#")
-    OverflowRet!(T) llvm_umul_with_overflow(T)(T lhs, T rhs);
+    OverflowRet!(T) llvm_umul_with_overflow(T)(T lhs, T rhs)
+        if (__traits(isIntegral, T));
 
 
 
@@ -478,4 +514,5 @@ pragma(LDC_intrinsic, "llvm.debugtrap")
 /// value. The second argument is an expected value, this needs to be a
 /// constant value, variables are not allowed.
 pragma(LDC_intrinsic, "llvm.expect.i#")
-    T llvm_expect(T)(T val, T expected_val) if (__traits(isIntegral, T));
+    T llvm_expect(T)(T val, T expected_val)
+        if (__traits(isIntegral, T));
