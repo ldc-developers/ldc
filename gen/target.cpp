@@ -226,7 +226,7 @@ Expression *Target::paintAsType(Expression *e, Type *type) {
     break;
 
   default:
-    assert(0);
+    llvm_unreachable("Unsupported source type");
   }
 
   switch (type->ty) {
@@ -245,21 +245,6 @@ Expression *Target::paintAsType(Expression *e, Type *type) {
     return createRealExp(e->loc, u.float64value, type);
 
   default:
-    assert(0);
+    llvm_unreachable("Unsupported target type");
   }
-
-  return nullptr; // avoid warning
 }
-
-/******************************
- * For the given module, perform any post parsing analysis.
- * Certain compiler backends (ie: GDC) have special placeholder
- * modules whose source are empty, but code gets injected
- * immediately after loading.
- */
-void Target::loadModule(Module *m) {}
-
-/******************************
- *
- */
-void Target::prefixName(OutBuffer *buf, LINK linkage) {}

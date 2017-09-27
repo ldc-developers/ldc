@@ -63,7 +63,7 @@ struct X86TargetABI : TargetABI {
     case LINKwindows:
       return name;
     case LINKcpp:
-      if (global.params.targetTriple->isOSWindows()) {
+      if (global.params.isWindows || global.params.isOSX) {
         // Prepend a 0x1 byte to prevent LLVM from prepending an underscore.
         return name.insert(0, "\1");
       }
@@ -90,7 +90,7 @@ struct X86TargetABI : TargetABI {
     case LINKwindows:
       return name;
     case LINKcpp:
-      if (global.params.targetTriple->isOSWindows()) {
+      if (global.params.isWindows || global.params.isOSX) {
         // Prepend a 0x1 byte to prevent LLVM from prepending an underscore.
         return name.insert(0, "\1");
       }
