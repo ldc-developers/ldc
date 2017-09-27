@@ -938,9 +938,7 @@ void registerPredefinedVersions() {
 
   registerPredefinedTargetVersions();
 
-  if (global.params.hasObjectiveC) {
-    VersionCondition::addPredefinedGlobalIdent("D_ObjectiveC");
-  }
+  // `D_ObjectiveC` is added by the ddmd.objc.Supported ctor
 
   // Define sanitizer versions.
   if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
@@ -1037,7 +1035,12 @@ int cppmain(int argc, char **argv) {
   {
     llvm::Triple *triple = new llvm::Triple(gTargetMachine->getTargetTriple());
     global.params.targetTriple = triple;
+    global.params.isLinux = triple->isOSLinux();
+    global.params.isOSX = triple->isOSDarwin();
     global.params.isWindows = triple->isOSWindows();
+    global.params.isFreeBSD = triple->isOSFreeBSD();
+    global.params.isOpenBSD = triple->isOSOpenBSD();
+    global.params.isSolaris = triple->isOSSolaris();
     global.params.isLP64 = gDataLayout->getPointerSizeInBits() == 64;
     global.params.is64bit = triple->isArch64Bit();
     global.params.hasObjectiveC = objc_isSupported(*triple);
