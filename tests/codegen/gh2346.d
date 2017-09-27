@@ -48,7 +48,7 @@ align(4) struct WeirdContainer {
     ubyte one;
     align(2) UnalignedUInt two;
 }
-//static assert(WeirdContainer.alignof == 4);
+static assert(WeirdContainer.alignof == 4);
 static assert(WeirdContainer.sizeof == 8);
 static assert(WeirdContainer.two.offsetof == 2);
 
@@ -56,7 +56,7 @@ static assert(WeirdContainer.two.offsetof == 2);
 align(2) struct ExplicitlyUnalignedUInt2 {
     uint a;
 }
-//static assert(ExplicitlyUnalignedUInt2.alignof == 2);
+static assert(ExplicitlyUnalignedUInt2.alignof == 2);
 static assert(ExplicitlyUnalignedUInt2.sizeof == 4);
 
 // CHECK-DAG: %gh2346.AnotherContainer = type { i8, [1 x i8], %gh2346.ExplicitlyUnalignedUInt2 }
