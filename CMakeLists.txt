@@ -477,7 +477,7 @@ endif()
 #
 # Enable building with riscv-llvm, for full RISC-V support.
 #
-option(RISCV_LLVM_DEV, "full RISC-V support with riscv-llvm")
+option(RISCV_LLVM_DEV "full RISC-V support with riscv-llvm")
 mark_as_advanced(RISCV_LLVM_DEV)
 if(RISCV_LLVM_DEV)
     append("-DRISCV_LLVM_DEV" LDC_CXXFLAGS)
