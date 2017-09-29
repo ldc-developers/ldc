@@ -160,33 +160,6 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-llvm::GlobalVariable *getRuntimeGlobal(Loc &loc, llvm::Module &target,
-                                       const char *name) {
-  LLGlobalVariable *gv = target.getNamedGlobal(name);
-  if (gv) {
-    return gv;
-  }
-
-  checkForImplicitGCCall(loc, name);
-
-  if (!M) {
-    initRuntime();
-  }
-
-  LLGlobalVariable *g = M->getNamedGlobal(name);
-  if (!g) {
-    error(loc, "Runtime global `%s` was not found", name);
-    fatal();
-    // return NULL;
-  }
-
-  LLPointerType *t = g->getType();
-  return getOrCreateGlobal(loc, target, t->getElementType(), g->isConstant(),
-                           g->getLinkage(), nullptr, g->getName());
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 // extern (D) alias dg_t = int delegate(void*);
 static Type *rt_dg1() {
   static Type *dg_t = nullptr;
