@@ -540,7 +540,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     fatal();
   }
 
-  func->setCallingConv(gABI->callingConv(func->getFunctionType(), link, fdecl));
+  func->setCallingConv(gABI->callingConv(link, f, fdecl));
 
   if (global.params.isWindows && fdecl->isExport()) {
     func->setDLLStorageClass(fdecl->isImportedSymbol()

@@ -262,7 +262,7 @@ static void createFwdDecl(LINK linkage, Type *returntype,
       fn->addFnAttr(LLAttribute::UWTable);
     }
 
-    fn->setCallingConv(gABI->callingConv(fn->getFunctionType(), linkage));
+    fn->setCallingConv(gABI->callingConv(linkage, dty));
   }
 }
 

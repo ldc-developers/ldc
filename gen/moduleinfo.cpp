@@ -60,7 +60,7 @@ llvm::Function *buildForwarderFunction(
   assert(gIR->module.getFunction(symbolName) == NULL);
   llvm::Function *fn = llvm::Function::Create(
       fnTy, llvm::GlobalValue::InternalLinkage, symbolName, &gIR->module);
-  fn->setCallingConv(gABI->callingConv(fn->getFunctionType(), LINKd));
+  fn->setCallingConv(gABI->callingConv(LINKd));
 
   // Emit the body, consisting of...
   const auto bb = llvm::BasicBlock::Create(gIR->context(), "", fn);
@@ -76,8 +76,7 @@ llvm::Function *buildForwarderFunction(
   for (auto func : funcs) {
     const auto f = DtoCallee(func);
     const auto call = builder.CreateCall(f, {});
-    const auto ft = call->getFunctionType();
-    call->setCallingConv(gABI->callingConv(ft, LINKd));
+    call->setCallingConv(gABI->callingConv(LINKd));
   }
 
   // ... incrementing the gate variables.

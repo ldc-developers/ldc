@@ -542,11 +542,11 @@ void addCoverageAnalysis(Module *m) {
   {
     IF_LOG Logger::println("Build Coverage Analysis constructor: %s", ctorname);
 
-    LLFunctionType *ctorTy = LLFunctionType::get(
-        LLType::getVoidTy(gIR->context()), std::vector<LLType *>(), false);
+    LLFunctionType *ctorTy =
+        LLFunctionType::get(LLType::getVoidTy(gIR->context()), {}, false);
     ctor = LLFunction::Create(ctorTy, LLGlobalValue::InternalLinkage, ctorname,
                               &gIR->module);
-    ctor->setCallingConv(gABI->callingConv(ctor->getFunctionType(), LINKd));
+    ctor->setCallingConv(gABI->callingConv(LINKd));
     // Set function attributes. See functions.cpp:DtoDefineFunction()
     if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
       ctor->addFnAttr(LLAttribute::UWTable);
