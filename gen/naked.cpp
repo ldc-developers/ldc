@@ -160,14 +160,12 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   bool const isOSX = (triple.getOS() == llvm::Triple::Darwin ||
                       triple.getOS() == llvm::Triple::MacOSX);
 
-  // OSX is different
+  // osx is different
+  // also mangling has an extra underscore prefixed
   if (isOSX) {
-    // extra leading underscore except for extern(C++)
-    if (fd->linkage != LINKcpp) {
-      fullmangle += '_';
-      fullmangle += mangle;
-      mangle = fullmangle.c_str();
-    }
+    fullmangle += '_';
+    fullmangle += mangle;
+    mangle = fullmangle.c_str();
 
     std::string section = "text";
     bool weak = false;

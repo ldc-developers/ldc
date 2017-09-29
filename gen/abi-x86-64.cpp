@@ -207,18 +207,6 @@ struct X86_64TargetABI : TargetABI {
   X86_64_C_struct_rewrite struct_rewrite;
   ImplicitByvalRewrite byvalRewrite;
 
-  std::string mangleFunctionForLLVM(std::string name, LINK l) override {
-    if (l == LINKcpp && global.params.isOSX) {
-      // Prepend a 0x1 byte to prevent LLVM from prepending an underscore.
-      return name.insert(0, "\1");
-    }
-    return name;
-  }
-
-  std::string mangleVariableForLLVM(std::string name, LINK l) override {
-    return mangleFunctionForLLVM(std::move(name), l);
-  }
-
   bool returnInArg(TypeFunction *tf) override;
 
   bool passByVal(Type *t) override;

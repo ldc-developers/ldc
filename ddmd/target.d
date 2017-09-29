@@ -84,6 +84,25 @@ struct Target
     static bool isVectorOpSupported(Type type, TOK op, Type t2 = null);
     // CTFE support for cross-compilation.
     static Expression paintAsType(Expression e, Type type);
+    // ABI and backend.
+    static void loadModule(Module m);
+    static void prefixName(OutBuffer *buf, LINK linkage);
+
+    static const(char)* toCppMangle(Dsymbol s)
+    {
+        if (isTargetWindowsMSVC())
+            return toCppMangleMSVC(s);
+        else
+            return toCppMangleItanium(s);
+    }
+
+    static const(char)* cppTypeInfoMangle(ClassDeclaration cd)
+    {
+        if (isTargetWindowsMSVC())
+            return cppTypeInfoMangleMSVC(cd);
+        else
+            return cppTypeInfoMangleItanium(cd);
+    }
   }
   else // !IN_LLVM
   {
@@ -426,7 +445,6 @@ struct Target
             assert(0);
         }
     }
-  } // !IN_LLVM
 
     /******************************
      * For the given module, perform any post parsing analysis.
@@ -457,43 +475,24 @@ struct Target
 
     extern (C++) static const(char)* toCppMangle(Dsymbol s)
     {
-      version(IN_LLVM)
-      {
-        if (isTargetWindowsMSVC())
-            return toCppMangleMSVC(s);
-        else
-            return toCppMangleItanium(s);
-      }
-      else
-      {
         static if (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS)
             return toCppMangleItanium(s);
         else static if (TARGET_WINDOS)
             return toCppMangleMSVC(s);
         else
             static assert(0, "fix this");
-      }
     }
 
     extern (C++) static const(char)* cppTypeInfoMangle(ClassDeclaration cd)
     {
-      version(IN_LLVM)
-      {
-          if (isTargetWindowsMSVC())
-              return cppTypeInfoMangleMSVC(cd);
-          else
-              return cppTypeInfoMangleItanium(cd);
-      }
-      else
-      {
         static if (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS)
             return cppTypeInfoMangleItanium(cd);
         else static if (TARGET_WINDOS)
             return cppTypeInfoMangleMSVC(cd);
         else
             static assert(0, "fix this");
-      }
     }
+  } // !IN_LLVM
 
     /**
      * For a vendor-specific type, return a string containing the C++ mangling.
