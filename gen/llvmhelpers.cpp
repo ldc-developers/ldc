@@ -834,7 +834,7 @@ void DtoResolveVariable(VarDeclaration *vd) {
     if (gIR->dmodule) {
       vd->ir->setInitialized();
     }
-    std::string llName(getMangledName(vd));
+    const auto llMangle = DtoMangledName(vd);
 
     // Since the type of a global must exactly match the type of its
     // initializer, we cannot know the type until after we have emitted the
@@ -855,7 +855,7 @@ void DtoResolveVariable(VarDeclaration *vd) {
 
     llvm::GlobalVariable *gvar =
         getOrCreateGlobal(vd->loc, gIR->module, DtoMemType(vd->type), isLLConst,
-                          linkage, nullptr, llName, vd->isThreadlocal());
+                          linkage, nullptr, llMangle, vd->isThreadlocal());
     getIrGlobal(vd)->value = gvar;
 
     // Set the alignment (it is important not to use type->alignsize because

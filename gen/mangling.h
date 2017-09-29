@@ -18,14 +18,29 @@
 #include "ddmd/globals.h"
 
 class AggregateDeclaration;
+class ClassDeclaration;
 class FuncDeclaration;
+class Module;
 class VarDeclaration;
 
-std::string getMangledName(FuncDeclaration *fdecl, LINK link);
-std::string getMangledName(VarDeclaration *vd);
+/*
+ * These functions return a symbol's LLVM mangle.
+ * LLVM's codegen performs target-specific postprocessing of these LLVM mangles
+ * (for the final object file mangles) unless the LLVM mangle starts with a 0x1
+ * byte. The TargetABI gets a chance to tweak the LLVM mangle.
+ */
 
-std::string getMangledInitSymbolName(AggregateDeclaration *aggrdecl);
-std::string getMangledVTableSymbolName(AggregateDeclaration *aggrdecl);
-std::string getMangledClassInfoSymbolName(AggregateDeclaration *aggrdecl);
+std::string DtoMangledName(FuncDeclaration *fdecl, LINK link);
+std::string DtoMangledName(VarDeclaration *vd);
+
+std::string DtoMangledFuncName(std::string baseMangle, LINK link);
+std::string DtoMangledVarName(std::string baseMangle, LINK link);
+
+std::string DtoMangledInitSymbolName(AggregateDeclaration *aggrdecl);
+std::string DtoMangledVTableSymbolName(AggregateDeclaration *aggrdecl);
+std::string DtoMangledClassInfoSymbolName(AggregateDeclaration *aggrdecl);
+std::string DtoMangledInterfaceInfosSymbolName(ClassDeclaration *cd);
+std::string DtoMangledModuleInfoSymbolName(Module *module);
+std::string DtoMangledModuleRefSymbolName(const char *moduleMangle);
 
 #endif // LDC_GEN_MANGLING_H

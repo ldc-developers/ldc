@@ -29,6 +29,7 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/mangling.h"
 #include "gen/moduleinfo.h"
 #include "gen/optimizer.h"
 #include "gen/runtime.h"
@@ -145,8 +146,9 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
 
   // build a function that registers the moduleinfo in the global moduleinfo
   // linked list
-  LLFunction *ctor = LLFunction::Create(fty, LLGlobalValue::InternalLinkage,
-                                        fname, &gIR->module);
+  LLFunction *ctor =
+      LLFunction::Create(fty, LLGlobalValue::InternalLinkage,
+                         DtoMangledFuncName(fname, LINKd), &gIR->module);
 
   // provide the default initializer
   LLStructType *modulerefTy = DtoModuleReferenceType();
@@ -158,20 +160,19 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
       modulerefTy, llvm::ArrayRef<LLConstant *>(mrefvalues));
 
   // create the ModuleReference node for this module
-  std::string thismrefname = "_D";
-  thismrefname += moduleMangle;
-  thismrefname += "11__moduleRefZ";
+  const auto thismrefLLMangle = DtoMangledModuleRefSymbolName(moduleMangle);
   Loc loc;
   LLGlobalVariable *thismref = getOrCreateGlobal(
       loc, gIR->module, modulerefTy, false, LLGlobalValue::InternalLinkage,
-      thismrefinit, thismrefname);
+      thismrefinit, thismrefLLMangle);
   // make sure _Dmodule_ref is declared
-  LLConstant *mref = gIR->module.getNamedGlobal("_Dmodule_ref");
+  const auto mrefLLMangle = DtoMangledVarName("_Dmodule_ref", LINKc);
+  LLConstant *mref = gIR->module.getNamedGlobal(mrefLLMangle);
   LLType *modulerefPtrTy = getPtrToType(modulerefTy);
   if (!mref) {
     mref = new LLGlobalVariable(gIR->module, modulerefPtrTy, false,
                                 LLGlobalValue::ExternalLinkage, nullptr,
-                                "_Dmodule_ref");
+                                mrefLLMangle);
   }
   mref = DtoBitCast(mref, getPtrToType(modulerefPtrTy));
 
@@ -342,14 +343,13 @@ void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
 
   llvm::Type *const moduleInfoPtrTy = DtoPtrToType(Module::moduleinfo->type);
 
-  std::string thismrefname = "_D";
-  thismrefname += moduleMangle;
-  thismrefname += "11__moduleRefZ";
+  const auto thismrefLLMangle =
+      DtoMangledModuleRefSymbolName(moduleMangle.c_str());
   auto thismref = new llvm::GlobalVariable(
       gIR->module, moduleInfoPtrTy,
       false, // FIXME: mRelocModel != llvm::Reloc::PIC_
       llvm::GlobalValue::LinkOnceODRLinkage,
-      DtoBitCast(thisModuleInfo, moduleInfoPtrTy), thismrefname);
+      DtoBitCast(thisModuleInfo, moduleInfoPtrTy), thismrefLLMangle);
   thismref->setSection((style == RegistryStyle::sectionDarwin) ? "__DATA,.minfo"
                                                                : "__minfo");
   gIR->usedArray.push_back(thismref);
@@ -544,8 +544,9 @@ void addCoverageAnalysis(Module *m) {
 
     LLFunctionType *ctorTy =
         LLFunctionType::get(LLType::getVoidTy(gIR->context()), {}, false);
-    ctor = LLFunction::Create(ctorTy, LLGlobalValue::InternalLinkage, ctorname,
-                              &gIR->module);
+    ctor =
+        LLFunction::Create(ctorTy, LLGlobalValue::InternalLinkage,
+                           DtoMangledFuncName(ctorname, LINKd), &gIR->module);
     ctor->setCallingConv(gABI->callingConv(LINKd));
     // Set function attributes. See functions.cpp:DtoDefineFunction()
     if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {

@@ -42,6 +42,7 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/mangling.h"
 #include "gen/metadata.h"
 #include "gen/rttibuilder.h"
 #include "gen/runtime.h"
@@ -592,10 +593,11 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
     Logger::println("typeinfo mangle: %s", mangled);
   }
 
+  const auto llMangle = DtoMangledVarName(mangled, LINKd);
   IrGlobal *irg = getIrGlobal(decl, true);
   const LinkageWithCOMDAT lwc(LLGlobalValue::ExternalLinkage, false);
 
-  irg->value = gIR->module.getGlobalVariable(mangled);
+  irg->value = gIR->module.getGlobalVariable(llMangle);
   if (irg->value) {
     assert(irg->getType()->isStructTy());
   } else {
@@ -610,7 +612,7 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
     // as immutable on the D side, and e.g. synchronized() can be used on the
     // implicit monitor.
     auto g = new LLGlobalVariable(gIR->module, type, false, lwc.first,
-                                  nullptr, mangled);
+                                  nullptr, llMangle);
     setLinkage(lwc, g);
     irg->value = g;
   }

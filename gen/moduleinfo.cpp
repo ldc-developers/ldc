@@ -14,6 +14,7 @@
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/mangling.h"
 #include "gen/objcgen.h"
 #include "gen/rttibuilder.h"
 #include "ir/irfunction.h"
@@ -56,10 +57,10 @@ llvm::Function *buildForwarderFunction(
   const auto fnTy =
       LLFunctionType::get(LLType::getVoidTy(gIR->context()), {}, false);
 
-  std::string const symbolName = gABI->mangleFunctionForLLVM(name, LINKd);
-  assert(gIR->module.getFunction(symbolName) == NULL);
+  const auto llMangle = DtoMangledFuncName(name, LINKd);
+  assert(gIR->module.getFunction(llMangle) == NULL);
   llvm::Function *fn = llvm::Function::Create(
-      fnTy, llvm::GlobalValue::InternalLinkage, symbolName, &gIR->module);
+      fnTy, llvm::GlobalValue::InternalLinkage, llMangle, &gIR->module);
   fn->setCallingConv(gABI->callingConv(LINKd));
 
   // Emit the body, consisting of...

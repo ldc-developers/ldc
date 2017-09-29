@@ -24,6 +24,7 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/mangling.h"
 #include "gen/nested.h"
 #include "gen/optimizer.h"
 #include "gen/pragma.h"
@@ -1687,8 +1688,8 @@ public:
 
       Logger::println("calling class invariant");
 
-      const auto fnMangle = gABI->mangleFunctionForLLVM(
-          "_D9invariant12_d_invariantFC6ObjectZv", LINKd);
+      const auto fnMangle =
+          DtoMangledFuncName("_D9invariant12_d_invariantFC6ObjectZv", LINKd);
       const auto fn = getRuntimeFunction(e->loc, gIR->module, fnMangle.c_str());
 
       const auto arg =

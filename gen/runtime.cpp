@@ -17,6 +17,7 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/mangling.h"
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
 #include "ir/irtype.h"
@@ -707,10 +708,10 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
 
   // void invariant._d_invariant(Object o)
-  createFwdDecl(LINKd, voidTy,
-                {gABI->mangleFunctionForLLVM(
-                    "_D9invariant12_d_invariantFC6ObjectZv", LINKd)},
-                {objectTy});
+  createFwdDecl(
+      LINKd, voidTy,
+      {DtoMangledFuncName("_D9invariant12_d_invariantFC6ObjectZv", LINKd)},
+      {objectTy});
 
   // void _d_dso_registry(void* data)
   // (the argument is really a pointer to
