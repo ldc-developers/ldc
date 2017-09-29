@@ -6,7 +6,7 @@ import ldc.attributes;
 
 //---- @(section) -----------------------------------------------------
 
-// CHECK-DAG: @{{.*}}mySectionedGlobali ={{.*}} section ".mySection"
+// CHECK-DAG: @{{.*}}mySectionedGlobali{{.*}} section ".mySection"
 @(section(".mySection")) int mySectionedGlobal;
 
 // CHECK-DAG: define{{.*}} void @{{.*}}sectionedfoo{{.*}} section "funcSection"
@@ -17,7 +17,7 @@ import ldc.attributes;
 //---------------------------------------------------------------------
 //---- @(weak) --------------------------------------------------------
 
-// CHECK-DAG: @{{.*}}myWeakGlobali = weak
+// CHECK-DAG: @{{.*}}myWeakGlobali{{\"?}} = weak
 @(ldc.attributes.weak) int myWeakGlobal;
 
 // CHECK-DAG: define{{.*}} weak {{.*}}void @{{.*}}weakFunc
