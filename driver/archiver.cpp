@@ -50,7 +50,7 @@ bool Symtab = true;
 bool Deterministic = true;
 bool Thin = false;
 
-void fail(Twine Error) { outs() << "llvm-ar: " << Error << ".\n"; }
+void fail(Twine Error) { errs() << "llvm-ar: " << Error << ".\n"; }
 
 void fail(std::error_code EC, std::string Context = {}) {
   if (Context.empty())
@@ -79,6 +79,12 @@ int addMember(std::vector<NewArchiveMember> &Members, StringRef FileName,
     fail(std::move(Error), FileName);
     return 1;
   }
+
+#if LDC_LLVM_VER >= 500
+  // Use the basename of the object path for the member name.
+  NMOrErr->MemberName = sys::path::filename(NMOrErr->MemberName);
+#endif
+
   if (Pos == -1)
     Members.push_back(std::move(*NMOrErr));
   else
@@ -197,13 +203,15 @@ int performWriteOperation(object::Archive *OldArchive,
   else
     Kind = getKindFromMember(NewMembers.front());
 
-  const auto Result =
+  auto Result =
       writeArchive(ArchiveName, NewMembers, Symtab, Kind, Deterministic, Thin,
                    std::move(OldArchiveBuf));
 
 #if LDC_LLVM_VER >= 600
   if (Result) {
-    fail("error writing '" + ArchiveName + "': " + Result.message());
+    handleAllErrors(std::move(Result), [](ErrorInfoBase &EIB) {
+      fail("error writing '" + ArchiveName + "': " + EIB.message());
+    });
     return 1;
   }
 #else
@@ -221,7 +229,7 @@ int performWriteOperation() {
   auto Buf = MemoryBuffer::getFile(ArchiveName, -1, false);
   std::error_code EC = Buf.getError();
   if (EC && EC != errc::no_such_file_or_directory) {
-    fail("error opening '" + ArchiveName + "': " + EC.message() + "!");
+    fail("error opening '" + ArchiveName + "': " + EC.message());
     return 1;
   }
 
@@ -230,9 +238,7 @@ int performWriteOperation() {
     object::Archive Archive(Buf.get()->getMemBufferRef(), Err);
     EC = errorToErrorCode(std::move(Err));
     if (EC) {
-      fail(
-          EC,
-          ("error loading '" + ArchiveName + "': " + EC.message() + "!").str());
+      fail(EC, ("error loading '" + ArchiveName + "': " + EC.message()).str());
       return 1;
     }
     return performWriteOperation(&Archive, std::move(Buf.get()));

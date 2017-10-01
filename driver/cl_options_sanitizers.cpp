@@ -198,8 +198,18 @@ void outputSanitizerSettings(llvm::raw_ostream &hash_os) {
 }
 
 bool functionIsInSanitizerBlacklist(FuncDeclaration *funcDecl) {
-  return sanitizerBlacklist &&
-         sanitizerBlacklist->inSection("fun", mangleExact(funcDecl));
+  if (!sanitizerBlacklist)
+    return false;
+
+#if LDC_LLVM_VER >= 600
+  // TODO: LLVM 6.0 supports sections (e.g. "[address]") in the blacklist file
+  // to only blacklist a function for a particular sanitizer. We could make use
+  // of that too.
+  return sanitizerBlacklist->inSection("" /* section name */, "fun",
+                                       mangleExact(funcDecl));
+#else
+  return sanitizerBlacklist->inSection("fun", mangleExact(funcDecl));
+#endif
 }
 
 } // namespace opts
