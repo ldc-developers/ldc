@@ -52,18 +52,19 @@ ComputeBackend::Type getComputeTargetType(llvm::Module*);
  * parameters and the host platform defaults.
  *
  * Does not depend on any global state.
- */
-llvm::TargetMachine *createTargetMachine(
-    std::string targetTriple, std::string arch, std::string cpu,
-    std::vector<std::string> attrs, ExplicitBitness::Type bitness,
-    FloatABI::Type floatABI,
+*/
+llvm::TargetMachine *
+createTargetMachine(std::string targetTriple, std::string arch, std::string cpu,
+                    std::string featuresString, ExplicitBitness::Type bitness,
+                    FloatABI::Type floatABI,
 #if LDC_LLVM_VER >= 309
-    llvm::Optional<llvm::Reloc::Model> relocModel,
+                    llvm::Optional<llvm::Reloc::Model> relocModel,
 #else
-    llvm::Reloc::Model relocModel,
+                    llvm::Reloc::Model relocModel,
 #endif
-    llvm::CodeModel::Model codeModel, llvm::CodeGenOpt::Level codeGenOptLevel,
-    bool noFramePointerElim, bool noLinkerStripDead);
+                    llvm::CodeModel::Model codeModel,
+                    llvm::CodeGenOpt::Level codeGenOptLevel,
+                    bool noLinkerStripDead);
 
 /**
  * Returns the Mips ABI which is used for code generation.

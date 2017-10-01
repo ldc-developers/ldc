@@ -1,6 +1,10 @@
-project(runtime)
+project(runtime C)
 
 cmake_minimum_required(VERSION 2.8.9)
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
+
+include(CheckIncludeFile)
 
 # Verify required variables if this CMake project is NOT embedded in the LDC CMake project.
 if(NOT LDC_EXE)
@@ -37,14 +41,19 @@ set(D_FLAGS               -w                                  CACHE STRING "Runt
 set(D_FLAGS_DEBUG         -g;-link-debuglib                   CACHE STRING "Runtime D compiler flags (debug libraries), separated by ';'")
 set(D_FLAGS_RELEASE       -O3;-release                        CACHE STRING "Runtime D compiler flags (release libraries), separated by ';'")
 set(COMPILE_ALL_D_FILES_AT_ONCE ON                            CACHE BOOL   "Compile all D files for a lib in a single command line instead of separately")
+set(RT_ARCHIVE_WITH_LDC   AUTO                                CACHE STRING "Whether to archive the static runtime libs via LDC instead of CMake archiver")
 set(RT_CFLAGS             ""                                  CACHE STRING "Runtime extra C compiler flags, separated by ' '")
 set(LD_FLAGS              ""                                  CACHE STRING "Runtime extra C linker flags, separated by ' '")
 set(C_SYSTEM_LIBS         AUTO                                CACHE STRING "C system libraries for linking shared libraries and test runners, separated by ';'")
-set(TARGET_SYSTEM         AUTO                                CACHE STRING "Targeted platform for cross-compilation (e.g., 'Linux;UNIX', 'Darwin;APPLE;UNIX', 'Windows;MSVC')")
+set(TARGET_SYSTEM         AUTO                                CACHE STRING "Target OS/toolchain for cross-compilation (e.g., 'Linux;UNIX', 'Darwin;APPLE;UNIX', 'Windows;MSVC')")
+set(LDC_TARGET_PRESET     ""                                  CACHE STRING "Use a preset target configuration for cross-compilation, by passing format OS-arch (e.g., 'Linux-arm', 'Mac-x64', 'Windows-aarch64', 'Android-x86')")
 
 set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 
-# Auto-detect TARGET_SYSTEM
+# Use LDC_TARGET_PRESET to configure target runtime
+include(PresetRuntimeConfiguration)
+
+# Auto-detect TARGET_SYSTEM from host
 if("${TARGET_SYSTEM}" STREQUAL "AUTO")
     set(TARGET_SYSTEM ${CMAKE_SYSTEM_NAME})
     # Additionally add MSVC, APPLE and/or UNIX
@@ -73,6 +82,16 @@ if(${ptr_size} MATCHES "^8$") ## if it's 64-bit OS
 else()
     set(HOST_BITNESS 32)
     set(MULTILIB_SUFFIX 64)
+endif()
+
+if(${RT_ARCHIVE_WITH_LDC} STREQUAL "AUTO")
+    # LLVM's MSVC archiver (v4.0.1) apparently has issues with objects with debuginfos,
+    # leading to MS linker warnings when linking against the static debug runtime libs.
+    if("${TARGET_SYSTEM}" MATCHES "MSVC")
+        set(RT_ARCHIVE_WITH_LDC OFF)
+    else()
+        set(RT_ARCHIVE_WITH_LDC ON)
+    endif()
 endif()
 
 set(SHARED_LIBS_SUPPORTED OFF)
@@ -297,7 +316,7 @@ foreach(target ${LLVM_TARGETS_TO_BUILD})
 endforeach()
 
 # Always build zlib and other C parts of the runtime in release mode, regardless
-# of what the user chose for LDC itself.
+# of what the user chose for LDC itself. Also add other C_FLAGS here.
 # 1) Set up CMAKE_C_FLAGS_RELEASE
 if("${TARGET_SYSTEM}" MATCHES "MSVC")
     # Omit all references to the default C runtime libs.
@@ -308,6 +327,11 @@ if("${TARGET_SYSTEM}" MATCHES "MSVC")
     # warning C4206: nonstandard extension used: translation unit is empty
     # warning C4996: zlib uses 'deprecated' POSIX names
     append("/wd4131 /wd4206 /wd4996" CMAKE_C_FLAGS_RELEASE)
+endif()
+CHECK_INCLUDE_FILE(unistd.h HAVE_UNISTD_H)
+if (HAVE_UNISTD_H)
+    # Needed for zlib
+    append("-DHAVE_UNISTD_H" CMAKE_C_FLAGS_RELEASE)
 endif()
 # 2) Set all other CMAKE_C_FLAGS variants to CMAKE_C_FLAGS_RELEASE
 set(variables
@@ -421,13 +445,24 @@ macro(compile_phobos2 d_flags lib_suffix path_suffix all_at_once outlist_o outli
     )
 endmacro()
 
+# Define an optional 'D' CMake linker language for the static runtime libs,
+# using LDC as archiver. LDC handles (cross-)archiving internally via LLVM
+# and supports LTO objects.
+set(CMAKE_D_CREATE_STATIC_LIBRARY "${LDC_EXE_FULL} -lib -of=<TARGET> <OBJECTS>")
+foreach(f ${D_FLAGS})
+    append("\"${f}\"" CMAKE_D_CREATE_STATIC_LIBRARY)
+endforeach()
+
 # Sets the common properties for all library targets.
-function(set_common_library_properties target)
+function(set_common_library_properties target is_shared)
     set_target_properties(${target} PROPERTIES
         VERSION ${DMDFE_VERSION}
         SOVERSION ${DMDFE_PATCH_VERSION}
         LINKER_LANGUAGE C
     )
+    if(RT_ARCHIVE_WITH_LDC AND NOT is_shared)
+        set_target_properties(${target} PROPERTIES LINKER_LANGUAGE D)
+    endif()
 
     # ldc2 defaults to position-independent code on Linux to match the implicit
     # linker default on Ubuntu 16.10 and above. As we might be building on an
@@ -462,7 +497,7 @@ macro(build_runtime_libs druntime_o druntime_bc phobos2_o phobos2_bc c_flags ld_
         COMPILE_FLAGS               "${c_flags}"
         LINK_FLAGS                  "${ld_flags}"
     )
-    set_common_library_properties(druntime-ldc${target_suffix})
+    set_common_library_properties(druntime-ldc${target_suffix} "${is_shared}")
 
     # When building a shared library, we need to link in all the default
     # libraries otherwise implicitly added by LDC to make it loadable from
@@ -485,7 +520,7 @@ macro(build_runtime_libs druntime_o druntime_bc phobos2_o phobos2_bc c_flags ld_
             COMPILE_FLAGS               "${c_flags}"
             LINK_FLAGS                  "${ld_flags}"
         )
-        set_common_library_properties(phobos2-ldc${target_suffix})
+        set_common_library_properties(phobos2-ldc${target_suffix} "${is_shared}")
 
         if("${is_shared}" STREQUAL "ON")
             target_link_libraries(phobos2-ldc${target_suffix}
@@ -599,7 +634,7 @@ macro(build_all_runtime_variants d_flags c_flags ld_flags path_suffix outlist_ta
         # static profile-rt
         build_profile_runtime("${d_flags};${D_FLAGS};${D_FLAGS_RELEASE}" "${c_flags}" "${ld_flags}" "" "${path_suffix}" ${outlist_targets})
         get_target_suffix("" "${path_suffix}" target_suffix)
-        set_common_library_properties(ldc-profile-rt${target_suffix})
+        set_common_library_properties(ldc-profile-rt${target_suffix} OFF)
     endif()
 endmacro()
 

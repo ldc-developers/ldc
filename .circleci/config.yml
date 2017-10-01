@@ -4,6 +4,7 @@ jobs:
     docker:
       - image: gcc
     environment:
+      - LLVM_VERSION: 5.0.0
       - HOST_LDC_VERSION: 1.3.0
     steps:
       - checkout
@@ -24,15 +25,22 @@ jobs:
             ninja --version
             gdb --version
             python -c "import lit; lit.main();" --version | head -n 1
-      - run:
-          name: Install LLVM nightly
-          command: |
-            add-apt-repository -y 'deb http://apt.llvm.org/unstable/ llvm-toolchain-5.0 main'
-            wget -O - http://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
-            apt update
-            apt install -y llvm-5.0 llvm-5.0-dev libclang-common-5.0-dev libfuzzer-5.0-dev
       - restore_cache:
-          key: host-ldc-{{ .Environment.HOST_LDC_VERSION }}
+          keys:
+            - llvm-5.0.0
+            - host-ldc-{{ .Environment.HOST_LDC_VERSION }}
+      - run:
+          name: Install LLVM 5.0.0
+          command: |
+            if [[ ! -d llvm-$LLVM_VERSION ]]; then
+              wget -O llvm-$LLVM_VERSION.tar.xz http://releases.llvm.org/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-linux-x86_64-ubuntu16.04.tar.xz
+              mkdir llvm-$LLVM_VERSION
+              tar -xpf llvm-$LLVM_VERSION.tar.xz --strip 1 -C llvm-$LLVM_VERSION
+            fi
+      - save_cache:
+          key: llvm-5.0.0
+          paths:
+            - llvm-5.0.0
       - run:
           name: Install LDC host compiler
           command: |
@@ -50,7 +58,7 @@ jobs:
             export HOST_LDMD=$PWD/ldc2-$HOST_LDC_VERSION-linux-x86_64/bin/ldmd2
             mkdir bootstrap
             cd bootstrap
-            cmake -G Ninja -DBUILD_SHARED_LIBS=OFF -DD_COMPILER=$HOST_LDMD ..
+            cmake -G Ninja -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DBUILD_SHARED_LIBS=OFF -DD_COMPILER=$HOST_LDMD ..
             ninja -j3
             bin/ldc2 -version
             cd ..
@@ -60,7 +68,7 @@ jobs:
             export HOST_LDMD=$PWD/bootstrap/bin/ldmd2
             mkdir build
             cd build
-            cmake -G Ninja -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=$HOST_LDMD ..
+            cmake -G Ninja -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=$HOST_LDMD ..
             ninja -j3 all all-test-runners
             bin/ldc2 -version
             cd ..
