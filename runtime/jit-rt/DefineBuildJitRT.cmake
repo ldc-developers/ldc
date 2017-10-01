@@ -1,5 +1,4 @@
 if(LDC_RUNTIME_COMPILE)
-    find_package(LLVM 3.7 REQUIRED support core irreader executionengine passes target nativecodegen)
     file(GLOB LDC_JITRT_D ${JITRT_DIR}/d/ldc/*.d)
 
     # Choose the correct subfolder depending on the LLVM version
@@ -13,18 +12,6 @@ if(LDC_RUNTIME_COMPILE)
 
     else()
         set(JITRT_EXTRA_FLAGS "-fPIC -O3 -std=c++11")
-    endif()
-
-    # LLVM_CXXFLAGS may contain -Wcovered-switch-default and -fcolor-diagnostics
-    # which are clang-only options
-    if(CMAKE_COMPILER_IS_GNUCXX)
-        string(REPLACE "-Wcovered-switch-default " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
-        string(REPLACE "-fcolor-diagnostics " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
-    endif()
-    # LLVM_CXXFLAGS may contain -Wno-maybe-uninitialized
-    # which is gcc-only options
-    if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
-        string(REPLACE "-Wno-maybe-uninitialized " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
     endif()
 
     # Sets up the targets for building the D-source jit-rt object files,
@@ -42,9 +29,26 @@ if(LDC_RUNTIME_COMPILE)
         )
     endmacro()
 
-    macro(build_jit_runtime d_flags c_flags ld_flags path_suffix outlist_targets)
-        get_target_suffix("" "${path_suffix}" target_suffix)
+    function(build_jit_runtime d_flags c_flags ld_flags path_suffix outlist_targets)
+        # Jit runtime need a differens set of libraries from compiler and we
+        # can't do find_package(LLVM) because we already have one in top-level cmake
+        # Also we don't have access to llvm_map_components_to_libnames because we need
+        # to do find_package(LLVM CONFIG) for it so here is a hackish way to get it
+        include("${LLVM_LIBRARY_DIRS}/cmake/llvm/LLVMConfig.cmake")
+        include("${LLVM_LIBRARY_DIRS}/cmake/llvm/LLVM-Config.cmake")
+        llvm_map_components_to_libnames(JITRT_LLVM_LIBS core support irreader executionengine passes nativecodegen target)
 
+        foreach(libname ${JITRT_LLVM_LIBS})
+            unset(JITRT_TEMP_LIB CACHE)
+            find_library(JITRT_TEMP_LIB ${libname} PATHS ${LLVM_LIBRARY_DIRS} NO_DEFAULT_PATH)
+            if(NOT JITRT_TEMP_LIB)
+                message(STATUS "lib ${libname} not found, skipping jit runtime build")
+                return()
+            endif()
+            unset(JITRT_TEMP_LIB CACHE)
+        endforeach()
+
+        get_target_suffix("" "${path_suffix}" target_suffix)
         set(output_path ${CMAKE_BINARY_DIR}/lib${path_suffix})
 
         add_library(ldc-jit-rt-so${target_suffix} SHARED ${LDC_JITRT_SO_CXX})
@@ -60,7 +64,7 @@ if(LDC_RUNTIME_COMPILE)
             LINK_FLAGS                  "${ld_flags} ${JITRT_EXTRA_LDFLAGS}"
             )
 
-        target_link_libraries(ldc-jit-rt-so${target_suffix} ${LLVM_LIBRARIES})
+        target_link_libraries(ldc-jit-rt-so${target_suffix} ${JITRT_LLVM_LIBS})
 
         set(jitrt_d_o "")
         set(jitrt_d_bc "")
@@ -83,11 +87,12 @@ if(LDC_RUNTIME_COMPILE)
 
         list(APPEND ${outlist_targets} "ldc-jit-rt-so${target_suffix}")
         list(APPEND ${outlist_targets} "ldc-jit-rt${target_suffix}")
-    endmacro()
+        set(${outlist_targets} ${${outlist_targets}} PARENT_SCOPE)
+    endfunction()
 
     # Install D interface files
     install(DIRECTORY ${JITRT_DIR}/d/ldc DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
 else()
-    macro(build_jit_runtime d_flags c_flags ld_flags path_suffix outlist_targets)
-    endmacro()
+    function(build_jit_runtime d_flags c_flags ld_flags path_suffix outlist_targets)
+    endfunction()
 endif()
