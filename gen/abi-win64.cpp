@@ -37,7 +37,10 @@ private:
   ExplicitByvalRewrite byvalRewrite;
   IntegerRewrite integerRewrite;
 
-  bool realIs80bits() const { return !isMSVC; }
+  bool isX87(Type *t) const {
+    return !isMSVC // 64-bit reals for MSVC targets
+           && (t->ty == Tfloat80 || t->ty == Timaginary80);
+  }
 
   // Returns true if the D type is passed byval (the callee getting a pointer
   // to a dedicated hidden copy).
@@ -47,7 +50,7 @@ private:
         //   (size > 8 bytes or not a power of 2)
         (isAggregate(t) && !canRewriteAsInt(t)) ||
         // * 80-bit real and ireal
-        (realIs80bits() && (t->ty == Tfloat80 || t->ty == Timaginary80));
+        isX87(t);
   }
 
 public:
@@ -64,8 +67,7 @@ public:
     // * magic C++ structs directly as LL aggregate with a single i32/double
     //   element, which LLVM handles as if it was a scalar
     // * 80-bit real/ireal on the x87 stack, for DMD inline asm compliance
-    if (isMagicCppStruct(rt) ||
-        (realIs80bits() && (rt->ty == Tfloat80 || rt->ty == Timaginary80)))
+    if (isMagicCppStruct(rt) || isX87(rt))
       return false;
 
     // force sret for non-POD structs
@@ -92,8 +94,11 @@ public:
 
   void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
     // return value
-    if (!fty.ret->byref && fty.ret->type->toBasetype()->ty != Tvoid) {
-      rewriteArgument(fty, *fty.ret);
+    const auto rt = fty.ret->type->toBasetype();
+    if (!fty.ret->byref && rt->ty != Tvoid) {
+      // 80-bit real/ireal are returned on the x87 stack (but passed in memory)
+      if (!isX87(rt))
+        rewriteArgument(fty, *fty.ret);
     }
 
     // explicit parameters
