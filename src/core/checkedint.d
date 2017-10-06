@@ -198,7 +198,7 @@ uint addu(uint x, uint y, ref bool overflow)
             return res.result;
         }
     }
-    uint r = x + y;
+    immutable uint r = x + y;
     if (r < x || r < y)
         overflow = true;
     return r;
@@ -235,7 +235,7 @@ ulong addu(ulong x, ulong y, ref bool overflow)
             return res.result;
         }
     }
-    ulong r = x + y;
+    immutable ulong r = x + y;
     if (r < x || r < y)
         overflow = true;
     return r;
@@ -274,7 +274,7 @@ ucent addu(ucent x, ucent y, ref bool overflow)
             return res.result;
         }
     }
-    ucent r = x + y;
+    immutable ucent r = x + y;
     if (r < x || r < y)
         overflow = true;
     return r;
@@ -325,7 +325,7 @@ int subs(int x, int y, ref bool overflow)
             return res.result;
         }
     }
-    long r = cast(long)x - cast(long)y;
+    immutable long r = cast(long)x - cast(long)y;
     if (r < int.min || r > int.max)
         overflow = true;
     return cast(int)r;
@@ -362,7 +362,7 @@ long subs(long x, long y, ref bool overflow)
             return res.result;
         }
     }
-    long r = cast(ulong)x - cast(ulong)y;
+    immutable long r = cast(ulong)x - cast(ulong)y;
     if (x <  0 && y >= 0 && r >= 0 ||
         x >= 0 && y <  0 && (r <  0 || y == long.min))
         overflow = true;
@@ -404,7 +404,7 @@ cent subs(cent x, cent y, ref bool overflow)
             return res.result;
         }
     }
-    cent r = cast(ucent)x - cast(ucent)y;
+    immutable cent r = cast(ucent)x - cast(ucent)y;
     if (x <  0 && y >= 0 && r >= 0 ||
         x >= 0 && y <  0 && (r <  0 || y == long.min))
         overflow = true;
@@ -707,7 +707,7 @@ long muls(long x, long y, ref bool overflow)
             return res.result;
         }
     }
-    long r = cast(ulong)x * cast(ulong)y;
+    immutable long r = cast(ulong)x * cast(ulong)y;
     enum not0or1 = ~1L;
     if((x & not0or1) && ((r == y)? r : (r / x) != y))
         overflow = true;
@@ -752,7 +752,7 @@ cent muls(cent x, cent y, ref bool overflow)
             return res.result;
         }
     }
-    cent r = cast(ucent)x * cast(ucent)y;
+    immutable cent r = cast(ucent)x * cast(ucent)y;
     enum not0or1 = ~1L;
     if((x & not0or1) && ((r == y)? r : (r / x) != y))
         overflow = true;
@@ -809,7 +809,7 @@ uint mulu(uint x, uint y, ref bool overflow)
             return res.result;
         }
     }
-    ulong r = ulong(x) * ulong(y);
+    immutable ulong r = ulong(x) * ulong(y);
     if (r >> 32)
         overflow = true;
     return cast(uint) r;
@@ -859,7 +859,7 @@ ulong mulu(ulong x, ulong y, ref bool overflow)
             return res.result;
         }
     }
-    ulong r = x * y;
+    immutable ulong r = x * y;
     if ((x | y) >> 32 &&
             x &&
             r / x != y)
@@ -926,7 +926,7 @@ ucent mulu(ucent x, ucent y, ref bool overflow)
             return res.result;
         }
     }
-    ucent r = x * y;
+    immutable ucent r = x * y;
     if (x && (r / x) != y)
         overflow = true;
     return r;

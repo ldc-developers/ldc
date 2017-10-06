@@ -193,7 +193,7 @@ unittest
         S[3] sa1 = {f1},
              sa2 = {f2};
         assert(sa1  == sa2);
-        assert(sa1 !is sa2);
+        assert(sa1[] !is sa2[]);
         ti = typeid(S[3]);
         assert(ti.getHash(&sa1) == ti.getHash(&sa2));
     }();
@@ -241,7 +241,7 @@ unittest
         S[3] sa1 = {f1},
              sa2 = {f2};
         assert(sa1  == sa2);
-        assert(sa1 !is sa2);
+        assert(sa1[] !is sa2[]);
         ti = typeid(S[3]);
         assert(ti.getHash(&sa1) == ti.getHash(&sa2));
     }();
@@ -295,7 +295,7 @@ unittest
             S[3] sa1 = {f1},
                  sa2 = {f2};
             assert(sa1  == sa2);
-            assert(sa1 !is sa2);
+            assert(sa1[] !is sa2[]);
             ti = typeid(S[3]);
             assert(ti.getHash(&sa1) == ti.getHash(&sa2));
         }
