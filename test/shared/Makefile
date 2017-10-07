@@ -5,7 +5,7 @@ include ../common.mak
 # LDC_FIXME: Strictly speaking, this should be based on the target set in
 # CMake, although the scope for cross-compilation is fairly limited by having
 # to be able to actually run the test executables.
-include ../../osmodel.mak
+include ../../../../tests/d2/src/osmodel.mak
 
 TESTS:=link load linkD linkDR loadDR finalize
 # LDC_FIXME: host loads two modules with the same name, which is currently
