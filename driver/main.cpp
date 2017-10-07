@@ -804,6 +804,8 @@ void registerPredefinedTargetVersions() {
       VersionCondition::addPredefinedGlobalIdent("D_SIMD");
     if (traitsTargetHasFeature("avx"))
       VersionCondition::addPredefinedGlobalIdent("D_AVX");
+    if (traitsTargetHasFeature("avx2"))
+      VersionCondition::addPredefinedGlobalIdent("D_AVX2");
   }
   */
 
