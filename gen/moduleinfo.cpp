@@ -57,10 +57,10 @@ llvm::Function *buildForwarderFunction(
   const auto fnTy =
       LLFunctionType::get(LLType::getVoidTy(gIR->context()), {}, false);
 
-  const auto llMangle = DtoMangledFuncName(name, LINKd);
-  assert(gIR->module.getFunction(llMangle) == NULL);
+  const auto irMangle = getIRMangledFuncName(name, LINKd);
+  assert(gIR->module.getFunction(irMangle) == NULL);
   llvm::Function *fn = llvm::Function::Create(
-      fnTy, llvm::GlobalValue::InternalLinkage, llMangle, &gIR->module);
+      fnTy, llvm::GlobalValue::InternalLinkage, irMangle, &gIR->module);
   fn->setCallingConv(gABI->callingConv(LINKd));
 
   // Emit the body, consisting of...

@@ -23,11 +23,11 @@ llvm::GlobalVariable *IrModule::moduleInfoSymbol() {
     return moduleInfoVar;
   }
 
-  const auto llMangle = DtoMangledModuleInfoSymbolName(M);
+  const auto irMangle = getIRMangledModuleInfoSymbolName(M);
 
   moduleInfoVar = new llvm::GlobalVariable(
       gIR->module, llvm::StructType::create(gIR->context()), false,
-      llvm::GlobalValue::ExternalLinkage, nullptr, llMangle);
+      llvm::GlobalValue::ExternalLinkage, nullptr, irMangle);
   return moduleInfoVar;
 }
 

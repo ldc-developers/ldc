@@ -593,11 +593,11 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
     Logger::println("typeinfo mangle: %s", mangled);
   }
 
-  const auto llMangle = DtoMangledVarName(mangled, LINKd);
+  const auto irMangle = getIRMangledVarName(mangled, LINKd);
   IrGlobal *irg = getIrGlobal(decl, true);
   const LinkageWithCOMDAT lwc(LLGlobalValue::ExternalLinkage, false);
 
-  irg->value = gIR->module.getGlobalVariable(llMangle);
+  irg->value = gIR->module.getGlobalVariable(irMangle);
   if (irg->value) {
     assert(irg->getType()->isStructTy());
   } else {
@@ -612,7 +612,7 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
     // as immutable on the D side, and e.g. synchronized() can be used on the
     // implicit monitor.
     auto g = new LLGlobalVariable(gIR->module, type, false, lwc.first,
-                                  nullptr, llMangle);
+                                  nullptr, irMangle);
     setLinkage(lwc, g);
     irg->value = g;
   }

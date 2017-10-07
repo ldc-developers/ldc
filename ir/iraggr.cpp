@@ -47,11 +47,11 @@ LLConstant *&IrAggr::getInitSymbol() {
   }
 
   // create the initZ symbol
-  const auto llMangle = DtoMangledInitSymbolName(aggrdecl);
+  const auto irMangle = getIRMangledInitSymbolName(aggrdecl);
 
   auto initGlobal =
       getOrCreateGlobal(aggrdecl->loc, gIR->module, getLLStructType(), true,
-                        llvm::GlobalValue::ExternalLinkage, nullptr, llMangle);
+                        llvm::GlobalValue::ExternalLinkage, nullptr, irMangle);
   initGlobal->setAlignment(DtoAlignment(type));
 
   init = initGlobal;

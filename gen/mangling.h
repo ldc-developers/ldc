@@ -30,17 +30,17 @@ class VarDeclaration;
  * byte. The TargetABI gets a chance to tweak the LLVM mangle.
  */
 
-std::string DtoMangledName(FuncDeclaration *fdecl, LINK link);
-std::string DtoMangledName(VarDeclaration *vd);
+std::string getIRMangledName(FuncDeclaration *fdecl, LINK link);
+std::string getIRMangledName(VarDeclaration *vd);
 
-std::string DtoMangledFuncName(std::string baseMangle, LINK link);
-std::string DtoMangledVarName(std::string baseMangle, LINK link);
+std::string getIRMangledFuncName(std::string baseMangle, LINK link);
+std::string getIRMangledVarName(std::string baseMangle, LINK link);
 
-std::string DtoMangledInitSymbolName(AggregateDeclaration *aggrdecl);
-std::string DtoMangledVTableSymbolName(AggregateDeclaration *aggrdecl);
-std::string DtoMangledClassInfoSymbolName(AggregateDeclaration *aggrdecl);
-std::string DtoMangledInterfaceInfosSymbolName(ClassDeclaration *cd);
-std::string DtoMangledModuleInfoSymbolName(Module *module);
-std::string DtoMangledModuleRefSymbolName(const char *moduleMangle);
+std::string getIRMangledInitSymbolName(AggregateDeclaration *aggrdecl);
+std::string getIRMangledVTableSymbolName(AggregateDeclaration *aggrdecl);
+std::string getIRMangledClassInfoSymbolName(AggregateDeclaration *aggrdecl);
+std::string getIRMangledInterfaceInfosSymbolName(ClassDeclaration *cd);
+std::string getIRMangledModuleInfoSymbolName(Module *module);
+std::string getIRMangledModuleRefSymbolName(const char *moduleMangle);
 
 #endif // LDC_GEN_MANGLING_H

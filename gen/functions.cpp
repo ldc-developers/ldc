@@ -522,16 +522,16 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   const auto link = forceC ? LINKc : f->linkage;
 
   // mangled name
-  const auto llMangle = DtoMangledName(fdecl, link);
+  const auto irMangle = getIRMangledName(fdecl, link);
 
   // construct function
   LLFunctionType *functype = DtoFunctionType(fdecl);
-  LLFunction *func = vafunc ? vafunc : gIR->module.getFunction(llMangle);
+  LLFunction *func = vafunc ? vafunc : gIR->module.getFunction(irMangle);
   if (!func) {
     // All function declarations are "external" - any other linkage type
     // is set when actually defining the function.
     func = LLFunction::Create(functype, llvm::GlobalValue::ExternalLinkage,
-                              llMangle, &gIR->module);
+                              irMangle, &gIR->module);
   } else if (func->getFunctionType() != functype) {
     error(fdecl->loc,
           "Function type does not match previously declared "

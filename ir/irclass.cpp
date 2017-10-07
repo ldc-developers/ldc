@@ -47,13 +47,13 @@ LLGlobalVariable *IrAggr::getVtblSymbol() {
   }
 
   // create the vtblZ symbol
-  const auto llMangle = DtoMangledVTableSymbolName(aggrdecl);
+  const auto irMangle = getIRMangledVTableSymbolName(aggrdecl);
 
   LLType *vtblTy = stripModifiers(type)->ctype->isClass()->getVtblType();
 
   vtbl =
       getOrCreateGlobal(aggrdecl->loc, gIR->module, vtblTy, true,
-                        llvm::GlobalValue::ExternalLinkage, nullptr, llMangle);
+                        llvm::GlobalValue::ExternalLinkage, nullptr, irMangle);
 
   return vtbl;
 }
@@ -66,7 +66,7 @@ LLGlobalVariable *IrAggr::getClassInfoSymbol() {
   }
 
   // create the ClassZ / InterfaceZ symbol
-  const auto llMangle = DtoMangledClassInfoSymbolName(aggrdecl);
+  const auto irMangle = getIRMangledClassInfoSymbolName(aggrdecl);
 
   // The type is also ClassInfo for interfaces – the actual TypeInfo for them
   // is a TypeInfo_Interface instance that references __ClassZ in its "base"
@@ -79,7 +79,7 @@ LLGlobalVariable *IrAggr::getClassInfoSymbol() {
   // classinfos cannot be constants since they're used as locks for synchronized
   classInfo = getOrCreateGlobal(
       aggrdecl->loc, gIR->module, tc->getMemoryLLType(), false,
-      llvm::GlobalValue::ExternalLinkage, nullptr, llMangle);
+      llvm::GlobalValue::ExternalLinkage, nullptr, irMangle);
 
   // Generate some metadata on this ClassInfo if it's for a class.
   ClassDeclaration *classdecl = aggrdecl->isClassDeclaration();
@@ -100,10 +100,10 @@ LLGlobalVariable *IrAggr::getClassInfoSymbol() {
     // Construct the metadata and insert it into the module.
     OutBuffer debugName;
     debugName.writestring(CD_PREFIX);
-    if (llMangle[0] == '\1') {
-      debugName.write(llMangle.data() + 1, llMangle.length() - 1);
+    if (irMangle[0] == '\1') {
+      debugName.write(irMangle.data() + 1, irMangle.length() - 1);
     } else {
-      debugName.write(llMangle.data(), llMangle.length());
+      debugName.write(irMangle.data(), irMangle.length());
     }
     llvm::NamedMDNode *node =
         gIR->module.getOrInsertNamedMetadata(debugName.peekString());
@@ -130,7 +130,7 @@ LLGlobalVariable *IrAggr::getInterfaceArraySymbol() {
   LLType *InterfaceTy = DtoType(Type::typeinfoclass->fields[3]->type->nextOf());
 
   // create Interface[N]
-  const auto llMangle = DtoMangledInterfaceInfosSymbolName(cd);
+  const auto irMangle = getIRMangledInterfaceInfosSymbolName(cd);
 
   LLArrayType *array_type = llvm::ArrayType::get(InterfaceTy, n);
 
@@ -138,7 +138,7 @@ LLGlobalVariable *IrAggr::getInterfaceArraySymbol() {
   // if we emit the initializer later.
   classInterfacesArray =
       getOrCreateGlobal(cd->loc, gIR->module, array_type, true,
-                        llvm::GlobalValue::ExternalLinkage, nullptr, llMangle);
+                        llvm::GlobalValue::ExternalLinkage, nullptr, irMangle);
 
   return classInterfacesArray;
 }
@@ -332,17 +332,17 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
     nameBuf.writestring(thunkPrefix);
     nameBuf.writestring(mangledTargetName + 2);
 
-    const auto thunkLLMangle =
-        DtoMangledFuncName(nameBuf.peekString(), fd->linkage);
+    const auto thunkIRMangle =
+        getIRMangledFuncName(nameBuf.peekString(), fd->linkage);
 
-    llvm::Function *thunk = gIR->module.getFunction(thunkLLMangle);
+    llvm::Function *thunk = gIR->module.getFunction(thunkIRMangle);
     if (!thunk) {
       const LinkageWithCOMDAT lwc(LLGlobalValue::LinkOnceODRLinkage,
                                   supportsCOMDAT());
       const auto callee = irFunc->getLLVMCallee();
       thunk = LLFunction::Create(
           isaFunction(callee->getType()->getContainedType(0)), lwc.first,
-          thunkLLMangle, &gIR->module);
+          thunkIRMangle, &gIR->module);
       setLinkage(lwc, thunk);
       thunk->copyAttributesFrom(callee);
 
@@ -445,12 +445,12 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
   mangledName.writestring(thunkPrefix);
   mangledName.writestring("6__vtblZ");
 
-  const auto llMangle = DtoMangledVarName(mangledName.peekString(), LINKd);
+  const auto irMangle = getIRMangledVarName(mangledName.peekString(), LINKd);
 
   const auto lwc = DtoLinkage(cd);
   LLGlobalVariable *GV =
       getOrCreateGlobal(cd->loc, gIR->module, vtbl_constant->getType(), true,
-                        lwc.first, vtbl_constant, llMangle);
+                        lwc.first, vtbl_constant, irMangle);
   setLinkage(lwc, GV);
 
   // insert into the vtbl map

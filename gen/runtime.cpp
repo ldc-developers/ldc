@@ -683,7 +683,7 @@ static void buildRuntimeModule() {
   // void invariant._d_invariant(Object o)
   createFwdDecl(
       LINKd, voidTy,
-      {DtoMangledFuncName("_D9invariant12_d_invariantFC6ObjectZv", LINKd)},
+      {getIRMangledFuncName("_D9invariant12_d_invariantFC6ObjectZv", LINKd)},
       {objectTy});
 
   // void _d_dso_registry(void* data)
