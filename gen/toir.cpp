@@ -557,7 +557,7 @@ public:
     // valid array ops would have been transformed by optimize
     if ((t1->ty == Tarray || t1->ty == Tsarray) &&
         (t2->ty == Tarray || t2->ty == Tsarray)) {
-      base->error("Array operation %s not recognized", base->toChars());
+      base->error("Array operation `%s` not recognized", base->toChars());
       fatal();
     }
   }
@@ -1343,6 +1343,9 @@ public:
         Logger::cout() << "rv: " << *rv << '\n';
       }
       eval = p->ir->CreateICmp(cmpop, lv, rv);
+      if (t->ty == Tvector) {
+        eval = mergeVectorEquals(eval, e->op);
+      }
     } else if (t->isfloating()) // includes iscomplex
     {
       eval = DtoBinNumericEquals(e->loc, l, r, e->op);
@@ -1870,8 +1873,8 @@ public:
     LOG_SCOPE;
 
     if (e->func->isStatic()) {
-      e->error("can't take delegate of static function %s, it does not require "
-               "a context ptr",
+      e->error("can't take delegate of static function `%s`, it does not "
+               "require a context ptr",
                e->func->toChars());
     }
 
@@ -2545,7 +2548,7 @@ public:
   //////////////////////////////////////////////////////////////////////////////
 
   void visit(TypeExp *e) override {
-    e->error("type %s is not an expression", e->toChars());
+    e->error("type `%s` is not an expression", e->toChars());
     // TODO: Improve error handling. DMD just returns some value here and hopes
     // some more sensible error messages will be triggered.
     fatal();
@@ -2627,7 +2630,7 @@ public:
     IF_LOG Logger::print("PowExp::toElem() %s\n", e->toChars());
     LOG_SCOPE;
 
-    e->error("must import std.math to use ^^ operator");
+    e->error("must import `std.math` to use `^^` operator");
     result = new DNullValue(e->type, llvm::UndefValue::get(DtoType(e->type)));
   }
 
@@ -2674,7 +2677,7 @@ public:
 
 #define STUB(x)                                                                \
   void visit(x *e) override {                                                  \
-    e->error("Internal compiler error: Type " #x " not implemented: %s",       \
+    e->error("Internal compiler error: Type `" #x "` not implemented: `%s`",   \
              e->toChars());                                                    \
     fatal();                                                                   \
   }
@@ -2720,15 +2723,33 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
       rhs = castSource;
   }
 
-  // Direct construction by rhs call via sret?
-  // E.g., `T v = foo();` if the callee `T foo()` uses sret.
-  // In this case, pass `&v` as hidden sret argument, i.e., let `foo()`
-  // construct the return value directly into the lhs lvalue.
   if (rhs->op == TOKcall) {
     auto ce = static_cast<CallExp *>(rhs);
+
+    // Direct construction by rhs call via sret?
+    // E.g., `T v = foo();` if the callee `T foo()` uses sret.
+    // In this case, pass `&v` as hidden sret argument, i.e., let `foo()`
+    // construct the return value directly into the lhs lvalue.
     if (DtoIsReturnInArg(ce)) {
       ToElemVisitor::call(gIR, ce, DtoLVal(lhs));
       return true;
+    }
+
+    // DMD issue 17457: detect structliteral.ctor(args)
+    if (ce->e1->op == TOKdotvar) {
+      auto dve = static_cast<DotVarExp *>(ce->e1);
+      auto fd = dve->var->isFuncDeclaration();
+      if (fd && fd->isCtorDeclaration() && dve->e1->op == TOKstructliteral) {
+        // emit the struct literal directly into the lhs lvalue...
+        auto sle = static_cast<StructLiteralExp *>(dve->e1);
+        auto lval = DtoLVal(lhs);
+        ToElemVisitor::emitStructLiteral(sle, lval);
+        // ... and invoke the ctor directly on it
+        DtoDeclareFunction(fd);
+        auto fnval = new DFuncValue(fd, DtoCallee(fd), lval);
+        DtoCallFunction(ce->loc, ce->type, fnval, ce->arguments);
+        return true;
+      }
     }
   }
 

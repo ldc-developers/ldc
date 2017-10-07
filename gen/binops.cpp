@@ -324,18 +324,17 @@ LLValue *DtoBinNumericEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op) {
 
 LLValue *DtoBinFloatsEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op) {
   LLValue *res = nullptr;
-  if (op == TOKequal) {
-    res = gIR->ir->CreateFCmpOEQ(DtoRVal(lhs), DtoRVal(rhs));
-  } else if (op == TOKnotequal) {
-    res = gIR->ir->CreateFCmpUNE(DtoRVal(lhs), DtoRVal(rhs));
-  } else {
-    llvm::ICmpInst::Predicate cmpop;
-    if (op == TOKidentity) {
-      cmpop = llvm::ICmpInst::ICMP_EQ;
-    } else {
-      cmpop = llvm::ICmpInst::ICMP_NE;
+  if (op == TOKequal || op == TOKnotequal) {
+    LLValue *l = DtoRVal(lhs);
+    LLValue *r = DtoRVal(rhs);
+    res = (op == TOKequal ? gIR->ir->CreateFCmpOEQ(l, r)
+                          : gIR->ir->CreateFCmpUNE(l, r));
+    if (lhs->type->toBasetype()->ty == Tvector) {
+      res = mergeVectorEquals(res, op);
     }
-
+  } else {
+    const auto cmpop =
+        op == TOKidentity ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
     LLValue *sz = DtoConstSize_t(getTypeStoreSize(DtoType(lhs->type)));
     LLValue *val = DtoMemCmp(makeLValue(loc, lhs), makeLValue(loc, rhs), sz);
     res = gIR->ir->CreateICmp(cmpop, val,
@@ -343,4 +342,29 @@ LLValue *DtoBinFloatsEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op) {
   }
   assert(res);
   return res;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+LLValue *mergeVectorEquals(LLValue *resultsVector, TOK op) {
+  // `resultsVector` is a vector of i1 values, the pair-wise results.
+  // Bitcast to an integer and checks the bits via additional integer
+  // comparison.
+  const auto sizeInBits = getTypeBitSize(resultsVector->getType());
+  LLType *integerType = LLType::getIntNTy(gIR->context(), sizeInBits);
+  LLValue *v = DtoBitCast(resultsVector, integerType);
+
+  if (op == TOKequal) {
+    // all pairs must be equal for the vectors to be equal
+    LLConstant *allEqual =
+        LLConstantInt::get(integerType, (1 << sizeInBits) - 1);
+    return gIR->ir->CreateICmpEQ(v, allEqual);
+  } else if (op == TOKnotequal) {
+    // any not-equal pair suffices for the vectors to be not-equal
+    LLConstant *noneNotEqual = LLConstantInt::get(integerType, 0);
+    return gIR->ir->CreateICmpNE(v, noneNotEqual);
+  }
+
+  llvm_unreachable("Unsupported operator.");
+  return nullptr;
 }

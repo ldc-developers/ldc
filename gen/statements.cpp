@@ -1684,7 +1684,7 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(Statement *stmt) LLVM_OVERRIDE {
-    error(stmt->loc, "Statement type Statement not implemented: %s",
+    error(stmt->loc, "Statement type Statement not implemented: `%s`",
           stmt->toChars());
     fatal();
   }
@@ -1692,7 +1692,7 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(PragmaStatement *stmt) LLVM_OVERRIDE {
-    error(stmt->loc, "Statement type PragmaStatement not implemented: %s",
+    error(stmt->loc, "Statement type PragmaStatement not implemented: `%s`",
           stmt->toChars());
     fatal();
   }

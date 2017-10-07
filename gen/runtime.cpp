@@ -98,7 +98,7 @@ static void checkForImplicitGCCall(const Loc &loc, const char *name) {
                       &GCNAMES[sizeof(GCNAMES) / sizeof(std::string)], name)) {
       error(loc,
             "No implicit garbage collector calls allowed with -nogc "
-            "option enabled: %s",
+            "option enabled: `%s`",
             name);
       fatal();
     }
@@ -137,14 +137,14 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
 
   LLFunction *fn = M->getFunction(name);
   if (!fn) {
-    error(loc, "Runtime function '%s' was not found", name);
+    error(loc, "Runtime function `%s` was not found", name);
     fatal();
   }
   LLFunctionType *fnty = fn->getFunctionType();
 
   if (LLFunction *existing = target.getFunction(name)) {
     if (existing->getFunctionType() != fnty) {
-      error(Loc(), "Incompatible declaration of runtime function '%s'", name);
+      error(Loc(), "Incompatible declaration of runtime function `%s`", name);
       fatal();
     }
     return existing;
@@ -174,7 +174,7 @@ llvm::GlobalVariable *getRuntimeGlobal(Loc &loc, llvm::Module &target,
 
   LLGlobalVariable *g = M->getNamedGlobal(name);
   if (!g) {
-    error(loc, "Runtime global '%s' was not found", name);
+    error(loc, "Runtime global `%s` was not found", name);
     fatal();
     // return NULL;
   }
@@ -216,7 +216,7 @@ static Type *rt_dg2() {
 template <typename DECL> static void ensureDecl(DECL *decl, const char *msg) {
   if (!decl || !decl->type) {
     Logger::println("Missing class declaration: %s\n", msg);
-    error(Loc(), "Missing class declaration: %s", msg);
+    error(Loc(), "Missing class declaration: `%s`", msg);
     errorSupplemental(Loc(),
                       "Please check that object.d is included and valid");
     fatal();

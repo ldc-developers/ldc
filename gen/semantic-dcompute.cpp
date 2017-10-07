@@ -30,7 +30,7 @@
 
 struct DComputeSemanticAnalyser : public StoppableVisitor {
   FuncDeclaration *currentFunction;
-  // In @compute code only calls to other functions in @compute code are
+  // In @compute code only calls to other functions in `@compute` code are
   // allowed.
   // However, a @kernel function taking a template alias function parameter is
   // allowed, but while the alias appears in the symbol table of the module of
@@ -68,12 +68,12 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
   }
 
   void visit(InterfaceDeclaration *decl) override {
-    decl->error("interfaces and classes not allowed in @compute code");
+    decl->error("interfaces and classes not allowed in `@compute` code");
     stop = true;
   }
 
   void visit(ClassDeclaration *decl) override {
-    decl->error("interfaces and classes not allowed in @compute code");
+    decl->error("interfaces and classes not allowed in `@compute` code");
     stop = true;
   }
 
@@ -82,7 +82,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     if (decl->isDataseg()) {
       if (strncmp(decl->toChars(), "__critsec", 9) &&
         strncmp(decl->toChars(), "typeid", 6)) {
-        decl->error("global variables not allowed in @compute code variable=%s",decl->toChars());
+        decl->error("global variables not allowed in `@compute` code");
       }
       // Ignore typeid: it is ignored by codegen.
       stop = true;
@@ -90,18 +90,18 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     }
 
     if (decl->type->ty == Taarray) {
-      decl->error("associative arrays not allowed in @compute code");
+      decl->error("associative arrays not allowed in `@compute` code");
       stop = true;
     }
     // includes interfaces
     else if (decl->type->ty == Tclass) {
-      decl->error("interfaces and classes not allowed in @compute code");
+      decl->error("interfaces and classes not allowed in `@compute` code");
     }
   }
   void visit(PragmaDeclaration *decl) override {
     if (decl->ident == Id::lib) {
       decl->error(
-          "linking additional libraries not supported in @compute code");
+          "linking additional libraries not supported in `@compute` code");
       stop = true;
     }
   }
@@ -111,66 +111,66 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
   void visit(ArrayLiteralExp *e) override {
     if (e->type->ty != Tarray || !e->elements || !e->elements->dim)
       return;
-    e->error("array literal in @compute code not allowed");
+    e->error("array literal in `@compute` code not allowed");
     stop = true;
   }
   void visit(NewExp *e) override {
-    e->error("cannot use 'new' in @compute code");
+    e->error("cannot use `new` in `@compute` code");
     stop = true;
   }
 
   void visit(DeleteExp *e) override {
-    e->error("cannot use 'delete' in @compute code");
+    e->error("cannot use `delete` in `@compute` code");
     stop = true;
   }
   // No need to check IndexExp because AA's are banned anyway
   void visit(AssignExp *e) override {
     if (e->e1->op == TOKarraylength) {
-      e->error("setting 'length' in @compute code not allowed");
+      e->error("setting `length` in `@compute` code not allowed");
       stop = true;
     }
   }
 
   void visit(CatAssignExp *e) override {
-    e->error("cannot use operator ~= in @compute code");
+    e->error("cannot use operator `~=` in `@compute` code");
     stop = true;
   }
   void visit(CatExp *e) override {
-    e->error("cannot use operator ~ in @compute code");
+    e->error("cannot use operator `~` in `@compute` code");
     stop = true;
   }
   // Ban typeid(T)
   void visit(TypeidExp *e) override {
-    e->error("typeinfo not available in @compute code");
+    e->error("typeinfo not available in `@compute` code");
     stop = true;
   }
 
   void visit(StringExp *e) override {
-    e->error("string literals not allowed in @compue code");
+    e->error("string literals not allowed in `@compute` code");
     stop = true;
   }
   void visit(CompoundAsmStatement *e) override {
-    e->error("asm not allowed in @compute code");
+    e->error("asm not allowed in `@compute` code");
     stop = true;
   }
   void visit(AsmStatement *e) override {
-    e->error("asm not allowed in @compute code");
+    e->error("asm not allowed in `@compute` code");
     stop = true;
   }
 
   // Enforce nothrow. Disallow 'catch' as it is dead code.
   // try...finally is allowed to facilitate scope(exit)
   void visit(TryCatchStatement *e) override {
-    e->error("no exceptions in @compute code");
+    e->error("no exceptions in `@compute` code");
     stop = true;
   }
   void visit(ThrowStatement *e) override {
-    e->error("no exceptions in @compute code");
+    e->error("no exceptions in `@compute` code");
     stop = true;
   }
   void visit(SwitchStatement *e) override {
     if (!e->condition->type->isintegral()) {
-      e->error("cannot switch on strings in @compute code");
+      e->error("cannot `switch` on strings in `@compute` code");
       stop = true;
     }
   }
@@ -198,7 +198,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     // So we intercept it with the CallExp ----
 
     if (e->f->ident == Id::criticalenter) {
-      e->error("cannot use 'synchronized' in @compute code");
+      e->error("cannot use `synchronized` in `@compute` code");
       stop = true;
       return;
     }
@@ -211,15 +211,15 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     Module *m = e->f->getModule();
     if ((m == nullptr || (hasComputeAttr(m) == DComputeCompileFor::hostOnly)) &&
         !isNonComputeCallExpVaild(e)) {
-      e->error("can only call functions from other @compute modules in "
-               "@compute code");
+      e->error("can only call functions from other `@compute` modules in "
+               "`@compute` code");
       stop = true;
     }
   }
 
   void visit(FuncDeclaration *fd) override {
     if (hasKernelAttr(fd) && fd->vthis) {
-      fd->error("@kernel functions must not require 'this'");
+      fd->error("`@kernel` functions must not require `this`");
       stop = true;
       return;
     }

@@ -306,7 +306,7 @@ public:
 
     // can't emit typeinfo for forward declarations
     if (sd->sizeok != SIZEOKdone) {
-      sd->error("cannot emit TypeInfo for forward declaration");
+      sd->error("cannot emit `TypeInfo` for forward declaration");
       fatal();
     }
 
@@ -351,7 +351,7 @@ public:
         global.params.targetTriple->getArch() == llvm::Triple::x86_64;
     const unsigned expectedFields = 12 + (isX86_64 ? 2 : 0);
     if (Type::typeinfostruct->fields.dim != expectedFields) {
-      error(Loc(), "Unexpected number of object.TypeInfo_Struct fields; "
+      error(Loc(), "Unexpected number of `object.TypeInfo_Struct` fields; "
                    "druntime version does not match compiler");
       fatal();
     }

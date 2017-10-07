@@ -50,8 +50,9 @@ struct X86TargetABI : TargetABI {
     case LINKwindows:
       return ft->isVarArg() ? llvm::CallingConv::C
                             : llvm::CallingConv::X86_StdCall;
+    default:
+      llvm_unreachable("Unhandled D linkage type.");
     }
-    llvm_unreachable("Unhandled D linkage type.");
   }
 
   std::string mangleFunctionForLLVM(std::string name, LINK l) override {
@@ -76,8 +77,9 @@ struct X86TargetABI : TargetABI {
         return name.insert(0, "\1_");
       }
       return name;
+    default:
+      llvm_unreachable("Unhandled D linkage type.");
     }
-    llvm_unreachable("Unhandled D linkage type.");
   }
 
   std::string mangleVariableForLLVM(std::string name, LINK l) override {
@@ -96,8 +98,9 @@ struct X86TargetABI : TargetABI {
     case LINKd:
     case LINKdefault:
       return name;
+    default:
+      llvm_unreachable("Unhandled D linkage type.");
     }
-    llvm_unreachable("Unhandled D linkage type.");
   }
 
   bool returnInArg(TypeFunction *tf) override {

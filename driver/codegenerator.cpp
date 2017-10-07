@@ -176,7 +176,7 @@ namespace ldc {
 CodeGenerator::CodeGenerator(llvm::LLVMContext &context, bool singleObj)
     : context_(context), moduleCount_(0), singleObj_(singleObj), ir_(nullptr) {
   if (!ClassDeclaration::object) {
-    error(Loc(), "declaration for class Object not found; druntime not "
+    error(Loc(), "declaration for class `Object` not found; druntime not "
                  "configured properly");
     fatal();
   }
