@@ -341,6 +341,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
 
   bool vdmd = false;
   bool noFiles = true;
+  bool pic = false; // -fPIC already encountered?
 
   for (size_t i = 1; i < args.size(); i++) {
     char *p = args[i];
@@ -380,7 +381,10 @@ void translateArgs(size_t originalArgc, char **originalArgv,
       else if (strcmp(p + 1, "dylib") == 0) {
         ldcArgs.push_back("-shared");
       } else if (strcmp(p + 1, "fPIC") == 0) {
-        ldcArgs.push_back("-relocation-model=pic");
+        if (!pic) {
+          ldcArgs.push_back("-relocation-model=pic");
+          pic = true;
+        }
       } else if (strcmp(p + 1, "map") == 0) {
         goto Lnot_in_ldc;
       } else if (strcmp(p + 1, "multiobj") == 0) {
