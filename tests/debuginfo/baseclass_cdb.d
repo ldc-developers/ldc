@@ -30,7 +30,7 @@ int main(string[] args)
 
 // CDB: ?? dc
 // cdb doesn't show base class info, but lists their members
-// CHECK: DerivedClass
+// CHECK: baseclass_cdb.DerivedClass
 // CHECK: baseMember{{ *: *3}}
 // verify baseMember is not listed twice
 // CHECK-NEXT: derivedMember{{ *: *7}}
