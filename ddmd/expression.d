@@ -7147,6 +7147,7 @@ extern (C++) final class CommaExp : BinExp
 
     override Expression addDtorHook(Scope* sc)
     {
+        e2 = e2.addDtorHook(sc);
         return this;
     }
 
