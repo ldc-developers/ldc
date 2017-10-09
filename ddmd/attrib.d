@@ -544,6 +544,11 @@ extern (C++) final class LinkDeclaration : AttribDeclaration
         linkage = (p == LINKsystem) ? Target.systemLinkage() : p;
     }
 
+    static LinkDeclaration create(LINK p, Dsymbols* decl)
+    {
+        return new LinkDeclaration(p, decl);
+    }
+
     override Dsymbol syntaxCopy(Dsymbol s)
     {
         assert(!s);

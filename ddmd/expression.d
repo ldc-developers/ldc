@@ -3607,6 +3607,11 @@ extern (C++) /* IN_LLVM abstract */ class Expression : RootObject
         return .op_overload(this, sc);
     }
 
+    bool hasCode()
+    {
+        return true;
+    }
+
     void accept(Visitor v)
     {
         v.visit(this);
@@ -3640,6 +3645,11 @@ extern (C++) final class IntegerExp : Expression
         super(Loc(), TOKint64, __traits(classInstanceSize, IntegerExp));
         this.type = Type.tint32;
         this.value = cast(d_int32)value;
+    }
+
+    static IntegerExp create(Loc loc, dinteger_t value, Type type)
+    {
+        return new IntegerExp(loc, value, type);
     }
 
     override bool equals(RootObject o)
@@ -3814,6 +3824,11 @@ extern (C++) final class RealExp : Expression
         this.type = type;
     }
 
+    static RealExp create(Loc loc, real_t value, Type type)
+    {
+        return new RealExp(loc, value, type);
+    }
+
     override bool equals(RootObject o)
     {
         if (this == o)
@@ -3877,6 +3892,11 @@ extern (C++) final class ComplexExp : Expression
         this.value = value;
         this.type = type;
         //printf("ComplexExp::ComplexExp(%s)\n", toChars());
+    }
+
+    static ComplexExp create(Loc loc, complex_t value, Type type)
+    {
+        return new ComplexExp(loc, value, type);
     }
 
     override bool equals(RootObject o)
@@ -4162,6 +4182,11 @@ extern (C++) final class StringExp : Expression
     static StringExp create(Loc loc, char* s)
     {
         return new StringExp(loc, s);
+    }
+
+    static StringExp create(Loc loc, void* string, size_t len)
+    {
+        return new StringExp(loc, string, len);
     }
 
     override bool equals(RootObject o)
@@ -4612,6 +4637,11 @@ extern (C++) final class ArrayLiteralExp : Expression
         super(loc, TOKarrayliteral, __traits(classInstanceSize, ArrayLiteralExp));
         this.basis = basis;
         this.elements = elements;
+    }
+
+    static ArrayLiteralExp create(Loc loc, Expressions* elements)
+    {
+        return new ArrayLiteralExp(loc, elements);
     }
 
     override Expression syntaxCopy()
@@ -5207,6 +5237,11 @@ extern (C++) final class NewExp : Expression
         this.arguments = arguments;
     }
 
+    static NewExp create(Loc loc, Expression thisexp, Expressions* newargs, Type newtype, Expressions* arguments)
+    {
+        return new NewExp(loc, thisexp, newargs, newtype, arguments);
+    }
+
     override Expression syntaxCopy()
     {
         return new NewExp(loc,
@@ -5747,6 +5782,15 @@ extern (C++) final class DeclarationExp : Expression
     override Expression syntaxCopy()
     {
         return new DeclarationExp(loc, declaration.syntaxCopy(null));
+    }
+
+    override bool hasCode()
+    {
+        if (auto vd = declaration.isVarDeclaration())
+        {
+            return !(vd.storage_class & (STCmanifest | STCstatic));
+        }
+        return false;
     }
 
     override void accept(Visitor v)
@@ -6880,6 +6924,11 @@ extern (C++) final class VectorExp : UnaExp
         to = cast(TypeVector)t;
     }
 
+    static VectorExp create(Loc loc, Expression e, Type t)
+    {
+        return new VectorExp(loc, e, t);
+    }
+
     override Expression syntaxCopy()
     {
         return new VectorExp(loc, e1.syntaxCopy(), to.syntaxCopy());
@@ -7142,6 +7191,7 @@ extern (C++) final class CommaExp : BinExp
         if (ex2.op == TOKerror)
             return ex2;
         e2 = ex2;
+        type = e2.type;
         return this;
     }
 

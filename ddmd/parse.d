@@ -3140,7 +3140,8 @@ final class Parser(AST) : Lexer
         case TOKstruct:
             if (id)
             {
-                a = new AST.StructDeclaration(loc, id);
+                bool inObject = md && !md.packages && md.id == Id.object;
+                a = new AST.StructDeclaration(loc, id, inObject);
                 a.members = members;
             }
             else
@@ -5015,7 +5016,7 @@ final class Parser(AST) : Lexer
      * Input:
      *      flags   PSxxxx
      * Output:
-     *      pEndloc if { ... statements ... }, store location of closing brace, otherwise loc of first token of next statement
+     *      pEndloc if { ... statements ... }, store location of closing brace, otherwise loc of last token of statement
      */
     AST.Statement parseStatement(int flags, const(char)** endPtr = null, Loc* pEndloc = null)
     {
@@ -6014,7 +6015,7 @@ final class Parser(AST) : Lexer
             break;
         }
         if (pEndloc)
-            *pEndloc = token.loc;
+            *pEndloc = prevloc;
         return s;
     }
 

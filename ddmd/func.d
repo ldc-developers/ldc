@@ -156,6 +156,28 @@ enum FUNCFLAGinlineScanned    = 0x20;   /// function has been scanned for inline
 enum FUNCFLAGinferScope       = 0x40;   /// infer 'scope' for parameters
 
 
+/****************************************************
+ * Determine whether an 'out' contract is declared inside
+ * the given function or any of its overrides.
+ * Params:
+ *      fd = the function to search
+ * Returns:
+ *      true    found an 'out' contract
+ */
+private bool needsFensure(FuncDeclaration fd)
+{
+    if (fd.fensure)
+        return true;
+
+    foreach (fdv; fd.foverrides)
+    {
+        if (needsFensure(fdv))
+            return true;
+    }
+    return false;
+}
+
+
 /***********************************************************
  */
 extern (C++) class FuncDeclaration : Declaration
@@ -288,6 +310,11 @@ extern (C++) class FuncDeclaration : Declaration
          * NULL for the return type.
          */
         inferRetType = (type && type.nextOf() is null);
+    }
+
+    static FuncDeclaration create(Loc loc, Loc endloc, Identifier id, StorageClass storage_class, Type type)
+    {
+        return new FuncDeclaration(loc, endloc, id, storage_class, type);
     }
 
     override Dsymbol syntaxCopy(Dsymbol s)
@@ -1048,137 +1075,6 @@ extern (C++) class FuncDeclaration : Declaration
         if (isMain())
             checkDmain();       // Check main() parameters and return type
 
-        if (isVirtual() && semanticRun != PASSsemanticdone)
-        {
-            /* Rewrite contracts as nested functions, then call them.
-             * Doing it as nested functions means that overriding functions
-             * can call them.
-             */
-            if (frequire)
-            {
-                version(IN_LLVM)
-                {
-                    /* In LDC, we can't rely on the codegen hacks DMD has to be able
-                     * to just magically call the contract function parameterless with
-                     * the parameters being picked up from the outer stack frame.
-                     *
-                     * Thus, we actually pass all the function parameters to the
-                     * __require call, rewriting out parameters to ref ones because
-                     * they have already been zeroed in the outer function.
-                     *
-                     * Also initialize fdrequireParams here - it will get filled in
-                     * in semantic3.
-                     */
-                    fdrequireParams = new Expressions();
-                    auto params = outToRef((cast(TypeFunction)type).parameters);
-                    auto tf = new TypeFunction(params, Type.tvoid, 0, LINKd);
-                }
-                else
-                {
-                    /*   in { ... }
-                     * becomes:
-                     *   void __require() { ... }
-                     *   __require();
-                     */
-                    auto tf = new TypeFunction(null, Type.tvoid, 0, LINKd);
-                }
-                Loc loc = frequire.loc;
-                tf.isnothrow = f.isnothrow;
-                tf.isnogc = f.isnogc;
-                tf.purity = f.purity;
-                tf.trust = f.trust;
-                auto fd = new FuncDeclaration(loc, loc, Id.require, STCundefined, tf);
-                fd.fbody = frequire;
-                Statement s1 = new ExpStatement(loc, fd);
-                version(IN_LLVM)
-                {
-                    Expression e = new CallExp(loc, new VarExp(loc, fd, false), fdrequireParams);
-                }
-                else
-                {
-                    Expression e = new CallExp(loc, new VarExp(loc, fd, false), cast(Expressions*)null);
-                }
-                Statement s2 = new ExpStatement(loc, e);
-                frequire = new CompoundStatement(loc, s1, s2);
-                fdrequire = fd;
-            }
-
-            if (!outId && f.nextOf() && f.nextOf().toBasetype().ty != Tvoid)
-                outId = Id.result; // provide a default
-            version(IN_LLVM)
-            {
-                /* We need to initialize fdensureParams here and not in the block below
-                 * to have the parameter available when calling a base class ensure(),
-                 * even if this functions doesn't have an out contract.
-                 */
-                fdensureParams = new Expressions();
-                /* The return type may still need to be inferred, so we can't know for
-                 * sure whether there's a return value to be passed to the out contract.
-                 * Reserve a parameter for now and remove it later in semantic3() in case
-                 * the return type is void (or finalize its type).
-                 */
-                if (outId || inferRetType)
-                    fdensureParams.push(new IdentifierExp(loc, outId ? outId : Id.result));
-            }
-            if (fensure)
-            {
-                version(IN_LLVM)
-                {
-                    /* Same as for in contracts, see above. */
-                    auto fparams = outToRef((cast(TypeFunction)type).parameters);
-                }
-                else
-                {
-                    /*   out (result) { ... }
-                     * becomes:
-                     *   void __ensure(ref tret result) { ... }
-                     *   __ensure(result);
-                     */
-                    auto fparams = new Parameters();
-                }
-                Loc loc = fensure.loc;
-                Parameter p = null;
-                version(IN_LLVM)
-                {
-                    if (outId || inferRetType)
-                    {
-                        p = new Parameter(STCref | STCconst, f.nextOf(), outId ? outId : Id.result, null);
-                        fparams.insert(0, p);
-                    }
-                }
-                else
-                {
-                    if (outId)
-                    {
-                        p = new Parameter(STCref | STCconst, f.nextOf(), outId, null);
-                        fparams.push(p);
-                    }
-                }
-                auto tf = new TypeFunction(fparams, Type.tvoid, 0, LINKd);
-                tf.isnothrow = f.isnothrow;
-                tf.isnogc = f.isnogc;
-                tf.purity = f.purity;
-                tf.trust = f.trust;
-                auto fd = new FuncDeclaration(loc, loc, Id.ensure, STCundefined, tf);
-                fd.fbody = fensure;
-                Statement s1 = new ExpStatement(loc, fd);
-                version(IN_LLVM)
-                {
-                    Expression e = new CallExp(loc, new VarExp(loc, fd, false), fdensureParams);
-                }
-                else
-                {
-                    Expression eresult = null;
-                    if (outId)
-                        eresult = new IdentifierExp(loc, outId);
-                    Expression e = new CallExp(loc, new VarExp(loc, fd, false), eresult);
-                }
-                Statement s2 = new ExpStatement(loc, e);
-                fensure = new CompoundStatement(loc, s1, s2);
-                fdensure = fd;
-            }
-        }
-
     Ldone:
         /* Purity and safety can be inferred for some functions by examining
          * the function body.
@@ -1319,14 +1215,10 @@ extern (C++) class FuncDeclaration : Declaration
             }
         }
 
-        uint fensure_endlin = endloc.linnum;
-        if (fensure)
-            if (auto s = fensure.isScopeStatement())
-                fensure_endlin = s.endloc.linnum;
+        // Remember whether we need to generate an 'out' contract.
+        bool needEnsure = needsFensure(this);
 
-        frequire = mergeFrequire(frequire);
-        fensure = mergeFensure(fensure, outId);
-        if (fbody || frequire || fensure)
+        if (fbody || frequire || needEnsure)
         {
             /* Symbol table into which we place parameters and nested functions,
              * solely to diagnose name collisions.
@@ -1513,13 +1405,6 @@ extern (C++) class FuncDeclaration : Declaration
                         parameters.push(v);
                     localsymtab.insert(v);
                     v.parent = this;
-                    version(IN_LLVM)
-                    {
-                        if (fdrequireParams)
-                            fdrequireParams.push(new VarExp(loc, v));
-                        if (fdensureParams)
-                            fdensureParams.push(new VarExp(loc, v));
-                    }
                 }
             }
 
@@ -1578,9 +1463,19 @@ extern (C++) class FuncDeclaration : Declaration
             }
 
             Scope* scout = null;
-            if (fensure || addPostInvariant())
+            if (needEnsure || addPostInvariant())
             {
-                if ((fensure && global.params.useOut) || fpostinv)
+                /* https://issues.dlang.org/show_bug.cgi?id=3657
+                 * Set the correct end line number for fensure scope.
+                 */
+                uint fensure_endlin = endloc.linnum;
+                if (fensure)
+                {
+                    if (auto s = fensure.isScopeStatement())
+                        fensure_endlin = s.endloc.linnum;
+                }
+
+                if ((needEnsure && global.params.useOut) || fpostinv)
                 {
                     returnLabel = new LabelDsymbol(Id.returnLabel);
                 }
@@ -1903,6 +1798,147 @@ extern (C++) class FuncDeclaration : Declaration
                 sc2 = sc2.pop();
             }
 
+            /* https://issues.dlang.org/show_bug.cgi?id=17502
+             * Wait until after the return type has been inferred before
+             * generating the contracts for this function, and merging contracts
+             * from overrides.
+             *
+             * This was originally at the end of the first semantic pass, but
+             * required a fix-up to be done here for the '__result' variable
+             * type of __ensure() inside auto functions, but this didn't work
+             * if the out parameter was implicit.
+             */
+            if (isVirtual())
+            {
+                /* Rewrite contracts as nested functions, then call them.
+                 * Doing it as nested functions means that overriding functions
+                 * can call them.
+                 */
+                if (frequire)
+                {
+                    version(IN_LLVM)
+                    {
+                        /* In LDC, we can't rely on the codegen hacks DMD has to be able
+                         * to just magically call the contract function parameterless with
+                         * the parameters being picked up from the outer stack frame.
+                         *
+                         * Thus, we actually pass all the function parameters to the
+                         * __require call, rewriting out parameters to ref ones because
+                         * they have already been zeroed in the outer function.
+                         *
+                         * Also set fdrequireParams here.
+                         */
+                        fdrequireParams = new Expressions();
+                        if (parameters)
+                        {
+                            foreach (vd; *parameters)
+                                fdrequireParams.push(new VarExp(loc, vd));
+                        }
+                        auto fparams = outToRef((cast(TypeFunction)type).parameters);
+                        auto tf = new TypeFunction(fparams, Type.tvoid, 0, LINKd);
+                    }
+                    else
+                    {
+                        /*   in { ... }
+                         * becomes:
+                         *   void __require() { ... }
+                         *   __require();
+                         */
+                        auto tf = new TypeFunction(null, Type.tvoid, 0, LINKd);
+                    }
+                    Loc loc = frequire.loc;
+                    tf.isnothrow = f.isnothrow;
+                    tf.isnogc = f.isnogc;
+                    tf.purity = f.purity;
+                    tf.trust = f.trust;
+                    auto fd = new FuncDeclaration(loc, loc, Id.require, STCundefined, tf);
+                    fd.fbody = frequire;
+                    Statement s1 = new ExpStatement(loc, fd);
+                    version(IN_LLVM)
+                    {
+                        Expression e = new CallExp(loc, new VarExp(loc, fd, false), fdrequireParams);
+                    }
+                    else
+                    {
+                        Expression e = new CallExp(loc, new VarExp(loc, fd, false), cast(Expressions*)null);
+                    }
+                    Statement s2 = new ExpStatement(loc, e);
+                    frequire = new CompoundStatement(loc, s1, s2);
+                    fdrequire = fd;
+                }
+
+                if (!outId && f.nextOf() && f.nextOf().toBasetype().ty != Tvoid)
+                    outId = Id.result; // provide a default
+
+                version(IN_LLVM)
+                {
+                    /* We need to set fdensureParams here and not in the block below to
+                     * have the parameters available when calling a base class ensure(),
+                     * even if this function doesn't have an out contract.
+                     */
+                    fdensureParams = new Expressions();
+                    if (outId)
+                        fdensureParams.push(new IdentifierExp(loc, outId));
+                    if (parameters)
+                    {
+                        foreach (vd; *parameters)
+                            fdensureParams.push(new VarExp(loc, vd));
+                    }
+                }
+                if (fensure)
+                {
+                    version(IN_LLVM)
+                    {
+                        /* Same as for in contracts, see above. */
+                        auto fparams = outToRef((cast(TypeFunction)type).parameters);
+                    }
+                    else
+                    {
+                        /*   out (result) { ... }
+                         * becomes:
+                         *   void __ensure(ref tret result) { ... }
+                         *   __ensure(result);
+                         */
+                        auto fparams = new Parameters();
+                    }
+                    Loc loc = fensure.loc;
+                    Parameter p = null;
+                    if (outId)
+                    {
+                        p = new Parameter(STCref | STCconst, f.nextOf(), outId, null);
+                        version(IN_LLVM)
+                            fparams.insert(0, p);
+                        else
+                            fparams.push(p);
+                    }
+                    auto tf = new TypeFunction(fparams, Type.tvoid, 0, LINKd);
+                    tf.isnothrow = f.isnothrow;
+                    tf.isnogc = f.isnogc;
+                    tf.purity = f.purity;
+                    tf.trust = f.trust;
+                    auto fd = new FuncDeclaration(loc, loc, Id.ensure, STCundefined, tf);
+                    fd.fbody = fensure;
+                    Statement s1 = new ExpStatement(loc, fd);
+                    version(IN_LLVM)
+                    {
+                        Expression e = new CallExp(loc, new VarExp(loc, fd, false), fdensureParams);
+                    }
+                    else
+                    {
+                        Expression eresult = null;
+                        if (outId)
+                            eresult = new IdentifierExp(loc, outId);
+                        Expression e = new CallExp(loc, new VarExp(loc, fd, false), eresult);
+                    }
+                    Statement s2 = new ExpStatement(loc, e);
+                    fensure = new CompoundStatement(loc, s1, s2);
+                    fdensure = fd;
+                }
+            }
+
+            frequire = mergeFrequire(frequire);
+            fensure = mergeFensure(fensure, outId);
+
             Statement freq = frequire;
             Statement fens = fensure;
 
@@ -1932,13 +1968,6 @@ extern (C++) class FuncDeclaration : Declaration
                 if (!global.params.useIn)
                     freq = null;
             }
-            version(IN_LLVM)
-            {
-                // If a void return type has been inferred, remove the return value
-                // parameter for the out contract reserved in the first semantic pass.
-                if (inferRetType && fdensureParams && f.next.toBasetype().ty == Tvoid)
-                    fdensureParams.remove(0);
-            }
             if (fens)
             {
                 /* fensure is composed of the [out] contracts
@@ -1951,27 +1980,6 @@ extern (C++) class FuncDeclaration : Declaration
 
                 // BUG: need to treat parameters as const
                 // BUG: need to disallow returns and throws
-                if (inferRetType && fdensure && fdensure.type.toTypeFunction().parameters)
-                {
-                    // Return type was unknown in the first semantic pass
-                    auto out_params = (cast(TypeFunction)fdensure.type).parameters;
-                    if (out_params.dim > 0)
-                    {
-                        Parameter p = (*out_params)[0];
-                        version(IN_LLVM)
-                        {
-                            if (f.next.toBasetype().ty == Tvoid)
-                                out_params.remove(0);
-                            else
-                                p.type = f.next;
-                        }
-                        else
-                        {
-                            p.type = f.next;
-                        }
-                    }
-                }
-
                 if (fensure && f.next.ty != Tvoid)
                     buildResultVar(scout, f.next);
 
@@ -3814,8 +3822,11 @@ else
     // IN_LLVM replaced: final Statement mergeFrequire(Statement sf)
     final Statement mergeFrequire(Statement sf, Expressions *params = null)
     {
-        if (params is null)
-            params = fdrequireParams;
+        version(IN_LLVM)
+        {
+            if (params is null)
+                params = fdrequireParams;
+        }
 
         /* If a base function and its override both have an IN contract, then
          * only one of them needs to succeed. This is done by generating:
@@ -3856,14 +3867,13 @@ version(IN_LLVM)
          *     handler block, so it is always at the same offset from EBP.
          */
 }
-        for (size_t i = 0; i < foverrides.dim; i++)
+        foreach (fdv; foverrides)
         {
-            FuncDeclaration fdv = foverrides[i];
-
             /* The semantic pass on the contracts of the overridden functions must
-             * be completed before code generation occurs (bug 3602).
+             * be completed before code generation occurs.
+             * https://issues.dlang.org/show_bug.cgi?id=3602
              */
-            if (fdv.fdrequire && fdv.fdrequire.semanticRun != PASSsemantic3done)
+            if (fdv.frequire && fdv.semanticRun != PASSsemantic3done)
             {
                 assert(fdv._scope);
                 Scope* sc = fdv._scope.push();
@@ -3926,14 +3936,14 @@ else
          * list for the 'this' pointer, something that would need an unknown amount
          * of tweaking of various parts of the compiler that I'd rather leave alone.
          */
-        for (size_t i = 0; i < foverrides.dim; i++)
+        foreach (fdv; foverrides)
         {
-            FuncDeclaration fdv = foverrides[i];
-
             /* The semantic pass on the contracts of the overridden functions must
-             * be completed before code generation occurs (bug 3602 and 5230).
+             * be completed before code generation occurs.
+             * https://issues.dlang.org/show_bug.cgi?id=3602 and
+             * https://issues.dlang.org/show_bug.cgi?id=5230
              */
-            if (fdv.fdensure && fdv.fdensure.semanticRun != PASSsemantic3done)
+            if (needsFensure(fdv) && fdv.semanticRun != PASSsemantic3done)
             {
                 assert(fdv._scope);
                 Scope* sc = fdv._scope.push();
