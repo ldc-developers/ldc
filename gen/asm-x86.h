@@ -2317,11 +2317,13 @@ struct AsmProcessor {
 
   // OSX and 32-bit Windows need an extra leading underscore when mangling a
   // symbol name.
-  static bool prependExtraUnderscore() {
+  static bool prependExtraUnderscore(LINK link) {
     return global.params.targetTriple->getOS() == llvm::Triple::MacOSX ||
            global.params.targetTriple->getOS() == llvm::Triple::Darwin ||
+           // Win32: C symbols only
            (global.params.targetTriple->isOSWindows() &&
-            global.params.targetTriple->isArch32Bit());
+            global.params.targetTriple->isArch32Bit() && link != LINKcpp &&
+            link != LINKd && link != LINKdefault);
   }
 
   void addOperand(const char *fmt, AsmArgType type, Expression *e,
@@ -2361,7 +2363,7 @@ struct AsmProcessor {
             }
 
             // print out the mangle
-            if (prependExtraUnderscore()) {
+            if (prependExtraUnderscore(vd->linkage)) {
               insnTemplate << "_";
             }
             OutBuffer buf;
@@ -3043,7 +3045,7 @@ struct AsmProcessor {
             {
               use_star = false;
               // simply write out the mangle
-              if (prependExtraUnderscore()) {
+              if (prependExtraUnderscore(decl->linkage)) {
                 insnTemplate << "_";
               }
               OutBuffer buf;

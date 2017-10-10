@@ -184,8 +184,9 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   }
   // Windows is different
   else if (isWin) {
-    // prepend extra underscore for Win32 (except for extern(C++))
-    if (triple.isArch32Bit() && fd->linkage != LINKcpp) {
+    // prepend extra underscore for Win32 C symbols
+    if (triple.isArch32Bit() && fd->linkage != LINKcpp &&
+        fd->linkage != LINKd && fd->linkage != LINKdefault) {
       fullmangle += '_';
       fullmangle += mangle;
       mangle = fullmangle.c_str();

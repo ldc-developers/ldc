@@ -34,22 +34,24 @@ struct X86TargetABI : TargetABI {
         !(os == Triple::Linux || os == Triple::Solaris || os == Triple::NetBSD);
   }
 
-  llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l,
+  llvm::CallingConv::ID callingConv(LINK l, TypeFunction *tf = nullptr,
                                     FuncDeclaration *fdecl = nullptr) override {
+    if (tf && tf->varargs == 1)
+      return llvm::CallingConv::C;
+
     switch (l) {
     case LINKc:
     case LINKobjc:
       return llvm::CallingConv::C;
     case LINKcpp:
-      return isMSVC && !ft->isVarArg() && fdecl && fdecl->isThis()
+      return isMSVC && fdecl && fdecl->isThis()
                  ? llvm::CallingConv::X86_ThisCall
                  : llvm::CallingConv::C;
     case LINKd:
     case LINKdefault:
     case LINKpascal:
     case LINKwindows:
-      return ft->isVarArg() ? llvm::CallingConv::C
-                            : llvm::CallingConv::X86_StdCall;
+      return llvm::CallingConv::X86_StdCall;
     default:
       llvm_unreachable("Unhandled D linkage type.");
     }
@@ -61,25 +63,27 @@ struct X86TargetABI : TargetABI {
     case LINKobjc:
     case LINKpascal:
     case LINKwindows:
-      return name;
+      break;
     case LINKcpp:
       if (global.params.targetTriple->isOSWindows()) {
-        // Prepend a 0x1 byte to prevent LLVM from prepending an underscore.
-        return name.insert(0, "\1");
+        // Prepend a 0x1 byte to prevent LLVM from prepending the C underscore.
+        name.insert(0, "\1");
       }
-      return name;
+      // on OSX, let LLVM prepend the underscore
+      break;
     case LINKd:
     case LINKdefault:
       if (global.params.targetTriple->isOSWindows()) {
-        // Prepend a 0x1 byte to keep LLVM from adding the usual
-        // "@<paramsize>" stdcall suffix. Also prepend the underscore that
-        // would otherwise be added by LLVM.
-        return name.insert(0, "\1_");
+        // Prepend a 0x1 byte to prevent LLVM from applying MS stdcall mangling:
+        // _D… => __D…@<paramssize>
+        name.insert(0, "\1");
       }
-      return name;
+      // on OSX, let LLVM prepend the underscore
+      break;
     default:
       llvm_unreachable("Unhandled D linkage type.");
     }
+    return name;
   }
 
   std::string mangleVariableForLLVM(std::string name, LINK l) override {
@@ -88,19 +92,20 @@ struct X86TargetABI : TargetABI {
     case LINKobjc:
     case LINKpascal:
     case LINKwindows:
-      return name;
+      break;
     case LINKcpp:
-      if (global.params.targetTriple->isOSWindows()) {
-        // Prepend a 0x1 byte to prevent LLVM from prepending an underscore.
-        return name.insert(0, "\1");
-      }
-      return name;
     case LINKd:
     case LINKdefault:
-      return name;
+      if (global.params.targetTriple->isOSWindows()) {
+        // Prepend a 0x1 byte to prevent LLVM from prepending the C underscore.
+        name.insert(0, "\1");
+      }
+      // on OSX, let LLVM prepend the underscore
+      break;
     default:
       llvm_unreachable("Unhandled D linkage type.");
     }
+    return name;
   }
 
   bool returnInArg(TypeFunction *tf) override {
