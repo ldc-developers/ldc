@@ -178,6 +178,19 @@ llvm::GlobalVariable *getRuntimeGlobal(Loc &loc, llvm::Module &target,
                            g->getLinkage(), nullptr, g->getName());
 }
 
+static const char *getCAssertFunctionName() {
+  if (global.params.targetTriple.isOSDarwin()) {
+    return "__assert_rtn";
+  } else if (global.params.targetTriple.isWindowsMSVCEnvironment()) {
+    return "_assert";
+  }
+  return "__assert";
+}
+
+llvm::Function *getCAssertFunction(const Loc &loc, llvm::Module &target) {
+  return getRuntimeFunction(loc, target, getCAssertFunctionName());
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // extern (D) alias dg_t = int delegate(void*);
@@ -346,6 +359,17 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
+
+  // C assert function:
+  // OSX:  void __assert_rtn(const char *func, const char *file, unsigned line,
+  //                         const char *msg)
+  // else: void [_]_assert(const char *msg, const char *file, unsigned line)
+  createFwdDecl(
+      LINKc, Type::tvoid, {getCAssertFunctionName()},
+      global.params.targetTriple->isOSDarwin()
+          ? llvm::ArrayRef<Type *>({voidPtrTy, voidPtrTy, uintTy, voidPtrTy})
+          : llvm::ArrayRef<Type *>({voidPtrTy, voidPtrTy, uintTy}),
+      {}, Attr_Cold_NoReturn);
 
   // void _d_assert(string file, uint line)
   // void _d_arraybounds(string file, uint line)

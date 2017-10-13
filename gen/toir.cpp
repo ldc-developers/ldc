@@ -1889,8 +1889,16 @@ public:
      * msg is not evaluated at all. So should use toElemDtor()
      * instead of toElem().
      */
-    DtoAssert(p->func()->decl->getModule(), e->loc,
-              e->msg ? toElemDtor(e->msg) : nullptr);
+    DValue *const msg = e->msg ? toElemDtor(e->msg) : nullptr;
+    Module *const module = p->func()->decl->getModule();
+    if (global.params.betterC) {
+      const auto cMsg =
+          msg ? DtoArrayPtr(msg) // assuming `msg` is null-terminated, like DMD
+              : DtoConstCString(e->e1->toChars());
+      DtoCAssert(module, e->e1->loc, cMsg);
+    } else {
+      DtoAssert(module, e->loc, msg);
+    }
 
     // passed:
     p->scope() = IRScope(passedbb);

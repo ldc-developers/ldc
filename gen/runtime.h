@@ -31,5 +31,6 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
 
 llvm::GlobalVariable *
 getRuntimeGlobal(const Loc &loc, llvm::Module &target, const char *name);
+llvm::Function *getCAssertFunction(const Loc &loc, llvm::Module &target);
 
 #endif // LDC_GEN_RUNTIME_H

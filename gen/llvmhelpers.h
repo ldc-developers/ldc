@@ -56,9 +56,10 @@ LLValue *DtoAllocaDump(LLValue *val, LLType *asType, int alignment = 0,
 
 // assertion generator
 void DtoAssert(Module *M, Loc &loc, DValue *msg);
+void DtoCAssert(Module *M, Loc &loc, LLValue *msg);
 
 // returns module file name
-LLValue *DtoModuleFileName(Module *M, const Loc &loc);
+LLConstant *DtoModuleFileName(Module *M, const Loc &loc);
 
 /// emits goto to LabelStatement with the target identifier
 void DtoGoto(Loc &loc, LabelDsymbol *target);

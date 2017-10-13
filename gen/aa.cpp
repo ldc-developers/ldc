@@ -12,6 +12,7 @@
 #include "declaration.h"
 #include "module.h"
 #include "mtype.h"
+#include "gen/arrays.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
@@ -91,14 +92,7 @@ DValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key, bool lvalue) {
 
     gIR->scope() = IRScope(failbb);
 
-    llvm::Function *errorfn =
-        getRuntimeFunction(loc, gIR->module, "_d_arraybounds");
-    gIR->CreateCallOrInvoke(
-        errorfn, DtoModuleFileName(gIR->func()->decl->getModule(), loc),
-        DtoConstUint(loc.linnum));
-
-    // the function does not return
-    gIR->ir->CreateUnreachable();
+    DtoBoundsCheckFailCall(gIR, loc);
 
     // if ok, proceed in okbb
     gIR->scope() = IRScope(okbb);

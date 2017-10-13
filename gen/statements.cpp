@@ -1506,11 +1506,17 @@ public:
                            stmt->loc.toChars());
     LOG_SCOPE;
 
+    Module *const module = irs->func()->decl->getModule();
+
+    if (global.params.betterC) {
+      DtoCAssert(module, stmt->loc, DtoConstCString("no switch default"));
+      return;
+    }
+
     llvm::Function *fn =
         getRuntimeFunction(stmt->loc, irs->module, "_d_switch_error");
 
-    LLValue *moduleInfoSymbol =
-        getIrModule(irs->func()->decl->getModule())->moduleInfoSymbol();
+    LLValue *moduleInfoSymbol = getIrModule(module)->moduleInfoSymbol();
     LLType *moduleInfoType = DtoType(Module::moduleinfo->type);
 
     LLCallSite call = irs->CreateCallOrInvoke(

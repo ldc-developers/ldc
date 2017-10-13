@@ -265,11 +265,37 @@ void DtoAssert(Module *M, Loc &loc, DValue *msg) {
   gIR->ir->CreateUnreachable();
 }
 
+void DtoCAssert(Module *M, Loc &loc, LLValue *msg) {
+  const auto file = DtoConstCString(loc.filename ? loc.filename
+                                                 : M->srcfile->name->toChars());
+  const auto line = DtoConstUint(loc.linnum);
+  const auto fn = getCAssertFunction(loc, gIR->module);
+
+  llvm::SmallVector<LLValue *, 4> args;
+  if (global.params.targetTriple.isOSDarwin()) {
+    const auto irFunc = gIR->func();
+    const auto funcName =
+        irFunc && irFunc->decl ? irFunc->decl->toPrettyChars() : "";
+    args.push_back(DtoConstCString(funcName));
+    args.push_back(file);
+    args.push_back(line);
+    args.push_back(msg);
+  } else {
+    args.push_back(msg);
+    args.push_back(file);
+    args.push_back(line);
+  }
+
+  gIR->func()->scopes->callOrInvoke(fn, args);
+
+  gIR->ir->CreateUnreachable();
+}
+
 /******************************************************************************
  * MODULE FILE NAME
  ******************************************************************************/
 
-LLValue *DtoModuleFileName(Module *M, const Loc &loc) {
+LLConstant *DtoModuleFileName(Module *M, const Loc &loc) {
   return DtoConstString(loc.filename ? loc.filename
                                      : M->srcfile->name->toChars());
 }
