@@ -413,12 +413,13 @@ LLConstant *DtoConstFP(Type *t, const real_t value) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLConstant *DtoConstString(const char *str) {
+LLConstant *DtoConstCString(const char *str) {
   llvm::StringRef s(str ? str : "");
-  llvm::GlobalVariable *gvar = (gIR->stringLiteral1ByteCache.find(s) ==
-                                gIR->stringLiteral1ByteCache.end())
-                                   ? nullptr
-                                   : gIR->stringLiteral1ByteCache[s];
+
+  const auto it = gIR->stringLiteral1ByteCache.find(s);
+  llvm::GlobalVariable *gvar =
+      it == gIR->stringLiteral1ByteCache.end() ? nullptr : it->getValue();
+
   if (gvar == nullptr) {
     llvm::Constant *init =
         llvm::ConstantDataArray::getString(gIR->context(), s, true);
@@ -432,12 +433,16 @@ LLConstant *DtoConstString(const char *str) {
 #endif
     gIR->stringLiteral1ByteCache[s] = gvar;
   }
+
   LLConstant *idxs[] = {DtoConstUint(0), DtoConstUint(0)};
-  return DtoConstSlice(DtoConstSize_t(s.size()),
-                       llvm::ConstantExpr::getGetElementPtr(
-                           gvar->getInitializer()->getType(),
-                           gvar, idxs, true),
-                       Type::tchar->arrayOf());
+  return llvm::ConstantExpr::getGetElementPtr(gvar->getInitializer()->getType(),
+                                              gvar, idxs, true);
+}
+
+LLConstant *DtoConstString(const char *str) {
+  LLConstant *cString = DtoConstCString(str);
+  LLConstant *length = DtoConstSize_t(str ? strlen(str) : 0);
+  return DtoConstSlice(length, cString, Type::tchar->arrayOf());
 }
 
 ////////////////////////////////////////////////////////////////////////////////

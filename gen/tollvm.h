@@ -97,6 +97,7 @@ LLConstantInt *DtoConstInt(int i);
 LLConstantInt *DtoConstUbyte(unsigned char i);
 LLConstant *DtoConstFP(Type *t, real_t value);
 
+LLConstant *DtoConstCString(const char *);
 LLConstant *DtoConstString(const char *);
 LLConstant *DtoConstBool(bool);
 
