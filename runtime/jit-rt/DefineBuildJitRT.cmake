@@ -36,7 +36,7 @@ if(LDC_RUNTIME_COMPILE)
         # to do find_package(LLVM CONFIG) for it so here is a hackish way to get it
         include("${LLVM_LIBRARY_DIRS}/cmake/llvm/LLVMConfig.cmake")
         include("${LLVM_LIBRARY_DIRS}/cmake/llvm/LLVM-Config.cmake")
-        llvm_map_components_to_libnames(JITRT_LLVM_LIBS core support irreader executionengine passes nativecodegen target)
+        llvm_map_components_to_libnames(JITRT_LLVM_LIBS core support irreader executionengine passes nativecodegen orcjit target)
 
         foreach(libname ${JITRT_LLVM_LIBS})
             unset(JITRT_TEMP_LIB CACHE)
