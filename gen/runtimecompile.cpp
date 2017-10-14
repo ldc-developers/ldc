@@ -2,6 +2,9 @@
 
 #if defined(LDC_RUNTIME_COMPILE)
 
+#include <unordered_map>
+#include <unordered_set>
+
 #include "driver/cl_options.h"
 
 #include "gen/irstate.h"
@@ -81,7 +84,7 @@ enum class GlobalValVisibility {
   Declaration,
 };
 
-using GlobalValsMap = std::map<llvm::GlobalValue*,GlobalValVisibility>;
+using GlobalValsMap = std::unordered_map<llvm::GlobalValue*,GlobalValVisibility>;
 
 void getPredefinedSymbols(IRState *irs,
                           GlobalValsMap &symList) {
@@ -108,7 +111,7 @@ GlobalValsMap createGlobalValsFilter(IRState *irs) {
     newFunctions.push_back(it.first);
   }
 
-  std::set<llvm::GlobalValue*> runtimeCompiledVars;
+  std::unordered_set<llvm::GlobalValue*> runtimeCompiledVars;
   for (auto&& var: irs->runtimeCompiledVars) {
     assert(nullptr != var);
     assert(nullptr != var->value);
@@ -138,9 +141,10 @@ GlobalValsMap createGlobalValsFilter(IRState *irs) {
   return ret;
 }
 
-void fixupRtThunks(llvm::Module &newModule,
+void fixRtMudule(llvm::Module &newModule,
                    const decltype(IRState::runtimeCompiledFunctions)& funcs) {
-  std::map<std::string, std::string> thunk2func;
+  std::unordered_map<std::string, std::string> thunk2func;
+  std::unordered_set<std::string> externalFuncs;
   for (auto&& it: funcs) {
     assert(nullptr != it.first);
     assert(nullptr != it.second.thunkVar);
@@ -148,6 +152,7 @@ void fixupRtThunks(llvm::Module &newModule,
     assert(!contains(thunk2func, it.second.thunkVar->getName()));
     thunk2func.insert(std::make_pair(it.second.thunkVar->getName(),
                                      it.first->getName()));
+    externalFuncs.insert(it.first->getName());
   }
   int objectsFixed = 0;
   for (auto&& obj: newModule.globals()) {
@@ -162,7 +167,14 @@ void fixupRtThunks(llvm::Module &newModule,
       ++objectsFixed;
     }
   }
-  assert(objectsFixed = thunk2func.size());
+  for (auto&& obj: newModule.functions()) {
+    if (contains(externalFuncs, obj.getName())) {
+      obj.setLinkage(llvm::GlobalValue::ExternalLinkage);
+      obj.setVisibility(llvm::GlobalValue::DefaultVisibility);
+      ++objectsFixed;
+    }
+  }
+  assert((thunk2func.size() + externalFuncs.size()) == objectsFixed);
 }
 
 //void hideExternalSymbols(llvm::Module &newModule, const GlobalValsMap &filter) {
@@ -620,7 +632,7 @@ void generateBitcodeForRuntimeCompile(IRState *irs) {
     auto it = filter.find(const_cast<llvm::GlobalValue*>(val));
     return filter.end() != it && it->second != GlobalValVisibility::Declaration;
   });
-  fixupRtThunks(*newModule, irs->runtimeCompiledFunctions);
+  fixRtMudule(*newModule, irs->runtimeCompiledFunctions);
   //hideExternalSymbols(*newModule, filter);
 
   setupModuleBitcodeData(*newModule, irs, filter);
