@@ -13,9 +13,18 @@ import ldc.runtimecompile;
 void main(string[] args)
 {
   bool dumpHandlerCalled = false;
+  bool progressHandlerCalled = false;
   CompilerSettings settings;
-  settings.dumpHandler = ((a) { dumpHandlerCalled = true; });
+  settings.dumpHandler = (in char[] str)
+  {
+    dumpHandlerCalled = true;
+  };
+  settings.progressHandler = (in char[] desc, in char[] object)
+  {
+    progressHandlerCalled = true;
+  };
   compileDynamicCode(settings);
   assert(5 == foo());
   assert(dumpHandlerCalled);
+  assert(progressHandlerCalled);
 }

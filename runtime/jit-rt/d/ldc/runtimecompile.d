@@ -7,6 +7,7 @@ struct CompilerSettings
 {
   uint optLevel = 0;
   uint sizeLevel = 0;
+  void delegate(in char[], in char[]) progressHandler = null;
   void delegate(in char[]) dumpHandler = null;
 }
 
@@ -16,9 +17,15 @@ void compileDynamicCode(in CompilerSettings settings = CompilerSettings.init)
   context.optLevel = settings.optLevel;
   context.sizeLevel = settings.sizeLevel;
 
+  if (settings.progressHandler !is null)
+  {
+    context.interruptPointHandler = &progressHandlerWrapper;
+    context.interruptPointHandlerData = cast(void*)&settings.progressHandler;
+  }
+
   if (settings.dumpHandler !is null)
   {
-    context.dumpHandler = &delegateWrapper!(const char*, size_t);
+    context.dumpHandler = &dumpHandlerWrapper;
     context.dumpHandlerData = cast(void*)&settings.dumpHandler;
   }
   rtCompileProcessImpl(context, context.sizeof);
@@ -29,12 +36,22 @@ private:
 extern(C)
 {
 
-void delegateWrapper(T...)(void* context, T params)
+void progressHandlerWrapper(void* context, const char* desc, const char* obj)
 {
-  alias del_type = void delegate(T);
-  auto del = cast(del_type*)context;
-  (*del)(params);
+  import std.string;
+  alias DelType = typeof(CompilerSettings.progressHandler);
+  auto del = cast(DelType*)context;
+  (*del)(fromStringz(desc), fromStringz(obj));
 }
+
+void dumpHandlerWrapper(void* context, const char* buff, size_t len)
+{
+  alias DelType = typeof(CompilerSettings.dumpHandler);
+  auto del = cast(DelType*)context;
+  assert(buff !is null);
+  (*del)(buff[0..len]);
+}
+
 
 // must be synchronized with cpp
 align(1) struct Context
