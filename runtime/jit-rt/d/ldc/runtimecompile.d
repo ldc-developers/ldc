@@ -16,7 +16,6 @@ void compileDynamicCode(in CompilerSettings settings = CompilerSettings.init)
   context.optLevel = settings.optLevel;
   context.sizeLevel = settings.sizeLevel;
 
-  context.fatalHandler = &defaultFatalHandler;
   if (settings.dumpHandler !is null)
   {
     context.dumpHandler = &delegateWrapper!(const char*, size_t);
@@ -35,12 +34,6 @@ void delegateWrapper(T...)(void* context, T params)
   alias del_type = void delegate(T);
   auto del = cast(del_type*)context;
   (*del)(params);
-}
-
-void defaultFatalHandler(void*, const char* reason)
-{
-  import std.conv;
-  throw new Error(reason.text.idup);
 }
 
 // must be synchronized with cpp

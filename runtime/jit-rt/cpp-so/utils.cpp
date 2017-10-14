@@ -18,6 +18,7 @@ void fatal(const Context &context, const std::string &reason)
     }
     else {
         fprintf(stderr, "Runtime compiler fatal: %s\n", reason.c_str());
+        fflush(stderr);
         abort();
     }
 }
