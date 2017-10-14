@@ -1236,9 +1236,7 @@ LLConstant *DtoTypeInfoOf(Type *type, bool base) {
                          type->toChars(), base);
   LOG_SCOPE
 
-  type = type->merge2(); // needed.. getTypeInfo does the same
-  getTypeInfoType(type, nullptr);
-  TypeInfoDeclaration *tidecl = type->vtinfo;
+  TypeInfoDeclaration *tidecl = getOrCreateTypeInfoDeclaration(type, nullptr);
   assert(tidecl);
   Declaration_codegen(tidecl);
   assert(getIrGlobal(tidecl)->value != NULL);
