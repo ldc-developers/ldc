@@ -14,6 +14,7 @@ import core.stdc.stdio;
 import core.stdc.string;
 import ddmd.aggregate;
 import ddmd.arraytypes;
+import ddmd.astcodegen;
 import ddmd.cond;
 import ddmd.declaration;
 import ddmd.dinterpret;
@@ -32,6 +33,7 @@ import ddmd.mtype;
 import ddmd.parse;
 import ddmd.root.outbuffer;
 import ddmd.root.rmem;
+import ddmd.target;
 import ddmd.tokens;
 import ddmd.utf;
 import ddmd.utils;
@@ -171,6 +173,9 @@ extern (C++) abstract class AttribDeclaration : Dsymbol
 
     override void semantic(Scope* sc)
     {
+        if (semanticRun != PASSinit)
+            return;
+        semanticRun = PASSsemantic;
         Dsymbols* d = include(sc, null);
         //printf("\tAttribDeclaration::semantic '%s', d = %p\n",toChars(), d);
         if (d)
@@ -184,6 +189,7 @@ extern (C++) abstract class AttribDeclaration : Dsymbol
             if (sc2 != sc)
                 sc2.pop();
         }
+        semanticRun = PASSsemanticdone;
     }
 
     override void semantic2(Scope* sc)
@@ -500,7 +506,7 @@ extern (C++) final class LinkDeclaration : AttribDeclaration
     {
         super(decl);
         //printf("LinkDeclaration(linkage = %d, decl = %p)\n", p, decl);
-        linkage = p;
+        linkage = (p == LINKsystem) ? Target.systemLinkage() : p;
     }
 
     override Dsymbol syntaxCopy(Dsymbol s)
@@ -808,7 +814,8 @@ extern (C++) final class AnonDeclaration : AttribDeclaration
                     offset = 0;
             }
 
-            /* Bugzilla 13613: If the fields in this.members had been already
+            /* https://issues.dlang.org/show_bug.cgi?id=13613
+             * If the fields in this.members had been already
              * added in ad.fields, just update *poffset for the subsequent
              * field offset calculation.
              */
@@ -1021,7 +1028,7 @@ extern (C++) final class PragmaDeclaration : AttribDeclaration
                 error("function name expected for start address");
             else
             {
-                /* Bugzilla 11980:
+                /* https://issues.dlang.org/show_bug.cgi?id=11980
                  * resolveProperties and ctfeInterpret call are not necessary.
                  */
                 Expression e = (*args)[0];
@@ -1438,7 +1445,7 @@ extern (C++) final class CompileDeclaration : AttribDeclaration
         se = se.toUTF8(sc);
 
         uint errors = global.errors;
-        scope Parser p = new Parser(loc, sc._module, se.toStringz(), false);
+        scope p = new Parser!ASTCodegen(loc, sc._module, se.toStringz(), false);
         p.nextToken();
 
         decl = p.parseDeclDefs(0);

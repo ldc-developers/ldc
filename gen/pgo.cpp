@@ -930,7 +930,7 @@ void CodeGenPGO::loadRegionCounts(llvm::IndexedInstrProfReader *PGOReader,
           "Ignoring profile data: hash mismatch for function: %s",
           FuncName.c_str());
       warning(fd->loc,
-              "Ignoring profile data for function '%s' ('%s'): "
+              "Ignoring profile data for function `%s` (`%s`): "
               "control-flow hash mismatch",
               const_cast<FuncDeclaration *>(fd)->toPrettyChars(),
               FuncName.c_str());
@@ -938,14 +938,14 @@ void CodeGenPGO::loadRegionCounts(llvm::IndexedInstrProfReader *PGOReader,
       IF_LOG Logger::println("Profile data is malformed for function: %s",
                              FuncName.c_str());
       warning(fd->loc,
-              "Ignoring profile data for function '%s' ('%s'): "
+              "Ignoring profile data for function `%s` (`%s`): "
               "control-flow hash mismatch",
               const_cast<FuncDeclaration *>(fd)->toPrettyChars(),
               FuncName.c_str());
     } else {
       IF_LOG Logger::println("Error loading profile counts for function: %s",
                              FuncName.c_str());
-      warning(fd->loc, "Error loading profile data for function '%s' ('%s')",
+      warning(fd->loc, "Error loading profile data for function `%s` (`%s`)",
               const_cast<FuncDeclaration *>(fd)->toPrettyChars(),
               FuncName.c_str());
     }

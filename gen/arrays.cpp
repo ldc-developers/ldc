@@ -1266,7 +1266,7 @@ DValue *DtoCastArray(Loc &loc, DValue *u, Type *to) {
   Type *totype = to->toBasetype();
   Type *fromtype = u->type->toBasetype();
   if (fromtype->ty != Tarray && fromtype->ty != Tsarray) {
-    error(loc, "can't cast %s to %s", u->type->toChars(), to->toChars());
+    error(loc, "can't cast `%s` to `%s`", u->type->toChars(), to->toChars());
     fatal();
   }
 
@@ -1297,7 +1297,7 @@ DValue *DtoCastArray(Loc &loc, DValue *u, Type *to) {
               totype->nextOf()->size() !=
           0) {
         error(loc,
-              "invalid cast from '%s' to '%s', the element sizes don't line up",
+              "invalid cast from `%s` to `%s`, the element sizes don't line up",
               fromtype->toChars(), totype->toChars());
         fatal();
       }

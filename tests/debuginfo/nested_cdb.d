@@ -50,11 +50,12 @@ void encloser(int arg0, ref int arg1)
 // CDB: bp `nested_cdb.d:50`
 // CDB: g
 // CDB: dv /t
-// CHECK: int arg0 = 0n456
-// CHECK-NEXT: int * arg1 = {{0x[0-9a-f`]*}}
-// CHECK-NEXT: int enc_n = 0n456
+// the following values are garbage on Win32...
+// x64: int arg0 = 0n456
+// x64-NEXT: int * arg1 = {{0x[0-9a-f`]*}}
+// x64-NEXT: int enc_n = 0n456
 // CDB: ?? *arg1
-// CHECK: int 0n456
+// x64: int 0n456
 }
 
 void main()

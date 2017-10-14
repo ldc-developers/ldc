@@ -42,6 +42,7 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/mangling.h"
 #include "gen/metadata.h"
 #include "gen/rttibuilder.h"
 #include "gen/runtime.h"
@@ -306,7 +307,7 @@ public:
 
     // can't emit typeinfo for forward declarations
     if (sd->sizeok != SIZEOKdone) {
-      sd->error("cannot emit TypeInfo for forward declaration");
+      sd->error("cannot emit `TypeInfo` for forward declaration");
       fatal();
     }
 
@@ -351,7 +352,7 @@ public:
         global.params.targetTriple->getArch() == llvm::Triple::x86_64;
     const unsigned expectedFields = 12 + (isX86_64 ? 2 : 0);
     if (Type::typeinfostruct->fields.dim != expectedFields) {
-      error(Loc(), "Unexpected number of object.TypeInfo_Struct fields; "
+      error(Loc(), "Unexpected number of `object.TypeInfo_Struct` fields; "
                    "druntime version does not match compiler");
       fatal();
     }
@@ -592,10 +593,11 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
     Logger::println("typeinfo mangle: %s", mangled);
   }
 
+  const auto irMangle = getIRMangledVarName(mangled, LINKd);
   IrGlobal *irg = getIrGlobal(decl, true);
   const LinkageWithCOMDAT lwc(LLGlobalValue::ExternalLinkage, false);
 
-  irg->value = gIR->module.getGlobalVariable(mangled);
+  irg->value = gIR->module.getGlobalVariable(irMangle);
   if (irg->value) {
     assert(irg->getType()->isStructTy());
   } else {
@@ -610,7 +612,7 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
     // as immutable on the D side, and e.g. synchronized() can be used on the
     // implicit monitor.
     auto g = new LLGlobalVariable(gIR->module, type, false, lwc.first,
-                                  nullptr, mangled);
+                                  nullptr, irMangle);
     setLinkage(lwc, g);
     irg->value = g;
   }

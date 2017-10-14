@@ -112,7 +112,7 @@ bool objc_isSupported(const llvm::Triple &triple) {
   return false;
 }
 
-// called by ddmd.objc.objc_tryMain_init()
+// called by the ddmd.objc.Supported ctor
 void objc_initSymbols() {
   hasSymbols = false;
   retainedSymbols.clear();

@@ -8,5 +8,5 @@ struct Stuff
     byte[1024*1024*200] a;
 }
 
-// CHECK: hugeArrayG209715200g ={{.*}} [209715200 x i8]
+// CHECK: hugeArrayG209715200g{{\"?}} ={{.*}} [209715200 x i8]
 byte[1024*1024*200] hugeArray;

@@ -9,6 +9,7 @@
 
 module driver.codegenerator;
 
+import ddmd.astcodegen;
 import ddmd.dmodule;
 import ddmd.dscope;
 import ddmd.globals;
@@ -50,7 +51,7 @@ extern (C++) void genCmain(Scope *sc) {
   Identifier id = Id.entrypoint;
   auto m = new Module("__entrypoint.d", id, 0, 0);
 
-  scope Parser p = new Parser(m, code, false);
+  scope p = new Parser!ASTCodegen(m, code, false);
   p.scanloc = Loc();
   p.nextToken();
   m.members = p.parseModule();

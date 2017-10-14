@@ -121,9 +121,9 @@ public:
   llvm::Module module;
   llvm::LLVMContext &context() const { return module.getContext(); }
 
-  Module *dmodule;
+  Module *dmodule = nullptr;
 
-  LLStructType *moduleRefType;
+  LLStructType *moduleRefType = nullptr;
 
   // Stack of currently codegen'd functions (more than one for lambdas or other
   // nested functions, inlining-only codegen'ing, etc.), and some convenience
@@ -136,7 +136,7 @@ public:
 
   // The function containing the D main() body, if any (not the actual main()
   // implicitly emitted).
-  llvm::Function *mainFunc;
+  llvm::Function *mainFunc = nullptr;
 
   // basic block scopes
   std::vector<IRScope> scopes;
@@ -186,7 +186,7 @@ public:
   llvm::IndexedInstrProfReader *getPGOReader() const { return PGOReader.get(); }
 
   // for inline asm
-  IRAsmBlock *asmBlock;
+  IRAsmBlock *asmBlock = nullptr;
   std::ostringstream nakedAsm;
 
   // Globals to pin in the llvm.used array to make sure they are not
@@ -241,7 +241,7 @@ public:
 #endif
 
   //Target for dcompute. If not nullptr, it owns this.
-  DComputeTarget *dcomputetarget;
+  DComputeTarget *dcomputetarget = nullptr;
 };
 
 void Statement_toIR(Statement *s, IRState *irs);

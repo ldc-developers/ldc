@@ -17,6 +17,7 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/mangling.h"
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
 #include "ir/irtype.h"
@@ -98,7 +99,7 @@ static void checkForImplicitGCCall(const Loc &loc, const char *name) {
                       &GCNAMES[sizeof(GCNAMES) / sizeof(std::string)], name)) {
       error(loc,
             "No implicit garbage collector calls allowed with -nogc "
-            "option enabled: %s",
+            "option enabled: `%s`",
             name);
       fatal();
     }
@@ -137,14 +138,14 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
 
   LLFunction *fn = M->getFunction(name);
   if (!fn) {
-    error(loc, "Runtime function '%s' was not found", name);
+    error(loc, "Runtime function `%s` was not found", name);
     fatal();
   }
   LLFunctionType *fnty = fn->getFunctionType();
 
   if (LLFunction *existing = target.getFunction(name)) {
     if (existing->getFunctionType() != fnty) {
-      error(Loc(), "Incompatible declaration of runtime function '%s'", name);
+      error(Loc(), "Incompatible declaration of runtime function `%s`", name);
       fatal();
     }
     return existing;
@@ -155,33 +156,6 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
   resfn->setAttributes(fn->getAttributes());
   resfn->setCallingConv(fn->getCallingConv());
   return resfn;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-llvm::GlobalVariable *getRuntimeGlobal(Loc &loc, llvm::Module &target,
-                                       const char *name) {
-  LLGlobalVariable *gv = target.getNamedGlobal(name);
-  if (gv) {
-    return gv;
-  }
-
-  checkForImplicitGCCall(loc, name);
-
-  if (!M) {
-    initRuntime();
-  }
-
-  LLGlobalVariable *g = M->getNamedGlobal(name);
-  if (!g) {
-    error(loc, "Runtime global '%s' was not found", name);
-    fatal();
-    // return NULL;
-  }
-
-  LLPointerType *t = g->getType();
-  return getOrCreateGlobal(loc, target, t->getElementType(), g->isConstant(),
-                           g->getLinkage(), nullptr, g->getName());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -216,7 +190,7 @@ static Type *rt_dg2() {
 template <typename DECL> static void ensureDecl(DECL *decl, const char *msg) {
   if (!decl || !decl->type) {
     Logger::println("Missing class declaration: %s\n", msg);
-    error(Loc(), "Missing class declaration: %s", msg);
+    error(Loc(), "Missing class declaration: `%s`", msg);
     errorSupplemental(Loc(),
                       "Please check that object.d is included and valid");
     fatal();
@@ -262,7 +236,7 @@ static void createFwdDecl(LINK linkage, Type *returntype,
       fn->addFnAttr(LLAttribute::UWTable);
     }
 
-    fn->setCallingConv(gABI->callingConv(fn->getFunctionType(), linkage));
+    fn->setCallingConv(gABI->callingConv(linkage, dty));
   }
 }
 
@@ -707,10 +681,10 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
 
   // void invariant._d_invariant(Object o)
-  createFwdDecl(LINKd, voidTy,
-                {gABI->mangleFunctionForLLVM(
-                    "_D9invariant12_d_invariantFC6ObjectZv", LINKd)},
-                {objectTy});
+  createFwdDecl(
+      LINKd, voidTy,
+      {getIRMangledFuncName("_D9invariant12_d_invariantFC6ObjectZv", LINKd)},
+      {objectTy});
 
   // void _d_dso_registry(void* data)
   // (the argument is really a pointer to

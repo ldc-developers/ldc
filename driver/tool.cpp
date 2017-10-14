@@ -320,7 +320,7 @@ bool setupMsvcEnvironmentImpl() {
 
   const int exitCode = executeAndWait(commandLine.c_str());
   if (exitCode != 0) {
-    error(Loc(), "`%s` failed with status: %d", commandLine.c_str(), exitCode);
+    error(Loc(), "'%s' failed with status: %d", commandLine.c_str(), exitCode);
     llvm::sys::fs::remove(tmpFilePath);
     return false;
   }

@@ -2180,7 +2180,7 @@ struct AsmProcessor {
       }
     } while (i != j);
 
-    stmt->error("unknown opcode '%s'", opcode);
+    stmt->error("unknown opcode `%s`", opcode);
 
     return Op_Invalid;
   }
@@ -2239,7 +2239,7 @@ struct AsmProcessor {
       if (token->value == TOKcomma) {
         nextToken();
       } else if (token->value != TOKeof) {
-        stmt->error("end of instruction expected, not '%s'", token->toChars());
+        stmt->error("end of instruction expected, not `%s`", token->toChars());
         return;
       }
     }
@@ -2317,11 +2317,13 @@ struct AsmProcessor {
 
   // OSX and 32-bit Windows need an extra leading underscore when mangling a
   // symbol name.
-  static bool prependExtraUnderscore() {
+  static bool prependExtraUnderscore(LINK link) {
     return global.params.targetTriple->getOS() == llvm::Triple::MacOSX ||
            global.params.targetTriple->getOS() == llvm::Triple::Darwin ||
+           // Win32: C symbols only
            (global.params.targetTriple->isOSWindows() &&
-            global.params.targetTriple->isArch32Bit());
+            global.params.targetTriple->isArch32Bit() && link != LINKcpp &&
+            link != LINKd && link != LINKdefault);
   }
 
   void addOperand(const char *fmt, AsmArgType type, Expression *e,
@@ -2341,7 +2343,7 @@ struct AsmProcessor {
         break;
 
       case Arg_Pointer:
-        stmt->error("unsupported pointer reference to '%s' in naked asm",
+        stmt->error("unsupported pointer reference to `%s` in naked asm",
                     e->toChars());
         break;
 
@@ -2361,7 +2363,7 @@ struct AsmProcessor {
             }
 
             // print out the mangle
-            if (prependExtraUnderscore()) {
+            if (prependExtraUnderscore(vd->linkage)) {
               insnTemplate << "_";
             }
             OutBuffer buf;
@@ -2371,7 +2373,7 @@ struct AsmProcessor {
             break;
           }
         }
-        stmt->error("unsupported memory reference to '%s' in naked asm",
+        stmt->error("unsupported memory reference to `%s` in naked asm",
                     e->toChars());
         break;
 
@@ -2595,7 +2597,7 @@ struct AsmProcessor {
       if (operands[1].cls == Opr_Reg && operands[1].reg == Reg_ST) {
         nOperands = 1;
       } else {
-        stmt->error("instruction allows only ST as second argument");
+        stmt->error("instruction allows only `ST` as second argument");
       }
     }
 
@@ -3043,7 +3045,7 @@ struct AsmProcessor {
             {
               use_star = false;
               // simply write out the mangle
-              if (prependExtraUnderscore()) {
+              if (prependExtraUnderscore(decl->linkage)) {
                 insnTemplate << "_";
               }
               OutBuffer buf;
@@ -3300,7 +3302,7 @@ struct AsmProcessor {
       e = e->semantic(sc);
       return e->ctfeInterpret();
     }
-    stmt->error("expected integer operand(s) for '%s'", Token::toChars(op));
+    stmt->error("expected integer operand(s) for `%s`", Token::toChars(op));
     return newIntExp(0);
   }
 
@@ -3590,7 +3592,7 @@ struct AsmProcessor {
       if (token->value == TOKrbracket) {
         nextToken();
       } else {
-        stmt->error("missing ']'");
+        stmt->error("missing `]`");
       }
     }
 
@@ -3646,7 +3648,7 @@ struct AsmProcessor {
           stmt->error("multiple specifications of operand size");
         }
       } else {
-        stmt->error("unknown operand size '%s'", token->toChars());
+        stmt->error("unknown operand size `%s`", token->toChars());
       }
       nextToken();
       nextToken();
@@ -3658,11 +3660,11 @@ struct AsmProcessor {
     case TOKidentifier:
       if (token->ident == ident_seg) {
         nextToken();
-        stmt->error("'seg' not supported");
+        stmt->error("`seg` not supported");
         e = parseAsmExp();
       } else if (token->ident == Id::offset || token->ident == Id::offsetof) {
         if (token->ident == Id::offset && !global.params.useDeprecated) {
-          stmt->error("offset deprecated, use offsetof");
+          stmt->error("offset deprecated, use `offsetof`");
         }
         nextToken();
         e = parseAsmExp();
@@ -3771,7 +3773,7 @@ struct AsmProcessor {
                 if (token->value == TOKrparen) {
                   nextToken();
                 } else {
-                  stmt->error("expected ')'");
+                  stmt->error("expected `)`");
                 }
                 return e;
               default:
@@ -3787,7 +3789,7 @@ struct AsmProcessor {
               } else if (i >= Reg_CS && i <= Reg_GS) {
                 operand->segmentPrefix = static_cast<Reg>(i);
               } else {
-                stmt->error("'%s' is not a segment register", ident->toChars());
+                stmt->error("`%s` is not a segment register", ident->toChars());
               }
               return parseAsmExp();
             }

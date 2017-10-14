@@ -31,7 +31,6 @@ void Target::_init() {
   realsize = gDataLayout->getTypeAllocSize(real);
   realpad = realsize - gDataLayout->getTypeStoreSize(real);
   realalignsize = gDataLayout->getABITypeAlignment(real);
-  realislongdouble = true;
 
   // according to DMD, only for MSVC++:
   reverseCppOverloads = global.params.targetTriple->isWindowsMSVCEnvironment();
@@ -95,7 +94,7 @@ void Target::_init() {
     RealProperties.min_10_exp = -4931;
   } else {
     // leave initialized with host real_t values
-    warning(Loc(), "unknown properties for target real type");
+    warning(Loc(), "unknown properties for target `real` type");
   }
 }
 
@@ -178,9 +177,18 @@ Type *Target::va_listType() { return gABI->vaListType(); }
  * 2: wrong size
  * 3: wrong base type
  */
-int Target::checkVectorType(int sz, Type *type) {
+int Target::isVectorTypeSupported(int sz, Type *type) {
   // FIXME: Is it possible to query the LLVM target about supported vectors?
   return 0;
+}
+
+/******************************
+ * Checks whether the target supports operation `op` for vectors of type `type`.
+ * For binary ops `t2` is the type of the 2nd operand.
+ */
+bool Target::isVectorOpSupported(Type *type, TOK op, Type *t2) {
+  // FIXME
+  return true;
 }
 
 /******************************
@@ -218,7 +226,7 @@ Expression *Target::paintAsType(Expression *e, Type *type) {
     break;
 
   default:
-    assert(0);
+    llvm_unreachable("Unsupported source type");
   }
 
   switch (type->ty) {
@@ -237,10 +245,8 @@ Expression *Target::paintAsType(Expression *e, Type *type) {
     return createRealExp(e->loc, u.float64value, type);
 
   default:
-    assert(0);
+    llvm_unreachable("Unsupported target type");
   }
-
-  return nullptr; // avoid warning
 }
 
 /******************************

@@ -314,7 +314,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
 
   // Set some default values.
   global.params.useSwitchError = 1;
-  global.params.color = isConsoleColorSupported();
+  global.params.color = true;
 
   global.params.linkswitches = new Strings();
   global.params.libfiles = new Strings();
@@ -519,11 +519,9 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   }
 
   if (noDefaultLib) {
-    deprecation(
-        Loc(),
-        "-nodefaultlib is deprecated, as "
-        "-defaultlib/-debuglib now override the existing list instead of "
-        "appending to it. Please use the latter instead.");
+    deprecation(Loc(), "-nodefaultlib is deprecated, as -defaultlib/-debuglib "
+                       "now override the existing list instead of appending to "
+                       "it. Please use the latter instead.");
   } else {
     // Parse comma-separated default library list.
     std::stringstream libNames(linkDebugLib ? debugLib : defaultLib);
@@ -920,9 +918,7 @@ void registerPredefinedVersions() {
 
   registerPredefinedTargetVersions();
 
-  if (global.params.hasObjectiveC) {
-    VersionCondition::addPredefinedGlobalIdent("D_ObjectiveC");
-  }
+  // `D_ObjectiveC` is added by the ddmd.objc.Supported ctor
 
   if (opts::isRuntimeCompileEnabled()) {
     VersionCondition::addPredefinedGlobalIdent("LDC_RuntimeCompilation");
@@ -1036,7 +1032,12 @@ int cppmain(int argc, char **argv) {
   {
     llvm::Triple *triple = new llvm::Triple(gTargetMachine->getTargetTriple());
     global.params.targetTriple = triple;
+    global.params.isLinux = triple->isOSLinux();
+    global.params.isOSX = triple->isOSDarwin();
     global.params.isWindows = triple->isOSWindows();
+    global.params.isFreeBSD = triple->isOSFreeBSD();
+    global.params.isOpenBSD = triple->isOSOpenBSD();
+    global.params.isSolaris = triple->isOSSolaris();
     global.params.isLP64 = gDataLayout->getPointerSizeInBits() == 64;
     global.params.is64bit = triple->isArch64Bit();
     global.params.hasObjectiveC = objc_isSupported(*triple);

@@ -154,7 +154,6 @@ public:
 
     void print();
     const char *toChars();
-    virtual void printAST(int ident = 0);
     void error(const char *format, ...) const;
     void warning(const char *format, ...) const;
     void deprecation(const char *format, ...) const;
@@ -645,6 +644,7 @@ public:
     TemplateDeclaration *td;
     TOK tok;
 
+    bool equals(RootObject *o);
     void genIdent(Scope *sc);
     Expression *syntaxCopy();
     Expression *semantic(Scope *sc);
@@ -731,10 +731,10 @@ public:
     Expression *syntaxCopy();
     Expression *semantic(Scope *sc) = 0;
     Expression *unaSemantic(Scope *sc);
+    Expression *incompatibleTypes();
     Expression *resolveLoc(Loc loc, Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-    void printAST(int ident);
 };
 
 typedef UnionExp (*fp_t)(Type *, Expression *, Expression *);
@@ -761,7 +761,6 @@ public:
     Expression *reorderSettingAAElem(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-    void printAST(int ident);
 };
 
 class BinAssignExp : public BinExp

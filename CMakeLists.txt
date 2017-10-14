@@ -55,7 +55,7 @@ endfunction()
 set(LDC_VERSION "1.5.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   74)
+set(DMDFE_PATCH_VERSION   75)
 set(DMDFE_FIX_LEVEL       1) # Comment out if not used
 
 set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}${DMDFE_PATCH_VERSION})
@@ -736,6 +736,16 @@ build_d_executable(
     "LDMD_CXX_LIB"
 )
 
+# Little helper.
+function(copy_and_rename_file source_path target_path)
+    get_filename_component(source_name ${source_path} NAME)
+    get_filename_component(target_dir ${target_path} DIRECTORY)
+    file(MAKE_DIRECTORY ${target_dir})
+    # don't preserve source file permissions, see https://github.com/ldc-developers/ldc/issues/2337
+    file(COPY ${source_path} DESTINATION ${target_dir} NO_SOURCE_PERMISSIONS)
+    file(RENAME ${target_dir}/${source_name} ${target_path})
+endfunction()
+
 #
 # Locate LLVM's LTO binary and use it (LLVM >= 3.9)
 #
@@ -755,8 +765,8 @@ if (NOT (LDC_LLVM_VER LESS 309) AND LDC_INSTALL_LTOPLUGIN)
     endif()
     if(EXISTS ${LLVM_LTO_BINARY})
         message(STATUS "Also installing LTO binary: ${LLVM_LTO_BINARY}")
-        file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX})
-        configure_file(${LLVM_LTO_BINARY} ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${LDC_LTO_BINARY_NAME} COPYONLY)
+        copy_and_rename_file(${LLVM_LTO_BINARY} ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${LDC_LTO_BINARY_NAME})
+        install(PROGRAMS ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${LDC_LTO_BINARY_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
     else()
         message(STATUS "Not found: ${LLVM_LTO_BINARY}")
     endif()
@@ -778,12 +788,12 @@ function(copy_compilerrt_lib llvm_lib_name ldc_lib_name fixup_dylib)
     set(llvm_lib_path ${LLVM_LIBRARY_DIRS}/clang/${LLVM_VERSION_STRING_CROPPED}/lib/${llvm_lib_name})
     if(EXISTS ${llvm_lib_path})
         message(STATUS "Copying runtime library: ${llvm_lib_path} --> ${ldc_lib_name}")
-        file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX})
-        configure_file(${llvm_lib_path} ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${ldc_lib_name} COPYONLY)
+        set(ldc_lib_path ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${ldc_lib_name})
+        copy_and_rename_file(${llvm_lib_path} ${ldc_lib_path})
         if (fixup_dylib)
-            execute_process(COMMAND install_name_tool -id @rpath/${ldc_lib_name} ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${ldc_lib_name})
+            execute_process(COMMAND install_name_tool -id @rpath/${ldc_lib_name} ${ldc_lib_path})
         endif()
-        install(FILES ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${ldc_lib_name} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
+        install(FILES ${ldc_lib_path} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
     else()
         message(STATUS "Not found: ${llvm_lib_path}")
     endif()
@@ -809,7 +819,7 @@ if (LDC_INSTALL_LLVM_RUNTIME_LIBS)
         if(EXISTS ${LLVM_LIBFUZZER_PATH})
             message(STATUS "Copying libFuzzer library: ${LLVM_LIBFUZZER_PATH} --> libFuzzer.a")
             file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX})
-            configure_file(${LLVM_LIBFUZZER_PATH} ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/libFuzzer.a COPYONLY)
+            file(COPY ${LLVM_LIBFUZZER_PATH} DESTINATION ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX})
             install(FILES ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/libFuzzer.a DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
         else()
             message(STATUS "Not found: ${LLVM_LIBFUZZER_PATH}")
@@ -879,11 +889,8 @@ endif()
 install(FILES ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.conf DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.conf)
 
 if(MSVC)
+    file(COPY vcbuild/ DESTINATION ${PROJECT_BINARY_DIR}/bin FILES_MATCHING PATTERN "*.bat")
     install(DIRECTORY vcbuild/ DESTINATION ${CMAKE_INSTALL_PREFIX}/bin FILES_MATCHING PATTERN "*.bat")
-    # Also put the VCBuild scripts in the build/bin folder, so that ${PROJECT_BINARY_DIR}/bin/ldc2 is functional.
-    # This is necessary for the IR tests that use ${PROJECT_BINARY_DIR}/bin/ldc2.
-    configure_file(vcbuild/dumpEnv.bat ${PROJECT_BINARY_DIR}/bin/dumpEnv.bat COPYONLY)
-    configure_file(vcbuild/msvcEnv.bat ${PROJECT_BINARY_DIR}/bin/msvcEnv.bat COPYONLY)
 endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
@@ -895,11 +902,6 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         endif()
     endif()
     install(DIRECTORY bash_completion.d/ DESTINATION ${BASH_COMPLETION_COMPLETIONSDIR})
-endif()
-
-# Also install LLVM's LTO binary if available
-if(EXISTS ${LLVM_LTO_BINARY})
-    install(PROGRAMS ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}/${LDC_LTO_BINARY_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 endif()
 
 #

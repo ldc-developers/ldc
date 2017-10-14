@@ -99,13 +99,13 @@ public:
       return;
     }
     if (vd && !(vd->storage_class & (STCstatic | STCmanifest))) {
-      error(vd->loc, "non-static variable '%s' not allowed in naked function",
+      error(vd->loc, "non-static variable `%s` not allowed in naked function",
             vd->toChars());
       return;
     }
     if (fd && !fd->isStatic()) {
       error(fd->loc,
-            "non-static nested function '%s' not allowed in naked function",
+            "non-static nested function `%s` not allowed in naked function",
             fd->toChars());
       return;
     }
@@ -184,8 +184,9 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   }
   // Windows is different
   else if (isWin) {
-    // prepend extra underscore for Win32 (except for extern(C++))
-    if (triple.isArch32Bit() && fd->linkage != LINKcpp) {
+    // prepend extra underscore for Win32 C symbols
+    if (triple.isArch32Bit() && fd->linkage != LINKcpp &&
+        fd->linkage != LINKd && fd->linkage != LINKdefault) {
       fullmangle += '_';
       fullmangle += mangle;
       mangle = fullmangle.c_str();
@@ -331,7 +332,7 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
       return;
 #endif
     } else {
-      error(loc, "unimplemented return type '%s' for implicit abi return",
+      error(loc, "unimplemented return type `%s` for implicit abi return",
             rt->toChars());
       fatal();
     }
@@ -380,7 +381,7 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
       as->out_c = "={ax},={dx},";
       asmblock->retn = 2;
     } else {
-      error(loc, "unimplemented return type '%s' for implicit abi return",
+      error(loc, "unimplemented return type `%s` for implicit abi return",
             rt->toChars());
       fatal();
     }
@@ -415,7 +416,7 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
   IF_LOG Logger::println("code exp: %s", e->toChars());
   StringExp *se = static_cast<StringExp *>(e);
   if (e->op != TOKstring || se->sz != 1) {
-    e->error("__asm code argument is not a char[] string literal");
+    e->error("`__asm` code argument is not a `char[]` string literal");
     fatal();
   }
   std::string code(se->toPtr(), se->numberOfCodeUnits());
@@ -425,7 +426,7 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
   IF_LOG Logger::println("constraint exp: %s", e->toChars());
   se = static_cast<StringExp *>(e);
   if (e->op != TOKstring || se->sz != 1) {
-    e->error("__asm constraints argument is not a char[] string literal");
+    e->error("`__asm` constraints argument is not a `char[]` string literal");
     fatal();
   }
   std::string constraints(se->toPtr(), se->numberOfCodeUnits());
@@ -450,7 +451,7 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
 
   // make sure the constraints are valid
   if (!llvm::InlineAsm::Verify(FT, constraints)) {
-    e->error("__asm constraint argument is invalid");
+    e->error("`__asm` constraint argument is invalid");
     fatal();
   }
 

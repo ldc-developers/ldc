@@ -14,6 +14,7 @@
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/mangling.h"
 #include "gen/objcgen.h"
 #include "gen/rttibuilder.h"
 #include "ir/irfunction.h"
@@ -56,11 +57,11 @@ llvm::Function *buildForwarderFunction(
   const auto fnTy =
       LLFunctionType::get(LLType::getVoidTy(gIR->context()), {}, false);
 
-  std::string const symbolName = gABI->mangleFunctionForLLVM(name, LINKd);
-  assert(gIR->module.getFunction(symbolName) == NULL);
+  const auto irMangle = getIRMangledFuncName(name, LINKd);
+  assert(gIR->module.getFunction(irMangle) == NULL);
   llvm::Function *fn = llvm::Function::Create(
-      fnTy, llvm::GlobalValue::InternalLinkage, symbolName, &gIR->module);
-  fn->setCallingConv(gABI->callingConv(fn->getFunctionType(), LINKd));
+      fnTy, llvm::GlobalValue::InternalLinkage, irMangle, &gIR->module);
+  fn->setCallingConv(gABI->callingConv(LINKd));
 
   // Emit the body, consisting of...
   const auto bb = llvm::BasicBlock::Create(gIR->context(), "", fn);
@@ -76,8 +77,7 @@ llvm::Function *buildForwarderFunction(
   for (auto func : funcs) {
     const auto f = DtoCallee(func);
     const auto call = builder.CreateCall(f, {});
-    const auto ft = call->getFunctionType();
-    call->setCallingConv(gABI->callingConv(ft, LINKd));
+    call->setCallingConv(gABI->callingConv(LINKd));
   }
 
   // ... incrementing the gate variables.
@@ -195,7 +195,7 @@ llvm::Constant *buildLocalClasses(Module *m, size_t &count) {
 
 llvm::GlobalVariable *genModuleInfo(Module *m) {
   if (!Module::moduleinfo) {
-    m->error("object.d is missing the ModuleInfo struct");
+    m->error("object.d is missing the `ModuleInfo` struct");
     fatal();
   }
 
@@ -204,7 +204,7 @@ llvm::GlobalVariable *genModuleInfo(Module *m) {
   // should consist only of the _flags/_index fields (the latter of which is
   // unused).
   if (Module::moduleinfo->structsize != 4 + 4) {
-    m->error("Unexpected size of struct object.ModuleInfo; "
+    m->error("Unexpected size of struct `object.ModuleInfo`; "
              "druntime version does not match compiler (see -v)");
     fatal();
   }

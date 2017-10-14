@@ -1,9 +1,6 @@
 // Verify some minimum inlining.
 
-// XFAIL: llvm308
-
-// LLVM 4.0.1 doesn't inline std.algorithm.mutation.bringToFrontImpl() for Win32 and `-boundscheck=off`
-// XFAIL: Windows_x86
+// UNSUPPORTED: llvm308
 
 // RUN: %ldc %s -output-ll -of=%t_safeonly.ll -O3 -release
 // RUN: %ldc %s -output-ll -of=%t_off.ll      -O3 -release -boundscheck=off

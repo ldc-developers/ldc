@@ -834,8 +834,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
 #endif
       );
 #if LDC_LLVM_VER >= 308
-  if (fd->fbody)
-    DtoFunction(fd)->setSubprogram(SP);
+  DtoFunction(fd)->setSubprogram(SP);
 #endif
   return SP;
 }
