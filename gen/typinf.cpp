@@ -737,8 +737,8 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
 
   emitTypeMetadata(decl);
 
-  // this is a declaration of a builtin __initZ var
-  if (builtinTypeInfo(decl->tinfo)) {
+  // check if the definition can be elided
+  if (global.params.betterC || builtinTypeInfo(decl->tinfo)) {
     return;
   }
 
