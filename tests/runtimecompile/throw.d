@@ -1,4 +1,5 @@
 
+// REQUIRES: JitExceptions
 // RUN: %ldc -enable-runtime-compile -run %s
 
 import std.exception;
