@@ -68,11 +68,8 @@ public:
     }
 
     if (TypeInfoDeclaration *ti = e->var->isTypeInfoDeclaration()) {
-      LLType *vartype = DtoType(e->type);
       result = DtoTypeInfoOf(ti->tinfo, false);
-      if (result->getType() != getPtrToType(vartype)) {
-        result = llvm::ConstantExpr::getBitCast(result, vartype);
-      }
+      result = DtoBitCast(result, DtoType(e->type));
       return;
     }
 
@@ -707,6 +704,7 @@ public:
       TypeInfoDeclaration_codegen(tid, p);
     }
     result = llvm::cast<llvm::GlobalVariable>(getIrGlobal(tid)->value);
+    result = DtoBitCast(result, DtoType(e->type));
   }
 
   //////////////////////////////////////////////////////////////////////////////

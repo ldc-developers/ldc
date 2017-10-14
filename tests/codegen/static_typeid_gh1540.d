@@ -15,11 +15,11 @@ struct S
 {
 }
 
-// CHECK: @{{.*}}classvarC14TypeInfo_Class{{\"?}} = thread_local global %object.TypeInfo_Class* @{{.*}}1C7__ClassZ
+// CHECK: _D{{.*}}classvarC14TypeInfo_Class{{\"?}} = thread_local global %object.TypeInfo_Class* {{.*}}1C7__ClassZ
 auto classvar = typeid(C);
 
-// CHECK: @{{.*}}interfacevarC18TypeInfo_Interface{{\"?}} = thread_local global %"typeid({{.*}}.I)"* @{{.*}}_D{{[0-9]+}}TypeInfo_C{{.*}}1I6__initZ
+// CHECK: _D{{.*}}interfacevarC18TypeInfo_Interface{{\"?}} = thread_local global %object.TypeInfo_Interface* {{.*}}TypeInfo_C{{.*}}1I6__initZ
 auto interfacevar = typeid(I);
 
-// CHECK: @{{.*}}structvarC15TypeInfo_Struct{{\"?}} = thread_local global %"typeid({{.*}}S)"* @{{.*}}_D{{[0-9]+}}TypeInfo_S{{.*}}1S6__initZ
+// CHECK: _D{{.*}}structvarC15TypeInfo_Struct{{\"?}} = thread_local global %object.TypeInfo_Struct* {{.*}}TypeInfo_S{{.*}}1S6__initZ
 auto structvar = typeid(S);

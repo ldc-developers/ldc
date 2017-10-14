@@ -438,7 +438,7 @@ static LLConstant *build_offti_entry(ClassDeclaration *cd, VarDeclaration *vd) {
   inits[0] = DtoConstSize_t(offset);
 
   // TypeInfo ti;
-  inits[1] = DtoTypeInfoOf(vd->type, true);
+  inits[1] = DtoTypeInfoOf(vd->type);
 
   // done
   return llvm::ConstantStruct::get(inits);
