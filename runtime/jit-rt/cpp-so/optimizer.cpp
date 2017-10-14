@@ -156,7 +156,12 @@ void optimizeModule(const Context &context,
   {
     FuncFinalizer finalizer(fpm);
     for (auto &fun : module) {
-      interruptPoint(context, "Run passes for function", fun.getName().data());
+      if (fun.isDeclaration()) {
+        interruptPoint(context, "Func decl", fun.getName().data());
+      }
+      else {
+        interruptPoint(context, "Run passes for function", fun.getName().data());
+      }
       fpm.run(fun);
     }
   }
