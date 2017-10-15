@@ -91,6 +91,24 @@ struct llvm_init_obj {
   }
 };
 
+std::string decorate(const std::string& name) {
+#ifdef __APPLE__
+  return "_" + name;
+#else
+  return name;
+#endif
+}
+
+std::string undecorate(const std::string& name) {
+#ifdef __APPLE__
+  assert(!name.empty());
+  assert("_" == name[0]);
+  return name.substr(1);
+#else
+  return name;
+#endif
+}
+
 class MyJIT {
 private:
   llvm_init_obj initObj;
@@ -140,14 +158,14 @@ public:
     //           the same "logical dylib".
     // Lambda 2: Search for external symbols in the host process.
     auto Resolver = llvm::orc::createLambdaResolver(
-                      [&](const std::string& name) {
+    [&](const std::string& name) {
       if (auto Sym = compileLayer.findSymbol(name, false)) {
         return Sym;
       }
       return llvm::JITSymbol(nullptr);
     },
     [&](const std::string& name) {
-      auto it = symMap.find(name);
+      auto it = symMap.find(undecorate(name));
       if (symMap.end() != it) {
         return llvm::JITSymbol(reinterpret_cast<llvm::JITTargetAddress>(it->second),
                                llvm::JITSymbolFlags::Exported);
@@ -308,10 +326,11 @@ void rtCompileProcessImplSoInternal(const RtComileModuleList* modlist_head, cons
 
   interruptPoint(context, "Add modules");
   myJit.addModules(std::move(ms), symMap);
+
   JitFinaliser jitFinalizer(myJit);
   interruptPoint(context, "Resolve functions");
   for (auto&& fun: functions) {
-    auto symbol = myJit.findSymbol(fun.first);
+    auto symbol = myJit.findSymbol(decorate(fun.first));
     auto addr = resolveSymbol(symbol);
     if (nullptr == addr) {
       std::string desc = std::string("Symbol not found in jitted code: ") + fun.first;
