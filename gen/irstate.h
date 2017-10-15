@@ -220,12 +220,12 @@ public:
   void replaceGlobals();
 
   struct RtCompiledFuncDesc {
-    llvm::GlobalVariable* thunkVar;
-    llvm::Function* thunkFunc;
+    llvm::GlobalVariable *thunkVar;
+    llvm::Function *thunkFunc;
   };
 
-  std::map<llvm::Function*,RtCompiledFuncDesc> runtimeCompiledFunctions;
-  std::set<IrGlobal*> runtimeCompiledVars;
+  std::map<llvm::Function *, RtCompiledFuncDesc> runtimeCompiledFunctions;
+  std::set<IrGlobal *> runtimeCompiledVars;
 
 /// Vector of options passed to the linker as metadata in object file.
 #if LDC_LLVM_VER >= 500
@@ -240,7 +240,7 @@ public:
   llvm::DenseMap<llvm::Constant *, llvm::GlobalVariable *> TypeDescriptorMap;
 #endif
 
-  //Target for dcompute. If not nullptr, it owns this.
+  // Target for dcompute. If not nullptr, it owns this.
   DComputeTarget *dcomputetarget = nullptr;
 };
 
