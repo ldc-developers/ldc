@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <map>
 #include <memory>
+#include <sstream>
 
 #include "optimizer.h"
 #include "context.h"
@@ -213,6 +214,21 @@ llvm::ArrayRef<T> toArray(T* ptr, size_t size) {
   return llvm::ArrayRef<T>(ptr, size);
 }
 
+void* resolveSymbol(llvm::JITSymbol& symbol) {
+  auto addr = symbol.getAddress();
+#if LDC_LLVM_VER >= 500
+  if (!addr) {
+    consumeError(addr.takeError());
+    return nullptr;
+  }
+  else {
+    return reinterpret_cast<void*>(addr.get());
+  }
+#else
+  return reinterpret_cast<void*>(addr);
+#endif
+}
+
 struct JitFinaliser final {
   MyJIT& jit;
   bool finalized = false;
@@ -296,25 +312,21 @@ void rtCompileProcessImplSoInternal(const RtComileModuleList* modlist_head, cons
   interruptPoint(context, "Resolve functions");
   for (auto&& fun: functions) {
     auto symbol = myJit.findSymbol(fun.first);
-    auto addr = symbol.getAddress();
-#if LDC_LLVM_VER >= 500
-    if (!addr) {
-      consumeError(addr.takeError());
+    auto addr = resolveSymbol(symbol);
+    if (nullptr == addr) {
       std::string desc = std::string("Symbol not found in jitted code: ") + fun.first;
       fatal(context, desc);
     }
     else {
-      *fun.second = reinterpret_cast<void*>(addr.get());
+      *fun.second = addr;
     }
-#else
-    if (0 == addr) {
-      std::string desc = std::string("Symbol not found in jitted code: ") + fun.first;
-      fatal(context, desc);
+
+    if (nullptr != context.interruptPointHandler) {
+      std::stringstream ss;
+      ss << fun.first << " to " << addr;
+      auto str = ss.str();
+      interruptPoint(context, "Resolved", str.c_str());
     }
-    else {
-      *fun.second = reinterpret_cast<void*>(addr);
-    }
-#endif
   }
   jitFinalizer.finalze();
 }
