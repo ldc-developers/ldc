@@ -56,9 +56,9 @@ struct RtCompileVarList
   const void* init;
 };
 
-struct RtComileModuleList
+struct RtCompileModuleList
 {
-  RtComileModuleList* next;
+  RtCompileModuleList* next;
   const char* irData;
   int irDataSize;
   RtCompileFuncList* funcList;
@@ -276,7 +276,7 @@ MyJIT& getJit()
   return jit;
 }
 
-void rtCompileProcessImplSoInternal(const RtComileModuleList* modlist_head, const Context& context) {
+void rtCompileProcessImplSoInternal(const RtCompileModuleList* modlist_head, const Context& context) {
   interruptPoint(context, "Init");
   MyJIT& myJit = getJit();
   auto current = modlist_head;
@@ -373,7 +373,7 @@ void rtCompileProcessImplSo(const void* modlist_head,
   assert(nullptr != context);
   assert(sizeof(*context) == contextSize);
   rtCompileProcessImplSoInternal(
-        static_cast<const RtComileModuleList*>(modlist_head),
+        static_cast<const RtCompileModuleList*>(modlist_head),
         *context);
 }
 

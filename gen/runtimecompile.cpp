@@ -327,9 +327,9 @@ llvm::StructType *getFuncListElemType(llvm::LLVMContext &context) {
   return llvm::StructType::create(context, elements, /*"RtCompileFuncList"*/"", true);
 }
 
-// struct RtComileModuleList
+// struct RtCompileModuleList
 // {
-//   RtComileModuleList* next;
+//   RtCompileModuleList* next;
 //   i8* irData;
 //   i32 irDataSize;
 //   RtCompileFuncList* funcList;
@@ -345,7 +345,7 @@ llvm::StructType *getModuleListElemType(llvm::LLVMContext &context,
   assert(nullptr != funcListElemType);
   assert(nullptr != symListElemType);
   assert(nullptr != varListElemType);
-  llvm::StructType* ret = llvm::StructType::create(context/*, "RtComileModuleList"*/); //fwddecl
+  llvm::StructType* ret = llvm::StructType::create(context/*, "RtCompileModuleList"*/); //fwddecl
   llvm::Type* elements[] = {
     llvm::PointerType::getUnqual(ret),
     llvm::IntegerType::getInt8PtrTy(context),
