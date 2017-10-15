@@ -11,7 +11,7 @@ if(LDC_RUNTIME_COMPILE)
         set(JITRT_EXTRA_FLAGS "/Zl")
 
     else()
-        set(JITRT_EXTRA_FLAGS "-fPIC -O3 -std=c++11")
+        set(JITRT_EXTRA_FLAGS "-fPIC -std=c++11")
     endif()
 
     # Sets up the targets for building the D-source jit-rt object files,
