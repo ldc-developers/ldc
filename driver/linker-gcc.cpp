@@ -341,7 +341,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
     args.push_back("-lldc-profile-rt");
   }
 
-  if (opts::isRuntimeCompileEnabled()) {
+  if (opts::enableRuntimeCompile) {
     args.push_back("-lldc-jit-rt");
     args.push_back("-lldc-jit");
   }

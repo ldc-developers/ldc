@@ -648,7 +648,7 @@ void declareRuntimeCompiledFunction(IRState *irs, IrFunction *func) {
   assert(nullptr != irs);
   assert(nullptr != func);
   assert(nullptr != func->getLLVMFunc());
-  if (!opts::isRuntimeCompileEnabled()) {
+  if (!opts::enableRuntimeCompile) {
     return;
   }
   auto srcFunc = func->getLLVMFunc();
@@ -665,7 +665,7 @@ void defineRuntimeCompiledFunction(IRState *irs, IrFunction *func)
   assert(nullptr != func);
   assert(nullptr != func->getLLVMFunc());
   assert(nullptr != func->rtCompileFunc);
-  if (!opts::isRuntimeCompileEnabled()) {
+  if (!opts::enableRuntimeCompile) {
     return;
   }
   auto srcFunc = func->getLLVMFunc();
@@ -688,7 +688,7 @@ void addRuntimeCompiledVar(IRState *irs, IrGlobal *var) {
   assert(nullptr != var);
   assert(nullptr != var->value);
   assert(nullptr != var->V);
-  if (!opts::isRuntimeCompileEnabled()) {
+  if (!opts::enableRuntimeCompile) {
     return;
   }
 

@@ -124,9 +124,8 @@ extern cl::opt<std::string> dcomputeFilePrefix;
 
 #if defined(LDC_RUNTIME_COMPILE)
 extern cl::opt<bool> enableRuntimeCompile;
-inline bool isRuntimeCompileEnabled() { return enableRuntimeCompile; }
 #else
-inline bool isRuntimeCompileEnabled() { return false; }
+constexpr bool enableRuntimeCompile = false;
 #endif
 }
 #endif

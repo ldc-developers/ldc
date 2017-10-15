@@ -920,7 +920,7 @@ void registerPredefinedVersions() {
 
   // `D_ObjectiveC` is added by the ddmd.objc.Supported ctor
 
-  if (opts::isRuntimeCompileEnabled()) {
+  if (opts::enableRuntimeCompile) {
     VersionCondition::addPredefinedGlobalIdent("LDC_RuntimeCompilation");
   }
 
