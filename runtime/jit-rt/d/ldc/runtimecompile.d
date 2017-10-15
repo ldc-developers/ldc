@@ -1,7 +1,6 @@
 module ldc.runtimecompile;
 
-version(LDC_RuntimeCompilation)
-{
+version(LDC_RuntimeCompilation):
 
 /// Dynamic compiler settings
 struct CompilerSettings
@@ -106,4 +105,3 @@ align(1):
 extern void rtCompileProcessImpl(const ref Context context, size_t contextSize);
 }
 
-}

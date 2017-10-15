@@ -20,47 +20,50 @@ struct Bar
   Bar* pb;
 }
 
-@runtimeCompile __gshared byte  i8  = 42 + 1;
-@runtimeCompile __gshared short i16 = 42 + 2;
-@runtimeCompile __gshared int   i32 = 42 + 3;
-@runtimeCompile __gshared long  i64 = 42 + 4;
+@runtimeCompile
+{
+__gshared byte  i8  = 42 + 1;
+__gshared short i16 = 42 + 2;
+__gshared int   i32 = 42 + 3;
+__gshared long  i64 = 42 + 4;
 
-@runtimeCompile __gshared ubyte  u8  = 42 + 5;
-@runtimeCompile __gshared ushort u16 = 42 + 6;
-@runtimeCompile __gshared uint   u32 = 42 + 7;
-@runtimeCompile __gshared ulong  u64 = 42 + 8;
+__gshared ubyte  u8  = 42 + 5;
+__gshared ushort u16 = 42 + 6;
+__gshared uint   u32 = 42 + 7;
+__gshared ulong  u64 = 42 + 8;
 
-@runtimeCompile __gshared float  f32 = 42 + 9;
-@runtimeCompile __gshared double f64 = 42 + 10;
+__gshared float  f32 = 42 + 9;
+__gshared double f64 = 42 + 10;
 
-@runtimeCompile __gshared void* ptr = cast(void*)(42 + 11);
+__gshared void* ptr = cast(void*)(42 + 11);
 
-@runtimeCompile __gshared int[3] arr = [42 + 12,42 + 13,42 + 14];
-@runtimeCompile __gshared int[] darr = [42 + 15,42 + 16,42 + 17,42 + 18];
+__gshared int[3] arr = [42 + 12,42 + 13,42 + 14];
+__gshared int[] darr = [42 + 15,42 + 16,42 + 17,42 + 18];
 
-@runtimeCompile __gshared Foo foo = Foo(42 + 19,42 + 20,cast(void*)(42 + 21),[42 + 22,42 + 23,42 + 24],[42 + 25,42 + 26,42 + 27,42 + 28]);
-@runtimeCompile __gshared Bar bar = Bar(Foo(42 + 19,42 + 20,cast(void*)(42 + 21),[42 + 22,42 + 23,42 + 24],[42 + 25,42 + 26,42 + 27,42 + 28]), cast(Foo*)(42 + 29), cast(Bar*)(42 + 30));
+__gshared Foo foo = Foo(42 + 19,42 + 20,cast(void*)(42 + 21),[42 + 22,42 + 23,42 + 24],[42 + 25,42 + 26,42 + 27,42 + 28]);
+__gshared Bar bar = Bar(Foo(42 + 19,42 + 20,cast(void*)(42 + 21),[42 + 22,42 + 23,42 + 24],[42 + 25,42 + 26,42 + 27,42 + 28]), cast(Foo*)(42 + 29), cast(Bar*)(42 + 30));
 
-@runtimeCompile byte  foo_i8()  { return i8; }
-@runtimeCompile short foo_i16() { return i16; }
-@runtimeCompile int   foo_i32() { return i32; }
-@runtimeCompile long  foo_i64() { return i64; }
+byte  foo_i8()  { return i8; }
+short foo_i16() { return i16; }
+int   foo_i32() { return i32; }
+long  foo_i64() { return i64; }
 
-@runtimeCompile ubyte  foo_u8()  { return u8; }
-@runtimeCompile ushort foo_u16() { return u16; }
-@runtimeCompile uint   foo_u32() { return u32; }
-@runtimeCompile ulong  foo_u64() { return u64; }
+ubyte  foo_u8()  { return u8; }
+ushort foo_u16() { return u16; }
+uint   foo_u32() { return u32; }
+ulong  foo_u64() { return u64; }
 
-@runtimeCompile float  foo_f32() { return f32; }
-@runtimeCompile double foo_f64() { return f64; }
+float  foo_f32() { return f32; }
+double foo_f64() { return f64; }
 
-@runtimeCompile void* foo_ptr() { return ptr; }
+void* foo_ptr() { return ptr; }
 
-@runtimeCompile int[3]  foo_arr()  { return arr; }
-@runtimeCompile int[]   foo_darr() { return darr; }
+int[3]  foo_arr()  { return arr; }
+int[]   foo_darr() { return darr; }
 
-@runtimeCompile Foo foo_foo() { return foo; }
-@runtimeCompile Bar foo_bar() { return bar; }
+Foo foo_foo() { return foo; }
+Bar foo_bar() { return bar; }
+}
 
 void test(T,F)(ref T val, F fun)
 {
