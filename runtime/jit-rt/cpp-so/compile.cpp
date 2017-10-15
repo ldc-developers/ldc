@@ -92,20 +92,29 @@ struct llvm_init_obj {
 };
 
 std::string decorate(const std::string& name) {
-#ifdef __APPLE__
+#if defined(__APPLE__)
+  return "_" + name;
+#elif defined(_WIN32) && defined(_M_IX86)
+  assert(!name.empty());
+  if (0x1 == name[0]) {
+    return name.substr(1);
+  }
   return "_" + name;
 #else
   return name;
 #endif
 }
 
-std::string undecorate(const std::string& name) {
-#ifdef __APPLE__
+auto getSymbolInPorcess(const std::string& name)
+->decltype (llvm::RTDyldMemoryManager::getSymbolAddressInProcess(name)) {
   assert(!name.empty());
-  assert("_" == name[0]);
-  return name.substr(1);
+#if defined(_WIN32)
+  if ('_' == name[0]) {
+    return llvm::RTDyldMemoryManager::getSymbolAddressInProcess(name.substr(1));
+  }
+  return llvm::RTDyldMemoryManager::getSymbolAddressInProcess(name);
 #else
-  return name;
+  return llvm::RTDyldMemoryManager::getSymbolAddressInProcess(name);
 #endif
 }
 
@@ -165,12 +174,12 @@ public:
       return llvm::JITSymbol(nullptr);
     },
     [&](const std::string& name) {
-      auto it = symMap.find(undecorate(name));
+      auto it = symMap.find(name);
       if (symMap.end() != it) {
         return llvm::JITSymbol(reinterpret_cast<llvm::JITTargetAddress>(it->second),
                                llvm::JITSymbolFlags::Exported);
       }
-      if (auto SymAddr = llvm::RTDyldMemoryManager::getSymbolAddressInProcess(name)) {
+      if (auto SymAddr = getSymbolInPorcess(name)) {
         return llvm::JITSymbol(SymAddr, llvm::JITSymbolFlags::Exported);
       }
       return llvm::JITSymbol(nullptr);
@@ -318,7 +327,7 @@ void rtCompileProcessImplSoInternal(const RtComileModuleList* modlist_head, cons
       }
 
       for (auto&& sym: toArray(current->symList, current->symListSize)) {
-        symMap.insert(std::make_pair(sym.name, sym.sym));
+        symMap.insert(std::make_pair(decorate(sym.name), sym.sym));
       }
     }
     current = current->next;
@@ -330,10 +339,11 @@ void rtCompileProcessImplSoInternal(const RtComileModuleList* modlist_head, cons
   JitFinaliser jitFinalizer(myJit);
   interruptPoint(context, "Resolve functions");
   for (auto&& fun: functions) {
-    auto symbol = myJit.findSymbol(decorate(fun.first));
+    auto decorated = decorate(fun.first);
+    auto symbol = myJit.findSymbol(decorated);
     auto addr = resolveSymbol(symbol);
     if (nullptr == addr) {
-      std::string desc = std::string("Symbol not found in jitted code: ") + fun.first;
+      std::string desc = std::string("Symbol not found in jitted code: \"") + fun.first + "\" (\"" + decorated + "\")";
       fatal(context, desc);
     }
     else {

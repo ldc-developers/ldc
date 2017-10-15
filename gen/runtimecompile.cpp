@@ -96,6 +96,12 @@ void getPredefinedSymbols(IRState *irs,
                                                       "_tls_index",
                                                       llvm::Type::getInt32Ty(irs->context())),
                                   GlobalValVisibility::Declaration));
+    if (triple->isArch32Bit()) {
+      symList.insert(std::make_pair(getPredefinedSymbol(irs->module,
+                                                        "_tls_array",
+                                                        llvm::Type::getInt32Ty(irs->context())),
+                                    GlobalValVisibility::Declaration));
+    }
   }
 }
 
