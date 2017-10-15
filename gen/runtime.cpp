@@ -305,6 +305,9 @@ static void buildRuntimeModule() {
       Attr_Cold(NoAttrs, LLAttributeSet::FunctionIndex, llvm::Attribute::Cold),
       Attr_Cold_NoReturn(Attr_Cold, LLAttributeSet::FunctionIndex,
                          llvm::Attribute::NoReturn),
+      Attr_Cold_NoReturn_NoUnwind(Attr_Cold_NoReturn,
+                                  LLAttributeSet::FunctionIndex,
+                                  llvm::Attribute::NoUnwind),
       Attr_ReadOnly_NoUnwind(Attr_ReadOnly, LLAttributeSet::FunctionIndex,
                              llvm::Attribute::NoUnwind),
       Attr_ReadOnly_1_NoCapture(Attr_ReadOnly, AttrSet::FirstArgIndex,
@@ -354,7 +357,7 @@ static void buildRuntimeModule() {
       global.params.targetTriple->isOSDarwin()
           ? llvm::ArrayRef<Type *>({voidPtrTy, voidPtrTy, uintTy, voidPtrTy})
           : llvm::ArrayRef<Type *>({voidPtrTy, voidPtrTy, uintTy}),
-      {}, Attr_Cold_NoReturn);
+      {}, Attr_Cold_NoReturn_NoUnwind);
 
   // void _d_assert(string file, uint line)
   // void _d_arraybounds(string file, uint line)
