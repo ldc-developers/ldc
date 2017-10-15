@@ -105,7 +105,7 @@ std::string decorate(const std::string& name) {
 #endif
 }
 
-auto getSymbolInPorcess(const std::string& name)
+auto getSymbolInProcess(const std::string& name)
 ->decltype (llvm::RTDyldMemoryManager::getSymbolAddressInProcess(name)) {
   assert(!name.empty());
 #if defined(_WIN32)
@@ -179,7 +179,7 @@ public:
         return llvm::JITSymbol(reinterpret_cast<llvm::JITTargetAddress>(it->second),
                                llvm::JITSymbolFlags::Exported);
       }
-      if (auto SymAddr = getSymbolInPorcess(name)) {
+      if (auto SymAddr = getSymbolInProcess(name)) {
         return llvm::JITSymbol(SymAddr, llvm::JITSymbolFlags::Exported);
       }
       return llvm::JITSymbol(nullptr);
