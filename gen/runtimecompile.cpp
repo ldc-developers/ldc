@@ -141,7 +141,7 @@ GlobalValsMap createGlobalValsFilter(IRState *irs) {
   return ret;
 }
 
-void fixRtMudule(llvm::Module &newModule,
+void fixRtModule(llvm::Module &newModule,
                  const decltype(IRState::runtimeCompiledFunctions) &funcs) {
   std::unordered_map<std::string, std::string> thunk2func;
   std::unordered_set<std::string> externalFuncs;
@@ -680,7 +680,7 @@ void generateBitcodeForRuntimeCompile(IRState *irs) {
   if (opts::runtimeCompileTlsWorkaround) {
     replaceDynamicThreadLocals(irs->module, *newModule, filter);
   }
-  fixRtMudule(*newModule, irs->runtimeCompiledFunctions);
+  fixRtModule(*newModule, irs->runtimeCompiledFunctions);
   // hideExternalSymbols(*newModule, filter);
 
   setupModuleBitcodeData(*newModule, irs, filter);
