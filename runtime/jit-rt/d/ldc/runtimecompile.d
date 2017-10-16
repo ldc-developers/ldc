@@ -90,9 +90,8 @@ void dumpHandlerWrapper(void* context, const char* buff, size_t len)
 
 
 // must be synchronized with cpp
-align(1) struct Context
+struct Context
 {
-align(1):
   uint optLevel = 0;
   uint sizeLevel = 0;
   void function(void*, const char*, const char*) interruptPointHandler = null;

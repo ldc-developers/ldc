@@ -9,8 +9,6 @@ typedef void (*InterruptPointHandlerT)(void *, const char *action,
 typedef void (*FatalHandlerT)(void *, const char *reason);
 typedef void (*DumpHandlerT)(void *, const char *str, std::size_t len);
 
-#pragma pack(push, 1)
-
 struct Context final {
   unsigned optLevel = 0;
   unsigned sizeLevel = 0;
@@ -21,6 +19,5 @@ struct Context final {
   DumpHandlerT dumpHandler = nullptr;
   void *dumpHandlerData = nullptr;
 };
-#pragma pack(pop)
 
 #endif // CONTEXT_H
