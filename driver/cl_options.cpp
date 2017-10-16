@@ -461,6 +461,12 @@ cl::opt<bool> enableRuntimeCompile(
     "enable-runtime-compile",
     cl::desc("Enable runtime compilation"),
     cl::init(false));
+
+cl::opt<bool> runtimeCompileTlsWorkaround(
+    "runtime-compile-tls-workaround",
+    cl::desc("Enable runtime compilation TLS workaround"),
+    cl::init(true),
+    cl::Hidden);
 #endif
 
 static cl::extrahelp footer(

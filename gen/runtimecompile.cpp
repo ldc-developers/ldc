@@ -81,16 +81,19 @@ using GlobalValsMap =
 void getPredefinedSymbols(IRState *irs, GlobalValsMap &symList) {
   assert(nullptr != irs);
   const llvm::Triple *triple = global.params.targetTriple;
-  if (triple->isWindowsMSVCEnvironment() || triple->isWindowsGNUEnvironment()) {
-    symList.insert(std::make_pair(
-        getPredefinedSymbol(irs->module, "_tls_index",
-                            llvm::Type::getInt32Ty(irs->context())),
-        GlobalValVisibility::Declaration));
-    if (triple->isArch32Bit()) {
+  if (!opts::runtimeCompileTlsWorkaround) {
+    if (triple->isWindowsMSVCEnvironment() ||
+        triple->isWindowsGNUEnvironment()) {
       symList.insert(std::make_pair(
-          getPredefinedSymbol(irs->module, "_tls_array",
+          getPredefinedSymbol(irs->module, "_tls_index",
                               llvm::Type::getInt32Ty(irs->context())),
           GlobalValVisibility::Declaration));
+      if (triple->isArch32Bit()) {
+        symList.insert(std::make_pair(
+            getPredefinedSymbol(irs->module, "_tls_array",
+                                llvm::Type::getInt32Ty(irs->context())),
+            GlobalValVisibility::Declaration));
+      }
     }
   }
 }
@@ -172,6 +175,85 @@ void fixRtMudule(llvm::Module &newModule,
     }
   }
   assert((thunk2func.size() + externalFuncs.size()) == objectsFixed);
+}
+
+llvm::Function *createGlobalVarLoadFun(llvm::Module &module,
+                                       llvm::GlobalVariable *var,
+                                       const llvm::Twine &funcName) {
+  assert(nullptr != var);
+  auto &context = module.getContext();
+  auto varType = var->getType();
+  auto funcType = llvm::FunctionType::get(varType, false);
+  auto func = llvm::Function::Create(
+      funcType, llvm::GlobalValue::WeakODRLinkage, funcName, &module);
+  auto bb = llvm::BasicBlock::Create(context, "", func);
+
+  llvm::IRBuilder<> builder(context);
+  builder.SetInsertPoint(bb);
+  builder.CreateRet(var);
+
+  return func;
+}
+
+void replaceDynamicThreadLocals(llvm::Module &oldModule,
+                                llvm::Module &newModule,
+                                GlobalValsMap &valsMap) {
+  // Wrap all thread locals access in dynamic code by function calls
+  // to 'normal' code
+  std::unordered_map<llvm::GlobalVariable *, llvm::Function *>
+      threadLocalAccessors;
+
+  auto getAccessor = [&](llvm::GlobalVariable *var) {
+    assert(nullptr != var);
+    auto it = threadLocalAccessors.find(var);
+    if (threadLocalAccessors.end() != it) {
+      return it->second;
+    }
+
+    auto srcVar = oldModule.getGlobalVariable(var->getName());
+    assert(nullptr != srcVar);
+    auto srcFunc = createGlobalVarLoadFun(oldModule, srcVar,
+                                          "." + var->getName() + "_accessor");
+    srcFunc->addFnAttr(llvm::Attribute::NoInline);
+    auto dstFunc = llvm::Function::Create(srcFunc->getFunctionType(),
+                                          llvm::GlobalValue::ExternalLinkage,
+                                          srcFunc->getName(), &newModule);
+    threadLocalAccessors.insert({var, dstFunc});
+    valsMap.insert({srcFunc, GlobalValVisibility::Declaration});
+    return dstFunc;
+  };
+
+  for (auto &&fun : newModule.functions()) {
+    for (auto &&bb : fun) {
+      // We can change bb contents in this loop
+      // so we reiterate it from start after each change
+      bool bbChanged = true;
+      while (bbChanged) {
+        bbChanged = false;
+        for (auto &&instr : bb) {
+          for (unsigned int i = 0; i < instr.getNumOperands(); ++i) {
+            auto op = instr.getOperand(i);
+            if (auto globalVar = llvm::dyn_cast<llvm::GlobalVariable>(op)) {
+              if (globalVar->isThreadLocal()) {
+                auto accessor = getAccessor(globalVar);
+                assert(nullptr != accessor);
+                auto callResult = llvm::CallInst::Create(accessor);
+                callResult->insertBefore(&instr);
+                instr.setOperand(i, callResult);
+                bbChanged = true;
+              }
+            }
+          }
+          if (bbChanged)
+            break;
+        } // for (auto &&instr : bb)
+      }   // while (bbChanged)
+    }     // for (auto &&bb : fun)
+  }       // for (auto &&fun : newModule.functions())
+
+  for (auto &&it : threadLocalAccessors) {
+    it.first->eraseFromParent();
+  }
 }
 
 // void hideExternalSymbols(llvm::Module &newModule, const GlobalValsMap
@@ -595,6 +677,9 @@ void generateBitcodeForRuntimeCompile(IRState *irs) {
         return filter.end() != it &&
                it->second != GlobalValVisibility::Declaration;
       });
+  if (opts::runtimeCompileTlsWorkaround) {
+    replaceDynamicThreadLocals(irs->module, *newModule, filter);
+  }
   fixRtMudule(*newModule, irs->runtimeCompiledFunctions);
   // hideExternalSymbols(*newModule, filter);
 

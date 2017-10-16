@@ -8,15 +8,30 @@ import ldc.runtimecompile;
 
 ThreadID threadId; //thread local
 
-@runtimeCompile void foo()
+@runtimeCompile void set_val()
 {
   threadId = Thread.getThis().id();
 }
 
+@runtimeCompile ThreadID get_val()
+{
+  return threadId;
+}
+
+@runtimeCompile ThreadID* get_ptr()
+{
+  auto ptr = &threadId;
+  return ptr;
+}
+
 void bar()
 {
-  foo();
-  assert(threadId == Thread.getThis().id());
+  set_val();
+  auto id = Thread.getThis().id();
+  assert(id == threadId);
+  assert(id == get_val());
+  assert(&threadId is get_ptr());
+  assert(id == *get_ptr());
 }
 
 void main(string[] args)
