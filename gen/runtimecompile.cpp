@@ -106,7 +106,7 @@ GlobalValsMap createGlobalValsFilter(IRState *irs) {
   newFunctions.reserve(irs->runtimeCompiledFunctions.size());
 
   for (auto &&it : irs->runtimeCompiledFunctions) {
-    ret.insert(std::make_pair(it.first, GlobalValVisibility::External));
+    ret.insert({it.first, GlobalValVisibility::External});
     newFunctions.push_back(it.first);
   }
 
@@ -122,8 +122,7 @@ GlobalValsMap createGlobalValsFilter(IRState *irs) {
     for (auto &&fun : newFunctions) {
       enumFuncSymbols(fun, [&](llvm::GlobalValue *gv) {
         if (!contains(runtimeCompiledVars, gv)) {
-          auto it =
-              ret.insert(std::make_pair(gv, GlobalValVisibility::Declaration));
+          auto it = ret.insert({gv, GlobalValVisibility::Declaration});
           if (it.second && !gv->isDeclaration()) {
             if (auto newFun = llvm::dyn_cast<llvm::Function>(gv)) {
               if (!newFun->isIntrinsic()) {
@@ -141,23 +140,60 @@ GlobalValsMap createGlobalValsFilter(IRState *irs) {
   return ret;
 }
 
+template<typename F>
+void iterateFuncInstructions(llvm::Function &func, F &&handler) {
+  for (auto &&bb : func) {
+    // We can change bb contents in this loop
+    // so we reiterate it from start after each change
+    bool bbChanged = true;
+    while (bbChanged) {
+      bbChanged = false;
+      for (auto &&instr : bb) {
+        if (handler(instr)) {
+          bbChanged = true;
+          break;
+        }
+      } // for (auto &&instr : bb)
+    }   // while (bbChanged)
+  }     // for (auto &&bb : fun)
+}
+
 void fixRtModule(llvm::Module &newModule,
                  const decltype(IRState::runtimeCompiledFunctions) &funcs) {
-  std::unordered_map<std::string, std::string> thunk2func;
+  std::unordered_map<std::string, std::string> thunkVar2func;
+  std::unordered_map<std::string, std::string> thunkFun2func;
   std::unordered_set<std::string> externalFuncs;
   for (auto &&it : funcs) {
     assert(nullptr != it.first);
     assert(nullptr != it.second.thunkVar);
     assert(nullptr != it.second.thunkFunc);
-    assert(!contains(thunk2func, it.second.thunkVar->getName()));
-    thunk2func.insert(
-        std::make_pair(it.second.thunkVar->getName(), it.first->getName()));
+    assert(!contains(thunkVar2func, it.second.thunkVar->getName()));
+    thunkVar2func.insert({it.second.thunkVar->getName(), it.first->getName()});
+    thunkFun2func.insert({it.second.thunkFunc->getName(), it.first->getName()});
     externalFuncs.insert(it.first->getName());
   }
+
+  // Replace call to thunks in jitted code with direct calls to functions
+  for (auto &&fun : newModule.functions()) {
+    iterateFuncInstructions(fun, [&](llvm::Instruction &instr)->bool {
+      if (auto call = llvm::dyn_cast<llvm::CallInst>(&instr)) {
+        auto callee = call->getCalledValue();
+        assert(nullptr != callee);
+        auto it = thunkFun2func.find(callee->getName());
+        if (thunkFun2func.end() != it) {
+          auto realFunc = newModule.getFunction(it->second);
+          assert(nullptr != realFunc);
+          call->setCalledFunction(realFunc);
+        }
+      }
+      return false;
+    });
+  }
+
   int objectsFixed = 0;
   for (auto &&obj : newModule.globals()) {
-    auto it = thunk2func.find(obj.getName());
-    if (thunk2func.end() != it) {
+    auto it = thunkVar2func.find(obj.getName());
+    if (thunkVar2func.end() != it) {
       if (obj.hasInitializer()) {
         auto func = newModule.getFunction(it->second);
         assert(nullptr != func);
@@ -174,7 +210,7 @@ void fixRtModule(llvm::Module &newModule,
       ++objectsFixed;
     }
   }
-  assert((thunk2func.size() + externalFuncs.size()) == objectsFixed);
+  assert((thunkVar2func.size() + externalFuncs.size()) == objectsFixed);
 }
 
 llvm::Function *createGlobalVarLoadFun(llvm::Module &module,
@@ -224,32 +260,24 @@ void replaceDynamicThreadLocals(llvm::Module &oldModule,
   };
 
   for (auto &&fun : newModule.functions()) {
-    for (auto &&bb : fun) {
-      // We can change bb contents in this loop
-      // so we reiterate it from start after each change
-      bool bbChanged = true;
-      while (bbChanged) {
-        bbChanged = false;
-        for (auto &&instr : bb) {
-          for (unsigned int i = 0; i < instr.getNumOperands(); ++i) {
-            auto op = instr.getOperand(i);
-            if (auto globalVar = llvm::dyn_cast<llvm::GlobalVariable>(op)) {
-              if (globalVar->isThreadLocal()) {
-                auto accessor = getAccessor(globalVar);
-                assert(nullptr != accessor);
-                auto callResult = llvm::CallInst::Create(accessor);
-                callResult->insertBefore(&instr);
-                instr.setOperand(i, callResult);
-                bbChanged = true;
-              }
-            }
+    iterateFuncInstructions(fun, [&](llvm::Instruction &instr)->bool {
+      bool changed = false;
+      for (unsigned int i = 0; i < instr.getNumOperands(); ++i) {
+        auto op = instr.getOperand(i);
+        if (auto globalVar = llvm::dyn_cast<llvm::GlobalVariable>(op)) {
+          if (globalVar->isThreadLocal()) {
+            auto accessor = getAccessor(globalVar);
+            assert(nullptr != accessor);
+            auto callResult = llvm::CallInst::Create(accessor);
+            callResult->insertBefore(&instr);
+            instr.setOperand(i, callResult);
+            changed = true;
           }
-          if (bbChanged)
-            break;
-        } // for (auto &&instr : bb)
-      }   // while (bbChanged)
-    }     // for (auto &&bb : fun)
-  }       // for (auto &&fun : newModule.functions())
+        }
+      }
+      return changed;
+    });
+  } // for (auto &&fun : newModule.functions())
 
   for (auto &&it : threadLocalAccessors) {
     it.first->eraseFromParent();
