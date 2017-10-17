@@ -808,7 +808,7 @@ function(build_test_runners name_suffix path_suffix d_flags c_flags linkflags is
     if(PHOBOS2_DIR)
         set(phobos_name phobos2-test-runner${target_suffix})
         add_executable(${phobos_name} EXCLUDE_FROM_ALL ${PROJECT_BINARY_DIR}/dummy.c)
-        if(${BUILD_SHARED_LIBS} STREQUAL "OFF")
+        if(NOT (SHARED_LIB_SUFFIX AND name_suffix MATCHES SHARED_LIB_SUFFIX))
             target_link_libraries(${phobos_name} druntime-ldc${target_suffix})
         endif()
         set(full_linkflags "${test_runner_o} ${linkflags}")
