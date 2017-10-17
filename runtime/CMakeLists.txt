@@ -524,7 +524,7 @@ macro(build_runtime_libs druntime_o druntime_bc phobos2_o phobos2_bc c_flags ld_
         if("${is_shared}" STREQUAL "ON")
             # Make sure to link shared unittest-Phobos against shared NON-unittest-druntime
             # in order to exclude the druntime tests for the Phobos test runner.
-            string(REPLACE "-unittest" "" target_suffix_without_unittest ${target_suffix})
+            string(REPLACE "-unittest" "" target_suffix_without_unittest "${target_suffix}")
             target_link_libraries(phobos2-ldc${target_suffix}
                 druntime-ldc${target_suffix_without_unittest} ${C_SYSTEM_LIBS})
         endif()
