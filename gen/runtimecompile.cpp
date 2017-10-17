@@ -208,6 +208,11 @@ void fixRtModule(llvm::Module &newModule,
       obj.setLinkage(llvm::GlobalValue::ExternalLinkage);
       obj.setVisibility(llvm::GlobalValue::DefaultVisibility);
       ++objectsFixed;
+    } else {
+      if (llvm::GlobalValue::ExternalLinkage == obj.getLinkage() &&
+          !obj.isDeclaration()) {
+        obj.setLinkage(llvm::GlobalValue::InternalLinkage);
+      };
     }
   }
   assert((thunkVar2func.size() + externalFuncs.size()) == objectsFixed);
