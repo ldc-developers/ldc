@@ -2528,7 +2528,7 @@ struct AsmProcessor {
     case FPInt_Types:
       switch (ptrtype) {
       case Short_Ptr:
-        type_suffix = "";
+        type_suffix = 's';
         break;
       case Int_Ptr:
         type_suffix = 'l';
