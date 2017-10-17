@@ -256,22 +256,6 @@ void replaceDynamicThreadLocals(llvm::Module &oldModule,
   }
 }
 
-// void hideExternalSymbols(llvm::Module &newModule, const GlobalValsMap
-// &filter) {
-//  std::set<std::string> externalSymbols;
-//  for (auto&& val: filter) {
-//    if(GlobalValVisibility::External == val.second) {
-//      externalSymbols.emplace(val.first->getName());
-//    }
-//  }
-//  for (auto& obj: newModule.global_objects()) {
-//    if ((llvm::GlobalValue::ExternalLinkage == obj.getLinkage()) &&
-//        (!contains(externalSymbols, obj.getName()))) {
-//      obj.setLinkage(llvm::GlobalValue::InternalLinkage);
-//    }
-//  }
-//}
-
 llvm::Constant *getArrayPtr(llvm::Constant *array) {
   assert(nullptr != array);
   llvm::ConstantInt *zero = llvm::ConstantInt::get(
@@ -681,7 +665,6 @@ void generateBitcodeForRuntimeCompile(IRState *irs) {
     replaceDynamicThreadLocals(irs->module, *newModule, filter);
   }
   fixRtModule(*newModule, irs->runtimeCompiledFunctions);
-  // hideExternalSymbols(*newModule, filter);
 
   setupModuleBitcodeData(*newModule, irs, filter);
 }
