@@ -140,7 +140,7 @@ GlobalValsMap createGlobalValsFilter(IRState *irs) {
   return ret;
 }
 
-template<typename F>
+template <typename F>
 void iterateFuncInstructions(llvm::Function &func, F &&handler) {
   for (auto &&bb : func) {
     // We can change bb contents in this loop
@@ -175,7 +175,7 @@ void fixRtModule(llvm::Module &newModule,
 
   // Replace call to thunks in jitted code with direct calls to functions
   for (auto &&fun : newModule.functions()) {
-    iterateFuncInstructions(fun, [&](llvm::Instruction &instr)->bool {
+    iterateFuncInstructions(fun, [&](llvm::Instruction &instr) -> bool {
       if (auto call = llvm::dyn_cast<llvm::CallInst>(&instr)) {
         auto callee = call->getCalledValue();
         assert(nullptr != callee);
@@ -260,7 +260,7 @@ void replaceDynamicThreadLocals(llvm::Module &oldModule,
   };
 
   for (auto &&fun : newModule.functions()) {
-    iterateFuncInstructions(fun, [&](llvm::Instruction &instr)->bool {
+    iterateFuncInstructions(fun, [&](llvm::Instruction &instr) -> bool {
       bool changed = false;
       for (unsigned int i = 0; i < instr.getNumOperands(); ++i) {
         auto op = instr.getOperand(i);
