@@ -14,6 +14,7 @@
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/mangling.h"
 #include "gen/objcgen.h"
 #include "gen/rttibuilder.h"
 #include "ir/irfunction.h"
@@ -56,11 +57,11 @@ llvm::Function *buildForwarderFunction(
   const auto fnTy =
       LLFunctionType::get(LLType::getVoidTy(gIR->context()), {}, false);
 
-  std::string const symbolName = gABI->mangleFunctionForLLVM(name, LINKd);
-  assert(gIR->module.getFunction(symbolName) == NULL);
+  const auto irMangle = getIRMangledFuncName(name, LINKd);
+  assert(gIR->module.getFunction(irMangle) == NULL);
   llvm::Function *fn = llvm::Function::Create(
-      fnTy, llvm::GlobalValue::InternalLinkage, symbolName, &gIR->module);
-  fn->setCallingConv(gABI->callingConv(fn->getFunctionType(), LINKd));
+      fnTy, llvm::GlobalValue::InternalLinkage, irMangle, &gIR->module);
+  fn->setCallingConv(gABI->callingConv(LINKd));
 
   // Emit the body, consisting of...
   const auto bb = llvm::BasicBlock::Create(gIR->context(), "", fn);
@@ -76,8 +77,7 @@ llvm::Function *buildForwarderFunction(
   for (auto func : funcs) {
     const auto f = DtoCallee(func);
     const auto call = builder.CreateCall(f, {});
-    const auto ft = call->getFunctionType();
-    call->setCallingConv(gABI->callingConv(ft, LINKd));
+    call->setCallingConv(gABI->callingConv(LINKd));
   }
 
   // ... incrementing the gate variables.

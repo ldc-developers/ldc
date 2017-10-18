@@ -24,6 +24,7 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/mangling.h"
 #include "gen/nested.h"
 #include "gen/optimizer.h"
 #include "gen/pragma.h"
@@ -1687,8 +1688,8 @@ public:
 
       Logger::println("calling class invariant");
 
-      const auto fnMangle = gABI->mangleFunctionForLLVM(
-          "_D9invariant12_d_invariantFC6ObjectZv", LINKd);
+      const auto fnMangle =
+          getIRMangledFuncName("_D9invariant12_d_invariantFC6ObjectZv", LINKd);
       const auto fn = getRuntimeFunction(e->loc, gIR->module, fnMangle.c_str());
 
       const auto arg =
@@ -2446,7 +2447,7 @@ public:
           getRuntimeFunction(e->loc, gIR->module, "_d_assocarrayliteralTX");
       LLFunctionType *funcTy = func->getFunctionType();
       LLValue *aaTypeInfo =
-          DtoBitCast(DtoTypeInfoOf(stripModifiers(aatype)),
+          DtoBitCast(DtoTypeInfoOf(stripModifiers(aatype), /*base=*/false),
                      DtoType(Type::typeinfoassociativearray->type));
 
       LLConstant *idxs[2] = {DtoConstUint(0), DtoConstUint(0)};

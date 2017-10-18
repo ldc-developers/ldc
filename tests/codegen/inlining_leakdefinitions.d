@@ -14,7 +14,7 @@ extern (C): // simplify mangling for easier matching
 // inlining" do not have initializers, i.e. they are declared only and not definined.
 
 // OPT3-DAG: @module_variable = external thread_local{{.*}} global i32, align
-// OPT3-DAG: @{{.*}}write_function_static_variableUiZ15static_func_vari = external thread_local{{.*}} global i32, align
+// OPT3-DAG: @{{.*}}write_function_static_variableUiZ15static_func_vari{{\"?}} = external thread_local{{.*}} global i32, align
 
 // OPT0-LABEL: define{{.*}} @call_class_function(
 // OPT3-LABEL: define{{.*}} @call_class_function(

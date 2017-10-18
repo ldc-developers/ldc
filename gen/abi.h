@@ -82,7 +82,7 @@ struct TargetABI {
 
   /// Returns the LLVM calling convention to be used for the given D linkage
   /// type on the target. Defaults to the C calling convention.
-  virtual llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l,
+  virtual llvm::CallingConv::ID callingConv(LINK l, TypeFunction *tf = nullptr,
                                             FuncDeclaration *fdecl = nullptr) {
     return llvm::CallingConv::C;
   }

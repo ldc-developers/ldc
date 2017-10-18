@@ -42,6 +42,7 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/mangling.h"
 #include "gen/metadata.h"
 #include "gen/rttibuilder.h"
 #include "gen/runtime.h"
@@ -481,7 +482,7 @@ public:
     LLType *tiTy = DtoType(Type::dtypeinfo->type);
 
     for (auto arg : *tu->arguments) {
-      arrInits.push_back(DtoTypeInfoOf(arg->type, true));
+      arrInits.push_back(DtoTypeInfoOf(arg->type));
     }
 
     // build array
@@ -592,10 +593,11 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
     Logger::println("typeinfo mangle: %s", mangled);
   }
 
+  const auto irMangle = getIRMangledVarName(mangled, LINKd);
   IrGlobal *irg = getIrGlobal(decl, true);
   const LinkageWithCOMDAT lwc(LLGlobalValue::ExternalLinkage, false);
 
-  irg->value = gIR->module.getGlobalVariable(mangled);
+  irg->value = gIR->module.getGlobalVariable(irMangle);
   if (irg->value) {
     assert(irg->getType()->isStructTy());
   } else {
@@ -610,19 +612,19 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
     // as immutable on the D side, and e.g. synchronized() can be used on the
     // implicit monitor.
     auto g = new LLGlobalVariable(gIR->module, type, false, lwc.first,
-                                  nullptr, mangled);
+                                  nullptr, irMangle);
     setLinkage(lwc, g);
     irg->value = g;
   }
 
   emitTypeMetadata(decl);
 
-  // this is a declaration of a builtin __initZ var
-  if (builtinTypeInfo(decl->tinfo)) {
+  // check if the definition can be elided
+  if (isSpeculativeType(decl->tinfo) || builtinTypeInfo(decl->tinfo)) {
     return;
   }
 
-  // define custom typedef
+  // define the TypeInfo global
   LLVMDefineVisitor v;
   decl->accept(&v);
 }

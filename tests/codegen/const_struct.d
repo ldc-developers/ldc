@@ -35,7 +35,7 @@ void main () {
     immutable S2[] aE = [ { [ { { 42 } }, { { 43 } }, { { 44 } } ] } ];
     // Complex type with non-constant initializer
     // CHECK: %.gc_mem = call { i{{32|64}}, i8* } @_d_newarrayU
-    // CHECK-SAME: @_D29TypeInfo_yAS12const_struct2C06__initZ
+    // CHECK-SAME: @{{.*}}_D29TypeInfo_yAS12const_struct2C06__initZ
     immutable C0[] aF = [ { new int(42) }, { new int(24) } ];
 
     // Pointer types
@@ -46,7 +46,7 @@ void main () {
     immutable int localVar;
     immutable auto locA = [ &localVar, &localVar ];
     // CHECK: %.gc_mem{{.*}} = call { i{{32|64}}, i8* } @_d_newarrayU
-    // CHECK-SAME: @_D13TypeInfo_yAPi6__initZ
+    // CHECK-SAME: @{{.*}}_D13TypeInfo_yAPi6__initZ
 
     testNested();
 }

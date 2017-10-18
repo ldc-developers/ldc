@@ -825,8 +825,9 @@ DValue *DtoCallFunctionImpl(Loc &loc, Type *resulttype, DValue *fnval,
   LLFunctionType *const callableTy =
       DtoExtractFunctionType(callable->getType());
   assert(callableTy);
-  const auto callconv = gABI->callingConv(callableTy, tf->linkage,
-                                          dfnval ? dfnval->func : nullptr);
+
+  const auto callconv =
+      gABI->callingConv(tf->linkage, tf, dfnval ? dfnval->func : nullptr);
 
   //     IF_LOG Logger::cout() << "callable: " << *callable << '\n';
 

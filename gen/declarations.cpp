@@ -89,13 +89,16 @@ public:
       }
 
       // Emit TypeInfo.
-      DtoTypeInfoOf(decl->type);
+      DtoTypeInfoOf(decl->type, /*base=*/false);
 
-      // Define __InterfaceZ.
+      // Declare __InterfaceZ.
       IrAggr *ir = getIrAggr(decl);
       llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
-      interfaceZ->setInitializer(ir->getClassInfoInit());
-      setLinkage(decl, interfaceZ);
+      // Only define if not speculative.
+      if (!isSpeculativeType(decl->type)) {
+        interfaceZ->setInitializer(ir->getClassInfoInit());
+        setLinkage(decl, interfaceZ);
+      }
     }
   }
 
@@ -134,12 +137,11 @@ public:
       IrAggr *ir = getIrAggr(decl);
       auto &initZ = ir->getInitSymbol();
       auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
-      assert(initGlobal);
-      setLinkage(decl, initGlobal);
       initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
+      setLinkage(decl, initGlobal);
 
       // emit typeinfo
-      DtoTypeInfoOf(decl->type);
+      DtoTypeInfoOf(decl->type, /*base=*/false);
     }
 
     // Emit __xopEquals/__xopCmp/__xtoHash.
@@ -186,19 +188,18 @@ public:
 
       auto &initZ = ir->getInitSymbol();
       auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
-      assert(initGlobal);
-      setLinkage(lwc, initGlobal);
       initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
+      setLinkage(lwc, initGlobal);
 
       llvm::GlobalVariable *vtbl = ir->getVtblSymbol();
       vtbl->setInitializer(ir->getVtblInit());
       setLinkage(lwc, vtbl);
 
       llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
-      classZ->setInitializer(ir->getClassInfoInit());
-      setLinkage(lwc, classZ);
-
-      // No need to do TypeInfo here, it is <name>__classZ for classes in D2.
+      if (!isSpeculativeType(decl->type)) {
+        classZ->setInitializer(ir->getClassInfoInit());
+        setLinkage(lwc, classZ);
+      }
     }
   }
 
@@ -288,8 +289,8 @@ public:
 
         // Set the initializer, swapping out the variable if the types do not
         // match.
-        setLinkage(lwc, gvar);
         irGlobal->value = irs->setGlobalVarInitializer(gvar, initVal);
+        setLinkage(lwc, gvar);
 
         // Also set up the debug info.
         irs->DBuilder.EmitGlobalVariable(gvar, decl);
@@ -468,19 +469,15 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(TypeInfoDeclaration *decl) LLVM_OVERRIDE {
-    if (irs->dcomputetarget || isSpeculativeType(decl->tinfo)) {
-      return;
-    }
-    TypeInfoDeclaration_codegen(decl, irs);
+    if (!irs->dcomputetarget)
+      TypeInfoDeclaration_codegen(decl, irs);
   }
 
   //////////////////////////////////////////////////////////////////////////
 
   void visit(TypeInfoClassDeclaration *decl) LLVM_OVERRIDE {
-    if (irs->dcomputetarget || isSpeculativeType(decl->tinfo)) {
-      return;
-    }
-    TypeInfoClassDeclaration_codegen(decl, irs);
+    if (!irs->dcomputetarget)
+      TypeInfoClassDeclaration_codegen(decl, irs);
   }
 };
 

@@ -11,6 +11,7 @@
 #include "module.h"
 #include "gen/llvm.h"
 #include "gen/irstate.h"
+#include "gen/mangling.h"
 #include "gen/tollvm.h"
 #include "ir/irdsymbol.h"
 #include "ir/irfunction.h"
@@ -22,14 +23,11 @@ llvm::GlobalVariable *IrModule::moduleInfoSymbol() {
     return moduleInfoVar;
   }
 
-  OutBuffer mangledName;
-  mangledName.writestring("_D");
-  mangleToBuffer(M, &mangledName);
-  mangledName.writestring("12__ModuleInfoZ");
+  const auto irMangle = getIRMangledModuleInfoSymbolName(M);
 
   moduleInfoVar = new llvm::GlobalVariable(
       gIR->module, llvm::StructType::create(gIR->context()), false,
-      llvm::GlobalValue::ExternalLinkage, nullptr, mangledName.peekString());
+      llvm::GlobalValue::ExternalLinkage, nullptr, irMangle);
   return moduleInfoVar;
 }
 
