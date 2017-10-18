@@ -64,7 +64,7 @@ void RTTIBuilder::push_null(Type *T) { push(getNullValue(DtoType(T))); }
 
 void RTTIBuilder::push_null_vp() { push(getNullValue(getVoidPtrType())); }
 
-void RTTIBuilder::push_typeinfo(Type *t) { push(DtoTypeInfoOf(t, true)); }
+void RTTIBuilder::push_typeinfo(Type *t) { push(DtoTypeInfoOf(t)); }
 
 void RTTIBuilder::push_classinfo(ClassDeclaration *cd) {
   push(getIrAggr(cd)->getClassInfoSymbol());

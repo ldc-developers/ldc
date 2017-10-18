@@ -2447,7 +2447,7 @@ public:
           getRuntimeFunction(e->loc, gIR->module, "_d_assocarrayliteralTX");
       LLFunctionType *funcTy = func->getFunctionType();
       LLValue *aaTypeInfo =
-          DtoBitCast(DtoTypeInfoOf(stripModifiers(aatype)),
+          DtoBitCast(DtoTypeInfoOf(stripModifiers(aatype), /*base=*/false),
                      DtoType(Type::typeinfoassociativearray->type));
 
       LLConstant *idxs[2] = {DtoConstUint(0), DtoConstUint(0)};

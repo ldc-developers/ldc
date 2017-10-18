@@ -23,11 +23,12 @@
 #include "ir/irmodule.h"
 
 // returns the keytype typeinfo
-static LLValue *to_keyti(DValue *aa) {
+static LLConstant *to_keyti(DValue *aa, LLType *targetType) {
   // keyti param
   assert(aa->type->toBasetype()->ty == Taarray);
   TypeAArray *aatype = static_cast<TypeAArray *>(aa->type->toBasetype());
-  return DtoTypeInfoOf(aatype->index, false);
+  LLConstant *ti = DtoTypeInfoOf(aatype->index, /*base=*/false);
+  return DtoBitCast(ti, targetType);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -58,14 +59,14 @@ DLValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key,
   LLValue *ret;
   if (lvalue) {
     LLValue *rawAATI =
-        DtoTypeInfoOf(aa->type->unSharedOf()->mutableOf(), false);
+        DtoTypeInfoOf(aa->type->unSharedOf()->mutableOf(), /*base=*/false);
     LLValue *castedAATI = DtoBitCast(rawAATI, funcTy->getParamType(1));
     LLValue *valsize = DtoConstSize_t(getTypeAllocSize(DtoType(type)));
     ret = gIR->CreateCallOrInvoke(func, aaval, castedAATI, valsize, pkey,
                                   "aa.index")
               .getInstruction();
   } else {
-    LLValue *keyti = DtoBitCast(to_keyti(aa), funcTy->getParamType(1));
+    LLValue *keyti = to_keyti(aa, funcTy->getParamType(1));
     ret = gIR->CreateCallOrInvoke(func, aaval, keyti, pkey, "aa.index")
               .getInstruction();
   }
@@ -131,8 +132,7 @@ DValue *DtoAAIn(Loc &loc, Type *type, DValue *aa, DValue *key) {
   aaval = DtoBitCast(aaval, funcTy->getParamType(0));
 
   // keyti param
-  LLValue *keyti = to_keyti(aa);
-  keyti = DtoBitCast(keyti, funcTy->getParamType(1));
+  LLValue *keyti = to_keyti(aa, funcTy->getParamType(1));
 
   // pkey param
   LLValue *pkey = makeLValue(loc, key);
@@ -177,8 +177,7 @@ DValue *DtoAARemove(Loc &loc, DValue *aa, DValue *key) {
   aaval = DtoBitCast(aaval, funcTy->getParamType(0));
 
   // keyti param
-  LLValue *keyti = to_keyti(aa);
-  keyti = DtoBitCast(keyti, funcTy->getParamType(1));
+  LLValue *keyti = to_keyti(aa, funcTy->getParamType(1));
 
   // pkey param
   LLValue *pkey = makeLValue(loc, key);
