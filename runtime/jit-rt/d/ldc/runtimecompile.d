@@ -2,6 +2,14 @@ module ldc.runtimecompile;
 
 version(LDC_RuntimeCompilation):
 
+/// Dump handler stage
+enum DumpStage : int
+{
+  OriginalIR = 0,
+  OptimizedIR = 1,
+  FinalAsm = 2
+}
+
 /// Dynamic compiler settings
 struct CompilerSettings
 {
@@ -19,12 +27,12 @@ struct CompilerSettings
   /// purposes only
   void delegate(in char[], in char[]) progressHandler = null;
 
-  /// Optional dump handler, dynamic compiler will report final optimized module through it
-  /// This function can be called multiple times during compilation and user must concatenate all
+  /// Optional dump handler, dynamic compiler will report module contents through it
+  /// This function will be called multiple times during compilation and user must concatenate all
   /// reported parts manually
   /// Actual format of dump is not specified and must be used for debugging
   /// purposes only
-  void delegate(in char[]) dumpHandler = null;
+  void delegate(DumpStage, in char[]) dumpHandler = null;
 }
 
 /++
@@ -80,12 +88,12 @@ void progressHandlerWrapper(void* context, const char* desc, const char* obj)
   (*del)(fromStringz(desc), fromStringz(obj));
 }
 
-void dumpHandlerWrapper(void* context, const char* buff, size_t len)
+void dumpHandlerWrapper(void* context, DumpStage stage, const char* buff, size_t len)
 {
   alias DelType = typeof(CompilerSettings.dumpHandler);
   auto del = cast(DelType*)context;
   assert(buff !is null);
-  (*del)(buff[0..len]);
+  (*del)(stage, buff[0..len]);
 }
 
 
@@ -98,7 +106,7 @@ struct Context
   void* interruptPointHandlerData = null;
   void function(void*, const char*) fatalHandler = null;
   void* fatalHandlerData = null;
-  void function(void*, const char*, size_t) dumpHandler = null;
+  void function(void*, DumpStage, const char*, size_t) dumpHandler = null;
   void* dumpHandlerData = null;
 }
 extern void rtCompileProcessImpl(const ref Context context, size_t contextSize);

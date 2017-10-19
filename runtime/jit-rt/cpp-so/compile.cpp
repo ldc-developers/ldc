@@ -10,8 +10,7 @@
 #include "optimizer.h"
 #include "utils.h"
 
-#include "llvm/Support/ManagedStatic.h"
-
+#include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JITSymbol.h"
 #include "llvm/ExecutionEngine/Orc/CompileUtils.h"
@@ -19,6 +18,13 @@
 #include "llvm/ExecutionEngine/Orc/LambdaResolver.h"
 #include "llvm/ExecutionEngine/RuntimeDyld.h"
 #include "llvm/ExecutionEngine/SectionMemoryManager.h"
+#include "llvm/Support/DynamicLibrary.h"
+#include "llvm/Support/Host.h"
+#include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 #if LDC_LLVM_VER >= 500
 #include "llvm/ExecutionEngine/Orc/CompileUtils.h"
@@ -26,13 +32,6 @@
 #else
 #include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
 #endif
-
-#include "llvm/Bitcode/BitcodeReader.h"
-#include "llvm/Support/DynamicLibrary.h"
-#include "llvm/Support/Host.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetMachine.h"
 
 namespace {
 
@@ -223,6 +222,11 @@ public:
   }
 };
 
+MyJIT &getJit() {
+  static MyJIT jit;
+  return jit;
+}
+
 void setRtCompileVars(const Context &context, llvm::Module &module,
                       llvm::ArrayRef<RtCompileVarList> vals) {
   for (auto &&val : vals) {
@@ -248,6 +252,46 @@ void *resolveSymbol(llvm::JITSymbol &symbol) {
 #endif
 }
 
+void dumpModule(const Context &context, const llvm::Module &module,
+                DumpStage stage) {
+  if (nullptr != context.dumpHandler) {
+    auto callback = [&](const char *str, size_t len) {
+      context.dumpHandler(context.dumpHandlerData, stage, str, len);
+    };
+
+    CallbackOstream os(callback);
+    module.print(os, nullptr, false, true);
+  }
+}
+
+void dumpModuleAsm(const Context &context, const llvm::Module &module,
+                   llvm::TargetMachine &TM) {
+  if (nullptr != context.dumpHandler) {
+    auto callback = [&](const char *str, size_t len) {
+      context.dumpHandler(context.dumpHandlerData, DumpStage::FinalAsm, str,
+                          len);
+    };
+
+    // TODO: I am not sure if passes added by addPassesToEmitFile can modify
+    // module, so clone source module to be sure, also, it allow preserve
+    // constness
+    auto newModule = llvm::CloneModule(&module);
+
+    llvm::legacy::PassManager PM;
+
+    llvm::SmallVector<char, 0> asmBufferSV;
+    llvm::raw_svector_ostream asmStream(asmBufferSV);
+
+    if (TM.addPassesToEmitFile(PM, asmStream,
+                               llvm::TargetMachine::CGFT_AssemblyFile)) {
+      fatal(context, "Target does not support asm emission.");
+    }
+    PM.run(*newModule);
+
+    callback(asmBufferSV.data(), asmBufferSV.size());
+  }
+}
+
 struct JitFinaliser final {
   MyJIT &jit;
   bool finalized = false;
@@ -260,11 +304,6 @@ struct JitFinaliser final {
 
   void finalze() { finalized = true; }
 };
-
-MyJIT &getJit() {
-  static MyJIT jit;
-  return jit;
-}
 
 void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
                                     const Context &context) {
@@ -281,7 +320,9 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   while (nullptr != current) {
     interruptPoint(context, "load IR");
     auto buff = llvm::MemoryBuffer::getMemBuffer(
-        llvm::StringRef(current->irData, current->irDataSize), "", false);
+        llvm::StringRef(current->irData,
+                        static_cast<std::size_t>(current->irDataSize)),
+        "", false);
     interruptPoint(context, "parse IR");
     auto mod = llvm::parseBitcodeFile(*buff, myJit.getContext());
     if (!mod) {
@@ -290,33 +331,36 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
       llvm::Module &module = **mod;
       const auto name = module.getName();
       interruptPoint(context, "Verify module", name.data());
-      ::verifyModule(context, module);
+      verifyModule(context, module);
+
+      dumpModule(context, module, DumpStage::OriginalIR);
+
       module.setDataLayout(myJit.getTargetMachine().createDataLayout());
 
       interruptPoint(context, "setRtCompileVars", name.data());
       setRtCompileVars(context, module,
-                       toArray(current->varList, current->varListSize));
+                       toArray(current->varList,
+                               static_cast<std::size_t>(current->varListSize)));
 
       interruptPoint(context, "Optimize module", name.data());
       optimizeModule(context, myJit.getTargetMachine(), settings, module);
 
       interruptPoint(context, "Verify module", name.data());
-      ::verifyModule(context, module);
-      if (nullptr != context.dumpHandler) {
-        auto callback = [&](const char *str, size_t len) {
-          context.dumpHandler(context.dumpHandlerData, str, len);
-        };
+      verifyModule(context, module);
 
-        CallbackOstream os(callback);
-        module.print(os, nullptr, false, true);
-      }
+      dumpModule(context, module, DumpStage::OptimizedIR);
+      dumpModuleAsm(context, module, myJit.getTargetMachine());
+
       ms.push_back(std::move(*mod));
 
-      for (auto &&fun : toArray(current->funcList, current->funcListSize)) {
+      for (auto &&fun :
+           toArray(current->funcList,
+                   static_cast<std::size_t>(current->funcListSize))) {
         functions.push_back(std::make_pair(fun.name, fun.func));
       }
 
-      for (auto &&sym : toArray(current->symList, current->symListSize)) {
+      for (auto &&sym : toArray(current->symList, static_cast<std::size_t>(
+                                                      current->symListSize))) {
         symMap.insert(std::make_pair(decorate(sym.name), sym.sym));
       }
     }

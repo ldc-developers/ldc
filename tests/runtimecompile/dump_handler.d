@@ -11,13 +11,13 @@ import ldc.runtimecompile;
 
 void main(string[] args)
 {
-  bool dumpHandlerCalled = false;
+  bool dumpHandlerCalled[3] = false;
   bool progressHandlerCalled = false;
   CompilerSettings settings;
 
-  settings.dumpHandler = (in char[] str)
+  settings.dumpHandler = (DumpStage stage, in char[] str)
   {
-    dumpHandlerCalled = true;
+    dumpHandlerCalled[stage] = true;
   };
   settings.progressHandler = (in char[] desc, in char[] object)
   {
@@ -25,6 +25,8 @@ void main(string[] args)
   };
   compileDynamicCode(settings);
   assert(5 == foo());
-  assert(dumpHandlerCalled);
+  assert(dumpHandlerCalled[DumpStage.OriginalIR]);
+  assert(dumpHandlerCalled[DumpStage.OptimizedIR]);
+  assert(dumpHandlerCalled[DumpStage.FinalAsm]);
   assert(progressHandlerCalled);
 }
