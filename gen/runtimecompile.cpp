@@ -218,6 +218,36 @@ void fixRtModule(llvm::Module &newModule,
   assert((thunkVar2func.size() + externalFuncs.size()) == objectsFixed);
 }
 
+void removeFunctionsTargets(IRState *irs, llvm::Module &module) {
+  assert(nullptr != irs);
+
+  std::unordered_map<std::string, IrFunction *> funcMap;
+  for (auto &&fun : irs->targetCpuOrFeaturesOverriden) {
+    assert(nullptr != fun);
+    funcMap.insert({fun->getLLVMFunc()->getName(), fun});
+  }
+
+  for (auto &&fun : module.functions()) {
+    // Remove 'target-cpu' and 'target-features' attributes from all
+    // functions except when they are set explicitly by user.
+    // They will be set again by jitting lib to jit host values
+    auto it = funcMap.find(fun.getName());
+    if (funcMap.end() != it) {
+      auto irFunc = it->second;
+      if (!irFunc->targetCpuOverriden) {
+        fun.removeFnAttr("target-cpu");
+      }
+
+      if (!irFunc->targetFeaturesOverriden) {
+        fun.removeFnAttr("target-features");
+      }
+    } else {
+      fun.removeFnAttr("target-cpu");
+      fun.removeFnAttr("target-features");
+    }
+  }
+}
+
 llvm::Function *createGlobalVarLoadFun(llvm::Module &module,
                                        llvm::GlobalVariable *var,
                                        const llvm::Twine &funcName) {
@@ -694,6 +724,7 @@ void generateBitcodeForRuntimeCompile(IRState *irs) {
         return filter.end() != it &&
                it->second != GlobalValVisibility::Declaration;
       });
+  removeFunctionsTargets(irs, *newModule);
   if (opts::runtimeCompileTlsWorkaround) {
     replaceDynamicThreadLocals(irs->module, *newModule, filter);
   }

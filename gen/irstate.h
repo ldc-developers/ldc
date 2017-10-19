@@ -219,6 +219,9 @@ public:
   // setGlobalVarInitializer().
   void replaceGlobals();
 
+  // List of functions with cpu or features attributes overriden by user
+  std::vector<IrFunction *> targetCpuOrFeaturesOverriden;
+
   struct RtCompiledFuncDesc {
     llvm::GlobalVariable *thunkVar;
     llvm::Function *thunkFunc;

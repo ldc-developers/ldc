@@ -292,6 +292,22 @@ void dumpModuleAsm(const Context &context, const llvm::Module &module,
   }
 }
 
+void setFunctionsTarget(llvm::Module &module, llvm::TargetMachine &TM) {
+  // Set function target cpu to host if it wasn't set explicitly
+  for (auto &&func : module.functions()) {
+    if (!func.hasFnAttribute("target-cpu")) {
+      func.addFnAttr("target-cpu", TM.getTargetCPU());
+    }
+
+    if (!func.hasFnAttribute("target-features")) {
+      auto featStr = TM.getTargetFeatureString();
+      if (!featStr.empty()) {
+        func.addFnAttr("target-features", featStr);
+      }
+    }
+  }
+}
+
 struct JitFinaliser final {
   MyJIT &jit;
   bool finalized = false;
@@ -334,6 +350,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
       verifyModule(context, module);
 
       dumpModule(context, module, DumpStage::OriginalIR);
+      setFunctionsTarget(module, myJit.getTargetMachine());
 
       module.setDataLayout(myJit.getTargetMachine().createDataLayout());
 

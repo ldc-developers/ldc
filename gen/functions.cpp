@@ -571,6 +571,11 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     declareRuntimeCompiledFunction(gIR, irFunc);
   }
 
+  if (irFunc->targetCpuOverriden ||
+      irFunc->targetFeaturesOverriden) {
+    gIR->targetCpuOrFeaturesOverriden.push_back(irFunc);
+  }
+
   // main
   if (fdecl->isMain()) {
     // Detect multiple main functions, which is disallowed. DMD checks this
