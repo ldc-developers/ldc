@@ -866,8 +866,14 @@ function(build_test_runner_variants path_suffix d_flags c_flags)
     build_test_runner_variant("-debug" "${path_suffix}" "${D_FLAGS_DEBUG};${d_flags}" "${c_flags}")
 endfunction()
 
+set(TESTLIB_SUFFIX "${LIB_SUFFIX}")
+if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
+    # match `hostsuffix` used for building the normal libs
+    set(TESTLIB_SUFFIX "${LIB_SUFFIX}${HOST_BITNESS}")
+endif()
+
 # Now generate all test runner targets.
-build_test_runner_variants("${LIB_SUFFIX}" "" "")
+build_test_runner_variants("${TESTLIB_SUFFIX}" "" "")
 if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
     build_test_runner_variants("${MULTILIB_SUFFIX}" "-m32" "-m32")
 endif()
@@ -924,7 +930,7 @@ function(add_runtime_tests_variants path_suffix)
     endif()
 endfunction()
 
-add_runtime_tests_variants("${LIB_SUFFIX}")
+add_runtime_tests_variants("${TESTLIB_SUFFIX}")
 if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
     add_runtime_tests_variants("${MULTILIB_SUFFIX}")
 endif()
