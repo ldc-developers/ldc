@@ -30,7 +30,7 @@ struct SWithUnion
 
     union
     {
-        struct { ubyte ub = 6; ushort us = 33; ulong ul_dummy = void; ulong last = 123; }
+        struct { ubyte ub = 6; ushort us = 33; align(8) ulong ul_dummy = void; ulong last = 123; }
         struct { uint ui1; uint ui2 = 84; ulong ul = 666; }
     }
 }
