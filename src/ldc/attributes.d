@@ -242,26 +242,42 @@ private struct _weak
 /++
  + When applied to a function, marks this function for dynamic compilation.
  + All functions marked with this attribute must be explicitly compiled in
- + runtime via ldc.runtimecompile api before usage.
+ + runtime via ldc.dynamic_compile api before usage.
  +
+ + This attribute has no effect if dynamic compilation wasn't enabled with
+ + -enable-dynamic-compile
+ +
+ + Examples:
+ + ---
+ + import ldc.attributes;
+ +
+ + @dynamicCompile int foo() { return 42; }
+ + ---
+ +/
+immutable dynamicCompile = _dynamicCompile();
+private struct _dynamicCompile
+{
+}
+
+/++
  + When applied to global variable, this variable will be treated as constant
  + by any dynamically compiled functions and is subject to optimizations.
  + All dynamically compiled functions must be recompiled after any update to
  + such variable.
  +
  + This attribute has no effect if dynamic compilation wasn't enabled with
- + -enable-runtime-compile
+ + -enable-dynamic-compile
  +
  + Examples:
  + ---
  + import ldc.attributes;
  +
- + @runtimeCompile __gshared int value = 0;
+ + @dynamicCompileConst __gshared int value = 1;
  +
- + @runtimeCompile int foo() { return value * 42; }
+ + @dynamicCompile int foo() { return value * 42; }
  + ---
  +/
-immutable runtimeCompile = _runtimeCompile();
-private struct _runtimeCompile
+immutable dynamicCompileConst = _dynamicCompileConst();
+private struct _dynamicCompileConst
 {
 }
