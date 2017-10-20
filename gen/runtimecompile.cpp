@@ -165,8 +165,12 @@ void fixRtModule(llvm::Module &newModule,
   std::unordered_set<std::string> externalFuncs;
   for (auto &&it : funcs) {
     assert(nullptr != it.first);
-    assert(nullptr != it.second.thunkVar);
     assert(nullptr != it.second.thunkFunc);
+    if (nullptr == it.second.thunkVar) {
+      // thunkVar is not available
+      // e.g. runtimeCompile function from other module, ignore
+      continue;
+    }
     assert(!contains(thunkVar2func, it.second.thunkVar->getName()));
     thunkVar2func.insert({it.second.thunkVar->getName(), it.first->getName()});
     thunkFun2func.insert({it.second.thunkFunc->getName(), it.first->getName()});
@@ -497,8 +501,12 @@ generateFuncList(IRState *irs, const Types &types) {
   std::vector<llvm::Constant *> elements;
   for (auto &&it : irs->runtimeCompiledFunctions) {
     assert(nullptr != it.first);
-    assert(nullptr != it.second.thunkVar);
     assert(nullptr != it.second.thunkFunc);
+    if (nullptr == it.second.thunkVar) {
+      // thunkVar is not available
+      // e.g. runtimeCompile function from other module, ignore
+      continue;
+    }
     auto name = it.first->getName();
     llvm::Constant *fields[] = {
         createStringInitializer(irs->module, name),
