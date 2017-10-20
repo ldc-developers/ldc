@@ -667,7 +667,8 @@ void registerPredefinedFloatABI(const char *soft, const char *hard,
 /// Registers the predefined versions specific to the current target triple
 /// and other target specific options with VersionCondition.
 void registerPredefinedTargetVersions() {
-  const auto arch = global.params.targetTriple->getArch();
+  const auto &triple = *global.params.targetTriple;
+  const auto arch = triple.getArch();
 
   switch (arch) {
   case llvm::Triple::x86:
@@ -692,11 +693,9 @@ void registerPredefinedTargetVersions() {
   case llvm::Triple::ppc64le:
     VersionCondition::addPredefinedGlobalIdent("PPC64");
     registerPredefinedFloatABI("PPC_SoftFloat", "PPC_HardFloat");
-    if (global.params.targetTriple->getOS() == llvm::Triple::Linux) {
+    if (triple.getOS() == llvm::Triple::Linux) {
       VersionCondition::addPredefinedGlobalIdent(
-          global.params.targetTriple->getArch() == llvm::Triple::ppc64
-              ? "ELFv1"
-              : "ELFv2");
+          triple.getArch() == llvm::Triple::ppc64 ? "ELFv1" : "ELFv2");
     }
     break;
   case llvm::Triple::arm:
@@ -768,7 +767,7 @@ void registerPredefinedTargetVersions() {
     break;
   default:
     error(Loc(), "invalid cpu architecture specified: %s",
-          global.params.targetTriple->getArchName().str().c_str());
+          triple.getArchName().str().c_str());
     fatal();
   }
 
@@ -782,7 +781,7 @@ void registerPredefinedTargetVersions() {
   // Set versions for arch bitwidth
   if (global.params.isLP64) {
     VersionCondition::addPredefinedGlobalIdent("D_LP64");
-  } else if (global.params.targetTriple->isArch16Bit()) {
+  } else if (triple.isArch16Bit()) {
     VersionCondition::addPredefinedGlobalIdent("D_P16");
   }
 
@@ -802,20 +801,20 @@ void registerPredefinedTargetVersions() {
   // parse the OS out of the target triple
   // see http://gcc.gnu.org/install/specific.html for details
   // also llvm's different SubTargets have useful information
-  switch (global.params.targetTriple->getOS()) {
+  switch (triple.getOS()) {
   case llvm::Triple::Win32:
     VersionCondition::addPredefinedGlobalIdent("Windows");
     VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64"
                                                                      : "Win32");
-    if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+    if (triple.isWindowsMSVCEnvironment()) {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Microsoft");
     }
-    if (global.params.targetTriple->isWindowsGNUEnvironment()) {
+    if (triple.isWindowsGNUEnvironment()) {
       VersionCondition::addPredefinedGlobalIdent(
           "mingw32"); // For backwards compatibility.
       VersionCondition::addPredefinedGlobalIdent("MinGW");
     }
-    if (global.params.targetTriple->isWindowsCygwinEnvironment()) {
+    if (triple.isWindowsCygwinEnvironment()) {
       error(Loc(), "Cygwin is not yet supported");
       fatal();
       VersionCondition::addPredefinedGlobalIdent("Cygwin");
@@ -824,9 +823,13 @@ void registerPredefinedTargetVersions() {
   case llvm::Triple::Linux:
     VersionCondition::addPredefinedGlobalIdent("linux");
     VersionCondition::addPredefinedGlobalIdent("Posix");
-    if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
+    if (triple.getEnvironment() == llvm::Triple::Android) {
       VersionCondition::addPredefinedGlobalIdent("Android");
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Bionic");
+#if LDC_LLVM_VER >= 309
+    } else if (triple.isMusl()) {
+      VersionCondition::addPredefinedGlobalIdent("CRuntime_Musl");
+#endif
     } else {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Glibc");
     }
@@ -871,13 +874,12 @@ void registerPredefinedTargetVersions() {
       break;
     // fallthrough
   default:
-    switch (global.params.targetTriple->getEnvironment()) {
+    switch (triple.getEnvironment()) {
     case llvm::Triple::Android:
       VersionCondition::addPredefinedGlobalIdent("Android");
       break;
     default:
-      error(Loc(), "target '%s' is not yet supported",
-            global.params.targetTriple->str().c_str());
+      error(Loc(), "target '%s' is not yet supported", triple.str().c_str());
       fatal();
     }
   }
