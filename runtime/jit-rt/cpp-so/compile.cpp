@@ -18,6 +18,7 @@
 #include "llvm/ExecutionEngine/Orc/LambdaResolver.h"
 #include "llvm/ExecutionEngine/RuntimeDyld.h"
 #include "llvm/ExecutionEngine/SectionMemoryManager.h"
+#include "llvm/Linker/Linker.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/ManagedStatic.h"
@@ -123,7 +124,7 @@ private:
   using ObjectLayerT = llvm::orc::RTDyldObjectLinkingLayer;
   using CompileLayerT =
       llvm::orc::IRCompileLayer<ObjectLayerT, llvm::orc::SimpleCompiler>;
-  using ModuleHandleT = std::vector<CompileLayerT::ModuleHandleT>;
+  using ModuleHandleT = CompileLayerT::ModuleHandleT;
 #else
   using ObjectLayerT = llvm::orc::ObjectLinkingLayer<>;
   using CompileLayerT = llvm::orc::IRCompileLayer<ObjectLayerT>;
@@ -154,8 +155,8 @@ public:
 
   llvm::TargetMachine &getTargetMachine() { return *targetmachine; }
 
-  void addModules(std::vector<std::unique_ptr<llvm::Module>> &&modules,
-                  const SymMap &symMap) {
+  bool addModule(std::unique_ptr<llvm::Module> module, const SymMap &symMap) {
+    assert(nullptr != module);
     reset();
     // Build our symbol resolver:
     // Lambda 1: Look back into the JIT itself to find symbols that are part of
@@ -183,18 +184,20 @@ public:
 
     // Add the set to the JIT with the resolver we created above
 #if LDC_LLVM_VER >= 500
-    for (auto &&module : modules) {
-      auto handle = compileLayer.addModule(std::move(module), Resolver);
-      assert(handle);
-      moduleHandle.push_back(handle.get());
+    auto result = compileLayer.addModule(std::move(module), Resolver);
+    if (!result) {
+      return true;
     }
-    modules.clear();
+    moduleHandle = result.get();
 #else
+    std::vector<std::unique_ptr<llvm::Module>> modules;
+    modules.emplace_back(std::move(module));
     moduleHandle = compileLayer.addModuleSet(
         std::move(modules), llvm::make_unique<llvm::SectionMemoryManager>(),
         std::move(Resolver));
 #endif
     compiled = true;
+    return false;
   }
 
   llvm::JITSymbol findSymbol(const std::string &name) {
@@ -203,22 +206,21 @@ public:
 
   llvm::LLVMContext &getContext() { return context; }
 
-  void removeModule(const ModuleHandleT &H) {
-#if LDC_LLVM_VER >= 500
-    for (auto &&handle : H) {
-      cantFail(compileLayer.removeModule(handle));
-    }
-#else
-    compileLayer.removeModuleSet(H);
-#endif
-  }
-
   void reset() {
     if (compiled) {
       removeModule(moduleHandle);
       moduleHandle = {};
       compiled = false;
     }
+  }
+
+private:
+  void removeModule(const ModuleHandleT &handle) {
+#if LDC_LLVM_VER >= 500
+    cantFail(compileLayer.removeModule(handle));
+#else
+    compileLayer.removeModuleSet(handle);
+#endif
   }
 };
 
@@ -328,7 +330,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   auto current = modlist_head;
 
   std::vector<std::pair<std::string, void **>> functions;
-  std::vector<std::unique_ptr<llvm::Module>> ms;
+  std::unique_ptr<llvm::Module> finalModule;
   SymMap symMap;
   OptimizerSettings settings;
   settings.optLevel = context.optLevel;
@@ -349,7 +351,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
       interruptPoint(context, "Verify module", name.data());
       verifyModule(context, module);
 
-      dumpModule(context, module, DumpStage::OriginalIR);
+      dumpModule(context, module, DumpStage::OriginalModule);
       setFunctionsTarget(module, myJit.getTargetMachine());
 
       module.setDataLayout(myJit.getTargetMachine().createDataLayout());
@@ -359,16 +361,13 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
                        toArray(current->varList,
                                static_cast<std::size_t>(current->varListSize)));
 
-      interruptPoint(context, "Optimize module", name.data());
-      optimizeModule(context, myJit.getTargetMachine(), settings, module);
-
-      interruptPoint(context, "Verify module", name.data());
-      verifyModule(context, module);
-
-      dumpModule(context, module, DumpStage::OptimizedIR);
-      dumpModuleAsm(context, module, myJit.getTargetMachine());
-
-      ms.push_back(std::move(*mod));
+      if (nullptr == finalModule) {
+        finalModule = std::move(*mod);
+      } else {
+        if (llvm::Linker::linkModules(*finalModule, std::move(*mod))) {
+          fatal(context, "Can't merge module");
+        }
+      }
 
       for (auto &&fun :
            toArray(current->funcList,
@@ -384,8 +383,21 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
     current = current->next;
   }
 
-  interruptPoint(context, "Add modules");
-  myJit.addModules(std::move(ms), symMap);
+  assert(nullptr != finalModule);
+  dumpModule(context, *finalModule, DumpStage::MergedModule);
+  interruptPoint(context, "Optimize final module");
+  optimizeModule(context, myJit.getTargetMachine(), settings, *finalModule);
+
+  interruptPoint(context, "Verify final module");
+  verifyModule(context, *finalModule);
+
+  dumpModule(context, *finalModule, DumpStage::OptimizedModule);
+  dumpModuleAsm(context, *finalModule, myJit.getTargetMachine());
+
+  interruptPoint(context, "Codegen final module");
+  if (myJit.addModule(std::move(finalModule), symMap)) {
+    fatal(context, "Can't codegen module");
+  }
 
   JitFinaliser jitFinalizer(myJit);
   interruptPoint(context, "Resolve functions");

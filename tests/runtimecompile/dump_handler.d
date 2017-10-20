@@ -11,7 +11,7 @@ import ldc.runtimecompile;
 
 void main(string[] args)
 {
-  bool dumpHandlerCalled[3] = false;
+  bool dumpHandlerCalled[4] = false;
   bool progressHandlerCalled = false;
   CompilerSettings settings;
 
@@ -25,8 +25,9 @@ void main(string[] args)
   };
   compileDynamicCode(settings);
   assert(5 == foo());
-  assert(dumpHandlerCalled[DumpStage.OriginalIR]);
-  assert(dumpHandlerCalled[DumpStage.OptimizedIR]);
+  assert(dumpHandlerCalled[DumpStage.OriginalModule]);
+  assert(dumpHandlerCalled[DumpStage.MergedModule]);
+  assert(dumpHandlerCalled[DumpStage.OptimizedModule]);
   assert(dumpHandlerCalled[DumpStage.FinalAsm]);
   assert(progressHandlerCalled);
 }

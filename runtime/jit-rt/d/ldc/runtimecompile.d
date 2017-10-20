@@ -5,9 +5,10 @@ version(LDC_RuntimeCompilation):
 /// Dump handler stage
 enum DumpStage : int
 {
-  OriginalIR = 0,
-  OptimizedIR = 1,
-  FinalAsm = 2
+  OriginalModule = 0,
+  MergedModule = 1,
+  OptimizedModule = 2,
+  FinalAsm = 3
 }
 
 /// Dynamic compiler settings

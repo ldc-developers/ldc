@@ -4,7 +4,12 @@
 #include <cstddef> //size_t
 
 // must be synchronized with D source
-enum class DumpStage : int { OriginalIR = 0, OptimizedIR = 1, FinalAsm = 2 };
+enum class DumpStage : int {
+  OriginalModule = 0,
+  MergedModule = 1,
+  OptimizedModule = 2,
+  FinalAsm = 3
+};
 
 typedef void (*InterruptPointHandlerT)(void *, const char *action,
                                        const char *object);
