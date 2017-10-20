@@ -95,6 +95,9 @@ install:
   - eval "${DC} --version"
 
 script:
+  # Invoke CMake with MULTILIB=ON just to make sure the Makefiles can be generated.
+  - mkdir multilibCMakeTest && cd multilibCMakeTest && cmake -DMULTILIB=ON -DLLVM_CONFIG=$(which ../${LLVM_CONFIG}) $OPTS .. && cd ..
+  # Invoke CMake again for the actual build.
   - cmake -G Ninja -DLLVM_CONFIG=$(which ${LLVM_CONFIG}) -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON $OPTS .
   # Build LDC and stdlib unittest runners.
   - ninja -j3 all all-test-runners
