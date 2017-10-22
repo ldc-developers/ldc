@@ -11,7 +11,10 @@ if(LDC_RUNTIME_COMPILE)
         set(JITRT_EXTRA_FLAGS "/Zl")
 
     else()
-        set(JITRT_EXTRA_FLAGS "-fPIC -std=c++11")
+        set(JITRT_EXTRA_FLAGS "-fPIC -std=c++11 -fvisibility=hidden")
+        if(NOT APPLE)
+            set(JITRT_EXTRA_LDFLAGS "-Wl,--exclude-libs=ALL")
+        endif()
     endif()
 
     # Sets up the targets for building the D-source jit-rt object files,

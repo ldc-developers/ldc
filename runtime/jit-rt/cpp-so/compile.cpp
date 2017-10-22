@@ -429,6 +429,8 @@ extern "C" {
 
 #ifdef _WIN32
 __declspec(dllexport)
+#else
+__attribute__ ((visibility ("default")))
 #endif
     void rtCompileProcessImplSo(const void *modlist_head,
                                 const Context *context, size_t contextSize) {
