@@ -38,6 +38,17 @@ struct Target
     static int classinfosize;        // size of 'ClassInfo'
     static unsigned long long maxStaticDataSize;  // maximum size of static data
 
+#if IN_LLVM
+    struct FPTypeProperties
+    {
+        real_t max, min_normal, nan, snan, infinity, epsilon;
+        d_int64 dig, mant_dig, max_exp, min_exp, max_10_exp, min_10_exp;
+    };
+
+    static FPTypeProperties FloatProperties;
+    static FPTypeProperties DoubleProperties;
+    static FPTypeProperties RealProperties;
+#else
     template <typename T>
     struct FPTypeProperties
     {
@@ -58,9 +69,6 @@ struct Target
 
     typedef FPTypeProperties<float> FloatProperties;
     typedef FPTypeProperties<double> DoubleProperties;
-#if IN_LLVM
-    static FPTypeProperties<real_t> RealProperties;
-#else
     typedef FPTypeProperties<real_t> RealProperties;
 #endif
 
@@ -82,23 +90,5 @@ struct Target
     static const char *cppTypeMangle(Type *t);
     static LINK systemLinkage();
 };
-
-#if IN_LLVM
-// Provide explicit template instantiation definitions for FPTypeProperties<T>
-// static members. See:
-// https://stackoverflow.com/questions/43439862/c-template-instantiation-of-variable-required-here-but-no-definition-is-ava
-template <typename T> real_t Target::FPTypeProperties<T>::max;
-template <typename T> real_t Target::FPTypeProperties<T>::min_normal;
-template <typename T> real_t Target::FPTypeProperties<T>::nan;
-template <typename T> real_t Target::FPTypeProperties<T>::snan;
-template <typename T> real_t Target::FPTypeProperties<T>::infinity;
-template <typename T> real_t Target::FPTypeProperties<T>::epsilon;
-template <typename T> d_int64 Target::FPTypeProperties<T>::dig;
-template <typename T> d_int64 Target::FPTypeProperties<T>::mant_dig;
-template <typename T> d_int64 Target::FPTypeProperties<T>::max_exp;
-template <typename T> d_int64 Target::FPTypeProperties<T>::min_exp;
-template <typename T> d_int64 Target::FPTypeProperties<T>::max_10_exp;
-template <typename T> d_int64 Target::FPTypeProperties<T>::min_10_exp;
-#endif
 
 #endif
