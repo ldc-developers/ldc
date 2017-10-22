@@ -219,7 +219,8 @@ void fixRtModule(llvm::Module &newModule,
       };
     }
   }
-  assert((thunkVar2func.size() + externalFuncs.size()) == objectsFixed);
+  assert((thunkVar2func.size() + externalFuncs.size()) ==
+         static_cast<std::size_t>(objectsFixed));
 }
 
 void removeFunctionsTargets(IRState *irs, llvm::Module &module) {
