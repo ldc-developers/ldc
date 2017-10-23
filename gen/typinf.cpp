@@ -482,7 +482,7 @@ public:
     LLType *tiTy = DtoType(Type::dtypeinfo->type);
 
     for (auto arg : *tu->arguments) {
-      arrInits.push_back(DtoTypeInfoOf(arg->type, true));
+      arrInits.push_back(DtoTypeInfoOf(arg->type));
     }
 
     // build array
@@ -619,12 +619,12 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
 
   emitTypeMetadata(decl);
 
-  // this is a declaration of a builtin __initZ var
-  if (builtinTypeInfo(decl->tinfo)) {
+  // check if the definition can be elided
+  if (isSpeculativeType(decl->tinfo) || builtinTypeInfo(decl->tinfo)) {
     return;
   }
 
-  // define custom typedef
+  // define the TypeInfo global
   LLVMDefineVisitor v;
   decl->accept(&v);
 }

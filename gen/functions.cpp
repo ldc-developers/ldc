@@ -939,6 +939,10 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     return;
   }
 
+  if (!fd->fbody) {
+    return;
+  }
+
   llvm::Function *const func = irFunc->getLLVMFunc();
 
   if (!func->empty()) {
@@ -946,10 +950,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
             "skipping definition of function `%s` due to previous definition "
             "for the same mangled name: %s",
             fd->toPrettyChars(), mangleExact(fd));
-    return;
-  }
-
-  if (!fd->fbody) {
     return;
   }
 

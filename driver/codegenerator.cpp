@@ -26,10 +26,10 @@
 #include "llvm/Support/YAMLTraits.h"
 
 /// The module with the frontend-generated C main() definition.
-extern Module *g_entrypointModule;
+extern Module *entrypoint; // defined in ddmd/mars.d
 
 /// The module that contains the actual D main() (_Dmain) definition.
-extern Module *g_dMainModule;
+extern Module *rootHasMain; // defined in ddmd/mars.d
 
 #if LDC_LLVM_VER < 600
 namespace llvm {
@@ -316,8 +316,8 @@ void CodeGenerator::emit(Module *m) {
   prepareLLModule(m);
 
   codegenModule(ir_, m);
-  if (m == g_dMainModule) {
-    codegenModule(ir_, g_entrypointModule);
+  if (m == rootHasMain) {
+    codegenModule(ir_, entrypoint);
 
     if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
       // On Android, bracket TLS data with the symbols _tlsstart and _tlsend, as

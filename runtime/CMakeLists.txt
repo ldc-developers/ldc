@@ -523,8 +523,11 @@ macro(build_runtime_libs druntime_o druntime_bc phobos2_o phobos2_bc c_flags ld_
         set_common_library_properties(phobos2-ldc${target_suffix} "${is_shared}")
 
         if("${is_shared}" STREQUAL "ON")
+            # Make sure to link shared unittest-Phobos against shared NON-unittest-druntime
+            # in order to exclude the druntime tests for the Phobos test runner.
+            string(REPLACE "-unittest" "" target_suffix_without_unittest "${target_suffix}")
             target_link_libraries(phobos2-ldc${target_suffix}
-                druntime-ldc${target_suffix} ${C_SYSTEM_LIBS})
+                druntime-ldc${target_suffix_without_unittest} ${C_SYSTEM_LIBS})
         endif()
 
         list(APPEND ${outlist_targets} "phobos2-ldc${target_suffix}")
@@ -825,7 +828,7 @@ function(build_test_runners name_suffix path_suffix d_flags c_flags linkflags is
     if(PHOBOS2_DIR)
         set(phobos_name phobos2-test-runner${target_suffix})
         add_executable(${phobos_name} EXCLUDE_FROM_ALL ${PROJECT_BINARY_DIR}/dummy.c)
-        target_link_libraries(${phobos_name} druntime-ldc-unittest${target_suffix})
+        target_link_libraries(${phobos_name} druntime-ldc${target_suffix})
         set(full_linkflags "${test_runner_o} ${linkflags}")
         append_testrunner_linkflags("phobos2-ldc-unittest${name_suffix}" "${path_suffix}" "${is_shared}" full_linkflags)
         add_dependencies(${phobos_name} test_runner${target_suffix} phobos2-ldc-unittest${target_suffix})
@@ -880,8 +883,14 @@ function(build_test_runner_variants path_suffix d_flags c_flags)
     build_test_runner_variant("-debug" "${path_suffix}" "${D_FLAGS_DEBUG};${d_flags}" "${c_flags}")
 endfunction()
 
+set(TESTLIB_SUFFIX "${LIB_SUFFIX}")
+if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
+    # match `hostsuffix` used for building the normal libs
+    set(TESTLIB_SUFFIX "${LIB_SUFFIX}${HOST_BITNESS}")
+endif()
+
 # Now generate all test runner targets.
-build_test_runner_variants("${LIB_SUFFIX}" "" "")
+build_test_runner_variants("${TESTLIB_SUFFIX}" "" "")
 if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
     build_test_runner_variants("${MULTILIB_SUFFIX}" "-m32" "-m32")
 endif()
@@ -938,7 +947,7 @@ function(add_runtime_tests_variants path_suffix)
     endif()
 endfunction()
 
-add_runtime_tests_variants("${LIB_SUFFIX}")
+add_runtime_tests_variants("${TESTLIB_SUFFIX}")
 if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
     add_runtime_tests_variants("${MULTILIB_SUFFIX}")
 endif()
