@@ -925,14 +925,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     }
   }
 
-  IrFunction *const irFunc = getIrFunc(fd);
-
-  SCOPE_EXIT {
-    if (irFunc->runtimeCompile) {
-      defineRuntimeCompiledFunction(gIR, irFunc);
-    }
-  };
-
   // if this function is naked, we take over right away! no standard processing!
   if (fd->naked) {
     DtoDefineNakedFunction(fd);
@@ -943,6 +935,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     return;
   }
 
+  IrFunction *const irFunc = getIrFunc(fd);
   llvm::Function *const func = irFunc->getLLVMFunc();
 
   if (!func->empty()) {
@@ -952,6 +945,12 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
             fd->toPrettyChars(), mangleExact(fd));
     return;
   }
+
+  SCOPE_EXIT {
+    if (irFunc->runtimeCompile) {
+      defineRuntimeCompiledFunction(gIR, irFunc);
+    }
+  };
 
   // debug info
   irFunc->diSubprogram = gIR->DBuilder.EmitSubProgram(fd);
