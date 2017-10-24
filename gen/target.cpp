@@ -43,6 +43,10 @@ void Target::_init() {
   classinfosize = 0; // unused
   maxStaticDataSize = std::numeric_limits<unsigned long long>::max();
 
+  // {Float,Double,Real}Properties have been initialized with the D host
+  // compiler's properties.
+  // Now finalize RealProperties for the target's `real` type.
+
   const auto targetRealSemantics = &real->getFltSemantics();
 #if LDC_LLVM_VER >= 400
   const auto IEEEdouble = &APFloat::IEEEdouble();
@@ -94,7 +98,8 @@ void Target::_init() {
     RealProperties.min_10_exp = -4931;
   } else {
     // leave initialized with host real_t values
-    warning(Loc(), "unknown properties for target `real` type");
+    warning(Loc(), "unknown properties for target `real` type, relying on D "
+                   "host compiler");
   }
 }
 
