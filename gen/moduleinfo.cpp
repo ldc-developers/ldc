@@ -235,9 +235,11 @@ llvm::GlobalVariable *genModuleInfo(Module *m) {
 #if 0
   if (fgetmembers)
     flags |= MIxgetMembers;
+#endif
+
+  const auto fictor = getIrModule(m)->coverageCtor;
   if (fictor)
     flags |= MIictor;
-#endif
 
   const auto funittest = buildModuleUnittest(m);
   if (funittest) {
@@ -281,9 +283,10 @@ llvm::GlobalVariable *genModuleInfo(Module *m) {
 #if 0
     if (fgetmembers)
         b.push(fgetmembers);
-    if (fictor)
-        b.push(fictor);
 #endif
+  if (fictor) {
+    b.push(fictor);
+  }
   if (funittest) {
     b.push(funittest);
   }

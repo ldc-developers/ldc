@@ -572,17 +572,11 @@ void addCoverageAnalysis(Module *m) {
     builder.CreateRetVoid();
   }
 
-  // Add the ctor to the module's static ctors list. TODO: This is quite the
-  // hack.
+  // Add the ctor to the module's order-independent ctors list.
   {
-    IF_LOG Logger::println("Add %s to module's shared static constructor list",
+    IF_LOG Logger::println("Set %s as module's static constructor for coverage",
                            ctorname);
-    FuncDeclaration *fd =
-        FuncDeclaration::genCfunc(nullptr, Type::tvoid, ctorname);
-    fd->linkage = LINKd;
-    IrFunction *irfunc = getIrFunc(fd, true);
-    irfunc->setLLVMFunc(ctor);
-    getIrModule(m)->sharedCtors.push_back(fd);
+    getIrModule(m)->coverageCtor = ctor;
   }
 
   IF_LOG Logger::undent();

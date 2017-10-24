@@ -21,6 +21,7 @@ class VarDeclaration;
 class Module;
 namespace llvm {
 class GlobalVariable;
+class Function;
 }
 
 struct IrModule {
@@ -41,6 +42,7 @@ struct IrModule {
   GatesList gates;
   GatesList sharedGates;
   FuncDeclList unitTests;
+  llvm::Function *coverageCtor = nullptr;
 
 private:
   llvm::GlobalVariable *moduleInfoVar = nullptr;
