@@ -98,7 +98,7 @@ void Target::_init() {
     RealProperties.min_10_exp = -4931;
   } else {
     // leave initialized with host real_t values
-    warning(Loc(), "unknown properties for target `real` type, reyling on D "
+    warning(Loc(), "unknown properties for target `real` type, relying on D "
                    "host compiler");
   }
 }
