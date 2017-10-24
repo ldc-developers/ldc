@@ -38,6 +38,17 @@ struct Target
     static int classinfosize;        // size of 'ClassInfo'
     static unsigned long long maxStaticDataSize;  // maximum size of static data
 
+#if IN_LLVM
+    struct FPTypeProperties
+    {
+        real_t max, min_normal, nan, snan, infinity, epsilon;
+        d_int64 dig, mant_dig, max_exp, min_exp, max_10_exp, min_10_exp;
+    };
+
+    static FPTypeProperties FloatProperties;
+    static FPTypeProperties DoubleProperties;
+    static FPTypeProperties RealProperties;
+#else
     template <typename T>
     struct FPTypeProperties
     {
@@ -58,9 +69,6 @@ struct Target
 
     typedef FPTypeProperties<float> FloatProperties;
     typedef FPTypeProperties<double> DoubleProperties;
-#if IN_LLVM
-    static FPTypeProperties<real_t> RealProperties;
-#else
     typedef FPTypeProperties<real_t> RealProperties;
 #endif
 

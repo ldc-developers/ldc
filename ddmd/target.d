@@ -42,40 +42,42 @@ struct Target
     extern (C++) static __gshared int classinfosize;        // size of 'ClassInfo'
     extern (C++) static __gshared ulong maxStaticDataSize;  // maximum size of static data
 
-    extern (C++) struct FPTypeProperties(T)
-    {
-        static __gshared
-        {
-            real_t max = T.max;
-            real_t min_normal = T.min_normal;
-            real_t nan = T.nan;
-            real_t snan = T.init;
-            real_t infinity = T.infinity;
-            real_t epsilon = T.epsilon;
+  version(IN_LLVM)
+  {
+    extern (C++):
 
-            d_int64 dig = T.dig;
-            d_int64 mant_dig = T.mant_dig;
-            d_int64 max_exp = T.max_exp;
-            d_int64 min_exp = T.min_exp;
-            d_int64 max_10_exp = T.max_10_exp;
-            d_int64 min_10_exp = T.min_10_exp;
+    struct FPTypeProperties
+    {
+        real_t max, min_normal, nan, snan, infinity, epsilon;
+        d_int64 dig, mant_dig, max_exp, min_exp, max_10_exp, min_10_exp;
+
+        static FPTypeProperties fromDHostCompiler(T)()
+        {
+            FPTypeProperties p;
+
+            p.max = T.max;
+            p.min_normal = T.min_normal;
+            p.nan = T.nan;
+            p.snan = T.init;
+            p.infinity = T.infinity;
+            p.epsilon = T.epsilon;
+
+            p.dig = T.dig;
+            p.mant_dig = T.mant_dig;
+            p.max_exp = T.max_exp;
+            p.min_exp = T.min_exp;
+            p.max_10_exp = T.max_10_exp;
+            p.min_10_exp = T.min_10_exp;
+
+            return p;
         }
     }
 
-    alias FloatProperties = FPTypeProperties!float;
-    alias DoubleProperties = FPTypeProperties!double;
-  version(IN_LLVM) {
-    // host real_t may be double => make sure not to alias target's DoubleProperties
-    extern (C++) static __gshared FPTypeProperties!real_t RealProperties;
-  } else {
-    alias RealProperties = FPTypeProperties!real_t;
-  }
+    static __gshared FPTypeProperties FloatProperties = FPTypeProperties.fromDHostCompiler!float();
+    static __gshared FPTypeProperties DoubleProperties = FPTypeProperties.fromDHostCompiler!double();
+    static __gshared FPTypeProperties RealProperties = FPTypeProperties.fromDHostCompiler!real_t();
 
-  version(IN_LLVM)
-  {
     // implemented in gen/target.cpp:
-    extern (C++):
-
     static void _init();
     // Type sizes and support.
     static uint alignsize(Type type);
@@ -108,6 +110,30 @@ struct Target
   }
   else // !IN_LLVM
   {
+    extern (C++) struct FPTypeProperties(T)
+    {
+        static __gshared
+        {
+            real_t max = T.max;
+            real_t min_normal = T.min_normal;
+            real_t nan = T.nan;
+            real_t snan = T.init;
+            real_t infinity = T.infinity;
+            real_t epsilon = T.epsilon;
+
+            d_int64 dig = T.dig;
+            d_int64 mant_dig = T.mant_dig;
+            d_int64 max_exp = T.max_exp;
+            d_int64 min_exp = T.min_exp;
+            d_int64 max_10_exp = T.max_10_exp;
+            d_int64 min_10_exp = T.min_10_exp;
+        }
+    }
+
+    alias FloatProperties = FPTypeProperties!float;
+    alias DoubleProperties = FPTypeProperties!double;
+    alias RealProperties = FPTypeProperties!real_t;
+
     extern (C++) static void _init()
     {
         // These have default values for 32 bit code, they get

@@ -68,7 +68,6 @@ version(IN_LLVM)
     import gen.semantic : extraLDCSpecificSemanticAnalysis;
     extern (C++):
 
-    void genCmain(Scope* sc);
     // in driver/main.cpp
     void addDefaultVersionIdentifiers();
     void codegenModules(ref Modules modules);
@@ -207,6 +206,8 @@ Where:
 ", FileName.canonicalName(global.inifilename), fpic, m32mscoff, mscrtlib);
 }
 
+} // !IN_LLVM
+
 /// DMD-generated module `__entrypoint` where the C main resides
 extern (C++) __gshared Module entrypoint = null;
 /// Module in which the D main is
@@ -234,19 +235,40 @@ extern (C++) void genCmain(Scope* sc)
     /* The D code to be generated is provided as D source code in the form of a string.
      * Note that Solaris, for unknown reasons, requires both a main() and an _main()
      */
-    immutable cmaincode =
-    q{
-        extern(C)
-        {
-            int _d_run_main(int argc, char **argv, void* mainFunc);
-            int _Dmain(char[][] args);
-            int main(int argc, char **argv)
+    version(IN_LLVM)
+    {
+        immutable cmaincode =
+        q{
+            pragma(LDC_profile_instr, false):
+            extern(C)
             {
-                return _d_run_main(argc, argv, &_Dmain);
+                int _d_run_main(int argc, char **argv, void* mainFunc);
+                int _Dmain(char[][] args);
+                int main(int argc, char **argv)
+                {
+                    return _d_run_main(argc, argv, &_Dmain);
+                }
+                version (Solaris) int _main(int argc, char** argv) { return main(argc, argv); }
             }
-            version (Solaris) int _main(int argc, char** argv) { return main(argc, argv); }
-        }
-    };
+            pragma(LDC_no_moduleinfo);
+        };
+    }
+    else
+    {
+        immutable cmaincode =
+        q{
+            extern(C)
+            {
+                int _d_run_main(int argc, char **argv, void* mainFunc);
+                int _Dmain(char[][] args);
+                int main(int argc, char **argv)
+                {
+                    return _d_run_main(argc, argv, &_Dmain);
+                }
+                version (Solaris) int _main(int argc, char** argv) { return main(argc, argv); }
+            }
+        };
+    }
     Identifier id = Id.entrypoint;
     auto m = new Module("__entrypoint.d", id, 0, 0);
     scope p = new Parser!ASTCodegen(m, cmaincode, false);
@@ -267,6 +289,8 @@ extern (C++) void genCmain(Scope* sc)
     rootHasMain = sc._module;
 }
 
+version(IN_LLVM) {} else
+{
 
 /**
  * DMD's real entry point
