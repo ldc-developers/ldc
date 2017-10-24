@@ -196,15 +196,18 @@ __gshared SectionGroup _sections;
 
 version(LDC)
 {
-    // This linked list is created by a compiler generated function inserted
-    // into the .ctor list by the compiler.
-    struct ModuleReference
+    version(MinGW)
     {
-        ModuleReference* next;
-        immutable(ModuleInfo)* mod;
-    }
+        // This linked list is created by a compiler generated function inserted
+        // into the .ctor list by the compiler.
+        struct ModuleReference
+        {
+            ModuleReference* next;
+            immutable(ModuleInfo)* mod;
+        }
 
-    extern(C) __gshared ModuleReference* _Dmodule_ref; // start of linked list
+        extern(C) __gshared ModuleReference* _Dmodule_ref; // start of linked list
+    }
 }
 else
 {
@@ -223,7 +226,7 @@ out (result)
 }
 body
 {
-  version(LDC)
+  version(MinGW) // LDC
   {
     import core.stdc.stdlib : malloc;
 
@@ -244,7 +247,16 @@ body
   }
   else
   {
-    auto m = (cast(immutable(ModuleInfo*)*)&_minfo_beg)[1 .. &_minfo_end - &_minfo_beg];
+    version(LDC)
+    {
+        void[] minfoSection = findImageSection(".minfo");
+        auto m = (cast(immutable(ModuleInfo*)*)minfoSection.ptr)[0 .. minfoSection.length / size_t.sizeof];
+    }
+    else
+    {
+        auto m = (cast(immutable(ModuleInfo*)*)&_minfo_beg)[1 .. &_minfo_end - &_minfo_beg];
+    }
+
     /* Because of alignment inserted by the linker, various null pointers
      * are there. We need to filter them out.
      */
