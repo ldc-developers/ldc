@@ -20,6 +20,10 @@
 
 #include "llvm/Support/CommandLine.h"
 
+namespace opts {
+extern llvm::cl::opt<std::string> linker;
+}
+
 std::string getGcc();
 void appendTargetArgsForGcc(std::vector<std::string> &args);
 
