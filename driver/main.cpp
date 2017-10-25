@@ -916,6 +916,10 @@ void registerPredefinedVersions() {
     VersionCondition::addPredefinedGlobalIdent("D_NoBoundsChecks");
   }
 
+  if (global.params.betterC) {
+    VersionCondition::addPredefinedGlobalIdent("D_betterC");
+  }
+
   registerPredefinedTargetVersions();
 
   // `D_ObjectiveC` is added by the ddmd.objc.Supported ctor
