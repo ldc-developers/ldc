@@ -858,6 +858,10 @@ static void registerPredefinedVersions() {
     VersionCondition::addPredefinedGlobalIdent("D_NoBoundsChecks");
   }
 
+  if (global.params.betterC) {
+    VersionCondition::addPredefinedGlobalIdent("D_BetterC");
+  }
+
   registerPredefinedTargetVersions();
 
   // Pass sanitizer arguments to linker. Requires clang.
