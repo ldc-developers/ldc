@@ -22,7 +22,6 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/nested.h"
-#include "gen/objcgen.h"
 #include "gen/tollvm.h"
 #include "gen/runtime.h"
 #include "ir/irfunction.h"
@@ -774,7 +773,7 @@ private:
       assert(dfnval);
       const auto selector = dfnval->func->selector;
       assert(selector);
-      LLGlobalVariable *selptr = objc_getMethVarRef(*selector);
+      LLGlobalVariable *selptr = gIR->objc.getMethVarRef(*selector);
       args.push_back(DtoBitCast(DtoLoad(selptr), getVoidPtrType()));
     }
   }
