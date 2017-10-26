@@ -635,8 +635,6 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
 class ImplicitArgumentsBuilder {
 public:
-  bool hasObjcSelector = false;
-
   ImplicitArgumentsBuilder(std::vector<LLValue *> &args, AttrSet &attrs,
                            Loc &loc, DValue *fnval,
                            LLFunctionType *llCalleeType,
@@ -772,12 +770,12 @@ private:
       attrs.addToParam(index, irFty.arg_nest->attrs);
     }
 
-    if (irFty.arg_objcSelector && dfnval) {
-      if (auto sel = dfnval->func->selector) {
-        LLGlobalVariable *selptr = objc_getMethVarRef(*sel);
-        args.push_back(DtoBitCast(DtoLoad(selptr), getVoidPtrType()));
-        hasObjcSelector = true;
-      }
+    if (irFty.arg_objcSelector) {
+      assert(dfnval);
+      const auto selector = dfnval->func->selector;
+      assert(selector);
+      LLGlobalVariable *selptr = objc_getMethVarRef(*selector);
+      args.push_back(DtoBitCast(DtoLoad(selptr), getVoidPtrType()));
     }
   }
 
@@ -863,7 +861,7 @@ DValue *DtoCallFunctionImpl(Loc &loc, Type *resulttype, DValue *fnval,
   addExplicitArguments(args, attrs, irFty, callableTy, argvals,
                        numFormalParams);
 
-  if (iab.hasObjcSelector) {
+  if (irFty.arg_objcSelector) {
     // Use runtime msgSend function bitcasted as original call
     const char *msgSend = gABI->objcMsgSendFunc(resulttype, irFty);
     LLType *t = callable->getType();
