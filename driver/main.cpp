@@ -917,7 +917,7 @@ void registerPredefinedVersions() {
   }
 
   if (global.params.betterC) {
-    VersionCondition::addPredefinedGlobalIdent("D_betterC");
+    VersionCondition::addPredefinedGlobalIdent("D_BetterC");
   }
 
   registerPredefinedTargetVersions();
