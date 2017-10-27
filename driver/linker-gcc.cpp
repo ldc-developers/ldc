@@ -52,6 +52,7 @@ private:
   virtual void addFuzzLinkFlags();
   virtual void addCppStdlibLinkFlags();
 
+  virtual void addLinker();
   virtual void addUserSwitches();
   void addDefaultLibs();
   virtual void addTargetFlags();
@@ -366,6 +367,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
     addLTOLinkFlags();
 #endif
 
+  addLinker();
   addUserSwitches();
 
   // libs added via pragma(lib, libname)
@@ -386,6 +388,13 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   addDefaultLibs();
 
   addTargetFlags();
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+void ArgsBuilder::addLinker() {
+  if (!opts::linker.empty())
+    args.push_back("-fuse-ld=" + opts::linker);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -485,6 +494,8 @@ void ArgsBuilder::addTargetFlags() {
 
 class LdArgsBuilder : public ArgsBuilder {
   void addSanitizers() override {}
+
+  void addLinker() override {}
 
   void addUserSwitches() override {
     if (!opts::ccSwitches.empty()) {

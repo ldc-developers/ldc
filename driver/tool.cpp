@@ -22,6 +22,12 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
+namespace opts {
+llvm::cl::opt<std::string>
+    linker("linker", llvm::cl::ZeroOrMore, llvm::cl::desc("Linker to use"),
+           llvm::cl::value_desc("lld-link|lld|gold|bfd|..."));
+}
+
 static llvm::cl::opt<std::string>
     gcc("gcc", llvm::cl::desc("GCC to use for assembling and linking"),
         llvm::cl::Hidden, llvm::cl::ZeroOrMore);
