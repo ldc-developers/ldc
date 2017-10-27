@@ -869,19 +869,13 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("AIX");
     VersionCondition::addPredefinedGlobalIdent("Posix");
     break;
-  case llvm::Triple::UnknownOS:
-    if (arch == llvm::Triple::msp430)
-      break;
-    // fallthrough
   default:
-    switch (triple.getEnvironment()) {
-    case llvm::Triple::Android:
+    if (triple.getEnvironment() == llvm::Triple::Android) {
       VersionCondition::addPredefinedGlobalIdent("Android");
-      break;
-    default:
-      error(Loc(), "target '%s' is not yet supported", triple.str().c_str());
-      fatal();
+    } else {
+      warning(Loc(), "unknown OS for target '%s'", triple.str().c_str());
     }
+    break;
   }
 }
 
