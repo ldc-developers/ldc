@@ -210,6 +210,7 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
     // should be handled by the pragma(lib, ...) in std.socket, but it
     // makes LDC behave as expected for now.
     args.push_back("-lws2_32");
+    args.push_back("-luuid");
   }
 
   // Only specify -m32/-m64 for architectures where the two variants actually
