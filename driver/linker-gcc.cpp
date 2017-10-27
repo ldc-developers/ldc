@@ -467,6 +467,7 @@ void ArgsBuilder::addDefaultLibs() {
     // should be handled by the pragma(lib, ...) in std.socket, but it
     // makes LDC behave as expected for now.
     args.push_back("-lws2_32");
+    args.push_back("-luuid");
   }
 
   if (global.params.dll && addSoname && !opts::soname.empty()) {
