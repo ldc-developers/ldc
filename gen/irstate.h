@@ -23,6 +23,7 @@
 #include "aggregate.h"
 #include "root.h"
 #include "gen/dibuilder.h"
+#include "gen/objcgen.h"
 #include "ir/iraggr.h"
 #include "ir/irvar.h"
 #include "llvm/ADT/StringMap.h"
@@ -105,7 +106,7 @@ struct IRAsmBlock {
         retfixup(nullptr) {}
 };
 
-// represents the module
+// represents the LLVM module (object file)
 struct IRState {
 private:
   std::vector<std::pair<llvm::GlobalVariable *, llvm::Constant *>>
@@ -124,6 +125,8 @@ public:
   Module *dmodule = nullptr;
 
   LLStructType *moduleRefType = nullptr;
+
+  ObjCState objc;
 
   // Stack of currently codegen'd functions (more than one for lambdas or other
   // nested functions, inlining-only codegen'ing, etc.), and some convenience

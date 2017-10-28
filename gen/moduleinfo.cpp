@@ -15,7 +15,6 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/mangling.h"
-#include "gen/objcgen.h"
 #include "gen/rttibuilder.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
@@ -305,8 +304,6 @@ llvm::GlobalVariable *genModuleInfo(Module *m) {
   const auto it = llvm::IntegerType::getInt8Ty(gIR->context());
   const auto at = llvm::ArrayType::get(it, len);
   b.push(toConstantArray(it, at, name, len, false));
-
-  objc_Module_genmoduleinfo_classes();
 
   // Create a global symbol with the above initialiser.
   LLGlobalVariable *moduleInfoSym = getIrModule(m)->moduleInfoSymbol();

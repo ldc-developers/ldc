@@ -32,7 +32,7 @@ version (IN_LLVM)
     {
         Statement asmSemantic(AsmStatement s, Scope* sc);
         RET retStyle(TypeFunction tf);
-        void objc_initSymbols(); // in gen/objcgen.cpp
+        void objc_initSymbols() {}
     }
 }
 else version (NoBackend)

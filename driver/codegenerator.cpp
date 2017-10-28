@@ -247,6 +247,8 @@ void CodeGenerator::finishLLModule(Module *m) {
 }
 
 void CodeGenerator::writeAndFreeLLModule(const char *filename) {
+  ir_->objc.finalize();
+
   // Issue #1829: make sure all replaced global variables are replaced
   // everywhere.
   ir_->replaceGlobals();

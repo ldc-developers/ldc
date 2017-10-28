@@ -121,6 +121,7 @@ AttrSet IrFuncTy::getParamAttrs(bool passThisBeforeSret) {
   }
 
   ADD_PA(arg_nest)
+  ADD_PA(arg_objcSelector)
   ADD_PA(arg_arguments)
 
 #undef ADD_PA

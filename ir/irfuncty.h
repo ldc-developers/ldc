@@ -92,8 +92,8 @@ struct IrFuncTy {
   // null if not applicable
   IrFuncTyArg *arg_sret = nullptr;
   IrFuncTyArg *arg_this = nullptr;
-  IrFuncTyArg *arg_objcSelector = nullptr;
   IrFuncTyArg *arg_nest = nullptr;
+  IrFuncTyArg *arg_objcSelector = nullptr;
   IrFuncTyArg *arg_arguments = nullptr;
 
   // normal explicit arguments
