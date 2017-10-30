@@ -237,6 +237,22 @@ extern (C++) Expression eval_llvmlog(Loc loc, FuncDeclaration fd, Expressions *a
     return new RealExp(loc, CTFloat.log(arg0.toReal()), type);
 }
 
+extern (C++) Expression eval_llvmlog2(Loc loc, FuncDeclaration fd, Expressions *arguments)
+{
+    Type type = getTypeOfOverloadedIntrinsic(fd);
+    Expression arg0 = (*arguments)[0];
+    assert(arg0.op == TOKfloat64);
+    return new RealExp(loc, CTFloat.log2(arg0.toReal()), type);
+}
+
+extern (C++) Expression eval_llvmlog10(Loc loc, FuncDeclaration fd, Expressions *arguments)
+{
+    Type type = getTypeOfOverloadedIntrinsic(fd);
+    Expression arg0 = (*arguments)[0];
+    assert(arg0.op == TOKfloat64);
+    return new RealExp(loc, CTFloat.log10(arg0.toReal()), type);
+}
+
 extern (C++) Expression eval_llvmfabs(Loc loc, FuncDeclaration fd, Expressions *arguments)
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
@@ -289,12 +305,50 @@ extern (C++) Expression eval_llvmtrunc(Loc loc, FuncDeclaration fd, Expressions 
     return new RealExp(loc, CTFloat.trunc(arg0.toReal()), type);
 }
 
+extern (C++) Expression eval_llvmrint(Loc loc, FuncDeclaration fd, Expressions *arguments)
+{
+    Type type = getTypeOfOverloadedIntrinsic(fd);
+    Expression arg0 = (*arguments)[0];
+    assert(arg0.op == TOKfloat64);
+    return new RealExp(loc, CTFloat.rint(arg0.toReal()), type);
+}
+
+extern (C++) Expression eval_llvmnearbyint(Loc loc, FuncDeclaration fd, Expressions *arguments)
+{
+    Type type = getTypeOfOverloadedIntrinsic(fd);
+    Expression arg0 = (*arguments)[0];
+    assert(arg0.op == TOKfloat64);
+    return new RealExp(loc, CTFloat.nearbyint(arg0.toReal()), type);
+}
+
 extern (C++) Expression eval_llvmround(Loc loc, FuncDeclaration fd, Expressions *arguments)
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
     return new RealExp(loc, CTFloat.round(arg0.toReal()), type);
+}
+
+extern (C++) Expression eval_llvmfma(Loc loc, FuncDeclaration fd, Expressions *arguments)
+{
+    Type type = getTypeOfOverloadedIntrinsic(fd);
+    Expression arg0 = (*arguments)[0];
+    assert(arg0.op == TOKfloat64);
+    Expression arg1 = (*arguments)[1];
+    assert(arg1.op == TOKfloat64);
+    Expression arg2 = (*arguments)[2];
+    assert(arg2.op == TOKfloat64);
+    return new RealExp(loc, CTFloat.fma(arg0.toReal(), arg1.toReal(), arg2.toReal()), type);
+}
+
+extern (C++) Expression eval_llvmcopysign(Loc loc, FuncDeclaration fd, Expressions *arguments)
+{
+    Type type = getTypeOfOverloadedIntrinsic(fd);
+    Expression arg0 = (*arguments)[0];
+    assert(arg0.op == TOKfloat64);
+    Expression arg1 = (*arguments)[1];
+    assert(arg1.op == TOKfloat64);
+    return new RealExp(loc, CTFloat.copysign(arg0.toReal(), arg1.toReal()), type);
 }
 
 extern (C++) Expression eval_cttz(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -501,6 +555,9 @@ else
     add_builtin("_D4core4math5atan2FNaNbNiNfeeZe", &eval_unimp);
     if (CTFloat.yl2x_supported)
     {
+        version(IN_LLVM) // @trusted
+            add_builtin("_D4core4math4yl2xFNaNbNiNeeeZe", &eval_yl2x);
+        else
         add_builtin("_D4core4math4yl2xFNaNbNiNfeeZe", &eval_yl2x);
     }
     else
@@ -509,6 +566,9 @@ else
     }
     if (CTFloat.yl2xp1_supported)
     {
+        version(IN_LLVM) // @trusted
+            add_builtin("_D4core4math6yl2xp1FNaNbNiNeeeZe", &eval_yl2xp1);
+        else
         add_builtin("_D4core4math6yl2xp1FNaNbNiNfeeZe", &eval_yl2xp1);
     }
     else
@@ -575,10 +635,6 @@ else
     add_builtin("_D3std4math15__T8isFiniteTdZ8isFiniteFNaNbNiNedZb", &eval_isfinite);
     add_builtin("_D3std4math15__T8isFiniteTfZ8isFiniteFNaNbNiNefZb", &eval_isfinite);
 
-    // @safe @nogc pure nothrow int function(uint)
-    add_builtin("_D4core5bitop3bsfFNaNbNiNfkZi", &eval_bsf);
-    add_builtin("_D4core5bitop3bsrFNaNbNiNfkZi", &eval_bsr);
-
 version(IN_LLVM)
 {
     // intrinsic llvm.sin.f32/f64/f80/f128/ppcf128
@@ -608,6 +664,20 @@ version(IN_LLVM)
     add_builtin("llvm.log.f80", &eval_llvmlog);
     add_builtin("llvm.log.f128", &eval_llvmlog);
     add_builtin("llvm.log.ppcf128", &eval_llvmlog);
+
+    // intrinsic llvm.log2.f32/f64/f80/f128/ppcf128
+    add_builtin("llvm.log2.f32", &eval_llvmlog2);
+    add_builtin("llvm.log2.f64", &eval_llvmlog2);
+    add_builtin("llvm.log2.f80", &eval_llvmlog2);
+    add_builtin("llvm.log2.f128", &eval_llvmlog2);
+    add_builtin("llvm.log2.ppcf128", &eval_llvmlog2);
+
+    // intrinsic llvm.log10.f32/f64/f80/f128/ppcf128
+    add_builtin("llvm.log10.f32", &eval_llvmlog10);
+    add_builtin("llvm.log10.f64", &eval_llvmlog10);
+    add_builtin("llvm.log10.f80", &eval_llvmlog10);
+    add_builtin("llvm.log10.f128", &eval_llvmlog10);
+    add_builtin("llvm.log10.ppcf128", &eval_llvmlog10);
 
     // intrinsic llvm.fabs.f32/f64/f80/f128/ppcf128
     add_builtin("llvm.fabs.f32", &eval_llvmfabs);
@@ -651,12 +721,40 @@ version(IN_LLVM)
     add_builtin("llvm.trunc.f128", &eval_llvmtrunc);
     add_builtin("llvm.trunc.ppcf128", &eval_llvmtrunc);
 
+    // intrinsic llvm.rint.f32/f64/f80/f128/ppcf128
+    add_builtin("llvm.rint.f32", &eval_llvmrint);
+    add_builtin("llvm.rint.f64", &eval_llvmrint);
+    add_builtin("llvm.rint.f80", &eval_llvmrint);
+    add_builtin("llvm.rint.f128", &eval_llvmrint);
+    add_builtin("llvm.rint.ppcf128", &eval_llvmrint);
+
+    // intrinsic llvm.nearbyint.f32/f64/f80/f128/ppcf128
+    add_builtin("llvm.nearbyint.f32", &eval_llvmnearbyint);
+    add_builtin("llvm.nearbyint.f64", &eval_llvmnearbyint);
+    add_builtin("llvm.nearbyint.f80", &eval_llvmnearbyint);
+    add_builtin("llvm.nearbyint.f128", &eval_llvmnearbyint);
+    add_builtin("llvm.nearbyint.ppcf128", &eval_llvmnearbyint);
+
     // intrinsic llvm.round.f32/f64/f80/f128/ppcf128
     add_builtin("llvm.round.f32", &eval_llvmround);
     add_builtin("llvm.round.f64", &eval_llvmround);
     add_builtin("llvm.round.f80", &eval_llvmround);
     add_builtin("llvm.round.f128", &eval_llvmround);
     add_builtin("llvm.round.ppcf128", &eval_llvmround);
+
+    // intrinsic llvm.fma.f32/f64/f80/f128/ppcf128
+    add_builtin("llvm.fma.f32", &eval_llvmfma);
+    add_builtin("llvm.fma.f64", &eval_llvmfma);
+    add_builtin("llvm.fma.f80", &eval_llvmfma);
+    add_builtin("llvm.fma.f128", &eval_llvmfma);
+    add_builtin("llvm.fma.ppcf128", &eval_llvmfma);
+
+    // intrinsic llvm.copysign.f32/f64/f80/f128/ppcf128
+    add_builtin("llvm.copysign.f32", &eval_llvmcopysign);
+    add_builtin("llvm.copysign.f64", &eval_llvmcopysign);
+    add_builtin("llvm.copysign.f80", &eval_llvmcopysign);
+    add_builtin("llvm.copysign.f128", &eval_llvmcopysign);
+    add_builtin("llvm.copysign.ppcf128", &eval_llvmcopysign);
 
     // intrinsic llvm.bswap.i16/i32/i64/i128
     add_builtin("llvm.bswap.i16", &eval_bswap);
