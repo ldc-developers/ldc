@@ -39,6 +39,7 @@ struct CTFloat
     static real_t tan(real_t x);
     static real_t sqrt(real_t x);
     static real_t fabs(real_t x);
+    static real_t ldexp(real_t n, int exp);
 
 #if IN_LLVM
     static real_t log(real_t x);

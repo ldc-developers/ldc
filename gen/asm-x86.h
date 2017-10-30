@@ -3299,7 +3299,7 @@ struct AsmProcessor {
       default:
         llvm_unreachable("Unknown integer operation.");
       }
-      e = e->semantic(sc);
+      e = semantic(e, sc);
       return e->ctfeInterpret();
     }
     stmt->error("expected integer operand(s) for `%s`", Token::toChars(op));
@@ -3813,7 +3813,7 @@ struct AsmProcessor {
         }
       }
 
-      e = e->semantic(sc);
+      e = semantic(e, sc);
       e = e->optimize(WANTvalue);
 
       // Special case for floating point constant declarations.

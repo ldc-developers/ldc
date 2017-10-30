@@ -5,10 +5,12 @@
  * Copyright: Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:   Walter Bright, http://www.digitalmars.com
  * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:    $(DMDSRC root/_port.d)
+ * Source:    $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/root/port.d, root/_port.d)
  */
 
 module ddmd.root.port;
+
+// Online documentation: https://dlang.org/phobos/ddmd_root_port.html
 
 import core.stdc.ctype;
 import core.stdc.errno;
@@ -36,7 +38,7 @@ extern (C++) struct Port
     {
         int result = 0;
 
-        for (int i = 0; i < n; i++)
+        foreach (i; 0 .. n)
         {
             char c1 = s1[i];
             char c2 = s2[i];

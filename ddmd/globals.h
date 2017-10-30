@@ -93,6 +93,7 @@ struct Param
 #else
     ubyte symdebug;     // insert debug symbolic information
 #endif
+    bool symdebugref;   // insert debug information for all referenced types, too
     bool alwaysframe;   // always emit standard stack frame
     bool optimize;      // run optimizer
     bool map;           // generate linker .map file

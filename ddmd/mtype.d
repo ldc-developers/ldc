@@ -5,10 +5,12 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _mtype.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/mtype.d, _mtype.d)
  */
 
 module ddmd.mtype;
+
+// Online documentation: https://dlang.org/phobos/ddmd_mtype.html
 
 import core.checkedint;
 import core.stdc.stdarg;
@@ -42,6 +44,7 @@ import ddmd.id;
 import ddmd.identifier;
 import ddmd.imphint;
 import ddmd.init;
+import ddmd.initsem;
 import ddmd.opover;
 import ddmd.root.ctfloat;
 import ddmd.root.outbuffer;
@@ -51,6 +54,7 @@ import ddmd.root.stringtable;
 import ddmd.sideeffect;
 import ddmd.target;
 import ddmd.tokens;
+import ddmd.typesem;
 import ddmd.visitor;
 
 version(IN_LLVM) {
@@ -2724,6 +2728,23 @@ extern (C++) abstract class Type : RootObject
      */
     final Expression noMember(Scope* sc, Expression e, Identifier ident, int flag)
     {
+        //printf("Type.noMember(e: %s ident: %s flag: %d)\n", e.toChars(), ident.toChars(), flag);
+
+        static __gshared int nest;      // https://issues.dlang.org/show_bug.cgi?id=17380
+
+        static Expression returnExp(Expression e)
+        {
+            --nest;
+            return e;
+        }
+
+        if (++nest > 500)
+        {
+            .error(e.loc, "cannot resolve identifier `%`", ident.toChars());
+            return returnExp(flag & 1 ? null : new ErrorExp());
+        }
+
+
         assert(ty == Tstruct || ty == Tclass);
         auto sym = toDsymbol(sc).isAggregateDeclaration();
         assert(sym);
@@ -2751,7 +2772,7 @@ extern (C++) abstract class Type : RootObject
                  */
                 e = build_overload(e.loc, sc, e, null, fd);
                 e = new DotIdExp(e.loc, e, ident);
-                return e.semantic(sc);
+                return returnExp(e.semantic(sc));
             }
 
             /* Look for overloaded opDispatch to see if we should forward request
@@ -2766,7 +2787,7 @@ extern (C++) abstract class Type : RootObject
                 if (!td)
                 {
                     fd.error("must be a template opDispatch(string s), not a %s", fd.kind());
-                    return new ErrorExp();
+                    return returnExp(new ErrorExp());
                 }
                 auto se = new StringExp(e.loc, cast(char*)ident.toChars());
                 auto tiargs = new Objects();
@@ -2782,7 +2803,7 @@ extern (C++) abstract class Type : RootObject
                 e = dti.semanticY(sc, 0);
                 if (flag & 1 && global.endGagging(errors))
                     e = null;
-                return e;
+                return returnExp(e);
             }
 
             /* See if we should forward to the alias this.
@@ -2794,10 +2815,10 @@ extern (C++) abstract class Type : RootObject
                  */
                 e = resolveAliasThis(sc, e);
                 auto die = new DotIdExp(e.loc, e, ident);
-                return die.semanticY(sc, flag & 1);
+                return returnExp(die.semanticY(sc, flag & 1));
             }
         }
-        return Type.dotExp(sc, e, ident, flag);
+        return returnExp(Type.dotExp(sc, e, ident, flag));
     }
 
     Expression defaultInit(Loc loc = Loc())
@@ -2963,16 +2984,6 @@ extern (C++) abstract class Type : RootObject
     int hasWild() const
     {
         return mod & MODwild;
-    }
-
-    /********************************
-     * We've mistakenly parsed this as a type.
-     * Redo it as an Expression.
-     * NULL if cannot.
-     */
-    Expression toExpression()
-    {
-        return null;
     }
 
     /***************************************
@@ -4421,6 +4432,11 @@ extern (C++) final class TypeVector : Type
         this.basetype = basetype;
     }
 
+    static TypeVector create(Loc loc, Type basetype)
+    {
+        return new TypeVector(loc, basetype);
+    }
+
     override const(char)* kind() const
     {
         return "vector";
@@ -4455,12 +4471,18 @@ extern (C++) final class TypeVector : Type
             error(loc, "SIMD vector types not supported on this platform");
             return terror;
         case 2:
-            // invalid size
-            error(loc, "%d byte vector type %s is not supported on this platform", sz, toChars());
-            return terror;
-        case 3:
             // invalid base type
             error(loc, "vector type %s is not supported on this platform", toChars());
+            return terror;
+        case 3:
+            // invalid size
+            if (sz == 32)
+            {
+                deprecation(loc, "%d byte vector types are only supported with -mcpu=avx", sz, toChars());
+                return merge();
+            }
+            else
+                error(loc, "%d byte vector type %s is not supported on this platform", sz, toChars());
             return terror;
         default:
             assert(0);
@@ -5049,14 +5071,6 @@ extern (C++) final class TypeSArray : TypeArray
         return ae;
     }
 
-    override Expression toExpression()
-    {
-        Expression e = next.toExpression();
-        if (e)
-            e = new ArrayExp(dim.loc, e, dim);
-        return e;
-    }
-
     override bool hasPointers()
     {
         /* Don't want to do this, because:
@@ -5616,18 +5630,6 @@ extern (C++) final class TypeAArray : TypeArray
         return true;
     }
 
-    override Expression toExpression()
-    {
-        Expression e = next.toExpression();
-        if (e)
-        {
-            Expression ei = index.toExpression();
-            if (ei)
-                return new ArrayExp(loc, e, ei);
-        }
-        return null;
-    }
-
     override bool hasPointers() const
     {
         return true;
@@ -5685,6 +5687,11 @@ extern (C++) final class TypePointer : TypeNext
     extern (D) this(Type t)
     {
         super(Tpointer, t);
+    }
+
+    static TypePointer create(Type t)
+    {
+        return new TypePointer(t);
     }
 
     override const(char)* kind() const
@@ -6316,7 +6323,7 @@ extern (C++) final class TypeFunction : TypeNext
                         e = inferType(e, fparam.type);
                         Initializer iz = new ExpInitializer(e.loc, e);
                         iz = iz.semantic(argsc, fparam.type, INITnointerpret);
-                        e = iz.toExpression();
+                        e = iz.initializerToExpression();
                     }
                     if (e.op == TOKfunction) // https://issues.dlang.org/show_bug.cgi?id=4820
                     {
@@ -7145,6 +7152,11 @@ extern (C++) final class TypeDelegate : TypeNext
         ty = Tdelegate;
     }
 
+    static TypeDelegate create(Type t)
+    {
+        return new TypeDelegate(t);
+    }
+
     override const(char)* kind() const
     {
         return "delegate";
@@ -7405,8 +7417,8 @@ extern (C++) abstract class TypeQualified : Type
             if (tindex)
                 eindex = new TypeExp(loc, tindex);
             else if (sindex)
-                eindex = DsymbolExp.resolve(loc, sc, sindex, false);
-            Expression e = new IndexExp(loc, DsymbolExp.resolve(loc, sc, s, false), eindex);
+                eindex = .resolve(loc, sc, sindex, false);
+            Expression e = new IndexExp(loc, .resolve(loc, sc, s, false), eindex);
             e = e.semantic(sc);
             resolveExp(e, pt, pe, ps);
             return;
@@ -7416,7 +7428,7 @@ extern (C++) abstract class TypeQualified : Type
         if (tindex)
             tindex.resolve(loc, sc, &eindex, &tindex, &sindex);
         if (sindex)
-            eindex = DsymbolExp.resolve(loc, sc, sindex, false);
+            eindex = .resolve(loc, sc, sindex, false);
         if (!eindex)
         {
             .error(loc, "index is %s not an expression", oindex.toChars());
@@ -7447,45 +7459,6 @@ extern (C++) abstract class TypeQualified : Type
             *pt = (*pt).semantic(loc, sc);
         if (*pe)
             resolveExp(*pe, pt, pe, ps);
-    }
-
-    final Expression toExpressionHelper(Expression e, size_t i = 0)
-    {
-        //printf("toExpressionHelper(e = %s %s)\n", Token.toChars(e.op), e.toChars());
-        for (; i < idents.dim; i++)
-        {
-            RootObject id = idents[i];
-            //printf("\t[%d] e: '%s', id: '%s'\n", i, e.toChars(), id.toChars());
-
-            switch (id.dyncast())
-            {
-                // ... '. ident'
-                case DYNCAST.identifier:
-                    e = new DotIdExp(e.loc, e, cast(Identifier)id);
-                    break;
-
-                // ... '. name!(tiargs)'
-                case DYNCAST.dsymbol:
-                    auto ti = (cast(Dsymbol)id).isTemplateInstance();
-                    assert(ti);
-                    e = new DotTemplateInstanceExp(e.loc, e, ti.name, ti.tiargs);
-                    break;
-
-                // ... '[type]'
-                case DYNCAST.type:          // https://issues.dlang.org/show_bug.cgi?id=1215
-                    e = new ArrayExp(loc, e, new TypeExp(loc, cast(Type)id));
-                    break;
-
-                // ... '[expr]'
-                case DYNCAST.expression:    // https://issues.dlang.org/show_bug.cgi?id=1215
-                    e = new ArrayExp(loc, e, cast(Expression)id);
-                    break;
-
-                default:
-                    assert(0);
-            }
-        }
-        return e;
     }
 
     /*************************************
@@ -7536,7 +7509,7 @@ extern (C++) abstract class TypeQualified : Type
                         ex = new TypeExp(loc, tx);
                     assert(ex);
 
-                    ex = toExpressionHelper(ex, i + 1);
+                    ex = typeToExpressionHelper(this, ex, i + 1);
                     ex = ex.semantic(sc);
                     resolveExp(ex, pt, pe, ps);
                     return;
@@ -7599,11 +7572,11 @@ extern (C++) abstract class TypeQualified : Type
                         VarDeclaration v = s.isVarDeclaration();
                         FuncDeclaration f = s.isFuncDeclaration();
                         if (intypeid || !v && !f)
-                            e = DsymbolExp.resolve(loc, sc, s, true);
+                            e = .resolve(loc, sc, s, true);
                         else
                             e = new VarExp(loc, s.isDeclaration(), true);
 
-                        e = toExpressionHelper(e, i);
+                        e = typeToExpressionHelper(this, e, i);
                         e = e.semantic(sc);
                         resolveExp(e, pt, pe, ps);
                         return;
@@ -7712,19 +7685,19 @@ extern (C++) abstract class TypeQualified : Type
         }
         if (!s)
         {
-            const(char)* p = mutableOf().unSharedOf().toChars();
-            const(char)* n = importHint(p);
-            if (n)
-                error(loc, "'%s' is not defined, perhaps you need to import %s; ?", p, n);
+            /* Look for what user might have intended
+             */
+            const p = mutableOf().unSharedOf().toChars();
+            auto id = Identifier.idPool(p, strlen(p));
+            if (const n = importHint(p))
+                error(loc, "`%s` is not defined, perhaps `import %s;` ?", p, n);
+            else if (auto s2 = sc.search_correct(id))
+                error(loc, "undefined identifier `%s`, did you mean %s `%s`?", p, s2.kind(), s2.toChars());
+            else if (const q = Scope.search_correct_C(id))
+                error(loc, "undefined identifier `%s`, did you mean `%s`?", p, q);
             else
-            {
-                auto id = new Identifier(p);
-                s = sc.search_correct(id);
-                if (s)
-                    error(loc, "undefined identifier `%s`, did you mean %s `%s`?", p, s.kind(), s.toChars());
-                else
-                    error(loc, "undefined identifier `%s`", p);
-            }
+                error(loc, "undefined identifier `%s`", p);
+
             *pt = Type.terror;
         }
     }
@@ -7859,11 +7832,6 @@ extern (C++) final class TypeIdentifier : TypeQualified
         return t;
     }
 
-    override Expression toExpression()
-    {
-        return toExpressionHelper(new IdentifierExp(loc, ident));
-    }
-
     override void accept(Visitor v)
     {
         v.visit(this);
@@ -7958,11 +7926,6 @@ extern (C++) final class TypeInstance : TypeQualified
         if (t && t.ty != Tinstance)
             s = t.toDsymbol(sc);
         return s;
-    }
-
-    override Expression toExpression()
-    {
-        return toExpressionHelper(new ScopeExp(loc, tempinst));
     }
 
     override void accept(Visitor v)
@@ -8096,7 +8059,7 @@ extern (C++) final class TypeTypeof : TypeQualified
                 resolveHelper(loc, sc, s, null, pe, pt, ps, intypeid);
             else
             {
-                auto e = toExpressionHelper(new TypeExp(loc, t));
+                auto e = typeToExpressionHelper(this, new TypeExp(loc, t));
                 e = e.semantic(sc);
                 resolveExp(e, pt, pe, ps);
             }
@@ -8201,7 +8164,7 @@ extern (C++) final class TypeReturn : TypeQualified
                 resolveHelper(loc, sc, s, null, pe, pt, ps, intypeid);
             else
             {
-                auto e = toExpressionHelper(new TypeExp(loc, t));
+                auto e = typeToExpressionHelper(this, new TypeExp(loc, t));
                 e = e.semantic(sc);
                 resolveExp(e, pt, pe, ps);
             }
@@ -8268,6 +8231,11 @@ extern (C++) final class TypeStruct : Type
     {
         super(Tstruct);
         this.sym = sym;
+    }
+
+    static TypeStruct create(StructDeclaration sym)
+    {
+        return new TypeStruct(sym);
     }
 
     override const(char)* kind() const
@@ -8492,7 +8460,7 @@ extern (C++) final class TypeStruct : Type
 
         if (s.isImport() || s.isModule() || s.isPackage())
         {
-            e = DsymbolExp.resolve(e.loc, sc, s, false);
+            e = .resolve(e.loc, sc, s, false);
             return e;
         }
 
@@ -9468,7 +9436,7 @@ extern (C++) final class TypeClass : Type
 
         if (s.isImport() || s.isModule() || s.isPackage())
         {
-            e = DsymbolExp.resolve(e.loc, sc, s, false);
+            e = .resolve(e.loc, sc, s, false);
             return e;
         }
 

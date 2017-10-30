@@ -5,10 +5,12 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _errors.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/errors.d, _errors.d)
  */
 
 module ddmd.errors;
+
+// Online documentation: https://dlang.org/phobos/ddmd_errors.html
 
 import core.stdc.stdarg;
 import core.stdc.stdio;
@@ -41,7 +43,8 @@ extern (C++) void error(const ref Loc loc, const(char)* format, ...)
     va_end(ap);
 }
 
-extern (C++) void error(Loc loc, const(char)* format, ...)
+// This override allows Loc() literals to be passed.
+extern (D) void error(Loc loc, const(char)* format, ...)
 {
     va_list ap;
     va_start(ap, format);
@@ -97,7 +100,7 @@ extern (C++) void deprecationSupplemental(const ref Loc loc, const(char)* format
 {
     va_list ap;
     va_start(ap, format);
-    vdeprecation(loc, format, ap);
+    vdeprecationSupplemental(loc, format, ap);
     va_end(ap);
 }
 

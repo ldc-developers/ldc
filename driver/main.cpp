@@ -495,14 +495,18 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     // we're looking for it anyway, and pre-setting the flag...
     global.params.run = true;
     if (!runargs.empty()) {
-      char const *name = runargs[0].c_str();
-      char const *ext = FileName::ext(name);
-      if (ext && FileName::equals(ext, "d") == 0 &&
-          FileName::equals(ext, "di") == 0) {
-        error(Loc(), "-run must be followed by a source file, not '%s'", name);
+      if (runargs[0] == "-") {
+        sourceFiles.push("__stdin.d");
+      } else {
+        char const *name = runargs[0].c_str();
+        char const *ext = FileName::ext(name);
+        if (ext && !FileName::equals(ext, "d") &&
+            !FileName::equals(ext, "di")) {
+          error(Loc(), "-run must be followed by a source file, not '%s'",
+                name);
+        }
+        sourceFiles.push(mem.xstrdup(name));
       }
-
-      sourceFiles.push(mem.xstrdup(name));
       runargs.erase(runargs.begin());
     } else {
       global.params.run = false;
@@ -513,8 +517,12 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   sourceFiles.reserve(fileList.size());
   for (const auto &file : fileList) {
     if (!file.empty()) {
-      char *copy = dupPathString(file);
-      sourceFiles.push(copy);
+      if (file == "-") {
+        sourceFiles.push("__stdin.d");
+      } else {
+        char *copy = dupPathString(file);
+        sourceFiles.push(copy);
+      }
     }
   }
 
@@ -796,6 +804,8 @@ void registerPredefinedTargetVersions() {
       VersionCondition::addPredefinedGlobalIdent("D_SIMD");
     if (traitsTargetHasFeature("avx"))
       VersionCondition::addPredefinedGlobalIdent("D_AVX");
+    if (traitsTargetHasFeature("avx2"))
+      VersionCondition::addPredefinedGlobalIdent("D_AVX2");
   }
   */
 

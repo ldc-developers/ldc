@@ -5,15 +5,16 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _gluelayer.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/gluelayer.d, _gluelayer.d)
  */
 
 module ddmd.gluelayer;
 
+// Online documentation: https://dlang.org/phobos/ddmd_gluelayer.html
+
 import ddmd.dmodule;
 import ddmd.dscope;
 import ddmd.dsymbol;
-// IN_LLVM import ddmd.lib;
 import ddmd.mtype;
 import ddmd.statement;
 import ddmd.root.file;
@@ -37,6 +38,8 @@ version (IN_LLVM)
 }
 else version (NoBackend)
 {
+    import ddmd.lib : Library;
+
     struct Symbol;
     struct code;
     struct block;
@@ -69,6 +72,8 @@ else version (NoBackend)
 }
 else
 {
+    import ddmd.lib : Library;
+
     public import ddmd.backend.cc : block, Blockx, Symbol;
     public import ddmd.backend.type : type;
     public import ddmd.backend.el : elem;
