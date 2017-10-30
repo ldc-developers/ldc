@@ -451,11 +451,28 @@ LLValue *DtoLoad(LLValue *src, const char *name) {
   return gIR->ir->CreateLoad(src, name);
 }
 
+// Like DtoLoad, but the loaded value is assumed to be invariant (see invariant.load metadata)
+LLValue *DtoInvariantLoad(LLValue *src, const char *name) {
+  llvm::LoadInst *ld = gIR->ir->CreateLoad(src, name);
+  auto MD = llvm::MDNode::get(gIR->context(), llvm::None);
+  ld->setMetadata(llvm::LLVMContext::MD_invariant_load, MD);
+  return ld;
+}
+
 // Like DtoLoad, but the pointer is guaranteed to be aligned appropriately for
 // the type.
 LLValue *DtoAlignedLoad(LLValue *src, const char *name) {
   llvm::LoadInst *ld = gIR->ir->CreateLoad(src, name);
   ld->setAlignment(getABITypeAlign(ld->getType()));
+  return ld;
+}
+
+// Like DtoAlignedLoad, but the loaded value is assumed to be invariant (see invariant.load metadata)
+LLValue *DtoInvariantAlignedLoad(LLValue *src, const char *name) {
+  llvm::LoadInst *ld = gIR->ir->CreateLoad(src, name);
+  ld->setAlignment(getABITypeAlign(ld->getType()));
+  auto MD = llvm::MDNode::get(gIR->context(), llvm::None);
+  ld->setMetadata(llvm::LLVMContext::MD_invariant_load, MD);
   return ld;
 }
 

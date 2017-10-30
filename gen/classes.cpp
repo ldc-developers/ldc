@@ -392,13 +392,14 @@ LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl,
   // get the vtbl for objects
   funcval = DtoGEPi(funcval, 0, 0);
   // load vtbl ptr
-  funcval = DtoLoad(funcval);
+  // The vtbl pointer is a constant (not even the destructor...? accessing same memory after delete has been called...?)
+  funcval = DtoInvariantLoad(funcval);
   // index vtbl
   std::string vtblname = name;
   vtblname.append("@vtbl");
   funcval = DtoGEPi(funcval, 0, fdecl->vtblIndex, vtblname.c_str());
   // load opaque pointer
-  funcval = DtoAlignedLoad(funcval);
+  funcval = DtoInvariantAlignedLoad(funcval);
 
   IF_LOG Logger::cout() << "funcval: " << *funcval << '\n';
 
