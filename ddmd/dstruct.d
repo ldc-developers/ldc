@@ -31,12 +31,8 @@ import ddmd.identifier;
 import ddmd.mtype;
 import ddmd.opover;
 import ddmd.tokens;
-// IN_LLVM import ddmd.typinf;
+import ddmd.typinf;
 import ddmd.visitor;
-
-version(IN_LLVM) {
-    import gen.typinf;
-}
 
 /***************************************
  * Search sd for a member function of the form:

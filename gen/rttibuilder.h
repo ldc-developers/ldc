@@ -28,6 +28,7 @@ class Type;
 class TypeClass;
 namespace llvm {
 class StructType;
+class GlobalVariable;
 }
 
 class RTTIBuilder {
@@ -79,8 +80,7 @@ public:
                   Dsymbol *mangle_sym);
 
   /// Creates the initializer constant and assigns it to the global.
-  void finalize(IrGlobal *tid);
-  void finalize(llvm::Type *type, llvm::Value *value);
+  void finalize(llvm::GlobalVariable *gvar);
 
   /// Creates the initializer constant and assigns it to the global.
   llvm::Constant *get_constant(llvm::StructType *initType);

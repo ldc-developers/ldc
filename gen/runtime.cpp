@@ -160,6 +160,21 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
 
 ////////////////////////////////////////////////////////////////////////////////
 
+static const char *getCAssertFunctionName() {
+  if (global.params.targetTriple->isOSDarwin()) {
+    return "__assert_rtn";
+  } else if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+    return "_assert";
+  }
+  return "__assert";
+}
+
+llvm::Function *getCAssertFunction(const Loc &loc, llvm::Module &target) {
+  return getRuntimeFunction(loc, target, getCAssertFunctionName());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 // extern (D) alias dg_t = int delegate(void*);
 static Type *rt_dg1() {
   static Type *dg_t = nullptr;
@@ -290,6 +305,9 @@ static void buildRuntimeModule() {
       Attr_Cold(NoAttrs, LLAttributeSet::FunctionIndex, llvm::Attribute::Cold),
       Attr_Cold_NoReturn(Attr_Cold, LLAttributeSet::FunctionIndex,
                          llvm::Attribute::NoReturn),
+      Attr_Cold_NoReturn_NoUnwind(Attr_Cold_NoReturn,
+                                  LLAttributeSet::FunctionIndex,
+                                  llvm::Attribute::NoUnwind),
       Attr_ReadOnly_NoUnwind(Attr_ReadOnly, LLAttributeSet::FunctionIndex,
                              llvm::Attribute::NoUnwind),
       Attr_ReadOnly_1_NoCapture(Attr_ReadOnly, AttrSet::FirstArgIndex,
@@ -329,6 +347,17 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
+
+  // C assert function:
+  // OSX:  void __assert_rtn(const char *func, const char *file, unsigned line,
+  //                         const char *msg)
+  // else: void [_]_assert(const char *msg, const char *file, unsigned line)
+  createFwdDecl(
+      LINKc, Type::tvoid, {getCAssertFunctionName()},
+      global.params.targetTriple->isOSDarwin()
+          ? llvm::ArrayRef<Type *>({voidPtrTy, voidPtrTy, uintTy, voidPtrTy})
+          : llvm::ArrayRef<Type *>({voidPtrTy, voidPtrTy, uintTy}),
+      {}, Attr_Cold_NoReturn_NoUnwind);
 
   // void _d_assert(string file, uint line)
   // void _d_arraybounds(string file, uint line)
