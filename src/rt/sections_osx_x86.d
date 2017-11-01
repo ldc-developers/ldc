@@ -11,6 +11,8 @@
  */
 module rt.sections_osx_x86;
 
+version (LDC) {} else:
+
 version (OSX)
     version = Darwin;
 else version (iOS)
@@ -20,7 +22,6 @@ else version (TVOS)
 else version (WatchOS)
     version = Darwin;
 
-version (LDC) {} else
 version(Darwin):
 version(X86):
 
@@ -194,9 +195,9 @@ __gshared SectionGroup _sections;
 
 extern (C) void sections_osx_onAddImage(in mach_header* h, intptr_t slide)
 {
-    foreach (e; dataSections)
+    foreach (e; dataSegs)
     {
-        auto sect = getSection(h, slide, e.seg, e.sect);
+        auto sect = getSection(h, slide, e.seg.ptr, e.sect.ptr);
         if (sect != null)
             _sections._gcRanges.insertBack((cast(void*)sect.ptr)[0 .. sect.length]);
     }

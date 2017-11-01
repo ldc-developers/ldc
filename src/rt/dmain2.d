@@ -332,7 +332,8 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
     }
     version (CRuntime_Microsoft)
     {
-        init_msvc();
+        version (LDC)
+            init_msvc();
 
         // enable full precision for reals
         version(Win64)

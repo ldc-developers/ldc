@@ -78,6 +78,7 @@ else version (Windows)
  */
 class ThreadException : Exception
 {
+    // LDC: +@nogc
     @safe pure nothrow @nogc this(string msg, string file = __FILE__, size_t line = __LINE__, Throwable next = null)
     {
         super(msg, file, line, next);
@@ -2396,6 +2397,9 @@ shared static ~this()
 
 // Used for needLock below.
 private __gshared bool multiThreadedFlag = false;
+
+version (LDC) {} else
+version (PPC64) version = ExternStackShell;
 
 version (ExternStackShell)
 {

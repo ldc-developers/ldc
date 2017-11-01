@@ -57,7 +57,7 @@ else
     static assert(0, "unimplemented");
 }
 import core.sys.posix.pthread;
-version (DigitalMars) import rt.deh;
+import rt.deh;
 import rt.dmain2;
 import rt.minfo;
 import rt.util.container.array;
@@ -370,7 +370,7 @@ version (Shared)
     {
         /*
          * Section in executable that contains copy relocations.
-         * null when druntime is dynamically loaded by a C host.
+         * Might be null when druntime is dynamically loaded by a C host.
          */
         __gshared const(void)[] _copyRelocSection;
     }
@@ -836,7 +836,7 @@ version (Shared)
 ///////////////////////////////////////////////////////////////////////////////
 
 /************
- * Scan segments in the image header and stores
+ * Scan segments in the image header and store
  * the TLS and writeable data segments in *pdso.
  */
 static if (SharedELF) void scanSegments(in ref dl_phdr_info info, DSO* pdso) nothrow @nogc
@@ -1145,7 +1145,6 @@ body
         _Exit(1);
     }
 }
-
 
 /**************************
  * Input:

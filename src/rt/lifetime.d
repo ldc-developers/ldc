@@ -19,7 +19,6 @@ import core.bitop;
 import core.memory;
 debug(PRINTF) import core.stdc.stdio;
 static import rt.tlsgc;
-version(LDC) import ldc.intrinsics;
 version(LDC) import ldc.attributes;
 
 alias BlkInfo = GC.BlkInfo;
@@ -75,8 +74,7 @@ version (LDC)
 /**
  * for allocating a single POD value
  */
-extern (C) void* _d_allocmemoryT(TypeInfo ti)
-@weak // LDC
+extern (C) void* _d_allocmemoryT(TypeInfo ti) @weak
 {
     return GC.malloc(ti.tsize(), !(ti.flags() & 1) ? BlkAttr.NO_SCAN : 0);
 }
@@ -726,6 +724,7 @@ extern(C) void _d_arrayshrinkfit(const TypeInfo ti, void[] arr) /+nothrow+/
     debug(PRINTF) printf("_d_arrayshrinkfit, elemsize = %d, arr.ptr = x%x arr.length = %d\n", ti.next.tsize, arr.ptr, arr.length);
     version(LDC) auto tinext = unqualify(unqualify(ti).next); else
     auto tinext = unqualify(ti.next);
+
     auto size = tinext.tsize;                  // array element size
     auto cursize = arr.length * size;
     auto isshared = typeid(ti) is typeid(TypeInfo_Shared);
@@ -818,14 +817,6 @@ body
     auto tinext = unqualify(ti.next);
 
     auto size = tinext.tsize;
-    version (LDC)
-    {
-        auto umul = llvm_umul_with_overflow!size_t(size, newcapacity);
-        size_t reqsize = umul.result;
-
-        if (!umul.overflow)
-            goto Lcontinue;
-    } else
     version (D_InlineAsm_X86)
     {
         size_t reqsize = void;
@@ -994,13 +985,6 @@ extern (C) void[] _d_newarrayU(const TypeInfo ti, size_t length) pure nothrow
     if (length == 0 || size == 0)
         return null;
 
-    version (LDC)
-    {
-        auto umul = llvm_umul_with_overflow!size_t(size, length);
-        size = umul.result;
-        if (!umul.overflow)
-            goto Lcontinue;
-    } else
     version (D_InlineAsm_X86)
     {
         asm pure nothrow @nogc
@@ -1570,13 +1554,6 @@ body
         auto tinext = unqualify(ti.next);
 
         size_t sizeelem = tinext.tsize;
-        version (LDC)
-        {
-            auto umul = llvm_umul_with_overflow!size_t(newlength, sizeelem);
-            size_t newsize = umul.result;
-            if (umul.overflow)
-                goto Loverflow;
-        } else
         version (D_InlineAsm_X86)
         {
             size_t newsize = void;
@@ -1771,13 +1748,6 @@ body
 
     if (newlength)
     {
-        version (LDC)
-        {
-            auto umul = llvm_umul_with_overflow!size_t(newlength, sizeelem);
-            size_t newsize = umul.result;
-            if (umul.overflow)
-                goto Loverflow;
-        } else
         version (D_InlineAsm_X86)
         {
             size_t newsize = void;

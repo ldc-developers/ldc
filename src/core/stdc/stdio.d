@@ -1287,28 +1287,6 @@ else version( NetBSD )
     ///
     int  vsnprintf(char* s, size_t n, in char* format, va_list arg);
 }
-else version( NetBSD )
-{
-  // No unsafe pointer manipulation.
-  @trusted
-  {
-      ///
-    void rewind(FILE*);
-    ///
-    pure void clearerr(FILE*);
-    ///
-    pure int  feof(FILE*);
-    ///
-    pure int  ferror(FILE*);
-    ///
-    int  fileno(FILE*);
-  }
-
-  ///
-    int  snprintf(char* s, size_t n, in char* format, ...);
-    ///
-    int  vsnprintf(char* s, size_t n, in char* format, va_list arg);
-}
 else version( OpenBSD )
 {
     // No unsafe pointer manipulation.

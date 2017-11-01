@@ -21,10 +21,13 @@ version (LDC)
     else
         version = Win64_Posix;
 }
-else version (Win64)
-    version = Win64_Posix;
-else version (Posix)
-    version = Win64_Posix;
+else
+{
+	version (Win64)
+	    version = Win64_Posix;
+	version (Posix)
+	    version = Win64_Posix;
+}
 
 version (Win64_Posix):
 

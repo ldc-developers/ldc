@@ -12,7 +12,6 @@
 
 module rt.sections_win32;
 
-version (LDC) {} else
 version(CRuntime_DigitalMars):
 
 // debug = PRINTF;

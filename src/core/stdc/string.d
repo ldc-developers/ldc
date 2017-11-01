@@ -93,10 +93,6 @@ else version (NetBSD)
 {
     int strerror_r(int errnum, char* buf, size_t buflen);
 }
-else version (NetBSD)
-{
-    int strerror_r(int errnum, char* buf, size_t buflen);
-}
 else version (OpenBSD)
 {
     int strerror_r(int errnum, scope char* buf, size_t buflen);

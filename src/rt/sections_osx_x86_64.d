@@ -11,6 +11,8 @@
  */
 module rt.sections_osx_x86_64;
 
+version (LDC) {} else:
+
 version (OSX)
     version = Darwin;
 else version (iOS)
@@ -20,7 +22,6 @@ else version (TVOS)
 else version (WatchOS)
     version = Darwin;
 
-version (LDC) {} else
 version(Darwin):
 version(X86_64):
 
