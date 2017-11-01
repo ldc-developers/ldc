@@ -30,10 +30,26 @@ static assert(false, "LDC_RuntimeCompilation is not defined");
 
 void main(string[] args)
 {
-  compileDynamicCode();
-  assert(5 == foo());
-  assert(12 == bar());
-  baz();
-  int function() fptr = &bar;
-  assert(12 == fptr());
+  void run(CompilerSettings settings)
+  {
+    compileDynamicCode(settings);
+    assert(5 == foo());
+    assert(12 == bar());
+    baz();
+    int function() fptr = &bar;
+    assert(12 == fptr());
+  }
+
+  foreach(i;0..4)
+  {
+    CompilerSettings settings;
+    settings.optLevel = i;
+    run(settings);
+  }
+  foreach(i;0..3)
+  {
+    CompilerSettings settings;
+    settings.sizeLevel = i;
+    run(settings);
+  }
 }
