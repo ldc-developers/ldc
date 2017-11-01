@@ -695,15 +695,7 @@ public:
       return;
     }
 
-    TypeInfoDeclaration *tid = getOrCreateTypeInfoDeclaration(t, nullptr);
-    if ((t->ty == Tclass) &&
-        !static_cast<TypeClass *>(t)->sym->isInterfaceDeclaration()) {
-      // For classes, delegate to special function:
-      TypeInfoClassDeclaration_codegen(tid, p);
-    } else {
-      TypeInfoDeclaration_codegen(tid, p);
-    }
-    result = llvm::cast<llvm::GlobalVariable>(getIrGlobal(tid)->value);
+    result = DtoTypeInfoOf(t, /*base=*/false);
     result = DtoBitCast(result, DtoType(e->type));
   }
 

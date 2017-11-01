@@ -299,11 +299,7 @@ int createStaticLibrary() {
       global.params.targetTriple->isWindowsMSVCEnvironment();
 
 #if LDC_LLVM_VER >= 309
-  const bool useInternalArchiver =
-      ar.empty() &&
-      // require an explicit empty `-ar=` for OSX targets due to Xcode 9 ranlib
-      // bug (https://github.com/ldc-developers/ldc/issues/2350)
-      (!global.params.targetTriple->isOSDarwin() || ar.getNumOccurrences() > 0);
+  const bool useInternalArchiver = ar.empty();
 #else
   const bool useInternalArchiver = false;
 #endif

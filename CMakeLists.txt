@@ -52,10 +52,10 @@ endfunction()
 #
 
 # Version information
-set(LDC_VERSION "1.5.0") # May be overridden by git hash tag
+set(LDC_VERSION "1.6.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   75)
+set(DMDFE_PATCH_VERSION   76)
 set(DMDFE_FIX_LEVEL       1) # Comment out if not used
 
 set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}${DMDFE_PATCH_VERSION})
@@ -258,38 +258,6 @@ if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
 endif()
 
 
-# Build (generate executable) of D source
-macro(build_idgen  input_d  output_exec  extra_d_flags  link_flags  extra_deps)
-    separate_arguments(FLAG_LIST WINDOWS_COMMAND "${D_COMPILER_FLAGS} ${extra_d_flags} ${link_flags}")
-    add_custom_command(
-        OUTPUT ${output_exec}
-        COMMAND ${D_COMPILER} ${FLAG_LIST} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${output_exec} ${input_d}
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        DEPENDS ${input_d} ${extra_deps}
-    )
-endmacro()
-
-
-#
-# Build idgen.
-#
-build_idgen(${DDMDFE_PATH}/idgen.d ${PROJECT_BINARY_DIR}/idgen${CMAKE_EXECUTABLE_SUFFIX}  ${DDMD_DFLAGS} "" "")
-# Run idgen.
-add_custom_command(
-    OUTPUT
-        ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d
-        ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.h
-    COMMAND ${PROJECT_BINARY_DIR}/idgen  #provide full path to avoid clash with idgen on path
-    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
-    DEPENDS ${PROJECT_BINARY_DIR}/idgen${CMAKE_EXECUTABLE_SUFFIX}
-)
-set(LDC_CXX_GENERATED
-    ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.h
-)
-set(LDC_D_GENERATED
-    ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d
-)
-
 #
 # Gather source files.
 #
@@ -371,9 +339,8 @@ set(DRV_HDR
     driver/toobj.h
     driver/tool.h
 )
-# exclude idgen and man.d
+# exclude man.d
 list(REMOVE_ITEM FE_SRC_D
-    ${PROJECT_SOURCE_DIR}/${DDMDFE_PATH}/idgen.d
     ${PROJECT_SOURCE_DIR}/${DDMDFE_PATH}/root/man.d
 )
 # exclude ldmd.d from ldc
@@ -381,7 +348,6 @@ list(REMOVE_ITEM DRV_SRC_D
     ${PROJECT_SOURCE_DIR}/driver/ldmd.d
 )
 set(LDC_CXX_SOURCE_FILES
-    ${LDC_CXX_GENERATED}
     ${FE_HDR}
     ${GEN_SRC}
     ${GEN_HDR}
@@ -389,7 +355,6 @@ set(LDC_CXX_SOURCE_FILES
     ${IR_HDR}
 )
 set(LDC_D_SOURCE_FILES
-    ${LDC_D_GENERATED}
     ${FE_SRC_D}
     ${GEN_SRC_D}
     ${DRV_SRC_D}
@@ -403,7 +368,6 @@ source_group("Header Files\\gen" FILES ${GEN_HDR})
 source_group("Source Files\\ir" FILES ${IR_SRC} ${IR_SRC_D})
 source_group("Header Files\\ir" FILES ${IR_HDR})
 source_group("Source Files" FILES ${DRV_SRC_D})
-source_group("Generated Files" REGULAR_EXPRESSION "(id\\.[cdh]|impcnvtab\\.c)$")
 
 
 #
@@ -685,14 +649,14 @@ if(MSVC_IDE)
         OUTPUT ${LDC_EXE_FULL}
         COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:${LDC_LIB}> ${LDC_FLAG_LIST} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${LDC_EXE_FULL} ${LDC_D_SOURCE_FILES} $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:-g> $<$<NOT:$<CONFIG:Debug>>:-O> $<$<NOT:$<CONFIG:Debug>>:-inline> $<$<NOT:$<CONFIG:Debug>>:-release>
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        DEPENDS ${LDC_D_SOURCE_FILES} ${FE_RES} ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d ${LDC_LIB}
+        DEPENDS ${LDC_D_SOURCE_FILES} ${FE_RES} ${LDC_LIB}
     )
 else()
     build_d_executable(
         "${LDC_EXE_FULL}"
         "${LDC_D_SOURCE_FILES}"
         "$<TARGET_LINKER_FILE:${LDC_LIB}>"
-        "${LDC_D_SOURCE_FILES};${FE_RES};${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d"
+        "${LDC_D_SOURCE_FILES};${FE_RES}"
         "${LDC_LIB}"
     )
 endif()

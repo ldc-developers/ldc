@@ -196,7 +196,7 @@ LLConstant *IrAggr::getVtblInit() {
       assert(isIrFuncCreated(fd) && "invalid vtbl function");
       c = DtoBitCast(DtoCallee(fd), voidPtrType);
 
-      if (cd->isFuncHidden(fd)) {
+      if (cd->isFuncHidden(fd) && !fd->isFuture()) {
         // fd is hidden from the view of this class. If fd overlaps with any
         // function in the vtbl[], issue error.
         for (size_t j = cd->vtblOffset(); j < n; j++) {
@@ -205,6 +205,9 @@ LLConstant *IrAggr::getVtblInit() {
           }
           auto fd2 = cd->vtbl[j]->isFuncDeclaration();
           if (!fd2->ident->equals(fd->ident)) {
+            continue;
+          }
+          if (fd2->isFuture()) {
             continue;
           }
           if (fd->leastAsSpecialized(fd2) || fd2->leastAsSpecialized(fd)) {

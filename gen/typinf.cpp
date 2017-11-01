@@ -128,7 +128,11 @@ void DtoResolveTypeInfo(TypeInfoDeclaration *tid) {
 /* ========================================================================= */
 
 class LLVMDefineVisitor : public Visitor {
+  LLGlobalVariable *const gvar;
+
 public:
+  LLVMDefineVisitor(LLGlobalVariable *gvar) : gvar(gvar) {}
+
   // Import all functions from class Visitor
   using Visitor::visit;
 
@@ -140,7 +144,7 @@ public:
     LOG_SCOPE;
 
     RTTIBuilder b(Type::dtypeinfo);
-    b.finalize(getIrGlobal(decl));
+    b.finalize(gvar);
   }
 
   /* ======================================================================= */
@@ -175,7 +179,7 @@ public:
     }
 
     // finish
-    b.finalize(getIrGlobal(decl));
+    b.finalize(gvar);
   }
 
   /* ======================================================================= */
@@ -189,7 +193,7 @@ public:
     // TypeInfo base
     b.push_typeinfo(decl->tinfo->nextOf());
     // finish
-    b.finalize(getIrGlobal(decl));
+    b.finalize(gvar);
   }
 
   /* ======================================================================= */
@@ -203,7 +207,7 @@ public:
     // TypeInfo base
     b.push_typeinfo(decl->tinfo->nextOf());
     // finish
-    b.finalize(getIrGlobal(decl));
+    b.finalize(gvar);
   }
 
   /* ======================================================================= */
@@ -225,7 +229,7 @@ public:
     b.push(DtoConstSize_t(static_cast<size_t>(tc->dim->toUInteger())));
 
     // finish
-    b.finalize(getIrGlobal(decl));
+    b.finalize(gvar);
   }
 
   /* ======================================================================= */
@@ -248,7 +252,7 @@ public:
     b.push_typeinfo(tc->index);
 
     // finish
-    b.finalize(getIrGlobal(decl));
+    b.finalize(gvar);
   }
 
   /* ======================================================================= */
@@ -264,7 +268,7 @@ public:
     // string deco
     b.push_string(decl->tinfo->deco);
     // finish
-    b.finalize(getIrGlobal(decl));
+    b.finalize(gvar);
   }
 
   /* ======================================================================= */
@@ -283,7 +287,7 @@ public:
     // string deco
     b.push_string(decl->tinfo->deco);
     // finish
-    b.finalize(getIrGlobal(decl));
+    b.finalize(gvar);
   }
 
   /* ======================================================================= */
@@ -298,10 +302,44 @@ public:
     TypeStruct *tc = static_cast<TypeStruct *>(decl->tinfo);
     StructDeclaration *sd = tc->sym;
 
+    // On x86_64, class TypeInfo_Struct contains 2 additional fields
+    // (m_arg1/m_arg2) which are used for the X86_64 System V ABI varargs
+    // implementation. They are not present on any other cpu/os.
+    const bool isX86_64 =
+        global.params.targetTriple->getArch() == llvm::Triple::x86_64;
+    const unsigned expectedFields = 11 + (isX86_64 ? 2 : 0);
+    const unsigned actualFields =
+        Type::typeinfostruct->fields.dim -
+        1; // union of xdtor/xdtorti counts as 2 overlapping fields
+    if (actualFields != expectedFields) {
+      error(Loc(), "Unexpected number of `object.TypeInfo_Struct` fields; "
+                   "druntime version does not match compiler");
+      fatal();
+    }
+
+    RTTIBuilder b(Type::typeinfostruct);
+
     // handle opaque structs
     if (!sd->members) {
-      RTTIBuilder b(Type::typeinfostruct);
-      b.finalize(getIrGlobal(decl));
+      Logger::println("is opaque struct, emitting dummy TypeInfo_Struct");
+
+      b.push_null_void_array(); // name
+      b.push_null_void_array(); // m_init
+      b.push_null_vp();         // xtoHash
+      b.push_null_vp();         // xopEquals
+      b.push_null_vp();         // xopCmp
+      b.push_null_vp();         // xtoString
+      b.push_uint(0);           // m_flags
+      b.push_null_vp();         // xdtor/xdtorti
+      b.push_null_vp();         // xpostblit
+      b.push_uint(0);           // m_align
+      if (isX86_64) {
+        b.push_null_vp();       // m_arg1
+        b.push_null_vp();       // m_arg2
+      }
+      b.push_null_vp();         // m_RTInfo
+
+      b.finalize(gvar);
       return;
     }
 
@@ -343,19 +381,6 @@ public:
     }
 
     IrAggr *iraggr = getIrAggr(sd);
-    RTTIBuilder b(Type::typeinfostruct);
-
-    // On x86_64, class TypeInfo_Struct contains 2 additional fields
-    // (m_arg1/m_arg2) which are used for the X86_64 System V ABI varargs
-    // implementation. They are not present on any other cpu/os.
-    const bool isX86_64 =
-        global.params.targetTriple->getArch() == llvm::Triple::x86_64;
-    const unsigned expectedFields = 12 + (isX86_64 ? 2 : 0);
-    if (Type::typeinfostruct->fields.dim != expectedFields) {
-      error(Loc(), "Unexpected number of `object.TypeInfo_Struct` fields; "
-                   "druntime version does not match compiler");
-      fatal();
-    }
 
     // string name
     b.push_string(sd->toPrettyChars());
@@ -432,7 +457,7 @@ public:
     }
 
     // finish
-    b.finalize(getIrGlobal(decl));
+    b.finalize(gvar);
   }
 
   /* ======================================================================= */
@@ -461,7 +486,7 @@ public:
     b.push_classinfo(tc->sym);
 
     // finish
-    b.finalize(getIrGlobal(decl));
+    b.finalize(gvar);
   }
 
   /* ======================================================================= */
@@ -495,7 +520,7 @@ public:
     b.push_array(arrC, dim, Type::dtypeinfo->type, nullptr);
 
     // finish
-    b.finalize(getIrGlobal(decl));
+    b.finalize(gvar);
   }
 
   /* ======================================================================= */
@@ -509,7 +534,7 @@ public:
     // TypeInfo base
     b.push_typeinfo(decl->tinfo->mutableOf()->merge());
     // finish
-    b.finalize(getIrGlobal(decl));
+    b.finalize(gvar);
   }
 
   /* ======================================================================= */
@@ -523,7 +548,7 @@ public:
     // TypeInfo base
     b.push_typeinfo(decl->tinfo->mutableOf()->merge());
     // finish
-    b.finalize(getIrGlobal(decl));
+    b.finalize(gvar);
   }
 
   /* ======================================================================= */
@@ -537,7 +562,7 @@ public:
     // TypeInfo base
     b.push_typeinfo(decl->tinfo->unSharedOf()->merge());
     // finish
-    b.finalize(getIrGlobal(decl));
+    b.finalize(gvar);
   }
 
   /* ======================================================================= */
@@ -551,7 +576,7 @@ public:
     // TypeInfo base
     b.push_typeinfo(decl->tinfo->mutableOf()->merge());
     // finish
-    b.finalize(getIrGlobal(decl));
+    b.finalize(gvar);
   }
 
   /* ======================================================================= */
@@ -568,7 +593,7 @@ public:
     // TypeInfo base
     b.push_typeinfo(tv->basetype);
     // finish
-    b.finalize(getIrGlobal(decl));
+    b.finalize(gvar);
   }
 };
 
@@ -594,39 +619,35 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
   }
 
   const auto irMangle = getIRMangledVarName(mangled, LINKd);
-  IrGlobal *irg = getIrGlobal(decl, true);
-  const LinkageWithCOMDAT lwc(LLGlobalValue::ExternalLinkage, false);
-
-  irg->value = gIR->module.getGlobalVariable(irMangle);
-  if (irg->value) {
-    assert(irg->getType()->isStructTy());
+  LLGlobalVariable *gvar = gIR->module.getGlobalVariable(irMangle);
+  if (gvar) {
+    assert(gvar->getType()->getContainedType(0)->isStructTy());
   } else {
-    LLType *type;
-    if (builtinTypeInfo(
-            decl->tinfo)) { // this is a declaration of a builtin __initZ var
-      type = Type::dtypeinfo->type->ctype->isClass()->getMemoryLLType();
-    } else {
-      type = LLStructType::create(gIR->context(), decl->toPrettyChars());
-    }
+    LLType *type = DtoType(decl->type)->getPointerElementType();
     // Create the symbol. We need to keep it mutable as the type is not declared
     // as immutable on the D side, and e.g. synchronized() can be used on the
     // implicit monitor.
-    auto g = new LLGlobalVariable(gIR->module, type, false, lwc.first,
-                                  nullptr, irMangle);
-    setLinkage(lwc, g);
-    irg->value = g;
+    gvar =
+        new LLGlobalVariable(gIR->module, type, false,
+                             LLGlobalValue::ExternalLinkage, nullptr, irMangle);
   }
+
+  IrGlobal *irg = getIrGlobal(decl, true);
+  irg->value = gvar;
 
   emitTypeMetadata(decl);
 
   // check if the definition can be elided
-  if (isSpeculativeType(decl->tinfo) || builtinTypeInfo(decl->tinfo)) {
+  if (global.params.betterC || isSpeculativeType(decl->tinfo) ||
+      builtinTypeInfo(decl->tinfo)) {
     return;
   }
 
   // define the TypeInfo global
-  LLVMDefineVisitor v;
+  LLVMDefineVisitor v(gvar);
   decl->accept(&v);
+
+  setLinkage({TYPEINFO_LINKAGE_TYPE, supportsCOMDAT()}, gvar);
 }
 
 /* ========================================================================= */

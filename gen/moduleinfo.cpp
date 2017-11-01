@@ -15,7 +15,6 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/mangling.h"
-#include "gen/objcgen.h"
 #include "gen/rttibuilder.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
@@ -235,9 +234,11 @@ llvm::GlobalVariable *genModuleInfo(Module *m) {
 #if 0
   if (fgetmembers)
     flags |= MIxgetMembers;
+#endif
+
+  const auto fictor = getIrModule(m)->coverageCtor;
   if (fictor)
     flags |= MIictor;
-#endif
 
   const auto funittest = buildModuleUnittest(m);
   if (funittest) {
@@ -281,9 +282,10 @@ llvm::GlobalVariable *genModuleInfo(Module *m) {
 #if 0
     if (fgetmembers)
         b.push(fgetmembers);
-    if (fictor)
-        b.push(fictor);
 #endif
+  if (fictor) {
+    b.push(fictor);
+  }
   if (funittest) {
     b.push(funittest);
   }
@@ -303,11 +305,8 @@ llvm::GlobalVariable *genModuleInfo(Module *m) {
   const auto at = llvm::ArrayType::get(it, len);
   b.push(toConstantArray(it, at, name, len, false));
 
-  objc_Module_genmoduleinfo_classes();
-
   // Create a global symbol with the above initialiser.
   LLGlobalVariable *moduleInfoSym = getIrModule(m)->moduleInfoSymbol();
-  b.finalize(moduleInfoSym->getType()->getPointerElementType(), moduleInfoSym);
-  setLinkage({LLGlobalValue::ExternalLinkage, false}, moduleInfoSym);
+  b.finalize(moduleInfoSym);
   return moduleInfoSym;
 }

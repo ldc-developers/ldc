@@ -642,16 +642,14 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     ++iarg;
   }
 
-  // TODO: do we need this?
-  if (irFty.arg_objcSelector) {
-    iarg->setName(".objcSelector_arg");
-    irFunc->thisArg = &(*iarg);
-    ++iarg;
-  }
-
   if (passThisBeforeSret) {
     iarg->setName(".sret_arg");
     irFunc->sretArg = &(*iarg);
+    ++iarg;
+  }
+
+  if (irFty.arg_objcSelector) {
+    iarg->setName(".objcSelector_arg");
     ++iarg;
   }
 

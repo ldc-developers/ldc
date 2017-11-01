@@ -13,6 +13,7 @@ import ddmd.arraytypes;
 import ddmd.dscope;
 import ddmd.dtemplate;
 import ddmd.expression;
+import ddmd.expressionsem;
 import ddmd.errors;
 import ddmd.id;
 import ddmd.mtype;
@@ -39,7 +40,7 @@ Expression semanticTraitsLDC(TraitsExp e, Scope* sc)
 
         auto cpu = traitsGetTargetCPU();
         auto se = new StringExp(e.loc, cast(void*)cpu.ptr, cpu.length);
-        return se.semantic(sc);
+        return semantic(se, sc);
     }
     if (e.ident == Id.targetHasFeature)
     {

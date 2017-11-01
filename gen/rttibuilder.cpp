@@ -150,36 +150,35 @@ void RTTIBuilder::push_funcptr(FuncDeclaration *fd, Type *castto) {
   }
 }
 
-void RTTIBuilder::finalize(IrGlobal *tid) {
-  finalize(tid->getType(), tid->value);
-}
-
-void RTTIBuilder::finalize(LLType *type, LLValue *value) {
-  llvm::ArrayRef<LLConstant *> inits = llvm::makeArrayRef(this->inits);
-  LLStructType *st = isaStruct(type);
+void RTTIBuilder::finalize(LLGlobalVariable *gvar) {
+  LLStructType *st = isaStruct(gvar->getType()->getPointerElementType());
   assert(st);
 
-  // set struct body
+  // finalize the type if opaque (e.g., for ModuleInfos)
   if (st->isOpaque()) {
-    const int n = inits.size();
-    std::vector<LLType *> types;
-    types.reserve(n);
-    for (int i = 0; i < n; ++i) {
-      types.push_back(inits[i]->getType());
+    std::vector<LLType *> fieldTypes;
+    fieldTypes.reserve(inits.size());
+    for (auto c : inits) {
+      fieldTypes.push_back(c->getType());
     }
-    st->setBody(types);
+    st->setBody(fieldTypes);
   }
 
-  // create the inititalizer
-  LLConstant *tiInit = LLConstantStruct::get(st, inits);
+  // create the initializer
+  LLConstant *tiInit = get_constant(st);
 
   // set the initializer
-  llvm::GlobalVariable *gvar = llvm::cast<llvm::GlobalVariable>(value);
   gvar->setInitializer(tiInit);
-  setLinkage({TYPEINFO_LINKAGE_TYPE, supportsCOMDAT()}, gvar);
 }
 
 LLConstant *RTTIBuilder::get_constant(LLStructType *initType) {
-  // just return the inititalizer
-  return LLConstantStruct::get(initType, inits);
+  assert(initType->getNumElements() == inits.size());
+
+  std::vector<LLConstant *> castInits;
+  castInits.reserve(inits.size());
+  for (unsigned i = 0; i < inits.size(); ++i) {
+    castInits.push_back(DtoBitCast(inits[i], initType->getElementType(i)));
+  }
+
+  return LLConstantStruct::get(initType, castInits);
 }

@@ -5,10 +5,12 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC root/_ctfloat.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/root/ctfloat.d, root/_ctfloat.d)
  */
 
 module ddmd.root.ctfloat;
+
+// Online documentation: https://dlang.org/phobos/ddmd_root_ctfloat.html
 
 static import core.math, core.stdc.math;
 import core.stdc.errno;
@@ -21,6 +23,11 @@ version(IN_LLVM_MSVC)
     alias real_t = double;
 else
     alias real_t = real;
+
+version(IN_LLVM)
+    private enum LDC_host_has_yl2x = is(real_t == real) && __traits(compiles, core.math.yl2x(1.0L, 2.0L));
+else
+    private enum LDC_host_has_yl2x = false;
 
 private
 {
@@ -39,7 +46,7 @@ private
 extern (C++) struct CTFloat
 {
     // IN_LLVM replaced: version(DigitalMars)
-    version(none)
+    static if (LDC_host_has_yl2x)
     {
         static __gshared bool yl2x_supported = true;
         static __gshared bool yl2xp1_supported = true;
@@ -52,7 +59,8 @@ extern (C++) struct CTFloat
 
     static void yl2x(const real_t* x, const real_t* y, real_t* res)
     {
-        version(DigitalMars)
+        // IN_LLVM replaced: version(DigitalMars)
+        static if (LDC_host_has_yl2x)
             *res = core.math.yl2x(*x, *y);
         else
             assert(0);
@@ -60,7 +68,8 @@ extern (C++) struct CTFloat
 
     static void yl2xp1(const real_t* x, const real_t* y, real_t* res)
     {
-        version(DigitalMars)
+        // IN_LLVM replaced: version(DigitalMars)
+        static if (LDC_host_has_yl2x)
             *res = core.math.yl2xp1(*x, *y);
         else
             assert(0);
@@ -71,18 +80,25 @@ extern (C++) struct CTFloat
     static real_t tan(real_t x) { return core.stdc.math.tanl(x); }
     static real_t sqrt(real_t x) { return core.math.sqrt(x); }
     static real_t fabs(real_t x) { return core.math.fabs(x); }
+    static real_t ldexp(real_t n, int exp) { return core.math.ldexp(n, exp); }
 
   version(IN_LLVM)
   {
     static import std.math;
 
     static real_t log(real_t x) { return std.math.log(x); }
+    static real_t log2(real_t x) { return std.math.log2(x); }
+    static real_t log10(real_t x) { return std.math.log10(x); }
     static real_t fmin(real_t l, real_t r) { return std.math.fmin(l, r); }
     static real_t fmax(real_t l, real_t r) { return std.math.fmax(l, r); }
     static real_t floor(real_t x) { return std.math.floor(x); }
     static real_t ceil(real_t x) { return std.math.ceil(x); }
     static real_t trunc(real_t x) { return std.math.trunc(x); }
+    static real_t rint(real_t x) { return std.math.rint(x); }
+    static real_t nearbyint(real_t x) { return std.math.nearbyint(x); }
     static real_t round(real_t x) { return std.math.round(x); }
+    static real_t fma(real_t x, real_t y, real_t z) { return std.math.fma(x, y, z); }
+    static real_t copysign(real_t to, real_t from) { return std.math.copysign(to, from); }
 
     static void _init();
 
@@ -139,7 +155,7 @@ extern (C++) struct CTFloat
 
     static bool isInfinity(real_t r)
     {
-        return r is real_t.infinity || r is -real_t.infinity;
+        return isIdentical(fabs(r), real_t.infinity);
     }
 
 version (IN_LLVM)

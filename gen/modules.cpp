@@ -101,6 +101,9 @@ enum class RegistryStyle {
   /// global.
   legacyLinkedList,
 
+  /// Module references are emitted into the .minfo section.
+  sectionMSVC,
+
   /// Module references are emitted into the .minfo section. Global
   /// constructors/destructors make sure _d_dso_registry is invoked once per ELF
   /// object.
@@ -116,6 +119,10 @@ enum class RegistryStyle {
 /// Returns the module registry style to use for the current target triple.
 RegistryStyle getModuleRegistryStyle() {
   const auto t = global.params.targetTriple;
+
+  if (t->isWindowsMSVCEnvironment()) {
+    return RegistryStyle::sectionMSVC;
+  }
 
   if (t->isMacOSX()) {
     return RegistryStyle::sectionDarwin;
@@ -329,7 +336,8 @@ llvm::Function *buildRegisterDSO(RegistryStyle style,
 
 void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
                             llvm::Constant *thisModuleInfo) {
-  assert(style == RegistryStyle::sectionELF ||
+  assert(style == RegistryStyle::sectionMSVC ||
+         style == RegistryStyle::sectionELF ||
          style == RegistryStyle::sectionDarwin);
   // Only for the first D module to be emitted into this llvm::Module we need to
   // create the global ctors/dtors. The magic linker symbols used to get the
@@ -342,6 +350,10 @@ void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
   const bool isFirst = !gIR->module.getGlobalVariable("ldc.dso_slot");
 
   llvm::Type *const moduleInfoPtrTy = DtoPtrToType(Module::moduleinfo->type);
+  const auto sectionName =
+      style == RegistryStyle::sectionMSVC
+          ? ".minfo"
+          : style == RegistryStyle::sectionDarwin ? "__DATA,.minfo" : "__minfo";
 
   const auto thismrefIRMangle =
       getIRMangledModuleRefSymbolName(moduleMangle.c_str());
@@ -350,13 +362,12 @@ void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
       false, // FIXME: mRelocModel != llvm::Reloc::PIC_
       llvm::GlobalValue::LinkOnceODRLinkage,
       DtoBitCast(thisModuleInfo, moduleInfoPtrTy), thismrefIRMangle);
-  thismref->setSection((style == RegistryStyle::sectionDarwin) ? "__DATA,.minfo"
-                                                               : "__minfo");
+  thismref->setSection(sectionName);
   gIR->usedArray.push_back(thismref);
 
   // Android doesn't need register_dso and friends- see rt.sections_android-
   // so bail out here.
-  if (!isFirst ||
+  if (!isFirst || style == RegistryStyle::sectionMSVC ||
       global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
     // Nothing left to do.
     return;
@@ -572,17 +583,11 @@ void addCoverageAnalysis(Module *m) {
     builder.CreateRetVoid();
   }
 
-  // Add the ctor to the module's static ctors list. TODO: This is quite the
-  // hack.
+  // Add the ctor to the module's order-independent ctors list.
   {
-    IF_LOG Logger::println("Add %s to module's shared static constructor list",
+    IF_LOG Logger::println("Set %s as module's static constructor for coverage",
                            ctorname);
-    FuncDeclaration *fd =
-        FuncDeclaration::genCfunc(nullptr, Type::tvoid, ctorname);
-    fd->linkage = LINKd;
-    IrFunction *irfunc = getIrFunc(fd, true);
-    irfunc->setLLVMFunc(ctor);
-    getIrModule(m)->sharedCtors.push_back(fd);
+    getIrModule(m)->coverageCtor = ctor;
   }
 
   IF_LOG Logger::undent();

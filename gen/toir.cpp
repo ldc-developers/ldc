@@ -988,14 +988,26 @@ public:
     auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
+    VarDeclaration *vd = nullptr;
+
     // special cases: `this(int) { this(); }` and `this(int) { super(); }`
     if (!e->var) {
       Logger::println("this exp without var declaration");
-      result = new DLValue(e->type, p->func()->thisArg);
-      return;
+      if (auto thisArg = p->func()->thisArg) {
+        result = new DLValue(e->type, thisArg);
+        return;
+      }
+      // use the inner-most parent's `vthis`
+      for (int i = p->funcGenStates.size() - 2; i >= 0; --i) {
+        if (auto vthis = p->funcGenStates[i]->irFunc.decl->vthis) {
+          vd = vthis;
+          break;
+        }
+      }
+    } else {
+      vd = e->var->isVarDeclaration();
     }
 
-    const auto vd = e->var->isVarDeclaration();
     assert(vd);
     assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
                                    "vars, although it can easily be made to.");
@@ -1672,8 +1684,16 @@ public:
      * msg is not evaluated at all. So should use toElemDtor()
      * instead of toElem().
      */
-    DtoAssert(p->func()->decl->getModule(), e->loc,
-              e->msg ? toElemDtor(e->msg) : nullptr);
+    DValue *const msg = e->msg ? toElemDtor(e->msg) : nullptr;
+    Module *const module = p->func()->decl->getModule();
+    if (global.params.betterC) {
+      const auto cMsg =
+          msg ? DtoArrayPtr(msg) // assuming `msg` is null-terminated, like DMD
+              : DtoConstCString(e->e1->toChars());
+      DtoCAssert(module, e->e1->loc, cMsg);
+    } else {
+      DtoAssert(module, e->loc, msg);
+    }
 
     // passed:
     p->scope() = IRScope(passedbb);

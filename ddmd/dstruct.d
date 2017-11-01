@@ -5,10 +5,12 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _dstruct.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/dstruct.d, _dstruct.d)
  */
 
 module ddmd.dstruct;
+
+// Online documentation: https://dlang.org/phobos/ddmd_dstruct.html
 
 import core.stdc.stdio;
 import ddmd.aggregate;
@@ -29,12 +31,8 @@ import ddmd.identifier;
 import ddmd.mtype;
 import ddmd.opover;
 import ddmd.tokens;
-// IN_LLVM import ddmd.typinf;
+import ddmd.typinf;
 import ddmd.visitor;
-
-version(IN_LLVM) {
-    import gen.typinf;
-}
 
 /***************************************
  * Search sd for a member function of the form:
@@ -254,22 +252,31 @@ extern (C++) class StructDeclaration : AggregateDeclaration
     // For those, today TypeInfo_Struct is generated in COMDAT.
     bool requestTypeInfo;
 
-    final extern (D) this(Loc loc, Identifier id)
+    final extern (D) this(Loc loc, Identifier id, bool inObject)
     {
         super(loc, id);
         zeroInit = 0; // assume false until we do semantic processing
         ispod = ISPODfwd;
         // For forward references
         type = new TypeStruct(this);
-        if (id == Id.ModuleInfo && !Module.moduleinfo)
-            Module.moduleinfo = this;
+
+        if (inObject)
+        {
+            if (id == Id.ModuleInfo && !Module.moduleinfo)
+                Module.moduleinfo = this;
+        }
+    }
+
+    static StructDeclaration create(Loc loc, Identifier id, bool inObject)
+    {
+        return new StructDeclaration(loc, id, inObject);
     }
 
     override Dsymbol syntaxCopy(Dsymbol s)
     {
         StructDeclaration sd =
             s ? cast(StructDeclaration)s
-              : new StructDeclaration(loc, ident);
+              : new StructDeclaration(loc, ident, false);
         return ScopeDsymbol.syntaxCopy(sd);
     }
 
@@ -301,6 +308,8 @@ extern (C++) class StructDeclaration : AggregateDeclaration
 
         if (this.errors)
             type = Type.terror;
+        if (semanticRun == PASSinit)
+            type = type.addSTC(sc.stc | storage_class);
         type = type.semantic(loc, sc);
         if (type.ty == Tstruct && (cast(TypeStruct)type).sym != this)
         {
@@ -370,7 +379,10 @@ extern (C++) class StructDeclaration : AggregateDeclaration
         {
             auto s = (*members)[i];
             s.semantic(sc2);
+            this.errors |= s.errors;
         }
+        if (this.errors)
+            type = Type.terror;
 
         if (!determineFields())
         {
@@ -785,7 +797,7 @@ extern (C++) final class UnionDeclaration : StructDeclaration
 {
     extern (D) this(Loc loc, Identifier id)
     {
-        super(loc, id);
+        super(loc, id, false);
     }
 
     override Dsymbol syntaxCopy(Dsymbol s)

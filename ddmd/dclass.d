@@ -5,10 +5,12 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _dclass.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/dclass.d, _dclass.d)
  */
 
 module ddmd.dclass;
+
+// Online documentation: https://dlang.org/phobos/ddmd_dclass.html
 
 import core.stdc.stdio;
 import core.stdc.string;
@@ -398,6 +400,11 @@ extern (C++) class ClassDeclaration : AggregateDeclaration
         baseok = BASEOKnone;
     }
 
+    static ClassDeclaration create(Loc loc, Identifier id, BaseClasses* baseclasses, Dsymbols* members, bool inObject)
+    {
+        return new ClassDeclaration(loc, id, baseclasses, members, inObject);
+    }
+
     override Dsymbol syntaxCopy(Dsymbol s)
     {
         //printf("ClassDeclaration.syntaxCopy('%s')\n", toChars());
@@ -685,14 +692,19 @@ extern (C++) class ClassDeclaration : AggregateDeclaration
             // If no base class, and this is not an Object, use Object as base class
             if (!baseClass && ident != Id.Object && !cpp)
             {
-                if (!object)
+                void badObjectDotD()
                 {
                     error("missing or corrupt object.d");
                     fatal();
                 }
 
+                if (!object || object.errors)
+                    badObjectDotD();
+
                 Type t = object.type;
                 t = t.semantic(loc, sc).toBasetype();
+                if (t.ty == Terror)
+                    badObjectDotD();
                 assert(t.ty == Tclass);
                 TypeClass tc = cast(TypeClass)t;
 
