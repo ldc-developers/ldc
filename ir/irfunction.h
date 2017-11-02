@@ -82,10 +82,10 @@ struct IrFunction {
   llvm::FastMathFlags FMF;
 
   /// target CPU was overriden by attribute
-  bool targetCpuOverriden = false;
+  bool targetCpuOverridden = false;
 
   /// target features was overriden by attributes
-  bool targetFeaturesOverriden = false;
+  bool targetFeaturesOverridden = false;
 
   /// This functions was marked for dynamic compilation
   bool runtimeCompile = false;

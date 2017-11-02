@@ -328,7 +328,7 @@ void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func, IrFunction *ir
 
   if (!CPU.empty()) {
     func->addFnAttr("target-cpu", CPU);
-    irFunc->targetCpuOverriden = true;
+    irFunc->targetCpuOverridden = true;
   }
 
   if (!features.empty()) {
@@ -338,7 +338,7 @@ void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func, IrFunction *ir
     sort(features.begin(), features.end());
     func->addFnAttr("target-features",
                     llvm::join(features.begin(), features.end(), ","));
-    irFunc->targetFeaturesOverriden = true;
+    irFunc->targetFeaturesOverridden = true;
   }
 }
 

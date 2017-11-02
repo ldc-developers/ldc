@@ -227,7 +227,7 @@ void removeFunctionsTargets(IRState *irs, llvm::Module &module) {
   assert(nullptr != irs);
 
   std::unordered_map<std::string, IrFunction *> funcMap;
-  for (auto &&fun : irs->targetCpuOrFeaturesOverriden) {
+  for (auto &&fun : irs->targetCpuOrFeaturesOverridden) {
     assert(nullptr != fun);
     funcMap.insert({fun->getLLVMFunc()->getName(), fun});
   }
@@ -239,11 +239,11 @@ void removeFunctionsTargets(IRState *irs, llvm::Module &module) {
     auto it = funcMap.find(fun.getName());
     if (funcMap.end() != it) {
       auto irFunc = it->second;
-      if (!irFunc->targetCpuOverriden) {
+      if (!irFunc->targetCpuOverridden) {
         fun.removeFnAttr("target-cpu");
       }
 
-      if (!irFunc->targetFeaturesOverriden) {
+      if (!irFunc->targetFeaturesOverridden) {
         fun.removeFnAttr("target-features");
       }
     } else {

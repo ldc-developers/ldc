@@ -223,7 +223,7 @@ public:
   void replaceGlobals();
 
   // List of functions with cpu or features attributes overriden by user
-  std::vector<IrFunction *> targetCpuOrFeaturesOverriden;
+  std::vector<IrFunction *> targetCpuOrFeaturesOverridden;
 
   struct RtCompiledFuncDesc {
     llvm::GlobalVariable *thunkVar;
