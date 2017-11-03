@@ -3272,10 +3272,8 @@ struct AsmProcessor {
         e = createComExp(stmt->loc, e1);
         break;
       case TOKoror:
-        e = createOrOrExp(stmt->loc, e1, e2);
-        break;
       case TOKandand:
-        e = createAndAndExp(stmt->loc, e1, e2);
+        e = createLogicalExp(stmt->loc, op, e1, e2);
         break;
       case TOKor:
         e = createOrExp(stmt->loc, e1, e2);
@@ -3299,7 +3297,7 @@ struct AsmProcessor {
       default:
         llvm_unreachable("Unknown integer operation.");
       }
-      e = semantic(e, sc);
+      e = expressionSemantic(e, sc);
       return e->ctfeInterpret();
     }
     stmt->error("expected integer operand(s) for `%s`", Token::toChars(op));
@@ -3813,7 +3811,7 @@ struct AsmProcessor {
         }
       }
 
-      e = semantic(e, sc);
+      e = expressionSemantic(e, sc);
       e = e->optimize(WANTvalue);
 
       // Special case for floating point constant declarations.

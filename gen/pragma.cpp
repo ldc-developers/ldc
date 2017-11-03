@@ -54,7 +54,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
   Identifier *ident = decl->ident;
   Expressions *args = decl->args;
   Expression *expr =
-      (args && args->dim > 0) ? semantic((*args)[0], sc) : nullptr;
+      (args && args->dim > 0) ? expressionSemantic((*args)[0], sc) : nullptr;
 
   // pragma(LDC_intrinsic, "string") { funcdecl(s) }
   if (ident == Id::LDC_intrinsic) {

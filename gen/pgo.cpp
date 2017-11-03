@@ -302,16 +302,11 @@ struct MapRegionCounters : public StoppableVisitor {
     Hash.combine(PGOHash::ConditionalExpr);
   }
 
-  void visit(AndAndExp *expr) override {
+  void visit(LogicalExp *expr) override {
     SKIP_VISITED(expr);
     CounterMap[expr] = NextCounter++;
-    Hash.combine(PGOHash::AndAndExpr);
-  }
-
-  void visit(OrOrExp *expr) override {
-    SKIP_VISITED(expr);
-    CounterMap[expr] = NextCounter++;
-    Hash.combine(PGOHash::OrOrExpr);
+    Hash.combine(expr->op == TOKandand ? PGOHash::AndAndExpr
+                                       : PGOHash::OrOrExpr);
   }
 
 #undef SKIP_VISITED
@@ -740,23 +735,11 @@ struct ComputeRegionCounts : public RecursiveVisitor {
     RecordNextStmtCount = true;
   }
 
-  void visit(AndAndExp *E) override {
+  void visit(LogicalExp *E) override {
     RecordStmtCount(E);
     uint64_t ParentCount = CurrentCount;
     recurse(E->e1);
-    // Counter tracks the right hand side of a logical and operator.
-    uint64_t RHSCount = setCount(PGO.getRegionCount(E));
-    CountMap[E->e2] = RHSCount;
-    recurse(E->e2);
-    setCount(ParentCount + RHSCount - CurrentCount);
-    RecordNextStmtCount = true;
-  }
-
-  void visit(OrOrExp *E) override {
-    RecordStmtCount(E);
-    uint64_t ParentCount = CurrentCount;
-    recurse(E->e1);
-    // Counter tracks the right hand side of a logical or operator.
+    // Counter tracks the right hand side of a logical operator.
     uint64_t RHSCount = setCount(PGO.getRegionCount(E));
     CountMap[E->e2] = RHSCount;
     recurse(E->e2);

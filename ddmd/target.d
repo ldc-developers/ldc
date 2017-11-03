@@ -550,7 +550,7 @@ version(IN_LLVM) {} else {
  * Private helpers for Target::paintAsType.
  */
 // Write the integer value of 'e' into a unsigned byte buffer.
-extern (C++) static void encodeInteger(Expression e, ubyte* buffer)
+private void encodeInteger(Expression e, ubyte* buffer)
 {
     dinteger_t value = e.toInteger();
     int size = cast(int)e.type.size();
@@ -563,7 +563,7 @@ extern (C++) static void encodeInteger(Expression e, ubyte* buffer)
 
 // Write the bytes encoded in 'buffer' into an integer and returns
 // the value as a new IntegerExp.
-extern (C++) static Expression decodeInteger(Loc loc, Type type, ubyte* buffer)
+private Expression decodeInteger(Loc loc, Type type, ubyte* buffer)
 {
     dinteger_t value = 0;
     int size = cast(int)type.size();
@@ -576,7 +576,7 @@ extern (C++) static Expression decodeInteger(Loc loc, Type type, ubyte* buffer)
 }
 
 // Write the real_t value of 'e' into a unsigned byte buffer.
-extern (C++) static void encodeReal(Expression e, ubyte* buffer)
+private void encodeReal(Expression e, ubyte* buffer)
 {
     switch (e.type.ty)
     {
@@ -599,7 +599,7 @@ extern (C++) static void encodeReal(Expression e, ubyte* buffer)
 
 // Write the bytes encoded in 'buffer' into a real_t and returns
 // the value as a new RealExp.
-extern (C++) static Expression decodeReal(Loc loc, Type type, ubyte* buffer)
+private Expression decodeReal(Loc loc, Type type, ubyte* buffer)
 {
     real_t value;
     switch (type.ty)
