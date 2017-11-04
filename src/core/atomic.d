@@ -290,7 +290,7 @@ else version( LDC )
 
     pragma(inline, true):
 
-    HeadUnshared!(T) atomicOp(string op, T, V1)( ref shared T val, V1 mod ) pure nothrow @nogc @trusted
+    TailShared!(T) atomicOp(string op, T, V1)( ref shared T val, V1 mod ) pure nothrow @nogc @trusted
         if( __traits( compiles, mixin( "*cast(T*)&val" ~ op ~ "mod" ) ) )
     {
         enum suitedForAtomicRmw = (__traits(isIntegral, T) && __traits(isIntegral, V1) &&
@@ -308,7 +308,7 @@ else version( LDC )
                    op == "==" || op == "!=" || op == "<"  || op == "<="  ||
                    op == ">"  || op == ">=" )
         {
-            HeadUnshared!(T) get = atomicLoad!(MemoryOrder.raw)( val );
+            TailShared!(T) get = atomicLoad!(MemoryOrder.raw)( val );
             mixin( "return get " ~ op ~ " mod;" );
         }
         else
@@ -345,7 +345,7 @@ else version( LDC )
                         op == "%=" || op == "^^=" || op == "&="  || op == "|=" ||
                         op == "^=" || op == "<<=" || op == ">>=" || op == ">>>=" ) // skip "~="
         {
-            HeadUnshared!(T) get, set;
+            TailShared!(T) get, set;
 
             do
             {
@@ -477,12 +477,12 @@ else version( LDC )
     // This could also handle floating-point types, the constraint is just there
     // to avoid ambiguities with below "general" floating point definition from
     // the upstream runtime.
-    HeadUnshared!T atomicLoad(MemoryOrder ms = MemoryOrder.seq, T)(ref const shared T val) pure nothrow @nogc @trusted
+    TailShared!T atomicLoad(MemoryOrder ms = MemoryOrder.seq, T)(ref const shared T val) pure nothrow @nogc @trusted
         if( !__traits(isFloating, T) )
     {
         alias Int = _AtomicType!T;
         auto asInt = llvm_atomic_load!Int(cast(shared(Int)*)cast(void*)&val, _ordering!(ms));
-        return *cast(HeadUnshared!T*)&asInt;
+        return *cast(TailShared!T*)&asInt;
     }
 
     void atomicStore(MemoryOrder ms = MemoryOrder.seq, T, V1)( ref shared T val, V1 newval ) pure nothrow @nogc @trusted
