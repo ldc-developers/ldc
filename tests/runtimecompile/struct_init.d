@@ -1,7 +1,7 @@
 
 // llvm generates overlapped simd reads and writes to init these
 // structs but fails on win32 for some reason
-// UNSUPPORTED: Windows_x86
+// XFAIL: Windows_x86
 // RUN: %ldc -enable-runtime-compile -run %s
 
 import ldc.runtimecompile;

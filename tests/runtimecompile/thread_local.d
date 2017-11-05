@@ -1,5 +1,4 @@
 
-// REQUIRES: JitThreadLocal
 // RUN: %ldc -enable-runtime-compile -run %s
 
 import core.thread;
