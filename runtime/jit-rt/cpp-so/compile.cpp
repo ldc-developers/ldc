@@ -325,6 +325,10 @@ struct JitFinaliser final {
 
 void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
                                     const Context &context) {
+  if (nullptr == modlist_head) {
+    // No jit modules to compile
+    return;
+  }
   interruptPoint(context, "Init");
   MyJIT &myJit = getJit();
   auto current = modlist_head;
