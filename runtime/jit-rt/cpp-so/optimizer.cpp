@@ -23,6 +23,8 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/AlwaysInliner.h"
+#include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 #include "context.h"
@@ -30,39 +32,35 @@
 #include "valueparser.h"
 
 namespace {
-
+// TODO: share this function with compiler
 void addOptimizationPasses(llvm::legacy::PassManagerBase &mpm,
                            llvm::legacy::FunctionPassManager &fpm,
                            unsigned optLevel, unsigned sizeLevel) {
-  //  if (!noVerify) {
-  //    fpm.add(createVerifierPass());
-  //  }
-
   llvm::PassManagerBuilder builder;
   builder.OptLevel = optLevel;
   builder.SizeLevel = sizeLevel;
 
+  // TODO: expose this option from jit
   if (/*willInline()*/ true) {
-    unsigned threshold = 225;
-    if (sizeLevel == 1) { // -Os
-      threshold = 75;
-    } else if (sizeLevel == 2) { // -Oz
-      threshold = 25;
-    }
-    if (optLevel > 2) {
-      threshold = 275;
-    }
-    builder.Inliner = llvm::createFunctionInliningPass(threshold);
+#if LDC_LLVM_VER >= 400
+    auto params = llvm::getInlineParams(optLevel, sizeLevel);
+    builder.Inliner = llvm::createFunctionInliningPass(params);
+#else
+    builder.Inliner = llvm::createFunctionInliningPass(optLevel, sizeLevel);
+#endif
+  } else {
+#if LDC_LLVM_VER >= 400
+    builder.Inliner = llvm::createAlwaysInlinerLegacyPass();
+#else
+    builder.Inliner = llvm::createAlwaysInlinerPass();
+#endif
   }
-  //  builder.DisableUnitAtATime = !unitAtATime;
+  builder.DisableUnitAtATime = false;
+
+  // TODO: Expose this option
   builder.DisableUnrollLoops = optLevel == 0;
 
-  //  builder.DisableUnrollLoops = (disableLoopUnrolling.getNumOccurrences() >
-  //  0)
-  //                                   ? disableLoopUnrolling
-  //                                   : optLevel == 0;
-
-  // This is final, unless there is a #pragma vectorize enable
+  // TODO: expose this option
   if (/*disableLoopVectorization*/ false) {
     builder.LoopVectorize = false;
     // If option wasn't forced via cmd line (-vectorize-loops, -loop-vectorize)
@@ -70,48 +68,14 @@ void addOptimizationPasses(llvm::legacy::PassManagerBase &mpm,
     builder.LoopVectorize = optLevel > 1 && sizeLevel < 2;
   }
 
-  // When #pragma vectorize is on for SLP, do the same as above
+  // TODO: expose this option
   builder.SLPVectorize =
       /*disableSLPVectorization*/ false ? false : optLevel > 1 && sizeLevel < 2;
 
-  //  if (opts::sanitize == opts::AddressSanitizer) {
-  //    builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-  //                         addAddressSanitizerPasses);
-  //    builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-  //                         addAddressSanitizerPasses);
-  //  }
-
-  //  if (opts::sanitize == opts::MemorySanitizer) {
-  //    builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-  //                         addMemorySanitizerPass);
-  //    builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-  //                         addMemorySanitizerPass);
-  //  }
-
-  //  if (opts::sanitize == opts::ThreadSanitizer) {
-  //    builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-  //                         addThreadSanitizerPass);
-  //    builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-  //                         addThreadSanitizerPass);
-  //  }
-
-  //  if (!disableLangSpecificPasses) {
-  //    if (!disableSimplifyDruntimeCalls) {
-  //      builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
-  //                           addSimplifyDRuntimeCallsPass);
-  //    }
-
-  //    if (!disableGCToStack) {
-  //      builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
-  //                           addGarbageCollect2StackPass);
-  //    }
-  //  }
-
-  // EP_OptimizerLast does not exist in LLVM 3.0, add it manually below.
-  //  builder.addExtension(llvm::PassManagerBuilder::EP_OptimizerLast,
-  //                       addStripExternalsPass);
-
-  //  addInstrProfilingPass(mpm);
+  // TODO: sanitizers support in jit?
+  // TODO: lang specific passes support
+  // TODO: addStripExternalsPass?
+  // TODO: PGO support in jit?
 
   builder.populateFunctionPassManager(fpm);
   builder.populateModulePassManager(mpm);
