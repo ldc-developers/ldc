@@ -2,13 +2,13 @@
 // REQUIRES: llvm307
 // RUN: %ldc -g -c -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 
-// CHECK-LABEL: define {{.*}} @_D{{.*}}8encloser
+// CHECK-LABEL: define {{.*}} @{{.*}}_D14nested_llvm3078encloserFiiZv
 void encloser(int arg0, int arg1)
 {
     // CHECK: @llvm.dbg.declare{{.*}}%enc_n{{.*}}enc_n
     int enc_n;
 
-    // CHECK-LABEL: define {{.*}} @_D{{.*}}8encloser{{.*}}nested
+    // CHECK-LABEL: define {{.*}} @{{.*}}_D14nested_llvm3078encloserFiiZ6nestedMFNaNbNiNfiZv
     void nested(int nes_i)
     {
         // CHECK: %arg0 = getelementptr inbounds %nest.encloser

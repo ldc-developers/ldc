@@ -15,9 +15,9 @@ extern (C) int externCfunctions_are_not_hashed_externCfunctions_are_not_hashed_e
 
 auto s(T)(T t)
 {
-    // HASH90-DAG: define{{.*}} @{{(\"\\01)?}}_D3one3two5three8__T1sTiZ1sFNaNbNiNfiZS3one3two5three8__T1sTiZ1sFiZ13__T6ResultTiZ6Result
-    // HASH90-DAG: define{{.*}} @{{(\"\\01)?}}_D3one3two5three3L1633_699ccf279a146992d539ca3ca16e22e11sZ
-    // HASH90-DAG: define{{.*}} @{{(\"\\01)?}}_D3one3two5three3L2333_5ee632e10b6f09e8f541a143266bdf226Result3fooZ
+    // HASH90-DAG: define{{.*}} @{{(\"\\01)?}}_D3one3two5three__T1sTiZQfFNaNbNiNfiZSQBkQBjQBi__TQBfTiZQBlFiZ__T6ResultTiZQk
+    // HASH90-DAG: define{{.*}} @{{(\"\\01)?}}_D3one3two5three3L1633_182fab6f09ff014d9f4a578edf9609981sZ
+    // HASH90-DAG: define{{.*}} @{{(\"\\01)?}}_D3one3two5three3L2333_9b5306e5c42722cd2cb93ae6beb422346Result3fooZ
     struct Result(T)
     {
         void foo(){}
@@ -29,8 +29,8 @@ auto klass(T)(T t)
 {
     class Result(T)
     {
-        // HASH90-DAG: define{{.*}} @{{(\"\\01)?}}_D3one3two5three12__T5klassTiZ5klassFiZ13__T6ResultTiZ6Result3fooMFZv
-        // HASH90-DAG: define{{.*}} @{{(\"\\01)?}}_D3one3two5three3L3433_46a82aac733d8a4b3588d7fa8937aad66Result3fooZ
+        // HASH90-DAG: define{{.*}} @{{(\"\\01)?}}_D3one3two5three__T5klassTiZQjFiZ__T6ResultTiZQk3fooMFZv
+        // HASH90-DAG: define{{.*}} @{{(\"\\01)?}}_D3one3two5three3L3433_de737f3d65ae58efa925cffda52cd8da6Result3fooZ
         void foo(){}
     }
     return new Result!int();

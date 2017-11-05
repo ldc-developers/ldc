@@ -49,11 +49,11 @@ class ABCDEF(T)
     }
 }
 
-// CHECK-LABEL: define {{.*}}TiZ6ABCDEF6method
+// CHECK-LABEL: define {{.*}}__T6ABCDEFTiZQk6method
 // CHECK-SAME: #[[ATTR_NOASAN:[0-9]+]]
 ABCDEF!int ofBlacklistedType;
 
-// CHECK-LABEL: define {{.*}}TAyaZ6ABCDEF6method
+// CHECK-LABEL: define {{.*}}__T6ABCDEFTAyaZQm6method
 // CHECK-SAME: #[[ATTR_WITHASAN:[0-9]+]]
 ABCDEF!string ofInstrumentedType;
 

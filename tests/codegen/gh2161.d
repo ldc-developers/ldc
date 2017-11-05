@@ -10,7 +10,7 @@
 import std.algorithm;
 import std.range;
 
-// CHECK-LABEL: define {{.*}}@{{.*}}_D6gh2161207__T13insertionSort
+// CHECK-LABEL: define {{.*}}@{{.*}}_D6gh2161__T13insertionSort
 void insertionSort(Range, Less)(Range r, Less l)
 if (hasLength!Range && isRandomAccessRange!Range && hasSlicing!Range)
 {
