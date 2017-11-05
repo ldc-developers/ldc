@@ -28,6 +28,7 @@ void main(string[] args)
   assert(dumpHandlerCalled[DumpStage.OriginalModule]);
   assert(dumpHandlerCalled[DumpStage.MergedModule]);
   assert(dumpHandlerCalled[DumpStage.OptimizedModule]);
-  assert(dumpHandlerCalled[DumpStage.FinalAsm]);
+  // asm dump is disabled for now
+  //assert(dumpHandlerCalled[DumpStage.FinalAsm]);
   assert(progressHandlerCalled);
 }

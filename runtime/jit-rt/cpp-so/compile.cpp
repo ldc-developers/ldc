@@ -396,7 +396,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   verifyModule(context, *finalModule);
 
   dumpModule(context, *finalModule, DumpStage::OptimizedModule);
-  dumpModuleAsm(context, *finalModule, myJit.getTargetMachine());
+//  dumpModuleAsm(context, *finalModule, myJit.getTargetMachine());
 
   interruptPoint(context, "Codegen final module");
   if (myJit.addModule(std::move(finalModule), symMap)) {
