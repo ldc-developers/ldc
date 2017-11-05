@@ -1,30 +1,28 @@
 
 // RUN: %ldc -enable-runtime-compile -run %s
 
-import std.stdio;
 import ldc.attributes;
 import ldc.runtimecompile;
 
-__gshared int ctorsCalled = 0; 
+__gshared int ctorsCalled = 0;
 __gshared int dtorsCalled = 0;
+__gshared int fooCalled = 0;
 
 struct Foo
 {
   this(this)
   {
     ++ctorsCalled;
-    writefln("ctor %s", &this);
   }
   
   ~this()
   {
     ++dtorsCalled;
-    writefln("dtor %s", &this);
   }
   
   void foo()
   {
-    writefln("foo %s", &this);
+    ++fooCalled;
   }
 }
 
@@ -45,9 +43,12 @@ void main(string[] args)
   func1(f);
   assert(1 == ctorsCalled);
   assert(1 == dtorsCalled);
+  assert(1 == fooCalled);
   ctorsCalled = 0;
   dtorsCalled = 0;
+  fooCalled = 0;
   func2(f);
   assert(1 == ctorsCalled);
   assert(1 == dtorsCalled);
+  assert(1 == fooCalled);
 }
