@@ -1,3 +1,16 @@
+//===-- optimizer.h - jit support -------------------------------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the Boost Software License. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Jit runtime - jit optimizer.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef OPTIMIZER_HPP
 #define OPTIMIZER_HPP
 

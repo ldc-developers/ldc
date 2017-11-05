@@ -1,4 +1,13 @@
-#include "runtimecompile.h"
+//===-- runtimecompile.cpp ------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+
+#include "gen/runtimecompile.h"
 
 #if defined(LDC_RUNTIME_COMPILE)
 
@@ -797,6 +806,7 @@ void addRuntimeCompiledVar(IRState *irs, IrGlobal *var) {
 }
 
 #else // defined(LDC_RUNTIME_COMPILE)
+
 void generateBitcodeForRuntimeCompile(IRState *) {
   // nothing
 }

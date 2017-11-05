@@ -1,3 +1,17 @@
+//===-- callback_ostream.h - jit support ------------------------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the Boost Software License. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Simple llvm::raw_ostream implementation which sink all input to provided
+// callback. It uses llvm::function_ref so user must ensure callback lifetime.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef CALLBACK_OSTREAM_H
 #define CALLBACK_OSTREAM_H
 
@@ -9,7 +23,6 @@ class CallbackOstream : public llvm::raw_ostream {
   CallbackT callback;
   uint64_t currentPos = 0;
 
-  /// See raw_ostream::write_impl.
   void write_impl(const char *Ptr, size_t Size) override;
 
   uint64_t current_pos() const override;

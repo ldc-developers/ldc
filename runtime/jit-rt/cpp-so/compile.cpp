@@ -1,3 +1,16 @@
+//===-- compile.cpp -------------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the Boost Software License. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Jit runtime - shared library part.
+// Defines jit runtime entry point and main compilation routines.
+//
+//===----------------------------------------------------------------------===//
 
 #include <cassert>
 #include <map>
@@ -266,33 +279,34 @@ void dumpModule(const Context &context, const llvm::Module &module,
   }
 }
 
-void dumpModuleAsm(const Context &context, const llvm::Module &module,
-                   llvm::TargetMachine &TM) {
-  if (nullptr != context.dumpHandler) {
-    auto callback = [&](const char *str, size_t len) {
-      context.dumpHandler(context.dumpHandlerData, DumpStage::FinalAsm, str,
-                          len);
-    };
+// Asm dump is disabled for now
+// void dumpModuleAsm(const Context &context, const llvm::Module &module,
+//                   llvm::TargetMachine &TM) {
+//  if (nullptr != context.dumpHandler) {
+//    auto callback = [&](const char *str, size_t len) {
+//      context.dumpHandler(context.dumpHandlerData, DumpStage::FinalAsm, str,
+//                          len);
+//    };
 
-    // TODO: I am not sure if passes added by addPassesToEmitFile can modify
-    // module, so clone source module to be sure, also, it allow preserve
-    // constness
-    auto newModule = llvm::CloneModule(&module);
+//    // TODO: I am not sure if passes added by addPassesToEmitFile can modify
+//    // module, so clone source module to be sure, also, it allow preserve
+//    // constness
+//    auto newModule = llvm::CloneModule(&module);
 
-    llvm::legacy::PassManager PM;
+//    llvm::legacy::PassManager PM;
 
-    llvm::SmallVector<char, 0> asmBufferSV;
-    llvm::raw_svector_ostream asmStream(asmBufferSV);
+//    llvm::SmallVector<char, 0> asmBufferSV;
+//    llvm::raw_svector_ostream asmStream(asmBufferSV);
 
-    if (TM.addPassesToEmitFile(PM, asmStream,
-                               llvm::TargetMachine::CGFT_AssemblyFile)) {
-      fatal(context, "Target does not support asm emission.");
-    }
-    PM.run(*newModule);
+//    if (TM.addPassesToEmitFile(PM, asmStream,
+//                               llvm::TargetMachine::CGFT_AssemblyFile)) {
+//      fatal(context, "Target does not support asm emission.");
+//    }
+//    PM.run(*newModule);
 
-    callback(asmBufferSV.data(), asmBufferSV.size());
-  }
-}
+//    callback(asmBufferSV.data(), asmBufferSV.size());
+//  }
+//}
 
 void setFunctionsTarget(llvm::Module &module, llvm::TargetMachine &TM) {
   // Set function target cpu to host if it wasn't set explicitly
@@ -396,7 +410,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   verifyModule(context, *finalModule);
 
   dumpModule(context, *finalModule, DumpStage::OptimizedModule);
-//  dumpModuleAsm(context, *finalModule, myJit.getTargetMachine());
+  // dumpModuleAsm(context, *finalModule, myJit.getTargetMachine());
 
   interruptPoint(context, "Codegen final module");
   if (myJit.addModule(std::move(finalModule), symMap)) {

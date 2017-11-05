@@ -1,3 +1,12 @@
+//===-- optimizer.cpp -----------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the Boost Software License. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+
 #include "optimizer.h"
 
 #include "llvm/Target/TargetMachine.h"

@@ -1,9 +1,21 @@
+//===-- context.h - jit support ---------------------------------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the Boost Software License. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Jit compilation context, must be in sync with runtimecompile.d.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef CONTEXT_H
 #define CONTEXT_H
 
 #include <cstddef> //size_t
 
-// must be synchronized with D source
 enum class DumpStage : int {
   OriginalModule = 0,
   MergedModule = 1,
