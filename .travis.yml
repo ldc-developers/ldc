@@ -100,7 +100,9 @@ script:
   # Invoke CMake again for the actual build.
   - cmake -G Ninja -DLLVM_CONFIG=$(which ${LLVM_CONFIG}) -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON $OPTS .
   # Build LDC and stdlib unittest runners.
-  - ninja -j3 all all-test-runners
+  # [Compiling the std.regex.internal.tests unittests eats large amounts of memory.]
+  - ninja -j2 all runtime/objects-unittest-debug/std/regex/internal/tests.o runtime/objects-unittest/std/regex/internal/tests.o
+  - ninja -j3 all-test-runners
   # Output some environment info, plus make sure we only run the test suite
   # if we could actually build the executable.
   - bin/ldc2 -version || exit 1
