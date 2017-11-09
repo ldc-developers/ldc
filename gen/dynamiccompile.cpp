@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/runtimecompile.h"
+#include "gen/dynamiccompile.h"
 
 #if defined(LDC_DYNAMIC_COMPILE)
 

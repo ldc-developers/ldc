@@ -44,7 +44,7 @@
 #include <stack>
 
 #include "llvm/Support/CommandLine.h"
-#include "gen/runtimecompile.h"
+#include "gen/dynamiccompile.h"
 
 llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel(
     "fthread-model", llvm::cl::ZeroOrMore, llvm::cl::desc("Thread model"),

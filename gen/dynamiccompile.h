@@ -1,4 +1,4 @@
-//===-- gen/runtimecompile.h - jit support ----------------------*- C++ -*-===//
+//===-- gen/dynamiccompile.h - jit support ----------------------*- C++ -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -11,8 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_RUNTIMECOMPILE_H
-#define LDC_GEN_RUNTIMECOMPILE_H
+#ifndef LDC_GEN_DYNAMICCOMPILE_H
+#define LDC_GEN_DYNAMICCOMPILE_H
 
 struct IRState;
 struct IrFunction;
@@ -23,4 +23,4 @@ void declareRuntimeCompiledFunction(IRState *irs, IrFunction *func);
 void defineRuntimeCompiledFunction(IRState *irs, IrFunction *func);
 void addRuntimeCompiledVar(IRState *irs, IrGlobal *var);
 
-#endif // LDC_GEN_RUNTIMECOMPILE_H
+#endif // LDC_GEN_DYNAMICCOMPILE_H

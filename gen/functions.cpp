@@ -39,7 +39,7 @@
 #include "gen/pgo.h"
 #include "gen/pragma.h"
 #include "gen/runtime.h"
-#include "gen/runtimecompile.h"
+#include "gen/dynamiccompile.h"
 #include "gen/scope_exit.h"
 #include "gen/tollvm.h"
 #include "gen/uda.h"
