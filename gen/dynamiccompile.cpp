@@ -26,7 +26,7 @@
 
 namespace {
 
-const char *RuntimeCompileModulesHeadName = "runtimecompile_modules_head";
+const char *RuntimeCompileModulesHeadName = "dynamiccompile_modules_head";
 
 llvm::GlobalValue *getPredefinedSymbol(llvm::Module &module,
                                        llvm::StringRef name, llvm::Type *type) {
