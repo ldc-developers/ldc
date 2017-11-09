@@ -230,8 +230,8 @@ public:
     llvm::Function *thunkFunc;
   };
 
-  std::map<llvm::Function *, RtCompiledFuncDesc> runtimeCompiledFunctions;
-  std::set<IrGlobal *> runtimeCompiledVars;
+  std::map<llvm::Function *, RtCompiledFuncDesc> dynamicCompiledFunctions;
+  std::set<IrGlobal *> dynamicCompiledVars;
 
 /// Vector of options passed to the linker as metadata in object file.
 #if LDC_LLVM_VER >= 500

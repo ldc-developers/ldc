@@ -567,7 +567,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   applyTargetMachineAttributes(*func, *gTargetMachine);
   applyFuncDeclUDAs(fdecl, irFunc);
 
-  if(irFunc->runtimeCompile) {
+  if(irFunc->dynamicCompile) {
     declareRuntimeCompiledFunction(gIR, irFunc);
   }
 
@@ -945,7 +945,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   SCOPE_EXIT {
-    if (irFunc->runtimeCompile) {
+    if (irFunc->dynamicCompile) {
       defineRuntimeCompiledFunction(gIR, irFunc);
     }
   };

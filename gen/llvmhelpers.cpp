@@ -900,7 +900,7 @@ void DtoResolveVariable(VarDeclaration *vd) {
     */
 
     applyVarDeclUDAs(vd, gvar);
-    if (varIr->runtimeCompileConst) {
+    if (varIr->dynamicCompileConst) {
       addRuntimeCompiledVar(gIR, varIr);
     }
 

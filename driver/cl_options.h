@@ -123,10 +123,10 @@ extern cl::opt<std::string> dcomputeFilePrefix;
 #endif
 
 #if defined(LDC_RUNTIME_COMPILE)
-extern cl::opt<bool> enableRuntimeCompile;
-extern cl::opt<bool> runtimeCompileTlsWorkaround;
+extern cl::opt<bool> enableDynamicCompile;
+extern cl::opt<bool> dynamicCompileTlsWorkaround;
 #else
-constexpr bool enableRuntimeCompile = false;
+constexpr bool enableDynamicCompile = false;
 #endif
 }
 #endif

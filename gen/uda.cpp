@@ -364,12 +364,12 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
           ident->toChars());
     } else if (ident == Id::udaWeak) {
       // @weak is applied elsewhere
-    } else if (ident == Id::udaRuntimeCompile) {
+    } else if (ident == Id::udaDynamicCompile) {
       sle->error(
           "Special attribute `ldc.attributes.%s` is only valid for functions",
           ident->toChars());
-    } else if (ident == Id::udaRuntimeCompileConst) {
-      getIrGlobal(decl)->runtimeCompileConst = true;
+    } else if (ident == Id::udaDynamicCompileConst) {
+      getIrGlobal(decl)->dynamicCompileConst = true;
     } else {
       sle->warning(
           "Ignoring unrecognized special attribute `ldc.attributes.%s`",
@@ -407,9 +407,9 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
       applyAttrTarget(sle, func, irFunc);
     } else if (ident == Id::udaWeak || ident == Id::udaKernel) {
       // @weak and @kernel are applied elsewhere
-    } else if (ident == Id::udaRuntimeCompile) {
-      irFunc->runtimeCompile = true;
-    } else if (ident == Id::udaRuntimeCompileConst) {
+    } else if (ident == Id::udaDynamicCompile) {
+      irFunc->dynamicCompile = true;
+    } else if (ident == Id::udaDynamicCompileConst) {
       sle->error(
           "Special attribute `ldc.attributes.%s` is only valid for variables",
           ident->toChars());

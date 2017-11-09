@@ -88,7 +88,7 @@ struct IrFunction {
   bool targetFeaturesOverridden = false;
 
   /// This functions was marked for dynamic compilation
-  bool runtimeCompile = false;
+  bool dynamicCompile = false;
 
   /// Dynamic compilation thunk, all attempts to call or take address of the
   /// original function will be redirected to it

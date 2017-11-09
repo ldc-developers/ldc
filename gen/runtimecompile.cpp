@@ -90,7 +90,7 @@ using GlobalValsMap =
 void getPredefinedSymbols(IRState *irs, GlobalValsMap &symList) {
   assert(nullptr != irs);
   const llvm::Triple *triple = global.params.targetTriple;
-  if (!opts::runtimeCompileTlsWorkaround) {
+  if (!opts::dynamicCompileTlsWorkaround) {
     if (triple->isWindowsMSVCEnvironment() ||
         triple->isWindowsGNUEnvironment()) {
       symList.insert(std::make_pair(
@@ -112,15 +112,15 @@ GlobalValsMap createGlobalValsFilter(IRState *irs) {
   GlobalValsMap ret;
   getPredefinedSymbols(irs, ret);
   std::vector<llvm::Function *> newFunctions;
-  newFunctions.reserve(irs->runtimeCompiledFunctions.size());
+  newFunctions.reserve(irs->dynamicCompiledFunctions.size());
 
-  for (auto &&it : irs->runtimeCompiledFunctions) {
+  for (auto &&it : irs->dynamicCompiledFunctions) {
     ret.insert({it.first, GlobalValVisibility::External});
     newFunctions.push_back(it.first);
   }
 
   std::unordered_set<llvm::GlobalValue *> runtimeCompiledVars;
-  for (auto &&var : irs->runtimeCompiledVars) {
+  for (auto &&var : irs->dynamicCompiledVars) {
     assert(nullptr != var);
     assert(nullptr != var->value);
     runtimeCompiledVars.insert(llvm::cast<llvm::GlobalValue>(var->value));
@@ -168,7 +168,7 @@ void iterateFuncInstructions(llvm::Function &func, F &&handler) {
 }
 
 void fixRtModule(llvm::Module &newModule,
-                 const decltype(IRState::runtimeCompiledFunctions) &funcs) {
+                 const decltype(IRState::dynamicCompiledFunctions) &funcs) {
   std::unordered_map<std::string, std::string> thunkVar2func;
   std::unordered_map<std::string, std::string> thunkFun2func;
   std::unordered_set<std::string> externalFuncs;
@@ -509,7 +509,7 @@ std::pair<llvm::Constant *, llvm::Constant *>
 generateFuncList(IRState *irs, const Types &types) {
   assert(nullptr != irs);
   std::vector<llvm::Constant *> elements;
-  for (auto &&it : irs->runtimeCompiledFunctions) {
+  for (auto &&it : irs->dynamicCompiledFunctions) {
     assert(nullptr != it.first);
     assert(nullptr != it.second.thunkFunc);
     if (nullptr == it.second.thunkVar) {
@@ -556,7 +556,7 @@ std::pair<llvm::Constant *, llvm::Constant *>
 generateVarList(IRState *irs, const Types &types) {
   assert(nullptr != irs);
   std::vector<llvm::Constant *> elements;
-  for (auto &&val : irs->runtimeCompiledVars) {
+  for (auto &&val : irs->dynamicCompiledVars) {
     auto gvar = llvm::cast<llvm::GlobalVariable>(val->value);
     auto name = gvar->getName();
     llvm::Constant *fields[] = {
@@ -729,7 +729,7 @@ void createThunkFunc(llvm::Module &module, const llvm::Function *src,
 
 void generateBitcodeForRuntimeCompile(IRState *irs) {
   assert(nullptr != irs);
-  if (irs->runtimeCompiledFunctions.empty()) {
+  if (irs->dynamicCompiledFunctions.empty()) {
     return;
   }
   auto filter = createGlobalValsFilter(irs);
@@ -743,10 +743,10 @@ void generateBitcodeForRuntimeCompile(IRState *irs) {
                it->second != GlobalValVisibility::Declaration;
       });
   removeFunctionsTargets(irs, *newModule);
-  if (opts::runtimeCompileTlsWorkaround) {
+  if (opts::dynamicCompileTlsWorkaround) {
     replaceDynamicThreadLocals(irs->module, *newModule, filter);
   }
-  fixRtModule(*newModule, irs->runtimeCompiledFunctions);
+  fixRtModule(*newModule, irs->dynamicCompiledFunctions);
 
   setupModuleBitcodeData(*newModule, irs, filter);
 }
@@ -755,14 +755,14 @@ void declareRuntimeCompiledFunction(IRState *irs, IrFunction *func) {
   assert(nullptr != irs);
   assert(nullptr != func);
   assert(nullptr != func->getLLVMFunc());
-  if (!opts::enableRuntimeCompile) {
+  if (!opts::enableDynamicCompile) {
     return;
   }
   auto srcFunc = func->getLLVMFunc();
   auto thunkFunc = duplicateFunc(irs->module, srcFunc);
   func->rtCompileFunc = thunkFunc;
-  assert(!contains(irs->runtimeCompiledFunctions, srcFunc));
-  irs->runtimeCompiledFunctions.insert(
+  assert(!contains(irs->dynamicCompiledFunctions, srcFunc));
+  irs->dynamicCompiledFunctions.insert(
       std::make_pair(srcFunc, IRState::RtCompiledFuncDesc{nullptr, thunkFunc}));
 }
 
@@ -771,12 +771,12 @@ void defineRuntimeCompiledFunction(IRState *irs, IrFunction *func) {
   assert(nullptr != func);
   assert(nullptr != func->getLLVMFunc());
   assert(nullptr != func->rtCompileFunc);
-  if (!opts::enableRuntimeCompile) {
+  if (!opts::enableDynamicCompile) {
     return;
   }
   auto srcFunc = func->getLLVMFunc();
-  auto it = irs->runtimeCompiledFunctions.find(srcFunc);
-  assert(irs->runtimeCompiledFunctions.end() != it);
+  auto it = irs->dynamicCompiledFunctions.find(srcFunc);
+  assert(irs->dynamicCompiledFunctions.end() != it);
   auto thunkVarType = srcFunc->getFunctionType()->getPointerTo();
   auto thunkVar = new llvm::GlobalVariable(
       irs->module, thunkVarType, false, llvm::GlobalValue::PrivateLinkage,
@@ -792,7 +792,7 @@ void addRuntimeCompiledVar(IRState *irs, IrGlobal *var) {
   assert(nullptr != var);
   assert(nullptr != var->value);
   assert(nullptr != var->V);
-  if (!opts::enableRuntimeCompile) {
+  if (!opts::enableDynamicCompile) {
     return;
   }
 
@@ -802,7 +802,7 @@ void addRuntimeCompiledVar(IRState *irs, IrGlobal *var) {
     fatal();
   }
 
-  irs->runtimeCompiledVars.insert(var);
+  irs->dynamicCompiledVars.insert(var);
 }
 
 #else // defined(LDC_RUNTIME_COMPILE)

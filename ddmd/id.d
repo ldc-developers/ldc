@@ -444,8 +444,8 @@ immutable Msgtable[] msgtable =
     { "udaWeak", "_weak" },
     { "udaCompute", "compute" },
     { "udaKernel", "_kernel" },
-    { "udaRuntimeCompile", "_dynamicCompile" },
-    { "udaRuntimeCompileConst", "_dynamicCompileConst" },
+    { "udaDynamicCompile", "_dynamicCompile" },
+    { "udaDynamicCompileConst", "_dynamicCompileConst" },
     
     // IN_LLVM: DCompute specific types and functionss
     { "dcompute" },

@@ -457,12 +457,12 @@ cl::opt<std::string>
 #endif
 
 #if defined(LDC_RUNTIME_COMPILE)
-cl::opt<bool> enableRuntimeCompile(
+cl::opt<bool> enableDynamicCompile(
     "enable-dynamic-compile",
     cl::desc("Enable dynamic compilation"),
     cl::init(false));
 
-cl::opt<bool> runtimeCompileTlsWorkaround(
+cl::opt<bool> dynamicCompileTlsWorkaround(
     "dynamic-compile-tls-workaround",
     cl::desc("Enable dynamic compilation TLS workaround"),
     cl::init(true),
