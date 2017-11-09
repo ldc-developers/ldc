@@ -2,7 +2,7 @@
 // llvm generates overlapped simd reads and writes to init these
 // structs but fails on win32 for some reason
 // XFAIL: Windows_x86
-// RUN: %ldc -enable-runtime-compile -run %s
+// RUN: %ldc -enable-dynamic-compile -run %s
 
 import ldc.runtimecompile;
 import ldc.attributes;

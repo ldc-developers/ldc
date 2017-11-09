@@ -1,6 +1,6 @@
 
-// RUN: %ldc -enable-runtime-compile -I%S %s %S/inputs/module1.d %S/inputs/module2.d %S/inputs/module3.d -run
-// RUN: %ldc -enable-runtime-compile -singleobj -I%S %s %S/inputs/module1.d %S/inputs/module2.d %S/inputs/module3.d -run
+// RUN: %ldc -enable-dynamic-compile -I%S %s %S/inputs/module1.d %S/inputs/module2.d %S/inputs/module3.d -run
+// RUN: %ldc -enable-dynamic-compile -singleobj -I%S %s %S/inputs/module1.d %S/inputs/module2.d %S/inputs/module3.d -run
 
 import ldc.attributes;
 import ldc.runtimecompile;

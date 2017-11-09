@@ -1,8 +1,8 @@
 
 // tls without workaround broken on all platforms
 // just test ldc accept this option
-// RUN: %ldc -enable-runtime-compile -runtime-compile-tls-workaround=0 -run %s
-// RUN: %ldc -enable-runtime-compile -runtime-compile-tls-workaround=1 -run %s
+// RUN: %ldc -enable-dynamic-compile -dynamic-compile-tls-workaround=0 -run %s
+// RUN: %ldc -enable-dynamic-compile -dynamic-compile-tls-workaround=1 -run %s
 
 import ldc.attributes;
 import ldc.runtimecompile;

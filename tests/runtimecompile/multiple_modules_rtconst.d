@@ -1,6 +1,6 @@
 
-// RUN: %ldc -enable-runtime-compile -I%S %s %S/inputs/rtconst_owner.d %S/inputs/rtconst_user.d  -run
-// RUN: %ldc -enable-runtime-compile -singleobj -I%S %s %S/inputs/rtconst_owner.d %S/inputs/rtconst_user.d -run
+// RUN: %ldc -enable-dynamic-compile -I%S %s %S/inputs/rtconst_owner.d %S/inputs/rtconst_user.d  -run
+// RUN: %ldc -enable-dynamic-compile -singleobj -I%S %s %S/inputs/rtconst_owner.d %S/inputs/rtconst_user.d -run
 
 import ldc.runtimecompile;
 

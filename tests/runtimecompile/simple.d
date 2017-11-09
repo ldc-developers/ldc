@@ -1,5 +1,5 @@
 
-// RUN: %ldc -enable-runtime-compile -run %s
+// RUN: %ldc -enable-dynamic-compile -run %s
 
 import std.stdio;
 import ldc.attributes;
