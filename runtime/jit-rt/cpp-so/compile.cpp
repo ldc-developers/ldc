@@ -153,7 +153,6 @@ public:
   MyJIT()
       : targetmachine(
             llvm::EngineBuilder()
-                .setRelocationModel(llvm::Reloc::Static)
                 .selectTarget(llvm::Triple(llvm::sys::getProcessTriple()),
                               llvm::StringRef(), llvm::sys::getHostCPUName(),
                               getHostAttrs())),
