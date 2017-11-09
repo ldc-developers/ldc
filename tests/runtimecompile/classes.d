@@ -13,7 +13,7 @@ class Foo : IFoo
 {
   int val = 0;
 
-  @runtimeCompile int foo()
+  @dynamicCompile int foo()
   {
     return val;
   }

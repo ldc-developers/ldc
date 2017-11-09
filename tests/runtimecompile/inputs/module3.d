@@ -2,7 +2,7 @@ module inputs.module3;
 
 import ldc.attributes;
 
-@runtimeCompile int get1()
+@dynamicCompile int get1()
 {
   return 3;
 }

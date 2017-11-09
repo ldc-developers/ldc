@@ -42,19 +42,19 @@ Foo3 foo3()
   return f;
 }
 
-@runtimeCompile Foo1 bar1()
+@dynamicCompile Foo1 bar1()
 {
   auto f = Foo1();
   return f;
 }
 
-@runtimeCompile Foo2 bar2()
+@dynamicCompile Foo2 bar2()
 {
   auto f = Foo2();
   return f;
 }
 
-@runtimeCompile Foo3 bar3()
+@dynamicCompile Foo3 bar3()
 {
   auto f = Foo3();
   return f;

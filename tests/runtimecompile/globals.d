@@ -4,19 +4,30 @@
 import ldc.attributes;
 import ldc.runtimecompile;
 
-@runtimeCompile __gshared int foovar = 0;
+@dynamicCompileConst __gshared int foovar = 0;
 
-@runtimeCompile int foo()
+@dynamicCompile int foo()
 {
   return foovar;
+}
+
+@dynamicCompileConst __gshared int barvar = 5;
+
+@dynamicCompile int bar()
+{
+  return barvar;
 }
 
 void main(string[] args)
 {
   compileDynamicCode();
   assert(0 == foo());
+  assert(5 == bar());
   foovar = 42;
+  barvar = 43;
   assert(0 == foo());
+  assert(5 == bar());
   compileDynamicCode();
   assert(42 == foo());
+  assert(43 == bar());
 }

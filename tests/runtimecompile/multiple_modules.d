@@ -8,7 +8,7 @@ import ldc.runtimecompile;
 import inputs.module1;
 import inputs.module2;
 
-@runtimeCompile int foo()
+@dynamicCompile int foo()
 {
   return inputs.module1.get() + inputs.module2.get();
 }

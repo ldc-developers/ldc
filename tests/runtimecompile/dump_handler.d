@@ -4,7 +4,7 @@
 import ldc.attributes;
 import ldc.runtimecompile;
 
-@runtimeCompile int foo()
+@dynamicCompile int foo()
 {
   return 5;
 }

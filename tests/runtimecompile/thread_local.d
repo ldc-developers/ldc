@@ -7,17 +7,17 @@ import ldc.runtimecompile;
 
 ThreadID threadId; //thread local
 
-@runtimeCompile void set_val()
+@dynamicCompile void set_val()
 {
   threadId = Thread.getThis().id();
 }
 
-@runtimeCompile ThreadID get_val()
+@dynamicCompile ThreadID get_val()
 {
   return threadId;
 }
 
-@runtimeCompile ThreadID* get_ptr()
+@dynamicCompile ThreadID* get_ptr()
 {
   auto ptr = &threadId;
   return ptr;

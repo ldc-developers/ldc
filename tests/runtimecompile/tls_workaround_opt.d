@@ -7,7 +7,7 @@
 import ldc.attributes;
 import ldc.runtimecompile;
 
-@runtimeCompile void foo()
+@dynamicCompile void foo()
 {
 }
 

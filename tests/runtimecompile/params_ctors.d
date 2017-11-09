@@ -31,7 +31,7 @@ void func1(Foo f)
   f.foo();
 }
 
-@runtimeCompile void func2(Foo f)
+@dynamicCompile void func2(Foo f)
 {
   f.foo();
 }

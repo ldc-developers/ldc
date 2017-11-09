@@ -6,13 +6,13 @@ import ldc.runtimecompile;
 
 void main(string[] args)
 {
-  @runtimeCompile int foo()
+  @dynamicCompile int foo()
   {
     return 42;
   }
   int val1 = 5;
   int val2 = 3;
-  @runtimeCompile int bar()
+  @dynamicCompile int bar()
   {
     val2 += 5;
     return val1;

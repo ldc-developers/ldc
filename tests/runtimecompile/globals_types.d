@@ -20,7 +20,7 @@ struct Bar
   Bar* pb;
 }
 
-@runtimeCompile
+@dynamicCompileConst
 {
 __gshared byte  i8  = 42 + 1;
 __gshared short i16 = 42 + 2;
@@ -42,7 +42,10 @@ __gshared int[] darr = [42 + 15,42 + 16,42 + 17,42 + 18];
 
 __gshared Foo foo = Foo(42 + 19,42 + 20,cast(void*)(42 + 21),[42 + 22,42 + 23,42 + 24],[42 + 25,42 + 26,42 + 27,42 + 28]);
 __gshared Bar bar = Bar(Foo(42 + 19,42 + 20,cast(void*)(42 + 21),[42 + 22,42 + 23,42 + 24],[42 + 25,42 + 26,42 + 27,42 + 28]), cast(Foo*)(42 + 29), cast(Bar*)(42 + 30));
+}
 
+@dynamicCompile
+{
 byte  foo_i8()  { return i8; }
 short foo_i16() { return i16; }
 int   foo_i32() { return i32; }

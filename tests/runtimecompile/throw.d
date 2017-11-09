@@ -8,12 +8,12 @@ import std.exception;
 import ldc.attributes;
 import ldc.runtimecompile;
 
-@runtimeCompile void foo()
+@dynamicCompile void foo()
 {
   throw new Exception("foo");
 }
 
-@runtimeCompile int bar()
+@dynamicCompile int bar()
 {
   try
   {
@@ -26,7 +26,7 @@ import ldc.runtimecompile;
   return 0;
 }
 
-@runtimeCompile int baz()
+@dynamicCompile int baz()
 {
   try
   {

@@ -8,13 +8,13 @@ import ldc.runtimecompile;
 __gshared int[555] arr1 = 42;
 __gshared int[555] arr2 = 42;
 
-@runtimeCompile int foo()
+@dynamicCompile int foo()
 {
   int[555] a = arr1;
   return a[3];
 }
 
-@runtimeCompile int bar()
+@dynamicCompile int bar()
 {
   arr2 = 0;
   return arr2[3];

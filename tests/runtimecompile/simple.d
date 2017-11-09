@@ -13,17 +13,17 @@ else
 static assert(false, "LDC_RuntimeCompilation is not defined");
 }
 
-@runtimeCompile int foo()
+@dynamicCompile int foo()
 {
   return 5;
 }
 
-@runtimeCompile int bar()
+@dynamicCompile int bar()
 {
   return foo() + 7;
 }
 
-@runtimeCompile void baz()
+@dynamicCompile void baz()
 {
   writeln("baz");
 }

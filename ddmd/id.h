@@ -65,6 +65,7 @@ public:
     static Identifier *udaKernel;
     static Identifier *udaCompute;
     static Identifier *udaRuntimeCompile;
+    static Identifier *udaRuntimeCompileConst;
 }; 
 
 #endif /* DMD_ID_H */

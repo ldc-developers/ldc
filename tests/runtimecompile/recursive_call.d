@@ -4,7 +4,7 @@
 import ldc.attributes;
 import ldc.runtimecompile;
 
-@runtimeCompile int foo(int i)
+@dynamicCompile int foo(int i)
 {
   if (i > 0)
   {

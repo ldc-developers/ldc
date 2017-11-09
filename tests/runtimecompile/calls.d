@@ -4,7 +4,7 @@
 import ldc.attributes;
 import ldc.runtimecompile;
 
-@runtimeCompile int foo()
+@dynamicCompile int foo()
 {
   return 5;
 }
@@ -14,14 +14,14 @@ int bar()
   return 7;
 }
 
-@runtimeCompile int baz()
+@dynamicCompile int baz()
 {
   return foo() + bar();
 }
 
 alias fptr = int function();
 
-@runtimeCompile
+@dynamicCompile
 {
 fptr get_foo_ptr()
 {
