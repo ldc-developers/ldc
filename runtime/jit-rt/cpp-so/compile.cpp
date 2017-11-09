@@ -151,11 +151,9 @@ private:
 
 public:
   MyJIT()
-      : targetmachine(
-            llvm::EngineBuilder()
-                .selectTarget(llvm::Triple(llvm::sys::getProcessTriple()),
-                              llvm::StringRef(), llvm::sys::getHostCPUName(),
-                              getHostAttrs())),
+      : targetmachine(llvm::EngineBuilder().selectTarget(
+            llvm::Triple(llvm::sys::getProcessTriple()), llvm::StringRef(),
+            llvm::sys::getHostCPUName(), getHostAttrs())),
         dataLayout(targetmachine->createDataLayout()),
 #if LDC_LLVM_VER >= 500
         objectLayer(
