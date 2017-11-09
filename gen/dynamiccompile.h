@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Jit routines.
+// Dynamic compilation routines.
 //
 //===----------------------------------------------------------------------===//
 
@@ -18,9 +18,9 @@ struct IRState;
 struct IrFunction;
 struct IrGlobal;
 
-void generateBitcodeForRuntimeCompile(IRState *irs);
-void declareRuntimeCompiledFunction(IRState *irs, IrFunction *func);
-void defineRuntimeCompiledFunction(IRState *irs, IrFunction *func);
-void addRuntimeCompiledVar(IRState *irs, IrGlobal *var);
+void generateBitcodeForDynamicCompile(IRState *irs);
+void declareDynamicCompiledFunction(IRState *irs, IrFunction *func);
+void defineDynamicCompiledFunction(IRState *irs, IrFunction *func);
+void addDynamicCompiledVar(IRState *irs, IrGlobal *var);
 
 #endif // LDC_GEN_DYNAMICCOMPILE_H

@@ -568,7 +568,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   applyFuncDeclUDAs(fdecl, irFunc);
 
   if(irFunc->dynamicCompile) {
-    declareRuntimeCompiledFunction(gIR, irFunc);
+    declareDynamicCompiledFunction(gIR, irFunc);
   }
 
   if (irFunc->targetCpuOverridden ||
@@ -946,7 +946,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   SCOPE_EXIT {
     if (irFunc->dynamicCompile) {
-      defineRuntimeCompiledFunction(gIR, irFunc);
+      defineDynamicCompiledFunction(gIR, irFunc);
     }
   };
 

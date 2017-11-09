@@ -255,7 +255,7 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   ir_->replaceGlobals();
 
   ir_->DBuilder.Finalize();
-  generateBitcodeForRuntimeCompile(ir_);
+  generateBitcodeForDynamicCompile(ir_);
 
   emitLLVMUsedArray(*ir_);
   emitLinkerOptions(*ir_, ir_->module, ir_->context());

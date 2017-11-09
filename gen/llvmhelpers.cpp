@@ -901,7 +901,7 @@ void DtoResolveVariable(VarDeclaration *vd) {
 
     applyVarDeclUDAs(vd, gvar);
     if (varIr->dynamicCompileConst) {
-      addRuntimeCompiledVar(gIR, varIr);
+      addDynamicCompiledVar(gIR, varIr);
     }
 
     IF_LOG Logger::cout() << *gvar << '\n';

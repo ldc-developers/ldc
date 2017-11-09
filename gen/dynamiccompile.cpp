@@ -1,4 +1,4 @@
-//===-- runtimecompile.cpp ------------------------------------------------===//
+//===-- dynamiccompile.cpp ------------------------------------------------===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -727,7 +727,7 @@ void createThunkFunc(llvm::Module &module, const llvm::Function *src,
 
 } // anon namespace
 
-void generateBitcodeForRuntimeCompile(IRState *irs) {
+void generateBitcodeForDynamicCompile(IRState *irs) {
   assert(nullptr != irs);
   if (irs->dynamicCompiledFunctions.empty()) {
     return;
@@ -751,7 +751,7 @@ void generateBitcodeForRuntimeCompile(IRState *irs) {
   setupModuleBitcodeData(*newModule, irs, filter);
 }
 
-void declareRuntimeCompiledFunction(IRState *irs, IrFunction *func) {
+void declareDynamicCompiledFunction(IRState *irs, IrFunction *func) {
   assert(nullptr != irs);
   assert(nullptr != func);
   assert(nullptr != func->getLLVMFunc());
@@ -766,7 +766,7 @@ void declareRuntimeCompiledFunction(IRState *irs, IrFunction *func) {
       std::make_pair(srcFunc, IRState::RtCompiledFuncDesc{nullptr, thunkFunc}));
 }
 
-void defineRuntimeCompiledFunction(IRState *irs, IrFunction *func) {
+void defineDynamicCompiledFunction(IRState *irs, IrFunction *func) {
   assert(nullptr != irs);
   assert(nullptr != func);
   assert(nullptr != func->getLLVMFunc());
@@ -787,7 +787,7 @@ void defineRuntimeCompiledFunction(IRState *irs, IrFunction *func) {
   it->second.thunkVar = thunkVar;
 }
 
-void addRuntimeCompiledVar(IRState *irs, IrGlobal *var) {
+void addDynamicCompiledVar(IRState *irs, IrGlobal *var) {
   assert(nullptr != irs);
   assert(nullptr != var);
   assert(nullptr != var->value);
@@ -807,19 +807,19 @@ void addRuntimeCompiledVar(IRState *irs, IrGlobal *var) {
 
 #else // defined(LDC_DYNAMIC_COMPILE)
 
-void generateBitcodeForRuntimeCompile(IRState *) {
+void generateBitcodeForDynamicCompile(IRState *) {
   // nothing
 }
 
-void declareRuntimeCompiledFunction(IRState *, IrFunction *) {
+void declareDynamicCompiledFunction(IRState *, IrFunction *) {
   // nothing
 }
 
-void defineRuntimeCompiledFunction(IRState *, IrFunction *) {
+void defineDynamicCompiledFunction(IRState *, IrFunction *) {
   // nothing
 }
 
-void addRuntimeCompiledVar(IRState *, IrGlobal *) {
+void addDynamicCompiledVar(IRState *, IrGlobal *) {
   // nothing
 }
 
