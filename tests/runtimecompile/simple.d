@@ -3,14 +3,14 @@
 
 import std.stdio;
 import ldc.attributes;
-import ldc.runtimecompile;
+import ldc.dynamic_compile;
 
-version(LDC_RuntimeCompilation)
+version(LDC_DynamicCompilation)
 {
 }
 else
 {
-static assert(false, "LDC_RuntimeCompilation is not defined");
+static assert(false, "LDC_DynamicCompilation is not defined");
 }
 
 @dynamicCompile int foo()

@@ -3,7 +3,7 @@
 
 import core.thread;
 import ldc.attributes;
-import ldc.runtimecompile;
+import ldc.dynamic_compile;
 
 ThreadID threadId; //thread local
 

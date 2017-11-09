@@ -3,7 +3,7 @@
 
 import std.exception;
 import ldc.attributes;
-import ldc.runtimecompile;
+import ldc.dynamic_compile;
 
 __gshared int[555] arr1 = 42;
 __gshared int[555] arr2 = 42;

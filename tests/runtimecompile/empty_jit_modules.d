@@ -1,7 +1,7 @@
 
 // RUN: %ldc -enable-dynamic-compile -run %s
 
-import ldc.runtimecompile;
+import ldc.dynamic_compile;
 
 void main(string[] args)
 {

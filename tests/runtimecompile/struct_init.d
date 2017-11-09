@@ -4,7 +4,7 @@
 // XFAIL: Windows_x86
 // RUN: %ldc -enable-dynamic-compile -run %s
 
-import ldc.runtimecompile;
+import ldc.dynamic_compile;
 import ldc.attributes;
 import std.stdio;
 

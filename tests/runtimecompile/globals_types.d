@@ -2,7 +2,7 @@
 // RUN: %ldc -enable-dynamic-compile -run %s
 
 import ldc.attributes;
-import ldc.runtimecompile;
+import ldc.dynamic_compile;
 
 struct Foo
 {

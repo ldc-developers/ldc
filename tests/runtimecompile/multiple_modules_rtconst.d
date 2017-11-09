@@ -2,7 +2,7 @@
 // RUN: %ldc -enable-dynamic-compile -I%S %s %S/inputs/rtconst_owner.d %S/inputs/rtconst_user.d  -run
 // RUN: %ldc -enable-dynamic-compile -singleobj -I%S %s %S/inputs/rtconst_owner.d %S/inputs/rtconst_user.d -run
 
-import ldc.runtimecompile;
+import ldc.dynamic_compile;
 
 import inputs.rtconst_owner;
 import inputs.rtconst_user;

@@ -5,7 +5,7 @@
 // RUN: %ldc -enable-dynamic-compile -dynamic-compile-tls-workaround=1 -run %s
 
 import ldc.attributes;
-import ldc.runtimecompile;
+import ldc.dynamic_compile;
 
 @dynamicCompile void foo()
 {

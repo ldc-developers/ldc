@@ -935,7 +935,7 @@ void registerPredefinedVersions() {
   // `D_ObjectiveC` is added by the ddmd.objc.Supported ctor
 
   if (opts::enableRuntimeCompile) {
-    VersionCondition::addPredefinedGlobalIdent("LDC_RuntimeCompilation");
+    VersionCondition::addPredefinedGlobalIdent("LDC_DynamicCompilation");
   }
 
   // Define sanitizer versions.

@@ -1,13 +1,13 @@
 /**
- * Contains jit API.
+ * Contains dynamic compilation API.
  *
  * Copyright: Authors 2017
  * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  */
 
-module ldc.runtimecompile;
+module ldc.dynamic_compile;
 
-version(LDC_RuntimeCompilation):
+version(LDC_DynamicCompilation):
 
 /// Dump handler stage
 enum DumpStage : int
@@ -45,8 +45,8 @@ struct CompilerSettings
 
 /++
  + Compile all dynamic code.
- + This function must be called before any calls to @runtimeCompile functions and
- + after any changes to @runtimeCompile variables
+ + This function must be called before any calls to @dynamicCompile functions and
+ + after any changes to @dynamicCompileConst variables
  +
  + Consecutive calls to this function do nothing
  +
@@ -54,9 +54,9 @@ struct CompilerSettings
  +
  + Example:
  + ---
- + import ldc.attributes, ldc.runtimecompile, std.stdio;
+ + import ldc.attributes, ldc.dynamic_compile, std.stdio;
  +
- + @runtimeCompile int foo() { return value * 42; }
+ + @dynamicCompile int foo() { return value * 42; }
  +
  + void main() {
  +   compileDynamicCode();

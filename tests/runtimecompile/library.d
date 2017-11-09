@@ -7,7 +7,7 @@
 // RUN: %ldc -enable-dynamic-compile -Os -I%S %s %t2%lib %t3%lib %t4%lib -run
 
 import ldc.attributes;
-import ldc.runtimecompile;
+import ldc.dynamic_compile;
 
 import inputs.module1;
 import inputs.module2;

@@ -3,7 +3,7 @@
 // RUN: %ldc -enable-dynamic-compile -singleobj -I%S %s %S/inputs/module1.d %S/inputs/module2.d %S/inputs/module3.d -run
 
 import ldc.attributes;
-import ldc.runtimecompile;
+import ldc.dynamic_compile;
 
 import inputs.module1;
 import inputs.module2;

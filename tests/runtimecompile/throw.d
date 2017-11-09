@@ -6,7 +6,7 @@
 
 import std.exception;
 import ldc.attributes;
-import ldc.runtimecompile;
+import ldc.dynamic_compile;
 
 @dynamicCompile void foo()
 {
