@@ -1,4 +1,4 @@
-if(LDC_RUNTIME_COMPILE)
+if(LDC_DYNAMIC_COMPILE)
     file(GLOB LDC_JITRT_D ${JITRT_DIR}/d/ldc/*.d)
 
     # Choose the correct subfolder depending on the LLVM version

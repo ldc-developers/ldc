@@ -456,7 +456,7 @@ cl::opt<std::string>
                        cl::value_desc("prefix"));
 #endif
 
-#if defined(LDC_RUNTIME_COMPILE)
+#if defined(LDC_DYNAMIC_COMPILE)
 cl::opt<bool> enableDynamicCompile(
     "enable-dynamic-compile",
     cl::desc("Enable dynamic compilation"),

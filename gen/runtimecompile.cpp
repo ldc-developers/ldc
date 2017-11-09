@@ -9,7 +9,7 @@
 
 #include "gen/runtimecompile.h"
 
-#if defined(LDC_RUNTIME_COMPILE)
+#if defined(LDC_DYNAMIC_COMPILE)
 
 #include <unordered_map>
 #include <unordered_set>
@@ -805,7 +805,7 @@ void addRuntimeCompiledVar(IRState *irs, IrGlobal *var) {
   irs->dynamicCompiledVars.insert(var);
 }
 
-#else // defined(LDC_RUNTIME_COMPILE)
+#else // defined(LDC_DYNAMIC_COMPILE)
 
 void generateBitcodeForRuntimeCompile(IRState *) {
   // nothing

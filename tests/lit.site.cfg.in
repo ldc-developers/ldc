@@ -21,7 +21,7 @@ config.llvm_version        = @LDC_LLVM_VER@
 config.llvm_targetsstr     = "@LLVM_TARGETS_TO_BUILD@"
 config.default_target_bits = @DEFAULT_TARGET_BITS@
 config.with_PGO            = @LDC_WITH_PGO@
-config.runtime_compile     = @LDC_RUNTIME_COMPILE@
+config.dynamic_compile     = @LDC_DYNAMIC_COMPILE@
 
 config.name = 'LDC'
 
@@ -48,7 +48,7 @@ if not config.with_PGO:
     config.excludes.append('PGO')
 
 # Exclude runtime compilation tests when it's disabled
-if not config.runtime_compile:
+if not config.dynamic_compile:
     config.excludes.append('dynamiccompile')
 
 # Explicit forwarding of environment variables
