@@ -26,7 +26,7 @@
 
 namespace {
 
-const char *RuntimeCompileModulesHeadName = "dynamiccompile_modules_head";
+const char *DynamicCompileModulesHeadName = "dynamiccompile_modules_head";
 
 llvm::GlobalValue *getPredefinedSymbol(llvm::Module &module,
                                        llvm::StringRef name, llvm::Type *type) {
@@ -608,17 +608,17 @@ llvm::GlobalVariable *declareModListHead(llvm::Module &module,
                                          const Types &types) {
   auto type = getModListHeadType(module.getContext(), types);
   //  auto existingVar =
-  //  module.getGlobalVariable(RuntimeCompileModulesHeadName); if (nullptr !=
+  //  module.getGlobalVariable(DynamicCompileModulesHeadName); if (nullptr !=
   //  existingVar) {
   //    if (type != existingVar->getType()) {
-  //      error(Loc(), "Invalid RuntimeCompileModulesHeadName type");
+  //      error(Loc(), "Invalid DynamicCompileModulesHeadName type");
   //      fatal();
   //    }
   //    return existingVar;
   //  }
   return new llvm::GlobalVariable(module, type, false,
                                   llvm::GlobalValue::ExternalLinkage, nullptr,
-                                  RuntimeCompileModulesHeadName);
+                                  DynamicCompileModulesHeadName);
 }
 
 void generateCtorBody(IRState *irs, const Types &types, llvm::Function *func,
