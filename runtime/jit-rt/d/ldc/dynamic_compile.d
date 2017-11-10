@@ -1,7 +1,7 @@
 /**
  * Contains dynamic compilation API.
  *
- * Copyright: Authors 2017
+ * Copyright: the LDC team
  * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  */
 
