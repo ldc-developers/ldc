@@ -150,27 +150,5 @@ void setRtCompileVar(const Context &context, llvm::Module &module,
     var->setConstant(true);
     var->setInitializer(initializer);
     var->setLinkage(llvm::GlobalValue::PrivateLinkage);
-    //    auto tempVar = new llvm::GlobalVariable(
-    //                     module,
-    //                     type,
-    //                     true,
-    //                     llvm::GlobalValue::PrivateLinkage,
-    //                     initializer,
-    //                     ".str");
-    //    llvm::Constant *idxs[] = {zero};
-    //    auto constPtr = llvm::ConstantExpr::getGetElementPtr(nullptr,
-    //                                                         tempVar,
-    //                                                         idxs,
-    //                                                         true);
-    //    for (auto&& use: var->uses()) {
-    //      use->dump();
-    //      use->getType()->dump();
-    //      auto i = llvm::cast<llvm::GlobalVariable>(use);
-    //      i->replaceAllUsesWith(constPtr);
-    //      i->eraseFromParent();
-    //    }
-
-    //          var->replaceAllUsesWith(initializer);
-    //          var->eraseFromParent();
   }
 }
