@@ -6,10 +6,9 @@ module ldc.eh.msvc;
 
 version(CRuntime_Microsoft):
 
-import ldc.eh.common;
 import core.sys.windows.windows;
 import core.exception : onOutOfMemoryError, OutOfMemoryError;
-import core.stdc.stdlib : malloc, free;
+import core.stdc.stdlib : malloc, free, abort;
 import core.stdc.string : memcpy;
 import rt.util.container.common : xmalloc;
 
@@ -94,13 +93,30 @@ struct CxxExceptionInfo
     version(Win64) void* ImgBase;
 }
 
+// D runtime function
+extern(C) int _d_isbaseof(ClassInfo oc, ClassInfo c);
+
+// error and exit
+extern(C) void fatalerror(in char* format, ...)
+{
+    import core.stdc.stdarg;
+    import core.stdc.stdio;
+
+    va_list args;
+    va_start(args, format);
+    fprintf(stderr, "Fatal error in EH code: ");
+    vfprintf(stderr, format, args);
+    fprintf(stderr, "\n");
+    abort();
+}
+
 extern(C) Throwable.TraceInfo _d_traceContext(void* ptr = null);
 
-extern(C) void _d_throw_exception(Object e)
+extern(C) void _d_throw_exception(Throwable throwable)
 {
-    if (e is null)
+    if (throwable is null)
         fatalerror("Cannot throw null exception");
-    auto ti = typeid(e);
+    auto ti = typeid(throwable);
     if (ti is null)
         fatalerror("Cannot throw corrupt exception object with null classinfo");
 
@@ -112,10 +128,9 @@ extern(C) void _d_throw_exception(Object e)
             old_terminate_handler = set_terminate(&msvc_eh_terminate);
     }
 
-    auto throwable = cast(Throwable) e;
     exceptionStack.push(throwable);
 
-    if (throwable.info is null && cast(byte*)throwable !is typeid(throwable).initializer.ptr)
+    if (throwable.info is null && cast(byte*)throwable !is ti.initializer.ptr)
         throwable.info = _d_traceContext();
 
     CxxExceptionInfo info;
@@ -188,7 +203,7 @@ ImgPtr!CatchableType getCatchableType(TypeInfo_Class ti)
 }
 
 ///////////////////////////////////////////////////////////////
-extern(C) Object _d_eh_enter_catch(void* ptr, ClassInfo catchType)
+extern(C) Throwable _d_eh_enter_catch(void* ptr, ClassInfo catchType)
 {
     assert(ptr);
 

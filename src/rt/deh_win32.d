@@ -11,6 +11,7 @@
 
 module rt.deh_win32;
 
+version (LDC) {} else:
 version (Win32):
 
 import core.sys.windows.windows;

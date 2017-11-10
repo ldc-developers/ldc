@@ -127,9 +127,11 @@ private
      */
     extern(C) void* _d_eh_swapContext(void* newContext) nothrow @nogc;
 
-    version (DigitalMars)
+    // LDC: changed from `version (DigitalMars)`
+    version (all)
     {
-        version (Windows)
+        // LDC: changed from `version (Windows)`
+        version (CRuntime_Microsoft)
             alias swapContext = _d_eh_swapContext;
         else
         {

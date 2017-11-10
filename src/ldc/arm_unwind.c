@@ -12,17 +12,25 @@
 
 #ifdef __ARM_EABI__
 
+#include <limits.h> // for __GLIBC__
 #include <unwind.h>
 
 // clang's unwind.h doesn't have this
 typedef struct _Unwind_Context _Unwind_Context;
 
-_Unwind_Word _d_eh_GetIP(_Unwind_Context *context)
+_Unwind_Ptr _d_eh_GetIP(_Unwind_Context *context)
 {
     return _Unwind_GetIP(context);
 }
 
-void _d_eh_SetIP(_Unwind_Context *context, _Unwind_Word new_value)
+#ifdef __GLIBC__
+_Unwind_Ptr _d_eh_GetIPInfo(_Unwind_Context *context, int *ptr)
+{
+    return _Unwind_GetIPInfo(context, ptr);
+}
+#endif
+
+void _d_eh_SetIP(_Unwind_Context *context, _Unwind_Ptr new_value)
 {
     _Unwind_SetIP(context, new_value);
 }

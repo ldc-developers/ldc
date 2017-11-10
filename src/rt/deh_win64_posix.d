@@ -14,7 +14,12 @@ module rt.deh_win64_posix;
 
 version (LDC)
 {
-    // We use a libunwind-based scheme on all platforms.
+    version (CRuntime_Microsoft)
+    {
+        // MSVC EH
+    }
+    else
+        version = Win64_Posix;
 }
 else version (Win64)
     version = Win64_Posix;
@@ -31,6 +36,9 @@ else version (TVOS)
     version = Darwin;
 else version (WatchOS)
     version = Darwin;
+
+version (LDC) {} else
+{
 
 //debug=PRINTF;
 debug(PRINTF) import core.stdc.stdio : printf;
@@ -89,6 +97,8 @@ struct FuncTable
     uint fsize;         // size of function in bytes
 }
 
+} // !LDC
+
 private
 {
     struct InFlight
@@ -109,6 +119,8 @@ private
         return old;
     }
 }
+
+version (LDC) {} else:
 
 void terminate()
 {
