@@ -135,6 +135,7 @@ get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT
 set(RUNTIME_DIR ${PROJECT_SOURCE_DIR}/druntime CACHE PATH "druntime root directory")
 set(PHOBOS2_DIR ${PROJECT_SOURCE_DIR}/phobos CACHE PATH "Phobos root directory")
 set(PROFILERT_DIR ${PROJECT_SOURCE_DIR}/profile-rt CACHE PATH "profile-rt root directory")
+set(JITRT_DIR ${PROJECT_SOURCE_DIR}/jit-rt CACHE PATH "jit runtime root directory")
 
 #
 # Gather source files.
@@ -640,8 +641,12 @@ macro(build_all_runtime_variants d_flags c_flags ld_flags path_suffix outlist_ta
     endif()
 endmacro()
 
+
 # Setup the build of profile-rt
 include(profile-rt/DefineBuildProfileRT.cmake)
+
+# Setup the build of jit runtime
+include(jit-rt/DefineBuildJitRT.cmake)
 
 #
 # Set up build and install targets
@@ -657,6 +662,9 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
     set(libtargets)
     build_all_runtime_variants("" "${RT_CFLAGS}" "${LD_FLAGS}" "${hostsuffix}" libtargets)
     build_all_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}" libtargets)
+
+    # Do not build multilib version of jit runtime
+    build_jit_runtime ("${D_FLAGS};${D_FLAGS_RELEASE}" "${RT_CFLAGS}" "${LD_FLAGS}" "${hostsuffix}" libtargets)
 
     # KLUDGE: Cannot use `$<TARGET_LINKER_FILE:target>` in custom command.
     # Set up the list of generated libs (without 'lib' prefix) to be merged manually.
@@ -697,6 +705,10 @@ else()
     set(libs_to_install)
     build_all_runtime_variants("" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libs_to_install)
 
+    set(libs_to_install_no_multilib)
+    # Do not build multilib version of jit runtime
+    build_jit_runtime ("${D_FLAGS};${D_FLAGS_RELEASE}" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libs_to_install_no_multilib)
+
     # don't add multilib targets to libs_to_install
     if(MULTILIB)
         build_all_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}" dummy)
@@ -709,6 +721,11 @@ else()
             install(TARGETS     ${libname}_${MULTILIB_SUFFIX}
                     DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX})
         endif()
+    endforeach()
+
+    foreach(libname ${libs_to_install_no_multilib})
+        install(TARGETS     ${libname}
+                DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
     endforeach()
 endif()
 

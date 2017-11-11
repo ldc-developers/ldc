@@ -934,6 +934,10 @@ void registerPredefinedVersions() {
 
   // `D_ObjectiveC` is added by the ddmd.objc.Supported ctor
 
+  if (opts::enableDynamicCompile) {
+    VersionCondition::addPredefinedGlobalIdent("LDC_DynamicCompilation");
+  }
+
   // Define sanitizer versions.
   if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
     VersionCondition::addPredefinedGlobalIdent("LDC_AddressSanitizer");

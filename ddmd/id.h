@@ -64,6 +64,8 @@ public:
     static Identifier *udaLLVMFastMathFlag;
     static Identifier *udaKernel;
     static Identifier *udaCompute;
-}; 
+    static Identifier *udaDynamicCompile;
+    static Identifier *udaDynamicCompileConst;
+};
 
 #endif /* DMD_ID_H */

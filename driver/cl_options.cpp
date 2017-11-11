@@ -456,6 +456,19 @@ cl::opt<std::string>
                        cl::value_desc("prefix"));
 #endif
 
+#if defined(LDC_DYNAMIC_COMPILE)
+cl::opt<bool> enableDynamicCompile(
+    "enable-dynamic-compile",
+    cl::desc("Enable dynamic compilation"),
+    cl::init(false));
+
+cl::opt<bool> dynamicCompileTlsWorkaround(
+    "dynamic-compile-tls-workaround",
+    cl::desc("Enable dynamic compilation TLS workaround"),
+    cl::init(true),
+    cl::Hidden);
+#endif
+
 static cl::extrahelp footer(
     "\n"
     "-d-debug can also be specified without options, in which case it enables "
@@ -532,7 +545,7 @@ void hideLLVMOptions() {
       "mno-fixup", "mno-ldc1-sdc1", "mno-pairing", "mwarn-missing-parenthesis",
       "mwarn-noncontigious-register", "mwarn-sign-mismatch", "nvptx-sched4reg",
       "no-discriminators", "objc-arc-annotation-target-identifier",
-      "polly-dump-after", "polly-dump-after-file", "polly-dump-before", 
+      "polly-dump-after", "polly-dump-after-file", "polly-dump-before",
       "polly-dump-before-file",
       "pre-RA-sched", "print-after-all", "print-before-all",
       "print-machineinstrs", "profile-estimator-loop-weight",

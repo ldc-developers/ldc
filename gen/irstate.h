@@ -222,6 +222,17 @@ public:
   // setGlobalVarInitializer().
   void replaceGlobals();
 
+  // List of functions with cpu or features attributes overriden by user
+  std::vector<IrFunction *> targetCpuOrFeaturesOverridden;
+
+  struct RtCompiledFuncDesc {
+    llvm::GlobalVariable *thunkVar;
+    llvm::Function *thunkFunc;
+  };
+
+  std::map<llvm::Function *, RtCompiledFuncDesc> dynamicCompiledFunctions;
+  std::set<IrGlobal *> dynamicCompiledVars;
+
 /// Vector of options passed to the linker as metadata in object file.
 #if LDC_LLVM_VER >= 500
   llvm::SmallVector<llvm::MDNode *, 5> LinkerMetadataArgs;
@@ -235,7 +246,7 @@ public:
   llvm::DenseMap<llvm::Constant *, llvm::GlobalVariable *> TypeDescriptorMap;
 #endif
 
-  //Target for dcompute. If not nullptr, it owns this.
+  // Target for dcompute. If not nullptr, it owns this.
   DComputeTarget *dcomputetarget = nullptr;
 };
 

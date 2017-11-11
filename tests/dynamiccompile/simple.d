@@ -1,0 +1,55 @@
+
+// RUN: %ldc -enable-dynamic-compile -run %s
+
+import std.stdio;
+import ldc.attributes;
+import ldc.dynamic_compile;
+
+version(LDC_DynamicCompilation)
+{
+}
+else
+{
+static assert(false, "LDC_DynamicCompilation is not defined");
+}
+
+@dynamicCompile int foo()
+{
+  return 5;
+}
+
+@dynamicCompile int bar()
+{
+  return foo() + 7;
+}
+
+@dynamicCompile void baz()
+{
+  writeln("baz");
+}
+
+void main(string[] args)
+{
+  void run(CompilerSettings settings)
+  {
+    compileDynamicCode(settings);
+    assert(5 == foo());
+    assert(12 == bar());
+    baz();
+    int function() fptr = &bar;
+    assert(12 == fptr());
+  }
+
+  foreach(i;0..4)
+  {
+    CompilerSettings settings;
+    settings.optLevel = i;
+    run(settings);
+  }
+  foreach(i;0..3)
+  {
+    CompilerSettings settings;
+    settings.sizeLevel = i;
+    run(settings);
+  }
+}
