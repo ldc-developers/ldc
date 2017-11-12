@@ -375,7 +375,7 @@ version( LDC )
     }
 
     pragma(LDC_va_start)
-        void va_start(T)(out va_list ap, ref T);
+        void va_start(T)(out va_list ap, ref T) @nogc;
 
     private pragma(LDC_va_arg)
         T va_arg_intrinsic(T)(ref va_list ap);
