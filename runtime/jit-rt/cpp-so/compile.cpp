@@ -20,6 +20,7 @@
 
 #include "callback_ostream.h"
 #include "context.h"
+#include "disassembler.h"
 #include "optimizer.h"
 #include "utils.h"
 
@@ -29,6 +30,7 @@
 #include "llvm/ExecutionEngine/Orc/CompileUtils.h"
 #include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
 #include "llvm/ExecutionEngine/Orc/LambdaResolver.h"
+#include "llvm/ExecutionEngine/Orc/ObjectTransformLayer.h"
 #include "llvm/ExecutionEngine/RuntimeDyld.h"
 #include "llvm/ExecutionEngine/SectionMemoryManager.h"
 #include "llvm/Linker/Linker.h"
@@ -96,6 +98,7 @@ using SymMap = std::map<std::string, void *>;
 struct llvm_init_obj {
   llvm_init_obj() {
     llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetDisassembler();
     llvm::InitializeNativeTargetAsmPrinter();
   }
 };
@@ -127,6 +130,20 @@ auto getSymbolInProcess(const std::string &name)
 #endif
 }
 
+struct ModuleListener {
+  llvm::TargetMachine &targetmachine;
+  llvm::raw_ostream *stream = nullptr;
+
+  ModuleListener(llvm::TargetMachine &tm) : targetmachine(tm) {}
+
+  template <typename T> auto operator()(T &&object) -> T {
+    if (nullptr != stream) {
+      disassemble(targetmachine, *object->getBinary(), *stream);
+    }
+    return std::move(object);
+  }
+};
+
 class MyJIT {
 private:
   llvm_init_obj initObj;
@@ -135,19 +152,32 @@ private:
   const llvm::DataLayout dataLayout;
 #if LDC_LLVM_VER >= 500
   using ObjectLayerT = llvm::orc::RTDyldObjectLinkingLayer;
+  using ListenerLayerT =
+      llvm::orc::ObjectTransformLayer<ObjectLayerT, ModuleListener>;
   using CompileLayerT =
-      llvm::orc::IRCompileLayer<ObjectLayerT, llvm::orc::SimpleCompiler>;
+      llvm::orc::IRCompileLayer<ListenerLayerT, llvm::orc::SimpleCompiler>;
   using ModuleHandleT = CompileLayerT::ModuleHandleT;
 #else
   using ObjectLayerT = llvm::orc::ObjectLinkingLayer<>;
-  using CompileLayerT = llvm::orc::IRCompileLayer<ObjectLayerT>;
+  using ListenerLayerT =
+      llvm::orc::ObjectTransformLayer<ObjectLayerT, ModuleListener>;
+  using CompileLayerT = llvm::orc::IRCompileLayer<ListenerLayerT>;
   using ModuleHandleT = CompileLayerT::ModuleSetHandleT;
 #endif
   ObjectLayerT objectLayer;
+  ListenerLayerT listenerlayer;
   CompileLayerT compileLayer;
   llvm::LLVMContext context;
   bool compiled = false;
   ModuleHandleT moduleHandle;
+
+  struct ListenerCleaner final {
+    MyJIT &owner;
+    ListenerCleaner(MyJIT &o, llvm::raw_ostream *stream) : owner(o) {
+      owner.listenerlayer.getTransform().stream = stream;
+    }
+    ~ListenerCleaner() { owner.listenerlayer.getTransform().stream = nullptr; }
+  };
 
 public:
   MyJIT()
@@ -159,13 +189,15 @@ public:
         objectLayer(
             []() { return std::make_shared<llvm::SectionMemoryManager>(); }),
 #endif
-        compileLayer(objectLayer, llvm::orc::SimpleCompiler(*targetmachine)) {
+        listenerlayer(objectLayer, ModuleListener(*targetmachine)),
+        compileLayer(listenerlayer, llvm::orc::SimpleCompiler(*targetmachine)) {
     llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
   }
 
   llvm::TargetMachine &getTargetMachine() { return *targetmachine; }
 
-  bool addModule(std::unique_ptr<llvm::Module> module, const SymMap &symMap) {
+  bool addModule(std::unique_ptr<llvm::Module> module, const SymMap &symMap,
+                 llvm::raw_ostream *asmListener) {
     assert(nullptr != module);
     reset();
     // Build our symbol resolver:
@@ -192,6 +224,7 @@ public:
           return llvm::JITSymbol(nullptr);
         });
 
+    ListenerCleaner cleaner(*this, asmListener);
     // Add the set to the JIT with the resolver we created above
 #if LDC_LLVM_VER >= 500
     auto result = compileLayer.addModule(std::move(module), Resolver);
@@ -275,35 +308,6 @@ void dumpModule(const Context &context, const llvm::Module &module,
     module.print(os, nullptr, false, true);
   }
 }
-
-// Asm dump is disabled for now
-// void dumpModuleAsm(const Context &context, const llvm::Module &module,
-//                   llvm::TargetMachine &TM) {
-//  if (nullptr != context.dumpHandler) {
-//    auto callback = [&](const char *str, size_t len) {
-//      context.dumpHandler(context.dumpHandlerData, DumpStage::FinalAsm, str,
-//                          len);
-//    };
-
-//    // TODO: I am not sure if passes added by addPassesToEmitFile can modify
-//    // module, so clone source module to be sure, also, it allow preserve
-//    // constness
-//    auto newModule = llvm::CloneModule(&module);
-
-//    llvm::legacy::PassManager PM;
-
-//    llvm::SmallVector<char, 0> asmBufferSV;
-//    llvm::raw_svector_ostream asmStream(asmBufferSV);
-
-//    if (TM.addPassesToEmitFile(PM, asmStream,
-//                               llvm::TargetMachine::CGFT_AssemblyFile)) {
-//      fatal(context, "Target does not support asm emission.");
-//    }
-//    PM.run(*newModule);
-
-//    callback(asmBufferSV.data(), asmBufferSV.size());
-//  }
-//}
 
 void setFunctionsTarget(llvm::Module &module, llvm::TargetMachine &TM) {
   // Set function target cpu to host if it wasn't set explicitly
@@ -407,11 +411,22 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   verifyModule(context, *finalModule);
 
   dumpModule(context, *finalModule, DumpStage::OptimizedModule);
-  // dumpModuleAsm(context, *finalModule, myJit.getTargetMachine());
 
   interruptPoint(context, "Codegen final module");
-  if (myJit.addModule(std::move(finalModule), symMap)) {
-    fatal(context, "Can't codegen module");
+  if (nullptr != context.dumpHandler) {
+    auto callback = [&](const char *str, size_t len) {
+      context.dumpHandler(context.dumpHandlerData, DumpStage::FinalAsm, str,
+                          len);
+    };
+
+    CallbackOstream os(callback);
+    if (myJit.addModule(std::move(finalModule), symMap, &os)) {
+      fatal(context, "Can't codegen module");
+    }
+  } else {
+    if (myJit.addModule(std::move(finalModule), symMap, nullptr)) {
+      fatal(context, "Can't codegen module");
+    }
   }
 
   JitFinaliser jitFinalizer(myJit);
