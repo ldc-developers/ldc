@@ -147,7 +147,17 @@ alias llvm_readcyclecounter readcyclecounter;
 pragma(LDC_intrinsic, "llvm.clear_cache")
     void llvm_clear_cache(void *from, void *to);
 
-
+version(INTRINSICS_FROM_600)
+{
+/// The ‘llvm.thread.pointer‘ intrinsic returns a pointer to the TLS area for the
+/// current thread. The exact semantics of this value are target specific: it may
+/// point to the start of TLS area, to the end, or somewhere in the middle. Depending
+/// on the target, this intrinsic may read a register, call a helper function, read
+/// from an alternate memory space, or perform other operations necessary to locate
+/// the TLS area. Not all targets support this intrinsic.
+pragma(LDC_intrinsic, "llvm.thread.pointer")
+    void* llvm_thread_pointer();
+}
 
 //
 // STANDARD C LIBRARY INTRINSICS
