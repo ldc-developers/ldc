@@ -160,6 +160,13 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// C assert function:
+// OSX:     void __assert_rtn(const char *func, const char *file, unsigned line,
+//                            const char *msg)
+// Android: void __assert(const char *file, int line, const char *msg)
+// MSVC:    void  _assert(const char *msg, const char *file, unsigned line)
+// else:    void __assert(const char *msg, const char *file, unsigned line)
+
 static const char *getCAssertFunctionName() {
   if (global.params.targetTriple->isOSDarwin()) {
     return "__assert_rtn";
@@ -167,6 +174,19 @@ static const char *getCAssertFunctionName() {
     return "_assert";
   }
   return "__assert";
+}
+
+static std::vector<Type *> getCAssertFunctionParamTypes() {
+  const auto voidPtr = Type::tvoidptr;
+  const auto uint = Type::tuns32;
+
+  if (global.params.targetTriple->isOSDarwin()) {
+    return {voidPtr, voidPtr, uint, voidPtr};
+  }
+  if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
+    return {voidPtr, uint, voidPtr};
+  }
+  return {voidPtr, voidPtr, uint};
 }
 
 llvm::Function *getCAssertFunction(const Loc &loc, llvm::Module &target) {
@@ -348,16 +368,10 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
 
-  // C assert function:
-  // OSX:  void __assert_rtn(const char *func, const char *file, unsigned line,
-  //                         const char *msg)
-  // else: void [_]_assert(const char *msg, const char *file, unsigned line)
-  createFwdDecl(
-      LINKc, Type::tvoid, {getCAssertFunctionName()},
-      global.params.targetTriple->isOSDarwin()
-          ? llvm::ArrayRef<Type *>({voidPtrTy, voidPtrTy, uintTy, voidPtrTy})
-          : llvm::ArrayRef<Type *>({voidPtrTy, voidPtrTy, uintTy}),
-      {}, Attr_Cold_NoReturn_NoUnwind);
+  // C assert function
+  createFwdDecl(LINKc, Type::tvoid, {getCAssertFunctionName()},
+                getCAssertFunctionParamTypes(), {},
+                Attr_Cold_NoReturn_NoUnwind);
 
   // void _d_assert(string file, uint line)
   // void _d_arraybounds(string file, uint line)
