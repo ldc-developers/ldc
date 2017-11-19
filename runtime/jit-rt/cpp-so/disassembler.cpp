@@ -268,11 +268,11 @@ void disassemble(const llvm::TargetMachine &tm,
 
   asmStreamer->InitSections(false);
 
-  for (auto symbol : object.symbols()) {
-    auto name = llvm::cantFail(symbol.getName());
-    auto secIt = llvm::cantFail(symbol.getSection());
+  for (const auto& symbol : object.symbols()) {
+    const auto name = llvm::cantFail(symbol.getName());
+    const auto secIt = llvm::cantFail(symbol.getSection());
     if (object.section_end() != secIt) {
-      auto sec = *secIt;
+      const auto sec = *secIt;
       llvm::StringRef data;
       sec.getContents(data);
       llvm::ArrayRef<uint8_t> buff(
@@ -280,11 +280,11 @@ void disassemble(const llvm::TargetMachine &tm,
       if (llvm::object::SymbolRef::ST_Function ==
           llvm::cantFail(symbol.getType())) {
         symTable.reset();
-        symTable.addLabel(0, 0, name);
+        symTable.addLabel(0, 0, name); // Function start
         for (auto reloc : sec.relocations()) {
-          auto symIt = reloc.getSymbol();
+          const auto symIt = reloc.getSymbol();
           if (object.symbol_end() != symIt) {
-            auto sym = *symIt;
+            const auto sym = *symIt;
             symTable.addExternalSymbolRel(reloc.getOffset(),
                                           llvm::cantFail(sym.getName()));
           }
@@ -298,7 +298,7 @@ void disassemble(const llvm::TargetMachine &tm,
 }
 #else
 void disassemble(const llvm::TargetMachine & /*tm*/,
-                 const llvm::object::ObjectFile &object,
+                 const llvm::object::ObjectFile &/*object*/,
                  llvm::raw_ostream &os) {
   os << "Asm output not supported";
   os.flush();
