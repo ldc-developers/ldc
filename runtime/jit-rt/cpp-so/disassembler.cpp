@@ -199,6 +199,19 @@ public:
     // Nothing
   }
 };
+
+void processRelocations(SymTable &symTable,
+                        const llvm::object::ObjectFile &object,
+                        const llvm::object::SectionRef &sec) {
+  for (const auto &reloc : sec.relocations()) {
+    const auto symIt = reloc.getSymbol();
+    if (object.symbol_end() != symIt) {
+      const auto sym = *symIt;
+      symTable.addExternalSymbolRel(reloc.getOffset(),
+                                    llvm::cantFail(sym.getName()));
+    }
+  }
+}
 }
 
 void disassemble(const llvm::TargetMachine &tm,
@@ -268,7 +281,7 @@ void disassemble(const llvm::TargetMachine &tm,
 
   asmStreamer->InitSections(false);
 
-  for (const auto& symbol : object.symbols()) {
+  for (const auto &symbol : object.symbols()) {
     const auto name = llvm::cantFail(symbol.getName());
     const auto secIt = llvm::cantFail(symbol.getSection());
     if (object.section_end() != secIt) {
@@ -281,12 +294,12 @@ void disassemble(const llvm::TargetMachine &tm,
           llvm::cantFail(symbol.getType())) {
         symTable.reset();
         symTable.addLabel(0, 0, name); // Function start
-        for (auto reloc : sec.relocations()) {
-          const auto symIt = reloc.getSymbol();
-          if (object.symbol_end() != symIt) {
-            const auto sym = *symIt;
-            symTable.addExternalSymbolRel(reloc.getOffset(),
-                                          llvm::cantFail(sym.getName()));
+        processRelocations(symTable, object, sec);
+
+        // TODO: something more optimal
+        for (const auto &globalSec : object.sections()) {
+          if (globalSec.getRelocatedSection() == secIt) {
+            processRelocations(symTable, object, globalSec);
           }
         }
 
@@ -298,7 +311,7 @@ void disassemble(const llvm::TargetMachine &tm,
 }
 #else
 void disassemble(const llvm::TargetMachine & /*tm*/,
-                 const llvm::object::ObjectFile &/*object*/,
+                 const llvm::object::ObjectFile & /*object*/,
                  llvm::raw_ostream &os) {
   os << "Asm output not supported";
   os.flush();
