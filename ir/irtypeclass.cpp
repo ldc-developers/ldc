@@ -99,10 +99,6 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
     builder.addTailPadding(cd->structsize);
   }
 
-  if (global.errors) {
-    fatal();
-  }
-
   // set struct body and copy GEP indices
   isaStruct(t->type)->setBody(builder.defaultTypes(), t->packed);
   t->varGEPIndices = builder.varGEPIndices();
