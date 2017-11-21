@@ -31,10 +31,11 @@ Installation
 
 #### Linux and OS X
 
-Some package managers include recent versions of LDC, so manually
-installing it might not be necessary. For several platforms, there
-are also stand-alone binary builds available at the
+For several platforms, there are stand-alone binary builds available at the
 [GitHub release page](https://github.com/ldc-developers/ldc/releases).
+
+In addition, some package managers include recent (but not necessarily the 
+latest) versions of LDC, so manually installing it might not be necessary. 
 
 |              | Command               |
 | ------------ | --------------------- |
