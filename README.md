@@ -34,6 +34,45 @@ Installation
 For several platforms, there are stand-alone binary builds available at the
 [GitHub release page](https://github.com/ldc-developers/ldc/releases).
 
+The [official D version manager (a.k.a. install script](https://dlang.org/install.sh) can also
+be used to install ldc.
+
+```
+# Download the install script to '~/dlang/install.sh'
+curl -fsS https://dlang.org/install.sh | bash -s update
+
+# Download the latest stable ldc (1.5.0 at the moment),
+# as well as the latest stable version of dub (1.6.0 at the moment)
+~/dlang/install.sh install ldc
+
+# Use it:
+source ~/dlang/ldc-1.5.0/activate
+
+# Stop using ldc-1.5.0:
+deactivate
+
+# Install the latest beta of LDC (1.6.0-beta1 at the moment):
+~/dlang/install.sh install ldc-beta
+
+# Use it:
+source ~/dlang/ldc-1.6.0-beta1/activate
+
+# Stop using ldc-1.6.0-beta1:
+deactivate
+
+# Uninstall a particular version:
+~/dlang/install.sh uninstall ldc-1.5.0
+
+# Install various versions of dmd:
+~/dlang/install.sh install dmd-nightly
+~/dlang/install.sh install dmd-beta
+~/dlang/install.sh install dmd
+~/dlang/install.sh install dmd-2.073.2
+
+# List all installed D compilers:
+~/dlang/install.sh list
+```
+
 In addition, some package managers include recent (but not necessarily the 
 latest) versions of LDC, so manually installing it might not be necessary. 
 
@@ -45,6 +84,11 @@ latest) versions of LDC, so manually installing it might not be necessary.
 | Gentoo       | `layman -a ldc`       |
 | Homebrew     | `brew install ldc`    |
 | Ubuntu       | `apt install ldc` |
+
+Further, ldc can be installed with snap packages
+
+    $ sudo snap install --classic --channel=edge ldc
+
 
 #### Windows
 
