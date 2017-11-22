@@ -151,7 +151,8 @@ static void addStripExternalsPass(const PassManagerBuilder &builder,
 
 static void addSimplifyDRuntimeCallsPass(const PassManagerBuilder &builder,
                                          PassManagerBase &pm) {
-  if (builder.OptLevel >= 2 && builder.SizeLevel == 0) {
+  if ((builder.OptLevel >= 2 && builder.SizeLevel == 0) ||
+      global.params.betterC) {
     addPass(pm, createSimplifyDRuntimeCalls());
   }
 }
@@ -311,6 +312,8 @@ static void addOptimizationPasses(legacy::PassManagerBase &mpm,
   if (!disableLangSpecificPasses) {
     if (!disableSimplifyDruntimeCalls) {
       builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
+                           addSimplifyDRuntimeCallsPass);
+      builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
                            addSimplifyDRuntimeCallsPass);
     }
 
