@@ -2,7 +2,7 @@
  * This module implements the runtime-part of LDC exceptions
  * on Windows, based on the MSVC++ runtime.
  */
-module ldc.eh.msvc;
+module ldc.eh_msvc;
 
 version(CRuntime_Microsoft):
 
