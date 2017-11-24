@@ -711,12 +711,15 @@ static void buildRuntimeModule() {
     createFwdDecl(LINKc, throwableTy, {"_d_eh_enter_catch"},
                   {voidPtrTy, classInfoTy}, {});
   } else {
-
     // void _d_eh_resume_unwind(ptr)
     createFwdDecl(LINKc, voidTy, {"_d_eh_resume_unwind"}, {voidPtrTy});
 
     // Throwable _d_eh_enter_catch(ptr)
     createFwdDecl(LINKc, throwableTy, {"_d_eh_enter_catch"}, {voidPtrTy}, {},
+                  Attr_NoUnwind);
+
+    // void* __cxa_begin_catch(ptr)
+    createFwdDecl(LINKc, voidPtrTy, {"__cxa_begin_catch"}, {voidPtrTy}, {},
                   Attr_NoUnwind);
   }
 
