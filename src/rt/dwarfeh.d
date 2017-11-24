@@ -1171,21 +1171,45 @@ int actionTableLookup(_Unwind_Exception* exceptionObject, uint actionRecordPtr, 
          */
         _Unwind_Ptr entry;
         const(ubyte)* tt2;
-        switch (TType & DW_EH_PE_FORMAT_MASK)
+        version (LDC)
         {
-            case DW_EH_PE_udata2:   entry = cast(_Unwind_Ptr) *cast(ushort*)(tt2 = tt - TypeFilter * 2); break;
-            case DW_EH_PE_udata4:   entry = cast(_Unwind_Ptr) *cast(uint*)  (tt2 = tt - TypeFilter * 4); break;
-            case DW_EH_PE_udata8:   entry = cast(_Unwind_Ptr) *cast(ulong*) (tt2 = tt - TypeFilter * 8); break;
-            case DW_EH_PE_sdata2:   entry = cast(_Unwind_Ptr) *cast(short*) (tt2 = tt - TypeFilter * 2); break;
-            case DW_EH_PE_sdata4:   entry = cast(_Unwind_Ptr) *cast(int*)   (tt2 = tt - TypeFilter * 4); break;
-            case DW_EH_PE_sdata8:   entry = cast(_Unwind_Ptr) *cast(long*)  (tt2 = tt - TypeFilter * 8); break;
-            case DW_EH_PE_ptr:      if (size_t.sizeof == 8)
-                                        goto case DW_EH_PE_udata8;
-                                    else
-                                        goto case DW_EH_PE_udata4;
-            default:
-                fprintf(stderr, "TType = x%x\n", TType);
-                return -1;      // corrupt
+            // handle potential misalignment
+            int size;
+            switch (TType & DW_EH_PE_FORMAT_MASK)
+            {
+                case DW_EH_PE_udata2: case DW_EH_PE_sdata2:   size = 2; break;
+                case DW_EH_PE_udata4: case DW_EH_PE_sdata4:   size = 4; break;
+                case DW_EH_PE_udata8: case DW_EH_PE_sdata8:   size = 8; break;
+                case DW_EH_PE_ptr:                            if (size_t.sizeof == 8)
+                                                                  goto case DW_EH_PE_udata8;
+                                                              else
+                                                                  goto case DW_EH_PE_udata4;
+                default:
+                    fprintf(stderr, "TType = x%x\n", TType);
+                    return -1;      // corrupt
+            }
+            tt2 = tt - TypeFilter * size;
+            import core.stdc.string : memcpy;
+            memcpy(&entry, tt2, size);
+        }
+        else
+        {
+            switch (TType & DW_EH_PE_FORMAT_MASK)
+            {
+                case DW_EH_PE_udata2:   entry = cast(_Unwind_Ptr) *cast(ushort*)(tt2 = tt - TypeFilter * 2); break;
+                case DW_EH_PE_udata4:   entry = cast(_Unwind_Ptr) *cast(uint*)  (tt2 = tt - TypeFilter * 4); break;
+                case DW_EH_PE_udata8:   entry = cast(_Unwind_Ptr) *cast(ulong*) (tt2 = tt - TypeFilter * 8); break;
+                case DW_EH_PE_sdata2:   entry = cast(_Unwind_Ptr) *cast(short*) (tt2 = tt - TypeFilter * 2); break;
+                case DW_EH_PE_sdata4:   entry = cast(_Unwind_Ptr) *cast(int*)   (tt2 = tt - TypeFilter * 4); break;
+                case DW_EH_PE_sdata8:   entry = cast(_Unwind_Ptr) *cast(long*)  (tt2 = tt - TypeFilter * 8); break;
+                case DW_EH_PE_ptr:      if (size_t.sizeof == 8)
+                                            goto case DW_EH_PE_udata8;
+                                        else
+                                            goto case DW_EH_PE_udata4;
+                default:
+                    fprintf(stderr, "TType = x%x\n", TType);
+                    return -1;      // corrupt
+            }
         }
         if (!entry)             // the 'catch all' type
             return -1;          // corrupt: should never happen with DMD, which explicitly uses Throwable
