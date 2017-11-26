@@ -2,14 +2,14 @@
 // REQUIRES: atleast_llvm308
 // RUN: %ldc -g -c -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 
-// CHECK: define {{.*}} @{{.*}}encloser
+// CHECK: define {{.*}} @{{.*}}_D6nested8encloserFiiZv
 // CHECK-SAME: !dbg
 void encloser(int arg0, int arg1)
 {
     // CHECK: @llvm.dbg.declare{{.*}}%enc_n{{.*}}enc_n
     int enc_n;
 
-    // CHECK-LABEL: define {{.*}}encloser{{.*}}nested
+    // CHECK-LABEL: define {{.*}}_D6nested8encloserFiiZQuMFNaNbNiNfiZv
     void nested(int nes_i)
     {
         // CHECK: %arg0 = getelementptr inbounds %nest.encloser

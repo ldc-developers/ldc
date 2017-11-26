@@ -8,7 +8,7 @@
 import ldc.attributes;
 
 // LLVM-LABEL: define{{.*}} void @{{.*}}foo
-// ASM-LABEL: _D15attr_target_x863fooFPfPffZv:
+// ASM-LABEL: _D15attr_target_x863fooFPfQcfZv:
 void foo(float *A, float* B, float K) {
     for (int i = 0; i < 128; ++i)
         A[i] *= B[i] + K;
@@ -17,7 +17,7 @@ void foo(float *A, float* B, float K) {
 
 // LLVM-LABEL: define{{.*}} void @{{.*}}foo_sse
 // LLVM-SAME: #[[SSE:[0-9]+]]
-// ASM-LABEL: _D15attr_target_x867foo_sseFPfPffZv:
+// ASM-LABEL: _D15attr_target_x867foo_sseFPfQcfZv:
 @(target("sse"))
 void foo_sse(float *A, float* B, float K) {
     for (int i = 0; i < 128; ++i)
@@ -28,7 +28,7 @@ void foo_sse(float *A, float* B, float K) {
 // Make sure that no-sse overrides sse (attribute sorting). Also tests multiple @target attribs.
 // LLVM-LABEL: define{{.*}} void @{{.*}}foo_nosse
 // LLVM-SAME: #[[NOSSE:[0-9]+]]
-// ASM-LABEL: _D15attr_target_x869foo_nosseFPfPffZv:
+// ASM-LABEL: _D15attr_target_x869foo_nosseFPfQcfZv:
 @(target("no-sse\n  , \tsse  "))
 void foo_nosse(float *A, float* B, float K) {
     for (int i = 0; i < 128; ++i)
@@ -37,7 +37,7 @@ void foo_nosse(float *A, float* B, float K) {
 }
 // LLVM-LABEL: define{{.*}} void @{{.*}}bar_nosse
 // LLVM-SAME: #[[NOSSE]]
-// ASM-LABEL: _D15attr_target_x869bar_nosseFPfPffZv:
+// ASM-LABEL: _D15attr_target_x869bar_nosseFPfQcfZv:
 @(target("sse"))
 @(target("  no-sse"))
 void bar_nosse(float *A, float* B, float K) {
@@ -48,7 +48,7 @@ void bar_nosse(float *A, float* B, float K) {
 
 // LLVM-LABEL: define{{.*}} void @{{.*}}haswell
 // LLVM-SAME: #[[HSW:[0-9]+]]
-// ASM-LABEL: _D15attr_target_x867haswellFPfPffZv:
+// ASM-LABEL: _D15attr_target_x867haswellFPfQcfZv:
 @(target("arch=haswell "))
 void haswell(float *A, float* B, float K) {
     for (int i = 0; i < 128; ++i)

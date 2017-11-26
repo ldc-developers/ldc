@@ -91,6 +91,11 @@ typedef union tree_node Symbol;
 struct Symbol;
 #endif
 
+// in dsymbolsem.d
+void semantic(Dsymbol *dsym, Scope *sc);
+void semantic2(Dsymbol *dsym, Scope *sc);
+void semantic3(Dsymbol *dsym, Scope *sc);
+
 struct Ungag
 {
     unsigned oldgag;
@@ -220,9 +225,6 @@ public:
     virtual void addMember(Scope *sc, ScopeDsymbol *sds);
     virtual void setScope(Scope *sc);
     virtual void importAll(Scope *sc);
-    virtual void semantic(Scope *sc);
-    virtual void semantic2(Scope *sc);
-    virtual void semantic3(Scope *sc);
     virtual Dsymbol *search(Loc loc, Identifier *ident, int flags = IgnoreNone);
     Dsymbol *search_correct(Identifier *id);
     Dsymbol *searchX(Loc loc, Scope *sc, RootObject *id);

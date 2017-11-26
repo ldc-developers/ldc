@@ -76,7 +76,7 @@ llvm::Function *buildForwarderFunction(
   for (auto func : funcs) {
     const auto f = DtoCallee(func);
     const auto call = builder.CreateCall(f, {});
-    call->setCallingConv(gABI->callingConv(LINKd));
+    call->setCallingConv(gABI->callingConv(func->linkage));
   }
 
   // ... incrementing the gate variables.

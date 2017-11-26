@@ -69,7 +69,9 @@ jobs:
             mkdir build
             cd build
             cmake -G Ninja -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=$HOST_LDMD ..
-            ninja -j3 all all-test-runners
+            # compiling the std.regex.internal.tests unittests eats large amounts of memory
+            ninja -j2 all runtime/objects-unittest-debug/std/regex/internal/tests.o runtime/objects-unittest/std/regex/internal/tests.o
+            ninja -j3 all-test-runners
             bin/ldc2 -version
             cd ..
       - run:

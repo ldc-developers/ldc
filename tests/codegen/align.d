@@ -7,16 +7,16 @@ align(32) struct Outer { int a; }
 struct Inner { align(32) int a; }
 
 align(1) ubyte globalByte1;
-// CHECK-DAG: align11globalByte1h = {{.*}} align 1
+// CHECK-DAG: _D5align11globalByte1h = {{.*}} align 1
 static Outer globalOuter;
 // CHECK-DAG: constant %align.Outer zeroinitializer{{(, comdat)?}}, align 32
-// CHECK-DAG: align11globalOuterS5align5Outer = {{.*}} align 32
+// CHECK-DAG: _D5align11globalOuterSQu5Outer = {{.*}} align 32
 static Inner globalInner;
 // CHECK-DAG: constant %align.Inner zeroinitializer{{(, comdat)?}}, align 32
-// CHECK-DAG: align11globalInnerS5align5Inner = {{.*}} align 32
+// CHECK-DAG: _D5align11globalInnerSQu5Inner = {{.*}} align 32
 
 Outer passAndReturnOuterByVal(Outer arg) { return arg; }
-// CHECK: define{{.*}} void @{{.*}}_D5align23passAndReturnOuterByValFS5align5OuterZS5align5Outer
+// CHECK: define{{.*}} void @{{.*}}_D5align23passAndReturnOuterByValFSQBh5OuterZQl
 /* the 32-bit x86 ABI substitutes the sret attribute by inreg */
 // CHECK-SAME: %align.Outer* {{noalias sret|inreg noalias}} align 32 %.sret_arg
 /* How the arg is passed by value is ABI-specific, but the pointer must be aligned.
@@ -24,7 +24,7 @@ Outer passAndReturnOuterByVal(Outer arg) { return arg; }
 // CHECK: {{(align 32 %arg|%arg = alloca %align.Outer, align 32)}}
 
 Inner passAndReturnInnerByVal(Inner arg) { return arg; }
-// CHECK: define{{.*}} void @{{.*}}_D5align23passAndReturnInnerByValFS5align5InnerZS5align5Inner
+// CHECK: define{{.*}} void @{{.*}}_D5align23passAndReturnInnerByValFSQBh5InnerZQl
 // CHECK-SAME: %align.Inner* {{noalias sret|inreg noalias}} align 32 %.sret_arg
 // CHECK: {{(align 32 %arg|%arg = alloca %align.Inner, align 32)}}
 
@@ -58,13 +58,13 @@ void main() {
   // CHECK: %.sret_tmp{{.*}} = alloca %align.Inner, align 32
 
   outer = passAndReturnOuterByVal(outer);
-  // CHECK: call{{.*}} void @{{.*}}_D5align23passAndReturnOuterByValFS5align5OuterZS5align5Outer
+  // CHECK: call{{.*}} void @{{.*}}_D5align23passAndReturnOuterByValFSQBh5OuterZQl
   // CHECK-SAME: %align.Outer* {{noalias sret|inreg noalias}} align 32 %.sret_tmp
   // The argument is either passed by aligned (optimizer hint) pointer or as an array of i32/64 and copied into an aligned stack slot inside the callee.
   // CHECK-SAME: {{(align 32 %|\[[0-9]+ x i..\])}}
 
   inner = passAndReturnInnerByVal(inner);
-  // CHECK: call{{.*}} void @{{.*}}_D5align23passAndReturnInnerByValFS5align5InnerZS5align5Inner
+  // CHECK: call{{.*}} void @{{.*}}_D5align23passAndReturnInnerByValFSQBh5InnerZQl
   // CHECK-SAME: %align.Inner* {{noalias sret|inreg noalias}} align 32 %.sret_tmp
   // The argument is either passed by aligned (optimizer hint) pointer or as an array of i32/64 and copied into an aligned stack slot inside the callee.
   // CHECK-SAME: {{(align 32 %|\[[0-9]+ x i..\])}}

@@ -242,7 +242,8 @@ extern (C++) bool isSpeculativeType(Type t)
 /* These decide if there's an instance for them already in std.typeinfo,
  * because then the compiler doesn't need to build one.
  */
-extern (C++) static bool builtinTypeInfo(Type t)
+// IN_LLVM: replaced `private` with `extern(C++)`
+extern(C++) bool builtinTypeInfo(Type t)
 {
   version (IN_LLVM)
   {

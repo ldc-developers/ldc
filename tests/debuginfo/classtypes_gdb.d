@@ -65,9 +65,9 @@ int main()
 // CHECK-SAME: f = 2
 // CHECK-SAME: d = 0.98
 
-// GDB: p 'classtypes_gdb.gvar'
+// GDB: p _D14classtypes_gdb4gvarCQw2uv
 // CHECK: uv{{ *}}*)
-// GDB: p *'classtypes_gdb.gvar'
+// GDB: p *_D14classtypes_gdb4gvarCQw2uv
 // CHECK: i = 12}{{$}}
 }
 

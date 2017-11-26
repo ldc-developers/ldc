@@ -1091,7 +1091,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // D varargs: prepare _argptr and _arguments
   if (f->linkage == LINKd && f->varargs == 1) {
     // allocate _argptr (of type core.stdc.stdarg.va_list)
-    Type *const argptrType = Type::tvalist->semantic(fd->loc, fd->_scope);
+    Type *const argptrType = typeSemantic(Type::tvalist, fd->loc, fd->_scope);
     LLValue *argptrMem = DtoAlloca(argptrType, "_argptr_mem");
     irFunc->_argptr = argptrMem;
 

@@ -40,7 +40,7 @@ Expression semanticTraitsLDC(TraitsExp e, Scope* sc)
 
         auto cpu = traitsGetTargetCPU();
         auto se = new StringExp(e.loc, cast(void*)cpu.ptr, cpu.length);
-        return semantic(se, sc);
+        return se.expressionSemantic(sc);
     }
     if (e.ident == Id.targetHasFeature)
     {

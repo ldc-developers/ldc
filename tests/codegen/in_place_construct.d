@@ -8,7 +8,7 @@ struct S
     long a, b, c, d;
 }
 
-// CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct13returnLiteralFZS18in_place_construct1S
+// CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct13returnLiteralFZSQBm1S
 S returnLiteral()
 {
     // make sure the literal is emitted directly into the sret pointee
@@ -23,16 +23,16 @@ S returnLiteral()
     return S(1, 2, 3, 4);
 }
 
-// CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct12returnRValueFZS18in_place_construct1S
+// CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct12returnRValueFZSQBl1S
 S returnRValue()
 {
     // make sure the sret pointer is forwarded
-    // CHECK: call {{.*}}_D18in_place_construct13returnLiteralFZS18in_place_construct1S
+    // CHECK: call {{.*}}_D18in_place_construct13returnLiteralFZSQBm1S
     // CHECK-SAME: %in_place_construct.S* {{.*}} %.sret_arg
     return returnLiteral();
 }
 
-// CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct10returnNRVOFZS18in_place_construct1S
+// CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct10returnNRVOFZSQBj1S
 S returnNRVO()
 {
     // make sure NRVO zero-initializes the sret pointee directly
@@ -42,7 +42,7 @@ S returnNRVO()
     return r;
 }
 
-// CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct15withOutContractFZS18in_place_construct1S
+// CHECK-LABEL: define{{.*}} @{{.*}}_D18in_place_construct15withOutContractFZSQBo1S
 S withOutContract()
 out { assert(__result.a == 0); }
 body
@@ -79,13 +79,13 @@ void structs()
     const literal = S(5, 6, 7, 8);
 
     // make sure the variables are in-place constructed via sret
-    // CHECK: call {{.*}}_D18in_place_construct13returnLiteralFZS18in_place_construct1S
+    // CHECK: call {{.*}}_D18in_place_construct13returnLiteralFZSQBm1S
     // CHECK-SAME: %in_place_construct.S* {{.*}} %a
     const a = returnLiteral();
-    // CHECK: call {{.*}}_D18in_place_construct12returnRValueFZS18in_place_construct1S
+    // CHECK: call {{.*}}_D18in_place_construct12returnRValueFZSQBl1S
     // CHECK-SAME: %in_place_construct.S* {{.*}} %b
     const b = returnRValue();
-    // CHECK: call {{.*}}_D18in_place_construct10returnNRVOFZS18in_place_construct1S
+    // CHECK: call {{.*}}_D18in_place_construct10returnNRVOFZSQBj1S
     // CHECK-SAME: %in_place_construct.S* {{.*}} %c
     const c = returnNRVO();
 

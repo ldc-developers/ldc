@@ -62,7 +62,7 @@ TypeFunction *DtoTypeFunction(DValue *fnval) {
     // Calling merge() here works around the symptoms, but does not fix the
     // root cause.
 
-    Type *next = type->nextOf()->merge();
+    Type *next = merge(type->nextOf());
     assert(next->ty == Tfunction);
     return static_cast<TypeFunction *>(next);
   }
