@@ -9,6 +9,7 @@
 
 #if LDC_LLVM_VER >= 308
 
+#include "target.h"
 #include "gen/ms-cxx-helper.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
@@ -162,6 +163,12 @@ llvm::StructType *getTypeDescriptorType(IRState &irs,
 }
 
 llvm::GlobalVariable *getTypeDescriptor(IRState &irs, ClassDeclaration *cd) {
+  if (cd->isCPPclass()) {
+    const char *name = Target::cppTypeInfoMangle(cd);
+    return getOrCreateGlobal(
+        cd->loc, irs.module, getVoidPtrType(), /*isConstant=*/true,
+        LLGlobalValue::ExternalLinkage, /*init=*/nullptr, name);
+  }
 
   auto classInfoPtr = getIrAggr(cd, true)->getClassInfoSymbol();
   llvm::GlobalVariable *&Var = irs.TypeDescriptorMap[classInfoPtr];

@@ -215,10 +215,13 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
     exnObj = LLConstant::getNullValue(getVoidPtrType());
   }
 
+  bool isCPPclass = false;
   if (ctch->type) {
     ClassDeclaration *cd = ctch->type->toBasetype()->isClassHandle();
     typeDesc = getTypeDescriptor(irs, cd);
-    clssInfo = getIrAggr(cd)->getClassInfoSymbol();
+    isCPPclass = cd->isCPPclass();
+    if (!isCPPclass)
+      clssInfo = getIrAggr(cd)->getClassInfoSymbol();
   } else {
     // catch all
     typeDesc = LLConstant::getNullValue(getVoidPtrType());
@@ -227,7 +230,7 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
 
   // "catchpad within %switch [TypeDescriptor, 0, &caughtObject]" must be
   // first instruction
-  int flags = var ? 0 : 64; // just mimicking clang here
+  int flags = var ? (isCPPclass ? 8 : 0) : 64; // just mimicking clang here
   LLValue *args[] = {typeDesc, DtoConstUint(flags), exnObj};
   auto catchpad = irs.ir->CreateCatchPad(catchSwitchInst, args, "");
   catchSwitchInst->addHandler(irs.scopebb());
@@ -246,10 +249,12 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
   llvm::CatchReturnInst::Create(catchpad, catchhandler, irs.scopebb());
   irs.scope() = IRScope(catchhandler);
   irs.funcGen().pgo.emitCounterIncrement(ctch);
-  auto enterCatchFn =
-      getRuntimeFunction(Loc(), irs.module, "_d_eh_enter_catch");
-  irs.CreateCallOrInvoke(enterCatchFn, DtoBitCast(exnObj, getVoidPtrType()),
-                         clssInfo);
+  if (!isCPPclass) {
+    auto enterCatchFn =
+        getRuntimeFunction(Loc(), irs.module, "_d_eh_enter_catch");
+    irs.CreateCallOrInvoke(enterCatchFn, DtoBitCast(exnObj, getVoidPtrType()),
+                           clssInfo);
+  }
 }
 }
 
