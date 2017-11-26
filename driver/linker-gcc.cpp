@@ -342,6 +342,11 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
     args.push_back("-lldc-profile-rt");
   }
 
+  if (opts::enableDynamicCompile) {
+    args.push_back("-lldc-jit-rt");
+    args.push_back("-lldc-jit");
+  }
+
   // user libs
   for (auto libfile : *global.params.libfiles) {
     args.push_back(libfile);

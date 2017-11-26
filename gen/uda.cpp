@@ -7,6 +7,7 @@
 #include "declaration.h"
 #include "expression.h"
 #include "ir/irfunction.h"
+#include "ir/irvar.h"
 #include "module.h"
 #include "id.h"
 
@@ -272,7 +273,7 @@ void applyAttrSection(StructLiteralExp *sle, llvm::GlobalObject *globj) {
   globj->setSection(getFirstElemString(sle));
 }
 
-void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func) {
+void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func, IrFunction *irFunc) {
   // TODO: this is a rudimentary implementation for @target. Many more
   // target-related attributes could be applied to functions (not just for
   // @target): clang applies many attributes that LDC does not.
@@ -325,8 +326,11 @@ void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func) {
     features.emplace_back(std::move(f));
   }
 
-  if (!CPU.empty())
+  if (!CPU.empty()) {
     func->addFnAttr("target-cpu", CPU);
+    irFunc->targetCpuOverridden = true;
+  }
+
   if (!features.empty()) {
     // Sorting the features puts negative features ("-") after positive features
     // ("+"). This provides the desired behavior of negative features overriding
@@ -334,6 +338,7 @@ void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func) {
     sort(features.begin(), features.end());
     func->addFnAttr("target-features",
                     llvm::join(features.begin(), features.end(), ","));
+    irFunc->targetFeaturesOverridden = true;
   }
 }
 
@@ -359,6 +364,12 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
           ident->toChars());
     } else if (ident == Id::udaWeak) {
       // @weak is applied elsewhere
+    } else if (ident == Id::udaDynamicCompile) {
+      sle->error(
+          "Special attribute `ldc.attributes.%s` is only valid for functions",
+          ident->toChars());
+    } else if (ident == Id::udaDynamicCompileConst) {
+      getIrGlobal(decl)->dynamicCompileConst = true;
     } else {
       sle->warning(
           "Ignoring unrecognized special attribute `ldc.attributes.%s`",
@@ -393,9 +404,15 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
     } else if (ident == Id::udaSection) {
       applyAttrSection(sle, func);
     } else if (ident == Id::udaTarget) {
-      applyAttrTarget(sle, func);
+      applyAttrTarget(sle, func, irFunc);
     } else if (ident == Id::udaWeak || ident == Id::udaKernel) {
       // @weak and @kernel are applied elsewhere
+    } else if (ident == Id::udaDynamicCompile) {
+      irFunc->dynamicCompile = true;
+    } else if (ident == Id::udaDynamicCompileConst) {
+      sle->error(
+          "Special attribute `ldc.attributes.%s` is only valid for variables",
+          ident->toChars());
     } else {
       sle->warning(
           "Ignoring unrecognized special attribute `ldc.attributes.%s`",

@@ -21,6 +21,7 @@ config.llvm_version        = @LDC_LLVM_VER@
 config.llvm_targetsstr     = "@LLVM_TARGETS_TO_BUILD@"
 config.default_target_bits = @DEFAULT_TARGET_BITS@
 config.with_PGO            = @LDC_WITH_PGO@
+config.dynamic_compile     = @LDC_DYNAMIC_COMPILE@
 
 config.name = 'LDC'
 
@@ -45,6 +46,10 @@ config.excludes = [
 # Exclude profile test dir when PGO is disabled
 if not config.with_PGO:
     config.excludes.append('PGO')
+
+# Exclude runtime compilation tests when it's disabled
+if not config.dynamic_compile:
+    config.excludes.append('dynamiccompile')
 
 # Explicit forwarding of environment variables
 env_cc = os.environ.get('CC', '')
@@ -120,11 +125,18 @@ config.substitutions.append( ('%runtimedir', config.ldc2_runtime_dir ) )
 
 # Add platform-dependent file extension substitutions
 if (platform.system() == 'Windows'):
+    # add LDC lib dir to the path so app will be able to find jit.dll
+    # TODO: Something more robust
+    path = os.path.pathsep.join( (config.ldc2_lib_dir, config.environment['PATH']) )
+    config.environment['PATH'] = path
+
     config.substitutions.append( ('%obj', '.obj') )
     config.substitutions.append( ('%exe', '.exe') )
+    config.substitutions.append( ('%lib', '.lib') )
 else:
     config.substitutions.append( ('%obj', '.o') )
     config.substitutions.append( ('%exe', '') )
+    config.substitutions.append( ('%lib', '.a') )
 
 # Add cdb substitution
 if (platform.system() == 'Windows') and (config.default_target_bits == 32):

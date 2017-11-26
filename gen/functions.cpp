@@ -39,6 +39,7 @@
 #include "gen/pgo.h"
 #include "gen/pragma.h"
 #include "gen/runtime.h"
+#include "gen/dynamiccompile.h"
 #include "gen/scope_exit.h"
 #include "gen/tollvm.h"
 #include "gen/uda.h"
@@ -566,6 +567,15 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   applyTargetMachineAttributes(*func, *gTargetMachine);
   applyFuncDeclUDAs(fdecl, irFunc);
 
+  if(irFunc->dynamicCompile) {
+    declareDynamicCompiledFunction(gIR, irFunc);
+  }
+
+  if (irFunc->targetCpuOverridden ||
+      irFunc->targetFeaturesOverridden) {
+    gIR->targetCpuOrFeaturesOverridden.push_back(irFunc);
+  }
+
   // main
   if (fdecl->isMain()) {
     // Detect multiple main functions, which is disallowed. DMD checks this
@@ -933,6 +943,12 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
             fd->toPrettyChars(), mangleExact(fd));
     return;
   }
+
+  SCOPE_EXIT {
+    if (irFunc->dynamicCompile) {
+      defineDynamicCompiledFunction(gIR, irFunc);
+    }
+  };
 
   // debug info
   irFunc->diSubprogram = gIR->DBuilder.EmitSubProgram(fd);

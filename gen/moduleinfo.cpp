@@ -308,5 +308,6 @@ llvm::GlobalVariable *genModuleInfo(Module *m) {
   // Create a global symbol with the above initialiser.
   LLGlobalVariable *moduleInfoSym = getIrModule(m)->moduleInfoSymbol();
   b.finalize(moduleInfoSym);
+  setLinkage({LLGlobalValue::ExternalLinkage, supportsCOMDAT()}, moduleInfoSym);
   return moduleInfoSym;
 }

@@ -44,6 +44,7 @@
 #include <stack>
 
 #include "llvm/Support/CommandLine.h"
+#include "gen/dynamiccompile.h"
 
 llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel(
     "fthread-model", llvm::cl::ZeroOrMore, llvm::cl::desc("Thread model"),
@@ -290,6 +291,11 @@ void DtoCAssert(Module *M, Loc &loc, LLValue *msg) {
     const auto funcName =
         irFunc && irFunc->decl ? irFunc->decl->toPrettyChars() : "";
     args.push_back(DtoConstCString(funcName));
+    args.push_back(file);
+    args.push_back(line);
+    args.push_back(msg);
+  } else if (global.params.targetTriple->getEnvironment() ==
+             llvm::Triple::Android) {
     args.push_back(file);
     args.push_back(line);
     args.push_back(msg);
@@ -882,7 +888,8 @@ void DtoResolveVariable(VarDeclaration *vd) {
     llvm::GlobalVariable *gvar =
         getOrCreateGlobal(vd->loc, gIR->module, DtoMemType(vd->type), isLLConst,
                           linkage, nullptr, irMangle, vd->isThreadlocal());
-    getIrGlobal(vd)->value = gvar;
+    auto varIr = getIrGlobal(vd);
+    varIr->value = gvar;
 
     // Set the alignment (it is important not to use type->alignsize because
     // VarDeclarations can have an align() attribute independent of the type
@@ -898,6 +905,9 @@ void DtoResolveVariable(VarDeclaration *vd) {
     */
 
     applyVarDeclUDAs(vd, gvar);
+    if (varIr->dynamicCompileConst) {
+      addDynamicCompiledVar(gIR, varIr);
+    }
 
     IF_LOG Logger::cout() << *gvar << '\n';
   }

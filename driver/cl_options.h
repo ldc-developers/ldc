@@ -121,5 +121,12 @@ extern cl::opt<std::string> saveOptimizationRecord;
 extern cl::list<std::string> dcomputeTargets;
 extern cl::opt<std::string> dcomputeFilePrefix;
 #endif
+
+#if defined(LDC_DYNAMIC_COMPILE)
+extern cl::opt<bool> enableDynamicCompile;
+extern cl::opt<bool> dynamicCompileTlsWorkaround;
+#else
+constexpr bool enableDynamicCompile = false;
+#endif
 }
 #endif
