@@ -47,7 +47,7 @@ version (CRuntime_DigitalMars)
         }
     }
 }
-else version (CRuntime_Glibc)
+else version (Posix) // LDC: was `CRuntime_Glibc`
 {
     extern (C++, std)
     {
