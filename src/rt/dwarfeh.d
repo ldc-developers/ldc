@@ -13,6 +13,13 @@ module rt.dwarfeh;
 
 // debug = EH_personality;
 
+version (Posix):
+
+import rt.dmain2: _d_print_throwable;
+import rt.unwind;
+import core.stdc.stdio;
+import core.stdc.stdlib;
+
 version (LDC)
 {
     version (ARM)
@@ -79,14 +86,17 @@ version (LDC)
         enum eh_exception_regno = 0;
         enum eh_selector_regno = 2;
     }
+
+    _Unwind_Ptr readUnaligned(T, bool consume)(ref const(ubyte)* p)
+    {
+        import core.stdc.string : memcpy;
+        T value = void;
+        memcpy(&value, p, T.sizeof);
+        static if (consume)
+            p += T.sizeof;
+        return cast(_Unwind_Ptr) value;
+    }
 }
-
-version (Posix):
-
-import rt.dmain2: _d_print_throwable;
-import rt.unwind;
-import core.stdc.stdio;
-import core.stdc.stdlib;
 
 extern (C)
 {
@@ -847,23 +857,14 @@ LsdaResult scanLSDA(const(ubyte)* lsda, _Unwind_Ptr ip, _Unwind_Exception_Class 
     {
         version (LDC)
         {
-            static _Unwind_Ptr readUnaligned(T)(ref const(ubyte)* p)
-            {
-                import core.stdc.string : memcpy;
-                T value = void;
-                memcpy(&value, p, T.sizeof);
-                p += T.sizeof;
-                return cast(_Unwind_Ptr) value;
-            }
-
             switch (pe)
             {
-                case DW_EH_PE_sdata2:   return readUnaligned!short(p);
-                case DW_EH_PE_udata2:   return readUnaligned!ushort(p);
-                case DW_EH_PE_sdata4:   return readUnaligned!int(p);
-                case DW_EH_PE_udata4:   return readUnaligned!uint(p);
-                case DW_EH_PE_sdata8:   return readUnaligned!long(p);
-                case DW_EH_PE_udata8:   return readUnaligned!ulong(p);
+                case DW_EH_PE_sdata2:   return readUnaligned!(short,  true)(p);
+                case DW_EH_PE_udata2:   return readUnaligned!(ushort, true)(p);
+                case DW_EH_PE_sdata4:   return readUnaligned!(int,    true)(p);
+                case DW_EH_PE_udata4:   return readUnaligned!(uint,   true)(p);
+                case DW_EH_PE_sdata8:   return readUnaligned!(long,   true)(p);
+                case DW_EH_PE_udata8:   return readUnaligned!(ulong,  true)(p);
                 case DW_EH_PE_uleb128:  return cast(_Unwind_Ptr) uLEB128(&p);
                 case DW_EH_PE_sleb128:  return cast(_Unwind_Ptr) sLEB128(&p);
                 case DW_EH_PE_ptr:      if (size_t.sizeof == 8)
@@ -1173,24 +1174,22 @@ int actionTableLookup(_Unwind_Exception* exceptionObject, uint actionRecordPtr, 
         const(ubyte)* tt2;
         version (LDC)
         {
-            // handle potential misalignment
-            int size;
             switch (TType & DW_EH_PE_FORMAT_MASK)
             {
-                case DW_EH_PE_udata2: case DW_EH_PE_sdata2:   size = 2; break;
-                case DW_EH_PE_udata4: case DW_EH_PE_sdata4:   size = 4; break;
-                case DW_EH_PE_udata8: case DW_EH_PE_sdata8:   size = 8; break;
-                case DW_EH_PE_ptr:                            if (size_t.sizeof == 8)
-                                                                  goto case DW_EH_PE_udata8;
-                                                              else
-                                                                  goto case DW_EH_PE_udata4;
+                case DW_EH_PE_sdata2:   entry = readUnaligned!(short,  false)(tt2 = tt - TypeFilter * 2); break;
+                case DW_EH_PE_udata2:   entry = readUnaligned!(ushort, false)(tt2 = tt - TypeFilter * 2); break;
+                case DW_EH_PE_sdata4:   entry = readUnaligned!(int,    false)(tt2 = tt - TypeFilter * 4); break;
+                case DW_EH_PE_udata4:   entry = readUnaligned!(uint,   false)(tt2 = tt - TypeFilter * 4); break;
+                case DW_EH_PE_sdata8:   entry = readUnaligned!(long,   false)(tt2 = tt - TypeFilter * 8); break;
+                case DW_EH_PE_udata8:   entry = readUnaligned!(ulong,  false)(tt2 = tt - TypeFilter * 8); break;
+                case DW_EH_PE_ptr:      if (size_t.sizeof == 8)
+                                            goto case DW_EH_PE_udata8;
+                                        else
+                                            goto case DW_EH_PE_udata4;
                 default:
                     fprintf(stderr, "TType = x%x\n", TType);
                     return -1;      // corrupt
             }
-            tt2 = tt - TypeFilter * size;
-            import core.stdc.string : memcpy;
-            memcpy(&entry, tt2, size);
         }
         else
         {
