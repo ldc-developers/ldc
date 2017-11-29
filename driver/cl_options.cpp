@@ -371,7 +371,11 @@ bool fFastMath; // Storage for the dynamically created ffast-math option.
 llvm::FastMathFlags defaultFMF;
 void setDefaultMathOptions(llvm::TargetOptions &targetOptions) {
   if (fFastMath) {
+#if LDC_LLVM_VER >= 600
+    defaultFMF.setFast();
+#else
     defaultFMF.setUnsafeAlgebra();
+#endif
     targetOptions.UnsafeFPMath = true;
   }
 }
