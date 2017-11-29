@@ -24,6 +24,7 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/mangling.h"
 #include "gen/nested.h"
 #include "gen/optimizer.h"
 #include "gen/pragma.h"
@@ -557,7 +558,7 @@ public:
     // valid array ops would have been transformed by optimize
     if ((t1->ty == Tarray || t1->ty == Tsarray) &&
         (t2->ty == Tarray || t2->ty == Tsarray)) {
-      base->error("Array operation %s not recognized", base->toChars());
+      base->error("Array operation `%s` not recognized", base->toChars());
       fatal();
     }
   }
@@ -987,14 +988,26 @@ public:
     auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
+    VarDeclaration *vd = nullptr;
+
     // special cases: `this(int) { this(); }` and `this(int) { super(); }`
     if (!e->var) {
       Logger::println("this exp without var declaration");
-      result = new DLValue(e->type, p->func()->thisArg);
-      return;
+      if (auto thisArg = p->func()->thisArg) {
+        result = new DLValue(e->type, thisArg);
+        return;
+      }
+      // use the inner-most parent's `vthis`
+      for (int i = p->funcGenStates.size() - 2; i >= 0; --i) {
+        if (auto vthis = p->funcGenStates[i]->irFunc.decl->vthis) {
+          vd = vthis;
+          break;
+        }
+      }
+    } else {
+      vd = e->var->isVarDeclaration();
     }
 
-    const auto vd = e->var->isVarDeclaration();
     assert(vd);
     assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
                                    "vars, although it can easily be made to.");
@@ -1343,6 +1356,9 @@ public:
         Logger::cout() << "rv: " << *rv << '\n';
       }
       eval = p->ir->CreateICmp(cmpop, lv, rv);
+      if (t->ty == Tvector) {
+        eval = mergeVectorEquals(eval, e->op);
+      }
     } else if (t->isfloating()) // includes iscomplex
     {
       eval = DtoBinNumericEquals(e->loc, l, r, e->op);
@@ -1668,8 +1684,16 @@ public:
      * msg is not evaluated at all. So should use toElemDtor()
      * instead of toElem().
      */
-    DtoAssert(p->func()->decl->getModule(), e->loc,
-              e->msg ? toElemDtor(e->msg) : nullptr);
+    DValue *const msg = e->msg ? toElemDtor(e->msg) : nullptr;
+    Module *const module = p->func()->decl->getModule();
+    if (global.params.betterC) {
+      const auto cMsg =
+          msg ? DtoArrayPtr(msg) // assuming `msg` is null-terminated, like DMD
+              : DtoConstCString(e->e1->toChars());
+      DtoCAssert(module, e->e1->loc, cMsg);
+    } else {
+      DtoAssert(module, e->loc, msg);
+    }
 
     // passed:
     p->scope() = IRScope(passedbb);
@@ -1684,8 +1708,8 @@ public:
 
       Logger::println("calling class invariant");
 
-      const auto fnMangle = gABI->mangleFunctionForLLVM(
-          "_D9invariant12_d_invariantFC6ObjectZv", LINKd);
+      const auto fnMangle =
+          getIRMangledFuncName("_D9invariant12_d_invariantFC6ObjectZv", LINKd);
       const auto fn = getRuntimeFunction(e->loc, gIR->module, fnMangle.c_str());
 
       const auto arg =
@@ -1728,8 +1752,8 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
-  void visit(AndAndExp *e) override {
-    IF_LOG Logger::print("AndAndExp::toElem: %s @ %s\n", e->toChars(),
+  void visit(LogicalExp *e) override {
+    IF_LOG Logger::print("LogicalExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
 
@@ -1738,18 +1762,27 @@ public:
 
     DValue *u = toElem(e->e1);
 
-    llvm::BasicBlock *andand = p->insertBB("andand");
-    llvm::BasicBlock *andandend = p->insertBBAfter(andand, "andandend");
+    const bool isAndAnd = (e->op == TOKandand); // otherwise OrOr
+    llvm::BasicBlock *rhsBB = p->insertBB(isAndAnd ? "andand" : "oror");
+    llvm::BasicBlock *endBB =
+        p->insertBBAfter(rhsBB, isAndAnd ? "andandend" : "ororend");
 
     LLValue *ubool = DtoRVal(DtoCast(e->loc, u, Type::tbool));
 
     llvm::BasicBlock *oldblock = p->scopebb();
-    auto truecount = PGO.getRegionCount(e);
-    auto falsecount = PGO.getCurrentRegionCount() - truecount;
+    uint64_t truecount, falsecount;
+    if (isAndAnd) {
+      truecount = PGO.getRegionCount(e);
+      falsecount = PGO.getCurrentRegionCount() - truecount;
+    } else {
+      falsecount = PGO.getRegionCount(e);
+      truecount = PGO.getCurrentRegionCount() - falsecount;
+    }
     auto branchweights = PGO.createProfileWeights(truecount, falsecount);
-    p->ir->CreateCondBr(ubool, andand, andandend, branchweights);
+    p->ir->CreateCondBr(ubool, isAndAnd ? rhsBB : endBB,
+                        isAndAnd ? endBB : rhsBB, branchweights);
 
-    p->scope() = IRScope(andand);
+    p->scope() = IRScope(rhsBB);
     PGO.emitCounterIncrement(e);
     emitCoverageLinecountInc(e->e2->loc);
     DValue *v = toElemDtor(e->e2);
@@ -1760,8 +1793,8 @@ public:
     }
 
     llvm::BasicBlock *newblock = p->scopebb();
-    llvm::BranchInst::Create(andandend, p->scopebb());
-    p->scope() = IRScope(andandend);
+    llvm::BranchInst::Create(endBB, p->scopebb());
+    p->scope() = IRScope(endBB);
 
     // DMD allows stuff like `x == 0 && assert(false)`
     if (e->type->toBasetype()->ty == Tvoid) {
@@ -1775,70 +1808,17 @@ public:
       resval = ubool;
     } else {
       llvm::PHINode *phi =
-          p->ir->CreatePHI(LLType::getInt1Ty(gIR->context()), 2, "andandval");
-      // If we jumped over evaluation of the right-hand side,
-      // the result is false. Otherwise it's the value of the right-hand side.
-      phi->addIncoming(LLConstantInt::getFalse(gIR->context()), oldblock);
-      phi->addIncoming(vbool, newblock);
-      resval = phi;
-    }
-
-    result = new DImValue(e->type, resval);
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  void visit(OrOrExp *e) override {
-    IF_LOG Logger::print("OrOrExp::toElem: %s @ %s\n", e->toChars(),
-                         e->type->toChars());
-    LOG_SCOPE;
-
-    auto &PGO = gIR->funcGen().pgo;
-    PGO.setCurrentStmt(e);
-
-    DValue *u = toElem(e->e1);
-
-    llvm::BasicBlock *oror = p->insertBB("oror");
-    llvm::BasicBlock *ororend = p->insertBBAfter(oror, "ororend");
-
-    LLValue *ubool = DtoRVal(DtoCast(e->loc, u, Type::tbool));
-
-    llvm::BasicBlock *oldblock = p->scopebb();
-    auto falsecount = PGO.getRegionCount(e);
-    auto truecount = PGO.getCurrentRegionCount() - falsecount;
-    auto branchweights = PGO.createProfileWeights(truecount, falsecount);
-    p->ir->CreateCondBr(ubool, ororend, oror, branchweights);
-
-    p->scope() = IRScope(oror);
-    PGO.emitCounterIncrement(e);
-    emitCoverageLinecountInc(e->e2->loc);
-    DValue *v = toElemDtor(e->e2);
-
-    LLValue *vbool = nullptr;
-    if (v && !v->isFunc() && v->type != Type::tvoid) {
-      vbool = DtoRVal(DtoCast(e->loc, v, Type::tbool));
-    }
-
-    llvm::BasicBlock *newblock = p->scopebb();
-    llvm::BranchInst::Create(ororend, p->scopebb());
-    p->scope() = IRScope(ororend);
-
-    // DMD allows stuff like `x == 0 || assert(false)`
-    if (e->type->toBasetype()->ty == Tvoid) {
-      result = nullptr;
-      return;
-    }
-
-    LLValue *resval = nullptr;
-    if (ubool == vbool || !vbool) {
-      // No need to create a PHI node.
-      resval = ubool;
-    } else {
-      llvm::PHINode *phi =
-          p->ir->CreatePHI(LLType::getInt1Ty(gIR->context()), 2, "ororval");
-      // If we jumped over evaluation of the right-hand side,
-      // the result is true. Otherwise, it's the value of the right-hand side.
-      phi->addIncoming(LLConstantInt::getTrue(gIR->context()), oldblock);
+          p->ir->CreatePHI(LLType::getInt1Ty(gIR->context()), 2,
+                           isAndAnd ? "andandval" : "ororval");
+      if (isAndAnd) {
+        // If we jumped over evaluation of the right-hand side,
+        // the result is false. Otherwise it's the value of the right-hand side.
+        phi->addIncoming(LLConstantInt::getFalse(gIR->context()), oldblock);
+      } else {
+        // If we jumped over evaluation of the right-hand side,
+        // the result is true. Otherwise, it's the value of the right-hand side.
+        phi->addIncoming(LLConstantInt::getTrue(gIR->context()), oldblock);
+      }
       phi->addIncoming(vbool, newblock);
       resval = phi;
     }
@@ -1870,8 +1850,8 @@ public:
     LOG_SCOPE;
 
     if (e->func->isStatic()) {
-      e->error("can't take delegate of static function %s, it does not require "
-               "a context ptr",
+      e->error("can't take delegate of static function `%s`, it does not "
+               "require a context ptr",
                e->func->toChars());
     }
 
@@ -2411,7 +2391,7 @@ public:
       // Turn it back into a TypeAArray
       vtype = e->values->tdata()[0]->type;
       aatype = TypeAArray::create(vtype, e->keys->tdata()[0]->type);
-      aatype = aatype->semantic(e->loc, nullptr);
+      aatype = typeSemantic(aatype, e->loc, nullptr);
     }
 
     {
@@ -2443,7 +2423,7 @@ public:
           getRuntimeFunction(e->loc, gIR->module, "_d_assocarrayliteralTX");
       LLFunctionType *funcTy = func->getFunctionType();
       LLValue *aaTypeInfo =
-          DtoBitCast(DtoTypeInfoOf(stripModifiers(aatype)),
+          DtoBitCast(DtoTypeInfoOf(stripModifiers(aatype), /*base=*/false),
                      DtoType(Type::typeinfoassociativearray->type));
 
       LLConstant *idxs[2] = {DtoConstUint(0), DtoConstUint(0)};
@@ -2545,7 +2525,7 @@ public:
   //////////////////////////////////////////////////////////////////////////////
 
   void visit(TypeExp *e) override {
-    e->error("type %s is not an expression", e->toChars());
+    e->error("type `%s` is not an expression", e->toChars());
     // TODO: Improve error handling. DMD just returns some value here and hopes
     // some more sensible error messages will be triggered.
     fatal();
@@ -2627,7 +2607,7 @@ public:
     IF_LOG Logger::print("PowExp::toElem() %s\n", e->toChars());
     LOG_SCOPE;
 
-    e->error("must import std.math to use ^^ operator");
+    e->error("must import `std.math` to use `^^` operator");
     result = new DNullValue(e->type, llvm::UndefValue::get(DtoType(e->type)));
   }
 
@@ -2674,7 +2654,7 @@ public:
 
 #define STUB(x)                                                                \
   void visit(x *e) override {                                                  \
-    e->error("Internal compiler error: Type " #x " not implemented: %s",       \
+    e->error("Internal compiler error: Type `" #x "` not implemented: `%s`",   \
              e->toChars());                                                    \
     fatal();                                                                   \
   }
@@ -2720,15 +2700,33 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
       rhs = castSource;
   }
 
-  // Direct construction by rhs call via sret?
-  // E.g., `T v = foo();` if the callee `T foo()` uses sret.
-  // In this case, pass `&v` as hidden sret argument, i.e., let `foo()`
-  // construct the return value directly into the lhs lvalue.
   if (rhs->op == TOKcall) {
     auto ce = static_cast<CallExp *>(rhs);
+
+    // Direct construction by rhs call via sret?
+    // E.g., `T v = foo();` if the callee `T foo()` uses sret.
+    // In this case, pass `&v` as hidden sret argument, i.e., let `foo()`
+    // construct the return value directly into the lhs lvalue.
     if (DtoIsReturnInArg(ce)) {
       ToElemVisitor::call(gIR, ce, DtoLVal(lhs));
       return true;
+    }
+
+    // DMD issue 17457: detect structliteral.ctor(args)
+    if (ce->e1->op == TOKdotvar) {
+      auto dve = static_cast<DotVarExp *>(ce->e1);
+      auto fd = dve->var->isFuncDeclaration();
+      if (fd && fd->isCtorDeclaration() && dve->e1->op == TOKstructliteral) {
+        // emit the struct literal directly into the lhs lvalue...
+        auto sle = static_cast<StructLiteralExp *>(dve->e1);
+        auto lval = DtoLVal(lhs);
+        ToElemVisitor::emitStructLiteral(sle, lval);
+        // ... and invoke the ctor directly on it
+        DtoDeclareFunction(fd);
+        auto fnval = new DFuncValue(fd, DtoCallee(fd), lval);
+        DtoCallFunction(ce->loc, ce->type, fnval, ce->arguments);
+        return true;
+      }
     }
   }
 

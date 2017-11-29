@@ -90,8 +90,8 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
       // assert(ty);
       if (!ty) {
         error(tinst->loc, "All parameters of a template defined with pragma "
-                          "LDC_inline_ir, except for the first one, should be "
-                          "types");
+                          "`LDC_inline_ir`, except for the first one, should "
+                          "be types");
         fatal();
       }
       stream << *DtoType(ty);
@@ -117,12 +117,12 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
 
     std::string errstr = err.getMessage();
     if (!errstr.empty()) {
-      error(
-          tinst->loc,
-          "can't parse inline LLVM IR:\n%s\n%s\n%s\nThe input string was: \n%s",
-          err.getLineContents().str().c_str(),
-          (std::string(err.getColumnNo(), ' ') + '^').c_str(), errstr.c_str(),
-          stream.str().c_str());
+      error(tinst->loc,
+            "can't parse inline LLVM IR:\n`%s`\n%s\n%s\nThe input string "
+            "was:\n`%s`",
+            err.getLineContents().str().c_str(),
+            (std::string(err.getColumnNo(), ' ') + '^').c_str(), errstr.c_str(),
+            stream.str().c_str());
     }
 
     m->setDataLayout(gIR->module.getDataLayout());

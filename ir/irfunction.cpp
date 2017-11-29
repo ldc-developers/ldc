@@ -74,7 +74,7 @@ llvm::StringRef IrFunction::getLLVMFuncName() const {
 
 llvm::Function *IrFunction::getLLVMCallee() const {
   assert(func != nullptr);
-  return func;
+  return rtCompileFunc != nullptr ? rtCompileFunc : func;
 }
 
 IrFunction *getIrFunc(FuncDeclaration *decl, bool create) {

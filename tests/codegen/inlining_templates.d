@@ -33,11 +33,11 @@ void main()
 {
 }
 
-// CHECK-NOT: declare{{.*}}D6inputs10inlinables20__T12template_fooTiZ12template_foo
-// CHECK-NOT: declare{{.*}}D3std9exception{{[0-9]+}}__T12errnoEnforce
+// CHECK-NOT: declare{{.*}}_D6inputs10inlinables__T12template_fooTiZQrUNaNbNiNfiZi
+// CHECK-NOT: declare{{.*}}_D3std9exception__T12errnoEnforce
 
-// CHECK-DAG: define{{.*}}D6inputs10inlinables20__T12template_fooTiZ12template_foo{{.*}}) #[[ATTR1:[0-9]+]]
-// CHECK-DAG: define{{.*}}D3std9exception{{[0-9]+}}__T12errnoEnforce{{.*}}) #[[ATTR2:[0-9]+]]
+// CHECK-DAG: define{{.*}}_D6inputs10inlinables__T12template_fooTiZQrUNaNbNiNfiZi{{.*}}) #[[ATTR1:[0-9]+]]
+// CHECK-DAG: define{{.*}}_D3std9exception__T12errnoEnforce{{.*}}) #[[ATTR2:[0-9]+]]
 
 // CHECK-DAG: attributes #[[ATTR1]] ={{.*}} alwaysinline
 // CHECK-DAG: attributes #[[ATTR2]] ={{.*}} alwaysinline

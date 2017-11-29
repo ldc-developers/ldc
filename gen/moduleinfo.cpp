@@ -14,7 +14,7 @@
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
-#include "gen/objcgen.h"
+#include "gen/mangling.h"
 #include "gen/rttibuilder.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
@@ -56,11 +56,11 @@ llvm::Function *buildForwarderFunction(
   const auto fnTy =
       LLFunctionType::get(LLType::getVoidTy(gIR->context()), {}, false);
 
-  std::string const symbolName = gABI->mangleFunctionForLLVM(name, LINKd);
-  assert(gIR->module.getFunction(symbolName) == NULL);
+  const auto irMangle = getIRMangledFuncName(name, LINKd);
+  assert(gIR->module.getFunction(irMangle) == NULL);
   llvm::Function *fn = llvm::Function::Create(
-      fnTy, llvm::GlobalValue::InternalLinkage, symbolName, &gIR->module);
-  fn->setCallingConv(gABI->callingConv(fn->getFunctionType(), LINKd));
+      fnTy, llvm::GlobalValue::InternalLinkage, irMangle, &gIR->module);
+  fn->setCallingConv(gABI->callingConv(LINKd));
 
   // Emit the body, consisting of...
   const auto bb = llvm::BasicBlock::Create(gIR->context(), "", fn);
@@ -76,8 +76,7 @@ llvm::Function *buildForwarderFunction(
   for (auto func : funcs) {
     const auto f = DtoCallee(func);
     const auto call = builder.CreateCall(f, {});
-    const auto ft = call->getFunctionType();
-    call->setCallingConv(gABI->callingConv(ft, LINKd));
+    call->setCallingConv(gABI->callingConv(func->linkage));
   }
 
   // ... incrementing the gate variables.
@@ -195,7 +194,7 @@ llvm::Constant *buildLocalClasses(Module *m, size_t &count) {
 
 llvm::GlobalVariable *genModuleInfo(Module *m) {
   if (!Module::moduleinfo) {
-    m->error("object.d is missing the ModuleInfo struct");
+    m->error("object.d is missing the `ModuleInfo` struct");
     fatal();
   }
 
@@ -204,7 +203,7 @@ llvm::GlobalVariable *genModuleInfo(Module *m) {
   // should consist only of the _flags/_index fields (the latter of which is
   // unused).
   if (Module::moduleinfo->structsize != 4 + 4) {
-    m->error("Unexpected size of struct object.ModuleInfo; "
+    m->error("Unexpected size of struct `object.ModuleInfo`; "
              "druntime version does not match compiler (see -v)");
     fatal();
   }
@@ -235,9 +234,11 @@ llvm::GlobalVariable *genModuleInfo(Module *m) {
 #if 0
   if (fgetmembers)
     flags |= MIxgetMembers;
+#endif
+
+  const auto fictor = getIrModule(m)->coverageCtor;
   if (fictor)
     flags |= MIictor;
-#endif
 
   const auto funittest = buildModuleUnittest(m);
   if (funittest) {
@@ -281,9 +282,10 @@ llvm::GlobalVariable *genModuleInfo(Module *m) {
 #if 0
     if (fgetmembers)
         b.push(fgetmembers);
-    if (fictor)
-        b.push(fictor);
 #endif
+  if (fictor) {
+    b.push(fictor);
+  }
   if (funittest) {
     b.push(funittest);
   }
@@ -303,11 +305,9 @@ llvm::GlobalVariable *genModuleInfo(Module *m) {
   const auto at = llvm::ArrayType::get(it, len);
   b.push(toConstantArray(it, at, name, len, false));
 
-  objc_Module_genmoduleinfo_classes();
-
   // Create a global symbol with the above initialiser.
   LLGlobalVariable *moduleInfoSym = getIrModule(m)->moduleInfoSymbol();
-  b.finalize(moduleInfoSym->getType()->getPointerElementType(), moduleInfoSym);
-  setLinkage({LLGlobalValue::ExternalLinkage, false}, moduleInfoSym);
+  b.finalize(moduleInfoSym);
+  setLinkage({LLGlobalValue::ExternalLinkage, supportsCOMDAT()}, moduleInfoSym);
   return moduleInfoSym;
 }

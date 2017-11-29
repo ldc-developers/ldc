@@ -24,6 +24,7 @@ class LabelDsymbol;
 class Initializer;
 class Module;
 class Condition;
+class StaticForeach;
 
 /**************************************************************/
 
@@ -36,14 +37,11 @@ public:
     int apply(Dsymbol_apply_ft_t fp, void *param);
     static Scope *createNewScope(Scope *sc,
         StorageClass newstc, LINK linkage, CPPMANGLE cppmangle, Prot protection,
-        int explictProtection, AlignDeclaration *aligndecl, PINLINE inlining);
+        int explicitProtection, AlignDeclaration *aligndecl, PINLINE inlining);
     virtual Scope *newScope(Scope *sc);
     void addMember(Scope *sc, ScopeDsymbol *sds);
     void setScope(Scope *sc);
     void importAll(Scope *sc);
-    void semantic(Scope *sc);
-    void semantic2(Scope *sc);
-    void semantic3(Scope *sc);
     void addComment(const utf8_t *comment);
     const char *kind();
     bool oneMember(Dsymbol **ps, Identifier *ident);
@@ -65,6 +63,8 @@ public:
     Dsymbol *syntaxCopy(Dsymbol *s);
     Scope *newScope(Scope *sc);
     bool oneMember(Dsymbol **ps, Identifier *ident);
+    void addMember(Scope *sc, ScopeDsymbol *sds);
+    StorageClassDeclaration *isStorageClassDeclaration() { return this; }
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -78,7 +78,6 @@ public:
     Dsymbol *syntaxCopy(Dsymbol *s);
     Scope *newScope(Scope *sc);
     void setScope(Scope *sc);
-    void semantic2(Scope *sc);
     const char *getMessage();
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -88,6 +87,7 @@ class LinkDeclaration : public AttribDeclaration
 public:
     LINK linkage;
 
+    static LinkDeclaration *create(LINK p, Dsymbols *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     Scope *newScope(Scope *sc);
     const char *toChars();
@@ -129,7 +129,6 @@ public:
     Dsymbol *syntaxCopy(Dsymbol *s);
     Scope *newScope(Scope *sc);
     void setScope(Scope *sc);
-    void semantic2(Scope *sc);
     structalign_t getAlignment();
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -145,7 +144,6 @@ public:
 
     Dsymbol *syntaxCopy(Dsymbol *s);
     void setScope(Scope *sc);
-    void semantic(Scope *sc);
     void setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion);
     const char *kind();
     AnonDeclaration *isAnonDeclaration() { return this; }
@@ -159,8 +157,7 @@ public:
 
     Dsymbol *syntaxCopy(Dsymbol *s);
     Scope *newScope(Scope *sc);
-    void semantic(Scope *sc);
-    const char *kind();
+    const char *kind() const;
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -194,6 +191,35 @@ public:
     void accept(Visitor *v) { v->visit(this); }
 };
 
+class StaticForeachDeclaration : public ConditionalDeclaration
+{
+public:
+    StaticForeach *sfe;
+    ScopeDsymbol *scopesym;
+    bool cached;
+    Dsymbols *cache;
+
+    Dsymbol *syntaxCopy(Dsymbol *s);
+    bool oneMember(Dsymbol *ps, Identifier *ident);
+    Dsymbols *include(Scope *sc, ScopeDsymbol *sds);
+    void addMember(Scope *sc, ScopeDsymbol *sds);
+    void addComment(const char *comment);
+    void setScope(Scope *sc);
+    void importAll(Scope *sc);
+    const char *kind() const;
+    void accept(Visitor *v) { v->visit(this); }
+};
+
+class ForwardingAttribDeclaration : AttribDeclaration
+{
+public:
+    ForwardingScopeDsymbol *sym;
+
+    Scope *newScope(Scope *sc);
+    void addMember(Scope *sc, ScopeDsymbol *sds);
+    ForwardingAttribDeclaration *isForwardingAttribDeclaration() { return this; }
+};
+
 // Mixin declarations
 
 class CompileDeclaration : public AttribDeclaration
@@ -208,8 +234,7 @@ public:
     void addMember(Scope *sc, ScopeDsymbol *sds);
     void setScope(Scope *sc);
     void compileIt(Scope *sc);
-    void semantic(Scope *sc);
-    const char *kind();
+    const char *kind() const;
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -225,8 +250,6 @@ public:
     Dsymbol *syntaxCopy(Dsymbol *s);
     Scope *newScope(Scope *sc);
     void setScope(Scope *sc);
-    void semantic(Scope *sc);
-    void semantic2(Scope *sc);
     static Expressions *concat(Expressions *udas1, Expressions *udas2);
     Expressions *getAttributes();
     const char *kind();

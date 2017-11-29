@@ -5,16 +5,19 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _dmodule.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/dmodule.d, _dmodule.d)
  */
 
 module ddmd.dmodule;
+
+// Online documentation: https://dlang.org/phobos/ddmd_dmodule.html
 
 import core.stdc.stdio;
 import core.stdc.stdlib;
 import core.stdc.string;
 import ddmd.aggregate;
 import ddmd.arraytypes;
+import ddmd.astcodegen;
 import ddmd.gluelayer;
 import ddmd.dimport;
 import ddmd.dmacro;
@@ -36,6 +39,7 @@ import ddmd.root.file;
 import ddmd.root.filename;
 import ddmd.root.outbuffer;
 import ddmd.root.port;
+import ddmd.semantic;
 import ddmd.target;
 import ddmd.visitor;
 
@@ -75,6 +79,10 @@ extern (C++) const(char)* lookForSourceFile(const(char)** path, const(char)* fil
          * Therefore, the result should be: filename/package.d
          * iff filename/package.d is a file
          */
+        const(char)* ni = FileName.combine(filename, "package.di");
+        if (FileName.exists(ni) == 1)
+            return ni;
+        FileName.free(ni);
         const(char)* n = FileName.combine(filename, "package.d");
         if (FileName.exists(n) == 1)
             return n;
@@ -104,6 +112,10 @@ extern (C++) const(char)* lookForSourceFile(const(char)** path, const(char)* fil
         FileName.free(b);
         if (FileName.exists(n) == 2)
         {
+            const(char)* n2i = FileName.combine(n, "package.di");
+            if (FileName.exists(n2i) == 1)
+                return n2i;
+            FileName.free(n2i);
             const(char)* n2 = FileName.combine(n, "package.d");
             if (FileName.exists(n2) == 1) {
                 *path = p;
@@ -114,6 +126,21 @@ extern (C++) const(char)* lookForSourceFile(const(char)** path, const(char)* fil
         FileName.free(n);
     }
     return null;
+}
+
+// function used to call semantic3 on a module's dependencies
+void semantic3OnDependencies(Module m)
+{
+    if (!m)
+        return;
+
+    if (m.semanticRun > PASSsemantic3)
+        return;
+
+    m.semantic3(null);
+
+    foreach (i; 1 .. m.aimports.dim)
+        semantic3OnDependencies(m.aimports[i]);
 }
 
 enum PKG : int
@@ -235,10 +262,6 @@ extern (C++) class Package : ScopeDsymbol
         return isAncestorPackageOf(pkg.parent.isPackage());
     }
 
-    override void semantic(Scope* sc)
-    {
-    }
-
     override Dsymbol search(Loc loc, Identifier ident, int flags = SearchLocalsOnly)
     {
         //printf("%s Package.search('%s', flags = x%x)\n", toChars(), ident.toChars(), flags);
@@ -301,7 +324,12 @@ extern (C++) final class Module : Package
     int isDocFile;              // if it is a documentation input file, not D source
     bool isPackageFile;         // if it is a package.d
     int needmoduleinfo;
-
+    /**
+       How many unit tests have been seen so far in this module. Makes it so the
+       unit test name is reproducible regardless of whether it's compiled
+       separately or all at once.
+     */
+    uint unitTestCounter;       // how many unittests have been seen so far
     int selfimports;            // 0: don't know, 1: does not, 2: does
 
     /*************************************
@@ -617,7 +645,7 @@ else
             else
             {
                 // if module is not named 'package' but we're trying to read 'package.d', we're looking for a package module
-                bool isPackageMod = (strcmp(toChars(), "package") != 0) && (strcmp(srcfile.name.name(), "package.d") == 0);
+                bool isPackageMod = (strcmp(toChars(), "package") != 0) && (strcmp(srcfile.name.name(), "package.d") == 0 || (strcmp(srcfile.name.name(), "package.di") == 0));
                 if (isPackageMod)
                     .error(loc, "importing package '%s' requires a 'package.d' file which cannot be found in '%s'", toChars(), srcfile.toChars());
                 else
@@ -650,7 +678,8 @@ else
         //printf("Module::parse(srcfile='%s') this=%p\n", srcfile.name.toChars(), this);
         const(char)* srcname = srcfile.name.toChars();
         //printf("Module::parse(srcname = '%s')\n", srcname);
-        isPackageFile = (strcmp(srcfile.name.name(), "package.d") == 0);
+        isPackageFile = (strcmp(srcfile.name.name(), "package.d") == 0 ||
+                         strcmp(srcfile.name.name(), "package.di") == 0);
         char* buf = cast(char*)srcfile.buffer;
         size_t buflen = srcfile.len;
         if (buflen >= 2)
@@ -727,7 +756,7 @@ else
                                 uint u2;
                                 if (++pu > pumax)
                                 {
-                                    error("surrogate UTF-16 high value %04x at EOF", u);
+                                    error("surrogate UTF-16 high value %04x at end of file", u);
                                     fatal();
                                 }
                                 u2 = le ? Port.readwordLE(pu) : Port.readwordBE(pu);
@@ -836,7 +865,7 @@ else
         /* If it has the extension ".dd", it is also a documentation
          * source file. Documentation source files may begin with "Ddoc"
          * but do not have to if they have the .dd extension.
-         * See: https://issues.dlang.org/show_bug.cgi?id=15465
+         * https://issues.dlang.org/show_bug.cgi?id=15465
          */
         if (FileName.equalsExt(arg, "dd"))
         {
@@ -847,7 +876,7 @@ else
             return this;
         }
         {
-            scope Parser p = new Parser(this, buf[0 .. buflen], docfile !is null);
+            scope p = new Parser!ASTCodegen(this, buf[0 .. buflen], docfile !is null);
             p.nextToken();
             members = p.parseModule();
             md = p.md;
@@ -873,7 +902,8 @@ else
             dst = Package.resolve(md.packages, &this.parent, &ppack);
             assert(dst);
             Module m = ppack ? ppack.isModule() : null;
-            if (m && strcmp(m.srcfile.name.name(), "package.d") != 0)
+            if (m && (strcmp(m.srcfile.name.name(), "package.d") != 0 &&
+                      strcmp(m.srcfile.name.name(), "package.di") != 0))
             {
                 .error(md.loc, "package name '%s' conflicts with usage as a module name in file %s", ppack.toPrettyChars(), m.srcfile.toChars());
             }
@@ -914,29 +944,29 @@ else
             }
             if (arreq)
             {
-                scope Parser p = new Parser(loc, this, code_ArrayEq, false);
+                scope p = new Parser!ASTCodegen(loc, this, code_ArrayEq, false);
                 p.nextToken();
                 members.append(p.parseDeclDefs(0));
             }
             {
-                scope Parser p = new Parser(loc, this, code_ArrayPostblit, false);
+                scope p = new Parser!ASTCodegen(loc, this, code_ArrayPostblit, false);
                 p.nextToken();
                 members.append(p.parseDeclDefs(0));
             }
             {
-                scope Parser p = new Parser(loc, this, code_ArrayDtor, false);
+                scope p = new Parser!ASTCodegen(loc, this, code_ArrayDtor, false);
                 p.nextToken();
                 members.append(p.parseDeclDefs(0));
             }
             if (xopeq)
             {
-                scope Parser p = new Parser(loc, this, code_xopEquals, false);
+                scope p = new Parser!ASTCodegen(loc, this, code_xopEquals, false);
                 p.nextToken();
                 members.append(p.parseDeclDefs(0));
             }
             if (xopcmp)
             {
-                scope Parser p = new Parser(loc, this, code_xopCmp, false);
+                scope p = new Parser!ASTCodegen(loc, this, code_xopCmp, false);
                 p.nextToken();
                 members.append(p.parseDeclDefs(0));
             }
@@ -985,7 +1015,8 @@ else
                     error(loc, "from file %s is specified twice on the command line", srcname);
                 else
                     error(loc, "from file %s must be imported with 'import %s;'", srcname, toPrettyChars());
-                // Bugzilla 14446: Return previously parsed module to avoid AST duplication ICE.
+                // https://issues.dlang.org/show_bug.cgi?id=14446
+                // Return previously parsed module to avoid AST duplication ICE.
                 return mprev;
             }
             else if (Package pkg = prev.isPackage())
@@ -1076,101 +1107,6 @@ else
         sc.pop(); // 2 pops because Scope::createGlobal() created 2
     }
 
-    // semantic analysis
-    override void semantic(Scope*)
-    {
-        if (semanticRun != PASSinit)
-            return;
-        //printf("+Module::semantic(this = %p, '%s'): parent = %p\n", this, toChars(), parent);
-        semanticRun = PASSsemantic;
-        // Note that modules get their own scope, from scratch.
-        // This is so regardless of where in the syntax a module
-        // gets imported, it is unaffected by context.
-        Scope* sc = _scope; // see if already got one from importAll()
-        if (!sc)
-        {
-            Scope.createGlobal(this); // create root scope
-        }
-        //printf("Module = %p, linkage = %d\n", sc.scopesym, sc.linkage);
-        // Pass 1 semantic routines: do public side of the definition
-        for (size_t i = 0; i < members.dim; i++)
-        {
-            Dsymbol s = (*members)[i];
-            //printf("\tModule('%s'): '%s'.semantic()\n", toChars(), s.toChars());
-            s.semantic(sc);
-            runDeferredSemantic();
-        }
-        if (userAttribDecl)
-        {
-            userAttribDecl.semantic(sc);
-        }
-        if (!_scope)
-        {
-            sc = sc.pop();
-            sc.pop(); // 2 pops because Scope::createGlobal() created 2
-        }
-        semanticRun = PASSsemanticdone;
-        //printf("-Module::semantic(this = %p, '%s'): parent = %p\n", this, toChars(), parent);
-    }
-
-    // pass 2 semantic analysis
-    override void semantic2(Scope*)
-    {
-        //printf("Module::semantic2('%s'): parent = %p\n", toChars(), parent);
-        if (semanticRun != PASSsemanticdone) // semantic() not completed yet - could be recursive call
-            return;
-        semanticRun = PASSsemantic2;
-        // Note that modules get their own scope, from scratch.
-        // This is so regardless of where in the syntax a module
-        // gets imported, it is unaffected by context.
-        Scope* sc = Scope.createGlobal(this); // create root scope
-        //printf("Module = %p\n", sc.scopesym);
-        // Pass 2 semantic routines: do initializers and function bodies
-        for (size_t i = 0; i < members.dim; i++)
-        {
-            Dsymbol s = (*members)[i];
-            s.semantic2(sc);
-        }
-        if (userAttribDecl)
-        {
-            userAttribDecl.semantic2(sc);
-        }
-        sc = sc.pop();
-        sc.pop();
-        semanticRun = PASSsemantic2done;
-        //printf("-Module::semantic2('%s'): parent = %p\n", toChars(), parent);
-    }
-
-    // pass 3 semantic analysis
-    override void semantic3(Scope*)
-    {
-        //printf("Module::semantic3('%s'): parent = %p\n", toChars(), parent);
-        if (semanticRun != PASSsemantic2done)
-            return;
-        semanticRun = PASSsemantic3;
-        // Note that modules get their own scope, from scratch.
-        // This is so regardless of where in the syntax a module
-        // gets imported, it is unaffected by context.
-        Scope* sc = Scope.createGlobal(this); // create root scope
-        //printf("Module = %p\n", sc.scopesym);
-        // Pass 3 semantic routines: do initializers and function bodies
-        for (size_t i = 0; i < members.dim; i++)
-        {
-            Dsymbol s = (*members)[i];
-            //printf("Module %s: %s.semantic3()\n", toChars(), s.toChars());
-            s.semantic3(sc);
-
-            runDeferredSemantic2();
-        }
-        if (userAttribDecl)
-        {
-            userAttribDecl.semantic3(sc);
-        }
-        sc = sc.pop();
-        sc.pop();
-        semanticRun = PASSsemantic3done;
-    }
-
     /**********************************
      * Determine if we need to generate an instance of ModuleInfo
      * for this Module.
@@ -1215,7 +1151,8 @@ else
 
         if (errors == global.errors)
         {
-            // Bugzilla 10752: We can cache the result only when it does not cause
+            // https://issues.dlang.org/show_bug.cgi?id=10752
+            // Can cache the result only when it does not cause
             // access error so the side-effect should be reproduced in later search.
             searchCacheIdent = ident;
             searchCacheSymbol = s;
@@ -1422,9 +1359,6 @@ else
     Symbol* sshareddtor; // module shared destructor
     Symbol* stest; // module unit test
     Symbol* sfilename; // symbol for filename
-    Symbol* massert; // module assert function
-    Symbol* munittest; // module unittest failure function
-    Symbol* marray; // module array bounds function
 
     version(IN_LLVM)
     {
@@ -1434,10 +1368,6 @@ else
 
         bool llvmForceLogging;
         bool noModuleInfo; /// Do not emit any module metadata.
-
-        // array ops emitted in this module already
-        import ddmd.func;
-        FuncDeclaration[void*] arrayfuncs;
 
         // Coverage analysis
         void* d_cover_valid;  // llvm::GlobalVariable* --> private immutable size_t[] _d_cover_valid;

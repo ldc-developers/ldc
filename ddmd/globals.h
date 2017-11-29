@@ -93,6 +93,7 @@ struct Param
 #else
     ubyte symdebug;     // insert debug symbolic information
 #endif
+    bool symdebugref;   // insert debug information for all referenced types, too
     bool alwaysframe;   // always emit standard stack frame
     bool optimize;      // run optimizer
     bool map;           // generate linker .map file
@@ -147,6 +148,11 @@ struct Param
     bool bug10378;      // use pre-bugzilla 10378 search strategy
     bool vsafe;         // use enhanced @safe checking
     bool showGaggedErrors;  // print gagged errors anyway
+    bool manual;            // open browser on compiler manual
+    bool usage;             // print usage and exit
+    bool mcpuUsage;         // print help on -mcpu switch
+    bool transitionUsage;   // print help on -transition switch
+    bool logo;              // print logo;
 
     CPU cpu;                // CPU instruction set to target
     BOUNDSCHECK useArrayBounds;
@@ -288,17 +294,19 @@ struct Global
 
     unsigned errorLimit;
 
+    void* console;         // opaque pointer to console for controlling text attributes
+
     /* Start gagging. Return the current number of gagged errors
      */
     unsigned startGagging();
 
     /* End gagging, restoring the old gagged state.
-     * Return true if errors occured while gagged.
+     * Return true if errors occurred while gagged.
      */
     bool endGagging(unsigned oldGagged);
 
     /*  Increment the error count to record that an error
-     *  has occured in the current context. An error message
+     *  has occurred in the current context. An error message
      *  may or may not have been printed.
      */
     void increaseErrorCount();
@@ -376,6 +384,7 @@ enum LINK
     LINKwindows,
     LINKpascal,
     LINKobjc,
+    LINKsystem,
 };
 
 enum CPPMANGLE

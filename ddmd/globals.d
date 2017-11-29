@@ -5,10 +5,12 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _globals.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/globals.d, _globals.d)
  */
 
 module ddmd.globals;
+
+// Online documentation: https://dlang.org/phobos/ddmd_globals.html
 
 import core.stdc.stdint;
 import core.stdc.stdio;
@@ -19,13 +21,6 @@ import ddmd.root.outbuffer;
 template xversion(string s)
 {
     enum xversion = mixin(`{ version (` ~ s ~ `) return true; else return false; }`)();
-}
-
-private string stripRight(string s)
-{
-    while (s.length && (s[$ - 1] == ' ' || s[$ - 1] == '\n' || s[$ - 1] == '\r'))
-        s = s[0 .. $ - 1];
-    return s;
 }
 
 enum IN_GCC     = xversion!`IN_GCC`;
@@ -103,6 +98,7 @@ struct Param
     bool vfield;            // identify non-mutable field variables
     bool vcomplex;          // identify complex/imaginary type usage
     ubyte symdebug;         // insert debug symbolic information
+    bool symdebugref;       // insert debug information for all referenced types, too
     bool alwaysframe;       // always emit standard stack frame
     bool optimize;          // run optimizer
     bool map;               // generate linker .map file
@@ -146,7 +142,7 @@ struct Param
     bool addMain;           // add a default main() function
     bool allInst;           // generate code for all template instantiations
     bool check10378;        // check for issues transitioning to 10738
-    bool bug10378;          // use pre-bugzilla 10378 search strategy
+    bool bug10378;          // use pre- https://issues.dlang.org/show_bug.cgi?id=10378 search strategy
     bool vsafe;             // use enhanced @safe checking
     /** The --transition=safe switch should only be used to show code with
      * silent semantics changes related to @safe improvements.  It should not be
@@ -155,6 +151,11 @@ struct Param
      */
 
     bool showGaggedErrors;  // print gagged errors anyway
+    bool manual;            // open browser on compiler manual
+    bool usage;             // print usage and exit
+    bool mcpuUsage;         // print help on -mcpu switch
+    bool transitionUsage;   // print help on -transition switch
+    bool logo;              // print logo;
 
     CPU cpu;                // CPU instruction set to target
     BOUNDSCHECK useArrayBounds;
@@ -300,6 +301,8 @@ struct Global
 
     uint errorLimit;
 
+    void* console;         // opaque pointer to console for controlling text attributes
+
     /* Start gagging. Return the current number of gagged errors
      */
     extern (C++) uint startGagging()
@@ -309,7 +312,7 @@ struct Global
     }
 
     /* End gagging, restoring the old gagged state.
-     * Return true if errors occured while gagged.
+     * Return true if errors occurred while gagged.
      */
     extern (C++) bool endGagging(uint oldGagged)
     {
@@ -323,7 +326,7 @@ struct Global
     }
 
     /*  Increment the error count to record that an error
-     *  has occured in the current context. An error message
+     *  has occurred in the current context. An error message
      *  may or may not have been printed.
      */
     extern (C++) void increaseErrorCount()
@@ -413,7 +416,7 @@ version(IN_LLVM)
 }
 else
 {
-        _version = ('v' ~ stripRight(import("verstr.h"))[1 .. $ - 1] ~ '\0').ptr;
+        _version = (import("VERSION") ~ '\0').ptr;
         compiler.vendor = "Digital Mars D";
 }
         stdmsg = stdout;
@@ -489,6 +492,7 @@ enum LINK : int
     windows,
     pascal,
     objc,
+    system,
 }
 
 alias LINKdefault = LINK.def;
@@ -498,6 +502,7 @@ alias LINKcpp = LINK.cpp;
 alias LINKwindows = LINK.windows;
 alias LINKpascal = LINK.pascal;
 alias LINKobjc = LINK.objc;
+alias LINKsystem = LINK.system;
 
 enum CPPMANGLE : int
 {
@@ -517,11 +522,6 @@ enum MATCH : int
     constant,  // match with conversion to const
     exact,     // exact match
 }
-
-alias MATCHnomatch = MATCH.nomatch;
-alias MATCHconvert = MATCH.convert;
-alias MATCHconst = MATCH.constant;
-alias MATCHexact = MATCH.exact;
 
 enum PINLINE : int
 {

@@ -47,13 +47,12 @@ private string factory(T)() {
 // helper functions to create D objects
 extern(C++):
 mixin(factory!IntegerExp);
-mixin(factory!AndAndExp);
+mixin(factory!LogicalExp);
 mixin(factory!EqualExp);
 mixin(factory!CmpExp);
 mixin(factory!ShlExp);
 mixin(factory!ShrExp);
 mixin(factory!UshrExp);
-mixin(factory!OrOrExp);
 mixin(factory!NotExp);
 mixin(factory!ComExp);
 mixin(factory!OrExp);

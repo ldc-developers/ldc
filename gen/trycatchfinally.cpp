@@ -193,8 +193,7 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
   // first instruction
   int flags = var ? 0 : 64; // just mimicking clang here
   LLValue *args[] = {typeDesc, DtoConstUint(flags), exnObj};
-  auto catchpad = irs.ir->CreateCatchPad(catchSwitchInst,
-                                         llvm::ArrayRef<LLValue *>(args), "");
+  auto catchpad = irs.ir->CreateCatchPad(catchSwitchInst, args, "");
   catchSwitchInst->addHandler(irs.scopebb());
 
   if (cpyObj) {
@@ -210,6 +209,7 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
   llvm::BasicBlock *catchhandler = irs.insertBB("catchhandler");
   llvm::CatchReturnInst::Create(catchpad, catchhandler, irs.scopebb());
   irs.scope() = IRScope(catchhandler);
+  irs.funcGen().pgo.emitCounterIncrement(ctch);
   auto enterCatchFn =
       getRuntimeFunction(Loc(), irs.module, "_d_eh_enter_catch");
   irs.CreateCallOrInvoke(enterCatchFn, DtoBitCast(exnObj, getVoidPtrType()),
@@ -221,7 +221,6 @@ void TryCatchScope::emitCatchBodiesMSVC(IRState &irs, llvm::Value *) {
   assert(catchBlocks.empty());
 
   auto &scopes = irs.funcGen().scopes;
-  auto &PGO = irs.funcGen().pgo;
 
   auto catchSwitchBlock = irs.insertBBBefore(endbb, "catch.dispatch");
   llvm::BasicBlock *unwindto =
@@ -236,7 +235,6 @@ void TryCatchScope::emitCatchBodiesMSVC(IRState &irs, llvm::Value *) {
 
     irs.scope() = IRScope(catchBB);
     irs.DBuilder.EmitBlockStart(c->loc);
-    PGO.emitCounterIncrement(c);
 
     emitBeginCatchMSVC(irs, c, catchSwitchInst);
 
@@ -434,7 +432,7 @@ TryCatchFinallyScopes::~TryCatchFinallyScopes() {
   // cleanup scopes, both of which are not allowed in D.
   if (!currentUnresolvedGotos().empty()) {
     for (const auto &i : currentUnresolvedGotos()) {
-      error(i.sourceLoc, "goto into try/finally scope is not allowed");
+      error(i.sourceLoc, "`goto` into `try`/`finally` scope is not allowed");
     }
     fatal();
   }

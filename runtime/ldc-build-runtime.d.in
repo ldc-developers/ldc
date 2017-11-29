@@ -9,6 +9,7 @@ struct Config {
     string ldcExecutable;
     string buildDir;
     bool resetBuildDir;
+    bool resetOnly;
     string ldcSourceDir;
     bool ninja;
     bool buildTestrunners;
@@ -35,6 +36,12 @@ int main(string[] args) {
 
     findLdcExecutable();
     prepareBuildDir();
+
+    if (config.resetOnly) {
+        writefln("Runtime libraries build directory successfully reset (%s)", config.buildDir);
+        return 0;
+    }
+
     prepareLdcSource();
     runCMake();
     build();
@@ -230,47 +237,57 @@ void extractZipArchive(string archivePath, string destination) {
 void parseCommandLine(string[] args) {
     import std.getopt : arraySep, getopt, defaultGetoptPrinter;
 
-    arraySep = ";";
-    auto helpInformation = getopt(
-        args,
-        "ldc",         "Path to LDC executable (default: '" ~ defaultLdcExecutable ~ "')", &config.ldcExecutable,
-        "buildDir",    "Path to build directory (default: './ldc-build-runtime.tmp')", &config.buildDir,
-        "reset",       "If build directory exists, start with removing everything but the ldc-src subdirectory", &config.resetBuildDir,
-        "ldcSrcDir",   "Path to LDC source directory (if not specified: downloads & extracts source archive into '<buildDir>/ldc-src')", &config.ldcSourceDir,
-        "ninja",       "Use Ninja as CMake build system", &config.ninja,
-        "testrunners", "Build the testrunner executables too", &config.buildTestrunners,
-        "targetPreset","Target configuration preset by LDC devs, e.g. Android-arm", &config.targetPreset,
-        "targetSystem","Target OS/toolchain (separated by ';'), e.g. Windows;MSVC", &config.targetSystem,
-        "dFlags",      "LDC flags for the D modules (separated by ';')", &config.dFlags,
-        "cFlags",      "C/ASM compiler flags for the handful of C/ASM files (separated by ';')", &config.cFlags,
-        "linkerFlags", "C linker flags for shared libraries and testrunner executables (separated by ';')", &config.linkerFlags,
-        "j",           "Number of parallel build jobs", &config.numBuildJobs
-    );
+    try {
+        arraySep = ";";
+        auto helpInformation = getopt(
+            args,
+            "ldc",         "Path to LDC executable (default: '" ~ defaultLdcExecutable ~ "')", &config.ldcExecutable,
+            "buildDir",    "Path to build directory (default: './ldc-build-runtime.tmp')", &config.buildDir,
+            "reset",       "If build directory exists, start with removing everything but the ldc-src subdirectory", &config.resetBuildDir,
+            "resetOnly",  "Like --reset, but only resets the build directory. No other actions are taken.", &config.resetOnly,
+            "ldcSrcDir",   "Path to LDC source directory (if not specified: downloads & extracts source archive into '<buildDir>/ldc-src')", &config.ldcSourceDir,
+            "ninja",       "Use Ninja as CMake build system", &config.ninja,
+            "testrunners", "Build the testrunner executables too", &config.buildTestrunners,
+            "targetPreset","Target configuration preset by LDC devs, e.g. Android-arm", &config.targetPreset,
+            "targetSystem","Target OS/toolchain (separated by ';'), e.g. Windows;MSVC", &config.targetSystem,
+            "dFlags",      "LDC flags for the D modules (separated by ';')", &config.dFlags,
+            "cFlags",      "C/ASM compiler flags for the handful of C/ASM files (separated by ';')", &config.cFlags,
+            "linkerFlags", "C linker flags for shared libraries and testrunner executables (separated by ';')", &config.linkerFlags,
+            "j",           "Number of parallel build jobs", &config.numBuildJobs
+            );
 
-    // getopt() removed all consumed args from `args`
-    import std.range : drop;
-    foreach (arg; args.drop(1)) {
-        import std.algorithm.searching : findSplit;
-        const r = arg.findSplit("=");
-        if (r[1].length == 0) {
-            helpInformation.helpWanted = true;
-            break;
+        // getopt() removed all consumed args from `args`
+        import std.range : drop;
+        foreach (arg; args.drop(1)) {
+            import std.algorithm.searching : findSplit;
+            const r = arg.findSplit("=");
+            if (r[1].length == 0) {
+                helpInformation.helpWanted = true;
+                break;
+            }
+            config.cmakeVars[r[0]] = r[2];
         }
-        config.cmakeVars[r[0]] = r[2];
-    }
 
-    if (helpInformation.helpWanted) {
-        defaultGetoptPrinter(
-            "Builds the LDC runtime libraries.\n" ~
-            "Programs required to be found in your PATH:\n" ~
-            "  * CMake\n" ~
-            "  * either Make or Ninja (recommended, enable with '--ninja')\n" ~
-            "  * C toolchain (compiler and linker)\n" ~
-            "--targetPreset currently supports Android-arm or Android-aarch64.\n" ~
-            "All arguments are optional.\n" ~
-            "CMake variables (see runtime/CMakeLists.txt in LDC source) can be specified via arguments like 'VAR=value'.\n",
-            helpInformation.options
-        );
+        if (helpInformation.helpWanted) {
+            defaultGetoptPrinter(
+                "Builds the LDC runtime libraries.\n" ~
+                "Programs required to be found in your PATH:\n" ~
+                "  * CMake\n" ~
+                "  * either Make or Ninja (recommended, enable with '--ninja')\n" ~
+                "  * C toolchain (compiler and linker)\n" ~
+                "--targetPreset currently supports Android-arm or Android-aarch64.\n" ~
+                "All arguments are optional.\n" ~
+                "CMake variables (see runtime/CMakeLists.txt in LDC source) can be specified via arguments like 'VAR=value'.\n",
+                helpInformation.options
+                );
+            exit(1);
+        }
+
+        if (config.resetOnly) config.resetBuildDir = true;
+    }
+    catch (Exception e) {
+        writefln("Error processing command line arguments: %s", e.msg);
+        writeln("Use '--help' for help.");
         exit(1);
     }
 }

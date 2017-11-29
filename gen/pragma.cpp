@@ -54,7 +54,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
   Identifier *ident = decl->ident;
   Expressions *args = decl->args;
   Expression *expr =
-      (args && args->dim > 0) ? (*args)[0]->semantic(sc) : nullptr;
+      (args && args->dim > 0) ? expressionSemantic((*args)[0], sc) : nullptr;
 
   // pragma(LDC_intrinsic, "string") { funcdecl(s) }
   if (ident == Id::LDC_intrinsic) {
@@ -107,7 +107,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
         fatal();
       }
       if (priority > 65535) {
-        error(Loc(), "priority may not be greater then 65535");
+        error(Loc(), "priority may not be greater than 65535");
         priority = 65535;
       }
     } else {
@@ -285,7 +285,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
   if (s->llvmInternal) {
     error(Loc(),
           "multiple LDC specific pragmas not allowed not affect the same "
-          "declaration ('%s' at '%s')",
+          "declaration (`%s` at '%s')",
           s->toChars(), s->loc.toChars());
     fatal();
   }
@@ -302,7 +302,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
       td->llvmInternal = llvm_internal;
       td->intrinsicName = strdup(arg1str);
     } else {
-      error(s->loc, "the '%s' pragma is only allowed on function or template "
+      error(s->loc, "the `%s` pragma is only allowed on function or template "
                     "declarations",
             ident->toChars());
       fatal();
@@ -317,8 +317,9 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
       Type *retType = type->next;
       if (retType->ty != Tvoid || type->parameters->dim > 0 ||
           (fd->isMember() && !fd->isStatic())) {
-        error(s->loc, "the '%s' pragma is only allowed on void functions which "
-                      "take no arguments",
+        error(s->loc,
+              "the `%s` pragma is only allowed on `void` functions which take "
+              "no arguments",
               ident->toChars());
         fd->llvmInternal = LLVMnone;
         break;
@@ -327,7 +328,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
       fd->llvmInternal = llvm_internal;
       fd->priority = std::atoi(arg1str);
     } else {
-      error(s->loc, "the '%s' pragma is only allowed on function declarations",
+      error(s->loc, "the `%s` pragma is only allowed on function declarations",
             ident->toChars());
       s->llvmInternal = LLVMnone;
     }
@@ -338,7 +339,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
       td->llvmInternal = llvm_internal;
       td->intrinsicName = strdup(arg1str);
     } else {
-      error(s->loc, "the '%s' pragma is only allowed on template declarations",
+      error(s->loc, "the `%s` pragma is only allowed on template declarations",
             ident->toChars());
       fatal();
     }
@@ -353,21 +354,21 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
       if (td->parameters->dim != 1) {
         error(
             s->loc,
-            "the '%s' pragma template must have exactly one template parameter",
+            "the `%s` pragma template must have exactly one template parameter",
             ident->toChars());
         fatal();
       } else if (!td->onemember) {
-        error(s->loc, "the '%s' pragma template must have exactly one member",
+        error(s->loc, "the `%s` pragma template must have exactly one member",
               ident->toChars());
         fatal();
       } else if (td->overnext || td->overroot) {
-        error(s->loc, "the '%s' pragma template must not be overloaded",
+        error(s->loc, "the `%s` pragma template must not be overloaded",
               ident->toChars());
         fatal();
       }
       td->llvmInternal = llvm_internal;
     } else {
-      error(s->loc, "the '%s' pragma is only allowed on template declarations",
+      error(s->loc, "the `%s` pragma is only allowed on template declarations",
             ident->toChars());
       fatal();
     }
@@ -385,7 +386,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
     if (FuncDeclaration *fd = s->isFuncDeclaration()) {
       fd->llvmInternal = llvm_internal;
     } else {
-      error(s->loc, "the '%s' pragma is only allowed on function declarations",
+      error(s->loc, "the `%s` pragma is only allowed on function declarations",
             ident->toChars());
       fatal();
     }
@@ -400,8 +401,8 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
       fd->llvmInternal = llvm_internal;
     } else {
       error(s->loc,
-            "the '%s' pragma must only be used on function declarations "
-            "of type 'void* function(uint nbytes)'",
+            "the `%s` pragma must only be used on function declarations "
+            "of type `void* function(uint nbytes)`",
             ident->toChars());
       fatal();
     }
@@ -410,18 +411,18 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
   case LLVMinline_asm:
     if (TemplateDeclaration *td = s->isTemplateDeclaration()) {
       if (td->parameters->dim > 1) {
-        error(s->loc, "the '%s' pragma template must have exactly zero or one "
+        error(s->loc, "the `%s` pragma template must have exactly zero or one "
                       "template parameters",
               ident->toChars());
         fatal();
       } else if (!td->onemember) {
-        error(s->loc, "the '%s' pragma template must have exactly one member",
+        error(s->loc, "the `%s` pragma template must have exactly one member",
               ident->toChars());
         fatal();
       }
       td->llvmInternal = llvm_internal;
     } else {
-      error(s->loc, "the '%s' pragma is only allowed on template declarations",
+      error(s->loc, "the `%s` pragma is only allowed on template declarations",
             ident->toChars());
       fatal();
     }
@@ -431,7 +432,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
     if (TemplateDeclaration *td = s->isTemplateDeclaration()) {
       Dsymbol *member = td->onemember;
       if (!member) {
-        error(s->loc, "the '%s' pragma template must have exactly one member",
+        error(s->loc, "the `%s` pragma template must have exactly one member",
               ident->toChars());
         fatal();
       }
@@ -439,7 +440,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
       if (!fun) {
         error(
             s->loc,
-            "the '%s' pragma template's member must be a function declaration",
+            "the `%s` pragma template's member must be a function declaration",
             ident->toChars());
         fatal();
       }
@@ -456,7 +457,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
 
       if (!valid_params) {
         error(s->loc,
-              "the '%s' pragma template must have exactly three parameters: "
+              "the `%s` pragma template must have exactly three parameters: "
               "a string, a type and a type tuple",
               ident->toChars());
         fatal();
@@ -464,7 +465,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
 
       td->llvmInternal = llvm_internal;
     } else {
-      error(s->loc, "the '%s' pragma is only allowed on template declarations",
+      error(s->loc, "the `%s` pragma is only allowed on template declarations",
             ident->toChars());
       fatal();
     }
@@ -473,7 +474,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
   case LLVMextern_weak:
     if (VarDeclaration *vd = s->isVarDeclaration()) {
       if (!vd->isDataseg() || !(vd->storage_class & STCextern)) {
-        error(s->loc, "'%s' requires storage class 'extern'", ident->toChars());
+        error(s->loc, "`%s` requires storage class `extern`", ident->toChars());
         fatal();
       }
 
@@ -482,7 +483,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
       // symbol is non-zero on the ELF static TLS model on Linux x86_64).
       // Thus, just disallow this altogether.
       if (vd->isThreadlocal()) {
-        error(s->loc, "'%s' cannot be applied to thread-local variable '%s'",
+        error(s->loc, "`%s` cannot be applied to thread-local variable `%s`",
               ident->toChars(), vd->toPrettyChars());
         fatal();
       }
@@ -492,7 +493,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
       // fail because 'extern' creates an intermediate
       // StorageClassDeclaration. This might eventually be fixed by making
       // extern_weak a proper storage class.
-      error(s->loc, "the '%s' pragma can only be specified directly on "
+      error(s->loc, "the `%s` pragma can only be specified directly on "
                     "variable declarations for now",
             ident->toChars());
       fatal();
@@ -501,7 +502,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
 
   default:
     warning(s->loc,
-            "the LDC specific pragma '%s' is not yet implemented, ignoring",
+            "the LDC specific pragma `%s` is not yet implemented, ignoring",
             ident->toChars());
   }
 }

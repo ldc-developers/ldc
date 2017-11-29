@@ -5,10 +5,12 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _aggregate.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/aggregate.d, _aggregate.d)
  */
 
 module ddmd.aggregate;
+
+// Online documentation: https://dlang.org/phobos/ddmd_aggregate.html
 
 import core.stdc.stdio;
 import core.checkedint;
@@ -28,6 +30,7 @@ import ddmd.id;
 import ddmd.identifier;
 import ddmd.mtype;
 import ddmd.tokens;
+import ddmd.semantic;
 import ddmd.visitor;
 
 enum Sizeok : int
@@ -131,88 +134,9 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
         // Might need a scope to resolve forward references. The check for
         // semanticRun prevents unnecessary setting of _scope during deferred
         // setScope phases for aggregates which already finished semantic().
-        // Also see https://issues.dlang.org/show_bug.cgi?id=16607
+        // See https://issues.dlang.org/show_bug.cgi?id=16607
         if (semanticRun < PASSsemanticdone)
             ScopeDsymbol.setScope(sc);
-    }
-
-    override final void semantic2(Scope* sc)
-    {
-        //printf("AggregateDeclaration::semantic2(%s) type = %s, errors = %d\n", toChars(), type.toChars(), errors);
-        if (!members)
-            return;
-
-        if (_scope)
-        {
-            error("has forward references");
-            return;
-        }
-
-        auto sc2 = newScope(sc);
-
-        determineSize(loc);
-
-        for (size_t i = 0; i < members.dim; i++)
-        {
-            Dsymbol s = (*members)[i];
-            //printf("\t[%d] %s\n", i, s.toChars());
-            s.semantic2(sc2);
-        }
-
-        sc2.pop();
-    }
-
-    override final void semantic3(Scope* sc)
-    {
-        //printf("AggregateDeclaration::semantic3(%s) type = %s, errors = %d\n", toChars(), type.toChars(), errors);
-        if (!members)
-            return;
-
-        StructDeclaration sd = isStructDeclaration();
-        if (!sc) // from runDeferredSemantic3 for TypeInfo generation
-        {
-            assert(sd);
-            sd.semanticTypeInfoMembers();
-            return;
-        }
-
-        auto sc2 = newScope(sc);
-
-        for (size_t i = 0; i < members.dim; i++)
-        {
-            Dsymbol s = (*members)[i];
-            s.semantic3(sc2);
-        }
-
-        sc2.pop();
-
-        // don't do it for unused deprecated types
-        // or error types
-        if (!getRTInfo && Type.rtinfo && (!isDeprecated() || global.params.useDeprecated) && (type && type.ty != Terror))
-        {
-            // Evaluate: RTinfo!type
-            auto tiargs = new Objects();
-            tiargs.push(type);
-            auto ti = new TemplateInstance(loc, Type.rtinfo, tiargs);
-
-            Scope* sc3 = ti.tempdecl._scope.startCTFE();
-            sc3.tinst = sc.tinst;
-            sc3.minst = sc.minst;
-            if (isDeprecated())
-                sc3.stc |= STCdeprecated;
-
-            ti.semantic(sc3);
-            ti.semantic2(sc3);
-            ti.semantic3(sc3);
-            auto e = DsymbolExp.resolve(Loc(), sc3, ti.toAlias(), false);
-
-            sc3.endCTFE();
-
-            e = e.ctfeInterpret();
-            getRTInfo = e;
-        }
-        if (sd)
-            sd.semanticTypeInfoMembers();
     }
 
     /***************************************
@@ -245,7 +169,7 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
 
             auto ad = cast(AggregateDeclaration)param;
 
-            if (v._scope)
+            if (v.semanticRun < PASSsemanticdone)
                 v.semantic(null);
             // Return in case a recursive determineFields triggered by v.semantic already finished
             if (ad.sizeok != SIZEOKnone)
@@ -269,7 +193,7 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
             if (ad == (cast(TypeStruct)tv).sym)
             {
                 const(char)* psz = (v.type.toBasetype().ty == Tsarray) ? "static array of " : "";
-                ad.error("cannot have field %s with %ssame struct type", v.toChars(), psz);
+                ad.error("cannot have field `%s` with %ssame struct type", v.toChars(), psz);
                 ad.type = Type.terror;
                 ad.errors = true;
                 return 1;
@@ -319,7 +243,7 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
         }
 
         if (_scope)
-            semantic(null);
+            semantic(this, null);
 
         // Determine the instance size of base class first.
         if (auto cd = isClassDeclaration())
@@ -389,7 +313,10 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
         {
             auto vd = fields[i];
             if (vd.errors)
+            {
+                errors = true;
                 continue;
+            }
 
             auto vx = vd;
             if (vd._init && vd._init.isVoidInitializer())
@@ -401,6 +328,11 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
                 if (i == j)
                     continue;
                 auto v2 = fields[j];
+                if (v2.errors)
+                {
+                    errors = true;
+                    continue;
+                }
                 if (!vd.isOverlappedWith(v2))
                     continue;
 
@@ -420,7 +352,7 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
 
                 if (vx._init && v2._init)
                 {
-                    .error(loc, "overlapping default initialization for field %s and %s", v2.toChars(), vd.toChars());
+                    .error(loc, "overlapping default initialization for field `%s` and `%s`", v2.toChars(), vd.toChars());
                     errors = true;
                 }
             }
@@ -493,13 +425,13 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
                     }
                     else if (v2._init)
                     {
-                        .error(loc, "overlapping initialization for field %s and %s", v2.toChars(), vd.toChars());
+                        .error(loc, "overlapping initialization for field `%s` and `%s`", v2.toChars(), vd.toChars());
                         errors = true;
                     }
                 }
                 else
                 {
-                    // Will fix Bugzilla 1432 by enabling this path always
+                    // fixes https://issues.dlang.org/show_bug.cgi?id=1432 by enabling this path always
 
                     /* Prefer explicitly initialized field
                      * union U { int a; int b = 2; }
@@ -516,7 +448,7 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
                     }
                     else if (vx._init && v2._init)
                     {
-                        .error(loc, "overlapping default initialization for field %s and %s",
+                        .error(loc, "overlapping default initialization for field `%s` and `%s`",
                             v2.toChars(), vd.toChars());
                         errors = true;
                     }
@@ -540,11 +472,12 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
                 {
                     if ((vx.storage_class & STCnodefaultctor) && !ctorinit)
                     {
-                        .error(loc, "field %s.%s must be initialized because it has no default constructor",
+                        .error(loc, "field `%s.%s` must be initialized because it has no default constructor",
                             type.toChars(), vx.toChars());
                         errors = true;
                     }
-                    /* Bugzilla 12509: Get the element of static array type.
+                    /* https://issues.dlang.org/show_bug.cgi?id=12509
+                     * Get the element of static array type.
                      */
                     Type telem = vx.type;
                     if (telem.ty == Tsarray)
@@ -690,7 +623,8 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
         {
             enclosing = fd;
 
-            /* Bugzilla 14422: If a nested class parent is a function, its
+            /* https://issues.dlang.org/show_bug.cgi?id=14422
+             * If a nested class parent is a function, its
              * context pointer (== `outer`) should be void* always.
              */
             t = Type.tvoidptr;

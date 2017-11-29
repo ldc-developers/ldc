@@ -5,10 +5,12 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _hdrgen.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/hdrgen.d, _hdrgen.d)
  */
 
 module ddmd.hdrgen;
+
+// Online documentation: https://dlang.org/phobos/ddmd_hdrgen.html
 
 import core.stdc.ctype;
 import core.stdc.stdio;
@@ -169,7 +171,7 @@ public:
 
     override void visit(UnrolledLoopStatement s)
     {
-        buf.writestring("unrolled {");
+        buf.writestring("/*unrolled*/ {");
         buf.writenl();
         buf.level++;
         foreach (sx; *s.statements)
@@ -250,7 +252,7 @@ public:
         buf.writenl();
     }
 
-    override void visit(ForeachStatement s)
+    private void visitWithoutBody(ForeachStatement s)
     {
         buf.writestring(Token.toString(s.op));
         buf.writestring(" (");
@@ -269,6 +271,11 @@ public:
         s.aggr.accept(this);
         buf.writeByte(')');
         buf.writenl();
+    }
+
+    override void visit(ForeachStatement s)
+    {
+        visitWithoutBody(s);
         buf.writeByte('{');
         buf.writenl();
         buf.level++;
@@ -279,7 +286,7 @@ public:
         buf.writenl();
     }
 
-    override void visit(ForeachRangeStatement s)
+    private void visitWithoutBody(ForeachRangeStatement s)
     {
         buf.writestring(Token.toString(s.op));
         buf.writestring(" (");
@@ -295,12 +302,31 @@ public:
         buf.writenl();
         buf.writeByte('{');
         buf.writenl();
+    }
+
+    override void visit(ForeachRangeStatement s)
+    {
+        visitWithoutBody(s);
         buf.level++;
         if (s._body)
             s._body.accept(this);
         buf.level--;
         buf.writeByte('}');
         buf.writenl();
+    }
+
+    override void visit(StaticForeachStatement s)
+    {
+        buf.writestring("static ");
+        if (s.sfe.aggrfe)
+        {
+            visit(s.sfe.aggrfe);
+        }
+        else
+        {
+            assert(s.sfe.rangefe);
+            visit(s.sfe.rangefe);
+        }
     }
 
     override void visit(IfStatement s)
@@ -322,15 +348,20 @@ public:
         s.condition.accept(this);
         buf.writeByte(')');
         buf.writenl();
-        if (!s.ifbody.isScopeStatement())
+        if (s.ifbody.isScopeStatement())
+        {
+            s.ifbody.accept(this);
+        }
+        else
+        {
             buf.level++;
-        s.ifbody.accept(this);
-        if (!s.ifbody.isScopeStatement())
+            s.ifbody.accept(this);
             buf.level--;
+        }
         if (s.elsebody)
         {
             buf.writestring("else");
-            if (!s.elsebody.isIfStatement)
+            if (!s.elsebody.isIfStatement())
             {
                 buf.writenl();
             }
@@ -338,11 +369,16 @@ public:
             {
                 buf.writeByte(' ');
             }
-            if (!s.elsebody.isScopeStatement() && !s.elsebody.isIfStatement)
+            if (s.elsebody.isScopeStatement() || s.elsebody.isIfStatement())
+            {
+                s.elsebody.accept(this);
+            }
+            else
+            {
                 buf.level++;
-            s.elsebody.accept(this);
-            if (!s.elsebody.isScopeStatement() && !s.elsebody.isIfStatement)
+                s.elsebody.accept(this);
                 buf.level--;
+            }
         }
     }
 
@@ -545,7 +581,18 @@ public:
         buf.writestring("try");
         buf.writenl();
         if (s._body)
-            s._body.accept(this);
+        {
+            if (s._body.isScopeStatement())
+            {
+                s._body.accept(this);
+            }
+            else
+            {
+                buf.level++;
+                s._body.accept(this);
+                buf.level--;
+            }
+        }
         foreach (c; *s.catches)
         {
             visit(c);
@@ -565,13 +612,16 @@ public:
         buf.writenl();
         buf.writestring("finally");
         buf.writenl();
-        buf.writeByte('{');
-        buf.writenl();
-        buf.level++;
-        s.finalbody.accept(this);
-        buf.level--;
-        buf.writeByte('}');
-        buf.writenl();
+        if (s.finalbody.isScopeStatement())
+        {
+            s.finalbody.accept(this);
+        }
+        else
+        {
+            buf.level++;
+            s.finalbody.accept(this);
+            buf.level--;
+        }
     }
 
     override void visit(OnScopeStatement s)
@@ -989,7 +1039,8 @@ public:
 
     override void visit(TypeStruct t)
     {
-        // Bugzilla 13776: Don't use ti.toAlias() to avoid forward reference error
+        // https://issues.dlang.org/show_bug.cgi?id=13776
+        // Don't use ti.toAlias() to avoid forward reference error
         // while printing messages.
         TemplateInstance ti = t.sym.parent ? t.sym.parent.isTemplateInstance() : null;
         if (ti && ti.aliasdecl == t.sym)
@@ -1000,7 +1051,8 @@ public:
 
     override void visit(TypeClass t)
     {
-        // Bugzilla 13776: Don't use ti.toAlias() to avoid forward reference error
+        // https://issues.dlang.org/show_bug.cgi?id=13776
+        // Don't use ti.toAlias() to avoid forward reference error
         // while printing messages.
         TemplateInstance ti = t.sym.parent.isTemplateInstance();
         if (ti && ti.aliasdecl == t.sym)
@@ -1309,6 +1361,28 @@ public:
         buf.writenl();
     }
 
+    override void visit(StaticForeachDeclaration s)
+    {
+        buf.writestring("static ");
+        if (s.sfe.aggrfe)
+        {
+            visitWithoutBody(s.sfe.aggrfe);
+        }
+        else
+        {
+            assert(s.sfe.rangefe);
+            visitWithoutBody(s.sfe.rangefe);
+        }
+        buf.writeByte('{');
+        buf.writenl();
+        buf.level++;
+        visit(cast(AttribDeclaration)s);
+        buf.level--;
+        buf.writeByte('}');
+        buf.writenl();
+
+    }
+
     override void visit(CompileDeclaration d)
     {
         buf.writestring("mixin(");
@@ -1466,12 +1540,7 @@ public:
         if (hgs.fullDump)
         {
             buf.writenl();
-            if (ti.aliasdecl)
-            {
-                // the ti.aliasDecl is the instantiated body
-                // if we have it, print it.
-                ti.aliasdecl.accept(this);
-            }
+            dumpTemplateInstance(ti);
         }
     }
 
@@ -1487,6 +1556,31 @@ public:
         }
         buf.writeByte(';');
         buf.writenl();
+        if (hgs.fullDump)
+            dumpTemplateInstance(tm);
+    }
+
+    void dumpTemplateInstance(TemplateInstance ti)
+    {
+        buf.writeByte('{');
+        buf.writenl();
+        buf.level++;
+
+        if (ti.aliasdecl)
+        {
+            ti.aliasdecl.accept(this);
+            buf.writenl();
+        }
+        else if (ti.members)
+        {
+            foreach(m;*ti.members)
+                m.accept(this);
+        }
+
+        buf.level--;
+        buf.writeByte('}');
+        buf.writenl();
+
     }
 
     void tiargsToBuffer(TemplateInstance ti)
@@ -1543,7 +1637,7 @@ public:
         //printf("objectToBuffer()\n");
         /* The logic of this should match what genIdent() does. The _dynamic_cast()
          * function relies on all the pretty strings to be unique for different classes
-         * (see Bugzilla 7375).
+         * See https://issues.dlang.org/show_bug.cgi?id=7375
          * Perhaps it would be better to demangle what genIdent() does.
          */
         if (auto t = isType(oarg))
@@ -1554,7 +1648,7 @@ public:
         else if (auto e = isExpression(oarg))
         {
             if (e.op == TOKvar)
-                e = e.optimize(WANTvalue); // added to fix Bugzilla 7375
+                e = e.optimize(WANTvalue); // added to fix https://issues.dlang.org/show_bug.cgi?id=7375
             e.accept(this);
         }
         else if (Dsymbol s = isDsymbol(oarg))
@@ -1703,6 +1797,8 @@ public:
 
     override void visit(AliasDeclaration d)
     {
+        if (d.storage_class & STClocal)
+            return;
         buf.writestring("alias ");
         if (d.aliassym)
         {
@@ -1734,6 +1830,8 @@ public:
 
     override void visit(VarDeclaration d)
     {
+        if (d.storage_class & STClocal)
+            return;
         visitVarDecl(d, false);
         buf.writeByte(';');
         buf.writenl();
@@ -2955,7 +3053,7 @@ public:
         StorageClass stc = p.storageClass;
         if (p.type && p.type.mod & MODshared)
             stc &= ~STCshared;
-        if (stcToBuffer(buf, stc & (STCconst | STCimmutable | STCwild | STCshared | STCscope)))
+        if (stcToBuffer(buf, stc & (STCconst | STCimmutable | STCwild | STCshared | STCscope | STCscopeinferred)))
             buf.writeByte(' ');
         if (p.storageClass & STCalias)
         {
@@ -3073,6 +3171,8 @@ extern (C++) bool stcToBuffer(OutBuffer* buf, StorageClass stc)
     bool result = false;
     if ((stc & (STCreturn | STCscope)) == (STCreturn | STCscope))
         stc &= ~STCscope;
+    if (stc & STCscopeinferred)
+        stc &= ~(STCscope | STCscopeinferred);
     while (stc)
     {
         const(char)* p = stcToChars(stc);
@@ -3132,6 +3232,8 @@ extern (C++) const(char)* stcToChars(ref StorageClass stc)
         SCstring(STCtrusted, TOKat, "@trusted"),
         SCstring(STCsystem, TOKat, "@system"),
         SCstring(STCdisable, TOKat, "@disable"),
+        SCstring(STCfuture, TOKat, "@__future"),
+        SCstring(STClocal, TOKat, "__local"),
         SCstring(0, TOKreserved)
     ];
     for (int i = 0; table[i].stc; i++)
@@ -3207,6 +3309,8 @@ extern (C++) const(char)* linkageToChars(LINK linkage)
         return "Pascal";
     case LINKobjc:
         return "Objective-C";
+    case LINKsystem:
+        return "System";
     default:
         assert(0);
     }

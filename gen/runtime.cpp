@@ -17,6 +17,7 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/mangling.h"
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
 #include "ir/irtype.h"
@@ -98,7 +99,7 @@ static void checkForImplicitGCCall(const Loc &loc, const char *name) {
                       &GCNAMES[sizeof(GCNAMES) / sizeof(std::string)], name)) {
       error(loc,
             "No implicit garbage collector calls allowed with -nogc "
-            "option enabled: %s",
+            "option enabled: `%s`",
             name);
       fatal();
     }
@@ -137,14 +138,14 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
 
   LLFunction *fn = M->getFunction(name);
   if (!fn) {
-    error(loc, "Runtime function '%s' was not found", name);
+    error(loc, "Runtime function `%s` was not found", name);
     fatal();
   }
   LLFunctionType *fnty = fn->getFunctionType();
 
   if (LLFunction *existing = target.getFunction(name)) {
     if (existing->getFunctionType() != fnty) {
-      error(Loc(), "Incompatible declaration of runtime function '%s'", name);
+      error(Loc(), "Incompatible declaration of runtime function `%s`", name);
       fatal();
     }
     return existing;
@@ -159,29 +160,37 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-llvm::GlobalVariable *getRuntimeGlobal(Loc &loc, llvm::Module &target,
-                                       const char *name) {
-  LLGlobalVariable *gv = target.getNamedGlobal(name);
-  if (gv) {
-    return gv;
+// C assert function:
+// OSX:     void __assert_rtn(const char *func, const char *file, unsigned line,
+//                            const char *msg)
+// Android: void __assert(const char *file, int line, const char *msg)
+// MSVC:    void  _assert(const char *msg, const char *file, unsigned line)
+// else:    void __assert(const char *msg, const char *file, unsigned line)
+
+static const char *getCAssertFunctionName() {
+  if (global.params.targetTriple->isOSDarwin()) {
+    return "__assert_rtn";
+  } else if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+    return "_assert";
   }
+  return "__assert";
+}
 
-  checkForImplicitGCCall(loc, name);
+static std::vector<Type *> getCAssertFunctionParamTypes() {
+  const auto voidPtr = Type::tvoidptr;
+  const auto uint = Type::tuns32;
 
-  if (!M) {
-    initRuntime();
+  if (global.params.targetTriple->isOSDarwin()) {
+    return {voidPtr, voidPtr, uint, voidPtr};
   }
-
-  LLGlobalVariable *g = M->getNamedGlobal(name);
-  if (!g) {
-    error(loc, "Runtime global '%s' was not found", name);
-    fatal();
-    // return NULL;
+  if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
+    return {voidPtr, uint, voidPtr};
   }
+  return {voidPtr, voidPtr, uint};
+}
 
-  LLPointerType *t = g->getType();
-  return getOrCreateGlobal(loc, target, t->getElementType(), g->isConstant(),
-                           g->getLinkage(), nullptr, g->getName());
+llvm::Function *getCAssertFunction(const Loc &loc, llvm::Module &target) {
+  return getRuntimeFunction(loc, target, getCAssertFunctionName());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -216,7 +225,7 @@ static Type *rt_dg2() {
 template <typename DECL> static void ensureDecl(DECL *decl, const char *msg) {
   if (!decl || !decl->type) {
     Logger::println("Missing class declaration: %s\n", msg);
-    error(Loc(), "Missing class declaration: %s", msg);
+    error(Loc(), "Missing class declaration: `%s`", msg);
     errorSupplemental(Loc(),
                       "Please check that object.d is included and valid");
     fatal();
@@ -262,7 +271,7 @@ static void createFwdDecl(LINK linkage, Type *returntype,
       fn->addFnAttr(LLAttribute::UWTable);
     }
 
-    fn->setCallingConv(gABI->callingConv(fn->getFunctionType(), linkage));
+    fn->setCallingConv(gABI->callingConv(linkage, dty));
   }
 }
 
@@ -316,6 +325,9 @@ static void buildRuntimeModule() {
       Attr_Cold(NoAttrs, LLAttributeSet::FunctionIndex, llvm::Attribute::Cold),
       Attr_Cold_NoReturn(Attr_Cold, LLAttributeSet::FunctionIndex,
                          llvm::Attribute::NoReturn),
+      Attr_Cold_NoReturn_NoUnwind(Attr_Cold_NoReturn,
+                                  LLAttributeSet::FunctionIndex,
+                                  llvm::Attribute::NoUnwind),
       Attr_ReadOnly_NoUnwind(Attr_ReadOnly, LLAttributeSet::FunctionIndex,
                              llvm::Attribute::NoUnwind),
       Attr_ReadOnly_1_NoCapture(Attr_ReadOnly, AttrSet::FirstArgIndex,
@@ -355,6 +367,11 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
+
+  // C assert function
+  createFwdDecl(LINKc, Type::tvoid, {getCAssertFunctionName()},
+                getCAssertFunctionParamTypes(), {},
+                Attr_Cold_NoReturn_NoUnwind);
 
   // void _d_assert(string file, uint line)
   // void _d_arraybounds(string file, uint line)
@@ -707,10 +724,10 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
 
   // void invariant._d_invariant(Object o)
-  createFwdDecl(LINKd, voidTy,
-                {gABI->mangleFunctionForLLVM(
-                    "_D9invariant12_d_invariantFC6ObjectZv", LINKd)},
-                {objectTy});
+  createFwdDecl(
+      LINKd, voidTy,
+      {getIRMangledFuncName("_D9invariant12_d_invariantFC6ObjectZv", LINKd)},
+      {objectTy});
 
   // void _d_dso_registry(void* data)
   // (the argument is really a pointer to

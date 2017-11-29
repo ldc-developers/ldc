@@ -62,8 +62,6 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
   windows::setupMsvcEnvironment();
 #endif
 
-  const std::string tool = "link.exe";
-
   // build arguments
   std::vector<std::string> args;
 
@@ -116,6 +114,11 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
     args.push_back("ldc-profile-rt.lib");
     // profile-rt depends on ws2_32 for symbol `gethostname`
     args.push_back("ws2_32.lib");
+  }
+
+  if (opts::enableDynamicCompile) {
+    args.push_back("ldc-jit-rt.lib");
+    args.push_back("ldc-jit.lib");
   }
 
   // user libs
@@ -180,5 +183,9 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
 #endif
 
   // try to call linker
-  return executeToolAndWait(tool, args, global.params.verbose);
+  std::string linker = opts::linker;
+  if (linker.empty())
+    linker = "link.exe";
+
+  return executeToolAndWait(linker, args, global.params.verbose);
 }

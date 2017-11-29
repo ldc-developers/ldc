@@ -5,10 +5,12 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _access.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/access.d, _access.d)
  */
 
 module ddmd.access;
+
+// Online documentation: https://dlang.org/phobos/ddmd_access.html
 
 import ddmd.aggregate;
 import ddmd.dclass;
@@ -87,7 +89,7 @@ extern (C++) Prot getAccess(AggregateDeclaration ad, Dsymbol smember)
  *      false   is not accessible
  *      true    is accessible
  */
-extern (C++) static bool isAccessible(Dsymbol smember, Dsymbol sfunc, AggregateDeclaration dthis, AggregateDeclaration cdscope)
+private bool isAccessible(Dsymbol smember, Dsymbol sfunc, AggregateDeclaration dthis, AggregateDeclaration cdscope)
 {
     assert(dthis);
     version (none)
@@ -190,7 +192,7 @@ extern (C++) bool checkAccess(AggregateDeclaration ad, Loc loc, Scope* sc, Dsymb
     }
     if (!result)
     {
-        ad.error(loc, "member %s is not accessible", smember.toChars());
+        ad.error(loc, "member `%s` is not accessible", smember.toChars());
         //printf("smember = %s %s, prot = %d, semanticRun = %d\n",
         //        smember.kind(), smember.toPrettyChars(), smember.prot(), smember.semanticRun);
         return true;
@@ -412,7 +414,7 @@ extern (C++) bool checkAccess(Loc loc, Scope* sc, Expression e, Declaration d)
     {
         if (d.prot().kind == PROTprivate && d.getAccessModule() != sc._module || d.prot().kind == PROTpackage && !hasPackageAccess(sc, d))
         {
-            error(loc, "%s %s is not accessible from module %s", d.kind(), d.toPrettyChars(), sc._module.toChars());
+            error(loc, "%s `%s` is not accessible from module `%s`", d.kind(), d.toPrettyChars(), sc._module.toChars());
             return true;
         }
     }
@@ -448,7 +450,7 @@ extern (C++) bool checkAccess(Loc loc, Scope* sc, Expression e, Declaration d)
  *
  * Because a global symbol table tree is used for imported packages/modules,
  * access to them needs to be checked based on the imports in the scope chain
- * (see Bugzilla 313).
+ * (see https://issues.dlang.org/show_bug.cgi?id=313).
  *
  */
 extern (C++) bool checkAccess(Loc loc, Scope* sc, Package p)

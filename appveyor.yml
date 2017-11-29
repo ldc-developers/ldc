@@ -86,7 +86,7 @@ install:
   - make --version
   - cd ..
   # Download & extract a pre-built LLVM (CMAKE_BUILD_TYPE=Release, LLVM_ENABLE_ASSERTIONS=ON)
-  - appveyor DownloadFile "https://github.com/ldc-developers/llvm/releases/download/ldc-v4.0.1/appveyor-llvm-4.0.1-%APPVEYOR_JOB_ARCH%.7z" -FileName llvm.7z
+  - appveyor DownloadFile "https://github.com/ldc-developers/llvm/releases/download/ldc-v5.0.0-2/appveyor-llvm-5.0.0-2-%APPVEYOR_JOB_ARCH%.7z" -FileName llvm.7z
   - md llvm
   - cd llvm
   - 7z x ..\llvm.7z > nul

@@ -19,16 +19,17 @@
 #include "gen/logger.h"
 #include "gen/modules.h"
 #include "gen/runtime.h"
+#include "gen/dynamiccompile.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/YAMLTraits.h"
 
 /// The module with the frontend-generated C main() definition.
-extern Module *g_entrypointModule;
+extern Module *entrypoint; // defined in ddmd/mars.d
 
 /// The module that contains the actual D main() (_Dmain) definition.
-extern Module *g_dMainModule;
+extern Module *rootHasMain; // defined in ddmd/mars.d
 
 #if LDC_LLVM_VER < 600
 namespace llvm {
@@ -176,7 +177,7 @@ namespace ldc {
 CodeGenerator::CodeGenerator(llvm::LLVMContext &context, bool singleObj)
     : context_(context), moduleCount_(0), singleObj_(singleObj), ir_(nullptr) {
   if (!ClassDeclaration::object) {
-    error(Loc(), "declaration for class Object not found; druntime not "
+    error(Loc(), "declaration for class `Object` not found; druntime not "
                  "configured properly");
     fatal();
   }
@@ -247,11 +248,14 @@ void CodeGenerator::finishLLModule(Module *m) {
 }
 
 void CodeGenerator::writeAndFreeLLModule(const char *filename) {
+  ir_->objc.finalize();
+
   // Issue #1829: make sure all replaced global variables are replaced
   // everywhere.
   ir_->replaceGlobals();
 
   ir_->DBuilder.Finalize();
+  generateBitcodeForDynamicCompile(ir_);
 
   emitLLVMUsedArray(*ir_);
   emitLinkerOptions(*ir_, ir_->module, ir_->context());
@@ -314,8 +318,8 @@ void CodeGenerator::emit(Module *m) {
   prepareLLModule(m);
 
   codegenModule(ir_, m);
-  if (m == g_dMainModule) {
-    codegenModule(ir_, g_entrypointModule);
+  if (m == rootHasMain) {
+    codegenModule(ir_, entrypoint);
 
     if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
       // On Android, bracket TLS data with the symbols _tlsstart and _tlsend, as

@@ -5,10 +5,12 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _safe.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/safe.d, _safe.d)
  */
 
 module ddmd.safe;
+
+// Online documentation: https://dlang.org/phobos/ddmd_safe.html
 
 import core.stdc.stdio;
 
@@ -125,7 +127,7 @@ bool isSafeCast(Expression e, Type tfrom, Type tto)
         return true;
     }
 
-    if (ttob.ty == Tarray && tfrom.ty == Tsarray) // Bugzilla 12502
+    if (ttob.ty == Tarray && tfrom.ty == Tsarray) // https://issues.dlang.org/show_bug.cgi?id=12502
         tfrom = tfrom.nextOf().arrayOf();
 
     if (ttob.ty == Tarray   && tfrom.ty == Tarray ||

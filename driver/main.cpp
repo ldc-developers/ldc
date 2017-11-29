@@ -314,7 +314,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
 
   // Set some default values.
   global.params.useSwitchError = 1;
-  global.params.color = isConsoleColorSupported();
+  global.params.color = true;
 
   global.params.linkswitches = new Strings();
   global.params.libfiles = new Strings();
@@ -495,14 +495,18 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     // we're looking for it anyway, and pre-setting the flag...
     global.params.run = true;
     if (!runargs.empty()) {
-      char const *name = runargs[0].c_str();
-      char const *ext = FileName::ext(name);
-      if (ext && FileName::equals(ext, "d") == 0 &&
-          FileName::equals(ext, "di") == 0) {
-        error(Loc(), "-run must be followed by a source file, not '%s'", name);
+      if (runargs[0] == "-") {
+        sourceFiles.push("__stdin.d");
+      } else {
+        char const *name = runargs[0].c_str();
+        char const *ext = FileName::ext(name);
+        if (ext && !FileName::equals(ext, "d") &&
+            !FileName::equals(ext, "di")) {
+          error(Loc(), "-run must be followed by a source file, not '%s'",
+                name);
+        }
+        sourceFiles.push(mem.xstrdup(name));
       }
-
-      sourceFiles.push(mem.xstrdup(name));
       runargs.erase(runargs.begin());
     } else {
       global.params.run = false;
@@ -513,18 +517,20 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   sourceFiles.reserve(fileList.size());
   for (const auto &file : fileList) {
     if (!file.empty()) {
-      char *copy = dupPathString(file);
-      sourceFiles.push(copy);
+      if (file == "-") {
+        sourceFiles.push("__stdin.d");
+      } else {
+        char *copy = dupPathString(file);
+        sourceFiles.push(copy);
+      }
     }
   }
 
   if (noDefaultLib) {
-    deprecation(
-        Loc(),
-        "-nodefaultlib is deprecated, as "
-        "-defaultlib/-debuglib now override the existing list instead of "
-        "appending to it. Please use the latter instead.");
-  } else {
+    deprecation(Loc(), "-nodefaultlib is deprecated, as -defaultlib/-debuglib "
+                       "now override the existing list instead of appending to "
+                       "it. Please use the latter instead.");
+  } else if (!global.params.betterC) {
     // Parse comma-separated default library list.
     std::stringstream libNames(linkDebugLib ? debugLib : defaultLib);
     while (libNames.good()) {
@@ -798,6 +804,8 @@ void registerPredefinedTargetVersions() {
       VersionCondition::addPredefinedGlobalIdent("D_SIMD");
     if (traitsTargetHasFeature("avx"))
       VersionCondition::addPredefinedGlobalIdent("D_AVX");
+    if (traitsTargetHasFeature("avx2"))
+      VersionCondition::addPredefinedGlobalIdent("D_AVX2");
   }
   */
 
@@ -918,10 +926,16 @@ void registerPredefinedVersions() {
     VersionCondition::addPredefinedGlobalIdent("D_NoBoundsChecks");
   }
 
+  if (global.params.betterC) {
+    VersionCondition::addPredefinedGlobalIdent("D_BetterC");
+  }
+
   registerPredefinedTargetVersions();
 
-  if (global.params.hasObjectiveC) {
-    VersionCondition::addPredefinedGlobalIdent("D_ObjectiveC");
+  // `D_ObjectiveC` is added by the ddmd.objc.Supported ctor
+
+  if (opts::enableDynamicCompile) {
+    VersionCondition::addPredefinedGlobalIdent("LDC_DynamicCompilation");
   }
 
   // Define sanitizer versions.
@@ -1032,7 +1046,12 @@ int cppmain(int argc, char **argv) {
   {
     llvm::Triple *triple = new llvm::Triple(gTargetMachine->getTargetTriple());
     global.params.targetTriple = triple;
+    global.params.isLinux = triple->isOSLinux();
+    global.params.isOSX = triple->isOSDarwin();
     global.params.isWindows = triple->isOSWindows();
+    global.params.isFreeBSD = triple->isOSFreeBSD();
+    global.params.isOpenBSD = triple->isOSOpenBSD();
+    global.params.isSolaris = triple->isOSSolaris();
     global.params.isLP64 = gDataLayout->getPointerSizeInBits() == 64;
     global.params.is64bit = triple->isArch64Bit();
     global.params.hasObjectiveC = objc_isSupported(*triple);

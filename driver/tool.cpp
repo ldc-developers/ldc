@@ -22,6 +22,12 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
+namespace opts {
+llvm::cl::opt<std::string>
+    linker("linker", llvm::cl::ZeroOrMore, llvm::cl::desc("Linker to use"),
+           llvm::cl::value_desc("lld-link|lld|gold|bfd|..."));
+}
+
 static llvm::cl::opt<std::string>
     gcc("gcc", llvm::cl::desc("GCC to use for assembling and linking"),
         llvm::cl::Hidden, llvm::cl::ZeroOrMore);
@@ -320,7 +326,7 @@ bool setupMsvcEnvironmentImpl() {
 
   const int exitCode = executeAndWait(commandLine.c_str());
   if (exitCode != 0) {
-    error(Loc(), "`%s` failed with status: %d", commandLine.c_str(), exitCode);
+    error(Loc(), "'%s' failed with status: %d", commandLine.c_str(), exitCode);
     llvm::sys::fs::remove(tmpFilePath);
     return false;
   }

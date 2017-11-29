@@ -438,7 +438,7 @@ static LLConstant *build_offti_entry(ClassDeclaration *cd, VarDeclaration *vd) {
   inits[0] = DtoConstSize_t(offset);
 
   // TypeInfo ti;
-  inits[1] = DtoTypeInfoOf(vd->type, true);
+  inits[1] = DtoTypeInfoOf(vd->type);
 
   // done
   return llvm::ConstantStruct::get(inits);
@@ -563,7 +563,7 @@ LLConstant *DtoDefineClassInfo(ClassDeclaration *cd) {
   ClassDeclaration *cinfo = Type::typeinfoclass;
 
   if (cinfo->fields.dim != 12) {
-    error(Loc(), "Unexpected number of fields in object.ClassInfo; "
+    error(Loc(), "Unexpected number of fields in `object.ClassInfo`; "
                  "druntime version does not match compiler (see -v)");
     fatal();
   }

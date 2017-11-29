@@ -1,18 +1,20 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2017 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// Distributed under the Boost Software License, Version 1.0.
-// http://www.boost.org/LICENSE_1_0.txt
+/**
+ * Compiler implementation of the
+ * $(LINK2 http://www.dlang.org, D programming language).
+ *
+ * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
+ * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/dstruct.d, _dstruct.d)
+ */
 
 module ddmd.dstruct;
 
-import core.stdc.stdio;
+// Online documentation: https://dlang.org/phobos/ddmd_dstruct.html
+
 import ddmd.aggregate;
 import ddmd.argtypes;
 import ddmd.arraytypes;
-import ddmd.clone;
 import ddmd.declaration;
 import ddmd.dmodule;
 import ddmd.dscope;
@@ -26,17 +28,19 @@ import ddmd.id;
 import ddmd.identifier;
 import ddmd.mtype;
 import ddmd.opover;
+import ddmd.semantic;
 import ddmd.tokens;
-// IN_LLVM import ddmd.typinf;
+import ddmd.typesem;
+import ddmd.typinf;
 import ddmd.visitor;
 
-version(IN_LLVM) {
-    import gen.typinf;
-}
-
 /***************************************
- * Search toString member function for TypeInfo_Struct.
- *      string toString();
+ * Search sd for a member function of the form:
+ *   `extern (D) string toString();`
+ * Params:
+ *   sd = struct declaration to search
+ * Returns:
+ *   FuncDeclaration of `toString()` if found, `null` if not
  */
 extern (C++) FuncDeclaration search_toString(StructDeclaration sd)
 {
@@ -48,7 +52,7 @@ extern (C++) FuncDeclaration search_toString(StructDeclaration sd)
         if (!tftostring)
         {
             tftostring = new TypeFunction(null, Type.tstring, 0, LINKd);
-            tftostring = cast(TypeFunction)tftostring.merge();
+            tftostring = tftostring.merge().toTypeFunction();
         }
         fd = fd.overloadExactMatch(tftostring);
     }
@@ -56,7 +60,10 @@ extern (C++) FuncDeclaration search_toString(StructDeclaration sd)
 }
 
 /***************************************
- * Request additonal semantic analysis for TypeInfo generation.
+ * Request additional semantic analysis for TypeInfo generation.
+ * Params:
+ *      sc = context
+ *      t = type that TypeInfo is being generated for
  */
 extern (C++) void semanticTypeInfo(Scope* sc, Type t)
 {
@@ -102,6 +109,7 @@ extern (C++) void semanticTypeInfo(Scope* sc, Type t)
 
         override void visit(TypeStruct t)
         {
+            //printf("semanticTypeInfo.visit(TypeStruct = %s)\n", t.toChars());
             StructDeclaration sd = t.sym;
 
             /* Step 1: create TypeInfoDeclaration
@@ -123,7 +131,8 @@ extern (C++) void semanticTypeInfo(Scope* sc, Type t)
                 getTypeInfoType(t, sc);
                 sd.requestTypeInfo = true;
 
-                // Bugzilla 15149, if the typeid operand type comes from a
+                // https://issues.dlang.org/show_bug.cgi?id=15149
+                // if the typeid operand type comes from a
                 // result of auto function, it may be yet speculative.
                 unSpeculative(sc, sd);
             }
@@ -215,6 +224,7 @@ alias ISPODyes = StructPOD.ISPODyes;
 alias ISPODfwd = StructPOD.ISPODfwd;
 
 /***********************************************************
+ * All `struct` declarations are an instance of this.
  */
 extern (C++) class StructDeclaration : AggregateDeclaration
 {
@@ -242,226 +252,32 @@ extern (C++) class StructDeclaration : AggregateDeclaration
     // For those, today TypeInfo_Struct is generated in COMDAT.
     bool requestTypeInfo;
 
-    final extern (D) this(Loc loc, Identifier id)
+    final extern (D) this(Loc loc, Identifier id, bool inObject)
     {
         super(loc, id);
         zeroInit = 0; // assume false until we do semantic processing
         ispod = ISPODfwd;
         // For forward references
         type = new TypeStruct(this);
-        if (id == Id.ModuleInfo && !Module.moduleinfo)
-            Module.moduleinfo = this;
+
+        if (inObject)
+        {
+            if (id == Id.ModuleInfo && !Module.moduleinfo)
+                Module.moduleinfo = this;
+        }
+    }
+
+    static StructDeclaration create(Loc loc, Identifier id, bool inObject)
+    {
+        return new StructDeclaration(loc, id, inObject);
     }
 
     override Dsymbol syntaxCopy(Dsymbol s)
     {
         StructDeclaration sd =
             s ? cast(StructDeclaration)s
-              : new StructDeclaration(loc, ident);
+              : new StructDeclaration(loc, ident, false);
         return ScopeDsymbol.syntaxCopy(sd);
-    }
-
-    override final void semantic(Scope* sc)
-    {
-        //printf("StructDeclaration::semantic(this=%p, '%s', sizeok = %d)\n", this, toPrettyChars(), sizeok);
-
-        //static int count; if (++count == 20) assert(0);
-
-        if (semanticRun >= PASSsemanticdone)
-            return;
-        int errors = global.errors;
-
-        //printf("+StructDeclaration::semantic(this=%p, '%s', sizeok = %d)\n", this, toPrettyChars(), sizeok);
-        Scope* scx = null;
-        if (_scope)
-        {
-            sc = _scope;
-            scx = _scope; // save so we don't make redundant copies
-            _scope = null;
-        }
-
-        if (!parent)
-        {
-            assert(sc.parent && sc.func);
-            parent = sc.parent;
-        }
-        assert(parent && !isAnonymous());
-
-        if (this.errors)
-            type = Type.terror;
-        type = type.semantic(loc, sc);
-        if (type.ty == Tstruct && (cast(TypeStruct)type).sym != this)
-        {
-            auto ti = (cast(TypeStruct)type).sym.isInstantiated();
-            if (ti && isError(ti))
-                (cast(TypeStruct)type).sym = this;
-        }
-
-        // Ungag errors when not speculative
-        Ungag ungag = ungagSpeculative();
-
-        if (semanticRun == PASSinit)
-        {
-            protection = sc.protection;
-
-            alignment = sc.alignment();
-
-            storage_class |= sc.stc;
-            if (storage_class & STCdeprecated)
-                isdeprecated = true;
-            if (storage_class & STCabstract)
-                error("structs, unions cannot be abstract");
-
-            userAttribDecl = sc.userAttribDecl;
-        }
-        else if (symtab && !scx)
-        {
-            semanticRun = PASSsemanticdone;
-            return;
-        }
-        semanticRun = PASSsemantic;
-
-        if (!members) // if opaque declaration
-        {
-            semanticRun = PASSsemanticdone;
-            return;
-        }
-        if (!symtab)
-        {
-            symtab = new DsymbolTable();
-
-            for (size_t i = 0; i < members.dim; i++)
-            {
-                auto s = (*members)[i];
-                //printf("adding member '%s' to '%s'\n", s.toChars(), this.toChars());
-                s.addMember(sc, this);
-            }
-        }
-
-        auto sc2 = newScope(sc);
-
-        /* Set scope so if there are forward references, we still might be able to
-         * resolve individual members like enums.
-         */
-        for (size_t i = 0; i < members.dim; i++)
-        {
-            auto s = (*members)[i];
-            //printf("struct: setScope %s %s\n", s.kind(), s.toChars());
-            s.setScope(sc2);
-        }
-
-        for (size_t i = 0; i < members.dim; i++)
-        {
-            auto s = (*members)[i];
-            s.importAll(sc2);
-        }
-
-        for (size_t i = 0; i < members.dim; i++)
-        {
-            auto s = (*members)[i];
-            s.semantic(sc2);
-        }
-
-        if (!determineFields())
-        {
-            assert(type.ty == Terror);
-            sc2.pop();
-            return;
-        }
-        /* Following special member functions creation needs semantic analysis
-         * completion of sub-structs in each field types. For example, buildDtor
-         * needs to check existence of elaborate dtor in type of each fields.
-         * See the case in compilable/test14838.d
-         */
-        foreach (v; fields)
-        {
-            Type tb = v.type.baseElemOf();
-            if (tb.ty != Tstruct)
-                continue;
-            auto sd = (cast(TypeStruct)tb).sym;
-            if (sd.semanticRun >= PASSsemanticdone)
-                continue;
-
-            sc2.pop();
-
-            _scope = scx ? scx : sc.copy();
-            _scope.setNoFree();
-            _scope._module.addDeferredSemantic(this);
-            //printf("\tdeferring %s\n", toChars());
-            return;
-        }
-
-        /* Look for special member functions.
-         */
-        aggNew = cast(NewDeclaration)search(Loc(), Id.classNew);
-        aggDelete = cast(DeleteDeclaration)search(Loc(), Id.classDelete);
-
-        // Look for the constructor
-        ctor = searchCtor();
-
-        dtor = buildDtor(this, sc2);
-        postblit = buildPostBlit(this, sc2);
-
-        buildOpAssign(this, sc2);
-        buildOpEquals(this, sc2);
-
-        xeq = buildXopEquals(this, sc2);
-        xcmp = buildXopCmp(this, sc2);
-        xhash = buildXtoHash(this, sc2);
-
-        inv = buildInv(this, sc2);
-
-        Module.dprogress++;
-        semanticRun = PASSsemanticdone;
-        //printf("-StructDeclaration::semantic(this=%p, '%s')\n", this, toChars());
-
-        sc2.pop();
-
-        if (ctor)
-        {
-            Dsymbol scall = search(Loc(), Id.call);
-            if (scall)
-            {
-                uint xerrors = global.startGagging();
-                sc = sc.push();
-                sc.tinst = null;
-                sc.minst = null;
-                auto fcall = resolveFuncCall(loc, sc, scall, null, null, null, 1);
-                sc = sc.pop();
-                global.endGagging(xerrors);
-
-                if (fcall && fcall.isStatic())
-                {
-                    error(fcall.loc, "static opCall is hidden by constructors and can never be called");
-                    errorSupplemental(fcall.loc, "Please use a factory method instead, or replace all constructors with static opCall.");
-                }
-            }
-        }
-
-        if (global.errors != errors)
-        {
-            // The type is no good.
-            type = Type.terror;
-            this.errors = true;
-            if (deferred)
-                deferred.errors = true;
-        }
-
-        if (deferred && !global.gag)
-        {
-            deferred.semantic2(sc);
-            deferred.semantic3(sc);
-        }
-
-        version (none)
-        {
-            if (type.ty == Tstruct && (cast(TypeStruct)type).sym != this)
-            {
-                printf("this = %p %s\n", this, this.toChars());
-                printf("type = %d sym = %p\n", type.ty, (cast(TypeStruct)type).sym);
-            }
-        }
-        assert(type.ty != Tstruct || (cast(TypeStruct)type).sym == this);
     }
 
     final void semanticTypeInfoMembers()
@@ -520,7 +336,7 @@ extern (C++) class StructDeclaration : AggregateDeclaration
     {
         //printf("%s.StructDeclaration::search('%s', flags = x%x)\n", toChars(), ident.toChars(), flags);
         if (_scope && !symtab)
-            semantic(_scope);
+            semantic(this, _scope);
 
         if (!members || !symtab) // opaque or semantic() is not yet called
         {
@@ -575,8 +391,15 @@ extern (C++) class StructDeclaration : AggregateDeclaration
 
         //printf("-StructDeclaration::finalizeSize() %s, fields.dim = %d, structsize = %d\n", toChars(), fields.dim, structsize);
 
+        if (errors)
+            return;
+
         // Calculate fields[i].overlapped
-        checkOverlappedFields();
+        if (checkOverlappedFields())
+        {
+            errors = true;
+            return;
+        }
 
         // Determine if struct is all zeros or not
         zeroInit = 1;
@@ -607,14 +430,16 @@ extern (C++) class StructDeclaration : AggregateDeclaration
     }
 
     /***************************************
-     * Fit elements[] to the corresponding type of field[].
-     * Input:
-     *      loc
-     *      sc
-     *      elements    The explicit arguments that given to construct object.
-     *      stype       The constructed object type.
-     * Returns false if any errors occur.
-     * Otherwise, returns true and elements[] are rewritten for the output.
+     * Fit elements[] to the corresponding types of the struct's fields.
+     *
+     * Params:
+     *      loc = location to use for error messages
+     *      sc = context
+     *      elements = explicit arguments used to construct object
+     *      stype = the constructed object type.
+     * Returns:
+     *      false if any errors occur,
+     *      otherwise true and elements[] are rewritten for the output.
      */
     final bool fit(Loc loc, Scope* sc, Expressions* elements, Type stype)
     {
@@ -697,12 +522,18 @@ extern (C++) class StructDeclaration : AggregateDeclaration
     }
 
     /***************************************
-     * Return true if struct is POD (Plain Old Data).
-     * This is defined as:
-     *      not nested
-     *      no postblits, destructors, or assignment operators
-     *      no 'ref' fields or fields that are themselves non-POD
+     * Determine if struct is POD (Plain Old Data).
+     *
+     * POD is defined as:
+     *      $(OL
+     *      $(LI not nested)
+     *      $(LI no postblits, destructors, or assignment operators)
+     *      $(LI no `ref` fields or fields that are themselves non-POD)
+     *      )
      * The idea being these are compatible with C structs.
+     *
+     * Returns:
+     *     true if struct is POD
      */
     final bool isPOD()
     {
@@ -753,12 +584,13 @@ extern (C++) class StructDeclaration : AggregateDeclaration
 }
 
 /***********************************************************
+ * Unions are a variation on structs.
  */
 extern (C++) final class UnionDeclaration : StructDeclaration
 {
     extern (D) this(Loc loc, Identifier id)
     {
-        super(loc, id);
+        super(loc, id, false);
     }
 
     override Dsymbol syntaxCopy(Dsymbol s)

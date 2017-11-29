@@ -23,6 +23,7 @@
 #include "aggregate.h"
 #include "root.h"
 #include "gen/dibuilder.h"
+#include "gen/objcgen.h"
 #include "ir/iraggr.h"
 #include "ir/irvar.h"
 #include "llvm/ADT/StringMap.h"
@@ -105,7 +106,7 @@ struct IRAsmBlock {
         retfixup(nullptr) {}
 };
 
-// represents the module
+// represents the LLVM module (object file)
 struct IRState {
 private:
   std::vector<std::pair<llvm::GlobalVariable *, llvm::Constant *>>
@@ -121,9 +122,11 @@ public:
   llvm::Module module;
   llvm::LLVMContext &context() const { return module.getContext(); }
 
-  Module *dmodule;
+  Module *dmodule = nullptr;
 
-  LLStructType *moduleRefType;
+  LLStructType *moduleRefType = nullptr;
+
+  ObjCState objc;
 
   // Stack of currently codegen'd functions (more than one for lambdas or other
   // nested functions, inlining-only codegen'ing, etc.), and some convenience
@@ -136,7 +139,7 @@ public:
 
   // The function containing the D main() body, if any (not the actual main()
   // implicitly emitted).
-  llvm::Function *mainFunc;
+  llvm::Function *mainFunc = nullptr;
 
   // basic block scopes
   std::vector<IRScope> scopes;
@@ -186,7 +189,7 @@ public:
   llvm::IndexedInstrProfReader *getPGOReader() const { return PGOReader.get(); }
 
   // for inline asm
-  IRAsmBlock *asmBlock;
+  IRAsmBlock *asmBlock = nullptr;
   std::ostringstream nakedAsm;
 
   // Globals to pin in the llvm.used array to make sure they are not
@@ -219,6 +222,17 @@ public:
   // setGlobalVarInitializer().
   void replaceGlobals();
 
+  // List of functions with cpu or features attributes overriden by user
+  std::vector<IrFunction *> targetCpuOrFeaturesOverridden;
+
+  struct RtCompiledFuncDesc {
+    llvm::GlobalVariable *thunkVar;
+    llvm::Function *thunkFunc;
+  };
+
+  std::map<llvm::Function *, RtCompiledFuncDesc> dynamicCompiledFunctions;
+  std::set<IrGlobal *> dynamicCompiledVars;
+
 /// Vector of options passed to the linker as metadata in object file.
 #if LDC_LLVM_VER >= 500
   llvm::SmallVector<llvm::MDNode *, 5> LinkerMetadataArgs;
@@ -232,8 +246,8 @@ public:
   llvm::DenseMap<llvm::Constant *, llvm::GlobalVariable *> TypeDescriptorMap;
 #endif
 
-  //Target for dcompute. If not nullptr, it owns this.
-  DComputeTarget *dcomputetarget;
+  // Target for dcompute. If not nullptr, it owns this.
+  DComputeTarget *dcomputetarget = nullptr;
 };
 
 void Statement_toIR(Statement *s, IRState *irs);

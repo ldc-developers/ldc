@@ -2,13 +2,15 @@
  * Compiler implementation of the
  * $(LINK2 http://www.dlang.org, D programming language).
  *
- * Copyright:   Copyright (c) 1999-2016 by Digital Mars, All Rights Reserved
+ * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _blockexit.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/blockexit.d, _blockexit.d)
  */
 
 module ddmd.blockexit;
+
+// Online documentation: https://dlang.org/phobos/ddmd_blockexit.html
 
 import core.stdc.stdio;
 
@@ -192,6 +194,18 @@ int blockExit(Statement s, FuncDeclaration func, bool mustNotThrow)
         {
             //printf("ScopeStatement::blockExit(%p)\n", s.statement);
             result = blockExit(s.statement, func, mustNotThrow);
+        }
+
+        override void visit(ForwardingStatement s)
+        {
+            if (s.statement)
+            {
+                s.statement.accept(this);
+            }
+            else
+            {
+                result = BEfallthru;
+            }
         }
 
         override void visit(WhileStatement s)
@@ -403,7 +417,8 @@ int blockExit(Statement s, FuncDeclaration func, bool mustNotThrow)
                 Identifier id = c.type.toBasetype().isClassHandle().ident;
                 if (c.internalCatch && (cresult & BEfallthru))
                 {
-                    // Bugzilla 11542: leave blockExit flags of the body
+                    // https://issues.dlang.org/show_bug.cgi?id=11542
+                    // leave blockExit flags of the body
                     cresult &= ~BEfallthru;
                 }
                 else if (id == Id.Object || id == Id.Throwable)
@@ -452,7 +467,8 @@ int blockExit(Statement s, FuncDeclaration func, bool mustNotThrow)
 
             version (none)
             {
-                // Bugzilla 13201: Mask to prevent spurious warnings for
+                // https://issues.dlang.org/show_bug.cgi?id=13201
+                // Mask to prevent spurious warnings for
                 // destructor call, exit of synchronized statement, etc.
                 if (result == BEhalt && finalresult != BEhalt && s.finalbody && s.finalbody.hasCode())
                 {
@@ -475,7 +491,8 @@ int blockExit(Statement s, FuncDeclaration func, bool mustNotThrow)
         {
             if (s.internalThrow)
             {
-                // Bugzilla 8675: Allow throwing 'Throwable' object even if mustNotThrow.
+                // https://issues.dlang.org/show_bug.cgi?id=8675
+                // Allow throwing 'Throwable' object even if mustNotThrow.
                 result = BEfallthru;
                 return;
             }
@@ -490,7 +507,7 @@ int blockExit(Statement s, FuncDeclaration func, bool mustNotThrow)
                 return;
             }
             if (mustNotThrow)
-                s.error("%s is thrown but not caught", s.exp.type.toChars());
+                s.error("`%s` is thrown but not caught", s.exp.type.toChars());
 
             result = BEthrow;
         }
@@ -512,7 +529,7 @@ int blockExit(Statement s, FuncDeclaration func, bool mustNotThrow)
         override void visit(CompoundAsmStatement s)
         {
             if (mustNotThrow && !(s.stc & STCnothrow))
-                s.deprecation("asm statement is assumed to throw - mark it with 'nothrow' if it does not");
+                s.deprecation("asm statement is assumed to throw - mark it with `nothrow` if it does not");
 
             // Assume the worst
             result = BEfallthru | BEreturn | BEgoto | BEhalt;

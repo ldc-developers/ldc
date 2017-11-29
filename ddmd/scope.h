@@ -67,6 +67,7 @@ enum PINLINE;
 #define SCOPEctfe           0x0080  // inside a ctfe-only expression
 #define SCOPEcompile        0x0100  // inside __traits(compile)
 #define SCOPEignoresymbolvisibility 0x0200  // ignore symbol visibility (Bugzilla 15907)
+#define SCOPEfullinst       0x1000  // fully instantiate templates
 
 #define SCOPEfree           0x8000  // is on free list
 
@@ -156,6 +157,7 @@ struct Scope
     Dsymbol *search(Loc loc, Identifier *ident, Dsymbol **pscopesym, int flags = IgnoreNone);
     static void deprecation10378(Loc loc, Dsymbol *sold, Dsymbol *snew);
     Dsymbol *search_correct(Identifier *ident);
+    static const char *search_correct_C(Identifier *ident);
     Dsymbol *insert(Dsymbol *s);
 
     ClassDeclaration *getClassScope();

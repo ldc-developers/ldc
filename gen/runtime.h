@@ -30,8 +30,7 @@ void freeRuntime();
 llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
                                    const char *name);
 
-llvm::GlobalVariable *getRuntimeGlobal(const Loc &loc, llvm::Module &target,
-                                       const char *name);
+llvm::Function *getCAssertFunction(const Loc &loc, llvm::Module &target);
 
 void emitInstrumentationFnEnter(FuncDeclaration *decl);
 void emitInstrumentationFnLeave(FuncDeclaration *decl);

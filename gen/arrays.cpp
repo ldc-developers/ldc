@@ -1266,7 +1266,7 @@ DValue *DtoCastArray(Loc &loc, DValue *u, Type *to) {
   Type *totype = to->toBasetype();
   Type *fromtype = u->type->toBasetype();
   if (fromtype->ty != Tarray && fromtype->ty != Tsarray) {
-    error(loc, "can't cast %s to %s", u->type->toChars(), to->toChars());
+    error(loc, "can't cast `%s` to `%s`", u->type->toChars(), to->toChars());
     fatal();
   }
 
@@ -1297,7 +1297,7 @@ DValue *DtoCastArray(Loc &loc, DValue *u, Type *to) {
               totype->nextOf()->size() !=
           0) {
         error(loc,
-              "invalid cast from '%s' to '%s', the element sizes don't line up",
+              "invalid cast from `%s` to `%s`, the element sizes don't line up",
               fromtype->toChars(), totype->toChars());
         fatal();
       }
@@ -1377,12 +1377,17 @@ void DtoIndexBoundsCheck(Loc &loc, DValue *arr, DValue *index) {
 }
 
 void DtoBoundsCheckFailCall(IRState *irs, Loc &loc) {
-  llvm::Function *errorfn =
-      getRuntimeFunction(loc, irs->module, "_d_arraybounds");
-  irs->CreateCallOrInvoke(
-      errorfn, DtoModuleFileName(irs->func()->decl->getModule(), loc),
-      DtoConstUint(loc.linnum));
+  Module *const module = irs->func()->decl->getModule();
 
-  // the function does not return
-  irs->ir->CreateUnreachable();
+  if (global.params.betterC) {
+    DtoCAssert(module, loc, DtoConstCString("array overflow"));
+  } else {
+    llvm::Function *errorfn =
+        getRuntimeFunction(loc, irs->module, "_d_arraybounds");
+    irs->CreateCallOrInvoke(errorfn, DtoModuleFileName(module, loc),
+                            DtoConstUint(loc.linnum));
+
+    // the function does not return
+    irs->ir->CreateUnreachable();
+  }
 }

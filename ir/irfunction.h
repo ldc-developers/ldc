@@ -81,6 +81,19 @@ struct IrFunction {
   /// These are set e.g. by math related UDA's from ldc.attributes.
   llvm::FastMathFlags FMF;
 
+  /// target CPU was overriden by attribute
+  bool targetCpuOverridden = false;
+
+  /// target features was overriden by attributes
+  bool targetFeaturesOverridden = false;
+
+  /// This functions was marked for dynamic compilation
+  bool dynamicCompile = false;
+
+  /// Dynamic compilation thunk, all attempts to call or take address of the
+  /// original function will be redirected to it
+  llvm::Function *rtCompileFunc = nullptr;
+
 private:
   llvm::Function *func = nullptr;
 };

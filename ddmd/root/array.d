@@ -1,12 +1,16 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2017 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// Distributed under the Boost Software License, Version 1.0.
-// http://www.boost.org/LICENSE_1_0.txt
+/**
+ * Compiler implementation of the
+ * $(LINK2 http://www.dlang.org, D programming language).
+ *
+ * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
+ * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/root/array.d, root/_array.d)
+ */
 
 module ddmd.root.array;
+
+// Online documentation: https://dlang.org/phobos/ddmd_root_array.html
 
 import core.stdc.string;
 
@@ -103,7 +107,12 @@ public:
             }
             else
             {
-                allocdim = dim + nentries;
+                /* Increase size by 1.5x to avoid excessive memory fragmentation
+                 */
+                auto increment = dim / 2;
+                if (nentries > increment)       // if 1.5 is not enough
+                    increment = nentries;
+                allocdim = dim + increment;
                 data = cast(T*)mem.xrealloc(data, allocdim * (*data).sizeof);
             }
         }

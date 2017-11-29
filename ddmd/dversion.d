@@ -5,16 +5,19 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _dversion.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/dversion.d, _dversion.d)
  */
 
 module ddmd.dversion;
+
+// Online documentation: https://dlang.org/phobos/ddmd_dversion.html
 
 import ddmd.arraytypes;
 import ddmd.cond;
 import ddmd.dmodule;
 import ddmd.dscope;
 import ddmd.dsymbol;
+import ddmd.dsymbolsem;
 import ddmd.globals;
 import ddmd.identifier;
 import ddmd.root.outbuffer;
@@ -98,11 +101,6 @@ extern (C++) final class DebugSymbol : Dsymbol
         }
     }
 
-    override void semantic(Scope* sc)
-    {
-        //printf("DebugSymbol::semantic() %s\n", toChars());
-    }
-
     override const(char)* kind() const
     {
         return "debug";
@@ -138,8 +136,8 @@ extern (C++) final class VersionSymbol : Dsymbol
     override Dsymbol syntaxCopy(Dsymbol s)
     {
         assert(!s);
-        auto ds = new VersionSymbol(loc, ident);
-        ds.level = level;
+        auto ds = ident ? new VersionSymbol(loc, ident)
+                        : new VersionSymbol(loc, level);
         return ds;
     }
 
@@ -191,10 +189,6 @@ extern (C++) final class VersionSymbol : Dsymbol
             else
                 m.versionlevel = level;
         }
-    }
-
-    override void semantic(Scope* sc)
-    {
     }
 
     override const(char)* kind() const

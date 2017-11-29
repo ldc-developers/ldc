@@ -44,6 +44,7 @@
 #include <stack>
 
 #include "llvm/Support/CommandLine.h"
+#include "gen/dynamiccompile.h"
 
 llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel(
     "fthread-model", llvm::cl::ZeroOrMore, llvm::cl::desc("Thread model"),
@@ -278,11 +279,42 @@ void DtoAssert(Module *M, Loc &loc, DValue *msg) {
   gIR->ir->CreateUnreachable();
 }
 
+void DtoCAssert(Module *M, Loc &loc, LLValue *msg) {
+  const auto file = DtoConstCString(loc.filename ? loc.filename
+                                                 : M->srcfile->name->toChars());
+  const auto line = DtoConstUint(loc.linnum);
+  const auto fn = getCAssertFunction(loc, gIR->module);
+
+  llvm::SmallVector<LLValue *, 4> args;
+  if (global.params.targetTriple->isOSDarwin()) {
+    const auto irFunc = gIR->func();
+    const auto funcName =
+        irFunc && irFunc->decl ? irFunc->decl->toPrettyChars() : "";
+    args.push_back(DtoConstCString(funcName));
+    args.push_back(file);
+    args.push_back(line);
+    args.push_back(msg);
+  } else if (global.params.targetTriple->getEnvironment() ==
+             llvm::Triple::Android) {
+    args.push_back(file);
+    args.push_back(line);
+    args.push_back(msg);
+  } else {
+    args.push_back(msg);
+    args.push_back(file);
+    args.push_back(line);
+  }
+
+  gIR->funcGen().callOrInvoke(fn, args);
+
+  gIR->ir->CreateUnreachable();
+}
+
 /******************************************************************************
  * MODULE FILE NAME
  ******************************************************************************/
 
-LLValue *DtoModuleFileName(Module *M, const Loc &loc) {
+LLConstant *DtoModuleFileName(Module *M, const Loc &loc) {
   return DtoConstString(loc.filename ? loc.filename
                                      : M->srcfile->name->toChars());
 }
@@ -296,7 +328,7 @@ void DtoGoto(Loc &loc, LabelDsymbol *target) {
 
   LabelStatement *lblstmt = target->statement;
   if (!lblstmt) {
-    error(loc, "the label %s does not exist", target->ident->toChars());
+    error(loc, "the label `%s` does not exist", target->ident->toChars());
     fatal();
   }
 
@@ -412,7 +444,7 @@ DValue *DtoNullValue(Type *type, Loc loc) {
     LLValue *ptr = getNullPtr(DtoPtrToType(basetype->nextOf()));
     return new DSliceValue(type, len, ptr);
   }
-  error(loc, "null not known for type '%s'", type->toChars());
+  error(loc, "`null` not known for type `%s`", type->toChars());
   fatal();
 }
 
@@ -463,7 +495,7 @@ DValue *DtoCastInt(Loc &loc, DValue *val, Type *_to) {
     IF_LOG Logger::cout() << "cast pointer: " << *tolltype << '\n';
     rval = gIR->ir->CreateIntToPtr(rval, tolltype);
   } else {
-    error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
+    error(loc, "invalid cast from `%s` to `%s`", val->type->toChars(),
           _to->toChars());
     fatal();
   }
@@ -495,7 +527,7 @@ DValue *DtoCastPtr(Loc &loc, DValue *val, Type *to) {
   } else if (totype->isintegral()) {
     rval = new llvm::PtrToIntInst(DtoRVal(val), tolltype, "", gIR->scopebb());
   } else {
-    error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
+    error(loc, "invalid cast from `%s` to `%s`", val->type->toChars(),
           to->toChars());
     fatal();
   }
@@ -534,7 +566,7 @@ DValue *DtoCastFloat(Loc &loc, DValue *val, Type *to) {
     } else if (fromsz > tosz) {
       rval = new llvm::FPTruncInst(DtoRVal(val), tolltype, "", gIR->scopebb());
     } else {
-      error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
+      error(loc, "invalid cast from `%s` to `%s`", val->type->toChars(),
             to->toChars());
       fatal();
     }
@@ -545,7 +577,7 @@ DValue *DtoCastFloat(Loc &loc, DValue *val, Type *to) {
       rval = new llvm::FPToSIInst(DtoRVal(val), tolltype, "", gIR->scopebb());
     }
   } else {
-    error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
+    error(loc, "invalid cast from `%s` to `%s`", val->type->toChars(),
           to->toChars());
     fatal();
   }
@@ -561,7 +593,7 @@ DValue *DtoCastDelegate(Loc &loc, DValue *val, Type *to) {
     return new DImValue(to,
                         DtoDelegateEquals(TOKnotequal, DtoRVal(val), nullptr));
   }
-  error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
+  error(loc, "invalid cast from `%s` to `%s`", val->type->toChars(),
         to->toChars());
   fatal();
 }
@@ -593,7 +625,7 @@ DValue *DtoCastVector(Loc &loc, DValue *val, Type *to) {
   if (totype->ty == Tvector && to->size() == val->type->size()) {
     return new DImValue(to, DtoBitCast(DtoRVal(val), tolltype));
   }
-  error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
+  error(loc, "invalid cast from `%s` to `%s`", val->type->toChars(),
         to->toChars());
   fatal();
 }
@@ -610,7 +642,7 @@ DValue *DtoCastStruct(Loc &loc, DValue *val, Type *to) {
     return new DLValue(to, result);
   }
 
-  error(loc, "Internal Compiler Error: Invalid struct cast from '%s' to '%s'",
+  error(loc, "Internal Compiler Error: Invalid struct cast from `%s` to `%s`",
         val->type->toChars(), to->toChars());
   fatal();
 }
@@ -679,7 +711,7 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
     }
   // fall-through
   default:
-    error(loc, "invalid cast from '%s' to '%s'", val->type->toChars(),
+    error(loc, "invalid cast from `%s` to `%s`", val->type->toChars(),
           to->toChars());
     fatal();
   }
@@ -834,7 +866,7 @@ void DtoResolveVariable(VarDeclaration *vd) {
     if (gIR->dmodule) {
       vd->ir->setInitialized();
     }
-    std::string llName(getMangledName(vd));
+    const auto irMangle = getIRMangledName(vd);
 
     // Since the type of a global must exactly match the type of its
     // initializer, we cannot know the type until after we have emitted the
@@ -855,8 +887,9 @@ void DtoResolveVariable(VarDeclaration *vd) {
 
     llvm::GlobalVariable *gvar =
         getOrCreateGlobal(vd->loc, gIR->module, DtoMemType(vd->type), isLLConst,
-                          linkage, nullptr, llName, vd->isThreadlocal());
-    getIrGlobal(vd)->value = gvar;
+                          linkage, nullptr, irMangle, vd->isThreadlocal());
+    auto varIr = getIrGlobal(vd);
+    varIr->value = gvar;
 
     // Set the alignment (it is important not to use type->alignsize because
     // VarDeclarations can have an align() attribute independent of the type
@@ -872,6 +905,9 @@ void DtoResolveVariable(VarDeclaration *vd) {
     */
 
     applyVarDeclUDAs(vd, gvar);
+    if (varIr->dynamicCompileConst) {
+      addDynamicCompiledVar(gIR, varIr);
+    }
 
     IF_LOG Logger::cout() << *gvar << '\n';
   }
@@ -1210,9 +1246,7 @@ LLConstant *DtoTypeInfoOf(Type *type, bool base) {
                          type->toChars(), base);
   LOG_SCOPE
 
-  type = type->merge2(); // needed.. getTypeInfo does the same
-  getTypeInfoType(type, nullptr);
-  TypeInfoDeclaration *tidecl = type->vtinfo;
+  TypeInfoDeclaration *tidecl = getOrCreateTypeInfoDeclaration(type, nullptr);
   assert(tidecl);
   Declaration_codegen(tidecl);
   assert(getIrGlobal(tidecl)->value != NULL);
@@ -1243,7 +1277,8 @@ static char *DtoOverloadedIntrinsicName(TemplateInstance *ti,
 
   char prefix = T->isreal() ? 'f' : T->isintegral() ? 'i' : 0;
   if (!prefix) {
-    ti->error("has invalid template parameter for intrinsic: %s", T->toChars());
+    ti->error("has invalid template parameter for intrinsic: `%s`",
+              T->toChars());
     fatal(); // or LLVM asserts
   }
 
@@ -1269,13 +1304,13 @@ static char *DtoOverloadedIntrinsicName(TemplateInstance *ti,
     } else {
       if (pos && (name[pos - 1] == 'i' || name[pos - 1] == 'f')) {
         // Wrong type character.
-        ti->error(
-            "has invalid parameter type for intrinsic %s: %s is not a%s type",
-            name.c_str(), T->toChars(),
-            (name[pos - 1] == 'i' ? "n integral" : " floating-point"));
+        ti->error("has invalid parameter type for intrinsic `%s`: `%s` is not "
+                  "a%s type",
+                  name.c_str(), T->toChars(),
+                  (name[pos - 1] == 'i' ? "n integral" : " floating-point"));
       } else {
         // Just plain wrong. (Error in declaration, not instantiation)
-        td->error("has an invalid intrinsic name: %s", name.c_str());
+        td->error("has an invalid intrinsic name: `%s`", name.c_str());
       }
       fatal(); // or LLVM asserts
     }
@@ -1357,7 +1392,7 @@ void callPostblit(Loc &loc, Expression *exp, LLValue *val) {
       FuncDeclaration *fd = sd->postblit;
       if (fd->storage_class & STCdisable) {
         fd->toParent()->error(
-            loc, "is not copyable because it is annotated with @disable");
+            loc, "is not copyable because it is annotated with `@disable`");
       }
       DtoResolveFunction(fd);
       Expressions args;
@@ -1482,7 +1517,7 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
 
     // this is an error! must be accessed with DotVarExp
     if (vd->needThis()) {
-      error(loc, "need 'this' to access member %s", vd->toChars());
+      error(loc, "need `this` to access member `%s`", vd->toChars());
       fatal();
     }
 
@@ -1612,7 +1647,7 @@ llvm::Constant *DtoConstSymbolAddress(Loc &loc, Declaration *decl) {
   // TODO: This check really does not belong here, should be moved to
   // semantic analysis in the frontend.
   if (decl->needThis()) {
-    error(loc, "need 'this' to access %s", decl->toChars());
+    error(loc, "need `this` to access `%s`", decl->toChars());
     fatal();
   }
 
@@ -1624,7 +1659,7 @@ llvm::Constant *DtoConstSymbolAddress(Loc &loc, Declaration *decl) {
       // AssocArrayLiteralExp::toElem, which requires on error
       // gagging to check for constantness of the initializer.
       error(loc,
-            "cannot use address of non-global variable '%s' as constant "
+            "cannot use address of non-global variable `%s` as constant "
             "initializer",
             vd->toChars());
       if (!global.gag) {
@@ -1694,7 +1729,7 @@ llvm::GlobalVariable *getOrCreateGlobal(const Loc &loc, llvm::Module &module,
     if (existing->getType()->getElementType() != type) {
       error(loc,
             "Global variable type does not match previous declaration with "
-            "same mangled name: %s",
+            "same mangled name: `%s`",
             name.str().c_str());
       fatal();
     }

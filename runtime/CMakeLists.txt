@@ -135,6 +135,7 @@ get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT
 set(RUNTIME_DIR ${PROJECT_SOURCE_DIR}/druntime CACHE PATH "druntime root directory")
 set(PHOBOS2_DIR ${PROJECT_SOURCE_DIR}/phobos CACHE PATH "Phobos root directory")
 set(PROFILERT_DIR ${PROJECT_SOURCE_DIR}/profile-rt CACHE PATH "profile-rt root directory")
+set(JITRT_DIR ${PROJECT_SOURCE_DIR}/jit-rt CACHE PATH "jit runtime root directory")
 
 #
 # Gather source files.
@@ -522,8 +523,11 @@ macro(build_runtime_libs druntime_o druntime_bc phobos2_o phobos2_bc c_flags ld_
         set_common_library_properties(phobos2-ldc${target_suffix} "${is_shared}")
 
         if("${is_shared}" STREQUAL "ON")
+            # Make sure to link shared unittest-Phobos against shared NON-unittest-druntime
+            # in order to exclude the druntime tests for the Phobos test runner.
+            string(REPLACE "-unittest" "" target_suffix_without_unittest "${target_suffix}")
             target_link_libraries(phobos2-ldc${target_suffix}
-                druntime-ldc${target_suffix} ${C_SYSTEM_LIBS})
+                druntime-ldc${target_suffix_without_unittest} ${C_SYSTEM_LIBS})
         endif()
 
         list(APPEND ${outlist_targets} "phobos2-ldc${target_suffix}")
@@ -637,8 +641,12 @@ macro(build_all_runtime_variants d_flags c_flags ld_flags path_suffix outlist_ta
     endif()
 endmacro()
 
+
 # Setup the build of profile-rt
 include(profile-rt/DefineBuildProfileRT.cmake)
+
+# Setup the build of jit runtime
+include(jit-rt/DefineBuildJitRT.cmake)
 
 #
 # Set up build and install targets
@@ -654,6 +662,9 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
     set(libtargets)
     build_all_runtime_variants("" "${RT_CFLAGS}" "${LD_FLAGS}" "${hostsuffix}" libtargets)
     build_all_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}" libtargets)
+
+    # Do not build multilib version of jit runtime
+    build_jit_runtime ("${D_FLAGS};${D_FLAGS_RELEASE}" "${RT_CFLAGS}" "${LD_FLAGS}" "${hostsuffix}" libtargets)
 
     # KLUDGE: Cannot use `$<TARGET_LINKER_FILE:target>` in custom command.
     # Set up the list of generated libs (without 'lib' prefix) to be merged manually.
@@ -694,6 +705,10 @@ else()
     set(libs_to_install)
     build_all_runtime_variants("" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libs_to_install)
 
+    set(libs_to_install_no_multilib)
+    # Do not build multilib version of jit runtime
+    build_jit_runtime ("${D_FLAGS};${D_FLAGS_RELEASE}" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libs_to_install_no_multilib)
+
     # don't add multilib targets to libs_to_install
     if(MULTILIB)
         build_all_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}" dummy)
@@ -706,6 +721,11 @@ else()
             install(TARGETS     ${libname}_${MULTILIB_SUFFIX}
                     DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX})
         endif()
+    endforeach()
+
+    foreach(libname ${libs_to_install_no_multilib})
+        install(TARGETS     ${libname}
+                DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
     endforeach()
 endif()
 
@@ -744,7 +764,8 @@ macro(append_testrunner_linkflags libname path_suffix is_shared output_flags)
             append("msvcrt.lib vcruntime.lib" ${output_flags})
         else()
             # the MS linker supports /WHOLEARCHIVE since VS 2015 Update 2
-            append("/WHOLEARCHIVE:${tested_lib_path}" ${output_flags})
+            string(REPLACE "/" "\\" tested_lib_winpath ${tested_lib_path})
+            append("/WHOLEARCHIVE:${tested_lib_winpath}" ${output_flags})
             append("libcmt.lib libvcruntime.lib" ${output_flags})
         endif()
     else()
@@ -808,7 +829,7 @@ function(build_test_runners name_suffix path_suffix d_flags c_flags linkflags is
     if(PHOBOS2_DIR)
         set(phobos_name phobos2-test-runner${target_suffix})
         add_executable(${phobos_name} EXCLUDE_FROM_ALL ${PROJECT_BINARY_DIR}/dummy.c)
-        target_link_libraries(${phobos_name} druntime-ldc-unittest${target_suffix})
+        target_link_libraries(${phobos_name} druntime-ldc${target_suffix})
         set(full_linkflags "${test_runner_o} ${linkflags}")
         append_testrunner_linkflags("phobos2-ldc-unittest${name_suffix}" "${path_suffix}" "${is_shared}" full_linkflags)
         add_dependencies(${phobos_name} test_runner${target_suffix} phobos2-ldc-unittest${target_suffix})
@@ -863,8 +884,14 @@ function(build_test_runner_variants path_suffix d_flags c_flags)
     build_test_runner_variant("-debug" "${path_suffix}" "${D_FLAGS_DEBUG};${d_flags}" "${c_flags}")
 endfunction()
 
+set(TESTLIB_SUFFIX "${LIB_SUFFIX}")
+if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
+    # match `hostsuffix` used for building the normal libs
+    set(TESTLIB_SUFFIX "${LIB_SUFFIX}${HOST_BITNESS}")
+endif()
+
 # Now generate all test runner targets.
-build_test_runner_variants("${LIB_SUFFIX}" "" "")
+build_test_runner_variants("${TESTLIB_SUFFIX}" "" "")
 if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
     build_test_runner_variants("${MULTILIB_SUFFIX}" "-m32" "-m32")
 endif()
@@ -921,7 +948,7 @@ function(add_runtime_tests_variants path_suffix)
     endif()
 endfunction()
 
-add_runtime_tests_variants("${LIB_SUFFIX}")
+add_runtime_tests_variants("${TESTLIB_SUFFIX}")
 if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
     add_runtime_tests_variants("${MULTILIB_SUFFIX}")
 endif()

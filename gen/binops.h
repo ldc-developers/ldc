@@ -57,5 +57,6 @@ DValue *binUshr(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
 
 llvm::Value *DtoBinNumericEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op);
 llvm::Value *DtoBinFloatsEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op);
+llvm::Value *mergeVectorEquals(llvm::Value *resultsVector, TOK op);
 
 dinteger_t undoStrideMul(Loc &loc, Type *t, dinteger_t offset);

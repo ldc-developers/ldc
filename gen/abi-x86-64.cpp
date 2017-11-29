@@ -300,6 +300,9 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) {
   if (fty.arg_this || fty.arg_nest) {
     regCount.int_regs--;
   }
+  if (fty.arg_objcSelector) {
+    regCount.int_regs--;
+  }
   if (fty.arg_arguments) {
     regCount.int_regs -= 2; // dynamic array
   }

@@ -1644,15 +1644,21 @@ public:
                            stmt->loc.toChars());
     LOG_SCOPE;
     assert(!irs->dcomputetarget);
-      
+
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
+
+    Module *const module = irs->func()->decl->getModule();
+
+    if (global.params.betterC) {
+      DtoCAssert(module, stmt->loc, DtoConstCString("no switch default"));
+      return;
+    }
 
     llvm::Function *fn =
         getRuntimeFunction(stmt->loc, irs->module, "_d_switch_error");
 
-    LLValue *moduleInfoSymbol =
-        getIrModule(irs->func()->decl->getModule())->moduleInfoSymbol();
+    LLValue *moduleInfoSymbol = getIrModule(module)->moduleInfoSymbol();
     LLType *moduleInfoType = DtoType(Module::moduleinfo->type);
 
     LLCallSite call = irs->CreateCallOrInvoke(
@@ -1684,7 +1690,7 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(Statement *stmt) LLVM_OVERRIDE {
-    error(stmt->loc, "Statement type Statement not implemented: %s",
+    error(stmt->loc, "Statement type Statement not implemented: `%s`",
           stmt->toChars());
     fatal();
   }
@@ -1692,7 +1698,7 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(PragmaStatement *stmt) LLVM_OVERRIDE {
-    error(stmt->loc, "Statement type PragmaStatement not implemented: %s",
+    error(stmt->loc, "Statement type PragmaStatement not implemented: `%s`",
           stmt->toChars());
     fatal();
   }

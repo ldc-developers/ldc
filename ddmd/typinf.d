@@ -5,10 +5,12 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _typeinf.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/typeinf.d, _typeinf.d)
  */
 
 module ddmd.typinf;
+
+// Online documentation: https://dlang.org/phobos/ddmd_typinf.html
 
 import ddmd.declaration;
 import ddmd.dmodule;
@@ -179,7 +181,8 @@ extern (C++) bool isSpeculativeType(Type t)
                     if (ti.minst || sd.requestTypeInfo)
                         return;
 
-                    /* Bugzilla 14425: TypeInfo_Struct would refer the members of
+                    /* https://issues.dlang.org/show_bug.cgi?id=14425
+                     * TypeInfo_Struct would refer the members of
                      * struct (e.g. opEquals via xopEquals field), so if it's instantiated
                      * in speculative context, TypeInfo creation should also be
                      * stopped to avoid 'unresolved symbol' linker errors.
@@ -239,7 +242,8 @@ extern (C++) bool isSpeculativeType(Type t)
 /* These decide if there's an instance for them already in std.typeinfo,
  * because then the compiler doesn't need to build one.
  */
-extern (C++) static bool builtinTypeInfo(Type t)
+// IN_LLVM: replaced `private` with `extern(C++)`
+extern(C++) bool builtinTypeInfo(Type t)
 {
   version (IN_LLVM)
   {

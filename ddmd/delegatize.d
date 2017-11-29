@@ -5,10 +5,12 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _delegatize.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/delegatize.d, _delegatize.d)
  */
 
 module ddmd.delegatize;
+
+// Online documentation: https://dlang.org/phobos/ddmd_delegatize.html
 
 import core.stdc.stdio;
 import ddmd.apply;
@@ -16,9 +18,12 @@ import ddmd.declaration;
 import ddmd.dscope;
 import ddmd.dsymbol;
 import ddmd.expression;
+import ddmd.expressionsem;
 import ddmd.func;
 import ddmd.globals;
+import ddmd.initsem;
 import ddmd.mtype;
+import ddmd.semantic;
 import ddmd.statement;
 import ddmd.tokens;
 import ddmd.visitor;
@@ -45,7 +50,7 @@ extern (C++) Expression toDelegate(Expression e, Type t, Scope* sc)
         s = new ReturnStatement(loc, e);
     fld.fbody = s;
     e = new FuncExp(loc, fld);
-    e = e.semantic(sc);
+    e = e.expressionSemantic(sc);
     return e;
 }
 
@@ -158,7 +163,7 @@ extern (C++) bool lambdaCheckForNestedRef(Expression e, Scope* sc)
                  */
                 if (v._init && v._init.isExpInitializer())
                 {
-                    Expression ie = v._init.toExpression();
+                    Expression ie = v._init.initializerToExpression();
                     result = lambdaCheckForNestedRef(ie, sc);
                 }
             }
@@ -170,19 +175,33 @@ extern (C++) bool lambdaCheckForNestedRef(Expression e, Scope* sc)
     return v.result;
 }
 
-bool checkNestedRef(Dsymbol s, Dsymbol p)
+/*****************************************
+ * See if context `s` is nested within context `p`, meaning
+ * it `p` is reachable at runtime by walking the static links.
+ * If any of the intervening contexts are function literals,
+ * make sure they are delegates.
+ * Params:
+ *      s = inner context
+ *      p = outer context
+ * Returns:
+ *      true means it is accessible by walking the context pointers at runtime
+ * References:
+ *      for static links see https://en.wikipedia.org/wiki/Call_stack#Functions_of_the_call_stack
+ */
+bool ensureStaticLinkTo(Dsymbol s, Dsymbol p)
 {
     while (s)
     {
         if (s == p) // hit!
-            return false;
+            return true;
 
         if (auto fd = s.isFuncDeclaration())
         {
             if (!fd.isThis() && !fd.isNested())
                 break;
 
-            // Bugzilla 15332: change to delegate if fd is actually nested.
+            // https://issues.dlang.org/show_bug.cgi?id=15332
+            // change to delegate if fd is actually nested.
             if (auto fld = fd.isFuncLiteralDeclaration())
                 fld.tok = TOKdelegate;
         }
@@ -193,5 +212,5 @@ bool checkNestedRef(Dsymbol s, Dsymbol p)
         }
         s = s.toParent2();
     }
-    return true;
+    return false;
 }

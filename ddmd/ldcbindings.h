@@ -23,8 +23,7 @@ CmpExp *createCmpExp(TOK, Loc, Expression *, Expression *);
 ShlExp *createShlExp(Loc, Expression *, Expression *);
 ShrExp *createShrExp(Loc, Expression *, Expression *);
 UshrExp *createUshrExp(Loc, Expression *, Expression *);
-AndAndExp *createAndAndExp(Loc, Expression *, Expression *);
-OrOrExp *createOrOrExp(Loc, Expression *, Expression *);
+LogicalExp *createLogicalExp(Loc, TOK op, Expression *, Expression *);
 OrExp *createOrExp(Loc, Expression *, Expression *);
 AndExp *createAndExp(Loc, Expression *, Expression *);
 XorExp *createXorExp(Loc, Expression *, Expression *);
@@ -64,8 +63,7 @@ template <class T> struct bindD {
 NEWD_TEMPLATE(ShlExp)
 NEWD_TEMPLATE(ShrExp)
 NEWD_TEMPLATE(UshrExp)
-NEWD_TEMPLATE(AndAndExp)
-NEWD_TEMPLATE(OrOrExp)
+NEWD_TEMPLATE(LogicalExp)
 NEWD_TEMPLATE(OrExp)
 NEWD_TEMPLATE(AndExp)
 NEWD_TEMPLATE(XorExp)

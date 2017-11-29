@@ -31,6 +31,7 @@ class ExpInitializer;
 class StructDeclaration;
 struct InterState;
 struct CompiledCtfeFunction;
+struct ObjcSelector;
 #if IN_LLVM
 struct Symbol;
 #endif
@@ -95,12 +96,15 @@ enum PINLINE;
 #define STCinference     0x400000000000LL // do attribute inference
 #define STCexptemp       0x800000000000LL // temporary variable that has lifetime restricted to an expression
 #define STCmaybescope    0x1000000000000LL // parameter might be 'scope'
+#define STCscopeinferred 0x2000000000000LL // 'scope' has been inferred and should not be part of mangling
+#define STCfuture        0x4000000000000LL // introducing new base class function
+#define STClocal         0x8000000000000LL // do not forward (see ddmd.dsymbol.ForwardingScopeDsymbol).
 
 const StorageClass STCStorageClass = (STCauto | STCscope | STCstatic | STCextern | STCconst | STCfinal |
-    STCabstract | STCsynchronized | STCdeprecated | STCoverride | STClazy | STCalias |
+    STCabstract | STCsynchronized | STCdeprecated | STCfuture | STCoverride | STClazy | STCalias |
     STCout | STCin |
     STCmanifest | STCimmutable | STCshared | STCwild | STCnothrow | STCnogc | STCpure | STCref | STCtls |
-    STCgshared | STCproperty | STCsafe | STCtrusted | STCsystem | STCdisable);
+    STCgshared | STCproperty | STCsafe | STCtrusted | STCsystem | STCdisable | STClocal);
 
 struct Match
 {
@@ -129,7 +133,6 @@ public:
     int inuse;                  // used to detect cycles
     const char *mangleOverride;      // overridden symbol with pragma(mangle, "...")
 
-    void semantic(Scope *sc);
     const char *kind();
     d_uns64 size(Loc loc);
     int checkModify(Loc loc, Scope *sc, Type *t, Expression *e1, int flag);
@@ -143,7 +146,7 @@ public:
     virtual bool isCodeseg();
     bool isCtorinit()     { return (storage_class & STCctorinit) != 0; }
     bool isFinal()        { return (storage_class & STCfinal) != 0; }
-    bool isAbstract()     { return (storage_class & STCabstract) != 0; }
+    virtual bool isAbstract()     { return (storage_class & STCabstract) != 0; }
     bool isConst()        { return (storage_class & STCconst) != 0; }
     bool isImmutable()    { return (storage_class & STCimmutable) != 0; }
     bool isWild()         { return (storage_class & STCwild) != 0; }
@@ -159,6 +162,8 @@ public:
     bool isIn()    { return (storage_class & STCin) != 0; }
     bool isOut()   { return (storage_class & STCout) != 0; }
     bool isRef()   { return (storage_class & STCref) != 0; }
+
+    bool isFuture() { return (storage_class & STCfuture) != 0; }
 
     Prot prot();
 
@@ -199,8 +204,8 @@ public:
     Dsymbol *overnext;          // next in overload list
     Dsymbol *_import;           // !=NULL if unresolved internal alias for selective import
 
+    static AliasDeclaration *create(Loc loc, Identifier *id, Type *type);
     Dsymbol *syntaxCopy(Dsymbol *);
-    void semantic(Scope *sc);
     void aliasSemantic(Scope *sc);
     bool overloadInsert(Dsymbol *s);
     const char *kind();
@@ -223,7 +228,6 @@ public:
     bool hasOverloads;
 
     const char *kind();
-    void semantic(Scope *sc);
     bool equals(RootObject *o);
     bool overloadInsert(Dsymbol *s);
 
@@ -261,17 +265,11 @@ public:
     // When interpreting, these point to the value (NULL if value not determinable)
     // The index of this variable on the CTFE stack, -1 if not allocated
     int ctfeAdrOnStack;
-    // if !NULL, rundtor is tested at runtime to see
-    // if the destructor should be run. Used to prevent
-    // dtor calls on postblitted vars
-    VarDeclaration *rundtor;
     Expression *edtor;          // if !=NULL, does the destruction of the variable
     IntRange *range;            // if !NULL, the variable is known to be within the range
 
     Dsymbol *syntaxCopy(Dsymbol *);
-    void semantic(Scope *sc);
     void setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion);
-    void semantic2(Scope *sc);
     const char *kind();
     AggregateDeclaration *isThis();
     bool needThis();
@@ -317,7 +315,6 @@ public:
 
     static TypeInfoDeclaration *create(Type *tinfo);
     Dsymbol *syntaxCopy(Dsymbol *);
-    void semantic(Scope *sc);
     const char *toChars();
 
     TypeInfoDeclaration *isTypeInfoDeclaration() { return this; }
@@ -536,7 +533,7 @@ public:
     DsymbolTable *localsymtab;
     VarDeclaration *vthis;              // 'this' parameter (member and nested)
     VarDeclaration *v_arguments;        // '_arguments' parameter
-    Objc_FuncDeclaration objc;
+    ObjcSelector* selector;             // Objective-C method selector (member function only)
     VarDeclaration *v_argptr;           // '_argptr' variable
     VarDeclarations *parameters;        // Array of VarDeclaration's for parameters
     DsymbolTable *labtab;               // statement label symbol table
@@ -572,6 +569,7 @@ public:
     // 2 if there's a throw statement
     // 4 if there's an assert(0)
     // 8 if there's inline asm
+    // 16 if there are multiple return statements
     int hasReturnExp;
 
     // Support for NRVO (named return value optimization)
@@ -599,10 +597,8 @@ public:
 
     unsigned flags;                     // FUNCFLAGxxxxx
 
+    static FuncDeclaration *create(Loc loc, Loc endloc, Identifier *id, StorageClass storage_class, Type *type);
     Dsymbol *syntaxCopy(Dsymbol *);
-    void semantic(Scope *sc);
-    void semantic2(Scope *sc);
-    void semantic3(Scope *sc);
     bool functionSemantic();
     bool functionSemantic3();
     bool checkForwardRef(Loc loc);
@@ -611,7 +607,7 @@ public:
     bool equals(RootObject *o);
 
     int overrides(FuncDeclaration *fd);
-    int findVtblIndex(Dsymbols *vtbl, int dim);
+    int findVtblIndex(Dsymbols *vtbl, int dim, bool fix17349 = true);
     BaseClass *overrideInterface();
     bool overloadInsert(Dsymbol *s);
     FuncDeclaration *overloadExactMatch(Type *t);
@@ -631,6 +627,7 @@ public:
     bool isImportedSymbol();
     bool isCodeseg();
     bool isOverloadable();
+    bool isAbstract();
     PURE isPure();
     PURE isPureBypassingInference();
     bool setImpure();
@@ -727,7 +724,6 @@ class CtorDeclaration : public FuncDeclaration
 {
 public:
     Dsymbol *syntaxCopy(Dsymbol *);
-    void semantic(Scope *sc);
     const char *kind();
     const char *toChars();
     bool isVirtual();
@@ -742,7 +738,6 @@ class PostBlitDeclaration : public FuncDeclaration
 {
 public:
     Dsymbol *syntaxCopy(Dsymbol *);
-    void semantic(Scope *sc);
     bool isVirtual();
     bool addPreInvariant();
     bool addPostInvariant();
@@ -756,7 +751,6 @@ class DtorDeclaration : public FuncDeclaration
 {
 public:
     Dsymbol *syntaxCopy(Dsymbol *);
-    void semantic(Scope *sc);
     const char *kind();
     const char *toChars();
     bool isVirtual();
@@ -772,7 +766,6 @@ class StaticCtorDeclaration : public FuncDeclaration
 {
 public:
     Dsymbol *syntaxCopy(Dsymbol *);
-    void semantic(Scope *sc);
     AggregateDeclaration *isThis();
     bool isVirtual();
     bool addPreInvariant();
@@ -798,7 +791,6 @@ public:
     VarDeclaration *vgate;      // 'gate' variable
 
     Dsymbol *syntaxCopy(Dsymbol *);
-    void semantic(Scope *sc);
     AggregateDeclaration *isThis();
     bool isVirtual();
     bool hasStaticCtorOrDtor();
@@ -822,7 +814,6 @@ class InvariantDeclaration : public FuncDeclaration
 {
 public:
     Dsymbol *syntaxCopy(Dsymbol *);
-    void semantic(Scope *sc);
     bool isVirtual();
     bool addPreInvariant();
     bool addPostInvariant();
@@ -840,7 +831,6 @@ public:
     FuncDeclarations deferredNested;
 
     Dsymbol *syntaxCopy(Dsymbol *);
-    void semantic(Scope *sc);
     AggregateDeclaration *isThis();
     bool isVirtual();
     bool addPreInvariant();
@@ -857,7 +847,6 @@ public:
     int varargs;
 
     Dsymbol *syntaxCopy(Dsymbol *);
-    void semantic(Scope *sc);
     const char *kind();
     bool isVirtual();
     bool addPreInvariant();
@@ -874,7 +863,6 @@ public:
     Parameters *parameters;
 
     Dsymbol *syntaxCopy(Dsymbol *);
-    void semantic(Scope *sc);
     const char *kind();
     bool isDelete();
     bool isVirtual();

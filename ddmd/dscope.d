@@ -5,10 +5,12 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _dscope.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/dscope.d, _dscope.d)
  */
 
 module ddmd.dscope;
+
+// Online documentation: https://dlang.org/phobos/ddmd_dscope.html
 
 import core.stdc.stdio;
 import core.stdc.string;
@@ -19,6 +21,7 @@ import ddmd.declaration;
 import ddmd.dmodule;
 import ddmd.doc;
 import ddmd.dsymbol;
+import ddmd.dsymbolsem;
 import ddmd.dtemplate;
 import ddmd.errors;
 import ddmd.func;
@@ -29,6 +32,7 @@ import ddmd.root.outbuffer;
 import ddmd.root.rmem;
 import ddmd.root.speller;
 import ddmd.statement;
+import ddmd.tokens;
 
 //version=LOGSEARCH;
 
@@ -101,7 +105,8 @@ enum SCOPEensure        = 0x0060;   /// inside out contract code
 enum SCOPEcontract      = 0x0060;   /// [mask] we're inside contract code
 enum SCOPEctfe          = 0x0080;   /// inside a ctfe-only expression
 enum SCOPEcompile       = 0x0100;   /// inside __traits(compile)
-enum SCOPEignoresymbolvisibility    = 0x0200;   /// ignore symbol visibility (Bugzilla 15907)
+enum SCOPEignoresymbolvisibility    = 0x0200;   /// ignore symbol visibility
+                                                /// https://issues.dlang.org/show_bug.cgi?id=15907
 enum SCOPEfree          = 0x8000;   /// is on free list
 
 enum SCOPEfullinst      = 0x10000;  /// fully instantiate templates
@@ -218,7 +223,8 @@ version(IN_LLVM)
     {
         Scope* sc = Scope.alloc();
         *sc = this;
-        /* Bugzilla 11777: The copied scope should not inherit fieldinit.
+        /* https://issues.dlang.org/show_bug.cgi?id=11777
+         * The copied scope should not inherit fieldinit.
          */
         sc.fieldinit = null;
         return sc;
@@ -537,7 +543,7 @@ else
             if (!global.params.check10378)
                 return sold;
 
-            if (ident == Id.dollar) // Bugzilla 15825
+            if (ident == Id.dollar) // https://issues.dlang.org/show_bug.cgi?id=15825
                 return sold;
 
             // Search both ways
@@ -582,7 +588,7 @@ else
      */
     extern (C++) static void deprecation10378(Loc loc, Dsymbol sold, Dsymbol snew)
     {
-        // Bugzilla 15857
+        // https://issues.dlang.org/show_bug.cgi?id=15857
         //
         // The overloadset found via the new lookup rules is either
         // equal or a subset of the overloadset found via the old
@@ -654,6 +660,30 @@ else
         }
 
         return cast(Dsymbol)speller(ident.toChars(), &scope_search_fp, idchars);
+    }
+
+    /************************************
+     * Maybe `ident` was a C or C++ name. Check for that,
+     * and suggest the D equivalent.
+     * Params:
+     *  ident = unknown identifier
+     * Returns:
+     *  D identifier string if found, null if not
+     */
+    extern (C++) static const(char)* search_correct_C(Identifier ident)
+    {
+        TOK tok;
+        if (ident == Id.NULL)
+            tok = TOKnull;
+        else if (ident == Id.TRUE)
+            tok = TOKtrue;
+        else if (ident == Id.FALSE)
+            tok = TOKfalse;
+        else if (ident == Id.unsigned)
+            tok = TOKuns32;
+        else
+            return null;
+        return Token.toChars(tok);
     }
 
     extern (C++) Dsymbol insert(Dsymbol s)

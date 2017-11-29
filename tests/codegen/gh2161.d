@@ -1,9 +1,6 @@
 // Verify some minimum inlining.
 
-// XFAIL: llvm308
-
-// LLVM 4.0.1 doesn't inline std.algorithm.mutation.bringToFrontImpl() for Win32 and `-boundscheck=off`
-// XFAIL: Windows_x86
+// UNSUPPORTED: llvm308
 
 // RUN: %ldc %s -output-ll -of=%t_safeonly.ll -O3 -release
 // RUN: %ldc %s -output-ll -of=%t_off.ll      -O3 -release -boundscheck=off
@@ -13,7 +10,7 @@
 import std.algorithm;
 import std.range;
 
-// CHECK-LABEL: define {{.*}}@{{.*}}_D6gh2161207__T13insertionSort
+// CHECK-LABEL: define {{.*}}@{{.*}}_D6gh2161__T13insertionSort
 void insertionSort(Range, Less)(Range r, Less l)
 if (hasLength!Range && isRandomAccessRange!Range && hasSlicing!Range)
 {

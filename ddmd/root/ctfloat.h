@@ -39,15 +39,22 @@ struct CTFloat
     static real_t tan(real_t x);
     static real_t sqrt(real_t x);
     static real_t fabs(real_t x);
+    static real_t ldexp(real_t n, int exp);
 
 #if IN_LLVM
     static real_t log(real_t x);
+    static real_t log2(real_t x);
+    static real_t log10(real_t x);
     static real_t fmin(real_t l, real_t r);
     static real_t fmax(real_t l, real_t r);
     static real_t floor(real_t x);
     static real_t ceil(real_t x);
     static real_t trunc(real_t x);
+    static real_t rint(real_t x);
+    static real_t nearbyint(real_t x);
     static real_t round(real_t x);
+    static real_t fma(real_t x, real_t y, real_t z);
+    static real_t copysign(real_t to, real_t from);
 
     // implemented in gen/ctfloat.cpp
     static void _init();
@@ -67,6 +74,8 @@ struct CTFloat
 
     static real_t parse(const char *literal, bool *isOutOfRange = NULL);
     static int sprint(char *str, char fmt, real_t x);
+
+    static size_t hash(real_t a);
 
     // Constant real values 0, 1, -1 and 0.5.
     static real_t zero;

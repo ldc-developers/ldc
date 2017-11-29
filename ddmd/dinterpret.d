@@ -1,12 +1,16 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2017 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// Distributed under the Boost Software License, Version 1.0.
-// http://www.boost.org/LICENSE_1_0.txt
+/**
+ * Compiler implementation of the
+ * $(LINK2 http://www.dlang.org, D programming language).
+ *
+ * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
+ * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/dinterpret.d, _dinterpret.d)
+ */
 
 module ddmd.dinterpret;
+
+// Online documentation: https://dlang.org/phobos/ddmd_dinterpret.html
 
 import core.stdc.stdio;
 import core.stdc.string;
@@ -23,14 +27,17 @@ import ddmd.dsymbol;
 import ddmd.dtemplate;
 import ddmd.errors;
 import ddmd.expression;
+import ddmd.expressionsem;
 import ddmd.func;
 import ddmd.globals;
 import ddmd.id;
 import ddmd.identifier;
 import ddmd.init;
+import ddmd.initsem;
 import ddmd.mtype;
 import ddmd.root.array;
 import ddmd.root.rootobject;
+import ddmd.semantic;
 import ddmd.statement;
 import ddmd.tokens;
 import ddmd.utf;
@@ -751,7 +758,7 @@ extern (C++) Expression ctfeInterpretForPragmaMsg(Expression e)
     if (e.op != TOKtuple)
         return e.ctfeInterpret();
 
-    // Tuples need to be treated seperately, since they are
+    // Tuples need to be treated separately, since they are
     // allowed to contain a TypeExp in this case.
 
     TupleExp tup = cast(TupleExp)e;
@@ -1158,7 +1165,7 @@ public:
         {
             Statement sx = (*s.statements)[i];
             Expression e = interpret(sx, istate);
-            if (!e) // suceeds to interpret, or goto target was not found
+            if (!e) // succeeds to interpret, or goto target was not found
                 continue;
             if (exceptionOrCant(e))
                 return;
@@ -1808,20 +1815,27 @@ public:
         }
         // Little sanity check to make sure it's really a Throwable
         ClassReferenceExp boss = oldest.thrown;
-        assert((*boss.value.elements)[4].type.ty == Tclass); // Throwable.next
+        const next = 4;                         // index of Throwable.next
+        assert((*boss.value.elements)[next].type.ty == Tclass); // Throwable.next
         ClassReferenceExp collateral = newest.thrown;
         if (isAnErrorException(collateral.originalClass()) && !isAnErrorException(boss.originalClass()))
         {
+            /* Find the index of the Error.bypassException field
+             */
+            auto bypass = next + 1;
+            if ((*collateral.value.elements)[bypass].type.ty == Tuns32)
+                bypass += 1;  // skip over _refcount field
+            assert((*collateral.value.elements)[bypass].type.ty == Tclass);
+
             // The new exception bypass the existing chain
-            assert((*collateral.value.elements)[5].type.ty == Tclass);
-            (*collateral.value.elements)[5] = boss;
+            (*collateral.value.elements)[bypass] = boss;
             return newest;
         }
-        while ((*boss.value.elements)[4].op == TOKclassreference)
+        while ((*boss.value.elements)[next].op == TOKclassreference)
         {
-            boss = cast(ClassReferenceExp)(*boss.value.elements)[4];
+            boss = cast(ClassReferenceExp)(*boss.value.elements)[next];
         }
-        (*boss.value.elements)[4] = collateral;
+        (*boss.value.elements)[next] = collateral;
         return oldest;
     }
 
@@ -2022,7 +2036,8 @@ public:
         }
         if (goal == ctfeNeedLvalue)
         {
-            // We might end up here with istate being zero (see bugzilla 16382)
+            // We might end up here with istate being zero
+            // https://issues.dlang.org/show_bug.cgi?id=16382
             if (istate && istate.fd.vthis)
             {
                 result = new VarExp(e.loc, istate.fd.vthis);
@@ -2290,9 +2305,9 @@ public:
             if (v.ident == Id.ctfe)
                 return new IntegerExp(loc, 1, Type.tbool);
 
-            if (!v.originalType && v._scope) // semantic() not yet run
+            if (!v.originalType && v.semanticRun < PASSsemanticdone) // semantic() not yet run
             {
-                v.semantic(v._scope);
+                v.semantic(null);
                 if (v.type.ty == Terror)
                     return CTFEExp.cantexp;
             }
@@ -2310,7 +2325,7 @@ public:
                     v._init = v._init.semantic(v._scope, v.type, INITinterpret); // might not be run on aggregate members
                     v.inuse--;
                 }
-                e = v._init.toExpression(v.type);
+                e = v._init.initializerToExpression(v.type);
                 if (!e)
                     return CTFEExp.cantexp;
                 assert(e.type);
@@ -2355,7 +2370,7 @@ public:
                         error(loc, "CTFE internal error: trying to access uninitialized var");
                         assert(0);
                     }
-                    e = v._init.toExpression();
+                    e = v._init.initializerToExpression();
                 }
                 else
                     e = v.type.defaultInitLiteral(e.loc);
@@ -2401,7 +2416,7 @@ public:
             e = s.dsym.type.defaultInitLiteral(loc);
             if (e.op == TOKerror)
                 error(loc, "CTFE failed because of previous errors in %s.init", s.toChars());
-            e = e.semantic(null);
+            e = e.expressionSemantic(null);
             if (e.op == TOKerror)
                 e = CTFEExp.cantexp;
             else // Convert NULL to CTFEExp
@@ -3714,7 +3729,7 @@ public:
             if (e.e1.type.ty != Tpointer)
             {
                 // ~= can create new values (see bug 6052)
-                if (e.op == TOKcatass)
+                if (e.op == TOKcatass || e.op == TOKcatelemass || e.op == TOKcatdcharass)
                 {
                     // We need to dup it and repaint the type. For a dynamic array
                     // we can skip duplication, because it gets copied later anyway.
@@ -4483,6 +4498,8 @@ public:
             return;
 
         case TOKcatass:
+        case TOKcatelemass:
+        case TOKcatdcharass:
             interpretAssignCommon(e, &ctfeCat);
             return;
 
@@ -4692,7 +4709,7 @@ public:
             // The valid cases are:
             // p1 > p2 && p3 > p4  (same direction, also for < && <)
             // p1 > p2 && p3 < p4  (different direction, also < && >)
-            // Changing any > into >= doesnt affect the result
+            // Changing any > into >= doesn't affect the result
             if ((dir1 == dir2 && pointToSameMemoryBlock(agg1, agg4) && pointToSameMemoryBlock(agg2, agg3)) || (dir1 != dir2 && pointToSameMemoryBlock(agg1, agg3) && pointToSameMemoryBlock(agg2, agg4)))
             {
                 // it's a legal two-sided comparison
@@ -4734,11 +4751,11 @@ public:
         result = new IntegerExp(e.loc, (e.op == TOKandand) ? 0 : 1, e.type);
     }
 
-    override void visit(AndAndExp e)
+    override void visit(LogicalExp e)
     {
         debug (LOG)
         {
-            printf("%s AndAndExp::interpret() %s\n", e.loc.toChars(), e.toChars());
+            printf("%s LogicalExp::interpret() %s\n", e.loc.toChars(), e.toChars());
         }
         // Check for an insidePointer expression, evaluate it if so
         interpretFourPointerRelation(e);
@@ -4750,9 +4767,10 @@ public:
             return;
 
         int res;
-        if (result.isBool(false))
-            res = 0;
-        else if (isTrueBool(result))
+        const andand = e.op == TOKandand;
+        if (andand ? result.isBool(false) : isTrueBool(result))
+            res = !andand;
+        else if (andand ? isTrueBool(result) : result.isBool(false))
         {
             result = interpret(e.e2, istate);
             if (exceptionOrCant(result))
@@ -4769,14 +4787,14 @@ public:
                 res = 1;
             else
             {
-                result.error("%s does not evaluate to a boolean", result.toChars());
+                result.error("`%s` does not evaluate to a bool", result.toChars());
                 result = CTFEExp.cantexp;
                 return;
             }
         }
         else
         {
-            result.error("%s cannot be interpreted as a boolean", result.toChars());
+            result.error("`%s` cannot be interpreted as a bool", result.toChars());
             result = CTFEExp.cantexp;
             return;
         }
@@ -4784,55 +4802,6 @@ public:
             result = new IntegerExp(e.loc, res, e.type);
     }
 
-    override void visit(OrOrExp e)
-    {
-        debug (LOG)
-        {
-            printf("%s OrOrExp::interpret() %s\n", e.loc.toChars(), e.toChars());
-        }
-        // Check for an insidePointer expression, evaluate it if so
-        interpretFourPointerRelation(e);
-        if (result)
-            return;
-
-        result = interpret(e.e1, istate);
-        if (exceptionOrCant(result))
-            return;
-
-        int res;
-        if (isTrueBool(result))
-            res = 1;
-        else if (result.isBool(false))
-        {
-            result = interpret(e.e2, istate);
-            if (exceptionOrCant(result))
-                return;
-            if (result.op == TOKvoidexp)
-            {
-                assert(e.type.ty == Tvoid);
-                result = null;
-                return;
-            }
-            if (result.isBool(false))
-                res = 0;
-            else if (isTrueBool(result))
-                res = 1;
-            else
-            {
-                result.error("%s cannot be interpreted as a boolean", result.toChars());
-                result = CTFEExp.cantexp;
-                return;
-            }
-        }
-        else
-        {
-            result.error("%s cannot be interpreted as a boolean", result.toChars());
-            result = CTFEExp.cantexp;
-            return;
-        }
-        if (goal != ctfeNeedNothing)
-            result = new IntegerExp(e.loc, res, e.type);
-    }
 
     // Print a stack trace, starting from callingExp which called fd.
     // To shorten the stack trace, try to detect recursion.
@@ -5088,7 +5057,7 @@ public:
             }
             if (!getValue(v))
             {
-                Expression newval = v._init.toExpression();
+                Expression newval = v._init.initializerToExpression();
                 // Bug 4027. Copy constructors are a weird case where the
                 // initializer is a void function (the variable is modified
                 // through a reference parameter instead).
@@ -5307,7 +5276,7 @@ public:
             *pidx = e2.toInteger();
             if (len <= *pidx)
             {
-                e.error("array index %lld is out of bounds [0..%lld]", *pidx, len);
+                e.error("array index %lld is out of bounds `[0..%lld]`", *pidx, len);
                 return false;
             }
         }
@@ -5556,7 +5525,7 @@ public:
                 result = e1;
                 return;
             }
-            e1.error("slice [%llu..%llu] is out of bounds", ilwr, iupr);
+            e1.error("slice `[%llu..%llu]` is out of bounds", ilwr, iupr);
             result = CTFEExp.cantexp;
             return;
         }

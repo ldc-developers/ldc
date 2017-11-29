@@ -5,10 +5,12 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _dsymbol.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/dsymbol.d, _dsymbol.d)
  */
 
 module ddmd.dsymbol;
+
+// Online documentation: https://dlang.org/phobos/ddmd_dsymbol.html
 
 import core.stdc.stdarg;
 import core.stdc.stdio;
@@ -27,9 +29,11 @@ import ddmd.dimport;
 import ddmd.dmodule;
 import ddmd.dscope;
 import ddmd.dstruct;
+import ddmd.dsymbolsem;
 import ddmd.dtemplate;
 import ddmd.errors;
 import ddmd.expression;
+import ddmd.expressionsem;
 import ddmd.func;
 import ddmd.globals;
 import ddmd.id;
@@ -43,6 +47,7 @@ import ddmd.root.aav;
 import ddmd.root.rmem;
 import ddmd.root.rootobject;
 import ddmd.root.speller;
+import ddmd.semantic;
 import ddmd.statement;
 import ddmd.tokens;
 import ddmd.visitor;
@@ -429,7 +434,7 @@ extern (C++) class Dsymbol : RootObject
     final inout(Dsymbol) pastMixin() inout
     {
         //printf("Dsymbol::pastMixin() %s\n", toChars());
-        if (!isTemplateMixin())
+        if (!isTemplateMixin() && !isForwardingAttribDeclaration())
             return this;
         if (!parent)
             return null;
@@ -474,7 +479,7 @@ extern (C++) class Dsymbol : RootObject
     /// ditto
     final inout(Dsymbol) toParent2() inout
     {
-        if (!parent || !parent.isTemplateInstance)
+        if (!parent || !parent.isTemplateInstance && !parent.isForwardingAttribDeclaration())
             return parent;
         return parent.toParent2;
     }
@@ -647,7 +652,7 @@ extern (C++) class Dsymbol : RootObject
         {
             if (!sds.symtabInsert(this)) // if name is already defined
             {
-                Dsymbol s2 = sds.symtab.lookup(ident);
+                Dsymbol s2 = sds.symtabLookup(this,ident);
                 if (!s2.overloadInsert(this))
                 {
                     sds.multiplyDefined(Loc(), this, s2);
@@ -683,30 +688,6 @@ extern (C++) class Dsymbol : RootObject
 
     void importAll(Scope* sc)
     {
-    }
-
-    /*************************************
-     * Does semantic analysis on the public face of declarations.
-     */
-    void semantic(Scope* sc)
-    {
-        error("%p has no semantic routine", this);
-    }
-
-    /*************************************
-     * Does semantic analysis on initializers and members of aggregates.
-     */
-    void semantic2(Scope* sc)
-    {
-        // Most Dsymbols have no further semantic analysis needed
-    }
-
-    /*************************************
-     * Does semantic analysis on function bodies.
-     */
-    void semantic3(Scope* sc)
-    {
-        // Most Dsymbols have no further semantic analysis needed
     }
 
     /*********************************************
@@ -1095,12 +1076,22 @@ extern (C++) class Dsymbol : RootObject
         return null;
     }
 
+    inout(ForwardingAttribDeclaration) isForwardingAttribDeclaration() inout
+    {
+        return null;
+    }
+
     inout(Nspace) isNspace() inout
     {
         return null;
     }
 
     inout(Declaration) isDeclaration() inout
+    {
+        return null;
+    }
+
+    inout(StorageClassDeclaration) isStorageClassDeclaration() inout
     {
         return null;
     }
@@ -1226,6 +1217,11 @@ extern (C++) class Dsymbol : RootObject
     }
 
     inout(ScopeDsymbol) isScopeDsymbol() inout
+    {
+        return null;
+    }
+
+    inout(ForwardingScopeDsymbol) isForwardingScopeDsymbol() inout
     {
         return null;
     }
@@ -1366,7 +1362,8 @@ public:
                 {
                     if (flags & SearchImportsOnly)
                         continue;
-                    // compatibility with -transition=import (Bugzilla 15925)
+                    // compatibility with -transition=import
+                    // https://issues.dlang.org/show_bug.cgi?id=15925
                     // SearchLocalsOnly should always get set for new lookup rules
                     sflags |= (flags & SearchLocalsOnly);
                 }
@@ -1404,7 +1401,7 @@ public:
                         Import i2 = s2.isImport();
                         if (!(i1 && i2 && (i1.mod == i2.mod || (!i1.parent.isImport() && !i2.parent.isImport() && i1.ident.equals(i2.ident)))))
                         {
-                            /* Bugzilla 8668:
+                            /* https://issues.dlang.org/show_bug.cgi?id=8668
                              * Public selective import adds AliasDeclaration in module.
                              * To make an overload set, resolve aliases in here and
                              * get actual overload roots which accessible via s and s2.
@@ -1504,7 +1501,7 @@ public:
         return os;
     }
 
-    final void importScope(Dsymbol s, Prot protection)
+    void importScope(Dsymbol s, Prot protection)
     {
         //printf("%s.ScopeDsymbol::importScope(%s, %d)\n", toChars(), s.toChars(), protection);
         // No circular or redundant import's
@@ -1616,6 +1613,15 @@ public:
     Dsymbol symtabInsert(Dsymbol s)
     {
         return symtab.insert(s);
+    }
+
+    /****************************************
+     * Look up identifier in symbol table.
+     */
+
+    Dsymbol symtabLookup(Dsymbol s, Identifier id)
+    {
+        return symtab.lookup(id);
     }
 
     /****************************************
@@ -1939,7 +1945,7 @@ extern (C++) final class ArrayScopeSymbol : ScopeDsymbol
                         }
                         auto tiargs = new Objects();
                         Expression edim = new IntegerExp(Loc(), dim, Type.tsize_t);
-                        edim = edim.semantic(sc);
+                        edim = edim.expressionSemantic(sc);
                         tiargs.push(edim);
                         e = new DotTemplateInstanceExp(loc, ce, td.ident, tiargs);
                     }
@@ -1959,7 +1965,7 @@ extern (C++) final class ArrayScopeSymbol : ScopeDsymbol
                         assert(d);
                         e = new DotVarExp(loc, ce, d);
                     }
-                    e = e.semantic(sc);
+                    e = e.expressionSemantic(sc);
                     if (!e.type)
                         exp.error("%s has no value", e.toChars());
                     t = e.type.toBasetype();
@@ -2036,6 +2042,94 @@ extern (C++) final class OverloadSet : Dsymbol
         v.visit(this);
     }
 }
+
+/***********************************************************
+ * Forwarding ScopeDsymbol.  Used by ForwardingAttribDeclaration and
+ * ForwardingScopeDeclaration to forward symbol insertions to another
+ * scope.  See `ddmd.attrib.ForwardingAttribDeclaration` for more
+ * details.
+ */
+extern (C++) final class ForwardingScopeDsymbol : ScopeDsymbol
+{
+    /*************************
+     * Symbol to forward insertions to.
+     * Can be `null` before being lazily initialized.
+     */
+    ScopeDsymbol forward;
+    extern (D) this(ScopeDsymbol forward)
+    {
+        super(null);
+        this.forward = forward;
+    }
+    override Dsymbol symtabInsert(Dsymbol s)
+    {
+        assert(forward);
+        if (auto d = s.isDeclaration())
+        {
+            if (d.storage_class & STClocal)
+            {
+                // Symbols with storage class STClocal are not
+                // forwarded, but stored in the local symbol
+                // table. (Those are the `static foreach` variables.)
+                if (!symtab)
+                {
+                    symtab = new DsymbolTable();
+                }
+                return super.symtabInsert(s); // insert locally
+            }
+        }
+        if (!forward.symtab)
+        {
+            forward.symtab = new DsymbolTable();
+        }
+        // Non-STClocal symbols are forwarded to `forward`.
+        return forward.symtabInsert(s);
+    }
+
+    /************************
+     * This override handles the following two cases:
+     *     static foreach (i, i; [0]) { ... }
+     * and
+     *     static foreach (i; [0]) { enum i = 2; }
+     */
+    override Dsymbol symtabLookup(Dsymbol s, Identifier id)
+    {
+        assert(forward);
+        // correctly diagnose clashing foreach loop variables.
+        if (auto d = s.isDeclaration())
+        {
+            if (d.storage_class & STClocal)
+            {
+                if (!symtab)
+                {
+                    symtab = new DsymbolTable();
+                }
+                return super.symtabLookup(s,id);
+            }
+        }
+        // Declarations within `static foreach` do not clash with
+        // `static foreach` loop variables.
+        if (!forward.symtab)
+        {
+            forward.symtab = new DsymbolTable();
+        }
+        return forward.symtabLookup(s,id);
+    }
+
+    override void importScope(Dsymbol s, Prot protection)
+    {
+        forward.importScope(s, protection);
+    }
+
+    override const(char)* kind()const{ return "local scope"; }
+
+    override inout(ForwardingScopeDsymbol) isForwardingScopeDsymbol() inout
+    {
+        return this;
+    }
+
+}
+
 
 /***********************************************************
  * Table of Dsymbol's

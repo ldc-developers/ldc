@@ -47,11 +47,11 @@ LLConstant *&IrAggr::getInitSymbol() {
   }
 
   // create the initZ symbol
-  auto initname = getMangledInitSymbolName(aggrdecl);
+  const auto irMangle = getIRMangledInitSymbolName(aggrdecl);
 
   auto initGlobal =
       getOrCreateGlobal(aggrdecl->loc, gIR->module, getLLStructType(), true,
-                        llvm::GlobalValue::ExternalLinkage, nullptr, initname);
+                        llvm::GlobalValue::ExternalLinkage, nullptr, irMangle);
   initGlobal->setAlignment(DtoAlignment(type));
 
   init = initGlobal;
@@ -103,7 +103,7 @@ LLConstant *IrAggr::getDefaultInitializer(VarDeclaration *field) {
     // Issue 9057 workaround caused by issue 14666 fix, see DMD upstream
     // commit 069f570005.
     if (field->semanticRun < PASSsemantic2done && field->_scope) {
-      field->semantic2(field->_scope);
+      semantic2(field, field->_scope);
     }
     return DtoConstInitializer(field->_init->loc, field->type, field->_init);
   }

@@ -97,8 +97,8 @@ std::string hashSymbolName(llvm::StringRef name, Dsymbol *symb) {
 }
 }
 
-std::string getMangledName(FuncDeclaration *fdecl, LINK link) {
-  std::string mangledName(mangleExact(fdecl));
+std::string getIRMangledName(FuncDeclaration *fdecl, LINK link) {
+  std::string mangledName = mangleExact(fdecl);
 
   // Hash the name if necessary
   if (((link == LINKd) || (link == LINKdefault)) &&
@@ -111,22 +111,30 @@ std::string getMangledName(FuncDeclaration *fdecl, LINK link) {
 
   // TODO: Cache the result?
 
-  return gABI->mangleFunctionForLLVM(std::move(mangledName), link);
+  return getIRMangledFuncName(std::move(mangledName), link);
 }
 
-std::string getMangledName(VarDeclaration *vd) {
+std::string getIRMangledName(VarDeclaration *vd) {
+  OutBuffer mangleBuf;
+  mangleToBuffer(vd, &mangleBuf);
+
   // TODO: is hashing of variable names necessary?
 
   // TODO: Cache the result?
 
-  OutBuffer mangleBuf;
-  mangleToBuffer(vd, &mangleBuf);
+  return getIRMangledVarName(mangleBuf.peekString(), vd->linkage);
+}
 
-  return gABI->mangleVariableForLLVM(mangleBuf.peekString(), vd->linkage);
+std::string getIRMangledFuncName(std::string baseMangle, LINK link) {
+  return gABI->mangleFunctionForLLVM(std::move(baseMangle), link);
+}
+
+std::string getIRMangledVarName(std::string baseMangle, LINK link) {
+  return gABI->mangleVariableForLLVM(std::move(baseMangle), link);
 }
 
 namespace {
-std::string getMangledAggregateName(AggregateDeclaration *ad,
+std::string getIRMangledAggregateName(AggregateDeclaration *ad,
                                     const char *suffix) {
   std::string ret = "_D";
 
@@ -143,20 +151,41 @@ std::string getMangledAggregateName(AggregateDeclaration *ad,
   if (suffix)
     ret += suffix;
 
-  return gABI->mangleVariableForLLVM(std::move(ret), LINKd);
+  return getIRMangledVarName(std::move(ret), LINKd);
 }
 }
 
-std::string getMangledInitSymbolName(AggregateDeclaration *aggrdecl) {
-  return getMangledAggregateName(aggrdecl, "6__initZ");
+std::string getIRMangledInitSymbolName(AggregateDeclaration *aggrdecl) {
+  return getIRMangledAggregateName(aggrdecl, "6__initZ");
 }
 
-std::string getMangledVTableSymbolName(AggregateDeclaration *aggrdecl) {
-  return getMangledAggregateName(aggrdecl, "6__vtblZ");
+std::string getIRMangledVTableSymbolName(AggregateDeclaration *aggrdecl) {
+  return getIRMangledAggregateName(aggrdecl, "6__vtblZ");
 }
 
-std::string getMangledClassInfoSymbolName(AggregateDeclaration *aggrdecl) {
+std::string getIRMangledClassInfoSymbolName(AggregateDeclaration *aggrdecl) {
   const char *suffix =
       aggrdecl->isInterfaceDeclaration() ? "11__InterfaceZ" : "7__ClassZ";
-  return getMangledAggregateName(aggrdecl, suffix);
+  return getIRMangledAggregateName(aggrdecl, suffix);
+}
+
+std::string getIRMangledInterfaceInfosSymbolName(ClassDeclaration *cd) {
+  OutBuffer mangledName;
+  mangledName.writestring("_D");
+  mangleToBuffer(cd, &mangledName);
+  mangledName.writestring("16__interfaceInfosZ");
+  return getIRMangledVarName(mangledName.peekString(), LINKd);
+}
+
+std::string getIRMangledModuleInfoSymbolName(Module *module) {
+  OutBuffer mangledName;
+  mangledName.writestring("_D");
+  mangleToBuffer(module, &mangledName);
+  mangledName.writestring("12__ModuleInfoZ");
+  return getIRMangledVarName(mangledName.peekString(), LINKd);
+}
+
+std::string getIRMangledModuleRefSymbolName(const char *moduleMangle) {
+  return getIRMangledVarName(
+      (llvm::Twine("_D") + moduleMangle + "11__moduleRefZ").str(), LINKd);
 }

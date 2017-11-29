@@ -29,6 +29,7 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/mangling.h"
 #include "gen/moduleinfo.h"
 #include "gen/optimizer.h"
 #include "gen/runtime.h"
@@ -71,8 +72,8 @@ void Module::checkAndAddOutputFile(File *file) {
   if (i != files.end()) {
     Module *previousMod = i->second;
     ::error(Loc(),
-            "Output file '%s' for module '%s' collides with previous "
-            "module '%s'. See the -oq option",
+            "Output file '%s' for module `%s` collides with previous "
+            "module `%s`. See the -oq option",
             key.c_str(), toPrettyChars(), previousMod->toPrettyChars());
     fatal();
   }
@@ -100,6 +101,9 @@ enum class RegistryStyle {
   /// global.
   legacyLinkedList,
 
+  /// Module references are emitted into the .minfo section.
+  sectionMSVC,
+
   /// Module references are emitted into the .minfo section. Global
   /// constructors/destructors make sure _d_dso_registry is invoked once per ELF
   /// object.
@@ -115,6 +119,10 @@ enum class RegistryStyle {
 /// Returns the module registry style to use for the current target triple.
 RegistryStyle getModuleRegistryStyle() {
   const auto t = global.params.targetTriple;
+
+  if (t->isWindowsMSVCEnvironment()) {
+    return RegistryStyle::sectionMSVC;
+  }
 
   if (t->isMacOSX()) {
     return RegistryStyle::sectionDarwin;
@@ -145,8 +153,9 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
 
   // build a function that registers the moduleinfo in the global moduleinfo
   // linked list
-  LLFunction *ctor = LLFunction::Create(fty, LLGlobalValue::InternalLinkage,
-                                        fname, &gIR->module);
+  LLFunction *ctor =
+      LLFunction::Create(fty, LLGlobalValue::InternalLinkage,
+                         getIRMangledFuncName(fname, LINKd), &gIR->module);
 
   // provide the default initializer
   LLStructType *modulerefTy = DtoModuleReferenceType();
@@ -158,20 +167,19 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
       modulerefTy, llvm::ArrayRef<LLConstant *>(mrefvalues));
 
   // create the ModuleReference node for this module
-  std::string thismrefname = "_D";
-  thismrefname += moduleMangle;
-  thismrefname += "11__moduleRefZ";
+  const auto thismrefIRMangle = getIRMangledModuleRefSymbolName(moduleMangle);
   Loc loc;
   LLGlobalVariable *thismref = getOrCreateGlobal(
       loc, gIR->module, modulerefTy, false, LLGlobalValue::InternalLinkage,
-      thismrefinit, thismrefname);
+      thismrefinit, thismrefIRMangle);
   // make sure _Dmodule_ref is declared
-  LLConstant *mref = gIR->module.getNamedGlobal("_Dmodule_ref");
+  const auto mrefIRMangle = getIRMangledVarName("_Dmodule_ref", LINKc);
+  LLConstant *mref = gIR->module.getNamedGlobal(mrefIRMangle);
   LLType *modulerefPtrTy = getPtrToType(modulerefTy);
   if (!mref) {
     mref = new LLGlobalVariable(gIR->module, modulerefPtrTy, false,
                                 LLGlobalValue::ExternalLinkage, nullptr,
-                                "_Dmodule_ref");
+                                mrefIRMangle);
   }
   mref = DtoBitCast(mref, getPtrToType(modulerefPtrTy));
 
@@ -328,7 +336,8 @@ llvm::Function *buildRegisterDSO(RegistryStyle style,
 
 void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
                             llvm::Constant *thisModuleInfo) {
-  assert(style == RegistryStyle::sectionELF ||
+  assert(style == RegistryStyle::sectionMSVC ||
+         style == RegistryStyle::sectionELF ||
          style == RegistryStyle::sectionDarwin);
   // Only for the first D module to be emitted into this llvm::Module we need to
   // create the global ctors/dtors. The magic linker symbols used to get the
@@ -341,22 +350,24 @@ void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
   const bool isFirst = !gIR->module.getGlobalVariable("ldc.dso_slot");
 
   llvm::Type *const moduleInfoPtrTy = DtoPtrToType(Module::moduleinfo->type);
+  const auto sectionName =
+      style == RegistryStyle::sectionMSVC
+          ? ".minfo"
+          : style == RegistryStyle::sectionDarwin ? "__DATA,.minfo" : "__minfo";
 
-  std::string thismrefname = "_D";
-  thismrefname += moduleMangle;
-  thismrefname += "11__moduleRefZ";
+  const auto thismrefIRMangle =
+      getIRMangledModuleRefSymbolName(moduleMangle.c_str());
   auto thismref = new llvm::GlobalVariable(
       gIR->module, moduleInfoPtrTy,
       false, // FIXME: mRelocModel != llvm::Reloc::PIC_
       llvm::GlobalValue::LinkOnceODRLinkage,
-      DtoBitCast(thisModuleInfo, moduleInfoPtrTy), thismrefname);
-  thismref->setSection((style == RegistryStyle::sectionDarwin) ? "__DATA,.minfo"
-                                                               : "__minfo");
+      DtoBitCast(thisModuleInfo, moduleInfoPtrTy), thismrefIRMangle);
+  thismref->setSection(sectionName);
   gIR->usedArray.push_back(thismref);
 
   // Android doesn't need register_dso and friends- see rt.sections_android-
   // so bail out here.
-  if (!isFirst ||
+  if (!isFirst || style == RegistryStyle::sectionMSVC ||
       global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
     // Nothing left to do.
     return;
@@ -542,11 +553,12 @@ void addCoverageAnalysis(Module *m) {
   {
     IF_LOG Logger::println("Build Coverage Analysis constructor: %s", ctorname);
 
-    LLFunctionType *ctorTy = LLFunctionType::get(
-        LLType::getVoidTy(gIR->context()), std::vector<LLType *>(), false);
-    ctor = LLFunction::Create(ctorTy, LLGlobalValue::InternalLinkage, ctorname,
-                              &gIR->module);
-    ctor->setCallingConv(gABI->callingConv(ctor->getFunctionType(), LINKd));
+    LLFunctionType *ctorTy =
+        LLFunctionType::get(LLType::getVoidTy(gIR->context()), {}, false);
+    ctor =
+        LLFunction::Create(ctorTy, LLGlobalValue::InternalLinkage,
+                           getIRMangledFuncName(ctorname, LINKd), &gIR->module);
+    ctor->setCallingConv(gABI->callingConv(LINKd));
     // Set function attributes. See functions.cpp:DtoDefineFunction()
     if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
       ctor->addFnAttr(LLAttribute::UWTable);
@@ -571,17 +583,11 @@ void addCoverageAnalysis(Module *m) {
     builder.CreateRetVoid();
   }
 
-  // Add the ctor to the module's static ctors list. TODO: This is quite the
-  // hack.
+  // Add the ctor to the module's order-independent ctors list.
   {
-    IF_LOG Logger::println("Add %s to module's shared static constructor list",
+    IF_LOG Logger::println("Set %s as module's static constructor for coverage",
                            ctorname);
-    FuncDeclaration *fd =
-        FuncDeclaration::genCfunc(nullptr, Type::tvoid, ctorname);
-    fd->linkage = LINKd;
-    IrFunction *irfunc = getIrFunc(fd, true);
-    irfunc->setLLVMFunc(ctor);
-    getIrModule(m)->sharedCtors.push_back(fd);
+    getIrModule(m)->coverageCtor = ctor;
   }
 
   IF_LOG Logger::undent();
@@ -617,7 +623,7 @@ void loadInstrProfileData(IRState *irs) {
 #if LDC_LLVM_VER >= 309
     if (auto E = readerOrErr.takeError()) {
       handleAllErrors(std::move(E), [&](const llvm::ErrorInfoBase &EI) {
-        irs->dmodule->error("Could not read profile file %s: %s",
+        irs->dmodule->error("Could not read profile file '%s': %s",
                             global.params.datafileInstrProf,
                             EI.message().c_str());
       });
@@ -626,7 +632,7 @@ void loadInstrProfileData(IRState *irs) {
 #else
     std::error_code EC = readerOrErr.getError();
     if (EC) {
-      irs->dmodule->error("Could not read profile file %s: %s",
+      irs->dmodule->error("Could not read profile file '%s': %s",
                           global.params.datafileInstrProf,
                           EC.message().c_str());
       fatal();

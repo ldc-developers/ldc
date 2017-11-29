@@ -5,10 +5,12 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _statement.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/statement.d, _statement.d)
  */
 
 module ddmd.statement;
+
+// Online documentation: https://dlang.org/phobos/ddmd_statement.html
 
 import core.stdc.stdarg;
 import core.stdc.stdio;
@@ -16,6 +18,7 @@ import core.stdc.stdio;
 import ddmd.aggregate;
 import ddmd.arraytypes;
 import ddmd.attrib;
+import ddmd.astcodegen;
 import ddmd.gluelayer;
 import ddmd.canthrow;
 import ddmd.cond;
@@ -28,6 +31,7 @@ import ddmd.dsymbol;
 import ddmd.dtemplate;
 import ddmd.errors;
 import ddmd.expression;
+import ddmd.expressionsem;
 import ddmd.func;
 import ddmd.globals;
 import ddmd.hdrgen;
@@ -38,6 +42,7 @@ import ddmd.parse;
 import ddmd.root.outbuffer;
 import ddmd.root.rootobject;
 import ddmd.sapply;
+import ddmd.semantic;
 import ddmd.sideeffect;
 import ddmd.staticassert;
 import ddmd.tokens;
@@ -47,16 +52,22 @@ version(IN_LLVM)
     import gen.dpragma;
 }
 
+/*****************************************
+ * CTFE requires FuncDeclaration::labtab for the interpretation.
+ * So fixing the label name inside in/out contracts is necessary
+ * for the uniqueness in labtab.
+ * Params:
+ *      sc = context
+ *      ident = statement label name to be adjusted
+ * Returns:
+ *      adjusted label name
+ */
 extern (C++) Identifier fixupLabelName(Scope* sc, Identifier ident)
 {
     uint flags = (sc.flags & SCOPEcontract);
     const id = ident.toChars();
     if (flags && flags != SCOPEinvariant && !(id[0] == '_' && id[1] == '_'))
     {
-        /* CTFE requires FuncDeclaration::labtab for the interpretation.
-         * So fixing the label name inside in/out contracts is necessary
-         * for the uniqueness in labtab.
-         */
         const(char)* prefix = flags == SCOPErequire ? "__in_" : "__out_";
         OutBuffer buf;
         buf.printf("%s%s", prefix, ident.toChars());
@@ -66,6 +77,14 @@ extern (C++) Identifier fixupLabelName(Scope* sc, Identifier ident)
     return ident;
 }
 
+/*******************************************
+ * Check to see if statement is the innermost labeled statement.
+ * Params:
+ *      sc = context
+ *      statement = Statement to check
+ * Returns:
+ *      if `true`, then the `LabelStatement`, otherwise `null`
+ */
 extern (C++) LabelStatement checkLabeledLoop(Scope* sc, Statement statement)
 {
     if (sc.slabel && sc.slabel.statement == statement)
@@ -90,13 +109,16 @@ Expression checkAssignmentAsCondition(Expression e)
         ec = (cast(CommaExp)ec).e2;
     if (ec.op == TOKassign)
     {
-        ec.error("assignment cannot be used as a condition, perhaps == was meant?");
+        ec.error("assignment cannot be used as a condition, perhaps `==` was meant?");
         return new ErrorExp();
     }
     return e;
 }
 
-/// Return a type identifier reference to 'object.Throwable'
+/**
+ * Returns:
+ *     `TypeIdentifier` corresponding to `object.Throwable`
+ */
 TypeIdentifier getThrowable()
 {
     auto tid = new TypeIdentifier(Loc(), Id.empty);
@@ -107,6 +129,7 @@ TypeIdentifier getThrowable()
 
 
 /***********************************************************
+ * Specification: http://dlang.org/spec/statement.html
  */
 extern (C++) abstract class Statement : RootObject
 {
@@ -172,19 +195,33 @@ extern (C++) abstract class Statement : RootObject
         return this;
     }
 
+    /****************************
+     * Determine if an enclosed `break` would apply to this
+     * statement, such as if it is a loop or switch statement.
+     * Returns:
+     *     `true` if it does
+     */
     bool hasBreak()
     {
         //printf("Statement::hasBreak()\n");
         return false;
     }
 
+    /****************************
+     * Determine if an enclosed `continue` would apply to this
+     * statement, such as if it is a loop statement.
+     * Returns:
+     *     `true` if it does
+     */
     bool hasContinue()
     {
         return false;
     }
 
-    /* ============================================== */
-    // true if statement uses exception handling
+    /**********************************
+     * Returns:
+     *     `true` if statement uses exception handling
+     */
     final bool usesEH()
     {
         extern (C++) final class UsesEH : StoppableVisitor
@@ -220,8 +257,10 @@ extern (C++) abstract class Statement : RootObject
         return walkPostorder(this, ueh);
     }
 
-    /* ============================================== */
-    // true if statement 'comes from' somewhere else, like a goto
+    /**********************************
+     * Returns:
+     *   `true` if statement 'comes from' somewhere else, like a goto
+     */
     final bool comeFrom()
     {
         extern (C++) final class ComeFrom : StoppableVisitor
@@ -257,8 +296,10 @@ extern (C++) abstract class Statement : RootObject
         return walkPostorder(this, cf);
     }
 
-    /* ============================================== */
-    // Return true if statement has executable code.
+    /**********************************
+     * Returns:
+     *   `true` if statement has executable code.
+     */
     final bool hasCode()
     {
         extern (C++) final class HasCode : StoppableVisitor
@@ -272,7 +313,10 @@ extern (C++) abstract class Statement : RootObject
 
             override void visit(ExpStatement s)
             {
-                stop = s.exp !is null;
+                if (s.exp !is null)
+                {
+                    stop = s.exp.hasCode();
+                }
             }
 
             override void visit(CompoundStatement s)
@@ -296,10 +340,13 @@ extern (C++) abstract class Statement : RootObject
      * If this statement has code that needs to run in a finally clause
      * at the end of the current scope, return that code in the form of
      * a Statement.
-     * Output:
-     *      *sentry         code executed upon entry to the scope
-     *      *sexception     code executed upon exit from the scope via exception
-     *      *sfinally       code executed in finally block
+     * Params:
+     *     sc = context
+     *     sentry     = set to code executed upon entry to the scope
+     *     sexception = set to code executed upon exit from the scope via exception
+     *     sfinally   = set to code executed in finally block
+     * Returns:
+     *    code to be run in the finally clause
      */
     Statement scopeCode(Scope* sc, Statement* sentry, Statement* sexception, Statement* sfinally)
     {
@@ -314,84 +361,119 @@ extern (C++) abstract class Statement : RootObject
     /*********************************
      * Flatten out the scope by presenting the statement
      * as an array of statements.
-     * Returns NULL if no flattening necessary.
+     * Params:
+     *     sc = context
+     * Returns:
+     *     The array of `Statements`, or `null` if no flattening necessary
      */
     Statements* flatten(Scope* sc)
     {
         return null;
     }
 
+    /*******************************
+     * Find last statement in a sequence of statements.
+     * Returns:
+     *  the last statement, or `null` if there isn't one
+     */
     inout(Statement) last() inout nothrow pure
     {
         return this;
     }
 
-    // Avoid dynamic_cast
+    /********************
+     * A cheaper method of doing downcasting of Statements.
+     * Returns:
+     *    the downcast statement if it can be downcasted, otherwise `null`
+     */
     ErrorStatement isErrorStatement()
     {
         return null;
     }
 
+    /// ditto
     inout(ScopeStatement) isScopeStatement() inout nothrow pure
     {
         return null;
     }
 
+    /// ditto
     ExpStatement isExpStatement()
     {
         return null;
     }
 
+    /// ditto
     inout(CompoundStatement) isCompoundStatement() inout nothrow pure
     {
         return null;
     }
 
+    /// ditto
     inout(ReturnStatement) isReturnStatement() inout nothrow pure
     {
         return null;
     }
 
+    /// ditto
     IfStatement isIfStatement()
     {
         return null;
     }
 
+    /// ditto
     CaseStatement isCaseStatement()
     {
         return null;
     }
 
+    /// ditto
     DefaultStatement isDefaultStatement()
     {
         return null;
     }
 
+    /// ditto
     LabelStatement isLabelStatement()
     {
         return null;
     }
 
+    /// ditto
     GotoDefaultStatement isGotoDefaultStatement() pure
     {
         return null;
     }
 
+    /// ditto
     GotoCaseStatement isGotoCaseStatement() pure
     {
         return null;
     }
 
+    /// ditto
     inout(BreakStatement) isBreakStatement() inout nothrow pure
     {
         return null;
     }
 
+    /// ditto
     DtorExpStatement isDtorExpStatement()
     {
         return null;
     }
 
+    /// ditto
+    ForwardingStatement isForwardingStatement()
+    {
+        return null;
+    }
+
+    /**************************
+     * Support Visitor Pattern
+     * Params:
+     *  v = visitor
+     */
     void accept(Visitor v)
     {
         v.visit(this);
@@ -484,7 +566,7 @@ extern (C++) Statement toStatement(Dsymbol s)
 
         override void visit(Dsymbol s)
         {
-            .error(Loc(), "Internal Compiler Error: cannot mixin %s %s\n", s.kind(), s.toChars());
+            .error(Loc(), "Internal Compiler Error: cannot mixin %s `%s`\n", s.kind(), s.toChars());
             result = new ErrorStatement();
         }
 
@@ -591,6 +673,13 @@ extern (C++) Statement toStatement(Dsymbol s)
             result = visitMembers(d.loc, d.include(null, null));
         }
 
+        override void visit(StaticForeachDeclaration d)
+        {
+            assert(d.sfe && !!d.sfe.aggrfe ^ !!d.sfe.rangefe);
+            (d.sfe.aggrfe ? d.sfe.aggrfe._body : d.sfe.rangefe._body) = visitMembers(d.loc, d.decl);
+            result = new StaticForeachStatement(d.loc, d.sfe);
+        }
+
         override void visit(CompileDeclaration d)
         {
             result = visitMembers(d.loc, d.include(null, null));
@@ -661,7 +750,8 @@ extern (C++) class ExpStatement : Statement
 
     override final Statements* flatten(Scope* sc)
     {
-        /* Bugzilla 14243: expand template mixin in statement scope
+        /* https://issues.dlang.org/show_bug.cgi?id=14243
+         * expand template mixin in statement scope
          * to handle variable destructors.
          */
         if (exp && exp.op == TOKdeclaration)
@@ -669,7 +759,7 @@ extern (C++) class ExpStatement : Statement
             Dsymbol d = (cast(DeclarationExp)exp).declaration;
             if (TemplateMixin tm = d.isTemplateMixin())
             {
-                Expression e = exp.semantic(sc);
+                Expression e = exp.expressionSemantic(sc);
                 if (e.op == TOKerror || tm.errors)
                 {
                     auto a = new Statements();
@@ -770,7 +860,7 @@ extern (C++) final class CompileStatement : Statement
         se = se.toUTF8(sc);
 
         uint errors = global.errors;
-        scope Parser p = new Parser(loc, sc._module, se.toStringz(), false);
+        scope p = new Parser!ASTCodegen(loc, sc._module, se.toStringz(), false);
         p.nextToken();
 
         auto a = new Statements();
@@ -804,7 +894,7 @@ extern (C++) class CompoundStatement : Statement
      * array of `Statement`s
      *
      * Params:
-     *   loc = Instantiation informations
+     *   loc = Instantiation information
      *   s   = An array of `Statement`s, that will referenced by this class
      */
     final extern (D) this(Loc loc, Statements* s)
@@ -817,7 +907,7 @@ extern (C++) class CompoundStatement : Statement
      * Construct a `CompoundStatement` from an array of `Statement`s
      *
      * Params:
-     *   loc = Instantiation informations
+     *   loc = Instantiation information
      *   s   = A variadic array of `Statement`s, that will copied in this class
      *         The entries themselves will not be copied.
      */
@@ -980,7 +1070,7 @@ extern (C++) final class UnrolledLoopStatement : Statement
 
 /***********************************************************
  */
-extern (C++) final class ScopeStatement : Statement
+extern (C++) class ScopeStatement : Statement
 {
     Statement statement;
     Loc endloc;                 // location of closing curly bracket
@@ -991,7 +1081,6 @@ extern (C++) final class ScopeStatement : Statement
         this.statement = s;
         this.endloc = endloc;
     }
-
     override Statement syntaxCopy()
     {
         return new ScopeStatement(loc, statement ? statement.syntaxCopy() : null, endloc);
@@ -1025,6 +1114,134 @@ extern (C++) final class ScopeStatement : Statement
         v.visit(this);
     }
 }
+
+/***********************************************************
+ * Statement whose symbol table contains foreach index variables in a
+ * local scope and forwards other members to the parent scope.  This
+ * wraps a statement.
+ *
+ * Also see: `ddmd.attrib.ForwardingAttribDeclaration`
+ */
+extern (C++) final class ForwardingStatement : Statement
+{
+    /// The symbol containing the `static foreach` variables.
+    ForwardingScopeDsymbol sym = null;
+    /// The wrapped statement.
+    Statement statement;
+
+    extern (D) this(Loc loc, ForwardingScopeDsymbol sym, Statement s)
+    {
+        super(loc);
+        this.sym = sym;
+        assert(s);
+        statement = s;
+    }
+
+    extern (D) this(Loc loc, Statement s)
+    {
+        auto sym = new ForwardingScopeDsymbol(null);
+        sym.symtab = new DsymbolTable();
+        this(loc, sym, s);
+    }
+
+    override Statement syntaxCopy()
+    {
+        return new ForwardingStatement(loc, statement.syntaxCopy());
+    }
+
+    override Statement getRelatedLabeled()
+    {
+        if (!statement)
+        {
+            return null;
+        }
+        return statement.getRelatedLabeled();
+    }
+
+    override bool hasBreak()
+    {
+        if (!statement)
+        {
+            return false;
+        }
+        return statement.hasBreak();
+    }
+
+    override bool hasContinue()
+    {
+        if (!statement)
+        {
+            return false;
+        }
+        return statement.hasContinue();
+    }
+
+    override Statement scopeCode(Scope* sc, Statement* sentry, Statement* sexception, Statement* sfinally)
+    {
+        if (!statement)
+        {
+            return this;
+        }
+        sc = sc.push(sym);
+        statement = statement.scopeCode(sc, sentry, sexception, sfinally);
+        sc = sc.pop();
+        return statement ? this : null;
+    }
+
+    override inout(Statement) last() inout nothrow pure
+    {
+        if (!statement)
+        {
+            return null;
+        }
+        return statement.last();
+    }
+
+    /***********************
+     * ForwardingStatements are distributed over the flattened
+     * sequence of statements. This prevents flattening to be
+     * "blocked" by a ForwardingStatement and is necessary, for
+     * example, to support generating scope guards with `static
+     * foreach`:
+     *
+     *     static foreach(i; 0 .. 10) scope(exit) writeln(i);
+     *     writeln("this is printed first");
+     *     // then, it prints 10, 9, 8, 7, ...
+     */
+
+    override Statements* flatten(Scope* sc)
+    {
+        if (!statement)
+        {
+            return null;
+        }
+        sc = sc.push(sym);
+        auto a = statement.flatten(sc);
+        sc = sc.pop();
+        if (!a)
+        {
+            return a;
+        }
+        auto b = new Statements();
+        b.setDim(a.dim);
+        foreach (i, s; *a)
+        {
+            (*b)[i] = s ? new ForwardingStatement(s.loc, sym, s) : null;
+        }
+        return b;
+    }
+
+    override ForwardingStatement isForwardingStatement()
+    {
+        return this;
+    }
+
+    override void accept(Visitor v)
+    {
+        v.visit(this);
+    }
+}
+
 
 /***********************************************************
  */
@@ -1214,7 +1431,7 @@ extern (C++) final class ForeachStatement : Statement
         {
             if (!p.type)
             {
-                error("cannot infer type for %s", p.ident.toChars());
+                error("cannot infer type for `%s`", p.ident.toChars());
                 p.type = Type.terror;
                 result = true;
             }
@@ -1365,6 +1582,61 @@ extern (C++) final class ConditionalStatement : Statement
         auto a = new Statements();
         a.push(s);
         return a;
+    }
+
+    override void accept(Visitor v)
+    {
+        v.visit(this);
+    }
+}
+
+/***********************************************************
+ * Static foreach statements, like:
+ *      void main()
+ *      {
+ *           static foreach(i; 0 .. 10)
+ *           {
+ *               pragma(msg, i);
+ *           }
+ *      }
+ */
+extern (C++) final class StaticForeachStatement : Statement
+{
+    StaticForeach sfe;
+
+    extern (D) this(Loc loc, StaticForeach sfe)
+    {
+        super(loc);
+        this.sfe = sfe;
+    }
+
+    override Statement syntaxCopy()
+    {
+        return new StaticForeachStatement(loc,sfe.syntaxCopy());
+    }
+
+    override Statements* flatten(Scope* sc)
+    {
+        sfe.prepare(sc);
+        if (sfe.ready())
+        {
+            import ddmd.statementsem;
+            auto s = makeTupleForeach!(true,false)(sc, sfe.aggrfe,sfe.needExpansion);
+            auto result = s.flatten(sc);
+            if (result)
+            {
+                return result;
+            }
+            result = new Statements();
+            result.push(s);
+            return result;
+        }
+        else
+        {
+            auto result = new Statements();
+            result.push(new ErrorStatement());
+            return result;
+        }
     }
 
     override void accept(Visitor v)
@@ -1999,6 +2271,7 @@ extern (C++) final class OnScopeStatement : Statement
                  *  sfinally: if (!x) statement;
                  */
                 auto v = copyToTemp(0, "__os", new IntegerExp(Loc(), 0, Type.tbool));
+                v.semantic(sc);
                 *sentry = new ExpStatement(loc, v);
 
                 Expression e = new IntegerExp(Loc(), 1, Type.tbool);
@@ -2112,7 +2385,7 @@ extern (C++) final class GotoStatement : Statement
     {
         if (!label.statement)
         {
-            error("label '%s' is undefined", label.toChars());
+            error("label `%s` is undefined", label.toChars());
             return true;
         }
 
@@ -2125,9 +2398,9 @@ extern (C++) final class GotoStatement : Statement
             else
             {
                 if (label.statement.os)
-                    error("cannot goto in to %s block", Token.toChars(label.statement.os.tok));
+                    error("cannot goto in to `%s` block", Token.toChars(label.statement.os.tok));
                 else
-                    error("cannot goto out of %s block", Token.toChars(os.tok));
+                    error("cannot goto out of `%s` block", Token.toChars(os.tok));
                 return true;
             }
         }
@@ -2135,7 +2408,7 @@ extern (C++) final class GotoStatement : Statement
         // IN_LLVM replaced: if (label.statement.tf != tf)
         if ( (label.statement !is null) && label.statement.tf != tf)
         {
-            error("cannot goto in or out of finally block");
+            error("cannot goto in or out of `finally` block");
             return true;
         }
 
@@ -2156,12 +2429,12 @@ extern (C++) final class GotoStatement : Statement
         }
         else if (vd.ident == Id.withSym)
         {
-            error("goto skips declaration of with temporary at %s", vd.loc.toChars());
+            error("`goto` skips declaration of `with` temporary at %s", vd.loc.toChars());
             return true;
         }
         else
         {
-            error("goto skips declaration of variable %s at %s", vd.toPrettyChars(), vd.loc.toChars());
+            error("`goto` skips declaration of variable `%s` at %s", vd.toPrettyChars(), vd.loc.toChars());
             return true;
         }
 

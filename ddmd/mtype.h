@@ -52,6 +52,8 @@ typedef class IrType type;
 typedef struct TYPE type;
 #endif
 
+Type *typeSemantic(Type *t, Loc loc, Scope *sc);
+Type *merge(Type *type);
 void semanticTypeInfo(Scope *sc, Type *t);
 MATCH deduceType(RootObject *o, Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes, unsigned *wm = NULL, size_t inferStart = 0);
 StorageClass ModToStc(unsigned mod);
@@ -243,7 +245,7 @@ public:
     bool equivalent(Type *t);
     // kludge for template.isType()
     int dyncast() const { return DYNCAST_TYPE; }
-    int covariant(Type *t, StorageClass *pstc = NULL);
+    int covariant(Type *t, StorageClass *pstc = NULL, bool fix17349 = true);
     const char *toChars();
     char *toPrettyChars(bool QualifyTypes = false);
     static void _init();
@@ -251,9 +253,7 @@ public:
     d_uns64 size();
     virtual d_uns64 size(Loc loc);
     virtual unsigned alignsize();
-    virtual Type *semantic(Loc loc, Scope *sc);
     Type *trySemantic(Loc loc, Scope *sc);
-    Type *merge();
     Type *merge2();
     void modToBuffer(OutBuffer *buf);
     char *modToChars();
@@ -338,7 +338,6 @@ public:
     virtual void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     void resolveExp(Expression *e, Type **pt, Expression **pe, Dsymbol **ps);
     virtual int hasWild() const;
-    virtual Expression *toExpression();
     virtual bool hasPointers();
     virtual bool hasVoidInitPointers();
     virtual Type *nextOf();
@@ -429,9 +428,9 @@ class TypeVector : public Type
 public:
     Type *basetype;
 
+    static TypeVector *create(Loc loc, Type *basetype);
     const char *kind();
     Type *syntaxCopy();
-    Type *semantic(Loc loc, Scope *sc);
     d_uns64 size(Loc loc);
     unsigned alignsize();
     Expression *getProperty(Loc loc, Identifier *ident, int flag);
@@ -467,7 +466,6 @@ public:
     Type *syntaxCopy();
     d_uns64 size(Loc loc);
     unsigned alignsize();
-    Type *semantic(Loc loc, Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     bool isString();
@@ -477,7 +475,6 @@ public:
     MATCH implicitConvTo(Type *to);
     Expression *defaultInit(Loc loc);
     Expression *defaultInitLiteral(Loc loc);
-    Expression *toExpression();
     bool hasPointers();
     bool needsDestruction();
     bool needsNested();
@@ -493,7 +490,6 @@ public:
     Type *syntaxCopy();
     d_uns64 size(Loc loc) /*const*/;
     unsigned alignsize() /*const*/;
-    Type *semantic(Loc loc, Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     bool isString();
@@ -517,13 +513,11 @@ public:
     const char *kind();
     Type *syntaxCopy();
     d_uns64 size(Loc loc);
-    Type *semantic(Loc loc, Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     Expression *defaultInit(Loc loc);
     bool isZeroInit(Loc loc) /*const*/;
     bool isBoolean() /*const*/;
-    Expression *toExpression();
     bool hasPointers() /*const*/;
     MATCH implicitConvTo(Type *to);
     MATCH constConv(Type *to);
@@ -534,9 +528,9 @@ public:
 class TypePointer : public TypeNext
 {
 public:
+    static TypePointer *create(Type *t);
     const char *kind();
     Type *syntaxCopy();
-    Type *semantic(Loc loc, Scope *sc);
     d_uns64 size(Loc loc) /*const*/;
     MATCH implicitConvTo(Type *to);
     MATCH constConv(Type *to);
@@ -553,7 +547,6 @@ class TypeReference : public TypeNext
 public:
     const char *kind();
     Type *syntaxCopy();
-    Type *semantic(Loc loc, Scope *sc);
     d_uns64 size(Loc loc) /*const*/;
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     Expression *defaultInit(Loc loc);
@@ -608,6 +601,7 @@ public:
     bool isref;         // true: returns a reference
     bool isreturn;      // true: 'this' is returned by ref
     bool isscope;       // true: 'this' is scope
+    bool isscopeinferred; // true: 'this' is scope from inference
     LINK linkage;  // calling convention
     TRUST trust;   // level of trust
     PURE purity;   // PURExxxx
@@ -619,7 +613,6 @@ public:
     static TypeFunction *create(Parameters *parameters, Type *treturn, int varargs, LINK linkage, StorageClass stc = 0);
     const char *kind();
     Type *syntaxCopy();
-    Type *semantic(Loc loc, Scope *sc);
     void purityLevel();
     bool hasLazyParameters();
     bool parameterEscapes(Parameter *p);
@@ -643,9 +636,10 @@ class TypeDelegate : public TypeNext
 public:
     // .next is a TypeFunction
 
+    static TypeDelegate *create(Type *t);
     const char *kind();
     Type *syntaxCopy();
-    Type *semantic(Loc loc, Scope *sc);
+    Type *addStorageClass(StorageClass stc);
     d_uns64 size(Loc loc) /*const*/;
     unsigned alignsize() /*const*/;
     MATCH implicitConvTo(Type *to);
@@ -674,7 +668,6 @@ public:
 
     void resolveTupleIndex(Loc loc, Scope *sc, Dsymbol *s,
         Expression **pe, Type **pt, Dsymbol **ps, RootObject *oindex);
-    Expression *toExpressionHelper(Expression *e, size_t i = 0);
     void resolveHelper(Loc loc, Scope *sc, Dsymbol *s, Dsymbol *scopesym,
         Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
 
@@ -691,8 +684,6 @@ public:
     Type *syntaxCopy();
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     Dsymbol *toDsymbol(Scope *sc);
-    Type *semantic(Loc loc, Scope *sc);
-    Expression *toExpression();
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -706,9 +697,7 @@ public:
     const char *kind();
     Type *syntaxCopy();
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
-    Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
-    Expression *toExpression();
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -722,7 +711,6 @@ public:
     Type *syntaxCopy();
     Dsymbol *toDsymbol(Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
-    Type *semantic(Loc loc, Scope *sc);
     d_uns64 size(Loc loc);
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -734,7 +722,6 @@ public:
     Type *syntaxCopy();
     Dsymbol *toDsymbol(Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
-    Type *semantic(Loc loc, Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -757,11 +744,11 @@ public:
     AliasThisRec att;
     CPPMANGLE cppmangle;
 
+    static TypeStruct *create(StructDeclaration *sym);
     const char *kind();
     d_uns64 size(Loc loc);
     unsigned alignsize();
     Type *syntaxCopy();
-    Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     structalign_t alignment();
@@ -791,7 +778,6 @@ public:
     Type *syntaxCopy();
     d_uns64 size(Loc loc);
     unsigned alignsize();
-    Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     Expression *getProperty(Loc loc, Identifier *ident, int flag);
@@ -829,7 +815,6 @@ public:
     const char *kind();
     d_uns64 size(Loc loc) /*const*/;
     Type *syntaxCopy();
-    Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     ClassDeclaration *isClassHandle();
@@ -855,7 +840,6 @@ public:
     static TypeTuple *create(Parameters *arguments);
     const char *kind();
     Type *syntaxCopy();
-    Type *semantic(Loc loc, Scope *sc);
     bool equals(RootObject *o);
     Expression *getProperty(Loc loc, Identifier *ident, int flag);
     Expression *defaultInit(Loc loc);
@@ -870,7 +854,6 @@ public:
 
     const char *kind();
     Type *syntaxCopy();
-    Type *semantic(Loc loc, Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -913,7 +896,8 @@ public:
     static size_t dim(Parameters *parameters);
     static Parameter *getNth(Parameters *parameters, d_size_t nth, d_size_t *pn = NULL);
     const char *toChars();
-    bool isCovariant(const Parameter *p) const;
+    bool isCovariant(bool returnByRef, const Parameter *p) const;
+    static bool isCovariantScope(bool returnByRef, StorageClass from, StorageClass to);
 };
 
 bool arrayTypeCompatible(Loc loc, Type *t1, Type *t2);

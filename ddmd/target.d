@@ -5,18 +5,27 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _target.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/target.d, _target.d)
  */
 
 module ddmd.target;
 
+// Online documentation: https://dlang.org/phobos/ddmd_target.html
+
+import ddmd.cppmangle;
+import ddmd.dclass;
 import ddmd.dmodule;
+import ddmd.dsymbol;
 import ddmd.expression;
 import ddmd.globals;
 import ddmd.identifier;
 import ddmd.mtype;
+import ddmd.tokens : TOK;
 import ddmd.root.ctfloat;
 import ddmd.root.outbuffer;
+version(IN_LLVM) {
+    import gen.llvmhelpers;
+}
 
 /***********************************************************
  */
@@ -26,7 +35,6 @@ struct Target
     extern (C++) static __gshared int realsize;             // size a real consumes in memory
     extern (C++) static __gshared int realpad;              // 'padding' added to the CPU real size to bring it up to realsize
     extern (C++) static __gshared int realalignsize;        // alignment for reals
-    extern (C++) static __gshared bool realislongdouble;    // distinguish between C 'long double' and '__float128'
     extern (C++) static __gshared bool reverseCppOverloads; // with dmc and cl, overloaded functions are grouped and in reverse order
     extern (C++) static __gshared bool cppExceptions;       // set if catching C++ exceptions is supported
     extern (C++) static __gshared int c_longsize;           // size of a C 'long' or 'unsigned long' type
@@ -34,6 +42,74 @@ struct Target
     extern (C++) static __gshared int classinfosize;        // size of 'ClassInfo'
     extern (C++) static __gshared ulong maxStaticDataSize;  // maximum size of static data
 
+  version(IN_LLVM)
+  {
+    extern (C++):
+
+    struct FPTypeProperties
+    {
+        real_t max, min_normal, nan, snan, infinity, epsilon;
+        d_int64 dig, mant_dig, max_exp, min_exp, max_10_exp, min_10_exp;
+
+        static FPTypeProperties fromDHostCompiler(T)()
+        {
+            FPTypeProperties p;
+
+            p.max = T.max;
+            p.min_normal = T.min_normal;
+            p.nan = T.nan;
+            p.snan = T.init;
+            p.infinity = T.infinity;
+            p.epsilon = T.epsilon;
+
+            p.dig = T.dig;
+            p.mant_dig = T.mant_dig;
+            p.max_exp = T.max_exp;
+            p.min_exp = T.min_exp;
+            p.max_10_exp = T.max_10_exp;
+            p.min_10_exp = T.min_10_exp;
+
+            return p;
+        }
+    }
+
+    static __gshared FPTypeProperties FloatProperties = FPTypeProperties.fromDHostCompiler!float();
+    static __gshared FPTypeProperties DoubleProperties = FPTypeProperties.fromDHostCompiler!double();
+    static __gshared FPTypeProperties RealProperties = FPTypeProperties.fromDHostCompiler!real_t();
+
+    // implemented in gen/target.cpp:
+    static void _init();
+    // Type sizes and support.
+    static uint alignsize(Type type);
+    static uint fieldalign(Type type);
+    static uint critsecsize();
+    static Type va_listType();  // get type of va_list
+    static int isVectorTypeSupported(int sz, Type type);
+    static bool isVectorOpSupported(Type type, TOK op, Type t2 = null);
+    // CTFE support for cross-compilation.
+    static Expression paintAsType(Expression e, Type type);
+    // ABI and backend.
+    static void loadModule(Module m);
+    static void prefixName(OutBuffer *buf, LINK linkage);
+
+    static const(char)* toCppMangle(Dsymbol s)
+    {
+        if (isTargetWindowsMSVC())
+            return toCppMangleMSVC(s);
+        else
+            return toCppMangleItanium(s);
+    }
+
+    static const(char)* cppTypeInfoMangle(ClassDeclaration cd)
+    {
+        if (isTargetWindowsMSVC())
+            return cppTypeInfoMangleMSVC(cd);
+        else
+            return cppTypeInfoMangleItanium(cd);
+    }
+  }
+  else // !IN_LLVM
+  {
     extern (C++) struct FPTypeProperties(T)
     {
         static __gshared
@@ -56,33 +132,8 @@ struct Target
 
     alias FloatProperties = FPTypeProperties!float;
     alias DoubleProperties = FPTypeProperties!double;
-  version(IN_LLVM) {
-    // host real_t may be double => make sure not to alias target's DoubleProperties
-    extern (C++) static __gshared FPTypeProperties!real_t RealProperties;
-  } else {
     alias RealProperties = FPTypeProperties!real_t;
-  }
 
-  version(IN_LLVM)
-  {
-    // implemented in gen/target.cpp:
-    extern (C++):
-
-    static void _init();
-    // Type sizes and support.
-    static uint alignsize(Type type);
-    static uint fieldalign(Type type);
-    static uint critsecsize();
-    static Type va_listType();  // get type of va_list
-    static int checkVectorType(int sz, Type type);
-    // CTFE support for cross-compilation.
-    static Expression paintAsType(Expression e, Type type);
-    // ABI and backend.
-    static void loadModule(Module m);
-    static void prefixName(OutBuffer *buf, LINK linkage);
-  }
-  else // !IN_LLVM
-  {
     extern (C++) static void _init()
     {
         // These have default values for 32 bit code, they get
@@ -148,7 +199,6 @@ struct Target
                 c_longsize = 8;
             }
         }
-        realislongdouble = true;
         c_long_doublesize = realsize;
         if (global.params.is64bit && global.params.isWindows)
             c_long_doublesize = 8;
@@ -277,15 +327,13 @@ struct Target
      * (in bytes) and element type `type`.
      *
      * Returns: 0 if the type is supported, or else: 1 if vector types are not
-     *     supported on the target at all, 2 if the given size isn't, or 3 if
-     *     the element type isn't.
+     *     supported on the target at all, 2 if the element type isn't, or 3 if
+     *     the given size isn't.
      */
-    extern (C++) static int checkVectorType(int sz, Type type)
+    extern (C++) static int isVectorTypeSupported(int sz, Type type)
     {
         if (!global.params.is64bit && !global.params.isOSX)
             return 1; // not supported
-        if (sz != 16 && sz != 32)
-            return 2; // wrong size
         switch (type.ty)
         {
         case Tvoid:
@@ -301,9 +349,91 @@ struct Target
         case Tfloat64:
             break;
         default:
-            return 3; // wrong base type
+            return 2; // wrong base type
         }
+        if (sz != 16 && !(global.params.cpu >= CPU.avx && sz == 32))
+            return 3; // wrong size
         return 0;
+    }
+
+    /**
+     * Checks whether the target supports operation `op` for vectors of type `type`.
+     * For binary ops `t2` is the type of the 2nd operand.
+     *
+     * Returns:
+     *      true if the operation is supported or type is not a vector
+     */
+    extern (C++) static bool isVectorOpSupported(Type type, TOK op, Type t2 = null)
+    {
+        import ddmd.tokens;
+
+        if (type.ty != Tvector)
+            return true; // not a vector op
+        auto tvec = cast(TypeVector) type;
+
+        bool supported;
+        switch (op)
+        {
+        case TOKneg, TOKuadd:
+            supported = tvec.isscalar();
+            break;
+
+        case TOKlt, TOKgt, TOKle, TOKge, TOKequal, TOKnotequal, TOKidentity, TOKnotidentity:
+            supported = false;
+            break;
+
+        case TOKunord, TOKlg, TOKleg, TOKule, TOKul, TOKuge, TOKug, TOKue:
+            supported = false;
+            break;
+
+        case TOKshl, TOKshlass, TOKshr, TOKshrass, TOKushr, TOKushrass:
+            supported = false;
+            break;
+
+        case TOKadd, TOKaddass, TOKmin, TOKminass:
+            supported = tvec.isscalar();
+            break;
+
+        case TOKmul, TOKmulass:
+            // only floats and short[8]/ushort[8] (PMULLW)
+            if (tvec.isfloating() || tvec.elementType().size(Loc()) == 2 ||
+                // int[4]/uint[4] with SSE4.1 (PMULLD)
+                global.params.cpu >= CPU.sse4_1 && tvec.elementType().size(Loc()) == 4)
+                supported = true;
+            else
+                supported = false;
+            break;
+
+        case TOKdiv, TOKdivass:
+            supported = tvec.isfloating();
+            break;
+
+        case TOKmod, TOKmodass:
+            supported = false;
+            break;
+
+        case TOKand, TOKandass, TOKor, TOKorass, TOKxor, TOKxorass:
+            supported = tvec.isintegral();
+            break;
+
+        case TOKnot:
+            supported = false;
+            break;
+
+        case TOKtilde:
+            supported = tvec.isintegral();
+            break;
+
+        case TOKpow, TOKpowass:
+            supported = false;
+            break;
+
+        default:
+            // import std.stdio : stderr, writeln;
+            // stderr.writeln(op);
+            assert(0, "unhandled op " ~ Token.toString(op));
+        }
+        return supported;
     }
 
     /******************************
@@ -374,7 +504,44 @@ struct Target
             break;
         }
     }
+
+    extern (C++) static const(char)* toCppMangle(Dsymbol s)
+    {
+        static if (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS)
+            return toCppMangleItanium(s);
+        else static if (TARGET_WINDOS)
+            return toCppMangleMSVC(s);
+        else
+            static assert(0, "fix this");
+    }
+
+    extern (C++) static const(char)* cppTypeInfoMangle(ClassDeclaration cd)
+    {
+        static if (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS)
+            return cppTypeInfoMangleItanium(cd);
+        else static if (TARGET_WINDOS)
+            return cppTypeInfoMangleMSVC(cd);
+        else
+            static assert(0, "fix this");
+    }
   } // !IN_LLVM
+
+    /**
+     * For a vendor-specific type, return a string containing the C++ mangling.
+     * In all other cases, return null.
+     */
+    extern (C++) static const(char)* cppTypeMangle(Type t)
+    {
+        return null;
+    }
+
+    /**
+     * Return the default system linkage for the target.
+     */
+    extern (C++) static LINK systemLinkage()
+    {
+        return global.params.isWindows ? LINKwindows : LINKc;
+    }
 }
 
 version(IN_LLVM) {} else {
@@ -383,7 +550,7 @@ version(IN_LLVM) {} else {
  * Private helpers for Target::paintAsType.
  */
 // Write the integer value of 'e' into a unsigned byte buffer.
-extern (C++) static void encodeInteger(Expression e, ubyte* buffer)
+private void encodeInteger(Expression e, ubyte* buffer)
 {
     dinteger_t value = e.toInteger();
     int size = cast(int)e.type.size();
@@ -396,7 +563,7 @@ extern (C++) static void encodeInteger(Expression e, ubyte* buffer)
 
 // Write the bytes encoded in 'buffer' into an integer and returns
 // the value as a new IntegerExp.
-extern (C++) static Expression decodeInteger(Loc loc, Type type, ubyte* buffer)
+private Expression decodeInteger(Loc loc, Type type, ubyte* buffer)
 {
     dinteger_t value = 0;
     int size = cast(int)type.size();
@@ -409,7 +576,7 @@ extern (C++) static Expression decodeInteger(Loc loc, Type type, ubyte* buffer)
 }
 
 // Write the real_t value of 'e' into a unsigned byte buffer.
-extern (C++) static void encodeReal(Expression e, ubyte* buffer)
+private void encodeReal(Expression e, ubyte* buffer)
 {
     switch (e.type.ty)
     {
@@ -432,7 +599,7 @@ extern (C++) static void encodeReal(Expression e, ubyte* buffer)
 
 // Write the bytes encoded in 'buffer' into a real_t and returns
 // the value as a new RealExp.
-extern (C++) static Expression decodeReal(Loc loc, Type type, ubyte* buffer)
+private Expression decodeReal(Loc loc, Type type, ubyte* buffer)
 {
     real_t value;
     switch (type.ty)

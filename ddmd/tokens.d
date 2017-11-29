@@ -5,10 +5,12 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _tokens.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/tokens.d, _tokens.d)
  */
 
 module ddmd.tokens;
+
+// Online documentation: https://dlang.org/phobos/ddmd_tokens.html
 
 import core.stdc.ctype;
 import core.stdc.stdio;
@@ -112,7 +114,9 @@ enum TOK : int
     TOKushr,
     TOKushrass,
     TOKcat,
-    TOKcatass, // ~ ~=
+    TOKcatass, // ~=
+    TOKcatelemass,
+    TOKcatdcharass,
     TOKadd,
     TOKmin,
     TOKaddass,
@@ -145,7 +149,7 @@ enum TOK : int
     TOKpreplusplus,
     TOKpreminusminus,
 
-    // 111
+    // 113
     // Numeric literals
     TOKint32v,
     TOKuns32v,
@@ -160,13 +164,13 @@ enum TOK : int
     TOKimaginary64v,
     TOKimaginary80v,
 
-    // 123
+    // 125
     // Char constants
     TOKcharv,
     TOKwcharv,
     TOKdcharv,
 
-    // 126
+    // 128
     // Leaf operators
     TOKidentifier,
     TOKstring,
@@ -177,7 +181,7 @@ enum TOK : int
     TOKtuple,
     TOKerror,
 
-    // 134
+    // 136
     // Basic types
     TOKvoid,
     TOKint8,
@@ -204,7 +208,7 @@ enum TOK : int
     TOKdchar,
     TOKbool,
 
-    // 158
+    // 160
     // Aggregates
     TOKstruct,
     TOKclass,
@@ -238,7 +242,7 @@ enum TOK : int
     TOKmanifest,
     TOKimmutable,
 
-    // 189
+    // 191
     // Statements
     TOKif,
     TOKelse,
@@ -265,9 +269,8 @@ enum TOK : int
     TOKon_scope_failure,
     TOKon_scope_success,
 
-    // 213
+    // 215
     // Contracts
-    TOKbody,
     TOKinvariant,
 
     // Testing
@@ -278,7 +281,7 @@ enum TOK : int
     TOKref,
     TOKmacro,
 
-    // 219
+    // 221
     TOKparameters,
     TOKtraits,
     TOKoverloadset,
@@ -299,7 +302,7 @@ enum TOK : int
     TOKvector,
     TOKpound,
 
-    // 237
+    // 239
     TOKinterval,
     TOKvoidexp,
     TOKcantexp,
@@ -387,6 +390,8 @@ alias TOKushr = TOK.TOKushr;
 alias TOKushrass = TOK.TOKushrass;
 alias TOKcat = TOK.TOKcat;
 alias TOKcatass = TOK.TOKcatass;
+alias TOKcatelemass = TOK.TOKcatelemass;
+alias TOKcatdcharass = TOK.TOKcatdcharass;
 alias TOKadd = TOK.TOKadd;
 alias TOKmin = TOK.TOKmin;
 alias TOKaddass = TOK.TOKaddass;
@@ -520,7 +525,6 @@ alias TOKscope = TOK.TOKscope;
 alias TOKon_scope_exit = TOK.TOKon_scope_exit;
 alias TOKon_scope_failure = TOK.TOKon_scope_failure;
 alias TOKon_scope_success = TOK.TOKon_scope_success;
-alias TOKbody = TOK.TOKbody;
 alias TOKinvariant = TOK.TOKinvariant;
 alias TOKunittest = TOK.TOKunittest;
 alias TOKargTypes = TOK.TOKargTypes;
@@ -548,6 +552,7 @@ alias TOKpound = TOK.TOKpound;
 alias TOKinterval = TOK.TOKinterval;
 alias TOKvoidexp = TOK.TOKvoidexp;
 alias TOKcantexp = TOK.TOKcantexp;
+
 alias TOKMAX = TOK.TOKMAX;
 
 enum TOKwild = TOKinout;
@@ -674,7 +679,6 @@ extern (C++) struct Token
         TOKprotected: "protected",
         TOKpublic: "public",
         TOKexport: "export",
-        TOKbody: "body",
         TOKinvariant: "invariant",
         TOKunittest: "unittest",
         TOKversion: "version",
@@ -768,6 +772,8 @@ extern (C++) struct Token
         TOKandass: "&=",
         TOKorass: "|=",
         TOKcatass: "~=",
+        TOKcatelemass: "~=",
+        TOKcatdcharass: "~=",
         TOKcat: "~",
         TOKcall: "call",
         TOKidentity: "is",
@@ -834,18 +840,19 @@ extern (C++) struct Token
         TOKcantexp: "cantexp",
     ];
 
-    static this()
+    static assert(() {
+        foreach (s; tochars)
+            assert(s.length);
+        return true;
+    }());
+
+    shared static this()
     {
         Identifier.initTable();
         foreach (kw; keywords)
         {
             //printf("keyword[%d] = '%s'\n",kw, tochars[kw].ptr);
             Identifier.idPool(tochars[kw].ptr, tochars[kw].length, cast(uint)kw);
-        }
-
-        foreach (i, s; tochars)
-        {
-            assert(s.length);
         }
     }
 
@@ -1166,7 +1173,6 @@ private immutable TOK[] keywords =
     TOKprotected,
     TOKpublic,
     TOKexport,
-    TOKbody,
     TOKinvariant,
     TOKunittest,
     TOKversion,

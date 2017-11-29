@@ -5,12 +5,13 @@
  * Copyright:   Copyright (C) 1994-1998 by Symantec
  *              Copyright (c) 2000-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
- * License:     Distributed under the Boost Software License, Version 1.0.
- *              http://www.boost.org/LICENSE_1_0.txt
- * Source:      https://github.com/dlang/dmd/blob/master/src/ddmd/_dinifile.d
+ * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/dinifile.d, _dinifile.d)
  */
 
 module ddmd.dinifile;
+
+// Online documentation: https://dlang.org/phobos/ddmd_dinifile.html
 
 import core.stdc.ctype;
 import core.stdc.string;
@@ -131,7 +132,7 @@ private bool writeToEnv(StringTable* environment, char* nameEqValue)
 }
 
 /************************************
- * Update real enviroment with our copy.
+ * Update real environment with our copy.
  * Params:
  *      environment = our copy of the environment
  */
@@ -287,7 +288,7 @@ void parseConfFile(StringTable* environment, const(char)* filename, const(char)*
                 envsection = false;
                 break;
             }
-            /* Seach sectionnamev[] for p..pn and set envsection to true if it's there
+            /* Search sectionnamev[] for p..pn and set envsection to true if it's there
              */
             for (size_t j = 0; 1; ++j)
             {

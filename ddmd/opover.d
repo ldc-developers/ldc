@@ -5,10 +5,12 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _opover.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/opover.d, _opover.d)
  */
 
 module ddmd.opover;
+
+// Online documentation: https://dlang.org/phobos/ddmd_opover.html
 
 import core.stdc.stdio;
 import ddmd.aggregate;
@@ -22,13 +24,16 @@ import ddmd.dsymbol;
 import ddmd.dtemplate;
 import ddmd.errors;
 import ddmd.expression;
+import ddmd.expressionsem;
 import ddmd.func;
 import ddmd.globals;
 import ddmd.id;
 import ddmd.identifier;
 import ddmd.mtype;
+import ddmd.semantic;
 import ddmd.statement;
 import ddmd.tokens;
+import ddmd.typesem;
 import ddmd.visitor;
 
 /***********************************
@@ -62,7 +67,7 @@ extern (C++) bool isCommutative(TOK op)
 /***********************************
  * Get Identifier for operator overload.
  */
-extern (C++) static Identifier opId(Expression e)
+private Identifier opId(Expression e)
 {
     extern (C++) final class OpIdVisitor : Visitor
     {
@@ -270,7 +275,7 @@ extern (C++) static Identifier opId(Expression e)
  * Get Identifier for reverse operator overload,
  * NULL if not supported for this operator.
  */
-extern (C++) static Identifier opId_r(Expression e)
+private Identifier opId_r(Expression e)
 {
     extern (C++) final class OpIdRVisitor : Visitor
     {
@@ -429,7 +434,7 @@ extern (C++) Objects* opToArg(Scope* sc, TOK op)
         break;
     }
     Expression e = new StringExp(Loc(), cast(char*)Token.toChars(op));
-    e = e.semantic(sc);
+    e = e.expressionSemantic(sc);
     auto tiargs = new Objects();
     tiargs.push(e);
     return tiargs;
@@ -466,7 +471,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
             if (e.e1.op == TOKarray)
             {
                 ArrayExp ae = cast(ArrayExp)e.e1;
-                ae.e1 = ae.e1.semantic(sc);
+                ae.e1 = ae.e1.expressionSemantic(sc);
                 ae.e1 = resolveProperties(sc, ae.e1);
                 Expression ae1old = ae.e1;
                 const(bool) maybeSlice = (ae.arguments.dim == 0 || ae.arguments.dim == 1 && (*ae.arguments)[0].op == TOKinterval);
@@ -508,7 +513,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                         if (maybeSlice) // op(a[]) might be: a.opSliceUnary!(op)()
                             result = result.trySemantic(sc);
                         else
-                            result = result.semantic(sc);
+                            result = result.expressionSemantic(sc);
                         if (result)
                         {
                             result = Expression.combine(e0, result);
@@ -534,7 +539,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                         Objects* tiargs = opToArg(sc, e.op);
                         result = new DotTemplateInstanceExp(e.loc, ae.e1, Id.opSliceUnary, tiargs);
                         result = new CallExp(e.loc, result, a);
-                        result = result.semantic(sc);
+                        result = result.expressionSemantic(sc);
                         result = Expression.combine(e0, result);
                         return;
                     }
@@ -555,7 +560,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                 ae.e1 = ae1old; // recovery
                 ae.lengthVar = null;
             }
-            e.e1 = e.e1.semantic(sc);
+            e.e1 = e.e1.expressionSemantic(sc);
             e.e1 = resolveProperties(sc, e.e1);
             if (e.e1.op == TOKerror)
             {
@@ -589,7 +594,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     Objects* tiargs = opToArg(sc, e.op);
                     result = new DotTemplateInstanceExp(e.loc, e.e1, fd.ident, tiargs);
                     result = new CallExp(e.loc, result);
-                    result = result.semantic(sc);
+                    result = result.expressionSemantic(sc);
                     return;
                 }
                 // Didn't find it. Forward to aliasthis
@@ -613,7 +618,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
         override void visit(ArrayExp ae)
         {
             //printf("ArrayExp::op_overload() (%s)\n", ae.toChars());
-            ae.e1 = ae.e1.semantic(sc);
+            ae.e1 = ae.e1.expressionSemantic(sc);
             ae.e1 = resolveProperties(sc, ae.e1);
             Expression ae1old = ae.e1;
             const(bool) maybeSlice = (ae.arguments.dim == 0 || ae.arguments.dim == 1 && (*ae.arguments)[0].op == TOKinterval);
@@ -646,14 +651,14 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                         if (maybeSlice)
                         {
                             result = new SliceExp(ae.loc, ae.e1, ie);
-                            result = result.semantic(sc);
+                            result = result.expressionSemantic(sc);
                             return;
                         }
                         // Convert to IndexExp
                         if (ae.arguments.dim == 1)
                         {
                             result = new IndexExp(ae.loc, ae.e1, (*ae.arguments)[0]);
-                            result = result.semantic(sc);
+                            result = result.expressionSemantic(sc);
                             return;
                         }
                     }
@@ -676,7 +681,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     if (maybeSlice) // a[] might be: a.opSlice()
                         result = result.trySemantic(sc);
                     else
-                        result = result.semantic(sc);
+                        result = result.expressionSemantic(sc);
                     if (result)
                     {
                         result = Expression.combine(e0, result);
@@ -687,7 +692,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                 if (maybeSlice && ae.e1.op == TOKtype)
                 {
                     result = new SliceExp(ae.loc, ae.e1, ie);
-                    result = result.semantic(sc);
+                    result = result.expressionSemantic(sc);
                     result = Expression.combine(e0, result);
                     return;
                 }
@@ -708,7 +713,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     }
                     result = new DotIdExp(ae.loc, ae.e1, Id.slice);
                     result = new CallExp(ae.loc, result, a);
-                    result = result.semantic(sc);
+                    result = result.expressionSemantic(sc);
                     result = Expression.combine(e0, result);
                     return;
                 }
@@ -762,7 +767,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     tiargs.push(e.to);
                     result = new DotTemplateInstanceExp(e.loc, e.e1, fd.ident, tiargs);
                     result = new CallExp(e.loc, result);
-                    result = result.semantic(sc);
+                    result = result.expressionSemantic(sc);
                     return;
                 }
                 // Didn't find it. Forward to aliasthis
@@ -811,7 +816,8 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                 if (ad2 && id_r)
                 {
                     s_r = search_function(ad2, id_r);
-                    // Bugzilla 12778: If both x.opBinary(y) and y.opBinaryRight(x) found,
+                    // https://issues.dlang.org/show_bug.cgi?id=12778
+                    // If both x.opBinary(y) and y.opBinaryRight(x) found,
                     // and they are exactly same symbol, x.opBinary(y) should be preferred.
                     if (s_r && s_r == s)
                         s_r = null;
@@ -847,7 +853,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                         result = new ErrorExp();
                         return;
                     }
-                    if (s_r && s_r == s) // Bugzilla 12778
+                    if (s_r && s_r == s) // https://issues.dlang.org/show_bug.cgi?id=12778
                         s_r = null;
                 }
                 // Set tiargs, the template argument list, which will be the operator string
@@ -873,7 +879,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                 expandTuples(&args2);
                 argsset = 1;
                 Match m;
-                m.last = MATCHnomatch;
+                m.last = MATCH.nomatch;
                 if (s)
                 {
                     functionResolve(&m, s, e.loc, sc, tiargs, e.e1.type, &args2);
@@ -898,7 +904,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     // Error, ambiguous
                     e.error("overloads %s and %s both match argument list for %s", m.lastf.type.toChars(), m.nextf.type.toChars(), m.lastf.toChars());
                 }
-                else if (m.last <= MATCHnomatch)
+                else if (m.last <= MATCH.nomatch)
                 {
                     m.lastf = m.anyf;
                     if (tiargs)
@@ -912,7 +918,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     // Rewrite (e1 -- e2) as e1.postdec()
                     result = build_overload(e.loc, sc, e.e1, null, m.lastf ? m.lastf : s);
                 }
-                else if (lastf && m.lastf == lastf || !s_r && m.last <= MATCHnomatch)
+                else if (lastf && m.lastf == lastf || !s_r && m.last <= MATCH.nomatch)
                 {
                     // Rewrite (e1 op e2) as e1.opfunc(e2)
                     result = build_overload(e.loc, sc, e.e1, e.e2, m.lastf ? m.lastf : s);
@@ -939,7 +945,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     if (ad2 && id)
                     {
                         s = search_function(ad2, id);
-                        if (s && s == s_r) // Bugzilla 12778
+                        if (s && s == s_r) // https://issues.dlang.org/show_bug.cgi?id=12778
                             s = null;
                     }
                     if (s || s_r)
@@ -959,7 +965,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                             expandTuples(&args2);
                         }
                         Match m;
-                        m.last = MATCHnomatch;
+                        m.last = MATCH.nomatch;
                         if (s_r)
                         {
                             functionResolve(&m, s_r, e.loc, sc, tiargs, e.e1.type, &args2);
@@ -984,11 +990,11 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                             // Error, ambiguous
                             e.error("overloads %s and %s both match argument list for %s", m.lastf.type.toChars(), m.nextf.type.toChars(), m.lastf.toChars());
                         }
-                        else if (m.last <= MATCHnomatch)
+                        else if (m.last <= MATCH.nomatch)
                         {
                             m.lastf = m.anyf;
                         }
-                        if (lastf && m.lastf == lastf || !s && m.last <= MATCHnomatch)
+                        if (lastf && m.lastf == lastf || !s && m.last <= MATCH.nomatch)
                         {
                             // Rewrite (e1 op e2) as e1.opfunc_r(e2)
                             result = build_overload(e.loc, sc, e.e1, e.e2, m.lastf ? m.lastf : s_r);
@@ -1022,7 +1028,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                 }
             }
             // Try alias this on first operand
-            if (ad1 && ad1.aliasthis && !(e.op == TOKassign && ad2 && ad1 == ad2)) // See Bugzilla 2943
+            if (ad1 && ad1.aliasthis && !(e.op == TOKassign && ad2 && ad1 == ad2)) // https://issues.dlang.org/show_bug.cgi?id=2943
             {
                 /* Rewrite (e1 op e2) as:
                  *      (e1.aliasthis op e2)
@@ -1039,7 +1045,8 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                 return;
             }
             // Try alias this on second operand
-            /* Bugzilla 2943: make sure that when we're copying the struct, we don't
+            /* https://issues.dlang.org/show_bug.cgi?id=2943
+             * make sure that when we're copying the struct, we don't
              * just copy the alias this member
              */
             if (ad2 && ad2.aliasthis && !(e.op == TOKassign && ad1 && ad1 == ad2))
@@ -1146,8 +1153,8 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     Expression e1x = e.e1;
                     Expression e2x = e.e2;
 
-                    /* The explicit cast is necessary for interfaces,
-                     * see Bugzilla 4088.
+                    /* The explicit cast is necessary for interfaces
+                     * https://issues.dlang.org/show_bug.cgi?id=4088
                      */
                     Type to = ClassDeclaration.object.getType();
                     if (cd1.isInterfaceDeclaration())
@@ -1161,7 +1168,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     result = new CallExp(e.loc, result, e1x, e2x);
                     if (e.op == TOKnotequal)
                         result = new NotExp(e.loc, result);
-                    result = result.semantic(sc);
+                    result = result.expressionSemantic(sc);
                     return;
                 }
             }
@@ -1172,7 +1179,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                 if (result.op == TOKcall && e.op == TOKnotequal)
                 {
                     result = new NotExp(result.loc, result);
-                    result = result.semantic(sc);
+                    result = result.expressionSemantic(sc);
                 }
                 return;
             }
@@ -1191,7 +1198,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                  */
                 auto op2 = e.op == TOKequal ? TOKidentity : TOKnotidentity;
                 result = new IdentityExp(op2, e.loc, e.e1, e.e2);
-                result = result.semantic(sc);
+                result = result.expressionSemantic(sc);
                 return;
             }
 
@@ -1209,7 +1216,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     // Use bitwise equality.
                     auto op2 = e.op == TOKequal ? TOKidentity : TOKnotidentity;
                     result = new IdentityExp(op2, e.loc, e.e1, e.e2);
-                    result = result.semantic(sc);
+                    result = result.expressionSemantic(sc);
                     return;
                 }
 
@@ -1231,9 +1238,10 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                 if (!e.att2) e.att2 = t2;
                 e.e1 = new DotIdExp(e.loc, e.e1, Id._tupleof);
                 e.e2 = new DotIdExp(e.loc, e.e2, Id._tupleof);
-                result = e.semantic(sc);
+                result = e.expressionSemantic(sc);
 
-                /* Bugzilla 15292, if the rewrite result is same with the original,
+                /* https://issues.dlang.org/show_bug.cgi?id=15292
+                 * if the rewrite result is same with the original,
                  * the equality is unresolvable because it has recursive definition.
                  */
                 if (result.op == e.op &&
@@ -1279,14 +1287,14 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                         if (!result)
                             result = eeq;
                         else if (e.op == TOKequal)
-                            result = new AndAndExp(e.loc, result, eeq);
+                            result = new LogicalExp(e.loc, TOKandand, result, eeq);
                         else
-                            result = new OrOrExp(e.loc, result, eeq);
+                            result = new LogicalExp(e.loc, TOKoror, result, eeq);
                     }
                     assert(result);
                 }
                 result = Expression.combine(Expression.combine(tup1.e0, tup2.e0), result);
-                result = result.semantic(sc);
+                result = result.expressionSemantic(sc);
                 return;
             }
         }
@@ -1306,7 +1314,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
             if (e.e1.op == TOKarray)
             {
                 ArrayExp ae = cast(ArrayExp)e.e1;
-                ae.e1 = ae.e1.semantic(sc);
+                ae.e1 = ae.e1.expressionSemantic(sc);
                 ae.e1 = resolveProperties(sc, ae.e1);
                 Expression ae1old = ae.e1;
                 const(bool) maybeSlice = (ae.arguments.dim == 0 || ae.arguments.dim == 1 && (*ae.arguments)[0].op == TOKinterval);
@@ -1338,7 +1346,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                             goto Lfallback;
                         if (result.op == TOKerror)
                             return;
-                        result = e.e2.semantic(sc);
+                        result = e.e2.expressionSemantic(sc);
                         if (result.op == TOKerror)
                             return;
                         e.e2 = result;
@@ -1353,7 +1361,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                         if (maybeSlice) // (a[] op= e2) might be: a.opSliceOpAssign!(op)(e2)
                             result = result.trySemantic(sc);
                         else
-                            result = result.semantic(sc);
+                            result = result.expressionSemantic(sc);
                         if (result)
                         {
                             result = Expression.combine(e0, result);
@@ -1367,7 +1375,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                         result = resolveOpDollar(sc, ae, ie, &e0);
                         if (result.op == TOKerror)
                             return;
-                        result = e.e2.semantic(sc);
+                        result = e.e2.expressionSemantic(sc);
                         if (result.op == TOKerror)
                             return;
                         e.e2 = result;
@@ -1384,7 +1392,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                         Objects* tiargs = opToArg(sc, e.op);
                         result = new DotTemplateInstanceExp(e.loc, ae.e1, Id.opSliceOpAssign, tiargs);
                         result = new CallExp(e.loc, result, a);
-                        result = result.semantic(sc);
+                        result = result.expressionSemantic(sc);
                         result = Expression.combine(e0, result);
                         return;
                     }
@@ -1408,7 +1416,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
             result = e.binSemanticProp(sc);
             if (result)
                 return;
-            // Don't attempt 'alias this' if an error occured
+            // Don't attempt 'alias this' if an error occurred
             if (e.e1.type.ty == Terror || e.e2.type.ty == Terror)
             {
                 result = new ErrorExp();
@@ -1457,7 +1465,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                 args2[0] = e.e2;
                 expandTuples(&args2);
                 Match m;
-                m.last = MATCHnomatch;
+                m.last = MATCH.nomatch;
                 if (s)
                 {
                     functionResolve(&m, s, e.loc, sc, tiargs, e.e1.type, &args2);
@@ -1472,7 +1480,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     // Error, ambiguous
                     e.error("overloads %s and %s both match argument list for %s", m.lastf.type.toChars(), m.nextf.type.toChars(), m.lastf.toChars());
                 }
-                else if (m.last <= MATCHnomatch)
+                else if (m.last <= MATCH.nomatch)
                 {
                     m.lastf = m.anyf;
                     if (tiargs)
@@ -1563,7 +1571,7 @@ extern (C++) Expression compare_overload(BinExp e, Scope* sc, Identifier id)
         args2[0] = e.e2;
         expandTuples(&args2);
         Match m;
-        m.last = MATCHnomatch;
+        m.last = MATCH.nomatch;
         if (0 && s && s_r)
         {
             printf("s  : %s\n", s.toPrettyChars());
@@ -1602,12 +1610,12 @@ extern (C++) Expression compare_overload(BinExp e, Scope* sc, Identifier id)
                 e.error("overloads %s and %s both match argument list for %s", m.lastf.type.toChars(), m.nextf.type.toChars(), m.lastf.toChars());
             }
         }
-        else if (m.last <= MATCHnomatch)
+        else if (m.last <= MATCH.nomatch)
         {
             m.lastf = m.anyf;
         }
         Expression result;
-        if (lastf && m.lastf == lastf || !s_r && m.last <= MATCHnomatch)
+        if (lastf && m.lastf == lastf || !s_r && m.last <= MATCH.nomatch)
         {
             // Rewrite (e1 op e2) as e1.opfunc(e2)
             result = build_overload(e.loc, sc, e.e1, e.e2, m.lastf ? m.lastf : s);
@@ -1689,7 +1697,7 @@ extern (C++) Expression build_overload(Loc loc, Scope* sc, Expression ethis, Exp
     else
         e = new DotIdExp(loc, ethis, d.ident);
     e = new CallExp(loc, e, earg);
-    e = e.semantic(sc);
+    e = e.expressionSemantic(sc);
     return e;
 }
 
@@ -1726,7 +1734,7 @@ extern (C++) bool inferAggregate(ForeachStatement fes, Scope* sc, ref Dsymbol sa
     AggregateDeclaration ad;
     while (1)
     {
-        aggr = aggr.semantic(sc);
+        aggr = aggr.expressionSemantic(sc);
         aggr = resolveProperties(sc, aggr);
         aggr = aggr.optimize(WANTvalue);
         if (!aggr.type || aggr.op == TOKerror)
@@ -1816,7 +1824,7 @@ extern (C++) bool inferApplyArgTypes(ForeachStatement fes, Scope* sc, ref Dsymbo
             Parameter p = (*fes.parameters)[u];
             if (p.type)
             {
-                p.type = p.type.semantic(fes.loc, sc);
+                p.type = p.type.typeSemantic(fes.loc, sc);
                 p.type = p.type.addStorageClass(p.storageClass);
             }
         }
@@ -1943,10 +1951,10 @@ extern (C++) bool inferApplyArgTypes(ForeachStatement fes, Scope* sc, ref Dsymbo
     return true;
 }
 
-extern (C++) static Dsymbol inferApplyArgTypesX(Expression ethis, FuncDeclaration fstart, Parameters* parameters)
+private Dsymbol inferApplyArgTypesX(Expression ethis, FuncDeclaration fstart, Parameters* parameters)
 {
     MOD mod = ethis.type.mod;
-    MATCH match = MATCHnomatch;
+    MATCH match = MATCH.nomatch;
     FuncDeclaration fd_best;
     FuncDeclaration fd_ambig;
     overloadApply(fstart, (Dsymbol s)
@@ -1955,16 +1963,16 @@ extern (C++) static Dsymbol inferApplyArgTypesX(Expression ethis, FuncDeclaratio
         if (!f)
             return 0;
         auto tf = cast(TypeFunction)f.type;
-        MATCH m = MATCHexact;
+        MATCH m = MATCH.exact;
         if (f.isThis())
         {
             if (!MODimplicitConv(mod, tf.mod))
-                m = MATCHnomatch;
+                m = MATCH.nomatch;
             else if (mod != tf.mod)
-                m = MATCHconst;
+                m = MATCH.constant;
         }
         if (!inferApplyArgTypesY(tf, parameters, 1))
-            m = MATCHnomatch;
+            m = MATCH.nomatch;
         if (m > match)
         {
             fd_best = f;
@@ -1997,7 +2005,7 @@ extern (C++) static Dsymbol inferApplyArgTypesX(Expression ethis, FuncDeclaratio
  *      1 match for this function
  *      0 no match for this function
  */
-extern (C++) static int inferApplyArgTypesY(TypeFunction tf, Parameters* parameters, int flags = 0)
+private int inferApplyArgTypesY(TypeFunction tf, Parameters* parameters, int flags = 0)
 {
     size_t nparams;
     Parameter p;

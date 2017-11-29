@@ -7,6 +7,7 @@
 #include "declaration.h"
 #include "expression.h"
 #include "ir/irfunction.h"
+#include "ir/irvar.h"
 #include "module.h"
 #include "id.h"
 
@@ -62,7 +63,7 @@ StructLiteralExp *getLdcAttributesStruct(Expression *attr) {
 void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
   if (sle->elements->dim != elemTypes.size()) {
     sle->error(
-        "unexpected field count in 'ldc.%s.%s'; does druntime not "
+        "unexpected field count in `ldc.%s.%s`; does druntime not "
         "match compiler version?",
         sle->sd->getModule()->md->id->toChars(),
         sle->sd->ident->toChars());
@@ -71,7 +72,7 @@ void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
 
   for (size_t i = 0; i < sle->elements->dim; ++i) {
     if ((*sle->elements)[i]->type->toBasetype() != elemTypes[i]) {
-      sle->error("invalid field type in 'ldc.%s.%s'; does druntime not "
+      sle->error("invalid field type in `ldc.%s.%s`; does druntime not "
                  "match compiler version?",
                  sle->sd->getModule()->md->id->toChars(),
                  sle->sd->ident->toChars());
@@ -142,14 +143,14 @@ void applyAttrAllocSize(StructLiteralExp *sle, IrFunction *irFunc) {
   // Verify that the index values are valid
   bool error = false;
   if (sizeArgIdx + 1 > sinteger_t(numUserParams)) {
-    sle->error("@ldc.attributes.allocSize.sizeArgIdx=%d too large for function "
-               "`%s` with %d arguments.",
+    sle->error("`@ldc.attributes.allocSize.sizeArgIdx=%d` too large for "
+               "function `%s` with %d arguments.",
                (int)sizeArgIdx, irFunc->decl->toChars(), (int)numUserParams);
     error = true;
   }
   if (numArgIdx + 1 > sinteger_t(numUserParams)) {
-    sle->error("@ldc.attributes.allocSize.numArgIdx=%d too large for function "
-               "`%s` with %d arguments.",
+    sle->error("`@ldc.attributes.allocSize.numArgIdx=%d` too large for "
+               "function `%s` with %d arguments.",
                (int)numArgIdx, irFunc->decl->toChars(), (int)numUserParams);
     error = true;
   }
@@ -221,7 +222,7 @@ void applyAttrLLVMFastMathFlag(StructLiteralExp *sle, IrFunction *irFunc) {
 #if LDC_LLVM_VER >= 500
     irFunc->FMF.setAllowContract(true);
 #else
-    sle->warning("ignoring parameter \"contract\" for @ldc.attributes.%s: "
+    sle->warning("ignoring parameter `contract` for `@ldc.attributes.%s`: "
                  "LDC needs to be built against LLVM 5.0+ for support",
                  sle->sd->ident->toChars());
 #endif
@@ -237,7 +238,7 @@ void applyAttrLLVMFastMathFlag(StructLiteralExp *sle, IrFunction *irFunc) {
     // `value` is a null-terminated returned from getStringElem so can be passed
     // to warning("... %s ...").
     sle->warning(
-        "ignoring unrecognized flag parameter '%s' for '@ldc.attributes.%s'",
+        "ignoring unrecognized flag parameter `%s` for `@ldc.attributes.%s`",
         value.data(), sle->sd->ident->toChars());
   }
 }
@@ -249,8 +250,8 @@ void applyAttrOptStrategy(StructLiteralExp *sle, IrFunction *irFunc) {
   llvm::Function *func = irFunc->getLLVMFunc();
   if (value == "none") {
     if (irFunc->decl->inlining == PINLINEalways) {
-      sle->error("cannot combine '@ldc.attributes.%s(\"none\")' with "
-                 "'pragma(inline, true)'",
+      sle->error("cannot combine `@ldc.attributes.%s(\"none\")` with "
+                 "`pragma(inline, true)`",
                  sle->sd->ident->toChars());
       return;
     }
@@ -262,7 +263,7 @@ void applyAttrOptStrategy(StructLiteralExp *sle, IrFunction *irFunc) {
     func->addFnAttr(llvm::Attribute::MinSize);
   } else {
     sle->warning(
-        "ignoring unrecognized parameter '%s' for '@ldc.attributes.%s'",
+        "ignoring unrecognized parameter `%s` for `@ldc.attributes.%s`",
         value.data(), sle->sd->ident->toChars());
   }
 }
@@ -272,7 +273,7 @@ void applyAttrSection(StructLiteralExp *sle, llvm::GlobalObject *globj) {
   globj->setSection(getFirstElemString(sle));
 }
 
-void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func) {
+void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func, IrFunction *irFunc) {
   // TODO: this is a rudimentary implementation for @target. Many more
   // target-related attributes could be applied to functions (not just for
   // @target): clang applies many attributes that LDC does not.
@@ -325,8 +326,11 @@ void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func) {
     features.emplace_back(std::move(f));
   }
 
-  if (!CPU.empty())
+  if (!CPU.empty()) {
     func->addFnAttr("target-cpu", CPU);
+    irFunc->targetCpuOverridden = true;
+  }
+
   if (!features.empty()) {
     // Sorting the features puts negative features ("-") after positive features
     // ("+"). This provides the desired behavior of negative features overriding
@@ -334,6 +338,7 @@ void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func) {
     sort(features.begin(), features.end());
     func->addFnAttr("target-features",
                     llvm::join(features.begin(), features.end(), ","));
+    irFunc->targetFeaturesOverridden = true;
   }
 }
 
@@ -355,13 +360,20 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
       applyAttrSection(sle, gvar);
     } else if (ident == Id::udaOptStrategy || ident == Id::udaTarget) {
       sle->error(
-          "Special attribute 'ldc.attributes.%s' is only valid for functions",
+          "Special attribute `ldc.attributes.%s` is only valid for functions",
           ident->toChars());
     } else if (ident == Id::udaWeak) {
       // @weak is applied elsewhere
+    } else if (ident == Id::udaDynamicCompile) {
+      sle->error(
+          "Special attribute `ldc.attributes.%s` is only valid for functions",
+          ident->toChars());
+    } else if (ident == Id::udaDynamicCompileConst) {
+      getIrGlobal(decl)->dynamicCompileConst = true;
     } else {
       sle->warning(
-          "Ignoring unrecognized special attribute 'ldc.attributes.%s'", ident->toChars());
+          "Ignoring unrecognized special attribute `ldc.attributes.%s`",
+          ident->toChars());
     }
   }
 }
@@ -392,12 +404,19 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
     } else if (ident == Id::udaSection) {
       applyAttrSection(sle, func);
     } else if (ident == Id::udaTarget) {
-      applyAttrTarget(sle, func);
+      applyAttrTarget(sle, func, irFunc);
     } else if (ident == Id::udaWeak || ident == Id::udaKernel) {
       // @weak and @kernel are applied elsewhere
+    } else if (ident == Id::udaDynamicCompile) {
+      irFunc->dynamicCompile = true;
+    } else if (ident == Id::udaDynamicCompileConst) {
+      sle->error(
+          "Special attribute `ldc.attributes.%s` is only valid for variables",
+          ident->toChars());
     } else {
       sle->warning(
-          "Ignoring unrecognized special attribute 'ldc.attributes.%s'", ident->toChars());
+          "Ignoring unrecognized special attribute `ldc.attributes.%s`",
+          ident->toChars());
     }
   }
 }
@@ -411,7 +430,7 @@ bool hasWeakUDA(Dsymbol *sym) {
   checkStructElems(sle, {});
   auto vd = sym->isVarDeclaration();
   if (!(vd && vd->isDataseg()) && !sym->isFuncDeclaration())
-    sym->error("@ldc.attributes.weak can only be applied to functions or "
+    sym->error("`@ldc.attributes.weak` can only be applied to functions or "
                "global variables");
   return true;
 }
@@ -438,9 +457,10 @@ bool hasKernelAttr(Dsymbol *sym) {
   checkStructElems(sle, {});
 
   if (!sym->isFuncDeclaration() &&
-      hasComputeAttr(sym->getModule()) != DComputeCompileFor::hostOnly)
-    sym->error("@ldc.dcompute.kernel can only be applied to functions"
-               " in modules marked @ldc.dcompute.compute");
+      hasComputeAttr(sym->getModule()) != DComputeCompileFor::hostOnly) {
+    sym->error("`@ldc.dcompute.kernel` can only be applied to functions"
+               " in modules marked `@ldc.dcompute.compute`");
+  }
 
   return true;
 }

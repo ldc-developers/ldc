@@ -1,12 +1,12 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (c) 1999-2016 by Digital Mars
+ * Copyright (c) 1999-2017 by Digital Mars
  * All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
  * http://www.boost.org/LICENSE_1_0.txt
- * https://github.com/dlang/dmd/blob/master/src/lexer.h
+ * https://github.com/dlang/dmd/blob/master/src/tokens.h
  */
 
 #ifndef DMD_TOKENS_H
@@ -90,7 +90,7 @@ enum TOK
         TOKshl,         TOKshr,
         TOKshlass,      TOKshrass,
         TOKushr,        TOKushrass,
-        TOKcat,         TOKcatass,      // ~ ~=
+        TOKcat,         TOKcatass,      TOKcatelemass,  TOKcatdcharass,     // ~ ~=
         TOKadd,         TOKmin,         TOKaddass,      TOKminass,
         TOKmul,         TOKdiv,         TOKmod,
         TOKmulass,      TOKdivass,      TOKmodass,
@@ -216,7 +216,7 @@ struct Token
         Identifier *ident;
     };
 
-    static void initTokens();
+    static const char *tochars[TOKMAX];
 
     static Token *freelist;
     static Token *alloc();

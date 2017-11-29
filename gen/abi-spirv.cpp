@@ -16,7 +16,7 @@
 
 struct SPIRVTargetABI : TargetABI {
   DComputePointerRewrite pointerRewite;
-  llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l,
+  llvm::CallingConv::ID callingConv(LINK l, TypeFunction *tf = nullptr,
                                     FuncDeclaration *fdecl = nullptr) override {
     assert(fdecl);
     if (hasKernelAttr(fdecl))

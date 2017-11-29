@@ -5,10 +5,12 @@
  * Copyright:   Copyright (c) 1999-2017 by Digital Mars, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(DMDSRC _ctfeexpr.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/ddmd/ctfeexpr.d, _ctfeexpr.d)
  */
 
 module ddmd.ctfeexpr;
+
+// Online documentation: https://dlang.org/phobos/ddmd_ctfeexpr.html
 
 import core.stdc.stdio;
 import core.stdc.string;
@@ -277,6 +279,8 @@ extern (C++) bool needToCopyLiteral(Expression expr)
         case TOKcat:
             return needToCopyLiteral((cast(BinExp)expr).e1) || needToCopyLiteral((cast(BinExp)expr).e2);
         case TOKcatass:
+        case TOKcatelemass:
+        case TOKcatdcharass:
             expr = (cast(BinExp)expr).e2;
             continue;
         default:
@@ -398,23 +402,6 @@ extern (C++) UnionExp copyLiteral(Expression e)
         r.type = e.type;
         return ue;
     }
-    if (isPointer(e.type))
-    {
-        // For pointers, we only do a shallow copy.
-        if (e.op == TOKaddress)
-            emplaceExp!(AddrExp)(&ue, e.loc, (cast(AddrExp)e).e1);
-        else if (e.op == TOKindex)
-            emplaceExp!(IndexExp)(&ue, e.loc, (cast(IndexExp)e).e1, (cast(IndexExp)e).e2);
-        else if (e.op == TOKdotvar)
-        {
-            emplaceExp!(DotVarExp)(&ue, e.loc, (cast(DotVarExp)e).e1, (cast(DotVarExp)e).var, (cast(DotVarExp)e).hasOverloads);
-        }
-        else
-            assert(0);
-        Expression r = ue.exp();
-        r.type = e.type;
-        return ue;
-    }
     if (e.op == TOKslice)
     {
         SliceExp se = cast(SliceExp)e;
@@ -441,6 +428,24 @@ extern (C++) UnionExp copyLiteral(Expression e)
             r.type = e.type;
             return ue;
         }
+    }
+    if (isPointer(e.type))
+    {
+        // For pointers, we only do a shallow copy.
+        if (e.op == TOKaddress)
+            emplaceExp!(AddrExp)(&ue, e.loc, (cast(AddrExp)e).e1);
+        else if (e.op == TOKindex)
+            emplaceExp!(IndexExp)(&ue, e.loc, (cast(IndexExp)e).e1, (cast(IndexExp)e).e2);
+        else if (e.op == TOKdotvar)
+        {
+            emplaceExp!(DotVarExp)(&ue, e.loc, (cast(DotVarExp)e).e1, (cast(DotVarExp)e).var, (cast(DotVarExp)e).hasOverloads);
+        }
+        else
+            assert(0);
+
+        Expression r = ue.exp();
+        r.type = e.type;
+        return ue;
     }
     if (e.op == TOKclassreference)
     {
@@ -901,7 +906,7 @@ extern (C++) UnionExp pointerArithmetic(Loc loc, TOK op, Type type, Expression e
     // Create a CTFE pointer &agg1[indx]
     auto ofs = new IntegerExp(loc, indx, Type.tsize_t);
     Expression ie = new IndexExp(loc, agg1, ofs);
-    ie.type = type.toBasetype().nextOf(); // Bugzilla 13992
+    ie.type = type.toBasetype().nextOf(); // https://issues.dlang.org/show_bug.cgi?id=13992
     emplaceExp!(AddrExp)(&ue, loc, ie);
     ue.exp().type = type;
     return ue;
@@ -1018,7 +1023,8 @@ extern (C++) bool isCtfeComparable(Expression e)
         {
             return true;
         }
-        // Bugzilla 14123: TypeInfo object is comparable in CTFE
+        // https://issues.dlang.org/show_bug.cgi?id=14123
+        // TypeInfo object is comparable in CTFE
         if (e.op == TOKtypeid)
             return true;
         return false;
@@ -1527,7 +1533,7 @@ extern (C++) Expression ctfeIndex(Loc loc, Type type, Expression e1, uinteger_t 
         StringExp es1 = cast(StringExp)e1;
         if (indx >= es1.len)
         {
-            error(loc, "string index %llu is out of bounds [0 .. %llu]", indx, cast(ulong)es1.len);
+            error(loc, "string index %llu is out of bounds `[0 .. %llu]`", indx, cast(ulong)es1.len);
             return CTFEExp.cantexp;
         }
         return new IntegerExp(loc, es1.charAt(indx), type);
@@ -1537,7 +1543,7 @@ extern (C++) Expression ctfeIndex(Loc loc, Type type, Expression e1, uinteger_t 
         ArrayLiteralExp ale = cast(ArrayLiteralExp)e1;
         if (indx >= ale.elements.dim)
         {
-            error(loc, "array index %llu is out of bounds %s[0 .. %llu]", indx, e1.toChars(), cast(ulong)ale.elements.dim);
+            error(loc, "array index %llu is out of bounds `%s[0 .. %llu]`", indx, e1.toChars(), cast(ulong)ale.elements.dim);
             return CTFEExp.cantexp;
         }
         Expression e = (*ale.elements)[cast(size_t)indx];
@@ -1575,7 +1581,8 @@ extern (C++) Expression ctfeCast(Loc loc, Type type, Type to, Expression e)
     }
     else if (to.toBasetype().ty == Tarray && type.toBasetype().ty == Tarray && to.toBasetype().nextOf().size() == type.toBasetype().nextOf().size())
     {
-        // Bugzilla 12495: Array reinterpret casts: eg. string to immutable(ubyte)[]
+        // https://issues.dlang.org/show_bug.cgi?id=12495
+        // Array reinterpret casts: eg. string to immutable(ubyte)[]
         return paintTypeOntoLiteral(to, e);
     }
     else
@@ -1982,7 +1989,7 @@ extern (C++) void showCtfeExpr(Expression e, int level = 0)
                 {
                     for (int j = level; --j;)
                         printf(" ");
-                    printf(" field: block initalized static array\n");
+                    printf(" field: block initialized static array\n");
                     continue;
                 }
             }
