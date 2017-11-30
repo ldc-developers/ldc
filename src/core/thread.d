@@ -4304,7 +4304,9 @@ class Fiber
      *  fn = The fiber function.
      *  sz = The stack size for this fiber.
      *  guardPageSize = size of the guard page to trap fiber's stack
-     *                    overflows
+     *                  overflows. Beware that using this will increase
+     *                  the number of mmaped regions on platforms using mmap
+     *                  so an OS-imposed limit may be hit.
      *
      * In:
      *  fn must not be null.
@@ -4330,7 +4332,9 @@ class Fiber
      *  dg = The fiber function.
      *  sz = The stack size for this fiber.
      *  guardPageSize = size of the guard page to trap fiber's stack
-     *                    overflows
+     *                  overflows. Beware that using this will increase
+     *                  the number of mmaped regions on platforms using mmap
+     *                  so an OS-imposed limit may be hit.
      *
      * In:
      *  dg must not be null.
