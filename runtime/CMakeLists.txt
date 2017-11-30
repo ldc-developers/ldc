@@ -156,10 +156,6 @@ list(REMOVE_ITEM DRUNTIME_D ${DRUNTIME_D_GCSTUB})
 # remove some modules in rt/
 list(REMOVE_ITEM DRUNTIME_D
     ${RUNTIME_DIR}/src/rt/alloca.d
-    ${RUNTIME_DIR}/src/rt/deh.d
-    ${RUNTIME_DIR}/src/rt/deh_win32.d
-    ${RUNTIME_DIR}/src/rt/deh_win64_posix.d
-    ${RUNTIME_DIR}/src/rt/dwarfeh.d
     ${RUNTIME_DIR}/src/rt/llmath.d
     ${RUNTIME_DIR}/src/rt/trace.d
 )

@@ -10,6 +10,7 @@
 #include "gen/trycatchfinally.h"
 
 #include "statement.h"
+#include "target.h"
 #include "gen/classes.h"
 #include "gen/funcgenstate.h"
 #include "gen/llvmhelpers.h"
@@ -73,10 +74,14 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
     irs.DBuilder.EmitBlockStart(c->loc);
     PGO.emitCounterIncrement(c);
 
-    const auto enterCatchFn =
-        getRuntimeFunction(Loc(), irs.module, "_d_eh_enter_catch");
-    auto ptr = DtoLoad(ehPtrSlot);
-    auto throwableObj = irs.ir->CreateCall(enterCatchFn, ptr);
+    const auto cd = c->type->toBasetype()->isClassHandle();
+    const bool isCPPclass = cd->isCPPclass();
+
+    const auto enterCatchFn = getRuntimeFunction(
+        Loc(), irs.module,
+        isCPPclass ? "__cxa_begin_catch" : "_d_eh_enter_catch");
+    const auto ptr = DtoLoad(ehPtrSlot);
+    const auto throwableObj = irs.ir->CreateCall(enterCatchFn, ptr);
 
     // For catches that use the Throwable object, create storage for it.
     // We will set it in the code that branches from the landing pads
@@ -94,8 +99,29 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
 
     // Emit handler, if there is one. The handler is zero, for instance,
     // when building 'catch { debug foo(); }' in non-debug mode.
-    if (c->handler)
-      Statement_toIR(c->handler, &irs);
+    if (isCPPclass) {
+      // from DMD:
+
+      /* C++ catches need to end with call to __cxa_end_catch().
+       * Create:
+       *   try { handler } finally { __cxa_end_catch(); }
+       * Note that this is worst case code because it always sets up an
+       * exception handler. At some point should try to do better.
+       */
+      FuncDeclaration *fdend =
+          FuncDeclaration::genCfunc(nullptr, Type::tvoid, "__cxa_end_catch");
+      Expression *efunc = VarExp::create(Loc(), fdend);
+      Expression *ecall = CallExp::create(Loc(), efunc);
+      ecall->type = Type::tvoid;
+      Statement *call = ExpStatement::create(Loc(), ecall);
+      Statement *stmt =
+          c->handler ? TryFinallyStatement::create(Loc(), c->handler, call)
+                     : call;
+      Statement_toIR(stmt, &irs);
+    } else {
+      if (c->handler)
+        Statement_toIR(c->handler, &irs);
+    }
 
     if (!irs.scopereturned())
       irs.ir->CreateBr(endbb);
@@ -106,7 +132,6 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
     auto catchCount = PGO.getRegionCount(c);
     // uncaughtCount is handled in a separate pass below
 
-    auto cd = c->type->toBasetype()->isClassHandle();
     cbPrototypes.push_back({cd, catchBB, catchCount, 0});
   }
 
@@ -128,8 +153,19 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
   for (const auto &p : cbPrototypes) {
     auto branchWeights =
         PGO.createProfileWeights(p.catchCount, p.uncaughtCount);
+
     DtoResolveClass(p.cd);
-    auto ci = getIrAggr(p.cd)->getClassInfoSymbol();
+
+    LLGlobalVariable *ci;
+    if (p.cd->isCPPclass()) {
+      const char *name = Target::cppTypeInfoMangle(p.cd);
+      ci = getOrCreateGlobal(
+          p.cd->loc, irs.module, getVoidPtrType(), /*isConstant=*/true,
+          LLGlobalValue::ExternalLinkage, /*init=*/nullptr, name);
+    } else {
+      ci = getIrAggr(p.cd)->getClassInfoSymbol();
+    }
+
     catchBlocks.push_back({ci, p.catchBB, branchWeights});
   }
 }
@@ -179,10 +215,13 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
     exnObj = LLConstant::getNullValue(getVoidPtrType());
   }
 
+  bool isCPPclass = false;
   if (ctch->type) {
     ClassDeclaration *cd = ctch->type->toBasetype()->isClassHandle();
     typeDesc = getTypeDescriptor(irs, cd);
-    clssInfo = getIrAggr(cd)->getClassInfoSymbol();
+    isCPPclass = cd->isCPPclass();
+    if (!isCPPclass)
+      clssInfo = getIrAggr(cd)->getClassInfoSymbol();
   } else {
     // catch all
     typeDesc = LLConstant::getNullValue(getVoidPtrType());
@@ -191,7 +230,7 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
 
   // "catchpad within %switch [TypeDescriptor, 0, &caughtObject]" must be
   // first instruction
-  int flags = var ? 0 : 64; // just mimicking clang here
+  int flags = var ? (isCPPclass ? 8 : 0) : 64; // just mimicking clang here
   LLValue *args[] = {typeDesc, DtoConstUint(flags), exnObj};
   auto catchpad = irs.ir->CreateCatchPad(catchSwitchInst, args, "");
   catchSwitchInst->addHandler(irs.scopebb());
@@ -210,10 +249,12 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
   llvm::CatchReturnInst::Create(catchpad, catchhandler, irs.scopebb());
   irs.scope() = IRScope(catchhandler);
   irs.funcGen().pgo.emitCounterIncrement(ctch);
-  auto enterCatchFn =
-      getRuntimeFunction(Loc(), irs.module, "_d_eh_enter_catch");
-  irs.CreateCallOrInvoke(enterCatchFn, DtoBitCast(exnObj, getVoidPtrType()),
-                         clssInfo);
+  if (!isCPPclass) {
+    auto enterCatchFn =
+        getRuntimeFunction(Loc(), irs.module, "_d_eh_enter_catch");
+    irs.CreateCallOrInvoke(enterCatchFn, DtoBitCast(exnObj, getVoidPtrType()),
+                           clssInfo);
+  }
 }
 }
 

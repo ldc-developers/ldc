@@ -303,6 +303,7 @@ static void buildRuntimeModule() {
   ensureDecl(Module::moduleinfo, "ModuleInfo");
 
   Type *objectTy = ClassDeclaration::object->type;
+  Type *throwableTy = ClassDeclaration::throwable->type;
   Type *classInfoTy = Type::typeinfoclass->type;
   Type *typeInfoTy = Type::dtypeinfo->type;
   Type *aaTypeInfoTy = Type::typeinfoassociativearray->type;
@@ -655,8 +656,8 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
 
-  // void _d_throw_exception(Object e)
-  createFwdDecl(LINKc, voidTy, {"_d_throw_exception"}, {objectTy}, {},
+  // void _d_throw_exception(Throwable o)
+  createFwdDecl(LINKc, voidTy, {"_d_throw_exception"}, {throwableTy}, {},
                 Attr_Cold_NoReturn);
 
   //////////////////////////////////////////////////////////////////////////////
@@ -706,16 +707,19 @@ static void buildRuntimeModule() {
     // _d_leave_cleanup(ptr frame)
     createFwdDecl(LINKc, voidTy, {"_d_leave_cleanup"}, {voidPtrTy});
 
-    // Object _d_eh_enter_catch(ptr exception, ClassInfo catchType)
-    createFwdDecl(LINKc, objectTy, {"_d_eh_enter_catch"},
+    // Throwable _d_eh_enter_catch(ptr exception, ClassInfo catchType)
+    createFwdDecl(LINKc, throwableTy, {"_d_eh_enter_catch"},
                   {voidPtrTy, classInfoTy}, {});
   } else {
-
     // void _d_eh_resume_unwind(ptr)
     createFwdDecl(LINKc, voidTy, {"_d_eh_resume_unwind"}, {voidPtrTy});
 
-    // Object _d_eh_enter_catch(ptr)
-    createFwdDecl(LINKc, objectTy, {"_d_eh_enter_catch"}, {voidPtrTy}, {},
+    // Throwable _d_eh_enter_catch(ptr)
+    createFwdDecl(LINKc, throwableTy, {"_d_eh_enter_catch"}, {voidPtrTy}, {},
+                  Attr_NoUnwind);
+
+    // void* __cxa_begin_catch(ptr)
+    createFwdDecl(LINKc, voidPtrTy, {"__cxa_begin_catch"}, {voidPtrTy}, {},
                   Attr_NoUnwind);
   }
 
