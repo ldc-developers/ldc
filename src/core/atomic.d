@@ -25,8 +25,7 @@ version (LDC)
     else
         enum has128BitCAS = false;
 }
-else
-version( D_InlineAsm_X86 )
+else version( D_InlineAsm_X86 )
 {
     version = AsmX86;
     version = AsmX86_32;

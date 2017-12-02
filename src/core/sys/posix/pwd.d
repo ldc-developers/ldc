@@ -196,7 +196,7 @@ else version( OpenBSD )
     int getpwnam_r(in char*, passwd*, char*, size_t, passwd**);
     int getpwuid_r(uid_t, passwd*, char*, size_t, passwd**);
 }
-else version (Solaris)
+else version( Solaris )
 {
     alias getpwnam_r = __posix_getpwnam_r;
     alias getpwuid_r = __posix_getpwuid_r;

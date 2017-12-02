@@ -195,7 +195,7 @@ unittest
 extern (C) int _adCmpChar(void[] a1, void[] a2)
 {
   // LDC doesn't support parameter references in naked functions. The asm
-  // could also be rewritten to directly access the ṕarameters as the
+  // could also be rewritten to directly access the parameters as the
   // calling convention is known.
   version (LDC)
     enum useAsm = false;

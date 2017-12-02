@@ -3386,19 +3386,13 @@ private void* getStackBottom() nothrow @nogc
             // Use LLVM inline assembler to enable inlining.
             import ldc.llvmasm;
             version (X86)
-            {
                 return __asm!(void*)("movl %fs:(4), $0", "=r");
-            }
             else version (X86_64)
-            {
                 return __asm!(void*)("movq %gs:0($0), %rax", "={rax},r", 8);
-            }
             else
                 static assert(false, "Architecture not supported.");
         }
-        else
-        {
-        version (D_InlineAsm_X86)
+        else version (D_InlineAsm_X86)
             asm pure nothrow @nogc { naked; mov EAX, FS:4; ret; }
         else version(D_InlineAsm_X86_64)
             asm pure nothrow @nogc
@@ -3409,7 +3403,6 @@ private void* getStackBottom() nothrow @nogc
             }
         else
             static assert(false, "Architecture not supported.");
-        }
     }
     else version (Darwin)
     {

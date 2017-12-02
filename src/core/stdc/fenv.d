@@ -28,8 +28,10 @@ extern (C):
 nothrow:
 @nogc:
 
-version (PPC)   version = PPC_Any;
-version (PPC64) version = PPC_Any;
+version (PPC)
+    version = PPC_Any;
+else version (PPC64)
+    version = PPC_Any;
 
 version( MinGW )
     version = GNUFP;

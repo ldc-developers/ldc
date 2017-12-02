@@ -15,12 +15,12 @@ nothrow:
 @safe:
 @nogc:
 
-version (LDC) {
+version (LDC)
+{
     import ldc.intrinsics;
     // Do not use the DMD inline assembler.
 }
-else {
-version( D_InlineAsm_X86_64 )
+else version( D_InlineAsm_X86_64 )
     version = AsmX86;
 else version( D_InlineAsm_X86 )
     version = AsmX86;
@@ -29,7 +29,6 @@ version (X86_64)
     version = AnyX86;
 else version (X86)
     version = AnyX86;
-}
 
 // Use to implement 64-bit bitops on 32-bit arch.
 private union Split64
@@ -576,7 +575,6 @@ version (LDC)
 else
 uint bswap(uint v) pure;
 
-
 /**
  * Swaps bytes in an 8 byte ulong end-to-end, i.e. byte 0 becomes
  * byte 7, byte 1 becomes byte 6, etc.
@@ -586,7 +584,6 @@ version (LDC)
     alias bswap = llvm_bswap!ulong;
 }
 else
-{
 ulong bswap(ulong v) pure
 {
     auto sv = Split64(v);
@@ -596,7 +593,6 @@ ulong bswap(ulong v) pure
     sv.hi = bswap(temp);
 
     return (cast(ulong) sv.hi << 32) | sv.lo;
-}
 }
 
 version (DigitalMars) version (AnyX86) @system // not pure
@@ -703,14 +699,15 @@ version (LDC)
 
     int _popcnt(uint x) pure
     {
-        return cast(int)llvm_ctpop(x);
+        return cast(int) llvm_ctpop(x);
     }
 
     int _popcnt(ulong x) pure
     {
-        return cast(int)llvm_ctpop(x);
+        return cast(int) llvm_ctpop(x);
     }
 }
+
 
 /**
  *  Calculates the number of set bits in an integer.
@@ -755,6 +752,7 @@ unittest
 /// ditto
 int popcnt(ulong x) pure
 {
+    // Select the fastest method depending on the compiler and CPU architecture
     version(LDC)
     {
         pragma(inline, true);
@@ -762,7 +760,6 @@ int popcnt(ulong x) pure
             return _popcnt(x);
     }
 
-    // Select the fastest method depending on the compiler and CPU architecture
     import core.cpuid;
 
     static if (size_t.sizeof == uint.sizeof)
@@ -926,23 +923,24 @@ version (LDC)
     pragma(LDC_intrinsic, "ldc.bitop.vld")
         ubyte volatileLoad(ubyte* ptr);
     pragma(LDC_intrinsic, "ldc.bitop.vld")
-        ushort volatileLoad(ushort* ptr);
+        ushort volatileLoad(ushort* ptr);  /// ditto
     pragma(LDC_intrinsic, "ldc.bitop.vld")
-        uint volatileLoad(uint* ptr);
+        uint volatileLoad(uint* ptr);      /// ditto
     pragma(LDC_intrinsic, "ldc.bitop.vld")
-        ulong volatileLoad(ulong* ptr);
+        ulong volatileLoad(ulong* ptr);    /// ditto
 
     pragma(LDC_intrinsic, "ldc.bitop.vst")
-        void volatileStore(ubyte* ptr, ubyte value);
+        void volatileStore(ubyte* ptr, ubyte value);   /// ditto
     pragma(LDC_intrinsic, "ldc.bitop.vst")
-        void volatileStore(ushort* ptr, ushort value);
+        void volatileStore(ushort* ptr, ushort value); /// ditto
     pragma(LDC_intrinsic, "ldc.bitop.vst")
-        void volatileStore(uint* ptr, uint value);
+        void volatileStore(uint* ptr, uint value);     /// ditto
     pragma(LDC_intrinsic, "ldc.bitop.vst")
-        void volatileStore(ulong* ptr, ulong value);
+        void volatileStore(ulong* ptr, ulong value);   /// ditto
 }
 else
 {
+
 ubyte  volatileLoad(ubyte * ptr);
 ushort volatileLoad(ushort* ptr);  /// ditto
 uint   volatileLoad(uint  * ptr);  /// ditto
@@ -952,7 +950,8 @@ void volatileStore(ubyte * ptr, ubyte  value);   /// ditto
 void volatileStore(ushort* ptr, ushort value);   /// ditto
 void volatileStore(uint  * ptr, uint   value);   /// ditto
 void volatileStore(ulong * ptr, ulong  value);   /// ditto
-}
+
+} // !LDC
 
 @system unittest
 {

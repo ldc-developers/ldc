@@ -138,36 +138,7 @@ else version( DigitalMars )
 else version( GNU )
     alias real c_long_double;
 else version( LDC )
-{
-    version( X86 )
-        alias real c_long_double;
-    else version( X86_64 )
-        alias real c_long_double;
-    else version( AArch64 )
-        alias real c_long_double;
-    else version( ARM )
-        alias real c_long_double;
-    else version( MIPS )
-        alias real c_long_double;
-    else version( MIPS64 )
-        alias real c_long_double;
-    else version( PPC )
-        alias real c_long_double;
-    else version( PPC64 )
-        alias real c_long_double;
-    else version( RISCV32 )
-        alias real c_long_double;
-    else version( RISCV64 )
-        alias real c_long_double;
-    else version( SPARC )
-        alias real c_long_double;
-    else version( SPARC64 )
-        alias real c_long_double;
-    else version( SystemZ )
-        alias real c_long_double;
-    else
-        static assert("c_long_double not declared for this platform/architecture.");
-}
+    alias real c_long_double;
 else version( SDC )
 {
     version( X86 )

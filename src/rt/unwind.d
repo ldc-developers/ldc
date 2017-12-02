@@ -11,7 +11,7 @@ module rt.unwind;
 
 import core.stdc.stdint;
 
-version (LDC) version (ARM)
+version (ARM)
 {
     version (iOS) {} else version = ARM_EABI_UNWINDER;
 }
@@ -72,7 +72,7 @@ version (ARM_EABI_UNWINDER)
             uint reserved5;
         }
         unwinder_cache_t unwinder_cache;
-      
+
         /* Propagation barrier cache (valid after phase 1): */
         struct barrier_cache_t
         {
@@ -80,14 +80,14 @@ version (ARM_EABI_UNWINDER)
             uint[5] bitpattern;
         }
         barrier_cache_t barrier_cache;
-      
+
         /* Cleanup cache (preserved over cleanup): */
         struct cleanup_cache_t
         {
             uint[4] bitpattern;
         }
         cleanup_cache_t cleanup_cache;
-      
+
         /* Pr cache (for pr's benefit): */
         struct pr_cache_t
         {
