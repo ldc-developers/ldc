@@ -2257,7 +2257,6 @@ pure nothrow unittest
     }
 }
 
-version (LDC) {} else
 pure /*nothrow */ unittest
 {
     auto a = [ 1:"one", 2:"two", 3:"three" ];
