@@ -44,6 +44,14 @@ void copyFnAttributes(llvm::Function *wannabe, llvm::Function *idol) {
 }
 } // anonymous namespace
 
+namespace {
+std::string exprToString(StringExp *strexp) {
+  assert(strexp != nullptr);
+  assert(strexp->sz == 1);
+  return std::string(strexp->toPtr(), strexp->numberOfCodeUnits());
+}
+}
+
 DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
                         Expressions *arguments, LLValue *sretPointer) {
   IF_LOG Logger::println("DtoInlineIRExpr @ %s", loc.toChars());
@@ -63,35 +71,61 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
 
   // 1. Define the inline function (define a new function for each call)
   {
-
+    // The magic inlineIR template is one of
+    // pragma(LDC_inline_ir)
+    //   R inlineIR(string code, R, P...)(P);
+    // pragma(LDC_inline_ir)
+    //   R inlineIREx(string prefix, string code, string suffix, R, P...)(P);
     Objects &objs = tinst->tdtypes;
-    assert(objs.dim == 3);
+    assert(objs.dim == 3 || objs.dim == 5);
+    const bool isExtended = (objs.dim == 5);
 
-    Expression *a0 = isExpression(objs[0]);
-    assert(a0);
-    StringExp *strexp = a0->toStringExp();
-    assert(strexp);
-    assert(strexp->sz == 1);
-    std::string code(strexp->toPtr(), strexp->numberOfCodeUnits());
+    std::string prefix;
+    std::string code;
+    std::string suffix;
+    if (isExtended) {
+      Expression *a0 = isExpression(objs[0]);
+      assert(a0);
+      StringExp *prefexp = a0->toStringExp();
+      Expression *a1 = isExpression(objs[1]);
+      assert(a1);
+      StringExp *strexp = a1->toStringExp();
+      Expression *a2 = isExpression(objs[2]);
+      assert(a2);
+      StringExp *suffexp = a2->toStringExp();
+      prefix = exprToString(prefexp);
+      code = exprToString(strexp);
+      suffix = exprToString(suffexp);
 
-    Type *ret = isType(objs[1]);
+    } else {
+      Expression *a0 = isExpression(objs[0]);
+      assert(a0);
+      StringExp *strexp = a0->toStringExp();
+      code = exprToString(strexp);
+    }
+
+    Type *ret = isType(objs[isExtended ? 3 : 1]);
     assert(ret);
 
-    Tuple *a2 = isTuple(objs[2]);
-    assert(a2);
-    Objects &arg_types = a2->objects;
+    Tuple *args = isTuple(objs[isExtended ? 4 : 2]);
+    assert(args);
+    Objects &arg_types = args->objects;
 
     std::string str;
     llvm::raw_string_ostream stream(str);
+    if (!prefix.empty()) {
+      stream << prefix << "\n";
+    }
     stream << "define " << *DtoType(ret) << " @" << mangled_name << "(";
 
     for (size_t i = 0;;) {
       Type *ty = isType(arg_types[i]);
       // assert(ty);
       if (!ty) {
-        error(tinst->loc, "All parameters of a template defined with pragma "
-                          "`LDC_inline_ir`, except for the first one, should "
-                          "be types");
+        error(tinst->loc,
+              "All parameters of a template defined with pragma "
+              "`LDC_inline_ir`, except for the first one or the first three"
+              ", should be types");
         fatal();
       }
       stream << *DtoType(ty);
@@ -109,6 +143,9 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
     }
 
     stream << ")\n{\n" << code << "\n}";
+    if (!suffix.empty()) {
+      stream << "\n" << suffix;
+    }
 
     llvm::SMDiagnostic err;
 

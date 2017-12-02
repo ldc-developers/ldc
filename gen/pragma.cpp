@@ -444,21 +444,35 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
             ident->toChars());
         fatal();
       }
+      // The magic inlineIR template is one of
+      // pragma(LDC_inline_ir)
+      //   R inlineIR(string code, R, P...)(P);
+      // pragma(LDC_inline_ir)
+      //   R inlineIREx(string prefix, string code, string suffix, R, P...)(P);
 
       TemplateParameters &params = *td->parameters;
-      bool valid_params = params.dim == 3 &&
-                          params[1]->isTemplateTypeParameter() &&
-                          params[2]->isTemplateTupleParameter();
+      bool valid_params =
+          (params.dim == 3 && params[1]->isTemplateTypeParameter() &&
+           params[2]->isTemplateTupleParameter()) ||
+          (params.dim == 5 && params[3]->isTemplateTypeParameter() &&
+           params[4]->isTemplateTupleParameter());
 
       if (valid_params) {
         TemplateValueParameter *p0 = params[0]->isTemplateValueParameter();
         valid_params = valid_params && p0 && p0->valType == Type::tstring;
+        if (params.dim == 5) {
+          TemplateValueParameter *p1 = params[1]->isTemplateValueParameter();
+          valid_params = valid_params && p1 && p1->valType == Type::tstring;
+          TemplateValueParameter *p2 = params[2]->isTemplateValueParameter();
+          valid_params = valid_params && p2 && p2->valType == Type::tstring;
+        }
       }
 
       if (!valid_params) {
         error(s->loc,
-              "the `%s` pragma template must have exactly three parameters: "
-              "a string, a type and a type tuple",
+              "the `%s` pragma template must have three "
+              "(string, type and type tuple) or "
+              "five (string, string, string, type and type tuple) parameters",
               ident->toChars());
         fatal();
       }
