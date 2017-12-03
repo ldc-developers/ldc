@@ -56,7 +56,11 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
+#if LDC_LLVM_VER >= 600
+#include "llvm/CodeGen/TargetSubtargetInfo.h"
+#else
 #include "llvm/Target/TargetSubtargetInfo.h"
+#endif
 #include "llvm/LinkAllIR.h"
 #include "llvm/IR/LLVMContext.h"
 #include <assert.h>

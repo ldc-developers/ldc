@@ -11,7 +11,11 @@
 
 // Pull in command-line options and helper functions from special LLVM header
 // shared by multiple LLVM tools.
+#if LDC_LLVM_VER >= 600
+#include "llvm/CodeGen/CommandFlags.def"
+#else
 #include "llvm/CodeGen/CommandFlags.h"
+#endif
 
 static cl::opt<bool>
     DisableRedZone("disable-red-zone", cl::ZeroOrMore,

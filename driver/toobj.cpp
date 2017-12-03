@@ -38,7 +38,11 @@
 #endif
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#if LDC_LLVM_VER >= 600
+#include "llvm/CodeGen/TargetSubtargetInfo.h"
+#else
 #include "llvm/Target/TargetSubtargetInfo.h"
+#endif
 #include "llvm/IR/Module.h"
 #include <cstddef>
 #include <fstream>
