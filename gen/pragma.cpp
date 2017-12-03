@@ -15,6 +15,7 @@
 #include "module.h"
 #include "scope.h"
 #include "template.h"
+#include "gen/inlineir.h"
 #include "gen/llvmhelpers.h"
 #include "llvm/Support/CommandLine.h"
 
@@ -429,59 +430,11 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
     break;
 
   case LLVMinline_ir:
-    if (TemplateDeclaration *td = s->isTemplateDeclaration()) {
-      Dsymbol *member = td->onemember;
-      if (!member) {
-        error(s->loc, "the `%s` pragma template must have exactly one member",
-              ident->toChars());
-        fatal();
-      }
-      FuncDeclaration *fun = member->isFuncDeclaration();
-      if (!fun) {
-        error(
-            s->loc,
-            "the `%s` pragma template's member must be a function declaration",
-            ident->toChars());
-        fatal();
-      }
-      // The magic inlineIR template is one of
-      // pragma(LDC_inline_ir)
-      //   R inlineIR(string code, R, P...)(P);
-      // pragma(LDC_inline_ir)
-      //   R inlineIREx(string prefix, string code, string suffix, R, P...)(P);
-
-      TemplateParameters &params = *td->parameters;
-      bool valid_params =
-          (params.dim == 3 && params[1]->isTemplateTypeParameter() &&
-           params[2]->isTemplateTupleParameter()) ||
-          (params.dim == 5 && params[3]->isTemplateTypeParameter() &&
-           params[4]->isTemplateTupleParameter());
-
-      if (valid_params) {
-        TemplateValueParameter *p0 = params[0]->isTemplateValueParameter();
-        valid_params = valid_params && p0 && p0->valType == Type::tstring;
-        if (params.dim == 5) {
-          TemplateValueParameter *p1 = params[1]->isTemplateValueParameter();
-          valid_params = valid_params && p1 && p1->valType == Type::tstring;
-          TemplateValueParameter *p2 = params[2]->isTemplateValueParameter();
-          valid_params = valid_params && p2 && p2->valType == Type::tstring;
-        }
-      }
-
-      if (!valid_params) {
-        error(s->loc,
-              "the `%s` pragma template must have three "
-              "(string, type and type tuple) or "
-              "five (string, string, string, type and type tuple) parameters",
-              ident->toChars());
-        fatal();
-      }
-
+    DtoCheckInlineIRPragma(ident, s);
+    {
+      TemplateDeclaration *td = s->isTemplateDeclaration();
+      assert(td != nullptr);
       td->llvmInternal = llvm_internal;
-    } else {
-      error(s->loc, "the `%s` pragma is only allowed on template declarations",
-            ident->toChars());
-      fatal();
     }
     break;
 
