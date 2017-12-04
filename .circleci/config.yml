@@ -6,18 +6,19 @@ jobs:
     environment:
       - LLVM_VERSION: 5.0.0-2
       - HOST_LDC_VERSION: 1.6.0
-      - EXTRA_CMAKE_FLAGS: "-DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
+      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
     steps:
       - run:
           name: Install dependencies
           command: |
             cd ..
             export DEBIAN_FRONTEND=noninteractive
+            dpkg --add-architecture i386
             apt-get -y update
             apt-get -yq install software-properties-common
             add-apt-repository -y ppa:ubuntu-toolchain-r/test
             apt-get -y update
-            apt-get -yq install curl git-core g++-6-multilib ninja-build gdb python-pip unzip
+            apt-get -yq install curl git-core g++-6-multilib ninja-build gdb python-pip unzip libcurl3:i386
             echo "export CC=gcc-6" >> $BASH_ENV
             echo "export CXX=g++-6" >> $BASH_ENV
             # install CMake
@@ -94,7 +95,7 @@ jobs:
             cd ninja-ldc
             cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DINCLUDE_INSTALL_DIR=$INSTALL_DIR/import -DD_COMPILER=$HOST_LDMD $EXTRA_CMAKE_FLAGS $CIRCLE_WORKING_DIRECTORY
             # compiling the std.regex.internal.tests unittests eats large amounts of memory
-            ninja -j2 all runtime/objects-unittest-debug/std/regex/internal/tests.o runtime/objects-unittest/std/regex/internal/tests.o
+            ninja -j2 all runtime/objects-unittest-debug/std/regex/internal/tests.o runtime/objects-unittest/std/regex/internal/tests.o runtime/objects-unittest-debug_32/std/regex/internal/tests.o runtime/objects-unittest_32/std/regex/internal/tests.o
             ninja -j3 all-test-runners
             bin/ldc2 -version
             cd ..
