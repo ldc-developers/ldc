@@ -264,8 +264,6 @@ public:
       LLGlobalVariable *gvar = llvm::cast<LLGlobalVariable>(irGlobal->value);
       assert(gvar && "DtoResolveVariable should have created value");
 
-      const auto lwc = DtoLinkage(decl);
-
       if (global.params.vtls && gvar->isThreadLocal() &&
           !(decl->storage_class & STCtemp)) {
         const char *p = decl->loc.toChars();
@@ -277,8 +275,6 @@ public:
       // new variable declarations should stay external and therefore must not
       // have an initializer.
       if (!(decl->storage_class & STCextern) && !decl->inNonRoot()) {
-        assert(!gvar->hasDLLImportStorageClass());
-
         // Build the initializer. Might use irGlobal->value!
         LLConstant *initVal =
             DtoConstInitializer(decl->loc, decl->type, decl->_init);
@@ -290,7 +286,13 @@ public:
         // Set the initializer, swapping out the variable if the types do not
         // match.
         irGlobal->value = irs->setGlobalVarInitializer(gvar, initVal);
+
+        // Finalize linkage & DLL storage class.
+        const auto lwc = DtoLinkage(decl);
         setLinkage(lwc, gvar);
+        if (gvar->hasDLLImportStorageClass()) {
+          gvar->setDLLStorageClass(LLGlobalValue::DLLExportStorageClass);
+        }
 
         // Also set up the debug info.
         irs->DBuilder.EmitGlobalVariable(gvar, decl);

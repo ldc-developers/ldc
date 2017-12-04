@@ -896,13 +896,11 @@ void DtoResolveVariable(VarDeclaration *vd) {
     // as well).
     gvar->setAlignment(DtoAlignment(vd));
 
-    /* TODO: set DLL storage class when `export` is fixed (an attribute)
+    // Windows: initialize DLL storage class with `dllimport` for `export`ed
+    // symbols
     if (global.params.isWindows && vd->isExport()) {
-      auto c = vd->isImportedSymbol() ? LLGlobalValue::DLLImportStorageClass
-                                      : LLGlobalValue::DLLExportStorageClass;
-      gvar->setDLLStorageClass(c);
+      gvar->setDLLStorageClass(LLGlobalValue::DLLImportStorageClass);
     }
-    */
 
     applyVarDeclUDAs(vd, gvar);
     if (varIr->dynamicCompileConst) {

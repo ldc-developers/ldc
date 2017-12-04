@@ -5,6 +5,12 @@
 
 export
 {
+    // CHECK-DAG: @{{.*}}exportedGlobal{{.*}} = dllexport
+    extern(C) __gshared void* exportedGlobal;
+
+    // CHECK-DAG: @{{.*}}importedGlobal{{.*}} = external dllimport
+    extern(C) extern __gshared void* importedGlobal;
+
     // CHECK-DAG: define dllexport {{.*}}_D6export11exportedFooFZv
     void exportedFoo() {}
 
