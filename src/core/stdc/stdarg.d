@@ -343,6 +343,7 @@ version (LDC)
         void va_copy(out va_list dest, va_list src);
 } // version (LDC)
 
+// LDC: we need a few non-Windows x86_64 helpers
 version( X86 )
 {
     version (LDC) {} else:
@@ -816,5 +817,6 @@ else version (X86_64)
 }
 else
 {
+    version (LDC) {} else
     static assert(false, "Unsupported platform");
 }
