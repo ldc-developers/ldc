@@ -2,73 +2,97 @@ version: 2
 jobs:
   build:
     docker:
-      - image: gcc
+      - image: ubuntu:14.04
     environment:
-      - LLVM_VERSION: 5.0.0
-      - HOST_LDC_VERSION: 1.3.0
+      - LLVM_VERSION: 5.0.0-2
+      - HOST_LDC_VERSION: 1.6.0
+      - EXTRA_CMAKE_FLAGS: "-DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
     steps:
+      - run:
+          name: Install dependencies
+          command: |
+            cd ..
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get -y update
+            apt-get -yq install software-properties-common
+            add-apt-repository -y ppa:ubuntu-toolchain-r/test
+            apt-get -y update
+            apt-get -yq install curl git-core g++-6-multilib ninja-build gdb python-pip unzip
+            echo "export CC=gcc-6" >> $BASH_ENV
+            echo "export CXX=g++-6" >> $BASH_ENV
+            # install CMake
+            curl -L -o cmake-x64.tar.gz https://cmake.org/files/v3.10/cmake-3.10.0-Linux-x86_64.tar.gz
+            mkdir cmake-x64
+            tar -xf cmake-x64.tar.gz --strip 1 -C cmake-x64
+            echo "export PATH=$PWD/cmake-x64/bin:$PATH" >> $BASH_ENV
+            # install lit
+            pip install --user lit
+            # use ld.gold per default, so that LTO is tested.
+            update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
       - checkout
       - run:
           name: Checkout git submodules
           command: git submodule update --init
+      - restore_cache:
+          keys:
+            - llvm-{{ .Environment.LLVM_VERSION }}
+            - host-ldc-{{ .Environment.HOST_LDC_VERSION }}
       - run:
-          name: Install basic dependencies
+          name: Install LDC-flavoured LLVM
           command: |
-            apt update
-            apt install -y software-properties-common cmake ninja-build gdb python-pip unzip
-            pip install --user lit
-            # Use ld.gold per default, so that LTO is tested.
-            update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
+            cd ..
+            if [[ ! -d llvm-$LLVM_VERSION ]]; then
+              curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-linux-x86_64.tar.xz
+              mkdir llvm-$LLVM_VERSION
+              tar -xf llvm.tar.xz -C llvm-$LLVM_VERSION
+              rm llvm.tar.xz
+            fi
+      - save_cache:
+          key: llvm-{{ .Environment.LLVM_VERSION }}
+          paths:
+            - ../llvm-$LLVM_VERSION
+      - run:
+          name: Install LDC host compiler
+          command: |
+            cd ..
+            if [[ ! -d ldc2-$HOST_LDC_VERSION ]]; then
+              curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-x86_64.tar.xz
+              mkdir ldc2-$HOST_LDC_VERSION
+              tar -xf ldc2.tar.xz --strip 1 -C ldc2-$HOST_LDC_VERSION
+              rm ldc2.tar.xz
+            fi
+      - save_cache:
+          key: host-ldc-{{ .Environment.HOST_LDC_VERSION }}
+          paths:
+            - ../ldc2-$HOST_LDC_VERSION
+      - run:
+          name: Build bootstrap LDC
+          command: |
+            cd ..
+            # output versions
             g++ --version
             ld --version
             cmake --version
             ninja --version
             gdb --version
             python -c "import lit; lit.main();" --version | head -n 1
-      - restore_cache:
-          keys:
-            - llvm-5.0.0
-            - host-ldc-{{ .Environment.HOST_LDC_VERSION }}
-      - run:
-          name: Install LLVM 5.0.0
-          command: |
-            if [[ ! -d llvm-$LLVM_VERSION ]]; then
-              wget -O llvm-$LLVM_VERSION.tar.xz http://releases.llvm.org/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-linux-x86_64-ubuntu16.04.tar.xz
-              mkdir llvm-$LLVM_VERSION
-              tar -xpf llvm-$LLVM_VERSION.tar.xz --strip 1 -C llvm-$LLVM_VERSION
-            fi
-      - save_cache:
-          key: llvm-5.0.0
-          paths:
-            - llvm-5.0.0
-      - run:
-          name: Install LDC host compiler
-          command: |
-            if [[ ! -e ldc2-$HOST_LDC_VERSION-linux-x86_64/bin/ldmd2 ]]; then
-              wget https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-x86_64.tar.xz
-              tar -xf ldc2-$HOST_LDC_VERSION-linux-x86_64.tar.xz
-            fi
-      - save_cache:
-          key: host-ldc-{{ .Environment.HOST_LDC_VERSION }}
-          paths:
-            - ldc2-$HOST_LDC_VERSION-linux-x86_64
-      - run:
-          name: Build bootstrap LDC
-          command: |
-            export HOST_LDMD=$PWD/ldc2-$HOST_LDC_VERSION-linux-x86_64/bin/ldmd2
+            # build
+            export HOST_LDMD=$PWD/ldc2-$HOST_LDC_VERSION/bin/ldmd2
             mkdir bootstrap
             cd bootstrap
-            cmake -G Ninja -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DBUILD_SHARED_LIBS=OFF -DD_COMPILER=$HOST_LDMD ..
+            cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DBUILD_SHARED_LIBS=OFF -DD_COMPILER=$HOST_LDMD $CIRCLE_WORKING_DIRECTORY
             ninja -j3
             bin/ldc2 -version
             cd ..
       - run:
           name: Build LDC and stdlib unittest runners
           command: |
+            cd ..
+            export INSTALL_DIR=$PWD/ldc2-x64
             export HOST_LDMD=$PWD/bootstrap/bin/ldmd2
-            mkdir build
-            cd build
-            cmake -G Ninja -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=$HOST_LDMD ..
+            mkdir ninja-ldc
+            cd ninja-ldc
+            cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DINCLUDE_INSTALL_DIR=$INSTALL_DIR/import -DD_COMPILER=$HOST_LDMD $EXTRA_CMAKE_FLAGS $CIRCLE_WORKING_DIRECTORY
             # compiling the std.regex.internal.tests unittests eats large amounts of memory
             ninja -j2 all runtime/objects-unittest-debug/std/regex/internal/tests.o runtime/objects-unittest/std/regex/internal/tests.o
             ninja -j3 all-test-runners
@@ -76,20 +100,42 @@ jobs:
             cd ..
       - run:
           name: Build and run LDC D unittests
-          command: cd build && ctest --output-on-failure -R ldc2-unittest
+          command: cd ../ninja-ldc && ctest --output-on-failure -R ldc2-unittest
           when: always
       - run:
           name: Run LIT testsuite
-          command: cd build && ctest -V -R lit-tests
+          command: cd ../ninja-ldc && ctest -V -R lit-tests
           when: always
       - run:
           name: Run DMD testsuite
-          command: cd build && DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R dmd-testsuite
+          command: cd ../ninja-ldc && DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R dmd-testsuite
           when: always
       - run:
           name: Run stdlib unittests
           # FIXME: Exclude std.process unittests for now.
           # CircleCI doesn't throw an expected ProcessException when spawning a
           # process in a working dir with 0400 permissions (no search permissions).
-          command: cd build && ctest -j3 --output-on-failure -E "std\.process|dmd-testsuite|ldc2-unittest|lit-tests"
+          command: cd ../ninja-ldc && ctest -j3 --output-on-failure -E "std\.process|dmd-testsuite|ldc2-unittest|lit-tests"
           when: always
+      - run:
+          name: Install LDC & pack installation dir
+          command: |
+            cd ../ninja-ldc
+            ninja install
+            cd ..
+            mkdir artifacts
+            export artifactBasename="ldc2-${CIRCLE_SHA1:0:8}-linux-x86_64-$(date "+%Y%m%d")"
+            mv ldc2-x64 $artifactBasename
+            tar -cJf "artifacts/$artifactBasename.tar.xz" $artifactBasename
+      - store_artifacts:
+          path: ../artifacts
+      - run:
+          name: Deploy to GitHub CI release
+          command: |
+            cd ..
+            if [ "$CIRCLE_BRANCH" = "master" ] && [ -z "$CIRCLE_PR_NUMBER" ]; then
+              curl -L -o github-release.tar.bz2 https://github.com/aktau/github-release/releases/download/v0.7.2/linux-amd64-github-release.tar.bz2
+              tar -xf github-release.tar.bz2 --strip 3
+              # Note: needs GITHUB_TOKEN environment variable
+              ./github-release upload --user ldc-developers --repo ldc --tag CI --name "$(cd artifacts && ls ldc2-*.tar.xz)" --file artifacts/ldc2-*.tar.xz
+            fi
