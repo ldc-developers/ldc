@@ -1,18 +1,10 @@
-version: 2
-jobs:
-  build:
-    docker:
-      - image: ubuntu:14.04
-    environment:
-      - LLVM_VERSION: 5.0.0-2
-      - HOST_LDC_VERSION: 1.6.0
-      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
-      - DUB_VERSION: v1.6.0
-    steps:
-      - run:
-          name: Install dependencies
-          command: |
-            cd ..
+commonSteps: &commonSteps
+  steps:
+    - run:
+        name: Install dependencies
+        command: |
+          cd ..
+          if [ "$CI_OS" = "linux" ]; then
             export DEBIAN_FRONTEND=noninteractive
             dpkg --add-architecture i386
             apt-get -y update
@@ -27,148 +19,187 @@ jobs:
             mkdir cmake-x64
             tar -xf cmake-x64.tar.gz --strip 1 -C cmake-x64
             echo "export PATH=$PWD/cmake-x64/bin:$PATH" >> $BASH_ENV
-            # install lit
-            pip install --user lit
             # use ld.gold per default, so that LTO is tested
             update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
-      - checkout
-      - run:
-          name: Checkout git submodules
-          command: git submodule update --init
-      - restore_cache:
-          keys:
-            - llvm-{{ .Environment.LLVM_VERSION }}
-            - host-ldc-{{ .Environment.HOST_LDC_VERSION }}
-      - run:
-          name: Install LDC-flavoured LLVM
-          command: |
-            cd ..
-            if [[ ! -d llvm-$LLVM_VERSION ]]; then
-              curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-linux-x86_64.tar.xz
-              mkdir llvm-$LLVM_VERSION
-              tar -xf llvm.tar.xz -C llvm-$LLVM_VERSION
-              rm llvm.tar.xz
-            fi
-      - save_cache:
-          key: llvm-{{ .Environment.LLVM_VERSION }}
-          paths:
-            - ../llvm-$LLVM_VERSION
-      - run:
-          name: Install LDC host compiler
-          command: |
-            cd ..
-            if [[ ! -d ldc2-$HOST_LDC_VERSION ]]; then
-              curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-x86_64.tar.xz
-              mkdir ldc2-$HOST_LDC_VERSION
-              tar -xf ldc2.tar.xz --strip 1 -C ldc2-$HOST_LDC_VERSION
-              rm ldc2.tar.xz
-            fi
-      - save_cache:
-          key: host-ldc-{{ .Environment.HOST_LDC_VERSION }}
-          paths:
-            - ../ldc2-$HOST_LDC_VERSION
-      - run:
-          name: Build bootstrap LDC
-          command: |
-            cd ..
-            # output versions
-            g++ --version
-            ld --version
-            cmake --version
-            ninja --version
-            gdb --version
-            python -c "import lit; lit.main();" --version | head -n 1
-            # build
-            export HOST_LDMD=$PWD/ldc2-$HOST_LDC_VERSION/bin/ldmd2
-            mkdir bootstrap
-            cd bootstrap
-            cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DBUILD_SHARED_LIBS=OFF -DD_COMPILER=$HOST_LDMD $CIRCLE_WORKING_DIRECTORY
-            ninja -j3
-            bin/ldc2 -version
-            cd ..
-      - run:
-          name: Build LDC and stdlib unittest runners
-          command: |
-            cd ..
-            export INSTALL_DIR=$PWD/ldc2-x64
-            export HOST_LDMD=$PWD/bootstrap/bin/ldmd2
-            mkdir ninja-ldc
-            cd ninja-ldc
-            cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DINCLUDE_INSTALL_DIR=$INSTALL_DIR/import -DD_COMPILER=$HOST_LDMD $EXTRA_CMAKE_FLAGS $CIRCLE_WORKING_DIRECTORY
-            # compiling the std.regex.internal.tests unittests eats large amounts of memory
-            ninja -j2 all runtime/objects-unittest-debug/std/regex/internal/tests.o runtime/objects-unittest/std/regex/internal/tests.o runtime/objects-unittest-debug_32/std/regex/internal/tests.o runtime/objects-unittest_32/std/regex/internal/tests.o
-            ninja -j3 all-test-runners
-            bin/ldc2 -version
-            cd ..
-      - run:
-          name: Build and run LDC D unittests
-          command: cd ../ninja-ldc && ctest --output-on-failure -R ldc2-unittest
-          when: always
-      - run:
-          name: Run LIT testsuite
-          command: cd ../ninja-ldc && ctest -V -R lit-tests
-          when: always
-      - run:
-          name: Run DMD testsuite
-          command: cd ../ninja-ldc && DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R dmd-testsuite
-          when: always
-      - run:
-          name: Run stdlib unittests
-          # FIXME: Exclude std.process unittests for now.
-          # CircleCI doesn't throw an expected ProcessException when spawning a
-          # process in a working dir with 0400 permissions (no search permissions).
-          command: cd ../ninja-ldc && ctest -j3 --output-on-failure -E "std\.process|dmd-testsuite|ldc2-unittest|lit-tests"
-          when: always
-      - run:
-          name: Install LDC
-          command: |
-            cd ../ninja-ldc
-            ninja install
-            cd ..
-            perl -pi -e s?/root/ldc2-x64/?%%ldcbinarypath%%/../?g ldc2-x64/etc/ldc2.conf
-            cp "$CIRCLE_WORKING_DIRECTORY/LICENSE" ldc2-x64
-            git clone https://github.com/ldc-developers/ldc-scripts.git
-            cp ldc-scripts/ldc2-packaging/pkgfiles/README ldc2-x64
-            cp -r ldc-scripts/ldc2-packaging/pkgfiles/dub ldc2-x64/etc
-      - run:
-          name: Build dub
-          command: |
-            cd ..
-            export LDC_INSTALL_DIR=$PWD/ldc2-x64
-            export DMD=$LDC_INSTALL_DIR/bin/ldmd2
-            git clone --recursive https://github.com/dlang/dub.git
-            cd dub
-            git checkout $DUB_VERSION
-            ./build.sh
-            cp bin/dub $LDC_INSTALL_DIR/bin
-            cd ..
-      - run:
-          name: Build dlang tools
-          command: |
-            cd ..
-            export LDC_INSTALL_DIR=$PWD/ldc2-x64
-            git clone --recursive https://github.com/dlang/tools.git
-            cd tools
-            make -f posix.mak install DMD=$LDC_INSTALL_DIR/bin/ldmd2 INSTALL_DIR=$PWD
-            cp bin/rdmd bin/ddemangle bin/dustmite $LDC_INSTALL_DIR/bin
-            cd ..
-      - run:
-          name: Pack installation dir
-          command: |
-            cd ..
-            mkdir artifacts
-            export artifactBasename="ldc2-${CIRCLE_SHA1:0:8}-linux-x86_64-$(date "+%Y%m%d")"
-            mv ldc2-x64 $artifactBasename
-            tar -cJf "artifacts/$artifactBasename.tar.xz" $artifactBasename
-      - store_artifacts:
-          path: ../artifacts
-      - run:
-          name: Deploy to GitHub CI release
-          command: |
-            cd ..
-            if [ "$CIRCLE_BRANCH" = "master" ] && [ -z "$CIRCLE_PR_NUMBER" ]; then
+          else
+            # install CMake
+            curl -L -o cmake-x64.tar.gz https://cmake.org/files/v3.10/cmake-3.10.0-Darwin-x86_64.tar.gz
+            mkdir cmake-x64
+            tar -xf cmake-x64.tar.gz --strip 3 -C cmake-x64
+            # install Ninja
+            curl -OL https://github.com/ninja-build/ninja/releases/download/v1.8.2/ninja-mac.zip
+            mkdir ninja
+            tar -xf ninja-mac.zip -C ninja
+            echo "export PATH=$PWD/cmake-x64/bin:$PWD/ninja:$PATH" >> $BASH_ENV
+            # install Python pip
+            curl -OL https://bootstrap.pypa.io/get-pip.py
+            python get-pip.py
+          fi
+          # install lit
+          pip install --user lit
+    - checkout
+    - run:
+        name: Checkout git submodules
+        command: git submodule update --init
+    - run:
+        name: Install LDC-flavoured LLVM
+        command: |
+          cd ..
+          mkdir llvm-$LLVM_VERSION
+          # TODO
+          if [ "$CI_OS" = "linux" ]; then
+            curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-linux-x86_64.tar.xz
+            tar -xf llvm.tar.xz -C llvm-$LLVM_VERSION
+          else
+            curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/CI/llvm-e8b3ff8a-osx-x86_64-20171205.tar.xz
+            tar -xf llvm.tar.xz --strip 1 -C llvm-$LLVM_VERSION
+          fi
+          rm llvm.tar.xz
+    - run:
+        name: Install LDC host compiler
+        command: |
+          cd ..
+          curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-$CI_OS-x86_64.tar.xz
+          mkdir ldc2-$HOST_LDC_VERSION
+          tar -xf ldc2.tar.xz --strip 1 -C ldc2-$HOST_LDC_VERSION
+          rm ldc2.tar.xz
+    - run:
+        name: Build bootstrap LDC
+        command: |
+          cd ..
+          # output versions
+          cmake --version
+          ninja --version
+          if [ "$CI_OS" = "linux" ]; then gdb --version; fi
+          python -c "import lit; lit.main();" --version | head -n 1
+          # build
+          export HOST_LDMD=$PWD/ldc2-$HOST_LDC_VERSION/bin/ldmd2
+          mkdir bootstrap
+          cd bootstrap
+          cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DBUILD_SHARED_LIBS=OFF -DD_COMPILER=$HOST_LDMD $BOOTSTRAP_CMAKE_FLAGS $CIRCLE_WORKING_DIRECTORY
+          ninja -j3
+          bin/ldc2 -version
+          cd ..
+    - run:
+        name: Build LDC and stdlib unittest runners
+        command: |
+          cd ..
+          export INSTALL_DIR=$PWD/ldc2-x64
+          export HOST_LDMD=$PWD/bootstrap/bin/ldmd2
+          mkdir ninja-ldc
+          cd ninja-ldc
+          cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DINCLUDE_INSTALL_DIR=$INSTALL_DIR/import -DD_COMPILER=$HOST_LDMD $EXTRA_CMAKE_FLAGS $CIRCLE_WORKING_DIRECTORY
+          # compiling the std.regex.internal.tests unittests eats large amounts of memory
+          ninja -j2 all runtime/objects-unittest-debug/std/regex/internal/tests.o runtime/objects-unittest/std/regex/internal/tests.o runtime/objects-unittest-debug_32/std/regex/internal/tests.o runtime/objects-unittest_32/std/regex/internal/tests.o
+          ninja -j3 all-test-runners
+          bin/ldc2 -version
+          cd ..
+    - run:
+        name: Build and run LDC D unittests
+        command: cd ../ninja-ldc && ctest --output-on-failure -R ldc2-unittest
+        when: always
+    - run:
+        name: Run LIT testsuite
+        command: cd ../ninja-ldc && ctest -V -R lit-tests
+        when: always
+    - run:
+        name: Run DMD testsuite
+        command: cd ../ninja-ldc && DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R dmd-testsuite
+        when: always
+    - run:
+        name: Run stdlib unittests
+        # FIXME: Exclude std.process unittests for now.
+        # CircleCI doesn't throw an expected ProcessException when spawning a
+        # process in a working dir with 0400 permissions (no search permissions).
+        command: cd ../ninja-ldc && ctest -j3 --output-on-failure -E "std\.process|dmd-testsuite|ldc2-unittest|lit-tests"
+        when: always
+    - run:
+        name: Install LDC
+        command: |
+          cd ../ninja-ldc
+          ninja install
+          cd ..
+          perl -pi -e s?/root/ldc2-x64/?%%ldcbinarypath%%/../?g ldc2-x64/etc/ldc2.conf
+          cp project/LICENSE ldc2-x64
+          git clone https://github.com/ldc-developers/ldc-scripts.git
+          cp ldc-scripts/ldc2-packaging/pkgfiles/README ldc2-x64
+          cp -r ldc-scripts/ldc2-packaging/pkgfiles/dub ldc2-x64/etc
+    - run:
+        name: Build dub
+        command: |
+          cd ..
+          export LDC_INSTALL_DIR=$PWD/ldc2-x64
+          export DMD=$LDC_INSTALL_DIR/bin/ldmd2
+          git clone --recursive https://github.com/dlang/dub.git
+          cd dub
+          git checkout $DUB_VERSION
+          ./build.sh
+          cp bin/dub $LDC_INSTALL_DIR/bin
+          cd ..
+    - run:
+        name: Build dlang tools
+        command: |
+          cd ..
+          export LDC_INSTALL_DIR=$PWD/ldc2-x64
+          git clone --recursive https://github.com/dlang/tools.git
+          cd tools
+          make -f posix.mak install DMD=$LDC_INSTALL_DIR/bin/ldmd2 INSTALL_DIR=$PWD
+          cp bin/rdmd bin/ddemangle bin/dustmite $LDC_INSTALL_DIR/bin
+          cd ..
+    - run:
+        name: Pack installation dir
+        command: |
+          cd ..
+          mkdir artifacts
+          export artifactBasename="ldc2-${CIRCLE_SHA1:0:8}-$CI_OS-x86_64-$(date "+%Y%m%d")"
+          mv ldc2-x64 $artifactBasename
+          tar -cJf "artifacts/$artifactBasename.tar.xz" $artifactBasename
+    - store_artifacts:
+        path: ../artifacts
+    - run:
+        name: Deploy to GitHub CI release
+        command: |
+          cd ..
+          if [ "$CIRCLE_BRANCH" = "master" ] && [ -z "$CIRCLE_PR_NUMBER" ]; then
+            if [ "$CI_OS" = "linux" ]; then
               curl -L -o github-release.tar.bz2 https://github.com/aktau/github-release/releases/download/v0.7.2/linux-amd64-github-release.tar.bz2
-              tar -xf github-release.tar.bz2 --strip 3
-              # Note: needs GITHUB_TOKEN environment variable
-              ./github-release upload --user ldc-developers --repo ldc --tag CI --name "$(cd artifacts && ls ldc2-*.tar.xz)" --file artifacts/ldc2-*.tar.xz
+            else
+              curl -L -o github-release.tar.bz2 https://github.com/aktau/github-release/releases/download/v0.7.2/darwin-amd64-github-release.tar.bz2
             fi
+            tar -xf github-release.tar.bz2 --strip 3
+            # Note: needs GITHUB_TOKEN environment variable
+            ./github-release upload --user ldc-developers --repo ldc --tag CI --name "$(cd artifacts && ls ldc2-*.tar.xz)" --file artifacts/ldc2-*.tar.xz
+          fi
+
+version: 2
+jobs:
+  build-linux:
+    <<: *commonSteps
+    docker:
+      - image: ubuntu:14.04
+    environment:
+      - CI_OS: "linux"
+      - LLVM_VERSION: 5.0.0-2
+      - HOST_LDC_VERSION: 1.6.0
+      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
+      - DUB_VERSION: v1.6.0
+  build-osx:
+    <<: *commonSteps
+    macos:
+      xcode: "9.0"
+    environment:
+      - CI_OS: "osx"
+      - MACOSX_DEPLOYMENT_TARGET: 10.8
+      - USE_LIBCPP: "true"
+      - LLVM_VERSION: 5.0.0-2
+      - HOST_LDC_VERSION: 1.6.0
+      - BOOTSTRAP_CMAKE_FLAGS: "-DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
+      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
+      - DUB_VERSION: v1.6.0
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build-linux
+      - build-osx
