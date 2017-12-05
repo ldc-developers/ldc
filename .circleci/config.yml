@@ -124,6 +124,7 @@ jobs:
             cd ../ninja-ldc
             ninja install
             cd ..
+            perl -pi -e s?/root/ldc2-x64/?%%ldcbinarypath%%/../?g ldc2-x64/etc/ldc2.conf
             mkdir artifacts
             export artifactBasename="ldc2-${CIRCLE_SHA1:0:8}-linux-x86_64-$(date "+%Y%m%d")"
             mv ldc2-x64 $artifactBasename
