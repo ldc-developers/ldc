@@ -126,6 +126,10 @@ jobs:
             ninja install
             cd ..
             perl -pi -e s?/root/ldc2-x64/?%%ldcbinarypath%%/../?g ldc2-x64/etc/ldc2.conf
+            cp "$CIRCLE_WORKING_DIRECTORY/LICENSE" ldc2-x64
+            git clone https://github.com/ldc-developers/ldc-scripts.git
+            cp ldc-scripts/ldc2-packaging/pkgfiles/README ldc2-x64
+            cp -r ldc-scripts/ldc2-packaging/pkgfiles/dub ldc2-x64/etc
       - run:
           name: Build dub
           command: |

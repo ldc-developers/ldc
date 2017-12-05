@@ -139,9 +139,14 @@ after_test:
   # Install LDC
   - ps: |
         cd c:\projects\ninja-ldc
+        $ldcInstallDir = "c:\projects\ldc2-$Env:APPVEYOR_JOB_ARCH"
         ninja install > $null
-        cd "..\ldc2-$Env:APPVEYOR_JOB_ARCH"
+        cd "$ldcInstallDir"
         (cat etc\ldc2.conf).replace("C:/projects/ldc2-$Env:APPVEYOR_JOB_ARCH/", '%%ldcbinarypath%%/../') | Set-Content etc\ldc2.conf
+        cd ..
+        cp ldc/LICENSE "$ldcInstallDir"
+        git clone https://github.com/ldc-developers/ldc-scripts.git
+        cp ldc-scripts\ldc2-packaging\pkgfiles\README.txt "$ldcInstallDir"
   # Build dub
   - ps: |
         cd c:\projects
