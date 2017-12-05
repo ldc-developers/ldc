@@ -7,6 +7,7 @@ jobs:
       - LLVM_VERSION: 5.0.0-2
       - HOST_LDC_VERSION: 1.6.0
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
+      - DUB_VERSION: v1.6.0
     steps:
       - run:
           name: Install dependencies
@@ -18,7 +19,7 @@ jobs:
             apt-get -yq install software-properties-common
             add-apt-repository -y ppa:ubuntu-toolchain-r/test
             apt-get -y update
-            apt-get -yq install curl git-core g++-6-multilib ninja-build gdb python-pip unzip libcurl3:i386
+            apt-get -yq install curl git-core g++-6-multilib ninja-build gdb python-pip unzip libcurl4-openssl-dev libcurl3:i386
             echo "export CC=gcc-6" >> $BASH_ENV
             echo "export CXX=g++-6" >> $BASH_ENV
             # install CMake
@@ -28,7 +29,7 @@ jobs:
             echo "export PATH=$PWD/cmake-x64/bin:$PATH" >> $BASH_ENV
             # install lit
             pip install --user lit
-            # use ld.gold per default, so that LTO is tested.
+            # use ld.gold per default, so that LTO is tested
             update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
       - checkout
       - run:
@@ -119,12 +120,38 @@ jobs:
           command: cd ../ninja-ldc && ctest -j3 --output-on-failure -E "std\.process|dmd-testsuite|ldc2-unittest|lit-tests"
           when: always
       - run:
-          name: Install LDC & pack installation dir
+          name: Install LDC
           command: |
             cd ../ninja-ldc
             ninja install
             cd ..
             perl -pi -e s?/root/ldc2-x64/?%%ldcbinarypath%%/../?g ldc2-x64/etc/ldc2.conf
+      - run:
+          name: Build dub
+          command: |
+            cd ..
+            export LDC_INSTALL_DIR=$PWD/ldc2-x64
+            export DMD=$LDC_INSTALL_DIR/bin/ldmd2
+            git clone --recursive https://github.com/dlang/dub.git
+            cd dub
+            git checkout $DUB_VERSION
+            ./build.sh
+            cp bin/dub $LDC_INSTALL_DIR/bin
+            cd ..
+      - run:
+          name: Build dlang tools
+          command: |
+            cd ..
+            export LDC_INSTALL_DIR=$PWD/ldc2-x64
+            git clone --recursive https://github.com/dlang/tools.git
+            cd tools
+            make -f posix.mak install DMD=$LDC_INSTALL_DIR/bin/ldmd2 INSTALL_DIR=$PWD
+            cp bin/rdmd bin/ddemangle bin/dustmite $LDC_INSTALL_DIR/bin
+            cd ..
+      - run:
+          name: Pack installation dir
+          command: |
+            cd ..
             mkdir artifacts
             export artifactBasename="ldc2-${CIRCLE_SHA1:0:8}-linux-x86_64-$(date "+%Y%m%d")"
             mv ldc2-x64 $artifactBasename
