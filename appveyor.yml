@@ -12,9 +12,11 @@ environment:
   matrix:
     - APPVEYOR_JOB_ARCH:           x64
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+      LLVM_VERSION:                5.0.0-2
       D_COMPILER:                  ldc
     - APPVEYOR_JOB_ARCH:           x86
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      LLVM_VERSION:                5.0.0-2
       D_COMPILER:                  ldc
 
 # scripts that are called at very beginning, before repo cloning
@@ -38,11 +40,11 @@ install:
   - md ldc2-%APPVEYOR_JOB_ARCH% && md ldc2-%APPVEYOR_JOB_ARCH%\bin && md ldc2-%APPVEYOR_JOB_ARCH%\lib
   - ps: |
         If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
-            cp libcurl\dmd2\windows\bin64\libcurl.dll ldc2-x64\bin
-            cp libcurl\dmd2\windows\lib64\curl.lib ldc2-x64\lib
+          cp libcurl\dmd2\windows\bin64\libcurl.dll ldc2-x64\bin
+          cp libcurl\dmd2\windows\lib64\curl.lib ldc2-x64\lib
         } Else {
-            cp libcurl\dmd2\windows\bin\libcurl.dll ldc2-x86\bin
-            cp libcurl\dmd2\windows\lib32mscoff\curl.lib ldc2-x86\lib
+          cp libcurl\dmd2\windows\bin\libcurl.dll ldc2-x86\bin
+          cp libcurl\dmd2\windows\lib32mscoff\curl.lib ldc2-x86\lib
         }
   - set PATH=%CD%\ldc2-%APPVEYOR_JOB_ARCH%\bin;%PATH%
   # Download & extract Ninja
@@ -59,21 +61,21 @@ install:
   # Download & extract D compiler
   - ps: |
         If ($Env:D_COMPILER -eq 'dmd') {
-            $dmdVersion = '2.077.1'
-            appveyor DownloadFile "http://downloads.dlang.org/releases/2.x/$dmdVersion/dmd.$dmdVersion.windows.7z" -FileName dmd2.7z
-            7z x dmd2.7z > $null
-            Set-Item -path env:DMD -value c:\projects\dmd2\windows\bin\dmd.exe
+          $dmdVersion = '2.077.1'
+          appveyor DownloadFile "http://downloads.dlang.org/releases/2.x/$dmdVersion/dmd.$dmdVersion.windows.7z" -FileName dmd2.7z
+          7z x dmd2.7z > $null
+          Set-Item -path env:DMD -value c:\projects\dmd2\windows\bin\dmd.exe
         } Else {
-            $ldcVersion = '1.6.0'
-            If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
-                appveyor DownloadFile "http://github.com/ldc-developers/ldc/releases/download/v$ldcVersion/ldc2-$ldcVersion-win64-msvc.zip" -FileName ldc2.zip
-                7z x ldc2.zip > $null
-                Set-Item -path env:DMD -value c:\projects\ldc2-$ldcVersion-win64-msvc\bin\ldmd2.exe
-            } Else {
-                appveyor DownloadFile "http://github.com/ldc-developers/ldc/releases/download/v$ldcVersion/ldc2-$ldcVersion-win32-msvc.zip" -FileName ldc2.zip
-                7z x ldc2.zip > $null
-                Set-Item -path env:DMD -value c:\projects\ldc2-$ldcVersion-win32-msvc\bin\ldmd2.exe
-            }
+          $ldcVersion = '1.6.0'
+          If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
+            appveyor DownloadFile "http://github.com/ldc-developers/ldc/releases/download/v$ldcVersion/ldc2-$ldcVersion-win64-msvc.zip" -FileName ldc2.zip
+            7z x ldc2.zip > $null
+            Set-Item -path env:DMD -value c:\projects\ldc2-$ldcVersion-win64-msvc\bin\ldmd2.exe
+          } Else {
+            appveyor DownloadFile "http://github.com/ldc-developers/ldc/releases/download/v$ldcVersion/ldc2-$ldcVersion-win32-msvc.zip" -FileName ldc2.zip
+            7z x ldc2.zip > $null
+            Set-Item -path env:DMD -value c:\projects\ldc2-$ldcVersion-win32-msvc\bin\ldmd2.exe
+          }
         }
         & $Env:DMD --version
   # Download & extract GNU make + utils (for dmd-testsuite)
@@ -84,9 +86,15 @@ install:
   - 7z x ..\make.7z > nul
   - make --version
   - cd ..
-  # Download & extract a pre-built LLVM (CMAKE_BUILD_TYPE=Release, LLVM_ENABLE_ASSERTIONS=ON)
-  #- appveyor DownloadFile "https://github.com/ldc-developers/llvm/releases/download/ldc-v5.0.0-2/appveyor-llvm-5.0.0-2-%APPVEYOR_JOB_ARCH%.7z" -FileName llvm.7z
-  - appveyor DownloadFile "https://github.com/ldc-developers/llvm/releases/download/CI/llvm-6f3a7614-windows-%APPVEYOR_JOB_ARCH%-20171205.7z" -FileName llvm.7z
+  # Download & extract LDC-flavoured LLVM
+  - ps: |
+        $assertsSuffix=''
+        If (!(Test-Path Env:APPVEYOR_REPO_TAG_NAME)) {
+          echo 'Using LLVM with enabled assertions'
+          # TODO
+          #$assertsSuffix='-withAsserts'
+        }
+        appveyor DownloadFile "https://github.com/ldc-developers/llvm/releases/download/ldc-v$Env:LLVM_VERSION/llvm-$Env:LLVM_VERSION-windows-$Env:APPVEYOR_JOB_ARCH$assertsSuffix.7z" -FileName llvm.7z
   - md llvm
   - cd llvm
   - 7z x ..\llvm.7z > nul
@@ -172,53 +180,75 @@ after_test:
   # Pack installation dir & publish as artifact
   - ps: |
         cd "c:\projects\ldc2-$Env:APPVEYOR_JOB_ARCH"
-        $artifactFilename = "ldc2-$($Env:APPVEYOR_REPO_COMMIT.Substring(0, 8))-windows-$Env:APPVEYOR_JOB_ARCH.7z"
-        7z a "..\$artifactFilename" * > $null
+        If (Test-Path Env:APPVEYOR_REPO_TAG_NAME) {
+          $artifactFilename = "ldc2-$($Env:APPVEYOR_REPO_TAG_NAME.Substring(1))-windows-$Env:APPVEYOR_JOB_ARCH.7z"
+        } Else {
+          $artifactFilename = "ldc2-$($Env:APPVEYOR_REPO_COMMIT.Substring(0, 8))-windows-$Env:APPVEYOR_JOB_ARCH.7z"
+        }
+        7z a -mx=9 "..\$artifactFilename" * > $null
         cd ..
         Push-AppveyorArtifact $artifactFilename
-  # x86 job: Create a 32/64-bit multilib artifact if the commit is on the master branch.
-  # It consists of the x64 artifact (published by a successful x64 job) downloaded from
-  # GitHub, augmented by the 32-bit libs and an extra section in the ldc2.conf file for `-m32`
-  # (using the lib32 directory).
+  # x86 job: Create a 32/64-bit multilib artifact if the commit is on the master branch
+  # (or a tag). It consists of the x64 artifact (published by a successful x64 job)
+  # downloaded from GitHub, augmented by the 32-bit libs and an extra section in the
+  # ldc2.conf file for `-m32` (using the lib32 directory).
   - ps: |
-        If (($Env:APPVEYOR_REPO_BRANCH -eq 'master') -And !(Test-Path Env:APPVEYOR_PULL_REQUEST_NUMBER) -And ($Env:APPVEYOR_JOB_ARCH -eq 'x86')) {
-            echo 'Preparing 32/64-bit multilib artifact...'
-            cd c:\projects
-            $artifact64Downloaded = $True
-            Try {
-                (New-Object Net.WebClient).DownloadFile("https://github.com/ldc-developers/ldc/releases/download/CI/ldc2-$($Env:APPVEYOR_REPO_COMMIT.Substring(0, 8))-windows-x64.7z", 'c:\projects\ldc2-x64.7z')
-            }
-            Catch {
-                echo 'Failed to download the 64-bit artifact from GitHub (the x64 job probably failed).'
-                echo 'Skipping the 32/64-bit multilib artifact.'
-                $artifact64Downloaded = $False
-            }
-            If ($artifact64Downloaded) {
-                md ldc2-multilib > $null
-                cd ldc2-multilib
-                7z x ..\ldc2-x64.7z > $null
-                del ..\ldc2-x64.7z
-                ren lib lib64
-                copy ..\ldc2-x86\lib -Recurse
-                ren lib lib32
-                (cat etc\ldc2.conf).replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib64') | Set-Content etc\ldc2.conf
-                $conf32 = cat ..\ldc2-x86\etc\ldc2.conf -Raw
-                $conf32 = "`r`ni686-pc-windows-msvc:" + $conf32.Substring($conf32.IndexOf("`r`ndefault:") + 10)
-                $conf32 = $conf32.Replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib32')
-                Add-Content etc\ldc2.conf $conf32
-                $artifactFilename = "ldc2-$($Env:APPVEYOR_REPO_COMMIT.Substring(0, 8))-windows-multilib.7z"
-                7z a "..\$artifactFilename" * > $null
-                cd ..
-                Push-AppveyorArtifact $artifactFilename
-            }
+        If (($Env:APPVEYOR_JOB_ARCH -eq 'x86') -And
+            ( (Test-Path Env:APPVEYOR_REPO_TAG_NAME) -Or
+              ( ($Env:APPVEYOR_REPO_BRANCH -eq 'master') -And !(Test-Path Env:APPVEYOR_PULL_REQUEST_NUMBER) ) ) ) {
+          echo 'Preparing 32/64-bit multilib artifact...'
+          cd c:\projects
+          If (Test-Path Env:APPVEYOR_REPO_TAG_NAME) {
+            $artifact64 = "https://github.com/ldc-developers/ldc/releases/download/$Env:APPVEYOR_REPO_TAG_NAME/ldc2-$($Env:APPVEYOR_REPO_TAG_NAME.Substring(1))-windows-x64.7z"
+            $artifactFilename = "ldc2-$($Env:APPVEYOR_REPO_TAG_NAME.Substring(1))-windows-multilib.7z"
+          } Else {
+            $artifact64 = "https://github.com/ldc-developers/ldc/releases/download/CI/ldc2-$($Env:APPVEYOR_REPO_COMMIT.Substring(0, 8))-windows-x64.7z"
+            $artifactFilename = "ldc2-$($Env:APPVEYOR_REPO_COMMIT.Substring(0, 8))-windows-multilib-$(get-date -f yyyyMMdd).7z"
+          }
+          $artifact64Downloaded = $True
+          Try {
+            (New-Object Net.WebClient).DownloadFile("$artifact64", 'c:\projects\ldc2-x64.7z')
+          } Catch {
+            echo 'Failed to download the 64-bit artifact from GitHub (the x64 job probably failed).'
+            echo 'Skipping the 32/64-bit multilib artifact.'
+            $artifact64Downloaded = $False
+          }
+          If ($artifact64Downloaded) {
+            md ldc2-multilib > $null
+            cd ldc2-multilib
+            7z x ..\ldc2-x64.7z > $null
+            del ..\ldc2-x64.7z
+            ren lib lib64
+            copy ..\ldc2-x86\lib -Recurse
+            ren lib lib32
+            (cat etc\ldc2.conf).replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib64') | Set-Content etc\ldc2.conf
+            $conf32 = cat ..\ldc2-x86\etc\ldc2.conf -Raw
+            $conf32 = "`r`ni686-pc-windows-msvc:" + $conf32.Substring($conf32.IndexOf("`r`ndefault:") + 10)
+            $conf32 = $conf32.Replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib32')
+            Add-Content etc\ldc2.conf $conf32
+            7z a -mx=9 "..\$artifactFilename" * > $null
+            cd ..
+            Push-AppveyorArtifact $artifactFilename
+          }
         }
 
 deploy:
-  - provider: GitHub
-    release: CI
+  - release: CI
     prerelease: true
+    provider: GitHub
     auth_token:
       secure: qnbD8agL9mr0SFvy/sMkR2E29oQQ427T5zYwVVZkjRS3IZ361tG+9jlSiyEkyULy
     artifact: /ldc2-.*\.7z/
     on:
       branch: master
+      appveyor_repo_tag: false
+  - release: $(APPVEYOR_REPO_TAG_NAME)
+    description: $(APPVEYOR_REPO_TAG_NAME)
+    prerelease: true
+    draft: true
+    provider: GitHub
+    auth_token:
+      secure: qnbD8agL9mr0SFvy/sMkR2E29oQQ427T5zYwVVZkjRS3IZ361tG+9jlSiyEkyULy
+    artifact: /ldc2-.*\.7z/
+    on:
+      appveyor_repo_tag: true

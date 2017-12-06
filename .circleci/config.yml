@@ -46,15 +46,13 @@ commonSteps: &commonSteps
         command: |
           cd ..
           mkdir llvm-$LLVM_VERSION
-          # TODO
-          if [ "$CI_OS" = "linux" ]; then
-            #curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$CI_OS-x86_64.tar.xz
-            curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/CI/llvm-6f3a7614-$CI_OS-x86_64-20171206.tar.xz
-            tar -xf llvm.tar.xz --strip 1 -C llvm-$LLVM_VERSION
-          else
-            curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/CI/llvm-6f3a7614-$CI_OS-x86_64-20171205.tar.xz
-            tar -xf llvm.tar.xz --strip 1 -C llvm-$LLVM_VERSION
+          assertsSuffix=""
+          if [ -z "$CIRCLE_TAG" ]; then
+            echo "Using LLVM with enabled assertions"
+            assertsSuffix="-withAsserts"
           fi
+          curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$CI_OS-x86_64$assertsSuffix.tar.xz
+          tar -xf llvm.tar.xz --strip 1 -C llvm-$LLVM_VERSION
           rm llvm.tar.xz
     - run:
         name: Install LDC host compiler
@@ -74,7 +72,7 @@ commonSteps: &commonSteps
           if [ "$CI_OS" = "linux" ]; then gdb --version; fi
           python -c "import lit; lit.main();" --version | head -n 1
           # build
-          export HOST_LDMD=$PWD/ldc2-$HOST_LDC_VERSION/bin/ldmd2
+          HOST_LDMD=$PWD/ldc2-$HOST_LDC_VERSION/bin/ldmd2
           mkdir bootstrap
           cd bootstrap
           cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DBUILD_SHARED_LIBS=OFF -DD_COMPILER=$HOST_LDMD $BOOTSTRAP_CMAKE_FLAGS $CIRCLE_WORKING_DIRECTORY
@@ -85,8 +83,8 @@ commonSteps: &commonSteps
         name: Build LDC and stdlib unittest runners
         command: |
           cd ..
-          export INSTALL_DIR=$PWD/ldc2-x64
-          export HOST_LDMD=$PWD/bootstrap/bin/ldmd2
+          INSTALL_DIR=$PWD/ldc2-x64
+          HOST_LDMD=$PWD/bootstrap/bin/ldmd2
           mkdir ninja-ldc
           cd ninja-ldc
           cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DINCLUDE_INSTALL_DIR=$INSTALL_DIR/import -DD_COMPILER=$HOST_LDMD $EXTRA_CMAKE_FLAGS $CIRCLE_WORKING_DIRECTORY
@@ -133,7 +131,7 @@ commonSteps: &commonSteps
         name: Build dub
         command: |
           cd ..
-          export LDC_INSTALL_DIR=$PWD/ldc2-x64
+          LDC_INSTALL_DIR=$PWD/ldc2-x64
           export DMD=$LDC_INSTALL_DIR/bin/ldmd2
           git clone --recursive https://github.com/dlang/dub.git
           cd dub
@@ -145,7 +143,7 @@ commonSteps: &commonSteps
         name: Build dlang tools
         command: |
           cd ..
-          export LDC_INSTALL_DIR=$PWD/ldc2-x64
+          LDC_INSTALL_DIR=$PWD/ldc2-x64
           git clone --recursive https://github.com/dlang/tools.git
           cd tools
           make -f posix.mak install DMD=$LDC_INSTALL_DIR/bin/ldmd2 INSTALL_DIR=$PWD
@@ -156,7 +154,11 @@ commonSteps: &commonSteps
         command: |
           cd ..
           mkdir artifacts
-          export artifactBasename="ldc2-${CIRCLE_SHA1:0:8}-$CI_OS-x86_64-$(date "+%Y%m%d")"
+          if [ -z "$CIRCLE_TAG" ]; then
+            artifactBasename="ldc2-${CIRCLE_SHA1:0:8}-$CI_OS-x86_64-$(date "+%Y%m%d")"
+          else
+            artifactBasename="ldc2-${CIRCLE_TAG:1}-$CI_OS-x86_64"
+          fi
           mv ldc2-x64 $artifactBasename
           tar -cJf "artifacts/$artifactBasename.tar.xz" $artifactBasename
     - store_artifacts:
@@ -172,8 +174,9 @@ commonSteps: &commonSteps
               curl -L -o github-release.tar.bz2 https://github.com/aktau/github-release/releases/download/v0.7.2/darwin-amd64-github-release.tar.bz2
             fi
             tar -xf github-release.tar.bz2 --strip 3
+            if [ -z "$CIRCLE_TAG" ]; then CIRCLE_TAG="CI"; fi
             # Note: needs GITHUB_TOKEN environment variable
-            ./github-release upload --user ldc-developers --repo ldc --tag CI --name "$(cd artifacts && ls ldc2-*.tar.xz)" --file artifacts/ldc2-*.tar.xz
+            ./github-release upload --user ldc-developers --repo ldc --tag $CIRCLE_TAG --name "$(cd artifacts && ls ldc2-*.tar.xz)" --file artifacts/ldc2-*.tar.xz
           fi
 
 version: 2
