@@ -48,10 +48,11 @@ commonSteps: &commonSteps
           mkdir llvm-$LLVM_VERSION
           # TODO
           if [ "$CI_OS" = "linux" ]; then
-            curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-linux-x86_64.tar.xz
-            tar -xf llvm.tar.xz -C llvm-$LLVM_VERSION
+            #curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$CI_OS-x86_64.tar.xz
+            curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/CI/llvm-6f3a7614-$CI_OS-x86_64-20171206.tar.xz
+            tar -xf llvm.tar.xz --strip 1 -C llvm-$LLVM_VERSION
           else
-            curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/CI/llvm-e8b3ff8a-osx-x86_64-20171205.tar.xz
+            curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/CI/llvm-6f3a7614-$CI_OS-x86_64-20171205.tar.xz
             tar -xf llvm.tar.xz --strip 1 -C llvm-$LLVM_VERSION
           fi
           rm llvm.tar.xz
@@ -90,7 +91,11 @@ commonSteps: &commonSteps
           cd ninja-ldc
           cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DINCLUDE_INSTALL_DIR=$INSTALL_DIR/import -DD_COMPILER=$HOST_LDMD $EXTRA_CMAKE_FLAGS $CIRCLE_WORKING_DIRECTORY
           # compiling the std.regex.internal.tests unittests eats large amounts of memory
-          ninja -j2 all runtime/objects-unittest-debug/std/regex/internal/tests.o runtime/objects-unittest/std/regex/internal/tests.o runtime/objects-unittest-debug_32/std/regex/internal/tests.o runtime/objects-unittest_32/std/regex/internal/tests.o
+          if [ "$CI_OS" = "linux" ]; then
+            ninja -j2 all runtime/objects-unittest-debug/std/regex/internal/tests.o runtime/objects-unittest/std/regex/internal/tests.o runtime/objects-unittest-debug_32/std/regex/internal/tests.o runtime/objects-unittest_32/std/regex/internal/tests.o
+          else
+            ninja -j2 all runtime/objects-unittest-debug_64/std/regex/internal/tests.o runtime/objects-unittest_64/std/regex/internal/tests.o runtime/objects-unittest-debug_32/std/regex/internal/tests.o runtime/objects-unittest_32/std/regex/internal/tests.o
+          fi
           ninja -j3 all-test-runners
           bin/ldc2 -version
           cd ..
