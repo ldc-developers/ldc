@@ -181,7 +181,7 @@ commonSteps: &commonSteps
             artifactBasename="ldc2-${CIRCLE_TAG:1}-$CI_OS-x86_64"
           fi
           mv ldc2-x64 $artifactBasename
-          tar -cJf "artifacts/$artifactBasename.tar.xz" $artifactBasename
+          XZ_OPT=-9 tar -cJf "artifacts/$artifactBasename.tar.xz" $artifactBasename
     - store_artifacts:
         path: ../artifacts
     - run:
