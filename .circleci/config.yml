@@ -12,7 +12,7 @@ commonSteps: &commonSteps
             apt-get -yq install software-properties-common
             add-apt-repository -y ppa:ubuntu-toolchain-r/test
             apt-get -y update
-            apt-get -yq install curl git-core g++-6-multilib ninja-build gdb python-pip unzip libcurl4-openssl-dev libcurl3:i386
+            apt-get -yq install curl git-core g++-6-multilib ninja-build gdb python-pip unzip zip libcurl4-openssl-dev libcurl3:i386
             echo "export CC=gcc-6" >> $BASH_ENV
             echo "export CXX=g++-6" >> $BASH_ENV
             # install CMake
@@ -100,14 +100,15 @@ commonSteps: &commonSteps
           cd ..
     - run:
         name: Build and run LDC D unittests
-        command: cd ../ninja-ldc && ctest --output-on-failure -R ldc2-unittest
         when: always
+        command: cd ../ninja-ldc && ctest --output-on-failure -R ldc2-unittest
     - run:
         name: Run LIT testsuite
-        command: cd ../ninja-ldc && ctest -V -R lit-tests
         when: always
+        command: cd ../ninja-ldc && ctest -V -R lit-tests
     - run:
         name: Run DMD testsuite
+        when: always
         command: |
           cd ../ninja-ldc
           if [ "$CI_OS" = "linux" ]; then
@@ -118,9 +119,9 @@ commonSteps: &commonSteps
             rm ../project/tests/d2/dmd-testsuite/runnable/test13613.d
             DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R dmd-testsuite
           fi
-        when: always
     - run:
         name: Run stdlib unittests
+        when: always
         command: |
           cd ../ninja-ldc
           if [ "$CI_OS" = "linux" ]; then
@@ -131,7 +132,6 @@ commonSteps: &commonSteps
           else
             ctest -j3 --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests"
           fi
-        when: always
     - run:
         name: Install LDC
         command: |
@@ -182,13 +182,27 @@ commonSteps: &commonSteps
           fi
           mv ldc2-x64 $artifactBasename
           XZ_OPT=-9 tar -cJf "artifacts/$artifactBasename.tar.xz" $artifactBasename
+    - run:
+        name: Pack source dir
+        command: |
+          cd ..
+          if [ "$CI_OS" = "linux" ]; then
+            if [ -z "$CIRCLE_TAG" ]; then
+              artifactBasename="ldc-${CIRCLE_SHA1:0:8}-src"
+            else
+              artifactBasename="ldc-${CIRCLE_TAG:1}-src"
+            fi
+            XZ_OPT=-9 tar -czf "artifacts/$artifactBasename.tar.gz" --exclude-vcs --transform=s/project/$artifactBasename/ project
+            tar -xf "artifacts/$artifactBasename.tar.gz"
+            zip -r -9 "artifacts/$artifactBasename.zip" $artifactBasename
+          fi
     - store_artifacts:
         path: ../artifacts
     - run:
         name: Deploy to GitHub CI release
         command: |
           cd ..
-          if [ "$CIRCLE_BRANCH" = "master" ] && [ -z "$CIRCLE_PR_NUMBER" ]; then
+          if [[ -n "$CIRCLE_TAG" || ( "$CIRCLE_BRANCH" = "master" && -z "$CIRCLE_PR_NUMBER" ) ]]; then
             if [ "$CI_OS" = "linux" ]; then
               curl -L -o github-release.tar.bz2 https://github.com/aktau/github-release/releases/download/v0.7.2/linux-amd64-github-release.tar.bz2
             else
@@ -198,6 +212,10 @@ commonSteps: &commonSteps
             if [ -z "$CIRCLE_TAG" ]; then CIRCLE_TAG="CI"; fi
             # Note: needs GITHUB_TOKEN environment variable
             ./github-release upload --user ldc-developers --repo ldc --tag $CIRCLE_TAG --name "$(cd artifacts && ls ldc2-*.tar.xz)" --file artifacts/ldc2-*.tar.xz
+            if [ -n "$CIRCLE_TAG"] && [ "$CI_OS" = "linux" ]; then
+              ./github-release upload --user ldc-developers --repo ldc --tag $CIRCLE_TAG --name "$(cd artifacts && ls ldc-*-src.tar.gz)" --file artifacts/ldc-*-src.tar.gz
+              ./github-release upload --user ldc-developers --repo ldc --tag $CIRCLE_TAG --name "$(cd artifacts && ls ldc-*-src.zip)" --file artifacts/ldc-*-src.zip
+            fi
           fi
 
 version: 2
