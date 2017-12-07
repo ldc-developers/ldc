@@ -13,10 +13,14 @@ environment:
     - APPVEYOR_JOB_ARCH:           x64
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       LLVM_VERSION:                5.0.0-2
+      HOST_LDC_VERSION:            1.6.0
+      DUB_VERSION:                 v1.6.0
       D_COMPILER:                  ldc
     - APPVEYOR_JOB_ARCH:           x86
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
       LLVM_VERSION:                5.0.0-2
+      HOST_LDC_VERSION:            1.6.0
+      DUB_VERSION:                 v1.6.0
       D_COMPILER:                  ldc
 
 # scripts that are called at very beginning, before repo cloning
@@ -66,7 +70,7 @@ install:
           7z x dmd2.7z > $null
           Set-Item -path env:DMD -value c:\projects\dmd2\windows\bin\dmd.exe
         } Else {
-          $ldcVersion = '1.6.0'
+          $ldcVersion = $Env:HOST_LDC_VERSION
           If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
             appveyor DownloadFile "http://github.com/ldc-developers/ldc/releases/download/v$ldcVersion/ldc2-$ldcVersion-win64-msvc.zip" -FileName ldc2.zip
             7z x ldc2.zip > $null
@@ -88,11 +92,10 @@ install:
   - cd ..
   # Download & extract LDC-flavoured LLVM
   - ps: |
-        $assertsSuffix=''
+        $assertsSuffix = ''
         If (!(Test-Path Env:APPVEYOR_REPO_TAG_NAME)) {
           echo 'Using LLVM with enabled assertions'
-          # TODO
-          #$assertsSuffix='-withAsserts'
+          $assertsSuffix = '-withAsserts'
         }
         appveyor DownloadFile "https://github.com/ldc-developers/llvm/releases/download/ldc-v$Env:LLVM_VERSION/llvm-$Env:LLVM_VERSION-windows-$Env:APPVEYOR_JOB_ARCH$assertsSuffix.7z" -FileName llvm.7z
   - md llvm
@@ -163,7 +166,7 @@ after_test:
         Set-Item -path env:DC -value "$ldcInstallDir\bin\ldmd2"
         git clone --recursive https://github.com/dlang/dub.git
         cd dub
-        git checkout v1.6.0
+        git checkout $Env:DUB_VERSION
         (cat build.cmd).replace('curl.lib', "$ldcInstallDir\lib\curl.lib") | Set-Content build.cmd
         .\build.cmd
         cp bin\dub.exe "$ldcInstallDir\bin"
@@ -179,15 +182,16 @@ after_test:
         cp *.exe "$ldcInstallDir\bin"
   # Pack installation dir & publish as artifact
   - ps: |
-        cd "c:\projects\ldc2-$Env:APPVEYOR_JOB_ARCH"
+        cd c:\projects
         If (Test-Path Env:APPVEYOR_REPO_TAG_NAME) {
-          $artifactFilename = "ldc2-$($Env:APPVEYOR_REPO_TAG_NAME.Substring(1))-windows-$Env:APPVEYOR_JOB_ARCH.7z"
+          $artifactBasename = "ldc2-$($Env:APPVEYOR_REPO_TAG_NAME.Substring(1))-windows-$Env:APPVEYOR_JOB_ARCH"
         } Else {
-          $artifactFilename = "ldc2-$($Env:APPVEYOR_REPO_COMMIT.Substring(0, 8))-windows-$Env:APPVEYOR_JOB_ARCH.7z"
+          $artifactBasename = "ldc2-$($Env:APPVEYOR_REPO_COMMIT.Substring(0, 8))-windows-$Env:APPVEYOR_JOB_ARCH"
         }
-        7z a -mx=9 "..\$artifactFilename" * > $null
-        cd ..
-        Push-AppveyorArtifact $artifactFilename
+        ren "ldc2-$Env:APPVEYOR_JOB_ARCH" $artifactBasename
+        7z a -mx=9 "$artifactBasename.7z" $artifactBasename > $null
+        ren $artifactBasename "ldc2-$Env:APPVEYOR_JOB_ARCH"
+        Push-AppveyorArtifact "$artifactBasename.7z"
   # x86 job: Create a 32/64-bit multilib artifact if the commit is on the master branch
   # (or a tag). It consists of the x64 artifact (published by a successful x64 job)
   # downloaded from GitHub, augmented by the 32-bit libs and an extra section in the
@@ -200,10 +204,10 @@ after_test:
           cd c:\projects
           If (Test-Path Env:APPVEYOR_REPO_TAG_NAME) {
             $artifact64 = "https://github.com/ldc-developers/ldc/releases/download/$Env:APPVEYOR_REPO_TAG_NAME/ldc2-$($Env:APPVEYOR_REPO_TAG_NAME.Substring(1))-windows-x64.7z"
-            $artifactFilename = "ldc2-$($Env:APPVEYOR_REPO_TAG_NAME.Substring(1))-windows-multilib.7z"
+            $artifactBasename = "ldc2-$($Env:APPVEYOR_REPO_TAG_NAME.Substring(1))-windows"
           } Else {
             $artifact64 = "https://github.com/ldc-developers/ldc/releases/download/CI/ldc2-$($Env:APPVEYOR_REPO_COMMIT.Substring(0, 8))-windows-x64.7z"
-            $artifactFilename = "ldc2-$($Env:APPVEYOR_REPO_COMMIT.Substring(0, 8))-windows-multilib-$(get-date -f yyyyMMdd).7z"
+            $artifactBasename = "ldc2-$($Env:APPVEYOR_REPO_COMMIT.Substring(0, 8))-windows"
           }
           $artifact64Downloaded = $True
           Try {
@@ -214,10 +218,10 @@ after_test:
             $artifact64Downloaded = $False
           }
           If ($artifact64Downloaded) {
-            md ldc2-multilib > $null
-            cd ldc2-multilib
-            7z x ..\ldc2-x64.7z > $null
-            del ..\ldc2-x64.7z
+            7z x ldc2-x64.7z > $null
+            del ldc2-x64.7z
+            ren "$artifactBasename-x64" "$artifactBasename-multilib"
+            cd "$artifactBasename-multilib"
             ren lib lib64
             copy ..\ldc2-x86\lib -Recurse
             ren lib lib32
@@ -226,9 +230,9 @@ after_test:
             $conf32 = "`r`ni686-pc-windows-msvc:" + $conf32.Substring($conf32.IndexOf("`r`ndefault:") + 10)
             $conf32 = $conf32.Replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib32')
             Add-Content etc\ldc2.conf $conf32
-            7z a -mx=9 "..\$artifactFilename" * > $null
             cd ..
-            Push-AppveyorArtifact $artifactFilename
+            7z a -mx=9 "$artifactBasename-multilib.7z" "$artifactBasename-multilib" > $null
+            Push-AppveyorArtifact "$artifactBasename-multilib.7z"
           }
         }
 
