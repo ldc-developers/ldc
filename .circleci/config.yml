@@ -1,5 +1,6 @@
 commonSteps: &commonSteps
   steps:
+    # Each step starts in working dir `<root>/project` (containing the cloned LDC repo).
     - run:
         name: Install dependencies
         command: |
@@ -137,7 +138,7 @@ commonSteps: &commonSteps
           cd ../ninja-ldc
           ninja install
           cd ..
-          perl -pi -e s?/root/ldc2-x64/?%%ldcbinarypath%%/../?g ldc2-x64/etc/ldc2.conf
+          perl -pi -e s?$PWD/ldc2-x64/?%%ldcbinarypath%%/../?g ldc2-x64/etc/ldc2.conf
           cp project/LICENSE ldc2-x64
           git clone https://github.com/ldc-developers/ldc-scripts.git
           cp ldc-scripts/ldc2-packaging/pkgfiles/README ldc2-x64
