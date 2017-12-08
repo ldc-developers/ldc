@@ -160,7 +160,7 @@ pure:
 /// Note that, unlike the standard libc function, the llvm.memcpy.* intrinsics do
 /// not return a value, and takes an extra alignment argument.
 pragma(LDC_intrinsic, "llvm.memcpy.p0i8.p0i8.i#")
-    void llvm_memcpy(T)(void* dst, void* src, T len, uint alignment, bool volatile_ = false)
+    void llvm_memcpy(T)(void* dst, const(void)* src, T len, uint alignment, bool volatile_ = false)
         if (__traits(isIntegral, T));
 
 /// The 'llvm.memmove.*' intrinsics move a block of memory from the source
@@ -169,7 +169,7 @@ pragma(LDC_intrinsic, "llvm.memcpy.p0i8.p0i8.i#")
 /// Note that, unlike the standard libc function, the llvm.memmove.* intrinsics
 /// do not return a value, and takes an extra alignment argument.
 pragma(LDC_intrinsic, "llvm.memmove.p0i8.p0i8.i#")
-    void llvm_memmove(T)(void* dst, void* src, T len, uint alignment, bool volatile_ = false)
+    void llvm_memmove(T)(void* dst, const(void)* src, T len, uint alignment, bool volatile_ = false)
         if (__traits(isIntegral, T));
 
 /// The 'llvm.memset.*' intrinsics fill a block of memory with a particular byte
