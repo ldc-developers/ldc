@@ -33,7 +33,7 @@ if(LDC_DYNAMIC_COMPILE)
     endmacro()
 
     function(build_jit_runtime d_flags c_flags ld_flags path_suffix outlist_targets)
-        # Jit runtime need a differens set of libraries from compiler and we
+        # Jit runtime needs a different set of libraries from compiler and we
         # can't do find_package(LLVM) because we already have one in top-level cmake
         # Also we don't have access to llvm_map_components_to_libnames because we need
         # to do find_package(LLVM CONFIG) for it so here is a hackish way to get it
@@ -59,14 +59,13 @@ if(LDC_DYNAMIC_COMPILE)
         set_target_properties(
             ldc-jit-rt-so${target_suffix} PROPERTIES
             OUTPUT_NAME                 ldc-jit
-            VERSION                     ${LDC_VERSION}
-            LINKER_LANGUAGE             C
             ARCHIVE_OUTPUT_DIRECTORY    ${output_path}
             LIBRARY_OUTPUT_DIRECTORY    ${output_path}
             RUNTIME_OUTPUT_DIRECTORY    ${output_path}
             COMPILE_FLAGS               "${c_flags} ${LDC_CXXFLAGS} ${LLVM_CXXFLAGS} ${JITRT_EXTRA_FLAGS}"
             LINK_FLAGS                  "${ld_flags} ${JITRT_EXTRA_LDFLAGS}"
-            )
+        )
+        set_common_library_properties(ldc-jit-rt-so${target_suffix} ON)
 
         target_link_libraries(ldc-jit-rt-so${target_suffix} ${JITRT_LLVM_LIBS})
 
@@ -78,14 +77,13 @@ if(LDC_DYNAMIC_COMPILE)
         set_target_properties(
             ldc-jit-rt${target_suffix} PROPERTIES
             OUTPUT_NAME                 ldc-jit-rt
-            VERSION                     ${LDC_VERSION}
-            LINKER_LANGUAGE             C
             ARCHIVE_OUTPUT_DIRECTORY    ${output_path}
             LIBRARY_OUTPUT_DIRECTORY    ${output_path}
             RUNTIME_OUTPUT_DIRECTORY    ${output_path}
             COMPILE_FLAGS               "${c_flags} ${JITRT_EXTRA_FLAGS}"
             LINK_FLAGS                  "${ld_flags} ${JITRT_EXTRA_LDFLAGS}"
-            )
+        )
+        set_common_library_properties(ldc-jit-rt${target_suffix} OFF)
 
         target_link_libraries(ldc-jit-rt${target_suffix} ldc-jit-rt-so${target_suffix})
 

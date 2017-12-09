@@ -37,6 +37,7 @@ cache:
     - llvm-3.9.1
     - llvm-3.8.1
     - llvm-3.7.1
+
 addons:
   apt:
     sources:
@@ -45,38 +46,33 @@ addons:
     - g++-4.9
     - gdb
     - ninja-build
+
 before_install:
   -
-    if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
-      if [ "${LLVM_VERSION}" = "5.0.0" ]; then
-        export LLVM_ARCH="linux-x86_64-ubuntu14.04";
-      elif [ "${LLVM_VERSION}" = "4.0.1" ]; then
-        export LLVM_ARCH="x86_64-linux-gnu-debian8";
-      else
-        export LLVM_ARCH="x86_64-linux-gnu-ubuntu-14.04";
-      fi;
-    else
-      export LLVM_ARCH="x86_64-apple-darwin";
-    fi;
-    if [ -z "$(ls -A llvm-$LLVM_VERSION)" ]; then
+    export LLVM_ROOT_DIR="$PWD/llvm-$LLVM_VERSION";
+    if [ -n "${LLVM_SPIRV_AVAILABLE}" ]; then export LLVM_ROOT_DIR="$PWD/llvm-spirv-$LLVM_VERSION"; fi
+  -
+    if [ ! -d "$LLVM_ROOT_DIR" ]; then
       if [ -n "${LLVM_SPIRV_AVAILABLE}" ]; then
-        wget -O llvm-spirv-$LLVM_VERSION.tar.bz2 https://github.com/thewilsonator/llvm/releases/download/pre-intrinsics/LLVM-6.0.0svn-Darwin.tar.bz2;
-        mkdir llvm-spirv-$LLVM_VERSION;
-        tar -xjf llvm-spirv-$LLVM_VERSION.tar.bz2 --strip 1 -C llvm-spirv-$LLVM_VERSION;
+        wget -O llvm.tar.bz2 https://github.com/thewilsonator/llvm/releases/download/pre-intrinsics/LLVM-6.0.0svn-Darwin.tar.bz2;
       else
-        wget -O llvm-$LLVM_VERSION.tar.xz http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-${LLVM_ARCH}.tar.xz;
-        mkdir llvm-$LLVM_VERSION;
-        tar -xf llvm-$LLVM_VERSION.tar.xz --strip 1 -C llvm-$LLVM_VERSION;
+        if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
+          if [ "${LLVM_VERSION}" = "5.0.0" ]; then
+            export LLVM_ARCH="linux-x86_64-ubuntu14.04";
+          elif [ "${LLVM_VERSION}" = "4.0.1" ]; then
+            export LLVM_ARCH="x86_64-linux-gnu-debian8";
+          else
+            export LLVM_ARCH="x86_64-linux-gnu-ubuntu-14.04";
+          fi;
+        else
+          export LLVM_ARCH="x86_64-apple-darwin";
+        fi;
+        wget -O llvm.tar.xz http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-${LLVM_ARCH}.tar.xz;
       fi;
-    fi;
-
-    if [ -n "${LLVM_SPIRV_AVAILABLE}" ]; then
-      llvm-spirv-$LLVM_VERSION/bin/llvm-config --version;
-      export LLVM_CONFIG="llvm-spirv-$LLVM_VERSION/bin/llvm-config";
-    else
-      llvm-$LLVM_VERSION/bin/llvm-config --version;
-      export LLVM_CONFIG="llvm-$LLVM_VERSION/bin/llvm-config";
-    fi;
+      mkdir $LLVM_ROOT_DIR;
+      tar -xf llvm.tar.* --strip 1 -C $LLVM_ROOT_DIR;
+      rm llvm.tar.*;
+    fi
 
 install:
   - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then export CC="gcc-4.9"; export CXX="g++-4.9"; fi
@@ -97,10 +93,8 @@ install:
   - eval "${DC} --version"
 
 script:
-  # Invoke CMake with MULTILIB=ON just to make sure the Makefiles can be generated.
-  - mkdir multilibCMakeTest && cd multilibCMakeTest && cmake -DMULTILIB=ON -DLLVM_CONFIG=$(which ../${LLVM_CONFIG}) $OPTS .. && cd ..
-  # Invoke CMake again for the actual build.
-  - cmake -G Ninja -DLLVM_CONFIG=$(which ${LLVM_CONFIG}) -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON $OPTS .
+  # Invoke CMake to generate the Ninja build files.
+  - cmake -G Ninja -DLLVM_ROOT_DIR=$LLVM_ROOT_DIR -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON $OPTS .
   # Build LDC and stdlib unittest runners.
   # [Compiling the std.regex.internal.tests unittests eats large amounts of memory.]
   - ninja -j2 all runtime/objects-unittest-debug/std/regex/internal/tests.o runtime/objects-unittest/std/regex/internal/tests.o

@@ -659,8 +659,13 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
     build_all_runtime_variants("" "${RT_CFLAGS}" "${LD_FLAGS}" "${hostsuffix}" libtargets)
     build_all_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}" libtargets)
 
-    # Do not build multilib version of jit runtime
-    build_jit_runtime ("${D_FLAGS};${D_FLAGS_RELEASE}" "${RT_CFLAGS}" "${LD_FLAGS}" "${hostsuffix}" libtargets)
+    # Only build the host version of the jit runtime due to LLVM dependency.
+    set(libtargets_jit)
+    build_jit_runtime("${D_FLAGS};${D_FLAGS_RELEASE}" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libtargets_jit)
+    list(APPEND libtargets ${libtargets_jit})
+    # Install separately.
+    install(TARGETS     ${libtargets_jit}
+            DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 
     # KLUDGE: Cannot use `$<TARGET_LINKER_FILE:target>` in custom command.
     # Set up the list of generated libs (without 'lib' prefix) to be merged manually.
@@ -701,9 +706,11 @@ else()
     set(libs_to_install)
     build_all_runtime_variants("" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libs_to_install)
 
-    set(libs_to_install_no_multilib)
-    # Do not build multilib version of jit runtime
-    build_jit_runtime ("${D_FLAGS};${D_FLAGS_RELEASE}" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libs_to_install_no_multilib)
+    # Only build the host version of the jit runtime due to LLVM dependency.
+    set(libtargets_jit)
+    build_jit_runtime("${D_FLAGS};${D_FLAGS_RELEASE}" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libtargets_jit)
+    install(TARGETS     ${libtargets_jit}
+            DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 
     # don't add multilib targets to libs_to_install
     if(MULTILIB)
@@ -717,11 +724,6 @@ else()
             install(TARGETS     ${libname}_${MULTILIB_SUFFIX}
                     DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX})
         endif()
-    endforeach()
-
-    foreach(libname ${libs_to_install_no_multilib})
-        install(TARGETS     ${libname}
-                DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
     endforeach()
 endif()
 
