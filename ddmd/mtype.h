@@ -443,7 +443,7 @@ public:
     MATCH implicitConvTo(Type *to);
     Expression *defaultInit(Loc loc);
     Expression *defaultInitLiteral(Loc loc);
-    TypeBasic *elementType();
+    Type *elementType();
     bool isZeroInit(Loc loc);
 
     void accept(Visitor *v) { v->visit(this); }
