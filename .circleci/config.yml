@@ -248,11 +248,12 @@ workflows:
   version: 2
   build:
     jobs:
-      - build-linux
+      - build-linux:
+          # This is required to also trigger the job after pushing a tag.
           filters:
             tags:
               only: /.*/
-      - build-osx
+      - build-osx:
           filters:
             tags:
               only: /.*/
