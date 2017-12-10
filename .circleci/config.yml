@@ -212,7 +212,7 @@ commonSteps: &commonSteps
             if [ -z "$CIRCLE_TAG" ]; then CIRCLE_TAG="CI"; fi
             # Note: needs GITHUB_TOKEN environment variable
             ./github-release upload --user ldc-developers --repo ldc --tag $CIRCLE_TAG --name "$(cd artifacts && ls ldc2-*.tar.xz)" --file artifacts/ldc2-*.tar.xz
-            if [ -n "$CIRCLE_TAG"] && [ "$CI_OS" = "linux" ]; then
+            if [[ -n "$CIRCLE_TAG" && "$CI_OS" = "linux" ]]; then
               ./github-release upload --user ldc-developers --repo ldc --tag $CIRCLE_TAG --name "$(cd artifacts && ls ldc-*-src.tar.gz)" --file artifacts/ldc-*-src.tar.gz
               ./github-release upload --user ldc-developers --repo ldc --tag $CIRCLE_TAG --name "$(cd artifacts && ls ldc-*-src.zip)" --file artifacts/ldc-*-src.zip
             fi
