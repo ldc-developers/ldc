@@ -209,9 +209,8 @@ commonSteps: &commonSteps
               curl -L -o github-release.tar.bz2 https://github.com/aktau/github-release/releases/download/v0.7.2/darwin-amd64-github-release.tar.bz2
             fi
             tar -xf github-release.tar.bz2 --strip 3
-            if [ -z "$CIRCLE_TAG" ]; then CIRCLE_TAG="CI"; fi
             # Note: needs GITHUB_TOKEN environment variable
-            ./github-release upload --user ldc-developers --repo ldc --tag $CIRCLE_TAG --name "$(cd artifacts && ls ldc2-*.tar.xz)" --file artifacts/ldc2-*.tar.xz
+            ./github-release upload --user ldc-developers --repo ldc --tag ${CIRCLE_TAG:-CI} --name "$(cd artifacts && ls ldc2-*.tar.xz)" --file artifacts/ldc2-*.tar.xz
             if [[ -n "$CIRCLE_TAG" && "$CI_OS" = "linux" ]]; then
               ./github-release upload --user ldc-developers --repo ldc --tag $CIRCLE_TAG --name "$(cd artifacts && ls ldc-*-src.tar.gz)" --file artifacts/ldc-*-src.tar.gz
               ./github-release upload --user ldc-developers --repo ldc --tag $CIRCLE_TAG --name "$(cd artifacts && ls ldc-*-src.zip)" --file artifacts/ldc-*-src.zip
