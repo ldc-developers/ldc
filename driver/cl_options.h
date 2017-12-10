@@ -69,6 +69,7 @@ extern cl::opt<std::string> moduleDeps;
 extern cl::opt<std::string> cacheDir;
 extern cl::list<std::string> linkerSwitches;
 extern cl::list<std::string> ccSwitches;
+extern cl::opt<cl::boolOrDefault> staticFlag;
 
 extern cl::opt<bool> m32bits;
 extern cl::opt<bool> m64bits;
