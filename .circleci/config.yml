@@ -230,10 +230,6 @@ jobs:
       - HOST_LDC_VERSION: 1.6.0
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
       - DUB_VERSION: v1.6.0
-    # This is required to also trigger the job after pushing a tag.
-    filters:
-      tags:
-        only: /.*/
   build-osx:
     <<: *commonSteps
     macos:
@@ -247,13 +243,17 @@ jobs:
       - BOOTSTRAP_CMAKE_FLAGS: "-DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
       - DUB_VERSION: v1.6.0
-    filters:
-      tags:
-        only: /.*/
 
 workflows:
   version: 2
   build:
     jobs:
       - build-linux
+          # This is required to also trigger the job after pushing a tag.
+          filters:
+            tags:
+              only: /.*/
       - build-osx
+          filters:
+            tags:
+              only: /.*/
