@@ -52,7 +52,7 @@ before_install:
     export LLVM_ROOT_DIR="$PWD/llvm-$LLVM_VERSION";
     if [ -n "${LLVM_SPIRV_AVAILABLE}" ]; then export LLVM_ROOT_DIR="$PWD/llvm-spirv-$LLVM_VERSION"; fi
   -
-    if [ ! -d "$LLVM_ROOT_DIR" ]; then
+    if [ ! -e "$LLVM_ROOT_DIR/bin/llvm-config" ]; then
       if [ -n "${LLVM_SPIRV_AVAILABLE}" ]; then
         wget -O llvm.tar.bz2 https://github.com/thewilsonator/llvm/releases/download/pre-intrinsics/LLVM-6.0.0svn-Darwin.tar.bz2;
       else
@@ -67,9 +67,9 @@ before_install:
         else
           export LLVM_ARCH="x86_64-apple-darwin";
         fi;
-        wget -O llvm.tar.xz http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-${LLVM_ARCH}.tar.xz;
+        wget -O llvm.tar.xz http://releases.llvm.org/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-${LLVM_ARCH}.tar.xz;
       fi;
-      mkdir $LLVM_ROOT_DIR;
+      mkdir -p $LLVM_ROOT_DIR;
       tar -xf llvm.tar.* --strip 1 -C $LLVM_ROOT_DIR;
       rm llvm.tar.*;
     fi
