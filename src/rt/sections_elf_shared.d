@@ -495,8 +495,9 @@ extern(C) void _d_dso_registry(void* arg)
                 // We don't want to depend on __tls_get_addr in non-Shared builds
                 // so we can actually link statically, so there must be only one
                 // D shared object.
+                import core.internal.abort;
                 _loadedDSOs.empty ||
-                    assert(0, "Only one D shared object allowed for static runtime");
+                    abort("Only one D shared object allowed for static runtime");
             }
             foreach (p; _loadedDSOs) assert(p !is pdso);
             _loadedDSOs.insertBack(pdso);
