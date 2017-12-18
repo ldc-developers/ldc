@@ -217,6 +217,26 @@ struct target
 }
 
 /++
+ + When applied to a global symbol, the compiler, assembler, and linker are
+ + required to treat the symbol as if there is a reference to the symbol that
+ + it cannot see (which is why they have to be named). For example, it
+ + prevents the deletion by the linker of an unreferenced symbol.
+ +
+ + This attribute corresponds to “attribute((used))” in GNU C.
+ +
+ + Examples:
+ + ---
+ + import ldc.attributes;
+ +
+ + @assumeUsed int dont_remove;
+ + ---
+ +/
+immutable assumeUsed = _assumeUsed();
+private struct _assumeUsed
+{
+}
+
+/++
  + When applied to a global symbol, specifies that the symbol should be emitted
  + with weak linkage. An example use case is a library function that should be
  + overridable by user code.
