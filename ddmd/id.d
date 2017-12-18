@@ -442,6 +442,7 @@ immutable Msgtable[] msgtable =
     { "udaLLVMFastMathFlag", "llvmFastMathFlag" },
     { "udaSection", "section" },
     { "udaTarget", "target" },
+    { "udaAssumeUsed", "_assumeUsed" },
     { "udaWeak", "_weak" },
     { "udaCompute", "compute" },
     { "udaKernel", "_kernel" },

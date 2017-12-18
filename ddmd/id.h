@@ -58,6 +58,7 @@ public:
     static Identifier *udaSection;
     static Identifier *udaOptStrategy;
     static Identifier *udaTarget;
+    static Identifier *udaAssumeUsed;
     static Identifier *udaWeak;
     static Identifier *udaAllocSize;
     static Identifier *udaLLVMAttr;
