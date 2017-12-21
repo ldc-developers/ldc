@@ -21,7 +21,7 @@
 #endif
 #endif
 
-#if __linux__ || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __sun
+#if __linux__ || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __DragonFly__ || __sun
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -64,7 +64,7 @@ bool isConsoleColorSupported()
 {
 #if _WIN32
     return _isatty(_fileno(stderr)) != 0;
-#elif __linux__ || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __sun
+#elif __linux__ || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __DragonFly__ || __sun
     const char *term = getenv("TERM");
     return isatty(STDERR_FILENO) && term && term[0] && 0 != strcmp(term, "dumb");
 #else

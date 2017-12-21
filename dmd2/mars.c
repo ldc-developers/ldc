@@ -17,7 +17,7 @@
 #include <string>
 #include <cstdarg>
 
-#if __linux__ || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __sun
+#if __linux__ || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __DragonFly__ || __sun
 #include <errno.h>
 #endif
 

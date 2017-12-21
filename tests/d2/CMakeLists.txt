@@ -5,6 +5,7 @@ if(${ptr_size} MATCHES "^4$")
 elseif(${ptr_size} MATCHES "^8$")
     set(host_model 64)
 endif()
+find_program (GNUMAKE NAMES gmake make)
 
 function(add_testsuite config_name dflags model)
     set(name dmd-testsuite${config_name})
@@ -17,7 +18,7 @@ function(add_testsuite config_name dflags model)
     # testsuite build system provides no way to run the test cases with a
     # given set of flags without trying all combinations of them.
     add_test(NAME ${name}
-        COMMAND make -k -C ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite RESULTS_DIR=${outdir} DMD=$<TARGET_FILE:ldmd2> DFLAGS=${dflags} MODEL=${model} quick
+        COMMAND ${GNUMAKE} -k -C ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite RESULTS_DIR=${outdir} DMD=$<TARGET_FILE:ldmd2> DFLAGS=${dflags} MODEL=${model} quick
     )
     set_tests_properties(${name} PROPERTIES DEPENDS clean-${name})
 endfunction()
