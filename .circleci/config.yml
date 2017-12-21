@@ -199,6 +199,9 @@ commonSteps: &commonSteps
     - run:
         name: Deploy to GitHub CI release
         command: |
+          cd ../artifacts
+          curl -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github.manifold-preview" -H "Content-Type: application/octet-stream" --data-binary "@$(ls ldc-*-src.tar.gz)" https://uploads.github.com/repos/ldc-developers/ldc/releases/8840125/assets?name=test-src.tar.gz
+          curl -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github.manifold-preview" -H "Content-Type: application/gzip" --data-binary "@$(ls ldc-*-src.tar.gz)" https://uploads.github.com/repos/ldc-developers/ldc/releases/8840125/assets?name=test-gzip-src.tar.gz
           cd ..
           if [[ -n "$CIRCLE_TAG" || ( "$CIRCLE_BRANCH" = "master" && -z "$CIRCLE_PR_NUMBER" ) ]]; then
             if [ "$CI_OS" = "linux" ]; then
