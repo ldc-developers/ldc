@@ -184,14 +184,14 @@ commonSteps: &commonSteps
         name: Pack source dir
         command: |
           cd ..
-          if [ "$CI_OS" = "linux" ]; then
+          if [ "$CI_OS" = "osx" ]; then
             if [ -z "$CIRCLE_TAG" ]; then
               artifactBasename="ldc-${CIRCLE_SHA1:0:8}-src"
             else
               artifactBasename="ldc-${CIRCLE_TAG:1}-src"
             fi
-            GZIP=-9 tar -czf artifacts/$artifactBasename.tar.gz --exclude-vcs --transform=s/project/$artifactBasename/ project
-            tar -xf artifacts/$artifactBasename.tar.gz
+            GZIP=-9 gnutar -czf artifacts/$artifactBasename.tar.gz --exclude-vcs --transform=s/project/$artifactBasename/ project
+            gnutar -xf artifacts/$artifactBasename.tar.gz
             zip -r -9 artifacts/$artifactBasename.zip $artifactBasename
           fi
     - store_artifacts:
@@ -200,10 +200,10 @@ commonSteps: &commonSteps
         name: Deploy to GitHub CI release
         command: |
           cd ../artifacts
-          curl -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github.manifold-preview" -H "Content-Type: application/octet-stream" --data-binary "@$(ls ldc-*-src.tar.gz)" https://uploads.github.com/repos/ldc-developers/ldc/releases/8840125/assets?name=test-src.tar.gz
-          curl -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github.manifold-preview" -H "Content-Type: application/gzip" --data-binary "@$(ls ldc-*-src.tar.gz)" https://uploads.github.com/repos/ldc-developers/ldc/releases/8840125/assets?name=test-gzip-src.tar.gz
-          cd ..
-          if [[ -n "$CIRCLE_TAG" || ( "$CIRCLE_BRANCH" = "master" && -z "$CIRCLE_PR_NUMBER" ) ]]; then
+          if [[ "$CI_OS" = "osx" || ( "$CIRCLE_BRANCH" = "master" && -z "$CIRCLE_PR_NUMBER" ) ]]; then
+            curl -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github.manifold-preview" -H "Content-Type: application/octet-stream" --data-binary "@$(ls ldc-*-src.tar.gz)" https://uploads.github.com/repos/ldc-developers/ldc/releases/8840125/assets?name=test-src.tar.gz
+            curl -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github.manifold-preview" -H "Content-Type: application/gzip" --data-binary "@$(ls ldc-*-src.tar.gz)" https://uploads.github.com/repos/ldc-developers/ldc/releases/8840125/assets?name=test-gzip-src.tar.gz
+            cd ..
             if [ "$CI_OS" = "linux" ]; then
               curl -L -o github-release.tar.bz2 https://github.com/aktau/github-release/releases/download/v0.7.2/linux-amd64-github-release.tar.bz2
             else
@@ -213,9 +213,9 @@ commonSteps: &commonSteps
             cd artifacts
             # Note: needs GITHUB_TOKEN environment variable
             ../github-release upload --user ldc-developers --repo ldc --tag ${CIRCLE_TAG:-CI} --name "$(ls ldc2-*.tar.xz)" --file ldc2-*.tar.xz
-            if [[ -n "$CIRCLE_TAG" && "$CI_OS" = "linux" ]]; then
-              ../github-release upload --user ldc-developers --repo ldc --tag $CIRCLE_TAG --name "$(ls ldc-*-src.tar.gz)" --file ldc-*-src.tar.gz
-              ../github-release upload --user ldc-developers --repo ldc --tag $CIRCLE_TAG --name "$(ls ldc-*-src.zip)" --file ldc-*-src.zip
+            if [[ "$CI_OS" = "osx" ]]; then
+              ../github-release upload --user ldc-developers --repo ldc --tag ${CIRCLE_TAG:-CI} --name "$(ls ldc-*-src.tar.gz)" --file ldc-*-src.tar.gz
+              ../github-release upload --user ldc-developers --repo ldc --tag ${CIRCLE_TAG:-CI} --name "$(ls ldc-*-src.zip)" --file ldc-*-src.zip
             fi
           fi
 
