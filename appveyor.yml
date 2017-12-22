@@ -16,7 +16,7 @@ environment:
       HOST_LDC_VERSION:            1.6.0
       DUB_VERSION:                 v1.6.0
     - APPVEYOR_JOB_ARCH:           x86
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
+      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       LLVM_VERSION:                5.0.1
       HOST_LDC_VERSION:            1.6.0
       DUB_VERSION:                 v1.6.0
