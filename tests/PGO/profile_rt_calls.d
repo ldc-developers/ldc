@@ -15,8 +15,6 @@ bool notinstrumented(bool a, bool b) {
 }
 
 extern(C) void getdataprofile() {
-    assert( getData("unknown function") == null );
-    assert( getData("getdataprofile") != null );
     assert( getData!foo != null );
     assert( getData!fooC != null );
     assert( getData!fooCpp != null );
