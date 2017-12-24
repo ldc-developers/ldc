@@ -27,6 +27,13 @@ namespace cl = llvm::cl;
 
 extern cl::opt<bool> instrumentFunctions;
 
+#if LDC_LLVM_VER >= 500
+extern cl::opt<bool> fXRayInstrument;
+#else
+constexpr bool fXRayInstrument = false;
+#endif
+llvm::StringRef getXRayInstructionThresholdString();
+
 /// This initializes the instrumentation options, and checks the validity of the
 /// commandline flags. targetTriple should be initialized before calling this.
 /// It should be called only once.

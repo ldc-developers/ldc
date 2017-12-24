@@ -17,6 +17,7 @@
 
 #include "errors.h"
 #include "globals.h"
+#include "gen/to_string.h"
 #include "llvm/ADT/Triple.h"
 
 namespace {
@@ -52,6 +53,15 @@ cl::opt<std::string> ASTPGOInstrUseFile(
     cl::desc("Use instrumentation data for profile-guided optimization"),
     cl::ValueRequired);
 
+#if LDC_LLVM_VER >= 500
+cl::opt<int> fXRayInstructionThreshold(
+    "fxray-instruction-threshold", cl::value_desc("value"),
+    cl::desc("Sets the minimum function size to instrument with XRay"),
+    cl::init(200), cl::ZeroOrMore, cl::ValueRequired);
+#else
+constexpr int fXRayInstructionThreshold = 200;
+#endif
+
 } // anonymous namespace
 
 namespace opts {
@@ -67,6 +77,20 @@ cl::opt<bool>
 static cl::opt<bool> dmdFunctionTrace(
     "fdmd-trace-functions", cl::ZeroOrMore,
     cl::desc("DMD-style runtime performance profiling of generated code"));
+
+#if LDC_LLVM_VER >= 500
+cl::opt<bool> fXRayInstrument(
+    "fxray-instrument", cl::ZeroOrMore,
+    cl::desc("Generate XRay instrumentation sleds on function entry and exit"));
+#endif
+
+llvm::StringRef getXRayInstructionThresholdString() {
+  // The instruction threshold is constant during one compiler invoke, so we
+  // can cache the int->string conversion result.
+  static std::string thresholdString =
+      ldc::to_string(fXRayInstructionThreshold);
+  return thresholdString;
+}
 
 void initializeInstrumentationOptionsFromCmdline(const llvm::Triple &triple) {
   if (ASTPGOInstrGenFile.getNumOccurrences() > 0) {
