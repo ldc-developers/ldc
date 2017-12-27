@@ -445,8 +445,10 @@ endmacro()
 # using LDC as archiver. LDC handles (cross-)archiving internally via LLVM
 # and supports LTO objects.
 set(CMAKE_D_CREATE_STATIC_LIBRARY "${LDC_EXE_FULL} -lib -of=<TARGET> <OBJECTS>")
+set(CMAKE_D_LINK_EXECUTABLE "${LDC_EXE_FULL} -of=<TARGET> <LINK_FLAGS> <OBJECTS>")
 foreach(f ${D_FLAGS})
     append("\"${f}\"" CMAKE_D_CREATE_STATIC_LIBRARY)
+    append("\"${f}\"" CMAKE_D_LINK_EXECUTABLE)
 endforeach()
 
 # Sets the common properties for all library targets.
@@ -763,29 +765,26 @@ macro(append_testrunner_linkflags libname path_suffix is_shared output_flags)
         else()
             # the MS linker supports /WHOLEARCHIVE since VS 2015 Update 2
             string(REPLACE "/" "\\" tested_lib_winpath ${tested_lib_path})
-            append("/WHOLEARCHIVE:${tested_lib_winpath}" ${output_flags})
+            append("-L/WHOLEARCHIVE:${tested_lib_winpath}" ${output_flags})
             append("libcmt.lib libvcruntime.lib" ${output_flags})
         endif()
     else()
         if("${is_shared}" STREQUAL "ON")
-            append("-Wl,-rpath,${tested_lib_path}" ${output_flags})
+            append("-L-Wl,-rpath,${tested_lib_path}" ${output_flags})
             if("${TARGET_SYSTEM}" MATCHES "APPLE")
                 set(tested_lib_path "${tested_lib_path}/lib${libname}.dylib")
                 append("${tested_lib_path}" ${output_flags})
             else()
                 set(tested_lib_path "${tested_lib_path}/lib${libname}.so")
-                append("-Wl,--no-as-needed,${tested_lib_path},--as-needed" ${output_flags})
+                append("-L-Wl,--no-as-needed,${tested_lib_path},--as-needed" ${output_flags})
             endif()
         else()
             set(tested_lib_path "${tested_lib_path}/lib${libname}.a")
             if("${TARGET_SYSTEM}" MATCHES "APPLE")
-                append("-Wl,-force_load,${tested_lib_path}" ${output_flags})
+                append("-L-Wl,-force_load,${tested_lib_path}" ${output_flags})
             else()
-                append("-Wl,--whole-archive,${tested_lib_path},--no-whole-archive" ${output_flags})
+                append("-L-Wl,--whole-archive,${tested_lib_path},--no-whole-archive" ${output_flags})
             endif()
-            foreach(l ${C_SYSTEM_LIBS})
-                append("-l${l}" ${output_flags})
-            endforeach()
         endif()
     endif()
 endmacro()
@@ -811,6 +810,9 @@ function(build_test_runners name_suffix path_suffix d_flags c_flags linkflags is
     )
     add_custom_target(test_runner${target_suffix} DEPENDS ${test_runner_o})
 
+    # Use LDC to link the test runners
+    set(test_runner_linker_language D)
+
     set(druntime_name druntime-test-runner${target_suffix})
     add_executable(${druntime_name} EXCLUDE_FROM_ALL ${PROJECT_BINARY_DIR}/dummy.c)
     set(full_linkflags "${test_runner_o} ${linkflags}")
@@ -820,6 +822,7 @@ function(build_test_runners name_suffix path_suffix d_flags c_flags linkflags is
         COMPILE_FLAGS   ${c_flags}
         LINK_FLAGS      ${full_linkflags}
         LINK_DEPENDS    "${test_runner_o};${tested_lib_path}"
+        LINKER_LANGUAGE ${test_runner_linker_language}
     )
     add_test(build-${druntime_name} "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ${druntime_name})
     set(_GLOBAL_TESTRUNNERS "${_GLOBAL_TESTRUNNERS};${druntime_name}" CACHE INTERNAL "")
@@ -835,6 +838,7 @@ function(build_test_runners name_suffix path_suffix d_flags c_flags linkflags is
             COMPILE_FLAGS   ${c_flags}
             LINK_FLAGS      ${full_linkflags}
             LINK_DEPENDS    "${test_runner_o};${tested_lib_path}"
+            LINKER_LANGUAGE ${test_runner_linker_language}
         )
         add_test(build-${phobos_name} "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ${phobos_name})
         set(_GLOBAL_TESTRUNNERS "${_GLOBAL_TESTRUNNERS};${phobos_name}" CACHE INTERNAL "")
