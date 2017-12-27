@@ -62,6 +62,16 @@ if (LDC_WITH_PGO)
      set(PROFRT_EXTRA_FLAGS "${PROFRT_EXTRA_FLAGS} -DCOMPILER_RT_HAS_FCNTL_LCK=1")
     endif()
 
+    CHECK_CXX_SOURCE_COMPILES("
+    #include <sys/utsname.h>
+    int main() {
+     return 0;
+    }
+    " COMPILER_RT_TARGET_HAS_UNAME)
+    if(COMPILER_RT_TARGET_HAS_UNAME)
+     set(PROFRT_EXTRA_FLAGS "${PROFRT_EXTRA_FLAGS} -DCOMPILER_RT_HAS_UNAME=1")
+    endif()
+
     # Sets up the targets for building the D-source profile-rt object files,
     # appending the names of the (bitcode) files to link into the library to
     # outlist_o (outlist_bc).
