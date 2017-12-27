@@ -794,7 +794,7 @@ file(WRITE ${PROJECT_BINARY_DIR}/dummy.c "")
 
 # Generates targets for a pair of druntime/Phobos test runners.
 # The build targets are also appended to the _GLOBAL_TESTRUNNERS list.
-function(build_test_runners name_suffix path_suffix d_flags c_flags linkflags is_shared)
+function(build_test_runners name_suffix path_suffix d_flags c_flags ld_linkflags is_shared)
     set(target_suffix)
     get_target_suffix("${name_suffix}" "${path_suffix}" target_suffix)
 
@@ -812,6 +812,11 @@ function(build_test_runners name_suffix path_suffix d_flags c_flags linkflags is
 
     # Use LDC to link the test runners
     set(test_runner_linker_language D)
+    # Prefix ld_linkflags with "-L" so they pass through LDC
+    set(linkflags "")
+    foreach(f ${ld_linkflags})
+        append("-L${f}" ${linkflags})
+    endforeach()
 
     set(druntime_name druntime-test-runner${target_suffix})
     add_executable(${druntime_name} EXCLUDE_FROM_ALL ${PROJECT_BINARY_DIR}/dummy.c)
