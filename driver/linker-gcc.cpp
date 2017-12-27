@@ -329,8 +329,6 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   }
 
   // Link with profile-rt library when generating an instrumented binary.
-  // profile-rt uses Phobos (MD5 hashing) and therefore must be passed on the
-  // commandline before Phobos.
   if (global.params.genInstrProf) {
 #if LDC_LLVM_VER >= 308
     if (global.params.targetTriple->isOSLinux()) {

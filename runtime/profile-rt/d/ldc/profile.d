@@ -135,21 +135,24 @@ void resetCounts(alias F)()
 }
 
 /**
- * Get profile data struct for a given (mangled) function name.
+ * Get profile data struct for a given function.
  *
  * Params:
- *  funcname = Mangled function name.
+ *  F = The function to get the profile data of.
  * Returns:
- *  Pointer to the profile data for ($D funcname), or null if no profile data
- *  was found for ($D funcname).
+ *  Pointer to the profile data for ($D F), or null if no profile data was found
+ *  for ($D F).
  */
-const(ProfileData)* getData(string funcname)
+const(ProfileData)* getData(alias F)()
+    // TODO: add constraint on F
 {
+    enum mangledName = F.mangleof;
+
     version(HASHED_FUNC_NAMES)
     {
         import std.digest.md;
         import std.bitmanip;
-        auto md5hash = md5Of(funcname);
+        auto md5hash = md5Of(mangledName);
         auto nameref = peek!(ulong, Endian.littleEndian)(md5hash[0..8]);
     }
 
@@ -164,27 +167,11 @@ const(ProfileData)* getData(string funcname)
         }
         else
         {
-            if (funcname == (*data).Name[0..(*data).NameSize])
+            if (mangledName == (*data).Name[0..(*data).NameSize])
                 return data;
         }
     }
     return null;
-}
-
-/**
- * Get profile data struct for a given function.
- *
- * Params:
- *  F = The function to get the profile data of.
- * Returns:
- *  Pointer to the profile data for ($D F), or null if no profile data was found
- *  for ($D F).
- */
-const(ProfileData)* getData(alias F)()
-    // TODO: add constraint on F
-{
-    enum mangledName = F.mangleof;
-    return getData(mangledName);
 }
 
 /**
