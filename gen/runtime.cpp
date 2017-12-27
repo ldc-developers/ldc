@@ -22,7 +22,7 @@
 #include "ir/irfunction.h"
 #include "ir/irtype.h"
 #include "ir/irtypefunction.h"
-#include "driver/cl_options.h"
+#include "driver/cl_options_instrumentation.h"
 #include "ldcbindings.h"
 #include "mars.h"
 #include "module.h"

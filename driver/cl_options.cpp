@@ -408,25 +408,6 @@ cl::opt<unsigned char, true, CoverageParser> coverageAnalysis(
              "minimum required coverage)"),
     cl::ValueOptional, cl::init(127));
 
-#if LDC_WITH_PGO
-cl::opt<std::string>
-    genfileInstrProf("fprofile-instr-generate", cl::value_desc("filename"),
-                     cl::desc("Generate instrumented code to collect a runtime "
-                              "profile into default.profraw (overriden by "
-                              "'=<filename>' or LLVM_PROFILE_FILE env var)"),
-                     cl::ZeroOrMore, cl::ValueOptional);
-
-cl::opt<std::string> usefileInstrProf(
-    "fprofile-instr-use", cl::ZeroOrMore, cl::value_desc("filename"),
-    cl::desc("Use instrumentation data for profile-guided optimization"),
-    cl::ValueRequired);
-#endif
-
-cl::opt<bool>
-    instrumentFunctions("finstrument-functions", cl::ZeroOrMore,
-                        cl::desc("Instrument function entry and exit with "
-                                 "GCC-compatible profiling calls"));
-
 #if LDC_LLVM_VER >= 309
 cl::opt<LTOKind> ltoMode(
     "flto", cl::ZeroOrMore, cl::desc("Set LTO mode, requires linker support"),

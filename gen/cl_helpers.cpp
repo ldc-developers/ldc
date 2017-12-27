@@ -18,6 +18,30 @@
 
 namespace opts {
 
+char *dupPathString(const std::string &src) {
+  char *r = mem.xstrdup(src.c_str());
+#if _WIN32
+  std::replace(r, r + src.length(), '/', '\\');
+#endif
+  return r;
+}
+
+void initFromPathString(const char *&dest, const cl::opt<std::string> &src) {
+  dest = nullptr;
+  if (src.getNumOccurrences() != 0) {
+    if (src.empty()) {
+      error(Loc(), "Expected argument to '-%s'",
+#if LDC_LLVM_VER >= 308
+            src.ArgStr.str().c_str()
+#else
+            src.ArgStr
+#endif
+      );
+    }
+    dest = dupPathString(src);
+  }
+}
+
 MultiSetter::MultiSetter(bool invert, bool *p, ...) {
   this->invert = invert;
   if (p) {

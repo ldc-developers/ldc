@@ -86,12 +86,6 @@ void setDefaultMathOptions(llvm::TargetOptions &targetOptions);
 extern cl::opt<BOUNDSCHECK> boundsCheck;
 extern bool nonSafeBoundsChecks;
 
-#if LDC_WITH_PGO
-extern cl::opt<std::string> genfileInstrProf;
-extern cl::opt<std::string> usefileInstrProf;
-#endif
-extern cl::opt<bool> instrumentFunctions;
-
 // Arguments to -d-debug
 extern std::vector<std::string> debugArgs;
 // Arguments to -run
