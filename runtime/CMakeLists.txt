@@ -261,7 +261,7 @@ endif()
 CHECK_INCLUDE_FILE(unistd.h HAVE_UNISTD_H)
 if (HAVE_UNISTD_H)
     # Needed for zlib
-    append("-DHAVE_UNISTD_H" CMAKE_C_FLAGS_RELEASE)
+    append("-DHAVE_UNISTD_H" CMAKE_C_FLAGS)
 endif()
 # 2) Set all other CMAKE_C_FLAGS variants to CMAKE_C_FLAGS_RELEASE
 set(variables
