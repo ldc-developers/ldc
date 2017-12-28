@@ -14,6 +14,7 @@
 #include "gen/logger.h"
 #include "gen/passes/Passes.h"
 #include "driver/cl_options.h"
+#include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
 #include "driver/targetmachine.h"
 #include "llvm/LinkAllPasses.h"
@@ -207,8 +208,7 @@ static void addSanitizerCoveragePass(const PassManagerBuilder &Builder,
 
 // Adds PGO instrumentation generation and use passes.
 static void addPGOPasses(legacy::PassManagerBase &mpm, unsigned optLevel) {
-  if (global.params.genInstrProf) {
-    // We are generating PGO instrumented code.
+  if (opts::isInstrumentingForASTBasedPGO()) {
     InstrProfOptions options;
     options.NoRedZone = global.params.disableRedZone;
     if (global.params.datafileInstrProf)
@@ -218,7 +218,7 @@ static void addPGOPasses(legacy::PassManagerBase &mpm, unsigned optLevel) {
 #else
     mpm.add(createInstrProfilingPass(options));
 #endif
-  } else if (global.params.datafileInstrProf) {
+  } else if (opts::isUsingASTBasedPGOProfile()) {
 // We are generating code with PGO profile information available.
 #if LDC_LLVM_VER >= 500
     // Do indirect call promotion from -O1

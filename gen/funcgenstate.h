@@ -16,7 +16,7 @@
 #define LDC_GEN_FUNCGENSTATE_H
 
 #include "gen/irstate.h"
-#include "gen/pgo.h"
+#include "gen/pgo_ASTbased.h"
 #include "gen/trycatchfinally.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/CallSite.h"
