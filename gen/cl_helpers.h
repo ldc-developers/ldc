@@ -29,6 +29,13 @@ typedef Array<const char *> Strings;
 namespace opts {
 namespace cl = llvm::cl;
 
+/// Duplicate the string and replace '/' with '\' on Windows.
+char *dupPathString(const std::string &src);
+
+/// Helper function to handle -of, -od, etc.
+/// llvm::cl::opt<std::string> --> char*
+void initFromPathString(const char *&dest, const cl::opt<std::string> &src);
+
 /// Helper class to determine values
 template <class DT> struct FlagParserDataType {};
 

@@ -21,6 +21,7 @@
 #include "ddmd/target.h"
 #include "driver/cache.h"
 #include "driver/cl_options.h"
+#include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
 #include "driver/codegenerator.h"
 #include "driver/configfile.h"
@@ -214,31 +215,6 @@ void processTransitions(std::vector<std::string> &list) {
   }
 }
 
-char *dupPathString(const std::string &src) {
-  char *r = mem.xstrdup(src.c_str());
-#if _WIN32
-  std::replace(r, r + src.length(), '/', '\\');
-#endif
-  return r;
-}
-
-// Helper function to handle -of, -od, etc.
-void initFromPathString(const char *&dest, const cl::opt<std::string> &src) {
-  dest = nullptr;
-  if (src.getNumOccurrences() != 0) {
-    if (src.empty()) {
-      error(Loc(), "Expected argument to '-%s'",
-#if LDC_LLVM_VER >= 308
-            src.ArgStr.str().c_str()
-#else
-            src.ArgStr
-#endif
-      );
-    }
-    dest = dupPathString(src);
-  }
-}
-
 template <int N> // option length incl. terminating null
 void tryParse(const llvm::SmallVectorImpl<const char *> &args, size_t i,
               const char *&output, const char (&option)[N]) {
@@ -400,27 +376,27 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   global.params.useInlineAsm = !noAsm;
 
   // String options: std::string --> char*
-  initFromPathString(global.params.objname, objectFile);
-  initFromPathString(global.params.objdir, objectDir);
+  opts::initFromPathString(global.params.objname, objectFile);
+  opts::initFromPathString(global.params.objdir, objectDir);
 
-  initFromPathString(global.params.docdir, ddocDir);
-  initFromPathString(global.params.docname, ddocFile);
+  opts::initFromPathString(global.params.docdir, ddocDir);
+  opts::initFromPathString(global.params.docname, ddocFile);
   global.params.doDocComments |= global.params.docdir || global.params.docname;
 
-  initFromPathString(global.params.jsonfilename, jsonFile);
+  opts::initFromPathString(global.params.jsonfilename, jsonFile);
   if (global.params.jsonfilename) {
     global.params.doJsonGeneration = true;
   }
 
-  initFromPathString(global.params.hdrdir, hdrDir);
-  initFromPathString(global.params.hdrname, hdrFile);
+  opts::initFromPathString(global.params.hdrdir, hdrDir);
+  opts::initFromPathString(global.params.hdrname, hdrFile);
   global.params.doHdrGeneration |=
       global.params.hdrdir || global.params.hdrname;
 
   if (moduleDeps.getNumOccurrences() != 0) {
     global.params.moduleDeps = new OutBuffer;
     if (!moduleDeps.empty())
-      global.params.moduleDepsFile = dupPathString(moduleDeps);
+      global.params.moduleDepsFile = opts::dupPathString(moduleDeps);
   }
 
 #if _WIN32
@@ -428,7 +404,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     if (!paths)
       return;
     for (auto &path : *paths)
-      path = dupPathString(path);
+      path = opts::dupPathString(path);
   };
   toWinPaths(global.params.imppath);
   toWinPaths(global.params.fileImppath);
@@ -440,29 +416,8 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   }
 #endif
 
-// PGO options
-#if LDC_WITH_PGO
-  if (genfileInstrProf.getNumOccurrences() > 0) {
-    global.params.genInstrProf = true;
-    if (genfileInstrProf.empty()) {
-#if LDC_LLVM_VER >= 309
-      // profile-rt provides a default filename by itself
-      global.params.datafileInstrProf = nullptr;
-#else
-      global.params.datafileInstrProf = "default.profraw";
-#endif
-    } else {
-      initFromPathString(global.params.datafileInstrProf, genfileInstrProf);
-    }
-  } else {
-    global.params.genInstrProf = false;
-    // If we don't have to generate instrumentation, we could be given a
-    // profdata file:
-    initFromPathString(global.params.datafileInstrProf, usefileInstrProf);
-  }
-#endif
-
-  initializeSanitizerOptionsFromCmdline();
+  opts::initializeInstrumentationOptionsFromCmdline();
+  opts::initializeSanitizerOptionsFromCmdline();
 
   processVersions(debugArgs, "debug", DebugCondition::setGlobalLevel,
                   DebugCondition::addGlobalIdent);
@@ -524,7 +479,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
       if (file == "-") {
         sourceFiles.push("__stdin.d");
       } else {
-        char *copy = dupPathString(file);
+        char *copy = opts::dupPathString(file);
         sourceFiles.push(copy);
       }
     }
