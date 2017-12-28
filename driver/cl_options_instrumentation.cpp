@@ -15,9 +15,11 @@
 
 #include "driver/cl_options_instrumentation.h"
 
+#include "errors.h"
 #include "globals.h"
 
 namespace {
+namespace cl = llvm::cl;
 
 #if LDC_LLVM_VER >= 309
 /// Option for generating IR-based PGO instrumentation (LLVM pass)
@@ -81,6 +83,29 @@ void initializeInstrumentationOptionsFromCmdline() {
   } else if (!ASTPGOInstrUseFile.empty()) {
     pgoMode = PGO_ASTBasedUse;
     initFromPathString(global.params.datafileInstrProf, ASTPGOInstrUseFile);
+  }
+#if LDC_LLVM_VER >= 309
+  else if (IRPGOInstrGenFile.getNumOccurrences() > 0) {
+    pgoMode = PGO_IRBasedInstr;
+    if (IRPGOInstrGenFile.empty()) {
+      global.params.datafileInstrProf = "default_%m.profraw";
+    } else {
+      initFromPathString(global.params.datafileInstrProf, IRPGOInstrGenFile);
+    }
+  } else if (!IRPGOInstrUseFile.empty()) {
+    pgoMode = PGO_IRBasedUse;
+    initFromPathString(global.params.datafileInstrProf, IRPGOInstrUseFile);
+  }
+#endif
+
+  // There is a bug in (our use of?) LLVM where codegen errors with
+  // PGO_IRBasedInstr for Windows targets. So disable IRBased PGO on Windows for
+  // now.
+  assert(global.params.targetTriple);
+  if ((pgoMode == PGO_IRBasedInstr) &&
+      global.params.targetTriple->isOSWindows()) {
+    error(Loc(),
+          "'-fprofile-generate' is not yet supported for Windows targets.");
   }
 
   if (dmdFunctionTrace)

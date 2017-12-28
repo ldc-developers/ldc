@@ -24,7 +24,8 @@ namespace cl = llvm::cl;
 extern cl::opt<bool> instrumentFunctions;
 
 /// This initializes the instrumentation options, and checks the validity of the
-/// commandline flags. It should be called only once.
+/// commandline flags. targetTriple should be initialized before calling this.
+/// It should be called only once.
 void initializeInstrumentationOptionsFromCmdline();
 
 enum PGOKind {

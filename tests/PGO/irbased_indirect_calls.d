@@ -1,0 +1,62 @@
+// Test instrumentation of indirect calls
+
+// REQUIRES: atleast_llvm309
+
+// There is an LLVM bug, this test currently errors during LLVM codegen for Windows.
+// XFAIL: Windows
+
+// RUN: %ldc -O3 -fprofile-generate=%t.profraw -run %s  \
+// RUN:   &&  %profdata merge %t.profraw -o %t.profdata \
+// RUN:   &&  %ldc -O3 -c -output-ll -of=%t.use.ll -fprofile-use=%t.profdata %s \
+// RUN:   &&  FileCheck %s -check-prefix=PROFUSE < %t.use.ll
+
+import ldc.attributes : weak;
+
+extern (C)
+{ // simplify name mangling for simpler string matching
+
+    @weak // disable reasoning about this function
+    void hot()
+    {
+    }
+
+    void luke()
+    {
+    }
+
+    void cold()
+    {
+    }
+
+    void function() foo;
+
+    @weak // disable reasoning about this function
+    void select_func(int i)
+    {
+        if (i < 1700)
+            foo = &hot;
+        else if (i < 1990)
+            foo = &luke;
+        else
+            foo = &cold;
+    }
+
+} // extern C
+
+// PROFUSE-LABEL: @_Dmain(
+int main()
+{
+    for (int i; i < 2000; ++i)
+    {
+        select_func(i);
+
+        // PROFUSE:  [[REG1:%[0-9]+]] = load void ()*, void ()** @foo
+        // PROFUSE:  [[REG2:%[0-9]+]] = icmp eq void ()* [[REG1]], @hot
+        // PROFUSE:  call void @hot()
+        // PROFUSE:  call void [[REG1]]()
+
+        foo();
+    }
+
+    return 0;
+}
