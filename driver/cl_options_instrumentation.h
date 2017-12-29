@@ -21,10 +21,9 @@
 namespace opts {
 namespace cl = llvm::cl;
 
-#if LDC_WITH_PGO
+// PGO options
 extern cl::opt<std::string> genfileInstrProf;
 extern cl::opt<std::string> usefileInstrProf;
-#endif
 
 extern cl::opt<bool> instrumentFunctions;
 

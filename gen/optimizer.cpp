@@ -201,7 +201,6 @@ static void addSanitizerCoveragePass(const PassManagerBuilder &Builder,
 
 // Adds PGO instrumentation generation and use passes.
 static void addPGOPasses(legacy::PassManagerBase &mpm, unsigned optLevel) {
-#if LDC_WITH_PGO
   if (global.params.genInstrProf) {
     // We are generating PGO instrumented code.
     InstrProfOptions options;
@@ -222,7 +221,6 @@ static void addPGOPasses(legacy::PassManagerBase &mpm, unsigned optLevel) {
     }
 #endif
   }
-#endif
 }
 
 /**

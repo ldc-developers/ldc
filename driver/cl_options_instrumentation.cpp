@@ -19,7 +19,6 @@
 
 namespace opts {
 
-#if LDC_WITH_PGO
 cl::opt<std::string>
     genfileInstrProf("fprofile-instr-generate", cl::value_desc("filename"),
                      cl::desc("Generate instrumented code to collect a runtime "
@@ -31,7 +30,6 @@ cl::opt<std::string> usefileInstrProf(
     "fprofile-instr-use", cl::ZeroOrMore, cl::value_desc("filename"),
     cl::desc("Use instrumentation data for profile-guided optimization"),
     cl::ValueRequired);
-#endif
 
 cl::opt<bool>
     instrumentFunctions("finstrument-functions", cl::ZeroOrMore,
@@ -39,7 +37,6 @@ cl::opt<bool>
                                  "GCC-compatible profiling calls"));
 
 void initializeInstrumentationOptionsFromCmdline() {
-#if LDC_WITH_PGO
   if (genfileInstrProf.getNumOccurrences() > 0) {
     global.params.genInstrProf = true;
     if (genfileInstrProf.empty()) {
@@ -58,7 +55,6 @@ void initializeInstrumentationOptionsFromCmdline() {
     // profdata file:
     initFromPathString(global.params.datafileInstrProf, usefileInstrProf);
   }
-#endif
 }
 
 } // namespace opts

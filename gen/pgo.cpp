@@ -14,9 +14,6 @@
 
 #include "gen/pgo.h"
 
-// Conditionally include PGO
-#if LDC_WITH_PGO
-
 #include "globals.h"
 #include "init.h"
 #include "statement.h"
@@ -1118,5 +1115,3 @@ void CodeGenPGO::valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
   }
 #endif // LLVM >= 3.9
 }
-
-#endif // LDC_WITH_PGO
