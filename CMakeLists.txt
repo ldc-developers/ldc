@@ -378,13 +378,6 @@ source_group("Source Files" FILES ${DRV_SRC_D})
 include(HandleLTOPGOBuildOptions)
 
 #
-# Enable PGO if supported for this platform.
-#
-set(LDC_WITH_PGO True)  # must be a valid Python boolean constant (case sensitive)
-message(STATUS "Building LDC with PGO support")
-append("-DLDC_WITH_PGO" LDC_CXXFLAGS)
-
-#
 # Enable Dynamic compilation if supported for this platform and LLVM version.
 # LLVM >= 3.9 is required
 #

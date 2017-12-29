@@ -20,7 +20,7 @@ config.llvm_tools_dir      = "@LLVM_TOOLS_DIR@"
 config.llvm_version        = @LDC_LLVM_VER@
 config.llvm_targetsstr     = "@LLVM_TARGETS_TO_BUILD@"
 config.default_target_bits = @DEFAULT_TARGET_BITS@
-config.with_PGO            = @LDC_WITH_PGO@
+config.with_PGO            = True
 config.dynamic_compile     = @LDC_DYNAMIC_COMPILE@
 
 config.name = 'LDC'

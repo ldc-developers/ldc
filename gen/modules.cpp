@@ -611,7 +611,6 @@ void addCoverageAnalysisInitializer(Module *m) {
 // TODO: This is probably not the right place, we should load it once for all
 // modules?
 void loadInstrProfileData(IRState *irs) {
-#if LDC_WITH_PGO
   // Only load from datafileInstrProf if we are not generating instrumented
   // code.
   if (!global.params.genInstrProf && global.params.datafileInstrProf) {
@@ -658,7 +657,6 @@ void loadInstrProfileData(IRState *irs) {
     }
 #endif
   }
-#endif
 }
 
 void registerModuleInfo(Module *m) {

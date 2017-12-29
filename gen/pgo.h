@@ -36,59 +36,6 @@ class ForStatement;
 class ForeachStatement;
 class ForeachRangeStatement;
 
-// Provide stub CodeGenPGO class with its public functions if PGO is disabled.
-#if !defined(LDC_WITH_PGO)
-class CodeGenPGO {
-public:
-  CodeGenPGO() {}
-  bool emitsInstrumentation() const { return false; }
-  bool haveRegionCounts() const { return false; }
-  uint64_t getCurrentRegionCount() const { return 0; }
-  void setCurrentRegionCount(uint64_t) {}
-  uint64_t setCurrentStmt(const RootObject *S) { return 0; }
-  void assignRegionCounters(const FuncDeclaration *, llvm::Function *) {}
-  void emitCounterIncrement(const RootObject *) const {}
-  uint64_t getRegionCount(const RootObject *) const { return 0; }
-
-  llvm::MDNode *createProfileWeights(uint64_t, uint64_t) const {
-    return nullptr;
-  }
-  llvm::MDNode *createProfileWeights(llvm::ArrayRef<uint64_t>) const {
-    return nullptr;
-  }
-  llvm::MDNode *createProfileWeightsWhileLoop(const RootObject *Cond,
-                                              uint64_t LoopCount) const {
-    return nullptr;
-  }
-  llvm::MDNode *createProfileWeightsForLoop(const ForStatement *stmt) const {
-    return nullptr;
-  }
-  llvm::MDNode *createProfileWeightsForeach(const ForeachStatement *) const {
-    return nullptr;
-  }
-  llvm::MDNode *
-  createProfileWeightsForeachRange(const ForeachRangeStatement *) const {
-    return nullptr;
-  }
-
-  /// Get counter associated with RootObject pointer.
-  static RootObject *getCounterPtr(const RootObject *, unsigned) {
-    return nullptr;
-  }
-
-  /// Apply branch weights to instruction (br or switch)
-  template <typename InstTy>
-  static InstTy *addBranchWeights(InstTy *I, llvm::MDNode *) {
-    return I;
-  }
-
-  void emitIndirectCallPGO(llvm::Instruction *callSite, llvm::Value *funcPtr) {}
-
-  void valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
-                    llvm::Value *value, bool ptrCastNeeded) {}
-};
-
-#else
 
 /// Keeps per-function PGO state.
 class CodeGenPGO {
@@ -236,6 +183,4 @@ private:
                         const FuncDeclaration *D);
 };
 
-#endif // LLVM version
-
-#endif //  LDC_GEN_PGO_H
+#endif // LDC_GEN_PGO_H
