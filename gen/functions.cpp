@@ -780,6 +780,35 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
   }
 }
 
+void emitDMDStyleFunctionTrace(IRState &irs, FuncDeclaration *fd,
+                               FuncGenState &funcGen) {
+  /* DMD-style profiling: wrap the entire function body in:
+   *   trace_pro("funcname");
+   *   try
+   *     body;
+   *   finally
+   *     _c_trace_epi();
+   */
+
+  // Call trace_pro("funcname")
+  {
+    auto fn = getRuntimeFunction(fd->loc, irs.module, "trace_pro");
+    auto funcname = DtoConstString(mangleExact(fd));
+    irs.ir->CreateCall(fn, {funcname});
+  }
+
+  // Push cleanup block that calls _c_trace_epi at function exit.
+  {
+    auto traceEpilogBB = irs.insertBB("trace_epi");
+    auto saveScope = irs.scope();
+    irs.scope() = IRScope(traceEpilogBB);
+    irs.ir->CreateCall(
+        getRuntimeFunction(fd->endloc, irs.module, "_c_trace_epi"));
+    funcGen.scopes.pushCleanup(traceEpilogBB, irs.scopebb());
+    irs.scope() = saveScope;
+  }
+}
+
 } // anonymous namespace
 
 void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
@@ -1010,6 +1039,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   emitInstrumentationFnEnter(fd);
 
+  if (global.params.trace && !fd->isCMain() && !fd->naked)
+    emitDMDStyleFunctionTrace(*gIR, fd, funcGen);
+
   // disable frame-pointer-elimination for functions with inline asm
   if (fd->hasReturnExp & 8) // has inline asm
   {
@@ -1106,8 +1138,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // output function body
   Statement_toIR(fd->fbody, gIR);
 
-  // D varargs: emit the cleanup block that calls va_end.
-  if (f->linkage == LINKd && f->varargs == 1) {
+  // Emit the cleanup blocks (e.g. va_end and function tracing)
+  if (!funcGen.scopes.empty()) {
     if (!gIR->scopereturned()) {
       if (!funcGen.retBlock)
         funcGen.retBlock = gIR->insertBB("return");

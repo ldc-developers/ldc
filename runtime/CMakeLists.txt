@@ -153,7 +153,6 @@ list(REMOVE_ITEM DRUNTIME_D ${DRUNTIME_D_GCSTUB})
 list(REMOVE_ITEM DRUNTIME_D
     ${RUNTIME_DIR}/src/rt/alloca.d
     ${RUNTIME_DIR}/src/rt/llmath.d
-    ${RUNTIME_DIR}/src/rt/trace.d
 )
 # only include core/sys/ modules matching the platform
 file(GLOB_RECURSE DRUNTIME_D_BIONIC  ${RUNTIME_DIR}/src/core/sys/bionic/*.d)

@@ -411,8 +411,14 @@ void translateArgs(size_t originalArgc, char **originalArgv,
       }
       /* -mscrtlib
        */
-      else if (strcmp(p + 1, "profile") == 0) {
-        goto Lnot_in_ldc;
+      else if (strncmp(p + 1, "profile", 7) == 0) {
+        if (p[8] == 0) {
+          ldcArgs.push_back("-fdmd-trace-functions");
+        } else if (strcmp(p + 8, "=gc") == 0) {
+          goto Lnot_in_ldc; // ldcArgs.push_back("-fdmd-trace-gc");
+        } else {
+          goto Lerror;
+        }
       }
       /* -v
        */
