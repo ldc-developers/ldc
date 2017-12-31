@@ -27,6 +27,9 @@
 # We also want an user-specified LLVM_ROOT_DIR to take precedence over the
 # system default locations such as /usr/local/bin. Executing find_program()
 # multiples times is the approach recommended in the docs.
+#
+# An user-specified LLVM_LIBRARY_DIRS also takes precedence over the path found
+# via llvm-config --libdir for systems such as NixOS.
 set(llvm_config_names llvm-config-6.0 llvm-config60
                       llvm-config-5.0 llvm-config50
                       llvm-config-4.0 llvm-config40
@@ -124,7 +127,9 @@ else()
     # using the separate "--system-libs" flag.
     llvm_set(SYSTEM_LIBS system-libs)
     string(REPLACE "\n" " " LLVM_LDFLAGS "${LLVM_LDFLAGS} ${LLVM_SYSTEM_LIBS}")
-    llvm_set(LIBRARY_DIRS libdir true)
+    if(NOT LLVM_LIBRARY_DIRS)
+        llvm_set(LIBRARY_DIRS libdir true)
+    endif()
     llvm_set_libs(LIBRARIES libs)
     # LLVM bug: llvm-config --libs tablegen returns -lLLVM-3.8.0
     # but code for it is not in shared library
