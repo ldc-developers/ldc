@@ -774,8 +774,10 @@ int Port::isNan(double r)
 #else
     return __inline_isnan(r);
 #endif
-#elif __HAIKU__ || __FreeBSD__ || __OpenBSD__ || __NetBSD__ || __DragonFly__
+#elif __HAIKU__ || __FreeBSD__ || __OpenBSD__ || __NetBSD__
     return isnan(r);
+#elif__DragonFly__
+    return __isnand(r);
 #else
     #undef isnan
     return std::isnan(r);
@@ -790,8 +792,10 @@ int Port::isNan(longdouble r)
 #else
     return __inline_isnan(r);
 #endif
-#elif __HAIKU__ || __FreeBSD__ || __OpenBSD__ || __NetBSD__ || __DragonFly__
+#elif __HAIKU__ || __FreeBSD__ || __OpenBSD__ || __NetBSD__
     return isnan(r);
+#elif__DragonFly__
+    return __isnanl(r);
 #else
     #undef isnan
     return std::isnan(r);
@@ -818,8 +822,10 @@ int Port::isInfinity(double r)
 {
 #if __APPLE__
     return fpclassify(r) == FP_INFINITE;
-#elif __HAIKU__ || __FreeBSD__ || __OpenBSD__ || __NetBSD__ ||  __DragonFly__
+#elif __HAIKU__ || __FreeBSD__ || __OpenBSD__ || __NetBSD__
     return isinf(r);
+#elif__DragonFly__
+    return __isinfd(r);
 #else
     #undef isinf
     return std::isinf(r);
@@ -833,7 +839,7 @@ longdouble Port::sqrt(longdouble x)
 
 longdouble Port::fmodl(longdouble x, longdouble y)
 {
-#if __FreeBSD__ && __FreeBSD_version < 800000 || __OpenBSD__ || __NetBSD__ || __DragonFly__
+#if __FreeBSD__ && __FreeBSD_version < 800000 || __OpenBSD__ || __NetBSD__
     return ::fmod(x, y);        // hack for now, fix later
 #else
     return std::fmod(x, y);
