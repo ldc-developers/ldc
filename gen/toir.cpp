@@ -600,6 +600,9 @@ public:
   template <BinOpFunc binOpFunc, bool useLValTypeForBinOp>
   static DValue *binAssign(BinAssignExp *e) {
     Expression *lvalExp = skipOverCasts(e->e1);
+    while (lvalExp->op == TOKcomma) {
+      lvalExp = skipOverCasts(static_cast<CommaExp *>(lvalExp)->e2);
+    }
     DValue *lhsLVal = toElem(lvalExp);
 
     // Use the lhs lvalue for the binop lhs and optionally cast it to the full
