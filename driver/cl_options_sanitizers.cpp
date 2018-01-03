@@ -109,8 +109,16 @@ void parseFSanitizeCoverageParameter(llvm::StringRef name,
     opts.TracePCGuard = true;
   }
 #if LDC_LLVM_VER >= 500
+  else if (name == "inline-8bit-counters") {
+    opts.Inline8bitCounters = true;
+  }
   else if (name == "no-prune") {
     opts.NoPrune = true;
+  }
+#endif
+#if LDC_LLVM_VER >= 600
+  else if (name == "pc-table") {
+    opts.PCTable = true;
   }
 #endif
   else {
@@ -182,18 +190,8 @@ void outputSanitizerSettings(llvm::raw_ostream &hash_os) {
   hash_os << SanitizerBits(enabledSanitizers);
 
 #ifdef ENABLE_COVERAGE_SANITIZER
-  hash_os << sanitizerCoverageOptions.CoverageType;
-  hash_os << sanitizerCoverageOptions.IndirectCalls;
-  hash_os << sanitizerCoverageOptions.TraceBB;
-  hash_os << sanitizerCoverageOptions.TraceCmp;
-  hash_os << sanitizerCoverageOptions.TraceDiv;
-  hash_os << sanitizerCoverageOptions.TraceGep;
-  hash_os << sanitizerCoverageOptions.Use8bitCounters;
-  hash_os << sanitizerCoverageOptions.TracePC;
-  hash_os << sanitizerCoverageOptions.TracePCGuard;
-#if LDC_LLVM_VER >= 500
-  hash_os << sanitizerCoverageOptions.NoPrune;
-#endif
+  hash_os.write(reinterpret_cast<char *>(&sanitizerCoverageOptions),
+                sizeof(sanitizerCoverageOptions));
 #endif
 }
 
