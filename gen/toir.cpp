@@ -597,9 +597,24 @@ public:
 
   using BinOpFunc = DValue *(Loc &, Type *, DValue *, Expression *, bool);
 
+  static Expression *getLValExp(Expression *e) {
+    e = skipOverCasts(e);
+    if (e->op == TOKcomma) {
+      CommaExp *ce = static_cast<CommaExp *>(e);
+      Expression *newCommaRhs = getLValExp(ce->e2);
+      if (newCommaRhs != ce->e2) {
+        CommaExp *newComma = static_cast<CommaExp *>(ce->copy());
+        newComma->e2 = newCommaRhs;
+        newComma->type = newCommaRhs->type;
+        e = newComma;
+      }
+    }
+    return e;
+  }
+
   template <BinOpFunc binOpFunc, bool useLValTypeForBinOp>
   static DValue *binAssign(BinAssignExp *e) {
-    Expression *lvalExp = skipOverCasts(e->e1);
+    Expression *lvalExp = getLValExp(e->e1);
     DValue *lhsLVal = toElem(lvalExp);
 
     // Use the lhs lvalue for the binop lhs and optionally cast it to the full
