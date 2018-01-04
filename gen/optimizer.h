@@ -35,6 +35,8 @@ bool willInline();
 
 bool willCrossModuleInline();
 
+bool willEliminateFramePointer();
+
 unsigned optLevel();
 
 bool isOptimizationEnabled();
