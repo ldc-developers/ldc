@@ -37,8 +37,8 @@ if(LDC_DYNAMIC_COMPILE)
         # can't do find_package(LLVM) because we already have one in top-level cmake
         # Also we don't have access to llvm_map_components_to_libnames because we need
         # to do find_package(LLVM CONFIG) for it so here is a hackish way to get it
-        include("${LLVM_LIBRARY_DIRS}/cmake/llvm/LLVMConfig.cmake")
-        include("${LLVM_LIBRARY_DIRS}/cmake/llvm/LLVM-Config.cmake")
+        include("${LLVM_CMAKEDIR}/LLVMConfig.cmake")
+        include("${LLVM_CMAKEDIR}/LLVM-Config.cmake")
         llvm_map_components_to_libnames(JITRT_LLVM_LIBS core support irreader executionengine passes nativecodegen orcjit target
             "${LLVM_NATIVE_ARCH}disassembler" "${LLVM_NATIVE_ARCH}asmprinter")
 
