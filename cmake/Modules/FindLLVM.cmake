@@ -133,6 +133,14 @@ else()
             set(LLVM_LIBRARIES "${LLVM_LIBRARIES};-lLLVMTableGen")
         endif()
     endif()
+
+    if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-9][\\.0-9A-Za-z]*")
+        # Versions below 4.0 do not support llvm-config --cmakedir
+        set(LLVM_CMAKEDIR ${LLVM_LIBRARY_DIRS}/cmake/llvm)
+    else()
+        llvm_set(CMAKEDIR cmakedir)
+    endif()
+
     llvm_set(TARGETS_TO_BUILD targets-built)
     string(REGEX MATCHALL "${pattern}[^ ]+" LLVM_TARGETS_TO_BUILD ${LLVM_TARGETS_TO_BUILD})
 endif()
