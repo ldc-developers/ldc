@@ -98,7 +98,7 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
   args.push_back(("/OUT:" + outputPath).str());
 
   // object files
-  for (auto objfile : *global.params.objfiles) {
+  for (auto objfile : global.params.objfiles) {
     args.push_back(objfile);
   }
 
@@ -122,7 +122,7 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
   }
 
   // user libs
-  for (auto libfile : *global.params.libfiles) {
+  for (auto libfile : global.params.libfiles) {
     args.push_back(libfile);
   }
 
@@ -143,7 +143,7 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
     addSwitch(str);
   }
 
-  for (auto ls : *global.params.linkswitches) {
+  for (auto ls : global.params.linkswitches) {
     addSwitch(ls);
   }
 

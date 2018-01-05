@@ -26,10 +26,10 @@
 #include "llvm/Support/YAMLTraits.h"
 
 /// The module with the frontend-generated C main() definition.
-extern Module *entrypoint; // defined in ddmd/mars.d
+extern Module *entrypoint; // defined in dmd/mars.d
 
 /// The module that contains the actual D main() (_Dmain) definition.
-extern Module *rootHasMain; // defined in ddmd/mars.d
+extern Module *rootHasMain; // defined in dmd/mars.d
 
 #if LDC_LLVM_VER < 600
 namespace llvm {
@@ -194,12 +194,11 @@ CodeGenerator::~CodeGenerator() {
   if (singleObj_) {
     // For singleObj builds, the first object file name is the one for the first
     // source file (e.g., `b.o` for `ldc2 a.o b.d c.d`).
-    const char *filename = (*global.params.objfiles)[0];
+    const char *filename = global.params.objfiles[0];
 
     // If there are bitcode files passed on the cmdline, add them after all
     // other source files have been added to the (singleobj) module.
-    insertBitcodeFiles(ir_->module, ir_->context(),
-                       *global.params.bitcodeFiles);
+    insertBitcodeFiles(ir_->module, ir_->context(), global.params.bitcodeFiles);
 
     writeAndFreeLLModule(filename);
   }
@@ -240,8 +239,7 @@ void CodeGenerator::finishLLModule(Module *m) {
   // Add bitcode files passed on the cmdline to
   // the first module only, to avoid duplications.
   if (moduleCount_ == 1) {
-    insertBitcodeFiles(ir_->module, ir_->context(),
-                       *global.params.bitcodeFiles);
+    insertBitcodeFiles(ir_->module, ir_->context(), global.params.bitcodeFiles);
   }
 
   writeAndFreeLLModule(m->objfile->name->str);

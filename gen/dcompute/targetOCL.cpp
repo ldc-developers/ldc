@@ -11,7 +11,7 @@
 
 #include "gen/dcompute/target.h"
 #include "gen/dcompute/druntime.h"
-#include "ddmd/template.h"
+#include "dmd/template.h"
 #include "gen/abi-spirv.h"
 #include "gen/logger.h"
 #include "llvm/Transforms/Scalar.h"

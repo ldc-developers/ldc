@@ -13,11 +13,11 @@
 
 module gen.dpragma;
 
-import ddmd.attrib;
-import ddmd.dscope;
-import ddmd.dsymbol;
-import ddmd.expression;
-import ddmd.func;
+import dmd.attrib;
+import dmd.dscope;
+import dmd.dsymbol;
+import dmd.expression;
+import dmd.func;
 
 extern (C++) enum LDCPragma : int {
   LLVMnone = 0,   // Not an LDC pragma.

@@ -13,9 +13,9 @@
 
 module driver.main;
 
-import ddmd.globals;
-import ddmd.root.file;
-import ddmd.root.outbuffer;
+import dmd.globals;
+import dmd.root.file;
+import dmd.root.outbuffer;
 
 // In driver/main.cpp
 extern(C++) int cppmain(int argc, char **argv);

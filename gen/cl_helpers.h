@@ -18,6 +18,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
 #include "gen/llvmcompat.h"
+#include "globals.h" // for CHECKENABLE enum
 
 #if LDC_LLVM_VER >= 500
 #define LLVM_END_WITH_NULL
@@ -47,6 +48,11 @@ template <> struct FlagParserDataType<bool> {
 template <> struct FlagParserDataType<cl::boolOrDefault> {
   static cl::boolOrDefault true_val() { return cl::BOU_TRUE; }
   static cl::boolOrDefault false_val() { return cl::BOU_FALSE; }
+};
+
+template <> struct FlagParserDataType<CHECKENABLE> {
+  static CHECKENABLE true_val() { return CHECKENABLEon; }
+  static CHECKENABLE false_val() { return CHECKENABLEoff; }
 };
 
 template <class DataType> class FlagParser : public cl::generic_parser_base {

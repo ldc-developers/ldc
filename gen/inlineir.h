@@ -14,7 +14,7 @@
 #ifndef LDC_GEN_INLINEIR_H
 #define LDC_GEN_INLINEIR_H
 
-#include "ddmd/arraytypes.h"
+#include "dmd/arraytypes.h"
 
 class DValue;
 class FuncDeclaration;

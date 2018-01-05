@@ -127,8 +127,8 @@ bool IRState::isMainFunc(const IrFunction *func) const {
 }
 
 bool IRState::emitArrayBoundsChecks() {
-  if (global.params.useArrayBounds != BOUNDSCHECKsafeonly) {
-    return global.params.useArrayBounds == BOUNDSCHECKon;
+  if (global.params.useArrayBounds != CHECKENABLEsafeonly) {
+    return global.params.useArrayBounds == CHECKENABLEon;
   }
 
   // Safe functions only.

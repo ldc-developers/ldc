@@ -150,9 +150,6 @@ list(REMOVE_ITEM DRUNTIME_D ${RUNTIME_DIR}/src/etc/linux/memoryerror.d)
 #        See PR #1917; partly fixed upstream.
 file(GLOB_RECURSE DRUNTIME_D_STDCPP ${RUNTIME_DIR}/src/core/stdcpp/*.d)
 list(REMOVE_ITEM DRUNTIME_D ${DRUNTIME_D_STDCPP})
-# remove all modules in gcstub/
-file(GLOB_RECURSE DRUNTIME_D_GCSTUB ${RUNTIME_DIR}/src/gcstub/*.d)
-list(REMOVE_ITEM DRUNTIME_D ${DRUNTIME_D_GCSTUB})
 # remove some modules in rt/
 list(REMOVE_ITEM DRUNTIME_D
     ${RUNTIME_DIR}/src/rt/alloca.d

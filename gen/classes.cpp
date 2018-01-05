@@ -282,10 +282,11 @@ DValue *DtoCastClass(Loc &loc, DValue *val, Type *_to) {
     return new DImValue(_to, v);
   }
 
-  if (fc->sym->cpp) {
+  if (fc->sym->isCPPclass() || fc->sym->isCPPinterface()) {
     Logger::println("C++ class/interface cast");
-    LLValue *v = tc->sym->cpp ? DtoBitCast(DtoRVal(val), toType)
-                              : LLConstant::getNullValue(toType);
+    LLValue *v = tc->sym->isCPPclass() || tc->sym->isCPPinterface()
+                     ? DtoBitCast(DtoRVal(val), toType)
+                     : LLConstant::getNullValue(toType);
     return new DImValue(_to, v);
   }
 

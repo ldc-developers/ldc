@@ -8,12 +8,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/dcompute/druntime.h"
-#include "ddmd/dsymbol.h"
-#include "ddmd/module.h"
-#include "ddmd/identifier.h"
-#include "ddmd/template.h"
-#include "ddmd/declaration.h"
-#include "ddmd/aggregate.h"
+#include "dmd/dsymbol.h"
+#include "dmd/module.h"
+#include "dmd/identifier.h"
+#include "dmd/template.h"
+#include "dmd/declaration.h"
+#include "dmd/aggregate.h"
 #include "id.h"
 
 bool isFromLDC_DCompute(Dsymbol *sym) {

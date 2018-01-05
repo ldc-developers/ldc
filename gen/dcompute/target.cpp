@@ -9,10 +9,10 @@
 
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
 
-#include "ddmd/dsymbol.h"
-#include "ddmd/mars.h"
-#include "ddmd/module.h"
-#include "ddmd/scope.h"
+#include "dmd/dsymbol.h"
+#include "dmd/mars.h"
+#include "dmd/module.h"
+#include "dmd/scope.h"
 #include "driver/linker.h"
 #include "driver/toobj.h"
 #include "driver/cl_options.h"

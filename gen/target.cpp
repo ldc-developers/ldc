@@ -5,7 +5,7 @@
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
 //
-// Implements some parts of the front-end Target class (ddmd/target.{d,h}).
+// Implements some parts of the front-end Target class (dmd/target.{d,h}).
 //
 //===----------------------------------------------------------------------===//
 

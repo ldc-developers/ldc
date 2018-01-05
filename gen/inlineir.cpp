@@ -1,7 +1,7 @@
 #include "gen/inlineir.h"
 
-#include "ddmd/expression.h"
-#include "ddmd/mtype.h"
+#include "dmd/expression.h"
+#include "dmd/mtype.h"
 #include "gen/attributes.h"
 #include "gen/llvmhelpers.h"
 #include "declaration.h"

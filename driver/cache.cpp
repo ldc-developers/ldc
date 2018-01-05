@@ -29,7 +29,7 @@
 
 #include "driver/cache.h"
 
-#include "ddmd/errors.h"
+#include "dmd/errors.h"
 #include "driver/cache_pruning.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_sanitizers.h"

@@ -14,8 +14,8 @@
 
 #include "driver/cl_options_sanitizers.h"
 
-#include "ddmd/errors.h"
-#include "ddmd/dsymbol.h"
+#include "dmd/errors.h"
+#include "dmd/dsymbol.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/SpecialCaseList.h"

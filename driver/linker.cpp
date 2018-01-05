@@ -64,8 +64,8 @@ static std::string getOutputName() {
   }
 
   // Infer output name from first object file.
-  std::string result = global.params.objfiles->dim
-                           ? FileName::removeExt((*global.params.objfiles)[0])
+  std::string result = global.params.objfiles.dim
+                           ? FileName::removeExt(global.params.objfiles[0])
                            : "a.out";
 
   if (sharedLib && !triple.isWindowsMSVCEnvironment())

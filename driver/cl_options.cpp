@@ -104,7 +104,7 @@ static cl::opt<bool, true> verbose_cg_ast("vcg-ast", cl::ZeroOrMore, cl::Hidden,
                                           cl::location(global.params.vcg_ast));
 
 static cl::opt<unsigned, true> errorLimit(
-    "verrors", cl::ZeroOrMore, cl::location(global.errorLimit),
+    "verrors", cl::ZeroOrMore, cl::location(global.params.errorLimit),
     cl::desc("Limit the number of error messages (0 means unlimited)"));
 
 static cl::opt<bool, true>
@@ -239,8 +239,8 @@ struct D_DebugStorage {
   void push_back(const std::string &str) {
     if (str.empty()) {
       // Bare "-d-debug" has a special meaning.
-      global.params.useAssert = true;
-      global.params.useArrayBounds = BOUNDSCHECKon;
+      global.params.useAssert = CHECKENABLEon;
+      global.params.useArrayBounds = CHECKENABLEon;
       global.params.useInvariants = true;
       global.params.useIn = true;
       global.params.useOut = true;
@@ -306,18 +306,18 @@ static cl::list<std::string, StringsAdapter> modFileAliasStrings(
 
 FloatABI::Type floatABI; // Storage for the dynamically created float-abi option.
 
-static cl::opt<bool, true, FlagParser<bool>>
+static cl::opt<CHECKENABLE, true, FlagParser<CHECKENABLE>>
     asserts("asserts", cl::ZeroOrMore, cl::desc("(*) Enable assertions"),
             cl::value_desc("bool"), cl::location(global.params.useAssert),
-            cl::init(true));
+            cl::init(CHECKENABLEdefault));
 
-cl::opt<BOUNDSCHECK> boundsCheck(
+cl::opt<CHECKENABLE> boundsCheck(
     "boundscheck", cl::ZeroOrMore, cl::desc("Array bounds check"),
-    cl::init(BOUNDSCHECKdefault),
-    clEnumValues(clEnumValN(BOUNDSCHECKoff, "off", "Disabled"),
-                 clEnumValN(BOUNDSCHECKsafeonly, "safeonly",
+    cl::init(CHECKENABLEdefault),
+    clEnumValues(clEnumValN(CHECKENABLEoff, "off", "Disabled"),
+                 clEnumValN(CHECKENABLEsafeonly, "safeonly",
                             "Enabled for @safe functions only"),
-                 clEnumValN(BOUNDSCHECKon, "on", "Enabled for all functions")));
+                 clEnumValN(CHECKENABLEon, "on", "Enabled for all functions")));
 
 static cl::opt<bool, true, FlagParser<bool>>
     invariants("invariants", cl::ZeroOrMore, cl::desc("(*) Enable invariants"),
@@ -338,9 +338,8 @@ static cl::opt<MultiSetter, true, FlagParser<bool>>
     contracts("contracts", cl::ZeroOrMore, cl::location(ContractsSetter),
               cl::desc("(*) Enable function pre- and post-conditions"));
 
-bool nonSafeBoundsChecks = true;
-static MultiSetter ReleaseSetter(true, &global.params.useAssert,
-                                 &nonSafeBoundsChecks,
+bool invReleaseMode = true;
+static MultiSetter ReleaseSetter(true, &invReleaseMode,
                                  &global.params.useInvariants,
                                  &global.params.useOut, &global.params.useIn,
                                  nullptr);

@@ -54,7 +54,7 @@ namespace ls = llvm::sys;
 // handles quotes in a very peculiar way.
 int response_expand(size_t *pargc, char ***pargv);
 
-// in ddmd/root/man.d
+// in dmd/root/man.d
 void browse(const char *url);
 
 /**

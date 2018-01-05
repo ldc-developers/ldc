@@ -12,7 +12,7 @@
 //===----------------------------------------------------------------------===//
 module driver.configfile;
 
-import ddmd.root.array;
+import dmd.root.array;
 import driver.config;
 import core.stdc.stdio;
 import core.stdc.string;

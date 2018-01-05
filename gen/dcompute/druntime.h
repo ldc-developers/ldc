@@ -12,8 +12,8 @@
 #ifndef LDC_GEN_DCOMPUTE_DRUNTIME_H
 #define LDC_GEN_DCOMPUTE_DRUNTIME_H
 
-#include "ddmd/aggregate.h"
-#include "ddmd/mtype.h"
+#include "dmd/aggregate.h"
+#include "dmd/mtype.h"
 #include "gen/dcompute/target.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"

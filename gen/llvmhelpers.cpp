@@ -1022,7 +1022,7 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
   } else if (AttribDeclaration *a = declaration->isAttribDeclaration()) {
     Logger::println("AttribDeclaration");
     // choose the right set in case this is a conditional declaration
-    if (auto d = a->include(nullptr, nullptr)) {
+    if (auto d = a->include(nullptr)) {
       for (unsigned i = 0; i < d->dim; ++i) {
         DtoDeclarationExp((*d)[i]);
       }

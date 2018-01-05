@@ -52,11 +52,11 @@ endfunction()
 #
 
 # Version information
-set(LDC_VERSION "1.7.0") # May be overridden by git hash tag
+set(LDC_VERSION "1.8.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   77)
-set(DMDFE_FIX_LEVEL       1) # Comment out if not used
+set(DMDFE_PATCH_VERSION   78)
+set(DMDFE_FIX_LEVEL       0) # Comment out if not used
 
 set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}${DMDFE_PATCH_VERSION})
 if(DEFINED DMDFE_FIX_LEVEL)
@@ -89,7 +89,7 @@ if(D_VERSION EQUAL 1)
     message(FATAL_ERROR "D version 1 is no longer supported.
 Please consider using D version 2 or checkout the 'd1' git branch for the last version supporting D version 1.")
 elseif(D_VERSION EQUAL 2)
-    set(DDMDFE_PATH ddmd)
+    set(DDMDFE_PATH dmd)
     set(LDC_EXE ldc2)
     set(LDMD_EXE ldmd2)
     set(LDCPROFDATA_EXE ldc-profdata)

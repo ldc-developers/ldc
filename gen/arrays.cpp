@@ -188,7 +188,7 @@ static Type *DtoArrayElementType(Type *arrayType) {
 static void copySlice(Loc &loc, LLValue *dstarr, LLValue *sz1, LLValue *srcarr,
                       LLValue *sz2, bool knownInBounds) {
   const bool checksEnabled =
-      global.params.useAssert || gIR->emitArrayBoundsChecks();
+      global.params.useAssert == CHECKENABLEon || gIR->emitArrayBoundsChecks();
   if (checksEnabled && !knownInBounds) {
     LLValue *fn = getRuntimeFunction(loc, gIR->module, "_d_array_slice_copy");
     gIR->CreateCallOrInvoke(fn, dstarr, sz1, srcarr, sz2);
@@ -1379,7 +1379,7 @@ void DtoIndexBoundsCheck(Loc &loc, DValue *arr, DValue *index) {
 void DtoBoundsCheckFailCall(IRState *irs, Loc &loc) {
   Module *const module = irs->func()->decl->getModule();
 
-  if (global.params.betterC) {
+  if (global.params.checkAction == CHECKACTION_C) {
     DtoCAssert(module, loc, DtoConstCString("array overflow"));
   } else {
     llvm::Function *errorfn =

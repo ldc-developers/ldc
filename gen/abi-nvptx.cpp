@@ -10,7 +10,7 @@
 #include "gen/abi.h"
 #include "gen/dcompute/druntime.h"
 #include "gen/uda.h"
-#include "ddmd/declaration.h"
+#include "dmd/declaration.h"
 #include "gen/tollvm.h"
 #include "gen/dcompute/abi-rewrites.h"
 

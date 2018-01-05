@@ -18,7 +18,7 @@
 #include "rmem.h"
 #include "root.h"
 #include "scope.h"
-#include "ddmd/target.h"
+#include "dmd/target.h"
 #include "driver/cache.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
@@ -80,7 +80,7 @@ extern "C" {
 int rt_init();
 }
 
-// In ddmd/doc.d
+// In dmd/doc.d
 void gendocfile(Module *m);
 
 using namespace opts;
@@ -152,8 +152,7 @@ namespace {
 
 // Helper function to handle -d-debug=* and -d-version=*
 void processVersions(std::vector<std::string> &list, const char *type,
-                     void (*setLevel)(unsigned),
-                     void (*addIdent)(const char *)) {
+                     unsigned &globalLevel, Strings *&globalIDs) {
   for (const auto &i : list) {
     const char *value = i.c_str();
     if (isdigit(value[0])) {
@@ -163,12 +162,14 @@ void processVersions(std::vector<std::string> &list, const char *type,
       if (*end || errno || level > INT_MAX) {
         error(Loc(), "Invalid %s level: %s", type, i.c_str());
       } else {
-        setLevel(static_cast<unsigned>(level));
+        globalLevel = static_cast<unsigned>(level);
       }
     } else {
       char *cstr = mem.xstrdup(value);
       if (Identifier::isValidIdentifier(cstr)) {
-        addIdent(cstr);
+        if (!globalIDs)
+          globalIDs = new Strings();
+        globalIDs->push(cstr);
         continue;
       } else {
         error(Loc(), "Invalid %s identifier or level: '%s'", type, i.c_str());
@@ -292,19 +293,6 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
                       bool &helpOnly) {
   global.params.argv0 = exe_path::getExePath().data();
 
-  // Set some default values.
-  global.params.useSwitchError = 1;
-  global.params.color = true;
-
-  global.params.linkswitches = new Strings();
-  global.params.libfiles = new Strings();
-  global.params.objfiles = new Strings();
-  global.params.ddocfiles = new Strings();
-  global.params.bitcodeFiles = new Strings();
-
-  global.params.moduleDeps = nullptr;
-  global.params.moduleDepsFile = nullptr;
-
   // Set up `opts::allArguments`, the combined list of command line arguments.
   using opts::allArguments;
 
@@ -373,6 +361,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   // Negated options
   global.params.link = !compileOnly;
   global.params.obj = !dontWriteObj;
+  global.params.release = !opts::invReleaseMode;
   global.params.useInlineAsm = !noAsm;
 
   // String options: std::string --> char*
@@ -419,10 +408,10 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   opts::initializeInstrumentationOptionsFromCmdline();
   opts::initializeSanitizerOptionsFromCmdline();
 
-  processVersions(debugArgs, "debug", DebugCondition::setGlobalLevel,
-                  DebugCondition::addGlobalIdent);
-  processVersions(versions, "version", VersionCondition::setGlobalLevel,
-                  VersionCondition::addGlobalIdent);
+  processVersions(debugArgs, "debug", global.params.debuglevel,
+                  global.params.debugids);
+  processVersions(versions, "version", global.params.versionlevel,
+                  global.params.versionids);
 
   processTransitions(transitions);
 
@@ -502,21 +491,28 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
       char *arg = static_cast<char *>(mem.xmalloc(lib.size() + 3));
       strcpy(arg, "-l");
       strcpy(arg + 2, lib.c_str());
-      global.params.linkswitches->push(arg);
+      global.params.linkswitches.push(arg);
     }
   }
 
-  if (global.params.useUnitTests) {
-    global.params.useAssert = 1;
+  if (global.params.betterC) {
+    global.params.checkAction = CHECKACTION_C;
+    global.params.useModuleInfo = false;
+    global.params.useTypeInfo = false;
+    global.params.useExceptions = false;
   }
 
-  // -release downgrades default bounds checking level to BOUNDSCHECKsafeonly
-  // (only for safe functions).
-  global.params.useArrayBounds =
-      opts::nonSafeBoundsChecks ? BOUNDSCHECKon : BOUNDSCHECKsafeonly;
-  if (opts::boundsCheck != BOUNDSCHECKdefault) {
-    global.params.useArrayBounds = opts::boundsCheck;
+  if (global.params.useUnitTests) {
+    global.params.useAssert = CHECKENABLEon;
   }
+
+  // -release downgrades default checks
+  if (global.params.useArrayBounds == CHECKENABLEdefault)
+    global.params.useArrayBounds = global.params.release ? CHECKENABLEsafeonly : CHECKENABLEon;
+  if (global.params.useAssert == CHECKENABLEdefault)
+    global.params.useAssert = global.params.release ? CHECKENABLEoff : CHECKENABLEon;
+  if (global.params.useSwitchError == CHECKENABLEdefault)
+    global.params.useSwitchError = global.params.release ? CHECKENABLEoff : CHECKENABLEon;
 
   // LDC output determination
 
@@ -544,7 +540,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
 
   // only link if possible
   if (!global.params.obj || !global.params.output_o || global.params.lib) {
-    global.params.link = 0;
+    global.params.link = false;
   }
 
   if (global.params.lib && global.params.dll) {
@@ -877,11 +873,11 @@ void registerPredefinedVersions() {
     VersionCondition::addPredefinedGlobalIdent("unittest");
   }
 
-  if (global.params.useAssert) {
+  if (global.params.useAssert == CHECKENABLEon) {
     VersionCondition::addPredefinedGlobalIdent("assert");
   }
 
-  if (global.params.useArrayBounds == BOUNDSCHECKoff) {
+  if (global.params.useArrayBounds == CHECKENABLEoff) {
     VersionCondition::addPredefinedGlobalIdent("D_NoBoundsChecks");
   }
 
@@ -891,7 +887,7 @@ void registerPredefinedVersions() {
 
   registerPredefinedTargetVersions();
 
-  // `D_ObjectiveC` is added by the ddmd.objc.Supported ctor
+  // `D_ObjectiveC` is added by the dmd.objc.Supported ctor
 
   if (opts::enableDynamicCompile) {
     VersionCondition::addPredefinedGlobalIdent("LDC_DynamicCompilation");
@@ -1072,9 +1068,9 @@ void codegenModules(Modules &modules) {
         if (atCompute == DComputeCompileFor::deviceOnly) {
           // Remove m's object file from list of object files
           auto s = m->objfile->name->str;
-          for (size_t j = 0; j < global.params.objfiles->dim; j++) {
-            if (s == (*global.params.objfiles)[j]) {
-              global.params.objfiles->remove(j);
+          for (size_t j = 0; j < global.params.objfiles.dim; j++) {
+            if (s == global.params.objfiles[j]) {
+              global.params.objfiles.remove(j);
               break;
             }
           }
@@ -1091,7 +1087,7 @@ void codegenModules(Modules &modules) {
       dccg.writeModules();
     }
     // We may have removed all object files, if so don't link.
-    if (global.params.objfiles->dim == 0)
+    if (global.params.objfiles.dim == 0)
       global.params.link = false;
 
   }

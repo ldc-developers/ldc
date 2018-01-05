@@ -18,10 +18,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ddmd/declaration.h"
-#include "ddmd/identifier.h"
-#include "ddmd/module.h"
-#include "ddmd/template.h"
+#include "dmd/declaration.h"
+#include "dmd/identifier.h"
+#include "dmd/module.h"
+#include "dmd/template.h"
 #include "gen/dcompute/target.h"
 #include "gen/logger.h"
 #include "gen/recursivevisitor.h"

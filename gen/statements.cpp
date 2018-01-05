@@ -1650,7 +1650,7 @@ public:
 
     Module *const module = irs->func()->decl->getModule();
 
-    if (global.params.betterC) {
+    if (global.params.checkAction == CHECKACTION_C) {
       DtoCAssert(module, stmt->loc, DtoConstCString("no switch default"));
       return;
     }

@@ -338,8 +338,8 @@ int createStaticLibrary() {
                   ? FileName::defaultExt(global.params.libname, global.lib_ext)
                   : global.params.libname;
   } else { // infer from first object file
-    libName = global.params.objfiles->dim
-                  ? FileName::removeExt((*global.params.objfiles)[0])
+    libName = global.params.objfiles.dim
+                  ? FileName::removeExt(global.params.objfiles[0])
                   : "a.out";
     libName += '.';
     libName += global.lib_ext;
@@ -359,7 +359,7 @@ int createStaticLibrary() {
   }
 
   // object files
-  for (auto objfile : *global.params.objfiles) {
+  for (auto objfile : global.params.objfiles) {
     args.push_back(objfile);
   }
 

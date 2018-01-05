@@ -9,9 +9,9 @@
 
 module gen.semantic;
 
-import ddmd.arraytypes;
-import ddmd.dsymbol;
-import ddmd.dmodule;
+import dmd.arraytypes;
+import dmd.dsymbol;
+import dmd.dmodule;
 
 extern(C++) void dcomputeSemanticAnalysis(Module m);
 extern(C) int hasComputeAttr(Dsymbol m);

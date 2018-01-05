@@ -395,7 +395,7 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(AttribDeclaration *decl) LLVM_OVERRIDE {
-    Dsymbols *d = decl->include(nullptr, nullptr);
+    Dsymbols *d = decl->include(nullptr);
 
     if (d) {
       for (auto s : *d) {
@@ -462,7 +462,7 @@ public:
         arg[1] = 'l';
         memcpy(arg + 2, name.data(), nameLen);
         arg[n - 1] = 0;
-        global.params.linkswitches->push(arg);
+        global.params.linkswitches.push(arg);
       }
     }
     visit(static_cast<AttribDeclaration *>(decl));

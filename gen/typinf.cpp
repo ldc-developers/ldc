@@ -56,7 +56,7 @@
 
 FuncDeclaration *search_toString(StructDeclaration *sd);
 
-// defined in ddmd/typinf.d:
+// defined in dmd/typinf.d:
 void genTypeInfo(Type *torig, Scope *sc);
 bool builtinTypeInfo(Type *t);
 
@@ -638,7 +638,7 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
   emitTypeMetadata(decl);
 
   // check if the definition can be elided
-  if (global.params.betterC || isSpeculativeType(decl->tinfo) ||
+  if (!global.params.useTypeInfo || isSpeculativeType(decl->tinfo) ||
       builtinTypeInfo(decl->tinfo)) {
     return;
   }

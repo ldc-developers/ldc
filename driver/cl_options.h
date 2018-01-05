@@ -24,9 +24,6 @@
 #include <deque>
 #include <vector>
 
-// FIXME: Just for the BOUDNSCHECK enum; this is not pretty
-#include "globals.h"
-
 namespace llvm {
 class FastMathFlags;
 class TargetMachine;
@@ -83,8 +80,8 @@ extern bool fFastMath;
 extern llvm::FastMathFlags defaultFMF;
 void setDefaultMathOptions(llvm::TargetOptions &targetOptions);
 
-extern cl::opt<BOUNDSCHECK> boundsCheck;
-extern bool nonSafeBoundsChecks;
+extern cl::opt<CHECKENABLE> boundsCheck;
+extern bool invReleaseMode;
 
 // Arguments to -d-debug
 extern std::vector<std::string> debugArgs;

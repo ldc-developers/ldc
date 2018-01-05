@@ -9,14 +9,14 @@
 
 module gen.ldctraits;
 
-import ddmd.arraytypes;
-import ddmd.dscope;
-import ddmd.dtemplate;
-import ddmd.expression;
-import ddmd.expressionsem;
-import ddmd.errors;
-import ddmd.id;
-import ddmd.mtype;
+import dmd.arraytypes;
+import dmd.dscope;
+import dmd.dtemplate;
+import dmd.expression;
+import dmd.expressionsem;
+import dmd.errors;
+import dmd.id;
+import dmd.mtype;
 
 extern(C++) struct Dstring
 {

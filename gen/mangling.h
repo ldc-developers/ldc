@@ -15,7 +15,7 @@
 #define LDC_GEN_MANGLING_H
 
 #include <string>
-#include "ddmd/globals.h"
+#include "dmd/globals.h"
 
 class AggregateDeclaration;
 class ClassDeclaration;

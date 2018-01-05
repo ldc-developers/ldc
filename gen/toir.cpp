@@ -1669,7 +1669,7 @@ public:
     auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
-    if (!global.params.useAssert)
+    if (global.params.useAssert != CHECKENABLEon)
       return;
 
     // condition
@@ -1701,7 +1701,7 @@ public:
      */
     DValue *const msg = e->msg ? toElemDtor(e->msg) : nullptr;
     Module *const module = p->func()->decl->getModule();
-    if (global.params.betterC) {
+    if (global.params.checkAction == CHECKACTION_C) {
       const auto cMsg =
           msg ? DtoArrayPtr(msg) // assuming `msg` is null-terminated, like DMD
               : DtoConstCString(e->e1->toChars());

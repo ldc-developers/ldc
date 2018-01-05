@@ -13,10 +13,10 @@
 
 #include "gen/mangling.h"
 
-#include "ddmd/declaration.h"
-#include "ddmd/dsymbol.h"
-#include "ddmd/identifier.h"
-#include "ddmd/module.h"
+#include "dmd/declaration.h"
+#include "dmd/dsymbol.h"
+#include "dmd/identifier.h"
+#include "dmd/module.h"
 #include "gen/abi.h"
 #include "gen/irstate.h"
 #include "gen/to_string.h"

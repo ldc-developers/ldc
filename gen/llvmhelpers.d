@@ -13,8 +13,8 @@
 
 module gen.llvmhelpers;
 
-import ddmd.func;
-import ddmd.dtemplate;
+import dmd.func;
+import dmd.dtemplate;
 
 /// Fixup an overloaded intrinsic name string.
 extern (C++) void DtoSetFuncDeclIntrinsicName(TemplateInstance ti, TemplateDeclaration td, FuncDeclaration fd);

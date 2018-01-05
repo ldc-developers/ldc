@@ -324,7 +324,7 @@ void ArgsBuilder::addSanitizers() {
 void ArgsBuilder::build(llvm::StringRef outputPath,
                         llvm::cl::boolOrDefault fullyStaticFlag) {
   // object files
-  for (auto objfile : *global.params.objfiles) {
+  for (auto objfile : global.params.objfiles) {
     args.push_back(objfile);
   }
 
@@ -346,7 +346,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   }
 
   // user libs
-  for (auto libfile : *global.params.libfiles) {
+  for (auto libfile : global.params.libfiles) {
     args.push_back(libfile);
   }
 
@@ -374,7 +374,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   addUserSwitches();
 
   // libs added via pragma(lib, libname)
-  for (auto ls : *global.params.linkswitches) {
+  for (auto ls : global.params.linkswitches) {
     args.push_back(ls);
   }
 

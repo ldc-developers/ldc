@@ -29,11 +29,11 @@
 #ifndef LDC_GEN_RECURSIVEVISITOR_H
 #define LDC_GEN_RECURSIVEVISITOR_H
 
-#include "ddmd/attrib.h"
-#include "ddmd/declaration.h"
-#include "ddmd/init.h"
-#include "ddmd/statement.h"
-#include "ddmd/visitor.h"
+#include "dmd/attrib.h"
+#include "dmd/declaration.h"
+#include "dmd/init.h"
+#include "dmd/statement.h"
+#include "dmd/visitor.h"
 
 class RecursiveVisitor : public Visitor {
 public:
