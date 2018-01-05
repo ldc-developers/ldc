@@ -224,7 +224,7 @@ out (result)
     foreach(m; result)
         assert(m !is null);
 }
-body
+do
 {
   version(MinGW) // LDC
   {

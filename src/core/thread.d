@@ -226,6 +226,8 @@ version( Windows )
 
             void append( Throwable t )
             {
+                if (t.refcount())
+                    ++t.refcount();
                 if( obj.m_unhandled is null )
                     obj.m_unhandled = t;
                 else
@@ -380,6 +382,8 @@ else version( Posix )
 
             void append( Throwable t )
             {
+                if (t.refcount())
+                    ++t.refcount();
                 if( obj.m_unhandled is null )
                     obj.m_unhandled = t;
                 else
@@ -436,7 +440,7 @@ else version( Posix )
         {
             assert( sig == suspendSignalNumber );
         }
-        body
+        do
         {
             void op(void* sp) nothrow
             {
@@ -493,7 +497,7 @@ else version( Posix )
         {
             assert( sig == resumeSignalNumber );
         }
-        body
+        do
         {
 
         }
@@ -568,7 +572,7 @@ class Thread
     {
         assert( fn );
     }
-    body
+    do
     {
         this(sz);
         () @trusted { m_fn   = fn; }();
@@ -593,7 +597,7 @@ class Thread
     {
         assert( dg );
     }
-    body
+    do
     {
         this(sz);
         () @trusted { m_dg   = dg; }();
@@ -652,7 +656,7 @@ class Thread
     {
         assert( !next && !prev );
     }
-    body
+    do
     {
         auto wasThreaded  = multiThreadedFlag;
         multiThreadedFlag = true;
@@ -1129,7 +1133,7 @@ class Thread
         assert(val >= PRIORITY_MIN);
         assert(val <= PRIORITY_MAX);
     }
-    body
+    do
     {
         version( Windows )
         {
@@ -1257,7 +1261,7 @@ class Thread
     {
         assert( !val.isNegative );
     }
-    body
+    do
     {
         version( Windows )
         {
@@ -1575,7 +1579,7 @@ private:
     {
         assert( !c.within );
     }
-    body
+    do
     {
         m_curr.ehContext = swapContext(c.ehContext);
         c.within = m_curr;
@@ -1588,7 +1592,7 @@ private:
     {
         assert( m_curr && m_curr.within );
     }
-    body
+    do
     {
         Context* c = m_curr;
         m_curr = c.within;
@@ -1602,7 +1606,7 @@ private:
     {
         assert( m_curr );
     }
-    body
+    do
     {
         return m_curr;
     }
@@ -1762,7 +1766,7 @@ private:
         assert( c );
         assert( !c.next && !c.prev );
     }
-    body
+    do
     {
         slock.lock_nothrow();
         scope(exit) slock.unlock_nothrow();
@@ -1788,7 +1792,7 @@ private:
         assert( c );
         assert( c.next || c.prev );
     }
-    body
+    do
     {
         if( c.prev )
             c.prev.next = c.next;
@@ -1819,7 +1823,7 @@ private:
         assert( t );
         assert( !t.next && !t.prev );
     }
-    body
+    do
     {
         slock.lock_nothrow();
         scope(exit) slock.unlock_nothrow();
@@ -1862,7 +1866,7 @@ private:
     {
         assert( t );
     }
-    body
+    do
     {
         // Thread was already removed earlier, might happen b/c of thread_detachInstance
         if (!t.next && !t.prev)
@@ -1992,7 +1996,7 @@ else version( Posix )
         assert(suspendSignalNumber != 0);
         assert(resumeSignalNumber  != 0);
     }
-    body
+    do
     {
         suspendSignalNumber = suspendSignalNo;
         resumeSignalNumber  = resumeSignalNo;
@@ -2413,7 +2417,7 @@ else
     {
         assert(fn);
     }
-    body
+    do
     {
         // The purpose of the 'shell' is to ensure all the registers get
         // put on the stack so they'll be scanned. We only need to push
@@ -2953,7 +2957,7 @@ in
 {
     assert( suspendDepth > 0 );
 }
-body
+do
 {
     // NOTE: See thread_suspendAll for the logic behind this.
     if( !multiThreadedFlag && Thread.sm_tbeg )
@@ -3004,7 +3008,7 @@ in
 {
     assert( suspendDepth > 0 );
 }
-body
+do
 {
     callWithStackShell(sp => scanAllTypeImpl(scan, sp));
 }
@@ -3114,7 +3118,7 @@ in
 {
     assert(Thread.getThis());
 }
-body
+do
 {
     synchronized (Thread.criticalRegionLock)
         Thread.getThis().m_isInCriticalRegion = true;
@@ -3133,7 +3137,7 @@ in
 {
     assert(Thread.getThis());
 }
-body
+do
 {
     synchronized (Thread.criticalRegionLock)
         Thread.getThis().m_isInCriticalRegion = false;
@@ -3151,7 +3155,7 @@ in
 {
     assert(Thread.getThis());
 }
-body
+do
 {
     synchronized (Thread.criticalRegionLock)
         return Thread.getThis().m_isInCriticalRegion;
@@ -3479,7 +3483,7 @@ in
     // Not strictly required, but it gives us more flexibility.
     assert(Thread.getThis());
 }
-body
+do
 {
     return getStackTop();
 }
@@ -3500,7 +3504,7 @@ in
 {
     assert(Thread.getThis());
 }
-body
+do
 {
     return Thread.getThis().topContext().bstack;
 }
@@ -3574,7 +3578,7 @@ class ThreadGroup
     {
         assert( t );
     }
-    body
+    do
     {
         synchronized( this )
         {
@@ -3598,7 +3602,7 @@ class ThreadGroup
     {
         assert( t );
     }
-    body
+    do
     {
         synchronized( this )
         {
@@ -4314,7 +4318,7 @@ class Fiber
     {
         assert( fn );
     }
-    body
+    do
     {
         allocStack( sz, guardPageSize );
         reset( fn );
@@ -4342,7 +4346,7 @@ class Fiber
     {
         assert( dg );
     }
-    body
+    do
     {
         allocStack( sz, guardPageSize);
         reset( dg );
@@ -4432,7 +4436,7 @@ class Fiber
     {
         assert( m_state == State.HOLD );
     }
-    body
+    do
     {
         Fiber   cur = getThis();
 
@@ -4478,7 +4482,7 @@ class Fiber
     {
         assert( m_state == State.TERM || m_state == State.HOLD );
     }
-    body
+    do
     {
         m_ctxt.tstack = m_ctxt.bstack;
         m_state = State.HOLD;
@@ -4605,7 +4609,7 @@ class Fiber
     {
         assert( t );
     }
-    body
+    do
     {
         Fiber   cur = getThis();
         assert( cur, "Fiber.yield() called with no active fiber" );
@@ -4739,7 +4743,7 @@ private:
     {
         assert( !m_pmem && !m_ctxt );
     }
-    body
+    do
     {
         // adjust alloc size to a multiple of PAGESIZE
         sz += PAGESIZE - 1;
@@ -4881,7 +4885,7 @@ private:
     {
         assert( m_pmem && m_ctxt );
     }
-    body
+    do
     {
         // NOTE: m_ctxt is guaranteed to be alive because it is held in the
         //       global context list.
@@ -4925,7 +4929,7 @@ private:
         assert( m_ctxt.tstack && m_ctxt.tstack == m_ctxt.bstack );
         assert( cast(size_t) m_ctxt.bstack % (void*).sizeof == 0 );
     }
-    body
+    do
     {
         void* pstack = m_ctxt.tstack;
         scope( exit )  m_ctxt.tstack = pstack;

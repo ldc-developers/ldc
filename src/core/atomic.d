@@ -544,7 +544,7 @@ else version( AsmX86_32 )
     {
         assert(atomicValueIsProperlyAligned(val));
     }
-    body
+    do
     {
         // binary operators
         //
@@ -621,7 +621,7 @@ else version( AsmX86_32 )
     {
         assert( atomicPtrIsProperlyAligned( here ) );
     }
-    body
+    do
     {
         static if( T.sizeof == byte.sizeof )
         {
@@ -1005,7 +1005,7 @@ else version( AsmX86_64 )
     {
         assert( atomicValueIsProperlyAligned(val));
     }
-    body
+    do
     {
         size_t tmp = mod;
         asm pure nothrow @nogc @trusted
@@ -1038,7 +1038,7 @@ else version( AsmX86_64 )
     {
         assert( atomicValueIsProperlyAligned(val));
     }
-    body
+    do
     {
         // binary operators
         //
@@ -1116,7 +1116,7 @@ else version( AsmX86_64 )
     {
         assert( atomicPtrIsProperlyAligned( here ) );
     }
-    body
+    do
     {
         static if( T.sizeof == byte.sizeof )
         {
@@ -1663,7 +1663,7 @@ version( unittest )
     {
         assert(val !is T.init);
     }
-    body
+    do
     {
         T         base = cast(T)null;
         shared(T) atom = cast(shared(T))null;
