@@ -671,7 +671,7 @@ else
      */
     final BaseClass* overrideInterface()
     {
-        if (ClassDeclaration cd = parent.isClassDeclaration())
+        if (ClassDeclaration cd = toParent2().isClassDeclaration())
         {
             foreach (b; cd.interfaces)
             {
