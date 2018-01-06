@@ -13,12 +13,12 @@ environment:
     - APPVEYOR_JOB_ARCH:           x64
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       LLVM_VERSION:                5.0.1
-      HOST_LDC_VERSION:            1.0.0
+      HOST_DMD_VERSION:            2.078.0
       DUB_VERSION:                 v1.6.0
     - APPVEYOR_JOB_ARCH:           x86
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       LLVM_VERSION:                5.0.1
-      HOST_LDC_VERSION:            1.0.0
+      HOST_DMD_VERSION:            2.078.0
       DUB_VERSION:                 v1.6.0
 
 # scripts that are called at very beginning, before repo cloning
@@ -62,15 +62,22 @@ install:
   - python -c "import lit; lit.main();" --version
   # Download & extract D compiler
   - ps: |
-        $ldcVersion = $Env:HOST_LDC_VERSION
-        If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
-          appveyor DownloadFile "http://github.com/ldc-developers/ldc/releases/download/v$ldcVersion/ldc2-$ldcVersion-win64-msvc.zip" -FileName ldc2.zip
-          7z x ldc2.zip > $null
-          ren "ldc2-$ldcVersion-win64-msvc" ldc2-host
+        If (Test-Path Env:HOST_LDC_VERSION) {
+          $ldcVersion = $Env:HOST_LDC_VERSION
+          If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
+            appveyor DownloadFile "http://github.com/ldc-developers/ldc/releases/download/v$ldcVersion/ldc2-$ldcVersion-win64-msvc.zip" -FileName ldc2.zip
+            7z x ldc2.zip > $null
+            Set-Item -path env:DMD -value "c:\projects\ldc2-$ldcVersion-win64-msvc\bin\ldmd2.exe"
+          } Else {
+            appveyor DownloadFile "http://github.com/ldc-developers/ldc/releases/download/v$ldcVersion/ldc2-$ldcVersion-win32-msvc.zip" -FileName ldc2.zip
+            7z x ldc2.zip > $null
+            Set-Item -path env:DMD -value "c:\projects\ldc2-$ldcVersion-win32-msvc\bin\ldmd2.exe"
+          }
         } Else {
-          appveyor DownloadFile "http://github.com/ldc-developers/ldc/releases/download/v$ldcVersion/ldc2-$ldcVersion-win32-msvc.zip" -FileName ldc2.zip
-          7z x ldc2.zip > $null
-          ren "ldc2-$ldcVersion-win32-msvc" ldc2-host
+          $dmdVersion = $Env:HOST_DMD_VERSION
+          appveyor DownloadFile "http://downloads.dlang.org/releases/2.x/$dmdVersion/dmd.$dmdVersion.windows.7z" -FileName dmd.7z
+          7z x dmd.7z > $null
+          Set-Item -path env:DMD -value c:\projects\dmd2\windows\bin\dmd.exe
         }
   # Download & extract GNU make + utils (for dmd-testsuite)
   - bash --version
@@ -111,7 +118,7 @@ build_script:
   # Generate build files for LDC
   - md ninja-ldc
   - cd ninja-ldc
-  - cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=c:\projects\ldc2-%APPVEYOR_JOB_ARCH% -DINCLUDE_INSTALL_DIR=c:/projects/ldc2-%APPVEYOR_JOB_ARCH%/import -DLLVM_ROOT_DIR=c:/projects/llvm -DD_COMPILER=c:\projects\ldc2-host\bin\ldmd2.exe ..\ldc
+  - cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=c:\projects\ldc2-%APPVEYOR_JOB_ARCH% -DINCLUDE_INSTALL_DIR=c:/projects/ldc2-%APPVEYOR_JOB_ARCH%/import -DLLVM_ROOT_DIR=c:/projects/llvm -DD_COMPILER=%DMD% ..\ldc
   # Build LDC and stdlib unittest runners
   - ninja -j2 all all-test-runners
 
