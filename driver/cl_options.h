@@ -80,7 +80,6 @@ extern bool fFastMath;
 extern llvm::FastMathFlags defaultFMF;
 void setDefaultMathOptions(llvm::TargetOptions &targetOptions);
 
-extern cl::opt<CHECKENABLE> boundsCheck;
 extern bool invReleaseMode;
 
 // Arguments to -d-debug

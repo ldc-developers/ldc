@@ -311,9 +311,9 @@ static cl::opt<CHECKENABLE, true, FlagParser<CHECKENABLE>>
             cl::value_desc("bool"), cl::location(global.params.useAssert),
             cl::init(CHECKENABLEdefault));
 
-cl::opt<CHECKENABLE> boundsCheck(
+static cl::opt<CHECKENABLE, true> boundsCheck(
     "boundscheck", cl::ZeroOrMore, cl::desc("Array bounds check"),
-    cl::init(CHECKENABLEdefault),
+    cl::location(global.params.useArrayBounds), cl::init(CHECKENABLEdefault),
     clEnumValues(clEnumValN(CHECKENABLEoff, "off", "Disabled"),
                  clEnumValN(CHECKENABLEsafeonly, "safeonly",
                             "Enabled for @safe functions only"),
