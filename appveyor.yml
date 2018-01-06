@@ -115,11 +115,16 @@ install:
 
 build_script:
   - cd c:\projects
-  # Generate build files for LDC
+  # Build bootstrap LDC
+  - md bootstrap
+  - cd bootstrap
+  - cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=c:/projects/llvm ..\ldc
+  - ninja -j3 all
+  - cd ..
+  # Build LDC and stdlib unittest runners
   - md ninja-ldc
   - cd ninja-ldc
-  - cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=c:\projects\ldc2-%APPVEYOR_JOB_ARCH% -DINCLUDE_INSTALL_DIR=c:/projects/ldc2-%APPVEYOR_JOB_ARCH%/import -DLLVM_ROOT_DIR=c:/projects/llvm -DD_COMPILER=%DMD% ..\ldc
-  # Build LDC and stdlib unittest runners
+  - cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=c:\projects\ldc2-%APPVEYOR_JOB_ARCH% -DINCLUDE_INSTALL_DIR=c:/projects/ldc2-%APPVEYOR_JOB_ARCH%/import -DLLVM_ROOT_DIR=c:/projects/llvm -DD_COMPILER=c:\projects\bootstrap\bin\ldmd2.exe ..\ldc
   - ninja -j2 all all-test-runners
 
 #---------------------------------#
