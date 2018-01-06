@@ -166,6 +166,7 @@ Where:\n\
   -fPIC            generate position independent code\n\
   -dip25           implement http://wiki.dlang.org/DIP25 (experimental)\n\
   -dip1000         implement http://wiki.dlang.org/DIP1000 (experimental)\n\
+  -dip1008         implement DIP1008 (experimental)\n\
   -g               add symbolic debug info\n\
   -gf              emit debug info for all referenced types\n\
   -gs              always emit stack frame\n"
@@ -480,6 +481,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
       }
       /* -dip25
        * -dip1000
+       * -dip1008
        */
       else if (strcmp(p + 1, "lib") == 0) {
         ldcArgs.push_back(p);

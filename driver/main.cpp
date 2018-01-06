@@ -191,6 +191,7 @@ void processTransitions(std::vector<std::string> &list) {
              "  =field,3449    list all non-mutable fields which occupy an "
              "object instance\n"
              "  =import,10378  revert to single phase name lookup\n"
+             "  =intpromote,16997 fix integral promotions for unary + - ~ operators\n"
              "  =tls           list all variables going into thread local "
              "storage\n");
       exit(EXIT_SUCCESS);
@@ -208,6 +209,8 @@ void processTransitions(std::vector<std::string> &list) {
       global.params.vfield = true;
     } else if (i == "import" || i == "10378") {
       global.params.bug10378 = true;
+    } else if (i == "intpromote" || i == "16997") {
+      global.params.fix16997 = true;
     } else if (i == "tls") {
       global.params.vtls = true;
     } else {

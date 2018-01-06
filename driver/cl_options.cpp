@@ -397,6 +397,10 @@ cl::opt<bool> useDIP1000(
     "dip1000", cl::ZeroOrMore,
     cl::desc("Implement http://wiki.dlang.org/DIP1000 (experimental)"));
 
+cl::opt<bool, true> useDIP1008("dip1008", cl::ZeroOrMore,
+                               cl::location(global.params.ehnogc),
+                               cl::desc("Implement DIP1008 (experimental)"));
+
 cl::opt<bool, true> betterC(
     "betterC", cl::ZeroOrMore, cl::location(global.params.betterC),
     cl::desc("Omit generating some runtime information and helper functions"));
