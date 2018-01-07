@@ -98,8 +98,10 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
     return LLVMintrinsic;
   }
 
-  // pragma(LDC_global_crt_ctor [, priority]) { funcdecl(s) }
-  if (ident == Id::LDC_global_crt_ctor || ident == Id::LDC_global_crt_dtor) {
+  // pragma(LDC_global_crt_{c,d}tor [, priority]) { funcdecl(s) }
+  // pragma(crt_{con,de}structor [, priority]) { funcdecl(s) }
+  if (ident == Id::LDC_global_crt_ctor || ident == Id::LDC_global_crt_dtor ||
+      ident == Id::crt_constructor || ident == Id::crt_destructor) {
     dinteger_t priority;
     if (args) {
       if (args->dim != 1 || !parseIntExp(expr, priority)) {
@@ -116,8 +118,9 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
     char buf[8];
     sprintf(buf, "%llu", static_cast<unsigned long long>(priority));
     arg1str = strdup(buf);
-    return ident == Id::LDC_global_crt_ctor ? LLVMglobal_crt_ctor
-                                            : LLVMglobal_crt_dtor;
+    return ident == Id::LDC_global_crt_ctor || ident == Id::crt_constructor
+               ? LLVMglobal_crt_ctor
+               : LLVMglobal_crt_dtor;
   }
 
   // pragma(LDC_no_typeinfo) { typedecl(s) }

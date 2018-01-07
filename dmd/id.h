@@ -34,6 +34,8 @@ public:
     static Identifier *__c_ulong;
     static Identifier *__c_long_double;
     static Identifier *__switch;
+    static Identifier *crt_constructor;
+    static Identifier *crt_destructor;
     static Identifier *lib;
     static Identifier *ldc;
     static Identifier *dcompute;
