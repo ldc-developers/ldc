@@ -605,7 +605,7 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
     }
     else
     {
-        if (global.params.objname && files.dim > 1)
+        if (global.params.objname && files.dim + (global.params.addMain ? 1 : 0) > 1)
         {
             global.params.oneobj = true;
             //error("multiple source files, but only one .obj name");
