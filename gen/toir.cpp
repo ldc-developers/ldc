@@ -1277,9 +1277,6 @@ public:
         llvm_unreachable("Unsupported floating point comparison operator.");
       }
       eval = p->ir->CreateFCmp(cmpop, DtoRVal(l), DtoRVal(r));
-    } else if (t->ty == Tsarray || t->ty == Tarray) {
-      Logger::println("static or dynamic array");
-      eval = DtoArrayCompare(e->loc, e->op, l, r);
     } else if (t->ty == Taarray) {
       eval = LLConstantInt::getFalse(gIR->context());
     } else if (t->ty == Tdelegate) {

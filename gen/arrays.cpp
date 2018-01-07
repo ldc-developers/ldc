@@ -1146,26 +1146,6 @@ LLValue *DtoArrayEquals(Loc &loc, TOK op, DValue *l, DValue *r) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-LLValue *DtoArrayCompare(Loc &loc, TOK op, DValue *l, DValue *r) {
-  LLValue *res = nullptr;
-  llvm::ICmpInst::Predicate cmpop;
-  tokToICmpPred(op, false, &cmpop, &res);
-
-  if (!res) {
-    Type *t = l->type->toBasetype()->nextOf()->toBasetype();
-    if (t->ty == Tchar) {
-      res = DtoArrayEqCmp_impl(loc, "_adCmpChar", l, r, false);
-    } else {
-      res = DtoArrayEqCmp_impl(loc, "_adCmp2", l, r, true);
-    }
-    res = gIR->ir->CreateICmp(cmpop, res, DtoConstInt(0));
-  }
-
-  assert(res);
-  return res;
-}
-
-////////////////////////////////////////////////////////////////////////////////
 LLValue *DtoArrayCastLength(Loc &loc, LLValue *len, LLType *elemty,
                             LLType *newelemty) {
   IF_LOG Logger::println("DtoArrayCastLength");

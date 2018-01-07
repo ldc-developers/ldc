@@ -564,27 +564,15 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
 
-  // char[] _adReverseChar(char[] a)
   // char[] _adSortChar(char[] a)
-  createFwdDecl(LINKc, stringTy, {"_adReverseChar", "_adSortChar"}, {stringTy});
+  createFwdDecl(LINKc, stringTy, {"_adSortChar"}, {stringTy});
 
-  // wchar[] _adReverseWchar(wchar[] a)
   // wchar[] _adSortWchar(wchar[] a)
-  createFwdDecl(LINKc, wstringTy, {"_adReverseWchar", "_adSortWchar"},
-                {wstringTy});
-
-  // void[] _adReverse(void[] a, size_t szelem)
-  createFwdDecl(LINKc, wstringTy, {"_adReverse"}, {voidArrayTy, sizeTy}, {},
-                Attr_NoUnwind);
+  createFwdDecl(LINKc, wstringTy, {"_adSortWchar"}, {wstringTy});
 
   // int _adEq2(void[] a1, void[] a2, TypeInfo ti)
-  // int _adCmp2(void[] a1, void[] a2, TypeInfo ti)
-  createFwdDecl(LINKc, intTy, {"_adEq2", "_adCmp2"},
+  createFwdDecl(LINKc, intTy, {"_adEq2"},
                 {voidArrayTy, voidArrayTy, typeInfoTy}, {}, Attr_ReadOnly);
-
-  // int _adCmpChar(void[] a1, void[] a2)
-  createFwdDecl(LINKc, intTy, {"_adCmpChar"}, {voidArrayTy, voidArrayTy}, {},
-                Attr_ReadOnly_NoUnwind);
 
   // void[] _adSort(void[] a, TypeInfo ti)
   createFwdDecl(LINKc, voidArrayTy, {"_adSort"}, {voidArrayTy, typeInfoTy});
