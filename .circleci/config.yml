@@ -112,9 +112,12 @@ commonSteps: &commonSteps
         command: |
           cd ../ninja-ldc
           if [ "$CI_OS" = "osx" ]; then
-            # FIXME: 32-bit runnable/test13613.d fails due to output containing linker warnings like:
+            # FIXME: A few 32-bit tests fail due to output containing linker warnings like:
             # ld: warning: could not create compact unwind for __D3std11parallelism16submitAndExecuteFCQBlQBk8TaskPoolMDFZvZv: stack subl instruction is too different from dwarf stack size
-            rm ../project/tests/d2/dmd-testsuite/runnable/test13613.d
+            rm ../project/tests/d2/dmd-testsuite/runnable/{test13613,statictor}.d
+          else
+            # Circle's RAM disk FS apparently doesn't allow long paths.
+            rm ../project/tests/d2/dmd-testsuite/compilable/issue17167.sh
           fi
           DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R dmd-testsuite
     - run:
