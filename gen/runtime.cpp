@@ -383,12 +383,9 @@ static void buildRuntimeModule() {
   createFwdDecl(LINKc, voidTy, {"_d_assert_msg"}, {stringTy, stringTy, uintTy},
                 {}, Attr_Cold_NoReturn);
 
-  // void _d_assertm(immutable(ModuleInfo)* m, uint line)
-  // void _d_array_bounds(immutable(ModuleInfo)* m, uint line)
   // void _d_switch_error(immutable(ModuleInfo)* m, uint line)
-  createFwdDecl(
-      LINKc, voidTy, {"_d_assertm", "_d_array_bounds", "_d_switch_error"},
-      {moduleInfoPtrTy, uintTy}, {STCimmutable, 0}, Attr_Cold_NoReturn);
+  createFwdDecl(LINKc, voidTy, {"_d_switch_error"}, {moduleInfoPtrTy, uintTy},
+                {STCimmutable, 0}, Attr_Cold_NoReturn);
 
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
@@ -442,12 +439,9 @@ static void buildRuntimeModule() {
                 {typeInfoTy, voidArrayTy->arrayOf()}, {STCconst, 0});
 
   // Object _d_newclass(const ClassInfo ci)
-  createFwdDecl(LINKc, objectTy, {"_d_newclass"}, {classInfoTy}, {STCconst},
-                Attr_NoAlias);
-
   // Object _d_allocclass(const ClassInfo ci)
-  createFwdDecl(LINKc, objectTy, {"_d_allocclass"}, {classInfoTy}, {STCconst},
-                Attr_NoAlias);
+  createFwdDecl(LINKc, objectTy, {"_d_newclass", "_d_allocclass"},
+                {classInfoTy}, {STCconst}, Attr_NoAlias);
 
   // void* _d_newitemT (TypeInfo ti)
   // void* _d_newitemiT(TypeInfo ti)
@@ -564,26 +558,13 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
 
-  // char[] _adSortChar(char[] a)
-  createFwdDecl(LINKc, stringTy, {"_adSortChar"}, {stringTy});
-
-  // wchar[] _adSortWchar(wchar[] a)
-  createFwdDecl(LINKc, wstringTy, {"_adSortWchar"}, {wstringTy});
-
   // int _adEq2(void[] a1, void[] a2, TypeInfo ti)
   createFwdDecl(LINKc, intTy, {"_adEq2"},
                 {voidArrayTy, voidArrayTy, typeInfoTy}, {}, Attr_ReadOnly);
 
-  // void[] _adSort(void[] a, TypeInfo ti)
-  createFwdDecl(LINKc, voidArrayTy, {"_adSort"}, {voidArrayTy, typeInfoTy});
-
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
-
-  // size_t _aaLen(in AA aa)
-  createFwdDecl(LINKc, sizeTy, {"_aaLen"}, {aaTy}, {STCin},
-                Attr_ReadOnly_NoUnwind_1_NoCapture);
 
   // void* _aaGetY(AA* aa, const TypeInfo aati, in size_t valuesize,
   //               in void* pkey)
@@ -600,29 +581,6 @@ static void buildRuntimeModule() {
   createFwdDecl(LINKc, boolTy, {"_aaDelX"}, {aaTy, typeInfoTy, voidPtrTy},
                 {0, STCin, STCin}, Attr_1_3_NoCapture);
 
-  // inout(void[]) _aaValues(inout AA aa, in size_t keysize,
-  //                         in size_t valuesize, const TypeInfo tiValueArray)
-  createFwdDecl(
-      LINKc, voidArrayTy, {"_aaValues"}, {aaTy, sizeTy, sizeTy, typeInfoTy},
-      {STCin | STCout, STCin, STCin, STCconst}, Attr_ReadOnly_1_3_NoCapture);
-
-  // void* _aaRehash(AA* paa, in TypeInfo keyti)
-  createFwdDecl(LINKc, voidPtrTy, {"_aaRehash"},
-                {aaTy->pointerTo(), typeInfoTy}, {0, STCin});
-
-  // inout(void[]) _aaKeys(inout AA aa, in size_t keysize,
-  //                       const TypeInfo tiKeyArray)
-  createFwdDecl(LINKc, voidArrayTy, {"_aaKeys"}, {aaTy, sizeTy, typeInfoTy},
-                {STCin | STCout, STCin, STCconst}, Attr_NoAlias_1_NoCapture);
-
-  // int _aaApply(AA aa, in size_t keysize, dg_t dg)
-  createFwdDecl(LINKc, intTy, {"_aaApply"}, {aaTy, sizeTy, rt_dg1()},
-                {0, STCin, 0}, Attr_1_NoCapture);
-
-  // int _aaApply2(AA aa, in size_t keysize, dg2_t dg)
-  createFwdDecl(LINKc, intTy, {"_aaApply2"}, {aaTy, sizeTy, rt_dg2()},
-                {0, STCin, 0}, Attr_1_NoCapture);
-
   // int _aaEqual(in TypeInfo tiRaw, in AA e1, in AA e2)
   createFwdDecl(LINKc, intTy, {"_aaEqual"}, {typeInfoTy, aaTy, aaTy},
                 {STCin, STCin, STCin}, Attr_1_2_NoCapture);
@@ -631,14 +589,6 @@ static void buildRuntimeModule() {
   //                           void[] keys, void[] values)
   createFwdDecl(LINKc, aaTy, {"_d_assocarrayliteralTX"},
                 {aaTypeInfoTy, voidArrayTy, voidArrayTy}, {STCconst, 0, 0});
-
-  //////////////////////////////////////////////////////////////////////////////
-  //////////////////////////////////////////////////////////////////////////////
-  //////////////////////////////////////////////////////////////////////////////
-
-  // void _moduleCtor()
-  // void _moduleDtor()
-  createFwdDecl(LINKc, voidTy, {"_moduleCtor", "_moduleDtor"}, {});
 
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
