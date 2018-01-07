@@ -45,47 +45,6 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p);
 
 //////////////////////////////////////////////////////////////////////////////
 
-// For sorting string switch cases lexicographically.
-namespace {
-bool compareCaseStrings(CaseStatement *lhs, CaseStatement *rhs) {
-  return lhs->exp->compare(rhs->exp) < 0;
-}
-}
-
-static LLValue *call_string_switch_runtime(llvm::Value *table, Expression *e) {
-  Type *dt = e->type->toBasetype();
-  Type *dtnext = dt->nextOf()->toBasetype();
-  TY ty = dtnext->ty;
-  const char *fname;
-  if (ty == Tchar) {
-    fname = "_d_switch_string";
-  } else if (ty == Twchar) {
-    fname = "_d_switch_ustring";
-  } else if (ty == Tdchar) {
-    fname = "_d_switch_dstring";
-  } else {
-    llvm_unreachable("not char/wchar/dchar");
-  }
-
-  llvm::Function *fn = getRuntimeFunction(e->loc, gIR->module, fname);
-
-  IF_LOG {
-    Logger::cout() << *table->getType() << '\n';
-    Logger::cout() << *fn->getFunctionType()->getParamType(0) << '\n';
-  }
-  assert(table->getType() == fn->getFunctionType()->getParamType(0));
-
-  DValue *val = toElemDtor(e);
-  LLValue *llval = DtoRVal(val);
-  assert(llval->getType() == fn->getFunctionType()->getParamType(1));
-
-  LLCallSite call = gIR->CreateCallOrInvoke(fn, table, llval);
-
-  return call.getInstruction();
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
 class ToIRVisitor : public Visitor {
   IRState *irs;
 
@@ -893,9 +852,7 @@ public:
     emitCoverageLinecountInc(stmt->loc);
     llvm::BasicBlock *const oldbb = irs->scopebb();
 
-    // The cases of the switch statement, in codegen order. For string switches,
-    // we reorder them lexicographically later to match what the _d_switch_*
-    // druntime dispatch functions expect.
+    // The cases of the switch statement, in codegen order.
     auto cases = stmt->cases;
     const auto caseCount = cases->dim;
 
@@ -906,56 +863,22 @@ public:
     indices.reserve(caseCount);
     bool useSwitchInst = true;
 
-    // For string switches, sort the cases and emit the table data.
-    llvm::Value *stringTableSlice = nullptr;
-    const bool isStringSwitch = !stmt->condition->type->isintegral();
-    if (isStringSwitch) {
-      Logger::println("is string switch");
-      assert(!irs->dcomputetarget);
+    for (auto cs : *cases) {
+      // skip over casts
+      auto ce = cs->exp;
+      while (ce->op == TOKcast)
+        ce = static_cast<CastExp *>(ce)->e1;
 
-      // Sort the cases, taking care not to modify the original AST.
-      cases = cases->copy();
-      std::sort(cases->begin(), cases->end(), compareCaseStrings);
-
-      // Emit constants for the case values.
-      llvm::SmallVector<llvm::Constant *, 16> stringConsts;
-      stringConsts.reserve(caseCount);
-      for (size_t i = 0; i < caseCount; ++i) {
-        stringConsts.push_back(toConstElem((*cases)[i]->exp, irs));
-        indices.push_back(DtoConstUint(i));
-      }
-
-      // Create internal global with the data table.
-      const auto elemTy = DtoType(stmt->condition->type);
-      const auto arrTy = llvm::ArrayType::get(elemTy, stringConsts.size());
-      const auto arrInit = LLConstantArray::get(arrTy, stringConsts);
-      const auto arr = new llvm::GlobalVariable(
-          irs->module, arrTy, true, llvm::GlobalValue::InternalLinkage, arrInit,
-          ".string_switch_table_data");
-
-      // Create D slice to pass to runtime later.
-      const auto arrPtr =
-          llvm::ConstantExpr::getBitCast(arr, getPtrToType(elemTy));
-      const auto arrLen = DtoConstSize_t(stringConsts.size());
-      stringTableSlice = DtoConstSlice(arrLen, arrPtr);
-    } else {
-      for (auto cs : *cases) {
-        // skip over casts
-        auto ce = cs->exp;
-        while (ce->op == TOKcast)
-          ce = static_cast<CastExp *>(ce)->e1;
-
-        if (ce->op == TOKvar) {
-          const auto vd = static_cast<VarExp *>(ce)->var->isVarDeclaration();
-          if (vd && (!vd->_init || !vd->isConst())) {
-            indices.push_back(DtoRVal(toElemDtor(cs->exp)));
-            useSwitchInst = false;
-            continue;
-          }
+      if (ce->op == TOKvar) {
+        const auto vd = static_cast<VarExp *>(ce)->var->isVarDeclaration();
+        if (vd && (!vd->_init || !vd->isConst())) {
+          indices.push_back(DtoRVal(toElemDtor(cs->exp)));
+          useSwitchInst = false;
+          continue;
         }
-
-        indices.push_back(toConstElem(cs->exp, irs));
       }
+
+      indices.push_back(toConstElem(cs->exp, irs));
     }
     assert(indices.size() == caseCount);
 
@@ -987,12 +910,7 @@ public:
     irs->scope() = IRScope(oldbb);
     if (useSwitchInst) {
       // The case index value.
-      LLValue *condVal;
-      if (isStringSwitch) {
-        condVal = call_string_switch_runtime(stringTableSlice, stmt->condition);
-      } else {
-        condVal = DtoRVal(toElemDtor(stmt->condition));
-      }
+      LLValue *condVal = DtoRVal(toElemDtor(stmt->condition));
 
       // Create switch and add the cases.
       // For PGO instrumentation, we need to add counters /before/ the case

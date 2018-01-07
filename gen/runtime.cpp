@@ -664,22 +664,6 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
 
-  // int _d_switch_string(char[][] table, char[] ca)
-  createFwdDecl(LINKc, intTy, {"_d_switch_string"},
-                {stringTy->arrayOf(), stringTy}, {}, Attr_ReadOnly);
-
-  // int _d_switch_ustring(wchar[][] table, wchar[] ca)
-  createFwdDecl(LINKc, intTy, {"_d_switch_ustring"},
-                {wstringTy->arrayOf(), wstringTy}, {}, Attr_ReadOnly);
-
-  // int _d_switch_dstring(dchar[][] table, dchar[] ca)
-  createFwdDecl(LINKc, intTy, {"_d_switch_dstring"},
-                {dstringTy->arrayOf(), dstringTy}, {}, Attr_ReadOnly);
-
-  //////////////////////////////////////////////////////////////////////////////
-  //////////////////////////////////////////////////////////////////////////////
-  //////////////////////////////////////////////////////////////////////////////
-
   // int _d_eh_personality(...)
   {
     if (global.params.targetTriple->isWindowsMSVCEnvironment()) {

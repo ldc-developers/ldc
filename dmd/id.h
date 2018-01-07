@@ -33,6 +33,7 @@ public:
     static Identifier *__c_long;
     static Identifier *__c_ulong;
     static Identifier *__c_long_double;
+    static Identifier *__switch;
     static Identifier *lib;
     static Identifier *ldc;
     static Identifier *dcompute;

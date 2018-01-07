@@ -169,7 +169,8 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     stop = true;
   }
   void visit(SwitchStatement *e) override {
-    if (!e->condition->type->isintegral()) {
+    if (e->condition->op == TOKcall &&
+        static_cast<CallExp *>(e->condition)->f->ident == Id::__switch) {
       e->error("cannot `switch` on strings in `@compute` code");
       stop = true;
     }
