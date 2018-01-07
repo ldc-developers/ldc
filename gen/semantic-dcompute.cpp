@@ -67,6 +67,8 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     return false;
   }
 
+  using StoppableVisitor::visit;
+
   void visit(InterfaceDeclaration *decl) override {
     decl->error("interfaces and classes not allowed in `@compute` code");
     stop = true;
