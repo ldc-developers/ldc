@@ -128,8 +128,6 @@ public:
     AlignDeclaration(Loc loc, Expression *ealign, Dsymbols *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     Scope *newScope(Scope *sc);
-    void setScope(Scope *sc);
-    structalign_t getAlignment();
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -186,7 +184,6 @@ public:
     void addMember(Scope *sc, ScopeDsymbol *sds);
     void setScope(Scope *sc);
     void importAll(Scope *sc);
-    void semantic(Scope *sc);
     const char *kind() const;
     void accept(Visitor *v) { v->visit(this); }
 };

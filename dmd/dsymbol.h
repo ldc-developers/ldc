@@ -91,11 +91,6 @@ typedef union tree_node Symbol;
 struct Symbol;
 #endif
 
-// in dsymbolsem.d
-void semantic(Dsymbol *dsym, Scope *sc);
-void semantic2(Dsymbol *dsym, Scope *sc);
-void semantic3(Dsymbol *dsym, Scope *sc);
-
 struct Ungag
 {
     unsigned oldgag;
@@ -104,6 +99,9 @@ struct Ungag
     ~Ungag() { global.gag = oldgag; }
 };
 
+void dsymbolSemantic(Dsymbol *dsym, Scope *sc);
+void semantic2(Dsymbol *dsym, Scope *sc);
+void semantic3(Dsymbol *dsym, Scope* sc);
 const char *mangleExact(FuncDeclaration *fd);
 void mangleToBuffer(Dsymbol *s, OutBuffer* buf);
 
@@ -339,7 +337,6 @@ public:
     static Dsymbol *getNth(Dsymbols *members, size_t nth, size_t *pn = NULL);
 
     ScopeDsymbol *isScopeDsymbol() { return this; }
-    void semantic(Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -394,7 +391,6 @@ class ForwardingScopeDsymbol : public ScopeDsymbol
     Dsymbol *symtabInsert(Dsymbol *s);
     Dsymbol *symtabLookup(Dsymbol *s, Identifier *id);
     void importScope(Dsymbol *s, Prot protection);
-    void semantic(Scope *sc);
     const char *kind() const;
 
     ForwardingScopeDsymbol *isForwardingScopeDsymbol() { return this; }
