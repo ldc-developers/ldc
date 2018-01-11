@@ -16,6 +16,7 @@
 #include "rmem.h"
 #include "template.h"
 #include "gen/classes.h"
+#include "gen/dcompute/druntime.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
@@ -258,8 +259,10 @@ public:
 
       assert(!(decl->storage_class & STCmanifest) &&
              "manifest constant being codegen'd!");
-      assert(!irs->dcomputetarget);
 
+      auto isDComputeAddrspace = toDcomputeAddrspacedType(decl);
+      assert(!isDComputeAddrspace || isDComputeAddrspace->id == Id::dcVariable);
+        
       IrGlobal *irGlobal = getIrGlobal(decl);
       LLGlobalVariable *gvar = llvm::cast<LLGlobalVariable>(irGlobal->value);
       assert(gvar && "DtoResolveVariable should have created value");

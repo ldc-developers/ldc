@@ -21,6 +21,7 @@ public:
     static Identifier *ldc;
     static Identifier *dcompute;
     static Identifier *dcPointer;
+    static Identifier *dcVariable;
     static Identifier *object;
     static Identifier *ensure;
     static Identifier *require;

@@ -35,3 +35,7 @@ void foo(GenericPointer!float f) {
     // PTX: ld.f32
     float g = *f;
 }
+
+Shared!float bar1;
+Global!flaot bar2;
+Constant!float bar3;

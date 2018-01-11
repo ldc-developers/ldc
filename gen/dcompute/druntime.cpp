@@ -34,12 +34,30 @@ bool isFromLDC_DCompute(Dsymbol *sym) {
   return moduleDecl->id == Id::dcompute;
 }
 
-llvm::Optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd) {
-  if (sd->ident != Id::dcPointer || !isFromLDC_DCompute(sd))
-    return llvm::Optional<DcomputePointer>(llvm::None);
+llvm::Optional<DcomputeAddrspacedType> toDcomputeAddrspacedType(VarDeclaration *vd) {
+  StructDeclaration *sd = nullptr;
+  if (vd->isThis())
+    sd = vd->isThis()->isStructDeclaration();
+  return toDcomputeAddrspacedType(sd);
+}
 
+llvm::Optional<DcomputeAddrspacedType> toDcomputeAddrspacedType(StructDeclaration *sd) {
+  if (!sd ||
+      !(sd->ident == Id::dcPointer || sd->ident == Id::dcVariable) ||
+      !isFromLDC_DCompute(sd))
+  {
+    return llvm::Optional<DcomputeAddrspacedType>(llvm::None);
+  }
+    
   TemplateInstance *ti = sd->isInstantiated();
   int addrspace = isExpression((*ti->tiargs)[0])->toInteger();
   Type *type = isType((*ti->tiargs)[1]);
-  return llvm::Optional<DcomputePointer>(DcomputePointer(addrspace, type));
+  return llvm::Optional<DcomputeAddrspacedType>(DcomputeAddrspacedType(addrspace, type,sd->ident));
+}
+
+unsigned addressSpaceForVarDeclaration(VarDeclaration *vd) {
+    auto isDComputeAddrspace = toDcomputeAddrspacedType(vd);
+    if (isDComputeAddrspace && isDComputeAddrspace->id == Id::dcVariable)
+      return isDComputeAddrspace->translate();
+    return 0;
 }

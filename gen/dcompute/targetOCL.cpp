@@ -165,14 +165,15 @@ public:
   void decodeTypes(std::array<llvm::SmallVector<llvm::Metadata *, 8>,count_KernArgMD> attrs,
                    VarDeclaration *v)
   {
-    llvm::Optional<DcomputePointer> ptr;
+    llvm::Optional<DcomputeAddrspacedType> ptr;
     std::string typeQuals;
     std::string baseTyName;
     std::string tyName;
     std::string accessQual = "none";
     int addrspace = 0;
     if (v->type->ty == Tstruct &&
-        (ptr = toDcomputePointer(static_cast<TypeStruct *>(v->type)->sym))) {
+        (ptr = toDcomputeAddrspacedType(v)) &&
+        ptr->id == Id::dcPointer) {
       addrspace = ptr->addrspace;
       tyName = basicTypeToString(ptr->type) + "*";
       baseTyName = tyName;

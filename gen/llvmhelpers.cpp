@@ -16,6 +16,7 @@
 #include "gen/classes.h"
 #include "gen/complex.h"
 #include "gen/dvalue.h"
+#include "gen/dcompute/druntime.h"
 #include "gen/funcgenstate.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
@@ -885,9 +886,13 @@ void DtoResolveVariable(VarDeclaration *vd) {
       linkage = llvm::GlobalValue::ExternalWeakLinkage;
     }
 
+    
+      unsigned addrspace = addressSpaceForVarDeclaration(vd);
+
     llvm::GlobalVariable *gvar =
         getOrCreateGlobal(vd->loc, gIR->module, DtoMemType(vd->type), isLLConst,
-                          linkage, nullptr, irMangle, vd->isThreadlocal());
+                          linkage, nullptr, irMangle, vd->isThreadlocal(),
+                          addrspace);
     auto varIr = getIrGlobal(vd);
     varIr->value = gvar;
 
@@ -1721,7 +1726,8 @@ llvm::GlobalVariable *getOrCreateGlobal(const Loc &loc, llvm::Module &module,
                                         llvm::GlobalValue::LinkageTypes linkage,
                                         llvm::Constant *init,
                                         llvm::StringRef name,
-                                        bool isThreadLocal) {
+                                        bool isThreadLocal,
+                                        unsigned addressSpace) {
   llvm::GlobalVariable *existing = module.getGlobalVariable(name, true);
   if (existing) {
     if (existing->getType()->getElementType() != type) {
@@ -1744,7 +1750,7 @@ llvm::GlobalVariable *getOrCreateGlobal(const Loc &loc, llvm::Module &module,
                  : clThreadModel.getValue())
           : llvm::GlobalVariable::NotThreadLocal;
   return new llvm::GlobalVariable(module, type, isConstant, linkage, init, name,
-                                  nullptr, tlsModel);
+                                  nullptr, tlsModel,addressSpace);
 }
 
 FuncDeclaration *getParentFunc(Dsymbol *sym) {

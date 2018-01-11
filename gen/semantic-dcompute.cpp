@@ -22,6 +22,7 @@
 #include "ddmd/identifier.h"
 #include "ddmd/module.h"
 #include "ddmd/template.h"
+#include "gen/dcompute/druntime.h"
 #include "gen/dcompute/target.h"
 #include "gen/logger.h"
 #include "gen/recursivevisitor.h"
@@ -82,7 +83,12 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     if (decl->isDataseg()) {
       if (strncmp(decl->toChars(), "__critsec", 9) &&
         strncmp(decl->toChars(), "typeid", 6)) {
-        decl->error("global variables not allowed in `@compute` code");
+        auto isDComputeAddrspace = toDcomputeAddrspacedType(decl);
+        if (!isDComputeAddrspace || isDComputeAddrspace->id != Id::dcVariable) {
+          decl->error("global variables must be `Variable!(Addrspace.Global,...)`"
+                      " `Variable!(Addrspace.Shared,...)` or "
+                      " `Variable!(Addrspace.Constant,...)`");
+        }
       }
       // Ignore typeid: it is ignored by codegen.
       stop = true;
@@ -146,7 +152,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
   }
 
   void visit(StringExp *e) override {
-    e->error("string literals not allowed in `@compute` code");
+    e->error("string literals not allowed in `@compute` code (yet)");
     stop = true;
   }
   void visit(CompoundAsmStatement *e) override {

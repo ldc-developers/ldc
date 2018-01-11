@@ -255,7 +255,8 @@ llvm::GlobalVariable *getOrCreateGlobal(const Loc &loc, llvm::Module &module,
                                         llvm::GlobalValue::LinkageTypes linkage,
                                         llvm::Constant *init,
                                         llvm::StringRef name,
-                                        bool isThreadLocal = false);
+                                        bool isThreadLocal = false,
+                                        unsigned addrspace = 0);
 
 FuncDeclaration *getParentFunc(Dsymbol *sym);
 

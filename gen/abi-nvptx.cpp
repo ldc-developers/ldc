@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "ddmd/id.h"
 #include "gen/abi.h"
 #include "gen/dcompute/druntime.h"
 #include "gen/uda.h"
@@ -39,9 +40,10 @@ struct NVPTXTargetABI : TargetABI {
   }
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     Type *ty = arg.type->toBasetype();
-    llvm::Optional<DcomputePointer> ptr;
+    llvm::Optional<DcomputeAddrspacedType> ptr;
     if (ty->ty == Tstruct &&
-        (ptr = toDcomputePointer(static_cast<TypeStruct*>(ty)->sym)))
+        (ptr = toDcomputeAddrspacedType(static_cast<TypeStruct*>(ty)->sym)) &&
+        ptr->id == Id::dcPointer)
     {
         arg.rewrite = &pointerRewite;
         arg.ltype = pointerRewite.type(arg.type);

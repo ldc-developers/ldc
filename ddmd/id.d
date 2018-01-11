@@ -452,6 +452,7 @@ immutable Msgtable[] msgtable =
     // IN_LLVM: DCompute specific types and functionss
     { "dcompute" },
     { "dcPointer", "Pointer" },
+    { "dcVariable", "Variable" },
     { "dcReflect", "__dcompute_reflect" },
 ];
 
