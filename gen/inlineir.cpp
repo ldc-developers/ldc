@@ -76,19 +76,14 @@ void DtoCheckInlineIRPragma(Identifier *ident, Dsymbol *s) {
 
     TemplateParameters &params = *td->parameters;
     bool valid_params =
-        (params.dim == 3 && params[1]->isTemplateTypeParameter() &&
-         params[2]->isTemplateTupleParameter()) ||
-        (params.dim == 5 && params[3]->isTemplateTypeParameter() &&
-         params[4]->isTemplateTupleParameter());
+        (params.dim == 3 || params.dim == 5) &&
+        params[params.dim - 2]->isTemplateTypeParameter() &&
+        params[params.dim - 1]->isTemplateTupleParameter();
 
     if (valid_params) {
-      TemplateValueParameter *p0 = params[0]->isTemplateValueParameter();
-      valid_params = valid_params && p0 && p0->valType == Type::tstring;
-      if (params.dim == 5) {
-        TemplateValueParameter *p1 = params[1]->isTemplateValueParameter();
-        valid_params = valid_params && p1 && p1->valType == Type::tstring;
-        TemplateValueParameter *p2 = params[2]->isTemplateValueParameter();
-        valid_params = valid_params && p2 && p2->valType == Type::tstring;
+      for (d_size_t i = 0; i < (params.dim - 2); ++i) {
+        TemplateValueParameter *p0 = params[i]->isTemplateValueParameter();
+        valid_params = valid_params && p0 && p0->valType == Type::tstring;
       }
     }
 
@@ -151,7 +146,6 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
       prefix = exprToString(prefexp);
       code = exprToString(strexp);
       suffix = exprToString(suffexp);
-
     } else {
       Expression *a0 = isExpression(objs[0]);
       assert(a0);
