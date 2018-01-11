@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "ddmd/id.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/LLVMContext.h"
 #include "mars.h"
@@ -204,12 +205,25 @@ IrTypeVector *IrTypeVector::get(Type *dt) {
   return dt->ctype->isVector();
 }
 
+namespace {
+bool isBitBoolType(Type *t) {
+  assert(t != nullptr);
+  if (t->ty == Tstruct &&
+      static_cast<TypeStruct*>(t)->sym->ident == Id::vecBitBool) {
+    return true;
+  }
+  return false;
+}
+}
+
 llvm::Type *IrTypeVector::vector2llvm(Type *dt) {
   assert(dt->ty == Tvector && "not vector type");
   TypeVector *tv = static_cast<TypeVector *>(dt);
   assert(tv->basetype->ty == Tsarray);
   TypeSArray *tsa = static_cast<TypeSArray *>(tv->basetype);
   uint64_t dim = static_cast<uint64_t>(tsa->dim->toUInteger());
-  LLType *elemType = DtoMemType(tsa->next);
-  return llvm::VectorType::get(elemType, dim);
+  LLType *elemType = isBitBoolType(tsa->next) ?
+                       LLType::getInt1Ty(gIR->context()) :
+                       DtoMemType(tsa->next);
+  return llvm::VectorType::get(elemType, static_cast<unsigned>(dim));
 }

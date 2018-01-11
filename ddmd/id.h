@@ -67,6 +67,7 @@ public:
     static Identifier *udaCompute;
     static Identifier *udaDynamicCompile;
     static Identifier *udaDynamicCompileConst;
+    static Identifier *vecBitBool;
 };
 
 #endif /* DMD_ID_H */

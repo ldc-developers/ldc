@@ -453,6 +453,9 @@ immutable Msgtable[] msgtable =
     { "dcompute" },
     { "dcPointer", "Pointer" },
     { "dcReflect", "__dcompute_reflect" },
+
+    // IN_LLVM: Magic type to create LLVM i1 vectors
+    { "vecBitBool", "__VecBitBool" },
 ];
 
 

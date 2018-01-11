@@ -2608,8 +2608,14 @@ public:
       Logger::println("normal (splat) expression");
       DValue *val = toElem(e->e1);
       LLValue *llval = DtoRVal(DtoCast(e->loc, val, type->elementType()));
+      const bool isi1 = (llval->getType() == llvm::Type::getInt1Ty(gIR->context()));
+
       for (unsigned int i = 0; i < e->dim; ++i) {
-        DtoStore(llval, DtoGEPi(vector, 0, i));
+        if (isi1) {
+          DtoStoreZextI8(llval, DtoGEPi(vector, 0, i));
+        } else {
+          DtoStore(llval, DtoGEPi(vector, 0, i));
+        }
       }
     }
 

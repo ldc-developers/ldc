@@ -339,9 +339,18 @@ extern (C++) MATCH implicitConvTo(Expression e, Type t)
             if (t.ty == Tvector)
             {
                 TypeVector tv = cast(TypeVector)t;
-                TypeBasic tb = tv.elementType();
-                if (tb.ty == Tvoid)
-                    return;
+                version(IN_LLVM)
+                {
+                    TypeBasic tb = tv.elementType().isTypeBasic();
+                    if (tb is null || tb.ty == Tvoid)
+                        return;
+                }
+                else
+                {
+                    TypeBasic tb = tv.elementType();
+                    if (tb.ty == Tvoid)
+                        return;
+                }
                 toty = tb.ty;
             }
 

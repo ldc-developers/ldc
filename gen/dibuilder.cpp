@@ -59,7 +59,7 @@ llvm::StringRef uniqueIdent(Type* t) {
 
 
 bool ldc::DIBuilder::mustEmitFullDebugInfo() {
-  // only for -g and -gc 
+  // only for -g and -gc
   // TODO: but not dcompute (yet)
 
   if (IR->dcomputetarget) return false;
@@ -68,9 +68,9 @@ bool ldc::DIBuilder::mustEmitFullDebugInfo() {
 }
 
 bool ldc::DIBuilder::mustEmitLocationsDebugInfo() {
-  // for -g -gc and -gline-tables-only 
+  // for -g -gc and -gline-tables-only
   // TODO:but not dcompute (yet)
-    
+
   if (IR->dcomputetarget) return false;
 
   return (global.params.symdebug > 0) || global.params.outputSourceLocations;
@@ -309,7 +309,8 @@ ldc::DIType ldc::DIBuilder::CreateVectorType(Type *type) {
   TypeVector *tv = static_cast<TypeVector *>(t);
   Type *te = tv->elementType();
   // translate void vectors to byte vectors
-  if (te->toBasetype()->ty == Tvoid)
+  if (te == nullptr ||  // Hack for __VecBitBool
+      te->toBasetype()->ty == Tvoid)
     te = Type::tuns8;
   int64_t Dim = tv->size(Loc()) / te->size(Loc());
   LLMetadata *subscripts[] = {DBuilder.getOrCreateSubrange(0, Dim)};
@@ -1030,7 +1031,7 @@ void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
   llvm::Instruction *instr =
       DBuilder.insertDbgValueIntrinsic(val,
 #if LDC_LLVM_VER < 600
-                                       0, 
+                                       0,
 #endif
                                        debugVariable,
                                        DBuilder.createExpression(),

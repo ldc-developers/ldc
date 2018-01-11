@@ -4225,7 +4225,14 @@ version(IN_LLVM)
         if (to.ty == Tvector && to.deco)
         {
             TypeVector tv = cast(TypeVector)to;
-            tob = tv.elementType();
+            version(IN_LLVM)
+            {
+                tob = tv.elementType().isTypeBasic();
+            }
+            else
+            {
+                tob = tv.elementType();
+            }
         }
         else
             tob = to.isTypeBasic();
@@ -4503,6 +4510,19 @@ else
         return ve;
     }
 
+version(IN_LLVM)
+{
+    Type elementType()
+    {
+        assert(basetype.ty == Tsarray);
+        TypeSArray t = cast(TypeSArray)basetype;
+        Type type = t.nextOf();
+        assert(type);
+        return type;
+    }
+}
+else
+{
     TypeBasic elementType()
     {
         assert(basetype.ty == Tsarray);
@@ -4511,6 +4531,7 @@ else
         assert(tb);
         return tb;
     }
+}
 
     override bool isZeroInit(Loc loc)
     {
