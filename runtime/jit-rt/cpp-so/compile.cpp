@@ -389,24 +389,27 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   MyJIT &myJit = getJit();
 
   std::vector<std::pair<std::string, void **>> functions;
-  std::unique_ptr<llvm::Module> finalModule;
+
   SymMap symMap;
-  OptimizerSettings settings;
-  settings.optLevel = context.optLevel;
-  settings.sizeLevel = context.sizeLevel;
+
+  const bool hasLoadCacheHandler = (context.loadCacheHandler != nullptr);
+  const bool hasSaveCacheHandler = (context.saveCacheHandler != nullptr);
 
   llvm::SHA1 irHash;
 
   enumModules(modlist_head, [&](const RtCompileModuleList &current) {
     assert(current.irHash != nullptr);
     assert(current.irHashSize > 0);
-    irHash.update(toArray(current.irHash,
-                          static_cast<std::size_t>(current.irHashSize)));
 
-    hashRtCompileVars(context, myJit.getContext(), myJit.getDataLayout(),
-                      irHash,
-                      toArray(current.varList,
-                              static_cast<std::size_t>(current.varListSize)));
+    if (hasLoadCacheHandler || hasSaveCacheHandler) {
+      irHash.update(toArray(current.irHash,
+                            static_cast<std::size_t>(current.irHashSize)));
+
+      hashRtCompileVars(context, myJit.getContext(), myJit.getDataLayout(),
+                        irHash,
+                        toArray(current.varList,
+                                static_cast<std::size_t>(current.varListSize)));
+    }
 
     for (auto &&fun :
          toArray(current.funcList,
@@ -420,12 +423,18 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
     }
   });
 
+  std::unique_ptr<llvm::Module> finalModule;
+
+  OptimizerSettings settings;
+  settings.optLevel = context.optLevel;
+  settings.sizeLevel = context.sizeLevel;
+
   enumModules(modlist_head, [&](const RtCompileModuleList &current) {
     interruptPoint(context, "load IR");
     auto buff = llvm::MemoryBuffer::getMemBuffer(
-        llvm::StringRef(current.irData,
-                        static_cast<std::size_t>(current.irDataSize)),
-        "", false);
+                  llvm::StringRef(current.irData,
+                                  static_cast<std::size_t>(current.irDataSize)),
+                  "", false);
     interruptPoint(context, "parse IR");
     auto mod = llvm::parseBitcodeFile(*buff, myJit.getContext());
     if (!mod) {
