@@ -20,9 +20,15 @@ namespace llvm {
 class Constant;
 class Type;
 class DataLayout;
+class SHA1;
 }
 
 struct Context;
+
+void getInitializerHash(const Context &context,
+                        const llvm::DataLayout &dataLayout,
+                        llvm::Type *type, const void *data,
+                        llvm::SHA1& hasher);
 
 llvm::Constant *parseInitializer(const Context &context,
                                  const llvm::DataLayout &dataLayout,

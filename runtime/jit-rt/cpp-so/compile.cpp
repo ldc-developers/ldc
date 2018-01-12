@@ -23,6 +23,7 @@
 #include "context.h"
 #include "disassembler.h"
 #include "optimizer.h"
+#include "valueparser.h"
 #include "utils.h"
 
 #include "llvm/Bitcode/BitcodeReader.h"
@@ -40,6 +41,7 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/SHA1.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
@@ -67,6 +69,8 @@ struct RtCompileSymList {
 struct RtCompileVarList {
   const char *name;
   const void *init;
+  const char *desc;
+  int descSize;
 };
 
 struct RtCompileModuleList {
@@ -79,7 +83,7 @@ struct RtCompileModuleList {
   int symListSize;
   const RtCompileVarList *varList;
   int varListSize;
-  const char *irHash;
+  const uint8_t *irHash;
   int irHashSize;
 };
 
@@ -198,6 +202,7 @@ public:
   }
 
   llvm::TargetMachine &getTargetMachine() { return *targetmachine; }
+  const llvm::DataLayout &getDataLayout() const { return dataLayout; }
 
   bool addModule(std::unique_ptr<llvm::Module> module, const SymMap &symMap,
                  llvm::raw_ostream *asmListener) {
@@ -273,6 +278,29 @@ private:
 MyJIT &getJit() {
   static MyJIT jit;
   return jit;
+}
+
+void hashRtCompileVars(const Context &context,
+                       llvm::LLVMContext &llContext,
+                       const llvm::DataLayout &dataLayout,
+                       llvm::SHA1 &hasher,
+                       llvm::ArrayRef<RtCompileVarList> vals) {
+  for (auto &&val : vals) {
+    auto buff = llvm::MemoryBuffer::getMemBuffer(
+        llvm::StringRef(val.desc,
+                        static_cast<std::size_t>(val.descSize)),
+        "", false);
+    auto mod = llvm::parseBitcodeFile(*buff, llContext);
+    if (!mod) {
+      fatal(context, "Unable to parse dynamicCompileConst var desc");
+    }
+    auto var = (*mod)->getGlobalVariable("dummy", true);
+    if (var == nullptr) {
+      fatal(context, "Unable to get dynamicCompileConst type");
+    }
+    getInitializerHash(context, dataLayout, var->getType()->getElementType(),
+                       val.init, hasher);
+  }
 }
 
 void setRtCompileVars(const Context &context, llvm::Module &module,
@@ -367,6 +395,31 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   settings.optLevel = context.optLevel;
   settings.sizeLevel = context.sizeLevel;
 
+  llvm::SHA1 irHash;
+
+  enumModules(modlist_head, [&](const RtCompileModuleList &current) {
+    assert(current.irHash != nullptr);
+    assert(current.irHashSize > 0);
+    irHash.update(toArray(current.irHash,
+                          static_cast<std::size_t>(current.irHashSize)));
+
+    hashRtCompileVars(context, myJit.getContext(), myJit.getDataLayout(),
+                      irHash,
+                      toArray(current.varList,
+                              static_cast<std::size_t>(current.varListSize)));
+
+    for (auto &&fun :
+         toArray(current.funcList,
+                 static_cast<std::size_t>(current.funcListSize))) {
+      functions.push_back(std::make_pair(fun.name, fun.func));
+    }
+
+    for (auto &&sym : toArray(current.symList, static_cast<std::size_t>(
+                                current.symListSize))) {
+      symMap.insert(std::make_pair(decorate(sym.name), sym.sym));
+    }
+  });
+
   enumModules(modlist_head, [&](const RtCompileModuleList &current) {
     interruptPoint(context, "load IR");
     auto buff = llvm::MemoryBuffer::getMemBuffer(
@@ -394,26 +447,12 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
                      toArray(current.varList,
                              static_cast<std::size_t>(current.varListSize)));
 
-    assert(current.irHash != nullptr);
-    assert(current.irHashSize == 20);
-
     if (nullptr == finalModule) {
       finalModule = std::move(*mod);
     } else {
       if (llvm::Linker::linkModules(*finalModule, std::move(*mod))) {
         fatal(context, "Can't merge module");
       }
-    }
-
-    for (auto &&fun :
-         toArray(current.funcList,
-                 static_cast<std::size_t>(current.funcListSize))) {
-      functions.push_back(std::make_pair(fun.name, fun.func));
-    }
-
-    for (auto &&sym : toArray(current.symList, static_cast<std::size_t>(
-                                current.symListSize))) {
-      symMap.insert(std::make_pair(decorate(sym.name), sym.sym));
     }
   });
 
