@@ -36,8 +36,8 @@ bool isFromLDC_DCompute(Dsymbol *sym) {
 
 llvm::Optional<DcomputeAddrspacedType> toDcomputeAddrspacedType(VarDeclaration *vd) {
   StructDeclaration *sd = nullptr;
-  if (vd->isThis())
-    sd = vd->isThis()->isStructDeclaration();
+  if (vd->type->ty == Tstruct)
+    sd = ((TypeStruct*)vd->type)->sym;
   return toDcomputeAddrspacedType(sd);
 }
 
