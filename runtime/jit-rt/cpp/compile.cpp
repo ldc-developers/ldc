@@ -19,9 +19,9 @@ struct Context;
 extern "C" {
 
 // Silence missing-variable-declaration clang warning
-extern void *dynamiccompile_modules_head;
+extern const void *dynamiccompile_modules_head;
 
-void *dynamiccompile_modules_head = nullptr;
+const void *dynamiccompile_modules_head = nullptr;
 #ifdef _WIN32
 __declspec(dllimport)
 #endif

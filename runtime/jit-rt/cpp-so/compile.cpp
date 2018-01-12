@@ -17,6 +17,7 @@
 #include <memory>
 #include <sstream>
 #include <stdexcept>
+#include <type_traits>
 
 #include "callback_ostream.h"
 #include "context.h"
@@ -69,14 +70,14 @@ struct RtCompileVarList {
 };
 
 struct RtCompileModuleList {
-  RtCompileModuleList *next;
+  const RtCompileModuleList *next;
   const char *irData;
   int irDataSize;
-  RtCompileFuncList *funcList;
+  const RtCompileFuncList *funcList;
   int funcListSize;
-  RtCompileSymList *symList;
+  const RtCompileSymList *symList;
   int symListSize;
-  RtCompileVarList *varList;
+  const RtCompileVarList *varList;
   int varListSize;
   const char *irHash;
   int irHashSize;
@@ -281,8 +282,9 @@ void setRtCompileVars(const Context &context, llvm::Module &module,
   }
 }
 
-template <typename T> llvm::ArrayRef<T> toArray(T *ptr, size_t size) {
-  return llvm::ArrayRef<T>(ptr, size);
+template <typename T> auto toArray(T *ptr, size_t size)
+-> llvm::ArrayRef<typename std::remove_cv<T>::type> {
+  return llvm::ArrayRef<typename std::remove_cv<T>::type>(ptr, size);
 }
 
 void *resolveSymbol(llvm::JITSymbol &symbol) {
