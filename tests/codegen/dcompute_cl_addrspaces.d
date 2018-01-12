@@ -56,3 +56,7 @@ void foo(GenericPointer!float f) {
     // SPT-DAG: 5 Function [[VOID_ID]] {{[0-9]+}} 0 [[FOO_GENERIC]]
     float g = *f;
 }
+
+Shared!float bar1;
+Global!float bar2;
+Constant!float bar3;

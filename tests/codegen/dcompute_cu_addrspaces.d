@@ -37,5 +37,5 @@ void foo(GenericPointer!float f) {
 }
 
 Shared!float bar1;
-Global!flaot bar2;
+Global!float bar2;
 Constant!float bar3;
