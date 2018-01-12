@@ -57,6 +57,9 @@ void foo(GenericPointer!float f) {
     float g = *f;
 }
 
+// LL: @_D{{.*}}bar1{{.*}} = addrspace(1)
 Global!float bar1;
+// LL: @_D{{.*}}bar1{{.*}} = addrspace(2)
 Shared!float bar2;
+// LL: @_D{{.*}}bar1{{.*}} = addrspace(3)
 Constant!float bar3;
