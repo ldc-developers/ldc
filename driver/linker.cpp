@@ -20,11 +20,6 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-static llvm::cl::opt<llvm::cl::boolOrDefault>
-    staticFlag("static", llvm::cl::ZeroOrMore,
-               llvm::cl::desc("Create a statically linked binary, including "
-                              "all system dependencies"));
-
 #if LDC_WITH_LLD
 static llvm::cl::opt<bool>
     useInternalLinker("link-internally", llvm::cl::ZeroOrMore, llvm::cl::Hidden,
@@ -134,10 +129,10 @@ int linkObjToBinary() {
   createDirectoryForFileOrFail(gExePath);
 
   if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
-    return linkObjToBinaryMSVC(gExePath, useInternalLinker, staticFlag);
+    return linkObjToBinaryMSVC(gExePath, useInternalLinker, opts::staticFlag);
   }
 
-  return linkObjToBinaryGcc(gExePath, useInternalLinker, staticFlag);
+  return linkObjToBinaryGcc(gExePath, useInternalLinker, opts::staticFlag);
 }
 
 //////////////////////////////////////////////////////////////////////////////
