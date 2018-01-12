@@ -342,6 +342,15 @@ struct JitFinaliser final {
   void finalze() { finalized = true; }
 };
 
+template<typename F>
+void enumModules(const RtCompileModuleList *modlist_head, F&& fun) {
+  auto current = modlist_head;
+  while (current != nullptr) {
+    fun(*current);
+    current = current->next;
+  }
+}
+
 void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
                                     const Context &context) {
   if (nullptr == modlist_head) {
@@ -350,7 +359,6 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   }
   interruptPoint(context, "Init");
   MyJIT &myJit = getJit();
-  auto current = modlist_head;
 
   std::vector<std::pair<std::string, void **>> functions;
   std::unique_ptr<llvm::Module> finalModule;
@@ -359,11 +367,11 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   settings.optLevel = context.optLevel;
   settings.sizeLevel = context.sizeLevel;
 
-  while (nullptr != current) {
+  enumModules(modlist_head, [&](const RtCompileModuleList &current) {
     interruptPoint(context, "load IR");
     auto buff = llvm::MemoryBuffer::getMemBuffer(
-        llvm::StringRef(current->irData,
-                        static_cast<std::size_t>(current->irDataSize)),
+        llvm::StringRef(current.irData,
+                        static_cast<std::size_t>(current.irDataSize)),
         "", false);
     interruptPoint(context, "parse IR");
     auto mod = llvm::parseBitcodeFile(*buff, myJit.getContext());
@@ -383,11 +391,11 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
 
     interruptPoint(context, "setRtCompileVars", name.data());
     setRtCompileVars(context, module,
-                     toArray(current->varList,
-                             static_cast<std::size_t>(current->varListSize)));
+                     toArray(current.varList,
+                             static_cast<std::size_t>(current.varListSize)));
 
-    assert(current->irHash != nullptr);
-    assert(current->irHashSize == 20);
+    assert(current.irHash != nullptr);
+    assert(current.irHashSize == 20);
 
     if (nullptr == finalModule) {
       finalModule = std::move(*mod);
@@ -398,17 +406,16 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
     }
 
     for (auto &&fun :
-         toArray(current->funcList,
-                 static_cast<std::size_t>(current->funcListSize))) {
+         toArray(current.funcList,
+                 static_cast<std::size_t>(current.funcListSize))) {
       functions.push_back(std::make_pair(fun.name, fun.func));
     }
 
-    for (auto &&sym : toArray(current->symList, static_cast<std::size_t>(
-                                current->symListSize))) {
+    for (auto &&sym : toArray(current.symList, static_cast<std::size_t>(
+                                current.symListSize))) {
       symMap.insert(std::make_pair(decorate(sym.name), sym.sym));
     }
-    current = current->next;
-  }
+  });
 
   assert(nullptr != finalModule);
   dumpModule(context, *finalModule, DumpStage::MergedModule);
