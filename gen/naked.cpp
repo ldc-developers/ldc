@@ -41,19 +41,19 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(Statement *stmt) LLVM_OVERRIDE {
+  void visit(Statement *stmt) override {
     error(Loc(), "Statement not allowed in naked function");
   }
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(AsmStatement *stmt) LLVM_OVERRIDE {
+  void visit(AsmStatement *stmt) override {
     AsmStatement_toNakedIR(stmt, irs);
   }
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(CompoundStatement *stmt) LLVM_OVERRIDE {
+  void visit(CompoundStatement *stmt) override {
     IF_LOG Logger::println("CompoundStatement::toNakedIR(): %s",
                            stmt->loc.toChars());
     LOG_SCOPE;
@@ -69,7 +69,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(ExpStatement *stmt) LLVM_OVERRIDE {
+  void visit(ExpStatement *stmt) override {
     IF_LOG Logger::println("ExpStatement::toNakedIR(): %s",
                            stmt->loc.toChars());
     LOG_SCOPE;
@@ -118,7 +118,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(LabelStatement *stmt) LLVM_OVERRIDE {
+  void visit(LabelStatement *stmt) override {
     IF_LOG Logger::println("LabelStatement::toNakedIR(): %s",
                            stmt->loc.toChars());
     LOG_SCOPE;

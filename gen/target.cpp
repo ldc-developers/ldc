@@ -25,7 +25,7 @@
 using llvm::APFloat;
 
 void Target::_init() {
-  ptrsize = gDataLayout->getPointerSize(ADDRESS_SPACE);
+  ptrsize = gDataLayout->getPointerSize();
 
   llvm::Type *const real = DtoType(Type::basic[Tfloat80]);
   realsize = gDataLayout->getTypeAllocSize(real);

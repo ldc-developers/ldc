@@ -185,7 +185,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   abi->rewriteFunctionType(f, newIrFty);
 
   // Now we can modify irFty safely.
-  irFty = llvm_move(newIrFty);
+  irFty = std::move(newIrFty);
 
   // Finally build the actual LLVM function type.
   llvm::SmallVector<llvm::Type *, 16> argtypes;

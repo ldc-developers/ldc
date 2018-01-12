@@ -43,14 +43,14 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(Dsymbol *sym) LLVM_OVERRIDE {
+  void visit(Dsymbol *sym) override {
     IF_LOG Logger::println("Ignoring Dsymbol::codegen for %s",
                            sym->toPrettyChars());
   }
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(Nspace *ns) LLVM_OVERRIDE {
+  void visit(Nspace *ns) override {
     IF_LOG Logger::println("Nspace::codegen for %s", ns->toPrettyChars());
     LOG_SCOPE
 
@@ -62,7 +62,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(InterfaceDeclaration *decl) LLVM_OVERRIDE {
+  void visit(InterfaceDeclaration *decl) override {
     IF_LOG Logger::println("InterfaceDeclaration::codegen: '%s'",
                            decl->toPrettyChars());
     LOG_SCOPE
@@ -104,7 +104,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(StructDeclaration *decl) LLVM_OVERRIDE {
+  void visit(StructDeclaration *decl) override {
     IF_LOG Logger::println("StructDeclaration::codegen: '%s'",
                            decl->toPrettyChars());
     LOG_SCOPE
@@ -158,7 +158,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(ClassDeclaration *decl) LLVM_OVERRIDE {
+  void visit(ClassDeclaration *decl) override {
     IF_LOG Logger::println("ClassDeclaration::codegen: '%s'",
                            decl->toPrettyChars());
     LOG_SCOPE
@@ -205,7 +205,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(TupleDeclaration *decl) LLVM_OVERRIDE {
+  void visit(TupleDeclaration *decl) override {
     IF_LOG Logger::println("TupleDeclaration::codegen(): '%s'",
                            decl->toPrettyChars());
     LOG_SCOPE
@@ -227,7 +227,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(VarDeclaration *decl) LLVM_OVERRIDE {
+  void visit(VarDeclaration *decl) override {
     IF_LOG Logger::println("VarDeclaration::codegen(): '%s'",
                            decl->toPrettyChars());
     LOG_SCOPE;
@@ -311,7 +311,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(EnumDeclaration *decl) LLVM_OVERRIDE {
+  void visit(EnumDeclaration *decl) override {
     IF_LOG Logger::println("Ignoring EnumDeclaration::codegen: '%s'",
                            decl->toPrettyChars());
 
@@ -323,7 +323,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(FuncDeclaration *decl) LLVM_OVERRIDE {
+  void visit(FuncDeclaration *decl) override {
     // don't touch function aliases, they don't contribute any new symbols
     if (!decl->isFuncAliasDeclaration()) {
       DtoDefineFunction(decl);
@@ -332,7 +332,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(TemplateInstance *decl) LLVM_OVERRIDE {
+  void visit(TemplateInstance *decl) override {
     IF_LOG Logger::println("TemplateInstance::codegen: '%s'",
                            decl->toPrettyChars());
     LOG_SCOPE
@@ -375,7 +375,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(TemplateMixin *decl) LLVM_OVERRIDE {
+  void visit(TemplateMixin *decl) override {
     IF_LOG Logger::println("TemplateInstance::codegen: '%s'",
                            decl->toPrettyChars());
     LOG_SCOPE
@@ -394,7 +394,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(AttribDeclaration *decl) LLVM_OVERRIDE {
+  void visit(AttribDeclaration *decl) override {
     Dsymbols *d = decl->include(nullptr, nullptr);
 
     if (d) {
@@ -406,7 +406,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(PragmaDeclaration *decl) LLVM_OVERRIDE {
+  void visit(PragmaDeclaration *decl) override {
     if (decl->ident == Id::lib) {
       assert(decl->args && decl->args->dim == 1);
       assert(!irs->dcomputetarget);
@@ -470,14 +470,14 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(TypeInfoDeclaration *decl) LLVM_OVERRIDE {
+  void visit(TypeInfoDeclaration *decl) override {
     if (!irs->dcomputetarget)
       TypeInfoDeclaration_codegen(decl, irs);
   }
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(TypeInfoClassDeclaration *decl) LLVM_OVERRIDE {
+  void visit(TypeInfoClassDeclaration *decl) override {
     if (!irs->dcomputetarget)
       TypeInfoClassDeclaration_codegen(decl, irs);
   }

@@ -17,7 +17,6 @@
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
-#include "gen/llvmcompat.h"
 
 #if LDC_LLVM_VER >= 500
 #define LLVM_END_WITH_NULL
