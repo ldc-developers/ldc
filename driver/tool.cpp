@@ -9,6 +9,7 @@
 
 #include "driver/tool.h"
 #include "mars.h"
+#include "driver/cl_options.h"
 #include "driver/exe_path.h"
 #include "driver/targetmachine.h"
 #include "llvm/Support/ConvertUTF.h"
@@ -25,7 +26,8 @@
 namespace opts {
 llvm::cl::opt<std::string>
     linker("linker", llvm::cl::ZeroOrMore, llvm::cl::desc("Linker to use"),
-           llvm::cl::value_desc("lld-link|lld|gold|bfd|..."));
+           llvm::cl::value_desc("lld-link|lld|gold|bfd|..."),
+           llvm::cl::cat(opts::linkingCategory));
 }
 
 static llvm::cl::opt<std::string>

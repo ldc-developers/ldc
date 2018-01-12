@@ -97,34 +97,31 @@ static cl::list<std::string, StringsAdapter>
                 cl::value_desc("directory"), cl::location(impPathsStore),
                 cl::Prefix);
 
-static cl::OptionCategory
-    defaultLibsCategory("Libraries linked with by default");
-
 static cl::opt<std::string>
     defaultLib("defaultlib", cl::ZeroOrMore, cl::value_desc("lib1,lib2,..."),
                cl::desc("Default libraries to link with (overrides previous)"),
-               cl::cat(defaultLibsCategory));
+               cl::cat(linkingCategory));
 
 static cl::opt<std::string> debugLib(
     "debuglib", cl::ZeroOrMore, cl::Hidden, cl::value_desc("lib1,lib2,..."),
     cl::desc("Debug versions of default libraries (overrides previous). If the "
              "option is omitted, LDC will append -debug to the -defaultlib "
              "names when linking with -link-defaultlib-debug"),
-    cl::cat(defaultLibsCategory));
+    cl::cat(linkingCategory));
 
 static cl::opt<bool> linkDefaultLibDebug(
     "link-defaultlib-debug", cl::ZeroOrMore,
     cl::desc("Link with debug versions of default libraries"),
-    cl::cat(defaultLibsCategory));
+    cl::cat(linkingCategory));
 static cl::alias _linkDebugLib("link-debuglib", cl::Hidden,
                                cl::aliasopt(linkDefaultLibDebug),
                                cl::desc("Alias for -link-defaultlib-debug"),
-                               cl::cat(defaultLibsCategory));
+                               cl::cat(linkingCategory));
 
 static cl::opt<bool> linkDefaultLibShared(
     "link-defaultlib-shared", cl::ZeroOrMore,
     cl::desc("Link with shared versions of default libraries"),
-    cl::cat(defaultLibsCategory));
+    cl::cat(linkingCategory));
 
 // This function exits the program.
 void printVersion(llvm::raw_ostream &OS) {

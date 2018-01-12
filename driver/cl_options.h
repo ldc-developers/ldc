@@ -39,6 +39,8 @@ namespace cl = llvm::cl;
 /// config and response files.
 extern llvm::SmallVector<const char *, 32> allArguments;
 
+extern cl::OptionCategory linkingCategory;
+
 /* Mostly generated with the following command:
    egrep -e '^(cl::|#if|#e)' gen/cl_options.cpp \
     | sed -re 's/^(cl::.*)\(.*$/    extern \1;/'

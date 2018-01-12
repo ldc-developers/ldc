@@ -21,6 +21,8 @@ namespace opts {
 // This vector is filled by parseCommandLine in main.cpp.
 llvm::SmallVector<const char *, 32> allArguments;
 
+cl::OptionCategory linkingCategory("Linking options");
+
 /* Option parser that defaults to zero when no explicit number is given.
  * i.e.:  -cov    --> value = 0
  *        -cov=9  --> value = 9
@@ -272,12 +274,13 @@ cl::list<std::string> transitions(
 
 cl::list<std::string>
     linkerSwitches("L", cl::desc("Pass <linkerflag> to the linker"),
-                   cl::value_desc("linkerflag"), cl::Prefix);
+                   cl::value_desc("linkerflag"), cl::cat(linkingCategory),
+                   cl::Prefix);
 
 cl::list<std::string>
     ccSwitches("Xcc", cl::CommaSeparated,
                cl::desc("Pass <ccflag> to GCC/Clang for linking"),
-               cl::value_desc("ccflag"));
+               cl::value_desc("ccflag"), cl::cat(linkingCategory));
 
 cl::opt<std::string>
     moduleDeps("deps", cl::ValueOptional, cl::ZeroOrMore,
@@ -289,7 +292,8 @@ cl::opt<std::string>
 cl::opt<cl::boolOrDefault>
     staticFlag("static", llvm::cl::ZeroOrMore,
                llvm::cl::desc("Create a statically linked binary, including "
-                              "all system dependencies"));
+                              "all system dependencies"),
+               cl::cat(linkingCategory));
 
 cl::opt<bool> m32bits("m32", cl::desc("32 bit target"), cl::ZeroOrMore);
 
@@ -369,7 +373,8 @@ cl::opt<bool> linkonceTemplates(
 
 cl::opt<bool> disableLinkerStripDead(
     "disable-linker-strip-dead", cl::ZeroOrMore,
-    cl::desc("Do not try to remove unused symbols during linking"));
+    cl::desc("Do not try to remove unused symbols during linking"),
+    cl::cat(linkingCategory));
 
 // Math options
 bool fFastMath; // Storage for the dynamically created ffast-math option.
