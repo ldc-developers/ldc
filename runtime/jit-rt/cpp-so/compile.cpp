@@ -78,6 +78,8 @@ struct RtCompileModuleList {
   int symListSize;
   RtCompileVarList *varList;
   int varListSize;
+  const char *irHash;
+  int irHashSize;
 };
 
 #pragma pack(pop)
@@ -354,6 +356,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   OptimizerSettings settings;
   settings.optLevel = context.optLevel;
   settings.sizeLevel = context.sizeLevel;
+
   while (nullptr != current) {
     interruptPoint(context, "load IR");
     auto buff = llvm::MemoryBuffer::getMemBuffer(
@@ -364,40 +367,43 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
     auto mod = llvm::parseBitcodeFile(*buff, myJit.getContext());
     if (!mod) {
       fatal(context, "Unable to parse IR");
+    }
+
+    llvm::Module &module = **mod;
+    const auto name = module.getName();
+    interruptPoint(context, "Verify module", name.data());
+    verifyModule(context, module);
+
+    dumpModule(context, module, DumpStage::OriginalModule);
+    setFunctionsTarget(module, myJit.getTargetMachine());
+
+    module.setDataLayout(myJit.getTargetMachine().createDataLayout());
+
+    interruptPoint(context, "setRtCompileVars", name.data());
+    setRtCompileVars(context, module,
+                     toArray(current->varList,
+                             static_cast<std::size_t>(current->varListSize)));
+
+    assert(current->irHash != nullptr);
+    assert(current->irHashSize == 20);
+
+    if (nullptr == finalModule) {
+      finalModule = std::move(*mod);
     } else {
-      llvm::Module &module = **mod;
-      const auto name = module.getName();
-      interruptPoint(context, "Verify module", name.data());
-      verifyModule(context, module);
-
-      dumpModule(context, module, DumpStage::OriginalModule);
-      setFunctionsTarget(module, myJit.getTargetMachine());
-
-      module.setDataLayout(myJit.getTargetMachine().createDataLayout());
-
-      interruptPoint(context, "setRtCompileVars", name.data());
-      setRtCompileVars(context, module,
-                       toArray(current->varList,
-                               static_cast<std::size_t>(current->varListSize)));
-
-      if (nullptr == finalModule) {
-        finalModule = std::move(*mod);
-      } else {
-        if (llvm::Linker::linkModules(*finalModule, std::move(*mod))) {
-          fatal(context, "Can't merge module");
-        }
+      if (llvm::Linker::linkModules(*finalModule, std::move(*mod))) {
+        fatal(context, "Can't merge module");
       }
+    }
 
-      for (auto &&fun :
-           toArray(current->funcList,
-                   static_cast<std::size_t>(current->funcListSize))) {
-        functions.push_back(std::make_pair(fun.name, fun.func));
-      }
+    for (auto &&fun :
+         toArray(current->funcList,
+                 static_cast<std::size_t>(current->funcListSize))) {
+      functions.push_back(std::make_pair(fun.name, fun.func));
+    }
 
-      for (auto &&sym : toArray(current->symList, static_cast<std::size_t>(
-                                                      current->symListSize))) {
-        symMap.insert(std::make_pair(decorate(sym.name), sym.sym));
-      }
+    for (auto &&sym : toArray(current->symList, static_cast<std::size_t>(
+                                current->symListSize))) {
+      symMap.insert(std::make_pair(decorate(sym.name), sym.sym));
     }
     current = current->next;
   }

@@ -21,12 +21,14 @@
 #include "ir/irfunction.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/TypeBuilder.h"
+#include "llvm/Support/SHA1.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 
 namespace {
 
 const char *DynamicCompileModulesHeadName = "dynamiccompile_modules_head";
+using Sha1DataType = std::array<uint8_t, 20>;
 
 llvm::GlobalValue *getPredefinedSymbol(llvm::Module &module,
                                        llvm::StringRef name, llvm::Type *type) {
@@ -465,6 +467,8 @@ llvm::StructType *getFuncListElemType(llvm::LLVMContext &context) {
 //   i32 funcListSize;
 //   RtCompileSymList* symList;
 //   i32 symListSize;
+//   i8* irHash;
+//   i32 irHashSize;
 // };
 
 llvm::StructType *getModuleListElemType(llvm::LLVMContext &context,
@@ -485,6 +489,8 @@ llvm::StructType *getModuleListElemType(llvm::LLVMContext &context,
       llvm::PointerType::getUnqual(symListElemType),
       llvm::IntegerType::get(context, 32),
       llvm::PointerType::getUnqual(varListElemType),
+      llvm::IntegerType::get(context, 32),
+      llvm::IntegerType::getInt8PtrTy(context),
       llvm::IntegerType::get(context, 32),
   };
   ret->setBody(elements, true);
@@ -569,15 +575,32 @@ generateVarList(IRState *irs, const Types &types) {
   return getArrayAndSize(irs->module, types.varListElemType, elements);
 }
 
+std::pair<llvm::Constant *, llvm::Constant *>
+generateIrHashArray(IRState *irs, const Sha1DataType &irHash) {
+  assert(irs != nullptr);
+  auto var = new llvm::GlobalVariable(
+      irs->module, llvm::Type::getInt8PtrTy(irs->context()), true,
+      llvm::GlobalValue::PrivateLinkage, nullptr, ".rtcompile_ir_hash");
+
+  auto size = new llvm::GlobalVariable(
+      irs->module, llvm::IntegerType::get(irs->context(), 32), true,
+      llvm::GlobalValue::PrivateLinkage, nullptr, ".rtcompile_ir_hash_size");
+
+  createStaticArray(irs->module, var, size, llvm::ArrayRef<uint8_t>(irHash));
+  return {var->getInitializer(), size->getInitializer()};
+}
+
 llvm::GlobalVariable *generateModuleListElem(IRState *irs, const Types &types,
                                              llvm::GlobalVariable *irData,
                                              llvm::GlobalVariable *irDataLen,
-                                             const GlobalValsMap &globalVals) {
+                                             const GlobalValsMap &globalVals,
+                                             const Sha1DataType &irHash) {
   assert(nullptr != irs);
   auto elem_type = types.modListElemType;
   auto funcListInit = generateFuncList(irs, types);
-  auto symListInit = generateSymList(irs, types, globalVals);
-  auto varlistInit = generateVarList(irs, types);
+  auto symListInit  = generateSymList(irs, types, globalVals);
+  auto varlistInit  = generateVarList(irs, types);
+  auto hashInit     = generateIrHashArray(irs, irHash);
   llvm::Constant *fields[] = {
       llvm::ConstantPointerNull::get(llvm::dyn_cast<llvm::PointerType>(
           elem_type->getElementType(0))), // next
@@ -589,6 +612,8 @@ llvm::GlobalVariable *generateModuleListElem(IRState *irs, const Types &types,
       symListInit.second,                 // symlist len
       varlistInit.first,                  // varlist
       varlistInit.second,                 // varlist len
+      hashInit.first,                     // IR hash
+      hashInit.second,                    // IR hash len
   };
 
   auto init = llvm::ConstantStruct::get(elem_type, fields);
@@ -649,13 +674,14 @@ void generateCtorBody(IRState *irs, const Types &types, llvm::Function *func,
 
 void setupModuleCtor(IRState *irs, llvm::GlobalVariable *irData,
                      llvm::GlobalVariable *irDataLen,
-                     const GlobalValsMap &globalVals) {
+                     const GlobalValsMap &globalVals,
+                     const Sha1DataType &irHash) {
   assert(nullptr != irs);
   assert(nullptr != irData);
   assert(nullptr != irDataLen);
   Types types(irs->context());
   auto modListElem =
-      generateModuleListElem(irs, types, irData, irDataLen, globalVals);
+      generateModuleListElem(irs, types, irData, irDataLen, globalVals, irHash);
   auto runtimeCompiledCtor = llvm::Function::Create(
       llvm::FunctionType::get(llvm::Type::getVoidTy(irs->context()), false),
       llvm::GlobalValue::InternalLinkage, ".rtcompile_ctor", &irs->module);
@@ -683,7 +709,8 @@ void setupModuleBitcodeData(const llvm::Module &srcModule, IRState *irs,
                     llvm::ArrayRef<uint8_t>(
                         reinterpret_cast<uint8_t *>(str.data()), str.size()));
 
-  setupModuleCtor(irs, runtimeCompiledIr, runtimeCompiledIrSize, globalVals);
+  setupModuleCtor(irs, runtimeCompiledIr, runtimeCompiledIrSize, globalVals,
+                  llvm::SHA1::hash(llvm::ArrayRef<uint8_t>(reinterpret_cast<uint8_t*>(str.data()), str.size())));
 }
 
 void copyFuncAttributes(llvm::Function &dstFunc,
