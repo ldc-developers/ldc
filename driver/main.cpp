@@ -315,6 +315,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
 
   global.params.linkswitches = new Strings();
   global.params.libfiles = new Strings();
+  global.params.dllfiles = new Strings();
   global.params.objfiles = new Strings();
   global.params.ddocfiles = new Strings();
   global.params.bitcodeFiles = new Strings();
