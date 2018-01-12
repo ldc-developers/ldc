@@ -86,7 +86,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
         auto isDComputeAddrspace = toDcomputeAddrspacedType(decl);
         if (!isDComputeAddrspace || isDComputeAddrspace->id != Id::dcVariable) {
           decl->error("global variables must be `Variable!(Addrspace.Global,...)`"
-                      " `Variable!(Addrspace.Shared,...)` or "
+                      " `Variable!(Addrspace.Shared,...)` or"
                       " `Variable!(Addrspace.Constant,...)`");
         }
       }
