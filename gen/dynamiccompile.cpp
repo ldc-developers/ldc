@@ -26,6 +26,10 @@
 
 namespace {
 
+enum {
+    ApiVersion = LDC_DYNAMIC_COMPILE_API_VERSION
+};
+
 const char *DynamicCompileModulesHeadName = "dynamiccompile_modules_head";
 
 llvm::GlobalValue *getPredefinedSymbol(llvm::Module &module,
@@ -458,6 +462,7 @@ llvm::StructType *getFuncListElemType(llvm::LLVMContext &context) {
 
 // struct RtCompileModuleList
 // {
+//   i32 version; // Must be first
 //   RtCompileModuleList* next;
 //   i8* irData;
 //   i32 irDataSize;
@@ -477,6 +482,7 @@ llvm::StructType *getModuleListElemType(llvm::LLVMContext &context,
   llvm::StructType *ret =
       llvm::StructType::create(context /*, "RtCompileModuleList"*/); // fwddecl
   llvm::Type *elements[] = {
+      llvm::IntegerType::get(context, 32),
       llvm::PointerType::getUnqual(ret),
       llvm::IntegerType::getInt8PtrTy(context),
       llvm::IntegerType::get(context, 32),
@@ -579,8 +585,10 @@ llvm::GlobalVariable *generateModuleListElem(IRState *irs, const Types &types,
   auto symListInit = generateSymList(irs, types, globalVals);
   auto varlistInit = generateVarList(irs, types);
   llvm::Constant *fields[] = {
+      llvm::ConstantInt::get(irs->context(),
+          APInt(32, ApiVersion)),    // version
       llvm::ConstantPointerNull::get(llvm::dyn_cast<llvm::PointerType>(
-          elem_type->getElementType(0))), // next
+          elem_type->getElementType(1))), // next
       irData->getInitializer(),           // irdata
       irDataLen->getInitializer(),        // irdata len
       funcListInit.first,                 // funclist
@@ -633,9 +641,9 @@ void generateCtorBody(IRState *irs, const Types &types, llvm::Function *func,
   builder.SetInsertPoint(bb);
 
   auto zero64 = llvm::ConstantInt::get(irs->context(), APInt(64, 0));
-  auto zero32 = llvm::ConstantInt::get(irs->context(), APInt(32, 0));
+  auto elemIndex = llvm::ConstantInt::get(irs->context(), APInt(32, 1));
   auto modListHeadPtr = declareModListHead(irs->module, types);
-  llvm::Value *gepVals[] = {zero64, zero32};
+  llvm::Value *gepVals[] = {zero64, elemIndex};
   auto elemNextPtr = builder.CreateGEP(modListElem, gepVals);
   auto prevHeadVal = builder.CreateLoad(builder.CreateBitOrPointerCast(
       modListHeadPtr, types.modListElemType->getPointerTo()->getPointerTo()));
