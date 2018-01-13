@@ -148,7 +148,7 @@ class AssemblyAnnotator : public AssemblyAnnotationWriter {
 
 public:
   void emitFunctionAnnot(const Function *F,
-                         formatted_raw_ostream &os) LLVM_OVERRIDE {
+                         formatted_raw_ostream &os) override {
     os << "; [#uses = " << F->getNumUses() << ']';
 
     // show demangled name
@@ -159,8 +159,7 @@ public:
     os << '\n';
   }
 
-  void printInfoComment(const Value &val,
-                        formatted_raw_ostream &os) LLVM_OVERRIDE {
+  void printInfoComment(const Value &val, formatted_raw_ostream &os) override {
     bool padding = false;
     if (!val.getType()->isVoidTy()) {
       os.PadToColumn(50);

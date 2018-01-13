@@ -17,7 +17,6 @@
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
-#include "gen/llvmcompat.h"
 
 #if LDC_LLVM_VER >= 500
 #define LLVM_END_WITH_NULL
@@ -77,19 +76,16 @@ public:
   }
 
   // Implement virtual functions needed by generic_parser_base
-  unsigned getNumOptions() const LLVM_OVERRIDE { return 1; }
+  unsigned getNumOptions() const override { return 0; }
+
 #if LDC_LLVM_VER >= 400
   llvm::StringRef
 #else
   const char *
 #endif
-  getOption(unsigned N) const LLVM_OVERRIDE {
-    assert(N == 0);
-#if LDC_LLVM_VER >= 308 && LDC_LLVM_VER < 400
-    return owner().ArgStr.data();
-#else
-    return owner().ArgStr;
-#endif
+  getOption(unsigned N) const override {
+    llvm_unreachable("Unexpected call");
+    return "";
   }
 
 #if LDC_LLVM_VER >= 400
@@ -97,13 +93,9 @@ public:
 #else
   const char *
 #endif
-  getDescription(unsigned N) const LLVM_OVERRIDE {
-    assert(N == 0);
-#if LDC_LLVM_VER >= 308 && LDC_LLVM_VER < 400
-    return owner().HelpStr.data();
-#else
-    return owner().HelpStr;
-#endif
+  getDescription(unsigned N) const override {
+    llvm_unreachable("Unexpected call");
+    return "";
   }
 
 private:
@@ -114,7 +106,7 @@ private:
 
 public:
   // getOptionValue - Return the value of option name N.
-  const cl::GenericOptionValue &getOptionValue(unsigned N) const LLVM_OVERRIDE {
+  const cl::GenericOptionValue &getOptionValue(unsigned N) const override {
     return EmptyOptionValue;
   }
 
