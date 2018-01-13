@@ -109,8 +109,8 @@ LLFunctionType *DtoExtractFunctionType(LLType *type) {
 
 static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
                                  IrFuncTy &irFty, LLFunctionType *calleeType,
-                                 const std::vector<DValue *> &argvals,
-                                 int numFormalParams) {
+                                 Expressions &argexps,
+                                 Parameters *formalParams) {
   // Number of arguments added to the LLVM type that are implicit on the
   // frontend side of things (this, context pointers, etc.)
   const size_t implicitLLArgCount = args.size();
@@ -118,14 +118,17 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
   // Number of formal arguments in the LLVM type (i.e. excluding varargs).
   const size_t formalLLArgCount = irFty.args.size();
 
+  // Number of formal arguments in the D call expression (excluding varargs).
+  const int formalDArgCount = Parameter::dim(formalParams);
+
   // The number of explicit arguments in the D call expression (including
   // varargs), not all of which necessarily generate a LLVM argument.
-  const size_t explicitDArgCount = argvals.size();
+  const size_t explicitDArgCount = argexps.size();
 
   // construct and initialize an IrFuncTyArg object for each vararg
   std::vector<IrFuncTyArg *> optionalIrArgs;
-  for (size_t i = numFormalParams; i < explicitDArgCount; i++) {
-    Type *argType = argvals[i]->type;
+  for (size_t i = formalDArgCount; i < explicitDArgCount; i++) {
+    Type *argType = argexps[i]->type;
     bool passByVal = gABI->passByVal(argType);
 
     AttrBuilder initialAttrs;
@@ -148,24 +151,32 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
 
   // Iterate the explicit arguments from left to right in the D source,
   // which is the reverse of the LLVM order if irFty.reverseParams is true.
+  size_t dArgIndex = 0;
   for (size_t i = 0; i < explicitLLArgCount; ++i) {
-    const bool isVararg = (i >= irFty.args.size());
+    const bool isVararg = (i >= formalLLArgCount);
     IrFuncTyArg *irArg = nullptr;
     if (isVararg) {
-      irArg = optionalIrArgs[i - numFormalParams];
+      irArg = optionalIrArgs[i - formalLLArgCount];
     } else {
       irArg = irFty.args[i];
     }
 
-    DValue *const argval = argvals[irArg->parametersIdx];
-    Type *const argType = argval->type;
-
-    llvm::Value *llVal = nullptr;
-    if (isVararg) {
-      llVal = irFty.putParam(*irArg, argval);
-    } else {
-      llVal = irFty.putParam(i, argval);
+    // Make sure to evaluate argument expressions for which there's no LL
+    // parameter (e.g., empty structs for some ABIs).
+    for (; dArgIndex < irArg->parametersIdx; ++dArgIndex) {
+      toElem(argexps[dArgIndex]);
     }
+
+    Expression *const argexp = argexps[dArgIndex];
+    Parameter *const formalParam =
+        isVararg ? nullptr : Parameter::getNth(formalParams, dArgIndex);
+    ++dArgIndex;
+
+    // evaluate argument expression
+    DValue *const dval = DtoArgument(formalParam, argexp);
+
+    // load from lvalue/let TargetABI rewrite it/...
+    llvm::Value *llVal = irFty.putParam(*irArg, dval);
 
     const size_t llArgIdx =
         implicitLLArgCount +
@@ -176,7 +187,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
     // Hack around LDC assuming structs and static arrays are in memory:
     // If the function wants a struct, and the argument value is a
     // pointer to a struct, load from it before passing it in.
-    if (isaPointer(llVal) && DtoIsInMemoryOnly(argType) &&
+    if (isaPointer(llVal) && DtoIsInMemoryOnly(argexp->type) &&
         ((!isVararg && !isaPointer(paramType)) ||
          (isVararg && !irArg->byref && !irArg->isByVal()))) {
       Logger::println("Loading struct type for function argument");
@@ -203,20 +214,24 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
       delete irArg;
     }
   }
+
+  for (; dArgIndex < explicitDArgCount; ++dArgIndex) {
+    toElem(argexps[dArgIndex]);
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static LLValue *
-getTypeinfoArrayArgumentForDVarArg(const std::vector<DValue *> &argvals,
-                                   int begin) {
+static LLValue *getTypeinfoArrayArgumentForDVarArg(Expressions *argexps,
+                                                   int begin) {
   IF_LOG Logger::println("doing d-style variadic arguments");
   LOG_SCOPE
 
   // number of non variadic args
   IF_LOG Logger::println("num non vararg params = %d", begin);
 
-  const size_t numVariadicArgs = argvals.size() - begin;
+  const size_t numArgExps = argexps ? argexps->size() : 0;
+  const size_t numVariadicArgs = numArgExps - begin;
 
   // build type info array
   LLType *typeinfotype = DtoType(Type::dtypeinfo->type);
@@ -229,9 +244,9 @@ getTypeinfoArrayArgumentForDVarArg(const std::vector<DValue *> &argvals,
   IF_LOG Logger::cout() << "_arguments storage: " << *typeinfomem << '\n';
 
   std::vector<LLConstant *> vtypeinfos;
-  vtypeinfos.reserve(argvals.size());
-  for (size_t i = begin; i < argvals.size(); i++) {
-    vtypeinfos.push_back(DtoTypeInfoOf(argvals[i]->type));
+  vtypeinfos.reserve(numVariadicArgs);
+  for (size_t i = begin; i < numArgExps; i++) {
+    vtypeinfos.push_back(DtoTypeInfoOf((*argexps)[i]->type));
   }
 
   // apply initializer
@@ -636,10 +651,9 @@ class ImplicitArgumentsBuilder {
 public:
   ImplicitArgumentsBuilder(std::vector<LLValue *> &args, AttrSet &attrs,
                            Loc &loc, DValue *fnval,
-                           LLFunctionType *llCalleeType,
-                           const std::vector<DValue *> &argvals,
+                           LLFunctionType *llCalleeType, Expressions *argexps,
                            Type *resulttype, LLValue *sretPointer)
-      : args(args), attrs(attrs), loc(loc), fnval(fnval), argvals(argvals),
+      : args(args), attrs(attrs), loc(loc), fnval(fnval), argexps(argexps),
         resulttype(resulttype), sretPointer(sretPointer),
         // computed:
         isDelegateCall(fnval->type->toBasetype()->ty == Tdelegate),
@@ -665,7 +679,7 @@ private:
   AttrSet &attrs;
   Loc &loc;
   DValue *const fnval;
-  const std::vector<DValue *> &argvals;
+  Expressions *const argexps;
   Type *const resulttype;
   LLValue *const sretPointer;
 
@@ -786,7 +800,7 @@ private:
 
     int numFormalParams = Parameter::dim(tf->parameters);
     LLValue *argumentsArg =
-        getTypeinfoArrayArgumentForDVarArg(argvals, numFormalParams);
+        getTypeinfoArrayArgumentForDVarArg(argexps, numFormalParams);
 
     args.push_back(argumentsArg);
     attrs.addToParam(args.size() - 1, irFty.arg_arguments->attrs);
@@ -795,44 +809,11 @@ private:
 
 ////////////////////////////////////////////////////////////////////////////////
 
-namespace {
-std::vector<DValue *> evaluateArgExpressions(DValue *fnval,
-                                             Expressions *arguments) {
-  IF_LOG Logger::println("Evaluating argument expressions");
-  LOG_SCOPE
-
-  const auto tf = DtoTypeFunction(fnval);
-
-  const size_t numArguments = arguments ? arguments->dim : 0;
-  std::vector<DValue *> argvals(numArguments);
-
-  // formal params (excl. variadics)
-  size_t i = 0;
-  const size_t numFormalParams = Parameter::dim(tf->parameters);
-  for (; i < numFormalParams; ++i) {
-    Parameter *fnarg = Parameter::getNth(tf->parameters, i);
-    assert(fnarg);
-    argvals[i] = DtoArgument(fnarg, (*arguments)[i]);
-  }
-
-  // append variadics
-  for (; i < numArguments; ++i) {
-    argvals[i] = DtoArgument(nullptr, (*arguments)[i]);
-  }
-
-  return argvals;
-}
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 // FIXME: this function is a mess !
 DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
                         Expressions *arguments, LLValue *sretPointer) {
   IF_LOG Logger::println("DtoCallFunction()");
   LOG_SCOPE
-
-  const auto argvals = evaluateArgExpressions(fnval, arguments);
 
   // make sure the D callee type has been processed
   DtoType(fnval->type);
@@ -871,7 +852,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   args.reserve(irFty.args.size());
 
   // handle implicit arguments (sret, context/this, _arguments)
-  ImplicitArgumentsBuilder iab(args, attrs, loc, fnval, callableTy, argvals,
+  ImplicitArgumentsBuilder iab(args, attrs, loc, fnval, callableTy, arguments,
                                resulttype, sretPointer);
   iab.addImplicitArgs();
 
@@ -889,9 +870,10 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
     // Logger::cout() << "LLVM functype: " << *callable->getType() << '\n';
   }
 
-  const int numFormalParams = Parameter::dim(tf->parameters); // excl. variadics
-  addExplicitArguments(args, attrs, irFty, callableTy, argvals,
-                       numFormalParams);
+  if (arguments) {
+    addExplicitArguments(args, attrs, irFty, callableTy, *arguments,
+                         tf->parameters);
+  }
 
   if (irFty.arg_objcSelector) {
     // Use runtime msgSend function bitcasted as original call

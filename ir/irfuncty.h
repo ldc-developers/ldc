@@ -111,7 +111,6 @@ struct IrFuncTy {
   llvm::Value *getRetRVal(Type *dty, llvm::Value *val);
   llvm::Value *getRetLVal(Type *dty, llvm::Value *val);
 
-  llvm::Value *putParam(size_t idx, DValue *dval);
   llvm::Value *putParam(const IrFuncTyArg &arg, DValue *dval);
   llvm::Value *getParamLVal(Type *dty, size_t idx, llvm::Value *val);
 

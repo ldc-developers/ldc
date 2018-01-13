@@ -66,11 +66,6 @@ llvm::Value *IrFuncTy::getRetLVal(Type *dty, LLValue *val) {
   return DtoAllocaDump(val, dty);
 }
 
-llvm::Value *IrFuncTy::putParam(size_t idx, DValue *dval) {
-  assert(idx < args.size() && "invalid putParam");
-  return putParam(*args[idx], dval);
-}
-
 llvm::Value *IrFuncTy::putParam(const IrFuncTyArg &arg, DValue *dval) {
   if (arg.rewrite) {
     Logger::println("Rewrite: putParam");
