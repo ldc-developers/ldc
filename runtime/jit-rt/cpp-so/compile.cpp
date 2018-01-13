@@ -471,58 +471,97 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
 
   std::unique_ptr<llvm::Module> finalModule;
 
-  OptimizerSettings settings;
-  settings.optLevel = context.optLevel;
-  settings.sizeLevel = context.sizeLevel;
+  using BufferT = std::unique_ptr<llvm::MemoryBuffer>;
+  BufferT objBuffer;
+  if (hasLoadCacheHandler) {
+    assert(context.loadCacheHandler != nullptr);
+    assert(!binId.empty());
+    auto sink = [](void *sinkContext, const Slice &slice) {
+      assert(sinkContext != nullptr);
+      *static_cast<BufferT*>(sinkContext)
+          = llvm::MemoryBuffer::getMemBufferCopy(
+              llvm::StringRef(reinterpret_cast<const char*>(slice.data),
+                              slice.len));
+    };
 
-  enumModules(modlist_head, [&](const RtCompileModuleList &current) {
-    interruptPoint(context, "load IR");
-    auto buff = llvm::MemoryBuffer::getMemBuffer(
-                  llvm::StringRef(current.irData,
-                                  static_cast<std::size_t>(current.irDataSize)),
-                  "", false);
-    interruptPoint(context, "parse IR");
-    auto mod = llvm::parseBitcodeFile(*buff, myJit.getContext());
-    if (!mod) {
-      fatal(context, "Unable to parse IR");
+    context.loadCacheHandler(context.loadCacheHandlerData, binId.c_str(),
+                             &objBuffer, sink);
+  }
+
+  if (objBuffer != nullptr) {
+    interruptPoint(context, "Set object data");
+    auto asmCallback = [&](const char *str, size_t len) {
+      assert(context.dumpHandler != nullptr);
+      context.dumpHandler(context.dumpHandlerData, DumpStage::FinalAsm, str,
+                          len);
+    };
+    auto binCallback = [&](const char *str, size_t len) {
+      assert(context.saveCacheHandler != nullptr);
+      assert(!binId.empty());
+      context.saveCacheHandler(context.saveCacheHandlerData, binId.c_str(),
+                               Slice{reinterpret_cast<const uint8_t*>(str), len});
+    };
+    CallbackOstream asmOs(asmCallback);
+    CallbackOstream binOs(binCallback);
+    if (myJit.addObject(
+          std::move(objBuffer),
+          symMap,
+          context.dumpHandler      != nullptr ? &asmOs : nullptr,
+          context.saveCacheHandler != nullptr ? &binOs : nullptr)) {
+      fatal(context, "Can't codegen module");
     }
+  } else {
+    OptimizerSettings settings;
+    settings.optLevel = context.optLevel;
+    settings.sizeLevel = context.sizeLevel;
 
-    llvm::Module &module = **mod;
-    const auto name = module.getName();
-    interruptPoint(context, "Verify module", name.data());
-    verifyModule(context, module);
-
-    dumpModule(context, module, DumpStage::OriginalModule);
-    setFunctionsTarget(module, myJit.getTargetMachine());
-
-    module.setDataLayout(myJit.getTargetMachine().createDataLayout());
-
-    interruptPoint(context, "setRtCompileVars", name.data());
-    setRtCompileVars(context, module,
-                     toArray(current.varList,
-                             static_cast<std::size_t>(current.varListSize)));
-
-    if (nullptr == finalModule) {
-      finalModule = std::move(*mod);
-    } else {
-      if (llvm::Linker::linkModules(*finalModule, std::move(*mod))) {
-        fatal(context, "Can't merge module");
+    enumModules(modlist_head, [&](const RtCompileModuleList &current) {
+      interruptPoint(context, "load IR");
+      auto buff = llvm::MemoryBuffer::getMemBuffer(
+                    llvm::StringRef(current.irData,
+                                    static_cast<std::size_t>(current.irDataSize)),
+                    "", false);
+      interruptPoint(context, "parse IR");
+      auto mod = llvm::parseBitcodeFile(*buff, myJit.getContext());
+      if (!mod) {
+        fatal(context, "Unable to parse IR");
       }
-    }
-  });
 
-  assert(nullptr != finalModule);
-  dumpModule(context, *finalModule, DumpStage::MergedModule);
-  interruptPoint(context, "Optimize final module");
-  optimizeModule(context, myJit.getTargetMachine(), settings, *finalModule);
+      llvm::Module &module = **mod;
+      const auto name = module.getName();
+      interruptPoint(context, "Verify module", name.data());
+      verifyModule(context, module);
 
-  interruptPoint(context, "Verify final module");
-  verifyModule(context, *finalModule);
+      dumpModule(context, module, DumpStage::OriginalModule);
+      setFunctionsTarget(module, myJit.getTargetMachine());
 
-  dumpModule(context, *finalModule, DumpStage::OptimizedModule);
+      module.setDataLayout(myJit.getTargetMachine().createDataLayout());
 
-  interruptPoint(context, "Codegen final module");
-  {
+      interruptPoint(context, "setRtCompileVars", name.data());
+      setRtCompileVars(context, module,
+                       toArray(current.varList,
+                               static_cast<std::size_t>(current.varListSize)));
+
+      if (nullptr == finalModule) {
+        finalModule = std::move(*mod);
+      } else {
+        if (llvm::Linker::linkModules(*finalModule, std::move(*mod))) {
+          fatal(context, "Can't merge module");
+        }
+      }
+    });
+
+    assert(nullptr != finalModule);
+    dumpModule(context, *finalModule, DumpStage::MergedModule);
+    interruptPoint(context, "Optimize final module");
+    optimizeModule(context, myJit.getTargetMachine(), settings, *finalModule);
+
+    interruptPoint(context, "Verify final module");
+    verifyModule(context, *finalModule);
+
+    dumpModule(context, *finalModule, DumpStage::OptimizedModule);
+
+    interruptPoint(context, "Codegen final module");
     auto asmCallback = [&](const char *str, size_t len) {
       assert(context.dumpHandler != nullptr);
       context.dumpHandler(context.dumpHandlerData, DumpStage::FinalAsm, str,
