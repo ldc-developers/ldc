@@ -42,7 +42,7 @@ struct CompilerSettings
   /// purposes only
   void delegate(DumpStage, in char[]) dumpHandler = null;
 
-  void[] delegate(in char[]) loadCache = null;
+  void delegate(in char[], in void delegate(in void[])) loadCache = null;
 
   void delegate(in char[], const(void)[]) saveCache = null;
 }
@@ -120,12 +120,24 @@ void dumpHandlerWrapper(void* context, DumpStage stage, const char* buff, size_t
   (*del)(stage, buff[0..len]);
 }
 
-Slice loadCacheWrapper(void* context, const char* desc)
+void loadCacheSinkWrapper(void* context, const ref Slice buffer)
 {
+  alias DelType = void delegate(in void[]);
+  auto del = cast(DelType*)context;
+  (*del)(buffer.data[0..buffer.len]);
+}
+
+void loadCacheWrapper(void* context, const char* desc, void* sinkContext, in void function(void*, const ref Slice) sink)
+{
+  assert(sink !is null);
   alias DelType = typeof(CompilerSettings.loadCache);
   auto del = cast(DelType*)context;
-  auto ret = (*del)(fromStringz(desc));
-  return Slice(ret.ptr, ret.length);
+  scope void sinkDel(in void[] buff)
+  {
+    auto tempSlice = Slice(buff.ptr, buff.length);
+    sink(sinkContext, tempSlice);
+  }
+  (*del)(fromStringz(desc), &sinkDel);
 }
 
 void saveCacheWrapper(void* context, const char* desc, const ref Slice buffer)
@@ -139,7 +151,7 @@ void saveCacheWrapper(void* context, const char* desc, const ref Slice buffer)
 // must be synchronized with cpp
 struct Slice
 {
-  void* data;
+  const void* data;
   size_t len;
 }
 struct Context
@@ -152,7 +164,7 @@ struct Context
   void* fatalHandlerData = null;
   void function(void*, DumpStage, const char*, size_t) dumpHandler = null;
   void* dumpHandlerData = null;
-  Slice function(void*, const char*) loadCacheHandler = null;
+  void function(void*, const char*, void*, void function(void*, const ref Slice)) loadCacheHandler = null;
   void *loadCacheHandlerData = null;
   void function(void*, const char*, const ref Slice) saveCacheHandler = null;
   void *saveCacheHandlerData = null;

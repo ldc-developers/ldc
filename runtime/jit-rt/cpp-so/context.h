@@ -30,10 +30,12 @@ typedef void (*DumpHandlerT)(void *, DumpStage stage, const char *str,
                              std::size_t len);
 struct Slice
 {
-    void* data;
+    const void* data;
     std::size_t len;
 };
-typedef Slice (*LoadCacheHandlerT)(void *, const char *desc);
+typedef void (*LoadCacheSinkT)(void *, const Slice &slice);
+typedef void (*LoadCacheHandlerT)(void *, const char *desc, void *,
+                                  LoadCacheSinkT sink);
 typedef void (*SaveCacheHandlerT)(void *, const char *desc, const Slice &slice);
 
 struct Context final {
