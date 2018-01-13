@@ -520,19 +520,20 @@ void createClashingOptions() {
 /// to be useful for end users from the -help output.
 void hideLLVMOptions() {
   static const char *const hiddenOptions[] = {
+      "aarch64-neon-syntax", "arm-add-build-attributes",
       "arm-implicit-it", "asm-instrumentation", "asm-show-inst",
-      "atomic-counter-update-promote", "bounds-checking-single-trap",
-      "cppfname", "cppfor", "cppgen", "cvp-dont-process-add", "debug-counter",
+      "atomic-counter-update-promoted", "bounds-checking-single-trap",
+      "code-model", "cppfname", "cppfor", "cppgen", "cvp-dont-process-adds", "debug-counter",
       "debugger-tune", "denormal-fp-math", "disable-debug-info-verifier",
       "disable-objc-arc-checkforcfghazards", "disable-spill-fusing",
       "do-counter-promotion", "emulated-tls", "enable-correct-eh-support",
       "enable-fp-mad", "enable-implicit-null-checks", "enable-load-pre",
       "enable-misched", "enable-name-compression", "enable-no-infs-fp-math",
-      "enable-no-nans-fp-math", "enable-no-trapping-fp-math",
+      "enable-no-nans-fp-math", "enable-no-signed-zeros-fp-math", "enable-no-trapping-fp-math",
       "enable-objc-arc-annotations", "enable-objc-arc-opts", "enable-pie",
       "enable-scoped-noalias", "enable-tbaa", "enable-unsafe-fp-math",
-      "exception-model", "exhaustive-register-search",
-      "fatal-assembler-warnings", "gpsize", "imp-null-check-page-size",
+      "exception-model", "exhaustive-register-search", "expensive-combines",
+      "fatal-assembler-warnings", "filter-print-funcs", "gpsize", "imp-null-check-page-size",
       "imp-null-max-insts-to-consider", "incremental-linker-compatible",
       "instcombine-maxarray-size", "internalize-public-api-file",
       "internalize-public-api-list", "iterative-counter-promotion",
@@ -554,6 +555,7 @@ void hideLLVMOptions() {
       "r600-ir-structurize", "rdf-dump", "rdf-limit", "recip", "regalloc",
       "relax-elf-relocations", "rewrite-map-file", "rng-seed",
       "safepoint-ir-verifier-print-only",
+      "sample-profile-check-record-coverage", "sample-profile-check-sample-coverage", "sample-profile-inline-hot-threshold",
       "sample-profile-max-propagate-iterations", "shrink-wrap", "simplify-mir",
       "speculative-counter-promotion-max-exiting",
       "speculative-counter-promotion-to-loop", "spiller", "spirv-debug",
@@ -566,7 +568,7 @@ void hideLLVMOptions() {
       "unit-at-a-time", "use-ctors", "verify-debug-info", "verify-dom-info",
       "verify-loop-info", "verify-loop-lcssa", "verify-machine-dom-info",
       "verify-regalloc", "verify-region-info", "verify-scev",
-      "verify-scev-maps", "x86-early-ifcvt", "x86-recip-refinement-steps",
+      "verify-scev-maps", "vp-counters-per-site", "vp-static-alloc", "x86-early-ifcvt", "x86-recip-refinement-steps",
       "x86-use-vzeroupper",
 
       // We enable -fdata-sections/-ffunction-sections by default where it makes
