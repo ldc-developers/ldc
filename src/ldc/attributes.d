@@ -55,6 +55,69 @@ struct allocSize
     int numArgIdx = int.min;
 }
 
+/++
+ + When applied to a global symbol, the compiler, assembler, and linker are
+ + required to treat the symbol as if there is a reference to the symbol that
+ + it cannot see (which is why they have to be named). For example, it
+ + prevents the deletion by the linker of an unreferenced symbol.
+ +
+ + This attribute corresponds to “attribute((used))” in GNU C.
+ +
+ + Examples:
+ + ---
+ + import ldc.attributes;
+ +
+ + @assumeUsed int dont_remove;
+ + ---
+ +/
+immutable assumeUsed = _assumeUsed();
+private struct _assumeUsed
+{
+}
+
+/++
+ + When applied to a function, marks this function for dynamic compilation.
+ + All functions marked with this attribute must be explicitly compiled in
+ + runtime via ldc.dynamic_compile api before usage.
+ +
+ + This attribute has no effect if dynamic compilation wasn't enabled with
+ + -enable-dynamic-compile
+ +
+ + Examples:
+ + ---
+ + import ldc.attributes;
+ +
+ + @dynamicCompile int foo() { return 42; }
+ + ---
+ +/
+immutable dynamicCompile = _dynamicCompile();
+private struct _dynamicCompile
+{
+}
+
+/++
+ + When applied to global variable, this variable will be treated as constant
+ + by any dynamically compiled functions and is subject to optimizations.
+ + All dynamically compiled functions must be recompiled after any update to
+ + such variable.
+ +
+ + This attribute has no effect if dynamic compilation wasn't enabled with
+ + -enable-dynamic-compile
+ +
+ + Examples:
+ + ---
+ + import ldc.attributes;
+ +
+ + @dynamicCompileConst __gshared int value = 1;
+ +
+ + @dynamicCompile int foo() { return value * 42; }
+ + ---
+ +/
+immutable dynamicCompileConst = _dynamicCompileConst();
+private struct _dynamicCompileConst
+{
+}
+
 /**
  * Explicitly sets "fast math" for a function, enabling aggressive math
  * optimizations. These optimizations may dramatically change the outcome of
@@ -217,26 +280,6 @@ struct target
 }
 
 /++
- + When applied to a global symbol, the compiler, assembler, and linker are
- + required to treat the symbol as if there is a reference to the symbol that
- + it cannot see (which is why they have to be named). For example, it
- + prevents the deletion by the linker of an unreferenced symbol.
- +
- + This attribute corresponds to “attribute((used))” in GNU C.
- +
- + Examples:
- + ---
- + import ldc.attributes;
- +
- + @assumeUsed int dont_remove;
- + ---
- +/
-immutable assumeUsed = _assumeUsed();
-private struct _assumeUsed
-{
-}
-
-/++
  + When applied to a global symbol, specifies that the symbol should be emitted
  + with weak linkage. An example use case is a library function that should be
  + overridable by user code.
@@ -256,48 +299,5 @@ private struct _assumeUsed
  +/
 immutable weak = _weak();
 private struct _weak
-{
-}
-
-/++
- + When applied to a function, marks this function for dynamic compilation.
- + All functions marked with this attribute must be explicitly compiled in
- + runtime via ldc.dynamic_compile api before usage.
- +
- + This attribute has no effect if dynamic compilation wasn't enabled with
- + -enable-dynamic-compile
- +
- + Examples:
- + ---
- + import ldc.attributes;
- +
- + @dynamicCompile int foo() { return 42; }
- + ---
- +/
-immutable dynamicCompile = _dynamicCompile();
-private struct _dynamicCompile
-{
-}
-
-/++
- + When applied to global variable, this variable will be treated as constant
- + by any dynamically compiled functions and is subject to optimizations.
- + All dynamically compiled functions must be recompiled after any update to
- + such variable.
- +
- + This attribute has no effect if dynamic compilation wasn't enabled with
- + -enable-dynamic-compile
- +
- + Examples:
- + ---
- + import ldc.attributes;
- +
- + @dynamicCompileConst __gshared int value = 1;
- +
- + @dynamicCompile int foo() { return value * 42; }
- + ---
- +/
-immutable dynamicCompileConst = _dynamicCompileConst();
-private struct _dynamicCompileConst
 {
 }
