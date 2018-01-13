@@ -21,6 +21,7 @@
 
 #include "callback_ostream.h"
 #include "context.h"
+#include "compile_layer.h"
 #include "disassembler.h"
 #include "optimizer.h"
 #include "valueparser.h"
@@ -29,8 +30,6 @@
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JITSymbol.h"
-#include "llvm/ExecutionEngine/Orc/CompileUtils.h"
-#include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
 #include "llvm/ExecutionEngine/Orc/LambdaResolver.h"
 #include "llvm/ExecutionEngine/Orc/ObjectTransformLayer.h"
 #include "llvm/ExecutionEngine/RuntimeDyld.h"
@@ -161,16 +160,14 @@ private:
   using ObjectLayerT = llvm::orc::RTDyldObjectLinkingLayer;
   using ListenerLayerT =
       llvm::orc::ObjectTransformLayer<ObjectLayerT, ModuleListener>;
-  using CompileLayerT =
-      llvm::orc::IRCompileLayer<ListenerLayerT, llvm::orc::SimpleCompiler>;
-  using ModuleHandleT = CompileLayerT::ModuleHandleT;
 #else
   using ObjectLayerT = llvm::orc::ObjectLinkingLayer<>;
   using ListenerLayerT =
       llvm::orc::ObjectTransformLayer<ObjectLayerT, ModuleListener>;
-  using CompileLayerT = llvm::orc::IRCompileLayer<ListenerLayerT>;
-  using ModuleHandleT = CompileLayerT::ModuleSetHandleT;
 #endif
+  using CompileLayerT = CompilerLayer<ListenerLayerT>;
+  using ModuleHandleT = CompileLayerT::ModuleHandleT;
+
   ObjectLayerT objectLayer;
   ListenerLayerT listenerlayer;
   CompileLayerT compileLayer;
@@ -197,7 +194,7 @@ public:
             []() { return std::make_shared<llvm::SectionMemoryManager>(); }),
 #endif
         listenerlayer(objectLayer, ModuleListener(*targetmachine)),
-        compileLayer(listenerlayer, llvm::orc::SimpleCompiler(*targetmachine)) {
+        compileLayer(listenerlayer, *targetmachine) {
     llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
   }
 
@@ -208,45 +205,33 @@ public:
                  llvm::raw_ostream *asmListener) {
     assert(nullptr != module);
     reset();
-    // Build our symbol resolver:
-    // Lambda 1: Look back into the JIT itself to find symbols that are part of
-    //           the same "logical dylib".
-    // Lambda 2: Search for external symbols in the host process.
-    auto Resolver = llvm::orc::createLambdaResolver(
-        [&](const std::string &name) {
-          if (auto Sym = compileLayer.findSymbol(name, false)) {
-            return Sym;
-          }
-          return llvm::JITSymbol(nullptr);
-        },
-        [&](const std::string &name) {
-          auto it = symMap.find(name);
-          if (symMap.end() != it) {
-            return llvm::JITSymbol(
-                reinterpret_cast<llvm::JITTargetAddress>(it->second),
-                llvm::JITSymbolFlags::Exported);
-          }
-          if (auto SymAddr = getSymbolInProcess(name)) {
-            return llvm::JITSymbol(SymAddr, llvm::JITSymbolFlags::Exported);
-          }
-          return llvm::JITSymbol(nullptr);
-        });
+    auto Resolver = createResolver(symMap);
 
     ListenerCleaner cleaner(*this, asmListener);
     // Add the set to the JIT with the resolver we created above
-#if LDC_LLVM_VER >= 500
     auto result = compileLayer.addModule(std::move(module), Resolver);
     if (!result) {
       return true;
     }
     moduleHandle = result.get();
-#else
-    std::vector<std::unique_ptr<llvm::Module>> modules;
-    modules.emplace_back(std::move(module));
-    moduleHandle = compileLayer.addModuleSet(
-        std::move(modules), llvm::make_unique<llvm::SectionMemoryManager>(),
-        std::move(Resolver));
-#endif
+    compiled = true;
+    return false;
+  }
+
+  bool addObject(std::unique_ptr<llvm::MemoryBuffer> objBuffer,
+                 const SymMap &symMap,
+                 llvm::raw_ostream *asmListener) {
+    assert(nullptr != objBuffer);
+    reset();
+    auto Resolver = createResolver(symMap);
+
+    ListenerCleaner cleaner(*this, asmListener);
+    // Add the set to the JIT with the resolver we created above
+    auto result = compileLayer.addObject(std::move(objBuffer), Resolver);
+    if (!result) {
+      return true;
+    }
+    moduleHandle = result.get();
     compiled = true;
     return false;
   }
@@ -267,11 +252,33 @@ public:
 
 private:
   void removeModule(const ModuleHandleT &handle) {
-#if LDC_LLVM_VER >= 500
     cantFail(compileLayer.removeModule(handle));
-#else
-    compileLayer.removeModuleSet(handle);
-#endif
+  }
+
+  std::shared_ptr<llvm::JITSymbolResolver> createResolver(const SymMap &symMap) {
+    // Build our symbol resolver:
+    // Lambda 1: Look back into the JIT itself to find symbols that are part of
+    //           the same "logical dylib".
+    // Lambda 2: Search for external symbols in the host process.
+    return llvm::orc::createLambdaResolver(
+        [&](const std::string &name) {
+          if (auto Sym = compileLayer.findSymbol(name, false)) {
+            return Sym;
+          }
+          return llvm::JITSymbol(nullptr);
+        },
+        [&](const std::string &name) {
+          auto it = symMap.find(name);
+          if (symMap.end() != it) {
+            return llvm::JITSymbol(
+                reinterpret_cast<llvm::JITTargetAddress>(it->second),
+                llvm::JITSymbolFlags::Exported);
+          }
+          if (auto SymAddr = getSymbolInProcess(name)) {
+            return llvm::JITSymbol(SymAddr, llvm::JITSymbolFlags::Exported);
+          }
+          return llvm::JITSymbol(nullptr);
+        });
   }
 };
 
