@@ -14,11 +14,12 @@ import ldc.dynamic_compile;
 void main(string[] args)
 {
   CompilerSettings settings;
-  const(char)[][] ids;
+  string[] ids;
   settings.saveCache = (in char[] id, in void[] data)
   {
+    assert(id.length != 0);
     assert(data.length != 0);
-    ids ~= id;
+    ids ~= id.idup;
   };
   compileDynamicCode(settings);
   value = 3;
