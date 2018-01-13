@@ -49,7 +49,7 @@ struct Context final {
   void *dumpHandlerData = nullptr;
   LoadCacheHandlerT loadCacheHandler = nullptr;
   void *loadCacheHandlerData = nullptr;
-  LoadCacheHandlerT saveCacheHandler = nullptr;
+  SaveCacheHandlerT saveCacheHandler = nullptr;
   void *saveCacheHandlerData = nullptr;
 };
 

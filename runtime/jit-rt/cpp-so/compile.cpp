@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include <cassert>
+#include <iomanip>
 #include <map>
 #include <memory>
 #include <sstream>
@@ -156,6 +157,7 @@ struct ModuleListener {
       using StoredType = typename std::remove_reference<decltype(*object)>::type;
       *object = StoredType(std::move(data.first),
                            std::move(data.second));
+      binStream->flush();
     }
     return std::move(object);
   }
@@ -449,6 +451,24 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
     }
   });
 
+  std::string binId;
+  if (hasLoadCacheHandler || hasSaveCacheHandler) {
+    std::stringstream ss;
+    ss << myJit.getTargetMachine().getTargetTriple().getTriple().data() << "-";
+    ss << myJit.getTargetMachine().getTargetCPU().data() << "-";
+    ss << context.optLevel << "-";
+    ss << context.sizeLevel << "-";
+    auto featureStr = myJit.getTargetMachine().getTargetFeatureString();
+    irHash.update(toArray(reinterpret_cast<const uint8_t*>(featureStr.data()),
+                          featureStr.size()));
+    ss << std::hex << std::setfill('0');
+    for (auto c : irHash.result()) {
+      ss << std::setw(2);
+      ss << static_cast<unsigned>(static_cast<unsigned char>(c));
+    }
+    binId = ss.str();
+  }
+
   std::unique_ptr<llvm::Module> finalModule;
 
   OptimizerSettings settings;
@@ -502,18 +522,25 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   dumpModule(context, *finalModule, DumpStage::OptimizedModule);
 
   interruptPoint(context, "Codegen final module");
-  if (nullptr != context.dumpHandler) {
-    auto callback = [&](const char *str, size_t len) {
+  {
+    auto asmCallback = [&](const char *str, size_t len) {
+      assert(context.dumpHandler != nullptr);
       context.dumpHandler(context.dumpHandlerData, DumpStage::FinalAsm, str,
                           len);
     };
-
-    CallbackOstream os(callback);
-    if (myJit.addModule(std::move(finalModule), symMap, &os, nullptr)) {
-      fatal(context, "Can't codegen module");
-    }
-  } else {
-    if (myJit.addModule(std::move(finalModule), symMap, nullptr, nullptr)) {
+    auto binCallback = [&](const char *str, size_t len) {
+      assert(context.saveCacheHandler != nullptr);
+      assert(!binId.empty());
+      context.saveCacheHandler(context.saveCacheHandlerData, binId.c_str(),
+                               Slice{reinterpret_cast<const uint8_t*>(str), len});
+    };
+    CallbackOstream asmOs(asmCallback);
+    CallbackOstream binOs(binCallback);
+    if (myJit.addModule(
+          std::move(finalModule),
+          symMap,
+          context.dumpHandler      != nullptr ? &asmOs : nullptr,
+          context.saveCacheHandler != nullptr ? &binOs : nullptr)) {
       fatal(context, "Can't codegen module");
     }
   }
