@@ -210,9 +210,6 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 ///
 DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
                         Expressions *arguments, LLValue *sretPointer = nullptr);
-DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
-                        const std::vector<DValue *> &argvals,
-                        LLValue *sretPointer = nullptr);
 
 Type *stripModifiers(Type *type, bool transitive = false);
 

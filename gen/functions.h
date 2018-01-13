@@ -44,7 +44,4 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
 
 DValue *DtoArgument(Parameter *fnarg, Expression *argexp);
 
-// Search for a druntime array op
-int isDruntimeArrayOp(FuncDeclaration *fd);
-
 #endif
