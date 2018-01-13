@@ -85,12 +85,6 @@ Module *ldc::DIBuilder::getDefinedModule(Dsymbol *s) {
   if (DtoIsTemplateInstance(s)) {
     return IR->dmodule;
   }
-  // array operations as well
-  if (FuncDeclaration *fd = s->isFuncDeclaration()) {
-    if (fd->isArrayOp && (willInline() || !isDruntimeArrayOp(fd))) {
-      return IR->dmodule;
-    }
-  }
   // otherwise use the symbol's module
   return s->getModule();
 }
