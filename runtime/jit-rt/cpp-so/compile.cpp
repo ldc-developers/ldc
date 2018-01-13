@@ -138,13 +138,24 @@ auto getSymbolInProcess(const std::string &name)
 
 struct ModuleListener {
   llvm::TargetMachine &targetmachine;
-  llvm::raw_ostream *stream = nullptr;
+  llvm::raw_ostream *asmStream = nullptr;
+  llvm::raw_ostream *binStream = nullptr;
 
   ModuleListener(llvm::TargetMachine &tm) : targetmachine(tm) {}
 
   template <typename T> auto operator()(T &&object) -> T {
-    if (nullptr != stream) {
-      disassemble(targetmachine, *object->getBinary(), *stream);
+    if (asmStream != nullptr) {
+      disassemble(targetmachine, *object->getBinary(), *asmStream);
+    }
+    if (binStream != nullptr) {
+      // OwningBinary don't have methods to access internal memory buffer
+      auto data = object->takeBinary();
+      assert(data.second != nullptr);
+      binStream->write(data.second->getBuffer().data(),
+                       data.second->getBufferSize());
+      using StoredType = typename std::remove_reference<decltype(*object)>::type;
+      *object = StoredType(std::move(data.first),
+                           std::move(data.second));
     }
     return std::move(object);
   }
@@ -177,10 +188,16 @@ private:
 
   struct ListenerCleaner final {
     MyJIT &owner;
-    ListenerCleaner(MyJIT &o, llvm::raw_ostream *stream) : owner(o) {
-      owner.listenerlayer.getTransform().stream = stream;
+    ListenerCleaner(MyJIT &o,
+                    llvm::raw_ostream *asmStream,
+                    llvm::raw_ostream *binStream) : owner(o) {
+      owner.listenerlayer.getTransform().asmStream = asmStream;
+      owner.listenerlayer.getTransform().binStream = binStream;
     }
-    ~ListenerCleaner() { owner.listenerlayer.getTransform().stream = nullptr; }
+    ~ListenerCleaner() {
+      owner.listenerlayer.getTransform().asmStream = nullptr;
+      owner.listenerlayer.getTransform().binStream = nullptr;
+    }
   };
 
 public:
@@ -202,12 +219,13 @@ public:
   const llvm::DataLayout &getDataLayout() const { return dataLayout; }
 
   bool addModule(std::unique_ptr<llvm::Module> module, const SymMap &symMap,
-                 llvm::raw_ostream *asmListener) {
+                 llvm::raw_ostream *asmListener,
+                 llvm::raw_ostream *binListener) {
     assert(nullptr != module);
     reset();
     auto Resolver = createResolver(symMap);
 
-    ListenerCleaner cleaner(*this, asmListener);
+    ListenerCleaner cleaner(*this, asmListener, binListener);
     // Add the set to the JIT with the resolver we created above
     auto result = compileLayer.addModule(std::move(module), Resolver);
     if (!result) {
@@ -220,12 +238,13 @@ public:
 
   bool addObject(std::unique_ptr<llvm::MemoryBuffer> objBuffer,
                  const SymMap &symMap,
-                 llvm::raw_ostream *asmListener) {
+                 llvm::raw_ostream *asmListener,
+                 llvm::raw_ostream *binListener) {
     assert(nullptr != objBuffer);
     reset();
     auto Resolver = createResolver(symMap);
 
-    ListenerCleaner cleaner(*this, asmListener);
+    ListenerCleaner cleaner(*this, asmListener, binListener);
     // Add the set to the JIT with the resolver we created above
     auto result = compileLayer.addObject(std::move(objBuffer), Resolver);
     if (!result) {
@@ -490,11 +509,11 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
     };
 
     CallbackOstream os(callback);
-    if (myJit.addModule(std::move(finalModule), symMap, &os)) {
+    if (myJit.addModule(std::move(finalModule), symMap, &os, nullptr)) {
       fatal(context, "Can't codegen module");
     }
   } else {
-    if (myJit.addModule(std::move(finalModule), symMap, nullptr)) {
+    if (myJit.addModule(std::move(finalModule), symMap, nullptr, nullptr)) {
       fatal(context, "Can't codegen module");
     }
   }
