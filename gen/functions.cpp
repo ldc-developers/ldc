@@ -459,9 +459,8 @@ void applyTargetMachineAttributes(llvm::Function &func,
   func.addFnAttr("no-infs-fp-math", TO.NoInfsFPMath ? "true" : "false");
   func.addFnAttr("no-nans-fp-math", TO.NoNaNsFPMath ? "true" : "false");
 
-  // Frame pointer elimination
   func.addFnAttr("no-frame-pointer-elim",
-                 opts::disableFPElim() ? "true" : "false");
+                 willEliminateFramePointer() ? "false" : "true");
 }
 
 } // anonymous namespace

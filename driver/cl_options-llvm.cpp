@@ -35,7 +35,11 @@ Reloc::Model getRelocModel() { return ::RelocModel; }
 
 CodeModel::Model getCodeModel() { return ::CMModel; }
 
-bool disableFPElim() { return ::DisableFPElim; }
+cl::boolOrDefault disableFPElim() {
+  return ::DisableFPElim.getNumOccurrences() == 0
+             ? cl::BOU_UNSET
+             : ::DisableFPElim ? cl::BOU_TRUE : cl::BOU_FALSE;
+}
 
 bool disableRedZone() { return ::DisableRedZone; }
 

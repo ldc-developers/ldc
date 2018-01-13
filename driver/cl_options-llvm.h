@@ -24,7 +24,7 @@ llvm::Optional<llvm::Reloc::Model> getRelocModel();
 llvm::Reloc::Model getRelocModel();
 #endif
 llvm::CodeModel::Model getCodeModel();
-bool disableFPElim();
+llvm::cl::boolOrDefault disableFPElim();
 bool disableRedZone();
 bool printTargetFeaturesHelp();
 
