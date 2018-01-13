@@ -18,10 +18,11 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-static llvm::cl::opt<std::string> mscrtlib(
-    "mscrtlib", llvm::cl::ZeroOrMore, llvm::cl::value_desc("name"),
-    llvm::cl::desc(
-        "MS C runtime library to link against (libcmt[d] / msvcrt[d])"));
+static llvm::cl::opt<std::string>
+    mscrtlib("mscrtlib", llvm::cl::ZeroOrMore,
+             llvm::cl::desc("MS C runtime library to link with"),
+             llvm::cl::value_desc("libcmt[d]|msvcrt[d]"),
+             llvm::cl::cat(opts::linkingCategory));
 
 //////////////////////////////////////////////////////////////////////////////
 
