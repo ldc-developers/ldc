@@ -343,6 +343,14 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   if (opts::enableDynamicCompile) {
     args.push_back("-lldc-jit-rt");
     args.push_back("-lldc-jit");
+    if (global.params.targetTriple->isOSDarwin()) {
+      args.push_back("-rpath");
+      args.push_back("@executable_path");
+
+      std::string jitLib = exe_path::prependLibDir("libldc_jit.dylib");
+      args.push_back("-rpath");
+      args.push_back(llvm::sys::path::parent_path(jitLib));
+    }
   }
 
   // user libs
