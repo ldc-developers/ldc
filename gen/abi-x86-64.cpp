@@ -198,13 +198,7 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
 struct ImplicitByvalRewrite : ABIRewrite {
   LLValue *put(DValue *v, bool isModifiableLvalue) override {
     if (isModifiableLvalue && v->isLVal()) {
-      llvm::Value *const lval = DtoLVal(v);
-      const unsigned alignment = DtoAlignment(v->type);
-      llvm::Value *copy =
-          DtoRawAlloca(lval->getType()->getPointerElementType(), alignment,
-                       ".lval_copy_for_ImplicitByvalRewrite");
-      DtoMemCpy(copy, lval, /*withPadding=*/true, alignment);
-      return copy;
+      return DtoAllocaDump(v, ".lval_copy_for_ImplicitByvalRewrite");
     }
     return getAddressOf(v);
   }

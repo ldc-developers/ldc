@@ -190,20 +190,7 @@ struct ExplicitByvalRewrite : ABIRewrite {
       : minAlignment(minAlignment) {}
 
   LLValue *put(DValue *v, bool) override {
-    const unsigned align = DtoAlignment(v->type);
-    const unsigned allocaAlign = std::max(minAlignment, align);
-
-    if (!DtoIsInMemoryOnly(v->type)) {
-      return DtoAllocaDump(DtoRVal(v), allocaAlign,
-                           ".ExplicitByvalRewrite_dump");
-    }
-
-    LLValue *originalPointer = DtoLVal(v);
-    LLType *type = originalPointer->getType()->getPointerElementType();
-    LLValue *copyForCallee =
-        DtoRawAlloca(type, allocaAlign, ".ExplicitByvalRewrite_dump");
-    DtoMemCpy(copyForCallee, originalPointer, /*withPadding=*/true, align);
-    return copyForCallee;
+    return DtoAllocaDump(v, alignment(v->type), ".ExplicitByvalRewrite_dump");
   }
 
   LLValue *getLVal(Type *dty, LLValue *v) override {

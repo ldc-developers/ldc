@@ -75,17 +75,10 @@ llvm::Value *IrFuncTy::putParam(const IrFuncTyArg &arg, DValue *dval,
   }
 
   if (arg.byref || DtoIsInMemoryOnly(dval->type)) {
-    llvm::Value *const lval = DtoLVal(dval);
-
     if (isModifiableLvalue && arg.isByVal()) {
-      const unsigned alignment = DtoAlignment(dval->type);
-      llvm::Value *copy = DtoRawAlloca(lval->getType()->getPointerElementType(),
-                                       alignment, ".lval_copy_for_byval");
-      DtoMemCpy(copy, lval, /*withPadding=*/true, alignment);
-      return copy;
+      return DtoAllocaDump(dval, ".lval_copy_for_byval");
     }
-
-    return lval;
+    return DtoLVal(dval);
   }
 
   return DtoRVal(dval);

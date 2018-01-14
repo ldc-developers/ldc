@@ -239,14 +239,8 @@ public:
       // adding more control flow.
       if (result && result->type->ty != Tvoid &&
           !result->definedInFuncEntryBB()) {
-        if (result->isLVal()) {
-          LLValue *copy = DtoAlloca(result->type);
-          DtoMemCpy(copy, DtoLVal(result));
-          result = new DLValue(result->type, copy);
-        } else {
-          LLValue *copy = DtoAllocaDump(result);
-          result = new DLValue(result->type, copy);
-        }
+        LLValue *copy = DtoAllocaDump(result);
+        result = new DLValue(result->type, copy);
       }
 
       llvm::BasicBlock *endbb = p->insertBB("toElem.success");
