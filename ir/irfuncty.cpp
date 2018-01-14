@@ -33,7 +33,7 @@ llvm::Value *IrFuncTy::putRet(DValue *dval) {
   if (ret->rewrite) {
     Logger::println("Rewrite: putRet");
     LOG_SCOPE
-    return ret->rewrite->put(dval);
+    return ret->rewrite->put(dval, /*isModifiableLvalue=*/false);
   }
 
   if (ret->byref || DtoIsInMemoryOnly(dval->type))
@@ -71,7 +71,7 @@ llvm::Value *IrFuncTy::putParam(const IrFuncTyArg &arg, DValue *dval,
   if (arg.rewrite) {
     Logger::println("Rewrite: putParam");
     LOG_SCOPE
-    return arg.rewrite->put(dval);
+    return arg.rewrite->put(dval, isModifiableLvalue);
   }
 
   if (arg.byref || DtoIsInMemoryOnly(dval->type)) {
