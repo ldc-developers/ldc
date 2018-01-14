@@ -152,7 +152,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
   // Iterate the explicit arguments from left to right in the D source,
   // which is the reverse of the LLVM order if irFty.reverseParams is true.
   size_t dArgIndex = 0;
-  for (size_t i = 0; i < explicitLLArgCount; ++i) {
+  for (size_t i = 0; i < explicitLLArgCount; ++i, ++dArgIndex) {
     const bool isVararg = (i >= formalLLArgCount);
     IrFuncTyArg *irArg = nullptr;
     if (isVararg) {
@@ -170,13 +170,17 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
     Expression *const argexp = argexps[dArgIndex];
     Parameter *const formalParam =
         isVararg ? nullptr : Parameter::getNth(formalParams, dArgIndex);
-    ++dArgIndex;
 
     // evaluate argument expression
     DValue *const dval = DtoArgument(formalParam, argexp);
 
+    // check whether it is an lvalue which might be modified by later argument
+    // expressions
+    const bool isModifiableLvalue =
+        argexp->isLvalue() && dArgIndex != explicitDArgCount - 1;
+
     // load from lvalue/let TargetABI rewrite it/...
-    llvm::Value *llVal = irFty.putParam(*irArg, dval);
+    llvm::Value *llVal = irFty.putParam(*irArg, dval, isModifiableLvalue);
 
     const size_t llArgIdx =
         implicitLLArgCount +
