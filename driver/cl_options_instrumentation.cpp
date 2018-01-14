@@ -36,6 +36,11 @@ cl::opt<bool>
                         cl::desc("Instrument function entry and exit with "
                                  "GCC-compatible profiling calls"));
 
+// DMD-style profiling (`dmd -profile`)
+static cl::opt<bool> dmdFunctionTrace(
+    "fdmd-trace-functions", cl::ZeroOrMore,
+    cl::desc("DMD-style runtime performance profiling of generated code"));
+
 void initializeInstrumentationOptionsFromCmdline() {
   if (genfileInstrProf.getNumOccurrences() > 0) {
     global.params.genInstrProf = true;
@@ -55,6 +60,9 @@ void initializeInstrumentationOptionsFromCmdline() {
     // profdata file:
     initFromPathString(global.params.datafileInstrProf, usefileInstrProf);
   }
+
+  if (dmdFunctionTrace)
+    global.params.trace = true;
 }
 
 } // namespace opts
