@@ -56,7 +56,7 @@ IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
    
     // Translate the virtual dcompute address space into the real one for
     // the target
-    unsigned realAS = p->translate();
+    unsigned realAS = p->targetAddrSpace();
 
     llvm::SmallVector<LLType *, 1> body;
     body.push_back(DtoMemType(p->type)->getPointerTo(realAS));

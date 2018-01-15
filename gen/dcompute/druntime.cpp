@@ -63,7 +63,7 @@ unsigned addressSpaceForVarDeclaration(VarDeclaration *vd) {
     auto dcas = toDcomputeAddrspacedType(vd);
     unsigned as = 0;
     if (dcas && dcas->id == Id::dcVariable) {
-      as = dcas->translate();
+      as = dcas->targetAddrSpace();
       IF_LOG Logger::println("addressSpaceForVarDeclaration: %s: as %u (was %u)",
                              vd->toChars(),as,dcas->addrspace);
     }

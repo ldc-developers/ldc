@@ -37,10 +37,10 @@ struct DcomputeAddrspacedType {
     auto llType = DtoType(type);
     unsigned as = addrspace;
     if (shouldTranslate)
-      as = translate();
+      as = targetAddrSpace();
     return llType->getPointerTo(as);
   }
-  unsigned translate()
+  unsigned targetAddrSpace()
   {
     return gIR ? gIR->dcomputetarget->mapping[addrspace] : 0;
   }
