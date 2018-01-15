@@ -75,7 +75,7 @@ private struct _kernel {}
 enum kernel = _kernel();
 
 /++
- + DCompute has the notion of adress spaces, provide by the magic struct below.
+ + DCompute has the notion of adress spaces, provide by the magic structs below.
  + The numbers are for the DCompute virtual addess space and are translated into
  + the correct address space for each DCompute backend (SPIRV, NVPTX).
  + The table below shows the equivalent annotation between DCompute OpenCL and CUDA
@@ -93,6 +93,12 @@ struct Pointer(AddrSpace as, T)
     alias ptr this;
 }
 
+struct Variable(AddrSpace as, T)
+{
+    T val;
+    alias val this;
+}
+
 enum AddrSpace : uint
 {
     Private  = 0,
@@ -108,4 +114,13 @@ alias SharedPointer(T)   = Pointer!(AddrSpace.Shared,   T);
 alias ConstantPointer(T) = Pointer!(AddrSpace.Constant, immutable(T));
 alias GenericPointer(T)  = Pointer!(AddrSpace.Generic,  T);
 
+// N.B private variables are declared on the stack and so cannot be declared
+// at module scope.
+// No variables exist in the generic address space, it is purely for generalised
+// pointers to point to.
+//
+// The __gshared below does not work. It is kludged into place in `DtoResolveVariable`
 
+alias Global(T)   = __gshared Variable!(AddrSpace.Global,   T);
+alias Shared(T)   = shared    Variable!(AddrSpace.Shared,   T);
+alias Constant(T) = immutable Variable!(AddrSpace.Constant, T);
