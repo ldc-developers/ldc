@@ -41,6 +41,10 @@ struct CompilerSettings
   /// Actual format of dump is not specified and must be used for debugging
   /// purposes only
   void delegate(DumpStage, in char[]) dumpHandler = null;
+
+  void delegate(in char[], in void delegate(in void[])) loadCache = null;
+
+  void delegate(in char[], const(void)[]) saveCache = null;
 }
 
 /++
@@ -80,17 +84,29 @@ void compileDynamicCode(in CompilerSettings settings = CompilerSettings.init)
     context.dumpHandler = &dumpHandlerWrapper;
     context.dumpHandlerData = cast(void*)&settings.dumpHandler;
   }
+
+  if (settings.loadCache !is null)
+  {
+    context.loadCacheHandler = &loadCacheWrapper;
+    context.loadCacheHandlerData = cast(void*)&settings.loadCache;
+  }
+
+  if (settings.saveCache !is null)
+  {
+    context.saveCacheHandler = &saveCacheWrapper;
+    context.saveCacheHandlerData = cast(void*)&settings.saveCache;
+  }
   rtCompileProcessImpl(context, context.sizeof);
 }
 
 private:
+import std.string;
 
 extern(C)
 {
 
 void progressHandlerWrapper(void* context, const char* desc, const char* obj)
 {
-  import std.string;
   alias DelType = typeof(CompilerSettings.progressHandler);
   auto del = cast(DelType*)context;
   (*del)(fromStringz(desc), fromStringz(obj));
@@ -104,8 +120,40 @@ void dumpHandlerWrapper(void* context, DumpStage stage, const char* buff, size_t
   (*del)(stage, buff[0..len]);
 }
 
+void loadCacheSinkWrapper(void* context, const ref Slice buffer)
+{
+  alias DelType = void delegate(in void[]);
+  auto del = cast(DelType*)context;
+  (*del)(buffer.data[0..buffer.len]);
+}
+
+void loadCacheWrapper(void* context, const char* desc, void* sinkContext, in void function(void*, const ref Slice) sink)
+{
+  assert(sink !is null);
+  alias DelType = typeof(CompilerSettings.loadCache);
+  auto del = cast(DelType*)context;
+  scope void sinkDel(in void[] buff)
+  {
+    auto tempSlice = Slice(buff.ptr, buff.length);
+    sink(sinkContext, tempSlice);
+  }
+  (*del)(fromStringz(desc), &sinkDel);
+}
+
+void saveCacheWrapper(void* context, const char* desc, const ref Slice buffer)
+{
+  alias DelType = typeof(CompilerSettings.saveCache);
+  auto del = cast(DelType*)context;
+  (*del)(fromStringz(desc), buffer.data[0..buffer.len]);
+}
+
 
 // must be synchronized with cpp
+struct Slice
+{
+  const void* data;
+  size_t len;
+}
 struct Context
 {
   uint optLevel = 0;
@@ -116,6 +164,10 @@ struct Context
   void* fatalHandlerData = null;
   void function(void*, DumpStage, const char*, size_t) dumpHandler = null;
   void* dumpHandlerData = null;
+  void function(void*, const char*, void*, void function(void*, const ref Slice)) loadCacheHandler = null;
+  void *loadCacheHandlerData = null;
+  void function(void*, const char*, const ref Slice) saveCacheHandler = null;
+  void *saveCacheHandlerData = null;
 }
 extern void rtCompileProcessImpl(const ref Context context, size_t contextSize);
 }

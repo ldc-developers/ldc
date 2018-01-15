@@ -28,6 +28,15 @@ typedef void (*InterruptPointHandlerT)(void *, const char *action,
 typedef void (*FatalHandlerT)(void *, const char *reason);
 typedef void (*DumpHandlerT)(void *, DumpStage stage, const char *str,
                              std::size_t len);
+struct Slice
+{
+    const void* data;
+    std::size_t len;
+};
+typedef void (*LoadCacheSinkT)(void *, const Slice &slice);
+typedef void (*LoadCacheHandlerT)(void *, const char *desc, void *,
+                                  LoadCacheSinkT sink);
+typedef void (*SaveCacheHandlerT)(void *, const char *desc, const Slice &slice);
 
 struct Context final {
   unsigned optLevel = 0;
@@ -38,6 +47,10 @@ struct Context final {
   void *fatalHandlerData = nullptr;
   DumpHandlerT dumpHandler = nullptr;
   void *dumpHandlerData = nullptr;
+  LoadCacheHandlerT loadCacheHandler = nullptr;
+  void *loadCacheHandlerData = nullptr;
+  SaveCacheHandlerT saveCacheHandler = nullptr;
+  void *saveCacheHandlerData = nullptr;
 };
 
 #endif // CONTEXT_H

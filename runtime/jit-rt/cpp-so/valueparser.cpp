@@ -19,6 +19,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/SHA1.h"
 
 namespace {
 template <typename T>
@@ -44,6 +45,58 @@ llvm::Constant *getPtr(llvm::LLVMContext &context, llvm::Type *targetType,
       llvm::ConstantInt::get(context, llvm::APInt(sizeof(val) * 8, val)),
       targetType);
 }
+}
+
+void getInitializerHash(const Context &context,
+                        const llvm::DataLayout &dataLayout, llvm::Type *type,
+                        const void *data, llvm::SHA1 &hasher) {
+  assert(nullptr != type);
+  assert(nullptr != data);
+  auto storage = static_cast<const uint8_t*>(data);
+  if (type->isIntegerTy()) {
+    const auto width = type->getIntegerBitWidth();
+    assert((width % 8) == 0);
+    const auto len = static_cast<std::size_t>(width / 8);
+    hasher.update(llvm::ArrayRef<uint8_t>(storage, len));
+    return;
+  }
+  if (type->isFloatingPointTy()) {
+    const auto width = type->getPrimitiveSizeInBits();
+    assert((width % 8) == 0);
+    const auto len = static_cast<std::size_t>(width / 8);
+    hasher.update(llvm::ArrayRef<uint8_t>(storage, len));
+    return;
+  }
+  if (type->isPointerTy()) {
+    hasher.update(llvm::ArrayRef<uint8_t>(storage, sizeof(void*)));
+    return;
+  }
+  if (type->isStructTy()) {
+    auto stype = llvm::cast<llvm::StructType>(type);
+    auto slayout = dataLayout.getStructLayout(stype);
+    auto numElements = stype->getNumElements();
+    for (unsigned i = 0; i < numElements; ++i) {
+      const auto elemType = stype->getElementType(i);
+      const auto elemOffset = slayout->getElementOffset(i);
+      const auto elemPtr = storage + elemOffset;
+      getInitializerHash(context, dataLayout, elemType, elemPtr, hasher);
+    }
+    return;
+  }
+  if (type->isArrayTy()) {
+    auto elemType = type->getArrayElementType();
+    const auto step = dataLayout.getTypeAllocSize(elemType);
+    const auto numElements = type->getArrayNumElements();
+    for (uint64_t i = 0; i < numElements; ++i) {
+      const auto elemPtr = storage + step * i;
+      getInitializerHash(context, dataLayout, elemType, elemPtr, hasher);
+    }
+    return;
+  }
+  std::string tname;
+  llvm::raw_string_ostream os(tname);
+  type->print(os, true);
+  fatal(context, std::string("Unhandled type: ") + os.str());
 }
 
 llvm::Constant *parseInitializer(const Context &context,

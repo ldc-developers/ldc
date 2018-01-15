@@ -13,22 +13,24 @@
 //===----------------------------------------------------------------------===//
 
 #include <cassert>
+#include <iomanip>
 #include <map>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
+#include <type_traits>
 
 #include "callback_ostream.h"
 #include "context.h"
+#include "compile_layer.h"
 #include "disassembler.h"
 #include "optimizer.h"
+#include "valueparser.h"
 #include "utils.h"
 
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JITSymbol.h"
-#include "llvm/ExecutionEngine/Orc/CompileUtils.h"
-#include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
 #include "llvm/ExecutionEngine/Orc/LambdaResolver.h"
 #include "llvm/ExecutionEngine/Orc/ObjectTransformLayer.h"
 #include "llvm/ExecutionEngine/RuntimeDyld.h"
@@ -39,6 +41,7 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/SHA1.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
@@ -66,18 +69,22 @@ struct RtCompileSymList {
 struct RtCompileVarList {
   const char *name;
   const void *init;
+  const char *desc;
+  int descSize;
 };
 
 struct RtCompileModuleList {
-  RtCompileModuleList *next;
+  const RtCompileModuleList *next;
   const char *irData;
   int irDataSize;
-  RtCompileFuncList *funcList;
+  const RtCompileFuncList *funcList;
   int funcListSize;
-  RtCompileSymList *symList;
+  const RtCompileSymList *symList;
   int symListSize;
-  RtCompileVarList *varList;
+  const RtCompileVarList *varList;
   int varListSize;
+  const uint8_t *irHash;
+  int irHashSize;
 };
 
 #pragma pack(pop)
@@ -132,13 +139,25 @@ auto getSymbolInProcess(const std::string &name)
 
 struct ModuleListener {
   llvm::TargetMachine &targetmachine;
-  llvm::raw_ostream *stream = nullptr;
+  llvm::raw_ostream *asmStream = nullptr;
+  llvm::raw_ostream *binStream = nullptr;
 
   ModuleListener(llvm::TargetMachine &tm) : targetmachine(tm) {}
 
   template <typename T> auto operator()(T &&object) -> T {
-    if (nullptr != stream) {
-      disassemble(targetmachine, *object->getBinary(), *stream);
+    if (asmStream != nullptr) {
+      disassemble(targetmachine, *object->getBinary(), *asmStream);
+    }
+    if (binStream != nullptr) {
+      // OwningBinary don't have methods to access internal memory buffer
+      auto data = object->takeBinary();
+      assert(data.second != nullptr);
+      binStream->write(data.second->getBuffer().data(),
+                       data.second->getBufferSize());
+      using StoredType = typename std::remove_reference<decltype(*object)>::type;
+      *object = StoredType(std::move(data.first),
+                           std::move(data.second));
+      binStream->flush();
     }
     return std::move(object);
   }
@@ -154,16 +173,14 @@ private:
   using ObjectLayerT = llvm::orc::RTDyldObjectLinkingLayer;
   using ListenerLayerT =
       llvm::orc::ObjectTransformLayer<ObjectLayerT, ModuleListener>;
-  using CompileLayerT =
-      llvm::orc::IRCompileLayer<ListenerLayerT, llvm::orc::SimpleCompiler>;
-  using ModuleHandleT = CompileLayerT::ModuleHandleT;
 #else
   using ObjectLayerT = llvm::orc::ObjectLinkingLayer<>;
   using ListenerLayerT =
       llvm::orc::ObjectTransformLayer<ObjectLayerT, ModuleListener>;
-  using CompileLayerT = llvm::orc::IRCompileLayer<ListenerLayerT>;
-  using ModuleHandleT = CompileLayerT::ModuleSetHandleT;
 #endif
+  using CompileLayerT = CompilerLayer<ListenerLayerT>;
+  using ModuleHandleT = CompileLayerT::ModuleHandleT;
+
   ObjectLayerT objectLayer;
   ListenerLayerT listenerlayer;
   CompileLayerT compileLayer;
@@ -173,10 +190,16 @@ private:
 
   struct ListenerCleaner final {
     MyJIT &owner;
-    ListenerCleaner(MyJIT &o, llvm::raw_ostream *stream) : owner(o) {
-      owner.listenerlayer.getTransform().stream = stream;
+    ListenerCleaner(MyJIT &o,
+                    llvm::raw_ostream *asmStream,
+                    llvm::raw_ostream *binStream) : owner(o) {
+      owner.listenerlayer.getTransform().asmStream = asmStream;
+      owner.listenerlayer.getTransform().binStream = binStream;
     }
-    ~ListenerCleaner() { owner.listenerlayer.getTransform().stream = nullptr; }
+    ~ListenerCleaner() {
+      owner.listenerlayer.getTransform().asmStream = nullptr;
+      owner.listenerlayer.getTransform().binStream = nullptr;
+    }
   };
 
 public:
@@ -190,55 +213,46 @@ public:
             []() { return std::make_shared<llvm::SectionMemoryManager>(); }),
 #endif
         listenerlayer(objectLayer, ModuleListener(*targetmachine)),
-        compileLayer(listenerlayer, llvm::orc::SimpleCompiler(*targetmachine)) {
+        compileLayer(listenerlayer, *targetmachine) {
     llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
   }
 
   llvm::TargetMachine &getTargetMachine() { return *targetmachine; }
+  const llvm::DataLayout &getDataLayout() const { return dataLayout; }
 
   bool addModule(std::unique_ptr<llvm::Module> module, const SymMap &symMap,
-                 llvm::raw_ostream *asmListener) {
+                 llvm::raw_ostream *asmListener,
+                 llvm::raw_ostream *binListener) {
     assert(nullptr != module);
     reset();
-    // Build our symbol resolver:
-    // Lambda 1: Look back into the JIT itself to find symbols that are part of
-    //           the same "logical dylib".
-    // Lambda 2: Search for external symbols in the host process.
-    auto Resolver = llvm::orc::createLambdaResolver(
-        [&](const std::string &name) {
-          if (auto Sym = compileLayer.findSymbol(name, false)) {
-            return Sym;
-          }
-          return llvm::JITSymbol(nullptr);
-        },
-        [&](const std::string &name) {
-          auto it = symMap.find(name);
-          if (symMap.end() != it) {
-            return llvm::JITSymbol(
-                reinterpret_cast<llvm::JITTargetAddress>(it->second),
-                llvm::JITSymbolFlags::Exported);
-          }
-          if (auto SymAddr = getSymbolInProcess(name)) {
-            return llvm::JITSymbol(SymAddr, llvm::JITSymbolFlags::Exported);
-          }
-          return llvm::JITSymbol(nullptr);
-        });
+    auto Resolver = createResolver(symMap);
 
-    ListenerCleaner cleaner(*this, asmListener);
+    ListenerCleaner cleaner(*this, asmListener, binListener);
     // Add the set to the JIT with the resolver we created above
-#if LDC_LLVM_VER >= 500
     auto result = compileLayer.addModule(std::move(module), Resolver);
     if (!result) {
       return true;
     }
     moduleHandle = result.get();
-#else
-    std::vector<std::unique_ptr<llvm::Module>> modules;
-    modules.emplace_back(std::move(module));
-    moduleHandle = compileLayer.addModuleSet(
-        std::move(modules), llvm::make_unique<llvm::SectionMemoryManager>(),
-        std::move(Resolver));
-#endif
+    compiled = true;
+    return false;
+  }
+
+  bool addObject(std::unique_ptr<llvm::MemoryBuffer> objBuffer,
+                 const SymMap &symMap,
+                 llvm::raw_ostream *asmListener,
+                 llvm::raw_ostream *binListener) {
+    assert(nullptr != objBuffer);
+    reset();
+    auto Resolver = createResolver(symMap);
+
+    ListenerCleaner cleaner(*this, asmListener, binListener);
+    // Add the set to the JIT with the resolver we created above
+    auto result = compileLayer.addObject(std::move(objBuffer), Resolver);
+    if (!result) {
+      return true;
+    }
+    moduleHandle = result.get();
     compiled = true;
     return false;
   }
@@ -259,17 +273,62 @@ public:
 
 private:
   void removeModule(const ModuleHandleT &handle) {
-#if LDC_LLVM_VER >= 500
     cantFail(compileLayer.removeModule(handle));
-#else
-    compileLayer.removeModuleSet(handle);
-#endif
+  }
+
+  std::shared_ptr<llvm::JITSymbolResolver> createResolver(const SymMap &symMap) {
+    // Build our symbol resolver:
+    // Lambda 1: Look back into the JIT itself to find symbols that are part of
+    //           the same "logical dylib".
+    // Lambda 2: Search for external symbols in the host process.
+    return llvm::orc::createLambdaResolver(
+        [&](const std::string &name) {
+          if (auto Sym = compileLayer.findSymbol(name, false)) {
+            return Sym;
+          }
+          return llvm::JITSymbol(nullptr);
+        },
+        [&](const std::string &name) {
+          auto it = symMap.find(name);
+          if (symMap.end() != it) {
+            return llvm::JITSymbol(
+                reinterpret_cast<llvm::JITTargetAddress>(it->second),
+                llvm::JITSymbolFlags::Exported);
+          }
+          if (auto SymAddr = getSymbolInProcess(name)) {
+            return llvm::JITSymbol(SymAddr, llvm::JITSymbolFlags::Exported);
+          }
+          return llvm::JITSymbol(nullptr);
+        });
   }
 };
 
 MyJIT &getJit() {
   static MyJIT jit;
   return jit;
+}
+
+void hashRtCompileVars(const Context &context,
+                       llvm::LLVMContext &llContext,
+                       const llvm::DataLayout &dataLayout,
+                       llvm::SHA1 &hasher,
+                       llvm::ArrayRef<RtCompileVarList> vals) {
+  for (auto &&val : vals) {
+    auto buff = llvm::MemoryBuffer::getMemBuffer(
+        llvm::StringRef(val.desc,
+                        static_cast<std::size_t>(val.descSize)),
+        "", false);
+    auto mod = llvm::parseBitcodeFile(*buff, llContext);
+    if (!mod) {
+      fatal(context, "Unable to parse dynamicCompileConst var desc");
+    }
+    auto var = (*mod)->getGlobalVariable("dummy", true);
+    if (var == nullptr) {
+      fatal(context, "Unable to get dynamicCompileConst type");
+    }
+    getInitializerHash(context, dataLayout, var->getType()->getElementType(),
+                       val.init, hasher);
+  }
 }
 
 void setRtCompileVars(const Context &context, llvm::Module &module,
@@ -279,8 +338,9 @@ void setRtCompileVars(const Context &context, llvm::Module &module,
   }
 }
 
-template <typename T> llvm::ArrayRef<T> toArray(T *ptr, size_t size) {
-  return llvm::ArrayRef<T>(ptr, size);
+template <typename T> auto toArray(T *ptr, size_t size)
+-> llvm::ArrayRef<typename std::remove_cv<T>::type> {
+  return llvm::ArrayRef<typename std::remove_cv<T>::type>(ptr, size);
 }
 
 void *resolveSymbol(llvm::JITSymbol &symbol) {
@@ -338,6 +398,15 @@ struct JitFinaliser final {
   void finalze() { finalized = true; }
 };
 
+template<typename F>
+void enumModules(const RtCompileModuleList *modlist_head, F&& fun) {
+  auto current = modlist_head;
+  while (current != nullptr) {
+    fun(*current);
+    current = current->next;
+  }
+}
+
 void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
                                     const Context &context) {
   if (nullptr == modlist_head) {
@@ -346,25 +415,118 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   }
   interruptPoint(context, "Init");
   MyJIT &myJit = getJit();
-  auto current = modlist_head;
 
   std::vector<std::pair<std::string, void **>> functions;
-  std::unique_ptr<llvm::Module> finalModule;
+
   SymMap symMap;
-  OptimizerSettings settings;
-  settings.optLevel = context.optLevel;
-  settings.sizeLevel = context.sizeLevel;
-  while (nullptr != current) {
-    interruptPoint(context, "load IR");
-    auto buff = llvm::MemoryBuffer::getMemBuffer(
-        llvm::StringRef(current->irData,
-                        static_cast<std::size_t>(current->irDataSize)),
-        "", false);
-    interruptPoint(context, "parse IR");
-    auto mod = llvm::parseBitcodeFile(*buff, myJit.getContext());
-    if (!mod) {
-      fatal(context, "Unable to parse IR");
-    } else {
+
+  const bool hasLoadCacheHandler = (context.loadCacheHandler != nullptr);
+  const bool hasSaveCacheHandler = (context.saveCacheHandler != nullptr);
+
+  llvm::SHA1 irHash;
+
+  enumModules(modlist_head, [&](const RtCompileModuleList &current) {
+    assert(current.irHash != nullptr);
+    assert(current.irHashSize > 0);
+
+    if (hasLoadCacheHandler || hasSaveCacheHandler) {
+      irHash.update(toArray(current.irHash,
+                            static_cast<std::size_t>(current.irHashSize)));
+
+      hashRtCompileVars(context, myJit.getContext(), myJit.getDataLayout(),
+                        irHash,
+                        toArray(current.varList,
+                                static_cast<std::size_t>(current.varListSize)));
+    }
+
+    for (auto &&fun :
+         toArray(current.funcList,
+                 static_cast<std::size_t>(current.funcListSize))) {
+      functions.push_back(std::make_pair(fun.name, fun.func));
+    }
+
+    for (auto &&sym : toArray(current.symList, static_cast<std::size_t>(
+                                current.symListSize))) {
+      symMap.insert(std::make_pair(decorate(sym.name), sym.sym));
+    }
+  });
+
+  std::string binId;
+  if (hasLoadCacheHandler || hasSaveCacheHandler) {
+    std::stringstream ss;
+    ss << myJit.getTargetMachine().getTargetTriple().getTriple().data() << "-";
+    ss << myJit.getTargetMachine().getTargetCPU().data() << "-";
+    ss << context.optLevel << "-";
+    ss << context.sizeLevel << "-";
+    auto featureStr = myJit.getTargetMachine().getTargetFeatureString();
+    irHash.update(toArray(reinterpret_cast<const uint8_t*>(featureStr.data()),
+                          featureStr.size()));
+    ss << std::hex << std::setfill('0');
+    for (auto c : irHash.result()) {
+      ss << std::setw(2);
+      ss << static_cast<unsigned>(static_cast<unsigned char>(c));
+    }
+    binId = ss.str();
+  }
+
+  std::unique_ptr<llvm::Module> finalModule;
+
+  using BufferT = std::unique_ptr<llvm::MemoryBuffer>;
+  BufferT objBuffer;
+  if (hasLoadCacheHandler) {
+    assert(context.loadCacheHandler != nullptr);
+    assert(!binId.empty());
+    auto sink = [](void *sinkContext, const Slice &slice) {
+      assert(sinkContext != nullptr);
+      *static_cast<BufferT*>(sinkContext)
+          = llvm::MemoryBuffer::getMemBufferCopy(
+              llvm::StringRef(reinterpret_cast<const char*>(slice.data),
+                              slice.len));
+    };
+
+    context.loadCacheHandler(context.loadCacheHandlerData, binId.c_str(),
+                             &objBuffer, sink);
+  }
+
+  if (objBuffer != nullptr) {
+    interruptPoint(context, "Set object data");
+    auto asmCallback = [&](const char *str, size_t len) {
+      assert(context.dumpHandler != nullptr);
+      context.dumpHandler(context.dumpHandlerData, DumpStage::FinalAsm, str,
+                          len);
+    };
+    auto binCallback = [&](const char *str, size_t len) {
+      assert(context.saveCacheHandler != nullptr);
+      assert(!binId.empty());
+      context.saveCacheHandler(context.saveCacheHandlerData, binId.c_str(),
+                               Slice{reinterpret_cast<const uint8_t*>(str), len});
+    };
+    CallbackOstream asmOs(asmCallback);
+    CallbackOstream binOs(binCallback);
+    if (myJit.addObject(
+          std::move(objBuffer),
+          symMap,
+          context.dumpHandler      != nullptr ? &asmOs : nullptr,
+          context.saveCacheHandler != nullptr ? &binOs : nullptr)) {
+      fatal(context, "Can't codegen module");
+    }
+  } else {
+    OptimizerSettings settings;
+    settings.optLevel = context.optLevel;
+    settings.sizeLevel = context.sizeLevel;
+
+    enumModules(modlist_head, [&](const RtCompileModuleList &current) {
+      interruptPoint(context, "load IR");
+      auto buff = llvm::MemoryBuffer::getMemBuffer(
+                    llvm::StringRef(current.irData,
+                                    static_cast<std::size_t>(current.irDataSize)),
+                    "", false);
+      interruptPoint(context, "parse IR");
+      auto mod = llvm::parseBitcodeFile(*buff, myJit.getContext());
+      if (!mod) {
+        fatal(context, "Unable to parse IR");
+      }
+
       llvm::Module &module = **mod;
       const auto name = module.getName();
       interruptPoint(context, "Verify module", name.data());
@@ -377,8 +539,8 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
 
       interruptPoint(context, "setRtCompileVars", name.data());
       setRtCompileVars(context, module,
-                       toArray(current->varList,
-                               static_cast<std::size_t>(current->varListSize)));
+                       toArray(current.varList,
+                               static_cast<std::size_t>(current.varListSize)));
 
       if (nullptr == finalModule) {
         finalModule = std::move(*mod);
@@ -387,44 +549,37 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
           fatal(context, "Can't merge module");
         }
       }
+    });
 
-      for (auto &&fun :
-           toArray(current->funcList,
-                   static_cast<std::size_t>(current->funcListSize))) {
-        functions.push_back(std::make_pair(fun.name, fun.func));
-      }
+    assert(nullptr != finalModule);
+    dumpModule(context, *finalModule, DumpStage::MergedModule);
+    interruptPoint(context, "Optimize final module");
+    optimizeModule(context, myJit.getTargetMachine(), settings, *finalModule);
 
-      for (auto &&sym : toArray(current->symList, static_cast<std::size_t>(
-                                                      current->symListSize))) {
-        symMap.insert(std::make_pair(decorate(sym.name), sym.sym));
-      }
-    }
-    current = current->next;
-  }
+    interruptPoint(context, "Verify final module");
+    verifyModule(context, *finalModule);
 
-  assert(nullptr != finalModule);
-  dumpModule(context, *finalModule, DumpStage::MergedModule);
-  interruptPoint(context, "Optimize final module");
-  optimizeModule(context, myJit.getTargetMachine(), settings, *finalModule);
+    dumpModule(context, *finalModule, DumpStage::OptimizedModule);
 
-  interruptPoint(context, "Verify final module");
-  verifyModule(context, *finalModule);
-
-  dumpModule(context, *finalModule, DumpStage::OptimizedModule);
-
-  interruptPoint(context, "Codegen final module");
-  if (nullptr != context.dumpHandler) {
-    auto callback = [&](const char *str, size_t len) {
+    interruptPoint(context, "Codegen final module");
+    auto asmCallback = [&](const char *str, size_t len) {
+      assert(context.dumpHandler != nullptr);
       context.dumpHandler(context.dumpHandlerData, DumpStage::FinalAsm, str,
                           len);
     };
-
-    CallbackOstream os(callback);
-    if (myJit.addModule(std::move(finalModule), symMap, &os)) {
-      fatal(context, "Can't codegen module");
-    }
-  } else {
-    if (myJit.addModule(std::move(finalModule), symMap, nullptr)) {
+    auto binCallback = [&](const char *str, size_t len) {
+      assert(context.saveCacheHandler != nullptr);
+      assert(!binId.empty());
+      context.saveCacheHandler(context.saveCacheHandlerData, binId.c_str(),
+                               Slice{reinterpret_cast<const uint8_t*>(str), len});
+    };
+    CallbackOstream asmOs(asmCallback);
+    CallbackOstream binOs(binCallback);
+    if (myJit.addModule(
+          std::move(finalModule),
+          symMap,
+          context.dumpHandler      != nullptr ? &asmOs : nullptr,
+          context.saveCacheHandler != nullptr ? &binOs : nullptr)) {
       fatal(context, "Can't codegen module");
     }
   }
