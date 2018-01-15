@@ -887,11 +887,13 @@ void DtoResolveVariable(VarDeclaration *vd) {
     }
 
     
-      unsigned addrspace = addressSpaceForVarDeclaration(vd);
-
+    unsigned addrspace = addressSpaceForVarDeclaration(vd);
+    //Kluge for dcompute `Global!(T)`: `&& addrspace != 0` corrects for
+    // __gshared not being propagated to instances through that alias.
     llvm::GlobalVariable *gvar =
         getOrCreateGlobal(vd->loc, gIR->module, DtoMemType(vd->type), isLLConst,
-                          linkage, nullptr, irMangle, vd->isThreadlocal(),
+                          linkage, nullptr, irMangle,
+                          vd->isThreadlocal() && addrspace != 0,
                           addrspace);
     auto varIr = getIrGlobal(vd);
     varIr->value = gvar;

@@ -16,6 +16,8 @@
 #include "ddmd/aggregate.h"
 #include "id.h"
 
+#include "gen/logger.h"
+
 bool isFromLDC_DCompute(Dsymbol *sym) {
   auto mod = sym->getModule();
   if (!mod)
@@ -50,14 +52,21 @@ llvm::Optional<DcomputeAddrspacedType> toDcomputeAddrspacedType(StructDeclaratio
   }
     
   TemplateInstance *ti = sd->isInstantiated();
-  int addrspace = isExpression((*ti->tiargs)[0])->toInteger();
+  unsigned as = (unsigned)isExpression((*ti->tiargs)[0])->toInteger();
   Type *type = isType((*ti->tiargs)[1]);
-  return llvm::Optional<DcomputeAddrspacedType>(DcomputeAddrspacedType(addrspace, type,sd->ident));
+  IF_LOG Logger::println("toDcomputeAddrspacedType(%s): %u : %s : %s",
+                         sd->toPrettyChars(),as,type->toChars(),sd->ident->toChars());
+  return llvm::Optional<DcomputeAddrspacedType>(DcomputeAddrspacedType(as, type,sd->ident));
 }
 
 unsigned addressSpaceForVarDeclaration(VarDeclaration *vd) {
-    auto isDComputeAddrspace = toDcomputeAddrspacedType(vd);
-    if (isDComputeAddrspace && isDComputeAddrspace->id == Id::dcVariable)
-      return isDComputeAddrspace->translate();
-    return 0;
+    auto dcas = toDcomputeAddrspacedType(vd);
+    unsigned as = 0;
+    if (dcas && dcas->id == Id::dcVariable) {
+      as = dcas->translate();
+      IF_LOG Logger::println("addressSpaceForVarDeclaration: %s: as %u (was %u)",
+                             vd->toChars(),as,dcas->addrspace);
+    }
+
+    return as;
 }

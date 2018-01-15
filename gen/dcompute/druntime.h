@@ -42,7 +42,7 @@ struct DcomputeAddrspacedType {
   }
   unsigned translate()
   {
-    return gIR->dcomputetarget->mapping[addrspace];
+    return gIR ? gIR->dcomputetarget->mapping[addrspace] : 0;
   }
 
 };
