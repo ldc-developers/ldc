@@ -349,6 +349,9 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   for (auto libfile : *global.params.libfiles) {
     args.push_back(libfile);
   }
+  for (auto dllfile : *global.params.dllfiles) {
+    args.push_back(dllfile);
+  }
 
   if (global.params.dll) {
     args.push_back("-shared");

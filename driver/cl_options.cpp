@@ -21,6 +21,8 @@ namespace opts {
 // This vector is filled by parseCommandLine in main.cpp.
 llvm::SmallVector<const char *, 32> allArguments;
 
+cl::OptionCategory linkingCategory("Linking options");
+
 /* Option parser that defaults to zero when no explicit number is given.
  * i.e.:  -cov    --> value = 0
  *        -cov=9  --> value = 9
@@ -272,12 +274,13 @@ cl::list<std::string> transitions(
 
 cl::list<std::string>
     linkerSwitches("L", cl::desc("Pass <linkerflag> to the linker"),
-                   cl::value_desc("linkerflag"), cl::Prefix);
+                   cl::value_desc("linkerflag"), cl::cat(linkingCategory),
+                   cl::Prefix);
 
 cl::list<std::string>
     ccSwitches("Xcc", cl::CommaSeparated,
                cl::desc("Pass <ccflag> to GCC/Clang for linking"),
-               cl::value_desc("ccflag"));
+               cl::value_desc("ccflag"), cl::cat(linkingCategory));
 
 cl::opt<std::string>
     moduleDeps("deps", cl::ValueOptional, cl::ZeroOrMore,
@@ -285,6 +288,12 @@ cl::opt<std::string>
                cl::desc("Write module dependencies to filename (only imports). "
                         "'-deps' alone prints module dependencies "
                         "(imports/file/version/debug/lib)"));
+
+cl::opt<cl::boolOrDefault>
+    staticFlag("static", llvm::cl::ZeroOrMore,
+               llvm::cl::desc("Create a statically linked binary, including "
+                              "all system dependencies"),
+               cl::cat(linkingCategory));
 
 cl::opt<bool> m32bits("m32", cl::desc("32 bit target"), cl::ZeroOrMore);
 
@@ -364,7 +373,8 @@ cl::opt<bool> linkonceTemplates(
 
 cl::opt<bool> disableLinkerStripDead(
     "disable-linker-strip-dead", cl::ZeroOrMore,
-    cl::desc("Do not try to remove unused symbols during linking"));
+    cl::desc("Do not try to remove unused symbols during linking"),
+    cl::cat(linkingCategory));
 
 // Math options
 bool fFastMath; // Storage for the dynamically created ffast-math option.
@@ -515,26 +525,29 @@ void createClashingOptions() {
 /// to be useful for end users from the -help output.
 void hideLLVMOptions() {
   static const char *const hiddenOptions[] = {
-      "arm-implicit-it", "asm-instrumentation", "asm-show-inst",
-      "atomic-counter-update-promote", "bounds-checking-single-trap",
-      "cppfname", "cppfor", "cppgen", "cvp-dont-process-add", "debug-counter",
-      "debugger-tune", "denormal-fp-math", "disable-debug-info-verifier",
+      "aarch64-neon-syntax", "arm-add-build-attributes", "arm-implicit-it",
+      "asm-instrumentation", "asm-show-inst", "atomic-counter-update-promoted",
+      "bounds-checking-single-trap", "code-model", "cppfname", "cppfor",
+      "cppgen", "cvp-dont-process-adds", "debug-counter", "debugger-tune",
+      "denormal-fp-math", "disable-debug-info-verifier",
       "disable-objc-arc-checkforcfghazards", "disable-spill-fusing",
       "do-counter-promotion", "emulated-tls", "enable-correct-eh-support",
       "enable-fp-mad", "enable-implicit-null-checks", "enable-load-pre",
       "enable-misched", "enable-name-compression", "enable-no-infs-fp-math",
-      "enable-no-nans-fp-math", "enable-no-trapping-fp-math",
-      "enable-objc-arc-annotations", "enable-objc-arc-opts", "enable-pie",
-      "enable-scoped-noalias", "enable-tbaa", "enable-unsafe-fp-math",
-      "exception-model", "exhaustive-register-search",
-      "fatal-assembler-warnings", "gpsize", "imp-null-check-page-size",
-      "imp-null-max-insts-to-consider", "incremental-linker-compatible",
-      "instcombine-maxarray-size", "internalize-public-api-file",
-      "internalize-public-api-list", "iterative-counter-promotion",
-      "join-liveintervals", "jump-table-type", "limit-float-precision",
-      "max-counter-promotions", "max-counter-promotions-per-loop",
-      "mc-relax-all", "mc-x86-disable-arith-relaxation", "meabi",
-      "memop-size-large", "memop-size-range", "merror-missing-parenthesis",
+      "enable-no-nans-fp-math", "enable-no-signed-zeros-fp-math",
+      "enable-no-trapping-fp-math", "enable-objc-arc-annotations",
+      "enable-objc-arc-opts", "enable-pie", "enable-scoped-noalias",
+      "enable-tbaa", "enable-unsafe-fp-math", "exception-model",
+      "exhaustive-register-search", "expensive-combines",
+      "fatal-assembler-warnings", "filter-print-funcs", "gpsize",
+      "imp-null-check-page-size", "imp-null-max-insts-to-consider",
+      "incremental-linker-compatible", "instcombine-maxarray-size",
+      "internalize-public-api-file", "internalize-public-api-list",
+      "iterative-counter-promotion", "join-liveintervals", "jump-table-type",
+      "limit-float-precision", "max-counter-promotions",
+      "max-counter-promotions-per-loop", "mc-relax-all",
+      "mc-x86-disable-arith-relaxation", "meabi", "memop-size-large",
+      "memop-size-range", "merror-missing-parenthesis",
       "merror-noncontigious-register", "mfuture-regs", "mips-compact-branches",
       "mips16-constant-islands", "mips16-hard-float", "mlsm", "mno-compound",
       "mno-fixup", "mno-ldc1-sdc1", "mno-pairing", "mwarn-missing-parenthesis",
@@ -549,6 +562,9 @@ void hideLLVMOptions() {
       "r600-ir-structurize", "rdf-dump", "rdf-limit", "recip", "regalloc",
       "relax-elf-relocations", "rewrite-map-file", "rng-seed",
       "safepoint-ir-verifier-print-only",
+      "sample-profile-check-record-coverage",
+      "sample-profile-check-sample-coverage",
+      "sample-profile-inline-hot-threshold",
       "sample-profile-max-propagate-iterations", "shrink-wrap", "simplify-mir",
       "speculative-counter-promotion-max-exiting",
       "speculative-counter-promotion-to-loop", "spiller", "spirv-debug",
@@ -561,8 +577,8 @@ void hideLLVMOptions() {
       "unit-at-a-time", "use-ctors", "verify-debug-info", "verify-dom-info",
       "verify-loop-info", "verify-loop-lcssa", "verify-machine-dom-info",
       "verify-regalloc", "verify-region-info", "verify-scev",
-      "verify-scev-maps", "x86-early-ifcvt", "x86-recip-refinement-steps",
-      "x86-use-vzeroupper",
+      "verify-scev-maps", "vp-counters-per-site", "vp-static-alloc",
+      "x86-early-ifcvt", "x86-recip-refinement-steps", "x86-use-vzeroupper",
 
       // We enable -fdata-sections/-ffunction-sections by default where it makes
       // sense for reducing code size, so hide them to avoid confusion.

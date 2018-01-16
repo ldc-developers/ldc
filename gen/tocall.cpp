@@ -796,11 +796,44 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 
 namespace {
+std::vector<DValue *> evaluateArgExpressions(DValue *fnval,
+                                             Expressions *arguments) {
+  IF_LOG Logger::println("Evaluating argument expressions");
+  LOG_SCOPE
+
+  const auto tf = DtoTypeFunction(fnval);
+
+  const size_t numArguments = arguments ? arguments->dim : 0;
+  std::vector<DValue *> argvals(numArguments);
+
+  // formal params (excl. variadics)
+  size_t i = 0;
+  const size_t numFormalParams = Parameter::dim(tf->parameters);
+  for (; i < numFormalParams; ++i) {
+    Parameter *fnarg = Parameter::getNth(tf->parameters, i);
+    assert(fnarg);
+    argvals[i] = DtoArgument(fnarg, (*arguments)[i]);
+  }
+
+  // append variadics
+  for (; i < numArguments; ++i) {
+    argvals[i] = DtoArgument(nullptr, (*arguments)[i]);
+  }
+
+  return argvals;
+}
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 // FIXME: this function is a mess !
-DValue *DtoCallFunctionImpl(Loc &loc, Type *resulttype, DValue *fnval,
-                            const std::vector<DValue *> &argvals,
-                            LLValue *sretPointer) {
+DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
+                        Expressions *arguments, LLValue *sretPointer) {
+  IF_LOG Logger::println("DtoCallFunction()");
+  LOG_SCOPE
+
+  const auto argvals = evaluateArgExpressions(fnval, arguments);
+
   // make sure the D callee type has been processed
   DtoType(fnval->type);
 
@@ -1025,58 +1058,4 @@ DValue *DtoCallFunctionImpl(Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   return new DImValue(resulttype, retllval);
-}
-
-std::vector<DValue *> evaluateArgExpressions(DValue *fnval,
-                                             Expressions *arguments) {
-  IF_LOG Logger::println("Evaluating argument expressions");
-  LOG_SCOPE
-
-  const auto tf = DtoTypeFunction(fnval);
-
-  const size_t numArguments = arguments ? arguments->dim : 0;
-  std::vector<DValue *> argvals(numArguments);
-
-  // For array ops, the druntime implementation signatures are crafted
-  // specifically such that the evaluation order is as expected with
-  // the strange DMD reverse parameter passing order. Thus, we need
-  // to actually evaluate the arguments right-to-left for them.
-  const auto dfnval = fnval->isFunc();
-  const bool reverse = (dfnval && dfnval->func && dfnval->func->isArrayOp);
-
-  // formal params (excl. variadics)
-  const size_t numFormalParams = Parameter::dim(tf->parameters);
-  for (size_t j = 0; j < numFormalParams; ++j) {
-    size_t i = (!reverse ? j : numFormalParams - 1 - j);
-    Parameter *fnarg = Parameter::getNth(tf->parameters, i);
-    assert(fnarg);
-    argvals[i] = DtoArgument(fnarg, (*arguments)[i]);
-  }
-
-  // append variadics
-  for (size_t i = numFormalParams; i < numArguments; ++i) {
-    argvals[i] = DtoArgument(nullptr, (*arguments)[i]);
-  }
-
-  return argvals;
-}
-
-} // anonymous namespace
-
-DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
-                        const std::vector<DValue *> &argvals,
-                        LLValue *sretPointer) {
-  IF_LOG Logger::println("DtoCallFunction()");
-  LOG_SCOPE
-
-  return DtoCallFunctionImpl(loc, resulttype, fnval, argvals, sretPointer);
-}
-
-DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
-                        Expressions *arguments, llvm::Value *sretPointer) {
-  IF_LOG Logger::println("DtoCallFunction()");
-  LOG_SCOPE
-
-  const auto argvals = evaluateArgExpressions(fnval, arguments);
-  return DtoCallFunctionImpl(loc, resulttype, fnval, argvals, sretPointer);
 }

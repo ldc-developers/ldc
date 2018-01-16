@@ -185,7 +185,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   abi->rewriteFunctionType(f, newIrFty);
 
   // Now we can modify irFty safely.
-  irFty = llvm_move(newIrFty);
+  irFty = std::move(newIrFty);
 
   // Finally build the actual LLVM function type.
   llvm::SmallVector<llvm::Type *, 16> argtypes;
@@ -459,9 +459,8 @@ void applyTargetMachineAttributes(llvm::Function &func,
   func.addFnAttr("no-infs-fp-math", TO.NoInfsFPMath ? "true" : "false");
   func.addFnAttr("no-nans-fp-math", TO.NoNaNsFPMath ? "true" : "false");
 
-  // Frame pointer elimination
   func.addFnAttr("no-frame-pointer-elim",
-                 opts::disableFPElim() ? "true" : "false");
+                 willEliminateFramePointer() ? "false" : "true");
 }
 
 } // anonymous namespace
@@ -694,12 +693,6 @@ static LinkageWithCOMDAT lowerFuncLinkage(FuncDeclaration *fdecl) {
     return LinkageWithCOMDAT(LLGlobalValue::ExternalLinkage, false);
   }
 
-  // Generated array op functions behave like templates in that they might be
-  // emitted into many different modules.
-  if (fdecl->isArrayOp && (willInline() || !isDruntimeArrayOp(fdecl))) {
-    return LinkageWithCOMDAT(templateLinkage, supportsCOMDAT());
-  }
-
   // A body-less declaration always needs to be marked as external in LLVM
   // (also e.g. naked template functions which would otherwise be weak_odr,
   // but where the definition is in module-level inline asm).
@@ -787,6 +780,35 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
   }
 }
 
+void emitDMDStyleFunctionTrace(IRState &irs, FuncDeclaration *fd,
+                               FuncGenState &funcGen) {
+  /* DMD-style profiling: wrap the entire function body in:
+   *   trace_pro("funcname");
+   *   try
+   *     body;
+   *   finally
+   *     _c_trace_epi();
+   */
+
+  // Call trace_pro("funcname")
+  {
+    auto fn = getRuntimeFunction(fd->loc, irs.module, "trace_pro");
+    auto funcname = DtoConstString(mangleExact(fd));
+    irs.ir->CreateCall(fn, {funcname});
+  }
+
+  // Push cleanup block that calls _c_trace_epi at function exit.
+  {
+    auto traceEpilogBB = irs.insertBB("trace_epi");
+    auto saveScope = irs.scope();
+    irs.scope() = IRScope(traceEpilogBB);
+    irs.ir->CreateCall(
+        getRuntimeFunction(fd->endloc, irs.module, "_c_trace_epi"));
+    funcGen.scopes.pushCleanup(traceEpilogBB, irs.scopebb());
+    irs.scope() = saveScope;
+  }
+}
+
 } // anonymous namespace
 
 void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
@@ -836,15 +858,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   if (fd->isUnitTestDeclaration() && !global.params.useUnitTests) {
     IF_LOG Logger::println("No code generation for unit test declaration %s",
                            fd->toChars());
-    fd->ir->setDefined();
-    return;
-  }
-
-  // Skip array ops implemented in druntime
-  if (fd->isArrayOp && !willInline() && isDruntimeArrayOp(fd)) {
-    IF_LOG Logger::println(
-        "No code generation for array op %s implemented in druntime",
-        fd->toChars());
     fd->ir->setDefined();
     return;
   }
@@ -1026,6 +1039,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   emitInstrumentationFnEnter(fd);
 
+  if (global.params.trace && !fd->isCMain() && !fd->naked)
+    emitDMDStyleFunctionTrace(*gIR, fd, funcGen);
+
   // disable frame-pointer-elimination for functions with inline asm
   if (fd->hasReturnExp & 8) // has inline asm
   {
@@ -1122,8 +1138,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // output function body
   Statement_toIR(fd->fbody, gIR);
 
-  // D varargs: emit the cleanup block that calls va_end.
-  if (f->linkage == LINKd && f->varargs == 1) {
+  // Emit the cleanup blocks (e.g. va_end and function tracing)
+  if (!funcGen.scopes.empty()) {
     if (!gIR->scopereturned()) {
       if (!funcGen.retBlock)
         funcGen.retBlock = gIR->insertBB("return");
@@ -1222,135 +1238,4 @@ int binary(const char *p, const char **tab, int high) {
     }
   } while (i != j);
   return -1;
-}
-
-int isDruntimeArrayOp(FuncDeclaration *fd) {
-  /* Some of the array op functions are written as library functions,
-   * presumably to optimize them with special CPU vector instructions.
-   * List those library functions here, in alpha order.
-   */
-  static const char *libArrayopFuncs[] = {
-      "_arrayExpSliceAddass_a",           "_arrayExpSliceAddass_d",
-      "_arrayExpSliceAddass_f", // T[]+=T
-      "_arrayExpSliceAddass_g",           "_arrayExpSliceAddass_h",
-      "_arrayExpSliceAddass_i",           "_arrayExpSliceAddass_k",
-      "_arrayExpSliceAddass_s",           "_arrayExpSliceAddass_t",
-      "_arrayExpSliceAddass_u",           "_arrayExpSliceAddass_w",
-
-      "_arrayExpSliceDivass_d", // T[]/=T
-      "_arrayExpSliceDivass_f", // T[]/=T
-
-      "_arrayExpSliceMinSliceAssign_a",
-      "_arrayExpSliceMinSliceAssign_d", // T[]=T-T[]
-      "_arrayExpSliceMinSliceAssign_f", // T[]=T-T[]
-      "_arrayExpSliceMinSliceAssign_g",   "_arrayExpSliceMinSliceAssign_h",
-      "_arrayExpSliceMinSliceAssign_i",   "_arrayExpSliceMinSliceAssign_k",
-      "_arrayExpSliceMinSliceAssign_s",   "_arrayExpSliceMinSliceAssign_t",
-      "_arrayExpSliceMinSliceAssign_u",   "_arrayExpSliceMinSliceAssign_w",
-
-      "_arrayExpSliceMinass_a",
-      "_arrayExpSliceMinass_d", // T[]-=T
-      "_arrayExpSliceMinass_f", // T[]-=T
-      "_arrayExpSliceMinass_g",           "_arrayExpSliceMinass_h",
-      "_arrayExpSliceMinass_i",           "_arrayExpSliceMinass_k",
-      "_arrayExpSliceMinass_s",           "_arrayExpSliceMinass_t",
-      "_arrayExpSliceMinass_u",           "_arrayExpSliceMinass_w",
-
-      "_arrayExpSliceMulass_d", // T[]*=T
-      "_arrayExpSliceMulass_f", // T[]*=T
-      "_arrayExpSliceMulass_i",           "_arrayExpSliceMulass_k",
-      "_arrayExpSliceMulass_s",           "_arrayExpSliceMulass_t",
-      "_arrayExpSliceMulass_u",           "_arrayExpSliceMulass_w",
-
-      "_arraySliceExpAddSliceAssign_a",
-      "_arraySliceExpAddSliceAssign_d", // T[]=T[]+T
-      "_arraySliceExpAddSliceAssign_f", // T[]=T[]+T
-      "_arraySliceExpAddSliceAssign_g",   "_arraySliceExpAddSliceAssign_h",
-      "_arraySliceExpAddSliceAssign_i",   "_arraySliceExpAddSliceAssign_k",
-      "_arraySliceExpAddSliceAssign_s",   "_arraySliceExpAddSliceAssign_t",
-      "_arraySliceExpAddSliceAssign_u",   "_arraySliceExpAddSliceAssign_w",
-
-      "_arraySliceExpDivSliceAssign_d", // T[]=T[]/T
-      "_arraySliceExpDivSliceAssign_f", // T[]=T[]/T
-
-      "_arraySliceExpMinSliceAssign_a",
-      "_arraySliceExpMinSliceAssign_d", // T[]=T[]-T
-      "_arraySliceExpMinSliceAssign_f", // T[]=T[]-T
-      "_arraySliceExpMinSliceAssign_g",   "_arraySliceExpMinSliceAssign_h",
-      "_arraySliceExpMinSliceAssign_i",   "_arraySliceExpMinSliceAssign_k",
-      "_arraySliceExpMinSliceAssign_s",   "_arraySliceExpMinSliceAssign_t",
-      "_arraySliceExpMinSliceAssign_u",   "_arraySliceExpMinSliceAssign_w",
-
-      "_arraySliceExpMulSliceAddass_d", // T[] += T[]*T
-      "_arraySliceExpMulSliceAddass_f",   "_arraySliceExpMulSliceAddass_r",
-
-      "_arraySliceExpMulSliceAssign_d", // T[]=T[]*T
-      "_arraySliceExpMulSliceAssign_f", // T[]=T[]*T
-      "_arraySliceExpMulSliceAssign_i",   "_arraySliceExpMulSliceAssign_k",
-      "_arraySliceExpMulSliceAssign_s",   "_arraySliceExpMulSliceAssign_t",
-      "_arraySliceExpMulSliceAssign_u",   "_arraySliceExpMulSliceAssign_w",
-
-      "_arraySliceExpMulSliceMinass_d", // T[] -= T[]*T
-      "_arraySliceExpMulSliceMinass_f",   "_arraySliceExpMulSliceMinass_r",
-
-      "_arraySliceSliceAddSliceAssign_a",
-      "_arraySliceSliceAddSliceAssign_d", // T[]=T[]+T[]
-      "_arraySliceSliceAddSliceAssign_f", // T[]=T[]+T[]
-      "_arraySliceSliceAddSliceAssign_g", "_arraySliceSliceAddSliceAssign_h",
-      "_arraySliceSliceAddSliceAssign_i", "_arraySliceSliceAddSliceAssign_k",
-      "_arraySliceSliceAddSliceAssign_r", // T[]=T[]+T[]
-      "_arraySliceSliceAddSliceAssign_s", "_arraySliceSliceAddSliceAssign_t",
-      "_arraySliceSliceAddSliceAssign_u", "_arraySliceSliceAddSliceAssign_w",
-
-      "_arraySliceSliceAddass_a",
-      "_arraySliceSliceAddass_d", // T[]+=T[]
-      "_arraySliceSliceAddass_f", // T[]+=T[]
-      "_arraySliceSliceAddass_g",         "_arraySliceSliceAddass_h",
-      "_arraySliceSliceAddass_i",         "_arraySliceSliceAddass_k",
-      "_arraySliceSliceAddass_s",         "_arraySliceSliceAddass_t",
-      "_arraySliceSliceAddass_u",         "_arraySliceSliceAddass_w",
-
-      "_arraySliceSliceMinSliceAssign_a",
-      "_arraySliceSliceMinSliceAssign_d", // T[]=T[]-T[]
-      "_arraySliceSliceMinSliceAssign_f", // T[]=T[]-T[]
-      "_arraySliceSliceMinSliceAssign_g", "_arraySliceSliceMinSliceAssign_h",
-      "_arraySliceSliceMinSliceAssign_i", "_arraySliceSliceMinSliceAssign_k",
-      "_arraySliceSliceMinSliceAssign_r", // T[]=T[]-T[]
-      "_arraySliceSliceMinSliceAssign_s", "_arraySliceSliceMinSliceAssign_t",
-      "_arraySliceSliceMinSliceAssign_u", "_arraySliceSliceMinSliceAssign_w",
-
-      "_arraySliceSliceMinass_a",
-      "_arraySliceSliceMinass_d", // T[]-=T[]
-      "_arraySliceSliceMinass_f", // T[]-=T[]
-      "_arraySliceSliceMinass_g",         "_arraySliceSliceMinass_h",
-      "_arraySliceSliceMinass_i",         "_arraySliceSliceMinass_k",
-      "_arraySliceSliceMinass_s",         "_arraySliceSliceMinass_t",
-      "_arraySliceSliceMinass_u",         "_arraySliceSliceMinass_w",
-
-      "_arraySliceSliceMulSliceAssign_d", // T[]=T[]*T[]
-      "_arraySliceSliceMulSliceAssign_f", // T[]=T[]*T[]
-      "_arraySliceSliceMulSliceAssign_i", "_arraySliceSliceMulSliceAssign_k",
-      "_arraySliceSliceMulSliceAssign_s", "_arraySliceSliceMulSliceAssign_t",
-      "_arraySliceSliceMulSliceAssign_u", "_arraySliceSliceMulSliceAssign_w",
-
-      "_arraySliceSliceMulass_d", // T[]*=T[]
-      "_arraySliceSliceMulass_f", // T[]*=T[]
-      "_arraySliceSliceMulass_i",         "_arraySliceSliceMulass_k",
-      "_arraySliceSliceMulass_s",         "_arraySliceSliceMulass_t",
-      "_arraySliceSliceMulass_u",         "_arraySliceSliceMulass_w",
-  };
-  const char *name = fd->ident->toChars();
-  int i =
-      binary(name, libArrayopFuncs, sizeof(libArrayopFuncs) / sizeof(char *));
-  if (i != -1) {
-    return 1;
-  }
-
-#ifdef DEBUG // Make sure our array is alphabetized
-  for (size_t j = 0; j < sizeof(libArrayopFuncs) / sizeof(char *); j++) {
-    if (strcmp(name, libArrayopFuncs[j]) == 0)
-      assert(0);
-  }
-#endif
-  return 0;
 }

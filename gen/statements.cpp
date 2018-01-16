@@ -99,7 +99,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(CompoundStatement *stmt) LLVM_OVERRIDE {
+  void visit(CompoundStatement *stmt) override {
     IF_LOG Logger::println("CompoundStatement::toIR(): %s",
                            stmt->loc.toChars());
     LOG_SCOPE;
@@ -116,7 +116,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(ReturnStatement *stmt) LLVM_OVERRIDE {
+  void visit(ReturnStatement *stmt) override {
     IF_LOG Logger::println("ReturnStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
@@ -292,7 +292,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(ExpStatement *stmt) LLVM_OVERRIDE {
+  void visit(ExpStatement *stmt) override {
     IF_LOG Logger::println("ExpStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
@@ -333,7 +333,7 @@ public:
     }
   }
 
-  void visit(IfStatement *stmt) LLVM_OVERRIDE {
+  void visit(IfStatement *stmt) override {
     IF_LOG Logger::println("IfStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
@@ -413,7 +413,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(ScopeStatement *stmt) LLVM_OVERRIDE {
+  void visit(ScopeStatement *stmt) override {
     IF_LOG Logger::println("ScopeStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
@@ -429,7 +429,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(WhileStatement *stmt) LLVM_OVERRIDE {
+  void visit(WhileStatement *stmt) override {
     IF_LOG Logger::println("WhileStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
@@ -492,7 +492,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(DoStatement *stmt) LLVM_OVERRIDE {
+  void visit(DoStatement *stmt) override {
     IF_LOG Logger::println("DoStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
@@ -554,7 +554,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(ForStatement *stmt) LLVM_OVERRIDE {
+  void visit(ForStatement *stmt) override {
     IF_LOG Logger::println("ForStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
@@ -649,7 +649,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(BreakStatement *stmt) LLVM_OVERRIDE {
+  void visit(BreakStatement *stmt) override {
     IF_LOG Logger::println("BreakStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
@@ -690,7 +690,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(ContinueStatement *stmt) LLVM_OVERRIDE {
+  void visit(ContinueStatement *stmt) override {
     IF_LOG Logger::println("ContinueStatement::toIR(): %s",
                            stmt->loc.toChars());
     LOG_SCOPE;
@@ -725,7 +725,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(OnScopeStatement *stmt) LLVM_OVERRIDE {
+  void visit(OnScopeStatement *stmt) override {
     stmt->error("Internal Compiler Error: OnScopeStatement should have been "
                 "lowered by frontend.");
     fatal();
@@ -733,7 +733,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(TryFinallyStatement *stmt) LLVM_OVERRIDE {
+  void visit(TryFinallyStatement *stmt) override {
     IF_LOG Logger::println("TryFinallyStatement::toIR(): %s",
                            stmt->loc.toChars());
     LOG_SCOPE;
@@ -806,7 +806,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(TryCatchStatement *stmt) LLVM_OVERRIDE {
+  void visit(TryCatchStatement *stmt) override {
     IF_LOG Logger::println("TryCatchStatement::toIR(): %s",
                            stmt->loc.toChars());
     LOG_SCOPE;
@@ -848,7 +848,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(ThrowStatement *stmt) LLVM_OVERRIDE {
+  void visit(ThrowStatement *stmt) override {
     IF_LOG Logger::println("ThrowStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
     assert(!irs->dcomputetarget);
@@ -879,7 +879,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(SwitchStatement *stmt) LLVM_OVERRIDE {
+  void visit(SwitchStatement *stmt) override {
     IF_LOG Logger::println("SwitchStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
@@ -1118,7 +1118,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(CaseStatement *stmt) LLVM_OVERRIDE {
+  void visit(CaseStatement *stmt) override {
     IF_LOG Logger::println("CaseStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
@@ -1149,7 +1149,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(DefaultStatement *stmt) LLVM_OVERRIDE {
+  void visit(DefaultStatement *stmt) override {
     IF_LOG Logger::println("DefaultStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
@@ -1180,7 +1180,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(UnrolledLoopStatement *stmt) LLVM_OVERRIDE {
+  void visit(UnrolledLoopStatement *stmt) override {
     IF_LOG Logger::println("UnrolledLoopStatement::toIR(): %s",
                            stmt->loc.toChars());
     LOG_SCOPE;
@@ -1251,7 +1251,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(ForeachStatement *stmt) LLVM_OVERRIDE {
+  void visit(ForeachStatement *stmt) override {
     IF_LOG Logger::println("ForeachStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
@@ -1389,7 +1389,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(ForeachRangeStatement *stmt) LLVM_OVERRIDE {
+  void visit(ForeachRangeStatement *stmt) override {
     IF_LOG Logger::println("ForeachRangeStatement::toIR(): %s",
                            stmt->loc.toChars());
     LOG_SCOPE;
@@ -1497,7 +1497,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(LabelStatement *stmt) LLVM_OVERRIDE {
+  void visit(LabelStatement *stmt) override {
     IF_LOG Logger::println("LabelStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
@@ -1539,7 +1539,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(GotoStatement *stmt) LLVM_OVERRIDE {
+  void visit(GotoStatement *stmt) override {
     IF_LOG Logger::println("GotoStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
@@ -1559,7 +1559,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(GotoDefaultStatement *stmt) LLVM_OVERRIDE {
+  void visit(GotoDefaultStatement *stmt) override {
     IF_LOG Logger::println("GotoDefaultStatement::toIR(): %s",
                            stmt->loc.toChars());
     LOG_SCOPE;
@@ -1584,7 +1584,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(GotoCaseStatement *stmt) LLVM_OVERRIDE {
+  void visit(GotoCaseStatement *stmt) override {
     IF_LOG Logger::println("GotoCaseStatement::toIR(): %s",
                            stmt->loc.toChars());
     LOG_SCOPE;
@@ -1610,7 +1610,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(WithStatement *stmt) LLVM_OVERRIDE {
+  void visit(WithStatement *stmt) override {
     IF_LOG Logger::println("WithStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
@@ -1639,7 +1639,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(SwitchErrorStatement *stmt) LLVM_OVERRIDE {
+  void visit(SwitchErrorStatement *stmt) override {
     IF_LOG Logger::println("SwitchErrorStatement::toIR(): %s",
                            stmt->loc.toChars());
     LOG_SCOPE;
@@ -1669,27 +1669,27 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(AsmStatement *stmt) LLVM_OVERRIDE {
+  void visit(AsmStatement *stmt) override {
     assert(!irs->dcomputetarget);
     AsmStatement_toIR(stmt, irs);
   }
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(CompoundAsmStatement *stmt) LLVM_OVERRIDE {
+  void visit(CompoundAsmStatement *stmt) override {
     assert(!irs->dcomputetarget);
     CompoundAsmStatement_toIR(stmt, irs);
   }
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(ImportStatement *stmt) LLVM_OVERRIDE {
+  void visit(ImportStatement *stmt) override {
     // Empty.
   }
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(Statement *stmt) LLVM_OVERRIDE {
+  void visit(Statement *stmt) override {
     error(stmt->loc, "Statement type Statement not implemented: `%s`",
           stmt->toChars());
     fatal();
@@ -1697,7 +1697,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(PragmaStatement *stmt) LLVM_OVERRIDE {
+  void visit(PragmaStatement *stmt) override {
     error(stmt->loc, "Statement type PragmaStatement not implemented: `%s`",
           stmt->toChars());
     fatal();

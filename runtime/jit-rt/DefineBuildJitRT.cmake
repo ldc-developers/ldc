@@ -3,7 +3,9 @@ if(LDC_DYNAMIC_COMPILE)
 
     # Choose the correct subfolder depending on the LLVM version
     file(GLOB LDC_JITRT_CXX ${JITRT_DIR}/cpp/*.cpp)
+    file(GLOB LDC_JITRT_H ${JITRT_DIR}/cpp/*.h)
     file(GLOB LDC_JITRT_SO_CXX ${JITRT_DIR}/cpp-so/*.cpp)
+    file(GLOB LDC_JITRT_SO_H ${JITRT_DIR}/cpp-so/*.h)
 
     # Set compiler-dependent flags
     if(MSVC)
@@ -55,7 +57,7 @@ if(LDC_DYNAMIC_COMPILE)
         get_target_suffix("" "${path_suffix}" target_suffix)
         set(output_path ${CMAKE_BINARY_DIR}/lib${path_suffix})
 
-        add_library(ldc-jit-rt-so${target_suffix} SHARED ${LDC_JITRT_SO_CXX})
+        add_library(ldc-jit-rt-so${target_suffix} SHARED ${LDC_JITRT_SO_CXX} ${LDC_JITRT_SO_H})
         set_target_properties(
             ldc-jit-rt-so${target_suffix} PROPERTIES
             OUTPUT_NAME                 ldc-jit
@@ -73,7 +75,7 @@ if(LDC_DYNAMIC_COMPILE)
         set(jitrt_d_bc "")
         compile_jit_rt_D("-enable-dynamic-compile;${d_flags}" "" "${path_suffix}" "${COMPILE_ALL_D_FILES_AT_ONCE}" jitrt_d_o jitrt_d_bc)
 
-        add_library(ldc-jit-rt${target_suffix} STATIC ${jitrt_d_o} ${LDC_JITRT_CXX})
+        add_library(ldc-jit-rt${target_suffix} STATIC ${jitrt_d_o} ${LDC_JITRT_CXX} ${LDC_JITRT_H})
         set_target_properties(
             ldc-jit-rt${target_suffix} PROPERTIES
             OUTPUT_NAME                 ldc-jit-rt

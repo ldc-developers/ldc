@@ -120,6 +120,12 @@ bool willCrossModuleInline() {
   return enableCrossModuleInlining == llvm::cl::BOU_TRUE;
 }
 
+bool willEliminateFramePointer() {
+  const llvm::cl::boolOrDefault disableFPElimEnum = opts::disableFPElim();
+  return disableFPElimEnum == llvm::cl::BOU_FALSE ||
+         (disableFPElimEnum == llvm::cl::BOU_UNSET && isOptimizationEnabled());
+}
+
 bool isOptimizationEnabled() { return optimizeLevel != 0; }
 
 llvm::CodeGenOpt::Level codeGenOptLevel() {
