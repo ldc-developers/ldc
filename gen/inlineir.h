@@ -25,6 +25,10 @@ class Function;
 class Value;
 }
 
+/// Check LDC_inline_ir pragma declaration is valid
+/// Will call fatal() in case of errors
+void DtoCheckInlineIRPragma(Identifier *ident, Dsymbol *s);
+
 DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
                         Expressions *arguments,
                         llvm::Value *sretPointer = nullptr);
