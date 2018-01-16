@@ -10,6 +10,14 @@ import ldc.dcompute;
 // LL: %"ldc.dcompute.Pointer!(cast(AddrSpace)3u, immutable(float)).Pointer" = type { float addrspace(4)* }
 // LL: %"ldc.dcompute.Pointer!(cast(AddrSpace)4u, float).Pointer" = type { float* }
 
+// LL: @_D{{.*}}bar1{{.*}} = addrspace(1)
+Global!float bar1;
+// LL: @_D{{.*}}bar1{{.*}} = addrspace(3)
+Shared!float bar2;
+// LL: @_D{{.*}}bar1{{.*}} = addrspace(4)
+Constant!float bar3;
+
+
 void foo(PrivatePointer!float f) {
     // LL: load float, float addrspace(5)*
     // PTX: ld.local.f32
@@ -36,9 +44,3 @@ void foo(GenericPointer!float f) {
     float g = *f;
 }
 
-// LL: @_D{{.*}}bar1{{.*}} = addrspace(1)
-Global!float bar1;
-// LL: @_D{{.*}}bar1{{.*}} = addrspace(3)
-Shared!float bar2;
-// LL: @_D{{.*}}bar1{{.*}} = addrspace(4)
-Constant!float bar3;
