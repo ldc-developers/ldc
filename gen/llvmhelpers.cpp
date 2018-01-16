@@ -892,7 +892,7 @@ void DtoResolveVariable(VarDeclaration *vd) {
     llvm::GlobalVariable *gvar =
         getOrCreateGlobal(vd->loc, gIR->module, DtoMemType(vd->type), isLLConst,
                           linkage, nullptr, irMangle,
-                          vd->isThreadlocal() && addrspace != 0,
+                          vd->isThreadlocal() && addrspace == 0,
                           addrspace);
     auto varIr = getIrGlobal(vd);
     varIr->value = gvar;
