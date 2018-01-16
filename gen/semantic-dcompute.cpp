@@ -85,9 +85,8 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
         strncmp(decl->toChars(), "typeid", 6)) {
         auto isDComputeAddrspace = toDcomputeAddrspacedType(decl);
         if (!isDComputeAddrspace || isDComputeAddrspace->id != Id::dcVariable) {
-          decl->error("global variables must be `Variable!(Addrspace.Global,...)`"
-                      " `Variable!(Addrspace.Shared,...)` or"
-                      " `Variable!(Addrspace.Constant,...)`");
+          decl->error("global variables must be `GLobal!(...)`"
+                      " `Shared!(..)` or `Constant!(...)`");
         }
       }
       // Ignore typeid: it is ignored by codegen.

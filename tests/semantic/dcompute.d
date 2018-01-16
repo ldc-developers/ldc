@@ -12,7 +12,7 @@ interface I {}
 //CHECK: dcompute.d([[@LINE+1]]): Error: {{.*}} interfaces and classes not allowed in `@compute` code
 class C : Throwable { this() { super(""); } }
 
-//CHECK: dcompute.d([[@LINE+1]]): Error: {{.*}} global variables not allowed in `@compute` code
+//CHECK: dcompute.d([[@LINE+1]]): Error: {{.*}} global variables must be `GLobal!(...)` `Shared!(..)` or `Constant!(...)`
 C c;
 
 void func()
