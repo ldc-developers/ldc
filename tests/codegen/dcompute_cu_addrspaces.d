@@ -12,9 +12,9 @@ import ldc.dcompute;
 
 // LL: @_D{{.*}}bar1{{.*}} = addrspace(1)
 Global!float bar1;
-// LL: @_D{{.*}}bar1{{.*}} = addrspace(3)
+// LL: @_D{{.*}}bar2{{.*}} = addrspace(3)
 Shared!float bar2;
-// LL: @_D{{.*}}bar1{{.*}} = addrspace(4)
+// LL: @_D{{.*}}bar3{{.*}} = addrspace(4)
 Constant!float bar3;
 
 
