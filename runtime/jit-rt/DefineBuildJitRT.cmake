@@ -67,6 +67,14 @@ if(LDC_DYNAMIC_COMPILE)
             COMPILE_FLAGS               "${c_flags} ${LDC_CXXFLAGS} ${LLVM_CXXFLAGS} ${JITRT_EXTRA_FLAGS}"
             LINK_FLAGS                  "${ld_flags} ${JITRT_EXTRA_LDFLAGS}"
         )
+        if(APPLE)
+            set_target_properties(
+                ldc-jit-rt-so${target_suffix}
+                PROPERTIES BUILD_WITH_INSTALL_RPATH 1
+                INSTALL_NAME_DIR "@rpath"
+              )
+        endif()
+
         set_common_library_properties(ldc-jit-rt-so${target_suffix} ON)
 
         target_link_libraries(ldc-jit-rt-so${target_suffix} ${JITRT_LLVM_LIBS})

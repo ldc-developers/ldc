@@ -7,6 +7,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <set>
+#include <vector>
+
 #include "errors.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_sanitizers.h"
@@ -51,6 +54,7 @@ private:
   virtual void addASanLinkFlags();
   virtual void addFuzzLinkFlags();
   virtual void addCppStdlibLinkFlags();
+  virtual void addDynamicCompileFlags();
 
   virtual void addLinker();
   virtual void addUserSwitches();
@@ -70,6 +74,10 @@ private:
   virtual void addLdFlag(const llvm::Twine &flag1, const llvm::Twine &flag2) {
     args.push_back(("-Wl," + flag1 + "," + flag2).str());
   }
+
+  void addUniqueArgs(const std::vector<std::string> &arg);
+
+  std::set<std::vector<std::string>> uniqueArgs;
 };
 
 //////////////////////////////////////////////////////////////////////////////
@@ -223,13 +231,11 @@ void ArgsBuilder::addASanLinkFlags() {
       if (linkSharedASan) {
         // Add @executable_path to rpath to support having the shared lib copied
         // with the executable.
-        args.push_back("-rpath");
-        args.push_back("@executable_path");
+        addUniqueArgs({"-rpath", "@executable_path"});
 
         // Add the path to the resource dir to rpath to support using the shared
         // lib from the default location without copying.
-        args.push_back("-rpath");
-        args.push_back(llvm::sys::path::parent_path(filepath));
+        addUniqueArgs({"-rpath", llvm::sys::path::parent_path(filepath)});
       }
 
       return;
@@ -297,6 +303,20 @@ void ArgsBuilder::addCppStdlibLinkFlags() {
   }
 }
 
+void ArgsBuilder::addDynamicCompileFlags() {
+  args.push_back("-lldc-jit-rt");
+  args.push_back("-lldc-jit");
+  if (global.params.targetTriple->isOSDarwin()) {
+    // Add @executable_path to rpath to support having the shared lib copied
+    // with the executable.
+    addUniqueArgs({"-rpath", "@executable_path"});
+
+    // Add the path to the resource dir to rpath to support using the shared
+    // lib from the default location without copying.
+    addUniqueArgs({"-rpath", exe_path::getLibDir()});
+  }
+}
+
 void ArgsBuilder::addSanitizers() {
   if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
     addASanLinkFlags();
@@ -341,8 +361,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   }
 
   if (opts::enableDynamicCompile) {
-    args.push_back("-lldc-jit-rt");
-    args.push_back("-lldc-jit");
+    addDynamicCompileFlags();
   }
 
   // user libs
@@ -493,6 +512,14 @@ void ArgsBuilder::addDefaultLibs() {
 
 void ArgsBuilder::addTargetFlags() {
   appendTargetArgsForGcc(args);
+}
+
+void ArgsBuilder::addUniqueArgs(const std::vector<std::string> &arg) {
+  assert(!arg.empty());
+  if (uniqueArgs.find(arg) == uniqueArgs.end()) {
+    args.insert(args.end(), arg.begin(), arg.end());
+    uniqueArgs.insert(args);
+  }
 }
 
 //////////////////////////////////////////////////////////////////////////////
