@@ -42,7 +42,65 @@ void copyFnAttributes(llvm::Function *wannabe, llvm::Function *idol) {
   auto fnAttrSet = attrSet.getFnAttributes();
   wannabe->addAttributes(LLAttributeSet::FunctionIndex, fnAttrSet);
 }
+
+std::string exprToString(StringExp *strexp) {
+  assert(strexp != nullptr);
+  assert(strexp->sz == 1);
+  return std::string(strexp->toPtr(), strexp->numberOfCodeUnits());
+}
 } // anonymous namespace
+
+void DtoCheckInlineIRPragma(Identifier *ident, Dsymbol *s) {
+  assert(ident != nullptr);
+  assert(s != nullptr);
+  if (TemplateDeclaration *td = s->isTemplateDeclaration()) {
+    Dsymbol *member = td->onemember;
+    if (!member) {
+      error(s->loc, "the `%s` pragma template must have exactly one member",
+            ident->toChars());
+      fatal();
+    }
+    FuncDeclaration *fun = member->isFuncDeclaration();
+    if (!fun) {
+      error(
+          s->loc,
+          "the `%s` pragma template's member must be a function declaration",
+          ident->toChars());
+      fatal();
+    }
+    // The magic inlineIR template is one of
+    // pragma(LDC_inline_ir)
+    //   R inlineIR(string code, R, P...)(P);
+    // pragma(LDC_inline_ir)
+    //   R inlineIREx(string prefix, string code, string suffix, R, P...)(P);
+
+    TemplateParameters &params = *td->parameters;
+    bool valid_params =
+        (params.dim == 3 || params.dim == 5) &&
+        params[params.dim - 2]->isTemplateTypeParameter() &&
+        params[params.dim - 1]->isTemplateTupleParameter();
+
+    if (valid_params) {
+      for (d_size_t i = 0; i < (params.dim - 2); ++i) {
+        TemplateValueParameter *p0 = params[i]->isTemplateValueParameter();
+        valid_params = valid_params && p0 && p0->valType == Type::tstring;
+      }
+    }
+
+    if (!valid_params) {
+      error(s->loc,
+            "the `%s` pragma template must have three "
+            "(string, type and type tuple) or "
+            "five (string, string, string, type and type tuple) parameters",
+            ident->toChars());
+      fatal();
+    }
+  } else {
+    error(s->loc, "the `%s` pragma is only allowed on template declarations",
+          ident->toChars());
+    fatal();
+  }
+}
 
 DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
                         Expressions *arguments, LLValue *sretPointer) {
@@ -63,35 +121,60 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
 
   // 1. Define the inline function (define a new function for each call)
   {
-
+    // The magic inlineIR template is one of
+    // pragma(LDC_inline_ir)
+    //   R inlineIR(string code, R, P...)(P);
+    // pragma(LDC_inline_ir)
+    //   R inlineIREx(string prefix, string code, string suffix, R, P...)(P);
     Objects &objs = tinst->tdtypes;
-    assert(objs.dim == 3);
+    assert(objs.dim == 3 || objs.dim == 5);
+    const bool isExtended = (objs.dim == 5);
 
-    Expression *a0 = isExpression(objs[0]);
-    assert(a0);
-    StringExp *strexp = a0->toStringExp();
-    assert(strexp);
-    assert(strexp->sz == 1);
-    std::string code(strexp->toPtr(), strexp->numberOfCodeUnits());
+    std::string prefix;
+    std::string code;
+    std::string suffix;
+    if (isExtended) {
+      Expression *a0 = isExpression(objs[0]);
+      assert(a0);
+      StringExp *prefexp = a0->toStringExp();
+      Expression *a1 = isExpression(objs[1]);
+      assert(a1);
+      StringExp *strexp = a1->toStringExp();
+      Expression *a2 = isExpression(objs[2]);
+      assert(a2);
+      StringExp *suffexp = a2->toStringExp();
+      prefix = exprToString(prefexp);
+      code = exprToString(strexp);
+      suffix = exprToString(suffexp);
+    } else {
+      Expression *a0 = isExpression(objs[0]);
+      assert(a0);
+      StringExp *strexp = a0->toStringExp();
+      code = exprToString(strexp);
+    }
 
-    Type *ret = isType(objs[1]);
+    Type *ret = isType(objs[isExtended ? 3 : 1]);
     assert(ret);
 
-    Tuple *a2 = isTuple(objs[2]);
-    assert(a2);
-    Objects &arg_types = a2->objects;
+    Tuple *args = isTuple(objs[isExtended ? 4 : 2]);
+    assert(args);
+    Objects &arg_types = args->objects;
 
     std::string str;
     llvm::raw_string_ostream stream(str);
+    if (!prefix.empty()) {
+      stream << prefix << "\n";
+    }
     stream << "define " << *DtoType(ret) << " @" << mangled_name << "(";
 
     for (size_t i = 0;;) {
       Type *ty = isType(arg_types[i]);
       // assert(ty);
       if (!ty) {
-        error(tinst->loc, "All parameters of a template defined with pragma "
-                          "`LDC_inline_ir`, except for the first one, should "
-                          "be types");
+        error(tinst->loc,
+              "All parameters of a template defined with pragma "
+              "`LDC_inline_ir`, except for the first one or the first three"
+              ", should be types");
         fatal();
       }
       stream << *DtoType(ty);
@@ -109,6 +192,9 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
     }
 
     stream << ")\n{\n" << code << "\n}";
+    if (!suffix.empty()) {
+      stream << "\n" << suffix;
+    }
 
     llvm::SMDiagnostic err;
 
