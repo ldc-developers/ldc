@@ -15,21 +15,47 @@
 
 #include "driver/cl_options_instrumentation.h"
 
+#include "errors.h"
 #include "globals.h"
 
-namespace opts {
+namespace {
+namespace cl = llvm::cl;
 
-cl::opt<std::string>
-    genfileInstrProf("fprofile-instr-generate", cl::value_desc("filename"),
-                     cl::desc("Generate instrumented code to collect a runtime "
-                              "profile into default.profraw (overriden by "
-                              "'=<filename>' or LLVM_PROFILE_FILE env var)"),
-                     cl::ZeroOrMore, cl::ValueOptional);
+#if LDC_LLVM_VER >= 309
+/// Option for generating IR-based PGO instrumentation (LLVM pass)
+cl::opt<std::string> IRPGOInstrGenFile(
+    "fprofile-generate", cl::value_desc("filename"),
+    cl::desc("Generate instrumented code to collect a runtime "
+             "profile into default.profraw (overriden by "
+             "'=<filename>' or LLVM_PROFILE_FILE env var)"),
+    cl::ZeroOrMore, cl::ValueOptional);
 
-cl::opt<std::string> usefileInstrProf(
+/// Option for generating IR-based PGO instrumentation (LLVM pass)
+cl::opt<std::string> IRPGOInstrUseFile(
+    "fprofile-use", cl::ZeroOrMore, cl::value_desc("filename"),
+    cl::desc("Use instrumentation data for profile-guided optimization"),
+    cl::ValueRequired);
+#endif
+
+/// Option for generating frontend-based PGO instrumentation
+cl::opt<std::string> ASTPGOInstrGenFile(
+    "fprofile-instr-generate", cl::value_desc("filename"),
+    cl::desc("Generate instrumented code to collect a runtime "
+             "profile into default.profraw (overriden by "
+             "'=<filename>' or LLVM_PROFILE_FILE env var)"),
+    cl::ZeroOrMore, cl::ValueOptional);
+
+/// Option for generating frontend-based PGO instrumentation
+cl::opt<std::string> ASTPGOInstrUseFile(
     "fprofile-instr-use", cl::ZeroOrMore, cl::value_desc("filename"),
     cl::desc("Use instrumentation data for profile-guided optimization"),
     cl::ValueRequired);
+
+} // anonymous namespace
+
+namespace opts {
+
+PGOKind pgoMode = PGO_None;
 
 cl::opt<bool>
     instrumentFunctions("finstrument-functions", cl::ZeroOrMore,
@@ -42,9 +68,9 @@ static cl::opt<bool> dmdFunctionTrace(
     cl::desc("DMD-style runtime performance profiling of generated code"));
 
 void initializeInstrumentationOptionsFromCmdline() {
-  if (genfileInstrProf.getNumOccurrences() > 0) {
-    global.params.genInstrProf = true;
-    if (genfileInstrProf.empty()) {
+  if (ASTPGOInstrGenFile.getNumOccurrences() > 0) {
+    pgoMode = PGO_ASTBasedInstr;
+    if (ASTPGOInstrGenFile.empty()) {
 #if LDC_LLVM_VER >= 309
       // profile-rt provides a default filename by itself
       global.params.datafileInstrProf = nullptr;
@@ -52,13 +78,34 @@ void initializeInstrumentationOptionsFromCmdline() {
       global.params.datafileInstrProf = "default.profraw";
 #endif
     } else {
-      initFromPathString(global.params.datafileInstrProf, genfileInstrProf);
+      initFromPathString(global.params.datafileInstrProf, ASTPGOInstrGenFile);
     }
-  } else {
-    global.params.genInstrProf = false;
-    // If we don't have to generate instrumentation, we could be given a
-    // profdata file:
-    initFromPathString(global.params.datafileInstrProf, usefileInstrProf);
+  } else if (!ASTPGOInstrUseFile.empty()) {
+    pgoMode = PGO_ASTBasedUse;
+    initFromPathString(global.params.datafileInstrProf, ASTPGOInstrUseFile);
+  }
+#if LDC_LLVM_VER >= 309
+  else if (IRPGOInstrGenFile.getNumOccurrences() > 0) {
+    pgoMode = PGO_IRBasedInstr;
+    if (IRPGOInstrGenFile.empty()) {
+      global.params.datafileInstrProf = "default_%m.profraw";
+    } else {
+      initFromPathString(global.params.datafileInstrProf, IRPGOInstrGenFile);
+    }
+  } else if (!IRPGOInstrUseFile.empty()) {
+    pgoMode = PGO_IRBasedUse;
+    initFromPathString(global.params.datafileInstrProf, IRPGOInstrUseFile);
+  }
+#endif
+
+  // There is a bug in (our use of?) LLVM where codegen errors with
+  // PGO_IRBasedInstr for Windows targets. So disable IRBased PGO on Windows for
+  // now.
+  assert(global.params.targetTriple);
+  if ((pgoMode == PGO_IRBasedInstr) &&
+      global.params.targetTriple->isOSWindows()) {
+    error(Loc(),
+          "'-fprofile-generate' is not yet supported for Windows targets.");
   }
 
   if (dmdFunctionTrace)

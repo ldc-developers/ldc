@@ -9,6 +9,7 @@
 
 #include "errors.h"
 #include "driver/cl_options.h"
+#include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
 #include "driver/exe_path.h"
 #include "driver/tool.h"
@@ -337,7 +338,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   }
 
   // Link with profile-rt library when generating an instrumented binary.
-  if (global.params.genInstrProf) {
+  if (opts::isInstrumentingForPGO()) {
 #if LDC_LLVM_VER >= 308
     if (global.params.targetTriple->isOSLinux()) {
       // For Linux, explicitly define __llvm_profile_runtime as undefined
@@ -394,7 +395,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
     // instrumented binary. The runtime relies on magic sections, which
     // would be stripped by gc-section on older version of ld, see bug:
     // https://sourceware.org/bugzilla/show_bug.cgi?id=19161
-    if (!opts::disableLinkerStripDead && !global.params.genInstrProf) {
+    if (!opts::disableLinkerStripDead && !opts::isInstrumentingForPGO()) {
       addLdFlag("--gc-sections");
     }
   }

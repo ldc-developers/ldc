@@ -431,7 +431,6 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   }
 #endif
 
-  opts::initializeInstrumentationOptionsFromCmdline();
   opts::initializeSanitizerOptionsFromCmdline();
 
   processVersions(debugArgs, "debug", DebugCondition::setGlobalLevel,
@@ -1066,6 +1065,8 @@ int cppmain(int argc, char **argv) {
     global.dll_ext = global.params.targetTriple->isOSDarwin() ? "dylib" : "so";
     global.lib_ext = "a";
   }
+
+  opts::initializeInstrumentationOptionsFromCmdline();
 
   Strings libmodules;
   return mars_mainBody(files, libmodules);

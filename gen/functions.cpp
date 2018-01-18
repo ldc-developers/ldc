@@ -36,7 +36,7 @@
 #include "gen/mangling.h"
 #include "gen/nested.h"
 #include "gen/optimizer.h"
-#include "gen/pgo.h"
+#include "gen/pgo_ASTbased.h"
 #include "gen/pragma.h"
 #include "gen/runtime.h"
 #include "gen/dynamiccompile.h"
