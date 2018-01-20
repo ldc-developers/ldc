@@ -1,5 +1,7 @@
 // Test instrumentation of indirect calls
 
+// REQUIRES: PGO_RT
+
 // REQUIRES: atleast_llvm309
 
 // There is an LLVM bug, this test currently errors during LLVM codegen for Windows.

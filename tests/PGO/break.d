@@ -1,5 +1,7 @@
 // Test calculation of execution counts with loops with break-to-label and continue-to-label.
 
+// REQUIRES: PGO_RT
+
 // RUN: %ldc -c -output-ll -fprofile-instr-generate -of=%t.ll %s && FileCheck %s --check-prefix=PROFGEN < %t.ll
 
 // RUN: %ldc -fprofile-instr-generate=%t.profraw -run %s  \

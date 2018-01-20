@@ -1,5 +1,7 @@
 // Tests (the availability of) the runtime lib function to reset all profile counters.
 
+// REQUIRES: PGO_RT
+
 // RUN: %ldc -fprofile-instr-generate=%t.profraw -run %s  \
 // RUN:   &&  %profdata merge %t.profraw -o %t.profdata \
 // RUN:   &&  %ldc -c -output-ll -of=%t2.ll -fprofile-instr-use=%t.profdata %s \

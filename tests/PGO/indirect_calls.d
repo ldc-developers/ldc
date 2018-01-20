@@ -1,5 +1,7 @@
 // Test instrumentation of indirect calls
 
+// REQUIRES: PGO_RT
+
 // REQUIRES: atleast_llvm309
 
 // RUN: %ldc -c -output-ll -fprofile-instr-generate -of=%t.ll %s && FileCheck %s --check-prefix=PROFGEN < %t.ll
