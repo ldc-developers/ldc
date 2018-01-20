@@ -52,7 +52,6 @@ public:
                                                     : SPIR_DATALAYOUT32);
     _ir->dcomputetarget = this;
   }
-  void setGTargetMachine() override { gTargetMachine = nullptr; }
 
   // Adapted from clang
   void addMetadata() override {
