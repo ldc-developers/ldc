@@ -99,15 +99,29 @@ static cl::list<std::string, StringsAdapter>
 
 static cl::opt<std::string>
     defaultLib("defaultlib", cl::ZeroOrMore, cl::value_desc("lib1,lib2,..."),
-               cl::desc("Default libraries to link with (overrides previous)"));
+               cl::desc("Default libraries to link with (overrides previous)"),
+               cl::cat(linkingCategory));
 
 static cl::opt<std::string> debugLib(
-    "debuglib", cl::ZeroOrMore, cl::value_desc("lib1,lib2,..."),
-    cl::desc("Debug versions of default libraries (overrides previous)"));
+    "debuglib", cl::ZeroOrMore, cl::Hidden, cl::value_desc("lib1,lib2,..."),
+    cl::desc("Debug versions of default libraries (overrides previous). If the "
+             "option is omitted, LDC will append -debug to the -defaultlib "
+             "names when linking with -link-defaultlib-debug"),
+    cl::cat(linkingCategory));
 
-static cl::opt<bool> linkDebugLib(
-    "link-debuglib", cl::ZeroOrMore,
-    cl::desc("Link with libraries specified in -debuglib, not -defaultlib"));
+static cl::opt<bool> linkDefaultLibDebug(
+    "link-defaultlib-debug", cl::ZeroOrMore,
+    cl::desc("Link with debug versions of default libraries"),
+    cl::cat(linkingCategory));
+static cl::alias _linkDebugLib("link-debuglib", cl::Hidden,
+                               cl::aliasopt(linkDefaultLibDebug),
+                               cl::desc("Alias for -link-defaultlib-debug"),
+                               cl::cat(linkingCategory));
+
+static cl::opt<bool> linkDefaultLibShared(
+    "link-defaultlib-shared", cl::ZeroOrMore,
+    cl::desc("Link with shared versions of default libraries"),
+    cl::cat(linkingCategory));
 
 // This function exits the program.
 void printVersion(llvm::raw_ostream &OS) {
@@ -408,7 +422,6 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   }
 #endif
 
-  opts::initializeInstrumentationOptionsFromCmdline();
   opts::initializeSanitizerOptionsFromCmdline();
 
   processVersions(debugArgs, "debug", global.params.debuglevel,
@@ -477,13 +490,27 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     }
   }
 
+  // default libraries
   if (noDefaultLib) {
-    deprecation(Loc(), "-nodefaultlib is deprecated, as -defaultlib/-debuglib "
-                       "now override the existing list instead of appending to "
+    deprecation(Loc(), "-nodefaultlib is deprecated, as -defaultlib now "
+                       "overrides the existing list instead of appending to "
                        "it. Please use the latter instead.");
   } else if (!global.params.betterC) {
+    if (linkDefaultLibShared && staticFlag == cl::BOU_TRUE) {
+      error(Loc(), "Can't use -link-defaultlib-shared and -static together");
+    }
+
+    const bool addDebugSuffix =
+        (linkDefaultLibDebug && debugLib.getNumOccurrences() == 0);
+    // Default to shared default libs for DLLs compiled without -static.
+    const bool addSharedSuffix =
+        linkDefaultLibShared ||
+        (linkDefaultLibShared.getNumOccurrences() == 0 && global.params.dll &&
+         staticFlag != cl::BOU_TRUE);
+
     // Parse comma-separated default library list.
-    std::stringstream libNames(linkDebugLib ? debugLib : defaultLib);
+    std::stringstream libNames(
+        linkDefaultLibDebug && !addDebugSuffix ? debugLib : defaultLib);
     while (libNames.good()) {
       std::string lib;
       std::getline(libNames, lib, ',');
@@ -491,9 +518,14 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
         continue;
       }
 
-      char *arg = static_cast<char *>(mem.xmalloc(lib.size() + 3));
-      strcpy(arg, "-l");
-      strcpy(arg + 2, lib.c_str());
+      std::ostringstream os;
+      os << "-l" << lib;
+      if (addDebugSuffix)
+        os << "-debug";
+      if (addSharedSuffix)
+        os << "-shared";
+
+      char *arg = mem.xstrdup(os.str().c_str());
       global.params.linkswitches.push(arg);
     }
   }
@@ -1031,6 +1063,8 @@ int cppmain(int argc, char **argv) {
     global.dll_ext = global.params.targetTriple->isOSDarwin() ? "dylib" : "so";
     global.lib_ext = "a";
   }
+
+  opts::initializeInstrumentationOptionsFromCmdline();
 
   Strings libmodules;
   return mars_mainBody(files, libmodules);

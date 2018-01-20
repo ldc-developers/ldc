@@ -31,9 +31,6 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/DebugInfo.h"
-
-#include "gen/llvmcompat.h"
-
 #include "llvm/IR/CallSite.h"
 
 using llvm::IRBuilder;

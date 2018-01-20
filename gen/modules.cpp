@@ -22,6 +22,7 @@
 #include "statement.h"
 #include "target.h"
 #include "template.h"
+#include "driver/cl_options_instrumentation.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/functions.h"
@@ -611,9 +612,8 @@ void addCoverageAnalysisInitializer(Module *m) {
 // TODO: This is probably not the right place, we should load it once for all
 // modules?
 void loadInstrProfileData(IRState *irs) {
-  // Only load from datafileInstrProf if we are not generating instrumented
-  // code.
-  if (!global.params.genInstrProf && global.params.datafileInstrProf) {
+  // Only load from datafileInstrProf if we are doing frontend-based PGO.
+  if (opts::isUsingASTBasedPGOProfile() && global.params.datafileInstrProf) {
     IF_LOG Logger::println("Read profile data from %s",
                            global.params.datafileInstrProf);
 

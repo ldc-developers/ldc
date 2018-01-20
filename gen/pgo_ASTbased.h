@@ -1,4 +1,4 @@
-//===-- gen/pgo.h - Code Coverage Analysis ----------------------*- C++ -*-===//
+//===-- gen/pgo_ASTbased.h - Code Coverage Analysis -------------*- C++ -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -9,14 +9,14 @@
 //===----------------------------------------------------------------------===//
 //
 // This file contains functions to generate instrumentation code for
-// profile-guided optimization.
+// AST-based profile-guided optimization.
 // PGO is enabled by compiling first with "-fprofile-instr-generate",
 // and then with "-fprofile-instr-use=filename.profdata".
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_PGO_H
-#define LDC_GEN_PGO_H
+#ifndef LDC_GEN_PGO_ASTBASED_H
+#define LDC_GEN_PGO_ASTBASED_H
 
 #include "gen/llvm.h"
 #include "llvm/ProfileData/InstrProf.h"
@@ -183,4 +183,4 @@ private:
                         const FuncDeclaration *D);
 };
 
-#endif // LDC_GEN_PGO_H
+#endif //  LDC_GEN_PGO_ASTBASED_H

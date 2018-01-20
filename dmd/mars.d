@@ -726,9 +726,8 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
                 libmodules.push(files[i]);
                 continue;
             }
-          version (IN_LLVM) {} else
-          {
-            static if (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS)
+            // IN_LLVM replaced: static if (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS)
+            if (!global.params.isWindows)
             {
                 if (FileName.equals(ext, global.dll_ext))
                 {
@@ -737,7 +736,6 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
                     continue;
                 }
             }
-          }
             if (strcmp(ext, global.ddoc_ext) == 0)
             {
                 global.params.ddocfiles.push(files[i]);

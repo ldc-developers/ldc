@@ -244,7 +244,6 @@ struct Array
         return *this;
     }
 
-#if LLVM_HAS_RVALUE_REFERENCES
     Array(Array<TYPE> &&a)
     {
         if (data != &smallarray[0])
@@ -285,7 +284,6 @@ struct Array
         a.allocdim = 0;
         return *this;
     }
-#endif // LLVM_HAS_RVALUE_REFERENCES
 
     size_type size()
     {

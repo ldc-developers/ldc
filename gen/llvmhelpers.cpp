@@ -20,7 +20,6 @@
 #include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
-#include "gen/llvmcompat.h"
 #include "gen/logger.h"
 #include "gen/nested.h"
 #include "gen/mangling.h"

@@ -9,6 +9,7 @@
 
 #include "errors.h"
 #include "driver/cl_options.h"
+#include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
 #include "driver/exe_path.h"
 #include "driver/tool.h"
@@ -47,10 +48,10 @@ public:
              llvm::cl::boolOrDefault fullyStaticFlag);
 
 private:
-  virtual void addSanitizers();
-  virtual void addASanLinkFlags();
-  virtual void addFuzzLinkFlags();
-  virtual void addCppStdlibLinkFlags();
+  virtual void addSanitizers(const llvm::Triple &triple);
+  virtual void addASanLinkFlags(const llvm::Triple &triple);
+  virtual void addFuzzLinkFlags(const llvm::Triple &triple);
+  virtual void addCppStdlibLinkFlags(const llvm::Triple &triple);
 
   virtual void addLinker();
   virtual void addUserSwitches();
@@ -184,25 +185,27 @@ void ArgsBuilder::addLTOLinkFlags() {
 
 // Returns the arch name as used in the compiler_rt libs.
 // FIXME: implement correctly for non-x86 platforms (e.g. ARM)
-llvm::StringRef getCompilerRTArchName() {
-  return global.params.targetTriple->getArchName();
+// See clang/lib/Driver/Toolchain.cpp.
+llvm::StringRef getCompilerRTArchName(const llvm::Triple &triple) {
+  return triple.getArchName();
 }
 
 // Returns the libname as full path and with arch suffix and extension.
 // For example, with name="libldc_rt.fuzzer", the returned string is
 // "libldc_rt.fuzzer_osx.a" on Darwin.
-std::string getFullCompilerRTLibPath(llvm::StringRef name,
+std::string getFullCompilerRTLibPath(const llvm::Triple &triple,
+                                     llvm::StringRef name,
                                      bool sharedLibrary = false) {
-  if (global.params.targetTriple->isOSDarwin()) {
+  if (triple.isOSDarwin()) {
     return exe_path::prependLibDir(
         name + (sharedLibrary ? "_osx_dynamic.dylib" : "_osx.a"));
   } else {
-    return exe_path::prependLibDir(name + "-" + getCompilerRTArchName() +
+    return exe_path::prependLibDir(name + "-" + getCompilerRTArchName(triple) +
                                    (sharedLibrary ? ".so" : ".a"));
   }
 }
 
-void ArgsBuilder::addASanLinkFlags() {
+void ArgsBuilder::addASanLinkFlags(const llvm::Triple &triple) {
   // Examples: "libclang_rt.asan-x86_64.a" or "libclang_rt.asan-arm.a" and
   // "libclang_rt.asan-x86_64.so"
 
@@ -210,14 +213,17 @@ void ArgsBuilder::addASanLinkFlags() {
   // In case of shared ASan, I think we also need to statically link with
   // libclang_rt.asan-preinit-<arch>.a on Linux. On Darwin, the only option is
   // to use the shared library.
-  bool linkSharedASan = global.params.targetTriple->isOSDarwin();
+  bool linkSharedASan = triple.isOSDarwin();
   std::string searchPaths[] = {
-      getFullCompilerRTLibPath("libldc_rt.asan", linkSharedASan),
-      getFullCompilerRTLibPath("libclang_rt.asan", linkSharedASan),
+      getFullCompilerRTLibPath(triple, "libldc_rt.asan", linkSharedASan),
+      getFullCompilerRTLibPath(triple, "libclang_rt.asan", linkSharedASan),
   };
 
   for (const auto &filepath : searchPaths) {
+    IF_LOG Logger::println("Searching ASan lib: %s", filepath.c_str());
+
     if (llvm::sys::fs::exists(filepath)) {
+      IF_LOG Logger::println("Found, linking with %s", filepath.c_str());
       args.push_back(filepath);
 
       if (linkSharedASan) {
@@ -245,11 +251,11 @@ void ArgsBuilder::addASanLinkFlags() {
 
 // Adds all required link flags for -fsanitize=fuzzer when libFuzzer library is
 // found.
-void ArgsBuilder::addFuzzLinkFlags() {
+void ArgsBuilder::addFuzzLinkFlags(const llvm::Triple &triple) {
   std::string searchPaths[] = {
 #if LDC_LLVM_VER >= 600
-    getFullCompilerRTLibPath("libldc_rt.fuzzer"),
-    getFullCompilerRTLibPath("libclang_rt.fuzzer"),
+    getFullCompilerRTLibPath(triple, "libldc_rt.fuzzer"),
+    getFullCompilerRTLibPath(triple, "libclang_rt.fuzzer"),
 #else
     exe_path::prependLibDir("libFuzzer.a"),
     exe_path::prependLibDir("libLLVMFuzzer.a"),
@@ -257,24 +263,27 @@ void ArgsBuilder::addFuzzLinkFlags() {
   };
 
   for (const auto &filepath : searchPaths) {
+    IF_LOG Logger::println("Searching libFuzzer: %s", filepath.c_str());
+
     if (llvm::sys::fs::exists(filepath)) {
+      IF_LOG Logger::println("Found, linking with %s", filepath.c_str());
       args.push_back(filepath);
 
       // libFuzzer requires the C++ std library, but only add the link flags
       // when libFuzzer was found.
-      addCppStdlibLinkFlags();
+      addCppStdlibLinkFlags(triple);
       return;
     }
   }
 }
 
-void ArgsBuilder::addCppStdlibLinkFlags() {
+void ArgsBuilder::addCppStdlibLinkFlags(const llvm::Triple &triple) {
   if (linkNoCpp)
     return;
 
-  switch (global.params.targetTriple->getOS()) {
+  switch (triple.getOS()) {
   case llvm::Triple::Linux:
-    if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
+    if (triple.getEnvironment() == llvm::Triple::Android) {
       args.push_back("-lc++");
     } else {
       args.push_back("-lstdc++");
@@ -297,13 +306,13 @@ void ArgsBuilder::addCppStdlibLinkFlags() {
   }
 }
 
-void ArgsBuilder::addSanitizers() {
+void ArgsBuilder::addSanitizers(const llvm::Triple &triple) {
   if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
-    addASanLinkFlags();
+    addASanLinkFlags(triple);
   }
 
   if (opts::isSanitizerEnabled(opts::FuzzSanitizer)) {
-    addFuzzLinkFlags();
+    addFuzzLinkFlags(triple);
   }
 
   // TODO: instead of this, we should link with our own sanitizer libraries
@@ -329,7 +338,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   }
 
   // Link with profile-rt library when generating an instrumented binary.
-  if (global.params.genInstrProf) {
+  if (opts::isInstrumentingForPGO()) {
 #if LDC_LLVM_VER >= 308
     if (global.params.targetTriple->isOSLinux()) {
       // For Linux, explicitly define __llvm_profile_runtime as undefined
@@ -349,6 +358,9 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   for (auto libfile : global.params.libfiles) {
     args.push_back(libfile);
   }
+  for (auto dllfile : global.params.dllfiles) {
+    args.push_back(dllfile);
+  }
 
   if (global.params.dll) {
     args.push_back("-shared");
@@ -361,7 +373,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   args.push_back("-o");
   args.push_back(outputPath);
 
-  addSanitizers();
+  addSanitizers(*global.params.targetTriple);
 
 #if LDC_LLVM_VER >= 309
   // Add LTO link flags before adding the user link switches, such that the user
@@ -383,7 +395,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
     // instrumented binary. The runtime relies on magic sections, which
     // would be stripped by gc-section on older version of ld, see bug:
     // https://sourceware.org/bugzilla/show_bug.cgi?id=19161
-    if (!opts::disableLinkerStripDead && !global.params.genInstrProf) {
+    if (!opts::disableLinkerStripDead && !opts::isInstrumentingForPGO()) {
       addLdFlag("--gc-sections");
     }
   }
@@ -496,7 +508,7 @@ void ArgsBuilder::addTargetFlags() {
 // (Yet unused) specialization for plain ld.
 
 class LdArgsBuilder : public ArgsBuilder {
-  void addSanitizers() override {}
+  void addSanitizers(const llvm::Triple &triple) override {}
 
   void addLinker() override {}
 

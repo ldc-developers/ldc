@@ -454,6 +454,16 @@ extern (C++) Expression eval_ctpop(Loc loc, FuncDeclaration fd, Expressions *arg
     return new IntegerExp(loc, cnt, type);
 }
 
+extern (C++) Expression eval_expect(Loc loc, FuncDeclaration fd, Expressions *arguments)
+{
+    Type type = getTypeOfOverloadedIntrinsic(fd);
+
+    Expression arg0 = (*arguments)[0];
+    assert(arg0.op == TOKint64);
+
+    return new IntegerExp(loc, arg0.toInteger(), type);
+}
+
 }
 else // !IN_LLVM
 {
@@ -780,6 +790,14 @@ version(IN_LLVM)
     add_builtin("llvm.ctpop.i32", &eval_ctpop);
     add_builtin("llvm.ctpop.i64", &eval_ctpop);
     add_builtin("llvm.ctpop.i128", &eval_ctpop);
+
+    // intrinsic llvm.expect.i1/i8/i16/i32/i64/i128
+    add_builtin("llvm.expect.i1", &eval_expect);
+    add_builtin("llvm.expect.i8", &eval_expect);
+    add_builtin("llvm.expect.i16", &eval_expect);
+    add_builtin("llvm.expect.i32", &eval_expect);
+    add_builtin("llvm.expect.i64", &eval_expect);
+    add_builtin("llvm.expect.i128", &eval_expect);
 }
 
     // @safe @nogc pure nothrow int function(uint)

@@ -84,6 +84,16 @@ extern(C++) struct ProfileData {
         uint NumCounters;
         ushort NumValueSites;
     }
+    else version(LDC_LLVM_700)
+    {
+        ulong NameRef;
+        ulong FuncHash;
+        ulong* Counter;
+        void* FunctionPointer;
+        void* Values;
+        uint NumCounters;
+        ushort NumValueSites;
+    }
     else
     {
         static assert(0, "unsupported LLVM version");

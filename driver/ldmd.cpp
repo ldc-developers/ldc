@@ -412,8 +412,14 @@ void translateArgs(size_t originalArgc, char **originalArgv,
       }
       /* -mscrtlib
        */
-      else if (strcmp(p + 1, "profile") == 0) {
-        goto Lnot_in_ldc;
+      else if (strncmp(p + 1, "profile", 7) == 0) {
+        if (p[8] == 0) {
+          ldcArgs.push_back("-fdmd-trace-functions");
+        } else if (strcmp(p + 8, "=gc") == 0) {
+          goto Lnot_in_ldc; // ldcArgs.push_back("-fdmd-trace-gc");
+        } else {
+          goto Lerror;
+        }
       }
       /* -v
        */
@@ -423,10 +429,10 @@ void translateArgs(size_t originalArgc, char **originalArgv,
       /* -vcolumns
        * -vgc
        */
-      else if (memcmp(p + 1, "verrors", 7) == 0) {
+      else if (strncmp(p + 1, "verrors", 7) == 0) {
         if (p[8] == '=' && isdigit(static_cast<unsigned char>(p[9]))) {
           ldcArgs.push_back(p);
-        } else if (memcmp(p + 9, "spec", 4) == 0) {
+        } else if (strncmp(p + 9, "spec", 4) == 0) {
           ldcArgs.push_back("-verrors-spec");
         } else {
           goto Lerror;
@@ -435,7 +441,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
         const char *mcpuargs[] = {ldcPath.c_str(), "-mcpu=help", nullptr};
         execute(ldcPath, mcpuargs);
         exit(EXIT_SUCCESS);
-      } else if (memcmp(p + 1, "mcpu=", 5) == 0) {
+      } else if (strncmp(p + 1, "mcpu=", 5) == 0) {
         if (strcmp(p + 6, "baseline") == 0) {
           // ignore
         } else if (strcmp(p + 6, "avx") == 0) {
@@ -508,7 +514,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
        * -I
        * -J
        */
-      else if (memcmp(p + 1, "debug", 5) == 0 && p[6] != 'l') {
+      else if (strncmp(p + 1, "debug", 5) == 0 && p[6] != 'l') {
         // Parse:
         //      -debug
         //      -debug=number
@@ -530,7 +536,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
         } else {
           ldcArgs.push_back("-d-debug");
         }
-      } else if (memcmp(p + 1, "version", 7) == 0) {
+      } else if (strncmp(p + 1, "version", 7) == 0) {
         // Parse:
         //      -version=number
         //      -version=identifier
@@ -568,7 +574,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
        * -deps
        * -main
        */
-      else if (memcmp(p + 1, "man", 3) == 0) {
+      else if (strncmp(p + 1, "man", 3) == 0) {
         browse("http://wiki.dlang.org/LDC");
         exit(EXIT_SUCCESS);
       } else if (strcmp(p + 1, "run") == 0) {

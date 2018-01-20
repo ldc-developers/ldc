@@ -1,4 +1,4 @@
-//===-- gen/pgo.cpp ---------------------------------------------*- C++ -*-===//
+//===-- gen/pgo_ASTbased.cpp ------------------------------------*- C++ -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -8,16 +8,18 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Instrumentation-based profile-guided optimization
+// Instrumentation-based profile-guided optimization. This is AST-based PGO, in
+// contrast to LLVM's IR-based PGO.
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/pgo.h"
+#include "gen/pgo_ASTbased.h"
 
 #include "globals.h"
 #include "init.h"
 #include "statement.h"
 #include "llvm.h"
+#include "driver/cl_options_instrumentation.h"
 #include "gen/cl_helpers.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
@@ -767,7 +769,7 @@ void CodeGenPGO::setFuncName(llvm::StringRef Name,
                                             : llvm::IndexedInstrProf::Version);
 
   // If we're generating a profile, create a variable for the name.
-  if (global.params.genInstrProf && emitInstrumentation) {
+  if (opts::isInstrumentingForASTBasedPGO() && emitInstrumentation) {
     FuncNameVar = llvm::createPGOFuncNameVar(gIR->module, Linkage, FuncName);
 
     // If Linkage is private, and the function is in a comdat "any" group, set
@@ -788,7 +790,7 @@ void CodeGenPGO::setFuncName(llvm::StringRef Name,
   FuncName = RawFuncName;
 
   // If we're generating a profile, create a variable for the name.
-  if (global.params.genInstrProf && emitInstrumentation)
+  if (opts::isInstrumentingForASTBasedPGO() && emitInstrumentation)
     createFuncNameVar(Linkage);
 #endif
 }
@@ -825,7 +827,7 @@ void CodeGenPGO::createFuncNameVar(llvm::GlobalValue::LinkageTypes Linkage) {
 void CodeGenPGO::assignRegionCounters(const FuncDeclaration *D,
                                       llvm::Function *fn) {
   llvm::IndexedInstrProfReader *PGOReader = gIR->getPGOReader();
-  if (!global.params.genInstrProf && !PGOReader)
+  if (!opts::isInstrumentingForASTBasedPGO() && !PGOReader)
     return;
 
   emitInstrumentation = D->emitInstrumentation;
@@ -867,7 +869,8 @@ void CodeGenPGO::applyFunctionAttributes(llvm::Function *Fn) {
 }
 
 void CodeGenPGO::emitCounterIncrement(const RootObject *S) const {
-  if (!global.params.genInstrProf || !RegionCounterMap || !emitInstrumentation)
+  if (!opts::isInstrumentingForASTBasedPGO() || !RegionCounterMap ||
+      !emitInstrumentation)
     return;
 
   auto counter_it = (*RegionCounterMap).find(S);
@@ -1080,7 +1083,8 @@ void CodeGenPGO::valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
   if (!value || !valueSite)
     return;
 
-  bool instrumentValueSites = global.params.genInstrProf && emitInstrumentation;
+  bool instrumentValueSites =
+      opts::isInstrumentingForASTBasedPGO() && emitInstrumentation;
   if (instrumentValueSites && RegionCounterMap) {
     // Instrumentation must be inserted just before the valueSite instruction.
     // Save the current insertion point to be able to restore it later.

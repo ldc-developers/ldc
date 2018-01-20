@@ -246,7 +246,6 @@ struct Param
         bool cleanupObjectFiles;
 
         // Profile-guided optimization:
-        bool genInstrProf;             // Whether to generate PGO instrumented code
         const(char)* datafileInstrProf; // Either the input or output file for PGO data
 
         // target stuff
