@@ -3,11 +3,16 @@
  * instrumented programs (compiled with -fprofile-instr-generate).
  * It provides an interface to the profile-rt runtime library.
  *
- * Note that this only works for instrumented binaries.
+ * The functions in this module only work for PGO-instrumented binaries.
  *
- * Copyright: Authors 2016-2016
- * License: University of Illinois Open Source License and MIT License. See LDC's LICENSE for details.
- * Authors:   Johan B C Engelen
+ * This module is template-only, and is not compiled nor linked into druntime.
+ * This way, LDC does not need its own profile-rt library and LDC can directly
+ * use compiler-rt's profile runtime library.
+ *
+ * Copyright: Authors 2016-2018
+ * License: University of Illinois Open Source License and MIT License.
+ *          See LDC's LICENSE for details.
+ * Authors: LDC Team
  */
 module ldc.profile;
 
@@ -101,7 +106,6 @@ extern(C++) struct ProfileData {
 }
 
 // Symbols provided by profile-rt lib
-private {
 extern(C) {
     alias uint64_t = ulong;
     alias __llvm_profile_data = ProfileData;
@@ -115,16 +119,14 @@ extern(C) {
     void __llvm_profile_reset_counters();
     uint64_t __llvm_profile_get_magic();
     uint64_t __llvm_profile_get_version();
-}}
+}
 
 /**
  * Reset all profiling information of the whole program.
  * This can be used for example to remove transient start-up behavior from the
  * profile.
  */
-void resetAll() {
-    __llvm_profile_reset_counters();
-}
+alias resetAll = __llvm_profile_reset_counters;
 
 /**
  * Reset profile counter values for a function.
