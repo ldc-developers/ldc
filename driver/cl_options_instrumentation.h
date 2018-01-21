@@ -18,6 +18,10 @@
 
 #include "gen/cl_helpers.h"
 
+namespace llvm {
+class Triple;
+}
+
 namespace opts {
 namespace cl = llvm::cl;
 
@@ -26,7 +30,7 @@ extern cl::opt<bool> instrumentFunctions;
 /// This initializes the instrumentation options, and checks the validity of the
 /// commandline flags. targetTriple should be initialized before calling this.
 /// It should be called only once.
-void initializeInstrumentationOptionsFromCmdline();
+void initializeInstrumentationOptionsFromCmdline(const llvm::Triple &triple);
 
 enum PGOKind {
   PGO_None,

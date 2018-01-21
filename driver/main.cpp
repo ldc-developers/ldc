@@ -1066,7 +1066,8 @@ int cppmain(int argc, char **argv) {
     global.lib_ext = "a";
   }
 
-  opts::initializeInstrumentationOptionsFromCmdline();
+  opts::initializeInstrumentationOptionsFromCmdline(
+      *global.params.targetTriple);
 
   Strings libmodules;
   return mars_mainBody(files, libmodules);
