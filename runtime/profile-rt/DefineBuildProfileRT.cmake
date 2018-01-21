@@ -1,7 +1,5 @@
 # Add LLVM Profile runtime for PGO
 
-file(GLOB LDC_PROFRT_D ${PROFILERT_DIR}/d/ldc/*.d)
-
 # Choose the correct subfolder depending on the LLVM version
 set(PROFILERT_LIBSRC_DIR "${PROFILERT_DIR}/profile-rt-${LLVM_VERSION_MAJOR}${LLVM_VERSION_MINOR}")
 file(GLOB LDC_PROFRT_C ${PROFILERT_LIBSRC_DIR}/*.c)
@@ -72,29 +70,12 @@ if(COMPILER_RT_TARGET_HAS_UNAME)
     set(PROFRT_EXTRA_FLAGS "${PROFRT_EXTRA_FLAGS} -DCOMPILER_RT_HAS_UNAME=1")
 endif()
 
-# Sets up the targets for building the D-source profile-rt object files,
-# appending the names of the (bitcode) files to link into the library to
-# outlist_o (outlist_bc).
-macro(compile_profilert_D d_flags lib_suffix path_suffix all_at_once outlist_o outlist_bc)
-    get_target_suffix("${lib_suffix}" "${path_suffix}" target_suffix)
-    dc("${LDC_PROFRT_D}"
-       "${PROFILERT_DIR}/d"
-       "${d_flags}"
-       "${PROJECT_BINARY_DIR}/objects${target_suffix}"
-       "${all_at_once}"
-       ${outlist_o}
-       ${outlist_bc}
-    )
-endmacro()
-
-macro(build_profile_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targets)
+macro(build_profile_runtime c_flags ld_flags lib_suffix path_suffix outlist_targets)
     set(output_path ${CMAKE_BINARY_DIR}/lib${path_suffix})
 
-    set(profilert_d_o "")
-    set(profilert_d_bc "")
-    compile_profilert_D("${d_flags};-relocation-model=pic" "${lib_suffix}" "${path_suffix}" "${COMPILE_ALL_D_FILES_AT_ONCE}" profilert_d_o profilert_d_bc)
+    get_target_suffix("${lib_suffix}" "${path_suffix}" target_suffix)
 
-    add_library(ldc-profile-rt${target_suffix} STATIC ${profilert_d_o} ${LDC_PROFRT_C} ${LDC_PROFRT_CXX})
+    add_library(ldc-profile-rt${target_suffix} STATIC ${LDC_PROFRT_C} ${LDC_PROFRT_CXX})
     set_target_properties(
         ldc-profile-rt${target_suffix} PROPERTIES
         OUTPUT_NAME                 ldc-profile-rt${lib_suffix}
@@ -111,4 +92,4 @@ macro(build_profile_runtime d_flags c_flags ld_flags lib_suffix path_suffix outl
 endmacro()
 
 # Install D interface files to profile-rt.
-install(DIRECTORY ${PROFILERT_DIR}/d/ldc DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
+install(DIRECTORY ${PROFILERT_DIR}/d/ldc DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
