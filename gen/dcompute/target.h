@@ -18,6 +18,7 @@
 namespace llvm {
 class Module;
 class Function;
+class TargetMachine;
 }
 
 class Module;
@@ -32,6 +33,7 @@ public:
   const char *short_name;
   const char *binSuffix;
   TargetABI *abi;
+  llvm::TargetMachine *targetMachine = nullptr;
   // The nominal address spaces in DCompute are Private = 0, Global = 1,
   // Shared = 2, Constant = 3, Generic = 4
   std::array<int, 5> mapping;
@@ -47,8 +49,6 @@ public:
   void doCodeGen(Module *m);
   void writeModule();
 
-  // HACK: Resets the gTargetMachine to one appropriate for this dcompute target
-  virtual void setGTargetMachine() = 0;
   virtual void addMetadata() = 0;
   virtual void addKernelMetadata(FuncDeclaration *df, llvm::Function *llf) = 0;
 };

@@ -16,6 +16,7 @@
 #include "gen/logger.h"
 #include "gen/optimizer.h"
 #include "gen/to_string.h"
+#include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "driver/targetmachine.h"
 #include <cstring>
@@ -30,34 +31,24 @@ public:
             // Map from nominal DCompute address space to NVPTX address space.
             // see $LLVM_ROOT/docs/docs/NVPTXUsage.rst section Address Spaces
             {{5, 1, 3, 4, 0}}) {
-    std::string dl =
-        global.params.is64bit
-            ? "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:"
-              "32-"
-              "f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64"
-            : "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:"
-              "32-"
-              "f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64";
+
+    const bool is64 = global.params.is64bit;
+    auto tripleString = is64 ? "nvptx64-nvidia-cuda" : "nvptx-nvidia-cuda";
+
+    targetMachine = createTargetMachine(
+        tripleString, is64 ? "nvptx64" : "nvptx",
+        "sm_" + ldc::to_string(tversion / 10), {},
+        is64 ? ExplicitBitness::M64 : ExplicitBitness::M32, ::FloatABI::Hard,
+        llvm::Reloc::Static, llvm::CodeModel::Medium, codeGenOptLevel(), false);
 
     _ir = new IRState("dcomputeTargetCUDA", ctx);
-    _ir->module.setTargetTriple(global.params.is64bit ? "nvptx64-nvidia-cuda"
-                                                      : "nvptx-nvidia-cuda");
-    _ir->module.setDataLayout(dl);
+    _ir->module.setTargetTriple(tripleString);
+    _ir->module.setDataLayout(targetMachine->createDataLayout());
     _ir->dcomputetarget = this;
   }
 
   void addMetadata() override {
     // sm version?
-  }
-  void setGTargetMachine() override {
-    const bool is64 = global.params.is64bit;
-
-    gTargetMachine = createTargetMachine(
-        is64 ? "nvptx64-nvidia-cuda" : "nvptx-nvidia-cuda",
-        is64 ? "nvptx64" : "nvptx", "sm_" + ldc::to_string(tversion / 10), {},
-        is64 ? ExplicitBitness::M64 : ExplicitBitness::M32, ::FloatABI::Hard,
-        llvm::Reloc::Static, llvm::CodeModel::Medium, codeGenOptLevel(),
-        false);
   }
 
   void addKernelMetadata(FuncDeclaration *df, llvm::Function *llf) override {
