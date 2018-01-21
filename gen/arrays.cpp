@@ -1361,7 +1361,9 @@ void DtoIndexBoundsCheck(Loc &loc, DValue *arr, DValue *index) {
   }
 
   llvm::ICmpInst::Predicate cmpop = llvm::ICmpInst::ICMP_ULT;
-  llvm::Value *cond = gIR->ir->CreateICmp(cmpop, DtoRVal(index),
+  llvm::Value *cond = gIR->ir->CreateICmp(cmpop,
+                                          gIR->ir->CreateTrunc(DtoRVal(index),
+                                                               DtoSize_t()),
                                           DtoArrayLen(arr), "bounds.cmp");
 
   llvm::BasicBlock *okbb = gIR->insertBB("bounds.ok");
