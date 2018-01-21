@@ -21,7 +21,7 @@ matrix:
       env: LLVM_VERSION=3.7.1 OPTS="-DTEST_COVERAGE=ON"
     - os: osx
       d: ldc-beta
-      env: LLVM_VERSION=6.0.0-5 OPTS="-DBUILD_SHARED_LIBS=OFF" LLVM_SPIRV_AVAILABLE=ON
+      env: LLVM_VERSION=6.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF" LLVM_SPIRV_AVAILABLE=ON
     - os: osx
       d: ldc
       env: LLVM_VERSION=4.0.0 OPTS="-DBUILD_SHARED_LIBS=ON"
@@ -30,7 +30,7 @@ matrix:
 
 cache:
   directories:
-    - llvm-spirv-6.0.0-5
+    - llvm-spirv-6.0.0
     - llvm-5.0.1
     - llvm-4.0.1
     - llvm-4.0.0
@@ -54,7 +54,7 @@ before_install:
   -
     if [ ! -e "$LLVM_ROOT_DIR/bin/llvm-config" ]; then
       if [ -n "${LLVM_SPIRV_AVAILABLE}" ]; then
-        wget -O llvm.tar.bz2 https://github.com/thewilsonator/llvm/releases/download/pre-intrinsics/LLVM-6.0.0svn-Darwin.tar.bz2;
+        wget -O llvm.tar.bz2 https://github.com/thewilsonator/llvm/releases/download/pre-intrinsics/LLVM-6.0.0-Darwin.tar.bz2;
       else
         if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
           if [ "${LLVM_VERSION}" = "4.0.1" ]; then
