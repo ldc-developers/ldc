@@ -33,7 +33,7 @@ llvm::Value *IrFuncTy::putRet(DValue *dval) {
   if (ret->rewrite) {
     Logger::println("Rewrite: putRet");
     LOG_SCOPE
-    return ret->rewrite->put(dval);
+    return ret->rewrite->put(dval, /*isModifiableLvalue=*/false);
   }
 
   if (ret->byref || DtoIsInMemoryOnly(dval->type))
@@ -66,20 +66,20 @@ llvm::Value *IrFuncTy::getRetLVal(Type *dty, LLValue *val) {
   return DtoAllocaDump(val, dty);
 }
 
-llvm::Value *IrFuncTy::putParam(size_t idx, DValue *dval) {
-  assert(idx < args.size() && "invalid putParam");
-  return putParam(*args[idx], dval);
-}
-
-llvm::Value *IrFuncTy::putParam(const IrFuncTyArg &arg, DValue *dval) {
+llvm::Value *IrFuncTy::putParam(const IrFuncTyArg &arg, DValue *dval,
+                                bool isModifiableLvalue) {
   if (arg.rewrite) {
     Logger::println("Rewrite: putParam");
     LOG_SCOPE
-    return arg.rewrite->put(dval);
+    return arg.rewrite->put(dval, isModifiableLvalue);
   }
 
-  if (arg.byref || DtoIsInMemoryOnly(dval->type))
+  if (arg.byref || DtoIsInMemoryOnly(dval->type)) {
+    if (isModifiableLvalue && arg.isByVal()) {
+      return DtoAllocaDump(dval, ".lval_copy_for_byval");
+    }
     return DtoLVal(dval);
+  }
 
   return DtoRVal(dval);
 }
