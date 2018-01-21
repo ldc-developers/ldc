@@ -125,6 +125,12 @@ else version( CRuntime_Bionic )
 
     enum SEM_FAILED = null;
 }
+else version( CRuntime_Musl )
+{
+    struct sem_t {
+        int[4*long.sizeof/int.sizeof] __val;
+    }
+}
 else
 {
     static assert(false, "Unsupported platform");
@@ -172,6 +178,10 @@ else version (Solaris)
     int sem_timedwait(sem_t*, in timespec*);
 }
 else version( CRuntime_Bionic )
+{
+    int sem_timedwait(sem_t*, in timespec*);
+}
+else version( CRuntime_Musl )
 {
     int sem_timedwait(sem_t*, in timespec*);
 }
