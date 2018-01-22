@@ -17,6 +17,7 @@
 
 #include "errors.h"
 #include "globals.h"
+#include "llvm/ADT/Triple.h"
 
 namespace {
 namespace cl = llvm::cl;
@@ -67,7 +68,7 @@ static cl::opt<bool> dmdFunctionTrace(
     "fdmd-trace-functions", cl::ZeroOrMore,
     cl::desc("DMD-style runtime performance profiling of generated code"));
 
-void initializeInstrumentationOptionsFromCmdline() {
+void initializeInstrumentationOptionsFromCmdline(const llvm::Triple &triple) {
   if (ASTPGOInstrGenFile.getNumOccurrences() > 0) {
     pgoMode = PGO_ASTBasedInstr;
     if (ASTPGOInstrGenFile.empty()) {
@@ -101,9 +102,7 @@ void initializeInstrumentationOptionsFromCmdline() {
   // There is a bug in (our use of?) LLVM where codegen errors with
   // PGO_IRBasedInstr for Windows targets. So disable IRBased PGO on Windows for
   // now.
-  assert(global.params.targetTriple);
-  if ((pgoMode == PGO_IRBasedInstr) &&
-      global.params.targetTriple->isOSWindows()) {
+  if ((pgoMode == PGO_IRBasedInstr) && triple.isOSWindows()) {
     error(Loc(),
           "'-fprofile-generate' is not yet supported for Windows targets.");
   }
