@@ -388,6 +388,7 @@ if(LDC_DYNAMIC_COMPILE STREQUAL "AUTO")
         set(LDC_DYNAMIC_COMPILE True)
         message(STATUS "Building LDC with dynamic compilation support")
         add_definitions(-DLDC_DYNAMIC_COMPILE)
+        add_definitions(-DLDC_DYNAMIC_COMPILE_API_VERSION=1)
     endif()
 endif()
 
