@@ -19,6 +19,7 @@
 #include "statement.h"
 #include "template.h"
 #include "driver/cl_options.h"
+#include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
@@ -461,6 +462,18 @@ void applyTargetMachineAttributes(llvm::Function &func,
 
   func.addFnAttr("no-frame-pointer-elim",
                  willEliminateFramePointer() ? "false" : "true");
+}
+
+void applyXRayAttributes(FuncDeclaration &fdecl, llvm::Function &func) {
+  if (!opts::fXRayInstrument)
+    return;
+
+  if (!fdecl.emitInstrumentation) {
+    func.addFnAttr("function-instrument", "xray-never");
+  } else {
+    func.addFnAttr("xray-instruction-threshold",
+                   opts::getXRayInstructionThresholdString());
+  }
 }
 
 } // anonymous namespace
@@ -1010,6 +1023,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
       func->addFnAttr(LLAttribute::SanitizeThread);
     }
   }
+  applyXRayAttributes(*fd, *func);
 
   llvm::BasicBlock *beginbb =
       llvm::BasicBlock::Create(gIR->context(), "", func);

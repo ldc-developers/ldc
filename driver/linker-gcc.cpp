@@ -53,6 +53,7 @@ private:
   virtual void addASanLinkFlags(const llvm::Triple &triple);
   virtual void addFuzzLinkFlags(const llvm::Triple &triple);
   virtual void addCppStdlibLinkFlags(const llvm::Triple &triple);
+  virtual void addXRayLinkFlags(const llvm::Triple &triple);
 
   virtual void addLinker();
   virtual void addUserSwitches();
@@ -312,6 +313,32 @@ void ArgsBuilder::addFuzzLinkFlags(const llvm::Triple &triple) {
   }
 }
 
+// Adds all required link flags for -fxray-instrument when the xray library is
+// found.
+void ArgsBuilder::addXRayLinkFlags(const llvm::Triple &triple) {
+  std::string searchPaths[] = {
+    getFullCompilerRTLibPath(triple, "libldc_rt.xray"),
+    getFullCompilerRTLibPath(triple, "libclang_rt.xray"),
+    getFullClangCompilerRTLibPath(triple, "libclang_rt.xray"),
+  };
+
+  bool linkerDarwin = triple.isOSDarwin();
+  if (!triple.isOSLinux())
+    warning(Loc(), "XRay is not (fully) supported on non-Linux target OS.");
+
+  for (const auto &filepath : searchPaths) {
+    if (!linkerDarwin)
+      addLdFlag("--whole-archive");
+
+    args.push_back(filepath);
+
+    if (!linkerDarwin)
+      addLdFlag("--no-whole-archive");
+
+    return;
+  }
+}
+
 void ArgsBuilder::addCppStdlibLinkFlags(const llvm::Triple &triple) {
   if (linkNoCpp)
     return;
@@ -409,6 +436,10 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   args.push_back(outputPath);
 
   addSanitizers(*global.params.targetTriple);
+
+  if (opts::fXRayInstrument) {
+    addXRayLinkFlags(*global.params.targetTriple);
+  }
 
 #if LDC_LLVM_VER >= 309
   // Add LTO link flags before adding the user link switches, such that the user
