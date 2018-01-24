@@ -29,6 +29,9 @@ endif()
 function(add_testsuite config_name dflags gdbflags model)
     set(name dmd-testsuite${config_name})
     set(outdir ${CMAKE_BINARY_DIR}/${name})
+    set(workingdir ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite)
+    # The DMD testsuite assumes a relative RESULTS_DIR path.
+    file(RELATIVE_PATH resultsdir ${workingdir} ${outdir})
 
     add_test(NAME clean-${name}
         COMMAND ${CMAKE_COMMAND} -E remove_directory ${outdir})
@@ -39,7 +42,7 @@ function(add_testsuite config_name dflags gdbflags model)
     # testsuite build system provides no way to run the test cases with a
     # given set of flags without trying all combinations of them.
     add_test(NAME ${name}
-        COMMAND make -k -C ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite RESULTS_DIR=${outdir} DMD=${LDMD_EXE_FULL} DFLAGS=${all_dflags} MODEL=${model} GDB_FLAGS=${gdbflags} quick
+        COMMAND make -k -C ${workingdir} RESULTS_DIR=${resultsdir} DMD=${LDMD_EXE_FULL} DFLAGS=${all_dflags} MODEL=${model} GDB_FLAGS=${gdbflags} quick
     )
     set_tests_properties(${name} PROPERTIES DEPENDS clean-${name})
 endfunction()
