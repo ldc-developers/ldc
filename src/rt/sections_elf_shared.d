@@ -356,16 +356,6 @@ version (Shared)
     __gshared pthread_mutex_t _handleToDSOMutex;
     __gshared HashTab!(void*, DSO*) _handleToDSO;
 
-    static if (SharedDarwin)
-    {
-        /*
-         * Hash table to map fully qualified names of loaded D modules to the DSO*
-         * in which they were defined, protected by a mutex.
-         */
-        __gshared pthread_mutex_t _moduleNameToDSOMutex;
-        __gshared HashTab!(const(char)[], const(DSO)*) _moduleNameToDSO;
-    }
-
     static if (SharedELF)
     {
         /*
@@ -537,17 +527,6 @@ extern(C) void _d_dso_registry(void* arg)
                 }
             }
 
-            static if (SharedDarwin)
-            {
-                !pthread_mutex_lock(&_moduleNameToDSOMutex) || assert(0);
-                foreach (m; pdso.modules())
-                {
-                    assert(_moduleNameToDSO[m.name] == pdso);
-                    _moduleNameToDSO.remove(m.name);
-                }
-                !pthread_mutex_unlock(&_moduleNameToDSOMutex) || assert(0);
-            }
-
             unsetDSOForHandle(pdso, pdso._handle);
         }
         else
@@ -659,8 +638,6 @@ void initLocks() nothrow @nogc
     version (Shared)
     {
         !pthread_mutex_init(&_handleToDSOMutex, null) || assert(0);
-        static if (SharedDarwin)
-            !pthread_mutex_init(&_moduleNameToDSOMutex, null) || assert(0);
     }
 }
 
@@ -669,8 +646,6 @@ void finiLocks() nothrow @nogc
     version (Shared)
     {
         !pthread_mutex_destroy(&_handleToDSOMutex) || assert(0);
-        static if (SharedDarwin)
-            !pthread_mutex_destroy(&_moduleNameToDSOMutex) || assert(0);
     }
 }
 
