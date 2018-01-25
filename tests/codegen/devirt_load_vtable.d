@@ -15,7 +15,7 @@ class A
 // CHECK-LABEL: define{{.*}} @{{.*}}testfunction_one
 void testfunction_one(A a)
 {
-    // CHECK: load {{.*}} !invariant.load
+    // CHECK: load {{.*}} !invariant.group
     // CHECK: [[RET1:%[0-9]]] = load {{.*}} !invariant.load
     // CHECK: call {{.*}} [[RET1]](
     // CHECK-NEXT: call {{.*}} [[RET1]](
@@ -42,12 +42,12 @@ int testfunction_forloop()
 // CHECK-LABEL: define{{.*}} @{{.*}}testfunction_two
 void testfunction_two(A a, A b)
 {
-    // CHECK: load {{.*}} !invariant.load
+    // CHECK: load {{.*}} !invariant.group
     // CHECK: [[RET1:%[0-9]]] = load {{.*}} !invariant.load
     // CHECK: call {{.*}} [[RET1]](
     a.foo();
     a = b;
-    // CHECK: load {{.*}} !invariant.load
+    // CHECK: load {{.*}} !invariant.group
     // CHECK: [[RET2:%[0-9]]] = load {{.*}} !invariant.load
     // CHECK: call {{.*}} [[RET2]](
     a.foo();
@@ -59,13 +59,13 @@ void clobber_by_ref(ref A a);
 // CHECK-LABEL: define{{.*}} @{{.*}}testfunction_three
 void testfunction_three(A a)
 {
-    // CHECK: load {{.*}} !invariant.load
+    // CHECK: load {{.*}} !invariant.group
     // CHECK: [[RET3_1:%[0-9]]] = load {{.*}} !invariant.load
     // CHECK: call {{.*}} [[RET3_1]](
     a.foo();
     clobber_by_ref(a);
     // CHECK: load {{.*}}
-    // CHECK: load {{.*}} !invariant.load
+    // CHECK: load {{.*}} !invariant.group
     // CHECK: [[RET3_2:%[0-9]]] = load {{.*}} !invariant.load
     // CHECK: call {{.*}} [[RET3_2]](
     a.foo();
@@ -78,7 +78,7 @@ void may_delete_destroy(A a);
 // CHECK-LABEL: define{{.*}} @{{.*}}testfunction_four
 void testfunction_four(A a)
 {
-    // CHECK: load {{.*}} !invariant.load
+    // CHECK: load {{.*}} !invariant.group
     // CHECK: [[RET4_1:%[0-9]]] = load {{.*}} !invariant.load
     // CHECK: call {{.*}} [[RET4_1]](
     // CHECK-NEXT: call {{.*}}may_delete_destroy
@@ -107,11 +107,11 @@ void clobber(ref AB);
 // CHECK-LABEL: define{{.*}} @{{.*}}testfunction_five
 void testfunction_five(AB ab)
 {
-    // CHECK: load {{.*}} !invariant.load
+    // CHECK: load {{.*}} !invariant.group
     // CHECK: [[RET5_1:%[0-9]+]] = load {{.*}} !invariant.load
     // CHECK: call {{.*}} [[RET5_1]](
     // CHECK-NEXT: call {{.*}}7clobber
-    // CHECK: load {{.*}} !invariant.load
+    // CHECK: load {{.*}} !invariant.group
     // CHECK: [[RET5_2:%[0-9]+]] = load {{.*}} !invariant.load
     // CHECK: call {{.*}} [[RET5_2]](
     ab.a.foo();
@@ -125,7 +125,7 @@ void testfunction_five(AB ab)
 // CHECK-LABEL: define{{.*}} @{{.*}}testfunction_vpointer
 void testfunction_vpointer(A a)
 {
-    // CHECK: load {{.*}} !invariant.load
+    // CHECK: load {{.*}} !invariant.group
     // CHECK: [[RETvpointer_foo:%[0-9]+]] = load {{.*}} !invariant.load
     // CHECK: call {{.*}} [[RETvpointer_foo]](
     a.foo();
@@ -144,8 +144,9 @@ void testfunction_vpointer(A a)
         // CHECK: br i1 [[RETvpointer_2]]
         if (a.__vptr)
         {
-            // Check that we still use the previously loaded pointer to A::foo.
-            // CHECK: call {{.*}} [[RETvpointer_foo]](
+            // We could still use the previously loaded pointer to A::foo, but the
+            // optimizer is not strong enough yet.
+            // disabledCHECK: call {{.*}} [[RETvpointer_foo]](
             a.foo();
         }
     }
@@ -176,7 +177,7 @@ class IB : IA
 // CHECK-LABEL: define{{.*}} @{{.*}}testinterface_zero
 void testinterface_zero(IA a)
 {
-    // CHECK: load {{.*}} !invariant.load
+    // CHECK: load {{.*}} !invariant.group
     // CHECK: [[INTFC0:%[0-9]]] = load {{.*}} !invariant.load
     // CHECK: call {{.*}} [[INTFC0]](
     a.foo();
@@ -190,7 +191,7 @@ void testinterface_zero(IA a)
 // CHECK-LABEL: define{{.*}} @{{.*}}testinterface_one
 void testinterface_one(I a)
 {
-    // CHECK: load {{.*}} !invariant.load
+    // CHECK: load {{.*}} !invariant.group
     // CHECK: [[INTFC1:%[0-9]]] = load {{.*}} !invariant.load
     // CHECK: call {{.*}} [[INTFC1]](
     // CHECK-NEXT: call {{.*}} [[INTFC1]](
@@ -201,12 +202,12 @@ void testinterface_one(I a)
 // CHECK-LABEL: define{{.*}} @{{.*}}testinterface_two
 void testinterface_two(I a, I b)
 {
-    // CHECK: load {{.*}} !invariant.load
+    // CHECK: load {{.*}} !invariant.group
     // CHECK: [[INTFC1:%[0-9]]] = load {{.*}} !invariant.load
     // CHECK: call {{.*}} [[INTFC1]](
     a.foo();
     a = b;
-    // CHECK: load {{.*}} !invariant.load
+    // CHECK: load {{.*}} !invariant.group
     // CHECK: [[INTFC2:%[0-9]]] = load {{.*}} !invariant.load
     // CHECK: call {{.*}} [[INTFC2]](
     a.foo();
@@ -218,13 +219,13 @@ void clobber_by_ref(ref I a);
 // CHECK-LABEL: define{{.*}} @{{.*}}testinterface_three
 void testinterface_three(I a)
 {
-    // CHECK: load {{.*}} !invariant.load
+    // CHECK: load {{.*}} !invariant.group
     // CHECK: [[INTFC3_1:%[0-9]]] = load {{.*}} !invariant.load
     // CHECK: call {{.*}} [[INTFC3_1]](
     a.foo();
     clobber_by_ref(a);
     // CHECK: load {{.*}}
-    // CHECK: load {{.*}} !invariant.load
+    // CHECK: load {{.*}} !invariant.group
     // CHECK: [[INTFC3_2:%[0-9]]] = load {{.*}} !invariant.load
     // CHECK: call {{.*}} [[INTFC3_2]](
     a.foo();
@@ -237,7 +238,7 @@ void may_delete_destroy(I2 a);
 // CHECK-LABEL: define{{.*}} @{{.*}}testinterface_four
 void testinterface_four(I2 a)
 {
-    // CHECK: load {{.*}} !invariant.load
+    // CHECK: load {{.*}} !invariant.group
     // CHECK: [[INTFC4_1:%[0-9]]] = load {{.*}} !invariant.load
     // CHECK: call {{.*}} [[INTFC4_1]](
     a.ggg();

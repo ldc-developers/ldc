@@ -152,7 +152,10 @@ void DtoInitClass(TypeClass *tc, LLValue *dst) {
   LLValue *tmp = DtoGEPi(dst, 0, 0, "vtbl");
   LLValue *val = DtoBitCast(getIrAggr(tc->sym)->getVtblSymbol(),
                             tmp->getType()->getContainedType(0));
-  DtoStore(val, tmp);
+  auto vtblstore = DtoStore(val, tmp);
+  // The vtable ptr is constant from here on, so mark the store instruction as
+  // such.
+  AddInvariantGroupMetadata(vtblstore);
 
   // For D classes, set the monitor field to null.
   const bool isCPPclass = tc->sym->isCPPclass() ? true : false;
@@ -388,30 +391,29 @@ LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl,
   LLValue *vthis = DtoRVal(inst);
   IF_LOG Logger::cout() << "vthis: " << *vthis << '\n';
 
-  LLValue *funcval = vthis;
-  // get the vtbl for objects
-  funcval = DtoGEPi(funcval, 0, 0);
-  // load vtbl ptr
+  // Load the vtbl ptr of the object at offset 0
   // The vtbl pointer is a constant (not even the destructor...? accessing same memory after delete has been called...?)
-  funcval = DtoInvariantLoad(funcval);
-  // index vtbl
-  std::string vtblname = name;
-  vtblname.append("@vtbl");
-  funcval = DtoGEPi(funcval, 0, fdecl->vtblIndex, vtblname.c_str());
-  // load opaque pointer
-  funcval = DtoInvariantAlignedLoad(funcval);
+  auto vtblptr = DtoLoad(DtoGEPi(vthis, 0, 0));
+  AddInvariantGroupMetadata(vtblptr);
+  // Index vtbl
+  std::string vtblEntryName = name;
+  vtblEntryName.append("@vtbl");
+  auto funcval = DtoAlignedLoad(
+      DtoGEPi(vtblptr, 0, fdecl->vtblIndex, vtblEntryName.c_str()));
+  // The vtable's contents are constant, so mark as an invariant load.
+  AddInvariantLoadMetadata(funcval);
 
   IF_LOG Logger::cout() << "funcval: " << *funcval << '\n';
 
   // cast to funcptr type
-  funcval = DtoBitCast(funcval, getPtrToType(DtoFunctionType(fdecl)));
+  auto funcval_casted = DtoBitCast(funcval, getPtrToType(DtoFunctionType(fdecl)));
 
   // postpone naming until after casting to get the name in call instructions
-  funcval->setName(name);
+  funcval_casted->setName(name);
 
-  IF_LOG Logger::cout() << "funcval casted: " << *funcval << '\n';
+  IF_LOG Logger::cout() << "funcval casted: " << *funcval_casted << '\n';
 
-  return funcval;
+  return funcval_casted;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

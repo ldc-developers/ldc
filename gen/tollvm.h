@@ -102,15 +102,17 @@ LLConstant *DtoConstString(const char *);
 LLConstant *DtoConstBool(bool);
 
 // llvm wrappers
-LLValue *DtoLoad(LLValue *src, const char *name = "");
-LLValue *DtoInvariantLoad(LLValue *src, const char *name = "");
-LLValue *DtoVolatileLoad(LLValue *src, const char *name = "");
-LLValue *DtoAlignedLoad(LLValue *src, const char *name = "");
-LLValue *DtoInvariantAlignedLoad(LLValue *src, const char *name = "");
-void DtoStore(LLValue *src, LLValue *dst);
+llvm::LoadInst *DtoLoad(LLValue *src, const char *name = "");
+llvm::LoadInst *DtoVolatileLoad(LLValue *src, const char *name = "");
+llvm::LoadInst *DtoAlignedLoad(LLValue *src, const char *name = "");
+llvm::StoreInst *DtoStore(LLValue *src, LLValue *dst);
 void DtoVolatileStore(LLValue *src, LLValue *dst);
 void DtoStoreZextI8(LLValue *src, LLValue *dst);
 void DtoAlignedStore(LLValue *src, LLValue *dst);
+
+void AddInvariantGroupMetadata(llvm::Instruction *instr);
+void AddInvariantLoadMetadata(llvm::Instruction *instr);
+
 LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name = "");
 LLConstant *DtoBitCast(LLConstant *v, LLType *t);
 LLValue *DtoInsertValue(LLValue *aggr, LLValue *v, unsigned idx,

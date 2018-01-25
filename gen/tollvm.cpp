@@ -447,45 +447,28 @@ LLConstant *DtoConstString(const char *str) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoLoad(LLValue *src, const char *name) {
+llvm::LoadInst *DtoLoad(LLValue *src, const char *name) {
   return gIR->ir->CreateLoad(src, name);
-}
-
-// Like DtoLoad, but the loaded value is assumed to be invariant (see invariant.load metadata)
-LLValue *DtoInvariantLoad(LLValue *src, const char *name) {
-  llvm::LoadInst *ld = gIR->ir->CreateLoad(src, name);
-  auto MD = llvm::MDNode::get(gIR->context(), llvm::None);
-  ld->setMetadata(llvm::LLVMContext::MD_invariant_load, MD);
-  return ld;
 }
 
 // Like DtoLoad, but the pointer is guaranteed to be aligned appropriately for
 // the type.
-LLValue *DtoAlignedLoad(LLValue *src, const char *name) {
+llvm::LoadInst *DtoAlignedLoad(LLValue *src, const char *name) {
   llvm::LoadInst *ld = gIR->ir->CreateLoad(src, name);
   ld->setAlignment(getABITypeAlign(ld->getType()));
   return ld;
 }
 
-// Like DtoAlignedLoad, but the loaded value is assumed to be invariant (see invariant.load metadata)
-LLValue *DtoInvariantAlignedLoad(LLValue *src, const char *name) {
-  llvm::LoadInst *ld = gIR->ir->CreateLoad(src, name);
-  ld->setAlignment(getABITypeAlign(ld->getType()));
-  auto MD = llvm::MDNode::get(gIR->context(), llvm::None);
-  ld->setMetadata(llvm::LLVMContext::MD_invariant_load, MD);
-  return ld;
-}
-
-LLValue *DtoVolatileLoad(LLValue *src, const char *name) {
+llvm::LoadInst *DtoVolatileLoad(LLValue *src, const char *name) {
   llvm::LoadInst *ld = gIR->ir->CreateLoad(src, name);
   ld->setVolatile(true);
   return ld;
 }
 
-void DtoStore(LLValue *src, LLValue *dst) {
+llvm::StoreInst *DtoStore(LLValue *src, LLValue *dst) {
   assert(src->getType() != llvm::Type::getInt1Ty(gIR->context()) &&
          "Should store bools as i8 instead of i1.");
-  gIR->ir->CreateStore(src, dst);
+  return gIR->ir->CreateStore(src, dst);
 }
 
 void DtoVolatileStore(LLValue *src, LLValue *dst) {
@@ -510,6 +493,20 @@ void DtoAlignedStore(LLValue *src, LLValue *dst) {
          "Should store bools as i8 instead of i1.");
   llvm::StoreInst *st = gIR->ir->CreateStore(src, dst);
   st->setAlignment(getABITypeAlign(src->getType()));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+// Adds LLVM invariant.group metadata to the instruction.
+void AddInvariantGroupMetadata(llvm::Instruction *instr) {
+  auto MD = llvm::MDNode::get(gIR->context(), llvm::None);
+  instr->setMetadata(llvm::LLVMContext::MD_invariant_group, MD);
+}
+
+// Adds LLVM invariant.load metadata to the instruction.
+void AddInvariantLoadMetadata(llvm::Instruction *instr) {
+  auto MD = llvm::MDNode::get(gIR->context(), llvm::None);
+  instr->setMetadata(llvm::LLVMContext::MD_invariant_load, MD);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
