@@ -60,9 +60,10 @@ static std::string getOutputName() {
   }
 
   // Infer output name from first object file.
-  std::string result = global.params.objfiles.dim
-                           ? FileName::removeExt(global.params.objfiles[0])
-                           : "a.out";
+  std::string result =
+      global.params.objfiles.dim
+          ? FileName::removeExt(FileName::name(global.params.objfiles[0]))
+          : "a.out";
 
   if (sharedLib && !triple.isWindowsMSVCEnvironment())
     result = "lib" + result;
@@ -72,9 +73,8 @@ static std::string getOutputName() {
     // after execution. Make sure the name does not collide with other files
     // from other processes by creating a unique filename.
     llvm::SmallString<128> tempFilename;
-    auto EC = llvm::sys::fs::createTemporaryFile(FileName::name(result.c_str()),
-                                                 extension ? extension : "",
-                                                 tempFilename);
+    auto EC = llvm::sys::fs::createTemporaryFile(
+        result, extension ? extension : "", tempFilename);
     if (!EC)
       result = tempFilename.str();
   } else if (extension) {
