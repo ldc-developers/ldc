@@ -171,7 +171,7 @@ struct RegCount {
  * memory so that it's then readable as the other type (i.e., bit-casting).
  */
 struct X86_64_C_struct_rewrite : ABIRewrite {
-  LLValue *put(DValue *v) override {
+  LLValue *put(DValue *v, bool) override {
     LLValue *address = getAddressOf(v);
 
     LLType *abiTy = getAbiType(v->type);
@@ -196,7 +196,12 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
  * the ByVal LLVM attribute.
  */
 struct ImplicitByvalRewrite : ABIRewrite {
-  LLValue *put(DValue *v) override { return getAddressOf(v); }
+  LLValue *put(DValue *v, bool isModifiableLvalue) override {
+    if (isModifiableLvalue && v->isLVal()) {
+      return DtoAllocaDump(v, ".lval_copy_for_ImplicitByvalRewrite");
+    }
+    return getAddressOf(v);
+  }
 
   LLValue *getLVal(Type *dty, LLValue *v) override { return v; }
 

@@ -70,15 +70,16 @@ struct RtCompileVarList {
 };
 
 struct RtCompileModuleList {
+  int32_t version;
   RtCompileModuleList *next;
   const char *irData;
-  int irDataSize;
+  int32_t irDataSize;
   const RtCompileFuncList *funcList;
-  int funcListSize;
+  int32_t funcListSize;
   const RtCompileSymList *symList;
-  int symListSize;
+  int32_t symListSize;
   const RtCompileVarList *varList;
-  int varListSize;
+  int32_t varListSize;
 };
 
 #pragma pack(pop)
@@ -347,9 +348,15 @@ struct JitFinaliser final {
 };
 
 template <typename F>
-void enumModules(const RtCompileModuleList *modlist_head, F &&fun) {
+void enumModules(const RtCompileModuleList *modlist_head,
+                 const Context& context,
+                 F &&fun) {
   auto current = modlist_head;
   while (current != nullptr) {
+    interruptPoint(context, "check version");
+    if (current->version != ApiVersion) {
+      fatal(context, "Module was built with different jit api version");
+    }
     fun(*current);
     current = current->next;
   }
@@ -370,7 +377,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   OptimizerSettings settings;
   settings.optLevel = context.optLevel;
   settings.sizeLevel = context.sizeLevel;
-  enumModules(modlist_head, [&](const RtCompileModuleList &current) {
+  enumModules(modlist_head, context, [&](const RtCompileModuleList &current) {
     interruptPoint(context, "load IR");
     auto buff = llvm::MemoryBuffer::getMemBuffer(
         llvm::StringRef(current.irData,
@@ -476,8 +483,8 @@ __declspec(dllexport)
 #else
 __attribute__ ((visibility ("default")))
 #endif
-    void rtCompileProcessImplSo(const void *modlist_head,
-                                const Context *context, size_t contextSize) {
+void JIT_API_ENTRYPOINT(const void *modlist_head,
+                        const Context *context, size_t contextSize) {
   assert(nullptr != context);
   assert(sizeof(*context) == contextSize);
   rtCompileProcessImplSoInternal(

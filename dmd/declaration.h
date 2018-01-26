@@ -267,6 +267,10 @@ public:
     Expression *edtor;          // if !=NULL, does the destruction of the variable
     IntRange *range;            // if !NULL, the variable is known to be within the range
 
+#if IN_LLVM
+    TypeClass *scopeClassType;  // real (dynamic) type if onstack == true (stack-allocated class)
+#endif
+
     Dsymbol *syntaxCopy(Dsymbol *);
     void setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion);
     const char *kind() const;

@@ -1012,6 +1012,11 @@ extern (C++) class VarDeclaration : Declaration
     Expression edtor;               // if !=null, does the destruction of the variable
     IntRange* range;                // if !=null, the variable is known to be within the range
 
+    version (IN_LLVM)
+    {
+        TypeClass scopeClassType;   // real (dynamic) type if onstack == true (stack-allocated class)
+    }
+
     final extern (D) this(Loc loc, Type type, Identifier id, Initializer _init, StorageClass storage_class = STCundefined)
     {
         super(id);

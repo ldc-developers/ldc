@@ -630,9 +630,8 @@ macro(build_all_runtime_variants d_flags c_flags ld_flags path_suffix outlist_ta
     build_runtime_variants("${d_flags}" "${c_flags}" "${ld_flags}" "${path_suffix}" ${outlist_targets})
 
     # static profile-rt
-    build_profile_runtime("${d_flags};${D_FLAGS};${D_FLAGS_RELEASE}" "${c_flags}" "${ld_flags}" "" "${path_suffix}" ${outlist_targets})
+    build_profile_runtime("${c_flags}" "${ld_flags}" "" "${path_suffix}" ${outlist_targets})
     get_target_suffix("" "${path_suffix}" target_suffix)
-    set_common_library_properties(ldc-profile-rt${target_suffix} OFF)
 endmacro()
 
 

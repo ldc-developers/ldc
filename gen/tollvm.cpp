@@ -275,7 +275,6 @@ llvm::GetElementPtrInst *DtoGEP(LLValue *ptr, llvm::ArrayRef<LLValue *> indices,
                                 bool inBounds, const char *name,
                                 llvm::BasicBlock *bb) {
   LLPointerType *p = isaPointer(ptr);
-  (void)p;
   assert(p && "GEP expects a pointer type");
   auto gep = llvm::GetElementPtrInst::Create(
       p->getElementType(), ptr, indices, name, bb ? bb : gIR->scopebb());

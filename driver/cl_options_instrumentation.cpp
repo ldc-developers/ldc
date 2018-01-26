@@ -17,6 +17,8 @@
 
 #include "errors.h"
 #include "globals.h"
+#include "gen/to_string.h"
+#include "llvm/ADT/Triple.h"
 
 namespace {
 namespace cl = llvm::cl;
@@ -51,6 +53,15 @@ cl::opt<std::string> ASTPGOInstrUseFile(
     cl::desc("Use instrumentation data for profile-guided optimization"),
     cl::ValueRequired);
 
+#if LDC_LLVM_VER >= 500
+cl::opt<int> fXRayInstructionThreshold(
+    "fxray-instruction-threshold", cl::value_desc("value"),
+    cl::desc("Sets the minimum function size to instrument with XRay"),
+    cl::init(200), cl::ZeroOrMore, cl::ValueRequired);
+#else
+constexpr int fXRayInstructionThreshold = 200;
+#endif
+
 } // anonymous namespace
 
 namespace opts {
@@ -67,7 +78,21 @@ static cl::opt<bool> dmdFunctionTrace(
     "fdmd-trace-functions", cl::ZeroOrMore,
     cl::desc("DMD-style runtime performance profiling of generated code"));
 
-void initializeInstrumentationOptionsFromCmdline() {
+#if LDC_LLVM_VER >= 500
+cl::opt<bool> fXRayInstrument(
+    "fxray-instrument", cl::ZeroOrMore,
+    cl::desc("Generate XRay instrumentation sleds on function entry and exit"));
+#endif
+
+llvm::StringRef getXRayInstructionThresholdString() {
+  // The instruction threshold is constant during one compiler invoke, so we
+  // can cache the int->string conversion result.
+  static std::string thresholdString =
+      ldc::to_string(fXRayInstructionThreshold);
+  return thresholdString;
+}
+
+void initializeInstrumentationOptionsFromCmdline(const llvm::Triple &triple) {
   if (ASTPGOInstrGenFile.getNumOccurrences() > 0) {
     pgoMode = PGO_ASTBasedInstr;
     if (ASTPGOInstrGenFile.empty()) {
@@ -101,9 +126,7 @@ void initializeInstrumentationOptionsFromCmdline() {
   // There is a bug in (our use of?) LLVM where codegen errors with
   // PGO_IRBasedInstr for Windows targets. So disable IRBased PGO on Windows for
   // now.
-  assert(global.params.targetTriple);
-  if ((pgoMode == PGO_IRBasedInstr) &&
-      global.params.targetTriple->isOSWindows()) {
+  if ((pgoMode == PGO_IRBasedInstr) && triple.isOSWindows()) {
     error(Loc(),
           "'-fprofile-generate' is not yet supported for Windows targets.");
   }

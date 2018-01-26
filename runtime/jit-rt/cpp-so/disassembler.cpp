@@ -266,7 +266,7 @@ void disassemble(const llvm::TargetMachine &tm,
 
   llvm::MCTargetOptions opts;
   auto mab = unique(target.createMCAsmBackend(
-#if LDC_LLVM_VER >= 700
+#if LDC_LLVM_VER >= 600
       *sti, *mri, opts)
 #else
       *mri, tm.getTargetTriple().getTriple(), tm.getTargetCPU(), opts)
