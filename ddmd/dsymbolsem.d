@@ -2546,6 +2546,10 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
                                 {
                                     ne.onstack = 1;
                                     dsym.onstack = true;
+                                    version (IN_LLVM)
+                                    {
+                                        dsym.scopeClassType = cast(TypeClass) ne.newtype;
+                                    }
                                 }
                             }
                         }
