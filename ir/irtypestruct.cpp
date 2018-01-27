@@ -16,6 +16,7 @@
 #include "init.h"
 #include "mtype.h"
 #include "template.h"
+#include "id.h"
 
 #include "gen/irstate.h"
 #include "gen/tollvm.h"
@@ -49,12 +50,13 @@ IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
 
   // For ldc.dcomptetypes.Pointer!(uint n,T),
   // emit { T addrspace(gIR->dcomputetarget->mapping[n])* }
-    llvm::Optional<DcomputePointer> p;
-  if (gIR->dcomputetarget && (p = toDcomputePointer(sd))) {
+    llvm::Optional<DcomputeAddrspacedType> p;
+  if (gIR->dcomputetarget && (p = toDcomputeAddrspacedType(sd)) &&
+      p->id == Id::dcPointer) {
    
     // Translate the virtual dcompute address space into the real one for
     // the target
-    int realAS = gIR->dcomputetarget->mapping[p->addrspace];
+    unsigned realAS = p->targetAddrSpace();
 
     llvm::SmallVector<LLType *, 1> body;
     body.push_back(DtoMemType(p->type)->getPointerTo(realAS));

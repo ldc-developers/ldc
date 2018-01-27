@@ -16,6 +16,8 @@
 #include "ddmd/aggregate.h"
 #include "id.h"
 
+#include "gen/logger.h"
+
 bool isFromLDC_DCompute(Dsymbol *sym) {
   auto mod = sym->getModule();
   if (!mod)
@@ -34,12 +36,37 @@ bool isFromLDC_DCompute(Dsymbol *sym) {
   return moduleDecl->id == Id::dcompute;
 }
 
-llvm::Optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd) {
-  if (sd->ident != Id::dcPointer || !isFromLDC_DCompute(sd))
-    return llvm::Optional<DcomputePointer>(llvm::None);
+llvm::Optional<DcomputeAddrspacedType> toDcomputeAddrspacedType(VarDeclaration *vd) {
+  StructDeclaration *sd = nullptr;
+  if (vd->type->ty == Tstruct)
+    sd = ((TypeStruct*)vd->type)->sym;
+  return toDcomputeAddrspacedType(sd);
+}
 
+llvm::Optional<DcomputeAddrspacedType> toDcomputeAddrspacedType(StructDeclaration *sd) {
+  if (!sd ||
+      !(sd->ident == Id::dcPointer || sd->ident == Id::dcVariable) ||
+      !isFromLDC_DCompute(sd))
+  {
+    return llvm::Optional<DcomputeAddrspacedType>(llvm::None);
+  }
+    
   TemplateInstance *ti = sd->isInstantiated();
-  int addrspace = isExpression((*ti->tiargs)[0])->toInteger();
+  unsigned as = (unsigned)isExpression((*ti->tiargs)[0])->toInteger();
   Type *type = isType((*ti->tiargs)[1]);
-  return llvm::Optional<DcomputePointer>(DcomputePointer(addrspace, type));
+  IF_LOG Logger::println("toDcomputeAddrspacedType(%s): %u : %s : %s",
+                         sd->toPrettyChars(),as,type->toChars(),sd->ident->toChars());
+  return llvm::Optional<DcomputeAddrspacedType>(DcomputeAddrspacedType(as, type,sd->ident));
+}
+
+unsigned addressSpaceForVarDeclaration(VarDeclaration *vd) {
+    auto dcas = toDcomputeAddrspacedType(vd);
+    unsigned as = 0;
+    if (dcas && dcas->id == Id::dcVariable) {
+      as = dcas->targetAddrSpace();
+      IF_LOG Logger::println("addressSpaceForVarDeclaration: %s: as %u (was %u)",
+                             vd->toChars(),as,dcas->addrspace);
+    }
+
+    return as;
 }

@@ -25,17 +25,30 @@ class Type;
 
 bool isFromLDC_DCompute(Dsymbol *sym);
 
-struct DcomputePointer {
-  int addrspace;
+struct DcomputeAddrspacedType {
+  unsigned addrspace;
   Type *type;
-  DcomputePointer(int as, Type *ty) : addrspace(as), type(ty) {}
-  LLType *toLLVMType(bool translate) {
+  Identifier *id; // Id::dcPointer or Id::dcVariable
+  DcomputeAddrspacedType(int as, Type *ty, Identifier * _id) :
+    addrspace(as), type(ty), id(_id) {}
+
+  // Only used by the dcompute ABI rewrites so no need to check id
+  LLType *toLLVMType(bool shouldTranslate) {
     auto llType = DtoType(type);
-    int as = addrspace;
-    if (translate)
-      as = gIR->dcomputetarget->mapping[as];
+    unsigned as = addrspace;
+    if (shouldTranslate)
+      as = targetAddrSpace();
     return llType->getPointerTo(as);
   }
+  unsigned targetAddrSpace()
+  {
+    return gIR ? gIR->dcomputetarget->mapping[addrspace] : 0;
+  }
+
 };
-llvm::Optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd);
+llvm::Optional<DcomputeAddrspacedType>
+toDcomputeAddrspacedType(VarDeclaration *vd);
+llvm::Optional<DcomputeAddrspacedType>
+toDcomputeAddrspacedType(StructDeclaration *sd);
+unsigned addressSpaceForVarDeclaration(VarDeclaration *sd);
 #endif

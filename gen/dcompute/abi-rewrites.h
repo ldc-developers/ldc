@@ -24,7 +24,7 @@
 
 struct DComputePointerRewrite : ABIRewrite {
   LLType *type(Type *t) override {
-    auto ptr = toDcomputePointer(static_cast<TypeStruct *>(t)->sym);
+    auto ptr = toDcomputeAddrspacedType(static_cast<TypeStruct *>(t)->sym);
     return ptr->toLLVMType(true);
   }
   LLValue *getLVal(Type *dty, LLValue *v) override {
