@@ -109,10 +109,23 @@ struct FuncFinalizer final {
   ~FuncFinalizer() { fpm.doFinalization(); }
 };
 
+void stripComdat(llvm::Module &module) {
+  for (auto &&func : module.functions()) {
+    func.setComdat(nullptr);
+  }
+  for (auto &&var : module.globals()) {
+    var.setComdat(nullptr);
+  }
+  module.getComdatSymbolTable().clear();
+}
+
 } // anon namespace
 
 void optimizeModule(const Context &context, llvm::TargetMachine &targetMachine,
                     const OptimizerSettings &settings, llvm::Module &module) {
+  // There is llvm bug related tp comdat and IR based pgo
+  // and anyway caomdata is useless at this stage
+  stripComdat(module);
   llvm::legacy::PassManager mpm;
   llvm::legacy::FunctionPassManager fpm(&module);
   const auto name = module.getName();
