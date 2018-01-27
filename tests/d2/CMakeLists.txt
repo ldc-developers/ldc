@@ -26,7 +26,7 @@ else()
     set(gdb_flags "OFF")
 endif()
 
-function(add_testsuite config_name dflags gdbflags model)
+function(add_testsuite config_name required_flags gdbflags model)
     set(name dmd-testsuite${config_name})
     set(outdir ${CMAKE_BINARY_DIR}/${name})
     set(workingdir ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite)
@@ -36,13 +36,12 @@ function(add_testsuite config_name dflags gdbflags model)
     add_test(NAME clean-${name}
         COMMAND ${CMAKE_COMMAND} -E remove_directory ${outdir})
 
-    set(all_dflags "-conf=${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf ${dflags} ${gdb_dflags}")
-
-    # The DFLAGS environment variable read by LDMD is used because the DMD
-    # testsuite build system provides no way to run the test cases with a
-    # given set of flags without trying all combinations of them.
+    set(dflags "-conf=${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf ${gdb_dflags}")
     add_test(NAME ${name}
-        COMMAND make -k -C ${workingdir} RESULTS_DIR=${resultsdir} DMD=${LDMD_EXE_FULL} DFLAGS=${all_dflags} MODEL=${model} GDB_FLAGS=${gdbflags} quick
+        COMMAND make -k -C ${workingdir} RESULTS_DIR=${resultsdir}
+                     REQUIRED_ARGS=${required_flags} DFLAGS=${dflags}
+                     DMD=${LDMD_EXE_FULL} MODEL=${model} GDB_FLAGS=${gdbflags}
+                     quick
     )
     set_tests_properties(${name} PROPERTIES DEPENDS clean-${name})
 endfunction()
