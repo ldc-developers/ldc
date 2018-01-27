@@ -118,6 +118,28 @@ DValue *emitPointerOffset(Loc loc, DValue *base, Expression *offset,
 
   return new DImValue(resultType, DtoBitCast(llResult, DtoType(resultType)));
 }
+
+// LDC issue #2537 / DMD issue #18317: associative arrays can be
+// added/subtracted via `typeof(null)` (implicitly cast to the AA type).
+// If the specified type is an AA type, this function makes sure one operand is
+// a null constant and returns the other operand (AA) as new DImValue.
+// Returns null if type is not an AA.
+DValue *isAssociativeArrayAndNull(Type *type, LLValue *lhs, LLValue *rhs) {
+  if (type->ty != Taarray)
+    return nullptr;
+
+  if (auto constantL = isaConstant(lhs)) {
+    if (constantL->isNullValue())
+      return new DImValue(type, rhs);
+  };
+  if (auto constantR = isaConstant(rhs)) {
+    if (constantR->isNullValue())
+      return new DImValue(type, lhs);
+  }
+
+  llvm_unreachable(
+      "associative array addition/subtraction without null operand");
+}
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -134,11 +156,17 @@ DValue *binAdd(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
 
   auto rvals = evalSides(lhs, rhs, loadLhsAfterRhs);
 
+  if (type->ty == Tnull)
+    return DtoNullValue(type, loc);
   if (type->iscomplex())
     return DtoComplexAdd(loc, type, rvals.lhs, rvals.rhs);
 
   LLValue *l = DtoRVal(DtoCast(loc, rvals.lhs, type));
   LLValue *r = DtoRVal(DtoCast(loc, rvals.rhs, type));
+
+  if (auto aa = isAssociativeArrayAndNull(type, l, r))
+    return aa;
+
   LLValue *res = (type->isfloating() ? gIR->ir->CreateFAdd(l, r)
                                      : gIR->ir->CreateAdd(l, r));
 
@@ -172,11 +200,17 @@ DValue *binMin(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
     return new DImValue(type, diff);
   }
 
+  if (type->ty == Tnull)
+    return DtoNullValue(type, loc);
   if (type->iscomplex())
     return DtoComplexMin(loc, type, rvals.lhs, rvals.rhs);
 
   LLValue *l = DtoRVal(DtoCast(loc, rvals.lhs, type));
   LLValue *r = DtoRVal(DtoCast(loc, rvals.rhs, type));
+
+  if (auto aa = isAssociativeArrayAndNull(type, l, r))
+    return aa;
+
   LLValue *res = (type->isfloating() ? gIR->ir->CreateFSub(l, r)
                                      : gIR->ir->CreateSub(l, r));
 

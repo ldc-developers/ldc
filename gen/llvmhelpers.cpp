@@ -452,7 +452,8 @@ DValue *DtoNullValue(Type *type, Loc loc) {
   // integer, floating, pointer, assoc array, delegate and class have no special
   // representation
   if (basetype->isintegral() || basetype->isfloating() || basety == Tpointer ||
-      basety == Tclass || basety == Tdelegate || basety == Taarray) {
+      basety == Tnull || basety == Tclass || basety == Tdelegate ||
+      basety == Taarray) {
     return new DNullValue(type, LLConstant::getNullValue(lltype));
   }
   // dynamic array
