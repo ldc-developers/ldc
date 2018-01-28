@@ -17,7 +17,7 @@ bool FuzzMe(ubyte* data, size_t dataSize)
     // CHECK-NEXT: READ of size 1
     // CHECK-NEXT: #0 {{.*}} in {{.*fuzz_asan6FuzzMe.*}} {{.*}}fuzz_asan.d:
     // FIXME, debug line info is wrong (Github issue #2090). Once fixed, add [[@LINE+1]]
-           data[3] == 'Z'; // :‑<
+           data[dataSize] == 'Z'; // :‑<
 }
 
 extern (C) int LLVMFuzzerTestOneInput(const(ubyte*) data, size_t size)
