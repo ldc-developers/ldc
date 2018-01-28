@@ -736,15 +736,15 @@ if (NOT (LDC_LLVM_VER LESS 309) AND LDC_INSTALL_LTOPLUGIN)
 endif()
 
 #
-# Locate ASan and other runtime libraries, and copy them to our lib folder
+# Locate ASan and other LLVM compiler-rt libraries, and copy them to our lib folder
 # Location is LLVM_LIBRARY_DIRS/clang/<version>/lib/<OS>/ , for example LLVM_LIBRARY_DIRS/clang/4.0.0/lib/darwin/
 #
-if(APPLE)
+if(APPLE OR WIN32)
     set(LDC_INSTALL_LLVM_RUNTIME_LIBS_DEFAULT ON)
 else()
     set(LDC_INSTALL_LLVM_RUNTIME_LIBS_DEFAULT OFF)
 endif()
-set(LDC_INSTALL_LLVM_RUNTIME_LIBS ${LDC_INSTALL_LLVM_RUNTIME_LIBS_DEFAULT} CACHE BOOL "Copy/install runtime libraries (ASan, libFuzzer) from LLVM/Clang into LDC lib dir when available.")
+set(LDC_INSTALL_LLVM_RUNTIME_LIBS ${LDC_INSTALL_LLVM_RUNTIME_LIBS_DEFAULT} CACHE BOOL "Copy/install LLVM compiler-rt libraries (ASan, libFuzzer, ...) from LLVM/Clang into LDC lib dir when available.")
 function(copy_compilerrt_lib llvm_lib_name ldc_lib_name fixup_dylib)
     set(llvm_lib_path ${LLVM_LIBRARY_DIRS}/clang/${LLVM_VERSION_BASE_STRING}/lib/${llvm_lib_name})
     if(EXISTS ${llvm_lib_path})
