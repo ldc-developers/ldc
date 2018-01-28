@@ -127,13 +127,6 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
   if (global.params.deffile)
     args.push_back(std::string("/DEF:") + global.params.deffile);
 
-  // Link with profile-rt library when generating an instrumented binary
-  if (opts::isInstrumentingForPGO()) {
-    args.push_back("ldc-profile-rt.lib");
-    // profile-rt depends on ws2_32 for symbol `gethostname`
-    args.push_back("ws2_32.lib");
-  }
-
   if (opts::enableDynamicCompile) {
     args.push_back("ldc-jit-rt.lib");
     args.push_back("ldc-jit.lib");
@@ -147,6 +140,11 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
   // LLVM compiler-rt libs
   addLibIfFound(args, "ldc_rt.builtins.lib");
   addSanitizerLibs(args);
+  if (opts::isInstrumentingForPGO()) {
+    args.push_back("ldc_rt.profile.lib");
+    // it depends on ws2_32 for symbol `gethostname`
+    args.push_back("ws2_32.lib");
+  }
 
   // additional linker switches
   auto addSwitch = [&](std::string str) {
