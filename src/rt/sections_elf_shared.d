@@ -473,7 +473,8 @@ extern(C) void _d_dso_registry(void* arg)
                 // D shared object.
                 import core.internal.abort;
                 _loadedDSOs.empty ||
-                    abort("Only one D shared object allowed for static runtime");
+                    abort("Only one D shared object allowed for static runtime. " ~
+                          "Link with shared runtime via LDC switch '-link-defaultlib-shared'.");
             }
             foreach (p; _loadedDSOs) assert(p !is pdso);
             _loadedDSOs.insertBack(pdso);
