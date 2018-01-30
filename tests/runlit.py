@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 # wrapper to run lit from commandline
+
+from __future__ import print_function
+
 if __name__=='__main__':
     try:
         import lit
@@ -10,4 +13,5 @@ if __name__=='__main__':
                  '(Python versions older than 2.7.9 or 3.4 do not have pip installed, see:\n' \
                  'https://pip.pypa.io/en/latest/installing/)')
 
+    print("Lit version: ", lit.__version__)
     lit.main()
