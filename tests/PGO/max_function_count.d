@@ -1,5 +1,6 @@
 // Test that maximum function counts are set correctly (LLVM >= 3.8)
 
+// REQUIRES: PGO_RT
 // REQUIRES: atleast_llvm308
 // For LLVM > 3.8, a summary is emitted, see summary.d
 

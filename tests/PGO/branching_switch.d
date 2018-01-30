@@ -1,5 +1,7 @@
 // Test instrumentation of switch with non-constant case expression.
 
+// REQUIRES: PGO_RT
+
 // RUN: %ldc -c -output-ll -fprofile-instr-generate -of=%t.ll %s && FileCheck %s --check-prefix=PROFGEN < %t.ll
 
 // RUN: %ldc -fprofile-instr-generate=%t.profraw -run %s  \

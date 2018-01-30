@@ -3,6 +3,7 @@
 
 // REQUIRES: atleast_llvm400
 // REQUIRES: LTO
+// REQUIRES: PGO_RT
 
 // RUN: %ldc -fprofile-instr-generate=%t.profraw -run %s  \
 // RUN:   &&  %profdata merge %t.profraw -o %t.profdata \

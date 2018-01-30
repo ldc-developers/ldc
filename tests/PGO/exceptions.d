@@ -1,5 +1,7 @@
 // Test instrumentation of statement types involving exceptions.
 
+// REQUIRES: PGO_RT
+
 // XFAIL: Windows
 
 // RUN: %ldc -c -output-ll -fprofile-instr-generate -of=%t.ll %s && FileCheck %s --check-prefix=PROFGEN < %t.ll

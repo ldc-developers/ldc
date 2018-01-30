@@ -1,5 +1,7 @@
 // Tests runtime profile-rt access.
 
+// REQUIRES: PGO_RT
+
 // RUN: %ldc -fprofile-instr-generate=%t.profraw -run %s
 
 import ldc.profile;

@@ -2,6 +2,8 @@
 // applied when code has changed.
 // The code changes are simulated by version(.) blocks.
 
+// REQUIRES: PGO_RT
+
 // RUN: %ldc -d-version=ProfData -fprofile-instr-generate=%t.profraw -run %s  \
 // RUN:   &&  %profdata merge %t.profraw -o %t.profdata \
 // RUN:   &&  %ldc -d-version=ProfData -c -output-ll -of=%t2.ll -fprofile-instr-use=%t.profdata %s \

@@ -3,6 +3,8 @@
 // The tests should not test function name mangling, therefore the functionname
 // matching strings contain regexp wildcards.
 
+// REQUIRES: PGO_RT
+
 // RUN: %ldc -c -output-ll -fprofile-instr-generate -of=%t.ll %s && FileCheck %s --check-prefix=PROFGEN < %t.ll
 
 // RUN: %ldc -fprofile-instr-generate=%t.profraw -run %s  \

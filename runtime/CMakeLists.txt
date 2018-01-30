@@ -629,9 +629,10 @@ endmacro()
 macro(build_all_runtime_variants d_flags c_flags ld_flags path_suffix outlist_targets)
     build_runtime_variants("${d_flags}" "${c_flags}" "${ld_flags}" "${path_suffix}" ${outlist_targets})
 
-    # static profile-rt
-    build_profile_runtime("${c_flags}" "${ld_flags}" "" "${path_suffix}" ${outlist_targets})
-    get_target_suffix("" "${path_suffix}" target_suffix)
+    # static profile-rt (currently only needed on Windows)
+    if("${TARGET_SYSTEM}" MATCHES "Windows")
+        build_profile_runtime("${c_flags}" "${ld_flags}" "" "${path_suffix}" ${outlist_targets})
+    endif()
 endmacro()
 
 
@@ -666,7 +667,7 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
 
     # KLUDGE: Cannot use `$<TARGET_LINKER_FILE:target>` in custom command.
     # Set up the list of generated libs (without 'lib' prefix) to be merged manually.
-    set(libs_to_install ldc-profile-rt.a)
+    set(libs_to_install)
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "ON")
         list(APPEND libs_to_install druntime-ldc.a druntime-ldc-debug.a
                                     phobos2-ldc.a  phobos2-ldc-debug.a
