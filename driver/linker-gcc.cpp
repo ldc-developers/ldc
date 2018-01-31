@@ -537,10 +537,12 @@ void ArgsBuilder::addUserSwitches() {
 void ArgsBuilder::addDefaultLibs() {
   bool addSoname = false;
 
-  switch (global.params.targetTriple->getOS()) {
+  const auto &triple = *global.params.targetTriple;
+
+  switch (triple.getOS()) {
   case llvm::Triple::Linux:
     addSoname = true;
-    if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
+    if (triple.getEnvironment() == llvm::Triple::Android) {
       args.push_back("-ldl");
       args.push_back("-lm");
       break;
@@ -573,7 +575,7 @@ void ArgsBuilder::addDefaultLibs() {
     break;
   }
 
-  if (global.params.targetTriple->isWindowsGNUEnvironment()) {
+  if (triple.isWindowsGNUEnvironment()) {
     // This is really more of a kludge, as linking in the Winsock functions
     // should be handled by the pragma(lib, ...) in std.socket, but it
     // makes LDC behave as expected for now.
