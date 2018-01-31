@@ -20,8 +20,8 @@ other projects are BSD-licensed (see the LICENSE file for details).
 Please consult the D wiki for further information:
 http://wiki.dlang.org/LDC
 
-D1 is no longer available; see the 'd1' Git branch for the last
-version supporting it.
+D1 is no longer available; see the [d1](https://github.com/ldc-developers/ldc/tree/d1)
+Git branch for the last version supporting it.
 
 
 Installation
@@ -31,10 +31,26 @@ Installation
 
 #### Linux and OS X
 
-Some package managers include recent versions of LDC, so manually
-installing it might not be necessary. For several platforms, there
-are also stand-alone binary builds available at the
+For several platforms, there are stand-alone binary builds available at the
 [GitHub release page](https://github.com/ldc-developers/ldc/releases).
+
+For bleeding-edge users, we also provide the
+[latest successful Continuous Integration builds](https://github.com/ldc-developers/ldc/releases/tag/CI)
+with enabled LLVM & LDC assertions.
+
+The [official D version manager (a.k.a. install script)](https://dlang.org/install.html) can also
+be used to install LDC.
+
+```
+# Download the install script to '~/dlang/install.sh'
+mkdir -p ~/dlang && wget https://dlang.org/install.sh -O ~/dlang/install.sh && chmod 755 ~/dlang/install.sh
+
+# Download & extract the latest stable LDC
+~/dlang/install.sh install ldc
+```
+
+In addition, some package managers include recent (but not necessarily the 
+latest) versions of LDC, so manually installing it might not be necessary. 
 
 |              | Command               |
 | ------------ | --------------------- |
@@ -45,13 +61,19 @@ are also stand-alone binary builds available at the
 | Homebrew     | `brew install ldc`    |
 | Ubuntu       | `apt install ldc` |
 
+Further, LDC can be installed as snap package (possibly outdated):
+
+    $ sudo snap install --classic --channel=edge ldc
+
+
 #### Windows
 
 The latest official releases can be downloaded from the
 [GitHub release page](https://github.com/ldc-developers/ldc/releases).
 
 For bleeding-edge users, we also provide the
-[latest successful continuous integration builds](https://github.com/ldc-developers/ldc/releases/tag/LDC-Win64-master).
+[latest successful Continuous Integration builds](https://github.com/ldc-developers/ldc/releases/tag/CI)
+with enabled LLVM & LDC assertions.
 
 LDC for Windows relies on the Microsoft linker. So you'll either need
 [Visual Studio](https://www.visualstudio.com/downloads/) 2015 or 2017
@@ -69,7 +91,8 @@ If you have a working C++ build environment, CMake, and a current LLVM (≥ 3.7)
 available, there should be no big surprises.
 Building LDC also requires a working D compiler, DMD and LDC are supported.
 (LDC 0.17 is the last version that does not need a D compiler,
-and for that reason we try to maintain it in the 'ltsmaster' branch).
+and for that reason we try to maintain it in the
+[ltsmaster](https://github.com/ldc-developers/ldc/tree/ltsmaster) branch).
 
 Do not forget to make sure all the submodules (druntime, phobos, dmd-testsuite)
 are up to date:
