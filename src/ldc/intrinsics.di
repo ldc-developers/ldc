@@ -164,6 +164,63 @@ pragma(LDC_intrinsic, "llvm.clear_cache")
 
 pure:
 
+version(INTRINSICS_FROM_700)
+{
+// The alignment parameter was removed from these memory intrinsics in LLVM 7.0. Instead, alignment
+// can be specified as an attribute on the ptr arguments.
+
+/// The 'llvm.memcpy.*' intrinsics copy a block of memory from the source
+/// location to the destination location.
+/// Note that, unlike the standard libc function, the llvm.memcpy.* intrinsics do
+/// not return a value.
+pragma(LDC_intrinsic, "llvm.memcpy.p0i8.p0i8.i#")
+    void llvm_memcpy(T)(void* dst, const(void)* src, T len, bool volatile_ = false)
+        if (__traits(isIntegral, T));
+
+
+/// The 'llvm.memmove.*' intrinsics move a block of memory from the source
+/// location to the destination location. It is similar to the 'llvm.memcpy'
+/// intrinsic but allows the two memory locations to overlap.
+/// Note that, unlike the standard libc function, the llvm.memmove.* intrinsics
+/// do not return a value.
+pragma(LDC_intrinsic, "llvm.memmove.p0i8.p0i8.i#")
+    void llvm_memmove(T)(void* dst, const(void)* src, T len, bool volatile_ = false)
+        if (__traits(isIntegral, T));
+
+/// The 'llvm.memset.*' intrinsics fill a block of memory with a particular byte
+/// value.
+/// Note that, unlike the standard libc function, the llvm.memset intrinsic does
+/// not return a value.
+pragma(LDC_intrinsic, "llvm.memset.p0i8.i#")
+    void llvm_memset(T)(void* dst, ubyte val, T len, bool volatile_ = false)
+        if (__traits(isIntegral, T));
+
+/// Convenience function that discards the alignment parameter and calls the 'llvm.memcpy.*' intrinsic.
+/// This function is here to support the function signature of the pre-LLVM7.0 intrinsic.
+void llvm_memcpy(T)(void* dst, const(void)* src, T len, uint alignment, bool volatile_ = false)
+    if (__traits(isIntegral, T))
+{
+    llvm_memcpy!T(dst, src, len, volatile_);
+}
+/// Convenience function that discards the alignment parameter and calls the 'llvm.memmove.*' intrinsic.
+/// This function is here to support the function signature of the pre-LLVM7.0 intrinsic.
+void llvm_memmove(T)(void* dst, const(void)* src, T len, uint alignment, bool volatile_ = false)
+    if (__traits(isIntegral, T))
+{
+    llvm_memmove!T(dst, src, len, volatile_);
+}
+/// Convenience function that discards the alignment parameter and calls the 'llvm.memset.*' intrinsic.
+/// This function is here to support the function signature of the pre-LLVM7.0 intrinsic.
+void llvm_memset(T)(void* dst, ubyte val, T len, uint alignment, bool volatile_ = false)
+    if (__traits(isIntegral, T))
+{
+    llvm_memset!T(dst, val, len, volatile_);
+}
+
+} // version(INTRINSICS_FROM_700)
+else
+{
+
 /// The 'llvm.memcpy.*' intrinsics copy a block of memory from the source
 /// location to the destination location.
 /// Note that, unlike the standard libc function, the llvm.memcpy.* intrinsics do
@@ -188,6 +245,8 @@ pragma(LDC_intrinsic, "llvm.memmove.p0i8.p0i8.i#")
 pragma(LDC_intrinsic, "llvm.memset.p0i8.i#")
     void llvm_memset(T)(void* dst, ubyte val, T len, uint alignment, bool volatile_ = false)
         if (__traits(isIntegral, T));
+
+}
 
 @safe:
 
