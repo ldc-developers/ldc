@@ -2,9 +2,12 @@
 
 // REQUIRES: atleast_llvm500
 // REQUIRES: Fuzzer
+// UNSUPPORTED: Windows
 
 // RUN: %ldc -g -fsanitize=fuzzer %s -of=%t%exe
-// RUN: not %t%exe 2>&1 | FileCheck %s
+// RUN: not %t%exe 2> %t.out
+// RUN: cat %t.out
+// RUN: FileCheck %s < %t.out
 
 // CHECK: ERROR: libFuzzer: deadly signal
 
