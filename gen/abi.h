@@ -67,6 +67,7 @@ protected:
   /// provided pointer doesn't need to match the value type (=> suitable for
   /// bit-casting).
   static llvm::Value *loadFromMemory(llvm::Value *address, llvm::Type *asType,
+                                     unsigned alignment = 0,
                                      const char *name = ".bitcast_result");
 };
 

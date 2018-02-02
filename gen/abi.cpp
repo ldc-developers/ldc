@@ -44,13 +44,13 @@ LLValue *ABIRewrite::getAddressOf(DValue *v) {
 }
 
 LLValue *ABIRewrite::loadFromMemory(LLValue *address, LLType *asType,
-                                    const char *name) {
+                                    unsigned alignment, const char *name) {
   LLType *pointerType = address->getType();
   assert(pointerType->isPointerTy());
   LLType *pointeeType = pointerType->getPointerElementType();
 
   if (asType == pointeeType) {
-    return DtoLoad(address, name);
+    return DtoLoad(address, name, alignment);
   }
 
   if (getTypeStoreSize(asType) > getTypeAllocSize(pointeeType)) {
@@ -58,12 +58,12 @@ LLValue *ABIRewrite::loadFromMemory(LLValue *address, LLType *asType,
     LLValue *paddedDump = DtoRawAlloca(asType, 0, ".loadFromMemory_paddedDump");
     DtoMemCpy(paddedDump, address,
               DtoConstSize_t(getTypeAllocSize(pointeeType)));
-    return DtoLoad(paddedDump, name);
+    return DtoLoad(paddedDump, name, alignment);
   }
 
   address = DtoBitCast(address, getPtrToType(asType),
                        ".loadFromMemory_bitCastAddress");
-  return DtoLoad(address, name);
+  return DtoLoad(address, name, alignment);
 }
 
 //////////////////////////////////////////////////////////////////////////////

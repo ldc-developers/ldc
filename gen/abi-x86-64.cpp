@@ -204,7 +204,12 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
     LLType *abiTy = getAbiType(v->type);
     assert(abiTy && "Why are we rewriting a non-rewritten type?");
 
-    return loadFromMemory(address, abiTy, ".X86_64_C_struct_rewrite_putResult");
+    // Specify the alignment explicitly for the load instruction, e.g., when
+    // loading a vector type with greater natural alignment than the actual
+    // source.
+    const unsigned alignment = DtoAlignment(v->type);
+    return loadFromMemory(address, abiTy, alignment,
+                          ".X86_64_C_struct_rewrite_putResult");
   }
 
   LLValue *getLVal(Type *dty, LLValue *v) override {
