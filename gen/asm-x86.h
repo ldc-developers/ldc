@@ -3886,7 +3886,9 @@ struct AsmProcessor {
   }
 
   void doData() {
-// FIXME: data instructions not implemented.
+    stmt->error(
+        "Data definition directives inside inline asm are not supported yet.");
+// TODO: data instructions not implemented.
 #if 0
     static const char * directives[] = { ".byte", ".short", ".long", ".long",
                                          "", "", "" };
