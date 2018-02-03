@@ -4,7 +4,7 @@ include ../common.mak
 #TESTS:=profile profilegc both
 TESTS:=profile
 
-DIFF:=diff
+DIFF:=diff --strip-trailing-cr
 GREP:=grep
 
 .PHONY: all clean

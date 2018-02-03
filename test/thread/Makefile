@@ -1,6 +1,10 @@
 include ../common.mak
 
+ifneq (,$(findstring Win,$(OS)))
+TESTS:=
+else
 TESTS:=fiber_guard_page
+endif
 
 .PHONY: all clean
 all: $(addprefix $(ROOT)/,$(addsuffix .done,$(TESTS)))
