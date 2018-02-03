@@ -321,6 +321,7 @@ set(DRV_SRC
     driver/linker-gcc.cpp
     driver/linker-msvc.cpp
     driver/main.cpp
+    driver/plugins.cpp
     ${CMAKE_BINARY_DIR}/driver/ldc-version.cpp
 )
 set(DRV_HDR
@@ -337,6 +338,7 @@ set(DRV_HDR
     driver/ldc-version.h
     driver/archiver.h
     driver/linker.h
+    driver/plugins.h
     driver/targetmachine.h
     driver/toobj.h
     driver/tool.h

@@ -29,6 +29,7 @@
 #include "driver/exe_path.h"
 #include "driver/ldc-version.h"
 #include "driver/linker.h"
+#include "driver/plugins.h"
 #include "driver/targetmachine.h"
 #include "gen/cl_helpers.h"
 #include "gen/irstate.h"
@@ -1062,6 +1063,8 @@ int cppmain(int argc, char **argv) {
 
   opts::initializeInstrumentationOptionsFromCmdline(
       *global.params.targetTriple);
+
+  loadAllPlugins();
 
   Strings libmodules;
   return mars_mainBody(files, libmodules);
