@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 
@@ -45,4 +46,52 @@ void verifyModule(const Context &context, llvm::Module &module) {
         std::string("module verification failed:") + errstream.str();
     fatal(context, desc);
   }
+}
+
+void createModuleCtorsWrapper(const Context &context, llvm::Module &module,
+                              const std::string &wrapperName) {
+  assert(!wrapperName.empty());
+  auto ctorsVar = module.getGlobalVariable("llvm.global_ctors");
+  if (ctorsVar == nullptr || ctorsVar->isDeclaration()) {
+    return;
+  }
+
+  auto &llcontext = module.getContext();
+  auto funcType = llvm::FunctionType::get(
+                    llvm::Type::getVoidTy(llcontext), false);
+  auto func = llvm::Function::Create(funcType,
+                                     llvm::GlobalValue::ExternalLinkage,
+                                     wrapperName, &module);
+
+  auto bb = llvm::BasicBlock::Create(llcontext, "", func);
+  llvm::IRBuilder<> builder(llcontext);
+  builder.SetInsertPoint(bb);
+
+  // Should be an array of '{ i32, void ()* }' structs.  The first value is
+  // the init priority, which we ignore.
+  auto InitList = llvm::dyn_cast<llvm::ConstantArray>(ctorsVar->getInitializer());
+  for (unsigned i = 0, e = InitList->getNumOperands(); i != e; ++i) {
+    auto CS = llvm::dyn_cast<llvm::ConstantStruct>(InitList->getOperand(i));
+    if (CS == nullptr) continue;
+
+    auto FP = CS->getOperand(1);
+    if (FP->isNullValue()) {
+      continue;  // Found a sentinal value, ignore.
+    }
+
+    // Strip off constant expression casts.
+    if (auto CE = llvm::dyn_cast<llvm::ConstantExpr>(FP)) {
+      if (CE->isCast()) {
+        FP = CE->getOperand(0);
+      }
+    }
+
+    // Execute the ctor/dtor function!
+    if (auto F = llvm::dyn_cast<llvm::Function>(FP)) {
+      builder.CreateCall(F);
+    }
+  }
+  builder.CreateRetVoid();
+
+  ctorsVar->eraseFromParent();
 }

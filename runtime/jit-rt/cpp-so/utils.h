@@ -26,4 +26,7 @@ void interruptPoint(const Context &context, const char *desc,
                     const char *object = "");
 void verifyModule(const Context &context, llvm::Module &module);
 
+void createModuleCtorsWrapper(const Context &context, llvm::Module &module,
+                              const std::string &wrapperName);
+
 #endif // UTILS_HPP

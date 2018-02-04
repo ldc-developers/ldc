@@ -13,11 +13,11 @@
 //===----------------------------------------------------------------------===//
 
 #include <cassert>
-#include <map>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <type_traits>
+#include <unordered_map>
 
 #include "callback_ostream.h"
 #include "context.h"
@@ -51,6 +51,8 @@
 #endif
 
 namespace {
+
+const char* const ctorsWrapperName = ".ctors_wrapper";
 
 #pragma pack(push, 1)
 
@@ -95,7 +97,7 @@ llvm::SmallVector<std::string, 4> getHostAttrs() {
   return features;
 }
 
-using SymMap = std::map<std::string, void *>;
+using SymMap = std::unordered_map<std::string, void *>;
 
 struct llvm_init_obj {
   llvm_init_obj() {
@@ -428,7 +430,11 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   assert(nullptr != finalModule);
   dumpModule(context, *finalModule, DumpStage::MergedModule);
   interruptPoint(context, "Optimize final module");
-  optimizeModule(context, myJit.getTargetMachine(), settings, *finalModule);
+  optimizeModule(context, myJit.getTargetMachine(), settings, symMap,
+                 *finalModule);
+
+  interruptPoint(context, "Create ctors wrapper");
+  createModuleCtorsWrapper(context, *finalModule, ctorsWrapperName);
 
   interruptPoint(context, "Verify final module");
   verifyModule(context, *finalModule);
@@ -473,6 +479,18 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
       interruptPoint(context, "Resolved", str.c_str());
     }
   }
+
+  {
+    interruptPoint(context, "Call ctors wrapper");
+    auto sym = myJit.findSymbol(ctorsWrapperName);
+    auto addr = resolveSymbol(sym);
+    if (addr != nullptr) {
+      using WrapperType = void (*)();
+      auto fun = reinterpret_cast<WrapperType>(addr);
+      fun();
+    }
+  }
+
   jitFinalizer.finalze();
 }
 
