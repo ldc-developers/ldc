@@ -30,6 +30,8 @@ struct Context;
 struct OptimizerSettings final {
   unsigned optLevel = 0;
   unsigned sizeLevel = 0;
+  bool genInstrumentation = false;
+  bool useInstrumentation = false;
 };
 
 void optimizeModule(const Context &context, llvm::TargetMachine &targetMachine,

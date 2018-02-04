@@ -35,8 +35,10 @@ namespace {
 // TODO: share this function with compiler
 void addOptimizationPasses(llvm::legacy::PassManagerBase &mpm,
                            llvm::legacy::FunctionPassManager &fpm,
-                           unsigned optLevel, unsigned sizeLevel) {
+                           const OptimizerSettings &settings) {
   llvm::PassManagerBuilder builder;
+  auto optLevel = settings.optLevel;
+  auto sizeLevel = settings.sizeLevel;
   builder.OptLevel = optLevel;
   builder.SizeLevel = sizeLevel;
 
@@ -98,7 +100,7 @@ void setupPasses(llvm::TargetMachine &targetMachine,
   mpm.add(llvm::createStripDeadPrototypesPass());
   mpm.add(llvm::createStripDeadDebugInfoPass());
 
-  addOptimizationPasses(mpm, fpm, settings.optLevel, settings.sizeLevel);
+  addOptimizationPasses(mpm, fpm, settings);
 }
 
 struct FuncFinalizer final {

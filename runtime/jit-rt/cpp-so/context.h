@@ -48,6 +48,8 @@ struct Context final {
   void *fatalHandlerData = nullptr;
   DumpHandlerT dumpHandler = nullptr;
   void *dumpHandlerData = nullptr;
+  bool genInstrumentation = false;
+  bool useInstrumentation = false;
 };
 
 #endif // CONTEXT_H

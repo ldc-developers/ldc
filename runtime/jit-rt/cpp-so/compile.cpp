@@ -377,6 +377,8 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   OptimizerSettings settings;
   settings.optLevel = context.optLevel;
   settings.sizeLevel = context.sizeLevel;
+  settings.genInstrumentation = context.genInstrumentation;
+  settings.useInstrumentation = context.useInstrumentation;
   enumModules(modlist_head, context, [&](const RtCompileModuleList &current) {
     interruptPoint(context, "load IR");
     auto buff = llvm::MemoryBuffer::getMemBuffer(
