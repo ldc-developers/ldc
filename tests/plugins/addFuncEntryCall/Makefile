@@ -6,7 +6,10 @@ ROOT_DIR := $(dir $(MAKEFILE_PATH))
 LLVM_CONFIG ?= llvm-config
 
 CXXFLAGS ?= -O3
-CXXFLAGS += `$(LLVM_CONFIG) --cxxflags` -fno-rtti -fpic
+CXXFLAGS += $(shell $(LLVM_CONFIG) --cxxflags) -fno-rtti -fpic
+# Remove all warning flags (they may or may not be supported by the compiler)
+CXXFLAGS := $(filter-out -W%,$(CXXFLAGS))
+CXXFLAGS := $(filter-out -fcolor-diagnostics,$(CXXFLAGS))
 
 ifeq "$(shell uname)" "Darwin"
   CXXFLAGS += -Wl,-flat_namespace -Wl,-undefined,suppress
