@@ -35,8 +35,9 @@ char FuncEntryCallPass::ID = 0;
 
 bool FuncEntryCallPass::doInitialization(Module &M) {
   // Add fwd declaration of the `void __test_funcentrycall(void)` function.
-  funcToCallUponEntry = M.getOrInsertFunction("__test_funcentrycall",
-                                              Type::getVoidTy(M.getContext()));
+  auto functionType = FunctionType::get(Type::getVoidTy(M.getContext()), false);
+  funcToCallUponEntry =
+      M.getOrInsertFunction("__test_funcentrycall", functionType);
   return true;
 }
 
