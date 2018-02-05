@@ -560,6 +560,10 @@ if(LDC_WITH_LLD)
         set(LDC_LINKERFLAG_LIST "-llldCOFF;-llldCore;-llldDriver;${LDC_LINKERFLAG_LIST}")
     endif()
 endif()
+# For plugin support, we need to link with --export-dynamic on Unix.
+if(UNIX AND NOT APPLE)
+    append("-Wl,--export-dynamic" LDC_LINKERFLAG_LIST)
+endif()
 
 set(LDC_LINK_MANUALLY OFF)
 if(UNIX AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")))
