@@ -159,9 +159,15 @@ std::string arch;
 
 bool emit(raw_ostream& os, RecordKeeper& records)
 {
+    const bool isDcomputeOnly = arch == "NVVM";
+
+    if (isDcomputeOnly)
+        os << "@compute(CompileFor.deviceOnly)\n";
     os << "module ldc.gccbuiltins_";
-    os << arch;
-    os << "; \n\nimport core.simd;\n\nnothrow @nogc:\n\n";
+    os << arch << "; \n\n";
+    if (isDcomputeOnly)
+        os << "import ldc.dcompute;\n";
+    os << "import core.simd;\n\nnothrow @nogc:\n\n";
 
     const auto &defs = records.getDefs();
 
