@@ -562,7 +562,7 @@ if(LDC_WITH_LLD)
 endif()
 # For plugin support, we need to link with --export-dynamic on Unix.
 if(UNIX AND NOT APPLE)
-    append("-Wl,--export-dynamic" LDC_LINKERFLAG_LIST)
+    set(LDC_LINKERFLAG_LIST "${LDC_LINKERFLAG_LIST};-Wl,--export-dynamic")
 endif()
 
 set(LDC_LINK_MANUALLY OFF)
