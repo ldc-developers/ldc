@@ -576,11 +576,12 @@ pragma(LDC_intrinsic, "llvm.trap")
 pragma(LDC_intrinsic, "llvm.debugtrap")
     void llvm_debugtrap();
 
-/// The llvm.expect intrinsic provides information about expected (the most
-/// probable) value of val, which can be used by optimizers.
-/// The llvm.expect intrinsic takes two arguments. The first argument is a
-/// value. The second argument is an expected value, this needs to be a
-/// constant value, variables are not allowed.
+/// Provides information about the expected (that is, most probable) runtime
+/// value of an integer expression to the optimizer.
+///
+/// Params:
+///     val = The runtime value, of integer type.
+///     expectedVal = The expected value of `val` – needs to be a constant!
 pragma(LDC_intrinsic, "llvm.expect.i#")
-    T llvm_expect(T)(T val, T expected_val)
+    T llvm_expect(T)(T val, T expectedVal)
         if (__traits(isIntegral, T));
