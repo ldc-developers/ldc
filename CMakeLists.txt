@@ -560,9 +560,21 @@ if(LDC_WITH_LLD)
         set(LDC_LINKERFLAG_LIST "-llldCOFF;-llldCore;-llldDriver;${LDC_LINKERFLAG_LIST}")
     endif()
 endif()
-# For plugin support, we need to link with --export-dynamic on Unix.
-if(UNIX AND NOT APPLE)
-    set(LDC_LINKERFLAG_LIST "${LDC_LINKERFLAG_LIST};-Wl,--export-dynamic")
+
+# Plugin support
+if(APPLE)
+    # There doesn't seem to be a downside to enabling plugins on macOS
+    set(LDC_ENABLE_PLUGINS_DEFAULT ON)
+else()
+    set(LDC_ENABLE_PLUGINS_DEFAULT OFF)
+endif()
+set(LDC_ENABLE_PLUGINS ${LDC_ENABLE_PLUGINS_DEFAULT} CACHE BOOL "Build LDC with plugin support (increases binary size)")
+if(LDC_ENABLE_PLUGINS)
+    add_definitions(-DLDC_ENABLE_PLUGINS)
+    # For plugin support, we need to link with --export-dynamic on Unix.
+    if(UNIX AND NOT APPLE)
+        set(LDC_LINKERFLAG_LIST "${LDC_LINKERFLAG_LIST};-Wl,--export-dynamic")
+    endif()
 endif()
 
 set(LDC_LINK_MANUALLY OFF)

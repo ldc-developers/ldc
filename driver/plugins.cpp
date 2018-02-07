@@ -13,6 +13,8 @@
 
 #include "driver/plugins.h"
 
+#if LDC_ENABLE_PLUGINS
+
 #include "errors.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/DynamicLibrary.h"
@@ -38,3 +40,9 @@ void loadAllPlugins() {
     }
   }
 }
+
+#else // #if LDC_ENABLE_PLUGINS
+
+void loadAllPlugins() {}
+
+#endif // LDC_ENABLE_PLUGINS
