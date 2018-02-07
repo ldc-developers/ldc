@@ -28,15 +28,15 @@
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 #include "context.h"
+#include "pgo.h"
 #include "utils.h"
 #include "valueparser.h"
 
 namespace {
 // TODO: share this function with compiler
-void addOptimizationPasses(llvm::legacy::PassManagerBase &mpm,
-                           llvm::legacy::FunctionPassManager &fpm,
+void addOptimizationPasses(llvm::PassManagerBuilder &builder,
                            const OptimizerSettings &settings) {
-  llvm::PassManagerBuilder builder;
+
   auto optLevel = settings.optLevel;
   auto sizeLevel = settings.sizeLevel;
   builder.OptLevel = optLevel;
@@ -78,13 +78,11 @@ void addOptimizationPasses(llvm::legacy::PassManagerBase &mpm,
   // TODO: lang specific passes support
   // TODO: addStripExternalsPass?
   // TODO: PGO support in jit?
-
-  builder.populateFunctionPassManager(fpm);
-  builder.populateModulePassManager(mpm);
 }
 
 void setupPasses(llvm::TargetMachine &targetMachine,
                  const OptimizerSettings &settings,
+                 llvm::PassManagerBuilder &builder,
                  llvm::legacy::PassManager &mpm,
                  llvm::legacy::FunctionPassManager &fpm) {
   mpm.add(
@@ -100,7 +98,7 @@ void setupPasses(llvm::TargetMachine &targetMachine,
   mpm.add(llvm::createStripDeadPrototypesPass());
   mpm.add(llvm::createStripDeadDebugInfoPass());
 
-  addOptimizationPasses(mpm, fpm, settings);
+  addOptimizationPasses(builder, settings);
 }
 
 struct FuncFinalizer final {
@@ -124,7 +122,9 @@ void stripComdat(llvm::Module &module) {
 } // anon namespace
 
 void optimizeModule(const Context &context, llvm::TargetMachine &targetMachine,
-                    const OptimizerSettings &settings, llvm::Module &module) {
+                    const OptimizerSettings &settings,
+                    std::unordered_map<std::string, void *> &symbols,
+                    llvm::Module &module) {
   // There is llvm bug related tp comdat and IR based pgo
   // and anyway caomdata is useless at this stage
   stripComdat(module);
@@ -132,7 +132,11 @@ void optimizeModule(const Context &context, llvm::TargetMachine &targetMachine,
   llvm::legacy::FunctionPassManager fpm(&module);
   const auto name = module.getName();
   interruptPoint(context, "Setup passes for module", name.data());
-  setupPasses(targetMachine, settings, mpm, fpm);
+  llvm::PassManagerBuilder builder;
+  PgoHandler pgoHandler(context, symbols, builder);
+  setupPasses(targetMachine, settings, builder, mpm, fpm);
+  builder.populateFunctionPassManager(fpm);
+  builder.populateModulePassManager(mpm);
 
   // Run per-function passes.
   {
