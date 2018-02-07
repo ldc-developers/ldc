@@ -130,7 +130,6 @@ endif()
 get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
 set(RUNTIME_DIR ${PROJECT_SOURCE_DIR}/druntime CACHE PATH "druntime root directory")
 set(PHOBOS2_DIR ${PROJECT_SOURCE_DIR}/phobos CACHE PATH "Phobos root directory")
-set(PROFILERT_DIR ${PROJECT_SOURCE_DIR}/profile-rt CACHE PATH "profile-rt root directory")
 set(JITRT_DIR ${PROJECT_SOURCE_DIR}/jit-rt CACHE PATH "jit runtime root directory")
 
 #
@@ -625,20 +624,6 @@ macro(build_runtime_variants d_flags c_flags ld_flags path_suffix outlist_target
     )
 endmacro()
 
-# Builds static and/or shared debug+release druntime/Phobos + static profile-rt.
-macro(build_all_runtime_variants d_flags c_flags ld_flags path_suffix outlist_targets)
-    build_runtime_variants("${d_flags}" "${c_flags}" "${ld_flags}" "${path_suffix}" ${outlist_targets})
-
-    # static profile-rt (currently only needed on Windows)
-    if("${TARGET_SYSTEM}" MATCHES "Windows")
-        build_profile_runtime("${c_flags}" "${ld_flags}" "" "${path_suffix}" ${outlist_targets})
-    endif()
-endmacro()
-
-
-# Setup the build of profile-rt
-include(profile-rt/DefineBuildProfileRT.cmake)
-
 # Setup the build of jit runtime
 include(jit-rt/DefineBuildJitRT.cmake)
 
@@ -654,8 +639,8 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
     set(hostsuffix "${LIB_SUFFIX}${HOST_BITNESS}")
 
     set(libtargets)
-    build_all_runtime_variants("" "${RT_CFLAGS}" "${LD_FLAGS}" "${hostsuffix}" libtargets)
-    build_all_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}" libtargets)
+    build_runtime_variants("" "${RT_CFLAGS}" "${LD_FLAGS}" "${hostsuffix}" libtargets)
+    build_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}" libtargets)
 
     # Only build the host version of the jit runtime due to LLVM dependency.
     set(libtargets_jit)
@@ -702,7 +687,7 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
     endforeach()
 else()
     set(libs_to_install)
-    build_all_runtime_variants("" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libs_to_install)
+    build_runtime_variants("" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libs_to_install)
 
     # Only build the host version of the jit runtime due to LLVM dependency.
     set(libtargets_jit)
@@ -712,7 +697,7 @@ else()
 
     # don't add multilib targets to libs_to_install
     if(MULTILIB)
-        build_all_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}" dummy)
+        build_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}" dummy)
     endif()
 
     foreach(libname ${libs_to_install})

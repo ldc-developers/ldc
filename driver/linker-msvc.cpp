@@ -10,8 +10,12 @@
 #include "errors.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
+#include "driver/cl_options_sanitizers.h"
+#include "driver/exe_path.h"
 #include "driver/tool.h"
 #include "gen/logger.h"
+
+#include "llvm/Support/FileSystem.h"
 
 #if LDC_WITH_LLD
 #include "lld/Driver/Driver.h"
@@ -47,6 +51,19 @@ void addMscrtLibs(std::vector<std::string> &args,
   const llvm::StringRef suffix = isDebug ? "d" : "";
 
   args.push_back(("/DEFAULTLIB:" + prefix + "vcruntime" + suffix).str());
+}
+
+void addLibIfFound(std::vector<std::string> &args, const llvm::Twine &name) {
+  if (llvm::sys::fs::exists(exe_path::prependLibDir(name)))
+    args.push_back(name.str());
+}
+
+void addSanitizerLibs(std::vector<std::string> &args) {
+  if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
+    args.push_back("ldc_rt.asan.lib");
+  }
+
+  // TODO: remaining sanitizers
 }
 
 } // anonymous namespace
@@ -110,13 +127,6 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
   if (global.params.deffile)
     args.push_back(std::string("/DEF:") + global.params.deffile);
 
-  // Link with profile-rt library when generating an instrumented binary
-  if (opts::isInstrumentingForPGO()) {
-    args.push_back("ldc-profile-rt.lib");
-    // profile-rt depends on ws2_32 for symbol `gethostname`
-    args.push_back("ws2_32.lib");
-  }
-
   if (opts::enableDynamicCompile) {
     args.push_back("ldc-jit-rt.lib");
     args.push_back("ldc-jit.lib");
@@ -125,6 +135,15 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
   // user libs
   for (auto libfile : global.params.libfiles) {
     args.push_back(libfile);
+  }
+
+  // LLVM compiler-rt libs
+  addLibIfFound(args, "ldc_rt.builtins.lib");
+  addSanitizerLibs(args);
+  if (opts::isInstrumentingForPGO()) {
+    args.push_back("ldc_rt.profile.lib");
+    // it depends on ws2_32 for symbol `gethostname`
+    args.push_back("ws2_32.lib");
   }
 
   // additional linker switches
