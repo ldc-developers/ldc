@@ -9,13 +9,13 @@
 // RUN: cat %t.out
 // RUN: FileCheck %s < %t.out
 
-// CHECK: ERROR: libFuzzer: deadly signal
-
 void FuzzMe(const(ubyte*) data, size_t size)
 {
     if ((size >= 3) && data[0] == 'F' && data[1] == 'U' && data[2] == 'Z')
     {
+// CHECK: fuzz_basic.d([[@LINE+1]]): Assertion failure
         assert(false);
+// CHECK: ERROR: libFuzzer: deadly signal
     }
 }
 
@@ -36,6 +36,3 @@ extern (C) int LLVMFuzzerTestOneInput(const(ubyte*) data, size_t size)
     FuzzMe(data, size);
     return 0;
 }
-
-// The test unit should start with "FUZ"
-// CHECK: FUZ
