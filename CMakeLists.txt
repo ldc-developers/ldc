@@ -570,6 +570,7 @@ else()
 endif()
 set(LDC_ENABLE_PLUGINS ${LDC_ENABLE_PLUGINS_DEFAULT} CACHE BOOL "Build LDC with plugin support (increases binary size)")
 if(LDC_ENABLE_PLUGINS)
+    message(STATUS "Building LDC with plugin support")
     add_definitions(-DLDC_ENABLE_PLUGINS)
     # For plugin support, we need to link with --export-dynamic on Unix.
     if(UNIX AND NOT APPLE)
