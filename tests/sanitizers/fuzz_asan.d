@@ -42,6 +42,3 @@ extern (C) int LLVMFuzzerTestOneInput(const(ubyte*) data, size_t size)
 
     return 0;
 }
-
-// The test unit should start with "FUZ"
-// CHECK: FUZ
