@@ -217,6 +217,17 @@ if(BUILD_SHARED_LIBS AND (${CMAKE_SYSTEM_NAME} MATCHES "Linux"))
     set(SHARED_LIBS_RPATH "\n        \"-L-rpath=${CMAKE_BINARY_DIR}/lib\",")
 endif()
 
+# Work around an LLVM quirk on ARM.
+# Disable NEON with -mattr=-neon if the host does not support it.
+if("${CMAKE_SYSTEM_NAME}" MATCHES "Linux" AND "${CMAKE_SYSTEM_PROCESSOR}" MATCHES "arm")
+    execute_process(COMMAND cat /proc/cpuinfo
+                    COMMAND grep -c "Features.*neon"
+                    OUTPUT_VARIABLE SUPPORTS_NEON)
+    if(${SUPPORTS_NEON} EQUAL 0)
+        set(ADDITIONAL_DEFAULT_LDC_SWITCHES ",\n        \"-mattr=-neon\"")
+    endif()
+endif()
+
 configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
 # Prepare the config files we are going to install later in bin.
 configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf)
