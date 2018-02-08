@@ -628,6 +628,7 @@ else version( CRuntime_Musl )
         FP_FAST_FMAL = 0,
     }
 
+  pure {
     int __fpclassifyf(float x);
     int __fpclassify(double x);
     int __fpclassifyl(real x);
@@ -635,8 +636,9 @@ else version( CRuntime_Musl )
     int __signbitf(float x);
     int __signbit(double x);
     int __signbitl(real x);
+  }
 
-  extern (D)
+  extern (D) pure
   {
     //int fpclassify(real-floating x);
       ///
