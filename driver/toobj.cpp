@@ -149,7 +149,7 @@ class AssemblyAnnotator : public AssemblyAnnotationWriter {
   const llvm::DataLayout &DL;
 
 public:
-  AssemblyAnnotator(const llvm::DataLayout &dl) : DL{dl} {}
+  AssemblyAnnotator(const llvm::DataLayout &dl) : DL(dl) {}
 
   void emitFunctionAnnot(const Function *F,
                          formatted_raw_ostream &os) override {
