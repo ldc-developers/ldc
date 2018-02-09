@@ -314,7 +314,7 @@ void DtoCAssert(Module *M, Loc &loc, LLValue *msg) {
   } else if (global.params.targetTriple->isOSSolaris()) {
     const auto irFunc = gIR->func();
     const auto funcName =
-        irFunc && irFunc->decl ? irFunc->decl->toPrettyChars() : "";
+        (irFunc && irFunc->decl) ? irFunc->decl->toPrettyChars() : "";
     args.push_back(msg);
     args.push_back(file);
     args.push_back(line);
