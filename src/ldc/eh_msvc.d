@@ -575,12 +575,6 @@ void msvc_eh_init()
     getThrowInfo(typeid(OutOfMemoryError));
 }
 
-shared static this()
-{
-    // should be called from rt_init
-    msvc_eh_init();
-}
-
 ///////////////////////////////////////////////////////////////
 version(Win32)
 {

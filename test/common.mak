@@ -1,5 +1,6 @@
 # set from top makefile
-OS:=
+# LDC: No top makefile for us; don't clear OS variable (use environment variable).
+#OS:=
 MODEL:=
 BUILD:=
 DMD:=

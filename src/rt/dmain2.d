@@ -193,6 +193,11 @@ extern (C) int rt_init()
         gc_init();
         initStaticDataGC();
         lifetime_init();
+        version (LDC) version (CRuntime_Microsoft)
+        {
+            import ldc.eh_msvc;
+            msvc_eh_init();
+        }
         rt_moduleCtor();
         rt_moduleTlsCtor();
         return 1;
