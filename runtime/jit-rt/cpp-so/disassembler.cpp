@@ -9,6 +9,7 @@
 
 #include "disassembler.h"
 
+#include <algorithm>
 #include <unordered_map>
 
 #include <llvm/ADT/Triple.h>
@@ -286,6 +287,21 @@ void disassemble(const llvm::TargetMachine &tm,
 
   asmStreamer->InitSections(false);
 
+  std::unordered_map<uint64_t, std::vector<uint64_t>> sectionsToProcess;
+  for (const auto &symbol : object.symbols()) {
+    const auto secIt = llvm::cantFail(symbol.getSection());
+    if (object.section_end() != secIt) {
+      auto offset = symbol.getValue();
+      sectionsToProcess[secIt->getIndex()].push_back(offset);
+    }
+  }
+  for (auto &sec : sectionsToProcess) {
+    auto &vec = sec.second;
+    std::sort(vec.begin(), vec.end());
+    auto end = std::unique(vec.begin(), vec.end());
+    vec.erase(end, vec.end());
+  }
+
   for (const auto &symbol : object.symbols()) {
     const auto name = llvm::cantFail(symbol.getName());
     const auto secIt = llvm::cantFail(symbol.getSection());
@@ -293,8 +309,7 @@ void disassemble(const llvm::TargetMachine &tm,
       const auto sec = *secIt;
       llvm::StringRef data;
       sec.getContents(data);
-      llvm::ArrayRef<uint8_t> buff(
-          reinterpret_cast<const uint8_t *>(data.data()), data.size());
+
       if (llvm::object::SymbolRef::ST_Function ==
           llvm::cantFail(symbol.getType())) {
         symTable.reset();
@@ -307,6 +322,19 @@ void disassemble(const llvm::TargetMachine &tm,
             processRelocations(symTable, object, globalSec);
           }
         }
+        auto offset = symbol.getValue();
+        auto size = data.size() - offset;
+        auto &ranges = sectionsToProcess[sec.getIndex()];
+        if (!ranges.empty()) {
+          for (std::size_t i = 0; i < ranges.size() - 1; ++i) {
+            if (ranges[i] == offset) {
+              size = std::min(size, ranges[i + 1] - offset);
+            }
+          }
+        }
+        llvm::ArrayRef<uint8_t> buff(
+              reinterpret_cast<const uint8_t *>(data.data() + offset),
+              size);
 
         printFunction(*disasm, *mcia, buff, symTable, *sti, *asmStreamer);
         asmStreamer->EmitRawText("");
