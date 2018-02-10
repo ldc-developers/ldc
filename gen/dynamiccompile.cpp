@@ -193,14 +193,15 @@ void fixRtModule(llvm::Module &newModule,
   // Replace call to thunks in jitted code with direct calls to functions
   for (auto &&fun : newModule.functions()) {
     iterateFuncInstructions(fun, [&](llvm::Instruction &instr) -> bool {
-      if (auto call = llvm::dyn_cast<llvm::CallInst>(&instr)) {
-        auto callee = call->getCalledValue();
-        assert(nullptr != callee);
-        auto it = thunkFun2func.find(callee->getName());
-        if (thunkFun2func.end() != it) {
-          auto realFunc = newModule.getFunction(it->second);
-          assert(nullptr != realFunc);
-          call->setCalledFunction(realFunc);
+      for (auto &op : instr.operands()) {
+        auto val = op.get();
+        if (auto callee = llvm::dyn_cast<llvm::Function>(val)) {
+          auto it = thunkFun2func.find(callee->getName());
+          if (thunkFun2func.end() != it) {
+            auto realFunc = newModule.getFunction(it->second);
+            assert(nullptr != realFunc);
+            op.set(realFunc);
+          }
         }
       }
       return false;
@@ -606,15 +607,6 @@ llvm::PointerType *getModListHeadType(llvm::LLVMContext &context,
 llvm::GlobalVariable *declareModListHead(llvm::Module &module,
                                          const Types &types) {
   auto type = getModListHeadType(module.getContext(), types);
-  //  auto existingVar =
-  //  module.getGlobalVariable(DynamicCompileModulesHeadName); if (nullptr !=
-  //  existingVar) {
-  //    if (type != existingVar->getType()) {
-  //      error(Loc(), "Invalid DynamicCompileModulesHeadName type");
-  //      fatal();
-  //    }
-  //    return existingVar;
-  //  }
   return new llvm::GlobalVariable(module, type, false,
                                   llvm::GlobalValue::ExternalLinkage, nullptr,
                                   DynamicCompileModulesHeadName);
