@@ -164,6 +164,7 @@ struct PGOState {
     }
 
     llvm::Error error = llvm::Error::success();
+//    std::vector<InstrProfValueData> tempData;
     for (auto &&data : ProfData.range()) {
       auto name = symTab.getFuncName(data.NameRef);
       auto countersPtr = static_cast<const uint64_t*>(data.CounterPtr);
@@ -176,15 +177,17 @@ struct PGOState {
         for (uint32_t site = 0; site < numSites; ++site) {
           record.addValueData(kind, site, nullptr, 0, nullptr);
 //          auto values = static_cast<ValueProfNode**>(data.Values);
-//          if (values == nullptr || values[site] == nullptr) {
-//          } else {
+//          tempData.clear();
+//          if (values != nullptr && values[site] != nullptr) {
 //            auto currNode = values[siteOffset + site];
 //            while (currNode != nullptr) {
 //              InstrProfValueData data{currNode->Value, currNode->Count};
-//              record.addValueData(kind, site, &data, 1, nullptr);
+//              tempData.emplace_back(data);
 //              currNode = currNode->Next;
 //            }
 //          }
+//          record.addValueData(kind, site, tempData.data(),
+//                              static_cast<uint32_t>(tempData.size()), nullptr);
         }
         siteOffset += numSites;
       }
@@ -316,6 +319,22 @@ void __llvm_profile_instrument_target(uint64_t TargetValue, void *Data_,
   (void)Success;
 }
 
+void __llvm_profile_instrument_range(
+    uint64_t TargetValue, void *Data, uint32_t CounterIndex,
+    int64_t PreciseRangeStart, int64_t PreciseRangeLast, int64_t LargeValue) {
+
+  if (LargeValue != std::numeric_limits<int64_t>::min() &&
+      static_cast<int64_t>(TargetValue) >= LargeValue) {
+    TargetValue = static_cast<decltype(TargetValue)>(LargeValue);
+  }
+  else if (static_cast<int64_t>(TargetValue) < PreciseRangeStart ||
+           static_cast<int64_t>(TargetValue) > PreciseRangeLast) {
+    TargetValue = static_cast<decltype(TargetValue)>(PreciseRangeLast + 1);
+  }
+
+  __llvm_profile_instrument_target(TargetValue, Data, CounterIndex);
+}
+
 int __llvm_profile_runtime = 0;
 
 void addInstrumentationSymbols(
@@ -325,6 +344,7 @@ void addInstrumentationSymbols(
   symbols.insert(PGO_SYM(__llvm_profile_register_function));
   symbols.insert(PGO_SYM(__llvm_profile_register_names_function));
   symbols.insert(PGO_SYM(__llvm_profile_instrument_target));
+  symbols.insert(PGO_SYM(__llvm_profile_instrument_range));
   symbols.insert(PGO_SYM(__llvm_profile_runtime));
 #undef PGO_SYM
 }
