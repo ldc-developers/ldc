@@ -4,6 +4,8 @@
 #include <string>
 #include <unordered_map>
 
+#include <llvm/ADT/STLExtras.h>
+
 struct Context;
 
 namespace llvm {
@@ -20,5 +22,8 @@ public:
              llvm::PassManagerBuilder &builder);
   ~PgoHandler();
 };
+
+void bindPgoSymbols(const Context& context,
+                    llvm::function_ref<void*(llvm::StringRef)> getter);
 
 #endif // PGO_H

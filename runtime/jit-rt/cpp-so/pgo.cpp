@@ -4,6 +4,7 @@
 #include <atomic>
 #include <cassert>
 #include <limits>
+#include <unordered_map>
 
 #include <iostream>
 
@@ -11,6 +12,7 @@
 #include <intrin.h> // atomic ops
 #endif
 
+#include <llvm/IR/Module.h>
 #include <llvm/ProfileData/InstrProf.h>
 #include <llvm/ProfileData/InstrProfReader.h>
 #include <llvm/ProfileData/InstrProfWriter.h>
@@ -93,7 +95,10 @@ struct PGOState {
   std::vector<std::unique_ptr<ValueProfNode*[]>> ValueProfCounters;
   std::vector<ValueProfNode> ValueProfNodes;
   std::atomic<ValueProfNode*> ValueProfNodesStart = {nullptr};
-  uint32_t VPMaxNumValsPerSite = 8; //TODO
+  uint32_t VPMaxNumValsPerSite = 8; //TODO: settings
+
+  std::vector<std::pair<std::string, uint64_t>> Symbols;
+  std::unordered_map<void*, uint64_t> SymTable; //sym->hash
 
   void reset() {
     ProfData.reset();
@@ -101,6 +106,8 @@ struct PGOState {
     ValueProfCounters.clear();
     ValueProfNodes.clear();
     ValueProfNodesStart = nullptr;
+    Symbols.clear();
+    SymTable.clear();
   }
 
   bool empty() const {
@@ -153,6 +160,31 @@ struct PGOState {
     return NewNode;
   }
 
+  void fillSymList(const llvm::Module &module) {
+    assert(Symbols.empty());
+    for (auto &&func : module.functions()) {
+      if (func.isDeclaration()) {
+        continue;
+      }
+      auto name = func.getName();
+      Symbols.push_back({std::string(name.data()),
+                         llvm::IndexedInstrProf::ComputeHash(name)});
+    }
+  }
+
+  void fillSymTable(llvm::function_ref<void*(llvm::StringRef)> getter) {
+    assert(SymTable.empty());
+    for (auto &&sym : Symbols) {
+      auto &name = sym.first;
+      auto addr = getter(name);
+      if (addr != nullptr) {
+        auto hash = sym.second;
+        SymTable.insert({addr, hash});
+      }
+    }
+    Symbols.clear();
+  }
+
   llvm::Error write(llvm::InstrProfWriter &writer) {
     assert(!empty());
     if (auto res = writer.setIsIRLevelProfile(true)) {
@@ -164,7 +196,7 @@ struct PGOState {
     }
 
     llvm::Error error = llvm::Error::success();
-//    std::vector<InstrProfValueData> tempData;
+    std::vector<InstrProfValueData> tempData;
     for (auto &&data : ProfData.range()) {
       auto name = symTab.getFuncName(data.NameRef);
       auto countersPtr = static_cast<const uint64_t*>(data.CounterPtr);
@@ -175,19 +207,30 @@ struct PGOState {
         const auto numSites = data.NumValueSites[kind];
         record.reserveSites(kind, numSites);
         for (uint32_t site = 0; site < numSites; ++site) {
-          record.addValueData(kind, site, nullptr, 0, nullptr);
-//          auto values = static_cast<ValueProfNode**>(data.Values);
-//          tempData.clear();
-//          if (values != nullptr && values[site] != nullptr) {
-//            auto currNode = values[siteOffset + site];
-//            while (currNode != nullptr) {
-//              InstrProfValueData data{currNode->Value, currNode->Count};
-//              tempData.emplace_back(data);
-//              currNode = currNode->Next;
-//            }
-//          }
-//          record.addValueData(kind, site, tempData.data(),
-//                              static_cast<uint32_t>(tempData.size()), nullptr);
+          auto values = static_cast<ValueProfNode**>(data.Values);
+          tempData.clear();
+          auto currSite = siteOffset + site;
+          if (values != nullptr && values[currSite] != nullptr) {
+            for (ValueProfNode *currNode = values[currSite];
+                 currNode != nullptr;
+                 currNode = currNode->Next) {
+              InstrProfValueData data{};
+              data.Count = currNode->Count;
+              if (kind == IPVK_IndirectCallTarget) {
+                auto it =
+                    SymTable.find(reinterpret_cast<void *>(currNode->Value));
+                if (it == SymTable.end()) {
+                  continue;
+                }
+                data.Value = it->second;
+              } else {
+                data.Value = currNode->Value;
+              }
+              tempData.emplace_back(data);
+            }
+          }
+          record.addValueData(kind, site, tempData.data(),
+                              static_cast<uint32_t>(tempData.size()), nullptr);
         }
         siteOffset += numSites;
       }
@@ -358,7 +401,8 @@ PgoHandler::PgoHandler(const Context &context, llvm::Module &module,
     addInstrumentationSymbols(context, symbols);
     builder.EnablePGOInstrGen = true;
   }
-  if (context.useInstrumentation && !getState().empty()) {
+  auto &state = getState();
+  if (context.useInstrumentation && !state.empty()) {
     llvm::InstrProfWriter writer;
     if (auto err = getState().write(writer)) {
       fatal(context, "Get PGO state :" + llvm::toString(std::move(err)));
@@ -381,10 +425,20 @@ PgoHandler::PgoHandler(const Context &context, llvm::Module &module,
 
     builder.PGOInstrUse = Filename;
   }
+  state.reset();
+  state.fillSymList(module);
 }
 
 PgoHandler::~PgoHandler() {
   if (!Filename.empty()) {
     llvm::sys::fs::remove(Filename);
+  }
+}
+
+void bindPgoSymbols(const Context &context,
+                    llvm::function_ref<void *(llvm::StringRef)> getter)
+{
+  if (context.genInstrumentation) {
+    getState().fillSymTable(getter);
   }
 }

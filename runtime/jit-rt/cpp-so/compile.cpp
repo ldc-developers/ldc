@@ -23,6 +23,7 @@
 #include "context.h"
 #include "disassembler.h"
 #include "optimizer.h"
+#include "pgo.h"
 #include "utils.h"
 
 #include "llvm/Bitcode/BitcodeReader.h"
@@ -457,6 +458,10 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
       fatal(context, "Can't codegen module");
     }
   }
+  bindPgoSymbols(context, [&](llvm::StringRef name)->void *{
+    auto symbol = myJit.findSymbol(name);
+    return resolveSymbol(symbol);
+  });
 
   JitFinaliser jitFinalizer(myJit);
   interruptPoint(context, "Resolve functions");
