@@ -1,10 +1,15 @@
 #include "pgo.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cassert>
+#include <limits>
 
-//#include <iostream>
+#include <iostream>
 
+#ifdef _MSC_VER
+#include <intrin.h> // atomic ops
+#endif
 
 #include <llvm/ProfileData/InstrProf.h>
 #include <llvm/ProfileData/InstrProfReader.h>
@@ -15,6 +20,20 @@
 
 #include "context.h"
 #include "utils.h"
+
+namespace {
+
+template<typename T>
+bool my_cmpxchg(T **Ptr, void *OldV, void *NewV) {
+#ifdef _MSC_VER
+  auto Ret = _InterlockedCompareExchangePointer(reinterpret_cast<void **>(Ptr),
+                                                NewV, OldV);
+  return Ret == OldV;
+#else
+  return __sync_bool_compare_and_swap(reinterpret_cast<void **>(Ptr),
+                                      OldV, NewV);
+#endif
+}
 
 using IntPtrT = void *;
 
@@ -29,7 +48,12 @@ typedef struct alignas(INSTR_PROF_DATA_ALIGNMENT)
 #include "llvm/ProfileData/InstrProfData.inc"
 } __llvm_profile_data;
 
-namespace {
+struct ValueProfNode;
+using PtrToNodeT = ValueProfNode *;
+struct ValueProfNode {
+#define INSTR_PROF_VALUE_NODE(Type, LLVMType, Name, Initializer) Type Name;
+#include "llvm/ProfileData/InstrProfData.inc"
+};
 
 template<typename T>
 struct AddressRange {
@@ -66,14 +90,67 @@ struct AddressRange {
 struct PGOState {
   AddressRange<__llvm_profile_data> ProfData;
   llvm::StringRef NamesString;
+  std::vector<std::unique_ptr<ValueProfNode*[]>> ValueProfCounters;
+  std::vector<ValueProfNode> ValueProfNodes;
+  std::atomic<ValueProfNode*> ValueProfNodesStart = {nullptr};
+  uint32_t VPMaxNumValsPerSite = 8; //TODO
 
   void reset() {
     ProfData.reset();
     NamesString = llvm::StringRef();
+    ValueProfCounters.clear();
+    ValueProfNodes.clear();
+    ValueProfNodesStart = nullptr;
   }
 
   bool empty() const {
     return ProfData.empty();
+  }
+
+  void registerProfData(__llvm_profile_data *data) {
+    assert(data != nullptr);
+    if (data->Values == nullptr) {
+      uint64_t numVSites = 0;
+      for (uint32_t kind = IPVK_First; kind <= IPVK_Last; ++kind) {
+        numVSites += data->NumValueSites[kind];
+      }
+      if (numVSites > 0) {
+        ValueProfCounters.emplace_back(llvm::make_unique<ValueProfNode*[]>(numVSites));
+        data->Values = ValueProfCounters.back().get();
+      }
+    }
+    ProfData.addAddress(data);
+  }
+
+  void registerFuncNames(const void *names, uint64_t namesSize) {
+    NamesString = llvm::StringRef(static_cast<const char*>(names), namesSize);
+
+    // Assume this is called last
+    uint64_t numVSites = 0;
+    for (auto &&data : ProfData.range()) {
+      for (uint32_t kind = IPVK_First; kind <= IPVK_Last; ++kind) {
+        numVSites += data.NumValueSites[kind];
+      }
+    }
+    ValueProfNodes.resize(std::max(numVSites,
+                                   static_cast<decltype(numVSites)>(10)));
+    ValueProfNodesStart = ValueProfNodes.data();
+  }
+
+  ValueProfNode* allocNode() {
+    assert(ValueProfNodesStart.load() != nullptr);
+    assert(!ValueProfNodes.empty());
+    auto ValueProfNodesEnd = ValueProfNodes.data() + ValueProfNodes.size();
+    if (ValueProfNodesStart >= ValueProfNodesEnd) {
+      // TODO: warning
+      return nullptr;
+    }
+    auto NewNode = ValueProfNodesStart++;
+    if (NewNode >= ValueProfNodesEnd) {
+      return nullptr;
+    }
+    *NewNode = {};
+    return NewNode;
   }
 
   llvm::Error write(llvm::InstrProfWriter &writer) {
@@ -92,6 +169,26 @@ struct PGOState {
       auto countersPtr = static_cast<const uint64_t*>(data.CounterPtr);
       std::vector<uint64_t> counters(countersPtr, countersPtr + data.NumCounters);
       llvm::NamedInstrProfRecord record(name, data.FuncHash, std::move(counters));
+      uint32_t siteOffset = 0;
+      for (uint32_t kind = IPVK_First; kind <= IPVK_Last; ++kind) {
+        const auto numSites = data.NumValueSites[kind];
+        record.reserveSites(kind, numSites);
+        for (uint32_t site = 0; site < numSites; ++site) {
+          record.addValueData(kind, site, nullptr, 0, nullptr);
+//          auto values = static_cast<ValueProfNode**>(data.Values);
+//          if (values == nullptr || values[site] == nullptr) {
+//          } else {
+//            auto currNode = values[siteOffset + site];
+//            while (currNode != nullptr) {
+//              InstrProfValueData data{currNode->Value, currNode->Count};
+//              record.addValueData(kind, site, &data, 1, nullptr);
+//              currNode = currNode->Next;
+//            }
+//          }
+        }
+        siteOffset += numSites;
+      }
+
       writer.addRecord(std::move(record), [&](llvm::Error err){
         llvm::consumeError(std::move(error));
         error = std::move(err);
@@ -113,27 +210,112 @@ PGOState &getState() {
 void __llvm_profile_register_function(void *data_) {
   assert(data_ != nullptr);
   __llvm_profile_data *data = static_cast<__llvm_profile_data *>(data_);
-  getState().ProfData.addAddress(data);
+  getState().registerProfData(data);
 
-//  llvm::NamedInstrProfRecord r;
-//  std::cerr << "\t\tCounterPtr :"      << data->CounterPtr << " "
-//            << "\t\tFuncHash :"        << data->FuncHash << " "
-//            << "\t\tFunctionPointer :" << data->FunctionPointer << " "
-//            << "\t\tNameRef :"         << data->NameRef << " "
-//            << "\t\tNumCounters :"     << data->NumCounters << " "
-//            << "\t\tNumValueSites :"   << data->NumValueSites[0] << "-" << Data->NumValueSites[1] << " "
-//            << "\t\tValues          :" << data->Values << std::endl;
+  std::cerr << "\t\tCounterPtr :"      << data->CounterPtr << " "
+            << "\t\tFuncHash :"        << data->FuncHash << " "
+            << "\t\tFunctionPointer :" << data->FunctionPointer << " "
+            << "\t\tNameRef :"         << data->NameRef << " "
+            << "\t\tNumCounters :"     << data->NumCounters << " "
+            << "\t\tNumValueSites :"   << data->NumValueSites[0] << "-" << data->NumValueSites[1] << " "
+            << "\t\tValues          :" << data->Values << std::endl;
 }
 
 void __llvm_profile_register_names_function(void *NamesStart,
                                             uint64_t NamesSize) {
-  getState().NamesString = llvm::StringRef(static_cast<const char*>(NamesStart),
-                                           NamesSize);
+  getState().registerFuncNames(NamesStart, NamesSize);
 }
-void __llvm_profile_instrument_target(uint64_t TargetValue, void *Data,
+void __llvm_profile_instrument_target(uint64_t TargetValue, void *Data_,
                                       uint32_t CounterIndex) {
+  __llvm_profile_data *PData = static_cast<__llvm_profile_data *>(Data_);
+  std::cerr << "\t\tCounterPtr :"      << PData->CounterPtr << " "
+            << "\t\tFuncHash :"        << PData->FuncHash << " "
+            << "\t\tFunctionPointer :" << PData->FunctionPointer << " "
+            << "\t\tNameRef :"         << PData->NameRef << " "
+            << "\t\tNumCounters :"     << PData->NumCounters << " "
+            << "\t\tNumValueSites :"   << PData->NumValueSites[0] << "-" << PData->NumValueSites[1] << " "
+            << "\t\tValues          :" << PData->Values << " "
+            << "\t\tTargetValue :"     << (void*)TargetValue << " "
+            << "\t\tCounterIndex :"     << CounterIndex << std::endl;
 
+  assert(PData->Values != nullptr);
+
+  ValueProfNode **ValueCounters = static_cast<ValueProfNode **>(PData->Values);
+  ValueProfNode *PrevVNode = nullptr;
+  ValueProfNode *MinCountVNode = nullptr;
+  ValueProfNode *CurVNode = ValueCounters[CounterIndex];
+  auto MinCount = std::numeric_limits<uint64_t>::max();
+
+  uint8_t VDataCount = 0;
+  while (CurVNode) {
+    if (TargetValue == CurVNode->Value) {
+      CurVNode->Count++;
+      return;
+    }
+    if (CurVNode->Count < MinCount) {
+      MinCount = CurVNode->Count;
+      MinCountVNode = CurVNode;
+    }
+    PrevVNode = CurVNode;
+    CurVNode = CurVNode->Next;
+    ++VDataCount;
+  }
+
+  auto &state = getState();
+  if (VDataCount >= state.VPMaxNumValsPerSite) {
+    /* Bump down the min count node's count. If it reaches 0,
+     * evict it. This eviction/replacement policy makes hot
+     * targets more sticky while cold targets less so. In other
+     * words, it makes it less likely for the hot targets to be
+     * prematurally evicted during warmup/establishment period,
+     * when their counts are still low. In a special case when
+     * the number of values tracked is reduced to only one, this
+     * policy will guarantee that the dominating target with >50%
+     * total count will survive in the end. Note that this scheme
+     * allows the runtime to track the min count node in an adaptive
+     * manner. It can correct previous mistakes and eventually
+     * lock on a cold target that is alread in stable state.
+     *
+     * In very rare cases,  this replacement scheme may still lead
+     * to target loss. For instance, out of \c N value slots, \c N-1
+     * slots are occupied by luke warm targets during the warmup
+     * period and the remaining one slot is competed by two or more
+     * very hot targets. If those hot targets occur in an interleaved
+     * way, none of them will survive (gain enough weight to throw out
+     * other established entries) due to the ping-pong effect.
+     * To handle this situation, user can choose to increase the max
+     * number of tracked values per value site. Alternatively, a more
+     * expensive eviction mechanism can be implemented. It requires
+     * the runtime to track the total number of evictions per-site.
+     * When the total number of evictions reaches certain threshold,
+     * the runtime can wipe out more than one lowest count entries
+     * to give space for hot targets.
+     */
+    if (!MinCountVNode->Count || !(--MinCountVNode->Count)) {
+      CurVNode = MinCountVNode;
+      CurVNode->Value = TargetValue;
+      CurVNode->Count++;
+    }
+    return;
+  }
+
+  CurVNode = state.allocNode();
+  if (CurVNode == nullptr) {
+    return;
+  }
+  CurVNode->Value = TargetValue;
+  CurVNode->Count++;
+
+  bool Success = false;
+  if (ValueCounters[CounterIndex] == nullptr) {
+    Success =
+        my_cmpxchg(&ValueCounters[CounterIndex], nullptr, CurVNode);
+  }
+  else if (PrevVNode != nullptr && PrevVNode->Next == nullptr)
+    Success = my_cmpxchg(&(PrevVNode->Next), nullptr, CurVNode);
+  (void)Success;
 }
+
 int __llvm_profile_runtime = 0;
 
 void addInstrumentationSymbols(
@@ -149,7 +331,7 @@ void addInstrumentationSymbols(
 
 } // anon namespace
 
-PgoHandler::PgoHandler(const Context &context,
+PgoHandler::PgoHandler(const Context &context, llvm::Module &module,
                        std::unordered_map<std::string, void *> &symbols,
                        llvm::PassManagerBuilder &builder) {
   if (context.genInstrumentation) {

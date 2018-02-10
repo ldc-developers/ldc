@@ -133,7 +133,7 @@ void optimizeModule(const Context &context, llvm::TargetMachine &targetMachine,
   const auto name = module.getName();
   interruptPoint(context, "Setup passes for module", name.data());
   llvm::PassManagerBuilder builder;
-  PgoHandler pgoHandler(context, symbols, builder);
+  PgoHandler pgoHandler(context, module, symbols, builder);
   setupPasses(targetMachine, settings, builder, mpm, fpm);
   builder.populateFunctionPassManager(fpm);
   builder.populateModulePassManager(mpm);
