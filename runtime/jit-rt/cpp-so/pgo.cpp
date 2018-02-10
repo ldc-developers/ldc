@@ -6,8 +6,6 @@
 #include <limits>
 #include <unordered_map>
 
-#include <iostream>
-
 #ifdef _MSC_VER
 #include <intrin.h> // atomic ops
 #endif
@@ -257,14 +255,6 @@ void __llvm_profile_register_function(void *data_) {
   assert(data_ != nullptr);
   __llvm_profile_data *data = static_cast<__llvm_profile_data *>(data_);
   getState().registerProfData(data);
-
-  std::cerr << "\t\tCounterPtr :"      << data->CounterPtr << " "
-            << "\t\tFuncHash :"        << data->FuncHash << " "
-            << "\t\tFunctionPointer :" << data->FunctionPointer << " "
-            << "\t\tNameRef :"         << data->NameRef << " "
-            << "\t\tNumCounters :"     << data->NumCounters << " "
-            << "\t\tNumValueSites :"   << data->NumValueSites[0] << "-" << data->NumValueSites[1] << " "
-            << "\t\tValues          :" << data->Values << std::endl;
 }
 
 void __llvm_profile_register_names_function(void *NamesStart,
@@ -274,16 +264,6 @@ void __llvm_profile_register_names_function(void *NamesStart,
 void __llvm_profile_instrument_target(uint64_t TargetValue, void *Data_,
                                       uint32_t CounterIndex) {
   __llvm_profile_data *PData = static_cast<__llvm_profile_data *>(Data_);
-  std::cerr << "\t\tCounterPtr :"      << PData->CounterPtr << " "
-            << "\t\tFuncHash :"        << PData->FuncHash << " "
-            << "\t\tFunctionPointer :" << PData->FunctionPointer << " "
-            << "\t\tNameRef :"         << PData->NameRef << " "
-            << "\t\tNumCounters :"     << PData->NumCounters << " "
-            << "\t\tNumValueSites :"   << PData->NumValueSites[0] << "-" << PData->NumValueSites[1] << " "
-            << "\t\tValues          :" << PData->Values << " "
-            << "\t\tTargetValue :"     << (void*)TargetValue << " "
-            << "\t\tCounterIndex :"     << CounterIndex << std::endl;
-
   assert(PData->Values != nullptr);
 
   ValueProfNode **ValueCounters = static_cast<ValueProfNode **>(PData->Values);
@@ -381,7 +361,7 @@ void __llvm_profile_instrument_range(
 int __llvm_profile_runtime = 0;
 
 void addInstrumentationSymbols(
-    const Context &context,
+    const Context &/*context*/,
     std::unordered_map<std::string, void *> &symbols) {
 #define PGO_SYM(name) {#name, &name}
   symbols.insert(PGO_SYM(__llvm_profile_register_function));
