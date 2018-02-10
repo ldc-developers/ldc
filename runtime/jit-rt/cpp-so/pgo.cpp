@@ -89,7 +89,7 @@ struct AddressRange {
 
 struct PGOState {
   AddressRange<__llvm_profile_data> ProfData;
-  llvm::StringRef NamesString;
+  std::string NamesString;
   std::vector<std::unique_ptr<ValueProfNode*[]>> ValueProfCounters;
   std::vector<ValueProfNode> ValueProfNodes;
   std::atomic<ValueProfNode*> ValueProfNodesStart = {nullptr};
@@ -100,7 +100,7 @@ struct PGOState {
 
   void reset() {
     ProfData.reset();
-    NamesString = llvm::StringRef();
+    NamesString = {};
     ValueProfCounters.clear();
     ValueProfNodes.clear();
     ValueProfNodesStart = nullptr;
@@ -128,7 +128,7 @@ struct PGOState {
   }
 
   void registerFuncNames(const void *names, uint64_t namesSize) {
-    NamesString = llvm::StringRef(static_cast<const char*>(names), namesSize);
+    NamesString.assign(static_cast<const char*>(names), namesSize);
 
     // Assume this is called last
     uint64_t numVSites = 0;
@@ -189,7 +189,7 @@ struct PGOState {
       return res;
     }
     llvm::InstrProfSymtab symTab;
-    if (auto res = symTab.create(NamesString)) {
+    if (auto res = symTab.create(llvm::StringRef(NamesString))) {
       return res;
     }
 
