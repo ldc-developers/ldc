@@ -467,13 +467,26 @@ public:
     result = DtoCallee(fd);
     if (fd->tok == TOKdelegate)
     {
-      // If the literal was a delegate construct an initialiser with a null
-      // context pointer.
-      auto *i8null = LLConstant::getNullValue(
-                        LLType::getInt8PtrTy(gIR->context()));
-      result = LLConstantStruct::getAnon(gIR->context(), { i8null, result });
+      // AssocArrayLiteralExp::toElem determines whether it can allocate
+      // the needed arrays statically by just invoking toConstElem on its
+      // key/value expressions with error gagging. see
+      // ToConstElemVisitor::visit(Expression *e)
+
+      // FIXME: this won't work for a module scope AssocArray with delegates
+      // as keys or values.
+      if (global.gag) {
+        result = llvm::UndefValue::get(DtoType(e->type));
+      }
+      else
+      {
+        // If the literal was a delegate construct an initialiser with a null
+        // context pointer for delegates declared at module scope.
+        auto *i8null = LLConstant::getNullValue(
+                          LLType::getInt8PtrTy(gIR->context()));
+        result = LLConstantStruct::getAnon(gIR->context(), { i8null, result });
+      }
     }
-      assert(result);
+    assert(result);
   }
 
   //////////////////////////////////////////////////////////////////////////////
