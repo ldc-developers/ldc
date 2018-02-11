@@ -11,6 +11,7 @@
 #include "gen/binops.h"
 #include "gen/classes.h"
 #include "gen/complex.h"
+#include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
@@ -458,23 +459,21 @@ public:
       fd->vthis = nullptr;
     }
 
-    if (fd->tok != TOKfunction) {
-      assert(fd->tok == TOKdelegate || fd->tok == TOKreserved);
-      e->error("non-constant nested delegate literal expression `%s`",
-               e->toChars());
-      if (!global.gag) {
-        fatal();
-      }
-      result = llvm::UndefValue::get(DtoType(e->type));
-    } else {
-      // We need to actually codegen the function here, as literals are not
-      // added
-      // to the module member list.
-      Declaration_codegen(fd, p);
-      assert(DtoCallee(fd));
+    // We need to actually codegen the function here, as literals are not
+    // added
+    // to the module member list.
+    Declaration_codegen(fd, p);
 
-      result = DtoCallee(fd);
+    result = DtoCallee(fd);
+    if (fd->tok == TOKdelegate)
+    {
+      // If the literal was a delegate construct an initialiser with a null
+      // context pointer.
+      auto *i8null = LLConstant::getNullValue(
+                        LLType::getInt8PtrTy(gIR->context()));
+      result = LLConstantStruct::getAnon(gIR->context(), { i8null, result });
     }
+      assert(result);
   }
 
   //////////////////////////////////////////////////////////////////////////////
