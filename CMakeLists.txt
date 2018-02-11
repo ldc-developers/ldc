@@ -562,8 +562,7 @@ if(LDC_WITH_LLD)
 endif()
 
 # Plugin support
-if(APPLE)
-    # There doesn't seem to be a downside to enabling plugins on macOS
+if(UNIX)
     set(LDC_ENABLE_PLUGINS_DEFAULT ON)
 else()
     set(LDC_ENABLE_PLUGINS_DEFAULT OFF)
