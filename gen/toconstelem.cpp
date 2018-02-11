@@ -475,6 +475,9 @@ public:
       // FIXME: this won't work for a module scope AssocArray with delegates
       // as keys or values.
       if (global.gag) {
+        // Issue an error so that ToElemVisitor::visit(AssocArrayLiteralExp *e)
+        // uses runtime initialisation of the AA.
+        e->error("dummy error"); 
         result = llvm::UndefValue::get(DtoType(e->type));
       }
       else
