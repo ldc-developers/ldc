@@ -75,9 +75,8 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     ctx = DtoLoad(DtoGEPi(val, 0, getVthisIdx(cd), ".vthis"));
     skipDIDeclaration = true;
   } else {
-    Logger::println("Regular nested function, loading context arg");
-
-    ctx = DtoLoad(irfunc->nestArg);
+    Logger::println("Regular nested function, using context arg");
+    ctx = irfunc->nestArg;
   }
 
   assert(ctx);
@@ -224,7 +223,7 @@ LLValue *DtoNestedContext(Loc &loc, Dsymbol *sym) {
     fromParent = false;
   } else if (irFunc.nestArg) {
     // otherwise, it may have gotten a context from the caller
-    val = DtoLoad(irFunc.nestArg);
+    val = irFunc.nestArg;
   } else if (irFunc.thisArg) {
     // or just have a this argument
     AggregateDeclaration *ad = irFunc.decl->isMember2();
@@ -456,8 +455,6 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
         } else {
           src = DtoLoad(DtoGEPi(thisval, 0, getVthisIdx(cd), ".vthis"));
         }
-      } else {
-        src = DtoLoad(src);
       }
       if (depth > 1) {
         src = DtoBitCast(src, getVoidPtrType());

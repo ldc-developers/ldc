@@ -1098,11 +1098,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     gIR->DBuilder.EmitLocalVariable(thismem, fd->vthis, nullptr, true);
   }
 
-  // give the 'nestArg' parameter (an lvalue) storage
-  if (irFty.arg_nest) {
-    irFunc->nestArg = DtoAllocaDump(irFunc->nestArg, 0, "nestedFrame");
-  }
-
   // define all explicit parameters
   if (fd->parameters)
     defineParameters(irFty, *fd->parameters);
