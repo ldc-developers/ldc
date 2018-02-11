@@ -1021,20 +1021,19 @@ public:
     assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
                                    "vars, although it can easily be made to.");
 
-    LLValue *v;
     const auto ident = p->func()->decl->ident;
     if (ident == Id::ensure || ident == Id::require) {
       Logger::println("contract this exp");
-      v = DtoBitCast(p->func()->nestArg, DtoType(e->type)->getPointerTo());
+      LLValue *v = DtoBitCast(p->func()->nestArg, DtoType(e->type));
+      result = new DImValue(e->type, v);
     } else if (vd->toParent2() != p->func()->decl) {
       Logger::println("nested this exp");
       result = DtoNestedVariable(e->loc, e->type, vd, e->type->ty == Tstruct);
-      return;
     } else {
       Logger::println("normal this exp");
-      v = p->func()->thisArg;
+      LLValue *v = p->func()->thisArg;
+      result = new DLValue(e->type, DtoBitCast(v, DtoPtrToType(e->type)));
     }
-    result = new DLValue(e->type, DtoBitCast(v, DtoPtrToType(e->type)));
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -2184,7 +2183,7 @@ public:
         // function. Happens with anonymous functions.
         cval = funcGen.nestedVar;
       } else if (irfn.nestArg) {
-        cval = DtoLoad(irfn.nestArg);
+        cval = irfn.nestArg;
       } else if (irfn.thisArg) {
         AggregateDeclaration *ad = irfn.decl->isMember2();
         if (!ad || !ad->vthis) {
