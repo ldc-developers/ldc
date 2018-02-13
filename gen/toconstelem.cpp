@@ -467,17 +467,16 @@ public:
     result = DtoCallee(fd);
     if (fd->tok == TOKdelegate)
     {
-      // AssocArrayLiteralExp::toElem determines whether it can allocate
-      // the needed arrays statically by just invoking toConstElem on its
-      // key/value expressions with error gagging. see
-      // ToConstElemVisitor::visit(Expression *e)
-
       // FIXME: this won't work for a module scope AssocArray with delegates
       // as keys or values.
-      if (global.gag) {
+      if (!(fd->parent->isModule())) {
         // Issue an error so that ToElemVisitor::visit(AssocArrayLiteralExp *e)
         // uses runtime initialisation of the AA.
-        e->error("dummy error"); 
+        e->error("non-constant nested delegate literal expression `%s`",
+                 e->toChars());
+        if (!global.gag) {
+          fatal();
+        }
         result = llvm::UndefValue::get(DtoType(e->type));
       }
       else
