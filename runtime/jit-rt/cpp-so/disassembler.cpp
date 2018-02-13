@@ -202,14 +202,18 @@ public:
 };
 
 void processRelocations(SymTable &symTable,
+                        uint64_t offset,
                         const llvm::object::ObjectFile &object,
                         const llvm::object::SectionRef &sec) {
   for (const auto &reloc : sec.relocations()) {
     const auto symIt = reloc.getSymbol();
     if (object.symbol_end() != symIt) {
       const auto sym = *symIt;
-      symTable.addExternalSymbolRel(reloc.getOffset(),
-                                    llvm::cantFail(sym.getName()));
+      auto relOffet = reloc.getOffset();
+      if (relOffet >= offset) {
+        symTable.addExternalSymbolRel(relOffet - offset,
+                                      llvm::cantFail(sym.getName()));
+      }
     }
   }
 }
@@ -314,15 +318,15 @@ void disassemble(const llvm::TargetMachine &tm,
           llvm::cantFail(symbol.getType())) {
         symTable.reset();
         symTable.addLabel(0, 0, name); // Function start
-        processRelocations(symTable, object, sec);
+        auto offset = symbol.getValue();
+        processRelocations(symTable, offset, object, sec);
 
         // TODO: something more optimal
         for (const auto &globalSec : object.sections()) {
           if (globalSec.getRelocatedSection() == secIt) {
-            processRelocations(symTable, object, globalSec);
+            processRelocations(symTable, offset, object, globalSec);
           }
         }
-        auto offset = symbol.getValue();
         auto size = data.size() - offset;
         auto &ranges = sectionsToProcess[sec.getIndex()];
         if (!ranges.empty()) {
