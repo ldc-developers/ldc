@@ -50,6 +50,10 @@
 #include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
 #endif
 
+#if LDC_LLVM_VER >= 700
+#include "llvm/ExecutionEngine/Orc/Legacy.h"
+#endif
+
 namespace {
 
 #pragma pack(push, 1)
@@ -158,7 +162,14 @@ private:
       llvm::orc::ObjectTransformLayer<ObjectLayerT, ModuleListener>;
   using CompileLayerT =
       llvm::orc::IRCompileLayer<ListenerLayerT, llvm::orc::SimpleCompiler>;
+#if LDC_LLVM_VER >= 700
+  using ModuleHandleT = llvm::orc::VModuleKey;
+  llvm::orc::SymbolStringPool stringPool;
+  llvm::orc::ExecutionSession execSession;
+  std::shared_ptr<llvm::orc::SymbolResolver> resolver;
+#else
   using ModuleHandleT = CompileLayerT::ModuleHandleT;
+#endif
 #else
   using ObjectLayerT = llvm::orc::ObjectLinkingLayer<>;
   using ListenerLayerT =
@@ -172,6 +183,7 @@ private:
   llvm::LLVMContext context;
   bool compiled = false;
   ModuleHandleT moduleHandle;
+  SymMap symMap;
 
   struct ListenerCleaner final {
     MyJIT &owner;
@@ -187,9 +199,18 @@ public:
             llvm::Triple(llvm::sys::getProcessTriple()), llvm::StringRef(),
             llvm::sys::getHostCPUName(), getHostAttrs())),
         dataLayout(targetmachine->createDataLayout()),
-#if LDC_LLVM_VER >= 500
+#if LDC_LLVM_VER >= 700
+        execSession(stringPool),
+        resolver(createResolver()),
         objectLayer(
-            []() { return std::make_shared<llvm::SectionMemoryManager>(); }),
+          execSession,
+          [](llvm::orc::VModuleKey) {
+            return std::make_shared<llvm::SectionMemoryManager>();
+          },
+          [this](llvm::orc::VModuleKey) { return resolver; }),
+#elif LDC_LLVM_VER >= 500
+        objectLayer(
+          []() { return std::make_shared<llvm::SectionMemoryManager>(); }),
 #endif
         listenerlayer(objectLayer, ModuleListener(*targetmachine)),
         compileLayer(listenerlayer, llvm::orc::SimpleCompiler(*targetmachine)) {
@@ -198,16 +219,23 @@ public:
 
   llvm::TargetMachine &getTargetMachine() { return *targetmachine; }
 
-  bool addModule(std::unique_ptr<llvm::Module> module, const SymMap &symMap,
+  bool addModule(std::unique_ptr<llvm::Module> module,
                  llvm::raw_ostream *asmListener) {
     assert(nullptr != module);
     reset();
-    auto Resolver = createResolver(symMap);
 
     ListenerCleaner cleaner(*this, asmListener);
     // Add the set to the JIT with the resolver we created above
-#if LDC_LLVM_VER >= 500
-    auto result = compileLayer.addModule(std::move(module), Resolver);
+#if LDC_LLVM_VER >= 700
+    auto handle = execSession.allocateVModule();
+    auto result = compileLayer.addModule(handle, std::move(module));
+    if (result) {
+      execSession.releaseVModule(handle);
+      return true;
+    }
+    moduleHandle = handle;
+#elif LDC_LLVM_VER >= 500
+    auto result = compileLayer.addModule(std::move(module), createResolver());
     if (!result) {
       return true;
     }
@@ -217,7 +245,7 @@ public:
     modules.emplace_back(std::move(module));
     moduleHandle = compileLayer.addModuleSet(
         std::move(modules), llvm::make_unique<llvm::SectionMemoryManager>(),
-        std::move(Resolver));
+        createResolver());
 #endif
     compiled = true;
     return false;
@@ -228,6 +256,8 @@ public:
   }
 
   llvm::LLVMContext &getContext() { return context; }
+
+  SymMap &getSymMap() { return symMap; }
 
   void reset() {
     if (compiled) {
@@ -241,25 +271,54 @@ private:
   void removeModule(const ModuleHandleT &handle) {
 #if LDC_LLVM_VER >= 500
     cantFail(compileLayer.removeModule(handle));
+#if LDC_LLVM_VER >= 700
+    execSession.releaseVModule(handle);
+#endif
 #else
     compileLayer.removeModuleSet(handle);
 #endif
   }
 
+#if LDC_LLVM_VER >= 700
+  std::shared_ptr<llvm::orc::SymbolResolver>
+  createResolver() {
+    return llvm::orc::createLegacyLookupResolver(
+          [this](const std::string &name) -> llvm::JITSymbol {
+      if (auto Sym = compileLayer.findSymbol(name, false)) {
+        return Sym;
+      }
+      else if (auto Err = Sym.takeError()) {
+        return std::move(Err);
+      }
+      auto it = symMap.find(name);
+      if (symMap.end() != it) {
+        return llvm::JITSymbol(
+              reinterpret_cast<llvm::JITTargetAddress>(it->second),
+              llvm::JITSymbolFlags::Exported);
+      }
+      if (auto SymAddr = getSymbolInProcess(name)) {
+        return llvm::JITSymbol(SymAddr, llvm::JITSymbolFlags::Exported);
+      }
+      return nullptr;
+    },
+    [](llvm::Error Err) { llvm::cantFail(std::move(Err),
+                                         "lookupFlags failed"); });
+  }
+#else
   std::shared_ptr<llvm::JITSymbolResolver>
-  createResolver(const SymMap &symMap) {
+  createResolver() {
     // Build our symbol resolver:
     // Lambda 1: Look back into the JIT itself to find symbols that are part of
     //           the same "logical dylib".
     // Lambda 2: Search for external symbols in the host process.
     return llvm::orc::createLambdaResolver(
-        [&](const std::string &name) {
+        [this](const std::string &name) {
           if (auto Sym = compileLayer.findSymbol(name, false)) {
             return Sym;
           }
           return llvm::JITSymbol(nullptr);
         },
-        [&](const std::string &name) {
+        [this](const std::string &name) {
           auto it = symMap.find(name);
           if (symMap.end() != it) {
             return llvm::JITSymbol(
@@ -272,6 +331,7 @@ private:
           return llvm::JITSymbol(nullptr);
         });
   }
+#endif
 };
 
 MyJIT &getJit() {
@@ -373,7 +433,8 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
 
   std::vector<std::pair<std::string, void **>> functions;
   std::unique_ptr<llvm::Module> finalModule;
-  SymMap symMap;
+  auto &symMap = myJit.getSymMap();
+  symMap.clear();
   OptimizerSettings settings;
   settings.optLevel = context.optLevel;
   settings.sizeLevel = context.sizeLevel;
@@ -441,11 +502,11 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
     };
 
     CallbackOstream os(callback);
-    if (myJit.addModule(std::move(finalModule), symMap, &os)) {
+    if (myJit.addModule(std::move(finalModule), &os)) {
       fatal(context, "Can't codegen module");
     }
   } else {
-    if (myJit.addModule(std::move(finalModule), symMap, nullptr)) {
+    if (myJit.addModule(std::move(finalModule), nullptr)) {
       fatal(context, "Can't codegen module");
     }
   }
