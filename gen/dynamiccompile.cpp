@@ -193,47 +193,39 @@ void fixRtModule(llvm::Module &newModule,
   // Replace call to thunks in jitted code with direct calls to functions
   for (auto &&fun : newModule.functions()) {
     iterateFuncInstructions(fun, [&](llvm::Instruction &instr) -> bool {
-      if (auto call = llvm::dyn_cast<llvm::CallInst>(&instr)) {
-        auto callee = call->getCalledValue();
-        assert(nullptr != callee);
-        auto it = thunkFun2func.find(callee->getName());
-        if (thunkFun2func.end() != it) {
-          auto realFunc = newModule.getFunction(it->second);
-          assert(nullptr != realFunc);
-          call->setCalledFunction(realFunc);
+      for (auto &op : instr.operands()) {
+        auto val = op.get();
+        if (auto callee = llvm::dyn_cast<llvm::Function>(val)) {
+          auto it = thunkFun2func.find(callee->getName());
+          if (thunkFun2func.end() != it) {
+            auto realFunc = newModule.getFunction(it->second);
+            assert(nullptr != realFunc);
+            op.set(realFunc);
+          }
         }
       }
       return false;
     });
   }
 
-  int objectsFixed = 0;
-  for (auto &&obj : newModule.globals()) {
-    auto it = thunkVar2func.find(obj.getName());
-    if (thunkVar2func.end() != it) {
-      if (obj.hasInitializer()) {
-        auto func = newModule.getFunction(it->second);
-        assert(nullptr != func);
-        obj.setConstant(true);
-        obj.setInitializer(func);
+  // Thunks should be unused now, strip them
+  for (auto &&it : funcs) {
+    assert(nullptr != it.first);
+    assert(nullptr != it.second.thunkFunc);
+    auto func = newModule.getFunction(it.second.thunkFunc->getName());
+    assert(func != nullptr);
+    if (func->use_empty()) {
+      func->eraseFromParent();
+    }
+
+    if (nullptr != it.second.thunkVar) {
+      auto var = newModule.getGlobalVariable(it.second.thunkVar->getName());
+      assert(var != nullptr);
+      if (var->use_empty()) {
+        var->eraseFromParent();
       }
-      ++objectsFixed;
     }
   }
-  for (auto &&obj : newModule.functions()) {
-    if (contains(externalFuncs, obj.getName())) {
-      obj.setLinkage(llvm::GlobalValue::ExternalLinkage);
-      obj.setVisibility(llvm::GlobalValue::DefaultVisibility);
-      ++objectsFixed;
-    } else {
-      if (llvm::GlobalValue::ExternalLinkage == obj.getLinkage() &&
-          !obj.isDeclaration()) {
-        obj.setLinkage(llvm::GlobalValue::InternalLinkage);
-      };
-    }
-  }
-  assert((thunkVar2func.size() + externalFuncs.size()) ==
-         static_cast<std::size_t>(objectsFixed));
 }
 
 void removeFunctionsTargets(IRState *irs, llvm::Module &module) {
@@ -615,15 +607,6 @@ llvm::PointerType *getModListHeadType(llvm::LLVMContext &context,
 llvm::GlobalVariable *declareModListHead(llvm::Module &module,
                                          const Types &types) {
   auto type = getModListHeadType(module.getContext(), types);
-  //  auto existingVar =
-  //  module.getGlobalVariable(DynamicCompileModulesHeadName); if (nullptr !=
-  //  existingVar) {
-  //    if (type != existingVar->getType()) {
-  //      error(Loc(), "Invalid DynamicCompileModulesHeadName type");
-  //      fatal();
-  //    }
-  //    return existingVar;
-  //  }
   return new llvm::GlobalVariable(module, type, false,
                                   llvm::GlobalValue::ExternalLinkage, nullptr,
                                   DynamicCompileModulesHeadName);

@@ -14,6 +14,7 @@
 #ifndef OPTIMIZER_HPP
 #define OPTIMIZER_HPP
 
+#include <unordered_map>
 #include <memory>
 
 namespace llvm {
@@ -30,10 +31,14 @@ struct Context;
 struct OptimizerSettings final {
   unsigned optLevel = 0;
   unsigned sizeLevel = 0;
+  bool genInstrumentation = false;
+  bool useInstrumentation = false;
 };
 
 void optimizeModule(const Context &context, llvm::TargetMachine &targetMachine,
-                    const OptimizerSettings &settings, llvm::Module &module);
+                    const OptimizerSettings &settings,
+                    std::unordered_map<std::string, void *>& symbols,
+                    llvm::Module &module);
 
 void setRtCompileVar(const Context &context, llvm::Module &module,
                      const char *name, const void *init);

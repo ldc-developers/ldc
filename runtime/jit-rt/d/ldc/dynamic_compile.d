@@ -41,6 +41,9 @@ struct CompilerSettings
   /// Actual format of dump is not specified and must be used for debugging
   /// purposes only
   void delegate(DumpStage, in char[]) dumpHandler = null;
+
+  bool genInstrumentation = false;
+  bool useInstrumentation = false;
 }
 
 /++
@@ -80,6 +83,10 @@ void compileDynamicCode(in CompilerSettings settings = CompilerSettings.init)
     context.dumpHandler = &dumpHandlerWrapper;
     context.dumpHandlerData = cast(void*)&settings.dumpHandler;
   }
+
+  context.genInstrumentation = settings.genInstrumentation;
+  context.useInstrumentation = settings.useInstrumentation;
+
   rtCompileProcessImpl(context, context.sizeof);
 }
 
@@ -116,6 +123,8 @@ struct Context
   void* fatalHandlerData = null;
   void function(void*, DumpStage, const char*, size_t) dumpHandler = null;
   void* dumpHandlerData = null;
+  bool genInstrumentation = false;
+  bool useInstrumentation = false;
 }
 extern void rtCompileProcessImpl(const ref Context context, size_t contextSize);
 }
