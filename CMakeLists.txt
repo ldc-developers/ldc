@@ -321,6 +321,7 @@ set(DRV_SRC
     driver/linker-gcc.cpp
     driver/linker-msvc.cpp
     driver/main.cpp
+    driver/plugins.cpp
     ${CMAKE_BINARY_DIR}/driver/ldc-version.cpp
 )
 set(DRV_HDR
@@ -337,6 +338,7 @@ set(DRV_HDR
     driver/ldc-version.h
     driver/archiver.h
     driver/linker.h
+    driver/plugins.h
     driver/targetmachine.h
     driver/toobj.h
     driver/tool.h
@@ -557,6 +559,24 @@ if(LDC_WITH_LLD)
     else()
         set(LDC_LINKERFLAG_LIST "-llldCOFF;-llldCore;-llldDriver;${LDC_LINKERFLAG_LIST}")
     endif()
+endif()
+
+# Plugin support
+if(UNIX)
+    set(LDC_ENABLE_PLUGINS_DEFAULT ON)
+else()
+    set(LDC_ENABLE_PLUGINS_DEFAULT OFF)
+endif()
+set(LDC_ENABLE_PLUGINS ${LDC_ENABLE_PLUGINS_DEFAULT} CACHE BOOL "Build LDC with plugin support (increases binary size)")
+if(LDC_ENABLE_PLUGINS)
+    message(STATUS "Building LDC with plugin support (LDC_ENABLE_PLUGINS=ON)")
+    add_definitions(-DLDC_ENABLE_PLUGINS)
+    # For plugin support, we need to link with --export-dynamic on Unix.
+    if(UNIX AND NOT APPLE)
+        set(LDC_LINKERFLAG_LIST "${LDC_LINKERFLAG_LIST};-Wl,--export-dynamic")
+    endif()
+else()
+    message(STATUS "Building LDC without plugin support (LDC_ENABLE_PLUGINS=OFF)")
 endif()
 
 set(LDC_LINK_MANUALLY OFF)

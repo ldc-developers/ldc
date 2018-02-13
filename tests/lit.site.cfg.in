@@ -22,6 +22,7 @@ config.llvm_targetsstr     = "@LLVM_TARGETS_TO_BUILD@"
 config.default_target_bits = @DEFAULT_TARGET_BITS@
 config.with_PGO            = True
 config.dynamic_compile     = @LDC_DYNAMIC_COMPILE@
+config.plugins_supported   = "@LDC_ENABLE_PLUGINS@" == "ON"
 
 config.name = 'LDC'
 
