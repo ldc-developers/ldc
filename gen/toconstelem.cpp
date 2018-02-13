@@ -469,7 +469,7 @@ public:
     {
       // FIXME: this won't work for a module scope AssocArray with delegates
       // as keys or values.
-      if (!(fd->parent->isModule())) {
+      if (!(fd->toParent2()->isModule())) {
         // Issue an error so that ToElemVisitor::visit(AssocArrayLiteralExp *e)
         // uses runtime initialisation of the AA.
         e->error("non-constant nested delegate literal expression `%s`",
