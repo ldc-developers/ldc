@@ -32,6 +32,7 @@
 #include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
 #include "llvm/ExecutionEngine/Orc/LambdaResolver.h"
 #include "llvm/ExecutionEngine/Orc/ObjectTransformLayer.h"
+#include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
 #include "llvm/ExecutionEngine/RuntimeDyld.h"
 #include "llvm/ExecutionEngine/SectionMemoryManager.h"
 #include "llvm/Linker/Linker.h"
@@ -42,13 +43,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-
-#if LDC_LLVM_VER >= 500
-#include "llvm/ExecutionEngine/Orc/CompileUtils.h"
-#include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
-#else
-#include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
-#endif
 
 #if LDC_LLVM_VER >= 700
 #include "llvm/ExecutionEngine/Orc/Legacy.h"
@@ -156,7 +150,6 @@ private:
   llvm::llvm_shutdown_obj shutdownObj;
   std::unique_ptr<llvm::TargetMachine> targetmachine;
   const llvm::DataLayout dataLayout;
-#if LDC_LLVM_VER >= 500
   using ObjectLayerT = llvm::orc::RTDyldObjectLinkingLayer;
   using ListenerLayerT =
       llvm::orc::ObjectTransformLayer<ObjectLayerT, ModuleListener>;
@@ -169,13 +162,6 @@ private:
   std::shared_ptr<llvm::orc::SymbolResolver> resolver;
 #else
   using ModuleHandleT = CompileLayerT::ModuleHandleT;
-#endif
-#else
-  using ObjectLayerT = llvm::orc::ObjectLinkingLayer<>;
-  using ListenerLayerT =
-      llvm::orc::ObjectTransformLayer<ObjectLayerT, ModuleListener>;
-  using CompileLayerT = llvm::orc::IRCompileLayer<ListenerLayerT>;
-  using ModuleHandleT = CompileLayerT::ModuleSetHandleT;
 #endif
   ObjectLayerT objectLayer;
   ListenerLayerT listenerlayer;
@@ -208,7 +194,7 @@ public:
             return std::make_shared<llvm::SectionMemoryManager>();
           },
           [this](llvm::orc::VModuleKey) { return resolver; }),
-#elif LDC_LLVM_VER >= 500
+#else
         objectLayer(
           []() { return std::make_shared<llvm::SectionMemoryManager>(); }),
 #endif
@@ -234,18 +220,12 @@ public:
       return true;
     }
     moduleHandle = handle;
-#elif LDC_LLVM_VER >= 500
+#else
     auto result = compileLayer.addModule(std::move(module), createResolver());
     if (!result) {
       return true;
     }
     moduleHandle = result.get();
-#else
-    std::vector<std::unique_ptr<llvm::Module>> modules;
-    modules.emplace_back(std::move(module));
-    moduleHandle = compileLayer.addModuleSet(
-        std::move(modules), llvm::make_unique<llvm::SectionMemoryManager>(),
-        createResolver());
 #endif
     compiled = true;
     return false;
@@ -269,13 +249,9 @@ public:
 
 private:
   void removeModule(const ModuleHandleT &handle) {
-#if LDC_LLVM_VER >= 500
     cantFail(compileLayer.removeModule(handle));
 #if LDC_LLVM_VER >= 700
     execSession.releaseVModule(handle);
-#endif
-#else
-    compileLayer.removeModuleSet(handle);
 #endif
   }
 
@@ -354,16 +330,12 @@ auto toArray(T *ptr, size_t size)
 
 void *resolveSymbol(llvm::JITSymbol &symbol) {
   auto addr = symbol.getAddress();
-#if LDC_LLVM_VER >= 500
   if (!addr) {
     consumeError(addr.takeError());
     return nullptr;
   } else {
     return reinterpret_cast<void *>(addr.get());
   }
-#else
-  return reinterpret_cast<void *>(addr);
-#endif
 }
 
 void dumpModule(const Context &context, const llvm::Module &module,

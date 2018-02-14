@@ -31,7 +31,6 @@
 #include <llvm/Support/TargetRegistry.h>
 #include <llvm/Target/TargetMachine.h>
 
-#if LDC_LLVM_VER >= 500
 namespace {
 template <typename T> std::unique_ptr<T> unique(T *ptr) {
   return std::unique_ptr<T>(ptr);
@@ -346,11 +345,3 @@ void disassemble(const llvm::TargetMachine &tm,
     }
   }
 }
-#else
-void disassemble(const llvm::TargetMachine & /*tm*/,
-                 const llvm::object::ObjectFile & /*object*/,
-                 llvm::raw_ostream &os) {
-  os << "Asm output not supported";
-  os.flush();
-}
-#endif
