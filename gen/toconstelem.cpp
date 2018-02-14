@@ -11,7 +11,6 @@
 #include "gen/binops.h"
 #include "gen/classes.h"
 #include "gen/complex.h"
-#include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
@@ -459,37 +458,23 @@ public:
       fd->vthis = nullptr;
     }
 
-    // We need to actually codegen the function here, as literals are not
-    // added
-    // to the module member list.
-    Declaration_codegen(fd, p);
-
-    result = DtoCallee(fd);
-    if (fd->tok == TOKdelegate)
-    {
-      // AssocArrayLiteralExp::toElem determines whether it can allocate
-      // the needed arrays statically by just invoking toConstElem on its
-      // key/value expressions with error gagging. see
-      // ToConstElemVisitor::visit(Expression *e)
-
-      // FIXME: this won't work for a module scope AssocArray with delegates
-      // as keys or values.
-      if (global.gag) {
-        // Issue an error so that ToElemVisitor::visit(AssocArrayLiteralExp *e)
-        // uses runtime initialisation of the AA.
-        e->error("dummy error"); 
-        result = llvm::UndefValue::get(DtoType(e->type));
+    if (fd->tok != TOKfunction) {
+      assert(fd->tok == TOKdelegate || fd->tok == TOKreserved);
+      e->error("non-constant nested delegate literal expression `%s`",
+               e->toChars());
+      if (!global.gag) {
+        fatal();
       }
-      else
-      {
-        // If the literal was a delegate construct an initialiser with a null
-        // context pointer for delegates declared at module scope.
-        auto *i8null = LLConstant::getNullValue(
-                          LLType::getInt8PtrTy(gIR->context()));
-        result = LLConstantStruct::getAnon(gIR->context(), { i8null, result });
-      }
+      result = llvm::UndefValue::get(DtoType(e->type));
+    } else {
+      // We need to actually codegen the function here, as literals are not
+      // added
+      // to the module member list.
+      Declaration_codegen(fd, p);
+      assert(DtoCallee(fd));
+
+      result = DtoCallee(fd);
     }
-    assert(result);
   }
 
   //////////////////////////////////////////////////////////////////////////////
