@@ -11,18 +11,31 @@ __gshared int value = 32;
 
 @dynamicCompile int foo()
 {
-  return value;
+  return 42;
 }
 
 @dynamicCompile int bar()
 {
-  return 7;
+  return foo();
 }
 
-@dynamicCompile int baz()
+void fun(int function())
 {
-  return 8;
 }
+
+@dynamicCompile void baz()
+{
+  fun(&foo);
+}
+
+class Foo()
+{
+  @dynamicCompile int foo()
+  {
+    return 43;
+  }
+}
+
 
 void main(string[] args)
 {
@@ -30,18 +43,12 @@ void main(string[] args)
   CompilerSettings settings;
   settings.dumpHandler = (DumpStage stage, in char[] str)
   {
-    if (DumpStage.FinalAsm == stage)
+    if (DumpStage.OriginalModule == stage)
     {
       dump.put(str);
     }
   };
   compileDynamicCode(settings);
 
-  // Check function and variables names in asm
-  assert(1 == count(dump.data, foo.mangleof));
-  assert(1 == count(dump.data, bar.mangleof));
-  assert(1 == count(dump.data, baz.mangleof));
-  assert(1 == count(dump.data, value.mangleof));
-  assert(1 == count(dump.data, "7"));
-  assert(1 == count(dump.data, "8"));
+  assert(0 == count(dump.data, "thunk"));
 }
