@@ -460,20 +460,32 @@ public:
 
     if (fd->tok != TOKfunction) {
       assert(fd->tok == TOKdelegate || fd->tok == TOKreserved);
-      e->error("non-constant nested delegate literal expression `%s`",
-               e->toChars());
-      if (!global.gag) {
-        fatal();
-      }
-      result = llvm::UndefValue::get(DtoType(e->type));
-    } else {
-      // We need to actually codegen the function here, as literals are not
-      // added
-      // to the module member list.
-      Declaration_codegen(fd, p);
-      assert(DtoCallee(fd));
 
-      result = DtoCallee(fd);
+      // Only if the function doesn't access its nested context, we can emit a
+      // constant delegate with context pointer being null.
+      // FIXME: Find a proper way to check whether the context is used.
+      //        For now, just enable it for literals declared at module scope.
+      if (!fd->toParent2()->isModule()) {
+        e->error("non-constant nested delegate literal expression `%s`",
+                 e->toChars());
+        if (!global.gag) {
+          fatal();
+        }
+        result = llvm::UndefValue::get(DtoType(e->type));
+        return;
+      }
+    }
+
+    // We need to actually codegen the function here, as literals are not
+    // added to the module member list.
+    Declaration_codegen(fd, p);
+
+    result = DtoCallee(fd);
+    assert(result);
+
+    if (fd->tok != TOKfunction) {
+      auto contextPtr = getNullPtr(getVoidPtrType());
+      result = LLConstantStruct::getAnon(gIR->context(), {contextPtr, result});
     }
   }
 
