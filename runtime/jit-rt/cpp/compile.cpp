@@ -17,10 +17,10 @@
 struct Context;
 
 #define MAKE_JIT_API_CALL_IMPL(prefix, version) prefix##version
-#define MAKE_JIT_API_CALL(prefix, version) \
+#define MAKE_JIT_API_CALL(prefix, version)                                     \
   MAKE_JIT_API_CALL_IMPL(prefix, version)
-#define JIT_API_ENTRYPOINT MAKE_JIT_API_CALL(rtCompileProcessImplSo, \
-  LDC_DYNAMIC_COMPILE_API_VERSION)
+#define JIT_API_ENTRYPOINT                                                     \
+  MAKE_JIT_API_CALL(rtCompileProcessImplSo, LDC_DYNAMIC_COMPILE_API_VERSION)
 
 extern "C" {
 
@@ -32,8 +32,8 @@ const void *dynamiccompile_modules_head = nullptr;
 __declspec(dllimport)
 #endif
 extern void JIT_API_ENTRYPOINT(const void *modlist_head,
-                                   const Context *context,
-                                   std::size_t contextSize);
+                               const Context *context,
+                               std::size_t contextSize);
 
 void rtCompileProcessImpl(const Context *context, std::size_t contextSize) {
   JIT_API_ENTRYPOINT(dynamiccompile_modules_head, context, contextSize);

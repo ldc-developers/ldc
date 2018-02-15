@@ -26,9 +26,7 @@
 
 namespace {
 
-enum {
-    ApiVersion = LDC_DYNAMIC_COMPILE_API_VERSION
-};
+enum { ApiVersion = LDC_DYNAMIC_COMPILE_API_VERSION };
 
 const char *DynamicCompileModulesHeadName = "dynamiccompile_modules_head";
 
@@ -577,8 +575,7 @@ llvm::GlobalVariable *generateModuleListElem(IRState *irs, const Types &types,
   auto symListInit = generateSymList(irs, types, globalVals);
   auto varlistInit = generateVarList(irs, types);
   llvm::Constant *fields[] = {
-      llvm::ConstantInt::get(irs->context(),
-          APInt(32, ApiVersion)),    // version
+      llvm::ConstantInt::get(irs->context(), APInt(32, ApiVersion)), // version
       llvm::ConstantPointerNull::get(llvm::dyn_cast<llvm::PointerType>(
           elem_type->getElementType(1))), // next
       irData->getInitializer(),           // irdata

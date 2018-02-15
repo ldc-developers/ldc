@@ -200,8 +200,7 @@ public:
   }
 };
 
-void processRelocations(SymTable &symTable,
-                        uint64_t offset,
+void processRelocations(SymTable &symTable, uint64_t offset,
                         const llvm::object::ObjectFile &object,
                         const llvm::object::SectionRef &sec) {
   for (const auto &reloc : sec.relocations()) {
@@ -336,8 +335,7 @@ void disassemble(const llvm::TargetMachine &tm,
           }
         }
         llvm::ArrayRef<uint8_t> buff(
-              reinterpret_cast<const uint8_t *>(data.data() + offset),
-              size);
+            reinterpret_cast<const uint8_t *>(data.data() + offset), size);
 
         printFunction(*disasm, *mcia, buff, symTable, *sti, *asmStreamer);
         asmStreamer->EmitRawText("");

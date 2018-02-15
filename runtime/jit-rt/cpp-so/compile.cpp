@@ -186,17 +186,15 @@ public:
             llvm::sys::getHostCPUName(), getHostAttrs())),
         dataLayout(targetmachine->createDataLayout()),
 #if LDC_LLVM_VER >= 700
-        execSession(stringPool),
-        resolver(createResolver()),
-        objectLayer(
-          execSession,
-          [](llvm::orc::VModuleKey) {
-            return std::make_shared<llvm::SectionMemoryManager>();
-          },
-          [this](llvm::orc::VModuleKey) { return resolver; }),
+        execSession(stringPool), resolver(createResolver()),
+        objectLayer(execSession,
+                    [](llvm::orc::VModuleKey) {
+                      return std::make_shared<llvm::SectionMemoryManager>();
+                    },
+                    [this](llvm::orc::VModuleKey) { return resolver; }),
 #else
         objectLayer(
-          []() { return std::make_shared<llvm::SectionMemoryManager>(); }),
+            []() { return std::make_shared<llvm::SectionMemoryManager>(); }),
 #endif
         listenerlayer(objectLayer, ModuleListener(*targetmachine)),
         compileLayer(listenerlayer, llvm::orc::SimpleCompiler(*targetmachine)) {
@@ -256,33 +254,31 @@ private:
   }
 
 #if LDC_LLVM_VER >= 700
-  std::shared_ptr<llvm::orc::SymbolResolver>
-  createResolver() {
+  std::shared_ptr<llvm::orc::SymbolResolver> createResolver() {
     return llvm::orc::createLegacyLookupResolver(
-          [this](const std::string &name) -> llvm::JITSymbol {
-      if (auto Sym = compileLayer.findSymbol(name, false)) {
-        return Sym;
-      }
-      else if (auto Err = Sym.takeError()) {
-        return std::move(Err);
-      }
-      auto it = symMap.find(name);
-      if (symMap.end() != it) {
-        return llvm::JITSymbol(
-              reinterpret_cast<llvm::JITTargetAddress>(it->second),
-              llvm::JITSymbolFlags::Exported);
-      }
-      if (auto SymAddr = getSymbolInProcess(name)) {
-        return llvm::JITSymbol(SymAddr, llvm::JITSymbolFlags::Exported);
-      }
-      return nullptr;
-    },
-    [](llvm::Error Err) { llvm::cantFail(std::move(Err),
-                                         "lookupFlags failed"); });
+        [this](const std::string &name) -> llvm::JITSymbol {
+          if (auto Sym = compileLayer.findSymbol(name, false)) {
+            return Sym;
+          } else if (auto Err = Sym.takeError()) {
+            return std::move(Err);
+          }
+          auto it = symMap.find(name);
+          if (symMap.end() != it) {
+            return llvm::JITSymbol(
+                reinterpret_cast<llvm::JITTargetAddress>(it->second),
+                llvm::JITSymbolFlags::Exported);
+          }
+          if (auto SymAddr = getSymbolInProcess(name)) {
+            return llvm::JITSymbol(SymAddr, llvm::JITSymbolFlags::Exported);
+          }
+          return nullptr;
+        },
+        [](llvm::Error Err) {
+          llvm::cantFail(std::move(Err), "lookupFlags failed");
+        });
   }
 #else
-  std::shared_ptr<llvm::JITSymbolResolver>
-  createResolver() {
+  std::shared_ptr<llvm::JITSymbolResolver> createResolver() {
     // Build our symbol resolver:
     // Lambda 1: Look back into the JIT itself to find symbols that are part of
     //           the same "logical dylib".
@@ -381,8 +377,7 @@ struct JitFinaliser final {
 
 template <typename F>
 void enumModules(const RtCompileModuleList *modlist_head,
-                 const Context& context,
-                 F &&fun) {
+                 const Context &context, F &&fun) {
   auto current = modlist_head;
   while (current != nullptr) {
     interruptPoint(context, "check version");
@@ -516,8 +511,8 @@ __declspec(dllexport)
 #else
 __attribute__ ((visibility ("default")))
 #endif
-void JIT_API_ENTRYPOINT(const void *modlist_head,
-                        const Context *context, size_t contextSize) {
+void JIT_API_ENTRYPOINT(const void *modlist_head, const Context *context,
+                        size_t contextSize) {
   assert(nullptr != context);
   assert(sizeof(*context) == contextSize);
   rtCompileProcessImplSoInternal(
