@@ -11,7 +11,6 @@
 #include "gen/binops.h"
 #include "gen/classes.h"
 #include "gen/complex.h"
-#include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
@@ -459,37 +458,35 @@ public:
       fd->vthis = nullptr;
     }
 
+    if (fd->tok != TOKfunction) {
+      assert(fd->tok == TOKdelegate || fd->tok == TOKreserved);
+
+      // Only if the function doesn't access its nested context, we can emit a
+      // constant delegate with context pointer being null.
+      // FIXME: Find a proper way to check whether the context is used.
+      //        For now, just enable it for literals declared at module scope.
+      if (!fd->toParent2()->isModule()) {
+        e->error("non-constant nested delegate literal expression `%s`",
+                 e->toChars());
+        if (!global.gag) {
+          fatal();
+        }
+        result = llvm::UndefValue::get(DtoType(e->type));
+        return;
+      }
+    }
+
     // We need to actually codegen the function here, as literals are not
-    // added
-    // to the module member list.
+    // added to the module member list.
     Declaration_codegen(fd, p);
 
     result = DtoCallee(fd);
-    if (fd->tok == TOKdelegate)
-    {
-      // AssocArrayLiteralExp::toElem determines whether it can allocate
-      // the needed arrays statically by just invoking toConstElem on its
-      // key/value expressions with error gagging. see
-      // ToConstElemVisitor::visit(Expression *e)
-
-      // FIXME: this won't work for a module scope AssocArray with delegates
-      // as keys or values.
-      if (global.gag) {
-        // Issue an error so that ToElemVisitor::visit(AssocArrayLiteralExp *e)
-        // uses runtime initialisation of the AA.
-        e->error("dummy error"); 
-        result = llvm::UndefValue::get(DtoType(e->type));
-      }
-      else
-      {
-        // If the literal was a delegate construct an initialiser with a null
-        // context pointer for delegates declared at module scope.
-        auto *i8null = LLConstant::getNullValue(
-                          LLType::getInt8PtrTy(gIR->context()));
-        result = LLConstantStruct::getAnon(gIR->context(), { i8null, result });
-      }
-    }
     assert(result);
+
+    if (fd->tok != TOKfunction) {
+      auto contextPtr = getNullPtr(getVoidPtrType());
+      result = LLConstantStruct::getAnon(gIR->context(), {contextPtr, result});
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
