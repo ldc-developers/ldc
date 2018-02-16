@@ -1641,7 +1641,9 @@ version(IN_LLVM)
             }
             else
             {
-                deprecation("'switch' skips declaration of variable %s at %s", vd.toPrettyChars(), vd.loc.toChars());
+                if (!vd._init.isVoidInitializer)
+                    deprecation("'switch' skips declaration of variable %s at %s", vd.toPrettyChars(), vd.loc.toChars());
+
                 return true;
             }
 
