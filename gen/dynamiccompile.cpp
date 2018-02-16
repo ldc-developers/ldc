@@ -657,7 +657,11 @@ void setupModuleBitcodeData(const llvm::Module &srcModule, IRState *irs,
 
   llvm::SmallString<1024> str;
   llvm::raw_svector_ostream os(str);
+#if LDC_LLVM_VER >= 700
+  llvm::WriteBitcodeToFile(srcModule, os);
+#else
   llvm::WriteBitcodeToFile(&srcModule, os);
+#endif
 
   auto runtimeCompiledIr = new llvm::GlobalVariable(
       irs->module, llvm::Type::getInt8PtrTy(irs->context()), true,
@@ -724,7 +728,12 @@ void generateBitcodeForDynamicCompile(IRState *irs) {
 
   llvm::ValueToValueMapTy unused;
   auto newModule = llvm::CloneModule(
-      &irs->module, unused, [&](const llvm::GlobalValue *val) -> bool {
+#if LDC_LLVM_VER >= 700
+      irs->module,
+#else
+       &irs->module,
+#endif
+      unused, [&](const llvm::GlobalValue *val) -> bool {
         // We don't dereference here, so const_cast should be safe
         auto it = filter.find(const_cast<llvm::GlobalValue *>(val));
         return filter.end() != it &&
