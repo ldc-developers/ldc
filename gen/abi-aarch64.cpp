@@ -12,15 +12,24 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/abi.h"
-#include "gen/abi-generic.h"
 #include "gen/abi-aarch64.h"
+#include "gen/abi-generic.h"
+#include "gen/abi.h"
 
 struct AArch64TargetABI : TargetABI {
+private:
+  ExplicitByvalRewrite byvalRewrite;
   HFAToArray hfaToArray;
   CompositeToArray64 compositeToArray64;
   IntegerRewrite integerRewrite;
 
+  bool passByValExplicit(Type *t) {
+    t = t->toBasetype();
+    return t->ty == Tsarray ||
+           (t->ty == Tstruct && t->size() > 16 && !isHFA((TypeStruct *)t));
+  }
+
+public:
   bool returnInArg(TypeFunction *tf) override {
     if (tf->isref) {
       return false;
@@ -31,33 +40,21 @@ struct AArch64TargetABI : TargetABI {
     if (!isPOD(rt))
       return true;
 
-    return passByVal(rt);
+    return passByValExplicit(rt);
   }
 
-  bool passByVal(Type *t) override {
-    t = t->toBasetype();
-    return t->ty == Tsarray ||
-           (t->ty == Tstruct && t->size() > 16 && !isHFA((TypeStruct *)t));
-  }
+  bool passByVal(Type *t) override { return false; }
 
   void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
     Type *retTy = fty.ret->type->toBasetype();
     if (!fty.ret->byref && retTy->ty == Tstruct) {
-      // Rewrite HFAs only because union HFAs are turned into IR types that are
-      // non-HFA and messes up register selection
-      if (isHFA((TypeStruct *)retTy, &fty.ret->ltype)) {
-        fty.ret->rewrite = &hfaToArray;
-        fty.ret->ltype = hfaToArray.type(fty.ret->type, fty.ret->ltype);
-      }
-      else {
-        fty.ret->rewrite = &integerRewrite;
-        fty.ret->ltype = integerRewrite.type(fty.ret->type, fty.ret->ltype);
-      }
+      rewriteArgument(fty, *fty.ret, true);
     }
 
     for (auto arg : fty.args) {
-      if (!arg->byref)
+      if (!arg->byref) {
         rewriteArgument(fty, *arg);
+      }
     }
 
     // extern(D): reverse parameter order for non variadics, for DMD-compliance
@@ -66,41 +63,57 @@ struct AArch64TargetABI : TargetABI {
     }
   }
 
-  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
-    // FIXME
-    Type *ty = arg.type->toBasetype();
+  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg, bool isReturnVal) {
+    const auto t = arg.type->toBasetype();
 
-    if (ty->ty == Tstruct || ty->ty == Tsarray) {
-      // Rewrite HFAs only because union HFAs are turned into IR types that are
-      // non-HFA and messes up register selection
-      if (ty->ty == Tstruct && isHFA((TypeStruct *)ty, &arg.ltype)) {
-        arg.rewrite = &hfaToArray;
-        arg.ltype = hfaToArray.type(arg.type, arg.ltype);
-      }
-      else {
-        arg.rewrite = &compositeToArray64;
-        arg.ltype = compositeToArray64.type(arg.type, arg.ltype);
+    if (t->ty != Tstruct && t->ty != Tsarray)
+      return;
+
+    if (!isReturnVal && passByValExplicit(t)) {
+      arg.rewrite = &byvalRewrite;
+      arg.attrs.clear()
+          .add(LLAttribute::NoAlias)
+          .add(LLAttribute::NoCapture)
+          .addAlignment(byvalRewrite.alignment(arg.type));
+    } else if (t->ty == Tstruct &&
+               isHFA(static_cast<TypeStruct *>(t), &arg.ltype)) {
+      arg.rewrite = &hfaToArray;
+    } else {
+      arg.rewrite = &compositeToArray64;
+    }
+
+    if (arg.rewrite) {
+      const auto originalLType = arg.ltype;
+      arg.ltype = arg.rewrite->type(arg.type, arg.ltype);
+
+      IF_LOG {
+        Logger::println("Rewriting argument type %s", t->toChars());
+        LOG_SCOPE;
+        Logger::cout() << *originalLType << " => " << *arg.ltype << '\n';
       }
     }
   }
 
+  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
+    rewriteArgument(fty, arg, false);
+  }
+
   /**
-  * The AACPS64 uses a special native va_list type:
-  *
-  * typedef struct __va_list {
-  *     void *__stack; // next stack param
-  *     void *__gr_top; // end of GP arg reg save area
-  *     void *__vr_top; // end of FP/SIMD arg reg save area
-  *     int __gr_offs; // offset from __gr_top to next GP register arg
-  *     int __vr_offs; // offset from __vr_top to next FP/SIMD register arg
-  * } va_list;
-  *
-  * In druntime, the struct is defined as core.stdc.stdarg.__va_list; the
-  * actually used core.stdc.stdarg.va_list type is a raw char* pointer though to
-  * achieve byref semantics.
-  * This requires a little bit of compiler magic in the following
-  * implementations.
-  */
+   * The AACPS64 uses a special native va_list type:
+   *
+   * typedef struct __va_list {
+   *     void *__stack; // next stack param
+   *     void *__gr_top; // end of GP arg reg save area
+   *     void *__vr_top; // end of FP/SIMD arg reg save area
+   *     int __gr_offs; // offset from __gr_top to next GP register arg
+   *     int __vr_offs; // offset from __vr_top to next FP/SIMD register arg
+   * } va_list;
+   *
+   * In druntime, the struct is defined as core.stdc.stdarg.__va_list; the
+   * actually used core.stdc.stdarg.va_list type is a raw char* pointer though
+   * to achieve byref semantics. This requires a little bit of compiler magic in
+   * the following implementations.
+   */
 
   LLType *getValistType() {
     LLType *intType = LLType::getInt32Ty(gIR->context());
