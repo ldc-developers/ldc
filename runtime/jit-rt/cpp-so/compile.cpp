@@ -32,6 +32,7 @@
 #include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
 #include "llvm/ExecutionEngine/Orc/LambdaResolver.h"
 #include "llvm/ExecutionEngine/Orc/ObjectTransformLayer.h"
+#include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
 #include "llvm/ExecutionEngine/RuntimeDyld.h"
 #include "llvm/ExecutionEngine/SectionMemoryManager.h"
 #include "llvm/Linker/Linker.h"
@@ -43,11 +44,8 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
-#if LDC_LLVM_VER >= 500
-#include "llvm/ExecutionEngine/Orc/CompileUtils.h"
-#include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
-#else
-#include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
+#if LDC_LLVM_VER >= 700
+#include "llvm/ExecutionEngine/Orc/Legacy.h"
 #endif
 
 namespace {
@@ -152,19 +150,18 @@ private:
   llvm::llvm_shutdown_obj shutdownObj;
   std::unique_ptr<llvm::TargetMachine> targetmachine;
   const llvm::DataLayout dataLayout;
-#if LDC_LLVM_VER >= 500
   using ObjectLayerT = llvm::orc::RTDyldObjectLinkingLayer;
   using ListenerLayerT =
       llvm::orc::ObjectTransformLayer<ObjectLayerT, ModuleListener>;
   using CompileLayerT =
       llvm::orc::IRCompileLayer<ListenerLayerT, llvm::orc::SimpleCompiler>;
-  using ModuleHandleT = CompileLayerT::ModuleHandleT;
+#if LDC_LLVM_VER >= 700
+  using ModuleHandleT = llvm::orc::VModuleKey;
+  llvm::orc::SymbolStringPool stringPool;
+  llvm::orc::ExecutionSession execSession;
+  std::shared_ptr<llvm::orc::SymbolResolver> resolver;
 #else
-  using ObjectLayerT = llvm::orc::ObjectLinkingLayer<>;
-  using ListenerLayerT =
-      llvm::orc::ObjectTransformLayer<ObjectLayerT, ModuleListener>;
-  using CompileLayerT = llvm::orc::IRCompileLayer<ListenerLayerT>;
-  using ModuleHandleT = CompileLayerT::ModuleSetHandleT;
+  using ModuleHandleT = CompileLayerT::ModuleHandleT;
 #endif
   ObjectLayerT objectLayer;
   ListenerLayerT listenerlayer;
@@ -172,6 +169,7 @@ private:
   llvm::LLVMContext context;
   bool compiled = false;
   ModuleHandleT moduleHandle;
+  SymMap symMap;
 
   struct ListenerCleaner final {
     MyJIT &owner;
@@ -187,7 +185,14 @@ public:
             llvm::Triple(llvm::sys::getProcessTriple()), llvm::StringRef(),
             llvm::sys::getHostCPUName(), getHostAttrs())),
         dataLayout(targetmachine->createDataLayout()),
-#if LDC_LLVM_VER >= 500
+#if LDC_LLVM_VER >= 700
+        execSession(stringPool), resolver(createResolver()),
+        objectLayer(execSession,
+                    [](llvm::orc::VModuleKey) {
+                      return std::make_shared<llvm::SectionMemoryManager>();
+                    },
+                    [this](llvm::orc::VModuleKey) { return resolver; }),
+#else
         objectLayer(
             []() { return std::make_shared<llvm::SectionMemoryManager>(); }),
 #endif
@@ -198,26 +203,27 @@ public:
 
   llvm::TargetMachine &getTargetMachine() { return *targetmachine; }
 
-  bool addModule(std::unique_ptr<llvm::Module> module, const SymMap &symMap,
+  bool addModule(std::unique_ptr<llvm::Module> module,
                  llvm::raw_ostream *asmListener) {
     assert(nullptr != module);
     reset();
-    auto Resolver = createResolver(symMap);
 
     ListenerCleaner cleaner(*this, asmListener);
     // Add the set to the JIT with the resolver we created above
-#if LDC_LLVM_VER >= 500
-    auto result = compileLayer.addModule(std::move(module), Resolver);
+#if LDC_LLVM_VER >= 700
+    auto handle = execSession.allocateVModule();
+    auto result = compileLayer.addModule(handle, std::move(module));
+    if (result) {
+      execSession.releaseVModule(handle);
+      return true;
+    }
+    moduleHandle = handle;
+#else
+    auto result = compileLayer.addModule(std::move(module), createResolver());
     if (!result) {
       return true;
     }
     moduleHandle = result.get();
-#else
-    std::vector<std::unique_ptr<llvm::Module>> modules;
-    modules.emplace_back(std::move(module));
-    moduleHandle = compileLayer.addModuleSet(
-        std::move(modules), llvm::make_unique<llvm::SectionMemoryManager>(),
-        std::move(Resolver));
 #endif
     compiled = true;
     return false;
@@ -229,6 +235,8 @@ public:
 
   llvm::LLVMContext &getContext() { return context; }
 
+  SymMap &getSymMap() { return symMap; }
+
   void reset() {
     if (compiled) {
       removeModule(moduleHandle);
@@ -239,27 +247,50 @@ public:
 
 private:
   void removeModule(const ModuleHandleT &handle) {
-#if LDC_LLVM_VER >= 500
     cantFail(compileLayer.removeModule(handle));
-#else
-    compileLayer.removeModuleSet(handle);
+#if LDC_LLVM_VER >= 700
+    execSession.releaseVModule(handle);
 #endif
   }
 
-  std::shared_ptr<llvm::JITSymbolResolver>
-  createResolver(const SymMap &symMap) {
+#if LDC_LLVM_VER >= 700
+  std::shared_ptr<llvm::orc::SymbolResolver> createResolver() {
+    return llvm::orc::createLegacyLookupResolver(
+        [this](const std::string &name) -> llvm::JITSymbol {
+          if (auto Sym = compileLayer.findSymbol(name, false)) {
+            return Sym;
+          } else if (auto Err = Sym.takeError()) {
+            return std::move(Err);
+          }
+          auto it = symMap.find(name);
+          if (symMap.end() != it) {
+            return llvm::JITSymbol(
+                reinterpret_cast<llvm::JITTargetAddress>(it->second),
+                llvm::JITSymbolFlags::Exported);
+          }
+          if (auto SymAddr = getSymbolInProcess(name)) {
+            return llvm::JITSymbol(SymAddr, llvm::JITSymbolFlags::Exported);
+          }
+          return nullptr;
+        },
+        [](llvm::Error Err) {
+          llvm::cantFail(std::move(Err), "lookupFlags failed");
+        });
+  }
+#else
+  std::shared_ptr<llvm::JITSymbolResolver> createResolver() {
     // Build our symbol resolver:
     // Lambda 1: Look back into the JIT itself to find symbols that are part of
     //           the same "logical dylib".
     // Lambda 2: Search for external symbols in the host process.
     return llvm::orc::createLambdaResolver(
-        [&](const std::string &name) {
+        [this](const std::string &name) {
           if (auto Sym = compileLayer.findSymbol(name, false)) {
             return Sym;
           }
           return llvm::JITSymbol(nullptr);
         },
-        [&](const std::string &name) {
+        [this](const std::string &name) {
           auto it = symMap.find(name);
           if (symMap.end() != it) {
             return llvm::JITSymbol(
@@ -272,6 +303,7 @@ private:
           return llvm::JITSymbol(nullptr);
         });
   }
+#endif
 };
 
 MyJIT &getJit() {
@@ -294,16 +326,12 @@ auto toArray(T *ptr, size_t size)
 
 void *resolveSymbol(llvm::JITSymbol &symbol) {
   auto addr = symbol.getAddress();
-#if LDC_LLVM_VER >= 500
   if (!addr) {
     consumeError(addr.takeError());
     return nullptr;
   } else {
     return reinterpret_cast<void *>(addr.get());
   }
-#else
-  return reinterpret_cast<void *>(addr);
-#endif
 }
 
 void dumpModule(const Context &context, const llvm::Module &module,
@@ -349,8 +377,7 @@ struct JitFinaliser final {
 
 template <typename F>
 void enumModules(const RtCompileModuleList *modlist_head,
-                 const Context& context,
-                 F &&fun) {
+                 const Context &context, F &&fun) {
   auto current = modlist_head;
   while (current != nullptr) {
     interruptPoint(context, "check version");
@@ -373,7 +400,8 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
 
   std::vector<std::pair<std::string, void **>> functions;
   std::unique_ptr<llvm::Module> finalModule;
-  SymMap symMap;
+  auto &symMap = myJit.getSymMap();
+  symMap.clear();
   OptimizerSettings settings;
   settings.optLevel = context.optLevel;
   settings.sizeLevel = context.sizeLevel;
@@ -441,11 +469,11 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
     };
 
     CallbackOstream os(callback);
-    if (myJit.addModule(std::move(finalModule), symMap, &os)) {
+    if (myJit.addModule(std::move(finalModule), &os)) {
       fatal(context, "Can't codegen module");
     }
   } else {
-    if (myJit.addModule(std::move(finalModule), symMap, nullptr)) {
+    if (myJit.addModule(std::move(finalModule), nullptr)) {
       fatal(context, "Can't codegen module");
     }
   }
@@ -483,8 +511,8 @@ __declspec(dllexport)
 #else
 __attribute__ ((visibility ("default")))
 #endif
-void JIT_API_ENTRYPOINT(const void *modlist_head,
-                        const Context *context, size_t contextSize) {
+void JIT_API_ENTRYPOINT(const void *modlist_head, const Context *context,
+                        size_t contextSize) {
   assert(nullptr != context);
   assert(sizeof(*context) == contextSize);
   rtCompileProcessImplSoInternal(

@@ -31,7 +31,6 @@
 #include <llvm/Support/TargetRegistry.h>
 #include <llvm/Target/TargetMachine.h>
 
-#if LDC_LLVM_VER >= 500
 namespace {
 template <typename T> std::unique_ptr<T> unique(T *ptr) {
   return std::unique_ptr<T>(ptr);
@@ -201,8 +200,7 @@ public:
   }
 };
 
-void processRelocations(SymTable &symTable,
-                        uint64_t offset,
+void processRelocations(SymTable &symTable, uint64_t offset,
                         const llvm::object::ObjectFile &object,
                         const llvm::object::SectionRef &sec) {
   for (const auto &reloc : sec.relocations()) {
@@ -337,8 +335,7 @@ void disassemble(const llvm::TargetMachine &tm,
           }
         }
         llvm::ArrayRef<uint8_t> buff(
-              reinterpret_cast<const uint8_t *>(data.data() + offset),
-              size);
+            reinterpret_cast<const uint8_t *>(data.data() + offset), size);
 
         printFunction(*disasm, *mcia, buff, symTable, *sti, *asmStreamer);
         asmStreamer->EmitRawText("");
@@ -346,11 +343,3 @@ void disassemble(const llvm::TargetMachine &tm,
     }
   }
 }
-#else
-void disassemble(const llvm::TargetMachine & /*tm*/,
-                 const llvm::object::ObjectFile & /*object*/,
-                 llvm::raw_ostream &os) {
-  os << "Asm output not supported";
-  os.flush();
-}
-#endif

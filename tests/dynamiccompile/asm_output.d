@@ -1,5 +1,4 @@
 
-// REQUIRES: atleast_llvm500
 // RUN: %ldc -enable-dynamic-compile -run %s
 
 import std.array;

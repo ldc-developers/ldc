@@ -23,15 +23,13 @@ enum class DumpStage : int {
   FinalAsm = 3
 };
 
-enum {
-    ApiVersion = LDC_DYNAMIC_COMPILE_API_VERSION
-};
+enum { ApiVersion = LDC_DYNAMIC_COMPILE_API_VERSION };
 
 #define MAKE_JIT_API_CALL_IMPL(prefix, version) prefix##version
-#define MAKE_JIT_API_CALL(prefix, version) \
+#define MAKE_JIT_API_CALL(prefix, version)                                     \
   MAKE_JIT_API_CALL_IMPL(prefix, version)
-#define JIT_API_ENTRYPOINT MAKE_JIT_API_CALL(rtCompileProcessImplSo, \
-  LDC_DYNAMIC_COMPILE_API_VERSION)
+#define JIT_API_ENTRYPOINT                                                     \
+  MAKE_JIT_API_CALL(rtCompileProcessImplSo, LDC_DYNAMIC_COMPILE_API_VERSION)
 
 typedef void (*InterruptPointHandlerT)(void *, const char *action,
                                        const char *object);
