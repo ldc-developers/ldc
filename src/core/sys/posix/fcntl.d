@@ -754,6 +754,8 @@ else version( CRuntime_Musl )
     }
     enum FD_CLOEXEC     = 1;
     int open(in char*, int, ...);
+
+    enum AT_FDCWD = -100;
 }
 else
 {
