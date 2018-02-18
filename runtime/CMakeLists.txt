@@ -1,6 +1,6 @@
 project(runtime C)
 
-cmake_minimum_required(VERSION 2.8.9)
+cmake_minimum_required(VERSION 2.8.12)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -454,6 +454,7 @@ function(set_common_library_properties target is_shared)
         VERSION ${DMDFE_VERSION}
         SOVERSION ${DMDFE_PATCH_VERSION}
         LINKER_LANGUAGE C
+        MACOSX_RPATH ON
     )
     if(RT_ARCHIVE_WITH_LDC AND NOT is_shared)
         set_target_properties(${target} PROPERTIES LINKER_LANGUAGE D)
