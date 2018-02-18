@@ -190,17 +190,8 @@ elseif(MSVC)
     append("/GR- /EHs-c-" CMAKE_CXX_FLAGS)
     append("/D_HAS_EXCEPTIONS=0" CMAKE_CXX_FLAGS)
 
-    # warning C4018: signed/unsigned mismatch
-    # warning C4101: unreferenced local variable
-    # warning C4102: unreferenced label
-    # warning C4146: unary minus operator applied to unsigned type, result still unsigned
-    # warning C4201: nonstandard extension used: nameless struct/union
-    # warnings C4244 and C4267: conversion from '...' to '...', possible loss of data
-    # warnings C4456-4459: declaration of '...' hides ...
-    # warning C4624: destructor was implicitly defined as deleted because a base class destructor is inaccessible or deleted
-    # warning C4800: forcing value to bool 'true' or 'false' (performance warning)
-    # warning C4996: we're not using Microsoft's secure stringOp_s() functions
-    append("/wd4018 /wd4101 /wd4102 /wd4146 /wd4201 /wd4244 /wd4267 /wd4456 /wd4457 /wd4458 /wd4459 /wd4624 /wd4800 /wd4996" LDC_CXXFLAGS)
+    # disable warning C4201: nonstandard extension used: nameless struct/union
+    append("/wd4201" LDC_CXXFLAGS)
 endif()
 # Append -mminimal-toc for gcc 4.0.x - 4.5.x on ppc64
 if( CMAKE_COMPILER_IS_GNUCXX
