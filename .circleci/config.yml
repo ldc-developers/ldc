@@ -145,6 +145,19 @@ commonSteps: &commonSteps
           cp ldc-scripts/ldc2-packaging/pkgfiles/README ldc2-x64
           cp -r ldc-scripts/ldc2-packaging/pkgfiles/dub ldc2-x64/etc
     - run:
+        name: Hello world integration test with shared libs
+        command: |
+          cd ..
+          altLibSuffix="32"
+          if [ "$CI_OS" = "osx" ]; then
+              altLibSuffix=""
+          fi
+          echo 'void main() { import std.stdio; writeln("Hello world, ", size_t.sizeof * 8, " bits"); }' > hello.d
+          ldc2-x64/bin/ldc2 hello.d -m64 -of=hello64 -link-defaultlib-shared -L-Wl,-rpath,$PWD/ldc2-x64/lib
+          ldc2-x64/bin/ldc2 hello.d -m32 -of=hello32 -link-defaultlib-shared -L-Wl,-rpath,$PWD/ldc2-x64/lib$altLibSuffix
+          ./hello64
+          ./hello32
+    - run:
         name: Build dub
         command: |
           cd ..
