@@ -354,6 +354,13 @@ void writeModule(llvm::Module *m, const char *filename) {
             errinfo.message().c_str());
       fatal();
     }
+
+#if LDC_LLVM_VER >= 700
+    auto &M = *m;
+#else
+    auto M = m;
+#endif
+
     if (opts::isUsingThinLTO()) {
 #if LDC_LLVM_VER >= 309
       Logger::println("Creating module summary for ThinLTO");
@@ -372,11 +379,11 @@ void writeModule(llvm::Module *m, const char *filename) {
           *m, /* function freq callback */ nullptr, &PSI);
 #endif
 
-      llvm::WriteBitcodeToFile(m, bos, true, &moduleSummaryIndex,
+      llvm::WriteBitcodeToFile(M, bos, true, &moduleSummaryIndex,
                                /* generate ThinLTO hash */ true);
 #endif
     } else {
-      llvm::WriteBitcodeToFile(m, bos);
+      llvm::WriteBitcodeToFile(M, bos);
     }
   }
 

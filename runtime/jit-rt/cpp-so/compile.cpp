@@ -188,10 +188,11 @@ public:
 #if LDC_LLVM_VER >= 700
         execSession(stringPool), resolver(createResolver()),
         objectLayer(execSession,
-                    [](llvm::orc::VModuleKey) {
-                      return std::make_shared<llvm::SectionMemoryManager>();
-                    },
-                    [this](llvm::orc::VModuleKey) { return resolver; }),
+                    [this](llvm::orc::VModuleKey) {
+                      return llvm::orc::RTDyldObjectLinkingLayer::Resources{
+                          std::make_shared<llvm::SectionMemoryManager>(),
+                          resolver};
+                    }),
 #else
         objectLayer(
             []() { return std::make_shared<llvm::SectionMemoryManager>(); }),
