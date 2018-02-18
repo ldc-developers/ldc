@@ -35,7 +35,7 @@ __declspec(thread) void* originalTLS; // saves the address of the original TLS t
 
 extern void** GetTlsEntryAdr();
 
-BOOL WINAPI fix_tlsAlignment(HINSTANCE hModule, DWORD  fdwReason, LPVOID lpvReserved)
+BOOL WINAPI fix_tlsAlignment(HINSTANCE hModule, DWORD fdwReason, LPVOID /*lpvReserved*/)
 {
     if (fdwReason == DLL_PROCESS_DETACH || fdwReason == DLL_THREAD_DETACH)
     {
@@ -54,7 +54,6 @@ BOOL WINAPI fix_tlsAlignment(HINSTANCE hModule, DWORD  fdwReason, LPVOID lpvRese
         char* imageBase = (char*) hModule;
         PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER) hModule;
         PIMAGE_NT_HEADERS pNtHeaders = (PIMAGE_NT_HEADERS) (imageBase + pDosHeader->e_lfanew);
-        PIMAGE_SECTION_HEADER pSectionHeader = (PIMAGE_SECTION_HEADER) (pNtHeaders + 1);
         PIMAGE_DATA_DIRECTORY dataDir = pNtHeaders->OptionalHeader.DataDirectory + IMAGE_DIRECTORY_ENTRY_TLS;
         if (dataDir->VirtualAddress) // any TLS entry
         {
