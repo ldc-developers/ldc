@@ -35,7 +35,7 @@ __declspec(thread) void* originalTLS; // saves the address of the original TLS t
 
 extern void** GetTlsEntryAdr();
 
-BOOL WINAPI fix_tlsAlignment(HINSTANCE hModule, DWORD fdwReason, LPVOID /*lpvReserved*/)
+BOOL WINAPI fix_tlsAlignment(HINSTANCE hModule, DWORD fdwReason, LPVOID lpvReserved)
 {
     if (fdwReason == DLL_PROCESS_DETACH || fdwReason == DLL_THREAD_DETACH)
     {
