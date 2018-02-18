@@ -588,7 +588,7 @@ llvm::Type *Analysis::getTypeFor(Value *typeinfo) const {
 
   auto md = llvm::dyn_cast<llvm::ValueAsMetadata>(
               node->getOperand(TD_TypeInfo).get());
-  if (md == nullptr || md->getValue() != ti_global) {
+  if (md == nullptr || md->getValue()->stripPointerCasts() != ti_global) {
     return nullptr;
   }
 
