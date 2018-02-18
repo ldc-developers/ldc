@@ -731,7 +731,7 @@ void generateBitcodeForDynamicCompile(IRState *irs) {
 #if LDC_LLVM_VER >= 700
       irs->module,
 #else
-       &irs->module,
+      &irs->module,
 #endif
       unused, [&](const llvm::GlobalValue *val) -> bool {
         // We don't dereference here, so const_cast should be safe
