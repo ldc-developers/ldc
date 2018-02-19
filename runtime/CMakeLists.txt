@@ -318,10 +318,14 @@ if("${TARGET_SYSTEM}" MATCHES "MSVC")
     # We want to be able to link against all 4 C runtime variants (libcmt[d] / msvcrt[d]).
     string(REGEX REPLACE "(^| )[/-]M[TD]d?( |$)" "\\2" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
     append("/MT /Zl" CMAKE_C_FLAGS_RELEASE)
+    # warning C4100: unreferenced formal parameter
+    # warning C4127: conditional expression is constant
     # warning C4131: uses old-style declarator
     # warning C4206: nonstandard extension used: translation unit is empty
+    # warnings C42{44,67}: conversion from '...' to '...', possible loss of data
+    # warning C4245: conversion from '...' to '...', signed/unsigned mismatch
     # warning C4996: zlib uses 'deprecated' POSIX names
-    append("/wd4131 /wd4206 /wd4996" CMAKE_C_FLAGS_RELEASE)
+    append("/wd4100 /wd4127 /wd4131 /wd4206 /wd4244 /wd4245 /wd4267 /wd4996" CMAKE_C_FLAGS_RELEASE)
 endif()
 CHECK_INCLUDE_FILE(unistd.h HAVE_UNISTD_H)
 if (HAVE_UNISTD_H)
