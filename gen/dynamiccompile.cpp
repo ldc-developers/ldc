@@ -541,26 +541,37 @@ generateFuncList(IRState *irs, const Types &types) {
   return getArrayAndSize(irs->module, types.funcListElemType, elements);
 }
 
+llvm::Constant *generateSymListElem(llvm::Module &module, const Types &types,
+                                    llvm::StringRef name,
+                                    llvm::GlobalValue &val) {
+
+  llvm::Constant *fields[] = {
+      createStringInitializer(module, name),
+      getI8Ptr(&val),
+  };
+  return llvm::ConstantStruct::get(types.symListElemType, fields);
+}
+
 std::pair<llvm::Constant *, llvm::Constant *>
 generateSymList(IRState *irs, const Types &types,
                 const GlobalValsMap &globalVals) {
   assert(nullptr != irs);
   std::vector<llvm::Constant *> elements;
   for (auto &&it : globalVals) {
-    if (it.second == GlobalValVisibility::Declaration) {
-      auto val = it.first;
-      if (auto fun = llvm::dyn_cast<llvm::Function>(val)) {
-        if (fun->isIntrinsic())
-          continue;
-      }
-      auto name = val->getName();
-      llvm::Constant *fields[] = {
-          createStringInitializer(irs->module, name),
-          getI8Ptr(val),
-      };
-      elements.push_back(
-          llvm::ConstantStruct::get(types.symListElemType, fields));
+    auto val = it.first;
+    assert(val != nullptr);
+    if (auto fun = llvm::dyn_cast<llvm::Function>(val)) {
+      if (fun->isIntrinsic())
+        continue;
     }
+    auto name = val->getName();
+    elements.push_back(generateSymListElem(irs->module, types, name, *val));
+  }
+  for (auto &&it : irs->dynamicCompiledFunctions) {
+    auto name = it.first->getName();
+    auto thunk = it.second.thunkFunc;
+    assert(thunk != nullptr);
+    elements.push_back(generateSymListElem(irs->module, types, name, *thunk));
   }
   return getArrayAndSize(irs->module, types.symListElemType, elements);
 }
