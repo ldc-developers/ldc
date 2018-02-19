@@ -297,8 +297,6 @@ private void trace_times(FILE* fplog, Symbol*[] psymbols)
         QueryPerformanceFrequency(&freq);
         time_scale = freq / 1_000_000;
         fprintf(fplog,"\n======== Timer Is %lld Ticks/Sec, Times are in Microsecs ========\n\n",freq);
-        fprintf(fplog,"  Num          Tree        Func        Per\n");
-        fprintf(fplog,"  Calls        Time        Time        Call\n\n");
     }
     else
     {

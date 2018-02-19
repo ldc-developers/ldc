@@ -547,11 +547,7 @@ EXCEPTION_DISPOSITION _d_framehandler(
                             {   // if it is a short-circuit master, save it
                                 masterError = cast(Error)w;
                             }
-                            Throwable a = w;
-                            while (a.next)
-                                a = a.next;
-                            a.next = prev;
-                            prev = w;
+                            prev = Throwable.chainTogether(w, prev);
                             if (!(z.ExceptionFlags & EXCEPTION_COLLATERAL))
                                 break;
                             z = z.ExceptionRecord;
