@@ -191,7 +191,7 @@ public:
     Dsymbol *search(const Loc &, Identifier *ident, int flags = SearchLocalsOnly);
     const char *kind() const;
     void finalizeSize();
-    bool fit(Loc loc, Scope *sc, Expressions *elements, Type *stype);
+    bool fit(const Loc &loc, Scope *sc, Expressions *elements, Type *stype);
     bool isPOD();
 
     StructDeclaration *isStructDeclaration() { return this; }
