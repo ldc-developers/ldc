@@ -25,6 +25,8 @@
 using llvm::APFloat;
 
 void Target::_init() {
+  const auto &triple = *global.params.targetTriple;
+
   ptrsize = gDataLayout->getPointerSize();
 
   llvm::Type *const real = DtoType(Type::basic[Tfloat80]);
@@ -33,7 +35,7 @@ void Target::_init() {
   realalignsize = gDataLayout->getABITypeAlignment(real);
 
   // according to DMD, only for MSVC++:
-  reverseCppOverloads = global.params.targetTriple->isWindowsMSVCEnvironment();
+  reverseCppOverloads = triple.isWindowsMSVCEnvironment();
 
   cppExceptions = true;
 
@@ -41,6 +43,9 @@ void Target::_init() {
   c_long_doublesize = realsize;
   classinfosize = 0; // unused
   maxStaticDataSize = std::numeric_limits<unsigned long long>::max();
+
+  int64Mangle = triple.isOSDarwin() ? 'x' : 'l';
+  uint64Mangle = triple.isOSDarwin() ? 'y' : 'm';
 
   // {Float,Double,Real}Properties have been initialized with the D host
   // compiler's properties.
@@ -260,8 +265,3 @@ Expression *Target::paintAsType(Expression *e, Type *type) {
  * immediately after loading.
  */
 void Target::loadModule(Module *m) {}
-
-/******************************
- *
- */
-void Target::prefixName(OutBuffer *buf, LINK linkage) {}

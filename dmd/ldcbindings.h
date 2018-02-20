@@ -16,31 +16,31 @@
 using uint = uint32_t;
 
 // Classes
-IntegerExp *createIntegerExp(Loc loc, dinteger_t value, Type *type);
+IntegerExp *createIntegerExp(const Loc &loc, dinteger_t value, Type *type);
 IntegerExp *createIntegerExp(dinteger_t value);
-EqualExp *createEqualExp(TOK, Loc, Expression *, Expression *);
-CmpExp *createCmpExp(TOK, Loc, Expression *, Expression *);
-ShlExp *createShlExp(Loc, Expression *, Expression *);
-ShrExp *createShrExp(Loc, Expression *, Expression *);
-UshrExp *createUshrExp(Loc, Expression *, Expression *);
-LogicalExp *createLogicalExp(Loc, TOK op, Expression *, Expression *);
-OrExp *createOrExp(Loc, Expression *, Expression *);
-AndExp *createAndExp(Loc, Expression *, Expression *);
-XorExp *createXorExp(Loc, Expression *, Expression *);
-ModExp *createModExp(Loc, Expression *, Expression *);
-MulExp *createMulExp(Loc, Expression *, Expression *);
-DivExp *createDivExp(Loc, Expression *, Expression *);
-AddExp *createAddExp(Loc, Expression *, Expression *);
-MinExp *createMinExp(Loc, Expression *, Expression *);
-RealExp *createRealExp(Loc, real_t, Type *);
-NotExp *createNotExp(Loc, Expression *);
-ComExp *createComExp(Loc, Expression *);
-NegExp *createNegExp(Loc, Expression *);
-AddrExp *createAddrExp(Loc, Expression *);
-DsymbolExp *createDsymbolExp(Loc, Dsymbol *, bool = false);
-Expression *createExpression(Loc loc, TOK op, int size);
+EqualExp *createEqualExp(TOK, const Loc &, Expression *, Expression *);
+CmpExp *createCmpExp(TOK, const Loc &, Expression *, Expression *);
+ShlExp *createShlExp(const Loc &, Expression *, Expression *);
+ShrExp *createShrExp(const Loc &, Expression *, Expression *);
+UshrExp *createUshrExp(const Loc &, Expression *, Expression *);
+LogicalExp *createLogicalExp(const Loc &, TOK op, Expression *, Expression *);
+OrExp *createOrExp(const Loc &, Expression *, Expression *);
+AndExp *createAndExp(const Loc &, Expression *, Expression *);
+XorExp *createXorExp(const Loc &, Expression *, Expression *);
+ModExp *createModExp(const Loc &, Expression *, Expression *);
+MulExp *createMulExp(const Loc &, Expression *, Expression *);
+DivExp *createDivExp(const Loc &, Expression *, Expression *);
+AddExp *createAddExp(const Loc &, Expression *, Expression *);
+MinExp *createMinExp(const Loc &, Expression *, Expression *);
+RealExp *createRealExp(const Loc &, real_t, Type *);
+NotExp *createNotExp(const Loc &, Expression *);
+ComExp *createComExp(const Loc &, Expression *);
+NegExp *createNegExp(const Loc &, Expression *);
+AddrExp *createAddrExp(const Loc &, Expression *);
+DsymbolExp *createDsymbolExp(const Loc &, Dsymbol *, bool = false);
+Expression *createExpression(const Loc &loc, TOK op, int size);
 TypeDelegate *createTypeDelegate(Type *t);
-TypeIdentifier *createTypeIdentifier(Loc loc, Identifier *ident);
+TypeIdentifier *createTypeIdentifier(const Loc &loc, Identifier *ident);
 
 // Structs
 //Loc createLoc(const char * filename, uint linnum, uint charnum);

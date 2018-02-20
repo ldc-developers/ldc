@@ -2,15 +2,15 @@
  * Compiler implementation of the
  * $(LINK2 http://www.dlang.org, D programming language).
  *
- * Copyright:   Copyright (c) 1999-2017 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2018 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/builtin.d, _builtin.d)
+ * Documentation:  https://dlang.org/phobos/dmd_builtin.html
+ * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/builtin.d
  */
 
 module dmd.builtin;
-
-// Online documentation: https://dlang.org/phobos/dmd_builtin.html
 
 import core.stdc.math;
 import core.stdc.string;
@@ -63,65 +63,65 @@ extern (C++) Expression eval_unimp(Loc loc, FuncDeclaration fd, Expressions* arg
 extern (C++) Expression eval_sin(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     return new RealExp(loc, CTFloat.sin(arg0.toReal()), arg0.type);
 }
 
 extern (C++) Expression eval_cos(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     return new RealExp(loc, CTFloat.cos(arg0.toReal()), arg0.type);
 }
 
 extern (C++) Expression eval_tan(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     return new RealExp(loc, CTFloat.tan(arg0.toReal()), arg0.type);
 }
 
 extern (C++) Expression eval_sqrt(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     return new RealExp(loc, CTFloat.sqrt(arg0.toReal()), arg0.type);
 }
 
 extern (C++) Expression eval_fabs(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     return new RealExp(loc, CTFloat.fabs(arg0.toReal()), arg0.type);
 }
 
 extern (C++) Expression eval_ldexp(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     Expression arg1 = (*arguments)[1];
-    assert(arg1.op == TOKint64);
+    assert(arg1.op == TOK.int64);
     return new RealExp(loc, CTFloat.ldexp(arg0.toReal(), cast(int) arg1.toInteger()), arg0.type);
 }
 
 extern (C++) Expression eval_isnan(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     return new IntegerExp(loc, CTFloat.isNaN(arg0.toReal()), Type.tbool);
 }
 
 extern (C++) Expression eval_isinfinity(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     return new IntegerExp(loc, CTFloat.isInfinity(arg0.toReal()), Type.tbool);
 }
 
 extern (C++) Expression eval_isfinite(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     const value = !CTFloat.isNaN(arg0.toReal()) && !CTFloat.isInfinity(arg0.toReal());
     return new IntegerExp(loc, value, Type.tbool);
 }
@@ -129,10 +129,10 @@ extern (C++) Expression eval_isfinite(Loc loc, FuncDeclaration fd, Expressions* 
 extern (C++) Expression eval_bsf(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKint64);
+    assert(arg0.op == TOK.int64);
     uinteger_t n = arg0.toInteger();
     if (n == 0)
-        error(loc, "bsf(0) is undefined");
+        error(loc, "`bsf(0)` is undefined");
     n = (n ^ (n - 1)) >> 1; // convert trailing 0s to 1, and zero rest
     int k = 0;
     while (n)
@@ -146,10 +146,10 @@ extern (C++) Expression eval_bsf(Loc loc, FuncDeclaration fd, Expressions* argum
 extern (C++) Expression eval_bsr(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKint64);
+    assert(arg0.op == TOK.int64);
     uinteger_t n = arg0.toInteger();
     if (n == 0)
-        error(loc, "bsr(0) is undefined");
+        error(loc, "`bsr(0)` is undefined");
     int k = 0;
     while (n >>= 1)
     {
@@ -207,7 +207,7 @@ extern (C++) Expression eval_llvmsin(Loc loc, FuncDeclaration fd, Expressions *a
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     return new RealExp(loc, CTFloat.sin(arg0.toReal()), type);
 }
 
@@ -215,7 +215,7 @@ extern (C++) Expression eval_llvmcos(Loc loc, FuncDeclaration fd, Expressions *a
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     return new RealExp(loc, CTFloat.cos(arg0.toReal()), type);
 }
 
@@ -223,7 +223,7 @@ extern (C++) Expression eval_llvmsqrt(Loc loc, FuncDeclaration fd, Expressions *
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     return new RealExp(loc, CTFloat.sqrt(arg0.toReal()), type);
 }
 
@@ -231,7 +231,7 @@ extern (C++) Expression eval_llvmlog(Loc loc, FuncDeclaration fd, Expressions *a
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     return new RealExp(loc, CTFloat.log(arg0.toReal()), type);
 }
 
@@ -239,7 +239,7 @@ extern (C++) Expression eval_llvmlog2(Loc loc, FuncDeclaration fd, Expressions *
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     return new RealExp(loc, CTFloat.log2(arg0.toReal()), type);
 }
 
@@ -247,7 +247,7 @@ extern (C++) Expression eval_llvmlog10(Loc loc, FuncDeclaration fd, Expressions 
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     return new RealExp(loc, CTFloat.log10(arg0.toReal()), type);
 }
 
@@ -255,7 +255,7 @@ extern (C++) Expression eval_llvmfabs(Loc loc, FuncDeclaration fd, Expressions *
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     return new RealExp(loc, CTFloat.fabs(arg0.toReal()), type);
 }
 
@@ -263,9 +263,9 @@ extern (C++) Expression eval_llvmminnum(Loc loc, FuncDeclaration fd, Expressions
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     Expression arg1 = (*arguments)[1];
-    assert(arg1.op == TOKfloat64);
+    assert(arg1.op == TOK.float64);
     return new RealExp(loc, CTFloat.fmin(arg0.toReal(), arg1.toReal()), type);
 }
 
@@ -273,9 +273,9 @@ extern (C++) Expression eval_llvmmaxnum(Loc loc, FuncDeclaration fd, Expressions
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     Expression arg1 = (*arguments)[1];
-    assert(arg1.op == TOKfloat64);
+    assert(arg1.op == TOK.float64);
     return new RealExp(loc, CTFloat.fmax(arg0.toReal(), arg1.toReal()), type);
 }
 
@@ -283,7 +283,7 @@ extern (C++) Expression eval_llvmfloor(Loc loc, FuncDeclaration fd, Expressions 
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     return new RealExp(loc, CTFloat.floor(arg0.toReal()), type);
 }
 
@@ -291,7 +291,7 @@ extern (C++) Expression eval_llvmceil(Loc loc, FuncDeclaration fd, Expressions *
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     return new RealExp(loc, CTFloat.ceil(arg0.toReal()), type);
 }
 
@@ -299,7 +299,7 @@ extern (C++) Expression eval_llvmtrunc(Loc loc, FuncDeclaration fd, Expressions 
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     return new RealExp(loc, CTFloat.trunc(arg0.toReal()), type);
 }
 
@@ -307,7 +307,7 @@ extern (C++) Expression eval_llvmrint(Loc loc, FuncDeclaration fd, Expressions *
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     return new RealExp(loc, CTFloat.rint(arg0.toReal()), type);
 }
 
@@ -315,7 +315,7 @@ extern (C++) Expression eval_llvmnearbyint(Loc loc, FuncDeclaration fd, Expressi
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     return new RealExp(loc, CTFloat.nearbyint(arg0.toReal()), type);
 }
 
@@ -323,7 +323,7 @@ extern (C++) Expression eval_llvmround(Loc loc, FuncDeclaration fd, Expressions 
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     return new RealExp(loc, CTFloat.round(arg0.toReal()), type);
 }
 
@@ -331,11 +331,11 @@ extern (C++) Expression eval_llvmfma(Loc loc, FuncDeclaration fd, Expressions *a
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     Expression arg1 = (*arguments)[1];
-    assert(arg1.op == TOKfloat64);
+    assert(arg1.op == TOK.float64);
     Expression arg2 = (*arguments)[2];
-    assert(arg2.op == TOKfloat64);
+    assert(arg2.op == TOK.float64);
     return new RealExp(loc, CTFloat.fma(arg0.toReal(), arg1.toReal(), arg2.toReal()), type);
 }
 
@@ -343,9 +343,9 @@ extern (C++) Expression eval_llvmcopysign(Loc loc, FuncDeclaration fd, Expressio
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     Expression arg1 = (*arguments)[1];
-    assert(arg1.op == TOKfloat64);
+    assert(arg1.op == TOK.float64);
     return new RealExp(loc, CTFloat.copysign(arg0.toReal(), arg1.toReal()), type);
 }
 
@@ -354,7 +354,7 @@ extern (C++) Expression eval_cttz(Loc loc, FuncDeclaration fd, Expressions *argu
     Type type = getTypeOfOverloadedIntrinsic(fd);
 
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKint64);
+    assert(arg0.op == TOK.int64);
     uinteger_t x = arg0.toInteger();
 
     int n = getBitsizeOfType(loc, type);
@@ -384,7 +384,7 @@ extern (C++) Expression eval_ctlz(Loc loc, FuncDeclaration fd, Expressions *argu
     Type type = getTypeOfOverloadedIntrinsic(fd);
 
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKint64);
+    assert(arg0.op == TOK.int64);
     uinteger_t x = arg0.toInteger();
     if (x == 0 && (*arguments)[1].toInteger())
         error(loc, "llvm.ctlz.i#(0) is undefined");
@@ -404,7 +404,7 @@ extern (C++) Expression eval_bswap(Loc loc, FuncDeclaration fd, Expressions *arg
     Type type = getTypeOfOverloadedIntrinsic(fd);
 
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKint64);
+    assert(arg0.op == TOK.int64);
     uinteger_t n = arg0.toInteger();
     enum ulong BYTEMASK = 0x00FF00FF00FF00FF;
     enum ulong SHORTMASK = 0x0000FFFF0000FFFF;
@@ -443,7 +443,7 @@ extern (C++) Expression eval_ctpop(Loc loc, FuncDeclaration fd, Expressions *arg
     Type type = getTypeOfOverloadedIntrinsic(fd);
 
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKint64);
+    assert(arg0.op == TOK.int64);
     uinteger_t n = arg0.toInteger();
     int cnt = 0;
     while (n)
@@ -459,7 +459,7 @@ extern (C++) Expression eval_expect(Loc loc, FuncDeclaration fd, Expressions *ar
     Type type = getTypeOfOverloadedIntrinsic(fd);
 
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKint64);
+    assert(arg0.op == TOK.int64);
 
     return new IntegerExp(loc, arg0.toInteger(), type);
 }
@@ -471,7 +471,7 @@ else // !IN_LLVM
 extern (C++) Expression eval_bswap(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKint64);
+    assert(arg0.op == TOK.int64);
     uinteger_t n = arg0.toInteger();
     enum BYTEMASK = 0x00FF00FF00FF00FFL;
     enum SHORTMASK = 0x0000FFFF0000FFFFL;
@@ -492,7 +492,7 @@ extern (C++) Expression eval_bswap(Loc loc, FuncDeclaration fd, Expressions* arg
 extern (C++) Expression eval_popcnt(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKint64);
+    assert(arg0.op == TOK.int64);
     uinteger_t n = arg0.toInteger();
     int cnt = 0;
     while (n)
@@ -506,12 +506,12 @@ extern (C++) Expression eval_popcnt(Loc loc, FuncDeclaration fd, Expressions* ar
 extern (C++) Expression eval_yl2x(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     Expression arg1 = (*arguments)[1];
-    assert(arg1.op == TOKfloat64);
+    assert(arg1.op == TOK.float64);
     const x = arg0.toReal();
     const y = arg1.toReal();
-    real_t result = 0;
+    real_t result = CTFloat.zero;
     CTFloat.yl2x(&x, &y, &result);
     return new RealExp(loc, result, arg0.type);
 }
@@ -519,12 +519,12 @@ extern (C++) Expression eval_yl2x(Loc loc, FuncDeclaration fd, Expressions* argu
 extern (C++) Expression eval_yl2xp1(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOKfloat64);
+    assert(arg0.op == TOK.float64);
     Expression arg1 = (*arguments)[1];
-    assert(arg1.op == TOKfloat64);
+    assert(arg1.op == TOK.float64);
     const x = arg0.toReal();
     const y = arg1.toReal();
-    real_t result = 0;
+    real_t result = CTFloat.zero;
     CTFloat.yl2xp1(&x, &y, &result);
     return new RealExp(loc, result, arg0.type);
 }
@@ -823,10 +823,10 @@ version(IN_LLVM)
  */
 public extern (C++) BUILTIN isBuiltin(FuncDeclaration fd)
 {
-    if (fd.builtin == BUILTINunknown)
+    if (fd.builtin == BUILTIN.unknown)
     {
         builtin_fp fp = builtin_lookup(mangleExact(fd));
-        fd.builtin = fp ? BUILTINyes : BUILTINno;
+        fd.builtin = fp ? BUILTIN.yes : BUILTIN.no;
     }
     return fd.builtin;
 }
@@ -837,7 +837,7 @@ public extern (C++) BUILTIN isBuiltin(FuncDeclaration fd)
  */
 public extern (C++) Expression eval_builtin(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
-    if (fd.builtin == BUILTINyes)
+    if (fd.builtin == BUILTIN.yes)
     {
         builtin_fp fp = builtin_lookup(mangleExact(fd));
         assert(fp);

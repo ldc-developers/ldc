@@ -1270,7 +1270,8 @@ LLConstant *DtoTypeInfoOf(Type *type, bool base) {
                          type->toChars(), base);
   LOG_SCOPE
 
-  TypeInfoDeclaration *tidecl = getOrCreateTypeInfoDeclaration(type, nullptr);
+  TypeInfoDeclaration *tidecl =
+      getOrCreateTypeInfoDeclaration(Loc(), type, nullptr);
   assert(tidecl);
   Declaration_codegen(tidecl);
   assert(getIrGlobal(tidecl)->value != NULL);

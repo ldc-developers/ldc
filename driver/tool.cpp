@@ -152,10 +152,12 @@ std::vector<const char *> getFullArgs(const std::string &tool,
 
   // Print command line if requested
   if (printVerbose) {
-    for (auto arg : fullArgs)
-      fprintf(global.stdmsg, "%s ", arg);
-    fprintf(global.stdmsg, "\n");
-    fflush(global.stdmsg);
+    llvm::SmallString<256> singleString;
+    for (auto arg : fullArgs) {
+      singleString += arg;
+      singleString += ' ';
+    }
+    message("%s", singleString.c_str());
   }
 
   return fullArgs;
@@ -369,7 +371,7 @@ bool setupMsvcEnvironmentImpl() {
   }
 
   if (global.params.verbose)
-    fprintf(global.stdmsg, "Applying environment variables:\n");
+    message("Applying environment variables:");
 
   bool haveVsInstallDir = false;
 
@@ -378,7 +380,7 @@ bool setupMsvcEnvironmentImpl() {
     const std::string value = pair.second.str();
 
     if (global.params.verbose)
-      fprintf(global.stdmsg, "  %s=%s\n", key.c_str(), value.c_str());
+      message("  %s=%s", key.c_str(), value.c_str());
 
     SetEnvironmentVariableA(key.c_str(), value.c_str());
 

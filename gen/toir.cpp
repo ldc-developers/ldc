@@ -968,8 +968,8 @@ public:
       // Also, private/package methods are always non-virtual.
       const bool nonFinal = !fdecl->isFinalFunc() &&
                             (fdecl->isAbstract() || fdecl->isVirtual()) &&
-                            fdecl->prot().kind != PROTprivate &&
-                            fdecl->prot().kind != PROTpackage;
+                            fdecl->prot().kind != Prot::private_ &&
+                            fdecl->prot().kind != Prot::package_;
 
       // Get the actual function value to call.
       LLValue *funcval = nullptr;
@@ -2622,8 +2622,8 @@ public:
 
   void visit(TypeidExp *e) override {
     if (Type *t = isType(e->obj)) {
-      result = DtoSymbolAddress(e->loc, e->type,
-                                getOrCreateTypeInfoDeclaration(t, nullptr));
+      result = DtoSymbolAddress(
+          e->loc, e->type, getOrCreateTypeInfoDeclaration(e->loc, t, nullptr));
       return;
     }
     if (Expression *ex = isExpression(e->obj)) {

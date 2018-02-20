@@ -57,14 +57,15 @@
 FuncDeclaration *search_toString(StructDeclaration *sd);
 
 // defined in dmd/typinf.d:
-void genTypeInfo(Type *torig, Scope *sc);
+void genTypeInfo(Loc loc, Type *torig, Scope *sc);
 bool builtinTypeInfo(Type *t);
 
-TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(Type *torig, Scope *sc) {
+TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(const Loc &loc, Type *torig,
+                                                    Scope *sc) {
   IF_LOG Logger::println("Type::getTypeInfo(): %s", torig->toChars());
   LOG_SCOPE
 
-  genTypeInfo(torig, sc);
+  genTypeInfo(loc, torig, sc);
 
   return torig->vtinfo;
 }

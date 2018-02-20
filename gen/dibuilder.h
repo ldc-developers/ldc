@@ -161,7 +161,7 @@ private:
   DIType CreateVectorType(Type *type);
   DIType CreateComplexType(Type *type);
   DIType CreateMemberType(unsigned linnum, Type *type, DIFile file,
-                          const char *c_name, unsigned offset, PROTKIND);
+                          const char *c_name, unsigned offset, Prot::Kind);
   DIType CreateCompositeType(Type *type);
   DIType CreateArrayType(Type *type);
   DIType CreateSArrayType(Type *type);

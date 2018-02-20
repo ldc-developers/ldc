@@ -1,7 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (c) 1999-2016 by The D Language Foundation
- * All Rights Reserved
+ * Copyright (C) 1999-2018 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -345,7 +344,7 @@ public:
     uinteger_t sizemask();
     virtual bool needsDestruction();
     virtual bool needsNested();
-    void checkComplexTransition(Loc loc);
+    bool checkComplexTransition(Loc loc, Scope *sc);
 
     // IN_LLVM: added IS_PRINTF(2);
     static void error(Loc loc, const char *format, ...) IS_PRINTF(2);

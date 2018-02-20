@@ -2,15 +2,15 @@
  * Compiler implementation of the
  * $(LINK2 http://www.dlang.org, D programming language).
  *
- * Copyright:   Copyright (c) 1999-2017 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2018 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/dscope.d, _dscope.d)
+ * Documentation:  https://dlang.org/phobos/dmd_dscope.html
+ * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/dscope.d
  */
 
 module dmd.dscope;
-
-// Online documentation: https://dlang.org/phobos/dmd_dscope.html
 
 import core.stdc.stdio;
 import core.stdc.string;
@@ -41,40 +41,40 @@ extern (C++) bool mergeFieldInit(Loc loc, ref uint fieldInit, uint fi, bool must
     if (fi != fieldInit)
     {
         // Have any branches returned?
-        bool aRet = (fi & CSXreturn) != 0;
-        bool bRet = (fieldInit & CSXreturn) != 0;
+        bool aRet = (fi & CSX.return_) != 0;
+        bool bRet = (fieldInit & CSX.return_) != 0;
         // Have any branches halted?
-        bool aHalt = (fi & CSXhalt) != 0;
-        bool bHalt = (fieldInit & CSXhalt) != 0;
+        bool aHalt = (fi & CSX.halt) != 0;
+        bool bHalt = (fieldInit & CSX.halt) != 0;
         bool ok;
         if (aHalt && bHalt)
         {
             ok = true;
-            fieldInit = CSXhalt;
+            fieldInit = CSX.halt;
         }
         else if (!aHalt && aRet)
         {
-            ok = !mustInit || (fi & CSXthis_ctor);
+            ok = !mustInit || (fi & CSX.this_ctor);
             fieldInit = fieldInit;
         }
         else if (!bHalt && bRet)
         {
-            ok = !mustInit || (fieldInit & CSXthis_ctor);
+            ok = !mustInit || (fieldInit & CSX.this_ctor);
             fieldInit = fi;
         }
         else if (aHalt)
         {
-            ok = !mustInit || (fieldInit & CSXthis_ctor);
+            ok = !mustInit || (fieldInit & CSX.this_ctor);
             fieldInit = fieldInit;
         }
         else if (bHalt)
         {
-            ok = !mustInit || (fi & CSXthis_ctor);
+            ok = !mustInit || (fi & CSX.this_ctor);
             fieldInit = fi;
         }
         else
         {
-            ok = !mustInit || !((fieldInit ^ fi) & CSXthis_ctor);
+            ok = !mustInit || !((fieldInit ^ fi) & CSX.this_ctor);
             fieldInit |= fi;
         }
         return ok;
@@ -82,34 +82,40 @@ extern (C++) bool mergeFieldInit(Loc loc, ref uint fieldInit, uint fi, bool must
     return true;
 }
 
-enum CSXthis_ctor       = 0x01;     /// called this()
-enum CSXsuper_ctor      = 0x02;     /// called super()
-enum CSXthis            = 0x04;     /// referenced this
-enum CSXsuper           = 0x08;     /// referenced super
-enum CSXlabel           = 0x10;     /// seen a label
-enum CSXreturn          = 0x20;     /// seen a return statement
-enum CSXany_ctor        = 0x40;     /// either this() or super() was called
-enum CSXhalt            = 0x80;     /// assert(0)
+enum CSX
+{
+    this_ctor       = 0x01,     /// called this()
+    super_ctor      = 0x02,     /// called super()
+    this_           = 0x04,     /// referenced this
+    super_          = 0x08,     /// referenced super
+    label           = 0x10,     /// seen a label
+    return_         = 0x20,     /// seen a return statement
+    any_ctor        = 0x40,     /// either this() or super() was called
+    halt            = 0x80,     /// assert(0)
+}
 
 // Flags that would not be inherited beyond scope nesting
-enum SCOPEctor          = 0x0001;   /// constructor type
-enum SCOPEcondition     = 0x0004;   /// inside static if/assert condition
-enum SCOPEdebug         = 0x0008;   /// inside debug conditional
+enum SCOPE
+{
+    ctor          = 0x0001,   /// constructor type
+    condition     = 0x0004,   /// inside static if/assert condition
+    debug_        = 0x0008,   /// inside debug conditional
 
-// Flags that would be inherited beyond scope nesting
-enum SCOPEnoaccesscheck = 0x0002;   /// don't do access checks
-enum SCOPEconstraint    = 0x0010;   /// inside template constraint
-enum SCOPEinvariant     = 0x0020;   /// inside invariant code
-enum SCOPErequire       = 0x0040;   /// inside in contract code
-enum SCOPEensure        = 0x0060;   /// inside out contract code
-enum SCOPEcontract      = 0x0060;   /// [mask] we're inside contract code
-enum SCOPEctfe          = 0x0080;   /// inside a ctfe-only expression
-enum SCOPEcompile       = 0x0100;   /// inside __traits(compile)
-enum SCOPEignoresymbolvisibility    = 0x0200;   /// ignore symbol visibility
-                                                /// https://issues.dlang.org/show_bug.cgi?id=15907
-enum SCOPEfree          = 0x8000;   /// is on free list
+    // Flags that would be inherited beyond scope nesting
+    noaccesscheck = 0x0002,   /// don't do access checks
+    constraint    = 0x0010,   /// inside template constraint
+    invariant_    = 0x0020,   /// inside invariant code
+    require       = 0x0040,   /// inside in contract code
+    ensure        = 0x0060,   /// inside out contract code
+    contract      = 0x0060,   /// [mask] we're inside contract code
+    ctfe          = 0x0080,   /// inside a ctfe-only expression
+    compile       = 0x0100,   /// inside __traits(compile)
+    ignoresymbolvisibility    = 0x0200,   /// ignore symbol visibility
+                                          /// https://issues.dlang.org/show_bug.cgi?id=15907
+    free          = 0x8000,   /// is on free list
 
-enum SCOPEfullinst      = 0x10000;  /// fully instantiate templates
+    fullinst      = 0x10000,  /// fully instantiate templates
+}
 
 struct Scope
 {
@@ -152,16 +158,16 @@ struct Scope
     AlignDeclaration aligndecl;
 
     /// linkage for external functions
-    LINK linkage = LINKd;
+    LINK linkage = LINK.d;
 
     /// mangle type
     CPPMANGLE cppmangle = CPPMANGLE.def;
 
     /// inlining strategy for functions
-    PINLINE inlining = PINLINEdefault;
+    PINLINE inlining = PINLINE.default_;
 
     /// protection for class members
-    Prot protection = Prot(PROTpublic);
+    Prot protection = Prot(Prot.Kind.public_);
     int explicitProtection;         /// set if in an explicit protection attribute
 
     StorageClass stc;               /// storage class
@@ -191,8 +197,8 @@ version(IN_LLVM)
             Scope* s = freelist;
             freelist = s.enclosing;
             //printf("freelist %p\n", s);
-            assert(s.flags & SCOPEfree);
-            s.flags &= ~SCOPEfree;
+            assert(s.flags & SCOPE.free);
+            s.flags &= ~SCOPE.free;
             return s;
         }
         return new Scope();
@@ -233,13 +239,13 @@ version(IN_LLVM)
     {
         Scope* s = copy();
         //printf("Scope::push(this = %p) new = %p\n", this, s);
-        assert(!(flags & SCOPEfree));
+        assert(!(flags & SCOPE.free));
         s.scopesym = null;
         s.enclosing = &this;
         debug
         {
             if (enclosing)
-                assert(!(enclosing.flags & SCOPEfree));
+                assert(!(enclosing.flags & SCOPE.free));
             if (s == enclosing)
             {
                 printf("this = %p, enclosing = %p, enclosing.enclosing = %p\n", s, &this, enclosing);
@@ -249,8 +255,8 @@ version(IN_LLVM)
         s.slabel = null;
         s.nofree = 0;
         s.fieldinit = saveFieldInit();
-        s.flags = (flags & (SCOPEcontract | SCOPEdebug | SCOPEctfe | SCOPEcompile | SCOPEconstraint |
-                            SCOPEnoaccesscheck | SCOPEignoresymbolvisibility));
+        s.flags = (flags & (SCOPE.contract | SCOPE.debug_ | SCOPE.ctfe | SCOPE.compile | SCOPE.constraint |
+                            SCOPE.noaccesscheck | SCOPE.ignoresymbolvisibility));
         s.lastdc = null;
         assert(&this != s);
         return s;
@@ -286,7 +292,7 @@ version(IN_LLVM)
         {
             enclosing = freelist;
             freelist = &this;
-            flags |= SCOPEfree;
+            flags |= SCOPE.free;
         }
         return enc;
     }
@@ -308,7 +314,7 @@ version(IN_LLVM)
     extern (C++) Scope* startCTFE()
     {
         Scope* sc = this.push();
-        sc.flags = this.flags | SCOPEctfe;
+        sc.flags = this.flags | SCOPE.ctfe;
         version (none)
         {
             /* TODO: Currently this is not possible, because we need to
@@ -334,7 +340,7 @@ version(IN_LLVM)
 
     extern (C++) Scope* endCTFE()
     {
-        assert(flags & SCOPEctfe);
+        assert(flags & SCOPE.ctfe);
         return pop();
     }
 
@@ -347,21 +353,21 @@ version(IN_LLVM)
         if (cs != callSuper)
         {
             // Have ALL branches called a constructor?
-            int aAll = (cs & (CSXthis_ctor | CSXsuper_ctor)) != 0;
-            int bAll = (callSuper & (CSXthis_ctor | CSXsuper_ctor)) != 0;
+            int aAll = (cs & (CSX.this_ctor | CSX.super_ctor)) != 0;
+            int bAll = (callSuper & (CSX.this_ctor | CSX.super_ctor)) != 0;
             // Have ANY branches called a constructor?
-            bool aAny = (cs & CSXany_ctor) != 0;
-            bool bAny = (callSuper & CSXany_ctor) != 0;
+            bool aAny = (cs & CSX.any_ctor) != 0;
+            bool bAny = (callSuper & CSX.any_ctor) != 0;
             // Have any branches returned?
-            bool aRet = (cs & CSXreturn) != 0;
-            bool bRet = (callSuper & CSXreturn) != 0;
+            bool aRet = (cs & CSX.return_) != 0;
+            bool bRet = (callSuper & CSX.return_) != 0;
             // Have any branches halted?
-            bool aHalt = (cs & CSXhalt) != 0;
-            bool bHalt = (callSuper & CSXhalt) != 0;
+            bool aHalt = (cs & CSX.halt) != 0;
+            bool bHalt = (callSuper & CSX.halt) != 0;
             bool ok = true;
             if (aHalt && bHalt)
             {
-                callSuper = CSXhalt;
+                callSuper = CSX.halt;
             }
             else if ((!aHalt && aRet && !aAny && bAny) || (!bHalt && bRet && !bAny && aAny))
             {
@@ -374,11 +380,11 @@ version(IN_LLVM)
                 // If one branch has called a ctor and then exited, anything the
                 // other branch has done is OK (except returning without a
                 // ctor call, but we already checked that).
-                callSuper |= cs & (CSXany_ctor | CSXlabel);
+                callSuper |= cs & (CSX.any_ctor | CSX.label);
             }
             else if (bHalt || bRet && bAll)
             {
-                callSuper = cs | (callSuper & (CSXany_ctor | CSXlabel));
+                callSuper = cs | (callSuper & (CSX.any_ctor | CSX.label));
             }
             else
             {
@@ -387,8 +393,8 @@ version(IN_LLVM)
                 // If one returned without a ctor, we must remember that
                 // (Don't bother if we've already found an error)
                 if (ok && aRet && !aAny)
-                    callSuper |= CSXreturn;
-                callSuper |= cs & (CSXany_ctor | CSXlabel);
+                    callSuper |= CSX.return_;
+                callSuper |= cs & (CSX.any_ctor | CSX.label);
             }
             if (!ok)
                 error(loc, "one path skips constructor");
@@ -427,10 +433,10 @@ else
             for (size_t i = 0; i < ad.fields.dim; i++)
             {
                 VarDeclaration v = ad.fields[i];
-                bool mustInit = (v.storage_class & STCnodefaultctor || v.type.needsNested());
+                bool mustInit = (v.storage_class & STC.nodefaultctor || v.type.needsNested());
                 if (!.mergeFieldInit(loc, fieldinit[i], fies[i], mustInit))
                 {
-                    .error(loc, "one path skips field %s", ad.fields[i].toChars());
+                    .error(loc, "one path skips field `%s`", ad.fields[i].toChars());
                 }
             }
         }
@@ -455,7 +461,7 @@ else
      * Returns:
      *  symbol if found, null if not
      */
-    extern (C++) Dsymbol search(Loc loc, Identifier ident, Dsymbol* pscopesym, int flags = IgnoreNone)
+    extern (C++) Dsymbol search(const ref Loc loc, Identifier ident, Dsymbol* pscopesym, int flags = IgnoreNone)
     {
         version (LOGSEARCH)
         {
@@ -517,7 +523,7 @@ else
                         ident == Id.length && sc.scopesym.isArrayScopeSymbol() &&
                         sc.enclosing && sc.enclosing.search(loc, ident, null, flags))
                     {
-                        warning(s.loc, "array 'length' hides other 'length' name in outer scope");
+                        warning(s.loc, "array `length` hides other `length` name in outer scope");
                     }
                     //printMsg("\tfound local", s);
                     if (pscopesym)
@@ -531,7 +537,7 @@ else
             return null;
         }
 
-        if (this.flags & SCOPEignoresymbolvisibility)
+        if (this.flags & SCOPE.ignoresymbolvisibility)
             flags |= IgnoreSymbolVisibility;
 
         Dsymbol sold = void;
@@ -567,7 +573,7 @@ else
                     s = searchScopes(flags | SearchImportsOnly | IgnoreSymbolVisibility);
 
                 if (s && !(flags & IgnoreErrors))
-                    .deprecation(loc, "%s is not visible from module %s", s.toPrettyChars(), _module.toChars());
+                    .deprecation(loc, "`%s` is not visible from module `%s`", s.toPrettyChars(), _module.toChars());
                 version (LOGSEARCH) if (s) printMsg("-Scope.search() found imported private symbol", s);
             }
         }
@@ -601,16 +607,16 @@ else
         OutBuffer buf;
         buf.writestring("local import search method found ");
         if (osold)
-            buf.printf("%s %s (%d overloads)", sold.kind(), sold.toPrettyChars(), cast(int) osold.a.dim);
+            buf.printf("%s `%s` (%d overloads)", sold.kind(), sold.toPrettyChars(), cast(int) osold.a.dim);
         else if (sold)
-            buf.printf("%s %s", sold.kind(), sold.toPrettyChars());
+            buf.printf("%s `%s`", sold.kind(), sold.toPrettyChars());
         else
             buf.writestring("nothing");
         buf.writestring(" instead of ");
         if (osnew)
-            buf.printf("%s %s (%d overloads)", snew.kind(), snew.toPrettyChars(), cast(int) osnew.a.dim);
+            buf.printf("%s `%s` (%d overloads)", snew.kind(), snew.toPrettyChars(), cast(int) osnew.a.dim);
         else if (snew)
-            buf.printf("%s %s", snew.kind(), snew.toPrettyChars());
+            buf.printf("%s `%s`", snew.kind(), snew.toPrettyChars());
         else
             buf.writestring("nothing");
 
@@ -641,7 +647,7 @@ else
             Scope* sc = &this;
             Module.clearCache();
             Dsymbol scopesym = null;
-            Dsymbol s = sc.search(Loc(), id, &scopesym, IgnoreErrors);
+            Dsymbol s = sc.search(Loc.initial, id, &scopesym, IgnoreErrors);
             if (s)
             {
                 for (cost = 0; sc; sc = sc.enclosing, ++cost)
@@ -650,7 +656,7 @@ else
                 if (scopesym != s.parent)
                 {
                     ++cost; // got to the symbol through an import
-                    if (s.prot().kind == PROTprivate)
+                    if (s.prot().kind == Prot.Kind.private_)
                         return null;
                 }
             }
@@ -672,13 +678,13 @@ else
     {
         TOK tok;
         if (ident == Id.NULL)
-            tok = TOKnull;
+            tok = TOK.null_;
         else if (ident == Id.TRUE)
-            tok = TOKtrue;
+            tok = TOK.true_;
         else if (ident == Id.FALSE)
-            tok = TOKfalse;
+            tok = TOK.false_;
         else if (ident == Id.unsigned)
-            tok = TOKuns32;
+            tok = TOK.uns32;
         else
             return null;
         return Token.toChars(tok);
@@ -764,7 +770,7 @@ else
         {
             //printf("\tsc = %p\n", sc);
             sc.nofree = 1;
-            assert(!(flags & SCOPEfree));
+            assert(!(flags & SCOPE.free));
             //assert(sc != sc.enclosing);
             //assert(!sc.enclosing || sc != sc.enclosing.enclosing);
             //if (++i == 10)
@@ -818,5 +824,29 @@ else
             return aligndecl.getAlignment(&this);
         else
             return STRUCTALIGN_DEFAULT;
+    }
+
+    /**********************************
+    * Checks whether the current scope (or any of its parents) is deprecated.
+    *
+    * Returns: `true` if this or any parent scope is deprecated, `false` otherwise`
+    */
+    extern(C++) bool isDeprecated()
+    {
+        for (Dsymbol sp = this.parent; sp; sp = sp.parent)
+        {
+            if (sp.isDeprecated())
+                return true;
+        }
+        for (Scope* sc2 = &this; sc2; sc2 = sc2.enclosing)
+        {
+            if (sc2.scopesym && sc2.scopesym.isDeprecated())
+                return true;
+
+            // If inside a StorageClassDeclaration that is deprecated
+            if (sc2.stc & STC.deprecated_)
+                return true;
+        }
+        return false;
     }
 }

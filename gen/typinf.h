@@ -17,11 +17,13 @@
 
 struct IRState;
 struct Scope;
+struct Loc;
 class Type;
 class TypeInfoDeclaration;
 
 void DtoResolveTypeInfo(TypeInfoDeclaration *tid);
-TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(Type *t, Scope *sc);
+TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(const Loc &loc, Type *t,
+                                                    Scope *sc);
 void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p);
 void TypeInfoClassDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p);
 

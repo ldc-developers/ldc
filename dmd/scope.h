@@ -1,7 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (c) 1999-2016 by The D Language Foundation
- * All Rights Reserved
+ * Copyright (C) 1999-2018 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -152,7 +151,7 @@ struct Scope
 
     Module *instantiatingModule();
 
-    Dsymbol *search(Loc loc, Identifier *ident, Dsymbol **pscopesym, int flags = IgnoreNone);
+    Dsymbol *search(const Loc &loc, Identifier *ident, Dsymbol **pscopesym, int flags = IgnoreNone);
     static void deprecation10378(Loc loc, Dsymbol *sold, Dsymbol *snew);
     Dsymbol *search_correct(Identifier *ident);
     static const char *search_correct_C(Identifier *ident);
@@ -163,6 +162,8 @@ struct Scope
     void setNoFree();
 
     structalign_t alignment();
+
+    bool isDeprecated();
 };
 
 #endif /* DMD_SCOPE_H */

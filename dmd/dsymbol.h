@@ -1,7 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (c) 1999-2016 by The D Language Foundation
- * All Rights Reserved
+ * Copyright (C) 1999-2018 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -63,6 +62,7 @@ class UnitTestDeclaration;
 class NewDeclaration;
 class VarDeclaration;
 class AttribDeclaration;
+class ProtDeclaration;
 class Package;
 class Module;
 class Import;
@@ -105,20 +105,19 @@ void semantic3(Dsymbol *dsym, Scope* sc);
 const char *mangleExact(FuncDeclaration *fd);
 void mangleToBuffer(Dsymbol *s, OutBuffer* buf);
 
-enum PROTKIND
-{
-    PROTundefined,
-    PROTnone,           // no access
-    PROTprivate,
-    PROTpackage,
-    PROTprotected,
-    PROTpublic,
-    PROTexport,
-};
-
 struct Prot
 {
-    PROTKIND kind;
+    enum Kind
+    {
+        undefined,
+        none,           // no access
+        private_,
+        package_,
+        protected_,
+        public_,
+        export_,
+    };
+    Kind kind;
     Package *pkg;
 
     bool isMoreRestrictiveThan(const Prot other) const;
@@ -127,7 +126,7 @@ struct Prot
 
 // in hdrgen.c
 void protectionToBuffer(OutBuffer *buf, Prot prot);
-const char *protectionToChars(PROTKIND kind);
+const char *protectionToChars(Prot::Kind kind);
 
 /* State of symbol in winding its way through the passes of the compiler
  */
@@ -195,11 +194,11 @@ public:
     const char *locToChars();
     bool equals(RootObject *o);
     virtual bool isAnonymous();
-    void error(Loc loc, const char *format, ...);
+    void error(const Loc &loc, const char *format, ...);
     void error(const char *format, ...);
     void deprecation(Loc loc, const char *format, ...);
     void deprecation(const char *format, ...);
-    void checkDeprecated(Loc loc, Scope *sc);
+    bool checkDeprecated(Loc loc, Scope *sc);
     Module *getModule();
     Module *getAccessModule();
     Dsymbol *pastMixin();
@@ -298,6 +297,7 @@ public:
     virtual DeleteDeclaration *isDeleteDeclaration() { return NULL; }
     virtual SymbolDeclaration *isSymbolDeclaration() { return NULL; }
     virtual AttribDeclaration *isAttribDeclaration() { return NULL; }
+    virtual ProtDeclaration *isProtDeclaration() { return NULL; }
     virtual AnonDeclaration *isAnonDeclaration() { return NULL; }
     virtual OverloadSet *isOverloadSet() { return NULL; }
     virtual void accept(Visitor *v) { v->visit(this); }
@@ -314,7 +314,7 @@ public:
 
 private:
     Dsymbols *importedScopes;   // imported Dsymbol's
-    PROTKIND *prots;            // array of PROTKIND, one for each import
+    Prot::Kind *prots;            // array of PROTKIND, one for each import
 
     BitArray accessiblePackages, privateAccessiblePackages;
 
