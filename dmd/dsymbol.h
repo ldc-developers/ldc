@@ -222,7 +222,7 @@ public:
     virtual void addMember(Scope *sc, ScopeDsymbol *sds);
     virtual void setScope(Scope *sc);
     virtual void importAll(Scope *sc);
-    virtual Dsymbol *search(Loc loc, Identifier *ident, int flags = IgnoreNone);
+    virtual Dsymbol *search(const Loc &loc, Identifier *ident, int flags = IgnoreNone);
     Dsymbol *search_correct(Identifier *id);
     Dsymbol *searchX(Loc loc, Scope *sc, RootObject *id);
     virtual bool overloadInsert(Dsymbol *s);
@@ -320,7 +320,7 @@ private:
 
 public:
     Dsymbol *syntaxCopy(Dsymbol *s);
-    Dsymbol *search(Loc loc, Identifier *ident, int flags = SearchLocalsOnly);
+    Dsymbol *search(const Loc &loc, Identifier *ident, int flags = SearchLocalsOnly);
     OverloadSet *mergeOverloadSet(Identifier *ident, OverloadSet *os, Dsymbol *s);
     virtual void importScope(Dsymbol *s, Prot protection);
     void addAccessiblePackage(Package *p, Prot protection);
@@ -347,7 +347,7 @@ class WithScopeSymbol : public ScopeDsymbol
 public:
     WithStatement *withstate;
 
-    Dsymbol *search(Loc loc, Identifier *ident, int flags = SearchLocalsOnly);
+    Dsymbol *search(const Loc &loc, Identifier *ident, int flags = SearchLocalsOnly);
 
     WithScopeSymbol *isWithScopeSymbol() { return this; }
     void accept(Visitor *v) { v->visit(this); }
@@ -363,7 +363,7 @@ public:
     TupleDeclaration *td;       // for tuples of objects
     Scope *sc;
 
-    Dsymbol *search(Loc loc, Identifier *ident, int flags = IgnoreNone);
+    Dsymbol *search(const Loc &loc, Identifier *ident, int flags = IgnoreNone);
 
     ArrayScopeSymbol *isArrayScopeSymbol() { return this; }
     void accept(Visitor *v) { v->visit(this); }
