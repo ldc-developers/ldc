@@ -196,9 +196,9 @@ public:
     virtual bool isAnonymous();
     void error(const Loc &loc, const char *format, ...);
     void error(const char *format, ...);
-    void deprecation(Loc loc, const char *format, ...);
+    void deprecation(const Loc &loc, const char *format, ...);
     void deprecation(const char *format, ...);
-    bool checkDeprecated(Loc loc, Scope *sc);
+    bool checkDeprecated(const Loc &loc, Scope *sc);
     Module *getModule();
     Module *getAccessModule();
     Dsymbol *pastMixin();
@@ -224,9 +224,9 @@ public:
     virtual void importAll(Scope *sc);
     virtual Dsymbol *search(const Loc &loc, Identifier *ident, int flags = IgnoreNone);
     Dsymbol *search_correct(Identifier *id);
-    Dsymbol *searchX(Loc loc, Scope *sc, RootObject *id);
+    Dsymbol *searchX(const Loc &loc, Scope *sc, RootObject *id);
     virtual bool overloadInsert(Dsymbol *s);
-    virtual d_uns64 size(Loc loc);
+    virtual d_uns64 size(const Loc &loc);
     virtual bool isforwardRef();
     virtual AggregateDeclaration *isThis();     // is a 'this' required to access the member
     virtual bool isExport();                    // is Dsymbol exported?
@@ -326,7 +326,7 @@ public:
     void addAccessiblePackage(Package *p, Prot protection);
     virtual bool isPackageAccessible(Package *p, Prot protection, int flags = 0);
     bool isforwardRef();
-    static void multiplyDefined(Loc loc, Dsymbol *s1, Dsymbol *s2);
+    static void multiplyDefined(const Loc &loc, Dsymbol *s1, Dsymbol *s2);
     const char *kind() const;
     FuncDeclaration *findGetMembers();
     virtual Dsymbol *symtabInsert(Dsymbol *s);

@@ -132,7 +132,7 @@ public:
     const char *mangleOverride;      // overridden symbol with pragma(mangle, "...")
 
     const char *kind() const;
-    d_uns64 size(Loc loc);
+    d_uns64 size(const Loc &loc);
     bool checkDisabled(Loc loc, Scope* sc, bool isAliasedDeclaration = false);
     int checkModify(Loc loc, Scope *sc, Type *t, Expression *e1, int flag);
 

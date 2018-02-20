@@ -250,7 +250,7 @@ public:
     static void _init();
 
     d_uns64 size();
-    virtual d_uns64 size(Loc loc);
+    virtual d_uns64 size(const Loc &loc);
     virtual unsigned alignsize();
     Type *trySemantic(Loc loc, Scope *sc);
     Type *merge2();
@@ -360,7 +360,7 @@ class TypeError : public Type
 public:
     Type *syntaxCopy();
 
-    d_uns64 size(Loc loc);
+    d_uns64 size(const Loc &loc);
     Expression *getProperty(Loc loc, Identifier *ident, int flag);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     Expression *defaultInit(Loc loc);
@@ -373,7 +373,7 @@ class TypeNext : public Type
 public:
     Type *next;
 
-    void checkDeprecated(Loc loc, Scope *sc);
+    void checkDeprecated(const Loc &loc, Scope *sc);
     int hasWild() const;
     Type *nextOf();
     Type *makeConst();
@@ -399,7 +399,7 @@ public:
 
     const char *kind();
     Type *syntaxCopy();
-    d_uns64 size(Loc loc) /*const*/;
+    d_uns64 size(const Loc &loc) /*const*/;
     unsigned alignsize();
 #if IN_LLVM
     structalign_t alignment();
@@ -430,7 +430,7 @@ public:
     static TypeVector *create(Loc loc, Type *basetype);
     const char *kind();
     Type *syntaxCopy();
-    d_uns64 size(Loc loc);
+    d_uns64 size(const Loc &loc);
     unsigned alignsize();
     Expression *getProperty(Loc loc, Identifier *ident, int flag);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
@@ -463,7 +463,7 @@ public:
 
     const char *kind();
     Type *syntaxCopy();
-    d_uns64 size(Loc loc);
+    d_uns64 size(const Loc &loc);
     unsigned alignsize();
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
@@ -487,7 +487,7 @@ class TypeDArray : public TypeArray
 public:
     const char *kind();
     Type *syntaxCopy();
-    d_uns64 size(Loc loc) /*const*/;
+    d_uns64 size(const Loc &loc) /*const*/;
     unsigned alignsize() /*const*/;
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
@@ -511,7 +511,7 @@ public:
     static TypeAArray *create(Type *t, Type *index);
     const char *kind();
     Type *syntaxCopy();
-    d_uns64 size(Loc loc);
+    d_uns64 size(const Loc &loc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     Expression *defaultInit(Loc loc);
@@ -530,7 +530,7 @@ public:
     static TypePointer *create(Type *t);
     const char *kind();
     Type *syntaxCopy();
-    d_uns64 size(Loc loc) /*const*/;
+    d_uns64 size(const Loc &loc) /*const*/;
     MATCH implicitConvTo(Type *to);
     MATCH constConv(Type *to);
     bool isscalar() /*const*/;
@@ -546,7 +546,7 @@ class TypeReference : public TypeNext
 public:
     const char *kind();
     Type *syntaxCopy();
-    d_uns64 size(Loc loc) /*const*/;
+    d_uns64 size(const Loc &loc) /*const*/;
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     Expression *defaultInit(Loc loc);
     bool isZeroInit(Loc loc) /*const*/;
@@ -639,7 +639,7 @@ public:
     const char *kind();
     Type *syntaxCopy();
     Type *addStorageClass(StorageClass stc);
-    d_uns64 size(Loc loc) /*const*/;
+    d_uns64 size(const Loc &loc) /*const*/;
     unsigned alignsize() /*const*/;
     MATCH implicitConvTo(Type *to);
     Expression *defaultInit(Loc loc);
@@ -663,7 +663,7 @@ public:
     void addIdent(Identifier *ident);
     void addInst(TemplateInstance *inst);
     void addIndex(RootObject *expr);
-    d_uns64 size(Loc loc);
+    d_uns64 size(const Loc &loc);
 
     void resolveTupleIndex(Loc loc, Scope *sc, Dsymbol *s,
         Expression **pe, Type **pt, Dsymbol **ps, RootObject *oindex);
@@ -710,7 +710,7 @@ public:
     Type *syntaxCopy();
     Dsymbol *toDsymbol(Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
-    d_uns64 size(Loc loc);
+    d_uns64 size(const Loc &loc);
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -745,7 +745,7 @@ public:
 
     static TypeStruct *create(StructDeclaration *sym);
     const char *kind();
-    d_uns64 size(Loc loc);
+    d_uns64 size(const Loc &loc);
     unsigned alignsize();
     Type *syntaxCopy();
     Dsymbol *toDsymbol(Scope *sc);
@@ -775,7 +775,7 @@ public:
 
     const char *kind();
     Type *syntaxCopy();
-    d_uns64 size(Loc loc);
+    d_uns64 size(const Loc &loc);
     unsigned alignsize();
     Dsymbol *toDsymbol(Scope *sc);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
@@ -812,7 +812,7 @@ public:
     CPPMANGLE cppmangle;
 
     const char *kind();
-    d_uns64 size(Loc loc) /*const*/;
+    d_uns64 size(const Loc &loc) /*const*/;
     Type *syntaxCopy();
     Dsymbol *toDsymbol(Scope *sc);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
@@ -866,7 +866,7 @@ public:
     MATCH implicitConvTo(Type *to);
     bool isBoolean() /*const*/;
 
-    d_uns64 size(Loc loc) /*const*/;
+    d_uns64 size(const Loc &loc) /*const*/;
     Expression *defaultInit(Loc loc) /*const*/;
     void accept(Visitor *v) { v->visit(this); }
 };
