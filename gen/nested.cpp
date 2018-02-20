@@ -150,10 +150,12 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     Logger::cout() << "of type: " << *val->getType() << '\n';
   }
   const bool isRefOrOut = vd->isRef() || vd->isOut();
+  const bool isRefParameter = (vd->isParameter() && getIrParameter(vd)->arg &&
+                               getIrParameter(vd)->arg->byref);
   if (isSpecialRefVar(vd)) {
     // Handled appropriately by makeVarDValue() and EmitLocalVariable(), pass
     // storage of pointer (reference lvalue).
-  } else if (byref || isRefOrOut) {
+  } else if (byref || isRefOrOut || isRefParameter) {
     val = DtoAlignedLoad(val);
     // ref/out variables get a reference-debuginfo-type in EmitLocalVariable();
     // pass the GEP as reference lvalue in that case.
