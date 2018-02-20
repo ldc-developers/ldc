@@ -242,10 +242,10 @@ Throwable chainExceptions(Throwable e, Throwable t)
             return err;
         }
 
-    auto pChain = &e.next;
-    while (*pChain)
-        pChain = &(pChain.next);
-    *pChain = t;
+    Throwable last = e;
+    while (last.next)
+        last = last.next;
+    last.next = t;
     return e;
 }
 
