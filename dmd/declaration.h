@@ -654,7 +654,7 @@ public:
     bool needThis();
     bool isVirtualMethod();
     virtual bool isVirtual() const;
-    virtual bool isFinalFunc() const;
+    bool isFinalFunc() const;
     virtual bool addPreInvariant();
     virtual bool addPostInvariant();
     const char *kind() const;
