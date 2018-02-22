@@ -805,6 +805,8 @@ void DtoCatAssignElement(Loc &loc, DValue *array, Expression *exp) {
 
   assert(array);
 
+  Type *arrayType = array->type->toBasetype();
+
   // Evaluate the expression to be appended first; it may affect the array.
   DValue *expVal = toElem(exp);
 
@@ -812,7 +814,7 @@ void DtoCatAssignElement(Loc &loc, DValue *array, Expression *exp) {
   // potentially moved to a new block).
   LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_arrayappendcTX");
   gIR->CreateCallOrInvoke(
-      fn, DtoTypeInfoOf(array->type->toBasetype()),
+      fn, DtoTypeInfoOf(arrayType),
       DtoBitCast(DtoLVal(array), fn->getFunctionType()->getParamType(1)),
       DtoConstSize_t(1), ".appendedArray");
 
@@ -822,7 +824,7 @@ void DtoCatAssignElement(Loc &loc, DValue *array, Expression *exp) {
   LLValue *lastIndex =
       gIR->ir->CreateSub(newLength, DtoConstSize_t(1), ".lastIndex");
   LLValue *lastElemPtr = DtoGEP1(ptr, lastIndex, true, ".lastElem");
-  DLValue lastElem(array->type->nextOf(), lastElemPtr);
+  DLValue lastElem(arrayType->nextOf(), lastElemPtr);
   DtoAssign(loc, &lastElem, expVal, TOKblit);
   callPostblit(loc, exp, lastElemPtr);
 }
