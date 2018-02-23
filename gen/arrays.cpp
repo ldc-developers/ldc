@@ -799,33 +799,34 @@ DSliceValue *DtoResizeDynArray(Loc &loc, Type *arrayType, DValue *array,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoCatAssignElement(Loc &loc, Type *arrayType, DValue *array,
-                         Expression *exp) {
+void DtoCatAssignElement(Loc &loc, DValue *array, Expression *exp) {
   IF_LOG Logger::println("DtoCatAssignElement");
   LOG_SCOPE;
 
   assert(array);
 
-  LLValue *oldLength = DtoArrayLen(array);
+  Type *arrayType = array->type->toBasetype();
 
-  // Do not move exp->toElem call after creating _d_arrayappendcTX,
-  // otherwise a ~= a[$-i] won't work correctly
+  // Evaluate the expression to be appended first; it may affect the array.
   DValue *expVal = toElem(exp);
 
+  // The druntime function extends the slice in-place (length += 1, ptr
+  // potentially moved to a new block).
   LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_arrayappendcTX");
-  LLValue *appendedArray =
-      gIR->CreateCallOrInvoke(
-             fn, DtoTypeInfoOf(arrayType),
-             DtoBitCast(DtoLVal(array), fn->getFunctionType()->getParamType(1)),
-             DtoConstSize_t(1), ".appendedArray")
-          .getInstruction();
-  appendedArray = DtoAggrPaint(appendedArray, DtoType(arrayType));
+  gIR->CreateCallOrInvoke(
+      fn, DtoTypeInfoOf(arrayType),
+      DtoBitCast(DtoLVal(array), fn->getFunctionType()->getParamType(1)),
+      DtoConstSize_t(1), ".appendedArray");
 
+  // Assign to the new last element.
+  LLValue *newLength = DtoArrayLen(array);
   LLValue *ptr = DtoArrayPtr(array);
-  ptr = DtoGEP1(ptr, oldLength, true, ".lastElem");
-  DLValue lastElem(arrayType->nextOf(), ptr);
+  LLValue *lastIndex =
+      gIR->ir->CreateSub(newLength, DtoConstSize_t(1), ".lastIndex");
+  LLValue *lastElemPtr = DtoGEP1(ptr, lastIndex, true, ".lastElem");
+  DLValue lastElem(arrayType->nextOf(), lastElemPtr);
   DtoAssign(loc, &lastElem, expVal, TOKblit);
-  callPostblit(loc, exp, ptr);
+  callPostblit(loc, exp, lastElemPtr);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
