@@ -14,10 +14,13 @@
 #include "gen/classes.h"
 #include "gen/funcgenstate.h"
 #include "gen/llvmhelpers.h"
+#include "gen/mangling.h"
 #include "gen/ms-cxx-helper.h"
+#include "gen/rttibuilder.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
+#include "ir/irtypeclass.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -159,9 +162,28 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
     LLGlobalVariable *ci;
     if (p.cd->isCPPclass()) {
       const char *name = Target::cppTypeInfoMangle(p.cd);
-      ci = getOrCreateGlobal(
+      auto cpp_ti = getOrCreateGlobal(
           p.cd->loc, irs.module, getVoidPtrType(), /*isConstant=*/true,
           LLGlobalValue::ExternalLinkage, /*init=*/nullptr, name);
+
+      // Wrap std::type_info pointers inside a __cpp_type_info_ptr class instance so that
+      // the personality routine may differentiate C++ catch clauses from D ones.
+      OutBuffer mangleBuf;
+      mangleBuf.writestring("_D");
+      mangleToBuffer(p.cd, &mangleBuf);
+      mangleBuf.printf("%d%s", 18, "_cpp_type_info_ptr");
+      const auto wrapperMangle = getIRMangledVarName(mangleBuf.peekString(), LINKd);
+
+      RTTIBuilder b(ClassDeclaration::cpp_type_info_ptr);
+      b.push(cpp_ti);
+
+      auto wrapperType = llvm::cast<llvm::StructType>(
+          static_cast<IrTypeClass*>(ClassDeclaration::cpp_type_info_ptr->type->ctype)->getMemoryLLType());
+      auto wrapperInit = b.get_constant(wrapperType);
+
+      ci = getOrCreateGlobal(
+          p.cd->loc, irs.module, wrapperType, /*isConstant=*/true,
+          LLGlobalValue::LinkOnceODRLinkage, wrapperInit, wrapperMangle);
     } else {
       ci = getIrAggr(p.cd)->getClassInfoSymbol();
     }
