@@ -89,12 +89,24 @@ commonSteps: &commonSteps
           mkdir ninja-ldc
           cd ninja-ldc
           cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DINCLUDE_INSTALL_DIR=$INSTALL_DIR/import -DD_COMPILER=$HOST_LDMD $EXTRA_CMAKE_FLAGS $CIRCLE_WORKING_DIRECTORY
-          # compiling the std.regex.internal.tests unittests eats large amounts of memory
-          if [ "$CI_OS" = "linux" ]; then
-            ninja -j2 all runtime/objects-unittest-debug/std/regex/internal/tests.o runtime/objects-unittest/std/regex/internal/tests.o runtime/objects-unittest-debug_32/std/regex/internal/tests.o runtime/objects-unittest_32/std/regex/internal/tests.o
-          else
-            ninja -j2 all runtime/objects-unittest-debug_64/std/regex/internal/tests.o runtime/objects-unittest_64/std/regex/internal/tests.o runtime/objects-unittest-debug_32/std/regex/internal/tests.o runtime/objects-unittest_32/std/regex/internal/tests.o
+          nativeArchObjSuffix=""
+          if [ "$CI_OS" = "osx" ]; then
+            nativeArchObjSuffix="_64"
           fi
+          # Some unittest modules eat large amounts of memory during compilation => -j2.
+          ninja -j2 all \
+                    runtime/objects-unittest$nativeArchObjSuffix/std/algorithm/searching.o \
+                    runtime/objects-unittest_32/std/algorithm/searching.o \
+                    runtime/objects-unittest-debug$nativeArchObjSuffix/std/algorithm/searching.o \
+                    runtime/objects-unittest-debug_32/std/algorithm/searching.o \
+                    runtime/objects-unittest$nativeArchObjSuffix/std/range/package.o \
+                    runtime/objects-unittest_32/std/range/package.o \
+                    runtime/objects-unittest-debug$nativeArchObjSuffix/std/range/package.o \
+                    runtime/objects-unittest-debug_32/std/range/package.o \
+                    runtime/objects-unittest$nativeArchObjSuffix/std/regex/internal/tests.o \
+                    runtime/objects-unittest_32/std/regex/internal/tests.o \
+                    runtime/objects-unittest-debug$nativeArchObjSuffix/std/regex/internal/tests.o \
+                    runtime/objects-unittest-debug_32/std/regex/internal/tests.o
           ninja -j3 all-test-runners
           bin/ldc2 -version
           cd ..
