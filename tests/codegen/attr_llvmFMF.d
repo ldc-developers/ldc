@@ -1,7 +1,7 @@
 // Test @ldc.attributes.llvmFastMathFlag UDA
 
 // RUN: %ldc -c -output-ll -of=%t.ll %s && FileCheck %s --check-prefix LLVM < %t.ll
-// RUN: %ldc -c -w -d-version=WARNING %s 2>&1 | FileCheck %s --check-prefix WARNING
+// RUN: not %ldc -c -w -d-version=WARNING %s 2>&1 | FileCheck %s --check-prefix WARNING
 
 import ldc.attributes;
 
