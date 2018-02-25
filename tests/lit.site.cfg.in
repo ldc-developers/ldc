@@ -57,6 +57,10 @@ env_cc = os.environ.get('CC', '')
 if env_cc:
     config.environment['CC'] = env_cc
 
+env_cxx = os.environ.get('CXX', '')
+if env_cxx:
+    config.environment['CXX'] = env_cxx
+
 # Define available features so that we can disable tests depending on LLVM version
 config.available_features.add("llvm%d" % config.llvm_version)
 # LLVM version history: 3.8, 3.9, 4.0, 5.0, ...
