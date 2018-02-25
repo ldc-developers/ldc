@@ -52,6 +52,10 @@
 #include "llvm/Target/TargetOptions.h"
 #include <iostream>
 
+static bool isMainFunction(FuncDeclaration *fd) {
+  return fd->isMain() || (global.params.betterC && fd->isCMain());
+}
+
 llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
                                     Type *nesttype, bool isMain, bool isCtor,
                                     bool isIntrinsic, bool hasSel) {
@@ -79,7 +83,8 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   unsigned nextLLArgIdx = 0;
 
   if (isMain) {
-    // _Dmain always returns i32, no matter what the type in the D main() is.
+    // D and C main functions always return i32, even if declared as returning
+    // void.
     newIrFty.ret = new IrFuncTyArg(Type::tint32, false);
   } else {
     Type *rt = f->next;
@@ -137,10 +142,10 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     ++nextLLArgIdx;
   }
 
-  // if this _Dmain() doesn't have an argument, we force it to have one
   const size_t numExplicitDArgs = Parameter::dim(f->parameters);
 
-  if (isMain && numExplicitDArgs == 0) {
+  // if this _Dmain() doesn't have an argument, we force it to have one
+  if (isMain && f->linkage != LINKc && numExplicitDArgs == 0) {
     Type *mainargs = Type::tchar->arrayOf()->arrayOf();
     newIrFty.args.push_back(new IrFuncTyArg(mainargs, false));
     ++nextLLArgIdx;
@@ -300,9 +305,10 @@ llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl) {
     }
   }
 
-  LLFunctionType *functype = DtoFunctionType(
-      fdecl->type, getIrFunc(fdecl, true)->irFty, dthis, dnest, fdecl->isMain(),
-      fdecl->isCtorDeclaration(), DtoIsIntrinsic(fdecl), hasSel);
+  LLFunctionType *functype =
+      DtoFunctionType(fdecl->type, getIrFunc(fdecl, true)->irFty, dthis, dnest,
+                      isMainFunction(fdecl), fdecl->isCtorDeclaration(),
+                      DtoIsIntrinsic(fdecl), hasSel);
 
   return functype;
 }
@@ -589,7 +595,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   }
 
   // main
-  if (fdecl->isMain()) {
+  if (isMainFunction(fdecl)) {
     // Detect multiple main functions, which is disallowed. DMD checks this
     // in the glue code, so we need to do it here as well.
     if (gIR->mainFunc) {
@@ -1175,7 +1181,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     gIR->DBuilder.EmitStopPoint(fd->endloc);
     if (func->getReturnType() == LLType::getVoidTy(gIR->context())) {
       gIR->ir->CreateRetVoid();
-    } else if (!fd->isMain()) {
+    } else if (!gIR->isMainFunc(irFunc)) {
       CompoundAsmStatement *asmb = fd->fbody->endsWithAsm();
       if (asmb) {
         assert(asmb->abiret);
