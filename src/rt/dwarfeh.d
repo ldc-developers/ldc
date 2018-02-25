@@ -1231,13 +1231,12 @@ int actionTableLookup(_Unwind_Exception* exceptionObject, uint actionRecordPtr, 
             entry = *cast(_Unwind_Ptr*)entry;
 
         ClassInfo ci = cast(ClassInfo)cast(void*)(entry);
-        version (LDC)
+        if (ci.classinfo is __cpp_type_info_ptr.classinfo)
         {
-            // LDC: for C++ exceptions, `ci` is a pointer to the C++ std::type_info
             if (exceptionClass == cppExceptionClass || exceptionClass == cppExceptionClass1)
             {
                 // sti is catch clause type_info
-                auto sti = cast(CppTypeInfo) cast(void*) ci;
+                auto sti = cast(CppTypeInfo)((cast(__cpp_type_info_ptr)cast(void*)ci).ptr);
                 auto p = getCppPtrToThrownObject(exceptionObject, sti);
                 if (p) // if found
                 {
@@ -1246,29 +1245,9 @@ int actionTableLookup(_Unwind_Exception* exceptionObject, uint actionRecordPtr, 
                     return cast(int)TypeFilter;
                 }
             }
-            else if (exceptionClass == dmdExceptionClass && _d_isbaseof(thrownType, ci))
-                return cast(int)TypeFilter; // found it
         }
-        else
-        {
-            if (ci.classinfo is __cpp_type_info_ptr.classinfo)
-            {
-                if (exceptionClass == cppExceptionClass || exceptionClass == cppExceptionClass1)
-                {
-                    // sti is catch clause type_info
-                    auto sti = cast(CppTypeInfo)((cast(__cpp_type_info_ptr)cast(void*)ci).ptr);
-                    auto p = getCppPtrToThrownObject(exceptionObject, sti);
-                    if (p) // if found
-                    {
-                        auto eh = CppExceptionHeader.toExceptionHeader(exceptionObject);
-                        eh.thrownPtr = p;                   // for __cxa_begin_catch()
-                        return cast(int)TypeFilter;
-                    }
-                }
-            }
-            else if (exceptionClass == dmdExceptionClass && _d_isbaseof(thrownType, ci))
-                return cast(int)TypeFilter; // found it
-        }
+        else if (exceptionClass == dmdExceptionClass && _d_isbaseof(thrownType, ci))
+            return cast(int)TypeFilter; // found it
 
         if (!NextRecordPtr)
             return 0;                   // catch not found
