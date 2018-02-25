@@ -58,52 +58,26 @@ struct X86TargetABI : TargetABI {
   }
 
   std::string mangleFunctionForLLVM(std::string name, LINK l) override {
-    switch (l) {
-    case LINKc:
-    case LINKobjc:
-    case LINKpascal:
-    case LINKwindows:
-      break;
-    case LINKcpp:
-      if (global.params.targetTriple->isOSWindows()) {
-        // Prepend a 0x1 byte to prevent LLVM from prepending the C underscore.
-        name.insert(0, "\1");
-      }
-      // on OSX, let LLVM prepend the underscore
-      break;
-    case LINKd:
-    case LINKdefault:
-      if (global.params.targetTriple->isOSWindows()) {
+    if (global.params.targetTriple->isOSWindows()) {
+      if (l == LINKd || l == LINKdefault) {
         // Prepend a 0x1 byte to prevent LLVM from applying MS stdcall mangling:
-        // _D… => __D…@<paramssize>
+        // _D… => __D…@<paramssize>, and add extra underscore manually.
+        name.insert(0, "\1_");
+      } else if (l == LINKcpp && name[0] == '?') {
+        // Prepend a 0x1 byte to prevent LLVM from prepending the C underscore
+        // for MSVC++ symbols (starting with '?').
         name.insert(0, "\1");
       }
-      // on OSX, let LLVM prepend the underscore
-      break;
-    default:
-      llvm_unreachable("Unhandled D linkage type.");
     }
     return name;
   }
 
   std::string mangleVariableForLLVM(std::string name, LINK l) override {
-    switch (l) {
-    case LINKc:
-    case LINKobjc:
-    case LINKpascal:
-    case LINKwindows:
-      break;
-    case LINKcpp:
-    case LINKd:
-    case LINKdefault:
-      if (global.params.targetTriple->isOSWindows()) {
-        // Prepend a 0x1 byte to prevent LLVM from prepending the C underscore.
-        name.insert(0, "\1");
-      }
-      // on OSX, let LLVM prepend the underscore
-      break;
-    default:
-      llvm_unreachable("Unhandled D linkage type.");
+    if (global.params.targetTriple->isOSWindows() && l == LINKcpp &&
+        name[0] == '?') {
+      // Prepend a 0x1 byte to prevent LLVM from prepending the C underscore for
+      // MSVC++ symbols (starting with '?').
+      name.insert(0, "\1");
     }
     return name;
   }
