@@ -13,7 +13,7 @@ void main()
     /* The synchronized-block uses a global buffer for the D_CRITICAL_SECTION.
      * Match its size and alignment.
      */
-    // CHECK: __critsec{{[0-9Gg]+\"?}} = global {{\[}}[[SIZEOF:[0-9]+]] x i8{{\]}} zeroinitializer
+    // CHECK: __critsec{{.*}} = global {{\[}}[[SIZEOF:[0-9]+]] x i8{{\]}} zeroinitializer
     // CHECK-SAME: align [[ALIGNOF:[0-9]+]]
     synchronized {}
 
