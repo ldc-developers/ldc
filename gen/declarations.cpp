@@ -141,7 +141,9 @@ public:
       setLinkage(decl, initGlobal);
 
       // emit typeinfo
-      DtoTypeInfoOf(decl->type, /*base=*/false);
+      if (global.params.useTypeInfo) {
+        DtoTypeInfoOf(decl->type, /*base=*/false);
+      }
     }
 
     // Emit __xopEquals/__xopCmp/__xtoHash.
