@@ -832,7 +832,7 @@ void registerPredefinedTargetVersions() {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Musl");
 #endif
     } else if (triple.getEnvironmentName() == "uclibc") {
-        VersionCondition::addPredefinedGlobalIdent("CRuntime_UClibc");
+      VersionCondition::addPredefinedGlobalIdent("CRuntime_UClibc");
     } else {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Glibc");
     }
