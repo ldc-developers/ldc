@@ -2126,7 +2126,7 @@ public:
       DtoStore(DtoRVal(slice), DtoLVal(result));
     } else {
       // append element
-      DtoCatAssignElement(e->loc, e1type, result, e->e2);
+      DtoCatAssignElement(e->loc, result, e->e2);
     }
   }
 

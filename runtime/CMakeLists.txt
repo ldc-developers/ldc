@@ -1,6 +1,6 @@
 project(runtime C)
 
-cmake_minimum_required(VERSION 2.8.9)
+cmake_minimum_required(VERSION 2.8.12)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -250,18 +250,18 @@ endif()
 # Add extra paths on Linux and disable linker arch mismatch warnings (like
 # DMD and GDC do). OS X doesn't need extra configuration due to the use of
 # fat binaries. Other Posixen might need to be added here.
-if("${TARGET_SYSTEM}" MATCHES "Linux|FreeBSD")
-    if(MULTILIB)
-        set(MULTILIB_ADDITIONAL_PATH         "\n        \"-L-L${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
-        set(MULTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
-    endif()
+if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
+    set(MULTILIB_ADDITIONAL_PATH         "\n        \"-L-L${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
+    set(MULTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
+endif()
 
-    if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
-        if(MULTILIB)
-            set(SHARED_LIBS_RPATH "\n        \"-L-rpath=${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}:${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",")
-        else()
-            set(SHARED_LIBS_RPATH "\n        \"-L-rpath=${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}\",")
-        endif()
+# Set the -rpath linker option when shared runtime libraries are built.
+# The installed config file doesn't use SHARED_LIBS_RPATH.
+if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
+    if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
+        set(SHARED_LIBS_RPATH "\n        \"-L-Wl,-rpath,${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}:${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",")
+    else()
+        set(SHARED_LIBS_RPATH "\n        \"-L-Wl,-rpath,${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}\",")
     endif()
 endif()
 
@@ -462,6 +462,7 @@ function(set_common_library_properties target is_shared)
         VERSION ${DMDFE_VERSION}
         SOVERSION ${DMDFE_PATCH_VERSION}
         LINKER_LANGUAGE C
+        MACOSX_RPATH ON
     )
     if(RT_ARCHIVE_WITH_LDC AND NOT is_shared)
         set_target_properties(${target} PROPERTIES LINKER_LANGUAGE D)
@@ -681,14 +682,24 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
         add_custom_command(
             OUTPUT  ${final_path}
             COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}
-            COMMAND "lipo"
-            ARGS    ${multi_path} ${host_path} -create -output ${final_path}
+            COMMAND lipo ${multi_path} ${host_path} -create -output ${final_path}
             DEPENDS ${libtargets}
         )
 
         set(target_name "")
+        set(lib_extension "")
         get_filename_component(target_name ${lib} NAME_WE)
+        get_filename_component(lib_extension ${lib} EXT)
+
         add_custom_target(${target_name} ALL DEPENDS ${final_path})
+
+        # For merged dylibs, set install_name to "@rpath/<filename>".
+        if(${lib_extension} STREQUAL ".dylib")
+            add_custom_command(
+                TARGET ${target_name} POST_BUILD
+                COMMAND install_name_tool -id "@rpath/lib${lib}" ${final_path}
+            )
+        endif()
 
         install(FILES       ${final_path}
                 DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})

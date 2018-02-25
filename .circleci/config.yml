@@ -84,11 +84,11 @@ commonSteps: &commonSteps
         name: Build LDC and stdlib unittest runners
         command: |
           cd ..
-          INSTALL_DIR=$PWD/ldc2-x64
+          LDC_INSTALL_DIR=$PWD/ldc2-x64
           HOST_LDMD=$PWD/bootstrap/bin/ldmd2
           mkdir ninja-ldc
           cd ninja-ldc
-          cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DINCLUDE_INSTALL_DIR=$INSTALL_DIR/import -DD_COMPILER=$HOST_LDMD $EXTRA_CMAKE_FLAGS $CIRCLE_WORKING_DIRECTORY
+          cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DCMAKE_INSTALL_PREFIX=$LDC_INSTALL_DIR -DINCLUDE_INSTALL_DIR=$LDC_INSTALL_DIR/import -DD_COMPILER=$HOST_LDMD $EXTRA_CMAKE_FLAGS $CIRCLE_WORKING_DIRECTORY
           nativeArchObjSuffix=""
           if [ "$CI_OS" = "osx" ]; then
             nativeArchObjSuffix="_64"
@@ -151,16 +151,33 @@ commonSteps: &commonSteps
           cd ../ninja-ldc
           ninja install
           cd ..
-          perl -pi -e s?$PWD/ldc2-x64/?%%ldcbinarypath%%/../?g ldc2-x64/etc/ldc2.conf
-          cp project/LICENSE ldc2-x64
+          LDC_INSTALL_DIR=$PWD/ldc2-x64
+          perl -pi -e s?$LDC_INSTALL_DIR/?%%ldcbinarypath%%/../?g $LDC_INSTALL_DIR/etc/ldc2.conf
+          cp project/LICENSE $LDC_INSTALL_DIR
           git clone https://github.com/ldc-developers/ldc-scripts.git
-          cp ldc-scripts/ldc2-packaging/pkgfiles/README ldc2-x64
-          cp -r ldc-scripts/ldc2-packaging/pkgfiles/dub ldc2-x64/etc
+          cp ldc-scripts/ldc2-packaging/pkgfiles/README $LDC_INSTALL_DIR
+          cp -r ldc-scripts/ldc2-packaging/pkgfiles/dub $LDC_INSTALL_DIR/etc
+          # Now rename the installation dir to test portability.
+          NEW_LDC_INSTALL_DIR=$PWD/ldc2-install
+          mv $LDC_INSTALL_DIR $NEW_LDC_INSTALL_DIR
+          echo "export LDC_INSTALL_DIR=$NEW_LDC_INSTALL_DIR" >> $BASH_ENV
+    - run:
+        name: Hello world integration test with shared libs
+        command: |
+          cd ..
+          altLibSuffix="32"
+          if [ "$CI_OS" = "osx" ]; then
+              altLibSuffix=""
+          fi
+          echo 'void main() { import std.stdio; writeln("Hello world, ", size_t.sizeof * 8, " bits"); }' > hello.d
+          $LDC_INSTALL_DIR/bin/ldc2 hello.d -m64 -of=hello64 -link-defaultlib-shared -L-Wl,-rpath,$LDC_INSTALL_DIR/lib
+          $LDC_INSTALL_DIR/bin/ldc2 hello.d -m32 -of=hello32 -link-defaultlib-shared -L-Wl,-rpath,$LDC_INSTALL_DIR/lib$altLibSuffix
+          ./hello64
+          ./hello32
     - run:
         name: Build dub
         command: |
           cd ..
-          LDC_INSTALL_DIR=$PWD/ldc2-x64
           export DMD=$LDC_INSTALL_DIR/bin/ldmd2
           git clone --recursive https://github.com/dlang/dub.git
           cd dub
@@ -177,7 +194,6 @@ commonSteps: &commonSteps
         name: Build dlang tools
         command: |
           cd ..
-          LDC_INSTALL_DIR=$PWD/ldc2-x64
           git clone --recursive https://github.com/dlang/tools.git
           cd tools
           make -f posix.mak install DMD=$LDC_INSTALL_DIR/bin/ldmd2 INSTALL_DIR=$PWD
@@ -193,7 +209,7 @@ commonSteps: &commonSteps
           else
             artifactBasename="ldc2-${CIRCLE_TAG:1}-$CI_OS-x86_64"
           fi
-          mv ldc2-x64 $artifactBasename
+          mv $LDC_INSTALL_DIR $artifactBasename
           XZ_OPT=-9 tar -cJf artifacts/$artifactBasename.tar.xz $artifactBasename
     - run:
         name: Pack source dir

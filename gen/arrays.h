@@ -66,7 +66,7 @@ DSliceValue *DtoNewMulDimDynArray(Loc &loc, Type *arrayType, DValue **dims,
 DSliceValue *DtoResizeDynArray(Loc &loc, Type *arrayType, DValue *array,
                                llvm::Value *newdim);
 
-void DtoCatAssignElement(Loc &loc, Type *type, DValue *arr, Expression *exp);
+void DtoCatAssignElement(Loc &loc, DValue *arr, Expression *exp);
 DSliceValue *DtoCatAssignArray(Loc &loc, DValue *arr, Expression *exp);
 DSliceValue *DtoCatArrays(Loc &loc, Type *type, Expression *e1, Expression *e2);
 DSliceValue *DtoAppendDCharToString(Loc &loc, DValue *arr, Expression *exp);
