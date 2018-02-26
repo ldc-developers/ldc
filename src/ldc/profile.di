@@ -159,7 +159,18 @@ void resetCounts(alias F)()
 const(ProfileData)* getData(alias F)()
     // TODO: add constraint on F
 {
-    enum mangledName = F.mangleof;
+    version(Win32)
+    {
+        import std.traits : functionLinkage;
+        static if (functionLinkage!F == "D")
+            const mangledName = "_" ~ F.mangleof;
+        else
+            enum mangledName = F.mangleof;
+    }
+    else
+    {
+        enum mangledName = F.mangleof;
+    }
 
     version(HASHED_FUNC_NAMES)
     {
