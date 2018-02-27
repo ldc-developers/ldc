@@ -62,7 +62,9 @@ Module *ldc::DIBuilder::getDefinedModule(Dsymbol *s) {
 ////////////////////////////////////////////////////////////////////////////////
 
 ldc::DIBuilder::DIBuilder(IRState *const IR)
-    : IR(IR), DBuilder(IR->module), CUNode(nullptr) {}
+    : IR(IR), DBuilder(IR->module), CUNode(nullptr),
+      isTargetMSVCx64(global.params.targetTriple.isWindowsMSVCEnvironment() &&
+                      global.params.targetTriple.isArch64Bit()) {}
 
 llvm::LLVMContext &ldc::DIBuilder::getContext() { return IR->context(); }
 
@@ -75,7 +77,7 @@ ldc::DIScope ldc::DIBuilder::GetCurrentScope() {
   return fn->diLexicalBlocks.top();
 }
 
-void ldc::DIBuilder::Declare(const Loc &loc, llvm::Value *var,
+void ldc::DIBuilder::Declare(const Loc &loc, llvm::Value *storage,
                              ldc::DILocalVariable divar
 #if LDC_LLVM_VER >= 306
                              ,
@@ -83,19 +85,42 @@ void ldc::DIBuilder::Declare(const Loc &loc, llvm::Value *var,
 #endif
                              ) {
   unsigned charnum = (loc.linnum ? loc.charnum : 0);
+  auto debugLoc = llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope());
 #if LDC_LLVM_VER < 307
-  llvm::Instruction *instr = DBuilder.insertDeclare(var, divar,
+  llvm::Instruction *instr = DBuilder.insertDeclare(storage, divar,
 #if LDC_LLVM_VER >= 306
                                                     diexpr,
 #endif
                                                     IR->scopebb());
-  instr->setDebugLoc(
-      llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope()));
+  instr->setDebugLoc(debugLoc);
 #else // if LLVM >= 3.7
-  DBuilder.insertDeclare(
-      var, divar, diexpr,
-      llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope()),
-      IR->scopebb());
+  DBuilder.insertDeclare(storage, divar, diexpr, debugLoc, IR->scopebb());
+#endif
+}
+
+// Sets the (current) value for a debuginfo variable.
+void ldc::DIBuilder::SetValue(const Loc &loc, llvm::Value *value,
+                              ldc::DILocalVariable divar
+#if LDC_LLVM_VER >= 306
+                              ,
+                              ldc::DIExpression diexpr
+#endif
+                              ) {
+  unsigned charnum = (loc.linnum ? loc.charnum : 0);
+  auto debugLoc = llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope());
+#if LDC_LLVM_VER < 307
+  llvm::Instruction *instr = DBuilder.insertDbgValueIntrinsic(value, divar,
+#if LDC_LLVM_VER >= 306
+                                                              diexpr,
+#endif
+                                                              IR->scopebb());
+  instr->setDebugLoc(debugLoc);
+#else // if LLVM >= 3.7
+  DBuilder.insertDbgValueIntrinsic(value,
+#if LDC_LLVM_VER < 600
+                                   0,
+#endif
+                                   divar, diexpr, debugLoc, IR->scopebb());
 #endif
 }
 
@@ -852,6 +877,7 @@ void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
 
 void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
                                        Type *type, bool isThisPtr,
+                                       bool forceAsLocal, bool isRefRVal,
 #if LDC_LLVM_VER >= 306
                                        llvm::ArrayRef<int64_t> addr
 #else
@@ -872,13 +898,46 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
   }
 
   // get type description
-  ldc::DIType TD = CreateTypeDescription(type ? type : vd->type, true);
+  if (!type)
+    type = vd->type;
+  ldc::DIType TD = CreateTypeDescription(type, true);
   if (static_cast<llvm::MDNode *>(TD) == nullptr) {
     return; // unsupported
   }
 
-  if (vd->storage_class & (STCref | STCout)) {
+  const bool isRefOrOut = vd->isRef() || vd->isOut(); // incl. special-ref vars
+
+  // For MSVC x64 targets, declare params rewritten by ExplicitByvalRewrite as
+  // DI references, as if they were ref parameters.
+  const bool isPassedExplicitlyByval =
+      isTargetMSVCx64 && !isRefOrOut && isaArgument(ll) && addr.empty();
+
+  bool useDbgValueIntrinsic = false;
+  if (isRefOrOut || isPassedExplicitlyByval) {
+    // With the exception of special-ref loop variables, the reference/pointer
+    // itself is constant. So we don't have to attach the debug information to a
+    // memory location and can use llvm.dbg.value to set the constant pointer
+    // for the DI reference.
+    useDbgValueIntrinsic =
+        isPassedExplicitlyByval || (!isSpecialRefVar(vd) && isRefRVal);
+#if LDC_LLVM_VER >= 308
+    // Note: createReferenceType expects the size to be the size of a pointer,
+    // not the size of the type the reference refers to.
+    TD = DBuilder.createReferenceType(
+        llvm::dwarf::DW_TAG_reference_type, TD,
+        gDataLayout->getPointerSizeInBits(), // size (bits)
+        DtoAlignment(type) * 8);             // align (bits)
+#else
     TD = DBuilder.createReferenceType(llvm::dwarf::DW_TAG_reference_type, TD);
+#endif
+  } else {
+    // FIXME: For MSVC x64 targets, declare dynamic array and vector parameters
+    //        as DI locals to work around garbage for both cdb and VS debuggers.
+    if (isTargetMSVCx64) {
+      TY ty = type->toBasetype()->ty;
+      if (ty == Tarray || ty == Tvector)
+        forceAsLocal = true;
+    }
   }
 
   // get variable description
@@ -886,7 +945,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 
 #if LDC_LLVM_VER < 308
   unsigned tag;
-  if (vd->isParameter()) {
+  if (!forceAsLocal && vd->isParameter()) {
     tag = llvm::dwarf::DW_TAG_arg_variable;
   } else {
     tag = llvm::dwarf::DW_TAG_auto_variable;
@@ -930,7 +989,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
                                                Flags                // flags
                                                );
 #else
-  if (vd->isParameter()) {
+  if (!forceAsLocal && vd->isParameter()) {
     FuncDeclaration *fd = vd->parent->isFuncDeclaration();
     assert(fd);
     size_t argNo = 0;
@@ -970,14 +1029,23 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 #endif
   variableMap[vd] = debugVariable;
 
-// declare
+  if (useDbgValueIntrinsic) {
 #if LDC_LLVM_VER >= 306
-  Declare(vd->loc, ll, debugVariable, addr.empty()
-                                          ? DBuilder.createExpression()
-                                          : DBuilder.createExpression(addr));
+    SetValue(vd->loc, ll, debugVariable,
+             addr.empty() ? DBuilder.createExpression()
+                          : DBuilder.createExpression(addr));
 #else
-  Declare(vd->loc, ll, debugVariable);
+    SetValue(vd->loc, ll, debugVariable);
 #endif
+  } else {
+#if LDC_LLVM_VER >= 306
+    Declare(vd->loc, ll, debugVariable,
+            addr.empty() ? DBuilder.createExpression()
+                         : DBuilder.createExpression(addr));
+#else
+    Declare(vd->loc, ll, debugVariable);
+#endif
+  }
 }
 
 void
