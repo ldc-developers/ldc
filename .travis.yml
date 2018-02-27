@@ -5,6 +5,8 @@ sudo: false
 matrix:
   include:
     - os: linux
+      env: LLVM_VERSION=6.0.0-rc3
+    - os: linux
       env: LLVM_VERSION=5.0.1
     - os: linux
       env: LLVM_VERSION=4.0.1
@@ -23,6 +25,7 @@ matrix:
 
 cache:
   directories:
+    - llvm-6.0.0-rc3
     - llvm-5.0.1
     - llvm-4.0.1
     - llvm-4.0.0
@@ -55,7 +58,11 @@ before_install:
       export LLVM_ARCH="x86_64-apple-darwin";
     fi;
     if [ -z "$(ls -A llvm-$LLVM_VERSION)" ]; then
-      wget -O llvm-$LLVM_VERSION.tar.xz http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-${LLVM_ARCH}.tar.xz;
+      if [ "${LLVM_VERSION}" = "6.0.0-rc3" ]; then
+        wget -O llvm-$LLVM_VERSION.tar.xz http://prereleases.llvm.org/6.0.0/rc3/clang+llvm-6.0.0-rc3-x86_64-linux-gnu-debian8.tar.xz;
+      else
+        wget -O llvm-$LLVM_VERSION.tar.xz http://llvm.org/releases/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-${LLVM_ARCH}.tar.xz;
+      fi;
       mkdir llvm-$LLVM_VERSION;
       tar -xf llvm-$LLVM_VERSION.tar.xz --strip 1 -C llvm-$LLVM_VERSION;
     fi;
@@ -64,7 +71,14 @@ before_install:
     export LLVM_CONFIG="llvm-$LLVM_VERSION/bin/llvm-config";
 
 install:
-  - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then export CC="gcc-4.9"; export CXX="g++-4.9"; fi
+  -
+    if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
+      if [ "${LLVM_VERSION}" = "6.0.0-rc3" ]; then
+        export CC="$PWD/llvm-$LLVM_VERSION/bin/clang"; export CXX="$PWD/llvm-$LLVM_VERSION/bin/clang++";
+      else
+        export CC="gcc-4.9"; export CXX="g++-4.9";
+      fi
+    fi
   -
     if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
       brew update; brew install ninja libconfig;

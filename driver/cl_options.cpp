@@ -287,10 +287,15 @@ cl::opt<llvm::Reloc::Model> mRelocModel(
                    "Relocatable external references, non-relocatable code")));
 
 cl::opt<llvm::CodeModel::Model> mCodeModel(
-    "code-model", cl::desc("Code model"), cl::init(llvm::CodeModel::Default),
+    "code-model", cl::desc("Code model"),
+#if LDC_LLVM_VER < 600
+    cl::init(llvm::CodeModel::Default),
+#endif
     clEnumValues(
+#if LDC_LLVM_VER < 600
         clEnumValN(llvm::CodeModel::Default, "default",
                    "Target default code model"),
+#endif
         clEnumValN(llvm::CodeModel::Small, "small", "Small code model"),
         clEnumValN(llvm::CodeModel::Kernel, "kernel", "Kernel code model"),
         clEnumValN(llvm::CodeModel::Medium, "medium", "Medium code model"),
