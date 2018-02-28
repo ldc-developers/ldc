@@ -48,8 +48,13 @@ int main(int argc, const char **argv) {
   int Result = sys::ExecuteAndWait(Program, argv, nullptr, nullptr, 0, 0,
                                    &ErrMsg);
 #else
-  int Result = sys::ExecuteAndWait(*Program, argv, nullptr, nullptr, 0, 0,
-                                   &ErrMsg);
+  int Result = sys::ExecuteAndWait(*Program, argv, nullptr,
+#if LDC_LLVM_VER >= 600
+                                   {},
+#else
+                                   nullptr,
+#endif
+                                   0, 0, &ErrMsg);
 #endif
 #ifdef _WIN32
   // Handle abort() in msvcrt -- It has exit code as 3.  abort(), aka

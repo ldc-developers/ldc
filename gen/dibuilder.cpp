@@ -109,7 +109,7 @@ void ldc::DIBuilder::SetValue(const Loc &loc, llvm::Value *value,
   unsigned charnum = (loc.linnum ? loc.charnum : 0);
   auto debugLoc = llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope());
 #if LDC_LLVM_VER < 307
-  llvm::Instruction *instr = DBuilder.insertDbgValueIntrinsic(value, divar,
+  llvm::Instruction *instr = DBuilder.insertDbgValueIntrinsic(value, 0, divar,
 #if LDC_LLVM_VER >= 306
                                                               diexpr,
 #endif
@@ -864,7 +864,11 @@ void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
   }
 
   llvm::Instruction *instr =
-      DBuilder.insertDbgValueIntrinsic(val, 0, debugVariable,
+      DBuilder.insertDbgValueIntrinsic(val,
+#if LDC_LLVM_VER < 600
+                                       0,
+#endif
+                                       debugVariable,
 #if LDC_LLVM_VER >= 306
                                        DBuilder.createExpression(),
 #endif

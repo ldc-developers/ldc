@@ -37,7 +37,9 @@
 #if LDC_LLVM_VER >= 307
 #include "llvm/Analysis/TargetTransformInfo.h"
 #endif
-#if LDC_LLVM_VER >= 306
+#if LDC_LLVM_VER >= 600
+#include "llvm/CodeGen/TargetSubtargetInfo.h"
+#elif LDC_LLVM_VER >= 306
 #include "llvm/Target/TargetSubtargetInfo.h"
 #endif
 #include "llvm/IR/Module.h"
