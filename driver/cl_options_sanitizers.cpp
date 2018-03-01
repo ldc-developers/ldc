@@ -15,6 +15,7 @@
 #include "driver/cl_options_sanitizers.h"
 
 #include "dmd/errors.h"
+#include "dmd/declaration.h"
 #include "dmd/dsymbol.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/raw_ostream.h"
@@ -199,14 +200,18 @@ bool functionIsInSanitizerBlacklist(FuncDeclaration *funcDecl) {
   if (!sanitizerBlacklist)
     return false;
 
+  auto funcName = mangleExact(funcDecl);
+  auto fileName = funcDecl->loc.filename;
+
 #if LDC_LLVM_VER >= 600
   // TODO: LLVM 6.0 supports sections (e.g. "[address]") in the blacklist file
   // to only blacklist a function for a particular sanitizer. We could make use
   // of that too.
-  return sanitizerBlacklist->inSection("" /* section name */, "fun",
-                                       mangleExact(funcDecl));
+  return sanitizerBlacklist->inSection(/*Section=*/"", "fun", funcName) ||
+         sanitizerBlacklist->inSection(/*Section=*/"", "src", fileName);
 #else
-  return sanitizerBlacklist->inSection("fun", mangleExact(funcDecl));
+  return sanitizerBlacklist->inSection("fun", funcName) ||
+         sanitizerBlacklist->inSection("src", fileName);
 #endif
 }
 
