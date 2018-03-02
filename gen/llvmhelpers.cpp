@@ -70,6 +70,14 @@ bool isTargetWindowsMSVC() {
   return global.params.targetTriple->isWindowsMSVCEnvironment();
 }
 
+bool isMusl() {
+#if LDC_LLVM_VER >= 309
+  return global.params.targetTriple->isMusl();
+#else
+  return false;
+#endif
+}
+
 /******************************************************************************
  * Global context
  ******************************************************************************/
@@ -311,7 +319,7 @@ void DtoCAssert(Module *M, Loc &loc, LLValue *msg) {
     args.push_back(file);
     args.push_back(line);
     args.push_back(msg);
-  } else if (global.params.targetTriple->isOSSolaris()) {
+  } else if (global.params.targetTriple->isOSSolaris() || isMusl()) {
     const auto irFunc = gIR->func();
     const auto funcName =
         (irFunc && irFunc->decl) ? irFunc->decl->toPrettyChars() : "";

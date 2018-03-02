@@ -167,6 +167,8 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
 // MSVC:    void  _assert(const char *msg, const char *file, unsigned line)
 // Solaris: void __assert_c99(const char *assertion, const char *filename, int line_num,
 //                            const char *funcname);
+// Musl:    void __assert_fail(const char *assertion, const char *filename, int line_num,
+//                             const char *funcname);
 // else:    void __assert(const char *msg, const char *file, unsigned line)
 
 static const char *getCAssertFunctionName() {
@@ -176,6 +178,8 @@ static const char *getCAssertFunctionName() {
     return "_assert";
   } else if (global.params.targetTriple->isOSSolaris()) {
     return "__assert_c99";
+  } else if (isMusl()) {
+    return "__assert_fail";
   }
   return "__assert";
 }
@@ -184,7 +188,8 @@ static std::vector<Type *> getCAssertFunctionParamTypes() {
   const auto voidPtr = Type::tvoidptr;
   const auto uint = Type::tuns32;
 
-  if (global.params.targetTriple->isOSDarwin() || global.params.targetTriple->isOSSolaris()) {
+  if (global.params.targetTriple->isOSDarwin() ||
+      global.params.targetTriple->isOSSolaris() || isMusl()) {
     return {voidPtr, voidPtr, uint, voidPtr};
   }
   if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
