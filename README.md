@@ -112,5 +112,5 @@ Feedback of any kind is very much appreciated!
 [1]: https://circleci.com/gh/ldc-developers/ldc/tree/master "Circle CI Build Status"
 [2]: https://semaphoreci.com/ldc-developers/ldc "Semaphore CI Build Status"
 [3]: https://travis-ci.org/ldc-developers/ldc "Travis CI Build Status"
-[4]: https://www.bountysource.com/teams/ldc-developers/issues "Bountysource"
-[5]: https://ci.appveyor.com/project/kinke/ldc/history "AppVeyor CI Build Status"
+[4]: https://ci.appveyor.com/project/kinke/ldc/history "AppVeyor CI Build Status"
+[5]: https://www.bountysource.com/teams/ldc-developers/issues "Bountysource"
