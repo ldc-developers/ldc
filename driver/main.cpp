@@ -827,10 +827,8 @@ void registerPredefinedTargetVersions() {
     if (triple.getEnvironment() == llvm::Triple::Android) {
       VersionCondition::addPredefinedGlobalIdent("Android");
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Bionic");
-#if LDC_LLVM_VER >= 309
-    } else if (triple.isMusl()) {
+    } else if (isMusl()) {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Musl");
-#endif
     } else if (triple.getEnvironmentName() == "uclibc") {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_UClibc");
     } else {
