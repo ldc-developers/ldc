@@ -6,13 +6,16 @@ matrix:
   include:
     - os: linux
       d: ldc
+      env: LLVM_VERSION=6.0.0
+    - os: linux
+      d: ldc-beta
       env: LLVM_VERSION=5.0.1 OPTS="-DLIB_SUFFIX=64"
     - os: linux
       d: ldc
-      env: LLVM_VERSION=4.0.1 OPTS="-DLIB_SUFFIX=64"
+      env: LLVM_VERSION=4.0.1 OPTS="-DBUILD_SHARED_LIBS=ON"
     - os: linux
       d: ldc-beta
-      env: LLVM_VERSION=3.9.1 OPTS="-DBUILD_SHARED_LIBS=ON"
+      env: LLVM_VERSION=3.9.1 OPTS="-DBUILD_SHARED_LIBS=ON -DLIB_SUFFIX=64"
     - os: linux
       d: ldc-0.17.5
       env: LLVM_VERSION=3.8.1 OPTS="-DBUILD_SHARED_LIBS=OFF -DLIB_SUFFIX=64"
@@ -31,6 +34,7 @@ matrix:
 cache:
   directories:
     - llvm-spirv-6.0.0
+    - llvm-6.0.0
     - llvm-5.0.1
     - llvm-4.0.1
     - llvm-4.0.0
