@@ -52,7 +52,7 @@ commonSteps: &commonSteps
             echo "Using LLVM with enabled assertions"
             assertsSuffix="-withAsserts"
           fi
-          curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$CI_OS-x86_64$assertsSuffix.tar.xz
+          curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/CI/llvm-8d99668b-$CI_OS-x86_64$assertsSuffix-20180309.tar.xz
           tar -xf llvm.tar.xz --strip 1 -C llvm-$LLVM_VERSION
           rm llvm.tar.xz
     - run:
@@ -243,8 +243,8 @@ jobs:
       - image: ubuntu:14.04
     environment:
       - CI_OS: linux
-      - LLVM_VERSION: 5.0.1
-      - HOST_LDC_VERSION: 1.6.0
+      - LLVM_VERSION: 6.0.0
+      - HOST_LDC_VERSION: 1.8.0
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
       - DUB_VERSION: v1.7.2
   build-osx:
@@ -255,8 +255,8 @@ jobs:
       - CI_OS: osx
       - MACOSX_DEPLOYMENT_TARGET: 10.8
       - USE_LIBCPP: true
-      - LLVM_VERSION: 5.0.1
-      - HOST_LDC_VERSION: 1.6.0
+      - LLVM_VERSION: 6.0.0
+      - HOST_LDC_VERSION: 1.8.0
       - BOOTSTRAP_CMAKE_FLAGS: "-DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
       - DUB_VERSION: v1.7.2

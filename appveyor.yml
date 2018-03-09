@@ -12,13 +12,13 @@ environment:
   matrix:
     - APPVEYOR_JOB_ARCH:           x64
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-      LLVM_VERSION:                5.0.1
-      HOST_LDC_VERSION:            1.6.0
+      LLVM_VERSION:                6.0.0
+      HOST_LDC_VERSION:            1.8.0
       DUB_VERSION:                 v1.7.2
     - APPVEYOR_JOB_ARCH:           x86
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-      LLVM_VERSION:                5.0.1
-      HOST_LDC_VERSION:            1.6.0
+      LLVM_VERSION:                6.0.0
+      HOST_LDC_VERSION:            1.8.0
       DUB_VERSION:                 v1.7.2
 
 # scripts that are called at very beginning, before repo cloning
@@ -64,15 +64,9 @@ install:
   - ps: |
         If (Test-Path Env:HOST_LDC_VERSION) {
           $ldcVersion = $Env:HOST_LDC_VERSION
-          If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
-            appveyor DownloadFile "http://github.com/ldc-developers/ldc/releases/download/v$ldcVersion/ldc2-$ldcVersion-win64-msvc.zip" -FileName ldc2.zip
-            7z x ldc2.zip > $null
-            Set-Item -path env:DMD -value "c:\projects\ldc2-$ldcVersion-win64-msvc\bin\ldmd2.exe"
-          } Else {
-            appveyor DownloadFile "http://github.com/ldc-developers/ldc/releases/download/v$ldcVersion/ldc2-$ldcVersion-win32-msvc.zip" -FileName ldc2.zip
-            7z x ldc2.zip > $null
-            Set-Item -path env:DMD -value "c:\projects\ldc2-$ldcVersion-win32-msvc\bin\ldmd2.exe"
-          }
+          appveyor DownloadFile "http://github.com/ldc-developers/ldc/releases/download/v$ldcVersion/ldc2-$ldcVersion-windows-$Env:APPVEYOR_JOB_ARCH.7z" -FileName ldc2.7z
+          7z x ldc2.7z > $null
+          Set-Item -path env:DMD -value "c:\projects\ldc2-$ldcVersion-windows-$Env:APPVEYOR_JOB_ARCH\bin\ldmd2.exe"
         } Else {
           $dmdVersion = $Env:HOST_DMD_VERSION
           appveyor DownloadFile "http://downloads.dlang.org/releases/2.x/$dmdVersion/dmd.$dmdVersion.windows.7z" -FileName dmd.7z
@@ -94,7 +88,7 @@ install:
           echo 'Using LLVM with enabled assertions'
           $assertsSuffix = '-withAsserts'
         }
-        appveyor DownloadFile "https://github.com/ldc-developers/llvm/releases/download/ldc-v$Env:LLVM_VERSION/llvm-$Env:LLVM_VERSION-windows-$Env:APPVEYOR_JOB_ARCH$assertsSuffix.7z" -FileName llvm.7z
+        appveyor DownloadFile "https://github.com/ldc-developers/llvm/releases/download/CI/llvm-$Env:LLVM_VERSION-windows-$Env:APPVEYOR_JOB_ARCH$assertsSuffix.7z" -FileName llvm.7z
   - md llvm
   - cd llvm
   - 7z x ..\llvm.7z > nul
