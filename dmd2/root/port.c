@@ -777,7 +777,7 @@ int Port::isNan(double r)
 #elif __HAIKU__ || __FreeBSD__ || __OpenBSD__ || __NetBSD__
     return isnan(r);
 #elif __DragonFly__
-    return __isnand(r);
+    return __isnan(r);
 #else
     #undef isnan
     return std::isnan(r);
@@ -825,7 +825,7 @@ int Port::isInfinity(double r)
 #elif __HAIKU__ || __FreeBSD__ || __OpenBSD__ || __NetBSD__
     return isinf(r);
 #elif __DragonFly__
-    return __isinfd(r);
+    return __isinf(r);
 #else
     #undef isinf
     return std::isinf(r);
