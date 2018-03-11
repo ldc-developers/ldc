@@ -12,12 +12,12 @@
 bool FuzzMe(const ubyte* data, size_t dataSize)
 {
     // PCGUARD: call {{.*}}_sanitizer_cov_trace_pc_guard
-    // PCGUARD-NOT: call {{.*}}_sanitizer_cov_trace_cmp
+    // PCGUARD-NOT: call {{.*}}_sanitizer_cov_trace_{{(const_)?}}cmp
     // PCGUARD: call {{.*}}_sanitizer_cov_trace_pc_guard
-    // PCGUARD-NOT: call {{.*}}_sanitizer_cov_trace_cmp
+    // PCGUARD-NOT: call {{.*}}_sanitizer_cov_trace_{{(const_)?}}cmp
 
     // PCCMP: call {{.*}}_sanitizer_cov_trace_pc_guard
-    // PCCMP: call {{.*}}_sanitizer_cov_trace_cmp
+    // PCCMP: call {{.*}}_sanitizer_cov_trace_{{(const_)?}}cmp
 
     // PCFUNC: call {{.*}}_sanitizer_cov_trace_pc_guard
     // PCFUNC-NOT: call {{.*}}_sanitizer_cov_trace_pc_guard
