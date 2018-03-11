@@ -20,7 +20,12 @@ endif()
 #
 
 find_package(LLVM 3.7 REQUIRED
-    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel instcombine ipa ipo instrumentation irreader libdriver linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
+    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core
+    debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel
+    instcombine ipa ipo instrumentation irreader libdriver linker lto mc
+    mcdisassembler mcparser objcarcopts object option profiledata scalaropts
+    selectiondag support tablegen target transformutils vectorize
+    windowsmanifest ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 # Remove LLVMTableGen library from list of libraries
 string(REGEX MATCH "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" LLVM_TABLEGEN_LIBRARY "${LLVM_LIBRARIES}")
@@ -555,9 +560,9 @@ set(LDC_LINKERFLAG_LIST "${SANITIZE_LDFLAGS};${LLVM_LIBRARIES};${LLVM_LDFLAGS}")
 if(LDC_WITH_LLD)
     if(NOT (LDC_LLVM_VER LESS 600))
         if(MSVC)
-            list(APPEND LDC_LINKERFLAG_LIST lldCOFF.lib lldCommon.lib lldCore.lib lldDriver.lib LLVMWindowsManifest.lib)
+            list(APPEND LDC_LINKERFLAG_LIST lldCOFF.lib lldCommon.lib lldCore.lib lldDriver.lib)
         else()
-            set(LDC_LINKERFLAG_LIST "-llldCOFF;-llldCommon;-llldCore;-llldDriver;-lLLVMWindowsManifest;${LDC_LINKERFLAG_LIST}")
+            set(LDC_LINKERFLAG_LIST "-llldCOFF;-llldCommon;-llldCore;-llldDriver;${LDC_LINKERFLAG_LIST}")
         endif()
     else()
         if(MSVC)
