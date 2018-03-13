@@ -54,6 +54,8 @@ llvm::Type *getReal80Type(llvm::LLVMContext &ctx) {
                        || (a == llvm::Triple::arm64) || (a == llvm::Triple::arm64_be)
 #endif
     ;
+  bool const anyPPC = (a == llvm::Triple::ppc) || (a == llvm::Triple::ppc64)
+                    || (a == llvm::Triple::ppc64le);
 
   // only x86 has 80bit float - but no support with MS C Runtime!
   if (anyX86 && !global.params.targetTriple.isWindowsMSVCEnvironment()) {
@@ -62,6 +64,10 @@ llvm::Type *getReal80Type(llvm::LLVMContext &ctx) {
 
   if (anyAarch64) {
     return llvm::Type::getFP128Ty(ctx);
+  }
+
+  if (anyPPC) {
+    return llvm::Type::getPPC_FP128Ty(ctx);
   }
 
   return llvm::Type::getDoubleTy(ctx);
