@@ -7,7 +7,7 @@ default:
     // default switches injected before all explicit command-line switches
     switches = [
         "-I@INCLUDE_INSTALL_DIR@/ldc",
-        "-I@INCLUDE_INSTALL_DIR@",
+        "-I@INCLUDE_INSTALL_DIR@",@SHARED_LIBS_RPATH_INST@
         "-defaultlib=phobos2-ldc,druntime-ldc"@ADDITIONAL_DEFAULT_LDC_SWITCHES@
     ];
     // default switches appended after all explicit command-line switches
