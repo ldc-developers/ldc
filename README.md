@@ -53,7 +53,7 @@ In addition, LDC is available from various package managers:
 | Gentoo       | `layman -a ldc`                             |
 | Homebrew     | `brew install ldc`                          |
 | Ubuntu       | `apt install ldc`                           |
-| Snap         | `snap install --classic --channel=edge ldc` |
+| Snap         | `snap install --classic --channel=edge ldc2` |
 
 Note that these packages **might be outdated** as they are not
 currently integrated into the project release process.
