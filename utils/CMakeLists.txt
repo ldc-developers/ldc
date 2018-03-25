@@ -39,7 +39,7 @@ if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${FILECHECK_SRC})
     )
     target_link_libraries(FileCheck  ${LLVM_LIBRARIES} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
 else()
-    message(STATUS "Skip building FileCheck, assuming it can be found in LLVM bin directory")
+    message(STATUS "Skip building FileCheck (source not found), assuming it can be found in LLVM bin directory")
 endif()
 
 # Build `not` for testing
