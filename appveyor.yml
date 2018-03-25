@@ -17,7 +17,7 @@ environment:
       DUB_VERSION:                 v1.7.2
     - APPVEYOR_JOB_ARCH:           x86
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-      LLVM_VERSION:                6.0.0
+      LLVM_VERSION:                5.0.1
       HOST_LDC_VERSION:            1.8.0
       DUB_VERSION:                 v1.7.2
 
@@ -88,7 +88,11 @@ install:
           echo 'Using LLVM with enabled assertions'
           $assertsSuffix = '-withAsserts'
         }
-        appveyor DownloadFile "https://github.com/ldc-developers/llvm/releases/download/CI/llvm-$Env:LLVM_VERSION-windows-$Env:APPVEYOR_JOB_ARCH$assertsSuffix.7z" -FileName llvm.7z
+        If ($Env:LLVM_VERSION -eq '6.0.0') {
+          appveyor DownloadFile "https://github.com/ldc-developers/llvm/releases/download/CI/llvm-$Env:LLVM_VERSION-windows-$Env:APPVEYOR_JOB_ARCH$assertsSuffix.7z" -FileName llvm.7z
+        } Else {
+          appveyor DownloadFile "https://github.com/ldc-developers/llvm/releases/download/ldc-v$Env:LLVM_VERSION/llvm-$Env:LLVM_VERSION-windows-$Env:APPVEYOR_JOB_ARCH$assertsSuffix.7z" -FileName llvm.7z
+        }
   - md llvm
   - cd llvm
   - 7z x ..\llvm.7z > nul
