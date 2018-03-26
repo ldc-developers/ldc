@@ -1,4 +1,8 @@
 cmake_minimum_required(VERSION 2.8)
+if(POLICY CMP0025)
+  cmake_policy(SET CMP0025 NEW)
+endif()
+
 project(ldc)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
@@ -165,7 +169,7 @@ string(STRIP "${DDMD_DFLAGS}" DDMD_DFLAGS)
 # as enabling warnings on the DMD frontend only leads to a lot of clutter in
 # the output (LLVM_CXXFLAGS sometimes already includes -Wall).
 set(LDC_CXXFLAGS)
-if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang"))
+if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang"))
     # Disable some noisy warnings:
     #  * -Wunused-parameter triggers for LLVM headers
     #  * -Wmissing-field-initializer leads to reams of warnings in gen/asm-*.h
@@ -176,7 +180,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang"))
     #  * -Wgnu-anonymous-struct and -Wnested-anon-types trigger for tokens.h.
     #  * -Wgnu-redeclared-enum triggers for various frontend headers.
     append("-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-non-virtual-dtor" LDC_CXXFLAGS)
-    if ((${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang"))
+    if ((${CMAKE_CXX_COMPILER_ID} MATCHES "Clang"))
         append("-Wno-gnu-anonymous-struct -Wno-nested-anon-types -Wno-gnu-redeclared-enum" LDC_CXXFLAGS)
     endif()
     if(CMAKE_COMPILER_IS_GNUCXX AND NOT CMAKE_C_COMPILER_VERSION VERSION_LESS "4.7.0")
@@ -209,7 +213,7 @@ endif()
 set(SANITIZE_CXXFLAGS)
 set(SANITIZE_LDFLAGS)
 if(SANITIZE)
-    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
         append("-fsanitize=address" SANITIZE_CXXFLAGS)
         append("-fsanitize=address" SANITIZE_LDFLAGS)
     else()
@@ -244,7 +248,7 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 endif()
 # LLVM_CXXFLAGS may contain -Wno-maybe-uninitialized
 # which is gcc-only options
-if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
+if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
     string(REPLACE "-Wno-maybe-uninitialized " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
 endif()
 
@@ -493,7 +497,7 @@ endif()
 #
 set(TEST_COVERAGE OFF CACHE BOOL "instrument compiler for code coverage analysis")
 if(TEST_COVERAGE)
-    if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang"))
+    if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang"))
         append("-O0 -g -fprofile-arcs -ftest-coverage" EXTRA_CXXFLAGS)
         list(APPEND LLVM_LDFLAGS "-lgcov")
     else()
@@ -568,7 +572,7 @@ endif()
 message(STATUS "Building LDC with plugin support ${LDC_ENABLE_PLUGINS} (LDC_ENABLE_PLUGINS=${LDC_ENABLE_PLUGINS})")
 
 set(LDC_LINK_MANUALLY OFF)
-if(UNIX AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")))
+if(UNIX AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")))
     # On Unix-like systems, DMD and LDC will use the C compiler for linking, but
     # will pass on -L options prefixed by -Xlinker to directly forward them to
     # the underlying ld. Since there are some flags the GCC driver handles itself
