@@ -733,6 +733,7 @@ void registerPredefinedTargetVersions() {
   case llvm::Triple::mips:
   case llvm::Triple::mipsel:
     VersionCondition::addPredefinedGlobalIdent("MIPS");
+    VersionCondition::addPredefinedGlobalIdent("MIPS32");
     registerPredefinedFloatABI("MIPS_SoftFloat", "MIPS_HardFloat");
     registerMipsABI();
     break;
