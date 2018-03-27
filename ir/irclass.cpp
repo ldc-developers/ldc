@@ -415,7 +415,8 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       // call the real vtbl function.
       llvm::CallInst *call = gIR->ir->CreateCall(callee, args);
       call->setCallingConv(irFunc->getCallingConv());
-      call->setTailCallKind(llvm::CallInst::TCK_Tail);
+      call->setTailCallKind(thunk->isVarArg() ? llvm::CallInst::TCK_MustTail
+                                              : llvm::CallInst::TCK_Tail);
 
       // return from the thunk
       if (thunk->getReturnType() == LLType::getVoidTy(gIR->context())) {
