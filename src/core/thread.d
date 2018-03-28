@@ -2576,6 +2576,23 @@ else
                 __asm("stm  $0, {r4-r11}", "r", regs.ptr);
                 sp = __asm!(void*)("mov $0, sp", "=r");
             }
+            else version (MIPS32)
+            {
+                import ldc.llvmasm;
+
+                // Callee-save registers, according to MIPS Calling Convention
+                size_t[8] regs = void;
+                __asm(`.set  noat;
+                       sw $$16, 0($0);
+                       sw $$17, 4($0);
+                       sw $$18, 8($0);
+                       sw $$19, 12($0);
+                       sw $$20, 16($0);
+                       sw $$21, 20($0);
+                       sw $$22, 24($0);
+                       sw $$23, 28($0);
+                       .set  at;`, "r", regs.ptr);
+            }
             else version (MIPS64)
             {
                 import ldc.llvmasm;
