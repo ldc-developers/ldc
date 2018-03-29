@@ -169,6 +169,9 @@ void printVersionStdout() {
 
 namespace {
 
+// True when target triple has an uClibc environment
+bool isUClibc = false;
+
 // Helper function to handle -d-debug=* and -d-version=*
 void processVersions(std::vector<std::string> &list, const char *type,
                      unsigned &globalLevel, Strings *&globalIDs) {
@@ -656,6 +659,19 @@ static void registerMipsABI() {
   }
 }
 
+// Check if triple environment name starts with "uclibc" and change it to "gnu"
+void fixupUClibcEnv()
+{
+  llvm::Triple triple(mTargetTriple);
+  if (triple.getEnvironmentName().find("uclibc") != 0)
+    return;
+  std::string envName = triple.getEnvironmentName();
+  envName.replace(0, 6, "gnu");
+  triple.setEnvironmentName(envName);
+  mTargetTriple = triple.normalize();
+  isUClibc = true;
+}
+
 /// Register the float ABI.
 /// Also defines D_HardFloat or D_SoftFloat depending if FPU should be used
 void registerPredefinedFloatABI(const char *soft, const char *hard,
@@ -731,6 +747,7 @@ void registerPredefinedTargetVersions() {
   case llvm::Triple::mips:
   case llvm::Triple::mipsel:
     VersionCondition::addPredefinedGlobalIdent("MIPS");
+    VersionCondition::addPredefinedGlobalIdent("MIPS32");
     registerPredefinedFloatABI("MIPS_SoftFloat", "MIPS_HardFloat");
     registerMipsABI();
     break;
@@ -841,11 +858,9 @@ void registerPredefinedTargetVersions() {
     if (triple.getEnvironment() == llvm::Triple::Android) {
       VersionCondition::addPredefinedGlobalIdent("Android");
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Bionic");
-#if LDC_LLVM_VER >= 309
-    } else if (triple.isMusl()) {
+    } else if (isMusl()) {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Musl");
-#endif
-    } else if (triple.getEnvironmentName() == "uclibc") {
+    } else if (isUClibc) {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_UClibc");
     } else {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Glibc");
@@ -1031,6 +1046,9 @@ int cppmain(int argc, char **argv) {
 #endif
     relocModel = llvm::Reloc::PIC_;
   }
+
+  // check and fix environment for uClibc
+  fixupUClibcEnv();
 
   gTargetMachine = createTargetMachine(
       mTargetTriple, arch, opts::getCPUStr(), opts::getFeaturesStr(), bitness,
