@@ -423,6 +423,15 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   toWinPaths(global.params.fileImppath);
 #endif
 
+  for (const auto &field : jsonFields) {
+    const unsigned flag = tryParseJsonField(field.c_str());
+    if (flag == 0) {
+      error(Loc(), "unknown JSON field `-Xi=%s`", field.c_str());
+    } else {
+      global.params.jsonFieldFlags |= flag;
+    }
+  }
+
   includeImports = !opts::includeModulePatterns.empty();
   for (const auto &pattern : opts::includeModulePatterns) {
     // a value-less `-i` only enables `includeImports`

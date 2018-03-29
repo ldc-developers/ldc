@@ -59,6 +59,7 @@ extern cl::opt<cl::boolOrDefault> output_o;
 extern cl::opt<std::string> ddocDir;
 extern cl::opt<std::string> ddocFile;
 extern cl::opt<std::string> jsonFile;
+extern cl::list<std::string> jsonFields;
 extern cl::opt<std::string> hdrDir;
 extern cl::opt<std::string> hdrFile;
 extern cl::opt<bool> hdrKeepAllBodies;

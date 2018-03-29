@@ -21,5 +21,9 @@ struct OutBuffer;
 
 void json_generate(OutBuffer *, Modules *);
 
+#ifdef IN_LLVM
+unsigned tryParseJsonField(const char *fieldName);
+#endif
+
 #endif /* DMD_JSON_H */
 

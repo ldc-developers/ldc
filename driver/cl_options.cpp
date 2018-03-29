@@ -195,6 +195,9 @@ cl::opt<std::string> jsonFile("Xf", cl::desc("Write JSON file to <filename>"),
                               cl::value_desc("filename"), cl::Prefix,
                               cl::ZeroOrMore);
 
+// supported by DMD, but still undocumented
+cl::list<std::string> jsonFields("Xi", cl::ReallyHidden, cl::value_desc("field"));
+
 // Header generation options
 static cl::opt<bool, true>
     doHdrGen("H", cl::desc("Generate 'header' file"), cl::ZeroOrMore,
