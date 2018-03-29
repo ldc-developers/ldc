@@ -766,7 +766,7 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
     }
   version (IN_LLVM)
   {
-    if (global.params.oneobj && modules.dim < 2)
+    if (global.params.oneobj && modules.dim < 2 && !includeImports)
         global.params.oneobj = false;
     // global.params.oneobj => move object file for first source file to
     // beginning of object files list
@@ -2439,9 +2439,10 @@ private bool parseCommandLine(const ref Strings arguments, const size_t argc, re
 }
 
 
-private __gshared bool includeImports = false;
+// IN_LLVM: `private` replaced by `extern(C++)`
+extern(C++) __gshared bool includeImports = false;
 // array of module patterns used to include/exclude imported modules
-private __gshared Array!(const(char)*) includeModulePatterns;
+extern(C++) __gshared Array!(const(char)*) includeModulePatterns;
 private __gshared Modules compiledImports;
 private extern(C++) bool marsOnImport(Module m)
 {

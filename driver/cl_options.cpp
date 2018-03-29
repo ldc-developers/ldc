@@ -313,7 +313,13 @@ static cl::list<std::string, StringsAdapter> modFileAliasStrings(
     cl::value_desc("<package.module>=<filespec>"),
     cl::location(modFileAliasStringsStore));
 
-FloatABI::Type floatABI; // Storage for the dynamically created float-abi option.
+cl::list<std::string> includeModulePatterns(
+    "i", cl::desc("Include imported modules in the compilation"),
+    cl::value_desc("pattern"),
+    cl::ValueOptional); // DMD allows omitting a value with special meaning
+
+// Storage for the dynamically created float-abi option.
+FloatABI::Type floatABI;
 
 static cl::opt<CHECKENABLE, true, FlagParser<CHECKENABLE>>
     asserts("asserts", cl::ZeroOrMore, cl::desc("(*) Enable assertions"),

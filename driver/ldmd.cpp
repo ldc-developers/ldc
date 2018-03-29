@@ -178,6 +178,7 @@ Where:\n\
   -Hf=<filename>   write 'header' file to filename\n\
   --help           print help and exit\n\
   -I=<directory>   look for imports also in directory\n\
+  -i[=<pattern>]   include imported modules in the compilation\n\
   -ignore          ignore unsupported pragmas\n\
   -inline          do function inlining\n\
   -J=<directory>   look for string imports also in directory\n\

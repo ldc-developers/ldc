@@ -84,6 +84,10 @@ int rt_init();
 // In dmd/doc.d
 void gendocfile(Module *m);
 
+// In dmd/mars.d
+extern bool includeImports;
+extern Strings includeModulePatterns;
+
 using namespace opts;
 
 extern void getenv_setargv(const char *envvar, int *pargc, char ***pargv);
@@ -415,6 +419,17 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   toWinPaths(global.params.imppath);
   toWinPaths(global.params.fileImppath);
 #endif
+
+  includeImports = !opts::includeModulePatterns.empty();
+  for (const auto &pattern : opts::includeModulePatterns) {
+    // a value-less `-i` only enables `includeImports`
+    if (!pattern.empty())
+      ::includeModulePatterns.push_back(pattern.c_str());
+  }
+  // When including imports, their object files aren't tracked in
+  // global.params.objfiles etc. Enforce `-singleobj` to avoid related issues.
+  if (includeImports)
+    global.params.oneobj = true;
 
 #if LDC_LLVM_VER >= 400
   if (saveOptimizationRecord.getNumOccurrences() > 0) {
