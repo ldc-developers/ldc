@@ -2347,6 +2347,17 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    if (global.params.betterC) {
+      error(
+          e->loc,
+          "array concatenation of expression `%s` requires the GC which is not "
+          "available with -betterC",
+          e->toChars());
+      result =
+          new DSliceValue(e->type, llvm::UndefValue::get(DtoType(e->type)), llvm::UndefValue::get(DtoType(e->type)));
+      return;
+    }
+
     result = DtoCatArrays(e->loc, e->type, e->e1, e->e2);
   }
 
