@@ -15,6 +15,7 @@
 #define LDC_DRIVER_CONFIGFILE_H
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
 #include <string>
 
 #include "array.h"
@@ -23,7 +24,7 @@ class ConfigFile {
 public:
   bool read(const char *explicitConfFile, const char *section);
 
-  std::string path() { return std::string(pathcstr); }
+  llvm::StringRef path() { return pathcstr; }
 
   void extendCommandLine(llvm::SmallVectorImpl<const char *> &args);
 

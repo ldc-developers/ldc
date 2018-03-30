@@ -30,7 +30,7 @@ namespace opts {
 namespace cl = llvm::cl;
 
 /// Duplicate the string and replace '/' with '\' on Windows.
-char *dupPathString(const std::string &src);
+char *dupPathString(llvm::StringRef src);
 
 /// Helper function to handle -of, -od, etc.
 /// llvm::cl::opt<std::string> --> char*

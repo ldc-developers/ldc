@@ -368,6 +368,9 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     return;
   }
 
+  if (!cfg_file.path().empty())
+    global.inifilename = dupPathString(cfg_file.path());
+
   // Print some information if -v was passed
   // - path to compiler binary
   // - version number
@@ -376,9 +379,8 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     message("binary    %s", exe_path::getExePath().c_str());
     message("version   %s (DMD %s, LLVM %s)", global.ldc_version,
             global.version, global.llvm_version);
-    const std::string path = cfg_file.path();
-    if (!path.empty()) {
-      message("config    %s (%s)", path.c_str(), cfg_triple.c_str());
+    if (global.inifilename) {
+      message("config    %s (%s)", global.inifilename, cfg_triple.c_str());
     }
   }
 
