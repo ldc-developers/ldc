@@ -268,9 +268,9 @@ endif()
 # Only have either shared or static libs?
 # Then explicitly default to linking against them via default LDC switch.
 if(${BUILD_SHARED_LIBS} STREQUAL "ON")
-    set(ADDITIONAL_DEFAULT_LDC_SWITCHES ",\n        \"-link-defaultlib-shared\"")
+    set(ADDITIONAL_DEFAULT_LDC_SWITCHES "\n        \"-link-defaultlib-shared\",")
 elseif(${BUILD_SHARED_LIBS} STREQUAL "OFF")
-    set(ADDITIONAL_DEFAULT_LDC_SWITCHES ",\n        \"-link-defaultlib-shared=false\"")
+    set(ADDITIONAL_DEFAULT_LDC_SWITCHES "\n        \"-link-defaultlib-shared=false\",")
 endif()
 
 # Only generate the config files if this CMake project is embedded in the LDC CMake project.

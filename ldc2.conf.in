@@ -5,13 +5,13 @@
 default:
 {
     // default switches injected before all explicit command-line switches
-    switches = [
-        "-I@RUNTIME_DIR@/src",
-        "-I@JITRT_DIR@/d",@SHARED_LIBS_RPATH@
-        "-defaultlib=druntime-ldc"@ADDITIONAL_DEFAULT_LDC_SWITCHES@
+    switches = [@SHARED_LIBS_RPATH@
+        "-defaultlib=druntime-ldc",@ADDITIONAL_DEFAULT_LDC_SWITCHES@
     ];
     // default switches appended after all explicit command-line switches
     post-switches = [
+        "-I@RUNTIME_DIR@/src",
+        "-I@JITRT_DIR@/d",
         "-L-L@CMAKE_BINARY_DIR@/lib@LIB_SUFFIX@",@MULTILIB_ADDITIONAL_PATH@
     ];
 };
