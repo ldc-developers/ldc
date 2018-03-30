@@ -564,8 +564,10 @@ endif()
 set(LDC_ENABLE_PLUGINS ${LDC_ENABLE_PLUGINS_DEFAULT} CACHE BOOL "Build LDC with plugin support (increases binary size)")
 if(LDC_ENABLE_PLUGINS)
     add_definitions(-DLDC_ENABLE_PLUGINS)
-    # For plugin support, we need to link with --export-dynamic on Unix.
-    if(UNIX AND NOT APPLE)
+    if(APPLE OR ${CMAKE_SYSTEM_NAME} MATCHES "Solaris")
+        # No extra things needed
+    elseif(UNIX)
+        # For plugin support, we need to link with --export-dynamic on Unix.
         set(LDC_LINKERFLAG_LIST "${LDC_LINKERFLAG_LIST};-Wl,--export-dynamic")
     endif()
 endif()
