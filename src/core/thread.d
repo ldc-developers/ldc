@@ -3380,7 +3380,7 @@ private void* getStackTop() nothrow @nogc
         }
         else version (MIPS)
         {
-            return __asm!(void *)("move $0, $$sp", "=r");
+            return __asm!(void *)(".set noat; move $0, $$sp; .set at", "=r");
         }
         else version (MIPS64)
         {
