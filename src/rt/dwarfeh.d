@@ -66,6 +66,11 @@ version (LDC)
         enum eh_exception_regno = 3;
         enum eh_selector_regno = 4;
     }
+    else version (MIPS32)
+    {
+        enum eh_exception_regno = 4;
+        enum eh_selector_regno = 5;
+    }
     else version (MIPS64)
     {
         enum eh_exception_regno = 4;
