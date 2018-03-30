@@ -81,9 +81,6 @@ void func()
     //CHECK-NOT: Error:
     scope(exit)
         func2();
-
-    //CHECK: dcompute.d([[@LINE+1]]): Error: asm not allowed in `@compute` code
-    asm {ret;}
 }
 
 void func1() {}
