@@ -109,13 +109,13 @@ Statement *asmSemantic(AsmStatement *s, Scope *sc) {
   if (!(t.getArch() == llvm::Triple::x86 ||
         t.getArch() == llvm::Triple::x86_64)) {
     s->error(
-        "DMD-style inline asm is not supported for the \"%s\" architecture",
+        "the `asm` statement is not supported for the \"%s\" architecture, use `ldc.llvmasm.__asm` instead",
         t.getArchName().str().c_str());
     err = true;
   }
   if (!global.params.useInlineAsm) {
     s->error(
-        "DMD-style inline asm is not allowed when the -noasm switch is used");
+        "the `asm` statement is not allowed when the -noasm switch is used");
     err = true;
   }
   if (err) {
