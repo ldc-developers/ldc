@@ -658,6 +658,10 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
         list(APPEND libs_to_install druntime-ldc.a druntime-ldc-debug.a
                                     phobos2-ldc.a  phobos2-ldc-debug.a
         )
+        # Only install the release versions of the (static-only) bitcode libraries.
+        if(BUILD_BC_LIBS)
+            list(APPEND libs_to_install druntime-ldc-bc.a phobos2-ldc-bc.a)
+        endif()
     endif()
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
         set(suffix ${SHARED_LIB_SUFFIX}.dylib)
@@ -709,6 +713,11 @@ else()
     # don't add multilib targets to libs_to_install
     if(MULTILIB)
         build_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}" dummy)
+    endif()
+
+    # Only install the release versions of the (static-only) bitcode libraries.
+    if(BUILD_BC_LIBS)
+        list(APPEND libs_to_install druntime-ldc-bc phobos2-ldc-bc)
     endif()
 
     foreach(libname ${libs_to_install})
