@@ -533,7 +533,7 @@ macro(build_runtime_libs druntime_o druntime_bc phobos2_o phobos2_bc c_flags ld_
         list(APPEND ${outlist_targets} "phobos2-ldc${target_suffix}")
     endif()
 
-    if(BUILD_BC_LIBS)
+    if(BUILD_BC_LIBS AND "${is_shared}" STREQUAL "OFF" AND NOT "${lib_suffix}" MATCHES "-unittest")
         find_program(LLVM_AR_EXE llvm-ar
             HINTS ${LLVM_ROOT_DIR}/bin
             DOC "path to llvm-ar tool"
