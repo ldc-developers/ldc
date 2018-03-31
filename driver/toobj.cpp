@@ -343,9 +343,12 @@ void writeModule(llvm::Module *m, const char *filename) {
   };
 
   // write LLVM bitcode
-  if (global.params.output_bc || (doLTO && outputObj)) {
-    std::string bcpath =
-        (doLTO && outputObj) ? filename : replaceExtensionWith(global.bc_ext);
+  const bool emitBitcodeAsObjectFile =
+      doLTO && outputObj && !global.params.output_bc;
+  if (global.params.output_bc || emitBitcodeAsObjectFile) {
+    std::string bcpath = emitBitcodeAsObjectFile
+                             ? filename
+                             : replaceExtensionWith(global.bc_ext);
     Logger::println("Writing LLVM bitcode to: %s\n", bcpath.c_str());
     std::error_code errinfo;
     llvm::raw_fd_ostream bos(bcpath.c_str(), errinfo, llvm::sys::fs::F_None);
@@ -436,7 +439,7 @@ void writeModule(llvm::Module *m, const char *filename) {
     }
   }
 
-  if (outputObj && !doLTO) {
+  if (outputObj && !emitBitcodeAsObjectFile) {
     writeObjectFile(m, filename);
     if (useIR2ObjCache) {
       cache::cacheObjectFile(filename, moduleHash);
