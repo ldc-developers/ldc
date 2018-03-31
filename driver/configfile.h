@@ -24,7 +24,9 @@ class ConfigFile {
 public:
   bool read(const char *explicitConfFile, const char *section);
 
-  llvm::StringRef path() { return pathcstr; }
+  llvm::StringRef path() {
+    return pathcstr ? llvm::StringRef(pathcstr) : llvm::StringRef();
+  }
 
   void extendCommandLine(llvm::SmallVectorImpl<const char *> &args);
 
