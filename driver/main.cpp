@@ -87,6 +87,7 @@ void gendocfile(Module *m);
 // In dmd/mars.d
 extern bool includeImports;
 extern Strings includeModulePatterns;
+void generateJson(Modules *modules);
 
 using namespace opts;
 
@@ -1024,6 +1025,11 @@ int cppmain(int argc, char **argv) {
   }
 
   if (files.dim == 0) {
+    if (global.params.jsonFieldFlags) {
+      generateJson(nullptr);
+      return EXIT_SUCCESS;
+    }
+
     cl::PrintHelpMessage();
     return EXIT_FAILURE;
   }

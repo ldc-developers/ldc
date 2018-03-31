@@ -614,7 +614,10 @@ void translateArgs(size_t originalArgc, char **originalArgv,
     }
   }
 
-  if (noFiles) {
+  // at least one file is mandatory, except when `-Xi=…` is used
+  if (noFiles && std::find_if(args.begin(), args.end(), [](const char *arg) {
+                   return strncmp(arg, "-Xi=", 4) == 0;
+                 }) == args.end()) {
     printUsage(originalArgv[0], ldcPath);
     if (originalArgc == 1)
       exit(EXIT_FAILURE); // compatible with DMD

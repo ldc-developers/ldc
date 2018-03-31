@@ -1206,7 +1206,8 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
     return status;
 }
 
-private void generateJson(Modules* modules)
+// IN_LLVM replaced: `private` by `extern (C++)`
+extern (C++) void generateJson(Modules* modules)
 {
     OutBuffer buf;
     json_generate(&buf, modules);
