@@ -708,9 +708,11 @@ void codegenModule(IRState *irs, Module *m) {
     fatal();
   }
 
-  // Skip emission of all the additional module metadata if requested by the
-  // user or the betterC switch is on.
-  if (global.params.useModuleInfo && !m->noModuleInfo) {
+  // Skip emission of all the additional module metadata if:
+  // a) the -betterC switch is on,
+  // b) requested explicitly by the user via pragma(LDC_no_moduleinfo), or if
+  // c) there's no ModuleInfo declaration.
+  if (global.params.useModuleInfo && !m->noModuleInfo && Module::moduleinfo) {
     // generate ModuleInfo
     registerModuleInfo(m);
   }
