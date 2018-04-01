@@ -66,7 +66,7 @@ struct Analysis {
   CallGraph *CG;
   CallGraphNode *CGNode;
 
-  Type *getTypeFor(Value *typeinfo) const;
+  llvm::Type *getTypeFor(Value *typeinfo) const;
 };
 }
 
@@ -105,7 +105,7 @@ enum Type {
 
 class FunctionInfo {
 protected:
-  Type *Ty;
+  llvm::Type *Ty;
 
 public:
   ReturnType::Type ReturnType;
@@ -559,7 +559,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
   return Changed;
 }
 
-Type *Analysis::getTypeFor(Value *typeinfo) const {
+llvm::Type *Analysis::getTypeFor(Value *typeinfo) const {
   GlobalVariable *ti_global =
       dyn_cast<GlobalVariable>(typeinfo->stripPointerCasts());
   if (!ti_global) {
@@ -826,7 +826,7 @@ bool isSafeToStackAllocate(BasicBlock::iterator Alloc, Value *V,
       // its return value and doesn't unwind (a readonly function can leak bits
       // by throwing an exception or not depending on the input value).
       if (CS.onlyReadsMemory() && CS.doesNotThrow() &&
-          I->getType() == Type::getVoidTy(I->getContext())) {
+          I->getType() == llvm::Type::getVoidTy(I->getContext())) {
         break;
       }
 

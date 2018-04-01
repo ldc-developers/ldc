@@ -100,7 +100,7 @@ DValue *DtoNewClass(Loc &loc, TypeClass *tc, NewExp *newexp) {
     llvm::Function *fn =
         getRuntimeFunction(loc, gIR->module, "_d_allocclass");
     LLConstant *ci = DtoBitCast(getIrAggr(tc->sym)->getClassInfoSymbol(),
-                                DtoType(Type::typeinfoclass->type));
+                                DtoType(getClassInfoType()));
     mem =
         gIR->CreateCallOrInvoke(fn, ci, ".newclass_gc_alloc").getInstruction();
     mem = DtoBitCast(mem, DtoType(tc), ".newclass_gc");
@@ -347,12 +347,20 @@ DValue *DtoCastClass(Loc &loc, DValue *val, Type *_to) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+static void resolveObjectAndClassInfoClasses() {
+  // check declarations in object.d
+  getObjectType();
+  getClassInfoType();
+
+  DtoResolveClass(ClassDeclaration::object);
+  DtoResolveClass(Type::typeinfoclass);
+}
+
 DValue *DtoDynamicCastObject(Loc &loc, DValue *val, Type *_to) {
   // call:
   // Object _d_dynamic_cast(Object o, ClassInfo c)
 
-  DtoResolveClass(ClassDeclaration::object);
-  DtoResolveClass(Type::typeinfoclass);
+  resolveObjectAndClassInfoClasses();
 
   llvm::Function *func =
       getRuntimeFunction(loc, gIR->module, "_d_dynamic_cast");
@@ -389,8 +397,7 @@ DValue *DtoDynamicCastInterface(Loc &loc, DValue *val, Type *_to) {
   // call:
   // Object _d_interface_cast(void* p, ClassInfo c)
 
-  DtoResolveClass(ClassDeclaration::object);
-  DtoResolveClass(Type::typeinfoclass);
+  resolveObjectAndClassInfoClasses();
 
   llvm::Function *func =
       getRuntimeFunction(loc, gIR->module, "_d_interface_cast");
@@ -606,6 +613,7 @@ LLConstant *DtoDefineClassInfo(ClassDeclaration *cd) {
   assert(cd->type->ty == Tclass);
 
   IrAggr *ir = getIrAggr(cd);
+  getClassInfoType(); // check declaration in object.d
   ClassDeclaration *cinfo = Type::typeinfoclass;
 
   if (cinfo->fields.dim != 12) {

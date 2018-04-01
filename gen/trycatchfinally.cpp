@@ -247,7 +247,7 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
   } else {
     // catch all
     typeDesc = LLConstant::getNullValue(getVoidPtrType());
-    clssInfo = LLConstant::getNullValue(DtoType(Type::typeinfoclass->type));
+    clssInfo = LLConstant::getNullValue(DtoType(getClassInfoType()));
   }
 
   // "catchpad within %switch [TypeDescriptor, 0, &caughtObject]" must be

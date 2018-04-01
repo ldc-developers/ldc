@@ -177,12 +177,6 @@ void emitLLVMUsedArray(IRState &irs) {
 namespace ldc {
 CodeGenerator::CodeGenerator(llvm::LLVMContext &context, bool singleObj)
     : context_(context), moduleCount_(0), singleObj_(singleObj), ir_(nullptr) {
-  if (!ClassDeclaration::object) {
-    error(Loc(), "declaration for class `Object` not found; druntime not "
-                 "configured properly");
-    fatal();
-  }
-
 #if LDC_LLVM_VER >= 309
   // Set the context to discard value names when not generating textual IR.
   if (!global.params.output_ll) {

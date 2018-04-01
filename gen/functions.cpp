@@ -138,7 +138,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   if (isLLVMVariadic && f->linkage == LINKd) {
     // Add extra `_arguments` parameter for D-style variadic functions.
     newIrFty.arg_arguments =
-        new IrFuncTyArg(Type::dtypeinfo->type->arrayOf(), false);
+        new IrFuncTyArg(getTypeInfoType()->arrayOf(), false);
     ++nextLLArgIdx;
   }
 

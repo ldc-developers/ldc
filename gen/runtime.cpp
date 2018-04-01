@@ -138,14 +138,17 @@ private:
   const char *const name;
   Type *type = nullptr;
 
+  const char *getKind() { return "class"; }
+
 public:
   LazyType(Declaration *&decl, const char *name) : declRef(decl), name(name) {}
 
   Type *get() {
     if (!type) {
       if (!declRef || !declRef->type) {
-        Logger::println("Missing class declaration: %s\n", name);
-        error(Loc(), "Missing class declaration: `%s`", name);
+        const char *kind = getKind();
+        Logger::println("Missing %s declaration: %s\n", kind, name);
+        error(Loc(), "Missing %s declaration: `%s`", kind, name);
         errorSupplemental(Loc(),
                           "Please check that object.d is included and valid");
         fatal();
@@ -166,6 +169,7 @@ LazyClassType aaTypeInfoTy(Type::typeinfoassociativearray,
                            "TypeInfo_AssociativeArray");
 
 using LazyAggregateType = LazyType<AggregateDeclaration>;
+template <> const char *LazyAggregateType::getKind() { return "struct"; }
 LazyAggregateType moduleInfoTy(Module::moduleinfo, "ModuleInfo");
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -386,6 +390,16 @@ static const char *getUnwindResumeFunctionName() {
 llvm::Function *getUnwindResumeFunction(const Loc &loc, llvm::Module &target) {
   return getRuntimeFunction(loc, target, getUnwindResumeFunctionName());
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+Type *getObjectType() { return objectTy.get(); }
+Type *getThrowableType() { return throwableTy.get(); }
+Type *getTypeInfoType() { return typeInfoTy.get(); }
+Type *getClassInfoType() { return classInfoTy.get(); }
+Type *getStructTypeInfoType() { return structTypeInfoTy.get(); }
+Type *getAaTypeInfoType() { return aaTypeInfoTy.get(); }
+Type *getModuleInfoType() { return moduleInfoTy.get(); }
 
 ////////////////////////////////////////////////////////////////////////////////
 

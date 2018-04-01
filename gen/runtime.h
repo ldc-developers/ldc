@@ -22,6 +22,7 @@ class Module;
 
 struct Loc;
 class FuncDeclaration;
+class Type;
 
 // D runtime support helpers
 bool initRuntime();
@@ -36,5 +37,13 @@ llvm::Function *getUnwindResumeFunction(const Loc &loc, llvm::Module &target);
 
 void emitInstrumentationFnEnter(FuncDeclaration *decl);
 void emitInstrumentationFnLeave(FuncDeclaration *decl);
+
+Type *getObjectType();
+Type *getThrowableType();
+Type *getTypeInfoType();
+Type *getClassInfoType();
+Type *getStructTypeInfoType();
+Type *getAaTypeInfoType();
+Type *getModuleInfoType();
 
 #endif // LDC_GEN_RUNTIME_H

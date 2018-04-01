@@ -144,6 +144,7 @@ public:
                            decl->toChars());
     LOG_SCOPE;
 
+    getTypeInfoType(); // check declaration in object.d
     RTTIBuilder b(Type::dtypeinfo);
     b.finalize(gvar);
   }
@@ -244,6 +245,7 @@ public:
     assert(decl->tinfo->ty == Taarray);
     TypeAArray *tc = static_cast<TypeAArray *>(decl->tinfo);
 
+    getAaTypeInfoType(); // check declaration in object.d
     RTTIBuilder b(Type::typeinfoassociativearray);
 
     // value typeinfo
@@ -303,6 +305,9 @@ public:
     TypeStruct *tc = static_cast<TypeStruct *>(decl->tinfo);
     StructDeclaration *sd = tc->sym;
 
+    getStructTypeInfoType(); // check declaration in object.d
+    auto structTypeInfoDecl = Type::typeinfostruct;
+
     // On x86_64, class TypeInfo_Struct contains 2 additional fields
     // (m_arg1/m_arg2) which are used for the X86_64 System V ABI varargs
     // implementation. They are not present on any other cpu/os.
@@ -310,7 +315,7 @@ public:
         global.params.targetTriple->getArch() == llvm::Triple::x86_64;
     const unsigned expectedFields = 11 + (isX86_64 ? 2 : 0);
     const unsigned actualFields =
-        Type::typeinfostruct->fields.dim -
+        structTypeInfoDecl->fields.dim -
         1; // union of xdtor/xdtorti counts as 2 overlapping fields
     if (actualFields != expectedFields) {
       error(Loc(), "Unexpected number of `object.TypeInfo_Struct` fields; "
@@ -318,7 +323,7 @@ public:
       fatal();
     }
 
-    RTTIBuilder b(Type::typeinfostruct);
+    RTTIBuilder b(structTypeInfoDecl);
 
     // handle opaque structs
     if (!sd->members) {
@@ -439,7 +444,7 @@ public:
           t = merge(t);
           b.push_typeinfo(t);
         } else {
-          b.push_null(Type::dtypeinfo->type);
+          b.push_null(getTypeInfoType());
         }
 
         t = sd->arg2type;
@@ -505,7 +510,7 @@ public:
     std::vector<LLConstant *> arrInits;
     arrInits.reserve(dim);
 
-    LLType *tiTy = DtoType(Type::dtypeinfo->type);
+    LLType *tiTy = DtoType(getTypeInfoType());
 
     for (auto arg : *tu->arguments) {
       arrInits.push_back(DtoTypeInfoOf(arg->type));
@@ -518,7 +523,7 @@ public:
     RTTIBuilder b(Type::typeinfotypelist);
 
     // push TypeInfo[]
-    b.push_array(arrC, dim, Type::dtypeinfo->type, nullptr);
+    b.push_array(arrC, dim, getTypeInfoType(), nullptr);
 
     // finish
     b.finalize(gvar);

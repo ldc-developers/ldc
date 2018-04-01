@@ -16,6 +16,7 @@
 #include "gen/logger.h"
 #include "gen/mangling.h"
 #include "gen/rttibuilder.h"
+#include "gen/runtime.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "ir/irtype.h"
@@ -132,7 +133,7 @@ llvm::Function *buildModuleSharedDtor(Module *m) {
 
 /// Builds the (constant) data content for the importedModules[] array.
 llvm::Constant *buildImportedModules(Module *m, size_t &count) {
-  const auto moduleInfoPtrTy = DtoPtrToType(Module::moduleinfo->type);
+  const auto moduleInfoPtrTy = DtoPtrToType(getModuleInfoType());
 
   std::vector<LLConstant *> importInits;
   for (auto mod : m->aimports) {
@@ -154,7 +155,7 @@ llvm::Constant *buildImportedModules(Module *m, size_t &count) {
 
 /// Builds the (constant) data content for the localClasses[] array.
 llvm::Constant *buildLocalClasses(Module *m, size_t &count) {
-  const auto classinfoTy = DtoType(Type::typeinfoclass->type);
+  const auto classinfoTy = DtoType(getClassInfoType());
 
   ClassDeclarations aclasses;
   for (auto s : *m->members) {
@@ -193,16 +194,14 @@ llvm::Constant *buildLocalClasses(Module *m, size_t &count) {
 }
 
 llvm::GlobalVariable *genModuleInfo(Module *m) {
-  if (!Module::moduleinfo) {
-    m->error("object.d is missing the `ModuleInfo` struct");
-    fatal();
-  }
+  getModuleInfoType(); // check declaration in object.d
+  auto moduleInfoDecl = Module::moduleinfo;
 
   // The "new-style" ModuleInfo records are variable-length, with the presence
   // of the various fields indicated by a certain flag bit. The base struct
   // should consist only of the _flags/_index fields (the latter of which is
   // unused).
-  if (Module::moduleinfo->structsize != 4 + 4) {
+  if (moduleInfoDecl->structsize != 4 + 4) {
     m->error("Unexpected size of struct `object.ModuleInfo`; "
              "druntime version does not match compiler (see -v)");
     fatal();
@@ -262,7 +261,7 @@ llvm::GlobalVariable *genModuleInfo(Module *m) {
   }
 
   // Now, start building the initialiser for the ModuleInfo instance.
-  RTTIBuilder b(Module::moduleinfo);
+  RTTIBuilder b(moduleInfoDecl);
 
   b.push_uint(flags);
   b.push_uint(0); // index

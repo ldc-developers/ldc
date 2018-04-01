@@ -350,7 +350,7 @@ void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
   // functions).
   const bool isFirst = !gIR->module.getGlobalVariable("ldc.dso_slot");
 
-  llvm::Type *const moduleInfoPtrTy = DtoPtrToType(Module::moduleinfo->type);
+  llvm::Type *const moduleInfoPtrTy = DtoPtrToType(getModuleInfoType());
   const auto sectionName =
       style == RegistryStyle::sectionMSVC
           ? ".minfo"
