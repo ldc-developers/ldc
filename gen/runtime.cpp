@@ -143,13 +143,13 @@ private:
 public:
   LazyType(Declaration *&decl, const char *name) : declRef(decl), name(name) {}
 
-  Type *get() {
+  Type *get(const Loc &loc = {}) {
     if (!type) {
       if (!declRef || !declRef->type) {
         const char *kind = getKind();
         Logger::println("Missing %s declaration: %s\n", kind, name);
-        error(Loc(), "Missing %s declaration: `%s`", kind, name);
-        errorSupplemental(Loc(),
+        error(loc, "Missing %s declaration: `%s`", kind, name);
+        errorSupplemental(loc,
                           "Please check that object.d is included and valid");
         fatal();
       }
@@ -214,12 +214,12 @@ public:
     return copy;
   }
 
-  Type *get() const {
+  Type *get(const Loc &loc) const {
     Type *ty;
     if (kind == Kind::lazyClass) {
-      ty = static_cast<LazyClassType *>(ptr)->get();
+      ty = static_cast<LazyClassType *>(ptr)->get(loc);
     } else if (kind == Kind::lazyAggregate) {
-      ty = static_cast<LazyAggregateType *>(ptr)->get();
+      ty = static_cast<LazyAggregateType *>(ptr)->get(loc);
     } else {
       ty = static_cast<Type *>(ptr);
     }
@@ -244,17 +244,18 @@ struct LazyFunctionDeclarer {
   std::vector<StorageClass> paramsSTC;
   AttrSet attributes;
 
-  void declare() {
+  void declare(const Loc &loc) {
     Parameters *params = nullptr;
     if (!paramTypes.empty()) {
       params = new Parameters();
       for (size_t i = 0, e = paramTypes.size(); i < e; ++i) {
         StorageClass stc = paramsSTC.empty() ? 0 : paramsSTC[i];
-        params->push(Parameter::create(stc, paramTypes[i].get(), nullptr, nullptr));
+        Type *paramTy = paramTypes[i].get(loc);
+        params->push(Parameter::create(stc, paramTy, nullptr, nullptr));
       }
     }
-    int varargs = 0;
-    auto dty = TypeFunction::create(params, returnType.get(), varargs, linkage);
+    Type *returnTy = returnType.get(loc);
+    auto dty = TypeFunction::create(params, returnTy, 0, linkage);
 
     // the call to DtoType performs many actions such as rewriting the function
     // type and storing it in dty
@@ -324,7 +325,7 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
       fatal();
     }
     // declare it in the M runtime module
-    it->second->declare();
+    it->second->declare(loc);
     fn = M->getFunction(name);
     assert(fn);
   }
