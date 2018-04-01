@@ -141,7 +141,7 @@ public:
       setLinkage(decl, initGlobal);
 
       // emit typeinfo
-      if (global.params.useTypeInfo) {
+      if (global.params.useTypeInfo && Type::dtypeinfo) {
         DtoTypeInfoOf(decl->type, /*base=*/false);
       }
     }

@@ -657,8 +657,8 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
   emitTypeMetadata(decl);
 
   // check if the definition can be elided
-  if (!global.params.useTypeInfo || isSpeculativeType(decl->tinfo) ||
-      builtinTypeInfo(decl->tinfo)) {
+  if (!global.params.useTypeInfo || !Type::dtypeinfo ||
+      isSpeculativeType(decl->tinfo) || builtinTypeInfo(decl->tinfo)) {
     return;
   }
 
