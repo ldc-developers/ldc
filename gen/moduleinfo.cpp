@@ -154,7 +154,7 @@ llvm::Constant *buildImportedModules(Module *m, size_t &count) {
 
 /// Builds the (constant) data content for the localClasses[] array.
 llvm::Constant *buildLocalClasses(Module *m, size_t &count) {
-  const auto classinfoTy = Type::typeinfoclass->type->ctype->getLLType();
+  const auto classinfoTy = DtoType(Type::typeinfoclass->type);
 
   ClassDeclarations aclasses;
   for (auto s : *m->members) {
