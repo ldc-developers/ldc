@@ -156,6 +156,7 @@ public:
                            decl->toChars());
     LOG_SCOPE;
 
+    getEnumTypeInfoType(); // check declaration in object.d
     RTTIBuilder b(Type::typeinfoenum);
 
     assert(decl->tinfo->ty == Tenum);
@@ -191,6 +192,7 @@ public:
                            decl->toChars());
     LOG_SCOPE;
 
+    getPointerTypeInfoType(); // check declaration in object.d
     RTTIBuilder b(Type::typeinfopointer);
     // TypeInfo base
     b.push_typeinfo(decl->tinfo->nextOf());
@@ -205,6 +207,7 @@ public:
                            decl->toChars());
     LOG_SCOPE;
 
+    getArrayTypeInfoType(); // check declaration in object.d
     RTTIBuilder b(Type::typeinfoarray);
     // TypeInfo base
     b.push_typeinfo(decl->tinfo->nextOf());
@@ -222,6 +225,7 @@ public:
     assert(decl->tinfo->ty == Tsarray);
     TypeSArray *tc = static_cast<TypeSArray *>(decl->tinfo);
 
+    getStaticArrayTypeInfoType(); // check declaration in object.d
     RTTIBuilder b(Type::typeinfostaticarray);
 
     // value typeinfo
@@ -245,7 +249,7 @@ public:
     assert(decl->tinfo->ty == Taarray);
     TypeAArray *tc = static_cast<TypeAArray *>(decl->tinfo);
 
-    getAaTypeInfoType(); // check declaration in object.d
+    getAssociativeArrayTypeInfoType(); // check declaration in object.d
     RTTIBuilder b(Type::typeinfoassociativearray);
 
     // value typeinfo
@@ -265,6 +269,7 @@ public:
                            decl->toChars());
     LOG_SCOPE;
 
+    getFunctionTypeInfoType(); // check declaration in object.d
     RTTIBuilder b(Type::typeinfofunction);
     // TypeInfo base
     b.push_typeinfo(decl->tinfo->nextOf());
@@ -284,6 +289,7 @@ public:
     assert(decl->tinfo->ty == Tdelegate);
     Type *ret_type = decl->tinfo->nextOf()->nextOf();
 
+    getDelegateTypeInfoType(); // check declaration in object.d
     RTTIBuilder b(Type::typeinfodelegate);
     // TypeInfo base
     b.push_typeinfo(ret_type);
@@ -486,6 +492,7 @@ public:
     TypeClass *tc = static_cast<TypeClass *>(decl->tinfo);
     DtoResolveClass(tc->sym);
 
+    getInterfaceTypeInfoType(); // check declaration in object.d
     RTTIBuilder b(Type::typeinfointerface);
 
     // TypeInfo base
@@ -520,6 +527,7 @@ public:
     LLArrayType *arrTy = LLArrayType::get(tiTy, dim);
     LLConstant *arrC = LLConstantArray::get(arrTy, arrInits);
 
+    getTupleTypeInfoType(); // check declaration in object.d
     RTTIBuilder b(Type::typeinfotypelist);
 
     // push TypeInfo[]
@@ -536,6 +544,7 @@ public:
                            decl->toChars());
     LOG_SCOPE;
 
+    getConstTypeInfoType(); // check declaration in object.d
     RTTIBuilder b(Type::typeinfoconst);
     // TypeInfo base
     b.push_typeinfo(merge(decl->tinfo->mutableOf()));
@@ -550,6 +559,7 @@ public:
                            decl->toChars());
     LOG_SCOPE;
 
+    getInvariantTypeInfoType(); // check declaration in object.d
     RTTIBuilder b(Type::typeinfoinvariant);
     // TypeInfo base
     b.push_typeinfo(merge(decl->tinfo->mutableOf()));
@@ -564,6 +574,7 @@ public:
                            decl->toChars());
     LOG_SCOPE;
 
+    getSharedTypeInfoType(); // check declaration in object.d
     RTTIBuilder b(Type::typeinfoshared);
     // TypeInfo base
     b.push_typeinfo(merge(decl->tinfo->unSharedOf()));
@@ -578,6 +589,7 @@ public:
                            decl->toChars());
     LOG_SCOPE;
 
+    getInoutTypeInfoType(); // check declaration in object.d
     RTTIBuilder b(Type::typeinfowild);
     // TypeInfo base
     b.push_typeinfo(merge(decl->tinfo->mutableOf()));
@@ -595,6 +607,7 @@ public:
     assert(decl->tinfo->ty == Tvector);
     TypeVector *tv = static_cast<TypeVector *>(decl->tinfo);
 
+    getVectorTypeInfoType(); // check declaration in object.d
     RTTIBuilder b(Type::typeinfovector);
     // TypeInfo base
     b.push_typeinfo(tv->basetype);

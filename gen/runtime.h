@@ -39,11 +39,24 @@ void emitInstrumentationFnEnter(FuncDeclaration *decl);
 void emitInstrumentationFnLeave(FuncDeclaration *decl);
 
 Type *getObjectType();
-Type *getThrowableType();
 Type *getTypeInfoType();
+Type *getEnumTypeInfoType();
+Type *getPointerTypeInfoType();
+Type *getArrayTypeInfoType();
+Type *getStaticArrayTypeInfoType();
+Type *getAssociativeArrayTypeInfoType();
+Type *getVectorTypeInfoType();
+Type *getFunctionTypeInfoType();
+Type *getDelegateTypeInfoType();
 Type *getClassInfoType();
+Type *getInterfaceTypeInfoType();
 Type *getStructTypeInfoType();
-Type *getAaTypeInfoType();
+Type *getTupleTypeInfoType();
+Type *getConstTypeInfoType();
+Type *getInvariantTypeInfoType();
+Type *getSharedTypeInfoType();
+Type *getInoutTypeInfoType();
+Type *getThrowableType();
 Type *getModuleInfoType();
 
 #endif // LDC_GEN_RUNTIME_H

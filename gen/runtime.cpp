@@ -161,12 +161,28 @@ public:
 
 using LazyClassType = LazyType<ClassDeclaration>;
 LazyClassType objectTy(ClassDeclaration::object, "Object");
-LazyClassType throwableTy(ClassDeclaration::throwable, "Throwable");
 LazyClassType typeInfoTy(Type::dtypeinfo, "TypeInfo");
-LazyClassType classInfoTy(Type::typeinfoclass, "TypeInfo_Class");
-LazyClassType structTypeInfoTy(Type::typeinfostruct, "TypeInfo_Struct");
+LazyClassType enumTypeInfoTy(Type::typeinfoenum, "TypeInfo_Enum");
+LazyClassType pointerTypeInfoTy(Type::typeinfopointer, "TypeInfo_Pointer");
+LazyClassType arrayTypeInfoTy(Type::typeinfoarray, "TypeInfo_Array");
+LazyClassType staticArrayTypeInfoTy(Type::typeinfostaticarray,
+                                    "TypeInfo_StaticArray");
 LazyClassType aaTypeInfoTy(Type::typeinfoassociativearray,
                            "TypeInfo_AssociativeArray");
+LazyClassType vectorTypeInfoTy(Type::typeinfovector, "TypeInfo_Vector");
+LazyClassType functionTypeInfoTy(Type::typeinfofunction, "TypeInfo_Function");
+LazyClassType delegateTypeInfoTy(Type::typeinfodelegate, "TypeInfo_Delegate");
+LazyClassType classInfoTy(Type::typeinfoclass, "TypeInfo_Class");
+LazyClassType interfaceTypeInfoTy(Type::typeinfointerface,
+                                  "TypeInfo_Interface");
+LazyClassType structTypeInfoTy(Type::typeinfostruct, "TypeInfo_Struct");
+LazyClassType tupleTypeInfoTy(Type::typeinfotypelist, "TypeInfo_Tuple");
+LazyClassType constTypeInfoTy(Type::typeinfoconst, "TypeInfo_Const");
+LazyClassType invariantTypeInfoTy(Type::typeinfoinvariant,
+                                  "TypeInfo_Invariant");
+LazyClassType sharedTypeInfoTy(Type::typeinfoshared, "TypeInfo_Shared");
+LazyClassType inoutTypeInfoTy(Type::typeinfowild, "TypeInfo_Inout");
+LazyClassType throwableTy(ClassDeclaration::throwable, "Throwable");
 
 using LazyAggregateType = LazyType<AggregateDeclaration>;
 template <> const char *LazyAggregateType::getKind() { return "struct"; }
@@ -394,11 +410,24 @@ llvm::Function *getUnwindResumeFunction(const Loc &loc, llvm::Module &target) {
 ////////////////////////////////////////////////////////////////////////////////
 
 Type *getObjectType() { return objectTy.get(); }
-Type *getThrowableType() { return throwableTy.get(); }
 Type *getTypeInfoType() { return typeInfoTy.get(); }
+Type *getEnumTypeInfoType() { return enumTypeInfoTy.get(); }
+Type *getPointerTypeInfoType() { return pointerTypeInfoTy.get(); }
+Type *getArrayTypeInfoType() { return arrayTypeInfoTy.get(); }
+Type *getStaticArrayTypeInfoType() { return staticArrayTypeInfoTy.get(); }
+Type *getAssociativeArrayTypeInfoType() { return aaTypeInfoTy.get(); }
+Type *getVectorTypeInfoType() { return vectorTypeInfoTy.get(); }
+Type *getFunctionTypeInfoType() { return functionTypeInfoTy.get(); }
+Type *getDelegateTypeInfoType() { return delegateTypeInfoTy.get(); }
 Type *getClassInfoType() { return classInfoTy.get(); }
+Type *getInterfaceTypeInfoType() { return interfaceTypeInfoTy.get(); }
 Type *getStructTypeInfoType() { return structTypeInfoTy.get(); }
-Type *getAaTypeInfoType() { return aaTypeInfoTy.get(); }
+Type *getTupleTypeInfoType() { return tupleTypeInfoTy.get(); }
+Type *getConstTypeInfoType() { return constTypeInfoTy.get(); }
+Type *getInvariantTypeInfoType() { return invariantTypeInfoTy.get(); }
+Type *getSharedTypeInfoType() { return sharedTypeInfoTy.get(); }
+Type *getInoutTypeInfoType() { return inoutTypeInfoTy.get(); }
+Type *getThrowableType() { return throwableTy.get(); }
 Type *getModuleInfoType() { return moduleInfoTy.get(); }
 
 ////////////////////////////////////////////////////////////////////////////////

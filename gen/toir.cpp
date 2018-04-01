@@ -2442,7 +2442,7 @@ public:
       LLFunctionType *funcTy = func->getFunctionType();
       LLValue *aaTypeInfo =
           DtoBitCast(DtoTypeInfoOf(stripModifiers(aatype), /*base=*/false),
-                     DtoType(getAaTypeInfoType()));
+                     DtoType(getAssociativeArrayTypeInfoType()));
 
       LLConstant *idxs[2] = {DtoConstUint(0), DtoConstUint(0)};
 
@@ -2654,7 +2654,7 @@ public:
         // For interfaces, the first entry in the vtbl is actually a pointer
         // to an Interface instance, which has the type info as its first
         // member, so we have to add an extra layer of indirection.
-        resultType = Type::typeinfointerface->type;
+        resultType = getInterfaceTypeInfoType();
         typinf = DtoLoad(
             DtoBitCast(typinf, DtoType(resultType->pointerTo()->pointerTo())));
       } else {
