@@ -54,8 +54,9 @@ void addMscrtLibs(std::vector<std::string> &args,
 }
 
 void addLibIfFound(std::vector<std::string> &args, const llvm::Twine &name) {
-  if (llvm::sys::fs::exists(exe_path::prependLibDir(name)))
-    args.push_back(name.str());
+  std::string candidate = exe_path::prependLibDir(name);
+  if (llvm::sys::fs::exists(candidate))
+    args.push_back(std::move(candidate));
 }
 
 void addSanitizerLibs(std::vector<std::string> &args) {
