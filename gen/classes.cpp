@@ -360,11 +360,11 @@ DValue *DtoDynamicCastObject(Loc &loc, DValue *val, Type *_to) {
   // call:
   // Object _d_dynamic_cast(Object o, ClassInfo c)
 
-  resolveObjectAndClassInfoClasses();
-
   llvm::Function *func =
       getRuntimeFunction(loc, gIR->module, "_d_dynamic_cast");
   LLFunctionType *funcTy = func->getFunctionType();
+
+  resolveObjectAndClassInfoClasses();
 
   // Object o
   LLValue *obj = DtoRVal(val);
@@ -397,11 +397,11 @@ DValue *DtoDynamicCastInterface(Loc &loc, DValue *val, Type *_to) {
   // call:
   // Object _d_interface_cast(void* p, ClassInfo c)
 
-  resolveObjectAndClassInfoClasses();
-
   llvm::Function *func =
       getRuntimeFunction(loc, gIR->module, "_d_interface_cast");
   LLFunctionType *funcTy = func->getFunctionType();
+
+  resolveObjectAndClassInfoClasses();
 
   // void* p
   LLValue *ptr = DtoRVal(val);
