@@ -254,10 +254,13 @@ endif()
 # Set the -rpath linker option when shared runtime libraries are built.
 # The installed config file doesn't use SHARED_LIBS_RPATH.
 if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
+    # IMPROVE: factor SHARED_LIBS_RPATH and SHARED_LIBS_RPATH_INST
     if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
         set(SHARED_LIBS_RPATH "\n        \"-L-Wl,-rpath,${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}:${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",")
+        set(SHARED_LIBS_RPATH_INST "\n        \"-L-Wl,-rpath,${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}:${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",")
     else()
         set(SHARED_LIBS_RPATH "\n        \"-L-Wl,-rpath,${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}\",")
+        set(SHARED_LIBS_RPATH_INST "\n        \"-L-Wl,-rpath,${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}\",")
     endif()
 endif()
 
