@@ -2320,10 +2320,9 @@ struct AsmProcessor {
   static bool prependExtraUnderscore(LINK link) {
     return global.params.targetTriple->getOS() == llvm::Triple::MacOSX ||
            global.params.targetTriple->getOS() == llvm::Triple::Darwin ||
-           // Win32: C symbols only
+           // Win32: all symbols except for MSVC++ ones
            (global.params.targetTriple->isOSWindows() &&
-            global.params.targetTriple->isArch32Bit() && link != LINKcpp &&
-            link != LINKd && link != LINKdefault);
+            global.params.targetTriple->isArch32Bit() && link != LINKcpp);
   }
 
   void addOperand(const char *fmt, AsmArgType type, Expression *e,

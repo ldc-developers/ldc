@@ -184,18 +184,16 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   }
   // Windows is different
   else if (isWin) {
-    // prepend extra underscore for Win32 C symbols
-    if (triple.isArch32Bit() && fd->linkage != LINKcpp &&
-        fd->linkage != LINKd && fd->linkage != LINKdefault) {
+    // mangled names starting with '?' (MSVC++ symbols) apparently need quoting
+    if (mangle[0] == '?') {
+      fullmangle += '"';
+      fullmangle += mangle;
+      fullmangle += '"';
+      mangle = fullmangle.c_str();
+    } else if (triple.isArch32Bit()) {
+      // prepend extra underscore for Windows x86
       fullmangle += '_';
       fullmangle += mangle;
-      mangle = fullmangle.c_str();
-    }
-    // leading ? apparently needs quoting
-    else if (mangle[0] == '?') {
-      fullmangle += '"';
-      fullmangle += mangle;
-      fullmangle += '"';
       mangle = fullmangle.c_str();
     }
 
