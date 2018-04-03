@@ -174,11 +174,13 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
       mangleBuf.printf("%d%s", 18, "_cpp_type_info_ptr");
       const auto wrapperMangle = getIRMangledVarName(mangleBuf.peekString(), LINKd);
 
-      RTTIBuilder b(ClassDeclaration::cpp_type_info_ptr);
+      const auto cppTypeInfoPtrType = getCppTypeInfoPtrType();
+      RTTIBuilder b(cppTypeInfoPtrType);
       b.push(cpp_ti);
 
       auto wrapperType = llvm::cast<llvm::StructType>(
-          static_cast<IrTypeClass*>(ClassDeclaration::cpp_type_info_ptr->type->ctype)->getMemoryLLType());
+          static_cast<IrTypeClass *>(cppTypeInfoPtrType->ctype)
+              ->getMemoryLLType());
       auto wrapperInit = b.get_constant(wrapperType);
 
       ci = getOrCreateGlobal(

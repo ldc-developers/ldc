@@ -57,6 +57,7 @@ Type *getInvariantTypeInfoType();
 Type *getSharedTypeInfoType();
 Type *getInoutTypeInfoType();
 Type *getThrowableType();
+Type *getCppTypeInfoPtrType();
 Type *getModuleInfoType();
 
 #endif // LDC_GEN_RUNTIME_H

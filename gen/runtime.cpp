@@ -183,6 +183,8 @@ LazyClassType invariantTypeInfoTy(Type::typeinfoinvariant,
 LazyClassType sharedTypeInfoTy(Type::typeinfoshared, "TypeInfo_Shared");
 LazyClassType inoutTypeInfoTy(Type::typeinfowild, "TypeInfo_Inout");
 LazyClassType throwableTy(ClassDeclaration::throwable, "Throwable");
+LazyClassType cppTypeInfoPtrTy(ClassDeclaration::cpp_type_info_ptr,
+                               "__cpp_type_info_ptr");
 
 using LazyAggregateType = LazyType<AggregateDeclaration>;
 template <> const char *LazyAggregateType::getKind() { return "struct"; }
@@ -429,6 +431,7 @@ Type *getInvariantTypeInfoType() { return invariantTypeInfoTy.get(); }
 Type *getSharedTypeInfoType() { return sharedTypeInfoTy.get(); }
 Type *getInoutTypeInfoType() { return inoutTypeInfoTy.get(); }
 Type *getThrowableType() { return throwableTy.get(); }
+Type *getCppTypeInfoPtrType() { return cppTypeInfoPtrTy.get(); }
 Type *getModuleInfoType() { return moduleInfoTy.get(); }
 
 ////////////////////////////////////////////////////////////////////////////////

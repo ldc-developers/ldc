@@ -194,8 +194,9 @@ llvm::Constant *buildLocalClasses(Module *m, size_t &count) {
 }
 
 llvm::GlobalVariable *genModuleInfo(Module *m) {
-  getModuleInfoType(); // check declaration in object.d
-  auto moduleInfoDecl = Module::moduleinfo;
+  // check declaration in object.d
+  const auto moduleInfoType = getModuleInfoType();
+  const auto moduleInfoDecl = Module::moduleinfo;
 
   // The "new-style" ModuleInfo records are variable-length, with the presence
   // of the various fields indicated by a certain flag bit. The base struct
@@ -261,7 +262,7 @@ llvm::GlobalVariable *genModuleInfo(Module *m) {
   }
 
   // Now, start building the initialiser for the ModuleInfo instance.
-  RTTIBuilder b(moduleInfoDecl);
+  RTTIBuilder b(moduleInfoType);
 
   b.push_uint(flags);
   b.push_uint(0); // index

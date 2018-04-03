@@ -613,8 +613,8 @@ LLConstant *DtoDefineClassInfo(ClassDeclaration *cd) {
   assert(cd->type->ty == Tclass);
 
   IrAggr *ir = getIrAggr(cd);
-  getClassInfoType(); // check declaration in object.d
-  ClassDeclaration *cinfo = Type::typeinfoclass;
+  Type *const cinfoType = getClassInfoType(); // check declaration in object.d
+  ClassDeclaration *const cinfo = Type::typeinfoclass;
 
   if (cinfo->fields.dim != 12) {
     error(Loc(), "Unexpected number of fields in `object.ClassInfo`; "
@@ -623,7 +623,7 @@ LLConstant *DtoDefineClassInfo(ClassDeclaration *cd) {
   }
 
   // use the rtti builder
-  RTTIBuilder b(cinfo);
+  RTTIBuilder b(cinfoType);
 
   LLConstant *c;
 
@@ -664,7 +664,7 @@ LLConstant *DtoDefineClassInfo(ClassDeclaration *cd) {
   if (cd->baseClass && !cd->isInterfaceDeclaration()) {
     b.push_classinfo(cd->baseClass);
   } else {
-    b.push_null(cinfo->type);
+    b.push_null(cinfoType);
   }
 
   // destructor
