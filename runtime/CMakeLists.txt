@@ -34,7 +34,7 @@ endif()
 set(DMDFE_VERSION         ${D_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERSION})
 
 set(MULTILIB              OFF                                 CACHE BOOL   "Build both 32/64 bit runtime libraries")
-set(BUILD_BC_LIBS         OFF                                 CACHE BOOL   "Build the runtime as LLVM bitcode libraries")
+set(BUILD_LTO_LIBS        OFF                                 CACHE BOOL   "Also build the runtime as LLVM bitcode libraries for LTO")
 set(INCLUDE_INSTALL_DIR   ${CMAKE_INSTALL_PREFIX}/include/d   CACHE PATH   "Path to install D modules to")
 set(BUILD_SHARED_LIBS     AUTO                                CACHE STRING "Whether to build the runtime as a shared library (ON|OFF|BOTH)")
 set(D_FLAGS               -w                                  CACHE STRING "Runtime D compiler flags, separated by ';'")
@@ -346,7 +346,7 @@ endforeach()
 # The paths of the output files are appended to outlist_o and outlist_bc, respectively.
 macro(dc src_files src_basedir d_flags output_basedir all_at_once outlist_o outlist_bc)
     set(dc_flags -c --output-o ${d_flags})
-    if(BUILD_BC_LIBS)
+    if(BUILD_LTO_LIBS)
         list(APPEND dc_flags --output-bc)
     endif()
 
@@ -370,7 +370,7 @@ macro(dc src_files src_basedir d_flags output_basedir all_at_once outlist_o outl
         set(output_o  ${output_basedir}/${output_root}${CMAKE_C_OUTPUT_EXTENSION})
         set(output_bc ${output_basedir}/${output_root}.bc${CMAKE_C_OUTPUT_EXTENSION})
         list(APPEND ${outlist_o} ${output_o})
-        if(BUILD_BC_LIBS)
+        if(BUILD_LTO_LIBS)
             list(APPEND ${outlist_bc} ${output_bc})
         endif()
 
@@ -379,7 +379,7 @@ macro(dc src_files src_basedir d_flags output_basedir all_at_once outlist_o outl
         else()
             set(outfiles ${output_o})
             set(renameCommand "")
-            if(BUILD_BC_LIBS)
+            if(BUILD_LTO_LIBS)
                 set(renameCommand mv ${output_basedir}/${output_root}.bc ${output_bc})
                 list(APPEND outfiles ${output_bc})
             endif()
@@ -396,7 +396,7 @@ macro(dc src_files src_basedir d_flags output_basedir all_at_once outlist_o outl
 
     if(${all_at_once})
         set(renameCommand "")
-        if(BUILD_BC_LIBS)
+        if(BUILD_LTO_LIBS)
             set(renameCommand find ${output_basedir} -iname '*.bc' -exec mv '{}' '{}${CMAKE_C_OUTPUT_EXTENSION}' "\\\\;")
         endif()
 
@@ -536,23 +536,19 @@ macro(build_runtime_libs druntime_o druntime_bc phobos2_o phobos2_bc c_flags ld_
         list(APPEND ${outlist_targets} phobos2-ldc${target_suffix})
     endif()
 
-    if(BUILD_BC_LIBS AND "${is_shared}" STREQUAL "OFF" AND NOT "${lib_suffix}" MATCHES "-unittest")
-        add_library(druntime-ldc-bc${target_suffix} STATIC
+    if(BUILD_LTO_LIBS AND "${is_shared}" STREQUAL "OFF" AND NOT "${lib_suffix}" MATCHES "-unittest")
+        add_library(druntime-ldc-lto${target_suffix} STATIC
             ${druntime_bc} ${DRUNTIME_C} ${DRUNTIME_ASM})
-        set_common_library_properties(druntime-ldc-bc${target_suffix}
-            druntime-ldc-bc${lib_suffix} ${output_path}
+        set_common_library_properties(druntime-ldc-lto${target_suffix}
+            druntime-ldc-lto${lib_suffix} ${output_path}
             "${c_flags}" "${ld_flags}" OFF
         )
 
-        add_library(phobos2-ldc-bc${target_suffix} STATIC
+        add_library(phobos2-ldc-lto${target_suffix} STATIC
             ${phobos2_bc} ${PHOBOS2_C})
-        set_common_library_properties(phobos2-ldc-bc${target_suffix}
-            phobos2-ldc-bc${lib_suffix} ${output_path}
+        set_common_library_properties(phobos2-ldc-lto${target_suffix}
+            phobos2-ldc-lto${lib_suffix} ${output_path}
             "${c_flags}" "${ld_flags}" OFF
-        )
-
-        add_custom_target(bitcode-libraries${target_suffix} ALL
-            DEPENDS druntime-ldc-bc${target_suffix} phobos2-ldc-bc${target_suffix}
         )
     endif()
 endmacro()
@@ -659,8 +655,8 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
                                     phobos2-ldc.a  phobos2-ldc-debug.a
         )
         # Only install the release versions of the (static-only) bitcode libraries.
-        if(BUILD_BC_LIBS)
-            list(APPEND libs_to_install druntime-ldc-bc.a phobos2-ldc-bc.a)
+        if(BUILD_LTO_LIBS)
+            list(APPEND libs_to_install druntime-ldc-lto.a phobos2-ldc-lto.a)
         endif()
     endif()
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
@@ -716,8 +712,8 @@ else()
     endif()
 
     # Only install the release versions of the (static-only) bitcode libraries.
-    if(BUILD_BC_LIBS)
-        list(APPEND libs_to_install druntime-ldc-bc phobos2-ldc-bc)
+    if(BUILD_LTO_LIBS)
+        list(APPEND libs_to_install druntime-ldc-lto phobos2-ldc-lto)
     endif()
 
     foreach(libname ${libs_to_install})
