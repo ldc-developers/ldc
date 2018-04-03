@@ -142,7 +142,10 @@ _Unwind_Reason_Code _Unwind_ForcedUnwind(
 alias _Unwind_Trace_Fn = _Unwind_Reason_Code function(_Unwind_Context*, void*);
 
 void _Unwind_DeleteException(_Unwind_Exception* exception_object);
-void _Unwind_Resume(_Unwind_Exception* exception_object);
+version (LDC) // simplify runtime function forward declaration
+    void _Unwind_Resume(void*);
+else
+    void _Unwind_Resume(_Unwind_Exception* exception_object);
 _Unwind_Reason_Code _Unwind_Resume_or_Rethrow(_Unwind_Exception* exception_object);
 _Unwind_Reason_Code _Unwind_Backtrace(_Unwind_Trace_Fn, void*);
 
@@ -214,5 +217,8 @@ void _Unwind_SjLj_Register(SjLj_Function_Context *);
 void _Unwind_SjLj_Unregister(SjLj_Function_Context *);
 _Unwind_Reason_Code _Unwind_SjLj_RaiseException(_Unwind_Exception*);
 _Unwind_Reason_Code _Unwind_SjLj_ForcedUnwind(_Unwind_Exception , _Unwind_Stop_Fn, void*);
-void _Unwind_SjLj_Resume(_Unwind_Exception*);
+version (LDC) // simplify runtime function forward declaration
+    void _Unwind_SjLj_Resume(void*);
+else
+    void _Unwind_SjLj_Resume(_Unwind_Exception*);
 _Unwind_Reason_Code _Unwind_SjLj_Resume_or_Rethrow(_Unwind_Exception*);

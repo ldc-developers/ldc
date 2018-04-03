@@ -366,53 +366,34 @@ extern(C) void _d_throw_exception(Throwable o)
 }
 
 
-version (LDC)
+version (ARM_EABI_UNWINDER)
 {
-    extern(C):
-
     /// Called by our compiler-generate code to resume unwinding after a finally
     /// block (or dtor destruction block) has been run.
-    version (ARM_EABI_UNWINDER)
-    {
-        // Implemented in asm (ldc/eh_asm.S) to preserve core registers,
-        // declaration here for reference only
-        void _d_eh_resume_unwind(void* ptr);
+    // Implemented in asm (ldc/eh_asm.S) to preserve core registers,
+    // declaration here for reference only
+    extern(C) void _d_eh_resume_unwind(void* ptr);
 
-        // Perform cleanups before resuming.  Can't call _Unwind_Resume
-        // because it expects core register state at callsite.
-        //
-        // Also, a workaround for ARM EABI unwinding.  When D catch
-        // handlers are merged by the LLVM inliner, the IR has a landing
-        // pad that claims it will handle multiple exception types, but
-        // then only handles one and falls into _d_eh_resume_unwind.  This
-        // call to _d_eh_resume_unwind has a landing pad with the correct
-        // exception handler, but gcc ARM EABI unwind implementation
-        // resumes in the next frame up and misses it. Other gcc
-        // unwinders, C++ Itanium and SjLj, handle this case fine by
-        // resuming in the current frame.  The workaround is to save IP so
-        // personality can resume in the current frame.
-        _Unwind_Exception* _d_arm_eabi_end_cleanup(_Unwind_Exception* ptr, ptrdiff_t ip)
-        {
-            debug (EH_personality) writeln("  - Resume ip %p", ip);
-            // tell personality the real IP (cleanup_cache can be used
-            // however we like)
-            ptr.cleanup_cache.bitpattern[0] = ip;
-            return ptr;
-        }
-    }
-    else
+    // Perform cleanups before resuming.  Can't call _Unwind_Resume
+    // because it expects core register state at callsite.
+    //
+    // Also, a workaround for ARM EABI unwinding.  When D catch
+    // handlers are merged by the LLVM inliner, the IR has a landing
+    // pad that claims it will handle multiple exception types, but
+    // then only handles one and falls into _d_eh_resume_unwind.  This
+    // call to _d_eh_resume_unwind has a landing pad with the correct
+    // exception handler, but gcc ARM EABI unwind implementation
+    // resumes in the next frame up and misses it. Other gcc
+    // unwinders, C++ Itanium and SjLj, handle this case fine by
+    // resuming in the current frame.  The workaround is to save IP so
+    // personality can resume in the current frame.
+    extern(C) _Unwind_Exception* _d_arm_eabi_end_cleanup(_Unwind_Exception* ptr, ptrdiff_t ip)
     {
-        void _d_eh_resume_unwind(void* ptr)
-        {
-            version (SjLj_Exceptions)
-            {
-                _Unwind_SjLj_Resume(cast(_Unwind_Exception*) ptr);
-            }
-            else
-            {
-                _Unwind_Resume(cast(_Unwind_Exception*) ptr);
-            }
-        }
+        debug (EH_personality) writeln("  - Resume ip %p", ip);
+        // tell personality the real IP (cleanup_cache can be used
+        // however we like)
+        ptr.cleanup_cache.bitpattern[0] = ip;
+        return ptr;
     }
 }
 
