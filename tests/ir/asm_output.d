@@ -3,8 +3,8 @@
 
 // Try to keep these very simple checks independent of architecture.
 
-// ASM: D7example3fooFZi:
-int foo() {
+// ASM: foofoofoofoo:
+extern(C) int foofoofoofoo() {
 // LLVM:  ret i32 42
     return 42;
 }
