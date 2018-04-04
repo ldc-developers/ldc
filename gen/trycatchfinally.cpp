@@ -799,8 +799,7 @@ llvm::BasicBlock *TryCatchFinallyScopes::getOrCreateResumeUnwindBlock() {
     llvm::BasicBlock *oldBB = irs.scopebb();
     irs.scope() = IRScope(resumeUnwindBlock);
 
-    llvm::Function *resumeFn =
-        getRuntimeFunction(Loc(), irs.module, "_d_eh_resume_unwind");
+    llvm::Function *resumeFn = getUnwindResumeFunction(Loc(), irs.module);
     irs.ir->CreateCall(resumeFn, DtoLoad(getOrCreateEhPtrSlot()));
     irs.ir->CreateUnreachable();
 

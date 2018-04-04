@@ -32,6 +32,8 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
 
 llvm::Function *getCAssertFunction(const Loc &loc, llvm::Module &target);
 
+llvm::Function *getUnwindResumeFunction(const Loc &loc, llvm::Module &target);
+
 void emitInstrumentationFnEnter(FuncDeclaration *decl);
 void emitInstrumentationFnLeave(FuncDeclaration *decl);
 

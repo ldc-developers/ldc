@@ -204,6 +204,24 @@ llvm::Function *getCAssertFunction(const Loc &loc, llvm::Module &target) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// Continue-unwinding function:
+// ARM EABI: void _d_eh_resume_unwind(void*)
+// ARM iOS:  void _Unwind_SjLj_Resume(void*)
+// else:     void _Unwind_Resume(void*)
+
+static const char *getUnwindResumeFunctionName() {
+  auto &triple = *global.params.targetTriple;
+  if (triple.getArch() == llvm::Triple::arm)
+    return triple.isOSDarwin() ? "_Unwind_SjLj_Resume" : "_d_eh_resume_unwind";
+  return "_Unwind_Resume";
+}
+
+llvm::Function *getUnwindResumeFunction(const Loc &loc, llvm::Module &target) {
+  return getRuntimeFunction(loc, target, getUnwindResumeFunctionName());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 // extern (D) alias dg_t = int delegate(void*);
 static Type *rt_dg1() {
   static Type *dg_t = nullptr;
@@ -642,8 +660,9 @@ static void buildRuntimeModule() {
     createFwdDecl(LINKc, throwableTy, {"_d_eh_enter_catch"},
                   {voidPtrTy, classInfoTy}, {});
   } else {
-    // void _d_eh_resume_unwind(ptr)
-    createFwdDecl(LINKc, voidTy, {"_d_eh_resume_unwind"}, {voidPtrTy});
+    // void _Unwind_Resume(ptr)
+    createFwdDecl(LINKc, voidTy, {getUnwindResumeFunctionName()}, {voidPtrTy},
+                  {}, Attr_Cold_NoReturn);
 
     // Throwable _d_eh_enter_catch(ptr)
     createFwdDecl(LINKc, throwableTy, {"_d_eh_enter_catch"}, {voidPtrTy}, {},
