@@ -457,10 +457,12 @@ llvm::StructType *getSymListElemType(llvm::LLVMContext &context) {
 // {
 //   i8* name;
 //   i8* func;
+//   i8* originalFunc;
 // };
 
 llvm::StructType *getFuncListElemType(llvm::LLVMContext &context) {
   llvm::Type *elements[] = {
+      llvm::IntegerType::getInt8PtrTy(context),
       llvm::IntegerType::getInt8PtrTy(context),
       llvm::IntegerType::getInt8PtrTy(context),
   };
@@ -534,6 +536,7 @@ generateFuncList(IRState *irs, const Types &types) {
     llvm::Constant *fields[] = {
         createStringInitializer(irs->module, name),
         getI8Ptr(it.second.thunkVar),
+        getI8Ptr(it.second.thunkFunc),
     };
     elements.push_back(
         llvm::ConstantStruct::get(types.funcListElemType, fields));

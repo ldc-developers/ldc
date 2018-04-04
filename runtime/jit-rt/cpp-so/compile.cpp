@@ -39,6 +39,7 @@ namespace {
 struct RtCompileFuncList {
   const char *name;
   void **func;
+  void *originalFunc;
 };
 
 struct RtCompileSymList {
