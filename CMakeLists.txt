@@ -13,6 +13,7 @@ include(CheckIncludeFileCXX)
 include(CheckLibraryExists)
 include(CheckCXXCompilerFlag)
 include(CheckDSourceCompiles)
+include(CheckLinkFlag)
 
 # The script currently only supports the DMD-style commandline interface
 if (NOT D_COMPILER_DMD_COMPAT)
@@ -564,11 +565,16 @@ endif()
 set(LDC_ENABLE_PLUGINS ${LDC_ENABLE_PLUGINS_DEFAULT} CACHE BOOL "Build LDC with plugin support (increases binary size)")
 if(LDC_ENABLE_PLUGINS)
     add_definitions(-DLDC_ENABLE_PLUGINS)
-    if(APPLE OR ${CMAKE_SYSTEM_NAME} MATCHES "Solaris")
-        # No extra things needed
+
+    if(APPLE)
+        # No extra link flags needed.
     elseif(UNIX)
         # For plugin support, we need to link with --export-dynamic on Unix.
-        set(LDC_LINKERFLAG_LIST "${LDC_LINKERFLAG_LIST};-Wl,--export-dynamic")
+        # Make sure the linker supports --export-dynamic (on Solaris it is not supported and also not needed).
+        CHECK_LINK_FLAG("--export-dynamic" LINKER_ACCEPTS_EXPORT_DYNAMIC_FLAG)
+        if(LINKER_ACCEPTS_EXPORT_DYNAMIC_FLAG)
+            set(LDC_LINKERFLAG_LIST "${LDC_LINKERFLAG_LIST};-Wl,--export-dynamic")
+        endif()
     endif()
 endif()
 message(STATUS "Building LDC with plugin support ${LDC_ENABLE_PLUGINS} (LDC_ENABLE_PLUGINS=${LDC_ENABLE_PLUGINS})")
