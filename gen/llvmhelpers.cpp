@@ -1746,6 +1746,14 @@ llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm) {
   return LLConstantArray::get(at, vals);
 }
 
+static std::string llvmTypeToString(llvm::Type *type) {
+  std::string result;
+  llvm::raw_string_ostream stream(result);
+  stream << *type;
+  stream.flush();
+  return result;
+}
+
 llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
                                     llvm::Type *type,
                                     llvm::StringRef mangledName,
@@ -1753,13 +1761,17 @@ llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
   llvm::GlobalVariable *existing =
       module.getGlobalVariable(mangledName, /*AllowInternal=*/true);
   if (existing) {
-    if (existing->getType()->getElementType() != type ||
-        existing->isConstant() != isConstant ||
+    const auto existingType = existing->getType()->getElementType();
+    if (existingType != type || existing->isConstant() != isConstant ||
         existing->isThreadLocal() != isThreadLocal) {
+      const auto existingTypeName = llvmTypeToString(existingType);
+      const auto newTypeName = llvmTypeToString(type);
       error(loc,
             "Global variable type does not match previous declaration with "
             "same mangled name: `%s`",
             mangledName.str().c_str());
+      errorSupplemental(loc, "Previous IR type: %s", existingTypeName.c_str());
+      errorSupplemental(loc, "New IR type:      %s", newTypeName.c_str());
       fatal();
     }
     return existing;
