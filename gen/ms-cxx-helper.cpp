@@ -165,9 +165,8 @@ llvm::StructType *getTypeDescriptorType(IRState &irs,
 llvm::GlobalVariable *getTypeDescriptor(IRState &irs, ClassDeclaration *cd) {
   if (cd->isCPPclass()) {
     const char *name = Target::cppTypeInfoMangle(cd);
-    return getOrCreateGlobal(
-        cd->loc, irs.module, getVoidPtrType(), /*isConstant=*/true,
-        LLGlobalValue::ExternalLinkage, /*init=*/nullptr, name);
+    return declareGlobal(cd->loc, irs.module, getVoidPtrType(), name,
+                         /*isConstant=*/true);
   }
 
   auto classInfoPtr = getIrAggr(cd, true)->getClassInfoSymbol();
@@ -188,10 +187,9 @@ llvm::GlobalVariable *getTypeDescriptor(IRState &irs, ClassDeclaration *cd) {
       llvm::ConstantDataArray::getString(gIR->context(), TypeNameString)};
   llvm::StructType *TypeDescriptorType =
       getTypeDescriptorType(irs, classInfoPtr, TypeNameString);
-  Var = new llvm::GlobalVariable(
-      gIR->module, TypeDescriptorType, /*Constant=*/false,
-      LLGlobalVariable::InternalLinkage, // getLinkageForRTTI(Type),
-      llvm::ConstantStruct::get(TypeDescriptorType, Fields), TypeDescName);
+  Var = defineGlobal(cd->loc, gIR->module, TypeDescName,
+                     llvm::ConstantStruct::get(TypeDescriptorType, Fields),
+                     LLGlobalVariable::InternalLinkage, false);
   return Var;
 }
 

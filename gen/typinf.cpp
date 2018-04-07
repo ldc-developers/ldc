@@ -624,18 +624,11 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
   }
 
   const auto irMangle = getIRMangledVarName(mangled, LINKd);
-  LLGlobalVariable *gvar = gIR->module.getGlobalVariable(irMangle);
-  if (gvar) {
-    assert(gvar->getType()->getContainedType(0)->isStructTy());
-  } else {
-    LLType *type = DtoType(decl->type)->getPointerElementType();
-    // Create the symbol. We need to keep it mutable as the type is not declared
-    // as immutable on the D side, and e.g. synchronized() can be used on the
-    // implicit monitor.
-    gvar =
-        new LLGlobalVariable(gIR->module, type, false,
-                             LLGlobalValue::ExternalLinkage, nullptr, irMangle);
-  }
+  LLType *type = DtoType(decl->type)->getPointerElementType();
+  // Declare the symbol. We need to keep it mutable as the type is not
+  // declared as immutable on the D side, and e.g. synchronized() can be used
+  // on the implicit monitor.
+  auto gvar = declareGlobal(decl->loc, gIR->module, type, irMangle, false);
 
   IrGlobal *irg = getIrGlobal(decl, true);
   irg->value = gvar;

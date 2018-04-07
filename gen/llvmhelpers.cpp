@@ -911,17 +911,12 @@ void DtoResolveVariable(VarDeclaration *vd) {
     // with a different type later, swap it out and replace any existing
     // uses with bitcasts to the previous type.
 
-    // We always start out with external linkage; any other type is set
-    // when actually defining it in VarDeclaration::codegen.
-    llvm::GlobalValue::LinkageTypes linkage =
-        llvm::GlobalValue::ExternalLinkage;
-    if (vd->llvmInternal == LLVMextern_weak) {
-      linkage = llvm::GlobalValue::ExternalWeakLinkage;
-    }
-
     llvm::GlobalVariable *gvar =
-        getOrCreateGlobal(vd->loc, gIR->module, DtoMemType(vd->type), isLLConst,
-                          linkage, nullptr, irMangle, vd->isThreadlocal());
+        declareGlobal(vd->loc, gIR->module, DtoMemType(vd->type), irMangle,
+                      isLLConst, vd->isThreadlocal());
+    if (vd->llvmInternal == LLVMextern_weak)
+      gvar->setLinkage(llvm::GlobalValue::ExternalWeakLinkage);
+
     auto varIr = getIrGlobal(vd);
     varIr->value = gvar;
 
@@ -1751,19 +1746,20 @@ llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm) {
   return LLConstantArray::get(at, vals);
 }
 
-llvm::GlobalVariable *getOrCreateGlobal(const Loc &loc, llvm::Module &module,
-                                        llvm::Type *type, bool isConstant,
-                                        llvm::GlobalValue::LinkageTypes linkage,
-                                        llvm::Constant *init,
-                                        llvm::StringRef name,
-                                        bool isThreadLocal) {
-  llvm::GlobalVariable *existing = module.getGlobalVariable(name, true);
+llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
+                                    llvm::Type *type,
+                                    llvm::StringRef mangledName,
+                                    bool isConstant, bool isThreadLocal) {
+  llvm::GlobalVariable *existing =
+      module.getGlobalVariable(mangledName, /*AllowInternal=*/true);
   if (existing) {
-    if (existing->getType()->getElementType() != type) {
+    if (existing->getType()->getElementType() != type ||
+        existing->isConstant() != isConstant ||
+        existing->isThreadLocal() != isThreadLocal) {
       error(loc,
             "Global variable type does not match previous declaration with "
             "same mangled name: `%s`",
-            name.str().c_str());
+            mangledName.str().c_str());
       fatal();
     }
     return existing;
@@ -1772,14 +1768,36 @@ llvm::GlobalVariable *getOrCreateGlobal(const Loc &loc, llvm::Module &module,
   // Use a command line option for the thread model.
   // On PPC there is only local-exec available - in this case just ignore the
   // command line.
-  const llvm::GlobalVariable::ThreadLocalMode tlsModel =
+  const auto tlsModel =
       isThreadLocal
           ? (global.params.targetTriple->getArch() == llvm::Triple::ppc
                  ? llvm::GlobalVariable::LocalExecTLSModel
                  : clThreadModel.getValue())
           : llvm::GlobalVariable::NotThreadLocal;
-  return new llvm::GlobalVariable(module, type, isConstant, linkage, init, name,
-                                  nullptr, tlsModel);
+
+  return new llvm::GlobalVariable(module, type, isConstant,
+                                  llvm::GlobalValue::ExternalLinkage, nullptr,
+                                  mangledName, nullptr, tlsModel);
+}
+
+void defineGlobal(llvm::GlobalVariable *global, llvm::Constant *init,
+                  llvm::GlobalValue::LinkageTypes linkage) {
+  assert(global->isDeclaration() && "Global variable already defined");
+  assert(init);
+  global->setInitializer(init);
+  global->setLinkage(linkage);
+}
+
+llvm::GlobalVariable *defineGlobal(const Loc &loc, llvm::Module &module,
+                                   llvm::StringRef mangledName,
+                                   llvm::Constant *init,
+                                   llvm::GlobalValue::LinkageTypes linkage,
+                                   bool isConstant, bool isThreadLocal) {
+  assert(init);
+  auto global = declareGlobal(loc, module, init->getType(), mangledName,
+                              isConstant, isThreadLocal);
+  defineGlobal(global, init, linkage);
+  return global;
 }
 
 FuncDeclaration *getParentFunc(Dsymbol *sym) {

@@ -245,18 +245,29 @@ stringLiteralCacheForType(Type *charType);
 
 llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm);
 
-/// Tries to create an LLVM global with the given properties. If a variable with
-/// the same mangled name already exists, checks if the types match and returns
-/// it instead.
+/// Tries to declare an LLVM global. If a variable with the same mangled name
+/// already exists, checks if the types match and returns it instead.
 ///
 /// Necessary to support multiple declarations with the same mangled name, as
 /// can be the case due to pragma(mangle).
-llvm::GlobalVariable *getOrCreateGlobal(const Loc &loc, llvm::Module &module,
-                                        llvm::Type *type, bool isConstant,
-                                        llvm::GlobalValue::LinkageTypes linkage,
-                                        llvm::Constant *init,
-                                        llvm::StringRef name,
-                                        bool isThreadLocal = false);
+llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
+                                    llvm::Type *type,
+                                    llvm::StringRef mangledName,
+                                    bool isConstant,
+                                    bool isThreadLocal = false);
+
+/// Defines an existing LLVM global, i.e., sets the initial value and finalizes
+/// its linkage.
+/// Asserts that a global isn't defined multiple times this way.
+void defineGlobal(llvm::GlobalVariable *global, llvm::Constant *init,
+                  llvm::GlobalValue::LinkageTypes linkage);
+
+/// Declares (if not already declared) & defines an LLVM global.
+llvm::GlobalVariable *defineGlobal(const Loc &loc, llvm::Module &module,
+                                   llvm::StringRef mangledName,
+                                   llvm::Constant *init,
+                                   llvm::GlobalValue::LinkageTypes linkage,
+                                   bool isConstant, bool isThreadLocal = false);
 
 FuncDeclaration *getParentFunc(Dsymbol *sym);
 

@@ -51,9 +51,8 @@ LLGlobalVariable *IrAggr::getVtblSymbol() {
 
   LLType *vtblTy = stripModifiers(type)->ctype->isClass()->getVtblType();
 
-  vtbl =
-      getOrCreateGlobal(aggrdecl->loc, gIR->module, vtblTy, true,
-                        llvm::GlobalValue::ExternalLinkage, nullptr, irMangle);
+  vtbl = declareGlobal(aggrdecl->loc, gIR->module, vtblTy, irMangle,
+                       /*isConstant=*/true);
 
   return vtbl;
 }
@@ -77,9 +76,8 @@ LLGlobalVariable *IrAggr::getClassInfoSymbol() {
   assert(tc && "invalid ClassInfo type");
 
   // classinfos cannot be constants since they're used as locks for synchronized
-  classInfo = getOrCreateGlobal(
-      aggrdecl->loc, gIR->module, tc->getMemoryLLType(), false,
-      llvm::GlobalValue::ExternalLinkage, nullptr, irMangle);
+  classInfo = declareGlobal(aggrdecl->loc, gIR->module, tc->getMemoryLLType(),
+                            irMangle, false);
 
   // Generate some metadata on this ClassInfo if it's for a class.
   ClassDeclaration *classdecl = aggrdecl->isClassDeclaration();
@@ -139,11 +137,8 @@ LLGlobalVariable *IrAggr::getInterfaceArraySymbol() {
 
   LLArrayType *array_type = llvm::ArrayType::get(InterfaceTy, n);
 
-  // We keep the global as external for now and only consider template linkage
-  // if we emit the initializer later.
-  classInterfacesArray =
-      getOrCreateGlobal(cd->loc, gIR->module, array_type, true,
-                        llvm::GlobalValue::ExternalLinkage, nullptr, irMangle);
+  classInterfacesArray = declareGlobal(cd->loc, gIR->module, array_type,
+                                       irMangle, /*isConstant=*/true);
 
   return classInterfacesArray;
 }
@@ -457,8 +452,8 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
 
   const auto lwc = DtoLinkage(cd);
   LLGlobalVariable *GV =
-      getOrCreateGlobal(cd->loc, gIR->module, vtbl_constant->getType(), true,
-                        lwc.first, vtbl_constant, irMangle);
+      defineGlobal(cd->loc, gIR->module, irMangle, vtbl_constant,
+                   lwc.first, /*isConstant=*/true);
   setLinkage(lwc, GV);
 
   // insert into the vtbl map
