@@ -187,9 +187,13 @@ llvm::GlobalVariable *getTypeDescriptor(IRState &irs, ClassDeclaration *cd) {
       llvm::ConstantDataArray::getString(gIR->context(), TypeNameString)};
   llvm::StructType *TypeDescriptorType =
       getTypeDescriptorType(irs, classInfoPtr, TypeNameString);
+
+  const LinkageWithCOMDAT lwc = {LLGlobalVariable::LinkOnceODRLinkage, true};
   Var = defineGlobal(cd->loc, gIR->module, TypeDescName,
                      llvm::ConstantStruct::get(TypeDescriptorType, Fields),
-                     LLGlobalVariable::InternalLinkage, false);
+                     lwc.first, /*isConstant=*/true);
+  setLinkage(lwc, Var);
+
   return Var;
 }
 
