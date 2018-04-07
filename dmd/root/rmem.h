@@ -10,15 +10,16 @@
 #ifndef ROOT_MEM_H
 #define ROOT_MEM_H
 
-#include <stddef.h>     // for size_t
+#include <stdint.h>
 
-#if __APPLE__ && __i386__
-    /* size_t is 'unsigned long', which makes it mangle differently
-     * than D's 'uint'
-     */
-    typedef unsigned d_size_t;
+#if __LP64__ || _M_X64
+#if LDC_HOST_FE_VER >= 2079 || _M_X64
+typedef uint64_t d_size_t;
 #else
-    typedef size_t d_size_t;
+typedef unsigned long d_size_t;
+#endif
+#else
+typedef uint32_t d_size_t;
 #endif
 
 struct Mem
