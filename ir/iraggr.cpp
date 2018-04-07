@@ -215,12 +215,9 @@ void IrAggr::addFieldInitializers(
         offset = aligned;
       }
 
-      // false when it's not okay to use functions from super classes
-      bool newinsts = (cd == aggrdecl->isClassDeclaration());
-
       size_t inter_idx = interfacesWithVtbls.size();
       for (auto bc : *cd->vtblInterfaces) {
-        constants.push_back(getInterfaceVtbl(bc, newinsts, inter_idx));
+        constants.push_back(getInterfaceVtblSymbol(bc, inter_idx));
         offset += Target::ptrsize;
         inter_idx++;
 

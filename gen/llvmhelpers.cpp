@@ -1781,11 +1781,12 @@ llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
 }
 
 void defineGlobal(llvm::GlobalVariable *global, llvm::Constant *init,
-                  llvm::GlobalValue::LinkageTypes linkage) {
+                  Dsymbol *symbolForLinkage) {
   assert(global->isDeclaration() && "Global variable already defined");
   assert(init);
   global->setInitializer(init);
-  global->setLinkage(linkage);
+  if (symbolForLinkage)
+    setLinkage(symbolForLinkage, global);
 }
 
 llvm::GlobalVariable *defineGlobal(const Loc &loc, llvm::Module &module,
@@ -1796,7 +1797,8 @@ llvm::GlobalVariable *defineGlobal(const Loc &loc, llvm::Module &module,
   assert(init);
   auto global = declareGlobal(loc, module, init->getType(), mangledName,
                               isConstant, isThreadLocal);
-  defineGlobal(global, init, linkage);
+  defineGlobal(global, init, nullptr);
+  global->setLinkage(linkage);
   return global;
 }
 
