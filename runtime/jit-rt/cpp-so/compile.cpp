@@ -25,6 +25,7 @@
 #include "context.h"
 #include "jit_context.h"
 #include "optimizer.h"
+#include "options.h"
 #include "utils.h"
 
 #include "llvm/Bitcode/BitcodeReader.h"
@@ -461,4 +462,12 @@ EXTERNAL void JIT_UNREG_BIND_PAYLOAD(void *handle) {
   JITContext &myJit = getJit();
   myJit.unregisterBind(handle);
 }
+
+EXTERNAL bool JIT_SET_OPTS(const Slice<Slice<const char>> *args,
+                           void(*errs)(void *, const char *, size_t),
+                           void *errsContext) {
+  assert(args != nullptr);
+  return parseOptions(*args, errs, errsContext);
+}
+
 }

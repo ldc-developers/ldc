@@ -18,6 +18,8 @@
 
 #include "param_slice.h"
 
+#include "slice.h"
+
 enum class DumpStage : int {
   OriginalModule = 0,
   MergedModule = 1,
@@ -43,6 +45,8 @@ enum { ApiVersion = LDC_DYNAMIC_COMPILE_API_VERSION };
 #define JIT_UNREG_BIND_PAYLOAD                                                 \
   MAKE_JIT_API_CALL(unregisterBindPayloadImplSo,                               \
                     LDC_DYNAMIC_COMPILE_API_VERSION)
+#define JIT_SET_OPTS                                                           \
+  MAKE_JIT_API_CALL(setDynamicCompilerOptsImpl, LDC_DYNAMIC_COMPILE_API_VERSION)
 
 typedef void (*InterruptPointHandlerT)(void *, const char *action,
                                        const char *object);

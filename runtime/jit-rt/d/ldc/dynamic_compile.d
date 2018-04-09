@@ -436,6 +436,32 @@ struct BindPayload(OF, F, int[] Index, Args...)
   alias toDelegate = base.toDelegate;
 }
 
+/+
+ + Set options for dynamic compiler.
+ + Returns false on error.
+ +
+ + This function is not thread-safe.
+ + import ldc.attributes, ldc.dynamic_compile,
+ +
+ + auto res = setDynamicCompilerOptions(["-disable-gc2stack"]);
+ + assert(res);
+ +
+ + res = setDynamicCompilerOptions(["-invalid_option"], (in char[] str)
+ + {
+ +   writeln("Error: ", str);
+ + });
+ + assert(!res);
+ +/
+bool setDynamicCompilerOptions(string[] args, scope ErrsHandler errs = null)
+{
+  auto errsFunc = (errs !is null ? &errsWrapper : null);
+  auto errsFuncContext = (errs !is null ? cast(void*)&errs : null);
+  return setDynamicCompilerOptsImpl(&args, errsFunc, errsFuncContext);
+}
+
+private:
+alias ErrsHandler = void delegate(const(char)[]);
+
 extern(C)
 {
 enum ParamType : uint {
@@ -465,6 +491,13 @@ void dumpHandlerWrapper(void* context, DumpStage stage, const char* buff, size_t
   (*del)(stage, buff[0..len]);
 }
 
+void errsWrapper(void* context, const char* str, size_t len)
+{
+  alias DelType = ErrsHandler;
+  auto del = cast(DelType*)context;
+  assert(str !is null);
+  (*del)(str[0..len]);
+}
 
 // must be synchronized with cpp
 struct Context
@@ -480,7 +513,8 @@ struct Context
 }
 extern void rtCompileProcessImpl(const ref Context context, size_t contextSize);
 
-void registerBindPayload(void* handle, void* originalFunc, void* exampleFunc, const ParamSlice* params, size_t paramsSize);
-void unregisterBindPayload(void* handle);
+extern void registerBindPayload(void* handle, void* originalFunc, void* exampleFunc, const ParamSlice* params, size_t paramsSize);
+extern void unregisterBindPayload(void* handle);
+extern bool setDynamicCompilerOptsImpl(const(string[])* args, void function(void*, const char*, size_t) errs, void* errsContext);
 }
 
