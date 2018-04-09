@@ -330,11 +330,6 @@ struct Global
 
 extern Global global;
 
-#if LDC_HOST_FE_VER >= 2079
-typedef uint64_t dinteger_t;
-typedef int64_t sinteger_t;
-typedef uint64_t uinteger_t;
-#else
 // Because int64_t and friends may be any integral type of the
 // correct size, we have to explicitly ask for the correct
 // integer type to get the correct mangling with dmd
@@ -350,7 +345,6 @@ typedef unsigned long uinteger_t;
 typedef unsigned long long dinteger_t;
 typedef long long sinteger_t;
 typedef unsigned long long uinteger_t;
-#endif
 #endif
 
 typedef int8_t                  d_int8;
