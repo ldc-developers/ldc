@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "metadata.h"
+
 #define DEBUG_TYPE "dgc2stack"
 #if LDC_LLVM_VER < 700
 #define LLVM_DEBUG DEBUG
@@ -849,7 +851,7 @@ bool isSafeToStackAllocate(BasicBlock::iterator Alloc, Value *V,
           const unsigned paramHasAttr_firstArg = 0;
 #endif
           if (!CS.paramHasAttr(A - B + paramHasAttr_firstArg,
-                               LLAttribute::NoCapture)) {
+                               llvm::Attribute::AttrKind::NoCapture)) {
             // The parameter is not marked 'nocapture' - captured.
             return false;
           }

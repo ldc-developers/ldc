@@ -6,6 +6,8 @@ if(LDC_DYNAMIC_COMPILE)
     file(GLOB LDC_JITRT_H ${JITRT_DIR}/cpp/*.h)
     file(GLOB LDC_JITRT_SO_CXX ${JITRT_DIR}/cpp-so/*.cpp)
     file(GLOB LDC_JITRT_SO_H ${JITRT_DIR}/cpp-so/*.h)
+    file(GLOB LDC_JITRT_SO_PASSES_CXX ${CMAKE_SOURCE_DIR}/gen/passes/*.cpp)
+    file(GLOB LDC_JITRT_SO_PASSES_H ${CMAKE_SOURCE_DIR}/gen/passes/*.h)
 
     # Set compiler-dependent flags
     if(MSVC)
@@ -61,7 +63,7 @@ if(LDC_DYNAMIC_COMPILE)
         get_target_suffix("" "${path_suffix}" target_suffix)
         set(output_path ${CMAKE_BINARY_DIR}/lib${path_suffix})
 
-        add_library(ldc-jit-rt-so${target_suffix} SHARED ${LDC_JITRT_SO_CXX} ${LDC_JITRT_SO_H})
+        add_library(ldc-jit-rt-so${target_suffix} SHARED ${LDC_JITRT_SO_CXX} ${LDC_JITRT_SO_H} ${LDC_JITRT_SO_PASSES_CXX} ${LDC_JITRT_SO_PASSES_H})
         set_common_library_properties(ldc-jit-rt-so${target_suffix}
             ldc-jit ${output_path}
             "${c_flags} ${LDC_CXXFLAGS} ${LLVM_CXXFLAGS} ${JITRT_EXTRA_FLAGS}"
@@ -69,6 +71,9 @@ if(LDC_DYNAMIC_COMPILE)
             ON
         )
         set_target_properties(ldc-jit-rt-so${target_suffix} PROPERTIES LINKER_LANGUAGE CXX)
+
+        target_include_directories(ldc-jit-rt-so${target_suffix}
+            PRIVATE ${CMAKE_SOURCE_DIR}/gen/passes/)
 
         target_link_libraries(ldc-jit-rt-so${target_suffix} ${JITRT_LLVM_LIBS})
 
