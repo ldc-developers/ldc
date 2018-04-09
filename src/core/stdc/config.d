@@ -61,13 +61,44 @@ version( Windows )
 
     alias int   c_long;
     alias uint  c_ulong;
+
+    alias long  cpp_longlong;
+    alias ulong cpp_ulonglong;
+
+    alias long  c_longlong;
+    alias ulong c_ulonglong;
 }
 else version( Posix )
 {
   static if( (void*).sizeof > int.sizeof )
   {
+    struct __c_longlong
+    {
+      pure nothrow @nogc @safe:
+        this(long x) { lng = x; }
+        long lng;
+        alias lng this;
+    }
+
+    struct __c_ulonglong
+    {
+      pure nothrow @nogc @safe:
+        this(ulong x) { lng = x; }
+        ulong lng;
+        alias lng this;
+    }
+
+    alias long  cpp_long;
+    alias ulong cpp_ulong;
+
     alias long  c_long;
     alias ulong c_ulong;
+
+    alias __c_longlong  cpp_longlong;
+    alias __c_ulonglong cpp_ulonglong;
+
+    alias long  c_longlong;
+    alias ulong c_ulonglong;
   }
   else
   {
@@ -92,6 +123,12 @@ else version( Posix )
 
     alias int   c_long;
     alias uint  c_ulong;
+
+    alias long  cpp_longlong;
+    alias ulong cpp_ulonglong;
+
+    alias long  c_longlong;
+    alias ulong c_ulonglong;
   }
 }
 
