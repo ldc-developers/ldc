@@ -132,6 +132,21 @@ else version( Posix )
   }
 }
 
+version (Darwin) version (X86_64) version = Darwin_X86_64;
+version (Darwin_X86_64)
+{
+    alias cpp_longlong  cpp_int64_t;
+    alias cpp_ulonglong cpp_uint64_t;
+}
+else
+{
+    alias long  cpp_int64_t;
+    alias ulong cpp_uint64_t;
+}
+
+alias long  c_int64_t;
+alias ulong c_uint64_t;
+
 version( CRuntime_Microsoft )
 {
     /* long double is 64 bits, not 80 bits, but is mangled differently
