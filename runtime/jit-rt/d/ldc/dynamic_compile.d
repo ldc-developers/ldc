@@ -83,10 +83,39 @@ void compileDynamicCode(in CompilerSettings settings = CompilerSettings.init)
   rtCompileProcessImpl(context, context.sizeof);
 }
 
+/++
+ + Return reference-counted functional object based on function with values
+ + bound to some parameters.
+ + Each arg must be either value, convertible to function parameter, or
+ + placeholder.
+ + func must be a pointer to function marked @dynamicCompile.
+ + Jit runtime will generate efficient function specialization based on args.
+ + compileDynamicCode() must be called before making calls to returned
+ + functional object.
+ +
+ + toDelegate() can be called on returned object to get callable delegate.
+ + Returned delegate doesn't prolong lifetime of original object and
+ + copy of it must be kept as long as delegate live.
+ +
+ + Example:
+ + ---
+ + @dynamicCompile int foo(int a, int b)
+ + {
+ +   return a + b;
+ + }
+ +
+ + auto f = bind(&foo, 40, placeholder);
+ + int delegate(int) d = f.toDelegate();
+ +
+ + compileDynamicCode();
+ +
+ + assert(f(2) == 42);
+ + assert(d(2) == 42);
+ +/
 auto bind(F, Args...)(F func, Args args)
 {
   import std.format;
-  static assert(isFunctionPointer!F);
+  static assert(isFunctionPointer!F, "Function pointer expected as first parameter");
   alias FuncParams = Parameters!(F);
   enum ParametersCount = FuncParams.length;
   static assert(ParametersCount == Args.length, format("Invalid bind parameter count: %s, expected %s", Args.length, ParametersCount));
@@ -168,7 +197,7 @@ struct BindPayloadBase(F)
   alias FuncParams = Parameters!(F);
   alias Ret = ReturnType!F;
   F func = null;
-  static assert(func.offsetof == 0, "func must be fist");
+  static assert(func.offsetof == 0, "func must be first");
   void function(ref BindPayloadBase!F) dtor;
   int counter = 1;
 
