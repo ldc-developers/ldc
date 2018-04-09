@@ -1,5 +1,6 @@
-/**
- * D header file for C99.
+/***
+ * D compatible types that correspond to various basic types in associated
+ * C and C++ compilers.
  *
  * Copyright: Copyright Sean Kelly 2005 - 2009.
  * License: Distributed under the
@@ -12,6 +13,53 @@
 
 module core.stdc.config;
 
+version (StdDdoc)
+{
+    /***
+     * Used for a signed integer type that corresponds in size to the associated
+     * C compiler's `long` type.
+     */
+    alias c_long = int;
+
+    /***
+     * Used for an unsigned integer type that corresponds in size to the associated
+     * C compiler's `unsigned long` type.
+     */
+    alias c_ulong = uint;
+
+    /***
+     * Used for a signed integer type that corresponds in size and mangling to the associated
+     * C++ compiler's `long` type.
+     */
+    alias cpp_long = c_long;
+
+    /***
+     * Used for an unsigned integer type that corresponds in size and mangling to the associated
+     * C++ compiler's `unsigned long` type.
+     */
+    alias cpp_ulong = c_ulong;
+
+    /***
+     * Used for a floating point type that corresponds in size and mangling to the associated
+     * C++ compiler's `long double` type.
+     */
+    alias c_long_double = real;
+
+    /***
+     * Used for an unsigned integer type that corresponds in size and mangling to the associated
+     * C++ compiler's `size_t` type.
+     */
+    alias cpp_size_t = size_t;
+
+    /***
+     * Used for a signed integer type that corresponds in size and mangling to the associated
+     * C++ compiler's `ptrdiff_t` type.
+     */
+    alias cpp_ptrdiff_t = ptrdiff_t;
+}
+else
+{
+
 version (OSX)
     version = Darwin;
 else version (iOS)
@@ -21,40 +69,10 @@ else version (TVOS)
 else version (WatchOS)
     version = Darwin;
 
-extern (C):
-@trusted: // Types only.
-nothrow:
-@nogc:
-
 version( Windows )
 {
-    struct __c_long
-    {
-      pure nothrow @nogc @safe:
-        this(int x) { lng = x; }
-        int lng;
-        alias lng this;
-    }
-
-    struct __c_ulong
-    {
-      pure nothrow @nogc @safe:
-        this(uint x) { lng = x; }
-        uint lng;
-        alias lng this;
-    }
-
-    /*
-     * This is cpp_long instead of c_long because:
-     * 1. Implicit casting of an int to __c_long doesn't happen, because D doesn't
-     *    allow constructor calls in implicit conversions.
-     * 2. long lng;
-     *    cast(__c_long)lng;
-     *    does not work because lng has to be implicitly cast to an int in the constructor,
-     *    and since that truncates it is not done.
-     * Both of these break existing code, so until we find a resolution the types are named
-     * cpp_xxxx.
-     */
+    enum __c_long  : int;
+    enum __c_ulong : uint;
 
     alias __c_long   cpp_long;
     alias __c_ulong  cpp_ulong;
@@ -62,48 +80,62 @@ version( Windows )
     alias int   c_long;
     alias uint  c_ulong;
 
-    alias long  cpp_longlong;
-    alias ulong cpp_ulonglong;
+    version (LDC)
+    {
+        alias long  cpp_longlong;
+        alias ulong cpp_ulonglong;
 
-    alias long  c_longlong;
-    alias ulong c_ulonglong;
+        alias long  c_longlong;
+        alias ulong c_ulonglong;
+    }
 }
 else version( Posix )
 {
   static if( (void*).sizeof > int.sizeof )
   {
-    enum __c_longlong : long;
-    enum __c_ulonglong : ulong;
+    /**
+     * Special case 64-bit OS X:
+     * - DMD mangles D `long` as C++ `long long` since v2.079.
+     * - LDC keeps on mangling it as C++ `long`, for backwards compatibility
+     *   and natural size_t interop. There's no need for cpp_{size,ptrdiff}_t
+     *   this way (except for 32-bit OS X).
+     *   For less frequently used C++ `long long` (not representable with DMD
+     *   on 64-bit non-Apple POSIX systems), LDC defines cpp_(u)longlong here,
+     *   and the front-end supports additional magic __c_(u)longlong enums.
+     */
+    version (LDC)
+    {
+        enum __c_longlong : long;
+        enum __c_ulonglong : ulong;
 
-    alias long  cpp_long;
-    alias ulong cpp_ulong;
+        alias long  cpp_long;
+        alias ulong cpp_ulong;
 
-    alias long  c_long;
-    alias ulong c_ulong;
+        alias long  c_long;
+        alias ulong c_ulong;
 
-    alias __c_longlong  cpp_longlong;
-    alias __c_ulonglong cpp_ulonglong;
+        alias __c_longlong  cpp_longlong;
+        alias __c_ulonglong cpp_ulonglong;
 
-    alias long  c_longlong;
-    alias ulong c_ulonglong;
+        alias long  c_longlong;
+        alias ulong c_ulonglong;
+    }
+    else
+    {
+        enum __c_long  : long;
+        enum __c_ulong : ulong;
+
+        alias __c_long   cpp_long;
+        alias __c_ulong  cpp_ulong;
+
+        alias long  c_long;
+        alias ulong c_ulong;
+    }
   }
   else
   {
-    struct __c_long
-    {
-      pure nothrow @nogc @safe:
-        this(int x) { lng = x; }
-        int lng;
-        alias lng this;
-    }
-
-    struct __c_ulong
-    {
-      pure nothrow @nogc @safe:
-        this(uint x) { lng = x; }
-        uint lng;
-        alias lng this;
-    }
+    enum __c_long  : int;
+    enum __c_ulong : uint;
 
     alias __c_long   cpp_long;
     alias __c_ulong  cpp_ulong;
@@ -111,11 +143,14 @@ else version( Posix )
     alias int   c_long;
     alias uint  c_ulong;
 
-    alias long  cpp_longlong;
-    alias ulong cpp_ulonglong;
+    version (LDC)
+    {
+        alias long  cpp_longlong;
+        alias ulong cpp_ulonglong;
 
-    alias long  c_longlong;
-    alias ulong c_ulonglong;
+        alias long  c_longlong;
+        alias ulong c_ulonglong;
+    }
   }
 }
 
@@ -127,13 +162,7 @@ version( CRuntime_Microsoft )
      * to generate the correct name mangling and correct function call/return
      * ABI conformance.
      */
-    struct __c_long_double
-    {
-      pure nothrow @nogc @safe:
-        this(double d) { ld = d; }
-        double ld;
-        alias ld this;
-    }
+    enum __c_long_double : double;
 
     alias __c_long_double c_long_double;
 }
@@ -174,3 +203,15 @@ else version( SDC )
 }
 
 static assert(is(c_long_double), "c_long_double needs to be declared for this platform/architecture.");
+
+version (Darwin)
+{
+    alias cpp_size_t = cpp_ulong;
+    alias cpp_ptrdiff_t = cpp_long;
+}
+else
+{
+    alias cpp_size_t = size_t;
+    alias cpp_ptrdiff_t = ptrdiff_t;
+}
+}
