@@ -235,7 +235,7 @@ void generateBind(const Context &context, JITContext &jitContext,
       moduleInfo.addBindHandle(func->getName(), bindPtr);
       bindFuncs.insert({bindPtr, func});
     } else {
-      // TODO: ignore for now, user must explicitly check BindPtr
+      fatal(context, "Bind: function body not available");
     }
   };
   for (auto &&bind : jitContext.getBindInstances()) {

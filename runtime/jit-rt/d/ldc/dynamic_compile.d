@@ -125,9 +125,8 @@ auto bind(F, Args...)(F func, Args args) if (isFunctionPointer!F)
   {
     F saved_func = null;
   }
-  @dynamicCompile static auto wrapper(Context context, FuncParams wrapperArgs)
+  @dynamicCompileEmit static auto wrapper(Context context, FuncParams wrapperArgs)
   {
-    //assert(context.saved_func !is null);
     return context.saved_func(wrapperArgs);
   }
   return bindImpl(&wrapper, Context(func), args);
@@ -311,7 +310,7 @@ struct BindPayload(OF, F, int[] Index, Args...)
 
     alias Ret = ReturnType!F;
     alias Params = Parameters!F;
-    @dynamicCompile static Ret exampleFunc(Params) { assert(false); }
+    @dynamicCompileEmit static Ret exampleFunc(Params) { assert(false); }
     registerBindPayload(&base.func, cast(void*)originalFunc, cast(void*)&exampleFunc, desc.ptr, desc.length);
     registered = true;
   }

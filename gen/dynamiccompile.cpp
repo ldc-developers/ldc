@@ -117,7 +117,9 @@ GlobalValsMap createGlobalValsFilter(IRState *irs) {
   newFunctions.reserve(irs->dynamicCompiledFunctions.size());
 
   for (auto &&it : irs->dynamicCompiledFunctions) {
-    ret.insert({it.first, GlobalValVisibility::External});
+    auto vis = (it.second.thunkVar != nullptr ? GlobalValVisibility::External
+                                              : GlobalValVisibility::Internal);
+    ret.insert({it.first, vis});
     newFunctions.push_back(it.first);
   }
 
