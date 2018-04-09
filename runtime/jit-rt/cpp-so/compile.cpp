@@ -18,6 +18,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <type_traits>
+#include <unordered_map>
 
 #include "callback_ostream.h"
 #include "context.h"
@@ -92,8 +93,10 @@ private:
   struct Func {
     llvm::StringRef name;
     void **thunkVar;
+    void *originalFunc;
   };
   std::vector<Func> funcs;
+  mutable std::unordered_map<const void *, const Func *> funcsMap;
 
 public:
   JitModuleInfo(const Context &context,
@@ -101,12 +104,31 @@ public:
     enumModules(modlist_head, context, [&](const RtCompileModuleList &current) {
       for (auto &&fun : toArray(current.funcList, static_cast<std::size_t>(
                                                       current.funcListSize))) {
-        funcs.push_back({fun.name, fun.func});
+        funcs.push_back({fun.name, fun.func, fun.originalFunc});
       }
     });
   }
 
   const std::vector<Func> &functions() const { return funcs; }
+
+  const std::unordered_map<const void *, const Func *> &functionsMap() const {
+    if (funcsMap.empty() && !funcs.empty()) {
+      for (auto &&fun : funcs) {
+        funcsMap.insert({fun.originalFunc, &fun});
+      }
+    }
+    return funcsMap;
+  }
+
+  const Func *getFunc(const void *ptr) const {
+    assert(ptr != nullptr);
+    auto &funcMap = functionsMap();
+    auto it = funcMap.find(ptr);
+    if (funcMap.end() != it) {
+      return it->second;
+    }
+    return nullptr;
+  }
 };
 
 std::string decorate(const std::string &name,
