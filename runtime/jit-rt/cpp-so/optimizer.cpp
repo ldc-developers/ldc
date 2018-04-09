@@ -4,6 +4,8 @@
 //
 // This file is distributed under the Boost Software License. See the LICENSE
 // file for details.
+// Uses some parts from gen/optimizer.cpp which is under the BSD-style LDC
+// license.
 //
 //===----------------------------------------------------------------------===//
 
