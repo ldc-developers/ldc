@@ -591,8 +591,10 @@ generateSymList(IRState *irs, const Types &types,
   for (auto &&it : irs->dynamicCompiledFunctions) {
     auto name = it.first->getName();
     auto thunk = it.second.thunkFunc;
-    assert(thunk != nullptr);
-    elements.push_back(generateSymListElem(irs->module, types, name, *thunk));
+    // We don't have thunk for dynamicCompileEmit functions, use function itself
+    auto func = (thunk != nullptr ? thunk : it.first);
+    assert(func != nullptr);
+    elements.push_back(generateSymListElem(irs->module, types, name, *func));
   }
   return getArrayAndSize(irs->module, types.symListElemType, elements);
 }
