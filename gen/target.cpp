@@ -39,7 +39,8 @@ void Target::_init() {
 
   cppExceptions = true;
 
-  c_longsize = global.params.is64bit ? 8 : 4;
+  c_longsize =
+      global.params.is64bit && !triple.isWindowsMSVCEnvironment() ? 8 : 4;
   c_long_doublesize = realsize;
   classinfosize = 0; // unused
   maxStaticDataSize = std::numeric_limits<unsigned long long>::max();
