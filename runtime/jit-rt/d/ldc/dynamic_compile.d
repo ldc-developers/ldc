@@ -86,12 +86,14 @@ void compileDynamicCode(in CompilerSettings settings = CompilerSettings.init)
 }
 
 /++
- + Return reference-counted functional object based on function with values
- + bound to some parameters.
+ + Return reference-counted functional object based on function or delegate
+ + with values bound to some parameters.
  + Each arg must be either value, convertible to function parameter, or
  + placeholder.
- + func must be a pointer to function marked @dynamicCompile.
+ + func must be a pointer to function or delegate.
  + Jit runtime will generate efficient function specialization based on args.
+ + Function must be marked @dynamicCompile or @dynamicCompileEmit to be
+ + efficiently optimized.
  + compileDynamicCode() must be called before making calls to returned
  + functional object.
  +
@@ -132,6 +134,9 @@ auto bind(F, Args...)(F func, Args args) if (isFunctionPointer!F || isDelegate!F
   return bindImpl(&wrapper, Context(func), args);
 }
 
+/++
+ + Placeholder object to be used with bind.
+ +/
 immutable placeholder = _placeholder();
 private struct _placeholder
 {
