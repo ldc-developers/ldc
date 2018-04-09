@@ -376,7 +376,8 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
       applyAttrAssumeUsed(*gIR, sle, gvar);
     } else if (ident == Id::udaWeak) {
       // @weak is applied elsewhere
-    } else if (ident == Id::udaDynamicCompile) {
+    } else if (ident == Id::udaDynamicCompile ||
+               ident == Id::udaDynamicCompileEmit) {
       sle->error(
           "Special attribute `ldc.attributes.%s` is only valid for functions",
           ident->toChars());
@@ -423,6 +424,8 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
       // @weak and @kernel are applied elsewhere
     } else if (ident == Id::udaDynamicCompile) {
       irFunc->dynamicCompile = true;
+    } else if (ident == Id::udaDynamicCompileEmit) {
+      irFunc->dynamicCompileEmit = true;
     } else if (ident == Id::udaDynamicCompileConst) {
       sle->error(
           "Special attribute `ldc.attributes.%s` is only valid for variables",
