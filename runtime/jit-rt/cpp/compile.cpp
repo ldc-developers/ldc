@@ -23,6 +23,12 @@ struct ParamSlice;
 #define EXTERNAL extern
 #endif
 
+#ifdef _WIN32
+#define EXTERNAL __declspec(dllimport) extern
+#else
+#define EXTERNAL extern
+#endif
+
 #define MAKE_JIT_API_CALL_IMPL(prefix, version) prefix##version
 #define MAKE_JIT_API_CALL(prefix, version)                                     \
   MAKE_JIT_API_CALL_IMPL(prefix, version)
