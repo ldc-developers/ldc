@@ -9,6 +9,8 @@ module ldc.dynamic_compile;
 
 version(LDC_DynamicCompilation):
 
+import ldc.attributes;
+
 /// Dump handler stage
 enum DumpStage : int
 {
@@ -289,7 +291,6 @@ struct BindPayload(OF, F, int[] Index, Args...)
 
     alias Ret = ReturnType!F;
     alias Params = Parameters!F;
-    import ldc.attributes;
     @dynamicCompile static Ret exampleFunc(Params) { assert(false); }
     registerBindPayload(&base.func, cast(void*)originalFunc, cast(void*)&exampleFunc, desc.ptr, desc.length);
     registered = true;
@@ -358,12 +359,6 @@ package:
     }
   }
 
-  import ldc.attributes;
-  @dynamicCompile auto dummyDel()
-  {
-    return toDelegate();
-  }
-
 public:
   this(this)
   {
@@ -393,7 +388,7 @@ public:
     return _payload.func(args);
   }
 
-  auto toDelegate() @nogc
+  @dynamicCompileEmit auto toDelegate() @nogc
   {
     assert(_payload !is null);
     return _payload.toDelegate();
