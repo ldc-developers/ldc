@@ -271,15 +271,7 @@ package:
     return ret;
   }
 
-public:
-  this(this)
-  {
-    if (_payload !is null)
-    {
-      ++_payload.counter;
-    }
-  }
-  ~this()
+  void decPayload()
   {
     if (_payload !is null)
     {
@@ -289,23 +281,52 @@ public:
       {
         _payload.dtor(*_payload);
         pureFree(_payload);
-        _payload = null;
       }
+      _payload = null;
     }
+  }
+
+  void incPayload()
+  {
+    if (_payload !is null)
+    {
+      ++_payload.counter;
+    }
+  }
+
+public:
+  this(this)
+  {
+    incPayload();
+  }
+  ~this()
+  {
+    decPayload();
   }
 
   void opAssign(typeof(this) rhs)
   {
     import std.algorithm.mutation : swap;
+    decPayload();
+    _payload = rhs._payload;
+    incPayload();
+  }
 
-    swap(_payload, rhs._payload);
+  bool isCallable() const pure nothrow @safe @nogc
+  {
+    return _payload.func !is null;
   }
 
   Ret opCall(FuncParams args)
   {
     assert(_payload !is null);
-    assert(_payload.func !is null);
+    assert(isCallable());
     return _payload.func(args);
+  }
+
+  auto toDelegate()
+  {
+    return &opCall;
   }
 }
 

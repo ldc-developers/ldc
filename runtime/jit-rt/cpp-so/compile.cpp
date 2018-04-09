@@ -20,6 +20,7 @@
 #include <type_traits>
 #include <unordered_map>
 
+#include "bind.h"
 #include "callback_ostream.h"
 #include "context.h"
 #include "jit_context.h"
@@ -88,15 +89,30 @@ void enumModules(const RtCompileModuleList *modlist_head,
   }
 }
 
+std::string decorate(const std::string &name,
+                     const llvm::DataLayout &datalayout) {
+  assert(!name.empty());
+  llvm::SmallVector<char, 64> ret;
+  llvm::Mangler::getNameWithPrefix(ret, name, datalayout);
+  assert(!ret.empty());
+  return std::string(ret.data(), ret.size());
+}
+
 struct JitModuleInfo final {
 private:
-  struct Func {
+  struct Func final {
     llvm::StringRef name;
     void **thunkVar;
     void *originalFunc;
   };
   std::vector<Func> funcs;
   mutable std::unordered_map<const void *, const Func *> funcsMap;
+
+  struct BindHandle final {
+    std::string name;
+    void* handle = nullptr;
+  };
+  std::vector<BindHandle> bindHandles;
 
 public:
   JitModuleInfo(const Context &context,
@@ -129,14 +145,75 @@ public:
     }
     return nullptr;
   }
+
+  const std::vector<BindHandle> &getBindHandles() const {
+    return bindHandles;
+  }
+
+  void addBindHandle(llvm::StringRef name, void *handle) {
+    assert(!name.empty());
+    assert(handle != nullptr);
+    BindHandle h;
+    h.name = name.str();
+    h.handle = handle;
+    bindHandles.emplace_back(std::move(h));
+  }
 };
 
-std::string decorate(const std::string &name,
-                     const llvm::DataLayout &datalayout) {
-  llvm::SmallVector<char, 64> ret;
-  llvm::Mangler::getNameWithPrefix(ret, name, datalayout);
-  assert(!ret.empty());
-  return std::string(ret.data(), ret.size());
+void *resolveSymbol(llvm::JITSymbol &symbol) {
+  auto addr = symbol.getAddress();
+  if (!addr) {
+    consumeError(addr.takeError());
+    return nullptr;
+  } else {
+    return reinterpret_cast<void *>(addr.get());
+  }
+}
+
+void generateBind(const Context &context, JITContext &jitContext,
+                  JitModuleInfo &moduleInfo, llvm::Module &module) {
+  auto getIrFunc = [&](const void *ptr)->llvm::Function * {
+    assert(ptr != nullptr);
+    auto funcDesc = moduleInfo.getFunc(ptr);
+    if (funcDesc == nullptr) {
+      return nullptr;
+    }
+    return module.getFunction(funcDesc->name);
+  };
+  for (auto &&bind : jitContext.getBindInstances()) {
+    auto bindPtr = bind.first;
+    auto &bindDesc = bind.second;
+    assert(bindDesc.originalFunc != nullptr);
+
+    auto funcToInline = getIrFunc(bindDesc.originalFunc);
+    if (funcToInline != nullptr) {
+      auto func = bindParamsToFunc(module, *funcToInline, bindDesc.params,
+                                   [&](const std::string &str) {
+        fatal(context, str);
+      });
+      moduleInfo.addBindHandle(func->getName(), bindPtr);
+    } else {
+      // TODO: ignore for now, user must explicitly check BindPtr
+    }
+  }
+}
+
+void applyBind(const Context &context, JITContext &jitContext,
+               const JitModuleInfo &moduleInfo) {
+  auto &layout = jitContext.getDataLayout();
+  for (auto& elem : moduleInfo.getBindHandles()) {
+    auto decorated = decorate(elem.name, layout);
+    auto symbol = jitContext.findSymbol(decorated);
+    auto addr = resolveSymbol(symbol);
+    if (nullptr == addr) {
+      std::string desc = std::string("Symbol not found in jitted code: \"") +
+                         elem.name + "\" (\"" + decorated + "\")";
+      fatal(context, desc);
+    } else {
+      auto handle = static_cast<void**>(elem.handle);
+      *handle = addr;
+    }
+  }
 }
 
 JITContext &getJit() {
@@ -148,16 +225,6 @@ void setRtCompileVars(const Context &context, llvm::Module &module,
                       llvm::ArrayRef<RtCompileVarList> vals) {
   for (auto &&val : vals) {
     setRtCompileVar(context, module, val.name, val.init);
-  }
-}
-
-void *resolveSymbol(llvm::JITSymbol &symbol) {
-  auto addr = symbol.getAddress();
-  if (!addr) {
-    consumeError(addr.takeError());
-    return nullptr;
-  } else {
-    return reinterpret_cast<void *>(addr.get());
   }
 }
 
@@ -260,6 +327,9 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   });
 
   assert(nullptr != finalModule);
+
+  interruptPoint(context, "Generate bind functions");
+  generateBind(context, myJit, moduleInfo, *finalModule);
   dumpModule(context, *finalModule, DumpStage::MergedModule);
   interruptPoint(context, "Optimize final module");
   optimizeModule(context, myJit.getTargetMachine(), settings, *finalModule);
@@ -307,6 +377,8 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
       interruptPoint(context, "Resolved", str.c_str());
     }
   }
+  interruptPoint(context, "Update bind handles");
+  applyBind(context, myJit, moduleInfo);
   jitFinalizer.finalze();
 }
 
