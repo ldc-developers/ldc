@@ -23,6 +23,11 @@ struct Bar
 {
   Foo f;
   int k;
+
+  @dynamicCompile int get(int val)
+  {
+    return f.i + f.j * 10 + k * 100 + val * 1000;
+  }
 }
 
 @dynamicCompile
@@ -56,16 +61,21 @@ void main(string[] args)
   writeln("===========================================");
   stdout.flush();
 
+  auto elem = Bar(Foo(1,3),5);
+
   auto f = ldc.dynamic_compile.bind(&foo, 1, 2, 3);
   auto b = ldc.dynamic_compile.bind(&bar, Bar(Foo(4,5),6));
   auto z = ldc.dynamic_compile.bind(&foo, 7, 8, 9);
+  auto e = ldc.dynamic_compile.bind(&elem.get, 7);
 
   compileDynamicCode(settings);
   
   assert(321 == f());
   assert(654 == b());
   assert(987 == z());
+  assert(7531 == e());
   assert(indexOf(dump.data, "321") != -1);
   assert(indexOf(dump.data, "654") != -1);
   assert(indexOf(dump.data, "987") != -1);
+  //assert(indexOf(dump.data, "7531") != -1); // TODO: doesn't properly optimized yet
 }

@@ -114,7 +114,7 @@ void compileDynamicCode(in CompilerSettings settings = CompilerSettings.init)
  + assert(f(2) == 42);
  + assert(d(2) == 42);
  +/
-auto bind(F, Args...)(F func, Args args) if (isFunctionPointer!F)
+auto bind(F, Args...)(F func, Args args) if (isFunctionPointer!F || isDelegate!F)
 {
   assert(func !is null);
   import std.format;

@@ -25,6 +25,11 @@ struct Bar
 {
   Foo f;
   int k;
+
+  @dynamicCompileEmit int get(int val)
+  {
+    return f.i + f.j * 10 + k * 100 + val * 1000;
+  }
 }
 
 @dynamicCompile
@@ -92,6 +97,10 @@ void main(string[] args)
     int delegate() zzd1 = zz1.toDelegate();
     int delegate() zzd2 = zz2.toDelegate();
 
+    auto elem = Bar(Foo(1,3),5);
+    auto yy = ldc.dynamic_compile.bind(&elem.get, 7);
+    auto yyd = yy.toDelegate();
+
     compileDynamicCode(settings);
     assert(f1.isCallable());
     assert(f2.isCallable());
@@ -129,5 +138,9 @@ void main(string[] args)
 
     assert(6 == zzd1());
     assert(6 == zzd2());
+
+    assert(yy.isCallable());
+    assert(7531 == yy());
+    assert(7531 == yyd());
   }
 }
