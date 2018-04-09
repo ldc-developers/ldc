@@ -31,6 +31,8 @@ public:
     static Identifier *offsetof;
     static Identifier *__c_long;
     static Identifier *__c_ulong;
+    static Identifier *__c_longlong;
+    static Identifier *__c_ulonglong;
     static Identifier *__c_long_double;
     static Identifier *__switch;
     static Identifier *crt_constructor;

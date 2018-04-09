@@ -197,6 +197,7 @@ bool TargetABI::isMagicCppStruct(Type *t) {
 
   Identifier *id = static_cast<TypeStruct *>(t)->sym->ident;
   return (id == Id::__c_long) || (id == Id::__c_ulong) ||
+         (id == Id::__c_longlong) || (id == Id::__c_ulonglong) ||
          (id == Id::__c_long_double);
 }
 
