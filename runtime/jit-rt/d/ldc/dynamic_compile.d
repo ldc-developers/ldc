@@ -114,18 +114,23 @@ void compileDynamicCode(in CompilerSettings settings = CompilerSettings.init)
  + assert(f(2) == 42);
  + assert(d(2) == 42);
  +/
-auto bind(F, Args...)(F func, Args args)
+auto bind(F, Args...)(F func, Args args) if (isFunctionPointer!F)
 {
-  import std.format;
-  static assert(isFunctionPointer!F, "Function pointer expected as first parameter");
-  alias FuncParams = Parameters!(F);
-  enum ParametersCount = FuncParams.length;
-  static assert(ParametersCount == Args.length, format("Invalid bind parameter count: %s, expected %s", Args.length, ParametersCount));
   assert(func !is null);
-  enum Index = bindParamsInd!(0, 0, Args)();
-  alias PartialF = ReturnType!F function(UnbindTypes!(Index, FuncParams));
-  alias BindPtrType = BindPtr!PartialF;
-  return BindPtrType.make!Index(func, mapBindParams!(F, 0)(args).expand);
+  import std.format;
+  alias FuncParams = Parameters!F;
+  enum ParametersCount = FuncParams.length;
+  static assert(ParametersCount == Args.length, format("Invalid bind parameters count: %s, expected %s", Args.length, ParametersCount));
+  struct Context
+  {
+    F saved_func = null;
+  }
+  @dynamicCompile static auto wrapper(Context context, FuncParams wrapperArgs)
+  {
+    //assert(context.saved_func !is null);
+    return context.saved_func(wrapperArgs);
+  }
+  return bindImpl(&wrapper, Context(func), args);
 }
 
 immutable placeholder = _placeholder();
@@ -134,6 +139,20 @@ private struct _placeholder
 }
 
 private:
+auto bindImpl(F, Args...)(F func, Args args)
+{
+  import std.format;
+  static assert(isFunctionPointer!F, "Function pointer expected as first parameter");
+  alias FuncParams = Parameters!(F);
+  enum ParametersCount = FuncParams.length;
+  static assert(ParametersCount == Args.length, format("Invalid bind parameters count: %s, expected %s", Args.length, ParametersCount));
+  assert(func !is null);
+  enum Index = bindParamsInd!(0, 0, Args)();
+  alias PartialF = ReturnType!F function(UnbindTypes!(Index, FuncParams));
+  alias BindPtrType = BindPtr!PartialF;
+  return BindPtrType.make!Index(func, mapBindParams!(F, 0)(args).expand);
+}
+
 import std.meta;
 import std.traits;
 import std.typecons;
@@ -281,10 +300,11 @@ struct BindPayload(OF, F, int[] Index, Args...)
       static if (InvalidIndex != ind)
       {
         {
-          desc[i].data = &(argStore.args[ind]);
-          desc[i].size = (argStore.args[ind]).sizeof;
+          const ii = ParametersCount - i - 1; // reverse params
+          desc[ii].data = &(argStore.args[ind]);
+          desc[ii].size = (argStore.args[ind]).sizeof;
           alias T = FuncParams[ind];
-          desc[i].type = (isAggregateType!T || isDelegate!T ? ParamType.Aggregate : ParamType.Simple);
+          desc[ii].type = (isAggregateType!T || isDelegate!T ? ParamType.Aggregate : ParamType.Simple);
         }
       }
     }

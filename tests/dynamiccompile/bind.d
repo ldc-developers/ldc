@@ -7,12 +7,12 @@ import ldc.dynamic_compile;
 @dynamicCompile
 int foo(int a, int b, int c)
 {
-  return a + b + c;
+  return a + b * 10 + c * 100;
 }
 
 int bar(int a, int b, int c)
 {
-  return a + b + c;
+  return a + b * 10 + c * 100;
 }
 
 struct Foo
@@ -30,19 +30,13 @@ struct Bar
 @dynamicCompile
 int baz1(Bar b)
 {
-  return b.f.i + b.f.j + b.k;
+  return b.f.i + b.f.j * 10 + b.k * 100;
 }
 
 @dynamicCompile
 int baz2(Bar* b)
 {
-  return b.f.i + b.f.j + b.k;
-}
-
-@dynamicCompile
-int baz3(ref Bar b)
-{
-  return b.f.i + b.f.j + b.k;
+  return b.f.i + b.f.j * 10 + b.k * 100;
 }
 
 @dynamicCompile
@@ -99,26 +93,36 @@ void main(string[] args)
     int delegate() zzd2 = zz2.toDelegate();
 
     compileDynamicCode(settings);
-    assert(6 == f1(1,2,3));
-    assert(6 == f2(2));
-    assert(6 == f3());
-    assert(6 == f4());
+    assert(f1.isCallable());
+    assert(f2.isCallable());
+    assert(f3.isCallable());
+    assert(f4.isCallable());
 
-    assert(6 == fd1(1,2,3));
-    assert(6 == fd2(2));
-    assert(6 == fd3());
-    assert(6 == fd4());
+    assert(321 == f1(1,2,3));
+    assert(321 == f2(2));
+    assert(321 == f3());
+    assert(321 == f4());
 
-    assert(!b1.isCallable());
-    assert(!b2.isCallable());
-    assert(!b3.isCallable());
-    assert(!b4.isCallable());
+    assert(321 == fd1(1,2,3));
+    assert(321 == fd2(2));
+    assert(321 == fd3());
+    assert(321 == fd4());
 
-    assert(6 == bz1());
-    assert(6 == bz2());
+    assert(b1.isCallable());
+    assert(b2.isCallable());
+    assert(b3.isCallable());
+    assert(b4.isCallable());
 
-    assert(6 == bzd1());
-    assert(6 == bzd2());
+    assert(321 == b1(1,2,3));
+    assert(321 == b2(2));
+    assert(321 == b3());
+    assert(321 == b4());
+
+    assert(321 == bz1());
+    assert(321 == bz2());
+
+    assert(321 == bzd1());
+    assert(321 == bzd2());
 
     assert(6 == zz1());
     assert(6 == zz2());
