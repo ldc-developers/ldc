@@ -26,7 +26,7 @@ import ldc.attributes;
 //---------------------------------------------------------------------
 
 
-// CHECK-LABEL: define i32 @_Dmain
+// CHECK-LABEL: define{{.*}} i32 @_Dmain
 void main() {
   sectionedfoo();
 }
