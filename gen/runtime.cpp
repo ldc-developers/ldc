@@ -50,7 +50,8 @@ static llvm::cl::opt<bool> nogc(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// Internal LLVM module containing runtime declarations (functions and globals)
+// Internal LLVM module containing already declared runtime functions and
+// globals.
 static llvm::Module *M = nullptr;
 
 static void buildRuntimeModule();
@@ -129,6 +130,188 @@ void freeRuntime() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+namespace {
+
+template <typename Declaration> struct LazyType {
+private:
+  Declaration *&declRef;
+  const char *const name;
+  Type *type = nullptr;
+
+  const char *getKind() { return "class"; }
+
+public:
+  LazyType(Declaration *&decl, const char *name) : declRef(decl), name(name) {}
+
+  Type *get(const Loc &loc = {}) {
+    if (!type) {
+      if (!declRef || !declRef->type) {
+        const char *kind = getKind();
+        Logger::println("Missing %s declaration: %s\n", kind, name);
+        error(loc, "Missing %s declaration: `%s`", kind, name);
+        errorSupplemental(loc,
+                          "Please check that object.d is included and valid");
+        fatal();
+      }
+      type = declRef->type;
+    }
+    return type;
+  }
+};
+
+using LazyClassType = LazyType<ClassDeclaration>;
+LazyClassType objectTy(ClassDeclaration::object, "Object");
+LazyClassType typeInfoTy(Type::dtypeinfo, "TypeInfo");
+LazyClassType enumTypeInfoTy(Type::typeinfoenum, "TypeInfo_Enum");
+LazyClassType pointerTypeInfoTy(Type::typeinfopointer, "TypeInfo_Pointer");
+LazyClassType arrayTypeInfoTy(Type::typeinfoarray, "TypeInfo_Array");
+LazyClassType staticArrayTypeInfoTy(Type::typeinfostaticarray,
+                                    "TypeInfo_StaticArray");
+LazyClassType aaTypeInfoTy(Type::typeinfoassociativearray,
+                           "TypeInfo_AssociativeArray");
+LazyClassType vectorTypeInfoTy(Type::typeinfovector, "TypeInfo_Vector");
+LazyClassType functionTypeInfoTy(Type::typeinfofunction, "TypeInfo_Function");
+LazyClassType delegateTypeInfoTy(Type::typeinfodelegate, "TypeInfo_Delegate");
+LazyClassType classInfoTy(Type::typeinfoclass, "TypeInfo_Class");
+LazyClassType interfaceTypeInfoTy(Type::typeinfointerface,
+                                  "TypeInfo_Interface");
+LazyClassType structTypeInfoTy(Type::typeinfostruct, "TypeInfo_Struct");
+LazyClassType tupleTypeInfoTy(Type::typeinfotypelist, "TypeInfo_Tuple");
+LazyClassType constTypeInfoTy(Type::typeinfoconst, "TypeInfo_Const");
+LazyClassType invariantTypeInfoTy(Type::typeinfoinvariant,
+                                  "TypeInfo_Invariant");
+LazyClassType sharedTypeInfoTy(Type::typeinfoshared, "TypeInfo_Shared");
+LazyClassType inoutTypeInfoTy(Type::typeinfowild, "TypeInfo_Inout");
+LazyClassType throwableTy(ClassDeclaration::throwable, "Throwable");
+LazyClassType cppTypeInfoPtrTy(ClassDeclaration::cpp_type_info_ptr,
+                               "__cpp_type_info_ptr");
+
+using LazyAggregateType = LazyType<AggregateDeclaration>;
+template <> const char *LazyAggregateType::getKind() { return "struct"; }
+LazyAggregateType moduleInfoTy(Module::moduleinfo, "ModuleInfo");
+
+////////////////////////////////////////////////////////////////////////////////
+
+struct PotentiallyLazyType {
+private:
+  enum class Kind {
+    normal,
+    lazyClass,
+    lazyAggregate,
+  };
+  Kind kind;
+  int numIndirections = 0;
+  void *ptr;
+
+public:
+  PotentiallyLazyType(Type *type) : kind(Kind::normal), ptr(type) {}
+  PotentiallyLazyType(LazyClassType &type)
+      : kind(Kind::lazyClass), ptr(&type) {}
+  PotentiallyLazyType(LazyAggregateType &type)
+      : kind(Kind::lazyAggregate), ptr(&type) {}
+
+  PotentiallyLazyType pointerTo() const {
+    auto copy = *this;
+    copy.numIndirections++;
+    return copy;
+  }
+
+  Type *get(const Loc &loc) const {
+    Type *ty;
+    if (kind == Kind::lazyClass) {
+      ty = static_cast<LazyClassType *>(ptr)->get(loc);
+    } else if (kind == Kind::lazyAggregate) {
+      ty = static_cast<LazyAggregateType *>(ptr)->get(loc);
+    } else {
+      ty = static_cast<Type *>(ptr);
+    }
+
+    for (int i = 0; i < numIndirections; ++i)
+      ty = ty->pointerTo();
+
+    return ty;
+  }
+};
+
+const auto moduleInfoPtrTy = PotentiallyLazyType(moduleInfoTy).pointerTo();
+const auto objectPtrTy = PotentiallyLazyType(objectTy).pointerTo();
+
+////////////////////////////////////////////////////////////////////////////////
+
+struct LazyFunctionDeclarer {
+  LINK linkage;
+  PotentiallyLazyType returnType;
+  std::vector<llvm::StringRef> mangledFunctionNames;
+  std::vector<PotentiallyLazyType> paramTypes;
+  std::vector<StorageClass> paramsSTC;
+  AttrSet attributes;
+
+  void declare(const Loc &loc) {
+    Parameters *params = nullptr;
+    if (!paramTypes.empty()) {
+      params = new Parameters();
+      for (size_t i = 0, e = paramTypes.size(); i < e; ++i) {
+        StorageClass stc = paramsSTC.empty() ? 0 : paramsSTC[i];
+        Type *paramTy = paramTypes[i].get(loc);
+        params->push(Parameter::create(stc, paramTy, nullptr, nullptr));
+      }
+    }
+    Type *returnTy = returnType.get(loc);
+    auto dty = TypeFunction::create(params, returnTy, 0, linkage);
+
+    // the call to DtoType performs many actions such as rewriting the function
+    // type and storing it in dty
+    auto llfunctype = llvm::cast<llvm::FunctionType>(DtoType(dty));
+    assert(dty->ctype);
+    auto attrs =
+        dty->ctype->getIrFuncTy().getParamAttrs(gABI->passThisBeforeSret(dty));
+    attrs.merge(attributes);
+
+    for (auto fname : mangledFunctionNames) {
+      llvm::Function *fn = llvm::Function::Create(
+          llfunctype, llvm::GlobalValue::ExternalLinkage, fname, M);
+
+      fn->setAttributes(attrs);
+
+      // On x86_64, always set 'uwtable' for System V ABI compatibility.
+      // FIXME: Move to better place (abi-x86-64.cpp?)
+      // NOTE: There are several occurances if this line.
+      if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
+        fn->addFnAttr(LLAttribute::UWTable);
+      }
+
+      fn->setCallingConv(gABI->callingConv(linkage, dty));
+    }
+  }
+};
+
+// Use a pointer in order to share one declarer (declaring multiple functions
+// of the same type under different names) for multiple function names.
+llvm::StringMap<LazyFunctionDeclarer *> lazyFunctionDeclarers;
+
+// Registers a runtime function forward declaration. The actual declaration of
+// the function (and involved types) is deferred to the first
+// getRuntimeFunction() call.
+void createFwdDecl(LINK linkage, PotentiallyLazyType returnType,
+                   std::vector<llvm::StringRef> mangledFunctionNames,
+                   std::vector<PotentiallyLazyType> paramTypes,
+                   std::vector<StorageClass> paramsSTC = {},
+                   AttrSet attributes = {}) {
+  const auto ptr = new LazyFunctionDeclarer{linkage,
+                                            returnType,
+                                            mangledFunctionNames,
+                                            std::move(paramTypes),
+                                            std::move(paramsSTC),
+                                            attributes};
+
+  for (auto name : mangledFunctionNames)
+    lazyFunctionDeclarers[name] = ptr;
+}
+
+} // anonymous namespace
+
+////////////////////////////////////////////////////////////////////////////////
+
 llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
                                    const char *name) {
   checkForImplicitGCCall(loc, name);
@@ -138,8 +321,15 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
 
   LLFunction *fn = M->getFunction(name);
   if (!fn) {
-    error(loc, "Runtime function `%s` was not found", name);
-    fatal();
+    const auto it = lazyFunctionDeclarers.find(name);
+    if (it == lazyFunctionDeclarers.end()) {
+      error(loc, "Runtime function `%s` was not found", name);
+      fatal();
+    }
+    // declare it in the M runtime module
+    it->second->declare(loc);
+    fn = M->getFunction(name);
+    assert(fn);
   }
   LLFunctionType *fnty = fn->getFunctionType();
 
@@ -184,7 +374,7 @@ static const char *getCAssertFunctionName() {
   return "__assert";
 }
 
-static std::vector<Type *> getCAssertFunctionParamTypes() {
+static std::vector<PotentiallyLazyType> getCAssertFunctionParamTypes() {
   const auto voidPtr = Type::tvoidptr;
   const auto uint = Type::tuns32;
 
@@ -222,6 +412,30 @@ llvm::Function *getUnwindResumeFunction(const Loc &loc, llvm::Module &target) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+Type *getObjectType() { return objectTy.get(); }
+Type *getTypeInfoType() { return typeInfoTy.get(); }
+Type *getEnumTypeInfoType() { return enumTypeInfoTy.get(); }
+Type *getPointerTypeInfoType() { return pointerTypeInfoTy.get(); }
+Type *getArrayTypeInfoType() { return arrayTypeInfoTy.get(); }
+Type *getStaticArrayTypeInfoType() { return staticArrayTypeInfoTy.get(); }
+Type *getAssociativeArrayTypeInfoType() { return aaTypeInfoTy.get(); }
+Type *getVectorTypeInfoType() { return vectorTypeInfoTy.get(); }
+Type *getFunctionTypeInfoType() { return functionTypeInfoTy.get(); }
+Type *getDelegateTypeInfoType() { return delegateTypeInfoTy.get(); }
+Type *getClassInfoType() { return classInfoTy.get(); }
+Type *getInterfaceTypeInfoType() { return interfaceTypeInfoTy.get(); }
+Type *getStructTypeInfoType() { return structTypeInfoTy.get(); }
+Type *getTupleTypeInfoType() { return tupleTypeInfoTy.get(); }
+Type *getConstTypeInfoType() { return constTypeInfoTy.get(); }
+Type *getInvariantTypeInfoType() { return invariantTypeInfoTy.get(); }
+Type *getSharedTypeInfoType() { return sharedTypeInfoTy.get(); }
+Type *getInoutTypeInfoType() { return inoutTypeInfoTy.get(); }
+Type *getThrowableType() { return throwableTy.get(); }
+Type *getCppTypeInfoPtrType() { return cppTypeInfoPtrTy.get(); }
+Type *getModuleInfoType() { return moduleInfoTy.get(); }
+
+////////////////////////////////////////////////////////////////////////////////
+
 // extern (D) alias dg_t = int delegate(void*);
 static Type *rt_dg1() {
   static Type *dg_t = nullptr;
@@ -249,59 +463,6 @@ static Type *rt_dg2() {
   return dg2_t;
 }
 
-template <typename DECL> static void ensureDecl(DECL *decl, const char *msg) {
-  if (!decl || !decl->type) {
-    Logger::println("Missing class declaration: %s\n", msg);
-    error(Loc(), "Missing class declaration: `%s`", msg);
-    errorSupplemental(Loc(),
-                      "Please check that object.d is included and valid");
-    fatal();
-  }
-}
-
-// Parameters fnames are assumed to be already mangled!
-static void createFwdDecl(LINK linkage, Type *returntype,
-                          ArrayParam<llvm::StringRef> fnames,
-                          ArrayParam<Type *> paramtypes,
-                          ArrayParam<StorageClass> paramsSTC = {},
-                          AttrSet attribset = AttrSet()) {
-
-  Parameters *params = nullptr;
-  if (!paramtypes.empty()) {
-    params = new Parameters();
-    for (size_t i = 0, e = paramtypes.size(); i < e; ++i) {
-      StorageClass stc = paramsSTC.empty() ? 0 : paramsSTC[i];
-      params->push(Parameter::create(stc, paramtypes[i], nullptr, nullptr));
-    }
-  }
-  int varargs = 0;
-  auto dty = TypeFunction::create(params, returntype, varargs, linkage);
-
-  // the call to DtoType performs many actions such as rewriting the function
-  // type and storing it in dty
-  auto llfunctype = llvm::cast<llvm::FunctionType>(DtoType(dty));
-  assert(dty->ctype);
-  auto attrs =
-      dty->ctype->getIrFuncTy().getParamAttrs(gABI->passThisBeforeSret(dty));
-  attrs.merge(attribset);
-
-  for (auto fname : fnames) {
-    llvm::Function *fn = llvm::Function::Create(
-        llfunctype, llvm::GlobalValue::ExternalLinkage, fname, M);
-
-    fn->setAttributes(attrs);
-
-    // On x86_64, always set 'uwtable' for System V ABI compatibility.
-    // FIXME: Move to better place (abi-x86-64.cpp?)
-    // NOTE: There are several occurances if this line.
-    if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
-      fn->addFnAttr(LLAttribute::UWTable);
-    }
-
-    fn->setCallingConv(gABI->callingConv(linkage, dty));
-  }
-}
-
 static void buildRuntimeModule() {
   Logger::println("building runtime module");
   M = new llvm::Module("ldc internal runtime", gIR->context());
@@ -322,19 +483,6 @@ static void buildRuntimeModule() {
   Type *wstringTy = Type::twchar->arrayOf();
   Type *dstringTy = Type::tdchar->arrayOf();
 
-  // Ensure that the declarations exist before creating llvm types for them.
-  ensureDecl(ClassDeclaration::object, "Object");
-  ensureDecl(Type::typeinfoclass, "TypeInfo_Class");
-  ensureDecl(Type::dtypeinfo, "TypeInfo");
-  ensureDecl(Type::typeinfoassociativearray, "TypeInfo_AssociativeArray");
-  ensureDecl(Module::moduleinfo, "ModuleInfo");
-
-  Type *objectTy = ClassDeclaration::object->type;
-  Type *throwableTy = ClassDeclaration::throwable->type;
-  Type *classInfoTy = Type::typeinfoclass->type;
-  Type *typeInfoTy = Type::dtypeinfo->type;
-  Type *aaTypeInfoTy = Type::typeinfoassociativearray->type;
-  Type *moduleInfoPtrTy = Module::moduleinfo->type->pointerTo();
   // The AA type is a struct that only contains a ptr
   Type *aaTy = voidPtrTy;
 
@@ -477,7 +625,7 @@ static void buildRuntimeModule() {
 
   // void _d_delarray_t(void[]* p, const TypeInfo_Struct ti)
   createFwdDecl(LINKc, voidTy, {"_d_delarray_t"},
-                {voidArrayPtrTy, Type::typeinfostruct->type}, {0, STCconst});
+                {voidArrayPtrTy, structTypeInfoTy}, {0, STCconst});
 
   // void _d_delmemory(void** p)
   // void _d_delinterface(void** p)
@@ -488,11 +636,11 @@ static void buildRuntimeModule() {
   createFwdDecl(LINKc, voidTy, {"_d_callfinalizer"}, {voidPtrTy});
 
   // D2: void _d_delclass(Object* p)
-  createFwdDecl(LINKc, voidTy, {"_d_delclass"}, {objectTy->pointerTo()});
+  createFwdDecl(LINKc, voidTy, {"_d_delclass"}, {objectPtrTy});
 
   // void _d_delstruct(void** p, TypeInfo_Struct inf)
   createFwdDecl(LINKc, voidTy, {"_d_delstruct"},
-                {voidPtrTy->pointerTo(), Type::typeinfostruct->type});
+                {voidPtrTy->pointerTo(), structTypeInfoTy});
 
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
@@ -512,32 +660,28 @@ static void buildRuntimeModule() {
 // int _aApplyRcd1(in char[] aa, dg_t dg)
 #define STR_APPLY1(TY, a, b)                                                   \
   {                                                                            \
-    const std::string prefix = "_aApply";                                      \
-    std::string fname1 = prefix + (a) + '1', fname2 = prefix + (b) + '1',      \
-                fname3 = prefix + 'R' + (a) + '1',                             \
-                fname4 = prefix + 'R' + (b) + '1';                             \
+    const char *fname1 = "_aApply" #a "1", *fname2 = "_aApply" #b "1",         \
+               *fname3 = "_aApplyR" #a "1", *fname4 = "_aApplyR" #b "1";       \
     createFwdDecl(LINKc, sizeTy, {fname1, fname2, fname3, fname4},             \
                   {TY, rt_dg1()});                                             \
   }
-  STR_APPLY1(stringTy, "cw", "cd")
-  STR_APPLY1(wstringTy, "wc", "wd")
-  STR_APPLY1(dstringTy, "dc", "dw")
+  STR_APPLY1(stringTy, cw, cd)
+  STR_APPLY1(wstringTy, wc, wd)
+  STR_APPLY1(dstringTy, dc, dw)
 #undef STR_APPLY1
 
 // int _aApplycd2(in char[] aa, dg2_t dg)
 // int _aApplyRcd2(in char[] aa, dg2_t dg)
 #define STR_APPLY2(TY, a, b)                                                   \
   {                                                                            \
-    const std::string prefix = "_aApply";                                      \
-    std::string fname1 = prefix + (a) + '2', fname2 = prefix + (b) + '2',      \
-                fname3 = prefix + 'R' + (a) + '2',                             \
-                fname4 = prefix + 'R' + (b) + '2';                             \
+    const char *fname1 = "_aApply" #a "2", *fname2 = "_aApply" #b "2",         \
+               *fname3 = "_aApplyR" #a "2", *fname4 = "_aApplyR" #b "2";       \
     createFwdDecl(LINKc, sizeTy, {fname1, fname2, fname3, fname4},             \
                   {TY, rt_dg2()});                                             \
   }
-  STR_APPLY2(stringTy, "cw", "cd")
-  STR_APPLY2(wstringTy, "wc", "wd")
-  STR_APPLY2(dstringTy, "dc", "dw")
+  STR_APPLY2(stringTy, cw, cd)
+  STR_APPLY2(wstringTy, wc, wd)
+  STR_APPLY2(dstringTy, dc, dw)
 #undef STR_APPLY2
 
   //////////////////////////////////////////////////////////////////////////////
@@ -678,10 +822,11 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
 
   // void invariant._d_invariant(Object o)
-  createFwdDecl(
-      LINKd, voidTy,
-      {getIRMangledFuncName("_D9invariant12_d_invariantFC6ObjectZv", LINKd)},
-      {objectTy});
+  {
+    static const std::string mangle =
+        getIRMangledFuncName("_D9invariant12_d_invariantFC6ObjectZv", LINKd);
+    createFwdDecl(LINKd, voidTy, {mangle}, {objectTy});
+  }
 
   // void _d_dso_registry(void* data)
   // (the argument is really a pointer to

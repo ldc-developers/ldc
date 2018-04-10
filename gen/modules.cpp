@@ -350,7 +350,7 @@ void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
   // functions).
   const bool isFirst = !gIR->module.getGlobalVariable("ldc.dso_slot");
 
-  llvm::Type *const moduleInfoPtrTy = DtoPtrToType(Module::moduleinfo->type);
+  llvm::Type *const moduleInfoPtrTy = DtoPtrToType(getModuleInfoType());
   const auto sectionName =
       style == RegistryStyle::sectionMSVC
           ? ".minfo"
@@ -708,9 +708,11 @@ void codegenModule(IRState *irs, Module *m) {
     fatal();
   }
 
-  // Skip emission of all the additional module metadata if requested by the
-  // user or the betterC switch is on.
-  if (global.params.useModuleInfo && !m->noModuleInfo) {
+  // Skip emission of all the additional module metadata if:
+  // a) the -betterC switch is on,
+  // b) requested explicitly by the user via pragma(LDC_no_moduleinfo), or if
+  // c) there's no ModuleInfo declaration.
+  if (global.params.useModuleInfo && !m->noModuleInfo && Module::moduleinfo) {
     // generate ModuleInfo
     registerModuleInfo(m);
   }

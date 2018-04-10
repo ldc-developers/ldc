@@ -71,9 +71,9 @@ LLGlobalVariable *IrAggr::getClassInfoSymbol() {
   // The type is also ClassInfo for interfaces – the actual TypeInfo for them
   // is a TypeInfo_Interface instance that references __ClassZ in its "base"
   // member.
-  ClassDeclaration *cinfo = Type::typeinfoclass;
-  DtoType(cinfo->type);
-  IrTypeClass *tc = stripModifiers(cinfo->type)->ctype->isClass();
+  Type *cinfoType = getClassInfoType();
+  DtoType(cinfoType);
+  IrTypeClass *tc = stripModifiers(cinfoType)->ctype->isClass();
   assert(tc && "invalid ClassInfo type");
 
   // classinfos cannot be constants since they're used as locks for synchronized
@@ -116,6 +116,11 @@ LLGlobalVariable *IrAggr::getClassInfoSymbol() {
 
 //////////////////////////////////////////////////////////////////////////////
 
+static Type *getInterfacesArrayType() {
+  getClassInfoType(); // check declaration in object.d
+  return Type::typeinfoclass->fields[3]->type;
+}
+
 LLGlobalVariable *IrAggr::getInterfaceArraySymbol() {
   if (classInterfacesArray) {
     return classInterfacesArray;
@@ -127,7 +132,7 @@ LLGlobalVariable *IrAggr::getInterfaceArraySymbol() {
   assert(n > 0 && "getting ClassInfo.interfaces storage symbol, but we "
                   "don't implement any interfaces");
 
-  LLType *InterfaceTy = DtoType(Type::typeinfoclass->fields[3]->type->nextOf());
+  LLType *InterfaceTy = DtoType(getInterfacesArrayType()->nextOf());
 
   // create Interface[N]
   const auto irMangle = getIRMangledInterfaceInfosSymbolName(cd);
@@ -479,10 +484,10 @@ LLConstant *IrAggr::getClassInfoInterfaces() {
   assert(stripModifiers(type)->ctype->isClass()->getNumInterfaceVtbls() == n &&
          "inconsistent number of interface vtables in this class");
 
-  VarDeclaration *interfaces_idx = Type::typeinfoclass->fields[3];
+  Type *interfacesArrayType = getInterfacesArrayType();
 
   if (n == 0) {
-    return getNullValue(DtoType(interfaces_idx->type));
+    return getNullValue(DtoType(interfacesArrayType));
   }
 
   // Build array of:
@@ -497,10 +502,10 @@ LLConstant *IrAggr::getClassInfoInterfaces() {
   LLSmallVector<LLConstant *, 6> constants;
   constants.reserve(cd->vtblInterfaces->dim);
 
-  LLType *classinfo_type = DtoType(Type::typeinfoclass->type);
+  LLType *classinfo_type = DtoType(getClassInfoType());
   LLType *voidptrptr_type = DtoType(Type::tvoid->pointerTo()->pointerTo());
-  VarDeclaration *idx = Type::typeinfoclass->fields[3];
-  LLStructType *interface_type = isaStruct(DtoType(idx->type->nextOf()));
+  LLStructType *interface_type =
+      isaStruct(DtoType(interfacesArrayType->nextOf()));
   assert(interface_type);
 
   for (size_t i = 0; i < n; ++i) {
@@ -552,7 +557,7 @@ LLConstant *IrAggr::getClassInfoInterfaces() {
 
   // return null, only baseclass provide interfaces
   if (cd->vtblInterfaces->dim == 0) {
-    return getNullValue(DtoType(interfaces_idx->type));
+    return getNullValue(DtoType(interfacesArrayType));
   }
 
   // only the interface explicitly implemented by this class

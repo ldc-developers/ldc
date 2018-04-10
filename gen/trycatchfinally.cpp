@@ -81,7 +81,7 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
     const bool isCPPclass = cd->isCPPclass();
 
     const auto enterCatchFn = getRuntimeFunction(
-        Loc(), irs.module,
+        c->loc, irs.module,
         isCPPclass ? "__cxa_begin_catch" : "_d_eh_enter_catch");
     const auto ptr = DtoLoad(ehPtrSlot);
     const auto throwableObj = irs.ir->CreateCall(enterCatchFn, ptr);
@@ -174,11 +174,13 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
       mangleBuf.printf("%d%s", 18, "_cpp_type_info_ptr");
       const auto wrapperMangle = getIRMangledVarName(mangleBuf.peekString(), LINKd);
 
-      RTTIBuilder b(ClassDeclaration::cpp_type_info_ptr);
+      const auto cppTypeInfoPtrType = getCppTypeInfoPtrType();
+      RTTIBuilder b(cppTypeInfoPtrType);
       b.push(cpp_ti);
 
       auto wrapperType = llvm::cast<llvm::StructType>(
-          static_cast<IrTypeClass*>(ClassDeclaration::cpp_type_info_ptr->type->ctype)->getMemoryLLType());
+          static_cast<IrTypeClass *>(cppTypeInfoPtrType->ctype)
+              ->getMemoryLLType());
       auto wrapperInit = b.get_constant(wrapperType);
 
       ci = getOrCreateGlobal(
@@ -247,7 +249,7 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
   } else {
     // catch all
     typeDesc = LLConstant::getNullValue(getVoidPtrType());
-    clssInfo = LLConstant::getNullValue(DtoType(Type::typeinfoclass->type));
+    clssInfo = LLConstant::getNullValue(DtoType(getClassInfoType()));
   }
 
   // "catchpad within %switch [TypeDescriptor, 0, &caughtObject]" must be
@@ -273,7 +275,7 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
   irs.funcGen().pgo.emitCounterIncrement(ctch);
   if (!isCPPclass) {
     auto enterCatchFn =
-        getRuntimeFunction(Loc(), irs.module, "_d_eh_enter_catch");
+        getRuntimeFunction(ctch->loc, irs.module, "_d_eh_enter_catch");
     irs.CreateCallOrInvoke(enterCatchFn, DtoBitCast(exnObj, getVoidPtrType()),
                            clssInfo);
   }
@@ -320,7 +322,7 @@ void TryCatchScope::emitCatchBodiesMSVC(IRState &irs, llvm::Value *) {
   if (!irs.func()->hasLLVMPersonalityFn()) {
     const char *personality = "__CxxFrameHandler3";
     irs.func()->setLLVMPersonalityFn(
-        getRuntimeFunction(Loc(), irs.module, personality));
+        getRuntimeFunction(stmt->loc, irs.module, personality));
   }
 }
 

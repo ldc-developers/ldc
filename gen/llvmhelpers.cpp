@@ -1286,7 +1286,7 @@ LLConstant *DtoTypeInfoOf(Type *type, bool base) {
   LLConstant *c = isaConstant(getIrGlobal(tidecl)->value);
   assert(c != NULL);
   if (base) {
-    return llvm::ConstantExpr::getBitCast(c, DtoType(Type::dtypeinfo->type));
+    return llvm::ConstantExpr::getBitCast(c, DtoType(getTypeInfoType()));
   }
   return c;
 }

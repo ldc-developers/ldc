@@ -1565,10 +1565,10 @@ public:
         getRuntimeFunction(stmt->loc, irs->module, "_d_switch_error");
 
     LLValue *moduleInfoSymbol = getIrModule(module)->moduleInfoSymbol();
-    LLType *moduleInfoType = DtoType(Module::moduleinfo->type);
+    LLType *moduleInfoPtrType = DtoPtrToType(getModuleInfoType());
 
     LLCallSite call = irs->CreateCallOrInvoke(
-        fn, DtoBitCast(moduleInfoSymbol, getPtrToType(moduleInfoType)),
+        fn, DtoBitCast(moduleInfoSymbol, moduleInfoPtrType),
         DtoConstUint(stmt->loc.linnum));
     call.setDoesNotReturn();
   }

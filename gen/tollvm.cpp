@@ -658,8 +658,7 @@ LLStructType *DtoModuleReferenceType() {
   LLStructType *st = LLStructType::create(gIR->context(), "ModuleReference");
 
   // add members
-  LLType *types[] = {getPtrToType(st),
-                     DtoType(Module::moduleinfo->type->pointerTo())};
+  LLType *types[] = {getPtrToType(st), DtoPtrToType(getModuleInfoType())};
 
   // resolve type
   st->setBody(types);
