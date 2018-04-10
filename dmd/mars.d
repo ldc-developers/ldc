@@ -551,7 +551,14 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
     Objc._init();
     builtin_init();
 
-  version (IN_LLVM) {} else
+  version (IN_LLVM)
+  {
+    // LDC prints binary/version/config before entering this function.
+    // DMD prints the predefined versions as part of addDefaultVersionIdentifiers().
+    // Let's do it here after initialization, as e.g. Objc.init() may add `D_ObjectiveC`.
+    printPredefinedVersions();
+  }
+  else
   {
     printPredefinedVersions();
 
@@ -1610,8 +1617,7 @@ void addDefaultVersionIdentifiers()
 
 } // !IN_LLVM
 
-// IN_LLVM replaced: `private` by `extern (C++)`
-extern (C++) void printPredefinedVersions()
+private void printPredefinedVersions()
 {
     if (global.params.verbose && global.versionids)
     {

@@ -1123,7 +1123,6 @@ int cppmain(int argc, char **argv) {
 
 void addDefaultVersionIdentifiers() {
   registerPredefinedVersions();
-  printPredefinedVersions();
 }
 
 void codegenModules(Modules &modules) {
