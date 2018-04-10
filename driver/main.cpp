@@ -997,7 +997,7 @@ int cppmain(int argc, char **argv) {
   }
 
   if (files.dim == 0) {
-    cl::PrintHelpMessage();
+    cl::PrintHelpMessage(/*Hidden=*/false, /*Categorized=*/true);
     return EXIT_FAILURE;
   }
 
