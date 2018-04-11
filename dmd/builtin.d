@@ -602,8 +602,10 @@ else
     add_builtin("_D3std4math5expm1FNaNbNiNeeZe", &eval_unimp);
     add_builtin("_D3std4math4exp21FNaNbNiNeeZe", &eval_unimp);
     // @safe @nogc pure nothrow double function(double)
+    add_builtin("_D3std4math3tanFNaNbNiNfdZd", &eval_tan);
     add_builtin("_D3std4math4sqrtFNaNbNiNfdZd", &eval_sqrt);
     // @safe @nogc pure nothrow float function(float)
+    add_builtin("_D3std4math3tanFNaNbNiNffZf", &eval_tan);
     add_builtin("_D3std4math4sqrtFNaNbNiNffZf", &eval_sqrt);
     // @safe @nogc pure nothrow real function(real, real)
     add_builtin("_D3std4math5atan2FNaNbNiNfeeZe", &eval_unimp);
