@@ -2592,6 +2592,7 @@ else
                        sw $$22, 24($0);
                        sw $$23, 28($0);
                        .set  at;`, "r", regs.ptr);
+                __asm(".set  noat; sw $$29, 0($0); .set  at;", "r", &sp);
             }
             else version (MIPS64)
             {
@@ -2599,16 +2600,19 @@ else
 
                 // Callee-save registers, according to MIPSpro N32 ABI Handbook,
                 // chapter 2, table 2-1.
-                // FIXME: Should $28 (gp), $29 (sp) and $30 (s8) be saved, too?
+                // FIXME: Should $28 (gp) and $30 (s8) be saved, too?
                 size_t[8] regs = void;
-                __asm(`sd $$16,  0($0);
+                __asm(`.set  noat;
+                       sd $$16,  0($0);
                        sd $$17,  8($0);
                        sd $$18, 16($0);
                        sd $$19, 24($0);
                        sd $$20, 32($0);
                        sd $$21, 40($0);
                        sd $$22, 48($0);
-                       sd $$23, 56($0)`, "r", regs.ptr);
+                       sd $$23, 56($0);
+                       .set  at`, "r", regs.ptr);
+                __asm(".set  noat; sw $$29, 0($0); .set  at;", "r", &sp);
             }
             else
             {
