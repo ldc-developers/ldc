@@ -52,6 +52,22 @@
 #include "llvm/Target/TargetOptions.h"
 #include <iostream>
 
+namespace {
+
+// Returns true if we are certain that the type points to immutable memory.
+// E.g. `immutable int *`, `immutable(int) *`, `immutable Class`, all return
+// true.
+bool isCertainToPointToImmutableMemory(Type *type) {
+  switch (type->ty) {
+  case Tpointer:
+    return type->nextOf()->isImmutable();
+  case Tclass:
+    return type->isImmutable();
+  }
+  return false;
+}
+}
+
 llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
                                     Type *nesttype, bool isMain, bool isCtor,
                                     bool isIntrinsic, bool hasSel) {
@@ -164,6 +180,14 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     } else if (passPointer) {
       // ref/out
       attrs.addDereferenceable(loweredDType->size());
+
+      // `ref immutable T` points to memory that cannot change --> can be
+      // treated as noalias even if it aliases. Refer to the NoAlias response of
+      // LLVM's AliasAnalysis. `out` parameters cannot be immutable, but if they
+      // could `noalias` would be appropriate too.
+      if (loweredDType->isImmutable()) {
+        attrs.add(llvm::Attribute::NoAlias);
+      }
     } else {
       if (abi->passByVal(loweredDType)) {
         // LLVM ByVal parameters are pointers to a copy in the function
@@ -174,6 +198,13 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
       } else {
         // Add sext/zext as needed.
         attrs.add(DtoShouldExtend(loweredDType));
+
+        // If we are certain that the parameter points to immutable memory, the
+        // pointer can be treated as noalias even if it aliases with another.
+        // Refer to the NoAlias response of LLVM's AliasAnalysis.
+        if (isCertainToPointToImmutableMemory(loweredDType)) {
+          attrs.add(llvm::Attribute::NoAlias);
+        }
       }
     }
 
