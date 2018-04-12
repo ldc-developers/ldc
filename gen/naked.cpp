@@ -247,6 +247,15 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   gIR->module.appendModuleInlineAsm(asmstr.str());
   asmstr.str("");
 
+  if (global.params.targetTriple->isWindowsMSVCEnvironment() &&
+      fd->isExport()) {
+    // Embed a linker switch telling the MS linker to export the naked function.
+    // This mimics the effect of the dllexport attribute for regular functions.
+    const auto linkerSwitch = std::string("/EXPORT:") + mangle;
+    auto Value = llvm::MDString::get(gIR->context(), linkerSwitch);
+    gIR->LinkerMetadataArgs.push_back(llvm::MDNode::get(gIR->context(), Value));
+  }
+
   gIR->funcGenStates.pop_back();
 }
 
