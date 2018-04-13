@@ -623,18 +623,17 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
     Logger::println("typeinfo mangle: %s", mangled);
   }
 
+  // Only declare the symbol if it isn't yet, otherwise the subtype of built-in
+  // TypeInfos (rt.typeinfo.*) may clash with the base type when compiling the
+  // rt.typeinfo.* modules.
   const auto irMangle = getIRMangledVarName(mangled, LINKd);
-  LLGlobalVariable *gvar = gIR->module.getGlobalVariable(irMangle);
-  if (gvar) {
-    assert(gvar->getType()->getContainedType(0)->isStructTy());
-  } else {
+  llvm::GlobalVariable *gvar = gIR->module.getGlobalVariable(irMangle);
+  if (!gvar) {
     LLType *type = DtoType(decl->type)->getPointerElementType();
-    // Create the symbol. We need to keep it mutable as the type is not declared
-    // as immutable on the D side, and e.g. synchronized() can be used on the
+    // We need to keep the symbol mutable as the type is not declared as
+    // immutable on the D side, and e.g. synchronized() can be used on the
     // implicit monitor.
-    gvar =
-        new LLGlobalVariable(gIR->module, type, false,
-                             LLGlobalValue::ExternalLinkage, nullptr, irMangle);
+    gvar = declareGlobal(decl->loc, gIR->module, type, irMangle, false);
   }
 
   IrGlobal *irg = getIrGlobal(decl, true);

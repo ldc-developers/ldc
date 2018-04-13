@@ -96,8 +96,7 @@ public:
       llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
       // Only define if not speculative.
       if (!isSpeculativeType(decl->type)) {
-        interfaceZ->setInitializer(ir->getClassInfoInit());
-        setLinkage(decl, interfaceZ);
+        defineGlobal(interfaceZ, ir->getClassInfoInit(), decl);
       }
     }
   }
@@ -186,21 +185,20 @@ public:
       }
 
       IrAggr *ir = getIrAggr(decl);
-      const auto lwc = DtoLinkage(decl);
 
       auto &initZ = ir->getInitSymbol();
       auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
       initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
-      setLinkage(lwc, initGlobal);
+      setLinkage(decl, initGlobal);
 
       llvm::GlobalVariable *vtbl = ir->getVtblSymbol();
-      vtbl->setInitializer(ir->getVtblInit());
-      setLinkage(lwc, vtbl);
+      defineGlobal(vtbl, ir->getVtblInit(), decl);
+
+      ir->defineInterfaceVtbls();
 
       llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
       if (!isSpeculativeType(decl->type)) {
-        classZ->setInitializer(ir->getClassInfoInit());
-        setLinkage(lwc, classZ);
+        defineGlobal(classZ, ir->getClassInfoInit(), decl);
       }
     }
   }

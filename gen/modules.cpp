@@ -169,18 +169,15 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
 
   // create the ModuleReference node for this module
   const auto thismrefIRMangle = getIRMangledModuleRefSymbolName(moduleMangle);
-  Loc loc;
-  LLGlobalVariable *thismref = getOrCreateGlobal(
-      loc, gIR->module, modulerefTy, false, LLGlobalValue::InternalLinkage,
-      thismrefinit, thismrefIRMangle);
+  LLGlobalVariable *thismref =
+      defineGlobal(Loc(), gIR->module, thismrefIRMangle, thismrefinit,
+                   LLGlobalValue::InternalLinkage, false);
   // make sure _Dmodule_ref is declared
   const auto mrefIRMangle = getIRMangledVarName("_Dmodule_ref", LINKc);
   LLConstant *mref = gIR->module.getNamedGlobal(mrefIRMangle);
   LLType *modulerefPtrTy = getPtrToType(modulerefTy);
   if (!mref) {
-    mref = new LLGlobalVariable(gIR->module, modulerefPtrTy, false,
-                                LLGlobalValue::ExternalLinkage, nullptr,
-                                mrefIRMangle);
+    mref = declareGlobal(Loc(), gIR->module, modulerefPtrTy, mrefIRMangle, false);
   }
   mref = DtoBitCast(mref, getPtrToType(modulerefPtrTy));
 
@@ -218,9 +215,9 @@ llvm::Function *buildGetTLSAnchor() {
   // Create a dummmy TLS global private to this module.
   const auto one =
       llvm::ConstantInt::get(llvm::Type::getInt8Ty(gIR->context()), 1);
-  const auto anchor = getOrCreateGlobal(
-      Loc(), gIR->module, one->getType(), false,
-      llvm::GlobalValue::LinkOnceODRLinkage, one, "ldc.tls_anchor", true);
+  const auto anchor = defineGlobal(Loc(), gIR->module, "ldc.tls_anchor", one,
+                                   llvm::GlobalValue::LinkOnceODRLinkage, false,
+                                   /*isThreadLocal=*/true);
   anchor->setVisibility(llvm::GlobalValue::HiddenVisibility);
   anchor->setAlignment(16);
 
@@ -358,11 +355,11 @@ void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
 
   const auto thismrefIRMangle =
       getIRMangledModuleRefSymbolName(moduleMangle.c_str());
-  auto thismref = new llvm::GlobalVariable(
-      gIR->module, moduleInfoPtrTy,
-      false, // FIXME: mRelocModel != llvm::Reloc::PIC_
-      llvm::GlobalValue::LinkOnceODRLinkage,
-      DtoBitCast(thisModuleInfo, moduleInfoPtrTy), thismrefIRMangle);
+  auto thismref = defineGlobal(Loc(), gIR->module, thismrefIRMangle,
+                               DtoBitCast(thisModuleInfo, moduleInfoPtrTy),
+                               llvm::GlobalValue::LinkOnceODRLinkage,
+                               false // FIXME: mRelocModel != llvm::Reloc::PIC_
+  );
   thismref->setSection(sectionName);
   gIR->usedArray.push_back(thismref);
 
@@ -382,22 +379,19 @@ void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
   const auto magicEndSymbolName = (style == RegistryStyle::sectionDarwin)
                                       ? "\1section$end$__DATA$.minfo"
                                       : "__stop___minfo";
-  auto minfoBeg = new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy, false,
-                                           llvm::GlobalValue::ExternalLinkage,
-                                           nullptr, magicBeginSymbolName);
-  auto minfoEnd = new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy, false,
-                                           llvm::GlobalValue::ExternalLinkage,
-                                           nullptr, magicEndSymbolName);
+  auto minfoBeg = declareGlobal(Loc(), gIR->module, moduleInfoPtrTy,
+                                magicBeginSymbolName, false);
+  auto minfoEnd = declareGlobal(Loc(), gIR->module, moduleInfoPtrTy,
+                                magicEndSymbolName, false);
   minfoBeg->setVisibility(llvm::GlobalValue::HiddenVisibility);
   minfoEnd->setVisibility(llvm::GlobalValue::HiddenVisibility);
 
   // Build the ctor to invoke _d_dso_registry.
 
   // This is the DSO slot for use by the druntime implementation.
-  auto dsoSlot =
-      new llvm::GlobalVariable(gIR->module, getVoidPtrType(), false,
-                               llvm::GlobalValue::LinkOnceODRLinkage,
-                               getNullPtr(getVoidPtrType()), "ldc.dso_slot");
+  auto dsoSlot = defineGlobal(Loc(), gIR->module, "ldc.dso_slot",
+                              getNullPtr(getVoidPtrType()),
+                              llvm::GlobalValue::LinkOnceODRLinkage, false);
   dsoSlot->setVisibility(llvm::GlobalValue::HiddenVisibility);
 
   // Okay, so the theory is easy: We want to have one global constructor and
@@ -429,11 +423,10 @@ void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
   // problems. This would mean that it is no longer safe to link D objects
   // directly using e.g. "g++ dcode.o cppcode.o", though.
 
-  auto dsoInitialized = new llvm::GlobalVariable(
-      gIR->module, llvm::Type::getInt8Ty(gIR->context()), false,
-      llvm::GlobalValue::LinkOnceODRLinkage,
+  auto dsoInitialized = defineGlobal(
+      Loc(), gIR->module, "ldc.dso_initialized",
       llvm::ConstantInt::get(llvm::Type::getInt8Ty(gIR->context()), 0),
-      "ldc.dso_initialized");
+      llvm::GlobalValue::LinkOnceODRLinkage, false);
   dsoInitialized->setVisibility(llvm::GlobalValue::HiddenVisibility);
 
   // There is no reason for this cast to void*, other than that removing it
@@ -505,7 +498,7 @@ void addCoverageAnalysis(Module *m) {
     llvm::ConstantAggregateZero *zeroinitializer =
         llvm::ConstantAggregateZero::get(type);
     m->d_cover_valid = new llvm::GlobalVariable(
-        gIR->module, type, true, LLGlobalValue::InternalLinkage,
+        gIR->module, type, /*isConstant=*/true, LLGlobalValue::InternalLinkage,
         zeroinitializer, "_d_cover_valid");
     LLConstant *idxs[] = {DtoConstUint(0), DtoConstUint(0)};
     d_cover_valid_slice =

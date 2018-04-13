@@ -63,6 +63,9 @@ struct IrAggr {
   /// Builds the __vtblZ initializer constant lazily.
   llvm::Constant *getVtblInit();
 
+  /// Defines all interface vtbls.
+  void defineInterfaceVtbls();
+
   /// Create the __ClassZ/__InterfaceZ symbol lazily.
   llvm::GlobalVariable *getClassInfoSymbol();
   /// Builds the __ClassZ/__InterfaceZ initializer constant lazily.
@@ -127,10 +130,12 @@ protected:
 
   //////////////////////////////////////////////////////////////////////////
 
-  /// Returns vtbl for interface implementation, creates it if not already
-  /// built.
-  llvm::GlobalVariable *getInterfaceVtbl(BaseClass *b, bool new_inst,
-                                         size_t interfaces_index);
+  /// Returns the vtbl for an interface implementation.
+  llvm::GlobalVariable *getInterfaceVtblSymbol(BaseClass *b,
+                                               size_t interfaces_index);
+  /// Defines the vtbl for an interface implementation.
+  void defineInterfaceVtbl(BaseClass *b, bool new_inst,
+                           size_t interfaces_index);
 
   // FIXME make this a member instead
   friend llvm::Constant *DtoDefineClassInfo(ClassDeclaration *cd);

@@ -51,9 +51,8 @@ LLGlobalVariable *IrAggr::getVtblSymbol() {
 
   LLType *vtblTy = stripModifiers(type)->ctype->isClass()->getVtblType();
 
-  vtbl =
-      getOrCreateGlobal(aggrdecl->loc, gIR->module, vtblTy, true,
-                        llvm::GlobalValue::ExternalLinkage, nullptr, irMangle);
+  vtbl = declareGlobal(aggrdecl->loc, gIR->module, vtblTy, irMangle,
+                       /*isConstant=*/true);
 
   return vtbl;
 }
@@ -77,9 +76,8 @@ LLGlobalVariable *IrAggr::getClassInfoSymbol() {
   assert(tc && "invalid ClassInfo type");
 
   // classinfos cannot be constants since they're used as locks for synchronized
-  classInfo = getOrCreateGlobal(
-      aggrdecl->loc, gIR->module, tc->getMemoryLLType(), false,
-      llvm::GlobalValue::ExternalLinkage, nullptr, irMangle);
+  classInfo = declareGlobal(aggrdecl->loc, gIR->module, tc->getMemoryLLType(),
+                            irMangle, false);
 
   // Generate some metadata on this ClassInfo if it's for a class.
   ClassDeclaration *classdecl = aggrdecl->isClassDeclaration();
@@ -139,11 +137,8 @@ LLGlobalVariable *IrAggr::getInterfaceArraySymbol() {
 
   LLArrayType *array_type = llvm::ArrayType::get(InterfaceTy, n);
 
-  // We keep the global as external for now and only consider template linkage
-  // if we emit the initializer later.
-  classInterfacesArray =
-      getOrCreateGlobal(cd->loc, gIR->module, array_type, true,
-                        llvm::GlobalValue::ExternalLinkage, nullptr, irMangle);
+  classInterfacesArray = declareGlobal(cd->loc, gIR->module, array_type,
+                                       irMangle, /*isConstant=*/true);
 
   return classInterfacesArray;
 }
@@ -257,15 +252,48 @@ LLConstant *IrAggr::getClassInfoInit() {
 
 //////////////////////////////////////////////////////////////////////////////
 
-llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
-                                               size_t interfaces_index) {
+llvm::GlobalVariable *IrAggr::getInterfaceVtblSymbol(BaseClass *b,
+                                                     size_t interfaces_index) {
   auto it = interfaceVtblMap.find({b->sym, interfaces_index});
   if (it != interfaceVtblMap.end()) {
     return it->second;
   }
 
+  ClassDeclaration *cd = aggrdecl->isClassDeclaration();
+  assert(cd && "not a class aggregate");
+
+  llvm::Type *vtblType = LLArrayType::get(getVoidPtrType(), b->sym->vtbl.dim);
+
+  // Thunk prefix
+  char thunkPrefix[16];
+  int thunkLen = sprintf(thunkPrefix, "Thn%d_", b->offset);
+  char thunkPrefixLen[16];
+  sprintf(thunkPrefixLen, "%d", thunkLen);
+
+  OutBuffer mangledName;
+  mangledName.writestring("_D");
+  mangleToBuffer(cd, &mangledName);
+  mangledName.writestring("11__interface");
+  mangleToBuffer(b->sym, &mangledName);
+  mangledName.writestring(thunkPrefixLen);
+  mangledName.writestring(thunkPrefix);
+  mangledName.writestring("6__vtblZ");
+
+  const auto irMangle = getIRMangledVarName(mangledName.peekString(), LINKd);
+
+  LLGlobalVariable *gvar =
+      declareGlobal(cd->loc, gIR->module, vtblType, irMangle, /*isConstant=*/true);
+
+  // insert into the vtbl map
+  interfaceVtblMap.insert({{b->sym, interfaces_index}, gvar});
+
+  return gvar;
+}
+
+void IrAggr::defineInterfaceVtbl(BaseClass *b, bool new_instance,
+                                 size_t interfaces_index) {
   IF_LOG Logger::println(
-      "Building vtbl for implementation of interface %s in class %s",
+      "Defining vtbl for implementation of interface %s in class %s",
       b->sym->toPrettyChars(), aggrdecl->toPrettyChars());
   LOG_SCOPE;
 
@@ -277,6 +305,9 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
 
   std::vector<llvm::Constant *> constants;
   constants.reserve(vtbl_array.dim);
+
+  char thunkPrefix[16];
+  sprintf(thunkPrefix, "Thn%d_", b->offset);
 
   const auto voidPtrTy = getVoidPtrType();
 
@@ -293,26 +324,17 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
     constants.push_back(DtoBitCast(c, voidPtrTy));
   }
 
-  // Thunk prefix
-  char thunkPrefix[16];
-  int thunkLen = sprintf(thunkPrefix, "Thn%d_", b->offset);
-  char thunkPrefixLen[16];
-  sprintf(thunkPrefixLen, "%d", thunkLen);
-
   // add virtual function pointers
   size_t n = vtbl_array.dim;
   for (size_t i = b->sym->vtblOffset(); i < n; i++) {
-    Dsymbol *dsym = static_cast<Dsymbol *>(vtbl_array.data[i]);
-    if (dsym == nullptr) {
+    FuncDeclaration *fd = vtbl_array[i];
+    if (!fd) {
       // FIXME
       // why is this null?
       // happens for mini/s.d
       constants.push_back(getNullValue(voidPtrTy));
       continue;
     }
-
-    FuncDeclaration *fd = dsym->isFuncDeclaration();
-    assert(fd && "vtbl entry not a function");
 
     assert((!fd->isAbstract() || fd->fbody) &&
            "null symbol in interface implementation vtable");
@@ -444,27 +466,24 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
   llvm::Constant *vtbl_constant = LLConstantArray::get(
       LLArrayType::get(voidPtrTy, constants.size()), constants);
 
-  OutBuffer mangledName;
-  mangledName.writestring("_D");
-  mangleToBuffer(cd, &mangledName);
-  mangledName.writestring("11__interface");
-  mangleToBuffer(b->sym, &mangledName);
-  mangledName.writestring(thunkPrefixLen);
-  mangledName.writestring(thunkPrefix);
-  mangledName.writestring("6__vtblZ");
+  // define the global
+  const auto gvar = getInterfaceVtblSymbol(b, interfaces_index);
+  defineGlobal(gvar, vtbl_constant, cd);
+}
 
-  const auto irMangle = getIRMangledVarName(mangledName.peekString(), LINKd);
+void IrAggr::defineInterfaceVtbls() {
+  const size_t n = interfacesWithVtbls.size();
+  assert(n == stripModifiers(type)->ctype->isClass()->getNumInterfaceVtbls() &&
+         "inconsistent number of interface vtables in this class");
 
-  const auto lwc = DtoLinkage(cd);
-  LLGlobalVariable *GV =
-      getOrCreateGlobal(cd->loc, gIR->module, vtbl_constant->getType(), true,
-                        lwc.first, vtbl_constant, irMangle);
-  setLinkage(lwc, GV);
+  for (size_t i = 0; i < n; ++i) {
+    auto baseClass = interfacesWithVtbls[i];
 
-  // insert into the vtbl map
-  interfaceVtblMap.insert({{b->sym, interfaces_index}, GV});
+    // false when it's not okay to use functions from super classes
+    bool newinsts = (baseClass->sym == aggrdecl->isClassDeclaration());
 
-  return GV;
+    defineInterfaceVtbl(baseClass, newinsts, i);
+  }
 }
 
 bool IrAggr::isPacked() const {
@@ -552,8 +571,7 @@ LLConstant *IrAggr::getClassInfoInterfaces() {
   // create and apply initializer
   LLConstant *arr = LLConstantArray::get(array_type, constants);
   auto ciarr = getInterfaceArraySymbol();
-  ciarr->setInitializer(arr);
-  setLinkage(cd, ciarr);
+  defineGlobal(ciarr, arr, cd);
 
   // return null, only baseclass provide interfaces
   if (cd->vtblInterfaces->dim == 0) {

@@ -161,31 +161,36 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
 
     LLGlobalVariable *ci;
     if (p.cd->isCPPclass()) {
-      const char *name = Target::cppTypeInfoMangle(p.cd);
-      auto cpp_ti = getOrCreateGlobal(
-          p.cd->loc, irs.module, getVoidPtrType(), /*isConstant=*/true,
-          LLGlobalValue::ExternalLinkage, /*init=*/nullptr, name);
+      // Wrap std::type_info pointers inside a __cpp_type_info_ptr class
+      // instance so that the personality routine may differentiate C++ catch
+      // clauses from D ones.
+      OutBuffer wrapperMangleBuf;
+      wrapperMangleBuf.writestring("_D");
+      mangleToBuffer(p.cd, &wrapperMangleBuf);
+      wrapperMangleBuf.printf("%d%s", 18, "_cpp_type_info_ptr");
+      const auto wrapperMangle =
+          getIRMangledVarName(wrapperMangleBuf.peekString(), LINKd);
 
-      // Wrap std::type_info pointers inside a __cpp_type_info_ptr class instance so that
-      // the personality routine may differentiate C++ catch clauses from D ones.
-      OutBuffer mangleBuf;
-      mangleBuf.writestring("_D");
-      mangleToBuffer(p.cd, &mangleBuf);
-      mangleBuf.printf("%d%s", 18, "_cpp_type_info_ptr");
-      const auto wrapperMangle = getIRMangledVarName(mangleBuf.peekString(), LINKd);
+      ci = irs.module.getGlobalVariable(wrapperMangle);
+      if (!ci) {
+        const char *name = Target::cppTypeInfoMangle(p.cd);
+        auto cpp_ti =
+            declareGlobal(p.cd->loc, irs.module, getVoidPtrType(), name,
+                          /*isConstant=*/true);
 
-      const auto cppTypeInfoPtrType = getCppTypeInfoPtrType();
-      RTTIBuilder b(cppTypeInfoPtrType);
-      b.push(cpp_ti);
+        const auto cppTypeInfoPtrType = getCppTypeInfoPtrType();
+        RTTIBuilder b(cppTypeInfoPtrType);
+        b.push(cpp_ti);
 
-      auto wrapperType = llvm::cast<llvm::StructType>(
-          static_cast<IrTypeClass *>(cppTypeInfoPtrType->ctype)
-              ->getMemoryLLType());
-      auto wrapperInit = b.get_constant(wrapperType);
+        auto wrapperType = llvm::cast<llvm::StructType>(
+            static_cast<IrTypeClass *>(cppTypeInfoPtrType->ctype)
+                ->getMemoryLLType());
+        auto wrapperInit = b.get_constant(wrapperType);
 
-      ci = getOrCreateGlobal(
-          p.cd->loc, irs.module, wrapperType, /*isConstant=*/true,
-          LLGlobalValue::LinkOnceODRLinkage, wrapperInit, wrapperMangle);
+        ci = defineGlobal(p.cd->loc, irs.module, wrapperMangle, wrapperInit,
+                          LLGlobalValue::LinkOnceODRLinkage,
+                          /*isConstant=*/true);
+      }
     } else {
       ci = getIrAggr(p.cd)->getClassInfoSymbol();
     }
