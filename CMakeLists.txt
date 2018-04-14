@@ -24,11 +24,16 @@ endif()
 #
 
 find_package(LLVM 3.7 REQUIRED
-    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel instcombine ipa ipo instrumentation irreader libdriver linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
+    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core
+    debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel
+    instcombine ipa ipo instrumentation irreader libdriver linker lto mc
+    mcdisassembler mcparser objcarcopts object option profiledata scalaropts
+    selectiondag support tablegen target transformutils vectorize
+    windowsmanifest ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 # Remove LLVMTableGen library from list of libraries
-string(REGEX MATCH "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" LLVM_TABLEGEN_LIBRARY "${LLVM_LIBRARIES}")
-string(REGEX REPLACE "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" "" LLVM_LIBRARIES "${LLVM_LIBRARIES}")
+string(REGEX MATCH "[^;]*LLVMTableGen[^;]*" LLVM_TABLEGEN_LIBRARY "${LLVM_LIBRARIES}")
+string(REGEX REPLACE "[^;]*LLVMTableGen[^;]*;?" "" LLVM_LIBRARIES "${LLVM_LIBRARIES}")
 
 # Information about which targets LLVM was built to target
 foreach(LLVM_SUPPORTED_TARGET ${LLVM_TARGETS_TO_BUILD})
@@ -223,6 +228,11 @@ endif()
 append("${SANITIZE_CXXFLAGS}" LDC_CXXFLAGS)
 # LLVM_CXXFLAGS may contain -Werror which causes compile errors with dmd source
 string(REPLACE "-Werror " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+# LLVM_CXXFLAGS may contain -Werror=unguarded-availability-new which requires
+# more recent gcc versions (not supported by 4.9)
+if(CMAKE_COMPILER_IS_GNUCXX)
+    string(REPLACE "-Werror=unguarded-availability-new " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+endif()
 if (UNIX AND NOT "${LLVM_LDFLAGS}" STREQUAL "")
     # LLVM_LDFLAGS may contain -l-lld which is a wrong library reference (AIX)
     string(REPLACE "-l-lld " "-lld " LLVM_LDFLAGS ${LLVM_LDFLAGS})
@@ -432,7 +442,11 @@ if(NOT DEFINED LDC_WITH_LLD)
             set(CMAKE_REQUIRED_FLAGS -std=c++11)
         endif()
         set(CMAKE_REQUIRED_INCLUDES ${LLVM_INCLUDE_DIRS})
-        CHECK_INCLUDE_FILE_CXX(lld/Driver/Driver.h LDC_WITH_LLD)
+        if(NOT (LDC_LLVM_VER LESS 600))
+            CHECK_INCLUDE_FILE_CXX(lld/Common/Driver.h LDC_WITH_LLD)
+        else()
+            CHECK_INCLUDE_FILE_CXX(lld/Driver/Driver.h LDC_WITH_LLD)
+        endif()
         unset(CMAKE_REQUIRED_FLAGS)
         unset(CMAKE_REQUIRED_INCLUDES)
     else()
@@ -548,10 +562,20 @@ add_custom_target(${LDMD_EXE} ALL DEPENDS ${LDMD_EXE_FULL})
 # LLVM flags into account.
 set(LDC_LINKERFLAG_LIST "${SANITIZE_LDFLAGS};${LLVM_LIBRARIES};${LLVM_LDFLAGS}")
 if(LDC_WITH_LLD)
-    if(MSVC)
-        list(APPEND LDC_LINKERFLAG_LIST lldCOFF.lib lldCore.lib lldDriver.lib)
+    if(NOT (LDC_LLVM_VER LESS 600))
+        if(MSVC)
+            list(APPEND LDC_LINKERFLAG_LIST lldCOFF.lib lldCommon.lib lldCore.lib lldDriver.lib)
+        elseif(APPLE)
+            set(LDC_LINKERFLAG_LIST "-llldCOFF;-llldCommon;-llldCore;-llldDriver;${LDC_LINKERFLAG_LIST};-lxml2")
+        else()
+            set(LDC_LINKERFLAG_LIST "-llldCOFF;-llldCommon;-llldCore;-llldDriver;${LDC_LINKERFLAG_LIST}")
+        endif()
     else()
-        set(LDC_LINKERFLAG_LIST "-llldCOFF;-llldCore;-llldDriver;${LDC_LINKERFLAG_LIST}")
+        if(MSVC)
+            list(APPEND LDC_LINKERFLAG_LIST lldCOFF.lib lldCore.lib lldDriver.lib)
+        else()
+            set(LDC_LINKERFLAG_LIST "-llldCOFF;-llldCore;-llldDriver;${LDC_LINKERFLAG_LIST}")
+        endif()
     endif()
 endif()
 

@@ -1,4 +1,5 @@
 // REQUIRES: atleast_llvm500
+// REQUIRES: atmost_llvm501
 // REQUIRES: Windows
 // REQUIRES: cdb
 // RUN: %ldc -g -of=%t.exe %s
@@ -13,7 +14,7 @@
 void encloser(int arg0, ref int arg1)
 {
     int enc_n = 123;
-// CDB: bp `nested_cdb.d:16`
+// CDB: bp `nested_cdb.d:17`
 // CDB: g
 // CDB: dv /t
 // CHECK: int arg0 = 0n1
@@ -27,7 +28,7 @@ void encloser(int arg0, ref int arg1)
     void nested(int nes_i)
     {
         int blub = arg0 + arg1 + enc_n;
-// CDB: bp `nested_cdb.d:30`
+// CDB: bp `nested_cdb.d:31`
 // CDB: g
 // CDB: dv /t
 // CHECK: int arg0 = 0n1
@@ -36,7 +37,7 @@ void encloser(int arg0, ref int arg1)
 // CDB: ?? *arg1
 // CHECK: int 0n2
         arg0 = arg1 = enc_n = nes_i;
-// CDB: bp `nested_cdb.d:39`
+// CDB: bp `nested_cdb.d:40`
 // CDB: g
 // CDB: dv /t
 // CHECK: int arg0 = 0n456
@@ -47,7 +48,7 @@ void encloser(int arg0, ref int arg1)
     }
 
     nested(456);
-// CDB: bp `nested_cdb.d:50`
+// CDB: bp `nested_cdb.d:51`
 // CDB: g
 // CDB: dv /t
 // the following values are garbage on Win32...
