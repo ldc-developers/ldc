@@ -52,7 +52,7 @@ commonSteps: &commonSteps
             echo "Using LLVM with enabled assertions"
             assertsSuffix="-withAsserts"
           fi
-          curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/CI/llvm-8d99668b-$CI_OS-x86_64$assertsSuffix-20180309.tar.xz
+          curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$CI_OS-x86_64$assertsSuffix.tar.xz
           tar -xf llvm.tar.xz --strip 1 -C llvm-$LLVM_VERSION
           rm llvm.tar.xz
     - run:
