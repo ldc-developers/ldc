@@ -108,12 +108,14 @@ Statement *asmSemantic(AsmStatement *s, Scope *sc) {
   llvm::Triple const &t = *global.params.targetTriple;
   if (!(t.getArch() == llvm::Triple::x86 ||
         t.getArch() == llvm::Triple::x86_64)) {
-    s->error("inline asm is not supported for the \"%s\" architecture",
+    s->error("the `asm` statement is not supported for the \"%s\" "
+             "architecture, use `ldc.llvmasm.__asm` instead",
              t.getArchName().str().c_str());
     err = true;
   }
   if (!global.params.useInlineAsm) {
-    s->error("inline asm is not allowed when the -noasm switch is used");
+    s->error(
+        "the `asm` statement is not allowed when the -noasm switch is used");
     err = true;
   }
   if (err) {

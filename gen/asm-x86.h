@@ -39,6 +39,7 @@ typedef enum {
   Reg_EDI,
   Reg_EBP,
   Reg_ESP,
+  Reg_EIP,
   Reg_ST,
   Reg_ST1,
   Reg_ST2,
@@ -160,9 +161,9 @@ typedef enum {
   Reg_TR7
 } Reg;
 
-static const int N_Regs = /*gp*/ 8 + /*fp*/ 8 + /*mmx*/ 8 + /*sse*/ 8 +
+static const int N_Regs = /*gp*/ 8 + /*EIP*/ 1 + /*fp*/ 8 + /*mmx*/ 8 + /*sse*/ 8 +
                           /*seg*/ 6 + /*16bit*/ 8 + /*8bit*/ 8 + /*sys*/ 4 + 6 +
-                          5 + /*flags*/ +1
+                          5 + /*flags*/ 1
 #ifdef ASM_X86_64
                           + 8 /*RAX, etc*/
                           + 8 /*R8-15*/
@@ -193,6 +194,7 @@ static struct {
     {"EDI", NULL_TREE, nullptr, 4, Reg_EDI},
     {"EBP", NULL_TREE, nullptr, 4, Reg_EBP},
     {"ESP", NULL_TREE, nullptr, 4, Reg_ESP},
+    {"EIP", NULL_TREE, nullptr, 4, Reg_EIP},
     {"ST", NULL_TREE, nullptr, 10, Reg_ST},
     {"ST(1)", NULL_TREE, nullptr, 10, Reg_ST1},
     {"ST(2)", NULL_TREE, nullptr, 10, Reg_ST2},

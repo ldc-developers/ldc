@@ -526,17 +526,15 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
                        "overrides the existing list instead of appending to "
                        "it. Please use the latter instead.");
   } else if (!global.params.betterC) {
-    if (linkDefaultLibShared && staticFlag == cl::BOU_TRUE) {
-      error(Loc(), "Can't use -link-defaultlib-shared and -static together");
-    }
-
     const bool addDebugSuffix =
         (linkDefaultLibDebug && debugLib.getNumOccurrences() == 0);
-    // Default to shared default libs for DLLs compiled without -static.
+
+    // -static enforces static default libs.
+    // Default to shared default libs for DLLs.
     const bool addSharedSuffix =
-        linkDefaultLibShared ||
-        (linkDefaultLibShared.getNumOccurrences() == 0 && global.params.dll &&
-         staticFlag != cl::BOU_TRUE);
+        staticFlag != cl::BOU_TRUE &&
+        (linkDefaultLibShared ||
+         (linkDefaultLibShared.getNumOccurrences() == 0 && global.params.dll));
 
     // Parse comma-separated default library list.
     std::stringstream libNames(
@@ -1030,7 +1028,7 @@ int cppmain(int argc, char **argv) {
       return EXIT_SUCCESS;
     }
 
-    cl::PrintHelpMessage();
+    cl::PrintHelpMessage(/*Hidden=*/false, /*Categorized=*/true);
     return EXIT_FAILURE;
   }
 

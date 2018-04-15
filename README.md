@@ -45,16 +45,17 @@ can also be used to install LDC:
 
 In addition, LDC is available from various package managers:
 
-|              | Command                                     |
-| ------------ | ------------------------------------------- |
-| Arch Linux   | `pacman -S ldc`                             |
-| Debian       | `apt install ldc`                           |
-| Fedora       | `dnf install ldc`                           |
-| Gentoo       | `layman -a ldc`                             |
-| Homebrew     | `brew install ldc`                          |
-| Ubuntu       | `apt install ldc`                           |
+|              | Command                                      |
+| ------------ | -------------------------------------------- |
+| Arch Linux   | `pacman -S ldc`                              |
+| Debian       | `apt install ldc`                            |
+| Fedora       | `dnf install ldc`                            |
+| Gentoo       | `layman -a ldc`                              |
+| Homebrew     | `brew install ldc`                           |
+| Ubuntu       | `apt install ldc`                            |
 | Snap         | `snap install --classic --channel=edge ldc2` |
-| Nix/NixOS    | `nix-env -i ldc`                           |
+| Nix/NixOS    | `nix-env -i ldc`                             |
+| Chocolatey   | `choco ldc`                                  |
 
 Note that these packages **might be outdated** as they are not
 currently integrated into the project release process.

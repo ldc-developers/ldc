@@ -122,6 +122,10 @@ else()
         # Versions below 4.0 do not support component debuginfomsf
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfomsf" index)
     endif()
+    if(${LLVM_VERSION_STRING} MATCHES "^[3-5]\\..*")
+        # Versions below 6.0 do not support component windowsmanifest
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "windowsmanifest" index)
+    endif()
 
     llvm_set(LDFLAGS ldflags)
     # In LLVM 3.5+, the system library dependencies (e.g. "-lz") are accessed

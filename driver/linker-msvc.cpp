@@ -18,7 +18,11 @@
 #include "llvm/Support/FileSystem.h"
 
 #if LDC_WITH_LLD
+#if LDC_LLVM_VER >= 600
+#include "lld/Common/Driver.h"
+#else
 #include "lld/Driver/Driver.h"
+#endif
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
@@ -195,7 +199,11 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
     const auto fullArgs =
         getFullArgs("lld-link.exe", args, global.params.verbose);
 
+#if LDC_LLVM_VER >= 600
+    const bool success = lld::coff::link(fullArgs, /*CanExitEarly=*/false);
+#else
     const bool success = lld::coff::link(fullArgs);
+#endif
     if (!success)
       error(Loc(), "linking with LLD failed");
 

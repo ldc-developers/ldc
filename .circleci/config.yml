@@ -255,8 +255,8 @@ jobs:
       - image: ubuntu:14.04
     environment:
       - CI_OS: linux
-      - LLVM_VERSION: 5.0.1
-      - HOST_LDC_VERSION: 1.6.0
+      - LLVM_VERSION: 6.0.0
+      - HOST_LDC_VERSION: 1.8.0
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
       - DUB_VERSION: v1.7.2
   build-osx:
@@ -267,8 +267,8 @@ jobs:
       - CI_OS: osx
       - MACOSX_DEPLOYMENT_TARGET: 10.8
       - USE_LIBCPP: true
-      - LLVM_VERSION: 5.0.1
-      - HOST_LDC_VERSION: 1.6.0
+      - LLVM_VERSION: 6.0.0
+      - HOST_LDC_VERSION: 1.8.0
       - BOOTSTRAP_CMAKE_FLAGS: "-DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
       - DUB_VERSION: v1.7.2
