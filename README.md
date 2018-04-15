@@ -56,6 +56,7 @@ In addition, LDC is available from various package managers:
 | Snap         | `snap install --classic --channel=edge ldc2` |
 | Nix/NixOS    | `nix-env -i ldc`                             |
 | Chocolatey   | `choco ldc`                                  |
+| Docker       | `docker pull dlanguage/ldc`                  |
 
 Note that these packages **might be outdated** as they are not
 currently integrated into the project release process.
