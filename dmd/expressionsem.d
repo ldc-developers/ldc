@@ -2357,7 +2357,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                 {
                     foreach (arg; *exp.arguments)
                     {
-                        if (checkReturnEscape(sc, arg, false))
+                        if (arg && checkReturnEscape(sc, arg, false))
                             return setError();
                     }
                 }
@@ -5143,6 +5143,16 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
 
     override void visit(DeleteExp exp)
     {
+        if (!sc.isDeprecated)
+        {
+            // @@@DEPRECATED_2019-02@@@
+            // 1. Deprecation for 1 year
+            // 2. Error for 1 year
+            // 3. Removal of keyword, "delete" can be used for other identities
+            if (!exp.isRAII)
+                deprecation(exp.loc, "The `delete` keyword has been deprecated.  Use `object.destroy()` (and `core.memory.GC.free()` if applicable) instead.");
+        }
+
         if (Expression ex = unaSemantic(exp, sc))
         {
             result = ex;
