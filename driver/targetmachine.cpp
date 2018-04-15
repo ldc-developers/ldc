@@ -351,7 +351,11 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
 #else
                     llvm::Reloc::Model relocModel,
 #endif
-                    const llvm::CodeModel::Model codeModel,
+#if LDC_LLVM_VER >= 600
+                    llvm::Optional<llvm::CodeModel::Model> codeModel,
+#else
+                    llvm::CodeModel::Model codeModel,
+#endif
                     const llvm::CodeGenOpt::Level codeGenOptLevel,
                     const bool noLinkerStripDead) {
   // Determine target triple. If the user didn't explicitly specify one, use
@@ -513,7 +517,7 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
   }
 
   return target->createTargetMachine(triple.str(), cpu, finalFeaturesString,
-                                     targetOptions, relocModel, opts::getCodeModel(),
+                                     targetOptions, relocModel, codeModel,
                                      codeGenOptLevel);
 }
 

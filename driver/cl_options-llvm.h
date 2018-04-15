@@ -23,7 +23,11 @@ llvm::Optional<llvm::Reloc::Model> getRelocModel();
 #else
 llvm::Reloc::Model getRelocModel();
 #endif
+#if LDC_LLVM_VER >= 600
+llvm::Optional<llvm::CodeModel::Model> getCodeModel();
+#else
 llvm::CodeModel::Model getCodeModel();
+#endif
 llvm::cl::boolOrDefault disableFPElim();
 bool disableRedZone();
 bool printTargetFeaturesHelp();

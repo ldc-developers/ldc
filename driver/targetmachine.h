@@ -62,7 +62,11 @@ createTargetMachine(std::string targetTriple, std::string arch, std::string cpu,
 #else
                     llvm::Reloc::Model relocModel,
 #endif
+#if LDC_LLVM_VER >= 600
+                    llvm::Optional<llvm::CodeModel::Model> codeModel,
+#else
                     llvm::CodeModel::Model codeModel,
+#endif
                     llvm::CodeGenOpt::Level codeGenOptLevel,
                     bool noLinkerStripDead);
 
