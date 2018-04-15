@@ -102,7 +102,6 @@ void ensurePathToNameExists(Loc loc, const char *name);
 
 #if IN_LLVM
 int mars_mainBody(Strings &files, Strings &libmodules);
-void printPredefinedVersions();
 #endif
 
 const char *importHint(const char *s);

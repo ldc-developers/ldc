@@ -39,13 +39,15 @@ void Target::_init() {
 
   cppExceptions = true;
 
-  c_longsize = global.params.is64bit ? 8 : 4;
+  c_longsize =
+      global.params.is64bit && !triple.isWindowsMSVCEnvironment() ? 8 : 4;
   c_long_doublesize = realsize;
   classinfosize = 0; // unused
   maxStaticDataSize = std::numeric_limits<unsigned long long>::max();
 
-  int64Mangle = triple.isOSDarwin() ? 'x' : 'l';
-  uint64Mangle = triple.isOSDarwin() ? 'y' : 'm';
+  // These C++ mangling characters are only used for 64-bit POSIX targets.
+  int64Mangle = 'l';  // C++ long
+  uint64Mangle = 'm'; // C++ unsigned long
 
   // {Float,Double,Real}Properties have been initialized with the D host
   // compiler's properties.
