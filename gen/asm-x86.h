@@ -2558,12 +2558,7 @@ struct AsmProcessor {
         type_suffix = 'l';
         break;
       case Extended_Ptr:
-        // MS C runtime: real = 64-bit double
-        if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
-          type_suffix = 'l';
-        } else {
-          type_suffix = 't';
-        }
+        type_suffix = 't';
         break;
       default:
         return false;
@@ -3195,7 +3190,8 @@ struct AsmProcessor {
           // Tfloat64
           TY ty = v->type->toBasetype()->ty;
           operand->dataSizeHint =
-              ty == Tfloat80 || ty == Timaginary80
+              (ty == Tfloat80 || ty == Timaginary80) &&
+                      !global.params.targetTriple->isWindowsMSVCEnvironment()
                   ? Extended_Ptr
                   : static_cast<PtrType>(v->type->size(Loc()));
         }
@@ -3616,7 +3612,9 @@ struct AsmProcessor {
     case TOKfloat64:
       return Double_Ptr;
     case TOKfloat80:
-      return Extended_Ptr;
+      return global.params.targetTriple->isWindowsMSVCEnvironment()
+                 ? Double_Ptr
+                 : Extended_Ptr;
     case TOKidentifier:
       for (int i = 0; i < N_PtrNames; i++) {
         if (tok->ident == ptrTypeIdentTable[i]) {
