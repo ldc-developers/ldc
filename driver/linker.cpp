@@ -22,7 +22,7 @@
 
 #if LDC_WITH_LLD
 static llvm::cl::opt<bool>
-    useInternalLinker("link-internally", llvm::cl::ZeroOrMore, llvm::cl::Hidden,
+    useInternalLinker("link-internally", llvm::cl::ZeroOrMore,
                       llvm::cl::desc("Use internal LLD for linking"),
                       llvm::cl::cat(opts::linkingCategory));
 #else
