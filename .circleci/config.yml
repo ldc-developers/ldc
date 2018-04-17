@@ -155,13 +155,21 @@ commonSteps: &commonSteps
           cd ..
           altLibSuffix="32"
           if [ "$CI_OS" = "osx" ]; then
-              altLibSuffix=""
+            altLibSuffix=""
           fi
           echo 'void main() { import std.stdio; writeln("Hello world, ", size_t.sizeof * 8, " bits"); }' > hello.d
           $LDC_INSTALL_DIR/bin/ldc2 hello.d -m64 -of=hello64 -link-defaultlib-shared -L-Wl,-rpath,$LDC_INSTALL_DIR/lib
-          $LDC_INSTALL_DIR/bin/ldc2 hello.d -m32 -of=hello32 -link-defaultlib-shared -L-Wl,-rpath,$LDC_INSTALL_DIR/lib$altLibSuffix
           ./hello64
+          $LDC_INSTALL_DIR/bin/ldc2 hello.d -m32 -of=hello32 -link-defaultlib-shared -L-Wl,-rpath,$LDC_INSTALL_DIR/lib$altLibSuffix
           ./hello32
+    - run:
+        name: Hello world integration test with LTO
+        command: |
+          cd ..
+          $LDC_INSTALL_DIR/bin/ldc2 hello.d -of=hello_thin -flto=thin -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
+          ./hello_thin
+          $LDC_INSTALL_DIR/bin/ldc2 hello.d -of=hello_full -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
+          ./hello_full
     - run:
         name: Build dub
         command: |
@@ -245,7 +253,7 @@ jobs:
       - CI_OS: linux
       - LLVM_VERSION: 6.0.0
       - HOST_LDC_VERSION: 1.8.0
-      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
+      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_LTO_LIBS=ON -DD_FLAGS='-w;-flto=thin' -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
       - DUB_VERSION: v1.7.2
   build-osx:
     <<: *commonSteps
@@ -258,7 +266,7 @@ jobs:
       - LLVM_VERSION: 6.0.0
       - HOST_LDC_VERSION: 1.8.0
       - BOOTSTRAP_CMAKE_FLAGS: "-DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
-      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
+      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_LTO_LIBS=ON -DD_FLAGS='-w;-flto=thin' -DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
       - DUB_VERSION: v1.7.2
 
 workflows:

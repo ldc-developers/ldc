@@ -58,16 +58,12 @@ if(LDC_DYNAMIC_COMPILE)
         set(output_path ${CMAKE_BINARY_DIR}/lib${path_suffix})
 
         add_library(ldc-jit-rt-so${target_suffix} SHARED ${LDC_JITRT_SO_CXX} ${LDC_JITRT_SO_H})
-        set_target_properties(
-            ldc-jit-rt-so${target_suffix} PROPERTIES
-            OUTPUT_NAME                 ldc-jit
-            ARCHIVE_OUTPUT_DIRECTORY    ${output_path}
-            LIBRARY_OUTPUT_DIRECTORY    ${output_path}
-            RUNTIME_OUTPUT_DIRECTORY    ${output_path}
-            COMPILE_FLAGS               "${c_flags} ${LDC_CXXFLAGS} ${LLVM_CXXFLAGS} ${JITRT_EXTRA_FLAGS}"
-            LINK_FLAGS                  "${ld_flags} ${JITRT_EXTRA_LDFLAGS}"
+        set_common_library_properties(ldc-jit-rt-so${target_suffix}
+            ldc-jit ${output_path}
+            "${c_flags} ${LDC_CXXFLAGS} ${LLVM_CXXFLAGS} ${JITRT_EXTRA_FLAGS}"
+            "${ld_flags} ${JITRT_EXTRA_LDFLAGS}"
+            ON
         )
-        set_common_library_properties(ldc-jit-rt-so${target_suffix} ON)
 
         target_link_libraries(ldc-jit-rt-so${target_suffix} ${JITRT_LLVM_LIBS})
 
@@ -76,16 +72,12 @@ if(LDC_DYNAMIC_COMPILE)
         compile_jit_rt_D("-enable-dynamic-compile;${d_flags}" "" "${path_suffix}" "${COMPILE_ALL_D_FILES_AT_ONCE}" jitrt_d_o jitrt_d_bc)
 
         add_library(ldc-jit-rt${target_suffix} STATIC ${jitrt_d_o} ${LDC_JITRT_CXX} ${LDC_JITRT_H})
-        set_target_properties(
-            ldc-jit-rt${target_suffix} PROPERTIES
-            OUTPUT_NAME                 ldc-jit-rt
-            ARCHIVE_OUTPUT_DIRECTORY    ${output_path}
-            LIBRARY_OUTPUT_DIRECTORY    ${output_path}
-            RUNTIME_OUTPUT_DIRECTORY    ${output_path}
-            COMPILE_FLAGS               "${c_flags} ${JITRT_EXTRA_FLAGS}"
-            LINK_FLAGS                  "${ld_flags} ${JITRT_EXTRA_LDFLAGS}"
+        set_common_library_properties(ldc-jit-rt${target_suffix}
+            ldc-jit-rt ${output_path}
+            "${c_flags} ${JITRT_EXTRA_FLAGS}"
+            "${ld_flags} ${JITRT_EXTRA_LDFLAGS}"
+            OFF
         )
-        set_common_library_properties(ldc-jit-rt${target_suffix} OFF)
 
         target_link_libraries(ldc-jit-rt${target_suffix} ldc-jit-rt-so${target_suffix})
 
