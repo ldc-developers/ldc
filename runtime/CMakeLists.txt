@@ -679,19 +679,9 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
         )
 
         set(target_name "")
-        set(lib_extension "")
         get_filename_component(target_name ${lib} NAME_WE)
-        get_filename_component(lib_extension ${lib} EXT)
 
         add_custom_target(${target_name} ALL DEPENDS ${final_path})
-
-        # For merged dylibs, set install_name to "@rpath/<filename>".
-        if(${lib_extension} STREQUAL ".dylib")
-            add_custom_command(
-                TARGET ${target_name} POST_BUILD
-                COMMAND install_name_tool -id "@rpath/lib${lib}" ${final_path}
-            )
-        endif()
 
         install(FILES       ${final_path}
                 DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
