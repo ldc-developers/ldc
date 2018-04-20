@@ -8,11 +8,13 @@ default:
     switches = [
         "-I@RUNTIME_DIR@/src",
         "-I@JITRT_DIR@/d",
-        "-I@PHOBOS2_DIR@",@SHARED_LIBS_RPATH@
+        "-I@PHOBOS2_DIR@",
         "-defaultlib=phobos2-ldc,druntime-ldc"@ADDITIONAL_DEFAULT_LDC_SWITCHES@
     ];
     // default switches appended after all explicit command-line switches
     post-switches = [
         "-L-L@CMAKE_BINARY_DIR@/lib@LIB_SUFFIX@",@MULTILIB_ADDITIONAL_PATH@
     ];
+    // default rpath when linking against the shared default libs
+    rpath = "@SHARED_LIBS_RPATH@";
 };

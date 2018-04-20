@@ -11,8 +11,10 @@
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
+#include "driver/configfile.h"
 #include "driver/exe_path.h"
 #include "driver/ldc-version.h"
+#include "driver/linker.h"
 #include "driver/tool.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
@@ -476,9 +478,16 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   addLinker();
   addUserSwitches();
 
-  // libs added via pragma(lib, libname)
+  // default libs and libs added via pragma(lib, libname)
   for (auto ls : global.params.linkswitches) {
     args.push_back(ls);
+  }
+
+  // -rpath if linking against shared default libs
+  if (willLinkAgainstSharedDefaultLibs()) {
+    const std::string rpath = ConfigFile::instance.rpath();
+    if (!rpath.empty())
+      addLdFlag("-rpath", rpath);
   }
 
   if (global.params.targetTriple->getOS() == llvm::Triple::Linux) {
