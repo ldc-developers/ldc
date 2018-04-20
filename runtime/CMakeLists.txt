@@ -251,14 +251,14 @@ if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
     set(MULTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
 endif()
 
-# Set the -rpath linker option when shared runtime libraries are built.
-if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
+# Default -rpath linker option when linking against shared libraries.
+if(SHARED_LIBS_SUPPORTED)
     if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
-        set(SHARED_LIBS_RPATH         "\n        \"-L-rpath\", \"-L${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}:${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",")
-        set(SHARED_LIBS_INSTALL_RPATH "\n        \"-L-rpath\", \"-L${CMAKE_INSTALL_LIBDIR}:${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",")
+        set(SHARED_LIBS_RPATH         "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}:${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}")
+        set(SHARED_LIBS_INSTALL_RPATH "${CMAKE_INSTALL_LIBDIR}:${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}")
     else()
-        set(SHARED_LIBS_RPATH         "\n        \"-L-rpath\", \"-L${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}\",")
-        set(SHARED_LIBS_INSTALL_RPATH "\n        \"-L-rpath\", \"-L${CMAKE_INSTALL_LIBDIR}\",")
+        set(SHARED_LIBS_RPATH         "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
+        set(SHARED_LIBS_INSTALL_RPATH "${CMAKE_INSTALL_LIBDIR}")
     endif()
 endif()
 

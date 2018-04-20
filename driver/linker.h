@@ -23,6 +23,12 @@ class LLVMContext;
 template <typename TYPE> struct Array;
 
 /**
+ * Indicates whether the command-line options select shared druntime/Phobos for
+ * linking.
+ */
+bool willLinkAgainstSharedDefaultLibs();
+
+/**
  * Inserts bitcode files passed on the commandline into a module.
  */
 void insertBitcodeFiles(llvm::Module &M, llvm::LLVMContext &Ctx,

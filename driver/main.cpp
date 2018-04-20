@@ -119,11 +119,6 @@ static cl::alias _linkDebugLib("link-debuglib", cl::Hidden,
                                cl::desc("Alias for -link-defaultlib-debug"),
                                cl::cat(linkingCategory));
 
-static cl::opt<bool> linkDefaultLibShared(
-    "link-defaultlib-shared", cl::ZeroOrMore,
-    cl::desc("Link with shared versions of default libraries"),
-    cl::cat(linkingCategory));
-
 // This function exits the program.
 void printVersion(llvm::raw_ostream &OS) {
   OS << "LDC - the LLVM D compiler (" << global.ldc_version << "):\n";
@@ -325,7 +320,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   expandResponseFiles(allocator, allArguments);
 
   // read config file
-  ConfigFile cfg_file;
+  ConfigFile &cfg_file = ConfigFile::instance;
   const char *explicitConfFile = tryGetExplicitConfFile(allArguments);
   const std::string cfg_triple = tryGetExplicitTriple(allArguments).getTriple();
   // just ignore errors for now, they are still printed
@@ -502,13 +497,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   } else if (!global.params.betterC) {
     const bool addDebugSuffix =
         (linkDefaultLibDebug && debugLib.getNumOccurrences() == 0);
-
-    // -static enforces static default libs.
-    // Default to shared default libs for DLLs.
-    const bool addSharedSuffix =
-        staticFlag != cl::BOU_TRUE &&
-        (linkDefaultLibShared ||
-         (linkDefaultLibShared.getNumOccurrences() == 0 && global.params.dll));
+    const bool addSharedSuffix = willLinkAgainstSharedDefaultLibs();
 
     // Parse comma-separated default library list.
     std::stringstream libNames(

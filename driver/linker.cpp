@@ -18,26 +18,38 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/SourceMgr.h"
 
+namespace cl = llvm::cl;
+
 //////////////////////////////////////////////////////////////////////////////
 
 #if LDC_WITH_LLD
-static llvm::cl::opt<bool>
-    useInternalLinker("link-internally", llvm::cl::ZeroOrMore,
-                      llvm::cl::desc("Use internal LLD for linking"),
-                      llvm::cl::cat(opts::linkingCategory));
+static cl::opt<bool> useInternalLinker("link-internally", cl::ZeroOrMore,
+                                       cl::desc("Use internal LLD for linking"),
+                                       cl::cat(opts::linkingCategory));
 #else
 constexpr bool useInternalLinker = false;
 #endif
+
+static cl::opt<cl::boolOrDefault>
+    staticFlag("static", cl::ZeroOrMore,
+               cl::desc("Create a statically linked binary, including "
+                        "all system dependencies"),
+               cl::cat(opts::linkingCategory));
+
+static cl::opt<cl::boolOrDefault> linkDefaultLibShared(
+    "link-defaultlib-shared", cl::ZeroOrMore,
+    cl::desc("Link with shared versions of default libraries"),
+    cl::cat(opts::linkingCategory));
 
 //////////////////////////////////////////////////////////////////////////////
 
 // linker-gcc.cpp
 int linkObjToBinaryGcc(llvm::StringRef outputPath, bool useInternalLinker,
-                       llvm::cl::boolOrDefault fullyStaticFlag);
+                       cl::boolOrDefault fullyStaticFlag);
 
 // linker-msvc.cpp
 int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
-                        llvm::cl::boolOrDefault fullyStaticFlag);
+                        cl::boolOrDefault fullyStaticFlag);
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -87,6 +99,16 @@ static std::string getOutputName() {
 
 //////////////////////////////////////////////////////////////////////////////
 
+bool willLinkAgainstSharedDefaultLibs() {
+  // -static enforces static default libs.
+  // Default to shared default libs for DLLs.
+  return staticFlag != cl::BOU_TRUE &&
+         (linkDefaultLibShared == cl::BOU_TRUE ||
+          (linkDefaultLibShared == cl::BOU_UNSET && global.params.dll));
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 /// Insert an LLVM bitcode file into the module
 static void insertBitcodeIntoModule(const char *bcFile, llvm::Module &M,
                                     llvm::LLVMContext &Context) {
@@ -130,10 +152,10 @@ int linkObjToBinary() {
   createDirectoryForFileOrFail(gExePath);
 
   if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
-    return linkObjToBinaryMSVC(gExePath, useInternalLinker, opts::staticFlag);
+    return linkObjToBinaryMSVC(gExePath, useInternalLinker, staticFlag);
   }
 
-  return linkObjToBinaryGcc(gExePath, useInternalLinker, opts::staticFlag);
+  return linkObjToBinaryGcc(gExePath, useInternalLinker, staticFlag);
 }
 
 //////////////////////////////////////////////////////////////////////////////
