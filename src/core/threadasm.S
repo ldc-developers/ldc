@@ -522,6 +522,10 @@ fiber_switchContext:
 
     addiu $sp, $sp, (10 * 4)
 
+    #ifdef __PIC__
+        move $t9, $ra
+    #endif
+
     jr $ra // return
 
 #elif defined(__arm__) && defined(__ARM_EABI__)
