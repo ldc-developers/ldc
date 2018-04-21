@@ -33,7 +33,11 @@ Optional<Reloc::Model> getRelocModel() { return ::getRelocModel(); }
 Reloc::Model getRelocModel() { return ::RelocModel; }
 #endif
 
+#if LDC_LLVM_VER >= 600
+Optional<CodeModel::Model> getCodeModel() { return ::getCodeModel(); }
+#else
 CodeModel::Model getCodeModel() { return ::CMModel; }
+#endif
 
 cl::boolOrDefault disableFPElim() {
   return ::DisableFPElim.getNumOccurrences() == 0
@@ -67,6 +71,12 @@ TargetOptions InitTargetOptionsFromCodeGenFlags() {
   return ::InitTargetOptionsFromCodeGenFlags();
 }
 
-CodeModel::Model GetCodeModelFromCMModel() { return CMModel; }
+#if LDC_LLVM_VER >= 600
+Optional<CodeModel::Model> GetCodeModelFromCMModel() {
+  return ::getCodeModel();
+}
+#else
+CodeModel::Model GetCodeModelFromCMModel() { return ::CMModel; }
+#endif
 }
 #endif // LDC_WITH_LLD && LDC_LLVM_VER >= 500

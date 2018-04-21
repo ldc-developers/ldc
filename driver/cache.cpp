@@ -312,7 +312,13 @@ void outputIR2ObjRelevantCmdlineArgs(llvm::raw_ostream &hash_os) {
 #else
   hash_os << opts::getRelocModel();
 #endif
+#if LDC_LLVM_VER >= 600
+  const auto codeModel = opts::getCodeModel();
+  if (codeModel.hasValue())
+    hash_os << codeModel.getValue();
+#else
   hash_os << opts::getCodeModel();
+#endif
   hash_os << opts::disableFPElim();
 }
 

@@ -13,6 +13,7 @@ include(CheckIncludeFileCXX)
 include(CheckLibraryExists)
 include(CheckCXXCompilerFlag)
 include(CheckDSourceCompiles)
+include(CheckLinkFlag)
 
 # The script currently only supports the DMD-style commandline interface
 if (NOT D_COMPILER_DMD_COMPAT)
@@ -450,14 +451,20 @@ if(NOT DEFINED LDC_WITH_LLD)
         endif()
         unset(CMAKE_REQUIRED_FLAGS)
         unset(CMAKE_REQUIRED_INCLUDES)
+        # translate 1/0 to ON/OFF
+        if(LDC_WITH_LLD)
+            set(LDC_WITH_LLD ON)
+        else()
+            set(LDC_WITH_LLD OFF)
+        endif()
     else()
         set(LDC_WITH_LLD OFF)
     endif()
 endif()
 if(LDC_WITH_LLD)
-    message(STATUS "Building LDC with LLD support")
     append("-DLDC_WITH_LLD" LDC_CXXFLAGS)
 endif()
+message(STATUS "Building LDC with integrated LLD: ${LDC_WITH_LLD} (LDC_WITH_LLD=${LDC_WITH_LLD})")
 
 #
 # Enable building with riscv-llvm, for full RISC-V support.
@@ -561,21 +568,23 @@ add_custom_target(${LDMD_EXE} ALL DEPENDS ${LDMD_EXE_FULL})
 
 # Figure out how to link the main LDC executable, for which we need to take the
 # LLVM flags into account.
-set(LDC_LINKERFLAG_LIST "${SANITIZE_LDFLAGS};${LLVM_LIBRARIES};${LLVM_LDFLAGS}")
+set(LDC_LINKERFLAG_LIST ${SANITIZE_LDFLAGS} ${LLVM_LIBRARIES} ${LLVM_LDFLAGS})
 if(LDC_WITH_LLD)
+    # ELF and Mach-O formats supported since LLD 6.0.0, otherwise just Windows COFF
     if(NOT (LDC_LLVM_VER LESS 600))
         if(MSVC)
-            list(APPEND LDC_LINKERFLAG_LIST lldCOFF.lib lldCommon.lib lldCore.lib lldDriver.lib)
-        elseif(APPLE)
-            set(LDC_LINKERFLAG_LIST "-llldCOFF;-llldCommon;-llldCore;-llldDriver;${LDC_LINKERFLAG_LIST};-lxml2")
+            list(APPEND LDC_LINKERFLAG_LIST lldDriver.lib lldCOFF.lib lldELF.lib lldMachO.lib lldYAML.lib lldReaderWriter.lib lldCommon.lib lldCore.lib)
         else()
-            set(LDC_LINKERFLAG_LIST "-llldCOFF;-llldCommon;-llldCore;-llldDriver;${LDC_LINKERFLAG_LIST}")
+            set(LDC_LINKERFLAG_LIST -llldDriver -llldCOFF -llldELF -llldMachO -llldYAML -llldReaderWriter -llldCommon -llldCore ${LDC_LINKERFLAG_LIST})
+        endif()
+        if(APPLE) # bug, should be fixed in LLVM 6.0.1
+            list(APPEND LDC_LINKERFLAG_LIST -lxml2)
         endif()
     else()
         if(MSVC)
             list(APPEND LDC_LINKERFLAG_LIST lldCOFF.lib lldCore.lib lldDriver.lib)
         else()
-            set(LDC_LINKERFLAG_LIST "-llldCOFF;-llldCore;-llldDriver;${LDC_LINKERFLAG_LIST}")
+            set(LDC_LINKERFLAG_LIST -llldCOFF -llldCore -llldDriver ${LDC_LINKERFLAG_LIST})
         endif()
     endif()
 endif()
@@ -589,12 +598,19 @@ endif()
 set(LDC_ENABLE_PLUGINS ${LDC_ENABLE_PLUGINS_DEFAULT} CACHE BOOL "Build LDC with plugin support (increases binary size)")
 if(LDC_ENABLE_PLUGINS)
     add_definitions(-DLDC_ENABLE_PLUGINS)
-    # For plugin support, we need to link with --export-dynamic on Unix.
-    if(UNIX AND NOT APPLE)
-        set(LDC_LINKERFLAG_LIST "${LDC_LINKERFLAG_LIST};-Wl,--export-dynamic")
+
+    if(APPLE)
+        # No extra link flags needed.
+    elseif(UNIX)
+        # For plugin support, we need to link with --export-dynamic on Unix.
+        # Make sure the linker supports --export-dynamic (on Solaris it is not supported and also not needed).
+        CHECK_LINK_FLAG("--export-dynamic" LINKER_ACCEPTS_EXPORT_DYNAMIC_FLAG)
+        if(LINKER_ACCEPTS_EXPORT_DYNAMIC_FLAG)
+            set(LDC_LINKERFLAG_LIST "${LDC_LINKERFLAG_LIST};-Wl,--export-dynamic")
+        endif()
     endif()
 endif()
-message(STATUS "Building LDC with plugin support ${LDC_ENABLE_PLUGINS} (LDC_ENABLE_PLUGINS=${LDC_ENABLE_PLUGINS})")
+message(STATUS "Building LDC with plugin support: ${LDC_ENABLE_PLUGINS} (LDC_ENABLE_PLUGINS=${LDC_ENABLE_PLUGINS})")
 
 set(LDC_LINK_MANUALLY OFF)
 if(UNIX AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")))
