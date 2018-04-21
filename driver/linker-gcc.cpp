@@ -52,7 +52,7 @@ public:
   virtual ~ArgsBuilder() = default;
 
   void build(llvm::StringRef outputPath,
-             llvm::cl::boolOrDefault fullyStaticFlag);
+             const std::vector<std::string> &defaultLibNames);
 
 private:
   virtual void addSanitizers(const llvm::Triple &triple);
@@ -64,7 +64,7 @@ private:
 
   virtual void addLinker();
   virtual void addUserSwitches();
-  void addDefaultLibs();
+  void addDefaultPlatformLibs();
   virtual void addTargetFlags();
 
 #if LDC_LLVM_VER >= 309
@@ -427,7 +427,7 @@ void ArgsBuilder::addSanitizers(const llvm::Triple &triple) {
 //////////////////////////////////////////////////////////////////////////////
 
 void ArgsBuilder::build(llvm::StringRef outputPath,
-                        llvm::cl::boolOrDefault fullyStaticFlag) {
+                        const std::vector<std::string> &defaultLibNames) {
   // object files
   for (auto objfile : global.params.objfiles) {
     args.push_back(objfile);
@@ -455,7 +455,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
     args.push_back("-shared");
   }
 
-  if (fullyStaticFlag == llvm::cl::BOU_TRUE) {
+  if (linkFullyStatic() == llvm::cl::BOU_TRUE) {
     args.push_back("-static");
   }
 
@@ -478,13 +478,18 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   addLinker();
   addUserSwitches();
 
-  // default libs and libs added via pragma(lib, libname)
+  // default libs
+  for (const auto &name : defaultLibNames) {
+    args.push_back("-l" + name);
+  }
+
+  // libs added via pragma(lib, libname)
   for (auto ls : global.params.linkswitches) {
     args.push_back(ls);
   }
 
   // -rpath if linking against shared default libs or ldc-jit
-  if (willLinkAgainstSharedDefaultLibs() || opts::enableDynamicCompile) {
+  if (linkAgainstSharedDefaultLibs() || opts::enableDynamicCompile) {
     const std::string rpath = ConfigFile::instance.rpath();
     if (!rpath.empty())
       addLdFlag("-rpath", rpath);
@@ -500,7 +505,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
     }
   }
 
-  addDefaultLibs();
+  addDefaultPlatformLibs();
 
   addTargetFlags();
 }
@@ -547,7 +552,7 @@ void ArgsBuilder::addUserSwitches() {
 
 //////////////////////////////////////////////////////////////////////////////
 
-void ArgsBuilder::addDefaultLibs() {
+void ArgsBuilder::addDefaultPlatformLibs() {
   bool addSoname = false;
 
   const auto &triple = *global.params.targetTriple;
@@ -639,12 +644,12 @@ class LdArgsBuilder : public ArgsBuilder {
 
 //////////////////////////////////////////////////////////////////////////////
 
-int linkObjToBinaryGcc(llvm::StringRef outputPath, bool useInternalLinker,
-                       llvm::cl::boolOrDefault fullyStaticFlag) {
+int linkObjToBinaryGcc(llvm::StringRef outputPath,
+                       const std::vector<std::string> &defaultLibNames) {
 #if LDC_WITH_LLD && LDC_LLVM_VER >= 600
-  if (useInternalLinker) {
+  if (useInternalLLDForLinking()) {
     LdArgsBuilder argsBuilder;
-    argsBuilder.build(outputPath, fullyStaticFlag);
+    argsBuilder.build(outputPath, defaultLibNames);
 
     const auto fullArgs =
         getFullArgs("ld.lld", argsBuilder.args, global.params.verbose);
@@ -670,7 +675,7 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath, bool useInternalLinker,
 
   // build arguments
   ArgsBuilder argsBuilder;
-  argsBuilder.build(outputPath, fullyStaticFlag);
+  argsBuilder.build(outputPath, defaultLibNames);
 
   Logger::println("Linking with: ");
   Stream logstr = Logger::cout();
