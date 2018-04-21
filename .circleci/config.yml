@@ -167,6 +167,11 @@ commonSteps: &commonSteps
           $LDC_INSTALL_DIR/bin/ldc2 hello.d -of=hello_full -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
           ./hello_full
     - run:
+        name: Dynamic-compile integration test
+        command: |
+          cd ..
+          $LDC_INSTALL_DIR/bin/ldc2 -enable-dynamic-compile -run project/tests/dynamiccompile/array.d
+    - run:
         name: Build dub
         command: |
           cd ..
@@ -254,7 +259,7 @@ jobs:
   build-osx:
     <<: *commonSteps
     macos:
-      xcode: "9.0"
+      xcode: "9.2.0"
     environment:
       - CI_OS: osx
       - MACOSX_DEPLOYMENT_TARGET: 10.8
@@ -262,7 +267,7 @@ jobs:
       - LLVM_VERSION: 6.0.0
       - HOST_LDC_VERSION: 1.8.0
       - BOOTSTRAP_CMAKE_FLAGS: "-DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
-      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_LTO_LIBS=ON -DD_FLAGS='-w;-flto=thin' -DRT_ARCHIVE_WITH_LDC=OFF -DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
+      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_LTO_LIBS=ON -DD_FLAGS='-w;-flto=thin' -DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
       - DUB_VERSION: v1.7.2
 
 workflows:
