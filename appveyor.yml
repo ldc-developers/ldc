@@ -14,12 +14,12 @@ environment:
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       LLVM_VERSION:                6.0.0
       HOST_LDC_VERSION:            1.8.0
-      DUB_VERSION:                 v1.7.2
+      DUB_VERSION:                 v1.8.1
     - APPVEYOR_JOB_ARCH:           x86
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       LLVM_VERSION:                5.0.1
       HOST_LDC_VERSION:            1.8.0
-      DUB_VERSION:                 v1.7.2
+      DUB_VERSION:                 v1.8.1
 
 # scripts that are called at very beginning, before repo cloning
 init:
