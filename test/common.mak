@@ -21,7 +21,8 @@ endif
 CFLAGS:=$(MODEL_FLAG) $(PIC) -Wall
 DFLAGS:=$(MODEL_FLAG) $(PIC) -w -I../../src -I../../import -I$(SRC) -defaultlib= -debuglib= -dip1000
 # LINK_SHARED may be set by importing makefile
-DFLAGS+=$(if $(LINK_SHARED),-L$(DRUNTIMESO),-L$(DRUNTIME))
+# LDC: -link-defaultlib-shared enables default rpath
+DFLAGS+=$(if $(LINK_SHARED),-L$(DRUNTIMESO) -link-defaultlib-shared,-L$(DRUNTIME))
 ifeq ($(BUILD),debug)
 	DFLAGS += -g -debug
 	CFLAGS += -g
