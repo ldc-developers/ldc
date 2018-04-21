@@ -30,6 +30,7 @@
 #include "declaration.h"
 #include "ldcbindings.h"
 #include "mtype.h"
+#include "target.h"
 #include "gen/abi-generic.h"
 #include "gen/abi-x86-64.h"
 #include "gen/abi.h"
@@ -45,8 +46,6 @@
 #include <string>
 #include <utility>
 
-TypeTuple *toArgTypes(Type *t); // in dmd2/argtypes.c
-
 namespace {
 namespace dmd_abi {
 // Structs, static arrays and cfloats may be rewritten to exploit registers.
@@ -60,7 +59,7 @@ LLType *getAbiType(Type *ty) {
 
   // Okay, we may need to transform. Figure out a canonical type:
 
-  TypeTuple *argTypes = toArgTypes(ty);
+  TypeTuple *argTypes = Target::toArgTypes(ty);
   if (!argTypes || argTypes->arguments->empty()) {
     return nullptr; // don't rewrite
   }
@@ -93,7 +92,7 @@ LLType *getAbiType(Type *ty) {
 }
 
 bool passByVal(Type *ty) {
-  TypeTuple *argTypes = toArgTypes(ty);
+  TypeTuple *argTypes = Target::toArgTypes(ty);
   if (!argTypes) {
     return false;
   }

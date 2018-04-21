@@ -15,12 +15,30 @@
 #ifndef LDC_DRIVER_LINKER_H
 #define LDC_DRIVER_LINKER_H
 
+#include "llvm/Support/CommandLine.h" // for llvm::cl::boolOrDefault
+
 namespace llvm {
 class Module;
 class LLVMContext;
 }
 
 template <typename TYPE> struct Array;
+
+/**
+ * Indicates whether -link-internally is enabled.
+ */
+bool useInternalLLDForLinking();
+
+/**
+ * Indicates the status of the -static command-line option.
+ */
+llvm::cl::boolOrDefault linkFullyStatic();
+
+/**
+ * Indicates whether the command-line options select shared druntime/Phobos for
+ * linking.
+ */
+bool linkAgainstSharedDefaultLibs();
 
 /**
  * Inserts bitcode files passed on the commandline into a module.

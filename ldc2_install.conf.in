@@ -6,12 +6,14 @@ default:
 {
     // default switches injected before all explicit command-line switches
     switches = [
-        "-I@INCLUDE_INSTALL_DIR@/ldc",
-        "-I@INCLUDE_INSTALL_DIR@",
-        "-defaultlib=phobos2-ldc,druntime-ldc"@ADDITIONAL_DEFAULT_LDC_SWITCHES@
+        "-defaultlib=phobos2-ldc,druntime-ldc",@ADDITIONAL_DEFAULT_LDC_SWITCHES@
     ];
     // default switches appended after all explicit command-line switches
     post-switches = [
+        "-I@INCLUDE_INSTALL_DIR@/ldc",
+        "-I@INCLUDE_INSTALL_DIR@",
         "-L-L@CMAKE_INSTALL_LIBDIR@",@MULTILIB_ADDITIONAL_INSTALL_PATH@
     ];
+    // default rpath when linking against the shared default libs
+    rpath = "@SHARED_LIBS_INSTALL_RPATH@";
 };

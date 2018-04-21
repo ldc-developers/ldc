@@ -84,45 +84,20 @@ int rt_init();
 // In dmd/doc.d
 void gendocfile(Module *m);
 
+// In dmd/mars.d
+extern bool includeImports;
+extern Strings includeModulePatterns;
+void generateJson(Modules *modules);
+
 using namespace opts;
 
 extern void getenv_setargv(const char *envvar, int *pargc, char ***pargv);
-
-static cl::opt<bool> noDefaultLib(
-    "nodefaultlib", cl::ZeroOrMore, cl::Hidden,
-    cl::desc("Don't add a default library for linking implicitly"));
 
 static StringsAdapter impPathsStore("I", global.params.imppath);
 static cl::list<std::string, StringsAdapter>
     importPaths("I", cl::desc("Look for imports also in <directory>"),
                 cl::value_desc("directory"), cl::location(impPathsStore),
                 cl::Prefix);
-
-static cl::opt<std::string>
-    defaultLib("defaultlib", cl::ZeroOrMore, cl::value_desc("lib1,lib2,..."),
-               cl::desc("Default libraries to link with (overrides previous)"),
-               cl::cat(linkingCategory));
-
-static cl::opt<std::string> debugLib(
-    "debuglib", cl::ZeroOrMore, cl::Hidden, cl::value_desc("lib1,lib2,..."),
-    cl::desc("Debug versions of default libraries (overrides previous). If the "
-             "option is omitted, LDC will append -debug to the -defaultlib "
-             "names when linking with -link-defaultlib-debug"),
-    cl::cat(linkingCategory));
-
-static cl::opt<bool> linkDefaultLibDebug(
-    "link-defaultlib-debug", cl::ZeroOrMore,
-    cl::desc("Link with debug versions of default libraries"),
-    cl::cat(linkingCategory));
-static cl::alias _linkDebugLib("link-debuglib", cl::Hidden,
-                               cl::aliasopt(linkDefaultLibDebug),
-                               cl::desc("Alias for -link-defaultlib-debug"),
-                               cl::cat(linkingCategory));
-
-static cl::opt<bool> linkDefaultLibShared(
-    "link-defaultlib-shared", cl::ZeroOrMore,
-    cl::desc("Link with shared versions of default libraries"),
-    cl::cat(linkingCategory));
 
 // This function exits the program.
 void printVersion(llvm::raw_ostream &OS) {
@@ -325,7 +300,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   expandResponseFiles(allocator, allArguments);
 
   // read config file
-  ConfigFile cfg_file;
+  ConfigFile &cfg_file = ConfigFile::instance;
   const char *explicitConfFile = tryGetExplicitConfFile(allArguments);
   const std::string cfg_triple = tryGetExplicitTriple(allArguments).getTriple();
   // just ignore errors for now, they are still printed
@@ -364,18 +339,19 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     return;
   }
 
+  if (!cfg_file.path().empty())
+    global.inifilename = dupPathString(cfg_file.path());
+
   // Print some information if -v was passed
   // - path to compiler binary
   // - version number
   // - used config file
   if (global.params.verbose) {
-    fprintf(global.stdmsg, "binary    %s\n", exe_path::getExePath().c_str());
-    fprintf(global.stdmsg, "version   %s (DMD %s, LLVM %s)\n",
-            global.ldc_version, global.version, global.llvm_version);
-    const std::string path = cfg_file.path();
-    if (!path.empty()) {
-      fprintf(global.stdmsg, "config    %s (%s)\n", path.c_str(),
-              cfg_triple.c_str());
+    message("binary    %s", exe_path::getExePath().c_str());
+    message("version   %s (DMD %s, LLVM %s)", global.ldc_version,
+            global.version, global.llvm_version);
+    if (global.inifilename) {
+      message("config    %s (%s)", global.inifilename, cfg_triple.c_str());
     }
   }
 
@@ -419,6 +395,26 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   toWinPaths(global.params.imppath);
   toWinPaths(global.params.fileImppath);
 #endif
+
+  for (const auto &field : jsonFields) {
+    const unsigned flag = tryParseJsonField(field.c_str());
+    if (flag == 0) {
+      error(Loc(), "unknown JSON field `-Xi=%s`", field.c_str());
+    } else {
+      global.params.jsonFieldFlags |= flag;
+    }
+  }
+
+  includeImports = !opts::includeModulePatterns.empty();
+  for (const auto &pattern : opts::includeModulePatterns) {
+    // a value-less `-i` only enables `includeImports`
+    if (!pattern.empty())
+      ::includeModulePatterns.push_back(pattern.c_str());
+  }
+  // When including imports, their object files aren't tracked in
+  // global.params.objfiles etc. Enforce `-singleobj` to avoid related issues.
+  if (includeImports)
+    global.params.oneobj = true;
 
 #if LDC_LLVM_VER >= 400
   if (saveOptimizationRecord.getNumOccurrences() > 0) {
@@ -491,44 +487,6 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
         char *copy = opts::dupPathString(file);
         sourceFiles.push(copy);
       }
-    }
-  }
-
-  // default libraries
-  if (noDefaultLib) {
-    deprecation(Loc(), "-nodefaultlib is deprecated, as -defaultlib now "
-                       "overrides the existing list instead of appending to "
-                       "it. Please use the latter instead.");
-  } else if (!global.params.betterC) {
-    const bool addDebugSuffix =
-        (linkDefaultLibDebug && debugLib.getNumOccurrences() == 0);
-
-    // -static enforces static default libs.
-    // Default to shared default libs for DLLs.
-    const bool addSharedSuffix =
-        staticFlag != cl::BOU_TRUE &&
-        (linkDefaultLibShared ||
-         (linkDefaultLibShared.getNumOccurrences() == 0 && global.params.dll));
-
-    // Parse comma-separated default library list.
-    std::stringstream libNames(
-        linkDefaultLibDebug && !addDebugSuffix ? debugLib : defaultLib);
-    while (libNames.good()) {
-      std::string lib;
-      std::getline(libNames, lib, ',');
-      if (lib.empty()) {
-        continue;
-      }
-
-      std::ostringstream os;
-      os << "-l" << lib;
-      if (addDebugSuffix)
-        os << "-debug";
-      if (addSharedSuffix)
-        os << "-shared";
-
-      char *arg = mem.xstrdup(os.str().c_str());
-      global.params.linkswitches.push(arg);
     }
   }
 
@@ -997,6 +955,11 @@ int cppmain(int argc, char **argv) {
   }
 
   if (files.dim == 0) {
+    if (global.params.jsonFieldFlags) {
+      generateJson(nullptr);
+      return EXIT_SUCCESS;
+    }
+
     cl::PrintHelpMessage(/*Hidden=*/false, /*Categorized=*/true);
     return EXIT_FAILURE;
   }
@@ -1090,7 +1053,6 @@ int cppmain(int argc, char **argv) {
 
 void addDefaultVersionIdentifiers() {
   registerPredefinedVersions();
-  printPredefinedVersions();
 }
 
 void codegenModules(Modules &modules) {
@@ -1110,7 +1072,7 @@ void codegenModules(Modules &modules) {
     for (d_size_t i = modules.dim; i-- > 0;) {
       Module *const m = modules[i];
       if (global.params.verbose)
-        fprintf(global.stdmsg, "code      %s\n", m->toChars());
+        message("code      %s", m->toChars());
 
       const auto atCompute = hasComputeAttr(m);
       if (atCompute == DComputeCompileFor::hostOnly ||

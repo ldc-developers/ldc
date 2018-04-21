@@ -1,15 +1,15 @@
 /**
  * Compiler implementation of the $(LINK2 http://www.dlang.org, D programming language)
  *
- * Copyright: Copyright (c) 1999-2017 by The D Language Foundation, All Rights Reserved
+ * Copyright: Copyright (C) 1999-2018 by The D Language Foundation, All Rights Reserved
  * Authors: Walter Bright, http://www.digitalmars.com
  * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:    $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/cppmanglewin.d, _cppmanglewin.d)
+ * Documentation:  https://dlang.org/phobos/dmd_cppmanglewin.html
+ * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/cppmanglewin.d
  */
 
 module dmd.cppmanglewin;
-
-// Online documentation: https://dlang.org/phobos/dmd_cppmangle.html
 
 import core.stdc.string;
 import core.stdc.stdio;
@@ -116,11 +116,11 @@ public:
     {
         if (type.isImmutable() || type.isShared())
         {
-            type.error(Loc(), "Internal Compiler Error: shared or immutable types can not be mapped to C++ (%s)", type.toChars());
+            type.error(Loc.initial, "Internal Compiler Error: `shared` or `immutable` types can not be mapped to C++ (%s)", type.toChars());
         }
         else
         {
-            type.error(Loc(), "Internal Compiler Error: type %s can not be mapped to C++\n", type.toChars());
+            type.error(Loc.initial, "Internal Compiler Error: type `%s` can not be mapped to C++\n", type.toChars());
         }
         fatal(); //Fatal, because this error should be handled in frontend
     }
@@ -374,16 +374,18 @@ public:
     override void visit(TypeStruct type)
     {
         const id = type.sym.ident;
-        char c;
+        string c;
         if (id == Id.__c_long_double)
-            c = 'O'; // VC++ long double
+            c = "O"; // VC++ long double
         else if (id == Id.__c_long)
-            c = 'J'; // VC++ long
+            c = "J"; // VC++ long
         else if (id == Id.__c_ulong)
-            c = 'K'; // VC++ unsigned long
-        else
-            c = 0;
-        if (c)
+            c = "K"; // VC++ unsigned long
+        else if (id == Id.__c_longlong)
+            c = "_J"; // VC++ long long
+        else if (id == Id.__c_ulonglong)
+            c = "_K"; // VC++ unsigned long long
+        if (c.length)
         {
             if (type.isImmutable() || type.isShared())
             {
@@ -396,7 +398,7 @@ public:
                     return;
             }
             mangleModifier(type);
-            buf.writeByte(c);
+            buf.writestring(c);
         }
         else
         {
@@ -515,10 +517,10 @@ private:
             {
                 switch (d.protection.kind)
                 {
-                case PROTprivate:
+                case Prot.Kind.private_:
                     buf.writeByte('E');
                     break;
-                case PROTprotected:
+                case Prot.Kind.protected_:
                     buf.writeByte('M');
                     break;
                 default:
@@ -530,10 +532,10 @@ private:
             {
                 switch (d.protection.kind)
                 {
-                case PROTprivate:
+                case Prot.Kind.private_:
                     buf.writeByte('A');
                     break;
-                case PROTprotected:
+                case Prot.Kind.protected_:
                     buf.writeByte('I');
                     break;
                 default:
@@ -557,10 +559,10 @@ private:
             // <flags> ::= <virtual/protection flag> <calling convention flag>
             switch (d.protection.kind)
             {
-            case PROTprivate:
+            case Prot.Kind.private_:
                 buf.writeByte('C');
                 break;
-            case PROTprotected:
+            case Prot.Kind.protected_:
                 buf.writeByte('K');
                 break;
             default:
@@ -582,14 +584,14 @@ private:
         // <static variable mangle> ::= ? <qualified name> <protection flag> <const/volatile flag> <type>
         assert(d);
         // fake mangling for fields to fix https://issues.dlang.org/show_bug.cgi?id=16525
-        if (!(d.storage_class & (STCextern | STCfield | STCgshared)))
+        if (!(d.storage_class & (STC.extern_ | STC.field | STC.gshared)))
         {
-            d.error("Internal Compiler Error: C++ static non- __gshared non-extern variables not supported");
+            d.error("Internal Compiler Error: C++ static non-__gshared non-extern variables not supported");
             fatal();
         }
         buf.writeByte('?');
         mangleIdent(d);
-        assert((d.storage_class & STCfield) || !d.needThis());
+        assert((d.storage_class & STC.field) || !d.needThis());
         Dsymbol parent = d.toParent();
         while (parent && parent.isNspace())
         {
@@ -603,10 +605,10 @@ private:
         {
             switch (d.protection.kind)
             {
-            case PROTprivate:
+            case Prot.Kind.private_:
                 buf.writeByte('0');
                 break;
-            case PROTprotected:
+            case Prot.Kind.protected_:
                 buf.writeByte('1');
                 break;
             default:
@@ -729,7 +731,7 @@ private:
                     Expression e = isExpression(o);
                     if (!d && !e)
                     {
-                        sym.error("Internal Compiler Error: %s is unsupported parameter for C++ template", o.toChars());
+                        sym.error("Internal Compiler Error: `%s` is unsupported parameter for C++ template", o.toChars());
                         fatal();
                     }
                     if (d && d.isFuncDeclaration())
@@ -738,7 +740,7 @@ private:
                         tmp.buf.writeByte('1');
                         tmp.mangleFunction(d.isFuncDeclaration());
                     }
-                    else if (e && e.op == TOKvar && (cast(VarExp)e).var.isVarDeclaration())
+                    else if (e && e.op == TOK.variable && (cast(VarExp)e).var.isVarDeclaration())
                     {
                         tmp.buf.writeByte('$');
                         if (flags & IS_DMC)
@@ -778,7 +780,7 @@ private:
                     }
                     else
                     {
-                        sym.error("Internal Compiler Error: %s is unsupported parameter for C++ template: (%s)", o.toChars());
+                        sym.error("Internal Compiler Error: `%s` is unsupported parameter for C++ template: (%s)", o.toChars());
                         fatal();
                     }
                 }
@@ -986,24 +988,27 @@ private:
         }
         else
         {
-            switch (type.linkage)
+            final switch (type.linkage)
             {
-            case LINKc:
+            case LINK.c:
                 tmp.buf.writeByte('A');
                 break;
-            case LINKcpp:
+            case LINK.cpp:
                 if (needthis && type.varargs != 1)
                     tmp.buf.writeByte('E'); // thiscall
                 else
                     tmp.buf.writeByte('A'); // cdecl
                 break;
-            case LINKwindows:
+            case LINK.windows:
                 tmp.buf.writeByte('G'); // stdcall
                 break;
-            case LINKpascal:
+            case LINK.pascal:
                 tmp.buf.writeByte('C');
                 break;
-            default:
+            case LINK.d:
+            case LINK.default_:
+            case LINK.system:
+            case LINK.objc:
                 tmp.visit(cast(Type)type);
                 break;
             }
@@ -1022,7 +1027,8 @@ private:
             if (rettype.ty == Tstruct || rettype.ty == Tenum)
             {
                 const id = rettype.toDsymbol(null).ident;
-                if (id != Id.__c_long_double && id != Id.__c_long && id != Id.__c_ulong)
+                if (id != Id.__c_long_double && id != Id.__c_long && id != Id.__c_ulong &&
+                    id != Id.__c_longlong && id != Id.__c_ulonglong)
                 {
                     tmp.buf.writeByte('?');
                     tmp.buf.writeByte('A');
@@ -1044,21 +1050,21 @@ private:
             int mangleParameterDg(size_t n, Parameter p)
             {
                 Type t = p.type;
-                if (p.storageClass & (STCout | STCref))
+                if (p.storageClass & (STC.out_ | STC.ref_))
                 {
                     t = t.referenceTo();
                 }
-                else if (p.storageClass & STClazy)
+                else if (p.storageClass & STC.lazy_)
                 {
                     // Mangle as delegate
-                    Type td = new TypeFunction(null, t, 0, LINKd);
+                    Type td = new TypeFunction(null, t, 0, LINK.d);
                     td = new TypeDelegate(td);
                     t = merge(t);
                 }
                 if (t.ty == Tsarray)
                 {
-                    t.error(Loc(), "Internal Compiler Error: unable to pass static array to extern(C++) function.");
-                    t.error(Loc(), "Use pointer instead.");
+                    t.error(Loc.initial, "Internal Compiler Error: unable to pass static array to `extern(C++)` function.");
+                    t.error(Loc.initial, "Use pointer instead.");
                     assert(0);
                 }
                 tmp.flags &= ~IS_NOT_TOP_TYPE;

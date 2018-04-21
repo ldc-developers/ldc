@@ -153,6 +153,7 @@ list(REMOVE_ITEM DRUNTIME_D
 # only include core/sys/ modules matching the platform
 file(GLOB_RECURSE DRUNTIME_D_BIONIC  ${RUNTIME_DIR}/src/core/sys/bionic/*.d)
 file(GLOB_RECURSE DRUNTIME_D_DARWIN  ${RUNTIME_DIR}/src/core/sys/darwin/*.d)
+file(GLOB_RECURSE DRUNTIME_D_DRAGONFLYBSD ${RUNTIME_DIR}/src/core/sys/dragonflybsd/*.d)
 file(GLOB_RECURSE DRUNTIME_D_FREEBSD ${RUNTIME_DIR}/src/core/sys/freebsd/*.d)
 file(GLOB_RECURSE DRUNTIME_D_LINUX   ${RUNTIME_DIR}/src/core/sys/linux/*.d)
 file(GLOB_RECURSE DRUNTIME_D_NETBSD  ${RUNTIME_DIR}/src/core/sys/netbsd/*.d)
@@ -162,8 +163,9 @@ file(GLOB_RECURSE DRUNTIME_D_POSIX   ${RUNTIME_DIR}/src/core/sys/posix/*.d)
 file(GLOB_RECURSE DRUNTIME_D_SOLARIS ${RUNTIME_DIR}/src/core/sys/solaris/*.d)
 file(GLOB_RECURSE DRUNTIME_D_WINDOWS ${RUNTIME_DIR}/src/core/sys/windows/*.d)
 list(REMOVE_ITEM DRUNTIME_D
-    ${DRUNTIME_D_BIONIC}  ${DRUNTIME_D_DARWIN}  ${DRUNTIME_D_FREEBSD} ${DRUNTIME_D_LINUX}
-    ${DRUNTIME_D_NETBSD}  ${DRUNTIME_D_OPENBSD} ${DRUNTIME_D_OSX}     ${DRUNTIME_D_POSIX}
+    ${DRUNTIME_D_BIONIC}  ${DRUNTIME_D_DARWIN}  ${DRUNTIME_D_DRAGONFLYBSD}
+    ${DRUNTIME_D_FREEBSD} ${DRUNTIME_D_LINUX}   ${DRUNTIME_D_NETBSD}
+    ${DRUNTIME_D_OPENBSD} ${DRUNTIME_D_OSX}     ${DRUNTIME_D_POSIX}
     ${DRUNTIME_D_SOLARIS} ${DRUNTIME_D_WINDOWS}
 )
 if("${TARGET_SYSTEM}" MATCHES "Windows")
@@ -173,6 +175,8 @@ elseif("${TARGET_SYSTEM}" MATCHES "UNIX")
     if("${TARGET_SYSTEM}" MATCHES "APPLE")
         list(APPEND DRUNTIME_D ${DRUNTIME_D_DARWIN})
         list(APPEND DRUNTIME_D ${DRUNTIME_D_OSX})
+    elseif("${TARGET_SYSTEM}" MATCHES "DragonFly")
+        list(APPEND DRUNTIME_D ${DRUNTIME_D_DRAGONFLYBSD})
     elseif("${TARGET_SYSTEM}" MATCHES "FreeBSD")
         list(APPEND DRUNTIME_D ${DRUNTIME_D_FREEBSD})
     elseif("${TARGET_SYSTEM}" MATCHES "Linux")
@@ -251,22 +255,23 @@ if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
     set(MULTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
 endif()
 
-# Set the -rpath linker option when shared runtime libraries are built.
-# The installed config file doesn't use SHARED_LIBS_RPATH.
-if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
+# Default -rpath linker option when linking against shared libraries.
+if(SHARED_LIBS_SUPPORTED)
     if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
-        set(SHARED_LIBS_RPATH "\n        \"-L-rpath\", \"-L${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}:${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",")
+        set(SHARED_LIBS_RPATH         "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}:${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}")
+        set(SHARED_LIBS_INSTALL_RPATH "${CMAKE_INSTALL_LIBDIR}:${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}")
     else()
-        set(SHARED_LIBS_RPATH "\n        \"-L-rpath\", \"-L${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}\",")
+        set(SHARED_LIBS_RPATH         "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
+        set(SHARED_LIBS_INSTALL_RPATH "${CMAKE_INSTALL_LIBDIR}")
     endif()
 endif()
 
 # Only have either shared or static libs?
 # Then explicitly default to linking against them via default LDC switch.
 if(${BUILD_SHARED_LIBS} STREQUAL "ON")
-    set(ADDITIONAL_DEFAULT_LDC_SWITCHES ",\n        \"-link-defaultlib-shared\"")
+    set(ADDITIONAL_DEFAULT_LDC_SWITCHES "\n        \"-link-defaultlib-shared\",")
 elseif(${BUILD_SHARED_LIBS} STREQUAL "OFF")
-    set(ADDITIONAL_DEFAULT_LDC_SWITCHES ",\n        \"-link-defaultlib-shared=false\"")
+    set(ADDITIONAL_DEFAULT_LDC_SWITCHES "\n        \"-link-defaultlib-shared=false\",")
 endif()
 
 # Only generate the config files if this CMake project is embedded in the LDC CMake project.
@@ -667,33 +672,43 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
     endif()
 
     foreach(lib ${libs_to_install})
-        set(host_path  ${CMAKE_BINARY_DIR}/lib${hostsuffix}/lib${lib})
-        set(multi_path ${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}/lib${lib})
-        set(final_path ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${lib})
-
-        add_custom_command(
-            OUTPUT  ${final_path}
-            COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}
-            COMMAND lipo ${multi_path} ${host_path} -create -output ${final_path}
-            DEPENDS ${libtargets}
-        )
-
         set(target_name "")
         set(lib_extension "")
         get_filename_component(target_name ${lib} NAME_WE)
         get_filename_component(lib_extension ${lib} EXT)
 
-        add_custom_target(${target_name} ALL DEPENDS ${final_path})
+        set(host_path  ${CMAKE_BINARY_DIR}/lib${hostsuffix}/lib${lib})
+        set(multi_path ${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}/lib${lib})
 
-        # For merged dylibs, set install_name to "@rpath/<filename>".
+        # Create (& later install) symbolic links for merged dylibs.
+        set(final_files_to_install)
         if(${lib_extension} STREQUAL ".dylib")
+            set(final_path     ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${target_name}.${DMDFE_VERSION}.dylib)
+            set(dylib_symlink1 ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${target_name}.${DMDFE_PATCH_VERSION}.dylib)
+            set(dylib_symlink2 ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${target_name}.dylib)
+            set(final_files_to_install ${final_path} ${dylib_symlink1} ${dylib_symlink2})
             add_custom_command(
-                TARGET ${target_name} POST_BUILD
-                COMMAND install_name_tool -id "@rpath/lib${lib}" ${final_path}
+                OUTPUT  ${final_files_to_install}
+                COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}
+                COMMAND lipo ${multi_path} ${host_path} -create -output ${final_path}
+                COMMAND ln -s lib${target_name}.${DMDFE_VERSION}.dylib ${dylib_symlink1}
+                COMMAND ln -s lib${target_name}.${DMDFE_PATCH_VERSION}.dylib ${dylib_symlink2}
+                DEPENDS ${libtargets}
+            )
+        else()
+            set(final_path ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${lib})
+            set(final_files_to_install ${final_path})
+            add_custom_command(
+                OUTPUT  ${final_path}
+                COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}
+                COMMAND lipo ${multi_path} ${host_path} -create -output ${final_path}
+                DEPENDS ${libtargets}
             )
         endif()
 
-        install(FILES       ${final_path}
+        add_custom_target(${target_name} ALL DEPENDS ${final_files_to_install})
+
+        install(FILES       ${final_files_to_install}
                 DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
     endforeach()
 else()
@@ -842,7 +857,7 @@ endfunction()
 
 # Generates targets for static and/or shared pairs of druntime/Phobos test runners.
 function(build_test_runner_variant name_suffix path_suffix d_flags c_flags)
-    set(full_d_flags ${D_FLAGS} ${d_flags} -unittest)
+    set(full_d_flags ${D_FLAGS} ${d_flags} -unittest -d-version=StdUnittest)
     set(full_c_flags "${RT_CFLAGS} ${c_flags}")
     set(linkflags "${LD_FLAGS} ${c_flags}")
     if("${TARGET_SYSTEM}" MATCHES "MSVC")

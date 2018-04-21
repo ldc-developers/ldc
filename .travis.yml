@@ -98,8 +98,8 @@ script:
   # Invoke CMake to generate the Ninja build files.
   - cmake -G Ninja -DLLVM_ROOT_DIR=$LLVM_ROOT_DIR -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON $OPTS .
   # Build LDC and stdlib unittest runners.
-  # [Compiling the std.regex.internal.tests unittests eats large amounts of memory.]
-  - ninja -j2 all runtime/objects-unittest-debug/std/regex/internal/tests.o runtime/objects-unittest/std/regex/internal/tests.o
+  # [Some unittest modules eat large amounts of memory during compilation => -j2.]
+  - ninja -j2 all runtime/objects-unittest/std/algorithm/searching.o runtime/objects-unittest-debug/std/algorithm/searching.o runtime/objects-unittest/std/range/package.o runtime/objects-unittest-debug/std/range/package.o runtime/objects-unittest/std/regex/internal/tests.o runtime/objects-unittest-debug/std/regex/internal/tests.o
   - ninja -j3 all-test-runners
   # Output some environment info, plus make sure we only run the test suite
   # if we could actually build the executable.

@@ -81,7 +81,7 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
     const bool isCPPclass = cd->isCPPclass();
 
     const auto enterCatchFn = getRuntimeFunction(
-        Loc(), irs.module,
+        c->loc, irs.module,
         isCPPclass ? "__cxa_begin_catch" : "_d_eh_enter_catch");
     const auto ptr = DtoLoad(ehPtrSlot);
     const auto throwableObj = irs.ir->CreateCall(enterCatchFn, ptr);
@@ -161,29 +161,36 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
 
     LLGlobalVariable *ci;
     if (p.cd->isCPPclass()) {
-      const char *name = Target::cppTypeInfoMangle(p.cd);
-      auto cpp_ti = getOrCreateGlobal(
-          p.cd->loc, irs.module, getVoidPtrType(), /*isConstant=*/true,
-          LLGlobalValue::ExternalLinkage, /*init=*/nullptr, name);
+      // Wrap std::type_info pointers inside a __cpp_type_info_ptr class
+      // instance so that the personality routine may differentiate C++ catch
+      // clauses from D ones.
+      OutBuffer wrapperMangleBuf;
+      wrapperMangleBuf.writestring("_D");
+      mangleToBuffer(p.cd, &wrapperMangleBuf);
+      wrapperMangleBuf.printf("%d%s", 18, "_cpp_type_info_ptr");
+      const auto wrapperMangle =
+          getIRMangledVarName(wrapperMangleBuf.peekString(), LINKd);
 
-      // Wrap std::type_info pointers inside a __cpp_type_info_ptr class instance so that
-      // the personality routine may differentiate C++ catch clauses from D ones.
-      OutBuffer mangleBuf;
-      mangleBuf.writestring("_D");
-      mangleToBuffer(p.cd, &mangleBuf);
-      mangleBuf.printf("%d%s", 18, "_cpp_type_info_ptr");
-      const auto wrapperMangle = getIRMangledVarName(mangleBuf.peekString(), LINKd);
+      ci = irs.module.getGlobalVariable(wrapperMangle);
+      if (!ci) {
+        const char *name = Target::cppTypeInfoMangle(p.cd);
+        auto cpp_ti =
+            declareGlobal(p.cd->loc, irs.module, getVoidPtrType(), name,
+                          /*isConstant=*/true);
 
-      RTTIBuilder b(ClassDeclaration::cpp_type_info_ptr);
-      b.push(cpp_ti);
+        const auto cppTypeInfoPtrType = getCppTypeInfoPtrType();
+        RTTIBuilder b(cppTypeInfoPtrType);
+        b.push(cpp_ti);
 
-      auto wrapperType = llvm::cast<llvm::StructType>(
-          static_cast<IrTypeClass*>(ClassDeclaration::cpp_type_info_ptr->type->ctype)->getMemoryLLType());
-      auto wrapperInit = b.get_constant(wrapperType);
+        auto wrapperType = llvm::cast<llvm::StructType>(
+            static_cast<IrTypeClass *>(cppTypeInfoPtrType->ctype)
+                ->getMemoryLLType());
+        auto wrapperInit = b.get_constant(wrapperType);
 
-      ci = getOrCreateGlobal(
-          p.cd->loc, irs.module, wrapperType, /*isConstant=*/true,
-          LLGlobalValue::LinkOnceODRLinkage, wrapperInit, wrapperMangle);
+        ci = defineGlobal(p.cd->loc, irs.module, wrapperMangle, wrapperInit,
+                          LLGlobalValue::LinkOnceODRLinkage,
+                          /*isConstant=*/true);
+      }
     } else {
       ci = getIrAggr(p.cd)->getClassInfoSymbol();
     }
@@ -247,7 +254,7 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
   } else {
     // catch all
     typeDesc = LLConstant::getNullValue(getVoidPtrType());
-    clssInfo = LLConstant::getNullValue(DtoType(Type::typeinfoclass->type));
+    clssInfo = LLConstant::getNullValue(DtoType(getClassInfoType()));
   }
 
   // "catchpad within %switch [TypeDescriptor, 0, &caughtObject]" must be
@@ -273,7 +280,7 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
   irs.funcGen().pgo.emitCounterIncrement(ctch);
   if (!isCPPclass) {
     auto enterCatchFn =
-        getRuntimeFunction(Loc(), irs.module, "_d_eh_enter_catch");
+        getRuntimeFunction(ctch->loc, irs.module, "_d_eh_enter_catch");
     irs.CreateCallOrInvoke(enterCatchFn, DtoBitCast(exnObj, getVoidPtrType()),
                            clssInfo);
   }
@@ -320,7 +327,7 @@ void TryCatchScope::emitCatchBodiesMSVC(IRState &irs, llvm::Value *) {
   if (!irs.func()->hasLLVMPersonalityFn()) {
     const char *personality = "__CxxFrameHandler3";
     irs.func()->setLLVMPersonalityFn(
-        getRuntimeFunction(Loc(), irs.module, personality));
+        getRuntimeFunction(stmt->loc, irs.module, personality));
   }
 }
 
@@ -799,8 +806,7 @@ llvm::BasicBlock *TryCatchFinallyScopes::getOrCreateResumeUnwindBlock() {
     llvm::BasicBlock *oldBB = irs.scopebb();
     irs.scope() = IRScope(resumeUnwindBlock);
 
-    llvm::Function *resumeFn =
-        getRuntimeFunction(Loc(), irs.module, "_d_eh_resume_unwind");
+    llvm::Function *resumeFn = getUnwindResumeFunction(Loc(), irs.module);
     irs.ir->CreateCall(resumeFn, DtoLoad(getOrCreateEhPtrSlot()));
     irs.ir->CreateUnreachable();
 

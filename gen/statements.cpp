@@ -98,9 +98,13 @@ public:
     emitInstrumentationFnLeave(fd);
 
     // is there a return value expression?
-    if (stmt->exp || (!stmt->exp && irs->isMainFunc(f))) {
-      // if the function's return type is void, it uses sret
-      if (funcType->getReturnType() == LLType::getVoidTy(irs->context())) {
+    const bool isMainFunc = irs->isMainFunc(f);
+    if (stmt->exp || isMainFunc) {
+      if (!stmt->exp) {
+        // implicitly return 0 for the main function
+        returnValue = LLConstant::getNullValue(funcType->getReturnType());
+      } else if (funcType->getReturnType()->isVoidTy()) {
+        // if the function's return type is void, it uses sret
         assert(!f->type->isref);
 
         LLValue *sretPointer = getIrFunc(fd)->sretArg;
@@ -142,27 +146,22 @@ public:
         }
       } else {
         // the return type is not void, so this is a normal "register" return
-        if (!stmt->exp && irs->isMainFunc(f)) {
-          returnValue =
-              LLConstant::getNullValue(irs->mainFunc->getReturnType());
-        } else {
-          if (stmt->exp->op == TOKnull) {
-            stmt->exp->type = f->type->next;
-          }
-          DValue *dval = nullptr;
-          // call postblit if necessary
-          if (!f->type->isref) {
-            dval = toElemDtor(stmt->exp);
-            LLValue *vthis =
-                (DtoIsInMemoryOnly(dval->type) ? DtoLVal(dval) : DtoRVal(dval));
-            callPostblit(stmt->loc, stmt->exp, vthis);
-          } else {
-            Expression *ae = stmt->exp;
-            dval = toElemDtor(ae);
-          }
-          // do abi specific transformations on the return value
-          returnValue = getIrFunc(fd)->irFty.putRet(dval);
+        if (stmt->exp->op == TOKnull) {
+          stmt->exp->type = f->type->next;
         }
+        DValue *dval = nullptr;
+        // call postblit if necessary
+        if (!f->type->isref) {
+          dval = toElemDtor(stmt->exp);
+          LLValue *vthis =
+              (DtoIsInMemoryOnly(dval->type) ? DtoLVal(dval) : DtoRVal(dval));
+          callPostblit(stmt->loc, stmt->exp, vthis);
+        } else {
+          Expression *ae = stmt->exp;
+          dval = toElemDtor(ae);
+        }
+        // do abi specific transformations on the return value
+        returnValue = getIrFunc(fd)->irFty.putRet(dval);
 
         // Hack around LDC assuming structs and static arrays are in memory:
         // If the function returns a struct or a static array, and the return
@@ -175,23 +174,12 @@ public:
           returnValue = DtoLoad(returnValue);
         }
 
-        // can happen for classes and void main
+        // can happen for classes
         if (returnValue->getType() != funcType->getReturnType()) {
-          // for the main function this only happens if it is declared as void
-          // and then contains a return (exp); statement. Since the actual
-          // return type remains i32, we just throw away the exp value
-          // and return 0 instead
-          // if we're not in main, just bitcast
-          if (irs->isMainFunc(f)) {
-            returnValue =
-                LLConstant::getNullValue(irs->mainFunc->getReturnType());
-          } else {
-            returnValue =
-                irs->ir->CreateBitCast(returnValue, funcType->getReturnType());
-          }
-
-          IF_LOG Logger::cout() << "return value after cast: " << *returnValue
-                                << '\n';
+          returnValue =
+              irs->ir->CreateBitCast(returnValue, funcType->getReturnType());
+          IF_LOG Logger::cout()
+              << "return value after cast: " << *returnValue << '\n';
         }
       }
     } else {
@@ -1577,10 +1565,10 @@ public:
         getRuntimeFunction(stmt->loc, irs->module, "_d_switch_error");
 
     LLValue *moduleInfoSymbol = getIrModule(module)->moduleInfoSymbol();
-    LLType *moduleInfoType = DtoType(Module::moduleinfo->type);
+    LLType *moduleInfoPtrType = DtoPtrToType(getModuleInfoType());
 
     LLCallSite call = irs->CreateCallOrInvoke(
-        fn, DtoBitCast(moduleInfoSymbol, getPtrToType(moduleInfoType)),
+        fn, DtoBitCast(moduleInfoSymbol, moduleInfoPtrType),
         DtoConstUint(stmt->loc.linnum));
     call.setDoesNotReturn();
   }

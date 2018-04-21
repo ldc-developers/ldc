@@ -18,33 +18,25 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Constant.h"
 
-class AggregateDeclaration;
 class ClassDeclaration;
 class Dsymbol;
 class FuncDeclaration;
-struct IrGlobal;
-struct IrAggr;
 class Type;
-class TypeClass;
 namespace llvm {
 class StructType;
 class GlobalVariable;
 }
 
 class RTTIBuilder {
-  AggregateDeclaration *base;
-  TypeClass *basetype;
-  IrAggr *baseir;
-
   /// The offset (in bytes) at which the previously pushed field ended.
-  uint64_t prevFieldEnd;
+  uint64_t prevFieldEnd = 0;
 
 public:
   // 15 is enough for any D2 ClassInfo including 64 bit pointer alignment
   // padding
   llvm::SmallVector<llvm::Constant *, 15> inits;
 
-  explicit RTTIBuilder(AggregateDeclaration *base_class);
+  explicit RTTIBuilder(Type *baseType);
 
   void push(llvm::Constant *C);
   void push_null(Type *T);

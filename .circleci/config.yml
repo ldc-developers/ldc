@@ -89,12 +89,24 @@ commonSteps: &commonSteps
           mkdir ninja-ldc
           cd ninja-ldc
           cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DCMAKE_INSTALL_PREFIX=$LDC_INSTALL_DIR -DINCLUDE_INSTALL_DIR=$LDC_INSTALL_DIR/import -DD_COMPILER=$HOST_LDMD $EXTRA_CMAKE_FLAGS $CIRCLE_WORKING_DIRECTORY
-          # compiling the std.regex.internal.tests unittests eats large amounts of memory
-          if [ "$CI_OS" = "linux" ]; then
-            ninja -j2 all runtime/objects-unittest-debug/std/regex/internal/tests.o runtime/objects-unittest/std/regex/internal/tests.o runtime/objects-unittest-debug_32/std/regex/internal/tests.o runtime/objects-unittest_32/std/regex/internal/tests.o
-          else
-            ninja -j2 all runtime/objects-unittest-debug_64/std/regex/internal/tests.o runtime/objects-unittest_64/std/regex/internal/tests.o runtime/objects-unittest-debug_32/std/regex/internal/tests.o runtime/objects-unittest_32/std/regex/internal/tests.o
+          nativeArchObjSuffix=""
+          if [ "$CI_OS" = "osx" ]; then
+            nativeArchObjSuffix="_64"
           fi
+          # Some unittest modules eat large amounts of memory during compilation => -j2.
+          ninja -j2 all \
+                    runtime/objects-unittest$nativeArchObjSuffix/std/algorithm/searching.o \
+                    runtime/objects-unittest_32/std/algorithm/searching.o \
+                    runtime/objects-unittest-debug$nativeArchObjSuffix/std/algorithm/searching.o \
+                    runtime/objects-unittest-debug_32/std/algorithm/searching.o \
+                    runtime/objects-unittest$nativeArchObjSuffix/std/range/package.o \
+                    runtime/objects-unittest_32/std/range/package.o \
+                    runtime/objects-unittest-debug$nativeArchObjSuffix/std/range/package.o \
+                    runtime/objects-unittest-debug_32/std/range/package.o \
+                    runtime/objects-unittest$nativeArchObjSuffix/std/regex/internal/tests.o \
+                    runtime/objects-unittest_32/std/regex/internal/tests.o \
+                    runtime/objects-unittest-debug$nativeArchObjSuffix/std/regex/internal/tests.o \
+                    runtime/objects-unittest-debug_32/std/regex/internal/tests.o
           ninja -j3 all-test-runners
           bin/ldc2 -version
           cd ..
@@ -114,7 +126,7 @@ commonSteps: &commonSteps
           if [ "$CI_OS" = "osx" ]; then
             # FIXME: A few 32-bit tests fail due to output containing linker warnings like:
             # ld: warning: could not create compact unwind for __D3std11parallelism16submitAndExecuteFCQBlQBk8TaskPoolMDFZvZv: stack subl instruction is too different from dwarf stack size
-            rm ../project/tests/d2/dmd-testsuite/runnable/{test13613,statictor}.d
+            rm ../project/tests/d2/dmd-testsuite/runnable/{test13613,statictor,b6400}.d
           else
             # Circle's RAM disk FS apparently doesn't allow long paths.
             rm ../project/tests/d2/dmd-testsuite/compilable/issue17167.sh
@@ -153,23 +165,16 @@ commonSteps: &commonSteps
         name: Hello world integration test with shared libs
         command: |
           cd ..
-          altLibSuffix="32"
-          if [ "$CI_OS" = "osx" ]; then
-            altLibSuffix=""
-          fi
           echo 'void main() { import std.stdio; writeln("Hello world, ", size_t.sizeof * 8, " bits"); }' > hello.d
-          $LDC_INSTALL_DIR/bin/ldc2 hello.d -m64 -of=hello64 -link-defaultlib-shared -L-Wl,-rpath,$LDC_INSTALL_DIR/lib
+          $LDC_INSTALL_DIR/bin/ldc2 hello.d -m64 -of=hello64 -link-defaultlib-shared
           ./hello64
-          $LDC_INSTALL_DIR/bin/ldc2 hello.d -m32 -of=hello32 -link-defaultlib-shared -L-Wl,-rpath,$LDC_INSTALL_DIR/lib$altLibSuffix
+          $LDC_INSTALL_DIR/bin/ldc2 hello.d -m32 -of=hello32 -link-defaultlib-shared
           ./hello32
     - run:
-        name: Hello world integration test with LTO
+        name: Dynamic-compile integration test
         command: |
           cd ..
-          $LDC_INSTALL_DIR/bin/ldc2 hello.d -of=hello_thin -flto=thin -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
-          ./hello_thin
-          $LDC_INSTALL_DIR/bin/ldc2 hello.d -of=hello_full -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
-          ./hello_full
+          $LDC_INSTALL_DIR/bin/ldc2 -enable-dynamic-compile -run project/tests/dynamiccompile/array.d
     - run:
         name: Build dub
         command: |
@@ -253,12 +258,12 @@ jobs:
       - CI_OS: linux
       - LLVM_VERSION: 6.0.0
       - HOST_LDC_VERSION: 1.8.0
-      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_LTO_LIBS=ON -DD_FLAGS='-w;-flto=thin' -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
+      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_SHARED_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
       - DUB_VERSION: v1.7.2
   build-osx:
     <<: *commonSteps
     macos:
-      xcode: "9.0"
+      xcode: "9.2.0"
     environment:
       - CI_OS: osx
       - MACOSX_DEPLOYMENT_TARGET: 10.8
@@ -266,7 +271,7 @@ jobs:
       - LLVM_VERSION: 6.0.0
       - HOST_LDC_VERSION: 1.8.0
       - BOOTSTRAP_CMAKE_FLAGS: "-DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
-      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_LTO_LIBS=ON -DD_FLAGS='-w;-flto=thin' -DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
+      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_SHARED_LIBS=ON -DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
       - DUB_VERSION: v1.7.2
 
 workflows:
