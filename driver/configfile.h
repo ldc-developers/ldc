@@ -22,6 +22,8 @@
 
 class ConfigFile {
 public:
+  static ConfigFile instance;
+
   bool read(const char *explicitConfFile, const char *section);
 
   llvm::StringRef path() {
@@ -29,6 +31,10 @@ public:
   }
 
   void extendCommandLine(llvm::SmallVectorImpl<const char *> &args);
+
+  llvm::StringRef rpath() {
+    return rpathcstr ? llvm::StringRef(rpathcstr) : llvm::StringRef();
+  }
 
 private:
   bool locate(std::string &pathstr);
@@ -39,6 +45,7 @@ private:
   const char *pathcstr = nullptr;
   Array<const char *> switches;
   Array<const char *> postSwitches;
+  const char *rpathcstr = nullptr;
 };
 
 #endif // LDC_DRIVER_CONFIGFILE_H

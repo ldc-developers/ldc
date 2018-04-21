@@ -292,12 +292,6 @@ cl::opt<std::string>
                         "'-deps' alone prints module dependencies "
                         "(imports/file/version/debug/lib)"));
 
-cl::opt<cl::boolOrDefault>
-    staticFlag("static", llvm::cl::ZeroOrMore,
-               llvm::cl::desc("Create a statically linked binary, including "
-                              "all system dependencies"),
-               cl::cat(linkingCategory));
-
 cl::opt<bool> m32bits("m32", cl::desc("32 bit target"), cl::ZeroOrMore);
 
 cl::opt<bool> m64bits("m64", cl::desc("64 bit target"), cl::ZeroOrMore);

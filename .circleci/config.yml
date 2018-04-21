@@ -165,14 +165,10 @@ commonSteps: &commonSteps
         name: Hello world integration test with shared libs
         command: |
           cd ..
-          altLibSuffix="32"
-          if [ "$CI_OS" = "osx" ]; then
-            altLibSuffix=""
-          fi
           echo 'void main() { import std.stdio; writeln("Hello world, ", size_t.sizeof * 8, " bits"); }' > hello.d
-          $LDC_INSTALL_DIR/bin/ldc2 hello.d -m64 -of=hello64 -link-defaultlib-shared -L-Wl,-rpath,$LDC_INSTALL_DIR/lib
+          $LDC_INSTALL_DIR/bin/ldc2 hello.d -m64 -of=hello64 -link-defaultlib-shared
           ./hello64
-          $LDC_INSTALL_DIR/bin/ldc2 hello.d -m32 -of=hello32 -link-defaultlib-shared -L-Wl,-rpath,$LDC_INSTALL_DIR/lib$altLibSuffix
+          $LDC_INSTALL_DIR/bin/ldc2 hello.d -m32 -of=hello32 -link-defaultlib-shared
           ./hello32
     - run:
         name: Hello world integration test with LTO
@@ -182,6 +178,11 @@ commonSteps: &commonSteps
           ./hello_thin
           $LDC_INSTALL_DIR/bin/ldc2 hello.d -of=hello_full -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
           ./hello_full
+    - run:
+        name: Dynamic-compile integration test
+        command: |
+          cd ..
+          $LDC_INSTALL_DIR/bin/ldc2 -enable-dynamic-compile -run project/tests/dynamiccompile/array.d
     - run:
         name: Build dub
         command: |
@@ -270,7 +271,7 @@ jobs:
   build-osx:
     <<: *commonSteps
     macos:
-      xcode: "9.0"
+      xcode: "9.2.0"
     environment:
       - CI_OS: osx
       - MACOSX_DEPLOYMENT_TARGET: 10.8
