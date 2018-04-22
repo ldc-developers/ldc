@@ -7,9 +7,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "driver/linker.h"
 #include "errors.h"
 #include "driver/cl_options.h"
-#include "driver/linker.h"
 #include "driver/tool.h"
 #include "gen/llvm.h"
 #include "gen/logger.h"
@@ -17,27 +17,65 @@
 #include "llvm/Linker/Linker.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/SourceMgr.h"
+#include <sstream>
+
+namespace cl = llvm::cl;
 
 //////////////////////////////////////////////////////////////////////////////
 
 #if LDC_WITH_LLD
-static llvm::cl::opt<bool>
-    useInternalLinker("link-internally", llvm::cl::ZeroOrMore,
-                      llvm::cl::desc("Use internal LLD for linking"),
-                      llvm::cl::cat(opts::linkingCategory));
+static cl::opt<bool> linkInternally("link-internally", cl::ZeroOrMore,
+                                    cl::desc("Use internal LLD for linking"),
+                                    cl::cat(opts::linkingCategory));
 #else
-constexpr bool useInternalLinker = false;
+constexpr bool linkInternally = false;
 #endif
+
+static cl::opt<bool> noDefaultLib(
+    "nodefaultlib", cl::ZeroOrMore, cl::Hidden,
+    cl::desc("Don't add a default library for linking implicitly"));
+
+static cl::opt<std::string>
+    defaultLib("defaultlib", cl::ZeroOrMore, cl::value_desc("lib1,lib2,..."),
+               cl::desc("Default libraries to link with (overrides previous)"),
+               cl::cat(opts::linkingCategory));
+
+static cl::opt<std::string> debugLib(
+    "debuglib", cl::ZeroOrMore, cl::Hidden, cl::value_desc("lib1,lib2,..."),
+    cl::desc("Debug versions of default libraries (overrides previous). If the "
+             "option is omitted, LDC will append -debug to the -defaultlib "
+             "names when linking with -link-defaultlib-debug"),
+    cl::cat(opts::linkingCategory));
+
+static cl::opt<bool> linkDefaultLibDebug(
+    "link-defaultlib-debug", cl::ZeroOrMore,
+    cl::desc("Link with debug versions of default libraries"),
+    cl::cat(opts::linkingCategory));
+static cl::alias _linkDebugLib("link-debuglib", cl::Hidden,
+                               cl::aliasopt(linkDefaultLibDebug),
+                               cl::desc("Alias for -link-defaultlib-debug"),
+                               cl::cat(opts::linkingCategory));
+
+static cl::opt<cl::boolOrDefault> linkDefaultLibShared(
+    "link-defaultlib-shared", cl::ZeroOrMore,
+    cl::desc("Link with shared versions of default libraries"),
+    cl::cat(opts::linkingCategory));
+
+static cl::opt<cl::boolOrDefault>
+    staticFlag("static", cl::ZeroOrMore,
+               cl::desc("Create a statically linked binary, including "
+                        "all system dependencies"),
+               cl::cat(opts::linkingCategory));
 
 //////////////////////////////////////////////////////////////////////////////
 
 // linker-gcc.cpp
-int linkObjToBinaryGcc(llvm::StringRef outputPath, bool useInternalLinker,
-                       llvm::cl::boolOrDefault fullyStaticFlag);
+int linkObjToBinaryGcc(llvm::StringRef outputPath,
+                       const std::vector<std::string> &defaultLibNames);
 
 // linker-msvc.cpp
-int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
-                        llvm::cl::boolOrDefault fullyStaticFlag);
+int linkObjToBinaryMSVC(llvm::StringRef outputPath,
+                        const std::vector<std::string> &defaultLibNames);
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -87,6 +125,53 @@ static std::string getOutputName() {
 
 //////////////////////////////////////////////////////////////////////////////
 
+static std::vector<std::string> getDefaultLibNames() {
+  std::vector<std::string> result;
+
+  if (noDefaultLib) {
+    deprecation(Loc(), "-nodefaultlib is deprecated, as -defaultlib now "
+                       "overrides the existing list instead of appending to "
+                       "it. Please use the latter instead.");
+  } else if (!global.params.betterC) {
+    const bool addDebugSuffix =
+        (linkDefaultLibDebug && debugLib.getNumOccurrences() == 0);
+    const bool addSharedSuffix = linkAgainstSharedDefaultLibs();
+
+    // Parse comma-separated default library list.
+    std::stringstream libNames(
+        linkDefaultLibDebug && !addDebugSuffix ? debugLib : defaultLib);
+    while (libNames.good()) {
+      std::string lib;
+      std::getline(libNames, lib, ',');
+      if (lib.empty()) {
+        continue;
+      }
+
+      result.push_back((llvm::Twine(lib) + (addDebugSuffix ? "-debug" : "") +
+                        (addSharedSuffix ? "-shared" : ""))
+                           .str());
+    }
+  }
+
+  return result;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+bool useInternalLLDForLinking() { return linkInternally; }
+
+cl::boolOrDefault linkFullyStatic() { return staticFlag; }
+
+bool linkAgainstSharedDefaultLibs() {
+  // -static enforces static default libs.
+  // Default to shared default libs for DLLs.
+  return staticFlag != cl::BOU_TRUE &&
+         (linkDefaultLibShared == cl::BOU_TRUE ||
+          (linkDefaultLibShared == cl::BOU_UNSET && global.params.dll));
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 /// Insert an LLVM bitcode file into the module
 static void insertBitcodeIntoModule(const char *bcFile, llvm::Module &M,
                                     llvm::LLVMContext &Context) {
@@ -129,11 +214,13 @@ int linkObjToBinary() {
 
   createDirectoryForFileOrFail(gExePath);
 
+  const auto defaultLibNames = getDefaultLibNames();
+
   if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
-    return linkObjToBinaryMSVC(gExePath, useInternalLinker, opts::staticFlag);
+    return linkObjToBinaryMSVC(gExePath, defaultLibNames);
   }
 
-  return linkObjToBinaryGcc(gExePath, useInternalLinker, opts::staticFlag);
+  return linkObjToBinaryGcc(gExePath, defaultLibNames);
 }
 
 //////////////////////////////////////////////////////////////////////////////
