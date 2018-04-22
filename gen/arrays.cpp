@@ -674,13 +674,6 @@ DSliceValue *DtoNewDynArray(Loc &loc, Type *arrayType, DValue *dim,
   IF_LOG Logger::println("DtoNewDynArray : %s", arrayType->toChars());
   LOG_SCOPE;
 
-  // typeinfo arg
-  LLValue *arrayTypeInfo = DtoTypeInfoOf(arrayType);
-
-  // dim arg
-  assert(DtoType(dim->type) == DtoSize_t());
-  LLValue *arrayLen = DtoRVal(dim);
-
   // get runtime function
   Type *eltType = arrayType->toBasetype()->nextOf();
   bool zeroInit = eltType->isZeroInit();
@@ -689,6 +682,13 @@ DSliceValue *DtoNewDynArray(Loc &loc, Type *arrayType, DValue *dim,
                            ? (zeroInit ? "_d_newarrayT" : "_d_newarrayiT")
                            : "_d_newarrayU";
   LLFunction *fn = getRuntimeFunction(loc, gIR->module, fnname);
+
+  // typeinfo arg
+  LLValue *arrayTypeInfo = DtoTypeInfoOf(arrayType);
+
+  // dim arg
+  assert(DtoType(dim->type) == DtoSize_t());
+  LLValue *arrayLen = DtoRVal(dim);
 
   // call allocator
   LLValue *newArray =
@@ -704,9 +704,6 @@ DSliceValue *DtoNewMulDimDynArray(Loc &loc, Type *arrayType, DValue **dims,
   IF_LOG Logger::println("DtoNewMulDimDynArray : %s", arrayType->toChars());
   LOG_SCOPE;
 
-  // typeinfo arg
-  LLValue *arrayTypeInfo = DtoTypeInfoOf(arrayType);
-
   // get value type
   Type *vtype = arrayType->toBasetype();
   for (size_t i = 0; i < ndims; ++i) {
@@ -717,6 +714,9 @@ DSliceValue *DtoNewMulDimDynArray(Loc &loc, Type *arrayType, DValue **dims,
   const char *fnname =
       vtype->isZeroInit() ? "_d_newarraymTX" : "_d_newarraymiTX";
   LLFunction *fn = getRuntimeFunction(loc, gIR->module, fnname);
+
+  // typeinfo arg
+  LLValue *arrayTypeInfo = DtoTypeInfoOf(arrayType);
 
   // Check if constant
   bool allDimsConst = true;

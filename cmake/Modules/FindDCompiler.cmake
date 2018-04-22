@@ -8,6 +8,7 @@
 #  D_COMPILER_FLAGS    - D compiler flags (could be passed in the DMD environment variable)
 #  D_COMPILER_ID       = {"DigitalMars", "LDMD", "LDC", "GDC"}
 #  D_COMPILER_VERSION_STRING - String containing the compiler version, e.g. "DMD64 D Compiler v2.070.2"
+#  D_COMPILER_FE_VERSION - compiler front-end version, e.g. "2070"
 #  D_COMPILER_DMD_COMPAT - true if the D compiler cmdline interface is compatible with DMD
 
 
@@ -64,6 +65,8 @@ if (D_COMPILER)
                     OUTPUT_VARIABLE D_COMPILER_VERSION_STRING
                     ERROR_VARIABLE D_COMPILER_VERSION_STRING
                     ERROR_QUIET)
+    string(REGEX MATCH " (D Compiler|based on DMD) v([0-9]+)\\.([0-9]+)" D_COMPILER_FE_VERSION "${D_COMPILER_VERSION_STRING}")
+    math(EXPR D_COMPILER_FE_VERSION ${CMAKE_MATCH_2}*1000+${CMAKE_MATCH_3}) # e.g., 2079
     string(REGEX MATCH "^[^\r\n:]*" D_COMPILER_VERSION_STRING "${D_COMPILER_VERSION_STRING}")
 endif()
 
@@ -71,6 +74,7 @@ endif()
 if (D_COMPILER_FOUND)
     message(STATUS "Found host D compiler ${D_COMPILER}, with default flags '${D_COMPILER_FLAGS}'")
     message(STATUS "Host D compiler version: ${D_COMPILER_VERSION_STRING}")
+    message(STATUS "Host D compiler front-end version: ${D_COMPILER_FE_VERSION}")
 else()
     message(FATAL_ERROR "No D compiler found! Try setting the 'D_COMPILER' variable or 'DMD' environment variable.")
 endif()

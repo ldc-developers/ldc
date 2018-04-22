@@ -1,7 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (c) 1999-2016 by The D Language Foundation
- * All Rights Reserved
+ * Copyright (C) 1999-2018 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -123,7 +122,7 @@ public:
     bool determineFields();
     bool determineSize(Loc loc);
     virtual void finalizeSize() = 0;
-    d_uns64 size(Loc loc);
+    d_uns64 size(const Loc &loc);
     bool checkOverlappedFields();
     bool fill(Loc loc, Expressions *elements, bool ctorinit);
     static void alignmember(structalign_t salign, unsigned size, unsigned *poffset);
@@ -189,10 +188,10 @@ public:
     static StructDeclaration *create(Loc loc, Identifier *id);
     Dsymbol *syntaxCopy(Dsymbol *s);
     void semanticTypeInfoMembers();
-    Dsymbol *search(Loc, Identifier *ident, int flags = SearchLocalsOnly);
+    Dsymbol *search(const Loc &, Identifier *ident, int flags = SearchLocalsOnly);
     const char *kind() const;
     void finalizeSize();
-    bool fit(Loc loc, Scope *sc, Expressions *elements, Type *stype);
+    bool fit(const Loc &loc, Scope *sc, Expressions *elements, Type *stype);
     bool isPOD();
 
     StructDeclaration *isStructDeclaration() { return this; }
@@ -303,7 +302,7 @@ public:
     bool isAnonymous();
 
     bool isBaseInfoComplete();
-    Dsymbol *search(Loc, Identifier *ident, int flags = SearchLocalsOnly);
+    Dsymbol *search(const Loc &, Identifier *ident, int flags = SearchLocalsOnly);
     ClassDeclaration *searchBase(Identifier *ident);
     void finalizeSize();
     bool isFuncHidden(FuncDeclaration *fd);

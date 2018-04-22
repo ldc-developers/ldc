@@ -84,6 +84,11 @@ int rt_init();
 // In dmd/doc.d
 void gendocfile(Module *m);
 
+// In dmd/mars.d
+extern bool includeImports;
+extern Strings includeModulePatterns;
+void generateJson(Modules *modules);
+
 using namespace opts;
 
 extern void getenv_setargv(const char *envvar, int *pargc, char ***pargv);
@@ -334,18 +339,19 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     return;
   }
 
+  if (!cfg_file.path().empty())
+    global.inifilename = dupPathString(cfg_file.path());
+
   // Print some information if -v was passed
   // - path to compiler binary
   // - version number
   // - used config file
   if (global.params.verbose) {
-    fprintf(global.stdmsg, "binary    %s\n", exe_path::getExePath().c_str());
-    fprintf(global.stdmsg, "version   %s (DMD %s, LLVM %s)\n",
-            global.ldc_version, global.version, global.llvm_version);
-    const std::string path = cfg_file.path();
-    if (!path.empty()) {
-      fprintf(global.stdmsg, "config    %s (%s)\n", path.c_str(),
-              cfg_triple.c_str());
+    message("binary    %s", exe_path::getExePath().c_str());
+    message("version   %s (DMD %s, LLVM %s)", global.ldc_version,
+            global.version, global.llvm_version);
+    if (global.inifilename) {
+      message("config    %s (%s)", global.inifilename, cfg_triple.c_str());
     }
   }
 
@@ -389,6 +395,26 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   toWinPaths(global.params.imppath);
   toWinPaths(global.params.fileImppath);
 #endif
+
+  for (const auto &field : jsonFields) {
+    const unsigned flag = tryParseJsonField(field.c_str());
+    if (flag == 0) {
+      error(Loc(), "unknown JSON field `-Xi=%s`", field.c_str());
+    } else {
+      global.params.jsonFieldFlags |= flag;
+    }
+  }
+
+  includeImports = !opts::includeModulePatterns.empty();
+  for (const auto &pattern : opts::includeModulePatterns) {
+    // a value-less `-i` only enables `includeImports`
+    if (!pattern.empty())
+      ::includeModulePatterns.push_back(pattern.c_str());
+  }
+  // When including imports, their object files aren't tracked in
+  // global.params.objfiles etc. Enforce `-singleobj` to avoid related issues.
+  if (includeImports)
+    global.params.oneobj = true;
 
 #if LDC_LLVM_VER >= 400
   if (saveOptimizationRecord.getNumOccurrences() > 0) {
@@ -929,6 +955,11 @@ int cppmain(int argc, char **argv) {
   }
 
   if (files.dim == 0) {
+    if (global.params.jsonFieldFlags) {
+      generateJson(nullptr);
+      return EXIT_SUCCESS;
+    }
+
     cl::PrintHelpMessage(/*Hidden=*/false, /*Categorized=*/true);
     return EXIT_FAILURE;
   }
@@ -1022,7 +1053,6 @@ int cppmain(int argc, char **argv) {
 
 void addDefaultVersionIdentifiers() {
   registerPredefinedVersions();
-  printPredefinedVersions();
 }
 
 void codegenModules(Modules &modules) {
@@ -1042,7 +1072,7 @@ void codegenModules(Modules &modules) {
     for (d_size_t i = modules.dim; i-- > 0;) {
       Module *const m = modules[i];
       if (global.params.verbose)
-        fprintf(global.stdmsg, "code      %s\n", m->toChars());
+        message("code      %s", m->toChars());
 
       const auto atCompute = hasComputeAttr(m);
       if (atCompute == DComputeCompileFor::hostOnly ||

@@ -238,7 +238,7 @@ static LLValue *getTypeinfoArrayArgumentForDVarArg(Expressions *argexps,
   const size_t numVariadicArgs = numArgExps - begin;
 
   // build type info array
-  LLType *typeinfotype = DtoType(Type::dtypeinfo->type);
+  LLType *typeinfotype = DtoType(getTypeInfoType());
   LLArrayType *typeinfoarraytype =
       LLArrayType::get(typeinfotype, numVariadicArgs);
 
@@ -261,7 +261,7 @@ static LLValue *getTypeinfoArrayArgumentForDVarArg(Expressions *argexps,
   LLConstant *pinits[] = {
       DtoConstSize_t(numVariadicArgs),
       llvm::ConstantExpr::getBitCast(typeinfomem, getPtrToType(typeinfotype))};
-  LLType *tiarrty = DtoType(Type::dtypeinfo->type->arrayOf());
+  LLType *tiarrty = DtoType(getTypeInfoType()->arrayOf());
   tiinits = LLConstantStruct::get(isaStruct(tiarrty),
                                   llvm::ArrayRef<LLConstant *>(pinits));
   LLValue *typeinfoarrayparam = new llvm::GlobalVariable(

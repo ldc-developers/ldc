@@ -490,7 +490,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
 
   // -rpath if linking against shared default libs or ldc-jit
   if (linkAgainstSharedDefaultLibs() || opts::enableDynamicCompile) {
-    const std::string rpath = ConfigFile::instance.rpath();
+    llvm::StringRef rpath = ConfigFile::instance.rpath();
     if (!rpath.empty())
       addLdFlag("-rpath", rpath);
   }

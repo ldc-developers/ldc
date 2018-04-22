@@ -20,18 +20,16 @@
 #include "ir/iraggr.h"
 #include "ir/irfunction.h"
 
-RTTIBuilder::RTTIBuilder(AggregateDeclaration *base_class) {
-  DtoResolveDsymbol(base_class);
+RTTIBuilder::RTTIBuilder(Type *baseType) {
+  const auto ad = isAggregate(baseType);
+  assert(ad && "not an aggregate type");
 
-  base = base_class;
-  basetype = static_cast<TypeClass *>(base->type);
+  DtoResolveDsymbol(ad);
 
-  baseir = getIrAggr(base);
-  assert(baseir && "no IrStruct for TypeInfo base class");
+  if (ad->isClassDeclaration()) {
+    const auto baseir = getIrAggr(ad);
+    assert(baseir && "no IrAggr for TypeInfo base class");
 
-  prevFieldEnd = 0;
-
-  if (base->isClassDeclaration()) {
     // just start with adding the vtbl
     push(baseir->getVtblSymbol());
     // and monitor

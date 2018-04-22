@@ -57,14 +57,15 @@
 FuncDeclaration *search_toString(StructDeclaration *sd);
 
 // defined in dmd/typinf.d:
-void genTypeInfo(Type *torig, Scope *sc);
+void genTypeInfo(Loc loc, Type *torig, Scope *sc);
 bool builtinTypeInfo(Type *t);
 
-TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(Type *torig, Scope *sc) {
+TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(const Loc &loc, Type *torig,
+                                                    Scope *sc) {
   IF_LOG Logger::println("Type::getTypeInfo(): %s", torig->toChars());
   LOG_SCOPE
 
-  genTypeInfo(torig, sc);
+  genTypeInfo(loc, torig, sc);
 
   return torig->vtinfo;
 }
@@ -143,7 +144,7 @@ public:
                            decl->toChars());
     LOG_SCOPE;
 
-    RTTIBuilder b(Type::dtypeinfo);
+    RTTIBuilder b(getTypeInfoType());
     b.finalize(gvar);
   }
 
@@ -154,7 +155,7 @@ public:
                            decl->toChars());
     LOG_SCOPE;
 
-    RTTIBuilder b(Type::typeinfoenum);
+    RTTIBuilder b(getEnumTypeInfoType());
 
     assert(decl->tinfo->ty == Tenum);
     TypeEnum *tc = static_cast<TypeEnum *>(decl->tinfo);
@@ -189,7 +190,7 @@ public:
                            decl->toChars());
     LOG_SCOPE;
 
-    RTTIBuilder b(Type::typeinfopointer);
+    RTTIBuilder b(getPointerTypeInfoType());
     // TypeInfo base
     b.push_typeinfo(decl->tinfo->nextOf());
     // finish
@@ -203,7 +204,7 @@ public:
                            decl->toChars());
     LOG_SCOPE;
 
-    RTTIBuilder b(Type::typeinfoarray);
+    RTTIBuilder b(getArrayTypeInfoType());
     // TypeInfo base
     b.push_typeinfo(decl->tinfo->nextOf());
     // finish
@@ -220,7 +221,7 @@ public:
     assert(decl->tinfo->ty == Tsarray);
     TypeSArray *tc = static_cast<TypeSArray *>(decl->tinfo);
 
-    RTTIBuilder b(Type::typeinfostaticarray);
+    RTTIBuilder b(getStaticArrayTypeInfoType());
 
     // value typeinfo
     b.push_typeinfo(tc->nextOf());
@@ -243,7 +244,7 @@ public:
     assert(decl->tinfo->ty == Taarray);
     TypeAArray *tc = static_cast<TypeAArray *>(decl->tinfo);
 
-    RTTIBuilder b(Type::typeinfoassociativearray);
+    RTTIBuilder b(getAssociativeArrayTypeInfoType());
 
     // value typeinfo
     b.push_typeinfo(tc->nextOf());
@@ -262,7 +263,7 @@ public:
                            decl->toChars());
     LOG_SCOPE;
 
-    RTTIBuilder b(Type::typeinfofunction);
+    RTTIBuilder b(getFunctionTypeInfoType());
     // TypeInfo base
     b.push_typeinfo(decl->tinfo->nextOf());
     // string deco
@@ -281,7 +282,7 @@ public:
     assert(decl->tinfo->ty == Tdelegate);
     Type *ret_type = decl->tinfo->nextOf()->nextOf();
 
-    RTTIBuilder b(Type::typeinfodelegate);
+    RTTIBuilder b(getDelegateTypeInfoType());
     // TypeInfo base
     b.push_typeinfo(ret_type);
     // string deco
@@ -302,6 +303,10 @@ public:
     TypeStruct *tc = static_cast<TypeStruct *>(decl->tinfo);
     StructDeclaration *sd = tc->sym;
 
+    // check declaration in object.d
+    const auto structTypeInfoType = getStructTypeInfoType();
+    const auto structTypeInfoDecl = Type::typeinfostruct;
+
     // On x86_64, class TypeInfo_Struct contains 2 additional fields
     // (m_arg1/m_arg2) which are used for the X86_64 System V ABI varargs
     // implementation. They are not present on any other cpu/os.
@@ -309,7 +314,7 @@ public:
         global.params.targetTriple->getArch() == llvm::Triple::x86_64;
     const unsigned expectedFields = 11 + (isX86_64 ? 2 : 0);
     const unsigned actualFields =
-        Type::typeinfostruct->fields.dim -
+        structTypeInfoDecl->fields.dim -
         1; // union of xdtor/xdtorti counts as 2 overlapping fields
     if (actualFields != expectedFields) {
       error(Loc(), "Unexpected number of `object.TypeInfo_Struct` fields; "
@@ -317,7 +322,7 @@ public:
       fatal();
     }
 
-    RTTIBuilder b(Type::typeinfostruct);
+    RTTIBuilder b(structTypeInfoType);
 
     // handle opaque structs
     if (!sd->members) {
@@ -438,7 +443,7 @@ public:
           t = merge(t);
           b.push_typeinfo(t);
         } else {
-          b.push_null(Type::dtypeinfo->type);
+          b.push_null(getTypeInfoType());
         }
 
         t = sd->arg2type;
@@ -480,7 +485,7 @@ public:
     TypeClass *tc = static_cast<TypeClass *>(decl->tinfo);
     DtoResolveClass(tc->sym);
 
-    RTTIBuilder b(Type::typeinfointerface);
+    RTTIBuilder b(getInterfaceTypeInfoType());
 
     // TypeInfo base
     b.push_classinfo(tc->sym);
@@ -504,7 +509,7 @@ public:
     std::vector<LLConstant *> arrInits;
     arrInits.reserve(dim);
 
-    LLType *tiTy = DtoType(Type::dtypeinfo->type);
+    LLType *tiTy = DtoType(getTypeInfoType());
 
     for (auto arg : *tu->arguments) {
       arrInits.push_back(DtoTypeInfoOf(arg->type));
@@ -514,10 +519,10 @@ public:
     LLArrayType *arrTy = LLArrayType::get(tiTy, dim);
     LLConstant *arrC = LLConstantArray::get(arrTy, arrInits);
 
-    RTTIBuilder b(Type::typeinfotypelist);
+    RTTIBuilder b(getTupleTypeInfoType());
 
     // push TypeInfo[]
-    b.push_array(arrC, dim, Type::dtypeinfo->type, nullptr);
+    b.push_array(arrC, dim, getTypeInfoType(), nullptr);
 
     // finish
     b.finalize(gvar);
@@ -530,7 +535,7 @@ public:
                            decl->toChars());
     LOG_SCOPE;
 
-    RTTIBuilder b(Type::typeinfoconst);
+    RTTIBuilder b(getConstTypeInfoType());
     // TypeInfo base
     b.push_typeinfo(merge(decl->tinfo->mutableOf()));
     // finish
@@ -544,7 +549,7 @@ public:
                            decl->toChars());
     LOG_SCOPE;
 
-    RTTIBuilder b(Type::typeinfoinvariant);
+    RTTIBuilder b(getInvariantTypeInfoType());
     // TypeInfo base
     b.push_typeinfo(merge(decl->tinfo->mutableOf()));
     // finish
@@ -558,7 +563,7 @@ public:
                            decl->toChars());
     LOG_SCOPE;
 
-    RTTIBuilder b(Type::typeinfoshared);
+    RTTIBuilder b(getSharedTypeInfoType());
     // TypeInfo base
     b.push_typeinfo(merge(decl->tinfo->unSharedOf()));
     // finish
@@ -572,7 +577,7 @@ public:
                            decl->toChars());
     LOG_SCOPE;
 
-    RTTIBuilder b(Type::typeinfowild);
+    RTTIBuilder b(getInoutTypeInfoType());
     // TypeInfo base
     b.push_typeinfo(merge(decl->tinfo->mutableOf()));
     // finish
@@ -589,7 +594,7 @@ public:
     assert(decl->tinfo->ty == Tvector);
     TypeVector *tv = static_cast<TypeVector *>(decl->tinfo);
 
-    RTTIBuilder b(Type::typeinfovector);
+    RTTIBuilder b(getVectorTypeInfoType());
     // TypeInfo base
     b.push_typeinfo(tv->basetype);
     // finish
@@ -618,18 +623,17 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
     Logger::println("typeinfo mangle: %s", mangled);
   }
 
+  // Only declare the symbol if it isn't yet, otherwise the subtype of built-in
+  // TypeInfos (rt.typeinfo.*) may clash with the base type when compiling the
+  // rt.typeinfo.* modules.
   const auto irMangle = getIRMangledVarName(mangled, LINKd);
-  LLGlobalVariable *gvar = gIR->module.getGlobalVariable(irMangle);
-  if (gvar) {
-    assert(gvar->getType()->getContainedType(0)->isStructTy());
-  } else {
+  llvm::GlobalVariable *gvar = gIR->module.getGlobalVariable(irMangle);
+  if (!gvar) {
     LLType *type = DtoType(decl->type)->getPointerElementType();
-    // Create the symbol. We need to keep it mutable as the type is not declared
-    // as immutable on the D side, and e.g. synchronized() can be used on the
+    // We need to keep the symbol mutable as the type is not declared as
+    // immutable on the D side, and e.g. synchronized() can be used on the
     // implicit monitor.
-    gvar =
-        new LLGlobalVariable(gIR->module, type, false,
-                             LLGlobalValue::ExternalLinkage, nullptr, irMangle);
+    gvar = declareGlobal(decl->loc, gIR->module, type, irMangle, false);
   }
 
   IrGlobal *irg = getIrGlobal(decl, true);
@@ -638,8 +642,8 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
   emitTypeMetadata(decl);
 
   // check if the definition can be elided
-  if (!global.params.useTypeInfo || isSpeculativeType(decl->tinfo) ||
-      builtinTypeInfo(decl->tinfo)) {
+  if (!global.params.useTypeInfo || !Type::dtypeinfo ||
+      isSpeculativeType(decl->tinfo) || builtinTypeInfo(decl->tinfo)) {
     return;
   }
 

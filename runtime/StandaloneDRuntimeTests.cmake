@@ -39,6 +39,7 @@ if(${BUILD_SHARED_LIBS} STREQUAL "OFF")
 elseif(${BUILD_SHARED_LIBS} STREQUAL "ON")
     list(REMOVE_ITEM testnames cycles)
 endif()
+list(REMOVE_ITEM testnames uuid) # MSVC only, custom Makefile (win64.mak)
 
 foreach(name ${testnames})
     set(outdir ${PROJECT_BINARY_DIR}/druntime-test-${name})

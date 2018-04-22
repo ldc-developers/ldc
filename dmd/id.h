@@ -1,7 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (c) 2017 by The D Language Foundation
- * All Rights Reserved
+ * Copyright (C) 2017-2018 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -32,6 +31,8 @@ public:
     static Identifier *offsetof;
     static Identifier *__c_long;
     static Identifier *__c_ulong;
+    static Identifier *__c_longlong;
+    static Identifier *__c_ulonglong;
     static Identifier *__c_long_double;
     static Identifier *__switch;
     static Identifier *crt_constructor;

@@ -195,6 +195,9 @@ cl::opt<std::string> jsonFile("Xf", cl::desc("Write JSON file to <filename>"),
                               cl::value_desc("filename"), cl::Prefix,
                               cl::ZeroOrMore);
 
+// supported by DMD, but still undocumented
+cl::list<std::string> jsonFields("Xi", cl::ReallyHidden, cl::value_desc("field"));
+
 // Header generation options
 static cl::opt<bool, true>
     doHdrGen("H", cl::desc("Generate 'header' file"), cl::ZeroOrMore,
@@ -307,7 +310,13 @@ static cl::list<std::string, StringsAdapter> modFileAliasStrings(
     cl::value_desc("<package.module>=<filespec>"),
     cl::location(modFileAliasStringsStore));
 
-FloatABI::Type floatABI; // Storage for the dynamically created float-abi option.
+cl::list<std::string> includeModulePatterns(
+    "i", cl::desc("Include imported modules in the compilation"),
+    cl::value_desc("pattern"),
+    cl::ValueOptional); // DMD allows omitting a value with special meaning
+
+// Storage for the dynamically created float-abi option.
+FloatABI::Type floatABI;
 
 static cl::opt<CHECKENABLE, true, FlagParser<CHECKENABLE>>
     asserts("asserts", cl::ZeroOrMore, cl::desc("(*) Enable assertions"),

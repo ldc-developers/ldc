@@ -178,6 +178,7 @@ Where:\n\
   -Hf=<filename>   write 'header' file to filename\n\
   --help           print help and exit\n\
   -I=<directory>   look for imports also in directory\n\
+  -i[=<pattern>]   include imported modules in the compilation\n\
   -ignore          ignore unsupported pragmas\n\
   -inline          do function inlining\n\
   -J=<directory>   look for string imports also in directory\n\
@@ -613,7 +614,10 @@ void translateArgs(size_t originalArgc, char **originalArgv,
     }
   }
 
-  if (noFiles) {
+  // at least one file is mandatory, except when `-Xi=…` is used
+  if (noFiles && std::find_if(args.begin(), args.end(), [](const char *arg) {
+                   return strncmp(arg, "-Xi=", 4) == 0;
+                 }) == args.end()) {
     printUsage(originalArgv[0], ldcPath);
     if (originalArgc == 1)
       exit(EXIT_FAILURE); // compatible with DMD

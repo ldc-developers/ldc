@@ -59,6 +59,7 @@ extern cl::opt<cl::boolOrDefault> output_o;
 extern cl::opt<std::string> ddocDir;
 extern cl::opt<std::string> ddocFile;
 extern cl::opt<std::string> jsonFile;
+extern cl::list<std::string> jsonFields;
 extern cl::opt<std::string> hdrDir;
 extern cl::opt<std::string> hdrFile;
 extern cl::opt<bool> hdrKeepAllBodies;
@@ -68,6 +69,7 @@ extern cl::opt<std::string> moduleDeps;
 extern cl::opt<std::string> cacheDir;
 extern cl::list<std::string> linkerSwitches;
 extern cl::list<std::string> ccSwitches;
+extern cl::list<std::string> includeModulePatterns;
 
 extern cl::opt<bool> m32bits;
 extern cl::opt<bool> m64bits;

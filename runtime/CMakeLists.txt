@@ -153,6 +153,7 @@ list(REMOVE_ITEM DRUNTIME_D
 # only include core/sys/ modules matching the platform
 file(GLOB_RECURSE DRUNTIME_D_BIONIC  ${RUNTIME_DIR}/src/core/sys/bionic/*.d)
 file(GLOB_RECURSE DRUNTIME_D_DARWIN  ${RUNTIME_DIR}/src/core/sys/darwin/*.d)
+file(GLOB_RECURSE DRUNTIME_D_DRAGONFLYBSD ${RUNTIME_DIR}/src/core/sys/dragonflybsd/*.d)
 file(GLOB_RECURSE DRUNTIME_D_FREEBSD ${RUNTIME_DIR}/src/core/sys/freebsd/*.d)
 file(GLOB_RECURSE DRUNTIME_D_LINUX   ${RUNTIME_DIR}/src/core/sys/linux/*.d)
 file(GLOB_RECURSE DRUNTIME_D_NETBSD  ${RUNTIME_DIR}/src/core/sys/netbsd/*.d)
@@ -162,8 +163,9 @@ file(GLOB_RECURSE DRUNTIME_D_POSIX   ${RUNTIME_DIR}/src/core/sys/posix/*.d)
 file(GLOB_RECURSE DRUNTIME_D_SOLARIS ${RUNTIME_DIR}/src/core/sys/solaris/*.d)
 file(GLOB_RECURSE DRUNTIME_D_WINDOWS ${RUNTIME_DIR}/src/core/sys/windows/*.d)
 list(REMOVE_ITEM DRUNTIME_D
-    ${DRUNTIME_D_BIONIC}  ${DRUNTIME_D_DARWIN}  ${DRUNTIME_D_FREEBSD} ${DRUNTIME_D_LINUX}
-    ${DRUNTIME_D_NETBSD}  ${DRUNTIME_D_OPENBSD} ${DRUNTIME_D_OSX}     ${DRUNTIME_D_POSIX}
+    ${DRUNTIME_D_BIONIC}  ${DRUNTIME_D_DARWIN}  ${DRUNTIME_D_DRAGONFLYBSD}
+    ${DRUNTIME_D_FREEBSD} ${DRUNTIME_D_LINUX}   ${DRUNTIME_D_NETBSD}
+    ${DRUNTIME_D_OPENBSD} ${DRUNTIME_D_OSX}     ${DRUNTIME_D_POSIX}
     ${DRUNTIME_D_SOLARIS} ${DRUNTIME_D_WINDOWS}
 )
 if("${TARGET_SYSTEM}" MATCHES "Windows")
@@ -173,6 +175,8 @@ elseif("${TARGET_SYSTEM}" MATCHES "UNIX")
     if("${TARGET_SYSTEM}" MATCHES "APPLE")
         list(APPEND DRUNTIME_D ${DRUNTIME_D_DARWIN})
         list(APPEND DRUNTIME_D ${DRUNTIME_D_OSX})
+    elseif("${TARGET_SYSTEM}" MATCHES "DragonFly")
+        list(APPEND DRUNTIME_D ${DRUNTIME_D_DRAGONFLYBSD})
     elseif("${TARGET_SYSTEM}" MATCHES "FreeBSD")
         list(APPEND DRUNTIME_D ${DRUNTIME_D_FREEBSD})
     elseif("${TARGET_SYSTEM}" MATCHES "Linux")
@@ -265,9 +269,9 @@ endif()
 # Only have either shared or static libs?
 # Then explicitly default to linking against them via default LDC switch.
 if(${BUILD_SHARED_LIBS} STREQUAL "ON")
-    set(ADDITIONAL_DEFAULT_LDC_SWITCHES ",\n        \"-link-defaultlib-shared\"")
+    set(ADDITIONAL_DEFAULT_LDC_SWITCHES "\n        \"-link-defaultlib-shared\",")
 elseif(${BUILD_SHARED_LIBS} STREQUAL "OFF")
-    set(ADDITIONAL_DEFAULT_LDC_SWITCHES ",\n        \"-link-defaultlib-shared=false\"")
+    set(ADDITIONAL_DEFAULT_LDC_SWITCHES "\n        \"-link-defaultlib-shared=false\",")
 endif()
 
 # Only generate the config files if this CMake project is embedded in the LDC CMake project.
@@ -853,7 +857,7 @@ endfunction()
 
 # Generates targets for static and/or shared pairs of druntime/Phobos test runners.
 function(build_test_runner_variant name_suffix path_suffix d_flags c_flags)
-    set(full_d_flags ${D_FLAGS} ${d_flags} -unittest)
+    set(full_d_flags ${D_FLAGS} ${d_flags} -unittest -d-version=StdUnittest)
     set(full_c_flags "${RT_CFLAGS} ${c_flags}")
     set(linkflags "${LD_FLAGS} ${c_flags}")
     if("${TARGET_SYSTEM}" MATCHES "MSVC")

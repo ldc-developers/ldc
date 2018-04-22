@@ -18,11 +18,14 @@
 
 namespace opts {
 
-char *dupPathString(const std::string &src) {
-  char *r = mem.xstrdup(src.c_str());
+char *dupPathString(llvm::StringRef src) {
+  const auto length = src.size();
+  char *r = static_cast<char *>(mem.xmalloc(length + 1));
+  memcpy(r, src.data(), length);
 #if _WIN32
-  std::replace(r, r + src.length(), '/', '\\');
+  std::replace(r, r + length, '/', '\\');
 #endif
+  r[length] = '\0';
   return r;
 }
 
