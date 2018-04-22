@@ -93,41 +93,11 @@ using namespace opts;
 
 extern void getenv_setargv(const char *envvar, int *pargc, char ***pargv);
 
-static cl::opt<bool> noDefaultLib(
-    "nodefaultlib", cl::ZeroOrMore, cl::Hidden,
-    cl::desc("Don't add a default library for linking implicitly"));
-
 static StringsAdapter impPathsStore("I", global.params.imppath);
 static cl::list<std::string, StringsAdapter>
     importPaths("I", cl::desc("Look for imports also in <directory>"),
                 cl::value_desc("directory"), cl::location(impPathsStore),
                 cl::Prefix);
-
-static cl::opt<std::string>
-    defaultLib("defaultlib", cl::ZeroOrMore, cl::value_desc("lib1,lib2,..."),
-               cl::desc("Default libraries to link with (overrides previous)"),
-               cl::cat(linkingCategory));
-
-static cl::opt<std::string> debugLib(
-    "debuglib", cl::ZeroOrMore, cl::Hidden, cl::value_desc("lib1,lib2,..."),
-    cl::desc("Debug versions of default libraries (overrides previous). If the "
-             "option is omitted, LDC will append -debug to the -defaultlib "
-             "names when linking with -link-defaultlib-debug"),
-    cl::cat(linkingCategory));
-
-static cl::opt<bool> linkDefaultLibDebug(
-    "link-defaultlib-debug", cl::ZeroOrMore,
-    cl::desc("Link with debug versions of default libraries"),
-    cl::cat(linkingCategory));
-static cl::alias _linkDebugLib("link-debuglib", cl::Hidden,
-                               cl::aliasopt(linkDefaultLibDebug),
-                               cl::desc("Alias for -link-defaultlib-debug"),
-                               cl::cat(linkingCategory));
-
-static cl::opt<bool> linkDefaultLibShared(
-    "link-defaultlib-shared", cl::ZeroOrMore,
-    cl::desc("Link with shared versions of default libraries"),
-    cl::cat(linkingCategory));
 
 // This function exits the program.
 void printVersion(llvm::raw_ostream &OS) {
@@ -330,7 +300,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   expandResponseFiles(allocator, allArguments);
 
   // read config file
-  ConfigFile cfg_file;
+  ConfigFile &cfg_file = ConfigFile::instance;
   const char *explicitConfFile = tryGetExplicitConfFile(allArguments);
   const std::string cfg_triple = tryGetExplicitTriple(allArguments).getTriple();
   // just ignore errors for now, they are still printed
@@ -517,44 +487,6 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
         char *copy = opts::dupPathString(file);
         sourceFiles.push(copy);
       }
-    }
-  }
-
-  // default libraries
-  if (noDefaultLib) {
-    deprecation(Loc(), "-nodefaultlib is deprecated, as -defaultlib now "
-                       "overrides the existing list instead of appending to "
-                       "it. Please use the latter instead.");
-  } else if (!global.params.betterC) {
-    const bool addDebugSuffix =
-        (linkDefaultLibDebug && debugLib.getNumOccurrences() == 0);
-
-    // -static enforces static default libs.
-    // Default to shared default libs for DLLs.
-    const bool addSharedSuffix =
-        staticFlag != cl::BOU_TRUE &&
-        (linkDefaultLibShared ||
-         (linkDefaultLibShared.getNumOccurrences() == 0 && global.params.dll));
-
-    // Parse comma-separated default library list.
-    std::stringstream libNames(
-        linkDefaultLibDebug && !addDebugSuffix ? debugLib : defaultLib);
-    while (libNames.good()) {
-      std::string lib;
-      std::getline(libNames, lib, ',');
-      if (lib.empty()) {
-        continue;
-      }
-
-      std::ostringstream os;
-      os << "-l" << lib;
-      if (addDebugSuffix)
-        os << "-debug";
-      if (addSharedSuffix)
-        os << "-shared";
-
-      char *arg = mem.xstrdup(os.str().c_str());
-      global.params.linkswitches.push(arg);
     }
   }
 

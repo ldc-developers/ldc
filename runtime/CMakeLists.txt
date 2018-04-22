@@ -255,13 +255,14 @@ if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
     set(MULTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
 endif()
 
-# Set the -rpath linker option when shared runtime libraries are built.
-# The installed config file doesn't use SHARED_LIBS_RPATH.
-if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
+# Default -rpath linker option when linking against shared libraries.
+if(SHARED_LIBS_SUPPORTED)
     if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
-        set(SHARED_LIBS_RPATH "\n        \"-L-rpath\", \"-L${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}:${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",")
+        set(SHARED_LIBS_RPATH         "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}:${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}")
+        set(SHARED_LIBS_INSTALL_RPATH "${CMAKE_INSTALL_LIBDIR}:${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}")
     else()
-        set(SHARED_LIBS_RPATH "\n        \"-L-rpath\", \"-L${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}\",")
+        set(SHARED_LIBS_RPATH         "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
+        set(SHARED_LIBS_INSTALL_RPATH "${CMAKE_INSTALL_LIBDIR}")
     endif()
 endif()
 
@@ -671,33 +672,43 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
     endif()
 
     foreach(lib ${libs_to_install})
-        set(host_path  ${CMAKE_BINARY_DIR}/lib${hostsuffix}/lib${lib})
-        set(multi_path ${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}/lib${lib})
-        set(final_path ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${lib})
-
-        add_custom_command(
-            OUTPUT  ${final_path}
-            COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}
-            COMMAND lipo ${multi_path} ${host_path} -create -output ${final_path}
-            DEPENDS ${libtargets}
-        )
-
         set(target_name "")
         set(lib_extension "")
         get_filename_component(target_name ${lib} NAME_WE)
         get_filename_component(lib_extension ${lib} EXT)
 
-        add_custom_target(${target_name} ALL DEPENDS ${final_path})
+        set(host_path  ${CMAKE_BINARY_DIR}/lib${hostsuffix}/lib${lib})
+        set(multi_path ${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}/lib${lib})
 
-        # For merged dylibs, set install_name to "@rpath/<filename>".
+        # Create (& later install) symbolic links for merged dylibs.
+        set(final_files_to_install)
         if(${lib_extension} STREQUAL ".dylib")
+            set(final_path     ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${target_name}.${DMDFE_VERSION}.dylib)
+            set(dylib_symlink1 ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${target_name}.${DMDFE_PATCH_VERSION}.dylib)
+            set(dylib_symlink2 ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${target_name}.dylib)
+            set(final_files_to_install ${final_path} ${dylib_symlink1} ${dylib_symlink2})
             add_custom_command(
-                TARGET ${target_name} POST_BUILD
-                COMMAND install_name_tool -id "@rpath/lib${lib}" ${final_path}
+                OUTPUT  ${final_files_to_install}
+                COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}
+                COMMAND lipo ${multi_path} ${host_path} -create -output ${final_path}
+                COMMAND ln -s lib${target_name}.${DMDFE_VERSION}.dylib ${dylib_symlink1}
+                COMMAND ln -s lib${target_name}.${DMDFE_PATCH_VERSION}.dylib ${dylib_symlink2}
+                DEPENDS ${libtargets}
+            )
+        else()
+            set(final_path ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${lib})
+            set(final_files_to_install ${final_path})
+            add_custom_command(
+                OUTPUT  ${final_path}
+                COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}
+                COMMAND lipo ${multi_path} ${host_path} -create -output ${final_path}
+                DEPENDS ${libtargets}
             )
         endif()
 
-        install(FILES       ${final_path}
+        add_custom_target(${target_name} ALL DEPENDS ${final_files_to_install})
+
+        install(FILES       ${final_files_to_install}
                 DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
     endforeach()
 else()

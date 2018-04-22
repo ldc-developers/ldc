@@ -41,6 +41,16 @@ ArraySetting findArraySetting(GroupSetting section, string name)
     return null;
 }
 
+ScalarSetting findScalarSetting(GroupSetting section, string name)
+{
+    if (!section) return null;
+    foreach (c; section.children)
+    {
+        if (c.type == Setting.Type.scalar && c.name == name)
+            return cast(ScalarSetting) c;
+    }
+    return null;
+}
 
 string replace(string str, string pattern, string replacement)
 {
@@ -95,6 +105,7 @@ private:
     const(char)* pathcstr;
     Array!(const(char)*) switches;
     Array!(const(char)*) postSwitches;
+    const(char)* rpathcstr;
 
     bool readConfig(const(char)* cfPath, const(char)* sectionName, const(char)* binDir)
     {
@@ -158,6 +169,18 @@ private:
 
             applyArray(this.switches, switches);
             applyArray(this.postSwitches, postSwitches);
+
+            ScalarSetting findScalar(string name)
+            {
+                auto r = findScalarSetting(section, name);
+                if (!r)
+                    r = findScalarSetting(defaultSection, name);
+                return r;
+            }
+
+            auto rpath = findScalar("rpath");
+            if (rpath)
+                this.rpathcstr = (rpath.val.replace("%%ldcbinarypath%%", dBinDir) ~ '\0').ptr;
 
             return true;
         }

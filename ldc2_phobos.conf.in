@@ -5,7 +5,7 @@
 default:
 {
     // default switches injected before all explicit command-line switches
-    switches = [@SHARED_LIBS_RPATH@
+    switches = [
         "-defaultlib=phobos2-ldc,druntime-ldc",@ADDITIONAL_DEFAULT_LDC_SWITCHES@
     ];
     // default switches appended after all explicit command-line switches
@@ -15,4 +15,6 @@ default:
         "-I@PHOBOS2_DIR@",
         "-L-L@CMAKE_BINARY_DIR@/lib@LIB_SUFFIX@",@MULTILIB_ADDITIONAL_PATH@
     ];
+    // default rpath when linking against the shared default libs
+    rpath = "@SHARED_LIBS_RPATH@";
 };
