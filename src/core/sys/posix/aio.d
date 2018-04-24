@@ -10,7 +10,8 @@ module core.sys.posix.aio;
 
 private import core.sys.posix.signal;
 
-version (Posix):
+// LDC: changed from `version (Posix):`
+version (CRuntime_Glibc): version (X86_64):
 
 extern (C):
 @system:
