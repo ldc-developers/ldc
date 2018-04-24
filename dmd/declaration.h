@@ -134,7 +134,7 @@ public:
     const char *kind() const;
     d_uns64 size(const Loc &loc);
     bool checkDisabled(Loc loc, Scope* sc, bool isAliasedDeclaration = false);
-    int checkModify(Loc loc, Scope *sc, Type *t, Expression *e1, int flag);
+    int checkModify(Loc loc, Scope *sc, Expression *e1, int flag);
 
     Dsymbol *search(const Loc &loc, Identifier *ident, int flags = SearchLocalsOnly);
 
@@ -707,7 +707,6 @@ class FuncLiteralDeclaration : public FuncDeclaration
 public:
     TOK tok;                       // TOKfunction or TOKdelegate
     Type *treq;                         // target of return type inference
-    const utf8_t *serialization;
 
     // backend
     bool deferToObj;

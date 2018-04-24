@@ -89,11 +89,7 @@ struct Param
     bool vcg_ast;       // write-out codegen-ast
     bool showColumns;   // print character (column) numbers in diagnostics
     bool vtls;          // identify thread local variables
-#if !IN_LLVM
-    char vgc;           // identify gc usage
-#else
     bool vgc;           // identify gc usage
-#endif
     bool vfield;        // identify non-mutable field variables
     bool vcomplex;      // identify complex/imaginary type usage
 #if !IN_LLVM
@@ -326,6 +322,11 @@ struct Global
     void increaseErrorCount();
 
     void _init();
+
+    /**
+    Returns: the version as the number that would be returned for __VERSION__
+    */
+    unsigned versionNumber();
 };
 
 extern Global global;

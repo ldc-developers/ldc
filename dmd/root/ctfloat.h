@@ -41,20 +41,26 @@ struct CTFloat
     static real_t fabs(real_t x);
     static real_t ldexp(real_t n, int exp);
 
-#if IN_LLVM
-    static real_t log(real_t x);
-    static real_t log2(real_t x);
-    static real_t log10(real_t x);
-    static real_t fmin(real_t l, real_t r);
-    static real_t fmax(real_t l, real_t r);
+    static real_t round(real_t x);
     static real_t floor(real_t x);
     static real_t ceil(real_t x);
     static real_t trunc(real_t x);
+    static real_t log(real_t x);
+    static real_t log2(real_t x);
+    static real_t log10(real_t x);
+    static real_t pow(real_t x, real_t y);
+    static real_t expm1(real_t x);
+    static real_t exp2(real_t x);
+
+    static real_t fmin(real_t x, real_t y);
+    static real_t fmax(real_t x, real_t y);
+    static real_t copysign(real_t x, real_t s);
+
+    static real_t fma(real_t x, real_t y, real_t z);
+
+#if IN_LLVM
     static real_t rint(real_t x);
     static real_t nearbyint(real_t x);
-    static real_t round(real_t x);
-    static real_t fma(real_t x, real_t y, real_t z);
-    static real_t copysign(real_t to, real_t from);
 
     // implemented in gen/ctfloat.cpp
     static void _init();
