@@ -41,7 +41,7 @@ set(D_FLAGS               -w                                  CACHE STRING "Runt
 set(D_FLAGS_DEBUG         -g;-link-defaultlib-debug           CACHE STRING "Runtime D compiler flags (debug libraries), separated by ';'")
 set(D_FLAGS_RELEASE       -O3;-release                        CACHE STRING "Runtime D compiler flags (release libraries), separated by ';'")
 set(COMPILE_ALL_D_FILES_AT_ONCE ON                            CACHE BOOL   "Compile all D files for a lib in a single command line instead of separately")
-set(RT_ARCHIVE_WITH_LDC   AUTO                                CACHE STRING "Whether to archive the static runtime libs via LDC instead of CMake archiver")
+set(RT_ARCHIVE_WITH_LDC   ON                                  CACHE STRING "Whether to archive the static runtime libs via LDC instead of CMake archiver")
 set(RT_CFLAGS             ""                                  CACHE STRING "Runtime extra C compiler flags, separated by ' '")
 set(LD_FLAGS              ""                                  CACHE STRING "Runtime extra C linker flags, separated by ' '")
 set(C_SYSTEM_LIBS         AUTO                                CACHE STRING "C system libraries for linking shared libraries and test runners, separated by ';'")
@@ -88,16 +88,6 @@ if(${ptr_size} MATCHES "^8$") ## if it's 64-bit OS
 else()
     set(HOST_BITNESS 32)
     set(MULTILIB_SUFFIX 64)
-endif()
-
-if(${RT_ARCHIVE_WITH_LDC} STREQUAL "AUTO")
-    # LLVM's MSVC archiver (v4.0.1) apparently has issues with objects with debuginfos,
-    # leading to MS linker warnings when linking against the static debug runtime libs.
-    if("${TARGET_SYSTEM}" MATCHES "MSVC")
-        set(RT_ARCHIVE_WITH_LDC OFF)
-    else()
-        set(RT_ARCHIVE_WITH_LDC ON)
-    endif()
 endif()
 
 set(SHARED_LIBS_SUPPORTED OFF)
@@ -393,7 +383,11 @@ macro(dc src_files src_basedir d_flags output_basedir all_at_once outlist_o outl
     if(${all_at_once})
         set(renameCommand "")
         if(BUILD_LTO_LIBS)
-            set(renameCommand find ${output_basedir} -iname '*.bc' -exec mv '{}' '{}${CMAKE_C_OUTPUT_EXTENSION}' "\\\\;")
+            if(WIN32)
+                set(renameCommand find ${output_basedir} -iname '*.bc' -exec mv '{}' '{}${CMAKE_C_OUTPUT_EXTENSION}' "\;")
+            else()
+                set(renameCommand find ${output_basedir} -iname '*.bc' -exec mv '{}' '{}${CMAKE_C_OUTPUT_EXTENSION}' "\\\\;")
+            endif()
         endif()
 
         add_custom_command(
