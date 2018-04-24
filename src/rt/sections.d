@@ -51,6 +51,8 @@ else version (CRuntime_Microsoft)
     public import rt.sections_win64;
 else version (CRuntime_Bionic)
     public import rt.sections_android;
+else version (CRuntime_UClibc)
+    public import rt.sections_elf_shared;
 else
     static assert(0, "unimplemented");
 
