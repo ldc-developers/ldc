@@ -13,20 +13,18 @@
 //   RUN: %ldc -I%S -enable-inlining -enable-cross-module-inlining -singleobj %S/inputs/inlinables.d %s -of=%t2%exe
 
 import inputs.inlinables;
-import std.stdio;
-import std.exception;
 
 int foo(int i)
 {
     return call_template_foo(i);
 }
 
-// stdio.File.flush contains a call to errnoException, which contains __FILE__ as default template parameter.
+// Call a function calling std.exception.enforce with default __FILE__ template parameter.
 // Make sure the symbol is inlined/defined and not declared (which will lead to linker errors if the location
 // of the stdlib is different from where LDC was built from)
-void ggg(ref File f)
+void ggg()
 {
-    f.flush();
+    call_enforce_with_default_template_params();
 }
 
 void main()
@@ -34,10 +32,10 @@ void main()
 }
 
 // CHECK-NOT: declare{{.*}}_D6inputs10inlinables__T12template_fooTiZQrUNaNbNiNfiZi
-// CHECK-NOT: declare{{.*}}_D3std9exception__T12errnoEnforce
+// CHECK-NOT: declare{{.*}}_D3std9exception__T7enforce
 
 // CHECK-DAG: define{{.*}}_D6inputs10inlinables__T12template_fooTiZQrUNaNbNiNfiZi{{.*}}) #[[ATTR1:[0-9]+]]
-// CHECK-DAG: define{{.*}}_D3std9exception__T12errnoEnforce{{.*}}) #[[ATTR2:[0-9]+]]
+// CHECK-DAG: define{{.*}}_D3std9exception__T7enforce{{.*}}) #[[ATTR2:[0-9]+]]
 
 // CHECK-DAG: attributes #[[ATTR1]] ={{.*}} alwaysinline
 // CHECK-DAG: attributes #[[ATTR2]] ={{.*}} alwaysinline
