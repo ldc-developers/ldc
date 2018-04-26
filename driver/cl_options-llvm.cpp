@@ -13,7 +13,7 @@
 // shared by multiple LLVM tools.
 #if LDC_LLVM_VER >= 700
 #include "llvm/CodeGen/CommandFlags.inc"
-#elif LDC_LLVM_VER = 600
+#elif LDC_LLVM_VER == 600
 #include "llvm/CodeGen/CommandFlags.def"
 #else
 #include "llvm/CodeGen/CommandFlags.h"
