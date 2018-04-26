@@ -1,6 +1,6 @@
 //===-- cl_options-llvm.cpp -----------------------------------------------===//
 //
-//                         LDC – the LLVM D compiler
+//                         LDC - the LLVM D compiler
 //
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
@@ -11,7 +11,9 @@
 
 // Pull in command-line options and helper functions from special LLVM header
 // shared by multiple LLVM tools.
-#if LDC_LLVM_VER >= 600
+#if LDC_LLVM_VER >= 700
+#include "llvm/CodeGen/CommandFlags.inc"
+#elif LDC_LLVM_VER = 600
 #include "llvm/CodeGen/CommandFlags.def"
 #else
 #include "llvm/CodeGen/CommandFlags.h"
@@ -77,6 +79,10 @@ Optional<CodeModel::Model> GetCodeModelFromCMModel() {
 }
 #else
 CodeModel::Model GetCodeModelFromCMModel() { return ::CMModel; }
+#endif
+
+#if LDC_LLVM_VER >= 700
+std::string GetCPUStr() { return ::getCPUStr(); }
 #endif
 }
 #endif // LDC_WITH_LLD && LDC_LLVM_VER >= 500
