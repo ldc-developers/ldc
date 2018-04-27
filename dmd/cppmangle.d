@@ -956,7 +956,7 @@ public:
         if (t.isImmutable() || t.isShared())
             return error(t);
 
-        /* magic structs __c_(u)long(long) get special mangling
+        /* __c_long and __c_ulong get special mangling
          */
         const id = t.sym.ident;
         //printf("struct id = '%s'\n", id.toChars());
@@ -964,10 +964,6 @@ public:
             return writeBasicType(t, 0, 'l');
         else if (id == Id.__c_ulong)
             return writeBasicType(t, 0, 'm');
-        else if (id == Id.__c_longlong)
-            return writeBasicType(t, 0, 'x');
-        else if (id == Id.__c_ulonglong)
-            return writeBasicType(t, 0, 'y');
 
         //printf("TypeStruct %s\n", t.toChars());
         doSymbol(t);
@@ -978,14 +974,18 @@ public:
         if (t.isImmutable() || t.isShared())
             return error(t);
 
-        /* __c_long and __c_ulong get special mangling
+        /* __c_(u)long(long) get special mangling
          */
         const id = t.sym.ident;
-        //printf("struct id = '%s'\n", id.toChars());
+        //printf("enum id = '%s'\n", id.toChars());
         if (id == Id.__c_long)
             return writeBasicType(t, 0, 'l');
         else if (id == Id.__c_ulong)
             return writeBasicType(t, 0, 'm');
+        else if (id == Id.__c_longlong)
+            return writeBasicType(t, 0, 'x');
+        else if (id == Id.__c_ulonglong)
+            return writeBasicType(t, 0, 'y');
 
         doSymbol(t);
     }
