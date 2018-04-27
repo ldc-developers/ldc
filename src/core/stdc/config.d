@@ -72,21 +72,8 @@ else version( Posix )
 {
   static if( (void*).sizeof > int.sizeof )
   {
-    struct __c_longlong
-    {
-      pure nothrow @nogc @safe:
-        this(long x) { lng = x; }
-        long lng;
-        alias lng this;
-    }
-
-    struct __c_ulonglong
-    {
-      pure nothrow @nogc @safe:
-        this(ulong x) { lng = x; }
-        ulong lng;
-        alias lng this;
-    }
+    enum __c_longlong : long;
+    enum __c_ulonglong : ulong;
 
     alias long  cpp_long;
     alias ulong cpp_ulong;
