@@ -658,6 +658,12 @@ struct Target
      * Returns:
      *   true if return value from function is on the stack
      */
+  version(IN_LLVM)
+  {
+    extern (C++) static bool isReturnOnStack(TypeFunction tf);
+  }
+  else
+  {
     extern (C++) static bool isReturnOnStack(TypeFunction tf)
     {
         if (tf.isref)
@@ -806,6 +812,7 @@ struct Target
             return false;
         }
     }
+  } // !IN_LLVM
 
     /***
      * Determine the size a value of type `t` will be when it

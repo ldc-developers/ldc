@@ -267,3 +267,7 @@ Expression *Target::paintAsType(Expression *e, Type *type) {
  * immediately after loading.
  */
 void Target::loadModule(Module *m) {}
+
+bool Target::isReturnOnStack(TypeFunction *tf) {
+  return gABI->returnInArg(tf);
+}

@@ -22,6 +22,7 @@ class Dsymbol;
 class Expression;
 class Parameter;
 class Type;
+class TypeFunction;
 class TypeTuple;
 class Module;
 struct OutBuffer;
@@ -98,6 +99,7 @@ struct Target
     static Type *cppParameterType(Parameter *p);
     static LINK systemLinkage();
     static TypeTuple *toArgTypes(Type *t);
+    static bool isReturnOnStack(TypeFunction *tf);
     static d_uns64 parameterSize(const Loc& loc, Type *t);
 };
 

@@ -32,7 +32,6 @@ version (IN_LLVM)
     extern (C++)
     {
         Statement asmSemantic(AsmStatement s, Scope* sc);
-        RET retStyle(TypeFunction tf);
         void objc_initSymbols() {}
     }
 }
