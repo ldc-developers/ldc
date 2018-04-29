@@ -62,16 +62,13 @@ endfunction()
 #
 
 # Version information
-set(LDC_VERSION "1.10.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
-set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   80)
-set(DMDFE_FIX_LEVEL       0) # Comment out if not used
+set(DMDFE_MINOR_VERSION   080)
+set(DMDFE_PATCH_VERSION   0)
+set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERSION})
 
-set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}${DMDFE_PATCH_VERSION})
-if(DEFINED DMDFE_FIX_LEVEL)
-    set(DMD_VERSION ${DMD_VERSION}.${DMDFE_FIX_LEVEL})
-endif()
+set(LDC_PATCH_VERSION   0)
+set(LDC_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}.${LDC_PATCH_VERSION}) # May be overridden by git hash tag
 
 # Generally, we want to install everything into CMAKE_INSTALL_PREFIX, but when
 # it is /usr, put the config files into /etc to meet common practice.
