@@ -101,7 +101,7 @@ enum TOK
         TOKquestion,    TOKandand,      TOKoror,
         TOKpreplusplus, TOKpreminusminus,
 
-// 111
+// 113
         // Numeric literals
         TOKint32v, TOKuns32v,
         TOKint64v, TOKuns64v,
@@ -130,7 +130,7 @@ enum TOK
         TOKcomplex32, TOKcomplex64, TOKcomplex80,
         TOKchar, TOKwchar, TOKdchar, TOKbool,
 
-// 158
+// 160
         // Aggregates
         TOKstruct, TOKclass, TOKinterface, TOKunion, TOKenum, TOKimport,
         TOKalias, TOKoverride, TOKdelegate, TOKfunction,
@@ -150,7 +150,7 @@ enum TOK
         TOKon_scope_exit, TOKon_scope_failure, TOKon_scope_success,
 
         // Contracts
-        TOKbody, TOKinvariant,
+        TOKinvariant,
 
         // Testing
         TOKunittest,
