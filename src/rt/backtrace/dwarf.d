@@ -88,7 +88,11 @@ else
             foreach(size_t i; 0 .. callstack.length)
                 locations[i].address = cast(size_t) callstack[i];
 
-            resolveAddresses(&dbgSection, locations[]);
+            // the DWARF addresses for DSOs are relative
+            const isDynamicSharedObject = (file.ehdr.e_type == ET_DYN);
+            const baseAddress = (isDynamicSharedObject ? cast(size_t) getMemoryRegionOfExecutable().ptr : 0);
+
+            resolveAddresses(&dbgSection, baseAddress, locations[]);
         }
     }
 
@@ -138,7 +142,7 @@ else
 private:
 
 // the lifetime of the Location data is the lifetime of the mmapped ElfSection
-void resolveAddresses(ElfSection* debugLineSection, Location[] locations) @nogc nothrow
+void resolveAddresses(ElfSection* debugLineSection, size_t baseAddress, Location[] locations) @nogc nothrow
 {
     debug(DwarfDebugMachine) import core.stdc.stdio;
 
@@ -157,6 +161,8 @@ void resolveAddresses(ElfSection* debugLineSection, Location[] locations) @nogc 
         runStateMachine(lp,
             (size_t address, LocationInfo locInfo, bool isEndSequence)
             {
+                address += baseAddress;
+
                 // If loc.line != -1, then it has been set previously.
                 // Some implementations (eg. dmd) write an address to
                 // the debug data multiple times, but so far I have found

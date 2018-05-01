@@ -24,6 +24,60 @@ version(linux) public import core.sys.linux.elf;
 version(FreeBSD) public import core.sys.freebsd.sys.elf;
 version(DragonFlyBSD) public import core.sys.dragonflybsd.sys.elf;
 
+version (LDC)
+const(void)[] getMemoryRegionOfExecutable() @nogc nothrow
+{
+    import core.sys.posix.unistd : readlink, getpid;
+    import core.stdc.stdio, core.stdc.stdlib, core.stdc.string;
+
+    // get absolute path to executable
+    char[1024] selfPath = void;
+    version (FreeBSD)
+    {
+        getFreeBSDExePath(selfPath[]);
+    }
+    else
+    {
+        version (linux)
+        {
+            auto selfLink = "/proc/self/exe".ptr;
+        }
+        else version (DragonFlyBSD)
+        {
+            auto selfLink = "/proc/curproc/file".ptr;
+        }
+
+        const length = readlink(selfLink, selfPath.ptr, selfPath.length);
+        assert(length > 0 && length < selfPath.length);
+        selfPath[length] = 0;
+    }
+
+    // open the current process' maps file
+    char[32] selfMapsPath = void;
+    snprintf(selfMapsPath.ptr, selfMapsPath.length, "/proc/%d/maps", getpid());
+    FILE* fp = fopen(selfMapsPath.ptr, "r");
+    assert(fp);
+    scope(exit) fclose(fp);
+
+    // use the region in the first line for the executable file
+    char[128] line = void;
+    while (fgets(line.ptr, line.length, fp) !is null)
+    {
+        line[strlen(line.ptr) - 1] = '\0'; // remove trailing '\n'
+        char* path = strchr(line.ptr, '/');
+        if (path && strcmp(selfPath.ptr, path) == 0)
+        {
+            char* tail;
+            const start = cast(void*) strtoul(line.ptr, &tail, 16);
+            ++tail; // skip over '-'
+            const end = cast(void*) strtoul(tail, &tail, 16);
+            return start[0 .. end - start];
+        }
+    }
+
+    assert(0);
+}
+
 struct ElfFile
 {
     static bool openSelf(ElfFile* file) @nogc nothrow
