@@ -278,6 +278,26 @@ void applyAttrSection(StructLiteralExp *sle, llvm::GlobalObject *globj) {
   globj->setSection(getFirstElemString(sle));
 }
 
+void applyAttrRestrictAll(llvm::Function * func) {
+  llvm::AttrBuilder builder;
+  builder.addAttribute(LLAttribute::NoAlias);
+
+  auto attributeList = func->getAttributes();
+  auto functionType = func->getFunctionType();
+
+  int paramIdx = 1;
+  for(auto it = functionType->param_begin(); it != functionType->param_end(); ++it)
+  {
+    if((*it)->isPointerTy())
+    {
+      attributeList = attributeList.addAttribute(func->getContext(),
+                                                 paramIdx, LLAttribute::NoAlias);
+    }
+    paramIdx += 1;
+  }
+  func->setAttributes(attributeList);
+}
+
 void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func, IrFunction *irFunc) {
   // TODO: this is a rudimentary implementation for @target. Many more
   // target-related attributes could be applied to functions (not just for
@@ -415,6 +435,8 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
       applyAttrOptStrategy(sle, irFunc);
     } else if (ident == Id::udaSection) {
       applyAttrSection(sle, func);
+    } else if (ident == Id::udaRestrictAll) {
+      applyAttrRestrictAll(func);
     } else if (ident == Id::udaTarget) {
       applyAttrTarget(sle, func, irFunc);
     } else if (ident == Id::udaAssumeUsed) {

@@ -76,6 +76,7 @@ public:
     static Identifier *criticalexit;
     static Identifier *attributes;
     static Identifier *udaSection;
+    static Identifier *udaRestrictAll;
     static Identifier *udaOptStrategy;
     static Identifier *udaTarget;
     static Identifier *udaAssumeUsed;
