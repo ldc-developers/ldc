@@ -35,10 +35,11 @@ public:
     const bool is64 = global.params.is64bit;
     auto tripleString = is64 ? "nvptx64-nvidia-cuda" : "nvptx-nvidia-cuda";
 
+    auto floatABI = ::FloatABI::Hard;
     targetMachine = createTargetMachine(
         tripleString, is64 ? "nvptx64" : "nvptx",
         "sm_" + ldc::to_string(tversion / 10), {},
-        is64 ? ExplicitBitness::M64 : ExplicitBitness::M32, ::FloatABI::Hard,
+        is64 ? ExplicitBitness::M64 : ExplicitBitness::M32, floatABI,
         llvm::Reloc::Static, llvm::CodeModel::Medium, codeGenOptLevel(), false);
 
     _ir = new IRState("dcomputeTargetCUDA", ctx);
