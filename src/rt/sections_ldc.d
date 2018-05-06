@@ -19,6 +19,7 @@ module rt.sections_ldc;
 version (linux) {}
 else version (OSX) {}
 else version (FreeBSD) {}
+else version (DragonFlyBSD) {}
 else version (NetBSD) {}
 else version (Windows) {}
 else version(LDC):

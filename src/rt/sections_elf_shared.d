@@ -932,7 +932,7 @@ else version (NetBSD) bool findImageHeaderForAddr(in void* addr, dl_phdr_info* r
     auto dg = DG(addr, result);
     return dl_iterate_phdr(&callback, &dg) != 0;
 }
-else version (DragonFlyBSD) bool findDSOInfoForAddr(in void* addr, dl_phdr_info* result=null) nothrow @nogc
+else version (DragonFlyBSD) bool findImageHeaderForAddr(in void* addr, dl_phdr_info* result=null) nothrow @nogc
 {
     return !!_rtld_addr_phdr(addr, result);
 }
