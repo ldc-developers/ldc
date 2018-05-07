@@ -240,12 +240,8 @@ else version( OpenBSD )
 }
 else version( DragonFlyBSD )
 {
-    alias getpwnam_r = __posix_getpwnam_r;
-    alias getpwuid_r = __posix_getpwuid_r;
-
-    // POSIX.1c standard version of the functions
-    int __posix_getpwnam_r(in char*, passwd*, char*, size_t, passwd**);
-    int __posix_getpwuid_r(uid_t, passwd*, char*, size_t, passwd**);
+    int getpwnam_r(in char*, passwd*, char*, size_t, passwd**);
+    int getpwuid_r(uid_t, passwd*, char*, size_t, passwd**);
 }
 else version (Solaris)
 {
