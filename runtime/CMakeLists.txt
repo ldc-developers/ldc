@@ -50,6 +50,12 @@ set(LDC_TARGET_PRESET     ""                                  CACHE STRING "Use 
 
 set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 
+# Find gnu make, use specific version first (BSD) and fall back to default 'make' (LINUX)
+find_program(GNU_MAKE_BIN NAMES gmake gnumake make)
+if ("${GNU_MAKE_BIN}" STREQUAL "")
+    message(FATAL_ERROR "GNU make could not be found. Please install gmake/gnumake/make using your (platform) package installer")
+endif()
+
 # Use LDC_TARGET_PRESET to configure target runtime
 include(PresetRuntimeConfiguration)
 
