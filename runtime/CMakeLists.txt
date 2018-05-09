@@ -39,8 +39,8 @@ else()
 endif()
 
 if(BUILD_SHARED_LIBS)
-    if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-        message(FATAL_ERROR "Shared libraries (BUILD_SHARED_LIBS) are only supported on Linux for the time being.")
+    if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Linux|FreeBSD|DragonFly")
+        message(FATAL_ERROR "Shared libraries (BUILD_SHARED_LIBS) are only supported on Linux, FreeBSD and DragonFly for the time being.")
     endif()
 
     list(APPEND D_FLAGS -relocation-model=pic)
@@ -213,7 +213,7 @@ if(MULTILIB AND (${CMAKE_SYSTEM_NAME} MATCHES "Linux"))
     set(MULTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
 endif()
 
-if(BUILD_SHARED_LIBS AND (${CMAKE_SYSTEM_NAME} MATCHES "Linux"))
+if(BUILD_SHARED_LIBS AND (${CMAKE_SYSTEM_NAME} MATCHES "Linux|FreeBSD|DragonFly"))
     set(SHARED_LIBS_RPATH "\n        \"-L-rpath=${CMAKE_BINARY_DIR}/lib\",")
 endif()
 
