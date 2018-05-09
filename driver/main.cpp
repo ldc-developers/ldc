@@ -1019,6 +1019,7 @@ int cppmain(int argc, char **argv) {
     global.params.isWindows = triple->isOSWindows();
     global.params.isFreeBSD = triple->isOSFreeBSD();
     global.params.isOpenBSD = triple->isOSOpenBSD();
+    global.params.isDragonFlyBSD = triple->isOSDragonFly();
     global.params.isSolaris = triple->isOSSolaris();
     global.params.isLP64 = gDataLayout->getPointerSizeInBits() == 64;
     global.params.is64bit = triple->isArch64Bit();
