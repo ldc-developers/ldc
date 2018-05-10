@@ -27,7 +27,7 @@ else()
     endif()
 endif()
 
-if("${TARGET_SYSTEM}" MATCHES "FreeBSD")
+if("${TARGET_SYSTEM}" MATCHES "FreeBSD|DragonFly")
     set(linkdl "")
 else()
     set(linkdl "LINKDL=-L-ldl")
@@ -47,7 +47,7 @@ foreach(name ${testnames})
         COMMAND ${CMAKE_COMMAND} -E remove_directory ${outdir}
     )
     add_test(NAME druntime-test-${name}
-        COMMAND make -C ${PROJECT_SOURCE_DIR}/druntime/test/${name}
+        COMMAND ${GNU_MAKE_BIN} -C ${PROJECT_SOURCE_DIR}/druntime/test/${name}
             ROOT=${outdir} DMD=${LDMD_EXE_FULL} MODEL=default
             DRUNTIME=${druntime_path} DRUNTIMESO=${shared_druntime_path}
             CFLAGS=-Wall\ -Wl,-rpath,${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}

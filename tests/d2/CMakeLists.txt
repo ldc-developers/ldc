@@ -38,7 +38,7 @@ function(add_testsuite config_name required_flags gdbflags model)
 
     set(dflags "-conf=${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf ${gdb_dflags}")
     add_test(NAME ${name}
-        COMMAND make -k -C ${workingdir} RESULTS_DIR=${resultsdir}
+        COMMAND ${GNU_MAKE_BIN} -k -C ${workingdir} RESULTS_DIR=${resultsdir}
                      REQUIRED_ARGS=${required_flags} DFLAGS=${dflags}
                      DMD=${LDMD_EXE_FULL} MODEL=${model} GDB_FLAGS=${gdbflags}
                      quick

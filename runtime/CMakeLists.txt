@@ -50,6 +50,12 @@ set(LDC_TARGET_PRESET     ""                                  CACHE STRING "Use 
 
 set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 
+# Find gnu make, use specific version first (BSD) and fall back to default 'make' (LINUX)
+find_program(GNU_MAKE_BIN NAMES gmake gnumake make)
+if ("${GNU_MAKE_BIN}" STREQUAL "")
+    message(FATAL_ERROR "GNU make could not be found. Please install gmake/gnumake/make using your (platform) package installer")
+endif()
+
 # Use LDC_TARGET_PRESET to configure target runtime
 include(PresetRuntimeConfiguration)
 
@@ -95,7 +101,7 @@ if(${RT_ARCHIVE_WITH_LDC} STREQUAL "AUTO")
 endif()
 
 set(SHARED_LIBS_SUPPORTED OFF)
-if("${TARGET_SYSTEM}" MATCHES "Linux|FreeBSD|APPLE"
+if("${TARGET_SYSTEM}" MATCHES "Linux|FreeBSD|DragonFly|APPLE"
    AND (NOT "${TARGET_SYSTEM}" MATCHES "Android"))
     set(SHARED_LIBS_SUPPORTED ON)
 endif()
@@ -111,7 +117,7 @@ endif()
 set(SHARED_LIB_SUFFIX "")
 if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
     if(NOT SHARED_LIBS_SUPPORTED)
-        message(FATAL_ERROR "Shared libraries (BUILD_SHARED_LIBS) are only supported on Linux, macOS and FreeBSD for the time being.")
+        message(FATAL_ERROR "Shared libraries (BUILD_SHARED_LIBS) are only supported on Linux, macOS, FreeBSD and DragonFly for the time being.")
     endif()
     set(SHARED_LIB_SUFFIX "-shared")
 endif()
