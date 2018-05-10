@@ -101,7 +101,7 @@ if(${RT_ARCHIVE_WITH_LDC} STREQUAL "AUTO")
 endif()
 
 set(SHARED_LIBS_SUPPORTED OFF)
-if("${TARGET_SYSTEM}" MATCHES "Linux|FreeBSD|APPLE"
+if("${TARGET_SYSTEM}" MATCHES "Linux|FreeBSD|DragonFly|APPLE"
    AND (NOT "${TARGET_SYSTEM}" MATCHES "Android"))
     set(SHARED_LIBS_SUPPORTED ON)
 endif()
@@ -117,7 +117,7 @@ endif()
 set(SHARED_LIB_SUFFIX "")
 if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
     if(NOT SHARED_LIBS_SUPPORTED)
-        message(FATAL_ERROR "Shared libraries (BUILD_SHARED_LIBS) are only supported on Linux, macOS and FreeBSD for the time being.")
+        message(FATAL_ERROR "Shared libraries (BUILD_SHARED_LIBS) are only supported on Linux, macOS, FreeBSD and DragonFly for the time being.")
     endif()
     set(SHARED_LIB_SUFFIX "-shared")
 endif()
