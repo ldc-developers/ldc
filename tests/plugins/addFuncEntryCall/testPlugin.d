@@ -1,6 +1,6 @@
 // REQUIRES: Plugins
 
-// RUN: make -f %S/Makefile
+// RUN: %gnu_make -f %S/Makefile
 // RUN: %ldc -c -output-ll -plugin=./addFuncEntryCallPass.so -of=%t.ll %s
 // RUN: FileCheck %s < %t.ll
 
