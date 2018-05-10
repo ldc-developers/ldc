@@ -225,28 +225,26 @@ int performWriteOperation(object::Archive *OldArchive,
 }
 
 int performWriteOperation() {
-  // Create or open the archive object.
+  if (!sys::fs::exists(ArchiveName)) {
+    return performWriteOperation(nullptr, nullptr);
+  }
+
+  // Open the archive object.
   auto Buf = MemoryBuffer::getFile(ArchiveName, -1, false);
   std::error_code EC = Buf.getError();
-  if (EC && EC != errc::no_such_file_or_directory) {
-    fail("error opening '" + ArchiveName + "': " + EC.message());
+  if (EC) {
+    fail(EC, ("error opening '" + ArchiveName + "'").str());
     return 1;
   }
 
-  if (!EC) {
-    Error Err = Error::success();
-    object::Archive Archive(Buf.get()->getMemBufferRef(), Err);
-    EC = errorToErrorCode(std::move(Err));
-    if (EC) {
-      fail(EC, ("error loading '" + ArchiveName + "': " + EC.message()).str());
-      return 1;
-    }
-    return performWriteOperation(&Archive, std::move(Buf.get()));
+  Error Err = Error::success();
+  object::Archive Archive(Buf.get()->getMemBufferRef(), Err);
+  EC = errorToErrorCode(std::move(Err));
+  if (EC) {
+    fail(EC, ("error loading '" + ArchiveName + "'").str());
+    return 1;
   }
-
-  assert(EC == errc::no_such_file_or_directory);
-
-  return performWriteOperation(nullptr, nullptr);
+  return performWriteOperation(&Archive, std::move(Buf.get()));
 }
 
 } // namespace llvm_ar
