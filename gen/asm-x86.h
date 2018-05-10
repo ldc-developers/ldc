@@ -3032,7 +3032,7 @@ struct AsmProcessor {
               stmt->error("dollar labels are not supported");
               asmcode->dollarLabel = 1;
             } else if (e->op == TOKdsymbol) {
-              LabelDsymbol *lbl = (LabelDsymbol *)((DsymbolExp *)e)->s;
+              LabelDsymbol *lbl = static_cast<DsymbolExp *>(e)->s->isLabel();
               stmt->isBranchToLabel = lbl;
 
               use_star = false;
