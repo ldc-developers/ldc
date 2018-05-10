@@ -93,13 +93,12 @@ AsmParserCommon *asmparser = nullptr;
 static void replace_func_name(IRState *p, std::string &insnt) {
   static const std::string needle("<<func>>");
 
-  OutBuffer mangleBuf;
-  mangleToBuffer(p->func()->decl, &mangleBuf);
+  const char *mangle = mangleExact(p->func()->decl);
 
   size_t pos;
   while (std::string::npos != (pos = insnt.find(needle))) {
     // This will only happen for few instructions, and only once for those.
-    insnt.replace(pos, needle.size(), mangleBuf.peekString());
+    insnt.replace(pos, needle.size(), mangle);
   }
 }
 
