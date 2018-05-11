@@ -4,6 +4,7 @@ set -euxo pipefail
 
 IMAGE=ubuntu:18.04
 
+free -m
 docker pull $IMAGE
 docker run --rm \
 	-v $PWD:/ldc \

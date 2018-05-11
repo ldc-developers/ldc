@@ -2,8 +2,9 @@
 
 set -euxo pipefail
 
+free -m
 cd build
-ninja -j3
+ninja -j2
 bin/ldc2 -version
 ctest --output-on-failure -R ldc2-unittest
 ctest -V -R lit-tests
