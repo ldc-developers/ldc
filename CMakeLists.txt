@@ -62,11 +62,11 @@ endfunction()
 #
 
 # Version information
-set(LDC_VERSION "1.9.0") # May be overridden by git hash tag
+set(LDC_VERSION "1.10.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   79)
-set(DMDFE_FIX_LEVEL       1) # Comment out if not used
+set(DMDFE_PATCH_VERSION   80)
+set(DMDFE_FIX_LEVEL       0) # Comment out if not used
 
 set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}${DMDFE_PATCH_VERSION})
 if(DEFINED DMDFE_FIX_LEVEL)
@@ -185,9 +185,10 @@ if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang"))
     #    function pointers to void*.
     #  * -Wgnu-anonymous-struct and -Wnested-anon-types trigger for tokens.h.
     #  * -Wgnu-redeclared-enum triggers for various frontend headers.
+    #  * -Wunused-private-field triggers for expression.h.
     append("-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-non-virtual-dtor" LDC_CXXFLAGS)
     if ((${CMAKE_CXX_COMPILER_ID} MATCHES "Clang"))
-        append("-Wno-gnu-anonymous-struct -Wno-nested-anon-types -Wno-gnu-redeclared-enum" LDC_CXXFLAGS)
+        append("-Wno-gnu-anonymous-struct -Wno-nested-anon-types -Wno-gnu-redeclared-enum -Wno-unused-private-field" LDC_CXXFLAGS)
     endif()
     if(CMAKE_COMPILER_IS_GNUCXX AND NOT CMAKE_C_COMPILER_VERSION VERSION_LESS "4.7.0")
         append("-Wno-pedantic" LDC_CXXFLAGS)

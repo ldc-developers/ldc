@@ -761,6 +761,7 @@ extern (C++) final class DtorExpStatement : ExpStatement
 }
 
 /***********************************************************
+ * https://dlang.org/spec/statement.html#mixin-statement
  */
 extern (C++) final class CompileStatement : Statement
 {
@@ -1280,13 +1281,14 @@ extern (C++) final class ForStatement : Statement
 }
 
 /***********************************************************
+ * https://dlang.org/spec/statement.html#foreach-statement
  */
 extern (C++) final class ForeachStatement : Statement
 {
     TOK op;                     // TOK.foreach_ or TOK.foreach_reverse_
-    Parameters* parameters;     // array of Parameter*'s
-    Expression aggr;
-    Statement _body;
+    Parameters* parameters;     // array of Parameters, one for each ForeachType
+    Expression aggr;            // ForeachAggregate
+    Statement _body;            // NoScopeNonEmptyStatement
     Loc endloc;                 // location of closing curly bracket
 
     VarDeclaration key;
@@ -1314,21 +1316,6 @@ extern (C++) final class ForeachStatement : Statement
             aggr.syntaxCopy(),
             _body ? _body.syntaxCopy() : null,
             endloc);
-    }
-
-    bool checkForArgTypes()
-    {
-        bool result = false;
-        foreach (p; *parameters)
-        {
-            if (!p.type)
-            {
-                error("cannot infer type for `%s`", p.ident.toChars());
-                p.type = Type.terror;
-                result = true;
-            }
-        }
-        return result;
     }
 
     override bool hasBreak()
@@ -1646,15 +1633,20 @@ version(IN_LLVM)
                 // All good, the label's scope has no variables
                 return false;
             }
+            else if (vd.storage_class & STC.temp)
+            {
+                // Lifetime ends at end of expression, so no issue with skipping the statement
+                return false;
+            }
             else if (vd.ident == Id.withSym)
             {
-                deprecation("`switch` skips declaration of `with` temporary at %s", vd.loc.toChars());
+                error("`switch` skips declaration of `with` temporary at %s", vd.loc.toChars());
                 return true;
             }
             else
             {
                 if (!vd._init.isVoidInitializer)
-                    deprecation("`switch` skips declaration of variable `%s` at %s", vd.toPrettyChars(), vd.loc.toChars());
+                error("`switch` skips declaration of variable `%s` at %s", vd.toPrettyChars(), vd.loc.toChars());
 
                 return true;
             }

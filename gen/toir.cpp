@@ -1241,30 +1241,6 @@ public:
       case TOKge:
         cmpop = llvm::FCmpInst::FCMP_OGE;
         break;
-      case TOKunord:
-        cmpop = llvm::FCmpInst::FCMP_UNO;
-        break;
-      case TOKule:
-        cmpop = llvm::FCmpInst::FCMP_ULE;
-        break;
-      case TOKul:
-        cmpop = llvm::FCmpInst::FCMP_ULT;
-        break;
-      case TOKuge:
-        cmpop = llvm::FCmpInst::FCMP_UGE;
-        break;
-      case TOKug:
-        cmpop = llvm::FCmpInst::FCMP_UGT;
-        break;
-      case TOKue:
-        cmpop = llvm::FCmpInst::FCMP_UEQ;
-        break;
-      case TOKlg:
-        cmpop = llvm::FCmpInst::FCMP_ONE;
-        break;
-      case TOKleg:
-        cmpop = llvm::FCmpInst::FCMP_ORD;
-        break;
 
       default:
         llvm_unreachable("Unsupported floating point comparison operator.");

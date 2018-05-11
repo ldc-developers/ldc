@@ -603,6 +603,16 @@ else
         else
         {
             const(char)* argdoc;
+            OutBuffer buf;
+            if (!strcmp(arg, "__stdin.d"))
+            {
+                version (Posix)
+                    import core.sys.posix.unistd : getpid;
+                else version (Windows)
+                    import core.sys.windows.windows : getpid = GetCurrentProcessId;
+                buf.printf("__stdin_%d.d", getpid());
+                arg = buf.peekString();
+            }
             if (global.params.preservePaths)
                 argdoc = arg;
             else

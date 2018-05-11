@@ -50,13 +50,14 @@ ComputeBackend::Type getComputeTargetType(llvm::Module*);
 /**
  * Creates an LLVM TargetMachine suitable for the given (usually command-line)
  * parameters and the host platform defaults.
+ * Also finalizes floatABI if it's set to FloatABI::Default.
  *
  * Does not depend on any global state.
 */
 llvm::TargetMachine *
 createTargetMachine(std::string targetTriple, std::string arch, std::string cpu,
                     std::string featuresString, ExplicitBitness::Type bitness,
-                    FloatABI::Type floatABI,
+                    FloatABI::Type &floatABI,
 #if LDC_LLVM_VER >= 309
                     llvm::Optional<llvm::Reloc::Model> relocModel,
 #else

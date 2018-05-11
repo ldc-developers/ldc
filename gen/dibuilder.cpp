@@ -246,6 +246,10 @@ ldc::DIType ldc::DIBuilder::CreateEnumType(Type *type) {
   llvm::Type *T = DtoType(type);
   TypeEnum *te = static_cast<TypeEnum *>(type);
 
+  if (te->sym->isSpecial()) {
+    return CreateBasicType(te->sym->memtype);
+  }
+
   llvm::SmallVector<LLMetadata *, 8> subscripts;
   for (auto m : *te->sym->members) {
     EnumMember *em = m->isEnumMember();

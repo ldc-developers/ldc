@@ -140,7 +140,13 @@ test_script:
   - set DMD_TESTSUITE_MAKE_ARGS=-j2
   - ctest -V -R "dmd-testsuite"
   # Run stdlib unittests
-  - ctest -j2 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
+  - ps: |
+        If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
+          # Exclude std.random unittests with enabled optimizations.
+          ctest -j2 --output-on-failure -E 'dmd-testsuite|lit-tests|ldc2-unittest|^std\.random$'
+        } Else {
+          ctest -j2 --output-on-failure -E 'dmd-testsuite|lit-tests|ldc2-unittest'
+        }
 
 #---------------------------------#
 #     deployment configuration    #

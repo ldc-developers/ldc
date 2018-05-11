@@ -267,7 +267,7 @@ public:
       if (global.params.vtls && gvar->isThreadLocal() &&
           !(decl->storage_class & STCtemp)) {
         const char *p = decl->loc.toChars();
-        message("%s: %s is thread local", p, decl->toChars());
+        message("%s: `%s` is thread local", p, decl->toChars());
       }
 
       // Check if we are defining or just declaring the global in this module.
