@@ -462,12 +462,6 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
   if (targetOptions.MCOptions.ABIName.empty())
     targetOptions.MCOptions.ABIName = getABI(triple);
 
-#if LDC_LLVM_VER >= 600
-  // druntime isn't ready for Dwarf v4+ debuginfos (e.g., in rt.backtrace.dwarf).
-  if (targetOptions.MCOptions.DwarfVersion == 0)
-    targetOptions.MCOptions.DwarfVersion = 3;
-#endif
-
   if (floatABI == FloatABI::Default) {
     switch (triple.getArch()) {
     default: // X86, ...
