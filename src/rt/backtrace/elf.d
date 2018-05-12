@@ -60,7 +60,7 @@ const(void)[] getMemoryRegionOfExecutable() @nogc nothrow
     scope(exit) fclose(fp);
 
     // use the region in the first line for the executable file
-    char[128] line = void;
+    char[1024] line = void;
     while (fgets(line.ptr, line.length, fp) !is null)
     {
         line[strlen(line.ptr) - 1] = '\0'; // remove trailing '\n'
