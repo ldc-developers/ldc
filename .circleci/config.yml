@@ -8,10 +8,10 @@ commonSteps: &commonSteps
           if [ "$CI_OS" = "linux" ]; then
             export DEBIAN_FRONTEND=noninteractive
             dpkg --add-architecture i386
-            apt-get -y update
+            apt-get -q update
             apt-get -yq install software-properties-common
             add-apt-repository -y ppa:ubuntu-toolchain-r/test
-            apt-get -y update
+            apt-get -q update
             apt-get -yq install curl git-core g++-6-multilib ninja-build gdb python-pip unzip zip libcurl4-openssl-dev libcurl3:i386
             echo "export CC=gcc-6" >> $BASH_ENV
             echo "export CXX=g++-6" >> $BASH_ENV
@@ -156,7 +156,6 @@ commonSteps: &commonSteps
           cp project/LICENSE $LDC_INSTALL_DIR
           git clone https://github.com/ldc-developers/ldc-scripts.git
           cp ldc-scripts/ldc2-packaging/pkgfiles/README $LDC_INSTALL_DIR
-          cp -r ldc-scripts/ldc2-packaging/pkgfiles/dub $LDC_INSTALL_DIR/etc
           # Now rename the installation dir to test portability.
           NEW_LDC_INSTALL_DIR=$PWD/ldc2-install
           mv $LDC_INSTALL_DIR $NEW_LDC_INSTALL_DIR
