@@ -513,8 +513,12 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
 //////////////////////////////////////////////////////////////////////////////
 
 void ArgsBuilder::addLinker() {
-  if (!opts::linker.empty())
+  if (!opts::linker.empty()) {
     args.push_back("-fuse-ld=" + opts::linker);
+  } else if (global.params.isLinux && opts::isUsingThinLTO()) {
+    // default to ld.gold for ThinLTO on Linux due to ld.bfd issues (see #2278)
+    args.push_back("-fuse-ld=gold");
+  }
 }
 
 //////////////////////////////////////////////////////////////////////////////
