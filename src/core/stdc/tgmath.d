@@ -1657,10 +1657,6 @@ else version( OpenBSD )
 //  alias core.stdc.complex.crealf     creal;
 //  alias core.stdc.complex.creall     creal;
 }
-else version( Android )
-{
-    // TODO
-}
 else
 {
     ///
