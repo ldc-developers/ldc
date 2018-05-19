@@ -486,7 +486,12 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
                                    getNullDIType(), // VTableHolder
                                    nullptr,         // TemplateParms
                                    uniqueIdent(t)); // UniqueIdentifier
-      auto dt = DBuilder.createInheritance(fwd, derivedFrom, 0,
+      auto dt = DBuilder.createInheritance(fwd,
+                                           derivedFrom, // base class type
+                                           0,           // offset of base class
+#if LDC_LLVM_VER >= 700
+                                           0, // offset of virtual base pointer
+#endif
                                            DIFlags::FlagPublic);
       elems.push_back(dt);
     }
