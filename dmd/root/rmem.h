@@ -17,6 +17,8 @@
      * than D's 'uint'
      */
     typedef unsigned d_size_t;
+#elif __APPLE__ && __LP64__ && LDC_HOST_DigitalMars && LDC_HOST_FE_VER >= 2079
+    typedef unsigned long long d_size_t;
 #else
     typedef size_t d_size_t;
 #endif

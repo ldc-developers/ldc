@@ -10,14 +10,10 @@
 #ifndef LDC_DRIVER_IR2OBJ_CACHE_PRUNING_H
 #define LDC_DRIVER_IR2OBJ_CACHE_PRUNING_H
 
-#if __LP64__
-using d_ulong = unsigned long;
-#else
-using d_ulong = unsigned long long;
-#endif
+#include "globals.h"
 
-void pruneCache(const char *cacheDirectoryPtr, size_t cacheDirectoryLen,
+void pruneCache(const char *cacheDirectoryPtr, d_size_t cacheDirectoryLen,
                 uint32_t pruneIntervalSeconds, uint32_t expireIntervalSeconds,
-                d_ulong sizeLimitBytes, uint32_t sizeLimitPercentage);
+                uinteger_t sizeLimitBytes, uint32_t sizeLimitPercentage);
 
 #endif

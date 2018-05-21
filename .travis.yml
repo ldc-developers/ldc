@@ -26,7 +26,7 @@ matrix:
       d: ldc-beta
       env: LLVM_VERSION=6.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF" LLVM_SPIRV_AVAILABLE=ON
     - os: osx
-      d: ldc
+      d: dmd
       env: LLVM_VERSION=4.0.0 OPTS="-DBUILD_SHARED_LIBS=ON"
   allow_failures:
     - env: LLVM_VERSION=6.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF" LLVM_SPIRV_AVAILABLE=ON

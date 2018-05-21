@@ -73,6 +73,7 @@ endif()
 
 if (D_COMPILER_FOUND)
     message(STATUS "Found host D compiler ${D_COMPILER}, with default flags '${D_COMPILER_FLAGS}'")
+    message(STATUS "Host D compiler ID: ${D_COMPILER_ID}")
     message(STATUS "Host D compiler version: ${D_COMPILER_VERSION_STRING}")
     message(STATUS "Host D compiler front-end version: ${D_COMPILER_FE_VERSION}")
 else()

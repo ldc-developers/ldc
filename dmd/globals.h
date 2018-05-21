@@ -334,7 +334,7 @@ extern Global global;
 // Because int64_t and friends may be any integral type of the
 // correct size, we have to explicitly ask for the correct
 // integer type to get the correct mangling with dmd
-#if __LP64__
+#if __LP64__ && !(__APPLE__ && LDC_HOST_DigitalMars && LDC_HOST_FE_VER >= 2079)
 // Be careful not to care about sign when using dinteger_t
 // use this instead of integer_t to
 // avoid conflicts with system #include's
