@@ -24,6 +24,7 @@ config.with_PGO            = True
 config.dynamic_compile     = @LDC_DYNAMIC_COMPILE@
 config.plugins_supported   = "@LDC_ENABLE_PLUGINS@" == "ON"
 config.gnu_make_bin        = "@GNU_MAKE_BIN@"
+config.ldc_host_arch       = "@LDC_HOST_ARCH@"
 
 config.name = 'LDC'
 
@@ -171,3 +172,5 @@ if lit.util.which('gdb', config.environment['PATH']):
         if LooseVersion(gdb_version) < LooseVersion('7.8'):
             gdb_dflags = '-dwarf-version=2'
     config.substitutions.append( ('%_gdb_dflags', gdb_dflags) )
+
+config.available_features.add(config.ldc_host_arch)
