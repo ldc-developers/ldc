@@ -88,6 +88,11 @@ if (platform.system() == 'Windows') and (config.default_target_bits == 32):
 if (platform.system() == 'Windows') and (config.default_target_bits == 64):
     config.available_features.add('Windows_x64')
 
+# Define available features based on host arch
+# Examples: 'host_X86', 'host_ARM', 'host_PowerPC', 'host_AArch64'
+if (config.ldc_host_arch != ''):
+    config.available_features.add('host_' + config.ldc_host_arch)
+
 # Add "LTO" feature if linker support and LTO plugin are available
 # (LTO is supported from LLVM 3.9)
 canDoLTO = False
@@ -172,5 +177,3 @@ if lit.util.which('gdb', config.environment['PATH']):
         if LooseVersion(gdb_version) < LooseVersion('7.8'):
             gdb_dflags = '-dwarf-version=2'
     config.substitutions.append( ('%_gdb_dflags', gdb_dflags) )
-
-config.available_features.add(config.ldc_host_arch)
