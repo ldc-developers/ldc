@@ -1,3 +1,6 @@
+// See GH issue #2709
+// XFAIL: target_SPIRV
+
 // REQUIRES: target_SPIRV
 // RUN: %ldc -c -mdcompute-targets=ocl-220 -m64 -mdcompute-file-prefix=addrspace -output-ll -output-o %s && FileCheck %s --check-prefix=LL < addrspace_ocl220_64.ll \
 // RUN: && %llvm-spirv -to-text addrspace_ocl220_64.spv && FileCheck %s --check-prefix=SPT < addrspace_ocl220_64.spt
