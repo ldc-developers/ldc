@@ -4,7 +4,7 @@
 // XFAIL: Windows
 //
 // Also, some issue on Arm
-// XFAIL: target_ARM
+// XFAIL: host_ARM
 // RUN: %ldc -enable-dynamic-compile -run %s
 
 import std.exception;
