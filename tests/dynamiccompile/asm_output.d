@@ -1,6 +1,7 @@
 
 // RUN: %ldc -enable-dynamic-compile -run %s
 
+import std.stdio;
 import std.array;
 import std.string;
 import ldc.attributes;
@@ -31,10 +32,15 @@ void main(string[] args)
   {
     if (DumpStage.FinalAsm == stage)
     {
+      write(str);
       dump.put(str);
     }
   };
+  writeln("===========================================");
   compileDynamicCode(settings);
+  writeln();
+  writeln("===========================================");
+  stdout.flush();
 
   // Check function and variables names in asm
   assert(1 == count(dump.data, foo.mangleof));
