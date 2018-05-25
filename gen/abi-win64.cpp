@@ -88,6 +88,26 @@ public:
   Win64TargetABI()
       : isMSVC(global.params.targetTriple->isWindowsMSVCEnvironment()) {}
 
+  llvm::CallingConv::ID callingConv(LINK l, TypeFunction *tf = nullptr,
+                                    FuncDeclaration *fd = nullptr) override {
+    // Use the vector calling convention for extern(D) (except for variadics)
+    // => let LLVM pass vectors in registers instead of passing a ref to a
+    // hidden copy (both cases handled by LLVM automatically for LL vectors
+    // which we don't rewrite).
+    return l == LINKd && !(tf && tf->varargs == 1)
+               ? llvm::CallingConv::X86_VectorCall
+               : llvm::CallingConv::C;
+  }
+
+  std::string mangleFunctionForLLVM(std::string name, LINK l) override {
+    if (l == LINKd) {
+      // Prepend a 0x1 byte to prevent LLVM from applying vectorcall/stdcall
+      // mangling: _D… => _D…@<paramssize>
+      name.insert(name.begin(), '\1');
+    }
+    return name;
+  }
+
   bool returnInArg(TypeFunction *tf) override {
     if (tf->isref)
       return false;

@@ -104,14 +104,17 @@ struct llvm_init_obj {
 };
 
 std::string decorate(const std::string &name) {
-#if defined(__APPLE__)
+#if __APPLE__
   return "_" + name;
-#elif defined(_WIN32) && defined(_M_IX86)
+#elif _WIN32
   assert(!name.empty());
-  if (0x1 == name[0]) {
+  if (name[0] == 0x1)
     return name.substr(1);
-  }
+#if _M_IX86
   return "_" + name;
+#else
+  return name;
+#endif
 #else
   return name;
 #endif
