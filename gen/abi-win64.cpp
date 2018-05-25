@@ -42,15 +42,46 @@ private:
            && (t->ty == Tfloat80 || t->ty == Timaginary80);
   }
 
-  // Returns true if the D type is passed byval (the callee getting a pointer
-  // to a dedicated hidden copy).
-  bool isPassedWithByvalSemantics(Type *t) const {
-    return
-        // * aggregates which can NOT be rewritten as integers
-        //   (size > 8 bytes or not a power of 2)
-        (isAggregate(t) && !canRewriteAsInt(t)) ||
-        // * 80-bit real and ireal
-        isX87(t);
+  bool passPointerToHiddenCopy(Type *t, bool isReturnValue, LINK linkage) const {
+    // Pass magic C++ structs directly as LL aggregate with a single i32/double
+    // element, which LLVM handles as if it was a scalar.
+    if (isMagicCppStruct(t))
+      return false;
+
+    // 80-bit real/ireal:
+    // * returned on the x87 stack (for DMD inline asm compliance and what LLVM
+    //   defaults to)
+    // * passed by ref to hidden copy
+    if (isX87(t))
+      return !isReturnValue;
+
+    const bool isMSVCpp = isMSVC && linkage == LINKcpp;
+
+    if (isReturnValue) {
+      // MSVC++ enforces sret for non-PODs, incl. aggregates with ctors
+      // (which by itself doesn't make it a non-POD for D).
+      const bool excludeStructsWithCtor = isMSVCpp;
+      if (!isPOD(t, excludeStructsWithCtor))
+        return true;
+    } else {
+      // Contrary to return values, POD-ness is ignored for arguments.
+      // MSVC++ seems to enforce by-ref passing only for aggregates with
+      // copy ctor (incl. `= delete`).
+      if (isMSVCpp && t->ty == Tstruct) {
+        StructDeclaration *sd = static_cast<TypeStruct *>(t)->sym;
+        assert(sd);
+        if (sd->postblit)
+          return true;
+      }
+    }
+
+    // Remaining aggregates which can NOT be rewritten as integers (size > 8
+    // bytes or not a power of 2) are passed by ref to hidden copy.
+    return isAggregate(t) && !canRewriteAsInt(t);
+  }
+
+  LINK &getLinkage(IrFuncTy &fty) {
+    return reinterpret_cast<LINK &>(fty.tag);
   }
 
 public:
@@ -61,25 +92,13 @@ public:
     if (tf->isref)
       return false;
 
-    Type *rt = tf->next->toBasetype();
-
-    // let LLVM return
-    // * magic C++ structs directly as LL aggregate with a single i32/double
-    //   element, which LLVM handles as if it was a scalar
-    // * 80-bit real/ireal on the x87 stack, for DMD inline asm compliance
-    if (isMagicCppStruct(rt) || isX87(rt))
-      return false;
-
-    // force sret for non-POD structs
-    const bool excludeStructsWithCtor = (isMSVC && tf->linkage == LINKcpp);
-    if (!isPOD(rt, excludeStructsWithCtor))
-      return true;
-
     // * all POD types of a power-of-2 size <= 8 bytes (incl. 2x32-bit cfloat)
     //   are returned in a register (RAX, or XMM0 for single float/ifloat/
     //   double/idouble)
+    // * 80-bit real/ireal are returned on the x87 stack
     // * all other types are returned via sret
-    return isPassedWithByvalSemantics(rt);
+    Type *rt = tf->next->toBasetype();
+    return passPointerToHiddenCopy(rt, /*isReturnValue=*/true, tf->linkage);
   }
 
   bool passByVal(Type *t) override {
@@ -93,12 +112,13 @@ public:
   }
 
   void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
+    // store linkage in fty.tag as required by rewriteArgument() later
+    getLinkage(fty) = tf->linkage;
+
     // return value
     const auto rt = fty.ret->type->toBasetype();
     if (!fty.ret->byref && rt->ty != Tvoid) {
-      // 80-bit real/ireal are returned on the x87 stack (but passed in memory)
-      if (!isX87(rt))
-        rewriteArgument(fty, *fty.ret);
+      rewrite(fty, *fty.ret, /*isReturnValue=*/true);
     }
 
     // explicit parameters
@@ -128,13 +148,14 @@ public:
   }
 
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
+    rewrite(fty, arg, /*isReturnValue=*/false);
+  }
+
+  void rewrite(IrFuncTy &fty, IrFuncTyArg &arg, bool isReturnValue) {
     Type *t = arg.type->toBasetype();
 
-    if (isMagicCppStruct(t)) {
-      // pass directly as LL aggregate
-    } else if (isPassedWithByvalSemantics(t)) {
-      // these types are passed byval:
-      // the caller allocates a copy and then passes a pointer to the copy
+    if (passPointerToHiddenCopy(t, isReturnValue, getLinkage(fty))) {
+      // the caller allocates a hidden copy and passes a pointer to that copy
       arg.rewrite = &byvalRewrite;
 
       // the copy is treated as a local variable of the callee
@@ -143,7 +164,7 @@ public:
           .add(LLAttribute::NoAlias)
           .add(LLAttribute::NoCapture)
           .addAlignment(byvalRewrite.alignment(arg.type));
-    } else if (isAggregate(t) && canRewriteAsInt(t) &&
+    } else if (isAggregate(t) && canRewriteAsInt(t) && !isMagicCppStruct(t) &&
                !IntegerRewrite::isObsoleteFor(arg.ltype)) {
       arg.rewrite = &integerRewrite;
     }
