@@ -170,7 +170,7 @@ struct RegCount {
  * memory so that it's then readable as the other type (i.e., bit-casting).
  */
 struct X86_64_C_struct_rewrite : ABIRewrite {
-  LLValue *put(DValue *v, bool) override {
+  LLValue *put(DValue *v, bool, bool) override {
     LLValue *address = getAddressOf(v);
 
     LLType *abiTy = getAbiType(v->type);
@@ -188,15 +188,17 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
 
 /**
  * This type is used to force LLVM to pass a LL struct in memory,
- * on the function arguments stack. We need this to prevent LLVM
+ * on the function parameters stack. We need this to prevent LLVM
  * from passing a LL struct partially in registers, partially in
  * memory.
  * This is achieved by passing a pointer to the struct and using
- * the ByVal LLVM attribute.
+ * the byval LLVM attribute.
  */
 struct ImplicitByvalRewrite : ABIRewrite {
-  LLValue *put(DValue *v, bool isModifiableLvalue) override {
-    if (isModifiableLvalue && v->isLVal()) {
+  LLValue *put(DValue *v, bool isLValueExp, bool isLastArgExp) override {
+    if (isLValueExp && !isLastArgExp && v->isLVal()) {
+      // copy to avoid visibility of potential side effects of later argument
+      // expressions
       return DtoAllocaDump(v, ".lval_copy_for_ImplicitByvalRewrite");
     }
     return getAddressOf(v);

@@ -174,13 +174,9 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
     // evaluate argument expression
     DValue *const dval = DtoArgument(formalParam, argexp);
 
-    // check whether it is an lvalue which might be modified by later argument
-    // expressions
-    const bool isModifiableLvalue =
-        argexp->isLvalue() && dArgIndex != explicitDArgCount - 1;
-
     // load from lvalue/let TargetABI rewrite it/...
-    llvm::Value *llVal = irFty.putParam(*irArg, dval, isModifiableLvalue);
+    llvm::Value *llVal = irFty.putArg(*irArg, dval, argexp->isLvalue(),
+                                      dArgIndex == explicitDArgCount - 1);
 
     const size_t llArgIdx =
         implicitLLArgCount +

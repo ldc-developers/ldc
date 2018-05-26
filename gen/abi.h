@@ -42,7 +42,7 @@ struct ABIRewrite {
   virtual ~ABIRewrite() = default;
 
   /// Transforms the D argument to a suitable LL argument.
-  virtual llvm::Value *put(DValue *v, bool isModifiableLvalue) = 0;
+  virtual llvm::Value *put(DValue *v, bool isLValueExp, bool isLastArgExp) = 0;
 
   /// Transforms the LL parameter back and returns the address for the D
   /// parameter.
