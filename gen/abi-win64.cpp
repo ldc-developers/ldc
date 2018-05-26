@@ -34,7 +34,7 @@
 struct Win64TargetABI : TargetABI {
 private:
   const bool isMSVC;
-  ExplicitByvalRewrite byvalRewrite;
+  IndirectByvalRewrite byvalRewrite;
   IntegerRewrite integerRewrite;
 
   bool isX87(Type *t) const {

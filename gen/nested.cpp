@@ -388,7 +388,7 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
     } else if (vd->isParameter() && (vd->storage_class & STClazy)) {
       // The LL type is a delegate (LL struct).
       // Depending on the used TargetABI, the LL parameter is either a struct or
-      // a pointer to a struct (`byval` attribute, ExplicitByvalRewrite).
+      // a pointer to a struct (`byval` attribute, IndirectByvalRewrite).
       t = getIrParameter(vd)->value->getType();
       if (t->isPointerTy())
         t = t->getPointerElementType();

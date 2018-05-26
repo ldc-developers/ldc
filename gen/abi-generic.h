@@ -173,22 +173,22 @@ struct IntegerRewrite : ABIRewrite {
 //////////////////////////////////////////////////////////////////////////////
 
 /**
- * Implements explicit ByVal semantics defined like this:
+ * Implements indirect high-level-by-value semantics defined like this:
  * Instead of passing a copy of the original argument directly to the callee,
  * the caller makes a bitcopy on its stack first and then passes a pointer to
  * that copy to the callee.
  * The pointer is passed as regular parameter and hence occupies either a
  * register or a function parameters stack slot.
  *
- * This differs from LLVM's ByVal attribute for pointer parameters.
- * The ByVal attribute instructs LLVM to pass the pointed-to argument directly
- * as a copy on the function parameters stack. In this case, there's no need to
- * pass an explicit pointer; the address is implicit.
+ * This differs from LLVM's byval attribute for pointer parameters.
+ * The byval attribute instructs LLVM to bitcopy the IR argument pointee onto
+ * the callee parameters stack. The callee's IR parameter is an implicit pointer
+ * to that private copy.
  */
-struct ExplicitByvalRewrite : ABIRewrite {
+struct IndirectByvalRewrite : ABIRewrite {
   const unsigned minAlignment;
 
-  explicit ExplicitByvalRewrite(unsigned minAlignment = 16)
+  explicit IndirectByvalRewrite(unsigned minAlignment = 16)
       : minAlignment(minAlignment) {}
 
   LLValue *put(DValue *v, bool) override {
