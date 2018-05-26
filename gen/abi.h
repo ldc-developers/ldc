@@ -57,6 +57,10 @@ struct ABIRewrite {
   /// specified D type.
   virtual llvm::Type *type(Type *t) = 0;
 
+  /// Applies this rewrite to the specified argument, adapting it where
+  /// necessary.
+  virtual void applyTo(IrFuncTyArg &arg, llvm::Type *finalLType = nullptr);
+
 protected:
   /***** Static Helpers *****/
 

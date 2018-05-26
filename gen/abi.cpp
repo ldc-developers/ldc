@@ -37,6 +37,13 @@ llvm::Value *ABIRewrite::getRVal(Type *dty, LLValue *v) {
 
 //////////////////////////////////////////////////////////////////////////////
 
+void ABIRewrite::applyTo(IrFuncTyArg &arg, LLType *finalLType) {
+  arg.rewrite = this;
+  arg.ltype = finalLType ? finalLType : this->type(arg.type);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 LLValue *ABIRewrite::getAddressOf(DValue *v) {
   if (v->isLVal())
     return DtoLVal(v);
@@ -358,8 +365,7 @@ struct IntrinsicABI : TargetABI {
     LLType *abiTy = DtoUnpaddedStructType(arg.type);
 
     if (abiTy && abiTy != arg.ltype) {
-      arg.ltype = abiTy;
-      arg.rewrite = &remove_padding;
+      remove_padding.applyTo(arg, abiTy);
     }
   }
 

@@ -70,14 +70,11 @@ struct PPC64LETargetABI : TargetABI {
     Type *ty = arg.type->toBasetype();
     if (ty->ty == Tstruct || ty->ty == Tsarray) {
       if (ty->ty == Tstruct && isHFA((TypeStruct *)ty, &arg.ltype, 8)) {
-        arg.rewrite = &hfaToArray;
-        arg.ltype = hfaToArray.type(arg.type);
+        hfaToArray.applyTo(arg, arg.ltype);
       } else if (canRewriteAsInt(ty, true)) {
-        arg.rewrite = &integerRewrite;
-        arg.ltype = integerRewrite.type(arg.type);
+        integerRewrite.applyTo(arg);
       } else {
-        arg.rewrite = &compositeToArray64;
-        arg.ltype = compositeToArray64.type(arg.type);
+        compositeToArray64.applyTo(arg);
       }
     } else if (ty->isintegral()) {
       arg.attrs.add(ty->isunsigned() ? LLAttribute::ZExt : LLAttribute::SExt);

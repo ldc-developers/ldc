@@ -41,10 +41,8 @@ struct SPIRVTargetABI : TargetABI {
     Type *ty = arg.type->toBasetype();
     llvm::Optional<DcomputePointer> ptr;
     if (ty->ty == Tstruct &&
-        (ptr = toDcomputePointer(static_cast<TypeStruct*>(ty)->sym)))
-    {
-      arg.rewrite = &pointerRewite;
-      arg.ltype = pointerRewite.type(arg.type);
+        (ptr = toDcomputePointer(static_cast<TypeStruct *>(ty)->sym))) {
+      pointerRewite.applyTo(arg);
     }
   }
   // There are no exceptions at all, so no need for unwind tables.

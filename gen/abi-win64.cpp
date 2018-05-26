@@ -153,26 +153,16 @@ public:
 
   void rewrite(IrFuncTy &fty, IrFuncTyArg &arg, bool isReturnValue) {
     Type *t = arg.type->toBasetype();
+    LLType *originalLType = arg.ltype;
 
     if (passPointerToHiddenCopy(t, isReturnValue, getLinkage(fty))) {
       // the caller allocates a hidden copy and passes a pointer to that copy
-      arg.rewrite = &byvalRewrite;
-
-      // the copy is treated as a local variable of the callee
-      // hence add the NoAlias and NoCapture attributes
-      arg.attrs.clear()
-          .add(LLAttribute::NoAlias)
-          .add(LLAttribute::NoCapture)
-          .addAlignment(byvalRewrite.alignment(arg.type));
-    } else if (isAggregate(t) && canRewriteAsInt(t) && !isMagicCppStruct(t) &&
-               !IntegerRewrite::isObsoleteFor(arg.ltype)) {
-      arg.rewrite = &integerRewrite;
+      byvalRewrite.applyTo(arg);
+    } else if (isAggregate(t) && canRewriteAsInt(t) && !isMagicCppStruct(t)) {
+      integerRewrite.applyToIfNotObsolete(arg);
     }
 
     if (arg.rewrite) {
-      LLType *originalLType = arg.ltype;
-      arg.ltype = arg.rewrite->type(arg.type);
-
       IF_LOG {
         Logger::println("Rewriting argument type %s", t->toChars());
         LOG_SCOPE;

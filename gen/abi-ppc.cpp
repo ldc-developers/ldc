@@ -82,15 +82,12 @@ struct PPCTargetABI : TargetABI {
 
     if (ty->ty == Tstruct || ty->ty == Tsarray) {
       if (canRewriteAsInt(ty, Is64Bit)) {
-        arg.rewrite = &integerRewrite;
-        arg.ltype = integerRewrite.type(arg.type);
+        integerRewrite.applyTo(arg);
       } else {
         if (Is64Bit) {
-          arg.rewrite = &compositeToArray64;
-          arg.ltype = compositeToArray64.type(arg.type);
+          compositeToArray64.applyTo(arg);
         } else {
-          arg.rewrite = &compositeToArray32;
-          arg.ltype = compositeToArray32.type(arg.type);
+          compositeToArray32.applyTo(arg);
         }
       }
     } else if (ty->isintegral()) {

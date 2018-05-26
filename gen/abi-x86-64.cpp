@@ -205,6 +205,11 @@ struct ImplicitByvalRewrite : ABIRewrite {
   LLValue *getLVal(Type *dty, LLValue *v) override { return v; }
 
   LLType *type(Type *t) override { return DtoPtrToType(t); }
+
+  void applyTo(IrFuncTyArg &arg, LLType *finalLType = nullptr) override {
+    ABIRewrite::applyTo(arg, finalLType);
+    arg.attrs.addByVal(DtoAlignment(arg.type));
+  }
 };
 
 struct X86_64TargetABI : TargetABI {
@@ -269,8 +274,7 @@ void X86_64TargetABI::rewriteArgument(IrFuncTyArg &arg, RegCount &regCount) {
       Logger::cout() << *originalLType << " => " << *abiTy << '\n';
     }
 
-    arg.rewrite = &struct_rewrite;
-    arg.ltype = abiTy;
+    struct_rewrite.applyTo(arg, abiTy);
   }
 
   if (regCount.trySubtract(arg) == RegCount::ArgumentWouldFitInPartially) {
@@ -279,9 +283,7 @@ void X86_64TargetABI::rewriteArgument(IrFuncTyArg &arg, RegCount &regCount) {
     assert(originalLType->isStructTy());
     IF_LOG Logger::cout() << "Passing implicitly ByVal: " << arg.type->toChars()
                           << " (" << *originalLType << ")\n";
-    arg.rewrite = &byvalRewrite;
-    arg.ltype = originalLType->getPointerTo();
-    arg.attrs.addByVal(DtoAlignment(arg.type));
+    byvalRewrite.applyTo(arg);
   }
 }
 

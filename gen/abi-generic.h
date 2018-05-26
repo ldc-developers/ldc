@@ -143,18 +143,6 @@ struct IntegerRewrite : ABIRewrite {
     return LLIntegerType::get(gIR->context(), size * 8);
   }
 
-  static bool isObsoleteFor(LLType *llType) {
-    if (!llType->isSized()) // e.g., opaque types
-    {
-      IF_LOG Logger::cout() << "IntegerRewrite: not rewriting non-sized type "
-                            << *llType << '\n';
-      return true;
-    }
-
-    LLType *integerType = getIntegerType(getTypeStoreSize(llType));
-    return LLTypeMemoryLayout::typesAreEquivalent(llType, integerType);
-  }
-
   LLValue *put(DValue *dv, bool) override {
     LLValue *address = getAddressOf(dv);
     LLType *integerType = getIntegerType(dv->type->size());
@@ -166,6 +154,20 @@ struct IntegerRewrite : ABIRewrite {
   }
 
   LLType *type(Type *t) override { return getIntegerType(t->size()); }
+
+  void applyToIfNotObsolete(IrFuncTyArg &arg) {
+    LLType *ltype = arg.ltype;
+    if (!ltype->isSized()) // e.g., opaque types
+    {
+      IF_LOG Logger::cout()
+          << "IntegerRewrite: not rewriting non-sized type " << *ltype << '\n';
+      return;
+    }
+
+    LLType *integerType = getIntegerType(getTypeStoreSize(ltype));
+    if (!LLTypeMemoryLayout::typesAreEquivalent(ltype, integerType))
+      applyTo(arg, integerType);
+  }
 };
 
 //////////////////////////////////////////////////////////////////////////////
@@ -198,6 +200,17 @@ struct ExplicitByvalRewrite : ABIRewrite {
   }
 
   LLType *type(Type *t) override { return DtoPtrToType(t); }
+
+  void applyTo(IrFuncTyArg &arg, LLType *finalLType = nullptr) override {
+    ABIRewrite::applyTo(arg, finalLType);
+
+    // the copy is treated as a local variable of the callee
+    // hence add the NoAlias and NoCapture attributes
+    arg.attrs.clear()
+        .add(LLAttribute::NoAlias)
+        .add(LLAttribute::NoCapture)
+        .addAlignment(this->alignment(arg.type));
+  }
 
   unsigned alignment(Type *dty) const {
     return std::max(minAlignment, DtoAlignment(dty));
