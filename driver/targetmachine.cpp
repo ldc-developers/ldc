@@ -31,6 +31,10 @@
 #include "driver/cl_options.h"
 #include "gen/logger.h"
 
+static llvm::cl::opt<bool>
+    asmVerbose("asm-verbose", llvm::cl::ZeroOrMore, llvm::cl::Hidden,
+               llvm::cl::desc("Add comments to directives."));
+
 static const char *getABI(const llvm::Triple &triple) {
   llvm::StringRef ABIName(opts::mABI);
   if (ABIName != "") {
@@ -499,6 +503,8 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
     targetOptions.FunctionSections = true;
     targetOptions.DataSections = true;
   }
+
+  targetOptions.MCOptions.AsmVerbose = asmVerbose;
 
   const std::string finalFeaturesString =
       llvm::join(features.begin(), features.end(), ",");
