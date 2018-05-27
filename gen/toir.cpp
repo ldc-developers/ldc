@@ -2273,7 +2273,7 @@ public:
       initsym = DtoBitCast(initsym, DtoType(e->type->pointerTo()));
 
       if (!dstMem)
-        return new DLValue(e->type, initsym);
+        dstMem = DtoAlloca(e->type, ".structliteral");
 
       assert(dstMem->getType() == initsym->getType());
       DtoMemCpy(dstMem, initsym);
