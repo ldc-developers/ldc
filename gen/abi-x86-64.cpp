@@ -222,7 +222,7 @@ struct X86_64TargetABI : TargetABI {
 
   bool passByVal(Type *t) override;
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override;
+  void rewriteFunctionType(IrFuncTy &fty) override;
   void rewriteVarargs(IrFuncTy &fty, std::vector<IrFuncTyArg *> &args) override;
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override;
   void rewriteArgument(IrFuncTyArg &arg, RegCount &regCount);
@@ -289,7 +289,7 @@ void X86_64TargetABI::rewriteArgument(IrFuncTyArg &arg, RegCount &regCount) {
   }
 }
 
-void X86_64TargetABI::rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) {
+void X86_64TargetABI::rewriteFunctionType(IrFuncTy &fty) {
   RegCount &regCount = getRegCount(fty);
   regCount = RegCount(); // initialize
 
@@ -320,7 +320,8 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) {
   LOG_SCOPE;
 
   // extern(D): reverse parameter order for non variadics, for DMD-compliance
-  if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
+  if (fty.type->linkage == LINKd && fty.type->varargs != 1 &&
+      fty.args.size() > 1) {
     fty.reverseParams = true;
   }
 

@@ -47,7 +47,7 @@ struct MIPS64TargetABI : TargetABI {
     return ty == Tstruct || ty == Tsarray;
   }
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
+  void rewriteFunctionType(IrFuncTy &fty) override {
     if (!fty.ret->byref) {
       rewriteArgument(fty, *fty.ret);
     }
@@ -59,7 +59,8 @@ struct MIPS64TargetABI : TargetABI {
     }
 
     // extern(D): reverse parameter order for non variadics, for DMD-compliance
-    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
+    if (fty.type->linkage == LINKd && fty.type->varargs != 1 &&
+        fty.args.size() > 1) {
       fty.reverseParams = true;
     }
   }

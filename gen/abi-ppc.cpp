@@ -58,7 +58,7 @@ struct PPCTargetABI : TargetABI {
            (!Is64Bit || t->size() > 64);
   }
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
+  void rewriteFunctionType(IrFuncTy &fty) override {
     // return value
     if (!fty.ret->byref) {
       rewriteArgument(fty, *fty.ret);
@@ -72,7 +72,8 @@ struct PPCTargetABI : TargetABI {
     }
 
     // extern(D): reverse parameter order for non variadics, for DMD-compliance
-    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
+    if (fty.type->linkage == LINKd && fty.type->varargs != 1 &&
+        fty.args.size() > 1) {
       fty.reverseParams = true;
     }
   }

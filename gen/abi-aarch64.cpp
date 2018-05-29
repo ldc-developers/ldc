@@ -41,7 +41,7 @@ struct AArch64TargetABI : TargetABI {
            (t->ty == Tstruct && t->size() > 16 && !isHFA((TypeStruct *)t));
   }
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
+  void rewriteFunctionType(IrFuncTy &fty) override {
     Type *retTy = fty.ret->type->toBasetype();
     if (!fty.ret->byref && retTy->ty == Tstruct) {
       // Rewrite HFAs only because union HFAs are turned into IR types that are
@@ -59,7 +59,8 @@ struct AArch64TargetABI : TargetABI {
     }
 
     // extern(D): reverse parameter order for non variadics, for DMD-compliance
-    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
+    if (fty.type->linkage == LINKd && fty.type->varargs != 1 &&
+        fty.args.size() > 1) {
       fty.reverseParams = true;
     }
   }

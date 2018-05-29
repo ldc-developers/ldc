@@ -304,7 +304,7 @@ struct UnknownTargetABI : TargetABI {
 
   bool passByVal(Type *t) override { return t->toBasetype()->ty == Tstruct; }
 
-  void rewriteFunctionType(TypeFunction *t, IrFuncTy &fty) override {
+  void rewriteFunctionType(IrFuncTy &) override {
     // why?
   }
 };
@@ -369,7 +369,7 @@ struct IntrinsicABI : TargetABI {
     }
   }
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
+  void rewriteFunctionType(IrFuncTy &fty) override {
     if (!fty.arg_sret) {
       Type *rt = fty.ret->type->toBasetype();
       if (rt->ty == Tstruct) {

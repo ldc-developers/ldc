@@ -123,12 +123,12 @@ struct X86TargetABI : TargetABI {
     return DtoIsInMemoryOnly(t);
   }
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
-    const bool externD = (tf->linkage == LINKd && tf->varargs != 1);
+  void rewriteFunctionType(IrFuncTy &fty) override {
+    const bool externD = (fty.type->linkage == LINKd && fty.type->varargs != 1);
 
     // return value:
     if (!fty.ret->byref) {
-      Type *rt = tf->next->toBasetype(); // for sret, rt == void
+      Type *rt = fty.type->next->toBasetype(); // for sret, rt == void
       if (isAggregate(rt) && !isMagicCppStruct(rt) && canRewriteAsInt(rt) &&
           // don't rewrite cfloat for extern(D)
           !(externD && rt->ty == Tcomplex32)) {

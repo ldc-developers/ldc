@@ -80,10 +80,6 @@ private:
     return isAggregate(t) && !canRewriteAsInt(t);
   }
 
-  LINK &getLinkage(IrFuncTy &fty) {
-    return reinterpret_cast<LINK &>(fty.tag);
-  }
-
 public:
   Win64TargetABI()
       : isMSVC(global.params.targetTriple->isWindowsMSVCEnvironment()) {}
@@ -111,10 +107,7 @@ public:
     return tf->linkage == LINKcpp;
   }
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
-    // store linkage in fty.tag as required by rewriteArgument() later
-    getLinkage(fty) = tf->linkage;
-
+  void rewriteFunctionType(IrFuncTy &fty) override {
     // return value
     const auto rt = fty.ret->type->toBasetype();
     if (!fty.ret->byref && rt->ty != Tvoid) {
@@ -129,7 +122,8 @@ public:
     }
 
     // extern(D): reverse parameter order for non variadics, for DMD-compliance
-    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
+    if (fty.type->linkage == LINKd && fty.type->varargs != 1 &&
+        fty.args.size() > 1) {
       fty.reverseParams = true;
     }
   }
@@ -155,7 +149,7 @@ public:
     Type *t = arg.type->toBasetype();
     LLType *originalLType = arg.ltype;
 
-    if (passPointerToHiddenCopy(t, isReturnValue, getLinkage(fty))) {
+    if (passPointerToHiddenCopy(t, isReturnValue, fty.type->linkage)) {
       // the caller allocates a hidden copy and passes a pointer to that copy
       byvalRewrite.applyTo(arg);
     } else if (isAggregate(t) && canRewriteAsInt(t) && !isMagicCppStruct(t)) {

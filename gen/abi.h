@@ -144,7 +144,7 @@ struct TargetABI {
   virtual bool passThisBeforeSret(TypeFunction *tf) { return false; }
 
   /// Called to give ABI the chance to rewrite the types
-  virtual void rewriteFunctionType(TypeFunction *t, IrFuncTy &fty) = 0;
+  virtual void rewriteFunctionType(IrFuncTy &fty) = 0;
   virtual void rewriteVarargs(IrFuncTy &fty, std::vector<IrFuncTyArg *> &args);
   virtual void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) {}
 
