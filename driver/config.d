@@ -136,7 +136,7 @@ EBNF grammar.
 It is a subset of the libconfig grammar (http://www.hyperrealm.com/libconfig).
 
 config  =   { ows , setting } , ows ;
-setting =   name , (":" | "=") , value , [";" | ","] ;
+setting =   (name | string) , (":" | "=") , value , [";" | ","] ;
 name    =   alpha , { alpha | digit | "_" | "-" } ;
 value   =   string | array | group ;
 array   =   "[" , ows ,
@@ -445,14 +445,20 @@ struct Parser
 
     Setting parseSetting()
     {
-        immutable name = accept(Token.name);
+        string name;
+        auto t = getTok(name);
+        if (t != Token.name && t != Token.str)
+        {
+            unexpectedTokenError(t, Token.name, name);
+            assert(false);
+        }
 
         accept(Token.assign);
 
         Setting res = parseValue(name);
 
         string s;
-        immutable t = getTok(s);
+        t = getTok(s);
         if (t != Token.semicolon && t != Token.comma)
         {
             ungetTok(t, s);
@@ -567,25 +573,25 @@ unittest
 `// comment
 
 // comment
-group-1: {};
+group-1_2: {};
 // comment
-Group-2:
+"86(_64)?-.*linux\\.?":
 {
     // comment
     scalar = "abc";
     // comment
-    Array_1 = [ "a" ];
+    Array_1-2 = [ "a" ];
 };
 `;
 
     auto settings = Parser(input).parseConfig();
     assert(settings.length == 2);
 
-    assert(settings[0].name == "group-1");
+    assert(settings[0].name == "group-1_2");
     assert(settings[0].type == Setting.Type.group);
     assert((cast(GroupSetting) settings[0]).children == []);
 
-    assert(settings[1].name == "Group-2");
+    assert(settings[1].name == "86(_64)?-.*linux\\.?");
     assert(settings[1].type == Setting.Type.group);
     auto group2 = cast(GroupSetting) settings[1];
     assert(group2.children.length == 2);
@@ -594,7 +600,7 @@ Group-2:
     assert(group2.children[0].type == Setting.Type.scalar);
     assert((cast(ScalarSetting) group2.children[0]).val == "abc");
 
-    assert(group2.children[1].name == "Array_1");
+    assert(group2.children[1].name == "Array_1-2");
     assert(group2.children[1].type == Setting.Type.array);
     assert((cast(ArraySetting) group2.children[1]).vals == [ "a" ]);
 }

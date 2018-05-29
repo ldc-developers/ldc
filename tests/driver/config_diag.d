@@ -2,7 +2,7 @@
 // NOSWITCHES: Could not look up switches in {{.*}}noswitches.conf
 
 // RUN: not %ldc -conf=%S/inputs/section_aaa.conf %s 2>&1 | FileCheck %s --check-prefix=NO_SEC
-// NO_SEC: Could not look up section '{{.*}}' nor the 'default' section in {{.*}}section_aaa.conf
+// NO_SEC: No matching section for triple '{{.*}}' in {{.*}}section_aaa.conf
 
 
 void foo()

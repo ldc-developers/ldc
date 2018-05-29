@@ -24,7 +24,7 @@ class ConfigFile {
 public:
   static ConfigFile instance;
 
-  bool read(const char *explicitConfFile, const char *section);
+  bool read(const char *explicitConfFile, const char *triple);
 
   llvm::StringRef path() {
     return pathcstr ? llvm::StringRef(pathcstr) : llvm::StringRef();
@@ -38,9 +38,10 @@ public:
 
 private:
   bool locate(std::string &pathstr);
+  static bool sectionMatches(const char *section, const char *triple);
 
   // implemented in D
-  bool readConfig(const char *cfPath, const char *section, const char *binDir);
+  bool readConfig(const char *cfPath, const char *triple, const char *binDir);
 
   const char *pathcstr = nullptr;
   Array<const char *> switches;

@@ -1,7 +1,16 @@
 // See comments in driver/config.d in ldc source tree for grammar description of
 // this config file.
 
-// The default group is required
+// The default section is required.
+// For cross-compilation, you can add additional sections for specific target
+// triples by naming the sections as (quoted) regex patterns. See LDC's `-v`
+// output (`config` line) to figure out your normalized triple, depending on
+// the used `-mtriple`. E.g.:
+//   "^arm.*-linux": { ... };
+//   "x86_64-.*-linux": { ... };
+//   "i[3-6]86-.*-windows-msvc": { ... };
+// Later sections take precedence, but inherit missing values from previous
+// matching sections (incl. the default section).
 default:
 {
     // default switches injected before all explicit command-line switches
