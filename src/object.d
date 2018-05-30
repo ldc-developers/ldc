@@ -176,7 +176,7 @@ class Object
     }
 }
 
-auto opEquals(Object lhs, Object rhs)
+bool opEquals(Object lhs, Object rhs)
 {
     // If aliased to the same object or both null => equal
     if (lhs is rhs) return true;
@@ -201,7 +201,7 @@ auto opEquals(Object lhs, Object rhs)
 /************************
 * Returns true if lhs and rhs are equal.
 */
-auto opEquals(const Object lhs, const Object rhs)
+bool opEquals(const Object lhs, const Object rhs)
 {
     // A hack for the moment.
     return opEquals(cast()lhs, cast()rhs);
