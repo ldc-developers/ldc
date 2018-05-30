@@ -181,11 +181,6 @@ struct X86TargetABI : TargetABI {
       }
 
       // all other arguments are passed on the stack, don't rewrite
-
-      // reverse parameter order
-      if (fty.args.size() > 1) {
-        fty.reverseParams = true;
-      }
     }
 
     workaroundIssue1356(fty.args);

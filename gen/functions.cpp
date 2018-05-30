@@ -187,6 +187,8 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     ++nextLLArgIdx;
   }
 
+  newIrFty.reverseParams = abi->reverseExplicitParams(f);
+
   // let the ABI rewrite the types as necessary
   abi->rewriteFunctionType(newIrFty);
 

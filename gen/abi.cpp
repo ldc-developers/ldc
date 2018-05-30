@@ -238,6 +238,14 @@ bool TargetABI::canRewriteAsInt(Type *t, bool include64bit) {
 
 //////////////////////////////////////////////////////////////////////////////
 
+bool TargetABI::reverseExplicitParams(TypeFunction *tf) {
+  // Required by druntime for extern(D), except for `, ...`-style variadics.
+  return tf->linkage == LINKd && tf->varargs != 1 &&
+         Parameter::dim(tf->parameters) > 1;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 void TargetABI::rewriteVarargs(IrFuncTy &fty,
                                std::vector<IrFuncTyArg *> &args) {
   for (auto arg : args) {
@@ -354,6 +362,8 @@ struct IntrinsicABI : TargetABI {
   bool returnInArg(TypeFunction *tf) override { return false; }
 
   bool passByVal(Type *t) override { return false; }
+
+  bool reverseExplicitParams(TypeFunction *) override { return false; }
 
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     Type *ty = arg.type->toBasetype();

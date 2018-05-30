@@ -143,6 +143,11 @@ struct TargetABI {
   /// argument.
   virtual bool passThisBeforeSret(TypeFunction *tf) { return false; }
 
+  /// Returns true if the explicit parameters order is to be reversed.
+  /// Defaults to true for non-variadic extern(D) functions as required by
+  /// druntime.
+  virtual bool reverseExplicitParams(TypeFunction *tf);
+
   /// Called to give ABI the chance to rewrite the types
   virtual void rewriteFunctionType(IrFuncTy &fty) = 0;
   virtual void rewriteVarargs(IrFuncTy &fty, std::vector<IrFuncTyArg *> &args);

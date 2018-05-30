@@ -28,6 +28,7 @@ struct NVPTXTargetABI : TargetABI {
     t = t->toBasetype();
     return ((t->ty == Tsarray || t->ty == Tstruct) && t->size() > 64);
   }
+  bool reverseExplicitParams(TypeFunction *) override { return false; }
   void rewriteFunctionType(IrFuncTy &fty) override {
     for (auto arg : fty.args) {
       if (!arg->byref)
