@@ -413,9 +413,7 @@ Type *X86_64TargetABI::vaListType() {
   // using TypeIdentifier here is a bit wonky but works, as long as the name
   // is actually available in the scope (this is what DMD does, so if a better
   // solution is found there, this should be adapted).
-  static const llvm::StringRef ident = "__va_list_tag";
-  return (createTypeIdentifier(Loc(),
-                               Identifier::idPool(ident.data(), ident.size())))
+  return createTypeIdentifier(Loc(), Identifier::idPool("__va_list_tag"))
       ->pointerTo();
 }
 

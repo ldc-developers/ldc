@@ -2571,6 +2571,11 @@ extern (C++) final class IntegerExp : Expression
         return new IntegerExp(loc, value, type);
     }
 
+    static IntegerExp createi(Loc loc, int value, Type type)
+    {
+        return new IntegerExp(loc, value, type);
+    }
+
     override bool equals(RootObject o)
     {
         if (this == o)
