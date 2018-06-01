@@ -4819,6 +4819,8 @@ extern (C++) final class TypeFunction : TypeNext
     // arguments get specially formatted
     private const(char)* getParamError(const(char)* format, Expression arg, Parameter par)
     {
+        if (global.gag && !global.params.showGaggedErrors)
+            return null;
         // show qualification when toChars() is the same but types are different
         auto at = arg.type.toChars();
         bool qual = !arg.type.equals(par.type) && strcmp(at, par.type.toChars()) == 0;
@@ -5664,7 +5666,7 @@ extern (C++) abstract class TypeQualified : Type
             /* Look for what user might have intended
              */
             const p = mutableOf().unSharedOf().toChars();
-            auto id = Identifier.idPool(p, strlen(p));
+            auto id = Identifier.idPool(p, cast(uint)strlen(p));
             if (const n = importHint(p))
                 error(loc, "`%s` is not defined, perhaps `import %s;` ?", p, n);
             else if (auto s2 = sc.search_correct(id))

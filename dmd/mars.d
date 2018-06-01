@@ -759,7 +759,7 @@ extern (C++) int mars_mainBody(ref Strings files, ref Strings libmodules)
         /* At this point, name is the D source file name stripped of
          * its path and extension.
          */
-        auto id = Identifier.idPool(name, strlen(name));
+        auto id = Identifier.idPool(name, cast(uint)strlen(name));
         auto m = new Module(files[i], id, global.params.doDocComments, global.params.doHdrGeneration);
         modules.push(m);
       version (IN_LLVM)
@@ -2702,7 +2702,7 @@ private void parseModulePattern(const(char)* modulePattern, MatcherNode* dst, us
                 if (*modulePattern == '.')
                 {
                     assert(modulePattern > idStart, "empty module pattern");
-                    *dst = MatcherNode(Identifier.idPool(idStart, modulePattern - idStart));
+                    *dst = MatcherNode(Identifier.idPool(idStart, cast(uint)(modulePattern - idStart)));
                     modulePattern++;
                     idStart = modulePattern;
                     break;
@@ -2714,7 +2714,7 @@ private void parseModulePattern(const(char)* modulePattern, MatcherNode* dst, us
             if (*modulePattern == '\0')
             {
                 assert(modulePattern > idStart, "empty module pattern");
-                *lastNode = MatcherNode(Identifier.idPool(idStart, modulePattern - idStart));
+                *lastNode = MatcherNode(Identifier.idPool(idStart, cast(uint)(modulePattern - idStart)));
                 break;
             }
         }
