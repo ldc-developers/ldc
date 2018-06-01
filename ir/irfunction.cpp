@@ -17,7 +17,7 @@
 #include "ir/irdsymbol.h"
 
 IrFunction::IrFunction(FuncDeclaration *fd)
-    : FMF(opts::defaultFMF), irFty(nullptr /*set immediately below*/) {
+    : irFty(nullptr /*set immediately below*/), FMF(opts::defaultFMF) {
   decl = fd;
 
   Type *t = fd->type->toBasetype();
