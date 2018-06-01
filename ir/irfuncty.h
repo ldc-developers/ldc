@@ -27,6 +27,7 @@
 
 class DValue;
 class Type;
+class TypeFunction;
 struct ABIRewrite;
 namespace llvm {
 class Type;
@@ -83,6 +84,9 @@ struct IrFuncTyArg {
 
 // represents a function type
 struct IrFuncTy {
+  // D type
+  TypeFunction *type;
+
   // The final LLVM type
   llvm::FunctionType *funcType = nullptr;
 
@@ -111,11 +115,13 @@ struct IrFuncTy {
   llvm::Value *getRetRVal(Type *dty, llvm::Value *val);
   llvm::Value *getRetLVal(Type *dty, llvm::Value *val);
 
-  llvm::Value *putParam(const IrFuncTyArg &arg, DValue *dval,
-                        bool isModifiableLvalue);
+  llvm::Value *putArg(const IrFuncTyArg &arg, DValue *dval, bool isLValueExp,
+                      bool isLastArgExp);
   llvm::Value *getParamLVal(Type *dty, size_t idx, llvm::Value *val);
 
   AttrSet getParamAttrs(bool passThisBeforeSret);
+
+  IrFuncTy(TypeFunction *tf) : type(tf) {}
 };
 
 #endif

@@ -123,18 +123,16 @@ struct X86TargetABI : TargetABI {
     return DtoIsInMemoryOnly(t);
   }
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
-    const bool externD = (tf->linkage == LINKd && tf->varargs != 1);
+  void rewriteFunctionType(IrFuncTy &fty) override {
+    const bool externD = (fty.type->linkage == LINKd && fty.type->varargs != 1);
 
     // return value:
     if (!fty.ret->byref) {
-      Type *rt = tf->next->toBasetype(); // for sret, rt == void
+      Type *rt = fty.type->next->toBasetype(); // for sret, rt == void
       if (isAggregate(rt) && !isMagicCppStruct(rt) && canRewriteAsInt(rt) &&
           // don't rewrite cfloat for extern(D)
-          !(externD && rt->ty == Tcomplex32) &&
-          !integerRewrite.isObsoleteFor(fty.ret->ltype)) {
-        fty.ret->rewrite = &integerRewrite;
-        fty.ret->ltype = integerRewrite.type(fty.ret->type);
+          !(externD && rt->ty == Tcomplex32)) {
+        integerRewrite.applyToIfNotObsolete(*fty.ret);
       }
     }
 
@@ -173,8 +171,7 @@ struct X86TargetABI : TargetABI {
         } else if (!lastTy->isfloating() && (sz == 1 || sz == 2 || sz == 4)) {
           // rewrite aggregates as integers to make inreg work
           if (lastTy->ty == Tstruct || lastTy->ty == Tsarray) {
-            last->rewrite = &integerRewrite;
-            last->ltype = integerRewrite.type(last->type);
+            integerRewrite.applyTo(*last);
             // undo byval semantics applied via passByVal() returning true
             last->byref = false;
             last->attrs.clear();
@@ -184,11 +181,6 @@ struct X86TargetABI : TargetABI {
       }
 
       // all other arguments are passed on the stack, don't rewrite
-
-      // reverse parameter order
-      if (fty.args.size() > 1) {
-        fty.reverseParams = true;
-      }
     }
 
     workaroundIssue1356(fty.args);

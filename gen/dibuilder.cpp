@@ -1066,7 +1066,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 
   const bool isRefOrOut = vd->isRef() || vd->isOut(); // incl. special-ref vars
 
-  // For MSVC x64 targets, declare params rewritten by ExplicitByvalRewrite as
+  // For MSVC x64 targets, declare params rewritten by IndirectByvalRewrite as
   // DI references, as if they were ref parameters.
   const bool isPassedExplicitlyByval =
       isTargetMSVCx64 && !isRefOrOut && isaArgument(ll) && addr.empty();

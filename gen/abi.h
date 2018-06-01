@@ -42,7 +42,7 @@ struct ABIRewrite {
   virtual ~ABIRewrite() = default;
 
   /// Transforms the D argument to a suitable LL argument.
-  virtual llvm::Value *put(DValue *v, bool isModifiableLvalue) = 0;
+  virtual llvm::Value *put(DValue *v, bool isLValueExp, bool isLastArgExp) = 0;
 
   /// Transforms the LL parameter back and returns the address for the D
   /// parameter.
@@ -56,6 +56,10 @@ struct ABIRewrite {
   /// Returns the resulting LL type when transforming an argument of the
   /// specified D type.
   virtual llvm::Type *type(Type *t) = 0;
+
+  /// Applies this rewrite to the specified argument, adapting it where
+  /// necessary.
+  virtual void applyTo(IrFuncTyArg &arg, llvm::Type *finalLType = nullptr);
 
 protected:
   /***** Static Helpers *****/
@@ -139,8 +143,13 @@ struct TargetABI {
   /// argument.
   virtual bool passThisBeforeSret(TypeFunction *tf) { return false; }
 
+  /// Returns true if the explicit parameters order is to be reversed.
+  /// Defaults to true for non-variadic extern(D) functions as required by
+  /// druntime.
+  virtual bool reverseExplicitParams(TypeFunction *tf);
+
   /// Called to give ABI the chance to rewrite the types
-  virtual void rewriteFunctionType(TypeFunction *t, IrFuncTy &fty) = 0;
+  virtual void rewriteFunctionType(IrFuncTy &fty) = 0;
   virtual void rewriteVarargs(IrFuncTy &fty, std::vector<IrFuncTyArg *> &args);
   virtual void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) {}
 

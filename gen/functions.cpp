@@ -77,7 +77,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
 
   // Do not modify irFty yet; this function may be called recursively if any
   // of the argument types refer to this type.
-  IrFuncTy newIrFty;
+  IrFuncTy newIrFty(f);
 
   // The index of the next argument on the LLVM level.
   unsigned nextLLArgIdx = 0;
@@ -187,8 +187,10 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     ++nextLLArgIdx;
   }
 
+  newIrFty.reverseParams = abi->reverseExplicitParams(f);
+
   // let the ABI rewrite the types as necessary
-  abi->rewriteFunctionType(f, newIrFty);
+  abi->rewriteFunctionType(newIrFty);
 
   // Now we can modify irFty safely.
   irFty = std::move(newIrFty);

@@ -47,7 +47,7 @@ struct PPC64LETargetABI : TargetABI {
                                 !isHFA((TypeStruct *)t, nullptr, 8));
   }
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
+  void rewriteFunctionType(IrFuncTy &fty) override {
     // return value
     if (!fty.ret->byref) {
       rewriteArgument(fty, *fty.ret);
@@ -59,25 +59,17 @@ struct PPC64LETargetABI : TargetABI {
         rewriteArgument(fty, *arg);
       }
     }
-
-    // extern(D): reverse parameter order for non variadics, for DMD-compliance
-    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
-      fty.reverseParams = true;
-    }
   }
 
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     Type *ty = arg.type->toBasetype();
     if (ty->ty == Tstruct || ty->ty == Tsarray) {
       if (ty->ty == Tstruct && isHFA((TypeStruct *)ty, &arg.ltype, 8)) {
-        arg.rewrite = &hfaToArray;
-        arg.ltype = hfaToArray.type(arg.type);
+        hfaToArray.applyTo(arg, arg.ltype);
       } else if (canRewriteAsInt(ty, true)) {
-        arg.rewrite = &integerRewrite;
-        arg.ltype = integerRewrite.type(arg.type);
+        integerRewrite.applyTo(arg);
       } else {
-        arg.rewrite = &compositeToArray64;
-        arg.ltype = compositeToArray64.type(arg.type);
+        compositeToArray64.applyTo(arg);
       }
     } else if (ty->isintegral()) {
       arg.attrs.add(ty->isunsigned() ? LLAttribute::ZExt : LLAttribute::SExt);

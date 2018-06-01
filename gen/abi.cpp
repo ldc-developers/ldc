@@ -37,6 +37,13 @@ llvm::Value *ABIRewrite::getRVal(Type *dty, LLValue *v) {
 
 //////////////////////////////////////////////////////////////////////////////
 
+void ABIRewrite::applyTo(IrFuncTyArg &arg, LLType *finalLType) {
+  arg.rewrite = this;
+  arg.ltype = finalLType ? finalLType : this->type(arg.type);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 LLValue *ABIRewrite::getAddressOf(DValue *v) {
   if (v->isLVal())
     return DtoLVal(v);
@@ -231,6 +238,14 @@ bool TargetABI::canRewriteAsInt(Type *t, bool include64bit) {
 
 //////////////////////////////////////////////////////////////////////////////
 
+bool TargetABI::reverseExplicitParams(TypeFunction *tf) {
+  // Required by druntime for extern(D), except for `, ...`-style variadics.
+  return tf->linkage == LINKd && tf->varargs != 1 &&
+         Parameter::dim(tf->parameters) > 1;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 void TargetABI::rewriteVarargs(IrFuncTy &fty,
                                std::vector<IrFuncTyArg *> &args) {
   for (auto arg : args) {
@@ -297,7 +312,7 @@ struct UnknownTargetABI : TargetABI {
 
   bool passByVal(Type *t) override { return t->toBasetype()->ty == Tstruct; }
 
-  void rewriteFunctionType(TypeFunction *t, IrFuncTy &fty) override {
+  void rewriteFunctionType(IrFuncTy &) override {
     // why?
   }
 };
@@ -348,6 +363,8 @@ struct IntrinsicABI : TargetABI {
 
   bool passByVal(Type *t) override { return false; }
 
+  bool reverseExplicitParams(TypeFunction *) override { return false; }
+
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     Type *ty = arg.type->toBasetype();
     if (ty->ty != Tstruct) {
@@ -358,12 +375,11 @@ struct IntrinsicABI : TargetABI {
     LLType *abiTy = DtoUnpaddedStructType(arg.type);
 
     if (abiTy && abiTy != arg.ltype) {
-      arg.ltype = abiTy;
-      arg.rewrite = &remove_padding;
+      remove_padding.applyTo(arg, abiTy);
     }
   }
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
+  void rewriteFunctionType(IrFuncTy &fty) override {
     if (!fty.arg_sret) {
       Type *rt = fty.ret->type->toBasetype();
       if (rt->ty == Tstruct) {

@@ -23,8 +23,10 @@ IrTypeFunction *IrTypeFunction::get(Type *dt) {
   assert(!dt->ctype);
   assert(dt->ty == Tfunction);
 
-  IrFuncTy irFty;
-  llvm::Type *lt = DtoFunctionType(dt, irFty, nullptr, nullptr);
+  TypeFunction *tf = static_cast<TypeFunction *>(dt);
+
+  IrFuncTy irFty(tf);
+  llvm::Type *lt = DtoFunctionType(tf, irFty, nullptr, nullptr);
 
   // Could have already built the type as part of a struct forward reference,
   // just as for pointers and arrays.
@@ -44,9 +46,11 @@ IrTypeDelegate *IrTypeDelegate::get(Type *t) {
   assert(t->ty == Tdelegate);
   assert(t->nextOf()->ty == Tfunction);
 
-  IrFuncTy irFty;
+  TypeFunction *tf = static_cast<TypeFunction *>(t->nextOf());
+
+  IrFuncTy irFty(tf);
   llvm::Type *ltf =
-      DtoFunctionType(t->nextOf(), irFty, nullptr, Type::tvoid->pointerTo());
+      DtoFunctionType(tf, irFty, nullptr, Type::tvoid->pointerTo());
   llvm::Type *types[] = {getVoidPtrType(), getPtrToType(ltf)};
   LLStructType *lt = LLStructType::get(gIR->context(), types, false);
 

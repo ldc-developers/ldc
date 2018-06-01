@@ -31,7 +31,7 @@ struct DComputePointerRewrite : ABIRewrite {
     // TODO: Is this correct?
     return DtoAllocaDump(v, this->type(dty));
   }
-  LLValue *put(DValue *dv, bool) override {
+  LLValue *put(DValue *dv, bool, bool) override {
     LLValue *address = getAddressOf(dv);
     LLType *t = this->type(dv->type);
     return loadFromMemory(address, t);

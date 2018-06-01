@@ -33,7 +33,12 @@ llvm::Value *IrFuncTy::putRet(DValue *dval) {
   if (ret->rewrite) {
     Logger::println("Rewrite: putRet");
     LOG_SCOPE
-    return ret->rewrite->put(dval, /*isModifiableLvalue=*/false);
+    // Choosing isLValueExp=true here is a fail-safe conservative choice.
+    // Most rewrites don't care, and those which do are usually not applied to
+    // the return value (as more complex types are returned via sret and so not
+    // rewritten at all).
+    return ret->rewrite->put(dval, /*isLValueExp=*/true,
+                             /*isLastArgExp=*/true);
   }
 
   if (ret->byref || DtoIsInMemoryOnly(dval->type))
@@ -66,16 +71,20 @@ llvm::Value *IrFuncTy::getRetLVal(Type *dty, LLValue *val) {
   return DtoAllocaDump(val, dty);
 }
 
-llvm::Value *IrFuncTy::putParam(const IrFuncTyArg &arg, DValue *dval,
-                                bool isModifiableLvalue) {
+llvm::Value *IrFuncTy::putArg(const IrFuncTyArg &arg, DValue *dval,
+                              bool isLValueExp, bool isLastArgExp) {
   if (arg.rewrite) {
-    Logger::println("Rewrite: putParam");
+    Logger::println("Rewrite: putArg (%s expression%s)",
+                    isLValueExp ? "lvalue" : "rvalue",
+                    isLastArgExp ? ", last argument" : "");
     LOG_SCOPE
-    return arg.rewrite->put(dval, isModifiableLvalue);
+    return arg.rewrite->put(dval, isLValueExp, isLastArgExp);
   }
 
   if (arg.byref || DtoIsInMemoryOnly(dval->type)) {
-    if (isModifiableLvalue && arg.isByVal()) {
+    if (isLValueExp && !isLastArgExp && arg.isByVal()) {
+      // copy to avoid visibility of potential side effects of later argument
+      // expressions
       return DtoAllocaDump(dval, ".lval_copy_for_byval");
     }
     return DtoLVal(dval);

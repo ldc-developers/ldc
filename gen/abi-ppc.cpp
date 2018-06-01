@@ -58,7 +58,7 @@ struct PPCTargetABI : TargetABI {
            (!Is64Bit || t->size() > 64);
   }
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
+  void rewriteFunctionType(IrFuncTy &fty) override {
     // return value
     if (!fty.ret->byref) {
       rewriteArgument(fty, *fty.ret);
@@ -70,11 +70,6 @@ struct PPCTargetABI : TargetABI {
         rewriteArgument(fty, *arg);
       }
     }
-
-    // extern(D): reverse parameter order for non variadics, for DMD-compliance
-    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
-      fty.reverseParams = true;
-    }
   }
 
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
@@ -82,15 +77,12 @@ struct PPCTargetABI : TargetABI {
 
     if (ty->ty == Tstruct || ty->ty == Tsarray) {
       if (canRewriteAsInt(ty, Is64Bit)) {
-        arg.rewrite = &integerRewrite;
-        arg.ltype = integerRewrite.type(arg.type);
+        integerRewrite.applyTo(arg);
       } else {
         if (Is64Bit) {
-          arg.rewrite = &compositeToArray64;
-          arg.ltype = compositeToArray64.type(arg.type);
+          compositeToArray64.applyTo(arg);
         } else {
-          arg.rewrite = &compositeToArray32;
-          arg.ltype = compositeToArray32.type(arg.type);
+          compositeToArray32.applyTo(arg);
         }
       }
     } else if (ty->isintegral()) {

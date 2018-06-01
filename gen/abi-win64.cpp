@@ -34,7 +34,7 @@
 struct Win64TargetABI : TargetABI {
 private:
   const bool isMSVC;
-  ExplicitByvalRewrite byvalRewrite;
+  IndirectByvalRewrite byvalRewrite;
   IntegerRewrite integerRewrite;
 
   bool isX87(Type *t) const {
@@ -78,10 +78,6 @@ private:
     // Remaining aggregates which can NOT be rewritten as integers (size > 8
     // bytes or not a power of 2) are passed by ref to hidden copy.
     return isAggregate(t) && !canRewriteAsInt(t);
-  }
-
-  LINK &getLinkage(IrFuncTy &fty) {
-    return reinterpret_cast<LINK &>(fty.tag);
   }
 
 public:
@@ -131,10 +127,7 @@ public:
     return tf->linkage == LINKcpp;
   }
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
-    // store linkage in fty.tag as required by rewriteArgument() later
-    getLinkage(fty) = tf->linkage;
-
+  void rewriteFunctionType(IrFuncTy &fty) override {
     // return value
     const auto rt = fty.ret->type->toBasetype();
     if (!fty.ret->byref && rt->ty != Tvoid) {
@@ -146,11 +139,6 @@ public:
       if (!arg->byref) {
         rewriteArgument(fty, *arg);
       }
-    }
-
-    // extern(D): reverse parameter order for non variadics, for DMD-compliance
-    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
-      fty.reverseParams = true;
     }
   }
 
@@ -173,26 +161,16 @@ public:
 
   void rewrite(IrFuncTy &fty, IrFuncTyArg &arg, bool isReturnValue) {
     Type *t = arg.type->toBasetype();
+    LLType *originalLType = arg.ltype;
 
-    if (passPointerToHiddenCopy(t, isReturnValue, getLinkage(fty))) {
+    if (passPointerToHiddenCopy(t, isReturnValue, fty.type->linkage)) {
       // the caller allocates a hidden copy and passes a pointer to that copy
-      arg.rewrite = &byvalRewrite;
-
-      // the copy is treated as a local variable of the callee
-      // hence add the NoAlias and NoCapture attributes
-      arg.attrs.clear()
-          .add(LLAttribute::NoAlias)
-          .add(LLAttribute::NoCapture)
-          .addAlignment(byvalRewrite.alignment(arg.type));
-    } else if (isAggregate(t) && canRewriteAsInt(t) && !isMagicCppStruct(t) &&
-               !IntegerRewrite::isObsoleteFor(arg.ltype)) {
-      arg.rewrite = &integerRewrite;
+      byvalRewrite.applyTo(arg);
+    } else if (isAggregate(t) && canRewriteAsInt(t) && !isMagicCppStruct(t)) {
+      integerRewrite.applyToIfNotObsolete(arg);
     }
 
     if (arg.rewrite) {
-      LLType *originalLType = arg.ltype;
-      arg.ltype = arg.rewrite->type(arg.type);
-
       IF_LOG {
         Logger::println("Rewriting argument type %s", t->toChars());
         LOG_SCOPE;

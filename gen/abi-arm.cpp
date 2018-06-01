@@ -68,27 +68,21 @@ struct ArmTargetABI : TargetABI {
     // problem is better understood.
   }
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
+  void rewriteFunctionType(IrFuncTy &fty) override {
     Type *retTy = fty.ret->type->toBasetype();
     if (!fty.ret->byref && retTy->ty == Tstruct) {
       // Rewrite HFAs only because union HFAs are turned into IR types that are
       // non-HFA and messes up register selection
       if (isHFA((TypeStruct *)retTy, &fty.ret->ltype)) {
-        fty.ret->rewrite = &hfaToArray;
+        hfaToArray.applyTo(*fty.ret, fty.ret->ltype);
       } else {
-        fty.ret->rewrite = &integerRewrite;
-        fty.ret->ltype = integerRewrite.type(fty.ret->type);
+        integerRewrite.applyTo(*fty.ret);
       }
     }
 
     for (auto arg : fty.args) {
       if (!arg->byref)
         rewriteArgument(fty, *arg);
-    }
-
-    // extern(D): reverse parameter order for non variadics, for DMD-compliance
-    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
-      fty.reverseParams = true;
     }
   }
 
@@ -108,13 +102,11 @@ struct ArmTargetABI : TargetABI {
       // Rewrite HFAs only because union HFAs are turned into IR types that are
       // non-HFA and messes up register selection
       if (isHFA((TypeStruct *)ty, &arg.ltype)) {
-        arg.rewrite = &hfaToArray;
+        hfaToArray.applyTo(arg, arg.ltype);
       } else if (DtoAlignment(ty) <= 4) {
-        arg.rewrite = &compositeToArray32;
-        arg.ltype = compositeToArray32.type(arg.type);
+        compositeToArray32.applyTo(arg);
       } else {
-        arg.rewrite = &compositeToArray64;
-        arg.ltype = compositeToArray64.type(arg.type);
+        compositeToArray64.applyTo(arg);
       }
     }
   }
