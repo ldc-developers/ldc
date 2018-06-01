@@ -232,7 +232,7 @@ after_test:
             ren lib lib32
             (cat etc\ldc2.conf).replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib64') | Set-Content etc\ldc2.conf
             $conf32 = cat ..\ldc2-x86\etc\ldc2.conf -Raw
-            $conf32 = "`r`ni686-pc-windows-msvc:" + $conf32.Substring($conf32.IndexOf("`r`ndefault:") + 10)
+            $conf32 = "`r`n""i[3-6]86-.*-windows-msvc"":" + $conf32.Substring($conf32.IndexOf("`r`ndefault:") + 10)
             $conf32 = $conf32.Replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib32')
             Add-Content etc\ldc2.conf $conf32
             cd ..

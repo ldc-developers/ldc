@@ -29,27 +29,28 @@ string prepareBinDir(const(char)* binDir)
     return cast(string)res; // assumeUnique
 }
 
-
-ArraySetting findArraySetting(GroupSetting section, string name)
+T findSetting(T)(GroupSetting[] sections, Setting.Type type, string name)
 {
-    if (!section) return null;
-    foreach (c; section.children)
+    // lexically later sections dominate earlier ones
+    foreach_reverse (section; sections)
     {
-        if (c.type == Setting.Type.array && c.name == name)
-            return cast(ArraySetting) c;
+        foreach (c; section.children)
+        {
+            if (c.type == type && c.name == name)
+                return cast(T) c;
+        }
     }
     return null;
 }
 
-ScalarSetting findScalarSetting(GroupSetting section, string name)
+ArraySetting findArraySetting(GroupSetting[] sections, string name)
 {
-    if (!section) return null;
-    foreach (c; section.children)
-    {
-        if (c.type == Setting.Type.scalar && c.name == name)
-            return cast(ScalarSetting) c;
-    }
-    return null;
+    return findSetting!ArraySetting(sections, Setting.Type.array, name);
+}
+
+ScalarSetting findScalarSetting(GroupSetting[] sections, string name)
+{
+    return findSetting!ScalarSetting(sections, Setting.Type.scalar, name);
 }
 
 string replace(string str, string pattern, string replacement)
@@ -107,47 +108,37 @@ private:
     Array!(const(char)*) postSwitches;
     const(char)* rpathcstr;
 
-    bool readConfig(const(char)* cfPath, const(char)* sectionName, const(char)* binDir)
+    static bool sectionMatches(const(char)* section, const(char)* triple);
+
+    bool readConfig(const(char)* cfPath, const(char)* triple, const(char)* binDir)
     {
         switches.setDim(0);
         postSwitches.setDim(0);
 
         immutable dBinDir = prepareBinDir(binDir);
-        const dSec = sectionName[0 .. strlen(sectionName)];
 
         try
         {
-            GroupSetting section, defaultSection;
+            GroupSetting[] sections; // in lexical order
             foreach (s; parseConfigFile(cfPath))
             {
-                if (s.type != Setting.Type.group)
-                    continue;
-                if (s.name == dSec)
-                    section = cast(GroupSetting) s;
-                else if (s.name == "default")
-                    defaultSection = cast(GroupSetting) s;
+                if (s.type == Setting.Type.group &&
+                    (s.name == "default" || sectionMatches((s.name ~ '\0').ptr, triple)))
+                {
+                    sections ~= cast(GroupSetting) s;
+                }
             }
 
-            if (!section && !defaultSection)
+            if (sections.length == 0)
             {
+                const dTriple = triple[0 .. strlen(triple)];
                 const dCfPath = cfPath[0 .. strlen(cfPath)];
-                if (sectionName)
-                    throw new Exception("Could not look up section '" ~ cast(string) dSec
-                                        ~ "' nor the 'default' section in " ~ cast(string) dCfPath);
-                else
-                    throw new Exception("Could not look up 'default' section in " ~ cast(string) dCfPath);
+                throw new Exception("No matching section for triple '" ~ cast(string) dTriple
+                                    ~ "' in " ~ cast(string) dCfPath);
             }
 
-            ArraySetting findArray(string name)
-            {
-                auto r = findArraySetting(section, name);
-                if (!r)
-                    r = findArraySetting(defaultSection, name);
-                return r;
-            }
-
-            auto switches = findArray("switches");
-            auto postSwitches = findArray("post-switches");
+            auto switches = findArraySetting(sections, "switches");
+            auto postSwitches = findArraySetting(sections, "post-switches");
             if (!switches && !postSwitches)
             {
                 const dCfPath = cfPath[0 .. strlen(cfPath)];
@@ -170,16 +161,7 @@ private:
             applyArray(this.switches, switches);
             applyArray(this.postSwitches, postSwitches);
 
-            ScalarSetting findScalar(string name)
-            {
-                auto r = findScalarSetting(section, name);
-                if (!r)
-                    r = findScalarSetting(defaultSection, name);
-                return r;
-            }
-
-            auto rpath = findScalar("rpath");
-            if (rpath)
+            if (auto rpath = findScalarSetting(sections, "rpath"))
                 this.rpathcstr = (rpath.val.replace("%%ldcbinarypath%%", dBinDir) ~ '\0').ptr;
 
             return true;
@@ -190,4 +172,11 @@ private:
             return false;
         }
     }
+}
+
+unittest
+{
+    assert(ConfigFile.sectionMatches("i[3-6]86-.*-windows-msvc", "i686-pc-windows-msvc"));
+    assert(ConfigFile.sectionMatches("86(_64)?-.*-linux", "x86_64--linux-gnu"));
+    assert(!ConfigFile.sectionMatches("^linux", "x86_64--linux-gnu"));
 }
