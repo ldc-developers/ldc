@@ -16,6 +16,9 @@
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "strip-externals"
+#if LDC_LLVM_VER < 700
+#define LLVM_DEBUG DEBUG
+#endif
 
 #include "Passes.h"
 
@@ -57,14 +60,14 @@ bool StripExternals::runOnModule(Module &M) {
       Changed = true;
       ++NumFunctions;
       if (I->use_empty()) {
-        DEBUG(errs() << "Deleting function: " << *I);
+        LLVM_DEBUG(errs() << "Deleting function: " << *I);
         auto todelete = I;
         ++I;
         todelete->eraseFromParent();
         continue;
       } else {
         I->deleteBody();
-        DEBUG(errs() << "Deleted function body: " << *I);
+        LLVM_DEBUG(errs() << "Deleted function body: " << *I);
       }
     }
     ++I;
@@ -77,7 +80,7 @@ bool StripExternals::runOnModule(Module &M) {
       Changed = true;
       ++NumVariables;
       if (I->use_empty()) {
-        DEBUG(errs() << "Deleting global: " << *I);
+        LLVM_DEBUG(errs() << "Deleting global: " << *I);
         auto todelete = I;
         ++I;
         todelete->eraseFromParent();
@@ -85,7 +88,7 @@ bool StripExternals::runOnModule(Module &M) {
       } else {
         I->setInitializer(nullptr);
         I->setLinkage(GlobalValue::ExternalLinkage);
-        DEBUG(errs() << "Deleted initializer: " << *I);
+        LLVM_DEBUG(errs() << "Deleted initializer: " << *I);
       }
     }
     ++I;

@@ -84,12 +84,16 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
   Passes.add(
       createTargetTransformInfoWrapperPass(Target.getTargetIRAnalysis()));
 
-  if (Target.addPassesToEmitFile(Passes,
-                                 out,
-        // Always generate assembly for ptx as it is an assembly format
-        // The PTX backend fails if we pass anything else.
-        (cb == ComputeBackend::NVPTX) ? llvm::TargetMachine::CGFT_AssemblyFile
-                                      : fileType,
+  if (Target.addPassesToEmitFile(
+          Passes,
+          out, // Output file
+#if LDC_LLVM_VER >= 700
+          nullptr, // DWO output file
+#endif
+          // Always generate assembly for ptx as it is an assembly format
+          // The PTX backend fails if we pass anything else.
+          (cb == ComputeBackend::NVPTX) ? llvm::TargetMachine::CGFT_AssemblyFile
+                                        : fileType,
           codeGenOptLevel())) {
     llvm_unreachable("no support for asm output");
   }
