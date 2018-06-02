@@ -169,6 +169,22 @@ void iterateFuncInstructions(llvm::Function &func, F &&handler) {
   }     // for (auto &&bb : fun)
 }
 
+template<typename I>
+void stripDeclarations(llvm::iterator_range<I> range) {
+  for (auto it = range.begin(); it != range.end();) {
+    auto elem = &(*it);
+    ++it;
+    if (elem->isDeclaration() && elem->use_empty()) {
+      elem->eraseFromParent();
+    }
+  }
+}
+
+void stripModule(llvm::Module &module) {
+  stripDeclarations(module.functions());
+  stripDeclarations(module.globals());
+}
+
 void fixRtModule(llvm::Module &newModule,
                  const decltype(IRState::dynamicCompiledFunctions) &funcs) {
   std::unordered_map<std::string, std::string> thunkVar2func;
@@ -224,6 +240,8 @@ void fixRtModule(llvm::Module &newModule,
       }
     }
   }
+
+  stripModule(newModule);
 }
 
 void removeFunctionsTargets(IRState *irs, llvm::Module &module) {
