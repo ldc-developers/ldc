@@ -101,7 +101,14 @@ std::unique_ptr<llvm::TargetMachine> createTargetMachine() {
   assert(target != nullptr);
   std::unique_ptr<llvm::TargetMachine> ret(target->createTargetMachine(
       triple, llvm::sys::getHostCPUName(), llvm::join(getHostAttrs(), ","), {},
-      llvm::Optional<llvm::Reloc::Model>{}, llvm::CodeModel::JITDefault));
+      llvm::Optional<llvm::Reloc::Model>{},
+#if LDC_LLVM_VER == 500
+      llvm::CodeModel::JITDefault
+#else
+      llvm::Optional<llvm::CodeModel::Model>{}, llvm::CodeGenOpt::Default,
+      /*jit*/ true
+#endif
+      ));
   assert(ret != nullptr);
   return ret;
 }
