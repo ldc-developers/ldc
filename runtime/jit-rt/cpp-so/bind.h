@@ -26,7 +26,7 @@ class Function;
 }
 
 llvm::Function *bindParamsToFunc(
-    llvm::Module &module, llvm::Function &srcFunc,
+    llvm::Module &module, llvm::Function &srcFunc,llvm::Function &exampleFunc,
     const llvm::ArrayRef<ParamSlice> &params,
     llvm::function_ref<void(const std::string &)> errHandler);
 

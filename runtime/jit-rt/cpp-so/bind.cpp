@@ -40,6 +40,7 @@ llvm::FunctionType *getDstFuncType(llvm::FunctionType &srcType,
 
 llvm::Function *createBindFunc(llvm::Module &module,
                                llvm::Function &srcFunc,
+                               llvm::Function &exampleFunc,
                                llvm::FunctionType &funcType,
                                const llvm::ArrayRef<ParamSlice> &params) {
   auto newFunc = llvm::Function::Create(
@@ -47,21 +48,22 @@ llvm::Function *createBindFunc(llvm::Module &module,
                    &module);
 
   newFunc->setCallingConv(srcFunc.getCallingConv());
-  auto srcAttributes = srcFunc.getAttributes();
-  newFunc->addAttributes(llvm::AttributeList::ReturnIndex,
-                         srcAttributes.getRetAttributes());
-  newFunc->addAttributes(llvm::AttributeList::FunctionIndex,
-                         srcAttributes.getFnAttributes());
-  unsigned dstInd = 0;
-  for (size_t i = 0; i < params.size(); ++i) {
-    if (params[i].data == nullptr) {
-      newFunc->addAttributes(llvm::AttributeList::FirstArgIndex + dstInd,
-                             srcAttributes.getParamAttributes(
-                               static_cast<unsigned>(i)));
-      ++dstInd;
-    }
-  }
-  assert(dstInd == funcType.getNumParams());
+//  auto srcAttributes = srcFunc.getAttributes();
+//  newFunc->addAttributes(llvm::AttributeList::ReturnIndex,
+//                         srcAttributes.getRetAttributes());
+//  newFunc->addAttributes(llvm::AttributeList::FunctionIndex,
+//                         srcAttributes.getFnAttributes());
+//  unsigned dstInd = 0;
+//  for (size_t i = 0; i < params.size(); ++i) {
+//    if (params[i].data == nullptr) {
+//      newFunc->addAttributes(llvm::AttributeList::FirstArgIndex + dstInd,
+//                             srcAttributes.getParamAttributes(
+//                               static_cast<unsigned>(i)));
+//      ++dstInd;
+//    }
+//  }
+//  assert(dstInd == funcType.getNumParams());
+  newFunc->setAttributes(exampleFunc.getAttributes());
   return newFunc;
 }
 
@@ -114,6 +116,7 @@ void doBind(llvm::Module &module, llvm::Function &dstFunc,
 
   auto ret = builder.CreateCall(&srcFunc, args);
   ret->setCallingConv(srcFunc.getCallingConv());
+  ret->setAttributes(srcFunc.getAttributes());
   if (dstFunc.getReturnType()->isVoidTy()) {
     builder.CreateRetVoid();
   } else {
@@ -123,13 +126,13 @@ void doBind(llvm::Module &module, llvm::Function &dstFunc,
 }
 
 llvm::Function *bindParamsToFunc(
-    llvm::Module &module, llvm::Function &srcFunc,
+    llvm::Module &module, llvm::Function &srcFunc, llvm::Function &exampleFunc,
     const llvm::ArrayRef<ParamSlice> &params,
     llvm::function_ref<void(const std::string &)> errHandler) {
   auto srcType = srcFunc.getFunctionType();
   auto dstType = getDstFuncType(*srcType, params);
 
-  auto newFunc = createBindFunc(module, srcFunc, *dstType, params);
+  auto newFunc = createBindFunc(module, srcFunc, exampleFunc, *dstType, params);
   doBind(module, *newFunc, srcFunc, params, errHandler);
   return newFunc;
 }

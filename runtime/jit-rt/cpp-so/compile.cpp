@@ -187,7 +187,10 @@ void generateBind(const Context &context, JITContext &jitContext,
 
     auto funcToInline = getIrFunc(bindDesc.originalFunc);
     if (funcToInline != nullptr) {
-      auto func = bindParamsToFunc(module, *funcToInline, bindDesc.params,
+      auto exampleFunc = getIrFunc(bindDesc.exampleFunc);
+      assert(exampleFunc != nullptr);
+      auto func = bindParamsToFunc(module, *funcToInline, *exampleFunc,
+                                   bindDesc.params,
                                    [&](const std::string &str) {
         fatal(context, str);
       });
@@ -394,11 +397,14 @@ EXTERNAL void JIT_API_ENTRYPOINT(const void *modlist_head,
 }
 
 EXTERNAL void JIT_REG_BIND_PAYLOAD(void *handle, void *originalFunc,
-                                   const ParamSlice *params, size_t paramsSize) {
+                                   void *exampleFunc, const ParamSlice *params,
+                                   size_t paramsSize) {
   assert(handle != nullptr);
   assert(originalFunc != nullptr);
+  assert(exampleFunc != nullptr);
   JITContext &myJit = getJit();
-  myJit.registerBind(handle, originalFunc, toArray(params, paramsSize));
+  myJit.registerBind(handle, originalFunc, exampleFunc,
+                     toArray(params, paramsSize));
 }
 
 EXTERNAL void JIT_UNREG_BIND_PAYLOAD(void *handle) {

@@ -239,7 +239,11 @@ struct BindPayload(OF, F, int[] Index, Args...)
       }
     }
 
-    registerBindPayload(&base.func, cast(void*)originalFunc, desc.ptr, desc.length);
+    alias Ret = ReturnType!F;
+    alias Params = Parameters!F;
+    import ldc.attributes;
+    @dynamicCompile static Ret exampleFunc(Params) { assert(false); }
+    registerBindPayload(&base.func, cast(void*)originalFunc, cast(void*)&exampleFunc, desc.ptr, desc.length);
     registered = true;
   }
 }
@@ -384,7 +388,7 @@ struct Context
 }
 extern void rtCompileProcessImpl(const ref Context context, size_t contextSize);
 
-void registerBindPayload(void* handle, void* originalFunc, const ParamSlice* params, size_t paramsSize);
+void registerBindPayload(void* handle, void* originalFunc, void* exampleFunc, const ParamSlice* params, size_t paramsSize);
 void unregisterBindPayload(void* handle);
 }
 
