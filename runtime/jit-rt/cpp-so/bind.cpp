@@ -24,7 +24,7 @@ enum {
 };
 
 llvm::FunctionType *getDstFuncType(llvm::FunctionType &srcType,
-                                   const llvm::ArrayRef<Slice> &params) {
+                                   const llvm::ArrayRef<ParamSlice> &params) {
   assert(!srcType.isVarArg());
   llvm::SmallVector<llvm::Type*, SmallParamsCount> newParams;
   const auto srcParamsCount = srcType.params().size();
@@ -41,7 +41,7 @@ llvm::FunctionType *getDstFuncType(llvm::FunctionType &srcType,
 llvm::Function *createBindFunc(llvm::Module &module,
                                llvm::Function &srcFunc,
                                llvm::FunctionType &funcType,
-                               const llvm::ArrayRef<Slice> &params) {
+                               const llvm::ArrayRef<ParamSlice> &params) {
   auto newFunc = llvm::Function::Create(
                    &funcType, llvm::GlobalValue::ExternalLinkage, "\1.jit_bind",
                    &module);
@@ -65,8 +65,28 @@ llvm::Function *createBindFunc(llvm::Module &module,
   return newFunc;
 }
 
+
+llvm::Value *allocParam(
+    llvm::IRBuilder<> &builder, llvm::Type &srcType, const
+    llvm::DataLayout &layout, const ParamSlice& param,
+    llvm::function_ref<void(const std::string &)> errHandler) {
+  if (param.type == ParamType::Aggregate && srcType.isPointerTy()) {
+    auto elemType = llvm::cast<llvm::PointerType>(&srcType)->getElementType();
+    auto stackArg = builder.CreateAlloca(elemType);
+    stackArg->setAlignment(layout.getABITypeAlignment(elemType));
+    auto init = parseInitializer(layout, *elemType, param.data, errHandler);
+    builder.CreateStore(init, stackArg);
+    return stackArg;
+  }
+  auto stackArg = builder.CreateAlloca(&srcType);
+  stackArg->setAlignment(layout.getABITypeAlignment(&srcType));
+  auto init = parseInitializer(layout, srcType, param.data, errHandler);
+  builder.CreateStore(init, stackArg);
+  return builder.CreateLoad(stackArg);
+}
+
 void doBind(llvm::Module &module, llvm::Function &dstFunc,
-            llvm::Function &srcFunc, const llvm::ArrayRef<Slice> &params,
+            llvm::Function &srcFunc, const llvm::ArrayRef<ParamSlice> &params,
             llvm::function_ref<void(const std::string &)> errHandler) {
   auto& context = dstFunc.getContext();
   auto bb = llvm::BasicBlock::Create(context, "", &dstFunc);
@@ -75,20 +95,17 @@ void doBind(llvm::Module &module, llvm::Function &dstFunc,
   builder.SetInsertPoint(bb);
   llvm::SmallVector<llvm::Value*, SmallParamsCount> args;
   auto currentArg = dstFunc.arg_begin();
+  auto funcType = srcFunc.getFunctionType();
+  auto &layout = module.getDataLayout();
   for (size_t i = 0; i < params.size(); ++i) {
-    auto type = srcFunc.getFunctionType()->getParamType(static_cast<unsigned>(i));
     llvm::Value* arg = nullptr;
-    if (params[i].data == nullptr) {
+    const auto &param = params[i];
+    if (param.data == nullptr) {
       arg = currentArg;
       ++currentArg;
     } else {
-      auto &layout = module.getDataLayout();
-      auto stackArg = builder.CreateAlloca(type);
-      stackArg->setAlignment(layout.getABITypeAlignment(type));
-      const auto& param = params[i];
-      auto init = parseInitializer(layout, *type, param.data, errHandler);
-      builder.CreateStore(init, stackArg);
-      arg = builder.CreateLoad(stackArg);
+      auto type = funcType->getParamType(static_cast<unsigned>(i));
+      arg = allocParam(builder, *type, layout, param, errHandler);
     }
     assert(arg != nullptr);
     args.push_back(arg);
@@ -107,7 +124,7 @@ void doBind(llvm::Module &module, llvm::Function &dstFunc,
 
 llvm::Function *bindParamsToFunc(
     llvm::Module &module, llvm::Function &srcFunc,
-    const llvm::ArrayRef<Slice> &params,
+    const llvm::ArrayRef<ParamSlice> &params,
     llvm::function_ref<void(const std::string &)> errHandler) {
   auto srcType = srcFunc.getFunctionType();
   auto dstType = getDstFuncType(*srcType, params);

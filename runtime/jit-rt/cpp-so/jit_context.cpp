@@ -155,7 +155,7 @@ void JITContext::reset() {
 }
 
 void JITContext::registerBind(void *handle, void *originalFunc,
-                              const llvm::ArrayRef<Slice> &params) {
+                              const llvm::ArrayRef<ParamSlice> &params) {
   assert(bindInstances.count(handle) == 0);
   BindDesc::ParamsVec vec(params.begin(), params.end());
   bindInstances.insert({handle, {originalFunc, std::move(vec)}});

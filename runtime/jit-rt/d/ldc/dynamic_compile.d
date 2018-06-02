@@ -219,13 +219,14 @@ struct BindPayload(OF, F, int[] Index, Args...)
   void register()
   {
     assert(!registered);
-    Slice[ParametersCount] desc;
+    ParamSlice[ParametersCount] desc;
     static foreach(i, ind; Index)
     {
       static if (InvalidIndex != ind)
       {
         desc[i].data = &(argStore.args[ind]);
         desc[i].size = (argStore.args[ind]).sizeof;
+        desc[i].type = (isAggregateType!(typeof(argStore.args[ind])) ? ParamType.Aggregate : ParamType.Simple);
       }
     }
 
@@ -332,10 +333,15 @@ public:
 
 extern(C)
 {
-struct Slice
+enum ParamType : uint {
+  Simple = 0,
+  Aggregate = 1
+}
+struct ParamSlice
 {
   const(void)* data = null;
   size_t size = 0;
+  ParamType type = ParamType.Simple;
 }
 
 void progressHandlerWrapper(void* context, const char* desc, const char* obj)
@@ -369,7 +375,7 @@ struct Context
 }
 extern void rtCompileProcessImpl(const ref Context context, size_t contextSize);
 
-void registerBindPayload(void* handle, void* originalFunc, const Slice* params, size_t paramsSize);
+void registerBindPayload(void* handle, void* originalFunc, const ParamSlice* params, size_t paramsSize);
 void unregisterBindPayload(void* handle);
 }
 

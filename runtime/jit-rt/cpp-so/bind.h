@@ -15,7 +15,7 @@
 #ifndef BIND_H
 #define BIND_H
 
-#include "context.h" // Slice
+#include "param_slice.h"
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/STLExtras.h"
@@ -27,7 +27,7 @@ class Function;
 
 llvm::Function *bindParamsToFunc(
     llvm::Module &module, llvm::Function &srcFunc,
-    const llvm::ArrayRef<Slice> &params,
+    const llvm::ArrayRef<ParamSlice> &params,
     llvm::function_ref<void(const std::string &)> errHandler);
 
 #endif // BIND_H

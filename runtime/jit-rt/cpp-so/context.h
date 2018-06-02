@@ -15,6 +15,9 @@
 #define CONTEXT_H
 
 #include <cstddef> //size_t
+#include <cstdint>
+
+#include "param_slice.h"
 
 enum class DumpStage : int {
   OriginalModule = 0,
@@ -24,11 +27,6 @@ enum class DumpStage : int {
 };
 
 enum { ApiVersion = LDC_DYNAMIC_COMPILE_API_VERSION };
-
-struct Slice {
-  const void *data;
-  size_t size;
-};
 
 #ifdef _WIN32
 #define EXTERNAL __declspec(dllexport)

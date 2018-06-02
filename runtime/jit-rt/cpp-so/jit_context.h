@@ -91,7 +91,7 @@ private:
 
   struct BindDesc final {
     void *originalFunc;
-    using ParamsVec = llvm::SmallVector<Slice, 5>;
+    using ParamsVec = llvm::SmallVector<ParamSlice, 5>;
     ParamsVec params;
   };
   llvm::MapVector<void*, BindDesc> bindInstances;
@@ -123,7 +123,7 @@ public:
   void reset();
 
   void registerBind(void *handle, void *originalFunc,
-                    const llvm::ArrayRef<Slice>& params);
+                    const llvm::ArrayRef<ParamSlice>& params);
 
   void unregisterBind(void *handle);
 

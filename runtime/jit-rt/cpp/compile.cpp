@@ -15,7 +15,7 @@
 #include <cstddef> // size_t
 
 struct Context;
-struct Slice;
+struct ParamSlice;
 
 #ifdef _WIN32
 #define EXTERNAL __declspec(dllimport) extern
@@ -46,7 +46,7 @@ EXTERNAL void JIT_API_ENTRYPOINT(const void *modlist_head,
                                  std::size_t contextSize);
 
 EXTERNAL void JIT_REG_BIND_PAYLOAD(void *handle, void *originalFunc,
-                                   const Slice *desc, size_t descSize);
+                                   const ParamSlice *desc, size_t descSize);
 
 EXTERNAL void JIT_UNREG_BIND_PAYLOAD(void *handle);
 
@@ -54,7 +54,7 @@ void rtCompileProcessImpl(const Context *context, std::size_t contextSize) {
   JIT_API_ENTRYPOINT(dynamiccompile_modules_head, context, contextSize);
 }
 
-void registerBindPayload(void *handle, void *originalFunc, const Slice *desc,
+void registerBindPayload(void *handle, void *originalFunc, const ParamSlice *desc,
                          size_t descSize) {
   JIT_REG_BIND_PAYLOAD(handle, originalFunc, desc, descSize);
 }

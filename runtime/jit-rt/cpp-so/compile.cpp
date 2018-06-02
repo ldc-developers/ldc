@@ -394,7 +394,7 @@ EXTERNAL void JIT_API_ENTRYPOINT(const void *modlist_head,
 }
 
 EXTERNAL void JIT_REG_BIND_PAYLOAD(void *handle, void *originalFunc,
-                                   const Slice *params, size_t paramsSize) {
+                                   const ParamSlice *params, size_t paramsSize) {
   assert(handle != nullptr);
   assert(originalFunc != nullptr);
   JITContext &myJit = getJit();

@@ -4,7 +4,8 @@
 import ldc.attributes;
 import ldc.dynamic_compile;
 
-@dynamicCompile int foo(int a, int b, int c)
+@dynamicCompile
+int foo(int a, int b, int c)
 {
   return a + b + c;
 }
@@ -12,6 +13,30 @@ import ldc.dynamic_compile;
 int bar(int a, int b, int c)
 {
   return a + b + c;
+}
+
+struct Foo
+{
+  int i;
+  int j;
+}
+
+struct Bar
+{
+  Foo f;
+  int k;
+}
+
+@dynamicCompile
+int baz1(Bar b)
+{
+  return b.f.i + b.f.j + b.k;
+}
+
+@dynamicCompile
+int baz2(Bar* b)
+{
+  return b.f.i + b.f.j + b.k;
 }
 
 void main(string[] args)
@@ -36,6 +61,12 @@ void main(string[] args)
     auto b3 = ldc.dynamic_compile.bind(&bar, 1, 2, 3);
     auto b4 = b3;
 
+    auto bz1 = ldc.dynamic_compile.bind(&baz1, Bar(Foo(1,2),3));
+    auto bz2 = ldc.dynamic_compile.bind(&baz2, Bar(Foo(1,2),3));
+
+    int delegate() bzd1 = bz1.toDelegate();
+    int delegate() bzd2 = bz2.toDelegate();
+
     compileDynamicCode(settings);
     assert(6 == f1(1,2,3));
     assert(6 == f2(2));
@@ -51,5 +82,11 @@ void main(string[] args)
     assert(!b2.isCallable());
     assert(!b3.isCallable());
     assert(!b4.isCallable());
+
+    assert(6 == bz1());
+    assert(6 == bz2());
+
+    assert(6 == bzd1());
+    assert(6 == bzd2());
   }
 }
