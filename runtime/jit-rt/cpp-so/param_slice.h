@@ -18,10 +18,7 @@
 #include <cstddef> //size_t
 #include <cstdint>
 
-enum ParamType : uint32_t {
-  Simple = 0,
-  Aggregate = 1
-};
+enum ParamType : uint32_t { Simple = 0, Aggregate = 1 };
 
 struct ParamSlice {
   const void *data;

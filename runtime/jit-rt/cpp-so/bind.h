@@ -28,15 +28,14 @@ class Module;
 class Function;
 }
 
-using BindOverride =
-  llvm::Optional<llvm::function_ref<llvm::Constant*(
-    llvm::Type &, const void *, size_t)>>;
+using BindOverride = llvm::Optional<
+    llvm::function_ref<llvm::Constant *(llvm::Type &, const void *, size_t)>>;
 
-
-llvm::Function *bindParamsToFunc(
-    llvm::Module &module, llvm::Function &srcFunc,llvm::Function &exampleFunc,
-    const llvm::ArrayRef<ParamSlice> &params,
-    llvm::function_ref<void(const std::string &)> errHandler,
-    const BindOverride &override = BindOverride{});
+llvm::Function *
+bindParamsToFunc(llvm::Module &module, llvm::Function &srcFunc,
+                 llvm::Function &exampleFunc,
+                 const llvm::ArrayRef<ParamSlice> &params,
+                 llvm::function_ref<void(const std::string &)> errHandler,
+                 const BindOverride &override = BindOverride{});
 
 #endif // BIND_H

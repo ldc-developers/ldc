@@ -545,7 +545,7 @@ generateFuncList(IRState *irs, const Types &types,
 
   auto &context = irs->context();
   auto nullp = llvm::ConstantPointerNull::get(
-                 llvm::PointerType::get(llvm::IntegerType::get(context, 8), 0));
+      llvm::PointerType::get(llvm::IntegerType::get(context, 8), 0));
   for (auto &&it : globalVals) {
     auto func = llvm::dyn_cast<llvm::Function>(it.first);
     if (func != nullptr && it.second == GlobalValVisibility::Internal) {

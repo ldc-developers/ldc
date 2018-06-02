@@ -54,8 +54,8 @@ void rtCompileProcessImpl(const Context *context, std::size_t contextSize) {
   JIT_API_ENTRYPOINT(dynamiccompile_modules_head, context, contextSize);
 }
 
-void registerBindPayload(void *handle, void *originalFunc, const ParamSlice *desc,
-                         size_t descSize) {
+void registerBindPayload(void *handle, void *originalFunc,
+                         const ParamSlice *desc, size_t descSize) {
   JIT_REG_BIND_PAYLOAD(handle, originalFunc, desc, descSize);
 }
 

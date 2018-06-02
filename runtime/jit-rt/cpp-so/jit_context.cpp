@@ -169,7 +169,7 @@ void JITContext::unregisterBind(void *handle) {
 
 bool JITContext::hasBindFunction(const void *handle) const {
   assert(handle != nullptr);
-  auto it = bindInstances.find(const_cast<void*>(handle));
+  auto it = bindInstances.find(const_cast<void *>(handle));
   return it != bindInstances.end();
 }
 

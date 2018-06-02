@@ -95,7 +95,7 @@ private:
     using ParamsVec = llvm::SmallVector<ParamSlice, 5>;
     ParamsVec params;
   };
-  llvm::MapVector<void*, BindDesc> bindInstances;
+  llvm::MapVector<void *, BindDesc> bindInstances;
 
   struct ListenerCleaner final {
     JITContext &owner;
@@ -124,13 +124,13 @@ public:
   void reset();
 
   void registerBind(void *handle, void *originalFunc, void *exampleFunc,
-                    const llvm::ArrayRef<ParamSlice>& params);
+                    const llvm::ArrayRef<ParamSlice> &params);
 
   void unregisterBind(void *handle);
 
   bool hasBindFunction(const void *handle) const;
 
-  const llvm::MapVector<void*, BindDesc> &getBindInstances() const {
+  const llvm::MapVector<void *, BindDesc> &getBindInstances() const {
     return bindInstances;
   }
 

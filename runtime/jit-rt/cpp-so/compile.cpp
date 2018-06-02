@@ -30,8 +30,8 @@
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/ExecutionEngine/JITSymbol.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/Mangler.h"
 #include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Mangler.h"
 #include "llvm/Linker/Linker.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -112,7 +112,7 @@ private:
 
   struct BindHandle final {
     std::string name;
-    void* handle = nullptr;
+    void *handle = nullptr;
   };
   std::vector<BindHandle> bindHandles;
 
@@ -148,9 +148,7 @@ public:
     return nullptr;
   }
 
-  const std::vector<BindHandle> &getBindHandles() const {
-    return bindHandles;
-  }
+  const std::vector<BindHandle> &getBindHandles() const { return bindHandles; }
 
   void addBindHandle(llvm::StringRef name, void *handle) {
     assert(!name.empty());
@@ -174,7 +172,7 @@ void *resolveSymbol(llvm::JITSymbol &symbol) {
 
 void generateBind(const Context &context, JITContext &jitContext,
                   JitModuleInfo &moduleInfo, llvm::Module &module) {
-  auto getIrFunc = [&](const void *ptr)->llvm::Function * {
+  auto getIrFunc = [&](const void *ptr) -> llvm::Function * {
     assert(ptr != nullptr);
     auto funcDesc = moduleInfo.getFunc(ptr);
     if (funcDesc == nullptr) {
@@ -187,32 +185,30 @@ void generateBind(const Context &context, JITContext &jitContext,
   bindFuncs.reserve(jitContext.getBindInstances().size() * 2);
 
   auto genBind = [&](void *bindPtr, void *originalFunc, void *exampleFunc,
-                 const llvm::ArrayRef<ParamSlice> &params) {
+                     const llvm::ArrayRef<ParamSlice> &params) {
     assert(bindPtr != nullptr);
     assert(bindFuncs.end() == bindFuncs.find(bindPtr));
     auto funcToInline = getIrFunc(originalFunc);
     if (funcToInline != nullptr) {
       auto exampleIrFunc = getIrFunc(exampleFunc);
       assert(exampleIrFunc != nullptr);
-      auto errhandler = [&](const std::string &str) {
-        fatal(context, str);
-      };
-      auto overrideHandler =
-          [&](llvm::Type &type, const void *data, size_t size)->
-          llvm::Constant *{
+      auto errhandler = [&](const std::string &str) { fatal(context, str); };
+      auto overrideHandler = [&](llvm::Type &type, const void *data,
+                                 size_t size) -> llvm::Constant * {
         if (type.isPointerTy()) {
           auto getBindFunc = [&]() {
-            auto handle = *static_cast<void * const *>(data);
-            return handle != nullptr && jitContext.hasBindFunction(handle) ?
-                               handle : nullptr;
+            auto handle = *static_cast<void *const *>(data);
+            return handle != nullptr && jitContext.hasBindFunction(handle)
+                       ? handle
+                       : nullptr;
           };
 
           auto ptype = llvm::cast<llvm::PointerType>(&type);
           auto elemType = ptype->getElementType();
           if (elemType->isFunctionTy()) {
             (void)size;
-            assert(size == sizeof(void*));
-            auto val = *reinterpret_cast<void * const *>(data);
+            assert(size == sizeof(void *));
+            auto val = *reinterpret_cast<void *const *>(data);
             if (val != nullptr) {
               auto ret = getIrFunc(val);
               if (ret != nullptr && ret->getType() != &type) {
@@ -226,17 +222,16 @@ void generateBind(const Context &context, JITContext &jitContext,
             auto bindIrFunc = it->second;
             auto funcPtrType = bindIrFunc->getType();
             auto globalVar1 = new llvm::GlobalVariable(
-                                module, funcPtrType, true,
-                                llvm::GlobalValue::PrivateLinkage,
-                                bindIrFunc, ".jit_bind_handle");
+                module, funcPtrType, true, llvm::GlobalValue::PrivateLinkage,
+                bindIrFunc, ".jit_bind_handle");
             return llvm::ConstantExpr::getBitCast(globalVar1, &type);
           }
         }
         return nullptr;
       };
-      auto func = bindParamsToFunc(module, *funcToInline, *exampleIrFunc,
-                                   params, errhandler,
-                                   BindOverride(overrideHandler));
+      auto func =
+          bindParamsToFunc(module, *funcToInline, *exampleIrFunc, params,
+                           errhandler, BindOverride(overrideHandler));
       moduleInfo.addBindHandle(func->getName(), bindPtr);
       bindFuncs.insert({bindPtr, func});
     } else {
@@ -255,7 +250,7 @@ void generateBind(const Context &context, JITContext &jitContext,
 void applyBind(const Context &context, JITContext &jitContext,
                const JitModuleInfo &moduleInfo) {
   auto &layout = jitContext.getDataLayout();
-  for (auto& elem : moduleInfo.getBindHandles()) {
+  for (auto &elem : moduleInfo.getBindHandles()) {
     auto decorated = decorate(elem.name, layout);
     auto symbol = jitContext.findSymbol(decorated);
     auto addr = resolveSymbol(symbol);
@@ -264,7 +259,7 @@ void applyBind(const Context &context, JITContext &jitContext,
                          elem.name + "\" (\"" + decorated + "\")";
       fatal(context, desc);
     } else {
-      auto handle = static_cast<void**>(elem.handle);
+      auto handle = static_cast<void **>(elem.handle);
       *handle = addr;
     }
   }
