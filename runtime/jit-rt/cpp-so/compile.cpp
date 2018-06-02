@@ -29,6 +29,7 @@
 
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/ExecutionEngine/JITSymbol.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/Linker/Linker.h"
 #include "llvm/Support/raw_ostream.h"
@@ -189,11 +190,33 @@ void generateBind(const Context &context, JITContext &jitContext,
     if (funcToInline != nullptr) {
       auto exampleFunc = getIrFunc(bindDesc.exampleFunc);
       assert(exampleFunc != nullptr);
-      auto func = bindParamsToFunc(module, *funcToInline, *exampleFunc,
-                                   bindDesc.params,
-                                   [&](const std::string &str) {
+      auto errhandler = [&](const std::string &str) {
         fatal(context, str);
-      });
+      };
+      auto overrideHandler =
+          [&](llvm::Type &type, const void* data, size_t size)->
+          llvm::Constant *{
+        if (type.isPointerTy()) {
+          auto ptype = llvm::cast<llvm::PointerType>(&type);
+          auto elemType = ptype->getElementType();
+          if (elemType->isFunctionTy()) {
+            (void)size;
+            assert(size == sizeof(void*));
+            auto val = *reinterpret_cast<void * const *>(data);
+            if (val != nullptr) {
+              auto ret = getIrFunc(val);
+              if (ret != nullptr && ret->getType() != &type) {
+                return llvm::ConstantExpr::getBitCast(ret, &type);
+              }
+              return ret;
+            }
+          }
+        }
+        return nullptr;
+      };
+      auto func = bindParamsToFunc(module, *funcToInline, *exampleFunc,
+                                   bindDesc.params, errhandler,
+                                   BindOverride(overrideHandler));
       moduleInfo.addBindHandle(func->getName(), bindPtr);
     } else {
       // TODO: ignore for now, user must explicitly check BindPtr
@@ -362,6 +385,9 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   JitFinaliser jitFinalizer(myJit);
   interruptPoint(context, "Resolve functions");
   for (auto &&fun : moduleInfo.functions()) {
+    if (fun.thunkVar == nullptr) {
+      continue;
+    }
     auto decorated = decorate(fun.name, layout);
     auto symbol = myJit.findSymbol(decorated);
     auto addr = resolveSymbol(symbol);
