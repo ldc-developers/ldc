@@ -15,6 +15,9 @@
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "simplify-drtcalls"
+#if LDC_LLVM_VER < 700
+#define LLVM_DEBUG DEBUG
+#endif
 
 #include "Passes.h"
 #include "llvm/Pass.h"
@@ -424,7 +427,7 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout *DL,
         continue;
       }
 
-      DEBUG(errs() << "SimplifyDRuntimeCalls inspecting: " << *CI);
+      LLVM_DEBUG(errs() << "SimplifyDRuntimeCalls inspecting: " << *CI);
 
       // Save the iterator to the call instruction and set the builder to the
       // next instruction.
@@ -443,7 +446,7 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout *DL,
         continue;
       }
 
-      DEBUG(errs() << "SimplifyDRuntimeCalls simplified: " << *CI;
+      LLVM_DEBUG(errs() << "SimplifyDRuntimeCalls simplified: " << *CI;
             errs() << "  into: " << *Result << "\n");
 
       // Something changed!

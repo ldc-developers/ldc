@@ -17,6 +17,9 @@
 #include "gen/attributes.h"
 
 #define DEBUG_TYPE "dgc2stack"
+#if LDC_LLVM_VER < 700
+#define LLVM_DEBUG DEBUG
+#endif
 
 #include "Passes.h"
 
@@ -466,7 +469,7 @@ isSafeToStackAllocate(BasicBlock::iterator Alloc, Value *V, DominatorTree &DT,
 /// runOnFunction - Top level algorithm.
 ///
 bool GarbageCollect2Stack::runOnFunction(Function &F) {
-  DEBUG(errs() << "\nRunning -dgc2stack on function " << F.getName() << '\n');
+  LLVM_DEBUG(errs() << "\nRunning -dgc2stack on function " << F.getName() << '\n');
 
   const DataLayout &DL = F.getParent()->getDataLayout();
   DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
@@ -514,7 +517,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
         continue;
       }
 
-      DEBUG(errs() << "GarbageCollect2Stack inspecting: " << *Inst);
+      LLVM_DEBUG(errs() << "GarbageCollect2Stack inspecting: " << *Inst);
 
       if (!info->analyze(CS, A)) {
         continue;
@@ -543,7 +546,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
       IRBuilder<> Builder(&BB, originalI);
       Value *newVal = info->promote(CS, Builder, A);
 
-      DEBUG(errs() << "Promoted to: " << *newVal);
+      LLVM_DEBUG(errs() << "Promoted to: " << *newVal);
 
       // Make sure the type is the same as it was before, and replace all
       // uses of the runtime call with the alloca.
@@ -598,7 +601,7 @@ llvm::Type *Analysis::getTypeFor(Value *typeinfo) const {
 /// (without executing Def again).
 static bool mayBeUsedAfterRealloc(Instruction *Def, BasicBlock::iterator Alloc,
                                   DominatorTree &DT) {
-  DEBUG(errs() << "### mayBeUsedAfterRealloc()\n" << *Def << *Alloc);
+  LLVM_DEBUG(errs() << "### mayBeUsedAfterRealloc()\n" << *Def << *Alloc);
 
   // If the definition isn't used it obviously won't be used after the
   // allocation.
@@ -606,11 +609,11 @@ static bool mayBeUsedAfterRealloc(Instruction *Def, BasicBlock::iterator Alloc,
   // without going through Def again first, since the definition couldn't
   // dominate the user either.
   if (Def->use_empty() || !DT.dominates(Def, &(*Alloc))) {
-    DEBUG(errs() << "### No uses or does not dominate allocation\n");
+    LLVM_DEBUG(errs() << "### No uses or does not dominate allocation\n");
     return false;
   }
 
-  DEBUG(errs() << "### Def dominates Alloc\n");
+  LLVM_DEBUG(errs() << "### Def dominates Alloc\n");
 
   BasicBlock *DefBlock = Def->getParent();
   BasicBlock *AllocBlock = Alloc->getParent();
@@ -621,7 +624,7 @@ static bool mayBeUsedAfterRealloc(Instruction *Def, BasicBlock::iterator Alloc,
   for (Instruction::use_iterator UI = Def->use_begin(), UE = Def->use_end();
        UI != UE; ++UI) {
     Instruction *User = cast<Instruction>(*UI);
-    DEBUG(errs() << "USER: " << *User);
+    LLVM_DEBUG(errs() << "USER: " << *User);
     BasicBlock *UserBlock = User->getParent();
 
     // This dominance check is not performed if they're in the same block
@@ -631,7 +634,7 @@ static bool mayBeUsedAfterRealloc(Instruction *Def, BasicBlock::iterator Alloc,
     if (AllocBlock != UserBlock && DT.dominates(AllocBlock, UserBlock)) {
       // There's definitely a path from alloc to this user that does not
       // go through Def, namely any path that ends up in that user.
-      DEBUG(errs() << "### Alloc dominates user " << *User);
+      LLVM_DEBUG(errs() << "### Alloc dominates user " << *User);
       return true;
     }
 
@@ -671,7 +674,7 @@ static bool mayBeUsedAfterRealloc(Instruction *Def, BasicBlock::iterator Alloc,
         // This block does not contain the definition or the allocation,
         // so any user in this block is definitely reachable without
         // finding either the definition or the allocation.
-        DEBUG(errs() << "### Block " << B->getName()
+        LLVM_DEBUG(errs() << "### Block " << B->getName()
                      << " contains a reachable user\n");
         return true;
       }
@@ -682,7 +685,7 @@ static bool mayBeUsedAfterRealloc(Instruction *Def, BasicBlock::iterator Alloc,
           break;
         }
         if (Users.count(&(*BBI))) {
-          DEBUG(errs() << "### Problematic user: " << *BBI);
+          LLVM_DEBUG(errs() << "### Problematic user: " << *BBI);
           return true;
         }
       }
@@ -708,7 +711,7 @@ static bool mayBeUsedAfterRealloc(Instruction *Def, BasicBlock::iterator Alloc,
       bool SeenDef = false;
       while (isa<PHINode>(BBI)) {
         if (Def == cast<PHINode>(BBI)->getIncomingValueForBlock(B)) {
-          DEBUG(errs() << "### Problematic phi user: " << *BBI);
+          LLVM_DEBUG(errs() << "### Problematic phi user: " << *BBI);
           return true;
         }
         SeenDef |= (Def == &*BBI);
