@@ -165,9 +165,28 @@ template UnbindTypes(int[] Index, Args...)
 
 struct BindPayloadBase(F)
 {
-  void function(ref BindPayloadBase!F) dtor;
+  alias FuncParams = Parameters!(F);
+  alias Ret = ReturnType!F;
   F func = null;
+  static assert(func.offsetof == 0, "func must be fist");
+  void function(ref BindPayloadBase!F) dtor;
   int counter = 1;
+
+  auto isCallable() const
+  {
+    return func !is null;
+  }
+
+  auto opCall(FuncParams args)
+  {
+    assert(isCallable());
+    return func(args);
+  }
+
+  auto toDelegate() @nogc
+  {
+    return &opCall;
+  }
 }
 
 struct BindPayload(OF, F, int[] Index, Args...)
@@ -246,6 +265,8 @@ struct BindPayload(OF, F, int[] Index, Args...)
     registerBindPayload(&base.func, cast(void*)originalFunc, cast(void*)&exampleFunc, desc.ptr, desc.length);
     registered = true;
   }
+
+  alias toDelegate = base.toDelegate;
 }
 
 struct BindPtr(F)
@@ -308,6 +329,12 @@ package:
     }
   }
 
+  import ldc.attributes;
+  @dynamicCompile auto dummyDel()
+  {
+    return toDelegate();
+  }
+
 public:
   this(this)
   {
@@ -331,16 +358,16 @@ public:
     return _payload !is null && _payload.func !is null;
   }
 
-  Ret opCall(FuncParams args)
+  auto opCall(FuncParams args)
   {
-    assert(_payload !is null);
     assert(isCallable());
     return _payload.func(args);
   }
 
   auto toDelegate() @nogc
   {
-    return &opCall;
+    assert(_payload !is null);
+    return _payload.toDelegate();
   }
 }
 

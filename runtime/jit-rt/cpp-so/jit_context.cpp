@@ -167,6 +167,12 @@ void JITContext::unregisterBind(void *handle) {
   bindInstances.erase(handle);
 }
 
+bool JITContext::hasBindFunction(const void *handle) const {
+  assert(handle != nullptr);
+  auto it = bindInstances.find(const_cast<void*>(handle));
+  return it != bindInstances.end();
+}
+
 void JITContext::removeModule(const ModuleHandleT &handle) {
   cantFail(compileLayer.removeModule(handle));
 #if LDC_LLVM_VER >= 700

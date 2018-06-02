@@ -31,6 +31,7 @@
 #include "llvm/ExecutionEngine/JITSymbol.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Mangler.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/Linker/Linker.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -181,22 +182,31 @@ void generateBind(const Context &context, JITContext &jitContext,
     }
     return module.getFunction(funcDesc->name);
   };
-  for (auto &&bind : jitContext.getBindInstances()) {
-    auto bindPtr = bind.first;
-    auto &bindDesc = bind.second;
-    assert(bindDesc.originalFunc != nullptr);
 
-    auto funcToInline = getIrFunc(bindDesc.originalFunc);
+  std::unordered_map<const void *, llvm::Function *> bindFuncs;
+  bindFuncs.reserve(jitContext.getBindInstances().size() * 2);
+
+  auto genBind = [&](void *bindPtr, void *originalFunc, void *exampleFunc,
+                 const llvm::ArrayRef<ParamSlice> &params) {
+    assert(bindPtr != nullptr);
+    assert(bindFuncs.end() == bindFuncs.find(bindPtr));
+    auto funcToInline = getIrFunc(originalFunc);
     if (funcToInline != nullptr) {
-      auto exampleFunc = getIrFunc(bindDesc.exampleFunc);
-      assert(exampleFunc != nullptr);
+      auto exampleIrFunc = getIrFunc(exampleFunc);
+      assert(exampleIrFunc != nullptr);
       auto errhandler = [&](const std::string &str) {
         fatal(context, str);
       };
       auto overrideHandler =
-          [&](llvm::Type &type, const void* data, size_t size)->
+          [&](llvm::Type &type, const void *data, size_t size)->
           llvm::Constant *{
         if (type.isPointerTy()) {
+          auto getBindFunc = [&]() {
+            auto handle = *static_cast<void * const *>(data);
+            return handle != nullptr && jitContext.hasBindFunction(handle) ?
+                               handle : nullptr;
+          };
+
           auto ptype = llvm::cast<llvm::PointerType>(&type);
           auto elemType = ptype->getElementType();
           if (elemType->isFunctionTy()) {
@@ -210,17 +220,35 @@ void generateBind(const Context &context, JITContext &jitContext,
               }
               return ret;
             }
+          } else if (auto handle = getBindFunc()) {
+            auto it = bindFuncs.find(handle);
+            assert(bindFuncs.end() != it);
+            auto bindIrFunc = it->second;
+            auto funcPtrType = bindIrFunc->getType();
+            auto globalVar1 = new llvm::GlobalVariable(
+                                module, funcPtrType, true,
+                                llvm::GlobalValue::PrivateLinkage,
+                                bindIrFunc, ".jit_bind_handle");
+            return llvm::ConstantExpr::getBitCast(globalVar1, &type);
           }
         }
         return nullptr;
       };
-      auto func = bindParamsToFunc(module, *funcToInline, *exampleFunc,
-                                   bindDesc.params, errhandler,
+      auto func = bindParamsToFunc(module, *funcToInline, *exampleIrFunc,
+                                   params, errhandler,
                                    BindOverride(overrideHandler));
       moduleInfo.addBindHandle(func->getName(), bindPtr);
+      bindFuncs.insert({bindPtr, func});
     } else {
       // TODO: ignore for now, user must explicitly check BindPtr
     }
+  };
+  for (auto &&bind : jitContext.getBindInstances()) {
+    auto bindPtr = bind.first;
+    auto &bindDesc = bind.second;
+    assert(bindDesc.originalFunc != nullptr);
+    genBind(bindPtr, bindDesc.originalFunc, bindDesc.exampleFunc,
+            bindDesc.params);
   }
 }
 

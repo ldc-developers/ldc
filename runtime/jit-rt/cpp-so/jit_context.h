@@ -128,6 +128,8 @@ public:
 
   void unregisterBind(void *handle);
 
+  bool hasBindFunction(const void *handle) const;
+
   const llvm::MapVector<void*, BindDesc> &getBindInstances() const {
     return bindInstances;
   }
