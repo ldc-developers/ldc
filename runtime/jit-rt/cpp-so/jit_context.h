@@ -52,10 +52,10 @@ private:
     template <typename T> auto operator()(T &&object) -> T {
       if (nullptr != stream) {
 #if LDC_LLVM_VER >= 700
-        disassemble(targetmachine,
-                    *llvm::cantFail(llvm::object::ObjectFile::createObjectFile(
-                        object->getMemBufferRef())),
-                    *stream);
+        auto objFile =
+            llvm::cantFail(llvm::object::ObjectFile::createObjectFile(
+                object->getMemBufferRef()));
+        disassemble(targetmachine, *objFile, *stream);
 #else
         disassemble(targetmachine, *object->getBinary(), *stream);
 #endif
