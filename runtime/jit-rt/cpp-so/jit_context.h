@@ -41,29 +41,28 @@ class TargetMachine;
 
 using SymMap = std::map<std::string, void *>;
 
-struct ModuleListener {
-  llvm::TargetMachine &targetmachine;
-  llvm::raw_ostream *stream = nullptr;
-
-  ModuleListener(llvm::TargetMachine &tm) : targetmachine(tm) {}
-
-  template <typename T> auto operator()(T &&object) -> T {
-    if (nullptr != stream) {
-#if LDC_LLVM_VER >= 700
-      disassemble(targetmachine,
-                  *llvm::cantFail(llvm::object::ObjectFile::createObjectFile(
-                      object->getMemBufferRef())),
-                  *stream);
-#else
-      disassemble(targetmachine, *object->getBinary(), *stream);
-#endif
-    }
-    return std::move(object);
-  }
-};
-
 class MyJIT final {
 private:
+  struct ModuleListener {
+    llvm::TargetMachine &targetmachine;
+    llvm::raw_ostream *stream = nullptr;
+
+    ModuleListener(llvm::TargetMachine &tm) : targetmachine(tm) {}
+
+    template <typename T> auto operator()(T &&object) -> T {
+      if (nullptr != stream) {
+  #if LDC_LLVM_VER >= 700
+        disassemble(targetmachine,
+                    *llvm::cantFail(llvm::object::ObjectFile::createObjectFile(
+                        object->getMemBufferRef())),
+                    *stream);
+  #else
+        disassemble(targetmachine, *object->getBinary(), *stream);
+  #endif
+      }
+      return std::move(object);
+    }
+  };
   llvm::llvm_shutdown_obj shutdownObj;
   std::unique_ptr<llvm::TargetMachine> targetmachine;
   const llvm::DataLayout dataLayout;
