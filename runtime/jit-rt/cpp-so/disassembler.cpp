@@ -262,11 +262,6 @@ void disassemble(const llvm::TargetMachine &tm,
     return;
   }
 
-  auto mce = unique(target.createMCCodeEmitter(*mii, *mri, ctx));
-  if (nullptr == mce) {
-    return;
-  }
-
   llvm::MCTargetOptions opts;
   auto mab = unique(target.createMCAsmBackend(
 #if LDC_LLVM_VER >= 600
@@ -279,10 +274,10 @@ void disassemble(const llvm::TargetMachine &tm,
     return;
   }
 
-  // Streamer takes ownership of mip mce mab
+  // Streamer takes ownership of mip mab
   auto asmStreamer = unique(target.createAsmStreamer(
       ctx, llvm::make_unique<llvm::formatted_raw_ostream>(os), false, true,
-      mip.release(), mce.release(), mab.release(), false));
+      mip.release(), nullptr, mab.release(), false));
   if (nullptr == asmStreamer) {
     return;
   }
