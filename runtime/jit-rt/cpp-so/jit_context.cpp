@@ -1,3 +1,17 @@
+//===-- jit_context.cpp ---------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the Boost Software License. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Jit runtime - shared library part.
+// Defines jit context which stores evrything required for compilation.
+//
+//===----------------------------------------------------------------------===//
+
 #include "jit_context.h"
 
 #include <cassert>
