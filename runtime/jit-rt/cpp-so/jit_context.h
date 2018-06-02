@@ -41,7 +41,7 @@ class TargetMachine;
 
 using SymMap = std::map<std::string, void *>;
 
-class MyJIT final {
+class JITContext final {
 private:
   struct ModuleListener {
     llvm::TargetMachine &targetmachine;
@@ -51,14 +51,14 @@ private:
 
     template <typename T> auto operator()(T &&object) -> T {
       if (nullptr != stream) {
-  #if LDC_LLVM_VER >= 700
+#if LDC_LLVM_VER >= 700
         disassemble(targetmachine,
                     *llvm::cantFail(llvm::object::ObjectFile::createObjectFile(
                         object->getMemBufferRef())),
                     *stream);
-  #else
+#else
         disassemble(targetmachine, *object->getBinary(), *stream);
-  #endif
+#endif
       }
       return std::move(object);
     }
@@ -88,16 +88,16 @@ private:
   SymMap symMap;
 
   struct ListenerCleaner final {
-    MyJIT &owner;
-    ListenerCleaner(MyJIT &o, llvm::raw_ostream *stream) : owner(o) {
+    JITContext &owner;
+    ListenerCleaner(JITContext &o, llvm::raw_ostream *stream) : owner(o) {
       owner.listenerlayer.getTransform().stream = stream;
     }
     ~ListenerCleaner() { owner.listenerlayer.getTransform().stream = nullptr; }
   };
 
 public:
-  MyJIT();
-  ~MyJIT();
+  JITContext();
+  ~JITContext();
 
   llvm::TargetMachine &getTargetMachine() { return *targetmachine; }
 

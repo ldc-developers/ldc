@@ -82,8 +82,8 @@ std::string decorate(const std::string &name) {
 #endif
 }
 
-MyJIT &getJit() {
-  static MyJIT jit;
+JITContext &getJit() {
+  static JITContext jit;
   return jit;
 }
 
@@ -139,9 +139,9 @@ void setFunctionsTarget(llvm::Module &module, llvm::TargetMachine &TM) {
 }
 
 struct JitFinaliser final {
-  MyJIT &jit;
+  JITContext &jit;
   bool finalized = false;
-  explicit JitFinaliser(MyJIT &j) : jit(j) {}
+  explicit JitFinaliser(JITContext &j) : jit(j) {}
   ~JitFinaliser() {
     if (!finalized) {
       jit.reset();
@@ -172,7 +172,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
     return;
   }
   interruptPoint(context, "Init");
-  MyJIT &myJit = getJit();
+  JITContext &myJit = getJit();
 
   std::vector<std::pair<std::string, void **>> functions;
   std::unique_ptr<llvm::Module> finalModule;

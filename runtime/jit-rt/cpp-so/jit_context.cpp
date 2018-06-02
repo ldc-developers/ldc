@@ -63,7 +63,7 @@ auto getSymbolInProcess(const std::string &name)
 
 } // anon namespace
 
-MyJIT::MyJIT()
+JITContext::JITContext()
     : targetmachine(createTargetMachine()),
       dataLayout(targetmachine->createDataLayout()),
 #if LDC_LLVM_VER >= 700
@@ -84,10 +84,10 @@ MyJIT::MyJIT()
   llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 }
 
-MyJIT::~MyJIT() {}
+JITContext::~JITContext() {}
 
-bool MyJIT::addModule(std::unique_ptr<llvm::Module> module,
-                      llvm::raw_ostream *asmListener) {
+bool JITContext::addModule(std::unique_ptr<llvm::Module> module,
+                           llvm::raw_ostream *asmListener) {
   assert(nullptr != module);
   reset();
 
@@ -112,11 +112,11 @@ bool MyJIT::addModule(std::unique_ptr<llvm::Module> module,
   return false;
 }
 
-llvm::JITSymbol MyJIT::findSymbol(const std::string &name) {
+llvm::JITSymbol JITContext::findSymbol(const std::string &name) {
   return compileLayer.findSymbol(name, false);
 }
 
-void MyJIT::reset() {
+void JITContext::reset() {
   if (compiled) {
     removeModule(moduleHandle);
     moduleHandle = {};
@@ -124,7 +124,7 @@ void MyJIT::reset() {
   }
 }
 
-void MyJIT::removeModule(const ModuleHandleT &handle) {
+void JITContext::removeModule(const ModuleHandleT &handle) {
   cantFail(compileLayer.removeModule(handle));
 #if LDC_LLVM_VER >= 700
   execSession.releaseVModule(handle);
@@ -132,7 +132,7 @@ void MyJIT::removeModule(const ModuleHandleT &handle) {
 }
 
 #if LDC_LLVM_VER >= 700
-std::shared_ptr<llvm::orc::SymbolResolver> MyJIT::createResolver() {
+std::shared_ptr<llvm::orc::SymbolResolver> JITContext::createResolver() {
   return llvm::orc::createLegacyLookupResolver(
       execSession,
       [this](const std::string &name) -> llvm::JITSymbol {
@@ -157,7 +157,7 @@ std::shared_ptr<llvm::orc::SymbolResolver> MyJIT::createResolver() {
       });
 }
 #else
-std::shared_ptr<llvm::JITSymbolResolver> MyJIT::createResolver() {
+std::shared_ptr<llvm::JITSymbolResolver> JITContext::createResolver() {
   // Build our symbol resolver:
   // Lambda 1: Look back into the JIT itself to find symbols that are part of
   //           the same "logical dylib".
