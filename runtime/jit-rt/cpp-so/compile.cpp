@@ -161,7 +161,14 @@ struct ModuleListener {
 
   template <typename T> auto operator()(T &&object) -> T {
     if (nullptr != stream) {
+#if LDC_LLVM_VER >= 700
+      disassemble(targetmachine,
+                  *llvm::cantFail(llvm::object::ObjectFile::createObjectFile(
+                      object->getMemBufferRef())),
+                  *stream);
+#else
       disassemble(targetmachine, *object->getBinary(), *stream);
+#endif
     }
     return std::move(object);
   }
@@ -180,7 +187,7 @@ private:
       llvm::orc::IRCompileLayer<ListenerLayerT, llvm::orc::SimpleCompiler>;
 #if LDC_LLVM_VER >= 700
   using ModuleHandleT = llvm::orc::VModuleKey;
-  llvm::orc::SymbolStringPool stringPool;
+  std::shared_ptr<llvm::orc::SymbolStringPool> stringPool;
   llvm::orc::ExecutionSession execSession;
   std::shared_ptr<llvm::orc::SymbolResolver> resolver;
 #else
@@ -207,6 +214,7 @@ public:
       : targetmachine(createTargetMachine()),
         dataLayout(targetmachine->createDataLayout()),
 #if LDC_LLVM_VER >= 700
+        stringPool(std::make_shared<llvm::orc::SymbolStringPool>()),
         execSession(stringPool), resolver(createResolver()),
         objectLayer(execSession,
                     [this](llvm::orc::VModuleKey) {
@@ -278,6 +286,7 @@ private:
 #if LDC_LLVM_VER >= 700
   std::shared_ptr<llvm::orc::SymbolResolver> createResolver() {
     return llvm::orc::createLegacyLookupResolver(
+        execSession,
         [this](const std::string &name) -> llvm::JITSymbol {
           if (auto Sym = compileLayer.findSymbol(name, false)) {
             return Sym;
