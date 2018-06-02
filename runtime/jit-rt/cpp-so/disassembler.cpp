@@ -119,8 +119,10 @@ void printFunction(const llvm::MCDisassembler &disasm,
          pos += size) {
       llvm::MCInst inst;
 
+      std::string comment;
+      llvm::raw_string_ostream commentStream(comment);
       auto status = disasm.getInstruction(inst, size, data.slice(pos), pos,
-                                          llvm::nulls(), llvm::nulls());
+                                          llvm::nulls(), commentStream);
 
       switch (status) {
       case llvm::MCDisassembler::Fail:
@@ -142,6 +144,11 @@ void printFunction(const llvm::MCDisassembler &disasm,
         } else if (Stage::Emit == stage) {
           if (auto label = symTable.getTargetLabel(pos)) {
             streamer.EmitLabel(label);
+          }
+          commentStream.flush();
+          if (!comment.empty()) {
+            streamer.AddComment(comment);
+            comment.clear();
           }
           streamer.EmitInstruction(inst, sti);
         }
@@ -193,10 +200,15 @@ public:
     return false;
   }
 
-  virtual void tryAddingPcLoadReferenceComment(llvm::raw_ostream & /*cStream*/,
-                                               int64_t /*Value*/,
+  virtual void tryAddingPcLoadReferenceComment(llvm::raw_ostream &cStream,
+                                               int64_t Value,
                                                uint64_t /*Address*/) override {
-    // Nothing
+    if (Value >= 0) {
+      if (auto sym =
+              symTable.getExternalSymbolRel(static_cast<uint64_t>(Value))) {
+        cStream << sym->getName();
+      }
+    }
   }
 };
 
@@ -276,7 +288,7 @@ void disassemble(const llvm::TargetMachine &tm,
 
   // Streamer takes ownership of mip mab
   auto asmStreamer = unique(target.createAsmStreamer(
-      ctx, llvm::make_unique<llvm::formatted_raw_ostream>(os), false, true,
+      ctx, llvm::make_unique<llvm::formatted_raw_ostream>(os), true, true,
       mip.release(), nullptr, mab.release(), false));
   if (nullptr == asmStreamer) {
     return;
