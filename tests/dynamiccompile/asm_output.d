@@ -46,7 +46,7 @@ void main(string[] args)
   assert(1 == count(dump.data, foo.mangleof));
   assert(1 == count(dump.data, bar.mangleof));
   assert(1 == count(dump.data, baz.mangleof));
-  assert(1 == count(dump.data, value.mangleof));
+  assert(count(dump.data, value.mangleof) > 0);
   assert(1 == count(dump.data, "7"));
   assert(1 == count(dump.data, "8"));
 }
