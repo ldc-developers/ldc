@@ -39,6 +39,12 @@ int baz2(Bar* b)
   return b.f.i + b.f.j + b.k;
 }
 
+@dynamicCompile
+int baz3(ref Bar b)
+{
+  return b.f.i + b.f.j + b.k;
+}
+
 void main(string[] args)
 {
   foreach (i; 0..4)
@@ -63,9 +69,11 @@ void main(string[] args)
 
     auto bz1 = ldc.dynamic_compile.bind(&baz1, Bar(Foo(1,2),3));
     auto bz2 = ldc.dynamic_compile.bind(&baz2, Bar(Foo(1,2),3));
+    auto bz3 = ldc.dynamic_compile.bind(&baz3, Bar(Foo(1,2),3));
 
     int delegate() bzd1 = bz1.toDelegate();
     int delegate() bzd2 = bz2.toDelegate();
+    int delegate() bzd3 = bz3.toDelegate();
 
     compileDynamicCode(settings);
     assert(6 == f1(1,2,3));
@@ -85,8 +93,10 @@ void main(string[] args)
 
     assert(6 == bz1());
     assert(6 == bz2());
+    assert(6 == bz3());
 
     assert(6 == bzd1());
     assert(6 == bzd2());
+    assert(6 == bzd3());
   }
 }
