@@ -45,6 +45,23 @@ int baz3(ref Bar b)
   return b.f.i + b.f.j + b.k;
 }
 
+@dynamicCompile
+int zzz1(int function() f)
+{
+  return f();
+}
+
+@dynamicCompile
+int zzz2(int delegate() f)
+{
+  return f();
+}
+
+int get6()
+{
+  return 6;
+}
+
 void main(string[] args)
 {
   foreach (i; 0..4)
@@ -68,12 +85,18 @@ void main(string[] args)
     auto b4 = b3;
 
     auto bz1 = ldc.dynamic_compile.bind(&baz1, Bar(Foo(1,2),3));
-    auto bz2 = ldc.dynamic_compile.bind(&baz2, Bar(Foo(1,2),3));
-    auto bz3 = ldc.dynamic_compile.bind(&baz3, Bar(Foo(1,2),3));
+    auto b = Bar(Foo(1,2),3);
+    auto bz2 = ldc.dynamic_compile.bind(&baz2, &b);
 
     int delegate() bzd1 = bz1.toDelegate();
     int delegate() bzd2 = bz2.toDelegate();
-    int delegate() bzd3 = bz3.toDelegate();
+
+    auto zz1 = ldc.dynamic_compile.bind(&zzz1, &get6);
+    import std.functional;
+    auto zz2 = ldc.dynamic_compile.bind(&zzz2, toDelegate(&get6));
+
+    int delegate() zzd1 = zz1.toDelegate();
+    int delegate() zzd2 = zz2.toDelegate();
 
     compileDynamicCode(settings);
     assert(6 == f1(1,2,3));
@@ -93,10 +116,14 @@ void main(string[] args)
 
     assert(6 == bz1());
     assert(6 == bz2());
-    assert(6 == bz3());
 
     assert(6 == bzd1());
     assert(6 == bzd2());
-    assert(6 == bzd3());
+
+    assert(6 == zz1());
+    assert(6 == zz2());
+
+    assert(6 == zzd1());
+    assert(6 == zzd2());
   }
 }

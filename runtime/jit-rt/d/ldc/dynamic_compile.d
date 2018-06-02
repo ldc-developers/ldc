@@ -92,10 +92,9 @@ auto bind(F, Args...)(F func, Args args)
   static assert(ParametersCount == Args.length, format("Invalid bind parameter count: %s, expected %s", Args.length, ParametersCount));
   assert(func !is null);
   enum Index = bindParamsInd!(0, 0, Args)();
-  alias BindTypes = typeof(mapBindParams(args).expand);
   alias PartialF = ReturnType!F function(UnbindTypes!(Index, FuncParams));
   alias BindPtrType = BindPtr!PartialF;
-  return BindPtrType.make!Index(func, mapBindParams(args).expand);
+  return BindPtrType.make!Index(func, mapBindParams!(F, 0)(args).expand);
 }
 
 immutable placeholder = _placeholder();
@@ -124,7 +123,13 @@ int[] bindParamsInd(int I, int Off, Args...)()
   }
 }
 
-auto mapBindParams(Args...)(Args args)
+auto convert(Dst, Src)(Src src)
+{
+  Dst ret = src;
+  return ret;
+}
+
+auto mapBindParams(F, size_t I, Args...)(Args args)
 {
   static if (Args.length == 0)
   {
@@ -132,11 +137,12 @@ auto mapBindParams(Args...)(Args args)
   }
   else static if (is(Unqual!(Args[0]) == _placeholder))
   {
-    return mapBindParams(args[1..$]);
+    return mapBindParams!(F, I + 1)(args[1..$]);
   }
   else
   {
-    return tuple(args[0], mapBindParams(args[1..$]).expand);
+    alias T = Parameters!(F)[I];
+    return tuple(convert!T(args[0]), mapBindParams!(F, I + 1)(args[1..$]).expand);
   }
 }
 
@@ -224,9 +230,12 @@ struct BindPayload(OF, F, int[] Index, Args...)
     {
       static if (InvalidIndex != ind)
       {
-        desc[i].data = &(argStore.args[ind]);
-        desc[i].size = (argStore.args[ind]).sizeof;
-        desc[i].type = (isAggregateType!(typeof(argStore.args[ind])) ? ParamType.Aggregate : ParamType.Simple);
+        {
+          desc[i].data = &(argStore.args[ind]);
+          desc[i].size = (argStore.args[ind]).sizeof;
+          alias T = FuncParams[ind];
+          desc[i].type = (isAggregateType!T || isDelegate!T ? ParamType.Aggregate : ParamType.Simple);
+        }
       }
     }
 
@@ -315,7 +324,7 @@ public:
 
   bool isCallable() const pure nothrow @safe @nogc
   {
-    return _payload.func !is null;
+    return _payload !is null && _payload.func !is null;
   }
 
   Ret opCall(FuncParams args)
@@ -325,7 +334,7 @@ public:
     return _payload.func(args);
   }
 
-  auto toDelegate()
+  auto toDelegate() @nogc
   {
     return &opCall;
   }
