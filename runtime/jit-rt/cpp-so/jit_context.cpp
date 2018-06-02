@@ -16,15 +16,15 @@
 
 #include <cassert>
 
-#include <llvm/ADT/StringExtras.h>
-#include <llvm/ExecutionEngine/RuntimeDyld.h>
-#include <llvm/ExecutionEngine/SectionMemoryManager.h>
-#include <llvm/IR/Module.h>
-#include <llvm/Support/DynamicLibrary.h>
-#include <llvm/Support/Host.h>
-#include <llvm/Support/TargetRegistry.h>
-#include <llvm/Support/TargetSelect.h>
-#include <llvm/Target/TargetMachine.h>
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/ExecutionEngine/RuntimeDyld.h"
+#include "llvm/ExecutionEngine/SectionMemoryManager.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Support/DynamicLibrary.h"
+#include "llvm/Support/Host.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Target/TargetMachine.h"
 
 namespace {
 
@@ -76,6 +76,16 @@ auto getSymbolInProcess(const std::string &name)
 }
 
 } // anon namespace
+
+JITContext::ListenerCleaner::ListenerCleaner(JITContext &o,
+                                             llvm::raw_ostream *stream)
+    : owner(o) {
+  owner.listenerlayer.getTransform().stream = stream;
+}
+
+JITContext::ListenerCleaner::~ListenerCleaner() {
+  owner.listenerlayer.getTransform().stream = nullptr;
+}
 
 JITContext::JITContext()
     : targetmachine(createTargetMachine()),

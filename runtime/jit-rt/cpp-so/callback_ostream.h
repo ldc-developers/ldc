@@ -15,8 +15,8 @@
 #ifndef CALLBACK_OSTREAM_H
 #define CALLBACK_OSTREAM_H
 
-#include <llvm/ADT/STLExtras.h>
-#include <llvm/Support/raw_ostream.h>
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/raw_ostream.h"
 
 class CallbackOstream : public llvm::raw_ostream {
   using CallbackT = llvm::function_ref<void(const char *, size_t)>;

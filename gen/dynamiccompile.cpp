@@ -794,7 +794,7 @@ void addDynamicCompiledVar(IRState *irs, IrGlobal *var) {
   }
 
   if (var->V->isThreadlocal()) {
-    error(Loc(), "Runtime compiled variable \"%s\" cannot be thread local",
+    error(Loc(), "Dynamic compile const variable \"%s\" cannot be thread local",
           var->V->toChars());
     fatal();
   }
