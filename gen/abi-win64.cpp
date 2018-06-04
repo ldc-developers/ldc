@@ -104,16 +104,23 @@ public:
     return name;
   }
 
-  bool returnInArg(TypeFunction *tf) override {
+  bool returnInArg(TypeFunction *tf, bool needsThis) override {
     if (tf->isref)
       return false;
+
+    Type *rt = tf->next->toBasetype();
+
+    // for non-static member functions, MSVC++ enforces sret for all structs
+    if (isMSVC && tf->linkage == LINKcpp && needsThis && rt->ty == Tstruct &&
+        !isMagicCppStruct(rt)) {
+      return true;
+    }
 
     // * all POD types of a power-of-2 size <= 8 bytes (incl. 2x32-bit cfloat)
     //   are returned in a register (RAX, or XMM0 for single float/ifloat/
     //   double/idouble)
     // * 80-bit real/ireal are returned on the x87 stack
     // * all other types are returned via sret
-    Type *rt = tf->next->toBasetype();
     return passPointerToHiddenCopy(rt, /*isReturnValue=*/true, tf->linkage);
   }
 

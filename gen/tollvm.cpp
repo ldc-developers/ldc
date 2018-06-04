@@ -44,7 +44,8 @@ bool DtoIsInMemoryOnly(Type *type) {
 bool DtoIsReturnInArg(CallExp *ce) {
   Type *t = ce->e1->type->toBasetype();
   if (t->ty == Tfunction && (!ce->f || !DtoIsIntrinsic(ce->f))) {
-    return gABI->returnInArg(static_cast<TypeFunction *>(t));
+    return gABI->returnInArg(static_cast<TypeFunction *>(t),
+                             ce->f && ce->f->needThis());
   }
   return false;
 }

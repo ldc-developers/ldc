@@ -297,7 +297,7 @@ const char *TargetABI::objcMsgSendFunc(Type *ret, IrFuncTy &fty) {
 
 // Some reasonable defaults for when we don't know what ABI to use.
 struct UnknownTargetABI : TargetABI {
-  bool returnInArg(TypeFunction *tf) override {
+  bool returnInArg(TypeFunction *tf, bool) override {
     if (tf->isref) {
       return false;
     }
@@ -361,7 +361,7 @@ TargetABI *TargetABI::getTarget() {
 struct IntrinsicABI : TargetABI {
   RemoveStructPadding remove_padding;
 
-  bool returnInArg(TypeFunction *tf) override { return false; }
+  bool returnInArg(TypeFunction *, bool) override { return false; }
 
   bool passByVal(TypeFunction *, Type *t) override { return false; }
 

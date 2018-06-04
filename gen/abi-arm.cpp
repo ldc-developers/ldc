@@ -25,7 +25,7 @@ struct ArmTargetABI : TargetABI {
   CompositeToArray64 compositeToArray64;
   IntegerRewrite integerRewrite;
 
-  bool returnInArg(TypeFunction *tf) override {
+  bool returnInArg(TypeFunction *tf, bool) override {
     // AAPCS 5.4 wants composites > 4-bytes returned by arg except for
     // Homogeneous Aggregates of up-to 4 float types (6.1.2.1) - an HFA.
     // TODO: see if Tsarray should be candidate for HFA.

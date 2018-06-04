@@ -28,7 +28,7 @@ struct PPC64LETargetABI : TargetABI {
 
   explicit PPC64LETargetABI() : hfaToArray(8) {}
 
-  bool returnInArg(TypeFunction *tf) override {
+  bool returnInArg(TypeFunction *tf, bool) override {
     if (tf->isref) {
       return false;
     }

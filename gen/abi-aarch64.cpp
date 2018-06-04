@@ -22,7 +22,7 @@ struct AArch64TargetABI : TargetABI {
   CompositeToArray64 compositeToArray64;
   IntegerRewrite integerRewrite;
 
-  bool returnInArg(TypeFunction *tf) override {
+  bool returnInArg(TypeFunction *tf, bool) override {
     if (tf->isref) {
       return false;
     }
