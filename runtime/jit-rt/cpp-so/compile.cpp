@@ -25,8 +25,8 @@
 #include "optimizer.h"
 #include "utils.h"
 
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Bitcode/BitcodeReader.h"
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JITSymbol.h"
 #include "llvm/ExecutionEngine/Orc/CompileUtils.h"
 #include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
@@ -39,6 +39,7 @@
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
@@ -91,6 +92,25 @@ llvm::SmallVector<std::string, 4> getHostAttrs() {
     }
   }
   return features;
+}
+
+std::unique_ptr<llvm::TargetMachine> createTargetMachine() {
+  std::string triple(llvm::sys::getProcessTriple());
+  std::string error;
+  auto target = llvm::TargetRegistry::lookupTarget(triple, error);
+  assert(target != nullptr);
+  std::unique_ptr<llvm::TargetMachine> ret(target->createTargetMachine(
+      triple, llvm::sys::getHostCPUName(), llvm::join(getHostAttrs(), ","), {},
+      llvm::Optional<llvm::Reloc::Model>{},
+#if LDC_LLVM_VER == 500
+      llvm::CodeModel::JITDefault
+#else
+      llvm::Optional<llvm::CodeModel::Model>{}, llvm::CodeGenOpt::Default,
+      /*jit*/ true
+#endif
+      ));
+  assert(ret != nullptr);
+  return ret;
 }
 
 using SymMap = std::map<std::string, void *>;
@@ -184,9 +204,7 @@ private:
 
 public:
   MyJIT()
-      : targetmachine(llvm::EngineBuilder().selectTarget(
-            llvm::Triple(llvm::sys::getProcessTriple()), llvm::StringRef(),
-            llvm::sys::getHostCPUName(), getHostAttrs())),
+      : targetmachine(createTargetMachine()),
         dataLayout(targetmachine->createDataLayout()),
 #if LDC_LLVM_VER >= 700
         execSession(stringPool), resolver(createResolver()),
