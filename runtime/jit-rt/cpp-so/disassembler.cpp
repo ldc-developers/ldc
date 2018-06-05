@@ -289,7 +289,13 @@ void disassemble(const llvm::TargetMachine &tm,
   // Streamer takes ownership of mip mab
   auto asmStreamer = unique(target.createAsmStreamer(
       ctx, llvm::make_unique<llvm::formatted_raw_ostream>(os), true, true,
-      mip.release(), nullptr, mab.release(), false));
+      mip.release(), nullptr,
+#if LDC_LLVM_VER >= 700
+      std::move(mab),
+#else
+      mab.release(),
+#endif
+      false));
   if (nullptr == asmStreamer) {
     return;
   }
