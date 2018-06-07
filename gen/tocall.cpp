@@ -129,7 +129,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
   std::vector<IrFuncTyArg *> optionalIrArgs;
   for (size_t i = formalDArgCount; i < explicitDArgCount; i++) {
     Type *argType = argexps[i]->type;
-    bool passByVal = gABI->passByVal(argType);
+    bool passByVal = gABI->passByVal(irFty.type, argType);
 
     AttrBuilder initialAttrs;
     if (passByVal) {

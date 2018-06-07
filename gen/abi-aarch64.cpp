@@ -32,10 +32,10 @@ struct AArch64TargetABI : TargetABI {
     if (!isPOD(rt))
       return true;
 
-    return passByVal(rt);
+    return passByVal(tf, rt);
   }
 
-  bool passByVal(Type *t) override {
+  bool passByVal(TypeFunction *, Type *t) override {
     t = t->toBasetype();
     return t->ty == Tsarray ||
            (t->ty == Tstruct && t->size() > 16 && !isHFA((TypeStruct *)t));

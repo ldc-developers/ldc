@@ -24,7 +24,7 @@ struct NVPTXTargetABI : TargetABI {
     else
         return llvm::CallingConv::PTX_Device;
   }
-  bool passByVal(Type *t) override {
+  bool passByVal(TypeFunction *, Type *t) override {
     t = t->toBasetype();
     return ((t->ty == Tsarray || t->ty == Tstruct) && t->size() > 64);
   }

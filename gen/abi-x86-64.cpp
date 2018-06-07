@@ -217,15 +217,16 @@ struct ImplicitByvalRewrite : ABIRewrite {
 struct X86_64TargetABI : TargetABI {
   X86_64_C_struct_rewrite struct_rewrite;
   ImplicitByvalRewrite byvalRewrite;
+  IndirectByvalRewrite indirectByvalRewrite;
 
   bool returnInArg(TypeFunction *tf) override;
 
-  bool passByVal(Type *t) override;
+  bool passByVal(TypeFunction *tf, Type *t) override;
 
   void rewriteFunctionType(IrFuncTy &fty) override;
   void rewriteVarargs(IrFuncTy &fty, std::vector<IrFuncTyArg *> &args) override;
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override;
-  void rewriteArgument(IrFuncTyArg &arg, RegCount &regCount);
+  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg, RegCount &regCount);
 
   LLValue *prepareVaStart(DLValue *ap) override;
 
@@ -252,11 +253,15 @@ bool X86_64TargetABI::returnInArg(TypeFunction *tf) {
     return false;
   }
 
-  Type *rt = tf->next;
-  return passByVal(rt);
+  Type *rt = tf->next->toBasetype();
+  return dmd_abi::passByVal(rt);
 }
 
-bool X86_64TargetABI::passByVal(Type *t) {
+bool X86_64TargetABI::passByVal(TypeFunction *tf, Type *t) {
+  // indirectly by-value for extern(C++) functions and non-POD args
+  if (tf->linkage == LINKcpp && !isPOD(t))
+    return false;
+
   return dmd_abi::passByVal(t->toBasetype());
 }
 
@@ -264,9 +269,20 @@ void X86_64TargetABI::rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) {
   llvm_unreachable("Please use the other overload explicitly.");
 }
 
-void X86_64TargetABI::rewriteArgument(IrFuncTyArg &arg, RegCount &regCount) {
+void X86_64TargetABI::rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg,
+                                      RegCount &regCount) {
   LLType *originalLType = arg.ltype;
   Type *t = arg.type->toBasetype();
+
+  // indirectly by-value for extern(C++) functions and non-POD args
+  if (fty.type->linkage == LINKcpp && !isPOD(t)) {
+    indirectByvalRewrite.applyTo(arg);
+    if (regCount.int_regs > 0) {
+      regCount.int_regs--;
+    }
+
+    return;
+  }
 
   LLType *abiTy = getAbiType(t);
   if (abiTy && !LLTypeMemoryLayout::typesAreEquivalent(abiTy, originalLType)) {
@@ -280,11 +296,12 @@ void X86_64TargetABI::rewriteArgument(IrFuncTyArg &arg, RegCount &regCount) {
   }
 
   if (regCount.trySubtract(arg) == RegCount::ArgumentWouldFitInPartially) {
-    // pass LL structs implicitly ByVal, otherwise LLVM passes
-    // them partially in registers, partially in memory
+    // pass the LL struct with byval attribute to prevent LLVM from passing it
+    // partially in registers, partially in memory
     assert(originalLType->isStructTy());
-    IF_LOG Logger::cout() << "Passing implicitly ByVal: " << arg.type->toChars()
-                          << " (" << *originalLType << ")\n";
+    IF_LOG Logger::cout() << "Passing byval to prevent register/memory mix: "
+                          << arg.type->toChars() << " (" << *originalLType
+                          << ")\n";
     byvalRewrite.applyTo(arg);
   }
 }
@@ -298,7 +315,7 @@ void X86_64TargetABI::rewriteFunctionType(IrFuncTy &fty) {
     Logger::println("x86-64 ABI: Transforming return type");
     LOG_SCOPE;
     RegCount dummy;
-    rewriteArgument(*fty.ret, dummy);
+    rewriteArgument(fty, *fty.ret, dummy);
   }
 
   // IMPLICIT PARAMETERS
@@ -336,7 +353,7 @@ void X86_64TargetABI::rewriteFunctionType(IrFuncTy &fty) {
       continue;
     }
 
-    rewriteArgument(arg, regCount);
+    rewriteArgument(fty, arg, regCount);
   }
 
   // regCount (fty.tag) is now in the state after all implicit & formal args,
@@ -351,7 +368,7 @@ void X86_64TargetABI::rewriteVarargs(IrFuncTy &fty,
 
   for (auto arg : args) {
     if (!arg->byref) { // don't rewrite ByVal arguments
-      rewriteArgument(*arg, regCount);
+      rewriteArgument(fty, *arg, regCount);
     }
   }
 }

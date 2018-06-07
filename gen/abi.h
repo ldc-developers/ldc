@@ -137,7 +137,7 @@ struct TargetABI {
   /// parameter.
   /// The LL caller needs to pass a pointer to the original argument (the memcpy
   /// source).
-  virtual bool passByVal(Type *t) = 0;
+  virtual bool passByVal(TypeFunction *tf, Type *t) = 0;
 
   /// Returns true if the 'this' argument is to be passed before the 'sret'
   /// argument.

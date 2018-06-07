@@ -24,7 +24,7 @@ struct SPIRVTargetABI : TargetABI {
     else
       return llvm::CallingConv::SPIR_FUNC;
   }
-  bool passByVal(Type *t) override {
+  bool passByVal(TypeFunction *, Type *t) override {
     t = t->toBasetype();
     return ((t->ty == Tsarray || t->ty == Tstruct) && t->size() > 64);
   }

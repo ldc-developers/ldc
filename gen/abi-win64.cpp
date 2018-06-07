@@ -117,7 +117,7 @@ public:
     return passPointerToHiddenCopy(rt, /*isReturnValue=*/true, tf->linkage);
   }
 
-  bool passByVal(Type *t) override {
+  bool passByVal(TypeFunction *, Type *) override {
     // LLVM's byval attribute is not compatible with the Win64 ABI
     return false;
   }
