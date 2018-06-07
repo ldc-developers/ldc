@@ -254,12 +254,10 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
       return new DLValue(type, sretPointer);
     }
 
-    // work around missing tuple support for users of the return value
-    if (type->toBasetype()->ty == Tstruct) {
-      // make a copy
-      llvm::Value *mem = DtoAlloca(type, ".__ir_tuple_ret");
-      DtoStore(rv, DtoBitCast(mem, getPtrToType(rv->getType())));
-      return new DLValue(type, mem);
+    // dump struct and static array return values to memory
+    if (DtoIsInMemoryOnly(type->toBasetype())) {
+      LLValue *lval = DtoAllocaDump(rv, type, ".__ir_ret");
+      return new DLValue(type, lval);
     }
 
     // return call as im value
