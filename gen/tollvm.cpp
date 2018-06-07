@@ -445,8 +445,11 @@ LLConstant *DtoConstString(const char *str) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoLoad(LLValue *src, const char *name) {
-  return gIR->ir->CreateLoad(src, name);
+LLValue *DtoLoad(LLValue *src, const char *name, unsigned alignment) {
+  auto load = gIR->ir->CreateLoad(src, name);
+  if (alignment != 0)
+    load->setAlignment(alignment);
+  return load;
 }
 
 // Like DtoLoad, but the pointer is guaranteed to be aligned appropriately for
@@ -463,10 +466,12 @@ LLValue *DtoVolatileLoad(LLValue *src, const char *name) {
   return ld;
 }
 
-void DtoStore(LLValue *src, LLValue *dst) {
+void DtoStore(LLValue *src, LLValue *dst, unsigned alignment) {
   assert(src->getType() != llvm::Type::getInt1Ty(gIR->context()) &&
          "Should store bools as i8 instead of i1.");
-  gIR->ir->CreateStore(src, dst);
+  auto store = gIR->ir->CreateStore(src, dst);
+  if (alignment != 0)
+    store->setAlignment(alignment);
 }
 
 void DtoVolatileStore(LLValue *src, LLValue *dst) {
@@ -475,13 +480,15 @@ void DtoVolatileStore(LLValue *src, LLValue *dst) {
   gIR->ir->CreateStore(src, dst)->setVolatile(true);
 }
 
-void DtoStoreZextI8(LLValue *src, LLValue *dst) {
+void DtoStoreZextI8(LLValue *src, LLValue *dst, unsigned alignment) {
   if (src->getType() == llvm::Type::getInt1Ty(gIR->context())) {
     llvm::Type *i8 = llvm::Type::getInt8Ty(gIR->context());
     assert(dst->getType()->getContainedType(0) == i8);
     src = gIR->ir->CreateZExt(src, i8);
   }
-  gIR->ir->CreateStore(src, dst);
+  auto store = gIR->ir->CreateStore(src, dst);
+  if (alignment != 0)
+    store->setAlignment(alignment);
 }
 
 // Like DtoStore, but the pointer is guaranteed to be aligned appropriately for

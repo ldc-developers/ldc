@@ -102,12 +102,12 @@ LLConstant *DtoConstString(const char *);
 LLConstant *DtoConstBool(bool);
 
 // llvm wrappers
-LLValue *DtoLoad(LLValue *src, const char *name = "");
+LLValue *DtoLoad(LLValue *src, const char *name = "", unsigned alignment = 0);
 LLValue *DtoVolatileLoad(LLValue *src, const char *name = "");
 LLValue *DtoAlignedLoad(LLValue *src, const char *name = "");
-void DtoStore(LLValue *src, LLValue *dst);
+void DtoStore(LLValue *src, LLValue *dst, unsigned alignment = 0);
 void DtoVolatileStore(LLValue *src, LLValue *dst);
-void DtoStoreZextI8(LLValue *src, LLValue *dst);
+void DtoStoreZextI8(LLValue *src, LLValue *dst, unsigned alignment = 0);
 void DtoAlignedStore(LLValue *src, LLValue *dst);
 LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name = "");
 LLConstant *DtoBitCast(LLConstant *v, LLType *t);

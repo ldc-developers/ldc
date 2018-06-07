@@ -101,7 +101,34 @@ bool passByVal(Type *ty) {
 }
 } // namespace dmd_abi
 
-LLType *getAbiType(Type *ty) { return dmd_abi::getAbiType(ty->toBasetype()); }
+LLType *getAbiType(Type *ty) {
+  ty = ty->toBasetype();
+
+  LLType *dmdLLType = dmd_abi::getAbiType(ty);
+
+  if (dmdLLType) {
+    // Check for Homogeneous Floating-point Aggregates, and rewrite to a vector
+    // type in that case.
+    if (ty->ty == Tcomplex32) {
+      return llvm::VectorType::get(LLType::getFloatTy(gIR->context()), 2);
+    }
+    if (ty->ty == Tstruct) {
+      // TODO: check restrictions
+      const int maxElements = 8;
+      LLType *arrayType = nullptr;
+      if (TargetABI::isHFA(static_cast<TypeStruct *>(ty), &arrayType,
+                           maxElements)) {
+        LLType *elementType = arrayType->getArrayElementType();
+        if (elementType->isFloatTy() || elementType->isDoubleTy()) {
+          return llvm::VectorType::get(elementType,
+                                       arrayType->getArrayNumElements());
+        }
+      }
+    }
+  }
+
+  return dmdLLType;
+}
 
 struct RegCount {
   char int_regs, sse_regs;
@@ -176,7 +203,12 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
     LLType *abiTy = getAbiType(v->type);
     assert(abiTy && "Why are we rewriting a non-rewritten type?");
 
-    return loadFromMemory(address, abiTy, ".X86_64_C_struct_rewrite_putResult");
+    // Specify the alignment explicitly for the load instruction, e.g., when
+    // loading a vector type with greater natural alignment than the actual
+    // source.
+    const unsigned alignment = DtoAlignment(v->type);
+    return loadFromMemory(address, abiTy, alignment,
+                          ".X86_64_C_struct_rewrite_putResult");
   }
 
   LLValue *getLVal(Type *dty, LLValue *v) override {

@@ -270,7 +270,7 @@ LLValue *DtoAllocaDump(LLValue *val, LLType *asType, int alignment,
       (getTypeStoreSize(memType) <= getTypeAllocSize(asMemType) ? asMemType
                                                                 : memType);
   LLValue *mem = DtoRawAlloca(allocaType, alignment, name);
-  DtoStoreZextI8(val, DtoBitCast(mem, memType->getPointerTo()));
+  DtoStoreZextI8(val, DtoBitCast(mem, memType->getPointerTo()), alignment);
   return DtoBitCast(mem, asMemType->getPointerTo());
 }
 

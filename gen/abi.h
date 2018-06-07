@@ -71,6 +71,7 @@ protected:
   /// provided pointer doesn't need to match the value type (=> suitable for
   /// bit-casting).
   static llvm::Value *loadFromMemory(llvm::Value *address, llvm::Type *asType,
+                                     unsigned alignment = 0,
                                      const char *name = ".bitcast_result");
 };
 
@@ -177,9 +178,12 @@ struct TargetABI {
   /***** Static Helpers *****/
 
   /// Check if struct 't' is a Homogeneous Floating-point Aggregate (HFA)
-  /// consisting of up to 4 of same floating point type.  If so, optionally
-  /// produce the rewriteType: an array of that floating point type
-  static bool isHFA(TypeStruct *t, llvm::Type **rewriteType = nullptr, const int maxFloats = 4);
+  /// consisting of up to 'maxFloats' direct/nested elements of the same
+  /// floating point type.
+  /// If so, optionally produce the rewriteType: an array of that floating point
+  /// type.
+  static bool isHFA(TypeStruct *t, llvm::Type **rewriteType = nullptr,
+                    int maxFloats = 4);
 
 protected:
 
