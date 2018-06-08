@@ -307,11 +307,11 @@ struct UnknownTargetABI : TargetABI {
     // of physical registers, which leads, depending on the target, to
     // either horrendous codegen or backend crashes.
     Type *rt = tf->next->toBasetype();
-    return (rt->ty == Tstruct || rt->ty == Tsarray);
+    return passByVal(tf, rt);
   }
 
   bool passByVal(TypeFunction *, Type *t) override {
-    return t->toBasetype()->ty == Tstruct;
+    return DtoIsInMemoryOnly(t);
   }
 
   void rewriteFunctionType(IrFuncTy &) override {
