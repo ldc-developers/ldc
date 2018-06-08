@@ -224,7 +224,7 @@ bool hasCtor(StructDeclaration *s) {
 }
 
 bool TargetABI::isPOD(Type *t, bool excludeStructsWithCtor) {
-  t = t->toBasetype();
+  t = t->baseElemOf();
   if (t->ty != Tstruct)
     return true;
   StructDeclaration *sd = static_cast<TypeStruct *>(t)->sym;
