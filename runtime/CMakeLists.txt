@@ -482,7 +482,7 @@ function(set_common_library_properties target name output_dir c_flags ld_flags i
         COMPILE_FLAGS               "${c_flags}"
         LINK_FLAGS                  "${ld_flags}"
         VERSION                     ${DMDFE_VERSION}
-        SOVERSION                   ${DMDFE_PATCH_VERSION}
+        SOVERSION                   ${DMDFE_MINOR_VERSION}
         LINKER_LANGUAGE             C
         MACOSX_RPATH                ON
     )
@@ -690,7 +690,7 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
         set(final_files_to_install)
         if(${lib_extension} STREQUAL ".dylib")
             set(final_path     ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${target_name}.${DMDFE_VERSION}.dylib)
-            set(dylib_symlink1 ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${target_name}.${DMDFE_PATCH_VERSION}.dylib)
+            set(dylib_symlink1 ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${target_name}.${DMDFE_MINOR_VERSION}.dylib)
             set(dylib_symlink2 ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${target_name}.dylib)
             set(final_files_to_install ${final_path} ${dylib_symlink1} ${dylib_symlink2})
             add_custom_command(
@@ -698,7 +698,7 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
                 COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}
                 COMMAND lipo ${multi_path} ${host_path} -create -output ${final_path}
                 COMMAND ln -s lib${target_name}.${DMDFE_VERSION}.dylib ${dylib_symlink1}
-                COMMAND ln -s lib${target_name}.${DMDFE_PATCH_VERSION}.dylib ${dylib_symlink2}
+                COMMAND ln -s lib${target_name}.${DMDFE_MINOR_VERSION}.dylib ${dylib_symlink2}
                 DEPENDS ${libtargets}
             )
         else()
