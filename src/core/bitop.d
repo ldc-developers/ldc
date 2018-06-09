@@ -690,12 +690,9 @@ version(LDC) @system // not pure
 
 version (LDC)
 {
-    pragma(inline, true):
+    alias _popcnt = llvm_ctpop!ushort;
 
-    ushort _popcnt(ushort x) pure
-    {
-        return llvm_ctpop(x);
-    }
+    pragma(inline, true):
 
     int _popcnt(uint x) pure
     {
