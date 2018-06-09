@@ -337,6 +337,22 @@ extern (C++) Expression eval_llvmsqrt(Loc loc, FuncDeclaration fd, Expressions *
     return new RealExp(loc, CTFloat.sqrt(arg0.toReal()), type);
 }
 
+extern (C++) Expression eval_llvmexp(Loc loc, FuncDeclaration fd, Expressions *arguments)
+{
+    Type type = getTypeOfOverloadedIntrinsic(fd);
+    Expression arg0 = (*arguments)[0];
+    assert(arg0.op == TOK.float64);
+    return new RealExp(loc, CTFloat.exp(arg0.toReal()), type);
+}
+
+extern (C++) Expression eval_llvmexp2(Loc loc, FuncDeclaration fd, Expressions *arguments)
+{
+    Type type = getTypeOfOverloadedIntrinsic(fd);
+    Expression arg0 = (*arguments)[0];
+    assert(arg0.op == TOK.float64);
+    return new RealExp(loc, CTFloat.exp2(arg0.toReal()), type);
+}
+
 extern (C++) Expression eval_llvmlog(Loc loc, FuncDeclaration fd, Expressions *arguments)
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
@@ -806,6 +822,20 @@ version(IN_LLVM)
     add_builtin("llvm.sqrt.f80", &eval_llvmsqrt);
     add_builtin("llvm.sqrt.f128", &eval_llvmsqrt);
     add_builtin("llvm.sqrt.ppcf128", &eval_llvmsqrt);
+
+    // intrinsic llvm.exp.f32/f64/f80/f128/ppcf128
+    add_builtin("llvm.exp.f32", &eval_llvmexp);
+    add_builtin("llvm.exp.f64", &eval_llvmexp);
+    add_builtin("llvm.exp.f80", &eval_llvmexp);
+    add_builtin("llvm.exp.f128", &eval_llvmexp);
+    add_builtin("llvm.exp.ppcf128", &eval_llvmexp);
+
+    // intrinsic llvm.exp2.f32/f64/f80/f128/ppcf128
+    add_builtin("llvm.exp2.f32", &eval_llvmexp2);
+    add_builtin("llvm.exp2.f64", &eval_llvmexp2);
+    add_builtin("llvm.exp2.f80", &eval_llvmexp2);
+    add_builtin("llvm.exp2.f128", &eval_llvmexp2);
+    add_builtin("llvm.exp2.ppcf128", &eval_llvmexp2);
 
     // intrinsic llvm.log.f32/f64/f80/f128/ppcf128
     add_builtin("llvm.log.f32", &eval_llvmlog);

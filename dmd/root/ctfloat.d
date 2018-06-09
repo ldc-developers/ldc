@@ -129,6 +129,7 @@ extern (C++) struct CTFloat
   {
     static import std.math;
 
+    static real_t exp(real_t x) { return core.stdc.math.expl(x); }
     static real_t rint(real_t x) { return std.math.rint(x); }
     static real_t nearbyint(real_t x) { return std.math.nearbyint(x); }
 
