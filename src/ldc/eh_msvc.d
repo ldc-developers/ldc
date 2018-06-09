@@ -435,9 +435,16 @@ void msvc_eh_terminate() nothrow
             je L_retFound;
 
             cmp RBX,[RAX+0x29];          // dec [rax+30h]; xor eax,eax; add rsp,nn (vcruntime140.dll)
-            jne L_term;
+            je L_retVC14_11;
 
-            lea RAX, [RAX+0x2E];         // vcruntime140 14.00.23026.0 or later?
+            cmp RBX,[RAX+0x1b];          // dec [rax+30h]; xor eax,eax; add rsp,nn (vcruntime140.dll 14.14.x.y)
+            jne L_term;
+            lea RAX, [RAX+0x20];
+            jmp L_retContinue;
+
+        L_retVC14_11:                    // vcruntime140 14.11.25415.0 or earlier
+            lea RAX, [RAX+0x2E];
+        L_retContinue:                   // vcruntime140 14.00.23026.0 or later?
             cmp word ptr[RAX], 0x8348;   // add rsp,nn?
             je L_xorSkipped;
 
