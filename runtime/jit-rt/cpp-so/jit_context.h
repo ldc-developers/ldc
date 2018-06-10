@@ -98,6 +98,7 @@ public:
   ~JITContext();
 
   llvm::TargetMachine &getTargetMachine() { return *targetmachine; }
+  const llvm::DataLayout &getDataLayout() const { return dataLayout; }
 
   bool addModule(std::unique_ptr<llvm::Module> module,
                  llvm::raw_ostream *asmListener);

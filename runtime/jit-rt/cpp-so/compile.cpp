@@ -27,6 +27,7 @@
 
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/ExecutionEngine/JITSymbol.h"
+#include "llvm/IR/Mangler.h"
 #include "llvm/Linker/Linker.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -65,21 +66,12 @@ struct RtCompileModuleList {
 
 #pragma pack(pop)
 
-std::string decorate(const std::string &name) {
-#if __APPLE__
-  return "_" + name;
-#elif _WIN32
-  assert(!name.empty());
-  if (name[0] == 0x1)
-    return name.substr(1);
-#if _M_IX86
-  return "_" + name;
-#else
-  return name;
-#endif
-#else
-  return name;
-#endif
+std::string decorate(const std::string &name,
+                     const llvm::DataLayout &datalayout) {
+  llvm::SmallVector<char, 64> ret;
+  llvm::Mangler::getNameWithPrefix(ret, name, datalayout);
+  assert(!ret.empty());
+  return std::string(ret.data(), ret.size());
 }
 
 JITContext &getJit() {
@@ -122,7 +114,7 @@ void dumpModule(const Context &context, const llvm::Module &module,
   }
 }
 
-void setFunctionsTarget(llvm::Module &module, llvm::TargetMachine &TM) {
+void setFunctionsTarget(llvm::Module &module, const llvm::TargetMachine &TM) {
   // Set function target cpu to host if it wasn't set explicitly
   for (auto &&func : module.functions()) {
     if (!func.hasFnAttribute("target-cpu")) {
@@ -178,6 +170,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   std::unique_ptr<llvm::Module> finalModule;
   auto &symMap = myJit.getSymMap();
   symMap.clear();
+  auto &layout = myJit.getDataLayout();
   OptimizerSettings settings;
   settings.optLevel = context.optLevel;
   settings.sizeLevel = context.sizeLevel;
@@ -222,7 +215,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
 
       for (auto &&sym : toArray(current.symList, static_cast<std::size_t>(
                                                      current.symListSize))) {
-        symMap.insert(std::make_pair(decorate(sym.name), sym.sym));
+        symMap.insert(std::make_pair(decorate(sym.name, layout), sym.sym));
       }
     }
   });
@@ -257,7 +250,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   JitFinaliser jitFinalizer(myJit);
   interruptPoint(context, "Resolve functions");
   for (auto &&fun : functions) {
-    auto decorated = decorate(fun.first);
+    auto decorated = decorate(fun.first, layout);
     auto symbol = myJit.findSymbol(decorated);
     auto addr = resolveSymbol(symbol);
     if (nullptr == addr) {
