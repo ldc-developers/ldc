@@ -50,7 +50,7 @@ config.excludes = [
 if not config.with_PGO:
     config.excludes.append('PGO')
 
-# Exclude runtime compilation tests when it's disabled
+# Exclude dynamic compilation tests when it's disabled
 if not config.dynamic_compile:
     config.excludes.append('dynamiccompile')
 

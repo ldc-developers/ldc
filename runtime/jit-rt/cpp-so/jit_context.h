@@ -19,17 +19,17 @@
 #include <memory>
 #include <utility>
 
-#include <llvm/ExecutionEngine/JITSymbol.h>
-#include <llvm/ExecutionEngine/Orc/CompileUtils.h>
-#include <llvm/ExecutionEngine/Orc/IRCompileLayer.h>
-#include <llvm/ExecutionEngine/Orc/LambdaResolver.h>
-#include <llvm/ExecutionEngine/Orc/ObjectTransformLayer.h>
-#include <llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h>
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/Support/ManagedStatic.h>
+#include "llvm/ExecutionEngine/JITSymbol.h"
+#include "llvm/ExecutionEngine/Orc/CompileUtils.h"
+#include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
+#include "llvm/ExecutionEngine/Orc/LambdaResolver.h"
+#include "llvm/ExecutionEngine/Orc/ObjectTransformLayer.h"
+#include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/Support/ManagedStatic.h"
 
 #if LDC_LLVM_VER >= 700
-#include <llvm/ExecutionEngine/Orc/Legacy.h>
+#include "llvm/ExecutionEngine/Orc/Legacy.h"
 #endif
 
 #include "disassembler.h"
@@ -89,10 +89,8 @@ private:
 
   struct ListenerCleaner final {
     JITContext &owner;
-    ListenerCleaner(JITContext &o, llvm::raw_ostream *stream) : owner(o) {
-      owner.listenerlayer.getTransform().stream = stream;
-    }
-    ~ListenerCleaner() { owner.listenerlayer.getTransform().stream = nullptr; }
+    ListenerCleaner(JITContext &o, llvm::raw_ostream *stream);
+    ~ListenerCleaner();
   };
 
 public:
