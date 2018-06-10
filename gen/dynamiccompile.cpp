@@ -710,6 +710,8 @@ void createThunkFunc(llvm::Module &module, const llvm::Function *src,
     args.push_back(&arg);
   }
   auto ret = builder.CreateCall(thunkPtr, args);
+  ret->setCallingConv(src->getCallingConv());
+  ret->setAttributes(src->getAttributes());
   if (dst->getReturnType()->isVoidTy()) {
     builder.CreateRetVoid();
   } else {
