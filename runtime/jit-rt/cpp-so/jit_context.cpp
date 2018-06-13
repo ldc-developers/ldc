@@ -140,6 +140,14 @@ llvm::JITSymbol JITContext::findSymbol(const std::string &name) {
   return compileLayer.findSymbol(name, false);
 }
 
+void JITContext::clearSymMap() {
+  symMap.clear();
+}
+
+void JITContext::addSymbol(std::string &&name, void *value) {
+  symMap.emplace(std::make_pair(std::move(name), value));
+}
+
 void JITContext::reset() {
   if (compiled) {
     removeModule(moduleHandle);

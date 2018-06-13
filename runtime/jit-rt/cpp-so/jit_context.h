@@ -107,7 +107,9 @@ public:
 
   llvm::LLVMContext &getContext() { return context; }
 
-  SymMap &getSymMap() { return symMap; }
+  void clearSymMap();
+
+  void addSymbol(std::string &&name, void *value);
 
   void reset();
 

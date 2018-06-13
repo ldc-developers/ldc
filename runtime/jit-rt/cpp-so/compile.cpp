@@ -168,8 +168,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
 
   std::vector<std::pair<std::string, void **>> functions;
   std::unique_ptr<llvm::Module> finalModule;
-  auto &symMap = myJit.getSymMap();
-  symMap.clear();
+  myJit.clearSymMap();
   auto &layout = myJit.getDataLayout();
   OptimizerSettings settings;
   settings.optLevel = context.optLevel;
@@ -215,7 +214,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
 
       for (auto &&sym : toArray(current.symList, static_cast<std::size_t>(
                                                      current.symListSize))) {
-        symMap.insert(std::make_pair(decorate(sym.name, layout), sym.sym));
+        myJit.addSymbol(decorate(sym.name, layout), sym.sym);
       }
     }
   });
