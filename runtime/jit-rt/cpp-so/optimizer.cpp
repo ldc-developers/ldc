@@ -159,7 +159,8 @@ void setRtCompileVar(const Context &context, llvm::Module &module,
   if (nullptr != var) {
     auto type = var->getType()->getElementType();
     auto initializer =
-        parseInitializer(context, module.getDataLayout(), type, init);
+        parseInitializer(module.getDataLayout(), *type, init,
+                         [&](const std::string &str) { fatal(context, str); });
     var->setConstant(true);
     var->setInitializer(initializer);
     var->setLinkage(llvm::GlobalValue::PrivateLinkage);

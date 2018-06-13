@@ -16,16 +16,21 @@
 #ifndef VALUEPARSER_H
 #define VALUEPARSER_H
 
+#include "llvm/ADT/Optional.h"
+#include "llvm/ADT/STLExtras.h"
+
 namespace llvm {
 class Constant;
 class Type;
 class DataLayout;
 }
 
-struct Context;
+using ParseInitializerOverride = llvm::Optional<
+    llvm::function_ref<llvm::Constant *(llvm::Type &, const void *, size_t)>>;
 
-llvm::Constant *parseInitializer(const Context &context,
-                                 const llvm::DataLayout &dataLayout,
-                                 llvm::Type *type, const void *data);
+llvm::Constant *parseInitializer(
+    const llvm::DataLayout &dataLayout, llvm::Type &type, const void *data,
+    llvm::function_ref<void(const std::string &)> errHandler,
+    const ParseInitializerOverride &override = ParseInitializerOverride{});
 
 #endif // VALUEPARSER_H
