@@ -46,6 +46,8 @@ $(ROOT)/%.done: $(ROOT)/%
 	$(NEGATE) $(QUIET)$(TIMELIMIT)$(ROOT)/$* $(RUN_ARGS) 2>&1 1>/dev/null | grep -qF $(STDERR_EXP)
 	@touch $@
 
+# LDC: Make sure allocation intended to provoke exception is not elided.
+$(ROOT)/invalid_memory_operation: DFLAGS+=-disable-gc2stack
 $(ROOT)/unittest_assert: DFLAGS+=-unittest
 $(ROOT)/line_trace: DFLAGS+=-L--export-dynamic
 $(ROOT)/%: $(SRC)/%.d
