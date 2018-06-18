@@ -49,6 +49,8 @@ void Target::_init() {
   int64Mangle = 'l';  // C++ long
   uint64Mangle = 'm'; // C++ unsigned long
 
+  twoDtorInVtable = !triple.isWindowsMSVCEnvironment();
+
   // {Float,Double,Real}Properties have been initialized with the D host
   // compiler's properties.
   // Now finalize RealProperties for the target's `real` type.
