@@ -95,11 +95,7 @@ else
             foreach(size_t i; 0 .. callstack.length)
                 locations[i].address = cast(size_t) callstack[i];
 
-            // the DWARF addresses for DSOs are relative
-            const isDynamicSharedObject = (file.ehdr.e_type == ET_DYN);
-            const baseAddress = (isDynamicSharedObject ? cast(size_t) getMemoryRegionOfExecutable().ptr : 0);
-
-            resolveAddresses(debugLineSectionData, baseAddress, locations[]);
+            resolveAddresses(debugLineSectionData, image.baseAddress, locations[]);
         }
     }
 
@@ -376,8 +372,6 @@ bool runStateMachine(ref const(LineNumberProgram) lp, scope RunStateMachineCallb
 
 const(char)[] getMangledFunctionName(const(char)[] btSymbol)
 {
-    import core.demangle;
-
     version(linux)
     {
         // format is:  module(_D6module4funcAFZv) [0x00000000]
@@ -401,7 +395,7 @@ const(char)[] getMangledFunctionName(const(char)[] btSymbol)
         auto pptr = cast(char*) memchr(btSymbol.ptr, '+', btSymbol.length);
     }
     else version(Darwin)
-        return demangle(extractSymbol(btSymbol), buffer[]);
+        return extractSymbol(btSymbol);
 
     version (Darwin) {}
     else
@@ -419,7 +413,7 @@ const(char)[] getMangledFunctionName(const(char)[] btSymbol)
         assert(symBeg <= symEnd);
         assert(symEnd < btSymbol.length);
 
-        return demangle(btSymbol[symBeg .. symEnd], buffer[]);
+        return btSymbol[symBeg .. symEnd];
     }
 }
 
