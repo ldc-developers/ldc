@@ -62,6 +62,7 @@ struct Target
         bool cppExceptions;       /// set if catching C++ exceptions is supported
         char int64Mangle;         /// mangling character for C++ int64_t
         char uint64Mangle;        /// mangling character for C++ uint64_t
+        bool twoDtorInVtable;     /// target C++ ABI puts deleting and non-deleting destructor into vtable
     }
 
   version(IN_LLVM)
@@ -203,6 +204,7 @@ struct Target
             realpad = 2;
             realalignsize = 4;
             c_longsize = 4;
+            twoDtorInVtable = true;
         }
         else if (global.params.isOSX)
         {
@@ -210,6 +212,7 @@ struct Target
             realpad = 6;
             realalignsize = 16;
             c_longsize = 4;
+            twoDtorInVtable = true;
         }
         else if (global.params.isWindows)
         {
@@ -217,6 +220,7 @@ struct Target
             realpad = 0;
             realalignsize = 2;
             reverseCppOverloads = true;
+            twoDtorInVtable = false;
             c_longsize = 4;
             if (ptrsize == 4)
             {

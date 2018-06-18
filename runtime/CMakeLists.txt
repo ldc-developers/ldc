@@ -218,25 +218,6 @@ if(PHOBOS2_DIR)
     file(GLOB_RECURSE PHOBOS2_D ${PHOBOS2_DIR}/*.d)
     # remove top-level modules index.d and unittest.d
     list(REMOVE_ITEM PHOBOS2_D ${PHOBOS2_DIR}/index.d ${PHOBOS2_DIR}/unittest.d)
-    # only include std/c/ modules matching the platform
-    file(GLOB_RECURSE PHOBOS2_D_FREEBSD ${PHOBOS2_DIR}/std/c/freebsd/*.d)
-    file(GLOB_RECURSE PHOBOS2_D_LINUX ${PHOBOS2_DIR}/std/c/linux/*.d)
-    file(GLOB_RECURSE PHOBOS2_D_OSX ${PHOBOS2_DIR}/std/c/osx/*.d)
-    file(GLOB_RECURSE PHOBOS2_D_WINDOWS ${PHOBOS2_DIR}/std/c/windows/*.d)
-    list(REMOVE_ITEM PHOBOS2_D
-        ${PHOBOS2_D_FREEBSD} ${PHOBOS2_D_LINUX} ${PHOBOS2_D_OSX} ${PHOBOS2_D_WINDOWS}
-    )
-    if("${TARGET_SYSTEM}" MATCHES "UNIX")
-        if("${TARGET_SYSTEM}" MATCHES "APPLE")
-            list(APPEND PHOBOS2_D ${PHOBOS2_D_OSX})
-        elseif("${TARGET_SYSTEM}" MATCHES "FreeBSD")
-            list(APPEND PHOBOS2_D ${PHOBOS2_D_FREEBSD})
-        elseif("${TARGET_SYSTEM}" MATCHES "Linux")
-            list(APPEND PHOBOS2_D ${PHOBOS2_D_LINUX})
-        endif()
-    elseif("${TARGET_SYSTEM}" MATCHES "Windows")
-        list(APPEND PHOBOS2_D ${PHOBOS2_D_WINDOWS})
-    endif()
     # only include std/windows/ modules on Windows
     if(NOT "${TARGET_SYSTEM}" MATCHES "Windows")
         file(GLOB_RECURSE PHOBOS2_D_WINDOWS ${PHOBOS2_DIR}/std/windows/*.d)
