@@ -15,17 +15,35 @@ module core.stdc.config;
 
 version (StdDdoc)
 {
+    private
+    {
+        version (Posix)
+            enum isPosix = true;
+        else
+            enum isPosix = false;
+        static if (isPosix && (void*).sizeof > int.sizeof)
+        {
+            alias ddoc_long = long;
+            alias ddoc_ulong = ulong;
+        }
+        else
+        {
+            alias ddoc_long = int;
+            alias ddoc_ulong = uint;
+        }
+    }
+
     /***
      * Used for a signed integer type that corresponds in size to the associated
      * C compiler's `long` type.
      */
-    alias c_long = int;
+    alias c_long = ddoc_long;
 
     /***
      * Used for an unsigned integer type that corresponds in size to the associated
      * C compiler's `unsigned long` type.
      */
-    alias c_ulong = uint;
+    alias c_ulong = ddoc_ulong;
 
     /***
      * Used for a signed integer type that corresponds in size and mangling to the associated
@@ -38,6 +56,18 @@ version (StdDdoc)
      * C++ compiler's `unsigned long` type.
      */
     alias cpp_ulong = c_ulong;
+
+    /***
+     * Used for a signed integer type that corresponds in size and mangling to the associated
+     * C++ compiler's `long long` type.
+     */
+    alias cpp_longlong = long;
+
+    /***
+     * Used for an unsigned integer type that corresponds in size and mangling to the associated
+     * C++ compiler's `unsigned long long` type.
+     */
+    alias cpp_ulonglong = ulong;
 
     /***
      * Used for a floating point type that corresponds in size and mangling to the associated
@@ -80,57 +110,42 @@ version( Windows )
     alias int   c_long;
     alias uint  c_ulong;
 
-    version (LDC)
-    {
-        alias long  cpp_longlong;
-        alias ulong cpp_ulonglong;
-
-        alias long  c_longlong;
-        alias ulong c_ulonglong;
-    }
+    alias long  cpp_longlong;
+    alias ulong cpp_ulonglong;
 }
 else version( Posix )
 {
   static if( (void*).sizeof > int.sizeof )
   {
+    enum __c_long  : long;
+    enum __c_ulong : ulong;
+
+    enum __c_longlong  : long;
+    enum __c_ulonglong : ulong;
+
     /**
      * Special case 64-bit OS X:
      * - DMD mangles D `long` as C++ `long long` since v2.079.
      * - LDC keeps on mangling it as C++ `long`, for backwards compatibility
      *   and natural size_t interop. There's no need for cpp_{size,ptrdiff}_t
      *   this way (except for 32-bit OS X).
-     *   For less frequently used C++ `long long` (not representable with DMD
-     *   on 64-bit non-Apple POSIX systems), LDC defines cpp_(u)longlong here,
-     *   and the front-end supports additional magic __c_(u)longlong enums.
      */
     version (LDC)
     {
-        enum __c_longlong : long;
-        enum __c_ulonglong : ulong;
-
         alias long  cpp_long;
         alias ulong cpp_ulong;
-
-        alias long  c_long;
-        alias ulong c_ulong;
-
-        alias __c_longlong  cpp_longlong;
-        alias __c_ulonglong cpp_ulonglong;
-
-        alias long  c_longlong;
-        alias ulong c_ulonglong;
     }
     else
     {
-        enum __c_long  : long;
-        enum __c_ulong : ulong;
-
         alias __c_long   cpp_long;
         alias __c_ulong  cpp_ulong;
-
-        alias long  c_long;
-        alias ulong c_ulong;
     }
+
+    alias long  c_long;
+    alias ulong c_ulong;
+
+    alias __c_longlong  cpp_longlong;
+    alias __c_ulonglong cpp_ulonglong;
   }
   else
   {
@@ -143,14 +158,8 @@ else version( Posix )
     alias int   c_long;
     alias uint  c_ulong;
 
-    version (LDC)
-    {
-        alias long  cpp_longlong;
-        alias ulong cpp_ulonglong;
-
-        alias long  c_longlong;
-        alias ulong c_ulonglong;
-    }
+    alias long  cpp_longlong;
+    alias ulong cpp_ulonglong;
   }
 }
 
