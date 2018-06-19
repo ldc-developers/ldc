@@ -25,11 +25,11 @@ char[] ggg(char* str)
 {
     // std.string.fromStringz() is inlined when optimizing
     import std.string;
-    // OPT0: call {{.*}} @{{.*}}std6string11fromStringz
+    // OPT0: call {{.*}} @{{.*}}D3std6string__T11fromStringz
     // OPT3: call {{.*}}strlen
     return fromStringz(str);
     // OPT0: ret
     // OPT3: ret
 }
-// OPT0: declare {{.*}}std6string11fromStringz
+// OPT0: declare {{.*}}D3std6string__T11fromStringz
 // OPT3: declare {{.*}}strlen
