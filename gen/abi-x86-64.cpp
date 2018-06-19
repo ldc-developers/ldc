@@ -219,7 +219,7 @@ struct X86_64TargetABI : TargetABI {
   ImplicitByvalRewrite byvalRewrite;
   IndirectByvalRewrite indirectByvalRewrite;
 
-  bool returnInArg(TypeFunction *tf) override;
+  bool returnInArg(TypeFunction *tf, bool needsThis) override;
 
   bool passByVal(TypeFunction *tf, Type *t) override;
 
@@ -248,7 +248,7 @@ private:
 // The public getter for abi.cpp
 TargetABI *getX86_64TargetABI() { return new X86_64TargetABI; }
 
-bool X86_64TargetABI::returnInArg(TypeFunction *tf) {
+bool X86_64TargetABI::returnInArg(TypeFunction *tf, bool) {
   if (tf->isref) {
     return false;
   }

@@ -57,8 +57,7 @@ static bool isMainFunction(FuncDeclaration *fd) {
 }
 
 llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
-                                    Type *nesttype, bool isMain, bool isCtor,
-                                    bool isIntrinsic, bool hasSel) {
+                                    Type *nesttype, FuncDeclaration *fd) {
   IF_LOG Logger::println("DtoFunctionType(%s)", type->toChars());
   LOG_SCOPE
 
@@ -73,7 +72,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     return irFty.funcType;
   }
 
-  TargetABI *abi = (isIntrinsic ? TargetABI::getIntrinsic() : gABI);
+  TargetABI *abi = fd && DtoIsIntrinsic(fd) ? TargetABI::getIntrinsic() : gABI;
 
   // Do not modify irFty yet; this function may be called recursively if any
   // of the argument types refer to this type.
@@ -82,6 +81,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   // The index of the next argument on the LLVM level.
   unsigned nextLLArgIdx = 0;
 
+  const bool isMain = fd && isMainFunction(fd);
   if (isMain) {
     // D and C main functions always return i32, even if declared as returning
     // void.
@@ -91,7 +91,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     const bool byref = f->isref && rt->toBasetype()->ty != Tvoid;
     AttrBuilder attrs;
 
-    if (abi->returnInArg(f)) {
+    if (abi->returnInArg(f, fd && fd->needThis())) {
       // sret return
       newIrFty.arg_sret = new IrFuncTyArg(
           rt, true,
@@ -112,7 +112,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     // Add the this pointer for member functions
     AttrBuilder attrs;
     attrs.add(LLAttribute::NonNull);
-    if (isCtor) {
+    if (fd && fd->isCtorDeclaration()) {
       attrs.add(LLAttribute::Returned);
     }
     newIrFty.arg_this =
@@ -126,7 +126,15 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     ++nextLLArgIdx;
   }
 
-  if (hasSel) {
+  bool hasObjCSelector = false;
+  if (fd && fd->linkage == LINKobjc && thistype) {
+    if (fd->selector) {
+      hasObjCSelector = true;
+    } else if (fd->parent->isClassDeclaration()) {
+      fd->error("Objective-C `@selector` is missing");
+    }
+  }
+  if (hasObjCSelector) {
     // TODO: make arg_objcselector to match dmd type
     newIrFty.arg_objcSelector = new IrFuncTyArg(Type::tvoidptr, false);
     ++nextLLArgIdx;
@@ -272,7 +280,6 @@ llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl) {
   }
 
   Type *dthis = nullptr, *dnest = nullptr;
-  bool hasSel = false;
 
   if (fdecl->ident == Id::ensure || fdecl->ident == Id::require) {
     FuncDeclaration *p = fdecl->parent->isFuncDeclaration();
@@ -299,18 +306,8 @@ llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl) {
     dnest = Type::tvoid->pointerTo();
   }
 
-  if (fdecl->linkage == LINKobjc && dthis) {
-    if (fdecl->selector) {
-      hasSel = true;
-    } else if (fdecl->parent->isClassDeclaration()) {
-      fdecl->error("Objective-C `@selector` is missing");
-    }
-  }
-
-  LLFunctionType *functype =
-      DtoFunctionType(fdecl->type, getIrFunc(fdecl, true)->irFty, dthis, dnest,
-                      isMainFunction(fdecl), fdecl->isCtorDeclaration(),
-                      DtoIsIntrinsic(fdecl), hasSel);
+  LLFunctionType *functype = DtoFunctionType(
+      fdecl->type, getIrFunc(fdecl, true)->irFty, dthis, dnest, fdecl);
 
   return functype;
 }

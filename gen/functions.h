@@ -28,10 +28,8 @@ class FunctionType;
 }
 
 llvm::FunctionType *DtoFunctionType(Type *t, IrFuncTy &irFty, Type *thistype,
-                                    Type *nesttype, bool isMain = false,
-                                    bool isCtor = false,
-                                    bool isIntrinsic = false,
-                                    bool hasSel = false);
+                                    Type *nesttype,
+                                    FuncDeclaration *fd = nullptr);
 llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl);
 
 void DtoResolveFunction(FuncDeclaration *fdecl);

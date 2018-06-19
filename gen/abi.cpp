@@ -224,7 +224,7 @@ bool hasCtor(StructDeclaration *s) {
 }
 
 bool TargetABI::isPOD(Type *t, bool excludeStructsWithCtor) {
-  t = t->toBasetype();
+  t = t->baseElemOf();
   if (t->ty != Tstruct)
     return true;
   StructDeclaration *sd = static_cast<TypeStruct *>(t)->sym;
@@ -297,7 +297,7 @@ const char *TargetABI::objcMsgSendFunc(Type *ret, IrFuncTy &fty) {
 
 // Some reasonable defaults for when we don't know what ABI to use.
 struct UnknownTargetABI : TargetABI {
-  bool returnInArg(TypeFunction *tf) override {
+  bool returnInArg(TypeFunction *tf, bool) override {
     if (tf->isref) {
       return false;
     }
@@ -307,11 +307,11 @@ struct UnknownTargetABI : TargetABI {
     // of physical registers, which leads, depending on the target, to
     // either horrendous codegen or backend crashes.
     Type *rt = tf->next->toBasetype();
-    return (rt->ty == Tstruct || rt->ty == Tsarray);
+    return passByVal(tf, rt);
   }
 
   bool passByVal(TypeFunction *, Type *t) override {
-    return t->toBasetype()->ty == Tstruct;
+    return DtoIsInMemoryOnly(t);
   }
 
   void rewriteFunctionType(IrFuncTy &) override {
@@ -361,7 +361,7 @@ TargetABI *TargetABI::getTarget() {
 struct IntrinsicABI : TargetABI {
   RemoveStructPadding remove_padding;
 
-  bool returnInArg(TypeFunction *tf) override { return false; }
+  bool returnInArg(TypeFunction *, bool) override { return false; }
 
   bool passByVal(TypeFunction *, Type *t) override { return false; }
 
