@@ -310,7 +310,9 @@ struct UnknownTargetABI : TargetABI {
     return (rt->ty == Tstruct || rt->ty == Tsarray);
   }
 
-  bool passByVal(Type *t) override { return t->toBasetype()->ty == Tstruct; }
+  bool passByVal(TypeFunction *, Type *t) override {
+    return t->toBasetype()->ty == Tstruct;
+  }
 
   void rewriteFunctionType(IrFuncTy &) override {
     // why?
@@ -361,7 +363,7 @@ struct IntrinsicABI : TargetABI {
 
   bool returnInArg(TypeFunction *tf) override { return false; }
 
-  bool passByVal(Type *t) override { return false; }
+  bool passByVal(TypeFunction *, Type *t) override { return false; }
 
   bool reverseExplicitParams(TypeFunction *) override { return false; }
 

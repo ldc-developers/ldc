@@ -42,7 +42,7 @@ struct ArmTargetABI : TargetABI {
              !isHFA((TypeStruct *)rt)));
   }
 
-  bool passByVal(Type *t) override {
+  bool passByVal(TypeFunction *, Type *t) override {
     // AAPCS does not use an indirect arg to pass aggregates, however
     // clang uses byval for types > 64-bytes, then llvm backend
     // converts back to non-byval.  Without this special handling the

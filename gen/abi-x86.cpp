@@ -24,6 +24,7 @@ struct X86TargetABI : TargetABI {
   const bool isMSVC;
   bool returnStructsInRegs;
   IntegerRewrite integerRewrite;
+  IndirectByvalRewrite indirectByvalRewrite;
 
   X86TargetABI()
       : isOSX(global.params.targetTriple->isMacOSX()),
@@ -118,7 +119,11 @@ struct X86TargetABI : TargetABI {
     return !canRewriteAsInt(rt);
   }
 
-  bool passByVal(Type *t) override {
+  bool passByVal(TypeFunction *tf, Type *t) override {
+    // indirectly by-value for extern(C++) functions and non-POD args on Posix
+    if (!isMSVC && tf->linkage == LINKcpp && !isPOD(t))
+      return false;
+
     // pass all structs and static arrays with the LLVM byval attribute
     return DtoIsInMemoryOnly(t);
   }
@@ -181,6 +186,13 @@ struct X86TargetABI : TargetABI {
       }
 
       // all other arguments are passed on the stack, don't rewrite
+    }
+    // extern(C++) on Posix: non-POD args are passed indirectly by-value
+    else if (!isMSVC && fty.type->linkage == LINKcpp) {
+      for (auto arg : fty.args) {
+        if (!arg->byref && !isPOD(arg->type))
+          indirectByvalRewrite.applyTo(*arg);
+      }
     }
 
     workaroundIssue1356(fty.args);

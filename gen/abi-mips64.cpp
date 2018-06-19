@@ -42,7 +42,7 @@ struct MIPS64TargetABI : TargetABI {
     return (rt->ty == Tstruct || rt->ty == Tsarray);
   }
 
-  bool passByVal(Type *t) override {
+  bool passByVal(TypeFunction *, Type *t) override {
     TY ty = t->toBasetype()->ty;
     return ty == Tstruct || ty == Tsarray;
   }

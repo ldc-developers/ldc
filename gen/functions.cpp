@@ -170,7 +170,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
       // ref/out
       attrs.addDereferenceable(loweredDType->size());
     } else {
-      if (abi->passByVal(loweredDType)) {
+      if (abi->passByVal(f, loweredDType)) {
         // LLVM ByVal parameters are pointers to a copy in the function
         // parameters stack. The caller needs to provide a pointer to the
         // original argument.
