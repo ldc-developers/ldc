@@ -82,9 +82,9 @@ void ld_clearfpu()
 }
 
 pure:
-@safe:
+@trusted: // LDC: LLVM __asm is @system AND requires taking the address of variables
 
-align(2) struct longdouble_soft
+struct longdouble_soft
 {
 nothrow @nogc pure:
     ulong mantissa = 0xC000000000000001UL; // default to snan
@@ -186,63 +186,73 @@ nothrow @nogc pure:
 
 version(LDC)
 {
-    enum fld_eax(string arg) = "jmp L_" ~ arg ~ "+2; L_" ~ arg ~ ": mov DX, 0x28db;"; // jump to 0xdb,0x28 (fld real ptr[EAX])
-    enum fstp_eax            = "jmp L_stp+2; L_stp: mov DX, 0x38db;"; // jump to 0xdb,0x38 (fstp real ptr[EAX])
-}
-else version(D_InlineAsm_X86_64)
-{
-    enum fld_eax(string arg) = "fld real ptr [RAX];";
-    enum fstp_eax            = "fstp real ptr [RAX];";
-}
-else version(D_InlineAsm_X86)
-{
-    enum fld_eax(string arg) = "fld real ptr [EAX];";
-    enum fstp_eax            = "fstp real ptr [EAX];";
-}
+    import ldc.llvmasm;
 
-version(D_InlineAsm_X86_64)
-{
-    // longdouble_soft passed by reference
     extern(D):
     private:
-    string fld_arg(string arg)()
-    {
-        return "asm nothrow @nogc pure @trusted { mov RAX, " ~ arg ~ "; " ~ fld_eax!arg ~ " }";
-    }
-    string fstp_arg(string arg)()
-    {
-        return "asm nothrow @nogc pure @trusted { mov RAX, " ~ arg ~ "; " ~ fstp_eax ~ " }";
-    }
-    alias fld_parg = fld_arg;
-    alias fstp_parg = fstp_arg;
-    string fld_local(string arg)()
-    {
-        return "asm nothrow @nogc pure @trusted { lea RAX, " ~ arg ~ "; " ~ fld_eax!arg ~ " }";
-    }
+    string fld_arg  (string arg)() { return `__asm("fldt $0",  "*m,~{st}", &` ~ arg ~ `);`; }
+    string fstp_arg (string arg)() { return `__asm("fstpt $0", "*m,~{st}", &` ~ arg ~ `);`; }
+    string fld_parg (string arg)() { return `__asm("fldt $0",  "*m,~{st}",  ` ~ arg ~ `);`; }
+    string fstp_parg(string arg)() { return `__asm("fstpt $0", "*m,~{st}",  ` ~ arg ~ `);`; }
+    alias  fld_local = fld_arg;
 }
-else version(D_InlineAsm_X86)
+else
 {
-    // longdouble_soft passed by value
-    extern(D):
-    private:
-    string fld_arg(string arg)()
+    version(D_InlineAsm_X86_64)
     {
-        return "asm nothrow @nogc pure @trusted { lea EAX, " ~ arg ~ "; " ~ fld_eax!arg ~ " }";
+        enum fld_eax(string arg) = "fld real ptr [RAX];";
+        enum fstp_eax            = "fstp real ptr [RAX];";
     }
-    string fstp_arg(string arg)()
+    else version(D_InlineAsm_X86)
     {
-        return "asm nothrow @nogc pure @trusted { lea EAX, " ~ arg ~ "; " ~ fstp_eax ~ " }";
+        enum fld_eax(string arg) = "fld real ptr [EAX];";
+        enum fstp_eax            = "fstp real ptr [EAX];";
     }
-    string fld_parg(string arg)()
+
+    version(D_InlineAsm_X86_64)
     {
-        return "asm nothrow @nogc pure @trusted { mov EAX, " ~ arg ~ "; " ~ fld_eax!arg ~ " }";
+        // longdouble_soft passed by reference
+        extern(D):
+        private:
+        string fld_arg(string arg)()
+        {
+            return "asm nothrow @nogc pure @trusted { mov RAX, " ~ arg ~ "; " ~ fld_eax!arg ~ " }";
+        }
+        string fstp_arg(string arg)()
+        {
+            return "asm nothrow @nogc pure @trusted { mov RAX, " ~ arg ~ "; " ~ fstp_eax ~ " }";
+        }
+        alias fld_parg = fld_arg;
+        alias fstp_parg = fstp_arg;
+        string fld_local(string arg)()
+        {
+            return "asm nothrow @nogc pure @trusted { lea RAX, " ~ arg ~ "; " ~ fld_eax!arg ~ " }";
+        }
     }
-    string fstp_parg(string arg)()
+    else version(D_InlineAsm_X86)
     {
-        return "asm nothrow @nogc pure @trusted { mov EAX, " ~ arg ~ "; " ~ fstp_eax ~ " }";
+        // longdouble_soft passed by value
+        extern(D):
+        private:
+        string fld_arg(string arg)()
+        {
+            return "asm nothrow @nogc pure @trusted { lea EAX, " ~ arg ~ "; " ~ fld_eax!arg ~ " }";
+        }
+        string fstp_arg(string arg)()
+        {
+            return "asm nothrow @nogc pure @trusted { lea EAX, " ~ arg ~ "; " ~ fstp_eax ~ " }";
+        }
+        string fld_parg(string arg)()
+        {
+            return "asm nothrow @nogc pure @trusted { mov EAX, " ~ arg ~ "; " ~ fld_eax!arg ~ " }";
+        }
+        string fstp_parg(string arg)()
+        {
+            return "asm nothrow @nogc pure @trusted { mov EAX, " ~ arg ~ "; " ~ fstp_eax ~ " }";
+        }
+        alias fld_local = fld_arg;
     }
-    alias fld_local = fld_arg;
-}
+} // !LDC
 
 double ld_read(const longdouble_soft* pthis)
 {
@@ -324,7 +334,7 @@ void ld_setull(longdouble_soft* pthis, ulong d)
     d ^= (1L << 63);
     version(AsmX86)
     {
-        mixin(fld_local!("twoPow63"));
+        mixin(fld_local!("_twoPow63"));
         asm nothrow @nogc pure @trusted
         {
             fild qword ptr d;
@@ -682,7 +692,9 @@ __gshared longdouble_soft ld_pi2     = longdouble_soft(0xc90fdaa22168c235UL, 0x4
 __gshared longdouble_soft ld_piOver2 = longdouble_soft(0xc90fdaa22168c235UL, 0x3fff);
 __gshared longdouble_soft ld_piOver4 = longdouble_soft(0xc90fdaa22168c235UL, 0x3ffe);
 
-__gshared longdouble_soft twoPow63 = longdouble_soft(1UL << 63, 0x3fff + 63);
+// accessible by pure ld_setull():
+private extern(D) __gshared immutable longdouble_soft _twoPow63 = longdouble_soft(1UL << 63, 0x3fff + 63);
+__gshared longdouble_soft twoPow63 = _twoPow63;
 
 //////////////////////////////////////////////////////////////
 
