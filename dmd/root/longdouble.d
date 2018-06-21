@@ -81,6 +81,71 @@ void ld_clearfpu()
     }
 }
 
+//////////////////////////////////////////////////////////////
+
+unittest // impure due to accessing mutable globals (ld_pi etc.)
+{
+    import core.stdc.string;
+    import core.stdc.stdio;
+
+    char[32] buffer;
+    ld_sprint(buffer.ptr, 'a', ld_pi);
+    assert(strcmp(buffer.ptr, "0x1.921fb54442d1846ap+1") == 0);
+
+    ld_sprint(buffer.ptr, 'g', longdouble_soft(2.0));
+    assert(strcmp(buffer.ptr, "2.00000") == 0);
+
+    ld_sprint(buffer.ptr, 'g', longdouble_soft(1234567.89));
+    assert(strcmp(buffer.ptr, "1.23457e+06") == 0);
+
+    longdouble_soft ldb = longdouble_soft(0.4);
+    long b = cast(long)ldb;
+    assert(b == 0);
+
+    b = cast(long)longdouble_soft(0.9);
+    assert(b == 0);
+
+    long x = 0x12345678abcdef78L;
+    longdouble_soft ldx = longdouble_soft(x);
+    assert(ldx > ld_zero);
+    long y = cast(long)ldx;
+    assert(x == y);
+
+    x = -0x12345678abcdef78L;
+    ldx = longdouble_soft(x);
+    assert(ldx < ld_zero);
+    y = cast(long)ldx;
+    assert(x == y);
+
+    ulong u = 0x12345678abcdef78L;
+    longdouble_soft ldu = longdouble_soft(u);
+    assert(ldu > ld_zero);
+    ulong v = cast(ulong)ldu;
+    assert(u == v);
+
+    u = 0xf234567812345678UL;
+    ldu = longdouble_soft(u);
+    assert(ldu > ld_zero);
+    v = cast(ulong)ldu;
+    assert(u == v);
+
+    u = 0xf2345678;
+    ldu = longdouble_soft(u);
+    ldu = ldu * ldu;
+    ldu = sqrt(ldu);
+    v = cast(ulong)ldu;
+    assert(u == v);
+
+    u = 0x123456789A;
+    ldu = longdouble_soft(u);
+    ldu = ldu * longdouble_soft(1L << 23);
+    v = cast(ulong)ldu;
+    u = u * (1L << 23);
+    assert(u == v);
+}
+
+//////////////////////////////////////////////////////////////
+
 pure:
 @trusted: // LDC: LLVM __asm is @system AND requires taking the address of variables
 
@@ -334,7 +399,14 @@ void ld_setull(longdouble_soft* pthis, ulong d)
     d ^= (1L << 63);
     version(AsmX86)
     {
-        mixin(fld_local!("_twoPow63"));
+        version (LDC)
+        {
+            // cannot access mutable global in pure function
+            static __gshared immutable _twoPow63 = longdouble_soft(1UL << 63, 0x3fff + 63);
+            mixin(fld_local!("_twoPow63"));
+        }
+        else
+            mixin(fld_local!("twoPow63"));
         asm nothrow @nogc pure @trusted
         {
             fild qword ptr d;
@@ -692,9 +764,7 @@ __gshared longdouble_soft ld_pi2     = longdouble_soft(0xc90fdaa22168c235UL, 0x4
 __gshared longdouble_soft ld_piOver2 = longdouble_soft(0xc90fdaa22168c235UL, 0x3fff);
 __gshared longdouble_soft ld_piOver4 = longdouble_soft(0xc90fdaa22168c235UL, 0x3ffe);
 
-// accessible by pure ld_setull():
-private extern(D) __gshared immutable longdouble_soft _twoPow63 = longdouble_soft(1UL << 63, 0x3fff + 63);
-__gshared longdouble_soft twoPow63 = _twoPow63;
+__gshared longdouble_soft twoPow63 = longdouble_soft(1UL << 63, 0x3fff + 63);
 
 //////////////////////////////////////////////////////////////
 
@@ -789,67 +859,4 @@ size_t ld_sprint(char* str, int fmt, longdouble_soft x) @system
     }
     str[len] = 0;
     return len;
-}
-
-//////////////////////////////////////////////////////////////
-
-unittest
-{
-    import core.stdc.string;
-    import core.stdc.stdio;
-
-    char[32] buffer;
-    ld_sprint(buffer.ptr, 'a', ld_pi);
-    assert(strcmp(buffer.ptr, "0x1.921fb54442d1846ap+1") == 0);
-
-    ld_sprint(buffer.ptr, 'g', longdouble_soft(2.0));
-    assert(strcmp(buffer.ptr, "2.00000") == 0);
-
-    ld_sprint(buffer.ptr, 'g', longdouble_soft(1234567.89));
-    assert(strcmp(buffer.ptr, "1.23457e+06") == 0);
-
-    longdouble_soft ldb = longdouble_soft(0.4);
-    long b = cast(long)ldb;
-    assert(b == 0);
-
-    b = cast(long)longdouble_soft(0.9);
-    assert(b == 0);
-
-    long x = 0x12345678abcdef78L;
-    longdouble_soft ldx = longdouble_soft(x);
-    assert(ldx > ld_zero);
-    long y = cast(long)ldx;
-    assert(x == y);
-
-    x = -0x12345678abcdef78L;
-    ldx = longdouble_soft(x);
-    assert(ldx < ld_zero);
-    y = cast(long)ldx;
-    assert(x == y);
-
-    ulong u = 0x12345678abcdef78L;
-    longdouble_soft ldu = longdouble_soft(u);
-    assert(ldu > ld_zero);
-    ulong v = cast(ulong)ldu;
-    assert(u == v);
-
-    u = 0xf234567812345678UL;
-    ldu = longdouble_soft(u);
-    assert(ldu > ld_zero);
-    v = cast(ulong)ldu;
-    assert(u == v);
-
-    u = 0xf2345678;
-    ldu = longdouble_soft(u);
-    ldu = ldu * ldu;
-    ldu = sqrt(ldu);
-    v = cast(ulong)ldu;
-    assert(u == v);
-
-    u = 0x123456789A;
-    ldu = longdouble_soft(u);
-    ldu = ldu * longdouble_soft(1L << 23);
-    v = cast(ulong)ldu;
-    u = u * (1L << 23);
-    assert(u == v);
 }
