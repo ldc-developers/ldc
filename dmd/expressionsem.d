@@ -606,6 +606,14 @@ private bool functionParameters(Loc loc, Scope* sc, TypeFunction tf, Type tthis,
                 arguments.push(arg);
                 nargs++;
             }
+            else
+            {
+                if (arg.op == TOK.default_)
+                {
+                    arg = arg.resolveLoc(loc, sc);
+                    (*arguments)[i] = arg;
+                }
+            }
 
             if (tf.varargs == 2 && i + 1 == nparams) // https://dlang.org/spec/function.html#variadic
             {
@@ -3109,6 +3117,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
             return f;
         }
 
+        bool isSuper = false;
         if (exp.e1.op == TOK.dotVariable && t1.ty == Tfunction || exp.e1.op == TOK.dotTemplateDeclaration)
         {
             UnaExp ue = cast(UnaExp)exp.e1;
@@ -3254,7 +3263,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
             auto ad = sc.func ? sc.func.isThis() : null;
             auto cd = ad ? ad.isClassDeclaration() : null;
 
-            const bool isSuper = exp.e1.op == TOK.super_;
+            isSuper = exp.e1.op == TOK.super_;
             if (isSuper)
             {
                 // Base class constructor call
@@ -3592,6 +3601,32 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
         }
 
         result = Expression.combine(argprefix, exp);
+
+        if (isSuper)
+        {
+            auto ad = sc.func ? sc.func.isThis() : null;
+            auto cd = ad ? ad.isClassDeclaration() : null;
+            if (cd && cd.classKind == ClassKind.cpp)
+            {
+                // if super is defined in C++, it sets the vtable pointer to the base class
+                // so we have to rewrite it, but still return 'this' from super() call:
+                // (auto tmp = super(), this.__vptr = __vtbl, tmp)
+                __gshared int superid = 0;
+                char[20] buf;
+                sprintf(buf.ptr, "__super%d", superid++);
+                auto tmp = copyToTemp(0, buf.ptr, result);
+                Loc loc = exp.loc;
+                Expression tmpdecl = new DeclarationExp(loc, tmp);
+
+                auto dse = new DsymbolExp(loc, cd.vtblSymbol());
+                auto ase = new AddrExp(loc, dse);
+                auto pte = new DotIdExp(loc, new ThisExp(loc), Id.__vptr);
+                auto ate = new AssignExp(loc, pte, ase);
+
+                Expression e = new CommaExp(loc, new CommaExp(loc, tmpdecl, ate), new VarExp(loc, tmp));
+                result = e.expressionSemantic(sc);
+            }
+        }
     }
 
     override void visit(DeclarationExp e)
