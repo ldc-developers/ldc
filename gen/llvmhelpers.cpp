@@ -1574,6 +1574,14 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       }
       return new DImValue(type, m);
     }
+    // special vtbl symbol, used by LDC as alias to the actual vtbl (with
+    // different type and mangled name)
+    if (vd->isClassMember() && vd == vd->isClassMember()->vtblsym) {
+      Logger::println("vtbl symbol");
+      auto cd = vd->isClassMember();
+      return new DLValue(
+          type, DtoBitCast(getIrAggr(cd)->getVtblSymbol(), DtoPtrToType(type)));
+    }
     // nested variable
     if (vd->nestedrefs.dim) {
       Logger::println("nested variable");
