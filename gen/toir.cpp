@@ -718,7 +718,11 @@ public:
       FuncDeclaration *fdecl = dve->var->isFuncDeclaration();
       assert(fdecl);
       DtoDeclareFunction(fdecl);
-      fnval = new DFuncValue(fdecl, DtoCallee(fdecl), DtoRVal(dve->e1));
+      Expression *thisExp = dve->e1;
+      LLValue *thisArg = thisExp->type->toBasetype()->ty == Tclass
+                             ? DtoRVal(thisExp)
+                             : DtoLVal(thisExp); // when calling a struct method
+      fnval = new DFuncValue(fdecl, DtoCallee(fdecl), thisArg);
     } else {
       fnval = toElem(e->e1);
     }
