@@ -382,6 +382,9 @@ public:
         if (sd->dtor && sd->dtor->semanticRun >= PASSsemantic3) {
           Declaration_codegen(sd->dtor);
         }
+        if (sd->tidtor && sd->tidtor->semanticRun >= PASSsemantic3) {
+          Declaration_codegen(sd->tidtor);
+        }
       }
     }
 
@@ -422,7 +425,7 @@ public:
     b.push_uint(hasptrs);
 
     // function xdtor/xdtorti
-    b.push_funcptr(sd->dtor);
+    b.push_funcptr(sd->tidtor);
 
     // function xpostblit
     FuncDeclaration *xpostblit = sd->postblit;
