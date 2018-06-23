@@ -978,6 +978,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     // }
     assert(!isSpecialRefVar(vd) && "Can this happen?");
     getIrLocal(vd, true)->value = gIR->func()->sretArg;
+    gIR->DBuilder.EmitLocalVariable(gIR->func()->sretArg, vd);
   } else {
     // normal stack variable, allocate storage on the stack if it has not
     // already been done
