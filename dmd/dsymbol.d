@@ -232,7 +232,7 @@ extern (C++) class Dsymbol : RootObject
 
     version(IN_LLVM)
     {
-        extern (D) ~this()
+        extern (D) final ~this()
         {
             deleteIrDsymbol(this.ir);
             this.ir = null;
