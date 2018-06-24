@@ -1136,17 +1136,17 @@ extern (C++) UnionExp Cast(const ref Loc loc, Type type, Type to, Expression e1)
                 result = cast(d_uns16)cast(dinteger_t)r;
                 break;
             case Tint32:
-                result = cast(d_int32)r;
+                result = cast(int)r;
                 break;
             case Tdchar:
             case Tuns32:
-                result = cast(d_uns32)r;
+                result = cast(uint)r;
                 break;
             case Tint64:
-                result = cast(d_int64)r;
+                result = cast(long)r;
                 break;
             case Tuns64:
-                result = cast(d_uns64)r;
+                result = cast(ulong)r;
                 break;
             default:
                 assert(0);
