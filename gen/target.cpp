@@ -25,6 +25,10 @@
 using llvm::APFloat;
 
 void Target::_init() {
+  FloatProperties::_init();
+  DoubleProperties::_init();
+  RealProperties::_init();
+
   const auto &triple = *global.params.targetTriple;
 
   ptrsize = gDataLayout->getPointerSize();
@@ -51,9 +55,7 @@ void Target::_init() {
 
   twoDtorInVtable = !triple.isWindowsMSVCEnvironment();
 
-  // {Float,Double,Real}Properties have been initialized with the D host
-  // compiler's properties.
-  // Now finalize RealProperties for the target's `real` type.
+  // Finalize RealProperties for the target's `real` type.
 
   const auto targetRealSemantics = &real->getFltSemantics();
 #if LDC_LLVM_VER >= 400
@@ -66,44 +68,44 @@ void Target::_init() {
   const auto IEEEquad = &APFloat::IEEEquad;
 #endif
 
-  RealProperties.nan = CTFloat::nan;
-  RealProperties.snan = CTFloat::initVal;
-  RealProperties.infinity = CTFloat::infinity;
+  RealProperties::nan = CTFloat::nan;
+  RealProperties::snan = CTFloat::initVal;
+  RealProperties::infinity = CTFloat::infinity;
 
   if (targetRealSemantics == IEEEdouble) {
-    RealProperties.max = CTFloat::parse("0x1.fffffffffffffp+1023");
-    RealProperties.min_normal = CTFloat::parse("0x1p-1022");
-    RealProperties.epsilon = CTFloat::parse("0x1p-52");
-    RealProperties.dig = 15;
-    RealProperties.mant_dig = 53;
-    RealProperties.max_exp = 1024;
-    RealProperties.min_exp = -1021;
-    RealProperties.max_10_exp = 308;
-    RealProperties.min_10_exp = -307;
+    RealProperties::max = CTFloat::parse("0x1.fffffffffffffp+1023");
+    RealProperties::min_normal = CTFloat::parse("0x1p-1022");
+    RealProperties::epsilon = CTFloat::parse("0x1p-52");
+    RealProperties::dig = 15;
+    RealProperties::mant_dig = 53;
+    RealProperties::max_exp = 1024;
+    RealProperties::min_exp = -1021;
+    RealProperties::max_10_exp = 308;
+    RealProperties::min_10_exp = -307;
   } else if (targetRealSemantics == x87DoubleExtended) {
-    RealProperties.max = CTFloat::parse("0x1.fffffffffffffffep+16383");
-    RealProperties.min_normal = CTFloat::parse("0x1p-16382");
-    RealProperties.epsilon = CTFloat::parse("0x1p-63");
-    RealProperties.dig = 18;
-    RealProperties.mant_dig = 64;
-    RealProperties.max_exp = 16384;
-    RealProperties.min_exp = -16381;
-    RealProperties.max_10_exp = 4932;
-    RealProperties.min_10_exp = -4931;
+    RealProperties::max = CTFloat::parse("0x1.fffffffffffffffep+16383");
+    RealProperties::min_normal = CTFloat::parse("0x1p-16382");
+    RealProperties::epsilon = CTFloat::parse("0x1p-63");
+    RealProperties::dig = 18;
+    RealProperties::mant_dig = 64;
+    RealProperties::max_exp = 16384;
+    RealProperties::min_exp = -16381;
+    RealProperties::max_10_exp = 4932;
+    RealProperties::min_10_exp = -4931;
   } else if (targetRealSemantics == IEEEquad) {
     // FIXME: hex constants
-    RealProperties.max =
+    RealProperties::max =
         CTFloat::parse("1.18973149535723176508575932662800702e+4932");
-    RealProperties.min_normal =
+    RealProperties::min_normal =
         CTFloat::parse("3.36210314311209350626267781732175260e-4932");
-    RealProperties.epsilon =
+    RealProperties::epsilon =
         CTFloat::parse("1.92592994438723585305597794258492732e-34");
-    RealProperties.dig = 33;
-    RealProperties.mant_dig = 113;
-    RealProperties.max_exp = 16384;
-    RealProperties.min_exp = -16381;
-    RealProperties.max_10_exp = 4932;
-    RealProperties.min_10_exp = -4931;
+    RealProperties::dig = 33;
+    RealProperties::mant_dig = 113;
+    RealProperties::max_exp = 16384;
+    RealProperties::min_exp = -16381;
+    RealProperties::max_10_exp = 4932;
+    RealProperties::min_10_exp = -4931;
   } else {
     // leave initialized with host real_t values
     warning(Loc(), "unknown properties for target `real` type, relying on D "
@@ -242,6 +244,7 @@ Expression *Target::paintAsType(Expression *e, Type *type) {
     llvm_unreachable("Unsupported source type");
   }
 
+  real_t r;
   switch (type->ty) {
   case Tint32:
   case Tuns32:
@@ -252,10 +255,12 @@ Expression *Target::paintAsType(Expression *e, Type *type) {
     return createIntegerExp(e->loc, u.int64value, type);
 
   case Tfloat32:
-    return createRealExp(e->loc, u.float32value, type);
+    r = u.float32value;
+    return createRealExp(e->loc, r, type);
 
   case Tfloat64:
-    return createRealExp(e->loc, u.float64value, type);
+    r = u.float64value;
+    return createRealExp(e->loc, r, type);
 
   default:
     llvm_unreachable("Unsupported target type");

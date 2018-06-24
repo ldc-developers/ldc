@@ -21,19 +21,13 @@ import core.stdc.string;
 nothrow:
 
 // Type used by the front-end for compile-time reals
-version(IN_LLVM_MSVC)
-    alias real_t = double;
-else version(IN_LLVM)
-    alias real_t = real;
-else
-    public import dmd.root.longdouble : real_t = longdouble;
+public import dmd.root.longdouble : real_t = longdouble;
 
 private
 {
     version(CRuntime_DigitalMars) __gshared extern (C) extern const(char)* __locale_decpoint;
 
-    // IN_LLVM replaced: version(CRuntime_Microsoft) extern (C++)
-    version(none) extern (C++)
+    version(CRuntime_Microsoft) extern (C++)
     {
         public import dmd.root.longdouble : longdouble_soft, ld_sprint;
         longdouble_soft strtold_dm(const(char)* p, char** endp);
@@ -66,8 +60,7 @@ extern (C++) struct CTFloat
             assert(0);
     }
 
-    // IN_LLVM: changed from `static if (!is(real_t == real))`
-    version(none)
+    static if (!is(real_t == real))
     {
         alias sin = dmd.root.longdouble.sinl;
         alias cos = dmd.root.longdouble.cosl;
@@ -86,8 +79,7 @@ extern (C++) struct CTFloat
         static real_t ldexp(real_t n, int exp) { return core.math.ldexp(n, exp); }
     }
 
-    // IN_LLVM: changed from `static if (!is(real_t == real))`
-    version(none)
+    static if (!is(real_t == real))
     {
         static real_t round(real_t x) { return real_t(cast(double)core.stdc.math.roundl(cast(double)x)); }
         static real_t floor(real_t x) { return real_t(cast(double)core.stdc.math.floor(cast(double)x)); }
@@ -125,8 +117,16 @@ extern (C++) struct CTFloat
   {
     static import std.math;
 
-    static real_t rint(real_t x) { return std.math.rint(x); }
-    static real_t nearbyint(real_t x) { return std.math.nearbyint(x); }
+    static if (!is(real_t == real))
+    {
+        static real_t rint(real_t x) { return real_t(cast(double)std.math.rint(cast(double)x)); }
+        static real_t nearbyint(real_t x) { return real_t(cast(double)std.math.nearbyint(cast(double)x)); }
+    }
+    else
+    {
+        static real_t rint(real_t x) { return std.math.rint(x); }
+        static real_t nearbyint(real_t x) { return std.math.nearbyint(x); }
+    }
 
     static void _init();
 
@@ -213,8 +213,7 @@ else
 
     static int sprint(char* str, char fmt, real_t x)
     {
-        // IN_LLVM replaced: version(CRuntime_Microsoft)
-        version(none)
+        version(CRuntime_Microsoft)
         {
             return cast(int)ld_sprint(str, fmt, longdouble_soft(x));
         }
