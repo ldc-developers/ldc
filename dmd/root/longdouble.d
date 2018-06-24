@@ -87,7 +87,8 @@ pure:
 struct longdouble_soft
 {
 nothrow @nogc pure:
-    ulong mantissa = 0xC000000000000001UL; // default to snan
+    // DMD's x87 `real` on Windows is packed (alignof = 2 -> sizeof = 10).
+    align(2) ulong mantissa = 0xC000000000000001UL; // default to snan
     ushort exp_sign = 0x7fff; // sign is highest bit
 
     this(ulong m, ushort es) { mantissa = m; exp_sign = es; }
@@ -183,6 +184,9 @@ nothrow @nogc pure:
     static uint max_10_exp() { return 4932; }
     static uint min_10_exp() { return -4932; }
 };
+
+static assert(longdouble_soft.alignof == longdouble.alignof);
+static assert(longdouble_soft.sizeof == longdouble.sizeof);
 
 version(LDC)
 {

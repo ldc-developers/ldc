@@ -85,6 +85,7 @@ longdouble_soft ld_sin(longdouble_soft ld1);
 longdouble_soft ld_cos(longdouble_soft ld1);
 longdouble_soft ld_tan(longdouble_soft ld1);
 
+#pragma pack(push, 1)
 struct longdouble_soft
 {
     unsigned long long mantissa;
@@ -132,6 +133,9 @@ struct longdouble_soft
     operator unsigned long long() const { return ld_readull(this); }
     operator bool              () const { return mantissa != 0 || exponent != 0; } // correct?
 };
+
+#pragma pack(pop)
+// static_assert(sizeof(longdouble_soft) == 10, "bad sizeof longdouble_soft");
 
 inline longdouble_soft ldouble(unsigned long long mantissa, int exp, int sign = 0)
 {
