@@ -1,9 +1,9 @@
 /**
  * Contains compiler-recognized user-defined attribute types.
  *
- * Copyright: Authors 2015-2016
+ * Copyright: Authors 2015-2018
  * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Authors:   David Nadlinger, Johan Engelen
+ * Authors:   LDC team
  */
 module ldc.attributes;
 
@@ -77,6 +77,9 @@ private struct _assumeUsed
 
 /++
  + When applied to a function, marks this function for dynamic compilation.
+ + Calls to the function will be to the dynamically compiled function,
+ + instead of to the statically compiled function (the statically compiled
+ + function is still emitted into the object file).
  + All functions marked with this attribute must be explicitly compiled in
  + runtime via ldc.dynamic_compile api before usage.
  +
@@ -115,6 +118,31 @@ private struct _dynamicCompile
  +/
 immutable dynamicCompileConst = _dynamicCompileConst();
 private struct _dynamicCompileConst
+{
+}
+
+/++
+ + When applied to a function, makes this function available for dynamic
+ + compilation.
+ + In contrast to `@dynamicCompile`, calls to the function will be to the
+ + statically compiled function (like normal functions). The function body
+ + is made available for dynamic compilation with the jit facilities (e.g.
+ + jit bind).
+ + If both @dynamicCompile and @dynamicCompileEmit attributes are
+ + applied to function, @dynamicCompile will get precedence.
+ +
+ + This attribute has no effect if dynamic compilation wasn't enabled with
+ + -enable-dynamic-compile
+ +
+ + Examples:
+ + ---
+ + import ldc.attributes;
+ +
+ + @dynamicCompileEmit int foo() { return 42; }
+ + ---
+ +/
+immutable dynamicCompileEmit = _dynamicCompileEmit();
+private struct _dynamicCompileEmit
 {
 }
 
