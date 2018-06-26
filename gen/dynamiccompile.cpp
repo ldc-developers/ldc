@@ -192,10 +192,11 @@ void fixRtModule(llvm::Module &newModule,
   std::unordered_set<std::string> externalFuncs;
   for (auto &&it : funcs) {
     assert(nullptr != it.first);
-    assert(nullptr != it.second.thunkFunc);
-    if (nullptr == it.second.thunkVar) {
-      // thunkVar is not available
-      // e.g. runtimeCompile function from other module, ignore
+    if (nullptr == it.second.thunkVar ||
+        nullptr == it.second.thunkFunc) {
+      // thunkVar or thunkFunc is not available
+      // e.g. dynamicCompile function from other module or emit-only dynamic
+      // function, ignore
       continue;
     }
     assert(!contains(thunkVar2func, it.second.thunkVar->getName()));
@@ -225,11 +226,12 @@ void fixRtModule(llvm::Module &newModule,
   // Thunks should be unused now, strip them
   for (auto &&it : funcs) {
     assert(nullptr != it.first);
-    assert(nullptr != it.second.thunkFunc);
-    auto func = newModule.getFunction(it.second.thunkFunc->getName());
-    assert(func != nullptr);
-    if (func->use_empty()) {
-      func->eraseFromParent();
+    if (nullptr != it.second.thunkFunc) {
+      auto func = newModule.getFunction(it.second.thunkFunc->getName());
+      assert(func != nullptr);
+      if (func->use_empty()) {
+        func->eraseFromParent();
+      }
     }
 
     if (nullptr != it.second.thunkVar) {
@@ -525,7 +527,6 @@ generateFuncList(IRState *irs, const Types &types) {
   std::vector<llvm::Constant *> elements;
   for (auto &&it : irs->dynamicCompiledFunctions) {
     assert(nullptr != it.first);
-    assert(nullptr != it.second.thunkFunc);
     if (nullptr == it.second.thunkVar) {
       // thunkVar is not available
       // e.g. runtimeCompile function from other module, ignore
@@ -775,9 +776,13 @@ void declareDynamicCompiledFunction(IRState *irs, IrFunction *func) {
   if (!opts::enableDynamicCompile) {
     return;
   }
+
   auto srcFunc = func->getLLVMFunc();
-  auto thunkFunc = duplicateFunc(irs->module, srcFunc);
-  func->rtCompileFunc = thunkFunc;
+  llvm::Function *thunkFunc = nullptr;
+  if (func->dynamicCompile) {
+    thunkFunc = duplicateFunc(irs->module, srcFunc);
+    func->rtCompileFunc = thunkFunc;
+  }
   assert(!contains(irs->dynamicCompiledFunctions, srcFunc));
   irs->dynamicCompiledFunctions.insert(
       std::make_pair(srcFunc, IRState::RtCompiledFuncDesc{nullptr, thunkFunc}));
@@ -787,21 +792,24 @@ void defineDynamicCompiledFunction(IRState *irs, IrFunction *func) {
   assert(nullptr != irs);
   assert(nullptr != func);
   assert(nullptr != func->getLLVMFunc());
-  assert(nullptr != func->rtCompileFunc);
   if (!opts::enableDynamicCompile) {
     return;
   }
-  auto srcFunc = func->getLLVMFunc();
-  auto it = irs->dynamicCompiledFunctions.find(srcFunc);
-  assert(irs->dynamicCompiledFunctions.end() != it);
-  auto thunkVarType = srcFunc->getFunctionType()->getPointerTo();
-  auto thunkVar = new llvm::GlobalVariable(
-      irs->module, thunkVarType, false, llvm::GlobalValue::PrivateLinkage,
-      llvm::ConstantPointerNull::get(thunkVarType),
-      ".rtcompile_thunkvar_" + srcFunc->getName());
-  auto dstFunc = it->second.thunkFunc;
-  createThunkFunc(irs->module, srcFunc, dstFunc, thunkVar);
-  it->second.thunkVar = thunkVar;
+
+  if (func->dynamicCompile) {
+    assert(nullptr != func->rtCompileFunc);
+    auto srcFunc = func->getLLVMFunc();
+    auto it = irs->dynamicCompiledFunctions.find(srcFunc);
+    assert(irs->dynamicCompiledFunctions.end() != it);
+    auto thunkVarType = srcFunc->getFunctionType()->getPointerTo();
+    auto thunkVar = new llvm::GlobalVariable(
+        irs->module, thunkVarType, false, llvm::GlobalValue::PrivateLinkage,
+        llvm::ConstantPointerNull::get(thunkVarType),
+        ".rtcompile_thunkvar_" + srcFunc->getName());
+    auto dstFunc = it->second.thunkFunc;
+    createThunkFunc(irs->module, srcFunc, dstFunc, thunkVar);
+    it->second.thunkVar = thunkVar;
+  }
 }
 
 void addDynamicCompiledVar(IRState *irs, IrGlobal *var) {

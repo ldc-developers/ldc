@@ -50,6 +50,8 @@ struct IrFunction {
   /// some sort of wrapper, e.g., a JIT wrapper).
   llvm::Function *getLLVMCallee() const;
 
+  bool isDynamicCompiled() const;
+
   FuncDeclaration *decl = nullptr;
   TypeFunction *type = nullptr;
 
@@ -89,6 +91,9 @@ struct IrFunction {
 
   /// This functions was marked for dynamic compilation
   bool dynamicCompile = false;
+
+  /// This functions was marked emit-only for dynamic compilation
+  bool dynamicCompileEmit = false;
 
   /// Dynamic compilation thunk, all attempts to call or take address of the
   /// original function will be redirected to it

@@ -584,7 +584,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   applyTargetMachineAttributes(*func, *gTargetMachine);
   applyFuncDeclUDAs(fdecl, irFunc);
 
-  if(irFunc->dynamicCompile) {
+  if(irFunc->isDynamicCompiled()) {
     declareDynamicCompiledFunction(gIR, irFunc);
   }
 
@@ -976,7 +976,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   SCOPE_EXIT {
-    if (irFunc->dynamicCompile) {
+    if (irFunc->isDynamicCompiled()) {
       defineDynamicCompiledFunction(gIR, irFunc);
     }
   };
