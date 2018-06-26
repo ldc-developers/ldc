@@ -968,10 +968,13 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   llvm::Function *const func = irFunc->getLLVMFunc();
 
   if (!func->empty()) {
+    // XXX: HACK Don't count this warning as a real warning (to not stop compilation with `-w`)
+    auto savedWarningCount = global.warnings;
     warning(fd->loc,
-            "skipping definition of function `%s` due to previous definition "
-            "for the same mangled name: %s",
+            "LDC INTERNAL: skipping definition of function `%s` due to "
+            "previous definition for the same mangled name: %s",
             fd->toPrettyChars(), mangleExact(fd));
+    global.warnings = savedWarningCount;
     return;
   }
 
