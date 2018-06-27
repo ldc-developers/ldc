@@ -48,7 +48,7 @@ public:
  */
 
 version (LDC)
-    real cos(real x) @safe pure nothrow { return llvm_cos(x); }
+    alias cos = llvm_cos!real;
 else
 real cos(real x) @safe pure nothrow;       /* intrinsic */
 
@@ -66,7 +66,7 @@ real cos(real x) @safe pure nothrow;       /* intrinsic */
  */
 
 version (LDC)
-    real sin(real x) @safe pure nothrow { return llvm_sin(x); }
+    alias sin = llvm_sin!real;
 else
 real sin(real x) @safe pure nothrow;       /* intrinsic */
 
@@ -77,7 +77,7 @@ real sin(real x) @safe pure nothrow;       /* intrinsic */
  * indeterminate.
  */
 version (LDC)
-    long rndtol(real x) @safe pure nothrow { return stdc.llroundl(x); }
+    alias rndtol = stdc.llroundl;
 else
 long rndtol(real x) @safe pure nothrow;    /* intrinsic */
 
@@ -126,9 +126,9 @@ extern (C) real rndtonl(real x);
 
 version (LDC)
 {
-    real ldexp(real n, int exp) @safe pure nothrow
+    version (MinGW)
     {
-        version (MinGW)
+        real ldexp(real n, int exp) @safe pure nothrow
         {
             // The MinGW runtime only provides a double precision ldexp, and
             // it doesn't seem to reliably possible to express the fscale
@@ -163,10 +163,10 @@ version (LDC)
                 }
             }
         }
-        else
-        {
-            return stdc.ldexpl(n, exp);
-        }
+    }
+    else // !MinGW
+    {
+        alias ldexp = stdc.ldexpl;
     }
 }
 else
@@ -209,7 +209,7 @@ unittest {
  *      )
  */
 version (LDC)
-    real fabs(real x) @safe pure nothrow { return llvm_fabs(x); }
+    alias fabs = llvm_fabs!real;
 else
 real fabs(real x) @safe pure nothrow;      /* intrinsic */
 
@@ -222,7 +222,7 @@ real fabs(real x) @safe pure nothrow;      /* intrinsic */
  * the same operation, but does not set the FE_INEXACT exception.
  */
 version (LDC)
-    real rint(real x) @safe pure nothrow { return llvm_rint(x); }
+    alias rint = llvm_rint!real;
 else
 real rint(real x) @safe pure nothrow;      /* intrinsic */
 
