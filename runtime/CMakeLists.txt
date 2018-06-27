@@ -635,7 +635,13 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
     set(libtargets_jit)
     build_jit_runtime("${D_FLAGS};${D_FLAGS_RELEASE}" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libtargets_jit)
     list(APPEND libtargets ${libtargets_jit})
-    # Install separately.
+    # Install separately; also manually copy libldc-jit-rt.a to prevent ranlib from
+    # potentially corrupting the file during installation.
+    if(LDC_DYNAMIC_COMPILE)
+        list(REMOVE_ITEM libtargets_jit ldc-jit-rt)
+        install(FILES       ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/libldc-jit-rt.a
+                DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
+    endif()
     install(TARGETS     ${libtargets_jit}
             DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 
@@ -705,6 +711,13 @@ else()
     # Only build the host version of the jit runtime due to LLVM dependency.
     set(libtargets_jit)
     build_jit_runtime("${D_FLAGS};${D_FLAGS_RELEASE}" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libtargets_jit)
+    # Install separately; on Mac, also manually copy libldc-jit-rt.a to prevent ranlib from
+    # potentially corrupting the file during installation.
+    if(LDC_DYNAMIC_COMPILE AND "${TARGET_SYSTEM}" MATCHES "APPLE")
+        list(REMOVE_ITEM libtargets_jit ldc-jit-rt)
+        install(FILES       ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/libldc-jit-rt.a
+                DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
+    endif()
     install(TARGETS     ${libtargets_jit}
             DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 
