@@ -365,7 +365,7 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
           fdecl->llvmInternal = LLVMva_arg;
           fdecl->ir->setDefined();
           return; // this gets mapped to an instruction so a declaration makes
-                  // no sence
+                  // no sense
         }
         if (tempdecl->llvmInternal == LLVMva_start) {
           Logger::println("magic va_start found");
@@ -584,7 +584,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   applyTargetMachineAttributes(*func, *gTargetMachine);
   applyFuncDeclUDAs(fdecl, irFunc);
 
-  if(irFunc->dynamicCompile) {
+  if(irFunc->isDynamicCompiled()) {
     declareDynamicCompiledFunction(gIR, irFunc);
   }
 
@@ -976,7 +976,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   SCOPE_EXIT {
-    if (irFunc->dynamicCompile) {
+    if (irFunc->isDynamicCompiled()) {
       defineDynamicCompiledFunction(gIR, irFunc);
     }
   };

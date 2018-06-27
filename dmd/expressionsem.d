@@ -4848,9 +4848,9 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
             {
                 version(IN_LLVM)
                 {
-                    if (DtoIsIntrinsic(f))
+                    if (DtoIsIntrinsic(f.toAliasFunc()))
                     {
-                        exp.error("cannot take the address of intrinsic function %s", exp.e1.toChars());
+                        exp.error("cannot take the address of intrinsic function `%s`", f.toAliasFunc().toChars());
                         result = new ErrorExp();
                         return;
                     }

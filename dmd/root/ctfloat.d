@@ -119,11 +119,13 @@ extern (C++) struct CTFloat
 
     static if (!is(real_t == real))
     {
+        static real_t exp(real_t x) { return real_t(cast(double)core.stdc.math.expl(cast(double)x)); }
         static real_t rint(real_t x) { return real_t(cast(double)std.math.rint(cast(double)x)); }
         static real_t nearbyint(real_t x) { return real_t(cast(double)std.math.nearbyint(cast(double)x)); }
     }
     else
     {
+        static real_t exp(real_t x) { return core.stdc.math.expl(x); }
         static real_t rint(real_t x) { return std.math.rint(x); }
         static real_t nearbyint(real_t x) { return std.math.nearbyint(x); }
     }

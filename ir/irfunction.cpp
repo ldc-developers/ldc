@@ -80,6 +80,10 @@ llvm::Function *IrFunction::getLLVMCallee() const {
   return rtCompileFunc != nullptr ? rtCompileFunc : func;
 }
 
+bool IrFunction::isDynamicCompiled() const {
+  return dynamicCompile || dynamicCompileEmit;
+}
+
 IrFunction *getIrFunc(FuncDeclaration *decl, bool create) {
   if (!isIrFuncCreated(decl) && create) {
     assert(decl->ir->irFunc == NULL);

@@ -586,14 +586,14 @@ llvm::Type *Analysis::getTypeFor(Value *typeinfo) const {
     return nullptr;
   }
 
-  Value *ti = llvm::MetadataAsValue::get(node->getContext(),
-                                         node->getOperand(TD_TypeInfo));
-  if (!ti || ti->stripPointerCasts() != ti_global) {
+  auto md = llvm::dyn_cast<llvm::ValueAsMetadata>(
+              node->getOperand(TD_TypeInfo).get());
+  if (md == nullptr || md->getValue()->stripPointerCasts() != ti_global) {
     return nullptr;
   }
 
-  return llvm::MetadataAsValue::get(node->getContext(),
-                                    node->getOperand(TD_Type))
+
+  return llvm::cast<llvm::ValueAsMetadata>(node->getOperand(TD_Type))
       ->getType();
 }
 
@@ -744,9 +744,11 @@ bool isSafeToStackAllocateArray(
   assert(Alloc->getType()->isStructTy() && "Allocated array is not a struct?");
   Value *V = &(*Alloc);
 
-  for (Value::use_iterator UI = V->use_begin(), UE = V->use_end(); UI != UE;
-       ++UI) {
-    Instruction *User = cast<Instruction>(*UI);
+  for (auto U : V->users()) {
+    Instruction *User = dyn_cast<Instruction>(U);
+    if (User == nullptr) {
+      continue;
+    }
 
     switch (User->getOpcode()) {
     case Instruction::ExtractValue: {
