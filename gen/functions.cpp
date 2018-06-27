@@ -365,7 +365,7 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
           fdecl->llvmInternal = LLVMva_arg;
           fdecl->ir->setDefined();
           return; // this gets mapped to an instruction so a declaration makes
-                  // no sence
+                  // no sense
         }
         if (tempdecl->llvmInternal == LLVMva_start) {
           Logger::println("magic va_start found");
