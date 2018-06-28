@@ -6,7 +6,7 @@
  * Copyright: Copyright Digital Mars 2015 - 2015.
  * License:   $(HTTP www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   Yazan Dabain
- * Source: $(DRUNTIMESRC src/rt/backtrace/elf.d)
+ * Source: $(DRUNTIMESRC rt/backtrace/elf.d)
  */
 
 module rt.backtrace.elf;
@@ -61,12 +61,57 @@ struct Image
 
     @property size_t baseAddress()
     {
+        version(linux)
+        {
+            import core.sys.linux.link;
+            import core.sys.linux.elf;
+        }
+        else version(FreeBSD)
+        {
+            import core.sys.freebsd.sys.link_elf;
+            import core.sys.freebsd.sys.elf;
+        }
+        else version(DragonFlyBSD)
+        {
+            import core.sys.dragonflybsd.sys.link_elf;
+            import core.sys.dragonflybsd.sys.elf;
+        }
+
+        static struct ElfAddress
+        {
+            size_t begin;
+            bool set;
+        }
+        ElfAddress elfAddress;
+
         // the DWARF addresses for DSOs are relative
         const isDynamicSharedObject = (file.ehdr.e_type == ET_DYN);
         if (!isDynamicSharedObject)
             return 0;
 
-        return cast(size_t) getMemoryRegionOfExecutable().ptr;
+        extern(C) int dl_iterate_phdr_cb_ngc_tracehandler(dl_phdr_info* info, size_t, void* elfObj) @nogc
+        {
+            auto obj = cast(ElfAddress*) elfObj;
+            // only take the first address as this will be the main binary
+            if (obj.set)
+                return 0;
+
+            obj.set = true;
+            // search for the executable code segment
+            foreach (const ref phdr; info.dlpi_phdr[0 .. info.dlpi_phnum])
+            {
+                if (phdr.p_type == PT_LOAD && phdr.p_flags & PF_X)
+                {
+                    obj.begin = info.dlpi_addr + phdr.p_vaddr;
+                    return 0;
+                }
+            }
+            // fall back to the base address of the object file
+            obj.begin = info.dlpi_addr;
+            return 0;
+        }
+        dl_iterate_phdr(&dl_iterate_phdr_cb_ngc_tracehandler, &elfAddress);
+        return elfAddress.begin;
     }
 }
 
@@ -331,58 +376,4 @@ else version(BigEndian)
 else
 {
     static assert(0, "unsupported byte order");
-}
-
-
-const(void)[] getMemoryRegionOfExecutable() @nogc nothrow
-{
-    import core.sys.posix.unistd : readlink, getpid;
-    import core.stdc.stdio, core.stdc.stdlib, core.stdc.string;
-
-    // get absolute path to executable
-    char[1024] selfPath = void;
-    version (FreeBSD)
-    {
-        getFreeBSDExePath(selfPath[]);
-    }
-    else
-    {
-        version (linux)
-        {
-            auto selfLink = "/proc/self/exe".ptr;
-        }
-        else version (DragonFlyBSD)
-        {
-            auto selfLink = "/proc/curproc/file".ptr;
-        }
-
-        const length = readlink(selfLink, selfPath.ptr, selfPath.length);
-        assert(length > 0 && length < selfPath.length);
-        selfPath[length] = 0;
-    }
-
-    // open the current process' maps file
-    char[32] selfMapsPath = void;
-    snprintf(selfMapsPath.ptr, selfMapsPath.length, "/proc/%d/maps", getpid());
-    FILE* fp = fopen(selfMapsPath.ptr, "r");
-    assert(fp);
-    scope(exit) fclose(fp);
-
-    // use the region in the first line for the executable file
-    char[1024] line = void;
-    while (fgets(line.ptr, line.length, fp) !is null)
-    {
-        line[strlen(line.ptr) - 1] = '\0'; // remove trailing '\n'
-        char* path = strchr(line.ptr, '/');
-        if (path && strcmp(selfPath.ptr, path) == 0)
-        {
-            char* tail;
-            const start = cast(void*) strtoul(line.ptr, &tail, 16);
-            ++tail; // skip over '-'
-            const end = cast(void*) strtoul(tail, &tail, 16);
-            return start[0 .. end - start];
-        }
-    }
-
-    assert(0);
 }
