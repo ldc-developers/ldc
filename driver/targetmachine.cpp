@@ -18,6 +18,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
+#include "llvm/MC/MCObjectFileInfo.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/CommandLine.h"
@@ -30,6 +31,20 @@
 #include "mars.h"
 #include "driver/cl_options.h"
 #include "gen/logger.h"
+
+#ifdef LDC_LLVM_SUPPORTS_MACHO_DWARF_LINE_AS_REGULAR_SECTION
+// LDC-LLVM >= 6.0.1:
+// On Mac, emit __debug_line section in __DWARF segment as regular (non-debug)
+// section, like DMD, to enable file/line infos in backtraces. See
+// https://github.com/dlang/dmd/commit/2bf7d0db29416eacbb01a91e6502140e354ee0ef.
+static llvm::cl::opt<bool, true> preserveDwarfLineSection(
+    "preserve-dwarf-line-section",
+    llvm::cl::desc("Mac: preserve DWARF line section during linking for "
+                   "file/line infos in backtraces. Defaults to true."),
+    llvm::cl::Hidden, llvm::cl::ZeroOrMore,
+    llvm::cl::location(ldc::emitMachODwarfLineAsRegularSection),
+    llvm::cl::init(true));
+#endif
 
 static const char *getABI(const llvm::Triple &triple) {
   llvm::StringRef ABIName(opts::mABI);
