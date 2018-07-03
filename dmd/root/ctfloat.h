@@ -13,13 +13,7 @@
 #include "longdouble.h"
 
 // Type used by the front-end for compile-time reals
-#if IN_LLVM && _MSC_VER
-// Make sure LDC built with MSVC uses double-precision compile-time reals,
-// independent of whether it was built with DMD (80-bit reals) or LDC.
-typedef double real_t;
-#else
 typedef longdouble real_t;
-#endif
 
 #if IN_LLVM
 namespace llvm { class APFloat; }

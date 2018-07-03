@@ -175,22 +175,6 @@ struct ClassFlags
     alias hasDtor = Enum.hasDtor;
 }
 
-/**
- * The ClassKind enum is used in ClassDeclaration AST nodes
- * to specify the linkage type of the class or if it is an
- * anonymous class. If the class is anonymous it is also
- * considered to be a D class.
- */
-enum ClassKind : int
-{
-    /// the class is a d(efault) class
-    d,
-    /// the class is a C++ interface
-    cpp,
-    /// the class is an Objective-C class/interface
-    objc,
-}
-
 /***********************************************************
  */
 extern (C++) class ClassDeclaration : AggregateDeclaration
@@ -230,8 +214,8 @@ extern (C++) class ClassDeclaration : AggregateDeclaration
     /// true if this is a scope class
     bool stack;
 
-    /// specifies whether this is a D, C++, Objective-C or anonymous class/interface
-    ClassKind classKind;
+    /// if this is a C++ class, this is the slot reserved for the virtual destructor
+    int cppDtorVtblIndex = -1;
 
     /// to prevent recursive attempts
     private bool inuse;
@@ -989,7 +973,22 @@ extern (C++) class ClassDeclaration : AggregateDeclaration
     }
 
     // Back end
-    Symbol* vtblsym;
+    Dsymbol vtblsym;
+
+    final Dsymbol vtblSymbol()
+    {
+        if (!vtblsym)
+        {
+            auto vtype = Type.tvoidptr.immutableOf();
+            auto var = new VarDeclaration(loc, vtype, Identifier.idPool("__vtbl"), null, STC.immutable_ | STC.static_);
+            var.addMember(null, this);
+            var.isdataseg = 1;
+            var.linkage = LINK.d;
+            var.semanticRun = PASS.semanticdone; // no more semantic wanted
+            vtblsym = var;
+        }
+        return vtblsym;
+    }
 
     override final inout(ClassDeclaration) isClassDeclaration() inout
     {

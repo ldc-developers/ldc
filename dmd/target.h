@@ -46,18 +46,8 @@ struct Target
     static bool cppExceptions;          // set if catching C++ exceptions is supported
     static char int64Mangle;            // mangling character for C++ int64_t
     static char uint64Mangle;           // mangling character for C++ uint64_t
+    static bool twoDtorInVtable;        // target C++ ABI puts deleting and non-deleting destructor into vtable
 
-#if IN_LLVM
-    struct FPTypeProperties
-    {
-        real_t max, min_normal, nan, snan, infinity, epsilon;
-        d_int64 dig, mant_dig, max_exp, min_exp, max_10_exp, min_10_exp;
-    };
-
-    static FPTypeProperties FloatProperties;
-    static FPTypeProperties DoubleProperties;
-    static FPTypeProperties RealProperties;
-#else
     template <typename T>
     struct FPTypeProperties
     {
@@ -74,12 +64,13 @@ struct Target
         static d_int64 min_exp;
         static d_int64 max_10_exp;
         static d_int64 min_10_exp;
+
+        static void _init();
     };
 
     typedef FPTypeProperties<float> FloatProperties;
     typedef FPTypeProperties<double> DoubleProperties;
     typedef FPTypeProperties<real_t> RealProperties;
-#endif
 
     static void _init();
     // Type sizes and support.

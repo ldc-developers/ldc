@@ -966,9 +966,10 @@ void DtoVarDeclaration(VarDeclaration *vd) {
 
   if (isIrLocalCreated(vd)) {
     // Nothing to do if it has already been allocated.
-  } else if (gIR->func()->sretArg && ((gIR->func()->decl->nrvo_can &&
-                                       gIR->func()->decl->nrvo_var == vd) ||
-                                      vd->isResult())) {
+  } else if (gIR->func()->sretArg &&
+             ((gIR->func()->decl->nrvo_can &&
+               gIR->func()->decl->nrvo_var == vd) ||
+              (vd->isResult() && !isSpecialRefVar(vd)))) {
     // Named Return Value Optimization (NRVO):
     // T f() {
     //   T ret;        // &ret == hidden pointer
@@ -977,6 +978,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     // }
     assert(!isSpecialRefVar(vd) && "Can this happen?");
     getIrLocal(vd, true)->value = gIR->func()->sretArg;
+    gIR->DBuilder.EmitLocalVariable(gIR->func()->sretArg, vd);
   } else {
     // normal stack variable, allocate storage on the stack if it has not
     // already been done
@@ -1572,6 +1574,14 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
         m = gIR->ir->CreateBitCast(m, vartype);
       }
       return new DImValue(type, m);
+    }
+    // special vtbl symbol, used by LDC as alias to the actual vtbl (with
+    // different type and mangled name)
+    if (vd->isClassMember() && vd == vd->isClassMember()->vtblsym) {
+      Logger::println("vtbl symbol");
+      auto cd = vd->isClassMember();
+      return new DLValue(
+          type, DtoBitCast(getIrAggr(cd)->getVtblSymbol(), DtoPtrToType(type)));
     }
     // nested variable
     if (vd->nestedrefs.dim) {

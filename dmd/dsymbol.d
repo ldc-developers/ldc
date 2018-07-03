@@ -232,7 +232,7 @@ extern (C++) class Dsymbol : RootObject
 
     version(IN_LLVM)
     {
-        extern (D) ~this()
+        extern (D) final ~this()
         {
             deleteIrDsymbol(this.ir);
             this.ir = null;
@@ -275,6 +275,8 @@ extern (C++) class Dsymbol : RootObject
     {
         if (this == o)
             return true;
+        if (o.dyncast() != DYNCAST.dsymbol)
+            return false;
         Dsymbol s = cast(Dsymbol)o;
         // Overload sets don't have an ident
         if (s && ident && s.ident && ident.equals(s.ident))

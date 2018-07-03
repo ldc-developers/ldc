@@ -21,15 +21,15 @@ int foo(size_t i)
 
 // OPT0-LABEL: define{{.*}} @ggg(
 // OPT3-LABEL: define{{.*}} @ggg(
-char[] ggg(char* str)
+double ggg(double r)
 {
-    // std.string.fromStringz() is inlined when optimizing
-    import std.string;
-    // OPT0: call {{.*}} @{{.*}}std6string11fromStringz
-    // OPT3: call {{.*}}strlen
-    return fromStringz(str);
+    // std.math.nextDown() is inlined when optimizing
+    import std.math;
+    // OPT0: call {{.*}} @{{.*}}D3std4math8nextDown
+    // OPT3: call {{.*}} @{{.*}}D3std4math6nextUp
+    return nextDown(r);
     // OPT0: ret
     // OPT3: ret
 }
-// OPT0: declare {{.*}}std6string11fromStringz
-// OPT3: declare {{.*}}strlen
+// OPT0: declare {{.*}}D3std4math8nextDown
+// OPT3: declare {{.*}}D3std4math6nextUp

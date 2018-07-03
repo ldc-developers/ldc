@@ -275,14 +275,11 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
   // FIXME: This should probably be handled by the TargetABI somehow.
   //        It should be able to do this for a greater variety of types.
 
-  // x86
-  if (global.params.targetTriple->getArch() == llvm::Triple::x86) {
-    const LINK l = fdecl->linkage;
-    (void)l;
-    assert((l == LINKd || l == LINKc || l == LINKwindows) &&
-           "invalid linkage for asm implicit return");
+  const auto &triple = *global.params.targetTriple;
+  Type *const rt = fdecl->type->nextOf()->toBasetype();
 
-    Type *rt = fdecl->type->nextOf()->toBasetype();
+  // x86
+  if (triple.getArch() == llvm::Triple::x86) {
     if (rt->isintegral() || rt->ty == Tpointer || rt->ty == Tclass ||
         rt->ty == Taarray) {
       if (rt->size() == 8) {
@@ -297,11 +294,11 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
           as->out_c = "={st},={st(1)},";
           asmblock->retn = 2;
         } else if (rt->ty == Tcomplex32) {
-          // extern(C) cfloat is return as i64
+          // non-extern(D) cfloat is returned as i64
           as->out_c = "=A,";
           asmblock->retty = LLType::getInt64Ty(gIR->context());
         } else {
-          // cdouble and creal extern(C) are returned in pointer
+          // non-extern(D) cdouble and creal are returned via sret
           // don't add anything!
           asmblock->retty = LLType::getVoidTy(gIR->context());
           asmblock->retn = 0;
@@ -346,40 +343,43 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
   }
 
   // x86_64
-  else if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
-    LINK l = fdecl->linkage;
-    /* TODO: Check if this works with extern(Windows), completely untested.
-     *       In particular, returning cdouble may not work with
-     *       extern(Windows) since according to X86CallingConv.td it
-     *       doesn't allow XMM1 to be used.
-     * (So is extern(C), but that should be fine as the calling convention
-     * is identical to that of extern(D))
-     */
-    assert((l == LINKd || l == LINKc || l == LINKwindows) &&
-           "invalid linkage for asm implicit return");
-
-    Type *rt = fdecl->type->nextOf()->toBasetype();
+  else if (triple.getArch() == llvm::Triple::x86_64) {
     if (rt->isintegral() || rt->ty == Tpointer || rt->ty == Tclass ||
         rt->ty == Taarray) {
       as->out_c = "={ax},";
     } else if (rt->isfloating()) {
-      if (rt == Type::tcomplex80) {
+      const bool isWin64 = triple.isOSWindows();
+
+      if (rt == Type::tcomplex80 && !isWin64) {
         // On x87 stack, re=st, im=st(1)
         as->out_c = "={st},={st(1)},";
         asmblock->retn = 2;
-      } else if (rt == Type::tfloat80 || rt == Type::timaginary80) {
+      } else if ((rt == Type::tfloat80 || rt == Type::timaginary80) &&
+                 !triple.isWindowsMSVCEnvironment()) {
         // On x87 stack
         as->out_c = "={st},";
-      } else if (l != LINKd && rt == Type::tcomplex32) {
-        // LLVM and GCC disagree on how to return {float, float}.
-        // For compatibility, use the GCC/LLVM-GCC way for extern(C/Windows)
-        // extern(C) cfloat -> %xmm0 (extract two floats)
-        as->out_c = "={xmm0},";
-        asmblock->retty = LLType::getDoubleTy(gIR->context());
+      } else if (rt == Type::tcomplex32) {
+        if (isWin64) {
+          // cfloat on Win64 -> %rax
+          as->out_c = "={ax},";
+          asmblock->retty = LLType::getInt64Ty(gIR->context());
+        } else {
+          // cfloat on Posix -> %xmm0 (extract two floats)
+          as->out_c = "={xmm0},";
+          asmblock->retty = LLType::getDoubleTy(gIR->context());
+        }
       } else if (rt->iscomplex()) {
-        // cdouble and extern(D) cfloat -> re=%xmm0, im=%xmm1
-        as->out_c = "={xmm0},={xmm1},";
-        asmblock->retn = 2;
+        if (isWin64) {
+          // Win64: cdouble and creal are returned via sret
+          // don't add anything!
+          asmblock->retty = LLType::getVoidTy(gIR->context());
+          asmblock->retn = 0;
+          return;
+        } else {
+          // cdouble on Posix -> re=%xmm0, im=%xmm1
+          as->out_c = "={xmm0},={xmm1},";
+          asmblock->retn = 2;
+        }
       } else {
         // Plain float/double/ifloat/idouble
         as->out_c = "={xmm0},";
@@ -396,9 +396,10 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
 
   // unsupported
   else {
-    error(loc, "this target (%s) does not implement inline asm falling off the "
-               "end of the function",
-          global.params.targetTriple->str().c_str());
+    error(loc,
+          "this target (%s) does not implement inline asm falling off the end "
+          "of the function",
+          triple.str().c_str());
     fatal();
   }
 

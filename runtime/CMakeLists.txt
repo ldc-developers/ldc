@@ -218,25 +218,6 @@ if(PHOBOS2_DIR)
     file(GLOB_RECURSE PHOBOS2_D ${PHOBOS2_DIR}/*.d)
     # remove top-level modules index.d and unittest.d
     list(REMOVE_ITEM PHOBOS2_D ${PHOBOS2_DIR}/index.d ${PHOBOS2_DIR}/unittest.d)
-    # only include std/c/ modules matching the platform
-    file(GLOB_RECURSE PHOBOS2_D_FREEBSD ${PHOBOS2_DIR}/std/c/freebsd/*.d)
-    file(GLOB_RECURSE PHOBOS2_D_LINUX ${PHOBOS2_DIR}/std/c/linux/*.d)
-    file(GLOB_RECURSE PHOBOS2_D_OSX ${PHOBOS2_DIR}/std/c/osx/*.d)
-    file(GLOB_RECURSE PHOBOS2_D_WINDOWS ${PHOBOS2_DIR}/std/c/windows/*.d)
-    list(REMOVE_ITEM PHOBOS2_D
-        ${PHOBOS2_D_FREEBSD} ${PHOBOS2_D_LINUX} ${PHOBOS2_D_OSX} ${PHOBOS2_D_WINDOWS}
-    )
-    if("${TARGET_SYSTEM}" MATCHES "UNIX")
-        if("${TARGET_SYSTEM}" MATCHES "APPLE")
-            list(APPEND PHOBOS2_D ${PHOBOS2_D_OSX})
-        elseif("${TARGET_SYSTEM}" MATCHES "FreeBSD")
-            list(APPEND PHOBOS2_D ${PHOBOS2_D_FREEBSD})
-        elseif("${TARGET_SYSTEM}" MATCHES "Linux")
-            list(APPEND PHOBOS2_D ${PHOBOS2_D_LINUX})
-        endif()
-    elseif("${TARGET_SYSTEM}" MATCHES "Windows")
-        list(APPEND PHOBOS2_D ${PHOBOS2_D_WINDOWS})
-    endif()
     # only include std/windows/ modules on Windows
     if(NOT "${TARGET_SYSTEM}" MATCHES "Windows")
         file(GLOB_RECURSE PHOBOS2_D_WINDOWS ${PHOBOS2_DIR}/std/windows/*.d)
@@ -653,31 +634,36 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
     # Only build the host version of the jit runtime due to LLVM dependency.
     set(libtargets_jit)
     build_jit_runtime("${D_FLAGS};${D_FLAGS_RELEASE}" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libtargets_jit)
-    list(APPEND libtargets ${libtargets_jit})
-    # Install separately.
+    # Install separately; also manually copy libldc-jit-rt.a to prevent ranlib from
+    # potentially corrupting the file during installation.
+    if(LDC_DYNAMIC_COMPILE)
+        install(FILES       $<TARGET_FILE:ldc-jit-rt>
+                DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
+        list(REMOVE_ITEM libtargets_jit ldc-jit-rt)
+    endif()
     install(TARGETS     ${libtargets_jit}
             DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 
     # KLUDGE: Cannot use `$<TARGET_LINKER_FILE:target>` in custom command.
     # Set up the list of generated libs (without 'lib' prefix) to be merged manually.
-    set(libs_to_install)
+    set(libs_to_merge)
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "ON")
-        list(APPEND libs_to_install druntime-ldc.a druntime-ldc-debug.a
-                                    phobos2-ldc.a  phobos2-ldc-debug.a
+        list(APPEND libs_to_merge druntime-ldc.a druntime-ldc-debug.a
+                                  phobos2-ldc.a  phobos2-ldc-debug.a
         )
         # Only install the release versions of the (static-only) bitcode libraries.
         if(BUILD_LTO_LIBS)
-            list(APPEND libs_to_install druntime-ldc-lto.a phobos2-ldc-lto.a)
+            list(APPEND libs_to_merge druntime-ldc-lto.a phobos2-ldc-lto.a)
         endif()
     endif()
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
         set(suffix ${SHARED_LIB_SUFFIX}.dylib)
-        list(APPEND libs_to_install druntime-ldc${suffix} druntime-ldc-debug${suffix}
-                                    phobos2-ldc${suffix}  phobos2-ldc-debug${suffix}
+        list(APPEND libs_to_merge druntime-ldc${suffix} druntime-ldc-debug${suffix}
+                                  phobos2-ldc${suffix}  phobos2-ldc-debug${suffix}
         )
     endif()
 
-    foreach(lib ${libs_to_install})
+    foreach(lib ${libs_to_merge})
         set(target_name "")
         set(lib_extension "")
         get_filename_component(target_name ${lib} NAME_WE)
@@ -719,30 +705,45 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
     endforeach()
 else()
     set(libs_to_install)
+    # build host versions
     build_runtime_variants("" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libs_to_install)
-
-    # Only build the host version of the jit runtime due to LLVM dependency.
-    set(libtargets_jit)
-    build_jit_runtime("${D_FLAGS};${D_FLAGS_RELEASE}" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libtargets_jit)
-    install(TARGETS     ${libtargets_jit}
-            DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
-
-    # don't add multilib targets to libs_to_install
     if(MULTILIB)
-        build_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}" dummy)
+        # build multi versions
+        build_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}" libs_to_install)
     endif()
 
+    # Only build the host version of the jit runtime due to LLVM dependency.
+    build_jit_runtime("${D_FLAGS};${D_FLAGS_RELEASE}" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libs_to_install)
+
     # Only install the release versions of the (static-only) bitcode libraries.
-    if(BUILD_LTO_LIBS)
+    if(BUILD_LTO_LIBS AND (NOT ${BUILD_SHARED_LIBS} STREQUAL "ON"))
         list(APPEND libs_to_install druntime-ldc-lto phobos2-ldc-lto)
     endif()
 
     foreach(libname ${libs_to_install})
-        install(TARGETS     ${libname}
-                DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
-        if(MULTILIB)
-            install(TARGETS     ${libname}_${MULTILIB_SUFFIX}
-                    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX})
+        # On Mac, manually copy static libraries to prevent ranlib from
+        # potentially corrupting the file during installation.
+        # See https://bugs.llvm.org/show_bug.cgi?id=34808.
+        set(copy_manually OFF)
+        if("${TARGET_SYSTEM}" MATCHES "APPLE")
+            set(target_type)
+            get_target_property(target_type ${libname} TYPE)
+            if("${target_type}" STREQUAL "STATIC_LIBRARY")
+                set(copy_manually ON)
+            endif()
+        endif()
+
+        set(destination_dir ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
+        if(${libname} MATCHES "_${MULTILIB_SUFFIX}$")
+            set(destination_dir ${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX})
+        endif()
+
+        if(copy_manually)
+            install(FILES       $<TARGET_FILE:${libname}>
+                    DESTINATION ${destination_dir})
+        else()
+            install(TARGETS     ${libname}
+                    DESTINATION ${destination_dir})
         endif()
     endforeach()
 endif()

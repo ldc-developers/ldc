@@ -26,6 +26,7 @@ import dmd.canthrow;
 import dmd.complex;
 import dmd.constfold;
 import dmd.ctfeexpr;
+import dmd.ctorflow;
 import dmd.dcast;
 import dmd.dclass;
 import dmd.declaration;
@@ -77,6 +78,43 @@ void emplaceExp(T : UnionExp)(T* p, Expression e)
 {
     memcpy(p, cast(void*)e, e.size);
 }
+
+
+/****************************************
+ * Find the first non-comma expression.
+ * Params:
+ *      e = Expressions connected by commas
+ * Returns:
+ *      left-most non-comma expression
+ */
+
+inout(Expression) firstComma(inout Expression e)
+{
+    Expression ex = cast()e;
+    while (ex.op == TOK.comma)
+        ex = (cast(CommaExp)ex).e1;
+    return cast(inout)ex;
+
+}
+
+
+/****************************************
+ * Find the last non-comma expression.
+ * Params:
+ *      e = Expressions connected by commas
+ * Returns:
+ *      right-most non-comma expression
+ */
+
+inout(Expression) lastComma(inout Expression e)
+{
+    Expression ex = cast()e;
+    while (ex.op == TOK.comma)
+        ex = (cast(CommaExp)ex).e2;
+    return cast(inout)ex;
+
+}
+
 
 /*************************************************************
  * Given var, get the
@@ -490,8 +528,7 @@ extern (C++) bool isNeedThisScope(Scope* sc, Declaration d)
  */
 private bool checkPropertyCall(Expression e)
 {
-    while (e.op == TOK.comma)
-        e = (cast(CommaExp)e).e2;
+    e = lastComma(e);
 
     if (e.op == TOK.call)
     {
@@ -1105,9 +1142,7 @@ extern (C++) TemplateDeclaration getFuncTemplateDecl(Dsymbol s)
  */
 extern (C++) Expression valueNoDtor(Expression e)
 {
-    auto ex = e;
-    while (ex.op == TOK.comma)
-        ex = (cast(CommaExp)ex).e2;
+    auto ex = lastComma(e);
 
     if (ex.op == TOK.call)
     {
@@ -1729,6 +1764,16 @@ extern (C++) /* IN_LLVM abstract */ class Expression : RootObject
         else
             e1 = e2;
         return e1;
+    }
+
+    static Expression combine(Expression e1, Expression e2, Expression e3)
+    {
+        return combine(combine(e1, e2), e3);
+    }
+
+    static Expression combine(Expression e1, Expression e2, Expression e3, Expression e4)
+    {
+        return combine(combine(e1, e2), combine(e3, e4));
     }
 
     /**********************************
@@ -2541,7 +2586,7 @@ extern (C++) /* IN_LLVM abstract */ class Expression : RootObject
  */
 extern (C++) final class IntegerExp : Expression
 {
-    dinteger_t value;
+    private dinteger_t value;
 
     extern (D) this(const ref Loc loc, dinteger_t value, Type type)
     {
@@ -2556,7 +2601,7 @@ extern (C++) final class IntegerExp : Expression
             type = Type.terror;
         }
         this.type = type;
-        setInteger(value);
+        this.value = normalize(type.toBasetype().ty, value);
     }
 
     extern (D) this(dinteger_t value)
@@ -2593,18 +2638,19 @@ extern (C++) final class IntegerExp : Expression
 
     override dinteger_t toInteger()
     {
-        normalize(); // necessary until we fix all the paints of 'type'
-        return value;
+        // normalize() is necessary until we fix all the paints of 'type'
+        return value = normalize(type.toBasetype().ty, value);
     }
 
     override real_t toReal()
     {
-        normalize(); // necessary until we fix all the paints of 'type'
-        Type t = type.toBasetype();
-        if (t.ty == Tuns64)
-            return real_t(cast(d_uns64)value);
-        else
-            return real_t(cast(d_int64)value);
+        // normalize() is necessary until we fix all the paints of 'type'
+        const ty = type.toBasetype().ty;
+        const val = normalize(ty, value);
+        value = val;
+        return (ty == Tuns64)
+            ? real_t(cast(d_uns64)val)
+            : real_t(cast(d_int64)val);
     }
 
     override real_t toImaginary()
@@ -2645,60 +2691,60 @@ extern (C++) final class IntegerExp : Expression
 
     void setInteger(dinteger_t value)
     {
-        this.value = value;
-        normalize();
+        this.value = normalize(type.toBasetype().ty, value);
     }
 
-    void normalize()
+    static dinteger_t normalize(TY ty, dinteger_t value)
     {
         /* 'Normalize' the value of the integer to be in range of the type
          */
-        switch (type.toBasetype().ty)
+        dinteger_t result;
+        switch (ty)
         {
         case Tbool:
-            value = (value != 0);
+            result = (value != 0);
             break;
 
         case Tint8:
-            value = cast(d_int8)value;
+            result = cast(d_int8)value;
             break;
 
         case Tchar:
         case Tuns8:
-            value = cast(d_uns8)value;
+            result = cast(d_uns8)value;
             break;
 
         case Tint16:
-            value = cast(d_int16)value;
+            result = cast(d_int16)value;
             break;
 
         case Twchar:
         case Tuns16:
-            value = cast(d_uns16)value;
+            result = cast(d_uns16)value;
             break;
 
         case Tint32:
-            value = cast(d_int32)value;
+            result = cast(d_int32)value;
             break;
 
         case Tdchar:
         case Tuns32:
-            value = cast(d_uns32)value;
+            result = cast(d_uns32)value;
             break;
 
         case Tint64:
-            value = cast(d_int64)value;
+            result = cast(d_int64)value;
             break;
 
         case Tuns64:
-            value = cast(d_uns64)value;
+            result = cast(d_uns64)value;
             break;
 
         case Tpointer:
             if (Target.ptrsize == 4)
-                value = cast(d_uns32)value;
+                result = cast(d_uns32)value;
             else if (Target.ptrsize == 8)
-                value = cast(d_uns64)value;
+                result = cast(d_uns64)value;
             else
                 assert(0);
             break;
@@ -2706,6 +2752,7 @@ extern (C++) final class IntegerExp : Expression
         default:
             break;
         }
+        return result;
     }
 }
 
@@ -5345,6 +5392,47 @@ extern (C++) final class DotVarExp : UnaExp
         if (e1.op == TOK.this_)
             return var.checkModify(loc, sc, e1, flag);
 
+        /* https://issues.dlang.org/show_bug.cgi?id=12764
+         * If inside a constructor and an expression of type `this.field.var`
+         * is encountered, where `field` is a struct declaration with
+         * default construction disabled, we must make sure that
+         * assigning to `var` does not imply that `field` was initialized
+         */
+        if (sc.func)
+        {
+            auto ctd = sc.func.isCtorDeclaration();
+
+            // if inside a constructor scope and e1 of this DotVarExp
+            // is a DotVarExp, then check if e1.e1 is a `this` identifier
+            if (ctd && e1.op == TOK.dotVariable)
+            {
+                scope dve = cast(DotVarExp)e1;
+                if (dve.e1.op == TOK.this_)
+                {
+                    scope v = dve.var.isVarDeclaration();
+                    /* if v is a struct member field with no initializer, no default construction
+                     * and v wasn't intialized before
+                     */
+                    if (v && v.isField() && v.type.ty == Tstruct && !v._init && !v.ctorinit)
+                    {
+                        const sd = (cast(TypeStruct)v.type).sym;
+                        if (sd.noDefaultCtor)
+                        {
+                            /* checkModify will consider that this is an initialization
+                             * of v while it is actually an assignment of a field of v
+                             */
+                            scope modifyLevel = v.checkModify(loc, sc, dve.e1, flag);
+                            // reflect that assigning a field of v is not initialization of v
+                            v.ctorinit = false;
+                            if (modifyLevel == 2)
+                                return 1;
+                            return modifyLevel;
+                        }
+                    }
+                }
+            }
+        }
+
         //printf("\te1 = %s\n", e1.toChars());
         return e1.checkModifiable(sc, flag);
     }
@@ -5359,6 +5447,30 @@ extern (C++) final class DotVarExp : UnaExp
     override Expression toLvalue(Scope* sc, Expression e)
     {
         //printf("DotVarExp::toLvalue(%s)\n", toChars());
+        if (e1.op == TOK.this_ && sc.ctorflow.fieldinit.length && !(sc.ctorflow.callSuper & CSX.any_ctor))
+        {
+            if (VarDeclaration vd = var.isVarDeclaration())
+            {
+                auto ad = vd.isMember2();
+                if (ad && ad.fields.dim == sc.ctorflow.fieldinit.length)
+                {
+                    foreach (i, f; ad.fields)
+                    {
+                        if (f == vd)
+                        {
+                            if (!(sc.ctorflow.fieldinit[i] & CSX.this_ctor))
+                            {
+                                /* If the address of vd is taken, assume it is thereby initialized
+                                 * https://issues.dlang.org/show_bug.cgi?id=15869
+                                 */
+                                modifyFieldVar(loc, sc, vd, e1);
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
         return this;
     }
 
@@ -5687,6 +5799,12 @@ extern (C++) final class AddrExp : UnaExp
     extern (D) this(const ref Loc loc, Expression e)
     {
         super(loc, TOK.address, __traits(classInstanceSize, AddrExp), e);
+    }
+
+    extern (D) this(const ref Loc loc, Expression e, Type t)
+    {
+        this(loc, e);
+        type = t;
     }
 
     override void accept(Visitor v)
@@ -7099,7 +7217,7 @@ extern (C++) final class CondExp : BinExp
     {
         extern (C++) final class DtorVisitor : StoppableVisitor
         {
-            alias visit = super.visit;
+            alias visit = typeof(super).visit;
         public:
             Scope* sc;
             CondExp ce;

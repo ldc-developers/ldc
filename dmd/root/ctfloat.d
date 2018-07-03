@@ -21,26 +21,16 @@ import core.stdc.string;
 nothrow:
 
 // Type used by the front-end for compile-time reals
-version(IN_LLVM_MSVC)
-    alias real_t = double;
-else version(IN_LLVM)
-    alias real_t = real;
-else
-    public import dmd.root.longdouble : real_t = longdouble;
+public import dmd.root.longdouble : real_t = longdouble;
 
 private
 {
     version(CRuntime_DigitalMars) __gshared extern (C) extern const(char)* __locale_decpoint;
 
-    // IN_LLVM replaced: version(CRuntime_Microsoft) extern (C++)
-    version(none) extern (C++)
+    version(CRuntime_Microsoft) extern (C++)
     {
-        static if (is(real_t == real))
-            struct longdouble { real_t r; }
-        else
-            import dmd.root.longdouble : longdouble;
-        size_t ld_sprint(char* str, int fmt, longdouble x);
-        longdouble strtold_dm(const(char)* p, char** endp);
+        public import dmd.root.longdouble : longdouble_soft, ld_sprint;
+        longdouble_soft strtold_dm(const(char)* p, char** endp);
     }
 }
 
@@ -70,8 +60,7 @@ extern (C++) struct CTFloat
             assert(0);
     }
 
-    // IN_LLVM: changed from `static if (!is(real_t == real))`
-    version(none)
+    static if (!is(real_t == real))
     {
         alias sin = dmd.root.longdouble.sinl;
         alias cos = dmd.root.longdouble.cosl;
@@ -90,8 +79,7 @@ extern (C++) struct CTFloat
         static real_t ldexp(real_t n, int exp) { return core.math.ldexp(n, exp); }
     }
 
-    // IN_LLVM: changed from `static if (!is(real_t == real))`
-    version(none)
+    static if (!is(real_t == real))
     {
         static real_t round(real_t x) { return real_t(cast(double)core.stdc.math.roundl(cast(double)x)); }
         static real_t floor(real_t x) { return real_t(cast(double)core.stdc.math.floor(cast(double)x)); }
@@ -129,9 +117,18 @@ extern (C++) struct CTFloat
   {
     static import std.math;
 
-    static real_t exp(real_t x) { return core.stdc.math.expl(x); }
-    static real_t rint(real_t x) { return std.math.rint(x); }
-    static real_t nearbyint(real_t x) { return std.math.nearbyint(x); }
+    static if (!is(real_t == real))
+    {
+        static real_t exp(real_t x) { return real_t(cast(double)core.stdc.math.expl(cast(double)x)); }
+        static real_t rint(real_t x) { return real_t(cast(double)std.math.rint(cast(double)x)); }
+        static real_t nearbyint(real_t x) { return real_t(cast(double)std.math.nearbyint(cast(double)x)); }
+    }
+    else
+    {
+        static real_t exp(real_t x) { return core.stdc.math.expl(x); }
+        static real_t rint(real_t x) { return std.math.rint(x); }
+        static real_t nearbyint(real_t x) { return std.math.nearbyint(x); }
+    }
 
     static void _init();
 
@@ -177,9 +174,9 @@ extern (C++) struct CTFloat
     //  doesn't match with the C++ header.
     // add a wrapper just for isSNaN as this is the only function called from C++
     version(CRuntime_Microsoft) static if (is(real_t == real))
-        static bool isSNaN(longdouble ld)
+        static bool isSNaN(longdouble_soft ld)
         {
-            return isSNaN(ld.r);
+            return isSNaN(cast(real)ld);
         }
   }
 
@@ -205,10 +202,7 @@ else
         }
         version(CRuntime_Microsoft)
         {
-            version(LDC)
-                auto r = strtold_dm(literal, null);
-            else
-                auto r = strtold_dm(literal, null).r;
+            auto r = cast(real_t) strtold_dm(literal, null);
         }
         else
             auto r = strtold(literal, null);
@@ -221,10 +215,9 @@ else
 
     static int sprint(char* str, char fmt, real_t x)
     {
-        // IN_LLVM replaced: version(CRuntime_Microsoft)
-        version(none)
+        version(CRuntime_Microsoft)
         {
-            return cast(int)ld_sprint(str, fmt, longdouble(x));
+            return cast(int)ld_sprint(str, fmt, longdouble_soft(x));
         }
         else
         {

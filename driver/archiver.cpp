@@ -37,7 +37,7 @@ using namespace llvm;
 /* Unlike the llvm-lib driver, llvm-ar is not available as library; it's
  * unfortunately a separate tool.
  * The following is a stripped-down version of LLVM's
- * `tools/llvm-ar/llvm-ar.cpp` (based on early LLVM 5.0), as LDC only needs
+ * `tools/llvm-ar/llvm-ar.cpp` (based on LLVM 6.0), as LDC only needs
  * support for `llvm-ar rcs <archive name> <member> ...`.
  * It also makes sure the process isn't simply exited whenever a problem arises.
  */
@@ -52,33 +52,27 @@ bool Thin = false;
 
 void fail(Twine Error) { errs() << "llvm-ar: " << Error << ".\n"; }
 
-void fail(std::error_code EC, std::string Context = {}) {
-  if (Context.empty())
-    fail(EC.message());
-  else
-    fail(Context + ": " + EC.message());
+void fail(std::error_code EC, StringRef Context = {}) {
+  fail(Context.empty() ? EC.message() : Context + ": " + EC.message());
 }
 
-void fail(Error E, std::string Context = {}) {
-  if (!Context.empty())
-    Context += ": ";
-
+void fail(Error E, StringRef Context = {}) {
   handleAllErrors(std::move(E), [&](const ErrorInfoBase &EIB) {
-    if (Context.empty())
-      fail(EIB.message());
-    else
-      fail(Context + EIB.message());
+    fail(Context.empty() ? EIB.message() : Context + ": " + EIB.message());
   });
 }
+
+#define failIfError(Error, Context) \
+  if (auto _E = (Error)) { \
+    fail(std::move(_E), (Context)); \
+    return 1; \
+  }
 
 int addMember(std::vector<NewArchiveMember> &Members, StringRef FileName,
               int Pos = -1) {
   Expected<NewArchiveMember> NMOrErr =
       NewArchiveMember::getFile(FileName, Deterministic);
-  if (auto Error = NMOrErr.takeError()) {
-    fail(std::move(Error), FileName);
-    return 1;
-  }
+  failIfError(NMOrErr.takeError(), FileName);
 
 #if LDC_LLVM_VER >= 500
   // Use the basename of the object path for the member name.
@@ -89,6 +83,7 @@ int addMember(std::vector<NewArchiveMember> &Members, StringRef FileName,
     Members.push_back(std::move(*NMOrErr));
   else
     Members[Pos] = std::move(*NMOrErr);
+
   return 0;
 }
 
@@ -100,14 +95,12 @@ int addMember(std::vector<NewArchiveMember> &Members,
   }
   Expected<NewArchiveMember> NMOrErr =
       NewArchiveMember::getOldMember(M, Deterministic);
-  if (auto Error = NMOrErr.takeError()) {
-    fail(std::move(Error));
-    return 1;
-  }
+  failIfError(NMOrErr.takeError(), "");
   if (Pos == -1)
     Members.push_back(std::move(*NMOrErr));
   else
     Members[Pos] = std::move(*NMOrErr);
+
   return 0;
 }
 
@@ -116,16 +109,12 @@ int computeNewArchiveMembers(object::Archive *OldArchive,
   if (OldArchive) {
     Error Err = Error::success();
     for (auto &Child : OldArchive->children(Err)) {
-#if LDC_LLVM_VER < 400
       auto NameOrErr = Child.getName();
-      if (auto Error = NameOrErr.getError()) {
+#if LDC_LLVM_VER < 400
+      failIfError(NameOrErr.getError(), "");
 #else
-      Expected<StringRef> NameOrErr = Child.getName();
-      if (auto Error = NameOrErr.takeError()) {
+      failIfError(NameOrErr.takeError(), "");
 #endif
-        fail(std::move(Error));
-        return 1;
-      }
       StringRef Name = NameOrErr.get();
 
       auto MemberI = find_if(Members, [Name](StringRef Path) {
@@ -133,18 +122,17 @@ int computeNewArchiveMembers(object::Archive *OldArchive,
       });
 
       if (MemberI == Members.end()) {
+        // add old member
         if (int Status = addMember(Ret, Child))
           return Status;
       } else {
+        // new member replaces old one with same name at old position
         if (int Status = addMember(Ret, *MemberI))
           return Status;
         Members.erase(MemberI);
       }
     }
-    if (Err) {
-      fail(std::move(Err));
-      return 1;
-    }
+    failIfError(std::move(Err), "");
   }
 
   const int InsertPos = Ret.size();
@@ -208,23 +196,15 @@ int performWriteOperation(object::Archive *OldArchive,
                    std::move(OldArchiveBuf));
 
 #if LDC_LLVM_VER >= 600
-  if (Result) {
-    handleAllErrors(std::move(Result), [](ErrorInfoBase &EIB) {
-      fail("error writing '" + ArchiveName + "': " + EIB.message());
-    });
-    return 1;
-  }
+  failIfError(std::move(Result), ("error writing '" + ArchiveName + "'").str());
 #else
-  if (Result.second) {
-    fail(Result.second, Result.first);
-    return 1;
-  }
+  failIfError(Result.second, ("error writing '" + ArchiveName + "'").str());
 #endif
 
   return 0;
 }
 
-int performWriteOperation() {
+int performOperation() {
   if (!sys::fs::exists(ArchiveName)) {
     return performWriteOperation(nullptr, nullptr);
   }
@@ -232,18 +212,12 @@ int performWriteOperation() {
   // Open the archive object.
   auto Buf = MemoryBuffer::getFile(ArchiveName, -1, false);
   std::error_code EC = Buf.getError();
-  if (EC) {
-    fail(EC, ("error opening '" + ArchiveName + "'").str());
-    return 1;
-  }
+  failIfError(EC, ("error opening '" + ArchiveName + "'").str());
 
   Error Err = Error::success();
   object::Archive Archive(Buf.get()->getMemBufferRef(), Err);
   EC = errorToErrorCode(std::move(Err));
-  if (EC) {
-    fail(EC, ("error loading '" + ArchiveName + "'").str());
-    return 1;
-  }
+  failIfError(EC, ("error loading '" + ArchiveName + "'").str());
   return performWriteOperation(&Archive, std::move(Buf.get()));
 }
 
@@ -269,7 +243,7 @@ int internalAr(ArrayRef<const char *> args) {
   llvm_ar::Members.insert(llvm_ar::Members.end(), membersSlice.begin(),
                           membersSlice.end());
 
-  return llvm_ar::performWriteOperation();
+  return llvm_ar::performOperation();
 }
 
 int internalLib(ArrayRef<const char *> args) {

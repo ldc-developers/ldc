@@ -62,78 +62,12 @@ struct Target
         bool cppExceptions;       /// set if catching C++ exceptions is supported
         char int64Mangle;         /// mangling character for C++ int64_t
         char uint64Mangle;        /// mangling character for C++ uint64_t
+        bool twoDtorInVtable;     /// target C++ ABI puts deleting and non-deleting destructor into vtable
     }
 
-  version(IN_LLVM)
-  {
-    extern (C++):
-
-    struct FPTypeProperties
-    {
-        real_t max, min_normal, nan, snan, infinity, epsilon;
-        d_int64 dig, mant_dig, max_exp, min_exp, max_10_exp, min_10_exp;
-
-        static FPTypeProperties fromDHostCompiler(T)()
-        {
-            FPTypeProperties p;
-
-            p.max = T.max;
-            p.min_normal = T.min_normal;
-            p.nan = T.nan;
-            p.snan = T.init;
-            p.infinity = T.infinity;
-            p.epsilon = T.epsilon;
-
-            p.dig = T.dig;
-            p.mant_dig = T.mant_dig;
-            p.max_exp = T.max_exp;
-            p.min_exp = T.min_exp;
-            p.max_10_exp = T.max_10_exp;
-            p.min_10_exp = T.min_10_exp;
-
-            return p;
-        }
-    }
-
-    static __gshared FPTypeProperties FloatProperties = FPTypeProperties.fromDHostCompiler!float();
-    static __gshared FPTypeProperties DoubleProperties = FPTypeProperties.fromDHostCompiler!double();
-    static __gshared FPTypeProperties RealProperties = FPTypeProperties.fromDHostCompiler!real_t();
-
-    // implemented in gen/target.cpp:
-    static void _init();
-    // Type sizes and support.
-    static uint alignsize(Type type);
-    static uint fieldalign(Type type);
-    static uint critsecsize();
-    static Type va_listType();  // get type of va_list
-    static int isVectorTypeSupported(int sz, Type type);
-    static bool isVectorOpSupported(Type type, TOK op, Type t2 = null);
-    // CTFE support for cross-compilation.
-    static Expression paintAsType(Expression e, Type type);
-    // ABI and backend.
-    static void loadModule(Module m);
-
-    static const(char)* toCppMangle(Dsymbol s)
-    {
-        if (isTargetWindowsMSVC())
-            return toCppMangleMSVC(s);
-        else
-            return toCppMangleItanium(s);
-    }
-
-    static const(char)* cppTypeInfoMangle(ClassDeclaration cd)
-    {
-        if (isTargetWindowsMSVC())
-            return cppTypeInfoMangleMSVC(cd);
-        else
-            return cppTypeInfoMangleItanium(cd);
-    }
-  }
-  else // !IN_LLVM
-  {
     /**
-     * Values representing all properties for floating point types
-     */
+    * Values representing all properties for floating point types
+    */
     extern (C++) struct FPTypeProperties(T)
     {
         static __gshared
@@ -170,6 +104,42 @@ struct Target
     ///
     alias RealProperties = FPTypeProperties!real_t;
 
+  version(IN_LLVM)
+  {
+    extern (C++):
+
+    // implemented in gen/target.cpp:
+    static void _init();
+    // Type sizes and support.
+    static uint alignsize(Type type);
+    static uint fieldalign(Type type);
+    static uint critsecsize();
+    static Type va_listType();  // get type of va_list
+    static int isVectorTypeSupported(int sz, Type type);
+    static bool isVectorOpSupported(Type type, TOK op, Type t2 = null);
+    // CTFE support for cross-compilation.
+    static Expression paintAsType(Expression e, Type type);
+    // ABI and backend.
+    static void loadModule(Module m);
+
+    static const(char)* toCppMangle(Dsymbol s)
+    {
+        if (isTargetWindowsMSVC())
+            return toCppMangleMSVC(s);
+        else
+            return toCppMangleItanium(s);
+    }
+
+    static const(char)* cppTypeInfoMangle(ClassDeclaration cd)
+    {
+        if (isTargetWindowsMSVC())
+            return cppTypeInfoMangleMSVC(cd);
+        else
+            return cppTypeInfoMangleItanium(cd);
+    }
+  }
+  else // !IN_LLVM
+  {
     /**
      * Initialize the Target
      */
@@ -203,6 +173,7 @@ struct Target
             realpad = 2;
             realalignsize = 4;
             c_longsize = 4;
+            twoDtorInVtable = true;
         }
         else if (global.params.isOSX)
         {
@@ -210,6 +181,7 @@ struct Target
             realpad = 6;
             realalignsize = 16;
             c_longsize = 4;
+            twoDtorInVtable = true;
         }
         else if (global.params.isWindows)
         {
@@ -217,6 +189,7 @@ struct Target
             realpad = 0;
             realalignsize = 2;
             reverseCppOverloads = true;
+            twoDtorInVtable = false;
             c_longsize = 4;
             if (ptrsize == 4)
             {

@@ -264,9 +264,9 @@ jobs:
     environment:
       - CI_OS: linux
       - LLVM_VERSION: 6.0.0
-      - HOST_LDC_VERSION: 1.8.0
+      - HOST_LDC_VERSION: 1.10.0
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_LTO_LIBS=ON -DD_FLAGS='-w;-flto=thin' -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
-      - DUB_VERSION: v1.8.1
+      - DUB_VERSION: v1.9.0
   build-osx:
     <<: *commonSteps
     macos:
@@ -276,10 +276,10 @@ jobs:
       - MACOSX_DEPLOYMENT_TARGET: 10.8
       - USE_LIBCPP: true
       - LLVM_VERSION: 6.0.0
-      - HOST_LDC_VERSION: 1.8.0
+      - HOST_LDC_VERSION: 1.10.0
       - BOOTSTRAP_CMAKE_FLAGS: "-DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_LTO_LIBS=ON -DD_FLAGS='-w;-flto=thin' -DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
-      - DUB_VERSION: v1.8.1
+      - DUB_VERSION: v1.9.0
 
 workflows:
   version: 2

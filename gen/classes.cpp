@@ -529,7 +529,7 @@ static LLConstant *build_offti_array(ClassDeclaration *cd, LLType *arrayT) {
 #endif // GENERATE_OFFTI
 
 static LLConstant *build_class_dtor(ClassDeclaration *cd) {
-  FuncDeclaration *dtor = cd->dtor;
+  FuncDeclaration *dtor = cd->tidtor;
 
   // if no destructor emit a null
   if (!dtor) {

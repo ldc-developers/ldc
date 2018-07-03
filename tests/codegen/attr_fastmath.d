@@ -38,7 +38,7 @@ extern (C) double fast(double a, double b)
 // CHECK: fmul fast
         c += a * b;
     }
-    catch
+    catch (Throwable)
     {
 // CHECK: fmul fast
         return a * b;
