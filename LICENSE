@@ -23,10 +23,12 @@ Libraries (lib/ and import/ in binary packages):
    Phobos (runtime/phobos), is distributed under the terms of the Boost
    Software License. See the individual source files for author information.
 
- - **TODO** The ldc-jit-rt library is distributed under the terms of the
+ - Most of the ldc-jit-rt library is licensed under the terms of the
    Boost Software license (but additionally makes use of LLVM code).
    Additionally it incorporates some code from compiler (gen/passes/* and parts
-   of gen/optimizer.cpp). **TODO**
+   of gen/optimizer.cpp) which are under "three-clause BSD" LDC license.
+   They can be omitted if you build runtime with
+   LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES=OFF.
 
  - The profile-rt runtime library (runtime/profile-rt) is a copy of LLVM's
    compiler-rt/profile library with a small D source addition. It is dual
