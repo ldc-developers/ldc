@@ -32,9 +32,12 @@
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 #include "context.h"
-#include "Passes.h"
 #include "utils.h"
 #include "valueparser.h"
+
+#ifdef LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES
+#include "Passes.h"
+#endif
 
 namespace {
 namespace cl = llvm::cl;
@@ -43,6 +46,7 @@ cl::opt<bool>
                cl::desc("Run verifier after D-specific and explicitly "
                         "specified optimization passes"));
 
+#ifdef LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES
 cl::opt<bool>
     disableLangSpecificPasses("disable-d-passes", cl::ZeroOrMore,
                               cl::desc("Disable all D-specific passes"));
@@ -58,6 +62,7 @@ cl::opt<bool> disableSimplifyLibCalls(
 cl::opt<bool> disableGCToStack(
     "disable-gc2stack", cl::ZeroOrMore,
     cl::desc("Disable promotion of GC allocations to stack memory"));
+#endif
 
 cl::opt<bool> stripDebug(
     "strip-debug", cl::ZeroOrMore,
@@ -74,6 +79,7 @@ cl::opt<bool>
     disableSLPVectorization("disable-slp-vectorization", cl::ZeroOrMore,
                             cl::desc("Disable the slp vectorization pass"));
 
+#ifdef LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES
 void addPass(llvm::PassManagerBase &pm, llvm::Pass *pass) {
   pm.add(pass);
 
@@ -103,6 +109,7 @@ void addGarbageCollect2StackPass(const llvm::PassManagerBuilder &builder,
     addPass(pm, createGarbageCollect2Stack());
   }
 }
+#endif
 
 // TODO: share this function with compiler
 void addOptimizationPasses(llvm::legacy::PassManagerBase &mpm,
@@ -144,9 +151,9 @@ void addOptimizationPasses(llvm::legacy::PassManagerBase &mpm,
       disableSLPVectorization ? false : optLevel > 1 && sizeLevel < 2;
 
   // TODO: sanitizers support in jit?
-  // TODO: addStripExternalsPass?
   // TODO: PGO support in jit?
 
+#ifdef LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES
   if (!disableLangSpecificPasses) {
     if (!disableSimplifyDruntimeCalls) {
       builder.addExtension(llvm::PassManagerBuilder::EP_LoopOptimizerEnd,
@@ -162,6 +169,7 @@ void addOptimizationPasses(llvm::legacy::PassManagerBase &mpm,
   // EP_OptimizerLast does not exist in LLVM 3.0, add it manually below.
   builder.addExtension(llvm::PassManagerBuilder::EP_OptimizerLast,
                        addStripExternalsPass);
+#endif
 
   builder.populateFunctionPassManager(fpm);
   builder.populateModulePassManager(mpm);

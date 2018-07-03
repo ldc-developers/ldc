@@ -6,8 +6,14 @@ if(LDC_DYNAMIC_COMPILE)
     file(GLOB LDC_JITRT_H ${JITRT_DIR}/cpp/*.h)
     file(GLOB LDC_JITRT_SO_CXX ${JITRT_DIR}/cpp-so/*.cpp)
     file(GLOB LDC_JITRT_SO_H ${JITRT_DIR}/cpp-so/*.h)
-    file(GLOB LDC_JITRT_SO_PASSES_CXX ${CMAKE_SOURCE_DIR}/gen/passes/*.cpp)
-    file(GLOB LDC_JITRT_SO_PASSES_H ${CMAKE_SOURCE_DIR}/gen/passes/*.h)
+    message(STATUS "Use custom passes in jit: ${LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES}")
+    if(LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES)
+        file(GLOB LDC_JITRT_SO_PASSES_CXX ${CMAKE_SOURCE_DIR}/gen/passes/*.cpp)
+        file(GLOB LDC_JITRT_SO_PASSES_H ${CMAKE_SOURCE_DIR}/gen/passes/*.h)
+    else()
+        set(LDC_JITRT_SO_PASSES_CXX "")
+        set(LDC_JITRT_SO_PASSES_H "")
+    endif()
 
     # Set compiler-dependent flags
     if(MSVC)
@@ -71,6 +77,10 @@ if(LDC_DYNAMIC_COMPILE)
             ON
         )
         set_target_properties(ldc-jit-rt-so${target_suffix} PROPERTIES LINKER_LANGUAGE CXX)
+
+        if(LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES)
+            target_compile_definitions(ldc-jit-rt-so${target_suffix} PRIVATE LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES)
+        endif()
 
         target_include_directories(ldc-jit-rt-so${target_suffix}
             PRIVATE ${CMAKE_SOURCE_DIR}/gen/passes/)
