@@ -112,8 +112,11 @@ if (config.llvm_version >= 309):
         if ("plugin: missing argument" in text and os.path.isfile(config.ldc2_lib_dir + '/LLVMgold-ldc.so')):
             canDoLTO = True
     elif (platform.system() == 'Windows'):
-        if (subprocess.call(["lld-link.exe", "--version"]) == 0):
-            canDoLTO = True
+        try:
+            if (subprocess.call(["lld-link.exe", "--version"]) == 0):
+                canDoLTO = True
+        except OSError:
+            pass
 if canDoLTO:
     config.available_features.add('LTO')
 
