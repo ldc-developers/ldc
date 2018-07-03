@@ -441,7 +441,10 @@ struct BindPayload(OF, F, int[] Index, Args...)
  + Returns false on error.
  +
  + This function is not thread-safe.
- + import ldc.attributes, ldc.dynamic_compile,
+ +
+ + Example:
+ + ---
+ + import ldc.attributes, ldc.dynamic_compile;
  +
  + auto res = setDynamicCompilerOptions(["-disable-gc2stack"]);
  + assert(res);
