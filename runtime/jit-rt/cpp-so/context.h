@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Jit compilation context, must be in sync with runtimecompile.d.
+// Jit compilation context, must be in sync with dynamiccompile.d.
 //
 //===----------------------------------------------------------------------===//
 
@@ -24,6 +24,12 @@ enum class DumpStage : int {
 };
 
 enum { ApiVersion = LDC_DYNAMIC_COMPILE_API_VERSION };
+
+#ifdef _WIN32
+#define EXTERNAL __declspec(dllexport)
+#else
+#define EXTERNAL __attribute__((visibility("default")))
+#endif
 
 #define MAKE_JIT_API_CALL_IMPL(prefix, version) prefix##version
 #define MAKE_JIT_API_CALL(prefix, version)                                     \

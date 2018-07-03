@@ -290,14 +290,8 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
 } // anon namespace
 
 extern "C" {
-
-#ifdef _WIN32
-__declspec(dllexport)
-#else
-__attribute__ ((visibility ("default")))
-#endif
-void JIT_API_ENTRYPOINT(const void *modlist_head, const Context *context,
-                        size_t contextSize) {
+EXTERNAL void JIT_API_ENTRYPOINT(const void *modlist_head,
+                                 const Context *context, size_t contextSize) {
   assert(nullptr != context);
   assert(sizeof(*context) == contextSize);
   rtCompileProcessImplSoInternal(
