@@ -113,7 +113,7 @@ build_script:
   - md bootstrap
   - cd bootstrap
   - cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=c:/projects/llvm ..\ldc
-  - ninja -j3 all
+  - ninja -j2 all
   - cd ..
   # Build LDC and stdlib unittest runners
   - md ninja-ldc
