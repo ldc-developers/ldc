@@ -12,7 +12,7 @@ environment:
   matrix:
     - APPVEYOR_JOB_ARCH:           x64
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-      LLVM_VERSION:                6.0.0
+      LLVM_VERSION:                6.0.1
       HOST_LDC_VERSION:            1.10.0
       DUB_VERSION:                 v1.9.0
     - APPVEYOR_JOB_ARCH:           x86
@@ -140,13 +140,7 @@ test_script:
   - set DMD_TESTSUITE_MAKE_ARGS=-j2
   - ctest -V -R "dmd-testsuite"
   # Run stdlib unittests
-  - ps: |
-        If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
-          # Exclude std.random unittests with enabled optimizations.
-          ctest -j2 --output-on-failure -E 'dmd-testsuite|lit-tests|ldc2-unittest|^std\.random$'
-        } Else {
-          ctest -j2 --output-on-failure -E 'dmd-testsuite|lit-tests|ldc2-unittest'
-        }
+  - ctest -j2 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
 
 #---------------------------------#
 #     deployment configuration    #
