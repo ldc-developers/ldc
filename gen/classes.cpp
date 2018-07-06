@@ -65,11 +65,6 @@ void DtoResolveClass(ClassDeclaration *cd) {
     getIrField(vd, true);
   }
 
-  // emit the interfaceInfosZ symbol if necessary
-  if (cd->vtblInterfaces && cd->vtblInterfaces->dim > 0) {
-    irAggr->getInterfaceArraySymbol(); // initializer is applied when it's built
-  }
-
   // interface only emit typeinfo and classinfo
   if (cd->isInterfaceDeclaration()) {
     irAggr->initializeInterface();
