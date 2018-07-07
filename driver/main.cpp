@@ -738,10 +738,15 @@ void registerPredefinedTargetVersions() {
         "S390X"); // For backwards compatibility.
     VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
     break;
+  case llvm::Triple::wasm32:
+    VersionCondition::addPredefinedGlobalIdent("WebAssembly32");
+    break;
+  case llvm::Triple::wasm64:
+    VersionCondition::addPredefinedGlobalIdent("WebAssembly64");
+    break;
   default:
-    error(Loc(), "invalid cpu architecture specified: %s",
-          triple.getArchName().str().c_str());
-    fatal();
+    warning(Loc(), "unknown target CPU architecture: %s",
+            triple.getArchName().str().c_str());
   }
 
   // endianness
@@ -847,8 +852,8 @@ void registerPredefinedTargetVersions() {
   default:
     if (triple.getEnvironment() == llvm::Triple::Android) {
       VersionCondition::addPredefinedGlobalIdent("Android");
-    } else {
-      warning(Loc(), "unknown OS for target '%s'", triple.str().c_str());
+    } else if (triple.getOSName() != "unknown") {
+      warning(Loc(), "unknown target OS: %s", triple.getOSName().str().c_str());
     }
     break;
   }
