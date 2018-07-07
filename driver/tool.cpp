@@ -177,10 +177,20 @@ int executeToolAndWait(const std::string &tool_,
   // First entry is the tool itself, last entry must be NULL.
   auto realargs = getFullArgs(tool, args, verbose);
   realargs.push_back(nullptr);
+#if LDC_LLVM_VER >= 700
+  std::vector<llvm::StringRef> argv;
+  argv.reserve(realargs.size());
+  for (auto &&arg : realargs)
+    argv.push_back(arg);
+  auto envVars = llvm::None;
+#else
+  auto argv = &realargs[0];
+  auto envVars = nullptr;
+#endif
 
   // Execute tool.
   std::string errstr;
-  if (int status = llvm::sys::ExecuteAndWait(tool, &realargs[0], nullptr,
+  if (int status = llvm::sys::ExecuteAndWait(tool, argv, envVars,
 #if LDC_LLVM_VER >= 600
                                              {},
 #else
