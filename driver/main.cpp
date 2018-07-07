@@ -102,7 +102,8 @@ static cl::list<std::string, StringsAdapter>
 // This function exits the program.
 void printVersion(llvm::raw_ostream &OS) {
   OS << "LDC - the LLVM D compiler (" << global.ldc_version << "):\n";
-  OS << "  based on DMD " << global.version << " and LLVM " << global.llvm_version << "\n";
+  OS << "  based on DMD " << global.version << " and LLVM "
+     << global.llvm_version << "\n";
   OS << "  built with " << ldc::built_with_Dcompiler_version << "\n";
 #if defined(__has_feature)
 #if __has_feature(address_sanitizer)
@@ -124,9 +125,9 @@ void printVersion(llvm::raw_ostream &OS) {
 
   llvm::TargetRegistry::printRegisteredTargetsForVersion(
 #if LDC_LLVM_VER >= 600
-    OS
+      OS
 #endif
-    );
+  );
 
   exit(EXIT_SUCCESS);
 }
@@ -136,7 +137,6 @@ void printVersionStdout() {
   printVersion(llvm::outs());
   assert(false);
 }
-
 
 namespace {
 
@@ -184,7 +184,8 @@ void processTransitions(std::vector<std::string> &list) {
              "  =field,3449    list all non-mutable fields which occupy an "
              "object instance\n"
              "  =import,10378  revert to single phase name lookup\n"
-             "  =intpromote,16997 fix integral promotions for unary + - ~ operators\n"
+             "  =intpromote,16997 fix integral promotions for unary + - ~ "
+             "operators\n"
              "  =tls           list all variables going into thread local "
              "storage\n");
       exit(EXIT_SUCCESS);
@@ -503,11 +504,14 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
 
   // -release downgrades default checks
   if (global.params.useArrayBounds == CHECKENABLEdefault)
-    global.params.useArrayBounds = global.params.release ? CHECKENABLEsafeonly : CHECKENABLEon;
+    global.params.useArrayBounds =
+        global.params.release ? CHECKENABLEsafeonly : CHECKENABLEon;
   if (global.params.useAssert == CHECKENABLEdefault)
-    global.params.useAssert = global.params.release ? CHECKENABLEoff : CHECKENABLEon;
+    global.params.useAssert =
+        global.params.release ? CHECKENABLEoff : CHECKENABLEon;
   if (global.params.useSwitchError == CHECKENABLEdefault)
-    global.params.useSwitchError = global.params.release ? CHECKENABLEoff : CHECKENABLEon;
+    global.params.useSwitchError =
+        global.params.release ? CHECKENABLEoff : CHECKENABLEon;
 
   // LDC output determination
 
@@ -602,8 +606,7 @@ static void registerMipsABI() {
 }
 
 // Check if triple environment name starts with "uclibc" and change it to "gnu"
-void fixupUClibcEnv()
-{
+void fixupUClibcEnv() {
   llvm::Triple triple(mTargetTriple);
   if (triple.getEnvironmentName().find("uclibc") != 0)
     return;
@@ -1059,9 +1062,7 @@ int cppmain(int argc, char **argv) {
   return mars_mainBody(files, libmodules);
 }
 
-void addDefaultVersionIdentifiers() {
-  registerPredefinedVersions();
-}
+void addDefaultVersionIdentifiers() { registerPredefinedVersions(); }
 
 void codegenModules(Modules &modules) {
   // Generate one or more object/IR/bitcode files/dcompute kernels.
@@ -1084,8 +1085,7 @@ void codegenModules(Modules &modules) {
 
       const auto atCompute = hasComputeAttr(m);
       if (atCompute == DComputeCompileFor::hostOnly ||
-           atCompute == DComputeCompileFor::hostAndDevice)
-      {
+          atCompute == DComputeCompileFor::hostAndDevice) {
         cg.emit(m);
       }
       if (atCompute != DComputeCompileFor::hostOnly) {
@@ -1106,7 +1106,7 @@ void codegenModules(Modules &modules) {
     }
 
     if (!computeModules.empty()) {
-      for (auto& mod : computeModules)
+      for (auto &mod : computeModules)
         dccg.emit(mod);
 
       dccg.writeModules();
@@ -1114,7 +1114,6 @@ void codegenModules(Modules &modules) {
     // We may have removed all object files, if so don't link.
     if (global.params.objfiles.dim == 0)
       global.params.link = false;
-
   }
 
   cache::pruneCache();
