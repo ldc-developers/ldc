@@ -656,7 +656,7 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
     argsBuilder.build(outputPath, defaultLibNames);
 
     const auto fullArgs =
-        getFullArgs("ld.lld", argsBuilder.args, global.params.verbose);
+        getFullArgs("lld", argsBuilder.args, global.params.verbose);
 
     // CanExitEarly == true means that LLD can and will call `exit()` when errors occur.
     const bool CanExitEarly = false;
@@ -670,6 +670,10 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
 #else
       success = lld::mach_o::link(fullArgs);
 #endif
+    } else if (global.params.targetTriple->isOSBinFormatCOFF()) {
+      success = lld::mingw::link(fullArgs);
+    } else if (global.params.targetTriple->isOSBinFormatWasm()) {
+      success = lld::wasm::link(fullArgs, CanExitEarly);
     } else {
       error(Loc(), "unknown target binary format for internal linking");
     }

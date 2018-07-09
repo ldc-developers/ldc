@@ -88,6 +88,9 @@ static std::string getOutputName() {
     extension = global.dll_ext;
   } else if (triple.isOSWindows()) {
     extension = "exe";
+  } else if (triple.getArch() == llvm::Triple::wasm32 ||
+             triple.getArch() == llvm::Triple::wasm64) {
+    extension = "wasm";
   }
 
   if (global.params.exefile) {

@@ -230,7 +230,15 @@ LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
 }
 
 bool supportsCOMDAT() {
-  return !global.params.targetTriple->isOSBinFormatMachO();
+  const auto &triple = *global.params.targetTriple;
+  return !(triple.isOSBinFormatMachO() ||
+#if LDC_LLVM_VER >= 500
+           triple.isOSBinFormatWasm()
+#else
+           triple.getArch() == llvm::Triple::wasm32 ||
+           triple.getArch() == llvm::Triple::wasm64
+#endif
+  );
 }
 
 void setLinkage(LinkageWithCOMDAT lwc, llvm::GlobalObject *obj) {
