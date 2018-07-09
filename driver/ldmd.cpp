@@ -106,8 +106,19 @@ char *concat(const char *a, int b) {
  * Runs the given executable, returning its error code.
  */
 int execute(const std::string &exePath, const char **args) {
+#if LDC_LLVM_VER >= 700
+  std::vector<llvm::StringRef> argv;
+  for (auto arg = args; arg != nullptr; ++arg) {
+    argv.push_back(*arg);
+  }
+  auto envVars = llvm::None;
+#else
+  auto argv = args;
+  auto envVars = nullptr;
+#endif
+
   std::string errorMsg;
-  int rc = ls::ExecuteAndWait(exePath, args, nullptr,
+  int rc = ls::ExecuteAndWait(exePath, argv, envVars,
 #if LDC_LLVM_VER >= 600
                               {},
 #else
