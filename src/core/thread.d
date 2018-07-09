@@ -4092,6 +4092,7 @@ version( LDC )
     version( Android )
     {
         version( ARM ) version = CheckFiberMigration;
+        version( AArch64 ) version = CheckFiberMigration;
     }
 }
 
