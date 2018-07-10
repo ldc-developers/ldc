@@ -89,14 +89,13 @@ public:
       }
 
       // Emit TypeInfo.
-      DtoTypeInfoOf(decl->type, /*base=*/false);
-
-      // Declare __InterfaceZ.
-      IrAggr *ir = getIrAggr(decl);
-      llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
-      // Only define if not speculative.
-      if (!isSpeculativeType(decl->type)) {
-        defineGlobal(interfaceZ, ir->getClassInfoInit(), decl);
+      if (global.params.useTypeInfo && Type::dtypeinfo) {
+        IrAggr *ir = getIrAggr(decl);
+        llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
+        // Only define if not speculative.
+        if (!isSpeculativeType(decl->type)) {
+          defineGlobal(interfaceZ, ir->getClassInfoInit(), decl);
+        }
       }
     }
   }
@@ -196,9 +195,13 @@ public:
 
       ir->defineInterfaceVtbls();
 
-      llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
-      if (!isSpeculativeType(decl->type)) {
-        defineGlobal(classZ, ir->getClassInfoInit(), decl);
+      // Emit TypeInfo.
+      if (global.params.useTypeInfo && Type::dtypeinfo) {
+        llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
+        // Only define if not speculative.
+        if (!isSpeculativeType(decl->type)) {
+          defineGlobal(classZ, ir->getClassInfoInit(), decl);
+        }
       }
     }
   }

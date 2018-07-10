@@ -164,8 +164,13 @@ LLConstant *IrAggr::getVtblInit() {
   // start with the classinfo
   llvm::Constant *c;
   if (!cd->isCPPclass()) {
-    c = getClassInfoSymbol();
-    c = DtoBitCast(c, voidPtrType);
+    if (global.params.useTypeInfo && Type::dtypeinfo) {
+      c = getClassInfoSymbol();
+      c = DtoBitCast(c, voidPtrType);
+    } else {
+      // use null if there are no TypeInfos
+      c = llvm::Constant::getNullValue(voidPtrType);
+    }
     constants.push_back(c);
   }
 
@@ -312,16 +317,21 @@ void IrAggr::defineInterfaceVtbl(BaseClass *b, bool new_instance,
   const auto voidPtrTy = getVoidPtrType();
 
   if (!b->sym->isCPPinterface()) { // skip interface info for CPP interfaces
-    // index into the interfaces array
-    llvm::Constant *idxs[2] = {DtoConstSize_t(0),
-                               DtoConstSize_t(interfaces_index)};
+    if (global.params.useTypeInfo && Type::dtypeinfo) {
+      // index into the interfaces array
+      llvm::Constant *idxs[2] = {DtoConstSize_t(0),
+                                 DtoConstSize_t(interfaces_index)};
 
-    llvm::GlobalVariable *interfaceInfosZ = getInterfaceArraySymbol();
-    llvm::Constant *c = llvm::ConstantExpr::getGetElementPtr(
-        isaPointer(interfaceInfosZ)->getElementType(),
-        interfaceInfosZ, idxs, true);
+      llvm::GlobalVariable *interfaceInfosZ = getInterfaceArraySymbol();
+      llvm::Constant *c = llvm::ConstantExpr::getGetElementPtr(
+          isaPointer(interfaceInfosZ)->getElementType(), interfaceInfosZ, idxs,
+          true);
 
-    constants.push_back(DtoBitCast(c, voidPtrTy));
+      constants.push_back(DtoBitCast(c, voidPtrTy));
+    } else {
+      // use null if there are no TypeInfos
+      constants.push_back(llvm::Constant::getNullValue(voidPtrTy));
+    }
   }
 
   // add virtual function pointers
