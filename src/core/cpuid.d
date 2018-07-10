@@ -511,6 +511,16 @@ void getcacheinfoCPUID2()
     do {
         version(GNU) asm pure nothrow @nogc {
             "cpuid" : "=a" a[0], "=b" a[1], "=c" a[2], "=d" a[3] : "a" 2;
+        } else version(LDC) {
+            import ldc.llvmasm;
+            __asm(`mov $$2, %eax
+                   cpuid
+                   mov %eax, $0
+                   mov %ebx, 4$0
+                   mov %ecx, 8$0
+                   mov %edx, 12$0`,
+                "=*m,~{eax},~{ebx},~{ecx},~{edx}",
+                &a);
         } else asm pure nothrow @nogc {
             mov EAX, 2;
             cpuid;
