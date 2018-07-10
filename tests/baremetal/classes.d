@@ -1,7 +1,6 @@
 // Use classes with virtual functions.
 
-// -betterC for C assert.
-// RUN: %ldc -betterC %baremetal_args -run %s
+// RUN: %ldc %baremetal_args -run %s
 
 class A
 {
@@ -17,13 +16,18 @@ class B : A
 __gshared A a = new A();
 __gshared B b = new B();
 
+// Test requires linking with C standard library
+extern(C) void exit(int status);
+
 extern(C) int main()
 {
     A obj = a;
-    assert(!obj.isB());
+    if (obj.isB())
+        exit(1);
 
     obj = b;
-    assert(obj.isB());
+    if (!obj.isB())
+        exit(1);
 
     return 0;
 }
