@@ -16,18 +16,15 @@ class B : A
 __gshared A a = new A();
 __gshared B b = new B();
 
-// Test requires linking with C standard library
-extern(C) void exit(int status);
-
 extern(C) int main()
 {
     A obj = a;
     if (obj.isB())
-        exit(1);
+        return 1;
 
     obj = b;
     if (!obj.isB())
-        exit(1);
+        return 2;
 
     return 0;
 }
