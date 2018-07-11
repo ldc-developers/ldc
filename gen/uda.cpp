@@ -222,10 +222,16 @@ void applyAttrLLVMAttr(StructLiteralExp *sle, llvm::Function *func) {
     const auto kind = llvm::getAttrKindFromName(key);
     if (kind != llvm::Attribute::None) {
       func->addFnAttr(kind);
-      return;
+    }
+#else
+    // no getAttrKindFromName(); just detect `naked` for now
+    if (key == "naked") {
+      func->addFnAttr(llvm::Attribute::Naked);
     }
 #endif
-    func->addFnAttr(key);
+    else {
+      func->addFnAttr(key);
+    }
   } else {
     func->addFnAttr(key, value);
   }
