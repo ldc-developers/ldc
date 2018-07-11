@@ -213,6 +213,14 @@ struct llvmFastMathFlag
 }
 
 /**
+ * Adds LLVM's "naked" attribute to a function, disabling function prologue /
+ * epilogue emission, incl. LDC's.
+ * Intended to be used in combination with a function body defined via
+ * ldc.llvmasm.__asm() and/or ldc.simd.inlineIR().
+ */
+enum naked = llvmAttr("naked");
+
+/**
  * Sets the optimization strategy for a function.
  * Valid strategies are "none", "optsize", "minsize". The strategies are mutually exclusive.
  *
