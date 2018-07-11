@@ -1,7 +1,6 @@
 // Use classes with virtual functions.
 
-// -betterC for C assert.
-// RUN: %ldc -betterC %baremetal_args -run %s
+// RUN: %ldc %baremetal_args -run %s
 
 class A
 {
@@ -20,10 +19,12 @@ __gshared B b = new B();
 extern(C) int main()
 {
     A obj = a;
-    assert(!obj.isB());
+    if (obj.isB())
+        return 1;
 
     obj = b;
-    assert(obj.isB());
+    if (!obj.isB())
+        return 2;
 
     return 0;
 }
