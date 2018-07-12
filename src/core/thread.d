@@ -15,6 +15,14 @@ module core.thread;
 public import core.time; // for Duration
 import core.exception : onOutOfMemoryError;
 
+version(LDC)
+{
+    import ldc.attributes;
+    import ldc.llvmasm;
+
+    version(Windows) version = LDC_Windows;
+}
+
 version (OSX)
     version = Darwin;
 else version (iOS)
@@ -2490,8 +2498,6 @@ else
         {
             version (PPC)
             {
-                import ldc.llvmasm;
-
                 // Nonvolatile registers, according to:
                 // System V Application Binary Interface
                 // PowerPC Processor Supplement, September 1995
@@ -2521,8 +2527,6 @@ else
             }
             else version (PPC64)
             {
-                import ldc.llvmasm;
-
                 // Nonvolatile registers, according to:
                 // ELFv1: 64-bit PowerPC ELF ABI Supplement 1.9, July 2004
                 // ELFv2: Power Architecture, 64-Bit ELV V2 ABI Specification,
@@ -2553,8 +2557,6 @@ else
             }
             else version (AArch64)
             {
-                import ldc.llvmasm;
-
                 // Callee-save registers, x19-x28 according to AAPCS64, section
                 // 5.1.1.  Include x29 fp because it optionally can be a callee
                 // saved reg
@@ -2569,8 +2571,6 @@ else
             }
             else version (ARM)
             {
-                import ldc.llvmasm;
-
                 // Callee-save registers, according to AAPCS, section 5.1.1.
                 // arm and thumb2 instructions
                 size_t[8] regs = void;
@@ -2579,8 +2579,6 @@ else
             }
             else version (MIPS32)
             {
-                import ldc.llvmasm;
-
                 // Callee-save registers, according to MIPS Calling Convention
                 size_t[8] regs = void;
                 __asm(`.set  noat;
@@ -2597,7 +2595,6 @@ else
             }
             else version (MIPS64)
             {
-                import ldc.llvmasm;
 
                 // Callee-save registers, according to MIPSpro N32 ABI Handbook,
                 // chapter 2, table 2-1.
@@ -3348,12 +3345,10 @@ extern (C) @nogc nothrow
 }
 
 
-private void* getStackTop() nothrow @nogc
+version (LDC)
 {
-    version (LDC)
+    private void* getStackTop() nothrow @nogc @naked
     {
-        import ldc.llvmasm;
-
         /* The inline assembler is written in a style that the code can be
          * inlined.
          * The use of intrinsic llvm_frameaddress is a reasonable default for
@@ -3362,35 +3357,35 @@ private void* getStackTop() nothrow @nogc
          */
         version (X86)
         {
-            return __asm!(void *)("movl %esp, $0", "=r");
+            return __asm!(void*)("movl %esp, $0", "=r");
         }
         else version (X86_64)
         {
-            return __asm!(void *)("movq %rsp, $0", "=r");
+            return __asm!(void*)("movq %rsp, $0", "=r");
         }
         else version (AArch64)
         {
-            return __asm!(void *)("mov $0, sp", "=r");
+            return __asm!(void*)("mov $0, sp", "=r");
         }
         else version (ARM)
         {
-            return __asm!(void *)("mov $0, sp", "=r");
+            return __asm!(void*)("mov $0, sp", "=r");
         }
         else version (PPC)
         {
-            return __asm!(void *)("mr $0, 1", "=r");
+            return __asm!(void*)("mr $0, 1", "=r");
         }
         else version (PPC64)
         {
-            return __asm!(void *)("mr $0, 1", "=r");
+            return __asm!(void*)("mr $0, 1", "=r");
         }
         else version (MIPS32)
         {
-            return __asm!(void *)(".set noat; move $0, $$sp; .set at", "=r");
+            return __asm!(void*)(".set noat; move $0, $$sp; .set at", "=r");
         }
         else version (MIPS64)
         {
-            return __asm!(void *)("move $0, $$sp", "=r");
+            return __asm!(void*)("move $0, $$sp", "=r");
         }
         else
         {
@@ -3399,7 +3394,11 @@ private void* getStackTop() nothrow @nogc
             return llvm_frameaddress(0);
         }
     }
-    else version (D_InlineAsm_X86)
+}
+else
+private void* getStackTop() nothrow @nogc
+{
+    version (D_InlineAsm_X86)
         asm pure nothrow @nogc { naked; mov EAX, ESP; ret; }
     else version (D_InlineAsm_X86_64)
         asm pure nothrow @nogc { naked; mov RAX, RSP; ret; }
@@ -3410,22 +3409,24 @@ private void* getStackTop() nothrow @nogc
 }
 
 
+version(LDC_Windows)
+{
+    private void* getStackBottom() nothrow @nogc @naked
+    {
+        version(X86)
+            return __asm!(void*)("mov %fs:(4), $0", "=r");
+        else version(X86_64)
+            return __asm!(void*)("mov %gs:0($1), $0", "=r,r", 8);
+        else
+            static assert(false, "Architecture not supported.");
+    }
+}
+else
 private void* getStackBottom() nothrow @nogc
 {
     version (Windows)
     {
-        version (LDC)
-        {
-            // Use LLVM inline assembler to enable inlining.
-            import ldc.llvmasm;
-            version (X86)
-                return __asm!(void*)("movl %fs:(4), $0", "=r");
-            else version (X86_64)
-                return __asm!(void*)("movq %gs:0($0), %rax", "={rax},r", 8);
-            else
-                static assert(false, "Architecture not supported.");
-        }
-        else version (D_InlineAsm_X86)
+        version (D_InlineAsm_X86)
             asm pure nothrow @nogc { naked; mov EAX, FS:4; ret; }
         else version(D_InlineAsm_X86_64)
             asm pure nothrow @nogc
@@ -3850,7 +3851,7 @@ shared static this()
 
 private
 {
-    extern (C) void fiber_entryPoint() nothrow
+    extern (C) void fiber_entryPoint() nothrow /* LDC */ @assumeUsed
     {
         Fiber   obj = Fiber.getThis();
         assert( obj );
@@ -3879,6 +3880,122 @@ private
   // Look above the definition of 'class Fiber' for some information about the implementation of this routine
   version( AsmExternal )
     extern (C) void fiber_switchContext( void** oldp, void* newp ) nothrow @nogc;
+  else version( LDC_Windows )
+  {
+    extern (C) void fiber_switchContext( void** oldp, void* newp ) nothrow @nogc @naked
+    {
+        version(X86)
+        {
+            pragma(LDC_never_inline);
+
+            __asm(
+               `// save current stack state
+                push %ebp
+                mov  %esp, %ebp
+                push %edi
+                push %esi
+                push %ebx
+                push %fs:(0)
+                push %fs:(4)
+                push %fs:(8)
+                push %eax
+
+                // store oldp again with more accurate address
+                mov 8(%ebp), %eax
+                mov %esp, (%eax)
+                // load newp to begin context switch
+                mov 12(%ebp), %esp
+
+                // load saved state from new stack
+                pop %eax
+                pop %fs:(8)
+                pop %fs:(4)
+                pop %fs:(0)
+                pop %ebx
+                pop %esi
+                pop %edi
+                pop %ebp
+
+                // 'return' to complete switch
+                pop %ecx
+                jmp *%ecx`,
+                "~{memory},~{ebp},~{esp},~{eax},~{ebx},~{ecx},~{esi},~{edi}"
+            );
+        }
+        else version(X86_64)
+        {
+            // This inline asm assumes a return address has been pushed onto the stack
+            // (and so a stack not aligned to 16 bytes).
+            pragma(LDC_never_inline);
+
+            __asm(
+               `// save current stack state
+                push %rbp
+                mov  %rsp, %rbp
+                push %r12
+                push %r13
+                push %r14
+                push %r15
+                push %rdi
+                push %rsi
+                // 7 registers = 56 bytes; stack is now aligned to 16 bytes
+                sub $$0xA0, %rsp
+                movdqa %xmm6, 0x90(%rsp)
+                movdqa %xmm7, 0x80(%rsp)
+                movdqa %xmm8, 0x70(%rsp)
+                movdqa %xmm9, 0x60(%rsp)
+                movdqa %xmm10, 0x50(%rsp)
+                movdqa %xmm11, 0x40(%rsp)
+                movdqa %xmm12, 0x30(%rsp)
+                movdqa %xmm13, 0x20(%rsp)
+                movdqa %xmm14, 0x10(%rsp)
+                movdqa %xmm15, (%rsp)
+                push %rbx
+                xor  %rax, %rax
+                push %gs:(%rax)
+                push %gs:8(%rax)
+                push %gs:16(%rax)
+
+                // store oldp
+                mov %rsp, (%rcx)
+                // load newp to begin context switch
+                mov %rdx, %rsp
+
+                // load saved state from new stack
+                pop %gs:16(%rax)
+                pop %gs:8(%rax)
+                pop %gs:(%rax)
+                pop %rbx;
+                movdqa (%rsp), %xmm15
+                movdqa 0x10(%rsp), %xmm14
+                movdqa 0x20(%rsp), %xmm13
+                movdqa 0x30(%rsp), %xmm12
+                movdqa 0x40(%rsp), %xmm11
+                movdqa 0x50(%rsp), %xmm10
+                movdqa 0x60(%rsp), %xmm9
+                movdqa 0x70(%rsp), %xmm8
+                movdqa 0x80(%rsp), %xmm7
+                movdqa 0x90(%rsp), %xmm6
+                add $$0xA0, %rsp
+                pop %rsi
+                pop %rdi
+                pop %r15
+                pop %r14
+                pop %r13
+                pop %r12
+                pop %rbp
+
+                // 'return' to complete switch
+                pop %rcx
+                jmp *%rcx`,
+                "~{memory},~{rbp},~{rsp},~{rax},~{rbx},~{rcx},~{rsi},~{rdi},~{r12},~{r13},~{r14},~{r15}," ~
+                "~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15}"
+            );
+        }
+        else
+            static assert(false);
+    }
+  }
   else
     extern (C) void fiber_switchContext( void** oldp, void* newp ) nothrow @nogc
     {
@@ -5072,15 +5189,26 @@ private:
             __gshared static fp_t finalHandler = null;
             if ( finalHandler is null )
             {
-                static EXCEPTION_REGISTRATION* fs0() nothrow
+                version(LDC)
                 {
-                    asm pure nothrow @nogc
+                    static EXCEPTION_REGISTRATION* fs0() nothrow @naked
                     {
-                        naked;
-                        mov EAX, FS:[0];
-                        ret;
+                        return __asm!(EXCEPTION_REGISTRATION*)("mov %fs:(0), $0", "=r");
                     }
                 }
+                else
+                {
+                    static EXCEPTION_REGISTRATION* fs0() nothrow
+                    {
+                        asm pure nothrow @nogc
+                        {
+                            naked;
+                            mov EAX, FS:[0];
+                            ret;
+                        }
+                    }
+                }
+
                 auto reg = fs0();
                 while ( reg.next != sehChainEnd ) reg = reg.next;
 
@@ -5117,15 +5245,31 @@ private:
             // to be shifted by 8 bytes for the first call, as fiber_entryPoint
             // is an actual function expecting a stack which is not aligned
             // to 16 bytes.
-            static void trampoline()
+            version(LDC)
             {
-                asm pure nothrow @nogc
+                static void trampoline() @naked
                 {
-                    naked;
-                    sub RSP, 32; // Shadow space (Win64 calling convention)
-                    call fiber_entryPoint;
-                    xor RCX, RCX; // This should never be reached, as
-                    jmp RCX;      // fiber_entryPoint must never return.
+                    __asm(
+                       `sub $$32, %rsp
+                        call fiber_entryPoint
+                        xor %rcx, %rcx
+                        jmp *%rcx`,
+                        "~{rsp},~{rcx}"
+                    );
+                }
+            }
+            else
+            {
+                static void trampoline()
+                {
+                    asm pure nothrow @nogc
+                    {
+                        naked;
+                        sub RSP, 32; // Shadow space (Win64 calling convention)
+                        call fiber_entryPoint;
+                        xor RCX, RCX; // This should never be reached, as
+                        jmp RCX;      // fiber_entryPoint must never return.
+                    }
                 }
             }
 

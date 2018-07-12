@@ -843,7 +843,12 @@ else
 {
     extern (D) void QueryPerformanceCounter(timer_t* ctr)
     {
-        version (D_InlineAsm_X86)
+        version (LDC)
+        {
+            import ldc.intrinsics: llvm_readcyclecounter;
+            *ctr = llvm_readcyclecounter();
+        }
+        else version (D_InlineAsm_X86)
         {
             asm
             {
@@ -865,11 +870,6 @@ else
                 mov   4[RDI],EDX        ;
                 ret                     ;
             }
-        }
-        else version (LDC)
-        {
-            import ldc.intrinsics: llvm_readcyclecounter;
-            *ctr = llvm_readcyclecounter();
         }
         else
         {

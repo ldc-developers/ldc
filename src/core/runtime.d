@@ -797,6 +797,13 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
 
                 // backtrace() failed, do it ourselves. Only works if frame
                 // pointer elimination is disabled.
+              version(LDC)
+              {
+                import ldc.intrinsics;
+                auto stackTop = cast(void**) llvm_frameaddress(0);
+              }
+              else
+              {
                 static void** getBasePtr()
                 {
                     version( D_InlineAsm_X86 )
@@ -809,6 +816,7 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
                 }
 
                 auto  stackTop    = getBasePtr();
+              }
                 auto  stackBottom = cast(void**) thread_stackBottom();
                 void* dummy;
 

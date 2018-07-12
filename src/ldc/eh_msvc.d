@@ -10,6 +10,8 @@ import core.sys.windows.windows;
 import core.exception : onOutOfMemoryError, OutOfMemoryError;
 import core.stdc.stdlib : malloc, free, abort;
 import core.stdc.string : memcpy;
+import ldc.attributes;
+import ldc.llvmasm;
 import rt.util.container.common : xmalloc;
 
 // pointers are image relative for Win64 versions
@@ -325,173 +327,171 @@ extern(C) terminate_handler set_terminate(terminate_handler new_handler);
 terminate_handler old_terminate_handler; // explicitely per thread
 
 // helper to access TLS from naked asm
-size_t tlsUncaughtExceptions() nothrow
+size_t tlsUncaughtExceptions() nothrow @assumeUsed
 {
     return exceptionStack.length;
 }
 
-auto tlsOldTerminateHandler() nothrow
+auto tlsOldTerminateHandler() nothrow @assumeUsed
 {
     return old_terminate_handler;
 }
 
-void msvc_eh_terminate() nothrow
+void msvc_eh_terminate() nothrow @naked
 {
     version(Win32)
     {
-        asm nothrow
-        {
-            naked;
-            call tlsUncaughtExceptions;
-            cmp EAX, 1;
-            jle L_term;
+        __asm(
+           `call __D3ldc7eh_msvc21tlsUncaughtExceptionsFNbZk
+            cmp $$1, %eax
+            jle L_term
 
             // hacking into the call chain to return EXCEPTION_EXECUTE_HANDLER
             //  as the return value of __FrameUnwindFilter so that
             // __FrameUnwindToState continues with the next unwind block
 
             // undo one level of exception frames from terminate()
-            mov EAX,FS:[0];
-            mov EAX,[EAX];
-            mov FS:[0], EAX;
+            mov %fs:(0), %eax
+            mov (%eax), %eax
+            mov %eax, %fs:(0)
 
             // assume standard stack frames for callers
-            mov EAX,EBP;   // frame pointer of terminate()
-            mov EAX,[EAX]; // frame pointer of __FrameUnwindFilter
-            mov ESP,EAX;   // restore stack
-            pop EBP;       // and frame pointer
-            mov EAX, 1;    // return EXCEPTION_EXECUTE_HANDLER
-            ret;
+            mov %ebp, %eax   // frame pointer of terminate()
+            mov (%eax), %eax // frame pointer of __FrameUnwindFilter
+            mov %eax, %esp   // restore stack
+            pop %ebp         // and frame pointer
+            mov $$1, %eax    // return EXCEPTION_EXECUTE_HANDLER
+            ret
 
         L_term:
-            call tlsOldTerminateHandler;
-            cmp EAX, 0;
-            je L_ret;
-            jmp EAX;
+            call __D3ldc7eh_msvc22tlsOldTerminateHandlerFNbNiNfZPFZv
+            cmp $$0, %eax
+            je L_ret
+            jmp *%eax
         L_ret:
-            ret;
-        }
+            ret`,
+            "~{memory},~{flags},~{ebp},~{esp},~{eax}"
+        );
     }
     else
     {
-        asm nothrow
-        {
-            naked;
-            push RBX; // align stack for better debuggability
-            call tlsUncaughtExceptions;
-            cmp RAX, 1;
-            jle L_term;
+        __asm(
+           `push %rbx                      // align stack for better debuggability
+            call _D3ldc7eh_msvc21tlsUncaughtExceptionsFNbZm
+            cmp $$1, %rax
+            jle L_term
 
             // update stack and IP so we just continue in __FrameUnwindHandler
             // NOTE: these checks can fail if you have breakpoints set at
             //       the respective code locations
-            mov RAX,[RSP+8];            // get return address
-            cmp byte ptr[RAX], 0xEB;    // jmp?
-            jne noJump;
-            movsx RDX, byte ptr[RAX+1]; // follow jmp
-            lea RAX,[RAX+RDX+2];
+            mov 8(%rsp), %rax              // get return address
+            cmpb $$0xEB, (%rax)            // jmp?
+            jne noJump
+            movsbq 1(%rax), %rdx           // follow jmp
+            lea 2(%rax,%rdx), %rax
         noJump:
-            cmp byte ptr[RAX], 0xE8;    // call abort?
-            jne L_term;
-            add RAX,5;
-            mov EDX,[RAX];
-            mov RBX, 0xFFFFFF;
-            and RDX, RBX;
-            cmp RDX, 0xC48348;          // add ESP,nn  (debug UCRT libs)
-            je L_addESP_found;
-            cmp DL, 0x90;               // nop; (release libs)
-            jne L_term;
+            cmpb $$0xE8, (%rax)            // call abort?
+            jne L_term
+            add $$5, %rax
+            mov (%rax), %edx
+            mov $$0xFFFFFF, %rbx
+            and %rbx, %rdx
+            cmp $$0xC48348, %rdx           // add ESP,nn  (debug UCRT libs)
+            je L_addESP_found
+            cmp $$0x90, %dl                // nop; (release libs)
+            jne L_term
 
         L_release_ucrt:
-            mov RDX,[RSP+8];
-            cmp word ptr[RDX-2], 0xD3FF; // call ebx?
-            sete BL;                     // if not, it's UCRT 10.0.14393.0
-            movzx RBX,BL;
-            mov RDX, 0x28;               // release build of vcruntimelib
-            jmp L_retTerminate;
+            mov 8(%rsp), %rdx
+            cmpw $$0xD3FF, -2(%rdx)        // call ebx?
+            sete %bl                       // if not, it's UCRT 10.0.14393.0
+            movzbq %bl, %rbx
+            mov $$0x28, %rdx               // release build of vcruntimelib
+            jmp L_retTerminate
 
         L_addESP_found:
-            xor RBX,RBX;                // debug version: RBX not pushed inside terminate()
-            movzx RDX,byte ptr[RAX+3];  // read nn
+            xor %rbx, %rbx                 // debug version: RBX not pushed inside terminate()
+            movzbq 3(%rax), %rdx           // read nn
 
-            cmp byte ptr [RAX+4], 0xC3; // ret?
-            jne L_term;
+            cmpb $$0xC3, 4(%rax)           // ret?
+            jne L_term
 
         L_retTerminate:
-            lea RDX,[RSP+RDX+0x10];     // RSP before returning from terminate()
+            lea 0x10(%rsp,%rdx), %rdx      // RSP before returning from terminate()
 
-            mov RAX,[RDX];              // return address inside __FrameUnwindHandler
+            mov (%rdx), %rax               // return address inside __FrameUnwindHandler
 
-            or RDX,RBX;                 // RDX aligned, save RBX == 0 for UCRT 10.0.14393.0, 1 otherwise
+            or %rbx, %rdx                  // RDX aligned, save RBX == 0 for UCRT 10.0.14393.0, 1 otherwise
 
-            cmp byte ptr [RAX-19], 0xEB; // skip back to default jump inside "switch" (libvcruntimed.lib)
-            je L_switchFound;
+            cmpb $$0xEB, -19(%rax)         // skip back to default jump inside "switch" (libvcruntimed.lib)
+            je L_switchFound
 
-            cmp byte ptr [RAX-20], 0xEB; // skip back to default jump inside "switch" (vcruntime140d.dll)
-            je L_switchFound2;
+            cmpb $$0xEB, -20(%rax)         // skip back to default jump inside "switch" (vcruntime140d.dll)
+            je L_switchFound2
 
-            mov RBX, 0xc48348c0333048ff; // dec [rax+30h]; xor eax,eax; add rsp,nn (libvcruntime.lib)
-            cmp RBX,[RAX-0x18];
-            je L_retFound;
+            mov $$0xC48348C0333048FF, %rbx // dec [rax+30h]; xor eax,eax; add rsp,nn (libvcruntime.lib)
+            cmp -0x18(%rax), %rbx
+            je L_retFound
 
-            cmp RBX,[RAX+0x29];          // dec [rax+30h]; xor eax,eax; add rsp,nn (vcruntime140.dll)
-            je L_retVC14_11;
+            cmp 0x29(%rax), %rbx           // dec [rax+30h]; xor eax,eax; add rsp,nn (vcruntime140.dll)
+            je L_retVC14_11
 
-            cmp RBX,[RAX+0x1b];          // dec [rax+30h]; xor eax,eax; add rsp,nn (vcruntime140.dll 14.14.x.y)
-            jne L_term;
-            lea RAX, [RAX+0x20];
-            jmp L_retContinue;
+            cmp 0x1B(%rax), %rbx           // dec [rax+30h]; xor eax,eax; add rsp,nn (vcruntime140.dll 14.14.x.y)
+            jne L_term
+            lea 0x20(%rax), %rax
+            jmp L_retContinue
 
-        L_retVC14_11:                    // vcruntime140 14.11.25415.0 or earlier
-            lea RAX, [RAX+0x2E];
-        L_retContinue:                   // vcruntime140 14.00.23026.0 or later?
-            cmp word ptr[RAX], 0x8348;   // add rsp,nn?
-            je L_xorSkipped;
+        L_retVC14_11:                      // vcruntime140 14.11.25415.0 or earlier
+            lea 0x2E(%rax), %rax
+        L_retContinue:                     // vcruntime140 14.00.23026.0 or later?
+            cmpw $$0x8348, (%rax)          // add rsp,nn?
+            je L_xorSkipped
 
-            inc RAX;                     // vcruntime140 earlier than 14.00.23026.0?
-            jmp L_xorSkipped;
+            inc %rax                       // vcruntime140 earlier than 14.00.23026.0?
+            jmp L_xorSkipped
 
         L_retFound:
-            lea RAX, [RAX-19];
-            jmp L_xorSkipped;
+            lea -19(%rax), %rax
+            jmp L_xorSkipped
 
         L_switchFound2:
-            dec RAX;
+            dec %rax
         L_switchFound:
-            movsx RBX, byte ptr [RAX-18]; // follow jump
-            lea RAX, [RAX+RBX-17];
+            movsbq -18(%rax), %rbx         // follow jump
+            lea -17(%rax,%rbx), %rax
 
-            cmp word ptr[RAX],0xC033;   // xor EAX,EAX?
-            jne L_term;
+            cmpw $$0xC033, (%rax)          // xor EAX,EAX?
+            jne L_term
 
-            add RAX,2;
+            add $$2, %rax
         L_xorSkipped:
-            mov RBX, RDX;                 // extract UCRT marker from EDX
-            and RDX, ~1;
-            and RBX, 1;
+            mov %rdx, %rbx                 // extract UCRT marker from EDX
+            and $$~1, %rdx
+            and $$1, %rbx
 
-            cmovnz RBX,[RDX-8]; // restore RBX (pushed inside terminate())
-            cmovz RBX,[RSP];    // RBX not changed in terminate inside UCRT 10.0.14393.0
+            cmovnz -8(%rdx), %rbx          // restore RBX (pushed inside terminate())
+            cmovz (%rsp), %rbx             // RBX not changed in terminate inside UCRT 10.0.14393.0
 
-            lea RSP,[RDX+8];
-            push RAX;       // new return after setting return value in __frameUnwindHandler
+            lea 8(%rdx), %rsp
+            push %rax                      // new return after setting return value in __frameUnwindHandler
 
-            call __processing_throw;
-            mov [RAX], 1;
+            call __processing_throw
+            movq $$1, (%rax)
 
-            //add RSP,0x68; // TODO: needs to be verified for different CRT builds
-            mov RAX,1;      // return EXCEPTION_EXECUTE_HANDLER
-            ret;
+            //add $$0x68, %rsp             // TODO: needs to be verified for different CRT builds
+            mov $$1, %rax                  // return EXCEPTION_EXECUTE_HANDLER
+            ret
 
         L_term:
-            call tlsOldTerminateHandler;
-            pop RBX;
-            cmp RAX, 0;
-            je L_ret;
-            jmp RAX;
+            call _D3ldc7eh_msvc22tlsOldTerminateHandlerFNbNiNfZPFZv
+            pop %rbx
+            cmp $$0, %rax
+            je L_ret
+            jmp *%rax
         L_ret:
-            ret;
-        }
+            ret`,
+            "~{memory},~{flags},~{rbp},~{rsp},~{rax},~{rbx},~{rdx}"
+        );
     }
 }
 

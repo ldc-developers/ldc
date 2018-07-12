@@ -1108,6 +1108,7 @@ version (AsmX86)
     }
 }
 
+version (LDC) {} else
 version (D_InlineAsm_X86_64)
 {
     private ulong asmBitswap64(ulong x) @trusted pure
