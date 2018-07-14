@@ -14,7 +14,7 @@ environment:
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       LLVM_VERSION:                6.0.1-3
       HOST_LDC_VERSION:            1.10.0
-      EXTRA_CMAKE_FLAGS:           -DBUILD_LTO_LIBS=ON -DD_FLAGS=-w;-flto=thin
+      EXTRA_CMAKE_FLAGS:           -DBUILD_LTO_LIBS=ON
       DUB_VERSION:                 v1.9.0
     - APPVEYOR_JOB_ARCH:           x86
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
