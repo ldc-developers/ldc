@@ -594,9 +594,9 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   }
 
   // main
-  if (isMainFunction(fdecl)) {
-    // Detect multiple main functions, which is disallowed. DMD checks this
-    // in the glue code, so we need to do it here as well.
+  if (isMainFunction(fdecl) && fdecl->fbody) {
+    // Detect multiple main function definitions, which is disallowed.
+    // DMD checks this in the glue code, so we need to do it here as well.
     if (gIR->mainFunc) {
       error(fdecl->loc, "only one `main` function allowed");
     }
