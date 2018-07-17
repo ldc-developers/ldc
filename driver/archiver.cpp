@@ -247,8 +247,8 @@ int internalAr(ArrayRef<const char *> args) {
 }
 
 int internalLib(ArrayRef<const char *> args) {
-  if (args.size() < 1 || strcmp(args[0], "llvm-lib.exe") != 0) {
-    llvm_unreachable("Expected archiver command line: llvm-lib.exe ...");
+  if (args.size() < 1 || strcmp(args[0], "llvm-lib") != 0) {
+    llvm_unreachable("Expected archiver command line: llvm-lib ...");
     return -1;
   }
 
@@ -279,7 +279,7 @@ int createStaticLibrary() {
   // find archiver
   std::string tool;
   if (useInternalArchiver) {
-    tool = isTargetMSVC ? "llvm-lib.exe" : "llvm-ar";
+    tool = isTargetMSVC ? "llvm-lib" : "llvm-ar";
   } else {
 #ifdef _WIN32
     if (isTargetMSVC)
@@ -349,7 +349,8 @@ int createStaticLibrary() {
 
 #if LDC_LLVM_VER >= 309
   if (useInternalArchiver) {
-    const auto fullArgs = getFullArgs(tool, args, global.params.verbose);
+    const auto fullArgs =
+        getFullArgs(tool.c_str(), args, global.params.verbose);
 
     const int exitCode =
         isTargetMSVC ? internalLib(fullArgs) : internalAr(fullArgs);
