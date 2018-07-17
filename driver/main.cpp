@@ -742,10 +742,8 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
     break;
   case llvm::Triple::wasm32:
-    VersionCondition::addPredefinedGlobalIdent("WebAssembly32");
-    break;
   case llvm::Triple::wasm64:
-    VersionCondition::addPredefinedGlobalIdent("WebAssembly64");
+    VersionCondition::addPredefinedGlobalIdent("WebAssembly");
     break;
   default:
     warning(Loc(), "unknown target CPU architecture: %s",
