@@ -33,7 +33,8 @@ std::string getProgram(const char *name,
 
 void createDirectoryForFileOrFail(llvm::StringRef fileName);
 
-std::vector<const char *> getFullArgs(const std::string &tool,
+// NB: `args` must outlive the returned vector!
+std::vector<const char *> getFullArgs(const char *tool,
                                       const std::vector<std::string> &args,
                                       bool printVerbose);
 

@@ -139,14 +139,14 @@ void createDirectoryForFileOrFail(llvm::StringRef fileName) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-std::vector<const char *> getFullArgs(const std::string &tool,
+std::vector<const char *> getFullArgs(const char *tool,
                                       const std::vector<std::string> &args,
                                       bool printVerbose) {
   std::vector<const char *> fullArgs;
   fullArgs.reserve(args.size() +
                    2); // executeToolAndWait() appends an additional null
 
-  fullArgs.push_back(tool.c_str());
+  fullArgs.push_back(tool);
   for (const auto &arg : args)
     fullArgs.push_back(arg.c_str());
 
@@ -174,7 +174,7 @@ int executeToolAndWait(const std::string &tool_,
   }
 
   // Construct real argument list; first entry is the tool itself.
-  auto realargs = getFullArgs(tool, args, verbose);
+  auto realargs = getFullArgs(tool.c_str(), args, verbose);
 #if LDC_LLVM_VER >= 700
   std::vector<llvm::StringRef> argv;
   argv.reserve(realargs.size());
