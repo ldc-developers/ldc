@@ -67,6 +67,7 @@ if(LDC_DYNAMIC_COMPILE)
             "${ld_flags} ${JITRT_EXTRA_LDFLAGS}"
             ON
         )
+        set_target_properties(ldc-jit-rt-so${target_suffix} PROPERTIES LINKER_LANGUAGE CXX)
 
         target_link_libraries(ldc-jit-rt-so${target_suffix} ${JITRT_LLVM_LIBS})
 
