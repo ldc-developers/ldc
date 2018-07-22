@@ -128,9 +128,15 @@ if("${C_SYSTEM_LIBS}" STREQUAL "AUTO")
         set(C_SYSTEM_LIBS m c)
     elseif("${TARGET_SYSTEM}" MATCHES "Linux")
         set(C_SYSTEM_LIBS m pthread rt dl)
+    elseif("${TARGET_SYSTEM}" MATCHES "WebAssembly")
+        set(C_SYSTEM_LIBS)
     else()
         set(C_SYSTEM_LIBS m pthread)
     endif()
+endif()
+
+if("${TARGET_SYSTEM}" MATCHES "WebAssembly")
+    set(CMAKE_C_OUTPUT_EXTENSION ".o")
 endif()
 
 get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
@@ -145,18 +151,24 @@ set(JITRT_DIR ${PROJECT_SOURCE_DIR}/jit-rt CACHE PATH "jit runtime root director
 # druntime D parts
 file(GLOB_RECURSE DRUNTIME_D ${RUNTIME_DIR}/src/*.d)
 list(REMOVE_ITEM DRUNTIME_D ${RUNTIME_DIR}/src/test_runner.d)
-# remove unsupported etc/linux/memoryerror.d (see issue #1915)
+# remove unsupported etc.linux.memoryerror (see issue #1915)
 list(REMOVE_ITEM DRUNTIME_D ${RUNTIME_DIR}/src/etc/linux/memoryerror.d)
-# FIXME: Remove all modules in core/stdcpp/ due to alpha quality.
+# WebAssembly: remove gc.* and rt.*
+if("${TARGET_SYSTEM}" MATCHES "WebAssembly")
+    file(GLOB_RECURSE DRUNTIME_D_RT ${RUNTIME_DIR}/src/rt/*.d)
+    file(GLOB_RECURSE DRUNTIME_D_GC ${RUNTIME_DIR}/src/gc/*.d)
+    list(REMOVE_ITEM DRUNTIME_D ${DRUNTIME_D_RT} ${DRUNTIME_D_GC})
+endif()
+# FIXME: Remove core.stdcpp.* due to alpha quality.
 #        See PR #1917; partly fixed upstream.
 file(GLOB_RECURSE DRUNTIME_D_STDCPP ${RUNTIME_DIR}/src/core/stdcpp/*.d)
 list(REMOVE_ITEM DRUNTIME_D ${DRUNTIME_D_STDCPP})
-# remove some modules in rt/
+# remove some rt.* modules
 list(REMOVE_ITEM DRUNTIME_D
     ${RUNTIME_DIR}/src/rt/alloca.d
     ${RUNTIME_DIR}/src/rt/llmath.d
 )
-# only include core/sys/ modules matching the platform
+# only include core.sys.* modules matching the platform
 file(GLOB_RECURSE DRUNTIME_D_BIONIC  ${RUNTIME_DIR}/src/core/sys/bionic/*.d)
 file(GLOB_RECURSE DRUNTIME_D_DARWIN  ${RUNTIME_DIR}/src/core/sys/darwin/*.d)
 file(GLOB_RECURSE DRUNTIME_D_DRAGONFLYBSD ${RUNTIME_DIR}/src/core/sys/dragonflybsd/*.d)
@@ -198,13 +210,17 @@ elseif("${TARGET_SYSTEM}" MATCHES "UNIX")
 endif()
 
 # druntime C parts
-file(GLOB_RECURSE DRUNTIME_C ${RUNTIME_DIR}/src/*.c)
-list(REMOVE_ITEM DRUNTIME_C ${RUNTIME_DIR}/src/rt/dylib_fixes.c)
-if(NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
-    list(REMOVE_ITEM DRUNTIME_C ${RUNTIME_DIR}/src/rt/osx_tls.c)
-endif()
-if(NOT "${TARGET_SYSTEM}" MATCHES "MSVC")
-    list(REMOVE_ITEM DRUNTIME_C ${RUNTIME_DIR}/src/rt/msvc.c ${RUNTIME_DIR}/src/rt/msvc_math.c)
+if("${TARGET_SYSTEM}" MATCHES "WebAssembly")
+    set(DRUNTIME_C)
+else()
+    file(GLOB_RECURSE DRUNTIME_C ${RUNTIME_DIR}/src/*.c)
+    list(REMOVE_ITEM DRUNTIME_C ${RUNTIME_DIR}/src/rt/dylib_fixes.c)
+    if(NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
+        list(REMOVE_ITEM DRUNTIME_C ${RUNTIME_DIR}/src/rt/osx_tls.c)
+    endif()
+    if(NOT "${TARGET_SYSTEM}" MATCHES "MSVC")
+        list(REMOVE_ITEM DRUNTIME_C ${RUNTIME_DIR}/src/rt/msvc.c ${RUNTIME_DIR}/src/rt/msvc_math.c)
+    endif()
 endif()
 
 # druntime ASM parts
@@ -218,16 +234,20 @@ if(PHOBOS2_DIR)
     file(GLOB_RECURSE PHOBOS2_D ${PHOBOS2_DIR}/*.d)
     # remove top-level modules index.d and unittest.d
     list(REMOVE_ITEM PHOBOS2_D ${PHOBOS2_DIR}/index.d ${PHOBOS2_DIR}/unittest.d)
-    # only include std/windows/ modules on Windows
+    # only include std.windows.* modules on Windows
     if(NOT "${TARGET_SYSTEM}" MATCHES "Windows")
         file(GLOB_RECURSE PHOBOS2_D_WINDOWS ${PHOBOS2_DIR}/std/windows/*.d)
         list(REMOVE_ITEM PHOBOS2_D ${PHOBOS2_D_WINDOWS})
     endif()
 
     # Phobos C parts
-    file(GLOB_RECURSE PHOBOS2_C ${PHOBOS2_DIR}/*.c)
-    # remove some obsolete zlib modules
-    list(REMOVE_ITEM PHOBOS2_C ${PHOBOS2_DIR}/etc/c/zlib/minigzip.c ${PHOBOS2_DIR}/etc/c/zlib/example.c)
+    if("${TARGET_SYSTEM}" MATCHES "WebAssembly")
+        set(PHOBOS2_C)
+    else()
+        file(GLOB_RECURSE PHOBOS2_C ${PHOBOS2_DIR}/*.c)
+        # remove some obsolete zlib modules
+        list(REMOVE_ITEM PHOBOS2_C ${PHOBOS2_DIR}/etc/c/zlib/minigzip.c ${PHOBOS2_DIR}/etc/c/zlib/example.c)
+    endif()
 endif()
 
 #
