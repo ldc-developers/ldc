@@ -32,7 +32,9 @@ public:
 
   void extendCommandLine(llvm::SmallVectorImpl<const char *> &args);
 
-  llvm::StringRef rpath() {
+  const Array<const char *> &libDirs() const { return _libDirs; }
+
+  llvm::StringRef rpath() const {
     return rpathcstr ? llvm::StringRef(rpathcstr) : llvm::StringRef();
   }
 
@@ -46,6 +48,7 @@ private:
   const char *pathcstr = nullptr;
   Array<const char *> switches;
   Array<const char *> postSwitches;
+  Array<const char *> _libDirs;
   const char *rpathcstr = nullptr;
 };
 

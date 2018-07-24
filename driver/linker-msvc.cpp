@@ -11,6 +11,7 @@
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
+#include "driver/configfile.h"
 #include "driver/exe_path.h"
 #include "driver/linker.h"
 #include "driver/tool.h"
@@ -167,6 +168,13 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
 
   for (const auto &str : opts::linkerSwitches) {
     addSwitch(str);
+  }
+
+  // lib dirs
+  for (const char *dir_c : ConfigFile::instance.libDirs()) {
+    const llvm::StringRef dir(dir_c);
+    if (!dir.empty())
+      args.push_back(("/LIBPATH:" + dir).str());
   }
 
   // default libs

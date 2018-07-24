@@ -478,6 +478,13 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   addLinker();
   addUserSwitches();
 
+  // lib dirs
+  for (const char *dir_c : ConfigFile::instance.libDirs()) {
+    const llvm::StringRef dir(dir_c);
+    if (!dir.empty())
+      args.push_back(("-L" + dir).str());
+  }
+
   // default libs
   for (const auto &name : defaultLibNames) {
     args.push_back("-l" + name);
