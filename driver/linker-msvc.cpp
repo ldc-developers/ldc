@@ -18,6 +18,7 @@
 #include "gen/logger.h"
 
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 
 #if LDC_WITH_LLD
 #if LDC_LLVM_VER >= 600
@@ -60,9 +61,14 @@ void addMscrtLibs(std::vector<std::string> &args) {
 }
 
 void addLibIfFound(std::vector<std::string> &args, const llvm::Twine &name) {
-  std::string candidate = exe_path::prependLibDir(name);
-  if (llvm::sys::fs::exists(candidate))
-    args.push_back(std::move(candidate));
+  for (const char *dir : ConfigFile::instance.libDirs()) {
+    llvm::SmallString<128> candidate(dir);
+    llvm::sys::path::append(candidate, name);
+    if (llvm::sys::fs::exists(candidate)) {
+      args.push_back(candidate.str());
+      return;
+    }
+  }
 }
 
 void addSanitizerLibs(std::vector<std::string> &args) {
