@@ -29,3 +29,13 @@ default:
     // default rpath when linking against the shared default libs
     rpath = "@SHARED_LIBS_RPATH@";
 };
+
+"^wasm(32|64)-":
+{
+    switches = [
+        "-defaultlib=druntime-ldc",@WASM_DEFAULT_LDC_SWITCHES@
+    ];
+    post-switches = [
+        "-I@RUNTIME_DIR@/src",
+    ];
+};
