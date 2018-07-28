@@ -163,6 +163,9 @@ after_test:
         cp ldc-scripts\ldc2-packaging\pkgfiles\README.txt "$ldcInstallDir"
         cp libcurl\ldc2\libcurl.dll "$ldcInstallDir\bin"
         cp libcurl\ldc2\curl.lib "$ldcInstallDir\lib"
+        If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
+          cp c:\projects\llvm\bin\lld-link.exe "$ldcInstallDir\bin"
+        }
         # Now rename the installation dir to test portability.
         ren "$ldcInstallDir" ldc2-install
   # Hello world integration test with LTO (x64 only)
