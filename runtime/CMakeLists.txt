@@ -261,6 +261,10 @@ elseif(${BUILD_SHARED_LIBS} STREQUAL "OFF")
     set(ADDITIONAL_DEFAULT_LDC_SWITCHES "\n        \"-link-defaultlib-shared=false\",")
 endif()
 
+if(LDC_WITH_LLD)
+    set(WASM_DEFAULT_LDC_SWITCHES "\n        \"-link-internally\",")
+endif()
+
 # Only generate the config files if this CMake project is embedded in the LDC CMake project.
 if(LDC_EXE)
     if(PHOBOS2_DIR)
