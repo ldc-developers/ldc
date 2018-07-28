@@ -827,6 +827,18 @@ void emitDMDStyleFunctionTrace(IRState &irs, FuncDeclaration *fd,
   }
 }
 
+// If the specified block is trivially unreachable, erases it and returns true.
+// This is a common case because it happens when 'return' is the last statement
+// in a function.
+bool eraseDummyAfterReturnBB(llvm::BasicBlock *bb) {
+  if (pred_begin(bb) == pred_end(bb) &&
+      bb != &bb->getParent()->getEntryBlock()) {
+    bb->eraseFromParent();
+    return true;
+  }
+  return false;
+}
+
 } // anonymous namespace
 
 void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
@@ -1034,6 +1046,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
       llvm::BasicBlock::Create(gIR->context(), "", func);
 
   gIR->scopes.push_back(IRScope(beginbb));
+  SCOPE_EXIT {
+    gIR->scopes.pop_back();
+  };
 
 // Set the FastMath options for this function scope.
 #if LDC_LLVM_VER >= 308
@@ -1041,6 +1056,18 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 #else
   gIR->scopes.back().builder.SetFastMathFlags(irFunc->FMF);
 #endif
+
+  // @naked: emit body and return, no prologue/epilogue
+  if (func->hasFnAttribute(llvm::Attribute::Naked)) {
+    Statement_toIR(fd->fbody, gIR);
+    const bool wasDummy = eraseDummyAfterReturnBB(gIR->scopebb());
+    if (!wasDummy && !gIR->scopereturned()) {
+      // this is what clang does to prevent LLVM complaining about
+      // non-terminated function
+      gIR->ir->CreateUnreachable();
+    }
+    return;
+  }
 
   // create alloca point
   // this gets erased when the function is complete, so alignment etc does not
@@ -1163,14 +1190,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     funcGen.scopes.popCleanups(0);
   }
 
-  llvm::BasicBlock *bb = gIR->scopebb();
-  if (pred_begin(bb) == pred_end(bb) &&
-      bb != &bb->getParent()->getEntryBlock()) {
-    // This block is trivially unreachable, so just delete it.
-    // (This is a common case because it happens when 'return'
-    // is the last statement in a function)
-    bb->eraseFromParent();
-  } else if (!gIR->scopereturned()) {
+  const bool wasDummy = eraseDummyAfterReturnBB(gIR->scopebb());
+  if (!wasDummy && !gIR->scopereturned()) {
     // llvm requires all basic blocks to end with a TerminatorInst but DMD does
     // not put a return statement in automatically, so we do it here.
 
@@ -1200,8 +1221,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     allocaPoint->eraseFromParent();
     allocaPoint = nullptr;
   }
-
-  gIR->scopes.pop_back();
 
   if (gIR->dcomputetarget && hasKernelAttr(fd)) {
     auto fn = gIR->module.getFunction(fd->mangleString);

@@ -13,6 +13,20 @@
 #include "id.h"
 
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringSwitch.h"
+
+#if LDC_LLVM_VER >= 309
+namespace llvm {
+// Auto-generate:
+// Attribute::AttrKind getAttrKindFromName(StringRef AttrName) { ... }
+#define GET_ATTR_KIND_FROM_NAME
+#if LDC_LLVM_VER >= 400
+#include "llvm/IR/Attributes.gen"
+#else
+#include "llvm/IR/Attributes.inc"
+#endif
+}
+#endif
 
 namespace {
 
@@ -204,7 +218,20 @@ void applyAttrLLVMAttr(StructLiteralExp *sle, llvm::Function *func) {
   llvm::StringRef key = getStringElem(sle, 0);
   llvm::StringRef value = getStringElem(sle, 1);
   if (value.empty()) {
-    func->addFnAttr(key);
+#if LDC_LLVM_VER >= 309
+    const auto kind = llvm::getAttrKindFromName(key);
+    if (kind != llvm::Attribute::None) {
+      func->addFnAttr(kind);
+    }
+#else
+    // no getAttrKindFromName(); just detect `naked` for now
+    if (key == "naked") {
+      func->addFnAttr(llvm::Attribute::Naked);
+    }
+#endif
+    else {
+      func->addFnAttr(key);
+    }
   } else {
     func->addFnAttr(key, value);
   }
