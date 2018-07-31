@@ -4,9 +4,6 @@
 
 // REQUIRES: atleast_llvm309
 
-// There is an LLVM bug, this test currently errors during LLVM codegen for Windows.
-// XFAIL: Windows
-
 // RUN: %ldc -O3 -fprofile-generate=%t.profraw -run %s  \
 // RUN:   &&  %profdata merge %t.profraw -o %t.profdata \
 // RUN:   &&  %ldc -O3 -c -output-ll -of=%t.use.ll -fprofile-use=%t.profdata %s \
