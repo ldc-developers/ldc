@@ -1,0 +1,58 @@
+language: c
+
+compiler:
+  - clang
+
+runtime:
+  nodePool: shippable_shared_aarch64
+
+env:
+  - LLVM_VERSION=6.0.0
+
+build:
+  ci:
+    - export DEBIAN_FRONTEND=noninteractive
+    - apt-get -q update
+    # libconfig-dev needed for ltsmaster only
+    - |
+      apt-get -yq install \
+        git-core cmake ninja-build \
+        libconfig-dev zlib1g-dev \
+        libcurl3 \
+        curl gdb python-pip tzdata unzip zip
+    - pip install --user lit
+    - update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
+    # Install LLVM
+    - curl -L -o llvm.tar.xz http://releases.llvm.org/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-aarch64-linux-gnu.tar.xz
+    - mkdir llvm && tar -xf llvm.tar.xz --strip 1 -C llvm
+    - rm llvm.tar.xz
+    # Build ltsmaster for bootstrapping
+    - git checkout -b _backup
+    - git checkout ltsmaster
+    - git submodule update
+    - mkdir build-bootstrap
+    - cd build-bootstrap
+    - |
+      cmake -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DLLVM_ROOT_DIR=$PWD/../llvm \
+        -DCMAKE_INSTALL_PREFIX=$PWD/../bootstrap \
+        ..
+    - ninja install
+    - cd ..
+    - bootstrap/bin/ldc2 --version
+    # Build actual version
+    - git checkout _backup
+    - git submodule update
+    - mkdir build
+    - cd build
+    - |
+      cmake -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DLLVM_ROOT_DIR=$PWD/../llvm \
+        -DLDC_INSTALL_LTOPLUGIN=ON \
+        -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON \
+        -DD_COMPILER=$PWD/../bootstrap/bin/ldmd2 \
+        ..
+    - ninja ldc2
+    - bin/ldc2 --version
