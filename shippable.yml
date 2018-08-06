@@ -1,0 +1,42 @@
+language: c
+
+compiler:
+  - clang
+
+runtime:
+  nodePool: shippable_shared_aarch64
+
+env:
+  - LLVM_VERSION=6.0.0
+
+build:
+  ci:
+    - export DEBIAN_FRONTEND=noninteractive
+    - apt-get -q update
+    - |
+      apt-get -yq install \
+        git-core cmake ninja-build \
+        libconfig-dev zlib1g-dev \
+        libcurl3 \
+        curl gdb python-pip tzdata unzip zip
+    - update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
+    - pip install --user lit
+    # Install LLVM.
+    - curl -L -o llvm.tar.xz http://releases.llvm.org/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-aarch64-linux-gnu.tar.xz
+    - mkdir llvm && tar -xf llvm.tar.xz --strip 1 -C llvm
+    - rm llvm.tar.xz
+    # Build LDC.
+    - git submodule update --init
+    - mkdir build
+    - cd build
+    - cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLLVM_ROOT_DIR=$PWD/../llvm ..
+    - ninja
+    - bin/ldc2 --version
+    # Build Phobos & druntime unittest modules.
+    - ninja -j16 -k9999 phobos2-ldc-unittest-debug phobos2-ldc-unittest druntime-ldc-unittest-debug druntime-ldc-unittest || true
+    # Run LIT testsuite.
+    - ctest -V -R lit-tests
+    # Run DMD testsuite.
+    - DMD_TESTSUITE_MAKE_ARGS='-j16 -k' ctest -V -R dmd-testsuite || true
+    # Link and run Phobos & druntime unittest runners.
+    - ctest -j16 --output-on-failure -E "dmd-testsuite|lit-tests" || true
