@@ -68,7 +68,7 @@ version (LDC)
     }
     else version (AAPCS64)
     {
-        alias va_list = __va_list;
+        alias va_list = __va_list*;
     }
     else version (ARM)
     {
