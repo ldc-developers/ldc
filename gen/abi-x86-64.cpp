@@ -360,9 +360,9 @@ void X86_64TargetABI::rewriteVarargs(IrFuncTy &fty,
 /**
  * The System V AMD64 ABI uses a special native va_list type - a 24-bytes struct
  * passed by reference.
- * In druntime, the struct is defined as core.stdc.stdarg.__va_list; the
- * actually used core.stdc.stdarg.va_list type is a raw char* pointer though to
- * achieve byref semantics.
+ * In druntime, the struct is defined as object.__va_list_tag; the actually used
+ * core.stdc.stdarg.va_list type is a __va_list_tag* pointer though to achieve
+ * byref semantics.
  * This requires a little bit of compiler magic in the following
  * implementations.
  */
@@ -371,7 +371,7 @@ LLType *X86_64TargetABI::getValistType() {
   LLType *uintType = LLType::getInt32Ty(gIR->context());
   LLType *voidPointerType = getVoidPtrType();
 
-  std::vector<LLType *> parts;      // struct __va_list {
+  std::vector<LLType *> parts;      // struct __va_list_tag {
   parts.push_back(uintType);        //   uint gp_offset;
   parts.push_back(uintType);        //   uint fp_offset;
   parts.push_back(voidPointerType); //   void* overflow_arg_area;
@@ -381,9 +381,9 @@ LLType *X86_64TargetABI::getValistType() {
 }
 
 LLValue *X86_64TargetABI::prepareVaStart(LLValue *pAp) {
-  // Since the user only created a char* pointer (ap) on the stack before
-  // invoking va_start, we first need to allocate the actual __va_list struct
-  // and set 'ap' to its address.
+  // Since the user only created a __va_list_tag* pointer (ap) on the stack before
+  // invoking va_start, we first need to allocate the actual __va_list_tag struct
+  // and set `ap` to its address.
   LLValue *valistmem = DtoRawAlloca(getValistType(), 0, "__va_list_mem");
   valistmem = DtoBitCast(valistmem, getVoidPtrType());
   DtoStore(valistmem, DtoBitCast(pAp, getPtrToType(getVoidPtrType())));
@@ -393,21 +393,19 @@ LLValue *X86_64TargetABI::prepareVaStart(LLValue *pAp) {
 }
 
 void X86_64TargetABI::vaCopy(LLValue *pDest, LLValue *src) {
-  // Analog to va_start, we need to allocate a new __va_list struct on the
-  // stack, fill it with a bitcopy of the source struct...
-  src = DtoLoad(
-      DtoBitCast(src, getValistType()->getPointerTo())); // *(__va_list*)src
-  LLValue *valistmem = DtoAllocaDump(src, 0, "__va_list_mem");
-  // ... and finally set the passed 'dest' char* pointer to the new struct's
-  // address.
-  DtoStore(DtoBitCast(valistmem, getVoidPtrType()),
-           DtoBitCast(pDest, getPtrToType(getVoidPtrType())));
+  // Analog to va_start, we first need to allocate a new __va_list_tag struct on
+  // the stack and set `dest` to its address.
+  LLValue *valistmem = DtoRawAlloca(getValistType(), 0, "__va_list_mem");
+  DtoStore(valistmem, DtoBitCast(pDest, getPtrToType(valistmem->getType())));
+  // Then fill the new struct with a bitcopy of the source struct.
+  // `src` is a __va_list_tag* pointer to the source struct.
+  DtoMemCpy(valistmem, src);
 }
 
 LLValue *X86_64TargetABI::prepareVaArg(LLValue *pAp) {
-  // pass a void* pointer to the actual __va_list struct to LLVM's va_arg
-  // intrinsic
-  return DtoLoad(pAp);
+  // Pass a i8* pointer to the actual __va_list_tag struct to LLVM's va_arg
+  // intrinsic.
+  return DtoBitCast(DtoLoad(pAp), getVoidPtrType());
 }
 
 Type *X86_64TargetABI::vaListType() {
