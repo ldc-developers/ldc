@@ -85,9 +85,9 @@ struct AArch64TargetABI : TargetABI {
   *     int __vr_offs; // offset from __vr_top to next FP/SIMD register arg
   * } va_list;
   *
-  * In druntime, the struct is defined as core.stdc.stdarg.__va_list; the
-  * actually used core.stdc.stdarg.va_list type is a raw char* pointer though to
-  * achieve byref semantics.
+  * In druntime, the struct is defined as object.__va_list; the actually used
+  * core.stdc.stdarg.va_list type is a __va_list* pointer though to achieve
+  * byref semantics.
   * This requires a little bit of compiler magic in the following
   * implementations.
   */
@@ -107,7 +107,7 @@ struct AArch64TargetABI : TargetABI {
   }
 
   LLValue *prepareVaStart(DLValue *ap) override {
-    // Since the user only created a char* pointer (ap) on the stack before
+    // Since the user only created a __va_list* pointer (ap) on the stack before
     // invoking va_start, we first need to allocate the actual __va_list struct
     // and set `ap` to its address.
     LLValue *valistmem = DtoRawAlloca(getValistType(), 0, "__va_list_mem");
@@ -124,14 +124,14 @@ struct AArch64TargetABI : TargetABI {
     DtoStore(valistmem,
              DtoBitCast(DtoLVal(dest), getPtrToType(valistmem->getType())));
     // Then fill the new struct with a bitcopy of the source struct.
-    // `src` is a char* pointer to the source struct.
+    // `src` is a __va_list* pointer to the source struct.
     DtoMemCpy(valistmem, DtoRVal(src));
   }
 
   LLValue *prepareVaArg(DLValue *ap) override {
     // Pass a i8* pointer to the actual __va_list struct to LLVM's va_arg
     // intrinsic.
-    return DtoRVal(ap);
+    return DtoBitCast(DtoRVal(ap), getVoidPtrType());
   }
 
   Type *vaListType() override {
@@ -139,7 +139,8 @@ struct AArch64TargetABI : TargetABI {
     // using TypeIdentifier here is a bit wonky but works, as long as the name
     // is actually available in the scope (this is what DMD does, so if a better
     // solution is found there, this should be adapted).
-    return createTypeIdentifier(Loc(), Identifier::idPool("__va_list"));
+    return createTypeIdentifier(Loc(), Identifier::idPool("__va_list"))
+        ->pointerTo();
   }
 
   const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty) override {
