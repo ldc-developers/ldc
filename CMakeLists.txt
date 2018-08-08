@@ -904,13 +904,18 @@ add_test(NAME build-ldc2-unittest COMMAND "${CMAKE_COMMAND}" --build ${CMAKE_BIN
 add_test(NAME ldc2-unittest COMMAND ${LDC_UNITTEST_EXE_FULL} --version)
 set_tests_properties(ldc2-unittest PROPERTIES DEPENDS build-ldc2-unittest)
 
-add_subdirectory(runtime)
+if(EXISTS "${PROJECT_SOURCE_DIR}/runtime/druntime/src/object.d")
+    add_subdirectory(runtime)
+else()
+    message(STATUS "Runtime file runtime/druntime/src/object.d not found, will build ldc binaries but not the standard library.")
+endif()
 if(D_VERSION EQUAL 2)
     add_subdirectory(tests/d2)
 endif()
 add_subdirectory(tests)
 
 # ldc-build-runtime tool
+configure_file(${PROJECT_SOURCE_DIR}/runtime/ldc-build-runtime.d.in ${PROJECT_BINARY_DIR}/ldc-build-runtime.d @ONLY)
 set(LDC_BUILD_RUNTIME_EXE_FULL ${PROJECT_BINARY_DIR}/bin/ldc-build-runtime${CMAKE_EXECUTABLE_SUFFIX})
 build_d_executable(
     "${LDC_BUILD_RUNTIME_EXE_FULL}"

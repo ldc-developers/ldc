@@ -40,9 +40,6 @@ commonSteps: &commonSteps
           pip install --user lit
     - checkout
     - run:
-        name: Checkout git submodules
-        command: git submodule update --init
-    - run:
         name: Install LDC-flavoured LLVM
         command: |
           cd ..
@@ -76,9 +73,21 @@ commonSteps: &commonSteps
           HOST_LDMD=$PWD/ldc2-$HOST_LDC_VERSION/bin/ldmd2
           mkdir bootstrap
           cd bootstrap
-          cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DBUILD_SHARED_LIBS=OFF -DD_COMPILER=$HOST_LDMD $BOOTSTRAP_CMAKE_FLAGS $CIRCLE_WORKING_DIRECTORY
+          cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DD_COMPILER=$HOST_LDMD $BOOTSTRAP_CMAKE_FLAGS $CIRCLE_WORKING_DIRECTORY
           ninja -j3
           bin/ldc2 -version
+          cd ..
+    - run:
+        name: Checkout git submodules
+        command: git submodule update --init
+    - run:
+        name: Build bootstrap stdlib
+        command: |
+          cd ..
+          HOST_LDMD=$PWD/ldc2-$HOST_LDC_VERSION/bin/ldmd2
+          cd bootstrap
+          cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DBUILD_SHARED_LIBS=OFF -DD_COMPILER=$HOST_LDMD $BOOTSTRAP_CMAKE_FLAGS $CIRCLE_WORKING_DIRECTORY
+          ninja -j3
           cd ..
     - run:
         name: Build LDC and stdlib unittest runners
