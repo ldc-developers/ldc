@@ -274,7 +274,6 @@ if(LDC_EXE)
     endif()
     configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf @ONLY)
     configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf @ONLY)
-    configure_file(${PROJECT_SOURCE_DIR}/ldc-build-runtime.d.in ${PROJECT_BINARY_DIR}/../ldc-build-runtime.d @ONLY)
 endif()
 
 #
