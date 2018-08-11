@@ -112,7 +112,9 @@ void printVersion(llvm::raw_ostream &OS) {
 #endif
   OS << "  Default target: " << llvm::sys::getDefaultTargetTriple() << "\n";
   std::string CPU = llvm::sys::getHostCPUName();
-  if (CPU == "generic") {
+  if (CPU == "generic" || getenv("SOURCE_DATE_EPOCH")) {
+    // SOURCE_DATE_EPOCH indicates that a reproducible build is wanted
+    // so we omit build system CPU type from man page
     CPU = "(unknown)";
   }
   OS << "  Host CPU: " << CPU << "\n";
