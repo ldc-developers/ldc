@@ -17,6 +17,23 @@
 #include "gen/abi-generic.h"
 #include "gen/abi-aarch64.h"
 
+/**
+ * The AACPS64 uses a special native va_list type:
+ *
+ * typedef struct __va_list {
+ *     void *__stack; // next stack param
+ *     void *__gr_top; // end of GP arg reg save area
+ *     void *__vr_top; // end of FP/SIMD arg reg save area
+ *     int __gr_offs; // offset from __gr_top to next GP register arg
+ *     int __vr_offs; // offset from __vr_top to next FP/SIMD register arg
+ * } va_list;
+ *
+ * In druntime, the struct is defined as object.__va_list, an alias of
+ * ldc.internal.vararg.std.__va_list.
+ * Arguments of this type are never passed by value, only by reference (even
+ * though the mangled function name indicates otherwise!). This requires a
+ * little bit of compiler magic in the following implementations.
+ */
 struct AArch64TargetABI : TargetABI {
   HFAToArray hfaToArray;
   CompositeToArray64 compositeToArray64;
@@ -35,10 +52,15 @@ struct AArch64TargetABI : TargetABI {
     return passByVal(tf, rt);
   }
 
+  bool isVaList(Type *t) {
+    return t->ty == Tstruct && strcmp(t->toPrettyChars(true),
+                                      "ldc.internal.vararg.std.__va_list") == 0;
+  }
+
   bool passByVal(TypeFunction *, Type *t) override {
     t = t->toBasetype();
-    return t->ty == Tsarray ||
-           (t->ty == Tstruct && t->size() > 16 && !isHFA((TypeStruct *)t));
+    return t->ty == Tsarray || (t->ty == Tstruct && t->size() > 16 &&
+                                !isHFA((TypeStruct *)t) && !isVaList(t));
   }
 
   void rewriteFunctionType(IrFuncTy &fty) override {
@@ -64,9 +86,14 @@ struct AArch64TargetABI : TargetABI {
     Type *ty = arg.type->toBasetype();
 
     if (ty->ty == Tstruct || ty->ty == Tsarray) {
+      if (isVaList(ty)) {
+        // compiler magic: pass va_list args implicitly by reference
+        arg.byref = true;
+        arg.ltype = arg.ltype->getPointerTo();
+      }
       // Rewrite HFAs only because union HFAs are turned into IR types that are
       // non-HFA and messes up register selection
-      if (ty->ty == Tstruct && isHFA((TypeStruct *)ty, &arg.ltype)) {
+      else if (ty->ty == Tstruct && isHFA((TypeStruct *)ty, &arg.ltype)) {
         hfaToArray.applyTo(arg, arg.ltype);
       } else {
         compositeToArray64.applyTo(arg);
@@ -74,73 +101,12 @@ struct AArch64TargetABI : TargetABI {
     }
   }
 
-  /**
-  * The AACPS64 uses a special native va_list type:
-  *
-  * typedef struct __va_list {
-  *     void *__stack; // next stack param
-  *     void *__gr_top; // end of GP arg reg save area
-  *     void *__vr_top; // end of FP/SIMD arg reg save area
-  *     int __gr_offs; // offset from __gr_top to next GP register arg
-  *     int __vr_offs; // offset from __vr_top to next FP/SIMD register arg
-  * } va_list;
-  *
-  * In druntime, the struct is defined as object.__va_list; the actually used
-  * core.stdc.stdarg.va_list type is a __va_list* pointer though to achieve
-  * byref semantics.
-  * This requires a little bit of compiler magic in the following
-  * implementations.
-  */
-
-  LLType *getValistType() {
-    LLType *intType = LLType::getInt32Ty(gIR->context());
-    LLType *voidPointerType = getVoidPtrType();
-
-    std::vector<LLType *> parts;      // struct __va_list {
-    parts.push_back(voidPointerType); //   void *__stack;
-    parts.push_back(voidPointerType); //   void *__gr_top;
-    parts.push_back(voidPointerType); //   void *__vr_top;
-    parts.push_back(intType);         //   int __gr_offs;
-    parts.push_back(intType);         //   int __vr_offs; };
-
-    return LLStructType::get(gIR->context(), parts);
-  }
-
-  LLValue *prepareVaStart(DLValue *ap) override {
-    // Since the user only created a __va_list* pointer (ap) on the stack before
-    // invoking va_start, we first need to allocate the actual __va_list struct
-    // and set `ap` to its address.
-    LLValue *valistmem = DtoRawAlloca(getValistType(), 0, "__va_list_mem");
-    DtoStore(valistmem,
-             DtoBitCast(DtoLVal(ap), getPtrToType(valistmem->getType())));
-    // Pass a i8* pointer to the actual struct to LLVM's va_start intrinsic.
-    return DtoBitCast(valistmem, getVoidPtrType());
-  }
-
-  void vaCopy(DLValue *dest, DValue *src) override {
-    // Analog to va_start, we first need to allocate a new __va_list struct on
-    // the stack and set `dest` to its address.
-    LLValue *valistmem = DtoRawAlloca(getValistType(), 0, "__va_list_mem");
-    DtoStore(valistmem,
-             DtoBitCast(DtoLVal(dest), getPtrToType(valistmem->getType())));
-    // Then fill the new struct with a bitcopy of the source struct.
-    // `src` is a __va_list* pointer to the source struct.
-    DtoMemCpy(valistmem, DtoRVal(src));
-  }
-
-  LLValue *prepareVaArg(DLValue *ap) override {
-    // Pass a i8* pointer to the actual __va_list struct to LLVM's va_arg
-    // intrinsic.
-    return DtoBitCast(DtoRVal(ap), getVoidPtrType());
-  }
-
   Type *vaListType() override {
     // We need to pass the actual va_list type for correct mangling. Simply
     // using TypeIdentifier here is a bit wonky but works, as long as the name
     // is actually available in the scope (this is what DMD does, so if a better
     // solution is found there, this should be adapted).
-    return createTypeIdentifier(Loc(), Identifier::idPool("__va_list"))
-        ->pointerTo();
+    return createTypeIdentifier(Loc(), Identifier::idPool("__va_list"));
   }
 
   const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty) override {
