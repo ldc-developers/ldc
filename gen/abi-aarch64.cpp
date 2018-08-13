@@ -35,10 +35,24 @@
  * little bit of compiler magic in the following implementations.
  */
 struct AArch64TargetABI : TargetABI {
+private:
+  IndirectByvalRewrite byvalRewrite;
   HFAToArray hfaToArray;
   CompositeToArray64 compositeToArray64;
   IntegerRewrite integerRewrite;
 
+  bool isVaList(Type *t) {
+    return t->ty == Tstruct && strcmp(t->toPrettyChars(true),
+                                      "ldc.internal.vararg.std.__va_list") == 0;
+  }
+
+  bool passIndirectlyByValue(Type *t) {
+    t = t->toBasetype();
+    return t->ty == Tsarray || (t->ty == Tstruct && t->size() > 16 &&
+                                !isHFA(static_cast<TypeStruct *>(t)));
+  }
+
+public:
   bool returnInArg(TypeFunction *tf, bool) override {
     if (tf->isref) {
       return false;
@@ -49,56 +63,53 @@ struct AArch64TargetABI : TargetABI {
     if (!isPOD(rt))
       return true;
 
-    return passByVal(tf, rt);
+    return passIndirectlyByValue(rt);
   }
 
-  bool isVaList(Type *t) {
-    return t->ty == Tstruct && strcmp(t->toPrettyChars(true),
-                                      "ldc.internal.vararg.std.__va_list") == 0;
-  }
-
-  bool passByVal(TypeFunction *, Type *t) override {
-    t = t->toBasetype();
-    return t->ty == Tsarray || (t->ty == Tstruct && t->size() > 16 &&
-                                !isHFA((TypeStruct *)t) && !isVaList(t));
-  }
+  bool passByVal(TypeFunction *, Type *) override { return false; }
 
   void rewriteFunctionType(IrFuncTy &fty) override {
-    Type *retTy = fty.ret->type->toBasetype();
-    if (!fty.ret->byref && retTy->ty == Tstruct) {
-      // Rewrite HFAs only because union HFAs are turned into IR types that are
-      // non-HFA and messes up register selection
-      if (isHFA((TypeStruct *)retTy, &fty.ret->ltype)) {
-        hfaToArray.applyTo(*fty.ret, fty.ret->ltype);
-      } else {
-        integerRewrite.applyTo(*fty.ret);
-      }
+    Type *rt = fty.ret->type->toBasetype();
+    if (!fty.ret->byref && rt->ty != Tvoid) {
+      rewriteArgument(fty, *fty.ret, true);
     }
 
     for (auto arg : fty.args) {
-      if (!arg->byref)
+      if (!arg->byref) {
         rewriteArgument(fty, *arg);
+      }
     }
   }
 
-  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
-    // FIXME
-    Type *ty = arg.type->toBasetype();
+  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg, bool isReturnVal) {
+    const auto t = arg.type->toBasetype();
 
-    if (ty->ty == Tstruct || ty->ty == Tsarray) {
-      if (isVaList(ty)) {
-        // compiler magic: pass va_list args implicitly by reference
-        arg.byref = true;
-        arg.ltype = arg.ltype->getPointerTo();
-      }
-      // Rewrite HFAs only because union HFAs are turned into IR types that are
-      // non-HFA and messes up register selection
-      else if (ty->ty == Tstruct && isHFA((TypeStruct *)ty, &arg.ltype)) {
-        hfaToArray.applyTo(arg, arg.ltype);
+    if (t->ty != Tstruct && t->ty != Tsarray)
+      return;
+
+    if (!isReturnVal && isVaList(t)) {
+      // compiler magic: pass va_list args implicitly by reference
+      arg.byref = true;
+      arg.ltype = arg.ltype->getPointerTo();
+    } else if (!isReturnVal && passIndirectlyByValue(t)) {
+      byvalRewrite.applyTo(arg);
+    }
+    // Rewrite HFAs only because union HFAs are turned into IR types that are
+    // non-HFA and messes up register selection
+    else if (t->ty == Tstruct &&
+             isHFA(static_cast<TypeStruct *>(t), &arg.ltype)) {
+      hfaToArray.applyTo(arg, arg.ltype);
+    } else {
+      if (isReturnVal) {
+        integerRewrite.applyTo(arg);
       } else {
         compositeToArray64.applyTo(arg);
       }
     }
+  }
+
+  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
+    rewriteArgument(fty, arg, false);
   }
 
   Type *vaListType() override {
