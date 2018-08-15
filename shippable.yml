@@ -75,10 +75,10 @@ build:
     - ctest --output-on-failure -R ldc2-unittest
     # Run LIT testsuite
     - ctest -V -R lit-tests || true
-    # Run DMD testsuite
-    - DMD_TESTSUITE_MAKE_ARGS='-j16 -k' ctest -V -R dmd-testsuite || true
-    # Run druntime/Phobos unittests
-    - ctest -j16 --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests" || true
+    # Run DMD testsuite (non-debug only for now)
+    - DMD_TESTSUITE_MAKE_ARGS='-j16 -k' ctest -V -R dmd-testsuite -E "-debug$" || true
+    # Run druntime/Phobos unittests (non-debug only for now)
+    - ctest -j16 --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests|-debug(-shared)?$" || true
 
 integrations:
   notifications:
