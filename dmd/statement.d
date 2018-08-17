@@ -2479,6 +2479,11 @@ extern (C++) final class InlineAsmStatement : AsmStatement
     {
         // non-zero if this is a branch, contains the target label
         LabelDsymbol isBranchToLabel;
+
+        static InlineAsmStatement create(const ref Loc loc, Token* tokens)
+        {
+            return new InlineAsmStatement(loc, tokens);
+        }
     }
 
     extern (D) this(const ref Loc loc, Token* tokens)
@@ -2490,7 +2495,7 @@ extern (C++) final class InlineAsmStatement : AsmStatement
     {
 version(IN_LLVM)
 {
-        auto a_s = new AsmStatement(loc, tokens);
+        auto a_s = new InlineAsmStatement(loc, tokens);
         a_s.refparam = refparam;
         a_s.naked = naked;
         return a_s;

@@ -72,7 +72,7 @@ struct AsmCode {
 
 struct AsmParserCommon {
   virtual ~AsmParserCommon() = default;
-  virtual void run(Scope *sc, AsmStatement *asmst) = 0;
+  virtual void run(Scope *sc, InlineAsmStatement *asmst) = 0;
   virtual std::string getRegName(int i) = 0;
 };
 AsmParserCommon *asmparser = nullptr;
@@ -103,6 +103,9 @@ static void replace_func_name(IRState *p, std::string &insnt) {
 }
 
 Statement *asmSemantic(AsmStatement *s, Scope *sc) {
+  auto ias = InlineAsmStatement::create(s->loc, s->tokens);
+  s = ias;
+
   bool err = false;
   llvm::Triple const &t = *global.params.targetTriple;
   if (!(t.getArch() == llvm::Triple::x86 ||
@@ -142,13 +145,13 @@ Statement *asmSemantic(AsmStatement *s, Scope *sc) {
     }
   }
 
-  asmparser->run(sc, s);
+  asmparser->run(sc, ias);
 
   return s;
 }
 
-void AsmStatement_toIR(AsmStatement *stmt, IRState *irs) {
-  IF_LOG Logger::println("AsmStatement::toIR(): %s", stmt->loc.toChars());
+void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
+  IF_LOG Logger::println("InlineAsmStatement::toIR(): %s", stmt->loc.toChars());
   LOG_SCOPE;
 
   // sanity check
@@ -741,8 +744,9 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-void AsmStatement_toNakedIR(AsmStatement *stmt, IRState *irs) {
-  IF_LOG Logger::println("AsmStatement::toNakedIR(): %s", stmt->loc.toChars());
+void AsmStatement_toNakedIR(InlineAsmStatement *stmt, IRState *irs) {
+  IF_LOG Logger::println("InlineAsmStatement::toNakedIR(): %s",
+                         stmt->loc.toChars());
   LOG_SCOPE;
 
   // is there code?

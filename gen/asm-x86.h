@@ -2037,7 +2037,7 @@ struct AsmProcessor {
 
   static const unsigned Max_Operands = 3;
 
-  AsmStatement *stmt;
+  InlineAsmStatement *stmt;
   Scope *sc;
 
   Token *token;
@@ -2049,7 +2049,7 @@ struct AsmProcessor {
   Identifier *opIdent;
   Operand *operand;
 
-  AsmProcessor(Scope *sc, AsmStatement *stmt) {
+  AsmProcessor(Scope *sc, InlineAsmStatement *stmt) {
     this->sc = sc;
     this->stmt = stmt;
     token = stmt->tokens;
@@ -4011,7 +4011,7 @@ bool getFrameRelativeValue(LLValue *decl, HOST_WIDE_INT *result) {
 }
 
 struct AsmParser : public AsmParserCommon {
-  void run(Scope *sc, AsmStatement *asmst) override {
+  void run(Scope *sc, InlineAsmStatement *asmst) override {
     AsmProcessor ap(sc, asmst);
     ap.run();
   }

@@ -742,6 +742,8 @@ public:
 #if IN_LLVM
     // non-zero if this is a branch, contains the target label
     LabelDsymbol* isBranchToLabel;
+
+    static InlineAsmStatement *create(const Loc &loc, Token *tokens);
 #endif
 
     Statement *syntaxCopy();
