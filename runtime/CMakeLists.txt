@@ -218,6 +218,9 @@ if(PHOBOS2_DIR)
     file(GLOB_RECURSE PHOBOS2_D ${PHOBOS2_DIR}/*.d)
     # remove top-level modules index.d and unittest.d
     list(REMOVE_ITEM PHOBOS2_D ${PHOBOS2_DIR}/index.d ${PHOBOS2_DIR}/unittest.d)
+    # remove D files in test/
+    file(GLOB_RECURSE PHOBOS2_D_TEST ${PHOBOS2_DIR}/test/*.d)
+    list(REMOVE_ITEM PHOBOS2_D ${PHOBOS2_D_TEST})
     # only include std/windows/ modules on Windows
     if(NOT "${TARGET_SYSTEM}" MATCHES "Windows")
         file(GLOB_RECURSE PHOBOS2_D_WINDOWS ${PHOBOS2_DIR}/std/windows/*.d)
