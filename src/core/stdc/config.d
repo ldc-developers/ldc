@@ -123,23 +123,8 @@ else version( Posix )
     enum __c_longlong  : long;
     enum __c_ulonglong : ulong;
 
-    /**
-     * Special case 64-bit OS X:
-     * - DMD mangles D `long` as C++ `long long` since v2.079.
-     * - LDC keeps on mangling it as C++ `long`, for backwards compatibility
-     *   and natural size_t interop. There's no need for cpp_{size,ptrdiff}_t
-     *   this way (except for 32-bit OS X).
-     */
-    version (LDC)
-    {
-        alias long  cpp_long;
-        alias ulong cpp_ulong;
-    }
-    else
-    {
-        alias __c_long   cpp_long;
-        alias __c_ulong  cpp_ulong;
-    }
+    alias __c_long   cpp_long;
+    alias __c_ulong  cpp_ulong;
 
     alias long  c_long;
     alias ulong c_ulong;

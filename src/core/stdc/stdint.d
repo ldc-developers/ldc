@@ -19,25 +19,6 @@ private import core.stdc.stddef; // for wchar_t
 private import core.stdc.signal; // for sig_atomic_t
 private import core.stdc.wchar_; // for wint_t
 
-version (LDC) version (X86_64)
-{
-    version (OSX)
-        version = Darwin;
-    else version (iOS)
-        version = Darwin;
-    else version (TVOS)
-        version = Darwin;
-    else version (WatchOS)
-        version = Darwin;
-
-    version (Darwin)
-    {
-        // see comment in core.stdc.config
-        version = LDC_Darwin_X86_64;
-        private import core.stdc.config : cpp_longlong, cpp_ulonglong;
-    }
-}
-
 
 // Can't be `private` because of @@@BUG11173@@@.
 T _typify(T)(T val) @safe pure nothrow { return val; }
