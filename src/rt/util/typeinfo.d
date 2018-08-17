@@ -6,8 +6,7 @@
  * Authors:   Kenji Hara
  */
 module rt.util.typeinfo;
-
-private enum isX87Real(T) = (T.mant_dig == 64 && T.max_exp == 16384);
+static import core.internal.hash;
 
 template Floating(T)
 if (is(T == float) || is(T == double) || is(T == real))
@@ -34,22 +33,7 @@ if (is(T == float) || is(T == double) || is(T == real))
         return (d1 == d2) ? 0 : ((d1 < d2) ? -1 : 1);
     }
 
-    size_t hashOf(T value) @trusted
-    {
-        if (value == 0) // +0.0 and -0.0
-            value = 0;
-
-        static if (is(T == float))  // special case?
-            return *cast(uint*)&value;
-        else
-        {
-            import rt.util.hash;
-            static if (isX87Real!T) // Only consider the non-padding bytes.
-                return rt.util.hash.hashOf((cast(void*) &value)[0 .. 10], 0);
-            else
-                return rt.util.hash.hashOf((&value)[0 .. 1], 0);
-        }
-    }
+    public alias hashOf = core.internal.hash.hashOf;
 }
 template Floating(T)
 if (is(T == cfloat) || is(T == cdouble) || is(T == creal))
@@ -78,20 +62,7 @@ if (is(T == cfloat) || is(T == cdouble) || is(T == creal))
         return result;
     }
 
-    size_t hashOf(T value) @trusted
-    {
-        if (value == 0 + 0i)
-            value = 0 + 0i;
-        import rt.util.hash;
-        static if (isX87Real!(typeof(T.init.re))) // Only consider the non-padding bytes.
-        {
-            real* ptr = cast(real*) &value;
-            return rt.util.hash.hashOf((cast(void*) &ptr[0])[0 .. 10],
-                rt.util.hash.hashOf((cast(void*) &ptr[1])[0 .. 10], 0));
-        }
-        else
-            return rt.util.hash.hashOf((&value)[0 .. 1], 0);
-    }
+    public alias hashOf = core.internal.hash.hashOf;
 }
 
 template Array(T)
@@ -130,13 +101,7 @@ if (is(T ==  float) || is(T ==  double) || is(T ==  real) ||
         return 0;
     }
 
-    size_t hashOf(T[] value)
-    {
-        size_t h = 0;
-        foreach (e; value)
-            h += Floating!T.hashOf(e);
-        return h;
-    }
+    public alias hashOf = core.internal.hash.hashOf;
 }
 
 version(unittest)
