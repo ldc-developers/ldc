@@ -30,29 +30,61 @@ build:
     - git checkout -b _backup
     - git checkout ltsmaster
     - git submodule update
+    - mkdir build-ltsmaster
+    - cd build-ltsmaster
+    - |
+      cmake -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DLLVM_ROOT_DIR=$PWD/../llvm \
+        -DCMAKE_INSTALL_PREFIX=$PWD/../ldc-ltsmaster \
+        ..
+    - ninja install
+    - cd ..
+    - ldc-ltsmaster/bin/ldc2 --version
+    # Build actual version, for another bootstrapping step
+    - git checkout _backup
+    - git submodule update
     - mkdir build-bootstrap
     - cd build-bootstrap
     - |
       cmake -G Ninja \
-        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DLLVM_ROOT_DIR=$PWD/../llvm \
-        -DCMAKE_INSTALL_PREFIX=$PWD/../bootstrap \
+        -DCMAKE_INSTALL_PREFIX=$PWD/../ldc-bootstrap \
+        -DD_COMPILER=$PWD/../ldc-ltsmaster/bin/ldmd2 \
         ..
     - ninja install
     - cd ..
-    - bootstrap/bin/ldc2 --version
-    # Build actual version
-    - git checkout _backup
-    - git submodule update
+    - ldc-bootstrap/bin/ldc2 --version
+    # Build with itself
     - mkdir build
     - cd build
     - |
       cmake -G Ninja \
-        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DLLVM_ROOT_DIR=$PWD/../llvm \
         -DLDC_INSTALL_LTOPLUGIN=ON \
         -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON \
-        -DD_COMPILER=$PWD/../bootstrap/bin/ldmd2 \
+        -DD_COMPILER=$PWD/../ldc-bootstrap/bin/ldmd2 \
         ..
-    - ninja ldc2
+    - ninja
     - bin/ldc2 --version
+    # Build druntime/Phobos unittest runners
+    - ninja -j16 all-test-runners
+    # Build and run LDC D unittests
+    - ctest --output-on-failure -R ldc2-unittest
+    # Run LIT testsuite
+    - ctest -V -R lit-tests || true
+    # Run DMD testsuite (non-debug only for now)
+    - DMD_TESTSUITE_MAKE_ARGS='-j16 -k' ctest -V -R dmd-testsuite -E "-debug$" || true
+    # Run druntime/Phobos unittests (non-debug only for now)
+    - ctest -j16 --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests|-debug(-shared)?$" || true
+
+integrations:
+  notifications:
+    - integrationName: email
+      type: email
+      on_success: never
+      on_failure: never
+      on_cancel: never
+      on_pull_request: never
