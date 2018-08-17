@@ -70,11 +70,6 @@ static cl::opt<ubyte, true> useDeprecated(
                             "Warn about the use of deprecated features")),
     cl::location(global.params.useDeprecated), cl::init(2));
 
-cl::opt<bool, true>
-    enforcePropertySyntax("property", cl::desc("Enforce property syntax"),
-                          cl::ZeroOrMore, cl::ReallyHidden,
-                          cl::location(global.params.enforcePropertySyntax));
-
 cl::opt<bool> compileOnly("c", cl::desc("Do not link"), cl::ZeroOrMore);
 
 static cl::opt<bool, true> createStaticLib("lib", cl::ZeroOrMore,

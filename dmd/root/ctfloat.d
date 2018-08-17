@@ -254,14 +254,17 @@ else
 
     static void initialize()
     {
-      version(IN_LLVM)
-      {
-        CTFloat._init();
-      }
-
         zero = real_t(0);
         one = real_t(1);
         minusone = real_t(-1);
         half = real_t(0.5);
+    }
+}
+
+version(IN_LLVM)
+{
+    shared static this()
+    {
+        CTFloat._init();
     }
 }
