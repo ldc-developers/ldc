@@ -155,7 +155,6 @@ struct Param
     ubyte covPercent;       // 0..100 code coverage percentage required
     bool nofloat;           // code should not pull in floating point support
     bool ignoreUnsupportedPragmas;  // rather than error on them
-    bool enforcePropertySyntax;
     bool useModuleInfo = true;   // generate runtime module information
     bool useTypeInfo = true;     // generate runtime type information
     bool useExceptions = true;   // support exception handling
@@ -322,6 +321,7 @@ struct Global
     uint warnings;          // number of warnings reported so far
     uint gag;               // !=0 means gag reporting of errors & warnings
     uint gaggedErrors;      // number of errors reported while gagged
+    uint gaggedWarnings;    // number of warnings reported while gagged
 
     void* console;         // opaque pointer to console for controlling text attributes
 
@@ -333,6 +333,7 @@ struct Global
     extern (C++) uint startGagging()
     {
         ++gag;
+        gaggedWarnings = 0;
         return gaggedErrors;
     }
 
@@ -443,7 +444,7 @@ else
     extern(C++) uint versionNumber()
     {
         import core.stdc.ctype;
-        __gshared static uint cached = 0;
+        __gshared uint cached = 0;
         if (cached == 0)
         {
             //
@@ -507,7 +508,7 @@ struct Loc
     static immutable Loc initial;       /// use for default initialization of const ref Loc's
 
 nothrow:
-    extern (D) this(const(char)* filename, uint linnum, uint charnum)
+    extern (D) this(const(char)* filename, uint linnum, uint charnum) pure
     {
         this.linnum = linnum;
         this.charnum = charnum;

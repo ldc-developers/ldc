@@ -240,19 +240,19 @@ else
     }
 
     // Constant real values 0, 1, -1 and 0.5.
-    static __gshared real_t zero;
-    static __gshared real_t one;
-    static __gshared real_t minusone;
-    static __gshared real_t half;
+    __gshared real_t zero;
+    __gshared real_t one;
+    __gshared real_t minusone;
+    __gshared real_t half;
   version(IN_LLVM)
   {
     // Initialized via LLVM in C++.
-    static __gshared real_t initVal;
-    static __gshared real_t nan;
-    static __gshared real_t infinity;
+    __gshared real_t initVal;
+    __gshared real_t nan;
+    __gshared real_t infinity;
   }
 
-    shared static this()
+    static void initialize()
     {
       version(IN_LLVM)
       {

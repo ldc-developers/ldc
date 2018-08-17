@@ -276,6 +276,8 @@ public:
     TypeClass *scopeClassType;  // real (dynamic) type if onstack == true (stack-allocated class)
 #endif
 
+    VarDeclarations *maybes;    // STCmaybescope variables that are assigned to this STCmaybescope variable
+
     Dsymbol *syntaxCopy(Dsymbol *);
     void setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion);
     const char *kind() const;
