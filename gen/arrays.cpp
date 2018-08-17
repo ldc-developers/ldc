@@ -434,8 +434,7 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
     }
 
     if (!elemDefaultInit) {
-      elemDefaultInit = DtoConstExpInit(arrinit->loc, elemty,
-                                        elemty->defaultInit(arrinit->loc));
+      elemDefaultInit = DtoConstInitializer(arrinit->loc, elemty);
       if (elemDefaultInit->getType() != llelemty) {
         mismatch = true;
       }

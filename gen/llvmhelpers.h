@@ -123,7 +123,8 @@ DValue *DtoDeclarationExp(Dsymbol *declaration);
 LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr = nullptr);
 
 // initializer helpers
-LLConstant *DtoConstInitializer(Loc &loc, Type *type, Initializer *init);
+LLConstant *DtoConstInitializer(Loc &loc, Type *type,
+                                Initializer *init = nullptr);
 LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp);
 
 // getting typeinfo of type, base=true casts to object.TypeInfo

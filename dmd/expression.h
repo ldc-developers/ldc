@@ -65,6 +65,8 @@ namespace llvm {
 
 // in expressionsem.d
 Expression *expressionSemantic(Expression *e, Scope *sc);
+// in typesem.d
+Expression *defaultInit(Type *mt, const Loc &loc);
 #endif
 
 Expression *resolveProperties(Scope *sc, Expression *e);
