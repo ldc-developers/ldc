@@ -366,7 +366,7 @@ Tuple *isTuple(RootObject *o);
 Parameter *isParameter(RootObject *o);
 TemplateParameter *isTemplateParameter(RootObject *o);
 bool arrayObjectIsError(const Objects *args);
-bool isError(const RootObject *o);
+bool isError(const RootObject *const o);
 Type *getType(RootObject *o);
 Dsymbol *getDsymbol(RootObject *o);
 
