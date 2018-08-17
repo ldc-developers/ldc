@@ -291,7 +291,7 @@ private
             else version(MIPS64)
                 enum TLS_DTV_OFFSET = 0x8000;
             else
-                enum TLS_DTV_OFFSET = 0x;
+                enum TLS_DTV_OFFSET = 0x0;
 
             void[] getTLSRange(DSO* pdso) nothrow @nogc
             {
