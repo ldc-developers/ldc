@@ -126,7 +126,7 @@ public:
  * For this-parameter:
  *  template Foo(this ident)
  */
-class TemplateParameter
+class TemplateParameter : public RootObject
 {
 public:
     Loc loc;
