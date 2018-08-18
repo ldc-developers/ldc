@@ -1740,7 +1740,7 @@ llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm) {
   return LLConstantArray::get(at, vals);
 }
 
-static std::string llvmTypeToString(llvm::Type *type) {
+std::string llvmTypeToString(llvm::Type *type) {
   std::string result;
   llvm::raw_string_ostream stream(result);
   stream << *type;

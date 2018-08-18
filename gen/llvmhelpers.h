@@ -297,4 +297,6 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd,
 /// true; otherwise it just returns false.
 bool toInPlaceConstruction(DLValue *lhs, Expression *rhs);
 
+std::string llvmTypeToString(LLType *type);
+
 #endif

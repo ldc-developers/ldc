@@ -551,10 +551,16 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     func = LLFunction::Create(functype, llvm::GlobalValue::ExternalLinkage,
                               irMangle, &gIR->module);
   } else if (func->getFunctionType() != functype) {
+    const auto existingTypeString = llvmTypeToString(func->getFunctionType());
+    const auto newTypeString = llvmTypeToString(functype);
     error(fdecl->loc,
           "Function type does not match previously declared "
           "function with the same mangled name: `%s`",
           mangleExact(fdecl));
+    errorSupplemental(fdecl->loc, "Previous IR type: %s",
+                      existingTypeString.c_str());
+    errorSupplemental(fdecl->loc, "New IR type:      %s",
+                      newTypeString.c_str());
     fatal();
   }
 
