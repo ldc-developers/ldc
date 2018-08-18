@@ -151,7 +151,7 @@ emptylabel: // 1x
 // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 0
 // PROFUSE-SAME: !prof ![[SW0:[0-9]+]]
 void c_switches() {
-  static int weights[] = [1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5];
+  static int[] weights = [1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5];
 
   // The switch counter blocks are generated in the following order:
   // - default block
