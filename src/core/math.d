@@ -241,15 +241,15 @@ version (LDC)
         static if (real.mant_dig == 64)
         {
             // y * log2(x)
-            real yl2x(real x, real y)   @trusted pure nothrow
+            real yl2x(real x, real y)   @safe pure nothrow
             {
-                return __asm!real("fyl2x", "={st},{st(1)},{st},~{st(1)}", y, x);
+                return __asm_trusted!real("fyl2x", "={st},{st(1)},{st},~{st(1)}", y, x);
             }
 
             // y * log2(x + 1)
-            real yl2xp1(real x, real y) @trusted pure nothrow
+            real yl2xp1(real x, real y) @safe pure nothrow
             {
-                return __asm!real("fyl2xp1", "={st},{st(1)},{st},~{st(1)}", y, x);
+                return __asm_trusted!real("fyl2xp1", "={st},{st(1)},{st},~{st(1)}", y, x);
             }
         }
     }
