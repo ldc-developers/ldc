@@ -199,31 +199,28 @@ llvm::StringRef getCompilerRTArchName(const llvm::Triple &triple) {
   return triple.getArchName();
 }
 
-// Returns the libname as full path and with arch suffix and extension.
-// For example, with name="libldc_rt.fuzzer", the returned string is
+// Appends arch suffix and extension.
+// E.g., for name="libldc_rt.fuzzer" and sharedLibrary=false, returns
 // "libldc_rt.fuzzer_osx.a" on Darwin.
-std::string getFullCompilerRTLibPath(const llvm::Triple &triple,
-                                     llvm::StringRef name,
-                                     bool sharedLibrary = false) {
-  if (triple.isOSDarwin()) {
-    return exe_path::prependLibDir(
-        name + (sharedLibrary ? "_osx_dynamic.dylib" : "_osx.a"));
-  } else {
-    return exe_path::prependLibDir(name + "-" + getCompilerRTArchName(triple) +
-                                   (sharedLibrary ? ".so" : ".a"));
-  }
+std::string getCompilerRTLibFilename(const llvm::Twine &name,
+                                     const llvm::Triple &triple,
+                                     bool sharedLibrary) {
+  return (triple.isOSDarwin()
+              ? name + (sharedLibrary ? "_osx_dynamic.dylib" : "_osx.a")
+              : name + "-" + getCompilerRTArchName(triple) +
+                    (sharedLibrary ? ".so" : ".a"))
+      .str();
 }
 
 // Clang's RT libs are in a subdir of the lib dir.
-// Returns the libname as full path and with arch suffix and extension.
-// For example, with name="libclang_rt.asan" and sharedLibrary=true, the
-// returned string is
-// "clang/6.0.0/lib/darwin/libclang_rt.asan_osx_dynamic.dylib" on Darwin.
+// E.g., for name="libclang_rt.asan" and sharedLibrary=true, returns
+// "clang/6.0.0/lib/darwin/libclang_rt.asan_osx_dynamic.dylib" on
+// Darwin.
 // This function is "best effort", the path may not be what Clang does...
 // See clang/lib/Driver/Toolchain.cpp.
-std::string getFullClangCompilerRTLibPath(const llvm::Triple &triple,
-                                          llvm::StringRef name,
-                                          bool sharedLibrary = false) {
+std::string getRelativeClangCompilerRTLibPath(const llvm::Twine &name,
+                                              const llvm::Triple &triple,
+                                              bool sharedLibrary) {
   llvm::StringRef OSName =
       triple.isOSDarwin()
           ? "darwin"
@@ -233,15 +230,41 @@ std::string getFullClangCompilerRTLibPath(const llvm::Triple &triple,
                          "/lib/" + OSName + "/" + name)
                             .str();
 
-  if (triple.isOSDarwin()) {
-    return exe_path::prependLibDir(
-        llvm::Twine(relPath) +
-        (sharedLibrary ? "_osx_dynamic.dylib" : "_osx.a"));
-  } else {
-    return exe_path::prependLibDir(llvm::Twine(relPath) + "-" +
-                                   getCompilerRTArchName(triple) +
-                                   (sharedLibrary ? ".so" : ".a"));
+  return getCompilerRTLibFilename(relPath, triple, sharedLibrary);
+}
+
+void appendFullLibPathCandidates(std::vector<std::string> &paths,
+                                 const llvm::Twine &filename) {
+  for (const char *dir : ConfigFile::instance.libDirs()) {
+    llvm::SmallString<128> candidate(dir);
+    llvm::sys::path::append(candidate, filename);
+    paths.push_back(candidate.str());
   }
+
+  // for backwards compatibility
+  paths.push_back(exe_path::prependLibDir(filename));
+}
+
+// Returns candidates of full paths to a compiler-rt lib.
+// E.g., for baseName="asan" and sharedLibrary=false, returns something like
+// [ "<libDir>/libldc_rt.asan_osx.a",
+//   "<libDir>/libclang_rt.asan_osx.a",
+//   "<libDir>/clang/6.0.0/lib/darwin/libclang_rt.asan_osx.a" ].
+std::vector<std::string>
+getFullCompilerRTLibPathCandidates(llvm::StringRef baseName,
+                                   const llvm::Triple &triple,
+                                   bool sharedLibrary = false) {
+  std::vector<std::string> r;
+  const auto ldcRT =
+      getCompilerRTLibFilename("libldc_rt." + baseName, triple, sharedLibrary);
+  appendFullLibPathCandidates(r, ldcRT);
+  const auto clangRT = getCompilerRTLibFilename("libclang_rt." + baseName,
+                                                triple, sharedLibrary);
+  appendFullLibPathCandidates(r, clangRT);
+  const auto fullClangRT = getRelativeClangCompilerRTLibPath(
+      "libclang_rt." + baseName, triple, sharedLibrary);
+  appendFullLibPathCandidates(r, fullClangRT);
+  return r;
 }
 
 void ArgsBuilder::addASanLinkFlags(const llvm::Triple &triple) {
@@ -253,11 +276,8 @@ void ArgsBuilder::addASanLinkFlags(const llvm::Triple &triple) {
   // libclang_rt.asan-preinit-<arch>.a on Linux. On Darwin, the only option is
   // to use the shared library.
   bool linkSharedASan = triple.isOSDarwin();
-  std::string searchPaths[] = {
-      getFullCompilerRTLibPath(triple, "libldc_rt.asan", linkSharedASan),
-      getFullCompilerRTLibPath(triple, "libclang_rt.asan", linkSharedASan),
-      getFullClangCompilerRTLibPath(triple, "libclang_rt.asan", linkSharedASan),
-  };
+  const auto searchPaths =
+      getFullCompilerRTLibPathCandidates("asan", triple, linkSharedASan);
 
   for (const auto &filepath : searchPaths) {
     IF_LOG Logger::println("Searching ASan lib: %s", filepath.c_str());
@@ -293,16 +313,13 @@ void ArgsBuilder::addASanLinkFlags(const llvm::Triple &triple) {
 // Adds all required link flags for -fsanitize=fuzzer when libFuzzer library is
 // found.
 void ArgsBuilder::addFuzzLinkFlags(const llvm::Triple &triple) {
-  std::string searchPaths[] = {
 #if LDC_LLVM_VER >= 600
-    getFullCompilerRTLibPath(triple, "libldc_rt.fuzzer"),
-    getFullCompilerRTLibPath(triple, "libclang_rt.fuzzer"),
-    getFullClangCompilerRTLibPath(triple, "libclang_rt.fuzzer"),
+  const auto searchPaths = getFullCompilerRTLibPathCandidates("fuzzer", triple);
 #else
-    exe_path::prependLibDir("libFuzzer.a"),
-    exe_path::prependLibDir("libLLVMFuzzer.a"),
+  std::vector<std::string> searchPaths;
+  appendFullLibPathCandidates(searchPaths, "libFuzzer.a");
+  appendFullLibPathCandidates(searchPaths, "libLLVMFuzzer.a");
 #endif
-  };
 
   for (const auto &filepath : searchPaths) {
     IF_LOG Logger::println("Searching libFuzzer: %s", filepath.c_str());
@@ -323,11 +340,7 @@ void ArgsBuilder::addFuzzLinkFlags(const llvm::Triple &triple) {
 // Adds all required link flags for -fxray-instrument when the xray library is
 // found.
 void ArgsBuilder::addXRayLinkFlags(const llvm::Triple &triple) {
-  std::string searchPaths[] = {
-    getFullCompilerRTLibPath(triple, "libldc_rt.xray"),
-    getFullCompilerRTLibPath(triple, "libclang_rt.xray"),
-    getFullClangCompilerRTLibPath(triple, "libclang_rt.xray"),
-  };
+  const auto searchPaths = getFullCompilerRTLibPathCandidates("xray", triple);
 
   bool linkerDarwin = triple.isOSDarwin();
   if (!triple.isOSLinux())
@@ -377,11 +390,8 @@ void ArgsBuilder::addCppStdlibLinkFlags(const llvm::Triple &triple) {
 
 // Adds all required link flags for PGO.
 void ArgsBuilder::addProfileRuntimeLinkFlags(const llvm::Triple &triple) {
-  std::string searchPaths[] = {
-    getFullCompilerRTLibPath(triple, "libldc_rt.profile"),
-    getFullCompilerRTLibPath(triple, "libclang_rt.profile"),
-    getFullClangCompilerRTLibPath(triple, "libclang_rt.profile"),
-  };
+  const auto searchPaths =
+      getFullCompilerRTLibPathCandidates("profile", triple);
 
 #if LDC_LLVM_VER >= 308
   if (global.params.targetTriple->isOSLinux()) {
@@ -477,6 +487,13 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
 
   addLinker();
   addUserSwitches();
+
+  // lib dirs
+  for (const char *dir_c : ConfigFile::instance.libDirs()) {
+    const llvm::StringRef dir(dir_c);
+    if (!dir.empty())
+      args.push_back(("-L" + dir).str());
+  }
 
   // default libs
   for (const auto &name : defaultLibNames) {

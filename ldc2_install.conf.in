@@ -24,7 +24,10 @@ default:
     post-switches = [
         "-I@INCLUDE_INSTALL_DIR@/ldc",
         "-I@INCLUDE_INSTALL_DIR@",
-        "-L-L@CMAKE_INSTALL_LIBDIR@",@MULTILIB_ADDITIONAL_INSTALL_PATH@
+    ];
+    // default directories to be searched for libraries when linking
+    lib-dirs = [
+        "@CMAKE_INSTALL_LIBDIR@",@MULTILIB_ADDITIONAL_INSTALL_PATH@
     ];
     // default rpath when linking against the shared default libs
     rpath = "@SHARED_LIBS_INSTALL_RPATH@";

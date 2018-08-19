@@ -11,12 +11,14 @@
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
+#include "driver/configfile.h"
 #include "driver/exe_path.h"
 #include "driver/linker.h"
 #include "driver/tool.h"
 #include "gen/logger.h"
 
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 
 #if LDC_WITH_LLD
 #if LDC_LLVM_VER >= 600
@@ -59,9 +61,14 @@ void addMscrtLibs(std::vector<std::string> &args) {
 }
 
 void addLibIfFound(std::vector<std::string> &args, const llvm::Twine &name) {
-  std::string candidate = exe_path::prependLibDir(name);
-  if (llvm::sys::fs::exists(candidate))
-    args.push_back(std::move(candidate));
+  for (const char *dir : ConfigFile::instance.libDirs()) {
+    llvm::SmallString<128> candidate(dir);
+    llvm::sys::path::append(candidate, name);
+    if (llvm::sys::fs::exists(candidate)) {
+      args.push_back(candidate.str());
+      return;
+    }
+  }
 }
 
 void addSanitizerLibs(std::vector<std::string> &args) {
@@ -167,6 +174,13 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
 
   for (const auto &str : opts::linkerSwitches) {
     addSwitch(str);
+  }
+
+  // lib dirs
+  for (const char *dir_c : ConfigFile::instance.libDirs()) {
+    const llvm::StringRef dir(dir_c);
+    if (!dir.empty())
+      args.push_back(("/LIBPATH:" + dir).str());
   }
 
   // default libs
