@@ -123,14 +123,6 @@ void initializeInstrumentationOptionsFromCmdline(const llvm::Triple &triple) {
   }
 #endif
 
-  // There is a bug in (our use of?) LLVM where codegen errors with
-  // PGO_IRBasedInstr for Windows targets. So disable IRBased PGO on Windows for
-  // now.
-  if ((pgoMode == PGO_IRBasedInstr) && triple.isOSWindows()) {
-    error(Loc(),
-          "'-fprofile-generate' is not yet supported for Windows targets.");
-  }
-
   if (dmdFunctionTrace)
     global.params.trace = true;
 }
