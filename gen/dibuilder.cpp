@@ -28,6 +28,7 @@
 #include "import.h"
 #include "module.h"
 #include "mtype.h"
+#include "nspace.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -97,6 +98,31 @@ ldc::DIBuilder::DIBuilder(IRState *const IR)
                       global.params.targetTriple->isArch64Bit()) {}
 
 llvm::LLVMContext &ldc::DIBuilder::getContext() { return IR->context(); }
+
+// return the scope of a global symbol
+// FIXME: template instances aren't supported properly by GDC and GDB, what debug info should we attach to them?
+ldc::DIScope ldc::DIBuilder::GetSymbolScope(Dsymbol* s) {
+  // don't recreate parent entries if we only need location debug info
+  if (!mustEmitFullDebugInfo())
+    return GetCU();
+
+  auto parent = s->toParent();
+
+  if (auto tempinst = parent->isTemplateInstance()) {
+      return GetSymbolScope(tempinst->tempdecl);
+  } else if (auto m = parent->isModule()) {
+    return EmitModule(m);
+  } else if (parent->isAggregateDeclaration()) {
+    return CreateCompositeTypeDescription(parent->getType());
+  } else if (auto fd = parent->isFuncDeclaration()) {
+    DtoDeclareFunction(fd);
+    return EmitSubProgram(fd);
+  } else if (auto ns = parent->isNspace()) {
+    return GetSymbolScope(ns); // FIXME DINamespace?
+  }
+
+  llvm_unreachable("Unhandled parent");
+}
 
 ldc::DIScope ldc::DIBuilder::GetCurrentScope() {
   if (IR->funcGenStates.empty())
@@ -261,12 +287,12 @@ ldc::DIType ldc::DIBuilder::CreateEnumType(Type *type) {
     subscripts.push_back(Subscript);
   }
 
-  llvm::StringRef Name = te->sym->toPrettyChars(true);
+  llvm::StringRef Name = te->sym->toChars();
   unsigned LineNumber = te->sym->loc.linnum;
   ldc::DIFile File(CreateFile(te->sym));
 
   return DBuilder.createEnumerationType(
-      GetCU(), Name, File, LineNumber,
+      GetSymbolScope(te->sym), Name, File, LineNumber,
       getTypeAllocSize(T) * 8,               // size (bits)
       getABITypeAlign(T) * 8,                // align (bits)
       DBuilder.getOrCreateArray(subscripts), // subscripts
@@ -441,10 +467,7 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
     return ir->diCompositeType;
   }
 
-  const llvm::StringRef name =
-      (ad->isClassDeclaration() && ad->isClassDeclaration()->isCPPinterface()
-           ? ad->ident->toChars()
-           : ad->toPrettyChars(true));
+  const llvm::StringRef name = ad->ident->toChars();
 
   // if we don't know the aggregate's size, we don't know enough about it
   // to provide debug info. probably a forward-declared struct?
@@ -457,16 +480,16 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
 
   // defaults
   unsigned linnum = ad->loc.linnum;
-  ldc::DICompileUnit CU(GetCU());
-  assert(CU && "Compilation unit missing or corrupted");
+  assert(GetCU() && "Compilation unit missing or corrupted");
   ldc::DIFile file = CreateFile(ad);
   ldc::DIType derivedFrom = getNullDIType();
+  ldc::DIScope scope = GetSymbolScope(ad);
 
   // set diCompositeType to handle recursive types properly
   unsigned tag = (t->ty == Tstruct) ? llvm::dwarf::DW_TAG_structure_type
                                     : llvm::dwarf::DW_TAG_class_type;
   ir->diCompositeType = DBuilder.createReplaceableCompositeType(
-      tag, name, CU, file, linnum);
+      tag, name, scope, file, linnum);
 
   if (!ad->isInterfaceDeclaration()) // plain interfaces don't have one
   {
@@ -475,7 +498,7 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
       derivedFrom = CreateCompositeType(classDecl->baseClass->getType());
       // needs a forward declaration to add inheritence information to elems
       ldc::DIType fwd =
-          DBuilder.createClassType(CU,     // compile unit where defined
+          DBuilder.createClassType(scope,  // context where defined
                                    name,   // name
                                    file,   // file where defined
                                    linnum, // line number where defined
@@ -504,7 +527,7 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
 
   ldc::DIType ret;
   if (t->ty == Tclass) {
-    ret = DBuilder.createClassType(CU,     // compile unit where defined
+    ret = DBuilder.createClassType(scope,  // context where defined
                                    name,   // name
                                    file,   // file where defined
                                    linnum, // line number where defined
@@ -518,7 +541,7 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
                                    nullptr,         // TemplateParms
                                    uniqueIdent(t)); // UniqueIdentifier
   } else {
-    ret = DBuilder.createStructType(CU,     // compile unit where defined
+    ret = DBuilder.createStructType(scope,  // context where defined
                                     name,   // name
                                     file,   // file where defined
                                     linnum, // line number where defined
@@ -545,14 +568,17 @@ ldc::DIType ldc::DIBuilder::CreateArrayType(Type *type) {
   assert(t->ty == Tarray);
 
   ldc::DIFile file = CreateFile();
+  ldc::DIScope scope = type->toDsymbol(nullptr)
+      ? GetSymbolScope(type->toDsymbol(nullptr))
+      : GetCU();
 
   LLMetadata *elems[] = {
       CreateMemberType(0, Type::tsize_t, file, "length", 0, Prot::public_),
       CreateMemberType(0, t->nextOf()->pointerTo(), file, "ptr",
                        global.params.is64bit ? 8 : 4, Prot::public_)};
 
-  return DBuilder.createStructType(GetCU(),
-                                   type->toPrettyChars(true), // Name
+  return DBuilder.createStructType(scope,
+                                   type->toChars(),         // Name
                                    file,                    // File
                                    0,                       // LineNo
                                    getTypeAllocSize(T) * 8, // size in bits
@@ -635,7 +661,7 @@ ldc::DIType ldc::DIBuilder::CreateDelegateType(Type *type) {
                        global.params.is64bit ? 8 : 4, Prot::public_)};
 
   return DBuilder.createStructType(CU,           // compile unit where defined
-                                   type->toPrettyChars(true), // name
+                                   type->toChars(),   // name
                                    file,         // file where defined
                                    0,            // line number where defined
                                    getTypeAllocSize(T) * 8, // size in bits
@@ -661,7 +687,7 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type) {
   // Check for opaque enum first, Bugzilla 13792
   if (isOpaqueEnumType(type)) {
     const auto ed = static_cast<TypeEnum *>(type)->sym;
-    return DBuilder.createUnspecifiedType(ed->toPrettyChars(true));
+    return DBuilder.createUnspecifiedType(ed->toChars());
   }
 
   Type *t = type->toBasetype();
@@ -826,8 +852,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
   Logger::println("D to dwarf subprogram");
   LOG_SCOPE;
 
-  ldc::DICompileUnit CU(GetCU());
-  assert(CU &&
+  assert(GetCU() &&
          "Compilation unit missing or corrupted in DIBuilder::EmitSubProgram");
 
   ldc::DIFile file = CreateFile(fd);
@@ -839,8 +864,8 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
 
   // FIXME: duplicates?
   auto SP = DBuilder.createFunction(
-      CU,                                 // context
-      fd->toPrettyChars(true),            // name
+      GetSymbolScope(fd),                 // context
+      fd->toChars(),                      // name
       getIrFunc(fd)->getLLVMFuncName(),   // linkage name
       file,                               // file
       fd->loc.linnum,                     // line no
@@ -864,20 +889,19 @@ ldc::DISubprogram ldc::DIBuilder::EmitThunk(llvm::Function *Thunk,
   Logger::println("Thunk to dwarf subprogram");
   LOG_SCOPE;
 
-  ldc::DICompileUnit CU(GetCU());
-  assert(CU && "Compilation unit missing or corrupted in DIBuilder::EmitThunk");
+  assert(GetCU() && "Compilation unit missing or corrupted in DIBuilder::EmitThunk");
 
   ldc::DIFile file = CreateFile(fd);
 
   // Create subroutine type (thunk has same type as wrapped function)
   ldc::DISubroutineType DIFnType = CreateFunctionType(fd->type);
 
-  std::string name = fd->toPrettyChars(true);
+  std::string name = fd->toChars();
   name.append(".__thunk");
 
   // FIXME: duplicates?
   auto SP = DBuilder.createFunction(
-      CU,                                 // context
+      GetSymbolScope(fd),                  // context
       name,                               // name
       Thunk->getName(),                   // linkage name
       file,                               // file
@@ -903,8 +927,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function *Fn,
   Logger::println("D to dwarf subprogram");
   LOG_SCOPE;
 
-  ldc::DICompileUnit CU(GetCU());
-  assert(CU &&
+  assert(GetCU() &&
          "Compilation unit missing or corrupted in DIBuilder::EmitSubProgram");
   ldc::DIFile file = CreateFile();
 
@@ -915,7 +938,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function *Fn,
 
   // FIXME: duplicates?
   auto SP =
-      DBuilder.createFunction(CU,            // context
+      DBuilder.createFunction(GetCurrentScope(), // context
                               prettyname,    // name
                               Fn->getName(), // linkage name
                               file,          // file
@@ -1156,7 +1179,7 @@ void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
 #else
   DBuilder.createGlobalVariable(
 #endif
-      GetCU(),                                // context
+      GetSymbolScope(vd),                     // context
       vd->toChars(),                          // name
       mangleBuf.peekString(),                 // linkage name
       CreateFile(vd),                         // file
