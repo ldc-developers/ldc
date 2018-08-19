@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "import.h"
 #include "init.h"
 #include "mars.h"
 #include "module.h"
@@ -1590,7 +1591,10 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(ImportStatement *stmt) override {
-    // Empty.
+    for (auto s: *stmt->imports) {
+      assert(s->isImport());
+      irs->DBuilder.EmitImport(static_cast<Import*>(s));
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////

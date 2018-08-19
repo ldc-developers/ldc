@@ -656,6 +656,8 @@ void codegenModule(IRState *irs, Module *m) {
   assert(!gIR && "gIR not null, codegen already in progress?!");
   gIR = irs;
 
+  irs->DBuilder.EmitModule(m);
+
   initRuntime();
 
   // Skip pseudo-modules for coverage analysis

@@ -18,12 +18,14 @@
 #include "gen/tollvm.h"
 #include "gen/optimizer.h"
 #include "ir/irfunction.h"
+#include "ir/irmodule.h"
 #include "ir/irtypeaggr.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "enum.h"
 #include "ldcbindings.h"
+#include "import.h"
 #include "module.h"
 #include "mtype.h"
 
@@ -97,6 +99,8 @@ ldc::DIBuilder::DIBuilder(IRState *const IR)
 llvm::LLVMContext &ldc::DIBuilder::getContext() { return IR->context(); }
 
 ldc::DIScope ldc::DIBuilder::GetCurrentScope() {
+  if (IR->funcGenStates.empty())
+    return getIrModule(IR->dmodule)->diModule;
   IrFunction *fn = IR->func();
   if (fn->diLexicalBlocks.empty()) {
     assert(static_cast<llvm::MDNode *>(fn->diSubprogram) != 0);
@@ -772,6 +776,45 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
       llvm::StringRef(),       // SplitName
       getDebugEmissionKind(),  // DebugEmissionKind
       0                        // DWOId
+  );
+}
+
+ldc::DIModule ldc::DIBuilder::EmitModule(Module *m)
+{
+  if (!mustEmitFullDebugInfo()) {
+    return nullptr;
+  }
+
+  IrModule *irm = getIrModule(m);
+  if (irm->diModule)
+      return irm->diModule;
+
+  irm->diModule = DBuilder.createModule(
+      CUNode,
+      m->toPrettyChars(true),  // qualified module name
+      llvm::StringRef(),       // (clang modules specific) ConfigurationMacros
+      llvm::StringRef(),       // (clang modules specific) IncludePath
+      llvm::StringRef()        // (clang modules specific) ISysRoot
+  );
+
+  return irm->diModule;
+}
+
+void ldc::DIBuilder::EmitImport(Import *im)
+{
+  if (!mustEmitFullDebugInfo()) {
+    return;
+  }
+
+  auto diModule = EmitModule(im->mod);
+
+  DBuilder.createImportedModule(
+      GetCurrentScope(),
+      diModule,                // imported module
+#if LDC_LLVM_VER >= 500
+      CreateFile(im),          // file
+#endif
+      im->loc.linnum           // line num
   );
 }
 

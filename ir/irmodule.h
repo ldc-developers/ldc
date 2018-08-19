@@ -22,6 +22,7 @@ class Module;
 namespace llvm {
 class GlobalVariable;
 class Function;
+class DIModule;
 }
 
 struct IrModule {
@@ -43,6 +44,8 @@ struct IrModule {
   GatesList sharedGates;
   FuncDeclList unitTests;
   llvm::Function *coverageCtor = nullptr;
+
+  llvm::DIModule *diModule = nullptr;
 
 private:
   llvm::GlobalVariable *moduleInfoVar = nullptr;

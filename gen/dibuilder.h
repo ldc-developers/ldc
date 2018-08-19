@@ -24,6 +24,7 @@ struct IRState;
 class ClassDeclaration;
 class Dsymbol;
 class FuncDeclaration;
+class Import;
 class Module;
 class Type;
 class VarDeclaration;
@@ -52,6 +53,7 @@ typedef llvm::DILexicalBlock *DILexicalBlock;
 typedef llvm::DIScope *DIScope;
 typedef llvm::DISubroutineType *DISubroutineType;
 typedef llvm::DISubprogram *DISubprogram;
+typedef llvm::DIModule *DIModule;
 typedef llvm::DICompileUnit *DICompileUnit;
 
 class DIBuilder {
@@ -74,6 +76,14 @@ public:
   /// \brief Emit the Dwarf compile_unit global for a Module m.
   /// \param m        Module to emit as compile unit.
   void EmitCompileUnit(Module *m);
+
+  /// \brief Emit the Dwarf module global for a Module m.
+  /// \param m        Module to emit (either as definition or declaration).
+  DIModule EmitModule(Module *m);
+
+  /// \brief Emit the Dwarf imported entity and module global for an Import im.
+  /// \param im        Import to emit.
+  void EmitImport(Import *im);
 
   /// \brief Emit the Dwarf subprogram global for a function declaration fd.
   /// \param fd       Function declaration to emit as subprogram.
