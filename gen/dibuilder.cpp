@@ -29,6 +29,9 @@
 #include "module.h"
 #include "mtype.h"
 #include "nspace.h"
+#include "template.h"
+
+#include <functional>
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -107,6 +110,17 @@ ldc::DIScope ldc::DIBuilder::GetSymbolScope(Dsymbol* s) {
     return GetCU();
 
   auto parent = s->toParent();
+
+  auto vd = s->isVarDeclaration();
+  if (vd && vd->isDataseg()) {
+      // static variables get attached to the module scope, but their
+      // parent composite types have to get declared
+    while (!parent->isModule()) {
+      if (parent->isAggregateDeclaration())
+        CreateCompositeTypeDescription(parent->getType());
+      parent = parent->toParent();
+    }
+  }
 
   if (auto tempinst = parent->isTemplateInstance()) {
       return GetSymbolScope(tempinst->tempdecl);
@@ -391,7 +405,8 @@ ldc::DIType ldc::DIBuilder::CreateComplexType(Type *type) {
 ldc::DIType ldc::DIBuilder::CreateMemberType(unsigned linnum, Type *type,
                                              ldc::DIFile file,
                                              const char *c_name,
-                                             unsigned offset, Prot::Kind prot) {
+                                             unsigned offset, Prot::Kind prot,
+                                             bool isStatic, DIScope scope) {
   Type *t = type->toBasetype();
 
   // translate functions to function pointers
@@ -418,7 +433,10 @@ ldc::DIType ldc::DIBuilder::CreateMemberType(unsigned linnum, Type *type,
     break;
   }
 
-  return DBuilder.createMemberType(GetCU(),
+  if (isStatic)
+    Flags |= DIFlags::FlagStaticMember;
+
+  return DBuilder.createMemberType(scope,
                                    c_name,                  // name
                                    file,                    // file
                                    linnum,                  // line number
@@ -439,6 +457,34 @@ void ldc::DIBuilder::AddFields(AggregateDeclaration *ad, ldc::DIFile file,
                                      vd->toChars(), vd->offset,
                                      vd->prot().kind));
   }
+}
+
+void ldc::DIBuilder::AddStaticMembers(AggregateDeclaration *ad, ldc::DIFile file,
+                               llvm::SmallVector<LLMetadata *, 16> &elems) {
+  auto scope = CreateCompositeTypeDescription(ad->getType());
+
+  std::function<void(Dsymbols*)> visitMembers = [&] (Dsymbols* members) {
+    for (auto s : *members) {
+      if (auto attrib = s->isAttribDeclaration()) {
+        if (Dsymbols *d = attrib->include(nullptr))
+          visitMembers(d);
+      } else if (auto tmixin = s->isTemplateMixin()) {
+        visitMembers(tmixin->members);  // FIXME: static variables inside a template mixin need to be put inside a child DICompositeType for their value to become accessible (mangling issue).
+                                        //  Also DWARF supports imported declarations, but LLVM currently does nothing with DIImportedEntity except at CU-level.
+      } else if (auto vd = s->isVarDeclaration())
+        if (vd->isDataseg() && !vd->aliassym /* TODO: tuples*/) {
+          llvm::MDNode* elem = CreateMemberType(vd->loc.linnum, vd->type, file,
+                                                vd->toChars(), 0,
+                                                vd->prot().kind,
+                                                /*isStatic = */true, scope);
+          elems.push_back(elem);
+          StaticDataMemberCache[vd].reset(elem);
+
+        }
+    } /*else if (auto fd = s->isFuncDeclaration())*/ // Clang also adds static functions as declarations,
+                                                        // but they already work without adding them.
+  };
+  visitMembers(ad->members);
 }
 
 ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
@@ -522,6 +568,7 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
     }
     AddFields(ad, file, elems);
   }
+  AddStaticMembers(ad, file, elems);
 
   auto elemsArray = DBuilder.getOrCreateArray(elems);
 
@@ -737,6 +784,12 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type) {
 
   // Crash if the type is not supported.
   llvm_unreachable("Unsupported type in debug info");
+}
+
+ldc::DICompositeType ldc::DIBuilder::CreateCompositeTypeDescription(Type *type) {
+  DIType ret = type->toBasetype()->ty == Tclass
+        ? CreateCompositeType(type) : CreateTypeDescription(type);
+  return llvm::cast<llvm::DICompositeType>(ret);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1171,6 +1224,15 @@ void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
   assert(vd->isDataseg() ||
          (vd->storage_class & (STCconst | STCimmutable) && vd->_init));
 
+  DIScope scope = GetSymbolScope(vd);
+  llvm::MDNode* Decl = nullptr;
+
+  if (vd->isDataseg() && vd->toParent()->isAggregateDeclaration()) {
+    // static aggregate member
+    Decl = StaticDataMemberCache[vd];
+    assert(Decl && "static aggregate member not declared");
+  }
+
   OutBuffer mangleBuf;
   mangleToBuffer(vd, &mangleBuf);
 
@@ -1179,7 +1241,7 @@ void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
 #else
   DBuilder.createGlobalVariable(
 #endif
-      GetSymbolScope(vd),                     // context
+      scope,                                  // context
       vd->toChars(),                          // name
       mangleBuf.peekString(),                 // linkage name
       CreateFile(vd),                         // file
@@ -1187,10 +1249,11 @@ void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
       CreateTypeDescription(vd->type),        // type
       vd->protection.kind == Prot::private_,     // is local to unit
 #if LDC_LLVM_VER >= 400
-      nullptr // relative location of field
+      nullptr, // relative location of field
 #else
-      llVar // value
+      llVar, // value
 #endif
+      Decl                                    // declaration
       );
 
 #if LDC_LLVM_VER >= 400

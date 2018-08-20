@@ -10,6 +10,7 @@
 #ifndef LDC_GEN_DIBUILDER_H
 #define LDC_GEN_DIBUILDER_H
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/DataLayout.h"
@@ -45,6 +46,7 @@ namespace ldc {
 
 // Define some basic types
 typedef llvm::DIType *DIType;
+typedef llvm::DICompositeType *DICompositeType;
 typedef llvm::DIFile *DIFile;
 typedef llvm::DIGlobalVariable *DIGlobalVariable;
 typedef llvm::DILocalVariable *DILocalVariable;
@@ -63,6 +65,8 @@ class DIBuilder {
   DICompileUnit CUNode;
 
   const bool isTargetMSVCx64;
+
+  llvm::DenseMap<Declaration*, llvm::TypedTrackingMDRef<llvm::MDNode>> StaticDataMemberCache;
 
   DICompileUnit GetCU() {
     return CUNode;
@@ -163,6 +167,8 @@ private:
                 ldc::DIExpression diexpr);
   void AddFields(AggregateDeclaration *sd, ldc::DIFile file,
                  llvm::SmallVector<llvm::Metadata *, 16> &elems);
+  void AddStaticMembers(AggregateDeclaration *sd, ldc::DIFile file,
+                 llvm::SmallVector<llvm::Metadata *, 16> &elems);
   DIFile CreateFile(Loc &loc);
   DIFile CreateFile();
   DIFile CreateFile(Dsymbol* decl);
@@ -172,7 +178,8 @@ private:
   DIType CreateVectorType(Type *type);
   DIType CreateComplexType(Type *type);
   DIType CreateMemberType(unsigned linnum, Type *type, DIFile file,
-                          const char *c_name, unsigned offset, Prot::Kind);
+                          const char *c_name, unsigned offset, Prot::Kind,
+                          bool isStatic = false, DIScope scope = nullptr);
   DIType CreateCompositeType(Type *type);
   DIType CreateArrayType(Type *type);
   DIType CreateSArrayType(Type *type);
@@ -181,6 +188,7 @@ private:
   DISubroutineType CreateEmptyFunctionType();
   DIType CreateDelegateType(Type *type);
   DIType CreateTypeDescription(Type *type);
+  DICompositeType CreateCompositeTypeDescription(Type *type);
 
   bool mustEmitFullDebugInfo();
   bool mustEmitLocationsDebugInfo();
