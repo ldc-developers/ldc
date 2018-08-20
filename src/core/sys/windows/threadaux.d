@@ -17,6 +17,8 @@ import core.stdc.stdlib;
 
 public import core.thread;
 
+version(LDC) import ldc.attributes, ldc.llvmasm;
+
 extern(Windows)
 HANDLE OpenThread(DWORD dwDesiredAccess, BOOL bInheritHandle, DWORD dwThreadId) nothrow;
 
@@ -158,6 +160,17 @@ struct thread_aux
     }
 
     // get linear address of TEB of current thread
+  version(LDC)
+  {
+    static void** getTEB() nothrow @naked
+    {
+        version(Win32)      return __asm!(void**)("mov %fs:(0x18), $0", "=r");
+        else version(Win64) return __asm!(void**)("mov %gs:0($1), $0", "=r,r", 0x30);
+        else static assert(false);
+    }
+  }
+  else
+  {
     static void** getTEB() nothrow
     {
         version(Win32)
@@ -184,6 +197,7 @@ struct thread_aux
             static assert(false);
         }
     }
+  }
 
     // get the stack bottom (the top address) of the thread with the given handle
     static void* getThreadStackBottom( HANDLE hnd ) nothrow
