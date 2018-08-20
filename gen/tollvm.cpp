@@ -361,7 +361,11 @@ void DtoMemCpy(LLValue *dst, LLValue *src, LLValue *nbytes, unsigned align) {
   dst = DtoBitCast(dst, VoidPtrTy);
   src = DtoBitCast(src, VoidPtrTy);
 
+#if LDC_LLVM_VER >= 700
+  gIR->ir->CreateMemCpy(dst, align, src, align, nbytes, false /*isVolatile*/);
+#else
   gIR->ir->CreateMemCpy(dst, src, nbytes, align, false /*isVolatile*/);
+#endif
 }
 
 void DtoMemCpy(LLValue *dst, LLValue *src, bool withPadding, unsigned align) {

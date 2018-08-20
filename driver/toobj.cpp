@@ -94,6 +94,9 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 #else
                                  fout,
 #endif
+#if LDC_LLVM_VER >= 700
+                                 nullptr, // DWO output file
+#endif
                                  fileType, codeGenOptLevel())) {
     llvm_unreachable("no support for asm output");
   }
@@ -376,7 +379,13 @@ void writeModule(llvm::Module *m, std::string filename) {
             ERRORINFO_STRING(errinfo));
       fatal();
     }
-    llvm::WriteBitcodeToFile(m, bos);
+    llvm::WriteBitcodeToFile(
+#if LDC_LLVM_VER >= 700
+        *m,
+#else
+        m,
+#endif
+        bos);
   }
 
   // write LLVM IR

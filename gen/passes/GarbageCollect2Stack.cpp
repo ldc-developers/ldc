@@ -17,6 +17,9 @@
 #include "gen/attributes.h"
 
 #define DEBUG_TYPE "dgc2stack"
+#if LDC_LLVM_VER >= 700
+#define DEBUG LLVM_DEBUG
+#endif
 
 #include "Passes.h"
 

@@ -43,12 +43,23 @@ int main(int argc, const char **argv) {
   }
 #endif
 
+#if LDC_LLVM_VER >= 700
+  std::vector<StringRef> Argv;
+  Argv.reserve(argc);
+  for (int i = 0; i < argc; ++i)
+    Argv.push_back(argv[i]);
+  auto Env = llvm::None;
+#else
+  auto Argv = argv;
+  auto Env = nullptr;
+#endif
+
   std::string ErrMsg;
 #if LDC_LLVM_VER <= 305
-  int Result = sys::ExecuteAndWait(Program, argv, nullptr, nullptr, 0, 0,
+  int Result = sys::ExecuteAndWait(Program, Argv, Env, nullptr, 0, 0,
                                    &ErrMsg);
 #else
-  int Result = sys::ExecuteAndWait(*Program, argv, nullptr,
+  int Result = sys::ExecuteAndWait(*Program, Argv, Env,
 #if LDC_LLVM_VER >= 600
                                    {},
 #else
