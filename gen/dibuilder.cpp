@@ -1138,6 +1138,14 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 
   bool useDbgValueIntrinsic = false;
   if (isRefOrOut || isPassedExplicitlyByval) {
+    // DW_TAG_reference_type sounds like the correct tag for `this`, but member
+    // function calls won't work with GDB unless `this` gets declared as
+    // DW_TAG_pointer_type.
+    // This matches what GDC and Clang do.
+    auto Tag = isThisPtr
+      ? llvm::dwarf::DW_TAG_pointer_type
+      : llvm::dwarf::DW_TAG_reference_type;
+
     // With the exception of special-ref loop variables, the reference/pointer
     // itself is constant. So we don't have to attach the debug information to a
     // memory location and can use llvm.dbg.value to set the constant pointer
@@ -1147,7 +1155,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     // Note: createReferenceType expects the size to be the size of a pointer,
     // not the size of the type the reference refers to.
     TD = DBuilder.createReferenceType(
-        llvm::dwarf::DW_TAG_reference_type, TD,
+        Tag, TD,
         gDataLayout->getPointerSizeInBits(), // size (bits)
         DtoAlignment(type) * 8);             // align (bits)
   } else {
