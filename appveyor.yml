@@ -12,12 +12,13 @@ environment:
   matrix:
     - APPVEYOR_JOB_ARCH:           x64
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-      LLVM_VERSION:                6.0.1-2
+      LLVM_VERSION:                6.0.1-3
       HOST_LDC_VERSION:            1.10.0
+      EXTRA_CMAKE_FLAGS:           -DBUILD_LTO_LIBS=ON
       DUB_VERSION:                 v1.9.0
     - APPVEYOR_JOB_ARCH:           x86
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-      LLVM_VERSION:                6.0.1-2
+      LLVM_VERSION:                6.0.1-3
       HOST_LDC_VERSION:            1.10.0
       DUB_VERSION:                 v1.9.0
 
@@ -38,17 +39,17 @@ install:
   - cd libcurl
   - 7z x ..\libcurl.zip > nul
   - cd ..
-  # Copy libcurl.{dll,lib} to final LDC installation directory and add to PATH
-  - md ldc2-%APPVEYOR_JOB_ARCH% && md ldc2-%APPVEYOR_JOB_ARCH%\bin && md ldc2-%APPVEYOR_JOB_ARCH%\lib
+  # Copy libcurl.{dll,lib} and add to PATH, so that libcurl.dll is found during the tests
   - ps: |
+        md libcurl\ldc2
         If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
-          cp libcurl\dmd2\windows\bin64\libcurl.dll ldc2-x64\bin
-          cp libcurl\dmd2\windows\lib64\curl.lib ldc2-x64\lib
+          cp libcurl\dmd2\windows\bin64\libcurl.dll libcurl\ldc2
+          cp libcurl\dmd2\windows\lib64\curl.lib libcurl\ldc2
         } Else {
-          cp libcurl\dmd2\windows\bin\libcurl.dll ldc2-x86\bin
-          cp libcurl\dmd2\windows\lib32mscoff\curl.lib ldc2-x86\lib
+          cp libcurl\dmd2\windows\bin\libcurl.dll libcurl\ldc2
+          cp libcurl\dmd2\windows\lib32mscoff\curl.lib libcurl\ldc2
         }
-  - set PATH=%CD%\ldc2-%APPVEYOR_JOB_ARCH%\bin;%PATH%
+  - set PATH=%CD%\libcurl\ldc2;%PATH%
   # Download & extract Ninja
   - appveyor DownloadFile "https://github.com/ninja-build/ninja/releases/download/v1.8.2/ninja-win.zip" -FileName ninja.zip
   - md ninja
@@ -94,7 +95,9 @@ install:
   - 7z x ..\llvm.7z > nul
   - cd ..
   # Set environment variables
-  - set PATH=%CD%\ninja;%CD%\make;%PATH%
+  # (LLVM bin dir required for lld-link.exe,
+  # git's usr/bin required for GNU find precedence over Windows find.exe)
+  - set PATH=%CD%\llvm\bin;%CD%\ninja;%CD%\make;C:\Program Files\Git\usr\bin;%PATH%
   - if "%APPVEYOR_BUILD_WORKER_IMAGE:~-4%" == "2017" call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tools\VsDevCmd.bat" -arch=%APPVEYOR_JOB_ARCH%
   - if "%APPVEYOR_BUILD_WORKER_IMAGE:~-4%" == "2015" call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" %APPVEYOR_JOB_ARCH%
   # Print environment info
@@ -118,7 +121,7 @@ build_script:
   # Build LDC and stdlib unittest runners
   - md ninja-ldc
   - cd ninja-ldc
-  - cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=c:\projects\ldc2-%APPVEYOR_JOB_ARCH% -DINCLUDE_INSTALL_DIR=c:/projects/ldc2-%APPVEYOR_JOB_ARCH%/import -DLLVM_ROOT_DIR=c:/projects/llvm -DD_COMPILER=c:\projects\bootstrap\bin\ldmd2.exe ..\ldc
+  - cmake -G Ninja -DCMAKE_BUILD_TYPE=Release %EXTRA_CMAKE_FLAGS% -DCMAKE_INSTALL_PREFIX=c:\projects\ldc2-%APPVEYOR_JOB_ARCH% -DINCLUDE_INSTALL_DIR=c:/projects/ldc2-%APPVEYOR_JOB_ARCH%/import -DLLVM_ROOT_DIR=c:/projects/llvm -DD_COMPILER=c:\projects\bootstrap\bin\ldmd2.exe ..\ldc
   - ninja -j2 all all-test-runners
 
 #---------------------------------#
@@ -158,10 +161,28 @@ after_test:
         cp ldc/LICENSE "$ldcInstallDir"
         git clone https://github.com/ldc-developers/ldc-scripts.git
         cp ldc-scripts\ldc2-packaging\pkgfiles\README.txt "$ldcInstallDir"
+        cp libcurl\ldc2\libcurl.dll "$ldcInstallDir\bin"
+        cp libcurl\ldc2\curl.lib "$ldcInstallDir\lib"
+        If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
+          cp c:\projects\llvm\bin\lld-link.exe "$ldcInstallDir\bin"
+        }
+        # Now rename the installation dir to test portability.
+        ren "$ldcInstallDir" ldc2-install
+  # Hello world integration test with LTO (x64 only)
+  - ps: |
+        If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
+          cd c:\projects
+          $ldcInstallDir = 'c:\projects\ldc2-install'
+          echo 'void main() { import std.stdio; writefln("Hello world, %d bits", size_t.sizeof * 8); }' > hello.d
+          & "$ldcInstallDir\bin\ldc2.exe" hello.d '-of=hello_thin.exe' '-flto=thin' '-defaultlib=phobos2-ldc-lto,druntime-ldc-lto'
+          .\hello_thin.exe
+          & "$ldcInstallDir\bin\ldc2.exe" hello.d '-of=hello_full.exe' '-flto=full' '-defaultlib=phobos2-ldc-lto,druntime-ldc-lto'
+          .\hello_full.exe
+        }
   # Build dub
   - ps: |
         cd c:\projects
-        $ldcInstallDir = "c:\projects\ldc2-$Env:APPVEYOR_JOB_ARCH"
+        $ldcInstallDir = 'c:\projects\ldc2-install'
         Set-Item -path env:DC -value "$ldcInstallDir\bin\ldmd2"
         git clone --recursive https://github.com/dlang/dub.git
         cd dub
@@ -172,7 +193,7 @@ after_test:
   # Build dlang tools
   - ps: |
         cd c:\projects
-        $ldcInstallDir = "c:\projects\ldc2-$Env:APPVEYOR_JOB_ARCH"
+        $ldcInstallDir = 'c:\projects\ldc2-install'
         git clone --recursive https://github.com/dlang/tools.git
         cd tools
         & "$ldcInstallDir\bin\ldmd2" -w rdmd.d
@@ -187,9 +208,9 @@ after_test:
         } Else {
           $artifactBasename = "ldc2-$($Env:APPVEYOR_REPO_COMMIT.Substring(0, 8))-windows-$Env:APPVEYOR_JOB_ARCH"
         }
-        ren "ldc2-$Env:APPVEYOR_JOB_ARCH" $artifactBasename
+        ren ldc2-install $artifactBasename
         7z a -mx=9 "$artifactBasename.7z" $artifactBasename > $null
-        ren $artifactBasename "ldc2-$Env:APPVEYOR_JOB_ARCH"
+        ren $artifactBasename ldc2-install
         Push-AppveyorArtifact "$artifactBasename.7z"
   # x86 job: Create a 32/64-bit multilib artifact if the commit is on the master branch
   # (or a tag). It consists of the x64 artifact (published by a successful x64 job)
@@ -222,10 +243,10 @@ after_test:
             ren "$artifactBasename-x64" "$artifactBasename-multilib"
             cd "$artifactBasename-multilib"
             ren lib lib64
-            copy ..\ldc2-x86\lib -Recurse
+            copy ..\ldc2-install\lib -Recurse
             ren lib lib32
             (cat etc\ldc2.conf).replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib64') | Set-Content etc\ldc2.conf
-            $conf32 = cat ..\ldc2-x86\etc\ldc2.conf -Raw
+            $conf32 = cat ..\ldc2-install\etc\ldc2.conf -Raw
             $conf32 = "`r`n""i[3-6]86-.*-windows-msvc"":" + $conf32.Substring($conf32.IndexOf("`r`ndefault:") + 10)
             $conf32 = $conf32.Substring(0, $conf32.IndexOf("`r`n};`r`n") + 6)
             $conf32 = $conf32.Replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib32')

@@ -106,6 +106,7 @@ private:
     const(char)* pathcstr;
     Array!(const(char)*) switches;
     Array!(const(char)*) postSwitches;
+    Array!(const(char)*) _libDirs;
     const(char)* rpathcstr;
 
     static bool sectionMatches(const(char)* section, const(char)* triple);
@@ -160,6 +161,9 @@ private:
 
             applyArray(this.switches, switches);
             applyArray(this.postSwitches, postSwitches);
+
+            auto libDirs = findArraySetting(sections, "lib-dirs");
+            applyArray(_libDirs, libDirs);
 
             if (auto rpath = findScalarSetting(sections, "rpath"))
                 this.rpathcstr = (rpath.val.replace("%%ldcbinarypath%%", dBinDir) ~ '\0').ptr;
