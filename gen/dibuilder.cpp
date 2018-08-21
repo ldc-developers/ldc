@@ -902,6 +902,10 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
     return nullptr;
   }
 
+  IrFunction *const irFunc = getIrFunc(fd);
+  if (irFunc->diSubprogram)
+    return irFunc->diSubprogram;
+
   Logger::println("D to dwarf subprogram");
   LOG_SCOPE;
 
@@ -919,7 +923,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
   auto SP = DBuilder.createFunction(
       GetSymbolScope(fd),                 // context
       fd->toChars(),                      // name
-      getIrFunc(fd)->getLLVMFuncName(),   // linkage name
+      irFunc->getLLVMFuncName(),          // linkage name
       file,                               // file
       fd->loc.linnum,                     // line no
       DIFnType,                           // type
@@ -929,7 +933,9 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
       DIFlags::FlagPrototyped,            // Flags
       isOptimizationEnabled()             // isOptimized
       );
-  DtoFunction(fd)->setSubprogram(SP);
+
+  irFunc->diSubprogram = DBuilder.replaceTemporary(
+      llvm::TempDINode(irFunc->diSubprogram), SP);
   return SP;
 }
 
@@ -966,8 +972,6 @@ ldc::DISubprogram ldc::DIBuilder::EmitThunk(llvm::Function *Thunk,
       DIFlags::FlagPrototyped,            // Flags
       isOptimizationEnabled()             // isOptimized
       );
-  if (fd->fbody)
-    DtoFunction(fd)->setSubprogram(SP);
   return SP;
 }
 
@@ -1027,6 +1031,9 @@ void ldc::DIBuilder::EmitFuncEnd(FuncDeclaration *fd) {
 
   assert(static_cast<llvm::MDNode *>(getIrFunc(fd)->diSubprogram) != 0);
   EmitStopPoint(fd->endloc);
+
+  // Only attach subprogram entries to function definitions
+  DtoFunction(fd)->setSubprogram(getIrFunc(fd)->diSubprogram);
 }
 
 void ldc::DIBuilder::EmitBlockStart(Loc &loc) {
