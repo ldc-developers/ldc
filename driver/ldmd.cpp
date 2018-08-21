@@ -108,8 +108,8 @@ char *concat(const char *a, int b) {
 int execute(const std::string &exePath, const char **args) {
 #if LDC_LLVM_VER >= 700
   std::vector<llvm::StringRef> argv;
-  for (auto arg = args; arg != nullptr; ++arg) {
-    argv.push_back(*arg);
+  for (auto pArg = args; *pArg; ++pArg) {
+    argv.push_back(*pArg);
   }
   auto envVars = llvm::None;
 #else
