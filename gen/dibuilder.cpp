@@ -506,11 +506,10 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
   LLType *T = DtoType(ad->type);
   if (t->ty == Tclass)
     T = T->getPointerElementType();
-  IrTypeAggr *ir = ad->type->ctype->isAggr();
-  assert(ir);
+  IrAggr *irAggr = getIrAggr(ad, true);
 
-  if (static_cast<llvm::MDNode *>(ir->diCompositeType) != nullptr) {
-    return ir->diCompositeType;
+  if (static_cast<llvm::MDNode *>(irAggr->diCompositeType) != nullptr) {
+    return irAggr->diCompositeType;
   }
 
   const llvm::StringRef name = ad->ident->toChars();
@@ -534,7 +533,7 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
   // set diCompositeType to handle recursive types properly
   unsigned tag = (t->ty == Tstruct) ? llvm::dwarf::DW_TAG_structure_type
                                     : llvm::dwarf::DW_TAG_class_type;
-  ir->diCompositeType = DBuilder.createReplaceableCompositeType(
+  irAggr->diCompositeType = DBuilder.createReplaceableCompositeType(
       tag, name, scope, file, linnum);
 
   if (!ad->isInterfaceDeclaration()) // plain interfaces don't have one
@@ -602,9 +601,9 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
                                     uniqueIdent(t)); // UniqueIdentifier
   }
 
-  ir->diCompositeType = DBuilder.replaceTemporary(
-      llvm::TempDINode(ir->diCompositeType), static_cast<llvm::DIType *>(ret));
-  ir->diCompositeType = ret;
+  irAggr->diCompositeType = DBuilder.replaceTemporary(
+      llvm::TempDINode(irAggr->diCompositeType), static_cast<llvm::DIType *>(ret));
+  irAggr->diCompositeType = ret;
 
   return ret;
 }
