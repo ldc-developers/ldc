@@ -914,6 +914,23 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
 
   ldc::DIFile file = CreateFile(fd);
 
+  // A special case is `auto foo() { struct S{}; S s; return s; }`
+  // The return type is a nested struct, so for this particular chicken-and-egg case
+  // we need to create a temporary subprogram.
+  irFunc->diSubprogram = DBuilder.createTempFunctionFwdDecl(
+      GetSymbolScope(fd),                 // context
+      fd->toChars(),                      // name
+      irFunc->getLLVMFuncName(),          // linkage name
+      file,                               // file
+      fd->loc.linnum,                     // line no
+      nullptr,                            // type
+      fd->protection.kind == Prot::private_, // is local to unit
+      true,                               // isdefinition
+      fd->loc.linnum,                     // FIXME: scope line
+      DIFlags::FlagPrototyped,            // Flags
+      isOptimizationEnabled()             // isOptimized
+      );
+
   // Create subroutine type
   ldc::DISubroutineType DIFnType = mustEmitFullDebugInfo() ?
       CreateFunctionType(static_cast<TypeFunction *>(fd->type)) :
