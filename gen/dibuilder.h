@@ -158,7 +158,6 @@ public:
 
 private:
   llvm::LLVMContext &getContext();
-  Module *getDefinedModule(Dsymbol *s);
   DIScope GetSymbolScope(Dsymbol *s);
   DIScope GetCurrentScope();
   void Declare(const Loc &loc, llvm::Value *storage, ldc::DILocalVariable divar,

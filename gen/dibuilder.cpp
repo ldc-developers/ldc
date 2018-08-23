@@ -82,19 +82,6 @@ bool ldc::DIBuilder::mustEmitLocationsDebugInfo() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// get the module the symbol is in, or - for template instances - the current
-// module
-Module *ldc::DIBuilder::getDefinedModule(Dsymbol *s) {
-  // templates are defined in current module
-  if (DtoIsTemplateInstance(s)) {
-    return IR->dmodule;
-  }
-  // otherwise use the symbol's module
-  return s->getModule();
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 ldc::DIBuilder::DIBuilder(IRState *const IR)
     : IR(IR), DBuilder(IR->module), CUNode(nullptr),
       isTargetMSVCx64(global.params.targetTriple->isWindowsMSVCEnvironment() &&
