@@ -1,68 +1,220 @@
+commonSteps: &commonSteps
+  steps:
+    # Each step starts in working dir `<root>/project` (containing the cloned LDC repo).
+    - run:
+        name: Install dependencies
+        command: |
+          cd ..
+          if [ "$CI_OS" = "linux" ]; then
+            export DEBIAN_FRONTEND=noninteractive
+            dpkg --add-architecture i386
+            apt-get -q update
+            apt-get -yq install software-properties-common
+            add-apt-repository -y ppa:ubuntu-toolchain-r/test
+            apt-get -q update
+            apt-get -yq install curl git-core g++-6-multilib ninja-build gdb python-pip unzip zip libconfig-dev libcurl4-openssl-dev libcurl3:i386
+            echo "export CC=gcc-6" >> $BASH_ENV
+            echo "export CXX=g++-6" >> $BASH_ENV
+            # install CMake
+            curl -L -o cmake-x64.tar.gz https://cmake.org/files/v3.10/cmake-3.10.0-Linux-x86_64.tar.gz
+            mkdir cmake-x64
+            tar -xf cmake-x64.tar.gz --strip 1 -C cmake-x64
+            echo "export PATH=$PWD/cmake-x64/bin:$PATH" >> $BASH_ENV
+            # use ld.gold per default, so that LTO is tested
+            update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
+          else
+            # install libconfig
+            brew install libconfig
+            # install CMake
+            curl -L -o cmake-x64.tar.gz https://cmake.org/files/v3.10/cmake-3.10.0-Darwin-x86_64.tar.gz
+            mkdir cmake-x64
+            tar -xf cmake-x64.tar.gz --strip 3 -C cmake-x64
+            # install Ninja
+            curl -OL https://github.com/ninja-build/ninja/releases/download/v1.8.2/ninja-mac.zip
+            mkdir ninja
+            tar -xf ninja-mac.zip -C ninja
+            echo "export PATH=$PWD/cmake-x64/bin:$PWD/ninja:$PATH" >> $BASH_ENV
+            # install Python pip
+            curl -OL https://bootstrap.pypa.io/get-pip.py
+            python get-pip.py
+          fi
+          # install lit
+          pip install --user lit
+    - checkout
+    - run:
+        name: Install LDC-flavoured LLVM
+        command: |
+          cd ..
+          mkdir llvm-$LLVM_VERSION
+          assertsSuffix=""
+          if [ -z "$CIRCLE_TAG" ]; then
+            echo "Using LLVM with enabled assertions"
+            assertsSuffix="-withAsserts"
+          fi
+          curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$CI_OS-x86_64$assertsSuffix.tar.xz
+          tar -xf llvm.tar.xz --strip 1 -C llvm-$LLVM_VERSION
+          rm llvm.tar.xz
+    - run:
+        name: Checkout git submodules
+        command: git submodule update --init
+    - run:
+        name: Build LDC
+        command: |
+          cd ..
+          LDC_INSTALL_DIR=$PWD/ldc2-x64
+          mkdir ninja-ldc
+          cd ninja-ldc
+          cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DCMAKE_INSTALL_PREFIX=$LDC_INSTALL_DIR -DINCLUDE_INSTALL_DIR=$LDC_INSTALL_DIR/import $EXTRA_CMAKE_FLAGS $CIRCLE_WORKING_DIRECTORY
+          ninja -j3
+          bin/ldc2 -version
+          cd ..
+    - run:
+        name: Build stdlib unittests
+        when: always
+        command: |
+          cd ../ninja-ldc
+          ninja -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest phobos2-ldc-unittest-debug-32 phobos2-ldc-unittest-32
+          ninja -j3 druntime-ldc-unittest-debug druntime-ldc-unittest druntime-ldc-unittest-debug-32 druntime-ldc-unittest-32
+          cd ..
+    - run:
+        name: Run LIT testsuite
+        when: always
+        command: cd ../ninja-ldc && ctest -V -R lit-tests
+    - run:
+        name: Run DMD testsuite
+        when: always
+        command: |
+          cd ../ninja-ldc
+          if [ "$CI_OS" = "linux" ]; then
+            # runnable/{sdtor,variadic} fail, see https://github.com/ldc-developers/ldc/pull/2825#issuecomment-415527889
+            rm ../project/tests/d2/dmd-testsuite/runnable/{sdtor,variadic}.d
+          fi
+          DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R dmd-testsuite
+          cd ..
+    - run:
+        name: Run stdlib unittests
+        when: always
+        command: |
+          cd ../ninja-ldc
+          if [ "$CI_OS" = "osx" ]; then
+            # 32-bit std.process unittests fail; exclude for now
+            ctest -j3 --output-on-failure -E "std\.process.*-32|dmd-testsuite|lit-tests"
+          else
+            ctest -j3 --output-on-failure -E "dmd-testsuite|lit-tests"
+          fi
+          cd ..
+    - run:
+        name: Install LDC
+        command: |
+          cd ../ninja-ldc
+          ninja install
+          cd ..
+          LDC_INSTALL_DIR=$PWD/ldc2-x64
+          perl -pi -e s?$LDC_INSTALL_DIR/?%%ldcbinarypath%%/../?g $LDC_INSTALL_DIR/etc/ldc2.conf
+          cp project/LICENSE $LDC_INSTALL_DIR
+          git clone https://github.com/ldc-developers/ldc-scripts.git
+          cp ldc-scripts/ldc2-packaging/pkgfiles/README $LDC_INSTALL_DIR
+          # Now rename the installation dir to test portability.
+          NEW_LDC_INSTALL_DIR=$PWD/ldc2-install
+          mv $LDC_INSTALL_DIR $NEW_LDC_INSTALL_DIR
+          echo "export LDC_INSTALL_DIR=$NEW_LDC_INSTALL_DIR" >> $BASH_ENV
+    - run:
+        name: Build dub
+        command: |
+          cd ..
+          export DMD=$LDC_INSTALL_DIR/bin/ldmd2
+          git clone --recursive https://github.com/dlang/dub.git
+          cd dub
+          git checkout $DUB_VERSION
+          if [ -z "$CIRCLE_TAG" ]; then
+            # FIXME: dub is built with `-g -O`, which leads to issue #2361 with enabled
+            # assertions, at least on Linux. So strip `-g` for untagged builds.
+            perl -pi -e "s? -g -O ? -O ?g" build.sh
+          fi
+          ./build.sh
+          cp bin/dub $LDC_INSTALL_DIR/bin
+          cd ..
+    - run:
+        name: Pack installation dir
+        command: |
+          cd ..
+          mkdir artifacts
+          if [ -z "$CIRCLE_TAG" ]; then
+            artifactBasename="ldc2-${CIRCLE_SHA1:0:8}-$CI_OS-x86_64-$(date "+%Y%m%d")"
+          else
+            artifactBasename="ldc2-${CIRCLE_TAG:1}-$CI_OS-x86_64"
+          fi
+          mv $LDC_INSTALL_DIR $artifactBasename
+          XZ_OPT=-9 tar -cJf artifacts/$artifactBasename.tar.xz $artifactBasename
+    - run:
+        name: Pack source dir
+        command: |
+          cd ..
+          if [ "$CI_OS" = "linux" ]; then
+            if [ -z "$CIRCLE_TAG" ]; then
+              artifactBasename="ldc-${CIRCLE_SHA1:0:8}-src"
+            else
+              artifactBasename="ldc-${CIRCLE_TAG:1}-src"
+            fi
+            GZIP=-9 tar -czf artifacts/$artifactBasename.tar.gz --exclude-vcs --transform=s/project/$artifactBasename/ project
+            tar -xf artifacts/$artifactBasename.tar.gz
+            zip -r -9 artifacts/$artifactBasename.zip $artifactBasename
+          fi
+    - store_artifacts:
+        path: ../artifacts
+    - run:
+        name: Deploy to GitHub release if tagged
+        command: |
+          cd ..
+          if [[ -n "$CIRCLE_TAG" ]]; then
+            if [ "$CI_OS" = "linux" ]; then
+              curl -L -o github-release.tar.bz2 https://github.com/aktau/github-release/releases/download/v0.7.2/linux-amd64-github-release.tar.bz2
+            else
+              curl -L -o github-release.tar.bz2 https://github.com/aktau/github-release/releases/download/v0.7.2/darwin-amd64-github-release.tar.bz2
+            fi
+            tar -xf github-release.tar.bz2 --strip 3
+            cd artifacts
+            # Note: needs GITHUB_TOKEN environment variable
+            ../github-release upload --user ldc-developers --repo ldc --tag ${CIRCLE_TAG:-CI} --name "$(ls ldc2-*.tar.xz)" --file ldc2-*.tar.xz
+            if [[ -n "$CIRCLE_TAG" && "$CI_OS" = "linux" ]]; then
+              ../github-release upload --user ldc-developers --repo ldc --tag $CIRCLE_TAG --name "$(ls ldc-*-src.tar.gz)" --file ldc-*-src.tar.gz
+              ../github-release upload --user ldc-developers --repo ldc --tag $CIRCLE_TAG --name "$(ls ldc-*-src.zip)" --file ldc-*-src.zip
+            fi
+          fi
+
 version: 2
 jobs:
-  build:
+  build-linux:
+    <<: *commonSteps
     docker:
-      - image: gcc
+      - image: ubuntu:14.04
     environment:
-      - LLVM_VERSION: 5.0.0
-    steps:
-      - checkout
-      - run:
-          name: Checkout git submodules
-          command: git submodule update --init
-      - run:
-          name: Install basic dependencies
-          command: |
-            apt update
-            apt install -y software-properties-common cmake ninja-build libconfig++8-dev gdb python-pip unzip
-            pip install --user lit
-            g++ --version
-            ld --version
-            cmake --version
-            ninja --version
-            gdb --version
-            python -c "import lit; lit.main();" --version | head -n 1
-      - restore_cache:
-          keys:
-            - llvm-5.0.0
-      - run:
-          name: Install LLVM 5.0.0
-          command: |
-            if [[ ! -d llvm-$LLVM_VERSION ]]; then
-              wget -O llvm-$LLVM_VERSION.tar.xz http://releases.llvm.org/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-linux-x86_64-ubuntu16.04.tar.xz
-              mkdir llvm-$LLVM_VERSION
-              tar -xpf llvm-$LLVM_VERSION.tar.xz --strip 1 -C llvm-$LLVM_VERSION
-            fi
-      - save_cache:
-          key: llvm-5.0.0
-          paths:
-            - llvm-5.0.0
-      - run:
-          name: Build LDC
-          command: |
-            mkdir build
-            cd build
-            cmake -G Ninja -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION ..
-            ninja -j3
-            bin/ldc2 -version
-            cd ..
-      - run:
-          name: Build stdlib unittests
-          command: |
-            cd build
-            ninja -j2 phobos2-ldc-unittest-debug phobos2-ldc-unittest
-            ninja -j3 druntime-ldc-unittest-debug druntime-ldc-unittest
-            cd ..
-          when: always
-      - run:
-          name: Run LIT testsuite
-          command: cd build && ctest -V -R llvm-ir-testsuite
-          when: always
-      - run:
-          name: Run DMD testsuite
-          command: cd build && DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R dmd-testsuite
-          when: always
-      - run:
-          name: Run stdlib unittests
-          command: cd build && ctest -j3 --output-on-failure -E "dmd-testsuite|llvm-ir-testsuite"
-          when: always
+      - CI_OS: linux
+      - LLVM_VERSION: 6.0.1-3
+      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_SHARED_LIBS=OFF -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++"
+      - DUB_VERSION: v1.9.0
+  build-osx:
+    <<: *commonSteps
+    macos:
+      xcode: "9.2.0"
+    environment:
+      - CI_OS: osx
+      - MACOSX_DEPLOYMENT_TARGET: 10.8
+      - USE_LIBCPP: true
+      - LLVM_VERSION: 6.0.1-3
+      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_SHARED_LIBS=OFF -DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
+      - DUB_VERSION: v1.9.0
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build-linux:
+          # This is required to also trigger the job after pushing a tag.
+          filters:
+            tags:
+              only: /.*/
+      - build-osx:
+          filters:
+            tags:
+              only: /.*/

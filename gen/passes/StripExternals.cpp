@@ -16,6 +16,9 @@
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "strip-externals"
+#if LDC_LLVM_VER >= 700
+#define DEBUG LLVM_DEBUG
+#endif
 
 #include "Passes.h"
 

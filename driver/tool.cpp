@@ -13,29 +13,47 @@
 
 int executeToolAndWait(const std::string &tool,
                        std::vector<std::string> const &args, bool verbose) {
-  // Construct real argument list.
-  // First entry is the tool itself, last entry must be NULL.
+  // Construct real argument list; first entry is the tool itself.
+#if LDC_LLVM_VER >= 700
+  std::vector<llvm::StringRef> realargs;
+  realargs.reserve(args.size() + 1);
+#else
   std::vector<const char *> realargs;
   realargs.reserve(args.size() + 2);
+#endif
   realargs.push_back(tool.c_str());
   for (const auto &arg : args) {
     realargs.push_back(arg.c_str());
   }
-  realargs.push_back(nullptr);
 
   // Print command line if requested
   if (verbose) {
     // Print it
-    for (size_t i = 0; i < realargs.size() - 1; i++) {
-      fprintf(global.stdmsg, "%s ", realargs[i]);
+    for (const auto &arg : realargs) {
+      fprintf(global.stdmsg, "%s ",
+#if LDC_LLVM_VER >= 700
+              arg.str().c_str()
+#else
+              arg
+#endif
+      );
     }
     fprintf(global.stdmsg, "\n");
     fflush(global.stdmsg);
   }
 
+#if LDC_LLVM_VER >= 700
+  auto &argv = realargs;
+  auto envVars = llvm::None;
+#else
+  realargs.push_back(nullptr); // terminate with null
+  auto argv = &realargs[0];
+  auto envVars = nullptr;
+#endif
+
   // Execute tool.
   std::string errstr;
-  if (int status = llvm::sys::ExecuteAndWait(tool, &realargs[0], nullptr,
+  if (int status = llvm::sys::ExecuteAndWait(tool, argv, envVars,
 #if LDC_LLVM_VER >= 600
                                              {},
 #else

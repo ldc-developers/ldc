@@ -17,6 +17,7 @@ set(BUILD_SHARED_LIBS     OFF                                       CACHE BOOL  
 set(D_FLAGS               -w                                        CACHE STRING  "Runtime build flags, separated by ;")
 set(D_FLAGS_DEBUG         -g;-link-debuglib                         CACHE STRING  "Runtime build flags (debug libraries), separated by ;")
 set(D_FLAGS_RELEASE       -O3;-release                              CACHE STRING  "Runtime build flags (release libraries), separated by ;")
+set(RT_CFLAGS             ""                                        CACHE STRING  "Runtime extra C compiler flags, separated by ' '")
 if(MSVC)
     set(LINK_WITH_MSVCRT  ON                                        CACHE BOOL    "Link with MSVCRT.lib (DLL) instead of LIBCMT.lib (static)")
 endif()
@@ -519,8 +520,6 @@ endmacro()
 #
 # Set up build targets.
 #
-
-set(RT_CFLAGS "")
 
 # This is a bit of a mess as we need to join the two libraries together on
 # OS X before installing them. After this has run, LIBS_TO_INSTALL contains
