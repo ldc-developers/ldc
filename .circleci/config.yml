@@ -111,6 +111,9 @@ commonSteps: &commonSteps
           cd ..
           LDC_INSTALL_DIR=$PWD/ldc2-x64
           perl -pi -e s?$LDC_INSTALL_DIR/?%%ldcbinarypath%%/../?g $LDC_INSTALL_DIR/etc/ldc2.conf
+          if [ "$CI_OS" = "linux" ]; then
+            cp /usr/lib/x86_64-linux-gnu/libconfig.so.9 $LDC_INSTALL_DIR/bin
+          fi
           cp project/LICENSE $LDC_INSTALL_DIR
           git clone https://github.com/ldc-developers/ldc-scripts.git
           cp ldc-scripts/ldc2-packaging/pkgfiles/README $LDC_INSTALL_DIR
@@ -191,7 +194,7 @@ jobs:
     environment:
       - CI_OS: linux
       - LLVM_VERSION: 6.0.1-3
-      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_SHARED_LIBS=OFF -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++"
+      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_SHARED_LIBS=OFF -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DCMAKE_EXE_LINKER_FLAGS_RELEASE='-Wl,-rpath,\\$ORIGIN'"
       - DUB_VERSION: v1.9.0
   build-osx:
     <<: *commonSteps
