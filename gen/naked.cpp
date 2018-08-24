@@ -24,7 +24,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 // FIXME: Integrate these functions
-void AsmStatement_toNakedIR(AsmStatement *stmt, IRState *irs);
+void AsmStatement_toNakedIR(InlineAsmStatement *stmt, IRState *irs);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -42,12 +42,12 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(Statement *stmt) override {
-    error(Loc(), "Statement not allowed in naked function");
+    error(stmt->loc, "Statement not allowed in naked function");
   }
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(AsmStatement *stmt) override {
+  void visit(InlineAsmStatement *stmt) override {
     AsmStatement_toNakedIR(stmt, irs);
   }
 

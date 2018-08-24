@@ -536,12 +536,12 @@ static LLConstant *build_class_dtor(ClassDeclaration *cd) {
       DtoCallee(dtor), getPtrToType(LLType::getInt8Ty(gIR->context())));
 }
 
-static ClassFlags::Type build_classinfo_flags(ClassDeclaration *cd) {
+static unsigned build_classinfo_flags(ClassDeclaration *cd) {
   // adapted from original dmd code:
   // toobj.c: ToObjFile::visit(ClassDeclaration*) and
   // ToObjFile::visit(InterfaceDeclaration*)
 
-  ClassFlags::Type flags = ClassFlags::hasOffTi | ClassFlags::hasTypeInfo;
+  auto flags = ClassFlags::hasOffTi | ClassFlags::hasTypeInfo;
   if (cd->isInterfaceDeclaration()) {
     if (cd->isCOMinterface()) {
       flags |= ClassFlags::isCOMclass;
@@ -674,7 +674,7 @@ LLConstant *DtoDefineClassInfo(ClassDeclaration *cd) {
   b.push_funcptr(cd->inv, invVar->type);
 
   // flags
-  ClassFlags::Type flags = build_classinfo_flags(cd);
+  const unsigned flags = build_classinfo_flags(cd);
   b.push_uint(flags);
 
   // deallocator

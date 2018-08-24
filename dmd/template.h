@@ -126,7 +126,7 @@ public:
  * For this-parameter:
  *  template Foo(this ident)
  */
-class TemplateParameter
+class TemplateParameter : public RootObject
 {
 public:
     Loc loc;
@@ -364,8 +364,9 @@ Dsymbol *isDsymbol(RootObject *o);
 Type *isType(RootObject *o);
 Tuple *isTuple(RootObject *o);
 Parameter *isParameter(RootObject *o);
-bool arrayObjectIsError(Objects *args);
-bool isError(const RootObject * const o);
+TemplateParameter *isTemplateParameter(RootObject *o);
+bool arrayObjectIsError(const Objects *args);
+bool isError(const RootObject *const o);
 Type *getType(RootObject *o);
 Dsymbol *getDsymbol(RootObject *o);
 

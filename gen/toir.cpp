@@ -1538,7 +1538,7 @@ public:
       if (!e->arguments || e->arguments->dim == 0) {
         IF_LOG Logger::println("default initializer\n");
         // static arrays never appear here, so using the defaultInit is ok!
-        exp = e->newtype->defaultInit(e->loc);
+        exp = defaultInit(e->newtype, e->loc);
       } else {
         IF_LOG Logger::println("uniform constructor\n");
         assert(e->arguments->dim == 1);

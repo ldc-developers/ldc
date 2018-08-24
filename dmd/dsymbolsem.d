@@ -28,6 +28,7 @@ import dmd.declaration;
 import dmd.denum;
 import dmd.dimport;
 import dmd.dinterpret;
+import dmd.dmangle;
 import dmd.dmodule;
 import dmd.dscope;
 import dmd.dstruct;
@@ -821,8 +822,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
                 }
             }
 
-            auto exps = new Objects();
-            exps.setDim(nelems);
+            auto exps = new Objects(nelems);
             for (size_t i = 0; i < nelems; i++)
             {
                 Parameter arg = Parameter.getNth(tt.arguments, i);
@@ -1227,6 +1227,11 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
                     // https://issues.dlang.org/show_bug.cgi?id=14166
                     // Don't run CTFE for the temporary variables inside typeof
                     dsym._init = dsym._init.initializerSemantic(sc, dsym.type, sc.intypeof == 1 ? INITnointerpret : INITinterpret);
+                    const init_err = dsym._init.isExpInitializer();
+                    if (init_err && init_err.exp.op == TOK.showCtfeContext)
+                    {
+                         errorSupplemental(dsym.loc, "compile time context created here");
+                    }
                 }
             }
             else if (parent.isAggregateDeclaration())
@@ -1379,9 +1384,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
         bool loadErrored = false;
         if (!imp.mod)
         {
-            const errors = global.errors;
-            imp.load(sc);
-            loadErrored = global.errors != errors;
+            loadErrored = imp.load(sc);
             if (imp.mod)
                 imp.mod.importAll(null);
         }
@@ -1762,7 +1765,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
                     dchar c = p[i];
                     if (c < 0x80)
                     {
-                        if (c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c != 0 && strchr("$%().:?@[]_", c))
+                        if (c.isValidMangling)
                         {
                             ++i;
                             continue;
@@ -2210,6 +2213,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
             return errorReturn();
         }
         assert(em.ed);
+
         em.ed.dsymbolSemantic(sc);
         if (em.ed.errors)
             return errorReturn();
@@ -2225,8 +2229,16 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
 
         em.protection = em.ed.isAnonymous() ? em.ed.protection : Prot(Prot.Kind.public_);
         em.linkage = LINK.d;
-        em.storage_class = STC.manifest;
-        em.userAttribDecl = em.ed.isAnonymous() ? em.ed.userAttribDecl : null;
+        em.storage_class |= STC.manifest;
+
+        // https://issues.dlang.org/show_bug.cgi?id=9701
+        if (em.ed.isAnonymous())
+        {
+            if (em.userAttribDecl)
+                em.userAttribDecl.userAttribDecl = em.ed.userAttribDecl;
+            else
+                em.userAttribDecl = em.ed.userAttribDecl;
+        }
 
         // The first enum member is special
         bool first = (em == (*em.ed.members)[0]);
@@ -2472,8 +2484,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
 
         if (global.params.doDocComments)
         {
-            tempdecl.origParameters = new TemplateParameters();
-            tempdecl.origParameters.setDim(tempdecl.parameters.dim);
+            tempdecl.origParameters = new TemplateParameters(tempdecl.parameters.dim);
             for (size_t i = 0; i < tempdecl.parameters.dim; i++)
             {
                 TemplateParameter tp = (*tempdecl.parameters)[i];
@@ -2502,8 +2513,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
 
         /* Calculate TemplateParameter.dependent
          */
-        TemplateParameters tparams;
-        tparams.setDim(1);
+        TemplateParameters tparams = TemplateParameters(1);
         for (size_t i = 0; i < tempdecl.parameters.dim; i++)
         {
             TemplateParameter tp = (*tempdecl.parameters)[i];
@@ -2740,7 +2750,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
         Scope* sc2 = argscope.push(tm);
         //size_t deferred_dim = Module.deferred.dim;
 
-        static __gshared int nest;
+        __gshared int nest;
         //printf("%d\n", nest);
         // IN_LLVM replaced: if (++nest > 500)
         if (++nest > global.params.nestedTmpl) // LDC_FIXME: add testcase for this
@@ -3609,7 +3619,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
         funcdecl._scope = sc.copy();
         funcdecl._scope.setNoFree();
 
-        static __gshared bool printedMain = false; // semantic might run more than once
+        __gshared bool printedMain = false; // semantic might run more than once
         if (global.params.verbose && !printedMain)
         {
             const(char)* type = funcdecl.isMain() ? "main" : funcdecl.isWinMain() ? "winmain" : funcdecl.isDllMain() ? "dllmain" : cast(const(char)*)null;
@@ -3627,6 +3637,14 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
             genCmain(sc);
 
         assert(funcdecl.type.ty != Terror || funcdecl.errors);
+
+        // semantic for parameters' UDAs
+        foreach (i; 0 .. Parameter.dim(f.parameters))
+        {
+            Parameter param = Parameter.getNth(f.parameters, i);
+            if (param && param.userAttribDecl)
+                param.userAttribDecl.dsymbolSemantic(sc);
+        }
     }
 
      /// Do the semantic analysis on the external interface to the function.
@@ -4372,7 +4390,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
         }
     }
 
-    final void interfaceSemantic(ClassDeclaration cd)
+    void interfaceSemantic(ClassDeclaration cd)
     {
         cd.vtblInterfaces = new BaseClasses();
         cd.vtblInterfaces.reserve(cd.interfaces.length);
@@ -4658,7 +4676,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
             cldec.baseok = Baseok.done;
 
             // If no base class, and this is not an Object, use Object as base class
-            if (!cldec.baseClass && cldec.ident != Id.Object && cldec.object && !cldec.classKind == ClassKind.cpp)
+            if (!cldec.baseClass && cldec.ident != Id.Object && cldec.object && cldec.classKind == ClassKind.d)
             {
                 void badObjectDotD()
                 {

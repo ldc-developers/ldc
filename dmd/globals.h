@@ -143,7 +143,6 @@ struct Param
     unsigned char covPercent;   // 0..100 code coverage percentage required
     bool nofloat;       // code should not pull in floating point support
     bool ignoreUnsupportedPragmas;      // rather than error on them
-    bool enforcePropertySyntax;
     bool useModuleInfo; // generate runtime module information
     bool useTypeInfo;   // generate runtime type information
     bool useExceptions; // support exception handling
@@ -296,10 +295,11 @@ struct Global
 
     Compiler compiler;
     Param params;
-    unsigned errors;       // number of errors reported so far
-    unsigned warnings;     // number of warnings reported so far
-    unsigned gag;          // !=0 means gag reporting of errors & warnings
-    unsigned gaggedErrors; // number of errors reported while gagged
+    unsigned errors;         // number of errors reported so far
+    unsigned warnings;       // number of warnings reported so far
+    unsigned gag;            // !=0 means gag reporting of errors & warnings
+    unsigned gaggedErrors;   // number of errors reported while gagged
+    unsigned gaggedWarnings; // number of warnings reported while gagged
 
     void* console;         // opaque pointer to console for controlling text attributes
 
@@ -334,7 +334,8 @@ extern Global global;
 // Because int64_t and friends may be any integral type of the
 // correct size, we have to explicitly ask for the correct
 // integer type to get the correct mangling with dmd
-#if __LP64__ && !(__APPLE__ && LDC_HOST_DigitalMars && LDC_HOST_FE_VER >= 2079)
+#if __LP64__ && !(__APPLE__ && LDC_HOST_DigitalMars &&                         \
+                  LDC_HOST_FE_VER >= 2079 && LDC_HOST_FE_VER <= 2081)
 // Be careful not to care about sign when using dinteger_t
 // use this instead of integer_t to
 // avoid conflicts with system #include's
@@ -387,7 +388,7 @@ struct Loc
 #endif
 
     const char *toChars() const;
-    bool equals(const Loc& loc);
+    bool equals(const Loc& loc) const;
 };
 
 enum LINK

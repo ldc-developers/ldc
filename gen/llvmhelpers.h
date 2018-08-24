@@ -123,7 +123,8 @@ DValue *DtoDeclarationExp(Dsymbol *declaration);
 LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr = nullptr);
 
 // initializer helpers
-LLConstant *DtoConstInitializer(Loc &loc, Type *type, Initializer *init);
+LLConstant *DtoConstInitializer(Loc &loc, Type *type,
+                                Initializer *init = nullptr);
 LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp);
 
 // getting typeinfo of type, base=true casts to object.TypeInfo
@@ -295,5 +296,7 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd,
 /// directly in-place. If so, it performs the according codegen and returns
 /// true; otherwise it just returns false.
 bool toInPlaceConstruction(DLValue *lhs, Expression *rhs);
+
+std::string llvmTypeToString(LLType *type);
 
 #endif

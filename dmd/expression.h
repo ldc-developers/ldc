@@ -65,6 +65,8 @@ namespace llvm {
 
 // in expressionsem.d
 Expression *expressionSemantic(Expression *e, Scope *sc);
+// in typesem.d
+Expression *defaultInit(Type *mt, const Loc &loc);
 #endif
 
 Expression *resolveProperties(Scope *sc, Expression *e);
@@ -602,6 +604,12 @@ public:
 class VarExp : public SymbolExp
 {
 public:
+    /**
+    * Semantic can be called multiple times for a single expression.
+    * This field is needed to ensure the deprecation message will be printed only once.
+    */
+    bool hasCheckedAttrs;
+
     static VarExp *create(Loc loc, Declaration *var, bool hasOverloads = true);
     bool equals(RootObject *o);
     int checkModifiable(Scope *sc, int flag);

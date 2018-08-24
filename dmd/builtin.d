@@ -271,6 +271,13 @@ extern (C++) Expression eval_bsr(Loc loc, FuncDeclaration fd, Expressions* argum
 version(IN_LLVM)
 {
 
+extern (C++) Expression eval_exp(Loc loc, FuncDeclaration fd, Expressions* arguments)
+{
+    Expression arg0 = (*arguments)[0];
+    assert(arg0.op == TOK.float64);
+    return new RealExp(loc, CTFloat.exp(arg0.toReal()), arg0.type);
+}
+
 private Type getTypeOfOverloadedIntrinsic(FuncDeclaration fd)
 {
     // Depending on the state of the code generation we have to look at
@@ -688,9 +695,6 @@ else
     add_builtin("_D4core4math5atan2FNaNbNiNfeeZe", &eval_unimp);
     if (CTFloat.yl2x_supported)
     {
-        version(IN_LLVM) // @trusted
-            add_builtin("_D4core4math4yl2xFNaNbNiNeeeZe", &eval_yl2x);
-        else
         add_builtin("_D4core4math4yl2xFNaNbNiNfeeZe", &eval_yl2x);
     }
     else
@@ -699,9 +703,6 @@ else
     }
     if (CTFloat.yl2xp1_supported)
     {
-        version(IN_LLVM) // @trusted
-            add_builtin("_D4core4math6yl2xp1FNaNbNiNeeeZe", &eval_yl2xp1);
-        else
         add_builtin("_D4core4math6yl2xp1FNaNbNiNfeeZe", &eval_yl2xp1);
     }
     else
@@ -802,6 +803,9 @@ else
 
 version(IN_LLVM)
 {
+    // @trusted @nogc pure nothrow real function(real)
+    add_builtin("_D3std4math3expFNaNbNiNeeZe", &eval_exp);
+
     // intrinsic llvm.sin.f32/f64/f80/f128/ppcf128
     add_builtin("llvm.sin.f32", &eval_llvmsin);
     add_builtin("llvm.sin.f64", &eval_llvmsin);

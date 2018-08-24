@@ -107,8 +107,7 @@ LLConstant *IrAggr::getDefaultInitializer(VarDeclaration *field) {
     return DtoConstInitializer(field->_init->loc, field->type, field->_init);
   }
 
-  return DtoConstExpInit(field->loc, field->type,
-                         field->type->defaultInit(field->loc));
+  return DtoConstInitializer(field->loc, field->type);
 }
 
 // return a constant array of type arrTypeD initialized with a constant value,

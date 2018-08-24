@@ -49,10 +49,6 @@ void Target::_init() {
   classinfosize = 0; // unused
   maxStaticDataSize = std::numeric_limits<unsigned long long>::max();
 
-  // These C++ mangling characters are only used for 64-bit POSIX targets.
-  int64Mangle = 'l';  // C++ long
-  uint64Mangle = 'm'; // C++ unsigned long
-
   twoDtorInVtable = !triple.isWindowsMSVCEnvironment();
 
   // Finalize RealProperties for the target's `real` type.
