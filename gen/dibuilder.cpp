@@ -19,6 +19,7 @@
 #include "gen/optimizer.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
+#include "ir/irfuncty.h"
 #include "ir/irtypeaggr.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FileSystem.h"
@@ -660,6 +661,8 @@ ldc::DIType ldc::DIBuilder::CreateAArrayType(Type *type) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+const unsigned DW_CC_D_dmd = 0x43;  // new calling convention constant being proposed as a Dwarf extension
+
 ldc::DISubroutineType ldc::DIBuilder::CreateFunctionType(Type *type) {
   assert(type->toBasetype()->ty == Tfunction);
 
@@ -670,7 +673,13 @@ ldc::DISubroutineType ldc::DIBuilder::CreateFunctionType(Type *type) {
   LLMetadata *params = {CreateTypeDescription(retType)};
   auto paramsArray = DBuilder.getOrCreateTypeArray(params);
 
-  return DBuilder.createSubroutineType(paramsArray);
+  // The calling convention has to be recorded to distinguish
+  // extern(D) functions from extern(C++) ones.
+  DtoType(t);
+  assert(t->ctype);
+  unsigned CC = t->ctype->getIrFuncTy().reverseParams ? DW_CC_D_dmd : 0;
+
+  return DBuilder.createSubroutineType(paramsArray, DIFlagZero, CC);
 }
 
 ldc::DISubroutineType ldc::DIBuilder::CreateEmptyFunctionType() {
