@@ -14,7 +14,7 @@ The compiler uses the official DMD frontend to support the latest
 version of D2, and relies on the LLVM Core libraries for code
 generation.
 
-LDC is fully Open Source; the parts of the code not taken/adapted from
+LDC is fully Open Source; the parts of the source code not taken/adapted from
 other projects are BSD-licensed (see the LICENSE file for details).
 
 Please consult the D wiki for further information:
@@ -78,11 +78,19 @@ with Visual C++, or the stand-alone
 [Visual C++ Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools).
 
 
+#### Android
+
+Native packages for Android are available in the
+[Termux app](https://play.google.com/store/apps/details?id=com.termux&hl=en), easily
+installed with `pkg install ldc`. You can find full instructions on cross-compiling
+or natively compiling for Android
+[on the wiki](https://wiki.dlang.org/Build_D_for_Android).
+
 ### Building from source
 
 In-depth material on building and installing LDC and the standard
 libraries is available on the project wiki for
-[Linux and macOS](http://wiki.dlang.org/Building_LDC_from_source) and
+[Linux, macOS, BSD, and Android](http://wiki.dlang.org/Building_LDC_from_source) and
 [Windows](http://wiki.dlang.org/Building_and_hacking_LDC_on_Windows_using_MSVC).
 
 If you have a working C++/D build environment, CMake, and a current LLVM
@@ -97,6 +105,12 @@ are up to date:
 purposes, LDC 0.17, the last version not to require a D compiler, is
 maintained in the `ltsmaster` branch).
 
+### Cross-compiling
+
+We've recently added a cross-compilation tool to make it easier to build the D
+runtime and standard library for other platforms, `ldc-build-runtime`. Full
+instructions and example invocations are provided
+[on its wiki page](https://wiki.dlang.org/Building_LDC_runtime_libraries).
 
 Contact
 -------
