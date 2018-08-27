@@ -169,8 +169,7 @@ void iterateFuncInstructions(llvm::Function &func, F &&handler) {
   }     // for (auto &&bb : fun)
 }
 
-template<typename I>
-void stripDeclarations(llvm::iterator_range<I> range) {
+template <typename I> void stripDeclarations(llvm::iterator_range<I> range) {
   for (auto it = range.begin(); it != range.end();) {
     auto elem = &(*it);
     ++it;
@@ -192,8 +191,7 @@ void fixRtModule(llvm::Module &newModule,
   std::unordered_set<std::string> externalFuncs;
   for (auto &&it : funcs) {
     assert(nullptr != it.first);
-    if (nullptr == it.second.thunkVar ||
-        nullptr == it.second.thunkFunc) {
+    if (nullptr == it.second.thunkVar || nullptr == it.second.thunkFunc) {
       // thunkVar or thunkFunc is not available
       // e.g. dynamicCompile function from other module or emit-only dynamic
       // function, ignore
