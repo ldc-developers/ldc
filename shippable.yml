@@ -64,7 +64,7 @@ build:
         -DCMAKE_INSTALL_PREFIX=$PWD/../ldc-bootstrap \
         -DD_COMPILER=$PWD/../ldc-ltsmaster/bin/ldmd2 \
         ..
-    - ninja install
+    - ninja -j32 install
     - cd ..
     - ldc-bootstrap/bin/ldc2 --version
     # Build with itself
@@ -80,7 +80,7 @@ build:
         -DD_COMPILER=$PWD/../ldc-bootstrap/bin/ldmd2 \
         $EXTRA_CMAKE_FLAGS \
         ..
-    - ninja
+    - ninja -j32
     - bin/ldc2 --version
     # Build druntime/Phobos unittest runners
     - ninja -j16 all-test-runners
