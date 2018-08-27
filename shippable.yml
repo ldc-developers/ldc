@@ -149,7 +149,7 @@ build:
       fi
       export LDC_ARTIFACT=$artifactBasename.tar.xz
       mv $LDC_INSTALL_DIR $artifactBasename
-      tar -cf - $artifactBasename | 7za a $LDC_ARTIFACT -si -txz -mx9
+      tar -cf - $artifactBasename | 7za a $LDC_ARTIFACT -si -txz -mx9 -mmt=8
     - ls -l $LDC_ARTIFACT
     # Upload to GitHub if tagged or on the master branch
     - |
