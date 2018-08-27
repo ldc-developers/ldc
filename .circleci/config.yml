@@ -12,7 +12,10 @@ commonSteps: &commonSteps
             apt-get -yq install software-properties-common
             add-apt-repository -y ppa:ubuntu-toolchain-r/test
             apt-get -q update
-            apt-get -yq install curl git-core g++-6-multilib ninja-build gdb python-pip unzip zip libcurl4-openssl-dev libcurl3:i386
+            apt-get -yq install \
+              curl git-core g++-6-multilib ninja-build \
+              libcurl4-openssl-dev libcurl3:i386 \
+              gdb python-pip unzip zip
             echo "export CC=gcc-6" >> $BASH_ENV
             echo "export CXX=g++-6" >> $BASH_ENV
             # install CMake
@@ -73,7 +76,12 @@ commonSteps: &commonSteps
           HOST_LDMD=$PWD/ldc2-$HOST_LDC_VERSION/bin/ldmd2
           mkdir bootstrap
           cd bootstrap
-          cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DD_COMPILER=$HOST_LDMD $BOOTSTRAP_CMAKE_FLAGS $CIRCLE_WORKING_DIRECTORY
+          cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION \
+            -DD_COMPILER=$HOST_LDMD \
+            $BOOTSTRAP_CMAKE_FLAGS \
+            $CIRCLE_WORKING_DIRECTORY
           ninja -j3
           bin/ldc2 -version
           cd ..
@@ -86,7 +94,13 @@ commonSteps: &commonSteps
           cd ..
           HOST_LDMD=$PWD/ldc2-$HOST_LDC_VERSION/bin/ldmd2
           cd bootstrap
-          cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DBUILD_SHARED_LIBS=OFF -DD_COMPILER=$HOST_LDMD $BOOTSTRAP_CMAKE_FLAGS $CIRCLE_WORKING_DIRECTORY
+          cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DD_COMPILER=$HOST_LDMD \
+            $BOOTSTRAP_CMAKE_FLAGS \
+            $CIRCLE_WORKING_DIRECTORY
           ninja -j3
           cd ..
     - run:
@@ -97,26 +111,15 @@ commonSteps: &commonSteps
           HOST_LDMD=$PWD/bootstrap/bin/ldmd2
           mkdir ninja-ldc
           cd ninja-ldc
-          cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION -DCMAKE_INSTALL_PREFIX=$LDC_INSTALL_DIR -DINCLUDE_INSTALL_DIR=$LDC_INSTALL_DIR/import -DD_COMPILER=$HOST_LDMD $EXTRA_CMAKE_FLAGS $CIRCLE_WORKING_DIRECTORY
-          nativeArchObjSuffix=""
-          if [ "$CI_OS" = "osx" ]; then
-            nativeArchObjSuffix="_64"
-          fi
-          # Some unittest modules eat large amounts of memory during compilation => -j2.
-          ninja -j2 all \
-                    runtime/objects-unittest$nativeArchObjSuffix/std/algorithm/searching.o \
-                    runtime/objects-unittest_32/std/algorithm/searching.o \
-                    runtime/objects-unittest-debug$nativeArchObjSuffix/std/algorithm/searching.o \
-                    runtime/objects-unittest-debug_32/std/algorithm/searching.o \
-                    runtime/objects-unittest$nativeArchObjSuffix/std/range/package.o \
-                    runtime/objects-unittest_32/std/range/package.o \
-                    runtime/objects-unittest-debug$nativeArchObjSuffix/std/range/package.o \
-                    runtime/objects-unittest-debug_32/std/range/package.o \
-                    runtime/objects-unittest$nativeArchObjSuffix/std/regex/internal/tests.o \
-                    runtime/objects-unittest_32/std/regex/internal/tests.o \
-                    runtime/objects-unittest-debug$nativeArchObjSuffix/std/regex/internal/tests.o \
-                    runtime/objects-unittest-debug_32/std/regex/internal/tests.o
-          ninja -j3 all-test-runners
+          cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION \
+            -DCMAKE_INSTALL_PREFIX=$LDC_INSTALL_DIR \
+            -DINCLUDE_INSTALL_DIR=$LDC_INSTALL_DIR/import \
+            -DD_COMPILER=$HOST_LDMD \
+            $EXTRA_CMAKE_FLAGS \
+            $CIRCLE_WORKING_DIRECTORY
+          ninja -j2 all all-test-runners
           bin/ldc2 -version
           cd ..
     - run:
@@ -213,7 +216,11 @@ commonSteps: &commonSteps
           cd ..
           git clone --recursive https://github.com/dlang/tools.git
           cd tools
-          make -f posix.mak install DMD=$LDC_INSTALL_DIR/bin/ldmd2 INSTALL_DIR=$PWD
+          make -f posix.mak -j3 install \
+            DMD=$LDC_INSTALL_DIR/bin/ldmd2 \
+            DMD_DIR=$PWD/../project/tests/d2 \
+            DFLAGS="-w -de" \
+            INSTALL_DIR=$PWD
           cp bin/{rdmd,ddemangle,dustmite} $LDC_INSTALL_DIR/bin
           cd ..
     - run:
