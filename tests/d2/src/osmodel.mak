@@ -61,8 +61,10 @@ ifeq (,$(MODEL))
     MODEL:=32
   endif
   ifeq (,$(MODEL))
-    $(error Cannot figure 32/64 model from uname -m: $(uname_M))
+    $(warning Cannot figure 32/64 model from uname -m: $(uname_M))
   endif
 endif
 
-MODEL_FLAG:=-m$(MODEL)
+ifneq (,$(MODEL))
+  MODEL_FLAG:=-m$(MODEL)
+endif
