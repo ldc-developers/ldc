@@ -2,6 +2,7 @@
 
 // REQUIRES: atleast_llvm309
 // REQUIRES: LTO
+// REQUIRES: host_X86
 
 // Naked DMD-style asm (LLVM module-level inline assembly) is not supported
 // by LLVM for LTO on Windows.
