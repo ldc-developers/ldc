@@ -29,14 +29,13 @@ Installation
 
 ### From a pre-built package
 
-#### Linux and OS X
-
-For several platforms, there are stand-alone binary builds available at the
+Portable stand-alone binary builds for common platforms (incl. Linux,
+macOS and Windows) are available at the
 [GitHub release page](https://github.com/ldc-developers/ldc/releases).
 
 For bleeding-edge users, we also provide the [latest successful
 Continuous Integration builds](https://github.com/ldc-developers/ldc/releases/tag/CI)
-with enabled LLVM & LDC assertions (significantly increasing compile times).
+with enabled LLVM & LDC assertions (increasing compile times by roughly 50%).
 
 The [dlang.org install script](https://dlang.org/install.html)
 can also be used to install LDC:
@@ -47,6 +46,7 @@ In addition, LDC is available from various package managers:
 
 |              | Command                                      |
 | ------------ | -------------------------------------------- |
+| **Android**  | in [Termux app](https://play.google.com/store/apps/details?id=com.termux&hl=en): `pkg install ldc` |
 | Arch Linux   | `pacman -S ldc`                              |
 | Debian       | `apt install ldc`                            |
 | Fedora       | `dnf install ldc`                            |
@@ -61,15 +61,7 @@ In addition, LDC is available from various package managers:
 Note that these packages **might be outdated** as they are not
 currently integrated into the project release process.
 
-
-#### Windows
-
-The latest official releases can be downloaded from the
-[GitHub release page](https://github.com/ldc-developers/ldc/releases).
-
-For bleeding-edge users, we also provide the [latest successful
-Continuous Integration builds](https://github.com/ldc-developers/ldc/releases/tag/CI)
-with enabled LLVM & LDC assertions (significantly increasing compile times).
+#### Notes on Windows
 
 LDC for Windows relies on the Microsoft linker and runtime libraries,
 which can be obtained by either installing
@@ -77,14 +69,10 @@ which can be obtained by either installing
 with Visual C++, or the stand-alone
 [Visual C++ Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools).
 
+#### Targeting Android
 
-#### Android
-
-Native packages for Android are available in the
-[Termux app](https://play.google.com/store/apps/details?id=com.termux&hl=en), easily
-installed with `pkg install ldc`. You can find full instructions on cross-compiling
-or natively compiling for Android
-[on the wiki](https://wiki.dlang.org/Build_D_for_Android).
+You can find full instructions on cross-compiling or natively compiling
+for Android [on the wiki](https://wiki.dlang.org/Build_D_for_Android).
 
 ### Building from source
 
