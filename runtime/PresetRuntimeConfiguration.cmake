@@ -52,25 +52,25 @@ if(NOT LDC_TARGET_PRESET STREQUAL "")
     elseif(LDC_TARGET_PRESET MATCHES "Android")
         set(TARGET_SYSTEM "Android;Linux;UNIX")
 
+        if(LDC_TARGET_PRESET MATCHES "arm")
+            set(TARGET_ARCH "arm")
+            set(LLVM_TARGET_TRIPLE "armv7-none-linux-android")
+            set(TOOLCHAIN_TARGET_TRIPLE "arm-linux-androideabi")
+        elseif(LDC_TARGET_PRESET MATCHES "aarch64")
+            set(TARGET_ARCH "arm64")
+            set(LLVM_TARGET_TRIPLE "aarch64-none-linux-android")
+            set(TOOLCHAIN_TARGET_TRIPLE "aarch64-linux-android")
+        else()
+            message(FATAL_ERROR "Android platform ${LDC_TARGET_PRESET} is not supported.")
+        endif()
+        list(APPEND D_FLAGS "-mtriple=${LLVM_TARGET_TRIPLE}")
+
         # Check if we're using the NDK by looking for the toolchains
         # directory in CC
         if(CMAKE_C_COMPILER MATCHES "toolchains")
             # Extract the NDK path and platform from CC
             string(REGEX REPLACE ".toolchains.+" "" NDK_PATH ${CMAKE_C_COMPILER})
             string(REGEX REPLACE ".+/prebuilt/([^/]+)/.+" "\\1" NDK_HOST_PLATFORM ${CMAKE_C_COMPILER})
-
-            if(LDC_TARGET_PRESET MATCHES "arm")
-                set(TARGET_ARCH "arm")
-                set(LLVM_TARGET_TRIPLE "armv7-none-linux-android")
-                set(TOOLCHAIN_TARGET_TRIPLE "arm-linux-androideabi")
-            elseif(LDC_TARGET_PRESET MATCHES "aarch64")
-                set(TARGET_ARCH "arm64")
-                set(LLVM_TARGET_TRIPLE "aarch64-none-linux-android")
-                set(TOOLCHAIN_TARGET_TRIPLE "aarch64-linux-android")
-            else()
-                message(FATAL_ERROR "Android platform ${LDC_TARGET_PRESET} is not supported.")
-            endif()
-            list(APPEND D_FLAGS "-mtriple=${LLVM_TARGET_TRIPLE}")
             set(TOOLCHAIN_VERSION "4.9")
 
             if(RT_CFLAGS_UNCONFIGURED)
