@@ -23,7 +23,7 @@ if(NOT LDC_TARGET_PRESET STREQUAL "")
     # Android as a separate platform from Linux.
     if(RT_CFLAGS STREQUAL "" AND LDC_TARGET_PRESET MATCHES "Android")
         set(RT_CFLAGS_UNCONFIGURED True)
-        set(RT_CFLAGS "-ffunction-sections -funwind-tables -fstack-protector-strong -Wno-invalid-command-line-argument -Wno-unused-command-line-argument -no-canonical-prefixes -g -DNDEBUG -DANDROID  -D__ANDROID_API__=${ANDROID_API} -Wa,--noexecstack -Wformat -Werror=format-security -fpie")
+        set(RT_CFLAGS "-ffunction-sections -funwind-tables -fstack-protector-strong -Wno-invalid-command-line-argument -Wno-unused-command-line-argument -no-canonical-prefixes -g -DNDEBUG -DANDROID  -D__ANDROID_API__=${ANDROID_API} -Wa,--noexecstack -Wformat -Werror=format-security")
 
         if(LDC_TARGET_PRESET MATCHES "arm")
             append("-target armv7-none-linux-androideabi${ANDROID_API} -march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 -mthumb -Os" RT_CFLAGS)
