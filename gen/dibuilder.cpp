@@ -907,47 +907,41 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
   assert(GetCU() &&
          "Compilation unit missing or corrupted in DIBuilder::EmitSubProgram");
 
-  ldc::DIFile file = CreateFile(fd);
+  const auto scope = GetSymbolScope(fd);
+  const auto name = fd->toChars();
+  const auto linkageName = irFunc->getLLVMFuncName();
+  const auto file = CreateFile(fd);
+  const auto lineNo = fd->loc.linnum;
+  const auto isLocalToUnit = fd->protection.kind == Prot::private_;
+  const auto isDefinition = true;
+  const auto scopeLine = lineNo; // FIXME
+  const auto flags = DIFlags::FlagPrototyped;
+  const auto isOptimized = isOptimizationEnabled();
 
-  // A special case is `auto foo() { struct S{}; S s; return s; }`
-  // The return type is a nested struct, so for this particular chicken-and-egg case
-  // we need to create a temporary subprogram.
-  irFunc->diSubprogram = DBuilder.createTempFunctionFwdDecl(
-      GetSymbolScope(fd),                 // context
-      fd->toChars(),                      // name
-      irFunc->getLLVMFuncName(),          // linkage name
-      file,                               // file
-      fd->loc.linnum,                     // line no
-      nullptr,                            // type
-      fd->protection.kind == Prot::private_, // is local to unit
-      true,                               // isdefinition
-      fd->loc.linnum,                     // FIXME: scope line
-      DIFlags::FlagPrototyped,            // Flags
-      isOptimizationEnabled()             // isOptimized
-      );
+  ldc::DISubroutineType diFnType = nullptr;
+  if (!mustEmitFullDebugInfo()) {
+    diFnType = CreateEmptyFunctionType();
+  } else {
+    // A special case is `auto foo() { struct S{}; S s; return s; }`
+    // The return type is a nested struct, so for this particular
+    // chicken-and-egg case we need to create a temporary subprogram.
+    irFunc->diSubprogram = DBuilder.createTempFunctionFwdDecl(
+        scope, name, linkageName, file, lineNo, /*ty=*/nullptr, isLocalToUnit,
+        isDefinition, scopeLine, flags, isOptimized);
 
-  // Create subroutine type
-  ldc::DISubroutineType DIFnType = mustEmitFullDebugInfo() ?
-      CreateFunctionType(static_cast<TypeFunction *>(fd->type)) :
-      CreateEmptyFunctionType();
+    // Now create subroutine type.
+    diFnType = CreateFunctionType(static_cast<TypeFunction *>(fd->type));
+  }
 
   // FIXME: duplicates?
-  auto SP = DBuilder.createFunction(
-      GetSymbolScope(fd),                 // context
-      fd->toChars(),                      // name
-      irFunc->getLLVMFuncName(),          // linkage name
-      file,                               // file
-      fd->loc.linnum,                     // line no
-      DIFnType,                           // type
-      fd->protection.kind == Prot::private_, // is local to unit
-      true,                               // isdefinition
-      fd->loc.linnum,                     // FIXME: scope line
-      DIFlags::FlagPrototyped,            // Flags
-      isOptimizationEnabled()             // isOptimized
-      );
+  auto SP = DBuilder.createFunction(scope, name, linkageName, file, lineNo,
+                                    diFnType, isLocalToUnit, isDefinition,
+                                    scopeLine, flags, isOptimized);
 
-  irFunc->diSubprogram = DBuilder.replaceTemporary(
-      llvm::TempDINode(irFunc->diSubprogram), SP);
+  if (mustEmitFullDebugInfo())
+    DBuilder.replaceTemporary(llvm::TempDINode(irFunc->diSubprogram), SP);
+
+  irFunc->diSubprogram = SP;
   return SP;
 }
 
