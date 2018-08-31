@@ -130,7 +130,9 @@ DValue *DtoNewClass(Loc &loc, TypeClass *tc, NewExp *newexp) {
     assert(newexp->arguments != NULL);
     DtoResolveFunction(newexp->member);
     DFuncValue dfn(newexp->member, DtoCallee(newexp->member), mem);
-    return DtoCallFunction(newexp->loc, tc, &dfn, newexp->arguments);
+    // ignore ctor return value (C++ ctors on Posix may not return `this`)
+    DtoCallFunction(newexp->loc, tc, &dfn, newexp->arguments);
+    return new DImValue(tc, mem);
   }
 
   assert(newexp->argprefix == NULL);
