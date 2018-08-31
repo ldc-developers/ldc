@@ -29,7 +29,7 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
     // arguments implicitly passed by reference aren't shown if unused
     float cim = c.im + fa[7] + dg() + small.val + large.a;
     return 1;
-// CHECK: !args_cdb.byValue
+// CHECK: !args_cdb::byValue
 // CDB: dv /t
 
 // CHECK: unsigned char ub = 0x01
@@ -50,10 +50,10 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 // x86: unsigned char [16] fa
 // x86: float [4] f4 = float [4]
 // x86: double [4] d4 = double [4]
-// CHECK: args_cdb.Small small
-// x64: args_cdb.Large * large
-// x86: args_cdb.Large large
-// CHECK: struct object.TypeInfo_Class * ti = {{0x[0-9a-f`]*}}
+// CHECK: args_cdb::Small small
+// x64: args_cdb::Large * large
+// x86: args_cdb::Large large
+// CHECK: struct object::TypeInfo_Class * ti = {{0x[0-9a-f`]*}}
 // CHECK: void * np = {{0x[0`]*}}
 
 // params emitted as locals (listed after params) for Win64:
@@ -71,7 +71,7 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 // CHECK: int delegate()
 // CHECK-NEXT: context :
 // CHECK-NEXT: funcptr :
-// CHECK-SAME: args_cdb.main.__lambda
+// CHECK-SAME: args_cdb::main::__lambda
 
 // CDB: ?? slice
 // CHECK: struct int[]
@@ -90,17 +90,17 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 // CHECK: double 17
 
 // CDB: ?? small
-// CHECK: args_cdb.Small
+// CHECK: args_cdb::Small
 // x64-NEXT: val : 0x12
 // no-x86-NEXT: val : 0x12 (displays garbage)
 
 // CDB: ?? large
-// CHECK: args_cdb.Large
+// CHECK: args_cdb::Large
 // x64-NEXT: a : 0x13
 // no-x86-NEXT: a : 0x13 (displays garbage)
 
 // CDB: ?? ti
-// CHECK: object.TypeInfo_Class
+// CHECK: object::TypeInfo_Class
 // CHECK-NEXT: m_init : byte[]
 }
 
@@ -115,7 +115,7 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
 // CDB: bp `args_cdb.d:115`
 // CDB: g
     return 3;
-// CHECK: !args_cdb.byPtr
+// CHECK: !args_cdb::byPtr
 // CDB: dv /t
 // CDB: ?? *ub
 // CHECK: unsigned char 0x01
@@ -139,7 +139,7 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
 // CHECK: int delegate()
 // CHECK-NEXT: context :
 // CHECK-NEXT: funcptr :
-// CHECK-SAME: args_cdb.main.__lambda
+// CHECK-SAME: args_cdb::main::__lambda
 // CDB: ?? *fun
 // CHECK: <function> *
 // CDB: ?? *slice
@@ -156,14 +156,14 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
 // CDB: ?? (*d4)[2]
 // CHECK: double 17
 // CDB: ?? *small
-// CHECK: struct args_cdb.Small
+// CHECK: struct args_cdb::Small
 // CHECK-NEXT: val : 0x12
 // CDB: ?? *large
-// CHECK: struct args_cdb.Large
+// CHECK: struct args_cdb::Large
 // CHECK-NEXT: a : 0x13
 // CHECK-NEXT: b :
 // CDB: ?? *ti
-// CHECK: struct object.TypeInfo_Class
+// CHECK: struct object::TypeInfo_Class
 // CHECK-NEXT: m_init : byte[]
 // CDB: ?? *np
 // CHECK: void * {{0x[0`]*}}
@@ -179,7 +179,7 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
 {
 // CDB: bp `args_cdb.d:180`
 // CDB: g
-// CHECK: !args_cdb.byRef
+// CHECK: !args_cdb::byRef
 
 // CDB: dv /t
 // cdb displays references as pointers
@@ -205,7 +205,7 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
 // CHECK: int delegate()
 // CHECK-NEXT: context :
 // CHECK-NEXT: funcptr : {{0x[0-9a-f`]*}}
-// CHECK-SAME: args_cdb.main.__lambda
+// CHECK-SAME: args_cdb::main::__lambda
 // CDB: ?? *fun
 // CHECK: <function> * {{0x[0-9a-f`]*}}
 // CDB: ?? *slice
@@ -221,14 +221,14 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
 // CDB: ?? (*d4)[2]
 // CHECK: double 17
 // CDB: ?? *small
-// CHECK: struct args_cdb.Small
+// CHECK: struct args_cdb::Small
 // CHECK-NEXT: val : 0x12
 // CDB: ?? *large
-// CHECK: struct args_cdb.Large
+// CHECK: struct args_cdb::Large
 // CHECK-NEXT: a : 0x13
 // CHECK-NEXT: b :
 // CDB: ?? *ti
-// CHECK: struct object.TypeInfo_Class * {{0x[0-9a-f`]*}}
+// CHECK: struct object::TypeInfo_Class * {{0x[0-9a-f`]*}}
 // CHECK-NEXT: m_init : byte[]
 // CDB: ?? *np
 // no-CHECK: void * {{0x[0`]*}} (not available)

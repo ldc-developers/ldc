@@ -42,7 +42,7 @@ int basic_types()
 // CDB: ld basictypes_cdb*
 // CDB: bp `basictypes_cdb.d:41`
 // CDB: g
-// CHECK: !basictypes_cdb.basic_types
+// CHECK: !basictypes_cdb::basic_types
 
 // enable case sensitive symbol lookup
 // CDB: .symopt-1

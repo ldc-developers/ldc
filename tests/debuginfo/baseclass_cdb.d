@@ -26,11 +26,11 @@ int main(string[] args)
 // CDB: bp `baseclass_cdb.d:28`
 // CDB: g
     return 0;
-// CHECK: !D main
+// CHECK: !baseclass_cdb::main
 
 // CDB: ?? dc
 // cdb doesn't show base class info, but lists their members
-// CHECK: baseclass_cdb.DerivedClass
+// CHECK: baseclass_cdb::DerivedClass
 // CHECK: baseMember{{ *: *3}}
 // verify baseMember is not listed twice
 // CHECK-NEXT: derivedMember{{ *: *7}}
