@@ -23,9 +23,11 @@ matrix:
       d: dmd
       env: LLVM_VERSION=3.7.1 OPTS="-DTEST_COVERAGE=ON"
     - os: osx
+      osx_image: xcode9.2
       d: ldc-beta
       env: LLVM_VERSION=6.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF" LLVM_SPIRV_AVAILABLE=ON
     - os: osx
+      osx_image: xcode9.2
       d: dmd
       env: LLVM_VERSION=4.0.0 OPTS="-DBUILD_SHARED_LIBS=ON"
 #  allow_failures:
