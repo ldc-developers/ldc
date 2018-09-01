@@ -37,10 +37,7 @@ default:
 "^wasm(32|64)-":
 {
     switches = [
-        "-defaultlib=phobos2-ldc,druntime-ldc",@WASM_DEFAULT_LDC_SWITCHES@
+        "-defaultlib=",@WASM_DEFAULT_LDC_SWITCHES@
     ];
-    post-switches = [
-        "-I@RUNTIME_DIR@/src",
-        "-I@PHOBOS2_DIR@",
-    ];
+    lib-dirs = [];
 };
