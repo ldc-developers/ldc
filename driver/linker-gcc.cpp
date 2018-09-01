@@ -200,8 +200,8 @@ llvm::StringRef getCompilerRTArchName(const llvm::Triple &triple) {
 }
 
 // Appends arch suffix and extension.
-// E.g., for name="libldc_rt.fuzzer" and sharedLibrary=false, returns
-// "libldc_rt.fuzzer_osx.a" on Darwin.
+// E.g., for name="libclang_rt.fuzzer" and sharedLibrary=false, returns
+// "libclang_rt.fuzzer_osx.a" on Darwin.
 std::string getCompilerRTLibFilename(const llvm::Twine &name,
                                      const llvm::Triple &triple,
                                      bool sharedLibrary) {
@@ -247,7 +247,7 @@ void appendFullLibPathCandidates(std::vector<std::string> &paths,
 
 // Returns candidates of full paths to a compiler-rt lib.
 // E.g., for baseName="asan" and sharedLibrary=false, returns something like
-// [ "<libDir>/libldc_rt.asan_osx.a",
+// [ "<libDir>/libldc_rt.asan.a",
 //   "<libDir>/libclang_rt.asan_osx.a",
 //   "<libDir>/clang/6.0.0/lib/darwin/libclang_rt.asan_osx.a" ].
 std::vector<std::string>
@@ -256,7 +256,9 @@ getFullCompilerRTLibPathCandidates(llvm::StringRef baseName,
                                    bool sharedLibrary = false) {
   std::vector<std::string> r;
   const auto ldcRT =
-      getCompilerRTLibFilename("libldc_rt." + baseName, triple, sharedLibrary);
+      ("libldc_rt." + baseName +
+       (!sharedLibrary ? ".a" : triple.isOSDarwin() ? ".dylib" : ".so"))
+          .str();
   appendFullLibPathCandidates(r, ldcRT);
   const auto clangRT = getCompilerRTLibFilename("libclang_rt." + baseName,
                                                 triple, sharedLibrary);
