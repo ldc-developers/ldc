@@ -6,10 +6,10 @@ matrix:
   include:
     - os: linux
       d: ldc
-      env: LLVM_VERSION=6.0.0
+      env: LLVM_VERSION=6.0.1
     - os: linux
       d: ldc-beta
-      env: LLVM_VERSION=5.0.1 OPTS="-DLIB_SUFFIX=64"
+      env: LLVM_VERSION=5.0.2 OPTS="-DLIB_SUFFIX=64"
     - os: linux
       d: ldc
       env: LLVM_VERSION=4.0.1 OPTS="-DBUILD_SHARED_LIBS=ON"
@@ -23,9 +23,11 @@ matrix:
       d: dmd
       env: LLVM_VERSION=3.7.1 OPTS="-DTEST_COVERAGE=ON"
     - os: osx
+      osx_image: xcode9.2
       d: ldc-beta
       env: LLVM_VERSION=6.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF" LLVM_SPIRV_AVAILABLE=ON
     - os: osx
+      osx_image: xcode9.2
       d: dmd
       env: LLVM_VERSION=4.0.0 OPTS="-DBUILD_SHARED_LIBS=ON"
 #  allow_failures:
@@ -33,9 +35,9 @@ matrix:
 
 cache:
   directories:
+    - llvm-6.0.1
     - llvm-spirv-6.0.0
-    - llvm-6.0.0
-    - llvm-5.0.1
+    - llvm-5.0.2
     - llvm-4.0.1
     - llvm-4.0.0
     - llvm-3.9.1
