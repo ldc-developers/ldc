@@ -16,6 +16,8 @@ env:
 
 build:
   ci:
+    - export IS_GIT_TAG=true
+    - export GIT_TAG_NAME=v1.12.0-beta1
     - export DEBIAN_FRONTEND=noninteractive
     - apt-get -q update
     # libconfig-dev needed for ltsmaster only
@@ -53,7 +55,7 @@ build:
     - cd ..
     - ldc-ltsmaster/bin/ldc2 --version
     # Build actual version, for another bootstrapping step
-    - git checkout _backup
+    - git checkout v1.12.0-beta1
     - git submodule update
     - mkdir build-bootstrap
     - cd build-bootstrap
