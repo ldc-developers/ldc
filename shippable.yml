@@ -154,7 +154,7 @@ build:
     # Upload to GitHub if tagged or on the master branch
     - |
       if [ "$IS_GIT_TAG" = "true" ]; then
-        tools/upload-to-github.sh ${GIT_TAG_NAME:1} $LDC_ARTIFACT
+        tools/upload-to-github.sh $GIT_TAG_NAME $LDC_ARTIFACT
       elif [[ "$IS_PULL_REQUEST" = "false" && "$BRANCH" = "master" ]]; then
         tools/upload-to-github.sh CI $LDC_ARTIFACT
       fi
