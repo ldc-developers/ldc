@@ -86,20 +86,21 @@ void compileDynamicCode(in CompilerSettings settings = CompilerSettings.init)
 }
 
 /++
- + Return reference-counted functional object based on function or delegate
+ + Returns a reference-counted functional object based on a function or delegate
  + with values bound to some parameters.
- + Each arg must be either value, convertible to function parameter, or
- + placeholder.
- + func must be a pointer to function or delegate.
- + Jit runtime will generate efficient function specialization based on args.
- + Function must be marked @dynamicCompile or @dynamicCompileEmit to be
- + efficiently optimized.
- + compileDynamicCode() must be called before making calls to returned
+ + Each argument in `args` must be either a value, convertible to function parameter,
+ + or `ldc.dynamic_compile.placeholder`.
+ + `func` must be a pointer to a function or to a delegate.
+ + The JIT runtime will generate an efficient function specialization based on `args`.
+ + The passed function (or delegate) must be marked `@dynamicCompile` or
+ + `@dynamicCompileEmit` to be efficiently optimized.
+ +
+ + `compileDynamicCode()` must be called before making calls to the returned
  + functional object.
  +
- + toDelegate() can be called on returned object to get callable delegate.
- + Returned delegate doesn't prolong lifetime of original object and
- + copy of it must be kept as long as delegate live.
+ + `toDelegate()` can be called on the returned object to get a callable delegate.
+ + The returned delegate does not prolong the lifetime of the original object (and
+ + thus a copy of the original object must be kept as long as this delegate is alive).
  +
  + Example:
  + ---
