@@ -19,6 +19,7 @@
 #include <memory>
 #include <utility>
 
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ExecutionEngine/JITSymbol.h"
 #include "llvm/ExecutionEngine/Orc/CompileUtils.h"
 #include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
@@ -32,6 +33,7 @@
 #include "llvm/ExecutionEngine/Orc/Legacy.h"
 #endif
 
+#include "context.h"
 #include "disassembler.h"
 
 namespace llvm {
@@ -87,6 +89,14 @@ private:
   ModuleHandleT moduleHandle;
   SymMap symMap;
 
+  struct BindDesc final {
+    void *originalFunc;
+    void *exampleFunc;
+    using ParamsVec = llvm::SmallVector<ParamSlice, 5>;
+    ParamsVec params;
+  };
+  llvm::MapVector<void *, BindDesc> bindInstances;
+
   struct ListenerCleaner final {
     JITContext &owner;
     ListenerCleaner(JITContext &o, llvm::raw_ostream *stream);
@@ -112,6 +122,17 @@ public:
   void addSymbol(std::string &&name, void *value);
 
   void reset();
+
+  void registerBind(void *handle, void *originalFunc, void *exampleFunc,
+                    const llvm::ArrayRef<ParamSlice> &params);
+
+  void unregisterBind(void *handle);
+
+  bool hasBindFunction(const void *handle) const;
+
+  const llvm::MapVector<void *, BindDesc> &getBindInstances() const {
+    return bindInstances;
+  }
 
 private:
   void removeModule(const ModuleHandleT &handle);

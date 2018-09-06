@@ -154,6 +154,25 @@ void JITContext::reset() {
   }
 }
 
+void JITContext::registerBind(void *handle, void *originalFunc,
+                              void *exampleFunc,
+                              const llvm::ArrayRef<ParamSlice> &params) {
+  assert(bindInstances.count(handle) == 0);
+  BindDesc::ParamsVec vec(params.begin(), params.end());
+  bindInstances.insert({handle, {originalFunc, exampleFunc, std::move(vec)}});
+}
+
+void JITContext::unregisterBind(void *handle) {
+  assert(bindInstances.count(handle) == 1);
+  bindInstances.erase(handle);
+}
+
+bool JITContext::hasBindFunction(const void *handle) const {
+  assert(handle != nullptr);
+  auto it = bindInstances.find(const_cast<void *>(handle));
+  return it != bindInstances.end();
+}
+
 void JITContext::removeModule(const ModuleHandleT &handle) {
   cantFail(compileLayer.removeModule(handle));
 #if LDC_LLVM_VER >= 700
