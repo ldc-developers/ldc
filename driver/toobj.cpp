@@ -446,6 +446,8 @@ void writeModule(llvm::Module *m, const char *filename) {
       if (!errinfo)
       {
         if (writeObj) {
+          // Clone module if we have both output-o and output-s flags
+          // to avoid running 'addPassesToEmitFile' passes twice on same module
           cloneAndCodegenModule(*gTargetMachine, *m, out,
                                 llvm::TargetMachine::CGFT_AssemblyFile);
         } else {
