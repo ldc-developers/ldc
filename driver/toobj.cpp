@@ -43,6 +43,7 @@
 #else
 #include "llvm/Target/TargetSubtargetInfo.h"
 #endif
+#include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Module.h"
 #include <cstddef>
 #include <fstream>
@@ -52,10 +53,12 @@ static llvm::cl::opt<bool>
                           llvm::cl::Hidden,
                           llvm::cl::desc("Disable integrated assembler"));
 
+namespace {
+
 // based on llc code, University of Illinois Open Source License
-static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
-                          llvm::raw_fd_ostream &out,
-                          llvm::TargetMachine::CodeGenFileType fileType) {
+void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
+                   llvm::raw_fd_ostream &out,
+                   llvm::TargetMachine::CodeGenFileType fileType) {
   using namespace llvm;
 
 // Create a PassManager to hold and optimize the collection of passes we are
@@ -99,6 +102,21 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
   }
 
   Passes.run(m);
+}
+
+void cloneAndCodegenModule(llvm::TargetMachine &Target, llvm::Module &m,
+                           llvm::raw_fd_ostream &out,
+                           llvm::TargetMachine::CodeGenFileType fileType) {
+  auto newModule = llvm::CloneModule(
+#if LDC_LLVM_VER >= 700
+                     m
+#else
+                     &m
+#endif
+                     );
+  codegenModule(Target, *newModule, out, fileType);
+}
+
 }
 
 static void assemble(const std::string &asmpath, const std::string &objpath) {
@@ -409,6 +427,7 @@ void writeModule(llvm::Module *m, const char *filename) {
     m->print(aos, &annotator);
   }
 
+  const bool writeObj = outputObj && !emitBitcodeAsObjectFile;
   // write native assembly
   if (global.params.output_s || assembleExternally) {
     std::string spath;
@@ -426,8 +445,15 @@ void writeModule(llvm::Module *m, const char *filename) {
       llvm::raw_fd_ostream out(spath.c_str(), errinfo, llvm::sys::fs::F_None);
       if (!errinfo)
       {
-        codegenModule(*gTargetMachine, *m, out,
-                      llvm::TargetMachine::CGFT_AssemblyFile);
+        if (writeObj) {
+          // Clone module if we have both output-o and output-s flags
+          // to avoid running 'addPassesToEmitFile' passes twice on same module
+          cloneAndCodegenModule(*gTargetMachine, *m, out,
+                                llvm::TargetMachine::CGFT_AssemblyFile);
+        } else {
+          codegenModule(*gTargetMachine, *m, out,
+                        llvm::TargetMachine::CGFT_AssemblyFile);
+        }
       } else {
         error(Loc(), "cannot write asm: %s", errinfo.message().c_str());
         fatal();
@@ -443,7 +469,7 @@ void writeModule(llvm::Module *m, const char *filename) {
     }
   }
 
-  if (outputObj && !emitBitcodeAsObjectFile) {
+  if (writeObj) {
     writeObjectFile(m, filename);
     if (useIR2ObjCache) {
       cache::cacheObjectFile(filename, moduleHash);
