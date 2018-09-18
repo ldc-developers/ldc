@@ -207,24 +207,36 @@ pragma(LDC_intrinsic, "llvm.memset.p0i8.i#")
 
 /// Convenience function that discards the alignment parameter and calls the 'llvm.memcpy.*' intrinsic.
 /// This function is here to support the function signature of the pre-LLVM7.0 intrinsic.
+pragma(inline, true)
 void llvm_memcpy(T)(void* dst, const(void)* src, T len, uint alignment, bool volatile_ = false)
     if (__traits(isIntegral, T))
 {
-    llvm_memcpy!T(dst, src, len, volatile_);
+    if (volatile_)
+        llvm_memcpy!T(dst, src, len, true);
+    else
+        llvm_memcpy!T(dst, src, len, false);
 }
 /// Convenience function that discards the alignment parameter and calls the 'llvm.memmove.*' intrinsic.
 /// This function is here to support the function signature of the pre-LLVM7.0 intrinsic.
+pragma(inline, true)
 void llvm_memmove(T)(void* dst, const(void)* src, T len, uint alignment, bool volatile_ = false)
     if (__traits(isIntegral, T))
 {
-    llvm_memmove!T(dst, src, len, volatile_);
+    if (volatile_)
+        llvm_memmove!T(dst, src, len, true);
+    else
+        llvm_memmove!T(dst, src, len, false);
 }
 /// Convenience function that discards the alignment parameter and calls the 'llvm.memset.*' intrinsic.
 /// This function is here to support the function signature of the pre-LLVM7.0 intrinsic.
+pragma(inline, true)
 void llvm_memset(T)(void* dst, ubyte val, T len, uint alignment, bool volatile_ = false)
     if (__traits(isIntegral, T))
 {
-    llvm_memset!T(dst, val, len, volatile_);
+    if (volatile_)
+        llvm_memset!T(dst, val, len, true);
+    else
+        llvm_memset!T(dst, val, len, false);
 }
 
 } // version(INTRINSICS_FROM_700)
