@@ -24,4 +24,4 @@ void foo()
 // WITH_FP-DAG: "no-frame-pointer-elim"="true"
 // NO_FP-DAG:   "no-frame-pointer-elim"="false"
 
-// ATTR-DAG: "target-features"="{{.*}}+test{{.*}}"
+// ATTR-DAG: "target-features"="{{[^"]*}}+test

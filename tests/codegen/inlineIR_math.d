@@ -76,7 +76,7 @@ alias inlineIR!(`%p = fmul double %0, %1
                  double, double, double, double) muladd;
 
 // LLVM-LABEL: define{{.*}} @aliasInlineUnsafe
-// LLVM-SAME: #[[UNSAFEFPMATH2:[0-9]+]]
+// LLVM-SAME: #[[UNSAFEFPMATH]]
 // ASM-LABEL: aliasInlineUnsafe:
 @llvmAttr("unsafe-fp-math", "true")
 extern (C) double aliasInlineUnsafe(double[] a, double[] b)
@@ -92,7 +92,7 @@ extern (C) double aliasInlineUnsafe(double[] a, double[] b)
 }
 
 // LLVM-LABEL: define{{.*}} @aliasInlineSafe
-// LLVM-SAME: #[[UNSAFEFPMATH3:[0-9]+]]
+// LLVM-SAME: #[[UNSAFEFPMATH2:[0-9]+]]
 // ASM-LABEL: aliasInlineSafe:
 extern (C) double aliasInlineSafe(double[] a, double[] b)
 {
@@ -115,6 +115,5 @@ double neverInlinedEnclosingFunction()
 }
 
 // LLVM-DAG: attributes #[[UNSAFEFPMATH]] ={{.*}} "unsafe-fp-math"="true"
-// LLVM-DAG: attributes #[[UNSAFEFPMATH2]] ={{.*}} "unsafe-fp-math"="true"
-// LLVM-DAG: attributes #[[UNSAFEFPMATH3]] ={{.*}} "unsafe-fp-math"="false"
+// LLVM-DAG: attributes #[[UNSAFEFPMATH2]] ={{.*}} "unsafe-fp-math"="false"
 // LLVM-DAG: attributes #[[FEAT]] ={{.*}} "target-features"="{{.*}}+fma{{.*}}"
