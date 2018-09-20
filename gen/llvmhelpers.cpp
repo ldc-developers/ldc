@@ -893,8 +893,10 @@ void DtoResolveVariable(VarDeclaration *vd) {
     // If a const/immutable value has a proper initializer (not "= void"),
     // it cannot be assigned again in a static constructor. Thus, we can
     // emit it as read-only data.
-    const bool isLLConst = (vd->isConst() || vd->isImmutable()) && vd->_init &&
-                           !vd->_init->isVoidInitializer();
+    // We also do so for forward-declared (extern) globals, just like clang.
+    const bool isLLConst = (vd->isConst() || vd->isImmutable()) &&
+                           ((vd->_init && !vd->_init->isVoidInitializer()) ||
+                            (vd->storage_class & STCextern));
 
     assert(!vd->ir->isInitialized());
     if (gIR->dmodule) {
