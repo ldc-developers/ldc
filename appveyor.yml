@@ -162,6 +162,7 @@ after_test:
         git clone https://github.com/ldc-developers/ldc-scripts.git
         cp ldc-scripts\ldc2-packaging\pkgfiles\README.txt "$ldcInstallDir"
         cp libcurl\ldc2\libcurl.dll "$ldcInstallDir\bin"
+        cp libcurl\ldc2\libcurl.dll "$ldcInstallDir\lib"
         cp libcurl\ldc2\curl.lib "$ldcInstallDir\lib"
         If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
           cp c:\projects\llvm\bin\lld-link.exe "$ldcInstallDir\bin"
