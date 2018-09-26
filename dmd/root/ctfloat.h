@@ -43,6 +43,7 @@ struct CTFloat
     static real_t log2(real_t x);
     static real_t log10(real_t x);
     static real_t pow(real_t x, real_t y);
+    static real_t exp(real_t x);
     static real_t expm1(real_t x);
     static real_t exp2(real_t x);
 
@@ -53,7 +54,6 @@ struct CTFloat
     static real_t fma(real_t x, real_t y, real_t z);
 
 #if IN_LLVM
-    static real_t exp(real_t x);
     static real_t rint(real_t x);
     static real_t nearbyint(real_t x);
 

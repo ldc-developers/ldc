@@ -125,6 +125,13 @@ extern (C++) Expression eval_log10(Loc loc, FuncDeclaration fd, Expressions* arg
     return new RealExp(loc, CTFloat.log10(arg0.toReal()), arg0.type);
 }
 
+extern (C++) Expression eval_exp(Loc loc, FuncDeclaration fd, Expressions* arguments)
+{
+    Expression arg0 = (*arguments)[0];
+    assert(arg0.op == TOK.float64);
+    return new RealExp(loc, CTFloat.exp(arg0.toReal()), arg0.type);
+}
+
 extern (C++) Expression eval_expm1(Loc loc, FuncDeclaration fd, Expressions* arguments)
 {
     Expression arg0 = (*arguments)[0];
@@ -270,13 +277,6 @@ extern (C++) Expression eval_bsr(Loc loc, FuncDeclaration fd, Expressions* argum
 
 version(IN_LLVM)
 {
-
-extern (C++) Expression eval_exp(Loc loc, FuncDeclaration fd, Expressions* arguments)
-{
-    Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.float64);
-    return new RealExp(loc, CTFloat.exp(arg0.toReal()), arg0.type);
-}
 
 private Type getTypeOfOverloadedIntrinsic(FuncDeclaration fd)
 {
@@ -724,6 +724,7 @@ else
     add_builtin("_D3std4math3tanFNaNbNiNeeZe", &eval_tan);
     add_builtin("_D3std4math4sqrtFNaNbNiNeeZe", &eval_sqrt);
     add_builtin("_D3std4math4fabsFNaNbNiNeeZe", &eval_fabs);
+    add_builtin("_D3std4math3expFNaNbNiNeeZe", &eval_exp);
     add_builtin("_D3std4math5expm1FNaNbNiNeeZe", &eval_expm1);
     add_builtin("_D3std4math4exp2FNaNbNiNeeZe", &eval_exp2);
     // @safe @nogc pure nothrow double function(double)
@@ -803,9 +804,6 @@ else
 
 version(IN_LLVM)
 {
-    // @trusted @nogc pure nothrow real function(real)
-    add_builtin("_D3std4math3expFNaNbNiNeeZe", &eval_exp);
-
     // intrinsic llvm.sin.f32/f64/f80/f128/ppcf128
     add_builtin("llvm.sin.f32", &eval_llvmsin);
     add_builtin("llvm.sin.f64", &eval_llvmsin);
