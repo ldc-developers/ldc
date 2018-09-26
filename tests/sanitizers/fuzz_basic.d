@@ -6,7 +6,6 @@
 
 // RUN: %ldc -g -fsanitize=fuzzer %s -of=%t%exe
 // RUN: not %t%exe 2> %t.out
-// RUN: cat %t.out
 // RUN: FileCheck %s < %t.out
 
 void FuzzMe(const(ubyte*) data, size_t size)
