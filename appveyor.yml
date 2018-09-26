@@ -86,8 +86,8 @@ install:
   - ps: |
         $assertsSuffix = ''
         If (!(Test-Path Env:APPVEYOR_REPO_TAG_NAME)) {
-          echo 'Using LLVM with enabled assertions'
-          $assertsSuffix = '-withAsserts'
+          #echo 'Using LLVM with enabled assertions'
+          #$assertsSuffix = '-withAsserts'
         }
         appveyor DownloadFile "https://github.com/ldc-developers/llvm/releases/download/ldc-v$Env:LLVM_VERSION/llvm-$Env:LLVM_VERSION-windows-$Env:APPVEYOR_JOB_ARCH$assertsSuffix.7z" -FileName llvm.7z
   - md llvm
