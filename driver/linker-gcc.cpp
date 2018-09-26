@@ -678,7 +678,7 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
         getFullArgs("lld", argsBuilder.args, global.params.verbose);
 
     // CanExitEarly == true means that LLD can and will call `exit()` when errors occur.
-    const bool CanExitEarly = false;
+    bool CanExitEarly = false;
 
     bool success = false;
     if (global.params.targetTriple->isOSBinFormatELF()) {
@@ -692,6 +692,11 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
     } else if (global.params.targetTriple->isOSBinFormatCOFF()) {
       success = lld::mingw::link(fullArgs);
     } else if (global.params.targetTriple->isOSBinFormatWasm()) {
+#if __linux__ && LDC_LLVM_VER >= 700
+      // FIXME: segfault in cleanup (`freeArena()`) after successful linking,
+      //        but only on Linux?
+      CanExitEarly = true;
+#endif
       success = lld::wasm::link(fullArgs, CanExitEarly);
     } else {
       error(Loc(), "unknown target binary format for internal linking");
