@@ -377,9 +377,11 @@ public:
       VarExp *vexp = static_cast<VarExp *>(e->e1);
       LLConstant *c = DtoConstSymbolAddress(e->loc, vexp->var);
       result = c ? DtoBitCast(c, DtoType(e->type)) : nullptr;
+      return;
     }
+
     // address of indexExp
-    else if (e->e1->op == TOKindex) {
+    if (e->e1->op == TOKindex) {
       IndexExp *iexp = static_cast<IndexExp *>(e->e1);
 
       // indexee must be global static array var
@@ -405,7 +407,10 @@ public:
       // bitcast to requested type
       assert(e->type->toBasetype()->ty == Tpointer);
       result = DtoBitCast(gep, DtoType(e->type));
-    } else if (e->e1->op == TOKstructliteral) {
+      return;
+    }
+
+    if (e->e1->op == TOKstructliteral) {
       StructLiteralExp *se = static_cast<StructLiteralExp *>(e->e1);
 
       if (se->globalVar) {
@@ -425,18 +430,18 @@ public:
       se->globalVar = p->setGlobalVarInitializer(globalVar, constValue);
 
       result = se->globalVar;
-    } else if (e->e1->op == TOKslice) {
-      e->error("non-constant expression `%s`", e->toChars());
-      if (!global.gag) {
-        fatal();
-      }
-      result = llvm::UndefValue::get(DtoType(e->type));
+      return;
     }
-    // not yet supported
-    else {
+
+    if (e->e1->op == TOKslice) {
+      e->error("non-constant expression `%s`", e->toChars());
+    } else {
       e->error("constant expression `%s` not yet implemented", e->toChars());
+    }
+    if (!global.gag) {
       fatal();
     }
+    result = llvm::UndefValue::get(DtoType(e->type));
   }
 
   //////////////////////////////////////////////////////////////////////////////
