@@ -4,42 +4,44 @@ sudo: false
 
 matrix:
   include:
-    - os: linux
-      d: ldc
-      env: LLVM_VERSION=6.0.1
-    - os: linux
-      d: ldc-beta
-      env: LLVM_VERSION=5.0.2 OPTS="-DLIB_SUFFIX=64"
-    - os: linux
-      d: ldc
-      env: LLVM_VERSION=4.0.1 OPTS="-DBUILD_SHARED_LIBS=ON"
+    # FIXME: strange segfaults, possibly due to C++ compiler mismatch
+    #- os: linux
+    #  d: ldc
+    #  env: LLVM_VERSION=7.0.0 OPTS="-DBUILD_SHARED_LIBS=ON"
     - os: linux
       d: ldc-beta
-      env: LLVM_VERSION=3.9.1 OPTS="-DBUILD_SHARED_LIBS=ON -DLIB_SUFFIX=64"
+      env: LLVM_VERSION=6.0.1 OPTS="-DBUILD_SHARED_LIBS=OFF"
+    - os: linux
+      d: ldc
+      env: LLVM_VERSION=5.0.2
+    - os: linux
+      d: ldc-beta
+      env: LLVM_VERSION=4.0.1 OPTS="-DBUILD_SHARED_LIBS=ON -DLIB_SUFFIX=64"
+    - os: linux
+      d: ldc
+      env: LLVM_VERSION=3.9.1 OPTS="-DBUILD_SHARED_LIBS=OFF -DLIB_SUFFIX=64"
     - os: linux
       d: ldc-0.17.6
-      env: LLVM_VERSION=3.8.1 OPTS="-DBUILD_SHARED_LIBS=OFF -DLIB_SUFFIX=64"
+      env: LLVM_VERSION=3.8.1 OPTS="-DLIB_SUFFIX=64"
     - os: linux
       d: dmd
       env: LLVM_VERSION=3.7.1 OPTS="-DTEST_COVERAGE=ON"
     - os: osx
       osx_image: xcode9.2
-      d: ldc-beta
-      env: LLVM_VERSION=6.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF" LLVM_SPIRV_AVAILABLE=ON
+      d: dmd
+      env: LLVM_VERSION=7.0.0 OPTS="-DBUILD_SHARED_LIBS=ON"
     - os: osx
       osx_image: xcode9.2
-      d: dmd
-      env: LLVM_VERSION=4.0.0 OPTS="-DBUILD_SHARED_LIBS=ON"
-#  allow_failures:
-#    - env: LLVM_VERSION=6.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF" LLVM_SPIRV_AVAILABLE=ON
+      d: ldc-beta
+      env: LLVM_VERSION=6.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF" LLVM_SPIRV_AVAILABLE=ON
 
 cache:
   directories:
+    - llvm-7.0.0
     - llvm-6.0.1
     - llvm-spirv-6.0.0
     - llvm-5.0.2
     - llvm-4.0.1
-    - llvm-4.0.0
     - llvm-3.9.1
     - llvm-3.8.1
     - llvm-3.7.1

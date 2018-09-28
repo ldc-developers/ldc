@@ -31,6 +31,9 @@
 #include "mars.h"
 #include "driver/cl_options.h"
 #include "gen/logger.h"
+#if LDC_LLVM_VER >= 700
+#include "gen/optimizer.h"
+#endif
 
 #ifdef LDC_LLVM_SUPPORTS_MACHO_DWARF_LINE_AS_REGULAR_SECTION
 // LDC-LLVM >= 6.0.1:
@@ -430,16 +433,26 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
 
   splitAndAddFeatures(featuresString);
 
+  // checks if the features include ±<feature>
+  auto hasFeature = [&features](llvm::StringRef feature) {
+    return std::any_of(
+        features.begin(), features.end(),
+        [feature](llvm::StringRef f) { return f.substr(1) == feature; });
+  };
+
   // cmpxchg16b is not available on old 64bit CPUs. Enable code generation
   // if the user did not make an explicit choice.
-  if (cpu == "x86-64") {
-    const bool has_cx16 =
-        std::any_of(features.begin(), features.end(),
-                    [](llvm::StringRef f) { return f.substr(1) == "cx16"; });
-    if (!has_cx16) {
-      features.push_back("+cx16");
-    }
+  if (cpu == "x86-64" && !hasFeature("cx16")) {
+    features.push_back("+cx16");
   }
+
+#if LDC_LLVM_VER >= 700
+  // FIXME: https://bugs.llvm.org/show_bug.cgi?id=38289
+  if (isOptimizationEnabled() && (cpu == "x86-64" || cpu == "i686") &&
+      !hasFeature("ssse3")) {
+    features.push_back("+ssse3");
+  }
+#endif
 
 // Handle cases where LLVM picks wrong default relocModel
 #if LDC_LLVM_VER >= 309

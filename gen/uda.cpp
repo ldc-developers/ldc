@@ -20,7 +20,7 @@ namespace llvm {
 // Auto-generate:
 // Attribute::AttrKind getAttrKindFromName(StringRef AttrName) { ... }
 #define GET_ATTR_KIND_FROM_NAME
-#if LDC_LLVM_VER >= 400
+#if LDC_LLVM_VER >= 400 && LDC_LLVM_VER < 700
 #include "llvm/IR/Attributes.gen"
 #else
 #include "llvm/IR/Attributes.inc"

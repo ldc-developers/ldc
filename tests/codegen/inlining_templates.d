@@ -34,8 +34,7 @@ void main()
 // CHECK-NOT: declare{{.*}}_D6inputs10inlinables__T12template_fooTiZQrUNaNbNiNfiZi
 // CHECK-NOT: declare{{.*}}_D3std9exception__T7enforce
 
-// CHECK-DAG: define{{.*}}_D6inputs10inlinables__T12template_fooTiZQrUNaNbNiNfiZi{{.*}}) #[[ATTR1:[0-9]+]]
-// CHECK-DAG: define{{.*}}_D3std9exception__T7enforce{{.*}}) #[[ATTR2:[0-9]+]]
+// CHECK-DAG: define{{.*}}_D6inputs10inlinables__T12template_fooTiZQrUNaNbNiNfiZi{{.*}}) #[[ATTR:[0-9]+]]
+// CHECK-DAG: define{{.*}}_D3std9exception__T7enforce{{.*}}) #[[ATTR]]
 
-// CHECK-DAG: attributes #[[ATTR1]] ={{.*}} alwaysinline
-// CHECK-DAG: attributes #[[ATTR2]] ={{.*}} alwaysinline
+// CHECK-DAG: attributes #[[ATTR]] ={{.*}} alwaysinline
