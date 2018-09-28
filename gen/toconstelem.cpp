@@ -51,6 +51,20 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
+  void fatalError(Expression *e) {
+    if (!global.gag) {
+      fatal();
+    }
+
+    // Do not return null here, as AssocArrayLiteralExp::toElem determines
+    // whether it can allocate the needed arrays statically by just invoking
+    // toConstElem on its key/value expressions, and handling the null value
+    // consequently would require error-prone adaptions in all other code.
+    result = llvm::UndefValue::get(DtoType(e->type));
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   void visit(VarExp *e) override {
     IF_LOG Logger::print("VarExp::toConstElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
@@ -216,10 +230,7 @@ public:
           isaPointer(ptr)->getElementType(), ptr, DtoConstSize_t(idx));
     } else {
       e->error("expression `%s` is not a constant", e->toChars());
-      if (!global.gag) {
-        fatal();
-      }
-      result = llvm::UndefValue::get(DtoType(e->type));
+      fatalError(e);
     }
   }
 
@@ -238,10 +249,7 @@ public:
           isaPointer(ptr)->getElementType(), ptr, negIdx);
     } else {
       e->error("expression `%s` is not a constant", e->toChars());
-      if (!global.gag) {
-        fatal();
-      }
-      result = llvm::UndefValue::get(DtoType(e->type));
+      fatalError(e);
     }
   }
 
@@ -319,10 +327,7 @@ public:
   Lerr:
     e->error("cannot cast `%s` to `%s` at compile time", e->e1->type->toChars(),
              e->type->toChars());
-    if (!global.gag) {
-      fatal();
-    }
-    result = llvm::UndefValue::get(DtoType(e->type));
+    fatalError(e);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -438,10 +443,7 @@ public:
     } else {
       e->error("constant expression `%s` not yet implemented", e->toChars());
     }
-    if (!global.gag) {
-      fatal();
-    }
-    result = llvm::UndefValue::get(DtoType(e->type));
+    fatalError(e);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -473,10 +475,7 @@ public:
       if (!fd->toParent2()->isModule()) {
         e->error("non-constant nested delegate literal expression `%s`",
                  e->toChars());
-        if (!global.gag) {
-          fatal();
-        }
-        result = llvm::UndefValue::get(DtoType(e->type));
+        fatalError(e);
         return;
       }
     }
@@ -720,15 +719,7 @@ public:
 
   void visit(Expression *e) override {
     e->error("expression `%s` is not a constant", e->toChars());
-    if (!global.gag) {
-      fatal();
-    }
-
-    // Do not return null here, as AssocArrayLiteralExp::toElem determines
-    // whether it can allocate the needed arrays statically by just invoking
-    // toConstElem on its key/value expressions, and handling the null value
-    // consequently would require error-prone adaptions in all other code.
-    result = llvm::UndefValue::get(DtoType(e->type));
+    fatalError(e);
   }
 };
 
