@@ -228,10 +228,10 @@ public:
       dinteger_t idx = undoStrideMul(e->loc, t1b, e->e2->toInteger());
       result = llvm::ConstantExpr::getGetElementPtr(
           isaPointer(ptr)->getElementType(), ptr, DtoConstSize_t(idx));
-    } else {
-      e->error("expression `%s` is not a constant", e->toChars());
-      fatalError(e);
+      return;
     }
+
+    visit(static_cast<Expression *>(e));
   }
 
   void visit(MinExp *e) override {
@@ -247,10 +247,10 @@ public:
       llvm::Constant *negIdx = llvm::ConstantExpr::getNeg(DtoConstSize_t(idx));
       result = llvm::ConstantExpr::getGetElementPtr(
           isaPointer(ptr)->getElementType(), ptr, negIdx);
-    } else {
-      e->error("expression `%s` is not a constant", e->toChars());
-      fatalError(e);
+      return;
     }
+
+    visit(static_cast<Expression *>(e));
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -438,12 +438,12 @@ public:
       return;
     }
 
-    if (e->e1->op == TOKslice) {
-      e->error("non-constant expression `%s`", e->toChars());
-    } else {
-      e->error("constant expression `%s` not yet implemented", e->toChars());
+    if (e->e1->op == TOKslice || e->e1->op == TOKdotvar) {
+      visit(static_cast<Expression *>(e));
+      return;
     }
-    fatalError(e);
+
+    llvm_unreachable("unsupported AddrExp in ToConstElemVisitor");
   }
 
   //////////////////////////////////////////////////////////////////////////////
