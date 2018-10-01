@@ -49,7 +49,6 @@
 #include <utility>
 
 namespace {
-namespace dmd_abi {
 // Structs, static arrays and cfloats may be rewritten to exploit registers.
 // This function returns the rewritten type, or null if no transformation is
 // needed.
@@ -73,19 +72,9 @@ LLType *getAbiType(Type *ty) {
     // instead
     abiTy = i1ToI8(abiTy);
   } else {
-    std::vector<LLType *> parts;
+    llvm::SmallVector<LLType *, 4> parts;
     for (auto param : *argTypes->arguments) {
-      LLType *partType = DtoType(param->type);
-      // round up the DMD argtype for an eightbyte of a struct to a
-      // corresponding 64-bit type
-      // this makes sure that 64 bits of the chosen register are used and thus
-      // makes sure all potential padding bytes of a struct are copied
-      if (partType->isIntegerTy()) {
-        partType = LLType::getInt64Ty(gIR->context());
-      } else if (partType->isFloatTy()) {
-        partType = LLType::getDoubleTy(gIR->context());
-      }
-      parts.push_back(partType);
+      parts.push_back(DtoType(param->type));
     }
     abiTy = LLStructType::get(gIR->context(), parts);
   }
@@ -101,9 +90,6 @@ bool passByVal(Type *ty) {
 
   return argTypes->arguments->empty(); // empty => cannot be passed in registers
 }
-} // namespace dmd_abi
-
-LLType *getAbiType(Type *ty) { return dmd_abi::getAbiType(ty->toBasetype()); }
 
 struct RegCount {
   char int_regs, sse_regs;
@@ -175,7 +161,7 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
   LLValue *put(DValue *v, bool, bool) override {
     LLValue *address = getAddressOf(v);
 
-    LLType *abiTy = getAbiType(v->type);
+    LLType *abiTy = getAbiType(v->type->toBasetype());
     assert(abiTy && "Why are we rewriting a non-rewritten type?");
 
     return loadFromMemory(address, abiTy, ".X86_64_C_struct_rewrite_putResult");
@@ -185,7 +171,7 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
     return DtoAllocaDump(v, dty, ".X86_64_C_struct_rewrite_dump");
   }
 
-  LLType *type(Type *t) override { return getAbiType(t); }
+  LLType *type(Type *t) override { return getAbiType(t->toBasetype()); }
 };
 
 /**
@@ -256,7 +242,7 @@ bool X86_64TargetABI::returnInArg(TypeFunction *tf, bool) {
   }
 
   Type *rt = tf->next->toBasetype();
-  return dmd_abi::passByVal(rt);
+  return ::passByVal(rt);
 }
 
 bool X86_64TargetABI::passByVal(TypeFunction *tf, Type *t) {
@@ -264,7 +250,7 @@ bool X86_64TargetABI::passByVal(TypeFunction *tf, Type *t) {
   if (tf->linkage == LINKcpp && !isPOD(t))
     return false;
 
-  return dmd_abi::passByVal(t->toBasetype());
+  return ::passByVal(t->toBasetype());
 }
 
 void X86_64TargetABI::rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) {
