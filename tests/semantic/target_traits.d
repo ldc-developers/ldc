@@ -3,8 +3,8 @@
 // REQUIRES: target_X86
 
 // RUN: %ldc -mtriple=x86_64-apple-darwin -mcpu=nehalem -d-version=CPU_NEHALEM -c %s
-// RUN: %ldc -mtriple=x86_64-apple-darwin -mcpu=pentium -mattr=+fma -d-version=ATTR_FMA -c %s
-// RUN: %ldc -mtriple=x86_64-apple-darwin -mcpu=pentium -mattr=+fma,-sse -d-version=ATTR_FMA_MINUS_SSE -c %s
+// RUN: %ldc -mtriple=i686-pc-linux -mcpu=pentium -mattr=+fma -d-version=ATTR_FMA -c %s
+// RUN: %ldc -mtriple=i686-pc-linux -mcpu=pentium -mattr=+fma,-sse -d-version=ATTR_FMA_MINUS_SSE -c %s
 // RUN: %ldc -mtriple=x86_64-apple-darwin -mcpu=haswell -d-version=CPU_HASWELL -c %s
 
 // Important: LLVM's default CPU selection already enables some features (like sse3)
