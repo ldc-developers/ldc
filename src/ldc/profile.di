@@ -16,11 +16,8 @@
  */
 module ldc.profile;
 
-version (LDC_LLVM_309) version = HASHED_FUNC_NAMES;
-version (LDC_LLVM_400) version = HASHED_FUNC_NAMES;
-version (LDC_LLVM_500) version = HASHED_FUNC_NAMES;
-version (LDC_LLVM_600) version = HASHED_FUNC_NAMES;
-version (LDC_LLVM_700) version = HASHED_FUNC_NAMES;
+version = HASHED_FUNC_NAMES;
+version = PROFILEDATA_309_LAYOUT;
 
 @nogc:
 nothrow:
@@ -30,48 +27,7 @@ nothrow:
  */
 extern(C++) struct ProfileData {
     // This has to match INSTR_PROF_DATA in profile-rt/InstrProfData.inc
-
-    version (LDC_LLVM_309)
-    {
-        ulong NameRef;
-        ulong FuncHash;
-        ulong* Counters;
-        void* FunctionPointer;
-        void* Values;
-        uint NumCounters;
-        ushort NumValueSites;
-    }
-    else version (LDC_LLVM_400)
-    {
-        ulong NameRef;
-        ulong FuncHash;
-        ulong* Counters;
-        void* FunctionPointer;
-        void* Values;
-        uint NumCounters;
-        ushort NumValueSites;
-    }
-    else version (LDC_LLVM_500)
-    {
-        ulong NameRef;
-        ulong FuncHash;
-        ulong* Counters;
-        void* FunctionPointer;
-        void* Values;
-        uint NumCounters;
-        ushort NumValueSites;
-    }
-    else version (LDC_LLVM_600)
-    {
-        ulong NameRef;
-        ulong FuncHash;
-        ulong* Counters;
-        void* FunctionPointer;
-        void* Values;
-        uint NumCounters;
-        ushort NumValueSites;
-    }
-    else version (LDC_LLVM_700)
+    version (PROFILEDATA_309_LAYOUT)
     {
         ulong NameRef;
         ulong FuncHash;
