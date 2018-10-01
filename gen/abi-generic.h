@@ -24,10 +24,19 @@ struct LLTypeMemoryLayout {
   // Structs and static arrays are folded recursively to scalars or anonymous
   // structs.
   // Pointer types are folded to an integer type.
+  // Vector types are folded to a universal vector type.
   static LLType *fold(LLType *type) {
-    // T* => integer
+    // T* => same-sized integer
     if (type->isPointerTy()) {
       return LLIntegerType::get(gIR->context(), getTypeBitSize(type));
+    }
+
+    // <N x T> => same-sized <M x i8>
+    if (type->isVectorTy()) {
+      const size_t sizeInBits = getTypeBitSize(type);
+      assert(sizeInBits % 8 == 0);
+      return llvm::VectorType::get(LLIntegerType::get(gIR->context(), 8),
+                                   sizeInBits / 8);
     }
 
     if (LLStructType *structType = isaStruct(type)) {
