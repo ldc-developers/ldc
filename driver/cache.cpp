@@ -477,7 +477,13 @@ void recoverObjectFile(llvm::StringRef cacheObjectHash,
       fatal();
     }
 
-    if (llvm::sys::fs::setLastModificationAndAccessTime(FD, getTimeNow())) {
+#if LDC_LLVM_VER < 800
+#define SET_LAST_ACCESS_AND_MOD_TIME setLastModificationAndAccessTime
+#else
+#define SET_LAST_ACCESS_AND_MOD_TIME setLastAccessAndModificationTime
+#endif
+
+    if (llvm::sys::fs::SET_LAST_ACCESS_AND_MOD_TIME(FD, getTimeNow())) {
       error(Loc(), "Failed to set the cached file modification time: %s",
             cacheFile.c_str());
       fatal();
