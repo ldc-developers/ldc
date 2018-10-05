@@ -419,6 +419,20 @@ DIType DIBuilder::CreateComplexType(Type *type) {
                                    uniqueIdent(t)); // UniqueIdentifier
 }
 
+DIType DIBuilder::CreateNestedType(unsigned linnum, Type *type, DIFile file,
+                                   const char *c_name) {
+  Type *t = type->toBasetype();
+
+  // translate functions to function pointers
+  if (t->ty == Tfunction)
+    t = t->pointerTo();
+
+  // find base type
+  DIType basetype = CreateTypeDescription(t);
+
+  return DBuilder.createTypedef(basetype, c_name, file, linnum, GetCU());
+}
+
 DIType DIBuilder::CreateMemberType(unsigned linnum, Type *type, DIFile file,
                                    const char *c_name, unsigned offset,
                                    Prot::Kind prot, bool isStatic,
@@ -670,7 +684,34 @@ DIType DIBuilder::CreateSArrayType(Type *type) {
 }
 
 DIType DIBuilder::CreateAArrayType(Type *type) {
-  return CreatePointerType(Type::tvoidptr);
+  llvm::Type *T = DtoType(type);
+  Type *t = type->toBasetype();
+  assert(t->ty == Taarray);
+
+  TypeAArray *typeAArray = static_cast<TypeAArray *>(t);
+
+  Type *index = typeAArray->index;
+  Type *value = typeAArray->nextOf();
+
+  DIFile file = CreateFile();
+
+  LLMetadata *elems[] = {
+      CreateNestedType(0, index, file, "__key_t"),
+      CreateNestedType(0, value, file, "__value_t"),
+      CreateMemberType(0, Type::tvoidptr, file, "impl", 0, Prot::public_)};
+
+  return DBuilder.createStructType(GetCU(),
+                                   type->toPrettyChars(true), // Name
+                                   file,                      // File
+                                   0,                         // LineNo
+                                   getTypeAllocSize(T) * 8,   // size in bits
+                                   getABITypeAlign(T) * 8, // alignment in bits
+                                   DIFlagZero,             // What here?
+                                   getNullDIType(),        // derived from
+                                   DBuilder.getOrCreateArray(elems),
+                                   0,               // RunTimeLang
+                                   getNullDIType(), // VTableHolder
+                                   uniqueIdent(t)); // UniqueIdentifier
 }
 
 ////////////////////////////////////////////////////////////////////////////////
