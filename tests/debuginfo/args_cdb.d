@@ -45,7 +45,7 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 // x86: int delegate() dg =
 // CHECK: <function> * fun = {{0x[0-9a-f`]*}}
 // x86: struct int[] slice =
-// CHECK: unsigned char * aa = {{0x[0-9a-f`]*}}
+// x86: struct float[int] aa =
 // x64: unsigned char (*)[16] fa
 // x86: unsigned char [16] fa
 // x86: float [4] f4 = float [4]
@@ -148,7 +148,7 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
 // CHECK-NEXT: ptr :
 // CHECK-SAME: 0n10
 // CDB: ?? *aa
-// CHECK: unsigned char * {{0x[0-9a-f`]*}}
+// CHECK: struct float[int]
 // CDB: ?? (*fa)[1]
 // CHECK: unsigned char 0x0e
 // CDB: ?? (*f4)[1]
@@ -215,7 +215,7 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
 // CDB: ?? (*fa)[1]
 // CHECK: unsigned char 0x0e
 // CDB: ?? *aa
-// CHECK: unsigned char * {{0x[0-9a-f`]*}}
+// CHECK: struct float[int]
 // CDB: ?? (*f4)[1]
 // CHECK: float 16
 // CDB: ?? (*d4)[2]
