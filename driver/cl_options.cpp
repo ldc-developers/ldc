@@ -526,7 +526,7 @@ void createClashingOptions() {
 /// to be useful for end users from the -help output.
 void hideLLVMOptions() {
   static const char *const hiddenOptions[] = {
-      "aarch64-neon-syntax", "arm-add-build-attributes", "arm-implicit-it",
+      "aarch64-neon-syntax", "addrsig", "arm-add-build-attributes", "arm-implicit-it",
       "asm-instrumentation", "asm-show-inst", "atomic-counter-update-promoted",
       "bounds-checking-single-trap", "code-model", "cost-kind", "cppfname",
       "cppfor", "cppgen", "cvp-dont-process-adds", "debug-counter",
@@ -542,7 +542,7 @@ void hideLLVMOptions() {
       "exhaustive-register-search", "expensive-combines",
       "fatal-assembler-warnings", "filter-print-funcs", "gpsize",
       "imp-null-check-page-size", "imp-null-max-insts-to-consider",
-      "import-all-index", "incremental-linker-compatible",
+      "import-all-index", "incremental-linker-compatible", "instcombine-guard-widening-window", "instcombine-max-num-phis",
       "instcombine-maxarray-size", "internalize-public-api-file",
       "internalize-public-api-list", "iterative-counter-promotion",
       "join-liveintervals", "jump-table-type", "limit-float-precision",
