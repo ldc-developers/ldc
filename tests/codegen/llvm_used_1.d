@@ -8,8 +8,9 @@
 // RUN: %ldc -O3 %S/inputs/module_ctor.d -run %s | FileCheck --check-prefix=EXECUTE %s
 
 // There was a bug where llvm.used was emitted more than once, whose symptom was that suffixed versions would appear: e.g. `@llvm.used.3`.
+// Expect 4 llvm.used entries - 2 ModuleInfos refs + ldc.dso_{c,d}tor refs.
 // LLVM-NOT: @llvm.used.
-// LLVM: @llvm.used = appending global [2 x i8*]
+// LLVM: @llvm.used = appending global [4 x i8*]
 // LLVM-NOT: @llvm.used.
 
 // EXECUTE: ctor

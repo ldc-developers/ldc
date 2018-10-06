@@ -137,6 +137,31 @@ RegistryStyle getModuleRegistryStyle() {
   return RegistryStyle::legacyLinkedList;
 }
 
+LLGlobalVariable *declareDSOGlobal(llvm::StringRef mangledName, LLType *type,
+                                   bool isThreadLocal = false) {
+  auto global = declareGlobal(Loc(), gIR->module, type, mangledName, false,
+                              isThreadLocal);
+  global->setVisibility(LLGlobalValue::HiddenVisibility);
+  return global;
+}
+
+LLGlobalVariable *defineDSOGlobal(llvm::StringRef mangledName, LLConstant *init,
+                                  bool isThreadLocal = false) {
+  auto global =
+      defineGlobal(Loc(), gIR->module, mangledName, init,
+                   LLGlobalValue::LinkOnceODRLinkage, false, isThreadLocal);
+  global->setVisibility(LLGlobalValue::HiddenVisibility);
+  return global;
+}
+
+LLFunction *createDSOFunction(llvm::StringRef mangledName,
+                              LLFunctionType *type) {
+  auto fn = LLFunction::Create(type, LLGlobalValue::LinkOnceODRLinkage,
+                               mangledName, &gIR->module);
+  fn->setVisibility(LLGlobalValue::HiddenVisibility);
+  return fn;
+}
+
 /// Build ModuleReference and register function, to register the module info in
 /// the global linked list.
 ///
@@ -213,19 +238,13 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
 /// The global is non-zero-initialised and aligned to 16 bytes.
 llvm::Function *buildGetTLSAnchor() {
   // Create a dummmy TLS global private to this module.
-  const auto one =
-      llvm::ConstantInt::get(llvm::Type::getInt8Ty(gIR->context()), 1);
-  const auto anchor = defineGlobal(Loc(), gIR->module, "ldc.tls_anchor", one,
-                                   llvm::GlobalValue::LinkOnceODRLinkage, false,
-                                   /*isThreadLocal=*/true);
-  anchor->setVisibility(llvm::GlobalValue::HiddenVisibility);
+  const auto one = llvm::ConstantInt::get(LLType::getInt8Ty(gIR->context()), 1);
+  const auto anchor =
+      defineDSOGlobal("ldc.tls_anchor", one, /*isThreadLocal=*/true);
   anchor->setAlignment(16);
 
-  const auto getAnchor =
-      llvm::Function::Create(llvm::FunctionType::get(getVoidPtrType(), false),
-                             llvm::GlobalValue::LinkOnceODRLinkage,
-                             "ldc.get_tls_anchor", &gIR->module);
-  getAnchor->setVisibility(llvm::GlobalValue::HiddenVisibility);
+  const auto getAnchor = createDSOFunction(
+      "ldc.get_tls_anchor", LLFunctionType::get(getVoidPtrType(), false));
 
   IRBuilder<> builder(llvm::BasicBlock::Create(gIR->context(), "", getAnchor));
   builder.CreateRet(anchor);
@@ -246,12 +265,9 @@ llvm::Function *buildGetTLSAnchor() {
 /// which returns the address of a TLS global.
 llvm::Function *buildRegisterDSO(RegistryStyle style, llvm::Value *dsoSlot,
                                  llvm::Value *minfoBeg, llvm::Value *minfoEnd) {
-  const auto fnType =
-      llvm::FunctionType::get(llvm::Type::getVoidTy(gIR->context()), false);
-  const auto fn =
-      llvm::Function::Create(fnType, llvm::GlobalValue::LinkOnceODRLinkage,
-                             "ldc.register_dso", &gIR->module);
-  fn->setVisibility(llvm::GlobalValue::HiddenVisibility);
+  const auto fn = createDSOFunction(
+      "ldc.register_dso",
+      LLFunctionType::get(LLType::getVoidTy(gIR->context()), false));
 
   const auto dsoRegistry =
       getRuntimeFunction(Loc(), gIR->module, "_d_dso_registry");
@@ -305,25 +321,20 @@ void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
   // start and end of the .minfo section also only need to be emitted for the
   // first D module.
   // For all subsequent ones, we just need to emit an additional reference into
-  // the .minfo section (even with --gc-sections, the section is already kept
-  // alive by the first module's reference being used in the ctor/dtor
-  // functions).
+  // the .minfo section.
   const bool isFirst = !gIR->module.getGlobalVariable("ldc.dso_slot");
 
-  llvm::Type *const moduleInfoPtrTy = DtoPtrToType(getModuleInfoType());
-  const auto sectionName =
+  const auto moduleInfoPtrTy = DtoPtrToType(getModuleInfoType());
+  const auto moduleInfoRefsSectionName =
       style == RegistryStyle::sectionMSVC
           ? ".minfo"
           : style == RegistryStyle::sectionDarwin ? "__DATA,.minfo" : "__minfo";
 
   const auto thismrefIRMangle =
       getIRMangledModuleRefSymbolName(moduleMangle.c_str());
-  auto thismref = defineGlobal(Loc(), gIR->module, thismrefIRMangle,
-                               DtoBitCast(thisModuleInfo, moduleInfoPtrTy),
-                               llvm::GlobalValue::LinkOnceODRLinkage,
-                               false // FIXME: mRelocModel != llvm::Reloc::PIC_
-  );
-  thismref->setSection(sectionName);
+  auto thismref = defineDSOGlobal(thismrefIRMangle,
+                                  DtoBitCast(thisModuleInfo, moduleInfoPtrTy));
+  thismref->setSection(moduleInfoRefsSectionName);
   gIR->usedArray.push_back(thismref);
 
   // Android doesn't need register_dso and friends- see rt.sections_android-
@@ -342,34 +353,42 @@ void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
   const auto magicEndSymbolName = (style == RegistryStyle::sectionDarwin)
                                       ? "\1section$end$__DATA$.minfo"
                                       : "__stop___minfo";
-  auto minfoBeg = declareGlobal(Loc(), gIR->module, moduleInfoPtrTy,
-                                magicBeginSymbolName, false);
-  auto minfoEnd = declareGlobal(Loc(), gIR->module, moduleInfoPtrTy,
-                                magicEndSymbolName, false);
-  minfoBeg->setVisibility(llvm::GlobalValue::HiddenVisibility);
-  minfoEnd->setVisibility(llvm::GlobalValue::HiddenVisibility);
+  auto minfoBeg = declareDSOGlobal(magicBeginSymbolName, moduleInfoPtrTy);
+  auto minfoEnd = declareDSOGlobal(magicEndSymbolName, moduleInfoPtrTy);
 
   // We want to have one global constructor and destructor per object (i.e.
   // executable/shared library) that calls _d_dso_registry with the respective
   // DSO record.
   // To enable safe direct linking of D objects (e.g., "g++ dcode.o cppcode.o"),
-  // we emit a pair of llvm.global_{c,d}tors into each object file, both
-  // pointing to a common ldc.register_dso() function.
+  // we emit a pair of global {c,d}tors into each object file, both pointing to
+  // a common ldc.register_dso() function.
   // These per-object-file pairs will be folded to a single one when linking the
   // DSO, together with the ldc.dso_slot globals and associated
   // ldc.register_dso() functions.
 
   // This is the DSO slot for use by the druntime implementation.
-  auto dsoSlot = defineGlobal(Loc(), gIR->module, "ldc.dso_slot",
-                              getNullPtr(getVoidPtrType()),
-                              llvm::GlobalValue::LinkOnceODRLinkage, false);
-  dsoSlot->setVisibility(llvm::GlobalValue::HiddenVisibility);
+  const auto dsoSlot =
+      defineDSOGlobal("ldc.dso_slot", getNullPtr(getVoidPtrType()));
 
   const auto registerDSO = buildRegisterDSO(style, dsoSlot, minfoBeg, minfoEnd);
 
-  // tie to ldc.dso_slot global (drop {c,d}tor if the global is discarded)
-  llvm::appendToGlobalCtors(gIR->module, registerDSO, 65535, dsoSlot);
-  llvm::appendToGlobalDtors(gIR->module, registerDSO, 65535, dsoSlot);
+  // We need to discard the {c,d}tor refs if this IR module's ldc.register_dso()
+  // function is discarded to prevent duplicate refs.
+  // Unfortunately, this doesn't work for macOS (v10.12, Xcode v9.2, LLVM
+  // v7.0.0).
+  if (style == RegistryStyle::sectionELF) {
+    llvm::appendToGlobalCtors(gIR->module, registerDSO, 65535, registerDSO);
+    llvm::appendToGlobalDtors(gIR->module, registerDSO, 65535, registerDSO);
+    return;
+  }
+
+  // macOS: emit the {c,d}tor refs manually
+  const auto dsoCtor = defineDSOGlobal("ldc.dso_ctor", registerDSO);
+  const auto dsoDtor = defineDSOGlobal("ldc.dso_dtor", registerDSO);
+  gIR->usedArray.push_back(dsoCtor);
+  gIR->usedArray.push_back(dsoDtor);
+  dsoCtor->setSection("__DATA,__mod_init_func,mod_init_funcs");
+  dsoDtor->setSection("__DATA,__mod_term_func,mod_term_funcs");
 }
 
 // Add module-private variables and functions for coverage analysis.
