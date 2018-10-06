@@ -528,6 +528,15 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
     targetOptions.DataSections = true;
   }
 
+#if LDC_LLVM_VER >= 700
+  // On Android, we depend on a custom TLS emulation scheme implemented in our
+  // LLVM fork. LLVM 7+ enables regular emutls by default; prevent that.
+  if (triple.getEnvironment() == llvm::Triple::Android) {
+    targetOptions.EmulatedTLS = false;
+    targetOptions.ExplicitEmulatedTLS = true;
+  }
+#endif
+
   const std::string finalFeaturesString =
       llvm::join(features.begin(), features.end(), ",");
 
