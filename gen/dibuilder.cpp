@@ -697,8 +697,9 @@ DIType DIBuilder::CreateAArrayType(Type *type) {
 
   LLMetadata *elems[] = {
       CreateNestedType(0, index, file, "__key_t"),
-      CreateNestedType(0, value, file, "__value_t"),
-      CreateMemberType(0, Type::tvoidptr, file, "impl", 0, Prot::public_)};
+      CreateNestedType(0, value, file, "__val_t"),
+      CreateMemberType(0, Type::tvoidptr, file, "ptr", 0, Prot::public_)
+  };
 
   return DBuilder.createStructType(GetCU(),
                                    type->toPrettyChars(true), // Name
