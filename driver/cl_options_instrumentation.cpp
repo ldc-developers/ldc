@@ -23,7 +23,6 @@
 namespace {
 namespace cl = llvm::cl;
 
-#if LDC_LLVM_VER >= 309
 /// Option for generating IR-based PGO instrumentation (LLVM pass)
 cl::opt<std::string> IRPGOInstrGenFile(
     "fprofile-generate", cl::value_desc("filename"),
@@ -37,7 +36,6 @@ cl::opt<std::string> IRPGOInstrUseFile(
     "fprofile-use", cl::ZeroOrMore, cl::value_desc("filename"),
     cl::desc("Use instrumentation data for profile-guided optimization"),
     cl::ValueRequired);
-#endif
 
 /// Option for generating frontend-based PGO instrumentation
 cl::opt<std::string> ASTPGOInstrGenFile(
@@ -96,21 +94,15 @@ void initializeInstrumentationOptionsFromCmdline(const llvm::Triple &triple) {
   if (ASTPGOInstrGenFile.getNumOccurrences() > 0) {
     pgoMode = PGO_ASTBasedInstr;
     if (ASTPGOInstrGenFile.empty()) {
-#if LDC_LLVM_VER >= 309
       // profile-rt provides a default filename by itself
       global.params.datafileInstrProf = nullptr;
-#else
-      global.params.datafileInstrProf = "default.profraw";
-#endif
     } else {
       initFromPathString(global.params.datafileInstrProf, ASTPGOInstrGenFile);
     }
   } else if (!ASTPGOInstrUseFile.empty()) {
     pgoMode = PGO_ASTBasedUse;
     initFromPathString(global.params.datafileInstrProf, ASTPGOInstrUseFile);
-  }
-#if LDC_LLVM_VER >= 309
-  else if (IRPGOInstrGenFile.getNumOccurrences() > 0) {
+  } else if (IRPGOInstrGenFile.getNumOccurrences() > 0) {
     pgoMode = PGO_IRBasedInstr;
     if (IRPGOInstrGenFile.empty()) {
       global.params.datafileInstrProf = "default_%m.profraw";
@@ -121,7 +113,6 @@ void initializeInstrumentationOptionsFromCmdline(const llvm::Triple &triple) {
     pgoMode = PGO_IRBasedUse;
     initFromPathString(global.params.datafileInstrProf, IRPGOInstrUseFile);
   }
-#endif
 
   if (dmdFunctionTrace)
     global.params.trace = true;

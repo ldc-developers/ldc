@@ -887,14 +887,12 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   LLCallSite call =
       gIR->funcGen().callOrInvoke(callable, args, "", tf->isnothrow);
 
-#if LDC_LLVM_VER >= 309
   // PGO: Insert instrumentation or attach profile metadata at indirect call
   // sites.
   if (!call.getCalledFunction()) {
     auto &PGO = gIR->funcGen().pgo;
     PGO.emitIndirectCallPGO(call.getInstruction(), callable);
   }
-#endif
 
   // get return value
   const int sretArgIndex =

@@ -67,11 +67,9 @@ private:
   void addDefaultPlatformLibs();
   virtual void addTargetFlags();
 
-#if LDC_LLVM_VER >= 309
   void addLTOGoldPluginFlags();
   void addDarwinLTOFlags();
   void addLTOLinkFlags();
-#endif
 
   virtual void addLdFlag(const llvm::Twine &flag) {
     args.push_back(("-Wl," + flag).str());
@@ -84,8 +82,6 @@ private:
 
 //////////////////////////////////////////////////////////////////////////////
 // LTO functionality
-
-#if LDC_LLVM_VER >= 309
 
 std::string getLTOGoldPluginPath() {
   if (!ltoLibrary.empty()) {
@@ -187,8 +183,6 @@ void ArgsBuilder::addLTOLinkFlags() {
     addDarwinLTOFlags();
   }
 }
-
-#endif // LDC_LLVM_VER >= 309
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -395,13 +389,11 @@ void ArgsBuilder::addProfileRuntimeLinkFlags(const llvm::Triple &triple) {
   const auto searchPaths =
       getFullCompilerRTLibPathCandidates("profile", triple);
 
-#if LDC_LLVM_VER >= 308
   if (global.params.targetTriple->isOSLinux()) {
     // For Linux, explicitly define __llvm_profile_runtime as undefined
     // symbol, so that the initialization part of profile-rt is linked in.
     addLdFlag("-u", llvm::getInstrProfRuntimeHookVarName());
   }
-#endif
 
   for (const auto &filepath : searchPaths) {
     IF_LOG Logger::println("Searching profile runtime: %s", filepath.c_str());
@@ -480,12 +472,10 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
     addXRayLinkFlags(*global.params.targetTriple);
   }
 
-#if LDC_LLVM_VER >= 309
   // Add LTO link flags before adding the user link switches, such that the user
   // can pass additional options to the LTO plugin.
   if (opts::isUsingLTO())
     addLTOLinkFlags();
-#endif
 
   addLinker();
   addUserSwitches();

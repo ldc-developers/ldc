@@ -15,9 +15,7 @@
 #ifndef LDC_DRIVER_TARGET_H
 #define LDC_DRIVER_TARGET_H
 
-#if LDC_LLVM_VER >= 309
 #include "llvm/ADT/Optional.h"
-#endif
 #include "llvm/Support/CodeGen.h"
 #include <string>
 #include <vector>
@@ -58,11 +56,7 @@ llvm::TargetMachine *
 createTargetMachine(std::string targetTriple, std::string arch, std::string cpu,
                     std::string featuresString, ExplicitBitness::Type bitness,
                     FloatABI::Type &floatABI,
-#if LDC_LLVM_VER >= 309
                     llvm::Optional<llvm::Reloc::Model> relocModel,
-#else
-                    llvm::Reloc::Model relocModel,
-#endif
 #if LDC_LLVM_VER >= 600
                     llvm::Optional<llvm::CodeModel::Model> codeModel,
 #else

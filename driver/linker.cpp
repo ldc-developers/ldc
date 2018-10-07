@@ -187,11 +187,7 @@ static void insertBitcodeIntoModule(const char *bcFile, llvm::Module &M,
     error(Loc(), "Error when loading LLVM bitcode file: %s", bcFile);
     fatal();
   }
-#if LDC_LLVM_VER >= 308
   llvm::Linker(M).linkInModule(std::move(loadedModule));
-#else
-  llvm::Linker(&M).linkInModule(loadedModule.release());
-#endif
 }
 
 /// Insert LLVM bitcode files into the module

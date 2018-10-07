@@ -7,8 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if LDC_LLVM_VER >= 308
-
 #include "target.h"
 #include "gen/ms-cxx-helper.h"
 #include "gen/llvm.h"
@@ -63,12 +61,8 @@ void remapBlocks(std::vector<llvm::BasicBlock *> &blocks,
   for (llvm::BasicBlock *bb : blocks)
     for (auto &I : *bb) {
       llvm::RemapInstruction(&I, VMap,
-#if LDC_LLVM_VER == 308
-                             llvm::RF_IgnoreMissingEntries
-#else
-                             llvm::RF_IgnoreMissingLocals
-#endif
-                                 | llvm::RF_NoModuleLevelChanges);
+                             llvm::RF_IgnoreMissingLocals |
+                                 llvm::RF_NoModuleLevelChanges);
     }
 }
 
@@ -196,5 +190,3 @@ llvm::GlobalVariable *getTypeDescriptor(IRState &irs, ClassDeclaration *cd) {
 
   return Var;
 }
-
-#endif // LDC_LLVM_VER >= 308

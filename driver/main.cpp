@@ -52,9 +52,7 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Path.h"
-#if LDC_LLVM_VER >= 308
 #include "llvm/Support/StringSaver.h"
-#endif
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
@@ -272,7 +270,6 @@ tryGetExplicitTriple(const llvm::SmallVectorImpl<const char *> &args) {
 
 void expandResponseFiles(llvm::BumpPtrAllocator &A,
                          llvm::SmallVectorImpl<const char *> &args) {
-#if LDC_LLVM_VER >= 308
   llvm::StringSaver Saver(A);
   cl::ExpandResponseFiles(Saver,
 #ifdef _WIN32
@@ -282,7 +279,6 @@ void expandResponseFiles(llvm::BumpPtrAllocator &A,
 #endif
                           ,
                           args);
-#endif
 }
 
 /// Parses switches from the command line, any response files and the global
@@ -571,15 +567,10 @@ void initializePasses() {
   initializeInstrumentation(Registry);
   initializeAnalysis(Registry);
   initializeCodeGen(Registry);
-#if LDC_LLVM_VER >= 309
   initializeGlobalISel(Registry);
-#endif
   initializeTarget(Registry);
 
 // Initialize passes not included above
-#if LDC_LLVM_VER < 308
-  initializeIPA(Registry);
-#endif
 #if LDC_LLVM_VER >= 400
   initializeRewriteSymbolsLegacyPassPass(Registry);
 #else
@@ -937,11 +928,7 @@ void registerPredefinedVersions() {
 } // anonymous namespace
 
 int cppmain(int argc, char **argv) {
-#if LDC_LLVM_VER >= 309
   llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
-#else
-  llvm::sys::PrintStackTraceOnErrorSignal();
-#endif
 
   exe_path::initialize(argv[0]);
 
@@ -1000,11 +987,7 @@ int cppmain(int argc, char **argv) {
   }
 
   auto relocModel = getRelocModel();
-#if LDC_LLVM_VER >= 309
   if (global.params.dll && !relocModel.hasValue()) {
-#else
-  if (global.params.dll && relocModel == llvm::Reloc::Default) {
-#endif
     relocModel = llvm::Reloc::PIC_;
   }
 
@@ -1019,12 +1002,8 @@ int cppmain(int argc, char **argv) {
 
   opts::setDefaultMathOptions(gTargetMachine->Options);
 
-#if LDC_LLVM_VER >= 308
   static llvm::DataLayout DL = gTargetMachine->createDataLayout();
   gDataLayout = &DL;
-#else
-  gDataLayout = gTargetMachine->getDataLayout();
-#endif
 
   {
     llvm::Triple *triple = new llvm::Triple(gTargetMachine->getTargetTriple());

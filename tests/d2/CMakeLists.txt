@@ -7,7 +7,7 @@ elseif(${ptr_size} MATCHES "^8$")
 endif()
 
 set(gdb_dflags "")
-if((${CMAKE_SYSTEM_NAME} MATCHES "Linux") AND (${LDC_LLVM_VER} GREATER 307))
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     execute_process(COMMAND gdb --version
                     COMMAND head -n 1
                     OUTPUT_VARIABLE GDB_VERSION

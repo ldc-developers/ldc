@@ -93,7 +93,6 @@ extern std::vector<std::string> debugArgs;
 void createClashingOptions();
 void hideLLVMOptions();
 
-#if LDC_LLVM_VER >= 309
 // LTO options
 enum LTOKind {
   LTO_None,
@@ -103,10 +102,6 @@ enum LTOKind {
 extern cl::opt<LTOKind> ltoMode;
 inline bool isUsingLTO() { return ltoMode != LTO_None; }
 inline bool isUsingThinLTO() { return ltoMode == LTO_Thin; }
-#else
-inline bool isUsingLTO() { return false; }
-inline bool isUsingThinLTO() { return false; }
-#endif
 
 #if LDC_LLVM_VER >= 400
 extern cl::opt<std::string> saveOptimizationRecord;

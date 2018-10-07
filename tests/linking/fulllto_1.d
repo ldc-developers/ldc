@@ -1,6 +1,5 @@
 // Test full LTO commandline flag
 
-// REQUIRES: atleast_llvm309
 // REQUIRES: LTO
 
 // RUN: %ldc %s -of=%t%obj -c -flto=full -vv | FileCheck %s

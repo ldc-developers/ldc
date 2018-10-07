@@ -305,13 +305,9 @@ void outputIR2ObjRelevantCmdlineArgs(llvm::raw_ostream &hash_os) {
   hash_os << opts::getCPUStr();
   hash_os << opts::getFeaturesStr();
   hash_os << opts::floatABI;
-#if LDC_LLVM_VER >= 309
   const auto relocModel = opts::getRelocModel();
   if (relocModel.hasValue())
     hash_os << relocModel.getValue();
-#else
-  hash_os << opts::getRelocModel();
-#endif
 #if LDC_LLVM_VER >= 600
   const auto codeModel = opts::getCodeModel();
   if (codeModel.hasValue())

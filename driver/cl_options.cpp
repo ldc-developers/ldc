@@ -419,7 +419,6 @@ cl::opt<unsigned char, true, CoverageParser> coverageAnalysis(
              "minimum required coverage)"),
     cl::ValueOptional, cl::init(127));
 
-#if LDC_LLVM_VER >= 309
 cl::opt<LTOKind> ltoMode(
     "flto", cl::ZeroOrMore, cl::desc("Set LTO mode, requires linker support"),
     cl::init(LTO_None),
@@ -427,7 +426,6 @@ cl::opt<LTOKind> ltoMode(
         clEnumValN(LTO_Full, "full", "Merges all input into a single module"),
         clEnumValN(LTO_Thin, "thin",
                    "Parallel importing and codegen (faster than 'full')")));
-#endif
 
 #if LDC_LLVM_VER >= 400
 cl::opt<std::string>

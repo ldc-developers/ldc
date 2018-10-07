@@ -33,14 +33,12 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MD5.h"
 
-#if LDC_LLVM_VER >= 309
 namespace {
 llvm::cl::opt<bool, false, opts::FlagParser<bool>> enablePGOIndirectCalls(
     "pgo-indirect-calls", llvm::cl::ZeroOrMore, llvm::cl::Hidden,
     llvm::cl::desc("(*) Enable PGO of indirect calls (LLVM >= 3.9)"),
     llvm::cl::init(true));
 }
-#endif
 
 /// \brief Stable hasher for PGO region counters.
 ///
@@ -762,7 +760,6 @@ RootObject *CodeGenPGO::getCounterPtr(const RootObject *ptr,
 
 void CodeGenPGO::setFuncName(llvm::StringRef Name,
                              llvm::GlobalValue::LinkageTypes Linkage) {
-#if LDC_LLVM_VER >= 308
   llvm::IndexedInstrProfReader *PGOReader = gIR->getPGOReader();
   FuncName = llvm::getPGOFuncName(Name, Linkage, "",
                                   PGOReader ? PGOReader->getVersion()
@@ -780,49 +777,11 @@ void CodeGenPGO::setFuncName(llvm::StringRef Name,
       FuncNameVar->setLinkage(llvm::GlobalValue::InternalLinkage);
     }
   }
-#else
-  llvm::StringRef RawFuncName = Name;
-  // Function names may be prefixed with a binary '1' to indicate
-  // that the backend should not modify the symbols due to any platform
-  // naming convention. Do not include that '1' in the PGO profile name.
-  if (RawFuncName[0] == '\1')
-    RawFuncName = RawFuncName.substr(1);
-  FuncName = RawFuncName;
-
-  // If we're generating a profile, create a variable for the name.
-  if (opts::isInstrumentingForASTBasedPGO() && emitInstrumentation)
-    createFuncNameVar(Linkage);
-#endif
 }
 
 void CodeGenPGO::setFuncName(llvm::Function *fn) {
   setFuncName(fn->getName(), fn->getLinkage());
 }
-
-#if LDC_LLVM_VER < 308
-void CodeGenPGO::createFuncNameVar(llvm::GlobalValue::LinkageTypes Linkage) {
-  // We generally want to match the function's linkage, but available_externally
-  // and extern_weak both have the wrong semantics, and anything that doesn't
-  // need to link across compilation units doesn't need to be visible at all.
-  if (Linkage == llvm::GlobalValue::ExternalWeakLinkage)
-    Linkage = llvm::GlobalValue::LinkOnceAnyLinkage;
-  else if (Linkage == llvm::GlobalValue::AvailableExternallyLinkage)
-    Linkage = llvm::GlobalValue::LinkOnceODRLinkage;
-  else if (Linkage == llvm::GlobalValue::InternalLinkage ||
-           Linkage == llvm::GlobalValue::ExternalLinkage)
-    Linkage = llvm::GlobalValue::PrivateLinkage;
-
-  auto *value =
-      llvm::ConstantDataArray::getString(gIR->context(), FuncName, false);
-  FuncNameVar =
-      new llvm::GlobalVariable(gIR->module, value->getType(), true, Linkage,
-                               value, "__llvm_profile_name_" + FuncName);
-
-  // Hide the symbol so that we correctly get a copy for each executable.
-  if (!llvm::GlobalValue::isLocalLinkage(FuncNameVar->getLinkage()))
-    FuncNameVar->setVisibility(llvm::GlobalValue::HiddenVisibility);
-}
-#endif
 
 void CodeGenPGO::assignRegionCounters(const FuncDeclaration *D,
                                       llvm::Function *fn) {
@@ -889,20 +848,12 @@ void CodeGenPGO::loadRegionCounts(llvm::IndexedInstrProfReader *PGOReader,
                                   const FuncDeclaration *fd) {
   RegionCounts.clear();
 
-#if LDC_LLVM_VER >= 309
   llvm::Expected<llvm::InstrProfRecord> RecordExpected =
       PGOReader->getInstrProfRecord(FuncName, FunctionHash);
   auto EC = RecordExpected.takeError();
-#else
-  auto EC = PGOReader->getFunctionCounts(FuncName, FunctionHash, RegionCounts);
-#endif
 
   if (EC) {
-#if LDC_LLVM_VER >= 309
     auto IPE = llvm::InstrProfError::take(std::move(EC));
-#else
-    auto IPE = EC;
-#endif
     if (IPE == llvm::instrprof_error::unknown_function) {
       IF_LOG Logger::println("No profile data for function: %s",
                              FuncName.c_str());
@@ -936,11 +887,9 @@ void CodeGenPGO::loadRegionCounts(llvm::IndexedInstrProfReader *PGOReader,
     return;
   }
 
-#if LDC_LLVM_VER >= 309
   ProfRecord =
       llvm::make_unique<llvm::InstrProfRecord>(std::move(RecordExpected.get()));
   RegionCounts = ProfRecord->Counts;
-#endif
 
   IF_LOG Logger::println("Loaded profile data for function: %s",
                          FuncName.c_str());
@@ -1071,15 +1020,12 @@ llvm::MDNode *CodeGenPGO::createProfileWeightsForeachRange(
 
 void CodeGenPGO::emitIndirectCallPGO(llvm::Instruction *callSite,
                                      llvm::Value *funcPtr) {
-#if LDC_LLVM_VER >= 309
   if (enablePGOIndirectCalls)
     valueProfile(llvm::IPVK_IndirectCallTarget, callSite, funcPtr, true);
-#endif
 }
 
 void CodeGenPGO::valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
                               llvm::Value *value, bool ptrCastNeeded) {
-#if LDC_LLVM_VER >= 309
   if (!value || !valueSite)
     return;
 
@@ -1117,5 +1063,4 @@ void CodeGenPGO::valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
 
     NumValueSites[valueKind]++;
   }
-#endif // LLVM >= 3.9
 }

@@ -177,12 +177,10 @@ void emitLLVMUsedArray(IRState &irs) {
 namespace ldc {
 CodeGenerator::CodeGenerator(llvm::LLVMContext &context, bool singleObj)
     : context_(context), moduleCount_(0), singleObj_(singleObj), ir_(nullptr) {
-#if LDC_LLVM_VER >= 309
   // Set the context to discard value names when not generating textual IR.
   if (!global.params.output_ll) {
     context_.setDiscardValueNames(true);
   }
-#endif
 }
 
 CodeGenerator::~CodeGenerator() {
@@ -213,11 +211,7 @@ void CodeGenerator::prepareLLModule(Module *m) {
   // module.
   ir_ = new IRState(m->srcfile->toChars(), context_);
   ir_->module.setTargetTriple(global.params.targetTriple->str());
-#if LDC_LLVM_VER >= 308
   ir_->module.setDataLayout(*gDataLayout);
-#else
-  ir_->module.setDataLayout(gDataLayout->getStringRepresentation());
-#endif
 
   // TODO: Make ldc::DIBuilder per-Module to be able to emit several CUs for
   // single-object compilations?

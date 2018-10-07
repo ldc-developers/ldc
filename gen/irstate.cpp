@@ -192,9 +192,5 @@ IRBuilder<> *IRBuilderHelper::operator->() {
 ////////////////////////////////////////////////////////////////////////////////
 
 bool useMSVCEH() {
-#if LDC_LLVM_VER >= 308
   return global.params.targetTriple->isWindowsMSVCEnvironment();
-#else
-  return false;
-#endif
 }

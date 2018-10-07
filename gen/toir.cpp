@@ -398,11 +398,7 @@ public:
       }
       gvar = new llvm::GlobalVariable(gIR->module, at, true, _linkage, _init,
                                       ".str");
-#if LDC_LLVM_VER >= 309
       gvar->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-#else
-      gvar->setUnnamedAddr(true);
-#endif
       (*stringLiteralCache)[key] = gvar;
     }
 

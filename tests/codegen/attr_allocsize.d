@@ -1,7 +1,5 @@
 // Test ldc.attributes.allocSize
 
-// REQUIRES: atleast_llvm309
-
 // RUN: %ldc -O3 -c -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 
 import ldc.attributes;

@@ -1,5 +1,4 @@
 // Check that we can generate code for both the host and device in one compiler invocation
-// REQUIRES: atleast_llvm309
 // REQUIRES: target_NVPTX
 // RUN: %ldc -mdcompute-targets=cuda-350 -mdcompute-file-prefix=host_and_device -Iinputs %s %S/inputs/kernel.d
 

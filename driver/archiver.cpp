@@ -14,8 +14,6 @@
 #include "gen/logger.h"
 #include "llvm/ADT/Triple.h"
 
-#if LDC_LLVM_VER >= 309
-
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/ArchiveWriter.h"
 #include "llvm/Object/MachO.h"
@@ -257,8 +255,6 @@ int internalLib(ArrayRef<const char *> args) {
 
 } // anonymous namespace
 
-#endif // LDC_LLVM_VER >= 309
-
 ////////////////////////////////////////////////////////////////////////////////
 
 static llvm::cl::opt<std::string> ar("ar", llvm::cl::desc("Archiver"),
@@ -270,11 +266,7 @@ int createStaticLibrary() {
   const bool isTargetMSVC =
       global.params.targetTriple->isWindowsMSVCEnvironment();
 
-#if LDC_LLVM_VER >= 309
   const bool useInternalArchiver = ar.empty();
-#else
-  const bool useInternalArchiver = false;
-#endif
 
   // find archiver
   std::string tool;
@@ -347,7 +339,6 @@ int createStaticLibrary() {
   // create path to the library
   createDirectoryForFileOrFail(libName);
 
-#if LDC_LLVM_VER >= 309
   if (useInternalArchiver) {
     const auto fullArgs =
         getFullArgs(tool.c_str(), args, global.params.verbose);
@@ -359,7 +350,6 @@ int createStaticLibrary() {
 
     return exitCode;
   }
-#endif
 
   // invoke external archiver
   return executeToolAndWait(tool, args, global.params.verbose);

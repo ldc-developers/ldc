@@ -48,10 +48,8 @@ llvm::DINodeArray getEmptyDINodeArray() {
 }
 
 llvm::StringRef uniqueIdent(Type* t) {
-#if LDC_LLVM_VER >= 309
   if (t->deco)
     return t->deco;
-#endif
   return llvm::StringRef();
 }
 
@@ -609,20 +607,12 @@ ldc::DISubroutineType ldc::DIBuilder::CreateFunctionType(Type *type) {
   LLMetadata *params = {CreateTypeDescription(retType)};
   auto paramsArray = DBuilder.getOrCreateTypeArray(params);
 
-#if LDC_LLVM_VER >= 308
   return DBuilder.createSubroutineType(paramsArray);
-#else
-  return DBuilder.createSubroutineType(CreateFile(), paramsArray);
-#endif
 }
 
 ldc::DISubroutineType ldc::DIBuilder::CreateEmptyFunctionType() {
   auto paramsArray = DBuilder.getOrCreateTypeArray(llvm::None);
-#if LDC_LLVM_VER >= 308
   return DBuilder.createSubroutineType(paramsArray);
-#else
-  return DBuilder.createSubroutineType(CreateFile(), paramsArray);
-#endif
 }
 
 ldc::DIType ldc::DIBuilder::CreateDelegateType(Type *type) {
@@ -673,11 +663,7 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type) {
   Type *t = type->toBasetype();
 
   if (t->ty == Tvoid)
-#if LDC_LLVM_VER >= 309
     return nullptr;
-#else
-    return DBuilder.createUnspecifiedType(type->toPrettyChars(true));
-#endif
   if (t->ty == Tnull) // display null as void*
     return DBuilder.createPointerType(CreateTypeDescription(Type::tvoid),
                                       8, 8,
@@ -725,15 +711,8 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#if LDC_LLVM_VER >= 309
-using DebugEmissionKind = llvm::DICompileUnit::DebugEmissionKind;
-#else
-using DebugEmissionKind = llvm::DIBuilder::DebugEmissionKind;
-#endif
-
-DebugEmissionKind getDebugEmissionKind()
+llvm::DICompileUnit::DebugEmissionKind getDebugEmissionKind()
 {
-#if LDC_LLVM_VER >= 309
   switch (global.params.symdebug)
   {
     case 0:
@@ -746,12 +725,6 @@ DebugEmissionKind getDebugEmissionKind()
     default:
       llvm_unreachable("unknown DebugEmissionKind");
   }
-#else
-  assert(global.params.symdebug != 0);
-  return global.params.symdebug == 3 ?
-      llvm::DIBuilder::LineTablesOnly :
-      llvm::DIBuilder::FullDebug;
-#endif
 }
 
 
@@ -774,13 +747,11 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
   auto producerName = std::string("LDC ") + ldc::ldc_version + " (LLVM " +
                       ldc::llvm_version + ")";
 
-#if LDC_LLVM_VER >= 308
   if (global.params.targetTriple->isWindowsMSVCEnvironment())
     IR->module.addModuleFlag(llvm::Module::Warning, "CodeView", 1);
   else if (global.params.dwarfVersion > 0)
     IR->module.addModuleFlag(llvm::Module::Warning, "Dwarf Version",
                              global.params.dwarfVersion);
-#endif
   // Metadata without a correct version will be stripped by UpgradeDebugInfo.
   IR->module.addModuleFlag(llvm::Module::Warning, "Debug Info Version",
                            llvm::DEBUG_METADATA_VERSION);
@@ -801,9 +772,6 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
       llvm::StringRef(),       // SplitName
       getDebugEmissionKind(),  // DebugEmissionKind
       0                        // DWOId
-#if LDC_LLVM_VER < 309
-      , mustEmitFullDebugInfo()  // EmitDebugInfo
-#endif
   );
 }
 
@@ -839,14 +807,8 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
       fd->loc.linnum,                     // FIXME: scope line
       DIFlags::FlagPrototyped,            // Flags
       isOptimizationEnabled()             // isOptimized
-#if LDC_LLVM_VER < 308
-      ,
-      DtoFunction(fd)
-#endif
       );
-#if LDC_LLVM_VER >= 308
   DtoFunction(fd)->setSubprogram(SP);
-#endif
   return SP;
 }
 
@@ -883,15 +845,9 @@ ldc::DISubprogram ldc::DIBuilder::EmitThunk(llvm::Function *Thunk,
       fd->loc.linnum,                     // FIXME: scope line
       DIFlags::FlagPrototyped,            // Flags
       isOptimizationEnabled()             // isOptimized
-#if LDC_LLVM_VER < 308
-      ,
-      DtoFunction(fd)
-#endif
       );
-#if LDC_LLVM_VER >= 308
   if (fd->fbody)
     DtoFunction(fd)->setSubprogram(SP);
-#endif
   return SP;
 }
 
@@ -912,11 +868,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function *Fn,
   // Create "dummy" subroutine type for the return type
   LLMetadata *params = {CreateTypeDescription(Type::tvoid)};
   auto paramsArray = DBuilder.getOrCreateTypeArray(params);
-#if LDC_LLVM_VER >= 308
   auto DIFnType = DBuilder.createSubroutineType(paramsArray);
-#else
-  auto DIFnType = DBuilder.createSubroutineType(file, paramsArray);
-#endif
 
   // FIXME: duplicates?
   auto SP =
@@ -931,14 +883,8 @@ ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function *Fn,
                               0,             // FIXME: scope line
                               DIFlags::FlagPrototyped | DIFlags::FlagArtificial,
                               isOptimizationEnabled() // isOptimized
-#if LDC_LLVM_VER < 308
-                              ,
-                              Fn
-#endif
                               );
-#if LDC_LLVM_VER >= 308
   Fn->setSubprogram(SP);
-#endif
   return SP;
 }
 
@@ -1079,16 +1025,12 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     // for the DI reference.
     useDbgValueIntrinsic =
         isPassedExplicitlyByval || (!isSpecialRefVar(vd) && isRefRVal);
-#if LDC_LLVM_VER >= 308
     // Note: createReferenceType expects the size to be the size of a pointer,
     // not the size of the type the reference refers to.
     TD = DBuilder.createReferenceType(
         llvm::dwarf::DW_TAG_reference_type, TD,
         gDataLayout->getPointerSizeInBits(), // size (bits)
         DtoAlignment(type) * 8);             // align (bits)
-#else
-    TD = DBuilder.createReferenceType(llvm::dwarf::DW_TAG_reference_type, TD);
-#endif
   } else {
     // FIXME: For MSVC x64 targets, declare dynamic array and vector parameters
     //        as DI locals to work around garbage for both cdb and VS debuggers.
@@ -1102,31 +1044,11 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
   // get variable description
   assert(!vd->isDataseg() && "static variable");
 
-#if LDC_LLVM_VER < 308
-  unsigned tag;
-  if (!forceAsLocal && vd->isParameter()) {
-    tag = llvm::dwarf::DW_TAG_arg_variable;
-  } else {
-    tag = llvm::dwarf::DW_TAG_auto_variable;
-  }
-#endif
-
   ldc::DILocalVariable debugVariable;
   auto Flags = !isThisPtr
                    ? DIFlagZero
                    : DIFlags::FlagArtificial | DIFlags::FlagObjectPointer;
 
-#if LDC_LLVM_VER < 308
-  debugVariable = DBuilder.createLocalVariable(tag,                 // tag
-                                               GetCurrentScope(),   // scope
-                                               vd->toChars(),       // name
-                                               CreateFile(vd),      // file
-                                               vd->loc.linnum,      // line num
-                                               TD,                  // type
-                                               true,                // preserve
-                                               Flags                // flags
-                                               );
-#else
   if (!forceAsLocal && vd->isParameter()) {
     FuncDeclaration *fd = vd->parent->isFuncDeclaration();
     assert(fd);
@@ -1159,7 +1081,6 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
                                                 Flags              // flags
                                                 );
   }
-#endif
   variableMap[vd] = debugVariable;
 
   if (useDbgValueIntrinsic) {

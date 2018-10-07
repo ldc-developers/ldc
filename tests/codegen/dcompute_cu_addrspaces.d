@@ -1,4 +1,3 @@
-// REQUIRES: atleast_llvm309
 // REQUIRES: target_NVPTX
 // RUN: %ldc -c -mdcompute-targets=cuda-350 -m64 -mdcompute-file-prefix=addrspace -output-ll -output-o %s && FileCheck %s --check-prefix=LL < addrspace_cuda350_64.ll && FileCheck %s --check-prefix=PTX < addrspace_cuda350_64.ptx
 @compute(CompileFor.deviceOnly) module dcompute_cu_addrspaces;

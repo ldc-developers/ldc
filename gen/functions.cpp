@@ -1056,12 +1056,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     gIR->scopes.pop_back();
   };
 
-// Set the FastMath options for this function scope.
-#if LDC_LLVM_VER >= 308
+  // Set the FastMath options for this function scope.
   gIR->scopes.back().builder.setFastMathFlags(irFunc->FMF);
-#else
-  gIR->scopes.back().builder.SetFastMathFlags(irFunc->FMF);
-#endif
 
   // @naked: emit body and return, no prologue/epilogue
   if (func->hasFnAttribute(llvm::Attribute::Naked)) {
@@ -1097,18 +1093,12 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // disable frame-pointer-elimination for functions with inline asm
   if (fd->hasReturnExp & 8) // has inline asm
   {
-#if LDC_LLVM_VER >= 309
     func->addAttribute(
         LLAttributeSet::FunctionIndex,
         llvm::Attribute::get(gIR->context(), "no-frame-pointer-elim", "true"));
     func->addAttribute(
         LLAttributeSet::FunctionIndex,
         llvm::Attribute::get(gIR->context(), "no-frame-pointer-elim-non-leaf"));
-#else
-    // hack: emit a call to llvm_eh_unwind_init
-    LLFunction *hack = GET_INTRINSIC_DECL(eh_unwind_init);
-    gIR->ir->CreateCall(hack, {});
-#endif
   }
 
   // give the 'this' parameter (an lvalue) storage and debug info

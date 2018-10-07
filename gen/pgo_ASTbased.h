@@ -41,13 +41,8 @@ class ForeachRangeStatement;
 class CodeGenPGO {
 public:
   CodeGenPGO()
-      : NumRegionCounters(0), FunctionHash(0), CurrentRegionCount(0)
-#if LDC_LLVM_VER >= 309
-        ,
-        NumValueSites({{0}})
-#endif
-  {
-  }
+      : NumRegionCounters(0), FunctionHash(0), CurrentRegionCount(0),
+        NumValueSites({{0}}) {}
 
   /// Whether or not we emit PGO instrumentation for the current function.
   bool emitsInstrumentation() const { return emitInstrumentation; }
@@ -150,10 +145,8 @@ private:
   std::vector<uint64_t> RegionCounts;
   uint64_t CurrentRegionCount;
 
-#if LDC_LLVM_VER >= 309
   std::array<unsigned, llvm::IPVK_Last + 1> NumValueSites;
   std::unique_ptr<llvm::InstrProfRecord> ProfRecord;
-#endif
 
   /// \brief A flag that is set to false when instrumentation code should not be
   /// emitted for this function.
@@ -173,9 +166,6 @@ private:
   void setFuncName(llvm::Function *Fn);
   void setFuncName(llvm::StringRef Name,
                    llvm::GlobalValue::LinkageTypes Linkage);
-#if LDC_LLVM_VER < 308
-  void createFuncNameVar(llvm::GlobalValue::LinkageTypes Linkage);
-#endif
   void mapRegionCounters(const FuncDeclaration *D);
   void computeRegionCounts(const FuncDeclaration *D);
   void applyFunctionAttributes(llvm::Function *Fn);

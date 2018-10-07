@@ -37,12 +37,6 @@
 
 using namespace llvm;
 
-#if LDC_LLVM_VER >= 308
-typedef AAResultsWrapperPass AliasAnalysisPass;
-#else
-typedef AliasAnalysis AliasAnalysisPass;
-#endif
-
 STATISTIC(NumSimplified, "Number of runtime calls simplified");
 STATISTIC(NumDeleted, "Number of runtime calls deleted");
 
@@ -330,10 +324,10 @@ public:
   void InitOptimizations();
   bool runOnFunction(Function &F) override;
 
-  bool runOnce(Function &F, const DataLayout *DL, AliasAnalysisPass &AA);
+  bool runOnce(Function &F, const DataLayout *DL, AAResultsWrapperPass &AA);
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<AliasAnalysisPass>();
+    AU.addRequired<AAResultsWrapperPass>();
   }
 };
 char SimplifyDRuntimeCalls::ID = 0;
@@ -384,7 +378,7 @@ bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
   }
 
   const DataLayout *DL = &F.getParent()->getDataLayout();
-  AliasAnalysisPass &AA = getAnalysis<AliasAnalysisPass>();
+  AAResultsWrapperPass &AA = getAnalysis<AAResultsWrapperPass>();
 
   // Iterate to catch opportunities opened up by other optimizations,
   // such as calls that are only used as arguments to unused calls:
@@ -402,7 +396,7 @@ bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
 }
 
 bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout *DL,
-                                    AliasAnalysisPass &AAP) {
+                                    AAResultsWrapperPass &AAP) {
   IRBuilder<> Builder(F.getContext());
 
   bool Changed = false;
@@ -435,11 +429,7 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout *DL,
       --ciIt;
       Builder.SetInsertPoint(&BB, I);
 
-#if LDC_LLVM_VER >= 308
       AliasAnalysis &AA = AAP.getAAResults();
-#else
-      AliasAnalysis &AA = AAP;
-#endif
       // Try to optimize this call.
       Value *Result = OMI->second->OptimizeCall(CI, Changed, DL, AA, Builder);
       if (Result == nullptr) {
@@ -455,14 +445,8 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout *DL,
       if (Result == CI) {
         assert(CI->use_empty());
         ++NumDeleted;
-#if LDC_LLVM_VER < 308
-        AA.deleteValue(CI);
-#endif
       } else {
         ++NumSimplified;
-#if LDC_LLVM_VER < 308
-        AA.replaceWithNewValue(CI, Result);
-#endif
 
         if (!CI->use_empty()) {
           CI->replaceAllUsesWith(Result);
