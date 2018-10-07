@@ -26,7 +26,7 @@ int main(string[] args)
 // CDB: bp `baseclass_cdb.d:28`
 // CDB: g
     return 0;
-// CHECK: !baseclass_cdb::main
+// CHECK: !baseclass_cdb::D main
 
 // CDB: ?? dc
 // cdb doesn't show base class info, but lists their members

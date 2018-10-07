@@ -20,7 +20,7 @@ int main(string[] args)
 // CDB: bp `strings_cdb.d:22`
 // CDB: g
     return 0;
-// CHECK: !strings_cdb::main
+// CHECK: !strings_cdb::D main
 
 // CDB: dt string
 // CHECK: !string

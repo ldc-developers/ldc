@@ -917,7 +917,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
     name = fd->toPrettyChars(true);
   } else {
     scope = GetSymbolScope(fd);
-    name = fd->toChars();
+    name = fd->isMain() ? fd->toPrettyChars(true) : fd->toChars();
   }
 
   const auto linkageName = irFunc->getLLVMFuncName();
