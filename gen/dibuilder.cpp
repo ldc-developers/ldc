@@ -85,7 +85,8 @@ bool ldc::DIBuilder::mustEmitLocationsDebugInfo() {
 
 ldc::DIBuilder::DIBuilder(IRState *const IR)
     : IR(IR), DBuilder(IR->module), CUNode(nullptr),
-      isTargetMSVCx64(global.params.targetTriple->isWindowsMSVCEnvironment() &&
+      isTargetMSVC(global.params.targetTriple->isWindowsMSVCEnvironment()),
+      isTargetMSVCx64(isTargetMSVC &&
                       global.params.targetTriple->isArch64Bit()) {}
 
 llvm::LLVMContext &ldc::DIBuilder::getContext() { return IR->context(); }
@@ -195,7 +196,7 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
     Encoding = DW_ATE_boolean;
     break;
   case Tchar:
-    if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+    if (isTargetMSVC) {
       // VS debugger does not support DW_ATE_UTF for char
       Encoding = DW_ATE_unsigned_char;
       break;
@@ -206,7 +207,7 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
     Encoding = DW_ATE_UTF;
     break;
   case Tint8:
-    if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+    if (isTargetMSVC) {
       // VS debugger does not support DW_ATE_signed for 8-bit
       Encoding = DW_ATE_signed_char;
       break;
@@ -219,7 +220,7 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
     Encoding = DW_ATE_signed;
     break;
   case Tuns8:
-    if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+    if (isTargetMSVC) {
       // VS debugger does not support DW_ATE_unsigned for 8-bit
       Encoding = DW_ATE_unsigned_char;
       break;
@@ -239,7 +240,7 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
   case Timaginary32:
   case Timaginary64:
   case Timaginary80:
-    if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+    if (isTargetMSVC) {
       // DW_ATE_imaginary_float not supported by the LLVM DWARF->CodeView
       // conversion
       Encoding = DW_ATE_float;
@@ -250,7 +251,7 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
   case Tcomplex32:
   case Tcomplex64:
   case Tcomplex80:
-    if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+    if (isTargetMSVC) {
       // DW_ATE_complex_float not supported by the LLVM DWARF->CodeView
       // conversion
       return CreateComplexType(t);
@@ -825,7 +826,7 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
   auto producerName = std::string("LDC ") + ldc::ldc_version + " (LLVM " +
                       ldc::llvm_version + ")";
 
-  if (global.params.targetTriple->isWindowsMSVCEnvironment())
+  if (isTargetMSVC)
     IR->module.addModuleFlag(llvm::Module::Warning, "CodeView", 1);
   else if (global.params.dwarfVersion > 0)
     IR->module.addModuleFlag(llvm::Module::Warning, "Dwarf Version",
@@ -907,8 +908,18 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
   assert(GetCU() &&
          "Compilation unit missing or corrupted in DIBuilder::EmitSubProgram");
 
-  const auto scope = GetSymbolScope(fd);
-  const auto name = fd->toChars();
+  // FIXME: work around apparent LLVM CodeView bug wrt. nested functions
+  ldc::DIScope scope;
+  const char *name;
+  if (isTargetMSVC && fd->toParent2()->isFuncDeclaration()) {
+    // emit into module & use fully qualified name
+    scope = GetCU();
+    name = fd->toPrettyChars(true);
+  } else {
+    scope = GetSymbolScope(fd);
+    name = fd->toChars();
+  }
+
   const auto linkageName = irFunc->getLLVMFuncName();
   const auto file = CreateFile(fd);
   const auto lineNo = fd->loc.linnum;

@@ -64,6 +64,7 @@ class DIBuilder {
 
   DICompileUnit CUNode;
 
+  const bool isTargetMSVC;
   const bool isTargetMSVCx64;
 
   llvm::DenseMap<Declaration*, llvm::TypedTrackingMDRef<llvm::MDNode>> StaticDataMemberCache;

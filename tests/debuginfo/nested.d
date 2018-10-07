@@ -24,7 +24,7 @@ void encloser(int arg0, int arg1)
     }
 }
 
-// CHECK-LABEL: !DISubprogram(name:{{.*}}"nested"
+// CHECK-LABEL: !DISubprogram(name:{{.*}}nested"
 // CHECK: !DILocalVariable{{.*}}nes_i
 // CHECK: !DILocalVariable{{.*}}arg1
 // CHECK-NOT: arg:
