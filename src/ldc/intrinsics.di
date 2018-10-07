@@ -19,43 +19,26 @@ else
     static assert(false, "This module is only valid for LDC");
 }
 
-version(LDC_LLVM_307)
+version(LDC_LLVM_309)
 {
-}
-else version(LDC_LLVM_308)
-{
-    version = INTRINSICS_FROM_308;
-}
-else version(LDC_LLVM_309)
-{
-    version = INTRINSICS_FROM_308;
-    version = INTRINSICS_FROM_309;
 }
 else version(LDC_LLVM_400)
 {
-    version = INTRINSICS_FROM_308;
-    version = INTRINSICS_FROM_309;
     version = INTRINSICS_FROM_400;
 }
 else version(LDC_LLVM_500)
 {
-    version = INTRINSICS_FROM_308;
-    version = INTRINSICS_FROM_309;
     version = INTRINSICS_FROM_400;
     version = INTRINSICS_FROM_500;
 }
 else version(LDC_LLVM_600)
 {
-    version = INTRINSICS_FROM_308;
-    version = INTRINSICS_FROM_309;
     version = INTRINSICS_FROM_400;
     version = INTRINSICS_FROM_500;
     version = INTRINSICS_FROM_600;
 }
 else version(LDC_LLVM_700)
 {
-    version = INTRINSICS_FROM_308;
-    version = INTRINSICS_FROM_309;
     version = INTRINSICS_FROM_400;
     version = INTRINSICS_FROM_500;
     version = INTRINSICS_FROM_600;
@@ -409,14 +392,11 @@ pragma(LDC_intrinsic, "llvm.maxnum.f#")
 // BIT MANIPULATION INTRINSICS
 //
 
-version(INTRINSICS_FROM_309)
-{
 /// The 'llvm.bitreverse' family of intrinsics is used to reverse the bitpattern
 /// of an integer value; for example 0b10110110 becomes 0b01101101.
 pragma(LDC_intrinsic, "llvm.bitreverse.i#")
     T llvm_bitreverse(T)(T val)
         if (__traits(isIntegral, T));
-}
 
 /// The 'llvm.bswap' family of intrinsics is used to byte swap integer values
 /// with an even number of bytes (positive multiple of 16 bits). These are

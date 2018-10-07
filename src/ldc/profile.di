@@ -31,26 +31,7 @@ nothrow:
 extern(C++) struct ProfileData {
     // This has to match INSTR_PROF_DATA in profile-rt/InstrProfData.inc
 
-    version(LDC_LLVM_307)
-    {
-        uint NameSize;
-        uint NumCounters;
-        ulong FuncHash;
-        immutable(char)* Name;
-        ulong* Counters;
-    }
-    else version(LDC_LLVM_308)
-    {
-        uint NameSize;
-        uint NumCounters;
-        ulong FuncHash;
-        immutable(char)* Name;
-        ulong* Counters;
-        void* FunctionPointer;
-        void* Values;
-        ushort NumValueSites;
-    }
-    else version(LDC_LLVM_309)
+    version(LDC_LLVM_309)
     {
         ulong NameRef;
         ulong FuncHash;
