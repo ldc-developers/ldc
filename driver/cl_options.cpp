@@ -295,6 +295,11 @@ cl::opt<std::string>
                         "'-deps' alone prints module dependencies "
                         "(imports/file/version/debug/lib)"));
 
+cl::opt<bool>
+    cppImitatingNaming("cpp-imitating-naming",
+                       cl::desc("Imitate C++ type names for debugger"),
+                       cl::ZeroOrMore);
+
 cl::opt<bool> m32bits("m32", cl::desc("32 bit target"), cl::ZeroOrMore);
 
 cl::opt<bool> m64bits("m64", cl::desc("64 bit target"), cl::ZeroOrMore);

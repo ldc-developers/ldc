@@ -70,6 +70,8 @@ extern cl::list<std::string> linkerSwitches;
 extern cl::list<std::string> ccSwitches;
 extern cl::list<std::string> includeModulePatterns;
 
+extern cl::opt<bool> cppImitatingNaming;
+
 extern cl::opt<bool> m32bits;
 extern cl::opt<bool> m64bits;
 extern cl::opt<std::string> mTargetTriple;
