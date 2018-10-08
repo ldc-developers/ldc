@@ -817,17 +817,21 @@ public:
     }
     assert(isaPointer(baseValue));
 
-    llvm::Value *offsetValue;
+    llvm::Value *offsetValue = nullptr;
 
     if (e->offset == 0) {
       offsetValue = baseValue;
     } else {
-      uint64_t elemSize = gDataLayout->getTypeAllocSize(
-          baseValue->getType()->getContainedType(0));
-      if (e->offset % elemSize == 0) {
-        // We can turn this into a "nice" GEP.
-        offsetValue = DtoGEPi1(baseValue, e->offset / elemSize);
-      } else {
+      LLType *elemType = baseValue->getType()->getContainedType(0);
+      if (elemType->isSized()) {
+        uint64_t elemSize = gDataLayout->getTypeAllocSize(elemType);
+        if (e->offset % elemSize == 0) {
+          // We can turn this into a "nice" GEP.
+          offsetValue = DtoGEPi1(baseValue, e->offset / elemSize);
+        }
+      }
+
+      if (!offsetValue) {
         // Offset isn't a multiple of base type size, just cast to i8* and
         // apply the byte offset.
         offsetValue =
