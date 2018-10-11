@@ -424,8 +424,8 @@ DIType DIBuilder::CreateComplexType(Type *type) {
                                    uniqueIdent(t)); // UniqueIdentifier
 }
 
-DIType DIBuilder::CreateNestedType(unsigned linnum, Type *type, DIFile file,
-                                   const char *c_name) {
+DIType DIBuilder::CreateTypedef(unsigned linnum, Type *type, DIFile file,
+                                const char *c_name) {
   Type *t = type->toBasetype();
 
   // translate functions to function pointers
@@ -705,8 +705,8 @@ DIType DIBuilder::CreateAArrayType(Type *type) {
   DIFile file = CreateFile();
 
   LLMetadata *elems[] = {
-      CreateNestedType(0, index, file, "__key_t"),
-      CreateNestedType(0, value, file, "__val_t"),
+      CreateTypedef(0, index, file, "__key_t"),
+      CreateTypedef(0, value, file, "__val_t"),
       CreateMemberType(0, Type::tvoidptr, file, "ptr", 0, Prot::public_)
   };
 

@@ -179,8 +179,8 @@ private:
   DIType CreatePointerType(Type *type);
   DIType CreateVectorType(Type *type);
   DIType CreateComplexType(Type *type);
-  DIType CreateNestedType(unsigned linnum, Type *type, DIFile file,
-                          const char *c_name);
+  DIType CreateTypedef(unsigned linnum, Type *type, DIFile file,
+                       const char *c_name);
   DIType CreateMemberType(unsigned linnum, Type *type, DIFile file,
                           const char *c_name, unsigned offset, Prot::Kind,
                           bool isStatic = false, DIScope scope = nullptr);

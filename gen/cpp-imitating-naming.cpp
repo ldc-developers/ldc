@@ -10,8 +10,17 @@
 #include <string>
 #include <cctype>
 
-#include "driver/cl_options.h"
+#include "driver/cl_options-llvm.h"
 #include "gen/cpp-imitating-naming.h"
+
+////////////////////////////////////////////////////////////////////////////////
+namespace cl = llvm::cl;
+
+////////////////////////////////////////////////////////////////////////////////
+static cl::opt<bool>
+    cppImitatingNaming("cpp-imitating-naming",
+                       cl::desc("Imitate C++ type names for debugger"),
+                       cl::ZeroOrMore);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -268,6 +277,6 @@ std::string convertDTypeName(const std::string &originalName) {
 ////////////////////////////////////////////////////////////////////////////////
 
 std::string processDITypeName(const std::string &originalName) {
-  return opts::cppImitatingNaming ? convertDTypeName(originalName)
+  return cppImitatingNaming ? convertDTypeName(originalName)
                                   : originalName;
 }
