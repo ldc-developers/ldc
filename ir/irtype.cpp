@@ -50,13 +50,14 @@ llvm::Type *getReal80Type(llvm::LLVMContext &ctx) {
   llvm::Triple::ArchType const a = global.params.targetTriple->getArch();
   bool const anyX86 = (a == llvm::Triple::x86) || (a == llvm::Triple::x86_64);
   bool const anyAarch64 = (a == llvm::Triple::aarch64) || (a == llvm::Triple::aarch64_be);
+  bool const isAndroid = global.params.targetTriple->getEnvironment() == llvm::Triple::Android;
 
   // only x86 has 80bit float - but no support with MS C Runtime!
-  if (anyX86 && !global.params.targetTriple->isWindowsMSVCEnvironment()) {
+  if (anyX86 && !global.params.targetTriple->isWindowsMSVCEnvironment() && !isAndroid) {
     return llvm::Type::getX86_FP80Ty(ctx);
   }
 
-  if (anyAarch64) {
+  if (anyAarch64 || (isAndroid && a == llvm::Triple::x86_64)) {
     return llvm::Type::getFP128Ty(ctx);
   }
 

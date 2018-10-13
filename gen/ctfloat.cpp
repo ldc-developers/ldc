@@ -48,10 +48,10 @@ void CTFloat::_init() {
   if (sizeof(real_t) == 8) {
     apSemantics = &(APFloat::IEEEdouble AP_SEMANTICS_PARENS);
   } else {
-#if __i386__ || __x86_64__ || _M_IX86 || _M_X64
-    apSemantics = &(APFloat::x87DoubleExtended AP_SEMANTICS_PARENS);
-#elif __aarch64__
+#if __aarch64__ || (__ANDROID__ && __LP64__)
     apSemantics = &(APFloat::IEEEquad AP_SEMANTICS_PARENS);
+#elif __i386__ || __x86_64__ || _M_IX86 || _M_X64
+    apSemantics = &(APFloat::x87DoubleExtended AP_SEMANTICS_PARENS);
 #elif __ppc__ || __ppc64__
     apSemantics = &(APFloat::PPCDoubleDouble AP_SEMANTICS_PARENS);
 #else
