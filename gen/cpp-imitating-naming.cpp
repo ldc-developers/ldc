@@ -18,7 +18,7 @@ namespace cl = llvm::cl;
 
 ////////////////////////////////////////////////////////////////////////////////
 static cl::opt<bool>
-    cppImitatingNaming("cpp-imitating-naming",
+    cppImitatingNaming("di-imitate-cpp-naming",
                        cl::desc("Imitate C++ type names for debugger"),
                        cl::ZeroOrMore);
 
