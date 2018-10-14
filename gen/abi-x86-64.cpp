@@ -59,24 +59,38 @@ LLType *getAbiType(Type *ty) {
   }
 
   // Okay, we may need to transform. Figure out a canonical type:
+  llvm::SmallVector<Type *, 2> argTypes;
 
-  TypeTuple *argTypes = Target::toArgTypes(ty);
-  if (!argTypes || argTypes->arguments->empty()) {
-    return nullptr; // don't rewrite
+  // try to reuse cached arg{1,2}type of StructDeclarations
+  if (ty->ty == Tstruct) {
+    const auto sd = static_cast<TypeStruct *>(ty)->sym;
+    if (sd && sd->sizeok == SIZEOKdone) {
+      if (!sd->arg1type) {
+        return nullptr; // don't rewrite
+      }
+      argTypes.push_back(sd->arg1type);
+      if (sd->arg2type) {
+        argTypes.push_back(sd->arg2type);
+      }
+    }
+  }
+
+  if (argTypes.empty()) {
+    TypeTuple *tuple = Target::toArgTypes(ty);
+    if (!tuple || tuple->arguments->empty()) {
+      return nullptr; // don't rewrite
+    }
+    for (auto param : *tuple->arguments) {
+      argTypes.push_back(param->type);
+    }
   }
 
   LLType *abiTy = nullptr;
-  if (argTypes->arguments->size() == 1) {
-    abiTy = DtoType((*argTypes->arguments->begin())->type);
-    // don't rewrite to a single bit (assertions in tollvm.cpp), choose a byte
-    // instead
-    abiTy = i1ToI8(abiTy);
+  if (argTypes.size() == 1) {
+    abiTy = DtoType(argTypes[0]);
   } else {
-    llvm::SmallVector<LLType *, 4> parts;
-    for (auto param : *argTypes->arguments) {
-      parts.push_back(DtoType(param->type));
-    }
-    abiTy = LLStructType::get(gIR->context(), parts);
+    abiTy = LLStructType::get(gIR->context(),
+                              {DtoType(argTypes[0]), DtoType(argTypes[1])});
   }
 
   return abiTy;
