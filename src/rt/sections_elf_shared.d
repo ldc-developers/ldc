@@ -292,12 +292,18 @@ else
      */
     Array!(void[])* initTLSRanges() nothrow @nogc
     {
-        return &_tlsRanges;
+        if (!_tlsRanges)
+        {
+            _tlsRanges = cast(Array!(void[])*)calloc(1, Array!(void[]).sizeof);
+            _tlsRanges || assert(0, "Could not allocate TLS range storage");
+        }
+        return _tlsRanges;
     }
 
     void finiTLSRanges(Array!(void[])* rngs) nothrow @nogc
     {
         rngs.reset();
+        .free(rngs);
     }
 
     void scanTLSRanges(Array!(void[])* rngs, scope ScanDG dg) nothrow
@@ -378,7 +384,7 @@ else
      * Thread local array that contains TLS memory ranges for each
      * library initialized in this thread.
      */
-    Array!(void[]) _tlsRanges;
+    Array!(void[])* _tlsRanges;
 
     enum _rtLoading = false;
 }
@@ -483,7 +489,7 @@ extern(C) void _d_dso_registry(void* arg)
             }
             foreach (p; _loadedDSOs) assert(p !is pdso);
             _loadedDSOs.insertBack(pdso);
-            _tlsRanges.insertBack(pdso.tlsRange());
+            initTLSRanges().insertBack(pdso.tlsRange());
         }
 
         // don't initialize modules before rt_init was called (see Bugzilla 11378)
