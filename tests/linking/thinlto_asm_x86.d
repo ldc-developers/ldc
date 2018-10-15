@@ -1,6 +1,5 @@
 // ThinLTO: Test inline assembly functions with thinlto
 
-// REQUIRES: atleast_llvm309
 // REQUIRES: LTO
 // REQUIRES: host_X86
 

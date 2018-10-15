@@ -3,9 +3,6 @@
 // compile unit, subprogram and file.
 // Also checks that no type attributes are emitted
 
-// REQUIRES: atleast_llvm309
-// reason: different llvm version emits far different metadata in IR code
-
 int main() {
   // CHECK: ret i32 0, !dbg
   return 0;

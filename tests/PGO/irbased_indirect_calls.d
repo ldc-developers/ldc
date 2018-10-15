@@ -2,8 +2,6 @@
 
 // REQUIRES: PGO_RT
 
-// REQUIRES: atleast_llvm309
-
 // RUN: %ldc -O3 -fprofile-generate=%t.profraw -run %s  \
 // RUN:   &&  %profdata merge %t.profraw -o %t.profdata \
 // RUN:   &&  %ldc -O3 -c -output-ll -of=%t.use.ll -fprofile-use=%t.profdata %s \

@@ -612,7 +612,6 @@ void loadInstrProfileData(IRState *irs) {
 
     auto readerOrErr =
         llvm::IndexedInstrProfReader::create(global.params.datafileInstrProf);
-#if LDC_LLVM_VER >= 309
     if (auto E = readerOrErr.takeError()) {
       handleAllErrors(std::move(E), [&](const llvm::ErrorInfoBase &EI) {
         irs->dmodule->error("Could not read profile file '%s': %s",
@@ -621,18 +620,8 @@ void loadInstrProfileData(IRState *irs) {
       });
       fatal();
     }
-#else
-    std::error_code EC = readerOrErr.getError();
-    if (EC) {
-      irs->dmodule->error("Could not read profile file '%s': %s",
-                          global.params.datafileInstrProf,
-                          EC.message().c_str());
-      fatal();
-    }
-#endif
     irs->PGOReader = std::move(readerOrErr.get());
 
-#if LDC_LLVM_VER >= 309
     if (!irs->module.getProfileSummary()) {
       // Don't reset the summary. There is only one profile data file per LDC
       // invocation so the summary must be the same as the one that is already
@@ -640,15 +629,6 @@ void loadInstrProfileData(IRState *irs) {
       irs->module.setProfileSummary(
           irs->PGOReader->getSummary().getMD(irs->context()));
     }
-#elif LDC_LLVM_VER == 308
-    auto maxCount = irs->PGOReader->getMaximumFunctionCount();
-    if (!irs->module.getMaximumFunctionCount()) {
-      // Don't reset the max function count. There is only one profile data file
-      // per LDC invocation so the information must be the same as the one that
-      // is already set.
-      irs->module.setMaximumFunctionCount(maxCount);
-    }
-#endif
   }
 }
 

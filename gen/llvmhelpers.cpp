@@ -71,11 +71,7 @@ bool isTargetWindowsMSVC() {
 }
 
 bool isMusl() {
-#if LDC_LLVM_VER >= 309
   return global.params.targetTriple->isMusl();
-#else
-  return false;
-#endif
 }
 
 /******************************************************************************

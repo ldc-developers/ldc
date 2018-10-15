@@ -1,7 +1,5 @@
 // Test value name discarding in conjunction with the compile cache: local variable name changes should still give a cache hit.
 
-// REQUIRES: atleast_llvm309
-
 // Create and then empty the cache for correct testing when running the test multiple times.
 // RUN: %ldc %s -c -of=%t%obj -cache=%t-dir
 // RUN: %prunecache -f %t-dir --max-bytes=1

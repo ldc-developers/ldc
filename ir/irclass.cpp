@@ -386,13 +386,8 @@ void IrAggr::defineInterfaceVtbl(BaseClass *b, bool new_instance,
       setLinkage(lwc, thunk);
       thunk->copyAttributesFrom(callee);
 
-// Thunks themselves don't have an identity, only the target
-// function has.
-#if LDC_LLVM_VER >= 309
+      // Thunks themselves don't have an identity, only the target function has.
       thunk->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-#else
-      thunk->setUnnamedAddr(true);
-#endif
 
       // thunks don't need exception handling themselves
       thunk->setPersonalityFn(nullptr);

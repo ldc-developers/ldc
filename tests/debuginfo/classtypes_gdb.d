@@ -1,4 +1,4 @@
-// REQUIRES: atleast_llvm308
+
 // REQUIRES: gdb
 // RUN: %ldc %_gdb_dflags -g -of=%t %s
 // RUN: sed -e "/^\\/\\/ GDB:/!d" -e "s,// GDB:,," %s >%t.gdb

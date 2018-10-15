@@ -29,11 +29,7 @@ namespace opts {
 
 std::string getArchStr() { return ::MArch; }
 
-#if LDC_LLVM_VER >= 309
 Optional<Reloc::Model> getRelocModel() { return ::getRelocModel(); }
-#else
-Reloc::Model getRelocModel() { return ::RelocModel; }
-#endif
 
 #if LDC_LLVM_VER >= 600
 Optional<CodeModel::Model> getCodeModel() { return ::getCodeModel(); }

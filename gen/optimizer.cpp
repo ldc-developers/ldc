@@ -214,11 +214,7 @@ static void addPGOPasses(PassManagerBuilder &builder,
     options.NoRedZone = global.params.disableRedZone;
     if (global.params.datafileInstrProf)
       options.InstrProfileOutput = global.params.datafileInstrProf;
-#if LDC_LLVM_VER >= 309
     mpm.add(createInstrProfilingLegacyPass(options));
-#else
-    mpm.add(createInstrProfilingPass(options));
-#endif
   } else if (opts::isUsingASTBasedPGOProfile()) {
 // We are generating code with PGO profile information available.
 #if LDC_LLVM_VER >= 500
@@ -228,7 +224,6 @@ static void addPGOPasses(PassManagerBuilder &builder,
     }
 #endif
   }
-#if LDC_LLVM_VER >= 309
   else if (opts::isInstrumentingForIRBasedPGO()) {
 #if LDC_LLVM_VER >= 400
     builder.EnablePGOInstrGen = true;
@@ -237,7 +232,6 @@ static void addPGOPasses(PassManagerBuilder &builder,
   } else if (opts::isUsingIRBasedPGOProfile()) {
     builder.PGOInstrUse = global.params.datafileInstrProf;
   }
-#endif
 }
 
 /**
@@ -257,10 +251,8 @@ static void addOptimizationPasses(legacy::PassManagerBase &mpm,
   PassManagerBuilder builder;
   builder.OptLevel = optLevel;
   builder.SizeLevel = sizeLevel;
-#if LDC_LLVM_VER >= 309
   builder.PrepareForLTO = opts::isUsingLTO();
   builder.PrepareForThinLTO = opts::isUsingThinLTO();
-#endif
 
   if (willInline()) {
 #if LDC_LLVM_VER >= 400

@@ -15,7 +15,6 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 
-#if LDC_LLVM_VER >= 309
 namespace llvm {
 // Auto-generate:
 // Attribute::AttrKind getAttrKindFromName(StringRef AttrName) { ... }
@@ -26,7 +25,6 @@ namespace llvm {
 #include "llvm/IR/Attributes.inc"
 #endif
 }
-#endif
 
 namespace {
 
@@ -172,8 +170,6 @@ void applyAttrAllocSize(StructLiteralExp *sle, IrFunction *irFunc) {
   if (error)
     return;
 
-// The allocSize attribute is only effective for LLVM >= 3.9.
-#if LDC_LLVM_VER >= 309
   // Get the number of parameters of the function in LLVM IR. This includes
   // the `this` and sret parameters.
   const auto llvmNumParams = irFunc->irFty.funcType->getNumParams();
@@ -208,7 +204,6 @@ void applyAttrAllocSize(StructLiteralExp *sle, IrFunction *irFunc) {
                                           LLAttributeSet::FunctionIndex,
                                           builder));
 #endif
-#endif
 }
 
 // @llvmAttr("key", "value")
@@ -218,18 +213,10 @@ void applyAttrLLVMAttr(StructLiteralExp *sle, llvm::Function *func) {
   llvm::StringRef key = getStringElem(sle, 0);
   llvm::StringRef value = getStringElem(sle, 1);
   if (value.empty()) {
-#if LDC_LLVM_VER >= 309
     const auto kind = llvm::getAttrKindFromName(key);
     if (kind != llvm::Attribute::None) {
       func->addFnAttr(kind);
-    }
-#else
-    // no getAttrKindFromName(); just detect `naked` for now
-    if (key == "naked") {
-      func->addFnAttr(llvm::Attribute::Naked);
-    }
-#endif
-    else {
+    } else {
       func->addFnAttr(key);
     }
   } else {

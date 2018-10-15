@@ -18,9 +18,7 @@
 #include "gen/optimizer.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/Verifier.h"
-#if LDC_LLVM_VER >= 309
 #include "llvm/Analysis/ModuleSummaryAnalysis.h"
-#endif
 #if LDC_LLVM_VER >= 400
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
@@ -295,9 +293,6 @@ bool shouldOutputObjectFile() {
 }
 
 bool shouldDoLTO(llvm::Module *m) {
-#if LDC_LLVM_VER < 309
-  return false;
-#else
 #if LDC_LLVM_VER == 309
   // LLVM 3.9 bug: can't do ThinLTO with modules that have module-scope inline
   // assembly blocks (duplicate definitions upon importing from such a module).
@@ -306,7 +301,6 @@ bool shouldDoLTO(llvm::Module *m) {
     return false;
 #endif
   return opts::isUsingLTO();
-#endif
 }
 } // end of anonymous namespace
 
@@ -387,7 +381,6 @@ void writeModule(llvm::Module *m, const char *filename) {
 #endif
 
     if (opts::isUsingThinLTO()) {
-#if LDC_LLVM_VER >= 309
       Logger::println("Creating module summary for ThinLTO");
 #if LDC_LLVM_VER == 309
       // When the function freq info callback is set to nullptr, LLVM will
@@ -406,7 +399,6 @@ void writeModule(llvm::Module *m, const char *filename) {
 
       llvm::WriteBitcodeToFile(M, bos, true, &moduleSummaryIndex,
                                /* generate ThinLTO hash */ true);
-#endif
     } else {
       llvm::WriteBitcodeToFile(M, bos);
     }

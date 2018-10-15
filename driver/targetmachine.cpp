@@ -107,20 +107,12 @@ MipsABI::Type getMipsABI() {
   if (strncmp(opts::mABI.c_str(), "eabi", 4) == 0)
     return MipsABI::EABI;
 
-#if LDC_LLVM_VER >= 308
   const llvm::DataLayout dl = gTargetMachine->createDataLayout();
-#else
-  const llvm::DataLayout &dl = *gTargetMachine->getDataLayout();
-#endif
 
   if (dl.getPointerSizeInBits() == 64)
     return MipsABI::N64;
 
-#if LDC_LLVM_VER >= 309
   const auto largestInt = dl.getLargestLegalIntTypeSizeInBits();
-#else
-  const auto largestInt = dl.getLargestLegalIntTypeSize();
-#endif
   return (largestInt == 64) ? MipsABI::N32 : MipsABI::O32;
 }
 
@@ -167,40 +159,9 @@ static std::string getX86TargetCPU(const llvm::Triple &triple) {
 }
 
 static std::string getARMTargetCPU(const llvm::Triple &triple) {
-#if LDC_LLVM_VER >= 308
   auto defaultCPU = llvm::ARM::getDefaultCPU(triple.getArchName());
   if (!defaultCPU.empty())
     return defaultCPU;
-#else
-  auto defaultCPU = llvm::StringSwitch<const char *>(triple.getArchName())
-                        .Cases("armv2", "armv2a", "arm2")
-                        .Case("armv3", "arm6")
-                        .Case("armv3m", "arm7m")
-                        .Case("armv4", "strongarm")
-                        .Case("armv4t", "arm7tdmi")
-                        .Cases("armv5", "armv5t", "arm10tdmi")
-                        .Cases("armv5e", "armv5te", "arm1026ejs")
-                        .Case("armv5tej", "arm926ej-s")
-                        .Cases("armv6", "armv6k", "arm1136jf-s")
-                        .Case("armv6j", "arm1136j-s")
-                        .Cases("armv6z", "armv6zk", "arm1176jzf-s")
-                        .Case("armv6t2", "arm1156t2-s")
-                        .Cases("armv6m", "armv6-m", "cortex-m0")
-                        .Cases("armv7", "armv7a", "armv7-a", "cortex-a8")
-                        .Cases("armv7l", "armv7-l", "cortex-a8")
-                        .Cases("armv7f", "armv7-f", "cortex-a9-mp")
-                        .Cases("armv7s", "armv7-s", "swift")
-                        .Cases("armv7r", "armv7-r", "cortex-r4")
-                        .Cases("armv7m", "armv7-m", "cortex-m3")
-                        .Cases("armv7em", "armv7e-m", "cortex-m4")
-                        .Cases("armv8", "armv8a", "armv8-a", "cortex-a53")
-                        .Case("ep9312", "ep9312")
-                        .Case("iwmmxt", "iwmmxt")
-                        .Case("xscale", "xscale")
-                        .Default(nullptr);
-  if (defaultCPU)
-    return defaultCPU;
-#endif
 
   // Return the most base CPU with thumb interworking supported by LLVM.
   return (triple.getEnvironment() == llvm::Triple::GNUEABIHF) ? "arm1176jzf-s"
@@ -208,11 +169,9 @@ static std::string getARMTargetCPU(const llvm::Triple &triple) {
 }
 
 static std::string getAArch64TargetCPU(const llvm::Triple &triple) {
-#if LDC_LLVM_VER >= 309
   auto defaultCPU = llvm::AArch64::getDefaultCPU(triple.getArchName());
   if (!defaultCPU.empty())
     return defaultCPU;
-#endif
 
   return "generic";
 }
@@ -364,11 +323,7 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
                     std::string cpu, const std::string featuresString,
                     const ExplicitBitness::Type bitness,
                     FloatABI::Type &floatABI,
-#if LDC_LLVM_VER >= 309
                     llvm::Optional<llvm::Reloc::Model> relocModel,
-#else
-                    llvm::Reloc::Model relocModel,
-#endif
 #if LDC_LLVM_VER >= 600
                     llvm::Optional<llvm::CodeModel::Model> codeModel,
 #else
@@ -454,12 +409,8 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
   }
 #endif
 
-// Handle cases where LLVM picks wrong default relocModel
-#if LDC_LLVM_VER >= 309
+  // Handle cases where LLVM picks wrong default relocModel
   if (!relocModel.hasValue()) {
-#else
-  if (relocModel == llvm::Reloc::Default) {
-#endif
     if (triple.isOSDarwin()) {
       // Darwin defaults to PIC (and as of 10.7.5/LLVM 3.1-3.3, TLS use leads
       // to crashes for non-PIC code). LLVM doesn't handle this.

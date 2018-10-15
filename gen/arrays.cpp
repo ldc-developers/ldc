@@ -620,11 +620,7 @@ void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale, LLValue *dstMem) {
       auto gvar = new llvm::GlobalVariable(gIR->module, constarr->getType(),
                                            true, LLGlobalValue::InternalLinkage,
                                            constarr, ".arrayliteral");
-#if LDC_LLVM_VER >= 309
       gvar->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-#else
-      gvar->setUnnamedAddr(true);
-#endif
       DtoMemCpy(dstMem, gvar,
                 DtoConstSize_t(getTypeAllocSize(constarr->getType())));
     }

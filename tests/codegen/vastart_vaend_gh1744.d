@@ -4,9 +4,6 @@
 // test that at -O3, LLVM was able to analyse the function correctly and
 // optimize-out the va_start and va_end calls and remove the call to
 // return_two (Github #1744).
-// The optimization (removing back-to-back calls to va_start and va_end) only
-// happens from LLVM >= 3.9.
-// REQUIRES: atleast_llvm309
 // RUN: %ldc %s -c -output-ll -O3 -of=%t.O3.ll \
 // RUN:   && FileCheck %s --check-prefix OPT3 < %t.O3.ll
 

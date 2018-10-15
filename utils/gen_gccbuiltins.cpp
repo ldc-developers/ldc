@@ -107,11 +107,7 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
     replace(name.begin(), name.end(), '_', '.');
     name = string("llvm.") + name;
 
-#if LDC_LLVM_VER >= 309
     ListInit* propsList = rec.getValueAsListInit("IntrProperties");
-#else
-    ListInit* propsList = rec.getValueAsListInit("Properties");
-#endif
     string prop =
         propsList->size()
         ? propsList->getElementAsRecord(0)->getName() : "";

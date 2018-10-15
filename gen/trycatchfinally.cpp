@@ -40,12 +40,10 @@ TryCatchScope::TryCatchScope(IRState &irs, llvm::Value *ehPtrSlot,
         return true;
       });
 
-#if LDC_LLVM_VER >= 308
   if (useMSVCEH()) {
     emitCatchBodiesMSVC(irs, ehPtrSlot);
     return;
   }
-#endif
   emitCatchBodies(irs, ehPtrSlot);
 }
 
@@ -199,8 +197,6 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
   }
 }
 
-#if LDC_LLVM_VER >= 308
-
 namespace {
 void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
                         llvm::CatchSwitchInst *catchSwitchInst) {
@@ -331,18 +327,14 @@ void TryCatchScope::emitCatchBodiesMSVC(IRState &irs, llvm::Value *) {
   }
 }
 
-#endif // LDC_LLVM_VER >= 308
-
 ////////////////////////////////////////////////////////////////////////////////
 
 CleanupScope::CleanupScope(llvm::BasicBlock *beginBlock,
                            llvm::BasicBlock *endBlock) {
-#if LDC_LLVM_VER >= 308
   if (useMSVCEH()) {
     findSuccessors(blocks, beginBlock, endBlock);
     return;
   }
-#endif
   blocks.push_back(beginBlock);
   if (endBlock != beginBlock)
     blocks.push_back(endBlock);
@@ -350,10 +342,8 @@ CleanupScope::CleanupScope(llvm::BasicBlock *beginBlock,
 
 llvm::BasicBlock *CleanupScope::run(IRState &irs, llvm::BasicBlock *sourceBlock,
                                     llvm::BasicBlock *continueWith) {
-#if LDC_LLVM_VER >= 308
   if (useMSVCEH())
     return runCopying(irs, sourceBlock, continueWith);
-#endif
 
   if (exitTargets.empty() || (exitTargets.size() == 1 &&
                               exitTargets[0].branchTarget == continueWith)) {
@@ -434,7 +424,6 @@ llvm::BasicBlock *CleanupScope::run(IRState &irs, llvm::BasicBlock *sourceBlock,
   return beginBlock();
 }
 
-#if LDC_LLVM_VER >= 308
 llvm::BasicBlock *CleanupScope::runCopying(IRState &irs,
                                            llvm::BasicBlock *sourceBlock,
                                            llvm::BasicBlock *continueWith,
@@ -485,7 +474,6 @@ llvm::BasicBlock *CleanupScope::runCopying(IRState &irs,
   }
   return exitTarget.cleanupBlocks.front();
 }
-#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -523,9 +511,7 @@ void TryCatchFinallyScopes::pushTryCatch(TryCatchStatement *stmt,
 void TryCatchFinallyScopes::popTryCatch() {
   tryCatchScopes.pop_back();
   if (useMSVCEH()) {
-#if LDC_LLVM_VER >= 308
     assert(isCatchSwitchBlock(cleanupScopes.back().beginBlock()));
-#endif
     popCleanups(currentCleanupScope() - 1);
   } else {
     landingPadsPerCleanupScope[currentCleanupScope()].pop_back();
@@ -593,12 +579,10 @@ void TryCatchFinallyScopes::runCleanups(CleanupCursor targetScope,
 void TryCatchFinallyScopes::runCleanups(CleanupCursor sourceScope,
                                         CleanupCursor targetScope,
                                         llvm::BasicBlock *continueWith) {
-#if LDC_LLVM_VER >= 308
   if (useMSVCEH()) {
     runCleanupCopies(sourceScope, targetScope, continueWith);
     return;
   }
-#endif
 
   assert(targetScope <= sourceScope);
 
@@ -620,7 +604,6 @@ void TryCatchFinallyScopes::runCleanups(CleanupCursor sourceScope,
   }
 }
 
-#if LDC_LLVM_VER >= 308
 void TryCatchFinallyScopes::runCleanupCopies(CleanupCursor sourceScope,
                                              CleanupCursor targetScope,
                                              llvm::BasicBlock *continueWith) {
@@ -635,7 +618,6 @@ void TryCatchFinallyScopes::runCleanupCopies(CleanupCursor sourceScope,
   // Insert the unconditional branch to the first cleanup block.
   irs.ir->CreateBr(continueWith);
 }
-#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -705,12 +687,10 @@ namespace {
 }
 
 llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
-#if LDC_LLVM_VER >= 308
   if (useMSVCEH()) {
     assert(currentCleanupScope() > 0);
     return emitLandingPadMSVC(currentCleanupScope() - 1);
   }
-#endif
 
   // save and rewrite scope
   IRScope savedIRScope = irs.scope();
@@ -815,7 +795,6 @@ llvm::BasicBlock *TryCatchFinallyScopes::getOrCreateResumeUnwindBlock() {
   return resumeUnwindBlock;
 }
 
-#if LDC_LLVM_VER >= 308
 llvm::BasicBlock *
 TryCatchFinallyScopes::emitLandingPadMSVC(CleanupCursor cleanupScope) {
   if (!irs.func()->hasLLVMPersonalityFn()) {
@@ -895,4 +874,3 @@ TryCatchFinallyScopes::runCleanupPad(CleanupCursor scope,
 
   return cleanupbb;
 }
-#endif

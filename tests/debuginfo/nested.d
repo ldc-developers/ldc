@@ -1,5 +1,4 @@
 // Tests debug info generation for nested functions
-// REQUIRES: atleast_llvm308
 // RUN: %ldc -g -c -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 
 // CHECK: define {{.*}} @{{.*}}_D6nested8encloserFiiZv
