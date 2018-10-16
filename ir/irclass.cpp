@@ -409,6 +409,7 @@ void IrAggr::defineInterfaceVtbl(BaseClass *b, bool new_instance,
       gIR->funcGenStates.emplace_back(new FuncGenState(*thunkFunc, *gIR));
 
       // debug info
+      thunkFunc->diSubprogram = nullptr;
       thunkFunc->diSubprogram = gIR->DBuilder.EmitThunk(thunk, thunkFd);
 
       // create entry and end blocks

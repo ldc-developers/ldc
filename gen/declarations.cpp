@@ -11,6 +11,7 @@
 #include "declaration.h"
 #include "enum.h"
 #include "id.h"
+#include "import.h"
 #include "init.h"
 #include "nspace.h"
 #include "rmem.h"
@@ -46,6 +47,15 @@ public:
   void visit(Dsymbol *sym) override {
     IF_LOG Logger::println("Ignoring Dsymbol::codegen for %s",
                            sym->toPrettyChars());
+  }
+
+  //////////////////////////////////////////////////////////////////////////
+
+  void visit(Import *im) override {
+    IF_LOG Logger::println("Import::codegen for %s", im->toPrettyChars());
+    LOG_SCOPE
+
+    irs->DBuilder.EmitImport(im);
   }
 
   //////////////////////////////////////////////////////////////////////////

@@ -18,14 +18,21 @@
 #include "gen/tollvm.h"
 #include "gen/optimizer.h"
 #include "ir/irfunction.h"
+#include "ir/irmodule.h"
+#include "ir/irfuncty.h"
 #include "ir/irtypeaggr.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "enum.h"
 #include "ldcbindings.h"
+#include "import.h"
 #include "module.h"
 #include "mtype.h"
+#include "nspace.h"
+#include "template.h"
+
+#include <functional>
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -76,27 +83,53 @@ bool ldc::DIBuilder::mustEmitLocationsDebugInfo() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// get the module the symbol is in, or - for template instances - the current
-// module
-Module *ldc::DIBuilder::getDefinedModule(Dsymbol *s) {
-  // templates are defined in current module
-  if (DtoIsTemplateInstance(s)) {
-    return IR->dmodule;
-  }
-  // otherwise use the symbol's module
-  return s->getModule();
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 ldc::DIBuilder::DIBuilder(IRState *const IR)
     : IR(IR), DBuilder(IR->module), CUNode(nullptr),
-      isTargetMSVCx64(global.params.targetTriple->isWindowsMSVCEnvironment() &&
+      isTargetMSVC(global.params.targetTriple->isWindowsMSVCEnvironment()),
+      isTargetMSVCx64(isTargetMSVC &&
                       global.params.targetTriple->isArch64Bit()) {}
 
 llvm::LLVMContext &ldc::DIBuilder::getContext() { return IR->context(); }
 
+// return the scope of a global symbol
+// FIXME: template instances aren't supported properly by GDC and GDB, what debug info should we attach to them?
+ldc::DIScope ldc::DIBuilder::GetSymbolScope(Dsymbol* s) {
+  // don't recreate parent entries if we only need location debug info
+  if (!mustEmitFullDebugInfo())
+    return GetCU();
+
+  auto parent = s->toParent();
+
+  auto vd = s->isVarDeclaration();
+  if (vd && vd->isDataseg()) {
+      // static variables get attached to the module scope, but their
+      // parent composite types have to get declared
+    while (!parent->isModule()) {
+      if (parent->isAggregateDeclaration())
+        CreateCompositeTypeDescription(parent->getType());
+      parent = parent->toParent();
+    }
+  }
+
+  if (auto tempinst = parent->isTemplateInstance()) {
+      return GetSymbolScope(tempinst->tempdecl);
+  } else if (auto m = parent->isModule()) {
+    return EmitModule(m);
+  } else if (parent->isAggregateDeclaration()) {
+    return CreateCompositeTypeDescription(parent->getType());
+  } else if (auto fd = parent->isFuncDeclaration()) {
+    DtoDeclareFunction(fd);
+    return EmitSubProgram(fd);
+  } else if (auto ns = parent->isNspace()) {
+    return GetSymbolScope(ns); // FIXME DINamespace?
+  }
+
+  llvm_unreachable("Unhandled parent");
+}
+
 ldc::DIScope ldc::DIBuilder::GetCurrentScope() {
+  if (IR->funcGenStates.empty())
+    return getIrModule(IR->dmodule)->diModule;
   IrFunction *fn = IR->func();
   if (fn->diLexicalBlocks.empty()) {
     assert(static_cast<llvm::MDNode *>(fn->diSubprogram) != 0);
@@ -163,7 +196,7 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
     Encoding = DW_ATE_boolean;
     break;
   case Tchar:
-    if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+    if (isTargetMSVC) {
       // VS debugger does not support DW_ATE_UTF for char
       Encoding = DW_ATE_unsigned_char;
       break;
@@ -174,7 +207,7 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
     Encoding = DW_ATE_UTF;
     break;
   case Tint8:
-    if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+    if (isTargetMSVC) {
       // VS debugger does not support DW_ATE_signed for 8-bit
       Encoding = DW_ATE_signed_char;
       break;
@@ -187,7 +220,7 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
     Encoding = DW_ATE_signed;
     break;
   case Tuns8:
-    if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+    if (isTargetMSVC) {
       // VS debugger does not support DW_ATE_unsigned for 8-bit
       Encoding = DW_ATE_unsigned_char;
       break;
@@ -207,7 +240,7 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
   case Timaginary32:
   case Timaginary64:
   case Timaginary80:
-    if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+    if (isTargetMSVC) {
       // DW_ATE_imaginary_float not supported by the LLVM DWARF->CodeView
       // conversion
       Encoding = DW_ATE_float;
@@ -218,7 +251,7 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
   case Tcomplex32:
   case Tcomplex64:
   case Tcomplex80:
-    if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+    if (isTargetMSVC) {
       // DW_ATE_complex_float not supported by the LLVM DWARF->CodeView
       // conversion
       return CreateComplexType(t);
@@ -257,12 +290,12 @@ ldc::DIType ldc::DIBuilder::CreateEnumType(Type *type) {
     subscripts.push_back(Subscript);
   }
 
-  llvm::StringRef Name = te->sym->toPrettyChars(true);
+  llvm::StringRef Name = te->sym->toChars();
   unsigned LineNumber = te->sym->loc.linnum;
   ldc::DIFile File(CreateFile(te->sym));
 
   return DBuilder.createEnumerationType(
-      GetCU(), Name, File, LineNumber,
+      GetSymbolScope(te->sym), Name, File, LineNumber,
       getTypeAllocSize(T) * 8,               // size (bits)
       getABITypeAlign(T) * 8,                // align (bits)
       DBuilder.getOrCreateArray(subscripts), // subscripts
@@ -361,7 +394,8 @@ ldc::DIType ldc::DIBuilder::CreateComplexType(Type *type) {
 ldc::DIType ldc::DIBuilder::CreateMemberType(unsigned linnum, Type *type,
                                              ldc::DIFile file,
                                              const char *c_name,
-                                             unsigned offset, Prot::Kind prot) {
+                                             unsigned offset, Prot::Kind prot,
+                                             bool isStatic, DIScope scope) {
   Type *t = type->toBasetype();
 
   // translate functions to function pointers
@@ -388,7 +422,10 @@ ldc::DIType ldc::DIBuilder::CreateMemberType(unsigned linnum, Type *type,
     break;
   }
 
-  return DBuilder.createMemberType(GetCU(),
+  if (isStatic)
+    Flags |= DIFlags::FlagStaticMember;
+
+  return DBuilder.createMemberType(scope,
                                    c_name,                  // name
                                    file,                    // file
                                    linnum,                  // line number
@@ -411,6 +448,34 @@ void ldc::DIBuilder::AddFields(AggregateDeclaration *ad, ldc::DIFile file,
   }
 }
 
+void ldc::DIBuilder::AddStaticMembers(AggregateDeclaration *ad, ldc::DIFile file,
+                               llvm::SmallVector<LLMetadata *, 16> &elems) {
+  auto scope = CreateCompositeTypeDescription(ad->getType());
+
+  std::function<void(Dsymbols*)> visitMembers = [&] (Dsymbols* members) {
+    for (auto s : *members) {
+      if (auto attrib = s->isAttribDeclaration()) {
+        if (Dsymbols *d = attrib->include(nullptr))
+          visitMembers(d);
+      } else if (auto tmixin = s->isTemplateMixin()) {
+        visitMembers(tmixin->members);  // FIXME: static variables inside a template mixin need to be put inside a child DICompositeType for their value to become accessible (mangling issue).
+                                        //  Also DWARF supports imported declarations, but LLVM currently does nothing with DIImportedEntity except at CU-level.
+      } else if (auto vd = s->isVarDeclaration())
+        if (vd->isDataseg() && !vd->aliassym /* TODO: tuples*/) {
+          llvm::MDNode* elem = CreateMemberType(vd->loc.linnum, vd->type, file,
+                                                vd->toChars(), 0,
+                                                vd->prot().kind,
+                                                /*isStatic = */true, scope);
+          elems.push_back(elem);
+          StaticDataMemberCache[vd].reset(elem);
+
+        }
+    } /*else if (auto fd = s->isFuncDeclaration())*/ // Clang also adds static functions as declarations,
+                                                        // but they already work without adding them.
+  };
+  visitMembers(ad->members);
+}
+
 ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
   Type *t = type->toBasetype();
   assert((t->ty == Tstruct || t->ty == Tclass) &&
@@ -430,17 +495,13 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
   LLType *T = DtoType(ad->type);
   if (t->ty == Tclass)
     T = T->getPointerElementType();
-  IrTypeAggr *ir = ad->type->ctype->isAggr();
-  assert(ir);
+  IrAggr *irAggr = getIrAggr(ad, true);
 
-  if (static_cast<llvm::MDNode *>(ir->diCompositeType) != nullptr) {
-    return ir->diCompositeType;
+  if (static_cast<llvm::MDNode *>(irAggr->diCompositeType) != nullptr) {
+    return irAggr->diCompositeType;
   }
 
-  const llvm::StringRef name =
-      (ad->isClassDeclaration() && ad->isClassDeclaration()->isCPPinterface()
-           ? ad->ident->toChars()
-           : ad->toPrettyChars(true));
+  const llvm::StringRef name = ad->ident->toChars();
 
   // if we don't know the aggregate's size, we don't know enough about it
   // to provide debug info. probably a forward-declared struct?
@@ -453,16 +514,16 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
 
   // defaults
   unsigned linnum = ad->loc.linnum;
-  ldc::DICompileUnit CU(GetCU());
-  assert(CU && "Compilation unit missing or corrupted");
+  assert(GetCU() && "Compilation unit missing or corrupted");
   ldc::DIFile file = CreateFile(ad);
   ldc::DIType derivedFrom = getNullDIType();
+  ldc::DIScope scope = GetSymbolScope(ad);
 
   // set diCompositeType to handle recursive types properly
   unsigned tag = (t->ty == Tstruct) ? llvm::dwarf::DW_TAG_structure_type
                                     : llvm::dwarf::DW_TAG_class_type;
-  ir->diCompositeType = DBuilder.createReplaceableCompositeType(
-      tag, name, CU, file, linnum);
+  irAggr->diCompositeType = DBuilder.createReplaceableCompositeType(
+      tag, name, scope, file, linnum);
 
   if (!ad->isInterfaceDeclaration()) // plain interfaces don't have one
   {
@@ -471,7 +532,7 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
       derivedFrom = CreateCompositeType(classDecl->baseClass->getType());
       // needs a forward declaration to add inheritence information to elems
       ldc::DIType fwd =
-          DBuilder.createClassType(CU,     // compile unit where defined
+          DBuilder.createClassType(scope,  // context where defined
                                    name,   // name
                                    file,   // file where defined
                                    linnum, // line number where defined
@@ -495,12 +556,13 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
     }
     AddFields(ad, file, elems);
   }
+  AddStaticMembers(ad, file, elems);
 
   auto elemsArray = DBuilder.getOrCreateArray(elems);
 
   ldc::DIType ret;
   if (t->ty == Tclass) {
-    ret = DBuilder.createClassType(CU,     // compile unit where defined
+    ret = DBuilder.createClassType(scope,  // context where defined
                                    name,   // name
                                    file,   // file where defined
                                    linnum, // line number where defined
@@ -514,7 +576,7 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
                                    nullptr,         // TemplateParms
                                    uniqueIdent(t)); // UniqueIdentifier
   } else {
-    ret = DBuilder.createStructType(CU,     // compile unit where defined
+    ret = DBuilder.createStructType(scope,  // context where defined
                                     name,   // name
                                     file,   // file where defined
                                     linnum, // line number where defined
@@ -528,9 +590,9 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
                                     uniqueIdent(t)); // UniqueIdentifier
   }
 
-  ir->diCompositeType = DBuilder.replaceTemporary(
-      llvm::TempDINode(ir->diCompositeType), static_cast<llvm::DIType *>(ret));
-  ir->diCompositeType = ret;
+  irAggr->diCompositeType = DBuilder.replaceTemporary(
+      llvm::TempDINode(irAggr->diCompositeType), static_cast<llvm::DIType *>(ret));
+  irAggr->diCompositeType = ret;
 
   return ret;
 }
@@ -541,14 +603,17 @@ ldc::DIType ldc::DIBuilder::CreateArrayType(Type *type) {
   assert(t->ty == Tarray);
 
   ldc::DIFile file = CreateFile();
+  ldc::DIScope scope = type->toDsymbol(nullptr)
+      ? GetSymbolScope(type->toDsymbol(nullptr))
+      : GetCU();
 
   LLMetadata *elems[] = {
       CreateMemberType(0, Type::tsize_t, file, "length", 0, Prot::public_),
       CreateMemberType(0, t->nextOf()->pointerTo(), file, "ptr",
                        global.params.is64bit ? 8 : 4, Prot::public_)};
 
-  return DBuilder.createStructType(GetCU(),
-                                   type->toPrettyChars(true), // Name
+  return DBuilder.createStructType(scope,
+                                   type->toChars(),         // Name
                                    file,                    // File
                                    0,                       // LineNo
                                    getTypeAllocSize(T) * 8, // size in bits
@@ -597,6 +662,8 @@ ldc::DIType ldc::DIBuilder::CreateAArrayType(Type *type) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+const unsigned DW_CC_D_dmd = 0x43;  // new calling convention constant being proposed as a Dwarf extension
+
 ldc::DISubroutineType ldc::DIBuilder::CreateFunctionType(Type *type) {
   assert(type->toBasetype()->ty == Tfunction);
 
@@ -607,7 +674,13 @@ ldc::DISubroutineType ldc::DIBuilder::CreateFunctionType(Type *type) {
   LLMetadata *params = {CreateTypeDescription(retType)};
   auto paramsArray = DBuilder.getOrCreateTypeArray(params);
 
-  return DBuilder.createSubroutineType(paramsArray);
+  // The calling convention has to be recorded to distinguish
+  // extern(D) functions from extern(C++) ones.
+  DtoType(t);
+  assert(t->ctype);
+  unsigned CC = t->ctype->getIrFuncTy().reverseParams ? DW_CC_D_dmd : 0;
+
+  return DBuilder.createSubroutineType(paramsArray, DIFlagZero, CC);
 }
 
 ldc::DISubroutineType ldc::DIBuilder::CreateEmptyFunctionType() {
@@ -631,7 +704,7 @@ ldc::DIType ldc::DIBuilder::CreateDelegateType(Type *type) {
                        global.params.is64bit ? 8 : 4, Prot::public_)};
 
   return DBuilder.createStructType(CU,           // compile unit where defined
-                                   type->toPrettyChars(true), // name
+                                   type->toChars(),   // name
                                    file,         // file where defined
                                    0,            // line number where defined
                                    getTypeAllocSize(T) * 8, // size in bits
@@ -657,7 +730,7 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type) {
   // Check for opaque enum first, Bugzilla 13792
   if (isOpaqueEnumType(type)) {
     const auto ed = static_cast<TypeEnum *>(type)->sym;
-    return DBuilder.createUnspecifiedType(ed->toPrettyChars(true));
+    return DBuilder.createUnspecifiedType(ed->toChars());
   }
 
   Type *t = type->toBasetype();
@@ -709,6 +782,12 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type) {
   llvm_unreachable("Unsupported type in debug info");
 }
 
+ldc::DICompositeType ldc::DIBuilder::CreateCompositeTypeDescription(Type *type) {
+  DIType ret = type->toBasetype()->ty == Tclass
+        ? CreateCompositeType(type) : CreateTypeDescription(type);
+  return llvm::cast<llvm::DICompositeType>(ret);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 llvm::DICompileUnit::DebugEmissionKind getDebugEmissionKind()
@@ -747,7 +826,7 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
   auto producerName = std::string("LDC ") + ldc::ldc_version + " (LLVM " +
                       ldc::llvm_version + ")";
 
-  if (global.params.targetTriple->isWindowsMSVCEnvironment())
+  if (isTargetMSVC)
     IR->module.addModuleFlag(llvm::Module::Warning, "CodeView", 1);
   else if (global.params.dwarfVersion > 0)
     IR->module.addModuleFlag(llvm::Module::Warning, "Dwarf Version",
@@ -775,40 +854,105 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
   );
 }
 
+ldc::DIModule ldc::DIBuilder::EmitModule(Module *m)
+{
+  if (!mustEmitFullDebugInfo()) {
+    return nullptr;
+  }
+
+  IrModule *irm = getIrModule(m);
+  if (irm->diModule)
+      return irm->diModule;
+
+  irm->diModule = DBuilder.createModule(
+      CUNode,
+      m->toPrettyChars(true),  // qualified module name
+      llvm::StringRef(),       // (clang modules specific) ConfigurationMacros
+      llvm::StringRef(),       // (clang modules specific) IncludePath
+      llvm::StringRef()        // (clang modules specific) ISysRoot
+  );
+
+  return irm->diModule;
+}
+
+void ldc::DIBuilder::EmitImport(Import *im)
+{
+  if (!mustEmitFullDebugInfo()) {
+    return;
+  }
+
+  auto diModule = EmitModule(im->mod);
+
+  DBuilder.createImportedModule(
+      GetCurrentScope(),
+      diModule,                // imported module
+#if LDC_LLVM_VER >= 500
+      CreateFile(im),          // file
+#endif
+      im->loc.linnum           // line num
+  );
+}
+
 ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
   if (!mustEmitLocationsDebugInfo()) {
     return nullptr;
   }
 
+  IrFunction *const irFunc = getIrFunc(fd);
+  if (irFunc->diSubprogram)
+    return irFunc->diSubprogram;
+
   Logger::println("D to dwarf subprogram");
   LOG_SCOPE;
 
-  ldc::DICompileUnit CU(GetCU());
-  assert(CU &&
+  assert(GetCU() &&
          "Compilation unit missing or corrupted in DIBuilder::EmitSubProgram");
 
-  ldc::DIFile file = CreateFile(fd);
+  // FIXME: work around apparent LLVM CodeView bug wrt. nested functions
+  ldc::DIScope scope;
+  const char *name;
+  if (isTargetMSVC && fd->toParent2()->isFuncDeclaration()) {
+    // emit into module & use fully qualified name
+    scope = GetCU();
+    name = fd->toPrettyChars(true);
+  } else {
+    scope = GetSymbolScope(fd);
+    name = fd->isMain() ? fd->toPrettyChars(true) : fd->toChars();
+  }
 
-  // Create subroutine type
-  ldc::DISubroutineType DIFnType = mustEmitFullDebugInfo() ?
-      CreateFunctionType(static_cast<TypeFunction *>(fd->type)) :
-      CreateEmptyFunctionType();
+  const auto linkageName = irFunc->getLLVMFuncName();
+  const auto file = CreateFile(fd);
+  const auto lineNo = fd->loc.linnum;
+  const auto isLocalToUnit = fd->protection.kind == Prot::private_;
+  const auto isDefinition = true;
+  const auto scopeLine = lineNo; // FIXME
+  const auto flags = DIFlags::FlagPrototyped;
+  const auto isOptimized = isOptimizationEnabled();
+
+  ldc::DISubroutineType diFnType = nullptr;
+  if (!mustEmitFullDebugInfo()) {
+    diFnType = CreateEmptyFunctionType();
+  } else {
+    // A special case is `auto foo() { struct S{}; S s; return s; }`
+    // The return type is a nested struct, so for this particular
+    // chicken-and-egg case we need to create a temporary subprogram.
+    irFunc->diSubprogram = DBuilder.createTempFunctionFwdDecl(
+        scope, name, linkageName, file, lineNo, /*ty=*/nullptr, isLocalToUnit,
+        isDefinition, scopeLine, flags, isOptimized);
+
+    // Now create subroutine type.
+    diFnType = CreateFunctionType(static_cast<TypeFunction *>(fd->type));
+  }
 
   // FIXME: duplicates?
-  auto SP = DBuilder.createFunction(
-      CU,                                 // context
-      fd->toPrettyChars(true),            // name
-      getIrFunc(fd)->getLLVMFuncName(),   // linkage name
-      file,                               // file
-      fd->loc.linnum,                     // line no
-      DIFnType,                           // type
-      fd->protection.kind == Prot::private_, // is local to unit
-      true,                               // isdefinition
-      fd->loc.linnum,                     // FIXME: scope line
-      DIFlags::FlagPrototyped,            // Flags
-      isOptimizationEnabled()             // isOptimized
-      );
-  DtoFunction(fd)->setSubprogram(SP);
+  auto SP = DBuilder.createFunction(scope, name, linkageName, file, lineNo,
+                                    diFnType, isLocalToUnit, isDefinition,
+                                    scopeLine, flags, isOptimized);
+
+  if (mustEmitFullDebugInfo())
+    DBuilder.replaceTemporary(llvm::TempDINode(irFunc->diSubprogram), SP);
+
+  irFunc->diSubprogram = SP;
   return SP;
 }
 
@@ -821,20 +965,19 @@ ldc::DISubprogram ldc::DIBuilder::EmitThunk(llvm::Function *Thunk,
   Logger::println("Thunk to dwarf subprogram");
   LOG_SCOPE;
 
-  ldc::DICompileUnit CU(GetCU());
-  assert(CU && "Compilation unit missing or corrupted in DIBuilder::EmitThunk");
+  assert(GetCU() && "Compilation unit missing or corrupted in DIBuilder::EmitThunk");
 
   ldc::DIFile file = CreateFile(fd);
 
   // Create subroutine type (thunk has same type as wrapped function)
   ldc::DISubroutineType DIFnType = CreateFunctionType(fd->type);
 
-  std::string name = fd->toPrettyChars(true);
+  std::string name = fd->toChars();
   name.append(".__thunk");
 
   // FIXME: duplicates?
   auto SP = DBuilder.createFunction(
-      CU,                                 // context
+      GetSymbolScope(fd),                  // context
       name,                               // name
       Thunk->getName(),                   // linkage name
       file,                               // file
@@ -846,8 +989,6 @@ ldc::DISubprogram ldc::DIBuilder::EmitThunk(llvm::Function *Thunk,
       DIFlags::FlagPrototyped,            // Flags
       isOptimizationEnabled()             // isOptimized
       );
-  if (fd->fbody)
-    DtoFunction(fd)->setSubprogram(SP);
   return SP;
 }
 
@@ -860,8 +1001,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function *Fn,
   Logger::println("D to dwarf subprogram");
   LOG_SCOPE;
 
-  ldc::DICompileUnit CU(GetCU());
-  assert(CU &&
+  assert(GetCU() &&
          "Compilation unit missing or corrupted in DIBuilder::EmitSubProgram");
   ldc::DIFile file = CreateFile();
 
@@ -872,7 +1012,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function *Fn,
 
   // FIXME: duplicates?
   auto SP =
-      DBuilder.createFunction(CU,            // context
+      DBuilder.createFunction(GetCurrentScope(), // context
                               prettyname,    // name
                               Fn->getName(), // linkage name
                               file,          // file
@@ -908,6 +1048,9 @@ void ldc::DIBuilder::EmitFuncEnd(FuncDeclaration *fd) {
 
   assert(static_cast<llvm::MDNode *>(getIrFunc(fd)->diSubprogram) != 0);
   EmitStopPoint(fd->endloc);
+
+  // Only attach subprogram entries to function definitions
+  DtoFunction(fd)->setSubprogram(getIrFunc(fd)->diSubprogram);
 }
 
 void ldc::DIBuilder::EmitBlockStart(Loc &loc) {
@@ -1019,6 +1162,14 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 
   bool useDbgValueIntrinsic = false;
   if (isRefOrOut || isPassedExplicitlyByval) {
+    // DW_TAG_reference_type sounds like the correct tag for `this`, but member
+    // function calls won't work with GDB unless `this` gets declared as
+    // DW_TAG_pointer_type.
+    // This matches what GDC and Clang do.
+    auto Tag = isThisPtr
+      ? llvm::dwarf::DW_TAG_pointer_type
+      : llvm::dwarf::DW_TAG_reference_type;
+
     // With the exception of special-ref loop variables, the reference/pointer
     // itself is constant. So we don't have to attach the debug information to a
     // memory location and can use llvm.dbg.value to set the constant pointer
@@ -1028,7 +1179,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     // Note: createReferenceType expects the size to be the size of a pointer,
     // not the size of the type the reference refers to.
     TD = DBuilder.createReferenceType(
-        llvm::dwarf::DW_TAG_reference_type, TD,
+        Tag, TD,
         gDataLayout->getPointerSizeInBits(), // size (bits)
         DtoAlignment(type) * 8);             // align (bits)
   } else {
@@ -1105,6 +1256,15 @@ void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
   assert(vd->isDataseg() ||
          (vd->storage_class & (STCconst | STCimmutable) && vd->_init));
 
+  DIScope scope = GetSymbolScope(vd);
+  llvm::MDNode* Decl = nullptr;
+
+  if (vd->isDataseg() && vd->toParent()->isAggregateDeclaration()) {
+    // static aggregate member
+    Decl = StaticDataMemberCache[vd];
+    assert(Decl && "static aggregate member not declared");
+  }
+
   OutBuffer mangleBuf;
   mangleToBuffer(vd, &mangleBuf);
 
@@ -1113,7 +1273,7 @@ void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
 #else
   DBuilder.createGlobalVariable(
 #endif
-      GetCU(),                                // context
+      scope,                                  // context
       vd->toChars(),                          // name
       mangleBuf.peekString(),                 // linkage name
       CreateFile(vd),                         // file
@@ -1121,10 +1281,11 @@ void ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
       CreateTypeDescription(vd->type),        // type
       vd->protection.kind == Prot::private_,     // is local to unit
 #if LDC_LLVM_VER >= 400
-      nullptr // relative location of field
+      nullptr, // relative location of field
 #else
-      llVar // value
+      llVar, // value
 #endif
+      Decl                                    // declaration
       );
 
 #if LDC_LLVM_VER >= 400

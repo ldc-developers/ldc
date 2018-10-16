@@ -46,6 +46,10 @@ struct IrAggr {
   /// Aggregate D type.
   Type *type = nullptr;
 
+  /// Composite type debug description. This is not only to cache, but also
+  /// used for resolving forward references.
+  llvm::DIType *diCompositeType = nullptr;
+
   //////////////////////////////////////////////////////////////////////////
 
   // Returns the static default initializer of a field.

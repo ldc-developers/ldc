@@ -10,6 +10,7 @@
 #ifndef LDC_GEN_DIBUILDER_H
 #define LDC_GEN_DIBUILDER_H
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/DataLayout.h"
@@ -24,6 +25,7 @@ struct IRState;
 class ClassDeclaration;
 class Dsymbol;
 class FuncDeclaration;
+class Import;
 class Module;
 class Type;
 class VarDeclaration;
@@ -44,6 +46,7 @@ namespace ldc {
 
 // Define some basic types
 typedef llvm::DIType *DIType;
+typedef llvm::DICompositeType *DICompositeType;
 typedef llvm::DIFile *DIFile;
 typedef llvm::DIGlobalVariable *DIGlobalVariable;
 typedef llvm::DILocalVariable *DILocalVariable;
@@ -52,6 +55,7 @@ typedef llvm::DILexicalBlock *DILexicalBlock;
 typedef llvm::DIScope *DIScope;
 typedef llvm::DISubroutineType *DISubroutineType;
 typedef llvm::DISubprogram *DISubprogram;
+typedef llvm::DIModule *DIModule;
 typedef llvm::DICompileUnit *DICompileUnit;
 
 class DIBuilder {
@@ -60,7 +64,10 @@ class DIBuilder {
 
   DICompileUnit CUNode;
 
+  const bool isTargetMSVC;
   const bool isTargetMSVCx64;
+
+  llvm::DenseMap<Declaration*, llvm::TypedTrackingMDRef<llvm::MDNode>> StaticDataMemberCache;
 
   DICompileUnit GetCU() {
     return CUNode;
@@ -74,6 +81,14 @@ public:
   /// \brief Emit the Dwarf compile_unit global for a Module m.
   /// \param m        Module to emit as compile unit.
   void EmitCompileUnit(Module *m);
+
+  /// \brief Emit the Dwarf module global for a Module m.
+  /// \param m        Module to emit (either as definition or declaration).
+  DIModule EmitModule(Module *m);
+
+  /// \brief Emit the Dwarf imported entity and module global for an Import im.
+  /// \param im        Import to emit.
+  void EmitImport(Import *im);
 
   /// \brief Emit the Dwarf subprogram global for a function declaration fd.
   /// \param fd       Function declaration to emit as subprogram.
@@ -144,13 +159,15 @@ public:
 
 private:
   llvm::LLVMContext &getContext();
-  Module *getDefinedModule(Dsymbol *s);
+  DIScope GetSymbolScope(Dsymbol *s);
   DIScope GetCurrentScope();
   void Declare(const Loc &loc, llvm::Value *storage, ldc::DILocalVariable divar,
                ldc::DIExpression diexpr);
   void SetValue(const Loc &loc, llvm::Value *value, ldc::DILocalVariable divar,
                 ldc::DIExpression diexpr);
   void AddFields(AggregateDeclaration *sd, ldc::DIFile file,
+                 llvm::SmallVector<llvm::Metadata *, 16> &elems);
+  void AddStaticMembers(AggregateDeclaration *sd, ldc::DIFile file,
                  llvm::SmallVector<llvm::Metadata *, 16> &elems);
   DIFile CreateFile(Loc &loc);
   DIFile CreateFile();
@@ -161,7 +178,8 @@ private:
   DIType CreateVectorType(Type *type);
   DIType CreateComplexType(Type *type);
   DIType CreateMemberType(unsigned linnum, Type *type, DIFile file,
-                          const char *c_name, unsigned offset, Prot::Kind);
+                          const char *c_name, unsigned offset, Prot::Kind,
+                          bool isStatic = false, DIScope scope = nullptr);
   DIType CreateCompositeType(Type *type);
   DIType CreateArrayType(Type *type);
   DIType CreateSArrayType(Type *type);
@@ -170,6 +188,7 @@ private:
   DISubroutineType CreateEmptyFunctionType();
   DIType CreateDelegateType(Type *type);
   DIType CreateTypeDescription(Type *type);
+  DICompositeType CreateCompositeTypeDescription(Type *type);
 
   bool mustEmitFullDebugInfo();
   bool mustEmitLocationsDebugInfo();

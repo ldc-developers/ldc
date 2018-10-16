@@ -183,4 +183,7 @@ if lit.util.which('gdb', config.environment['PATH']):
         gdb_version = m.group(1)
         if LooseVersion(gdb_version) < LooseVersion('7.8'):
             gdb_dflags = '-dwarf-version=2'
+        elif LooseVersion(gdb_version) >= LooseVersion('8.0'):
+            config.available_features.add('atleast_gdb80')
+
     config.substitutions.append( ('%_gdb_dflags', gdb_dflags) )

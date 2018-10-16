@@ -1000,7 +1000,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   };
 
   // debug info
-  irFunc->diSubprogram = gIR->DBuilder.EmitSubProgram(fd);
+  gIR->DBuilder.EmitSubProgram(fd);
 
   IF_LOG Logger::println("Doing function body for: %s", fd->toChars());
   gIR->funcGenStates.emplace_back(new FuncGenState(*irFunc, *gIR));
