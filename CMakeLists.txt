@@ -24,7 +24,7 @@ endif()
 # Locate LLVM.
 #
 
-find_package(LLVM 3.7 REQUIRED
+find_package(LLVM 3.9 REQUIRED
     all-targets analysis asmparser asmprinter bitreader bitwriter codegen core
     debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel
     instcombine ipa ipo instrumentation irreader libdriver linker lto mc
