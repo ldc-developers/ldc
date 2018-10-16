@@ -703,16 +703,18 @@ DIType DIBuilder::CreateAArrayType(Type *type) {
   Type *value = typeAArray->nextOf();
 
   DIFile file = CreateFile();
+  DIScope scope = type->toDsymbol(nullptr)
+                      ? GetSymbolScope(type->toDsymbol(nullptr))
+                      : GetCU();
 
   LLMetadata *elems[] = {
       CreateTypedef(0, index, file, "__key_t"),
       CreateTypedef(0, value, file, "__val_t"),
-      CreateMemberType(0, Type::tvoidptr, file, "ptr", 0, Prot::public_)
-  };
+      CreateMemberType(0, Type::tvoidptr, file, "ptr", 0, Prot::public_)};
 
-  const auto diTypeName = processDITypeName(type->toPrettyChars(true));
+  const auto diTypeName = processDITypeName(type->toChars());
 
-  return DBuilder.createStructType(GetCU(),
+  return DBuilder.createStructType(scope,
                                    diTypeName,                // Name
                                    file,                      // File
                                    0,                         // LineNo
