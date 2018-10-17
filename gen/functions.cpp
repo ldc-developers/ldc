@@ -12,8 +12,10 @@
 #include "aggregate.h"
 #include "declaration.h"
 #include "id.h"
+#include "identifier.h"
 #include "init.h"
 #include "ldcbindings.h"
+#include "mangle.h"
 #include "module.h"
 #include "mtype.h"
 #include "statement.h"
@@ -373,7 +375,7 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
         } else if (tempdecl->llvmInternal == LLVMintrinsic) {
           Logger::println("overloaded intrinsic found");
           assert(fdecl->llvmInternal == LLVMintrinsic);
-          assert(fdecl->mangleOverride);
+          assert(fdecl->mangleOverride.length);
         } else if (tempdecl->llvmInternal == LLVMinline_asm) {
           Logger::println("magic inline asm found");
           TypeFunction *tf = static_cast<TypeFunction *>(fdecl->type);

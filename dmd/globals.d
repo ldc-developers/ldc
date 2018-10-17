@@ -16,7 +16,6 @@ import core.stdc.stdint;
 import dmd.root.array;
 import dmd.root.filename;
 import dmd.root.outbuffer;
-import dmd.compiler;
 import dmd.identifier;
 
 template xversion(string s)
@@ -38,7 +37,7 @@ enum TARGET : bool
     DragonFlyBSD = xversion!`DragonFlyBSD`,
 }
 
-version(IN_LLVM)
+version (IN_LLVM)
 {
     enum OUTPUTFLAG : int
     {
@@ -167,6 +166,8 @@ struct Param
                             // https://issues.dlang.org/show_bug.cgi?id=16997
     bool vsafe;             // use enhanced @safe checking
     bool ehnogc;            // use @nogc exception handling
+    bool dtorFields;        // destruct fields of partially constructed objects
+                            // https://issues.dlang.org/show_bug.cgi?id=14246
     /** The --transition=safe switch should only be used to show code with
      * silent semantics changes related to @safe improvements.  It should not be
      * used to hide a feature that will have to go through deprecate-then-error
@@ -189,7 +190,7 @@ struct Param
 
     uint errorLimit = 20;
 
-    const(char)* argv0;                 // program name
+    const(char)[] argv0;                // program name
     Array!(const(char)*)* modFileAliasStrings; // array of char*'s of -I module filename alias strings
     Array!(const(char)*)* imppath;      // array of char*'s of where to look for import modules
     Array!(const(char)*)* fileImppath;  // array of char*'s of where to look for file import modules
@@ -245,7 +246,7 @@ struct Param
     const(char)* exefile;
     const(char)* mapfile;
 
-    version(IN_LLVM)
+    version (IN_LLVM)
     {
         Array!(const(char)*) bitcodeFiles; // LLVM bitcode files passed on cmdline
 
@@ -288,7 +289,7 @@ struct Global
     const(char)* inifilename;
     const(char)* mars_ext = "d";
     const(char)* obj_ext;
-    version(IN_LLVM)
+    version (IN_LLVM)
     {
         const(char)* ll_ext;
         const(char)* bc_ext;
@@ -314,8 +315,8 @@ struct Global
     Array!(const(char)*)* filePath;     // Array of char*'s which form the file import lookup path
 
     const(char)* _version;
+    const(char)* vendor;    // Compiler backend name
 
-    Compiler compiler;
     Param params;
     uint errors;            // number of errors reported so far
     uint warnings;          // number of warnings reported so far
@@ -364,7 +365,7 @@ struct Global
 
     extern (C++) void _init()
     {
-version(IN_LLVM)
+version (IN_LLVM)
 {
         obj_ext = "o";
         ll_ext  = "ll";
@@ -427,14 +428,14 @@ else
             static assert(0, "fix this");
         }
 }
-version(IN_LLVM)
+version (IN_LLVM)
 {
-        compiler.vendor = "LDC";
+        vendor = "LDC";
 }
 else
 {
         _version = (import("VERSION") ~ '\0').ptr;
-        compiler.vendor = "Digital Mars D";
+        vendor = "Digital Mars D";
 }
     }
 

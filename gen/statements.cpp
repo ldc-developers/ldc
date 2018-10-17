@@ -7,8 +7,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "expression.h"
+#include "id.h"
+#include "identifier.h"
 #include "import.h"
 #include "init.h"
+#include "mangle.h"
 #include "mars.h"
 #include "module.h"
 #include "mtype.h"
@@ -26,7 +30,6 @@
 #include "gen/logger.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
-#include "id.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "llvm/IR/CFG.h"
@@ -267,15 +270,14 @@ public:
   }
 
   //////////////////////////////////////////////////////////////////////////
-  
+
   bool dcomputeReflectMatches(CallExp *ce) {
     auto arg1 = (DComputeTarget::ID)(*ce->arguments)[0]->toInteger();
     auto arg2 = (*ce->arguments)[1]->toInteger();
     auto dct = irs->dcomputetarget;
     if (!dct) {
       return arg1 == DComputeTarget::Host;
-    }
-    else {
+    } else {
       return arg1 == dct->target &&
              (!arg2 || arg2 == static_cast<dinteger_t>(dct->tversion));
     }
@@ -1591,9 +1593,9 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(ImportStatement *stmt) override {
-    for (auto s: *stmt->imports) {
+    for (auto s : *stmt->imports) {
       assert(s->isImport());
-      irs->DBuilder.EmitImport(static_cast<Import*>(s));
+      irs->DBuilder.EmitImport(static_cast<Import *>(s));
     }
   }
 

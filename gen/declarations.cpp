@@ -10,6 +10,7 @@
 #include "aggregate.h"
 #include "declaration.h"
 #include "enum.h"
+#include "expression.h"
 #include "id.h"
 #include "import.h"
 #include "init.h"

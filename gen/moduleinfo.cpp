@@ -9,6 +9,8 @@
 
 #include "gen/moduleinfo.h"
 
+#include "module.h"
+#include "mangle.h"
 #include "gen/abi.h"
 #include "gen/classes.h"
 #include "gen/irstate.h"
@@ -20,7 +22,6 @@
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "ir/irtype.h"
-#include "module.h"
 
 // These must match the values in druntime/src/object_.d
 #define MIstandalone 0x4

@@ -231,7 +231,7 @@ void CodeGenerator::finishLLModule(Module *m) {
     insertBitcodeFiles(ir_->module, ir_->context(), global.params.bitcodeFiles);
   }
 
-  writeAndFreeLLModule(m->objfile->name->str);
+  writeAndFreeLLModule(m->objfile->name.toChars());
 }
 
 void CodeGenerator::writeAndFreeLLModule(const char *filename) {

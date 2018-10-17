@@ -11,6 +11,7 @@
 #include "aggregate.h"
 #include "declaration.h"
 #include "dsymbol.h"
+#include "expression.h"
 #include "id.h"
 #include "init.h"
 #include "module.h"

@@ -17,6 +17,8 @@
 #include "aggregate.h"
 #include "declaration.h"
 #include "hdrgen.h" // for parametersTypeToChars()
+#include "identifier.h"
+#include "mangle.h"
 #include "mtype.h"
 #include "target.h"
 #include "gen/funcgenstate.h"

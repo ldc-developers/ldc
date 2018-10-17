@@ -5,17 +5,11 @@
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
  * http://www.boost.org/LICENSE_1_0.txt
- * https://github.com/dlang/dmd/blob/master/src/dmd/json.h
+ * https://github.com/dlang/dmd/blob/master/src/dmd/doc.h
  */
 
 #pragma once
 
-#include "arraytypes.h"
+class Module;
 
-struct OutBuffer;
-
-void json_generate(OutBuffer *, Modules *);
-
-#ifdef IN_LLVM
-unsigned tryParseJsonField(const char *fieldName);
-#endif
+void gendocfile(Module *m);

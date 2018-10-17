@@ -287,7 +287,8 @@ void expandResponseFiles(llvm::BumpPtrAllocator &A,
 /// Returns a list of source file names.
 void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
                       bool &helpOnly) {
-  global.params.argv0 = exe_path::getExePath().data();
+  const auto &exePath = exe_path::getExePath();
+  global.params.argv0 = {exePath.length(), exePath.data()};
 
   // Set up `opts::allArguments`, the combined list of command line arguments.
   using opts::allArguments;
@@ -783,6 +784,7 @@ void registerPredefinedTargetVersions() {
                                                                      : "Win32");
     if (triple.isWindowsMSVCEnvironment()) {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Microsoft");
+      VersionCondition::addPredefinedGlobalIdent("CppRuntime_Microsoft");
     }
     if (triple.isWindowsGNUEnvironment()) {
       VersionCondition::addPredefinedGlobalIdent(
@@ -807,6 +809,7 @@ void registerPredefinedTargetVersions() {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_UClibc");
     } else {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Glibc");
+      VersionCondition::addPredefinedGlobalIdent("CppRuntime_Gcc");
     }
     break;
   case llvm::Triple::Haiku:
@@ -819,18 +822,22 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent(
         "darwin"); // For backwards compatibility.
     VersionCondition::addPredefinedGlobalIdent("Posix");
+    VersionCondition::addPredefinedGlobalIdent("CppRuntime_Clang");
     break;
   case llvm::Triple::FreeBSD:
     VersionCondition::addPredefinedGlobalIdent("FreeBSD");
     VersionCondition::addPredefinedGlobalIdent("Posix");
+    VersionCondition::addPredefinedGlobalIdent("CppRuntime_Clang");
     break;
   case llvm::Triple::Solaris:
     VersionCondition::addPredefinedGlobalIdent("Solaris");
     VersionCondition::addPredefinedGlobalIdent("Posix");
+    VersionCondition::addPredefinedGlobalIdent("CppRuntime_Sun");
     break;
   case llvm::Triple::DragonFly:
     VersionCondition::addPredefinedGlobalIdent("DragonFlyBSD");
     VersionCondition::addPredefinedGlobalIdent("Posix");
+    VersionCondition::addPredefinedGlobalIdent("CppRuntime_Gcc");
     break;
   case llvm::Triple::NetBSD:
     VersionCondition::addPredefinedGlobalIdent("NetBSD");
@@ -839,6 +846,7 @@ void registerPredefinedTargetVersions() {
   case llvm::Triple::OpenBSD:
     VersionCondition::addPredefinedGlobalIdent("OpenBSD");
     VersionCondition::addPredefinedGlobalIdent("Posix");
+    VersionCondition::addPredefinedGlobalIdent("CppRuntime_Gcc");
     break;
   case llvm::Triple::AIX:
     VersionCondition::addPredefinedGlobalIdent("AIX");
@@ -853,6 +861,8 @@ void registerPredefinedTargetVersions() {
     break;
   }
 }
+
+} // anonymous namespace
 
 /// Registers all predefined D version identifiers for the current
 /// configuration with VersionCondition.
@@ -924,8 +934,6 @@ void registerPredefinedVersions() {
 #undef XSTR
 #undef STR
 }
-
-} // anonymous namespace
 
 int cppmain(int argc, char **argv) {
   llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
@@ -1046,8 +1054,6 @@ int cppmain(int argc, char **argv) {
   return mars_mainBody(files, libmodules);
 }
 
-void addDefaultVersionIdentifiers() { registerPredefinedVersions(); }
-
 void codegenModules(Modules &modules) {
   // Generate one or more object/IR/bitcode files/dcompute kernels.
   if (global.params.obj && !modules.empty()) {
@@ -1076,7 +1082,7 @@ void codegenModules(Modules &modules) {
         computeModules.push_back(m);
         if (atCompute == DComputeCompileFor::deviceOnly) {
           // Remove m's object file from list of object files
-          auto s = m->objfile->name->str;
+          auto s = m->objfile->name.toChars();
           for (size_t j = 0; j < global.params.objfiles.dim; j++) {
             if (s == global.params.objfiles[j]) {
               global.params.objfiles.remove(j);

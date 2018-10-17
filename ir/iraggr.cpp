@@ -10,6 +10,7 @@
 #include "gen/llvm.h"
 #include "aggregate.h"
 #include "declaration.h"
+#include "expression.h"
 #include "init.h"
 #include "mtype.h"
 #include "target.h"

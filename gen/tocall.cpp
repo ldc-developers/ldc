@@ -7,7 +7,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "compiler.h"
 #include "declaration.h"
+#include "expression.h"
 #include "id.h"
 #include "mtype.h"
 #include "target.h"

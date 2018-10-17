@@ -7,11 +7,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "pragma.h"
+#include "gen/pragma.h"
 #include "attrib.h"
 #include "declaration.h"
+#include "errors.h"
 #include "expression.h"
 #include "id.h"
+#include "identifier.h"
 #include "module.h"
 #include "scope.h"
 #include "template.h"
@@ -301,7 +303,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
     if (FuncDeclaration *fd = s->isFuncDeclaration()) {
       fd->llvmInternal = llvm_internal;
       fd->intrinsicName = strdup(arg1str);
-      fd->mangleOverride = strdup(fd->intrinsicName);
+      fd->mangleOverride = {strlen(fd->intrinsicName), fd->intrinsicName};
     } else if (TemplateDeclaration *td = s->isTemplateDeclaration()) {
       td->llvmInternal = llvm_internal;
       td->intrinsicName = strdup(arg1str);

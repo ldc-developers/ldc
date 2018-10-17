@@ -28,6 +28,7 @@
 #include "gen/abi-x86-64.h"
 #include "aggregate.h"
 #include "declaration.h"
+#include "identifier.h"
 #include "ldcbindings.h"
 #include "mtype.h"
 #include "target.h"

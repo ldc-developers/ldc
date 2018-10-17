@@ -55,7 +55,7 @@ import dmd.target;
 import dmd.tokens;
 import dmd.typesem;
 import dmd.visitor;
-version(IN_LLVM) import gen.dpragma;
+version (IN_LLVM) import gen.dpragma;
 
 /*****************************************
  * CTFE requires FuncDeclaration::labtab for the interpretation.
@@ -251,7 +251,24 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
                         sexception = sexception.statementSemantic(sc);
                     if (sexception)
                     {
-                        if (i + 1 == cs.statements.dim && !sfinally)
+                        /* Returns: true if statements[] are empty statements
+                         */
+                        static bool isEmpty(const Statement[] statements)
+                        {
+                            foreach (s; statements)
+                            {
+                                if (const cs = s.isCompoundStatement())
+                                {
+                                    if (!isEmpty((*cs.statements)[]))
+                                        return false;
+                                }
+                                else
+                                    return false;
+                            }
+                            return true;
+                        }
+
+                        if (!sfinally && isEmpty((*cs.statements)[i + 1 .. cs.statements.dim]))
                         {
                         }
                         else
@@ -1885,7 +1902,7 @@ else
 
             p.type = p.type.typeSemantic(fs.loc, sc);
             p.type = p.type.addStorageClass(p.storageClass);
-version(IN_LLVM)
+version (IN_LLVM)
 {
             // Type of parameter may be different; see below
             auto para_type = p.type;
@@ -1919,7 +1936,7 @@ version(IN_LLVM)
             LcopyArg:
                 id = Identifier.generateId("__applyArg", cast(int)i);
 
-version(IN_LLVM)
+version (IN_LLVM)
 {
                 // In case of a foreach loop on an array the index passed
                 // to the delegate is always of type size_t. The type of
@@ -1949,7 +1966,7 @@ else
                 Statement s = new ExpStatement(fs.loc, v);
                 fs._body = new CompoundStatement(fs.loc, s, fs._body);
             }
-version(IN_LLVM)
+version (IN_LLVM)
             params.push(new Parameter(stc, para_type, id, null, null));
 else
             params.push(new Parameter(stc, p.type, id, null, null));
@@ -2366,6 +2383,13 @@ else
                 fd.emitInstrumentation = emitInstr;
             }
         }
+        else if (ps.ident == Id.linkerDirective)
+        {
+            /* Should this be allowed?
+             */
+            ps.error("`pragma(linkerDirective)` not allowed as statement");
+            return setError();
+        }
         else if (ps.ident == Id.startaddress)
         {
             if (!ps.args || ps.args.dim != 1)
@@ -2440,6 +2464,11 @@ else
 
         if (ps._body)
         {
+            if (ps.ident == Id.msg || ps.ident == Id.startaddress)
+            {
+                ps.error("`pragma(%s)` is missing a terminating `;`", ps.ident.toChars());
+                return setError();
+            }
             ps._body = ps._body.statementSemantic(sc);
         }
         result = ps._body;
@@ -2555,7 +2584,7 @@ else
                     if (cs.exp.equals(gcs.exp))
                     {
                         gcs.cs = cs;
-version(IN_LLVM)
+version (IN_LLVM)
 {
                         cs.gototarget = true;
 }
@@ -2646,7 +2675,7 @@ version(IN_LLVM)
             return setError();
         }
 
-version(IN_LLVM)
+version (IN_LLVM)
 {
         /+ hasGotoDefault is set by GotoDefaultStatement.semantic
          + at which point sdefault may still be null, therefore
@@ -3009,7 +3038,7 @@ version(IN_LLVM)
             return setError();
         }
 
-version(IN_LLVM)
+version (IN_LLVM)
 {
         gds.sw.hasGotoDefault = true;
 }
@@ -3027,7 +3056,7 @@ version(IN_LLVM)
             gcs.error("`goto case` not in `switch` statement");
             return setError();
         }
-        version(IN_LLVM)
+        version (IN_LLVM)
         {
             gcs.sw = sc.sw;
         }
@@ -3148,7 +3177,7 @@ version(IN_LLVM)
                 rs.exp = new ErrorExp();
 
             // Extract side-effect part
-            rs.exp = Expression.extractLast(rs.exp, &e0);
+            rs.exp = Expression.extractLast(rs.exp, e0);
             if (rs.exp.op == TOK.call)
                 rs.exp = valueNoDtor(rs.exp);
 
@@ -3440,7 +3469,7 @@ version(IN_LLVM)
                         bs.error("cannot break out of `finally` block");
                     else
                     {
-                        version(IN_LLVM)
+                        version (IN_LLVM)
                             bs.target = ls;
 
                         ls.breaks = true;
@@ -3531,7 +3560,7 @@ version(IN_LLVM)
                         cs.error("cannot continue out of `finally` block");
                     else
                     {
-                        version(IN_LLVM)
+                        version (IN_LLVM)
                             cs.target = ls;
 
                         result = cs;

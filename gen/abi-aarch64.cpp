@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "identifier.h"
 #include "ldcbindings.h"
 #include "gen/abi.h"
 #include "gen/abi-generic.h"

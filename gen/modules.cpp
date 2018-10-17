@@ -15,6 +15,7 @@
 #include "id.h"
 #include "import.h"
 #include "init.h"
+#include "mangle.h"
 #include "mars.h"
 #include "module.h"
 #include "mtype.h"
@@ -68,7 +69,7 @@ static llvm::cl::opt<bool, true>
 void Module::checkAndAddOutputFile(File *file) {
   static std::map<std::string, Module *> files;
 
-  std::string key(file->name->str);
+  std::string key(file->name.toChars());
   auto i = files.find(key);
   if (i != files.end()) {
     Module *previousMod = i->second;
@@ -85,14 +86,14 @@ void Module::checkAndAddOutputFile(File *file) {
 void Module::makeObjectFilenameUnique() {
   assert(objfile);
 
-  const char *ext = FileName::ext(objfile->name->str);
-  const char *stem = FileName::removeExt(objfile->name->str);
+  const char *ext = FileName::ext(objfile->name.toChars());
+  const char *stem = FileName::removeExt(objfile->name.toChars());
 
   llvm::SmallString<128> unique;
   auto EC = llvm::sys::fs::createUniqueFile(
       llvm::Twine(stem) + "-%%%%%%%." + ext, unique);
   if (!EC) // success
-    objfile->name->str = mem.xstrdup(unique.c_str());
+    objfile->name.reset(unique.c_str());
 }
 
 namespace {
@@ -485,7 +486,7 @@ void addCoverageAnalysis(Module *m) {
     // Set up call to _d_cover_register2
     llvm::Function *fn =
         getRuntimeFunction(Loc(), gIR->module, "_d_cover_register2");
-    LLValue *args[] = {DtoConstString(m->srcfile->name->toChars()),
+    LLValue *args[] = {DtoConstString(m->srcfile->name.toChars()),
                        d_cover_valid_slice, d_cover_data_slice,
                        DtoConstUbyte(global.params.covPercent)};
     // Check if argument types are correct

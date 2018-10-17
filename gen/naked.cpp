@@ -9,6 +9,8 @@
 
 #include "expression.h"
 #include "declaration.h"
+#include "identifier.h"
+#include "mangle.h"
 #include "statement.h"
 #include "template.h"
 #include "gen/dvalue.h"

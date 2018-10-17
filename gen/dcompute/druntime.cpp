@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/dcompute/druntime.h"
+#include "expression.h"
 #include "dmd/dsymbol.h"
 #include "dmd/module.h"
 #include "dmd/identifier.h"

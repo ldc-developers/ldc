@@ -9,6 +9,15 @@
 
 #include "gen/dibuilder.h"
 
+#include "enum.h"
+#include "ldcbindings.h"
+#include "identifier.h"
+#include "import.h"
+#include "mangle.h"
+#include "module.h"
+#include "mtype.h"
+#include "nspace.h"
+#include "template.h"
 #include "driver/cl_options.h"
 #include "driver/ldc-version.h"
 #include "gen/functions.h"
@@ -24,13 +33,6 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
-#include "enum.h"
-#include "ldcbindings.h"
-#include "import.h"
-#include "module.h"
-#include "mtype.h"
-#include "nspace.h"
-#include "template.h"
 
 #include <functional>
 
@@ -819,7 +821,7 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
   assert(!CUNode && "Already created compile unit for this DIBuilder instance");
 
   // prepare srcpath
-  llvm::SmallString<128> srcpath(m->srcfile->name->toChars());
+  llvm::SmallString<128> srcpath(m->srcfile->name.toChars());
   llvm::sys::fs::make_absolute(srcpath);
 
   // prepare producer name string

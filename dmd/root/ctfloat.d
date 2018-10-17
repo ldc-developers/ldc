@@ -115,7 +115,7 @@ extern (C++) struct CTFloat
 
     static real_t fma(real_t x, real_t y, real_t z) { return (x * y) + z; }
 
-  version(IN_LLVM)
+  version (IN_LLVM)
   {
     static import std.math;
 
@@ -132,8 +132,8 @@ extern (C++) struct CTFloat
 
     static void _init();
 
-    static bool isFloat32LiteralOutOfRange(const(char)* literal);
-    static bool isFloat64LiteralOutOfRange(const(char)* literal);
+    static bool isFloat32LiteralOutOfRange(const(char)* literal) @nogc;
+    static bool isFloat64LiteralOutOfRange(const(char)* literal) @nogc;
   }
 
     static bool isIdentical(real_t a, real_t b)
@@ -158,7 +158,7 @@ extern (C++) struct CTFloat
         return !(r == r);
     }
 
-  version(IN_LLVM)
+  version (IN_LLVM)
   {
     // LDC doesn't need isSNaN(). The upstream implementation is tailored for
     // DMD/x86 and only supports x87 real_t types.
@@ -185,13 +185,13 @@ extern (C++) struct CTFloat
         return isIdentical(fabs(r), real_t.infinity);
     }
 
-version (IN_LLVM)
-{
+  version (IN_LLVM)
+  {
     // implemented in gen/ctfloat.cpp
     static real_t parse(const(char)* literal, bool* isOutOfRange = null);
-}
-else
-{
+  }
+  else
+  {
     static real_t parse(const(char)* literal, bool* isOutOfRange = null)
     {
         errno = 0;
@@ -211,7 +211,7 @@ else
             *isOutOfRange = (errno == ERANGE);
         return r;
     }
-}
+  }
 
     static int sprint(char* str, char fmt, real_t x)
     {
@@ -244,14 +244,20 @@ else
     __gshared real_t one;
     __gshared real_t minusone;
     __gshared real_t half;
-  version(IN_LLVM)
+  version (IN_LLVM)
   {
-    // Initialized via LLVM in C++.
     __gshared real_t initVal;
     __gshared real_t nan;
     __gshared real_t infinity;
   }
 
+  version (IN_LLVM)
+  {
+    // implemented in gen/ctfloat.cpp
+    static void initialize();
+  }
+  else
+  {
     static void initialize()
     {
         zero = real_t(0);
@@ -259,12 +265,5 @@ else
         minusone = real_t(-1);
         half = real_t(0.5);
     }
-}
-
-version(IN_LLVM)
-{
-    shared static this()
-    {
-        CTFloat._init();
-    }
+  }
 }

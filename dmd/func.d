@@ -202,7 +202,7 @@ extern (C++) class FuncDeclaration : Declaration
 
     const(char)* mangleString;          /// mangled symbol created from mangleExact()
 
-    version(IN_LLVM)
+    version (IN_LLVM)
     {
         // Argument lists for the __require/__ensure calls. NULL if not a virtual
         // function with contracts.
@@ -334,14 +334,14 @@ extern (C++) class FuncDeclaration : Declaration
         f.fensures = fensures ? Ensure.arraySyntaxCopy(fensures) : null;
         f.fbody = fbody ? fbody.syntaxCopy() : null;
         assert(!fthrows); // deprecated
-        version(IN_LLVM)
+        version (IN_LLVM)
         {
             f.intrinsicName = intrinsicName ? strdup(intrinsicName) : null;
         }
         return f;
     }
 
-    version(IN_LLVM)
+    version (IN_LLVM)
     {
         final private Parameters* outToRef(Parameters* params)
         {
@@ -462,7 +462,7 @@ else
      * Check that this function type is properly resolved.
      * If not, report "forward reference error" and return true.
      */
-    final bool checkForwardRef(const ref Loc loc)
+    extern (D) final bool checkForwardRef(const ref Loc loc)
     {
         if (!functionSemantic())
             return true;
@@ -1178,19 +1178,19 @@ else
         return ident == Id.rt_init && linkage == LINK.c && !isMember() && !isNested();
     }
 
-    override final bool isExport()
+    override final bool isExport() const
     {
         return protection.kind == Prot.Kind.export_;
     }
 
-    override final bool isImportedSymbol()
+    override final bool isImportedSymbol() const
     {
         //printf("isImportedSymbol()\n");
         //printf("protection = %d\n", protection);
         return (protection.kind == Prot.Kind.export_) && !fbody;
     }
 
-    override final bool isCodeseg() pure nothrow @nogc @safe
+    override final bool isCodeseg() const pure nothrow @nogc @safe
     {
         return true; // functions are always in the code segment
     }
@@ -1726,7 +1726,7 @@ else
      *    then mark it as a delegate.
      * Returns true if error occurs.
      */
-    final bool checkNestedReference(Scope* sc, const ref Loc loc)
+    extern (D) final bool checkNestedReference(Scope* sc, const ref Loc loc)
     {
         //printf("FuncDeclaration::checkNestedReference() %s\n", toPrettyChars());
 
@@ -1896,7 +1896,7 @@ else
      * Returns:
      *      true if any errors occur.
      */
-    final bool checkClosure()
+    extern (D) final bool checkClosure()
     {
         if (!needsClosure())
             return false;
@@ -2036,7 +2036,7 @@ else
     // IN_LLVM replaced: final Statement mergeFrequire(Statement sf)
     final Statement mergeFrequire(Statement sf, Expressions *params = null)
     {
-        version(IN_LLVM)
+        version (IN_LLVM)
         {
             if (params is null)
                 params = fdrequireParams;
@@ -2058,7 +2058,7 @@ else
          * If base.in() throws, then derived.in()'s body is executed.
          */
 
-version(IN_LLVM)
+version (IN_LLVM)
 {
         /* In LDC, we can't rely on these codegen hacks - we explicitly pass
          * parameters on to the contract functions.
@@ -2096,7 +2096,7 @@ version(IN_LLVM)
                 sc.pop();
             }
 
-version(IN_LLVM)
+version (IN_LLVM)
             sf = fdv.mergeFrequire(sf, params);
 else
             sf = fdv.mergeFrequire(sf);
@@ -2107,7 +2107,7 @@ else
                  *   try { __require(); }
                  *   catch (Throwable) { frequire; }
                  */
-version(IN_LLVM)
+version (IN_LLVM)
                 Expression e = new CallExp(loc, new VarExp(loc, fdv.fdrequire, false), params);
 else
 {
@@ -2215,7 +2215,7 @@ else
 
         if (frequire)
         {
-            version(IN_LLVM)
+            version (IN_LLVM)
             {
                 /* In LDC, we can't rely on the codegen hacks DMD has to be able
                  * to just magically call the contract function parameterless with
@@ -2254,7 +2254,7 @@ else
             auto fd = new FuncDeclaration(loc, loc, Id.require, STC.undefined_, tf);
             fd.fbody = frequire;
             Statement s1 = new ExpStatement(loc, fd);
-            version(IN_LLVM)
+            version (IN_LLVM)
             {
                 Expression e = new CallExp(loc, new VarExp(loc, fd, false), fdrequireParams);
             }
@@ -2267,7 +2267,7 @@ else
             fdrequire = fd;
         }
 
-        version(IN_LLVM)
+        version (IN_LLVM)
         {
             /* We need to set fdensureParams here and not in the block below to
              * have the parameters available when calling a base class ensure(),
@@ -2284,7 +2284,7 @@ else
         }
         if (fensure)
         {
-            version(IN_LLVM)
+            version (IN_LLVM)
             {
                 /* Same as for in contracts, see above. */
                 Loc loc = fensure.loc;
@@ -2304,7 +2304,7 @@ else
             if (canBuildResultVar())
             {
                 p = new Parameter(STC.ref_ | STC.const_, f.nextOf(), Id.result, null, null);
-                version(IN_LLVM)
+                version (IN_LLVM)
                     fparams.insert(0, p);
                 else
                     fparams.push(p);
@@ -2317,7 +2317,7 @@ else
             auto fd = new FuncDeclaration(loc, loc, Id.ensure, STC.undefined_, tf);
             fd.fbody = fensure;
             Statement s1 = new ExpStatement(loc, fd);
-            version(IN_LLVM)
+            version (IN_LLVM)
             {
                 Expression e = new CallExp(loc, new VarExp(loc, fd, false), fdensureParams);
             }
@@ -2341,7 +2341,7 @@ else
     // IN_LLVM replaced: final Statement mergeFensure(Statement sf, Identifier oid)
     final Statement mergeFensure(Statement sf, Identifier oid, Expressions *params = null)
     {
-        version(IN_LLVM)
+        version (IN_LLVM)
         {
             if (params is null)
                 params = fdensureParams;
@@ -2372,7 +2372,7 @@ else
                 sc.pop();
             }
 
-version(IN_LLVM)
+version (IN_LLVM)
             sf = fdv.mergeFensure(sf, oid, params);
 else
             sf = fdv.mergeFensure(sf, oid);
@@ -2383,13 +2383,13 @@ else
                 Expression eresult = null;
                 if (canBuildResultVar())
                 {
-version(IN_LLVM)
+version (IN_LLVM)
                     eresult = (*params)[0];
 else
                     eresult = new IdentifierExp(loc, oid);
 
                     Type t1 = fdv.type.nextOf().toBasetype();
-version(IN_LLVM)
+version (IN_LLVM)
 {
                     // We actually check for matching types in CommaExp::toElem,
                     // 'testcontract' breaks without this.
@@ -2411,7 +2411,7 @@ version(IN_LLVM)
                         eresult = new CommaExp(Loc.initial, de, ve);
                     }
                 }
-version(IN_LLVM)
+version (IN_LLVM)
 {
                 if (eresult !is null)
                     (*params)[0] = eresult;
@@ -2499,7 +2499,7 @@ else
      * Check parameters and return type of D main() function.
      * Issue error messages.
      */
-    final void checkDmain()
+    extern (D) final void checkDmain()
     {
         TypeFunction tf = type.toTypeFunction();
         const nparams = Parameter.dim(tf.parameters);
@@ -2549,7 +2549,7 @@ else
  * Returns:
  *      void expression that calls the invariant
  */
-extern (C++) Expression addInvariant(const ref Loc loc, Scope* sc, AggregateDeclaration ad, VarDeclaration vthis)
+Expression addInvariant(const ref Loc loc, Scope* sc, AggregateDeclaration ad, VarDeclaration vthis)
 {
     Expression e = null;
     // Call invariant directly only if it exists
@@ -2694,11 +2694,6 @@ extern (D) int overloadApply(Dsymbol fstart, scope int delegate(Dsymbol) dg, Sco
     return 0;
 }
 
-extern (C++) int overloadApply(Dsymbol fstart, void* param, int function(void*, Dsymbol) fp)
-{
-    return overloadApply(fstart, s => (*fp)(param, s));
-}
-
 /**
 Checks for mismatching modifiers between `lhsMod` and `rhsMod` and prints the
 mismatching modifiers to `buf`.
@@ -2802,7 +2797,7 @@ private const(char)* prependSpace(const(char)* str)
  * Returns:
  *      if match is found, then function symbol, else null
  */
-extern (C++) FuncDeclaration resolveFuncCall(const ref Loc loc, Scope* sc, Dsymbol s,
+FuncDeclaration resolveFuncCall(const ref Loc loc, Scope* sc, Dsymbol s,
     Objects* tiargs, Type tthis, Expressions* fargs, int flags = 0)
 {
     if (!s)
@@ -2891,25 +2886,7 @@ extern (C++) FuncDeclaration resolveFuncCall(const ref Loc loc, Scope* sc, Dsymb
                 td.kind(), td.parent.toPrettyChars(), td.ident.toChars(),
                 tiargsBuf.peekString(), fargsBuf.peekString());
 
-            // Display candidate templates (even if there are no multiple overloads)
-            int numToDisplay = numOverloadsDisplay;
-            overloadApply(td, (Dsymbol s)
-            {
-                auto td = s.isTemplateDeclaration();
-                if (!td)
-                    return 0;
-                .errorSupplemental(td.loc, "`%s`", td.toPrettyChars());
-                if (global.params.verbose || --numToDisplay != 0 || !td.overnext)
-                    return 0;
-
-                // Too many overloads to sensibly display.
-                // Just show count of remaining overloads.
-                int num = 0;
-                overloadApply(td.overnext, (s) { ++num; return 0; });
-                if (num > 0)
-                    .errorSupplemental(loc, "... (%d more, -v to show) ...", num);
-                return 1;   // stop iterating
-            });
+            printCandidates(loc, td);
         }
         else if (od)
         {
@@ -2969,36 +2946,8 @@ extern (C++) FuncDeclaration resolveFuncCall(const ref Loc loc, Scope* sc, Dsymb
                 }
             }
 
-            // Display candidate functions
-            int numToDisplay = numOverloadsDisplay;
-            overloadApply(hasOverloads ? fd : null, (Dsymbol s)
-            {
-                auto fd = s.isFuncDeclaration();
-                auto td = s.isTemplateDeclaration();
-                if (fd)
-                {
-                    if (fd.errors || fd.type.ty == Terror)
-                        return 0;
-
-                    auto tf = cast(TypeFunction)fd.type;
-                    .errorSupplemental(fd.loc, "`%s%s`", fd.toPrettyChars(),
-                        parametersTypeToChars(tf.parameters, tf.varargs));
-                }
-                else
-                {
-                    .errorSupplemental(td.loc, "`%s`", td.toPrettyChars());
-                }
-
-                if (global.params.verbose || --numToDisplay != 0 || !fd)
-                    return 0;
-
-                // Too many overloads to sensibly display.
-                int num = 0;
-                overloadApply(fd.overnext, (s){ ++num; return 0; });
-                if (num > 0)
-                    .errorSupplemental(loc, "... (%d more, -v to show) ...", num);
-                return 1;   // stop iterating
-            }, sc);
+            if (hasOverloads)
+                printCandidates(loc, fd);
         }
     }
     else if (m.nextf)
@@ -3020,10 +2969,56 @@ extern (C++) FuncDeclaration resolveFuncCall(const ref Loc loc, Scope* sc, Dsymb
     return null;
 }
 
+/*******************************************
+ * Prints template and function overload candidates as supplemental errors.
+ * Params:
+ *      loc =           instantiation location
+ *      declaration =   the declaration to print overload candidates for
+ */
+private void printCandidates(Decl)(const ref Loc loc, Decl declaration)
+if (is(Decl == TemplateDeclaration) || is(Decl == FuncDeclaration))
+{
+    // max num of overloads to print (-v overrides this).
+    int numToDisplay = 5;
+
+    overloadApply(declaration, (Dsymbol s)
+    {
+        Dsymbol nextOverload;
+
+        if (auto fd = s.isFuncDeclaration())
+        {
+            if (fd.errors || fd.type.ty == Terror)
+                return 0;
+
+            auto tf = cast(TypeFunction) fd.type;
+            .errorSupplemental(fd.loc, "`%s%s`", fd.toPrettyChars(),
+                parametersTypeToChars(tf.parameters, tf.varargs));
+            nextOverload = fd.overnext;
+        }
+        else if (auto td = s.isTemplateDeclaration())
+        {
+            .errorSupplemental(td.loc, "`%s`", td.toPrettyChars());
+            nextOverload = td.overnext;
+        }
+
+        if (global.params.verbose || --numToDisplay != 0)
+            return 0;
+
+        // Too many overloads to sensibly display.
+        // Just show count of remaining overloads.
+        int num = 0;
+        overloadApply(nextOverload, (s) { ++num; return 0; });
+
+        if (num > 0)
+            .errorSupplemental(loc, "... (%d more, -v to show) ...", num);
+        return 1;   // stop iterating
+    });
+}
+
 /**************************************
  * Returns an indirect type one step from t.
  */
-extern (C++) Type getIndirection(Type t)
+Type getIndirection(Type t)
 {
     t = t.baseElemOf();
     if (t.ty == Tarray || t.ty == Tpointer)

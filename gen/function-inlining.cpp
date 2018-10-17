@@ -10,6 +10,8 @@
 #include "gen/function-inlining.h"
 
 #include "declaration.h"
+#include "errors.h"
+#include "expression.h"
 #include "globals.h"
 #include "id.h"
 #include "module.h"

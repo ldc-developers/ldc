@@ -38,6 +38,7 @@ import dmd.globals;
 import dmd.hdrgen;
 import dmd.id;
 import dmd.identifier;
+import dmd.dinterpret;
 import dmd.mtype;
 import dmd.parse;
 import dmd.root.outbuffer;
@@ -47,7 +48,7 @@ import dmd.sideeffect;
 import dmd.staticassert;
 import dmd.tokens;
 import dmd.visitor;
-version(IN_LLVM) import gen.dpragma;
+version (IN_LLVM) import gen.dpragma;
 
 /**
  * Returns:
@@ -58,6 +59,18 @@ TypeIdentifier getThrowable()
     auto tid = new TypeIdentifier(Loc.initial, Id.empty);
     tid.addIdent(Id.object);
     tid.addIdent(Id.Throwable);
+    return tid;
+}
+
+/**
+ * Returns:
+ *      TypeIdentifier corresponding to `object.Exception`
+ */
+TypeIdentifier getException()
+{
+    auto tid = new TypeIdentifier(Loc.initial, Id.empty);
+    tid.addIdent(Id.object);
+    tid.addIdent(Id.Exception);
     return tid;
 }
 
@@ -101,12 +114,6 @@ extern (C++) abstract class Statement : RootObject
             }
         }
         return b;
-    }
-
-    override final void print()
-    {
-        fprintf(stderr, "%s\n", toChars());
-        fflush(stderr);
     }
 
     override final const(char)* toChars()
@@ -302,7 +309,6 @@ extern (C++) abstract class Statement : RootObject
     Statement scopeCode(Scope* sc, Statement* sentry, Statement* sexception, Statement* sfinally)
     {
         //printf("Statement::scopeCode()\n");
-        //print();
         *sentry = null;
         *sexception = null;
         *sfinally = null;
@@ -430,7 +436,7 @@ extern (C++) abstract class Statement : RootObject
         v.visit(this);
     }
 
-    version(IN_LLVM)
+    version (IN_LLVM)
     {
         CompoundAsmStatement isCompoundAsmBlockStatement()
         {
@@ -494,7 +500,7 @@ extern (C++) final class PeelStatement : Statement
 /***********************************************************
  * Convert TemplateMixin members (== Dsymbols) to Statements.
  */
-extern (C++) Statement toStatement(Dsymbol s)
+private Statement toStatement(Dsymbol s)
 {
     extern (C++) final class ToStmt : Visitor
     {
@@ -676,7 +682,6 @@ extern (C++) class ExpStatement : Statement
     override final Statement scopeCode(Scope* sc, Statement* sentry, Statement* sexception, Statement* sfinally)
     {
         //printf("ExpStatement::scopeCode()\n");
-        //print();
 
         *sentry = null;
         *sexception = null;
@@ -690,7 +695,6 @@ extern (C++) class ExpStatement : Statement
             {
                 if (v.needsScopeDtor())
                 {
-                    //printf("dtor is: "); v.edtor.print();
                     *sfinally = new DtorExpStatement(loc, v.edtor, v);
                     v.storage_class |= STC.nodtor; // don't add in dtor again
                 }
@@ -782,17 +786,24 @@ extern (C++) final class DtorExpStatement : ExpStatement
  */
 extern (C++) final class CompileStatement : Statement
 {
-    Expression exp;
+    Expressions* exps;
 
     extern (D) this(const ref Loc loc, Expression exp)
     {
+        Expressions* exps = new Expressions();
+        exps.push(exp);
+        this(loc, exps);
+    }
+
+    extern (D) this(const ref Loc loc, Expressions* exps)
+    {
         super(loc);
-        this.exp = exp;
+        this.exps = exps;
     }
 
     override Statement syntaxCopy()
     {
-        return new CompileStatement(loc, exp.syntaxCopy());
+        return new CompileStatement(loc, Expression.arraySyntaxCopy(exps));
     }
 
     private Statements* compileIt(Scope* sc)
@@ -806,13 +817,39 @@ extern (C++) final class CompileStatement : Statement
             return a;
         }
 
-        auto se = semanticString(sc, exp, "argument to mixin");
-        if (!se)
-            return errorStatements();
-        se = se.toUTF8(sc);
 
-        uint errors = global.errors;
-        scope p = new Parser!ASTCodegen(loc, sc._module, se.toStringz(), false);
+        OutBuffer buf;
+        if (exps)
+        {
+            foreach (ex; *exps)
+            {
+                sc = sc.startCTFE();
+                auto e = ex.expressionSemantic(sc);
+                e = resolveProperties(sc, e);
+                sc = sc.endCTFE();
+
+                // allowed to contain types as well as expressions
+                e = ctfeInterpretForPragmaMsg(e);
+                if (e.op == TOK.error)
+                {
+                    //errorSupplemental(exp.loc, "while evaluating `mixin(%s)`", ex.toChars());
+                    return errorStatements();
+                }
+                StringExp se = e.toStringExp();
+                if (se)
+                {
+                    se = se.toUTF8(sc);
+                    buf.printf("%.*s", cast(int)se.len, se.string);
+                }
+                else
+                    buf.printf("%s", e.toChars());
+            }
+        }
+
+        const errors = global.errors;
+        const len = buf.offset;
+        const str = buf.extractString()[0 .. len];
+        scope p = new Parser!ASTCodegen(loc, sc._module, str, false);
         p.nextToken();
 
         auto a = new Statements();
@@ -935,7 +972,7 @@ extern (C++) class CompoundStatement : Statement
         v.visit(this);
     }
 
-    version(IN_LLVM)
+    version (IN_LLVM)
     {
         override CompoundAsmStatement endsWithAsm()
         {
@@ -1597,7 +1634,7 @@ extern (C++) final class SwitchStatement : Statement
     int hasNoDefault;               /// !=0 if no default statement
     int hasVars;                    /// !=0 if has variable case values
     VarDeclaration lastVar;         /// last observed variable declaration in this statement
-version(IN_LLVM)
+version (IN_LLVM)
 {
     bool hasGotoDefault;            // true iff there is a `goto default` statement for this switch
 }
@@ -1624,7 +1661,7 @@ version(IN_LLVM)
      * Returns:
      *  true if error
      */
-    bool checkLabel()
+    extern (D) bool checkLabel()
     {
         /*
          * Checks the scope of a label for existing variable declaration.
@@ -1675,7 +1712,7 @@ extern (C++) final class CaseStatement : Statement
     int index;              // which case it is (since we sort this)
     VarDeclaration lastVar;
 
-    version(IN_LLVM)
+    version (IN_LLVM)
     {
         bool gototarget; // true iff this is the target of a 'goto case'
     }
@@ -1744,7 +1781,7 @@ extern (C++) final class DefaultStatement : Statement
     Statement statement;
     VarDeclaration lastVar;
 
-    version(IN_LLVM)
+    version (IN_LLVM)
     {
         bool gototarget; // true iff this is the target of a 'goto default'
     }
@@ -1805,7 +1842,7 @@ extern (C++) final class GotoCaseStatement : Statement
     Expression exp;     // null, or which case to goto
     CaseStatement cs;   // case statement it resolves to
 
-    version(IN_LLVM)
+    version (IN_LLVM)
     {
         SwitchStatement sw;
     }
@@ -1890,7 +1927,7 @@ extern (C++) final class BreakStatement : Statement
 {
     Identifier ident;
 
-    version(IN_LLVM)
+    version (IN_LLVM)
     {
         // LDC: only set if ident is set: label statement to jump to
         LabelStatement target;
@@ -1924,7 +1961,7 @@ extern (C++) final class ContinueStatement : Statement
 {
     Identifier ident;
 
-    version(IN_LLVM)
+    version (IN_LLVM)
     {
         // LDC: only set if ident is set: label statement to jump to
         LabelStatement target;
@@ -2142,7 +2179,6 @@ extern (C++) final class OnScopeStatement : Statement
     override Statement scopeCode(Scope* sc, Statement* sentry, Statement* sexception, Statement* sfinally)
     {
         //printf("OnScopeStatement::scopeCode()\n");
-        //print();
         *sentry = null;
         *sexception = null;
         *sfinally = null;
@@ -2277,7 +2313,7 @@ extern (C++) final class GotoStatement : Statement
         return new GotoStatement(loc, ident);
     }
 
-    bool checkLabel()
+    extern (D) bool checkLabel()
     {
         if (!label.statement)
         {
@@ -2475,7 +2511,7 @@ extern (C++) final class InlineAsmStatement : AsmStatement
     bool refparam;  // true if function parameter is referenced
     bool naked;     // true if function is to be naked
 
-    version(IN_LLVM)
+    version (IN_LLVM)
     {
         // non-zero if this is a branch, contains the target label
         LabelDsymbol isBranchToLabel;
@@ -2493,7 +2529,7 @@ extern (C++) final class InlineAsmStatement : AsmStatement
 
     override Statement syntaxCopy()
     {
-version(IN_LLVM)
+version (IN_LLVM)
 {
         auto a_s = new InlineAsmStatement(loc, tokens);
         a_s.refparam = refparam;
@@ -2551,7 +2587,7 @@ extern (C++) final class CompoundAsmStatement : CompoundStatement
 {
     StorageClass stc; // postfix attributes like nothrow/pure/@trusted
 
-    version(IN_LLVM)
+    version (IN_LLVM)
     {
         void* abiret; // llvm::Value*
     }
@@ -2582,7 +2618,7 @@ extern (C++) final class CompoundAsmStatement : CompoundStatement
         v.visit(this);
     }
 
-    version(IN_LLVM)
+    version (IN_LLVM)
     {
         override final inout(CompoundStatement) isCompoundStatement() inout nothrow pure
         {

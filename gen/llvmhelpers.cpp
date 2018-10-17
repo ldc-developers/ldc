@@ -8,11 +8,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/llvmhelpers.h"
-#include "gen/cl_helpers.h"
 #include "declaration.h"
 #include "expression.h"
+#include "identifier.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
+#include "gen/cl_helpers.h"
 #include "gen/classes.h"
 #include "gen/complex.h"
 #include "gen/dvalue.h"
@@ -70,9 +71,7 @@ bool isTargetWindowsMSVC() {
   return global.params.targetTriple->isWindowsMSVCEnvironment();
 }
 
-bool isMusl() {
-  return global.params.targetTriple->isMusl();
-}
+bool isMusl() { return global.params.targetTriple->isMusl(); }
 
 /******************************************************************************
  * Global context
@@ -301,8 +300,8 @@ void DtoAssert(Module *M, Loc &loc, DValue *msg) {
 }
 
 void DtoCAssert(Module *M, Loc &loc, LLValue *msg) {
-  const auto file = DtoConstCString(loc.filename ? loc.filename
-                                                 : M->srcfile->name->toChars());
+  const auto file =
+      DtoConstCString(loc.filename ? loc.filename : M->srcfile->name.toChars());
   const auto line = DtoConstUint(loc.linnum);
   const auto fn = getCAssertFunction(loc, gIR->module);
 
@@ -345,7 +344,7 @@ void DtoCAssert(Module *M, Loc &loc, LLValue *msg) {
 
 LLConstant *DtoModuleFileName(Module *M, const Loc &loc) {
   return DtoConstString(loc.filename ? loc.filename
-                                     : M->srcfile->name->toChars());
+                                     : M->srcfile->name.toChars());
 }
 
 /******************************************************************************
@@ -1355,8 +1354,8 @@ void DtoSetFuncDeclIntrinsicName(TemplateInstance *ti, TemplateDeclaration *td,
                                  FuncDeclaration *fd) {
   if (fd->llvmInternal == LLVMintrinsic) {
     fd->intrinsicName = DtoOverloadedIntrinsicName(ti, td);
-    fd->mangleOverride =
-        fd->intrinsicName ? strdup(fd->intrinsicName) : nullptr;
+    const auto cstr = fd->intrinsicName;
+    fd->mangleOverride = {cstr ? strlen(cstr) : 0, cstr};
   } else {
     fd->intrinsicName = td->intrinsicName ? strdup(td->intrinsicName) : nullptr;
   }

@@ -25,6 +25,8 @@
 using llvm::APFloat;
 
 void Target::_init() {
+  CTFloat::initialize();
+
   FloatProperties::_init();
   DoubleProperties::_init();
   RealProperties::_init();
@@ -201,75 +203,6 @@ bool Target::isVectorOpSupported(Type *type, TOK op, Type *t2) {
   // FIXME
   return true;
 }
-
-/******************************
- * Encode the given expression, which is assumed to be an rvalue literal
- * as another type for use in CTFE.
- * This corresponds roughly to the idiom *(Type *)&e.
- */
-Expression *Target::paintAsType(Expression *e, Type *type) {
-  union {
-    d_int32 int32value;
-    d_int64 int64value;
-    float float32value;
-    double float64value;
-  } u;
-
-  assert(e->type->size() == type->size());
-
-  switch (e->type->ty) {
-  case Tint32:
-  case Tuns32:
-    u.int32value = static_cast<d_int32>(e->toInteger());
-    break;
-
-  case Tint64:
-  case Tuns64:
-    u.int64value = static_cast<d_int64>(e->toInteger());
-    break;
-
-  case Tfloat32:
-    u.float32value = e->toReal();
-    break;
-
-  case Tfloat64:
-    u.float64value = e->toReal();
-    break;
-
-  default:
-    llvm_unreachable("Unsupported source type");
-  }
-
-  real_t r;
-  switch (type->ty) {
-  case Tint32:
-  case Tuns32:
-    return createIntegerExp(e->loc, u.int32value, type);
-
-  case Tint64:
-  case Tuns64:
-    return createIntegerExp(e->loc, u.int64value, type);
-
-  case Tfloat32:
-    r = u.float32value;
-    return createRealExp(e->loc, r, type);
-
-  case Tfloat64:
-    r = u.float64value;
-    return createRealExp(e->loc, r, type);
-
-  default:
-    llvm_unreachable("Unsupported target type");
-  }
-}
-
-/******************************
- * For the given module, perform any post parsing analysis.
- * Certain compiler backends (ie: GDC) have special placeholder
- * modules whose source are empty, but code gets injected
- * immediately after loading.
- */
-void Target::loadModule(Module *m) {}
 
 bool Target::isReturnOnStack(TypeFunction *tf, bool needsThis) {
   return gABI->returnInArg(tf, needsThis);

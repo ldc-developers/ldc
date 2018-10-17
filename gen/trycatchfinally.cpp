@@ -9,6 +9,8 @@
 
 #include "gen/trycatchfinally.h"
 
+#include "expression.h"
+#include "mangle.h"
 #include "statement.h"
 #include "target.h"
 #include "gen/classes.h"

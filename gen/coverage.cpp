@@ -21,7 +21,7 @@ void emitCoverageLinecountInc(Loc &loc) {
   // module
   // (for example, 'inlined' methods from other source files should be skipped).
   if (!global.params.cov || !loc.linnum || !loc.filename || !m->d_cover_data ||
-      strcmp(m->srcfile->name->toChars(), loc.filename) != 0) {
+      strcmp(m->srcfile->name.toChars(), loc.filename) != 0) {
     return;
   }
 

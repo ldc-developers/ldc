@@ -9,6 +9,7 @@
 
 #include "gen/irstate.h"
 #include "declaration.h"
+#include "identifier.h"
 #include "mtype.h"
 #include "statement.h"
 #include "gen/funcgenstate.h"
@@ -46,17 +47,11 @@ FuncGenState &IRState::funcGen() {
   return *funcGenStates.back();
 }
 
-IrFunction *IRState::func() {
-  return &funcGen().irFunc;
-}
+IrFunction *IRState::func() { return &funcGen().irFunc; }
 
-llvm::Function *IRState::topfunc() {
-  return func()->getLLVMFunc();
-}
+llvm::Function *IRState::topfunc() { return func()->getLLVMFunc(); }
 
-llvm::Instruction *IRState::topallocapoint() {
-  return funcGen().allocapoint;
-}
+llvm::Instruction *IRState::topallocapoint() { return funcGen().allocapoint; }
 
 IRScope &IRState::scope() {
   assert(!scopes.empty());

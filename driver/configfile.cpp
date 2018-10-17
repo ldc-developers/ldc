@@ -65,7 +65,9 @@ static bool ReadPathFromRegistry(llvm::SmallString<128> &p) {
     DWORD length;
     if (RegGetValue(hkey, NULL, _T("Path"), RRF_RT_REG_SZ, NULL, NULL,
                     &length) == ERROR_SUCCESS) {
-      TCHAR *data = static_cast<TCHAR *>(_alloca(length * sizeof(TCHAR)));
+      std::vector<TCHAR> buffer;
+      buffer.reserve(length);
+      const auto data = buffer.data();
       if (RegGetValue(hkey, NULL, _T("Path"), RRF_RT_REG_SZ, NULL, data,
                       &length) == ERROR_SUCCESS) {
 #if UNICODE

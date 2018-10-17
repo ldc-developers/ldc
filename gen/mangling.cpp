@@ -16,6 +16,7 @@
 #include "dmd/declaration.h"
 #include "dmd/dsymbol.h"
 #include "dmd/identifier.h"
+#include "dmd/mangle.h"
 #include "dmd/module.h"
 #include "gen/abi.h"
 #include "gen/irstate.h"

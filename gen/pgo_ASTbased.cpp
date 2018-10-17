@@ -15,6 +15,7 @@
 
 #include "gen/pgo_ASTbased.h"
 
+#include "expression.h"
 #include "globals.h"
 #include "init.h"
 #include "statement.h"

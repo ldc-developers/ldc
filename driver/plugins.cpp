@@ -16,6 +16,7 @@
 #if LDC_ENABLE_PLUGINS
 
 #include "errors.h"
+#include "globals.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/DynamicLibrary.h"
 

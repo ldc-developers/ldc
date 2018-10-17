@@ -9,6 +9,7 @@
 
 #include "gen/binops.h"
 #include "declaration.h"
+#include "expression.h"
 #include "gen/complex.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"

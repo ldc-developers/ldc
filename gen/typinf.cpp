@@ -30,6 +30,7 @@
 #include "id.h"
 #include "import.h"
 #include "init.h"
+#include "mangle.h"
 #include "mars.h"
 #include "module.h"
 #include "mtype.h"

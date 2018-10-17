@@ -1,16 +1,17 @@
 #include "gen/uda.h"
 
-#include "gen/irstate.h"
-#include "gen/llvm.h"
-#include "gen/llvmhelpers.h"
 #include "aggregate.h"
 #include "attrib.h"
 #include "declaration.h"
 #include "expression.h"
+#include "id.h"
+#include "identifier.h"
+#include "module.h"
+#include "gen/irstate.h"
+#include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
 #include "ir/irfunction.h"
 #include "ir/irvar.h"
-#include "module.h"
-#include "id.h"
 
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
@@ -28,8 +29,9 @@ namespace llvm {
 
 namespace {
 
-/// Checks whether `moduleDecl` is in the ldc package and it's identifier is `id`.
-bool isMagicModule(const ModuleDeclaration *moduleDecl, const Identifier* id) {
+/// Checks whether `moduleDecl` is in the ldc package and it's identifier is
+/// `id`.
+bool isMagicModule(const ModuleDeclaration *moduleDecl, const Identifier *id) {
   if (!moduleDecl)
     return false;
 
@@ -37,8 +39,7 @@ bool isMagicModule(const ModuleDeclaration *moduleDecl, const Identifier* id) {
     return false;
   }
 
-  if (moduleDecl->packages->dim != 1 ||
-      (*moduleDecl->packages)[0] != Id::ldc) {
+  if (moduleDecl->packages->dim != 1 || (*moduleDecl->packages)[0] != Id::ldc) {
     return false;
   }
   return true;
@@ -46,9 +47,9 @@ bool isMagicModule(const ModuleDeclaration *moduleDecl, const Identifier* id) {
 
 /// Checks whether the type of `e` is a struct from an ldc recognised module,
 /// i.e. ldc.attributes or ldc.dcompute.
-bool isFromMagicModule(const StructLiteralExp *e, const Identifier* id) {
+bool isFromMagicModule(const StructLiteralExp *e, const Identifier *id) {
   auto moduleDecl = e->sd->getModule()->md;
-  return isMagicModule(moduleDecl,id);
+  return isMagicModule(moduleDecl, id);
 }
 
 StructLiteralExp *getLdcAttributesStruct(Expression *attr) {
@@ -56,7 +57,7 @@ StructLiteralExp *getLdcAttributesStruct(Expression *attr) {
   // attributes are struct literals that may be constructed using a CTFE
   // function.
   unsigned prevErrors = global.startGagging();
-  auto e = ctfeInterpret(attr);
+  auto e = attr->ctfeInterpret();
   if (global.endGagging(prevErrors)) {
     return nullptr;
   }
@@ -66,7 +67,7 @@ StructLiteralExp *getLdcAttributesStruct(Expression *attr) {
   }
 
   auto sle = static_cast<StructLiteralExp *>(e);
-  if (isFromMagicModule(sle,Id::attributes)) {
+  if (isFromMagicModule(sle, Id::attributes)) {
     return sle;
   }
 
@@ -75,11 +76,10 @@ StructLiteralExp *getLdcAttributesStruct(Expression *attr) {
 
 void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
   if (sle->elements->dim != elemTypes.size()) {
-    sle->error(
-        "unexpected field count in `ldc.%s.%s`; does druntime not "
-        "match compiler version?",
-        sle->sd->getModule()->md->id->toChars(),
-        sle->sd->ident->toChars());
+    sle->error("unexpected field count in `ldc.%s.%s`; does druntime not "
+               "match compiler version?",
+               sle->sd->getModule()->md->id->toChars(),
+               sle->sd->ident->toChars());
     fatal();
   }
 
@@ -97,8 +97,8 @@ void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
 /// Returns the StructLiteralExp magic attribute with identifier `id` from
 /// the ldc magic module with identifier `from` (attributes or dcompute)
 /// if it is applied to `sym`, otherwise returns nullptr.
-StructLiteralExp *getMagicAttribute(Dsymbol *sym, const Identifier* id,
-                                    const Identifier* from) {
+StructLiteralExp *getMagicAttribute(Dsymbol *sym, const Identifier *id,
+                                    const Identifier *from) {
   if (!sym->userAttribDecl)
     return nullptr;
 
@@ -109,7 +109,7 @@ StructLiteralExp *getMagicAttribute(Dsymbol *sym, const Identifier* id,
     if (attr->op != TOKstructliteral)
       continue;
     auto sle = static_cast<StructLiteralExp *>(attr);
-    if (!isFromMagicModule(sle,from))
+    if (!isFromMagicModule(sle, from))
       continue;
 
     if (id == sle->sd->ident) {
@@ -292,7 +292,8 @@ void applyAttrSection(StructLiteralExp *sle, llvm::GlobalObject *globj) {
   globj->setSection(getFirstElemString(sle));
 }
 
-void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func, IrFunction *irFunc) {
+void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func,
+                     IrFunction *irFunc) {
   // TODO: this is a rudimentary implementation for @target. Many more
   // target-related attributes could be applied to functions (not just for
   // @target): clang applies many attributes that LDC does not.
@@ -361,7 +362,8 @@ void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func, IrFunction *ir
   }
 }
 
-void applyAttrAssumeUsed(IRState &irs, StructLiteralExp *sle, llvm::Constant *symbol) {
+void applyAttrAssumeUsed(IRState &irs, StructLiteralExp *sle,
+                         llvm::Constant *symbol) {
   checkStructElems(sle, {});
   irs.usedArray.push_back(symbol);
 }
@@ -495,4 +497,3 @@ bool hasKernelAttr(Dsymbol *sym) {
 
   return true;
 }
-
