@@ -12,8 +12,8 @@
 
 module rt.sections_win64;
 
-// LDC: changed from `version(CRuntime_Microsoft):` to include MinGW as well
-version(Windows):
+// LDC: changed from `version (CRuntime_Microsoft):` to include MinGW as well
+version (Windows):
 
 // debug = PRINTF;
 debug(PRINTF) import core.stdc.stdio;
@@ -42,8 +42,8 @@ struct SectionGroup
         return _moduleGroup;
     }
 
-    version(LDC) {} else
-    version(Win64)
+    version (LDC) {} else
+    version (Win64)
     @property immutable(FuncTable)[] ehTables() const
     {
         auto pbeg = cast(immutable(FuncTable)*)&_deh_beg;
@@ -61,7 +61,7 @@ private:
     void[][] _gcRanges;
 }
 
-version(LDC)
+version (LDC)
 {
     /* Precise DATA/TLS GC scanning requires compiler support
      * (emitting mutable pointers into special sections bracketed
@@ -81,13 +81,13 @@ void initSections() nothrow @nogc
     debug(PRINTF) printf("found .data section: [%p,+%llx]\n", dataSection.ptr,
                          cast(ulong)dataSection.length);
 
-  version(LDC) {} else
+  version (LDC) {} else
   {
     import rt.sections;
     conservative = !scanDataSegPrecisely();
   }
 
-    version(conservative) // LDC: compile-time
+    version (conservative) // LDC: compile-time
     {
         _sections._gcRanges = (cast(void[]*) malloc((void[]).sizeof))[0..1];
         _sections._gcRanges[0] = dataSection;
@@ -131,7 +131,7 @@ void[] initTLSRanges() nothrow @nogc
     //  longer generate offsets into .tls, but DATA.
     // Use the TEB entry to find the start of TLS instead and read the
     //  length from the TLS directory
-    version(D_InlineAsm_X86)
+    version (D_InlineAsm_X86)
     {
         asm @nogc nothrow
         {
@@ -144,7 +144,7 @@ void[] initTLSRanges() nothrow @nogc
             mov pend, EAX;
         }
     }
-    else version(D_InlineAsm_X86_64)
+    else version (D_InlineAsm_X86_64)
     {
         asm @nogc nothrow
         {
@@ -171,7 +171,7 @@ void finiTLSRanges(void[] rng) nothrow @nogc
 
 void scanTLSRanges(void[] rng, scope void delegate(void* pbeg, void* pend) nothrow dg) nothrow
 {
-    version(conservative) // LDC: compile-time
+    version (conservative) // LDC: compile-time
     {
         dg(rng.ptr, rng.ptr + rng.length);
     }
@@ -194,9 +194,9 @@ void scanTLSRanges(void[] rng, scope void delegate(void* pbeg, void* pend) nothr
 private:
 __gshared SectionGroup _sections;
 
-version(LDC)
+version (LDC)
 {
-    version(MinGW)
+    version (MinGW)
     {
         // This linked list is created by a compiler generated function inserted
         // into the .ctor list by the compiler.
@@ -221,12 +221,12 @@ else
 immutable(ModuleInfo*)[] getModuleInfos() nothrow @nogc
 out (result)
 {
-    foreach(m; result)
+    foreach (m; result)
         assert(m !is null);
 }
 do
 {
-  version(MinGW) // LDC
+  version (MinGW) // LDC
   {
     import core.stdc.stdlib : malloc;
 
@@ -247,7 +247,7 @@ do
   }
   else
   {
-    version(LDC)
+    version (LDC)
     {
         void[] minfoSection = findImageSection(".minfo");
         auto m = (cast(immutable(ModuleInfo*)*)minfoSection.ptr)[0 .. minfoSection.length / size_t.sizeof];
@@ -366,7 +366,7 @@ void[] findImageSection(string name) nothrow @nogc
 
     auto nthdr = cast(IMAGE_NT_HEADERS*)(cast(void*)doshdr + doshdr.e_lfanew);
     auto sections = cast(IMAGE_SECTION_HEADER*)(cast(void*)nthdr + IMAGE_NT_HEADERS.sizeof + nthdr.FileHeader.SizeOfOptionalHeader);
-    for(ushort i = 0; i < nthdr.FileHeader.NumberOfSections; i++)
+    for (ushort i = 0; i < nthdr.FileHeader.NumberOfSections; i++)
         if (compareSectionName (sections[i], name))
             return (cast(void*)&__ImageBase + sections[i].VirtualAddress)[0 .. sections[i].VirtualSize];
 

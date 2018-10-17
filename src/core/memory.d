@@ -895,7 +895,7 @@ void pureFree(void* ptr) @system pure @nogc nothrow
     // See also: https://issues.dlang.org/show_bug.cgi?id=17956
     void* z = pureMalloc(size_t.max & ~255); // won't affect `errno`
     assert(errno == fakePureErrno()); // errno shouldn't change
-  version(LDC)
+  version (LDC)
   {
     // LLVM's 'Combine redundant instructions' optimization pass
     // completely elides allocating `y` and `z`. Allocations with

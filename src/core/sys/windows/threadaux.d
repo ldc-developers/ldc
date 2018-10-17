@@ -17,7 +17,7 @@ import core.stdc.stdlib;
 
 public import core.thread;
 
-version(LDC) import ldc.attributes, ldc.llvmasm;
+version (LDC) import ldc.attributes, ldc.llvmasm;
 
 extern(Windows)
 HANDLE OpenThread(DWORD dwDesiredAccess, BOOL bInheritHandle, DWORD dwThreadId) nothrow;
@@ -160,12 +160,12 @@ struct thread_aux
     }
 
     // get linear address of TEB of current thread
-  version(LDC)
+  version (LDC)
   {
     static void** getTEB() nothrow @naked
     {
-        version(Win32)      return __asm!(void**)("mov %fs:(0x18), $0", "=r");
-        else version(Win64) return __asm!(void**)("mov %gs:0($1), $0", "=r,r", 0x30);
+        version (Win32)      return __asm!(void**)("mov %fs:(0x18), $0", "=r");
+        else version (Win64) return __asm!(void**)("mov %gs:0($1), $0", "=r,r", 0x30);
         else static assert(false);
     }
   }
@@ -173,7 +173,7 @@ struct thread_aux
   {
     static void** getTEB() nothrow
     {
-        version(Win32)
+        version (Win32)
         {
             asm pure nothrow @nogc
             {
@@ -182,7 +182,7 @@ struct thread_aux
                 ret;
             }
         }
-        else version(Win64)
+        else version (Win64)
         {
             asm pure nothrow @nogc
             {
@@ -226,42 +226,42 @@ struct thread_aux
     {
         HANDLE hnd = GetModuleHandleA( "NTDLL" );
         fnNtQuerySystemInformation fn = cast(fnNtQuerySystemInformation) GetProcAddress( hnd, "NtQuerySystemInformation" );
-        if( !fn )
+        if ( !fn )
             return false;
 
         uint sz = 16384;
         uint retLength;
         HRESULT rc;
         char* buf;
-        for( ; ; )
+        for ( ; ; )
         {
             buf = cast(char*) core.stdc.stdlib.malloc(sz);
-            if(!buf)
+            if (!buf)
                 return false;
             rc = fn( SystemProcessInformation, buf, sz, &retLength );
-            if( rc != STATUS_INFO_LENGTH_MISMATCH )
+            if ( rc != STATUS_INFO_LENGTH_MISMATCH )
                 break;
             core.stdc.stdlib.free( buf );
             sz *= 2;
         }
         scope(exit) core.stdc.stdlib.free( buf );
 
-        if(rc != 0)
+        if (rc != 0)
             return false;
 
         auto pinfo = cast(_SYSTEM_PROCESS_INFORMATION*) buf;
         auto pend  = cast(_SYSTEM_PROCESS_INFORMATION*) (buf + retLength);
-        for( ; pinfo < pend; )
+        for ( ; pinfo < pend; )
         {
-            if( pinfo.ProcessId == procid )
+            if ( pinfo.ProcessId == procid )
             {
                 auto tinfo = cast(_SYSTEM_THREAD_INFORMATION*)(pinfo + 1);
-                for( int i = 0; i < pinfo.NumberOfThreads; i++, tinfo++ )
-                    if( tinfo.ProcessId == procid )
-                        if( !dg( cast(uint) tinfo.ThreadId, context ) ) // IDs are actually DWORDs
+                for ( int i = 0; i < pinfo.NumberOfThreads; i++, tinfo++ )
+                    if ( tinfo.ProcessId == procid )
+                        if ( !dg( cast(uint) tinfo.ThreadId, context ) ) // IDs are actually DWORDs
                             return false;
             }
-            if( pinfo.NextEntryOffset == 0 )
+            if ( pinfo.NextEntryOffset == 0 )
                 break;
             pinfo = cast(_SYSTEM_PROCESS_INFORMATION*) (cast(char*) pinfo + pinfo.NextEntryOffset);
         }
@@ -282,7 +282,7 @@ struct thread_aux
 
     static void impersonate_thread( uint id, scope void delegate() dg)
     {
-        if( id == GetCurrentThreadId() )
+        if ( id == GetCurrentThreadId() )
         {
             dg();
             return;
@@ -295,13 +295,13 @@ struct thread_aux
 
         void** curtlsarray = cast(void**) curteb[11];
         void** tlsarray    = cast(void**) teb[11];
-        if( !curtlsarray || !tlsarray )
+        if ( !curtlsarray || !tlsarray )
             return;
 
         curteb[11] = tlsarray;
 
         // swap out the TLS slots aswell
-        version(Win64)
+        version (Win64)
         {
             enum TEB_offset_TlsSlots = 0x1480;
             enum TEB_offset_TlsExpansionSlots = 0x1780;
@@ -346,8 +346,8 @@ alias thread_aux.impersonate_thread impersonate_thread;
 // get the start of the TLS memory of the thread with the given handle
 void* GetTlsDataAddress( HANDLE hnd ) nothrow
 {
-    if( void** teb = getTEB( hnd ) )
-        if( void** tlsarray = cast(void**) teb[11] )
+    if ( void** teb = getTEB( hnd ) )
+        if ( void** tlsarray = cast(void**) teb[11] )
             return tlsarray[_tls_index];
     return null;
 }

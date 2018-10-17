@@ -22,7 +22,7 @@ else version (FreeBSD) {}
 else version (DragonFlyBSD) {}
 else version (NetBSD) {}
 else version (Windows) {}
-else version(LDC):
+else version (LDC):
 
 import core.stdc.stdlib : alloca;
 import rt.minfo;
@@ -70,11 +70,11 @@ private:
     import rt.util.container.array;
     Array!(void[]) _gcRanges;
 
-    version(Solaris)
+    version (Solaris)
     {
         size_t _tlsSize;
     }
-    else version(UseELF)
+    else version (UseELF)
     {
         size_t _tlsMod;
         size_t _tlsSize;
@@ -106,7 +106,7 @@ private
 
                 case PT_TLS: // TLS segment
                     assert(!pdso._tlsSize); // is unique per DSO
-                    version(Solaris)
+                    version (Solaris)
                     {
                         pdso._tlsSize = phdr.p_memsz;
                     }
@@ -160,7 +160,7 @@ private
             return false;
         }
 
-        version(Solaris)
+        version (Solaris)
         {
             /* Solaris does not support the dl_phdr_info.dlpi_tls_modid field.
              * The static TLS range is placed immediately preceding the thread
@@ -202,7 +202,7 @@ private
 
             struct ulwp_t
             {
-                version(SPARC)
+                version (SPARC)
                 {
                     uint     ul_dinstr;
                     uint[15] ul_padsparc0;
@@ -211,7 +211,7 @@ private
                     uint     ul_dftret;
                     uint     ul_dreturn;
                 }
-                version(SPARC64)
+                version (SPARC64)
                 {
                     uint     ul_dinstr;
                     uint[15] ul_padsparc0;
@@ -282,13 +282,13 @@ private
             /* The dynamic thread vector (DTV) pointers may point 0x8000 past the start of
              * each TLS block. This is at least true for PowerPC and Mips platforms.
              */
-            version(PPC)
+            version (PPC)
                 enum TLS_DTV_OFFSET = 0x8000;
-            else version(PPC64)
+            else version (PPC64)
                 enum TLS_DTV_OFFSET = 0x8000;
-            else version(MIPS)
+            else version (MIPS)
                 enum TLS_DTV_OFFSET = 0x8000;
-            else version(MIPS64)
+            else version (MIPS64)
                 enum TLS_DTV_OFFSET = 0x8000;
             else
                 enum TLS_DTV_OFFSET = 0x0;

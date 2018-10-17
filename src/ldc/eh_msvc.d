@@ -4,7 +4,7 @@
  */
 module ldc.eh_msvc;
 
-version(CRuntime_Microsoft):
+version (CRuntime_Microsoft):
 
 import core.sys.windows.windows;
 import core.exception : onOutOfMemoryError, OutOfMemoryError;
@@ -15,7 +15,7 @@ import ldc.llvmasm;
 import rt.util.container.common : xmalloc;
 
 // pointers are image relative for Win64 versions
-version(Win64)
+version (Win64)
     struct ImgPtr(T) { uint offset; } // offset into image
 else
     alias ImgPtr(T) = T*;
@@ -24,7 +24,7 @@ alias PMFN = ImgPtr!(void function(void*));
 
 struct TypeDescriptor
 {
-    version(_RTTI)
+    version (_RTTI)
         const void * pVFTable;  // Field overloaded by RTTI
     else
         uint hash;  // Hash value computed from type's decorated name
@@ -92,7 +92,7 @@ struct CxxExceptionInfo
     size_t Magic;
     Throwable* pThrowable; // null for rethrow
     _ThrowInfo* ThrowInfo;
-    version(Win64) void* ImgBase;
+    version (Win64) void* ImgBase;
 }
 
 // D runtime function
@@ -139,7 +139,7 @@ extern(C) void _d_throw_exception(Throwable throwable)
     info.Magic = EH_MAGIC_NUMBER1;
     info.pThrowable = &throwable;
     info.ThrowInfo = getThrowInfo(ti).toPointer;
-    version(Win64) info.ImgBase = ehHeap.base;
+    version (Win64) info.ImgBase = ehHeap.base;
 
     RaiseException(STATUS_MSC_EXCEPTION, EXCEPTION_NONCONTINUABLE,
                    info.sizeof / size_t.sizeof, cast(ULONG_PTR*)&info);
@@ -339,7 +339,7 @@ auto tlsOldTerminateHandler() nothrow @assumeUsed
 
 void msvc_eh_terminate() nothrow @naked
 {
-    version(Win32)
+    version (Win32)
     {
         __asm(
            `call __D3ldc7eh_msvc21tlsUncaughtExceptionsFNbZk
@@ -574,7 +574,7 @@ void msvc_eh_init()
 {
     throwInfoMutex = new Mutex;
 
-    version(Win64) ehHeap.initialize(0x10000);
+    version (Win64) ehHeap.initialize(0x10000);
 
     // preallocate type descriptors likely to be needed
     getThrowInfo(typeid(Exception));
@@ -583,7 +583,7 @@ void msvc_eh_init()
 }
 
 ///////////////////////////////////////////////////////////////
-version(Win32)
+version (Win32)
 {
     ImgPtr!T eh_malloc(T)(size_t size = T.sizeof)
     {

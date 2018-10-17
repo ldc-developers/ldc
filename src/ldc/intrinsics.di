@@ -10,7 +10,7 @@
 module ldc.intrinsics;
 
 // Check for the right compiler
-version(LDC)
+version (LDC)
 {
     // OK
 }
@@ -19,25 +19,25 @@ else
     static assert(false, "This module is only valid for LDC");
 }
 
-version(LDC_LLVM_309)
+version (LDC_LLVM_309)
 {
 }
-else version(LDC_LLVM_400)
+else version (LDC_LLVM_400)
 {
     version = INTRINSICS_FROM_400;
 }
-else version(LDC_LLVM_500)
+else version (LDC_LLVM_500)
 {
     version = INTRINSICS_FROM_400;
     version = INTRINSICS_FROM_500;
 }
-else version(LDC_LLVM_600)
+else version (LDC_LLVM_600)
 {
     version = INTRINSICS_FROM_400;
     version = INTRINSICS_FROM_500;
     version = INTRINSICS_FROM_600;
 }
-else version(LDC_LLVM_700)
+else version (LDC_LLVM_700)
 {
     version = INTRINSICS_FROM_400;
     version = INTRINSICS_FROM_500;
@@ -139,7 +139,7 @@ alias llvm_readcyclecounter readcyclecounter;
 pragma(LDC_intrinsic, "llvm.clear_cache")
     void llvm_clear_cache(void *from, void *to);
 
-version(INTRINSICS_FROM_600)
+version (INTRINSICS_FROM_600)
 {
 /// The ‘llvm.thread.pointer‘ intrinsic returns a pointer to the TLS area for the
 /// current thread. The exact semantics of this value are target specific: it may
@@ -157,7 +157,7 @@ pragma(LDC_intrinsic, "llvm.thread.pointer")
 
 pure:
 
-version(INTRINSICS_FROM_700)
+version (INTRINSICS_FROM_700)
 {
 // The alignment parameter was removed from these memory intrinsics in LLVM 7.0. Instead, alignment
 // can be specified as an attribute on the ptr arguments.
@@ -222,7 +222,7 @@ void llvm_memset(T)(void* dst, ubyte val, T len, uint alignment, bool volatile_ 
         llvm_memset!T(dst, val, len, false);
 }
 
-} // version(INTRINSICS_FROM_700)
+} // version (INTRINSICS_FROM_700)
 else
 {
 

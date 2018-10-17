@@ -88,7 +88,7 @@ bool scanDataSegPrecisely() nothrow @nogc
 {
     import rt.config;
     string opt = rt_configOption("scanDataSeg");
-    switch(opt)
+    switch (opt)
     {
         case "":
         case "conservative":

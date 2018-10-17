@@ -16,26 +16,26 @@ module core.stdc.stdarg;
 //@nogc:    // Not yet, need to make TypeInfo's member functions @nogc first
 nothrow:
 
-version ( PPC ) version = AnyPPC;
-version ( PPC64 ) version = AnyPPC;
-
-version( ARM )
-{
-    // iOS uses older APCS variant instead of AAPCS
-    version( iOS ) {}
-    else version = AAPCS;
-}
-version( AArch64 )
-{
-    // iOS, tvOS are AAPCS64, but don't follow it for va_list
-    version( iOS ) {}
-    else version( TVOS ) {}
-    else version = AAPCS64;
-}
-
 version (LDC)
 {
-    version( AArch64 )
+    version (PPC) version = AnyPPC;
+    version (PPC64) version = AnyPPC;
+
+    version (ARM)
+    {
+        // iOS uses older APCS variant instead of AAPCS
+        version (iOS) {}
+        else version = AAPCS;
+    }
+    version (AArch64)
+    {
+        // iOS, tvOS are AAPCS64, but don't follow it for va_list
+        version (iOS) {}
+        else version (TVOS) {}
+        else version = AAPCS64;
+    }
+
+    version (AArch64)
     {
         void va_arg_aarch64(T)(ref __va_list ap, ref T parmn)
         {
@@ -48,9 +48,9 @@ version (LDC)
         }
     }
 
-    version( X86_64 )
+    version (X86_64)
     {
-        version( Win64 ) {}
+        version (Win64) {}
         else version = SystemV_AMD64;
     }
 
@@ -115,19 +115,19 @@ version (LDC)
 
     T va_arg(T)(ref va_list ap)
     {
-        version( SystemV_AMD64 )
+        version (SystemV_AMD64)
         {
             T arg;
             va_arg(ap, arg);
             return arg;
         }
-        else version( AAPCS64 )
+        else version (AAPCS64)
         {
             T arg;
             va_arg(ap, arg);
             return arg;
         }
-        else version( Win64 )
+        else version (Win64)
         {
             // dynamic arrays are passed as 2 separate 64-bit values
             import std.traits: isDynamicArray;
@@ -150,23 +150,23 @@ version (LDC)
                 return arg;
             }
         }
-        else version( X86 )
+        else version (X86)
         {
             T arg = *cast(T*)ap;
             ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
             return arg;
         }
-        else version( AArch64 )
+        else version (AArch64)
         {
             T arg = *cast(T*)ap;
             ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
             return arg;
         }
-        else version( ARM )
+        else version (ARM)
         {
             // AAPCS sec 5.5 B.5: type with alignment >= 8 is 8-byte aligned
             // instead of normal 4-byte alignment (APCS doesn't do this).
-            version( AAPCS )
+            version (AAPCS)
             {
                 if (T.alignof >= 8)
                     ap.ptr = cast(void*)((cast(size_t)ap.ptr + 7) & ~7);
@@ -175,7 +175,7 @@ version (LDC)
             ap.ptr += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
             return arg;
         }
-        else version( AnyPPC )
+        else version (AnyPPC)
         {
             /*
              * The rules are described in the 64bit PowerPC ELF ABI Supplement 1.9,
@@ -187,15 +187,15 @@ version (LDC)
             // be aligned before accessing a value.
             if (T.alignof >= 8)
                 ap = cast(va_list)((cast(size_t)ap + 7) & ~7);
-            version( BigEndian )
+            version (BigEndian)
                 auto p = (T.sizeof < size_t.sizeof ? ap + (size_t.sizeof - T.sizeof) : ap);
-            version( LittleEndian )
+            version (LittleEndian)
                 auto p = ap;
             T arg = *cast(T*)p;
             ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
             return arg;
         }
-        else version( MIPS64 )
+        else version (MIPS64)
         {
             T arg = *cast(T*)ap;
             ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
@@ -207,15 +207,15 @@ version (LDC)
 
     void va_arg(T)(ref va_list ap, ref T parmn)
     {
-        version( SystemV_AMD64 )
+        version (SystemV_AMD64)
         {
             va_arg_x86_64(cast(__va_list*)ap, parmn);
         }
-        else version( AAPCS64 )
+        else version (AAPCS64)
         {
             va_arg_aarch64(ap, parmn);
         }
-        else version( Win64 )
+        else version (Win64)
         {
             import std.traits: isDynamicArray;
             static if (isDynamicArray!T)
@@ -232,21 +232,21 @@ version (LDC)
                 ap += size_t.sizeof;
             }
         }
-        else version( X86 )
+        else version (X86)
         {
             parmn = *cast(T*)ap;
             ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
         }
-        else version( AArch64 )
+        else version (AArch64)
         {
             parmn = *cast(T*)ap;
             ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
         }
-        else version( ARM )
+        else version (ARM)
         {
             // AAPCS sec 5.5 B.5: type with alignment >= 8 is 8-byte aligned
             // instead of normal 4-byte alignment (APCS doesn't do this).
-            version( AAPCS )
+            version (AAPCS)
             {
                 if (T.alignof >= 8)
                     ap.ptr = cast(void*)((cast(size_t)ap.ptr + 7) & ~7);
@@ -260,11 +260,11 @@ version (LDC)
 
     void va_arg()(ref va_list ap, TypeInfo ti, void* parmn)
     {
-      version( SystemV_AMD64 )
+      version (SystemV_AMD64)
       {
         va_arg_x86_64(cast(__va_list*)ap, ti, parmn);
       }
-      else version( AAPCS64 )
+      else version (AAPCS64)
       {
         va_arg_aarch64(ap, ti, parmn);
       }
@@ -272,7 +272,7 @@ version (LDC)
       {
         auto tsize = ti.tsize;
 
-        version( X86 )
+        version (X86)
         {
             // Wait until everyone updates to get TypeInfo.talign
             //auto talign = ti.talign;
@@ -280,7 +280,7 @@ version (LDC)
             auto p = ap;
             ap = p + ((tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1));
         }
-        else version( Win64 )
+        else version (Win64)
         {
             char* p;
             auto ti_dynArray = cast(TypeInfo_Array) ti;
@@ -295,16 +295,16 @@ version (LDC)
                 ap += size_t.sizeof;
             }
         }
-        else version( AArch64 )
+        else version (AArch64)
         {
             auto p = ap;
             ap = p + ((tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1));
         }
-        else version( ARM )
+        else version (ARM)
         {
             // AAPCS sec 5.5 B.5: type with alignment >= 8 is 8-byte aligned
             // instead of normal 4-byte alignment (APCS doesn't do this).
-            version( AAPCS )
+            version (AAPCS)
             {
                 if (ti.talign >= 8)
                     ap.ptr = cast(void*)((cast(size_t)ap.ptr + 7) & ~7);
@@ -312,7 +312,7 @@ version (LDC)
             auto p = ap.ptr;
             ap.ptr = p + ((tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1));
         }
-        else version( AnyPPC )
+        else version (AnyPPC)
         {
             /*
              * The rules are described in the 64bit PowerPC ELF ABI Supplement 1.9,
@@ -324,13 +324,13 @@ version (LDC)
             // be aligned before accessing a value.
             if (ti.alignof >= 8)
                 ap = cast(va_list)((cast(size_t)ap + 7) & ~7);
-            version( BigEndian )
+            version (BigEndian)
                 auto p = (tsize < size_t.sizeof ? ap + (size_t.sizeof - tsize) : ap);
-            version( LittleEndian )
+            version (LittleEndian)
                 auto p = ap;
             ap += (tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
         }
-        else version( MIPS64 )
+        else version (MIPS64)
         {
             // This works for all types because only the rules for non-floating,
             // non-vector types are used.
@@ -354,7 +354,7 @@ version (LDC)
 } // version (LDC)
 
 // LDC: we need a few non-Windows x86_64 helpers
-version( X86 )
+version (X86)
 {
     version (LDC) {} else:
 

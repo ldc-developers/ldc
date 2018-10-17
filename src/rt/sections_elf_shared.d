@@ -740,7 +740,7 @@ version (Shared)
         {
             if (phdr.p_type == PT_DYNAMIC)
             {
-                auto p = cast(ElfW!"Dyn"*)(info.dlpi_addr + phdr.p_vaddr);
+                auto p = cast(ElfW!"Dyn"*)(info.dlpi_addr + (phdr.p_vaddr & ~(size_t.sizeof - 1)));
                 dyns = p[0 .. phdr.p_memsz / ElfW!"Dyn".sizeof];
                 break;
             }
@@ -813,12 +813,12 @@ static if (SharedELF) void scanSegments(in ref dl_phdr_info info, DSO* pdso) not
         case PT_LOAD:
             if (phdr.p_flags & PF_W) // writeable data segment
             {
-                auto beg = cast(void*)(info.dlpi_addr + phdr.p_vaddr);
+                auto beg = cast(void*)(info.dlpi_addr + (phdr.p_vaddr & ~(size_t.sizeof - 1)));
                 pdso._gcRanges.insertBack(beg[0 .. phdr.p_memsz]);
             }
             version (Shared) if (phdr.p_flags & PF_X) // code segment
             {
-                auto beg = cast(void*)(info.dlpi_addr + phdr.p_vaddr);
+                auto beg = cast(void*)(info.dlpi_addr + (phdr.p_vaddr & ~(size_t.sizeof - 1)));
                 pdso._codeSegments.insertBack(beg[0 .. phdr.p_memsz]);
             }
             break;
@@ -1045,25 +1045,25 @@ extern(C) void* __tls_get_addr(tls_index* ti) nothrow @nogc;
  * See: https://sourceware.org/git/?p=glibc.git;a=blob;f=sysdeps/powerpc/dl-tls.h;h=f7cf6f96ebfb505abfd2f02be0ad0e833107c0cd;hb=HEAD#l34
  *      https://sourceware.org/git/?p=glibc.git;a=blob;f=sysdeps/mips/dl-tls.h;h=93a6dc050cb144b9f68b96fb3199c60f5b1fcd18;hb=HEAD#l32
  */
-version(X86)
+version (X86)
     enum TLS_DTV_OFFSET = 0x0;
-else version(X86_64)
+else version (X86_64)
     enum TLS_DTV_OFFSET = 0x0;
-else version(ARM)
+else version (ARM)
     enum TLS_DTV_OFFSET = 0x0;
-else version(AArch64)
+else version (AArch64)
     enum TLS_DTV_OFFSET = 0x0;
-else version(SPARC)
+else version (SPARC)
     enum TLS_DTV_OFFSET = 0x0;
-else version(SPARC64)
+else version (SPARC64)
     enum TLS_DTV_OFFSET = 0x0;
-else version(PPC)
+else version (PPC)
     enum TLS_DTV_OFFSET = 0x8000;
-else version(PPC64)
+else version (PPC64)
     enum TLS_DTV_OFFSET = 0x8000;
-else version(MIPS32)
+else version (MIPS32)
     enum TLS_DTV_OFFSET = 0x8000;
-else version(MIPS64)
+else version (MIPS64)
     enum TLS_DTV_OFFSET = 0x8000;
 else
     static assert( false, "Platform not supported." );

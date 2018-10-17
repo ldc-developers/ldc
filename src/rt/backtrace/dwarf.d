@@ -21,13 +21,13 @@ else version (TVOS)
 else version (WatchOS)
     version = Darwin;
 
-version(CRuntime_Glibc) version = has_backtrace;
-else version(FreeBSD) version = has_backtrace;
-else version(DragonFlyBSD) version = has_backtrace;
-else version(CRuntime_UClibc) version = has_backtrace;
-else version(Darwin) version = has_backtrace;
+version (CRuntime_Glibc) version = has_backtrace;
+else version (FreeBSD) version = has_backtrace;
+else version (DragonFlyBSD) version = has_backtrace;
+else version (CRuntime_UClibc) version = has_backtrace;
+else version (Darwin) version = has_backtrace;
 
-version(has_backtrace):
+version (has_backtrace):
 
 version (Darwin)
     import rt.backtrace.macho;
@@ -50,10 +50,10 @@ struct Location
 int traceHandlerOpApplyImpl(const(void*)[] callstack, scope int delegate(ref size_t, ref const(char[])) dg)
 {
     import core.stdc.stdio : snprintf;
-    version(linux) import core.sys.linux.execinfo : backtrace_symbols;
-    else version(FreeBSD) import core.sys.freebsd.execinfo : backtrace_symbols;
-    else version(DragonFlyBSD) import core.sys.dragonflybsd.execinfo : backtrace_symbols;
-    else version(Darwin) import core.sys.darwin.execinfo : backtrace_symbols;
+    version (linux) import core.sys.linux.execinfo : backtrace_symbols;
+    else version (FreeBSD) import core.sys.freebsd.execinfo : backtrace_symbols;
+    else version (DragonFlyBSD) import core.sys.dragonflybsd.execinfo : backtrace_symbols;
+    else version (Darwin) import core.sys.darwin.execinfo : backtrace_symbols;
     import core.sys.posix.stdlib : free;
 
 version (LDC)
@@ -92,7 +92,7 @@ else
         {
             // resolve addresses
             locations.length = callstack.length;
-            foreach(size_t i; 0 .. callstack.length)
+            foreach (size_t i; 0 .. callstack.length)
                 locations[i].address = cast(size_t) callstack[i];
 
             resolveAddresses(debugLineSectionData, locations[], image.baseAddress);
@@ -129,6 +129,13 @@ else
         if (symbol.length > 0)
             appendToBuffer("%.*s ", cast(int) symbol.length, symbol.ptr);
 
+        const addressLength = 20;
+        const maxBufferLength = buffer.length - addressLength;
+        if (bufferLength > maxBufferLength)
+        {
+            buffer[maxBufferLength-4 .. maxBufferLength] = "... ";
+            bufferLength = maxBufferLength;
+        }
         static if (size_t.sizeof == 8)
             appendToBuffer("[0x%llx]", callstack[i]);
         else
@@ -373,7 +380,7 @@ bool runStateMachine(ref const(LineNumberProgram) lp, scope RunStateMachineCallb
 
 const(char)[] getMangledFunctionName(const(char)[] btSymbol)
 {
-    version(linux)
+    version (linux)
     {
         // format is:  module(_D6module4funcAFZv) [0x00000000]
         // or:         module(_D6module4funcAFZv+0x78) [0x00000000]
@@ -381,21 +388,21 @@ const(char)[] getMangledFunctionName(const(char)[] btSymbol)
         auto eptr = cast(char*) memchr(btSymbol.ptr, ')', btSymbol.length);
         auto pptr = cast(char*) memchr(btSymbol.ptr, '+', btSymbol.length);
     }
-    else version(FreeBSD)
+    else version (FreeBSD)
     {
         // format is: 0x00000000 <_D6module4funcAFZv+0x78> at module
         auto bptr = cast(char*) memchr(btSymbol.ptr, '<', btSymbol.length);
         auto eptr = cast(char*) memchr(btSymbol.ptr, '>', btSymbol.length);
         auto pptr = cast(char*) memchr(btSymbol.ptr, '+', btSymbol.length);
     }
-    else version(DragonFlyBSD)
+    else version (DragonFlyBSD)
     {
         // format is: 0x00000000 <_D6module4funcAFZv+0x78> at module
         auto bptr = cast(char*) memchr(btSymbol.ptr, '<', btSymbol.length);
         auto eptr = cast(char*) memchr(btSymbol.ptr, '>', btSymbol.length);
         auto pptr = cast(char*) memchr(btSymbol.ptr, '+', btSymbol.length);
     }
-    else version(Darwin)
+    else version (Darwin)
         return extractSymbol(btSymbol);
 
     version (Darwin) {}

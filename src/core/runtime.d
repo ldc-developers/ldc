@@ -580,24 +580,24 @@ extern (C) void profilegc_setlogfilename(string name);
 extern (C) UnitTestResult runModuleUnitTests()
 {
     // backtrace
-    version( CRuntime_Glibc )
+    version (CRuntime_Glibc)
         import core.sys.linux.execinfo;
-    else version( Darwin )
+    else version (Darwin)
         import core.sys.darwin.execinfo;
-    else version( FreeBSD )
+    else version (FreeBSD)
         import core.sys.freebsd.execinfo;
-    else version( NetBSD )
+    else version (NetBSD)
         import core.sys.netbsd.execinfo;
-    else version( DragonFlyBSD )
+    else version (DragonFlyBSD)
         import core.sys.dragonflybsd.execinfo;
-    else version( Windows )
+    else version (Windows)
         import core.sys.windows.stacktrace;
-    else version( Solaris )
+    else version (Solaris)
         import core.sys.solaris.execinfo;
-    else version( CRuntime_UClibc )
+    else version (CRuntime_UClibc)
         import core.sys.linux.execinfo;
 
-    static if( __traits( compiles, backtrace ) )
+    static if ( __traits( compiles, backtrace ) )
     {
         import core.sys.posix.signal; // segv handler
 
@@ -633,13 +633,13 @@ extern (C) UnitTestResult runModuleUnitTests()
     else if (Runtime.sm_moduleUnitTester !is null)
         return Runtime.sm_moduleUnitTester() ? UnitTestResult.pass : UnitTestResult.fail;
     UnitTestResult results;
-    foreach( m; ModuleInfo )
+    foreach ( m; ModuleInfo )
     {
-        if( m )
+        if ( m )
         {
             auto fp = m.unitTest;
 
-            if( fp )
+            if ( fp )
             {
                 ++results.executed;
                 try
@@ -647,7 +647,7 @@ extern (C) UnitTestResult runModuleUnitTests()
                     fp();
                     ++results.passed;
                 }
-                catch( Throwable e )
+                catch ( Throwable e )
                 {
                     _d_print_throwable(e);
                 }
@@ -691,7 +691,7 @@ extern (C) UnitTestResult runModuleUnitTests()
 // Default Implementations
 ///////////////////////////////////////////////////////////////////////////////
 
-version( Darwin )
+version (Darwin)
 {
     nothrow:
 
@@ -748,21 +748,21 @@ version( Darwin )
 Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
 {
     // backtrace
-    version( CRuntime_Glibc )
+    version (CRuntime_Glibc)
         import core.sys.linux.execinfo;
-    else version( Darwin )
-        import core.sys.darwin.execinfo : backtrace_symbols;
-    else version( FreeBSD )
+    else version (Darwin)
+        import core.sys.darwin.execinfo;
+    else version (FreeBSD)
         import core.sys.freebsd.execinfo;
-    else version( NetBSD )
+    else version (NetBSD)
         import core.sys.netbsd.execinfo;
-    else version( DragonFlyBSD )
+    else version (DragonFlyBSD)
         import core.sys.dragonflybsd.execinfo;
-    else version( Windows )
+    else version (Windows)
         import core.sys.windows.stacktrace;
-    else version( Solaris )
+    else version (Solaris)
         import core.sys.solaris.execinfo;
-    else version( CRuntime_UClibc )
+    else version (CRuntime_UClibc)
         import core.sys.linux.execinfo;
 
     // avoid recursive GC calls in finalizer, trace handlers should be made @nogc instead
@@ -771,7 +771,7 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
         return null;
 
     //printf("runtime.defaultTraceHandler()\n");
-    static if( __traits( compiles, backtrace ) )
+    static if ( __traits( compiles, backtrace ) )
     {
         import core.demangle;
         import core.stdc.stdlib : free;
@@ -781,8 +781,55 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
         {
             this()
             {
-                numframes = backtrace( callstack.ptr, MAXFRAMES );
-                if (numframes >= 2)
+                version (LDC)
+                {
+                    numframes = backtrace( callstack.ptr, MAXFRAMES );
+                }
+                else
+                {
+                    numframes = 0; //backtrace( callstack, MAXFRAMES );
+                }
+                if (numframes < 2) // backtrace() failed, do it ourselves
+                {
+                  version (LDC)
+                  {
+                    import ldc.intrinsics;
+                    auto stackTop = cast(void**) llvm_frameaddress(0);
+                  }
+                  else
+                  {
+                    static void** getBasePtr()
+                    {
+                        version (D_InlineAsm_X86)
+                            asm { naked; mov EAX, EBP; ret; }
+                        else
+                        version (D_InlineAsm_X86_64)
+                            asm { naked; mov RAX, RBP; ret; }
+                        else
+                            return null;
+                    }
+
+                    auto  stackTop    = getBasePtr();
+                  }
+                    auto  stackBottom = cast(void**) thread_stackBottom();
+                    void* dummy;
+
+                    if ( stackTop && &dummy < stackTop && stackTop < stackBottom )
+                    {
+                        auto stackPtr = stackTop;
+
+                        for ( numframes = 0; stackTop <= stackPtr &&
+                                            stackPtr < stackBottom &&
+                                            numframes < MAXFRAMES; )
+                        {
+                            enum CALL_INSTRUCTION_SIZE = 1; // it may not be 1 but it is good enough to get
+                                                            // in CALL instruction address range for backtrace
+                            callstack[numframes++] = *(stackPtr + 1) - CALL_INSTRUCTION_SIZE;
+                            stackPtr = cast(void**) *stackPtr;
+                        }
+                    }
+                }
+                else version (LDC)
                 {
                     // Success. Adjust the locations by one byte so they point
                     // inside the function (as required by backtrace_symbols)
@@ -790,46 +837,6 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
                     // instruction in the function.
                     foreach (ref c; callstack) c -= 1;
                     return;
-                }
-
-                // backtrace() failed, do it ourselves. Only works if frame
-                // pointer elimination is disabled.
-              version(LDC)
-              {
-                import ldc.intrinsics;
-                auto stackTop = cast(void**) llvm_frameaddress(0);
-              }
-              else
-              {
-                static void** getBasePtr()
-                {
-                    version( D_InlineAsm_X86 )
-                        asm { naked; mov EAX, EBP; ret; }
-                    else
-                    version( D_InlineAsm_X86_64 )
-                        asm { naked; mov RAX, RBP; ret; }
-                    else
-                        return null;
-                }
-
-                auto  stackTop    = getBasePtr();
-              }
-                auto  stackBottom = cast(void**) thread_stackBottom();
-                void* dummy;
-
-                if( stackTop && &dummy < stackTop && stackTop < stackBottom )
-                {
-                    auto stackPtr = stackTop;
-
-                    for( numframes = 0; stackTop <= stackPtr &&
-                                        stackPtr < stackBottom &&
-                                        numframes < MAXFRAMES; )
-                    {
-                        enum CALL_INSTRUCTION_SIZE = 1; // it may not be 1 but it is good enough to get
-                                                        // in CALL instruction address range for backtrace
-                        callstack[numframes++] = *(stackPtr + 1) - CALL_INSTRUCTION_SIZE;
-                        stackPtr = cast(void**) *stackPtr;
-                    }
                 }
             }
 
@@ -850,7 +857,7 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
                     // them would be very brittle. We should do this by name instead.
                     enum FIRSTFRAME = 0;
                 }
-                else version(Posix)
+                else version (Posix)
                 {
                     // NOTE: The first 4 frames with the current implementation are
                     //       inside core.runtime and the object code, so eliminate
@@ -859,7 +866,7 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
                     //       mangled function names.
                     enum FIRSTFRAME = 4;
                 }
-                else version(Windows)
+                else version (Windows)
                 {
                     // NOTE: On Windows, the number of frames to exclude is based on
                     //       whether the exception is user or system-generated, so
@@ -868,10 +875,10 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
                     enum FIRSTFRAME = 0;
                 }
 
-                version(linux) enum enableDwarf = true;
-                else version(FreeBSD) enum enableDwarf = true;
-                else version(DragonFlyBSD) enum enableDwarf = true;
-                else version(Darwin) enum enableDwarf = true;
+                version (linux) enum enableDwarf = true;
+                else version (FreeBSD) enum enableDwarf = true;
+                else version (DragonFlyBSD) enum enableDwarf = true;
+                else version (Darwin) enum enableDwarf = true;
                 else enum enableDwarf = false;
 
                 static if (enableDwarf)
@@ -901,14 +908,14 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
                     scope(exit) free(cast(void*) framelist);
 
                     int ret = 0;
-                    for( int i = FIRSTFRAME; i < numframes; ++i )
+                    for ( int i = FIRSTFRAME; i < numframes; ++i )
                     {
                         char[4096] fixbuf;
                         auto buf = framelist[i][0 .. strlen(framelist[i])];
                         auto pos = cast(size_t)(i - FIRSTFRAME);
                         buf = fixline( buf, fixbuf );
                         ret = dg( pos, buf );
-                        if( ret )
+                        if ( ret )
                             break;
                     }
                     return ret;
@@ -919,7 +926,7 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
             override string toString() const
             {
                 string buf;
-                foreach( i, line; this )
+                foreach ( i, line; this )
                     buf ~= i ? "\n" ~ line : line;
                 return buf;
             }
@@ -933,28 +940,28 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
             const(char)[] fixline( const(char)[] buf, return ref char[4096] fixbuf ) const
             {
                 size_t symBeg, symEnd;
-                version( Darwin )
+                version (Darwin)
                 {
                     // format is:
                     //  1  module    0x00000000 D6module4funcAFZv + 0
-                    for( size_t i = 0, n = 0; i < buf.length; i++ )
+                    for ( size_t i = 0, n = 0; i < buf.length; i++ )
                     {
-                        if( ' ' == buf[i] )
+                        if ( ' ' == buf[i] )
                         {
                             n++;
-                            while( i < buf.length && ' ' == buf[i] )
+                            while ( i < buf.length && ' ' == buf[i] )
                                 i++;
-                            if( 3 > n )
+                            if ( 3 > n )
                                 continue;
                             symBeg = i;
-                            while( i < buf.length && ' ' != buf[i] )
+                            while ( i < buf.length && ' ' != buf[i] )
                                 i++;
                             symEnd = i;
                             break;
                         }
                     }
                 }
-                else version( CRuntime_Glibc )
+                else version (CRuntime_Glibc)
                 {
                     // format is:  module(_D6module4funcAFZv) [0x00000000]
                     // or:         module(_D6module4funcAFZv+0x78) [0x00000000]
@@ -965,55 +972,55 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
                     if (pptr && pptr < eptr)
                         eptr = pptr;
 
-                    if( bptr++ && eptr )
+                    if ( bptr++ && eptr )
                     {
                         symBeg = bptr - buf.ptr;
                         symEnd = eptr - buf.ptr;
                     }
                 }
-                else version( FreeBSD )
+                else version (FreeBSD)
                 {
                     // format is: 0x00000000 <_D6module4funcAFZv+0x78> at module
                     auto bptr = cast(char*) memchr( buf.ptr, '<', buf.length );
                     auto eptr = cast(char*) memchr( buf.ptr, '+', buf.length );
 
-                    if( bptr++ && eptr )
+                    if ( bptr++ && eptr )
                     {
                         symBeg = bptr - buf.ptr;
                         symEnd = eptr - buf.ptr;
                     }
                 }
-                else version( NetBSD )
+                else version (NetBSD)
                 {
                     // format is: 0x00000000 <_D6module4funcAFZv+0x78> at module
                     auto bptr = cast(char*) memchr( buf.ptr, '<', buf.length );
                     auto eptr = cast(char*) memchr( buf.ptr, '+', buf.length );
 
-                    if( bptr++ && eptr )
+                    if ( bptr++ && eptr )
                     {
                         symBeg = bptr - buf.ptr;
                         symEnd = eptr - buf.ptr;
                     }
                 }
-                else version( DragonFlyBSD )
+                else version (DragonFlyBSD)
                 {
                     // format is: 0x00000000 <_D6module4funcAFZv+0x78> at module
                     auto bptr = cast(char*) memchr( buf.ptr, '<', buf.length );
                     auto eptr = cast(char*) memchr( buf.ptr, '+', buf.length );
 
-                    if( bptr++ && eptr )
+                    if ( bptr++ && eptr )
                     {
                         symBeg = bptr - buf.ptr;
                         symEnd = eptr - buf.ptr;
                     }
                 }
-                else version( Solaris )
+                else version (Solaris)
                 {
                     // format is object'symbol+offset [pc]
                     auto bptr = cast(char*) memchr( buf.ptr, '\'', buf.length );
                     auto eptr = cast(char*) memchr( buf.ptr, '+', buf.length );
 
-                    if( bptr++ && eptr )
+                    if ( bptr++ && eptr )
                     {
                         symBeg = bptr - buf.ptr;
                         symEnd = eptr - buf.ptr;
@@ -1061,7 +1068,7 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
 
         return new DefaultTraceInfo;
     }
-    else static if( __traits( compiles, new StackTrace(0, null) ) )
+    else static if ( __traits( compiles, new StackTrace(0, null) ) )
     {
         version (LDC)
         {
