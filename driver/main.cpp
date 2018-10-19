@@ -178,32 +178,39 @@ void processTransitions(std::vector<std::string> &list) {
     if (i == "?") {
       printf("\n"
              "Language changes listed by -transition=id:\n"
-             "  =all           list information on all language changes\n"
-             "  =checkimports  give deprecation messages about 10378 "
-             "anomalies\n"
-             "  =complex,14488 list all usages of complex or imaginary types\n"
-             "  =field,3449    list all non-mutable fields which occupy an "
+             "  =all              list information on all language changes\n"
+             "  =field,3449       list all non-mutable fields which occupy an "
              "object instance\n"
-             "  =import,10378  revert to single phase name lookup\n"
+             "  =import,10378     revert to single phase name lookup\n"
+             "  =dtorfields,14246 destruct fields of partially constructed "
+             "objects\n"
+             "  =checkimports     give deprecation messages about 10378 "
+             "anomalies\n"
+             "  =complex,14488    give deprecation messages about all usages "
+             "of complex or imaginary types\n"
              "  =intpromote,16997 fix integral promotions for unary + - ~ "
              "operators\n"
-             "  =tls           list all variables going into thread local "
+             "  =tls              list all variables going into thread local "
              "storage\n");
       exit(EXIT_SUCCESS);
     } else if (i == "all") {
-      global.params.vtls = true;
       global.params.vfield = true;
-      global.params.vcomplex = true;
-      global.params.bug10378 = true;   // not set in DMD
-      global.params.check10378 = true; // not set in DMD
-    } else if (i == "checkimports") {
+      global.params.bug10378 = true;
+      global.params.dtorFields = true;
       global.params.check10378 = true;
-    } else if (i == "complex" || i == "14488") {
       global.params.vcomplex = true;
+      global.params.fix16997 = true;
+      global.params.vtls = true;
     } else if (i == "field" || i == "3449") {
       global.params.vfield = true;
     } else if (i == "import" || i == "10378") {
       global.params.bug10378 = true;
+    } else if (i == "dtorfields" || i == "14246") {
+      global.params.dtorFields = true;
+    } else if (i == "checkimports") {
+      global.params.check10378 = true;
+    } else if (i == "complex" || i == "14488") {
+      global.params.vcomplex = true;
     } else if (i == "intpromote" || i == "16997") {
       global.params.fix16997 = true;
     } else if (i == "tls") {

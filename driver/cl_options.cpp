@@ -397,17 +397,16 @@ cl::opt<unsigned, true> nestedTemplateDepth(
     cl::desc(
         "Set maximum number of nested template instantiations (experimental)"));
 
-cl::opt<bool, true>
-    useDIP25("dip25", cl::ZeroOrMore, cl::location(global.params.useDIP25),
-             cl::desc("Implement http://wiki.dlang.org/DIP25 (experimental)"));
+cl::opt<bool, true> useDIP25("dip25", cl::ZeroOrMore,
+                             cl::location(global.params.useDIP25),
+                             cl::desc("Implement DIP25 (sealed references)"));
 
-cl::opt<bool> useDIP1000(
-    "dip1000", cl::ZeroOrMore,
-    cl::desc("Implement http://wiki.dlang.org/DIP1000 (experimental)"));
+cl::opt<bool> useDIP1000("dip1000", cl::ZeroOrMore,
+                         cl::desc("Implement DIP1000 (scoped pointers)"));
 
 cl::opt<bool, true> useDIP1008("dip1008", cl::ZeroOrMore,
                                cl::location(global.params.ehnogc),
-                               cl::desc("Implement DIP1008 (experimental)"));
+                               cl::desc("Implement DIP1008 (@nogc Throwable)"));
 
 cl::opt<bool, true> betterC(
     "betterC", cl::ZeroOrMore, cl::location(global.params.betterC),
