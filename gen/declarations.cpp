@@ -420,16 +420,18 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
+  static std::string getPragmaStringArg(PragmaDeclaration *decl) {
+    assert(decl->args && decl->args->dim == 1);
+    Expression *e = static_cast<Expression *>((*decl->args)[0]);
+    assert(e->op == TOKstring);
+    StringExp *se = static_cast<StringExp *>(e);
+    return std::string(se->toPtr(), se->numberOfCodeUnits());
+  }
+
   void visit(PragmaDeclaration *decl) override {
     if (decl->ident == Id::lib) {
-      assert(decl->args && decl->args->dim == 1);
       assert(!irs->dcomputetarget);
-        
-      Expression *e = static_cast<Expression *>(decl->args->data[0]);
-
-      assert(e->op == TOKstring);
-      StringExp *se = static_cast<StringExp *>(e);
-      const std::string name(se->toPtr(), se->numberOfCodeUnits());
+      const std::string name = getPragmaStringArg(decl);
       auto nameLen = name.size();
 
       if (global.params.targetTriple->isWindowsGNUEnvironment()) {
@@ -477,6 +479,14 @@ public:
         memcpy(arg + 2, name.data(), nameLen);
         arg[n - 1] = 0;
         global.params.linkswitches.push(arg);
+      }
+    } else if (decl->ident == Id::linkerDirective) {
+      if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+        // Embed directly as linker option in object file
+        const std::string directive = getPragmaStringArg(decl);
+        auto Value = llvm::MDString::get(gIR->context(), directive);
+        gIR->LinkerMetadataArgs.push_back(
+            llvm::MDNode::get(gIR->context(), Value));
       }
     }
     visit(static_cast<AttribDeclaration *>(decl));

@@ -36,6 +36,7 @@ struct Id
     static Identifier *crt_constructor;
     static Identifier *crt_destructor;
     static Identifier *lib;
+    static Identifier *linkerDirective;
     static Identifier *ldc;
     static Identifier *dcompute;
     static Identifier *dcPointer;
