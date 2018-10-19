@@ -67,6 +67,12 @@ static cl::opt<cl::boolOrDefault>
                         "all system dependencies"),
                cl::cat(opts::linkingCategory));
 
+static llvm::cl::opt<std::string>
+    mscrtlib("mscrtlib", llvm::cl::ZeroOrMore,
+             llvm::cl::desc("MS C runtime library to link with"),
+             llvm::cl::value_desc("libcmt[d]|msvcrt[d]"),
+             llvm::cl::cat(opts::linkingCategory));
+
 //////////////////////////////////////////////////////////////////////////////
 
 // linker-gcc.cpp
@@ -171,6 +177,17 @@ bool linkAgainstSharedDefaultLibs() {
   return staticFlag != cl::BOU_TRUE &&
          (linkDefaultLibShared == cl::BOU_TRUE ||
           (linkDefaultLibShared == cl::BOU_UNSET && global.params.dll));
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+llvm::StringRef getMscrtLibName() {
+  llvm::StringRef name = mscrtlib;
+  if (name.empty()) {
+    // default to static release variant
+    name = linkFullyStatic() != llvm::cl::BOU_FALSE ? "libcmt" : "msvcrt";
+  }
+  return name;
 }
 
 //////////////////////////////////////////////////////////////////////////////

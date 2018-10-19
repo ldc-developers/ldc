@@ -30,23 +30,10 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-static llvm::cl::opt<std::string>
-    mscrtlib("mscrtlib", llvm::cl::ZeroOrMore,
-             llvm::cl::desc("MS C runtime library to link with"),
-             llvm::cl::value_desc("libcmt[d]|msvcrt[d]"),
-             llvm::cl::cat(opts::linkingCategory));
-
-//////////////////////////////////////////////////////////////////////////////
-
 namespace {
 
 void addMscrtLibs(std::vector<std::string> &args) {
-  llvm::StringRef mscrtlibName = mscrtlib;
-  if (mscrtlibName.empty()) {
-    // default to static release variant
-    mscrtlibName =
-        linkFullyStatic() != llvm::cl::BOU_FALSE ? "libcmt" : "msvcrt";
-  }
+  const auto mscrtlibName = getMscrtLibName();
 
   args.push_back(("/DEFAULTLIB:" + mscrtlibName).str());
 

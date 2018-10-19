@@ -132,6 +132,8 @@ struct Target
         else
             return cppTypeInfoMangleItanium(cd);
     }
+
+    static Expression getTargetInfo(const(char)* name, const ref Loc loc);
   }
   else // !IN_LLVM
   {
@@ -759,7 +761,6 @@ struct Target
         const sz = t.size(loc);
         return global.params.is64bit ? (sz + 7) & ~7 : (sz + 3) & ~3;
     }
-  } // !IN_LLVM
 
     // this guarantees `getTargetInfo` and `allTargetInfos` remain in sync
     private enum TargetInfoKeys
@@ -777,7 +778,6 @@ struct Target
      * Returns:
      *  Expression for the requested targetInfo
      */
-    // IN_LLVM TODO
     extern (C++) static Expression getTargetInfo(const(char)* name, const ref Loc loc)
     {
         StringExp stringExp(const(char)[] sval)
@@ -808,4 +808,5 @@ struct Target
                 return null;
         }
     }
+  } // !IN_LLVM
 }

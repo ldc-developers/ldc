@@ -11,6 +11,8 @@
 
 #include "ldcbindings.h"
 #include "target.h"
+#include "driver/cl_options.h"
+#include "driver/linker.h"
 #include "gen/abi.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
@@ -206,4 +208,51 @@ bool Target::isVectorOpSupported(Type *type, TOK op, Type *t2) {
 
 bool Target::isReturnOnStack(TypeFunction *tf, bool needsThis) {
   return gABI->returnInArg(tf, needsThis);
+}
+
+Expression *Target::getTargetInfo(const char *name_, const Loc &loc) {
+  const llvm::StringRef name(name_);
+  const auto &triple = *global.params.targetTriple;
+
+  const auto createStringExp = [&loc](const char *value) {
+    return value ? StringExp::create(loc, const_cast<char *>(value)) : nullptr;
+  };
+
+  if (name == "objectFormat") {
+    const char *objectFormat = nullptr;
+    if (triple.isOSBinFormatCOFF()) {
+      objectFormat = "coff";
+    } else if (triple.isOSBinFormatMachO()) {
+      objectFormat = "macho";
+    } else if (triple.isOSBinFormatELF()) {
+      objectFormat = "elf";
+#if LDC_LLVM_VER >= 500
+    } else if (triple.isOSBinFormatWasm()) {
+      objectFormat = "wasm";
+#endif
+    }
+    return createStringExp(objectFormat);
+  }
+
+  if (name == "floatAbi") {
+    const char *floatAbi = nullptr;
+    if (opts::floatABI == FloatABI::Hard) {
+      floatAbi = "hard";
+    } else if (opts::floatABI == FloatABI::Soft) {
+      floatAbi = "soft";
+    } else if (opts::floatABI == FloatABI::SoftFP) {
+      floatAbi = "softfp";
+    }
+    return createStringExp(floatAbi);
+  }
+
+  if (name == "cppRuntimeLibrary") {
+    const char *cppRuntimeLibrary = "";
+    if (triple.isWindowsMSVCEnvironment()) {
+      cppRuntimeLibrary = mem.xstrdup(getMscrtLibName().str().c_str());
+    }
+    return createStringExp(cppRuntimeLibrary);
+  }
+
+  return nullptr;
 }
