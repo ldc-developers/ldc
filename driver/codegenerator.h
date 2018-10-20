@@ -17,8 +17,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_CODEGENERATOR_H
-#define LDC_DRIVER_CODEGENERATOR_H
+#pragma once
 
 #include "gen/irstate.h"
 
@@ -41,5 +40,3 @@ private:
   IRState *ir_;
 };
 }
-
-#endif

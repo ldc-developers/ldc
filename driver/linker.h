@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_LINKER_H
-#define LDC_DRIVER_LINKER_H
+#pragma once
 
 #include "llvm/Support/CommandLine.h" // for llvm::cl::boolOrDefault
 
@@ -67,5 +66,3 @@ void deleteExeFile();
  * @return the return status of the executable.
  */
 int runProgram();
-
-#endif // LDC_DRIVER_LINKER_H

@@ -11,11 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_ABI_AARCH64_H
-#define LDC_GEN_ABI_AARCH64_H
+#pragma once
 
 struct TargetABI;
 
 TargetABI *getAArch64TargetABI();
-
-#endif

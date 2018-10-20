@@ -7,13 +7,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_ARCHIVER_H
-#define LDC_DRIVER_ARCHIVER_H
+#pragma once
 
 /**
  * Create a static library from object files.
  * @return 0 on success.
  */
 int createStaticLibrary();
-
-#endif // !LDC_DRIVER_ARCHIVER_H

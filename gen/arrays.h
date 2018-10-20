@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_ARRAYS_H
-#define LDC_GEN_ARRAYS_H
+#pragma once
 
 #include "dmd/tokens.h"
 #include "gen/llvm.h"
@@ -91,5 +90,3 @@ void DtoIndexBoundsCheck(Loc &loc, DValue *arr, DValue *index);
 /// Inserts a call to the druntime function that throws the range error, with
 /// the given location.
 void DtoBoundsCheckFailCall(IRState *p, Loc &loc);
-
-#endif // LDC_GEN_ARRAYS_H

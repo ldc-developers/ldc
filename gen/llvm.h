@@ -15,8 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_LLVM_H
-#define LDC_GEN_LLVM_H
+#pragma once
 
 #include "llvm/IR/Type.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -65,5 +64,3 @@ using llvm::IRBuilder;
 
 using llvm::APFloat;
 using llvm::APInt;
-
-#endif // LDC_GEN_LLVM_H

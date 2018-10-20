@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_FUNCTION_INLINING_H
-#define LDC_GEN_FUNCTION_INLINING_H
+#pragma once
 
 class FuncDeclaration;
 
@@ -25,5 +24,3 @@ bool alreadyOrWillBeDefined(FuncDeclaration &fdecl);
 ///
 /// If true, `semantic3` will have been run on the declaration.
 bool defineAsExternallyAvailable(FuncDeclaration &fdecl);
-
-#endif

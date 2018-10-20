@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_DYNAMICCOMPILE_H
-#define LDC_GEN_DYNAMICCOMPILE_H
+#pragma once
 
 struct IRState;
 struct IrFunction;
@@ -22,5 +21,3 @@ void generateBitcodeForDynamicCompile(IRState *irs);
 void declareDynamicCompiledFunction(IRState *irs, IrFunction *func);
 void defineDynamicCompiledFunction(IRState *irs, IrFunction *func);
 void addDynamicCompiledVar(IRState *irs, IrGlobal *var);
-
-#endif // LDC_GEN_DYNAMICCOMPILE_H

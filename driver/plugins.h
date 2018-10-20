@@ -7,9 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_PLUGINS_H
-#define LDC_DRIVER_PLUGINS_H
+#pragma once
 
 void loadAllPlugins();
-
-#endif // LDC_DRIVER_PLUGINS_H

@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef JIT_CONTEXT_H
-#define JIT_CONTEXT_H
+#pragma once
 
 #include <map>
 #include <memory>
@@ -143,5 +142,3 @@ private:
   std::shared_ptr<llvm::JITSymbolResolver> createResolver();
 #endif
 };
-
-#endif // JIT_CONTEXT_H

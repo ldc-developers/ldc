@@ -7,8 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_DCOMPUTE_TARGET_H
-#define LDC_GEN_DCOMPUTE_TARGET_H
+#pragma once
 
 #include "gen/irstate.h"
 #include "llvm/IR/LLVMContext.h"
@@ -59,6 +58,4 @@ DComputeTarget *createCUDATarget(llvm::LLVMContext &c, int sm);
 
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV
 DComputeTarget *createOCLTarget(llvm::LLVMContext &c, int oclver);
-#endif
-
 #endif

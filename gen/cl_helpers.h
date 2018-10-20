@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_CL_HELPERS_H
-#define LDC_GEN_CL_HELPERS_H
+#pragma once
 
 #include "dmd/globals.h" // for CHECKENABLE enum
 #include "llvm/Support/CommandLine.h"
@@ -201,6 +200,4 @@ llvm::cl::ValuesClass<DataType> clEnumValues(const char *Arg, DataType Val,
                                              OptsTy... Options) {
   return llvm::cl::values(Arg, Val, Desc, Options..., clEnumValEnd);
 }
-#endif
-
 #endif

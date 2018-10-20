@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_RUNTIME_H
-#define LDC_GEN_RUNTIME_H
+#pragma once
 
 namespace llvm {
 class Function;
@@ -59,5 +58,3 @@ Type *getInoutTypeInfoType();
 Type *getThrowableType();
 Type *getCppTypeInfoPtrType();
 Type *getModuleInfoType();
-
-#endif // LDC_GEN_RUNTIME_H

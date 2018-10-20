@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef CALLBACK_OSTREAM_H
-#define CALLBACK_OSTREAM_H
+#pragma once
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/raw_ostream.h"
@@ -30,5 +29,3 @@ class CallbackOstream : public llvm::raw_ostream {
 public:
   explicit CallbackOstream(CallbackT c);
 };
-
-#endif // CALLBACK_OSTREAM_H

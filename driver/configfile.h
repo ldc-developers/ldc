@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_CONFIGFILE_H
-#define LDC_DRIVER_CONFIGFILE_H
+#pragma once
 
 #include "dmd/root/array.h"
 #include "llvm/ADT/SmallVector.h"
@@ -50,5 +49,3 @@ private:
   Array<const char *> _libDirs;
   const char *rpathcstr = nullptr;
 };
-
-#endif // LDC_DRIVER_CONFIGFILE_H

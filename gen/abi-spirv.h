@@ -12,11 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_ABI_SPIRV_H
-#define LDC_GEN_ABI_SPIRV_H
+#pragma once
 
 struct TargetABI;
 
 TargetABI *createSPIRVABI();
-
-#endif

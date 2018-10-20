@@ -15,8 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_PGO_ASTBASED_H
-#define LDC_GEN_PGO_ASTBASED_H
+#pragma once
 
 #include "gen/llvm.h"
 #include "llvm/ProfileData/InstrProf.h"
@@ -172,5 +171,3 @@ private:
   void loadRegionCounts(llvm::IndexedInstrProfReader *PGOReader,
                         const FuncDeclaration *D);
 };
-
-#endif //  LDC_GEN_PGO_ASTBASED_H

@@ -7,13 +7,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_IR2OBJ_CACHE_PRUNING_H
-#define LDC_DRIVER_IR2OBJ_CACHE_PRUNING_H
+#pragma once
 
 #include "dmd/globals.h"
 
 void pruneCache(const char *cacheDirectoryPtr, d_size_t cacheDirectoryLen,
                 uint32_t pruneIntervalSeconds, uint32_t expireIntervalSeconds,
                 uinteger_t sizeLimitBytes, uint32_t sizeLimitPercentage);
-
-#endif

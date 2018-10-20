@@ -7,8 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_IR_IRTYPESTRUCT_H
-#define LDC_IR_IRTYPESTRUCT_H
+#pragma once
 
 #include "ir/irtypeaggr.h"
 
@@ -34,5 +33,3 @@ protected:
   /// DMD TypeStruct of this type.
   TypeStruct *ts = nullptr;
 };
-
-#endif

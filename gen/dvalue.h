@@ -14,8 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_DVALUE_H
-#define LDC_GEN_DVALUE_H
+#pragma once
 
 #include "dmd/root/root.h"
 
@@ -175,5 +174,3 @@ public:
 
 inline llvm::Value *DtoRVal(DValue *v) { return v->getRVal()->val; }
 llvm::Value *DtoLVal(DValue *v);
-
-#endif // LDC_GEN_DVALUE_H

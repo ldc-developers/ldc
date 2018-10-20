@@ -7,8 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_MS_CXX_HELPER_H
-#define LDC_GEN_MS_CXX_HELPER_H
+#pragma once
 
 #include "gen/irstate.h"
 
@@ -29,5 +28,3 @@ void cloneBlocks(const std::vector<llvm::BasicBlock *> &srcblocks,
                  llvm::Value *funclet);
 
 bool isCatchSwitchBlock(llvm::BasicBlock* bb);
-
-#endif // LDC_GEN_MS_CXX_HELPER_H

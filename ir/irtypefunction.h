@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef __LDC_IR_IRTYPEFUNCTION_H__
-#define __LDC_IR_IRTYPEFUNCTION_H__
+#pragma once
 
 #include "ir/irtype.h"
 
@@ -55,5 +54,3 @@ protected:
   ///
   IrFuncTy irFty;
 };
-
-#endif

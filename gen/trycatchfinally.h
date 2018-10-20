@@ -7,8 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_TRYCATCHFINALLY_H
-#define LDC_GEN_TRYCATCHFINALLY_H
+#pragma once
 
 #include "dmd/globals.h"
 #include <stddef.h>
@@ -308,5 +307,3 @@ private:
   llvm::BasicBlock *runCleanupPad(CleanupCursor scope,
                                   llvm::BasicBlock *unwindTo);
 };
-
-#endif

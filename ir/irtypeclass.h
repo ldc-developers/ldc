@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef __LDC_IR_IRTYPECLASS_H__
-#define __LDC_IR_IRTYPECLASS_H__
+#pragma once
 
 #include "ir/irtypeaggr.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -82,5 +81,3 @@ protected:
   /// to index map.
   void addInterfaceToMap(ClassDeclaration *inter, size_t index);
 };
-
-#endif

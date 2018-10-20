@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_IR_IRAGGR_H
-#define LDC_IR_IRAGGR_H
+#pragma once
 
 #include "dmd/aggregate.h"
 #include "llvm/ADT/SmallVector.h"
@@ -170,5 +169,3 @@ private:
 
 IrAggr *getIrAggr(AggregateDeclaration *decl, bool create = false);
 bool isIrAggrCreated(AggregateDeclaration *decl);
-
-#endif

@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_FUNCTIONS_H
-#define LDC_GEN_FUNCTIONS_H
+#pragma once
 
 #include "dmd/mars.h"
 
@@ -41,5 +40,3 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
                           FuncDeclaration *fdecl);
 
 DValue *DtoArgument(Parameter *fnarg, Expression *argexp);
-
-#endif

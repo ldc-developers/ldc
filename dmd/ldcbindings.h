@@ -7,8 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DDMD_LDCBINDINGS_H
-#define LDC_DDMD_LDCBINDINGS_H
+#pragma once
 
 #include "expression.h"
 #include <cstdint>
@@ -72,5 +71,3 @@ NEWD_TEMPLATE(MulExp)
 NEWD_TEMPLATE(DivExp)
 NEWD_TEMPLATE(AddExp)
 NEWD_TEMPLATE(MinExp)
-
-#endif // LDC_DDMD_LDCBINDINGS_H

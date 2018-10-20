@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_CL_OPTIONS_SANITIZERS_H
-#define LDC_DRIVER_CL_OPTIONS_SANITIZERS_H
+#pragma once
 
 #include "gen/cl_helpers.h"
 #include "llvm/Transforms/Instrumentation.h"
@@ -58,5 +57,3 @@ void outputSanitizerSettings(llvm::raw_ostream &hash_os);
 bool functionIsInSanitizerBlacklist(FuncDeclaration *funcDecl);
 
 } // namespace opts
-
-#endif // LDC_DRIVER_CL_OPTIONS_SANITIZERS_H

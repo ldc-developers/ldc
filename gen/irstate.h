@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_IRSTATE_H
-#define LDC_GEN_IRSTATE_H
+#pragma once
 
 #include "dmd/aggregate.h"
 #include "dmd/root/root.h"
@@ -251,5 +250,3 @@ public:
 void Statement_toIR(Statement *s, IRState *irs);
 
 bool useMSVCEH();
-
-#endif // LDC_GEN_IRSTATE_H

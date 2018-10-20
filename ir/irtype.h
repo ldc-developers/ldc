@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef __LDC_IR_IRTYPE_H__
-#define __LDC_IR_IRTYPE_H__
+#pragma once
 
 #include "ir/irfuncty.h"
 
@@ -186,5 +185,3 @@ protected:
 
   static llvm::Type *vector2llvm(Type *dt);
 };
-
-#endif

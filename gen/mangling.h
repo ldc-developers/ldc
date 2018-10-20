@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_MANGLING_H
-#define LDC_GEN_MANGLING_H
+#pragma once
 
 #include <string>
 #include "dmd/globals.h"
@@ -42,5 +41,3 @@ std::string getIRMangledClassInfoSymbolName(AggregateDeclaration *aggrdecl);
 std::string getIRMangledInterfaceInfosSymbolName(ClassDeclaration *cd);
 std::string getIRMangledModuleInfoSymbolName(Module *module);
 std::string getIRMangledModuleRefSymbolName(const char *moduleMangle);
-
-#endif // LDC_GEN_MANGLING_H

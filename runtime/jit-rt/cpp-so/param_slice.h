@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef PARAM_SLICE_H
-#define PARAM_SLICE_H
+#pragma once
 
 #include <cstddef> //size_t
 #include <cstdint>
@@ -25,5 +24,3 @@ struct ParamSlice {
   size_t size;
   ParamType type;
 };
-
-#endif // PARAM_SLICE_H

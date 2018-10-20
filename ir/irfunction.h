@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_IR_IRFUNCTION_H
-#define LDC_IR_IRFUNCTION_H
+#pragma once
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseMapInfo.h"
@@ -113,5 +112,3 @@ llvm::Function *DtoFunction(FuncDeclaration *decl, bool create = false);
 /// Returns the associated LLVM function to be used for calls (potentially
 /// some sort of wrapper, e.g., a JIT wrapper).
 llvm::Function *DtoCallee(FuncDeclaration *decl, bool create = false);
-
-#endif

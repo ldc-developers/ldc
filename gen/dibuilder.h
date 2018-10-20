@@ -7,8 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_DIBUILDER_H
-#define LDC_GEN_DIBUILDER_H
+#pragma once
 
 #include "dmd/mars.h"
 #include "gen/tollvm.h"
@@ -225,5 +224,3 @@ public:
 };
 
 } // namespace ldc
-
-#endif

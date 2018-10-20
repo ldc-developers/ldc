@@ -13,8 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_TOLLVM_H
-#define LDC_GEN_TOLLVM_H
+#pragma once
 
 #include "dmd/attrib.h"
 #include "dmd/declaration.h"
@@ -204,5 +203,3 @@ void DtoMemCpy(LLValue *dst, LLValue *src, bool withPadding = false,
  * Generates a call to C memcmp.
  */
 LLValue *DtoMemCmp(LLValue *lhs, LLValue *rhs, LLValue *nbytes);
-
-#endif // LDC_GEN_TOLLVM_H

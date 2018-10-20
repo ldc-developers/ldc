@@ -12,11 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_COVERAGE_H
-#define LDC_GEN_COVERAGE_H
+#pragma once
 
 struct Loc;
 
 void emitCoverageLinecountInc(Loc &loc);
-
-#endif

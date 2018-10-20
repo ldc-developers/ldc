@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_TYPEINF_H
-#define LDC_GEN_TYPEINF_H
+#pragma once
 
 struct IRState;
 struct Scope;
@@ -29,5 +28,3 @@ void TypeInfoClassDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p);
 
 // defined in dmd/typinf.d:
 bool isSpeculativeType(Type *t);
-
-#endif

@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef GEN_UDA_H
-#define GEN_UDA_H
+#pragma once
 
 class Dsymbol;
 class FuncDeclaration;
@@ -36,4 +35,3 @@ enum class DComputeCompileFor : int
   hostAndDevice = 2
 };
 extern "C" DComputeCompileFor hasComputeAttr(Dsymbol *sym);
-#endif

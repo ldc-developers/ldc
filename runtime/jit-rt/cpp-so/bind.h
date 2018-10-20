@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BIND_H
-#define BIND_H
+#pragma once
 
 #include "param_slice.h"
 
@@ -37,5 +36,3 @@ bindParamsToFunc(llvm::Module &module, llvm::Function &srcFunc,
                  const llvm::ArrayRef<ParamSlice> &params,
                  llvm::function_ref<void(const std::string &)> errHandler,
                  const BindOverride &override = BindOverride{});
-
-#endif // BIND_H

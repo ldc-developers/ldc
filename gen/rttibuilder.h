@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_RTTIBUILDER_H
-#define LDC_GEN_RTTIBUILDER_H
+#pragma once
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Constant.h"
@@ -77,5 +76,3 @@ public:
   /// Creates the initializer constant and assigns it to the global.
   llvm::Constant *get_constant(llvm::StructType *initType);
 };
-
-#endif

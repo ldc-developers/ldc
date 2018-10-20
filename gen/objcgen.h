@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_OBJCGEN_H
-#define LDC_GEN_OBJCGEN_H
+#pragma once
 
 #include <vector>
 #include "llvm/ADT/StringMap.h"
@@ -53,5 +52,3 @@ private:
   void genImageInfo();
   void retainSymbols();
 };
-
-#endif // LDC_GEN_OBJCGEN_H

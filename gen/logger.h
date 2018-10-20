@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_LOGGER_H
-#define LDC_GEN_LOGGER_H
+#pragma once
 
 #include <iosfwd>
 #include <iostream>
@@ -117,5 +116,3 @@ struct LoggerScope {
 #define LOG_SCOPE Logger::LoggerScope _logscope;
 
 #define IF_LOG if (Logger::enabled())
-
-#endif
