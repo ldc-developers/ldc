@@ -96,8 +96,7 @@ build:
     - cd ..
     - perl -pi -e s?$LDC_INSTALL_DIR/?%%ldcbinarypath%%/../?g $LDC_INSTALL_DIR/etc/ldc2.conf
     - cp LICENSE $LDC_INSTALL_DIR
-    - git clone https://github.com/ldc-developers/ldc-scripts.git
-    - cp ldc-scripts/ldc2-packaging/pkgfiles/README $LDC_INSTALL_DIR
+    - cp packaging/README $LDC_INSTALL_DIR
     # Now rename the installation dir to test portability.
     - |
       NEW_LDC_INSTALL_DIR=$PWD/ldc2-install
