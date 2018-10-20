@@ -609,7 +609,10 @@ extern (C++) Expression eval_popcnt(Loc loc, FuncDeclaration fd, Expressions* ar
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOK.int64);
     uinteger_t n = arg0.toInteger();
-    return new IntegerExp(loc, core.bitop.popcnt(n), Type.tint32);
+    version (LDC) // ltsmaster doesn't have popcnt(ulong)
+        return new IntegerExp(loc, core.bitop._popcnt(n), Type.tint32);
+    else
+        return new IntegerExp(loc, core.bitop.popcnt(n), Type.tint32);
 }
 
 extern (C++) Expression eval_yl2x(Loc loc, FuncDeclaration fd, Expressions* arguments)
@@ -642,7 +645,7 @@ public extern (C++) void builtin_init()
 {
 version (IN_LLVM)
 {
-    builtins._init(127); // Prime number like default value
+    builtins._init(201);
 }
 else
 {
