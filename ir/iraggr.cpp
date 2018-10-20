@@ -7,20 +7,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/llvm.h"
-#include "aggregate.h"
-#include "declaration.h"
-#include "expression.h"
-#include "init.h"
-#include "mtype.h"
-#include "target.h"
+#include "ir/iraggr.h"
+
+#include "dmd/aggregate.h"
+#include "dmd/declaration.h"
+#include "dmd/expression.h"
+#include "dmd/init.h"
+#include "dmd/mtype.h"
+#include "dmd/target.h"
 #include "gen/irstate.h"
+#include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/mangling.h"
 #include "gen/tollvm.h"
-#include "ir/iraggr.h"
-#include "irdsymbol.h"
+#include "ir/irdsymbol.h"
 #include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
 #include <algorithm>

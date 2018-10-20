@@ -7,8 +7,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "target.h"
 #include "gen/nested.h"
+
+#include "dmd/target.h"
 #include "gen/dvalue.h"
 #include "gen/funcgenstate.h"
 #include "gen/functions.h"

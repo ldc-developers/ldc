@@ -7,11 +7,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "aggregate.h"
-#include "declaration.h"
-#include "init.h"
-#include "module.h"
-#include "mtype.h"
+#include "gen/structs.h"
+
+#include "dmd/aggregate.h"
+#include "dmd/declaration.h"
+#include "dmd/init.h"
+#include "dmd/module.h"
+#include "dmd/mtype.h"
 #include "gen/arrays.h"
 #include "gen/dvalue.h"
 #include "gen/functions.h"
@@ -19,7 +21,6 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
-#include "gen/structs.h"
 #include "gen/tollvm.h"
 #include "ir/iraggr.h"
 #include "llvm/ADT/DenseMap.h"

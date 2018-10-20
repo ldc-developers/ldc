@@ -17,7 +17,7 @@
 #ifndef LDC_GEN_ABI_H
 #define LDC_GEN_ABI_H
 
-#include "mars.h"
+#include "dmd/mars.h"
 #include "gen/dvalue.h"
 #include "llvm/IR/CallingConv.h"
 #include <vector>

@@ -9,15 +9,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ldcbindings.h"
-#include "target.h"
+#include "dmd/ldcbindings.h"
+#include "dmd/mars.h"
+#include "dmd/mtype.h"
+#include "dmd/target.h"
 #include "driver/cl_options.h"
 #include "driver/linker.h"
 #include "gen/abi.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
-#include "mars.h"
-#include "mtype.h"
 #include <assert.h>
 
 #if !defined(_MSC_VER)

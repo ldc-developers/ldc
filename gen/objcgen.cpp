@@ -10,8 +10,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/objcgen.h"
-#include "mtype.h"
-#include "objc.h"
+
+#include "dmd/mtype.h"
+#include "dmd/objc.h"
 #include "gen/irstate.h"
 
 namespace {

@@ -18,7 +18,9 @@
 #include "llvm/IR/DerivedTypes.h"
 
 template <typename TYPE> struct Array;
+class ClassDeclaration;
 using FuncDeclarations = Array<class FuncDeclaration *>;
+class TypeClass;
 
 ///
 class IrTypeClass : public IrTypeAggr {

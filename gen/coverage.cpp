@@ -9,8 +9,8 @@
 
 #include "gen/coverage.h"
 
-#include "mars.h"
-#include "module.h"
+#include "dmd/mars.h"
+#include "dmd/module.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
 

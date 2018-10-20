@@ -8,9 +8,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "ir/irmodule.h"
-#include "module.h"
-#include "gen/llvm.h"
+
+#include "dmd/module.h"
 #include "gen/irstate.h"
+#include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/mangling.h"
 #include "gen/tollvm.h"

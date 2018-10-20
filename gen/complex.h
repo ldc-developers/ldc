@@ -14,8 +14,8 @@
 #ifndef LDC_GEN_COMPLEX_H
 #define LDC_GEN_COMPLEX_H
 
-#include "tokens.h"
-#include "dvalue.h"
+#include "dmd/tokens.h"
+#include "gen/dvalue.h"
 
 struct Loc;
 class Type;

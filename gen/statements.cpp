@@ -7,16 +7,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "expression.h"
-#include "id.h"
-#include "identifier.h"
-#include "import.h"
-#include "init.h"
-#include "mangle.h"
-#include "mars.h"
-#include "module.h"
-#include "mtype.h"
-#include "port.h"
+#include "dmd/expression.h"
+#include "dmd/hdrgen.h"
+#include "dmd/id.h"
+#include "dmd/identifier.h"
+#include "dmd/import.h"
+#include "dmd/init.h"
+#include "dmd/mangle.h"
+#include "dmd/mars.h"
+#include "dmd/module.h"
+#include "dmd/mtype.h"
+#include "dmd/root/port.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
@@ -37,10 +38,6 @@
 #include <fstream>
 #include <math.h>
 #include <stdio.h>
-
-// Need to include this after the other DMD includes because of missing
-// dependencies.
-#include "hdrgen.h"
 
 //////////////////////////////////////////////////////////////////////////////
 // FIXME: Integrate these functions

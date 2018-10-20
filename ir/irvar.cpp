@@ -7,11 +7,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/llvm.h"
-#include "declaration.h"
-#include "gen/irstate.h"
-#include "ir/irdsymbol.h"
 #include "ir/irvar.h"
+
+#include "dmd/declaration.h"
+#include "gen/irstate.h"
+#include "gen/llvm.h"
+#include "ir/irdsymbol.h"
 
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////

@@ -7,13 +7,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "compiler.h"
-#include "declaration.h"
-#include "expression.h"
-#include "id.h"
-#include "mtype.h"
-#include "target.h"
-#include "pragma.h"
+#include "dmd/compiler.h"
+#include "dmd/declaration.h"
+#include "dmd/expression.h"
+#include "dmd/id.h"
+#include "dmd/mtype.h"
+#include "dmd/target.h"
 #include "gen/abi.h"
 #include "gen/classes.h"
 #include "gen/dvalue.h"
@@ -24,6 +23,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/nested.h"
+#include "gen/pragma.h"
 #include "gen/tollvm.h"
 #include "gen/runtime.h"
 #include "ir/irfunction.h"

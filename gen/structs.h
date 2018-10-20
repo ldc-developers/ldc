@@ -14,7 +14,7 @@
 #ifndef LDC_GEN_STRUCTS_H
 #define LDC_GEN_STRUCTS_H
 
-#include "tokens.h"
+#include "dmd/tokens.h"
 #include <vector>
 
 class DValue;

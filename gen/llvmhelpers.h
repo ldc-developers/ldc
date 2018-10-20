@@ -16,11 +16,11 @@
 #ifndef LDC_GEN_LLVMHELPERS_H
 #define LDC_GEN_LLVMHELPERS_H
 
+#include "dmd/mtype.h"
+#include "dmd/statement.h"
 #include "gen/dvalue.h"
 #include "gen/llvm.h"
 #include "ir/irfuncty.h"
-#include "mtype.h"
-#include "statement.h"
 
 struct IRState;
 

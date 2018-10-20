@@ -8,14 +8,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/dcompute/druntime.h"
-#include "expression.h"
-#include "dmd/dsymbol.h"
-#include "dmd/module.h"
-#include "dmd/identifier.h"
-#include "dmd/template.h"
-#include "dmd/declaration.h"
+
 #include "dmd/aggregate.h"
-#include "id.h"
+#include "dmd/declaration.h"
+#include "dmd/dsymbol.h"
+#include "dmd/expression.h"
+#include "dmd/id.h"
+#include "dmd/identifier.h"
+#include "dmd/module.h"
+#include "dmd/template.h"
 
 bool isFromLDC_DCompute(Dsymbol *sym) {
   auto mod = sym->getModule();

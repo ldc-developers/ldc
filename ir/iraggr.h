@@ -15,15 +15,17 @@
 #ifndef LDC_IR_IRAGGR_H
 #define LDC_IR_IRAGGR_H
 
+#include "dmd/aggregate.h"
 #include "llvm/ADT/SmallVector.h"
 #include <map>
 #include <vector>
 
-// DMD forward declarations
 class StructInitializer;
 
 namespace llvm {
 class Constant;
+class DIType;
+class GlobalVariable;
 class StructType;
 }
 

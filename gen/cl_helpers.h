@@ -15,9 +15,9 @@
 #ifndef LDC_GEN_CL_HELPERS_H
 #define LDC_GEN_CL_HELPERS_H
 
+#include "dmd/globals.h" // for CHECKENABLE enum
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
-#include "globals.h" // for CHECKENABLE enum
 
 #if LDC_LLVM_VER >= 500
 #define LLVM_END_WITH_NULL

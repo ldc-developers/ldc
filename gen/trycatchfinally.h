@@ -10,7 +10,7 @@
 #ifndef LDC_GEN_TRYCATCHFINALLY_H
 #define LDC_GEN_TRYCATCHFINALLY_H
 
-#include "globals.h"
+#include "dmd/globals.h"
 #include <stddef.h>
 #include <vector>
 

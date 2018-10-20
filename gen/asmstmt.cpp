@@ -7,33 +7,25 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "dmd/mars.h"
+#include "dmd/statement.h"
+#include "dmd/scope.h"
+#include "dmd/declaration.h"
+#include "dmd/dsymbol.h"
+#include "gen/dvalue.h"
+#include "gen/functions.h"
+#include "gen/irstate.h"
 #include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
+#include "gen/logger.h"
+#include "gen/tollvm.h"
+#include "ir/irfunction.h"
 #include "llvm/IR/InlineAsm.h"
-
-//#include "d-gcc-includes.h"
-//#include "total.h"
-#include "mars.h"
-#include "statement.h"
-#include "scope.h"
-#include "declaration.h"
-#include "dsymbol.h"
-
 #include <cassert>
-#include <deque>
 #include <cstring>
+#include <deque>
 #include <string>
 #include <sstream>
-
-//#include "d-lang.h"
-//#include "d-codegen.h"
-
-#include "gen/irstate.h"
-#include "gen/dvalue.h"
-#include "gen/tollvm.h"
-#include "gen/logger.h"
-#include "gen/llvmhelpers.h"
-#include "gen/functions.h"
-#include "ir/irfunction.h"
 
 typedef enum {
   Arg_Integer,

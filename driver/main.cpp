@@ -7,17 +7,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "module.h"
-#include "errors.h"
-#include "id.h"
-#include "hdrgen.h"
-#include "json.h"
-#include "mars.h"
-#include "mtype.h"
-#include "identifier.h"
-#include "rmem.h"
-#include "root.h"
-#include "scope.h"
+#include "dmd/cond.h"
+#include "dmd/errors.h"
+#include "dmd/id.h"
+#include "dmd/identifier.h"
+#include "dmd/hdrgen.h"
+#include "dmd/json.h"
+#include "dmd/mars.h"
+#include "dmd/module.h"
+#include "dmd/mtype.h"
+#include "dmd/root/rmem.h"
+#include "dmd/root/root.h"
+#include "dmd/scope.h"
 #include "dmd/target.h"
 #include "driver/cache.h"
 #include "driver/cl_options.h"
@@ -31,6 +32,7 @@
 #include "driver/linker.h"
 #include "driver/plugins.h"
 #include "driver/targetmachine.h"
+#include "gen/abi.h"
 #include "gen/cl_helpers.h"
 #include "gen/irstate.h"
 #include "gen/ldctraits.h"
@@ -45,8 +47,9 @@
 #include "gen/passes/Passes.h"
 #include "gen/runtime.h"
 #include "gen/uda.h"
-#include "gen/abi.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/LinkAllIR.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Host.h"
@@ -56,23 +59,20 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
+#include <assert.h>
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 #if LDC_LLVM_VER >= 600
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #else
 #include "llvm/Target/TargetSubtargetInfo.h"
 #endif
-#include "llvm/LinkAllIR.h"
-#include "llvm/IR/LLVMContext.h"
-#include <assert.h>
-#include <limits.h>
-#include <stdio.h>
-#include <stdlib.h>
+
 #if _WIN32
 #include <windows.h>
 #endif
-
-// Needs Type already declared.
-#include "cond.h"
 
 // From druntime/src/core/runtime.d.
 extern "C" {

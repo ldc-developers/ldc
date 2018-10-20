@@ -8,7 +8,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "driver/tool.h"
-#include "mars.h"
+
+#include "dmd/mars.h"
 #include "driver/cl_options.h"
 #include "driver/exe_path.h"
 #include "driver/targetmachine.h"
@@ -17,6 +18,7 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
+
 #ifdef _WIN32
 #include <Windows.h>
 #endif

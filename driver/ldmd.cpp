@@ -30,11 +30,6 @@
 #include "llvm/Support/Program.h"
 #include "llvm/Support/SystemUtils.h"
 #include "llvm/Support/raw_ostream.h"
-#if _WIN32
-#include "Windows.h"
-#else
-#include <sys/stat.h>
-#endif
 #include <cassert>
 #include <cerrno>
 #include <climits>
@@ -43,6 +38,12 @@
 #include <cstdlib>
 #include <numeric>
 #include <vector>
+
+#if _WIN32
+#include <windows.h>
+#else
+#include <sys/stat.h>
+#endif
 
 #ifdef HAVE_SC_ARG_MAX
 #include <unistd.h>

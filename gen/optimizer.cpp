@@ -9,7 +9,7 @@
 
 #include "gen/optimizer.h"
 
-#include "errors.h"
+#include "dmd/errors.h"
 #include "gen/cl_helpers.h"
 #include "gen/logger.h"
 #include "gen/passes/Passes.h"
@@ -17,23 +17,24 @@
 #include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
 #include "driver/targetmachine.h"
-#include "llvm/LinkAllPasses.h"
+#include "llvm/ADT/Triple.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/LegacyPassNameParser.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/ADT/Triple.h"
-#if LDC_LLVM_VER >= 400
-#include "llvm/Analysis/InlineCost.h"
-#endif
-#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Verifier.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Target/TargetMachine.h"
+#include "llvm/LinkAllPasses.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/IR/LegacyPassNameParser.h"
+#include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+
+#if LDC_LLVM_VER >= 400
+#include "llvm/Analysis/InlineCost.h"
+#endif
 
 extern llvm::TargetMachine *gTargetMachine;
 using namespace llvm;

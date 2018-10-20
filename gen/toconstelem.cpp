@@ -7,6 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "dmd/ctfe.h"
+#include "dmd/template.h"
 #include "gen/arrays.h"
 #include "gen/binops.h"
 #include "gen/classes.h"
@@ -21,9 +23,6 @@
 #include "ir/irfunction.h"
 #include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
-#include "template.h"
-// Needs other includes.
-#include "ctfe.h"
 
 /// Emits an LLVM constant corresponding to the expression.
 ///

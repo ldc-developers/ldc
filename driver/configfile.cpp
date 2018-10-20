@@ -8,8 +8,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "driver/configfile.h"
+
+#include "dmd/mars.h"
 #include "driver/exe_path.h"
-#include "mars.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
@@ -18,6 +19,7 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+
 #if _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include "llvm/Support/ConvertUTF.h"

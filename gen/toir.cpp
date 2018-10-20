@@ -7,18 +7,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "attrib.h"
-#include "enum.h"
-#include "hdrgen.h"
-#include "id.h"
-#include "identifier.h"
-#include "init.h"
-#include "ldcbindings.h"
-#include "module.h"
-#include "mtype.h"
-#include "port.h"
-#include "rmem.h"
-#include "template.h"
+#include "dmd/attrib.h"
+#include "dmd/ctfe.h"
+#include "dmd/enum.h"
+#include "dmd/hdrgen.h"
+#include "dmd/id.h"
+#include "dmd/identifier.h"
+#include "dmd/init.h"
+#include "dmd/ldcbindings.h"
+#include "dmd/module.h"
+#include "dmd/mtype.h"
+#include "dmd/root/port.h"
+#include "dmd/root/rmem.h"
+#include "dmd/template.h"
 #include "gen/aa.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
@@ -53,9 +54,6 @@
 #include <math.h>
 #include <stack>
 #include <stdio.h>
-
-// Needs other includes.
-#include "ctfe.h"
 
 llvm::cl::opt<bool> checkPrintf(
     "check-printf-calls", llvm::cl::ZeroOrMore,

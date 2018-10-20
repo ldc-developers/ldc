@@ -15,8 +15,8 @@
 
 #include "driver/cl_options_instrumentation.h"
 
-#include "errors.h"
-#include "globals.h"
+#include "dmd/errors.h"
+#include "dmd/globals.h"
 #include "gen/to_string.h"
 #include "llvm/ADT/Triple.h"
 

@@ -14,7 +14,7 @@
 #ifndef LDC_GEN_ARRAYS_H
 #define LDC_GEN_ARRAYS_H
 
-#include "tokens.h"
+#include "dmd/tokens.h"
 #include "gen/llvm.h"
 
 class ArrayInitializer;

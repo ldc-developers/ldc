@@ -15,8 +15,8 @@
 #ifndef LDC_GEN_NESTED_H
 #define LDC_GEN_NESTED_H
 
-#include "declaration.h"
-#include "mtype.h"
+#include "dmd/declaration.h"
+#include "dmd/mtype.h"
 #include "gen/dvalue.h"
 #include "gen/llvm.h"
 

@@ -8,15 +8,22 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/llvmhelpers.h"
-#include "declaration.h"
-#include "expression.h"
-#include "identifier.h"
+
+#include "dmd/declaration.h"
+#include "dmd/expression.h"
+#include "dmd/id.h"
+#include "dmd/identifier.h"
+#include "dmd/init.h"
+#include "dmd/mars.h"
+#include "dmd/module.h"
+#include "dmd/template.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/cl_helpers.h"
 #include "gen/classes.h"
 #include "gen/complex.h"
 #include "gen/dvalue.h"
+#include "gen/dynamiccompile.h"
 #include "gen/funcgenstate.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
@@ -29,22 +36,15 @@
 #include "gen/tollvm.h"
 #include "gen/typinf.h"
 #include "gen/uda.h"
-#include "id.h"
-#include "init.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "ir/irtypeaggr.h"
-#include "mars.h"
-#include "module.h"
-#include "template.h"
 #include "llvm/MC/MCAsmInfo.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/ManagedStatic.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
-#include "llvm/Support/ManagedStatic.h"
 #include <stack>
-
-#include "llvm/Support/CommandLine.h"
-#include "gen/dynamiccompile.h"
 
 llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel(
     "fthread-model", llvm::cl::ZeroOrMore, llvm::cl::desc("Thread model"),

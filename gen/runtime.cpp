@@ -8,8 +8,16 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/runtime.h"
-#include "aggregate.h"
-#include "dsymbol.h"
+
+#include "dmd/aggregate.h"
+#include "dmd/dsymbol.h"
+#include "dmd/ldcbindings.h"
+#include "dmd/mars.h"
+#include "dmd/module.h"
+#include "dmd/mtype.h"
+#include "dmd/root/root.h"
+#include "dmd/tokens.h"
+#include "driver/cl_options_instrumentation.h"
 #include "gen/abi.h"
 #include "gen/attributes.h"
 #include "gen/functions.h"
@@ -22,24 +30,17 @@
 #include "ir/irfunction.h"
 #include "ir/irtype.h"
 #include "ir/irtypefunction.h"
-#include "driver/cl_options_instrumentation.h"
-#include "ldcbindings.h"
-#include "mars.h"
-#include "module.h"
-#include "mtype.h"
-#include "root.h"
-#include "tokens.h"
+#include "llvm/IR/Attributes.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include <algorithm>
+
 #if LDC_LLVM_VER >= 400
 #include "llvm/Bitcode/BitcodeWriter.h"
 #else
 #include "llvm/Bitcode/ReaderWriter.h"
 #endif
-#include "llvm/IR/Attributes.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/MemoryBuffer.h"
-
-#include <algorithm>
 
 ////////////////////////////////////////////////////////////////////////////////
 

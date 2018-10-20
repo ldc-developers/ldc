@@ -14,11 +14,10 @@
 #ifndef LDC_DRIVER_CONFIGFILE_H
 #define LDC_DRIVER_CONFIGFILE_H
 
+#include "dmd/root/array.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include <string>
-
-#include "array.h"
 
 class ConfigFile {
 public:

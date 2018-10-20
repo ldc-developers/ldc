@@ -14,7 +14,7 @@
 #ifndef LDC_GEN_FUNCTIONS_H
 #define LDC_GEN_FUNCTIONS_H
 
-#include "mars.h"
+#include "dmd/mars.h"
 
 class DValue;
 class Expression;

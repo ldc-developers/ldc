@@ -9,8 +9,8 @@
 
 #include "gen/moduleinfo.h"
 
-#include "module.h"
-#include "mangle.h"
+#include "dmd/module.h"
+#include "dmd/mangle.h"
 #include "gen/abi.h"
 #include "gen/classes.h"
 #include "gen/irstate.h"

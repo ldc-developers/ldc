@@ -7,8 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "globals.h"
-#include "tokens.h"
+#include "dmd/globals.h"
+#include "dmd/tokens.h"
 
 class Expression;
 class Type;

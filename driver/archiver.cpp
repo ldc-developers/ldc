@@ -7,13 +7,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "errors.h"
-#include "globals.h"
+#include "dmd/errors.h"
+#include "dmd/globals.h"
 #include "driver/cl_options.h"
 #include "driver/tool.h"
 #include "gen/logger.h"
 #include "llvm/ADT/Triple.h"
-
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/ArchiveWriter.h"
 #include "llvm/Object/MachO.h"
@@ -21,14 +20,13 @@
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
+#include <cstring>
 
 #if LDC_LLVM_VER >= 500
 #include "llvm/ToolDrivers/llvm-lib/LibDriver.h"
 #else
 #include "llvm/LibDriver/LibDriver.h"
 #endif
-
-#include <cstring>
 
 using namespace llvm;
 

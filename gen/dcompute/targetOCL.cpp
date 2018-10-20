@@ -9,12 +9,12 @@
 
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV
 
-#include "id.h"
-#include "identifier.h"
-#include "gen/dcompute/target.h"
-#include "gen/dcompute/druntime.h"
+#include "dmd/id.h"
+#include "dmd/identifier.h"
 #include "dmd/template.h"
 #include "gen/abi-spirv.h"
+#include "gen/dcompute/target.h"
+#include "gen/dcompute/druntime.h"
 #include "gen/logger.h"
 #include "llvm/Transforms/Scalar.h"
 #include <cstring>

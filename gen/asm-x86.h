@@ -18,10 +18,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "id.h"
-#include "identifier.h"
-#include "ldcbindings.h"
-#include "mangle.h"
+#include "dmd/id.h"
+#include "dmd/identifier.h"
+#include "dmd/ldcbindings.h"
+#include "dmd/mangle.h"
 #include "gen/llvmhelpers.h" // printLabelName
 #include <cctype>
 

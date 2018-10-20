@@ -8,10 +8,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/aa.h"
-#include "aggregate.h"
-#include "declaration.h"
-#include "module.h"
-#include "mtype.h"
+
+#include "dmd/aggregate.h"
+#include "dmd/declaration.h"
+#include "dmd/module.h"
+#include "dmd/mtype.h"
 #include "gen/arrays.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"

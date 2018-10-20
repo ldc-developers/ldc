@@ -8,7 +8,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/dvalue.h"
-#include "declaration.h"
+
+#include "dmd/declaration.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"

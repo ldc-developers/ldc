@@ -8,10 +8,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/irstate.h"
-#include "declaration.h"
-#include "identifier.h"
-#include "mtype.h"
-#include "statement.h"
+
+#include "dmd/declaration.h"
+#include "dmd/identifier.h"
+#include "dmd/mtype.h"
+#include "dmd/statement.h"
 #include "gen/funcgenstate.h"
 #include "gen/llvm.h"
 #include "gen/tollvm.h"

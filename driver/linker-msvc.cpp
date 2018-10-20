@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "errors.h"
+#include "dmd/errors.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
@@ -16,7 +16,6 @@
 #include "driver/linker.h"
 #include "driver/tool.h"
 #include "gen/logger.h"
-
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 

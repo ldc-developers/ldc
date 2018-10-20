@@ -17,7 +17,7 @@
 #ifndef LDC_GEN_DVALUE_H
 #define LDC_GEN_DVALUE_H
 
-#include "root.h"
+#include "dmd/root/root.h"
 
 class Type;
 class Dsymbol;

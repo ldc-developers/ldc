@@ -7,14 +7,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "expression.h"
-#include "mars.h"
-#include "mtype.h"
+#include "ir/irtype.h"
+
+#include "dmd/expression.h"
+#include "dmd/mars.h"
+#include "dmd/mtype.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/llvmhelpers.h"
 #include "gen/tollvm.h"
-#include "ir/irtype.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/LLVMContext.h"
 

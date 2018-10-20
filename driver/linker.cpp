@@ -8,7 +8,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "driver/linker.h"
-#include "errors.h"
+
+#include "dmd/errors.h"
 #include "driver/cl_options.h"
 #include "driver/tool.h"
 #include "gen/llvm.h"

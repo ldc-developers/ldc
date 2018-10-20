@@ -15,20 +15,20 @@
 #ifndef LDC_GEN_IRSTATE_H
 #define LDC_GEN_IRSTATE_H
 
-#include <deque>
-#include <memory>
-#include <set>
-#include <sstream>
-#include <vector>
-#include "aggregate.h"
-#include "root.h"
+#include "dmd/aggregate.h"
+#include "dmd/root/root.h"
 #include "gen/dibuilder.h"
 #include "gen/objcgen.h"
 #include "ir/iraggr.h"
 #include "ir/irvar.h"
 #include "llvm/ADT/StringMap.h"
-#include "llvm/ProfileData/InstrProfReader.h"
 #include "llvm/IR/CallSite.h"
+#include "llvm/ProfileData/InstrProfReader.h"
+#include <deque>
+#include <memory>
+#include <set>
+#include <sstream>
+#include <vector>
 
 namespace llvm {
 class LLVMContext;

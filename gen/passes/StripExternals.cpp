@@ -20,14 +20,14 @@
 #define LLVM_DEBUG DEBUG
 #endif
 
-#include "Passes.h"
-
+#include "gen/passes/Passes.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
-#include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+
 using namespace llvm;
 
 STATISTIC(NumFunctions, "Number of function bodies removed");

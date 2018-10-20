@@ -8,13 +8,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "driver/cl_options.h"
-#include "mars.h"
+
+#include "dmd/mars.h"
 #include "gen/cl_helpers.h"
 #include "gen/logger.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Target/TargetMachine.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Target/TargetMachine.h"
 
 namespace opts {
 

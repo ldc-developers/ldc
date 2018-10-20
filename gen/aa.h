@@ -14,7 +14,7 @@
 #ifndef LDC_GEN_AA_H
 #define LDC_GEN_AA_H
 
-#include "tokens.h"
+#include "dmd/tokens.h"
 
 enum TOK;
 class DValue;
