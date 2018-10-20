@@ -760,7 +760,7 @@ endif()
 
 set(DRUNTIME_PACKAGES core etc ldc)
 
-install(FILES ${RUNTIME_DIR}/src/object.d DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
+install(FILES ${RUNTIME_DIR}/src/object.d DESTINATION ${INCLUDE_INSTALL_DIR})
 foreach(p ${DRUNTIME_PACKAGES})
     install(DIRECTORY ${RUNTIME_DIR}/src/${p} DESTINATION ${INCLUDE_INSTALL_DIR})
 endforeach()
