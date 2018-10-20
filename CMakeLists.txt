@@ -937,7 +937,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
             endif()
         endif()
     endif()
-    install(DIRECTORY bash_completion.d/ DESTINATION ${BASH_COMPLETION_COMPLETIONSDIR})
+    install(DIRECTORY packaging/bash_completion.d/ DESTINATION ${BASH_COMPLETION_COMPLETIONSDIR})
 endif()
 
 #
