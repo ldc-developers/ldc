@@ -99,7 +99,6 @@ if(D_VERSION EQUAL 1)
     message(FATAL_ERROR "D version 1 is no longer supported.
 Please consider using D version 2 or checkout the 'd1' git branch for the last version supporting D version 1.")
 elseif(D_VERSION EQUAL 2)
-    set(DDMDFE_PATH dmd)
     set(LDC_EXE ldc2)
     set(LDMD_EXE ldmd2)
     set(LDCPROFDATA_EXE ldc-profdata)
@@ -112,11 +111,6 @@ endif()
 set(LDC_EXE_NAME ${PROGRAM_PREFIX}${LDC_EXE}${PROGRAM_SUFFIX})
 set(LDMD_EXE_NAME ${PROGRAM_PREFIX}${LDMD_EXE}${PROGRAM_SUFFIX})
 set(LDCPROFDATA_EXE_NAME ${PROGRAM_PREFIX}${LDCPROFDATA_EXE}${PROGRAM_SUFFIX})
-
-file(MAKE_DIRECTORY
-    ${PROJECT_BINARY_DIR}
-    ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}
-)
 
 # Setup D compiler flags (DMD syntax, which also works with LDMD).
 set(DDMD_DFLAGS "-wi")
@@ -174,7 +168,7 @@ if(MSVC)
     endforeach()
 endif()
 
-append("-J${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -J${PROJECT_SOURCE_DIR}/res" DDMD_DFLAGS) # Needed for importing text files
+append("-J${PROJECT_SOURCE_DIR}/res" DDMD_DFLAGS) # Needed for importing text files
 string(STRIP "${DDMD_DFLAGS}" DDMD_DFLAGS)
 
 # Use separate compiler flags for the frontend and for the LDC-specific parts,
@@ -310,8 +304,8 @@ configure_file(driver/ldc-version.cpp.in driver/ldc-version.cpp)
 
 # Also add the header files to the build so that they are available in IDE
 # project files generated via CMake.
-file(GLOB_RECURSE FE_SRC_D ${DDMDFE_PATH}/*.d)
-file(GLOB_RECURSE FE_HDR   ${DDMDFE_PATH}/*.h)
+file(GLOB_RECURSE FE_SRC_D dmd/*.d)
+file(GLOB_RECURSE FE_HDR   dmd/*.h)
 file(GLOB_RECURSE FE_RES   res/*.*)
 file(GLOB_RECURSE GEN_SRC gen/*.cpp)
 file(GLOB_RECURSE GEN_HDR gen/*.h)
@@ -360,9 +354,9 @@ set(DRV_HDR
     driver/toobj.h
     driver/tool.h
 )
-# exclude man.d
+# exclude man.d from ldc (only required by ldmd)
 list(REMOVE_ITEM FE_SRC_D
-    ${PROJECT_SOURCE_DIR}/${DDMDFE_PATH}/root/man.d
+    ${PROJECT_SOURCE_DIR}/dmd/root/man.d
 )
 # exclude ldmd.d from ldc
 list(REMOVE_ITEM DRV_SRC_D
@@ -382,8 +376,8 @@ set(LDC_D_SOURCE_FILES
     ${IR_SRC_D}
 )
 
-source_group("Source Files\\${DDMDFE_PATH}" FILES ${FE_SRC_D})
-source_group("Header Files\\${DDMDFE_PATH}" FILES ${FE_HDR})
+source_group("Source Files\\dmd" FILES ${FE_SRC_D})
+source_group("Header Files\\dmd" FILES ${FE_HDR})
 source_group("Source Files\\gen" FILES ${GEN_SRC} ${GEN_SRC_D})
 source_group("Header Files\\gen" FILES ${GEN_HDR})
 source_group("Source Files\\ir" FILES ${IR_SRC} ${IR_SRC_D})
@@ -414,21 +408,9 @@ message(STATUS "Building LDC with dynamic compilation support: ${LDC_DYNAMIC_COM
 # Includes, defines.
 #
 
-include_directories(
-    .
-    ${DDMDFE_PATH}
-    ${DDMDFE_PATH}/root
-    ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}
-    ${PROJECT_SOURCE_DIR}
-)
-include_directories( SYSTEM
-    ${LLVM_INCLUDE_DIRS}
-)
+include_directories(. dmd)
 append("-I${PROJECT_SOURCE_DIR}" DDMD_DFLAGS)
 append("-I${PROJECT_BINARY_DIR}" DDMD_DFLAGS)
-if(MSVC)
-    include_directories(${PROJECT_SOURCE_DIR}/vcbuild)
-endif()
 
 if(MSVC)
     append("-version=IN_LLVM_MSVC" DDMD_DFLAGS)
@@ -677,7 +659,7 @@ function(build_d_executable output_exe compiler_args linker_args compile_deps li
     endif()
     add_custom_command(
         OUTPUT ${object_file}
-        COMMAND ${D_COMPILER} -c ${dflags} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${object_file} ${compiler_args}
+        COMMAND ${D_COMPILER} -c ${dflags} -of${object_file} ${compiler_args}
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
         DEPENDS ${compile_deps}
     )
@@ -707,7 +689,7 @@ if(MSVC_IDE)
     separate_arguments(LDC_FLAG_LIST WINDOWS_COMMAND "${LDC_TRANSLATED_LINKER_FLAGS} ${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS}")
     add_custom_command(
         OUTPUT ${LDC_EXE_FULL}
-        COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:${LDC_LIB}> ${LDC_FLAG_LIST} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${LDC_EXE_FULL} ${LDC_D_SOURCE_FILES} $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:-g> $<$<NOT:$<CONFIG:Debug>>:-O> $<$<NOT:$<CONFIG:Debug>>:-inline> $<$<NOT:$<CONFIG:Debug>>:-release>
+        COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:${LDC_LIB}> ${LDC_FLAG_LIST} -of${LDC_EXE_FULL} ${LDC_D_SOURCE_FILES} $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:-g> $<$<NOT:$<CONFIG:Debug>>:-O> $<$<NOT:$<CONFIG:Debug>>:-inline> $<$<NOT:$<CONFIG:Debug>>:-release>
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
         DEPENDS ${LDC_D_SOURCE_FILES} ${FE_RES} ${LDC_LIB}
     )
@@ -751,7 +733,7 @@ set_target_properties(
     ARCHIVE_OUTPUT_NAME ldmd
     LIBRARY_OUTPUT_NAME ldmd
 )
-set(LDMD_D_SOURCE_FILES ${DDMDFE_PATH}/root/man.d driver/ldmd.d)
+set(LDMD_D_SOURCE_FILES dmd/root/man.d driver/ldmd.d)
 build_d_executable(
     "${LDMD_EXE_FULL}"
     "${LDMD_D_SOURCE_FILES}"
