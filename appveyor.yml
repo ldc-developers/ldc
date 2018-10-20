@@ -22,7 +22,7 @@ environment:
 
 # scripts that are called at very beginning, before repo cloning
 init:
-  - git config --global core.autocrlf input
+  - git config --global core.autocrlf true
 
 # scripts that run after cloning repository
 install:
