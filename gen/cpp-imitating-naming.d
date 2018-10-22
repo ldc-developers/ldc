@@ -11,7 +11,7 @@ module gen.cpp_imitating_naming;
 
 private string dTemplateToCPlusPlus(const(string) name) @safe pure
 {
-	import std.string: indexOf, indexOfAny;
+	import std.string : indexOf, indexOfAny;
 
 	ptrdiff_t start = 0;
 	ptrdiff_t index = name.indexOf('!');
@@ -36,20 +36,20 @@ private string dTemplateToCPlusPlus(const(string) name) @safe pure
 			{
 				switch (name[index])
 				{
-					case '(':
-						enclosedParentheses++;
-						break;
-					case ')':
-						enclosedParentheses--;
-						break;
-					default:
-						break;
+				case '(':
+					enclosedParentheses++;
+					break;
+				case ')':
+					enclosedParentheses--;
+					break;
+				default:
+					break;
 				}
 
 				if (enclosedParentheses == 0)
 					break;
 
-				if (index == name.length - 1)
+				if (index == cast(ptrdiff_t) name.length - 1)
 					break;
 
 				index++;
@@ -57,7 +57,7 @@ private string dTemplateToCPlusPlus(const(string) name) @safe pure
 
 			if (name[index] != ')')
 				index++;
-		} 
+		}
 		else
 		{
 			index = name.indexOfAny(" ,.:<>()[]", start);
@@ -83,8 +83,8 @@ private string dTemplateToCPlusPlus(const(string) name) @safe pure
 
 private string dArrayToCPlusPlus(const(string) name) @safe pure
 {
-	import std.ascii: isDigit;
-	import std.string: indexOf, lastIndexOfAny, replace;
+	import std.ascii : isDigit;
+	import std.string : indexOf, lastIndexOfAny, replace;
 
 	ptrdiff_t index = name.indexOf('[');
 
@@ -106,20 +106,20 @@ private string dArrayToCPlusPlus(const(string) name) @safe pure
 			{
 				switch (name[index])
 				{
-					case '(':
-						enclosedParentheses++;
-						break;
-					case ')':
-						enclosedParentheses--;
-						break;
-					case '>':
-						enclosedChevrons++;
-						break;
-					case '<':
-						enclosedChevrons--;
-						break;
-					default:
-						break;
+				case '(':
+					enclosedParentheses++;
+					break;
+				case ')':
+					enclosedParentheses--;
+					break;
+				case '>':
+					enclosedChevrons++;
+					break;
+				case '<':
+					enclosedChevrons--;
+					break;
+				default:
+					break;
 				}
 
 				if (enclosedParentheses == 0 && enclosedChevrons == 0)
@@ -147,20 +147,20 @@ private string dArrayToCPlusPlus(const(string) name) @safe pure
 		{
 			switch (name[bracketsIndex])
 			{
-				case '[':
-					enclosedSquareBrackets++;
-					break;
-				case ']':
-					enclosedSquareBrackets--;
-					break;
-				default:
-					break;
+			case '[':
+				enclosedSquareBrackets++;
+				break;
+			case ']':
+				enclosedSquareBrackets--;
+				break;
+			default:
+				break;
 			}
 
 			if (enclosedSquareBrackets == 0)
 				break;
 
-			if (bracketsIndex == name.length - 1)
+			if (bracketsIndex == cast(ptrdiff_t) name.length - 1)
 				break;
 
 			bracketsIndex++;
@@ -168,25 +168,25 @@ private string dArrayToCPlusPlus(const(string) name) @safe pure
 
 		bracketsIndex++;
 
-		string search = name[index .. bracketsIndex];
-		string value = name[index .. bracketsStart];
+		immutable string search = name[index .. bracketsIndex];
+		immutable string value = name[index .. bracketsStart];
 
 		if (name[bracketsIndex - 1] == ']')
 			bracketsIndex--;
 
 		bracketsStart++;
 
-		string key = name[bracketsStart .. bracketsIndex];
+		immutable string key = name[bracketsStart .. bracketsIndex];
 
 		if (key.length == 0)
 		{
-			string replaceString = "slice<" ~ value ~ ">";
+			immutable string replaceString = "slice<" ~ value ~ ">";
 			result = name.replace(search, replaceString);
 		}
 		else
 		{
-			string pairKeyValue = key ~ ", " ~ value;
-			string replaceString = "associative_array<" ~ pairKeyValue ~ ">";
+			immutable string pairKeyValue = key ~ ", " ~ value;
+			immutable string replaceString = "associative_array<" ~ pairKeyValue ~ ">";
 			result = name.replace(search, replaceString);
 		}
 	}
@@ -199,30 +199,34 @@ private string convertDToCPlusPlus(alias identifierModifier)(const(string) name)
 	string result = name;
 	string previousResult;
 
-	do {
+	do
+	{
 		previousResult = result;
 		result = identifierModifier(result);
-	} while (result != previousResult);
+	}
+	while (result != previousResult);
 
 	return result;
 }
 
+///
 string convertDIdentifierToCPlusPlus(const(string) name) @safe pure
 {
-	import std.string: replace;
+	import std.string : replace;
 
 	string result = name.replace(".", "::");
-	
+
 	result = result.convertDToCPlusPlus!dTemplateToCPlusPlus;
 	result = result.convertDToCPlusPlus!dArrayToCPlusPlus;
 
 	return result;
 }
 
-extern(C) const(char*) convertDIdentifierToCPlusPlus(const(char*) name) @trusted pure
+///
+extern (C) const(char*) convertDIdentifierToCPlusPlus(const(char*) name) @trusted pure
 {
-	import std.conv: to;
-	import std.string: toStringz;
+	import std.conv : to;
+	import std.string : toStringz;
 
 	return name.to!string.convertDIdentifierToCPlusPlus.toStringz;
 }
