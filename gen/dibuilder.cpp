@@ -930,12 +930,14 @@ DIModule DIBuilder::EmitModule(Module *m) {
   if (irm->diModule)
     return irm->diModule;
 
+  const auto diTypeName = processDITypeName(m->toPrettyChars(true));
+
   irm->diModule = DBuilder.createModule(
       CUNode,
-      m->toPrettyChars(true), // qualified module name
-      llvm::StringRef(),      // (clang modules specific) ConfigurationMacros
-      llvm::StringRef(),      // (clang modules specific) IncludePath
-      llvm::StringRef()       // (clang modules specific) ISysRoot
+      diTypeName,        // qualified module name
+      llvm::StringRef(), // (clang modules specific) ConfigurationMacros
+      llvm::StringRef(), // (clang modules specific) IncludePath
+      llvm::StringRef()  // (clang modules specific) ISysRoot
   );
 
   return irm->diModule;
