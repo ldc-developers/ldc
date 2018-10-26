@@ -75,19 +75,18 @@ void init_msvc()
 
 // VS2015+ provides C99-conformant (v)snprintf functions, so weakly
 // link to legacy _(v)snprintf (not C99-conformant!) for VS2013- only
-
 DECLARE_ALTERNATE_NAME (snprintf, _snprintf);
 DECLARE_ALTERNATE_NAME (vsnprintf, _vsnprintf);
 
-// VS2013- implements these functions as macros, VS2015+ provides symbols
+DECLARE_ALTERNATE_NAME (fileno, _fileno);
 
+// VS2013- implements these functions as macros, VS2015+ provides symbols
 DECLARE_ALTERNATE_NAME (_fputc_nolock, _msvc_fputc_nolock);
 DECLARE_ALTERNATE_NAME (_fgetc_nolock, _msvc_fgetc_nolock);
 DECLARE_ALTERNATE_NAME (rewind, _msvc_rewind);
 DECLARE_ALTERNATE_NAME (clearerr, _msvc_clearerr);
 DECLARE_ALTERNATE_NAME (feof, _msvc_feof);
 DECLARE_ALTERNATE_NAME (ferror, _msvc_ferror);
-DECLARE_ALTERNATE_NAME (fileno, _msvc_fileno);
 
 // VS2013- helper functions
 int _filbuf(FILE* fp);
@@ -150,11 +149,6 @@ int  _msvc_feof(FILE* stream)
 int  _msvc_ferror(FILE* stream)
 {
     return stream->_flag & _IOERR;
-}
-
-int  _msvc_fileno(FILE* stream)
-{
-    return stream->_file;
 }
 
 
