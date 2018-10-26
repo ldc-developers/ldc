@@ -466,6 +466,7 @@ function(set_common_library_properties target name output_dir c_flags ld_flags i
         ARCHIVE_OUTPUT_DIRECTORY    ${output_dir}
         LIBRARY_OUTPUT_DIRECTORY    ${output_dir}
         RUNTIME_OUTPUT_DIRECTORY    ${output_dir}
+        COMPILE_DEFINITIONS         "LDC=1"
         COMPILE_FLAGS               "${c_flags}"
         LINK_FLAGS                  "${ld_flags}"
         VERSION                     ${DMDFE_VERSION}

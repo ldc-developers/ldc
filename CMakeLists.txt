@@ -176,6 +176,9 @@ string(STRIP "${DDMD_DFLAGS}" DDMD_DFLAGS)
 # the output (LLVM_CXXFLAGS sometimes already includes -Wall).
 set(LDC_CXXFLAGS)
 if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang"))
+    if(NOT MSVC) # not for Windows-clang
+        append("-Wall -Wextra" LDC_CXXFLAGS)
+    endif()
     # Disable some noisy warnings:
     #  * -Wunused-parameter triggers for LLVM headers
     #  * -Wmissing-field-initializer leads to reams of warnings in gen/asm-*.h
@@ -186,7 +189,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang"))
     #  * -Wgnu-anonymous-struct and -Wnested-anon-types trigger for tokens.h.
     #  * -Wgnu-redeclared-enum triggers for various frontend headers.
     #  * -Wunused-private-field triggers for expression.h.
-    append("-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-non-virtual-dtor" LDC_CXXFLAGS)
+    append("-Wno-unused-parameter -Wno-missing-field-initializers -Wno-non-virtual-dtor" LDC_CXXFLAGS)
     if ((${CMAKE_CXX_COMPILER_ID} MATCHES "Clang"))
         append("-Wno-gnu-anonymous-struct -Wno-nested-anon-types -Wno-gnu-redeclared-enum -Wno-unused-private-field" LDC_CXXFLAGS)
         # clang trying to eagerly anticipate linker errors wrt. static class template
@@ -197,7 +200,8 @@ if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang"))
     if(CMAKE_COMPILER_IS_GNUCXX AND NOT CMAKE_C_COMPILER_VERSION VERSION_LESS "4.7.0")
         append("-Wno-pedantic" LDC_CXXFLAGS)
     endif()
-elseif(MSVC)
+endif()
+if(MSVC)
     # Remove flags here, for exceptions and RTTI.
     # CL.EXE complains to override flags like "/GR /GR-".
     string(REGEX REPLACE "(^| )[/-]EH[-cs]*( |$)" "\\2" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
@@ -234,11 +238,6 @@ endif()
 append("${SANITIZE_CXXFLAGS}" LDC_CXXFLAGS)
 # LLVM_CXXFLAGS may contain -Werror which causes compile errors with dmd source
 string(REPLACE "-Werror " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
-# LLVM_CXXFLAGS may contain -Werror=unguarded-availability-new which requires
-# more recent gcc versions (not supported by 4.9)
-if(CMAKE_COMPILER_IS_GNUCXX)
-    string(REPLACE "-Werror=unguarded-availability-new " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
-endif()
 if (UNIX AND NOT "${LLVM_LDFLAGS}" STREQUAL "")
     # LLVM_LDFLAGS may contain -l-lld which is a wrong library reference (AIX)
     string(REPLACE "-l-lld " "-lld " LLVM_LDFLAGS ${LLVM_LDFLAGS})
@@ -255,17 +254,6 @@ if(MSVC)
     endif()
 else()
     separate_arguments(LLVM_LDFLAGS UNIX_COMMAND "${LLVM_LDFLAGS}")
-endif()
-# LLVM_CXXFLAGS may contain -Wcovered-switch-default and -fcolor-diagnostics
-# which are clang-only options
-if(CMAKE_COMPILER_IS_GNUCXX)
-    string(REPLACE "-Wcovered-switch-default " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
-    string(REPLACE "-fcolor-diagnostics " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
-endif()
-# LLVM_CXXFLAGS may contain -Wno-maybe-uninitialized
-# which is gcc-only options
-if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
-    string(REPLACE "-Wno-maybe-uninitialized " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
 endif()
 
 
@@ -721,7 +709,7 @@ if (HAVE_SC_ARG_MAX)
 endif()
 
 set_source_files_properties(driver/exe_path.cpp driver/ldmd.cpp driver/response.cpp PROPERTIES
-    COMPILE_FLAGS "${LDC_CXXFLAGS} ${LLVM_CXXFLAGS}"
+    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
     COMPILE_DEFINITIONS LDC_EXE_NAME="${LDC_EXE_NAME}"
 )
 
