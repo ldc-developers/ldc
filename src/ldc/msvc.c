@@ -99,6 +99,9 @@ typedef BOOL WINAPI _TLSCB(HINSTANCE, DWORD, LPVOID);
 #pragma section(".CRT$XLB", long, read)
 
 #pragma data_seg(".CRT$XLB")
+#ifdef __clang__
+__attribute__((unused))
+#endif
 __declspec(allocate(".CRT$XLB")) static _TLSCB* _pfix_tls = &fix_tlsAlignment;
 
 #pragma data_seg(pop)
