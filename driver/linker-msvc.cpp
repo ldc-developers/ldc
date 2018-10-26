@@ -36,6 +36,15 @@ void addMscrtLibs(std::vector<std::string> &args) {
 
   args.push_back(("/DEFAULTLIB:" + mscrtlibName).str());
 
+  // We need the vcruntime lib for druntime's exception handling (ldc.eh_msvc).
+  // Pick one of the 4 variants matching the selected main UCRT lib.
+
+#if LDC_LLVM_VER >= 400
+  if (mscrtlibName.contains_lower("vcruntime")) {
+    return;
+  }
+#endif
+
   const bool isStatic = mscrtlibName.startswith_lower("libcmt");
   const bool isDebug =
       mscrtlibName.endswith_lower("d") || mscrtlibName.endswith_lower("d.lib");
