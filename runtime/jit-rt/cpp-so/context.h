@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef CONTEXT_H
-#define CONTEXT_H
+#pragma once
 
 #include <cstddef> //size_t
 #include <cstdint>
@@ -61,5 +60,3 @@ struct Context final {
   DumpHandlerT dumpHandler = nullptr;
   void *dumpHandlerData = nullptr;
 };
-
-#endif // CONTEXT_H

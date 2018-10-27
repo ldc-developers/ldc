@@ -13,14 +13,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_LLVMHELPERS_H
-#define LDC_GEN_LLVMHELPERS_H
+#pragma once
 
+#include "dmd/mtype.h"
+#include "dmd/statement.h"
 #include "gen/dvalue.h"
 #include "gen/llvm.h"
 #include "ir/irfuncty.h"
-#include "mtype.h"
-#include "statement.h"
 
 struct IRState;
 
@@ -298,5 +297,3 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd,
 bool toInPlaceConstruction(DLValue *lhs, Expression *rhs);
 
 std::string llvmTypeToString(LLType *type);
-
-#endif

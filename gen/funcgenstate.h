@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_FUNCGENSTATE_H
-#define LDC_GEN_FUNCGENSTATE_H
+#pragma once
 
 #include "gen/irstate.h"
 #include "gen/pgo_ASTbased.h"
@@ -249,5 +248,3 @@ llvm::CallSite FuncGenState::callOrInvoke(llvm::Value *callee, const T &args,
   irs.scope() = IRScope(postinvoke);
   return invoke;
 }
-
-#endif

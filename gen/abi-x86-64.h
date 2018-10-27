@@ -12,11 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_ABI_X86_64_H
-#define LDC_GEN_ABI_X86_64_H
+#pragma once
 
 struct TargetABI;
 
 TargetABI *getX86_64TargetABI();
-
-#endif

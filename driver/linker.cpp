@@ -8,7 +8,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "driver/linker.h"
-#include "errors.h"
+
+#include "dmd/errors.h"
 #include "driver/cl_options.h"
 #include "driver/tool.h"
 #include "gen/llvm.h"
@@ -66,6 +67,12 @@ static cl::opt<cl::boolOrDefault>
                cl::desc("Create a statically linked binary, including "
                         "all system dependencies"),
                cl::cat(opts::linkingCategory));
+
+static llvm::cl::opt<std::string>
+    mscrtlib("mscrtlib", llvm::cl::ZeroOrMore,
+             llvm::cl::desc("MS C runtime library to link with"),
+             llvm::cl::value_desc("libcmt[d]|msvcrt[d]"),
+             llvm::cl::cat(opts::linkingCategory));
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -171,6 +178,17 @@ bool linkAgainstSharedDefaultLibs() {
   return staticFlag != cl::BOU_TRUE &&
          (linkDefaultLibShared == cl::BOU_TRUE ||
           (linkDefaultLibShared == cl::BOU_UNSET && global.params.dll));
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+llvm::StringRef getMscrtLibName() {
+  llvm::StringRef name = mscrtlib;
+  if (name.empty()) {
+    // default to static release variant
+    name = linkFullyStatic() != llvm::cl::BOU_FALSE ? "libcmt" : "msvcrt";
+  }
+  return name;
 }
 
 //////////////////////////////////////////////////////////////////////////////

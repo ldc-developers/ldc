@@ -14,10 +14,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_DVALUE_H
-#define LDC_GEN_DVALUE_H
+#pragma once
 
-#include "root.h"
+#include "dmd/root/root.h"
 
 class Type;
 class Dsymbol;
@@ -175,5 +174,3 @@ public:
 
 inline llvm::Value *DtoRVal(DValue *v) { return v->getRVal()->val; }
 llvm::Value *DtoLVal(DValue *v);
-
-#endif // LDC_GEN_DVALUE_H

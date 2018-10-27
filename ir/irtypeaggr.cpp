@@ -9,14 +9,12 @@
 
 #include "ir/irtypeaggr.h"
 
-#include "llvm/IR/DerivedTypes.h"
-
-#include "aggregate.h"
-#include "init.h"
-
+#include "dmd/aggregate.h"
+#include "dmd/init.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/llvmhelpers.h"
+#include "llvm/IR/DerivedTypes.h"
 
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////

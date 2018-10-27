@@ -307,6 +307,9 @@ if("${TARGET_SYSTEM}" MATCHES "MSVC")
     # We want to be able to link against all 4 C runtime variants (libcmt[d] / msvcrt[d]).
     string(REGEX REPLACE "(^| )[/-]M[TD]d?( |$)" "\\2" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
     append("/MT /Zl" CMAKE_C_FLAGS_RELEASE)
+    # Disable buffer overflow checks to prevent dependencies on special C symbols
+    # not available in the MinGW-w64 libs.
+    append("/GS-" CMAKE_C_FLAGS_RELEASE)
     # warning C4100: unreferenced formal parameter
     # warning C4127: conditional expression is constant
     # warning C4131: uses old-style declarator
@@ -463,6 +466,7 @@ function(set_common_library_properties target name output_dir c_flags ld_flags i
         ARCHIVE_OUTPUT_DIRECTORY    ${output_dir}
         LIBRARY_OUTPUT_DIRECTORY    ${output_dir}
         RUNTIME_OUTPUT_DIRECTORY    ${output_dir}
+        COMPILE_DEFINITIONS         "LDC=1"
         COMPILE_FLAGS               "${c_flags}"
         LINK_FLAGS                  "${ld_flags}"
         VERSION                     ${DMDFE_VERSION}
@@ -760,9 +764,10 @@ endif()
 
 set(DRUNTIME_PACKAGES core etc ldc)
 
-install(FILES ${RUNTIME_DIR}/src/object.d DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
+install(FILES ${RUNTIME_DIR}/src/object.d DESTINATION ${INCLUDE_INSTALL_DIR})
 foreach(p ${DRUNTIME_PACKAGES})
-    install(DIRECTORY ${RUNTIME_DIR}/src/${p} DESTINATION ${INCLUDE_INSTALL_DIR})
+    install(DIRECTORY ${RUNTIME_DIR}/src/${p} DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
+    install(DIRECTORY ${RUNTIME_DIR}/src/${p} DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
 endforeach()
 if(PHOBOS2_DIR)
     install(DIRECTORY ${PHOBOS2_DIR}/std DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")

@@ -19,6 +19,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "dmd/declaration.h"
+#include "dmd/expression.h"
+#include "dmd/id.h"
 #include "dmd/identifier.h"
 #include "dmd/module.h"
 #include "dmd/template.h"
@@ -26,7 +28,6 @@
 #include "gen/logger.h"
 #include "gen/recursivevisitor.h"
 #include "gen/uda.h"
-#include "id.h"
 
 struct DComputeSemanticAnalyser : public StoppableVisitor {
   FuncDeclaration *currentFunction;

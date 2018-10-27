@@ -11,11 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_ABI_PPC64LE_H
-#define LDC_GEN_ABI_PPC64LE_H
+#pragma once
 
 struct TargetABI;
 
 TargetABI *getPPC64LETargetABI();
-
-#endif

@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_LINKER_H
-#define LDC_DRIVER_LINKER_H
+#pragma once
 
 #include "llvm/Support/CommandLine.h" // for llvm::cl::boolOrDefault
 
@@ -41,6 +40,11 @@ llvm::cl::boolOrDefault linkFullyStatic();
 bool linkAgainstSharedDefaultLibs();
 
 /**
+ * Returns the name of the MS C runtime library to link with.
+ */
+llvm::StringRef getMscrtLibName();
+
+/**
  * Inserts bitcode files passed on the commandline into a module.
  */
 void insertBitcodeFiles(llvm::Module &M, llvm::LLVMContext &Ctx,
@@ -62,5 +66,3 @@ void deleteExeFile();
  * @return the return status of the executable.
  */
 int runProgram();
-
-#endif // LDC_DRIVER_LINKER_H

@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_IR_IRMODULE_H
-#define LDC_IR_IRMODULE_H
+#pragma once
 
 #include <list>
 
@@ -52,5 +51,3 @@ private:
 };
 
 IrModule *getIrModule(Module *m);
-
-#endif

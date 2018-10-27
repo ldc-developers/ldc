@@ -26,14 +26,16 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/abi-x86-64.h"
-#include "aggregate.h"
-#include "declaration.h"
-#include "ldcbindings.h"
-#include "mtype.h"
-#include "target.h"
+
+#include "dmd/aggregate.h"
+#include "dmd/declaration.h"
+#include "dmd/identifier.h"
+#include "dmd/ldcbindings.h"
+#include "dmd/mtype.h"
+#include "dmd/target.h"
+#include "gen/abi.h"
 #include "gen/abi-generic.h"
 #include "gen/abi-x86-64.h"
-#include "gen/abi.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"

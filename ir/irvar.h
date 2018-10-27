@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_IR_IRVAR_H
-#define LDC_IR_IRVAR_H
+#pragma once
 
 #include "llvm/IR/Type.h"
 #include "llvm/IR/DebugInfo.h"
@@ -82,5 +81,3 @@ bool isIrParameterCreated(VarDeclaration *decl);
 
 IrField *getIrField(VarDeclaration *decl, bool create = false);
 bool isIrFieldCreated(VarDeclaration *decl);
-
-#endif

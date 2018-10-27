@@ -13,11 +13,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "driver/cl_options.h"
 #include "driver/targetmachine.h"
+
+#include "dmd/mars.h"
+#include "driver/cl_options.h"
+#include "gen/logger.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
+#include "llvm/IR/Module.h"
 #include "llvm/MC/MCObjectFileInfo.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/Host.h"
@@ -27,10 +31,7 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
-#include "llvm/IR/Module.h"
-#include "mars.h"
-#include "driver/cl_options.h"
-#include "gen/logger.h"
+
 #if LDC_LLVM_VER >= 700
 #include "gen/optimizer.h"
 #endif

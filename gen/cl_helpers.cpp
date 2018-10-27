@@ -8,9 +8,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/cl_helpers.h"
-#include "mars.h"
-#include "rmem.h"
-#include "root.h"
+
+#include "dmd/mars.h"
+#include "dmd/root/rmem.h"
+#include "dmd/root/root.h"
 #include <algorithm>
 #include <cctype> // isupper, tolower
 #include <stdarg.h>

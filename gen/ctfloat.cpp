@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ctfloat.h"
+#include "dmd/root/ctfloat.h"
 #include "gen/llvm.h"
 
 using llvm::APFloat;
@@ -42,7 +42,10 @@ APFloat parseLiteral(const llvm::fltSemantics &semantics, const char *literal,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void CTFloat::_init() {
+void CTFloat::initialize() {
+  if (apSemantics)
+    return;
+
   static_assert(sizeof(real_t) >= 8, "real_t < 64 bits?");
 
   if (sizeof(real_t) == 8) {
@@ -59,12 +62,18 @@ void CTFloat::_init() {
 #endif
   }
 
+  zero = 0;
+  one = 1;
+  minusone = -1;
+  half = 0.5;
+
   // init value: use a special quiet NaN (with 2nd-most significant mantissa bit
   //             set too, like signalling NaNs)
   APInt initMantissa(APFloat::getSizeInBits(*apSemantics), 0);
   initMantissa.setBit(APFloat::semanticsPrecision(*apSemantics) -
                       3); // #mantissaBits = precision - 1
   initVal = fromAPFloat(APFloat::getQNaN(*apSemantics, false, &initMantissa));
+
   nan = fromAPFloat(APFloat::getQNaN(*apSemantics));
   infinity = fromAPFloat(APFloat::getInf(*apSemantics));
 }

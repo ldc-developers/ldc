@@ -12,41 +12,39 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/runtime.h"
-#include "gen/metadata.h"
-#include "gen/attributes.h"
-
 #define DEBUG_TYPE "dgc2stack"
 #if LDC_LLVM_VER < 700
 #define LLVM_DEBUG DEBUG
 #endif
 
-#include "Passes.h"
-
+#include "gen/attributes.h"
+#include "gen/metadata.h"
+#include "gen/passes/Passes.h"
+#include "gen/runtime.h"
 #include "llvm/Pass.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/CallSite.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/StringMap.h"
+#include "llvm/IR/CallSite.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#include <algorithm>
+
 #if LDC_LLVM_VER >= 500
 #include "llvm/Support/KnownBits.h"
 #endif
-
-#include <algorithm>
 
 using namespace llvm;
 

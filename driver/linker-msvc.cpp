@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "errors.h"
+#include "dmd/errors.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
@@ -16,7 +16,6 @@
 #include "driver/linker.h"
 #include "driver/tool.h"
 #include "gen/logger.h"
-
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 
@@ -30,25 +29,21 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-static llvm::cl::opt<std::string>
-    mscrtlib("mscrtlib", llvm::cl::ZeroOrMore,
-             llvm::cl::desc("MS C runtime library to link with"),
-             llvm::cl::value_desc("libcmt[d]|msvcrt[d]"),
-             llvm::cl::cat(opts::linkingCategory));
-
-//////////////////////////////////////////////////////////////////////////////
-
 namespace {
 
 void addMscrtLibs(std::vector<std::string> &args) {
-  llvm::StringRef mscrtlibName = mscrtlib;
-  if (mscrtlibName.empty()) {
-    // default to static release variant
-    mscrtlibName =
-        linkFullyStatic() != llvm::cl::BOU_FALSE ? "libcmt" : "msvcrt";
-  }
+  const auto mscrtlibName = getMscrtLibName();
 
   args.push_back(("/DEFAULTLIB:" + mscrtlibName).str());
+
+  // We need the vcruntime lib for druntime's exception handling (ldc.eh_msvc).
+  // Pick one of the 4 variants matching the selected main UCRT lib.
+
+#if LDC_LLVM_VER >= 400
+  if (mscrtlibName.contains_lower("vcruntime")) {
+    return;
+  }
+#endif
 
   const bool isStatic = mscrtlibName.startswith_lower("libcmt");
   const bool isDebug =

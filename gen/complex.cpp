@@ -8,8 +8,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/complex.h"
-#include "declaration.h"
-#include "mtype.h"
+
+#include "dmd/declaration.h"
+#include "dmd/mtype.h"
 #include "gen/binops.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"

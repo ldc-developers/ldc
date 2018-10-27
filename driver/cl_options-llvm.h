@@ -7,8 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_CL_OPTIONS_LLVM_H
-#define LDC_DRIVER_CL_OPTIONS_LLVM_H
+#pragma once
 
 #include "llvm/ADT/Optional.h"
 #include "llvm/Support/CommandLine.h"
@@ -32,5 +31,3 @@ llvm::TargetOptions InitTargetOptionsFromCodeGenFlags();
 std::string getCPUStr();
 std::string getFeaturesStr();
 }
-
-#endif

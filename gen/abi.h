@@ -14,10 +14,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_ABI_H
-#define LDC_GEN_ABI_H
+#pragma once
 
-#include "mars.h"
+#include "dmd/mars.h"
 #include "gen/dvalue.h"
 #include "llvm/IR/CallingConv.h"
 #include <vector>
@@ -203,5 +202,3 @@ protected:
   /// Returns true if the D type can be bit-cast to an integer of the same size.
   static bool canRewriteAsInt(Type *t, bool include64bit = true);
 };
-
-#endif

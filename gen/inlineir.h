@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_INLINEIR_H
-#define LDC_GEN_INLINEIR_H
+#pragma once
 
 #include "dmd/arraytypes.h"
 
@@ -32,5 +31,3 @@ void DtoCheckInlineIRPragma(Identifier *ident, Dsymbol *s);
 DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
                         Expressions *arguments,
                         llvm::Value *sretPointer = nullptr);
-
-#endif

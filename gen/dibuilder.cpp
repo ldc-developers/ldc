@@ -9,29 +9,30 @@
 
 #include "gen/dibuilder.h"
 
+#include "dmd/enum.h"
+#include "dmd/identifier.h"
+#include "dmd/import.h"
+#include "dmd/ldcbindings.h"
+#include "dmd/mangle.h"
+#include "dmd/module.h"
+#include "dmd/mtype.h"
+#include "dmd/nspace.h"
+#include "dmd/template.h"
 #include "driver/cl_options.h"
 #include "driver/ldc-version.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
-#include "gen/tollvm.h"
 #include "gen/optimizer.h"
+#include "gen/tollvm.h"
 #include "ir/irfunction.h"
-#include "ir/irmodule.h"
 #include "ir/irfuncty.h"
+#include "ir/irmodule.h"
 #include "ir/irtypeaggr.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
-#include "enum.h"
-#include "ldcbindings.h"
-#include "import.h"
-#include "module.h"
-#include "mtype.h"
-#include "nspace.h"
-#include "template.h"
-
 #include <functional>
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -819,7 +820,7 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
   assert(!CUNode && "Already created compile unit for this DIBuilder instance");
 
   // prepare srcpath
-  llvm::SmallString<128> srcpath(m->srcfile->name->toChars());
+  llvm::SmallString<128> srcpath(m->srcfile->name.toChars());
   llvm::sys::fs::make_absolute(srcpath);
 
   // prepare producer name string

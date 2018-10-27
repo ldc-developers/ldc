@@ -11,11 +11,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_COMPLEX_H
-#define LDC_GEN_COMPLEX_H
+#pragma once
 
-#include "tokens.h"
-#include "dvalue.h"
+#include "dmd/tokens.h"
+#include "gen/dvalue.h"
 
 struct Loc;
 class Type;
@@ -52,5 +51,3 @@ DImValue *DtoComplexNeg(Loc &loc, Type *type, DRValue *val);
 llvm::Value *DtoComplexEquals(Loc &loc, TOK op, DValue *lhs, DValue *rhs);
 
 DValue *DtoCastComplex(Loc &loc, DValue *val, Type *to);
-
-#endif // LDC_GEN_COMPLEX_H

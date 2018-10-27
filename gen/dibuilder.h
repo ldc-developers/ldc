@@ -7,18 +7,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_DIBUILDER_H
-#define LDC_GEN_DIBUILDER_H
+#pragma once
 
+#include "dmd/mars.h"
+#include "gen/tollvm.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/Type.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DIBuilder.h"
-
-#include "gen/tollvm.h"
-#include "mars.h"
+#include "llvm/IR/Type.h"
 
 struct IRState;
 
@@ -226,5 +224,3 @@ public:
 };
 
 } // namespace ldc
-
-#endif

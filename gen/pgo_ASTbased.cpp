@@ -15,17 +15,17 @@
 
 #include "gen/pgo_ASTbased.h"
 
-#include "globals.h"
-#include "init.h"
-#include "statement.h"
-#include "llvm.h"
+#include "dmd/expression.h"
+#include "dmd/globals.h"
+#include "dmd/init.h"
+#include "dmd/statement.h"
 #include "driver/cl_options_instrumentation.h"
 #include "gen/cl_helpers.h"
 #include "gen/irstate.h"
+#include "gen/llvm.h"
 #include "gen/logger.h"
 #include "gen/recursivevisitor.h"
 #include "gen/tollvm.h"
-
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/ProfileData/InstrProfReader.h"

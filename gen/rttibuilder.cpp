@@ -8,8 +8,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/rttibuilder.h"
-#include "aggregate.h"
-#include "mtype.h"
+
+#include "dmd/aggregate.h"
+#include "dmd/mangle.h"
+#include "dmd/mtype.h"
 #include "gen/arrays.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
@@ -19,6 +21,9 @@
 #include "gen/tollvm.h"
 #include "ir/iraggr.h"
 #include "ir/irfunction.h"
+
+// in dmd/opover.d:
+AggregateDeclaration *isAggregate(Type *t);
 
 RTTIBuilder::RTTIBuilder(Type *baseType) {
   const auto ad = isAggregate(baseType);

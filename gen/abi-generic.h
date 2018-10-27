@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_ABI_GENERIC_H
-#define LDC_GEN_ABI_GENERIC_H
+#pragma once
 
 #include "gen/abi.h"
 #include "gen/irstate.h"
@@ -285,5 +284,3 @@ struct CompositeToArray32 : ABIRewrite {
     return LLArrayType::get(LLIntegerType::get(gIR->context(), 32), sz);
   }
 };
-
-#endif

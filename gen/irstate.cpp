@@ -8,9 +8,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/irstate.h"
-#include "declaration.h"
-#include "mtype.h"
-#include "statement.h"
+
+#include "dmd/declaration.h"
+#include "dmd/identifier.h"
+#include "dmd/mtype.h"
+#include "dmd/statement.h"
 #include "gen/funcgenstate.h"
 #include "gen/llvm.h"
 #include "gen/tollvm.h"
@@ -46,17 +48,11 @@ FuncGenState &IRState::funcGen() {
   return *funcGenStates.back();
 }
 
-IrFunction *IRState::func() {
-  return &funcGen().irFunc;
-}
+IrFunction *IRState::func() { return &funcGen().irFunc; }
 
-llvm::Function *IRState::topfunc() {
-  return func()->getLLVMFunc();
-}
+llvm::Function *IRState::topfunc() { return func()->getLLVMFunc(); }
 
-llvm::Instruction *IRState::topallocapoint() {
-  return funcGen().allocapoint;
-}
+llvm::Instruction *IRState::topallocapoint() { return funcGen().allocapoint; }
 
 IRScope &IRState::scope() {
   assert(!scopes.empty());

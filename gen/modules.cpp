@@ -7,21 +7,22 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "module.h"
-#include "aggregate.h"
-#include "attrib.h"
-#include "declaration.h"
-#include "enum.h"
-#include "id.h"
-#include "import.h"
-#include "init.h"
-#include "mars.h"
-#include "module.h"
-#include "mtype.h"
-#include "scope.h"
-#include "statement.h"
-#include "target.h"
-#include "template.h"
+#include "dmd/module.h"
+#include "dmd/aggregate.h"
+#include "dmd/attrib.h"
+#include "dmd/declaration.h"
+#include "dmd/enum.h"
+#include "dmd/id.h"
+#include "dmd/import.h"
+#include "dmd/init.h"
+#include "dmd/mangle.h"
+#include "dmd/mars.h"
+#include "dmd/module.h"
+#include "dmd/mtype.h"
+#include "dmd/scope.h"
+#include "dmd/statement.h"
+#include "dmd/target.h"
+#include "dmd/template.h"
 #include "driver/cl_options_instrumentation.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
@@ -40,15 +41,14 @@
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "ir/irvar.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Path.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/ProfileData/InstrProfReader.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 
 #if _AIX || __sun
@@ -68,7 +68,7 @@ static llvm::cl::opt<bool, true>
 void Module::checkAndAddOutputFile(File *file) {
   static std::map<std::string, Module *> files;
 
-  std::string key(file->name->str);
+  std::string key(file->name.toChars());
   auto i = files.find(key);
   if (i != files.end()) {
     Module *previousMod = i->second;
@@ -85,14 +85,14 @@ void Module::checkAndAddOutputFile(File *file) {
 void Module::makeObjectFilenameUnique() {
   assert(objfile);
 
-  const char *ext = FileName::ext(objfile->name->str);
-  const char *stem = FileName::removeExt(objfile->name->str);
+  const char *ext = FileName::ext(objfile->name.toChars());
+  const char *stem = FileName::removeExt(objfile->name.toChars());
 
   llvm::SmallString<128> unique;
   auto EC = llvm::sys::fs::createUniqueFile(
       llvm::Twine(stem) + "-%%%%%%%." + ext, unique);
   if (!EC) // success
-    objfile->name->str = mem.xstrdup(unique.c_str());
+    objfile->name.reset(unique.c_str());
 }
 
 namespace {
@@ -485,7 +485,7 @@ void addCoverageAnalysis(Module *m) {
     // Set up call to _d_cover_register2
     llvm::Function *fn =
         getRuntimeFunction(Loc(), gIR->module, "_d_cover_register2");
-    LLValue *args[] = {DtoConstString(m->srcfile->name->toChars()),
+    LLValue *args[] = {DtoConstString(m->srcfile->name.toChars()),
                        d_cover_valid_slice, d_cover_data_slice,
                        DtoConstUbyte(global.params.covPercent)};
     // Check if argument types are correct

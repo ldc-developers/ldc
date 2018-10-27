@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_IR_IRDSYMBOL_H
-#define LDC_IR_IRDSYMBOL_H
+#pragma once
 
 #include <vector>
 
@@ -96,5 +95,3 @@ private:
   Type m_type = Type::NotSet;
   State m_state = State::Initial;
 };
-
-#endif

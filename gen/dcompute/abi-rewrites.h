@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_DCOMPUTE_ABI_REWRITES_H
-#define LDC_GEN_DCOMPUTE_ABI_REWRITES_H
+#pragma once
 
 #include "gen/abi.h"
 #include "gen/dcompute/druntime.h"
@@ -37,4 +36,3 @@ struct DComputePointerRewrite : ABIRewrite {
     return loadFromMemory(address, t);
   }
 };
-#endif

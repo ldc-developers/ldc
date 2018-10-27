@@ -13,8 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_CL_OPTIONS_INSTRUMENTATION_H
-#define LDC_DRIVER_CL_OPTIONS_INSTRUMENTATION_H
+#pragma once
 
 #include "gen/cl_helpers.h"
 
@@ -63,4 +62,3 @@ inline bool isInstrumentingForIRBasedPGO() {
 inline bool isUsingIRBasedPGOProfile() { return pgoMode == PGO_IRBasedUse; }
 
 } // namespace opts
-#endif // LDC_DRIVER_CL_OPTIONS_INSTRUMENTATION_H

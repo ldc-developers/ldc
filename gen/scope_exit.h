@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef SCOPE_EXIT_H
-#define SCOPE_EXIT_H
+#pragma once
 
 #include <utility>
 #include <type_traits>
@@ -80,5 +79,3 @@ inline ScopeExit<typename std::decay<Func>::type> operator<<(const ScopeExitTag&
 #define LDC_UNNAME_VAR(basename) LDC_STRINGIZE(basename, __LINE__)
 
 #define SCOPE_EXIT auto LDC_UNNAME_VAR(scope_exit) = details::ScopeExitTag{} << [&]()
-
-#endif // SCOPE_EXIT_H

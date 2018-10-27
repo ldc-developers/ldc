@@ -7,15 +7,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/LLVMContext.h"
-#include "mars.h"
-#include "mtype.h"
+#include "ir/irtype.h"
+
+#include "dmd/expression.h"
+#include "dmd/mars.h"
+#include "dmd/mtype.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/llvmhelpers.h"
 #include "gen/tollvm.h"
-#include "ir/irtype.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/LLVMContext.h"
 
 // These functions use getGlobalContext() as they are invoked before gIR
 // is set.
@@ -49,11 +51,14 @@ namespace {
 llvm::Type *getReal80Type(llvm::LLVMContext &ctx) {
   llvm::Triple::ArchType const a = global.params.targetTriple->getArch();
   bool const anyX86 = (a == llvm::Triple::x86) || (a == llvm::Triple::x86_64);
-  bool const anyAarch64 = (a == llvm::Triple::aarch64) || (a == llvm::Triple::aarch64_be);
-  bool const isAndroid = global.params.targetTriple->getEnvironment() == llvm::Triple::Android;
+  bool const anyAarch64 =
+      (a == llvm::Triple::aarch64) || (a == llvm::Triple::aarch64_be);
+  bool const isAndroid =
+      global.params.targetTriple->getEnvironment() == llvm::Triple::Android;
 
   // only x86 has 80bit float - but no support with MS C Runtime!
-  if (anyX86 && !global.params.targetTriple->isWindowsMSVCEnvironment() && !isAndroid) {
+  if (anyX86 && !global.params.targetTriple->isWindowsMSVCEnvironment() &&
+      !isAndroid) {
     return llvm::Type::getX86_FP80Ty(ctx);
   }
 

@@ -9,15 +9,17 @@
 
 #include "gen/functions.h"
 
-#include "aggregate.h"
-#include "declaration.h"
-#include "id.h"
-#include "init.h"
-#include "ldcbindings.h"
-#include "module.h"
-#include "mtype.h"
-#include "statement.h"
-#include "template.h"
+#include "dmd/aggregate.h"
+#include "dmd/declaration.h"
+#include "dmd/id.h"
+#include "dmd/identifier.h"
+#include "dmd/init.h"
+#include "dmd/ldcbindings.h"
+#include "dmd/mangle.h"
+#include "dmd/module.h"
+#include "dmd/mtype.h"
+#include "dmd/statement.h"
+#include "dmd/template.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
@@ -26,6 +28,7 @@
 #include "gen/classes.h"
 #include "gen/dcompute/target.h"
 #include "gen/dvalue.h"
+#include "gen/dynamiccompile.h"
 #include "gen/funcgenstate.h"
 #include "gen/function-inlining.h"
 #include "gen/inlineir.h"
@@ -40,7 +43,6 @@
 #include "gen/pgo_ASTbased.h"
 #include "gen/pragma.h"
 #include "gen/runtime.h"
-#include "gen/dynamiccompile.h"
 #include "gen/scope_exit.h"
 #include "gen/tollvm.h"
 #include "gen/uda.h"
@@ -373,7 +375,7 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
         } else if (tempdecl->llvmInternal == LLVMintrinsic) {
           Logger::println("overloaded intrinsic found");
           assert(fdecl->llvmInternal == LLVMintrinsic);
-          assert(fdecl->mangleOverride);
+          assert(fdecl->mangleOverride.length);
         } else if (tempdecl->llvmInternal == LLVMinline_asm) {
           Logger::println("magic inline asm found");
           TypeFunction *tf = static_cast<TypeFunction *>(fdecl->type);

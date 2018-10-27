@@ -15,16 +15,14 @@ environment:
       LLVM_VERSION:                7.0.0
       HOST_LDC_VERSION:            1.10.0
       EXTRA_CMAKE_FLAGS:           -DBUILD_LTO_LIBS=ON
-      DUB_VERSION:                 v1.11.0
     - APPVEYOR_JOB_ARCH:           x86
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       LLVM_VERSION:                7.0.0
       HOST_LDC_VERSION:            1.10.0
-      DUB_VERSION:                 v1.11.0
 
 # scripts that are called at very beginning, before repo cloning
 init:
-  - git config --global core.autocrlf input
+  - git config --global core.autocrlf true
 
 # scripts that run after cloning repository
 install:
@@ -158,9 +156,8 @@ after_test:
         cd "$ldcInstallDir"
         (cat etc\ldc2.conf).replace("C:/projects/ldc2-$Env:APPVEYOR_JOB_ARCH/", '%%ldcbinarypath%%/../') | Set-Content etc\ldc2.conf
         cd ..
-        cp ldc/LICENSE "$ldcInstallDir"
-        git clone https://github.com/ldc-developers/ldc-scripts.git
-        cp ldc-scripts\ldc2-packaging\pkgfiles\README.txt "$ldcInstallDir"
+        cp ldc\LICENSE "$ldcInstallDir"
+        cp ldc\packaging\README.txt "$ldcInstallDir"
         cp libcurl\ldc2\libcurl.dll "$ldcInstallDir\bin"
         cp libcurl\ldc2\libcurl.dll "$ldcInstallDir\lib"
         cp libcurl\ldc2\curl.lib "$ldcInstallDir\lib"
@@ -187,7 +184,7 @@ after_test:
         Set-Item -path env:DC -value "$ldcInstallDir\bin\ldmd2"
         git clone --recursive https://github.com/dlang/dub.git
         cd dub
-        git checkout $Env:DUB_VERSION
+        git checkout "$(cat ..\ldc\packaging\dub_version -Raw)"
         (cat build.cmd).replace('curl.lib', "$ldcInstallDir\lib\curl.lib") | Set-Content build.cmd
         .\build.cmd
         cp bin\dub.exe "$ldcInstallDir\bin"

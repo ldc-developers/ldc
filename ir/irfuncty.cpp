@@ -8,7 +8,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "ir/irfuncty.h"
-#include "mtype.h"
+
+#include "dmd/mtype.h"
 #include "gen/abi.h"
 #include "gen/dvalue.h"
 #include "gen/llvm.h"

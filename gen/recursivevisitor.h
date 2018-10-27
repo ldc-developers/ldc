@@ -26,8 +26,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_RECURSIVEVISITOR_H
-#define LDC_GEN_RECURSIVEVISITOR_H
+#pragma once
 
 #include "dmd/attrib.h"
 #include "dmd/declaration.h"
@@ -476,5 +475,3 @@ public:
   void visit(Initializer *init) override { call_visitor(init); }
   void visit(Dsymbol *init) override {}
 };
-
-#endif // LDC_GEN_RECURSIVEVISITOR_H

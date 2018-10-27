@@ -9,8 +9,10 @@
 
 #include "gen/trycatchfinally.h"
 
-#include "statement.h"
-#include "target.h"
+#include "dmd/expression.h"
+#include "dmd/mangle.h"
+#include "dmd/statement.h"
+#include "dmd/target.h"
 #include "gen/classes.h"
 #include "gen/funcgenstate.h"
 #include "gen/llvmhelpers.h"

@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_CLASSES_H
-#define LDC_GEN_CLASSES_H
+#pragma once
 
 #include "gen/structs.h"
 
@@ -42,5 +41,3 @@ DValue *DtoDynamicCastInterface(Loc &loc, DValue *val, Type *to);
 
 llvm::Value *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl,
                                        const char *name);
-
-#endif

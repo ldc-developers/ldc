@@ -1,19 +1,20 @@
 #include "gen/inlineir.h"
 
+#include "dmd/declaration.h"
 #include "dmd/expression.h"
+#include "dmd/identifier.h"
 #include "dmd/mtype.h"
+#include "dmd/template.h"
 #include "gen/attributes.h"
-#include "gen/llvmhelpers.h"
-#include "declaration.h"
-#include "template.h"
 #include "gen/irstate.h"
+#include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 #include "gen/to_string.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/SourceMgr.h"
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/Linker/Linker.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/SourceMgr.h"
 
 namespace {
 

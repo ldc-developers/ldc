@@ -17,6 +17,7 @@
 #include "dmd/errors.h"
 #include "dmd/declaration.h"
 #include "dmd/dsymbol.h"
+#include "dmd/mangle.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/SpecialCaseList.h"

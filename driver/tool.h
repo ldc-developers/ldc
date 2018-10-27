@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_TOOL_H
-#define LDC_DRIVER_TOOL_H
+#pragma once
 
 #include <vector>
 #include <string>
@@ -49,7 +48,5 @@ namespace windows {
 // successful.
 bool setupMsvcEnvironment();
 }
-
-#endif
 
 #endif

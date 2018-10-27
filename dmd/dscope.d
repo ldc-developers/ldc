@@ -121,7 +121,7 @@ struct Scope
     // user defined attributes
     UserAttributeDeclaration userAttribDecl;
 
-version(IN_LLVM)
+version (IN_LLVM)
 {
     bool emitInstrumentation = true;   // whether to emit instrumentation with -fprofile-instr-generate
 }
@@ -130,9 +130,9 @@ version(IN_LLVM)
     uint[void*] anchorCounts;  /// lookup duplicate anchor name count
     Identifier prevAnchor;     /// qualified symbol name of last doc anchor
 
-    extern (C++) __gshared Scope* freelist;
+    extern (D) __gshared Scope* freelist;
 
-    extern (C++) static Scope* alloc()
+    extern (D) static Scope* alloc()
     {
         if (freelist)
         {
@@ -146,7 +146,7 @@ version(IN_LLVM)
         return new Scope();
     }
 
-    extern (C++) static Scope* createGlobal(Module _module)
+    extern (D) static Scope* createGlobal(Module _module)
     {
         Scope* sc = Scope.alloc();
         *sc = Scope.init;
@@ -455,7 +455,7 @@ version(IN_LLVM)
 
     /* A helper function to show deprecation message for new name lookup rule.
      */
-    extern (C++) static void deprecation10378(Loc loc, Dsymbol sold, Dsymbol snew)
+    extern (D) static void deprecation10378(Loc loc, Dsymbol sold, Dsymbol snew)
     {
         // https://issues.dlang.org/show_bug.cgi?id=15857
         //
@@ -539,7 +539,7 @@ version(IN_LLVM)
      * Returns:
      *  D identifier string if found, null if not
      */
-    extern (C++) static const(char)* search_correct_C(Identifier ident)
+    extern (D) static const(char)* search_correct_C(Identifier ident)
     {
         TOK tok;
         if (ident == Id.NULL)

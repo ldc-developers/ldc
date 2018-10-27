@@ -9,8 +9,7 @@
 // Functionality related to ldc.dcompute in druntime
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_DCOMPUTE_DRUNTIME_H
-#define LDC_GEN_DCOMPUTE_DRUNTIME_H
+#pragma once
 
 #include "dmd/aggregate.h"
 #include "dmd/mtype.h"
@@ -38,4 +37,3 @@ struct DcomputePointer {
   }
 };
 llvm::Optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd);
-#endif

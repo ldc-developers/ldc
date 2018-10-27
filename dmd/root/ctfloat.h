@@ -3,12 +3,11 @@
  * All Rights Reserved, written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
- * (See accompanying file LICENSE or copy at http://www.boost.org/LICENSE_1_0.txt)
- * https://github.com/dlang/dmd/blob/master/src/root/ctfloat.h
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/dlang/dmd/blob/master/src/dmd/root/ctfloat.h
  */
 
-#ifndef CTFLOAT_H
-#define CTFLOAT_H
+#pragma once
 
 #include "longdouble.h"
 
@@ -22,9 +21,6 @@ namespace llvm { class APFloat; }
 // Compile-time floating-point helper
 struct CTFloat
 {
-    static bool yl2x_supported;
-    static bool yl2xp1_supported;
-
     static void yl2x(const real_t *x, const real_t *y, real_t *res);
     static void yl2xp1(const real_t *x, const real_t *y, real_t *res);
 
@@ -58,7 +54,6 @@ struct CTFloat
     static real_t nearbyint(real_t x);
 
     // implemented in gen/ctfloat.cpp
-    static void _init();
     static void toAPFloat(real_t src, llvm::APFloat &dst);
     static real_t fromAPFloat(const llvm::APFloat &src);
 
@@ -88,6 +83,6 @@ struct CTFloat
     static real_t nan;
     static real_t infinity;
 #endif
-};
 
-#endif
+    static void initialize();
+};

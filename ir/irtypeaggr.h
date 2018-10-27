@@ -7,8 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_IR_IRTYPEAGGR_H
-#define LDC_IR_IRTYPEAGGR_H
+#pragma once
 
 #include "ir/irtype.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -91,5 +90,3 @@ protected:
   /// offset.
   VarGEPIndices varGEPIndices;
 };
-
-#endif

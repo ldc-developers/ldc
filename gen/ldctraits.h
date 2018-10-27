@@ -7,8 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_LDCTRAITS_H
-#define LDC_GEN_LDCTRAITS_H
+#pragma once
 
 struct Dstring
 {
@@ -22,5 +21,3 @@ bool traitsTargetHasFeature(Dstring feature);
 template <int N> bool traitsTargetHasFeature(const char (&feature)[N]) {
   return traitsTargetHasFeature({N - 1, feature});
 }
-
-#endif

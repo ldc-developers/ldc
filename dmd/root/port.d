@@ -18,6 +18,8 @@ import core.stdc.string;
 import core.stdc.stdio;
 import core.stdc.stdlib;
 
+nothrow @nogc:
+
 private extern (C)
 {
     version(CRuntime_DigitalMars) __gshared extern const(char)* __locale_decpoint;
@@ -34,7 +36,9 @@ private extern (C)
 
 extern (C++) struct Port
 {
-    static int memicmp(const char* s1, const char* s2, size_t n)
+    nothrow @nogc:
+
+    static int memicmp(scope const char* s1, scope const char* s2, size_t n) pure
     {
         int result = 0;
 
@@ -54,7 +58,7 @@ extern (C++) struct Port
         return result;
     }
 
-    static char* strupr(char* s)
+    static char* strupr(char* s) pure
     {
         char* t = s;
 
@@ -67,7 +71,7 @@ extern (C++) struct Port
         return t;
     }
 
-    static bool isFloat32LiteralOutOfRange(const(char)* s)
+    static bool isFloat32LiteralOutOfRange(scope const(char)* s)
     {
       version (IN_LLVM)
       {
@@ -98,7 +102,7 @@ extern (C++) struct Port
       }
     }
 
-    static bool isFloat64LiteralOutOfRange(const(char)* s)
+    static bool isFloat64LiteralOutOfRange(scope const(char)* s)
     {
       version (IN_LLVM)
       {
@@ -130,7 +134,7 @@ extern (C++) struct Port
     }
 
     // Little endian
-    static void writelongLE(uint value, void* buffer)
+    static void writelongLE(uint value, scope void* buffer) pure
     {
         auto p = cast(ubyte*)buffer;
         p[3] = cast(ubyte)(value >> 24);
@@ -140,14 +144,14 @@ extern (C++) struct Port
     }
 
     // Little endian
-    static uint readlongLE(void* buffer)
+    static uint readlongLE(scope void* buffer) pure
     {
         auto p = cast(ubyte*)buffer;
         return (((((p[3] << 8) | p[2]) << 8) | p[1]) << 8) | p[0];
     }
 
     // Big endian
-    static void writelongBE(uint value, void* buffer)
+    static void writelongBE(uint value, scope void* buffer) pure
     {
         auto p = cast(ubyte*)buffer;
         p[0] = cast(ubyte)(value >> 24);
@@ -157,27 +161,27 @@ extern (C++) struct Port
     }
 
     // Big endian
-    static uint readlongBE(void* buffer)
+    static uint readlongBE(scope void* buffer) pure
     {
         auto p = cast(ubyte*)buffer;
         return (((((p[0] << 8) | p[1]) << 8) | p[2]) << 8) | p[3];
     }
 
     // Little endian
-    static uint readwordLE(void* buffer)
+    static uint readwordLE(scope void* buffer) pure
     {
         auto p = cast(ubyte*)buffer;
         return (p[1] << 8) | p[0];
     }
 
     // Big endian
-    static uint readwordBE(void* buffer)
+    static uint readwordBE(scope void* buffer) pure
     {
         auto p = cast(ubyte*)buffer;
         return (p[0] << 8) | p[1];
     }
 
-    static void valcpy(void *dst, ulong val, size_t size)
+    static void valcpy(scope void *dst, ulong val, size_t size) pure
     {
         switch (size)
         {

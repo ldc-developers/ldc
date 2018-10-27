@@ -22,19 +22,20 @@
 
 #include "gen/typinf.h"
 
-#include "aggregate.h"
-#include "attrib.h"
-#include "declaration.h"
-#include "enum.h"
-#include "expression.h"
-#include "id.h"
-#include "import.h"
-#include "init.h"
-#include "mars.h"
-#include "module.h"
-#include "mtype.h"
-#include "scope.h"
-#include "template.h"
+#include "dmd/aggregate.h"
+#include "dmd/attrib.h"
+#include "dmd/declaration.h"
+#include "dmd/enum.h"
+#include "dmd/expression.h"
+#include "dmd/id.h"
+#include "dmd/import.h"
+#include "dmd/init.h"
+#include "dmd/mangle.h"
+#include "dmd/mars.h"
+#include "dmd/module.h"
+#include "dmd/mtype.h"
+#include "dmd/scope.h"
+#include "dmd/template.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/irstate.h"
@@ -49,10 +50,10 @@
 #include "gen/structs.h"
 #include "gen/tollvm.h"
 #include "ir/irtype.h"
+#include <ir/irtypeclass.h>
 #include "ir/irvar.h"
 #include <cassert>
 #include <cstdio>
-#include <ir/irtypeclass.h>
 
 FuncDeclaration *search_toString(StructDeclaration *sd);
 

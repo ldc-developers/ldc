@@ -30,11 +30,6 @@
 #include "llvm/Support/Program.h"
 #include "llvm/Support/SystemUtils.h"
 #include "llvm/Support/raw_ostream.h"
-#if _WIN32
-#include "Windows.h"
-#else
-#include <sys/stat.h>
-#endif
 #include <cassert>
 #include <cerrno>
 #include <climits>
@@ -43,6 +38,12 @@
 #include <cstdlib>
 #include <numeric>
 #include <vector>
+
+#if _WIN32
+#include <windows.h>
+#else
+#include <sys/stat.h>
+#endif
 
 #ifdef HAVE_SC_ARG_MAX
 #include <unistd.h>
@@ -175,9 +176,9 @@ Where:\n\
   -deps            print module dependencies (imports/file/version/debug/lib)\n\
   -deps=<filename> write module dependencies to filename (only imports)\n\
   -fPIC            generate position independent code\n\
-  -dip25           implement http://wiki.dlang.org/DIP25 (experimental)\n\
-  -dip1000         implement http://wiki.dlang.org/DIP1000 (experimental)\n\
-  -dip1008         implement DIP1008 (experimental)\n\
+  -dip25           implement https://github.com/dlang/DIPs/blob/master/DIPs/archive/DIP25.md\n\
+  -dip1000         implement https://github.com/dlang/DIPs/blob/master/DIPs/DIP1000.md\n\
+  -dip1008         implement https://github.com/dlang/DIPs/blob/master/DIPs/DIP1008.md\n\
   -g               add symbolic debug info\n\
   -gf              emit debug info for all referenced types\n\
   -gs              always emit stack frame\n"

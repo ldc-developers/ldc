@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_CL_OPTIONS_H
-#define LDC_DRIVER_CL_OPTIONS_H
+#pragma once
 
 #include "driver/cl_options-llvm.h"
 #include "driver/targetmachine.h"
@@ -118,4 +117,3 @@ extern cl::opt<bool> dynamicCompileTlsWorkaround;
 constexpr bool enableDynamicCompile = false;
 #endif
 }
-#endif

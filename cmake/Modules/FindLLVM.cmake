@@ -32,8 +32,6 @@ set(llvm_config_names llvm-config-6.0 llvm-config60
                       llvm-config-5.0 llvm-config50
                       llvm-config-4.0 llvm-config40
                       llvm-config-3.9 llvm-config39
-                      llvm-config-3.8 llvm-config38
-                      llvm-config-3.7 llvm-config37
                       llvm-config)
 find_program(LLVM_CONFIG
     NAMES ${llvm_config_names}
@@ -109,15 +107,10 @@ else()
     # The LLVM version string _may_ contain a git/svn suffix, so cut that off
     string(SUBSTRING "${LLVM_VERSION_STRING}" 0 5 LLVM_VERSION_BASE_STRING)
 
-    if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-8][\\.0-9A-Za-z]*")
-        # Versions below 3.9 do not support components debuginfocodeview, globalisel
-        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfocodeview" index)
-        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "globalisel" index)
-    endif()
-    if(NOT ${LLVM_VERSION_STRING} MATCHES "^3\\.[0-7][\\.0-9A-Za-z]*")
-        # Versions beginning with 3.8 do not support component ipa
-        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "ipa" index)
-    endif()
+    # Versions below 3.9 do not support components debuginfocodeview, globalisel, ipa
+    list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfocodeview" index)
+    list(REMOVE_ITEM LLVM_FIND_COMPONENTS "globalisel" index)
+    list(REMOVE_ITEM LLVM_FIND_COMPONENTS "ipa" index)
     if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-9][\\.0-9A-Za-z]*")
         # Versions below 4.0 do not support component debuginfomsf
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfomsf" index)
@@ -155,14 +148,24 @@ endif()
 
 # On CMake builds of LLVM, the output of llvm-config --cxxflags does not
 # include -fno-rtti, leading to linker errors. Be sure to add it.
-if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang"))
+if(NOT MSVC AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")))
     if(NOT ${LLVM_CXXFLAGS} MATCHES "-fno-rtti")
         set(LLVM_CXXFLAGS "${LLVM_CXXFLAGS} -fno-rtti")
     endif()
 endif()
-# GCC (at least on Travis) does not know the -Wstring-conversion flag, so remove it.
+
+# Remove some clang-specific flags for gcc.
 if(CMAKE_COMPILER_IS_GNUCXX)
-    STRING(REGEX REPLACE "-Wstring-conversion" "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+    string(REPLACE "-Wcovered-switch-default " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+    string(REPLACE "-Wstring-conversion " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+    string(REPLACE "-fcolor-diagnostics " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+    # this requires more recent gcc versions (not supported by 4.9)
+    string(REPLACE "-Werror=unguarded-availability-new " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+endif()
+
+# Remove gcc-specific flags for clang.
+if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
+    string(REPLACE "-Wno-maybe-uninitialized " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
 endif()
 
 string(REGEX REPLACE "([0-9]+).*" "\\1" LLVM_VERSION_MAJOR "${LLVM_VERSION_STRING}" )

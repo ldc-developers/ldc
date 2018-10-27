@@ -12,11 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_NESTED_H
-#define LDC_GEN_NESTED_H
+#pragma once
 
-#include "declaration.h"
-#include "mtype.h"
+#include "dmd/declaration.h"
+#include "dmd/mtype.h"
 #include "gen/dvalue.h"
 #include "gen/llvm.h"
 
@@ -41,5 +40,3 @@ llvm::Value *DtoNestedContext(Loc &loc, Dsymbol *sym);
 /// Gets the DValue of a nested variable with arbitrary nesting.
 DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
                           bool byref = false);
-
-#endif

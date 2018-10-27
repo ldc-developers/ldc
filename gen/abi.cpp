@@ -8,17 +8,20 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/abi.h"
-#include "mars.h"
-#include "id.h"
-#include "gen/abi-generic.h"
+
+#include "dmd/mars.h"
+#include "dmd/id.h"
+#include "dmd/identifier.h"
+#include "dmd/expression.h"
 #include "gen/abi-aarch64.h"
 #include "gen/abi-arm.h"
+#include "gen/abi-generic.h"
 #include "gen/abi-mips64.h"
 #include "gen/abi-ppc.h"
 #include "gen/abi-ppc64le.h"
 #include "gen/abi-win64.h"
-#include "gen/abi-x86-64.h"
 #include "gen/abi-x86.h"
+#include "gen/abi-x86-64.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
@@ -143,7 +146,7 @@ bool isNestedHFA(const TypeStruct *t, d_uns64 &floatSize, int &num,
       else if (sz != floatSize) // different float size, reject
         return false;
 
-      //if (n > 4)
+      // if (n > 4)
       //  return false; // too many floats for HFA, reject
     } else {
       return false; // reject all other types
@@ -158,7 +161,8 @@ bool isNestedHFA(const TypeStruct *t, d_uns64 &floatSize, int &num,
 }
 }
 
-bool TargetABI::isHFA(TypeStruct *t, llvm::Type **rewriteType, const int maxFloats) {
+bool TargetABI::isHFA(TypeStruct *t, llvm::Type **rewriteType,
+                      const int maxFloats) {
   d_uns64 floatSize = 0;
   int num = 0;
 
@@ -167,17 +171,17 @@ bool TargetABI::isHFA(TypeStruct *t, llvm::Type **rewriteType, const int maxFloa
       if (rewriteType) {
         llvm::Type *floatType = nullptr;
         switch (floatSize) {
-          case 4:
-            floatType = llvm::Type::getFloatTy(gIR->context());
-            break;
-          case 8:
-            floatType = llvm::Type::getDoubleTy(gIR->context());
-            break;
-          case 16:
-            floatType = llvm::Type::getFP128Ty(gIR->context());
-            break;
-          default:
-            llvm_unreachable("Unexpected size for float type");
+        case 4:
+          floatType = llvm::Type::getFloatTy(gIR->context());
+          break;
+        case 8:
+          floatType = llvm::Type::getDoubleTy(gIR->context());
+          break;
+        case 16:
+          floatType = llvm::Type::getFP128Ty(gIR->context());
+          break;
+        default:
+          llvm_unreachable("Unexpected size for float type");
         }
         *rewriteType = LLArrayType::get(floatType, num);
       }

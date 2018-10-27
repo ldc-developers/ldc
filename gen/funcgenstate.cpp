@@ -9,6 +9,7 @@
 
 #include "gen/funcgenstate.h"
 
+#include "dmd/identifier.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/ms-cxx-helper.h"

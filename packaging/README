@@ -1,0 +1,13 @@
+This is a standalone (DMD-style) binary package for LDC, the LLVM-based D
+compiler.
+
+No installation is required, simply use the executables in the 'bin'
+subdirectory. Just make sure that the C compiler (i.e., gcc/clang) is in PATH
+when linking (or set the CC environment variable appropriately).
+
+The compiler configuration file is etc/ldc2.conf and can be easily customized
+to your liking, e.g., adding implicit command-line options and setting up cross-
+compilation.
+
+For further information, including on how to report bugs, please refer to the
+LDC wiki: http://wiki.dlang.org/LDC.

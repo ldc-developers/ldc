@@ -7,7 +7,7 @@
 
 module ldc.dynamic_compile;
 
-version(LDC_DynamicCompilation):
+version (LDC_DynamicCompilation):
 
 import ldc.attributes;
 

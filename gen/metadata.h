@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_METADATA_H
-#define LDC_GEN_METADATA_H
+#pragma once
 
 // MDNode was moved into its own header, and contains Value*s
 #include "llvm/IR/Metadata.h"
@@ -47,5 +46,3 @@ enum ClassDataFields {
   // Must be kept last
   CD_NumFields /// The number of fields in ClassInfo metadata
 };
-
-#endif

@@ -12,18 +12,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_IR_IRFUNCTY_H
-#define LDC_IR_IRFUNCTY_H
-
-#include "llvm/ADT/SmallVector.h"
+#pragma once
 
 #include "gen/attributes.h"
+#include "llvm/ADT/SmallVector.h"
+#include <vector>
 
 #if defined(_MSC_VER)
-#include "array.h"
+#include "dmd/root/array.h"
 #endif
-
-#include <vector>
 
 class DValue;
 class Type;
@@ -123,5 +120,3 @@ struct IrFuncTy {
 
   IrFuncTy(TypeFunction *tf) : type(tf) {}
 };
-
-#endif

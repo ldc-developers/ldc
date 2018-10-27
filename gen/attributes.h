@@ -7,8 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_ATTRIBUTES_H
-#define LDC_GEN_ATTRIBUTES_H
+#pragma once
 
 #include "gen/llvm.h"
 
@@ -74,5 +73,3 @@ public:
   operator LLAttributeSet &() { return set; }
   operator const LLAttributeSet &() const { return set; }
 };
-
-#endif

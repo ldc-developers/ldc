@@ -8,13 +8,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/arrays.h"
-#include "aggregate.h"
-#include "declaration.h"
-#include "dsymbol.h"
-#include "expression.h"
-#include "init.h"
-#include "module.h"
-#include "mtype.h"
+
+#include "dmd/aggregate.h"
+#include "dmd/declaration.h"
+#include "dmd/dsymbol.h"
+#include "dmd/expression.h"
+#include "dmd/init.h"
+#include "dmd/module.h"
+#include "dmd/mtype.h"
 #include "gen/dvalue.h"
 #include "gen/funcgenstate.h"
 #include "gen/irstate.h"

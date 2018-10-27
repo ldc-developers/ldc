@@ -7,14 +7,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "pragma.h"
-#include "attrib.h"
-#include "declaration.h"
-#include "expression.h"
-#include "id.h"
-#include "module.h"
-#include "scope.h"
-#include "template.h"
+#include "gen/pragma.h"
+
+#include "dmd/attrib.h"
+#include "dmd/declaration.h"
+#include "dmd/errors.h"
+#include "dmd/expression.h"
+#include "dmd/id.h"
+#include "dmd/identifier.h"
+#include "dmd/module.h"
+#include "dmd/scope.h"
+#include "dmd/template.h"
 #include "gen/inlineir.h"
 #include "gen/llvmhelpers.h"
 #include "llvm/Support/CommandLine.h"
@@ -301,7 +304,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
     if (FuncDeclaration *fd = s->isFuncDeclaration()) {
       fd->llvmInternal = llvm_internal;
       fd->intrinsicName = strdup(arg1str);
-      fd->mangleOverride = strdup(fd->intrinsicName);
+      fd->mangleOverride = {strlen(fd->intrinsicName), fd->intrinsicName};
     } else if (TemplateDeclaration *td = s->isTemplateDeclaration()) {
       td->llvmInternal = llvm_internal;
       td->intrinsicName = strdup(arg1str);

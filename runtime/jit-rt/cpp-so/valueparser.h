@@ -13,8 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef VALUEPARSER_H
-#define VALUEPARSER_H
+#pragma once
 
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
@@ -32,5 +31,3 @@ llvm::Constant *parseInitializer(
     const llvm::DataLayout &dataLayout, llvm::Type &type, const void *data,
     llvm::function_ref<void(const std::string &)> errHandler,
     const ParseInitializerOverride &override = ParseInitializerOverride{});
-
-#endif // VALUEPARSER_H

@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_TARGET_H
-#define LDC_DRIVER_TARGET_H
+#pragma once
 
 #include "llvm/ADT/Optional.h"
 #include "llvm/Support/CodeGen.h"
@@ -77,5 +76,3 @@ MipsABI::Type getMipsABI();
 // Looks up a target based on an arch name and a target triple.
 const llvm::Target *lookupTarget(const std::string &arch, llvm::Triple &triple,
                                  std::string &errorMsg);
-
-#endif // LDC_DRIVER_TARGET_H

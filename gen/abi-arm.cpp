@@ -13,10 +13,12 @@
   http://infocenter.arm.com/help/topic/com.arm.doc.ihi0042f/IHI0042F_aapcs.pdf
 */
 
-#include "ldcbindings.h"
+#include "gen/abi-arm.h"
+
+#include "dmd/identifier.h"
+#include "dmd/ldcbindings.h"
 #include "gen/abi.h"
 #include "gen/abi-generic.h"
-#include "gen/abi-arm.h"
 #include "llvm/Target/TargetMachine.h"
 
 struct ArmTargetABI : TargetABI {

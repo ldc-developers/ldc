@@ -9,13 +9,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ldcbindings.h"
-#include "target.h"
+#include "dmd/ldcbindings.h"
+#include "dmd/mars.h"
+#include "dmd/mtype.h"
+#include "dmd/target.h"
+#include "driver/cl_options.h"
+#include "driver/linker.h"
 #include "gen/abi.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
-#include "mars.h"
-#include "mtype.h"
 #include <assert.h>
 
 #if !defined(_MSC_VER)
@@ -25,6 +27,8 @@
 using llvm::APFloat;
 
 void Target::_init() {
+  CTFloat::initialize();
+
   FloatProperties::_init();
   DoubleProperties::_init();
   RealProperties::_init();
@@ -202,75 +206,53 @@ bool Target::isVectorOpSupported(Type *type, TOK op, Type *t2) {
   return true;
 }
 
-/******************************
- * Encode the given expression, which is assumed to be an rvalue literal
- * as another type for use in CTFE.
- * This corresponds roughly to the idiom *(Type *)&e.
- */
-Expression *Target::paintAsType(Expression *e, Type *type) {
-  union {
-    d_int32 int32value;
-    d_int64 int64value;
-    float float32value;
-    double float64value;
-  } u;
-
-  assert(e->type->size() == type->size());
-
-  switch (e->type->ty) {
-  case Tint32:
-  case Tuns32:
-    u.int32value = static_cast<d_int32>(e->toInteger());
-    break;
-
-  case Tint64:
-  case Tuns64:
-    u.int64value = static_cast<d_int64>(e->toInteger());
-    break;
-
-  case Tfloat32:
-    u.float32value = e->toReal();
-    break;
-
-  case Tfloat64:
-    u.float64value = e->toReal();
-    break;
-
-  default:
-    llvm_unreachable("Unsupported source type");
-  }
-
-  real_t r;
-  switch (type->ty) {
-  case Tint32:
-  case Tuns32:
-    return createIntegerExp(e->loc, u.int32value, type);
-
-  case Tint64:
-  case Tuns64:
-    return createIntegerExp(e->loc, u.int64value, type);
-
-  case Tfloat32:
-    r = u.float32value;
-    return createRealExp(e->loc, r, type);
-
-  case Tfloat64:
-    r = u.float64value;
-    return createRealExp(e->loc, r, type);
-
-  default:
-    llvm_unreachable("Unsupported target type");
-  }
-}
-
-/******************************
- * For the given module, perform any post parsing analysis.
- * Certain compiler backends (ie: GDC) have special placeholder
- * modules whose source are empty, but code gets injected
- * immediately after loading.
- */
-void Target::loadModule(Module *m) {}
-
 bool Target::isReturnOnStack(TypeFunction *tf, bool needsThis) {
   return gABI->returnInArg(tf, needsThis);
+}
+
+Expression *Target::getTargetInfo(const char *name_, const Loc &loc) {
+  const llvm::StringRef name(name_);
+  const auto &triple = *global.params.targetTriple;
+
+  const auto createStringExp = [&loc](const char *value) {
+    return value ? StringExp::create(loc, const_cast<char *>(value)) : nullptr;
+  };
+
+  if (name == "objectFormat") {
+    const char *objectFormat = nullptr;
+    if (triple.isOSBinFormatCOFF()) {
+      objectFormat = "coff";
+    } else if (triple.isOSBinFormatMachO()) {
+      objectFormat = "macho";
+    } else if (triple.isOSBinFormatELF()) {
+      objectFormat = "elf";
+#if LDC_LLVM_VER >= 500
+    } else if (triple.isOSBinFormatWasm()) {
+      objectFormat = "wasm";
+#endif
+    }
+    return createStringExp(objectFormat);
+  }
+
+  if (name == "floatAbi") {
+    const char *floatAbi = nullptr;
+    if (opts::floatABI == FloatABI::Hard) {
+      floatAbi = "hard";
+    } else if (opts::floatABI == FloatABI::Soft) {
+      floatAbi = "soft";
+    } else if (opts::floatABI == FloatABI::SoftFP) {
+      floatAbi = "softfp";
+    }
+    return createStringExp(floatAbi);
+  }
+
+  if (name == "cppRuntimeLibrary") {
+    const char *cppRuntimeLibrary = "";
+    if (triple.isWindowsMSVCEnvironment()) {
+      cppRuntimeLibrary = mem.xstrdup(getMscrtLibName().str().c_str());
+    }
+    return createStringExp(cppRuntimeLibrary);
+  }
+
+  return nullptr;
 }

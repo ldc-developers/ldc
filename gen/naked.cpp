@@ -7,10 +7,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "expression.h"
-#include "declaration.h"
-#include "statement.h"
-#include "template.h"
+#include "dmd/declaration.h"
+#include "dmd/expression.h"
+#include "dmd/identifier.h"
+#include "dmd/mangle.h"
+#include "dmd/statement.h"
+#include "dmd/template.h"
 #include "gen/dvalue.h"
 #include "gen/funcgenstate.h"
 #include "gen/irstate.h"

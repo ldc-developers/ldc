@@ -22,7 +22,6 @@ default:
     ];
     // default switches appended after all explicit command-line switches
     post-switches = [
-        "-I@INCLUDE_INSTALL_DIR@/ldc",
         "-I@INCLUDE_INSTALL_DIR@",
     ];
     // default directories to be searched for libraries when linking

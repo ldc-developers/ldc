@@ -7,8 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_LDC_VERSION_H
-#define LDC_DRIVER_LDC_VERSION_H
+#pragma once
 
 namespace ldc {
 
@@ -19,5 +18,3 @@ extern const char *const llvm_version_base; /// the base LLVM version without sv
 extern const char *const built_with_Dcompiler_version;
 
 }
-
-#endif

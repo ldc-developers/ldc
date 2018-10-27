@@ -7,21 +7,20 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/DerivedTypes.h"
+#include "ir/irtypeclass.h"
 
-#include "aggregate.h"
-#include "declaration.h"
-#include "dsymbol.h"
-#include "mtype.h"
-#include "target.h"
-#include "template.h"
-
+#include "dmd/aggregate.h"
+#include "dmd/declaration.h"
+#include "dmd/dsymbol.h"
+#include "dmd/mtype.h"
+#include "dmd/target.h"
+#include "dmd/template.h"
+#include "gen/functions.h"
 #include "gen/irstate.h"
+#include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
-#include "gen/llvmhelpers.h"
-#include "gen/functions.h"
-#include "ir/irtypeclass.h"
+#include "llvm/IR/DerivedTypes.h"
 
 IrTypeClass::IrTypeClass(ClassDeclaration *cd)
     : IrTypeAggr(cd), cd(cd), tc(static_cast<TypeClass *>(cd->type)) {

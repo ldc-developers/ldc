@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_LINKAGE_H
-#define LDC_GEN_LINKAGE_H
+#pragma once
 
 #include "gen/llvm.h"
 
@@ -23,5 +22,3 @@
 #define DEBUGINFO_LINKONCE_LINKAGE_TYPE LLGlobalValue::LinkOnceAnyLinkage
 
 extern LLGlobalValue::LinkageTypes templateLinkage;
-
-#endif

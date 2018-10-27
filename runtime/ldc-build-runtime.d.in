@@ -26,7 +26,7 @@ string defaultLdcExecutable;
 Config config;
 
 int main(string[] args) {
-    version(Windows)
+    version (Windows)
         enum exeName = "ldc2.exe";
     else
         enum exeName = "ldc2";

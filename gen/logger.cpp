@@ -7,8 +7,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mars.h"
+#include "gen/logger.h"
+
+#include "dmd/mars.h"
+#include "gen/irstate.h"
+#include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/Value.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/raw_os_ostream.h"
 #include <cassert>
 #include <cstdarg>
 #include <cstdio>
@@ -16,14 +23,6 @@
 #include <fstream>
 #include <iostream>
 #include <string>
-
-#include "llvm/IR/GlobalValue.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/raw_os_ostream.h"
-#include "llvm/IR/Value.h"
-
-#include "gen/logger.h"
-#include "gen/irstate.h"
 
 void Stream::writeType(std::ostream &OS, const llvm::Type &Ty) {
   llvm::raw_os_ostream raw(OS);

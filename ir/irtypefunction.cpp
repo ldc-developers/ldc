@@ -7,14 +7,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/DerivedTypes.h"
-#include "mtype.h"
+#include "ir/irtypefunction.h"
 
+#include "dmd/mtype.h"
+#include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/tollvm.h"
-#include "gen/functions.h"
-
-#include "ir/irtypefunction.h"
+#include "llvm/IR/DerivedTypes.h"
 
 IrTypeFunction::IrTypeFunction(Type *dt, llvm::Type *lt, IrFuncTy irFty_)
     : IrType(dt, lt), irFty(std::move(irFty_)) {}

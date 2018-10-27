@@ -5,24 +5,16 @@
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
  * http://www.boost.org/LICENSE_1_0.txt
- * https://github.com/dlang/dmd/blob/master/src/statement.h
+ * https://github.com/dlang/dmd/blob/master/src/dmd/statement.h
  */
 
-#ifndef DMD_STATEMENT_H
-#define DMD_STATEMENT_H
-
-#ifdef __DMC__
 #pragma once
-#endif /* __DMC__ */
-
-#include "root.h"
 
 #include "arraytypes.h"
 #include "dsymbol.h"
 #include "visitor.h"
 #include "tokens.h"
 
-struct OutBuffer;
 struct Scope;
 class Expression;
 class LabelDsymbol;
@@ -32,8 +24,6 @@ class ExpStatement;
 class DefaultStatement;
 class VarDeclaration;
 class Condition;
-class Module;
-struct Token;
 class ErrorStatement;
 class ReturnStatement;
 class CompoundStatement;
@@ -81,7 +71,7 @@ enum BE
     BEbreak =    0x20,
     BEcontinue = 0x40,
     BEerrthrow = 0x80,
-    BEany = (BEfallthru | BEthrow | BEreturn | BEgoto | BEhalt),
+    BEany = (BEfallthru | BEthrow | BEreturn | BEgoto | BEhalt)
 };
 
 class Statement : public RootObject
@@ -91,7 +81,6 @@ public:
 
     virtual Statement *syntaxCopy();
 
-    void print();
     const char *toChars();
 
     void error(const char *format, ...);
@@ -181,7 +170,7 @@ public:
 class CompileStatement : public Statement
 {
 public:
-    Expression *exp;
+    Expressions *exps;
 
     Statement *syntaxCopy();
     Statements *flatten(Scope *sc);
@@ -324,7 +313,6 @@ public:
     ScopeStatements *gotos;     // forward referenced goto's go here
 
     Statement *syntaxCopy();
-    bool checkForArgTypes();
     bool hasBreak();
     bool hasContinue();
 
@@ -433,7 +421,6 @@ public:
 
     Statement *syntaxCopy();
     bool hasBreak();
-    bool checkLabel();
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -683,7 +670,6 @@ public:
     VarDeclaration *lastVar;
 
     Statement *syntaxCopy();
-    bool checkLabel();
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -800,5 +786,3 @@ public:
 
     void accept(Visitor *v) { v->visit(this); }
 };
-
-#endif /* DMD_STATEMENT_H */
