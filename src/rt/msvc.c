@@ -95,7 +95,7 @@ void init_msvc()
 #ifdef _M_X64
 DECLARE_ALTERNATE_NAME (__chkstk, ___chkstk_ms);
 #else
-DECLARE_ALTERNATE_NAME (_chkstk, __chkstk_ms);
+DECLARE_ALTERNATE_NAME (_chkstk, __chkstk); // `__chkstk_ms` isn't the MS-compatible one!
 #endif
 
 #else // !LDC
