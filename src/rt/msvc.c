@@ -90,6 +90,14 @@ void init_msvc()
 // VS2015+: printf/scanf family defined inline in C headers
 #pragma comment(lib, "legacy_stdio_definitions.lib")
 
+// The MinGW-w64 libs don't provide _(_)chkstk; fall back to the
+// implementation in LLVM's builtins compiler-rt lib.
+#ifdef _M_X64
+DECLARE_ALTERNATE_NAME (__chkstk, ___chkstk_ms);
+#else
+DECLARE_ALTERNATE_NAME (_chkstk, __chkstk_ms);
+#endif
+
 #else // !LDC
 
 // VS2015+ provides C99-conformant (v)snprintf functions, so weakly
