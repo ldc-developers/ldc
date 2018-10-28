@@ -168,6 +168,20 @@ after_test:
         }
         # Now rename the installation dir to test portability.
         ren "$ldcInstallDir" ldc2-install
+  # Include MinGW-w64-based libs
+  - ps: |
+        cd c:\projects
+        $ldcInstallDir = 'c:\projects\ldc2-install'
+        mkdir mingw-w64-libs
+        cd mingw-w64-libs
+        appveyor DownloadFile "https://github.com/ldc-developers/mingw-w64-libs/releases/download/v6.0.0-rc.1/mingw-w64-libs-v6.0.0-rc.1.7z" -FileName mingw-w64-libs.7z
+        7z x mingw-w64-libs.7z > $null
+        If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
+          cp -r lib64 "$ldcInstallDir\lib\mingw"
+        } Else {
+          cp -r lib32 "$ldcInstallDir\lib\mingw"
+        }
+        cd ..
   # Hello world integration test with LTO (x64 only)
   - ps: |
         If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
