@@ -85,8 +85,11 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
     fatal();
   }
 
+  const bool useInternalToolchain = useInternalToolchainForMSVC();
+
 #ifdef _WIN32
-  windows::setupMsvcEnvironment();
+  if (!useInternalToolchain)
+    windows::setupMsvcEnvironment();
 #endif
 
   // build arguments
@@ -172,10 +175,16 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
   }
 
   // lib dirs
-  for (const char *dir_c : ConfigFile::instance.libDirs()) {
+  const auto &libDirs = ConfigFile::instance.libDirs();
+  for (const char *dir_c : libDirs) {
     const llvm::StringRef dir(dir_c);
     if (!dir.empty())
       args.push_back(("/LIBPATH:" + dir).str());
+  }
+
+  if (useInternalToolchain && !libDirs.empty()) {
+    args.push_back(
+        (llvm::Twine("/LIBPATH:") + *libDirs.begin() + "/mingw").str());
   }
 
   // default libs
@@ -212,9 +221,9 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
   logstr << "\n"; // FIXME where's flush ?
 
 #if LDC_WITH_LLD
-  if (useInternalLLDForLinking()) {
-    const auto fullArgs =
-        getFullArgs("lld-link", args, global.params.verbose);
+  if (useInternalLLDForLinking() ||
+      (useInternalToolchain && opts::linker.empty() && !opts::isUsingLTO())) {
+    const auto fullArgs = getFullArgs("lld-link", args, global.params.verbose);
 
 #if LDC_LLVM_VER >= 600
     const bool success = lld::coff::link(fullArgs, /*CanExitEarly=*/false);
