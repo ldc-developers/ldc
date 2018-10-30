@@ -128,6 +128,10 @@ if(NOT MSVC_IDE)
         # Default to a Release build type
         append("-O -inline -release" DDMD_DFLAGS)
     endif()
+
+    if(LLVM_ENABLE_ASSERTIONS)
+        string(REPLACE " -release" "" DDMD_DFLAGS "${DDMD_DFLAGS}")
+    endif()
 endif()
 
 if(MSVC)
