@@ -182,11 +182,23 @@ bool linkAgainstSharedDefaultLibs() {
 
 //////////////////////////////////////////////////////////////////////////////
 
+bool useInternalToolchainForMSVC() {
+#ifndef _WIN32
+  return true;
+#else
+  return !getenv("VSINSTALLDIR") && !getenv("LDC_VSDIR");
+#endif
+}
+
 llvm::StringRef getMscrtLibName() {
   llvm::StringRef name = mscrtlib;
   if (name.empty()) {
-    // default to static release variant
-    name = linkFullyStatic() != llvm::cl::BOU_FALSE ? "libcmt" : "msvcrt";
+    if (useInternalToolchainForMSVC()) {
+      name = "vcruntime140";
+    } else {
+      // default to static release variant
+      name = linkFullyStatic() != llvm::cl::BOU_FALSE ? "libcmt" : "msvcrt";
+    }
   }
   return name;
 }

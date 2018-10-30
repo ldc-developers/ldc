@@ -87,7 +87,7 @@ install:
           #echo 'Using LLVM with enabled assertions'
           #$assertsSuffix = '-withAsserts'
         }
-        appveyor DownloadFile "https://github.com/ldc-developers/llvm/releases/download/ldc-v$Env:LLVM_VERSION/llvm-$Env:LLVM_VERSION-windows-$Env:APPVEYOR_JOB_ARCH$assertsSuffix.7z" -FileName llvm.7z
+        appveyor DownloadFile "https://github.com/ldc-developers/llvm/releases/download/ldc-v$Env:LLVM_VERSION/llvm-$Env:LLVM_VERSION-windows-$Env:APPVEYOR_JOB_ARCH$assertsSuffix-clang.7z" -FileName llvm.7z
   - md llvm
   - cd llvm
   - 7z x ..\llvm.7z > nul
@@ -98,6 +98,8 @@ install:
   - set PATH=%CD%\llvm\bin;%CD%\ninja;%CD%\make;C:\Program Files\Git\usr\bin;%PATH%
   - if "%APPVEYOR_BUILD_WORKER_IMAGE:~-4%" == "2017" call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tools\VsDevCmd.bat" -arch=%APPVEYOR_JOB_ARCH%
   - if "%APPVEYOR_BUILD_WORKER_IMAGE:~-4%" == "2015" call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" %APPVEYOR_JOB_ARCH%
+  # Let CMake configure 64-bit clang-cl for 32-bit code emission
+  - if "%APPVEYOR_JOB_ARCH%" == "x86" ( set "CFLAGS=-m32" && set "CXXFLAGS=-m32" && set "ASMFLAGS=-m32" )
   # Print environment info
   - set
   - msbuild /version
@@ -113,13 +115,13 @@ build_script:
   # Build bootstrap LDC
   - md bootstrap
   - cd bootstrap
-  - cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=c:/projects/llvm ..\ldc
+  - cmake -G Ninja -DCMAKE_C_COMPILER:PATH=clang-cl.exe -DCMAKE_CXX_COMPILER:PATH=clang-cl.exe -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=c:/projects/llvm ..\ldc
   - ninja -j2 all
   - cd ..
   # Build LDC and stdlib unittest runners
   - md ninja-ldc
   - cd ninja-ldc
-  - cmake -G Ninja -DCMAKE_BUILD_TYPE=Release %EXTRA_CMAKE_FLAGS% -DCMAKE_INSTALL_PREFIX=c:\projects\ldc2-%APPVEYOR_JOB_ARCH% -DINCLUDE_INSTALL_DIR=c:/projects/ldc2-%APPVEYOR_JOB_ARCH%/import -DLLVM_ROOT_DIR=c:/projects/llvm -DD_COMPILER=c:\projects\bootstrap\bin\ldmd2.exe ..\ldc
+  - cmake -G Ninja -DCMAKE_C_COMPILER:PATH=clang-cl.exe -DCMAKE_CXX_COMPILER:PATH=clang-cl.exe -DCMAKE_BUILD_TYPE=Release %EXTRA_CMAKE_FLAGS% -DCMAKE_INSTALL_PREFIX=c:\projects\ldc2-%APPVEYOR_JOB_ARCH% -DINCLUDE_INSTALL_DIR=c:/projects/ldc2-%APPVEYOR_JOB_ARCH%/import -DLLVM_ROOT_DIR=c:/projects/llvm -DD_COMPILER=c:\projects\bootstrap\bin\ldmd2.exe ..\ldc
   - ninja -j2 all all-test-runners
 
 #---------------------------------#
@@ -166,6 +168,20 @@ after_test:
         }
         # Now rename the installation dir to test portability.
         ren "$ldcInstallDir" ldc2-install
+  # Include MinGW-w64-based libs
+  - ps: |
+        cd c:\projects
+        $ldcInstallDir = 'c:\projects\ldc2-install'
+        mkdir mingw-w64-libs
+        cd mingw-w64-libs
+        appveyor DownloadFile "https://github.com/ldc-developers/mingw-w64-libs/releases/download/v6.0.0-rc.1/mingw-w64-libs-v6.0.0-rc.1.7z" -FileName mingw-w64-libs.7z
+        7z x mingw-w64-libs.7z > $null
+        If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
+          cp -r lib64 "$ldcInstallDir\lib\mingw"
+        } Else {
+          cp -r lib32 "$ldcInstallDir\lib\mingw"
+        }
+        cd ..
   # Hello world integration test with LTO (x64 only)
   - ps: |
         If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {

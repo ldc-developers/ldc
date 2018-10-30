@@ -40,6 +40,12 @@ llvm::cl::boolOrDefault linkFullyStatic();
 bool linkAgainstSharedDefaultLibs();
 
 /**
+ * Indicates whether the internal 'toolchain' (-link-internally and MinGW-w64
+ * libs) is to be used for MSVC targets.
+ */
+bool useInternalToolchainForMSVC();
+
+/**
  * Returns the name of the MS C runtime library to link with.
  */
 llvm::StringRef getMscrtLibName();
