@@ -4214,11 +4214,7 @@ version (LDC)
         version (X86_64) version = CheckFiberMigration;
     }
 
-    version (Android)
-    {
-        version (ARM) version = CheckFiberMigration;
-        version (AArch64) version = CheckFiberMigration;
-    }
+    version (Android) version = CheckFiberMigration;
 }
 
 // Fiber support for SjLj style exceptions
