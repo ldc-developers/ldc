@@ -2,7 +2,7 @@
 // More importantly: test that memcmp is _not_ used when it is not valid.
 
 // RUN: %ldc -c -output-ll -of=%t.ll %s && FileCheck %s --check-prefix=LLVM < %t.ll
-// RUN: %ldc -c -output-s  -of=%t.s  %s && FileCheck %s --check-prefix=ASM  < %t.s
+// RUN: %ldc -O3 -c -output-s  -of=%t.s  %s && FileCheck %s --check-prefix=ASM  < %t.s
 // RUN: %ldc -O3 -run %s
 
 module mod;
