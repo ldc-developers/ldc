@@ -174,7 +174,7 @@ after_test:
         $ldcInstallDir = 'c:\projects\ldc2-install'
         mkdir mingw-w64-libs
         cd mingw-w64-libs
-        appveyor DownloadFile "https://github.com/ldc-developers/mingw-w64-libs/releases/download/v6.0.0-rc.1/mingw-w64-libs-v6.0.0-rc.1.7z" -FileName mingw-w64-libs.7z
+        appveyor DownloadFile "https://github.com/ldc-developers/mingw-w64-libs/releases/download/v6.0.0-rc.2/mingw-w64-libs-v6.0.0-rc.2.7z" -FileName mingw-w64-libs.7z
         7z x mingw-w64-libs.7z > $null
         If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
           cp -r lib64 "$ldcInstallDir\lib\mingw"
