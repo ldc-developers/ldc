@@ -30,27 +30,19 @@ import dmd.semantic2;
 import dmd.semantic3;
 import dmd.tokens;
 
-version (IN_LLVM)
-{
-    extern (C++) __gshared:
-
-    Module entrypoint = null;
-    Module rootHasMain = null;
-    bool includeImports = false;
-    Array!(const(char)*) includeModulePatterns;
-}
-else
+extern (C++) __gshared
 {
     /// DMD-generated module `__entrypoint` where the C main resides
-    package __gshared Module entrypoint = null;
+    Module entrypoint = null;
     /// Module in which the D main is
-    package __gshared Module rootHasMain = null;
+    Module rootHasMain = null;
 
-    package __gshared bool includeImports = false;
+    bool includeImports = false;
     // array of module patterns used to include/exclude imported modules
-    package __gshared Array!(const(char)*) includeModulePatterns;
+    Array!(const(char)*) includeModulePatterns;
+    Modules compiledImports;
 }
-package __gshared Modules compiledImports;
+
 
 /**
  * A data structure that describes a back-end compiler and implements
@@ -140,8 +132,6 @@ else
      */
     extern (C++) static Expression paintAsType(Expression e, Type type)
     {
-version (IN_LLVM)
-{
         union U
         {
             d_int32 int32value;
@@ -191,43 +181,6 @@ version (IN_LLVM)
         default:
             assert(0, "Unsupported target type");
         }
-}
-else
-{
-        // We support up to 512-bit values.
-        ubyte[64] buffer;
-        assert(e.type.size() == type.size());
-        // Write the expression into the buffer.
-        switch (e.type.ty)
-        {
-        case Tint32:
-        case Tuns32:
-        case Tint64:
-        case Tuns64:
-            encodeInteger(e, buffer.ptr);
-            break;
-        case Tfloat32:
-        case Tfloat64:
-            encodeReal(e, buffer.ptr);
-            break;
-        default:
-            assert(0);
-        }
-        // Interpret the buffer as a new type.
-        switch (type.ty)
-        {
-        case Tint32:
-        case Tuns32:
-        case Tint64:
-        case Tuns64:
-            return decodeInteger(e.loc, type, buffer.ptr);
-        case Tfloat32:
-        case Tfloat64:
-            return decodeReal(e.loc, type, buffer.ptr);
-        default:
-            assert(0);
-        }
-}
     }
 
     /******************************
@@ -261,82 +214,6 @@ else
         }
         return false; // this import will not be compiled
     }
-}
-
-/******************************
- * Private helpers for Compiler::paintAsType.
- */
-// Write the integer value of 'e' into a unsigned byte buffer.
-private void encodeInteger(Expression e, ubyte* buffer)
-{
-    dinteger_t value = e.toInteger();
-    int size = cast(int)e.type.size();
-    for (int p = 0; p < size; p++)
-    {
-        int offset = p; // Would be (size - 1) - p; on BigEndian
-        buffer[offset] = ((value >> (p * 8)) & 0xFF);
-    }
-}
-
-// Write the bytes encoded in 'buffer' into an integer and returns
-// the value as a new IntegerExp.
-private Expression decodeInteger(const ref Loc loc, Type type, ubyte* buffer)
-{
-    dinteger_t value = 0;
-    int size = cast(int)type.size();
-    for (int p = 0; p < size; p++)
-    {
-        int offset = p; // Would be (size - 1) - p; on BigEndian
-        value |= (cast(dinteger_t)buffer[offset] << (p * 8));
-    }
-    return new IntegerExp(loc, value, type);
-}
-
-// Write the real_t value of 'e' into a unsigned byte buffer.
-private void encodeReal(Expression e, ubyte* buffer)
-{
-    switch (e.type.ty)
-    {
-    case Tfloat32:
-        {
-            float* p = cast(float*)buffer;
-            *p = cast(float)e.toReal();
-            break;
-        }
-    case Tfloat64:
-        {
-            double* p = cast(double*)buffer;
-            *p = cast(double)e.toReal();
-            break;
-        }
-    default:
-        assert(0);
-    }
-}
-
-// Write the bytes encoded in 'buffer' into a real_t and returns
-// the value as a new RealExp.
-private Expression decodeReal(const ref Loc loc, Type type, ubyte* buffer)
-{
-    real_t value;
-    switch (type.ty)
-    {
-    case Tfloat32:
-        {
-            float* p = cast(float*)buffer;
-            value = real_t(*p);
-            break;
-        }
-    case Tfloat64:
-        {
-            double* p = cast(double*)buffer;
-            value = real_t(*p);
-            break;
-        }
-    default:
-        assert(0);
-    }
-    return new RealExp(loc, value, type);
 }
 
 /******************************

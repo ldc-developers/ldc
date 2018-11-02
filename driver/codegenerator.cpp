@@ -9,6 +9,7 @@
 
 #include "driver/codegenerator.h"
 
+#include "dmd/compiler.h"
 #include "dmd/id.h"
 #include "dmd/mars.h"
 #include "dmd/module.h"
@@ -25,12 +26,6 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/YAMLTraits.h"
-
-/// The module with the frontend-generated C main() definition.
-extern Module *entrypoint; // defined in dmd/mars.d
-
-/// The module that contains the actual D main() (_Dmain) definition.
-extern Module *rootHasMain; // defined in dmd/mars.d
 
 #if LDC_LLVM_VER < 600
 namespace llvm {
