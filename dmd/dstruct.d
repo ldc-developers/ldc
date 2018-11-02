@@ -421,7 +421,7 @@ extern (C++) class StructDeclaration : AggregateDeclaration
         }
 
         auto tt = Target.toArgTypes(type);
-        size_t dim = tt.arguments.dim;
+        size_t dim = tt ? tt.arguments.dim : 0;
         if (dim >= 1)
         {
             assert(dim <= 2);

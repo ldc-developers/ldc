@@ -555,11 +555,21 @@ struct Target
      * Returns:
      *      tuple of types if type is passed in one or more registers
      *      empty tuple if type is always passed on the stack
+     *      null if the type is a `void` or argtypes aren't supported by the target
      */
+  version (IN_LLVM)
+  {
+    extern (C++) static TypeTuple toArgTypes(Type t);
+  }
+  else
+  {
     extern (C++) static TypeTuple toArgTypes(Type t)
     {
+        if (global.params.is64bit && global.params.isWindows)
+            return null;
         return .toArgTypes(t);
     }
+  }
 
     /**
      * Determine return style of function - whether in registers or

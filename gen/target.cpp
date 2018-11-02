@@ -256,3 +256,15 @@ Expression *Target::getTargetInfo(const char *name_, const Loc &loc) {
 
   return nullptr;
 }
+
+TypeTuple *toArgTypes(Type *t);
+TypeTuple *toArgTypes_sysv_x64(Type *t);
+
+TypeTuple *Target::toArgTypes(Type *t) {
+  const auto &triple = *global.params.targetTriple;
+  if (triple.getArch() == llvm::Triple::x86)
+    return ::toArgTypes(t);
+  if (triple.getArch() == llvm::Triple::x86_64 && !triple.isOSWindows())
+    return toArgTypes_sysv_x64(t);
+  return nullptr;
+}
