@@ -574,6 +574,13 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
                                  : LLGlobalValue::DLLExportStorageClass);
   }
 
+  // Hide non-exported symbols
+  if (global.params.export_only_symbols_marked_export &&
+             !fdecl->isImportedSymbol() &&
+             !fdecl->isExport()) {
+    func->setVisibility(LLGlobalValue::HiddenVisibility);
+  }
+
   IF_LOG Logger::cout() << "func = " << *func << std::endl;
 
   // add func to IRFunc

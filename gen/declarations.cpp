@@ -308,6 +308,12 @@ public:
           gvar->setDLLStorageClass(LLGlobalValue::DLLExportStorageClass);
         }
 
+        // Hide non-exported symbols
+        if (global.params.export_only_symbols_marked_export &&
+          !decl->isExport()) {
+          gvar->setVisibility(LLGlobalValue::HiddenVisibility);
+        }
+
         // Also set up the debug info.
         irs->DBuilder.EmitGlobalVariable(gvar, decl);
       }

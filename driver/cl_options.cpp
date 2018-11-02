@@ -81,6 +81,11 @@ static cl::opt<bool, true>
     createSharedLib("shared", cl::desc("Create shared library (DLL)"),
                     cl::ZeroOrMore, cl::location(global.params.dll));
 
+static cl::opt<bool, true> exportOnlyMarkedExport(
+        "export-marked-symbols", cl::ZeroOrMore,
+        cl::desc("Export only symbols marked as 'export' on linux and OSX"),
+        cl::location(global.params.export_only_symbols_marked_export));
+
 static cl::opt<bool, true> verbose("v", cl::desc("Verbose"), cl::ZeroOrMore,
                                    cl::location(global.params.verbose));
 
