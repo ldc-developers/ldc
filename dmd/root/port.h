@@ -12,23 +12,8 @@
 // Portable wrapper around compiler/system specific things.
 // The idea is to minimize #ifdef's in the app code.
 
-#ifdef IN_LLVM
 #include <stddef.h>
-#else
-#include <stdlib.h> // for alloca
-#endif
 #include <stdint.h>
-
-#ifndef IN_LLVM
-#if _MSC_VER
-#include <alloca.h>
-typedef __int64 longlong;
-typedef unsigned __int64 ulonglong;
-#else
-typedef long long longlong;
-typedef unsigned long long ulonglong;
-#endif
-#endif
 
 typedef unsigned char utf8_t;
 

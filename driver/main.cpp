@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "dmd/compiler.h"
 #include "dmd/cond.h"
 #include "dmd/errors.h"
 #include "dmd/id.h"
@@ -83,8 +84,6 @@ int rt_init();
 void gendocfile(Module *m);
 
 // In dmd/mars.d
-extern bool includeImports;
-extern Strings includeModulePatterns;
 void generateJson(Modules *modules);
 
 using namespace opts;
