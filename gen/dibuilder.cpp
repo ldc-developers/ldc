@@ -884,7 +884,17 @@ DIModule DIBuilder::EmitModule(Module *m) {
 }
 
 DINamespace DIBuilder::EmitNamespace(Dsymbol *sym, llvm::StringRef name) {
-  return DBuilder.createNameSpace(GetSymbolScope(sym), name, true);
+  const bool exportSymbols = true;
+  return DBuilder.createNameSpace(GetSymbolScope(sym), name
+#if LDC_LLVM_VER < 500
+                                  ,
+                                  CreateFile(sym), sym->loc.linnum
+#endif
+#if LDC_LLVM_VER >= 400
+                                  ,
+                                  exportSymbols
+#endif
+  );
 }
 
 void DIBuilder::EmitImport(Import *im) {
