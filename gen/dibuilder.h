@@ -50,6 +50,7 @@ typedef llvm::DIGlobalVariable *DIGlobalVariable;
 typedef llvm::DILocalVariable *DILocalVariable;
 typedef llvm::DIExpression *DIExpression;
 typedef llvm::DILexicalBlock *DILexicalBlock;
+typedef llvm::DINamespace *DINamespace;
 typedef llvm::DIScope *DIScope;
 typedef llvm::DISubroutineType *DISubroutineType;
 typedef llvm::DISubprogram *DISubprogram;
@@ -83,6 +84,8 @@ public:
   /// \brief Emit the Dwarf module global for a Module m.
   /// \param m        Module to emit (either as definition or declaration).
   DIModule EmitModule(Module *m);
+
+  DINamespace EmitNamespace(Dsymbol *sym, llvm::StringRef name);
 
   /// \brief Emit the Dwarf imported entity and module global for an Import im.
   /// \param im        Import to emit.
@@ -159,6 +162,7 @@ private:
   llvm::LLVMContext &getContext();
   DIScope GetSymbolScope(Dsymbol *s);
   DIScope GetCurrentScope();
+  llvm::StringRef GetNameAndScope(Dsymbol *sym, DIScope &scope);
   void Declare(const Loc &loc, llvm::Value *storage, ldc::DILocalVariable divar,
                ldc::DIExpression diexpr);
   void SetValue(const Loc &loc, llvm::Value *value, ldc::DILocalVariable divar,

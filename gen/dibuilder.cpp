@@ -61,6 +61,14 @@ llvm::StringRef uniqueIdent(Type* t) {
   return llvm::StringRef();
 }
 
+const char *getTemplateInstanceName(TemplateInstance *ti) {
+  const auto realParent = ti->parent;
+  ti->parent = nullptr;
+  const auto name = ti->toPrettyChars(true);
+  ti->parent = realParent;
+  return name;
+}
+
 } // namespace
 
 
@@ -92,8 +100,7 @@ ldc::DIBuilder::DIBuilder(IRState *const IR)
 
 llvm::LLVMContext &ldc::DIBuilder::getContext() { return IR->context(); }
 
-// return the scope of a global symbol
-// FIXME: template instances aren't supported properly by GDC and GDB, what debug info should we attach to them?
+// Returns the DI scope of a symbol.
 ldc::DIScope ldc::DIBuilder::GetSymbolScope(Dsymbol* s) {
   // don't recreate parent entries if we only need location debug info
   if (!mustEmitFullDebugInfo())
@@ -103,8 +110,8 @@ ldc::DIScope ldc::DIBuilder::GetSymbolScope(Dsymbol* s) {
 
   auto vd = s->isVarDeclaration();
   if (vd && vd->isDataseg()) {
-      // static variables get attached to the module scope, but their
-      // parent composite types have to get declared
+    // static variables get attached to the module scope, but their
+    // parent composite types have to get declared
     while (!parent->isModule()) {
       if (parent->isAggregateDeclaration())
         CreateCompositeTypeDescription(parent->getType());
@@ -112,8 +119,8 @@ ldc::DIScope ldc::DIBuilder::GetSymbolScope(Dsymbol* s) {
     }
   }
 
-  if (auto tempinst = parent->isTemplateInstance()) {
-      return GetSymbolScope(tempinst->tempdecl);
+  if (auto ti = parent->isTemplateInstance()) {
+    return EmitNamespace(ti, getTemplateInstanceName(ti));
   } else if (auto m = parent->isModule()) {
     return EmitModule(m);
   } else if (parent->isAggregateDeclaration()) {
@@ -122,7 +129,7 @@ ldc::DIScope ldc::DIBuilder::GetSymbolScope(Dsymbol* s) {
     DtoDeclareFunction(fd);
     return EmitSubProgram(fd);
   } else if (auto ns = parent->isNspace()) {
-    return GetSymbolScope(ns); // FIXME DINamespace?
+    return EmitNamespace(ns, ns->toChars());
   }
 
   llvm_unreachable("Unhandled parent");
@@ -137,6 +144,32 @@ ldc::DIScope ldc::DIBuilder::GetCurrentScope() {
     return fn->diSubprogram;
   }
   return fn->diLexicalBlocks.top();
+}
+
+// Usually just returns the regular name of the symbol and sets the scope
+// representing its parent.
+// As a special case, it handles `TemplatedSymbol!(...).TemplatedSymbol`,
+// returning `TemplatedSymbol!(...)` as name and the scope of the
+// TemplateInstance instead.
+llvm::StringRef ldc::DIBuilder::GetNameAndScope(Dsymbol *sym,
+                                                ldc::DIScope &scope) {
+  llvm::StringRef name;
+  scope = nullptr;
+
+  if (auto ti = sym->parent->isTemplateInstance()) {
+    if (ti->aliasdecl == sym) {
+      name = getTemplateInstanceName(ti);
+      scope = GetSymbolScope(ti);
+    }
+  }
+
+  // normal case
+  if (!scope) {
+    name = sym->toChars();
+    scope = GetSymbolScope(sym);
+  }
+
+  return name;
 }
 
 // Sets the memory address for a debuginfo variable.
@@ -502,7 +535,8 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
     return irAggr->diCompositeType;
   }
 
-  const llvm::StringRef name = ad->ident->toChars();
+  DIScope scope = nullptr;
+  const auto name = GetNameAndScope(ad, scope);
 
   // if we don't know the aggregate's size, we don't know enough about it
   // to provide debug info. probably a forward-declared struct?
@@ -516,9 +550,8 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
   // defaults
   unsigned linnum = ad->loc.linnum;
   assert(GetCU() && "Compilation unit missing or corrupted");
-  ldc::DIFile file = CreateFile(ad);
-  ldc::DIType derivedFrom = getNullDIType();
-  ldc::DIScope scope = GetSymbolScope(ad);
+  DIFile file = CreateFile(ad);
+  DIType derivedFrom = getNullDIType();
 
   // set diCompositeType to handle recursive types properly
   unsigned tag = (t->ty == Tstruct) ? llvm::dwarf::DW_TAG_structure_type
@@ -876,6 +909,10 @@ ldc::DIModule ldc::DIBuilder::EmitModule(Module *m)
   return irm->diModule;
 }
 
+ldc::DINamespace ldc::DIBuilder::EmitNamespace(Dsymbol *sym, llvm::StringRef name) {
+  return DBuilder.createNameSpace(GetSymbolScope(sym), name, true);
+}
+
 void ldc::DIBuilder::EmitImport(Import *im)
 {
   if (!mustEmitFullDebugInfo()) {
@@ -909,16 +946,18 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
   assert(GetCU() &&
          "Compilation unit missing or corrupted in DIBuilder::EmitSubProgram");
 
+  DIScope scope = nullptr;
+  llvm::StringRef name;
   // FIXME: work around apparent LLVM CodeView bug wrt. nested functions
-  ldc::DIScope scope;
-  const char *name;
   if (isTargetMSVC && fd->toParent2()->isFuncDeclaration()) {
     // emit into module & use fully qualified name
     scope = GetCU();
     name = fd->toPrettyChars(true);
-  } else {
+  } else if (fd->isMain()) {
     scope = GetSymbolScope(fd);
-    name = fd->isMain() ? fd->toPrettyChars(true) : fd->toChars();
+    name = fd->toPrettyChars(true); // `D main`
+  } else {
+    name = GetNameAndScope(fd, scope);
   }
 
   const auto linkageName = irFunc->getLLVMFuncName();
