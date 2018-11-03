@@ -83,8 +83,8 @@ static cl::opt<bool, true>
 
 static cl::opt<bool, true> exportOnlyMarkedExport(
         "export-marked-symbols", cl::ZeroOrMore,
-        cl::desc("Export only symbols marked as 'export' on linux and OSX"),
-        cl::location(global.params.export_only_symbols_marked_export));
+        cl::desc("Export only symbols marked as 'export' on non-Windows targets"),
+        cl::location(global.params.exportOnlySymbolsMarkedExport));
 
 static cl::opt<bool, true> verbose("v", cl::desc("Verbose"), cl::ZeroOrMore,
                                    cl::location(global.params.verbose));

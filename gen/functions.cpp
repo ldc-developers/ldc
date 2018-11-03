@@ -575,7 +575,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   }
 
   // Hide non-exported symbols
-  if (global.params.export_only_symbols_marked_export &&
+  if (global.params.exportOnlySymbolsMarkedExport &&
              !fdecl->isImportedSymbol() &&
              !fdecl->isExport()) {
     func->setVisibility(LLGlobalValue::HiddenVisibility);

@@ -558,11 +558,6 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
 
   global.params.hdrStripPlainFunctions = !opts::hdrKeepAllBodies;
   global.params.disableRedZone = opts::disableRedZone();
-
-  // On windows this is already a default behavior
-  if (global.params.isWindows) {
-    global.params.export_only_symbols_marked_export = false;
-  }
 }
 
 void initializePasses() {
