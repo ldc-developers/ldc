@@ -42,7 +42,9 @@ can also be used to install LDC:
 
     curl -fsS https://dlang.org/install.sh | bash -s ldc
 
-In addition, LDC is available from various package managers:
+In addition, LDC is available from various package managers
+(but note that these packages **might be outdated** as they are
+not currently integrated into the project release process):
 
 |              | Command                                      |
 | ------------ | -------------------------------------------- |
@@ -57,17 +59,6 @@ In addition, LDC is available from various package managers:
 | Nix/NixOS    | `nix-env -i ldc`                             |
 | Chocolatey   | `choco ldc`                                  |
 | Docker       | `docker pull dlanguage/ldc`                  |
-
-Note that these packages **might be outdated** as they are not
-currently integrated into the project release process.
-
-#### Notes on Windows
-
-LDC for Windows relies on the Microsoft linker and runtime libraries,
-which can be obtained by either installing
-[Visual Studio](https://www.visualstudio.com/downloads/) 2015 or 2017
-with Visual C++, or the stand-alone
-[Visual C++ Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools).
 
 #### Targeting Android
 

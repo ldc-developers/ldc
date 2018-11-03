@@ -28,10 +28,11 @@ following options:
   of about 1 second for each linking operation.
   You can also set LDC_VSDIR to some non-existing dummy path; LDC will try to
   auto-detect your latest Visual C++ installation in that case.
-* Set up the etc\ldc2.conf config file and specify the path to the linker
-  ('-linker=<path>', or use '-link-internally') as well as the directories
-  containing the MS libs ('-L/LIBPATH:<path1> -L/LIBPATH:<path2> ...'; check out
-  the LIB environment variable in a VS tools command prompt).
+* Set up the etc\ldc2.conf config file and specify the directories containing
+  the MS libs (appending them to the 'lib-dirs' array; check out the LIB
+  environment variable in a VS tools command prompt).
+  In case you prefer the MS linker over LLD, add the switch
+  '-linker=<path\to\link.exe>'.
 
 For further information, including on how to report bugs, please refer to the
 LDC wiki: http://wiki.dlang.org/LDC.
