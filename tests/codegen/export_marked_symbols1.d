@@ -1,9 +1,10 @@
 // Test if passing -export-marked-symbols hides all unexported symbols
 
+// UNSUPPORTED: Windows
+
 // RUN: ldc2 %s -betterC -shared -export-marked-symbols -of=lib%t.so
 // RUN: nm lib%t.so | FileCheck %s
 
-// UNSUPPORTED: Windows
 // CHECK: test__exportedFunDef
 // CHECK: test__exportedVarDef
 // CHECK-NOT: test__nonExportedFunDef

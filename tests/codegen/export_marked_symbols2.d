@@ -1,9 +1,10 @@
 // Test if compiling without -export-marked-symbols exports all symbols on non-Windows targets
 
+// UNSUPPORTED: Windows
+
 // RUN: ldc2 %s -betterC -shared -of=lib%t.so
 // RUN: nm lib%t.so | FileCheck %s
 
-// UNSUPPORTED: Windows
 // CHECK: test__exportedFunDef
 // CHECK: test__exportedVarDef
 // CHECK: test__nonExportedFunDef
