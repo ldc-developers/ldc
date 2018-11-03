@@ -81,10 +81,11 @@ static cl::opt<bool, true>
     createSharedLib("shared", cl::desc("Create shared library (DLL)"),
                     cl::ZeroOrMore, cl::location(global.params.dll));
 
-static cl::opt<bool, true> exportOnlyMarkedExport(
+// Export only symbols marked as 'export' on non-Windows targets
+// Doesn't affect Windows, since it handles exports via setDLLStorageClass
+cl::opt<bool> exportOnlySymbolsMarkedExport(
         "export-marked-symbols", cl::ZeroOrMore,
-        cl::desc("Export only symbols marked as 'export' on non-Windows targets"),
-        cl::location(global.params.exportOnlySymbolsMarkedExport));
+        cl::desc("Export only symbols marked as 'export' on non-Windows targets"));
 
 static cl::opt<bool, true> verbose("v", cl::desc("Verbose"), cl::ZeroOrMore,
                                    cl::location(global.params.verbose));

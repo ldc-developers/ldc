@@ -262,10 +262,6 @@ struct Param
         bool fullyQualifiedObjectFiles;
         bool cleanupObjectFiles;
 
-        // Export only symbols marked as 'export' on non-Windows targets
-        // Doesn't affect Windows, since it handles exports via setDLLStorageClass
-        bool exportOnlySymbolsMarkedExport;
-
         // Profile-guided optimization:
         const(char)* datafileInstrProf; // Either the input or output file for PGO data
 
