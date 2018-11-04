@@ -1,8 +1,8 @@
-// Test if passing -export-marked-symbols hides all unexported symbols
+// Test that passing -fvisibility=hidden hides all unexported symbols
 
 // UNSUPPORTED: Windows
 
-// RUN: ldc2 %s -betterC -shared -export-marked-symbols -of=lib%t.so
+// RUN: ldc2 %s -betterC -shared -fvisibility=hidden -of=lib%t.so
 // RUN: nm -g lib%t.so | FileCheck %s
 
 // CHECK: test__exportedFunDef

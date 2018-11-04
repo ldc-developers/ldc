@@ -77,7 +77,7 @@ extern cl::opt<std::string> mABI;
 extern FloatABI::Type floatABI;
 extern cl::opt<bool> linkonceTemplates;
 extern cl::opt<bool> disableLinkerStripDead;
-extern cl::opt<bool> exportOnlySymbolsMarkedExport;
+extern cl::opt<bool> defaultToHiddenVisibility;
 
 // Math options
 extern bool fFastMath;

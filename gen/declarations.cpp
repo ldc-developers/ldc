@@ -310,8 +310,7 @@ public:
         }
 
         // Hide non-exported symbols
-        if (opts::exportOnlySymbolsMarkedExport &&
-          !decl->isExport()) {
+        if (opts::defaultToHiddenVisibility && !decl->isExport()) {
           gvar->setVisibility(LLGlobalValue::HiddenVisibility);
         }
 

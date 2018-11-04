@@ -1,8 +1,8 @@
-// Test if compiling without -export-marked-symbols exports all symbols on non-Windows targets
+// Test that compiling with -fvisibility=default exports all symbols on non-Windows targets
 
 // UNSUPPORTED: Windows
 
-// RUN: ldc2 %s -betterC -shared -of=lib%t.so
+// RUN: ldc2 %s -betterC -shared -fvisibility=default -of=lib%t.so
 // RUN: nm -g lib%t.so | FileCheck %s
 
 // CHECK: test__exportedFunDef
