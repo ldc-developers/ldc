@@ -3,14 +3,14 @@
 // UNSUPPORTED: Windows
 
 // RUN: ldc2 %s -betterC -shared -of=lib%t.so
-// RUN: nm lib%t.so | FileCheck %s
+// RUN: nm -g lib%t.so | FileCheck %s
 
 // CHECK: test__exportedFunDef
 // CHECK: test__exportedVarDef
-// CHECK: test__nonExportedFunDef
-// CHECK: test__nonExportedVarDef
 // CHECK-NOT: test__nonExportedFunDecl
+// CHECK: test__nonExportedFunDef
 // CHECK-NOT: test__nonExportedVarDecl
+// CHECK: test__nonExportedVarDef
 
 
 extern(C) export int test__exportedFunDef() { return 42; }
