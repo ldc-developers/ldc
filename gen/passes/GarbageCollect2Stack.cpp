@@ -699,7 +699,7 @@ static bool mayBeUsedAfterRealloc(Instruction *Def, BasicBlock::iterator Alloc,
 
     // All instructions after the starting point in this block have been
     // accounted for. Look for successors to add to the work list.
-    TerminatorInst *Term = B->getTerminator();
+    auto *Term = B->getTerminator();
     unsigned SuccCount = Term->getNumSuccessors();
     for (unsigned i = 0; i < SuccCount; i++) {
       BasicBlock *Succ = Term->getSuccessor(i);
