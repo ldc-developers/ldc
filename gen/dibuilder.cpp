@@ -20,7 +20,6 @@
 #include "dmd/template.h"
 #include "driver/cl_options.h"
 #include "driver/ldc-version.h"
-#include "gen/cpp-imitating-naming.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
@@ -41,7 +40,18 @@
 using LLMetadata = llvm::Metadata;
 using DIFlags = llvm::DINode;
 
+////////////////////////////////////////////////////////////////////////////////
+
+static llvm::cl::opt<bool>
+    cppImitatingNaming("di-imitate-cpp-naming", llvm::cl::ZeroOrMore,
+                       llvm::cl::desc("Imitate C++ type names for debugger"));
+
+////////////////////////////////////////////////////////////////////////////////
+
 namespace ldc {
+
+// in gen/cpp-imitating-naming.d
+const char *convertDIdentifierToCPlusPlus(const char *name, size_t nameLength);
 
 namespace {
 #if LDC_LLVM_VER >= 400
@@ -64,6 +74,12 @@ const char *getTemplateInstanceName(TemplateInstance *ti) {
   const auto name = ti->toPrettyChars(true);
   ti->parent = realParent;
   return name;
+}
+
+llvm::StringRef processDIName(llvm::StringRef name) {
+  return cppImitatingNaming
+             ? convertDIdentifierToCPlusPlus(name.data(), name.size())
+             : name;
 }
 
 } // namespace
@@ -166,7 +182,7 @@ llvm::StringRef DIBuilder::GetNameAndScope(Dsymbol *sym, DIScope &scope) {
     scope = GetSymbolScope(sym);
   }
 
-  return name;
+  return processDIName(name);
 }
 
 // Sets the memory address for a debuginfo variable.
@@ -319,14 +335,13 @@ DIType DIBuilder::CreateEnumType(Type *type) {
     subscripts.push_back(Subscript);
   }
 
-  llvm::StringRef Name = te->sym->toChars();
-  unsigned LineNumber = te->sym->loc.linnum;
-  DIFile File(CreateFile(te->sym));
-
-  const auto DITypeName = processDITypeName(Name);
+  DIScope scope = nullptr;
+  const auto name = GetNameAndScope(te->sym, scope);
+  const auto lineNumber = te->sym->loc.linnum;
+  const auto file = CreateFile(te->sym);
 
   return DBuilder.createEnumerationType(
-      GetSymbolScope(te->sym), DITypeName, File, LineNumber,
+      scope, name, file, lineNumber,
       getTypeAllocSize(T) * 8,               // size (bits)
       getABITypeAlign(T) * 8,                // align (bits)
       DBuilder.getOrCreateArray(subscripts), // subscripts
@@ -350,7 +365,7 @@ DIType DIBuilder::CreatePointerType(Type *type) {
   const llvm::Optional<unsigned> DWARFAddressSpace = llvm::None;
 #endif
 
-  const auto diTypeName = processDITypeName(type->toPrettyChars(true));
+  const auto name = processDIName(type->toPrettyChars(true));
 
   return DBuilder.createPointerType(CreateTypeDescription(nt),
                                     getTypeAllocSize(T) * 8, // size (bits)
@@ -358,8 +373,7 @@ DIType DIBuilder::CreatePointerType(Type *type) {
 #if LDC_LLVM_VER >= 500
                                     DWARFAddressSpace,
 #endif
-                                    diTypeName // name
-  );
+                                    name);
 }
 
 DIType DIBuilder::CreateVectorType(Type *type) {
@@ -555,12 +569,10 @@ DIType DIBuilder::CreateCompositeType(Type *type) {
   DIScope scope = nullptr;
   const auto name = GetNameAndScope(ad, scope);
 
-  const auto diTypeName = processDITypeName(name);
-
   // if we don't know the aggregate's size, we don't know enough about it
   // to provide debug info. probably a forward-declared struct?
   if (ad->sizeok == SIZEOKnone) {
-    return DBuilder.createUnspecifiedType(diTypeName);
+    return DBuilder.createUnspecifiedType(name);
   }
 
   assert(GetCU() && "Compilation unit missing or corrupted");
@@ -582,8 +594,8 @@ DIType DIBuilder::CreateCompositeType(Type *type) {
   // set diCompositeType to handle recursive types properly
   unsigned tag = (t->ty == Tstruct) ? llvm::dwarf::DW_TAG_structure_type
                                     : llvm::dwarf::DW_TAG_class_type;
-  irAggr->diCompositeType = DBuilder.createReplaceableCompositeType(
-      tag, diTypeName, scope, file, lineNum);
+  irAggr->diCompositeType =
+      DBuilder.createReplaceableCompositeType(tag, name, scope, file, lineNum);
 
   if (!ad->isInterfaceDeclaration()) // plain interfaces don't have one
   {
@@ -593,7 +605,7 @@ DIType DIBuilder::CreateCompositeType(Type *type) {
       // needs a forward declaration to add inheritence information to elems
       const auto elemsArray = nullptr;
       DIType fwd = DBuilder.createClassType(
-          scope, diTypeName, file, lineNum, sizeInBits, alignmentInBits,
+          scope, name, file, lineNum, sizeInBits, alignmentInBits,
           classOffsetInBits, DIFlags::FlagFwdDecl, derivedFrom, elemsArray,
           vtableHolder, templateParams, uniqueIdentifier);
       auto dt = DBuilder.createInheritance(fwd,
@@ -614,13 +626,13 @@ DIType DIBuilder::CreateCompositeType(Type *type) {
   DIType ret;
   if (t->ty == Tclass) {
     ret = DBuilder.createClassType(
-        scope, diTypeName, file, lineNum, sizeInBits, alignmentInBits,
+        scope, name, file, lineNum, sizeInBits, alignmentInBits,
         classOffsetInBits, DIFlagZero, derivedFrom, elemsArray, vtableHolder,
         templateParams, uniqueIdentifier);
   } else {
     const auto runtimeLang = 0;
     ret = DBuilder.createStructType(
-        scope, diTypeName, file, lineNum, sizeInBits, alignmentInBits, DIFlagZero,
+        scope, name, file, lineNum, sizeInBits, alignmentInBits, DIFlagZero,
         derivedFrom, elemsArray, runtimeLang, vtableHolder, uniqueIdentifier);
   }
 
@@ -636,21 +648,16 @@ DIType DIBuilder::CreateArrayType(Type *type) {
   Type *t = type->toBasetype();
   assert(t->ty == Tarray);
 
-  DIFile file = CreateFile();
-  DIScope scope = type->toDsymbol(nullptr)
-                      ? GetSymbolScope(type->toDsymbol(nullptr))
-                      : GetCU();
+  const auto scope = GetCU();
+  const auto name = processDIName(type->toPrettyChars(true));
+  const auto file = CreateFile();
 
   LLMetadata *elems[] = {
       CreateMemberType(0, Type::tsize_t, file, "length", 0, Prot::public_),
       CreateMemberType(0, t->nextOf()->pointerTo(), file, "ptr",
                        global.params.is64bit ? 8 : 4, Prot::public_)};
 
-  const auto diTypeName = processDITypeName(type->toChars());
-
-  return DBuilder.createStructType(scope,
-                                   diTypeName,              // Name
-                                   file,                    // File
+  return DBuilder.createStructType(scope, name, file,
                                    0,                       // LineNo
                                    getTypeAllocSize(T) * 8, // size in bits
                                    getABITypeAlign(T) * 8,  // alignment in bits
@@ -702,26 +709,21 @@ DIType DIBuilder::CreateAArrayType(Type *type) {
   Type *index = typeAArray->index;
   Type *value = typeAArray->nextOf();
 
-  DIFile file = CreateFile();
-  DIScope scope = type->toDsymbol(nullptr)
-                      ? GetSymbolScope(type->toDsymbol(nullptr))
-                      : GetCU();
+  const auto scope = GetCU();
+  const auto name = processDIName(type->toPrettyChars(true));
+  const auto file = CreateFile();
 
   LLMetadata *elems[] = {
       CreateTypedef(0, index, file, "__key_t"),
       CreateTypedef(0, value, file, "__val_t"),
       CreateMemberType(0, Type::tvoidptr, file, "ptr", 0, Prot::public_)};
 
-  const auto diTypeName = processDITypeName(type->toChars());
-
-  return DBuilder.createStructType(scope,
-                                   diTypeName,                // Name
-                                   file,                      // File
-                                   0,                         // LineNo
-                                   getTypeAllocSize(T) * 8,   // size in bits
-                                   getABITypeAlign(T) * 8, // alignment in bits
-                                   DIFlagZero,             // What here?
-                                   getNullDIType(),        // derived from
+  return DBuilder.createStructType(scope, name, file,
+                                   0,                       // LineNo
+                                   getTypeAllocSize(T) * 8, // size in bits
+                                   getABITypeAlign(T) * 8,  // alignment in bits
+                                   DIFlagZero,              // What here?
+                                   getNullDIType(),         // derived from
                                    DBuilder.getOrCreateArray(elems),
                                    0,               // RunTimeLang
                                    getNullDIType(), // VTableHolder
@@ -763,21 +765,17 @@ DIType DIBuilder::CreateDelegateType(Type *type) {
   llvm::Type *T = DtoType(type);
   auto t = static_cast<TypeDelegate *>(type);
 
-  DICompileUnit CU(GetCU());
-  assert(CU && "Compilation unit missing or corrupted");
-  auto file = CreateFile();
+  const auto scope = GetCU();
+  const auto name = processDIName(type->toPrettyChars(true));
+  const auto file = CreateFile();
 
   LLMetadata *elems[] = {
       CreateMemberType(0, Type::tvoidptr, file, "context", 0, Prot::public_),
       CreateMemberType(0, t->next, file, "funcptr",
                        global.params.is64bit ? 8 : 4, Prot::public_)};
 
-  const auto diTypeName = processDITypeName(type->toChars());
-
-  return DBuilder.createStructType(CU,         // compile unit where defined
-                                   diTypeName, // name
-                                   file,       // file where defined
-                                   0,          // line number where defined
+  return DBuilder.createStructType(scope, name, file,
+                                   0, // line number where defined
                                    getTypeAllocSize(T) * 8, // size in bits
                                    getABITypeAlign(T) * 8,  // alignment in bits
                                    DIFlagZero,              // flags
@@ -836,13 +834,12 @@ DIType DIBuilder::CreateTypeDescription(Type *type) {
     LLType *T = DtoType(t);
     const auto aggregateDIType = CreateCompositeType(type);
     const auto name = (aggregateDIType->getName() + "*").str();
-    const auto diTypeName = processDITypeName(name);
     return DBuilder.createPointerType(aggregateDIType, getTypeAllocSize(T) * 8,
                                       getABITypeAlign(T) * 8,
 #if LDC_LLVM_VER >= 500
                                       llvm::None,
 #endif
-                                      diTypeName);
+                                      name);
   }
   if (t->ty == Tfunction)
     return CreateFunctionType(type);
@@ -930,11 +927,11 @@ DIModule DIBuilder::EmitModule(Module *m) {
   if (irm->diModule)
     return irm->diModule;
 
-  const auto diTypeName = processDITypeName(m->toPrettyChars(true));
+  const auto name = processDIName(m->toPrettyChars(true));
 
   irm->diModule = DBuilder.createModule(
       CUNode,
-      diTypeName,        // qualified module name
+      name,              // qualified module name
       llvm::StringRef(), // (clang modules specific) ConfigurationMacros
       llvm::StringRef(), // (clang modules specific) IncludePath
       llvm::StringRef()  // (clang modules specific) ISysRoot
@@ -944,6 +941,7 @@ DIModule DIBuilder::EmitModule(Module *m) {
 }
 
 DINamespace DIBuilder::EmitNamespace(Dsymbol *sym, llvm::StringRef name) {
+  name = processDIName(name);
   const bool exportSymbols = true;
   return DBuilder.createNameSpace(GetSymbolScope(sym), name
 #if LDC_LLVM_VER < 500

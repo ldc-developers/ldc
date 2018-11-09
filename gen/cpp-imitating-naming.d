@@ -223,10 +223,11 @@ string convertDIdentifierToCPlusPlus(const(string) name) @safe pure
 }
 
 ///
-extern (C) const(char*) convertDIdentifierToCPlusPlus(const(char*) name) @trusted pure
+extern (C++, ldc)
+const(char)* convertDIdentifierToCPlusPlus(const(char)* name, size_t nameLength) @trusted pure
 {
-	import std.conv : to;
+	import std.exception : assumeUnique;
 	import std.string : toStringz;
 
-	return name.to!string.convertDIdentifierToCPlusPlus.toStringz;
+	return name[0 .. nameLength].assumeUnique.convertDIdentifierToCPlusPlus.toStringz;
 }

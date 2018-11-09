@@ -45,7 +45,7 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 // x86: int delegate() dg =
 // CHECK: <function> * fun = {{0x[0-9a-f`]*}}
 // x86: struct int[] slice =
-// x86: struct float[int] aa =
+// CHECK: struct float[int] aa =
 // x64: unsigned char (*)[16] fa
 // x86: unsigned char [16] fa
 // x86: float [4] f4 = float [4]
