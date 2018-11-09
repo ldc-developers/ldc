@@ -43,18 +43,19 @@ extern const llvm::DataLayout *gDataLayout;
 namespace ldc {
 
 // Define some basic types
-typedef llvm::DIType *DIType;
-typedef llvm::DICompositeType *DICompositeType;
-typedef llvm::DIFile *DIFile;
-typedef llvm::DIGlobalVariable *DIGlobalVariable;
-typedef llvm::DILocalVariable *DILocalVariable;
-typedef llvm::DIExpression *DIExpression;
-typedef llvm::DILexicalBlock *DILexicalBlock;
-typedef llvm::DIScope *DIScope;
-typedef llvm::DISubroutineType *DISubroutineType;
-typedef llvm::DISubprogram *DISubprogram;
-typedef llvm::DIModule *DIModule;
-typedef llvm::DICompileUnit *DICompileUnit;
+using DIType = llvm::DIType *;
+using DICompositeType = llvm::DICompositeType *;
+using DIFile = llvm::DIFile *;
+using DIGlobalVariable = llvm::DIGlobalVariable *;
+using DILocalVariable = llvm::DILocalVariable *;
+using DIExpression = llvm::DIExpression *;
+using DILexicalBlock = llvm::DILexicalBlock *;
+using DINamespace = llvm::DINamespace *;
+using DIScope = llvm::DIScope *;
+using DISubroutineType = llvm::DISubroutineType *;
+using DISubprogram = llvm::DISubprogram *;
+using DIModule = llvm::DIModule *;
+using DICompileUnit = llvm::DICompileUnit *;
 
 class DIBuilder {
   IRState *const IR;
@@ -83,6 +84,8 @@ public:
   /// \brief Emit the Dwarf module global for a Module m.
   /// \param m        Module to emit (either as definition or declaration).
   DIModule EmitModule(Module *m);
+
+  DINamespace EmitNamespace(Dsymbol *sym, llvm::StringRef name);
 
   /// \brief Emit the Dwarf imported entity and module global for an Import im.
   /// \param im        Import to emit.
@@ -159,6 +162,7 @@ private:
   llvm::LLVMContext &getContext();
   DIScope GetSymbolScope(Dsymbol *s);
   DIScope GetCurrentScope();
+  llvm::StringRef GetNameAndScope(Dsymbol *sym, DIScope &scope);
   void Declare(const Loc &loc, llvm::Value *storage, ldc::DILocalVariable divar,
                ldc::DIExpression diexpr);
   void SetValue(const Loc &loc, llvm::Value *value, ldc::DILocalVariable divar,

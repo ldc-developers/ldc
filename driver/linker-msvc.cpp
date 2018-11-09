@@ -114,7 +114,9 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
     args.push_back("/OPT:NOREF");
   } else {
     args.push_back("/OPT:REF");
-    args.push_back("/OPT:ICF");
+    // don't fold identical COMDATs (e.g., functions) if debuginfos are enabled,
+    // otherwise breakpoints may not be hit
+    args.push_back(global.params.symdebug ? "/OPT:NOICF" : "/OPT:ICF");
   }
 
   // add C runtime libs
