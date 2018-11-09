@@ -17,6 +17,7 @@
 #include "dmd/nspace.h"
 #include "dmd/root/rmem.h"
 #include "dmd/template.h"
+#include "driver/cl_options.h"
 #include "gen/classes.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
@@ -306,6 +307,11 @@ public:
         setLinkage(lwc, gvar);
         if (gvar->hasDLLImportStorageClass()) {
           gvar->setDLLStorageClass(LLGlobalValue::DLLExportStorageClass);
+        }
+
+        // Hide non-exported symbols
+        if (opts::defaultToHiddenVisibility && !decl->isExport()) {
+          gvar->setVisibility(LLGlobalValue::HiddenVisibility);
         }
 
         // Also set up the debug info.

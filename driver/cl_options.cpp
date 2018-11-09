@@ -81,6 +81,13 @@ static cl::opt<bool, true>
     createSharedLib("shared", cl::desc("Create shared library (DLL)"),
                     cl::ZeroOrMore, cl::location(global.params.dll));
 
+cl::opt<ubyte> defaultToHiddenVisibility(
+    "fvisibility", cl::ZeroOrMore,
+    cl::desc("Default visibility of symbols (not relevant for Windows)"),
+    clEnumValues(clEnumValN(0, "default", "Export all symbols"),
+                 clEnumValN(1, "hidden",
+                            "Only export symbols marked with 'export'")));
+
 static cl::opt<bool, true> verbose("v", cl::desc("Verbose"), cl::ZeroOrMore,
                                    cl::location(global.params.verbose));
 
