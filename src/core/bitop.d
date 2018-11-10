@@ -149,7 +149,7 @@ int bsr(uint v) pure
   {
     pragma(inline, true);
     if (!__ctfe)
-        return cast(int) (size_t.sizeof * 8 - 1 - llvm_ctlz(cast(size_t) v, true));
+        return cast(int) (typeof(v).sizeof * 8 - 1 - llvm_ctlz(v, true));
   }
   else
   {
