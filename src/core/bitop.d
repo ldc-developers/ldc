@@ -83,7 +83,7 @@ int bsf(uint v) pure
   {
     pragma(inline, true);
     if (!__ctfe)
-        return cast(int) llvm_cttz(cast(size_t) v, true);
+        return cast(int) llvm_cttz(v, true);
   }
   else
   {
