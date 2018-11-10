@@ -1,9 +1,17 @@
 // REQUIRES: Windows
 // REQUIRES: cdb
-// RUN: %ldc -g -of=%t.exe %s
+
+// -g:
+// RUN: %ldc -g -of=%t_g.exe %s
 // RUN: sed -e "/^\\/\\/ CDB:/!d" -e "s,// CDB:,," %s \
-// RUN:    | %cdb -snul -lines -y . %t.exe >%t.out
-// RUN: FileCheck %s -check-prefix=CHECK -check-prefix=%arch < %t.out
+// RUN:    | %cdb -snul -lines -y . %t_g.exe >%t_g.out
+// RUN: FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-G < %t_g.out
+
+// -gc:
+// RUN: %ldc -gc -of=%t_gc.exe %s
+// RUN: sed -e "/^\\/\\/ CDB:/!d" -e "s,// CDB:,," %s \
+// RUN:    | %cdb -snul -lines -y . %t_gc.exe >%t_gc.out
+// RUN: FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-GC < %t_gc.out
 
 module scopes_cdb;
 
@@ -16,9 +24,10 @@ template Template(int N)
     int[N] field;
     void foo()
     {
-// CDB: bp `scopes_cdb.d:19`
+// CDB: bp `scopes_cdb.d:27`
 // CDB: g
-// CHECK: !scopes_cdb::Template!1::foo+
+// CHECK-G:  !scopes_cdb::Template!1::foo+
+// CHECK-GC: !scopes_cdb::Template<1>::foo+
     }
 }
 
@@ -26,7 +35,7 @@ extern (C++, cppns)
 {
     void cppFoo()
     {
-// CDB: bp `scopes_cdb.d:29`
+// CDB: bp `scopes_cdb.d:38`
 // CDB: g
 // CHECK: !scopes_cdb::cppns::cppFoo+
     }
@@ -34,9 +43,10 @@ extern (C++, cppns)
 
 void templatedFoo(int N)()
 {
-// CDB: bp `scopes_cdb.d:37`
+// CDB: bp `scopes_cdb.d:46`
 // CDB: g
-// CHECK: !scopes_cdb::templatedFoo!2+
+// CHECK-G:  !scopes_cdb::templatedFoo!2+
+// CHECK-GC: !scopes_cdb::templatedFoo<2>+
 }
 
 mixin template Mixin(T)
@@ -44,7 +54,7 @@ mixin template Mixin(T)
     T mixedInField;
     void mixedInFoo()
     {
-// CDB: bp `scopes_cdb.d:47`
+// CDB: bp `scopes_cdb.d:57`
 // CDB: g
 // CHECK: !scopes_cdb::S::mixedInFoo+
     }
@@ -71,9 +81,10 @@ void test()
         T[N] field;
         void foo()
         {
-// CDB: bp `scopes_cdb.d:74`
+// CDB: bp `scopes_cdb.d:84`
 // CDB: g
-// CHECK: !scopes_cdb::test::TemplatedNestedStruct!(S, 3)::foo+
+// CHECK-G:  !scopes_cdb::test::TemplatedNestedStruct!(S, 3)::foo+
+// CHECK-GC: !scopes_cdb::test::TemplatedNestedStruct<S, 3>::foo+
         }
     }
 
@@ -85,7 +96,7 @@ void test()
         int field;
         void foo()
         {
-// CDB: bp `scopes_cdb.d:88`
+// CDB: bp `scopes_cdb.d:99`
 // CDB: g
 // CHECK: !scopes_cdb::test::NestedStruct::foo+
         }
@@ -94,12 +105,13 @@ void test()
     NestedStruct ns;
     ns.foo();
 
-// CDB: bp `scopes_cdb.d:97`
+// CDB: bp `scopes_cdb.d:108`
 // CDB: g
 // CDB: dv /t
-// CHECK:      struct scopes_cdb::S s =
-// CHECK-NEXT: struct scopes_cdb::test::TemplatedNestedStruct!(S, 3) tns =
-// CHECK-NEXT: struct scopes_cdb::test::NestedStruct ns =
+// CHECK:         struct scopes_cdb::S s =
+// CHECK-G-NEXT:  struct scopes_cdb::test::TemplatedNestedStruct!(S, 3) tns =
+// CHECK-GC-NEXT: struct scopes_cdb::test::TemplatedNestedStruct<S, 3> tns =
+// CHECK-NEXT:    struct scopes_cdb::test::NestedStruct ns =
 }
 
 void main()

@@ -40,14 +40,6 @@
 using LLMetadata = llvm::Metadata;
 using DIFlags = llvm::DINode;
 
-////////////////////////////////////////////////////////////////////////////////
-
-static llvm::cl::opt<bool>
-    cppImitatingNaming("di-imitate-cpp-naming", llvm::cl::ZeroOrMore,
-                       llvm::cl::desc("Imitate C++ type names for debugger"));
-
-////////////////////////////////////////////////////////////////////////////////
-
 namespace ldc {
 
 // in gen/cpp-imitating-naming.d
@@ -77,7 +69,7 @@ const char *getTemplateInstanceName(TemplateInstance *ti) {
 }
 
 llvm::StringRef processDIName(llvm::StringRef name) {
-  return cppImitatingNaming
+  return global.params.symdebug == 2
              ? convertDIdentifierToCPlusPlus(name.data(), name.size())
              : name;
 }

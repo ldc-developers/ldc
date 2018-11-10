@@ -1,10 +1,17 @@
-
 // REQUIRES: Windows
 // REQUIRES: cdb
-// RUN: %ldc -g -of=%t.exe %s
+
+// -g:
+// RUN: %ldc -g -of=%t_g.exe %s
 // RUN: sed -e "/^\\/\\/ CDB:/!d" -e "s,// CDB:,," %s \
-// RUN:    | %cdb -snul -lines -y . %t.exe >%t.out
-// RUN: FileCheck %s -check-prefix=CHECK -check-prefix=%arch < %t.out
+// RUN:    | %cdb -snul -lines -y . %t_g.exe >%t_g.out
+// RUN: FileCheck %s -check-prefix=CHECK -check-prefix=%arch -check-prefix=CHECK-G -check-prefix=CHECK-G-%arch < %t_g.out
+
+// -gc:
+// RUN: %ldc -gc -of=%t_gc.exe %s
+// RUN: sed -e "/^\\/\\/ CDB:/!d" -e "s,// CDB:,," %s \
+// RUN:    | %cdb -snul -lines -y . %t_gc.exe >%t_gc.out
+// RUN: FileCheck %s -check-prefix=CHECK -check-prefix=%arch -check-prefix=CHECK-GC -check-prefix=CHECK-GC-%arch < %t_gc.out
 
 module args_cdb;
 import core.simd;
@@ -24,7 +31,7 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
             Small small, Large large,
             TypeInfo_Class ti, typeof(null) np)
 {
-// CDB: bp `args_cdb.d:27`
+// CDB: bp `args_cdb.d:34`
 // CDB: g
     // arguments implicitly passed by reference aren't shown if unused
     float cim = c.im + fa[7] + dg() + small.val + large.a;
@@ -44,8 +51,10 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 // x64: int delegate() * dg =
 // x86: int delegate() dg =
 // CHECK: <function> * fun = {{0x[0-9a-f`]*}}
-// x86: struct int[] slice =
-// CHECK: struct float[int] aa =
+// CHECK-G-x86:  struct int[] slice =
+// CHECK-GC-x86: struct slice<int> slice =
+// CHECK-G:  struct float[int] aa =
+// CHECK-GC: struct associative_array<int, float> aa =
 // x64: unsigned char (*)[16] fa
 // x86: unsigned char [16] fa
 // x86: float [4] f4 = float [4]
@@ -57,7 +66,8 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 // CHECK: void * np = {{0x[0`]*}}
 
 // params emitted as locals (listed after params) for Win64:
-// x64: struct int[] slice
+// CHECK-G-x64:  struct int[] slice =
+// CHECK-GC-x64: struct slice<int> slice =
 // x64: float [4] f4 = float [4]
 // x64: double [4] d4 = double [4]
 
@@ -74,7 +84,8 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 // CHECK-SAME: args_cdb.main.__lambda
 
 // CDB: ?? slice
-// CHECK: struct int[]
+// CHECK-G:  struct int[]
+// CHECK-GC: struct slice<int>
 // CHECK-NEXT: length : 2
 // CHECK-NEXT: ptr :
 // CHECK-SAME: 0n10
@@ -101,7 +112,8 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 
 // CDB: ?? ti
 // CHECK: object::TypeInfo_Class
-// CHECK-NEXT: m_init : byte[]
+// CHECK-G-NEXT:  m_init : byte[]
+// CHECK-GC-NEXT: m_init : slice<byte>
 }
 
 int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
@@ -112,7 +124,7 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
           Small* small, Large* large,
           TypeInfo_Class* ti, typeof(null)* np)
 {
-// CDB: bp `args_cdb.d:115`
+// CDB: bp `args_cdb.d:127`
 // CDB: g
     return 3;
 // CHECK: !args_cdb::byPtr
@@ -143,12 +155,14 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
 // CDB: ?? *fun
 // CHECK: <function> *
 // CDB: ?? *slice
-// CHECK: struct int[]
+// CHECK-G:  struct int[]
+// CHECK-GC: struct slice<int>
 // CHECK-NEXT: length : 2
 // CHECK-NEXT: ptr :
 // CHECK-SAME: 0n10
 // CDB: ?? *aa
-// CHECK: struct float[int]
+// CHECK-G:  struct float[int]
+// CHECK-GC: struct associative_array<int, float>
 // CDB: ?? (*fa)[1]
 // CHECK: unsigned char 0x0e
 // CDB: ?? (*f4)[1]
@@ -164,7 +178,8 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
 // CHECK-NEXT: b :
 // CDB: ?? *ti
 // CHECK: struct object::TypeInfo_Class
-// CHECK-NEXT: m_init : byte[]
+// CHECK-G-NEXT:  m_init : byte[]
+// CHECK-GC-NEXT: m_init : slice<byte>
 // CDB: ?? *np
 // CHECK: void * {{0x[0`]*}}
 }
@@ -177,7 +192,7 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
           ref Small small, ref Large large,
           ref TypeInfo_Class ti, ref typeof(null) np)
 {
-// CDB: bp `args_cdb.d:180`
+// CDB: bp `args_cdb.d:195`
 // CDB: g
 // CHECK: !args_cdb::byRef
 
@@ -209,13 +224,15 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
 // CDB: ?? *fun
 // CHECK: <function> * {{0x[0-9a-f`]*}}
 // CDB: ?? *slice
-// CHECK: struct int[]
+// CHECK-G:  struct int[]
+// CHECK-GC: struct slice<int>
 // CHECK-NEXT: length : 2
 // CHECK-NEXT: ptr : {{0x[0-9a-f`]*}} -> 0n10
 // CDB: ?? (*fa)[1]
 // CHECK: unsigned char 0x0e
 // CDB: ?? *aa
-// CHECK: struct float[int]
+// CHECK-G:  struct float[int]
+// CHECK-GC: struct associative_array<int, float>
 // CDB: ?? (*f4)[1]
 // CHECK: float 16
 // CDB: ?? (*d4)[2]
@@ -229,7 +246,8 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
 // CHECK-NEXT: b :
 // CDB: ?? *ti
 // CHECK: struct object::TypeInfo_Class * {{0x[0-9a-f`]*}}
-// CHECK-NEXT: m_init : byte[]
+// CHECK-G-NEXT:  m_init : byte[]
+// CHECK-GC-NEXT: m_init : slice<byte>
 // CDB: ?? *np
 // no-CHECK: void * {{0x[0`]*}} (not available)
 
@@ -280,7 +298,7 @@ int main()
     Large large = Large(19);
     TypeInfo_Class ti = typeid(TypeInfo);
     typeof(null) np = null;
-    
+
     byValue(ub, us, ui, ul, f, d, r, c, dg, fun, slice, aa, fa, f4, d4, small, large, ti, np);
     byPtr(&ub, &us, &ui, &ul, &f, &d, &r, &c, &dg, &fun, &slice, &aa, &fa, &f4, &d4, &small, &large, &ti, &np);
     byRef(ub, us, ui, ul, f, d, r, c, dg, fun, slice, aa, fa, f4, d4, small, large, ti, np);
