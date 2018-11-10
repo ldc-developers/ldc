@@ -892,7 +892,7 @@ void DIBuilder::EmitCompileUnit(Module *m) {
                            llvm::DEBUG_METADATA_VERSION);
 
   CUNode = DBuilder.createCompileUnit(
-      global.params.symdebug == 2 ? llvm::dwarf::DW_LANG_C
+      global.params.symdebug == 2 ? llvm::dwarf::DW_LANG_C_plus_plus
                                   : llvm::dwarf::DW_LANG_D,
 #if LDC_LLVM_VER >= 400
       DBuilder.createFile(llvm::sys::path::filename(srcpath),
