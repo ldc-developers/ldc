@@ -42,6 +42,9 @@ using DIFlags = llvm::DINode;
 
 namespace ldc {
 
+// in gen/cpp-imitating-naming.d
+const char *convertDIdentifierToCPlusPlus(const char *name, size_t nameLength);
+
 namespace {
 #if LDC_LLVM_VER >= 400
 const auto DIFlagZero = DIFlags::FlagZero;
@@ -63,6 +66,12 @@ const char *getTemplateInstanceName(TemplateInstance *ti) {
   const auto name = ti->toPrettyChars(true);
   ti->parent = realParent;
   return name;
+}
+
+llvm::StringRef processDIName(llvm::StringRef name) {
+  return global.params.symdebug == 2
+             ? convertDIdentifierToCPlusPlus(name.data(), name.size())
+             : name;
 }
 
 } // namespace
@@ -165,7 +174,7 @@ llvm::StringRef DIBuilder::GetNameAndScope(Dsymbol *sym, DIScope &scope) {
     scope = GetSymbolScope(sym);
   }
 
-  return name;
+  return processDIName(name);
 }
 
 // Sets the memory address for a debuginfo variable.
@@ -318,12 +327,13 @@ DIType DIBuilder::CreateEnumType(Type *type) {
     subscripts.push_back(Subscript);
   }
 
-  llvm::StringRef Name = te->sym->toChars();
-  unsigned LineNumber = te->sym->loc.linnum;
-  DIFile File(CreateFile(te->sym));
+  DIScope scope = nullptr;
+  const auto name = GetNameAndScope(te->sym, scope);
+  const auto lineNumber = te->sym->loc.linnum;
+  const auto file = CreateFile(te->sym);
 
   return DBuilder.createEnumerationType(
-      GetSymbolScope(te->sym), Name, File, LineNumber,
+      scope, name, file, lineNumber,
       getTypeAllocSize(T) * 8,               // size (bits)
       getABITypeAlign(T) * 8,                // align (bits)
       DBuilder.getOrCreateArray(subscripts), // subscripts
@@ -347,14 +357,15 @@ DIType DIBuilder::CreatePointerType(Type *type) {
   const llvm::Optional<unsigned> DWARFAddressSpace = llvm::None;
 #endif
 
+  const auto name = processDIName(type->toPrettyChars(true));
+
   return DBuilder.createPointerType(CreateTypeDescription(nt),
                                     getTypeAllocSize(T) * 8, // size (bits)
                                     getABITypeAlign(T) * 8,  // align (bits)
 #if LDC_LLVM_VER >= 500
                                     DWARFAddressSpace,
 #endif
-                                    type->toPrettyChars(true) // name
-  );
+                                    name);
 }
 
 DIType DIBuilder::CreateVectorType(Type *type) {
@@ -417,6 +428,20 @@ DIType DIBuilder::CreateComplexType(Type *type) {
                                    0,               // RunTimeLang
                                    getNullDIType(), // VTableHolder
                                    uniqueIdent(t)); // UniqueIdentifier
+}
+
+DIType DIBuilder::CreateTypedef(unsigned linnum, Type *type, DIFile file,
+                                const char *c_name) {
+  Type *t = type->toBasetype();
+
+  // translate functions to function pointers
+  if (t->ty == Tfunction)
+    t = t->pointerTo();
+
+  // find base type
+  DIType basetype = CreateTypeDescription(t);
+
+  return DBuilder.createTypedef(basetype, c_name, file, linnum, GetCU());
 }
 
 DIType DIBuilder::CreateMemberType(unsigned linnum, Type *type, DIFile file,
@@ -615,19 +640,16 @@ DIType DIBuilder::CreateArrayType(Type *type) {
   Type *t = type->toBasetype();
   assert(t->ty == Tarray);
 
-  DIFile file = CreateFile();
-  DIScope scope = type->toDsymbol(nullptr)
-                      ? GetSymbolScope(type->toDsymbol(nullptr))
-                      : GetCU();
+  const auto scope = GetCU();
+  const auto name = processDIName(type->toPrettyChars(true));
+  const auto file = CreateFile();
 
   LLMetadata *elems[] = {
       CreateMemberType(0, Type::tsize_t, file, "length", 0, Prot::public_),
       CreateMemberType(0, t->nextOf()->pointerTo(), file, "ptr",
                        global.params.is64bit ? 8 : 4, Prot::public_)};
 
-  return DBuilder.createStructType(scope,
-                                   type->toChars(),         // Name
-                                   file,                    // File
+  return DBuilder.createStructType(scope, name, file,
                                    0,                       // LineNo
                                    getTypeAllocSize(T) * 8, // size in bits
                                    getABITypeAlign(T) * 8,  // alignment in bits
@@ -670,7 +692,34 @@ DIType DIBuilder::CreateSArrayType(Type *type) {
 }
 
 DIType DIBuilder::CreateAArrayType(Type *type) {
-  return CreatePointerType(Type::tvoidptr);
+  llvm::Type *T = DtoType(type);
+  Type *t = type->toBasetype();
+  assert(t->ty == Taarray);
+
+  TypeAArray *typeAArray = static_cast<TypeAArray *>(t);
+
+  Type *index = typeAArray->index;
+  Type *value = typeAArray->nextOf();
+
+  const auto scope = GetCU();
+  const auto name = processDIName(type->toPrettyChars(true));
+  const auto file = CreateFile();
+
+  LLMetadata *elems[] = {
+      CreateTypedef(0, index, file, "__key_t"),
+      CreateTypedef(0, value, file, "__val_t"),
+      CreateMemberType(0, Type::tvoidptr, file, "ptr", 0, Prot::public_)};
+
+  return DBuilder.createStructType(scope, name, file,
+                                   0,                       // LineNo
+                                   getTypeAllocSize(T) * 8, // size in bits
+                                   getABITypeAlign(T) * 8,  // alignment in bits
+                                   DIFlagZero,              // What here?
+                                   getNullDIType(),         // derived from
+                                   DBuilder.getOrCreateArray(elems),
+                                   0,               // RunTimeLang
+                                   getNullDIType(), // VTableHolder
+                                   uniqueIdent(t)); // UniqueIdentifier
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -708,19 +757,17 @@ DIType DIBuilder::CreateDelegateType(Type *type) {
   llvm::Type *T = DtoType(type);
   auto t = static_cast<TypeDelegate *>(type);
 
-  DICompileUnit CU(GetCU());
-  assert(CU && "Compilation unit missing or corrupted");
-  auto file = CreateFile();
+  const auto scope = GetCU();
+  const auto name = processDIName(type->toPrettyChars(true));
+  const auto file = CreateFile();
 
   LLMetadata *elems[] = {
       CreateMemberType(0, Type::tvoidptr, file, "context", 0, Prot::public_),
       CreateMemberType(0, t->next, file, "funcptr",
                        global.params.is64bit ? 8 : 4, Prot::public_)};
 
-  return DBuilder.createStructType(CU, // compile unit where defined
-                                   type->toChars(), // name
-                                   file,            // file where defined
-                                   0,               // line number where defined
+  return DBuilder.createStructType(scope, name, file,
+                                   0, // line number where defined
                                    getTypeAllocSize(T) * 8, // size in bits
                                    getABITypeAlign(T) * 8,  // alignment in bits
                                    DIFlagZero,              // flags
@@ -845,7 +892,7 @@ void DIBuilder::EmitCompileUnit(Module *m) {
                            llvm::DEBUG_METADATA_VERSION);
 
   CUNode = DBuilder.createCompileUnit(
-      global.params.symdebug == 2 ? llvm::dwarf::DW_LANG_C
+      global.params.symdebug == 2 ? llvm::dwarf::DW_LANG_C_plus_plus
                                   : llvm::dwarf::DW_LANG_D,
 #if LDC_LLVM_VER >= 400
       DBuilder.createFile(llvm::sys::path::filename(srcpath),
@@ -872,18 +919,21 @@ DIModule DIBuilder::EmitModule(Module *m) {
   if (irm->diModule)
     return irm->diModule;
 
+  const auto name = processDIName(m->toPrettyChars(true));
+
   irm->diModule = DBuilder.createModule(
       CUNode,
-      m->toPrettyChars(true), // qualified module name
-      llvm::StringRef(),      // (clang modules specific) ConfigurationMacros
-      llvm::StringRef(),      // (clang modules specific) IncludePath
-      llvm::StringRef()       // (clang modules specific) ISysRoot
+      name,              // qualified module name
+      llvm::StringRef(), // (clang modules specific) ConfigurationMacros
+      llvm::StringRef(), // (clang modules specific) IncludePath
+      llvm::StringRef()  // (clang modules specific) ISysRoot
   );
 
   return irm->diModule;
 }
 
 DINamespace DIBuilder::EmitNamespace(Dsymbol *sym, llvm::StringRef name) {
+  name = processDIName(name);
   const bool exportSymbols = true;
   return DBuilder.createNameSpace(GetSymbolScope(sym), name
 #if LDC_LLVM_VER < 500
