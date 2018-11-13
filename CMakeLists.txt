@@ -640,27 +640,57 @@ else()
     endif()
 endif()
 
-function(build_d_executable output_exe compiler_args linker_args compile_deps link_deps)
-    # Compile all D modules to a single object.
-    set(object_file ${output_exe}${CMAKE_CXX_OUTPUT_EXTENSION})
+function(build_d_executable output_exe d_src_files compiler_args linker_args extra_compile_deps link_deps)
     set(dflags "${D_COMPILER_FLAGS} ${DDMD_DFLAGS}")
     if(UNIX)
       separate_arguments(dflags UNIX_COMMAND "${dflags}")
     else()
       separate_arguments(dflags WINDOWS_COMMAND "${dflags}")
     endif()
-    add_custom_command(
-        OUTPUT ${object_file}
-        COMMAND ${D_COMPILER} -c ${dflags} -of${object_file} ${compiler_args}
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        DEPENDS ${compile_deps}
-    )
+
+    set(object_files)
+    if(NOT COMPILE_D_MODULES_SEPARATELY)
+        # Compile all D modules to a single object (single-threaded).
+        set(object_file ${output_exe}${CMAKE_CXX_OUTPUT_EXTENSION})
+        add_custom_command(
+            OUTPUT ${object_file}
+            COMMAND ${D_COMPILER} -c ${dflags} -of${object_file} ${compiler_args} ${d_src_files}
+            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+            DEPENDS ${d_src_files} ${extra_compile_deps}
+        )
+        set(object_files ${object_file})
+    else()
+        # Compile each D module separately.
+        get_filename_component(exe_basename ${output_exe} NAME_WE)
+        foreach(f ${d_src_files})
+            file(RELATIVE_PATH object_file ${PROJECT_SOURCE_DIR} ${f}) # make path relative to PROJECT_SOURCE_DIR
+            string(REGEX REPLACE "[/\\]" "." object_file "${object_file}")
+            set(object_file ${PROJECT_BINARY_DIR}/obj/${exe_basename}-${object_file}${CMAKE_CXX_OUTPUT_EXTENSION})
+            add_custom_command(
+                OUTPUT ${object_file}
+                COMMAND ${D_COMPILER} -c ${dflags} -of${object_file} ${compiler_args} ${f}
+                WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+                DEPENDS ${f} ${extra_compile_deps}
+            )
+            list(APPEND object_files ${object_file})
+        endforeach()
+    endif()
+
+    # Use a response file on Windows when compiling separately, in order not to
+    # exceed the max command-line length.
+    set(objects_args "${object_files}")
+    if(WIN32 AND COMPILE_D_MODULES_SEPARATELY)
+        string(REPLACE ";" " " objects_args "${object_files}")
+        file(WRITE ${output_exe}.rsp ${objects_args})
+        set(objects_args "@${output_exe}.rsp")
+    endif()
+
     # Link to an executable.
     if(LDC_LINK_MANUALLY)
         add_custom_command(
             OUTPUT ${output_exe}
-            COMMAND ${CMAKE_CXX_COMPILER} -o ${output_exe} ${object_file} ${linker_args} ${LDC_LINKERFLAG_LIST}
-            DEPENDS ${object_file} ${link_deps}
+            COMMAND ${CMAKE_CXX_COMPILER} -o ${output_exe} ${objects_args} ${linker_args} ${LDC_LINKERFLAG_LIST}
+            DEPENDS ${object_files} ${link_deps}
         )
     else()
         set(translated_linker_flags "")
@@ -669,9 +699,9 @@ function(build_d_executable output_exe compiler_args linker_args compile_deps li
         endforeach()
         add_custom_command(
             OUTPUT ${output_exe}
-            COMMAND ${D_COMPILER} ${dflags} ${DDMD_LFLAGS} -of${output_exe} ${object_file} ${translated_linker_flags} ${LDC_TRANSLATED_LINKER_FLAGS}
+            COMMAND ${D_COMPILER} ${dflags} ${DDMD_LFLAGS} -of${output_exe} ${objects_args} ${translated_linker_flags} ${LDC_TRANSLATED_LINKER_FLAGS}
             WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-            DEPENDS ${object_file} ${link_deps}
+            DEPENDS ${object_files} ${link_deps}
         )
     endif()
 endfunction()
@@ -689,8 +719,9 @@ else()
     build_d_executable(
         "${LDC_EXE_FULL}"
         "${LDC_D_SOURCE_FILES}"
+        ""
         "$<TARGET_LINKER_FILE:${LDC_LIB}>"
-        "${LDC_D_SOURCE_FILES};${FE_RES}"
+        "${FE_RES}"
         "${LDC_LIB}"
     )
 endif()
@@ -725,12 +756,13 @@ set_target_properties(
     ARCHIVE_OUTPUT_NAME ldmd
     LIBRARY_OUTPUT_NAME ldmd
 )
-set(LDMD_D_SOURCE_FILES dmd/root/man.d driver/ldmd.d)
+set(LDMD_D_SOURCE_FILES ${PROJECT_SOURCE_DIR}/dmd/root/man.d ${PROJECT_SOURCE_DIR}/driver/ldmd.d)
 build_d_executable(
     "${LDMD_EXE_FULL}"
     "${LDMD_D_SOURCE_FILES}"
+    ""
     "$<TARGET_LINKER_FILE:LDMD_CXX_LIB>"
-    "${LDMD_D_SOURCE_FILES}"
+    ""
     "LDMD_CXX_LIB"
 )
 
@@ -867,9 +899,10 @@ enable_testing()
 set(LDC_UNITTEST_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_EXE_NAME}-unittest${CMAKE_EXECUTABLE_SUFFIX})
 build_d_executable(
     "${LDC_UNITTEST_EXE_FULL}"
-    "-unittest;${LDC_D_SOURCE_FILES}"
-    "$<TARGET_LINKER_FILE:${LDC_LIB}>"
     "${LDC_D_SOURCE_FILES}"
+    "-unittest"
+    "$<TARGET_LINKER_FILE:${LDC_LIB}>"
+    ""
     "${LDC_LIB}"
 )
 add_custom_target(ldc2-unittest DEPENDS ${LDC_UNITTEST_EXE_FULL})
@@ -893,6 +926,7 @@ set(LDC_BUILD_RUNTIME_EXE_FULL ${PROJECT_BINARY_DIR}/bin/ldc-build-runtime${CMAK
 build_d_executable(
     "${LDC_BUILD_RUNTIME_EXE_FULL}"
     "${PROJECT_BINARY_DIR}/ldc-build-runtime.d"
+    ""
     ""
     "${PROJECT_SOURCE_DIR}/runtime/ldc-build-runtime.d.in"
     ""

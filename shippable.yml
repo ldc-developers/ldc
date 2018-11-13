@@ -62,6 +62,7 @@ build:
         -DLLVM_ROOT_DIR=$PWD/../llvm \
         -DCMAKE_INSTALL_PREFIX=$PWD/../ldc-bootstrap \
         -DD_COMPILER=$PWD/../ldc-ltsmaster/bin/ldmd2 \
+        -DCOMPILE_D_MODULES_SEPARATELY=ON \
         ..
     - ninja -j32 install
     - cd ..
