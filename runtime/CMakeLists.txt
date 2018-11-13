@@ -40,7 +40,7 @@ set(BUILD_SHARED_LIBS     AUTO                                CACHE STRING "Whet
 set(D_FLAGS               -w                                  CACHE STRING "Runtime D compiler flags, separated by ';'")
 set(D_FLAGS_DEBUG         -g;-link-defaultlib-debug           CACHE STRING "Runtime D compiler flags (debug libraries), separated by ';'")
 set(D_FLAGS_RELEASE       -O3;-release                        CACHE STRING "Runtime D compiler flags (release libraries), separated by ';'")
-set(COMPILE_ALL_D_FILES_AT_ONCE ON                            CACHE BOOL   "Compile all D files for a lib in a single command line instead of separately")
+set(COMPILE_ALL_D_FILES_AT_ONCE ON                            CACHE BOOL   "Compile all D files for the runtime libs in a single command line instead of separately. Disabling this is useful for many CPU cores and/or iterative development.")
 set(RT_ARCHIVE_WITH_LDC   ON                                  CACHE STRING "Whether to archive the static runtime libs via LDC instead of CMake archiver")
 set(RT_CFLAGS             ""                                  CACHE STRING "Runtime extra C compiler flags, separated by ' '")
 set(LD_FLAGS              ""                                  CACHE STRING "Runtime extra C linker flags, separated by ' '")
