@@ -63,6 +63,7 @@ build:
         -DCMAKE_INSTALL_PREFIX=$PWD/../ldc-bootstrap \
         -DD_COMPILER=$PWD/../ldc-ltsmaster/bin/ldmd2 \
         -DCOMPILE_D_MODULES_SEPARATELY=ON \
+        -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF \
         ..
     - ninja -j32 install
     - cd ..
@@ -78,6 +79,7 @@ build:
         -DCMAKE_INSTALL_PREFIX=$LDC_INSTALL_DIR \
         -DINCLUDE_INSTALL_DIR=$LDC_INSTALL_DIR/import \
         -DD_COMPILER=$PWD/../ldc-bootstrap/bin/ldmd2 \
+        -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF \
         $EXTRA_CMAKE_FLAGS \
         ..
     - ninja -j32
