@@ -1224,14 +1224,24 @@ void DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     return; // unsupported
 
   const bool isRefOrOut = vd->isRef() || vd->isOut(); // incl. special-ref vars
+  const bool isParameter = vd->isParameter();
 
-  // For MSVC x64 targets, declare params rewritten by IndirectByvalRewrite as
-  // DI references, as if they were ref parameters.
-  const bool isPassedExplicitlyByval =
-      isTargetMSVCx64 && !isRefOrOut && isaArgument(ll) && addr.empty();
+  // For MSVC x64, some by-value parameters need to be declared as DI locals to
+  // work around garbage for both cdb and VS debuggers.
+  if (isParameter && !forceAsLocal && isTargetMSVCx64 && !isRefOrOut) {
+    // 1) params rewritten by IndirectByvalRewrite
+    if (isaArgument(ll) && addr.empty()) {
+      forceAsLocal = true;
+    } else {
+      // 2) dynamic arrays and vectors
+      TY ty = type->toBasetype()->ty;
+      if (ty == Tarray || ty == Tvector)
+        forceAsLocal = true;
+    }
+  }
 
   bool useDbgValueIntrinsic = false;
-  if (isRefOrOut || isPassedExplicitlyByval) {
+  if (isRefOrOut) {
     // DW_TAG_reference_type sounds like the correct tag for `this`, but member
     // function calls won't work with GDB unless `this` gets declared as
     // DW_TAG_pointer_type.
@@ -1243,22 +1253,13 @@ void DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     // itself is constant. So we don't have to attach the debug information to a
     // memory location and can use llvm.dbg.value to set the constant pointer
     // for the DI reference.
-    useDbgValueIntrinsic =
-        isPassedExplicitlyByval || (!isSpecialRefVar(vd) && isRefRVal);
+    useDbgValueIntrinsic = !isSpecialRefVar(vd) && isRefRVal;
     // Note: createReferenceType expects the size to be the size of a pointer,
     // not the size of the type the reference refers to.
     TD = DBuilder.createReferenceType(
         Tag, TD,
         gDataLayout->getPointerSizeInBits(), // size (bits)
         DtoAlignment(type) * 8);             // align (bits)
-  } else {
-    // FIXME: For MSVC x64 targets, declare dynamic array and vector parameters
-    //        as DI locals to work around garbage for both cdb and VS debuggers.
-    if (isTargetMSVCx64) {
-      TY ty = type->toBasetype()->ty;
-      if (ty == Tarray || ty == Tvector)
-        forceAsLocal = true;
-    }
   }
 
   // get variable description
@@ -1274,7 +1275,7 @@ void DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
                    : DIFlags::FlagArtificial | DIFlags::FlagObjectPointer;
 
   DILocalVariable debugVariable;
-  if (!forceAsLocal && vd->isParameter()) {
+  if (!forceAsLocal && isParameter) {
     FuncDeclaration *fd = vd->parent->isFuncDeclaration();
     assert(fd);
     size_t argNo = 0;
