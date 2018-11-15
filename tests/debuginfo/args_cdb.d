@@ -36,7 +36,8 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
     // arguments implicitly passed by reference aren't shown if unused
     float cim = c.im + fa[7] + dg() + small.val + large.a;
     return 1;
-// CHECK: !args_cdb::byValue
+// CHECK-G:  !args_cdb.byValue
+// CHECK-GC: !args_cdb::byValue
 // CDB: dv /t
 
 // CHECK: unsigned char ub = 0x01
@@ -61,16 +62,20 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 // CHECK-DAG: unsigned char [16] fa =
 // CHECK-DAG: float [4] f4 =
 // CHECK-DAG: double [4] d4 =
-// CHECK-DAG: struct args_cdb::Small small =
+// CHECK-G-DAG:  struct args_cdb.Small small =
+// CHECK-GC-DAG: struct args_cdb::Small small =
 /*
  * On Win64, `large` is emitted as reference, according to CodeViewDebug::calculateRanges()
  * in llvm/lib/CodeGen/AsmPrinter/CodeViewDebug.cpp because of a CodeView limitation, as
  * the pointer to the hidden copy is on the stack and not in a register.
  * See the byValueShort() test below.
  */
-// x86-DAG: struct args_cdb::Large large =
-// x64-DAG: struct args_cdb::Large * large =
-// CHECK-DAG: struct object::TypeInfo_Class * ti = {{0x[0-9a-f`]*}}
+// CHECK-G-x86-DAG:  struct args_cdb.Large large =
+// CHECK-GC-x86-DAG: struct args_cdb::Large large =
+// CHECK-G-x64-DAG:  struct args_cdb.Large * large =
+// CHECK-GC-x64-DAG: struct args_cdb::Large * large =
+// CHECK-G-DAG:  struct object.TypeInfo_Class * ti = {{0x[0-9a-f`]*}}
+// CHECK-GC-DAG: struct object::TypeInfo_Class * ti = {{0x[0-9a-f`]*}}
 // CHECK-DAG: void * np = {{0x[0`]*}}
 
 // check arguments with indirections
@@ -102,15 +107,18 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 // CHECK: double 17
 
 // CDB: ?? small
-// CHECK: args_cdb::Small
+// CHECK-G:  args_cdb.Small
+// CHECK-GC: args_cdb::Small
 // CHECK-NEXT: val : 0x12
 
 // CDB: ?? large
-// CHECK: args_cdb::Large
+// CHECK-G:  args_cdb.Large
+// CHECK-GC: args_cdb::Large
 // CHECK-NEXT: a : 0x13
 
 // CDB: ?? ti
-// CHECK: object::TypeInfo_Class
+// CHECK-G:  object.TypeInfo_Class
+// CHECK-GC: object::TypeInfo_Class
 // CHECK-G-NEXT:  m_init : byte[]
 // CHECK-GC-NEXT: m_init : slice<byte>
 }
@@ -123,15 +131,18 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
  */
 size_t byValueShort(Large large)
 {
-// CDB: bp `args_cdb.d:126`
+// CDB: bp `args_cdb.d:134`
 // CDB: g
     return large.a;
-// CHECK: !args_cdb::byValueShort
+// CHECK-G:  !args_cdb.byValueShort
+// CHECK-GC: !args_cdb::byValueShort
 // CDB: dv /t
-// CHECK: struct args_cdb::Large large = struct args_cdb::Large
+// CHECK-G:  struct args_cdb.Large large = struct args_cdb.Large
+// CHECK-GC: struct args_cdb::Large large = struct args_cdb::Large
 
 // CDB: ?? large
-// CHECK: args_cdb::Large
+// CHECK-G:  args_cdb.Large
+// CHECK-GC: args_cdb::Large
 // CHECK-NEXT: a : 0x13
 }
 
@@ -143,10 +154,11 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
           Small* small, Large* large,
           TypeInfo_Class* ti, typeof(null)* np)
 {
-// CDB: bp `args_cdb.d:146`
+// CDB: bp `args_cdb.d:157`
 // CDB: g
     return 3;
-// CHECK: !args_cdb::byPtr
+// CHECK-G:  !args_cdb.byPtr
+// CHECK-GC: !args_cdb::byPtr
 // CDB: dv /t
 // CDB: ?? *ub
 // CHECK: unsigned char 0x01
@@ -189,14 +201,17 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
 // CDB: ?? (*d4)[2]
 // CHECK: double 17
 // CDB: ?? *small
-// CHECK: struct args_cdb::Small
+// CHECK-G:  struct args_cdb.Small
+// CHECK-GC: struct args_cdb::Small
 // CHECK-NEXT: val : 0x12
 // CDB: ?? *large
-// CHECK: struct args_cdb::Large
+// CHECK-G:  struct args_cdb.Large
+// CHECK-GC: struct args_cdb::Large
 // CHECK-NEXT: a : 0x13
 // CHECK-NEXT: b :
 // CDB: ?? *ti
-// CHECK: struct object::TypeInfo_Class
+// CHECK-G:  struct object.TypeInfo_Class
+// CHECK-GC: struct object::TypeInfo_Class
 // CHECK-G-NEXT:  m_init : byte[]
 // CHECK-GC-NEXT: m_init : slice<byte>
 // CDB: ?? *np
@@ -211,9 +226,10 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
           ref Small small, ref Large large,
           ref TypeInfo_Class ti, ref typeof(null) np)
 {
-// CDB: bp `args_cdb.d:214`
+// CDB: bp `args_cdb.d:229`
 // CDB: g
-// CHECK: !args_cdb::byRef
+// CHECK-G:  !args_cdb.byRef
+// CHECK-GC: !args_cdb::byRef
 
 // CDB: dv /t
 // cdb displays references as pointers
@@ -257,14 +273,17 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
 // CDB: ?? (*d4)[2]
 // CHECK: double 17
 // CDB: ?? *small
-// CHECK: struct args_cdb::Small
+// CHECK-G:  struct args_cdb.Small
+// CHECK-GC: struct args_cdb::Small
 // CHECK-NEXT: val : 0x12
 // CDB: ?? *large
-// CHECK: struct args_cdb::Large
+// CHECK-G:  struct args_cdb.Large
+// CHECK-GC: struct args_cdb::Large
 // CHECK-NEXT: a : 0x13
 // CHECK-NEXT: b :
 // CDB: ?? *ti
-// CHECK: struct object::TypeInfo_Class * {{0x[0-9a-f`]*}}
+// CHECK-G:  struct object.TypeInfo_Class * {{0x[0-9a-f`]*}}
+// CHECK-GC: struct object::TypeInfo_Class * {{0x[0-9a-f`]*}}
 // CHECK-G-NEXT:  m_init : byte[]
 // CHECK-GC-NEXT: m_init : slice<byte>
 // CDB: ?? *np

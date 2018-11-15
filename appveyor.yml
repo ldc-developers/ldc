@@ -12,12 +12,12 @@ environment:
   matrix:
     - APPVEYOR_JOB_ARCH:           x64
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-      LLVM_VERSION:                7.0.0
+      LLVM_VERSION:                7.0.0-2
       HOST_LDC_VERSION:            1.10.0
       EXTRA_CMAKE_FLAGS:           -DBUILD_LTO_LIBS=ON
     - APPVEYOR_JOB_ARCH:           x86
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-      LLVM_VERSION:                7.0.0
+      LLVM_VERSION:                7.0.0-2
       HOST_LDC_VERSION:            1.10.0
 
 # scripts that are called at very beginning, before repo cloning

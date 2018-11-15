@@ -26,7 +26,7 @@ template Template(int N)
     {
 // CDB: bp `scopes_cdb.d:27`
 // CDB: g
-// CHECK-G:  !scopes_cdb::Template!1::foo+
+// CHECK-G:  !scopes_cdb.Template!1.foo+
 // CHECK-GC: !scopes_cdb::Template<1>::foo+
     }
 }
@@ -37,15 +37,16 @@ extern (C++, cppns)
     {
 // CDB: bp `scopes_cdb.d:38`
 // CDB: g
-// CHECK: !scopes_cdb::cppns::cppFoo+
+// CHECK-G:  !scopes_cdb.cppns.cppFoo+
+// CHECK-GC: !scopes_cdb::cppns::cppFoo+
     }
 }
 
 void templatedFoo(int N)()
 {
-// CDB: bp `scopes_cdb.d:46`
+// CDB: bp `scopes_cdb.d:47`
 // CDB: g
-// CHECK-G:  !scopes_cdb::templatedFoo!2+
+// CHECK-G:  !scopes_cdb.templatedFoo!2+
 // CHECK-GC: !scopes_cdb::templatedFoo<2>+
 }
 
@@ -54,9 +55,10 @@ mixin template Mixin(T)
     T mixedInField;
     void mixedInFoo()
     {
-// CDB: bp `scopes_cdb.d:57`
+// CDB: bp `scopes_cdb.d:58`
 // CDB: g
-// CHECK: !scopes_cdb::S::mixedInFoo+
+// CHECK-G:  !scopes_cdb.S.mixedInFoo+
+// CHECK-GC: !scopes_cdb::S::mixedInFoo+
     }
 }
 
@@ -81,9 +83,9 @@ void test()
         T[N] field;
         void foo()
         {
-// CDB: bp `scopes_cdb.d:84`
+// CDB: bp `scopes_cdb.d:86`
 // CDB: g
-// CHECK-G:  !scopes_cdb::test::TemplatedNestedStruct!(S, 3)::foo+
+// CHECK-G:  !scopes_cdb.test.TemplatedNestedStruct!(S, 3).foo+
 // CHECK-GC: !scopes_cdb::test::TemplatedNestedStruct<S, 3>::foo+
         }
     }
@@ -96,22 +98,25 @@ void test()
         int field;
         void foo()
         {
-// CDB: bp `scopes_cdb.d:99`
+// CDB: bp `scopes_cdb.d:101`
 // CDB: g
-// CHECK: !scopes_cdb::test::NestedStruct::foo+
+// CHECK-G:  !scopes_cdb.test.NestedStruct.foo+
+// CHECK-GC: !scopes_cdb::test::NestedStruct::foo+
         }
     }
 
     NestedStruct ns;
     ns.foo();
 
-// CDB: bp `scopes_cdb.d:108`
+// CDB: bp `scopes_cdb.d:111`
 // CDB: g
 // CDB: dv /t
-// CHECK:         struct scopes_cdb::S s =
-// CHECK-G-NEXT:  struct scopes_cdb::test::TemplatedNestedStruct!(S, 3) tns =
+// CHECK-G:       struct scopes_cdb.S s =
+// CHECK-GC:      struct scopes_cdb::S s =
+// CHECK-G-NEXT:  struct scopes_cdb.test.TemplatedNestedStruct!(S, 3) tns =
 // CHECK-GC-NEXT: struct scopes_cdb::test::TemplatedNestedStruct<S, 3> tns =
-// CHECK-NEXT:    struct scopes_cdb::test::NestedStruct ns =
+// CHECK-G-NEXT:  struct scopes_cdb.test.NestedStruct ns =
+// CHECK-GC-NEXT: struct scopes_cdb::test::NestedStruct ns =
 }
 
 void main()
