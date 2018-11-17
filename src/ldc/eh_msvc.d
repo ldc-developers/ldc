@@ -436,11 +436,17 @@ void msvc_eh_terminate() nothrow @naked
             cmp 0x29(%rax), %rbx           // dec [rax+30h]; xor eax,eax; add rsp,nn (vcruntime140.dll)
             je L_retVC14_11
 
+            cmp 0x11(%rax), %rbx           // dec [rax+30h]; xor eax,eax; add rsp,nn (vcruntime140.dll, 14.16.x.x)
+            je L_retVC14_16
+
             cmp 0x1B(%rax), %rbx           // dec [rax+30h]; xor eax,eax; add rsp,nn (vcruntime140.dll 14.14.x.y)
             jne L_term
             lea 0x20(%rax), %rax
             jmp L_retContinue
 
+        L_retVC14_16:                      // vcruntime140 14.16.27012.6
+            lea 0x16(%rax), %rax
+            jmp L_retContinue
         L_retVC14_11:                      // vcruntime140 14.11.25415.0 or earlier
             lea 0x2E(%rax), %rax
         L_retContinue:                     // vcruntime140 14.00.23026.0 or later?
