@@ -1196,7 +1196,9 @@ extern(C++):
             case Tint128:                c = 'n';       break;
             case Tuns128:                c = 'o';       break;
             case Tfloat64:               c = 'd';       break;
-            case Tfloat80:               c = 'e';       break;
+            case Tfloat80:
+                                         c = 'e';
+                   version (IN_LLVM) goto default; else break;
             case Tbool:                  c = 'b';       break;
             case Tchar:                  c = 'c';       break;
             case Twchar:                 c = 't';       break;  // unsigned short (perhaps use 'Ds' ?

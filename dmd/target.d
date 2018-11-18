@@ -133,6 +133,7 @@ struct Target
             return cppTypeInfoMangleItanium(cd);
     }
 
+    static const(char)* cppTypeMangle(Type t);
     static Expression getTargetInfo(const(char)* name, const ref Loc loc);
   }
   else // !IN_LLVM
@@ -501,19 +502,6 @@ struct Target
             static assert(0, "fix this");
     }
   } // !IN_LLVM
-
-    /**
-     * Gets vendor-specific type mangling for C++ ABI.
-     * Params:
-     *      t = type to inspect
-     * Returns:
-     *      string if type is mangled specially on target
-     *      null if unhandled
-     */
-    extern (C++) static const(char)* cppTypeMangle(Type t)
-    {
-        return null;
-    }
 
     /**
      * Get the type that will really be used for passing the given argument

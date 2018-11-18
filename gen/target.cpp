@@ -210,6 +210,25 @@ bool Target::isReturnOnStack(TypeFunction *tf, bool needsThis) {
   return gABI->returnInArg(tf, needsThis);
 }
 
+/**
+ * Gets vendor-specific type mangling for C++ ABI.
+ * Params:
+ *      t = type to inspect
+ * Returns:
+ *      string if type is mangled specially on target
+ *      null if unhandled
+ */
+const char *Target::cppTypeMangle(Type *t) {
+  if (t->isTypeBasic() && t->ty == Tfloat80) {
+    // LDC: `long double` on Android/x64 is __float128 and mangled as `g`.
+    bool isAndroidX64 =
+        global.params.targetTriple->getEnvironment() == llvm::Triple::Android &&
+        global.params.targetTriple->getArch() == llvm::Triple::x86_64;
+    return isAndroidX64 ? "g" : "e";
+  }
+  return nullptr;
+}
+
 Expression *Target::getTargetInfo(const char *name_, const Loc &loc) {
   const llvm::StringRef name(name_);
   const auto &triple = *global.params.targetTriple;
