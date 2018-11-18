@@ -14,6 +14,7 @@ include(CheckLibraryExists)
 include(CheckCXXCompilerFlag)
 include(CheckDSourceCompiles)
 include(CheckLinkFlag)
+include(BuildDExecutable)
 
 # The script currently only supports the DMD-style commandline interface
 if (NOT D_COMPILER_DMD_COMPAT)
@@ -90,6 +91,8 @@ set(CONF_INST_DIR ${SYSCONF_INSTALL_DIR} CACHE PATH "Directory ldc.conf is insta
 
 # Note: LIB_SUFFIX should perhaps be renamed to LDC_LIBDIR_SUFFIX.
 set(LIB_SUFFIX "" CACHE STRING "Appended to the library installation directory. Set to '64' to install libraries into ${PREFIX}/lib64.")
+
+set(COMPILE_D_MODULES_SEPARATELY OFF CACHE BOOL "Compile each D module separately (instead of all at once). Useful for many CPU cores and/or iterative development; generated executables will be somewhat slower.")
 
 # The following flag is currently not well tested, expect the build to fail.
 option(GENERATE_OFFTI "generate complete ClassInfo.offTi arrays")
@@ -640,42 +643,6 @@ else()
     endif()
 endif()
 
-function(build_d_executable output_exe compiler_args linker_args compile_deps link_deps)
-    # Compile all D modules to a single object.
-    set(object_file ${output_exe}${CMAKE_CXX_OUTPUT_EXTENSION})
-    set(dflags "${D_COMPILER_FLAGS} ${DDMD_DFLAGS}")
-    if(UNIX)
-      separate_arguments(dflags UNIX_COMMAND "${dflags}")
-    else()
-      separate_arguments(dflags WINDOWS_COMMAND "${dflags}")
-    endif()
-    add_custom_command(
-        OUTPUT ${object_file}
-        COMMAND ${D_COMPILER} -c ${dflags} -of${object_file} ${compiler_args}
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        DEPENDS ${compile_deps}
-    )
-    # Link to an executable.
-    if(LDC_LINK_MANUALLY)
-        add_custom_command(
-            OUTPUT ${output_exe}
-            COMMAND ${CMAKE_CXX_COMPILER} -o ${output_exe} ${object_file} ${linker_args} ${LDC_LINKERFLAG_LIST}
-            DEPENDS ${object_file} ${link_deps}
-        )
-    else()
-        set(translated_linker_flags "")
-        foreach(f ${linker_args})
-            list(APPEND translated_linker_flags "-L${f}")
-        endforeach()
-        add_custom_command(
-            OUTPUT ${output_exe}
-            COMMAND ${D_COMPILER} ${dflags} ${DDMD_LFLAGS} -of${output_exe} ${object_file} ${translated_linker_flags} ${LDC_TRANSLATED_LINKER_FLAGS}
-            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-            DEPENDS ${object_file} ${link_deps}
-        )
-    endif()
-endfunction()
-
 # CONFIG generator expressions need to be repeated due to https://cmake.org/Bug/view.php?id=14353
 if(MSVC_IDE)
     separate_arguments(LDC_FLAG_LIST WINDOWS_COMMAND "${LDC_TRANSLATED_LINKER_FLAGS} ${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS}")
@@ -689,8 +656,9 @@ else()
     build_d_executable(
         "${LDC_EXE_FULL}"
         "${LDC_D_SOURCE_FILES}"
+        ""
         "$<TARGET_LINKER_FILE:${LDC_LIB}>"
-        "${LDC_D_SOURCE_FILES};${FE_RES}"
+        "${FE_RES}"
         "${LDC_LIB}"
     )
 endif()
@@ -725,12 +693,13 @@ set_target_properties(
     ARCHIVE_OUTPUT_NAME ldmd
     LIBRARY_OUTPUT_NAME ldmd
 )
-set(LDMD_D_SOURCE_FILES dmd/root/man.d driver/ldmd.d)
+set(LDMD_D_SOURCE_FILES ${PROJECT_SOURCE_DIR}/dmd/root/man.d ${PROJECT_SOURCE_DIR}/driver/ldmd.d)
 build_d_executable(
     "${LDMD_EXE_FULL}"
     "${LDMD_D_SOURCE_FILES}"
+    ""
     "$<TARGET_LINKER_FILE:LDMD_CXX_LIB>"
-    "${LDMD_D_SOURCE_FILES}"
+    ""
     "LDMD_CXX_LIB"
 )
 
@@ -867,9 +836,10 @@ enable_testing()
 set(LDC_UNITTEST_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_EXE_NAME}-unittest${CMAKE_EXECUTABLE_SUFFIX})
 build_d_executable(
     "${LDC_UNITTEST_EXE_FULL}"
-    "-unittest;${LDC_D_SOURCE_FILES}"
-    "$<TARGET_LINKER_FILE:${LDC_LIB}>"
     "${LDC_D_SOURCE_FILES}"
+    "-unittest"
+    "$<TARGET_LINKER_FILE:${LDC_LIB}>"
+    ""
     "${LDC_LIB}"
 )
 add_custom_target(ldc2-unittest DEPENDS ${LDC_UNITTEST_EXE_FULL})
@@ -893,6 +863,7 @@ set(LDC_BUILD_RUNTIME_EXE_FULL ${PROJECT_BINARY_DIR}/bin/ldc-build-runtime${CMAK
 build_d_executable(
     "${LDC_BUILD_RUNTIME_EXE_FULL}"
     "${PROJECT_BINARY_DIR}/ldc-build-runtime.d"
+    ""
     ""
     "${PROJECT_SOURCE_DIR}/runtime/ldc-build-runtime.d.in"
     ""

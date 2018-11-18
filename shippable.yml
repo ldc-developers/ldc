@@ -62,6 +62,8 @@ build:
         -DLLVM_ROOT_DIR=$PWD/../llvm \
         -DCMAKE_INSTALL_PREFIX=$PWD/../ldc-bootstrap \
         -DD_COMPILER=$PWD/../ldc-ltsmaster/bin/ldmd2 \
+        -DCOMPILE_D_MODULES_SEPARATELY=ON \
+        -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF \
         ..
     - ninja -j32 install
     - cd ..
@@ -77,6 +79,7 @@ build:
         -DCMAKE_INSTALL_PREFIX=$LDC_INSTALL_DIR \
         -DINCLUDE_INSTALL_DIR=$LDC_INSTALL_DIR/import \
         -DD_COMPILER=$PWD/../ldc-bootstrap/bin/ldmd2 \
+        -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF \
         $EXTRA_CMAKE_FLAGS \
         ..
     - ninja -j32
@@ -85,12 +88,12 @@ build:
     - ninja -j16 all-test-runners
     # Build and run LDC D unittests
     - ctest --output-on-failure -R ldc2-unittest
-    # Run LIT testsuite
+    # Run LIT testsuite, ignore the errors
     - ctest -V -R lit-tests || true
-    # Run DMD testsuite (non-debug only for now)
+    # Run DMD testsuite (non-debug only for now), ignore the errors
     - DMD_TESTSUITE_MAKE_ARGS='-j16 -k' ctest -V -R dmd-testsuite -E "-debug$" || true
-    # Run druntime/Phobos unittests (non-debug only for now)
-    - ctest -j16 --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests|-debug(-shared)?$" || true
+    # Run druntime/Phobos unittests (non-debug only for now, excl. hanging core.thread), ignore the errors
+    - ctest -j16 --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests|-debug(-shared)?$|^core.thread($|-)" || true
     # Install LDC
     - ninja install
     - cd ..
