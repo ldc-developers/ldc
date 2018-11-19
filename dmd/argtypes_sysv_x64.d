@@ -147,7 +147,7 @@ Classification classify(Type t, size_t size)
 extern (C++) final class ToClassesVisitor : Visitor
 {
     const size_t size;
-    const int numEightbytes;
+    int numEightbytes;
     Class[4] result = Class.NoClass;
 
     this(size_t size)
@@ -390,5 +390,12 @@ extern (C++) final class ToClassesVisitor : Visitor
                 if (c != Class.SSEUp)
                     return memory();
         }
+
+        // Undocumented special case for aggregates with the 2nd eightbyte
+        // consisting of padding only (`struct S { align(16) int a; }`).
+        // clang only passes the first eightbyte in that case, so let's do the
+        // same.
+        if (numEightbytes == 2 && result[1] == Class.NoClass)
+            numEightbytes = 1;
     }
 }
