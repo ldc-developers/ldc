@@ -83,7 +83,10 @@ DValue *DtoNewClass(Loc &loc, TypeClass *tc, NewExp *newexp) {
   // allocate
   LLValue *mem;
   if (newexp->onstack) {
-    mem = DtoRawAlloca(DtoType(tc)->getContainedType(0), DtoAlignment(tc),
+    unsigned alignment = tc->sym->alignsize;
+    if (alignment == STRUCTALIGN_DEFAULT)
+      alignment = 0;
+    mem = DtoRawAlloca(DtoType(tc)->getContainedType(0), alignment,
                        ".newclass_alloca");
   }
   // custom allocator
