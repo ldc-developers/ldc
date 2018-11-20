@@ -206,7 +206,11 @@ public:
 
     uint64_t offset =
         gDataLayout->getStructLayout(type)->getElementOffset(index);
+#if LDC_LLVM_VER >= 500
+    addr.push_back(llvm::dwarf::DW_OP_plus_uconst);
+#else
     addr.push_back(llvm::dwarf::DW_OP_plus);
+#endif
     addr.push_back(offset);
   }
 

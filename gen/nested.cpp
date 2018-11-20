@@ -93,6 +93,21 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
   IF_LOG { Logger::cout() << "casting to: " << *irfunc->frameType << '\n'; }
   LLValue *val = DtoBitCast(ctx, frameType);
 
+  // Make the DWARF variable address relative to the context pointer (ctx);
+  // register all ops (offsetting, dereferencing) required to get there in the
+  // following list.
+  LLSmallVector<int64_t, 4> dwarfAddrOps;
+
+  const auto offsetToNthField = [&val, &dwarfAddrOps](unsigned fieldIndex,
+                                                      const char *name = "") {
+    gIR->DBuilder.OpOffset(dwarfAddrOps, val, fieldIndex);
+    val = DtoGEPi(val, 0, fieldIndex, name);
+  };
+  const auto dereference = [&val, &dwarfAddrOps](const char *name = "") {
+    gIR->DBuilder.OpDeref(dwarfAddrOps);
+    val = DtoAlignedLoad(val, name);
+  };
+
   IrLocal *const irLocal = getIrLocal(vd);
   const auto vardepth = irLocal->nestedDepth;
   const auto funcdepth = irfunc->depth;
@@ -111,20 +126,16 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
   } else {
     // Load frame pointer and index that...
     IF_LOG Logger::println("Lower depth");
-    val = DtoGEPi(val, 0, vardepth);
+    offsetToNthField(vardepth);
     IF_LOG Logger::cout() << "Frame index: " << *val << '\n';
-    val = DtoAlignedLoad(
-        val, (std::string(".frame.") + vdparent->toChars()).c_str());
+    dereference((std::string(".frame.") + vdparent->toChars()).c_str());
     IF_LOG Logger::cout() << "Frame: " << *val << '\n';
   }
 
   const auto idx = irLocal->nestedIndex;
   assert(idx != -1 && "Nested context not yet resolved for variable.");
 
-  LLSmallVector<int64_t, 2> dwarfAddrOps;
-
-  LLValue *gep = DtoGEPi(val, 0, idx, vd->toChars());
-  val = gep;
+  offsetToNthField(idx, vd->toChars());
   IF_LOG {
     Logger::cout() << "Addr: " << *val << '\n';
     Logger::cout() << "of type: " << *val->getType() << '\n';
@@ -135,8 +146,8 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     // storage of pointer (reference lvalue).
   } else if (byref || isRefOrOut) {
     val = DtoAlignedLoad(val);
-    // ref/out variables get a reference-debuginfo-type in EmitLocalVariable();
-    // pass the GEP as reference lvalue in that case.
+    // ref/out variables get a reference-debuginfo-type in EmitLocalVariable()
+    // => don't dereference, use reference lvalue as address
     if (!isRefOrOut)
       gIR->DBuilder.OpDeref(dwarfAddrOps);
     IF_LOG {
@@ -147,11 +158,9 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
 
   if (!skipDIDeclaration && global.params.symdebug) {
 #if LDC_LLVM_VER < 500
-    // Because we are passing a GEP instead of an alloca to
-    // llvm.dbg.declare, we have to make the address dereference explicit.
     gIR->DBuilder.OpDeref(dwarfAddrOps);
 #endif
-    gIR->DBuilder.EmitLocalVariable(gep, vd, nullptr, false,
+    gIR->DBuilder.EmitLocalVariable(ctx, vd, nullptr, false,
                                     /*forceAsLocal=*/true, false, dwarfAddrOps);
   }
 
