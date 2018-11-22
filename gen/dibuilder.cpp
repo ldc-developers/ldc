@@ -1000,7 +1000,11 @@ DISubprogram DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
   const auto scopeLine = lineNo; // FIXME
   const auto flags = DIFlags::FlagPrototyped;
   const auto isOptimized = isOptimizationEnabled();
-
+#if LDC_LLVM_VER >= 800
+  const auto dispFlags = llvm::DISubprogram::toSPFlags(
+                            isLocalToUnit, isDefinition, isOptimized);
+#endif
+    
   DISubroutineType diFnType = nullptr;
   if (!mustEmitFullDebugInfo()) {
     diFnType = CreateEmptyFunctionType();
@@ -1009,23 +1013,65 @@ DISubprogram DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
     // The return type is a nested struct, so for this particular
     // chicken-and-egg case we need to create a temporary subprogram.
     irFunc->diSubprogram = DBuilder.createTempFunctionFwdDecl(
-        scope, name, linkageName, file, lineNo, /*ty=*/nullptr, isLocalToUnit,
-        isDefinition, scopeLine, flags, isOptimized);
+        scope, name, linkageName, file, lineNo, /*ty=*/nullptr,
+#if LDC_LLVM_VER < 800
+        isLocalToUnit, isDefinition,
+#endif
+        scopeLine, flags,
+#if LDC_LLVM_VER >= 800
+        dispFlags
+#else
+        isOptimized
+#endif
+        );
 
     // Now create subroutine type.
     diFnType = CreateFunctionType(static_cast<TypeFunction *>(fd->type));
   }
 
   // FIXME: duplicates?
-  auto SP = DBuilder.createFunction(scope, name, linkageName, file, lineNo,
-                                    diFnType, isLocalToUnit, isDefinition,
-                                    scopeLine, flags, isOptimized);
+  auto SP = CreateFunction(scope, name, linkageName,
+                           isLocalToUnit, isDefinition, isOptimized,
+                           lineNo, scopeLine,
+                           file, diFnType, flags
+        );
 
   if (mustEmitFullDebugInfo())
     DBuilder.replaceTemporary(llvm::TempDINode(irFunc->diSubprogram), SP);
 
   irFunc->diSubprogram = SP;
   return SP;
+}
+
+DISubprogram DIBuilder::CreateFunction(
+                DIScope scope, llvm::StringRef name, llvm::StringRef lnkageName,
+                bool isLocalToUnit, bool isdefinition, bool isOptimized,
+                unsigned lineNum, unsigned scopeLine,
+                DIFile file, DISubroutineType ty, llvm::DINode::DIFlags flags)
+{
+#if LDC_LLVM_VER >= 800
+    const auto dispFlags = llvm::DISubprogram::toSPFlags(
+                            isLocalToUnit, isdefinition, isOptimized);
+#endif
+    return DBuilder.createFunction(
+              scope,
+              name,
+              lnkageName,
+              file,
+              lineNum,
+              ty,
+#if LDC_LLVM_VER < 800
+              isLocalToUnit,
+              isdefinition,
+#endif
+              scopeLine,
+              flags,
+#if LDC_LLVM_VER >= 800
+              dispFlags
+#else
+              isOptimized
+#endif
+            );
 }
 
 DISubprogram DIBuilder::EmitThunk(llvm::Function *Thunk, FuncDeclaration *fd) {
@@ -1046,22 +1092,22 @@ DISubprogram DIBuilder::EmitThunk(llvm::Function *Thunk, FuncDeclaration *fd) {
 
   std::string name = fd->toChars();
   name.append(".__thunk");
-
-  // FIXME: duplicates?
-  auto SP = DBuilder.createFunction(
-      GetSymbolScope(fd),                    // context
-      name,                                  // name
-      Thunk->getName(),                      // linkage name
-      file,                                  // file
-      fd->loc.linnum,                        // line no
-      DIFnType,                              // type
-      fd->protection.kind == Prot::private_, // is local to unit
-      true,                                  // isdefinition
-      fd->loc.linnum,                        // FIXME: scope line
-      DIFlags::FlagPrototyped,               // Flags
-      isOptimizationEnabled()                // isOptimized
-  );
-  return SP;
+  const bool isLocalToUnit = fd->protection.kind == Prot::private_;
+  const bool isOptimized = isOptimizationEnabled();
+  const bool isdefinition = true;
+    
+  return CreateFunction(GetSymbolScope(fd),
+                        name,
+                        Thunk->getName(),
+                        isLocalToUnit,
+                        isdefinition,
+                        isOptimized,
+                        
+                        fd->loc.linnum,
+                        fd->loc.linnum,          // FIXME: scope line
+                        file,
+                        DIFnType,
+                        DIFlags::FlagPrototyped);
 }
 
 DISubprogram DIBuilder::EmitModuleCTor(llvm::Function *Fn,
@@ -1081,21 +1127,19 @@ DISubprogram DIBuilder::EmitModuleCTor(llvm::Function *Fn,
   LLMetadata *params = {CreateTypeDescription(Type::tvoid)};
   auto paramsArray = DBuilder.getOrCreateTypeArray(params);
   auto DIFnType = DBuilder.createSubroutineType(paramsArray);
-
-  // FIXME: duplicates?
-  auto SP =
-      DBuilder.createFunction(GetCurrentScope(), // context
-                              prettyname,        // name
-                              Fn->getName(),     // linkage name
-                              file,              // file
-                              0,                 // line no
-                              DIFnType, // return type. TODO: fill it up
-                              true,     // is local to unit
-                              true,     // isdefinition
-                              0,        // FIXME: scope line
-                              DIFlags::FlagPrototyped | DIFlags::FlagArtificial,
-                              isOptimizationEnabled() // isOptimized
-      );
+  const bool isOptimized = isOptimizationEnabled();
+    
+  auto SP = CreateFunction(GetCurrentScope(),
+                        prettyname,
+                        Fn->getName(),
+                        true, //isLocalToUnit
+                        true, // isdefinition
+                        isOptimized,
+                        0,
+                        0,          // FIXME: scope line
+                        file,
+                        DIFnType,
+                        DIFlags::FlagPrototyped | DIFlags::FlagArtificial);
   Fn->setSubprogram(SP);
   return SP;
 }

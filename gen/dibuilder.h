@@ -184,6 +184,11 @@ private:
   DIType CreateMemberType(unsigned linnum, Type *type, DIFile file,
                           const char *c_name, unsigned offset, Prot::Kind,
                           bool isStatic = false, DIScope scope = nullptr);
+  DISubprogram CreateFunction(
+                    DIScope scope, llvm::StringRef name, llvm::StringRef lnkageName,
+                    bool isLocalToUnit, bool isdefinition, bool isOptimized,
+                    unsigned lineNum, unsigned scopeLine,
+                    DIFile file, DISubroutineType ty, llvm::DINode::DIFlags flags);
   DIType CreateCompositeType(Type *type);
   DIType CreateArrayType(Type *type);
   DIType CreateSArrayType(Type *type);
