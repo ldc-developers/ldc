@@ -156,11 +156,16 @@ if (platform.system() == 'Windows'):
     config.substitutions.append( ('%obj', '.obj') )
     config.substitutions.append( ('%exe', '.exe') )
     config.substitutions.append( ('%lib', '.lib') )
+    config.substitutions.append( ('%so', '.dll') )
     config.substitutions.append( ('%diff_binary ', 'fc /b ') )
 else:
     config.substitutions.append( ('%obj', '.o') )
     config.substitutions.append( ('%exe', '') )
     config.substitutions.append( ('%lib', '.a') )
+    if (platform.system() == 'Darwin'):
+        config.substitutions.append( ('%so', '.dylib') )
+    else:
+        config.substitutions.append( ('%so', '.so') )
     config.substitutions.append( ('%diff_binary ', 'cmp -s ') )
 
 # Add cdb substitution

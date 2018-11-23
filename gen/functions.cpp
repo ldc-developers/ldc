@@ -574,13 +574,6 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
                                  : LLGlobalValue::DLLExportStorageClass);
   }
 
-  // Hide non-exported symbols
-  if (opts::defaultToHiddenVisibility &&
-             !fdecl->isImportedSymbol() &&
-             !fdecl->isExport()) {
-    func->setVisibility(LLGlobalValue::HiddenVisibility);
-  }
-
   IF_LOG Logger::cout() << "func = " << *func << std::endl;
 
   // add func to IRFunc
@@ -981,12 +974,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     }
   }
 
-  // if this function is naked, we take over right away! no standard processing!
-  if (fd->naked) {
-    DtoDefineNakedFunction(fd);
-    return;
-  }
-
   if (!fd->fbody) {
     return;
   }
@@ -999,6 +986,16 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
             "skipping definition of function `%s` due to previous definition "
             "for the same mangled name: %s",
             fd->toPrettyChars(), mangleExact(fd));
+    return;
+  }
+
+  if (opts::defaultToHiddenVisibility && !fd->isExport()) {
+    func->setVisibility(LLGlobalValue::HiddenVisibility);
+  }
+
+  // if this function is naked, we take over right away! no standard processing!
+  if (fd->naked) {
+    DtoDefineNakedFunction(fd);
     return;
   }
 
