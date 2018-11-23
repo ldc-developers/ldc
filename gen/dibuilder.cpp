@@ -38,7 +38,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 using LLMetadata = llvm::Metadata;
-using DIFlags = llvm::DINode;
 
 namespace ldc {
 
@@ -1046,7 +1045,7 @@ DISubprogram DIBuilder::CreateFunction(DIScope scope, llvm::StringRef name,
                                        unsigned lineNo, DISubroutineType ty,
                                        bool isLocalToUnit, bool isDefinition,
                                        bool isOptimized, unsigned scopeLine,
-                                       llvm::DINode::DIFlags flags) {
+                                       DIFlagsType flags) {
 #if LDC_LLVM_VER >= 800
   const auto dispFlags =
       llvm::DISubprogram::toSPFlags(isLocalToUnit, isDefinition, isOptimized);

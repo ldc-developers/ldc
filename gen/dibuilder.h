@@ -56,6 +56,13 @@ using DISubroutineType = llvm::DISubroutineType *;
 using DISubprogram = llvm::DISubprogram *;
 using DIModule = llvm::DIModule *;
 using DICompileUnit = llvm::DICompileUnit *;
+#if LDC_LLVM_VER >= 400
+using DIFlagsType = llvm::DINode::DIFlags;
+using DIFlags = llvm::DINode::DIFlags;
+#else
+using DIFlagsType = unsigned;
+using DIFlags = llvm::DINode;
+#endif
 
 class DIBuilder {
   IRState *const IR;
@@ -189,7 +196,7 @@ private:
                               unsigned lineNo, DISubroutineType ty,
                               bool isLocalToUnit, bool isDefinition,
                               bool isOptimized, unsigned scopeLine,
-                              llvm::DINode::DIFlags flags);
+                              DIFlagsType flags);
   DIType CreateCompositeType(Type *type);
   DIType CreateArrayType(Type *type);
   DIType CreateSArrayType(Type *type);
