@@ -1,7 +1,7 @@
 // Tests that even in non-optimized builds, member = member.init immediately does a memcpy,
 // instead of going through a temporary stack allocated variable.
-// Exception: when member has an opAssign with auto ref parameter, then the .init symbol
-// apparently counts as an rvalue so a local temporary has to be passed.
+// Exception: when member has an opAssign with auto ref parameter a local temporary
+// has to be passed because `.init` is an rvalue,
 
 // RUN: %ldc -output-ll %s -of=%t.ll && FileCheck %s < %t.ll
 
@@ -12,7 +12,7 @@ FloatStruct opaque(FloatStruct);
 
 FloatStruct globalStruct;
 
-// CHECK-LABEL: _D32assign_struct_init_without_stack3fooFZv
+// CHECK-LABEL: define{{.*}} @{{.*}}_D32assign_struct_init_without_stack3fooFZv
 void foo() {
     globalStruct = FloatStruct.init;
     // There should be only one memcpy.
@@ -20,7 +20,7 @@ void foo() {
     // CHECK-NEXT: ret void
 }
 
-// CHECK-LABEL: _D32assign_struct_init_without_stack3hhhFZv
+// CHECK-LABEL: define{{.*}} @{{.*}}_D32assign_struct_init_without_stack3hhhFZv
 void hhh() {
     globalStruct = FloatStruct([1, 0, 0, 0, 0, 0, 0, 0, 0, 42]);
     // There should be only one memcpy.
@@ -28,7 +28,7 @@ void hhh() {
     // CHECK-NEXT: ret void
 }
 
-// CHECK-LABEL: _D32assign_struct_init_without_stack3gggFZv
+// CHECK-LABEL: define{{.*}} @{{.*}}_D32assign_struct_init_without_stack3gggFZv
 void ggg() {
     globalStruct = opaque(globalStruct);
     // There should be one memcpy from a temporary (sret return).
@@ -38,7 +38,7 @@ void ggg() {
     // CHECK-NEXT: ret void
 }
 
-// CHECK-LABEL: _D32assign_struct_init_without_stack5arrayFZv
+// CHECK-LABEL: define{{.*}} @{{.*}}_D32assign_struct_init_without_stack5arrayFZv
 void array() {
     int[5] arr = [0,1,2,3,4];
     // There should be one memcpy.
@@ -59,7 +59,7 @@ struct OpAssignStruct {
 OpAssignStruct globalOpAssignStruct;
 OpAssignStruct globalOpAssignStruct2;
 
-// CHECK-LABEL: _D32assign_struct_init_without_stack16tupleassignByValFZv
+// CHECK-LABEL: define{{.*}} @{{.*}}_D32assign_struct_init_without_stack16tupleassignByValFZv
 void tupleassignByVal()
 {
     globalOpAssignStruct = OpAssignStruct.init;
@@ -71,7 +71,7 @@ void tupleassignByVal()
     // CHECK-NEXT: ret void
 }
 
-// CHECK-LABEL: _D32assign_struct_init_without_stack16tupleassignByRefFZv
+// CHECK-LABEL: define{{.*}} @{{.*}}_D32assign_struct_init_without_stack16tupleassignByRefFZv
 void tupleassignByRef()
 {
     globalOpAssignStruct = globalOpAssignStruct2;
