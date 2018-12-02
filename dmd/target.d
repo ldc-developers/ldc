@@ -109,11 +109,10 @@ struct Target
 
     // implemented in gen/target.cpp:
     static void _init();
-    // Type sizes and support.
     static uint alignsize(Type type);
     static uint fieldalign(Type type);
     static uint critsecsize();
-    static Type va_listType();  // get type of va_list
+    static Type va_listType();
     static int isVectorTypeSupported(int sz, Type type);
     static bool isVectorOpSupported(Type type, TOK op, Type t2 = null);
 
@@ -134,7 +133,6 @@ struct Target
     }
 
     static const(char)* cppTypeMangle(Type t);
-    static Expression getTargetInfo(const(char)* name, const ref Loc loc);
   }
   else // !IN_LLVM
   {
@@ -501,6 +499,19 @@ struct Target
         else
             static assert(0, "fix this");
     }
+
+    /**
+     * Gets vendor-specific type mangling for C++ ABI.
+     * Params:
+     *      t = type to inspect
+     * Returns:
+     *      string if type is mangled specially on target
+     *      null if unhandled
+     */
+    extern (C++) static const(char)* cppTypeMangle(Type t)
+    {
+        return null;
+    }
   } // !IN_LLVM
 
     /**
@@ -536,6 +547,17 @@ struct Target
         return global.params.isWindows ? LINK.windows : LINK.c;
     }
 
+  version (IN_LLVM)
+  {
+    extern (C++):
+
+    static TypeTuple toArgTypes(Type t);
+    static bool isReturnOnStack(TypeFunction tf, bool needsThis);
+    // unused: static ulong parameterSize(const ref Loc loc, Type t);
+    static Expression getTargetInfo(const(char)* name, const ref Loc loc);
+  }
+  else // !IN_LLVM
+  {
     /**
      * Describes how an argument type is passed to a function on target.
      * Params:
@@ -545,19 +567,12 @@ struct Target
      *      empty tuple if type is always passed on the stack
      *      null if the type is a `void` or argtypes aren't supported by the target
      */
-  version (IN_LLVM)
-  {
-    extern (C++) static TypeTuple toArgTypes(Type t);
-  }
-  else
-  {
     extern (C++) static TypeTuple toArgTypes(Type t)
     {
         if (global.params.is64bit && global.params.isWindows)
             return null;
         return .toArgTypes(t);
     }
-  }
 
     /**
      * Determine return style of function - whether in registers or
@@ -568,12 +583,6 @@ struct Target
      * Returns:
      *   true if return value from function is on the stack
      */
-  version (IN_LLVM)
-  {
-    extern (C++) static bool isReturnOnStack(TypeFunction tf, bool needsThis);
-  }
-  else
-  {
     extern (C++) static bool isReturnOnStack(TypeFunction tf, bool needsThis)
     {
         if (tf.isref)
@@ -726,10 +735,7 @@ struct Target
             return false;
         }
     }
-  } // !IN_LLVM
 
-  version (IN_LLVM) {} else
-  {
     /***
      * Determine the size a value of type `t` will be when it
      * is passed on the function parameter stack.
