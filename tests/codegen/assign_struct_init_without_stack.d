@@ -1,12 +1,11 @@
-// Tests that even in non-optimized builds, member = member.init immediately does a memcpy,
-// instead of going through a temporary stack allocated variable.
-// Exception: when member has an opAssign with auto ref parameter a local temporary
-// has to be passed because `.init` is an rvalue,
+// Tests minimal use of temporaries in non-optimized builds for struct and array assignment.
+// Tests `.init` assignment in particular.
 
 // RUN: %ldc -output-ll %s -of=%t.ll && FileCheck %s < %t.ll
 
 void opaque();
 FloatStruct opaque(FloatStruct);
+FloatStruct opaqueret();
 
 struct FloatStruct {
     float[10] data;
@@ -30,10 +29,22 @@ void hhh() {
 
 // CHECK-LABEL: define{{.*}} @{{.*}}_D32assign_struct_init_without_stack3gggFZv
 void ggg() {
-    globalStruct = opaque(globalStruct);
-    // There should be one memcpy from a temporary (sret return).
-    // CHECK: alloca %assign_struct_init_without_stack.FloatStruct
-    // CHECK: call
+    globalStruct = opaqueret();
+    // opaque() could be accessing globalStruct, in-place assignment not possible.
+    // CHECK: sret_tmp = alloca %assign_struct_init_without_stack.FloatStruct
+    // CHECK: call {{.*}}opaqueret
+    // CHECK: call void @llvm.memcpy
+    // CHECK-NEXT: ret void
+}
+
+// CHECK-LABEL: define{{.*}} @{{.*}}_D32assign_struct_init_without_stack5localFZv
+void local() {
+    FloatStruct local;
+    local = opaque(local);
+    // Not possible to do in-place assignment, so temporary must be created.
+    // CHECK: local = alloca %assign_struct_init_without_stack.FloatStruct
+    // CHECK: sret_tmp = alloca %assign_struct_init_without_stack.FloatStruct
+    // CHECK: call {{.*}}opaque
     // CHECK: call void @llvm.memcpy
     // CHECK-NEXT: ret void
 }
