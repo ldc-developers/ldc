@@ -228,7 +228,7 @@ commonSteps: &commonSteps
           cd ..
           mkdir artifacts
           if [ -z "$CIRCLE_TAG" ]; then
-            artifactBasename="ldc2-${CIRCLE_SHA1:0:8}-$CI_OS-x86_64-$(date "+%Y%m%d")"
+            artifactBasename="ldc2-${CIRCLE_SHA1:0:8}-$CI_OS-x86_64"
           else
             artifactBasename="ldc2-${CIRCLE_TAG:1}-$CI_OS-x86_64"
           fi
