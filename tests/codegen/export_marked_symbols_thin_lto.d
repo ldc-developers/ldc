@@ -1,15 +1,18 @@
-// Test that -fvisibility=hidden works with thin LTO
+// Tests that mismatching symbol visibilities between declarations and definitions
+// work with thin LTO.
 
 // REQUIRES: LTO
 
-// RUN: ldc2 %S/inputs/export_marked_symbols_thin_lto_lib.d -c -fvisibility=hidden -flto=thin -of=%t1%obj
-// RUN: ldc2 %s -I%S/inputs -c -flto=thin -of=%t2%obj
-// RUN: ldc2 %t1%obj %t2%obj -flto=thin
+// RUN: ldc2 %S/inputs/export_marked_symbols_lib.d -c -fvisibility=hidden -flto=thin -of=%t_lib%obj
+// RUN: ldc2 %s -I%S/inputs -flto=thin -of=%t%exe %t_lib%obj
 
-import export_marked_symbols_thin_lto_lib;
+import export_marked_symbols_lib;
 
 void main()
 {
+    exportedGlobal = 1;
+    normalGlobal = 2; // declared in this module with default visibility, defined as hidden
+
     exportedFoo();
-    normalFoo();
+    normalFoo(); // ditto
 }

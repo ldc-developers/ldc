@@ -1,26 +1,32 @@
-// Test that compiling with -fvisibility=default exports all symbols on non-Windows targets
+// Tests that -fvisibility=hidden doesn't affect imported and fwd declared symbols,
+// so that they can still be linked in from a shared library.
 
 // UNSUPPORTED: Windows
 
-// RUN: ldc2 %s -betterC -shared -fvisibility=default -of=lib%t.so
-// RUN: nm -g lib%t.so | FileCheck %s
+// RUN: ldc2 %S/inputs/export_marked_symbols_lib.d -shared -of=%t_lib%so
+// RUN: ldc2 %s -I%S/inputs -fvisibility=hidden -of=%t%exe %t_lib%so
+// RUN: ldc2 %s -I%S/inputs -fvisibility=hidden -of=%t%exe %t_lib%so -d-version=DECLARE_MANUALLY
 
-// CHECK: test__exportedFunDef
-// CHECK: test__exportedVarDef
-// CHECK-NOT: test__nonExportedFunDecl
-// CHECK: test__nonExportedFunDef
-// CHECK-NOT: test__nonExportedVarDecl
-// CHECK: test__nonExportedVarDef
+version (DECLARE_MANUALLY)
+{
+    extern(C++):
 
+    export extern __gshared int exportedGlobal;
+    extern __gshared int normalGlobal;
 
-extern(C) export int test__exportedFunDef() { return 42; }
-extern(C) int test__nonExportedFunDef() { return 101; }
+    export void exportedFoo();
+    void normalFoo();
+}
+else
+{
+    import export_marked_symbols_lib;
+}
 
-extern(C) export int test__exportedFunDecl();
-extern(C) int test__nonExportedFunDecl();
+void main()
+{
+    exportedGlobal = 1;
+    normalGlobal = 2;
 
-extern(C) export int test__exportedVarDef;
-extern(C) int test__nonExportedVarDef;
-
-extern(C) extern export int test__exportedVarDecl;
-extern(C) extern int test__nonExportedVarDecl;
+    exportedFoo();
+    normalFoo();
+}

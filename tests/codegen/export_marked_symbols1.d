@@ -1,26 +1,24 @@
-// Test that passing -fvisibility=hidden hides all unexported symbols
+// Tests -fvisibility={default,hidden} for function definitions and
+// (non-extern) globals on non-Windows targets.
 
 // UNSUPPORTED: Windows
 
-// RUN: ldc2 %s -betterC -shared -fvisibility=hidden -of=lib%t.so
-// RUN: nm -g lib%t.so | FileCheck %s
+// RUN: ldc2 %s -betterC -shared -fvisibility=default -of=lib%t_default%so
+// RUN: nm -g lib%t_default%so | FileCheck -check-prefix=DEFAULT %s
 
-// CHECK: test__exportedFunDef
-// CHECK: test__exportedVarDef
-// CHECK-NOT: test__nonExportedFunDecl
-// CHECK-NOT: test__nonExportedFunDef
-// CHECK-NOT: test__nonExportedVarDecl
-// CHECK-NOT: test__nonExportedVarDef
+// RUN: ldc2 %s -betterC -shared -fvisibility=hidden -of=lib%t_hidden%so
+// RUN: nm -g lib%t_hidden%so | FileCheck -check-prefix=HIDDEN %s
 
+extern(C) export int test__exportedFun() { return 42; }
+// DEFAULT: test__exportedFun
+// HIDDEN: test__exportedFun
+extern(C) export int test__exportedVar;
+// DEFAULT: test__exportedVar
+// HIDDEN: test__exportedVar
 
-extern(C) export int test__exportedFunDef() { return 42; }
-extern(C) int test__nonExportedFunDef() { return 101; }
-
-extern(C) export int test__exportedFunDecl();
-extern(C) int test__nonExportedFunDecl();
-
-extern(C) export int test__exportedVarDef;
-extern(C) int test__nonExportedVarDef;
-
-extern(C) extern export int test__exportedVarDecl;
-extern(C) extern int test__nonExportedVarDecl;
+extern(C) int test__nonExportedFun() { return 101; }
+// DEFAULT: test__nonExportedFun
+// HIDDEN-NOT: test__nonExportedFun
+extern(C) int test__nonExportedVar;
+// DEFAULT: test__nonExportedVar
+// HIDDEN-NOT: test__nonExportedVar
