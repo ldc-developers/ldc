@@ -144,7 +144,7 @@ build:
     # Pack installation dir
     - |
       if [ "$IS_GIT_TAG" = "false" ]; then
-        artifactBasename="ldc2-${COMMIT:0:8}-linux-aarch64-$(date "+%Y%m%d")"
+        artifactBasename="ldc2-${COMMIT:0:8}-linux-aarch64"
       else
         artifactBasename="ldc2-${GIT_TAG_NAME:1}-linux-aarch64"
       fi
