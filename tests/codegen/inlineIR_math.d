@@ -1,4 +1,4 @@
-// Tests inlineIR + math optimizations
+// Tests inline IR + math optimizations
 
 // REQUIRES: target_X86
 
@@ -6,15 +6,14 @@
 // RUN: %ldc -mtriple=x86_64-linux-gnu -mattr=+fma -O3 -release -c -output-s -of=%t.s %s && FileCheck %s --check-prefix ASM < %t.s
 
 import ldc.attributes;
-pragma(LDC_inline_ir) R inlineIR(string s, R, P...)(P);
-
+import ldc.llvmasm;
 
 // Test that internal @inline.ir.*" functions for the inlined IR pieces are always inlined and are not present as a global symbol
 // LLVM-NOT: @inline.ir.
 // LLVM-NOT: alwaysinline
 
 
-// inlineIR should inherit the enclosing function attributes, thus preserving the enclosing function attributes after inlining.
+// __ir should inherit the enclosing function attributes, thus preserving the enclosing function attributes after inlining.
 // LLVM-LABEL: define{{.*}} @dot
 // LLVM-SAME: #[[UNSAFEFPMATH:[0-9]+]]
 // ASM-LABEL: dot:
@@ -26,9 +25,9 @@ extern (C) double dot(double[] a, double[] b)
 // ASM: vfmadd{{[123][123][123]}}pd
     foreach (size_t i; 0 .. a.length)
     {
-        s = inlineIR!(`%p = fmul fast double %0, %1
-                       %r = fadd fast double %p, %2
-                       ret double %r`, double)(a[i], b[i], s);
+        s = __ir!(`%p = fmul fast double %0, %1
+                   %r = fadd fast double %p, %2
+                   ret double %r`, double)(a[i], b[i], s);
     }
     return s;
 }
@@ -41,14 +40,14 @@ extern (C) double features(double[] a, double[] b)
     double s = 0;
     foreach (size_t i; 0 .. a.length)
     {
-        s = inlineIR!(`%p = fmul fast double %0, %1
-                       %r = fadd fast double %p, %2
-                       ret double %r`, double)(a[i], b[i], s);
+        s = __ir!(`%p = fmul fast double %0, %1
+                   %r = fadd fast double %p, %2
+                   ret double %r`, double)(a[i], b[i], s);
     }
     return s;
 }
 
-// Test that inlineIR works when calling function has special attributes defined for its parameters
+// Test that inline IR works when calling function has special attributes defined for its parameters
 // LLVM-LABEL: define{{.*}} @dot160
 // ASM-LABEL: dot160:
 extern (C) double dot160(double[160] a, double[160] b)
@@ -58,22 +57,22 @@ extern (C) double dot160(double[160] a, double[160] b)
 // ASM-NOT: vfmadd
     foreach (size_t i; 0 .. a.length)
     {
-        s = inlineIR!(`%p = fmul double %0, %1
-                       %r = fadd double %p, %2
-                       ret double %r`, double)(a[i], b[i], s);
+        s = __ir!(`%p = fmul double %0, %1
+                   %r = fadd double %p, %2
+                   ret double %r`, double)(a[i], b[i], s);
     }
     return s;
 }
 
-// Test inlineIR alias defined outside any function
-alias inlineIR!(`%p = fmul fast double %0, %1
-                 %r = fadd fast double %p, %2
-                 ret double %r`,
-                 double, double, double, double) muladdFast;
-alias inlineIR!(`%p = fmul double %0, %1
-                 %r = fadd double %p, %2
-                 ret double %r`,
-                 double, double, double, double) muladd;
+// Test inline IR alias defined outside any function
+alias __ir!(`%p = fmul fast double %0, %1
+             %r = fadd fast double %p, %2
+             ret double %r`,
+             double, double, double, double) muladdFast;
+alias __ir!(`%p = fmul double %0, %1
+             %r = fadd double %p, %2
+             ret double %r`,
+             double, double, double, double) muladd;
 
 // LLVM-LABEL: define{{.*}} @aliasInlineUnsafe
 // LLVM-SAME: #[[UNSAFEFPMATH]]
