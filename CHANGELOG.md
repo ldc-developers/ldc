@@ -1,3 +1,33 @@
+# LDC 1.12.0 (2018-10-13)
+
+#### Big news
+- Frontend, druntime and Phobos are at version **2.082.1**. (#2818, #2837, #2858, #2873)
+  - Significant performance improvements for some transcendental `std.math` functions in single and double precision, at least for x86. (https://github.com/dlang/phobos/pull/6272#issuecomment-373967109)
+- Support for **LLVM 7**, which is used for the prebuilt packages. Due to an LLVM 7.0.0 [regression](https://bugs.llvm.org/show_bug.cgi?id=38289), the prebuilt x86[_64] LDC binaries require a **CPU with SSSE3**, and so will your optimized binaries (unless compiling with `-mattr=-ssse3`). (#2850)
+- **JIT compilation**: new `ldc.dynamic_compile.bind` function with interface similar to C++ `std::bind`, allowing to generate efficient specialized versions of functions (much like [Easy::jit](https://github.com/jmmartinez/easy-just-in-time) for C++). (#2726)
+- LTO now working for Win64 too; the prebuilt package includes the required external LLD linker and the optional LTO default libs. Enable as usual with `-flto=<thin|full> [-defaultlib=druntime-ldc-lto,phobos2-ldc-lto]`. (#2774)
+- Config file: new `lib-dirs` array for directories to be searched for libraries, incl. LLVM compiler-rt libraries. (#2790)
+
+#### Platform support
+- Supports LLVM 3.7 - 7.0.
+- Windows: Supports Visual Studio/C++ Build Tools 2015 and 2017.
+- Alpine linux/x64: built against Musl libc to support Docker images based on the Alpine distro, requires the `llvm5-libs`, `musl-dev`, and `gcc` packages to build and link D apps and the `tzdata` and `libcurl` packages for certain stdlib modules.
+- Android/ARM: This release slightly changes the way emulated TLS is interfaced, but is missing a patch for 32-bit ARM. [See the wiki for instructions on patching that file manually before cross-compiling the runtime libraries for 32-bit Android/ARM](https://wiki.dlang.org/Build_D_for_Android).
+
+#### Bug fixes
+- Fix IR-based PGO on Windows (requires our LLVM fork). (#2539)
+- Fix C++ class construction with D `new` on Posix. (#2801)
+- Android: No more text relocations in Phobos zlib, required for API level 23+. (#2822, #2835)
+- Declare extern const/immutable globals as IR constants. (#2849, #2852)
+- Fix issue when emitting both object and textual assembly files at once (`-output-o -output-s`). (#2847)
+- Support address of struct member as key/value in AA literal. (#2859, #2860)
+- Fix ICE when computing addresses relative to functions/labels. (#2865, #2867)
+- beta2 regression wrt. cross-compiling to Android. (#2863)
+
+#### Known issues
+- LDC does not zero the padding area of a `real` variable. This may lead to wrong results if the padding area is also considered. See #770. Does not apply to `real` members inside structs etc.
+
+
 # LDC 1.11.0 (2018-08-18)
 
 #### Big news
