@@ -524,7 +524,9 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
 void ArgsBuilder::addLinker() {
   if (!opts::linker.empty()) {
     args.push_back("-fuse-ld=" + opts::linker);
-  } else if (global.params.isLinux) {
+  } else if (global.params.isLinux &&
+             global.params.targetTriple->getEnvironment() !=
+                 llvm::Triple::Android) {
     // Default to ld.gold on Linux due to ld.bfd issues with ThinLTO (see #2278)
     // and older bfd versions stripping llvm.used symbols (e.g., ModuleInfo
     // refs) with --gc-sections (see #2870).
