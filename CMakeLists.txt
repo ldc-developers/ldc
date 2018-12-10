@@ -21,17 +21,31 @@ if (NOT D_COMPILER_DMD_COMPAT)
     message(FATAL_ERROR "We currently only support building using a D compiler with a DMD-compatible commandline interface. (try 'ldmd2' or 'gdmd')")
 endif()
 
+# SPIRV needs LLVMDemangle
+set(LLVM_MODULES all-targets analysis asmparser asmprinter bitreader bitwriter codegen core
+                 debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel
+                 instcombine ipa ipo instrumentation irreader libdriver linker lto mc
+                 mcdisassembler mcparser objcarcopts object option profiledata scalaropts
+                 selectiondag support tablegen target transformutils vectorize
+                 windowsmanifest)
+
+find_package(PkgConfig)
+if(MSVC)
+    # make use pkg-config uses -LC:\path\to\build\LLVMSPIRVLib.lib not -L-lLLVMSPIRVLib
+    set(PKG_CONFIG_EXECUTABLE "${PKG_CONFIG_EXECUTABLE} --msvc-syntax")
+endif()
+pkg_check_modules(LLVM_SPIRV LLVMSPIRVLib)
+if (LLVM_SPIRV_FOUND)
+    message(STATUS "Building with SPIR-V support")
+    add_definitions("-DLDC_LLVM_SUPPORTED_TARGET_SPIRV=1")
+    set(LLVM_MODULES "${LLVM_MODULES}" demangle)
+endif()
+
 #
 # Locate LLVM.
 #
 
-find_package(LLVM 3.9 REQUIRED
-    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core
-    debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel
-    instcombine ipa ipo instrumentation irreader libdriver linker lto mc
-    mcdisassembler mcparser objcarcopts object option profiledata scalaropts
-    selectiondag support tablegen target transformutils vectorize
-    windowsmanifest ${EXTRA_LLVM_MODULES})
+find_package(LLVM 3.9 REQUIRED ${LLVM_MODULES} ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 # Remove LLVMTableGen library from list of libraries
 string(REGEX MATCH "[^;]*LLVMTableGen[^;]*" LLVM_TABLEGEN_LIBRARY "${LLVM_LIBRARIES}")
@@ -42,6 +56,9 @@ foreach(LLVM_SUPPORTED_TARGET ${LLVM_TARGETS_TO_BUILD})
     add_definitions("-DLDC_LLVM_SUPPORTED_TARGET_${LLVM_SUPPORTED_TARGET}=1")
 endforeach()
 
+if (LLVM_SPIRV_FOUND)
+    set(LLVM_LIBRARIES ${LLVM_LIBRARIES} "-l${LLVM_SPIRV_LIBRARIES}")
+endif()
 #
 # Get info about used Linux distribution.
 #

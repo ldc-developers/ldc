@@ -31,9 +31,6 @@
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/Path.h"
-#ifdef LDC_LLVM_SUPPORTED_TARGET_SPIRV
-#include "llvm/Support/SPIRV.h"
-#endif
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #if LDC_LLVM_VER >= 600
@@ -46,6 +43,11 @@
 #include <cstddef>
 #include <fstream>
 
+#ifdef LDC_LLVM_SUPPORTED_TARGET_SPIRV
+namespace llvm {
+    ModulePass *createSPIRVWriterPass(llvm::raw_ostream &Str);
+};
+#endif
 static llvm::cl::opt<bool>
     NoIntegratedAssembler("no-integrated-as", llvm::cl::ZeroOrMore,
                           llvm::cl::Hidden,
@@ -65,7 +67,7 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
   ComputeBackend::Type cb = getComputeTargetType(&m);
 
   if (cb == ComputeBackend::SPIRV) {
-#ifdef LDC_LLVM_SUPPORTED_TARGET_SPIRV
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV
     IF_LOG Logger::println("running createSPIRVWriterPass()");
     llvm::createSPIRVWriterPass(out)->runOnModule(m);
     IF_LOG Logger::println("Success.");
