@@ -250,19 +250,19 @@ public:
     // emit dwarf stop point
     irs->DBuilder.EmitStopPoint(stmt->loc);
 
-    emitCoverageLinecountInc(stmt->loc);
+    if (auto e = stmt->exp) {
+      if (e->hasCode())
+        emitCoverageLinecountInc(stmt->loc);
 
-    if (stmt->exp) {
-      elem *e;
+      DValue *elem;
       // a cast(void) around the expression is allowed, but doesn't require any
       // code
-      if (stmt->exp->op == TOKcast && stmt->exp->type == Type::tvoid) {
-        CastExp *cexp = static_cast<CastExp *>(stmt->exp);
-        e = toElemDtor(cexp->e1);
+      if (e->op == TOKcast && e->type == Type::tvoid) {
+        elem = toElemDtor(static_cast<CastExp *>(e)->e1);
       } else {
-        e = toElemDtor(stmt->exp);
+        elem = toElemDtor(e);
       }
-      delete e;
+      delete elem;
     }
   }
 
