@@ -135,6 +135,8 @@ DIScope DIBuilder::GetSymbolScope(Dsymbol *s) {
     return EmitSubProgram(fd);
   } else if (auto ns = parent->isNspace()) {
     return EmitNamespace(ns, ns->toChars());
+  } else if (auto fwd = parent->isForwardingScopeDsymbol()) {
+    return GetSymbolScope(fwd);
   }
 
   llvm_unreachable("Unhandled parent");
