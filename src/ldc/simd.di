@@ -1,6 +1,7 @@
 module ldc.simd;
 
 import core.simd;
+import ldc.llvmasm;
 
 pure:
 nothrow:
@@ -97,6 +98,7 @@ private template llvmVecType(V)
     }
 }
 
+deprecated("Use `ldc.llvmasm.__ir` or `ldc.llvmasm.__ir_pure` instead of `ldc.simd.inlineIR`.")
 pragma(LDC_inline_ir)
     R inlineIR(string s, R, P...)(P);
 
@@ -137,7 +139,7 @@ if(is(typeof(llvmVecType!V)) && mask.length == numElements!V)
         %r = shufflevector `~llvmV~` %0, `~llvmV~` %1, <`~n.stringof~` x i32> <`~maskIr~`>
         ret `~llvmV~` %r`;
 
-    alias inlineIR!(ir, V, V, V) shufflevector;
+    alias __ir_pure!(ir, V, V, V) shufflevector;
 }
 
 /**
@@ -162,7 +164,7 @@ if(is(typeof(llvmVecType!V)) && i < numElements!V)
         %r = extractelement `~llvmV~` %0, i32 `~i.stringof~`
         ret `~llvmT~` %r`;
 
-    alias inlineIR!(ir, BaseType!V, V) extractelement;
+    alias __ir_pure!(ir, BaseType!V, V) extractelement;
 }
 
 /**
@@ -187,7 +189,7 @@ if(is(typeof(llvmVecType!V)) && i < numElements!V)
         %r = insertelement `~llvmV~` %0, `~llvmT~` %1, i32 `~i.stringof~`
         ret `~llvmV~` %r`;
 
-    alias inlineIR!(ir, V, V, BaseType!V) insertelement;
+    alias __ir_pure!(ir, V, V, BaseType!V) insertelement;
 }
 
 /**
@@ -210,7 +212,7 @@ if(is(typeof(llvmVecType!V)))
         %r = load `~llvmV~`, `~llvmV~`* %p, align 1
         ret `~llvmV~` %r`;
 
-    alias inlineIR!(ir, V, const(T)*) loadUnaligned;
+    alias __ir_pure!(ir, V, const(T)*) loadUnaligned;
 }
 
 /**
@@ -232,7 +234,7 @@ if(is(typeof(llvmVecType!V)))
   enum ir = `
       %p = bitcast `~llvmT~`* %1 to `~llvmV~`*
       store `~llvmV~` %0, `~llvmV~`* %p, align 1`;
-  alias inlineIR!(ir, void, V, T*) storeUnaligned;
+  alias __ir_pure!(ir, void, V, T*) storeUnaligned;
 }
 
 private enum Cond{ eq, ne, gt, ge }
@@ -267,7 +269,7 @@ private template cmpMask(Cond cond)
             %r = sext <`~n.stringof~` x i1> %cmp to `~llvmR~`
             ret `~llvmR~` %r`;
 
-        alias inlineIR!(ir, R, V, V) cmpMask;
+        alias __ir_pure!(ir, R, V, V) cmpMask;
     }
 }
 

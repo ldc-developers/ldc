@@ -185,10 +185,10 @@ alias fastmath = AliasSeq!(llvmAttr("unsafe-fp-math", "true"), llvmFastMathFlag(
  *     double s = 0;
  *     foreach(size_t i; 0..a.length)
  *     {
- *         s = inlineIR!(`
- *         %p = fmul fast double %0, %1
- *         %r = fadd fast double %p, %2
- *         ret double %r`, double)(a[i], b[i], s);
+ *         import ldc.llvmasm: __ir;
+ *         s = __ir!(`%p = fmul fast double %0, %1
+ *                    %r = fadd fast double %p, %2
+ *                    ret double %r`, double)(a[i], b[i], s);
  *     }
  *     return s;
  * }
