@@ -6,9 +6,9 @@ extern(C) void bar()
 }
 
 // Make sure we can use inline IR in non-textual IR compiles:
-pragma(LDC_inline_ir) R __ir(string s, R, P...)(P);
 double inlineIR(double a)
 {
+    import ldc.llvmasm: __ir;
     auto s = __ir!(`ret double %0`, double)(a);
     return s;
 }
