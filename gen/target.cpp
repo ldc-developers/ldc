@@ -26,6 +26,11 @@
 
 using llvm::APFloat;
 
+// in dmd/argtypes.d:
+TypeTuple *toArgTypes(Type *t);
+// in dmd/argtypes_sysv_x64.d:
+TypeTuple *toArgTypes_sysv_x64(Type *t);
+
 void Target::_init() {
   CTFloat::initialize();
 
@@ -206,6 +211,34 @@ bool Target::isVectorOpSupported(Type *type, TOK op, Type *t2) {
   return true;
 }
 
+/**
+ * Gets vendor-specific type mangling for C++ ABI.
+ * Params:
+ *      t = type to inspect
+ * Returns:
+ *      string if type is mangled specially on target
+ *      null if unhandled
+ */
+const char *Target::cppTypeMangle(Type *t) {
+  if (t->ty == Tfloat80) {
+    const auto &triple = *global.params.targetTriple;
+    // `long double` on Android/x64 is __float128 and mangled as `g`
+    bool isAndroidX64 = triple.getEnvironment() == llvm::Triple::Android &&
+                        triple.getArch() == llvm::Triple::x86_64;
+    return isAndroidX64 ? "g" : "e";
+  }
+  return nullptr;
+}
+
+TypeTuple *Target::toArgTypes(Type *t) {
+  const auto &triple = *global.params.targetTriple;
+  if (triple.getArch() == llvm::Triple::x86)
+    return ::toArgTypes(t);
+  if (triple.getArch() == llvm::Triple::x86_64 && !triple.isOSWindows())
+    return toArgTypes_sysv_x64(t);
+  return nullptr;
+}
+
 bool Target::isReturnOnStack(TypeFunction *tf, bool needsThis) {
   return gABI->returnInArg(tf, needsThis);
 }
@@ -254,17 +287,5 @@ Expression *Target::getTargetInfo(const char *name_, const Loc &loc) {
     return createStringExp(cppRuntimeLibrary);
   }
 
-  return nullptr;
-}
-
-TypeTuple *toArgTypes(Type *t);
-TypeTuple *toArgTypes_sysv_x64(Type *t);
-
-TypeTuple *Target::toArgTypes(Type *t) {
-  const auto &triple = *global.params.targetTriple;
-  if (triple.getArch() == llvm::Triple::x86)
-    return ::toArgTypes(t);
-  if (triple.getArch() == llvm::Triple::x86_64 && !triple.isOSWindows())
-    return toArgTypes_sysv_x64(t);
   return nullptr;
 }
