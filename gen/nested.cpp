@@ -57,22 +57,6 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     return makeVarDValue(astype, vd);
   }
 
-  assert(isIrLocalCreated(vd));
-  IrLocal *const irLocal = getIrLocal(vd);
-
-  // The variable may not actually be nested in a speculative context (e.g.,
-  // with `-allinst`, see https://github.com/ldc-developers/ldc/issues/2932).
-  // Use an invalid null storage in that case, so that accessing the var at
-  // runtime will cause a segfault.
-  if (irLocal->nestedIndex == -1) {
-    Logger::println(
-        "WARNING: isn't actually nested, using invalid null storage");
-    auto llType = DtoPtrToType(astype);
-    if (isSpecialRefVar(vd))
-      llType = llType->getPointerTo();
-    return makeVarDValue(astype, vd, llvm::ConstantPointerNull::get(llType));
-  }
-
   // get the nested context
   LLValue *ctx = nullptr;
   bool skipDIDeclaration = false;
@@ -100,6 +84,22 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
   IF_LOG { Logger::cout() << "Context: " << *ctx << '\n'; }
 
   DtoCreateNestedContextType(vdparent->isFuncDeclaration());
+
+  assert(isIrLocalCreated(vd));
+  IrLocal *const irLocal = getIrLocal(vd);
+
+  // The variable may not actually be nested in a speculative context (e.g.,
+  // with `-allinst`, see https://github.com/ldc-developers/ldc/issues/2932).
+  // Use an invalid null storage in that case, so that accessing the var at
+  // runtime will cause a segfault.
+  if (irLocal->nestedIndex == -1) {
+    Logger::println(
+        "WARNING: isn't actually nested, using invalid null storage");
+    auto llType = DtoPtrToType(astype);
+    if (isSpecialRefVar(vd))
+      llType = llType->getPointerTo();
+    return makeVarDValue(astype, vd, llvm::ConstantPointerNull::get(llType));
+  }
 
   ////////////////////////////////////
   // Extract variable from nested context
