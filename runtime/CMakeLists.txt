@@ -563,7 +563,7 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix all_
     # If a shared Phobos lib is generated (too), compile explicitly with `-relocation-model=pic`.
     set(phobos2_d_flags "${d_flags}")
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
-        list(APPEND ${phobos2_d_flags} -relocation-model=pic)
+        list(APPEND phobos2_d_flags -relocation-model=pic)
     endif()
 
     set(phobos2_o "")
