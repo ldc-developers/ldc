@@ -19,7 +19,7 @@ commonSteps: &commonSteps
             echo "export CC=gcc-6" >> $BASH_ENV
             echo "export CXX=g++-6" >> $BASH_ENV
             # install CMake
-            curl -L -o cmake-x64.tar.gz https://cmake.org/files/v3.10/cmake-3.10.0-Linux-x86_64.tar.gz
+            curl -L -o cmake-x64.tar.gz https://github.com/Kitware/CMake/releases/download/v3.13.2/cmake-3.13.2-Linux-x86_64.tar.gz
             mkdir cmake-x64
             tar -xf cmake-x64.tar.gz --strip 1 -C cmake-x64
             echo "export PATH=$PWD/cmake-x64/bin:$PATH" >> $BASH_ENV
@@ -27,7 +27,7 @@ commonSteps: &commonSteps
             update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
           else
             # install CMake
-            curl -L -o cmake-x64.tar.gz https://cmake.org/files/v3.10/cmake-3.10.0-Darwin-x86_64.tar.gz
+            curl -L -o cmake-x64.tar.gz https://github.com/Kitware/CMake/releases/download/v3.13.2/cmake-3.13.2-Darwin-x86_64.tar.gz
             mkdir cmake-x64
             tar -xf cmake-x64.tar.gz --strip 3 -C cmake-x64
             # install Ninja
