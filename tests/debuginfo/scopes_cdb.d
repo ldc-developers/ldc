@@ -52,13 +52,22 @@ void templatedFoo(int N)()
 
 mixin template Mixin(T)
 {
-    T mixedInField;
-    void mixedInFoo()
+    // test https://github.com/ldc-developers/ldc/issues/2937 while at it
+    static foreach (i; 0 .. 1)
     {
-// CDB: bp `scopes_cdb.d:58`
+        static struct MixedInStruct { T field; }
+        MixedInStruct mixedInField;
+        void mixedInFoo()
+        {
+            MixedInStruct local;
+// CDB: bp `scopes_cdb.d:63`
 // CDB: g
 // CHECK-G:  !scopes_cdb.S.mixedInFoo+
 // CHECK-GC: !scopes_cdb::S::mixedInFoo+
+// CDB: dv /t
+// CHECK-G:  struct scopes_cdb.S.MixedInStruct local =
+// CHECK-GC: struct scopes_cdb::S::MixedInStruct local =
+        }
     }
 }
 
@@ -83,7 +92,7 @@ void test()
         T[N] field;
         void foo()
         {
-// CDB: bp `scopes_cdb.d:86`
+// CDB: bp `scopes_cdb.d:95`
 // CDB: g
 // CHECK-G:  !scopes_cdb.test.TemplatedNestedStruct!(S, 3).foo+
 // CHECK-GC: !scopes_cdb::test::TemplatedNestedStruct<S, 3>::foo+
@@ -98,7 +107,7 @@ void test()
         int field;
         void foo()
         {
-// CDB: bp `scopes_cdb.d:101`
+// CDB: bp `scopes_cdb.d:110`
 // CDB: g
 // CHECK-G:  !scopes_cdb.test.NestedStruct.foo+
 // CHECK-GC: !scopes_cdb::test::NestedStruct::foo+
@@ -108,7 +117,7 @@ void test()
     NestedStruct ns;
     ns.foo();
 
-// CDB: bp `scopes_cdb.d:111`
+// CDB: bp `scopes_cdb.d:120`
 // CDB: g
 // CDB: dv /t
 // CHECK-G:       struct scopes_cdb.S s =
