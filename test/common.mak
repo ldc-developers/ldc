@@ -30,3 +30,7 @@ else
 	DFLAGS += -O -release
 	CFLAGS += -O3
 endif
+CXXFLAGS:=$(CFLAGS) -std=c++11
+ifeq (osx,$(OS))
+	CXXFLAGS+=-stdlib=libc++
+endif

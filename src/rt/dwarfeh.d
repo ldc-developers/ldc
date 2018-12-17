@@ -246,6 +246,9 @@ extern(C) Throwable _d_eh_enter_catch(_Unwind_Exception* exceptionObject)
     debug (EH_personality) writeln("__dmd_begin_catch(%p), object = %p", eh, eh.object);
 
     auto o = eh.object;
+    // Remove our reference to the exception. We should not decrease its refcount,
+    // because we pass the object on to the caller.
+    eh.object = null;
 
     // Pop off of chain
     if (eh != ExceptionHeader.pop())
