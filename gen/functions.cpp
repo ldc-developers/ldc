@@ -144,7 +144,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
 
   // Non-typesafe variadics (both C and D styles) are also variadics on the LLVM
   // level.
-  const bool isLLVMVariadic = (f->varargs == 1);
+  const bool isLLVMVariadic = (f->parameterList.varargs == VarArg::variadic);
   if (isLLVMVariadic && f->linkage == LINKd) {
     // Add extra `_arguments` parameter for D-style variadic functions.
     newIrFty.arg_arguments =
@@ -152,7 +152,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     ++nextLLArgIdx;
   }
 
-  const size_t numExplicitDArgs = Parameter::dim(f->parameters);
+  const size_t numExplicitDArgs = f->parameterList.length();
 
   // if this _Dmain() doesn't have an argument, we force it to have one
   if (isMain && f->linkage != LINKc && numExplicitDArgs == 0) {
@@ -162,7 +162,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   }
 
   for (size_t i = 0; i < numExplicitDArgs; ++i) {
-    Parameter *arg = Parameter::getNth(f->parameters, i);
+    Parameter *arg = Parameter::getNth(f->parameterList.parameters, i);
 
     // Whether the parameter is passed by LLVM value or as a pointer to the
     // alloca/….
@@ -173,7 +173,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     if (arg->storageClass & STClazy) {
       // Lazy arguments are lowered to delegates.
       Logger::println("lazy param");
-      auto ltf = TypeFunction::create(nullptr, arg->type, 0, LINKd);
+      auto ltf = TypeFunction::create(nullptr, arg->type, VarArg::none, LINKd);
       auto ltd = createTypeDelegate(ltf);
       loweredDType = ltd;
     } else if (passPointer) {
@@ -379,7 +379,7 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
         } else if (tempdecl->llvmInternal == LLVMinline_asm) {
           Logger::println("magic inline asm found");
           TypeFunction *tf = static_cast<TypeFunction *>(fdecl->type);
-          if (tf->varargs != 1 ||
+          if (tf->parameterList.varargs != VarArg::variadic ||
               (fdecl->parameters && fdecl->parameters->dim != 0)) {
             tempdecl->error("invalid `__asm` declaration, must be a D style "
                             "variadic with no explicit parameters");
@@ -1148,7 +1148,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   // D varargs: prepare _argptr and _arguments
-  if (f->linkage == LINKd && f->varargs == 1) {
+  if (f->linkage == LINKd && f->parameterList.varargs == VarArg::variadic) {
     // allocate _argptr (of type core.stdc.stdarg.va_list)
     Type *const argptrType = typeSemantic(Type::tvalist, fd->loc, fd->_scope);
     LLValue *argptrMem = DtoAlloca(argptrType, "_argptr_mem");

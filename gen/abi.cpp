@@ -244,8 +244,9 @@ bool TargetABI::canRewriteAsInt(Type *t, bool include64bit) {
 
 bool TargetABI::reverseExplicitParams(TypeFunction *tf) {
   // Required by druntime for extern(D), except for `, ...`-style variadics.
-  return tf->linkage == LINKd && tf->varargs != 1 &&
-         Parameter::dim(tf->parameters) > 1;
+  return tf->linkage == LINKd &&
+         tf->parameterList.varargs != VarArg::variadic &&
+         tf->parameterList.length() > 1;
 }
 
 //////////////////////////////////////////////////////////////////////////////

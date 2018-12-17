@@ -800,7 +800,7 @@ private:
       return;
     }
 
-    int numFormalParams = Parameter::dim(tf->parameters);
+    int numFormalParams = tf->parameterList.length();
     LLValue *argumentsArg =
         getTypeinfoArrayArgumentForDVarArg(argexps, numFormalParams);
 
@@ -874,7 +874,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
 
   if (arguments) {
     addExplicitArguments(args, attrs, irFty, callableTy, *arguments,
-                         tf->parameters);
+                         tf->parameterList.parameters);
   }
 
   if (irFty.arg_objcSelector) {

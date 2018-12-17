@@ -365,7 +365,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   // Negated options
   global.params.link = !compileOnly;
   global.params.obj = !dontWriteObj;
-  global.params.release = !opts::invReleaseMode;
+  global.params.release = opts::invReleaseMode == CHECKENABLEoff;
   global.params.useInlineAsm = !noAsm;
 
   // String options: std::string --> char*
@@ -509,15 +509,17 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   }
 
   // -release downgrades default checks
-  if (global.params.useArrayBounds == CHECKENABLEdefault)
-    global.params.useArrayBounds =
-        global.params.release ? CHECKENABLEsafeonly : CHECKENABLEon;
-  if (global.params.useAssert == CHECKENABLEdefault)
-    global.params.useAssert =
-        global.params.release ? CHECKENABLEoff : CHECKENABLEon;
-  if (global.params.useSwitchError == CHECKENABLEdefault)
-    global.params.useSwitchError =
-        global.params.release ? CHECKENABLEoff : CHECKENABLEon;
+  const auto defaultCheck = [](CHECKENABLE &param,
+                               CHECKENABLE releaseValue = CHECKENABLEoff) {
+    if (param == CHECKENABLEdefault)
+      param = global.params.release ? releaseValue : CHECKENABLEon;
+  };
+  defaultCheck(global.params.useInvariants);
+  defaultCheck(global.params.useIn);
+  defaultCheck(global.params.useOut);
+  defaultCheck(global.params.useArrayBounds, CHECKENABLEsafeonly);
+  defaultCheck(global.params.useAssert);
+  defaultCheck(global.params.useSwitchError);
 
   // LDC output determination
 

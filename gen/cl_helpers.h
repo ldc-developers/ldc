@@ -161,11 +161,11 @@ private:
 
 /// Helper class for options that set multiple flags
 class MultiSetter {
-  std::vector<bool *> locations;
+  std::vector<CHECKENABLE *> locations;
   bool invert;
   explicit MultiSetter(bool); // not implemented, disable auto-conversion
 public:
-  MultiSetter(bool invert, bool *p, ...) LLVM_END_WITH_NULL;
+  MultiSetter(bool invert, CHECKENABLE *p, ...) LLVM_END_WITH_NULL;
 
   void operator=(bool val);
 };

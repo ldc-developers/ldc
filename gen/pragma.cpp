@@ -322,7 +322,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
       assert(fd->type->ty == Tfunction);
       TypeFunction *type = static_cast<TypeFunction *>(fd->type);
       Type *retType = type->next;
-      if (retType->ty != Tvoid || type->parameters->dim > 0 ||
+      if (retType->ty != Tvoid || type->parameterList.length() > 0 ||
           (fd->isMember() && !fd->isStatic())) {
         error(s->loc,
               "the `%s` pragma is only allowed on `void` functions which take "

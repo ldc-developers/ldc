@@ -370,7 +370,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
             //if (vthis) printf("\tvthis.type = %s\n", vthis.type.toChars());
 
             // Declare hidden variable _arguments[] and _argptr
-            if (f.varargs == 1)
+            if (f.parameterList.varargs == VarArg.variadic)
             {
                 if (f.linkage == LINK.d)
                 {
@@ -389,7 +389,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
                     sc2.insert(_arguments);
                     _arguments.parent = funcdecl;
                 }
-                if (f.linkage == LINK.d || (f.parameters && Parameter.dim(f.parameters)))
+                if (f.linkage == LINK.d || f.parameterList.length)
                 {
                     // Declare _argptr
                     version (IN_LLVM)
@@ -410,23 +410,20 @@ private extern(C++) final class Semantic3Visitor : Visitor
                 // Make sure semantic analysis has been run on argument types. This is
                 // e.g. needed for TypeTuple!(int, int) to be picked up as two int
                 // parameters by the Parameter functions.
-                if (f.parameters)
+                for (size_t i = 0; i < f.parameterList.length; i++)
                 {
-                    for (size_t i = 0; i < Parameter.dim(f.parameters); i++)
+                    Parameter arg = f.parameterList[i];
+                    Type nw = arg.type.typeSemantic(Loc.initial, sc);
+                    if (arg.type != nw)
                     {
-                        Parameter arg = Parameter.getNth(f.parameters, i);
-                        Type nw = arg.type.typeSemantic(Loc.initial, sc);
-                        if (arg.type != nw)
-                        {
-                            arg.type = nw;
-                            // Examine this index again.
-                            // This is important if it turned into a tuple.
-                            // In particular, the empty tuple should be handled or the
-                            // next parameter will be skipped.
-                            // LDC_FIXME: Maybe we only need to do this for tuples,
-                            //            and can add tuple.length after decrement?
-                            i--;
-                        }
+                        arg.type = nw;
+                        // Examine this index again.
+                        // This is important if it turned into a tuple.
+                        // In particular, the empty tuple should be handled or the
+                        // next parameter will be skipped.
+                        // LDC_FIXME: Maybe we only need to do this for tuples,
+                        //            and can add tuple.length after decrement?
+                        i--;
                     }
                 }
             }
@@ -434,7 +431,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
             /* Declare all the function parameters as variables
              * and install them in parameters[]
              */
-            size_t nparams = Parameter.dim(f.parameters);
+            size_t nparams = f.parameterList.length;
             if (nparams)
             {
                 /* parameters[] has all the tuples removed, as the back end
@@ -444,7 +441,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
                 funcdecl.parameters.reserve(nparams);
                 for (size_t i = 0; i < nparams; i++)
                 {
-                    Parameter fparam = Parameter.getNth(f.parameters, i);
+                    Parameter fparam = f.parameterList[i];
                     Identifier id = fparam.ident;
                     StorageClass stc = 0;
                     if (!id)
@@ -459,7 +456,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
                     auto v = new VarDeclaration(funcdecl.loc, vtype, id, null);
                     //printf("declaring parameter %s of type %s\n", v.toChars(), v.type.toChars());
                     stc |= STC.parameter;
-                    if (f.varargs == 2 && i + 1 == nparams)
+                    if (f.parameterList.varargs == VarArg.typesafe && i + 1 == nparams)
                     {
                         stc |= STC.variadic;
                         auto vtypeb = vtype.toBasetype();
@@ -492,11 +489,11 @@ private extern(C++) final class Semantic3Visitor : Visitor
 
             // Declare the tuple symbols and put them in the symbol table,
             // but not in parameters[].
-            if (f.parameters)
+            if (f.parameterList.parameters)
             {
-                for (size_t i = 0; i < f.parameters.dim; i++)
+                for (size_t i = 0; i < f.parameterList.parameters.dim; i++)
                 {
-                    Parameter fparam = (*f.parameters)[i];
+                    Parameter fparam = (*f.parameterList.parameters)[i];
                     if (!fparam.ident)
                         continue; // never used, so ignore
                     if (fparam.type.ty == Ttuple)
@@ -1137,7 +1134,7 @@ else
                             if (funcdecl.isStatic())
                             {
                                 // The monitor is in the ClassInfo
-                                vsync = new DotIdExp(funcdecl.loc, resolve(funcdecl.loc, sc2, cd, false), Id.classinfo);
+                                vsync = new DotIdExp(funcdecl.loc, symbolToExp(cd, funcdecl.loc, sc2, false), Id.classinfo);
                             }
                             else
                             {
@@ -1255,14 +1252,14 @@ else
         // Infer STC.scope_
         if (funcdecl.parameters && !funcdecl.errors)
         {
-            size_t nfparams = Parameter.dim(f.parameters);
+            size_t nfparams = f.parameterList.length;
             assert(nfparams == funcdecl.parameters.dim);
             foreach (u, v; *funcdecl.parameters)
             {
                 if (v.storage_class & STC.maybescope)
                 {
                     //printf("Inferring scope for %s\n", v.toChars());
-                    Parameter p = Parameter.getNth(f.parameters, u);
+                    Parameter p = f.parameterList[u];
                     notMaybeScope(v);
                     v.storage_class |= STC.scope_ | STC.scopeinferred;
                     p.storageClass |= STC.scope_ | STC.scopeinferred;
@@ -1432,7 +1429,7 @@ else
 
         // don't do it for unused deprecated types
         // or error ypes
-        if (!ad.getRTInfo && Type.rtinfo && (!ad.isDeprecated() || global.params.useDeprecated) && (ad.type && ad.type.ty != Terror))
+        if (!ad.getRTInfo && Type.rtinfo && (!ad.isDeprecated() || global.params.useDeprecated != Diagnostic.error) && (ad.type && ad.type.ty != Terror))
         {
             // Evaluate: RTinfo!type
             auto tiargs = new Objects();
@@ -1448,7 +1445,7 @@ else
             ti.dsymbolSemantic(sc3);
             ti.semantic2(sc3);
             ti.semantic3(sc3);
-            auto e = resolve(Loc.initial, sc3, ti.toAlias(), false);
+            auto e = symbolToExp(ti.toAlias(), Loc.initial, sc3, false);
 
             sc3.endCTFE();
 
