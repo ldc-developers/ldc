@@ -67,11 +67,19 @@ private:
   llvm::llvm_shutdown_obj shutdownObj;
   std::unique_ptr<llvm::TargetMachine> targetmachine;
   const llvm::DataLayout dataLayout;
+#if LDC_LLVM_VER >= 800
+  using ObjectLayerT = llvm::orc::LegacyRTDyldObjectLinkingLayer;
+  using ListenerLayerT =
+    llvm::orc::LegacyObjectTransformLayer<ObjectLayerT, ModuleListener>;
+  using CompileLayerT =
+    llvm::orc::LegacyIRCompileLayer<ListenerLayerT, llvm::orc::SimpleCompiler>;
+#else
   using ObjectLayerT = llvm::orc::RTDyldObjectLinkingLayer;
   using ListenerLayerT =
       llvm::orc::ObjectTransformLayer<ObjectLayerT, ModuleListener>;
   using CompileLayerT =
       llvm::orc::IRCompileLayer<ListenerLayerT, llvm::orc::SimpleCompiler>;
+#endif
 #if LDC_LLVM_VER >= 700
   using ModuleHandleT = llvm::orc::VModuleKey;
   std::shared_ptr<llvm::orc::SymbolStringPool> stringPool;
