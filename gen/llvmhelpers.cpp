@@ -542,7 +542,7 @@ DValue *DtoCastPtr(Loc &loc, DValue *val, Type *to) {
 
   LLValue *rval;
 
-  if (totype->ty == Tpointer || totype->ty == Tclass) {
+  if (totype->ty == Tpointer || totype->ty == Tclass || totype->ty == Taarray) {
     LLValue *src = DtoRVal(val);
     IF_LOG {
       Logger::cout() << "src: " << *src << '\n';
