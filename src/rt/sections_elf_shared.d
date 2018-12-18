@@ -718,7 +718,7 @@ version (Shared)
     const(char)* nameForDSO(in DSO* pdso)
     {
         Dl_info info = void;
-        const success = dladdr(pdso._slot, &info) == 0;
+        const success = dladdr(pdso._slot, &info) != 0;
         safeAssert(success, "Failed to get DSO info.");
         return info.dli_fname;
     }
