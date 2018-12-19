@@ -700,8 +700,17 @@ else
     add_builtin("_D3std4math4exp2FNaNbNiNeeZe", &eval_exp2);
     // @safe @nogc pure nothrow real function(real, real)
     add_builtin("_D3std4math5atan2FNaNbNiNfeeZe", &eval_unimp);
+version (IN_LLVM)
+{
+    // LDC's core.math.ldexp is defined as alias to core.stdc.math.ldexpl
+    add_builtin("ldexpl", &eval_ldexp);
+    add_builtin("ldexp", &eval_ldexp); // required for Windows/MSVC targets
+}
+else
+{
     // @safe @nogc pure nothrow T function(T, int)
     add_builtin("_D4core4math5ldexpFNaNbNiNfeiZe", &eval_ldexp);
+}
 
     add_builtin("_D3std4math3logFNaNbNiNfeZe", &eval_log);
 
