@@ -2,16 +2,11 @@ LINK_SHARED:=1
 
 include ../common.mak
 
-# LDC_FIXME: Strictly speaking, this should be based on the target set in
-# CMake, although the scope for cross-compilation is fairly limited by having
-# to be able to actually run the test executables.
-include ../../../../tests/d2/src/osmodel.mak
-
 TESTS:=link load linkD linkDR loadDR finalize
 # LDC_FIXME: host loads two modules with the same name, which is currently
 # disallowed by the (potentially overly eager) module collision detection
 # on OS X.
-ifneq ($(OS), osx)
+ifneq ($(OS),osx)
 	TESTS+=host
 endif
 TESTS+=link_linkdep load_linkdep link_loaddep load_loaddep load_13414

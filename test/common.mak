@@ -1,5 +1,6 @@
 # set from top makefile
-# LDC: No top makefile for us; don't clear OS variable (use environment variable).
+# LDC: we have no top makefile, include osmodel.mak for OS
+include ../../../../tests/d2/src/osmodel.mak
 #OS:=
 MODEL:=
 BUILD:=

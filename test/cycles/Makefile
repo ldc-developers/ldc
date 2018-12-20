@@ -11,7 +11,7 @@ all: $(addprefix $(ROOT)/,$(addsuffix .done,$(TESTS)))
 $(ROOT)/cycle_ignore.done: RETCODE=0
 $(ROOT)/cycle_ignore.done: LINES=0
 $(ROOT)/cycle_abort.done: RETCODE=1
-ifneq (,$(findstring Win,$(OS)))
+ifneq (,$(findstring win,$(OS)))
 $(ROOT)/cycle_abort.done: LINES=8
 else
 $(ROOT)/cycle_abort.done: LINES=7

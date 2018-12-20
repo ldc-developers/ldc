@@ -1,6 +1,11 @@
 include ../common.mak
 
+# LDC: disable on Windows (gcc cmdline...)
+ifneq (,$(findstring win,$(OS)))
+TESTS:=
+else
 TESTS:=array
+endif
 
 .PHONY: all clean
 

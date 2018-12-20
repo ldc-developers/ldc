@@ -1,6 +1,6 @@
 include ../common.mak
 
-ifneq (,$(findstring Win,$(OS)))
+ifneq (,$(findstring win,$(OS)))
 TESTS:=
 else
 TESTS:=fiber_guard_page external_threads

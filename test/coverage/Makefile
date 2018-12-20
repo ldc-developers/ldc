@@ -14,7 +14,7 @@ $(NORMAL_TESTS): $(ROOT)/%.done: $(ROOT)/%
 	@echo Testing $*
 	@rm -f $(ROOT)/src-$*.lst
 	$(QUIET)$(ROOT)/$* $(ROOT) $(RUN_ARGS)
-ifneq (,$(findstring Win,$(OS)))
+ifneq (,$(findstring win,$(OS)))
 	sed -i 's:^src\\:src/:g' $(ROOT)/src-$*.lst
 endif
 	$(QUIET)$(DIFF) src-$*.lst.exp $(ROOT)/src-$*.lst
@@ -25,7 +25,7 @@ $(MERGE_TESTS): $(ROOT)/%.done: $(ROOT)/%
 	@rm -f $(ROOT)/src-$*.lst
 	$(QUIET)$(ROOT)/$* $(ROOT) $(RUN_ARGS)
 	$(QUIET)$(ROOT)/$* $(ROOT) $(RUN_ARGS)
-ifneq (,$(findstring Win,$(OS)))
+ifneq (,$(findstring win,$(OS)))
 	sed -i 's:^src\\:src/:g' $(ROOT)/src-$*.lst
 endif
 	$(QUIET)$(DIFF) src-$*.lst.exp $(ROOT)/src-$*.lst
@@ -36,7 +36,7 @@ $(ROOT)/no_code.done: $(ROOT)/%.done: $(ROOT)/%
 	@rm -f $(ROOT)/src-$*.lst
 	$(QUIET)$(ROOT)/$* $(ROOT) $(RUN_ARGS)
 	$(QUIET)$(ROOT)/$* $(ROOT) $(RUN_ARGS)
-ifneq (,$(findstring Win,$(OS)))
+ifneq (,$(findstring win,$(OS)))
 	sed -i 's:^src\\:src/:g' $(ROOT)/src-$*.lst
 	sed -i 's:^src\\:src/:g' $(ROOT)/src-$*_imp.lst
 endif
