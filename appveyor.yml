@@ -140,7 +140,8 @@ test_script:
   - ps: If ($($Env:LLVM_VERSION[0]) -lt '6') { del ..\ldc\tests\linking\link_internally.d }
   - ctest -V -R "lit-tests"
   # Run DMD testsuite
-  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( set OS=Win_64) else ( set OS=Win_32)
+  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( set OS=win64) else ( set OS=win32)
+  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( set MODEL=64) else ( set MODEL=32)
   - set DMD_TESTSUITE_MAKE_ARGS=-j2
   - ctest -V -R "dmd-testsuite"
   # Run stdlib unittests
