@@ -152,18 +152,14 @@ else version (Darwin)
     char* dlerror();
     void* dlopen(in char*, int);
     void* dlsym(void*, in char*);
+    int dladdr(void* addr, Dl_info* info);
 
-    deprecated("Please use core.sys.osx.dlfcn for non-POSIX extensions")
+    struct Dl_info
     {
-        int dladdr(void* addr, Dl_info* info);
-
-        struct Dl_info
-        {
-            const(char)* dli_fname;
-            void*        dli_fbase;
-            const(char)* dli_sname;
-            void*        dli_saddr;
-        }
+        const(char)* dli_fname;
+        void*        dli_fbase;
+        const(char)* dli_sname;
+        void*        dli_saddr;
     }
 }
 else version (FreeBSD)

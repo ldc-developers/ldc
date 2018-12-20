@@ -43,9 +43,9 @@ else version (FreeBSD)
 }
 else version (OSX)
 {
-    import core.sys.osx.dlfcn;
-    import core.sys.osx.mach.dyld;
-    import core.sys.osx.mach.getsect;
+    import core.sys.darwin.dlfcn;
+    import core.sys.darwin.mach.dyld;
+    import core.sys.darwin.mach.getsect;
 
     extern(C) intptr_t _dyld_get_image_slide(const mach_header*) nothrow @nogc;
     extern(C) mach_header* _dyld_get_image_header_containing_address(const void *addr) nothrow @nogc;

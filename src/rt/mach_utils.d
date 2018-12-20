@@ -12,8 +12,8 @@ module rt.mach_utils;
 
 version (OSX):
 
-import core.sys.osx.mach.dyld;
-import core.sys.osx.mach.getsect;
+import core.sys.darwin.mach.dyld;
+import core.sys.darwin.mach.getsect;
 
 struct SectionRef
 {
