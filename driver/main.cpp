@@ -191,7 +191,12 @@ void processTransitions(std::vector<std::string> &list) {
              "  =intpromote,16997 fix integral promotions for unary + - ~ "
              "operators\n"
              "  =tls              list all variables going into thread local "
-             "storage\n");
+             "storage\n"
+             "  =fixAliasThis     when a symbol is resolved, check alias this "
+             "scope before going to upper scopes\n"
+             "  =markdown         enable Markdown replacements in Ddoc\n"
+             "  =vmarkdown        list instances of Markdown replacements in "
+             "Ddoc\n");
       exit(EXIT_SUCCESS);
     } else if (i == "all") {
       global.params.vfield = true;
@@ -201,6 +206,9 @@ void processTransitions(std::vector<std::string> &list) {
       global.params.vcomplex = true;
       global.params.fix16997 = true;
       global.params.vtls = true;
+      global.params.fixAliasThis = true;
+      global.params.markdown = true;
+      global.params.vmarkdown = true;
     } else if (i == "field" || i == "3449") {
       global.params.vfield = true;
     } else if (i == "import" || i == "10378") {
@@ -215,6 +223,12 @@ void processTransitions(std::vector<std::string> &list) {
       global.params.fix16997 = true;
     } else if (i == "tls") {
       global.params.vtls = true;
+    } else if (i == "fixAliasThis") {
+      global.params.fixAliasThis = true;
+    } else if (i == "markdown") {
+      global.params.markdown = true;
+    } else if (i == "vmarkdown") {
+      global.params.vmarkdown = true;
     } else {
       error(Loc(), "Invalid transition %s", i.c_str());
     }
