@@ -380,14 +380,11 @@ static cl::opt<CHECKACTION, true> checkAction(
         clEnumValN(CHECKACTION_halt, "halt",
                    "Execute a halt instruction, terminating the program")));
 
-CHECKENABLE invReleaseMode = CHECKENABLEon;
-static MultiSetter ReleaseSetter(true, &invReleaseMode,
-                                 &global.params.useInvariants,
-                                 &global.params.useOut, &global.params.useIn,
-                                 nullptr);
-static cl::opt<MultiSetter, true, cl::parser<bool>>
-    release("release", cl::ZeroOrMore, cl::location(ReleaseSetter),
-            cl::desc("Disables asserts, invariants, contracts and boundscheck"),
+static cl::opt<bool, true>
+    release("release", cl::ZeroOrMore, cl::location(global.params.release),
+            cl::desc("Compile release version, defaulting to disabled "
+                     "asserts/contracts/invariants, and bounds checks in @safe "
+                     "functions only"),
             cl::ValueDisallowed);
 
 cl::opt<bool, true>

@@ -366,7 +366,6 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   // Negated options
   global.params.link = !compileOnly;
   global.params.obj = !dontWriteObj;
-  global.params.release = opts::invReleaseMode == CHECKENABLEoff;
   global.params.useInlineAsm = !noAsm;
 
   // String options: std::string --> char*
