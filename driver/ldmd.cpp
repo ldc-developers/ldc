@@ -422,7 +422,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
       }
       /* -checkaction
        */
-      else if (strncmp(p + 1, "color", 5) == 0) {
+      else if (startsWith(p + 1, "color")) {
         // Parse:
         //      -color
         //      -color=auto|on|off
@@ -477,7 +477,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
       /* -mixin
        * -mscrtlib
        */
-      else if (strncmp(p + 1, "profile", 7) == 0) {
+      else if (startsWith(p + 1, "profile")) {
         if (p[8] == 0) {
           ldcArgs.push_back("-fdmd-trace-functions");
         } else if (strcmp(p + 8, "=gc") == 0) {
@@ -494,10 +494,10 @@ void translateArgs(size_t originalArgc, char **originalArgv,
       /* -vcolumns
        * -vgc
        */
-      else if (strncmp(p + 1, "verrors", 7) == 0) {
+      else if (startsWith(p + 1, "verrors")) {
         if (p[8] == '=' && isdigit(static_cast<unsigned char>(p[9]))) {
           ldcArgs.push_back(p);
-        } else if (strncmp(p + 9, "spec", 4) == 0) {
+        } else if (startsWith(p + 9, "spec")) {
           ldcArgs.push_back("-verrors-spec");
         } else {
           goto Lerror;
@@ -506,7 +506,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
         const char *mcpuargs[] = {ldcPath.c_str(), "-mcpu=help", nullptr};
         execute(ldcPath, mcpuargs);
         exit(EXIT_SUCCESS);
-      } else if (strncmp(p + 1, "mcpu=", 5) == 0) {
+      } else if (startsWith(p + 1, "mcpu=")) {
         if (strcmp(p + 6, "baseline") == 0) {
           // ignore
         } else if (strcmp(p + 6, "avx") == 0) {
@@ -579,7 +579,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
        * -I
        * -J
        */
-      else if (strncmp(p + 1, "debug", 5) == 0 && p[6] != 'l') {
+      else if (startsWith(p + 1, "debug") && p[6] != 'l') {
         // Parse:
         //      -debug
         //      -debug=number
@@ -601,7 +601,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
         } else {
           ldcArgs.push_back("-d-debug");
         }
-      } else if (strncmp(p + 1, "version", 7) == 0) {
+      } else if (startsWith(p + 1, "version")) {
         // Parse:
         //      -version=number
         //      -version=identifier
@@ -639,7 +639,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
        * -deps
        * -main
        */
-      else if (strncmp(p + 1, "man", 3) == 0) {
+      else if (startsWith(p + 1, "man")) {
         browse("http://wiki.dlang.org/LDC");
         exit(EXIT_SUCCESS);
       } else if (strcmp(p + 1, "run") == 0) {
@@ -680,7 +680,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
 
   // at least one file is mandatory, except when `-Xi=…` is used
   if (noFiles && std::find_if(args.begin(), args.end(), [](const char *arg) {
-                   return strncmp(arg, "-Xi=", 4) == 0;
+                   return startsWith(arg, "-Xi=");
                  }) == args.end()) {
     printUsage(originalArgv[0], ldcPath);
     if (originalArgc == 1)
