@@ -512,7 +512,8 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     global.params.useExceptions = false;
   }
 
-  if (global.params.useUnitTests) {
+  if (global.params.useUnitTests &&
+      global.params.useAssert == CHECKENABLEdefault) {
     global.params.useAssert = CHECKENABLEon;
   }
 
