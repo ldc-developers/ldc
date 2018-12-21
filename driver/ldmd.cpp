@@ -208,6 +208,7 @@ Where:\n\
 #endif
 "  -mcpu=<id>       generate instructions for architecture identified by 'id'\n\
   -mcpu=?          list all architecture options\n\
+  -mixin=<filename>  expand and save mixins to file specified by <filename>\n\
   -mscrtlib=<name> MS C runtime library to reference from main/WinMain/DllMain\n\
   -mv=<package.module>=<filespec>  use <filespec> as source file for <package.module>\n\
   -noboundscheck   no array bounds checking (deprecated, use -boundscheck=off)\n\
@@ -423,7 +424,8 @@ void translateArgs(size_t originalArgc, char **originalArgv,
       else if (strcmp(p + 1, "m32mscoff") == 0) {
         ldcArgs.push_back("-m32");
       }
-      /* -mscrtlib
+      /* -mixin
+       * -mscrtlib
        */
       else if (strncmp(p + 1, "profile", 7) == 0) {
         if (p[8] == 0) {

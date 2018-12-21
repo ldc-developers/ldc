@@ -220,6 +220,10 @@ cl::opt<bool>
     hdrKeepAllBodies("Hkeep-all-bodies", cl::ZeroOrMore,
                      cl::desc("Keep all function bodies in .di files"));
 
+cl::opt<std::string> mixinFile("mixin", cl::ZeroOrMore,
+                               cl::desc("Expand and save mixins to <filename>"),
+                               cl::value_desc("filename"));
+
 static cl::opt<bool, true> unittest("unittest", cl::ZeroOrMore,
                                     cl::desc("Compile in unit tests"),
                                     cl::location(global.params.useUnitTests));

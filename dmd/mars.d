@@ -1541,6 +1541,8 @@ private void setTargetCPU(ref Param params)
         params.cpu = CPU.x87;   // cannot support other instruction sets
 }
 
+} // !IN_LLVM
+
 /**************************************
  * we want to write the mixin expansion file also on error, but there
  * are too many ways to terminate dmd (e.g. fatal() which calls exit(EXIT_FAILURE)),
@@ -1558,6 +1560,9 @@ extern(C) void flushMixins()
     f.setbuffer(cast(void*)ob.data, ob.offset);
     f.write();
 }
+
+version (IN_LLVM) {} else
+{
 
 /****************************************************
  * Parse command line arguments.
