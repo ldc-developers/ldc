@@ -245,23 +245,12 @@ static cl::opt<bool, true>
 
 // -d-debug is a bit messy, it has 3 modes:
 // -d-debug=ident, -d-debug=level and -d-debug (without argument)
-// That last of these must be acted upon immediately to ensure proper
-// interaction with other options, so it needs some special handling:
+// The last one represents `-d-debug=1`, so it needs some special handling:
 std::vector<std::string> debugArgs;
 
 struct D_DebugStorage {
   void push_back(const std::string &str) {
-    if (str.empty()) {
-      // Bare "-d-debug" has a special meaning.
-      global.params.useAssert = CHECKENABLEon;
-      global.params.useArrayBounds = CHECKENABLEon;
-      global.params.useInvariants = CHECKENABLEon;
-      global.params.useIn = CHECKENABLEon;
-      global.params.useOut = CHECKENABLEon;
-      debugArgs.push_back("1");
-    } else {
-      debugArgs.push_back(str);
-    }
+    debugArgs.push_back(str.empty() ? "1" : str);
   }
 };
 
