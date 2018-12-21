@@ -103,6 +103,12 @@ char *concat(const char *a, int b) {
   return concat(a, bStr);
 }
 
+template <int N>
+bool startsWith(const char *str, const char (&prefix)[N]) {
+  // N includes terminating null
+  return strncmp(str, prefix, N - 1) == 0;
+}
+
 /**
  * Runs the given executable, returning its error code.
  */
@@ -156,6 +162,7 @@ Where:\n\
   -betterC         omit generating some runtime information and helper functions\n\
   -boundscheck=[on|safeonly|off]   bounds checks on, in @safe only, or off\n\
   -c               do not link\n\
+  -check=[assert|bounds|in|invariant|out|switch][=[on|off]]  Enable or disable specific checks\n\
   -color           turn colored console output on\n\
   -color=[on|off]  force colored console output on or off\n\
   -conf=<filename> use config file at filename\n\
@@ -374,7 +381,44 @@ void translateArgs(size_t originalArgc, char **originalArgv,
        * -dw
        * -c
        */
-      else if (strncmp(p + 1, "color", 5) == 0) {
+      else if (startsWith(p + 1, "check=")) {
+        // Parse:
+        //      -check=[assert|bounds|in|invariant|out|switch][=[on|off]]
+        const char *arg = p + 7;
+        const auto argLength = strlen(arg);
+        bool enabled = false;
+        size_t kindLength = 0;
+        if (argLength > 3 && memcmp(arg + argLength - 3, "=on", 3) == 0) {
+          enabled = true;
+          kindLength = argLength - 3;
+        } else if (argLength > 4 && memcmp(arg + argLength - 4, "=off", 4) == 0) {
+          enabled = false;
+          kindLength = argLength - 4;
+        } else {
+          enabled = true;
+          kindLength = argLength;
+        }
+
+        const auto check = [&](int dmdLength, const char *dmd, const char *ldc) {
+          if (kindLength == dmdLength &&
+              memcmp(arg, dmd, dmdLength) == 0) {
+            ldcArgs.push_back(
+                concat(enabled ? "-enable-" : "-disable-", ldc));
+            return true;
+          }
+          return false;
+        };
+
+        if (kindLength == 6 && memcmp(arg, "bounds", 6) == 0) {
+          ldcArgs.push_back(enabled ? "-boundscheck=on" : "-boundscheck=off");
+        } else if (!(check(6, "assert", "asserts") ||
+                     check(2, "in", "preconditions") ||
+                     check(9, "invariant", "invariants") ||
+                     check(3, "out", "postconditions") ||
+                     check(6, "switch", "switch-errors"))) {
+          goto Lerror;
+        }
+      } else if (strncmp(p + 1, "color", 5) == 0) {
         bool color = true;
         // Parse:
         //      -color
