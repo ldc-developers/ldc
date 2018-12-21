@@ -64,15 +64,21 @@ cl::opt<bool> invokedByLDMD("ldmd", cl::desc("Invoked by LDMD?"),
                             cl::ZeroOrMore, cl::ReallyHidden);
 
 static cl::opt<Diagnostic, true> useDeprecated(
-    cl::desc("Allow deprecated code/language features:"), cl::ZeroOrMore,
+    cl::desc("Allow deprecated language features and symbols:"), cl::ZeroOrMore,
+    cl::location(global.params.useDeprecated), cl::init(DIAGNOSTICinform),
     clEnumValues(
-        clEnumValN(DIAGNOSTICerror, "de", "Do not allow deprecated features"),
-        clEnumValN(DIAGNOSTICoff, "d", "Silently allow deprecated features"),
+        clEnumValN(DIAGNOSTICoff, "d",
+                   "Silently allow deprecated features and symbols"),
         clEnumValN(DIAGNOSTICinform, "dw",
-                   "Warn about the use of deprecated features")),
-    cl::location(global.params.useDeprecated), cl::init(DIAGNOSTICinform));
+                   "Issue a message when deprecated features or "
+                   "symbols are used (default)"),
+        clEnumValN(
+            DIAGNOSTICerror, "de",
+            "Issue an error when deprecated features or symbols are used "
+            "(halt compilation)")));
 
-cl::opt<bool> compileOnly("c", cl::desc("Do not link"), cl::ZeroOrMore);
+cl::opt<bool> compileOnly("c", cl::desc("Compile only, do not link"),
+                          cl::ZeroOrMore);
 
 static cl::opt<bool, true> createStaticLib("lib", cl::ZeroOrMore,
                                            cl::desc("Create static library"),

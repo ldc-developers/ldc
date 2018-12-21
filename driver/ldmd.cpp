@@ -161,7 +161,7 @@ Where:\n\
   -allinst         generate code for all template instantiations\n\
   -betterC         omit generating some runtime information and helper functions\n\
   -boundscheck=[on|safeonly|off]   bounds checks on, in @safe only, or off\n\
-  -c               do not link\n\
+  -c               compile only, do not link\n\
   -check=[assert|bounds|in|invariant|out|switch][=[on|off]]  Enable or disable specific checks\n\
   -checkaction=D|C|halt  behavior on assert/boundscheck/finalswitch failure\n\
   -color           turn colored console output on\n\
@@ -172,9 +172,9 @@ Where:\n\
   -D               generate documentation\n\
   -Dd<directory>   write documentation file to directory\n\
   -Df<filename>    write documentation file to filename\n\
-  -d               silently allow deprecated features\n\
-  -dw              show use of deprecated features as warnings (default)\n\
-  -de              show use of deprecated features as errors (halt compilation)\n\
+  -d               silently allow deprecated features and symbols\n\
+  -dw              issue a message when deprecated features or symbols are used (default)\n\
+  -de              issue an error when deprecated features or symbols are used (halt compilation)\n\
   -debug           compile in debug code\n\
   -debug=<level>   compile in debug code <= level\n\
   -debug=<ident>   compile in debug code identified by ident\n\
@@ -230,6 +230,7 @@ Where:\n\
   -profile=gc      profile runtime allocations\n"
 #endif
 "  -release         compile release version\n\
+  -run <srcfile>   compile, link, and run the program srcfile\n\
   -shared          generate shared library (DLL)\n\
   -transition=<id> help with language change identified by 'id'\n\
   -transition=?    list all language changes\n\
@@ -239,11 +240,11 @@ Where:\n\
   -vdmd            print the command used to invoke the underlying compiler\n\
   -verrors=<num>   limit the number of error messages (0 means unlimited)\n\
   -verrors=spec    show errors from speculative compiles such as __traits(compiles,...)\n\
-  -vgc             list all gc allocations including hidden ones\n\
-  -vtls            list all variables going into thread local storage\n\
   --version        print compiler version and exit\n\
   -version=<level> compile in version code >= level\n\
   -version=<ident> compile in version code identified by ident\n\
+  -vgc             list all gc allocations including hidden ones\n\
+  -vtls            list all variables going into thread local storage\n\
   -w               warnings as errors (compilation will halt)\n\
   -wi              warnings as messages (compilation will continue)\n\
   -X               generate JSON file\n\
@@ -400,7 +401,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
           kindLength = argLength;
         }
 
-        const auto check = [&](int dmdLength, const char *dmd, const char *ldc) {
+        const auto check = [&](size_t dmdLength, const char *dmd, const char *ldc) {
           if (kindLength == dmdLength &&
               memcmp(arg, dmd, dmdLength) == 0) {
             ldcArgs.push_back(
