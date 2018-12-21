@@ -163,6 +163,7 @@ Where:\n\
   -boundscheck=[on|safeonly|off]   bounds checks on, in @safe only, or off\n\
   -c               do not link\n\
   -check=[assert|bounds|in|invariant|out|switch][=[on|off]]  Enable or disable specific checks\n\
+  -checkaction=D|C|halt  behavior on assert/boundscheck/finalswitch failure\n\
   -color           turn colored console output on\n\
   -color=[on|off]  force colored console output on or off\n\
   -conf=<filename> use config file at filename\n\
@@ -418,7 +419,10 @@ void translateArgs(size_t originalArgc, char **originalArgv,
                      check(6, "switch", "switch-errors"))) {
           goto Lerror;
         }
-      } else if (strncmp(p + 1, "color", 5) == 0) {
+      }
+      /* -checkaction
+       */
+      else if (strncmp(p + 1, "color", 5) == 0) {
         bool color = true;
         // Parse:
         //      -color

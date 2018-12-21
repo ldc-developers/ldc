@@ -368,6 +368,18 @@ static cl::opt<MultiSetter, true, FlagParser<bool>>
     contracts("contracts", cl::ZeroOrMore, cl::location(ContractsSetter),
               cl::desc("(*) Enable function pre- and post-conditions"));
 
+static cl::opt<CHECKACTION, true> checkAction(
+    "checkaction", cl::ZeroOrMore, cl::location(global.params.checkAction),
+    cl::desc("Action to take when an assert/boundscheck/final-switch fails"),
+    cl::init(CHECKACTION_D),
+    clEnumValues(
+        clEnumValN(CHECKACTION_D, "D",
+                   "Throw an unrecoverable Error (default)"),
+        clEnumValN(CHECKACTION_C, "C",
+                   "Call the C runtime library assert failure function"),
+        clEnumValN(CHECKACTION_halt, "halt",
+                   "Execute a halt instruction, terminating the program")));
+
 CHECKENABLE invReleaseMode = CHECKENABLEon;
 static MultiSetter ReleaseSetter(true, &invReleaseMode,
                                  &global.params.useInvariants,
