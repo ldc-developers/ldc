@@ -340,6 +340,11 @@ static cl::opt<CHECKENABLE, true> boundsCheck(
                             "Enabled for @safe functions only"),
                  clEnumValN(CHECKENABLEon, "on", "Enabled for all functions")));
 
+static cl::opt<CHECKENABLE, true, FlagParser<CHECKENABLE>> switchErrors(
+    "switch-errors", cl::ZeroOrMore,
+    cl::desc("(*) Enable runtime errors for unhandled switch cases"),
+    cl::location(global.params.useSwitchError), cl::init(CHECKENABLEdefault));
+
 static cl::opt<CHECKENABLE, true, FlagParser<CHECKENABLE>>
     invariants("invariants", cl::ZeroOrMore, cl::desc("(*) Enable invariants"),
                cl::location(global.params.useInvariants),
