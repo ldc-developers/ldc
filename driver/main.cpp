@@ -1078,6 +1078,10 @@ void codegenModules(Modules &modules) {
     // codegenned.
     for (d_size_t i = modules.dim; i-- > 0;) {
       Module *const m = modules[i];
+
+      if (m->isHdrFile)
+        continue;
+
       if (global.params.verbose)
         message("code      %s", m->toChars());
 
