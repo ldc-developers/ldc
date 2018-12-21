@@ -165,7 +165,7 @@ Where:\n\
   -check=[assert|bounds|in|invariant|out|switch][=[on|off]]  Enable or disable specific checks\n\
   -checkaction=D|C|halt  behavior on assert/boundscheck/finalswitch failure\n\
   -color           turn colored console output on\n\
-  -color=[on|off]  force colored console output on or off\n\
+  -color=[on|off|auto]  force colored console output on or off, or only when not redirected (default)\n\
   -conf=<filename> use config file at filename\n\
   -cov             do code coverage analysis\n\
   -cov=<nnn>       require at least nnn%% code coverage\n\
@@ -423,20 +423,22 @@ void translateArgs(size_t originalArgc, char **originalArgv,
       /* -checkaction
        */
       else if (strncmp(p + 1, "color", 5) == 0) {
-        bool color = true;
         // Parse:
         //      -color
-        //      -color=on|off
+        //      -color=auto|on|off
         if (p[6] == '=') {
-          if (strcmp(p + 7, "off") == 0) {
-            color = false;
-          } else if (strcmp(p + 7, "on") != 0) {
+          if (strcmp(p + 7, "on") == 0) {
+            ldcArgs.push_back("-enable-color");
+          } else if (strcmp(p + 7, "off") == 0) {
+            ldcArgs.push_back("-disable-color");
+          } else if (strcmp(p + 7, "auto") != 0) {
             goto Lerror;
           }
         } else if (p[6]) {
           goto Lerror;
+        } else {
+          ldcArgs.push_back("-enable-color");
         }
-        ldcArgs.push_back(color ? "-enable-color" : "-disable-color");
       }
       /* -conf
        * -cov
