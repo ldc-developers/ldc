@@ -1,8 +1,6 @@
 // A more complex wasm example using Phobos templates (=> -betterC to keep it simple).
 
 // REQUIRES: target_WebAssembly
-// REQUIRES: internal_lld
-
 // RUN: %ldc -mtriple=wasm32-unknown-unknown-wasm -betterC %s
 
 extern(C):
