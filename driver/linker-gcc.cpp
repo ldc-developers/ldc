@@ -703,16 +703,28 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
   }
 #endif
 
-  // find gcc for linking
-  const std::string tool = getGcc();
+  // build command-line for gcc-compatible linker driver
+  // exception: invoke (ld-compatible) linker directly for WebAssembly targets
+  std::string tool;
+  std::unique_ptr<ArgsBuilder> argsBuilder;
+#if LDC_LLVM_VER >= 500
+  if (global.params.targetTriple->isOSBinFormatWasm()) {
+    tool = getProgram("wasm-ld", &opts::linker);
+    argsBuilder = llvm::make_unique<LdArgsBuilder>();
+  } else {
+#endif
+    tool = getGcc();
+    argsBuilder = llvm::make_unique<ArgsBuilder>();
+#if LDC_LLVM_VER >= 500
+  }
+#endif
 
   // build arguments
-  ArgsBuilder argsBuilder;
-  argsBuilder.build(outputPath, defaultLibNames);
+  argsBuilder->build(outputPath, defaultLibNames);
 
   Logger::println("Linking with: ");
   Stream logstr = Logger::cout();
-  for (const auto &arg : argsBuilder.args) {
+  for (const auto &arg : argsBuilder->args) {
     if (!arg.empty()) {
       logstr << "'" << arg << "' ";
     }
@@ -720,5 +732,5 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
   logstr << "\n"; // FIXME where's flush ?
 
   // try to call linker
-  return executeToolAndWait(tool, argsBuilder.args, global.params.verbose);
+  return executeToolAndWait(tool, argsBuilder->args, global.params.verbose);
 }

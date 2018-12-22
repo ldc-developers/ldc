@@ -89,7 +89,7 @@ build:
     # Build and run LDC D unittests
     - ctest --output-on-failure -R ldc2-unittest
     # Run LIT testsuite, ignore the errors
-    - ctest -V -R lit-tests || true
+    - PATH=$PWD/../llvm/bin:$PATH ctest -V -R lit-tests || true
     # Run DMD testsuite (non-debug only for now), ignore the errors
     - DMD_TESTSUITE_MAKE_ARGS='-j16 -k' ctest -V -R dmd-testsuite -E "-debug$" || true
     # Run druntime/Phobos unittests (non-debug only for now, excl. hanging core.thread), ignore the errors
