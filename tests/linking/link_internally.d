@@ -1,4 +1,5 @@
 // REQUIRES: Windows
+// REQUIRES: internal_lld
 
 // RUN: %ldc -link-internally -run %s
 
