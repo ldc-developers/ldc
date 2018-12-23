@@ -1198,17 +1198,8 @@ extern(C++):
             case Tfloat64:               c = 'd';       break;
 version (IN_LLVM)
 {
-            // There are special cases for D `real` that need to be handled via Target.cppTypeMangle().
-            // Don't go to the default case because it would incorrectly substitute subsequent `real` arguments.
-            case Tfloat80:
-                auto cptr = Target.cppTypeMangle(t);
-                if (cptr is null)
-                    return error(t);
-                // Goto default case if the mangling is longer than one character.
-                if (cptr[1] != 0)
-                    goto default;
-                c = cptr[0];
-                break;
+            // there are special cases for D `real`, handled via Target.cppTypeMangle() in the default case
+            case Tfloat80:               goto default;
 }
 else
 {
@@ -1229,10 +1220,14 @@ else
                 // Handle any target-specific basic types.
                 if (auto tm = Target.cppTypeMangle(t))
                 {
-                    if (substitute(t))
-                        return;
-                    else
-                        append(t);
+                    // Only do substitution for mangles that are longer than 1 character.
+                    if (tm[1] != 0 || t.isConst())
+                    {
+                        if (substitute(t))
+                            return;
+                        else
+                            append(t);
+                    }
                     CV_qualifiers(t);
                     buf.writestring(tm);
                     return;
