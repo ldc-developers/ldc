@@ -178,7 +178,10 @@ public:
             case Tuns64:
             case Tint128:
             case Tuns128:
+version (IN_LLVM) {} else
+{
             case Tfloat80:
+}
             case Twchar:
                 if (checkTypeSaved(type))
                     return;
@@ -241,10 +244,19 @@ public:
             break;
             // unsigned int
         case Tfloat80:
+version (IN_LLVM)
+{
+            // unlike DMD, LDC uses 64-bit `real` for Windows/MSVC targets,
+            // corresponding to MSVC++ long double
+            buf.writeByte('O');        // Visual C++ long double
+}
+else
+{
             if (flags & IS_DMC)
                 buf.writestring("_Z"); // DigitalMars long double
             else
                 buf.writestring("_T"); // Intel long double
+}
             break;
         case Twchar:
             if (flags & IS_DMC)

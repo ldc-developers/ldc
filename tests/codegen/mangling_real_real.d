@@ -10,7 +10,7 @@ import core.stdc.config;
 
 // LINUX: define {{.*}}Z8withrealee
 // ANDROID: define {{.*}}Z8withrealgg
-// WINDOWS: define {{.*}}?withreal@@YAX_T0@Z
+// WINDOWS: define {{.*}}?withreal@@YAXOO@Z
 extern (C++) void withreal(real a, real b)
 {
 }
