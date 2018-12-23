@@ -31,6 +31,7 @@ matrix:
 cache:
   directories:
     - llvm-7.0.1
+    - llvm-7.0.0
     - llvm-6.0.1
     - llvm-spirv-6.0.0
     - llvm-5.0.2
