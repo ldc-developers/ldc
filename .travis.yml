@@ -4,10 +4,9 @@ sudo: false
 
 matrix:
   include:
-    # FIXME: strange segfaults, possibly due to C++ compiler mismatch
-    #- os: linux
-    #  d: ldc
-    #  env: LLVM_VERSION=7.0.0 OPTS="-DBUILD_SHARED_LIBS=ON"
+    - os: linux
+      d: ldc
+      env: LLVM_VERSION=7.0.1 OPTS="-DBUILD_SHARED_LIBS=ON"
     - os: linux
       d: ldc-beta
       env: LLVM_VERSION=6.0.1 OPTS="-DBUILD_SHARED_LIBS=OFF -DLIB_SUFFIX=64"
@@ -31,7 +30,7 @@ matrix:
 
 cache:
   directories:
-    - llvm-7.0.0
+    - llvm-7.0.1
     - llvm-6.0.1
     - llvm-spirv-6.0.0
     - llvm-5.0.2
