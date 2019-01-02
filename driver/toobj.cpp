@@ -67,7 +67,7 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
   ComputeBackend::Type cb = getComputeTargetType(&m);
 
   if (cb == ComputeBackend::SPIRV) {
-#if LDC_LLVM_SUPPORTED_TARGET_SPIRV
+#ifdef LDC_LLVM_SUPPORTED_TARGET_SPIRV
     IF_LOG Logger::println("running createSPIRVWriterPass()");
     llvm::createSPIRVWriterPass(out)->runOnModule(m);
     IF_LOG Logger::println("Success.");

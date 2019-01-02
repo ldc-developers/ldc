@@ -16,6 +16,18 @@ include(CheckDSourceCompiles)
 include(CheckLinkFlag)
 include(BuildDExecutable)
 
+# Helper function
+function(append value)
+    foreach(variable ${ARGN})
+        if(${variable} STREQUAL "")
+            set(${variable} "${value}" PARENT_SCOPE)
+        else()
+            set(${variable} "${${variable}} ${value}" PARENT_SCOPE)
+        endif()
+    endforeach(variable)
+endfunction()
+
+
 # The script currently only supports the DMD-style commandline interface
 if (NOT D_COMPILER_DMD_COMPAT)
     message(FATAL_ERROR "We currently only support building using a D compiler with a DMD-compatible commandline interface. (try 'ldmd2' or 'gdmd')")
@@ -37,7 +49,6 @@ endif()
 pkg_check_modules(LLVM_SPIRV LLVMSPIRVLib)
 if (LLVM_SPIRV_FOUND)
     message(STATUS "Building with SPIR-V support")
-    add_definitions("-DLDC_LLVM_SUPPORTED_TARGET_SPIRV=1")
     set(LLVM_MODULES "${LLVM_MODULES}" demangle)
 endif()
 
@@ -57,23 +68,16 @@ foreach(LLVM_SUPPORTED_TARGET ${LLVM_TARGETS_TO_BUILD})
 endforeach()
 
 if (LLVM_SPIRV_FOUND)
-    set(LLVM_LIBRARIES ${LLVM_LIBRARIES} "-l${LLVM_SPIRV_LIBRARIES}")
+    add_definitions("-DLDC_LLVM_SUPPORTED_TARGET_SPIRV=1")
+    foreach(flag ${LLVM_SPIRV_LDFLAGS})
+        append("${flag}" LLVM_LDFLAGS)
+    endforeach(flag)
 endif()
 #
 # Get info about used Linux distribution.
 #
 include(GetLinuxDistribution)
 
-# Helper function
-function(append value)
-    foreach(variable ${ARGN})
-        if(${variable} STREQUAL "")
-            set(${variable} "${value}" PARENT_SCOPE)
-        else()
-            set(${variable} "${${variable}} ${value}" PARENT_SCOPE)
-        endif()
-    endforeach(variable)
-endfunction()
 
 #
 # Main configuration.
