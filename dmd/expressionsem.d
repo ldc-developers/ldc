@@ -3125,6 +3125,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                         exp.error("recursive expansion of %s `%s`", ti.kind(), ti.toPrettyChars());
                         return setError();
                     }
+                    v.checkDeprecated(exp.loc, sc);
                     auto e = v.expandInitializer(exp.loc);
                     ti.inuse++;
                     e = e.expressionSemantic(sc);
@@ -10326,6 +10327,12 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
         auto f2 = checkNonAssignmentArrayOp(exp.e2);
         if (f1 || f2)
             return setError();
+
+        if (exp.e1.op == TOK.type || exp.e2.op == TOK.type)
+        {
+            result = exp.incompatibleTypes();
+            return;
+        }
 
         exp.type = Type.tbool;
 
