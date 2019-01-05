@@ -95,7 +95,7 @@ JITContext::JITContext()
       execSession(stringPool), resolver(createResolver()),
       objectLayer(execSession,
                   [this](llvm::orc::VModuleKey) {
-                    return llvm::orc::RTDyldObjectLinkingLayer::Resources{
+                    return ObjectLayerT::Resources{
                         std::make_shared<llvm::SectionMemoryManager>(),
                         resolver};
                   }),

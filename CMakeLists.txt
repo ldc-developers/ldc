@@ -208,6 +208,18 @@ if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang"))
         append("-Wno-pedantic" LDC_CXXFLAGS)
     endif()
 endif()
+
+if(NOT WIN32 AND NOT CYGWIN)
+    # Unify symbol visibility with LLVM to silence linker warning "direct access in function X to global
+    # weak symbol Y means the weak symbol cannot be overridden at runtime. This was likely caused by
+    # different translation units being compiled with different visibility settings."
+    # See LLVM's cmake/modules/HandleLLVMOptions.cmake.
+    check_cxx_compiler_flag("-fvisibility-inlines-hidden" SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG)
+    if (${SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG})
+        append("-fvisibility-inlines-hidden" LDC_CXXFLAGS)
+    endif()
+endif()
+
 if(MSVC)
     # Remove flags here, for exceptions and RTTI.
     # CL.EXE complains to override flags like "/GR /GR-".
@@ -263,6 +275,13 @@ else()
     separate_arguments(LLVM_LDFLAGS UNIX_COMMAND "${LLVM_LDFLAGS}")
 endif()
 
+# Suppress superfluous randlib warnings about "*.a" having no symbols on MacOSX.
+if (APPLE)
+    set(CMAKE_C_ARCHIVE_CREATE   "<CMAKE_AR> Scr <TARGET> <LINK_FLAGS> <OBJECTS>")
+    set(CMAKE_CXX_ARCHIVE_CREATE "<CMAKE_AR> Scr <TARGET> <LINK_FLAGS> <OBJECTS>")
+    set(CMAKE_C_ARCHIVE_FINISH   "<CMAKE_RANLIB> -no_warning_for_no_symbols -c <TARGET>")
+    set(CMAKE_CXX_ARCHIVE_FINISH "<CMAKE_RANLIB> -no_warning_for_no_symbols -c <TARGET>")
+endif()
 
 #
 # Gather source files.
