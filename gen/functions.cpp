@@ -622,10 +622,11 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     }
   }
 
-  if (fdecl->llvmInternal == LLVMglobal_crt_ctor ||
-      fdecl->llvmInternal == LLVMglobal_crt_dtor) {
-    AppendFunctionToLLVMGlobalCtorsDtors(
-        func, fdecl->priority, fdecl->llvmInternal == LLVMglobal_crt_ctor);
+  if (fdecl->isCrtCtorDtor & 1) {
+    AppendFunctionToLLVMGlobalCtorsDtors(func, fdecl->priority, true);
+  }
+  if (fdecl->isCrtCtorDtor & 2) {
+    AppendFunctionToLLVMGlobalCtorsDtors(func, fdecl->priority, false);
   }
 
   IrFuncTy &irFty = irFunc->irFty;

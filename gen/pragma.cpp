@@ -362,6 +362,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
 
   case LLVMglobal_crt_ctor:
   case LLVMglobal_crt_dtor: {
+    const unsigned char flag = llvm_internal == LLVMglobal_crt_ctor ? 1 : 2;
     const int count = applyFunctionPragma(s, [=](FuncDeclaration *fd) {
       assert(fd->type->ty == Tfunction);
       TypeFunction *type = static_cast<TypeFunction *>(fd->type);
@@ -372,9 +373,9 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
               "the `%s` pragma is only allowed on `void` functions which take "
               "no arguments",
               ident->toChars());
-        fd->llvmInternal = LLVMnone;
+        fd->isCrtCtorDtor &= ~flag;
       } else {
-        fd->llvmInternal = llvm_internal;
+        fd->isCrtCtorDtor |= flag;
         fd->priority = std::atoi(arg1str);
       }
     });
