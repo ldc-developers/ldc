@@ -193,6 +193,11 @@ LLConstant *IrAggr::getVtblInit() {
       if (fd->inferRetType && !fd->type->nextOf()) {
         Logger::println("Running late functionSemantic to infer return type.");
         if (!fd->functionSemantic()) {
+          if (fd->semantic3Errors) {
+            Logger::println("functionSemantic failed; using null for vtbl entry.");
+            constants.push_back(getNullValue(voidPtrType));
+            continue;
+          }
           fd->error("failed to infer return type for vtbl initializer");
           fatal();
         }
