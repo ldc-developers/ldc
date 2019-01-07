@@ -186,18 +186,27 @@ static Type *DtoArrayElementType(Type *arrayType) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static void copySlice(Loc &loc, LLValue *dstarr, LLValue *sz1, LLValue *srcarr,
-                      LLValue *sz2, bool knownInBounds) {
+static LLValue *computeSize(LLValue *length, size_t elementSize) {
+  return elementSize == 1
+             ? length
+             : gIR->ir->CreateMul(length, DtoConstSize_t(elementSize));
+};
+
+static void copySlice(Loc &loc, LLValue *dstarr, LLValue *dstlen, LLValue *srcarr,
+                      LLValue *srclen, size_t elementSize, bool knownInBounds) {
   const bool checksEnabled =
       global.params.useAssert == CHECKENABLEon || gIR->emitArrayBoundsChecks();
   if (checksEnabled && !knownInBounds) {
     LLValue *fn = getRuntimeFunction(loc, gIR->module, "_d_array_slice_copy");
-    gIR->CreateCallOrInvoke(fn, dstarr, sz1, srcarr, sz2);
+    gIR->CreateCallOrInvoke(
+        fn, {dstarr, dstlen, srcarr, srclen, DtoConstSize_t(elementSize)}, "",
+        /*isNothrow=*/true);
   } else {
     // We might have dstarr == srcarr at compile time, but as long as
     // sz1 == 0 at runtime, this would probably still be legal (the C spec
     // is unclear here).
-    DtoMemCpy(dstarr, srcarr, sz1);
+    LLValue *size = computeSize(dstlen, elementSize);
+    DtoMemCpy(dstarr, srcarr, size);
   }
 }
 
@@ -245,12 +254,6 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
   LLValue *lhsPtr = DtoBitCast(realLhsPtr, getVoidPtrType());
   LLValue *lhsLength = DtoArrayLen(lhs);
 
-  auto computeSize = [](LLValue *length, size_t elementSize) {
-    return elementSize == 1
-               ? length
-               : gIR->ir->CreateMul(length, DtoConstSize_t(elementSize));
-  };
-
   // Be careful to handle void arrays correctly when modifying this (see tests
   // for DMD issue 7493).
   // TODO: This should use AssignExp::memset.
@@ -268,15 +271,14 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
     if (!needsDestruction && !needsPostblit) {
       // fast version
       const size_t elementSize = getTypeAllocSize(DtoMemType(elemType));
-      LLValue *lhsSize = computeSize(lhsLength, elementSize);
-
       if (rhs->isNull()) {
+        LLValue *lhsSize = computeSize(lhsLength, elementSize);
         DtoMemSetZero(lhsPtr, lhsSize);
       } else {
-        LLValue *rhsSize = computeSize(rhsLength, elementSize);
         const bool knownInBounds =
             isConstructing || (t->ty == Tsarray && t2->ty == Tsarray);
-        copySlice(loc, lhsPtr, lhsSize, rhsPtr, rhsSize, knownInBounds);
+        copySlice(loc, lhsPtr, lhsLength, rhsPtr, rhsLength, elementSize,
+                  knownInBounds);
       }
     } else if (isConstructing) {
       LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_arrayctor");
@@ -912,7 +914,7 @@ DSliceValue *DtoCatArrays(Loc &loc, Type *arrayType, Expression *exp1,
   }
 
   auto newArray =
-      gIR->funcGen().callOrInvoke(fn, args, ".appendedArray").getInstruction();
+      gIR->CreateCallOrInvoke(fn, args, ".appendedArray").getInstruction();
   return getSlice(arrayType, newArray);
 }
 
@@ -985,7 +987,7 @@ LLValue *DtoArrayEqCmp_impl(Loc &loc, const char *func, DValue *l,
     args.push_back(DtoBitCast(tival, fn->getFunctionType()->getParamType(2)));
   }
 
-  return gIR->funcGen().callOrInvoke(fn, args).getInstruction();
+  return gIR->CreateCallOrInvoke(fn, args).getInstruction();
 }
 
 /// When `true` is returned, the type can be compared using `memcmp`.
@@ -1158,10 +1160,10 @@ LLValue *DtoArrayCastLength(Loc &loc, LLValue *len, LLType *elemty,
     return len;
   }
 
-  LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_array_cast_len");
+  LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_arraycast_len");
   return gIR
-      ->CreateCallOrInvoke(fn, len, LLConstantInt::get(DtoSize_t(), esz, false),
-                           LLConstantInt::get(DtoSize_t(), nsz, false))
+      ->CreateCallOrInvoke(fn, {len, DtoConstSize_t(esz), DtoConstSize_t(nsz)},
+                           "", /*isNothrow=*/true)
       .getInstruction();
 }
 

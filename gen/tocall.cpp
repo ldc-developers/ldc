@@ -886,8 +886,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   // call the function
-  LLCallSite call =
-      gIR->funcGen().callOrInvoke(callable, args, "", tf->isnothrow);
+  LLCallSite call = gIR->CreateCallOrInvoke(callable, args, "", tf->isnothrow);
 
   // PGO: Insert instrumentation or attach profile metadata at indirect call
   // sites.

@@ -293,7 +293,7 @@ void DtoAssert(Module *M, Loc &loc, DValue *msg) {
   args.push_back(DtoConstUint(loc.linnum));
 
   // call
-  gIR->funcGen().callOrInvoke(fn, args);
+  gIR->CreateCallOrInvoke(fn, args);
 
   // after assert is always unreachable
   gIR->ir->CreateUnreachable();
@@ -333,7 +333,7 @@ void DtoCAssert(Module *M, Loc &loc, LLValue *msg) {
     args.push_back(line);
   }
 
-  gIR->funcGen().callOrInvoke(fn, args);
+  gIR->CreateCallOrInvoke(fn, args);
 
   gIR->ir->CreateUnreachable();
 }

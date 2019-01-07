@@ -20,6 +20,7 @@
 #endif
 
 #include "gen/passes/Passes.h"
+#include "gen/tollvm.h"
 #include "gen/runtime.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringMap.h"
@@ -168,7 +169,7 @@ struct LLVM_LIBRARY_VISIBILITY ArraySetLengthOpt : public LibCallOptimization {
 struct LLVM_LIBRARY_VISIBILITY ArrayCastLenOpt : public LibCallOptimization {
   Value *CallOptimizer(Function *Callee, CallInst *CI,
                        IRBuilder<> &B) override {
-    // Verify we have a reasonable prototype for _d_array_cast_len
+    // Verify we have a reasonable prototype for _d_arraycast_len
     const FunctionType *FT = Callee->getFunctionType();
     const llvm::Type *RetTy = FT->getReturnType();
     if (Callee->arg_size() != 3 || !isa<IntegerType>(RetTy) ||
@@ -261,27 +262,28 @@ struct LLVM_LIBRARY_VISIBILITY ArraySliceCopyOpt : public LibCallOptimization {
     // Verify we have a reasonable prototype for _d_array_slice_copy
     const FunctionType *FT = Callee->getFunctionType();
     const llvm::Type *VoidPtrTy = PointerType::getUnqual(B.getInt8Ty());
-    if (Callee->arg_size() != 4 || FT->getReturnType() != B.getVoidTy() ||
+    if (Callee->arg_size() != 5 || FT->getReturnType() != B.getVoidTy() ||
         FT->getParamType(0) != VoidPtrTy ||
         !isa<IntegerType>(FT->getParamType(1)) ||
         FT->getParamType(2) != VoidPtrTy ||
-        FT->getParamType(3) != FT->getParamType(1)) {
+        FT->getParamType(3) != FT->getParamType(1) ||
+        FT->getParamType(4) != FT->getParamType(1)) {
       return nullptr;
     }
 
-    Value *Size = CI->getOperand(1);
+    Value *DstLength = CI->getOperand(1);
 
     // Check the lengths match
-    if (CI->getOperand(3) != Size) {
+    if (CI->getOperand(3) != DstLength) {
       return nullptr;
     }
 
-    // Assume unknown size unless we have constant size (that fits in an uint)
-    unsigned Sz = ~0U;
-    if (ConstantInt *Int = dyn_cast<ConstantInt>(Size)) {
-      if (Int->getValue().isIntN(32)) {
-        Sz = Int->getValue().getZExtValue();
-      }
+    const auto ElemSz = llvm::cast<ConstantInt>(CI->getOperand(4));
+
+    // Assume unknown size unless we have constant length
+    std::uint64_t Sz = llvm::MemoryLocation::UnknownSize;
+    if (ConstantInt *Int = dyn_cast<ConstantInt>(DstLength)) {
+      Sz = (Int->getValue() * ElemSz->getValue()).getZExtValue();
     }
 
     // Check if the pointers may alias
@@ -291,6 +293,9 @@ struct LLVM_LIBRARY_VISIBILITY ArraySliceCopyOpt : public LibCallOptimization {
 
     // Equal length and the pointers definitely don't alias, so it's safe to
     // replace the call with memcpy
+    auto Size = Sz != llvm::MemoryLocation::UnknownSize
+                    ? DtoConstSize_t(Sz)
+                    : B.CreateMul(DstLength, ElemSz);
     return EmitMemCpy(CI->getOperand(0), CI->getOperand(2), Size, 1, B);
   }
 };
@@ -345,9 +350,9 @@ FunctionPass *createSimplifyDRuntimeCalls() {
 /// we know.
 void SimplifyDRuntimeCalls::InitOptimizations() {
   // Some array-related optimizations
+  Optimizations["_d_arraycast_len"] = &ArrayCastLen;
   Optimizations["_d_arraysetlengthT"] = &ArraySetLength;
   Optimizations["_d_arraysetlengthiT"] = &ArraySetLength;
-  Optimizations["_d_array_cast_len"] = &ArrayCastLen;
   Optimizations["_d_array_slice_copy"] = &ArraySliceCopy;
 
   /* Delete calls to runtime functions which aren't needed if their result is
