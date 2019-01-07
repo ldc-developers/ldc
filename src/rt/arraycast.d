@@ -19,19 +19,34 @@ module rt.arraycast;
 
 extern (C)
 
-@trusted nothrow
-void[] _d_arraycast(size_t tsize, size_t fsize, void[] a)
+version (LDC)
 {
-    auto length = a.length;
-
-    auto nbytes = length * fsize;
-    if (nbytes % tsize != 0)
+    @trusted nothrow
+    size_t _d_arraycast_len(size_t len, size_t elemsz, size_t newelemsz)
     {
-        throw new Error("array cast misalignment");
+        const size = len * elemsz;
+        const newlen = size / newelemsz;
+        if (newlen * newelemsz != size)
+            throw new Error("array cast misalignment");
+        return newlen;
     }
-    length = nbytes / tsize;
-    *cast(size_t *)&a = length; // jam new length
-    return a;
+}
+else
+{
+    @trusted nothrow
+    void[] _d_arraycast(size_t tsize, size_t fsize, void[] a)
+    {
+        auto length = a.length;
+
+        auto nbytes = length * fsize;
+        if (nbytes % tsize != 0)
+        {
+            throw new Error("array cast misalignment");
+        }
+        length = nbytes / tsize;
+        *cast(size_t *)&a = length; // jam new length
+        return a;
+    }
 }
 
 unittest
