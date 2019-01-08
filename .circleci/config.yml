@@ -129,7 +129,10 @@ commonSteps: &commonSteps
     - run:
         name: Run LIT testsuite
         when: always
-        command: cd ../ninja-ldc && ctest -V -R lit-tests
+        command: |
+          cd ../ninja-ldc
+          # Temporarily add LLVM bin dir to PATH, so that e.g. wasm-ld is found.
+          PATH=$PWD/../llvm-$LLVM_VERSION/bin:$PATH ctest -V -R lit-tests
     - run:
         name: Run DMD testsuite
         when: always
