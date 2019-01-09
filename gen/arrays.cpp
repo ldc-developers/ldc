@@ -275,8 +275,18 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
         LLValue *lhsSize = computeSize(lhsLength, elementSize);
         DtoMemSetZero(lhsPtr, lhsSize);
       } else {
-        const bool knownInBounds =
+        bool knownInBounds =
             isConstructing || (t->ty == Tsarray && t2->ty == Tsarray);
+        if (!knownInBounds) {
+          if (auto constLhsLength = llvm::dyn_cast<LLConstantInt>(lhsLength)) {
+            if (auto constRhsLength =
+                    llvm::dyn_cast<LLConstantInt>(rhsLength)) {
+              if (constLhsLength->getValue() == constRhsLength->getValue()) {
+                knownInBounds = true;
+              }
+            }
+          }
+        }
         copySlice(loc, lhsPtr, lhsLength, rhsPtr, rhsLength, elementSize,
                   knownInBounds);
       }
@@ -1194,7 +1204,9 @@ LLValue *DtoArrayLen(DValue *v) {
     if (v->isLVal()) {
       return DtoLoad(DtoGEPi(DtoLVal(v), 0, 0), ".len");
     }
-    return gIR->ir->CreateExtractValue(DtoRVal(v), 0, ".len");
+    auto slice = v->isSlice();
+    assert(slice);
+    return slice->getLength();
   }
   if (t->ty == Tsarray) {
     assert(!v->isSlice());
@@ -1222,7 +1234,9 @@ LLValue *DtoArrayPtr(DValue *v) {
     } else if (v->isLVal()) {
       ptr = DtoLoad(DtoGEPi(DtoLVal(v), 0, 1), ".ptr");
     } else {
-      ptr = gIR->ir->CreateExtractValue(DtoRVal(v), 1, ".ptr");
+      auto slice = v->isSlice();
+      assert(slice);
+      ptr = slice->getPtr();
     }
   } else if (t->ty == Tsarray) {
     assert(!v->isSlice());

@@ -87,11 +87,22 @@ DSliceValue::DSliceValue(Type *t, LLValue *pair) : DRValue(t, pair) {
 }
 
 DSliceValue::DSliceValue(Type *t, LLValue *length, LLValue *ptr)
-    : DSliceValue(t, DtoAggrPair(length, ptr)) {}
+    : DSliceValue(t, DtoAggrPair(length, ptr)) {
+  cachedLength = length;
+  cachedPtr = ptr;
+}
 
-LLValue *DSliceValue::getLength() { return DtoExtractValue(val, 0, ".len"); }
+LLValue *DSliceValue::getLength() {
+  if (!cachedLength)
+    cachedLength = DtoExtractValue(val, 0, ".len");
+  return cachedLength;
+}
 
-LLValue *DSliceValue::getPtr() { return DtoExtractValue(val, 1, ".ptr"); }
+LLValue *DSliceValue::getPtr() {
+  if (!cachedPtr)
+    cachedPtr = DtoExtractValue(val, 1, ".ptr");
+  return cachedPtr;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
