@@ -30,7 +30,8 @@ following options:
   auto-detect your latest Visual C++ installation in that case.
 * Set up the etc\ldc2.conf config file and specify the directories containing
   the MS libs (appending them to the 'lib-dirs' array; check out the LIB
-  environment variable in a VS tools command prompt).
+  environment variable in a VS tools command prompt) as well as the C runtime
+  flavor (e.g., appending '-mscrtlib=libcmt' to the 'switches' array).
   In case you prefer the MS linker over LLD, add the switch
   '-linker=<path\to\link.exe>'.
 
