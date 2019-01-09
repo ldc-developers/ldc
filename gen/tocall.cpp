@@ -1038,5 +1038,9 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
     return new DLValue(resulttype, retllval);
   }
 
+  if (rbase->ty == Tarray) {
+    return new DSliceValue(resulttype, retllval);
+  }
+
   return new DImValue(resulttype, retllval);
 }

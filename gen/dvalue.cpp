@@ -69,6 +69,7 @@ DImValue::DImValue(Type *t, llvm::Value *v) : DRValue(t, v) {
   // equality check.
   assert(t->toBasetype()->ty == Tfunction ||
          stripAddrSpaces(v->getType()) == DtoType(t));
+  assert(t->toBasetype()->ty != Tarray && "use DSliceValue for dynamic arrays");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -133,7 +134,9 @@ DRValue *DLValue::getRVal() {
   }
 
   LLValue *rval = DtoLoad(val);
-  if (type->toBasetype()->ty == Tbool) {
+
+  const auto ty = type->toBasetype()->ty;
+  if (ty == Tbool) {
     assert(rval->getType() == llvm::Type::getInt8Ty(gIR->context()));
 
     if (isOptimizationEnabled()) {
@@ -146,6 +149,8 @@ DRValue *DLValue::getRVal() {
 
     // truncate to i1
     rval = gIR->ir->CreateTrunc(rval, llvm::Type::getInt1Ty(gIR->context()));
+  } else if (ty == Tarray) {
+    return new DSliceValue(type, rval);
   }
 
   return new DImValue(type, rval);

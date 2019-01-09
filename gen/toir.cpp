@@ -410,7 +410,7 @@ public:
     if (dtype->ty == Tarray) {
       LLConstant *clen =
           LLConstantInt::get(DtoSize_t(), e->numberOfCodeUnits(), false);
-      result = new DImValue(e->type, DtoConstSlice(clen, arrptr, dtype));
+      result = new DSliceValue(e->type, DtoConstSlice(clen, arrptr, dtype));
     } else if (dtype->ty == Tsarray) {
       LLType *dstType =
           getPtrToType(LLArrayType::get(ct, e->numberOfCodeUnits()));
