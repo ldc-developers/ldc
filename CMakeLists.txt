@@ -33,7 +33,6 @@ if (NOT D_COMPILER_DMD_COMPAT)
     message(FATAL_ERROR "We currently only support building using a D compiler with a DMD-compatible commandline interface. (try 'ldmd2' or 'gdmd')")
 endif()
 
-# SPIRV needs LLVMDemangle
 set(LLVM_MODULES all-targets analysis asmparser asmprinter bitreader bitwriter codegen core
                  debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel
                  instcombine ipa ipo instrumentation irreader libdriver linker lto mc
@@ -43,12 +42,14 @@ set(LLVM_MODULES all-targets analysis asmparser asmprinter bitreader bitwriter c
 
 find_package(PkgConfig)
 if(MSVC)
-    # make use pkg-config uses -LC:\path\to\build\LLVMSPIRVLib.lib not -L-lLLVMSPIRVLib
+    # make pkg-config use -LC:\path\to\build\LLVMSPIRVLib.lib not -L-lLLVMSPIRVLib
+    # for MSVC
     set(PKG_CONFIG_EXECUTABLE "${PKG_CONFIG_EXECUTABLE} --msvc-syntax")
 endif()
 pkg_check_modules(LLVM_SPIRV LLVMSPIRVLib)
 if (LLVM_SPIRV_FOUND)
     message(STATUS "Building with SPIR-V support")
+    # SPIRV needs LLVMDemangle
     set(LLVM_MODULES "${LLVM_MODULES}" demangle)
 endif()
 
