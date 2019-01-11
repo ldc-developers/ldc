@@ -46,8 +46,9 @@
 #ifdef LDC_LLVM_SUPPORTED_TARGET_SPIRV
 namespace llvm {
     ModulePass *createSPIRVWriterPass(llvm::raw_ostream &Str);
-};
+}
 #endif
+
 static llvm::cl::opt<bool>
     NoIntegratedAssembler("no-integrated-as", llvm::cl::ZeroOrMore,
                           llvm::cl::Hidden,
