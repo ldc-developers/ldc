@@ -41,16 +41,18 @@ set(LLVM_MODULES all-targets analysis asmparser asmprinter bitreader bitwriter c
                  windowsmanifest)
 
 find_package(PkgConfig)
-if(MSVC)
-    # make pkg-config use -LC:\path\to\build\LLVMSPIRVLib.lib not -L-lLLVMSPIRVLib
-    # for MSVC
-    set(PKG_CONFIG_EXECUTABLE "${PKG_CONFIG_EXECUTABLE} --msvc-syntax")
-endif()
-pkg_check_modules(LLVM_SPIRV LLVMSPIRVLib)
-if (LLVM_SPIRV_FOUND)
-    message(STATUS "Building with SPIR-V support")
-    # SPIRV needs LLVMDemangle
-    set(LLVM_MODULES "${LLVM_MODULES}" demangle)
+if(PkgConfig_FOUND)
+    if(MSVC)
+        # make pkg-config use -LC:\path\to\build\LLVMSPIRVLib.lib not -L-lLLVMSPIRVLib
+        # for MSVC
+        set(PKG_CONFIG_EXECUTABLE "${PKG_CONFIG_EXECUTABLE} --msvc-syntax")
+    endif()
+    pkg_check_modules(LLVM_SPIRV LLVMSPIRVLib)
+    if (LLVM_SPIRV_FOUND)
+        message(STATUS "Building with SPIR-V support")
+        # SPIRV needs LLVMDemangle
+        set(LLVM_MODULES "${LLVM_MODULES}" demangle)
+    endif()
 endif()
 
 #
