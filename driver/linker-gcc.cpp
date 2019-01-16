@@ -351,6 +351,13 @@ void ArgsBuilder::addXRayLinkFlags(const llvm::Triple &triple) {
     if (!linkerDarwin)
       addLdFlag("--no-whole-archive");
 
+#if LDC_LLVM_VER < 700
+    // Before LLVM 7, XRay requires the C++ std library (but not on Darwin).
+    // Only link with the C++ stdlib when the XRay library was found.
+    if (!linkerDarwin)
+      addCppStdlibLinkFlags(triple);
+#endif
+
     return;
   }
 }
