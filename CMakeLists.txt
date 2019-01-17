@@ -27,18 +27,10 @@ function(append value)
     endforeach(variable)
 endfunction()
 
-
 # The script currently only supports the DMD-style commandline interface
 if (NOT D_COMPILER_DMD_COMPAT)
     message(FATAL_ERROR "We currently only support building using a D compiler with a DMD-compatible commandline interface. (try 'ldmd2' or 'gdmd')")
 endif()
-
-set(LLVM_MODULES all-targets analysis asmparser asmprinter bitreader bitwriter codegen core
-                 debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel
-                 instcombine ipa ipo instrumentation irreader libdriver linker lto mc
-                 mcdisassembler mcparser objcarcopts object option profiledata scalaropts
-                 selectiondag support tablegen target transformutils vectorize
-                 windowsmanifest)
 
 find_package(PkgConfig)
 if(PkgConfig_FOUND)
@@ -51,7 +43,7 @@ if(PkgConfig_FOUND)
     if (LLVM_SPIRV_FOUND)
         message(STATUS "Building with SPIR-V support")
         # SPIRV needs LLVMDemangle
-        set(LLVM_MODULES "${LLVM_MODULES}" demangle)
+        set(EXTRA_LLVM_MODULES "${EXTRA_LLVM_MODULES}" demangle)
     endif()
 endif()
 
@@ -59,7 +51,13 @@ endif()
 # Locate LLVM.
 #
 
-find_package(LLVM 3.9 REQUIRED ${LLVM_MODULES} ${EXTRA_LLVM_MODULES})
+find_package(LLVM 3.9 REQUIRED
+    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core
+    debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel
+    instcombine ipa ipo instrumentation irreader libdriver linker lto mc
+    mcdisassembler mcparser objcarcopts object option profiledata scalaropts
+    selectiondag support tablegen target transformutils vectorize
+    windowsmanifest ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 # Remove LLVMTableGen library from list of libraries
 string(REGEX MATCH "[^;]*LLVMTableGen[^;]*" LLVM_TABLEGEN_LIBRARY "${LLVM_LIBRARIES}")
