@@ -53,7 +53,7 @@ before_install:
     export LLVM_ROOT_DIR="$PWD/llvm-$LLVM_VERSION";
     if [ -n "${LLVM_SPIRV_AVAILABLE}" ]; then
     	export LLVM_ROOT_DIR="$PWD/llvm-spirv-$LLVM_VERSION";
-    	export PKG_CONFIG_PATH=`pwd`/llvm-spirv/lib/pkgconfig;
+    	export PKG_CONFIG_PATH="$PWD/llvm-spirv/lib/pkgconfig";
     fi;
   -
     if [ ! -e "$LLVM_ROOT_DIR/bin/llvm-config" ]; then
