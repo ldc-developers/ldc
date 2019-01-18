@@ -10,7 +10,7 @@
 #pragma once
 
 #if !IN_LLVM
-#define POSIX (__linux__ || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __DragonFly__ || __sun)
+#define POSIX (__linux__ || __GLIBC__ || __gnu_hurd__ || __APPLE__ || __FreeBSD__ || __DragonFly__ || __OpenBSD__ || __sun)
 #endif
 
 #include "dcompat.h"
@@ -62,5 +62,5 @@ public:
      * Used as a replacement for dynamic_cast. Returns a unique number
      * defined by the library user. For Object, the return value is 0.
      */
-    virtual int dyncast() const;
+    virtual DYNCAST dyncast() const;
 };

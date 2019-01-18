@@ -66,5 +66,7 @@ ifeq (,$(MODEL))
 endif
 
 ifneq (,$(MODEL))
-  MODEL_FLAG:=-m$(MODEL)
+  ifneq (default,$(MODEL))
+    MODEL_FLAG:=-m$(MODEL)
+  endif
 endif

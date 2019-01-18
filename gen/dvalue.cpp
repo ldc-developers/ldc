@@ -69,6 +69,7 @@ DImValue::DImValue(Type *t, llvm::Value *v) : DRValue(t, v) {
   // equality check.
   assert(t->toBasetype()->ty == Tfunction ||
          stripAddrSpaces(v->getType()) == DtoType(t));
+  assert(t->toBasetype()->ty != Tarray && "use DSliceValue for dynamic arrays");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -87,11 +88,22 @@ DSliceValue::DSliceValue(Type *t, LLValue *pair) : DRValue(t, pair) {
 }
 
 DSliceValue::DSliceValue(Type *t, LLValue *length, LLValue *ptr)
-    : DSliceValue(t, DtoAggrPair(length, ptr)) {}
+    : DSliceValue(t, DtoAggrPair(length, ptr)) {
+  cachedLength = length;
+  cachedPtr = ptr;
+}
 
-LLValue *DSliceValue::getLength() { return DtoExtractValue(val, 0, ".len"); }
+LLValue *DSliceValue::getLength() {
+  if (!cachedLength)
+    cachedLength = DtoExtractValue(val, 0, ".len");
+  return cachedLength;
+}
 
-LLValue *DSliceValue::getPtr() { return DtoExtractValue(val, 1, ".ptr"); }
+LLValue *DSliceValue::getPtr() {
+  if (!cachedPtr)
+    cachedPtr = DtoExtractValue(val, 1, ".ptr");
+  return cachedPtr;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -122,7 +134,9 @@ DRValue *DLValue::getRVal() {
   }
 
   LLValue *rval = DtoLoad(val);
-  if (type->toBasetype()->ty == Tbool) {
+
+  const auto ty = type->toBasetype()->ty;
+  if (ty == Tbool) {
     assert(rval->getType() == llvm::Type::getInt8Ty(gIR->context()));
 
     if (isOptimizationEnabled()) {
@@ -135,6 +149,8 @@ DRValue *DLValue::getRVal() {
 
     // truncate to i1
     rval = gIR->ir->CreateTrunc(rval, llvm::Type::getInt1Ty(gIR->context()));
+  } else if (ty == Tarray) {
+    return new DSliceValue(type, rval);
   }
 
   return new DImValue(type, rval);

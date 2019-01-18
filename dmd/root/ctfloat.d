@@ -30,7 +30,7 @@ private
     version(CRuntime_Microsoft) extern (C++)
     {
         public import dmd.root.longdouble : longdouble_soft, ld_sprint;
-        longdouble_soft strtold_dm(const(char)* p, char** endp);
+        @nogc longdouble_soft strtold_dm(const(char)* p, char** endp);
     }
 }
 
@@ -38,6 +38,9 @@ private
 extern (C++) struct CTFloat
 {
   nothrow:
+  @nogc:
+  @safe:
+
     version (GNU)
         enum yl2x_supported = false;
     else
@@ -110,9 +113,12 @@ extern (C++) struct CTFloat
         static real_t copysign(real_t x, real_t s) { return core.stdc.math.copysignl(x, s); }
     }
 
+    pure
     static real_t fmin(real_t x, real_t y) { return x < y ? x : y; }
+    pure
     static real_t fmax(real_t x, real_t y) { return x > y ? x : y; }
 
+    pure
     static real_t fma(real_t x, real_t y, real_t z) { return (x * y) + z; }
 
   version (IN_LLVM)
@@ -136,6 +142,7 @@ extern (C++) struct CTFloat
     static bool isFloat64LiteralOutOfRange(const(char)* literal) @nogc;
   }
 
+    pure @trusted
     static bool isIdentical(real_t a, real_t b)
     {
         // don't compare pad bytes in extended precision
@@ -143,6 +150,7 @@ extern (C++) struct CTFloat
         return memcmp(&a, &b, sz) == 0;
     }
 
+    pure @trusted
     static size_t hash(real_t a)
     {
         import dmd.root.hash : calcHash;
@@ -153,6 +161,7 @@ extern (C++) struct CTFloat
         return calcHash(cast(ubyte*) &a, sz);
     }
 
+    pure
     static bool isNaN(real_t r)
     {
         return !(r == r);
@@ -165,6 +174,7 @@ extern (C++) struct CTFloat
   }
   else
   {
+    pure @trusted
     static bool isSNaN(real_t r)
     {
         return isNaN(r) && !(((cast(ubyte*)&r)[7]) & 0x40);
@@ -174,6 +184,7 @@ extern (C++) struct CTFloat
     //  doesn't match with the C++ header.
     // add a wrapper just for isSNaN as this is the only function called from C++
     version(CRuntime_Microsoft) static if (is(real_t == real))
+        pure @trusted
         static bool isSNaN(longdouble_soft ld)
         {
             return isSNaN(cast(real)ld);
@@ -188,10 +199,12 @@ extern (C++) struct CTFloat
   version (IN_LLVM)
   {
     // implemented in gen/ctfloat.cpp
+    @system
     static real_t parse(const(char)* literal, bool* isOutOfRange = null);
   }
   else
   {
+    @system
     static real_t parse(const(char)* literal, bool* isOutOfRange = null)
     {
         errno = 0;
@@ -213,6 +226,7 @@ extern (C++) struct CTFloat
     }
   }
 
+    @system
     static int sprint(char* str, char fmt, real_t x)
     {
         version(CRuntime_Microsoft)
@@ -254,10 +268,12 @@ extern (C++) struct CTFloat
   version (IN_LLVM)
   {
     // implemented in gen/ctfloat.cpp
+    @trusted
     static void initialize();
   }
   else
   {
+    @trusted
     static void initialize()
     {
         zero = real_t(0);

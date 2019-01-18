@@ -85,6 +85,7 @@ void gendocfile(Module *m);
 
 // In dmd/mars.d
 void generateJson(Modules *modules);
+extern "C" void flushMixins();
 
 using namespace opts;
 
@@ -190,7 +191,12 @@ void processTransitions(std::vector<std::string> &list) {
              "  =intpromote,16997 fix integral promotions for unary + - ~ "
              "operators\n"
              "  =tls              list all variables going into thread local "
-             "storage\n");
+             "storage\n"
+             "  =fixAliasThis     when a symbol is resolved, check alias this "
+             "scope before going to upper scopes\n"
+             "  =markdown         enable Markdown replacements in Ddoc\n"
+             "  =vmarkdown        list instances of Markdown replacements in "
+             "Ddoc\n");
       exit(EXIT_SUCCESS);
     } else if (i == "all") {
       global.params.vfield = true;
@@ -200,6 +206,9 @@ void processTransitions(std::vector<std::string> &list) {
       global.params.vcomplex = true;
       global.params.fix16997 = true;
       global.params.vtls = true;
+      global.params.fixAliasThis = true;
+      global.params.markdown = true;
+      global.params.vmarkdown = true;
     } else if (i == "field" || i == "3449") {
       global.params.vfield = true;
     } else if (i == "import" || i == "10378") {
@@ -214,6 +223,12 @@ void processTransitions(std::vector<std::string> &list) {
       global.params.fix16997 = true;
     } else if (i == "tls") {
       global.params.vtls = true;
+    } else if (i == "fixAliasThis") {
+      global.params.fixAliasThis = true;
+    } else if (i == "markdown") {
+      global.params.markdown = true;
+    } else if (i == "vmarkdown") {
+      global.params.vmarkdown = true;
     } else {
       error(Loc(), "Invalid transition %s", i.c_str());
     }
@@ -365,7 +380,6 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   // Negated options
   global.params.link = !compileOnly;
   global.params.obj = !dontWriteObj;
-  global.params.release = !opts::invReleaseMode;
   global.params.useInlineAsm = !noAsm;
 
   // String options: std::string --> char*
@@ -385,6 +399,14 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   opts::initFromPathString(global.params.hdrname, hdrFile);
   global.params.doHdrGeneration |=
       global.params.hdrdir || global.params.hdrname;
+
+  opts::initFromPathString(global.params.mixinFile, mixinFile);
+  if (global.params.mixinFile) {
+    global.params.mixinOut = new OutBuffer;
+    // DMD uses atexit() too, so that the file is written when exiting via
+    // fatal() etc. too.
+    atexit(&flushMixins);
+  }
 
   if (moduleDeps.getNumOccurrences() != 0) {
     global.params.moduleDeps = new OutBuffer;
@@ -504,20 +526,23 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     global.params.useExceptions = false;
   }
 
-  if (global.params.useUnitTests) {
+  if (global.params.useUnitTests &&
+      global.params.useAssert == CHECKENABLEdefault) {
     global.params.useAssert = CHECKENABLEon;
   }
 
   // -release downgrades default checks
-  if (global.params.useArrayBounds == CHECKENABLEdefault)
-    global.params.useArrayBounds =
-        global.params.release ? CHECKENABLEsafeonly : CHECKENABLEon;
-  if (global.params.useAssert == CHECKENABLEdefault)
-    global.params.useAssert =
-        global.params.release ? CHECKENABLEoff : CHECKENABLEon;
-  if (global.params.useSwitchError == CHECKENABLEdefault)
-    global.params.useSwitchError =
-        global.params.release ? CHECKENABLEoff : CHECKENABLEon;
+  const auto defaultCheck = [](CHECKENABLE &param,
+                               CHECKENABLE releaseValue = CHECKENABLEoff) {
+    if (param == CHECKENABLEdefault)
+      param = global.params.release ? releaseValue : CHECKENABLEon;
+  };
+  defaultCheck(global.params.useInvariants);
+  defaultCheck(global.params.useIn);
+  defaultCheck(global.params.useOut);
+  defaultCheck(global.params.useArrayBounds, CHECKENABLEsafeonly);
+  defaultCheck(global.params.useAssert);
+  defaultCheck(global.params.useSwitchError);
 
   // LDC output determination
 
@@ -1076,6 +1101,10 @@ void codegenModules(Modules &modules) {
     // codegenned.
     for (d_size_t i = modules.dim; i-- > 0;) {
       Module *const m = modules[i];
+
+      if (m->isHdrFile)
+        continue;
+
       if (global.params.verbose)
         message("code      %s", m->toChars());
 

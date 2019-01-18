@@ -410,7 +410,7 @@ public:
     if (dtype->ty == Tarray) {
       LLConstant *clen =
           LLConstantInt::get(DtoSize_t(), e->numberOfCodeUnits(), false);
-      result = new DImValue(e->type, DtoConstSlice(clen, arrptr, dtype));
+      result = new DSliceValue(e->type, DtoConstSlice(clen, arrptr, dtype));
     } else if (dtype->ty == Tsarray) {
       LLType *dstType =
           getPtrToType(LLArrayType::get(ct, e->numberOfCodeUnits()));
@@ -751,7 +751,7 @@ public:
 
       // as requested by bearophile, see if it's a C printf call and that it's
       // valid.
-      if (global.params.warnings && checkPrintf) {
+      if (global.params.warnings != DIAGNOSTICoff && checkPrintf) {
         if (fndecl->linkage == LINKc &&
             strcmp(fndecl->ident->toChars(), "printf") == 0) {
           warnInvalidPrintfCall(e->loc, (*e->arguments)[0], e->arguments->dim);
@@ -1705,7 +1705,7 @@ public:
     p->scope() = IRScope(passedbb);
 
     // class/struct invariants
-    if (!global.params.useInvariants)
+    if (global.params.useInvariants != CHECKENABLEon)
       return;
     if (condty->ty == Tclass) {
       const auto sym = static_cast<TypeClass *>(condty)->sym;

@@ -37,7 +37,7 @@ struct X86TargetABI : TargetABI {
 
   llvm::CallingConv::ID callingConv(LINK l, TypeFunction *tf = nullptr,
                                     FuncDeclaration *fdecl = nullptr) override {
-    if (tf && tf->varargs == 1)
+    if (tf && tf->parameterList.varargs == VarArg::variadic)
       return llvm::CallingConv::C;
 
     switch (l) {
@@ -88,7 +88,8 @@ struct X86TargetABI : TargetABI {
       return false;
 
     Type *rt = tf->next->toBasetype();
-    const bool externD = (tf->linkage == LINKd && tf->varargs != 1);
+    const bool externD =
+        (tf->linkage == LINKd && tf->parameterList.varargs != VarArg::variadic);
 
     // non-aggregates and magic C++ structs are returned directly
     if (!isAggregate(rt) || isMagicCppStruct(rt))
@@ -136,7 +137,8 @@ struct X86TargetABI : TargetABI {
   }
 
   void rewriteFunctionType(IrFuncTy &fty) override {
-    const bool externD = (fty.type->linkage == LINKd && fty.type->varargs != 1);
+    const bool externD = (fty.type->linkage == LINKd &&
+                          fty.type->parameterList.varargs != VarArg::variadic);
 
     // return value:
     if (!fty.ret->byref) {

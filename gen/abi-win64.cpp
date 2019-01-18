@@ -89,7 +89,7 @@ public:
     // => let LLVM pass vectors in registers instead of passing a ref to a
     // hidden copy (both cases handled by LLVM automatically for LL vectors
     // which we don't rewrite).
-    return l == LINKd && !(tf && tf->varargs == 1)
+    return l == LINKd && !(tf && tf->parameterList.varargs == VarArg::variadic)
                ? llvm::CallingConv::X86_VectorCall
                : llvm::CallingConv::C;
   }

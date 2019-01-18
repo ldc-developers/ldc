@@ -53,7 +53,7 @@ extern (C++) FuncDeclaration search_toString(StructDeclaration sd)
         __gshared TypeFunction tftostring;
         if (!tftostring)
         {
-            tftostring = new TypeFunction(null, Type.tstring, 0, LINK.d);
+            tftostring = new TypeFunction(ParameterList(), Type.tstring, LINK.d);
             tftostring = tftostring.merge().toTypeFunction();
         }
         fd = fd.overloadExactMatch(tftostring);
@@ -350,6 +350,12 @@ extern (C++) class StructDeclaration : AggregateDeclaration
         //printf("StructDeclaration::finalizeSize() %s, sizeok = %d\n", toChars(), sizeok);
         assert(sizeok != Sizeok.done);
 
+        if (sizeok == Sizeok.inProcess)
+        {
+            return;
+        }
+        sizeok = Sizeok.inProcess;
+
         //printf("+StructDeclaration::finalizeSize() %s, fields.dim = %d, sizeok = %d\n", toChars(), fields.dim, sizeok);
 
         fields.setDim(0);   // workaround
@@ -363,7 +369,10 @@ extern (C++) class StructDeclaration : AggregateDeclaration
             s.setFieldOffset(this, &offset, isunion);
         }
         if (type.ty == Terror)
+        {
+            errors = true;
             return;
+        }
 
         // 0 sized struct's are set to 1 byte
         if (structsize == 0)
@@ -401,6 +410,12 @@ extern (C++) class StructDeclaration : AggregateDeclaration
         {
             if (vd._init)
             {
+                if (vd._init.isVoidInitializer())
+                    /* Treat as 0 for the purposes of putting the initializer
+                     * in the BSS segment, or doing a mass set to 0
+                     */
+                    continue;
+
                 // Zero size fields are zero initialized
                 if (vd.type.size(vd.loc) == 0)
                     continue;

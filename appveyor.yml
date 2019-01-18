@@ -19,6 +19,7 @@ environment:
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
       LLVM_VERSION:                7.0.1
       HOST_LDC_VERSION:            1.10.0
+      EXTRA_CMAKE_FLAGS:           -DBUILD_LTO_LIBS=ON
 
 # scripts that are called at very beginning, before repo cloning
 init:
@@ -139,7 +140,8 @@ test_script:
   - ps: If ($($Env:LLVM_VERSION[0]) -lt '6') { del ..\ldc\tests\linking\link_internally.d }
   - ctest -V -R "lit-tests"
   # Run DMD testsuite
-  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( set OS=Win_64) else ( set OS=Win_32)
+  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( set OS=win64) else ( set OS=win32)
+  - if "%APPVEYOR_JOB_ARCH%"=="x64" ( set MODEL=64) else ( set MODEL=32)
   - set DMD_TESTSUITE_MAKE_ARGS=-j2
   - ctest -V -R "dmd-testsuite"
   # Run stdlib unittests
@@ -182,17 +184,15 @@ after_test:
           cp -r lib32 "$ldcInstallDir\lib\mingw"
         }
         cd ..
-  # Hello world integration test with LTO (x64 only)
+  # Hello world integration test with LTO
   - ps: |
-        If ($Env:APPVEYOR_JOB_ARCH -eq 'x64') {
-          cd c:\projects
-          $ldcInstallDir = 'c:\projects\ldc2-install'
-          echo 'void main() { import std.stdio; writefln("Hello world, %d bits", size_t.sizeof * 8); }' > hello.d
-          & "$ldcInstallDir\bin\ldc2.exe" hello.d '-of=hello_thin.exe' '-flto=thin' '-defaultlib=phobos2-ldc-lto,druntime-ldc-lto'
-          .\hello_thin.exe
-          & "$ldcInstallDir\bin\ldc2.exe" hello.d '-of=hello_full.exe' '-flto=full' '-defaultlib=phobos2-ldc-lto,druntime-ldc-lto'
-          .\hello_full.exe
-        }
+        cd c:\projects
+        $ldcInstallDir = 'c:\projects\ldc2-install'
+        echo 'void main() { import std.stdio; writefln("Hello world, %d bits", size_t.sizeof * 8); }' > hello.d
+        & "$ldcInstallDir\bin\ldc2.exe" hello.d '-of=hello_thin.exe' '-flto=thin' '-defaultlib=phobos2-ldc-lto,druntime-ldc-lto'
+        .\hello_thin.exe
+        & "$ldcInstallDir\bin\ldc2.exe" hello.d '-of=hello_full.exe' '-flto=full' '-defaultlib=phobos2-ldc-lto,druntime-ldc-lto'
+        .\hello_full.exe
   # Build dub
   - ps: |
         cd c:\projects

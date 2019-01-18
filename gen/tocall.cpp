@@ -800,7 +800,7 @@ private:
       return;
     }
 
-    int numFormalParams = Parameter::dim(tf->parameters);
+    int numFormalParams = tf->parameterList.length();
     LLValue *argumentsArg =
         getTypeinfoArrayArgumentForDVarArg(argexps, numFormalParams);
 
@@ -874,7 +874,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
 
   if (arguments) {
     addExplicitArguments(args, attrs, irFty, callableTy, *arguments,
-                         tf->parameters);
+                         tf->parameterList.parameters);
   }
 
   if (irFty.arg_objcSelector) {
@@ -886,8 +886,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   // call the function
-  LLCallSite call =
-      gIR->funcGen().callOrInvoke(callable, args, "", tf->isnothrow);
+  LLCallSite call = gIR->CreateCallOrInvoke(callable, args, "", tf->isnothrow);
 
   // PGO: Insert instrumentation or attach profile metadata at indirect call
   // sites.
@@ -1037,6 +1036,10 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
 
   if (retValIsLVal) {
     return new DLValue(resulttype, retllval);
+  }
+
+  if (rbase->ty == Tarray) {
+    return new DSliceValue(resulttype, retllval);
   }
 
   return new DImValue(resulttype, retllval);

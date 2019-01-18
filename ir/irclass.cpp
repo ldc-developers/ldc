@@ -193,6 +193,11 @@ LLConstant *IrAggr::getVtblInit() {
       if (fd->inferRetType && !fd->type->nextOf()) {
         Logger::println("Running late functionSemantic to infer return type.");
         if (!fd->functionSemantic()) {
+          if (fd->semantic3Errors) {
+            Logger::println("functionSemantic failed; using null for vtbl entry.");
+            constants.push_back(getNullValue(voidPtrType));
+            continue;
+          }
           fd->error("failed to infer return type for vtbl initializer");
           fatal();
         }
@@ -222,9 +227,8 @@ LLConstant *IrAggr::getVtblInit() {
               cd->error("use of `%s%s` is hidden by `%s`; use `alias %s = "
                         "%s.%s;` to introduce base class overload set",
                         fd->toPrettyChars(),
-                        parametersTypeToChars(tf->parameters, tf->varargs),
-                        cd->toChars(), fd->toChars(), fd->parent->toChars(),
-                        fd->toChars());
+                        parametersTypeToChars(tf->parameterList), cd->toChars(),
+                        fd->toChars(), fd->parent->toChars(), fd->toChars());
             } else {
               cd->error("use of `%s` is hidden by `%s`", fd->toPrettyChars(),
                         cd->toChars());

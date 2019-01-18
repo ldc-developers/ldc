@@ -87,34 +87,35 @@ llvm::BasicBlock *IRState::insertBB(const llvm::Twine &name) {
 }
 
 LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, const char *Name) {
-  LLSmallVector<LLValue *, 1> args;
-  return funcGen().callOrInvoke(Callee, args, Name);
+  return funcGen().callOrInvoke(Callee, {}, Name);
+}
+
+LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee,
+                                       llvm::ArrayRef<LLValue *> Args,
+                                       const char *Name, bool isNothrow) {
+  return funcGen().callOrInvoke(Callee, Args, Name, isNothrow);
 }
 
 LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
                                        const char *Name) {
-  LLValue *args[] = {Arg1};
-  return funcGen().callOrInvoke(Callee, args, Name);
+  return funcGen().callOrInvoke(Callee, {Arg1}, Name);
 }
 
 LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
                                        LLValue *Arg2, const char *Name) {
-  LLValue *args[] = {Arg1, Arg2};
-  return funcGen().callOrInvoke(Callee, args, Name);
+  return CreateCallOrInvoke(Callee, {Arg1, Arg2}, Name);
 }
 
 LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
                                        LLValue *Arg2, LLValue *Arg3,
                                        const char *Name) {
-  LLValue *args[] = {Arg1, Arg2, Arg3};
-  return funcGen().callOrInvoke(Callee, args, Name);
+  return CreateCallOrInvoke(Callee, {Arg1, Arg2, Arg3}, Name);
 }
 
 LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
                                        LLValue *Arg2, LLValue *Arg3,
                                        LLValue *Arg4, const char *Name) {
-  LLValue *args[] = {Arg1, Arg2, Arg3, Arg4};
-  return funcGen().callOrInvoke(Callee, args, Name);
+  return CreateCallOrInvoke(Callee, {Arg1, Arg2, Arg3, Arg4}, Name);
 }
 
 bool IRState::isMainFunc(const IrFunction *func) const {

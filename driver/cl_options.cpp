@@ -63,15 +63,22 @@ cl::list<std::string> runargs(
 cl::opt<bool> invokedByLDMD("ldmd", cl::desc("Invoked by LDMD?"),
                             cl::ZeroOrMore, cl::ReallyHidden);
 
-static cl::opt<ubyte, true> useDeprecated(
-    cl::desc("Allow deprecated code/language features:"), cl::ZeroOrMore,
-    clEnumValues(clEnumValN(0, "de", "Do not allow deprecated features"),
-                 clEnumValN(1, "d", "Silently allow deprecated features"),
-                 clEnumValN(2, "dw",
-                            "Warn about the use of deprecated features")),
-    cl::location(global.params.useDeprecated), cl::init(2));
+static cl::opt<Diagnostic, true> useDeprecated(
+    cl::desc("Allow deprecated language features and symbols:"), cl::ZeroOrMore,
+    cl::location(global.params.useDeprecated), cl::init(DIAGNOSTICinform),
+    clEnumValues(
+        clEnumValN(DIAGNOSTICoff, "d",
+                   "Silently allow deprecated features and symbols"),
+        clEnumValN(DIAGNOSTICinform, "dw",
+                   "Issue a message when deprecated features or "
+                   "symbols are used (default)"),
+        clEnumValN(
+            DIAGNOSTICerror, "de",
+            "Issue an error when deprecated features or symbols are used "
+            "(halt compilation)")));
 
-cl::opt<bool> compileOnly("c", cl::desc("Do not link"), cl::ZeroOrMore);
+cl::opt<bool> compileOnly("c", cl::desc("Compile only, do not link"),
+                          cl::ZeroOrMore);
 
 static cl::opt<bool, true> createStaticLib("lib", cl::ZeroOrMore,
                                            cl::desc("Create static library"),
@@ -118,13 +125,14 @@ static cl::opt<bool, true>
                      cl::desc("Show errors from speculative compiles such as "
                               "__traits(compiles,...)"));
 
-static cl::opt<ubyte, true> warnings(
+static cl::opt<Diagnostic, true> warnings(
     cl::desc("Warnings:"), cl::ZeroOrMore, cl::location(global.params.warnings),
     clEnumValues(
-        clEnumValN(1, "w", "Enable warnings as errors (compilation will halt)"),
-        clEnumValN(2, "wi",
+        clEnumValN(DIAGNOSTICerror, "w",
+                   "Enable warnings as errors (compilation will halt)"),
+        clEnumValN(DIAGNOSTICinform, "wi",
                    "Enable warnings as messages (compilation will continue)")),
-    cl::init(0));
+    cl::init(DIAGNOSTICoff));
 
 static cl::opt<bool, true> ignoreUnsupportedPragmas(
     "ignore", cl::desc("Ignore unsupported pragmas"), cl::ZeroOrMore,
@@ -218,6 +226,10 @@ cl::opt<bool>
     hdrKeepAllBodies("Hkeep-all-bodies", cl::ZeroOrMore,
                      cl::desc("Keep all function bodies in .di files"));
 
+cl::opt<std::string> mixinFile("mixin", cl::ZeroOrMore,
+                               cl::desc("Expand and save mixins to <filename>"),
+                               cl::value_desc("filename"));
+
 static cl::opt<bool, true> unittest("unittest", cl::ZeroOrMore,
                                     cl::desc("Compile in unit tests"),
                                     cl::location(global.params.useUnitTests));
@@ -239,23 +251,12 @@ static cl::opt<bool, true>
 
 // -d-debug is a bit messy, it has 3 modes:
 // -d-debug=ident, -d-debug=level and -d-debug (without argument)
-// That last of these must be acted upon immediately to ensure proper
-// interaction with other options, so it needs some special handling:
+// The last one represents `-d-debug=1`, so it needs some special handling:
 std::vector<std::string> debugArgs;
 
 struct D_DebugStorage {
   void push_back(const std::string &str) {
-    if (str.empty()) {
-      // Bare "-d-debug" has a special meaning.
-      global.params.useAssert = CHECKENABLEon;
-      global.params.useArrayBounds = CHECKENABLEon;
-      global.params.useInvariants = true;
-      global.params.useIn = true;
-      global.params.useOut = true;
-      debugArgs.push_back("1");
-    } else {
-      debugArgs.push_back(str);
-    }
+    debugArgs.push_back(str.empty() ? "1" : str);
   }
 };
 
@@ -334,17 +335,26 @@ static cl::opt<CHECKENABLE, true> boundsCheck(
                             "Enabled for @safe functions only"),
                  clEnumValN(CHECKENABLEon, "on", "Enabled for all functions")));
 
-static cl::opt<bool, true, FlagParser<bool>>
+static cl::opt<CHECKENABLE, true, FlagParser<CHECKENABLE>> switchErrors(
+    "switch-errors", cl::ZeroOrMore,
+    cl::desc("(*) Enable runtime errors for unhandled switch cases"),
+    cl::location(global.params.useSwitchError), cl::init(CHECKENABLEdefault));
+
+static cl::opt<CHECKENABLE, true, FlagParser<CHECKENABLE>>
     invariants("invariants", cl::ZeroOrMore, cl::desc("(*) Enable invariants"),
-               cl::location(global.params.useInvariants), cl::init(true));
+               cl::location(global.params.useInvariants),
+               cl::init(CHECKENABLEdefault));
 
-static cl::opt<bool, true, FlagParser<bool>> preconditions(
-    "preconditions", cl::ZeroOrMore, cl::location(global.params.useIn),
-    cl::desc("(*) Enable function preconditions"), cl::init(true));
+static cl::opt<CHECKENABLE, true, FlagParser<CHECKENABLE>>
+    preconditions("preconditions", cl::ZeroOrMore,
+                  cl::location(global.params.useIn),
+                  cl::desc("(*) Enable function preconditions"),
+                  cl::init(CHECKENABLEdefault));
 
-static cl::opt<bool, true, FlagParser<bool>>
+static cl::opt<CHECKENABLE, true, FlagParser<CHECKENABLE>>
     postconditions("postconditions", cl::ZeroOrMore,
-                   cl::location(global.params.useOut), cl::init(true),
+                   cl::location(global.params.useOut),
+                   cl::init(CHECKENABLEdefault),
                    cl::desc("(*) Enable function postconditions"));
 
 static MultiSetter ContractsSetter(false, &global.params.useIn,
@@ -353,14 +363,23 @@ static cl::opt<MultiSetter, true, FlagParser<bool>>
     contracts("contracts", cl::ZeroOrMore, cl::location(ContractsSetter),
               cl::desc("(*) Enable function pre- and post-conditions"));
 
-bool invReleaseMode = true;
-static MultiSetter ReleaseSetter(true, &invReleaseMode,
-                                 &global.params.useInvariants,
-                                 &global.params.useOut, &global.params.useIn,
-                                 nullptr);
-static cl::opt<MultiSetter, true, cl::parser<bool>>
-    release("release", cl::ZeroOrMore, cl::location(ReleaseSetter),
-            cl::desc("Disables asserts, invariants, contracts and boundscheck"),
+static cl::opt<CHECKACTION, true> checkAction(
+    "checkaction", cl::ZeroOrMore, cl::location(global.params.checkAction),
+    cl::desc("Action to take when an assert/boundscheck/final-switch fails"),
+    cl::init(CHECKACTION_D),
+    clEnumValues(
+        clEnumValN(CHECKACTION_D, "D",
+                   "Throw an unrecoverable Error (default)"),
+        clEnumValN(CHECKACTION_C, "C",
+                   "Call the C runtime library assert failure function"),
+        clEnumValN(CHECKACTION_halt, "halt",
+                   "Execute a halt instruction, terminating the program")));
+
+static cl::opt<bool, true>
+    release("release", cl::ZeroOrMore, cl::location(global.params.release),
+            cl::desc("Compile release version, defaulting to disabled "
+                     "asserts/contracts/invariants, and bounds checks in @safe "
+                     "functions only"),
             cl::ValueDisallowed);
 
 cl::opt<bool, true>

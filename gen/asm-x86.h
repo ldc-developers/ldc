@@ -3662,7 +3662,8 @@ struct AsmProcessor {
         stmt->error("`seg` not supported");
         e = parseAsmExp();
       } else if (token->ident == Id::offset || token->ident == Id::offsetof) {
-        if (token->ident == Id::offset && !global.params.useDeprecated) {
+        if (token->ident == Id::offset &&
+            global.params.useDeprecated == DIAGNOSTICerror) {
           stmt->error("offset deprecated, use `offsetof`");
         }
         nextToken();

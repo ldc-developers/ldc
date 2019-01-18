@@ -40,13 +40,13 @@ void initFromPathString(const char *&dest, const cl::opt<std::string> &src) {
   }
 }
 
-MultiSetter::MultiSetter(bool invert, bool *p, ...) {
+MultiSetter::MultiSetter(bool invert, CHECKENABLE *p, ...) {
   this->invert = invert;
   if (p) {
     locations.push_back(p);
     va_list va;
     va_start(va, p);
-    while ((p = va_arg(va, bool *))) {
+    while ((p = va_arg(va, CHECKENABLE *))) {
       locations.push_back(p);
     }
     va_end(va);
@@ -55,7 +55,7 @@ MultiSetter::MultiSetter(bool invert, bool *p, ...) {
 
 void MultiSetter::operator=(bool val) {
   for (auto &l : locations) {
-    *l = (val != invert);
+    *l = (val != invert) ? CHECKENABLEon : CHECKENABLEoff;
   }
 }
 

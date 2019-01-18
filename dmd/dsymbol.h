@@ -75,6 +75,7 @@ class WithScopeSymbol;
 class ArrayScopeSymbol;
 class SymbolDeclaration;
 class Expression;
+class ExpressionDsymbol;
 class DeleteDeclaration;
 class OverloadSet;
 struct AA;
@@ -189,14 +190,16 @@ public:
     Module *getModule();
     Module *getAccessModule();
     Dsymbol *pastMixin();
+    Dsymbol *pastMixinAndNspace();
     Dsymbol *toParent();
     Dsymbol *toParent2();
+    Dsymbol *toParent3();
     TemplateInstance *isInstantiated();
     TemplateInstance *isSpeculative();
     Ungag ungagSpeculative();
 
     // kludge for template.isSymbol()
-    int dyncast() const { return DYNCAST_DSYMBOL; }
+    DYNCAST dyncast() const { return DYNCAST_DSYMBOL; }
 
     virtual Identifier *getIdent();
     virtual const char *toPrettyChars(bool QualifyTypes = false);
@@ -248,6 +251,7 @@ public:
     virtual Nspace *isNspace() { return NULL; }
     virtual Declaration *isDeclaration() { return NULL; }
     virtual StorageClassDeclaration *isStorageClassDeclaration(){ return NULL; }
+    virtual ExpressionDsymbol *isExpressionDsymbol() { return NULL; }
     virtual ThisDeclaration *isThisDeclaration() { return NULL; }
     virtual TypeInfoDeclaration *isTypeInfoDeclaration() { return NULL; }
     virtual TupleDeclaration *isTupleDeclaration() { return NULL; }
@@ -375,6 +379,13 @@ class ForwardingScopeDsymbol : public ScopeDsymbol
     const char *kind() const;
 
     ForwardingScopeDsymbol *isForwardingScopeDsymbol() { return this; }
+};
+
+class ExpressionDsymbol : public Dsymbol
+{
+    Expression *exp;
+
+    ExpressionDsymbol *isExpressionDsymbol() { return this; }
 };
 
 // Table of Dsymbol's

@@ -158,6 +158,10 @@ public:
 
   // create a call or invoke, depending on the landing pad info
   llvm::CallSite CreateCallOrInvoke(LLValue *Callee, const char *Name = "");
+  llvm::CallSite CreateCallOrInvoke(LLValue *Callee,
+                                    llvm::ArrayRef<LLValue *> Args,
+                                    const char *Name = "",
+                                    bool isNothrow = false);
   llvm::CallSite CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
                                     const char *Name = "");
   llvm::CallSite CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,

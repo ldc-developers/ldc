@@ -22,7 +22,8 @@
 #include "gen/llvmhelpers.h"
 #include "llvm/Support/CommandLine.h"
 
-static bool parseStringExp(Expression *e, const char *&res) {
+namespace {
+bool parseStringExp(Expression *e, const char *&res) {
   e = e->optimize(WANTvalue);
   if (e->op != TOKstring) {
     return false;
@@ -32,7 +33,7 @@ static bool parseStringExp(Expression *e, const char *&res) {
   return true;
 }
 
-static bool parseIntExp(Expression *e, dinteger_t &res) {
+bool parseIntExp(Expression *e, dinteger_t &res) {
   IntegerExp *i = nullptr;
 
   e = e->optimize(WANTvalue);
@@ -43,7 +44,7 @@ static bool parseIntExp(Expression *e, dinteger_t &res) {
   return false;
 }
 
-static bool parseBoolExp(Expression *e, bool &res) {
+bool parseBoolExp(Expression *e, bool &res) {
   e = e->optimize(WANTvalue);
   if (e->op == TOKint64 && e->type->equals(Type::tbool)) {
     IntegerExp *i = static_cast<IntegerExp *>(e);
@@ -52,6 +53,52 @@ static bool parseBoolExp(Expression *e, bool &res) {
   }
   return false;
 }
+
+// Applies an action to matching symbols, recursively descending into nested
+// AttribDeclarations, and returns the number of applications.
+template <typename T>
+int applyPragma(Dsymbol *s, std::function<T *(Dsymbol *)> predicate,
+                std::function<void(T *)> action) {
+  if (T *matchingDecl = predicate(s)) {
+    if (matchingDecl->llvmInternal != LLVMnone) {
+      s->error("multiple LDC specific pragmas are not allowed");
+      fatal();
+    }
+    action(matchingDecl);
+    return 1;
+  }
+
+  if (auto ad = s->isAttribDeclaration()) {
+    if (ad->decl) {
+      int count = 0;
+      for (auto child : *ad->decl) {
+        count += applyPragma(child, predicate, action);
+      }
+      return count;
+    }
+  }
+
+  return 0;
+}
+
+int applyFunctionPragma(Dsymbol *s,
+                        std::function<void(FuncDeclaration *)> action) {
+  return applyPragma<FuncDeclaration>(
+      s, [](Dsymbol *s) { return s->isFuncDeclaration(); }, action);
+}
+
+int applyTemplatePragma(Dsymbol *s,
+                        std::function<void(TemplateDeclaration *)> action) {
+  return applyPragma<TemplateDeclaration>(
+      s, [](Dsymbol *s) { return s->isTemplateDeclaration(); }, action);
+}
+
+int applyVariablePragma(Dsymbol *s,
+                        std::function<void(VarDeclaration *)> action) {
+  return applyPragma<VarDeclaration>(
+      s, [](Dsymbol *s) { return s->isVarDeclaration(); }, action);
+}
+} // anonymous namespace
 
 LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
                        const char *&arg1str) {
@@ -63,7 +110,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
   // pragma(LDC_intrinsic, "string") { funcdecl(s) }
   if (ident == Id::LDC_intrinsic) {
     if (!args || args->dim != 1 || !parseStringExp(expr, arg1str)) {
-      error(Loc(), "requires exactly 1 string literal parameter");
+      decl->error("requires exactly 1 string literal parameter");
       fatal();
     }
 
@@ -109,11 +156,11 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
     dinteger_t priority;
     if (args) {
       if (args->dim != 1 || !parseIntExp(expr, priority)) {
-        error(Loc(), "requires at most 1 integer literal parameter");
+        decl->error("requires at most 1 integer literal parameter");
         fatal();
       }
       if (priority > 65535) {
-        error(Loc(), "priority may not be greater than 65535");
+        decl->error("priority may not be greater than 65535");
         priority = 65535;
       }
     } else {
@@ -130,7 +177,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
   // pragma(LDC_no_typeinfo) { typedecl(s) }
   if (ident == Id::LDC_no_typeinfo) {
     if (args && args->dim > 0) {
-      error(Loc(), "takes no parameters");
+      decl->error("takes no parameters");
       fatal();
     }
     return LLVMno_typeinfo;
@@ -139,7 +186,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
   // pragma(LDC_no_moduleinfo) ;
   if (ident == Id::LDC_no_moduleinfo) {
     if (args && args->dim > 0) {
-      error(Loc(), "takes no parameters");
+      decl->error("takes no parameters");
       fatal();
     }
     sc->_module->noModuleInfo = true;
@@ -149,7 +196,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
   // pragma(LDC_alloca) { funcdecl(s) }
   if (ident == Id::LDC_alloca) {
     if (args && args->dim > 0) {
-      error(Loc(), "takes no parameters");
+      decl->error("takes no parameters");
       fatal();
     }
     return LLVMalloca;
@@ -158,7 +205,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
   // pragma(LDC_va_start) { templdecl(s) }
   if (ident == Id::LDC_va_start) {
     if (args && args->dim > 0) {
-      error(Loc(), "takes no parameters");
+      decl->error("takes no parameters");
       fatal();
     }
     return LLVMva_start;
@@ -167,7 +214,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
   // pragma(LDC_va_copy) { funcdecl(s) }
   if (ident == Id::LDC_va_copy) {
     if (args && args->dim > 0) {
-      error(Loc(), "takes no parameters");
+      decl->error("takes no parameters");
       fatal();
     }
     return LLVMva_copy;
@@ -176,7 +223,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
   // pragma(LDC_va_end) { funcdecl(s) }
   if (ident == Id::LDC_va_end) {
     if (args && args->dim > 0) {
-      error(Loc(), "takes no parameters");
+      decl->error("takes no parameters");
       fatal();
     }
     return LLVMva_end;
@@ -185,7 +232,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
   // pragma(LDC_va_arg) { templdecl(s) }
   if (ident == Id::LDC_va_arg) {
     if (args && args->dim > 0) {
-      error(Loc(), "takes no parameters");
+      decl->error("takes no parameters");
       fatal();
     }
     return LLVMva_arg;
@@ -194,7 +241,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
   // pragma(LDC_fence) { funcdecl(s) }
   if (ident == Id::LDC_fence) {
     if (args && args->dim > 0) {
-      error(Loc(), "takes no parameters");
+      decl->error("takes no parameters");
       fatal();
     }
     return LLVMfence;
@@ -203,7 +250,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
   // pragma(LDC_atomic_load) { templdecl(s) }
   if (ident == Id::LDC_atomic_load) {
     if (args && args->dim > 0) {
-      error(Loc(), "takes no parameters");
+      decl->error("takes no parameters");
       fatal();
     }
     return LLVMatomic_load;
@@ -212,7 +259,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
   // pragma(LDC_atomic_store) { templdecl(s) }
   if (ident == Id::LDC_atomic_store) {
     if (args && args->dim > 0) {
-      error(Loc(), "takes no parameters");
+      decl->error("takes no parameters");
       fatal();
     }
     return LLVMatomic_store;
@@ -221,7 +268,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
   // pragma(LDC_atomic_cmp_xchg) { templdecl(s) }
   if (ident == Id::LDC_atomic_cmp_xchg) {
     if (args && args->dim > 0) {
-      error(Loc(), "takes no parameters");
+      decl->error("takes no parameters");
       fatal();
     }
     return LLVMatomic_cmp_xchg;
@@ -230,7 +277,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
   // pragma(LDC_atomic_rmw, "string") { templdecl(s) }
   if (ident == Id::LDC_atomic_rmw) {
     if (!args || args->dim != 1 || !parseStringExp(expr, arg1str)) {
-      error(Loc(), "requires exactly 1 string literal parameter");
+      decl->error("requires exactly 1 string literal parameter");
       fatal();
     }
     return LLVMatomic_rmw;
@@ -239,7 +286,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
   // pragma(LDC_verbose);
   if (ident == Id::LDC_verbose) {
     if (args && args->dim > 0) {
-      error(Loc(), "takes no parameters");
+      decl->error("takes no parameters");
       fatal();
     }
     sc->_module->llvmForceLogging = true;
@@ -249,7 +296,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
   // pragma(LDC_inline_asm) { templdecl(s) }
   if (ident == Id::LDC_inline_asm) {
     if (args && args->dim > 0) {
-      error(Loc(), "takes no parameters");
+      decl->error("takes no parameters");
       fatal();
     }
     return LLVMinline_asm;
@@ -258,7 +305,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
   // pragma(LDC_inline_ir) { templdecl(s) }
   if (ident == Id::LDC_inline_ir) {
     if (args && args->dim > 0) {
-      error(Loc(), "takes no parameters");
+      decl->error("takes no parameters");
       fatal();
     }
     return LLVMinline_ir;
@@ -267,7 +314,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
   // pragma(LDC_extern_weak) { vardecl(s) }
   if (ident == Id::LDC_extern_weak) {
     if (args && args->dim > 0) {
-      error(Loc(), "takes no parameters");
+      decl->error("takes no parameters");
       fatal();
     }
     return LLVMextern_weak;
@@ -289,75 +336,78 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
     return;
   }
 
-  if (s->llvmInternal) {
-    error(Loc(),
-          "multiple LDC specific pragmas not allowed not affect the same "
-          "declaration (`%s` at '%s')",
-          s->toChars(), s->loc.toChars());
-    fatal();
-  }
-
   Identifier *ident = decl->ident;
 
   switch (llvm_internal) {
-  case LLVMintrinsic:
-    if (FuncDeclaration *fd = s->isFuncDeclaration()) {
+  case LLVMintrinsic: {
+    const char *mangle = strdup(arg1str);
+    int count = applyFunctionPragma(s, [=](FuncDeclaration *fd) {
       fd->llvmInternal = llvm_internal;
-      fd->intrinsicName = strdup(arg1str);
-      fd->mangleOverride = {strlen(fd->intrinsicName), fd->intrinsicName};
-    } else if (TemplateDeclaration *td = s->isTemplateDeclaration()) {
+      fd->intrinsicName = mangle;
+      fd->mangleOverride = {strlen(mangle), mangle};
+    });
+    count += applyTemplatePragma(s, [=](TemplateDeclaration *td) {
       td->llvmInternal = llvm_internal;
-      td->intrinsicName = strdup(arg1str);
-    } else {
-      error(s->loc, "the `%s` pragma is only allowed on function or template "
-                    "declarations",
+      td->intrinsicName = mangle;
+    });
+    if (count != 1) {
+      error(s->loc,
+            "the `%s` pragma doesn't affect exactly 1 function/template "
+            "declaration",
             ident->toChars());
       fatal();
     }
     break;
+  }
 
   case LLVMglobal_crt_ctor:
-  case LLVMglobal_crt_dtor:
-    if (FuncDeclaration *fd = s->isFuncDeclaration()) {
+  case LLVMglobal_crt_dtor: {
+    const unsigned char flag = llvm_internal == LLVMglobal_crt_ctor ? 1 : 2;
+    const int count = applyFunctionPragma(s, [=](FuncDeclaration *fd) {
       assert(fd->type->ty == Tfunction);
       TypeFunction *type = static_cast<TypeFunction *>(fd->type);
       Type *retType = type->next;
-      if (retType->ty != Tvoid || type->parameters->dim > 0 ||
+      if (retType->ty != Tvoid || type->parameterList.length() > 0 ||
           (fd->isMember() && !fd->isStatic())) {
         error(s->loc,
               "the `%s` pragma is only allowed on `void` functions which take "
               "no arguments",
               ident->toChars());
-        fd->llvmInternal = LLVMnone;
-        break;
+        fd->isCrtCtorDtor &= ~flag;
+      } else {
+        fd->isCrtCtorDtor |= flag;
+        fd->priority = std::atoi(arg1str);
       }
-
-      fd->llvmInternal = llvm_internal;
-      fd->priority = std::atoi(arg1str);
-    } else {
-      error(s->loc, "the `%s` pragma is only allowed on function declarations",
-            ident->toChars());
-      s->llvmInternal = LLVMnone;
-    }
-    break;
-
-  case LLVMatomic_rmw:
-    if (TemplateDeclaration *td = s->isTemplateDeclaration()) {
-      td->llvmInternal = llvm_internal;
-      td->intrinsicName = strdup(arg1str);
-    } else {
-      error(s->loc, "the `%s` pragma is only allowed on template declarations",
+    });
+    if (count != 1) {
+      error(s->loc,
+            "the `%s` pragma doesn't affect exactly 1 function declaration",
             ident->toChars());
       fatal();
     }
     break;
+  }
+
+  case LLVMatomic_rmw: {
+    const int count = applyTemplatePragma(s, [=](TemplateDeclaration *td) {
+      td->llvmInternal = llvm_internal;
+      td->intrinsicName = strdup(arg1str);
+    });
+    if (count != 1) {
+      error(s->loc,
+            "the `%s` pragma doesn't affect exactly 1 template declaration",
+            ident->toChars());
+      fatal();
+    }
+    break;
+  }
 
   case LLVMva_start:
   case LLVMva_arg:
   case LLVMatomic_load:
   case LLVMatomic_store:
-  case LLVMatomic_cmp_xchg:
-    if (TemplateDeclaration *td = s->isTemplateDeclaration()) {
+  case LLVMatomic_cmp_xchg: {
+    const int count = applyTemplatePragma(s, [=](TemplateDeclaration *td) {
       if (td->parameters->dim != 1) {
         error(
             s->loc,
@@ -374,13 +424,17 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         fatal();
       }
       td->llvmInternal = llvm_internal;
-    } else {
-      error(s->loc, "the `%s` pragma is only allowed on template declarations",
+    });
+    if (count != 1) {
+      error(s->loc,
+            "the `%s` pragma doesn't affect exactly 1 template declaration",
             ident->toChars());
       fatal();
     }
     break;
+  }
 
+  case LLVMalloca:
   case LLVMva_copy:
   case LLVMva_end:
   case LLVMfence:
@@ -389,34 +443,26 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
   case LLVMbitop_btr:
   case LLVMbitop_bts:
   case LLVMbitop_vld:
-  case LLVMbitop_vst:
-    if (FuncDeclaration *fd = s->isFuncDeclaration()) {
+  case LLVMbitop_vst: {
+    const int count = applyFunctionPragma(s, [=](FuncDeclaration *fd) {
       fd->llvmInternal = llvm_internal;
-    } else {
-      error(s->loc, "the `%s` pragma is only allowed on function declarations",
+    });
+    if (count != 1) {
+      error(s->loc,
+            "the `%s` pragma doesn't affect exactly 1 function declaration",
             ident->toChars());
       fatal();
     }
     break;
+  }
 
   case LLVMno_typeinfo:
-    s->llvmInternal = llvm_internal;
+    applyPragma<Dsymbol>(s, [](Dsymbol *s) { return s; },
+                         [=](Dsymbol *s) { s->llvmInternal = llvm_internal; });
     break;
 
-  case LLVMalloca:
-    if (FuncDeclaration *fd = s->isFuncDeclaration()) {
-      fd->llvmInternal = llvm_internal;
-    } else {
-      error(s->loc,
-            "the `%s` pragma must only be used on function declarations "
-            "of type `void* function(uint nbytes)`",
-            ident->toChars());
-      fatal();
-    }
-    break;
-
-  case LLVMinline_asm:
-    if (TemplateDeclaration *td = s->isTemplateDeclaration()) {
+  case LLVMinline_asm: {
+    const int count = applyTemplatePragma(s, [=](TemplateDeclaration *td) {
       if (td->parameters->dim > 1) {
         error(s->loc, "the `%s` pragma template must have exactly zero or one "
                       "template parameters",
@@ -428,24 +474,32 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         fatal();
       }
       td->llvmInternal = llvm_internal;
-    } else {
-      error(s->loc, "the `%s` pragma is only allowed on template declarations",
+    });
+    if (count != 1) {
+      error(s->loc,
+            "the `%s` pragma doesn't affect exactly 1 template declaration",
             ident->toChars());
       fatal();
     }
     break;
+  }
 
-  case LLVMinline_ir:
+  case LLVMinline_ir: {
     DtoCheckInlineIRPragma(ident, s);
-    {
-      TemplateDeclaration *td = s->isTemplateDeclaration();
-      assert(td != nullptr);
+    const int count = applyTemplatePragma(s, [=](TemplateDeclaration *td) {
       td->llvmInternal = llvm_internal;
+    });
+    if (count != 1) {
+      error(s->loc,
+            "the `%s` pragma doesn't affect exactly 1 template declaration",
+            ident->toChars());
+      fatal();
     }
     break;
+  }
 
-  case LLVMextern_weak:
-    if (VarDeclaration *vd = s->isVarDeclaration()) {
+  case LLVMextern_weak: {
+    const int count = applyVariablePragma(s, [=](VarDeclaration *vd) {
       if (!vd->isDataseg() || !(vd->storage_class & STCextern)) {
         error(s->loc, "`%s` requires storage class `extern`", ident->toChars());
         fatal();
@@ -461,17 +515,14 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         fatal();
       }
       vd->llvmInternal = llvm_internal;
-    } else {
-      // Currently, things like "pragma(LDC_extern_weak) extern int foo;"
-      // fail because 'extern' creates an intermediate
-      // StorageClassDeclaration. This might eventually be fixed by making
-      // extern_weak a proper storage class.
-      error(s->loc, "the `%s` pragma can only be specified directly on "
-                    "variable declarations for now",
+    });
+    if (count == 0) {
+      error(s->loc, "the `%s` pragma doesn't affect any variable declarations",
             ident->toChars());
       fatal();
     }
     break;
+  }
 
   default:
     warning(s->loc,

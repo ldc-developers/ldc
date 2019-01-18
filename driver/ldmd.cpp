@@ -103,6 +103,12 @@ char *concat(const char *a, int b) {
   return concat(a, bStr);
 }
 
+template <int N>
+bool startsWith(const char *str, const char (&prefix)[N]) {
+  // N includes terminating null
+  return strncmp(str, prefix, N - 1) == 0;
+}
+
 /**
  * Runs the given executable, returning its error code.
  */
@@ -155,18 +161,20 @@ Where:\n\
   -allinst         generate code for all template instantiations\n\
   -betterC         omit generating some runtime information and helper functions\n\
   -boundscheck=[on|safeonly|off]   bounds checks on, in @safe only, or off\n\
-  -c               do not link\n\
+  -c               compile only, do not link\n\
+  -check=[assert|bounds|in|invariant|out|switch][=[on|off]]  Enable or disable specific checks\n\
+  -checkaction=D|C|halt  behavior on assert/boundscheck/finalswitch failure\n\
   -color           turn colored console output on\n\
-  -color=[on|off]  force colored console output on or off\n\
+  -color=[on|off|auto]  force colored console output on or off, or only when not redirected (default)\n\
   -conf=<filename> use config file at filename\n\
   -cov             do code coverage analysis\n\
   -cov=<nnn>       require at least nnn%% code coverage\n\
   -D               generate documentation\n\
   -Dd<directory>   write documentation file to directory\n\
   -Df<filename>    write documentation file to filename\n\
-  -d               silently allow deprecated features\n\
-  -dw              show use of deprecated features as warnings (default)\n\
-  -de              show use of deprecated features as errors (halt compilation)\n\
+  -d               silently allow deprecated features and symbols\n\
+  -dw              issue a message when deprecated features or symbols are used (default)\n\
+  -de              issue an error when deprecated features or symbols are used (halt compilation)\n\
   -debug           compile in debug code\n\
   -debug=<level>   compile in debug code <= level\n\
   -debug=<ident>   compile in debug code identified by ident\n\
@@ -208,6 +216,7 @@ Where:\n\
 #endif
 "  -mcpu=<id>       generate instructions for architecture identified by 'id'\n\
   -mcpu=?          list all architecture options\n\
+  -mixin=<filename>  expand and save mixins to file specified by <filename>\n\
   -mscrtlib=<name> MS C runtime library to reference from main/WinMain/DllMain\n\
   -mv=<package.module>=<filespec>  use <filespec> as source file for <package.module>\n\
   -noboundscheck   no array bounds checking (deprecated, use -boundscheck=off)\n\
@@ -221,6 +230,7 @@ Where:\n\
   -profile=gc      profile runtime allocations\n"
 #endif
 "  -release         compile release version\n\
+  -run <srcfile>   compile, link, and run the program srcfile\n\
   -shared          generate shared library (DLL)\n\
   -transition=<id> help with language change identified by 'id'\n\
   -transition=?    list all language changes\n\
@@ -230,11 +240,11 @@ Where:\n\
   -vdmd            print the command used to invoke the underlying compiler\n\
   -verrors=<num>   limit the number of error messages (0 means unlimited)\n\
   -verrors=spec    show errors from speculative compiles such as __traits(compiles,...)\n\
-  -vgc             list all gc allocations including hidden ones\n\
-  -vtls            list all variables going into thread local storage\n\
   --version        print compiler version and exit\n\
   -version=<level> compile in version code >= level\n\
   -version=<ident> compile in version code identified by ident\n\
+  -vgc             list all gc allocations including hidden ones\n\
+  -vtls            list all variables going into thread local storage\n\
   -w               warnings as errors (compilation will halt)\n\
   -wi              warnings as messages (compilation will continue)\n\
   -X               generate JSON file\n\
@@ -373,21 +383,63 @@ void translateArgs(size_t originalArgc, char **originalArgv,
        * -dw
        * -c
        */
-      else if (strncmp(p + 1, "color", 5) == 0) {
-        bool color = true;
+      else if (startsWith(p + 1, "check=")) {
+        // Parse:
+        //      -check=[assert|bounds|in|invariant|out|switch][=[on|off]]
+        const char *arg = p + 7;
+        const auto argLength = strlen(arg);
+        bool enabled = false;
+        size_t kindLength = 0;
+        if (argLength > 3 && memcmp(arg + argLength - 3, "=on", 3) == 0) {
+          enabled = true;
+          kindLength = argLength - 3;
+        } else if (argLength > 4 && memcmp(arg + argLength - 4, "=off", 4) == 0) {
+          enabled = false;
+          kindLength = argLength - 4;
+        } else {
+          enabled = true;
+          kindLength = argLength;
+        }
+
+        const auto check = [&](size_t dmdLength, const char *dmd, const char *ldc) {
+          if (kindLength == dmdLength &&
+              memcmp(arg, dmd, dmdLength) == 0) {
+            ldcArgs.push_back(
+                concat(enabled ? "-enable-" : "-disable-", ldc));
+            return true;
+          }
+          return false;
+        };
+
+        if (kindLength == 6 && memcmp(arg, "bounds", 6) == 0) {
+          ldcArgs.push_back(enabled ? "-boundscheck=on" : "-boundscheck=off");
+        } else if (!(check(6, "assert", "asserts") ||
+                     check(2, "in", "preconditions") ||
+                     check(9, "invariant", "invariants") ||
+                     check(3, "out", "postconditions") ||
+                     check(6, "switch", "switch-errors"))) {
+          goto Lerror;
+        }
+      }
+      /* -checkaction
+       */
+      else if (startsWith(p + 1, "color")) {
         // Parse:
         //      -color
-        //      -color=on|off
+        //      -color=auto|on|off
         if (p[6] == '=') {
-          if (strcmp(p + 7, "off") == 0) {
-            color = false;
-          } else if (strcmp(p + 7, "on") != 0) {
+          if (strcmp(p + 7, "on") == 0) {
+            ldcArgs.push_back("-enable-color");
+          } else if (strcmp(p + 7, "off") == 0) {
+            ldcArgs.push_back("-disable-color");
+          } else if (strcmp(p + 7, "auto") != 0) {
             goto Lerror;
           }
         } else if (p[6]) {
           goto Lerror;
+        } else {
+          ldcArgs.push_back("-enable-color");
         }
-        ldcArgs.push_back(color ? "-enable-color" : "-disable-color");
       }
       /* -conf
        * -cov
@@ -423,9 +475,10 @@ void translateArgs(size_t originalArgc, char **originalArgv,
       else if (strcmp(p + 1, "m32mscoff") == 0) {
         ldcArgs.push_back("-m32");
       }
-      /* -mscrtlib
+      /* -mixin
+       * -mscrtlib
        */
-      else if (strncmp(p + 1, "profile", 7) == 0) {
+      else if (startsWith(p + 1, "profile")) {
         if (p[8] == 0) {
           ldcArgs.push_back("-fdmd-trace-functions");
         } else if (strcmp(p + 8, "=gc") == 0) {
@@ -442,10 +495,10 @@ void translateArgs(size_t originalArgc, char **originalArgv,
       /* -vcolumns
        * -vgc
        */
-      else if (strncmp(p + 1, "verrors", 7) == 0) {
+      else if (startsWith(p + 1, "verrors")) {
         if (p[8] == '=' && isdigit(static_cast<unsigned char>(p[9]))) {
           ldcArgs.push_back(p);
-        } else if (strncmp(p + 9, "spec", 4) == 0) {
+        } else if (startsWith(p + 9, "spec")) {
           ldcArgs.push_back("-verrors-spec");
         } else {
           goto Lerror;
@@ -454,7 +507,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
         const char *mcpuargs[] = {ldcPath.c_str(), "-mcpu=help", nullptr};
         execute(ldcPath, mcpuargs);
         exit(EXIT_SUCCESS);
-      } else if (strncmp(p + 1, "mcpu=", 5) == 0) {
+      } else if (startsWith(p + 1, "mcpu=")) {
         if (strcmp(p + 6, "baseline") == 0) {
           // ignore
         } else if (strcmp(p + 6, "avx") == 0) {
@@ -527,7 +580,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
        * -I
        * -J
        */
-      else if (strncmp(p + 1, "debug", 5) == 0 && p[6] != 'l') {
+      else if (startsWith(p + 1, "debug") && p[6] != 'l') {
         // Parse:
         //      -debug
         //      -debug=number
@@ -549,7 +602,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
         } else {
           ldcArgs.push_back("-d-debug");
         }
-      } else if (strncmp(p + 1, "version", 7) == 0) {
+      } else if (startsWith(p + 1, "version")) {
         // Parse:
         //      -version=number
         //      -version=identifier
@@ -587,7 +640,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
        * -deps
        * -main
        */
-      else if (strncmp(p + 1, "man", 3) == 0) {
+      else if (startsWith(p + 1, "man")) {
         browse("http://wiki.dlang.org/LDC");
         exit(EXIT_SUCCESS);
       } else if (strcmp(p + 1, "run") == 0) {
@@ -628,7 +681,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
 
   // at least one file is mandatory, except when `-Xi=…` is used
   if (noFiles && std::find_if(args.begin(), args.end(), [](const char *arg) {
-                   return strncmp(arg, "-Xi=", 4) == 0;
+                   return startsWith(arg, "-Xi=");
                  }) == args.end()) {
     printUsage(originalArgv[0], ldcPath);
     if (originalArgc == 1)

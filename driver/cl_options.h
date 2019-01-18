@@ -62,6 +62,7 @@ extern cl::list<std::string> jsonFields;
 extern cl::opt<std::string> hdrDir;
 extern cl::opt<std::string> hdrFile;
 extern cl::opt<bool> hdrKeepAllBodies;
+extern cl::opt<std::string> mixinFile;
 extern cl::list<std::string> versions;
 extern cl::list<std::string> transitions;
 extern cl::opt<std::string> moduleDeps;
@@ -83,8 +84,6 @@ extern cl::opt<ubyte> defaultToHiddenVisibility;
 extern bool fFastMath;
 extern llvm::FastMathFlags defaultFMF;
 void setDefaultMathOptions(llvm::TargetOptions &targetOptions);
-
-extern bool invReleaseMode;
 
 // Arguments to -d-debug
 extern std::vector<std::string> debugArgs;

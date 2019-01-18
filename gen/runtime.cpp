@@ -69,12 +69,12 @@ static void checkForImplicitGCCall(const Loc &loc, const char *name) {
         "_aaValues",
         "_d_allocmemory",
         "_d_allocmemoryT",
-        "_d_array_cast_len",
         "_d_array_slice_copy",
         "_d_arrayappendT",
         "_d_arrayappendcTX",
         "_d_arrayappendcd",
         "_d_arrayappendwd",
+        "_d_arraycast_len",
         "_d_arraycatT",
         "_d_arraycatnTX",
         "_d_arraysetlengthT",
@@ -259,7 +259,7 @@ struct LazyFunctionDeclarer {
       }
     }
     Type *returnTy = returnType.get(loc);
-    auto dty = TypeFunction::create(params, returnTy, 0, linkage);
+    auto dty = TypeFunction::create(params, returnTy, VarArg::none, linkage);
 
     // the call to DtoType performs many actions such as rewriting the function
     // type and storing it in dty
@@ -446,7 +446,7 @@ static Type *rt_dg1() {
 
   auto params = new Parameters();
   params->push(Parameter::create(0, Type::tvoidptr, nullptr, nullptr, nullptr));
-  auto fty = TypeFunction::create(params, Type::tint32, 0, LINKd);
+  auto fty = TypeFunction::create(params, Type::tint32, VarArg::none, LINKd);
   dg_t = createTypeDelegate(fty);
   return dg_t;
 }
@@ -460,7 +460,7 @@ static Type *rt_dg2() {
   auto params = new Parameters();
   params->push(Parameter::create(0, Type::tvoidptr, nullptr, nullptr, nullptr));
   params->push(Parameter::create(0, Type::tvoidptr, nullptr, nullptr, nullptr));
-  auto fty = TypeFunction::create(params, Type::tint32, 0, LINKd);
+  auto fty = TypeFunction::create(params, Type::tint32, VarArg::none, LINKd);
   dg2_t = createTypeDelegate(fty);
   return dg2_t;
 }
@@ -650,9 +650,10 @@ static void buildRuntimeModule() {
 
   // array slice copy when assertions are on!
   // void _d_array_slice_copy(void* dst, size_t dstlen, void* src, size_t
-  // srclen)
+  // srclen, size_t elemsz)
   createFwdDecl(LINKc, voidTy, {"_d_array_slice_copy"},
-                {voidPtrTy, sizeTy, voidPtrTy, sizeTy}, {}, Attr_1_3_NoCapture);
+                {voidPtrTy, sizeTy, voidPtrTy, sizeTy, sizeTy}, {},
+                Attr_1_3_NoCapture);
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -691,8 +692,8 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
 
   // fixes the length for dynamic array casts
-  // size_t _d_array_cast_len(size_t len, size_t elemsz, size_t newelemsz)
-  createFwdDecl(LINKc, sizeTy, {"_d_array_cast_len"}, {sizeTy, sizeTy, sizeTy},
+  // size_t _d_arraycast_len(size_t len, size_t elemsz, size_t newelemsz)
+  createFwdDecl(LINKc, sizeTy, {"_d_arraycast_len"}, {sizeTy, sizeTy, sizeTy},
                 {}, Attr_ReadNone);
 
   //////////////////////////////////////////////////////////////////////////////
