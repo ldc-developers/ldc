@@ -31,9 +31,6 @@
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/Path.h"
-#ifdef LDC_LLVM_SUPPORTED_TARGET_SPIRV
-#include "llvm/Support/SPIRV.h"
-#endif
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #if LDC_LLVM_VER >= 600
@@ -45,6 +42,12 @@
 #include "llvm/IR/Module.h"
 #include <cstddef>
 #include <fstream>
+
+#ifdef LDC_LLVM_SUPPORTED_TARGET_SPIRV
+namespace llvm {
+    ModulePass *createSPIRVWriterPass(llvm::raw_ostream &Str);
+}
+#endif
 
 static llvm::cl::opt<bool>
     NoIntegratedAssembler("no-integrated-as", llvm::cl::ZeroOrMore,

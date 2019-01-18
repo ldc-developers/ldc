@@ -444,6 +444,8 @@ void applyTargetMachineAttributes(llvm::Function &func,
 
   // TODO: implement commandline switches to change the default values.
   // TODO: (correctly) apply these for NVPTX (but not for SPIRV).
+  if (gIR->dcomputetarget && gIR->dcomputetarget->target == DComputeTarget::OpenCL)
+    return;
   if (!gIR->dcomputetarget) {
     // Target CPU capabilities
     func.addFnAttr("target-cpu", target.getTargetCPU());
