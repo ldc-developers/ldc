@@ -51,7 +51,10 @@ addons:
 before_install:
   -
     export LLVM_ROOT_DIR="$PWD/llvm-$LLVM_VERSION";
-    if [ -n "${LLVM_SPIRV_AVAILABLE}" ]; then export LLVM_ROOT_DIR="$PWD/llvm-spirv-$LLVM_VERSION"; fi
+    if [ -n "${LLVM_SPIRV_AVAILABLE}" ]; then
+    	export LLVM_ROOT_DIR="$PWD/llvm-spirv-$LLVM_VERSION";
+    	export PKG_CONFIG_PATH=`pwd`/llvm-spirv/lib/pkgconfig;
+    fi;
   -
     if [ ! -e "$LLVM_ROOT_DIR/bin/llvm-config" ]; then
       if [ -n "${LLVM_SPIRV_AVAILABLE}" ]; then
@@ -60,7 +63,6 @@ before_install:
         mkdir -p llvm-spirv;
         tar -xf llvm-spirv.tar.bz2 --strip 1 -C `pwd`/llvm-spirv;
         rm llvm-spirv.tar.bz2;
-        export PKG_CONFIG_PATH=`pwd`/llvm-spirv/lib/pkgconfig;
       else
         if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
           if [ "${LLVM_VERSION}" = "4.0.1" ]; then
