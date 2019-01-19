@@ -259,18 +259,8 @@ LLValue *DtoNestedContext(Loc &loc, Dsymbol *sym) {
     return llvm::ConstantPointerNull::get(getVoidPtrType());
   }
 
-  FuncDeclaration *frameToPass = nullptr;
-  if (AggregateDeclaration *ad = sym->isAggregateDeclaration()) {
-    // If sym is a nested struct or a nested class, pass the frame
-    // of the function where sym is declared.
-    frameToPass = ad->toParent()->isFuncDeclaration();
-  } else if (FuncDeclaration *symfd = sym->isFuncDeclaration()) {
-    // If sym is a nested function, and its parent context is different
-    // than the one we got, adjust it.
-    frameToPass = getParentFunc(symfd);
-  }
-
-  if (frameToPass) {
+  // The symbol may need a parent context of the current function.
+  if (FuncDeclaration *frameToPass = getParentFunc(sym)) {
     IF_LOG Logger::println("Parent frame is from %s", frameToPass->toChars());
     FuncDeclaration *ctxfd = irFunc.decl;
     IF_LOG Logger::println("Current function is %s", ctxfd->toChars());
