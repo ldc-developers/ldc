@@ -61,8 +61,8 @@ private:
   virtual void addCppStdlibLinkFlags(const llvm::Triple &triple);
   virtual void addProfileRuntimeLinkFlags(const llvm::Triple &triple);
   virtual void addXRayLinkFlags(const llvm::Triple &triple);
-  virtual bool addWholeRTLinkFlags(llvm::StringRef baseName,
-                                   const llvm::Triple &triple);
+  virtual bool addCompilerRTArchiveLinkFlags(llvm::StringRef baseName,
+                                             const llvm::Triple &triple);
 
   virtual void addLinker();
   virtual void addUserSwitches();
@@ -341,12 +341,12 @@ void ArgsBuilder::addXRayLinkFlags(const llvm::Triple &triple) {
   if (!triple.isOSLinux())
     warning(Loc(), "XRay may not be fully supported on non-Linux target OS.");
 
-  bool libraryFoundAndLinked = addWholeRTLinkFlags("xray", triple);
+  bool libraryFoundAndLinked = addCompilerRTArchiveLinkFlags("xray", triple);
 #if LDC_LLVM_VER >= 700
   // Since LLVM 7, each XRay mode was split into its own library.
   if (libraryFoundAndLinked) {
-    addWholeRTLinkFlags("xray-basic", triple);
-    addWholeRTLinkFlags("xray-fdr", triple);
+    addCompilerRTArchiveLinkFlags("xray-basic", triple);
+    addCompilerRTArchiveLinkFlags("xray-fdr", triple);
   }
 #else
   // Before LLVM 7, XRay requires the C++ std library (but not on Darwin).
@@ -357,8 +357,8 @@ void ArgsBuilder::addXRayLinkFlags(const llvm::Triple &triple) {
 }
 
 // Returns true if library was found and added to link flags.
-bool ArgsBuilder::addWholeRTLinkFlags(llvm::StringRef baseName,
-                                      const llvm::Triple &triple) {
+bool ArgsBuilder::addCompilerRTArchiveLinkFlags(llvm::StringRef baseName,
+                                                const llvm::Triple &triple) {
   const bool linkerDarwin = triple.isOSDarwin();
   const auto searchPaths = getFullCompilerRTLibPathCandidates(baseName, triple);
   for (const auto &filepath : searchPaths) {
