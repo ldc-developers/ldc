@@ -1,7 +1,7 @@
 # LDC 1.13.0 (2018-12-16)
 
 #### Big news
-- Frontend, druntime and Phobos are at version **2.083.1**. (#2878, #2893, #2920, #2933) **(new)**
+- Frontend, druntime and Phobos are at version **2.083.1**. (#2878, #2893, #2920, #2933)
 - The **Windows packages are now fully self-sufficient**, i.e., a Visual Studio/C++ Build Tools installation isn't required anymore, as we now ship with MinGW-w64-based libraries, similar to DMD. Check out the included [README.txt](https://github.com/ldc-developers/ldc/blob/master/packaging/README.txt) for all relevant details. (https://github.com/dlang/installer/pull/346, https://github.com/ldc-developers/ldc/pull/2886, [Wiki: Cross-compiling with LDC](https://wiki.dlang.org/Cross-compiling_with_LDC))
 - Debug info improvements:
   * For GDB: printing global and imported symbols, non-member and member function calls. (#2826)
@@ -10,26 +10,20 @@
   * `-gc` now translates D names to C++ ones, e.g., to use the regular Visual Studio debugger (bypassing mago) and as preparation for VS Code debugging with Microsoft's C/C++ plug-in ([screenshots](https://github.com/ldc-developers/ldc/pull/2869#issuecomment-427862154)). Thanks to Oleksandr for this contribution and the AA fix! (#2869)
 - New command-line option `-fvisibility=hidden` to hide functions/globals not marked as `export` (for non-Windows targets), primarily to reduce the size of shared libraries. Thanks to Andrey for stepping up! (#2894, #2923)
 - Dropped support for LLVM 3.7 and 3.8. (#2872)
-- LLVM for prebuilt packages upgraded to [v7.0.1](https://github.com/ldc-developers/llvm/releases/tag/ldc-v7.0.1). **(new)**
+- LLVM for prebuilt packages upgraded to [v7.0.1](https://github.com/ldc-developers/llvm/releases/tag/ldc-v7.0.1).
 - Linux: now defaulting to `ld.gold` linker in general, not just with `-flto=thin`, as buggy older `ld.bfd` versions may wrongly strip out required symbols (change with `-linker`). (#2870)
-- Improved support for Android/x86[_64], musl libc and FreeBSD/AArch64. (#2917, https://github.com/ldc-developers/druntime/pull/146) **(new)**
-- LDC-specific druntime: `ldc.simd.inlineIR` moved/renamed to `ldc.llvmasm.__ir` (with deprecated legacy alias). (#2931) **(new)**
+- Improved support for Android/x86[_64], musl libc and FreeBSD/AArch64. (#2917, https://github.com/ldc-developers/druntime/pull/146)
+- LDC-specific druntime: `ldc.simd.inlineIR` moved/renamed to `ldc.llvmasm.__ir` (with deprecated legacy alias). (#2931)
 - New CMake option `COMPILE_D_MODULES_SEPARATELY` builds D files in the DDMD frontend separately to reduce the time required to build LDC with many CPU cores and/or for iterative development. (#2914)
 
 #### Platform support
 - Supports LLVM 3.9 - 7.0.
 - Alpine linux/x64: built against Musl libc to support Docker images based on the Alpine distro, requires the `llvm5-libs`, `musl-dev`, `binutils-gold` and `gcc` packages to build and link D apps and the `tzdata` and `curl-dev` packages for certain stdlib modules.
-- Android: Native packages are available in [the Termux app](https://play.google.com/store/apps/details?id=com.termux&hl=en), install like this: `pkg install ldc`.  [To cross-compile from a desktop OS, see the wiki](https://wiki.dlang.org/Build_D_for_Android).
 
 #### Bug fixes
 - 32-bit Android/ARM regression introduced in v1.12. (#2892)
 - Non-Windows x86_64 ABI fixes wrt. what's passed in registers, relevant for C[++] interop. (#2864)
-- Some issues with beta1's newly bundled Windows libraries. (#2900, #2903)
 - Alignment of `scope` allocated class instances. (#2919)
-- Beta2's `-fvisibility=hidden` causing lots of linker errors. (#2922, #2923) **(new)**
-
-#### Known issues
-- LDC does not zero the padding area of a `real` variable. This may lead to wrong results if the padding area is also considered. See #770. Does not apply to `real` members inside structs etc.
 
 
 # LDC 1.12.0 (2018-10-13)
@@ -56,10 +50,6 @@
 - Fix issue when emitting both object and textual assembly files at once (`-output-o -output-s`). (#2847)
 - Support address of struct member as key/value in AA literal. (#2859, #2860)
 - Fix ICE when computing addresses relative to functions/labels. (#2865, #2867)
-- beta2 regression wrt. cross-compiling to Android. (#2863)
-
-#### Known issues
-- LDC does not zero the padding area of a `real` variable. This may lead to wrong results if the padding area is also considered. See #770. Does not apply to `real` members inside structs etc.
 
 
 # LDC 1.11.0 (2018-08-18)
