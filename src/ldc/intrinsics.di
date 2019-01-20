@@ -442,7 +442,6 @@ version (INTRINSICS_FROM_700)
 /// this is equivalent to a rotate left operation. For vector types, the
 /// operation occurs for each element of the vector. The shift argument is
 /// treated as an unsigned amount modulo the element size of the arguments.
-/// Note: currently not supported for vector types.
 pragma(LDC_intrinsic, "llvm.fshl.i#")
     T llvm_fshl(T)(T a, T b, T shift)
         if (__traits(isIntegral, T));
@@ -455,7 +454,6 @@ pragma(LDC_intrinsic, "llvm.fshl.i#")
 /// this is equivalent to a rotate right operation. For vector types, the
 /// operation occurs for each element of the vector. The shift argument is
 /// treated as an unsigned amount modulo the element size of the arguments.
-/// Note: currently not supported for vector types.
 pragma(LDC_intrinsic, "llvm.fshr.i#")
     T llvm_fshr(T)(T a, T b, T shift)
         if (__traits(isIntegral, T));
