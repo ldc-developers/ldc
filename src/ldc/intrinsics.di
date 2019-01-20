@@ -432,6 +432,35 @@ pragma(LDC_intrinsic, "llvm.cttz.i#")
     T llvm_cttz(T)(T src, bool isZeroUndefined)
         if (__traits(isIntegral, T));
 
+version (INTRINSICS_FROM_700)
+{
+/// The ‘llvm.fshl’ family of intrinsic functions performs a funnel shift left:
+/// the first two values are concatenated as `{ a : b }` (`a` is the most
+/// significant bits of the wide value), the combined value is shifted left,
+/// and the most significant bits are extracted to produce a result that is the
+/// same size as the original arguments. If the first 2 arguments are identical,
+/// this is equivalent to a rotate left operation. For vector types, the
+/// operation occurs for each element of the vector. The shift argument is
+/// treated as an unsigned amount modulo the element size of the arguments.
+/// Note: currently not supported for vector types.
+pragma(LDC_intrinsic, "llvm.fshl.i#")
+    T llvm_fshl(T)(T a, T b, T shift)
+        if (__traits(isIntegral, T));
+
+/// The ‘llvm.fshr’ family of intrinsic functions performs a funnel shift right:
+/// the first two values are concatenated as `{ a : b }` (`a` is the most
+/// significant bits of the wide value), the combined value is shifted right,
+/// and the least significant bits are extracted to produce a result that is the
+/// same size as the original arguments. If the first 2 arguments are identical,
+/// this is equivalent to a rotate right operation. For vector types, the
+/// operation occurs for each element of the vector. The shift argument is
+/// treated as an unsigned amount modulo the element size of the arguments.
+/// Note: currently not supported for vector types.
+pragma(LDC_intrinsic, "llvm.fshr.i#")
+    T llvm_fshr(T)(T a, T b, T shift)
+        if (__traits(isIntegral, T));
+
+} // INTRINSICS_FROM_700
 
 
 //
