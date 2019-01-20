@@ -555,7 +555,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
                     if (auto s = funcdecl.fensure.isScopeStatement())
                         fensure_endlin = s.endloc.linnum;
 
-                if ((needEnsure && global.params.useOut) || fpostinv)
+                if ((needEnsure && global.params.useOut == CHECKENABLE.on) || fpostinv)
                 {
                     funcdecl.returnLabel = new LabelDsymbol(Id.returnLabel);
                 }
@@ -929,7 +929,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
 
                 sc2 = sc2.pop();
 
-                if (!global.params.useIn)
+                if (global.params.useIn == CHECKENABLE.off)
                     freq = null;
             }
             if (fens)
@@ -963,7 +963,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
 
                 sc2 = sc2.pop();
 
-                if (!global.params.useOut)
+                if (global.params.useOut == CHECKENABLE.off)
                     fens = null;
             }
             if (funcdecl.fbody && funcdecl.fbody.isErrorStatement())
