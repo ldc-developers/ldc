@@ -84,11 +84,27 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
   IF_LOG { Logger::cout() << "Context: " << *ctx << '\n'; }
 
   DtoCreateNestedContextType(vdparent->isFuncDeclaration());
+
   assert(isIrLocalCreated(vd));
+  IrLocal *const irLocal = getIrLocal(vd);
+
+  // The variable may not actually be nested in a speculative context (e.g.,
+  // with `-allinst`, see https://github.com/ldc-developers/ldc/issues/2932).
+  // Use an invalid null storage in that case, so that accessing the var at
+  // runtime will cause a segfault.
+  if (irLocal->nestedIndex == -1) {
+    Logger::println(
+        "WARNING: isn't actually nested, using invalid null storage");
+    auto llType = DtoPtrToType(astype);
+    if (isSpecialRefVar(vd))
+      llType = llType->getPointerTo();
+    return makeVarDValue(astype, vd, llvm::ConstantPointerNull::get(llType));
+  }
 
   ////////////////////////////////////
   // Extract variable from nested context
 
+  assert(irfunc->frameType);
   const auto frameType = LLPointerType::getUnqual(irfunc->frameType);
   IF_LOG { Logger::cout() << "casting to: " << *irfunc->frameType << '\n'; }
   LLValue *val = DtoBitCast(ctx, frameType);
@@ -108,7 +124,6 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     val = DtoAlignedLoad(val, name);
   };
 
-  IrLocal *const irLocal = getIrLocal(vd);
   const auto vardepth = irLocal->nestedDepth;
   const auto funcdepth = irfunc->depth;
 
@@ -132,10 +147,7 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     IF_LOG Logger::cout() << "Frame: " << *val << '\n';
   }
 
-  const auto idx = irLocal->nestedIndex;
-  assert(idx != -1 && "Nested context not yet resolved for variable.");
-
-  offsetToNthField(idx, vd->toChars());
+  offsetToNthField(irLocal->nestedIndex, vd->toChars());
   IF_LOG {
     Logger::cout() << "Addr: " << *val << '\n';
     Logger::cout() << "of type: " << *val->getType() << '\n';
