@@ -47,8 +47,14 @@ set(LD_FLAGS              ""                                  CACHE STRING "Runt
 set(C_SYSTEM_LIBS         AUTO                                CACHE STRING "C system libraries for linking shared libraries and test runners, separated by ';'")
 set(TARGET_SYSTEM         AUTO                                CACHE STRING "Target OS/toolchain for cross-compilation (e.g., 'Linux;UNIX', 'Darwin;APPLE;UNIX', 'Windows;MSVC')")
 set(LDC_TARGET_PRESET     ""                                  CACHE STRING "Use a preset target configuration for cross-compilation, by passing format OS-arch (e.g., 'Linux-arm', 'Mac-x64', 'Windows-aarch64', 'Android-x86')")
+set(RT_SUPPORT_SANITIZERS OFF                                 CACHE BOOL   "Build runtime libraries with sanitizer support (e.g. for AddressSanitizer)")
 
 set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
+
+if (RT_SUPPORT_SANITIZERS)
+    message(STATUS "Building runtime libraries with sanitizer support")
+    set(D_FLAGS "${D_FLAGS};-d-version=SupportSanitizers")
+endif()
 
 # Find gnu make, use specific version first (BSD) and fall back to default 'make' (LINUX)
 find_program(GNU_MAKE_BIN NAMES gmake gnumake make)
