@@ -187,17 +187,11 @@ LLType *DtoMemType(Type *t) { return i1ToI8(voidToI8(DtoType(t))); }
 LLPointerType *DtoPtrToType(Type *t) { return DtoMemType(t)->getPointerTo(); }
 
 LLType *voidToI8(LLType *t) {
-  if (t == LLType::getVoidTy(gIR->context())) {
-    return LLType::getInt8Ty(gIR->context());
-  }
-  return t;
+  return t->isVoidTy() ? LLType::getInt8Ty(t->getContext()) : t;
 }
 
 LLType *i1ToI8(LLType *t) {
-  if (t == LLType::getInt1Ty(gIR->context())) {
-    return LLType::getInt8Ty(gIR->context());
-  }
-  return t;
+  return t->isIntegerTy(1) ? LLType::getInt8Ty(t->getContext()) : t;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

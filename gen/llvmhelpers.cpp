@@ -1302,32 +1302,38 @@ static char *DtoOverloadedIntrinsicName(TemplateInstance *ti,
   assert(ti->tdtypes.dim == 1);
   Type *T = static_cast<Type *>(ti->tdtypes.data[0]);
 
-  char prefix = T->isreal() ? 'f' : T->isintegral() ? 'i' : 0;
-  if (!prefix) {
+  char prefix;
+  if (T->isfloating() && !T->iscomplex()) {
+    prefix = 'f';
+  } else if (T->isintegral()) {
+    prefix = 'i';
+  } else {
     ti->error("has invalid template parameter for intrinsic: `%s`",
               T->toChars());
     fatal(); // or LLVM asserts
   }
 
-  llvm::Type *dtype(DtoType(T));
-  char tmp[21]; // probably excessive, but covers a uint64_t
-  sprintf(tmp, "%lu",
-          static_cast<unsigned long>(gDataLayout->getTypeSizeInBits(dtype)));
+  std::string name = td->intrinsicName;
 
-  // replace # in name with bitsize
-  std::string name(td->intrinsicName);
+  // replace `{f,i}#` by `{f,i}<bitsize>` (int: `i32`) or
+  // `v<vector length>{f,i}<vector element bitsize>` (float4: `v4f32`)
+  llvm::Type *dtype = DtoType(T);
+  std::string replacement;
+  if (dtype->isPPC_FP128Ty()) { // special case
+    replacement = "ppcf128";
+  } else if (dtype->isVectorTy()) {
+    llvm::raw_string_ostream stream(replacement);
+    stream << 'v' << dtype->getVectorNumElements() << prefix
+        << gDataLayout->getTypeSizeInBits(dtype->getVectorElementType());
+    stream.flush();
+  } else {
+    replacement = prefix + std::to_string(gDataLayout->getTypeSizeInBits(dtype));
+  }
 
-  std::string needle("#");
   size_t pos;
-  while (std::string::npos != (pos = name.find(needle))) {
+  while (std::string::npos != (pos = name.find('#'))) {
     if (pos > 0 && name[pos - 1] == prefix) {
-      // Check for special PPC128 double
-      if (dtype->isPPC_FP128Ty()) {
-        name.insert(pos - 1, "ppc");
-        pos += 3;
-      }
-      // Properly prefixed, insert bitwidth.
-      name.replace(pos, 1, tmp);
+      name.replace(pos - 1, 2, replacement);
     } else {
       if (pos && (name[pos - 1] == 'i' || name[pos - 1] == 'f')) {
         // Wrong type character.
