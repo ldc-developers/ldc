@@ -4,9 +4,10 @@ sudo: false
 
 matrix:
   include:
-    - os: linux
-      d: ldc
-      env: LLVM_VERSION=7.0.1 OPTS="-DBUILD_SHARED_LIBS=ON"
+    # FIXME: strange crashes, possibly due to C++ compiler mismatch
+    #- os: linux
+    #  d: ldc
+    #  env: LLVM_VERSION=7.0.1 OPTS="-DBUILD_SHARED_LIBS=ON"
     - os: linux
       d: ldc-beta
       env: LLVM_VERSION=6.0.1 OPTS="-DBUILD_SHARED_LIBS=OFF -DLIB_SUFFIX=64"
