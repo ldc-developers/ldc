@@ -126,11 +126,21 @@ bool willCrossModuleInline() {
   return enableCrossModuleInlining == llvm::cl::BOU_TRUE;
 }
 
+#if LDC_LLVM_VER >= 900
+llvm::FramePointer::FP whichFramePointersToEmit() {
+  auto option = opts::framePointerUsage();
+  if (option)
+    return *option;
+  else
+    return isOptimizationEnabled() ? llvm::FramePointer::None : llvm::FramePointer::All;
+}
+#else
 bool willEliminateFramePointer() {
   const llvm::cl::boolOrDefault disableFPElimEnum = opts::disableFPElim();
   return disableFPElimEnum == llvm::cl::BOU_FALSE ||
          (disableFPElimEnum == llvm::cl::BOU_UNSET && isOptimizationEnabled());
 }
+#endif
 
 bool isOptimizationEnabled() { return optimizeLevel != 0; }
 

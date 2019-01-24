@@ -205,3 +205,11 @@ if lit.util.which('gdb', config.environment['PATH']):
             config.available_features.add('atleast_gdb80')
 
     config.substitutions.append( ('%_gdb_dflags', gdb_dflags) )
+
+# Add substitutions for functionality across different LLVM versions
+if config.llvm_version >= 900:
+    config.substitutions.append( ('%disable_fp_elim', '-frame-pointer=all') )
+    config.substitutions.append( ('%enable_fp_elim', '-frame-pointer=none') )
+else:
+    config.substitutions.append( ('%disable_fp_elim', '-disable-fp-elim') )
+    config.substitutions.append( ('%enable_fp_elim', '-disable-fp-elim=false') )
