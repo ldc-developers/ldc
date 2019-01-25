@@ -525,7 +525,9 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
     });
 
     if (count == 0) {
-      error(s->loc, "the `%s` pragma doesn't affect any variable declarations",
+      error(s->loc,
+            "the `%s` pragma doesn't affect any variable or function "
+            "declarations",
             ident->toChars());
       fatal();
     }
