@@ -4,9 +4,9 @@
 // RUN: FileCheck %s --check-prefix=COMMON --check-prefix=WITH_FP < %t.ll
 // RUN: %ldc -c -output-ll -of=%t.ll %s -O2
 // RUN: FileCheck %s --check-prefix=COMMON --check-prefix=NO_FP < %t.ll
-// RUN: %ldc -c -output-ll -of=%t.ll %s -O2 -disable-fp-elim
+// RUN: %ldc -c -output-ll -of=%t.ll %s -O2 %disable_fp_elim
 // RUN: FileCheck %s --check-prefix=COMMON --check-prefix=WITH_FP < %t.ll
-// RUN: %ldc -c -output-ll -of=%t.ll %s -disable-fp-elim=false -mattr=test
+// RUN: %ldc -c -output-ll -of=%t.ll %s %enable_fp_elim -mattr=test
 // RUN: FileCheck %s --check-prefix=COMMON --check-prefix=NO_FP --check-prefix=ATTR < %t.ll
 
 // COMMON: define{{.*}} @{{.*}}3fooFZv{{.*}} #[[KEYVALUE:[0-9]+]]

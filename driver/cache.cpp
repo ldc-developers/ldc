@@ -315,7 +315,13 @@ void outputIR2ObjRelevantCmdlineArgs(llvm::raw_ostream &hash_os) {
 #else
   hash_os << opts::getCodeModel();
 #endif
+#if LDC_LLVM_VER >= 900
+  const auto framePointerUsage = opts::framePointerUsage();
+  if (framePointerUsage.hasValue())
+    hash_os << framePointerUsage.getValue();
+#else
   hash_os << opts::disableFPElim();
+#endif
 }
 
 // Output to `hash_os` all environment flags that influence object code output

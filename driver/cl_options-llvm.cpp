@@ -37,11 +37,20 @@ Optional<CodeModel::Model> getCodeModel() { return ::getCodeModel(); }
 CodeModel::Model getCodeModel() { return ::CMModel; }
 #endif
 
+#if LDC_LLVM_VER >= 900
+llvm::Optional<llvm::FramePointer::FP> framePointerUsage() {
+  if (::FramePointerUsage.getNumOccurrences() == 0)
+    return llvm::None;
+  else
+    return ::FramePointerUsage.getValue();
+}
+#else
 cl::boolOrDefault disableFPElim() {
   return ::DisableFPElim.getNumOccurrences() == 0
              ? cl::BOU_UNSET
              : ::DisableFPElim ? cl::BOU_TRUE : cl::BOU_FALSE;
 }
+#endif
 
 bool disableRedZone() { return ::DisableRedZone; }
 
