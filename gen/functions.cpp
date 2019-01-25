@@ -551,9 +551,12 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   LLFunction *func = vafunc ? vafunc : gIR->module.getFunction(irMangle);
   if (!func) {
     // All function declarations are "external" - any other linkage type
-    // is set when actually defining the function.
-    func = LLFunction::Create(functype, llvm::GlobalValue::ExternalLinkage,
-                              irMangle, &gIR->module);
+    // is set when actually defining the function, except extern_weak.
+    auto linkage = llvm::GlobalValue::ExternalLinkage;
+    // Apply pragma(LDC_extern_weak)
+    if (fdecl->llvmInternal == LLVMextern_weak)
+      linkage = llvm::GlobalValue::ExternalWeakLinkage;
+    func = LLFunction::Create(functype, linkage, irMangle, &gIR->module);
   } else if (func->getFunctionType() != functype) {
     const auto existingTypeString = llvmTypeToString(func->getFunctionType());
     const auto newTypeString = llvmTypeToString(functype);
