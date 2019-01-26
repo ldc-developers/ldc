@@ -768,13 +768,7 @@ PortInitializer::PortInitializer()
 
 int Port::isNan(double r)
 {
-#if __APPLE__
-#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 1080
-    return __inline_isnand(r);
-#else
-    return __inline_isnan(r);
-#endif
-#elif __HAIKU__ || __FreeBSD__ || __OpenBSD__ || __NetBSD__
+#if __HAIKU__ || __FreeBSD__ || __OpenBSD__ || __NetBSD__
     return isnan(r);
 #elif __DragonFly__
     return __isnan(r);
@@ -786,13 +780,7 @@ int Port::isNan(double r)
 
 int Port::isNan(longdouble r)
 {
-#if __APPLE__
-#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 1080
-    return __inline_isnanl(r);
-#else
-    return __inline_isnan(r);
-#endif
-#elif __HAIKU__ || __FreeBSD__ || __OpenBSD__ || __NetBSD__
+#if __HAIKU__ || __FreeBSD__ || __OpenBSD__ || __NetBSD__
     return isnan(r);
 #elif __DragonFly__
     return __isnanl(r);
