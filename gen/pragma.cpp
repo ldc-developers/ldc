@@ -499,7 +499,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
   }
 
   case LLVMextern_weak: {
-    const int count = applyVariablePragma(s, [=](VarDeclaration *vd) {
+    int count = applyVariablePragma(s, [=](VarDeclaration *vd) {
       if (!vd->isDataseg() || !(vd->storage_class & STCextern)) {
         error(s->loc, "`%s` requires storage class `extern`", ident->toChars());
         fatal();
@@ -516,8 +516,18 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
       }
       vd->llvmInternal = llvm_internal;
     });
+    count += applyFunctionPragma(s, [=](FuncDeclaration *fd) {
+      if (fd->fbody) {
+        error(s->loc, "`%s` cannot be applied to function definitions", ident->toChars());
+        fatal();
+      }
+      fd->llvmInternal = llvm_internal;
+    });
+
     if (count == 0) {
-      error(s->loc, "the `%s` pragma doesn't affect any variable declarations",
+      error(s->loc,
+            "the `%s` pragma doesn't affect any variable or function "
+            "declarations",
             ident->toChars());
       fatal();
     }
