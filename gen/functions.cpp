@@ -477,9 +477,11 @@ void applyTargetMachineAttributes(llvm::Function &func,
     case llvm::FramePointer::NonLeaf:
       func.addFnAttr("no-frame-pointer-elim", "false");
       func.addFnAttr("no-frame-pointer-elim-non-leaf");
+      break;
     case llvm::FramePointer::All:
       func.addFnAttr("no-frame-pointer-elim", "true");
       func.addFnAttr("no-frame-pointer-elim-non-leaf");
+      break;
   }
 #else
   func.addFnAttr("no-frame-pointer-elim",
