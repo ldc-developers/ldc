@@ -20,6 +20,8 @@ version (LDC)
 {
     version (PPC) version = AnyPPC;
     version (PPC64) version = AnyPPC;
+    version (MIPS32) version = AnyMIPS;
+    version (MIPS64) version = AnyMIPS;
 
     version (ARM)
     {
@@ -195,7 +197,7 @@ version (LDC)
             ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
             return arg;
         }
-        else version (MIPS64)
+        else version (AnyMIPS)
         {
             T arg = *cast(T*)ap;
             ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
@@ -330,7 +332,7 @@ version (LDC)
                 auto p = ap;
             ap += (tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
         }
-        else version (MIPS64)
+        else version (AnyMIPS)
         {
             // This works for all types because only the rules for non-floating,
             // non-vector types are used.
