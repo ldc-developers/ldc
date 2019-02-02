@@ -20,6 +20,7 @@
 #include "gen/objcgen.h"
 #include "ir/iraggr.h"
 #include "ir/irvar.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/ProfileData/InstrProfReader.h"
@@ -53,6 +54,7 @@ class Module;
 class TypeStruct;
 struct BaseClass;
 class AnonDeclaration;
+class StructLiteralExp;
 
 struct IrFunction;
 struct IrModule;
@@ -110,6 +112,12 @@ struct IRState {
 private:
   std::vector<std::pair<llvm::GlobalVariable *, llvm::Constant *>>
       globalsToReplace;
+
+  // Cache of (possibly bitcast) global variables for taking the address of
+  // struct literal constants. Used to resolve self-references.
+  // [The real key type is `StructLiteralExp *`; a fwd class declaration isn't
+  // enough to use it directly.]
+  llvm::DenseMap<void *, llvm::Constant *> structLiteralConstants;
 
 public:
   IRState(const char *name, llvm::LLVMContext &context);
@@ -224,6 +232,10 @@ public:
   // replacement pass for global variables replaced (and registered) by
   // setGlobalVarInitializer().
   void replaceGlobals();
+
+  llvm::Constant *getStructLiteralConstant(StructLiteralExp *sle) const;
+  void setStructLiteralConstant(StructLiteralExp *sle,
+                                llvm::Constant *constant);
 
   // List of functions with cpu or features attributes overriden by user
   std::vector<IrFunction *> targetCpuOrFeaturesOverridden;
