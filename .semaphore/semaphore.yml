@@ -2,7 +2,7 @@ version: v1.0
 name: LDC
 agent:
   machine:
-    type: e1-standard-2
+    type: e1-standard-8
     os_image: ubuntu1804
 
 blocks:
@@ -47,13 +47,13 @@ blocks:
                 -DMULTILIB=ON \
                 -DLDC_INSTALL_LTOPLUGIN=ON \
                 -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON
-            - ninja -j2 all ldc2-unittest all-test-runners
+            - ninja -j8 all ldc2-unittest all-test-runners
             - bin/ldc2 -version
             # Run LDC D unittests
             - ctest --output-on-failure -R ldc2-unittest
             # Run LIT testsuite
             - ctest -V -R lit-tests
             # Run DMD testsuite
-            - DMD_TESTSUITE_MAKE_ARGS=-j4 ctest -V -R dmd-testsuite
+            - DMD_TESTSUITE_MAKE_ARGS=-j8 ctest -V -R dmd-testsuite
             # Run defaultlib unittests & druntime stand-alone tests
-            - ctest -j4 --output-on-failure -E "ldc2-unittest|lit-tests|dmd-testsuite"
+            - ctest -j8 --output-on-failure -E "ldc2-unittest|lit-tests|dmd-testsuite"
