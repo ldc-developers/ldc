@@ -421,10 +421,8 @@ LLValue *DtoComplexEquals(Loc &loc, TOK op, DValue *lhs, DValue *rhs) {
   LLValue *b1 = DtoBinFloatsEquals(loc, lhs_re, rhs_re, op);
   LLValue *b2 = DtoBinFloatsEquals(loc, lhs_im, rhs_im, op);
 
-  if (op == TOKequal) {
-    return gIR->ir->CreateAnd(b1, b2);
-  }
-  return gIR->ir->CreateOr(b1, b2);
+  return (op == TOKequal || op == TOKidentity) ? gIR->ir->CreateAnd(b1, b2)
+                                               : gIR->ir->CreateOr(b1, b2);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
