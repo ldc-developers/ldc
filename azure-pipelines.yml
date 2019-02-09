@@ -11,107 +11,25 @@ jobs:
     EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON
     OS: win64
     MODEL: 64
+    ARCH: x64
   steps:
-    - script: git config --global core.autocrlf true
-    - checkout: self
-      submodules: true
-    - script: |
-        echo on
-        :: Download & extract libcurl
-        curl -L -o libcurl.zip https://dl.dropboxusercontent.com/s/jxwohqax4e2avyt/libcurl-7.48.0-WinSSL-zlib-x86-x64.zip?dl=0
-        mkdir libcurl
-        cd libcurl
-        7z x ../libcurl.zip > nul
-        mkdir ldc2
-        cp dmd2/windows/bin64/libcurl.dll ldc2
-        cp dmd2/windows/lib64/curl.lib ldc2
-        cd ..
-        :: Download & extract Ninja
-        curl -L -o ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.8.2/ninja-win.zip
-        mkdir ninja
-        cd ninja
-        7z x ../ninja.zip > nul
-        cd ..
-        :: Install lit
-        python -m pip install lit
-        :: Download & extract host LDC
-        curl -L -o ldc2.7z http://github.com/ldc-developers/ldc/releases/download/v%HOST_LDC_VERSION%/ldc2-%HOST_LDC_VERSION%-windows-x64.7z
-        7z x ldc2.7z > nul
-        mv ldc2-%HOST_LDC_VERSION%-windows-x64 host-ldc
-        :: Download & extract GNU make (for dmd-testsuite & druntime stand-alone tests)
-        curl -L -o make.7z https://dl.dropboxusercontent.com/s/4y36f5ydgrk4p5g/make-4.2.1.7z?dl=0
-        mkdir gnu
-        cd gnu
-        7z x ../make.7z > nul
-        mv make.exe gmake.exe
-        cd ..
-        :: Download & extract a *working* GNU grep
-        :: (version 3.1 bundled with newer git (v2.19+) seems to be buggy wrt. output line-endings)
-        curl -L -o grep.7z https://dl.dropboxusercontent.com/s/vwlfgz8wv1fmqnn/grep-3.0.7z?dl=0
-        cd gnu
-        7z x ../grep.7z > nul
-        cd ..
-        :: Download & extract LDC-flavoured LLVM
-        curl -L -o llvm.7z https://github.com/ldc-developers/llvm/releases/download/ldc-v%LLVM_VERSION%/llvm-%LLVM_VERSION%-windows-x64-clang.7z
-        mkdir llvm
-        cd llvm
-        7z x ../llvm.7z > nul
-        cd ..
-        :: Download & install clang
-        curl -L -o clang.exe http://releases.llvm.org/%CLANG_VERSION%/LLVM-%CLANG_VERSION%-win64.exe
-        clang.exe /S
-      displayName: Install prerequisites
-    - script: |
-        :: LLVM bin dir in PATH required for lld-link.exe
-        set PATH=%CD%\llvm\bin;C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;%PATH%
-        call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=x64
-        echo on
-        cmake --version
-        ninja --version
-        clang-cl --version
-        mkdir bootstrap-ldc
-        cd bootstrap-ldc
-        cmake -G Ninja -DCMAKE_C_COMPILER:PATH=clang-cl.exe -DCMAKE_CXX_COMPILER:PATH=clang-cl.exe -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=%CD%/../llvm -DD_COMPILER=%CD%/../host-ldc/bin/ldmd2 ..
-        ninja -j2
-        bin\ldc2 --version
-      displayName: Build bootstrap LDC
-    - script: |
-        set PATH=%CD%\llvm\bin;C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;%PATH%
-        call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=x64
-        echo on
-        mkdir build
-        cd build
-        cmake -G Ninja -DCMAKE_C_COMPILER:PATH=clang-cl.exe -DCMAKE_CXX_COMPILER:PATH=clang-cl.exe -DCMAKE_BUILD_TYPE=Release %EXTRA_CMAKE_FLAGS% -DLLVM_ROOT_DIR=%CD%/../llvm -DD_COMPILER=%CD%/../bootstrap-ldc/bin/ldmd2 ..
-        ninja -j2 all all-test-runners
-        bin\ldc2 --version
-      displayName: Build LDC & defaultlib unittest runners
-    - script: |
-        call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=x64
-        cd build
-        ctest --output-on-failure -R "ldc2-unittest"
-      displayName: Build & run LDC D unittests
-      condition: succeededOrFailed()
-    - script: |
-        set PATH=%CD%\llvm\bin;%PATH%
-        call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=x64
-        cd build
-        ctest -V -R "lit-tests"
-      displayName: Run LIT testsuite
-      condition: succeededOrFailed()
-    - script: |
-        :: git's usr/bin/bash, unlike its bin/bash, leaves PATH as-is
-        set PATH=%CD%\gnu;C:\Program Files\Git\usr\bin;%PATH%
-        call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=x64
-        set DMD_TESTSUITE_MAKE_ARGS=-j2
-        cd build
-        ctest -V -R "dmd-testsuite"
-      displayName: Run DMD testsuite
-      condition: succeededOrFailed()
-    - script: |
-        :: add libcurl.dll dir to PATH
-        set PATH=%CD%\libcurl\ldc2;%CD%\gnu;C:\Program Files\Git\usr\bin;%PATH%
-        call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=x64
-        cd build
-        ctest -j2 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
-      displayName: Run defaultlib unittests & druntime stand-alone tests
-      condition: succeededOrFailed()
+    - template: .azure-pipelines/windows.yml
+
+- job: 'Win32'
+  timeoutInMinutes: 90
+  pool:
+    vmImage: 'vs2017-win2016'
+  variables:
+    LLVM_VERSION: 7.0.1
+    CLANG_VERSION: 7.0.1
+    HOST_LDC_VERSION: 1.13.0
+    VSINSTALLDIR: C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\
+    EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON
+    OS: win32
+    MODEL: 32
+    ARCH: x86
+    CFLAGS: -m32
+    CXXFLAGS: -m32
+    ASMFLAGS: -m32
+  steps:
+    - template: .azure-pipelines/windows.yml
