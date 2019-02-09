@@ -1,5 +1,8 @@
 steps:
-- script: git config --global core.autocrlf true
+- script: |
+    git config --global core.autocrlf true
+    set
+  displayName: Print environment variables
 - checkout: self
   submodules: true
 - script: |
@@ -19,7 +22,7 @@ steps:
     )
     cd ..
     :: Download & extract Ninja
-    curl -L -o ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.8.2/ninja-win.zip
+    curl -L -o ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-win.zip
     mkdir ninja
     cd ninja
     7z x ../ninja.zip > nul
@@ -70,10 +73,11 @@ steps:
 - script: |
     set PATH=%CD%\llvm\bin;C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;%PATH%
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
+    set INSTALL_DIR=%CD%/install
     echo on
     mkdir build
     cd build
-    cmake -G Ninja -DCMAKE_C_COMPILER:PATH=clang-cl.exe -DCMAKE_CXX_COMPILER:PATH=clang-cl.exe -DCMAKE_BUILD_TYPE=Release %EXTRA_CMAKE_FLAGS% -DLLVM_ROOT_DIR=%CD%/../llvm -DD_COMPILER=%CD%/../bootstrap-ldc/bin/ldmd2 ..
+    cmake -G Ninja -DCMAKE_C_COMPILER:PATH=clang-cl.exe -DCMAKE_CXX_COMPILER:PATH=clang-cl.exe -DCMAKE_BUILD_TYPE=Release %EXTRA_CMAKE_FLAGS% -DCMAKE_INSTALL_PREFIX=%INSTALL_DIR% -DINCLUDE_INSTALL_DIR=%INSTALL_DIR%/import -DLLVM_ROOT_DIR=%CD%/../llvm -DD_COMPILER=%CD%/../bootstrap-ldc/bin/ldmd2 ..
     ninja -j2 all all-test-runners
     bin\ldc2 --version
   displayName: Build LDC & defaultlib unittest runners
@@ -107,3 +111,64 @@ steps:
     ctest -j2 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
   displayName: Run defaultlib unittests & druntime stand-alone tests
   condition: succeededOrFailed()
+- script: |
+    set PATH=%CD%\ninja;%PATH%
+    cd build
+    ninja install > nul
+    cd ..
+    powershell -c "(cat install/etc/ldc2.conf).replace('%CD:\=/%/install/', '%%%%ldcbinarypath%%%%/../') | Set-Content install/etc/ldc2.conf"
+    cat install/etc/ldc2.conf
+    cp LICENSE install
+    cp packaging/README.txt install
+    cp libcurl/ldc2/libcurl.dll install/bin
+    cp libcurl/ldc2/libcurl.dll install/lib
+    cp libcurl/ldc2/curl.lib install/lib
+    :: Now rename the installation dir to test portability
+    mv install installed
+  displayName: Install LDC, make portable & copy curl
+- script: |
+    cp llvm/bin/lld-link.exe installed/bin
+    curl -L -o mingw-w64-libs.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v6.0.0-rc.4/mingw-w64-libs-v6.0.0-rc.4.7z
+    mkdir mingw-w64-libs
+    cd mingw-w64-libs
+    7z x ../mingw-w64-libs.7z > nul
+    cp -r lib%MODEL% ../installed/lib/mingw
+  displayName: Copy lld-link.exe & MinGW-w64-based libs
+- script: |
+    call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
+    powershell -c "echo 'void main() { import std.stdio; writefln(\"Hello world, %%d bits\", size_t.sizeof * 8); }'" > hello.d
+    installed\bin\ldc2 hello.d -of=hello_thin.exe -flto=thin -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
+    hello_thin.exe
+    installed\bin\ldc2 hello.d -of=hello_full.exe -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
+    hello_full.exe
+  displayName: Run hello-world integration test with LTO
+- script: |
+    call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
+    set DC=%CD%/installed/bin/ldmd2
+    git clone --recursive https://github.com/dlang/dub.git
+    cd dub
+    powershell -c "git checkout \"$(cat ../packaging/dub_version -Raw)\""
+    powershell -c "(cat build.cmd).replace('curl.lib', '%CD%/../installed/lib/curl.lib') | Set-Content build.cmd"
+    build.cmd
+    cp bin/dub.exe ../installed/bin
+  displayName: Build & copy dub
+- script: |
+    call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
+    git clone --recursive https://github.com/dlang/tools.git dlang-tools
+    cd dlang-tools
+    ..\installed\bin\ldmd2 -w rdmd.d
+    ..\installed\bin\ldmd2 -w ddemangle.d
+    ..\installed\bin\ldmd2 -w DustMite\dustmite.d DustMite\splitter.d
+    cp *.exe ../installed/bin
+  displayName: Build & copy dlang tools
+- script: |
+    set ARTIFACT_NAME=ldc2-%BUILD_SOURCEVERSION:~0,8%-windows-%ARCH%
+    mv installed %ARTIFACT_NAME%
+    mkdir artifacts
+    7z a -mx=9 artifacts/%ARTIFACT_NAME%.7z %ARTIFACT_NAME% > nul
+  displayName: Pack installation dir
+- task: PublishPipelineArtifact@0
+  inputs:
+    artifactName: 'windows-$(ARCH)'
+    targetPath: 'artifacts'
+  displayName: Publish artifact
