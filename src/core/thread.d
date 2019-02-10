@@ -21,6 +21,11 @@ version (LDC)
     import ldc.llvmasm;
 
     version (Windows) version = LDC_Windows;
+
+    version (SupportSanitizers)
+    {
+        import ldc.sanitizers_optionally_linked;
+    }
 }
 
 version (OSX)
@@ -3860,6 +3865,11 @@ private
         Fiber   obj = Fiber.getThis();
         assert( obj );
 
+        version (SupportSanitizers)
+        {
+            informSanitizerOfFinishSwitchFiber(obj.__fake_stack, &obj.__from_stack_bottom, &obj.__from_stack_size);
+        }
+
         assert( Thread.getThis().m_curr is obj.m_ctxt );
         atomicStore!(MemoryOrder.raw)(*cast(shared)&Thread.getThis().m_lock, false);
         obj.m_ctxt.tstack = obj.m_ctxt.bstack;
@@ -5643,7 +5653,23 @@ private:
         atomicStore!(MemoryOrder.raw)(*cast(shared)&tobj.m_lock, true);
         tobj.pushContext( m_ctxt );
 
+        version (SupportSanitizers)
+        {
+            version (StackGrowsDown)
+                auto new_bottom = m_ctxt.bstack - m_size;
+            else
+                auto new_bottom = m_ctxt.bstack;
+
+            informSanitizerOfStartSwitchFiber(&__fake_stack, new_bottom, m_size);
+        }
+
         fiber_switchContext( oldp, newp );
+
+        version (SupportSanitizers)
+        {
+            informSanitizerOfFinishSwitchFiber((m_state == State.TERM) ? null : __fake_stack,
+                                               &__from_stack_bottom, &__from_stack_size);
+        }
 
         // NOTE: As above, these operations must be performed in a strict order
         //       to prevent Bad Things from happening.
@@ -5679,7 +5705,17 @@ private:
         *oldp = getStackTop();
         atomicStore!(MemoryOrder.raw)(*cast(shared)&tobj.m_lock, true);
 
+        version (SupportSanitizers)
+        {
+            informSanitizerOfStartSwitchFiber(&__fake_stack, __from_stack_bottom, __from_stack_size);
+        }
+
         fiber_switchContext( oldp, newp );
+
+        version (SupportSanitizers)
+        {
+            informSanitizerOfFinishSwitchFiber(__fake_stack, &__from_stack_bottom, &__from_stack_size);
+        }
 
         // NOTE: As above, these operations must be performed in a strict order
         //       to prevent Bad Things from happening.
@@ -5689,6 +5725,17 @@ private:
         tobj = m_curThread;
         atomicStore!(MemoryOrder.raw)(*cast(shared)&tobj.m_lock, false);
         tobj.m_curr.tstack = tobj.m_curr.bstack;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Address Sanitizer support
+    ///////////////////////////////////////////////////////////////////////////
+    version (SupportSanitizers)
+    {
+    private:
+        void* __fake_stack;
+        const(void)* __from_stack_bottom;
+        size_t __from_stack_size;
     }
 }
 
