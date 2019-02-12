@@ -80,29 +80,26 @@ DConstValue::DConstValue(Type *t, LLConstant *con) : DRValue(t, con) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DSliceValue::DSliceValue(Type *t, LLValue *pair) : DRValue(t, pair) {
+DSliceValue::DSliceValue(Type *t, LLValue *pair, LLValue *length, LLValue *ptr)
+    : DRValue(t, pair), length(length), ptr(ptr) {
   assert(t->toBasetype()->ty == Tarray);
   // v may be an addrspace qualified pointer so strip it before doing a pointer
   // equality check.
   assert(stripAddrSpaces(pair->getType()) == DtoType(t));
 }
 
+DSliceValue::DSliceValue(Type *t, LLValue *pair)
+    : DSliceValue(t, pair, nullptr, nullptr) {}
+
 DSliceValue::DSliceValue(Type *t, LLValue *length, LLValue *ptr)
-    : DSliceValue(t, DtoAggrPair(length, ptr)) {
-  cachedLength = length;
-  cachedPtr = ptr;
-}
+    : DSliceValue(t, DtoAggrPair(length, ptr), length, ptr) {}
 
 LLValue *DSliceValue::getLength() {
-  if (!cachedLength)
-    cachedLength = DtoExtractValue(val, 0, ".len");
-  return cachedLength;
+  return length ? length : DtoExtractValue(val, 0, ".len");
 }
 
 LLValue *DSliceValue::getPtr() {
-  if (!cachedPtr)
-    cachedPtr = DtoExtractValue(val, 1, ".ptr");
-  return cachedPtr;
+  return ptr ? ptr : DtoExtractValue(val, 1, ".ptr");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
