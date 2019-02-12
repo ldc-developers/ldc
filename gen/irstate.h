@@ -114,7 +114,8 @@ private:
       globalsToReplace;
 
   // Cache of (possibly bitcast) global variables for taking the address of
-  // struct literal constants. Used to resolve self-references.
+  // struct literal constants. (Also) used to resolve self-references. Must be
+  // cached per IR module: https://github.com/ldc-developers/ldc/issues/2990
   // [The real key type is `StructLiteralExp *`; a fwd class declaration isn't
   // enough to use it directly.]
   llvm::DenseMap<void *, llvm::Constant *> structLiteralConstants;
