@@ -1,5 +1,5 @@
 jobs:
-- job: Build
+- job: Windows
   timeoutInMinutes: 90
   pool:
     vmImage: 'vs2017-win2016'
@@ -11,11 +11,11 @@ jobs:
     EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON
   strategy:
     matrix:
-      Win64:
+      x64:
         OS: win64
         MODEL: 64
         ARCH: x64
-      Win32:
+      x86:
         OS: win32
         MODEL: 32
         ARCH: x86
@@ -24,3 +24,51 @@ jobs:
         ASMFLAGS: -m32
   steps:
     - template: .azure-pipelines/windows.yml
+
+- job: Windows_multilib
+  timeoutInMinutes: 30
+  pool:
+    vmImage: 'vs2017-win2016'
+  dependsOn:
+    - Windows
+  steps:
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: 'windows-x64'
+        targetPath: 'artifacts'
+      displayName: Download x64 artifact
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: 'windows-x86'
+        targetPath: 'artifacts'
+      displayName: Download x86 artifact
+    - script: |
+        set ARTIFACT_NAME=ldc2-%BUILD_SOURCEVERSION:~0,8%-windows-multilib
+        7z x artifacts/ldc2-*-x64.7z > nul
+        7z x artifacts/ldc2-*-x86.7z > nul
+        mv ldc2-*-x64 %ARTIFACT_NAME%
+        cd %ARTIFACT_NAME%
+        mv lib lib64
+        cp -r ../ldc2-*-x86/lib .
+        mv lib lib32
+      displayName: Extract & merge artifacts
+    - powershell: |
+        cd ldc2-*-multilib
+        (cat etc\ldc2.conf).replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib64') | Set-Content etc\ldc2.conf
+        $conf32 = cat ..\ldc2-*-x86\etc\ldc2.conf -Raw
+        $conf32 = "`r`n""i[3-6]86-.*-windows-msvc"":" + $conf32.Substring($conf32.IndexOf("`r`ndefault:") + 10)
+        $conf32 = $conf32.Substring(0, $conf32.IndexOf("`r`n};`r`n") + 6)
+        $conf32 = $conf32.Replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib32')
+        Add-Content etc\ldc2.conf $conf32
+        cat etc\ldc2.conf
+      displayName: Merge ldc2.conf
+    - script: |
+        set ARTIFACT_NAME=ldc2-%BUILD_SOURCEVERSION:~0,8%-windows-multilib
+        mkdir newArtifacts
+        7z a -mx=9 newArtifacts/%ARTIFACT_NAME%.7z %ARTIFACT_NAME% > nul
+      displayName: Pack
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'windows-multilib'
+        targetPath: 'newArtifacts'
+      displayName: Publish artifact
