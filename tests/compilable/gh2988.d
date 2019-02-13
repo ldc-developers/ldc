@@ -1,6 +1,3 @@
-// Host needs float4 support.
-// REQUIRES: host_X86
-
 // RUN: %ldc -c %s
 
 import core.simd;
