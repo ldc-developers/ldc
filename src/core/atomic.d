@@ -405,24 +405,16 @@ else version (LDC)
         T res = void;
         static if (__traits(isFloating, T))
         {
-            static if(T.sizeof == int.sizeof)
-            {
-                static assert(is(T : float));
-                int rawRes = llvm_atomic_cmp_xchg!int(
-                    cast(shared int*)here, *cast(int*)&ifThis, *cast(int*)&writeThis);
-                res = *(cast(T*)&rawRes);
-            }
-            else static if(T.sizeof == long.sizeof)
-            {
-                static assert(is(T : double));
-                long rawRes = cast(T)llvm_atomic_cmp_xchg!long(
-                    cast(shared long*)here, *cast(long*)&ifThis, *cast(long*)&writeThis);
-                res = *(cast(T*)&rawRes);
-            }
+            static if (T.sizeof == int.sizeof)
+                alias I = int;
+            else static if (T.sizeof == long.sizeof)
+                alias I = long;
             else
-            {
-                static assert(0, "Cannot atomically store 80-bit reals.");
-            }
+                static assert(0, "Cannot atomically store floating-point values > 64 bits.");
+
+            I rawRes = llvm_atomic_cmp_xchg!I(
+                cast(shared I*)here, *cast(I*)&ifThis, *cast(I*)&writeThis);
+            res = *cast(T*)&rawRes;
         }
         else static if (is(T P == U*, U) || is(T == class) || is(T == interface))
         {
@@ -1740,11 +1732,11 @@ version (unittest)
         static class Klass {}
         testCAS!(shared Klass)( new shared(Klass) );
 
-        testType!(float)(1.0f);
+        testType!(float)(0.1f);
 
         static if ( has64BitCAS )
         {
-            testType!(double)(1.0);
+            testType!(double)(0.1);
             testType!(long)();
             testType!(ulong)();
         }
@@ -1757,15 +1749,15 @@ version (unittest)
         atomicOp!"-="( i, cast(size_t) 1 );
         assert( i == 0 );
 
-        shared float f = 0;
-        atomicOp!"+="( f, 1 );
-        assert( f == 1 );
+        shared float f = 0.1f;
+        atomicOp!"+="( f, 0.1f );
+        assert( f > 0.1999f && f < 0.2001f );
 
         static if ( has64BitCAS )
         {
-            shared double d = 0;
-            atomicOp!"+="( d, 1 );
-            assert( d == 1 );
+            shared double d = 0.1;
+            atomicOp!"+="( d, 0.1 );
+            assert( d > 0.1999 && d < 0.2001 );
         }
     }
 
