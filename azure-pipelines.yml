@@ -43,7 +43,13 @@ jobs:
         targetPath: 'artifacts'
       displayName: Download x86 artifact
     - script: |
-        set ARTIFACT_NAME=ldc2-%BUILD_SOURCEVERSION:~0,8%-windows-multilib
+        if "%BUILD_SOURCEBRANCH:~0,10%" == "refs/tags/" (
+          set ARTIFACT_ID=%BUILD_SOURCEBRANCH:~10%
+        ) else (
+          set ARTIFACT_ID=%BUILD_SOURCEVERSION:~0,8%
+        )
+        set ARTIFACT_NAME=ldc2-%ARTIFACT_ID%-windows-multilib
+        echo ##vso[task.setvariable variable=ARTIFACT_NAME]%ARTIFACT_NAME%
         7z x artifacts/ldc2-*-x64.7z > nul
         7z x artifacts/ldc2-*-x86.7z > nul
         mv ldc2-*-x64 %ARTIFACT_NAME%
@@ -63,7 +69,6 @@ jobs:
         cat etc\ldc2.conf
       displayName: Merge ldc2.conf
     - script: |
-        set ARTIFACT_NAME=ldc2-%BUILD_SOURCEVERSION:~0,8%-windows-multilib
         mkdir newArtifacts
         7z a -mx=9 newArtifacts/%ARTIFACT_NAME%.7z %ARTIFACT_NAME% > nul
       displayName: Pack

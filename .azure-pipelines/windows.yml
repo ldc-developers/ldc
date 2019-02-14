@@ -164,7 +164,12 @@ steps:
     cp *.exe ../installed/bin
   displayName: Build & copy dlang tools
 - script: |
-    set ARTIFACT_NAME=ldc2-%BUILD_SOURCEVERSION:~0,8%-windows-%ARCH%
+    if "%BUILD_SOURCEBRANCH:~0,10%" == "refs/tags/" (
+      set ARTIFACT_ID=%BUILD_SOURCEBRANCH:~10%
+    ) else (
+      set ARTIFACT_ID=%BUILD_SOURCEVERSION:~0,8%
+    )
+    set ARTIFACT_NAME=ldc2-%ARTIFACT_ID%-windows-%ARCH%
     mv installed %ARTIFACT_NAME%
     mkdir artifacts
     7z a -mx=9 artifacts/%ARTIFACT_NAME%.7z %ARTIFACT_NAME% > nul
