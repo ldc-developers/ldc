@@ -1,12 +1,14 @@
+variables:
+  LLVM_VERSION: 7.0.1
+  HOST_LDC_VERSION: 1.13.0
+
 jobs:
 - job: Windows
   timeoutInMinutes: 120
   pool:
     vmImage: 'vs2017-win2016'
   variables:
-    LLVM_VERSION: 7.0.1
     CLANG_VERSION: 7.0.1
-    HOST_LDC_VERSION: 1.13.0
     VSINSTALLDIR: C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\
     EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON
   strategy:
@@ -93,6 +95,29 @@ jobs:
         artifactName: 'windows-multilib'
         targetPath: 'newArtifacts'
       displayName: Publish artifact
+
+- job: Linux_multilib
+  timeoutInMinutes: 120
+  pool:
+    vmImage: 'ubuntu-16.04'
+  variables:
+    CI_OS: linux
+    EXTRA_CMAKE_FLAGS: -DMULTILIB=ON -DBUILD_LTO_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON
+  steps:
+    - template: .azure-pipelines/posix.yml
+
+- job: macOS_x64
+  timeoutInMinutes: 120
+  pool:
+    vmImage: 'macOS-10.13'
+  variables:
+    CI_OS: osx
+    BOOTSTRAP_CMAKE_FLAGS: -DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++
+    EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON -DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++
+    MACOSX_DEPLOYMENT_TARGET: 10.8
+    USE_LIBCPP: true
+  steps:
+    - template: .azure-pipelines/posix.yml
 
 # Uploads the packages to a GitHub release.
 - job: Upload_to_GitHub
