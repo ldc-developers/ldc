@@ -2933,10 +2933,6 @@ extern (C++) final class StructLiteralExp : Expression
         // now contain pointers to themselves. While in toElem, contains a pointer
         // to the memory used to build the literal for resolving such references.
         void* inProgressMemory; // llvm::Value*
-
-        // A global variable for taking the address of this struct literal constant,
-        // if it already exists. Used to resolve self-references.
-        void* globalVar; // llvm::Constant*
     }
 
     bool useStaticInit;     /// if this is true, use the StructDeclaration's init symbol

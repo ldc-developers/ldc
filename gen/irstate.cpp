@@ -180,6 +180,17 @@ void IRState::replaceGlobals() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+LLConstant *IRState::getStructLiteralConstant(StructLiteralExp *sle) const {
+  return static_cast<LLConstant *>(structLiteralConstants.lookup(sle));
+}
+
+void IRState::setStructLiteralConstant(StructLiteralExp *sle,
+                                       LLConstant *constant) {
+  structLiteralConstants[sle] = constant;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 IRBuilder<> *IRBuilderHelper::operator->() {
   IRBuilder<> &b = state->scope().builder;
   assert(b.GetInsertBlock() != NULL);
