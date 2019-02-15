@@ -27,6 +27,7 @@ config.gnu_make_bin        = "@GNU_MAKE_BIN@"
 config.ldc_host_arch       = "@LDC_HOST_ARCH@"
 config.ldc_with_lld        = "@LDC_WITH_LLD@" == "ON"
 config.spirv_enabled       = @LLVM_SPIRV_FOUND@ +0 # LLVM_SPIRV_FOUND is blank if not set
+config.rt_supports_sanitizers = "@RT_SUPPORT_SANITIZERS@" == "ON"
 
 config.name = 'LDC'
 
@@ -91,6 +92,9 @@ for t in config.llvm_targetsstr.split(';'):
 
 if config.spirv_enabled:
     config.available_features.add('target_SPIRV')
+
+if config.rt_supports_sanitizers:
+    config.available_features.add('RTSupportsSanitizers')
 
 # Add specific features for Windows x86/x64 testing
 if (platform.system() == 'Windows') and (config.default_target_bits == 32):
