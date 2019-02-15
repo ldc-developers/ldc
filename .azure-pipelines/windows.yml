@@ -1,5 +1,9 @@
+# Each step starts in the checked-out source directory,
+# environment variables aren't persisted across steps.
+
 steps:
 - script: |
+    :: Use Windows CRLF line endings for checked-out text files
     git config --global core.autocrlf true
     set
   displayName: Print environment variables
@@ -7,6 +11,7 @@ steps:
   submodules: true
 - script: |
     echo on
+    cd ..
     :: Download & extract libcurl
     curl -L -o libcurl.zip https://dl.dropboxusercontent.com/s/jxwohqax4e2avyt/libcurl-7.48.0-WinSSL-zlib-x86-x64.zip?dl=0
     mkdir libcurl
@@ -59,6 +64,8 @@ steps:
     clang.exe /S
   displayName: Install prerequisites
 - script: |
+    echo on
+    cd ..
     :: LLVM bin dir in PATH required for lld-link.exe
     set PATH=%CD%\llvm\bin;C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;%PATH%
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
@@ -68,28 +75,32 @@ steps:
     clang-cl --version
     mkdir bootstrap-ldc
     cd bootstrap-ldc
-    cmake -G Ninja -DCMAKE_C_COMPILER:PATH=clang-cl.exe -DCMAKE_CXX_COMPILER:PATH=clang-cl.exe -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=%CD%/../llvm -DD_COMPILER=%CD%/../host-ldc/bin/ldmd2 ..
+    cmake -G Ninja %BUILD_SOURCESDIRECTORY% -DCMAKE_C_COMPILER:PATH=clang-cl.exe -DCMAKE_CXX_COMPILER:PATH=clang-cl.exe -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=%CD%/../llvm -DD_COMPILER=%CD%/../host-ldc/bin/ldmd2
     ninja -j2
     bin\ldc2 --version
   displayName: Build bootstrap LDC
 - script: |
+    echo on
+    cd ..
     set PATH=%CD%\llvm\bin;C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;%PATH%
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
-    set INSTALL_DIR=%CD%/install
     echo on
+    set INSTALL_DIR=%CD%/install
     mkdir build
     cd build
-    cmake -G Ninja -DCMAKE_C_COMPILER:PATH=clang-cl.exe -DCMAKE_CXX_COMPILER:PATH=clang-cl.exe -DCMAKE_BUILD_TYPE=Release %EXTRA_CMAKE_FLAGS% -DCMAKE_INSTALL_PREFIX=%INSTALL_DIR% -DINCLUDE_INSTALL_DIR=%INSTALL_DIR%/import -DLLVM_ROOT_DIR=%CD%/../llvm -DD_COMPILER=%CD%/../bootstrap-ldc/bin/ldmd2 ..
+    cmake -G Ninja %BUILD_SOURCESDIRECTORY% -DCMAKE_C_COMPILER:PATH=clang-cl.exe -DCMAKE_CXX_COMPILER:PATH=clang-cl.exe -DCMAKE_BUILD_TYPE=Release %EXTRA_CMAKE_FLAGS% -DCMAKE_INSTALL_PREFIX=%INSTALL_DIR% -DINCLUDE_INSTALL_DIR=%INSTALL_DIR%/import -DLLVM_ROOT_DIR=%CD%/../llvm -DD_COMPILER=%CD%/../bootstrap-ldc/bin/ldmd2
     ninja -j2 all all-test-runners
     bin\ldc2 --version
   displayName: Build LDC & defaultlib unittest runners
 - script: |
+    cd ..
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     cd build
     ctest --output-on-failure -R "ldc2-unittest"
   displayName: Build & run LDC D unittests
   condition: succeededOrFailed()
 - script: |
+    cd ..
     set PATH=%CD%\llvm\bin;%PATH%
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     cd build
@@ -97,6 +108,7 @@ steps:
   displayName: Run LIT testsuite
   condition: succeededOrFailed()
 - script: |
+    cd ..
     :: git's usr/bin/bash, unlike its bin/bash, leaves PATH as-is
     set PATH=%CD%\gnu;C:\Program Files\Git\usr\bin;%PATH%
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
@@ -106,7 +118,8 @@ steps:
   displayName: Run DMD testsuite
   condition: succeededOrFailed()
 - script: |
-    :: add libcurl.dll dir to PATH
+    cd ..
+    :: Add libcurl.dll dir to PATH
     set PATH=%CD%\libcurl\ldc2;%CD%\gnu;C:\Program Files\Git\usr\bin;%PATH%
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     cd build
@@ -114,14 +127,15 @@ steps:
   displayName: Run defaultlib unittests & druntime stand-alone tests
   condition: succeededOrFailed()
 - script: |
+    cd ..
     set PATH=%CD%\ninja;%PATH%
     cd build
     ninja install > nul
     cd ..
     powershell -c "(cat install/etc/ldc2.conf).replace('%CD:\=/%/install/', '%%%%ldcbinarypath%%%%/../') | Set-Content install/etc/ldc2.conf"
     cat install/etc/ldc2.conf
-    cp LICENSE install
-    cp packaging/README.txt install
+    cp %BUILD_SOURCESDIRECTORY%/LICENSE install
+    cp %BUILD_SOURCESDIRECTORY%/packaging/README.txt install
     cp libcurl/ldc2/libcurl.dll install/bin
     cp libcurl/ldc2/libcurl.dll install/lib
     cp libcurl/ldc2/curl.lib install/lib
@@ -129,6 +143,7 @@ steps:
     mv install installed
   displayName: Install LDC, make portable & copy curl
 - script: |
+    cd ..
     cp llvm/bin/lld-link.exe installed/bin
     curl -L -o mingw-w64-libs.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v6.0.0-rc.4/mingw-w64-libs-v6.0.0-rc.4.7z
     mkdir mingw-w64-libs
@@ -137,24 +152,35 @@ steps:
     cp -r lib%MODEL% ../installed/lib/mingw
   displayName: Copy lld-link.exe & MinGW-w64-based libs
 - script: |
+    cd ..
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     powershell -c "echo 'void main() { import std.stdio; writefln(\"Hello world, %%d bits\", size_t.sizeof * 8); }'" > hello.d
     installed\bin\ldc2 hello.d -of=hello_thin.exe -flto=thin -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
-    hello_thin.exe
+    hello_thin.exe || exit /b
     installed\bin\ldc2 hello.d -of=hello_full.exe -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
     hello_full.exe
   displayName: Run hello-world integration test with LTO
 - script: |
+    cd ..
+    :: Add ldc-jit.dll dir to PATH
+    set PATH=%CD%\installed\lib;%PATH%
+    call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
+    installed\bin\ldc2 -enable-dynamic-compile -run %BUILD_SOURCESDIRECTORY%/tests/dynamiccompile/array.d
+  displayName: Run dynamic-compile integration test
+- script: |
+    cd ..
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     set DC=%CD%/installed/bin/ldmd2
     git clone --recursive https://github.com/dlang/dub.git
     cd dub
-    powershell -c "git checkout \"$(cat ../packaging/dub_version -Raw)\""
+    powershell -c "git checkout \"$(cat %BUILD_SOURCESDIRECTORY%/packaging/dub_version -Raw)\""
     powershell -c "(cat build.cmd).replace('curl.lib', '%CD%/../installed/lib/curl.lib') | Set-Content build.cmd"
-    build.cmd
+    call build.cmd
     cp bin/dub.exe ../installed/bin
+    ..\installed\bin\dub --version
   displayName: Build & copy dub
 - script: |
+    cd ..
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     git clone --recursive https://github.com/dlang/tools.git dlang-tools
     cd dlang-tools
@@ -164,6 +190,7 @@ steps:
     cp *.exe ../installed/bin
   displayName: Build & copy dlang tools
 - script: |
+    cd ..
     if "%BUILD_SOURCEBRANCH:~0,10%" == "refs/tags/" (
       set ARTIFACT_ID=%BUILD_SOURCEBRANCH:~10%
     ) else (
@@ -177,5 +204,5 @@ steps:
 - task: PublishPipelineArtifact@0
   inputs:
     artifactName: 'windows-$(ARCH)'
-    targetPath: 'artifacts'
+    targetPath: '..\artifacts'
   displayName: Publish artifact
