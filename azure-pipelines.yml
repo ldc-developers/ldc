@@ -77,3 +77,40 @@ jobs:
         artifactName: 'windows-multilib'
         targetPath: 'newArtifacts'
       displayName: Publish artifact
+
+- job: Upload_to_GitHub
+  timeoutInMinutes: 30
+  pool:
+    vmImage: 'vs2017-win2016'
+  dependsOn:
+    - Windows_multilib
+  condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')))
+  variables:
+    GITHUB_TOKEN: $(github.token)
+  steps:
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: 'windows-x64'
+        targetPath: 'artifacts'
+      displayName: Download x64 artifact
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: 'windows-x86'
+        targetPath: 'artifacts'
+      displayName: Download x86 artifact
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: 'windows-multilib'
+        targetPath: 'artifacts'
+      displayName: Download multilib artifact
+    - bash: |
+        set -e
+        if [ "$BUILD_SOURCEBRANCH" = "refs/heads/master" ]; then
+          GH_RELEASE_TAG=CI
+        else
+          GH_RELEASE_TAG=${BUILD_SOURCEBRANCH:10}
+        fi
+        tools/upload-to-github.sh $GH_RELEASE_TAG artifacts/ldc2-*-x64.7z
+        tools/upload-to-github.sh $GH_RELEASE_TAG artifacts/ldc2-*-x86.7z
+        tools/upload-to-github.sh $GH_RELEASE_TAG artifacts/ldc2-*-multilib.7z
+      displayName: Upload artifacts to GitHub release
