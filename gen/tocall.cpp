@@ -930,8 +930,19 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
       break;
 
     case Tsarray:
-      // nothing ?
-      break;
+      if (nextbase->ty == Tvector && !tf->isref) {
+        if (retValIsLVal) {
+          retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
+        } else {
+          // static arrays need to be dumped to memory; use vector alignment
+          retllval =
+              DtoAllocaDump(retllval, DtoType(rbase), DtoAlignment(nextbase),
+                            ".vector_to_sarray_tmp");
+          retValIsLVal = true;
+        }
+        break;
+      }
+      goto unknownMismatch;
 
     case Tclass:
     case Taarray:
@@ -957,9 +968,10 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
         retValIsLVal = true;
         break;
       }
-    // Fall through.
+      goto unknownMismatch;
 
     default:
+    unknownMismatch:
       // Unfortunately, DMD has quirks resp. bugs with regard to name
       // mangling: For voldemort-type functions which return a nested
       // struct, the mangled name of the return type changes during
