@@ -9,6 +9,7 @@ steps:
   displayName: Print environment variables
 - checkout: self
   submodules: true
+  fetchDepth: 50
 - script: |
     echo on
     cd ..

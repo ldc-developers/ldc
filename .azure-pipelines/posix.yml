@@ -4,6 +4,7 @@
 steps:
 - checkout: self
   submodules: true
+  fetchDepth: 50
 - script: |
     set -ex
     cd ..
@@ -86,7 +87,7 @@ steps:
         artifactID=${BUILD_SOURCEVERSION:0:8}
       fi
       artifactName=ldc-$artifactID-src
-      GZIP=-9 tar -czf artifacts/$artifactName.tar.gz --exclude-vcs --transform=s/$BUILD_SOURCESDIRECTORY/$artifactName/ $BUILD_SOURCESDIRECTORY
+      GZIP=-9 tar -czf artifacts/$artifactName.tar.gz --exclude-vcs --transform=s,$BUILD_SOURCESDIRECTORY,$artifactName, $BUILD_SOURCESDIRECTORY
     else
       echo 'Skipping'
     fi

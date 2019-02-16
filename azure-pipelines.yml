@@ -134,6 +134,7 @@ jobs:
   steps:
     # We need the tools/upload-to-github.sh script.
     - checkout: self
+      fetchDepth: 50
     - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: 'windows-x64'
