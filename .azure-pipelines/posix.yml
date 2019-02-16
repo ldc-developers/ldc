@@ -13,9 +13,9 @@ steps:
       sudo dpkg --add-architecture i386
       sudo apt-get -q update
       sudo apt-get -yq install \
-        curl git-core g++-multilib ninja-build \
-        libcurl4-openssl-dev libcurl3:i386 \
-        gdb unzip zip
+        git-core cmake ninja-build g++-multilib \
+        libcurl3 libcurl3:i386 libcurl4-openssl-dev \
+        curl gdb tzdata unzip zip
       # Use ld.gold per default, so that LTO is tested
       sudo update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
     else
@@ -82,12 +82,14 @@ steps:
     mkdir artifacts
     if [ "$CI_OS" = "linux" ]; then
       if [ "${BUILD_SOURCEBRANCH:0:10}" = "refs/tags/" ]; then
-        artifactID=${BUILD_SOURCEBRANCH:10}
+        artifactID=${BUILD_SOURCEBRANCH:11}
       else
         artifactID=${BUILD_SOURCEVERSION:0:8}
       fi
       artifactName=ldc-$artifactID-src
-      GZIP=-9 tar -czf artifacts/$artifactName.tar.gz --exclude-vcs --transform=s,$BUILD_SOURCESDIRECTORY,$artifactName, $BUILD_SOURCESDIRECTORY
+      GZIP=-9 tar -czf artifacts/$artifactName.tar.gz --exclude-vcs --transform=s,${BUILD_SOURCESDIRECTORY:1},$artifactName, $BUILD_SOURCESDIRECTORY
+      tar -xf artifacts/$artifactName.tar.gz
+      zip -r -9 artifacts/$artifactName.zip $artifactName
     else
       echo 'Skipping'
     fi
@@ -138,8 +140,10 @@ steps:
     echo 'void main() { import std.stdio; writefln("Hello world, %d bits", size_t.sizeof * 8); }' > hello.d
     installed/bin/ldc2 hello.d -m64 -of=hello64 -link-defaultlib-shared
     ./hello64
-    installed/bin/ldc2 hello.d -m32 -of=hello32 -link-defaultlib-shared
-    ./hello32
+    if [ "$CI_OS" = "linux" ]; then
+      installed/bin/ldc2 hello.d -m32 -of=hello32 -link-defaultlib-shared
+      ./hello32
+    fi
   displayName: Run hello-world integration test with shared libs
 - script: |
     set -e
@@ -186,17 +190,16 @@ steps:
     set -e
     cd ..
     if [ "${BUILD_SOURCEBRANCH:0:10}" = "refs/tags/" ]; then
-      artifactID=${BUILD_SOURCEBRANCH:10}
+      artifactID=${BUILD_SOURCEBRANCH:11}
     else
       artifactID=${BUILD_SOURCEVERSION:0:8}
     fi
     artifactName=ldc2-$artifactID-$CI_OS-x86_64
     mv installed $artifactName
-    mkdir artifacts
     XZ_OPT=-9 tar -cJf artifacts/$artifactName.tar.xz $artifactName
   displayName: Pack installation dir
 - task: PublishPipelineArtifact@0
   inputs:
-    artifactName: '$(CI_OS)-x86_64'
-    targetPath: '../artifacts'
+    artifactName: $(CI_OS)-x86_64
+    targetPath: ../artifacts
   displayName: Publish artifact(s)

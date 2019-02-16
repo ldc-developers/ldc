@@ -42,17 +42,17 @@ jobs:
     - checkout: none
     - task: DownloadPipelineArtifact@0
       inputs:
-        artifactName: 'windows-x64'
-        targetPath: 'artifacts'
+        artifactName: windows-x64
+        targetPath: artifacts
       displayName: Download x64 artifact
     - task: DownloadPipelineArtifact@0
       inputs:
-        artifactName: 'windows-x86'
-        targetPath: 'artifacts'
+        artifactName: windows-x86
+        targetPath: artifacts
       displayName: Download x86 artifact
     - script: |
         if "%BUILD_SOURCEBRANCH:~0,10%" == "refs/tags/" (
-          set ARTIFACT_ID=%BUILD_SOURCEBRANCH:~10%
+          set ARTIFACT_ID=%BUILD_SOURCEBRANCH:~11%
         ) else (
           set ARTIFACT_ID=%BUILD_SOURCEVERSION:~0,8%
         )
@@ -92,8 +92,8 @@ jobs:
       displayName: Pack
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: 'windows-multilib'
-        targetPath: 'newArtifacts'
+        artifactName: windows-multilib
+        targetPath: newArtifacts
       displayName: Publish artifact
 
 - job: Linux_multilib
@@ -123,41 +123,51 @@ jobs:
 - job: Upload_to_GitHub
   timeoutInMinutes: 30
   pool:
-    vmImage: 'vs2017-win2016'
+    vmImage: 'ubuntu-16.04'
   dependsOn:
     - Windows_multilib
+    - Linux_multilib
+    - macOS_x64
   # Only run for commits on the master branch and tags.
   condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')))
-  variables:
-    # Expose the secret github.token pipeline variable as GITHUB_TOKEN env variable.
-    GITHUB_TOKEN: $(github.token)
   steps:
-    # We need the tools/upload-to-github.sh script.
-    - checkout: self
-      fetchDepth: 50
+    - checkout: none
     - task: DownloadPipelineArtifact@0
       inputs:
-        artifactName: 'windows-x64'
-        targetPath: 'artifacts'
-      displayName: Download x64 artifact
+        artifactName: windows-x64
+        targetPath: artifacts
     - task: DownloadPipelineArtifact@0
       inputs:
-        artifactName: 'windows-x86'
-        targetPath: 'artifacts'
-      displayName: Download x86 artifact
+        artifactName: windows-x86
+        targetPath: artifacts
     - task: DownloadPipelineArtifact@0
       inputs:
-        artifactName: 'windows-multilib'
-        targetPath: 'artifacts'
-      displayName: Download multilib artifact
+        artifactName: windows-multilib
+        targetPath: artifacts
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: linux-x86_64
+        targetPath: artifacts
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: osx-x86_64
+        targetPath: artifacts
     - bash: |
         set -e
-        if [ "$BUILD_SOURCEBRANCH" = "refs/heads/master" ]; then
-          GH_RELEASE_TAG=CI
+        if [ "${BUILD_SOURCEBRANCH:0:10}" != "refs/tags/" ]; then
+          releaseTag=CI
         else
-          GH_RELEASE_TAG=${BUILD_SOURCEBRANCH:10}
+          releaseTag=${BUILD_SOURCEBRANCH:10}
         fi
-        tools/upload-to-github.sh $GH_RELEASE_TAG artifacts/ldc2-*-x64.7z
-        tools/upload-to-github.sh $GH_RELEASE_TAG artifacts/ldc2-*-x86.7z
-        tools/upload-to-github.sh $GH_RELEASE_TAG artifacts/ldc2-*-multilib.7z
+        echo "##vso[task.setvariable variable=GITHUB_RELEASE_TAG]$releaseTag"
+      displayName: Set GITHUB_RELEASE_TAG env variable
+    - task: GitHubRelease@0
+      inputs:
+        gitHubConnection: kinke
+        repositoryName: ldc-developers/ldc
+        action: edit
+        tag: $(GITHUB_RELEASE_TAG)
+        assets: artifacts/*
+        assetUploadMode: replace
+        addChangeLog: false
       displayName: Upload artifacts to GitHub release

@@ -193,7 +193,7 @@ steps:
 - script: |
     cd ..
     if "%BUILD_SOURCEBRANCH:~0,10%" == "refs/tags/" (
-      set ARTIFACT_ID=%BUILD_SOURCEBRANCH:~10%
+      set ARTIFACT_ID=%BUILD_SOURCEBRANCH:~11%
     ) else (
       set ARTIFACT_ID=%BUILD_SOURCEVERSION:~0,8%
     )
@@ -204,6 +204,6 @@ steps:
   displayName: Pack installation dir
 - task: PublishPipelineArtifact@0
   inputs:
-    artifactName: 'windows-$(ARCH)'
-    targetPath: '..\artifacts'
+    artifactName: windows-$(ARCH)
+    targetPath: ../artifacts
   displayName: Publish artifact
