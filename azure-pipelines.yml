@@ -1,5 +1,5 @@
 variables:
-  LLVM_VERSION: 7.0.1
+  LLVM_VERSION: 2b593f4b
   HOST_LDC_VERSION: 1.13.0
 
 jobs:
@@ -112,10 +112,8 @@ jobs:
     vmImage: 'macOS-10.13'
   variables:
     CI_OS: osx
-    BOOTSTRAP_CMAKE_FLAGS: -DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++
-    EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON -DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++
-    MACOSX_DEPLOYMENT_TARGET: 10.8
-    USE_LIBCPP: true
+    EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON
+    MACOSX_DEPLOYMENT_TARGET: 10.9
   steps:
     - template: .azure-pipelines/posix.yml
 
