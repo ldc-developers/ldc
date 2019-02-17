@@ -78,7 +78,7 @@ version (Posix)
 }
 else version (Windows)
 {
-    alias getpid = core.sys.windows.windows.GetCurrentProcessId;
+    alias getpid = core.sys.windows.winbase.GetCurrentProcessId;
 }
 
 
@@ -201,8 +201,15 @@ version (Windows)
     {
         import core.stdc.stdint : uintptr_t; // for _beginthreadex decl below
         import core.stdc.stdlib;             // for malloc, atexit
-        import core.sys.windows.windows;
-        import core.sys.windows.threadaux;   // for OpenThreadHandle
+        import core.sys.windows.basetsd /+: HANDLE+/;
+        import core.sys.windows.threadaux /+: getThreadStackBottom, impersonate_thread, OpenThreadHandle+/;
+        import core.sys.windows.winbase /+: CloseHandle, CREATE_SUSPENDED, DuplicateHandle, GetCurrentThread,
+            GetCurrentThreadId, GetCurrentProcess, GetExitCodeThread, GetSystemInfo, GetThreadContext,
+            GetThreadPriority, INFINITE, ResumeThread, SetThreadPriority, Sleep,  STILL_ACTIVE,
+            SuspendThread, SwitchToThread, SYSTEM_INFO, THREAD_PRIORITY_IDLE, THREAD_PRIORITY_NORMAL,
+            THREAD_PRIORITY_TIME_CRITICAL, WAIT_OBJECT_0, WaitForSingleObject+/;
+        import core.sys.windows.windef /+: TRUE+/;
+        import core.sys.windows.winnt /+: CONTEXT, CONTEXT_CONTROL, CONTEXT_INTEGER+/;
 
         extern (Windows) alias btex_fptr = uint function(void*);
         extern (C) uintptr_t _beginthreadex(void*, uint, btex_fptr, void*, uint, uint*) nothrow;
@@ -2113,6 +2120,8 @@ extern (C) void thread_term() @nogc
     _d_monitordelete_nogc(Thread.sm_main);
     if (typeid(Thread).initializer.ptr)
         _mainThreadStore[] = typeid(Thread).initializer[];
+    else
+        (cast(ubyte[])_mainThreadStore)[] = 0;
     Thread.sm_main = null;
 
     assert(Thread.sm_tbeg && Thread.sm_tlen == 1);
@@ -3460,7 +3469,9 @@ private void* getStackBottom() nothrow @nogc
         pthread_getattr_np(pthread_self(), &attr);
         pthread_attr_getstack(&attr, &addr, &size);
         pthread_attr_destroy(&attr);
-        return addr + size;
+        version (StackGrowsDown)
+            addr += size;
+        return addr;
     }
     else version (FreeBSD)
     {
@@ -3471,7 +3482,9 @@ private void* getStackBottom() nothrow @nogc
         pthread_attr_get_np(pthread_self(), &attr);
         pthread_attr_getstack(&attr, &addr, &size);
         pthread_attr_destroy(&attr);
-        return addr + size;
+        version (StackGrowsDown)
+            addr += size;
+        return addr;
     }
     else version (NetBSD)
     {
@@ -3482,7 +3495,9 @@ private void* getStackBottom() nothrow @nogc
         pthread_attr_get_np(pthread_self(), &attr);
         pthread_attr_getstack(&attr, &addr, &size);
         pthread_attr_destroy(&attr);
-        return addr + size;
+        version (StackGrowsDown)
+            addr += size;
+        return addr;
     }
     else version (DragonFlyBSD)
     {
@@ -3493,7 +3508,9 @@ private void* getStackBottom() nothrow @nogc
         pthread_attr_get_np(pthread_self(), &attr);
         pthread_attr_getstack(&attr, &addr, &size);
         pthread_attr_destroy(&attr);
-        return addr + size;
+        version (StackGrowsDown)
+            addr += size;
+        return addr;
     }
     else version (Solaris)
     {
@@ -3510,7 +3527,9 @@ private void* getStackBottom() nothrow @nogc
         pthread_getattr_np(pthread_self(), &attr);
         pthread_attr_getstack(&attr, &addr, &size);
         pthread_attr_destroy(&attr);
-        return addr + size;
+        version (StackGrowsDown)
+            addr += size;
+        return addr;
     }
     else version (CRuntime_Musl)
     {
@@ -3520,7 +3539,9 @@ private void* getStackBottom() nothrow @nogc
         pthread_getattr_np(pthread_self(), &attr);
         pthread_attr_getstack(&attr, &addr, &size);
         pthread_attr_destroy(&attr);
-        return addr + size;
+        version (StackGrowsDown)
+            addr += size;
+        return addr;
     }
     else version (CRuntime_UClibc)
     {
@@ -3530,7 +3551,9 @@ private void* getStackBottom() nothrow @nogc
         pthread_getattr_np(pthread_self(), &attr);
         pthread_attr_getstack(&attr, &addr, &size);
         pthread_attr_destroy(&attr);
-        return addr + size;
+        version (StackGrowsDown)
+            addr += size;
+        return addr;
     }
     else
         static assert(false, "Platform not supported.");

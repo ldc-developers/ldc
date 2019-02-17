@@ -4,7 +4,7 @@ include ../common.mak
 ifneq (,$(findstring win,$(OS)))
 TESTS:=
 else
-TESTS:=array
+TESTS:=array allocator new
 endif
 
 .PHONY: all clean
@@ -24,10 +24,10 @@ $(ROOT)/%.done : $(ROOT)/%
 	$(QUIET)$(TIMELIMIT)$(ROOT)/$* $(RUN_ARGS)
 	@touch $@
 
-$(ROOT)/%: $(SRC)/%_test.d $(SRC)/%.cpp
+$(ROOT)/%: $(SRC)/%.cpp $(SRC)/%_test.d
 	mkdir -p $(dir $@)
-	$(QUIET)$(CXX) $(CXXFLAGS) -c -o $(ROOT)/$*_cpp.o $(SRC)/$*.cpp
-	$(QUIET)$(DMD) $(DFLAGS) -main -unittest -of$@ $< $(ROOT)/$*_cpp.o
+	$(QUIET)$(DMD) $(DFLAGS) -main -unittest -c -of=$(ROOT)/$*_d.o $(SRC)/$*_test.d
+	$(QUIET)$(CXX) $(CXXFLAGS_BASE) -o $@ $< $(ROOT)/$*_d.o $(DRUNTIME) -lpthread
 
 clean:
 	rm -rf $(GENERATED)

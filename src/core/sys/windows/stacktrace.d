@@ -17,7 +17,9 @@ import core.runtime;
 import core.stdc.stdlib;
 import core.stdc.string;
 import core.sys.windows.dbghelp;
-import core.sys.windows.windows;
+import core.sys.windows.imagehlp /+: ADDRESS_MODE+/;
+import core.sys.windows.winbase;
+import core.sys.windows.windef;
 
 //debug=PRINTF;
 debug(PRINTF) import core.stdc.stdio;
@@ -245,7 +247,7 @@ private:
         {
         align(1):
             IMAGEHLP_SYMBOLA64 _base;
-            TCHAR[1024] _buf;
+            TCHAR[1024] _buf = void;
         }
         BufSymbol bufSymbol=void;
         IMAGEHLP_SYMBOLA64* symbol = &bufSymbol._base;
@@ -379,7 +381,7 @@ private string generateSearchPath()
                                            "SYSTEMROOT"];
 
     string path;
-    char[2048] temp;
+    char[2048] temp = void;
     DWORD len;
 
     foreach ( e; defaultPathList )

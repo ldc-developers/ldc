@@ -334,7 +334,7 @@ struct IMAGE_NT_HEADERS
 
 struct IMAGE_SECTION_HEADER
 {
-    char[8] Name;
+    char[8] Name = 0;
     union {
         uint   PhysicalAddress;
         uint   VirtualSize;
