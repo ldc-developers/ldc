@@ -1,3 +1,34 @@
+# LDC 1.14.0 (2019-02-17)
+
+#### Big news
+- Frontend, druntime and Phobos are at version **2.084.1**, incl. new command-line options `-mixin`, `-{enable,disable}-switch-errors` and `-checkaction`. (#2946, #2977, #2999)
+  - Options `-release`, `-d-debug` and `-unittest` don't override preceding, more specific options (`-{enable,disable}-{asserts,invariants,preconditions,postconditions,contracts}`) anymore.
+- Linking WebAssembly doesn't require `-link-internally` (integrated LLD) anymore; an external linker (default: `wasm-ld`, override with `-linker`) can be used as well. (#2951)
+- Prebuilt Windows packages include LTO-able 32-bit druntime/Phobos too (previously: Win64 only).
+- AddressSanitizer support for fibers (requires [rebuilding the runtime libraries](https://wiki.dlang.org/Building_LDC_runtime_libraries) with CMake option `RT_SUPPORT_SANITIZERS=ON`).  (#2975, https://github.com/ldc-developers/druntime/pull/152)
+- Support `pragma(LDC_extern_weak)` for function declarations - if the function isn't available when linking, its address is null. (#2984)
+
+#### Platform support
+- Supports LLVM 3.9 - 7.0.
+
+#### Bug fixes
+- Fix C++ mangling regression for functions with multiple `real` parameters introduced with v1.13, preventing to build DMD. (#2954, https://github.com/dlang/dmd/pull/9129)
+- Fix context of some nested aggregates. (#2960, #2969)
+- Support templated LLVM intrinsics with vector arguments. (#2962, #2971)
+- Avoid crashes with `-allinst` (fix emission of only speculatively nested functions). (#2932, #2940)
+- Fix XRay support for LLVM 7+. (#2965)
+- AArch64: Fix DMD-style profile measurements. (#2950)
+- Be less picky about placement of pragmas (allow intermediate `extern(C)` etc.). (#2599)
+- MSVC: Fix `real` C++ mangling to match Visual C++ `long double`. (#2974)
+- Fix bad ICE noticed when building protobuf-d. (#2990, #2992)
+- Fix ICE when directly indexing vector return value. (#2988, #2991)
+- Fix identity comparisons of complex numbers. (#2918, #2993)
+- MIPS32 fix for `core.stdc.stdarg`. (#2989, https://github.com/ldc-developers/druntime/pull/153)
+- Fix `core.atomic.cas()` for 64-bit floating-point values. (#3000, #3001)
+
+#### Known issues
+- Buggy older `ld.bfd` linker versions may wrongly strip out required symbols, e.g., ModuleInfos (so that e.g. no module ctors/dtors are run). LDC defaults to `ld.gold` on Linux.
+
 # LDC 1.13.0 (2018-12-16)
 
 #### Big news
