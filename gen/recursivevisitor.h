@@ -97,8 +97,8 @@ public:
     recurse(stmt->_body);
   }
 
-  void visit(OnScopeStatement *stmt) override {
-    stmt->error("Internal Compiler Error: OnScopeStatement should have been "
+  void visit(ScopeGuardStatement *stmt) override {
+    stmt->error("Internal Compiler Error: ScopeGuardStatement should have been "
                 "lowered by frontend.");
     fatal();
   }
@@ -336,7 +336,7 @@ public:
         recurse(stmt->_body);
   }
 
-  void visit(OnScopeStatement *stmt) override {
+  void visit(ScopeGuardStatement *stmt) override {
     call_visitor(stmt) || recurse(stmt->statement);
   }
 

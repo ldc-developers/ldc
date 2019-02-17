@@ -1082,7 +1082,7 @@ int cppmain(int argc, char **argv) {
   loadAllPlugins();
 
   Strings libmodules;
-  return mars_mainBody(files, libmodules);
+  return mars_mainBody(global.params, files, libmodules);
 }
 
 void codegenModules(Modules &modules) {

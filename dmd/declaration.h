@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (C) 1999-2018 by The D Language Foundation, All Rights Reserved
+ * Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -234,6 +234,9 @@ public:
     VarDeclaration *lastVar;    // Linked list of variables for goto-skips-init detection
     unsigned endlinnum;         // line number of end of scope that this var lives in
 
+    /// it was declared in an anon union
+    bool isAnonUnionMember;
+
     // When interpreting, these point to the value (NULL if value not determinable)
     // The index of this variable on the CTFE stack, -1 if not allocated
     int ctfeAdrOnStack;
@@ -246,11 +249,16 @@ public:
 
     VarDeclarations *maybes;    // STCmaybescope variables that are assigned to this STCmaybescope variable
 
+private:
+    bool _isAnonymous;
+
+public:
     Dsymbol *syntaxCopy(Dsymbol *);
     void setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion);
     const char *kind() const;
     AggregateDeclaration *isThis();
     bool needThis();
+    bool isAnonymous();
     bool isExport() const;
     bool isImportedSymbol() const;
     bool isDataseg();
@@ -462,6 +470,12 @@ void builtin_init();
 class FuncDeclaration : public Declaration
 {
 public:
+    struct HiddenParameters
+    {
+        VarDeclaration *this_;
+        VarDeclaration *selector;
+    };
+
     Types *fthrows;                     // Array of Type's of exceptions (not used)
     Statements *frequires;              // in contracts
     Ensures *fensures;                  // out contracts
@@ -503,7 +517,9 @@ public:
     DsymbolTable *localsymtab;
     VarDeclaration *vthis;              // 'this' parameter (member and nested)
     VarDeclaration *v_arguments;        // '_arguments' parameter
-    ObjcSelector* selector;             // Objective-C method selector (member function only)
+    ObjcSelector *selector;             // Objective-C method selector (member function only)
+    VarDeclaration *selectorParameter;  // Objective-C implicit selector parameter
+
     VarDeclaration *v_argptr;           // '_argptr' variable
     VarDeclarations *parameters;        // Array of VarDeclaration's for parameters
     DsymbolTable *labtab;               // statement label symbol table
@@ -576,7 +592,7 @@ public:
     bool functionSemantic();
     bool functionSemantic3();
     // called from semantic3
-    VarDeclaration *declareThis(Scope *sc, AggregateDeclaration *ad);
+    HiddenParameters declareThis(Scope *sc, AggregateDeclaration *ad);
     bool equals(RootObject *o);
 
     int overrides(FuncDeclaration *fd);
@@ -808,7 +824,7 @@ class NewDeclaration : public FuncDeclaration
 {
 public:
     Parameters *parameters;
-    int varargs;
+    VarArg varargs;
 
     Dsymbol *syntaxCopy(Dsymbol *);
     const char *kind() const;

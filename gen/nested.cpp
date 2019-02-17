@@ -471,7 +471,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
       if (depth > 1) {
         src = DtoBitCast(src, getVoidPtrType());
         LLValue *dst = DtoBitCast(frame, getVoidPtrType());
-        DtoMemCpy(dst, src, DtoConstSize_t((depth - 1) * Target::ptrsize),
+        DtoMemCpy(dst, src, DtoConstSize_t((depth - 1) * target.ptrsize),
                   getABITypeAlign(getVoidPtrType()));
       }
       // Copy nestArg into framelist; the outer frame is not in the list of

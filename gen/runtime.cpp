@@ -259,7 +259,7 @@ struct LazyFunctionDeclarer {
       }
     }
     Type *returnTy = returnType.get(loc);
-    auto dty = TypeFunction::create(params, returnTy, VarArg::none, linkage);
+    auto dty = TypeFunction::create(params, returnTy, VARARGnone, linkage);
 
     // the call to DtoType performs many actions such as rewriting the function
     // type and storing it in dty
@@ -446,7 +446,7 @@ static Type *rt_dg1() {
 
   auto params = new Parameters();
   params->push(Parameter::create(0, Type::tvoidptr, nullptr, nullptr, nullptr));
-  auto fty = TypeFunction::create(params, Type::tint32, VarArg::none, LINKd);
+  auto fty = TypeFunction::create(params, Type::tint32, VARARGnone, LINKd);
   dg_t = createTypeDelegate(fty);
   return dg_t;
 }
@@ -460,7 +460,7 @@ static Type *rt_dg2() {
   auto params = new Parameters();
   params->push(Parameter::create(0, Type::tvoidptr, nullptr, nullptr, nullptr));
   params->push(Parameter::create(0, Type::tvoidptr, nullptr, nullptr, nullptr));
-  auto fty = TypeFunction::create(params, Type::tint32, VarArg::none, LINKd);
+  auto fty = TypeFunction::create(params, Type::tint32, VARARGnone, LINKd);
   dg2_t = createTypeDelegate(fty);
   return dg2_t;
 }

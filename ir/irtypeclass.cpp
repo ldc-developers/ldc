@@ -40,7 +40,7 @@ void IrTypeClass::addClassData(AggrTypeBuilder &builder,
     // extract that from the "well-known" object.TypeInfo_Class definition.
     // For C++ interfaces, this vtbl entry has to be omitted
 
-    builder.alignCurrentOffset(Target::ptrsize);
+    builder.alignCurrentOffset(target.ptrsize);
 
     for (auto b : *currCd->vtblInterfaces) {
       IF_LOG Logger::println("Adding interface vtbl for %s",
@@ -49,7 +49,7 @@ void IrTypeClass::addClassData(AggrTypeBuilder &builder,
       // add to the interface map
       addInterfaceToMap(b->sym, builder.currentFieldIndex());
       auto vtblTy = LLArrayType::get(getVoidPtrType(), b->sym->vtbl.dim);
-      builder.addType(llvm::PointerType::get(vtblTy, 0), Target::ptrsize);
+      builder.addType(llvm::PointerType::get(vtblTy, 0), target.ptrsize);
 
       ++num_interface_vtbls;
     }
@@ -77,7 +77,7 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
   AggrTypeBuilder builder(t->packed);
 
   // add vtbl
-  builder.addType(llvm::PointerType::get(t->vtbl_type, 0), Target::ptrsize);
+  builder.addType(llvm::PointerType::get(t->vtbl_type, 0), target.ptrsize);
 
   if (cd->isInterfaceDeclaration()) {
     // interfaces are just a vtable
@@ -88,7 +88,7 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
       // add monitor
       builder.addType(
           llvm::PointerType::get(llvm::Type::getInt8Ty(gIR->context()), 0),
-          Target::ptrsize);
+          target.ptrsize);
     }
 
     // add data members recursively

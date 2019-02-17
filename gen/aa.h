@@ -15,7 +15,6 @@
 
 #include "dmd/tokens.h"
 
-enum TOK;
 class DValue;
 class DLValue;
 struct Loc;
