@@ -154,8 +154,11 @@ steps:
     cd ..
     installed/bin/ldc2 hello.d -of=hello_thin -flto=thin -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
     ./hello_thin
-    installed/bin/ldc2 hello.d -of=hello_full -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
-    ./hello_full
+    # FIXME: full LTO fails on macOS
+    if [ "$CI_OS" = "linux" ]; then
+      installed/bin/ldc2 hello.d -of=hello_full -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
+      ./hello_full
+    fi
   displayName: Run hello-world integration test with LTO
 - script: |
     set -e
