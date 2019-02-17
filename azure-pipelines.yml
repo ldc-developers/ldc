@@ -1,6 +1,6 @@
 variables:
   LLVM_VERSION: 2b593f4b
-  HOST_LDC_VERSION: 1.13.0
+  HOST_LDC_VERSION: 1.14.0
 
 jobs:
 - job: Windows
