@@ -287,5 +287,8 @@ Expression *Target::getTargetInfo(const char *name_, const Loc &loc) {
     return createStringExp(cppRuntimeLibrary);
   }
 
+  if (name == "cppStd")
+    return createIntegerExp(static_cast<unsigned>(global.params.cplusplus));
+
   return nullptr;
 }

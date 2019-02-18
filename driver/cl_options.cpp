@@ -144,6 +144,20 @@ static cl::opt<bool, true> ignoreUnsupportedPragmas(
     "ignore", cl::desc("Ignore unsupported pragmas"), cl::ZeroOrMore,
     cl::location(global.params.ignoreUnsupportedPragmas));
 
+static cl::opt<CppStdRevision, true> cplusplus(
+    "extern-std", cl::ZeroOrMore,
+    cl::desc("C++ standard for name mangling compatibility"),
+    cl::location(global.params.cplusplus),
+    clEnumValues(
+        clEnumValN(CppStdRevisionCpp98, "c++98",
+                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `199711`"),
+        clEnumValN(CppStdRevisionCpp11, "c++11",
+                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `201103`"),
+        clEnumValN(CppStdRevisionCpp14, "c++14",
+                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `201402`"),
+        clEnumValN(CppStdRevisionCpp17, "c++17",
+                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `201703`")));
+
 static cl::opt<ubyte, true> debugInfo(
     cl::desc("Generating debug information:"), cl::ZeroOrMore,
     clEnumValues(

@@ -183,6 +183,7 @@ Where:\n\
                    set default library to name\n\
   -deps            print module dependencies (imports/file/version/debug/lib)\n\
   -deps=<filename> write module dependencies to filename (only imports)\n\
+  -extern-std=<standard>  set C++ name mangling compatibility with <standard>\n\
   -fPIC            generate position independent code\n\
   -dip25           implement https://github.com/dlang/DIPs/blob/master/DIPs/archive/DIP25.md\n\
   -dip1000         implement https://github.com/dlang/DIPs/blob/master/DIPs/DIP1000.md\n\
@@ -522,7 +523,10 @@ void translateArgs(size_t originalArgc, char **originalArgv,
         } else {
           goto Lerror;
         }
-      } else if (strcmp(p + 1, "transition=?") == 0) {
+      }
+      /* -extern-std
+       */
+      else if (strcmp(p + 1, "transition=?") == 0) {
         const char *transitionargs[] = {ldcPath.c_str(), p, nullptr};
         execute(ldcPath, transitionargs);
         exit(EXIT_SUCCESS);
