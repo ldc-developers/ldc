@@ -519,31 +519,6 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     }
   }
 
-  if (global.params.betterC) {
-    global.params.checkAction = CHECKACTION_C;
-    global.params.useModuleInfo = false;
-    global.params.useTypeInfo = false;
-    global.params.useExceptions = false;
-  }
-
-  if (global.params.useUnitTests &&
-      global.params.useAssert == CHECKENABLEdefault) {
-    global.params.useAssert = CHECKENABLEon;
-  }
-
-  // -release downgrades default checks
-  const auto defaultCheck = [](CHECKENABLE &param,
-                               CHECKENABLE releaseValue = CHECKENABLEoff) {
-    if (param == CHECKENABLEdefault)
-      param = global.params.release ? releaseValue : CHECKENABLEon;
-  };
-  defaultCheck(global.params.useInvariants);
-  defaultCheck(global.params.useIn);
-  defaultCheck(global.params.useOut);
-  defaultCheck(global.params.useArrayBounds, CHECKENABLEsafeonly);
-  defaultCheck(global.params.useAssert);
-  defaultCheck(global.params.useSwitchError);
-
   // LDC output determination
 
   // if we don't link and there's no `-output-*` switch but an `-of` one,
@@ -566,15 +541,6 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
       global.params.output_s = OUTPUTFLAGset;
       global.params.output_o = OUTPUTFLAGno;
     }
-  }
-
-  // only link if possible
-  if (!global.params.obj || !global.params.output_o || global.params.lib) {
-    global.params.link = false;
-  }
-
-  if (global.params.lib && global.params.dll) {
-    error(Loc(), "-lib and -shared switches cannot be used together");
   }
 
   if (soname.getNumOccurrences() > 0 && !global.params.dll) {

@@ -2482,7 +2482,12 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
  */
 private void reconcileCommands(ref Param params, size_t numSrcFiles)
 {
-version (IN_LLVM) {} else
+version (IN_LLVM)
+{
+    if (params.lib && params.dll)
+        error(Loc.initial, "cannot mix -lib and -shared");
+}
+else
 {
     static if (TARGET.OSX)
     {
@@ -2505,6 +2510,7 @@ version (IN_LLVM) {} else
 
     // Target uses 64bit pointers.
     params.isLP64 = params.is64bit;
+} // !IN_LLVM
 
     if (params.boundscheck != CHECKENABLE._default)
     {
@@ -2568,9 +2574,16 @@ version (IN_LLVM) {} else
     }
 
 
+version (IN_LLVM)
+{
+    if (!params.obj || params.lib || params.output_o == OUTPUTFLAGno)
+        params.link = false;
+}
+else
+{
     if (!params.obj || params.lib)
         params.link = false;
-} // !IN_LLVM
+}
     if (params.link)
     {
         params.exefile = params.objname;
