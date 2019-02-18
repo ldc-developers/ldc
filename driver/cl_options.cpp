@@ -369,11 +369,13 @@ static cl::opt<CHECKACTION, true> checkAction(
     cl::init(CHECKACTION_D),
     clEnumValues(
         clEnumValN(CHECKACTION_D, "D",
-                   "Throw an unrecoverable Error (default)"),
+                   "Usual D behavior of throwing an AssertError"),
         clEnumValN(CHECKACTION_C, "C",
                    "Call the C runtime library assert failure function"),
         clEnumValN(CHECKACTION_halt, "halt",
-                   "Execute a halt instruction, terminating the program")));
+                   "Halt the program execution (very lightweight)"),
+        clEnumValN(CHECKACTION_context, "context",
+                   "Use D assert with context information (when available)")));
 
 static cl::opt<bool, true>
     release("release", cl::ZeroOrMore, cl::location(global.params.release),

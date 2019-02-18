@@ -163,7 +163,7 @@ Where:\n\
   -boundscheck=[on|safeonly|off]   bounds checks on, in @safe only, or off\n\
   -c               compile only, do not link\n\
   -check=[assert|bounds|in|invariant|out|switch][=[on|off]]  Enable or disable specific checks\n\
-  -checkaction=D|C|halt  behavior on assert/boundscheck/finalswitch failure\n\
+  -checkaction=[D|C|halt|context]  behavior on assert/boundscheck/finalswitch failure\n\
   -color           turn colored console output on\n\
   -color=[on|off|auto]  force colored console output on or off, or only when not redirected (default)\n\
   -conf=<filename> use config file at filename\n\
