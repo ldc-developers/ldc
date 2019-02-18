@@ -125,6 +125,12 @@ static cl::opt<bool, true>
                      cl::desc("Show errors from speculative compiles such as "
                               "__traits(compiles,...)"));
 
+static cl::opt<bool, true> printErrorContext(
+    "verrors-context", cl::ZeroOrMore,
+    cl::location(global.params.printErrorContext),
+    cl::desc(
+        "Show error messages with the context of the erroring source line"));
+
 static cl::opt<Diagnostic, true> warnings(
     cl::desc("Warnings:"), cl::ZeroOrMore, cl::location(global.params.warnings),
     clEnumValues(

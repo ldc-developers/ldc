@@ -240,6 +240,7 @@ Where:\n\
   -vdmd            print the command used to invoke the underlying compiler\n\
   -verrors=<num>   limit the number of error messages (0 means unlimited)\n\
   -verrors=spec    show errors from speculative compiles such as __traits(compiles,...)\n\
+  -verrors=context show error messages with the context of the erroring source line\n\
   --version        print compiler version and exit\n\
   -version=<level> compile in version code >= level\n\
   -version=<ident> compile in version code identified by ident\n\
@@ -500,6 +501,8 @@ void translateArgs(size_t originalArgc, char **originalArgv,
           ldcArgs.push_back(p);
         } else if (startsWith(p + 9, "spec")) {
           ldcArgs.push_back("-verrors-spec");
+        } else if (startsWith(p + 9, "context")) {
+          ldcArgs.push_back("-verrors-context");
         } else {
           goto Lerror;
         }
