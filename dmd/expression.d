@@ -1852,6 +1852,8 @@ extern (C++) final class IntegerExp : Expression
                 result = cast(d_uns32)value;
             else if (target.ptrsize == 8)
                 result = cast(d_uns64)value;
+            else if (IN_LLVM && target.ptrsize == 2)
+                result = cast(d_uns16)value;
             else
                 assert(0);
             break;
