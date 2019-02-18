@@ -31,8 +31,13 @@ class Identifier;
         ?       &&      ||
  */
 
+#if IN_LLVM
+// https://issues.dlang.org/show_bug.cgi?id=19658
+enum TOK
+#else
 typedef unsigned char TOK;
 enum
+#endif
 {
         TOKreserved,
 

@@ -22,7 +22,8 @@ import dmd.root.outbuffer;
 import dmd.root.rmem;
 import dmd.utf;
 
-enum TOK : ubyte
+// IN_LLVM: ubyte -> int due to https://issues.dlang.org/show_bug.cgi?id=19658
+enum TOK : int
 {
     reserved,
 
