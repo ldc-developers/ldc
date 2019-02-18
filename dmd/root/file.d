@@ -17,8 +17,11 @@ import core.stdc.stdio;
 import core.stdc.stdlib;
 import core.sys.posix.fcntl;
 import core.sys.posix.unistd;
-import core.sys.windows.winbase;
-import core.sys.windows.winnt;
+version (Windows)
+{
+    import core.sys.windows.winbase;
+    import core.sys.windows.winnt;
+}
 import dmd.root.filename;
 import dmd.root.rmem;
 import dmd.utils;
