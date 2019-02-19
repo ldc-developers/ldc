@@ -89,7 +89,7 @@ private
 
         // Declared as an extern instead of importing core.exception
         // to avoid inlining - see issue 13725.
-        void onInvalidMemoryOperationError() @nogc nothrow;
+        void onInvalidMemoryOperationError(void* pretend_sideffect = null) @nogc nothrow;
         void onOutOfMemoryErrorNoGC() @nogc nothrow;
     }
 
