@@ -213,7 +213,7 @@ Where:\n\
 "  -map             generate linker .map file\n"
 #endif
 "  -mcpu=<id>       generate instructions for architecture identified by 'id'\n\
-  -mcpu=?          list all architecture options\n\
+  -mcpu=[h|help|?] list all architecture options\n\
   -mixin=<filename>  expand and save mixins to file specified by <filename>\n\
   -mscrtlib=<name> MS C runtime library to reference from main/WinMain/DllMain\n\
   -mv=<package.module>=<filespec>  use <filespec> as source file for <package.module>\n\
@@ -235,7 +235,7 @@ Where:\n\
   -run <srcfile>   compile, link, and run the program srcfile\n\
   -shared          generate shared library (DLL)\n\
   -transition=<id> help with language change identified by 'id'\n\
-  -transition=?    list all language changes\n\
+  -transition=[h|help|?]  list all language changes\n\
   -unittest        compile in unit tests\n\
   -v               verbose\n\
   -vcolumns        print character (column) numbers in diagnostics\n\
@@ -507,18 +507,20 @@ void translateArgs(size_t originalArgc, char **originalArgv,
         } else {
           goto Lerror;
         }
-      } else if (strcmp(p + 1, "mcpu=?") == 0) {
-        const char *mcpuargs[] = {ldcPath.c_str(), "-mcpu=help", nullptr};
-        execute(ldcPath, mcpuargs);
-        exit(EXIT_SUCCESS);
       } else if (startsWith(p + 1, "mcpu=")) {
-        if (strcmp(p + 6, "baseline") == 0) {
+        const char *c = p + 6;
+        if (strcmp(c, "?") == 0 || strcmp(c, "h") == 0 ||
+            strcmp(c, "help") == 0) {
+          const char *mcpuargs[] = {ldcPath.c_str(), "-mcpu=help", nullptr};
+          execute(ldcPath, mcpuargs);
+          exit(EXIT_SUCCESS);
+        } else if (strcmp(c, "baseline") == 0) {
           // ignore
-        } else if (strcmp(p + 6, "avx") == 0) {
+        } else if (strcmp(c, "avx") == 0) {
           ldcArgs.push_back("-mattr=+avx");
-        } else if (strcmp(p + 6, "avx2") == 0) {
+        } else if (strcmp(c, "avx2") == 0) {
           ldcArgs.push_back("-mattr=+avx2");
-        } else if (strcmp(p + 6, "native") == 0) {
+        } else if (strcmp(c, "native") == 0) {
           ldcArgs.push_back(p);
         } else {
           goto Lerror;
