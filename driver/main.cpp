@@ -243,8 +243,7 @@ void expandResponseFiles(llvm::BumpPtrAllocator &A,
 /// config file and sets up global.params accordingly.
 ///
 /// Returns a list of source file names.
-void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
-                      bool &helpOnly) {
+void parseCommandLine(int argc, char **argv, Strings &sourceFiles) {
   const auto &exePath = exe_path::getExePath();
   global.params.argv0 = {exePath.length(), exePath.data()};
 
@@ -283,8 +282,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
                               const_cast<char **>(allArguments.data()),
                               "LDC - the LLVM D compiler\n");
 
-  helpOnly = opts::printTargetFeaturesHelp();
-  if (helpOnly) {
+  if (opts::printTargetFeaturesHelp()) {
     auto triple = llvm::Triple(cfg_triple);
     std::string errMsg;
     if (auto target = lookupTarget("", triple, errMsg)) {
@@ -295,7 +293,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
       error(Loc(), "%s", errMsg.c_str());
       fatal();
     }
-    return;
+    exit(EXIT_SUCCESS);
   }
 
   if (!cfg_file.path().empty())
@@ -895,23 +893,8 @@ int cppmain(int argc, char **argv) {
 
   initializePasses();
 
-  bool helpOnly;
   Strings files;
-  parseCommandLine(argc, argv, files, helpOnly);
-
-  if (helpOnly) {
-    return 0;
-  }
-
-  if (files.dim == 0) {
-    if (global.params.jsonFieldFlags) {
-      generateJson(nullptr);
-      return EXIT_SUCCESS;
-    }
-
-    cl::PrintHelpMessage(/*Hidden=*/false, /*Categorized=*/true);
-    return EXIT_FAILURE;
-  }
+  parseCommandLine(argc, argv, files);
 
   if (global.errors) {
     fatal();
@@ -992,6 +975,10 @@ int cppmain(int argc, char **argv) {
 
   Strings libmodules;
   return mars_mainBody(global.params, files, libmodules);
+}
+
+void printLDCUsage() {
+  cl::PrintHelpMessage(/*Hidden=*/false, /*Categorized=*/true);
 }
 
 void codegenModules(Modules &modules) {

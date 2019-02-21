@@ -66,6 +66,7 @@ version (IN_LLVM)
 
     // in driver/main.cpp
     void registerPredefinedVersions();
+    void printLDCUsage();
     void codegenModules(ref Modules modules);
     // in driver/archiver.cpp
     int createStaticLibrary();
@@ -363,6 +364,7 @@ version (IN_LLVM) {} else
     setTargetCPU(params);
     if (params.is64bit != is64bit)
         error(Loc.initial, "the architecture must not be changed in the %s section of %s", envsection.ptr, global.inifilename);
+}
 
     if (global.errors)
     {
@@ -375,10 +377,16 @@ version (IN_LLVM) {} else
             generateJson(null);
             return EXIT_SUCCESS;
         }
+version (IN_LLVM)
+{
+        printLDCUsage();
+}
+else
+{
         usage();
+}
         return EXIT_FAILURE;
     }
-} // !IN_LLVM
 
     reconcileCommands(params, files.dim);
 
