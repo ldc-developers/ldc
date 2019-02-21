@@ -371,7 +371,6 @@ void translateArgs(size_t originalArgc, char **originalArgv,
   ldcArgs.push_back("-ldmd");
 
   bool vdmd = false;
-  bool noFiles = true;
   bool pic = false; // -fPIC already encountered?
 
   for (size_t i = 1; i < args.size(); i++) {
@@ -529,13 +528,9 @@ void translateArgs(size_t originalArgc, char **originalArgv,
         }
       }
       /* -extern-std
-       */
-      else if (strcmp(p + 1, "transition=?") == 0) {
-        const char *transitionargs[] = {ldcPath.c_str(), p, nullptr};
-        execute(ldcPath, transitionargs);
-        exit(EXIT_SUCCESS);
-      }
-      /* -transition=<id>
+       * -transition
+       * -preview
+       * -revert
        * -w
        * -wi
        * -O
@@ -656,11 +651,9 @@ void translateArgs(size_t originalArgc, char **originalArgv,
         exit(EXIT_SUCCESS);
       } else if (strcmp(p + 1, "run") == 0) {
         ldcArgs.insert(ldcArgs.end(), args.begin() + i, args.end());
-        noFiles = (i == args.size() - 1);
         break;
       } else if (p[1] == '\0') {
         ldcArgs.push_back("-");
-        noFiles = false;
       } else if (p[1] == 'C') {
         ldcArgs.push_back(concat("-", p + 2));
       } else {
@@ -686,19 +679,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
       }
 #endif
       ldcArgs.push_back(p);
-      noFiles = false;
     }
-  }
-
-  // at least one file is mandatory, except when `-Xi=…` is used
-  if (noFiles && std::find_if(args.begin(), args.end(), [](const char *arg) {
-                   return startsWith(arg, "-Xi=");
-                 }) == args.end()) {
-    printUsage(originalArgv[0], ldcPath);
-    if (originalArgc == 1)
-      exit(EXIT_FAILURE); // compatible with DMD
-    else
-      error("No source file specified.");
   }
 
   if (vdmd) {
@@ -760,6 +741,11 @@ int cppmain(int argc, char **argv) {
   const std::string ldcPath = locateBinary(ldcExeName);
   if (ldcPath.empty()) {
     error("Could not locate " LDC_EXE_NAME " executable.");
+  }
+
+  if (argc == 1) {
+    printUsage(argv[0], ldcPath);
+    exit(EXIT_FAILURE);
   }
 
   // We need to manually set up argv[0] and the terminating NULL.

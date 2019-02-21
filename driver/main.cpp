@@ -896,6 +896,11 @@ int cppmain(int argc, char **argv) {
   Strings files;
   parseCommandLine(argc, argv, files);
 
+  if (argc == 1) {
+    cl::PrintHelpMessage(/*Hidden=*/false, /*Categorized=*/true);
+    exit(EXIT_FAILURE);
+  }
+
   if (global.errors) {
     fatal();
   }
@@ -975,10 +980,6 @@ int cppmain(int argc, char **argv) {
 
   Strings libmodules;
   return mars_mainBody(global.params, files, libmodules);
-}
-
-void printLDCUsage() {
-  cl::PrintHelpMessage(/*Hidden=*/false, /*Categorized=*/true);
 }
 
 void codegenModules(Modules &modules) {

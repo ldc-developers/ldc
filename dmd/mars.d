@@ -66,7 +66,6 @@ version (IN_LLVM)
 
     // in driver/main.cpp
     void registerPredefinedVersions();
-    void printLDCUsage();
     void codegenModules(ref Modules modules);
     // in driver/archiver.cpp
     int createStaticLibrary();
@@ -379,7 +378,7 @@ version (IN_LLVM) {} else
         }
 version (IN_LLVM)
 {
-        printLDCUsage();
+        error(Loc.initial, "No source files");
 }
 else
 {
