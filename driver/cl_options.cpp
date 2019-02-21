@@ -454,17 +454,18 @@ cl::opt<unsigned, true> nestedTemplateDepth(
     cl::desc(
         "Set maximum number of nested template instantiations (experimental)"));
 
+// legacy options superseded by `-preview=dip<N>`
 static cl::opt<bool, true>
     useDIP25("dip25", cl::ZeroOrMore, cl::location(global.params.useDIP25),
-             cl::desc("Implement DIP25 (sealed references)"));
-
+             cl::desc("Implement DIP25 (sealed references)"), cl::ReallyHidden);
 static cl::opt<bool, true>
     useDIP1000("dip1000", cl::ZeroOrMore, cl::location(global.params.vsafe),
-               cl::desc("Implement DIP1000 (scoped pointers)"));
-
+               cl::desc("Implement DIP1000 (scoped pointers)"),
+               cl::ReallyHidden);
 static cl::opt<bool, true>
     useDIP1008("dip1008", cl::ZeroOrMore, cl::location(global.params.ehnogc),
-               cl::desc("Implement DIP1008 (@nogc Throwable)"));
+               cl::desc("Implement DIP1008 (@nogc Throwable)"),
+               cl::ReallyHidden);
 
 cl::opt<bool, true> betterC(
     "betterC", cl::ZeroOrMore, cl::location(global.params.betterC),

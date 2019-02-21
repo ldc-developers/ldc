@@ -185,9 +185,6 @@ Where:\n\
   -deps=<filename> write module dependencies to filename (only imports)\n\
   -extern-std=<standard>  set C++ name mangling compatibility with <standard>\n\
   -fPIC            generate position independent code\n\
-  -dip25           implement https://github.com/dlang/DIPs/blob/master/DIPs/archive/DIP25.md\n\
-  -dip1000         implement https://github.com/dlang/DIPs/blob/master/DIPs/DIP1000.md\n\
-  -dip1008         implement https://github.com/dlang/DIPs/blob/master/DIPs/DIP1008.md\n\
   -g               add symbolic debug info\n\
   -gf              emit debug info for all referenced types\n\
   -gs              always emit stack frame\n"
