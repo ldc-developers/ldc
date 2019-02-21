@@ -264,6 +264,13 @@ private int tryMain(size_t argc, const(char)** argv, ref Param params)
         return EXIT_SUCCESS;
     }
 
+    return mars_mainBody(params, files, libmodules);
+}
+
+} // !IN_LLVM
+
+extern (C++) int mars_mainBody(ref Param params, ref Strings files, ref Strings libmodules)
+{
     /*
     Prints a supplied usage text to the console and
     returns the exit code for the help usage page.
@@ -302,9 +309,18 @@ private int tryMain(size_t argc, const(char)** argv, ref Param params)
         return s;
     }
     import dmd.cli : CLIUsage;
+version (IN_LLVM)
+{
+    mixin(generateUsageChecks(["transition", "preview", "revert"]));
+}
+else
+{
     mixin(generateUsageChecks(["mcpu", "transition", "check", "checkAction",
         "preview", "revert", "externStd"]));
+}
 
+version (IN_LLVM) {} else
+{
     if (params.manual)
     {
         version (Windows)
@@ -336,14 +352,8 @@ private int tryMain(size_t argc, const(char)** argv, ref Param params)
         */
         return EXIT_SUCCESS;
     }
-
-    return mars_mainBody(params, files, libmodules);
-}
-
 } // !IN_LLVM
 
-extern (C++) int mars_mainBody(ref Param params, ref Strings files, ref Strings libmodules)
-{
     if (params.color)
         global.console = Console.create(core.stdc.stdio.stderr);
 
@@ -368,7 +378,7 @@ version (IN_LLVM) {} else
         usage();
         return EXIT_FAILURE;
     }
-}
+} // !IN_LLVM
 
     reconcileCommands(params, files.dim);
 
@@ -566,7 +576,7 @@ version (IN_LLVM)
 
         if (!params.oneobj || modi == 0 || m.isDocFile)
             m.deleteObjFile();
-}
+} // IN_LLVM
         if (m.isDocFile)
         {
             anydocfiles = true;
@@ -836,7 +846,7 @@ else
     if (params.lib && !global.errors)
         library.write();
     backend_term();
-}
+} // !IN_LLVM
     if (global.errors)
         fatal();
     int status = EXIT_SUCCESS;
@@ -875,7 +885,7 @@ version (IN_LLVM)
             }
         }
 }
-else
+else // !IN_LLVM
 {
         if (params.link)
             status = runLINK();
@@ -1457,7 +1467,96 @@ extern(C) void flushMixins()
     f.write();
 }
 
-version (IN_LLVM) {} else
+version (IN_LLVM)
+{
+    import dmd.cli : Usage;
+
+    private bool parseCLIOption(string groupName, Usage.Feature[] features)(ref Param params, const(char)* name)
+    {
+        string generateCases()
+        {
+            string buf = `case "all":`;
+            foreach (t; features)
+                buf ~= `params.`~t.paramName~` = true;`;
+            buf ~= "break;";
+
+            foreach (t; features)
+                buf ~= `case "`~t.name~`": params.`~t.paramName~` = true; return true;`;
+
+            return buf;
+        }
+
+        switch (name[0 .. strlen(name)])
+        {
+            mixin(generateCases());
+            case "?":
+            case "h":
+            case "help":
+                mixin(`params.`~groupName~`Usage = true;`);
+                return true;
+            default:
+                break;
+        }
+
+        return false;
+    }
+
+    extern(C++) void parseTransitionOption(ref Param params, const(char)* name)
+    {
+        if (parseCLIOption!("transition", Usage.transitions)(params, name))
+            return;
+
+        // undocumented legacy -transition flags (before 2.085)
+        const dname = name[0 .. strlen(name)];
+        switch (dname)
+        {
+            case "3449":
+                params.vfield = true;
+                break;
+            case "10378":
+            case "import":
+                params.bug10378 = true;
+                break;
+            case "14246":
+            case "dtorfields":
+                params.dtorFields = true;
+                break;
+            case "14488":
+                params.vcomplex = true;
+                break;
+            case "16997":
+            case "intpromote":
+                params.fix16997 = true;
+                break;
+            case "markdown":
+                params.markdown = true;
+                break;
+            default:
+                error(Loc.initial, "Transition `%s` is invalid", name);
+                params.transitionUsage = true;
+                break;
+        }
+    }
+
+    extern(C++) void parsePreviewOption(ref Param params, const(char)* name)
+    {
+        if (!parseCLIOption!("preview", Usage.previews)(params, name))
+        {
+            error(Loc.initial, "Preview `%s` is invalid", name);
+            params.previewUsage = true;
+        }
+    }
+
+    extern(C++) void parseRevertOption(ref Param params, const(char)* name)
+    {
+        if (!parseCLIOption!("revert", Usage.reverts)(params, name))
+        {
+            error(Loc.initial, "Revert `%s` is invalid", name);
+            params.revertUsage = true;
+        }
+    }
+}
+else // !IN_LLVM
 {
 
 /****************************************************

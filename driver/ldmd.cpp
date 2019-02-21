@@ -225,12 +225,16 @@ Where:\n\
   -o-              do not write object file\n\
   -od=<directory>  write object & library files to directory\n\
   -of=<filename>   name output file to filename\n\
-  -op              preserve source path for output files\n"
+  -op              preserve source path for output files\n\
+  -preview=<id>    enable an upcoming language change identified by 'id'\n\
+  -preview=?       list all upcoming language changes\n"
 #if 0
 "  -profile         profile runtime performance of generated code\n\
   -profile=gc      profile runtime allocations\n"
 #endif
 "  -release         compile release version\n\
+  -revert=<id>     revert language change identified by 'id'\n\
+  -revert=?        list all revertable language changes\n\
   -run <srcfile>   compile, link, and run the program srcfile\n\
   -shared          generate shared library (DLL)\n\
   -transition=<id> help with language change identified by 'id'\n\

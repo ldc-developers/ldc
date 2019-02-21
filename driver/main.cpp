@@ -172,69 +172,6 @@ void processVersions(std::vector<std::string> &list, const char *type,
   }
 }
 
-// Helper function to handle -transition=*
-void processTransitions(std::vector<std::string> &list) {
-  for (const auto &i : list) {
-    if (i == "?") {
-      printf("\n"
-             "Language changes listed by -transition=id:\n"
-             "  =all              list information on all language changes\n"
-             "  =field,3449       list all non-mutable fields which occupy an "
-             "object instance\n"
-             "  =import,10378     revert to single phase name lookup\n"
-             "  =dtorfields,14246 destruct fields of partially constructed "
-             "objects\n"
-             "  =checkimports     give deprecation messages about 10378 "
-             "anomalies\n"
-             "  =complex,14488    give deprecation messages about all usages "
-             "of complex or imaginary types\n"
-             "  =intpromote,16997 fix integral promotions for unary + - ~ "
-             "operators\n"
-             "  =tls              list all variables going into thread local "
-             "storage\n"
-             "  =fixAliasThis     when a symbol is resolved, check alias this "
-             "scope before going to upper scopes\n"
-             "  =markdown         enable Markdown replacements in Ddoc\n"
-             "  =vmarkdown        list instances of Markdown replacements in "
-             "Ddoc\n");
-      exit(EXIT_SUCCESS);
-    } else if (i == "all") {
-      global.params.vfield = true;
-      global.params.bug10378 = true;
-      global.params.dtorFields = true;
-      global.params.check10378 = true;
-      global.params.vcomplex = true;
-      global.params.fix16997 = true;
-      global.params.vtls = true;
-      global.params.fixAliasThis = true;
-      global.params.markdown = true;
-      global.params.vmarkdown = true;
-    } else if (i == "field" || i == "3449") {
-      global.params.vfield = true;
-    } else if (i == "import" || i == "10378") {
-      global.params.bug10378 = true;
-    } else if (i == "dtorfields" || i == "14246") {
-      global.params.dtorFields = true;
-    } else if (i == "checkimports") {
-      global.params.check10378 = true;
-    } else if (i == "complex" || i == "14488") {
-      global.params.vcomplex = true;
-    } else if (i == "intpromote" || i == "16997") {
-      global.params.fix16997 = true;
-    } else if (i == "tls") {
-      global.params.vtls = true;
-    } else if (i == "fixAliasThis") {
-      global.params.fixAliasThis = true;
-    } else if (i == "markdown") {
-      global.params.markdown = true;
-    } else if (i == "vmarkdown") {
-      global.params.vmarkdown = true;
-    } else {
-      error(Loc(), "Invalid transition %s", i.c_str());
-    }
-  }
-}
-
 template <int N> // option length incl. terminating null
 void tryParse(const llvm::SmallVectorImpl<const char *> &args, size_t i,
               const char *&output, const char (&option)[N]) {
@@ -458,12 +395,18 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   processVersions(versions, "version", global.params.versionlevel,
                   global.params.versionids);
 
-  processTransitions(transitions);
+  for (const auto &id : transitions)
+    parseTransitionOption(global.params, id.c_str());
+  for (const auto &id : previews)
+    parsePreviewOption(global.params, id.c_str());
+  for (const auto &id : reverts)
+    parseRevertOption(global.params, id.c_str());
 
-  if (useDIP1000) {
+  // -preview=dip1000 implies -preview=dip25 too
+  if (global.params.vsafe)
     global.params.useDIP25 = true;
-    global.params.vsafe = true;
-  }
+  if (global.params.noDIP25)
+    global.params.useDIP25 = false;
 
   global.params.output_o =
       (opts::output_o == cl::BOU_UNSET &&

@@ -295,9 +295,17 @@ cl::list<std::string> versions(
     cl::desc("Compile in version code >= <level> or identified by <idents>"));
 
 cl::list<std::string> transitions(
-    "transition", cl::CommaSeparated, cl::value_desc("idents"),
-    cl::desc(
-        "Help with language change identified by <idents>, use ? for list"));
+    "transition", cl::CommaSeparated, cl::value_desc("id"),
+    cl::desc("Help with language change identified by <id>, use ? for list"));
+
+cl::list<std::string> previews("preview", cl::CommaSeparated,
+                               cl::value_desc("id"),
+                               cl::desc("Enable an upcoming language change "
+                                        "identified by <id>, use ? for list"));
+
+cl::list<std::string> reverts(
+    "revert", cl::CommaSeparated, cl::value_desc("id"),
+    cl::desc("Revert language change identified by <id>, use ? for list"));
 
 cl::list<std::string>
     linkerSwitches("L", cl::desc("Pass <linkerflag> to the linker"),
@@ -446,16 +454,17 @@ cl::opt<unsigned, true> nestedTemplateDepth(
     cl::desc(
         "Set maximum number of nested template instantiations (experimental)"));
 
-cl::opt<bool, true> useDIP25("dip25", cl::ZeroOrMore,
-                             cl::location(global.params.useDIP25),
-                             cl::desc("Implement DIP25 (sealed references)"));
+static cl::opt<bool, true>
+    useDIP25("dip25", cl::ZeroOrMore, cl::location(global.params.useDIP25),
+             cl::desc("Implement DIP25 (sealed references)"));
 
-cl::opt<bool> useDIP1000("dip1000", cl::ZeroOrMore,
-                         cl::desc("Implement DIP1000 (scoped pointers)"));
+static cl::opt<bool, true>
+    useDIP1000("dip1000", cl::ZeroOrMore, cl::location(global.params.vsafe),
+               cl::desc("Implement DIP1000 (scoped pointers)"));
 
-cl::opt<bool, true> useDIP1008("dip1008", cl::ZeroOrMore,
-                               cl::location(global.params.ehnogc),
-                               cl::desc("Implement DIP1008 (@nogc Throwable)"));
+static cl::opt<bool, true>
+    useDIP1008("dip1008", cl::ZeroOrMore, cl::location(global.params.ehnogc),
+               cl::desc("Implement DIP1008 (@nogc Throwable)"));
 
 cl::opt<bool, true> betterC(
     "betterC", cl::ZeroOrMore, cl::location(global.params.betterC),
