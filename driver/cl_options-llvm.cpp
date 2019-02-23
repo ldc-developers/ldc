@@ -23,6 +23,12 @@ static cl::opt<bool>
     DisableRedZone("disable-red-zone", cl::ZeroOrMore,
                    cl::desc("Do not emit code that uses the red zone."));
 
+#if LDC_LLVM_VER >= 800
+static cl::opt<bool>
+    disableFPElim("disable-fp-elim", cl::ZeroOrMore,
+                  cl::desc("Disable frame pointer elimination optimization"));
+#endif
+
 // Now expose the helper functions (with static linkage) via external wrappers
 // in the opts namespace, including some additional helper functions.
 namespace opts {
@@ -39,10 +45,11 @@ CodeModel::Model getCodeModel() { return ::CMModel; }
 
 #if LDC_LLVM_VER >= 800
 llvm::Optional<llvm::FramePointer::FP> framePointerUsage() {
-  if (::FramePointerUsage.getNumOccurrences() == 0)
-    return llvm::None;
-  else
+  if (::FramePointerUsage.getNumOccurrences() > 0)
     return ::FramePointerUsage.getValue();
+  if (disableFPElim.getNumOccurrences() > 0)
+    return disableFPElim ? llvm::FramePointer::All : llvm::FramePointer::None;
+  return llvm::None;
 }
 #else
 cl::boolOrDefault disableFPElim() {

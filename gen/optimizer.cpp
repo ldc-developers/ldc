@@ -128,11 +128,10 @@ bool willCrossModuleInline() {
 
 #if LDC_LLVM_VER >= 800
 llvm::FramePointer::FP whichFramePointersToEmit() {
-  auto option = opts::framePointerUsage();
-  if (option)
+  if (auto option = opts::framePointerUsage())
     return *option;
-  else
-    return isOptimizationEnabled() ? llvm::FramePointer::None : llvm::FramePointer::All;
+  return isOptimizationEnabled() ? llvm::FramePointer::None
+                                 : llvm::FramePointer::All;
 }
 #else
 bool willEliminateFramePointer() {
