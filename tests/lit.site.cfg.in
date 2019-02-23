@@ -26,7 +26,7 @@ config.plugins_supported   = "@LDC_ENABLE_PLUGINS@" == "ON"
 config.gnu_make_bin        = "@GNU_MAKE_BIN@"
 config.ldc_host_arch       = "@LDC_HOST_ARCH@"
 config.ldc_with_lld        = "@LDC_WITH_LLD@" == "ON"
-config.spirv_enabled       = @LLVM_SPIRV_FOUND@ +0 # LLVM_SPIRV_FOUND is blank if not set
+config.spirv_enabled       = "@LLVM_SPIRV_FOUND@" == "ON"
 config.rt_supports_sanitizers = "@RT_SUPPORT_SANITIZERS@" == "ON"
 
 config.name = 'LDC'

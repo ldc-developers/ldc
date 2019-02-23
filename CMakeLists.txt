@@ -32,29 +32,14 @@ if (NOT D_COMPILER_DMD_COMPAT)
     message(FATAL_ERROR "We currently only support building using a D compiler with a DMD-compatible commandline interface. (try 'ldmd2' or 'gdmd')")
 endif()
 
-find_package(PkgConfig)
-if(PkgConfig_FOUND)
-    if(MSVC)
-        # make pkg-config use -LC:\path\to\build\LLVMSPIRVLib.lib not -L-lLLVMSPIRVLib
-        # for MSVC
-        set(PKG_CONFIG_EXECUTABLE "${PKG_CONFIG_EXECUTABLE} --msvc-syntax")
-    endif()
-    pkg_check_modules(LLVM_SPIRV LLVMSPIRVLib)
-    if (LLVM_SPIRV_FOUND)
-        message(STATUS "Building with SPIR-V support")
-        # SPIRV needs LLVMDemangle
-        set(EXTRA_LLVM_MODULES "${EXTRA_LLVM_MODULES}" demangle)
-    endif()
-endif()
-
 #
 # Locate LLVM.
 #
 
 find_package(LLVM 3.9 REQUIRED
     all-targets analysis asmparser asmprinter bitreader bitwriter codegen core
-    debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb globalisel
-    instcombine ipa ipo instrumentation irreader libdriver linker lto mc
+    debuginfodwarf debuginfomsf debuginfopdb demangle
+    instcombine ipo instrumentation irreader libdriver linker lto mc
     mcdisassembler mcparser objcarcopts object option profiledata scalaropts
     selectiondag support tablegen target transformutils vectorize
     windowsmanifest ${EXTRA_LLVM_MODULES})
@@ -68,12 +53,44 @@ foreach(LLVM_SUPPORTED_TARGET ${LLVM_TARGETS_TO_BUILD})
     add_definitions("-DLDC_LLVM_SUPPORTED_TARGET_${LLVM_SUPPORTED_TARGET}=1")
 endforeach()
 
-if (LLVM_SPIRV_FOUND)
-    add_definitions("-DLDC_LLVM_SUPPORTED_TARGET_SPIRV=1")
-    foreach(flag ${LLVM_SPIRV_LDFLAGS})
-        append("${flag}" LLVM_LDFLAGS)
-    endforeach(flag)
+# Check and adapt for LLVMSPIRVLib (Khronos SPIRV-LLVM-Translator)
+set(LLVM_SPIRV_FOUND OFF)
+if(MSVC)
+    if(EXISTS "${LLVM_LIBRARY_DIRS}/LLVMSPIRVLib.lib")
+        set(LLVM_SPIRV_FOUND ON)
+        append("LLVMSPIRVLib.lib" LLVM_LDFLAGS)
+    endif()
+else()
+    if((EXISTS "${LLVM_LIBRARY_DIRS}/libLLVMSPIRVLib.a") OR
+       (EXISTS "${LLVM_LIBRARY_DIRS}/libLLVMSPIRVLib.so") OR
+       (EXISTS "${LLVM_LIBRARY_DIRS}/libLLVMSPIRVLib.dylib"))
+        set(LLVM_SPIRV_FOUND ON)
+        append("-lLLVMSPIRVLib" LLVM_LDFLAGS)
+    endif()
 endif()
+if(NOT LLVM_SPIRV_FOUND)
+    find_package(PkgConfig)
+    if(PkgConfig_FOUND)
+        if(MSVC)
+            # make pkg-config use -LC:\path\to\build\LLVMSPIRVLib.lib not -L-lLLVMSPIRVLib
+            set(PKG_CONFIG_EXECUTABLE "${PKG_CONFIG_EXECUTABLE} --msvc-syntax")
+        endif()
+        pkg_check_modules(LLVM_SPIRV LLVMSPIRVLib)
+        if(LLVM_SPIRV_FOUND)
+            set(LLVM_SPIRV_FOUND ON) # translate 1 to ON
+            foreach(flag ${LLVM_SPIRV_LDFLAGS})
+                append("${flag}" LLVM_LDFLAGS)
+            endforeach(flag)
+        else()
+            set(LLVM_SPIRV_FOUND OFF)
+        endif()
+    endif()
+endif()
+if(LLVM_SPIRV_FOUND)
+    message(STATUS "Building with SPIR-V support")
+    add_definitions("-DLDC_LLVM_SUPPORTED_TARGET_SPIRV=1")
+endif()
+
 #
 # Get info about used Linux distribution.
 #
