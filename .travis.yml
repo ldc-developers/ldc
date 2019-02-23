@@ -27,15 +27,13 @@ matrix:
     - os: osx
       osx_image: xcode9.2
       d: ldc-beta
-      env: LLVM_VERSION=8.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF" LLVM_SPIRV_AVAILABLE=ON
+      env: LLVM_VERSION=7.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF"
 
 cache:
   directories:
     - llvm-7.0.1
     - llvm-7.0.0
     - llvm-6.0.1
-    - llvm-spirv-8.0.0
-    - llvm-spirv
     - llvm-5.0.2
     - llvm-4.0.1
     - llvm-3.9.1
@@ -50,38 +48,22 @@ addons:
     - ninja-build
 
 before_install:
-  -
-    export LLVM_ROOT_DIR="$PWD/llvm-$LLVM_VERSION";
-    if [ -n "${LLVM_SPIRV_AVAILABLE}" ]; then
-    	export LLVM_ROOT_DIR="$PWD/llvm-spirv-$LLVM_VERSION";
-    	export PKG_CONFIG_PATH="$PWD/llvm-spirv/lib/pkgconfig";
-    fi;
+  - export LLVM_ROOT_DIR="$PWD/llvm-$LLVM_VERSION"
   -
     if [ ! -e "$LLVM_ROOT_DIR/bin/llvm-config" ]; then
-      if [ -n "${LLVM_SPIRV_AVAILABLE}" ]; then
-        wget -O llvm.tar.bz2 https://github.com/thewilsonator/llvm/releases/download/pre-intrinsics/LLVM-8.0.0svn-Darwin.tar.bz2;
-        wget -O llvm-spirv.tar.bz2 https://github.com/thewilsonator/SPIRV-LLVM-Translator/releases/download/v8.0.0-a1/SPIRV-LLVM-Translator-a1.tar.bz2;
-        mkdir -p llvm-spirv;
-        tar -xf llvm-spirv.tar.bz2 --strip 1 -C `pwd`/llvm-spirv;
-        rm llvm-spirv.tar.bz2;
-      else
-        if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
-          if [ "${LLVM_VERSION}" = "4.0.1" ]; then
-            export LLVM_ARCH="x86_64-linux-gnu-debian8";
-          else
-            export LLVM_ARCH="x86_64-linux-gnu-ubuntu-14.04";
-          fi;
+      if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
+        if [ "${LLVM_VERSION}" = "4.0.1" ]; then
+          export LLVM_ARCH="x86_64-linux-gnu-debian8";
         else
-          export LLVM_ARCH="x86_64-apple-darwin";
+          export LLVM_ARCH="x86_64-linux-gnu-ubuntu-14.04";
         fi;
-        wget -O llvm.tar.xz http://releases.llvm.org/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-${LLVM_ARCH}.tar.xz;
+      else
+        export LLVM_ARCH="x86_64-apple-darwin";
       fi;
+      wget -O llvm.tar.xz http://releases.llvm.org/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-${LLVM_ARCH}.tar.xz;
       mkdir -p $LLVM_ROOT_DIR;
-      tar -xf llvm.tar.* --strip 1 -C $LLVM_ROOT_DIR;
-      rm llvm.tar.*;
-      if [ -n "${LLVM_SPIRV_AVAILABLE}" ]; then
-      	cp -f llvm-spirv/bin/llvm-spirv $LLVM_ROOT_DIR/bin/;
-      fi
+      tar -xf llvm.tar.xz --strip 1 -C $LLVM_ROOT_DIR;
+      rm llvm.tar.xz;
     fi
 
 install:
