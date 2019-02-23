@@ -37,7 +37,7 @@ Optional<CodeModel::Model> getCodeModel() { return ::getCodeModel(); }
 CodeModel::Model getCodeModel() { return ::CMModel; }
 #endif
 
-#if LDC_LLVM_VER >= 900
+#if LDC_LLVM_VER >= 800
 llvm::Optional<llvm::FramePointer::FP> framePointerUsage() {
   if (::FramePointerUsage.getNumOccurrences() == 0)
     return llvm::None;
@@ -88,6 +88,10 @@ CodeModel::Model GetCodeModelFromCMModel() { return ::CMModel; }
 
 #if LDC_LLVM_VER >= 700
 std::string GetCPUStr() { return ::getCPUStr(); }
+#endif
+
+#if LDC_LLVM_VER >= 800
+std::vector<std::string> GetMAttrs() { return ::MAttrs; }
 #endif
 }
 #endif // LDC_WITH_LLD && LDC_LLVM_VER >= 500

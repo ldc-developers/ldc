@@ -20,7 +20,6 @@
 #include "gen/llvm.h"
 #include "ir/irfunction.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
-#include "llvm/IR/TypeBuilder.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 
@@ -374,15 +373,14 @@ getArrayAndSize(llvm::Module &module, llvm::Type *elemType,
       llvm::ConstantInt::get(module.getContext(), APInt(32, elements.size())));
 }
 
-template <typename T>
-void createStaticArray(llvm::Module &mod, llvm::GlobalVariable *var,
-                       llvm::GlobalVariable *varLen, // can be null
-                       llvm::ArrayRef<T> arr) {
+void createStaticI8Array(llvm::Module &mod, llvm::GlobalVariable *var,
+                         llvm::GlobalVariable *varLen, // can be null
+                         llvm::ArrayRef<uint8_t> arr) {
   assert(nullptr != var);
   const auto dataLen = arr.size();
   auto gvar = new llvm::GlobalVariable(
       mod,
-      llvm::ArrayType::get(llvm::TypeBuilder<T, false>::get(mod.getContext()),
+      llvm::ArrayType::get(llvm::IntegerType::get(mod.getContext(), 8),
                            dataLen),
       true, llvm::GlobalValue::InternalLinkage,
       llvm::ConstantDataArray::get(mod.getContext(), arr), ".str");
@@ -724,9 +722,9 @@ void setupModuleBitcodeData(const llvm::Module &srcModule, IRState *irs,
       irs->module, llvm::IntegerType::get(irs->context(), 32), true,
       llvm::GlobalValue::PrivateLinkage, nullptr, ".rtcompile_irsize");
 
-  createStaticArray(irs->module, runtimeCompiledIr, runtimeCompiledIrSize,
-                    llvm::ArrayRef<uint8_t>(
-                        reinterpret_cast<uint8_t *>(str.data()), str.size()));
+  createStaticI8Array(irs->module, runtimeCompiledIr, runtimeCompiledIrSize,
+                      llvm::ArrayRef<uint8_t>(
+                          reinterpret_cast<uint8_t *>(str.data()), str.size()));
 
   setupModuleCtor(irs, runtimeCompiledIr, runtimeCompiledIrSize, globalVals);
 }
