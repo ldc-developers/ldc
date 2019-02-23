@@ -24,8 +24,9 @@ static cl::opt<bool>
                    cl::desc("Do not emit code that uses the red zone."));
 
 #if LDC_LLVM_VER >= 800
+// legacy option
 static cl::opt<bool>
-    disableFPElim("disable-fp-elim", cl::ZeroOrMore,
+    disableFPElim("disable-fp-elim", cl::ZeroOrMore, cl::ReallyHidden,
                   cl::desc("Disable frame pointer elimination optimization"));
 #endif
 
