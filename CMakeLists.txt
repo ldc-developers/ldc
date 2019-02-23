@@ -482,23 +482,11 @@ if(GENERATE_OFFTI)
 endif()
 
 #
-# LLD integration (requires LLVM >= 3.9 with LLD headers & libs)
+# LLD integration (requires headers & libs)
 #
 if(NOT DEFINED LDC_WITH_LLD)
-    # check for LLD header
-    if(NOT MSVC)
-        set(CMAKE_REQUIRED_FLAGS -std=c++11)
-    endif()
-    set(CMAKE_REQUIRED_INCLUDES ${LLVM_INCLUDE_DIRS})
-    if(NOT (LDC_LLVM_VER LESS 600))
-        CHECK_INCLUDE_FILE_CXX(lld/Common/Driver.h LDC_WITH_LLD)
-    else()
-        CHECK_INCLUDE_FILE_CXX(lld/Driver/Driver.h LDC_WITH_LLD)
-    endif()
-    unset(CMAKE_REQUIRED_FLAGS)
-    unset(CMAKE_REQUIRED_INCLUDES)
-    # translate 1/0 to ON/OFF
-    if(LDC_WITH_LLD)
+    if(((LDC_LLVM_VER LESS 600) AND (EXISTS "${LLVM_INCLUDE_DIRS}/lld/Driver/Driver.h")) OR
+       ((NOT LDC_LLVM_VER LESS 600) AND (EXISTS "${LLVM_INCLUDE_DIRS}/lld/Common/Driver.h")))
         set(LDC_WITH_LLD ON)
     else()
         set(LDC_WITH_LLD OFF)
