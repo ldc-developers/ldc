@@ -1,312 +1,139 @@
 commonSteps: &commonSteps
   steps:
-    # Each step starts in working dir `<root>/project` (containing the cloned LDC repo).
+    # Each step starts in the checked-out source directory.
     - run:
-        name: Install dependencies
+        name: Install prerequisites
         command: |
+          set -x
           cd ..
           if [ "$CI_OS" = "linux" ]; then
             export DEBIAN_FRONTEND=noninteractive
             dpkg --add-architecture i386
             apt-get -q update
-            apt-get -yq install software-properties-common
-            add-apt-repository -y ppa:ubuntu-toolchain-r/test
-            apt-get -q update
             apt-get -yq install \
-              curl git-core g++-6-multilib ninja-build \
-              libcurl4-openssl-dev libcurl3:i386 \
-              gdb python-pip unzip zip
-            echo "export CC=gcc-6" >> $BASH_ENV
-            echo "export CXX=g++-6" >> $BASH_ENV
-            # install CMake
-            curl -L -o cmake-x64.tar.gz https://github.com/Kitware/CMake/releases/download/v3.13.2/cmake-3.13.2-Linux-x86_64.tar.gz
-            mkdir cmake-x64
-            tar -xf cmake-x64.tar.gz --strip 1 -C cmake-x64
-            echo "export PATH=$PWD/cmake-x64/bin:$PATH" >> $BASH_ENV
-            # use ld.gold per default, so that LTO is tested
+              git-core cmake ninja-build g++-multilib \
+              llvm-dev zlib1g-dev libclang-common-$LIBCLANG_COMMON_VERSION-dev \
+              libcurl4 libcurl4:i386 \
+              curl gdb python-pip tzdata unzip zip
+            # Use ld.gold per default, so that LTO is tested
             update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
           else
-            # install CMake
-            curl -L -o cmake-x64.tar.gz https://github.com/Kitware/CMake/releases/download/v3.13.2/cmake-3.13.2-Darwin-x86_64.tar.gz
-            mkdir cmake-x64
-            tar -xf cmake-x64.tar.gz --strip 3 -C cmake-x64
-            # install Ninja
-            curl -OL https://github.com/ninja-build/ninja/releases/download/v1.8.2/ninja-mac.zip
+            # Download & extract CMake
+            curl -L -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.13.4/cmake-3.13.4-Darwin-x86_64.tar.gz
+            mkdir cmake
+            tar -xf cmake.tar.gz --strip 3 -C cmake
+            rm cmake.tar.gz
+            # Download & extract Ninja
+            curl -OL https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-mac.zip
             mkdir ninja
             tar -xf ninja-mac.zip -C ninja
-            echo "export PATH=$PWD/cmake-x64/bin:$PWD/ninja:$PATH" >> $BASH_ENV
-            # install Python pip
+            rm ninja-mac.zip
+            # Install pip
             curl -OL https://bootstrap.pypa.io/get-pip.py
-            python get-pip.py
+            python get-pip.py --user
+            rm get-pip.py
+            # Download & extract LDC-flavoured LLVM with enabled assertions
+            curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-osx-x86_64-withAsserts.tar.xz
+            mkdir llvm
+            tar -xf llvm.tar.xz --strip 1 -C llvm
+            rm llvm.tar.xz
+            # Add CMake, Ninja and LLVM to PATH for future steps
+            echo "export PATH=$PWD/cmake/bin:$PWD/ninja:$PWD/llvm/bin:$PATH" >> $BASH_ENV
           fi
-          # install lit
-          pip install --user lit
-    - checkout
-    - run:
-        name: Install LDC-flavoured LLVM
-        command: |
-          cd ..
-          mkdir llvm-$LLVM_VERSION
-          assertsSuffix=""
-          if [ -z "$CIRCLE_TAG" ]; then
-            echo "Using LLVM with enabled assertions"
-            assertsSuffix="-withAsserts"
-          fi
-          curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$CI_OS-x86_64$assertsSuffix.tar.xz
-          tar -xf llvm.tar.xz --strip 1 -C llvm-$LLVM_VERSION
-          rm llvm.tar.xz
-    - run:
-        name: Install LDC host compiler
-        command: |
-          cd ..
-          curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-$CI_OS-x86_64.tar.xz
-          mkdir ldc2-$HOST_LDC_VERSION
-          tar -xf ldc2.tar.xz --strip 1 -C ldc2-$HOST_LDC_VERSION
-          rm ldc2.tar.xz
-    - run:
-        name: Build bootstrap LDC
-        command: |
-          cd ..
-          # output versions
-          cmake --version
-          ninja --version
-          if [ "$CI_OS" = "linux" ]; then gdb --version; fi
+          # Install lit
+          python -m pip install --user lit
           python -c "import lit; lit.main();" --version | head -n 1
-          # build
-          HOST_LDMD=$PWD/ldc2-$HOST_LDC_VERSION/bin/ldmd2
-          mkdir bootstrap
-          cd bootstrap
-          cmake -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION \
-            -DD_COMPILER=$HOST_LDMD \
-            $BOOTSTRAP_CMAKE_FLAGS \
-            $CIRCLE_WORKING_DIRECTORY
-          ninja -j3
-          bin/ldc2 -version
-          cd ..
+          # Download & extract host LDC
+          curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-$CI_OS-x86_64.tar.xz
+          mkdir host-ldc
+          tar -xf ldc2.tar.xz --strip 1 -C host-ldc
+          rm ldc2.tar.xz
+    - checkout
     - run:
         name: Checkout git submodules
         command: git submodule update --init
     - run:
-        name: Build bootstrap stdlib
+        name: Build LDC & defaultlib unittest runners
         command: |
+          set -x
           cd ..
-          HOST_LDMD=$PWD/ldc2-$HOST_LDC_VERSION/bin/ldmd2
-          cd bootstrap
-          cmake -G Ninja \
+          cmake --version
+          ninja --version
+          mkdir build
+          cd build
+          cmake -G Ninja $CIRCLE_WORKING_DIRECTORY \
             -DCMAKE_BUILD_TYPE=Release \
-            -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION \
-            -DBUILD_SHARED_LIBS=OFF \
-            -DD_COMPILER=$HOST_LDMD \
-            $BOOTSTRAP_CMAKE_FLAGS \
-            $CIRCLE_WORKING_DIRECTORY
-          ninja -j3
-          cd ..
-    - run:
-        name: Build LDC and stdlib unittest runners
-        command: |
-          cd ..
-          LDC_INSTALL_DIR=$PWD/ldc2-x64
-          HOST_LDMD=$PWD/bootstrap/bin/ldmd2
-          mkdir ninja-ldc
-          cd ninja-ldc
-          cmake -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DLLVM_ROOT_DIR=$PWD/../llvm-$LLVM_VERSION \
-            -DCMAKE_INSTALL_PREFIX=$LDC_INSTALL_DIR \
-            -DINCLUDE_INSTALL_DIR=$LDC_INSTALL_DIR/import \
-            -DD_COMPILER=$HOST_LDMD \
-            $EXTRA_CMAKE_FLAGS \
-            $CIRCLE_WORKING_DIRECTORY
+            -DD_COMPILER=$PWD/../host-ldc/bin/ldmd2 \
+            $EXTRA_CMAKE_FLAGS
           ninja -j2 all all-test-runners
           bin/ldc2 -version
-          cd ..
     - run:
-        name: Build and run LDC D unittests
+        name: Build & run LDC D unittests
         when: always
-        command: cd ../ninja-ldc && ctest --output-on-failure -R ldc2-unittest
+        command: cd ../build && ctest --output-on-failure -R ldc2-unittest
     - run:
         name: Run LIT testsuite
         when: always
-        command: |
-          cd ../ninja-ldc
-          # Temporarily add LLVM bin dir to PATH, so that e.g. wasm-ld is found.
-          PATH=$PWD/../llvm-$LLVM_VERSION/bin:$PATH ctest -V -R lit-tests
+        command: cd ../build && ctest -V -R lit-tests
     - run:
         name: Run DMD testsuite
         when: always
         command: |
-          cd ../ninja-ldc
-          if [ "$CI_OS" = "osx" ]; then
-            # FIXME: A few 32-bit tests fail due to output containing linker warnings like:
-            # ld: warning: could not create compact unwind for __D3std11parallelism16submitAndExecuteFCQBlQBk8TaskPoolMDFZvZv: stack subl instruction is too different from dwarf stack size
-            rm ../project/tests/d2/dmd-testsuite/runnable/{test13613,statictor,b6400}.d
-          else
+          cd ../build
+          if [ "$CI_OS" = "linux" ]; then
             # Circle's RAM disk FS apparently doesn't allow long paths.
             rm ../project/tests/d2/dmd-testsuite/compilable/issue17167.sh
           fi
           DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R dmd-testsuite
     - run:
-        name: Run stdlib unittests
+        name: Run defaultlib unittests & druntime stand-alone tests
         when: always
-        command: |
-          cd ../ninja-ldc
-          if [ "$CI_OS" = "linux" ]; then
-            # FIXME: Exclude std.process unittests for now.
-            # CircleCI doesn't throw an expected ProcessException when spawning a
-            # process in a working dir with 0400 permissions (no search permissions).
-            ctest -j3 --output-on-failure -E "std\.process|dmd-testsuite|ldc2-unittest|lit-tests"
-          else
-            ctest -j3 --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests"
-          fi
-    - run:
-        name: Install LDC
-        command: |
-          cd ../ninja-ldc
-          ninja install
-          cd ..
-          LDC_INSTALL_DIR=$PWD/ldc2-x64
-          perl -pi -e s?$LDC_INSTALL_DIR/?%%ldcbinarypath%%/../?g $LDC_INSTALL_DIR/etc/ldc2.conf
-          cp project/LICENSE $LDC_INSTALL_DIR
-          cp project/packaging/README $LDC_INSTALL_DIR
-          # Now rename the installation dir to test portability.
-          NEW_LDC_INSTALL_DIR=$PWD/ldc2-install
-          mv $LDC_INSTALL_DIR $NEW_LDC_INSTALL_DIR
-          echo "export LDC_INSTALL_DIR=$NEW_LDC_INSTALL_DIR" >> $BASH_ENV
-    - run:
-        name: Hello world integration test with shared libs
-        command: |
-          cd ..
-          echo 'void main() { import std.stdio; writeln("Hello world, ", size_t.sizeof * 8, " bits"); }' > hello.d
-          $LDC_INSTALL_DIR/bin/ldc2 hello.d -m64 -of=hello64 -link-defaultlib-shared
-          ./hello64
-          $LDC_INSTALL_DIR/bin/ldc2 hello.d -m32 -of=hello32 -link-defaultlib-shared
-          ./hello32
-    - run:
-        name: Hello world integration test with LTO
-        command: |
-          cd ..
-          $LDC_INSTALL_DIR/bin/ldc2 hello.d -of=hello_thin -flto=thin -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
-          ./hello_thin
-          $LDC_INSTALL_DIR/bin/ldc2 hello.d -of=hello_full -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
-          ./hello_full
-    - run:
-        name: Dynamic-compile integration test
-        command: |
-          cd ..
-          $LDC_INSTALL_DIR/bin/ldc2 -enable-dynamic-compile -run project/tests/dynamiccompile/array.d
-    - run:
-        name: Build dub
-        command: |
-          cd ..
-          export DMD=$LDC_INSTALL_DIR/bin/ldmd2
-          git clone --recursive https://github.com/dlang/dub.git
-          cd dub
-          git checkout "$(cat ../project/packaging/dub_version)"
-          if [ -z "$CIRCLE_TAG" ]; then
-            # FIXME: dub is built with `-g -O`, which leads to issue #2361 with enabled
-            # assertions, at least on Linux. So strip `-g` for untagged builds.
-            perl -pi -e "s? -g -O ? -O ?g" build.sh
-          fi
-          ./build.sh
-          cp bin/dub $LDC_INSTALL_DIR/bin
-          cd ..
-    - run:
-        name: Build dlang tools
-        command: |
-          cd ..
-          git clone --recursive https://github.com/dlang/tools.git
-          cd tools
-          make -f posix.mak -j3 install \
-            DMD=$LDC_INSTALL_DIR/bin/ldmd2 \
-            DMD_DIR=$PWD/../project/tests/d2 \
-            DFLAGS="-w -de" \
-            INSTALL_DIR=$PWD
-          cp bin/{rdmd,ddemangle,dustmite} $LDC_INSTALL_DIR/bin
-          cd ..
-    - run:
-        name: Pack installation dir
-        command: |
-          cd ..
-          mkdir artifacts
-          if [ -z "$CIRCLE_TAG" ]; then
-            artifactBasename="ldc2-${CIRCLE_SHA1:0:8}-$CI_OS-x86_64"
-          else
-            artifactBasename="ldc2-${CIRCLE_TAG:1}-$CI_OS-x86_64"
-          fi
-          mv $LDC_INSTALL_DIR $artifactBasename
-          XZ_OPT=-9 tar -cJf artifacts/$artifactBasename.tar.xz $artifactBasename
-    - run:
-        name: Pack source dir
-        command: |
-          cd ..
-          if [ "$CI_OS" = "linux" ]; then
-            if [ -z "$CIRCLE_TAG" ]; then
-              artifactBasename="ldc-${CIRCLE_SHA1:0:8}-src"
-            else
-              artifactBasename="ldc-${CIRCLE_TAG:1}-src"
-            fi
-            GZIP=-9 tar -czf artifacts/$artifactBasename.tar.gz --exclude-vcs --transform=s/project/$artifactBasename/ project
-            tar -xf artifacts/$artifactBasename.tar.gz
-            zip -r -9 artifacts/$artifactBasename.zip $artifactBasename
-          fi
-    - store_artifacts:
-        path: ../artifacts
-    - run:
-        name: Deploy to GitHub CI release
-        command: |
-          cd ..
-          if [[ -n "$CIRCLE_TAG" || ( "$CIRCLE_BRANCH" = "master" && -z "$CIRCLE_PR_NUMBER" ) ]]; then
-            if [ "$CI_OS" = "linux" ]; then
-              curl -L -o github-release.tar.bz2 https://github.com/aktau/github-release/releases/download/v0.7.2/linux-amd64-github-release.tar.bz2
-            else
-              curl -L -o github-release.tar.bz2 https://github.com/aktau/github-release/releases/download/v0.7.2/darwin-amd64-github-release.tar.bz2
-            fi
-            tar -xf github-release.tar.bz2 --strip 3
-            cd artifacts
-            # Note: needs GITHUB_TOKEN environment variable
-            ../github-release upload --user ldc-developers --repo ldc --tag ${CIRCLE_TAG:-CI} --name "$(ls ldc2-*.tar.xz)" --file ldc2-*.tar.xz
-            if [[ -n "$CIRCLE_TAG" && "$CI_OS" = "linux" ]]; then
-              ../github-release upload --user ldc-developers --repo ldc --tag $CIRCLE_TAG --name "$(ls ldc-*-src.tar.gz)" --file ldc-*-src.tar.gz
-              ../github-release upload --user ldc-developers --repo ldc --tag $CIRCLE_TAG --name "$(ls ldc-*-src.zip)" --file ldc-*-src.zip
-            fi
-          fi
+        command: cd ../build && ctest -j3 --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests"
 
 version: 2
 jobs:
-  build-linux:
+  Ubuntu-18.04-multilib-rtSanitizers:
     <<: *commonSteps
     docker:
-      - image: ubuntu:14.04
+      - image: ubuntu:18.04
     environment:
       - CI_OS: linux
-      - LLVM_VERSION: 7.0.1
-      - HOST_LDC_VERSION: 1.10.0
-      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_LTO_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
-  build-osx:
+      - LIBCLANG_COMMON_VERSION: "6.0"
+      - HOST_LDC_VERSION: 1.14.0
+      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
+  Ubuntu-rolling-multilib-sharedLibsOnly:
+    <<: *commonSteps
+    docker:
+      - image: ubuntu:rolling
+    environment:
+      - CI_OS: linux
+      - LIBCLANG_COMMON_VERSION: "7"
+      - HOST_LDC_VERSION: 1.14.0
+      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
+  macOS-x64:
     <<: *commonSteps
     macos:
       xcode: "9.2.0"
     environment:
       - CI_OS: osx
-      - MACOSX_DEPLOYMENT_TARGET: 10.8
-      - USE_LIBCPP: true
       - LLVM_VERSION: 7.0.1
-      - HOST_LDC_VERSION: 1.10.0
-      - BOOTSTRAP_CMAKE_FLAGS: "-DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
-      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_LTO_LIBS=ON -DCMAKE_CXX_FLAGS='-stdlib=libc++' -DCMAKE_EXE_LINKER_FLAGS=-lc++"
+      - HOST_LDC_VERSION: 1.14.0
+      - EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
+  macOS-x64-sharedLibsOnly:
+    <<: *commonSteps
+    macos:
+      xcode: "9.2.0"
+    environment:
+      - CI_OS: osx
+      - LLVM_VERSION: 7.0.1
+      - HOST_LDC_VERSION: 1.14.0
+      - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON"
 
 workflows:
   version: 2
   build:
     jobs:
-      - build-linux:
-          # This is required to also trigger the job after pushing a tag.
-          filters:
-            tags:
-              only: /.*/
-      - build-osx:
-          filters:
-            tags:
-              only: /.*/
+      - Ubuntu-18.04-multilib-rtSanitizers
+      - Ubuntu-rolling-multilib-sharedLibsOnly
+      - macOS-x64
+      - macOS-x64-sharedLibsOnly

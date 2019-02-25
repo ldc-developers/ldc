@@ -1,0 +1,219 @@
+# Each step starts in the checked-out source directory,
+# environment variables aren't persisted across steps.
+
+steps:
+- checkout: self
+  submodules: true
+  fetchDepth: 50
+- script: |
+    set -ex
+    cd ..
+    if [ "$CI_OS" = "linux" ]; then
+      export DEBIAN_FRONTEND=noninteractive
+      sudo dpkg --add-architecture i386
+      sudo apt-get -q update
+      sudo apt-get -yq install \
+        git-core cmake ninja-build g++-multilib \
+        libcurl3 libcurl3:i386 libcurl4-openssl-dev \
+        curl gdb tzdata unzip zip
+      # Use ld.gold per default, so that LTO is tested
+      sudo update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
+    else
+      # Download & extract Ninja
+      curl -L -o ninja-mac.zip https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-mac.zip
+      mkdir ninja
+      tar -xf ninja-mac.zip -C ninja
+    fi
+    # Install lit
+    curl -OL https://bootstrap.pypa.io/get-pip.py
+    python get-pip.py --user
+    python -m pip install --user lit
+    python -c "import lit; lit.main();" --version | head -n 1
+    # Download & extract host LDC
+    curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-$CI_OS-x86_64.tar.xz
+    mkdir host-ldc
+    tar -xf ldc2.tar.xz --strip 1 -C host-ldc
+    # Download & extract LDC-flavoured LLVM
+    assertsSuffix=""
+    if [ "${BUILD_SOURCEBRANCH:0:10}" != "refs/tags/" ]; then
+      assertsSuffix="-withAsserts"
+    fi
+    curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/CI/llvm-$LLVM_VERSION-$CI_OS-x86_64$assertsSuffix.tar.xz
+    mkdir llvm
+    tar -xf llvm.tar.xz --strip 1 -C llvm
+    # Set PARALLEL_JOBS env variable and persist it for future steps
+    if [ "$CI_OS" = "linux" ]; then
+      PARALLEL_JOBS=$(nproc)
+    else
+      PARALLEL_JOBS=$(sysctl -n hw.logicalcpu)
+    fi
+    echo "##vso[task.setvariable variable=PARALLEL_JOBS]$PARALLEL_JOBS"
+  displayName: Install prerequisites
+- script: |
+    set -ex
+    cd ..
+    export PATH="$PWD/ninja:$PATH"
+    cmake --version
+    ninja --version
+    mkdir bootstrap-ldc
+    cd bootstrap-ldc
+    cmake -G Ninja $BUILD_SOURCESDIRECTORY \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DLLVM_ROOT_DIR=$PWD/../llvm \
+      -DD_COMPILER=$PWD/../host-ldc/bin/ldmd2 \
+      -DBUILD_SHARED_LIBS=OFF \
+      $BOOTSTRAP_CMAKE_FLAGS
+    ninja -j$PARALLEL_JOBS
+    bin/ldc2 -version
+  displayName: Build bootstrap LDC
+- script: |
+    set -ex
+    cd ..
+    export PATH="$PWD/ninja:$PATH"
+    installDir=$PWD/install
+    mkdir build
+    cd build
+    cmake -G Ninja $BUILD_SOURCESDIRECTORY \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DLLVM_ROOT_DIR=$PWD/../llvm \
+      -DD_COMPILER=$PWD/../bootstrap-ldc/bin/ldmd2 \
+      -DCMAKE_INSTALL_PREFIX=$installDir \
+      -DINCLUDE_INSTALL_DIR=$installDir/import \
+      $EXTRA_CMAKE_FLAGS
+    ninja -j$PARALLEL_JOBS all all-test-runners
+    bin/ldc2 -version
+  displayName: Build LDC & defaultlib unittest runners
+- script: |
+    set -e
+    cd ..
+    mkdir artifacts
+    if [ "$CI_OS" = "linux" ]; then
+      if [ "${BUILD_SOURCEBRANCH:0:10}" = "refs/tags/" ]; then
+        artifactID=${BUILD_SOURCEBRANCH:11}
+      else
+        artifactID=${BUILD_SOURCEVERSION:0:8}
+      fi
+      artifactName=ldc-$artifactID-src
+      GZIP=-9 tar -czf artifacts/$artifactName.tar.gz --exclude-vcs --transform=s,${BUILD_SOURCESDIRECTORY:1},$artifactName, $BUILD_SOURCESDIRECTORY
+      tar -xf artifacts/$artifactName.tar.gz
+      zip -r -9 artifacts/$artifactName.zip $artifactName
+    else
+      echo 'Skipping'
+    fi
+  displayName: Pack source dir
+- script: |
+    set -e
+    cd ../build
+    ctest --output-on-failure -R "ldc2-unittest"
+  displayName: Build & run LDC D unittests
+  condition: succeededOrFailed()
+- script: |
+    set -e
+    cd ../build
+    # Temporarily add LLVM bin dir to PATH, so that e.g. wasm-ld is found
+    PATH=$PWD/../llvm/bin:$PATH ctest -V -R "lit-tests"
+  displayName: Run LIT testsuite
+  condition: succeededOrFailed()
+- script: |
+    set -e
+    cd ../build
+    DMD_TESTSUITE_MAKE_ARGS=-j$PARALLEL_JOBS ctest -V -R "dmd-testsuite"
+  displayName: Run DMD testsuite
+  condition: succeededOrFailed()
+- script: |
+    set -e
+    cd ../build
+    if [ "$CI_OS" = "osx" ]; then
+      # FIXME: macOS 10.13 broke this, see https://github.com/ldc-developers/ldc/pull/2839
+      echo 'void main() {}' > $BUILD_SOURCESDIRECTORY/runtime/druntime/test/shared/src/finalize.d
+    fi
+    ctest -j$PARALLEL_JOBS --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
+  displayName: Run defaultlib unittests & druntime stand-alone tests
+  condition: succeededOrFailed()
+- script: |
+    set -e
+    cd ..
+    export PATH="$PWD/ninja:$PATH"
+    cd build
+    ninja install > /dev/null
+    cd ..
+    LDC_INSTALL_DIR=$PWD/ldc2-x64
+    perl -pi -e s?$PWD/install/?%%ldcbinarypath%%/../?g install/etc/ldc2.conf
+    cat install/etc/ldc2.conf
+    cp $BUILD_SOURCESDIRECTORY/LICENSE install
+    cp $BUILD_SOURCESDIRECTORY/packaging/README install
+    # Now rename the installation dir to test portability
+    mv install installed
+  displayName: Install LDC & make portable
+- script: |
+    set -e
+    cd ..
+    echo 'void main() { import std.stdio; writefln("Hello world, %d bits", size_t.sizeof * 8); }' > hello.d
+    installed/bin/ldc2 hello.d -m64 -of=hello64 -link-defaultlib-shared
+    ./hello64
+    if [ "$CI_OS" = "linux" ]; then
+      installed/bin/ldc2 hello.d -m32 -of=hello32 -link-defaultlib-shared
+      ./hello32
+    fi
+  displayName: Run hello-world integration test with shared libs
+- script: |
+    set -e
+    cd ..
+    installed/bin/ldc2 hello.d -of=hello_thin -flto=thin -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
+    ./hello_thin
+    # FIXME: full LTO fails on macOS
+    if [ "$CI_OS" = "linux" ]; then
+      installed/bin/ldc2 hello.d -of=hello_full -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
+      ./hello_full
+    fi
+  displayName: Run hello-world integration test with LTO
+- script: |
+    set -e
+    cd ..
+    installed/bin/ldc2 -enable-dynamic-compile -run $BUILD_SOURCESDIRECTORY/tests/dynamiccompile/array.d
+  displayName: Run dynamic-compile integration test
+- script: |
+    set -e
+    cd ..
+    export DMD=$PWD/installed/bin/ldmd2
+    git clone --recursive https://github.com/dlang/dub.git
+    cd dub
+    git checkout "$(cat $BUILD_SOURCESDIRECTORY/packaging/dub_version)"
+    if [ "${BUILD_SOURCEBRANCH:0:10}" != "refs/tags/" ]; then
+      # FIXME: dub is built with `-g -O`, which leads to issue #2361 with enabled
+      # assertions, at least on Linux. So strip `-g` for untagged builds.
+      perl -pi -e "s? -g -O ? -O ?g" build.sh
+    fi
+    ./build.sh
+    cp bin/dub ../installed/bin
+    ../installed/bin/dub --version
+  displayName: Build & copy dub
+- script: |
+    set -e
+    cd ..
+    git clone --recursive https://github.com/dlang/tools.git dlang-tools
+    cd dlang-tools
+    make -f posix.mak -j$PARALLEL_JOBS install \
+      DMD=$PWD/../installed/bin/ldmd2 \
+      DMD_DIR=$BUILD_SOURCESDIRECTORY/tests/d2 \
+      DFLAGS="-w -de" \
+      INSTALL_DIR=$PWD
+    cp bin/{rdmd,ddemangle,dustmite} ../installed/bin
+  displayName: Build & copy dlang tools
+- script: |
+    set -e
+    cd ..
+    if [ "${BUILD_SOURCEBRANCH:0:10}" = "refs/tags/" ]; then
+      artifactID=${BUILD_SOURCEBRANCH:11}
+    else
+      artifactID=${BUILD_SOURCEVERSION:0:8}
+    fi
+    artifactName=ldc2-$artifactID-$CI_OS-x86_64
+    mv installed $artifactName
+    XZ_OPT=-9 tar -cJf artifacts/$artifactName.tar.xz $artifactName
+  displayName: Pack installation dir
+- task: PublishPipelineArtifact@0
+  inputs:
+    artifactName: $(CI_OS)-x86_64
+    targetPath: ../artifacts
+  displayName: Publish artifact(s)

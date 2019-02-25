@@ -1,1 +1,171 @@
-# Dummy
+variables:
+  LLVM_VERSION: 2b593f4b
+  HOST_LDC_VERSION: 1.14.0
+
+jobs:
+- job: Windows
+  timeoutInMinutes: 120
+  pool:
+    vmImage: 'vs2017-win2016'
+  variables:
+    CLANG_VERSION: 7.0.1
+    VSINSTALLDIR: C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\
+    EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON
+  strategy:
+    matrix:
+      x64:
+        OS: win64
+        MODEL: 64
+        ARCH: x64
+      x86:
+        OS: win32
+        MODEL: 32
+        ARCH: x86
+        # Let CMake configure 64-bit clang-cl for 32-bit code emission.
+        CFLAGS: -m32
+        CXXFLAGS: -m32
+        ASMFLAGS: -m32
+  steps:
+    - template: .azure-pipelines/windows.yml
+
+# Merges the x64 and x86 Windows packages to a multilib package (64-bit binaries + 32/64-bit libraries).
+- job: Windows_multilib
+  timeoutInMinutes: 30
+  pool:
+    vmImage: 'vs2017-win2016'
+  dependsOn:
+    - Windows
+  variables:
+    # Let LDC auto-detect the Visual C++ installation for the smoke tests.
+    LDC_VSDIR: C:\non-existing_dummy
+  steps:
+    - checkout: none
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: windows-x64
+        targetPath: artifacts
+      displayName: Download x64 artifact
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: windows-x86
+        targetPath: artifacts
+      displayName: Download x86 artifact
+    - script: |
+        if "%BUILD_SOURCEBRANCH:~0,10%" == "refs/tags/" (
+          set ARTIFACT_ID=%BUILD_SOURCEBRANCH:~11%
+        ) else (
+          set ARTIFACT_ID=%BUILD_SOURCEVERSION:~0,8%
+        )
+        set ARTIFACT_NAME=ldc2-%ARTIFACT_ID%-windows-multilib
+        :: Persist the ARTIFACT_NAME env variable for future steps
+        echo ##vso[task.setvariable variable=ARTIFACT_NAME]%ARTIFACT_NAME%
+        7z x artifacts/ldc2-*-x64.7z > nul
+        7z x artifacts/ldc2-*-x86.7z > nul
+        mv ldc2-*-x64 %ARTIFACT_NAME%
+        cd %ARTIFACT_NAME%
+        mv lib lib64
+        cp -r ../ldc2-*-x86/lib .
+        mv lib lib32
+      displayName: Extract & merge artifacts
+    - powershell: |
+        cd ldc2-*-multilib
+        (cat etc\ldc2.conf).replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib64') | Set-Content etc\ldc2.conf
+        $conf32 = cat ..\ldc2-*-x86\etc\ldc2.conf -Raw
+        $conf32 = "`r`n""i[3-6]86-.*-windows-msvc"":" + $conf32.Substring($conf32.IndexOf("`r`ndefault:") + 10)
+        $conf32 = $conf32.Substring(0, $conf32.IndexOf("`r`n};`r`n") + 6)
+        $conf32 = $conf32.Replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib32')
+        Add-Content etc\ldc2.conf $conf32
+        cat etc\ldc2.conf
+      displayName: Merge ldc2.conf
+    - powershell: |
+        echo 'void main() { import std.stdio; writefln("Hello world, %d bits", size_t.sizeof * 8); }' > hello.d
+      displayName: Generate hello.d
+    - script: |
+        %ARTIFACT_NAME%\bin\ldc2 -run hello.d
+      displayName: Run 64-bit hello-world smoke test
+    - script: |
+        %ARTIFACT_NAME%\bin\ldc2 -m32 -run hello.d
+      displayName: Run 32-bit hello-world smoke test
+    - script: |
+        mkdir newArtifacts
+        7z a -mx=9 newArtifacts/%ARTIFACT_NAME%.7z %ARTIFACT_NAME% > nul
+      displayName: Pack
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: windows-multilib
+        targetPath: newArtifacts
+      displayName: Publish artifact
+
+- job: Linux_multilib
+  timeoutInMinutes: 120
+  pool:
+    vmImage: 'ubuntu-16.04'
+  variables:
+    CI_OS: linux
+    EXTRA_CMAKE_FLAGS: -DMULTILIB=ON -DBUILD_LTO_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON
+  steps:
+    - template: .azure-pipelines/posix.yml
+
+- job: macOS_x64
+  timeoutInMinutes: 120
+  pool:
+    vmImage: 'macOS-10.13'
+  variables:
+    CI_OS: osx
+    EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON
+    MACOSX_DEPLOYMENT_TARGET: 10.9
+  steps:
+    - template: .azure-pipelines/posix.yml
+
+# Uploads the packages to a GitHub release.
+- job: Upload_to_GitHub
+  timeoutInMinutes: 30
+  pool:
+    vmImage: 'ubuntu-16.04'
+  dependsOn:
+    - Windows_multilib
+    - Linux_multilib
+    - macOS_x64
+  # Only run for commits on the master branch and tags.
+  condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')))
+  steps:
+    - checkout: none
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: windows-x64
+        targetPath: artifacts
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: windows-x86
+        targetPath: artifacts
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: windows-multilib
+        targetPath: artifacts
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: linux-x86_64
+        targetPath: artifacts
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: osx-x86_64
+        targetPath: artifacts
+    - bash: |
+        set -e
+        if [ "${BUILD_SOURCEBRANCH:0:10}" != "refs/tags/" ]; then
+          releaseTag=CI
+        else
+          releaseTag=${BUILD_SOURCEBRANCH:10}
+        fi
+        echo "##vso[task.setvariable variable=GITHUB_RELEASE_TAG]$releaseTag"
+      displayName: Set GITHUB_RELEASE_TAG env variable
+    - task: GitHubRelease@0
+      inputs:
+        gitHubConnection: kinke
+        repositoryName: ldc-developers/ldc
+        action: edit
+        tag: $(GITHUB_RELEASE_TAG)
+        assets: artifacts/*
+        assetUploadMode: replace
+        addChangeLog: false
+      displayName: Upload artifacts to GitHub release

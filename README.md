@@ -1,10 +1,10 @@
 LDC – the LLVM-based D Compiler
 ===============================
 
+[![Build Status](https://dev.azure.com/ldc-developers/ldc/_apis/build/status/Azure%20Pipeline?branchName=master)](https://dev.azure.com/ldc-developers/ldc/_build/latest?definitionId=1&branchName=master)
 [![Build Status](https://circleci.com/gh/ldc-developers/ldc/tree/master.svg?style=svg)][1]
 [![Build Status](https://semaphoreci.com/api/v1/ldc-developers/ldc/branches/master/shields_badge.svg)][2]
 [![Build Status](https://travis-ci.org/ldc-developers/ldc.png?branch=master)][3]
-[![Build Status](https://ci.appveyor.com/api/projects/status/2cfhvg79782n4nth/branch/master?svg=true)][4]
 [![Bountysource](https://www.bountysource.com/badge/tracker?tracker_id=283332)][5]
 
 The LDC project provides a portable D programming language compiler
