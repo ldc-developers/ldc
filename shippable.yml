@@ -60,7 +60,7 @@ build:
     - ninja -j32
     - bin/ldc2 --version
     - cd ..
-    # Build LDC
+    # Build LDC & LDC D unittests
     - |
       set -x
       installDir=$PWD/install
@@ -75,11 +75,11 @@ build:
         -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF \
         $EXTRA_CMAKE_FLAGS
       set +x
-    - ninja -j32
+    - ninja -j32 all ldc2-unittest
     - bin/ldc2 --version
     # Build defaultlib unittest runners
     - ninja -j16 all-test-runners
-    # Build & run LDC D unittests
+    # Run LDC D unittests
     - ctest --output-on-failure -R "ldc2-unittest"
     # Run LIT testsuite, ignore the errors
     - PATH=$PWD/../llvm/bin:$PATH ctest -V -R "lit-tests" || true

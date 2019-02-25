@@ -4,7 +4,7 @@ set -euxo pipefail
 
 free -m
 cd build
-ninja -j2
+ninja -j2 all ldc2-unittest
 bin/ldc2 -version
 
 EC=0

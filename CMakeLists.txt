@@ -706,6 +706,7 @@ else()
         "$<TARGET_LINKER_FILE:${LDC_LIB}>"
         "${FE_RES}"
         "${LDC_LIB}"
+        ${COMPILE_D_MODULES_SEPARATELY}
     )
 endif()
 
@@ -747,6 +748,7 @@ build_d_executable(
     "$<TARGET_LINKER_FILE:LDMD_CXX_LIB>"
     ""
     "LDMD_CXX_LIB"
+    ${COMPILE_D_MODULES_SEPARATELY}
 )
 
 # Little helper.
@@ -902,6 +904,7 @@ build_d_executable(
     "$<TARGET_LINKER_FILE:${LDC_LIB}>"
     ""
     "${LDC_LIB}"
+    ON # always build separately (faster with parallelization)
 )
 add_custom_target(ldc2-unittest DEPENDS ${LDC_UNITTEST_EXE_FULL})
 add_test(NAME build-ldc2-unittest COMMAND "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ldc2-unittest)
@@ -928,6 +931,7 @@ build_d_executable(
     ""
     "${PROJECT_SOURCE_DIR}/runtime/ldc-build-runtime.d.in"
     ""
+    ${COMPILE_D_MODULES_SEPARATELY}
 )
 add_custom_target(ldc-build-runtime ALL DEPENDS ${LDC_BUILD_RUNTIME_EXE_FULL})
 

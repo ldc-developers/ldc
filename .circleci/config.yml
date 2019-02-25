@@ -53,7 +53,7 @@ commonSteps: &commonSteps
         name: Checkout git submodules
         command: git submodule update --init
     - run:
-        name: Build LDC & defaultlib unittest runners
+        name: Build LDC & LDC D unittests & defaultlib unittest runners
         command: |
           set -x
           cd ..
@@ -65,10 +65,10 @@ commonSteps: &commonSteps
             -DCMAKE_BUILD_TYPE=Release \
             -DD_COMPILER=$PWD/../host-ldc/bin/ldmd2 \
             $EXTRA_CMAKE_FLAGS
-          ninja -j2 all all-test-runners
+          ninja -j2 all ldc2-unittest all-test-runners
           bin/ldc2 -version
     - run:
-        name: Build & run LDC D unittests
+        name: Run LDC D unittests
         when: always
         command: cd ../build && ctest --output-on-failure -R ldc2-unittest
     - run:
