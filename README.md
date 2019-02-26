@@ -1,11 +1,12 @@
 LDC – the LLVM-based D Compiler
 ===============================
 
-[![Build Status](https://dev.azure.com/ldc-developers/ldc/_apis/build/status/Azure%20Pipeline?branchName=master)](https://dev.azure.com/ldc-developers/ldc/_build/latest?definitionId=1&branchName=master)
-[![Build Status](https://circleci.com/gh/ldc-developers/ldc/tree/master.svg?style=svg)][1]
-[![Build Status](https://semaphoreci.com/api/v1/ldc-developers/ldc/branches/master/shields_badge.svg)][2]
-[![Build Status](https://travis-ci.org/ldc-developers/ldc.png?branch=master)][3]
-[![Bountysource](https://www.bountysource.com/badge/tracker?tracker_id=283332)][5]
+[![Build Status](https://dev.azure.com/ldc-developers/ldc/_apis/build/status/Azure%20Pipeline?branchName=master)][1]
+[![Build Status](https://circleci.com/gh/ldc-developers/ldc/tree/master.svg?style=svg)][2]
+[![Build Status](https://semaphoreci.com/api/v1/ldc-developers/ldc/branches/master/shields_badge.svg)][3]
+[![Build Status](https://api.shippable.com/projects/5b6826467dafeb0700d693e5/badge?branch=master)][4]
+[![Build Status](https://travis-ci.org/ldc-developers/ldc.png?branch=master)][5]
+[![Bountysource](https://www.bountysource.com/badge/tracker?tracker_id=283332)][6]
 
 The LDC project provides a portable D programming language compiler
 with modern optimization and code generation capabilities.
@@ -105,8 +106,9 @@ For further documentation, contributor information, etc. please see
 Feedback of any kind is very much appreciated!
 
 
-[1]: https://circleci.com/gh/ldc-developers/ldc/tree/master "Circle CI Build Status"
-[2]: https://semaphoreci.com/ldc-developers/ldc "Semaphore CI Build Status"
-[3]: https://travis-ci.org/ldc-developers/ldc "Travis CI Build Status"
-[4]: https://ci.appveyor.com/project/kinke/ldc/history "AppVeyor CI Build Status"
-[5]: https://www.bountysource.com/teams/ldc-developers/issues "Bountysource"
+[1]: https://dev.azure.com/ldc-developers/ldc/_build/latest?definitionId=1&branchName=master "Azure Pipelines CI Build Status"
+[2]: https://circleci.com/gh/ldc-developers/ldc/tree/master "Circle CI Build Status"
+[3]: https://semaphoreci.com/ldc-developers/ldc/branches/master "Semaphore CI Build Status"
+[4]: https://app.shippable.com/github/ldc-developers/ldc/runs?branchName=master "Shippable CI Build Status"
+[5]: https://travis-ci.org/ldc-developers/ldc/branches "Travis CI Build Status"
+[6]: https://www.bountysource.com/teams/ldc-developers/issues "Bountysource"
