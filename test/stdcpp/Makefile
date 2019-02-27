@@ -24,10 +24,11 @@ $(ROOT)/%.done : $(ROOT)/%
 	$(QUIET)$(TIMELIMIT)$(ROOT)/$* $(RUN_ARGS)
 	@touch $@
 
+# LDC: libdl required by ldc.sanitizers_optionally_linked with version=SupportSanitizers
 $(ROOT)/%: $(SRC)/%.cpp $(SRC)/%_test.d
 	mkdir -p $(dir $@)
 	$(QUIET)$(DMD) $(DFLAGS) -main -unittest -c -of=$(ROOT)/$*_d.o $(SRC)/$*_test.d
-	$(QUIET)$(CXX) $(CXXFLAGS_BASE) -o $@ $< $(ROOT)/$*_d.o $(DRUNTIME) -lpthread
+	$(QUIET)$(CXX) $(CXXFLAGS_BASE) -o $@ $< $(ROOT)/$*_d.o $(DRUNTIME) $(LDL) -lpthread
 
 clean:
 	rm -rf $(GENERATED)
