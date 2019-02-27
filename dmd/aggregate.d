@@ -327,6 +327,7 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
         }
         bool errors = false;
 
+        // Fill in missing any elements with default initializers
         foreach (i; 0 .. nfields)
         {
             auto vd = fields[i];
