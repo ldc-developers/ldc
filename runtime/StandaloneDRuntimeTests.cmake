@@ -37,7 +37,8 @@ get_subdirs(testnames ${PROJECT_SOURCE_DIR}/druntime/test)
 if(${BUILD_SHARED_LIBS} STREQUAL "OFF")
     list(REMOVE_ITEM testnames shared)
 elseif(${BUILD_SHARED_LIBS} STREQUAL "ON")
-    list(REMOVE_ITEM testnames cycles)
+    # gc: replaces druntime modules at link-time and so requires a static druntime
+    list(REMOVE_ITEM testnames cycles gc)
 endif()
 list(REMOVE_ITEM testnames uuid) # MSVC only, custom Makefile (win64.mak)
 
