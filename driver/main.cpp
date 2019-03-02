@@ -919,6 +919,17 @@ int cppmain(int argc, char **argv) {
 
   exe_path::initialize(argv[0]);
 
+  // Filter out druntime options in the cmdline, e.g., to configure the GC.
+  std::vector<char *> filteredArgs;
+  filteredArgs.reserve(argc);
+  for (int i = 0; i < argc; ++i) {
+    if (strncmp(argv[i], "--DRT-", 6) != 0)
+      filteredArgs.push_back(argv[i]);
+  }
+
+  argc = static_cast<int>(filteredArgs.size());
+  argv = filteredArgs.data();
+
   global._init();
   global.version = ldc::dmd_version;
   global.ldc_version = ldc::ldc_version;
