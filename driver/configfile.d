@@ -99,6 +99,8 @@ unittest
 
 extern(C++) struct ConfigFile
 {
+    __gshared ConfigFile instance;
+
 private:
 
     // representation

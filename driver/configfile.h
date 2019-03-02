@@ -18,7 +18,7 @@
 #include "llvm/ADT/StringRef.h"
 #include <string>
 
-class ConfigFile {
+struct ConfigFile {
 public:
   static ConfigFile instance;
 

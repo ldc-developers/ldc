@@ -802,6 +802,22 @@ version (IN_LLVM) {} else
     }
 version (IN_LLVM)
 {
+    import core.memory : GC;
+
+    static if (__traits(compiles, GC.stats))
+    {
+        if (global.params.verbose)
+        {
+            static int toMB(ulong size) { return cast(int) (size / 1048576.0 + 0.5); }
+
+            const stats = GC.stats;
+            const used = toMB(stats.usedSize);
+            const free = toMB(stats.freeSize);
+            const total = toMB(stats.usedSize + stats.freeSize);
+            message("GC stats  %dM used, %dM free, %dM total", used, free, total);
+        }
+    }
+
     codegenModules(modules);
 }
 else
