@@ -37,7 +37,8 @@ get_subdirs(testnames ${PROJECT_SOURCE_DIR}/druntime/test)
 if(${BUILD_SHARED_LIBS} STREQUAL "OFF")
     list(REMOVE_ITEM testnames shared)
 elseif(${BUILD_SHARED_LIBS} STREQUAL "ON")
-    list(REMOVE_ITEM testnames cycles)
+    # gc: replaces druntime modules at link-time and so requires a static druntime
+    list(REMOVE_ITEM testnames cycles gc)
 endif()
 list(REMOVE_ITEM testnames uuid) # MSVC only, custom Makefile (win64.mak)
 
@@ -50,7 +51,7 @@ foreach(name ${testnames})
         COMMAND ${GNU_MAKE_BIN} -C ${PROJECT_SOURCE_DIR}/druntime/test/${name}
             ROOT=${outdir} DMD=${LDMD_EXE_FULL} MODEL=default
             DRUNTIME=${druntime_path} DRUNTIMESO=${shared_druntime_path}
-            CFLAGS=-Wall\ -Wl,-rpath,${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}
+            CFLAGS_BASE=-Wall\ -Wl,-rpath,${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}
             ${linkdl}
     )
     set_tests_properties(druntime-test-${name}

@@ -157,7 +157,7 @@ llvm::StructType *getTypeDescriptorType(IRState &irs,
 
 llvm::GlobalVariable *getTypeDescriptor(IRState &irs, ClassDeclaration *cd) {
   if (cd->isCPPclass()) {
-    const char *name = Target::cppTypeInfoMangle(cd);
+    const char *name = target.cppTypeInfoMangle(cd);
     return declareGlobal(cd->loc, irs.module, getVoidPtrType(), name,
                          /*isConstant=*/true);
   }

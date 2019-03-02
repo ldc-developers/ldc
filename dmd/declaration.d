@@ -2,7 +2,7 @@
  * Compiler implementation of the
  * $(LINK2 http://www.dlang.org, D programming language).
  *
- * Copyright:   Copyright (C) 1999-2018 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/declaration.d, _declaration.d)
@@ -1102,11 +1102,18 @@ extern (C++) class VarDeclaration : Declaration
 
     VarDeclarations* maybes;        // STC.maybescope variables that are assigned to this STC.maybescope variable
 
+    private bool _isAnonymous;
+
     final extern (D) this(const ref Loc loc, Type type, Identifier id, Initializer _init, StorageClass storage_class = STC.undefined_)
     {
-        super(id);
+        if (id is Identifier.anonymous)
+        {
+            id = Identifier.generateId("__anonvar");
+            _isAnonymous = true;
+        }
         //printf("VarDeclaration('%s')\n", id.toChars());
         assert(id);
+        super(id);
         debug
         {
             if (!type && !_init)
@@ -1209,7 +1216,7 @@ extern (C++) class VarDeclaration : Declaration
         const sz = t.size(loc);
         assert(sz != SIZE_INVALID && sz < uint.max);
         uint memsize = cast(uint)sz;                // size of member
-        uint memalignsize = Target.fieldalign(t);   // size of member for alignment purposes
+        uint memalignsize = target.fieldalign(t);   // size of member for alignment purposes
         offset = AggregateDeclaration.placeField(
             poffset,
             memsize, memalignsize, alignment,
@@ -1247,6 +1254,11 @@ extern (C++) class VarDeclaration : Declaration
     {
         //printf("VarDeclaration::needThis(%s, x%x)\n", toChars(), storage_class);
         return isField();
+    }
+
+    override final bool isAnonymous()
+    {
+        return _isAnonymous;
     }
 
     override final bool isExport() const
@@ -1705,7 +1717,7 @@ extern (C++) class TypeInfoDeclaration : VarDeclaration
         storage_class = STC.static_ | STC.gshared;
         protection = Prot(Prot.Kind.public_);
         linkage = LINK.c;
-        alignment = Target.ptrsize;
+        alignment = target.ptrsize;
     }
 
     static TypeInfoDeclaration create(Type tinfo)

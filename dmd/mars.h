@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (C) 1999-2018 by The D Language Foundation, All Rights Reserved
+ * Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -99,5 +99,11 @@ void ensurePathToNameExists(Loc loc, const char *name);
 void escapePath(OutBuffer *buf, const char *fname);
 
 #if IN_LLVM
-int mars_mainBody(Strings &files, Strings &libmodules);
+struct Param;
+
+int mars_mainBody(Param &params, Strings &files, Strings &libmodules);
+
+void parseTransitionOption(Param &params, const char *name);
+void parsePreviewOption(Param &params, const char *name);
+void parseRevertOption(Param &params, const char *name);
 #endif

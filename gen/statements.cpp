@@ -672,8 +672,8 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(OnScopeStatement *stmt) override {
-    stmt->error("Internal Compiler Error: OnScopeStatement should have been "
+  void visit(ScopeGuardStatement *stmt) override {
+    stmt->error("Internal Compiler Error: ScopeGuardStatement should have been "
                 "lowered by frontend.");
     fatal();
   }

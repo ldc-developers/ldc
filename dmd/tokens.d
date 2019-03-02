@@ -2,7 +2,7 @@
  * Compiler implementation of the
  * $(LINK2 http://www.dlang.org, D programming language).
  *
- * Copyright:   Copyright (C) 1999-2018 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/tokens.d, _tokens.d)
@@ -22,6 +22,7 @@ import dmd.root.outbuffer;
 import dmd.root.rmem;
 import dmd.utf;
 
+// IN_LLVM: ubyte -> int due to https://issues.dlang.org/show_bug.cgi?id=19658
 enum TOK : int
 {
     reserved,
@@ -286,6 +287,7 @@ enum TOK : int
     showCtfeContext,
 
     objcClassReference,
+    vectorArray,
 
     max_,
 }
@@ -697,6 +699,7 @@ extern (C++) struct Token
         TOK.showCtfeContext : "showCtfeContext",
 
         TOK.objcClassReference: "class",
+        TOK.vectorArray: "vectorarray",
     ];
 
     static assert(() {
@@ -713,26 +716,6 @@ extern (C++) struct Token
             //printf("keyword[%d] = '%s'\n",kw, tochars[kw].ptr);
             Identifier.idPool(tochars[kw].ptr, tochars[kw].length, cast(uint)kw);
         }
-    }
-
-    extern (D) private __gshared Token* freelist = null;
-
-    extern (D) static Token* alloc()
-    {
-        if (Token.freelist)
-        {
-            Token* t = freelist;
-            freelist = t.next;
-            t.next = null;
-            return t;
-        }
-        return new Token();
-    }
-
-    void free()
-    {
-        next = freelist;
-        freelist = &this;
     }
 
     int isKeyword() const

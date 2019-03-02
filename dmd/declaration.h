@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (C) 1999-2018 by The D Language Foundation, All Rights Reserved
+ * Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -246,11 +246,16 @@ public:
 
     VarDeclarations *maybes;    // STCmaybescope variables that are assigned to this STCmaybescope variable
 
+private:
+    bool _isAnonymous;
+
+public:
     Dsymbol *syntaxCopy(Dsymbol *);
     void setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion);
     const char *kind() const;
     AggregateDeclaration *isThis();
     bool needThis();
+    bool isAnonymous();
     bool isExport() const;
     bool isImportedSymbol() const;
     bool isDataseg();
@@ -462,6 +467,12 @@ void builtin_init();
 class FuncDeclaration : public Declaration
 {
 public:
+    struct HiddenParameters
+    {
+        VarDeclaration *this_;
+        VarDeclaration *selector;
+    };
+
     Types *fthrows;                     // Array of Type's of exceptions (not used)
     Statements *frequires;              // in contracts
     Ensures *fensures;                  // out contracts
@@ -503,7 +514,9 @@ public:
     DsymbolTable *localsymtab;
     VarDeclaration *vthis;              // 'this' parameter (member and nested)
     VarDeclaration *v_arguments;        // '_arguments' parameter
-    ObjcSelector* selector;             // Objective-C method selector (member function only)
+    ObjcSelector *selector;             // Objective-C method selector (member function only)
+    VarDeclaration *selectorParameter;  // Objective-C implicit selector parameter
+
     VarDeclaration *v_argptr;           // '_argptr' variable
     VarDeclarations *parameters;        // Array of VarDeclaration's for parameters
     DsymbolTable *labtab;               // statement label symbol table
@@ -576,7 +589,7 @@ public:
     bool functionSemantic();
     bool functionSemantic3();
     // called from semantic3
-    VarDeclaration *declareThis(Scope *sc, AggregateDeclaration *ad);
+    HiddenParameters declareThis(Scope *sc, AggregateDeclaration *ad);
     bool equals(RootObject *o);
 
     int overrides(FuncDeclaration *fd);
@@ -808,7 +821,7 @@ class NewDeclaration : public FuncDeclaration
 {
 public:
     Parameters *parameters;
-    int varargs;
+    VarArg varargs;
 
     Dsymbol *syntaxCopy(Dsymbol *);
     const char *kind() const;

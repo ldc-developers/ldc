@@ -172,69 +172,6 @@ void processVersions(std::vector<std::string> &list, const char *type,
   }
 }
 
-// Helper function to handle -transition=*
-void processTransitions(std::vector<std::string> &list) {
-  for (const auto &i : list) {
-    if (i == "?") {
-      printf("\n"
-             "Language changes listed by -transition=id:\n"
-             "  =all              list information on all language changes\n"
-             "  =field,3449       list all non-mutable fields which occupy an "
-             "object instance\n"
-             "  =import,10378     revert to single phase name lookup\n"
-             "  =dtorfields,14246 destruct fields of partially constructed "
-             "objects\n"
-             "  =checkimports     give deprecation messages about 10378 "
-             "anomalies\n"
-             "  =complex,14488    give deprecation messages about all usages "
-             "of complex or imaginary types\n"
-             "  =intpromote,16997 fix integral promotions for unary + - ~ "
-             "operators\n"
-             "  =tls              list all variables going into thread local "
-             "storage\n"
-             "  =fixAliasThis     when a symbol is resolved, check alias this "
-             "scope before going to upper scopes\n"
-             "  =markdown         enable Markdown replacements in Ddoc\n"
-             "  =vmarkdown        list instances of Markdown replacements in "
-             "Ddoc\n");
-      exit(EXIT_SUCCESS);
-    } else if (i == "all") {
-      global.params.vfield = true;
-      global.params.bug10378 = true;
-      global.params.dtorFields = true;
-      global.params.check10378 = true;
-      global.params.vcomplex = true;
-      global.params.fix16997 = true;
-      global.params.vtls = true;
-      global.params.fixAliasThis = true;
-      global.params.markdown = true;
-      global.params.vmarkdown = true;
-    } else if (i == "field" || i == "3449") {
-      global.params.vfield = true;
-    } else if (i == "import" || i == "10378") {
-      global.params.bug10378 = true;
-    } else if (i == "dtorfields" || i == "14246") {
-      global.params.dtorFields = true;
-    } else if (i == "checkimports") {
-      global.params.check10378 = true;
-    } else if (i == "complex" || i == "14488") {
-      global.params.vcomplex = true;
-    } else if (i == "intpromote" || i == "16997") {
-      global.params.fix16997 = true;
-    } else if (i == "tls") {
-      global.params.vtls = true;
-    } else if (i == "fixAliasThis") {
-      global.params.fixAliasThis = true;
-    } else if (i == "markdown") {
-      global.params.markdown = true;
-    } else if (i == "vmarkdown") {
-      global.params.vmarkdown = true;
-    } else {
-      error(Loc(), "Invalid transition %s", i.c_str());
-    }
-  }
-}
-
 template <int N> // option length incl. terminating null
 void tryParse(const llvm::SmallVectorImpl<const char *> &args, size_t i,
               const char *&output, const char (&option)[N]) {
@@ -306,8 +243,7 @@ void expandResponseFiles(llvm::BumpPtrAllocator &A,
 /// config file and sets up global.params accordingly.
 ///
 /// Returns a list of source file names.
-void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
-                      bool &helpOnly) {
+void parseCommandLine(int argc, char **argv, Strings &sourceFiles) {
   const auto &exePath = exe_path::getExePath();
   global.params.argv0 = {exePath.length(), exePath.data()};
 
@@ -346,8 +282,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
                               const_cast<char **>(allArguments.data()),
                               "LDC - the LLVM D compiler\n");
 
-  helpOnly = opts::printTargetFeaturesHelp();
-  if (helpOnly) {
+  if (opts::printTargetFeaturesHelp()) {
     auto triple = llvm::Triple(cfg_triple);
     std::string errMsg;
     if (auto target = lookupTarget("", triple, errMsg)) {
@@ -358,7 +293,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
       error(Loc(), "%s", errMsg.c_str());
       fatal();
     }
-    return;
+    exit(EXIT_SUCCESS);
   }
 
   if (!cfg_file.path().empty())
@@ -458,12 +393,18 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   processVersions(versions, "version", global.params.versionlevel,
                   global.params.versionids);
 
-  processTransitions(transitions);
+  for (const auto &id : transitions)
+    parseTransitionOption(global.params, id.c_str());
+  for (const auto &id : previews)
+    parsePreviewOption(global.params, id.c_str());
+  for (const auto &id : reverts)
+    parseRevertOption(global.params, id.c_str());
 
-  if (useDIP1000) {
+  // -preview=dip1000 implies -preview=dip25 too
+  if (global.params.vsafe)
     global.params.useDIP25 = true;
-    global.params.vsafe = true;
-  }
+  if (global.params.noDIP25)
+    global.params.useDIP25 = false;
 
   global.params.output_o =
       (opts::output_o == cl::BOU_UNSET &&
@@ -519,31 +460,6 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     }
   }
 
-  if (global.params.betterC) {
-    global.params.checkAction = CHECKACTION_C;
-    global.params.useModuleInfo = false;
-    global.params.useTypeInfo = false;
-    global.params.useExceptions = false;
-  }
-
-  if (global.params.useUnitTests &&
-      global.params.useAssert == CHECKENABLEdefault) {
-    global.params.useAssert = CHECKENABLEon;
-  }
-
-  // -release downgrades default checks
-  const auto defaultCheck = [](CHECKENABLE &param,
-                               CHECKENABLE releaseValue = CHECKENABLEoff) {
-    if (param == CHECKENABLEdefault)
-      param = global.params.release ? releaseValue : CHECKENABLEon;
-  };
-  defaultCheck(global.params.useInvariants);
-  defaultCheck(global.params.useIn);
-  defaultCheck(global.params.useOut);
-  defaultCheck(global.params.useArrayBounds, CHECKENABLEsafeonly);
-  defaultCheck(global.params.useAssert);
-  defaultCheck(global.params.useSwitchError);
-
   // LDC output determination
 
   // if we don't link and there's no `-output-*` switch but an `-of` one,
@@ -566,15 +482,6 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
       global.params.output_s = OUTPUTFLAGset;
       global.params.output_o = OUTPUTFLAGno;
     }
-  }
-
-  // only link if possible
-  if (!global.params.obj || !global.params.output_o || global.params.lib) {
-    global.params.link = false;
-  }
-
-  if (global.params.lib && global.params.dll) {
-    error(Loc(), "-lib and -shared switches cannot be used together");
   }
 
   if (soname.getNumOccurrences() > 0 && !global.params.dll) {
@@ -986,22 +893,12 @@ int cppmain(int argc, char **argv) {
 
   initializePasses();
 
-  bool helpOnly;
   Strings files;
-  parseCommandLine(argc, argv, files, helpOnly);
+  parseCommandLine(argc, argv, files);
 
-  if (helpOnly) {
-    return 0;
-  }
-
-  if (files.dim == 0) {
-    if (global.params.jsonFieldFlags) {
-      generateJson(nullptr);
-      return EXIT_SUCCESS;
-    }
-
+  if (argc == 1) {
     cl::PrintHelpMessage(/*Hidden=*/false, /*Categorized=*/true);
-    return EXIT_FAILURE;
+    exit(EXIT_FAILURE);
   }
 
   if (global.errors) {
@@ -1082,7 +979,7 @@ int cppmain(int argc, char **argv) {
   loadAllPlugins();
 
   Strings libmodules;
-  return mars_mainBody(files, libmodules);
+  return mars_mainBody(global.params, files, libmodules);
 }
 
 void codegenModules(Modules &modules) {

@@ -144,7 +144,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
 
   // Non-typesafe variadics (both C and D styles) are also variadics on the LLVM
   // level.
-  const bool isLLVMVariadic = (f->parameterList.varargs == VarArg::variadic);
+  const bool isLLVMVariadic = (f->parameterList.varargs == VARARGvariadic);
   if (isLLVMVariadic && f->linkage == LINKd) {
     // Add extra `_arguments` parameter for D-style variadic functions.
     newIrFty.arg_arguments =
@@ -173,7 +173,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     if (arg->storageClass & STClazy) {
       // Lazy arguments are lowered to delegates.
       Logger::println("lazy param");
-      auto ltf = TypeFunction::create(nullptr, arg->type, VarArg::none, LINKd);
+      auto ltf = TypeFunction::create(nullptr, arg->type, VARARGnone, LINKd);
       auto ltd = createTypeDelegate(ltf);
       loweredDType = ltd;
     } else if (passPointer) {
@@ -379,7 +379,7 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
         } else if (tempdecl->llvmInternal == LLVMinline_asm) {
           Logger::println("magic inline asm found");
           TypeFunction *tf = static_cast<TypeFunction *>(fdecl->type);
-          if (tf->parameterList.varargs != VarArg::variadic ||
+          if (tf->parameterList.varargs != VARARGvariadic ||
               (fdecl->parameters && fdecl->parameters->dim != 0)) {
             tempdecl->error("invalid `__asm` declaration, must be a D style "
                             "variadic with no explicit parameters");
@@ -1170,7 +1170,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   // D varargs: prepare _argptr and _arguments
-  if (f->linkage == LINKd && f->parameterList.varargs == VarArg::variadic) {
+  if (f->linkage == LINKd && f->parameterList.varargs == VARARGvariadic) {
     // allocate _argptr (of type core.stdc.stdarg.va_list)
     Type *const argptrType = typeSemantic(Type::tvalist, fd->loc, fd->_scope);
     LLValue *argptrMem = DtoAlloca(argptrType, "_argptr_mem");

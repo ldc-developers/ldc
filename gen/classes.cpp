@@ -169,7 +169,7 @@ void DtoInitClass(TypeClass *tc, LLValue *dst) {
   // Copy the rest from the static initializer, if any.
   unsigned const firstDataIdx = isCPPclass ? 1 : 2;
   uint64_t const dataBytes =
-      tc->sym->structsize - Target::ptrsize * firstDataIdx;
+      tc->sym->structsize - target.ptrsize * firstDataIdx;
   if (dataBytes == 0) {
     return;
   }

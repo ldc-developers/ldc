@@ -125,6 +125,12 @@ static cl::opt<bool, true>
                      cl::desc("Show errors from speculative compiles such as "
                               "__traits(compiles,...)"));
 
+static cl::opt<bool, true> printErrorContext(
+    "verrors-context", cl::ZeroOrMore,
+    cl::location(global.params.printErrorContext),
+    cl::desc(
+        "Show error messages with the context of the erroring source line"));
+
 static cl::opt<Diagnostic, true> warnings(
     cl::desc("Warnings:"), cl::ZeroOrMore, cl::location(global.params.warnings),
     clEnumValues(
@@ -137,6 +143,20 @@ static cl::opt<Diagnostic, true> warnings(
 static cl::opt<bool, true> ignoreUnsupportedPragmas(
     "ignore", cl::desc("Ignore unsupported pragmas"), cl::ZeroOrMore,
     cl::location(global.params.ignoreUnsupportedPragmas));
+
+static cl::opt<CppStdRevision, true> cplusplus(
+    "extern-std", cl::ZeroOrMore,
+    cl::desc("C++ standard for name mangling compatibility"),
+    cl::location(global.params.cplusplus),
+    clEnumValues(
+        clEnumValN(CppStdRevisionCpp98, "c++98",
+                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `199711`"),
+        clEnumValN(CppStdRevisionCpp11, "c++11",
+                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `201103`"),
+        clEnumValN(CppStdRevisionCpp14, "c++14",
+                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `201402`"),
+        clEnumValN(CppStdRevisionCpp17, "c++17",
+                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `201703`")));
 
 static cl::opt<ubyte, true> debugInfo(
     cl::desc("Generating debug information:"), cl::ZeroOrMore,
@@ -275,9 +295,17 @@ cl::list<std::string> versions(
     cl::desc("Compile in version code >= <level> or identified by <idents>"));
 
 cl::list<std::string> transitions(
-    "transition", cl::CommaSeparated, cl::value_desc("idents"),
-    cl::desc(
-        "Help with language change identified by <idents>, use ? for list"));
+    "transition", cl::CommaSeparated, cl::value_desc("id"),
+    cl::desc("Help with language change identified by <id>, use ? for list"));
+
+cl::list<std::string> previews("preview", cl::CommaSeparated,
+                               cl::value_desc("id"),
+                               cl::desc("Enable an upcoming language change "
+                                        "identified by <id>, use ? for list"));
+
+cl::list<std::string> reverts(
+    "revert", cl::CommaSeparated, cl::value_desc("id"),
+    cl::desc("Revert language change identified by <id>, use ? for list"));
 
 cl::list<std::string>
     linkerSwitches("L", cl::desc("Pass <linkerflag> to the linker"),
@@ -369,11 +397,13 @@ static cl::opt<CHECKACTION, true> checkAction(
     cl::init(CHECKACTION_D),
     clEnumValues(
         clEnumValN(CHECKACTION_D, "D",
-                   "Throw an unrecoverable Error (default)"),
+                   "Usual D behavior of throwing an AssertError"),
         clEnumValN(CHECKACTION_C, "C",
                    "Call the C runtime library assert failure function"),
         clEnumValN(CHECKACTION_halt, "halt",
-                   "Execute a halt instruction, terminating the program")));
+                   "Halt the program execution (very lightweight)"),
+        clEnumValN(CHECKACTION_context, "context",
+                   "Use D assert with context information (when available)")));
 
 static cl::opt<bool, true>
     release("release", cl::ZeroOrMore, cl::location(global.params.release),
@@ -424,16 +454,18 @@ cl::opt<unsigned, true> nestedTemplateDepth(
     cl::desc(
         "Set maximum number of nested template instantiations (experimental)"));
 
-cl::opt<bool, true> useDIP25("dip25", cl::ZeroOrMore,
-                             cl::location(global.params.useDIP25),
-                             cl::desc("Implement DIP25 (sealed references)"));
-
-cl::opt<bool> useDIP1000("dip1000", cl::ZeroOrMore,
-                         cl::desc("Implement DIP1000 (scoped pointers)"));
-
-cl::opt<bool, true> useDIP1008("dip1008", cl::ZeroOrMore,
-                               cl::location(global.params.ehnogc),
-                               cl::desc("Implement DIP1008 (@nogc Throwable)"));
+// legacy options superseded by `-preview=dip<N>`
+static cl::opt<bool, true>
+    useDIP25("dip25", cl::ZeroOrMore, cl::location(global.params.useDIP25),
+             cl::desc("Implement DIP25 (sealed references)"), cl::ReallyHidden);
+static cl::opt<bool, true>
+    useDIP1000("dip1000", cl::ZeroOrMore, cl::location(global.params.vsafe),
+               cl::desc("Implement DIP1000 (scoped pointers)"),
+               cl::ReallyHidden);
+static cl::opt<bool, true>
+    useDIP1008("dip1008", cl::ZeroOrMore, cl::location(global.params.ehnogc),
+               cl::desc("Implement DIP1008 (@nogc Throwable)"),
+               cl::ReallyHidden);
 
 cl::opt<bool, true> betterC(
     "betterC", cl::ZeroOrMore, cl::location(global.params.betterC),

@@ -76,7 +76,7 @@ LLType *getAbiType(Type *ty) {
   }
 
   if (argTypes.empty()) {
-    TypeTuple *tuple = Target::toArgTypes(ty);
+    TypeTuple *tuple = target.toArgTypes(ty);
     if (!tuple || tuple->arguments->empty()) {
       return nullptr; // don't rewrite
     }
@@ -97,7 +97,7 @@ LLType *getAbiType(Type *ty) {
 }
 
 bool passByVal(Type *ty) {
-  TypeTuple *argTypes = Target::toArgTypes(ty);
+  TypeTuple *argTypes = target.toArgTypes(ty);
   if (!argTypes) {
     return false;
   }

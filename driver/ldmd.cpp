@@ -158,97 +158,107 @@ Where:\n\
 \n\
 <option>:\n\
   @<cmdfile>       read arguments from cmdfile\n\
-  -allinst         generate code for all template instantiations\n\
-  -betterC         omit generating some runtime information and helper functions\n\
-  -boundscheck=[on|safeonly|off]   bounds checks on, in @safe only, or off\n\
-  -c               compile only, do not link\n\
-  -check=[assert|bounds|in|invariant|out|switch][=[on|off]]  Enable or disable specific checks\n\
-  -checkaction=D|C|halt  behavior on assert/boundscheck/finalswitch failure\n\
-  -color           turn colored console output on\n\
-  -color=[on|off|auto]  force colored console output on or off, or only when not redirected (default)\n\
-  -conf=<filename> use config file at filename\n\
-  -cov             do code coverage analysis\n\
-  -cov=<nnn>       require at least nnn%% code coverage\n\
-  -D               generate documentation\n\
-  -Dd<directory>   write documentation file to directory\n\
-  -Df<filename>    write documentation file to filename\n\
-  -d               silently allow deprecated features and symbols\n\
-  -dw              issue a message when deprecated features or symbols are used (default)\n\
-  -de              issue an error when deprecated features or symbols are used (halt compilation)\n\
-  -debug           compile in debug code\n\
-  -debug=<level>   compile in debug code <= level\n\
-  -debug=<ident>   compile in debug code identified by ident\n\
-  -debuglib=<name> set symbolic debug library to name\n\
+  -allinst          generate code for all template instantiations\n\
+  -betterC          omit generating some runtime information and helper functions\n\
+  -boundscheck=[on|safeonly|off]\n\
+                    bounds checks on, in @safe only, or off\n\
+  -c                compile only, do not link\n\
+  -check=[assert|bounds|in|invariant|out|switch][=[on|off]]\n\
+                    Enable or disable specific checks\n\
+  -checkaction=[D|C|halt|context]\n\
+                    behavior on assert/boundscheck/finalswitch failure\n\
+  -color            turn colored console output on\n\
+  -color=[on|off|auto]\n\
+                    force colored console output on or off, or only when not redirected (default)\n\
+  -conf=<filename>  use config file at filename\n\
+  -cov              do code coverage analysis\n\
+  -cov=<nnn>        require at least nnn%% code coverage\n\
+  -D                generate documentation\n\
+  -Dd<directory>    write documentation file to directory\n\
+  -Df<filename>     write documentation file to filename\n\
+  -d                silently allow deprecated features and symbols\n\
+  -dw               issue a message when deprecated features or symbols are used (default)\n\
+  -de               issue an error when deprecated features or symbols are used (halt compilation)\n\
+  -debug            compile in debug code\n\
+  -debug=<level>    compile in debug code <= level\n\
+  -debug=<ident>    compile in debug code identified by ident\n\
+  -debuglib=<name>  set symbolic debug library to name\n\
   -defaultlib=<name>\n\
-                   set default library to name\n\
-  -deps            print module dependencies (imports/file/version/debug/lib)\n\
-  -deps=<filename> write module dependencies to filename (only imports)\n\
-  -fPIC            generate position independent code\n\
-  -dip25           implement https://github.com/dlang/DIPs/blob/master/DIPs/archive/DIP25.md\n\
-  -dip1000         implement https://github.com/dlang/DIPs/blob/master/DIPs/DIP1000.md\n\
-  -dip1008         implement https://github.com/dlang/DIPs/blob/master/DIPs/DIP1008.md\n\
-  -g               add symbolic debug info\n\
-  -gf              emit debug info for all referenced types\n\
-  -gs              always emit stack frame\n"
+                    set default library to name\n\
+  -deps             print module dependencies (imports/file/version/debug/lib)\n\
+  -deps=<filename>  write module dependencies to filename (only imports)\n\
+  -extern-std=<standard>\n\
+                    set C++ name mangling compatibility with <standard>\n\
+  -fPIC             generate position independent code\n\
+  -g                add symbolic debug info\n\
+  -gf               emit debug info for all referenced types\n\
+  -gs               always emit stack frame\n"
 #if 0
-"  -gx              add stack stomp code\n"
+"  -gx               add stack stomp code\n"
 #endif
-"  -H               generate 'header' file\n\
-  -Hd=<directory>  write 'header' file to directory\n\
-  -Hf=<filename>   write 'header' file to filename\n\
-  --help           print help and exit\n\
-  -I=<directory>   look for imports also in directory\n\
-  -i[=<pattern>]   include imported modules in the compilation\n\
-  -ignore          ignore unsupported pragmas\n\
-  -inline          do function inlining\n\
-  -J=<directory>   look for string imports also in directory\n\
-  -L=<linkerflag>  pass linkerflag to link\n\
-  -lib             generate library rather than object files\n\
-  -m32             generate 32 bit code\n"
+"  -H                generate 'header' file\n\
+  -Hd=<directory>   write 'header' file to directory\n\
+  -Hf=<filename>    write 'header' file to filename\n\
+  --help            print help and exit\n\
+  -I=<directory>    look for imports also in directory\n\
+  -i[=<pattern>]    include imported modules in the compilation\n\
+  -ignore           ignore unsupported pragmas\n\
+  -inline           do function inlining\n\
+  -J=<directory>    look for string imports also in directory\n\
+  -L=<linkerflag>   pass linkerflag to link\n\
+  -lib              generate library rather than object files\n\
+  -m32              generate 32 bit code\n"
 #if 0
-"  -m32mscoff       generate 32 bit code and write MS-COFF object files\n"
+"  -m32mscoff        generate 32 bit code and write MS-COFF object files\n"
 #endif
-"  -m64             generate 64 bit code\n\
-  -main            add default main() (e.g. for unittesting)\n\
-  -man             open web browser on manual page\n"
+"  -m64              generate 64 bit code\n\
+  -main             add default main() (e.g. for unittesting)\n\
+  -man              open web browser on manual page\n"
 #if 0
-"  -map             generate linker .map file\n"
+"  -map              generate linker .map file\n"
 #endif
-"  -mcpu=<id>       generate instructions for architecture identified by 'id'\n\
-  -mcpu=?          list all architecture options\n\
-  -mixin=<filename>  expand and save mixins to file specified by <filename>\n\
-  -mscrtlib=<name> MS C runtime library to reference from main/WinMain/DllMain\n\
-  -mv=<package.module>=<filespec>  use <filespec> as source file for <package.module>\n\
-  -noboundscheck   no array bounds checking (deprecated, use -boundscheck=off)\n\
-  -O               optimize\n\
-  -o-              do not write object file\n\
-  -od=<directory>  write object & library files to directory\n\
-  -of=<filename>   name output file to filename\n\
-  -op              preserve source path for output files\n"
+"  -mcpu=<id>        generate instructions for architecture identified by 'id'\n\
+  -mcpu=[h|help|?]  list all architecture options\n\
+  -mixin=<filename> expand and save mixins to file specified by <filename>\n\
+  -mscrtlib=<name>  MS C runtime library to reference from main/WinMain/DllMain\n\
+  -mv=<package.module>=<filespec>\n\
+                    use <filespec> as source file for <package.module>\n\
+  -noboundscheck    no array bounds checking (deprecated, use -boundscheck=off)\n\
+  -O                optimize\n\
+  -o-               do not write object file\n\
+  -od=<directory>   write object & library files to directory\n\
+  -of=<filename>    name output file to filename\n\
+  -op               preserve source path for output files\n\
+  -preview=<id>     enable an upcoming language change identified by 'id'\n\
+  -preview=?        list all upcoming language changes\n"
 #if 0
-"  -profile         profile runtime performance of generated code\n\
-  -profile=gc      profile runtime allocations\n"
+"  -profile          profile runtime performance of generated code\n\
+  -profile=gc       profile runtime allocations\n"
 #endif
-"  -release         compile release version\n\
-  -run <srcfile>   compile, link, and run the program srcfile\n\
-  -shared          generate shared library (DLL)\n\
-  -transition=<id> help with language change identified by 'id'\n\
-  -transition=?    list all language changes\n\
-  -unittest        compile in unit tests\n\
-  -v               verbose\n\
-  -vcolumns        print character (column) numbers in diagnostics\n\
-  -vdmd            print the command used to invoke the underlying compiler\n\
-  -verrors=<num>   limit the number of error messages (0 means unlimited)\n\
-  -verrors=spec    show errors from speculative compiles such as __traits(compiles,...)\n\
-  --version        print compiler version and exit\n\
-  -version=<level> compile in version code >= level\n\
-  -version=<ident> compile in version code identified by ident\n\
-  -vgc             list all gc allocations including hidden ones\n\
-  -vtls            list all variables going into thread local storage\n\
-  -w               warnings as errors (compilation will halt)\n\
-  -wi              warnings as messages (compilation will continue)\n\
-  -X               generate JSON file\n\
-  -Xf=<filename>   write JSON file to filename\n\n",
+"  -release          compile release version\n\
+  -revert=<id>      revert language change identified by 'id'\n\
+  -revert=?         list all revertable language changes\n\
+  -run <srcfile>    compile, link, and run the program srcfile\n\
+  -shared           generate shared library (DLL)\n\
+  -transition=<id>  help with language change identified by 'id'\n\
+  -transition=[h|help|?]\n\
+                    list all language changes\n\
+  -unittest         compile in unit tests\n\
+  -v                verbose\n\
+  -vcolumns         print character (column) numbers in diagnostics\n\
+  -vdmd             print the underlying LDC command line\n\
+  -verrors=<num>    limit the number of error messages (0 means unlimited)\n\
+  -verrors=spec     show errors from speculative compiles such as __traits(compiles,...)\n\
+  -verrors=context  show error messages with the context of the erroring source line\n\
+  --version         print compiler version and exit\n\
+  -version=<level>  compile in version code >= level\n\
+  -version=<ident>  compile in version code identified by ident\n\
+  -vgc              list all gc allocations including hidden ones\n\
+  -vtls             list all variables going into thread local storage\n\
+  -w                warnings as errors (compilation will halt)\n\
+  -wi               warnings as messages (compilation will continue)\n\
+  -X                generate JSON file\n\
+  -Xf=<filename>    write JSON file to filename\n",
       argv0, argv0);
 }
 
@@ -365,7 +375,6 @@ void translateArgs(size_t originalArgc, char **originalArgv,
   ldcArgs.push_back("-ldmd");
 
   bool vdmd = false;
-  bool noFiles = true;
   bool pic = false; // -fPIC already encountered?
 
   for (size_t i = 1; i < args.size(); i++) {
@@ -500,31 +509,34 @@ void translateArgs(size_t originalArgc, char **originalArgv,
           ldcArgs.push_back(p);
         } else if (startsWith(p + 9, "spec")) {
           ldcArgs.push_back("-verrors-spec");
+        } else if (startsWith(p + 9, "context")) {
+          ldcArgs.push_back("-verrors-context");
         } else {
           goto Lerror;
         }
-      } else if (strcmp(p + 1, "mcpu=?") == 0) {
-        const char *mcpuargs[] = {ldcPath.c_str(), "-mcpu=help", nullptr};
-        execute(ldcPath, mcpuargs);
-        exit(EXIT_SUCCESS);
       } else if (startsWith(p + 1, "mcpu=")) {
-        if (strcmp(p + 6, "baseline") == 0) {
+        const char *c = p + 6;
+        if (strcmp(c, "?") == 0 || strcmp(c, "h") == 0 ||
+            strcmp(c, "help") == 0) {
+          const char *mcpuargs[] = {ldcPath.c_str(), "-mcpu=help", nullptr};
+          execute(ldcPath, mcpuargs);
+          exit(EXIT_SUCCESS);
+        } else if (strcmp(c, "baseline") == 0) {
           // ignore
-        } else if (strcmp(p + 6, "avx") == 0) {
+        } else if (strcmp(c, "avx") == 0) {
           ldcArgs.push_back("-mattr=+avx");
-        } else if (strcmp(p + 6, "avx2") == 0) {
+        } else if (strcmp(c, "avx2") == 0) {
           ldcArgs.push_back("-mattr=+avx2");
-        } else if (strcmp(p + 6, "native") == 0) {
+        } else if (strcmp(c, "native") == 0) {
           ldcArgs.push_back(p);
         } else {
           goto Lerror;
         }
-      } else if (strcmp(p + 1, "transition=?") == 0) {
-        const char *transitionargs[] = {ldcPath.c_str(), p, nullptr};
-        execute(ldcPath, transitionargs);
-        exit(EXIT_SUCCESS);
       }
-      /* -transition=<id>
+      /* -extern-std
+       * -transition
+       * -preview
+       * -revert
        * -w
        * -wi
        * -O
@@ -645,11 +657,9 @@ void translateArgs(size_t originalArgc, char **originalArgv,
         exit(EXIT_SUCCESS);
       } else if (strcmp(p + 1, "run") == 0) {
         ldcArgs.insert(ldcArgs.end(), args.begin() + i, args.end());
-        noFiles = (i == args.size() - 1);
         break;
       } else if (p[1] == '\0') {
         ldcArgs.push_back("-");
-        noFiles = false;
       } else if (p[1] == 'C') {
         ldcArgs.push_back(concat("-", p + 2));
       } else {
@@ -675,19 +685,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
       }
 #endif
       ldcArgs.push_back(p);
-      noFiles = false;
     }
-  }
-
-  // at least one file is mandatory, except when `-Xi=…` is used
-  if (noFiles && std::find_if(args.begin(), args.end(), [](const char *arg) {
-                   return startsWith(arg, "-Xi=");
-                 }) == args.end()) {
-    printUsage(originalArgv[0], ldcPath);
-    if (originalArgc == 1)
-      exit(EXIT_FAILURE); // compatible with DMD
-    else
-      error("No source file specified.");
   }
 
   if (vdmd) {
@@ -749,6 +747,11 @@ int cppmain(int argc, char **argv) {
   const std::string ldcPath = locateBinary(ldcExeName);
   if (ldcPath.empty()) {
     error("Could not locate " LDC_EXE_NAME " executable.");
+  }
+
+  if (argc == 1) {
+    printUsage(argv[0], ldcPath);
+    exit(EXIT_FAILURE);
   }
 
   // We need to manually set up argv[0] and the terminating NULL.
