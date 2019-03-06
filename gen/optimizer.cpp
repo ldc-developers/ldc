@@ -126,7 +126,7 @@ bool willCrossModuleInline() {
   return enableCrossModuleInlining == llvm::cl::BOU_TRUE;
 }
 
-#if LDC_LLVM_VER >= 900
+#if LDC_LLVM_VER >= 800
 llvm::FramePointer::FP whichFramePointersToEmit() {
   auto option = opts::framePointerUsage();
   if (option)
