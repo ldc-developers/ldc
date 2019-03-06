@@ -77,11 +77,11 @@ unittest
  *      The bit number of the first bit set.
  *      The return value is undefined if v is zero.
  */
+pragma(inline, true) // LDC
 int bsf(uint v) pure
 {
   version (LDC)
   {
-    pragma(inline, true);
     if (!__ctfe)
         return cast(int) llvm_cttz(v, true);
   }
@@ -93,13 +93,13 @@ int bsf(uint v) pure
 }
 
 /// ditto
+pragma(inline, true) // LDC
 int bsf(ulong v) pure
 {
     static if (size_t.sizeof == ulong.sizeof)  // 64 bit code gen
     {
       version (LDC)
       {
-        pragma(inline, true);
         if (!__ctfe)
             return cast(int) llvm_cttz(v, true);
       }
@@ -143,11 +143,11 @@ unittest
  *      The bit number of the first bit set.
  *      The return value is undefined if v is zero.
  */
+pragma(inline, true) // LDC
 int bsr(uint v) pure
 {
   version (LDC)
   {
-    pragma(inline, true);
     if (!__ctfe)
         return cast(int) (typeof(v).sizeof * 8 - 1 - llvm_ctlz(v, true));
   }
@@ -159,13 +159,13 @@ int bsr(uint v) pure
 }
 
 /// ditto
+pragma(inline, true) // LDC
 int bsr(ulong v) pure
 {
     static if (size_t.sizeof == ulong.sizeof)  // 64 bit code gen
     {
       version (LDC)
       {
-        pragma(inline, true);
         if (!__ctfe)
             return cast(int) (size_t.sizeof * 8 - 1 - llvm_ctlz(v, true));
       }
@@ -709,12 +709,12 @@ version (LDC)
 /**
  *  Calculates the number of set bits in an integer.
  */
+pragma(inline, true) // LDC
 int popcnt(uint x) pure
 {
     // Select the fastest method depending on the compiler and CPU architecture
     version (LDC)
     {
-        pragma(inline, true);
         if (!__ctfe)
             return _popcnt(x);
     }
@@ -747,12 +747,12 @@ unittest
 }
 
 /// ditto
+pragma(inline, true) // LDC
 int popcnt(ulong x) pure
 {
     // Select the fastest method depending on the compiler and CPU architecture
     version (LDC)
     {
-        pragma(inline, true);
         if (!__ctfe)
             return _popcnt(x);
     }

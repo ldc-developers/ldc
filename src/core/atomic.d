@@ -1641,11 +1641,10 @@ else version (AsmX86_64)
 // floats and doubles to ints and longs, atomically loads them, then puns
 // them back.  This is necessary so that they get returned in floating
 // point instead of integer registers.
+pragma(inline, true) // LDC
 TailShared!T atomicLoad(MemoryOrder ms = MemoryOrder.seq, T)( ref const shared T val ) pure nothrow @nogc @trusted
 if (__traits(isFloating, T))
 {
-    version (LDC) pragma(inline, true);
-
     static if (T.sizeof == int.sizeof)
     {
         static assert(is(T : float));
