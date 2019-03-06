@@ -129,15 +129,6 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
     return false;
   }
 
-  // TODO: Fix inlining functions from object.d. Currently errors because of
-  // TypeInfo type-mismatch issue (TypeInfo classes get special treatment by the
-  // compiler). To start working on it: comment-out this check and druntime will
-  // fail to compile.
-  if (fdecl.getModule()->ident == Id::object) {
-    IF_LOG Logger::println("Inlining of object.d functions is disabled");
-    return false;
-  }
-
   if (fdecl.semanticRun >= PASSsemantic3) {
     // If semantic analysis has come this far, the function will be defined
     // elsewhere and should not get the available_externally attribute from
