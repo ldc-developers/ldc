@@ -11,8 +11,7 @@ int foo(size_t i)
 {
     // core.bitop.bsf() is force-inlined
     import core.bitop;
-    // FIXME: The OPT0 check is disabled for now, because cross-module inlining is disabled fully (also for `pragma(inline, true)` functions).
-    // O PT0: call {{.*}} @llvm.cttz
+    // OPT0: call {{.*}} @llvm.cttz
     // OPT3: call {{.*}} @llvm.cttz
     return bsf(i);
     // OPT0: ret

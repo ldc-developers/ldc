@@ -89,15 +89,6 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
   IF_LOG Logger::println("Enter defineAsExternallyAvailable");
   LOG_SCOPE
 
-  // FIXME: For now, disable all cross-module inlining (also of pragma(inline, true)
-  // functions). This check should be removed when cross-module inlining has
-  // become more stable.
-  // There are related `FIXME`s in a few lit-based `codegen/inlining_*.d` tests.
-  if (!willCrossModuleInline()) {
-    IF_LOG Logger::println("Cross-module inlining fully disabled.");
-    return false;
-  }
-
   // Implementation note: try to do cheap checks first.
 
   if (fdecl.neverInline || fdecl.inlining == PINLINEnever) {
