@@ -59,7 +59,7 @@ not currently integrated into the project release process):
 | Snap         | `snap install --classic --channel=edge ldc2` |
 | Nix/NixOS    | `nix-env -i ldc`                             |
 | Chocolatey   | `choco ldc`                                  |
-| Docker       | `docker pull dlanguage/ldc`                  |
+| Docker       | `docker pull dlang2/ldc-ubuntu`              |
 
 #### Targeting Android
 
