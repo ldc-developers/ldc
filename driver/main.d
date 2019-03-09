@@ -13,23 +13,14 @@
 
 module driver.main;
 
-import dmd.globals;
-import dmd.root.file;
-import dmd.root.outbuffer;
-
 // In driver/main.cpp
 extern(C++) int cppmain(int argc, char **argv);
 
-/+ Having a main() in D-source solves a few issues with building/linking with
- + DMD on Windows, with the extra benefit of implicitly initializing the D runtime.
+/+ We use this manual D main for druntime initialization via a manual
+ + _d_run_main() call in the C main() in driver/main.cpp.
  +/
-int main()
+extern(C) int _Dmain(string[])
 {
-    // For now, even just the frontend does not work with GC enabled, so we need
-    // to disable it entirely.
-    import core.memory;
-    GC.disable();
-
     import core.runtime;
     auto args = Runtime.cArgs();
     return cppmain(args.argc, cast(char**)args.argv);

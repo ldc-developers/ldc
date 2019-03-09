@@ -77,6 +77,9 @@ struct IrFuncTyArg {
    *               LLVM Type will be of DtoType(type->pointerTo()), instead
    *               of just DtoType(type) */
   IrFuncTyArg(Type *t, bool byref, AttrBuilder attrs = AttrBuilder());
+  IrFuncTyArg(const IrFuncTyArg &) = delete;
+
+  ~IrFuncTyArg();
 };
 
 // represents a function type

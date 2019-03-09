@@ -3095,6 +3095,8 @@ struct AsmProcessor {
       }
     }
 
+    mem.addRange(asmcode->args.data(), asmcode->args.size() * sizeof(AsmArg));
+
     asmcode->insnTemplate = insnTemplate.str();
     Logger::cout() << "insnTemplate = " << asmcode->insnTemplate << '\n';
     return true;

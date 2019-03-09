@@ -75,17 +75,11 @@
 #include <windows.h>
 #endif
 
-// From druntime/src/core/runtime.d.
-extern "C" {
-int rt_init();
-}
-
 // In dmd/doc.d
 void gendocfile(Module *m);
 
 // In dmd/mars.d
 void generateJson(Modules *modules);
-extern "C" void flushMixins();
 
 using namespace opts;
 
@@ -96,6 +90,12 @@ static cl::list<std::string, StringsAdapter>
     importPaths("I", cl::desc("Look for imports also in <directory>"),
                 cl::value_desc("directory"), cl::location(impPathsStore),
                 cl::Prefix);
+
+// Note: this option is parsed manually in C main().
+static cl::opt<bool> enableGC(
+    "lowmem", cl::ZeroOrMore,
+    cl::desc("Enable the garbage collector for the LDC front-end. This reduces "
+             "the compiler memory requirements but increases compile times."));
 
 // This function exits the program.
 void printVersion(llvm::raw_ostream &OS) {
@@ -336,12 +336,6 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles) {
       global.params.hdrdir || global.params.hdrname;
 
   opts::initFromPathString(global.params.mixinFile, mixinFile);
-  if (global.params.mixinFile) {
-    global.params.mixinOut = new OutBuffer;
-    // DMD uses atexit() too, so that the file is written when exiting via
-    // fatal() etc. too.
-    atexit(&flushMixins);
-  }
 
   if (moduleDeps.getNumOccurrences() != 0) {
     global.params.moduleDeps = new OutBuffer;
@@ -873,10 +867,61 @@ void registerPredefinedVersions() {
 #undef STR
 }
 
+extern "C" {
+// in driver/main.d:
+int _Dmain(/*string[] args*/);
+
+// in druntime:
+int _d_run_main(int argc, char **argv, int (*dMain)());
+void gc_disable();
+}
+
+/// LDC's entry point, C main.
+/// Without `-lowmem`, we need to switch to the bump-pointer allocation scheme
+/// right from the start, before any module ctors are run, so we need this hook
+/// before druntime is initialized and `_Dmain` is called.
+int main(int argc, char **argv) {
+  bool lowmem = false;
+  for (int i = 1; i < argc; ++i) {
+    if (strncmp(argv[i], "-lowmem", 7) == 0) {
+      auto remainder = argv[i] + 7;
+      if (remainder[0] == 0) {
+        lowmem = true;
+      } else if (remainder[0] == '=') {
+        lowmem = strcmp(remainder + 1, "true") == 0 ||
+                 strcmp(remainder + 1, "TRUE") == 0;
+      }
+    }
+  }
+
+  if (!lowmem)
+    mem.disableGC();
+
+  // Initialize druntime; _Dmain() just calls cppmain() below with the original
+  // C args.
+  return _d_run_main(argc, argv, _Dmain);
+}
+
 int cppmain(int argc, char **argv) {
   llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
 
+  // Older host druntime versions need druntime to be initialized before
+  // disabling the GC, so we cannot disable it in C main above.
+  if (!mem.isGCEnabled)
+    gc_disable();
+
   exe_path::initialize(argv[0]);
+
+  // Filter out druntime options in the cmdline, e.g., to configure the GC.
+  std::vector<char *> filteredArgs;
+  filteredArgs.reserve(argc);
+  for (int i = 0; i < argc; ++i) {
+    if (strncmp(argv[i], "--DRT-", 6) != 0)
+      filteredArgs.push_back(argv[i]);
+  }
+
+  argc = static_cast<int>(filteredArgs.size());
+  argv = filteredArgs.data();
 
   global._init();
   global.version = ldc::dmd_version;

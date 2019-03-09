@@ -38,8 +38,6 @@ static llvm::cl::opt<std::string>
     clConf("conf", llvm::cl::desc("Use configuration file <filename>"),
            llvm::cl::value_desc("filename"), llvm::cl::ZeroOrMore);
 
-ConfigFile ConfigFile::instance;
-
 #if _WIN32
 std::string getUserHomeDirectory() {
   char buff[MAX_PATH];
