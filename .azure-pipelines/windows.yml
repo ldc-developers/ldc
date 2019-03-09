@@ -92,15 +92,15 @@ steps:
     mkdir build
     cd build
     cmake -G Ninja %BUILD_SOURCESDIRECTORY% -DCMAKE_C_COMPILER:PATH=clang-cl.exe -DCMAKE_CXX_COMPILER:PATH=clang-cl.exe -DCMAKE_BUILD_TYPE=Release %EXTRA_CMAKE_FLAGS% -DCMAKE_INSTALL_PREFIX=%INSTALL_DIR% -DINCLUDE_INSTALL_DIR=%INSTALL_DIR%/import -DLLVM_ROOT_DIR=%CD%/../llvm -DD_COMPILER=%CD%/../bootstrap-ldc/bin/ldmd2
-    ninja -j2 all all-test-runners
+    ninja -j2 all ldc2-unittest all-test-runners
     bin\ldc2 --version
-  displayName: Build LDC & defaultlib unittest runners
+  displayName: Build LDC & LDC D unittests & defaultlib unittest runners
 - script: |
     cd ..
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     cd build
     ctest --output-on-failure -R "ldc2-unittest"
-  displayName: Build & run LDC D unittests
+  displayName: Run LDC D unittests
   condition: succeededOrFailed()
 - script: |
     cd ..

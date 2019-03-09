@@ -29,7 +29,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Instrumentation.h"
-#if LDC_LLVM_VER >= 900
+#if LDC_LLVM_VER >= 800
 #include "llvm/Transforms/Instrumentation/MemorySanitizer.h"
 #include "llvm/Transforms/Instrumentation/ThreadSanitizer.h"
 #endif
@@ -126,13 +126,12 @@ bool willCrossModuleInline() {
   return enableCrossModuleInlining == llvm::cl::BOU_TRUE;
 }
 
-#if LDC_LLVM_VER >= 900
+#if LDC_LLVM_VER >= 800
 llvm::FramePointer::FP whichFramePointersToEmit() {
-  auto option = opts::framePointerUsage();
-  if (option)
+  if (auto option = opts::framePointerUsage())
     return *option;
-  else
-    return isOptimizationEnabled() ? llvm::FramePointer::None : llvm::FramePointer::All;
+  return isOptimizationEnabled() ? llvm::FramePointer::None
+                                 : llvm::FramePointer::All;
 }
 #else
 bool willEliminateFramePointer() {
@@ -193,7 +192,7 @@ static void addAddressSanitizerPasses(const PassManagerBuilder &Builder,
 
 static void addMemorySanitizerPass(const PassManagerBuilder &Builder,
                                    PassManagerBase &PM) {
-#if LDC_LLVM_VER >= 900
+#if LDC_LLVM_VER >= 800
   PM.add(createMemorySanitizerLegacyPassPass());
 #else
   PM.add(createMemorySanitizerPass());
@@ -214,7 +213,7 @@ static void addMemorySanitizerPass(const PassManagerBuilder &Builder,
 
 static void addThreadSanitizerPass(const PassManagerBuilder &Builder,
                                    PassManagerBase &PM) {
-#if LDC_LLVM_VER >= 900
+#if LDC_LLVM_VER >= 800
   PM.add(createThreadSanitizerLegacyPassPass());
 #else
   PM.add(createThreadSanitizerPass());

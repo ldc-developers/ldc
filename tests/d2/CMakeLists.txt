@@ -41,7 +41,7 @@ function(add_testsuite config_name required_flags gdbflags model)
         COMMAND ${GNU_MAKE_BIN} -k -C ${workingdir} RESULTS_DIR=${resultsdir}
                      REQUIRED_ARGS=${required_flags} DFLAGS=${dflags}
                      DMD=${LDMD_EXE_FULL} MODEL=${model} GDB_FLAGS=${gdbflags}
-                     quick
+                     ARGS= start_all_tests
     )
     set_tests_properties(${name} PROPERTIES DEPENDS clean-${name})
 endfunction()

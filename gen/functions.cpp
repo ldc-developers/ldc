@@ -469,7 +469,7 @@ void applyTargetMachineAttributes(llvm::Function &func,
   func.addFnAttr("no-infs-fp-math", TO.NoInfsFPMath ? "true" : "false");
   func.addFnAttr("no-nans-fp-math", TO.NoNaNsFPMath ? "true" : "false");
 
-#if LDC_LLVM_VER >= 900
+#if LDC_LLVM_VER >= 800
   switch (whichFramePointersToEmit()) {
     case llvm::FramePointer::None:
       func.addFnAttr("no-frame-pointer-elim", "false");

@@ -26,7 +26,7 @@ config.plugins_supported   = "@LDC_ENABLE_PLUGINS@" == "ON"
 config.gnu_make_bin        = "@GNU_MAKE_BIN@"
 config.ldc_host_arch       = "@LDC_HOST_ARCH@"
 config.ldc_with_lld        = "@LDC_WITH_LLD@" == "ON"
-config.spirv_enabled       = @LLVM_SPIRV_FOUND@ +0 # LLVM_SPIRV_FOUND is blank if not set
+config.spirv_enabled       = "@LLVM_SPIRV_FOUND@" == "ON"
 config.rt_supports_sanitizers = "@RT_SUPPORT_SANITIZERS@" == "ON"
 
 config.name = 'LDC'
@@ -211,7 +211,7 @@ if (platform.system() != 'Windows') and lit.util.which('gdb', config.environment
     config.substitutions.append( ('%_gdb_dflags', gdb_dflags) )
 
 # Add substitutions for functionality across different LLVM versions
-if config.llvm_version >= 900:
+if config.llvm_version >= 800:
     config.substitutions.append( ('%disable_fp_elim', '-frame-pointer=all') )
     config.substitutions.append( ('%enable_fp_elim', '-frame-pointer=none') )
 else:

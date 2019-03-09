@@ -1,5 +1,5 @@
 variables:
-  LLVM_VERSION: 2b593f4b
+  LLVM_VERSION: e686260a
   HOST_LDC_VERSION: 1.14.0
 
 jobs:

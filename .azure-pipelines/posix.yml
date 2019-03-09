@@ -80,9 +80,9 @@ steps:
       -DCMAKE_INSTALL_PREFIX=$installDir \
       -DINCLUDE_INSTALL_DIR=$installDir/import \
       $EXTRA_CMAKE_FLAGS
-    ninja -j$PARALLEL_JOBS all all-test-runners
+    ninja -j$PARALLEL_JOBS all ldc2-unittest all-test-runners
     bin/ldc2 -version
-  displayName: Build LDC & defaultlib unittest runners
+  displayName: Build LDC & LDC D unittests & defaultlib unittest runners
 - script: |
     set -e
     cd ..
@@ -105,7 +105,7 @@ steps:
     set -e
     cd ../build
     ctest --output-on-failure -R "ldc2-unittest"
-  displayName: Build & run LDC D unittests
+  displayName: Run LDC D unittests
   condition: succeededOrFailed()
 - script: |
     set -e
@@ -137,7 +137,6 @@ steps:
     cd build
     ninja install > /dev/null
     cd ..
-    LDC_INSTALL_DIR=$PWD/ldc2-x64
     perl -pi -e s?$PWD/install/?%%ldcbinarypath%%/../?g install/etc/ldc2.conf
     cat install/etc/ldc2.conf
     cp $BUILD_SOURCESDIRECTORY/LICENSE install

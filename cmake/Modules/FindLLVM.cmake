@@ -28,7 +28,8 @@
 # We also want an user-specified LLVM_ROOT_DIR to take precedence over the
 # system default locations such as /usr/local/bin. Executing find_program()
 # multiples times is the approach recommended in the docs.
-set(llvm_config_names llvm-config-8.0 llvm-config80
+set(llvm_config_names llvm-config-9.0 llvm-config90
+                      llvm-config-8.0 llvm-config80
                       llvm-config-7.0 llvm-config70
                       llvm-config-6.0 llvm-config60
                       llvm-config-5.0 llvm-config50
@@ -109,16 +110,13 @@ else()
     # The LLVM version string _may_ contain a git/svn suffix, so cut that off
     string(SUBSTRING "${LLVM_VERSION_STRING}" 0 5 LLVM_VERSION_BASE_STRING)
 
-    # Versions below 3.9 do not support components debuginfocodeview, globalisel, ipa
-    list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfocodeview" index)
-    list(REMOVE_ITEM LLVM_FIND_COMPONENTS "globalisel" index)
-    list(REMOVE_ITEM LLVM_FIND_COMPONENTS "ipa" index)
-    if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-9][\\.0-9A-Za-z]*")
-        # Versions below 4.0 do not support component debuginfomsf
+    # Versions below 4.0 do not support components debuginfomsf and demangle
+    if(${LLVM_VERSION_STRING} MATCHES "^3\\..*")
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfomsf" index)
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "demangle" index)
     endif()
+    # Versions below 6.0 do not support component windowsmanifest
     if(${LLVM_VERSION_STRING} MATCHES "^[3-5]\\..*")
-        # Versions below 6.0 do not support component windowsmanifest
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "windowsmanifest" index)
     endif()
 
@@ -137,8 +135,8 @@ else()
         endif()
     endif()
 
-    if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-9][\\.0-9A-Za-z]*")
-        # Versions below 4.0 do not support llvm-config --cmakedir
+    # Versions below 4.0 do not support llvm-config --cmakedir
+    if(${LLVM_VERSION_STRING} MATCHES "^3\\..*")
         set(LLVM_CMAKEDIR ${LLVM_LIBRARY_DIRS}/cmake/llvm)
     else()
         llvm_set(CMAKEDIR cmakedir)

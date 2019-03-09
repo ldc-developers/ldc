@@ -23,7 +23,7 @@ llvm::Optional<llvm::CodeModel::Model> getCodeModel();
 #else
 llvm::CodeModel::Model getCodeModel();
 #endif
-#if LDC_LLVM_VER >= 900
+#if LDC_LLVM_VER >= 800
 llvm::Optional<llvm::FramePointer::FP> framePointerUsage();
 #else
 llvm::cl::boolOrDefault disableFPElim();
