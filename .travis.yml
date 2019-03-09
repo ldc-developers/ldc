@@ -126,6 +126,7 @@ script:
     # The -lowmem tests don't work with an ltsmaster host compiler.
     if [[ "$(${DC} --version | head -n 1)" == *0.17.* ]]; then
       rm tests/d2/dmd-testsuite/runnable/{testptrref,xtest46}_gc.d;
+      rm tests/d2/dmd-testsuite/fail_compilation/mixin_gc.d;
     fi
   - DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R "dmd-testsuite"
   # Run defaultlib unittests & druntime stand-alone tests.

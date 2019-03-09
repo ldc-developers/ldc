@@ -80,7 +80,6 @@ void gendocfile(Module *m);
 
 // In dmd/mars.d
 void generateJson(Modules *modules);
-extern "C" void flushMixins();
 
 using namespace opts;
 
@@ -337,12 +336,6 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles) {
       global.params.hdrdir || global.params.hdrname;
 
   opts::initFromPathString(global.params.mixinFile, mixinFile);
-  if (global.params.mixinFile) {
-    global.params.mixinOut = new OutBuffer;
-    // DMD uses atexit() too, so that the file is written when exiting via
-    // fatal() etc. too.
-    atexit(&flushMixins);
-  }
 
   if (moduleDeps.getNumOccurrences() != 0) {
     global.params.moduleDeps = new OutBuffer;
