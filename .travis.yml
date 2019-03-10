@@ -110,7 +110,13 @@ script:
       rm tests/d2/dmd-testsuite/runnable/{testptrref,xtest46}_gc.d
       rm tests/d2/dmd-testsuite/fail_compilation/mixin_gc.d
     fi
-  - DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R "dmd-testsuite"
+    # The Mac boxes are too slow and time out after 50 mins most of the time.
+    # So skip dmd-testsuite (release), only run dmd-testsuite-debug.
+    if [ "$TRAVIS_OS_NAME" = "osx" ]; then
+      DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R "dmd-testsuite-debug"
+    else
+      DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R "dmd-testsuite"
+    fi
   # Run defaultlib unittests & druntime stand-alone tests
   - ctest -j3 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
 
