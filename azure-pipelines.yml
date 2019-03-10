@@ -2,6 +2,12 @@ variables:
   LLVM_VERSION: e686260a
   HOST_LDC_VERSION: 1.14.0
 
+# Although tags are supposed to trigger builds by default, they don't.
+trigger:
+  tags:
+    include:
+      - v*
+
 jobs:
 - job: Windows
   timeoutInMinutes: 120
