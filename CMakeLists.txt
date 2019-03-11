@@ -517,35 +517,6 @@ if(LLVM_ENABLE_ASSERTIONS)
 endif()
 
 #
-# Check if libpthread is available.
-# FIXME: Guard with LLVM_ENABLE_THREADS
-#
-if( NOT WIN32 OR CYGWIN )
-    check_include_file(pthread.h HAVE_PTHREAD_H)
-    check_library_exists(pthread pthread_create "" HAVE_LIBPTHREAD)
-    if(HAVE_LIBPTHREAD)
-        set(PTHREAD_LIBS -lpthread)
-    endif()
-endif()
-
-#
-# Check if terminfo is available.
-# FIXME: Guard with LLVM_ENABLE_TERMINFO
-#
-if( NOT WIN32 OR CYGWIN )
-    set(HAVE_TERMINFO 0)
-    foreach(library tinfo terminfo curses ncurses ncursesw)
-        string(TOUPPER ${library} library_suffix)
-        check_library_exists(${library} setupterm "" HAVE_TERMINFO_${library_suffix})
-        if(HAVE_TERMINFO_${library_suffix})
-            set(HAVE_TERMINFO 1)
-            set(TERMINFO_LIBS "${library}")
-        break()
-        endif()
-    endforeach()
-endif()
-
-#
 # Enable instrumentation for code coverage analysis
 #
 set(TEST_COVERAGE OFF CACHE BOOL "instrument compiler for code coverage analysis")
@@ -585,7 +556,7 @@ set_target_properties(
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
-target_link_libraries(${LDC_LIB} ${LLVM_LIBRARIES} ${PTHREAD_LIBS} ${TERMINFO_LIBS} ${LLVM_LDFLAGS})
+target_link_libraries(${LDC_LIB} ${LLVM_LIBRARIES} ${LLVM_LDFLAGS})
 if(WIN32)
     target_link_libraries(${LDC_LIB} imagehlp psapi)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
