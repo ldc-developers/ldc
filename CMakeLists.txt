@@ -343,7 +343,7 @@ else()
     if(NOT HASH STREQUAL "GITDIR-NOTFOUND")
         # Append git hash to LDC_VERSION
         string(SUBSTRING "${HASH}" 0 7 LDC_VERSION_HASH)
-        set(LDC_VERSION "${LDC_VERSION}git-${LDC_VERSION_HASH}")
+        set(LDC_VERSION "${LDC_VERSION}-git-${LDC_VERSION_HASH}")
 
         # Append "-dirty" when the working copy is dirty
         git_describe(GIT_DIRTY --dirty)

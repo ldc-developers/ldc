@@ -16,6 +16,8 @@ ctest --output-on-failure -R ldc2-unittest || EC=1
 ctest -V -R lit-tests || EC=1
 
 # DMD testsuite
+# HACK: use -lowmem when building the tools in parallel
+sed -i -e 's|DEBUG_FLAGS=$(PIC_FLAG) -g|DEBUG_FLAGS=$(PIC_FLAG) -g -lowmem|' ../tests/d2/dmd-testsuite/Makefile
 DMD_TESTSUITE_MAKE_ARGS=-j4 ctest -V -R dmd-testsuite || EC=1
 
 # Build & run defaultlib debug unittests.
