@@ -103,20 +103,14 @@ script:
   - ctest --output-on-failure -R "ldc2-unittest"
   # Run LIT testsuite
   - ctest -V -R "lit-tests"
-  # Run DMD testsuite
+  # Run DMD testsuite (release only, i.e., no dmd-testsuite-debug, to reduce time-outs)
   - |
     # The -lowmem tests don't work with an ltsmaster host compiler
     if [[ "$($DC --version | head -n 1)" == *0.17.* ]]; then
       rm tests/d2/dmd-testsuite/runnable/{testptrref,xtest46}_gc.d
       rm tests/d2/dmd-testsuite/fail_compilation/mixin_gc.d
     fi
-    # The Mac boxes are too slow and time out after 50 mins most of the time.
-    # So skip dmd-testsuite (release), only run dmd-testsuite-debug.
-    if [ "$TRAVIS_OS_NAME" = "osx" ]; then
-      DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R "dmd-testsuite-debug"
-    else
-      DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R "dmd-testsuite"
-    fi
+    DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R "dmd-testsuite" -E "-debug$"
   # Run defaultlib unittests & druntime stand-alone tests
   - ctest -j3 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
 
