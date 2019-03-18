@@ -116,7 +116,7 @@ jobs:
       xcode: "9.2.0"
     environment:
       - CI_OS: osx
-      - LLVM_VERSION: 7.0.1
+      - LLVM_VERSION: 8.0.0
       - HOST_LDC_VERSION: 1.14.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
   macOS-x64-sharedLibsOnly:
@@ -125,7 +125,7 @@ jobs:
       xcode: "9.2.0"
     environment:
       - CI_OS: osx
-      - LLVM_VERSION: 7.0.1
+      - LLVM_VERSION: 8.0.0
       - HOST_LDC_VERSION: 1.14.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON"
 
