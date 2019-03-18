@@ -4,11 +4,8 @@ variables:
 
 # Although tags are supposed to trigger builds by default, they don't.
 trigger:
-  branches:
-    include: ['*']
-  tags:
-    include:
-      - v*
+- '*'
+- refs/tags/v*
 
 jobs:
 - job: Windows
