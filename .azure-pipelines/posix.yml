@@ -38,7 +38,7 @@ steps:
     if [ "${BUILD_SOURCEBRANCH:0:10}" != "refs/tags/" ]; then
       assertsSuffix="-withAsserts"
     fi
-    curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/CI/llvm-$LLVM_VERSION-$CI_OS-x86_64$assertsSuffix.tar.xz
+    curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$CI_OS-x86_64$assertsSuffix.tar.xz
     mkdir llvm
     tar -xf llvm.tar.xz --strip 1 -C llvm
     # Set PARALLEL_JOBS env variable and persist it for future steps

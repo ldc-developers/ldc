@@ -1,14 +1,11 @@
 variables:
-  LLVM_VERSION: 6d501ba0
+  LLVM_VERSION: 8.0.0
   HOST_LDC_VERSION: 1.14.0
 
 # Although tags are supposed to trigger builds by default, they don't.
 trigger:
-  branches:
-    include: ['*']
-  tags:
-    include:
-      - v*
+- '*'
+- refs/tags/v*
 
 jobs:
 - job: Windows
