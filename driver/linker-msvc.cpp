@@ -213,6 +213,11 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
   args.push_back("comdlg32.lib");
   args.push_back("advapi32.lib");
 
+  // these get pulled in by druntime (rt/msvc.c); include explicitly for
+  // -betterC convenience (issue #3035)
+  args.push_back("oldnames.lib");
+  args.push_back("legacy_stdio_definitions.lib");
+
   Logger::println("Linking with: ");
   Stream logstr = Logger::cout();
   for (const auto &arg : args) {
