@@ -325,7 +325,7 @@ int createStaticLibrary() {
   for (auto objfile : global.params.objfiles) {
     args.push_back(objfile);
   }
-  
+
   // user libs
   for (auto libfile : global.params.libfiles) {
     args.push_back(libfile);
