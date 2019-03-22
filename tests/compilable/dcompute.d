@@ -5,7 +5,6 @@
 //  - typeid generated for hashing of struct (typeid(const(T))) is ignored and does not error
 
 // REQUIRES: target_NVPTX
-// REQUIRES: dcompute_RTInfo_fix
 // RUN: %ldc -mdcompute-targets=cuda-350 -g %s
 
 @compute(CompileFor.deviceOnly) module dcompute;
