@@ -465,6 +465,7 @@ extern (C++) abstract class Type : RootObject
     extern (C++) __gshared ClassDeclaration typeinfowild;
 
     extern (C++) __gshared TemplateDeclaration rtinfo;
+    version (IN_LLVM) extern (C++) __gshared TemplateDeclaration rtinfoImpl;
 
     extern (C++) __gshared Type[TMAX] basic;
 
