@@ -6,6 +6,9 @@ git:
 
 matrix:
   include:
+    - os: linux
+      d: ldc
+      env: LLVM_VERSION=8.0.0 OPTS="-DBUILD_SHARED_LIBS=ON"
     # FIXME: strange crashes, possibly due to C++ compiler mismatch
     #- os: linux
     #  d: ldc
@@ -25,7 +28,7 @@ matrix:
     - os: osx
       osx_image: xcode9.2
       d: dmd
-      env: LLVM_VERSION=7.0.0 OPTS="-DBUILD_SHARED_LIBS=ON"
+      env: LLVM_VERSION=8.0.0 OPTS="-DBUILD_SHARED_LIBS=ON"
     - os: osx
       osx_image: xcode9.2
       d: ldc-beta
@@ -33,6 +36,7 @@ matrix:
 
 cache:
   directories:
+    - llvm-8.0.0
     - llvm-7.0.1
     - llvm-7.0.0
     - llvm-6.0.1
