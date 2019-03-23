@@ -231,6 +231,9 @@ public:
     static ClassDeclaration *typeinfowild;
 
     static TemplateDeclaration *rtinfo;
+#if IN_LLVM
+    static TemplateDeclaration *rtinfoImpl;
+#endif
 
     static Type *basic[TMAX];
 

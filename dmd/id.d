@@ -490,6 +490,7 @@ immutable Msgtable[] msgtable =
     { "dcompute" },
     { "dcPointer", "Pointer" },
     { "dcReflect", "__dcompute_reflect" },
+    { "RTInfoImpl" },
 ];
 
 

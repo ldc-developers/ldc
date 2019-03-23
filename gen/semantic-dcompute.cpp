@@ -231,11 +231,20 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     IF_LOG Logger::println("current function = %s", fd->toChars());
     currentFunction = fd;
   }
-    
+
   void visit(TemplateDeclaration*) override {
     // Don't try to analyse uninstansiated templates.
     stop = true;
   }
+
+  void visit(TemplateInstance *ti) override {
+    // object.RTInfo(Impl) template instantiations are skipped during codegen,
+    // as they contain unsupported global variables.
+    if (ti->tempdecl == Type::rtinfo || ti->tempdecl == Type::rtinfoImpl) {
+      stop = true;
+    }
+  }
+
   // Override the default assert(0) behavior of Visitor:
   void visit(Statement *) override {}   // do nothing
   void visit(Expression *) override {}  // do nothing

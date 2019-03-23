@@ -386,6 +386,15 @@ public:
         Logger::println("Does not need codegen, skipping.");
         return;
       }
+
+      if (irs->dcomputetarget && (decl->tempdecl == Type::rtinfo ||
+                                  decl->tempdecl == Type::rtinfoImpl)) {
+        // Emitting object.RTInfo(Impl) template instantiations in dcompute
+        // modules would require dcompute support for global variables.
+        Logger::println("Skipping object.RTInfo(Impl) template instantiations "
+                        "in dcompute modules.");
+        return;
+      }
     }
 
     for (auto &m : *decl->members) {
