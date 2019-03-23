@@ -1405,6 +1405,7 @@ private bool arrayExpressionToCommonType(Scope* sc, Expressions* exps, Type* pt)
     Type t0 = null;
     Expression e0 = null;
     size_t j0 = ~0;
+    bool foundType;
 
     for (size_t i = 0; i < exps.dim; i++)
     {
@@ -1421,6 +1422,7 @@ private bool arrayExpressionToCommonType(Scope* sc, Expressions* exps, Type* pt)
         }
         if (e.op == TOK.type)
         {
+            foundType = true; // do not break immediately, there might be more errors
             e.checkValue(); // report an error "type T has no value"
             t0 = Type.terror;
             continue;
@@ -1439,7 +1441,7 @@ private bool arrayExpressionToCommonType(Scope* sc, Expressions* exps, Type* pt)
 
         e = doCopyOrMove(sc, e);
 
-        if (t0 && !t0.equals(e.type))
+        if (!foundType && t0 && !t0.equals(e.type))
         {
             /* This applies ?: to merge the types. It's backwards;
              * ?: should call this function to merge types.
@@ -1852,7 +1854,7 @@ private bool functionParameters(const ref Loc loc, Scope* sc,
             break;
     }
     if ((wildmatch == MODFlags.mutable || wildmatch == MODFlags.immutable_) &&
-        tf.next.hasWild() &&
+        tf.next && tf.next.hasWild() &&
         (tf.isref || !tf.next.implicitConvTo(tf.next.immutableOf())))
     {
         bool errorInout(MOD wildmatch)
@@ -3685,7 +3687,11 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
         {
             printf("VarExp::semantic(%s)\n", e.toChars());
         }
-        if (auto fd = e.var.isFuncDeclaration())
+
+        auto vd = e.var.isVarDeclaration();
+        auto fd = e.var.isFuncDeclaration();
+
+        if (fd)
         {
             //printf("L%d fd = %s\n", __LINE__, f.toChars());
             if (!fd.functionSemantic())
@@ -3695,7 +3701,14 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
         if (!e.type)
             e.type = e.var.type;
         if (e.type && !e.type.deco)
+        {
+            auto decl = e.var.isDeclaration();
+            if (decl)
+                decl.inuse++;
             e.type = e.type.typeSemantic(e.loc, sc);
+            if (decl)
+                decl.inuse--;
+        }
 
         /* Fix for 1161 doesn't work because it causes protection
          * problems when instantiating imported templates passing private
@@ -3703,7 +3716,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
          */
         //checkAccess(loc, sc, NULL, var);
 
-        if (auto vd = e.var.isVarDeclaration())
+        if (vd)
         {
             if (vd.checkNestedReference(sc, e.loc))
                 return setError();
@@ -3713,7 +3726,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
             // the purity violation error is redundant.
             //checkPurity(sc, vd);
         }
-        else if (auto fd = e.var.isFuncDeclaration())
+        else if (fd)
         {
             // TODO: If fd isn't yet resolved its overload, the checkNestedReference
             // call would cause incorrect validation.
