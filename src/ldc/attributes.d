@@ -221,6 +221,14 @@ struct llvmFastMathFlag
 enum naked = llvmAttr("naked");
 
 /**
+ * Adds LLVM's "noalias" attribute to a function parameter, with semantics
+ * very similar to C99 "restrict".
+ * The parameter needs to boil down to a pointer, e.g., be a D pointer, class
+ * reference or a `ref` parameter.
+ */
+enum restrict = llvmAttr("noalias");
+
+/**
  * Sets the optimization strategy for a function.
  * Valid strategies are "none", "optsize", "minsize". The strategies are mutually exclusive.
  *
