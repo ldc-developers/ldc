@@ -603,6 +603,11 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   // add func to IRFunc
   irFunc->setLLVMFunc(func);
 
+  // First apply the TargetMachine attributes, such that they can be overridden
+  // by UDAs.
+  applyTargetMachineAttributes(*func, *gTargetMachine);
+  applyFuncDeclUDAs(fdecl, irFunc);
+
   // parameter attributes
   if (!DtoIsIntrinsic(fdecl)) {
     applyParamAttrsToLLFunc(f, getIrFunc(fdecl)->irFty, func);
@@ -610,11 +615,6 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
       func->addFnAttr(LLAttribute::NoRedZone);
     }
   }
-
-  // First apply the TargetMachine attributes, such that they can be overridden
-  // by UDAs.
-  applyTargetMachineAttributes(*func, *gTargetMachine);
-  applyFuncDeclUDAs(fdecl, irFunc);
 
   if(irFunc->isDynamicCompiled()) {
     declareDynamicCompiledFunction(gIR, irFunc);

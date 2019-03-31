@@ -46,7 +46,7 @@ struct IrFuncTyArg {
 
   /// The index of the declaration in the FuncDeclaration::parameters array
   /// corresponding to this argument.
-  size_t parametersIdx = 0;
+  size_t parametersIdx = -1;
 
   /// This is the final LLVM Type used for the parameter/return value type
   llvm::Type *ltype = nullptr;

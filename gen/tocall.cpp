@@ -121,7 +121,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
   const size_t formalLLArgCount = irFty.args.size();
 
   // Number of formal arguments in the D call expression (excluding varargs).
-  const int formalDArgCount = Parameter::dim(formalParams);
+  const size_t formalDArgCount = Parameter::dim(formalParams);
 
   // The number of explicit arguments in the D call expression (including
   // varargs), not all of which necessarily generate a LLVM argument.
@@ -167,8 +167,10 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
 
     // Make sure to evaluate argument expressions for which there's no LL
     // parameter (e.g., empty structs for some ABIs).
-    for (; dArgIndex < irArg->parametersIdx; ++dArgIndex) {
-      toElem(argexps[dArgIndex]);
+    if (irArg->parametersIdx < formalDArgCount) {
+      for (; dArgIndex < irArg->parametersIdx; ++dArgIndex) {
+        toElem(argexps[dArgIndex]);
+      }
     }
 
     Expression *const argexp = argexps[dArgIndex];
