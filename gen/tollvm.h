@@ -54,8 +54,8 @@ bool DtoIsInMemoryOnly(Type *type);
 // address as additional parameter to the callee, which will set it up.
 bool DtoIsReturnInArg(CallExp *ce);
 
-// should argument be zero or sign extended
-LLAttribute DtoShouldExtend(Type *type);
+// Adds an appropriate attribute if the type should be zero or sign extended.
+void DtoAddExtendAttr(Type *type, llvm::AttrBuilder &attrs);
 
 // tuple helper
 // takes a arguments list and makes a struct type out of them

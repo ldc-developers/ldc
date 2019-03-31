@@ -133,11 +133,13 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
     Type *argType = argexps[i]->type;
     bool passByVal = gABI->passByVal(irFty.type, argType);
 
-    AttrBuilder initialAttrs;
+    llvm::AttrBuilder initialAttrs;
     if (passByVal) {
-      initialAttrs.addByVal(DtoAlignment(argType));
+      initialAttrs.addAttribute(LLAttribute::ByVal);
+      if (auto alignment = DtoAlignment(argType))
+        initialAttrs.addAlignmentAttr(alignment);
     } else {
-      initialAttrs.add(DtoShouldExtend(argType));
+      DtoAddExtendAttr(argType, initialAttrs);
     }
 
     optionalIrArgs.push_back(new IrFuncTyArg(argType, passByVal, initialAttrs));
@@ -711,7 +713,7 @@ private:
     attrs.addToParam(index, irFty.arg_sret->attrs);
 
     // verify that sret and/or inreg attributes are set
-    const AttrBuilder &sretAttrs = irFty.arg_sret->attrs;
+    const auto &sretAttrs = irFty.arg_sret->attrs;
     (void)sretAttrs;
     assert((sretAttrs.contains(LLAttribute::StructRet) ||
             sretAttrs.contains(LLAttribute::InReg)) &&

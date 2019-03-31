@@ -72,7 +72,8 @@ struct PPC64LETargetABI : TargetABI {
         compositeToArray64.applyTo(arg);
       }
     } else if (ty->isintegral()) {
-      arg.attrs.add(ty->isunsigned() ? LLAttribute::ZExt : LLAttribute::SExt);
+      arg.attrs.addAttribute(ty->isunsigned() ? LLAttribute::ZExt
+                                              : LLAttribute::SExt);
     }
   }
 };

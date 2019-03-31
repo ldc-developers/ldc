@@ -214,10 +214,12 @@ struct IndirectByvalRewrite : ABIRewrite {
 
     // the copy is treated as a local variable of the callee
     // hence add the NoAlias and NoCapture attributes
-    arg.attrs.clear()
-        .add(LLAttribute::NoAlias)
-        .add(LLAttribute::NoCapture)
-        .addAlignment(DtoAlignment(arg.type));
+    auto &attrs = arg.attrs;
+    attrs.clear();
+    attrs.addAttribute(LLAttribute::NoAlias);
+    attrs.addAttribute(LLAttribute::NoCapture);
+    if (auto alignment = DtoAlignment(arg.type))
+      attrs.addAlignmentAttr(alignment);
   }
 };
 

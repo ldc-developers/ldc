@@ -156,15 +156,16 @@ struct X86TargetABI : TargetABI {
       // try an implicit argument...
       if (fty.arg_this) {
         Logger::println("Putting 'this' in register");
-        fty.arg_this->attrs.add(LLAttribute::InReg);
+        fty.arg_this->attrs.addAttribute(LLAttribute::InReg);
       } else if (fty.arg_nest) {
         Logger::println("Putting context ptr in register");
-        fty.arg_nest->attrs.add(LLAttribute::InReg);
+        fty.arg_nest->attrs.addAttribute(LLAttribute::InReg);
       } else if (IrFuncTyArg *sret = fty.arg_sret) {
         Logger::println("Putting sret ptr in register");
         // sret and inreg are incompatible, but the ABI requires the
         // sret parameter to be in EAX in this situation...
-        sret->attrs.remove(LLAttribute::StructRet).add(LLAttribute::InReg);
+        sret->attrs.removeAttribute(LLAttribute::StructRet);
+        sret->attrs.addAttribute(LLAttribute::InReg);
       }
 
       // ... otherwise try the last argument
@@ -181,7 +182,7 @@ struct X86TargetABI : TargetABI {
 
         if (last->byref && !last->isByVal()) {
           Logger::println("Putting last (byref) parameter in register");
-          last->attrs.add(LLAttribute::InReg);
+          last->attrs.addAttribute(LLAttribute::InReg);
         } else if (!lastTy->isfloating() && (sz == 1 || sz == 2 || sz == 4)) {
           // rewrite aggregates as integers to make inreg work
           if (lastTy->ty == Tstruct || lastTy->ty == Tsarray) {
@@ -190,7 +191,7 @@ struct X86TargetABI : TargetABI {
             last->byref = false;
             last->attrs.clear();
           }
-          last->attrs.add(LLAttribute::InReg);
+          last->attrs.addAttribute(LLAttribute::InReg);
         }
       }
 
@@ -242,7 +243,7 @@ struct X86TargetABI : TargetABI {
     if (isMSVC) {
       for (auto arg : args) {
         if (arg->isByVal())
-          arg->attrs.remove(LLAttribute::Alignment);
+          arg->attrs.removeAttribute(LLAttribute::Alignment);
       }
     }
   }
