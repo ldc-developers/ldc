@@ -402,8 +402,8 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
     features.push_back("+cx16");
   }
 
-#if LDC_LLVM_VER >= 700
-  // FIXME: https://bugs.llvm.org/show_bug.cgi?id=38289
+#if LDC_LLVM_VER >= 700 && LDC_LLVM_VER < 800
+  // https://bugs.llvm.org/show_bug.cgi?id=38289
   if (isOptimizationEnabled() && (cpu == "x86-64" || cpu == "i686") &&
       !hasFeature("ssse3")) {
     features.push_back("+ssse3");
