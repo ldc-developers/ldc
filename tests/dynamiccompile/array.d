@@ -20,9 +20,17 @@ __gshared int[555] arr2 = 42;
   return arr2[3];
 }
 
+@dynamicCompile int baz()
+{
+  // Large stack array to force compiler to emit __chkstk call
+  int[4 * 1024] a;
+  return a[3 * 1024];
+}
+
 void main(string[] args)
 {
   compileDynamicCode();
   assert(42 == foo());
   assert(0  == bar());
+  assert(0  == baz());
 }
