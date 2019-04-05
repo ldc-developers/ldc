@@ -121,7 +121,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
   const size_t formalLLArgCount = irFty.args.size();
 
   // Number of formal arguments in the D call expression (excluding varargs).
-  const int formalDArgCount = Parameter::dim(formalParams);
+  const size_t formalDArgCount = Parameter::dim(formalParams);
 
   // The number of explicit arguments in the D call expression (including
   // varargs), not all of which necessarily generate a LLVM argument.
@@ -133,11 +133,13 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
     Type *argType = argexps[i]->type;
     bool passByVal = gABI->passByVal(irFty.type, argType);
 
-    AttrBuilder initialAttrs;
+    llvm::AttrBuilder initialAttrs;
     if (passByVal) {
-      initialAttrs.addByVal(DtoAlignment(argType));
+      initialAttrs.addAttribute(LLAttribute::ByVal);
+      if (auto alignment = DtoAlignment(argType))
+        initialAttrs.addAlignmentAttr(alignment);
     } else {
-      initialAttrs.add(DtoShouldExtend(argType));
+      DtoAddExtendAttr(argType, initialAttrs);
     }
 
     optionalIrArgs.push_back(new IrFuncTyArg(argType, passByVal, initialAttrs));
@@ -165,8 +167,10 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
 
     // Make sure to evaluate argument expressions for which there's no LL
     // parameter (e.g., empty structs for some ABIs).
-    for (; dArgIndex < irArg->parametersIdx; ++dArgIndex) {
-      toElem(argexps[dArgIndex]);
+    if (irArg->parametersIdx < formalDArgCount) {
+      for (; dArgIndex < irArg->parametersIdx; ++dArgIndex) {
+        toElem(argexps[dArgIndex]);
+      }
     }
 
     Expression *const argexp = argexps[dArgIndex];
@@ -711,7 +715,7 @@ private:
     attrs.addToParam(index, irFty.arg_sret->attrs);
 
     // verify that sret and/or inreg attributes are set
-    const AttrBuilder &sretAttrs = irFty.arg_sret->attrs;
+    const auto &sretAttrs = irFty.arg_sret->attrs;
     (void)sretAttrs;
     assert((sretAttrs.contains(LLAttribute::StructRet) ||
             sretAttrs.contains(LLAttribute::InReg)) &&

@@ -46,14 +46,14 @@ struct IrFuncTyArg {
 
   /// The index of the declaration in the FuncDeclaration::parameters array
   /// corresponding to this argument.
-  size_t parametersIdx = 0;
+  size_t parametersIdx = -1;
 
   /// This is the final LLVM Type used for the parameter/return value type
   llvm::Type *ltype = nullptr;
 
   /** These are the final LLVM attributes used for the function.
    *  Must be valid for the LLVM Type and byref setting */
-  AttrBuilder attrs;
+  llvm::AttrBuilder attrs;
 
   /** 'true' if the final LLVM argument is a LLVM reference type.
    *  Must be true when the D Type is a value type, but the final
@@ -76,7 +76,7 @@ struct IrFuncTyArg {
    *  @param byref Initial value for the 'byref' field. If true the initial
    *               LLVM Type will be of DtoType(type->pointerTo()), instead
    *               of just DtoType(type) */
-  IrFuncTyArg(Type *t, bool byref, AttrBuilder attrs = AttrBuilder());
+  IrFuncTyArg(Type *t, bool byref, llvm::AttrBuilder attrs = {});
   IrFuncTyArg(const IrFuncTyArg &) = delete;
 
   ~IrFuncTyArg();

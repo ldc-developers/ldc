@@ -207,19 +207,19 @@ void applyAttrAllocSize(StructLiteralExp *sle, IrFunction *irFunc) {
 
 // @llvmAttr("key", "value")
 // @llvmAttr("key")
-void applyAttrLLVMAttr(StructLiteralExp *sle, llvm::Function *func) {
+void applyAttrLLVMAttr(StructLiteralExp *sle, llvm::AttrBuilder &attrs) {
   checkStructElems(sle, {Type::tstring, Type::tstring});
   llvm::StringRef key = getStringElem(sle, 0);
   llvm::StringRef value = getStringElem(sle, 1);
   if (value.empty()) {
     const auto kind = llvm::getAttrKindFromName(key);
     if (kind != llvm::Attribute::None) {
-      func->addFnAttr(kind);
+      attrs.addAttribute(kind);
     } else {
-      func->addFnAttr(key);
+      attrs.addAttribute(key);
     }
   } else {
-    func->addFnAttr(key, value);
+    attrs.addAttribute(key, value);
   }
 }
 
@@ -407,48 +407,85 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
 }
 
 void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
-  if (!decl->userAttribDecl)
-    return;
+  // function UDAs
+  if (decl->userAttribDecl) {
+    llvm::Function *func = irFunc->getLLVMFunc();
+    assert(func);
 
-  llvm::Function *func = irFunc->getLLVMFunc();
-  assert(func);
+    Expressions *attrs = decl->userAttribDecl->getAttributes();
+    expandTuples(attrs);
+    for (auto &attr : *attrs) {
+      auto sle = getLdcAttributesStruct(attr);
+      if (!sle)
+        continue;
 
-  Expressions *attrs = decl->userAttribDecl->getAttributes();
-  expandTuples(attrs);
-  for (auto &attr : *attrs) {
-    auto sle = getLdcAttributesStruct(attr);
-    if (!sle)
+      auto ident = sle->sd->ident;
+      if (ident == Id::udaAllocSize) {
+        applyAttrAllocSize(sle, irFunc);
+      } else if (ident == Id::udaLLVMAttr) {
+        llvm::AttrBuilder attrs;
+        applyAttrLLVMAttr(sle, attrs);
+#if LDC_LLVM_VER >= 500
+        func->addAttributes(LLAttributeSet::FunctionIndex, attrs);
+#else
+        AttrSet attrSet;
+        attrSet.addToFunction(attrs);
+        func->addAttributes(LLAttributeSet::FunctionIndex, attrSet);
+#endif
+      } else if (ident == Id::udaLLVMFastMathFlag) {
+        applyAttrLLVMFastMathFlag(sle, irFunc);
+      } else if (ident == Id::udaOptStrategy) {
+        applyAttrOptStrategy(sle, irFunc);
+      } else if (ident == Id::udaSection) {
+        applyAttrSection(sle, func);
+      } else if (ident == Id::udaTarget) {
+        applyAttrTarget(sle, func, irFunc);
+      } else if (ident == Id::udaAssumeUsed) {
+        applyAttrAssumeUsed(*gIR, sle, func);
+      } else if (ident == Id::udaWeak || ident == Id::udaKernel) {
+        // @weak and @kernel are applied elsewhere
+      } else if (ident == Id::udaDynamicCompile) {
+        irFunc->dynamicCompile = true;
+      } else if (ident == Id::udaDynamicCompileEmit) {
+        irFunc->dynamicCompileEmit = true;
+      } else if (ident == Id::udaDynamicCompileConst) {
+        sle->error(
+            "Special attribute `ldc.attributes.%s` is only valid for variables",
+            ident->toChars());
+      } else {
+        sle->warning(
+            "Ignoring unrecognized special attribute `ldc.attributes.%s`",
+            ident->toChars());
+      }
+    }
+  }
+
+  // parameter UDAs
+  auto parameterList = irFunc->type->parameterList;
+  for (auto arg : irFunc->irFty.args) {
+    if (arg->parametersIdx >= parameterList.length())
       continue;
 
-    auto ident = sle->sd->ident;
-    if (ident == Id::udaAllocSize) {
-      applyAttrAllocSize(sle, irFunc);
-    } else if (ident == Id::udaLLVMAttr) {
-      applyAttrLLVMAttr(sle, func);
-    } else if (ident == Id::udaLLVMFastMathFlag) {
-      applyAttrLLVMFastMathFlag(sle, irFunc);
-    } else if (ident == Id::udaOptStrategy) {
-      applyAttrOptStrategy(sle, irFunc);
-    } else if (ident == Id::udaSection) {
-      applyAttrSection(sle, func);
-    } else if (ident == Id::udaTarget) {
-      applyAttrTarget(sle, func, irFunc);
-    } else if (ident == Id::udaAssumeUsed) {
-      applyAttrAssumeUsed(*gIR, sle, func);
-    } else if (ident == Id::udaWeak || ident == Id::udaKernel) {
-      // @weak and @kernel are applied elsewhere
-    } else if (ident == Id::udaDynamicCompile) {
-      irFunc->dynamicCompile = true;
-    } else if (ident == Id::udaDynamicCompileEmit) {
-      irFunc->dynamicCompileEmit = true;
-    } else if (ident == Id::udaDynamicCompileConst) {
-      sle->error(
-          "Special attribute `ldc.attributes.%s` is only valid for variables",
-          ident->toChars());
-    } else {
-      sle->warning(
-          "Ignoring unrecognized special attribute `ldc.attributes.%s`",
-          ident->toChars());
+    auto param =
+        Parameter::getNth(parameterList.parameters, arg->parametersIdx);
+    if (!param->userAttribDecl)
+      continue;
+
+    Expressions *attrs = param->userAttribDecl->getAttributes();
+    expandTuples(attrs);
+    for (auto &attr : *attrs) {
+      auto sle = getLdcAttributesStruct(attr);
+      if (!sle)
+        continue;
+
+      auto ident = sle->sd->ident;
+      if (ident == Id::udaLLVMAttr) {
+        applyAttrLLVMAttr(sle, arg->attrs);
+      } else {
+        sle->warning("Ignoring unrecognized special parameter attribute "
+                     "`ldc.attributes.%s`",
+                     ident->toChars());
+      }
     }
   }
 }

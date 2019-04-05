@@ -52,12 +52,12 @@ bool DtoIsReturnInArg(CallExp *ce) {
   return false;
 }
 
-LLAttribute DtoShouldExtend(Type *type) {
+void DtoAddExtendAttr(Type *type, llvm::AttrBuilder &attrs) {
   type = type->toBasetype();
   if (type->isintegral() && type->ty != Tvector && type->size() <= 2) {
-    return type->isunsigned() ? LLAttribute::ZExt : LLAttribute::SExt;
+    attrs.addAttribute(type->isunsigned() ? LLAttribute::ZExt
+                                          : LLAttribute::SExt);
   }
-  return LLAttribute::None;
 }
 
 LLType *DtoType(Type *t) {

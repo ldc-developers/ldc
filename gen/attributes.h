@@ -18,32 +18,10 @@ using LLAttribute = llvm::Attribute::AttrKind;
   using LLAttributeSet = llvm::AttributeSet;
 #endif
 
-class AttrBuilder {
-  llvm::AttrBuilder builder;
-
-public:
-  AttrBuilder() = default;
-
-  bool hasAttributes() const;
-  bool contains(LLAttribute attribute) const;
-
-  AttrBuilder &clear();
-  AttrBuilder &add(LLAttribute attribute);
-  AttrBuilder &remove(LLAttribute attribute);
-  AttrBuilder &merge(const AttrBuilder &other);
-
-  AttrBuilder &addAlignment(unsigned alignment);
-  AttrBuilder &addByVal(unsigned alignment);
-  AttrBuilder &addDereferenceable(unsigned size);
-
-  operator llvm::AttrBuilder &() { return builder; }
-  operator const llvm::AttrBuilder &() const { return builder; }
-};
-
 class AttrSet {
   LLAttributeSet set;
 
-  AttrSet &add(unsigned index, const AttrBuilder &builder);
+  AttrSet &add(unsigned index, const llvm::AttrBuilder &builder);
 
 public:
   AttrSet() = default;
@@ -59,13 +37,13 @@ public:
   static AttrSet
   extractFunctionAndReturnAttributes(const llvm::Function *function);
 
-  AttrSet &addToParam(unsigned paramIndex, const AttrBuilder &builder) {
+  AttrSet &addToParam(unsigned paramIndex, const llvm::AttrBuilder &builder) {
     return add(paramIndex + FirstArgIndex, builder);
   }
-  AttrSet &addToFunction(const AttrBuilder &builder) {
+  AttrSet &addToFunction(const llvm::AttrBuilder &builder) {
     return add(LLAttributeSet::FunctionIndex, builder);
   }
-  AttrSet &addToReturn(const AttrBuilder &builder) {
+  AttrSet &addToReturn(const llvm::AttrBuilder &builder) {
     return add(LLAttributeSet::ReturnIndex, builder);
   }
   AttrSet &merge(const AttrSet &other);
