@@ -682,10 +682,13 @@ DSliceValue *DtoNewDynArray(Loc &loc, Type *arrayType, DValue *dim,
   IF_LOG Logger::println("DtoNewDynArray : %s", arrayType->toChars());
   LOG_SCOPE;
 
-  // get runtime function
   Type *eltType = arrayType->toBasetype()->nextOf();
-  bool zeroInit = eltType->isZeroInit();
 
+  if (eltType->size() == 0)
+    return DtoNullValue(arrayType, loc)->isSlice();
+
+  // get runtime function
+  bool zeroInit = eltType->isZeroInit();
   const char *fnname = defaultInit
                            ? (zeroInit ? "_d_newarrayT" : "_d_newarrayiT")
                            : "_d_newarrayU";
@@ -703,7 +706,10 @@ DSliceValue *DtoNewDynArray(Loc &loc, Type *arrayType, DValue *dim,
       gIR->CreateCallOrInvoke(fn, arrayTypeInfo, arrayLen, ".gc_mem")
           .getInstruction();
 
-  return getSlice(arrayType, newArray);
+  // return a DSliceValue with the well-known length for better optimizability
+  auto ptr =
+      DtoBitCast(DtoExtractValue(newArray, 1, ".ptr"), DtoPtrToType(eltType));
+  return new DSliceValue(arrayType, arrayLen, ptr);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
