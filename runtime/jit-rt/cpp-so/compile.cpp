@@ -401,7 +401,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
     }
   } else {
     if (auto err = myJit.addModule(std::move(finalModule), nullptr)) {
-      fatal(context, "Can't codegen module" + llvm::toString(std::move(err)));
+      fatal(context, "Can't codegen module: " + llvm::toString(std::move(err)));
     }
   }
 
