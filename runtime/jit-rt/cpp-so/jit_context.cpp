@@ -132,7 +132,8 @@ llvm::Error JITContext::addModule(std::unique_ptr<llvm::Module> module,
 #else
   auto result = compileLayer.addModule(std::move(module), createResolver());
   if (!result) {
-    return llvm::make_error<StringError>("addModule failed");
+    return llvm::make_error<llvm::StringError>("addModule failed",
+                                               llvm::inconvertibleErrorCode());
   }
   moduleHandle = result.get();
 #endif
