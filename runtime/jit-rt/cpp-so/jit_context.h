@@ -117,8 +117,8 @@ public:
   llvm::TargetMachine &getTargetMachine() { return *targetmachine; }
   const llvm::DataLayout &getDataLayout() const { return dataLayout; }
 
-  bool addModule(std::unique_ptr<llvm::Module> module,
-                 llvm::raw_ostream *asmListener);
+  llvm::Error addModule(std::unique_ptr<llvm::Module> module,
+                        llvm::raw_ostream *asmListener);
 
   llvm::JITSymbol findSymbol(const std::string &name);
 

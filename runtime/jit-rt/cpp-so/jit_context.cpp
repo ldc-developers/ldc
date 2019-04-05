@@ -110,8 +110,8 @@ JITContext::JITContext()
 
 JITContext::~JITContext() {}
 
-bool JITContext::addModule(std::unique_ptr<llvm::Module> module,
-                           llvm::raw_ostream *asmListener) {
+llvm::Error JITContext::addModule(std::unique_ptr<llvm::Module> module,
+                                  llvm::raw_ostream *asmListener) {
   assert(nullptr != module);
   reset();
 
@@ -122,18 +122,22 @@ bool JITContext::addModule(std::unique_ptr<llvm::Module> module,
   auto result = compileLayer.addModule(handle, std::move(module));
   if (result) {
     execSession.releaseVModule(handle);
-    return true;
+    return result;
+  }
+  if (auto err = compileLayer.emitAndFinalize(handle)) {
+    execSession.releaseVModule(handle);
+    return err;
   }
   moduleHandle = handle;
 #else
   auto result = compileLayer.addModule(std::move(module), createResolver());
   if (!result) {
-    return true;
+    return llvm::make_error<StringError>("addModule failed");
   }
   moduleHandle = result.get();
 #endif
   compiled = true;
-  return false;
+  return llvm::Error::success();
 }
 
 llvm::JITSymbol JITContext::findSymbol(const std::string &name) {
