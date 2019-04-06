@@ -91,9 +91,15 @@ using GlobalValsMap =
 void getPredefinedSymbols(IRState *irs, GlobalValsMap &symList) {
   assert(nullptr != irs);
   const llvm::Triple *triple = global.params.targetTriple;
-  if (!opts::dynamicCompileTlsWorkaround) {
-    if (triple->isWindowsMSVCEnvironment() ||
-        triple->isWindowsGNUEnvironment()) {
+  if (triple->isWindowsMSVCEnvironment() ||
+      triple->isWindowsGNUEnvironment()) {
+    // Actual signatures doesn't matter here, we only want it to show in
+    // symbols list
+    symList.insert(std::make_pair(
+      getPredefinedSymbol(irs->module, "__chkstk",
+                          llvm::Type::getInt32Ty(irs->context())),
+      GlobalValVisibility::Declaration));
+    if (!opts::dynamicCompileTlsWorkaround) {
       symList.insert(std::make_pair(
           getPredefinedSymbol(irs->module, "_tls_index",
                               llvm::Type::getInt32Ty(irs->context())),

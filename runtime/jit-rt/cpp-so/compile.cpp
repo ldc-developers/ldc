@@ -396,12 +396,12 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
     };
 
     CallbackOstream os(callback);
-    if (myJit.addModule(std::move(finalModule), &os)) {
-      fatal(context, "Can't codegen module");
+    if (auto err = myJit.addModule(std::move(finalModule), &os)) {
+      fatal(context, "Can't codegen module: " + llvm::toString(std::move(err)));
     }
   } else {
-    if (myJit.addModule(std::move(finalModule), nullptr)) {
-      fatal(context, "Can't codegen module");
+    if (auto err = myJit.addModule(std::move(finalModule), nullptr)) {
+      fatal(context, "Can't codegen module: " + llvm::toString(std::move(err)));
     }
   }
 
