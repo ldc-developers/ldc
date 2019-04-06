@@ -11,10 +11,10 @@ jobs:
 - job: Windows
   timeoutInMinutes: 120
   pool:
-    vmImage: 'vs2017-win2016'
+    vmImage: 'windows-2019'
   variables:
     CLANG_VERSION: 8.0.0
-    VSINSTALLDIR: C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\
+    VSINSTALLDIR: C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\
     EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON
   strategy:
     matrix:
@@ -37,7 +37,7 @@ jobs:
 - job: Windows_multilib
   timeoutInMinutes: 30
   pool:
-    vmImage: 'vs2017-win2016'
+    vmImage: 'windows-2019'
   dependsOn:
     - Windows
   variables:
