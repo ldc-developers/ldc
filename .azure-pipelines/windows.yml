@@ -14,7 +14,7 @@ steps:
     echo on
     cd ..
     :: Download & extract libcurl
-    curl -L -o libcurl.zip https://dl.dropboxusercontent.com/s/jxwohqax4e2avyt/libcurl-7.48.0-WinSSL-zlib-x86-x64.zip?dl=0
+    curl -L -o libcurl.zip https://dl.dropboxusercontent.com/s/jxwohqax4e2avyt/libcurl-7.48.0-WinSSL-zlib-x86-x64.zip?dl=0 2>&1
     mkdir libcurl
     cd libcurl
     7z x ../libcurl.zip > nul
@@ -28,7 +28,7 @@ steps:
     )
     cd ..
     :: Download & extract Ninja
-    curl -L -o ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-win.zip
+    curl -L -o ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-win.zip 2>&1
     mkdir ninja
     cd ninja
     7z x ../ninja.zip > nul
@@ -38,11 +38,11 @@ steps:
     python -m pip install --user lit
     python -c "import lit; lit.main();" --version | head -n 1
     :: Download & extract host LDC
-    curl -L -o ldc2.7z http://github.com/ldc-developers/ldc/releases/download/v%HOST_LDC_VERSION%/ldc2-%HOST_LDC_VERSION%-windows-multilib.7z
+    curl -L -o ldc2.7z http://github.com/ldc-developers/ldc/releases/download/v%HOST_LDC_VERSION%/ldc2-%HOST_LDC_VERSION%-windows-multilib.7z 2>&1
     7z x ldc2.7z > nul
     mv ldc2-%HOST_LDC_VERSION%-windows-multilib host-ldc
     :: Download & extract GNU make (for dmd-testsuite & druntime stand-alone tests)
-    curl -L -o make.7z https://dl.dropboxusercontent.com/s/4y36f5ydgrk4p5g/make-4.2.1.7z?dl=0
+    curl -L -o make.7z https://dl.dropboxusercontent.com/s/4y36f5ydgrk4p5g/make-4.2.1.7z?dl=0 2>&1
     mkdir gnu
     cd gnu
     7z x ../make.7z > nul
@@ -50,20 +50,20 @@ steps:
     cd ..
     :: Download & extract a *working* GNU grep
     :: (version 3.1 bundled with newer git (v2.19+) seems to be buggy wrt. output line-endings)
-    curl -L -o grep.7z https://dl.dropboxusercontent.com/s/vwlfgz8wv1fmqnn/grep-3.0.7z?dl=0
+    curl -L -o grep.7z https://dl.dropboxusercontent.com/s/vwlfgz8wv1fmqnn/grep-3.0.7z?dl=0 2>&1
     cd gnu
     7z x ../grep.7z > nul
     cd ..
     :: Download & extract LDC-flavoured LLVM
     set ASSERTS_SUFFIX=
     if not "%BUILD_SOURCEBRANCH:~0,10%" == "refs/tags/" ( set ASSERTS_SUFFIX=-withAsserts)
-    curl -L -o llvm.7z https://github.com/ldc-developers/llvm/releases/download/ldc-v%LLVM_VERSION%/llvm-%LLVM_VERSION%-windows-%ARCH%%ASSERTS_SUFFIX%.7z
+    curl -L -o llvm.7z https://github.com/ldc-developers/llvm/releases/download/ldc-v%LLVM_VERSION%/llvm-%LLVM_VERSION%-windows-%ARCH%%ASSERTS_SUFFIX%.7z 2>&1
     mkdir llvm
     cd llvm
     7z x ../llvm.7z > nul
     cd ..
     :: Download & install clang
-    curl -L -o clang.exe http://releases.llvm.org/%CLANG_VERSION%/LLVM-%CLANG_VERSION%-win64.exe
+    curl -L -o clang.exe http://releases.llvm.org/%CLANG_VERSION%/LLVM-%CLANG_VERSION%-win64.exe 2>&1
     clang.exe /S
   displayName: Install prerequisites
 - script: |
@@ -148,7 +148,7 @@ steps:
 - script: |
     cd ..
     cp llvm/bin/lld-link.exe installed/bin
-    curl -L -o mingw-w64-libs.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v6.0.0-rc.4/mingw-w64-libs-v6.0.0-rc.4.7z
+    curl -L -o mingw-w64-libs.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v6.0.0-rc.4/mingw-w64-libs-v6.0.0-rc.4.7z 2>&1
     mkdir mingw-w64-libs
     cd mingw-w64-libs
     7z x ../mingw-w64-libs.7z > nul
@@ -174,18 +174,18 @@ steps:
     cd ..
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     set DC=%CD%/installed/bin/ldmd2
-    git clone --recursive https://github.com/dlang/dub.git
+    git clone --recursive https://github.com/dlang/dub.git 2>&1
     cd dub
-    powershell -c "git checkout \"$(cat %BUILD_SOURCESDIRECTORY%/packaging/dub_version -Raw)\""
+    powershell -c "git checkout \"$(cat %BUILD_SOURCESDIRECTORY%/packaging/dub_version -Raw)\"" 2>&1
     powershell -c "(cat build.cmd).replace('curl.lib', '%CD%/../installed/lib/curl.lib') | Set-Content build.cmd"
-    call build.cmd
+    call build.cmd 2>&1
     cp bin/dub.exe ../installed/bin
     ..\installed\bin\dub --version
   displayName: Build & copy dub
 - script: |
     cd ..
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
-    git clone --recursive https://github.com/dlang/tools.git dlang-tools
+    git clone --recursive https://github.com/dlang/tools.git dlang-tools 2>&1
     cd dlang-tools
     ..\installed\bin\ldmd2 -w rdmd.d
     ..\installed\bin\ldmd2 -w ddemangle.d
