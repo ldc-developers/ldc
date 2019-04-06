@@ -1,3 +1,27 @@
+# LDC 1.15.0 (2019-04-06)
+
+#### Big news
+- Frontend, druntime and Phobos are at version **2.085.1**, incl. new command-line options `-preview`, `-revert`, `-checkaction=context`, `-verrors-context` and `-extern-std`. (#3003, #3039, #3053)
+  - The Objective-C improvements from DMD 2.085 are not implemented. (#3007)
+- Support for **LLVM 8.0**. The prebuilt packages have been upgraded to LLVM 8.0.0 and include the Khronos SPIRV-LLVM-Translator, so that dcompute can now emit **OpenCL** too. (#3005)
+- Compiler memory requirements can now be reduced via the new `-lowmem` switch, which enables the garbage collector for the front-end and sacrifices compile times for less required memory. In some cases, the overall max process memory can be reduced by more than 60%; see https://github.com/ldc-developers/ldc/pull/2916#issuecomment-443433594 for some numbers. (#2916)
+  - Note for package maintainers: this feature requires a recent D host compiler (most notably, it doesn't work with ltsmaster), ideally LDC 1.15 itself due to important GC memory overhead improvements in 2.085 druntime.
+- Support for generic `@llvmAttr("name")` parameter UDAs, incl. new `@restrict` with C-like semantics. (#3043)
+- macOS: 32-bit support was dropped in the sense of not being CI-tested anymore and the prebuilt macOS package now containing x86_64 libraries only. `MACOSX_DEPLOYMENT_TARGET` for the prebuilt package has been raised from 10.8 to 10.9.
+- Prebuilt packages don't depend on libtinfo and libedit anymore. (#1827, #3019)
+- x86: SSSE3 isn't required for the prebuilt packages and generated optimized binaries anymore. (#3045)
+
+#### Platform support
+- Supports LLVM 3.9 - 8.0.
+
+#### Bug fixes
+- Implicit cross-module-inlining of functions annotated with `pragma(inline, true)` without explicit `-enable-cross-module-inlining` has been restored. (#2552, #3014)
+- Propagate well-known length of newly allocated dynamic arrays for better optimizability. (#3041, #3042)
+- JIT: Support implicit `__chkstk` calls for Windows targets, e.g., for large stack allocations. (#3051)
+
+#### Internals
+- Addition of **Azure Pipelines** as CI service. It is the new main CI service and responsible for creating all prebuilt x86(_64) packages. AppVeyor has been dropped completely and CircleCI rededicated. (#2998)
+
 # LDC 1.14.0 (2019-02-17)
 
 #### Big news
