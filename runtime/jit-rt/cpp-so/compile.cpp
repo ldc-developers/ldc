@@ -343,7 +343,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
     interruptPoint(context, "parse IR");
     auto mod = llvm::parseBitcodeFile(*buff, myJit.getContext());
     if (!mod) {
-      fatal(context, "Unable to parse IR");
+      fatal(context, "Unable to parse IR: " + llvm::toString(mod.takeError()));
     } else {
       llvm::Module &module = **mod;
       const auto name = module.getName();
