@@ -94,7 +94,8 @@ steps:
         artifactID=${BUILD_SOURCEVERSION:0:8}
       fi
       artifactName=ldc-$artifactID-src
-      GZIP=-9 tar -czf artifacts/$artifactName.tar.gz --exclude-vcs --transform=s,${BUILD_SOURCESDIRECTORY:1},$artifactName, $BUILD_SOURCESDIRECTORY
+      chmod -R go=rX $BUILD_SOURCESDIRECTORY
+      GZIP=-9 tar -czf artifacts/$artifactName.tar.gz --exclude-vcs --owner=0 --group=0 --transform=s,${BUILD_SOURCESDIRECTORY:1},$artifactName, $BUILD_SOURCESDIRECTORY
       tar -xf artifacts/$artifactName.tar.gz
       zip -r -9 artifacts/$artifactName.zip $artifactName
     else
@@ -209,6 +210,8 @@ steps:
     fi
     artifactName=ldc2-$artifactID-$CI_OS-x86_64
     mv installed $artifactName
+    chmod -R go=rX $artifactName
+    chown -R root:root $artifactName
     XZ_OPT=-9 tar -cJf artifacts/$artifactName.tar.xz $artifactName
   displayName: Pack installation dir
 - task: PublishPipelineArtifact@0
