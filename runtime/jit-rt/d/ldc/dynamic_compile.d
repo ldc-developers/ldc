@@ -224,6 +224,16 @@ public:
     incPayload();
   }
 
+  void opAssign(typeof(null))
+  {
+    decPayload();
+  }
+
+  bool isNull() const
+  {
+    return _payload is null;
+  }
+
   bool isCallable() const pure nothrow @safe @nogc
   {
     return _payload !is null && _payload.func !is null;
