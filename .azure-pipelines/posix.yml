@@ -211,8 +211,12 @@ steps:
     artifactName=ldc2-$artifactID-$CI_OS-x86_64
     mv installed $artifactName
     chmod -R go=rX $artifactName
-    sudo chown -R root:root $artifactName
-    XZ_OPT=-9 tar -cJf artifacts/$artifactName.tar.xz $artifactName
+    if [ "$CI_OS" = "linux" ]; then
+      XZ_OPT=-9 tar -cJf artifacts/$artifactName.tar.xz --owner=0 --group=0 $artifactName
+    else
+      sudo chown -R root:wheel $artifactName
+      tar -cJf artifacts/$artifactName.tar.xz --options='compression-level=9' $artifactName
+    fi
   displayName: Pack installation dir
 - task: PublishPipelineArtifact@0
   inputs:
