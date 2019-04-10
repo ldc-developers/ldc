@@ -211,7 +211,7 @@ steps:
     artifactName=ldc2-$artifactID-$CI_OS-x86_64
     mv installed $artifactName
     chmod -R go=rX $artifactName
-    chown -R root:root $artifactName
+    sudo chown -R root:root $artifactName
     XZ_OPT=-9 tar -cJf artifacts/$artifactName.tar.xz $artifactName
   displayName: Pack installation dir
 - task: PublishPipelineArtifact@0
