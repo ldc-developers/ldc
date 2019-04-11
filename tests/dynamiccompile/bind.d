@@ -72,6 +72,10 @@ void main(string[] args)
     auto f2 = ldc.dynamic_compile.bind(&foo, 1, placeholder, 3);
     auto f3 = ldc.dynamic_compile.bind(&foo, 1, 2, 3);
     auto f4 = f3;
+    assert(!f1.isNull());
+    assert(!f2.isNull());
+    assert(!f3.isNull());
+    assert(!f4.isNull());
 
     int delegate(int,int,int) fd1 = f1.toDelegate();
     int delegate(int)         fd2 = f2.toDelegate();
@@ -116,6 +120,12 @@ void main(string[] args)
     assert(321 == fd2(2));
     assert(321 == fd3());
     assert(321 == fd4());
+
+    f3 = null;
+    assert(f3.isNull());
+    assert(!f4.isNull());
+    assert(!f3.isCallable());
+    assert(f4.isCallable());
 
     assert(b1.isCallable());
     assert(b2.isCallable());
