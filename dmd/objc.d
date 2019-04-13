@@ -182,7 +182,7 @@ extern(C++) abstract class Objc
 {
     static void _init()
     {
-        // IN_LLVM: if (global.params.isOSX && global.params.is64bit)
+        // IN_LLVM replaced: if (global.params.isOSX && global.params.is64bit)
         if (global.params.hasObjectiveC)
             _objc = new Supported;
         else

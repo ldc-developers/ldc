@@ -605,9 +605,7 @@ else
                 argdoc = arg;
             else
                 argdoc = FileName.name(arg);
-version (IN_LLVM)
-{
-            if (global.params.fullyQualifiedObjectFiles)
+            if (IN_LLVM && global.params.fullyQualifiedObjectFiles)
             {
                 const fqn = md ? md.toString() : toString();
                 argdoc = FileName.replaceName(argdoc, fqn);
@@ -621,7 +619,6 @@ version (IN_LLVM)
                 s[$-1] = 0;
                 argdoc = s;
             }
-}
             // If argdoc doesn't have an absolute path, make it relative to dir
             if (!FileName.absolute(argdoc))
             {
@@ -1087,7 +1084,7 @@ else
     int needModuleInfo()
     {
         //printf("needModuleInfo() %s, %d, %d\n", toChars(), needmoduleinfo, global.params.cov);
-        return needmoduleinfo && (IN_LLVM || global.params.cov);
+        return needmoduleinfo || (!IN_LLVM && global.params.cov);
     }
 
     override Dsymbol search(const ref Loc loc, Identifier ident, int flags = SearchLocalsOnly)

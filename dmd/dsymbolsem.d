@@ -71,6 +71,7 @@ import dmd.target;
 import dmd.templateparamsem;
 import dmd.typesem;
 import dmd.visitor;
+
 version (IN_LLVM)
 {
     import gen.dpragma;
@@ -1197,7 +1198,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
 version (IN_LLVM)
 {
                                     bool hasDtor = false;
-                                    auto cd = (cast(TypeClass) ne.newtype).sym.isClassDeclaration();
+                                    auto cd = (cast(TypeClass) ne.newtype).sym;
                                     for (; cd; cd = cd.baseClass)
                                     {
                                         if (cd.dtor)
@@ -1636,6 +1637,7 @@ version (IN_LLVM)
     {
         // Should be merged with PragmaStatement
         //printf("\tPragmaDeclaration::semantic '%s'\n", pd.toChars());
+
 version (IN_LLVM)
 {
         LDCPragma llvm_internal = LDCPragma.LLVMnone;
@@ -1814,8 +1816,7 @@ version (IN_LLVM)
                 }
             }
         }
-        // IN_LLVM
-        else if ((llvm_internal = DtoGetPragma(sc, pd, arg1str)) != LDCPragma.LLVMnone)
+        else if (IN_LLVM && (llvm_internal = DtoGetPragma(sc, pd, arg1str)) != LDCPragma.LLVMnone)
         {
             // nothing to do anymore
         }
@@ -1866,8 +1867,10 @@ version (IN_LLVM)
                 }
                 message("pragma    %s", buf.peekString());
             }
-            static if (!IN_LLVM)
-                goto Lnodecl;
+static if (!IN_LLVM)
+{
+            goto Lnodecl;
+}
         }
         else
             error(pd.loc, "unrecognized `pragma(%s)`", pd.ident.toChars());
@@ -1890,8 +1893,7 @@ version (IN_LLVM)
                             pd.error("can only apply to a single declaration");
                     }
                 }
-                // IN_LLVM: add else clause
-                else
+                else if (IN_LLVM)
                 {
                     DtoCheckPragma(pd, s, llvm_internal, arg1str);
                 }
@@ -5696,16 +5698,12 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
             //printf("tempdecl.ident = %s, s = '%s'\n", tempdecl.ident.toChars(), s.kind(), s.toPrettyChars());
             //printf("setting aliasdecl\n");
             tempinst.aliasdecl = s;
-version (IN_LLVM)
-{
-            // LDC propagate internal information
-            if (tempdecl.llvmInternal != 0)
+            if (IN_LLVM && tempdecl.llvmInternal != 0)
             {
                 s.llvmInternal = tempdecl.llvmInternal;
                 if (FuncDeclaration fd = s.isFuncDeclaration())
                     DtoSetFuncDeclIntrinsicName(tempinst, tempdecl, fd);
             }
-}
         }
     }
 

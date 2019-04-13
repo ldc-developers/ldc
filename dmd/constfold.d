@@ -31,10 +31,7 @@ import dmd.target;
 import dmd.tokens;
 import dmd.utf;
 
-version (IN_LLVM)
-{
-    import gen.dpragma;
-}
+version (IN_LLVM) import gen.dpragma;
 
 private enum LOG = false;
 

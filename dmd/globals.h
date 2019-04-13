@@ -21,7 +21,6 @@ template <typename TYPE> struct Array;
 
 #if IN_LLVM
 #include "llvm/ADT/Triple.h"
-#include <cstdint>
 
 enum OUTPUTFLAG
 {
@@ -29,10 +28,7 @@ enum OUTPUTFLAG
     OUTPUTFLAGdefault, // for the .o default
     OUTPUTFLAGset      // for -output
 };
-
-using ubyte = uint8_t;
 #endif
-
 
 typedef unsigned char Diagnostic;
 enum
@@ -106,11 +102,7 @@ struct Param
     bool vgc;           // identify gc usage
     bool vfield;        // identify non-mutable field variables
     bool vcomplex;      // identify complex/imaginary type usage
-#if !IN_LLVM
-    char symdebug;      // insert debug symbolic information
-#else
-    ubyte symdebug;     // insert debug symbolic information
-#endif
+    unsigned char symdebug;  // insert debug symbolic information
     bool symdebugref;   // insert debug information for all referenced types, too
     bool alwaysframe;   // always emit standard stack frame
     bool optimize;      // run optimizer
@@ -250,7 +242,7 @@ struct Param
 #if IN_LLVM
     Array<const char *> bitcodeFiles; // LLVM bitcode files passed on cmdline
 
-    uint32_t nestedTmpl; // maximum nested template instantiations
+    unsigned nestedTmpl; // maximum nested template instantiations
 
     // LDC stuff
     OUTPUTFLAG output_ll;
@@ -269,9 +261,9 @@ struct Param
 
     // Codegen cl options
     bool disableRedZone;
-    uint32_t dwarfVersion;
+    unsigned dwarfVersion;
 
-    uint32_t hashThreshold; // MD5 hash symbols larger than this threshold (0 = no hashing)
+    unsigned hashThreshold; // MD5 hash symbols larger than this threshold (0 = no hashing)
 
     bool outputSourceLocations; // if true, output line tables.
 #endif

@@ -65,6 +65,7 @@ import dmd.tokens;
 import dmd.typesem;
 import dmd.utf;
 import dmd.visitor;
+
 version (IN_LLVM) import gen.dpragma;
 
 enum LOGSEMANTIC = false;

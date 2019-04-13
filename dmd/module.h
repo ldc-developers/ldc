@@ -17,16 +17,12 @@ struct Macro;
 struct Escape;
 
 #if IN_LLVM
-#include <cstdint>
-class DValue;
 namespace llvm {
+    class GlobalVariable;
     class LLVMContext;
     class Module;
-    class GlobalVariable;
-    class StructType;
 }
 #endif
-
 
 enum PKG
 {

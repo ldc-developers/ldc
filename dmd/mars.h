@@ -59,9 +59,6 @@ the target object file format:
 #include <stdio.h>
 #include <stdint.h>
 #include <stdarg.h>
-#if IN_LLVM
-#include <stddef.h>
-#endif
 
 #ifdef __DMC__
 #ifdef DEBUG

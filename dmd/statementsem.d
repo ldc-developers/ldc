@@ -55,6 +55,7 @@ import dmd.target;
 import dmd.tokens;
 import dmd.typesem;
 import dmd.visitor;
+
 version (IN_LLVM) import gen.dpragma;
 
 /*****************************************
@@ -3083,6 +3084,7 @@ version (IN_LLVM)
             gcs.error("`goto case` not in `switch` statement");
             return setError();
         }
+
 version (IN_LLVM)
 {
         gcs.sw = sc.sw;

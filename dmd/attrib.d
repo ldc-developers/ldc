@@ -34,11 +34,7 @@ import dmd.target;
 import dmd.tokens;
 import dmd.visitor;
 
-version (IN_LLVM)
-{
-    import gen.dpragma;
-}
-
+version (IN_LLVM) import gen.dpragma;
 
 /***********************************************************
  */

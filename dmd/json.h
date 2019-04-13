@@ -16,6 +16,6 @@ struct OutBuffer;
 
 void json_generate(OutBuffer *, Modules *);
 
-#ifdef IN_LLVM
+#if IN_LLVM
 unsigned tryParseJsonField(const char *fieldName);
 #endif

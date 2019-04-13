@@ -503,9 +503,9 @@ public:
         // can't handle that at present.
         if (e.e1.op == TOK.dotVariable && (cast(DotVarExp)e.e1).e1.op == TOK.super_)
             cost = COST_MAX;
-        // IN_LLVM: In LDC, we only use the inliner for default arguments, so remove the "else if":
-        //else if (e.f && e.f.ident == Id.__alloca && e.f.linkage == LINK.c && !allowAlloca)
-        //    cost = COST_MAX; // inlining alloca may cause stack overflows
+        // In LDC, we only use the inliner for default arguments, so disable the "else if":
+        else if (!IN_LLVM && e.f && e.f.ident == Id.__alloca && e.f.linkage == LINK.c && !allowAlloca)
+            cost = COST_MAX; // inlining alloca may cause stack overflows
         else
             cost++;
     }
