@@ -1753,10 +1753,13 @@ Lnext:
     {
         return pointerBitmap(e);
     }
+version (IN_LLVM)
+{
     if (Expression ret = semanticTraitsHook(e, sc))
     {
         return ret;
     }
+}
     if (e.ident == Id.isZeroInit)
     {
         if (dim != 1)

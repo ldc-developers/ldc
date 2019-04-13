@@ -95,7 +95,7 @@ static void replace_func_name(IRState *p, std::string &insnt) {
 }
 
 Statement *asmSemantic(AsmStatement *s, Scope *sc) {
-  auto ias = InlineAsmStatement::create(s->loc, s->tokens);
+  auto ias = createInlineAsmStatement(s->loc, s->tokens);
   s = ias;
 
   bool err = false;

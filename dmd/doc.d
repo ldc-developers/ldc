@@ -367,10 +367,10 @@ private immutable ddoc_decl_dd_e = ")\n";
  */
 extern(C++) void gendocfile(Module m)
 {
-  version (IN_LLVM)
-  {
+version (IN_LLVM)
+{
     m.checkAndAddOutputFile(m.docfile);
-  }
+}
     __gshared OutBuffer mbuf;
     __gshared int mbuf_done;
     OutBuffer buf;

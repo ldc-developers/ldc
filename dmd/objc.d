@@ -369,8 +369,10 @@ extern(C++) private final class Unsupported : Objc
 {
     extern(D) final this()
     {
-        version (IN_LLVM) {} else
+static if (!IN_LLVM)
+{
         ObjcGlue.initialize();
+}
     }
 
     override void setObjc(ClassDeclaration cd)
@@ -472,14 +474,14 @@ extern(C++) private final class Supported : Objc
     {
         VersionCondition.addPredefinedGlobalIdent("D_ObjectiveC");
 
-        version (IN_LLVM)
-        {
-            objc_initSymbols();
-        }
-        else
-        {
-            ObjcGlue.initialize();
-        }
+version (IN_LLVM)
+{
+        objc_initSymbols();
+}
+else
+{
+        ObjcGlue.initialize();
+}
         ObjcSelector._init();
     }
 

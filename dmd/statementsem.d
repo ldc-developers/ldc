@@ -386,8 +386,7 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
             }
         }
 
-        // IN_LLVM replaced: if (cs.statements.length == 1)
-        if (cs.statements.length == 1 && !cs.isCompoundAsmBlockStatement())
+        if (cs.statements.length == 1 && (!IN_LLVM || !cs.isCompoundAsmBlockStatement()))
         {
             result = (*cs.statements)[0];
             return;
@@ -1985,10 +1984,7 @@ else
                 Statement s = new ExpStatement(fs.loc, v);
                 fs._body = new CompoundStatement(fs.loc, s, fs._body);
             }
-version (IN_LLVM)
-            params.push(new Parameter(stc, para_type, id, null, null));
-else
-            params.push(new Parameter(stc, p.type, id, null, null));
+            params.push(new Parameter(stc, IN_LLVM ? para_type : p.type, id, null, null));
         }
         // https://issues.dlang.org/show_bug.cgi?id=13840
         // Throwable nested function inside nothrow function is acceptable.
@@ -2711,7 +2707,8 @@ version (IN_LLVM)
          + at which point sdefault may still be null, therefore
          + set sdefault.gototarget here.
          +/
-        if (ss.hasGotoDefault) {
+        if (ss.hasGotoDefault)
+        {
             assert(ss.sdefault);
             ss.sdefault.gototarget = true;
         }
@@ -3086,10 +3083,10 @@ version (IN_LLVM)
             gcs.error("`goto case` not in `switch` statement");
             return setError();
         }
-        version (IN_LLVM)
-        {
-            gcs.sw = sc.sw;
-        }
+version (IN_LLVM)
+{
+        gcs.sw = sc.sw;
+}
 
         if (gcs.exp)
         {
@@ -3499,9 +3496,10 @@ version (IN_LLVM)
                         bs.error("cannot break out of `finally` block");
                     else
                     {
-                        version (IN_LLVM)
-                            bs.target = ls;
-
+version (IN_LLVM)
+{
+                        bs.target = ls;
+}
                         ls.breaks = true;
                         result = bs;
                         return;
@@ -3590,9 +3588,10 @@ version (IN_LLVM)
                         cs.error("cannot continue out of `finally` block");
                     else
                     {
-                        version (IN_LLVM)
-                            cs.target = ls;
-
+version (IN_LLVM)
+{
+                        cs.target = ls;
+}
                         result = cs;
                         return;
                     }

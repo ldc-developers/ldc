@@ -90,10 +90,14 @@ void genTypeInfo(Loc loc, Type torig, Scope* sc)
             }
             else // if in obj generation pass
             {
-                version (IN_LLVM)
-                    Declaration_codegen(t.vtinfo);
-                else
-                    toObjFile(t.vtinfo, global.params.multiobj);
+version (IN_LLVM)
+{
+                Declaration_codegen(t.vtinfo);
+}
+else
+{
+                toObjFile(t.vtinfo, global.params.multiobj);
+}
             }
         }
     }
@@ -260,18 +264,18 @@ bool isSpeculativeType(Type t)
 // IN_LLVM: replaced `private` with `extern(C++)`
 extern(C++) bool builtinTypeInfo(Type t)
 {
-  version (IN_LLVM)
-  {
+version (IN_LLVM)
+{
     // FIXME: if I enable for Tclass, the way LDC does typeinfo will cause
     // a bunch of linker errors to missing ClassInfo init symbols.
     if (t.isTypeBasic() || t.ty == Tnull)
         return !t.mod;
-  }
-  else
-  {
+}
+else
+{
     if (t.isTypeBasic() || t.ty == Tclass || t.ty == Tnull)
         return !t.mod;
-  }
+}
     if (t.ty == Tarray)
     {
         Type next = t.nextOf();

@@ -536,7 +536,8 @@ extern (C++) final class TemplateDeclaration : ScopeDsymbol
     // threaded list of previous instantiation attempts on stack
     TemplatePrevious* previous;
 
-version (IN_LLVM) {
+version (IN_LLVM)
+{
     const(char)* intrinsicName;
 }
 

@@ -1636,11 +1636,11 @@ version (IN_LLVM)
     {
         // Should be merged with PragmaStatement
         //printf("\tPragmaDeclaration::semantic '%s'\n", pd.toChars());
-        version (IN_LLVM)
-        {
-            LDCPragma llvm_internal = LDCPragma.LLVMnone;
-            const(char)* arg1str = null;
-        }
+version (IN_LLVM)
+{
+        LDCPragma llvm_internal = LDCPragma.LLVMnone;
+        const(char)* arg1str = null;
+}
 
         if (global.params.mscoff)
         {
@@ -1838,12 +1838,12 @@ version (IN_LLVM)
                     for (size_t i = 0; i < pd.args.dim; i++)
                     {
                         Expression e = (*pd.args)[i];
-                        version (IN_LLVM)
-                        {
-                            // ignore errors in ignored pragmas.
-                            global.gag++;
-                            uint errors_save = global.errors;
-                        }
+version (IN_LLVM)
+{
+                        // ignore errors in ignored pragmas.
+                        global.gag++;
+                        uint errors_save = global.errors;
+}
                         sc = sc.startCTFE();
                         e = e.expressionSemantic(sc);
                         e = resolveProperties(sc, e);
@@ -1854,12 +1854,12 @@ version (IN_LLVM)
                         else
                             buf.writeByte(',');
                         buf.writestring(e.toChars());
-                        version (IN_LLVM)
-                        {
-                            // restore error state.
-                            global.gag--;
-                            global.errors = errors_save;
-                        }
+version (IN_LLVM)
+{
+                        // restore error state.
+                        global.gag--;
+                        global.errors = errors_save;
+}
                     }
                     if (pd.args.dim)
                         buf.writeByte(')');
@@ -2478,7 +2478,7 @@ version (IN_LLVM)
         {
             if (tempdecl.ident == Id.RTInfo)
                 Type.rtinfo = tempdecl;
-            version (IN_LLVM) if (tempdecl.ident == Id.RTInfoImpl)
+            if (IN_LLVM && tempdecl.ident == Id.RTInfoImpl)
                 Type.rtinfoImpl = tempdecl;
         }
 
@@ -3013,10 +3013,10 @@ version (IN_LLVM)
         funcdecl.inlining = sc.inlining;
         funcdecl.protection = sc.protection;
         funcdecl.userAttribDecl = sc.userAttribDecl;
-        version (IN_LLVM)
-        {
-            funcdecl.emitInstrumentation = sc.emitInstrumentation;
-        }
+version (IN_LLVM)
+{
+        funcdecl.emitInstrumentation = sc.emitInstrumentation;
+}
 
         if (!funcdecl.originalType)
             funcdecl.originalType = funcdecl.type.syntaxCopy();
@@ -3707,16 +3707,9 @@ version (IN_LLVM)
             funcdecl.initInferAttributes();
 
         Module.dprogress++;
-        version (IN_LLVM)
-        {
-            // LDC relies on semanticRun variable not being reset here
-            if (funcdecl.semanticRun < PASS.semanticdone)
-                funcdecl.semanticRun = PASS.semanticdone;
-        }
-        else
-        {
-            funcdecl.semanticRun = PASS.semanticdone;
-        }
+        // LDC relies on semanticRun variable not being reset here
+        if (!IN_LLVM || funcdecl.semanticRun < PASS.semanticdone)
+           funcdecl.semanticRun = PASS.semanticdone;
 
         /* Save scope for possible later use (if we need the
          * function internals)
@@ -5703,16 +5696,16 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
             //printf("tempdecl.ident = %s, s = '%s'\n", tempdecl.ident.toChars(), s.kind(), s.toPrettyChars());
             //printf("setting aliasdecl\n");
             tempinst.aliasdecl = s;
-            version (IN_LLVM)
+version (IN_LLVM)
+{
+            // LDC propagate internal information
+            if (tempdecl.llvmInternal != 0)
             {
-                // LDC propagate internal information
-                if (tempdecl.llvmInternal != 0) {
-                    s.llvmInternal = tempdecl.llvmInternal;
-                    if (FuncDeclaration fd = s.isFuncDeclaration()) {
-                        DtoSetFuncDeclIntrinsicName(tempinst, tempdecl, fd);
-                    }
-                }
+                s.llvmInternal = tempdecl.llvmInternal;
+                if (FuncDeclaration fd = s.isFuncDeclaration())
+                    DtoSetFuncDeclIntrinsicName(tempinst, tempdecl, fd);
             }
+}
         }
     }
 

@@ -1123,8 +1123,7 @@ else
                     ClassDeclaration cd = funcdecl.isThis() ? funcdecl.isThis().isClassDeclaration() : funcdecl.parent.isClassDeclaration();
                     if (cd)
                     {
-                        // IN_LLVM: disabled via leading `false &&`
-                        if (false && !global.params.is64bit && global.params.isWindows && !funcdecl.isStatic() && !sbody.usesEH() && !global.params.trace)
+                        if (!IN_LLVM && !global.params.is64bit && global.params.isWindows && !funcdecl.isStatic() && !sbody.usesEH() && !global.params.trace)
                         {
                             /* The back end uses the "jmonitor" hack for syncing;
                              * no need to do the sync at this level.
