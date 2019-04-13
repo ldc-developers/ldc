@@ -197,26 +197,8 @@ void DtoFinalizeClass(Loc &loc, LLValue *inst) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoFinalizeScopeClass(Loc &loc, LLValue *inst, ClassDeclaration *cd) {
-  if (!isOptimizationEnabled()) {
-    DtoFinalizeClass(loc, inst);
-    return;
-  }
-
-  assert(cd);
-  // As of 2.077, the front-end doesn't emit the implicit delete() for C++
-  // classes, so this code assumes D classes.
-  assert(!cd->isCPPclass());
-
-  bool hasDtor = false;
-  for (; cd; cd = cd->baseClass) {
-    if (cd->dtor) {
-      hasDtor = true;
-      break;
-    }
-  }
-
-  if (hasDtor) {
+void DtoFinalizeScopeClass(Loc &loc, LLValue *inst, bool hasDtor) {
+  if (!isOptimizationEnabled() || hasDtor) {
     DtoFinalizeClass(loc, inst);
     return;
   }

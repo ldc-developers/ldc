@@ -1077,6 +1077,10 @@ extern (C++) class VarDeclaration : Declaration
     // Both these mean the var is not rebindable once assigned,
     // and the destructor gets run when it goes out of scope
     bool onstack;                   // it is a class that was allocated on the stack
+version (IN_LLVM)
+{
+    bool onstackWithDtor;           // it is a class that was allocated on the stack and needs destruction
+}
     bool mynew;                     // it is a class new'd with custom operator new
 
     int canassign;                  // it can be assigned to
@@ -1094,11 +1098,6 @@ extern (C++) class VarDeclaration : Declaration
 
     Expression edtor;               // if !=null, does the destruction of the variable
     IntRange* range;                // if !=null, the variable is known to be within the range
-
-    version (IN_LLVM)
-    {
-        TypeClass scopeClassType;   // real (dynamic) type if onstack == true (stack-allocated class)
-    }
 
     VarDeclarations* maybes;        // STC.maybescope variables that are assigned to this STC.maybescope variable
 

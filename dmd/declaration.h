@@ -224,6 +224,9 @@ public:
     bool ctorinit;              // it has been initialized in a ctor
     bool iscatchvar;            // this is the exception object variable in catch() clause
     bool onstack;               // it is a class that was allocated on the stack
+#if IN_LLVM
+    bool onstackWithDtor;       // it is a class that was allocated on the stack and needs destruction
+#endif
     bool mynew;                 // it is a class new'd with custom operator new
     int canassign;              // it can be assigned to
     bool overlapped;            // if it is a field and has overlapping
@@ -239,10 +242,6 @@ public:
     int ctfeAdrOnStack;
     Expression *edtor;          // if !=NULL, does the destruction of the variable
     IntRange *range;            // if !NULL, the variable is known to be within the range
-
-#if IN_LLVM
-    TypeClass *scopeClassType;  // real (dynamic) type if onstack == true (stack-allocated class)
-#endif
 
     VarDeclarations *maybes;    // STCmaybescope variables that are assigned to this STCmaybescope variable
 

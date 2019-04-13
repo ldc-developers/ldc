@@ -1194,10 +1194,20 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
                                 {
                                     ne.onstack = 1;
                                     dsym.onstack = true;
-                                    version (IN_LLVM)
+version (IN_LLVM)
+{
+                                    bool hasDtor = false;
+                                    auto cd = (cast(TypeClass) ne.newtype).sym.isClassDeclaration();
+                                    for (; cd; cd = cd.baseClass)
                                     {
-                                        dsym.scopeClassType = cast(TypeClass) ne.newtype;
+                                        if (cd.dtor)
+                                        {
+                                            hasDtor = true;
+                                            break;
+                                        }
                                     }
+                                    dsym.onstackWithDtor = hasDtor;
+}
                                 }
                             }
                         }

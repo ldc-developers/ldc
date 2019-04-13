@@ -32,7 +32,7 @@ llvm::Constant *DtoDefineClassInfo(ClassDeclaration *cd);
 DValue *DtoNewClass(Loc &loc, TypeClass *type, NewExp *newexp);
 void DtoInitClass(TypeClass *tc, llvm::Value *dst);
 void DtoFinalizeClass(Loc &loc, llvm::Value *inst);
-void DtoFinalizeScopeClass(Loc &loc, llvm::Value *inst, ClassDeclaration *cd);
+void DtoFinalizeScopeClass(Loc &loc, llvm::Value *inst, bool hasDtor);
 
 DValue *DtoCastClass(Loc &loc, DValue *val, Type *to);
 DValue *DtoDynamicCastObject(Loc &loc, DValue *val, Type *to);
