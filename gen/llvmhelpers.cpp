@@ -63,10 +63,6 @@ llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel(
  * Simple Triple helpers for DFE
  * TODO: find better location for this
  ******************************************************************************/
-bool isArchx86_64() {
-  return global.params.targetTriple->getArch() == llvm::Triple::x86_64;
-}
-
 bool isTargetWindowsMSVC() {
   return global.params.targetTriple->isWindowsMSVCEnvironment();
 }

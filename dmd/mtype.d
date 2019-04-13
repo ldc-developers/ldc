@@ -3273,19 +3273,6 @@ extern (C++) final class TypeBasic : Type
         return target.alignsize(this);
     }
 
-version (IN_LLVM)
-{
-    override structalign_t alignment()
-    {
-        if ( (ty == Tfloat80 || ty == Timaginary80) && (size(Loc.initial) > 8)
-             && isArchx86_64() )
-        {
-            return 16;
-        }
-        return Type.alignment();
-    }
-}
-
     override bool isintegral()
     {
         //printf("TypeBasic::isintegral('%s') x%x\n", toChars(), flags);

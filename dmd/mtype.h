@@ -402,9 +402,6 @@ public:
     Type *syntaxCopy();
     d_uns64 size(const Loc &loc) /*const*/;
     unsigned alignsize();
-#if IN_LLVM
-    structalign_t alignment();
-#endif
     bool isintegral();
     bool isfloating() /*const*/;
     bool isreal() /*const*/;
