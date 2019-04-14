@@ -1,9 +1,9 @@
 include ../common.mak
 
-ifneq (,$(findstring win,$(OS)))
-TESTS:=
-else
-TESTS:=fiber_guard_page external_threads
+TESTS:=tlsgc_sections
+# LDC: disable POSIX-specific tests on Windows
+ifeq (,$(findstring win,$(OS)))
+TESTS+=fiber_guard_page external_threads
 endif
 
 .PHONY: all clean
@@ -16,6 +16,11 @@ $(ROOT)/fiber_guard_page.done: $(ROOT)/%.done : $(ROOT)/%
 	@touch $@
 
 $(ROOT)/external_threads.done: $(ROOT)/%.done : $(ROOT)/%
+	@echo Testing $*
+	$(QUIET)$(TIMELIMIT)$(ROOT)/$*
+	@touch $@
+
+$(ROOT)/tlsgc_sections.done: $(ROOT)/%.done : $(ROOT)/%
 	@echo Testing $*
 	$(QUIET)$(TIMELIMIT)$(ROOT)/$*
 	@touch $@
