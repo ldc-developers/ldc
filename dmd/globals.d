@@ -23,8 +23,7 @@ template xversion(string s)
     enum xversion = mixin(`{ version (` ~ s ~ `) return true; else return false; }`)();
 }
 
-enum IN_LLVM    = xversion!`IN_LLVM`;
-enum IN_LLVM_MSVC = xversion!`IN_LLVM_MSVC`;
+enum IN_LLVM = xversion!`IN_LLVM`;
 
 enum TARGET : bool
 {
