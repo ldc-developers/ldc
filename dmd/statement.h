@@ -83,8 +83,8 @@ public:
     void warning(const char *format, ...);
     void deprecation(const char *format, ...);
     virtual Statement *getRelatedLabeled() { return this; }
-    virtual bool hasBreak();
-    virtual bool hasContinue();
+    virtual bool hasBreak() const;
+    virtual bool hasContinue() const;
     bool usesEH();
     bool comeFrom();
     bool hasCode();
@@ -208,8 +208,8 @@ public:
     Statements *statements;
 
     Statement *syntaxCopy();
-    bool hasBreak();
-    bool hasContinue();
+    bool hasBreak() const;
+    bool hasContinue() const;
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -223,8 +223,8 @@ public:
     Statement *syntaxCopy();
     ScopeStatement *isScopeStatement() { return this; }
     ReturnStatement *isReturnStatement();
-    bool hasBreak();
-    bool hasContinue();
+    bool hasBreak() const;
+    bool hasContinue() const;
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -248,8 +248,8 @@ public:
     Loc endloc;                 // location of closing curly bracket
 
     Statement *syntaxCopy();
-    bool hasBreak();
-    bool hasContinue();
+    bool hasBreak() const;
+    bool hasContinue() const;
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -262,8 +262,8 @@ public:
     Loc endloc;                 // location of ';' after while
 
     Statement *syntaxCopy();
-    bool hasBreak();
-    bool hasContinue();
+    bool hasBreak() const;
+    bool hasContinue() const;
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -285,8 +285,8 @@ public:
     Statement *syntaxCopy();
     Statement *scopeCode(Scope *sc, Statement **sentry, Statement **sexit, Statement **sfinally);
     Statement *getRelatedLabeled() { return relatedLabeled ? relatedLabeled : this; }
-    bool hasBreak();
-    bool hasContinue();
+    bool hasBreak() const;
+    bool hasContinue() const;
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -309,8 +309,8 @@ public:
     ScopeStatements *gotos;     // forward referenced goto's go here
 
     Statement *syntaxCopy();
-    bool hasBreak();
-    bool hasContinue();
+    bool hasBreak() const;
+    bool hasContinue() const;
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -328,8 +328,8 @@ public:
     VarDeclaration *key;
 
     Statement *syntaxCopy();
-    bool hasBreak();
-    bool hasContinue();
+    bool hasBreak() const;
+    bool hasContinue() const;
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -416,7 +416,7 @@ public:
 #endif
 
     Statement *syntaxCopy();
-    bool hasBreak();
+    bool hasBreak() const;
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -555,8 +555,8 @@ public:
     Statement *_body;
 
     Statement *syntaxCopy();
-    bool hasBreak();
-    bool hasContinue();
+    bool hasBreak() const;
+    bool hasContinue() const;
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -581,7 +581,7 @@ public:
     Catches *catches;
 
     Statement *syntaxCopy();
-    bool hasBreak();
+    bool hasBreak() const;
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -592,9 +592,9 @@ public:
     Loc loc;
     Type *type;
     Identifier *ident;
-    VarDeclaration *var;
     Statement *handler;
 
+    VarDeclaration *var;
     // set if semantic processing errors
     bool errors;
 
@@ -615,8 +615,8 @@ public:
 
     static TryFinallyStatement *create(Loc loc, Statement *body, Statement *finalbody);
     Statement *syntaxCopy();
-    bool hasBreak();
-    bool hasContinue();
+    bool hasBreak() const;
+    bool hasContinue() const;
 
     void accept(Visitor *v) { v->visit(this); }
 };
