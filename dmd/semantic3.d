@@ -394,10 +394,14 @@ private extern(C++) final class Semantic3Visitor : Visitor
                 if (f.linkage == LINK.d || f.parameterList.length)
                 {
                     // Declare _argptr
-                    version (IN_LLVM)
-                        Type t = Type.tvalist.typeSemantic(funcdecl.loc, sc);
-                    else
-                        Type t = Type.tvalist;
+version (IN_LLVM)
+{
+                    Type t = Type.tvalist.typeSemantic(funcdecl.loc, sc);
+}
+else
+{
+                    Type t = Type.tvalist;
+}
                     // Init is handled in FuncDeclaration_toObjFile
                     funcdecl.v_argptr = new VarDeclaration(funcdecl.loc, t, Id._argptr, new VoidInitializer(funcdecl.loc));
                     funcdecl.v_argptr.storage_class |= STC.temp;
@@ -407,28 +411,28 @@ private extern(C++) final class Semantic3Visitor : Visitor
                 }
             }
 
-            version (IN_LLVM)
+version (IN_LLVM)
+{
+            // Make sure semantic analysis has been run on argument types. This is
+            // e.g. needed for TypeTuple!(int, int) to be picked up as two int
+            // parameters by the Parameter functions.
+            for (size_t i = 0; i < f.parameterList.length; i++)
             {
-                // Make sure semantic analysis has been run on argument types. This is
-                // e.g. needed for TypeTuple!(int, int) to be picked up as two int
-                // parameters by the Parameter functions.
-                for (size_t i = 0; i < f.parameterList.length; i++)
+                Parameter arg = f.parameterList[i];
+                Type nw = arg.type.typeSemantic(Loc.initial, sc);
+                if (arg.type != nw)
                 {
-                    Parameter arg = f.parameterList[i];
-                    Type nw = arg.type.typeSemantic(Loc.initial, sc);
-                    if (arg.type != nw)
-                    {
-                        arg.type = nw;
-                        // Examine this index again.
-                        // This is important if it turned into a tuple.
-                        // In particular, the empty tuple should be handled or the
-                        // next parameter will be skipped.
-                        // LDC_FIXME: Maybe we only need to do this for tuples,
-                        //            and can add tuple.length after decrement?
-                        i--;
-                    }
+                    arg.type = nw;
+                    // Examine this index again.
+                    // This is important if it turned into a tuple.
+                    // In particular, the empty tuple should be handled or the
+                    // next parameter will be skipped.
+                    // LDC_FIXME: Maybe we only need to do this for tuples,
+                    //            and can add tuple.length after decrement?
+                    i--;
                 }
             }
+}
 
             /* Declare all the function parameters as variables
              * and install them in parameters[]
@@ -1123,8 +1127,7 @@ else
                     ClassDeclaration cd = funcdecl.isThis() ? funcdecl.isThis().isClassDeclaration() : funcdecl.parent.isClassDeclaration();
                     if (cd)
                     {
-                        // IN_LLVM: disabled via leading `false &&`
-                        if (false && !global.params.is64bit && global.params.isWindows && !funcdecl.isStatic() && !sbody.usesEH() && !global.params.trace)
+                        if (!IN_LLVM && !global.params.is64bit && global.params.isWindows && !funcdecl.isStatic() && !sbody.usesEH() && !global.params.trace)
                         {
                             /* The back end uses the "jmonitor" hack for syncing;
                              * no need to do the sync at this level.

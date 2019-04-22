@@ -1084,13 +1084,11 @@ L1:
                     {
                         //printf("rewriting e1 to %s's this\n", f.toChars());
                         n++;
-                        version (IN_LLVM)
+                        // LDC seems dmd misses it sometimes here :/
+                        if (IN_LLVM && f.isMember2())
                         {
-                            // LDC seems dmd misses it sometimes here :/
-                            if (f.isMember2()) {
-                                f.vthis.nestedrefs.push(sc.parent.isFuncDeclaration());
-                                f.closureVars.push(f.vthis);
-                            }
+                            f.vthis.nestedrefs.push(sc.parent.isFuncDeclaration());
+                            f.closureVars.push(f.vthis);
                         }
                         e1 = new VarExp(loc, f.vthis);
                     }
@@ -2031,8 +2029,7 @@ private bool functionParameters(const ref Loc loc, Scope* sc,
             // These will be the trailing ... arguments
             // If not D linkage, do promotions
             // IN_LLVM: don't do promotions on intrinsics
-            // IN_LLVM replaced: if (tf.linkage != LINK.d)
-            if (tf.linkage != LINK.d && (!fd || !DtoIsIntrinsic(fd)))
+            if (tf.linkage != LINK.d && !(IN_LLVM && fd && DtoIsIntrinsic(fd)))
             {
                 // Promote bytes, words, etc., to ints
                 arg = integralPromotions(arg, sc);
@@ -6132,14 +6129,11 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
             FuncDeclaration f = ve.var.isFuncDeclaration();
             if (f)
             {
-                version (IN_LLVM)
-                {
-                    if (DtoIsIntrinsic(f.toAliasFunc()))
-                    {
-                        exp.error("cannot take the address of intrinsic function `%s`", f.toAliasFunc().toChars());
-                        result = new ErrorExp();
-                        return;
-                    }
+               if (IN_LLVM && DtoIsIntrinsic(f.toAliasFunc()))
+               {
+                    exp.error("cannot take the address of intrinsic function `%s`", f.toAliasFunc().toChars());
+                    result = new ErrorExp();
+                    return;
                 }
                 /* Because nested functions cannot be overloaded,
                  * mark here that we took its address because castTo()

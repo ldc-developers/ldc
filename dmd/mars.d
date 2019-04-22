@@ -881,18 +881,10 @@ else
     int status = EXIT_SUCCESS;
     if (!params.objfiles.dim)
     {
-version (IN_LLVM)
-{
         if (params.link)
             error(Loc.initial, "no object files to link");
-        else if (params.lib)
+        if (IN_LLVM && !params.link && params.lib)
             error(Loc.initial, "no object files");
-}
-else
-{
-        if (params.link)
-            error(Loc.initial, "no object files to link");
-}
     }
     else
     {
@@ -2700,16 +2692,8 @@ else
     }
 
 
-version (IN_LLVM)
-{
-    if (!params.obj || params.lib || params.output_o == OUTPUTFLAGno)
+    if (!params.obj || params.lib || (IN_LLVM && params.output_o == OUTPUTFLAGno))
         params.link = false;
-}
-else
-{
-    if (!params.obj || params.lib)
-        params.link = false;
-}
     if (params.link)
     {
         params.exefile = params.objname;
@@ -2739,12 +2723,9 @@ else
     {
         params.libname = params.objname;
         params.objname = null;
-version (IN_LLVM) {} else
-{
         // Haven't investigated handling these options with multiobj
-        if (!params.cov && !params.trace)
+        if (!IN_LLVM && !params.cov && !params.trace)
             params.multiobj = true;
-}
     }
     else
     {
@@ -2819,15 +2800,12 @@ version (IN_LLVM) {} else
                 libmodules.push(files[i]);
                 continue;
             }
-version (IN_LLVM)
-{
             // Detect LLVM bitcode files on commandline
-            if (FileName.equals(ext, global.bc_ext))
+            if (IN_LLVM && FileName.equals(ext, global.bc_ext))
             {
                 global.params.bitcodeFiles.push(files[i]);
                 continue;
             }
-}
             if (FileName.equals(ext, global.lib_ext))
             {
                 global.params.libfiles.push(files[i]);

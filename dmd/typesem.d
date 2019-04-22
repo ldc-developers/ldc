@@ -1827,8 +1827,8 @@ extern(C++) Type typeSemantic(Type t, Loc loc, Scope* sc)
  * Returns:
  *      the type that was merged
  */
-// LLVM: added `extern(C++)`
-extern(C++) Type merge(Type type)
+extern (C++) // IN_LLVM
+Type merge(Type type)
 {
     switch (type.ty)
     {

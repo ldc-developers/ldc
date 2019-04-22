@@ -23,8 +23,7 @@ template xversion(string s)
     enum xversion = mixin(`{ version (` ~ s ~ `) return true; else return false; }`)();
 }
 
-enum IN_LLVM    = xversion!`IN_LLVM`;
-enum IN_LLVM_MSVC = xversion!`IN_LLVM_MSVC`;
+enum IN_LLVM = xversion!`IN_LLVM`;
 
 enum TARGET : bool
 {
@@ -277,36 +276,36 @@ struct Param
     const(char)* exefile;
     const(char)* mapfile;
 
-    version (IN_LLVM)
-    {
-        Array!(const(char)*) bitcodeFiles; // LLVM bitcode files passed on cmdline
+version (IN_LLVM)
+{
+    Array!(const(char)*) bitcodeFiles; // LLVM bitcode files passed on cmdline
 
-        uint nestedTmpl; // maximum nested template instantiations
+    uint nestedTmpl; // maximum nested template instantiations
 
-        // LDC stuff
-        OUTPUTFLAG output_ll;
-        OUTPUTFLAG output_bc;
-        OUTPUTFLAG output_s;
-        OUTPUTFLAG output_o;
-        bool useInlineAsm;
-        bool verbose_cg;
-        bool fullyQualifiedObjectFiles;
-        bool cleanupObjectFiles;
+    // LDC stuff
+    OUTPUTFLAG output_ll;
+    OUTPUTFLAG output_bc;
+    OUTPUTFLAG output_s;
+    OUTPUTFLAG output_o;
+    bool useInlineAsm;
+    bool verbose_cg;
+    bool fullyQualifiedObjectFiles;
+    bool cleanupObjectFiles;
 
-        // Profile-guided optimization:
-        const(char)* datafileInstrProf; // Either the input or output file for PGO data
+    // Profile-guided optimization:
+    const(char)* datafileInstrProf; // Either the input or output file for PGO data
 
-        // target stuff
-        const(void)* targetTriple; // const llvm::Triple*
+    // target stuff
+    const(void)* targetTriple; // const llvm::Triple*
 
-        // Codegen cl options
-        bool disableRedZone;
-        uint dwarfVersion;
+    // Codegen cl options
+    bool disableRedZone;
+    uint dwarfVersion;
 
-        uint hashThreshold; // MD5 hash symbols larger than this threshold (0 = no hashing)
+    uint hashThreshold; // MD5 hash symbols larger than this threshold (0 = no hashing)
 
-        bool outputSourceLocations; // if true, output line tables.
-    }
+    bool outputSourceLocations; // if true, output line tables.
+} // IN_LLVM
 }
 
 alias structalign_t = uint;
@@ -320,16 +319,16 @@ struct Global
     const(char)* inifilename;
     const(char)* mars_ext = "d";
     const(char)* obj_ext;
-    version (IN_LLVM)
-    {
-        const(char)* ll_ext;
-        const(char)* bc_ext;
-        const(char)* s_ext;
-        const(char)* ldc_version;
-        const(char)* llvm_version;
+version (IN_LLVM)
+{
+    const(char)* ll_ext;
+    const(char)* bc_ext;
+    const(char)* s_ext;
+    const(char)* ldc_version;
+    const(char)* llvm_version;
 
-        bool gaggedForInlining; // Set for functionSemantic3 for external inlining candidates
-    }
+    bool gaggedForInlining; // Set for functionSemantic3 for external inlining candidates
+}
     const(char)* lib_ext;
     const(char)* dll_ext;
     const(char)* doc_ext = "html";      // for Ddoc generated files
@@ -462,7 +461,7 @@ else
         {
             params.mscoff = params.is64bit;
         }
-}
+} // !IN_LLVM
 version (IN_LLVM)
 {
         vendor = "LDC";

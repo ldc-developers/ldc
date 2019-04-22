@@ -71,6 +71,7 @@ import dmd.target;
 import dmd.templateparamsem;
 import dmd.typesem;
 import dmd.visitor;
+
 version (IN_LLVM)
 {
     import gen.dpragma;
@@ -1194,10 +1195,20 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
                                 {
                                     ne.onstack = 1;
                                     dsym.onstack = true;
-                                    version (IN_LLVM)
+version (IN_LLVM)
+{
+                                    bool hasDtor = false;
+                                    auto cd = (cast(TypeClass) ne.newtype).sym;
+                                    for (; cd; cd = cd.baseClass)
                                     {
-                                        dsym.scopeClassType = cast(TypeClass) ne.newtype;
+                                        if (cd.dtor)
+                                        {
+                                            hasDtor = true;
+                                            break;
+                                        }
                                     }
+                                    dsym.onstackWithDtor = hasDtor;
+}
                                 }
                             }
                         }
@@ -1626,11 +1637,12 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
     {
         // Should be merged with PragmaStatement
         //printf("\tPragmaDeclaration::semantic '%s'\n", pd.toChars());
-        version (IN_LLVM)
-        {
-            LDCPragma llvm_internal = LDCPragma.LLVMnone;
-            const(char)* arg1str = null;
-        }
+
+version (IN_LLVM)
+{
+        LDCPragma llvm_internal = LDCPragma.LLVMnone;
+        const(char)* arg1str = null;
+}
 
         if (global.params.mscoff)
         {
@@ -1804,8 +1816,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
                 }
             }
         }
-        // IN_LLVM
-        else if ((llvm_internal = DtoGetPragma(sc, pd, arg1str)) != LDCPragma.LLVMnone)
+        else if (IN_LLVM && (llvm_internal = DtoGetPragma(sc, pd, arg1str)) != LDCPragma.LLVMnone)
         {
             // nothing to do anymore
         }
@@ -1828,12 +1839,12 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
                     for (size_t i = 0; i < pd.args.dim; i++)
                     {
                         Expression e = (*pd.args)[i];
-                        version (IN_LLVM)
-                        {
-                            // ignore errors in ignored pragmas.
-                            global.gag++;
-                            uint errors_save = global.errors;
-                        }
+version (IN_LLVM)
+{
+                        // ignore errors in ignored pragmas.
+                        global.gag++;
+                        uint errors_save = global.errors;
+}
                         sc = sc.startCTFE();
                         e = e.expressionSemantic(sc);
                         e = resolveProperties(sc, e);
@@ -1844,20 +1855,22 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
                         else
                             buf.writeByte(',');
                         buf.writestring(e.toChars());
-                        version (IN_LLVM)
-                        {
-                            // restore error state.
-                            global.gag--;
-                            global.errors = errors_save;
-                        }
+version (IN_LLVM)
+{
+                        // restore error state.
+                        global.gag--;
+                        global.errors = errors_save;
+}
                     }
                     if (pd.args.dim)
                         buf.writeByte(')');
                 }
                 message("pragma    %s", buf.peekString());
             }
-            static if (!IN_LLVM)
-                goto Lnodecl;
+static if (!IN_LLVM)
+{
+            goto Lnodecl;
+}
         }
         else
             error(pd.loc, "unrecognized `pragma(%s)`", pd.ident.toChars());
@@ -1880,8 +1893,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
                             pd.error("can only apply to a single declaration");
                     }
                 }
-                // IN_LLVM: add else clause
-                else
+                else if (IN_LLVM)
                 {
                     DtoCheckPragma(pd, s, llvm_internal, arg1str);
                 }
@@ -2468,7 +2480,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
         {
             if (tempdecl.ident == Id.RTInfo)
                 Type.rtinfo = tempdecl;
-            version (IN_LLVM) if (tempdecl.ident == Id.RTInfoImpl)
+            if (IN_LLVM && tempdecl.ident == Id.RTInfoImpl)
                 Type.rtinfoImpl = tempdecl;
         }
 
@@ -3003,10 +3015,10 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
         funcdecl.inlining = sc.inlining;
         funcdecl.protection = sc.protection;
         funcdecl.userAttribDecl = sc.userAttribDecl;
-        version (IN_LLVM)
-        {
-            funcdecl.emitInstrumentation = sc.emitInstrumentation;
-        }
+version (IN_LLVM)
+{
+        funcdecl.emitInstrumentation = sc.emitInstrumentation;
+}
 
         if (!funcdecl.originalType)
             funcdecl.originalType = funcdecl.type.syntaxCopy();
@@ -3697,16 +3709,9 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
             funcdecl.initInferAttributes();
 
         Module.dprogress++;
-        version (IN_LLVM)
-        {
-            // LDC relies on semanticRun variable not being reset here
-            if (funcdecl.semanticRun < PASS.semanticdone)
-                funcdecl.semanticRun = PASS.semanticdone;
-        }
-        else
-        {
-            funcdecl.semanticRun = PASS.semanticdone;
-        }
+        // LDC relies on semanticRun variable not being reset here
+        if (!IN_LLVM || funcdecl.semanticRun < PASS.semanticdone)
+           funcdecl.semanticRun = PASS.semanticdone;
 
         /* Save scope for possible later use (if we need the
          * function internals)
@@ -5693,15 +5698,11 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
             //printf("tempdecl.ident = %s, s = '%s'\n", tempdecl.ident.toChars(), s.kind(), s.toPrettyChars());
             //printf("setting aliasdecl\n");
             tempinst.aliasdecl = s;
-            version (IN_LLVM)
+            if (IN_LLVM && tempdecl.llvmInternal != 0)
             {
-                // LDC propagate internal information
-                if (tempdecl.llvmInternal != 0) {
-                    s.llvmInternal = tempdecl.llvmInternal;
-                    if (FuncDeclaration fd = s.isFuncDeclaration()) {
-                        DtoSetFuncDeclIntrinsicName(tempinst, tempdecl, fd);
-                    }
-                }
+                s.llvmInternal = tempdecl.llvmInternal;
+                if (FuncDeclaration fd = s.isFuncDeclaration())
+                    DtoSetFuncDeclIntrinsicName(tempinst, tempdecl, fd);
             }
         }
     }

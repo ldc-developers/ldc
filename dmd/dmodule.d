@@ -605,9 +605,7 @@ else
                 argdoc = arg;
             else
                 argdoc = FileName.name(arg);
-          version (IN_LLVM)
-          {
-            if (global.params.fullyQualifiedObjectFiles)
+            if (IN_LLVM && global.params.fullyQualifiedObjectFiles)
             {
                 const fqn = md ? md.toString() : toString();
                 argdoc = FileName.replaceName(argdoc, fqn);
@@ -621,7 +619,6 @@ else
                 s[$-1] = 0;
                 argdoc = s;
             }
-          }
             // If argdoc doesn't have an absolute path, make it relative to dir
             if (!FileName.absolute(argdoc))
             {
@@ -1087,10 +1084,7 @@ else
     int needModuleInfo()
     {
         //printf("needModuleInfo() %s, %d, %d\n", toChars(), needmoduleinfo, global.params.cov);
-version (IN_LLVM)
-        return needmoduleinfo;
-else
-        return needmoduleinfo || global.params.cov;
+        return needmoduleinfo || (!IN_LLVM && global.params.cov);
     }
 
     override Dsymbol search(const ref Loc loc, Identifier ident, int flags = SearchLocalsOnly)
@@ -1333,20 +1327,20 @@ else
     Symbol* stest; // module unit test
     Symbol* sfilename; // symbol for filename
 
-    version (IN_LLVM)
-    {
-        //llvm::Module* genLLVMModule(llvm::LLVMContext& context);
-        void checkAndAddOutputFile(File* file);
-        void makeObjectFilenameUnique();
+version (IN_LLVM)
+{
+    //llvm::Module* genLLVMModule(llvm::LLVMContext& context);
+    void checkAndAddOutputFile(File* file);
+    void makeObjectFilenameUnique();
 
-        bool llvmForceLogging;
-        bool noModuleInfo; /// Do not emit any module metadata.
+    bool llvmForceLogging;
+    bool noModuleInfo; /// Do not emit any module metadata.
 
-        // Coverage analysis
-        void* d_cover_valid;  // llvm::GlobalVariable* --> private immutable size_t[] _d_cover_valid;
-        void* d_cover_data;   // llvm::GlobalVariable* --> private uint[] _d_cover_data;
-        Array!size_t d_cover_valid_init; // initializer for _d_cover_valid
-    }
+    // Coverage analysis
+    void* d_cover_valid;  // llvm::GlobalVariable* --> private immutable size_t[] _d_cover_valid;
+    void* d_cover_data;   // llvm::GlobalVariable* --> private uint[] _d_cover_data;
+    Array!size_t d_cover_valid_init; // initializer for _d_cover_valid
+}
 
     override inout(Module) isModule() inout
     {

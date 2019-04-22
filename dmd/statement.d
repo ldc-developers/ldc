@@ -49,6 +49,7 @@ import dmd.sideeffect;
 import dmd.staticassert;
 import dmd.tokens;
 import dmd.visitor;
+
 version (IN_LLVM) import gen.dpragma;
 
 /**
@@ -437,19 +438,19 @@ extern (C++) abstract class Statement : RootObject
         v.visit(this);
     }
 
-    version (IN_LLVM)
+version (IN_LLVM)
+{
+    CompoundAsmStatement isCompoundAsmBlockStatement()
     {
-        CompoundAsmStatement isCompoundAsmBlockStatement()
-        {
-            return null;
-        }
-
-        CompoundAsmStatement endsWithAsm()
-        {
-            // does not end with inline asm
-            return null;
-        }
+        return null;
     }
+
+    CompoundAsmStatement endsWithAsm()
+    {
+        // does not end with inline asm
+        return null;
+    }
+}
 }
 
 /***********************************************************
@@ -951,21 +952,21 @@ extern (C++) class CompoundStatement : Statement
         v.visit(this);
     }
 
-    version (IN_LLVM)
+version (IN_LLVM)
+{
+    override CompoundAsmStatement endsWithAsm()
     {
-        override CompoundAsmStatement endsWithAsm()
-        {
-            // make the last inner statement decide
-            if (statements && statements.dim) {
-                size_t last = statements.dim - 1;
-                Statement s = (*statements)[last];
-                if (s) {
-                    return s.endsWithAsm();
-                }
+        // make the last inner statement decide
+        if (statements && statements.dim) {
+            size_t last = statements.dim - 1;
+            Statement s = (*statements)[last];
+            if (s) {
+                return s.endsWithAsm();
             }
-            return null;
         }
+        return null;
     }
+}
 }
 
 /***********************************************************
@@ -1702,10 +1703,10 @@ extern (C++) final class CaseStatement : Statement
     int index;              // which case it is (since we sort this)
     VarDeclaration lastVar;
 
-    version (IN_LLVM)
-    {
-        bool gototarget; // true iff this is the target of a 'goto case'
-    }
+version (IN_LLVM)
+{
+    bool gototarget; // true iff this is the target of a 'goto case'
+}
 
     extern (D) this(const ref Loc loc, Expression exp, Statement s)
     {
@@ -1773,10 +1774,10 @@ extern (C++) final class DefaultStatement : Statement
     Statement statement;
     VarDeclaration lastVar;
 
-    version (IN_LLVM)
-    {
-        bool gototarget; // true iff this is the target of a 'goto default'
-    }
+version (IN_LLVM)
+{
+    bool gototarget; // true iff this is the target of a 'goto default'
+}
 
     extern (D) this(const ref Loc loc, Statement s)
     {
@@ -1836,10 +1837,10 @@ extern (C++) final class GotoCaseStatement : Statement
     Expression exp;     // null, or which case to goto
     CaseStatement cs;   // case statement it resolves to
 
-    version (IN_LLVM)
-    {
-        SwitchStatement sw;
-    }
+version (IN_LLVM)
+{
+    SwitchStatement sw;
+}
 
     extern (D) this(const ref Loc loc, Expression exp)
     {
@@ -1923,11 +1924,11 @@ extern (C++) final class BreakStatement : Statement
 {
     Identifier ident;
 
-    version (IN_LLVM)
-    {
-        // LDC: only set if ident is set: label statement to jump to
-        LabelStatement target;
-    }
+version (IN_LLVM)
+{
+    // LDC: only set if ident is set: label statement to jump to
+    LabelStatement target;
+}
 
     extern (D) this(const ref Loc loc, Identifier ident)
     {
@@ -1958,11 +1959,11 @@ extern (C++) final class ContinueStatement : Statement
 {
     Identifier ident;
 
-    version (IN_LLVM)
-    {
-        // LDC: only set if ident is set: label statement to jump to
-        LabelStatement target;
-    }
+version (IN_LLVM)
+{
+    // LDC: only set if ident is set: label statement to jump to
+    LabelStatement target;
+}
 
     extern (D) this(const ref Loc loc, Identifier ident)
     {
@@ -2342,8 +2343,7 @@ extern (C++) final class GotoStatement : Statement
             }
         }
 
-        // IN_LLVM replaced: if (label.statement.tf != tf)
-        if ( (label.statement !is null) && label.statement.tf != tf)
+        if (label.statement.tf != tf)
         {
             error("cannot `goto` in or out of `finally` block");
             return true;
@@ -2518,16 +2518,11 @@ extern (C++) final class InlineAsmStatement : AsmStatement
     bool refparam;  // true if function parameter is referenced
     bool naked;     // true if function is to be naked
 
-    version (IN_LLVM)
-    {
-        // non-zero if this is a branch, contains the target label
-        LabelDsymbol isBranchToLabel;
-
-        static InlineAsmStatement create(const ref Loc loc, Token* tokens)
-        {
-            return new InlineAsmStatement(loc, tokens);
-        }
-    }
+version (IN_LLVM)
+{
+    // non-zero if this is a branch, contains the target label
+    LabelDsymbol isBranchToLabel;
+}
 
     extern (D) this(const ref Loc loc, Token* tokens)
     {
@@ -2594,10 +2589,10 @@ extern (C++) final class CompoundAsmStatement : CompoundStatement
 {
     StorageClass stc; // postfix attributes like nothrow/pure/@trusted
 
-    version (IN_LLVM)
-    {
-        void* abiret; // llvm::Value*
-    }
+version (IN_LLVM)
+{
+    void* abiret; // llvm::Value*
+}
 
     extern (D) this(const ref Loc loc, Statements* s, StorageClass stc)
     {
@@ -2625,23 +2620,23 @@ extern (C++) final class CompoundAsmStatement : CompoundStatement
         v.visit(this);
     }
 
-    version (IN_LLVM)
+version (IN_LLVM)
+{
+    override final inout(CompoundStatement) isCompoundStatement() inout nothrow pure
     {
-        override final inout(CompoundStatement) isCompoundStatement() inout nothrow pure
-        {
-            return null;
-        }
-        override final CompoundAsmStatement isCompoundAsmBlockStatement()
-        {
-            return this;
-        }
-
-        override final CompoundAsmStatement endsWithAsm()
-        {
-            // yes this is inline asm
-            return this;
-        }
+        return null;
     }
+    override final CompoundAsmStatement isCompoundAsmBlockStatement()
+    {
+        return this;
+    }
+
+    override final CompoundAsmStatement endsWithAsm()
+    {
+        // yes this is inline asm
+        return this;
+    }
+}
 }
 
 /***********************************************************

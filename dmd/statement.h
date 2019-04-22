@@ -40,14 +40,9 @@ class LabelStatement;
 class StaticForeach;
 
 #if IN_LLVM
-namespace llvm
-{
+namespace llvm {
     class Value;
-    class BasicBlock;
-    class ConstantInt;
 }
-class DValue;
-typedef DValue elem;
 struct AsmCode;
 typedef AsmCode code;
 #else
@@ -114,7 +109,7 @@ public:
     virtual void accept(Visitor *v) { v->visit(this); }
 
 #if IN_LLVM
-    virtual CompoundAsmStatement *isCompoundAsmBlockStatement() { return NULL; }
+    virtual CompoundAsmStatement *isCompoundAsmBlockStatement() { return nullptr; }
     virtual CompoundAsmStatement *endsWithAsm();
 #endif
 };
@@ -727,9 +722,7 @@ public:
 
 #if IN_LLVM
     // non-zero if this is a branch, contains the target label
-    LabelDsymbol* isBranchToLabel;
-
-    static InlineAsmStatement *create(const Loc &loc, Token *tokens);
+    LabelDsymbol *isBranchToLabel;
 #endif
 
     Statement *syntaxCopy();
@@ -770,7 +763,7 @@ public:
     void accept(Visitor *v) { v->visit(this); }
 
 #if IN_LLVM
-    CompoundStatement *isCompoundStatement() { return NULL; }
+    CompoundStatement *isCompoundStatement() { return nullptr; }
     CompoundAsmStatement *isCompoundAsmBlockStatement() { return this; }
 
     CompoundAsmStatement* endsWithAsm();

@@ -12,6 +12,8 @@
 #include "expression.h"
 #include <cstdint>
 
+class InlineAsmStatement;
+
 using uint = uint32_t;
 
 // Classes
@@ -38,6 +40,7 @@ NegExp *createNegExp(const Loc &, Expression *);
 AddrExp *createAddrExp(const Loc &, Expression *);
 DsymbolExp *createDsymbolExp(const Loc &, Dsymbol *, bool = false);
 Expression *createExpression(const Loc &loc, TOK op, int size);
+InlineAsmStatement *createInlineAsmStatement(const Loc &loc, Token *tokens);
 TypeDelegate *createTypeDelegate(Type *t);
 TypeIdentifier *createTypeIdentifier(const Loc &loc, Identifier *ident);
 

@@ -65,6 +65,7 @@ import dmd.tokens;
 import dmd.typesem;
 import dmd.utf;
 import dmd.visitor;
+
 version (IN_LLVM) import gen.dpragma;
 
 enum LOGSEMANTIC = false;
@@ -2946,13 +2947,13 @@ extern (C++) final class StructLiteralExp : Expression
     Expressions* elements;  /// parallels sd.fields[] with null entries for fields to skip
     Type stype;             /// final type of result (can be different from sd's type)
 
-    version (IN_LLVM)
-    {
-        // With the introduction of pointers returned from CTFE, struct literals can
-        // now contain pointers to themselves. While in toElem, contains a pointer
-        // to the memory used to build the literal for resolving such references.
-        void* inProgressMemory; // llvm::Value*
-    }
+version (IN_LLVM)
+{
+    // With the introduction of pointers returned from CTFE, struct literals can
+    // now contain pointers to themselves. While in toElem, contains a pointer
+    // to the memory used to build the literal for resolving such references.
+    void* inProgressMemory; // llvm::Value*
+}
 
     Symbol* sym;            /// back end symbol to initialize with literal
 
@@ -3400,9 +3401,7 @@ version (IN_LLVM)
         // For a weak symbol, we only statically know that it is non-null if the
         // offset is non-zero.
         if (var.llvmInternal == LDCPragma.LLVMextern_weak)
-        {
             return result && offset != 0;
-        }
 }
         return result ? true : false;
     }
@@ -3790,8 +3789,10 @@ extern (C++) final class FuncExp : Expression
                 // https://issues.dlang.org/show_bug.cgi?id=12508
                 // Tweak function body for covariant returns.
                 (*presult).fd.modifyReturns(sc, tof.next);
-                version (IN_LLVM)
-                    (*presult).fd.type = tof; // Also, update function return type.
+version (IN_LLVM)
+{
+                (*presult).fd.type = tof; // Also, update function return type.
+}
             }
         }
         else if (!flag)

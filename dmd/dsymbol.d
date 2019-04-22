@@ -250,22 +250,22 @@ extern (C++) class Dsymbol : RootObject
     // (only use this with ddoc)
     UnitTestDeclaration ddocUnittest;
 
-    version (IN_LLVM)
-    {
-        // llvm stuff
-        uint llvmInternal;
+version (IN_LLVM)
+{
+    // llvm stuff
+    uint llvmInternal;
 
-        void* ir; // IrDsymbol*
-    }
+    void* ir; // IrDsymbol*
+}
 
     final extern (D) this()
     {
         //printf("Dsymbol::Dsymbol(%p)\n", this);
         this.semanticRun = PASS.init;
-        version (IN_LLVM)
-        {
-            this.ir = newIrDsymbol();
-        }
+version (IN_LLVM)
+{
+        this.ir = newIrDsymbol();
+}
     }
 
     final extern (D) this(Identifier ident)
@@ -273,20 +273,20 @@ extern (C++) class Dsymbol : RootObject
         //printf("Dsymbol::Dsymbol(%p, ident)\n", this);
         this.ident = ident;
         this.semanticRun = PASS.init;
-        version (IN_LLVM)
-        {
-            this.ir = newIrDsymbol();
-        }
+version (IN_LLVM)
+{
+        this.ir = newIrDsymbol();
+}
     }
 
-    version (IN_LLVM)
+version (IN_LLVM)
+{
+    extern (D) final ~this()
     {
-        extern (D) final ~this()
-        {
-            deleteIrDsymbol(this.ir);
-            this.ir = null;
-        }
+        deleteIrDsymbol(this.ir);
+        this.ir = null;
     }
+}
 
     static Dsymbol create(Identifier ident)
     {

@@ -1608,9 +1608,7 @@ public:
       } else if (e->e1->op == TOKvar) {
         if (auto vd = static_cast<VarExp *>(e->e1)->var->isVarDeclaration()) {
           if (vd->onstack) {
-            assert(vd->scopeClassType);
-            const auto cd = vd->scopeClassType->sym->isClassDeclaration();
-            DtoFinalizeScopeClass(e->loc, DtoRVal(dval), cd);
+            DtoFinalizeScopeClass(e->loc, DtoRVal(dval), vd->onstackWithDtor);
             onstack = true;
           }
         }

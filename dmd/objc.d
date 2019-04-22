@@ -182,7 +182,7 @@ extern(C++) abstract class Objc
 {
     static void _init()
     {
-        // IN_LLVM: if (global.params.isOSX && global.params.is64bit)
+        // IN_LLVM replaced: if (global.params.isOSX && global.params.is64bit)
         if (global.params.hasObjectiveC)
             _objc = new Supported;
         else
@@ -369,8 +369,10 @@ extern(C++) private final class Unsupported : Objc
 {
     extern(D) final this()
     {
-        version (IN_LLVM) {} else
+static if (!IN_LLVM)
+{
         ObjcGlue.initialize();
+}
     }
 
     override void setObjc(ClassDeclaration cd)
@@ -472,14 +474,14 @@ extern(C++) private final class Supported : Objc
     {
         VersionCondition.addPredefinedGlobalIdent("D_ObjectiveC");
 
-        version (IN_LLVM)
-        {
-            objc_initSymbols();
-        }
-        else
-        {
-            ObjcGlue.initialize();
-        }
+version (IN_LLVM)
+{
+        objc_initSymbols();
+}
+else
+{
+        ObjcGlue.initialize();
+}
         ObjcSelector._init();
     }
 

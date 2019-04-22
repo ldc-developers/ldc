@@ -31,6 +31,7 @@ import dmd.tokens : TOK;
 import dmd.utils : toDString;
 import dmd.root.ctfloat;
 import dmd.root.outbuffer;
+
 version (IN_LLVM) import gen.llvmhelpers;
 
 /**
@@ -63,8 +64,8 @@ struct Target
     bool twoDtorInVtable;     /// target C++ ABI puts deleting and non-deleting destructor into vtable
 
     /**
-    * Values representing all properties for floating point types
-    */
+     * Values representing all properties for floating point types
+     */
     extern (C++) struct FPTypeProperties(T)
     {
         real_t max;                         /// largest representable value that's not infinity
@@ -96,8 +97,8 @@ struct Target
     FPTypeProperties!double DoubleProperties;   ///
     FPTypeProperties!real_t RealProperties;     ///
 
-  version (IN_LLVM)
-  {
+version (IN_LLVM)
+{
     extern (C++):
 
     // implemented in gen/target.cpp:
@@ -126,9 +127,9 @@ struct Target
     }
 
     const(char)* cppTypeMangle(Type t);
-  }
-  else // !IN_LLVM
-  {
+}
+else // !IN_LLVM
+{
     /**
      * Initialize the Target
      */
@@ -523,7 +524,7 @@ struct Target
     {
         return null;
     }
-  } // !IN_LLVM
+} // !IN_LLVM
 
     /**
      * Get the type that will really be used for passing the given argument
@@ -571,17 +572,17 @@ struct Target
         return global.params.isWindows ? LINK.windows : LINK.c;
     }
 
-  version (IN_LLVM)
-  {
+version (IN_LLVM)
+{
     extern (C++):
 
     TypeTuple toArgTypes(Type t);
     bool isReturnOnStack(TypeFunction tf, bool needsThis);
     // unused: ulong parameterSize(const ref Loc loc, Type t);
     Expression getTargetInfo(const(char)* name, const ref Loc loc);
-  }
-  else // !IN_LLVM
-  {
+}
+else // !IN_LLVM
+{
     /**
      * Describes how an argument type is passed to a function on target.
      * Params:
@@ -829,7 +830,7 @@ struct Target
                 return null;
         }
     }
-  } // !IN_LLVM
+} // !IN_LLVM
 }
 
 extern (C++) __gshared Target target;

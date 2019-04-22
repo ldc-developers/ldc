@@ -88,7 +88,7 @@ static cl::opt<bool, true>
     createSharedLib("shared", cl::desc("Create shared library (DLL)"),
                     cl::ZeroOrMore, cl::location(global.params.dll));
 
-cl::opt<ubyte> defaultToHiddenVisibility(
+cl::opt<unsigned char> defaultToHiddenVisibility(
     "fvisibility", cl::ZeroOrMore,
     cl::desc("Default visibility of symbols (not relevant for Windows)"),
     clEnumValues(clEnumValN(0, "default", "Export all symbols"),
@@ -158,7 +158,7 @@ static cl::opt<CppStdRevision, true> cplusplus(
         clEnumValN(CppStdRevisionCpp17, "c++17",
                    "Sets `__traits(getTargetInfo, \"cppStd\")` to `201703`")));
 
-static cl::opt<ubyte, true> debugInfo(
+static cl::opt<unsigned char, true> debugInfo(
     cl::desc("Generating debug information:"), cl::ZeroOrMore,
     clEnumValues(
         clEnumValN(1, "g", "Add symbolic debug info"),

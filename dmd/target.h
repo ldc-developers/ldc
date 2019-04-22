@@ -21,7 +21,6 @@ class Dsymbol;
 class Expression;
 class Parameter;
 class Type;
-class TypeFunction;
 class TypeTuple;
 class TypeFunction;
 

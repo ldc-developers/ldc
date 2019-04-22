@@ -50,9 +50,7 @@ import dmd.tokens;
 import dmd.typesem;
 import dmd.visitor;
 
-version (IN_LLVM) {
-    import gen.llvmhelpers;
-}
+version (IN_LLVM) import gen.llvmhelpers;
 
 enum LOGDOTEXP = 0;         // log ::dotExp()
 enum LOGDEFAULTINIT = 0;    // log ::defaultInit()
@@ -465,7 +463,10 @@ extern (C++) abstract class Type : RootObject
     extern (C++) __gshared ClassDeclaration typeinfowild;
 
     extern (C++) __gshared TemplateDeclaration rtinfo;
-    version (IN_LLVM) extern (C++) __gshared TemplateDeclaration rtinfoImpl;
+version (IN_LLVM)
+{
+    extern (C++) __gshared TemplateDeclaration rtinfoImpl;
+}
 
     extern (C++) __gshared Type[TMAX] basic;
 
@@ -3272,19 +3273,6 @@ extern (C++) final class TypeBasic : Type
     {
         return target.alignsize(this);
     }
-
-version (IN_LLVM)
-{
-    override structalign_t alignment()
-    {
-        if ( (ty == Tfloat80 || ty == Timaginary80) && (size(Loc.initial) > 8)
-             && isArchx86_64() )
-        {
-            return 16;
-        }
-        return Type.alignment();
-    }
-}
 
     override bool isintegral()
     {

@@ -45,9 +45,7 @@ struct Symbol;          // back end symbol
 #endif
 
 #if IN_LLVM
-class SymbolDeclaration;
 namespace llvm {
-    class Constant;
     class Value;
 }
 
@@ -390,7 +388,7 @@ public:
     const char *toStringz() const
     {
         auto nbytes = len * sz;
-        char* s = (char*)mem.xmalloc(nbytes + sz);
+        char *s = (char *)mem.xmalloc(nbytes + sz);
         writeTo(s, true);
         return s;
     }
@@ -464,7 +462,7 @@ public:
     // With the introduction of pointers returned from CTFE, struct literals can
     // now contain pointers to themselves. While in toElem, contains a pointer
     // to the memory used to build the literal for resolving such references.
-    llvm::Value* inProgressMemory;
+    llvm::Value *inProgressMemory;
 #endif
 
     Symbol *sym;                // back end symbol to initialize with literal

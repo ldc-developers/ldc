@@ -43,9 +43,13 @@ typedef class IrType type;
 typedef struct TYPE type;
 #endif
 
+void semanticTypeInfo(Scope *sc, Type *t);
+
+#if IN_LLVM
+// in typesem.d:
 Type *typeSemantic(Type *t, Loc loc, Scope *sc);
 Type *merge(Type *type);
-void semanticTypeInfo(Scope *sc, Type *t);
+#endif
 
 enum ENUMTY
 {
@@ -402,9 +406,6 @@ public:
     Type *syntaxCopy();
     d_uns64 size(const Loc &loc) /*const*/;
     unsigned alignsize();
-#if IN_LLVM
-    structalign_t alignment();
-#endif
     bool isintegral();
     bool isfloating() /*const*/;
     bool isreal() /*const*/;
@@ -446,7 +447,6 @@ public:
 class TypeArray : public TypeNext
 {
 public:
-    Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     void accept(Visitor *v) { v->visit(this); }
 };
 
