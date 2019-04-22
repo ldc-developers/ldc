@@ -32,7 +32,6 @@ import dmd.expressionsem;
 import dmd.globals;
 import dmd.id;
 import dmd.identifier;
-import dmd.lexer;
 import dmd.parse;
 import dmd.root.file;
 import dmd.root.filename;
@@ -73,9 +72,11 @@ private const(char)[] lookForSourceFile(const(char)[] filename)
     const sdi = FileName.forceExt(filename, global.hdr_ext.toDString());
     if (FileName.exists(sdi) == 1)
         return sdi;
+    scope(exit) FileName.free(sdi.ptr);
     const sd = FileName.forceExt(filename, global.mars_ext.toDString());
     if (FileName.exists(sd) == 1)
         return sd;
+    scope(exit) FileName.free(sd.ptr);
     if (FileName.exists(filename) == 2)
     {
         /* The filename exists and it's a directory.
@@ -154,14 +155,13 @@ enum PKG : int
  */
 extern (C++) class Package : ScopeDsymbol
 {
-    PKG isPkgMod;
+    PKG isPkgMod = PKG.unknown;
     uint tag;        // auto incremented tag, used to mask package tree in scopes
     Module mod;     // !=null if isPkgMod == PKG.module_
 
-    final extern (D) this(Identifier ident)
+    final extern (D) this(const ref Loc loc, Identifier ident)
     {
-        super(ident);
-        this.isPkgMod = PKG.unknown;
+        super(loc, ident);
         __gshared uint packageTag;
         this.tag = packageTag++;
     }
@@ -196,7 +196,7 @@ extern (C++) class Package : ScopeDsymbol
                 Dsymbol p = dst.lookup(pid);
                 if (!p)
                 {
-                    pkg = new Package(pid);
+                    pkg = new Package(Loc.initial, pid);
                     dst.insert(pkg);
                     pkg.parent = parent;
                     pkg.symtab = new DsymbolTable();
@@ -411,9 +411,9 @@ extern (C++) final class Module : Package
     size_t nameoffset;          // offset of module name from start of ModuleInfo
     size_t namelen;             // length of module name in characters
 
-    extern (D) this(const(char)* filename, Identifier ident, int doDocComment, int doHdrGen)
+    extern (D) this(const ref Loc loc, const(char)* filename, Identifier ident, int doDocComment, int doHdrGen)
     {
-        super(ident);
+        super(loc, ident);
         const(char)* srcfilename;
         //printf("Module::Module(filename = '%s', ident = '%s')\n", filename, ident.toChars());
         this.arg = filename;
@@ -453,11 +453,17 @@ else
         if (doHdrGen)
             hdrfile = setOutfile(global.params.hdrname, global.params.hdrdir, arg, global.hdr_ext);
         //objfile = new File(objfilename);
+        escapetable = new Escape();
+    }
+
+    extern (D) this(const(char)* filename, Identifier ident, int doDocComment, int doHdrGen)
+    {
+        this(Loc.initial, filename, ident, doDocComment, doHdrGen);
     }
 
     static Module create(const(char)* filename, Identifier ident, int doDocComment, int doHdrGen)
     {
-        return new Module(filename, ident, doDocComment, doHdrGen);
+        return new Module(Loc.initial, filename, ident, doDocComment, doHdrGen);
     }
 
     static Module load(Loc loc, Identifiers* packages, Identifier ident)
@@ -521,12 +527,15 @@ else
             buf.writeByte(0);
             filename = buf.extractData().toDString();
         }
-        auto m = new Module(filename.ptr, ident, 0, 0);
-        m.loc = loc;
+        auto m = new Module(loc, filename.ptr, ident, 0, 0);
+
         /* Look for the source file
          */
         if (const result = lookForSourceFile(filename))
+        {
             m.srcfile = new File(result);
+            FileName.free(result.ptr);
+        }
 
         if (!m.read(loc))
             return null;
@@ -659,7 +668,7 @@ version (IN_LLVM)
 else
 {
             errorSupplemental(loc, "dmd might not be correctly installed. Run 'dmd -man' for installation instructions.");
-            const dmdConfFile = FileName.canonicalName(global.inifilename);
+            const dmdConfFile = global.inifilename ? FileName.canonicalName(global.inifilename) : null;
             errorSupplemental(loc, "config file: %s", dmdConfFile ? dmdConfFile : "not found".ptr);
 }
         }
@@ -963,7 +972,7 @@ else
              *    later package.d loading will change Package::isPkgMod to PKG.module_ and set Package::mod.
              * 2. Otherwise, 'package.d' wrapped by 'Package' is inserted to the internal tree in here.
              */
-            auto p = new Package(ident);
+            auto p = new Package(Loc.initial, ident);
             p.parent = this.parent;
             p.isPkgMod = PKG.module_;
             p.mod = this;

@@ -165,55 +165,6 @@ struct LLVM_LIBRARY_VISIBILITY ArraySetLengthOpt : public LibCallOptimization {
   }
 };
 
-/// ArrayCastLenOpt - remove libcall for cast(T[]) arr if it's safe to do so.
-struct LLVM_LIBRARY_VISIBILITY ArrayCastLenOpt : public LibCallOptimization {
-  Value *CallOptimizer(Function *Callee, CallInst *CI,
-                       IRBuilder<> &B) override {
-    // Verify we have a reasonable prototype for _d_arraycast_len
-    const FunctionType *FT = Callee->getFunctionType();
-    const llvm::Type *RetTy = FT->getReturnType();
-    if (Callee->arg_size() != 3 || !isa<IntegerType>(RetTy) ||
-        FT->getParamType(0) != RetTy || FT->getParamType(1) != RetTy ||
-        FT->getParamType(2) != RetTy) {
-      return nullptr;
-    }
-
-    Value *OldLen = CI->getOperand(0);
-    Value *OldSize = CI->getOperand(1);
-    Value *NewSize = CI->getOperand(2);
-
-    // If the old length was zero, always return zero.
-    if (Constant *LenCst = dyn_cast<Constant>(OldLen)) {
-      if (LenCst->isNullValue()) {
-        return OldLen;
-      }
-    }
-
-    // Equal sizes are much faster to check for, so do so now.
-    if (OldSize == NewSize) {
-      return OldLen;
-    }
-
-    // If both sizes are constant integers, see if OldSize is a multiple of
-    // NewSize
-    if (ConstantInt *OldInt = dyn_cast<ConstantInt>(OldSize)) {
-      if (ConstantInt *NewInt = dyn_cast<ConstantInt>(NewSize)) {
-        // Don't crash on NewSize == 0, even though it shouldn't happen.
-        if (NewInt->isNullValue()) {
-          return nullptr;
-        }
-
-        APInt Quot, Rem;
-        APInt::udivrem(OldInt->getValue(), NewInt->getValue(), Quot, Rem);
-        if (Rem == 0) {
-          return B.CreateMul(OldLen, ConstantInt::get(*Context, Quot));
-        }
-      }
-    }
-    return nullptr;
-  }
-};
-
 /// AllocationOpt - Common optimizations for various GC allocations.
 struct LLVM_LIBRARY_VISIBILITY AllocationOpt : public LibCallOptimization {
   Value *CallOptimizer(Function *Callee, CallInst *CI,
@@ -316,7 +267,6 @@ class LLVM_LIBRARY_VISIBILITY SimplifyDRuntimeCalls : public FunctionPass {
 
   // Array operations
   ArraySetLengthOpt ArraySetLength;
-  ArrayCastLenOpt ArrayCastLen;
   ArraySliceCopyOpt ArraySliceCopy;
 
   // GC allocations
@@ -350,7 +300,6 @@ FunctionPass *createSimplifyDRuntimeCalls() {
 /// we know.
 void SimplifyDRuntimeCalls::InitOptimizations() {
   // Some array-related optimizations
-  Optimizations["_d_arraycast_len"] = &ArrayCastLen;
   Optimizations["_d_arraysetlengthT"] = &ArraySetLength;
   Optimizations["_d_arraysetlengthiT"] = &ArraySetLength;
   Optimizations["_d_array_slice_copy"] = &ArraySliceCopy;

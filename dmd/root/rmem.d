@@ -12,8 +12,9 @@
 
 module dmd.root.rmem;
 
-import core.stdc.stdlib;
+import core.exception : onOutOfMemoryError;
 import core.stdc.stdio;
+import core.stdc.stdlib;
 import core.stdc.string;
 
 version = GC;
@@ -44,7 +45,7 @@ extern (C++) struct Mem
         return p;
     }
 
-    static void xfree(void* p) nothrow
+    static void xfree(void* p) pure nothrow
     {
         if (!p)
             return;
@@ -53,10 +54,10 @@ extern (C++) struct Mem
             if (isGCEnabled)
                 return GC.free(p);
 
-        .free(p);
+        pureFree(p);
     }
 
-    static void* xmalloc(size_t size) nothrow
+    static void* xmalloc(size_t size) pure nothrow
     {
         if (!size)
             return null;
@@ -65,13 +66,13 @@ extern (C++) struct Mem
             if (isGCEnabled)
                 return GC.malloc(size);
 
-        auto p = .malloc(size);
+        auto p = pureMalloc(size);
         if (!p)
             error();
         return p;
     }
 
-    static void* xcalloc(size_t size, size_t n) nothrow
+    static void* xcalloc(size_t size, size_t n) pure nothrow
     {
         const totalSize = size * n;
         if (!totalSize)
@@ -81,13 +82,13 @@ extern (C++) struct Mem
             if (isGCEnabled)
                 return GC.calloc(totalSize);
 
-        auto p = .calloc(size, n);
+        auto p = pureCalloc(size, n);
         if (!p)
             error();
         return p;
     }
 
-    static void* xrealloc(void* p, size_t size) nothrow
+    static void* xrealloc(void* p, size_t size) pure nothrow
     {
         version (GC)
             if (isGCEnabled)
@@ -96,37 +97,43 @@ extern (C++) struct Mem
         if (!size)
         {
             if (p)
-                .free(p);
+                pureFree(p);
             return null;
         }
 
         if (!p)
         {
-            p = .malloc(size);
+            p = pureMalloc(size);
             if (!p)
                 error();
             return p;
         }
 
-        p = .realloc(p, size);
+        p = pureRealloc(p, size);
         if (!p)
             error();
         return p;
     }
 
-    static void error() nothrow
+    static void error() pure nothrow
     {
-        printf("Error: out of memory\n");
-        exit(EXIT_FAILURE);
+        onOutOfMemoryError();
     }
 
     version (GC)
     {
-        __gshared bool isGCEnabled = true;
+        __gshared bool _isGCEnabled = true;
+
+        static bool isGCEnabled() pure nothrow
+        {
+            // fake purity by making global variable immutable (_isGCEnabled only modified before startup)
+            enum _pIsGCEnabled = cast(immutable bool*) &_isGCEnabled;
+            return *_pIsGCEnabled;
+        }
 
         static void disableGC()
         {
-            isGCEnabled = false;
+            _isGCEnabled = false;
         }
 
         static void addRange(const(void)* p, size_t size) nothrow
@@ -294,6 +301,96 @@ static if (OVERRIDE_MEMALLOC)
     }
 }
 
+// Copied from druntime. Remove these when GDC and LDC LTS is at a version
+// corresponding to 2.074.0 or later.
+static if (!is(typeof(pureMalloc)))
+{
+private:
+    static import core.stdc.errno;
+
+    /**
+     * Pure variants of C's memory allocation functions `malloc`, `calloc`, and
+     * `realloc` and deallocation function `free`.
+     *
+     * UNIX 98 requires that errno be set to ENOMEM upon failure.
+     * Purity is achieved by saving and restoring the value of `errno`, thus
+     * behaving as if it were never changed.
+     *
+     * See_Also:
+     *     $(LINK2 https://dlang.org/spec/function.html#pure-functions, D's rules for purity),
+     *     which allow for memory allocation under specific circumstances.
+     */
+    void* pureMalloc()(size_t size) @trusted pure @nogc nothrow
+    {
+        const errnosave = fakePureErrno;
+        void* ret = fakePureMalloc(size);
+        fakePureErrno = errnosave;
+        return ret;
+    }
+    /// ditto
+    void* pureCalloc()(size_t nmemb, size_t size) @trusted pure @nogc nothrow
+    {
+        const errnosave = fakePureErrno;
+        void* ret = fakePureCalloc(nmemb, size);
+        fakePureErrno = errnosave;
+        return ret;
+    }
+    /// ditto
+    void* pureRealloc()(void* ptr, size_t size) @system pure @nogc nothrow
+    {
+        const errnosave = fakePureErrno;
+        void* ret = fakePureRealloc(ptr, size);
+        fakePureErrno = errnosave;
+        return ret;
+    }
+    /// ditto
+    void pureFree()(void* ptr) @system pure @nogc nothrow
+    {
+        const errnosave = fakePureErrno;
+        fakePureFree(ptr);
+        fakePureErrno = errnosave;
+    }
+
+    extern (C) private pure @system @nogc nothrow
+    {
+        static import core.stdc.errno;
+
+        pragma(mangle, "malloc") void* fakePureMalloc(size_t);
+        pragma(mangle, "calloc") void* fakePureCalloc(size_t nmemb, size_t size);
+        pragma(mangle, "realloc") void* fakePureRealloc(void* ptr, size_t size);
+
+        pragma(mangle, "free") void fakePureFree(void* ptr);
+    }
+
+    static if (__traits(getOverloads, core.stdc.errno, "errno").length == 1
+        && __traits(getLinkage, core.stdc.errno.errno) == "C")
+    {
+        extern(C) pragma(mangle, __traits(identifier, core.stdc.errno.errno))
+        private ref int fakePureErrno() @nogc nothrow pure @system;
+    }
+    else
+    {
+        extern(C) private @nogc nothrow pure @system
+        {
+            pragma(mangle, "getErrno")
+            private int fakePureGetErrno();
+
+            pragma(mangle, "setErrno")
+            private int fakePureSetErrno(int);
+        }
+
+        private @property int fakePureErrno()() @nogc nothrow pure @system
+        {
+            return fakePureGetErrno();
+        }
+
+        private @property void fakePureErrno()(int newValue) @nogc nothrow pure @system
+        {
+            cast(void) fakePureSetErrno(newValue);
+        }
+    }
+}
+
 /**
 Makes a null-terminated copy of the given string on newly allocated memory.
 The null-terminator won't be part of the returned string slice. It will be
@@ -304,7 +401,7 @@ Params:
 
 Returns: A null-terminated copy of the input array.
 */
-extern (D) char[] xarraydup(const(char)[] s) nothrow
+extern (D) char[] xarraydup(const(char)[] s) pure nothrow
 {
     if (!s)
         return null;
@@ -317,7 +414,7 @@ extern (D) char[] xarraydup(const(char)[] s) nothrow
 }
 
 ///
-unittest
+pure nothrow unittest
 {
     auto s1 = "foo";
     auto s2 = s1.xarraydup;
@@ -337,7 +434,7 @@ Params:
 
 Returns: A copy of the input array.
 */
-extern (D) T[] arraydup(T)(const scope T[] s) nothrow
+extern (D) T[] arraydup(T)(const scope T[] s) pure nothrow
 {
     if (!s)
         return null;
@@ -349,7 +446,7 @@ extern (D) T[] arraydup(T)(const scope T[] s) nothrow
 }
 
 ///
-unittest
+pure nothrow unittest
 {
     auto s1 = [0, 1, 2];
     auto s2 = s1.arraydup;

@@ -901,7 +901,6 @@ extern (C++) struct Token
         return p;
     }
 
-    // IN_LLVM: was `extern (D)`
     static const(char)* toChars(TOK value)
     {
         return toString(value).ptr;

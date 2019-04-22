@@ -19,6 +19,7 @@ import core.stdc.string;
 import dmd.aggregate;
 import dmd.aliasthis;
 import dmd.arraytypes;
+import dmd.ast_node;
 import dmd.dcast;
 import dmd.dclass;
 import dmd.declaration;
@@ -541,9 +542,9 @@ version (IN_LLVM)
     const(char)* intrinsicName;
 }
 
-    extern (D) this(const ref Loc loc, Identifier id, TemplateParameters* parameters, Expression constraint, Dsymbols* decldefs, bool ismixin = false, bool literal = false)
+    extern (D) this(const ref Loc loc, Identifier ident, TemplateParameters* parameters, Expression constraint, Dsymbols* decldefs, bool ismixin = false, bool literal = false)
     {
-        super(id);
+        super(loc, ident);
         static if (LOG)
         {
             printf("TemplateDeclaration(this = %p, id = '%s')\n", this, id.toChars());
@@ -562,7 +563,6 @@ version (IN_LLVM)
                     }
                 }
         }
-        this.loc = loc;
         this.parameters = parameters;
         this.origParameters = parameters;
         this.constraint = constraint;
@@ -695,7 +695,7 @@ else
         return buf.extractString();
     }
 
-    override Prot prot()
+    override Prot prot() pure nothrow @nogc @safe
     {
         return protection;
     }
@@ -2484,7 +2484,7 @@ void functionResolve(Match* m, Dsymbol dstart, Loc loc, Scope* sc, Objects* tiar
             else if (shared_this && !shared_dtor && tthis_fd !is null)
                 tf.mod = tthis_fd.mod;
         }
-        MATCH mfa = tf.callMatch(tthis_fd, fargs, 0, pMessage);
+        MATCH mfa = tf.callMatch(tthis_fd, fargs, 0, pMessage, sc);
         //printf("test1: mfa = %d\n", mfa);
         if (mfa > MATCH.nomatch)
         {
@@ -2521,8 +2521,20 @@ void functionResolve(Match* m, Dsymbol dstart, Loc loc, Scope* sc, Objects* tiar
             if (!m.lastf.type.equals(fd.type))
             {
                 //printf("cov: %d %d\n", m.lastf.type.covariant(fd.type), fd.type.covariant(m.lastf.type));
-                if (m.lastf.type.covariant(fd.type) == 1) goto LlastIsBetter;
-                if (fd.type.covariant(m.lastf.type) == 1) goto LfIsBetter;
+                const int lastCovariant = m.lastf.type.covariant(fd.type);
+                const int firstCovariant = fd.type.covariant(m.lastf.type);
+
+                if (lastCovariant == 1 || lastCovariant == 2)
+                {
+                    if (firstCovariant != 1 && firstCovariant != 2)
+                    {
+                        goto LlastIsBetter;
+                    }
+                }
+                else if (firstCovariant == 1 || firstCovariant == 2)
+                {
+                    goto LfIsBetter;
+                }
             }
 
             /* If the two functions are the same function, like:
@@ -2677,7 +2689,7 @@ void functionResolve(Match* m, Dsymbol dstart, Loc loc, Scope* sc, Objects* tiar
             Type tthis_fd = fd.needThis() && !fd.isCtorDeclaration() ? tthis : null;
 
             auto tf = cast(TypeFunction)fd.type;
-            MATCH mfa = tf.callMatch(tthis_fd, fargs);
+            MATCH mfa = tf.callMatch(tthis_fd, fargs, 0, null, sc);
             if (mfa < m.last)
                 return 0;
 
@@ -2772,8 +2784,8 @@ void functionResolve(Match* m, Dsymbol dstart, Loc loc, Scope* sc, Objects* tiar
                 assert(tf1.ty == Tfunction);
                 auto tf2 = cast(TypeFunction)m.lastf.type;
                 assert(tf2.ty == Tfunction);
-                MATCH c1 = tf1.callMatch(tthis_fd, fargs);
-                MATCH c2 = tf2.callMatch(tthis_best, fargs);
+                MATCH c1 = tf1.callMatch(tthis_fd, fargs, 0, null, sc);
+                MATCH c2 = tf2.callMatch(tthis_best, fargs, 0, null, sc);
                 //printf("2: c1 = %d, c2 = %d\n", c1, c2);
                 if (c1 > c2) goto Ltd;
                 if (c1 < c2) goto Ltd_best;
@@ -2877,7 +2889,7 @@ void functionResolve(Match* m, Dsymbol dstart, Loc loc, Scope* sc, Objects* tiar
         if (tf.ty == Terror)
             goto Lerror;
         assert(tf.ty == Tfunction);
-        if (!tf.callMatch(tthis_best, fargs))
+        if (!tf.callMatch(tthis_best, fargs, 0, null, sc))
             goto Lnomatch;
 
         /* As https://issues.dlang.org/show_bug.cgi?id=3682 shows,
@@ -5032,7 +5044,7 @@ private bool reliesOnTemplateParameters(Expression e, TemplateParameter[] tparam
 /***********************************************************
  * https://dlang.org/spec/template.html#TemplateParameter
  */
-extern (C++) class TemplateParameter : RootObject
+extern (C++) class TemplateParameter : ASTNode
 {
     Loc loc;
     Identifier ident;
@@ -5140,7 +5152,7 @@ extern (C++) class TemplateParameter : RootObject
      */
     abstract void* dummyArg();
 
-    void accept(Visitor v)
+    override void accept(Visitor v)
     {
         v.visit(this);
     }
@@ -5161,7 +5173,6 @@ extern (C++) class TemplateTypeParameter : TemplateParameter
     extern (D) this(const ref Loc loc, Identifier ident, Type specType, Type defaultType)
     {
         super(loc, ident);
-        this.ident = ident;
         this.specType = specType;
         this.defaultType = defaultType;
     }
@@ -5360,7 +5371,6 @@ extern (C++) final class TemplateValueParameter : TemplateParameter
         Expression specValue, Expression defaultValue)
     {
         super(loc, ident);
-        this.ident = ident;
         this.valType = valType;
         this.specValue = specValue;
         this.defaultValue = defaultValue;
@@ -5589,7 +5599,6 @@ extern (C++) final class TemplateAliasParameter : TemplateParameter
     extern (D) this(const ref Loc loc, Identifier ident, Type specType, RootObject specAlias, RootObject defaultAlias)
     {
         super(loc, ident);
-        this.ident = ident;
         this.specType = specType;
         this.specAlias = specAlias;
         this.defaultAlias = defaultAlias;
@@ -5802,7 +5811,6 @@ extern (C++) final class TemplateTupleParameter : TemplateParameter
     extern (D) this(const ref Loc loc, Identifier ident)
     {
         super(loc, ident);
-        this.ident = ident;
     }
 
     override TemplateTupleParameter isTemplateTupleParameter()
@@ -5975,12 +5983,11 @@ extern (C++) class TemplateInstance : ScopeDsymbol
 
     extern (D) this(const ref Loc loc, Identifier ident, Objects* tiargs)
     {
-        super(null);
+        super(loc, null);
         static if (LOG)
         {
             printf("TemplateInstance(this = %p, ident = '%s')\n", this, ident ? ident.toChars() : "null");
         }
-        this.loc = loc;
         this.name = ident;
         this.tiargs = tiargs;
     }
@@ -5991,12 +5998,11 @@ extern (C++) class TemplateInstance : ScopeDsymbol
      */
     extern (D) this(const ref Loc loc, TemplateDeclaration td, Objects* tiargs)
     {
-        super(null);
+        super(loc, null);
         static if (LOG)
         {
             printf("TemplateInstance(this = %p, tempdecl = '%s')\n", this, td.toChars());
         }
-        this.loc = loc;
         this.name = td.ident;
         this.tiargs = tiargs;
         this.tempdecl = td;

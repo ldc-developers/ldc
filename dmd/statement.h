@@ -11,6 +11,7 @@
 #pragma once
 
 #include "arraytypes.h"
+#include "ast_node.h"
 #include "dsymbol.h"
 #include "visitor.h"
 #include "tokens.h"
@@ -69,7 +70,7 @@ enum BE
     BEany = (BEfallthru | BEthrow | BEreturn | BEgoto | BEhalt)
 };
 
-class Statement : public RootObject
+class Statement : public ASTNode
 {
 public:
     Loc loc;
@@ -106,7 +107,7 @@ public:
     virtual BreakStatement *isBreakStatement() { return NULL; }
     virtual DtorExpStatement *isDtorExpStatement() { return NULL; }
     virtual ForwardingStatement *isForwardingStatement() { return NULL; }
-    virtual void accept(Visitor *v) { v->visit(this); }
+    void accept(Visitor *v) { v->visit(this); }
 
 #if IN_LLVM
     virtual CompoundAsmStatement *isCompoundAsmBlockStatement() { return nullptr; }

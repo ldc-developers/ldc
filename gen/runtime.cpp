@@ -74,7 +74,6 @@ static void checkForImplicitGCCall(const Loc &loc, const char *name) {
         "_d_arrayappendcTX",
         "_d_arrayappendcd",
         "_d_arrayappendwd",
-        "_d_arraycast_len",
         "_d_arraycatT",
         "_d_arraycatnTX",
         "_d_arraysetlengthT",
@@ -686,15 +685,6 @@ static void buildRuntimeModule() {
   STR_APPLY2(wstringTy, wc, wd)
   STR_APPLY2(dstringTy, dc, dw)
 #undef STR_APPLY2
-
-  //////////////////////////////////////////////////////////////////////////////
-  //////////////////////////////////////////////////////////////////////////////
-  //////////////////////////////////////////////////////////////////////////////
-
-  // fixes the length for dynamic array casts
-  // size_t _d_arraycast_len(size_t len, size_t elemsz, size_t newelemsz)
-  createFwdDecl(LINKc, sizeTy, {"_d_arraycast_len"}, {sizeTy, sizeTy, sizeTy},
-                {}, Attr_ReadNone);
 
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////

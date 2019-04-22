@@ -100,7 +100,7 @@ static cl::opt<bool> enableGC(
 // This function exits the program.
 void printVersion(llvm::raw_ostream &OS) {
   OS << "LDC - the LLVM D compiler (" << global.ldc_version << "):\n";
-  OS << "  based on DMD " << global.version << " and LLVM "
+  OS << "  based on DMD " << global.version.ptr << " and LLVM "
      << global.llvm_version << "\n";
   OS << "  built with " << ldc::built_with_Dcompiler_version << "\n";
 #if defined(__has_feature)
@@ -306,7 +306,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles) {
   if (global.params.verbose) {
     message("binary    %s", exe_path::getExePath().c_str());
     message("version   %s (DMD %s, LLVM %s)", global.ldc_version,
-            global.version, global.llvm_version);
+            global.version.ptr, global.llvm_version);
     if (global.inifilename) {
       message("config    %s (%s)", global.inifilename, cfg_triple.c_str());
     }
@@ -907,7 +907,7 @@ int cppmain(int argc, char **argv) {
 
   // Older host druntime versions need druntime to be initialized before
   // disabling the GC, so we cannot disable it in C main above.
-  if (!mem.isGCEnabled)
+  if (!mem.isGCEnabled())
     gc_disable();
 
   exe_path::initialize(argv[0]);
@@ -924,7 +924,8 @@ int cppmain(int argc, char **argv) {
   argv = filteredArgs.data();
 
   global._init();
-  global.version = ldc::dmd_version;
+  // global.version includes the terminating null
+  global.version = {strlen(ldc::dmd_version) + 1, ldc::dmd_version};
   global.ldc_version = ldc::ldc_version;
   global.llvm_version = ldc::llvm_version;
 

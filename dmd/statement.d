@@ -19,6 +19,7 @@ import dmd.aggregate;
 import dmd.arraytypes;
 import dmd.attrib;
 import dmd.astcodegen;
+import dmd.ast_node;
 import dmd.gluelayer;
 import dmd.canthrow;
 import dmd.cond;
@@ -39,7 +40,6 @@ import dmd.hdrgen;
 import dmd.id;
 import dmd.identifier;
 import dmd.dinterpret;
-import dmd.lexer;
 import dmd.mtype;
 import dmd.parse;
 import dmd.root.outbuffer;
@@ -80,9 +80,9 @@ TypeIdentifier getException()
 /***********************************************************
  * Specification: http://dlang.org/spec/statement.html
  */
-extern (C++) abstract class Statement : RootObject
+extern (C++) abstract class Statement : ASTNode
 {
-    Loc loc;
+    const Loc loc;
 
     override final DYNCAST dyncast() const
     {
@@ -161,7 +161,7 @@ extern (C++) abstract class Statement : RootObject
      * Returns:
      *     `true` if it does
      */
-    bool hasBreak()
+    bool hasBreak() const pure nothrow
     {
         //printf("Statement::hasBreak()\n");
         return false;
@@ -173,7 +173,7 @@ extern (C++) abstract class Statement : RootObject
      * Returns:
      *     `true` if it does
      */
-    bool hasContinue()
+    bool hasContinue() const pure nothrow
     {
         return false;
     }
@@ -345,7 +345,7 @@ extern (C++) abstract class Statement : RootObject
      * Returns:
      *    the downcast statement if it can be downcasted, otherwise `null`
      */
-    ErrorStatement isErrorStatement()
+    inout(ErrorStatement) isErrorStatement() inout pure nothrow
     {
         return null;
     }
@@ -357,7 +357,7 @@ extern (C++) abstract class Statement : RootObject
     }
 
     /// ditto
-    ExpStatement isExpStatement()
+    inout(ExpStatement) isExpStatement() inout pure nothrow
     {
         return null;
     }
@@ -375,37 +375,37 @@ extern (C++) abstract class Statement : RootObject
     }
 
     /// ditto
-    IfStatement isIfStatement()
+    inout(IfStatement) isIfStatement() inout pure nothrow
     {
         return null;
     }
 
     /// ditto
-    CaseStatement isCaseStatement()
+    inout(CaseStatement) isCaseStatement() inout pure nothrow
     {
         return null;
     }
 
     /// ditto
-    DefaultStatement isDefaultStatement()
+    inout(DefaultStatement) isDefaultStatement() inout pure nothrow
     {
         return null;
     }
 
     /// ditto
-    LabelStatement isLabelStatement()
+    inout(LabelStatement) isLabelStatement() inout pure nothrow
     {
         return null;
     }
 
     /// ditto
-    GotoDefaultStatement isGotoDefaultStatement() pure
+    inout(GotoDefaultStatement) isGotoDefaultStatement() inout pure nothrow
     {
         return null;
     }
 
     /// ditto
-    GotoCaseStatement isGotoCaseStatement() pure
+    inout(GotoCaseStatement) isGotoCaseStatement() inout pure nothrow
     {
         return null;
     }
@@ -417,13 +417,13 @@ extern (C++) abstract class Statement : RootObject
     }
 
     /// ditto
-    DtorExpStatement isDtorExpStatement()
+    inout(DtorExpStatement) isDtorExpStatement() inout pure nothrow
     {
         return null;
     }
 
     /// ditto
-    ForwardingStatement isForwardingStatement()
+    inout(ForwardingStatement) isForwardingStatement() inout pure nothrow
     {
         return null;
     }
@@ -433,7 +433,7 @@ extern (C++) abstract class Statement : RootObject
      * Params:
      *  v = visitor
      */
-    void accept(Visitor v)
+    override void accept(Visitor v)
     {
         v.visit(this);
     }
@@ -470,7 +470,7 @@ extern (C++) final class ErrorStatement : Statement
         return this;
     }
 
-    override ErrorStatement isErrorStatement()
+    override inout(ErrorStatement) isErrorStatement() inout pure nothrow
     {
         return this;
     }
@@ -744,7 +744,7 @@ extern (C++) class ExpStatement : Statement
         return null;
     }
 
-    override final ExpStatement isExpStatement()
+    override final inout(ExpStatement) isExpStatement() inout pure nothrow
     {
         return this;
     }
@@ -762,10 +762,10 @@ extern (C++) final class DtorExpStatement : ExpStatement
     // Wraps an expression that is the destruction of 'var'
     VarDeclaration var;
 
-    extern (D) this(const ref Loc loc, Expression exp, VarDeclaration v)
+    extern (D) this(const ref Loc loc, Expression exp, VarDeclaration var)
     {
         super(loc, exp);
-        this.var = v;
+        this.var = var;
     }
 
     override Statement syntaxCopy()
@@ -778,7 +778,7 @@ extern (C++) final class DtorExpStatement : ExpStatement
         v.visit(this);
     }
 
-    override DtorExpStatement isDtorExpStatement()
+    override inout(DtorExpStatement) isDtorExpStatement() inout pure nothrow
     {
         return this;
     }
@@ -870,12 +870,12 @@ extern (C++) class CompoundStatement : Statement
      *
      * Params:
      *   loc = Instantiation information
-     *   s   = An array of `Statement`s, that will referenced by this class
+     *   statements   = An array of `Statement`s, that will referenced by this class
      */
-    final extern (D) this(const ref Loc loc, Statements* s)
+    final extern (D) this(const ref Loc loc, Statements* statements)
     {
         super(loc);
-        statements = s;
+        this.statements = statements;
     }
 
     /**
@@ -973,10 +973,9 @@ version (IN_LLVM)
  */
 extern (C++) final class CompoundDeclarationStatement : CompoundStatement
 {
-    extern (D) this(const ref Loc loc, Statements* s)
+    extern (D) this(const ref Loc loc, Statements* statements)
     {
-        super(loc, s);
-        statements = s;
+        super(loc, statements);
     }
 
     override Statement syntaxCopy()
@@ -1003,10 +1002,10 @@ extern (C++) final class UnrolledLoopStatement : Statement
 {
     Statements* statements;
 
-    extern (D) this(const ref Loc loc, Statements* s)
+    extern (D) this(const ref Loc loc, Statements* statements)
     {
         super(loc);
-        statements = s;
+        this.statements = statements;
     }
 
     override Statement syntaxCopy()
@@ -1019,12 +1018,12 @@ extern (C++) final class UnrolledLoopStatement : Statement
         return new UnrolledLoopStatement(loc, a);
     }
 
-    override bool hasBreak()
+    override bool hasBreak() const pure nothrow
     {
         return true;
     }
 
-    override bool hasContinue()
+    override bool hasContinue() const pure nothrow
     {
         return true;
     }
@@ -1042,10 +1041,10 @@ extern (C++) class ScopeStatement : Statement
     Statement statement;
     Loc endloc;                 // location of closing curly bracket
 
-    extern (D) this(const ref Loc loc, Statement s, Loc endloc)
+    extern (D) this(const ref Loc loc, Statement statement, Loc endloc)
     {
         super(loc);
-        this.statement = s;
+        this.statement = statement;
         this.endloc = endloc;
     }
     override Statement syntaxCopy()
@@ -1065,13 +1064,13 @@ extern (C++) class ScopeStatement : Statement
         return null;
     }
 
-    override bool hasBreak()
+    override bool hasBreak() const pure nothrow
     {
         //printf("ScopeStatement::hasBreak() %s\n", toChars());
         return statement ? statement.hasBreak() : false;
     }
 
-    override bool hasContinue()
+    override bool hasContinue() const pure nothrow
     {
         return statement ? statement.hasContinue() : false;
     }
@@ -1096,19 +1095,19 @@ extern (C++) final class ForwardingStatement : Statement
     /// The wrapped statement.
     Statement statement;
 
-    extern (D) this(const ref Loc loc, ForwardingScopeDsymbol sym, Statement s)
+    extern (D) this(const ref Loc loc, ForwardingScopeDsymbol sym, Statement statement)
     {
         super(loc);
         this.sym = sym;
-        assert(s);
-        statement = s;
+        assert(statement);
+        this.statement = statement;
     }
 
-    extern (D) this(const ref Loc loc, Statement s)
+    extern (D) this(const ref Loc loc, Statement statement)
     {
         auto sym = new ForwardingScopeDsymbol(null);
         sym.symtab = new DsymbolTable();
-        this(loc, sym, s);
+        this(loc, sym, statement);
     }
 
     override Statement syntaxCopy()
@@ -1149,7 +1148,7 @@ extern (C++) final class ForwardingStatement : Statement
         return b;
     }
 
-    override ForwardingStatement isForwardingStatement()
+    override inout(ForwardingStatement) isForwardingStatement() inout pure nothrow
     {
         return this;
     }
@@ -1170,11 +1169,11 @@ extern (C++) final class WhileStatement : Statement
     Statement _body;
     Loc endloc;             // location of closing curly bracket
 
-    extern (D) this(const ref Loc loc, Expression c, Statement b, Loc endloc)
+    extern (D) this(const ref Loc loc, Expression condition, Statement _body, Loc endloc)
     {
         super(loc);
-        condition = c;
-        _body = b;
+        this.condition = condition;
+        this._body = _body;
         this.endloc = endloc;
     }
 
@@ -1186,12 +1185,12 @@ extern (C++) final class WhileStatement : Statement
             endloc);
     }
 
-    override bool hasBreak()
+    override bool hasBreak() const pure nothrow
     {
         return true;
     }
 
-    override bool hasContinue()
+    override bool hasContinue() const pure nothrow
     {
         return true;
     }
@@ -1211,11 +1210,11 @@ extern (C++) final class DoStatement : Statement
     Expression condition;
     Loc endloc;                 // location of ';' after while
 
-    extern (D) this(const ref Loc loc, Statement b, Expression c, Loc endloc)
+    extern (D) this(const ref Loc loc, Statement _body, Expression condition, Loc endloc)
     {
         super(loc);
-        _body = b;
-        condition = c;
+        this._body = _body;
+        this.condition = condition;
         this.endloc = endloc;
     }
 
@@ -1227,12 +1226,12 @@ extern (C++) final class DoStatement : Statement
             endloc);
     }
 
-    override bool hasBreak()
+    override bool hasBreak() const pure nothrow
     {
         return true;
     }
 
-    override bool hasContinue()
+    override bool hasContinue() const pure nothrow
     {
         return true;
     }
@@ -1291,13 +1290,13 @@ extern (C++) final class ForStatement : Statement
         return relatedLabeled ? relatedLabeled : this;
     }
 
-    override bool hasBreak()
+    override bool hasBreak() const pure nothrow
     {
         //printf("ForStatement::hasBreak()\n");
         return true;
     }
 
-    override bool hasContinue()
+    override bool hasContinue() const pure nothrow
     {
         return true;
     }
@@ -1346,12 +1345,12 @@ extern (C++) final class ForeachStatement : Statement
             endloc);
     }
 
-    override bool hasBreak()
+    override bool hasBreak() const pure nothrow
     {
         return true;
     }
 
-    override bool hasContinue()
+    override bool hasContinue() const pure nothrow
     {
         return true;
     }
@@ -1392,12 +1391,12 @@ extern (C++) final class ForeachRangeStatement : Statement
         return new ForeachRangeStatement(loc, op, prm.syntaxCopy(), lwr.syntaxCopy(), upr.syntaxCopy(), _body ? _body.syntaxCopy() : null, endloc);
     }
 
-    override bool hasBreak()
+    override bool hasBreak() const pure nothrow
     {
         return true;
     }
 
-    override bool hasContinue()
+    override bool hasContinue() const pure nothrow
     {
         return true;
     }
@@ -1440,7 +1439,7 @@ extern (C++) final class IfStatement : Statement
             endloc);
     }
 
-    override IfStatement isIfStatement()
+    override inout(IfStatement) isIfStatement() inout pure nothrow
     {
         return this;
     }
@@ -1561,11 +1560,11 @@ extern (C++) final class StaticForeachStatement : Statement
  */
 extern (C++) final class PragmaStatement : Statement
 {
-    Identifier ident;
+    const Identifier ident;
     Expressions* args;      // array of Expression's
     Statement _body;
 
-    extern (D) this(const ref Loc loc, Identifier ident, Expressions* args, Statement _body)
+    extern (D) this(const ref Loc loc, const Identifier ident, Expressions* args, Statement _body)
     {
         super(loc);
         this.ident = ident;
@@ -1629,11 +1628,11 @@ version (IN_LLVM)
     bool hasGotoDefault;            // true iff there is a `goto default` statement for this switch
 }
 
-    extern (D) this(const ref Loc loc, Expression c, Statement b, bool isFinal)
+    extern (D) this(const ref Loc loc, Expression condition, Statement _body, bool isFinal)
     {
         super(loc);
-        this.condition = c;
-        this._body = b;
+        this.condition = condition;
+        this._body = _body;
         this.isFinal = isFinal;
     }
 
@@ -1642,7 +1641,7 @@ version (IN_LLVM)
         return new SwitchStatement(loc, condition.syntaxCopy(), _body.syntaxCopy(), isFinal);
     }
 
-    override bool hasBreak()
+    override bool hasBreak() const pure nothrow
     {
         return true;
     }
@@ -1700,6 +1699,7 @@ extern (C++) final class CaseStatement : Statement
 {
     Expression exp;
     Statement statement;
+
     int index;              // which case it is (since we sort this)
     VarDeclaration lastVar;
 
@@ -1708,11 +1708,11 @@ version (IN_LLVM)
     bool gototarget; // true iff this is the target of a 'goto case'
 }
 
-    extern (D) this(const ref Loc loc, Expression exp, Statement s)
+    extern (D) this(const ref Loc loc, Expression exp, Statement statement)
     {
         super(loc);
         this.exp = exp;
-        this.statement = s;
+        this.statement = statement;
     }
 
     override Statement syntaxCopy()
@@ -1727,7 +1727,7 @@ version (IN_LLVM)
         return exp.compare(cs2.exp);
     }
 
-    override CaseStatement isCaseStatement()
+    override inout(CaseStatement) isCaseStatement() inout pure nothrow
     {
         return this;
     }
@@ -1747,12 +1747,12 @@ extern (C++) final class CaseRangeStatement : Statement
     Expression last;
     Statement statement;
 
-    extern (D) this(const ref Loc loc, Expression first, Expression last, Statement s)
+    extern (D) this(const ref Loc loc, Expression first, Expression last, Statement statement)
     {
         super(loc);
         this.first = first;
         this.last = last;
-        this.statement = s;
+        this.statement = statement;
     }
 
     override Statement syntaxCopy()
@@ -1772,6 +1772,7 @@ extern (C++) final class CaseRangeStatement : Statement
 extern (C++) final class DefaultStatement : Statement
 {
     Statement statement;
+
     VarDeclaration lastVar;
 
 version (IN_LLVM)
@@ -1779,10 +1780,10 @@ version (IN_LLVM)
     bool gototarget; // true iff this is the target of a 'goto default'
 }
 
-    extern (D) this(const ref Loc loc, Statement s)
+    extern (D) this(const ref Loc loc, Statement statement)
     {
         super(loc);
-        this.statement = s;
+        this.statement = statement;
     }
 
     override Statement syntaxCopy()
@@ -1790,7 +1791,7 @@ version (IN_LLVM)
         return new DefaultStatement(loc, statement.syntaxCopy());
     }
 
-    override DefaultStatement isDefaultStatement()
+    override inout(DefaultStatement) isDefaultStatement() inout pure nothrow
     {
         return this;
     }
@@ -1818,7 +1819,7 @@ extern (C++) final class GotoDefaultStatement : Statement
         return new GotoDefaultStatement(loc);
     }
 
-    override GotoDefaultStatement isGotoDefaultStatement() pure
+    override inout(GotoDefaultStatement) isGotoDefaultStatement() inout pure nothrow
     {
         return this;
     }
@@ -1835,6 +1836,7 @@ extern (C++) final class GotoDefaultStatement : Statement
 extern (C++) final class GotoCaseStatement : Statement
 {
     Expression exp;     // null, or which case to goto
+
     CaseStatement cs;   // case statement it resolves to
 
 version (IN_LLVM)
@@ -1853,7 +1855,7 @@ version (IN_LLVM)
         return new GotoCaseStatement(loc, exp ? exp.syntaxCopy() : null);
     }
 
-    override GotoCaseStatement isGotoCaseStatement() pure
+    override inout(GotoCaseStatement) isGotoCaseStatement() inout pure nothrow
     {
         return this;
     }
@@ -2002,12 +2004,12 @@ extern (C++) final class SynchronizedStatement : Statement
         return new SynchronizedStatement(loc, exp ? exp.syntaxCopy() : null, _body ? _body.syntaxCopy() : null);
     }
 
-    override bool hasBreak()
+    override bool hasBreak() const pure nothrow
     {
         return false; //true;
     }
 
-    override bool hasContinue()
+    override bool hasContinue() const pure nothrow
     {
         return false; //true;
     }
@@ -2072,7 +2074,7 @@ extern (C++) final class TryCatchStatement : Statement
         return new TryCatchStatement(loc, _body.syntaxCopy(), a);
     }
 
-    override bool hasBreak()
+    override bool hasBreak() const pure nothrow
     {
         return false;
     }
@@ -2088,23 +2090,23 @@ extern (C++) final class TryCatchStatement : Statement
  */
 extern (C++) final class Catch : RootObject
 {
-    Loc loc;
+    const Loc loc;
     Type type;
     Identifier ident;
-    VarDeclaration var;
     Statement handler;
 
+    VarDeclaration var;
     bool errors;                // set if semantic processing errors
 
     // was generated by the compiler, wasn't present in source code
     bool internalCatch;
 
-    extern (D) this(const ref Loc loc, Type t, Identifier id, Statement handler)
+    extern (D) this(const ref Loc loc, Type type, Identifier ident, Statement handler)
     {
         //printf("Catch(%s, loc = %s)\n", id.toChars(), loc.toChars());
         this.loc = loc;
-        this.type = t;
-        this.ident = id;
+        this.type = type;
+        this.ident = ident;
         this.handler = handler;
     }
 
@@ -2144,12 +2146,12 @@ extern (C++) final class TryFinallyStatement : Statement
         return new TryFinallyStatement(loc, _body.syntaxCopy(), finalbody.syntaxCopy());
     }
 
-    override bool hasBreak()
+    override bool hasBreak() const pure nothrow
     {
         return false; //true;
     }
 
-    override bool hasContinue()
+    override bool hasContinue() const pure nothrow
     {
         return false; //true;
     }
@@ -2391,6 +2393,7 @@ extern (C++) final class LabelStatement : Statement
 {
     Identifier ident;
     Statement statement;
+
     TryFinallyStatement tf;
     ScopeGuardStatement os;
     VarDeclaration lastVar;
@@ -2444,7 +2447,7 @@ extern (C++) final class LabelStatement : Statement
         return this;
     }
 
-    override LabelStatement isLabelStatement()
+    override inout(LabelStatement) isLabelStatement() inout pure nothrow
     {
         return this;
     }
@@ -2594,9 +2597,9 @@ version (IN_LLVM)
     void* abiret; // llvm::Value*
 }
 
-    extern (D) this(const ref Loc loc, Statements* s, StorageClass stc)
+    extern (D) this(const ref Loc loc, Statements* statements, StorageClass stc)
     {
-        super(loc, s);
+        super(loc, statements);
         this.stc = stc;
     }
 

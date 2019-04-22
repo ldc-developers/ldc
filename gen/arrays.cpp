@@ -1161,29 +1161,6 @@ LLValue *DtoArrayEquals(Loc &loc, TOK op, DValue *l, DValue *r) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-LLValue *DtoArrayCastLength(Loc &loc, LLValue *len, LLType *elemty,
-                            LLType *newelemty) {
-  IF_LOG Logger::println("DtoArrayCastLength");
-  LOG_SCOPE;
-
-  assert(len);
-  assert(elemty);
-  assert(newelemty);
-
-  size_t esz = getTypeAllocSize(elemty);
-  size_t nsz = getTypeAllocSize(newelemty);
-  if (esz == nsz) {
-    return len;
-  }
-
-  LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_arraycast_len");
-  return gIR
-      ->CreateCallOrInvoke(fn, {len, DtoConstSize_t(esz), DtoConstSize_t(nsz)},
-                           "", /*isNothrow=*/true)
-      .getInstruction();
-}
-
-////////////////////////////////////////////////////////////////////////////////
 LLValue *DtoDynArrayIs(TOK op, DValue *l, DValue *r) {
   assert(l);
   assert(r);
@@ -1306,10 +1283,17 @@ DValue *DtoCastArray(Loc &loc, DValue *u, Type *to) {
     }
 
     LLType *ptrty = DtoArrayType(totype)->getContainedType(1);
-    LLType *ety = DtoMemType(fromtype->nextOf());
 
-    if (fromtype->nextOf()->size() != totype->nextOf()->size())
-      length = DtoArrayCastLength(loc, length, ety, ptrty->getContainedType(0));
+    const auto fsize = fromtype->nextOf()->size();
+    const auto tsize = totype->nextOf()->size();
+    if (fsize != tsize) {
+      if (fsize % tsize == 0) {
+        // set new length to `length * (fsize / tsize)`
+        length = gIR->ir->CreateMul(length, DtoConstSize_t(fsize / tsize));
+      } else {
+        llvm_unreachable("should have been lowered to `__ArrayCast`");
+      }
+    }
 
     return new DSliceValue(to, length, DtoBitCast(ptr, ptrty));
   }

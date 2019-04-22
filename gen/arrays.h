@@ -76,9 +76,6 @@ LLValue *DtoArrayEquals(Loc &loc, TOK op, DValue *l, DValue *r);
 
 LLValue *DtoDynArrayIs(TOK op, DValue *l, DValue *r);
 
-LLValue *DtoArrayCastLength(Loc &loc, LLValue *len, LLType *elemty,
-                            LLType *newelemty);
-
 LLValue *DtoArrayLen(DValue *v);
 LLValue *DtoArrayPtr(DValue *v);
 
