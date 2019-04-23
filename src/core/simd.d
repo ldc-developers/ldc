@@ -50,7 +50,7 @@ static if (is(Vector!(uint[4])))    alias Vector!(uint[4])   uint4;         ///
 static if (is(Vector!(long[2])))    alias Vector!(long[2])   long2;         ///
 static if (is(Vector!(ulong[2])))   alias Vector!(ulong[2])  ulong2;        ///
 
-version (D_AVX)
+version (all) // LDC: was D_AVX
 {
     static if (is(Vector!(void[32])))   alias Vector!(void[32])   void32;        ///
     static if (is(Vector!(double[4])))  alias Vector!(double[4])  double4;       ///
