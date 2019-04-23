@@ -1554,23 +1554,17 @@ public:
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
-    Module *const module = irs->func()->decl->getModule();
-
     if (global.params.checkAction == CHECKACTION_C) {
+      auto module = irs->func()->decl->getModule();
       DtoCAssert(module, stmt->loc, DtoConstCString("no switch default"));
       return;
     }
 
-    llvm::Function *fn =
-        getRuntimeFunction(stmt->loc, irs->module, "_d_switch_error");
+    // `stmt->exp` is a CallExpression to `object.__switch_error!()`
+    assert(stmt->exp);
+    toElemDtor(stmt->exp);
 
-    LLValue *moduleInfoSymbol = getIrModule(module)->moduleInfoSymbol();
-    LLType *moduleInfoPtrType = DtoPtrToType(getModuleInfoType());
-
-    LLCallSite call = irs->CreateCallOrInvoke(
-        fn, DtoBitCast(moduleInfoSymbol, moduleInfoPtrType),
-        DtoConstUint(stmt->loc.linnum));
-    call.setDoesNotReturn();
+    gIR->ir->CreateUnreachable();
   }
 
   //////////////////////////////////////////////////////////////////////////

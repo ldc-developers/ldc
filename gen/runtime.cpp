@@ -559,10 +559,6 @@ static void buildRuntimeModule() {
   createFwdDecl(LINKc, voidTy, {"_d_assert_msg"}, {stringTy, stringTy, uintTy},
                 {}, Attr_Cold_NoReturn);
 
-  // void _d_switch_error(immutable(ModuleInfo)* m, uint line)
-  createFwdDecl(LINKc, voidTy, {"_d_switch_error"}, {moduleInfoPtrTy, uintTy},
-                {STCimmutable, 0}, Attr_Cold_NoReturn);
-
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
