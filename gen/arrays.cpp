@@ -1263,38 +1263,37 @@ DValue *DtoCastArray(Loc &loc, DValue *u, Type *to) {
     LLValue *length = nullptr;
     LLValue *ptr = nullptr;
     if (fromtype->ty == Tsarray) {
-      uinteger_t len = static_cast<TypeSArray *>(fromtype)->dim->toUInteger();
-      length = DtoConstSize_t(len);
+      length = DtoConstSize_t(
+          static_cast<TypeSArray *>(fromtype)->dim->toUInteger());
       ptr = DtoLVal(u);
-      assert(isaPointer(ptr->getType()));
-      LLArrayType *arrty = isaArray(ptr->getType()->getContainedType(0));
-
-      if (arrty->getNumElements() * fromtype->nextOf()->size() %
-              totype->nextOf()->size() !=
-          0) {
-        error(loc,
-              "invalid cast from `%s` to `%s`, the element sizes don't line up",
-              fromtype->toChars(), totype->toChars());
-        fatal();
-      }
     } else {
       length = DtoArrayLen(u);
       ptr = DtoArrayPtr(u);
     }
 
-    LLType *ptrty = DtoArrayType(totype)->getContainedType(1);
-
     const auto fsize = fromtype->nextOf()->size();
     const auto tsize = totype->nextOf()->size();
     if (fsize != tsize) {
-      if (fsize % tsize == 0) {
-        // set new length to `length * (fsize / tsize)`
+      if (auto constLength = isaConstantInt(length)) {
+        // compute new constant length: (constLength * fsize) / tsize
+        const auto totalSize = constLength->getZExtValue() * fsize;
+        if (totalSize % tsize != 0) {
+          error(loc,
+                "invalid cast from `%s` to `%s`, the element sizes don't "
+                "line up",
+                fromtype->toChars(), totype->toChars());
+          fatal();
+        }
+        length = DtoConstSize_t(totalSize / tsize);
+      } else if (fsize % tsize == 0) {
+        // compute new dynamic length: length * (fsize / tsize)
         length = gIR->ir->CreateMul(length, DtoConstSize_t(fsize / tsize));
       } else {
         llvm_unreachable("should have been lowered to `__ArrayCast`");
       }
     }
 
+    LLType *ptrty = tolltype->getStructElementType(1);
     return new DSliceValue(to, length, DtoBitCast(ptr, ptrty));
   }
 
