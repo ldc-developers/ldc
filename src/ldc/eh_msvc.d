@@ -122,6 +122,12 @@ extern(C) void _d_throw_exception(Throwable throwable)
     if (ti is null)
         fatalerror("Cannot throw corrupt exception object with null classinfo");
 
+    /* Increment reference count if `o` is a refcounted Throwable
+     */
+    auto refcount = throwable.refcount();
+    if (refcount)       // non-zero means it's refcounted
+        throwable.refcount() = refcount + 1;
+
     if (exceptionStack.length > 0)
     {
         // we expect that the terminate handler will be called, so hook
@@ -244,11 +250,7 @@ Throwable chainExceptions(Throwable e, Throwable t)
             return err;
         }
 
-    Throwable last = e;
-    while (last.next)
-        last = last.next;
-    last.next = t;
-    return e;
+    return Throwable.chainTogether(e, t);
 }
 
 ExceptionStack exceptionStack;
