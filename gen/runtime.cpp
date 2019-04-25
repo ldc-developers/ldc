@@ -615,6 +615,10 @@ static void buildRuntimeModule() {
   createFwdDecl(LINKc, objectTy, {"_d_newclass", "_d_allocclass"},
                 {classInfoTy}, {STCconst}, Attr_NoAlias);
 
+  // Throwable _d_newThrowable(const ClassInfo ci)
+  createFwdDecl(LINKc, throwableTy, {"_d_newThrowable"}, {classInfoTy},
+                {STCconst}, Attr_NoAlias);
+
   // void* _d_newitemT (TypeInfo ti)
   // void* _d_newitemiT(TypeInfo ti)
   createFwdDecl(LINKc, voidPtrTy, {"_d_newitemT", "_d_newitemiT"}, {typeInfoTy},
