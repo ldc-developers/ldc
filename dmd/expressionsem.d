@@ -11522,6 +11522,12 @@ Expression getThisSkipNestedFuncs(const ref Loc loc, Scope* sc, Dsymbol s, Aggre
         if (f.vthis)
         {
             n++;
+            // LDC seems dmd misses it sometimes here :/
+            if (IN_LLVM && !flag && f.isMember2())
+            {
+                f.vthis.nestedrefs.push(sc.parent.isFuncDeclaration());
+                f.closureVars.push(f.vthis);
+            }
             e1 = new VarExp(loc, f.vthis);
         }
         else
