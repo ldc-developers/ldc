@@ -71,6 +71,10 @@ struct IrAggr {
   /// Defines all interface vtbls.
   void defineInterfaceVtbls();
 
+  /// Whether to suppress the TypeInfo definition for the aggregate via
+  /// `-betterC`, no `object.TypeInfo`, or `pragma(LDC_no_typeinfo)`.
+  bool suppressTypeInfo() const;
+
   /// Create the __ClassZ/__InterfaceZ symbol lazily.
   llvm::GlobalVariable *getClassInfoSymbol();
   /// Builds the __ClassZ/__InterfaceZ initializer constant lazily.

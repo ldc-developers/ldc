@@ -656,6 +656,10 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
     if (forStructType->sym->llvmInternal == LLVMno_typeinfo)
       return;
   }
+  if (auto forClassType = forType->isTypeClass()) {
+    if (forClassType->sym->llvmInternal == LLVMno_typeinfo)
+      return;
+  }
 
   // define the TypeInfo global
   LLVMDefineVisitor v(gvar);
