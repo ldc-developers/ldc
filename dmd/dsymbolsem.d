@@ -4497,12 +4497,11 @@ version (IN_LLVM)
              * was already performed on it, create a syntax copy and
              * redo the first semantic step.
              */
-            auto err = global.startGagging();
-            auto fd_temp = fd.syntaxCopy(null);
+            auto fd_temp = fd.syntaxCopy(null).isFuncDeclaration();
+            fd_temp.storage_class &= ~STC.auto_;
             if (auto cd = ad.isClassDeclaration())
                 cd.vtbl.remove(fd.vtblIndex);
             fd_temp.dsymbolSemantic(sc);
-            global.endGagging(err);
             (*ad.members)[i] = fd_temp;
         }
     }
