@@ -23,6 +23,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/mangling.h"
 #include "gen/metadata.h"
+#include "gen/pragma.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
 #include "ir/iraggr.h"
@@ -56,6 +57,13 @@ LLGlobalVariable *IrAggr::getVtblSymbol() {
                        /*isConstant=*/true);
 
   return vtbl;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+bool IrAggr::suppressTypeInfo() const {
+  return !global.params.useTypeInfo || !Type::dtypeinfo ||
+         aggrdecl->llvmInternal == LLVMno_typeinfo;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -165,7 +173,7 @@ LLConstant *IrAggr::getVtblInit() {
   // start with the classinfo
   llvm::Constant *c;
   if (!cd->isCPPclass()) {
-    if (global.params.useTypeInfo && Type::dtypeinfo) {
+    if (!suppressTypeInfo()) {
       c = getClassInfoSymbol();
       c = DtoBitCast(c, voidPtrType);
     } else {
@@ -322,7 +330,7 @@ void IrAggr::defineInterfaceVtbl(BaseClass *b, bool new_instance,
   const auto voidPtrTy = getVoidPtrType();
 
   if (!b->sym->isCPPinterface()) { // skip interface info for CPP interfaces
-    if (global.params.useTypeInfo && Type::dtypeinfo) {
+    if (!suppressTypeInfo()) {
       // index into the interfaces array
       llvm::Constant *idxs[2] = {DtoConstSize_t(0),
                                  DtoConstSize_t(interfaces_index)};

@@ -101,13 +101,10 @@ public:
       }
 
       // Emit TypeInfo.
-      if (global.params.useTypeInfo && Type::dtypeinfo) {
-        IrAggr *ir = getIrAggr(decl);
+      IrAggr *ir = getIrAggr(decl);
+      if (!ir->suppressTypeInfo() && !isSpeculativeType(decl->type)) {
         llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
-        // Only define if not speculative.
-        if (!isSpeculativeType(decl->type)) {
-          defineGlobal(interfaceZ, ir->getClassInfoInit(), decl);
-        }
+        defineGlobal(interfaceZ, ir->getClassInfoInit(), decl);
       }
     }
   }
@@ -151,20 +148,20 @@ public:
       setLinkage(decl, initGlobal);
 
       // emit typeinfo
-      if (global.params.useTypeInfo && Type::dtypeinfo) {
+      if (!ir->suppressTypeInfo()) {
         DtoTypeInfoOf(decl->type, /*base=*/false);
-      }
-    }
 
-    // Emit __xopEquals/__xopCmp/__xtoHash.
-    if (decl->xeq && decl->xeq != decl->xerreq) {
-      decl->xeq->accept(this);
-    }
-    if (decl->xcmp && decl->xcmp != decl->xerrcmp) {
-      decl->xcmp->accept(this);
-    }
-    if (decl->xhash) {
-      decl->xhash->accept(this);
+        // Emit __xopEquals/__xopCmp/__xtoHash.
+        if (decl->xeq && decl->xeq != decl->xerreq) {
+          decl->xeq->accept(this);
+        }
+        if (decl->xcmp && decl->xcmp != decl->xerrcmp) {
+          decl->xcmp->accept(this);
+        }
+        if (decl->xhash) {
+          decl->xhash->accept(this);
+        }
+      }
     }
   }
 
@@ -208,12 +205,9 @@ public:
       ir->defineInterfaceVtbls();
 
       // Emit TypeInfo.
-      if (global.params.useTypeInfo && Type::dtypeinfo) {
+      if (!ir->suppressTypeInfo() && !isSpeculativeType(decl->type)) {
         llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
-        // Only define if not speculative.
-        if (!isSpeculativeType(decl->type)) {
-          defineGlobal(classZ, ir->getClassInfoInit(), decl);
-        }
+        defineGlobal(classZ, ir->getClassInfoInit(), decl);
       }
     }
   }

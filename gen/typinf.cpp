@@ -45,6 +45,7 @@
 #include "gen/logger.h"
 #include "gen/mangling.h"
 #include "gen/metadata.h"
+#include "gen/pragma.h"
 #include "gen/rttibuilder.h"
 #include "gen/runtime.h"
 #include "gen/structs.h"
@@ -646,9 +647,18 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
   emitTypeMetadata(decl);
 
   // check if the definition can be elided
+  Type *forType = decl->tinfo;
   if (!global.params.useTypeInfo || !Type::dtypeinfo ||
-      isSpeculativeType(decl->tinfo) || builtinTypeInfo(decl->tinfo)) {
+      isSpeculativeType(forType) || builtinTypeInfo(forType)) {
     return;
+  }
+  if (auto forStructType = forType->isTypeStruct()) {
+    if (forStructType->sym->llvmInternal == LLVMno_typeinfo)
+      return;
+  }
+  if (auto forClassType = forType->isTypeClass()) {
+    if (forClassType->sym->llvmInternal == LLVMno_typeinfo)
+      return;
   }
 
   // define the TypeInfo global
