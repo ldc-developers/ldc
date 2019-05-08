@@ -155,8 +155,6 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   const char *mangle = mangleExact(fd);
   std::string fullmangle; // buffer only
 
-  std::ostringstream tmpstr;
-
   const auto &triple = *global.params.targetTriple;
   bool const isWin = triple.isOSWindows();
   bool const isOSX = (triple.getOS() == llvm::Triple::Darwin ||
@@ -169,19 +167,12 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
     fullmangle += mangle;
     mangle = fullmangle.c_str();
 
-    std::string section = "text";
-    bool weak = false;
-    if (DtoIsTemplateInstance(fd)) {
-      tmpstr << "section\t__TEXT,__textcoal_nt,coalesced,pure_instructions";
-      section = tmpstr.str();
-      weak = true;
-    }
-    asmstr << "\t." << section << std::endl;
-    asmstr << "\t.align\t4, 0x90" << std::endl;
+    asmstr << "\t.section\t__TEXT,__text,regular,pure_instructions" << std::endl;
     asmstr << "\t.globl\t" << mangle << std::endl;
-    if (weak) {
+    if (DtoIsTemplateInstance(fd)) {
       asmstr << "\t.weak_definition\t" << mangle << std::endl;
     }
+    asmstr << "\t.p2align\t4, 0x90" << std::endl;
     asmstr << mangle << ":" << std::endl;
   }
   // Windows is different
@@ -202,18 +193,17 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
     asmstr << "\t.def\t" << mangle << ";" << std::endl;
     // hard code these two numbers for now since gas ignores .scl and llvm
     // is defaulting to .type 32 for everything I have seen
-    asmstr << "\t.scl 2;" << std::endl;
-    asmstr << "\t.type 32;" << std::endl;
+    asmstr << "\t.scl\t2;" << std::endl;
+    asmstr << "\t.type\t32;" << std::endl;
     asmstr << "\t.endef" << std::endl;
 
     if (DtoIsTemplateInstance(fd)) {
-      asmstr << "\t.section\t.text$" << mangle << ",\"xr\"" << std::endl;
-      asmstr << "\t.linkonce\tdiscard" << std::endl;
+      asmstr << "\t.section\t.text,\"xr\",discard," << mangle << std::endl;
     } else {
       asmstr << "\t.text" << std::endl;
     }
     asmstr << "\t.globl\t" << mangle << std::endl;
-    asmstr << "\t.align\t16, 0x90" << std::endl;
+    asmstr << "\t.p2align\t4, 0x90" << std::endl;
     asmstr << mangle << ":" << std::endl;
   } else {
     if (DtoIsTemplateInstance(fd)) {
@@ -224,7 +214,7 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
       asmstr << "\t.text" << std::endl;
       asmstr << "\t.globl\t" << mangle << std::endl;
     }
-    asmstr << "\t.align\t16, 0x90" << std::endl;
+    asmstr << "\t.p2align\t4, 0x90" << std::endl;
     asmstr << "\t.type\t" << mangle << ",@function" << std::endl;
     asmstr << mangle << ":" << std::endl;
   }
