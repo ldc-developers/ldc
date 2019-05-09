@@ -1,6 +1,12 @@
 // RUN: %ldc -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 
-import rt.monitor_ : Mutex;
+// Mutex is a private alias in rt.monitor_
+version (Windows)
+    import core.sys.windows.winbase : Mutex = CRITICAL_SECTION;
+else version (Posix)
+    import core.sys.posix.pthread : Mutex = pthread_mutex_t;
+else
+    static assert(0);
 
 struct D_CRITICAL_SECTION // private symbol in rt.critical_
 {

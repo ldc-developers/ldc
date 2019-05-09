@@ -34,8 +34,9 @@ struct Mem
     static void error();
 
 #if 1 // version (GC)
-    static bool isGCEnabled;
+    static bool _isGCEnabled;
 
+    static bool isGCEnabled();
     static void disableGC();
     static void addRange(const void *p, d_size_t size);
     static void removeRange(const void *p);

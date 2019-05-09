@@ -22,10 +22,10 @@ import dmd.visitor;
 
 private bool isDMDx64Target()
 {
-    version (IN_LLVM)
-        return false;
-    else
+    version (MARS)
         return global.params.is64bit;
+    else
+        return false;
 }
 
 /****************************************************

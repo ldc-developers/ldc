@@ -231,9 +231,7 @@ struct Token
     int isKeyword();
     const char *toChars() const;
 
-#if IN_LLVM
     static const char *toChars(TOK value);
-#endif
 };
 
 #if defined(__GNUC__)

@@ -5,15 +5,16 @@
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
  * http://www.boost.org/LICENSE_1_0.txt
- * https://github.com/dlang/dmd/blob/master/src/dmd/json.h
+ * https://github.com/dlang/dmd/blob/master/src/dmd/ast_node.h
  */
 
 #pragma once
 
-#include "arraytypes.h"
-#include "globals.h"
+#include "root/object.h"
 
-struct OutBuffer;
+class Visitor;
 
-void json_generate(OutBuffer *, Modules *);
-JsonFieldFlags tryParseJsonField(const char *fieldName);
+class ASTNode : public RootObject
+{
+    virtual void accept(Visitor*) = 0;
+};

@@ -214,7 +214,6 @@ extern (C++) class FuncDeclaration : Declaration
         VarDeclaration selectorParameter;
     }
 
-    Types* fthrows;                     /// Array of Type's of exceptions (not used)
     Statements* frequires;              /// in contracts
     Ensures* fensures;                  /// out contracts
     Statement frequire;                 /// lowered in contract
@@ -329,9 +328,9 @@ version (IN_LLVM)
 
     uint flags;                        /// FUNCFLAG.xxxxx
 
-    extern (D) this(const ref Loc loc, const ref Loc endloc, Identifier id, StorageClass storage_class, Type type)
+    extern (D) this(const ref Loc loc, const ref Loc endloc, Identifier ident, StorageClass storage_class, Type type)
     {
-        super(id);
+        super(loc, ident);
         //printf("FuncDeclaration(id = '%s', type = %p)\n", id.toChars(), type);
         //printf("storage_class = x%x\n", storage_class);
         this.storage_class = storage_class;
@@ -342,7 +341,6 @@ version (IN_LLVM)
             // are already set in the 'type' in parsing phase.
             this.storage_class &= ~(STC.TYPECTOR | STC.FUNCATTR);
         }
-        this.loc = loc;
         this.endloc = endloc;
         /* The type given for "infer the return type" is a TypeFunction with
          * NULL for the return type.
@@ -362,7 +360,6 @@ version (IN_LLVM)
         f.frequires = frequires ? Statement.arraySyntaxCopy(frequires) : null;
         f.fensures = fensures ? Ensure.arraySyntaxCopy(fensures) : null;
         f.fbody = fbody ? fbody.syntaxCopy() : null;
-        assert(!fthrows); // deprecated
 version (IN_LLVM)
 {
         f.intrinsicName = intrinsicName ? strdup(intrinsicName) : null;
@@ -577,29 +574,38 @@ version (IN_LLVM)
         if (this == o)
             return true;
 
-        Dsymbol s = isDsymbol(o);
-        if (s)
+        if (auto s = isDsymbol(o))
         {
-            alias fd1 = this;
-            auto  fd2 = s.isFuncDeclaration();
+            auto fd1 = this;
+            auto fd2 = s.isFuncDeclaration();
             if (!fd2)
                 return false;
 
             auto fa1 = fd1.isFuncAliasDeclaration();
+            auto faf1 = fa1 ? fa1.toAliasFunc() : fd1;
+
             auto fa2 = fd2.isFuncAliasDeclaration();
+            auto faf2 = fa2 ? fa2.toAliasFunc() : fd2;
+
             if (fa1 && fa2)
             {
-                return fa1.toAliasFunc().equals(fa2.toAliasFunc()) && fa1.hasOverloads == fa2.hasOverloads;
+                return faf1.equals(faf2) && fa1.hasOverloads == fa2.hasOverloads;
             }
 
-            if (fa1 && (fd1 = fa1.toAliasFunc()).isUnique() && !fa1.hasOverloads)
-                fa1 = null;
-            if (fa2 && (fd2 = fa2.toAliasFunc()).isUnique() && !fa2.hasOverloads)
-                fa2 = null;
-            if ((fa1 !is null) != (fa2 !is null))
+            bool b1 = fa1 !is null;
+            if (b1 && faf1.isUnique() && !fa1.hasOverloads)
+                b1 = false;
+
+            bool b2 = fa2 !is null;
+            if (b2 && faf2.isUnique() && !fa2.hasOverloads)
+                b2 = false;
+
+            if (b1 != b2)
                 return false;
 
-            return fd1.toParent().equals(fd2.toParent()) && fd1.ident.equals(fd2.ident) && fd1.type.equals(fd2.type);
+            return faf1.toParent().equals(faf2.toParent()) &&
+                   faf1.ident.equals(faf2.ident) &&
+                   faf1.type.equals(faf2.type);
         }
         return false;
     }
@@ -1085,39 +1091,36 @@ version (IN_LLVM)
     }
 
     /*****************************************
-     * Determine lexical level difference from 'this' to nested function 'fd'.
-     * Error if this cannot call fd.
+     * Determine lexical level difference from `this` to nested function `fd`.
+     * Params:
+     *      fd = target of call
+     *      intypeof = !=0 if inside typeof
      * Returns:
      *      0       same level
      *      >0      decrease nesting by number
-     *      -1      increase nesting by 1 (fd is nested within 'this')
-     *      -2      error
+     *      -1      increase nesting by 1 (`fd` is nested within `this`)
+     *      LevelError  error, `this` cannot call `fd`
      */
-    final int getLevel(const ref Loc loc, Scope* sc, FuncDeclaration fd)
+    final int getLevel(FuncDeclaration fd, int intypeof)
     {
-        int level;
-        Dsymbol s;
-        Dsymbol fdparent;
-
         //printf("FuncDeclaration::getLevel(fd = '%s')\n", fd.toChars());
-        fdparent = fd.toParent2();
+        Dsymbol fdparent = fd.toParent2();
         if (fdparent == this)
             return -1;
-        s = this;
-        level = 0;
+
+        Dsymbol s = this;
+        int level = 0;
         while (fd != s && fdparent != s.toParent2())
         {
             //printf("\ts = %s, '%s'\n", s.kind(), s.toChars());
-            FuncDeclaration thisfd = s.isFuncDeclaration();
-            if (thisfd)
+            if (auto thisfd = s.isFuncDeclaration())
             {
-                if (!thisfd.isNested() && !thisfd.vthis && !sc.intypeof)
-                    goto Lerr;
+                if (!thisfd.isNested() && !thisfd.vthis && !intypeof)
+                    return LevelError;
             }
             else
             {
-                AggregateDeclaration thiscd = s.isAggregateDeclaration();
-                if (thiscd)
+                if (auto thiscd = s.isAggregateDeclaration())
                 {
                     /* AggregateDeclaration::isNested returns true only when
                      * it has a hidden pointer.
@@ -1129,11 +1132,11 @@ version (IN_LLVM)
                      *   // No member function makes Map struct 'not nested'.
                      * }
                      */
-                    if (!thiscd.isNested() && !sc.intypeof)
-                        goto Lerr;
+                    if (!thiscd.isNested() && !intypeof)
+                        return LevelError;
                 }
                 else
-                    goto Lerr;
+                    return LevelError;
             }
 
             s = s.toParent2();
@@ -1141,18 +1144,40 @@ version (IN_LLVM)
             level++;
         }
         return level;
+    }
 
-    Lerr:
+    /***********************************
+     * Determine lexical level difference from `this` to nested function `fd`.
+     * Issue error if `this` cannot call `fd`.
+     * Params:
+     *      loc = location for error messages
+     *      sc = context
+     *      fd = target of call
+     * Returns:
+     *      0       same level
+     *      >0      decrease nesting by number
+     *      -1      increase nesting by 1 (`fd` is nested within 'this')
+     *      LevelError  error
+     */
+    final int getLevelAndCheck(const ref Loc loc, Scope* sc, FuncDeclaration fd)
+    {
+        int level = getLevel(fd, sc.intypeof);
+        if (level != LevelError)
+            return level;
+
         // Don't give error if in template constraint
         if (!(sc.flags & SCOPE.constraint))
         {
             const(char)* xstatic = isStatic() ? "static " : "";
             // better diagnostics for static functions
-            .error(loc, "%s%s %s cannot access frame of function %s", xstatic, kind(), toPrettyChars(), fd.toPrettyChars());
-            return -2;
+            .error(loc, "%s%s %s cannot access frame of function %s",
+                xstatic, kind(), toPrettyChars(), fd.toPrettyChars());
+            return LevelError;
         }
         return 1;
     }
+
+    enum LevelError = -2;
 
     override const(char)* toPrettyChars(bool QualifyTypes = false)
     {
@@ -1726,12 +1751,12 @@ version (IN_LLVM)
     }
 
     /********************************************
-     * If there are no overloads of function f, return that function,
-     * otherwise return NULL.
+     * Returns:
+     *  true if there are no overloads of this function
      */
-    final FuncDeclaration isUnique()
+    final bool isUnique()
     {
-        FuncDeclaration result = null;
+        bool result = false;
         overloadApply(this, (Dsymbol s)
         {
             auto f = s.isFuncDeclaration();
@@ -1739,12 +1764,12 @@ version (IN_LLVM)
                 return 0;
             if (result)
             {
-                result = null;
+                result = false;
                 return 1; // ambiguous, done
             }
             else
             {
-                result = f;
+                result = true;
                 return 0;
             }
         });
@@ -1793,42 +1818,47 @@ version (IN_LLVM)
         if (isNested())
         {
             // The function that this function is in
-            FuncDeclaration fdv = p.isFuncDeclaration();
-            if (!fdv)
-                return false;
-            if (fdv == fdthis)
-                return false;
-
-            //printf("this = %s in [%s]\n", this.toChars(), this.loc.toChars());
-            //printf("fdv  = %s in [%s]\n", fdv .toChars(), fdv .loc.toChars());
-            //printf("fdthis = %s in [%s]\n", fdthis.toChars(), fdthis.loc.toChars());
-
-            // Add this function to the list of those which called us
-            if (fdthis != this)
+            bool checkEnclosing(FuncDeclaration fdv)
             {
-                bool found = false;
-                for (size_t i = 0; i < siblingCallers.dim; ++i)
+                if (!fdv)
+                    return false;
+                if (fdv == fdthis)
+                    return false;
+
+                //printf("this = %s in [%s]\n", this.toChars(), this.loc.toChars());
+                //printf("fdv  = %s in [%s]\n", fdv .toChars(), fdv .loc.toChars());
+                //printf("fdthis = %s in [%s]\n", fdthis.toChars(), fdthis.loc.toChars());
+
+                // Add this function to the list of those which called us
+                if (fdthis != this)
                 {
-                    if (siblingCallers[i] == fdthis)
-                        found = true;
+                    bool found = false;
+                    for (size_t i = 0; i < siblingCallers.dim; ++i)
+                    {
+                        if (siblingCallers[i] == fdthis)
+                            found = true;
+                    }
+                    if (!found)
+                    {
+                        //printf("\tadding sibling %s\n", fdthis.toPrettyChars());
+                        if (!sc.intypeof && !(sc.flags & SCOPE.compile))
+                            siblingCallers.push(fdthis);
+                    }
                 }
-                if (!found)
-                {
-                    //printf("\tadding sibling %s\n", fdthis.toPrettyChars());
-                    if (!sc.intypeof && !(sc.flags & SCOPE.compile))
-                        siblingCallers.push(fdthis);
-                }
+
+                const lv = fdthis.getLevelAndCheck(loc, sc, fdv);
+                if (lv == LevelError)
+                    return true; // error
+                if (lv == -1)
+                    return false; // downlevel call
+                if (lv == 0)
+                    return false; // same level call
+
+                return false; // Uplevel call
             }
 
-            int lv = fdthis.getLevel(loc, sc, fdv);
-            if (lv == -2)
-                return true; // error
-            if (lv == -1)
-                return false; // downlevel call
-            if (lv == 0)
-                return false; // same level call
-
-            // Uplevel call
+            if (checkEnclosing(p.isFuncDeclaration()))
+                return true;
         }
         return false;
     }
@@ -2626,7 +2656,7 @@ Expression addInvariant(const ref Loc loc, Scope* sc, AggregateDeclaration ad, V
 extern (D) int overloadApply(Dsymbol fstart, scope int delegate(Dsymbol) dg, Scope* sc = null)
 {
     Dsymbol next;
-    for (Dsymbol d = fstart; d; d = next)
+    for (auto d = fstart; d; d = next)
     {
         import dmd.access : checkSymbolAccess;
         if (auto od = d.isOverDeclaration())
@@ -2803,7 +2833,7 @@ private const(char)* prependSpace(const(char)* str)
 /// Flag used by $(LREF resolveFuncCall).
 enum FuncResolveFlag : ubyte
 {
-    stdandard = 0,      /// issue error messages, solve the call.
+    standard = 0,       /// issue error messages, solve the call.
     quiet = 1,          /// do not issue error message on no match, just return `null`.
     overloadOnly = 2,   /// only resolve overloads.
 }
@@ -3249,6 +3279,19 @@ private bool checkEscapingSiblings(FuncDeclaration f, FuncDeclaration outerFunc,
             bAnyClosures = true;
         }
 
+        for (auto parent = g.parent; parent && parent !is outerFunc; parent = parent.parent)
+        {
+            // A parent of the sibling had its address taken.
+            // Assume escaping of parent affects its children, so needs propagating.
+            // see https://issues.dlang.org/show_bug.cgi?id=19679
+            FuncDeclaration parentFunc = parent.isFuncDeclaration;
+            if (parentFunc && parentFunc.tookAddressOf)
+            {
+                markAsNeedingClosure(parentFunc, outerFunc);
+                bAnyClosures = true;
+            }
+        }
+
         PrevSibling* prev = cast(PrevSibling*)p;
         while (1)
         {
@@ -3454,9 +3497,11 @@ extern (C++) final class FuncLiteralDeclaration : FuncDeclaration
  */
 extern (C++) final class CtorDeclaration : FuncDeclaration
 {
-    extern (D) this(const ref Loc loc, const ref Loc endloc, StorageClass stc, Type type)
+    bool isCpCtor;
+    extern (D) this(const ref Loc loc, const ref Loc endloc, StorageClass stc, Type type, bool isCpCtor = false)
     {
         super(loc, endloc, Id.ctor, stc, type);
+        this.isCpCtor = isCpCtor;
         //printf("CtorDeclaration(loc = %s) %s\n", loc.toChars(), toChars());
     }
 
@@ -3469,7 +3514,7 @@ extern (C++) final class CtorDeclaration : FuncDeclaration
 
     override const(char)* kind() const
     {
-        return "constructor";
+        return isCpCtor ? "copy constructor" : "constructor";
     }
 
     override const(char)* toChars() const
@@ -3496,7 +3541,6 @@ extern (C++) final class CtorDeclaration : FuncDeclaration
     {
         return this;
     }
-
     override void accept(Visitor v)
     {
         v.visit(this);

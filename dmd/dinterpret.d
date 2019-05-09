@@ -5631,7 +5631,7 @@ public:
         /* Set dollar to the length of the array
          */
         uinteger_t dollar;
-        if (e1.op == TOK.variable && e1.type.toBasetype().ty == Tsarray)
+        if ((e1.op == TOK.variable || e1.op == TOK.dotVariable) && e1.type.toBasetype().ty == Tsarray)
             dollar = e1.type.toBasetype().isTypeSArray().dim.toInteger();
         else
         {
@@ -6546,7 +6546,7 @@ private Expression scrubReturnValue(const ref Loc loc, Expression e)
     /* Returns: true if e is void,
      * or is an array literal or struct literal of void elements.
      */
-    static bool isVoid(const Expression e) pure
+    static bool isVoid(const Expression e, bool checkArrayType = false) pure
     {
         if (e.op == TOK.void_)
             return true;
@@ -6563,11 +6563,14 @@ private Expression scrubReturnValue(const ref Loc loc, Expression e)
             return true;
         }
 
-        if (auto ale = e.isArrayLiteralExp())
-            return isEntirelyVoid(ale.elements);
-
         if (auto sle = e.isStructLiteralExp())
             return isEntirelyVoid(sle.elements);
+
+        if (checkArrayType && e.type.ty != Tsarray)
+            return false;
+
+        if (auto ale = e.isArrayLiteralExp())
+            return isEntirelyVoid(ale.elements);
 
         return false;
     }
@@ -6587,7 +6590,7 @@ private Expression scrubReturnValue(const ref Loc loc, Expression e)
 
             // A struct .init may contain void members.
             // Static array members are a weird special case https://issues.dlang.org/show_bug.cgi?id=10994
-            if (structlit && isVoid(e))
+            if (structlit && isVoid(e, true))
             {
                 e = null;
             }

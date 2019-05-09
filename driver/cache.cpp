@@ -338,7 +338,7 @@ void calculateModuleHash(llvm::Module *m, llvm::SmallString<32> &str) {
   raw_hash_ostream hash_os;
 
   // Let hash depend on the compiler version:
-  hash_os << global.ldc_version << global.version << global.llvm_version
+  hash_os << global.ldc_version << global.version.ptr << global.llvm_version
           << ldc::built_with_Dcompiler_version;
 
   // Let hash depend on compile flags that change the outputted obj file,

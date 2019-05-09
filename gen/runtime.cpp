@@ -74,7 +74,6 @@ static void checkForImplicitGCCall(const Loc &loc, const char *name) {
         "_d_arrayappendcTX",
         "_d_arrayappendcd",
         "_d_arrayappendwd",
-        "_d_arraycast_len",
         "_d_arraycatT",
         "_d_arraycatnTX",
         "_d_arraysetlengthT",
@@ -560,10 +559,6 @@ static void buildRuntimeModule() {
   createFwdDecl(LINKc, voidTy, {"_d_assert_msg"}, {stringTy, stringTy, uintTy},
                 {}, Attr_Cold_NoReturn);
 
-  // void _d_switch_error(immutable(ModuleInfo)* m, uint line)
-  createFwdDecl(LINKc, voidTy, {"_d_switch_error"}, {moduleInfoPtrTy, uintTy},
-                {STCimmutable, 0}, Attr_Cold_NoReturn);
-
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
@@ -619,6 +614,10 @@ static void buildRuntimeModule() {
   // Object _d_allocclass(const ClassInfo ci)
   createFwdDecl(LINKc, objectTy, {"_d_newclass", "_d_allocclass"},
                 {classInfoTy}, {STCconst}, Attr_NoAlias);
+
+  // Throwable _d_newThrowable(const ClassInfo ci)
+  createFwdDecl(LINKc, throwableTy, {"_d_newThrowable"}, {classInfoTy},
+                {STCconst}, Attr_NoAlias);
 
   // void* _d_newitemT (TypeInfo ti)
   // void* _d_newitemiT(TypeInfo ti)
@@ -686,15 +685,6 @@ static void buildRuntimeModule() {
   STR_APPLY2(wstringTy, wc, wd)
   STR_APPLY2(dstringTy, dc, dw)
 #undef STR_APPLY2
-
-  //////////////////////////////////////////////////////////////////////////////
-  //////////////////////////////////////////////////////////////////////////////
-  //////////////////////////////////////////////////////////////////////////////
-
-  // fixes the length for dynamic array casts
-  // size_t _d_arraycast_len(size_t len, size_t elemsz, size_t newelemsz)
-  createFwdDecl(LINKc, sizeTy, {"_d_arraycast_len"}, {sizeTy, sizeTy, sizeTy},
-                {}, Attr_ReadNone);
 
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
