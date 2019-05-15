@@ -260,7 +260,11 @@ elseif(${BUILD_SHARED_LIBS} STREQUAL "OFF")
 endif()
 
 if(LDC_WITH_LLD)
-    set(WASM_DEFAULT_LDC_SWITCHES "\n        \"-link-internally\",")
+    set(WASM_DEFAULT_LDC_SWITCHES "${WASM_DEFAULT_LDC_SWITCHES}\n        \"-link-internally\",")
+endif()
+# LLD 8+ requires (new) `--export-dynamic` for WebAssembly (https://github.com/ldc-developers/ldc/issues/3023).
+if(NOT (LDC_LLVM_VER LESS 800))
+    set(WASM_DEFAULT_LDC_SWITCHES "${WASM_DEFAULT_LDC_SWITCHES}\n        \"-L--export-dynamic\",")
 endif()
 
 # Only generate the config files if this CMake project is embedded in the LDC CMake project.
