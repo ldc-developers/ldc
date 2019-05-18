@@ -44,6 +44,13 @@ else version (LDC_LLVM_700)
     version = INTRINSICS_FROM_600;
     version = INTRINSICS_FROM_700;
 }
+else version (LDC_LLVM_701)
+{
+    version = INTRINSICS_FROM_400;
+    version = INTRINSICS_FROM_500;
+    version = INTRINSICS_FROM_600;
+    version = INTRINSICS_FROM_700;
+}
 else version (LDC_LLVM_800)
 {
     version = INTRINSICS_FROM_400;
