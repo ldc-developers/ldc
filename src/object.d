@@ -4194,7 +4194,7 @@ version (none)
     }
 }
 
-version (D_Ddoc)
+version (CoreDdoc)
 {
     // This lets DDoc produce better documentation.
 

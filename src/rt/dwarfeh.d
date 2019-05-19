@@ -723,13 +723,25 @@ ClassInfo getClassInfo(_Unwind_Exception* exceptionObject)
 {
     ExceptionHeader* eh = ExceptionHeader.toExceptionHeader(exceptionObject);
     Throwable ehobject = eh.object;
-    debug (EH_personality) writeln("start: %p '%.*s'", ehobject, ehobject.classinfo.info.name.length, ehobject.classinfo.info.name.ptr);
+    auto currentLsd = eh.languageSpecificData;
+    debug (EH_personality) writeln("start: %p '%.*s'", ehobject, cast(int)ehobject.classinfo.info.name.length, ehobject.classinfo.info.name.ptr);
     for (ExceptionHeader* ehn = eh.next; ehn; ehn = ehn.next)
     {
-        debug (EH_personality) writeln("ehn =   %p '%.*s'", ehn.object, ehn.object.classinfo.info.name.length, ehn.object.classinfo.info.name.ptr);
+        // like __dmd_personality_v0, don't combine when the exceptions are from different functions
+        // (fixes issue 19831, exception thrown and caught while inside finally block)
+        if (currentLsd != ehn.languageSpecificData)
+        {
+            // printf("break: %p %p\n", currentLsd, ehn.languageSpecificData);
+            break;
+        }
+
+        debug (EH_personality) writeln("ehn =   %p '%.*s'", ehn.object, cast(int)ehn.object.classinfo.info.name.length, ehn.object.classinfo.info.name.ptr);
         Error e = cast(Error)ehobject;
         if (e is null || (cast(Error)ehn.object) !is null)
+        {
+            currentLsd = ehn.languageSpecificData;
             ehobject = ehn.object;
+        }
     }
     debug (EH_personality) writeln("end  : %p", ehobject);
     return ehobject.classinfo;
