@@ -99,17 +99,14 @@ nothrow:
             size_t sz = bufIncrement;
 
             if (!_ref)
-                .free(buffer);
+                mem.xfree(buffer);
 
             buffer = null;
             L1: for (;;)
             {
-                buffer = cast(ubyte*).realloc(buffer, sz + 2); // +2 for sentinel
+                buffer = cast(ubyte*)mem.xrealloc(buffer, sz + 2); // +2 for sentinel
                 if (!buffer)
-                {
-                    printf("\tmalloc error, errno = %d\n", errno);
                     break L1;
-                }
 
                 // Fill up buffer
                 do
@@ -136,7 +133,7 @@ nothrow:
                 // Buffer full, expand
                 sz += bufIncrement;
             }
-            .free(buffer);
+            mem.xfree(buffer);
             buffer = null;
             len = 0;
             return true;
@@ -156,7 +153,7 @@ nothrow:
             }
             if (!_ref)
             {
-                .free(buffer);
+                mem.xfree(buffer);
                 buffer = null;
             }
             _ref = 0; // we own the buffer now
@@ -167,12 +164,9 @@ nothrow:
                 goto err2;
             }
             size = cast(size_t)buf.st_size;
-            buffer = cast(ubyte*).malloc(size + 2);
+            buffer = cast(ubyte*)mem.xmalloc(size + 2);
             if (!buffer)
-            {
-                printf("\tmalloc error, errno = %d\n", errno);
                 goto err2;
-            }
             numread = .read(fd, buffer, size);
             if (numread != size)
             {
@@ -192,7 +186,7 @@ nothrow:
         err2:
             close(fd);
         err:
-            .free(buffer);
+            mem.xfree(buffer);
             buffer = null;
             len = 0;
         err1:
@@ -216,10 +210,10 @@ nothrow:
             if (h == INVALID_HANDLE_VALUE)
                 goto err1;
             if (!_ref)
-                .free(buffer);
+                mem.xfree(buffer);
             _ref = 0;
             size = GetFileSize(h, null);
-            buffer = cast(ubyte*).malloc(size + 2);
+            buffer = cast(ubyte*)mem.xmalloc(size + 2);
             if (!buffer)
                 goto err2;
             if (ReadFile(h, buffer, size, &numread, null) != TRUE)
@@ -236,7 +230,7 @@ nothrow:
         err2:
             CloseHandle(h);
         err:
-            .free(buffer);
+            mem.xfree(buffer);
             buffer = null;
             len = 0;
         err1:

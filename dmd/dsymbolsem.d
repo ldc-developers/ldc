@@ -453,8 +453,9 @@ private bool buildCopyCtor(StructDeclaration sd, Scope* sc)
         assert(ctorDecl);
         if (ctorDecl.isCpCtor)
         {
-            cpCtor = ctorDecl;
-            return 1;
+            if (!cpCtor)
+                cpCtor = ctorDecl;
+            return 0;
         }
 
         auto tf = ctorDecl.type.toTypeFunction();
@@ -4498,7 +4499,7 @@ version (IN_LLVM)
              * redo the first semantic step.
              */
             auto fd_temp = fd.syntaxCopy(null).isFuncDeclaration();
-            fd_temp.storage_class &= ~STC.auto_;
+            fd_temp.storage_class &= ~STC.auto_; // type has already been inferred
             if (auto cd = ad.isClassDeclaration())
                 cd.vtbl.remove(fd.vtblIndex);
             fd_temp.dsymbolSemantic(sc);

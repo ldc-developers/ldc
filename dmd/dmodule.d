@@ -37,6 +37,7 @@ import dmd.root.file;
 import dmd.root.filename;
 import dmd.root.outbuffer;
 import dmd.root.port;
+import dmd.root.rmem;
 import dmd.semantic2;
 import dmd.semantic3;
 import dmd.utils;
@@ -917,7 +918,7 @@ else
                 ++global.errors;
         }
         if (srcfile._ref == 0)
-            .free(srcfile.buffer);
+            mem.xfree(srcfile.buffer);
         srcfile.buffer = null;
         srcfile.len = 0;
         /* The symbol table into which the module is to be inserted.
