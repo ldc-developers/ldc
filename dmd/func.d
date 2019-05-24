@@ -2247,7 +2247,8 @@ version (IN_LLVM)
                 foreach (vd; *parameters)
                     fdrequireParams.push(new VarExp(loc, vd));
             }
-            auto fparams = toRefCopy(f.parameterList.parameters);
+            auto fo = cast(TypeFunction)(originalType ? originalType : f);
+            auto fparams = toRefCopy(fo.parameterList.parameters);
             auto tf = new TypeFunction(ParameterList(fparams), Type.tvoid, LINK.d);
             tf.isnothrow = f.isnothrow;
             tf.isnogc = f.isnogc;
@@ -2289,7 +2290,8 @@ version (IN_LLVM)
                 Parameter p = new Parameter(STC.ref_ | STC.const_, f.nextOf(), Id.result, null, null);
                 fparams.push(p);
             }
-            fparams.pushSlice((*toRefCopy(f.parameterList.parameters))[]);
+            auto fo = cast(TypeFunction)(originalType ? originalType : f);
+            fparams.pushSlice((*toRefCopy(fo.parameterList.parameters))[]);
             auto tf = new TypeFunction(ParameterList(fparams), Type.tvoid, LINK.d);
             tf.isnothrow = f.isnothrow;
             tf.isnogc = f.isnogc;
