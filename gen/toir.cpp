@@ -1974,6 +1974,10 @@ public:
       assert(lv->getType() == rv->getType());
       eval = (e->op == TOKidentity) ? p->ir->CreateICmpEQ(lv, rv)
                                     : p->ir->CreateICmpNE(lv, rv);
+      if (t1->ty == Tvector) {
+        eval = mergeVectorEquals(eval,
+                                 e->op == TOKidentity ? TOKequal : TOKnotequal);
+      }
     }
     result = new DImValue(e->type, eval);
   }

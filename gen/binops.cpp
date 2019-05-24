@@ -384,7 +384,7 @@ LLValue *DtoBinFloatsEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op) {
 
 LLValue *mergeVectorEquals(LLValue *resultsVector, TOK op) {
   // `resultsVector` is a vector of i1 values, the pair-wise results.
-  // Bitcast to an integer and checks the bits via additional integer
+  // Bitcast to an integer and check the bits via additional integer
   // comparison.
   const auto sizeInBits = getTypeBitSize(resultsVector->getType());
   LLType *integerType = LLType::getIntNTy(gIR->context(), sizeInBits);
