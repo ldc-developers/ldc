@@ -5029,7 +5029,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
          * is(targ id == tok2)
          */
 
-        //printf("IsExp::semantic(%s)\n", e.toChars());
+        //printf("IsExp::semantic(%s)\n", toChars());
         if (e.id && !(sc.flags & SCOPE.condition))
         {
             e.error("can only declare type aliases within `static if` conditionals or `static assert`s");
@@ -5226,7 +5226,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
              * is(targ == tspec)
              * is(targ : tspec)
              */
-            e.tspec = e.tspec.trySemantic(e.loc, sc);
+            e.tspec = e.tspec.typeSemantic(e.loc, sc);
             //printf("targ  = %s, %s\n", targ.toChars(), targ.deco);
             //printf("tspec = %s, %s\n", tspec.toChars(), tspec.deco);
 
@@ -5876,7 +5876,8 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                 }
             }
 
-            if (v && v.isDataseg()) // fix https://issues.dlang.org/show_bug.cgi?id=8238
+            if (v && (v.isDataseg() || // fix https://issues.dlang.org/show_bug.cgi?id=8238
+                      !v.needThis()))  // fix https://issues.dlang.org/show_bug.cgi?id=17258
             {
                 // (e1, v)
                 checkAccess(exp.loc, sc, exp.e1, v);
