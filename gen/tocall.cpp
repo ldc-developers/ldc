@@ -736,24 +736,23 @@ private:
     if (dfnval && (dfnval->func->ident == Id::ensure ||
                    dfnval->func->ident == Id::require)) {
       // can be the this "context" argument for a contract invocation
-      // (in D2, we do not generate a full nested contexts for
-      // __require/__ensure as the needed parameters are passed
-      // explicitly, while in D1, the normal nested function handling
-      // mechanisms are used)
-      LLValue *thisptr = DtoLoad(gIR->func()->thisArg);
+      // (pass a pointer to the aggregate `this` pointer, which can naturally be
+      // used as the contract's parent context in case the contract features
+      // nested functions capturing `this` from the contract's parent)
+      LLValue *thisptrLval = gIR->func()->thisArg;
       if (auto parentfd = dfnval->func->parent->isFuncDeclaration()) {
         if (auto iface = parentfd->parent->isInterfaceDeclaration()) {
           // an interface contract expects the interface pointer, not the
           //  class pointer
           Type *thistype = gIR->func()->decl->vthis->type;
           if (thistype != iface->type) {
-            DImValue *dthis = new DImValue(thistype, thisptr);
-            thisptr = DtoRVal(DtoCastClass(loc, dthis, iface->type));
+            DImValue *dthis = new DImValue(thistype, DtoLoad(thisptrLval));
+            thisptrLval = DtoAllocaDump(DtoCastClass(loc, dthis, iface->type));
           }
         }
       }
-      LLValue *thisarg = DtoBitCast(thisptr, getVoidPtrType());
-      args.push_back(thisarg);
+      LLValue *contextptr = DtoBitCast(thisptrLval, getVoidPtrType());
+      args.push_back(contextptr);
     } else if (thiscall && dfnval && dfnval->vthis) {
       // ... or a normal 'this' argument
       LLValue *thisarg = DtoBitCast(dfnval->vthis, llArgType);
