@@ -68,7 +68,7 @@ struct OpAssignStruct {
     float[10] data;
     ubyte a;
 
-    ref OpAssignStruct opAssign(R)(auto ref R rhs) {
+    ref OpAssignStruct opAssign(R)(auto ref R rhs) return {
         return this;
     }
 }

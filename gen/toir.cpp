@@ -1047,8 +1047,8 @@ public:
     const auto ident = p->func()->decl->ident;
     if (ident == Id::ensure || ident == Id::require) {
       Logger::println("contract this exp");
-      LLValue *v = DtoBitCast(p->func()->nestArg, DtoType(e->type));
-      result = new DImValue(e->type, v);
+      LLValue *v = p->func()->nestArg; // thisptr lvalue
+      result = new DLValue(e->type, DtoBitCast(v, DtoPtrToType(e->type)));
     } else if (vd->toParent2() != p->func()->decl) {
       Logger::println("nested this exp");
       result = DtoNestedVariable(e->loc, e->type, vd, e->type->ty == Tstruct);
@@ -1974,6 +1974,10 @@ public:
       assert(lv->getType() == rv->getType());
       eval = (e->op == TOKidentity) ? p->ir->CreateICmpEQ(lv, rv)
                                     : p->ir->CreateICmpNE(lv, rv);
+      if (t1->ty == Tvector) {
+        eval = mergeVectorEquals(eval,
+                                 e->op == TOKidentity ? TOKequal : TOKnotequal);
+      }
     }
     result = new DImValue(e->type, eval);
   }

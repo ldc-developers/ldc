@@ -5876,7 +5876,8 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                 }
             }
 
-            if (v && v.isDataseg()) // fix https://issues.dlang.org/show_bug.cgi?id=8238
+            if (v && (v.isDataseg() || // fix https://issues.dlang.org/show_bug.cgi?id=8238
+                      !v.needThis()))  // fix https://issues.dlang.org/show_bug.cgi?id=17258
             {
                 // (e1, v)
                 checkAccess(exp.loc, sc, exp.e1, v);
@@ -6755,7 +6756,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                 {
                     // A runtime check is needed in case arrays don't line up.  That check should
                     // be done in the implementation of `object.__ArrayCast`
-                    if ((fromSize % toSize) != 0)
+                    if (toSize == 0 || (fromSize % toSize) != 0)
                     {
                         // lower to `object.__ArrayCast!(TFrom, TTo)(from)`
 

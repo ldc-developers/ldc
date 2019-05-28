@@ -1421,11 +1421,9 @@ extern(C++) Type typeSemantic(Type t, Loc loc, Scope* sc)
                              * tuple the default argument tuple must also be expanded.
                              */
                             Expression paramDefaultArg = narg.defaultArg;
-                            if (fparam.defaultArg)
-                            {
-                                auto te = cast(TupleExp)(fparam.defaultArg);
+                            TupleExp te = fparam.defaultArg ? fparam.defaultArg.isTupleExp() : null;
+                            if (te && te.exps && te.exps.length)
                                 paramDefaultArg = (*te.exps)[j];
-                            }
 
                             (*newparams)[j] = new Parameter(
                                 stc, narg.type, narg.ident, paramDefaultArg, narg.userAttribDecl);
@@ -1651,12 +1649,18 @@ extern(C++) Type typeSemantic(Type t, Loc loc, Scope* sc)
             case TOK.variable:
                 mtype.sym = (cast(VarExp)e).var;
                 break;
+            case TOK.function_:
+                auto fe = cast(FuncExp)e;
+                mtype.sym = fe.td ? fe.td : fe.fd;
+                break;
             case TOK.dotTemplateDeclaration:
                 mtype.sym = (cast(DotTemplateExp)e).td;
                 break;
             case TOK.dSymbol:
-            case TOK.template_:
                 mtype.sym = (cast(DsymbolExp)e).s;
+                break;
+            case TOK.template_:
+                mtype.sym = (cast(TemplateExp)e).td;
                 break;
             case TOK.scope_:
                 mtype.sym = (cast(ScopeExp)e).sds;
@@ -1671,7 +1675,11 @@ extern(C++) Type typeSemantic(Type t, Loc loc, Scope* sc)
             case TOK.type:
                 result = (cast(TypeExp)e).type;
                 break;
+            case TOK.overloadSet:
+                result = (cast(OverExp)e).type;
+                break;
             default:
+                break;
             }
         }
 

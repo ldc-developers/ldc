@@ -69,7 +69,7 @@ private:
       if (isMSVCpp && t->ty == Tstruct) {
         StructDeclaration *sd = static_cast<TypeStruct *>(t)->sym;
         assert(sd);
-        if (sd->postblit)
+        if (sd->postblit || sd->hasCopyCtor)
           return true;
       }
     }

@@ -29,9 +29,6 @@ class StructDeclaration;
 struct CompiledCtfeFunction;
 struct ObjcSelector;
 struct IntRange;
-#if IN_LLVM
-struct Symbol;
-#endif
 
 #define STCundefined    0LL
 #define STCstatic       1LL
@@ -479,14 +476,12 @@ public:
     FuncDeclaration *fdrequire;         // function that does the in contract
     FuncDeclaration *fdensure;          // function that does the out contract
 
+    Expressions *fdrequireParams;       // argument list for __require
+    Expressions *fdensureParams;        // argument list for __ensure
+
     const char *mangleString;           // mangled symbol created from mangleExact()
 
 #if IN_LLVM
-    // Argument lists for the __require/__ensure calls. NULL if not a virtual
-    // function with contracts.
-    Expressions *fdrequireParams;
-    Expressions *fdensureParams;
-
     const char *intrinsicName;
     uint32_t priority;
 
@@ -638,13 +633,8 @@ public:
     bool needsClosure();
     bool hasNestedFrameRefs();
     void buildResultVar(Scope *sc, Type *tret);
-#if IN_LLVM
-    Statement *mergeFrequire(Statement *, Expressions *params = nullptr);
-    Statement *mergeFensure(Statement *, Identifier *oid, Expressions *params = nullptr);
-#else
-    Statement *mergeFrequire(Statement *);
-    Statement *mergeFensure(Statement *, Identifier *oid);
-#endif
+    Statement *mergeFrequire(Statement *, Expressions *);
+    Statement *mergeFensure(Statement *, Identifier *oid, Expressions *);
     ParameterList getParameterList();
 
     static FuncDeclaration *genCfunc(Parameters *args, Type *treturn, const char *name, StorageClass stc=0);

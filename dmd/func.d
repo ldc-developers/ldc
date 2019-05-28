@@ -224,15 +224,13 @@ extern (C++) class FuncDeclaration : Declaration
     FuncDeclaration fdrequire;          /// function that does the in contract
     FuncDeclaration fdensure;           /// function that does the out contract
 
+    Expressions* fdrequireParams;       /// argument list for __require
+    Expressions* fdensureParams;        /// argument list for __ensure
+
     const(char)* mangleString;          /// mangled symbol created from mangleExact()
 
 version (IN_LLVM)
 {
-    // Argument lists for the __require/__ensure calls. NULL if not a virtual
-    // function with contracts.
-    Expressions* fdrequireParams;
-    Expressions* fdensureParams;
-
     const(char)* intrinsicName;
     uint priority;
 
@@ -366,29 +364,6 @@ version (IN_LLVM)
 }
         return f;
     }
-
-version (IN_LLVM)
-{
-    final private Parameters* outToRef(Parameters* params)
-    {
-        auto result = new Parameters();
-
-        int outToRefDg(size_t n, Parameter p)
-        {
-            if (p.storageClass & STC.out_)
-            {
-                p = p.syntaxCopy();
-                p.storageClass &= ~STC.out_;
-                p.storageClass |= STC.ref_;
-            }
-            result.push(p);
-            return 0;
-        }
-
-        Parameter._foreach(params, &outToRefDg);
-        return result;
-    }
-}
 
     /****************************************************
      * Resolve forward reference of function signature -
@@ -2097,14 +2072,8 @@ version (IN_LLVM)
      * Merge into this function the 'in' contracts of all it overrides.
      * 'in's are OR'd together, i.e. only one of them needs to pass.
      */
-    final Statement mergeFrequire(Statement sf, /*IN_LLVM*/ Expressions* params = null)
+    final Statement mergeFrequire(Statement sf, Expressions* params)
     {
-version (IN_LLVM)
-{
-        if (params is null)
-            params = fdrequireParams;
-}
-
         /* If a base function and its override both have an IN contract, then
          * only one of them needs to succeed. This is done by generating:
          *
@@ -2121,31 +2090,6 @@ version (IN_LLVM)
          * If base.in() throws, then derived.in()'s body is executed.
          */
 
-version (IN_LLVM)
-{
-        /* In LDC, we can't rely on these codegen hacks - we explicitly pass
-         * parameters on to the contract functions.
-         */
-}
-else
-{
-        /* Implementing this is done by having the overriding function call
-         * nested functions (the fdrequire functions) nested inside the overridden
-         * function. This requires that the stack layout of the calling function's
-         * parameters and 'this' pointer be in the same place (as the nested
-         * function refers to them).
-         * This is easy for the parameters, as they are all on the stack in the same
-         * place by definition, since it's an overriding function. The problem is
-         * getting the 'this' pointer in the same place, since it is a local variable.
-         * We did some hacks in the code generator to make this happen:
-         *  1. always generate exception handler frame, or at least leave space for it
-         *     in the frame (Windows 32 SEH only)
-         *  2. always generate an EBP style frame
-         *  3. since 'this' is passed in a register that is subsequently copied into
-         *     a stack local, allocate that local immediately following the exception
-         *     handler block, so it is always at the same offset from EBP.
-         */
-}
         foreach (fdv; foverrides)
         {
             /* The semantic pass on the contracts of the overridden functions must
@@ -2161,23 +2105,16 @@ else
                 sc.pop();
             }
 
-            sf = fdv.mergeFrequire(sf, IN_LLVM ? params : null);
+            sf = fdv.mergeFrequire(sf, params);
             if (sf && fdv.fdrequire)
             {
                 //printf("fdv.frequire: %s\n", fdv.frequire.toChars());
                 /* Make the call:
-                 *   try { __require(); }
+                 *   try { __require(params); }
                  *   catch (Throwable) { frequire; }
                  */
-version (IN_LLVM)
-{
+                params = Expression.arraySyntaxCopy(params);
                 Expression e = new CallExp(loc, new VarExp(loc, fdv.fdrequire, false), params);
-}
-else
-{
-                Expression eresult = null;
-                Expression e = new CallExp(loc, new VarExp(loc, fdv.fdrequire, false), eresult);
-}
                 Statement s2 = new ExpStatement(loc, e);
 
                 auto c = new Catch(loc, getThrowable(), null, sf);
@@ -2277,19 +2214,31 @@ else
          */
         TypeFunction f = cast(TypeFunction) type;
 
+        /* Make a copy of the parameters and make them all ref */
+        static Parameters* toRefCopy(Parameters* params)
+        {
+            auto result = new Parameters();
+
+            int toRefDg(size_t n, Parameter p)
+            {
+                p = p.syntaxCopy();
+                if (!(p.storageClass & STC.lazy_))
+                    p.storageClass = (p.storageClass | STC.ref_) & ~STC.out_;
+                p.defaultArg = null; // won't be the same with ref
+                result.push(p);
+                return 0;
+            }
+
+            Parameter._foreach(params, &toRefDg);
+            return result;
+        }
+
         if (frequire)
         {
-version (IN_LLVM)
-{
-            /* In LDC, we can't rely on the codegen hacks DMD has to be able
-             * to just magically call the contract function parameterless with
-             * the parameters being picked up from the outer stack frame.
-             *
-             * Thus, we actually pass all the function parameters to the
-             * __require call, rewriting out parameters to ref ones because
-             * they have already been zeroed in the outer function.
-             *
-             * Also set fdrequireParams here.
+            /*   in { ... }
+             * becomes:
+             *   void __require(ref params) { ... }
+             *   __require(params);
              */
             Loc loc = frequire.loc;
             fdrequireParams = new Expressions();
@@ -2298,19 +2247,9 @@ version (IN_LLVM)
                 foreach (vd; *parameters)
                     fdrequireParams.push(new VarExp(loc, vd));
             }
-            auto fparams = outToRef(f.parameterList.parameters);
+            auto fo = cast(TypeFunction)(originalType ? originalType : f);
+            auto fparams = toRefCopy(fo.parameterList.parameters);
             auto tf = new TypeFunction(ParameterList(fparams), Type.tvoid, LINK.d);
-}
-else
-{
-            /*   in { ... }
-             * becomes:
-             *   void __require() { ... }
-             *   __require();
-             */
-            Loc loc = frequire.loc;
-            auto tf = new TypeFunction(ParameterList(), Type.tvoid, LINK.d);
-}
             tf.isnothrow = f.isnothrow;
             tf.isnogc = f.isnogc;
             tf.purity = f.purity;
@@ -2318,14 +2257,12 @@ else
             auto fd = new FuncDeclaration(loc, loc, Id.require, STC.undefined_, tf);
             fd.fbody = frequire;
             Statement s1 = new ExpStatement(loc, fd);
-            Expression e = new CallExp(loc, new VarExp(loc, fd, false), IN_LLVM ? fdrequireParams : cast(Expressions*)null);
+            Expression e = new CallExp(loc, new VarExp(loc, fd, false), fdrequireParams);
             Statement s2 = new ExpStatement(loc, e);
             frequire = new CompoundStatement(loc, s1, s2);
             fdrequire = fd;
         }
 
-version (IN_LLVM)
-{
         /* We need to set fdensureParams here and not in the block below to
          * have the parameters available when calling a base class ensure(),
          * even if this function doesn't have an out contract.
@@ -2338,38 +2275,23 @@ version (IN_LLVM)
             foreach (vd; *parameters)
                 fdensureParams.push(new VarExp(loc, vd));
         }
-}
+
         if (fensure)
         {
-version (IN_LLVM)
-{
-            /* Same as for in contracts, see above. */
-            Loc loc = fensure.loc;
-            auto fparams = outToRef(f.parameterList.parameters);
-}
-else
-{
             /*   out (result) { ... }
              * becomes:
-             *   void __ensure(ref tret result) { ... }
-             *   __ensure(result);
+             *   void __ensure(ref tret result, ref params) { ... }
+             *   __ensure(result, params);
              */
             Loc loc = fensure.loc;
             auto fparams = new Parameters();
-}
-            Parameter p = null;
             if (canBuildResultVar())
             {
-                p = new Parameter(STC.ref_ | STC.const_, f.nextOf(), Id.result, null, null);
-version (IN_LLVM)
-{
-                fparams.insert(0, p);
-}
-else
-{
+                Parameter p = new Parameter(STC.ref_ | STC.const_, f.nextOf(), Id.result, null, null);
                 fparams.push(p);
-}
             }
+            auto fo = cast(TypeFunction)(originalType ? originalType : f);
+            fparams.pushSlice((*toRefCopy(fo.parameterList.parameters))[]);
             auto tf = new TypeFunction(ParameterList(fparams), Type.tvoid, LINK.d);
             tf.isnothrow = f.isnothrow;
             tf.isnogc = f.isnogc;
@@ -2378,17 +2300,7 @@ else
             auto fd = new FuncDeclaration(loc, loc, Id.ensure, STC.undefined_, tf);
             fd.fbody = fensure;
             Statement s1 = new ExpStatement(loc, fd);
-version (IN_LLVM)
-{
             Expression e = new CallExp(loc, new VarExp(loc, fd, false), fdensureParams);
-}
-else
-{
-            Expression eresult = null;
-            if (canBuildResultVar())
-                eresult = new IdentifierExp(loc, Id.result);
-            Expression e = new CallExp(loc, new VarExp(loc, fd, false), eresult);
-}
             Statement s2 = new ExpStatement(loc, e);
             fensure = new CompoundStatement(loc, s1, s2);
             fdensure = fd;
@@ -2399,14 +2311,8 @@ else
      * Merge into this function the 'out' contracts of all it overrides.
      * 'out's are AND'd together, i.e. all of them need to pass.
      */
-    final Statement mergeFensure(Statement sf, Identifier oid, /*IN_LLVM*/ Expressions* params = null)
+    final Statement mergeFensure(Statement sf, Identifier oid, Expressions* params)
     {
-version (IN_LLVM)
-{
-        if (params is null)
-            params = fdensureParams;
-}
-
         /* Same comments as for mergeFrequire(), except that we take care
          * of generating a consistent reference to the 'result' local by
          * explicitly passing 'result' to the nested function as a reference
@@ -2432,23 +2338,15 @@ version (IN_LLVM)
                 sc.pop();
             }
 
-            sf = fdv.mergeFensure(sf, oid, IN_LLVM ? params : null);
+            sf = fdv.mergeFensure(sf, oid, params);
             if (fdv.fdensure)
             {
                 //printf("fdv.fensure: %s\n", fdv.fensure.toChars());
-                // Make the call: __ensure(result)
-                Expression eresult = null;
+                // Make the call: __ensure(result, params)
+                params = Expression.arraySyntaxCopy(params);
                 if (canBuildResultVar())
                 {
-                    eresult = IN_LLVM ? (*params)[0] : new IdentifierExp(loc, oid);
-
                     Type t1 = fdv.type.nextOf().toBasetype();
-version (IN_LLVM)
-{
-                    // We actually check for matching types in CommaExp::toElem,
-                    // 'testcontract' breaks without this.
-                    t1 = t1.constOf();
-}
                     Type t2 = this.type.nextOf().toBasetype();
                     if (t1.isBaseOf(t2, null))
                     {
@@ -2457,24 +2355,16 @@ version (IN_LLVM)
                          * https://issues.dlang.org/show_bug.cgi?id=5204
                          * https://issues.dlang.org/show_bug.cgi?id=10479
                          */
-                        auto ei = new ExpInitializer(Loc.initial, eresult);
+                        Expression* eresult = &(*params)[0];
+                        auto ei = new ExpInitializer(Loc.initial, *eresult);
                         auto v = new VarDeclaration(Loc.initial, t1, Identifier.generateId("__covres"), ei);
                         v.storage_class |= STC.temp;
                         auto de = new DeclarationExp(Loc.initial, v);
                         auto ve = new VarExp(Loc.initial, v);
-                        eresult = new CommaExp(Loc.initial, de, ve);
+                        *eresult = new CommaExp(Loc.initial, de, ve);
                     }
                 }
-version (IN_LLVM)
-{
-                if (eresult !is null)
-                    (*params)[0] = eresult;
                 Expression e = new CallExp(loc, new VarExp(loc, fdv.fdensure, false), params);
-}
-else
-{
-                Expression e = new CallExp(loc, new VarExp(loc, fdv.fdensure, false), eresult);
-}
                 Statement s2 = new ExpStatement(loc, e);
 
                 if (sf)

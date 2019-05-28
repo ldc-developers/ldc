@@ -31,6 +31,63 @@ TypeTuple *toArgTypes(Type *t);
 // in dmd/argtypes_sysv_x64.d:
 TypeTuple *toArgTypes_sysv_x64(Type *t);
 
+namespace {
+/******************************
+ * Return size of alias Mutex in druntime/src/rt/monitor_.d, or, more precisely,
+ * the size of the native critical section as 2nd field in struct
+ * D_CRITICAL_SECTION (after a pointer). D_CRITICAL_SECTION is pointer-size
+ * aligned, so the returned field size is a multiple of pointer-size.
+ */
+unsigned getCriticalSectionSize(const Param &params) {
+  const bool is64bit = params.is64bit;
+
+  // Windows: sizeof(CRITICAL_SECTION)
+  if (params.isWindows)
+    return is64bit ? 40 : 24;
+
+  // POSIX: sizeof(pthread_mutex_t)
+  // based on druntime/src/core/sys/posix/sys/types.d
+  const auto &triple = *params.targetTriple;
+  const auto arch = triple.getArch();
+  switch (triple.getOS()) {
+  case llvm::Triple::Linux:
+    if (triple.getEnvironment() == llvm::Triple::Android) {
+      // 32-bit integer rounded up to pointer size
+      return gDataLayout->getPointerSize();
+    }
+    if (arch == llvm::Triple::aarch64 || arch == llvm::Triple::aarch64_be)
+      return 48;
+    return is64bit ? 40 : 24;
+
+  case llvm::Triple::Darwin:
+  case llvm::Triple::MacOSX:
+    return is64bit ? 64 : 44;
+
+  case llvm::Triple::NetBSD:
+    return is64bit ? 48 : 28;
+
+  case llvm::Triple::FreeBSD:
+  case llvm::Triple::OpenBSD:
+  case llvm::Triple::DragonFly:
+    return gDataLayout->getPointerSize();
+
+  case llvm::Triple::Solaris:
+    return 24;
+
+  default:
+    break;
+  }
+
+#ifndef _MSC_VER
+  unsigned hostSize = sizeof(pthread_mutex_t);
+  warning(Loc(), "Assuming critical section size = %u bytes", hostSize);
+  return hostSize;
+#else
+  return 0;
+#endif
+}
+} // anonymous namespace
+
 void Target::_init(const Param &params) {
   CTFloat::initialize();
 
@@ -39,26 +96,23 @@ void Target::_init(const Param &params) {
   RealProperties._init();
 
   const auto &triple = *params.targetTriple;
+  const bool isMSVC = triple.isWindowsMSVCEnvironment();
+  llvm::Type *const real = DtoType(Type::basic[Tfloat80]);
 
   ptrsize = gDataLayout->getPointerSize();
-
-  llvm::Type *const real = DtoType(Type::basic[Tfloat80]);
   realsize = gDataLayout->getTypeAllocSize(real);
   realpad = realsize - gDataLayout->getTypeStoreSize(real);
   realalignsize = gDataLayout->getABITypeAlignment(real);
-
-  // according to DMD, only for MSVC++:
-  reverseCppOverloads = triple.isWindowsMSVCEnvironment();
-
-  cppExceptions = true;
-
-  c_longsize =
-      global.params.is64bit && !triple.isWindowsMSVCEnvironment() ? 8 : 4;
-  c_long_doublesize = realsize;
   classinfosize = 0; // unused
   maxStaticDataSize = std::numeric_limits<unsigned long long>::max();
 
-  twoDtorInVtable = !triple.isWindowsMSVCEnvironment();
+  c_longsize = global.params.is64bit && !isMSVC ? 8 : 4;
+  c_long_doublesize = realsize;
+  criticalSectionSize = getCriticalSectionSize(params);
+
+  reverseCppOverloads = isMSVC; // according to DMD, only for MSVC++
+  cppExceptions = true;
+  twoDtorInVtable = !isMSVC;
 
   // Finalize RealProperties for the target's `real` type.
 
@@ -134,82 +188,7 @@ unsigned Target::alignsize(Type *type) {
  */
 unsigned Target::fieldalign(Type *type) { return DtoAlignment(type); }
 
-/******************************
- * Return size of alias Mutex in druntime/src/rt/monitor_.d, or, more precisely,
- * the size of the native critical section as 2nd field in struct
- * D_CRITICAL_SECTION (after a pointer). D_CRITICAL_SECTION is pointer-size
- * aligned, so the returned field size is a multiple of pointer-size.
- */
-unsigned Target::critsecsize() {
-  const bool is64bit = global.params.is64bit;
-
-  // Windows: sizeof(CRITICAL_SECTION)
-  if (global.params.isWindows)
-    return is64bit ? 40 : 24;
-
-  // POSIX: sizeof(pthread_mutex_t)
-  // based on druntime/src/core/sys/posix/sys/types.d
-  const auto &triple = *global.params.targetTriple;
-  const auto arch = triple.getArch();
-  switch (triple.getOS()) {
-  case llvm::Triple::Linux:
-    if (triple.getEnvironment() == llvm::Triple::Android)
-      return ptrsize; // 32-bit integer rounded up to pointer size
-    if (arch == llvm::Triple::aarch64 || arch == llvm::Triple::aarch64_be)
-      return 48;
-    return is64bit ? 40 : 24;
-
-  case llvm::Triple::MacOSX:
-    return is64bit ? 64 : 44;
-  
-  case llvm::Triple::NetBSD:
-    return is64bit ? 48 : 28;
-
-  case llvm::Triple::FreeBSD:
-  case llvm::Triple::OpenBSD:
-  case llvm::Triple::DragonFly:
-    return ptrsize;
-
-  case llvm::Triple::Solaris:
-    return 24;
-
-  default:
-    break;
-  }
-
-#ifndef _MSC_VER
-  unsigned hostSize = sizeof(pthread_mutex_t);
-  warning(Loc(), "Assuming critical section size = %u bytes", hostSize);
-  return hostSize;
-#else
-  error(Loc(), "Unknown critical section size");
-  fatal();
-  return 0;
-#endif
-}
-
 Type *Target::va_listType() { return gABI->vaListType(); }
-
-/******************************
- * Check if the given type is supported for this target
- * 0: supported
- * 1: not supported
- * 2: wrong size
- * 3: wrong base type
- */
-int Target::isVectorTypeSupported(int sz, Type *type) {
-  // FIXME: Is it possible to query the LLVM target about supported vectors?
-  return 0;
-}
-
-/******************************
- * Checks whether the target supports operation `op` for vectors of type `type`.
- * For binary ops `t2` is the type of the 2nd operand.
- */
-bool Target::isVectorOpSupported(Type *type, TOK op, Type *t2) {
-  // FIXME
-  return true;
-}
 
 /**
  * Gets vendor-specific type mangling for C++ ABI.
