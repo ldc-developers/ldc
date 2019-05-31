@@ -41,7 +41,8 @@ private:
            && (t->ty == Tfloat80 || t->ty == Timaginary80);
   }
 
-  bool passPointerToHiddenCopy(Type *t, bool isReturnValue, LINK linkage) const {
+  bool passPointerToHiddenCopy(Type *t, bool isReturnValue,
+                               LINK linkage) const {
     // Pass magic C++ structs directly as LL aggregate with a single i32/double
     // element, which LLVM handles as if it was a scalar.
     if (isMagicCppStruct(t))
@@ -77,6 +78,37 @@ private:
     // Remaining aggregates which can NOT be rewritten as integers (size > 8
     // bytes or not a power of 2) are passed by ref to hidden copy.
     return isAggregate(t) && !canRewriteAsInt(t);
+  }
+
+  bool passPointerToHiddenCopyVector(const IrFuncTy &fty,
+                                     const IrFuncTyArg &arg) {
+    // Passing big vector by value cause issues on win64
+    auto vecType = arg.type->isTypeVector();
+    if (vecType == nullptr || arg.parametersIdx == 0) {
+      return false;
+    }
+    const size_t MaxSize = 64;
+    if (vecType->alignsize() > MaxSize) {
+      return true;
+    }
+
+    const size_t remainingSize = MaxSize - vecType->alignsize();
+    size_t prevSize = 0;
+    for (size_t i = 0; i < arg.parametersIdx; ++i) {
+      if (i != 0) { // Ignore first arg
+        if (auto type = fty.args[i]->type->isTypeVector()) {
+          const auto size = type->alignsize();
+
+          if (size <= MaxSize) {
+            prevSize += size;
+          }
+        }
+        if (prevSize > remainingSize) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
 public:
@@ -169,7 +201,8 @@ public:
     Type *t = arg.type->toBasetype();
     LLType *originalLType = arg.ltype;
 
-    if (passPointerToHiddenCopy(t, isReturnValue, fty.type->linkage)) {
+    if (passPointerToHiddenCopy(t, isReturnValue, fty.type->linkage) ||
+        passPointerToHiddenCopyVector(fty, arg)) {
       // the caller allocates a hidden copy and passes a pointer to that copy
       byvalRewrite.applyTo(arg);
     } else if (isAggregate(t) && canRewriteAsInt(t) && !isMagicCppStruct(t)) {
