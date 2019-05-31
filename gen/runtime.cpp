@@ -360,6 +360,8 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
 //                            const char *funcname);
 // Musl:    void __assert_fail(const char *assertion, const char *filename, int line_num,
 //                             const char *funcname);
+// uClibc:  void __assert(const char *assertion, const char *filename, int linenumber,
+//                        const char *function);
 // else:    void __assert(const char *msg, const char *file, unsigned line)
 
 static const char *getCAssertFunctionName() {
@@ -381,7 +383,8 @@ static std::vector<PotentiallyLazyType> getCAssertFunctionParamTypes() {
   const auto voidPtr = Type::tvoidptr;
   const auto uint = Type::tuns32;
 
-  if (triple.isOSDarwin() || triple.isOSSolaris() || triple.isMusl()) {
+  if (triple.isOSDarwin() || triple.isOSSolaris() || triple.isMusl() ||
+      global.params.isUClibcEnvironment) {
     return {voidPtr, voidPtr, uint, voidPtr};
   }
   if (triple.getEnvironment() == llvm::Triple::Android) {

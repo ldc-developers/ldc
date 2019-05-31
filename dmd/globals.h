@@ -267,6 +267,7 @@ struct Param
     const char *datafileInstrProf; // Either the input or output file for PGO data
 
     const llvm::Triple *targetTriple;
+    bool isUClibcEnvironment; // not directly supported by LLVM
 
     // Codegen cl options
     bool disableRedZone;

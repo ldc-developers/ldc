@@ -297,6 +297,7 @@ version (IN_LLVM)
 
     // target stuff
     const(void)* targetTriple; // const llvm::Triple*
+    bool isUClibcEnvironment;
 
     // Codegen cl options
     bool disableRedZone;

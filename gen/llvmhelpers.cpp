@@ -309,7 +309,8 @@ void DtoCAssert(Module *M, Loc &loc, LLValue *msg) {
     args.push_back(file);
     args.push_back(line);
     args.push_back(msg);
-  } else if (triple.isOSSolaris() || triple.isMusl()) {
+  } else if (triple.isOSSolaris() || triple.isMusl() ||
+             global.params.isUClibcEnvironment) {
     const auto irFunc = gIR->func();
     const auto funcName =
         (irFunc && irFunc->decl) ? irFunc->decl->toPrettyChars() : "";
