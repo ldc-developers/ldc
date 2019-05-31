@@ -26,9 +26,6 @@ struct IRState;
 // An arrayreference type with initializer_list support (C++11):
 template <class T> using ArrayParam = llvm::ArrayRef<T>;
 
-// Helper function because LLVM's isMusl wasn't around before 3.9.
-bool isMusl();
-
 llvm::LLVMContext& getGlobalContext();
 
 // dynamic memory helpers

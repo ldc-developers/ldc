@@ -363,27 +363,28 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
 // else:    void __assert(const char *msg, const char *file, unsigned line)
 
 static const char *getCAssertFunctionName() {
-  if (global.params.targetTriple->isOSDarwin()) {
+  const auto &triple = *global.params.targetTriple;
+  if (triple.isOSDarwin()) {
     return "__assert_rtn";
-  } else if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+  } else if (triple.isWindowsMSVCEnvironment()) {
     return "_assert";
-  } else if (global.params.targetTriple->isOSSolaris()) {
+  } else if (triple.isOSSolaris()) {
     return "__assert_c99";
-  } else if (isMusl()) {
+  } else if (triple.isMusl()) {
     return "__assert_fail";
   }
   return "__assert";
 }
 
 static std::vector<PotentiallyLazyType> getCAssertFunctionParamTypes() {
+  const auto &triple = *global.params.targetTriple;
   const auto voidPtr = Type::tvoidptr;
   const auto uint = Type::tuns32;
 
-  if (global.params.targetTriple->isOSDarwin() ||
-      global.params.targetTriple->isOSSolaris() || isMusl()) {
+  if (triple.isOSDarwin() || triple.isOSSolaris() || triple.isMusl()) {
     return {voidPtr, voidPtr, uint, voidPtr};
   }
-  if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
+  if (triple.getEnvironment() == llvm::Triple::Android) {
     return {voidPtr, uint, voidPtr};
   }
   return {voidPtr, voidPtr, uint};
@@ -401,7 +402,7 @@ llvm::Function *getCAssertFunction(const Loc &loc, llvm::Module &target) {
 // else:     void _Unwind_Resume(void*)
 
 static const char *getUnwindResumeFunctionName() {
-  auto &triple = *global.params.targetTriple;
+  const auto &triple = *global.params.targetTriple;
   if (triple.getArch() == llvm::Triple::arm)
     return triple.isOSDarwin() ? "_Unwind_SjLj_Resume" : "_d_eh_resume_unwind";
   return "_Unwind_Resume";
