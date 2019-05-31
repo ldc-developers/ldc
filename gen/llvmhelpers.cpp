@@ -1757,14 +1757,20 @@ llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
     const auto existingType = existing->getType()->getElementType();
     if (existingType != type || existing->isConstant() != isConstant ||
         existing->isThreadLocal() != isThreadLocal) {
-      const auto existingTypeName = llvmTypeToString(existingType);
-      const auto newTypeName = llvmTypeToString(type);
       error(loc,
             "Global variable type does not match previous declaration with "
             "same mangled name: `%s`",
             mangledName.str().c_str());
-      errorSupplemental(loc, "Previous IR type: %s", existingTypeName.c_str());
-      errorSupplemental(loc, "New IR type:      %s", newTypeName.c_str());
+      const auto suppl = [&loc](const char *prefix, LLType *type,
+                                bool isConstant, bool isThreadLocal) {
+        const auto typeName = llvmTypeToString(type);
+        errorSupplemental(loc, "%s %s, %s, %s", prefix, typeName.c_str(),
+                          isConstant ? "const" : "mutable",
+                          isThreadLocal ? "thread-local" : "non-thread-local");
+      };
+      suppl("Previous IR type:", existingType, existing->isConstant(),
+            existing->isThreadLocal());
+      suppl("New IR type:     ", type, isConstant, isThreadLocal);
       fatal();
     }
     return existing;
