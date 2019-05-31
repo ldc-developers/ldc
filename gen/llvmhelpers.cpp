@@ -67,8 +67,6 @@ bool isTargetWindowsMSVC() {
   return global.params.targetTriple->isWindowsMSVCEnvironment();
 }
 
-bool isMusl() { return global.params.targetTriple->isMusl(); }
-
 /******************************************************************************
  * Global context
  ******************************************************************************/
@@ -296,13 +294,14 @@ void DtoAssert(Module *M, Loc &loc, DValue *msg) {
 }
 
 void DtoCAssert(Module *M, Loc &loc, LLValue *msg) {
+  const auto &triple = *global.params.targetTriple;
   const auto file =
       DtoConstCString(loc.filename ? loc.filename : M->srcfile->name.toChars());
   const auto line = DtoConstUint(loc.linnum);
   const auto fn = getCAssertFunction(loc, gIR->module);
 
   llvm::SmallVector<LLValue *, 4> args;
-  if (global.params.targetTriple->isOSDarwin()) {
+  if (triple.isOSDarwin()) {
     const auto irFunc = gIR->func();
     const auto funcName =
         irFunc && irFunc->decl ? irFunc->decl->toPrettyChars() : "";
@@ -310,7 +309,8 @@ void DtoCAssert(Module *M, Loc &loc, LLValue *msg) {
     args.push_back(file);
     args.push_back(line);
     args.push_back(msg);
-  } else if (global.params.targetTriple->isOSSolaris() || isMusl()) {
+  } else if (triple.isOSSolaris() || triple.isMusl() ||
+             global.params.isUClibcEnvironment) {
     const auto irFunc = gIR->func();
     const auto funcName =
         (irFunc && irFunc->decl) ? irFunc->decl->toPrettyChars() : "";
@@ -318,8 +318,7 @@ void DtoCAssert(Module *M, Loc &loc, LLValue *msg) {
     args.push_back(file);
     args.push_back(line);
     args.push_back(DtoConstCString(funcName));
-  } else if (global.params.targetTriple->getEnvironment() ==
-             llvm::Triple::Android) {
+  } else if (triple.getEnvironment() == llvm::Triple::Android) {
     args.push_back(file);
     args.push_back(line);
     args.push_back(msg);

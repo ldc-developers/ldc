@@ -141,9 +141,6 @@ void printVersionStdout() {
 
 namespace {
 
-// True when target triple has an uClibc environment
-bool isUClibc = false;
-
 // Helper function to handle -d-debug=* and -d-version=*
 void processVersions(std::vector<std::string> &list, const char *type,
                      unsigned &globalLevel, Strings *&globalIDs) {
@@ -541,7 +538,7 @@ void fixupUClibcEnv() {
   envName.replace(0, 6, "gnu");
   triple.setEnvironmentName(envName);
   mTargetTriple = triple.normalize();
-  isUClibc = true;
+  global.params.isUClibcEnvironment = true;
 }
 
 /// Register the float ABI.
@@ -735,9 +732,9 @@ void registerPredefinedTargetVersions() {
     if (triple.getEnvironment() == llvm::Triple::Android) {
       VersionCondition::addPredefinedGlobalIdent("Android");
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Bionic");
-    } else if (isMusl()) {
+    } else if (triple.isMusl()) {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Musl");
-    } else if (isUClibc) {
+    } else if (global.params.isUClibcEnvironment) {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_UClibc");
     } else {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Glibc");
