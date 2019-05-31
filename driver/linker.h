@@ -34,6 +34,12 @@ bool useInternalLLDForLinking();
 llvm::cl::boolOrDefault linkFullyStatic();
 
 /**
+ * Indicates whether the command-line options select debug druntime/Phobos for
+ * linking.
+ */
+bool linkAgainstDebugDefaultLibs();
+
+/**
  * Indicates whether the command-line options select shared druntime/Phobos for
  * linking.
  */

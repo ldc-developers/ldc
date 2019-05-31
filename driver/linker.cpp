@@ -172,6 +172,8 @@ bool useInternalLLDForLinking() { return linkInternally; }
 
 cl::boolOrDefault linkFullyStatic() { return staticFlag; }
 
+bool linkAgainstDebugDefaultLibs() { return linkDefaultLibDebug; }
+
 bool linkAgainstSharedDefaultLibs() {
   // -static enforces static default libs.
   // Default to shared default libs for DLLs.

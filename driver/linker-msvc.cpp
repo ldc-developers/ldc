@@ -106,7 +106,13 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
 
   // output debug information
   if (global.params.symdebug) {
-    args.push_back("/DEBUG");
+    // MS link.exe defaults to "/DEBUG:FASTLINK" when invoked from within VS for
+    // a debug build (since VS 2017). That flag and release druntime/Phobos
+    // archived with LLVM don't work out nicely for the VS debugger, see
+    // https://github.com/ldc-developers/ldc/issues/3083.
+    bool enforceFull = !useInternalToolchain && !useInternalLLDForLinking() &&
+                       !linkAgainstDebugDefaultLibs();
+    args.push_back(enforceFull ? "/DEBUG:FULL" : "/DEBUG");
   }
 
   // remove dead code and fold identical COMDATs
