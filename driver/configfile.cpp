@@ -9,6 +9,7 @@
 
 #include "driver/configfile.h"
 
+#include "driver/args.h"
 #include "driver/exe_path.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
@@ -213,7 +214,7 @@ void ConfigFile::extendCommandLine(llvm::SmallVectorImpl<const char *> &args) {
   // append 'post-switches', but before a first potential '-run'
   size_t runIndex = 0;
   for (size_t i = 1; i < args.size(); ++i) {
-    if (strcmp(args[i], "-run") == 0 || strcmp(args[i], "--run") == 0) {
+    if (args::isRunArg(args[i])) {
       runIndex = i;
       break;
     }

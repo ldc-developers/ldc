@@ -21,6 +21,7 @@
 #include "dmd/root/root.h"
 #include "dmd/scope.h"
 #include "dmd/target.h"
+#include "driver/args.h"
 #include "driver/cache.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
@@ -223,19 +224,6 @@ tryGetExplicitTriple(const llvm::SmallVectorImpl<const char *> &args) {
   return triple;
 }
 
-void expandResponseFiles() {
-  static llvm::BumpPtrAllocator allArgumentsAllocator;
-  llvm::StringSaver saver(allArgumentsAllocator);
-  cl::ExpandResponseFiles(saver,
-#ifdef _WIN32
-                          cl::TokenizeWindowsCommandLine
-#else
-                          cl::TokenizeGNUCommandLine
-#endif
-                          ,
-                          allArguments);
-}
-
 /// Parses switches from the command line, any response files and the global
 /// config file and sets up global.params accordingly.
 ///
@@ -254,7 +242,7 @@ void parseCommandLine(Strings &sourceFiles) {
   cfg_file.extendCommandLine(allArguments);
 
   // finalize by expanding response files specified in config file
-  expandResponseFiles();
+  args::expandResponseFiles(allArguments);
 
 #if LDC_LLVM_VER >= 600
   cl::SetVersionPrinter(&printVersion);
@@ -860,29 +848,29 @@ void registerPredefinedVersions() {
 #undef STR
 }
 
-extern "C" {
-// in driver/main.d:
-int _Dmain(/*string[] args*/);
-
 // in druntime:
-int _d_run_main(int argc, const char **argv, int (*dMain)());
-void gc_disable();
-}
+extern "C" void gc_disable();
 
 /// LDC's entry point, C main.
 /// Without `-lowmem`, we need to switch to the bump-pointer allocation scheme
 /// right from the start, before any module ctors are run, so we need this hook
 /// before druntime is initialized and `_Dmain` is called.
-int main(int argc, const char **argv) {
-  llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
+#if LDC_WINDOWS_WMAIN
+int wmain(int argc, const wchar_t **originalArgv)
+#else
+int main(int argc, const char **originalArgv)
+#endif
+{
+  // initialize `opts::allArguments` with the UTF-8 command-line args
+  args::getCommandLineArguments(argc, originalArgv, allArguments);
 
-  // Initialize `opts::allArguments` and expand response files (`@<file>`, e.g.,
-  // used by dub) in-place.
-  allArguments.insert(allArguments.end(), argv, argv + argc);
-  expandResponseFiles();
+  // expand response files (`@<file>`, e.g., used by dub) in-place
+  args::expandResponseFiles(allArguments);
 
   argc = static_cast<int>(allArguments.size());
-  argv = allArguments.data();
+  const char **argv = allArguments.data();
+
+  llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
 
   bool lowmem = false;
   for (int i = 1; i < argc; ++i) {
@@ -894,14 +882,26 @@ int main(int argc, const char **argv) {
         lowmem = strcmp(remainder + 1, "true") == 0 ||
                  strcmp(remainder + 1, "TRUE") == 0;
       }
-    }
+    } else if (args::isRunArg(argv[i]))
+      break;
   }
 
   if (!lowmem)
     mem.disableGC();
 
-  // Initialize druntime; _Dmain() just calls cppmain() below.
-  return _d_run_main(argc, argv, _Dmain);
+  // Only pass --DRT-* options (before a first potential -run) to _d_run_main;
+  // we don't need any args for _Dmain.
+  llvm::SmallVector<const args::CArgChar *, 4> drunmainArgs;
+  for (int i = 0; i < argc; ++i) {
+    const char *arg = argv[i];
+    if (i == 0 || strncmp(arg, "--DRT-", 6) == 0) {
+      drunmainArgs.push_back(originalArgv[i]);
+    } else if (args::isRunArg(arg))
+      break;
+  }
+
+  // move on to _d_run_main, _Dmain, and finally cppmain below
+  return args::forwardToDruntime(drunmainArgs.size(), drunmainArgs.data());
 }
 
 int cppmain() {

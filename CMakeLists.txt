@@ -363,6 +363,7 @@ file(GLOB_RECURSE IR_SRC_D ir/*.d)
 file(GLOB IR_SRC ir/*.cpp)
 file(GLOB IR_HDR ir/*.h)
 set(DRV_SRC
+    driver/args.cpp
     driver/cache.cpp
     driver/cl_options.cpp
     driver/cl_options_instrumentation.cpp
@@ -384,6 +385,7 @@ set(DRV_SRC
     ${CMAKE_BINARY_DIR}/driver/ldc-version.cpp
 )
 set(DRV_HDR
+    driver/args.h
     driver/cache.h
     driver/cache_pruning.h
     driver/cl_options.h
@@ -405,10 +407,6 @@ set(DRV_HDR
 # exclude man.d from ldc (only required by ldmd)
 list(REMOVE_ITEM FE_SRC_D
     ${PROJECT_SOURCE_DIR}/dmd/root/man.d
-)
-# exclude ldmd.d from ldc
-list(REMOVE_ITEM DRV_SRC_D
-    ${PROJECT_SOURCE_DIR}/driver/ldmd.d
 )
 set(LDC_CXX_SOURCE_FILES
     ${FE_HDR}
@@ -683,12 +681,12 @@ if (HAVE_SC_ARG_MAX)
    append("-DHAVE_SC_ARG_MAX" CMAKE_CXX_FLAGS)
 endif()
 
-set_source_files_properties(driver/exe_path.cpp driver/ldmd.cpp driver/response.cpp PROPERTIES
+set_source_files_properties(driver/args.cpp driver/exe_path.cpp driver/ldmd.cpp driver/response.cpp PROPERTIES
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
     COMPILE_DEFINITIONS LDC_EXE_NAME="${LDC_EXE_NAME}"
 )
 
-add_library(LDMD_CXX_LIB ${LDC_LIB_TYPE} driver/exe_path.cpp driver/ldmd.cpp driver/response.cpp driver/exe_path.h)
+add_library(LDMD_CXX_LIB ${LDC_LIB_TYPE} driver/args.cpp driver/exe_path.cpp driver/ldmd.cpp driver/response.cpp driver/args.h driver/exe_path.h)
 set_target_properties(
     LDMD_CXX_LIB PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}
@@ -696,7 +694,7 @@ set_target_properties(
     ARCHIVE_OUTPUT_NAME ldmd
     LIBRARY_OUTPUT_NAME ldmd
 )
-set(LDMD_D_SOURCE_FILES ${PROJECT_SOURCE_DIR}/dmd/root/man.d ${PROJECT_SOURCE_DIR}/driver/ldmd.d)
+set(LDMD_D_SOURCE_FILES ${PROJECT_SOURCE_DIR}/dmd/root/man.d ${PROJECT_SOURCE_DIR}/driver/main.d)
 build_d_executable(
     "${LDMD_EXE_FULL}"
     "${LDMD_D_SOURCE_FILES}"
