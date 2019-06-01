@@ -14,14 +14,12 @@
 module driver.main;
 
 // In driver/main.cpp
-extern(C++) int cppmain(int argc, char **argv);
+extern(C++) int cppmain();
 
 /+ We use this manual D main for druntime initialization via a manual
  + _d_run_main() call in the C main() in driver/main.cpp.
  +/
 extern(C) int _Dmain(string[])
 {
-    import core.runtime;
-    auto args = Runtime.cArgs();
-    return cppmain(args.argc, cast(char**)args.argv);
+    return cppmain();
 }

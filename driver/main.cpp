@@ -223,36 +223,26 @@ tryGetExplicitTriple(const llvm::SmallVectorImpl<const char *> &args) {
   return triple;
 }
 
-void expandResponseFiles(llvm::BumpPtrAllocator &A,
-                         llvm::SmallVectorImpl<const char *> &args) {
-  llvm::StringSaver Saver(A);
-  cl::ExpandResponseFiles(Saver,
+void expandResponseFiles() {
+  static llvm::BumpPtrAllocator allArgumentsAllocator;
+  llvm::StringSaver saver(allArgumentsAllocator);
+  cl::ExpandResponseFiles(saver,
 #ifdef _WIN32
                           cl::TokenizeWindowsCommandLine
 #else
                           cl::TokenizeGNUCommandLine
 #endif
                           ,
-                          args);
+                          allArguments);
 }
 
 /// Parses switches from the command line, any response files and the global
 /// config file and sets up global.params accordingly.
 ///
 /// Returns a list of source file names.
-void parseCommandLine(int argc, char **argv, Strings &sourceFiles) {
+void parseCommandLine(Strings &sourceFiles) {
   const auto &exePath = exe_path::getExePath();
   global.params.argv0 = {exePath.length(), exePath.data()};
-
-  // Set up `opts::allArguments`, the combined list of command line arguments.
-  using opts::allArguments;
-
-  // initialize with the actual command line
-  allArguments.insert(allArguments.end(), argv, argv + argc);
-
-  // expand response files (`@<file>`) in-place
-  llvm::BumpPtrAllocator allocator;
-  expandResponseFiles(allocator, allArguments);
 
   // read config file
   ConfigFile &cfg_file = ConfigFile::instance;
@@ -264,7 +254,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles) {
   cfg_file.extendCommandLine(allArguments);
 
   // finalize by expanding response files specified in config file
-  expandResponseFiles(allocator, allArguments);
+  expandResponseFiles();
 
 #if LDC_LLVM_VER >= 600
   cl::SetVersionPrinter(&printVersion);
@@ -275,8 +265,16 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles) {
   opts::hideLLVMOptions();
   opts::createClashingOptions();
 
-  cl::ParseCommandLineOptions(allArguments.size(),
-                              const_cast<char **>(allArguments.data()),
+  // Filter out druntime options in the cmdline, e.g., to configure the GC.
+  std::vector<const char *> filteredArgs;
+  filteredArgs.reserve(allArguments.size());
+  for (const char *arg : allArguments) {
+    if (strncmp(arg, "--DRT-", 6) != 0)
+      filteredArgs.push_back(arg);
+  }
+
+  cl::ParseCommandLineOptions(filteredArgs.size(),
+                              const_cast<char **>(filteredArgs.data()),
                               "LDC - the LLVM D compiler\n");
 
   if (opts::printTargetFeaturesHelp()) {
@@ -867,7 +865,7 @@ extern "C" {
 int _Dmain(/*string[] args*/);
 
 // in druntime:
-int _d_run_main(int argc, char **argv, int (*dMain)());
+int _d_run_main(int argc, const char **argv, int (*dMain)());
 void gc_disable();
 }
 
@@ -875,7 +873,17 @@ void gc_disable();
 /// Without `-lowmem`, we need to switch to the bump-pointer allocation scheme
 /// right from the start, before any module ctors are run, so we need this hook
 /// before druntime is initialized and `_Dmain` is called.
-int main(int argc, char **argv) {
+int main(int argc, const char **argv) {
+  llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
+
+  // Initialize `opts::allArguments` and expand response files (`@<file>`, e.g.,
+  // used by dub) in-place.
+  allArguments.insert(allArguments.end(), argv, argv + argc);
+  expandResponseFiles();
+
+  argc = static_cast<int>(allArguments.size());
+  argv = allArguments.data();
+
   bool lowmem = false;
   for (int i = 1; i < argc; ++i) {
     if (strncmp(argv[i], "-lowmem", 7) == 0) {
@@ -892,31 +900,17 @@ int main(int argc, char **argv) {
   if (!lowmem)
     mem.disableGC();
 
-  // Initialize druntime; _Dmain() just calls cppmain() below with the original
-  // C args.
+  // Initialize druntime; _Dmain() just calls cppmain() below.
   return _d_run_main(argc, argv, _Dmain);
 }
 
-int cppmain(int argc, char **argv) {
-  llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
-
+int cppmain() {
   // Older host druntime versions need druntime to be initialized before
   // disabling the GC, so we cannot disable it in C main above.
   if (!mem.isGCEnabled())
     gc_disable();
 
-  exe_path::initialize(argv[0]);
-
-  // Filter out druntime options in the cmdline, e.g., to configure the GC.
-  std::vector<char *> filteredArgs;
-  filteredArgs.reserve(argc);
-  for (int i = 0; i < argc; ++i) {
-    if (strncmp(argv[i], "--DRT-", 6) != 0)
-      filteredArgs.push_back(argv[i]);
-  }
-
-  argc = static_cast<int>(filteredArgs.size());
-  argv = filteredArgs.data();
+  exe_path::initialize(allArguments[0]);
 
   global._init();
   // global.version includes the terminating null
@@ -935,9 +929,9 @@ int cppmain(int argc, char **argv) {
   initializePasses();
 
   Strings files;
-  parseCommandLine(argc, argv, files);
+  parseCommandLine(files);
 
-  if (argc == 1) {
+  if (allArguments.size() == 1) {
     cl::PrintHelpMessage(/*Hidden=*/false, /*Categorized=*/true);
     exit(EXIT_FAILURE);
   }
