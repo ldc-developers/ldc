@@ -183,12 +183,31 @@ void tryParse(const llvm::SmallVectorImpl<const char *> &args, size_t i,
     output = args[i + 1];
 }
 
+bool tryParseLowmem(const llvm::SmallVectorImpl<const char *> &args) {
+  bool lowmem = false;
+  for (size_t i = 1; i < args.size(); ++i) {
+    if (args::isRunArg(args[i]))
+      break;
+
+    if (strncmp(args[i], "-lowmem", 7) == 0) {
+      auto remainder = args[i] + 7;
+      if (remainder[0] == 0) {
+        lowmem = true;
+      } else if (remainder[0] == '=') {
+        lowmem = strcmp(remainder + 1, "true") == 0 ||
+                 strcmp(remainder + 1, "TRUE") == 0;
+      }
+    }
+  }
+  return lowmem;
+}
+
 const char *
 tryGetExplicitConfFile(const llvm::SmallVectorImpl<const char *> &args) {
   const char *conf = nullptr;
-  // begin at the back => use latest -conf specification
-  assert(args.size() >= 1);
-  for (size_t i = args.size() - 1; !conf && i >= 1; --i) {
+  for (size_t i = 1; i < args.size(); ++i) {
+    if (args::isRunArg(args[i]))
+      break;
     tryParse(args, i, conf, "-conf");
   }
   return conf;
@@ -202,6 +221,9 @@ tryGetExplicitTriple(const llvm::SmallVectorImpl<const char *> &args) {
   const char *mtriple = nullptr;
   const char *march = nullptr;
   for (size_t i = 1; i < args.size(); ++i) {
+    if (args::isRunArg(args[i]))
+      break;
+
     if (sizeof(void *) != 4 && strcmp(args[i], "-m32") == 0) {
       triple = triple.get32BitArchVariant();
       if (triple.getArch() == llvm::Triple::ArchType::x86)
@@ -256,7 +278,13 @@ void parseCommandLine(Strings &sourceFiles) {
   // Filter out druntime options in the cmdline, e.g., to configure the GC.
   std::vector<const char *> filteredArgs;
   filteredArgs.reserve(allArguments.size());
-  for (const char *arg : allArguments) {
+  for (size_t i = 0; i < allArguments.size(); ++i) {
+    const char *arg = allArguments[i];
+    if (args::isRunArg(arg)) {
+      filteredArgs.insert(filteredArgs.end(), allArguments.begin() + i,
+                          allArguments.end());
+      break;
+    }
     if (strncmp(arg, "--DRT-", 6) != 0)
       filteredArgs.push_back(arg);
   }
@@ -864,40 +892,23 @@ int main(int argc, const char **originalArgv)
   // initialize `opts::allArguments` with the UTF-8 command-line args
   args::getCommandLineArguments(argc, originalArgv, allArguments);
 
+  llvm::sys::PrintStackTraceOnErrorSignal(allArguments[0]);
+
   // expand response files (`@<file>`, e.g., used by dub) in-place
   args::expandResponseFiles(allArguments);
 
-  argc = static_cast<int>(allArguments.size());
-  const char **argv = allArguments.data();
-
-  llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
-
-  bool lowmem = false;
-  for (int i = 1; i < argc; ++i) {
-    if (strncmp(argv[i], "-lowmem", 7) == 0) {
-      auto remainder = argv[i] + 7;
-      if (remainder[0] == 0) {
-        lowmem = true;
-      } else if (remainder[0] == '=') {
-        lowmem = strcmp(remainder + 1, "true") == 0 ||
-                 strcmp(remainder + 1, "TRUE") == 0;
-      }
-    } else if (args::isRunArg(argv[i]))
-      break;
-  }
-
-  if (!lowmem)
+  if (!tryParseLowmem(allArguments))
     mem.disableGC();
 
   // Only pass --DRT-* options (before a first potential -run) to _d_run_main;
   // we don't need any args for _Dmain.
   llvm::SmallVector<const args::CArgChar *, 4> drunmainArgs;
-  for (int i = 0; i < argc; ++i) {
-    const char *arg = argv[i];
-    if (i == 0 || strncmp(arg, "--DRT-", 6) == 0) {
-      drunmainArgs.push_back(originalArgv[i]);
-    } else if (args::isRunArg(arg))
+  for (size_t i = 0; i < allArguments.size(); ++i) {
+    const char *arg = allArguments[i];
+    if (args::isRunArg(arg))
       break;
+    if (i == 0 || strncmp(arg, "--DRT-", 6) == 0)
+      drunmainArgs.push_back(originalArgv[i]);
   }
 
   // move on to _d_run_main, _Dmain, and finally cppmain below
