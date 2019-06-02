@@ -1123,8 +1123,10 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   emitInstrumentationFnEnter(fd);
 
-  if (global.params.trace && !fd->isCMain() && !fd->naked)
+  if (global.params.trace && fd->emitInstrumentation && !fd->isCMain() &&
+      !fd->naked) {
     emitDMDStyleFunctionTrace(*gIR, fd, funcGen);
+  }
 
   // disable frame-pointer-elimination for functions with inline asm
   if (fd->hasReturnExp & 8) // has inline asm
