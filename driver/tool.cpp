@@ -10,6 +10,7 @@
 #include "driver/tool.h"
 
 #include "dmd/errors.h"
+#include "driver/args.h"
 #include "driver/cl_options.h"
 #include "driver/exe_path.h"
 #include "driver/targetmachine.h"
@@ -48,14 +49,15 @@ static std::string findProgramByName(llvm::StringRef name) {
 std::string getProgram(const char *name, const llvm::cl::opt<std::string> *opt,
                        const char *envVar) {
   std::string path;
-  const char *prog = nullptr;
 
   if (opt && !opt->empty()) {
     path = findProgramByName(opt->c_str());
   }
 
-  if (path.empty() && envVar && (prog = getenv(envVar)) && prog[0] != '\0') {
-    path = findProgramByName(prog);
+  if (path.empty() && envVar) {
+    const std::string prog = env::get(envVar);
+    if (!prog.empty())
+      path = findProgramByName(prog);
   }
 
   if (path.empty()) {
@@ -295,15 +297,15 @@ int executeAndWait(const char *commandLine) {
 }
 
 bool setupMsvcEnvironmentImpl() {
-  if (getenv("VSINSTALLDIR"))
+  if (env::has(L"VSINSTALLDIR"))
     return true;
 
   llvm::SmallString<128> tmpFilePath;
   if (llvm::sys::fs::createTemporaryFile("ldc_dumpEnv", "", tmpFilePath))
     return false;
 
-  /* Run `%ComSpec% /s /c "...\dumpEnv.bat <x86|amd64> > <tmpFilePath>"` to dump
-   * the MSVC environment to the temporary file.
+  /* Run `%ComSpec% /s /c "...\dumpEnv.bat <x86|amd64> > <tmpFilePath>"` to
+   * dump the MSVC environment to the temporary file.
    *
    * cmd.exe /c treats the following string argument (the command)
    * in a very peculiar way if it starts with a double-quote.
@@ -312,13 +314,12 @@ bool setupMsvcEnvironmentImpl() {
    * be parsed properly.
    */
 
-  const char *comspecEnv = getenv("ComSpec");
-  if (!comspecEnv) {
+  std::string cmdExecutable = env::get("ComSpec");
+  if (cmdExecutable.empty()) {
     warning(Loc(),
             "'ComSpec' environment variable is not set, assuming 'cmd.exe'.");
-    comspecEnv = "cmd.exe";
+    cmdExecutable = "cmd.exe";
   }
-  std::string cmdExecutable = comspecEnv;
   std::string batchFile = exe_path::prependBinDir("dumpEnv.bat");
   std::string arch =
       global.params.targetTriple->isArch64Bit() ? "amd64" : "x86";

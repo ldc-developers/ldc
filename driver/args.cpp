@@ -10,7 +10,10 @@
 #include "args.h"
 
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/StringSaver.h"
+
+#include <cstdlib>
 
 #if LDC_WINDOWS_WMAIN
 #define WIN32_LEAN_AND_MEAN
@@ -75,5 +78,45 @@ int forwardToDruntime(int argc, const CArgChar **argv) {
 
 bool isRunArg(const char *arg) {
   return strcmp(arg, "-run") == 0 || strcmp(arg, "--run") == 0;
+}
+} // namespace args
+
+namespace env {
+#ifdef _WIN32
+static wchar_t *wget(const char *name) {
+  std::wstring wname;
+  llvm::ConvertUTF8toWide(name, wname);
+  return _wgetenv(wname.c_str());
+}
+#endif
+
+bool has(const char *name) {
+#ifdef _WIN32
+  return wget(name) != nullptr;
+#else
+  return getenv(name) != nullptr;
+#endif
+}
+
+#ifdef _WIN32
+bool has(const wchar_t *wname) { return _wgetenv(wname) != nullptr; }
+#endif
+
+std::string get(const char *name) {
+#ifdef _WIN32
+#if LDC_LLVM_VER >= 400
+  using llvm::UTF16;
+#endif
+  const wchar_t *wvalue = wget(name);
+  std::string value;
+  if (wvalue) {
+    llvm::convertUTF16ToUTF8String(
+        {reinterpret_cast<const UTF16 *>(wvalue), wcslen(wvalue)}, value);
+  }
+  return value;
+#else
+  const char *value = getenv(name);
+  return value ? value : "";
+#endif
 }
 }

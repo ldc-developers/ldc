@@ -10,6 +10,7 @@
 #include "driver/linker.h"
 
 #include "dmd/errors.h"
+#include "driver/args.h"
 #include "driver/cl_options.h"
 #include "driver/tool.h"
 #include "gen/llvm.h"
@@ -186,7 +187,7 @@ bool useInternalToolchainForMSVC() {
 #ifndef _WIN32
   return true;
 #else
-  return !getenv("VSINSTALLDIR") && !getenv("LDC_VSDIR");
+  return !env::has(L"VSINSTALLDIR") && !env::has(L"LDC_VSDIR");
 #endif
 }
 

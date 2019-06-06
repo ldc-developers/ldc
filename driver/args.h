@@ -1,4 +1,4 @@
-//===-- driver/args.h - Command-line arguments management--------*- C++ -*-===//
+//===-- driver/args.h - Command-line & environment variables ----*- C++ -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -35,4 +35,16 @@ int forwardToDruntime(int argc, const CArgChar **argv);
 
 // Returns true if the specified arg is either `-run` or `--run`.
 bool isRunArg(const char *arg);
+}
+
+namespace env {
+
+// Indicates whether the specified environment variable is set.
+bool has(const char *name);
+#ifdef _WIN32
+bool has(const wchar_t *wname);
+#endif
+
+// Returns the value of the specified environment variable (in UTF-8).
+std::string get(const char *name);
 }

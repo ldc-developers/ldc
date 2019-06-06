@@ -267,12 +267,12 @@ Where:\n\
  * here since it is defined in mars.c.
  */
 void appendEnvVar(const char *envVarName, std::vector<char *> &args) {
-  char *env = getenv(envVarName);
-  if (!env) {
+  std::string envVar = env::get(envVarName);
+  if (envVar.empty()) {
     return;
   }
 
-  env = strdup(env); // create our own writable copy
+  char *env = strdup(envVar.c_str()); // create forever-living copy
 
   size_t j = 1; // leave argv[0] alone
   while (1) {
