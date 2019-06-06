@@ -223,7 +223,7 @@ bool needsQuotes(const llvm::StringRef &arg) {
 size_t countPrecedingBackslashes(llvm::StringRef arg, size_t index) {
   size_t count = 0;
 
-  for (size_t i = index - 1; i >= 0; --i) {
+  for (ptrdiff_t i = index - 1; i >= 0; --i) {
     if (arg[i] != '\\')
       break;
     ++count;
@@ -275,18 +275,12 @@ int executeAndWait(const char *commandLine) {
 
   DWORD exitCode;
 
-#if UNICODE
   std::wstring wcommandLine;
   if (!llvm::ConvertUTF8toWide(commandLine, wcommandLine))
     return -3;
-  auto cmdline = const_cast<wchar_t *>(wcommandLine.data());
-#else
-  auto cmdline = const_cast<char *>(commandLine);
-#endif
-  // according to MSDN, only CreateProcessW (unicode) may modify the passed
-  // command line
-  if (!CreateProcess(NULL, cmdline, NULL, NULL, TRUE, 0, NULL, NULL, &si,
-                     &pi)) {
+  auto wcmdline = const_cast<wchar_t *>(wcommandLine.c_str());
+  if (!CreateProcessW(nullptr, wcmdline, nullptr, nullptr, TRUE, 0, nullptr,
+                      nullptr, &si, &pi)) {
     exitCode = -1;
   } else {
     if (WaitForSingleObject(pi.hProcess, INFINITE) != 0 ||
@@ -393,7 +387,11 @@ bool setupMsvcEnvironmentImpl() {
     if (global.params.verbose)
       message("  %s=%s", key.c_str(), value.c_str());
 
-    SetEnvironmentVariableA(key.c_str(), value.c_str());
+    std::wstring wkey, wvalue;
+    llvm::ConvertUTF8toWide(key, wkey);
+    llvm::ConvertUTF8toWide(value, wvalue);
+
+    SetEnvironmentVariableW(wkey.c_str(), wvalue.c_str());
 
     if (key == "VSINSTALLDIR")
       haveVsInstallDir = true;
