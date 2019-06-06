@@ -10,10 +10,13 @@
 #include "args.h"
 
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/StringSaver.h"
 
 #include <cstdlib>
+
+#ifdef _WIN32
+#include "llvm/Support/ConvertUTF.h"
+#endif
 
 #if LDC_WINDOWS_WMAIN
 #define WIN32_LEAN_AND_MEAN
@@ -84,9 +87,10 @@ bool isRunArg(const char *arg) {
 namespace env {
 #ifdef _WIN32
 static wchar_t *wget(const char *name) {
-  std::wstring wname;
-  llvm::ConvertUTF8toWide(name, wname);
-  return _wgetenv(wname.c_str());
+  llvm::SmallVector<wchar_t, 32> wname;
+  llvm::sys::windows::UTF8ToUTF16(name, wname);
+  wname.push_back(0);
+  return _wgetenv(wname.data());
 }
 #endif
 

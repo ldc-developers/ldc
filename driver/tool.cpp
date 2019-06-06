@@ -277,12 +277,12 @@ int executeAndWait(const char *commandLine) {
 
   DWORD exitCode;
 
-  std::wstring wcommandLine;
-  if (!llvm::ConvertUTF8toWide(commandLine, wcommandLine))
+  llvm::SmallVector<wchar_t, 512> wcommandLine;
+  if (llvm::sys::windows::UTF8ToUTF16(commandLine, wcommandLine))
     return -3;
-  auto wcmdline = const_cast<wchar_t *>(wcommandLine.c_str());
-  if (!CreateProcessW(nullptr, wcmdline, nullptr, nullptr, TRUE, 0, nullptr,
-                      nullptr, &si, &pi)) {
+  wcommandLine.push_back(0);
+  if (!CreateProcessW(nullptr, wcommandLine.data(), nullptr, nullptr, TRUE, 0,
+                      nullptr, nullptr, &si, &pi)) {
     exitCode = -1;
   } else {
     if (WaitForSingleObject(pi.hProcess, INFINITE) != 0 ||
@@ -382,17 +382,22 @@ bool setupMsvcEnvironmentImpl() {
   bool haveVsInstallDir = false;
 
   for (const auto &pair : env) {
-    const std::string key = pair.first.str();
-    const std::string value = pair.second.str();
+    const llvm::StringRef key = pair.first;
+    const llvm::StringRef value = pair.second;
 
-    if (global.params.verbose)
-      message("  %s=%s", key.c_str(), value.c_str());
+    if (global.params.verbose) {
+      message("  %.*s=%.*s", (int)key.size(), key.data(), (int)value.size(),
+              value.data());
+    }
 
-    std::wstring wkey, wvalue;
-    llvm::ConvertUTF8toWide(key, wkey);
-    llvm::ConvertUTF8toWide(value, wvalue);
+    llvm::SmallVector<wchar_t, 32> wkey;
+    llvm::SmallVector<wchar_t, 512> wvalue;
+    llvm::sys::windows::UTF8ToUTF16(key, wkey);
+    llvm::sys::windows::UTF8ToUTF16(value, wvalue);
+    wkey.push_back(0);
+    wvalue.push_back(0);
 
-    SetEnvironmentVariableW(wkey.c_str(), wvalue.c_str());
+    SetEnvironmentVariableW(wkey.data(), wvalue.data());
 
     if (key == "VSINSTALLDIR")
       haveVsInstallDir = true;

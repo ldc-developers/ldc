@@ -77,10 +77,7 @@ static bool ReadPathFromRegistry(llvm::SmallString<128> &p) {
       const auto data = buffer.data();
       if (RegGetValueW(hkey, nullptr, L"Path", RRF_RT_REG_SZ, nullptr, data,
                        &length) == ERROR_SUCCESS) {
-        std::string out;
-        res = llvm::convertUTF16ToUTF8String(
-            {reinterpret_cast<UTF16 *>(data), length}, out);
-        p = out;
+        res = !llvm::sys::windows::UTF16ToUTF8(data, length, p);
       }
     }
     RegCloseKey(hkey);
