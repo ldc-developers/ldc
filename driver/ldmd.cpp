@@ -96,11 +96,7 @@ char *concat(const char *a, const char *b) {
 
 char *concat(const char *a, int b) {
   char bStr[14];
-#if defined(_MSC_VER)
-  _snprintf_s(bStr, _countof(bStr), sizeof(bStr), "%d", b);
-#else
   snprintf(bStr, sizeof(bStr), "%d", b);
-#endif
   return concat(a, bStr);
 }
 

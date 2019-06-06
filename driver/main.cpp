@@ -84,8 +84,6 @@ void generateJson(Modules *modules);
 
 using namespace opts;
 
-extern void getenv_setargv(const char *envvar, int *pargc, char ***pargv);
-
 static StringsAdapter impPathsStore("I", global.params.imppath);
 static cl::list<std::string, StringsAdapter>
     importPaths("I", cl::desc("Look for imports also in <directory>"),
