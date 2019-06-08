@@ -621,13 +621,6 @@ if(UNIX AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} MATCHES "Clan
     # we manually invoke the linker instead of using the D compiler to do so.
     set(LDC_LINK_MANUALLY ON)
 
-    # gdmd's -of option is incompatible with DMD/LDMD when -c is given. We could
-    # detect this and modify the command line accordingly, but for now, just
-    # disallow gdmd.
-    if(D_COMPILER_ID STREQUAL "GDMD")
-        message(FATAL_ERROR "GDMD currently not supported due to http://bugzilla.gdcproject.org/show_bug.cgi?id=232.")
-    endif()
-
     include(ExtractDMDSystemLinker)
     message(STATUS "Host D compiler linker program: ${D_LINKER_COMMAND}")
     message(STATUS "Host D compiler linker flags: ${D_LINKER_ARGS}")

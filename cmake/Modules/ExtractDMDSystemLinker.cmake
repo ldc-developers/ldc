@@ -24,6 +24,7 @@ file(WRITE ${source_file} "void main() {}")
 # Compile the file in verbose mode and capture the compiler's stdout.
 set(result_code)
 set(stdout)
+set(stderr)
 if(UNIX)
     separate_arguments(cmdflags UNIX_COMMAND "${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS}")
 else()
@@ -34,15 +35,27 @@ execute_process(
     RESULT_VARIABLE result_code
     OUTPUT_VARIABLE stdout
     OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_VARIABLE stderr
+    ERROR_STRIP_TRAILING_WHITESPACE
 )
 
 if(result_code)
 	message(FATAL_ERROR "Failed to compile empty program using D compiler '${D_COMPILER}'")
 endif()
 
-# Extract last line, which (due to -v) contains the linker command line.
 string(REGEX REPLACE "\n" ";" stdout_lines "${stdout}")
-list(GET stdout_lines -1 linker_line)
+string(REGEX REPLACE "\n" ";" stderr_lines "${stderr}")
+if("${D_COMPILER_ID}" STREQUAL "GDC" OR "${D_COMPILER_ID}" STREQUAL "GDMD")
+    # Extract second to last line, which (due to -v) contains the linker command line.
+    list(GET stderr_lines -2 linker_line)
+else()
+    # Extract last line, which (due to -v) contains the linker command line.
+    list(GET stdout_lines -1 linker_line)
+endif()
+
+if("${D_COMPILER_ID}" STREQUAL "GDC" OR "${D_COMPILER_ID}" STREQUAL "GDMD")
+    string(REGEX REPLACE "^ +" "" linker_line "${linker_line}")
+endif()
 
 # Remove object file/output file arguments. This of course makes assumptions on
 # the object file names used by the compilers. Another option would be to swallow
@@ -54,4 +67,15 @@ string(REPLACE "-o ${source_name}" "" linker_line "${linker_line}")
 separate_arguments(linker_line)
 list(GET linker_line 0 D_LINKER_COMMAND)
 list(REMOVE_AT linker_line 0)
-set(D_LINKER_ARGS ${linker_line})
+
+if("${D_COMPILER_ID}" STREQUAL "GDC" OR "${D_COMPILER_ID}" STREQUAL "GDMD")
+    # Filter linker arguments for those we know can be safely reused
+    set(D_LINKER_ARGS)
+    foreach(arg ${linker_line})
+        if("${arg}" MATCHES ^-L.*|^-l.*|^-B.*)
+            list(APPEND D_LINKER_ARGS "${arg}")
+        endif()
+    endforeach()
+else()
+    set(D_LINKER_ARGS ${linker_line})
+endif()

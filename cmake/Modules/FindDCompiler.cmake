@@ -65,8 +65,22 @@ if (D_COMPILER)
                     OUTPUT_VARIABLE D_COMPILER_VERSION_STRING
                     ERROR_VARIABLE D_COMPILER_VERSION_STRING
                     ERROR_QUIET)
-    string(REGEX MATCH " (D Compiler|based on DMD) v([0-9]+)\\.([0-9]+)" D_COMPILER_FE_VERSION "${D_COMPILER_VERSION_STRING}")
-    math(EXPR D_COMPILER_FE_VERSION ${CMAKE_MATCH_2}*1000+${CMAKE_MATCH_3}) # e.g., 2079
+    if ("${D_COMPILER_ID}" STREQUAL "GDC")
+        execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "pragma(msg, int(__VERSION__));"
+                        COMMAND "${D_COMPILER}" -x d -fsyntax-only -
+                        ERROR_VARIABLE D_COMPILER_FE_VERSION
+                        OUTPUT_QUIET)
+        string(REGEX MATCH "^[^\r\n:]*" D_COMPILER_FE_VERSION "${D_COMPILER_FE_VERSION}")
+    elseif ("${D_COMPILER_ID}" STREQUAL "GDMD")
+        execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "pragma(msg, int(__VERSION__));"
+                        COMMAND "${D_COMPILER}" - -o-
+                        ERROR_VARIABLE D_COMPILER_FE_VERSION
+                        OUTPUT_QUIET)
+        string(REGEX MATCH "^[^\r\n:]*" D_COMPILER_FE_VERSION "${D_COMPILER_FE_VERSION}")
+    else()
+        string(REGEX MATCH " (D Compiler|based on DMD) v([0-9]+)\\.([0-9]+)" D_COMPILER_FE_VERSION "${D_COMPILER_VERSION_STRING}")
+        math(EXPR D_COMPILER_FE_VERSION ${CMAKE_MATCH_2}*1000+${CMAKE_MATCH_3}) # e.g., 2079
+    endif()
     string(REGEX MATCH "^[^\r\n:]*" D_COMPILER_VERSION_STRING "${D_COMPILER_VERSION_STRING}")
 endif()
 
