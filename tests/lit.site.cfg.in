@@ -8,6 +8,10 @@ import re
 import subprocess
 from distutils.version import LooseVersion
 
+# Cmake Boolean options
+ON = True
+OFF = False
+
 ## Auto-initialized variables by cmake:
 config.ldc2_bin            = "@LDC2_BIN@"
 config.ldcprofdata_bin     = "@LDCPROFDATA_BIN@"
@@ -22,7 +26,7 @@ config.llvm_targetsstr     = "@LLVM_TARGETS_TO_BUILD@"
 config.default_target_bits = @DEFAULT_TARGET_BITS@
 config.with_PGO            = True
 config.dynamic_compile     = @LDC_DYNAMIC_COMPILE@
-config.plugins_supported   = "@LDC_ENABLE_PLUGINS@" == "ON"
+config.plugins_supported   = @LDC_ENABLE_PLUGINS@
 config.gnu_make_bin        = "@GNU_MAKE_BIN@"
 config.ldc_host_arch       = "@LDC_HOST_ARCH@"
 config.ldc_with_lld        = "@LDC_WITH_LLD@" == "ON"
