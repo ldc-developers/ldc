@@ -269,5 +269,21 @@ Expression *Target::getTargetInfo(const char *name_, const Loc &loc) {
   if (name == "cppStd")
     return createIntegerExp(static_cast<unsigned>(global.params.cplusplus));
 
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
+  if (name == "dcomputeTargets") {
+    Expressions* exps = new Expressions();
+    for (auto &targ : opts::dcomputeTargets) {
+        exps->push(createStringExp(mem.xstrdup(targ.c_str())));
+    }
+      return TupleExp::create(loc, exps);
+
+  }
+
+  if (name == "dcomputeFilePrefix") {
+    return createStringExp(
+                mem.xstrdup(opts::dcomputeFilePrefix.c_str()));
+  }
+#endif
+    
   return nullptr;
 }
