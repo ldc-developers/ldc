@@ -29,9 +29,9 @@ config.dynamic_compile     = @LDC_DYNAMIC_COMPILE@
 config.plugins_supported   = @LDC_ENABLE_PLUGINS@
 config.gnu_make_bin        = "@GNU_MAKE_BIN@"
 config.ldc_host_arch       = "@LDC_HOST_ARCH@"
-config.ldc_with_lld        = "@LDC_WITH_LLD@" == "ON"
-config.spirv_enabled       = "@LLVM_SPIRV_FOUND@" == "ON"
-config.rt_supports_sanitizers = "@RT_SUPPORT_SANITIZERS@" == "ON"
+config.ldc_with_lld        = @LDC_WITH_LLD@
+config.spirv_enabled       = @LLVM_SPIRV_FOUND@
+config.rt_supports_sanitizers = @RT_SUPPORT_SANITIZERS@
 
 config.name = 'LDC'
 
