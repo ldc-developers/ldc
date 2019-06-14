@@ -276,6 +276,7 @@ struct Param
     const(char)* exefile;
     const(char)* mapfile;
 
+    /* LDC: unused function featuring syntax not supported by ltsmaster
     // generate code for POSIX
     @property bool isPOSIX() scope const pure nothrow @nogc @safe
     out(result) { assert(result || isWindows); }
@@ -288,6 +289,7 @@ struct Param
             || isDragonFlyBSD
             || isSolaris;
     }
+    */
 
 version (IN_LLVM)
 {
