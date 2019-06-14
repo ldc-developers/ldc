@@ -266,6 +266,10 @@ private void resolveHelper(TypeQualified mt, const ref Loc loc, Scope* sc, Dsymb
 
             if (VarDeclaration v = s.isVarDeclaration())
             {
+                // https://issues.dlang.org/show_bug.cgi?id=19913
+                // v.type would be null if it is a forward referenced member.
+                if (v.type is null)
+                    v.dsymbolSemantic(sc);
                 if (v.storage_class & (STC.const_ | STC.immutable_ | STC.manifest) ||
                     v.type.isConst() || v.type.isImmutable())
                 {
@@ -3814,7 +3818,12 @@ else
 
             if (ident == Id.classinfo)
             {
-                assert(Type.typeinfoclass);
+                if (!Type.typeinfoclass)
+                {
+                    error(e.loc, "`object.TypeInfo_Class` could not be found, but is implicitly used");
+                    return new ErrorExp();
+                }
+
                 Type t = Type.typeinfoclass.type;
                 if (e.op == TOK.type || e.op == TOK.dotType)
                 {

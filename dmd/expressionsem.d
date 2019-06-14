@@ -46,6 +46,8 @@ import dmd.hdrgen;
 import dmd.id;
 import dmd.identifier;
 import dmd.imphint;
+import dmd.init;
+import dmd.initsem;
 import dmd.inline;
 import dmd.intrange;
 import dmd.mtype;
@@ -3456,6 +3458,22 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                     exp.error("no constructor for `%s`", cd.toChars());
                     return setError();
                 }
+
+                // https://issues.dlang.org/show_bug.cgi?id=19941
+                // Run semantic on all field initializers to resolve any forward
+                // references. This is the same as done for structs in sd.fill().
+                for (ClassDeclaration c = cd; c; c = c.baseClass)
+                {
+                    foreach (v; c.fields)
+                    {
+                        if (v.inuse || v._scope is null || v._init is null ||
+                            v._init.isVoidInitializer())
+                            continue;
+                        v.inuse++;
+                        v._init = v._init.initializerSemantic(v._scope, v.type, INITinterpret);
+                        v.inuse--;
+                    }
+                }
             }
         }
         else if (tb.ty == Tstruct)
@@ -4975,6 +4993,11 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
             if (tb.toDsymbol(sc).isClassDeclaration().classKind == ClassKind.cpp)
             {
                 error(exp.loc, "Runtime type information is not supported for `extern(C++)` classes");
+                e = new ErrorExp();
+            }
+            else if (!Type.typeinfoclass)
+            {
+                error(exp.loc, "`object.TypeInfo_Class` could not be found, but is implicitly used");
                 e = new ErrorExp();
             }
             else

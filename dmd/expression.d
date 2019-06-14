@@ -6637,7 +6637,7 @@ extern (C++) final class FuncInitExp : DefaultInitExp
             s = "";
         Expression e = new StringExp(loc, cast(char*)s);
         e = e.expressionSemantic(sc);
-        e = e.castTo(sc, type);
+        e.type = Type.tstring;
         return e;
     }
 
@@ -6677,7 +6677,7 @@ extern (C++) final class PrettyFuncInitExp : DefaultInitExp
 
         Expression e = new StringExp(loc, cast(char*)s);
         e = e.expressionSemantic(sc);
-        e = e.castTo(sc, type);
+        e.type = Type.tstring;
         return e;
     }
 

@@ -276,6 +276,19 @@ struct Param
     const(char)* exefile;
     const(char)* mapfile;
 
+    // generate code for POSIX
+    @property bool isPOSIX() scope const pure nothrow @nogc @safe
+    out(result) { assert(result || isWindows); }
+    do
+    {
+        return isLinux
+            || isOSX
+            || isFreeBSD
+            || isOpenBSD
+            || isDragonFlyBSD
+            || isSolaris;
+    }
+
 version (IN_LLVM)
 {
     Array!(const(char)*) bitcodeFiles; // LLVM bitcode files passed on cmdline
