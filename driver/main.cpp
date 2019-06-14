@@ -1073,9 +1073,9 @@ void codegenModules(Modules &modules) {
     if (!computeModules.empty()) {
       for (auto &mod : computeModules)
         dccg.emit(mod);
-
-      dccg.writeModules();
     }
+    dccg.writeModules();
+
     // We may have removed all object files, if so don't link.
     if (global.params.objfiles.dim == 0)
       global.params.link = false;
