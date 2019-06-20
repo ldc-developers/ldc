@@ -1,3 +1,23 @@
+# LDC 1.16.0 (2019-06-20)
+
+#### Big news
+- Frontend, druntime and Phobos are at version [2.086.1](https://dlang.org/changelog/2.086.1.html), incl. a DIP1008 fix. (#3062, #3076, #3091)
+- Non-Windows x86: Faster `real` versions of `std.math.{tan,expi}`. (#2855)
+- dcompute: New `__traits(getTargetInfo, "dcomputeTargets")`. (#3090)
+
+#### Platform support
+- Supports LLVM 3.9 - 8.0 (incl. 7.1).
+
+#### Bug fixes
+- Make `pragma(LDC_no_typeinfo)` actually elide TypeInfo emission for structs, classes and interfaces. (#3068)
+- Windows: Fix DLL entry point in MinGW-based libs. (https://github.com/ldc-developers/mingw-w64-libs/commit/8d930c129daa798379b3d563617847f8e895f43e)
+- WebAssembly: Use `--export-dynamic` when linking with LLD 8+. (#3023, #3072)
+- Fix corrupt `this` in functions nested in in/out contracts. (45460a1)
+- Fix identity comparisons of integral vectors. (a44c78f)
+- Improved handling of unsupported vector ops. (a44c78f)
+- uClibc: Fix C assert calls. (#3078, #3082)
+- Improved error message on global variable collision. (#3080, #3081)
+
 # LDC 1.15.0 (2019-04-06)
 
 #### Big news
