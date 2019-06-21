@@ -708,6 +708,8 @@ extern (C++) struct Token
         return true;
     }());
 
+nothrow:
+
     shared static this()
     {
         Identifier.initTable();
@@ -843,7 +845,7 @@ extern (C++) struct Token
                 buf.writeByte('"');
                 if (postfix)
                     buf.writeByte(postfix);
-                p = buf.extractString();
+                p = buf.extractChars();
             }
             break;
         case TOK.hexadecimalString:

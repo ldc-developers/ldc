@@ -10,8 +10,8 @@
 #include "driver/codegenerator.h"
 
 #include "dmd/compiler.h"
+#include "dmd/errors.h"
 #include "dmd/id.h"
-#include "dmd/mars.h"
 #include "dmd/module.h"
 #include "dmd/scope.h"
 #include "driver/cl_options.h"
@@ -204,7 +204,7 @@ void CodeGenerator::prepareLLModule(Module *m) {
   // See http://llvm.org/bugs/show_bug.cgi?id=11479 – just use the source file
   // name, as it should not collide with a symbol name used somewhere in the
   // module.
-  ir_ = new IRState(m->srcfile->toChars(), context_);
+  ir_ = new IRState(m->srcfile.toChars(), context_);
   ir_->module.setTargetTriple(global.params.targetTriple->str());
   ir_->module.setDataLayout(*gDataLayout);
 
@@ -226,7 +226,7 @@ void CodeGenerator::finishLLModule(Module *m) {
     insertBitcodeFiles(ir_->module, ir_->context(), global.params.bitcodeFiles);
   }
 
-  writeAndFreeLLModule(m->objfile->name.toChars());
+  writeAndFreeLLModule(m->objfile.toChars());
 }
 
 void CodeGenerator::writeAndFreeLLModule(const char *filename) {
@@ -246,7 +246,7 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   llvm::NamedMDNode *IdentMetadata =
       ir_->module.getOrInsertNamedMetadata("llvm.ident");
   std::string Version("ldc version ");
-  Version.append(global.ldc_version);
+  Version.append(global.ldc_version.ptr, global.ldc_version.length);
   llvm::Metadata *IdentNode[] = {llvm::MDString::get(ir_->context(), Version)};
   IdentMetadata->addOperand(llvm::MDNode::get(ir_->context(), IdentNode));
 
@@ -289,7 +289,7 @@ void CodeGenerator::emit(Module *m) {
   LOG_SCOPE;
 
   if (global.params.verbose_cg) {
-    printf("codegen: %s (%s)\n", m->toPrettyChars(), m->srcfile->toChars());
+    printf("codegen: %s (%s)\n", m->toPrettyChars(), m->srcfile.toChars());
   }
 
   if (global.errors) {

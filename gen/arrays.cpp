@@ -12,6 +12,7 @@
 #include "dmd/aggregate.h"
 #include "dmd/declaration.h"
 #include "dmd/dsymbol.h"
+#include "dmd/errors.h"
 #include "dmd/expression.h"
 #include "dmd/init.h"
 #include "dmd/module.h"

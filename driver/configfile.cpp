@@ -9,7 +9,6 @@
 
 #include "driver/configfile.h"
 
-#include "dmd/mars.h"
 #include "driver/exe_path.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"

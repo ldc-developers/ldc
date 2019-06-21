@@ -9,7 +9,6 @@
 
 #include "driver/cl_options.h"
 
-#include "dmd/mars.h"
 #include "gen/cl_helpers.h"
 #include "gen/logger.h"
 #include "llvm/IR/DataLayout.h"
@@ -335,8 +334,9 @@ cl::opt<std::string>
     mABI("mabi", cl::ZeroOrMore, cl::Hidden, cl::init(""),
          cl::desc("The name of the ABI to be targeted from the backend"));
 
+static Strings *pModFileAliasStrings = &global.params.modFileAliasStrings;
 static StringsAdapter
-    modFileAliasStringsStore("mv", global.params.modFileAliasStrings);
+    modFileAliasStringsStore("mv", pModFileAliasStrings);
 static cl::list<std::string, StringsAdapter> modFileAliasStrings(
     "mv", cl::desc("Use <filespec> as source file for <package.module>"),
     cl::value_desc("<package.module>=<filespec>"),

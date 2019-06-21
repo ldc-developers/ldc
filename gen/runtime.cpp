@@ -11,8 +11,8 @@
 
 #include "dmd/aggregate.h"
 #include "dmd/dsymbol.h"
+#include "dmd/errors.h"
 #include "dmd/ldcbindings.h"
-#include "dmd/mars.h"
 #include "dmd/module.h"
 #include "dmd/mtype.h"
 #include "dmd/root/root.h"

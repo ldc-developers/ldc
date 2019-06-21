@@ -24,6 +24,7 @@ import dmd.cond;
 import dmd.dclass;
 import dmd.declaration;
 import dmd.denum;
+import dmd.dimport;
 import dmd.dmacro;
 import dmd.dmodule;
 import dmd.dscope;
@@ -387,11 +388,11 @@ version (IN_LLVM)
         // Override with the ddoc macro files from the command line
         for (size_t i = 0; i < global.params.ddocfiles.dim; i++)
         {
-            auto file = File(global.params.ddocfiles[i].toDString());
-            readFile(m.loc, &file);
+            auto buffer = readFile(m.loc, global.params.ddocfiles[i]);
             // BUG: convert file contents to UTF-8 before use
-            //printf("file: '%.*s'\n", cast(int)file.len, file.buffer);
-            mbuf.write(file.buffer, file.len);
+            const data = buffer.data;
+            //printf("file: '%.*s'\n", cast(int)data.length, data.ptr);
+            mbuf.write(data.ptr, data.length);
         }
     }
     DocComment.parseMacros(m.escapetable, &m.macrotable, mbuf.peekSlice().ptr, mbuf.peekSlice().length);
@@ -488,12 +489,7 @@ version (IN_LLVM)
                 buf.writeByte(c);
             }
         }
-        // Transfer image to file
-        assert(m.docfile);
-        m.docfile.setbuffer(cast(void*)buf.peekSlice().ptr, buf.peekSlice().length);
-        m.docfile._ref = 1;
-        ensurePathToNameExists(Loc.initial, m.docfile.toChars());
-        writeFile(m.loc, m.docfile);
+        writeFile(m.loc, m.docfile.toString(), buf.peekSlice());
     }
     else
     {
@@ -514,11 +510,7 @@ version (IN_LLVM)
             }
             buf2.setsize(i);
         }
-        // Transfer image to file
-        m.docfile.setbuffer(buf2.data, buf2.offset);
-        m.docfile._ref = 1;
-        ensurePathToNameExists(Loc.initial, m.docfile.toChars());
-        writeFile(m.loc, m.docfile);
+        writeFile(m.loc, m.docfile.toString(), buf2.peekSlice());
     }
 }
 
@@ -757,27 +749,96 @@ private void emitAnchor(OutBuffer* buf, Dsymbol s, Scope* sc, bool forHeader = f
     // cache anchor name
     sc.prevAnchor = ident;
     auto macroName = forHeader ? "DDOC_HEADER_ANCHOR" : "DDOC_ANCHOR";
-    auto symbolName = ident.toString();
-    buf.printf("$(%.*s %.*s", cast(int) macroName.length, macroName.ptr,
-        cast(int) symbolName.length, symbolName.ptr);
-    // only append count once there's a duplicate
-    if (count > 1)
-        buf.printf(".%u", count);
 
-    if (forHeader)
+    if (auto imp = s.isImport())
     {
-        Identifier shortIdent;
+        // For example: `public import core.stdc.string : memcpy, memcmp;`
+        if (imp.aliases.dim > 0)
         {
-            OutBuffer anc;
-            emitAnchorName(&anc, s, skipNonQualScopes(sc), false);
-            shortIdent = Identifier.idPool(anc.peekSlice());
+            for(int i = 0; i < imp.aliases.dim; i++)
+            {
+                // Need to distinguish between
+                // `public import core.stdc.string : memcpy, memcmp;` and
+                // `public import core.stdc.string : copy = memcpy, compare = memcmp;`
+                auto a = imp.aliases[i];
+                auto id = a ? a : imp.names[i];
+                auto loc = Loc.init;
+                if (auto symFromId = sc.search(loc, id, null))
+                {
+                    emitAnchor(buf, symFromId, sc, forHeader);
+                }
+            }
+        }
+        else
+        {
+            // For example: `public import str = core.stdc.string;`
+            if (imp.aliasId)
+            {
+                auto symbolName = imp.aliasId.toString();
+
+                buf.printf("$(%.*s %.*s", cast(int) macroName.length, macroName.ptr,
+                    cast(int) symbolName.length, symbolName.ptr);
+
+                if (forHeader)
+                {
+                    buf.printf(", %.*s", cast(int) symbolName.length, symbolName.ptr);
+                }
+            }
+            else
+            {
+                // The general case:  `public import core.stdc.string;`
+
+                // fully qualify imports so `core.stdc.string` doesn't appear as `core`
+                void printFullyQualifiedImport()
+                {
+                    if (imp.packages && imp.packages.dim)
+                    {
+                        foreach (const pid; *imp.packages)
+                        {
+                            buf.printf("%s.", pid.toChars());
+                        }
+                    }
+                    buf.writestring(imp.id.toString());
+                }
+
+                buf.printf("$(%.*s ", cast(int) macroName.length, macroName.ptr);
+                printFullyQualifiedImport();
+
+                if (forHeader)
+                {
+                    buf.printf(", ");
+                    printFullyQualifiedImport();
+                }
+            }
+
+            buf.writeByte(')');
+        }
+    }
+    else
+    {
+        auto symbolName = ident.toString();
+        buf.printf("$(%.*s %.*s", cast(int) macroName.length, macroName.ptr,
+            cast(int) symbolName.length, symbolName.ptr);
+
+        // only append count once there's a duplicate
+        if (count > 1)
+            buf.printf(".%u", count);
+
+        if (forHeader)
+        {
+            Identifier shortIdent;
+            {
+                OutBuffer anc;
+                emitAnchorName(&anc, s, skipNonQualScopes(sc), false);
+                shortIdent = Identifier.idPool(anc.peekSlice());
+            }
+
+            auto shortName = shortIdent.toString();
+            buf.printf(", %.*s", cast(int) shortName.length, shortName.ptr);
         }
 
-        auto shortName = shortIdent.toString();
-        buf.printf(", %.*s", cast(int) shortName.length, shortName.ptr);
+        buf.writeByte(')');
     }
-
-    buf.writeByte(')');
 }
 
 /******************************* emitComment **********************************/
@@ -857,13 +918,26 @@ private void emitMemberComments(ScopeDsymbol sds, OutBuffer* buf, Scope* sc)
         buf.writestring(")");
 }
 
-private void emitProtection(OutBuffer* buf, Prot prot)
+private void emitProtection(OutBuffer* buf, Import i)
 {
+    // imports are private by default, which is different from other declarations
+    // so they should explicitly show their protection
+    emitProtection(buf, i.protection);
+}
+
+private void emitProtection(OutBuffer* buf, Declaration d)
+{
+    auto prot = d.protection;
     if (prot.kind != Prot.Kind.undefined && prot.kind != Prot.Kind.public_)
     {
-        protectionToBuffer(buf, prot);
-        buf.writeByte(' ');
+        emitProtection(buf, prot);
     }
+}
+
+private void emitProtection(OutBuffer* buf, Prot prot)
+{
+    protectionToBuffer(buf, prot);
+    buf.writeByte(' ');
 }
 
 private void emitComment(Dsymbol s, OutBuffer* buf, Scope* sc)
@@ -975,6 +1049,14 @@ private void emitComment(Dsymbol s, OutBuffer* buf, Scope* sc)
                 dc.pmacrotable = &sc._module.macrotable;
                 sc.lastdc = dc;
             }
+        }
+
+        override void visit(Import imp)
+        {
+            if (imp.prot().kind != Prot.Kind.public_ && sc.protection.kind != Prot.Kind.export_)
+                return;
+
+            emit(sc, imp, imp.comment);
         }
 
         override void visit(Declaration d)
@@ -1170,7 +1252,7 @@ private void toDocBuffer(Dsymbol s, OutBuffer* buf, Scope* sc)
                 buf.writestring("deprecated ");
             if (Declaration d = s.isDeclaration())
             {
-                emitProtection(buf, d.protection);
+                emitProtection(buf, d);
                 if (d.isStatic())
                     buf.writestring("static ");
                 else if (d.isFinal())
@@ -1206,6 +1288,14 @@ private void toDocBuffer(Dsymbol s, OutBuffer* buf, Scope* sc)
             }
         }
 
+        override void visit(Import i)
+        {
+            HdrGenState hgs;
+            hgs.ddoc = true;
+            emitProtection(buf, i);
+            .toCBuffer(i, buf, &hgs);
+        }
+
         override void visit(Declaration d)
         {
             if (!d.ident)
@@ -1228,7 +1318,7 @@ private void toDocBuffer(Dsymbol s, OutBuffer* buf, Scope* sc)
                     .toCBuffer(origType, buf, d.ident, &hgs);
             }
             else
-                buf.writestring(d.ident.toChars());
+                buf.writestring(d.ident.toString());
             if (d.isVarDeclaration() && td)
             {
                 buf.writeByte('(');
@@ -1271,7 +1361,7 @@ private void toDocBuffer(Dsymbol s, OutBuffer* buf, Scope* sc)
                 return;
             if (ad.isDeprecated())
                 buf.writestring("deprecated ");
-            emitProtection(buf, ad.protection);
+            emitProtection(buf, ad);
             buf.printf("alias %s = ", ad.toChars());
             if (Dsymbol s = ad.aliassym) // ident alias
             {
@@ -1346,7 +1436,7 @@ private void toDocBuffer(Dsymbol s, OutBuffer* buf, Scope* sc)
                 return;
             version (none)
             {
-                emitProtection(buf, ad.protection);
+                emitProtection(buf, ad);
             }
             buf.printf("%s %s", ad.kind(), ad.toChars());
             buf.writestring(";\n");
@@ -1359,7 +1449,7 @@ private void toDocBuffer(Dsymbol s, OutBuffer* buf, Scope* sc)
                 return;
             version (none)
             {
-                emitProtection(buf, sd.protection);
+                emitProtection(buf, sd);
             }
             if (TemplateDeclaration td = getEponymousParent(sd))
             {
@@ -1379,7 +1469,7 @@ private void toDocBuffer(Dsymbol s, OutBuffer* buf, Scope* sc)
                 return;
             version (none)
             {
-                emitProtection(buf, cd.protection);
+                emitProtection(buf, cd);
             }
             if (TemplateDeclaration td = getEponymousParent(cd))
             {
@@ -1404,7 +1494,7 @@ private void toDocBuffer(Dsymbol s, OutBuffer* buf, Scope* sc)
                     buf.writestring(": ");
                     any = 1;
                 }
-                emitProtection(buf, Prot(Prot.Kind.public_));
+
                 if (bc.sym)
                 {
                     buf.printf("$(DDOC_PSUPER_SYMBOL %s)", bc.sym.toPrettyChars());
@@ -2093,6 +2183,65 @@ private size_t skippastident(OutBuffer* buf, size_t i)
 }
 
 /************************************************
+ * Scan forward past end of an identifier that might
+ * contain dots (e.g. `abc.def`)
+ */
+private size_t skipPastIdentWithDots(OutBuffer* buf, size_t i)
+{
+    const slice = buf.peekSlice();
+    bool lastCharWasDot;
+    while (i < slice.length)
+    {
+        dchar c;
+        size_t oi = i;
+        if (utf_decodeChar(slice.ptr, slice.length, i, c))
+        {
+            /* Ignore UTF errors, but still consume input
+             */
+            break;
+        }
+        if (c == '.')
+        {
+            // We need to distinguish between `abc.def`, abc..def`, and `abc.`
+            // Only `abc.def` is a valid identifier
+
+            if (lastCharWasDot)
+            {
+                i = oi;
+                break;
+            }
+
+            lastCharWasDot = true;
+            continue;
+        }
+        else
+        {
+            if (c >= 0x80)
+            {
+                if (isUniAlpha(c))
+                {
+                    lastCharWasDot = false;
+                    continue;
+                }
+            }
+            else if (isalnum(c) || c == '_')
+            {
+                lastCharWasDot = false;
+                continue;
+            }
+            i = oi;
+            break;
+        }
+    }
+
+    // if `abc.`
+    if (lastCharWasDot)
+        return i - 1;
+
+    return i;
+}
+
+/************************************************
  * Scan forward past URL starting at i.
  * We don't want to highlight parts of a URL.
  * Returns:
@@ -2447,8 +2596,41 @@ private bool isIdentifier(Dsymbols* a, const(char)* p, size_t len)
 {
     foreach (member; *a)
     {
-        if (p[0 .. len] == member.ident.toString())
-            return true;
+        if (auto imp = member.isImport())
+        {
+            // For example: `public import str = core.stdc.string;`
+            // This checks if `p` is equal to `str`
+            if (imp.aliasId)
+            {
+                if (p[0 .. len] == imp.aliasId.toString())
+                    return true;
+            }
+            else
+            {
+                // The general case:  `public import core.stdc.string;`
+
+                // fully qualify imports so `core.stdc.string` doesn't appear as `core`
+                string fullyQualifiedImport;
+                if (imp.packages && imp.packages.dim)
+                {
+                    foreach (const pid; *imp.packages)
+                    {
+                        fullyQualifiedImport ~= pid.toString() ~ ".";
+                    }
+                }
+                fullyQualifiedImport ~= imp.id.toString();
+
+                // Check if `p` == `core.stdc.string`
+                if (p[0 .. len] == fullyQualifiedImport)
+                    return true;
+            }
+        }
+        else if (member.ident)
+        {
+            if (p[0 .. len] == member.ident.toString())
+                return true;
+        }
+
     }
     return false;
 }
@@ -3709,12 +3891,12 @@ private struct MarkdownLinkReferences
                 root = symbol;
 
                 // If the module has a file name, we're done
-                if (symbol.isModule() && symbol.isModule().docfile)
-                {
-                    const docfilename = symbol.isModule().docfile.toChars();
-                    path = docfilename[0..strlen(docfilename)];
-                    break;
-                }
+                if (const m = symbol.isModule())
+                    if (m.docfile)
+                    {
+                        path = m.docfile.toString();
+                        break;
+                    }
 
                 if (path.length)
                     path = '_' ~ path;
@@ -4603,7 +4785,10 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
         case '*':
         {
             if (inCode || inBacktick || !global.params.markdown)
+            {
+                leadingBlank = false;
                 break;
+            }
 
             if (leadingBlank)
             {
@@ -4890,14 +5075,35 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
  */
 private void highlightCode(Scope* sc, Dsymbol s, OutBuffer* buf, size_t offset)
 {
-    //printf("highlightCode(s = %s '%s')\n", s.kind(), s.toChars());
-    OutBuffer ancbuf;
-    emitAnchor(&ancbuf, s, sc);
-    buf.insert(offset, ancbuf.peekSlice());
-    offset += ancbuf.offset;
-    Dsymbols a;
-    a.push(s);
-    highlightCode(sc, &a, buf, offset);
+    auto imp = s.isImport();
+    if (imp && imp.aliases.dim > 0)
+    {
+        // For example: `public import core.stdc.string : memcpy, memcmp;`
+        for(int i = 0; i < imp.aliases.dim; i++)
+        {
+            // Need to distinguish between
+            // `public import core.stdc.string : memcpy, memcmp;` and
+            // `public import core.stdc.string : copy = memcpy, compare = memcmp;`
+            auto a = imp.aliases[i];
+            auto id = a ? a : imp.names[i];
+            auto loc = Loc.init;
+            if (auto symFromId = sc.search(loc, id, null))
+            {
+                highlightCode(sc, symFromId, buf, offset);
+            }
+        }
+    }
+    else
+    {
+        OutBuffer ancbuf;
+        emitAnchor(&ancbuf, s, sc);
+        buf.insert(offset, ancbuf.peekSlice());
+        offset += ancbuf.offset;
+
+        Dsymbols a;
+        a.push(s);
+        highlightCode(sc, &a, buf, offset);
+    }
 }
 
 /****************************************************
@@ -4921,7 +5127,18 @@ private void highlightCode(Scope* sc, Dsymbols* a, OutBuffer* buf, size_t offset
         char* start = cast(char*)buf.data + i;
         if (isIdStart(start))
         {
-            size_t j = skippastident(buf, i);
+            size_t j = skipPastIdentWithDots(buf, i);
+            if (i < j)
+            {
+                size_t len = j - i;
+                if (isIdentifier(a, start, len))
+                {
+                    i = buf.bracket(i, "$(DDOC_PSYMBOL ", j, ")") - 1;
+                    continue;
+                }
+            }
+
+            j = skippastident(buf, i);
             if (i < j)
             {
                 size_t len = j - i;
@@ -5046,7 +5263,7 @@ private void highlightCode2(Scope* sc, Dsymbols* a, OutBuffer* buf, size_t offse
         Token tok;
         lex.scan(&tok);
         highlightCode3(sc, &res, lastp, tok.ptr);
-        const(char)* highlight = null;
+        string highlight = null;
         switch (tok.value)
         {
         case TOK.identifier:

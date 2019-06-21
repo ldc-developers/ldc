@@ -14,6 +14,5 @@
 #pragma once
 
 #include "dmd/expression.h"
-#include "dmd/mars.h"
 
 void warnInvalidPrintfCall(Loc loc, Expression *arguments, size_t nargs);

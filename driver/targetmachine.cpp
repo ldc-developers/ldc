@@ -15,7 +15,7 @@
 
 #include "driver/targetmachine.h"
 
-#include "dmd/mars.h"
+#include "dmd/errors.h"
 #include "driver/cl_options.h"
 #include "gen/logger.h"
 #include "llvm/ADT/StringExtras.h"

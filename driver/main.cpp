@@ -99,9 +99,9 @@ static cl::opt<bool> enableGC(
 
 // This function exits the program.
 void printVersion(llvm::raw_ostream &OS) {
-  OS << "LDC - the LLVM D compiler (" << global.ldc_version << "):\n";
-  OS << "  based on DMD " << global.version.ptr << " and LLVM "
-     << global.llvm_version << "\n";
+  OS << "LDC - the LLVM D compiler (" << ldc::ldc_version << "):\n";
+  OS << "  based on DMD " << ldc::dmd_version << " and LLVM "
+     << ldc::llvm_version << "\n";
   OS << "  built with " << ldc::built_with_Dcompiler_version << "\n";
 #if defined(__has_feature)
 #if __has_feature(address_sanitizer)
@@ -302,10 +302,11 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles) {
   // - used config file
   if (global.params.verbose) {
     message("binary    %s", exe_path::getExePath().c_str());
-    message("version   %s (DMD %s, LLVM %s)", global.ldc_version,
-            global.version.ptr, global.llvm_version);
-    if (global.inifilename) {
-      message("config    %s (%s)", global.inifilename, cfg_triple.c_str());
+    message("version   %s (DMD %s, LLVM %s)", ldc::ldc_version,
+            ldc::dmd_version, ldc::llvm_version);
+    if (global.inifilename.length) {
+      message("config    %.*s (%s)", (int)global.inifilename.length,
+              global.inifilename.ptr, cfg_triple.c_str());
     }
   }
 
@@ -314,25 +315,25 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles) {
   global.params.obj = !dontWriteObj;
   global.params.useInlineAsm = !noAsm;
 
-  // String options: std::string --> char*
-  opts::initFromPathString(global.params.objname, objectFile);
-  opts::initFromPathString(global.params.objdir, objectDir);
+  // String options
+  global.params.objname = opts::fromPathString(objectFile);
+  global.params.objdir = opts::fromPathString(objectDir);
 
-  opts::initFromPathString(global.params.docdir, ddocDir);
-  opts::initFromPathString(global.params.docname, ddocFile);
+  global.params.docdir = opts::fromPathString(ddocDir).ptr;
+  global.params.docname = opts::fromPathString(ddocFile).ptr;
   global.params.doDocComments |= global.params.docdir || global.params.docname;
 
-  opts::initFromPathString(global.params.jsonfilename, jsonFile);
-  if (global.params.jsonfilename) {
+  global.params.jsonfilename = opts::fromPathString(jsonFile);
+  if (global.params.jsonfilename.length) {
     global.params.doJsonGeneration = true;
   }
 
-  opts::initFromPathString(global.params.hdrdir, hdrDir);
-  opts::initFromPathString(global.params.hdrname, hdrFile);
+  global.params.hdrdir = opts::fromPathString(hdrDir);
+  global.params.hdrname = opts::fromPathString(hdrFile);
   global.params.doHdrGeneration |=
-      global.params.hdrdir || global.params.hdrname;
+      global.params.hdrdir.length || global.params.hdrname.length;
 
-  opts::initFromPathString(global.params.mixinFile, mixinFile);
+  global.params.mixinFile = opts::fromPathString(mixinFile).ptr;
 
   if (moduleDeps.getNumOccurrences() != 0) {
     global.params.moduleDeps = new OutBuffer;
@@ -345,7 +346,7 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles) {
     if (!paths)
       return;
     for (auto &path : *paths)
-      path = opts::dupPathString(path);
+      path = opts::dupPathString(path).ptr;
   };
   toWinPaths(global.params.imppath);
   toWinPaths(global.params.fileImppath);
@@ -442,12 +443,8 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles) {
   sourceFiles.reserve(fileList.size());
   for (const auto &file : fileList) {
     if (!file.empty()) {
-      if (file == "-") {
-        sourceFiles.push("__stdin.d");
-      } else {
-        char *copy = opts::dupPathString(file);
-        sourceFiles.push(copy);
-      }
+      sourceFiles.push(file == "-" ? "__stdin.d"
+                                   : opts::dupPathString(file).ptr);
     }
   }
 
@@ -455,21 +452,22 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles) {
 
   // if we don't link and there's no `-output-*` switch but an `-of` one,
   // autodetect type of desired 'object' file from file extension
-  if (!global.params.link && !global.params.lib && global.params.objname &&
+  if (!global.params.link && !global.params.lib &&
+      global.params.objname.length &&
       global.params.output_o == OUTPUTFLAGdefault) {
-    const char *ext = FileName::ext(global.params.objname);
+    const char *ext = FileName::ext(global.params.objname.ptr);
     if (!ext) {
       // keep things as they are
     } else if (opts::output_ll.getNumOccurrences() == 0 &&
-               strcmp(ext, global.ll_ext) == 0) {
+               strcmp(ext, global.ll_ext.ptr) == 0) {
       global.params.output_ll = OUTPUTFLAGset;
       global.params.output_o = OUTPUTFLAGno;
     } else if (opts::output_bc.getNumOccurrences() == 0 &&
-               strcmp(ext, global.bc_ext) == 0) {
+               strcmp(ext, global.bc_ext.ptr) == 0) {
       global.params.output_bc = OUTPUTFLAGset;
       global.params.output_o = OUTPUTFLAGno;
     } else if (opts::output_s.getNumOccurrences() == 0 &&
-               strcmp(ext, global.s_ext) == 0) {
+               strcmp(ext, global.s_ext.ptr) == 0) {
       global.params.output_s = OUTPUTFLAGset;
       global.params.output_o = OUTPUTFLAGno;
     }
@@ -923,8 +921,8 @@ int cppmain(int argc, char **argv) {
   global._init();
   // global.version includes the terminating null
   global.version = {strlen(ldc::dmd_version) + 1, ldc::dmd_version};
-  global.ldc_version = ldc::ldc_version;
-  global.llvm_version = ldc::llvm_version;
+  global.ldc_version = {strlen(ldc::ldc_version), ldc::ldc_version};
+  global.llvm_version = {strlen(ldc::llvm_version), ldc::llvm_version};
 
   // Initialize LLVM before parsing the command line so that --version shows
   // registered targets.
@@ -1002,18 +1000,26 @@ int cppmain(int argc, char **argv) {
     // in the front end
     global.params.mscoff = triple->isKnownWindowsMSVCEnvironment();
     if (global.params.mscoff)
-      global.obj_ext = "obj";
+      global.obj_ext = {3, "obj"};
   }
 
   // allocate the target abi
   gABI = TargetABI::getTarget();
 
   if (global.params.targetTriple->isOSWindows()) {
-    global.dll_ext = "dll";
-    global.lib_ext = (global.params.mscoff ? "lib" : "a");
+    global.dll_ext = {3, "dll"};
+    if (global.params.mscoff) {
+      global.lib_ext = {3, "lib"};
+    } else {
+      global.lib_ext = {1, "a"};
+    }
   } else {
-    global.dll_ext = global.params.targetTriple->isOSDarwin() ? "dylib" : "so";
-    global.lib_ext = "a";
+    if (global.params.targetTriple->isOSDarwin()) {
+      global.dll_ext = {5, "dylib"};
+    } else {
+      global.dll_ext = {2, "so"};
+    }
+    global.lib_ext = {1, "a"};
   }
 
   opts::initializeInstrumentationOptionsFromCmdline(
@@ -1057,7 +1063,7 @@ void codegenModules(Modules &modules) {
         computeModules.push_back(m);
         if (atCompute == DComputeCompileFor::deviceOnly) {
           // Remove m's object file from list of object files
-          auto s = m->objfile->name.toChars();
+          auto s = m->objfile.toChars();
           for (size_t j = 0; j < global.params.objfiles.dim; j++) {
             if (s == global.params.objfiles[j]) {
               global.params.objfiles.remove(j);

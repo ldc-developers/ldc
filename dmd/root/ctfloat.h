@@ -79,7 +79,6 @@ struct CTFloat
     static real_t minusone;
     static real_t half;
 #if IN_LLVM
-    static real_t initVal;
     static real_t nan;
     static real_t infinity;
 #endif

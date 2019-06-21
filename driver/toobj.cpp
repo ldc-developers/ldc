@@ -9,6 +9,7 @@
 
 #include "driver/toobj.h"
 
+#include "dmd/errors.h"
 #include "driver/cl_options.h"
 #include "driver/cache.h"
 #include "driver/targetmachine.h"
@@ -353,11 +354,13 @@ void writeModule(llvm::Module *m, const char *filename) {
       std::count_if(outputFlags.begin(), outputFlags.end(),
                     [](OUTPUTFLAG flag) { return flag != 0; });
 
-  const auto replaceExtensionWith = [=](const char *ext) -> std::string {
+  const auto replaceExtensionWith =
+      [=](const DArray<const char> &ext) -> std::string {
     if (numOutputFiles == 1)
       return filename;
     llvm::SmallString<128> buffer(filename);
-    llvm::sys::path::replace_extension(buffer, ext);
+    llvm::sys::path::replace_extension(buffer,
+                                       llvm::StringRef(ext.ptr, ext.length));
     return buffer.str();
   };
 

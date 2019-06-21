@@ -7,11 +7,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "dmd/mars.h"
-#include "dmd/statement.h"
-#include "dmd/scope.h"
 #include "dmd/declaration.h"
 #include "dmd/dsymbol.h"
+#include "dmd/errors.h"
+#include "dmd/scope.h"
+#include "dmd/statement.h"
 #include "gen/dvalue.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
@@ -494,7 +494,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     FuncDeclaration *fd = gIR->func()->decl;
     OutBuffer mangleBuf;
     mangleToBuffer(fd, &mangleBuf);
-    const char *fdmangle = mangleBuf.peekString();
+    const char *fdmangle = mangleBuf.peekChars();
 
     // we use a simple static counter to make sure the new end labels are unique
     static size_t uniqueLabelsId = 0;

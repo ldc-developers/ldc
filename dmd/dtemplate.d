@@ -41,6 +41,7 @@ import dmd.init;
 import dmd.initsem;
 import dmd.mtype;
 import dmd.opover;
+import dmd.root.array;
 import dmd.root.outbuffer;
 import dmd.root.rootobject;
 import dmd.semantic2;
@@ -55,6 +56,9 @@ import dmd.templateparamsem;
 private enum LOG = false;
 
 enum IDX_NOTFOUND = 0x12345678;
+
+pure nothrow @nogc
+{
 
 /********************************************
  * These functions substitute for dynamic_cast. dynamic_cast does not work
@@ -101,11 +105,11 @@ extern (C++) inout(Parameter) isParameter(inout RootObject o)
 }
 
 extern (C++) inout(TemplateParameter) isTemplateParameter(inout RootObject o)
-    {
-        if (!o || o.dyncast() != DYNCAST.templateparameter)
-            return null;
-        return cast(inout(TemplateParameter))o;
-    }
+{
+    if (!o || o.dyncast() != DYNCAST.templateparameter)
+        return null;
+    return cast(inout(TemplateParameter))o;
+}
 
 /**************************************
  * Is this Object an error?
@@ -152,38 +156,34 @@ extern (C++) inout(Type) getType(inout RootObject o)
     return t;
 }
 
+}
+
 extern (C++) Dsymbol getDsymbol(RootObject oarg)
 {
     //printf("getDsymbol()\n");
     //printf("e %p s %p t %p v %p\n", isExpression(oarg), isDsymbol(oarg), isType(oarg), isTuple(oarg));
-    Dsymbol sa;
-    if (Expression ea = isExpression(oarg))
+    if (auto ea = isExpression(oarg))
     {
         // Try to convert Expression to symbol
-        if (ea.op == TOK.variable)
-            sa = (cast(VarExp)ea).var;
-        else if (ea.op == TOK.function_)
-        {
-            if ((cast(FuncExp)ea).td)
-                sa = (cast(FuncExp)ea).td;
-            else
-                sa = (cast(FuncExp)ea).fd;
-        }
-        else if (ea.op == TOK.template_)
-            sa = (cast(TemplateExp)ea).td;
+        if (auto ve = ea.isVarExp())
+            return ve.var;
+        else if (auto fe = ea.isFuncExp())
+            return fe.td ? fe.td : fe.fd;
+        else if (auto te = ea.isTemplateExp())
+            return te.td;
         else
-            sa = null;
+            return null;
     }
     else
     {
         // Try to convert Type to symbol
-        if (Type ta = isType(oarg))
-            sa = ta.toDsymbol(null);
+        if (auto ta = isType(oarg))
+            return ta.toDsymbol(null);
         else
-            sa = isDsymbol(oarg); // if already a symbol
+            return isDsymbol(oarg); // if already a symbol
     }
-    return sa;
 }
+
 
 private Expression getValue(ref Dsymbol s)
 {
@@ -665,7 +665,7 @@ else
         OutBuffer buf;
         HdrGenState hgs;
 
-        buf.writestring(ident.toChars());
+        buf.writestring(ident.toString());
         buf.writeByte('(');
         for (size_t i = 0; i < parameters.dim; i++)
         {
@@ -692,7 +692,7 @@ else
             .toCBuffer(constraint, &buf, &hgs);
             buf.writeByte(')');
         }
-        return buf.extractString();
+        return buf.extractChars();
     }
 
     override Prot prot() pure nothrow @nogc @safe
@@ -793,6 +793,7 @@ else
                 fd.storage_class |= STC.static_;
             auto hiddenParams = fd.declareThis(scx, fd.isThis());
             fd.vthis = hiddenParams.vthis;
+            fd.isThis2 = hiddenParams.isThis2;
             fd.selectorParameter = hiddenParams.selectorParameter;
         }
 
@@ -971,6 +972,7 @@ else
                 for (size_t i = 0; i < tf.parameterList.parameters.dim; i++)
                     (*tf.parameterList.parameters)[i].defaultArg = null;
                 tf.next = null;
+                tf.incomplete = true;
 
                 // Resolve parameter types and 'auto ref's.
                 tf.fargs = fargs;
@@ -2189,13 +2191,15 @@ else
         // Shouldn't run semantic on default arguments and return type.
         for (size_t i = 0; i < tf.parameterList.parameters.dim; i++)
             (*tf.parameterList.parameters)[i].defaultArg = null;
+        tf.incomplete = true;
+
         if (fd.isCtorDeclaration())
         {
             // For constructors, emitting return type is necessary for
             // isReturnIsolated() in functionResolve.
             scx.flags |= SCOPE.ctor;
 
-            Dsymbol parent = toParent2();
+            Dsymbol parent = toParentDecl();
             Type tret;
             AggregateDeclaration ad = parent.isAggregateDeclaration();
             if (!ad || parent.isUnionDeclaration())
@@ -2307,7 +2311,7 @@ else
     /***********************************
      * We can overload templates.
      */
-    override bool isOverloadable()
+    override bool isOverloadable() const
     {
         return true;
     }
@@ -2381,9 +2385,10 @@ extern (C++) final class TypeDeduced : Type
  *      fargs       = arguments to function
  *      pMessage    = address to store error message, or null
  */
-void functionResolve(Match* m, Dsymbol dstart, Loc loc, Scope* sc, Objects* tiargs,
+void functionResolve(ref MatchAccumulator m, Dsymbol dstart, Loc loc, Scope* sc, Objects* tiargs,
     Type tthis, Expressions* fargs, const(char)** pMessage = null)
 {
+    Expression[] fargs_ = fargs.peekSlice();
     version (none)
     {
         printf("functionResolve() dstart = %s\n", dstart.toChars());
@@ -2439,7 +2444,6 @@ void functionResolve(Match* m, Dsymbol dstart, Loc loc, Scope* sc, Objects* tiar
             return 1;
         }
         //printf("fd = %s %s, fargs = %s\n", fd.toChars(), fd.type.toChars(), fargs.toChars());
-        m.anyf = fd;
         auto tf = cast(TypeFunction)fd.type;
 
         int prop = tf.isproperty ? 1 : 2;
@@ -2489,7 +2493,7 @@ void functionResolve(Match* m, Dsymbol dstart, Loc loc, Scope* sc, Objects* tiar
             else if (shared_this && !shared_dtor && tthis_fd !is null)
                 tf.mod = tthis_fd.mod;
         }
-        MATCH mfa = tf.callMatch(tthis_fd, fargs, 0, pMessage, sc);
+        MATCH mfa = tf.callMatch(tthis_fd, fargs_, 0, pMessage, sc);
         //printf("test1: mfa = %d\n", mfa);
         if (mfa > MATCH.nomatch)
         {
@@ -2694,7 +2698,7 @@ void functionResolve(Match* m, Dsymbol dstart, Loc loc, Scope* sc, Objects* tiar
             Type tthis_fd = fd.needThis() && !fd.isCtorDeclaration() ? tthis : null;
 
             auto tf = cast(TypeFunction)fd.type;
-            MATCH mfa = tf.callMatch(tthis_fd, fargs, 0, null, sc);
+            MATCH mfa = tf.callMatch(tthis_fd, fargs_, 0, null, sc);
             if (mfa < m.last)
                 return 0;
 
@@ -2704,7 +2708,7 @@ void functionResolve(Match* m, Dsymbol dstart, Loc loc, Scope* sc, Objects* tiar
             if (mfa < m.last) goto Ltd_best2;
             if (mfa > m.last) goto Ltd2;
 
-        Lambig2:    // td_best and td are ambiguous
+            // td_best and td are ambiguous
             //printf("Lambig2\n");
             m.nextf = fd;
             m.count++;
@@ -2789,8 +2793,8 @@ void functionResolve(Match* m, Dsymbol dstart, Loc loc, Scope* sc, Objects* tiar
                 assert(tf1.ty == Tfunction);
                 auto tf2 = cast(TypeFunction)m.lastf.type;
                 assert(tf2.ty == Tfunction);
-                MATCH c1 = tf1.callMatch(tthis_fd, fargs, 0, null, sc);
-                MATCH c2 = tf2.callMatch(tthis_best, fargs, 0, null, sc);
+                MATCH c1 = tf1.callMatch(tthis_fd, fargs_, 0, null, sc);
+                MATCH c2 = tf2.callMatch(tthis_best, fargs_, 0, null, sc);
                 //printf("2: c1 = %d, c2 = %d\n", c1, c2);
                 if (c1 > c2) goto Ltd;
                 if (c1 < c2) goto Ltd_best;
@@ -2894,7 +2898,7 @@ void functionResolve(Match* m, Dsymbol dstart, Loc loc, Scope* sc, Objects* tiar
         if (tf.ty == Terror)
             goto Lerror;
         assert(tf.ty == Tfunction);
-        if (!tf.callMatch(tthis_best, fargs, 0, null, sc))
+        if (!tf.callMatch(tthis_best, fargs_, 0, null, sc))
             goto Lnomatch;
 
         /* As https://issues.dlang.org/show_bug.cgi?id=3682 shows,
@@ -5717,6 +5721,13 @@ extern (C++) final class TemplateAliasParameter : TemplateParameter
                  *  template X(T) {}        // T => sa
                  */
             }
+            else if (ta)
+            {
+                /* Match any type to alias parameters, but prefer type parameter.
+                 * template X(alias a) { }  // a == ta
+                 */
+                m = MATCH.convert;
+            }
             else
                 goto Lnomatch;
         }
@@ -6088,14 +6099,14 @@ extern (C++) class TemplateInstance : ScopeDsymbol
     {
         OutBuffer buf;
         toCBufferInstance(this, &buf);
-        return buf.extractString();
+        return buf.extractChars();
     }
 
     override final const(char)* toPrettyCharsHelper()
     {
         OutBuffer buf;
         toCBufferInstance(this, &buf, true);
-        return buf.extractString();
+        return buf.extractChars();
     }
 
     /**************************************
@@ -6191,14 +6202,12 @@ extern (C++) class TemplateInstance : ScopeDsymbol
      * Compare proposed template instantiation with existing template instantiation.
      * Note that this is not commutative because of the auto ref check.
      * Params:
-     *  o = existing template instantiation
+     *  ti = existing template instantiation
      * Returns:
-     *  0 for match, 1 for no match
+     *  true for match
      */
-    override final int compare(RootObject o)
+    final bool equalsx(TemplateInstance ti)
     {
-        TemplateInstance ti = cast(TemplateInstance)o;
-
         //printf("this = %p, ti = %p\n", this, ti);
         assert(tdtypes.dim == ti.tdtypes.dim);
 
@@ -6227,11 +6236,9 @@ extern (C++) class TemplateInstance : ScopeDsymbol
                     Parameter fparam = fparameters[j];
                     if (fparam.storageClass & STC.autoref)       // if "auto ref"
                     {
-                        if (!fargs)
+                        Expression farg = fargs && j < fargs.dim ? (*fargs)[j] : fparam.defaultArg;
+                        if (!farg)
                             goto Lnotequals;
-                        if (fargs.dim <= j)
-                            break;
-                        Expression farg = (*fargs)[j];
                         if (farg.isLvalue())
                         {
                             if (!(fparam.storageClass & STC.ref_))
@@ -6246,10 +6253,10 @@ extern (C++) class TemplateInstance : ScopeDsymbol
                 }
             }
         }
-        return 0;
+        return true;
 
     Lnotequals:
-        return 1;
+        return false;
     }
 
     final hash_t toHash()
@@ -7247,13 +7254,11 @@ extern (C++) class TemplateInstance : ScopeDsymbol
         int nested = 0;
         //printf("TemplateInstance.hasNestedArgs('%s')\n", tempdecl.ident.toChars());
 
-        version (none)
+        // arguments from parent instances are also accessible
+        if (!enclosing)
         {
-            if (!enclosing)
-            {
-                if (TemplateInstance ti = tempdecl.isInstantiated())
-                    enclosing = ti.enclosing;
-            }
+            if (TemplateInstance ti = tempdecl.toParent().isTemplateInstance())
+                enclosing = ti.enclosing;
         }
 
         /* A nested instance happens when an argument references a local
@@ -7307,44 +7312,35 @@ extern (C++) class TemplateInstance : ScopeDsymbol
                 Declaration d = sa.isDeclaration();
                 if ((td && td.literal) || (ti && ti.enclosing) || (d && !d.isDataseg() && !(d.storage_class & STC.manifest) && (!d.isFuncDeclaration() || d.isFuncDeclaration().isNested()) && !isTemplateMixin()))
                 {
-                    // if module level template
-                    if (isstatic)
+                    Dsymbol dparent = sa.toParent2();
+                    if (!dparent)
+                        goto L1;
+                    else if (!enclosing)
+                        enclosing = dparent;
+                    else if (enclosing != dparent)
                     {
-                        Dsymbol dparent = sa.toParent2();
-                        if (!dparent)
-                            goto L1;
-                        else if (!enclosing)
-                            enclosing = dparent;
-                        else if (enclosing != dparent)
+                        /* Select the more deeply nested of the two.
+                         * Error if one is not nested inside the other.
+                         */
+                        for (Dsymbol p = enclosing; p; p = p.parent)
                         {
-                            /* Select the more deeply nested of the two.
-                             * Error if one is not nested inside the other.
-                             */
-                            for (Dsymbol p = enclosing; p; p = p.parent)
-                            {
-                                if (p == dparent)
-                                    goto L1; // enclosing is most nested
-                            }
-                            for (Dsymbol p = dparent; p; p = p.parent)
-                            {
-                                if (p == enclosing)
-                                {
-                                    enclosing = dparent;
-                                    goto L1; // dparent is most nested
-                                }
-                            }
-                            error("`%s` is nested in both `%s` and `%s`", toChars(), enclosing.toChars(), dparent.toChars());
-                            errors = true;
+                            if (p == dparent)
+                                goto L1; // enclosing is most nested
                         }
-                    L1:
-                        //printf("\tnested inside %s\n", enclosing.toChars());
-                        nested |= 1;
-                    }
-                    else
-                    {
-                        error("cannot use local `%s` as parameter to non-global template `%s`", sa.toChars(), tempdecl.toChars());
+                        for (Dsymbol p = dparent; p; p = p.parent)
+                        {
+                            if (p == enclosing)
+                            {
+                                enclosing = dparent;
+                                goto L1; // dparent is most nested
+                            }
+                        }
+                        error("`%s` is nested in both `%s` and `%s`", toChars(), enclosing.toChars(), dparent.toChars());
                         errors = true;
                     }
+                L1:
+                    //printf("\tnested inside %s\n", enclosing.toChars());
+                    nested |= 1;
                 }
             }
             else if (va)
@@ -7467,7 +7463,7 @@ extern (C++) class TemplateInstance : ScopeDsymbol
         assert(args is tiargs);
         OutBuffer buf;
         mangleToBuffer(this, &buf);
-        //printf("\tgenIdent = %s\n", buf.peekString());
+        //printf("\tgenIdent = %s\n", buf.peekChars());
         return Identifier.idPool(buf.peekSlice());
     }
 
@@ -7721,7 +7717,7 @@ extern (C++) final class TemplateMixin : TemplateInstance
     {
         OutBuffer buf;
         toCBufferInstance(this, &buf);
-        return buf.extractString();
+        return buf.extractChars();
     }
 
     extern (D) bool findTempDecl(Scope* sc)
@@ -7843,7 +7839,7 @@ struct TemplateInstanceBox
             /* Used when a proposed instance is used to see if there's
              * an existing instance.
              */
-            res = (cast()s.ti).compare(cast()ti) == 0;
+            res = (cast()s.ti).equalsx(cast()ti);
 
         debug (FindExistingInstance) ++(res ? nHits : nCollisions);
         return res;

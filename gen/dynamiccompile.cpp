@@ -14,8 +14,8 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "dmd/errors.h"
 #include "driver/cl_options.h"
-
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "ir/irfunction.h"

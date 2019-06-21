@@ -89,7 +89,7 @@ public:
     TemplateDeclaration *isTemplateDeclaration() { return this; }
 
     TemplateTupleParameter *isVariadic();
-    bool isOverloadable();
+    bool isOverloadable() const;
 
     void accept(Visitor *v) { v->visit(this); }
 };

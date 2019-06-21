@@ -1195,16 +1195,47 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
                     goto case Terror;
                 }
 
+                // Finish semantic on all foreach parameter types.
+                foreach (i; 0 .. dim)
+                {
+                    Parameter p = (*fs.parameters)[i];
+                    p.type = p.type.typeSemantic(loc, sc2);
+                    p.type = p.type.addStorageClass(p.storageClass);
+                }
+
+                tn = tab.nextOf().toBasetype();
+
+                if (dim == 2)
+                {
+                    Type tindex = (*fs.parameters)[0].type;
+                    if (!tindex.isintegral())
+                    {
+                        fs.error("foreach: key cannot be of non-integral type `%s`", tindex.toChars());
+                        goto case Terror;
+                    }
+                    /* What cases to deprecate implicit conversions for:
+                     *  1. foreach aggregate is a dynamic array
+                     *  2. foreach body is lowered to _aApply (see special case below).
+                     */
+                    Type tv = (*fs.parameters)[1].type.toBasetype();
+                    if ((tab.ty == Tarray ||
+                         (tn.ty != tv.ty &&
+                          (tn.ty == Tchar || tn.ty == Twchar || tn.ty == Tdchar) &&
+                          (tv.ty == Tchar || tv.ty == Twchar || tv.ty == Tdchar))) &&
+                        !Type.tsize_t.implicitConvTo(tindex))
+                    {
+                        fs.deprecation("foreach: loop index implicitly converted from `size_t` to `%s`",
+                                       tindex.toChars());
+                    }
+                }
+
                 /* Look for special case of parsing char types out of char type
                  * array.
                  */
-                tn = tab.nextOf().toBasetype();
                 if (tn.ty == Tchar || tn.ty == Twchar || tn.ty == Tdchar)
                 {
                     int i = (dim == 1) ? 0 : 1; // index of value
                     Parameter p = (*fs.parameters)[i];
-                    p.type = p.type.typeSemantic(loc, sc2);
-                    p.type = p.type.addStorageClass(p.storageClass);
                     tnv = p.type.toBasetype();
                     if (tnv.ty != tn.ty &&
                         (tnv.ty == Tchar || tnv.ty == Twchar || tnv.ty == Tdchar))
@@ -1231,17 +1262,10 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
                 {
                     // Declare parameters
                     Parameter p = (*fs.parameters)[i];
-                    p.type = p.type.typeSemantic(loc, sc2);
-                    p.type = p.type.addStorageClass(p.storageClass);
                     VarDeclaration var;
 
                     if (dim == 2 && i == 0)
                     {
-                        if (!p.type.isintegral())
-                        {
-                            fs.error("foreach: key cannot be of non-integral type `%s`", p.type.toChars());
-                            goto case Terror;
-                        }
                         var = new VarDeclaration(loc, p.type.mutableOf(), Identifier.generateId("__key"), null);
                         var.storage_class |= STC.temp | STC.foreach_;
                         if (var.storage_class & (STC.ref_ | STC.out_))
@@ -1269,11 +1293,6 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
                             }
                             fs.key.range = new IntRange(SignExtendedNumber(0), dimrange.imax);
                         }
-                        else if (!Type.tsize_t.implicitConvTo(var.type))
-                        {
-                            fs.deprecation("foreach: loop index implicitly converted from `size_t` to `%s`",
-                                           fs.key.type.toChars());
-                        }
                     }
                     else
                     {
@@ -1286,7 +1305,7 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
                         fs.value = var;
                         if (var.storage_class & STC.ref_)
                         {
-                            if (fs.aggr.checkModifiable(sc2, 1) == 2)
+                            if (fs.aggr.checkModifiable(sc2, 1) == Modifiable.initialization)
                                 var.storage_class |= STC.ctorinit;
 
                             Type t = tab.nextOf();
@@ -1341,7 +1360,7 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
                     fs.key = new VarDeclaration(loc, Type.tsize_t, idkey, null);
                     fs.key.storage_class |= STC.temp;
                 }
-                else if (fs.key.type.ty != Tsize_t)
+                else if (fs.key.type.ty != Type.tsize_t.ty)
                 {
                     tmp_length = new CastExp(loc, tmp_length, fs.key.type);
                 }
@@ -1823,7 +1842,7 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
                     /* Call:
                      *      aggr(flde)
                      */
-                    if (fs.aggr.op == TOK.delegate_ && (cast(DelegateExp)fs.aggr).func.isNested())
+                    if (fs.aggr.op == TOK.delegate_ && (cast(DelegateExp)fs.aggr).func.isNested() && !(cast(DelegateExp)fs.aggr).func.needThis())
                     {
                         // https://issues.dlang.org/show_bug.cgi?id=3560
                         fs.aggr = (cast(DelegateExp)fs.aggr).e1;
@@ -2694,13 +2713,16 @@ version (IN_LLVM)
                 }
                 else
                 {
+                    if (!verifyHookExist(ss.loc, *sc, Id.__switch_error, "generating assert messages"))
+                        return setError();
+
                     Expression sl = new IdentifierExp(ss.loc, Id.empty);
                     sl = new DotIdExp(ss.loc, sl, Id.object);
                     sl = new DotIdExp(ss.loc, sl, Id.__switch_error);
 
-                    Expressions* args = new Expressions();
-                    args.push(new StringExp(ss.loc, cast(char*) ss.loc.filename));
-                    args.push(new IntegerExp(ss.loc.linnum));
+                    Expressions* args = new Expressions(2);
+                    (*args)[0] = new StringExp(ss.loc, cast(char*) ss.loc.filename);
+                    (*args)[1] = new IntegerExp(ss.loc.linnum);
 
                     sl = new CallExp(ss.loc, sl, args);
                     sl.expressionSemantic(sc);
@@ -2754,6 +2776,9 @@ version (IN_LLVM)
             // We sort a copy of the array of labels because we want to do a binary search in object.__switch,
             // without modifying the order of the case blocks here in the compiler.
 
+            if (!verifyHookExist(ss.loc, *sc, Id.__switch, "switch cases on strings"))
+                return setError();
+
             size_t numcases = 0;
             if (ss.cases)
                 numcases = ss.cases.dim;
@@ -2768,17 +2793,20 @@ version (IN_LLVM)
             // data we pass to codegen (the order of the cases in the switch).
             CaseStatements *csCopy = (*ss.cases).copy();
 
-            extern (C) static int sort_compare(const(void*) x, const(void*) y) @trusted
-            {
-                CaseStatement ox = *cast(CaseStatement *)x;
-                CaseStatement oy = *cast(CaseStatement*)y;
-
-                return ox.compare(oy);
-            }
-
             if (numcases)
             {
-                import core.stdc.stdlib;
+                extern (C) static int sort_compare(const(void*) x, const(void*) y) @trusted
+                {
+                    CaseStatement ox = *cast(CaseStatement *)x;
+                    CaseStatement oy = *cast(CaseStatement*)y;
+
+                    auto se1 = ox.exp.isStringExp();
+                    auto se2 = oy.exp.isStringExp();
+                    return (se1 && se2) ? se1.comparex(se2) : 0;
+                }
+
+                // Sort cases for efficient lookup
+                import core.stdc.stdlib : qsort, _compare_fp_t;
                 qsort(csCopy.data, numcases, CaseStatement.sizeof, cast(_compare_fp_t)&sort_compare);
             }
 
@@ -3409,7 +3437,7 @@ version (IN_LLVM)
 
         if (sc.ctorflow.fieldinit.length)       // if aggregate fields are being constructed
         {
-            auto ad = fd.isMember2();
+            auto ad = fd.isMemberLocal();
             assert(ad);
             foreach (i, v; ad.fields)
             {

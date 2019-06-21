@@ -7,7 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "dmd/mars.h"
 #include "gen/abi-generic.h"
 #include "gen/abi.h"
 #include "gen/dvalue.h"

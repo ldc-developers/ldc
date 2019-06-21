@@ -15,6 +15,7 @@
 
 #include "gen/pgo_ASTbased.h"
 
+#include "dmd/errors.h"
 #include "dmd/expression.h"
 #include "dmd/globals.h"
 #include "dmd/init.h"

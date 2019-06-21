@@ -201,7 +201,7 @@ void DIBuilder::SetValue(const Loc &loc, llvm::Value *value,
 DIFile DIBuilder::CreateFile(Loc &loc) {
   const char *filename = loc.filename;
   if (!filename)
-    filename = IR->dmodule->srcfile->toChars();
+    filename = IR->dmodule->srcfile.toChars();
   llvm::SmallString<128> path(filename);
   llvm::sys::fs::make_absolute(path);
 
@@ -210,7 +210,7 @@ DIFile DIBuilder::CreateFile(Loc &loc) {
 }
 
 DIFile DIBuilder::CreateFile() {
-  Loc loc(IR->dmodule->srcfile->toChars(), 0, 0);
+  Loc loc(IR->dmodule->srcfile.toChars(), 0, 0);
   return CreateFile(loc);
 }
 
@@ -876,7 +876,7 @@ void DIBuilder::EmitCompileUnit(Module *m) {
   assert(!CUNode && "Already created compile unit for this DIBuilder instance");
 
   // prepare srcpath
-  llvm::SmallString<128> srcpath(m->srcfile->name.toChars());
+  llvm::SmallString<128> srcpath(m->srcfile.toChars());
   llvm::sys::fs::make_absolute(srcpath);
 
   // prepare producer name string
@@ -1366,7 +1366,7 @@ void DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
 #endif
       scope,                                 // context
       vd->toChars(),                         // name
-      mangleBuf.peekString(),                // linkage name
+      mangleBuf.peekChars(),                 // linkage name
       CreateFile(vd),                        // file
       vd->loc.linnum,                        // line num
       CreateTypeDescription(vd->type),       // type

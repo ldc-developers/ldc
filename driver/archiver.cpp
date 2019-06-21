@@ -294,25 +294,26 @@ int createStaticLibrary() {
 
   // output filename
   std::string libName;
-  if (global.params.libname) { // explicit
+  if (global.params.libname.length) { // explicit
     // DMD adds the default extension if there is none
     libName = opts::invokedByLDMD
-                  ? FileName::defaultExt(global.params.libname, global.lib_ext)
-                  : global.params.libname;
+                  ? FileName::defaultExt(global.params.libname.ptr,
+                                         global.lib_ext.ptr)
+                  : global.params.libname.ptr;
   } else { // infer from first object file
     libName =
         global.params.objfiles.dim
             ? FileName::removeExt(FileName::name(global.params.objfiles[0]))
             : "a.out";
     libName += '.';
-    libName += global.lib_ext;
+    libName += global.lib_ext.ptr;
   }
 
   // DMD creates static libraries in the objects directory (unless using an
   // absolute output path via `-of`).
-  if (opts::invokedByLDMD && global.params.objdir &&
+  if (opts::invokedByLDMD && global.params.objdir.length &&
       !FileName::absolute(libName.c_str())) {
-    libName = FileName::combine(global.params.objdir, libName.c_str());
+    libName = FileName::combine(global.params.objdir.ptr, libName.c_str());
   }
 
   if (isTargetMSVC) {
@@ -333,10 +334,10 @@ int createStaticLibrary() {
 
   // .res/.def files for lib.exe
   if (isTargetMSVC) {
-    if (global.params.resfile)
-      args.push_back(global.params.resfile);
-    if (global.params.deffile)
-      args.push_back(std::string("/DEF:") + global.params.deffile);
+    if (global.params.resfile.length)
+      args.push_back(global.params.resfile.ptr);
+    if (global.params.deffile.length)
+      args.push_back(std::string("/DEF:") + global.params.deffile.ptr);
   }
 
   // create path to the library

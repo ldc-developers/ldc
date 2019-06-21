@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "dmd/errors.h"
 #include "dmd/expression.h"
 #include "dmd/hdrgen.h"
 #include "dmd/id.h"
@@ -14,7 +15,6 @@
 #include "dmd/import.h"
 #include "dmd/init.h"
 #include "dmd/mangle.h"
-#include "dmd/mars.h"
 #include "dmd/module.h"
 #include "dmd/mtype.h"
 #include "dmd/root/port.h"

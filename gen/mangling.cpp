@@ -123,7 +123,7 @@ std::string getIRMangledName(VarDeclaration *vd) {
 
   // TODO: Cache the result?
 
-  return getIRMangledVarName(mangleBuf.peekString(), vd->linkage);
+  return getIRMangledVarName(mangleBuf.peekChars(), vd->linkage);
 }
 
 std::string getIRMangledFuncName(std::string baseMangle, LINK link) {
@@ -141,7 +141,7 @@ std::string getIRMangledAggregateName(AggregateDeclaration *ad,
 
   OutBuffer mangleBuf;
   mangleToBuffer(ad, &mangleBuf);
-  llvm::StringRef mangledAggrName = mangleBuf.peekString();
+  llvm::StringRef mangledAggrName = mangleBuf.peekChars();
 
   if (shouldHashAggrName(mangledAggrName)) {
     ret += hashSymbolName(mangledAggrName, ad);
@@ -175,7 +175,7 @@ std::string getIRMangledInterfaceInfosSymbolName(ClassDeclaration *cd) {
   mangledName.writestring("_D");
   mangleToBuffer(cd, &mangledName);
   mangledName.writestring("16__interfaceInfosZ");
-  return getIRMangledVarName(mangledName.peekString(), LINKd);
+  return getIRMangledVarName(mangledName.peekChars(), LINKd);
 }
 
 std::string getIRMangledModuleInfoSymbolName(Module *module) {
@@ -183,7 +183,7 @@ std::string getIRMangledModuleInfoSymbolName(Module *module) {
   mangledName.writestring("_D");
   mangleToBuffer(module, &mangledName);
   mangledName.writestring("12__ModuleInfoZ");
-  return getIRMangledVarName(mangledName.peekString(), LINKd);
+  return getIRMangledVarName(mangledName.peekChars(), LINKd);
 }
 
 std::string getIRMangledModuleRefSymbolName(const char *moduleMangle) {

@@ -66,12 +66,13 @@ public:
     static AggregateDeclaration *moduleinfo;
 
 
-    const char *arg;    // original argument name
+    DArray<const char> arg;    // original argument name
     ModuleDeclaration *md; // if !NULL, the contents of the ModuleDeclaration declaration
-    File *srcfile;      // input source file
-    File *objfile;      // output .obj file
-    File *hdrfile;      // 'header' file
-    File *docfile;      // output documentation file
+    FileName srcfile;   // input source file
+    FileName objfile;   // output .obj file
+    FileName hdrfile;   // 'header' file
+    FileName docfile;   // output documentation file
+    FileBuffer *srcBuffer; // set during load(), free'd in parse()
     unsigned errors;    // if any errors in file
     unsigned numlines;  // number of lines in source file
     bool isHdrFile;     // if it is a header (.di) file
@@ -118,7 +119,7 @@ public:
     static Module *load(Loc loc, Identifiers *packages, Identifier *ident);
 
     const char *kind() const;
-    File *setOutfile(const char *name, const char *dir, const char *arg, const char *ext);
+    FileName setOutfilename(const char *name, const char *dir, const char *arg, const char *ext);
     void setDocfile();
     bool read(Loc loc); // read file, returns 'true' if succeed, 'false' otherwise.
     Module *parse();    // syntactic parse
@@ -160,7 +161,7 @@ public:
 #if IN_LLVM
     // LDC
     llvm::Module* genLLVMModule(llvm::LLVMContext& context);
-    void checkAndAddOutputFile(File *file);
+    void checkAndAddOutputFile(const FileName &file);
     void makeObjectFilenameUnique();
 
     bool llvmForceLogging;

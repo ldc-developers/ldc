@@ -9,6 +9,7 @@
 
 #include "dmd/compiler.h"
 #include "dmd/declaration.h"
+#include "dmd/errors.h"
 #include "dmd/expression.h"
 #include "dmd/id.h"
 #include "dmd/mtype.h"

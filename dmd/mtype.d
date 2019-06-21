@@ -57,9 +57,6 @@ version (IN_LLVM) import gen.llvmhelpers;
 enum LOGDOTEXP = 0;         // log ::dotExp()
 enum LOGDEFAULTINIT = 0;    // log ::defaultInit()
 
-extern (C++) __gshared int Tsize_t = Tuns32;
-extern (C++) __gshared int Tptrdiff_t = Tint32;
-
 enum SIZE_INVALID = (~cast(d_uns64)0);   // error return from size() functions
 
 
@@ -237,6 +234,7 @@ private enum TFlags
     real_        = 8,
     imaginary    = 0x10,
     complex      = 0x20,
+    char_        = 0x40,
 }
 
 enum ENUMTY : int
@@ -797,7 +795,7 @@ version (IN_LLVM)
         hgs.fullQual = (ty == Tclass && !mod);
 
         .toCBuffer(this, &buf, null, &hgs);
-        return buf.extractString();
+        return buf.extractChars();
     }
 
     /// ditto
@@ -809,7 +807,7 @@ version (IN_LLVM)
         hgs.fullQual = QualifyTypes;
 
         .toCBuffer(this, &buf, null, &hgs);
-        return buf.extractString();
+        return buf.extractChars();
     }
 
     static void _init()
@@ -894,19 +892,10 @@ version (IN_LLVM)
         tdstring = tdchar.immutableOf().arrayOf();
         tvalist = target.va_listType();
 
-        if (global.params.isLP64)
-        {
-            Tsize_t = Tuns64;
-            Tptrdiff_t = Tint64;
-        }
-        else
-        {
-            Tsize_t = Tuns32;
-            Tptrdiff_t = Tint32;
-        }
+        const isLP64 = global.params.isLP64;
 
-        tsize_t = basic[Tsize_t];
-        tptrdiff_t = basic[Tptrdiff_t];
+        tsize_t    = basic[isLP64 ? Tuns64 : Tuns32];
+        tptrdiff_t = basic[isLP64 ? Tint64 : Tint32];
         thash_t = tsize_t;
     }
 
@@ -1005,7 +994,7 @@ version (IN_LLVM)
         OutBuffer buf;
         buf.reserve(16);
         modToBuffer(&buf);
-        return buf.extractString();
+        return buf.extractChars();
     }
 
     bool isintegral()
@@ -1040,6 +1029,11 @@ version (IN_LLVM)
     }
 
     bool isunsigned()
+    {
+        return false;
+    }
+
+    bool ischar()
     {
         return false;
     }
@@ -3160,17 +3154,17 @@ extern (C++) final class TypeBasic : Type
 
         case Tchar:
             d = Token.toChars(TOK.char_);
-            flags |= TFlags.integral | TFlags.unsigned;
+            flags |= TFlags.integral | TFlags.unsigned | TFlags.char_;
             break;
 
         case Twchar:
             d = Token.toChars(TOK.wchar_);
-            flags |= TFlags.integral | TFlags.unsigned;
+            flags |= TFlags.integral | TFlags.unsigned | TFlags.char_;
             break;
 
         case Tdchar:
             d = Token.toChars(TOK.dchar_);
-            flags |= TFlags.integral | TFlags.unsigned;
+            flags |= TFlags.integral | TFlags.unsigned | TFlags.char_;
             break;
 
         default:
@@ -3308,6 +3302,11 @@ extern (C++) final class TypeBasic : Type
     override bool isunsigned() const
     {
         return (flags & TFlags.unsigned) != 0;
+    }
+
+    override bool ischar() const
+    {
+        return (flags & TFlags.char_) != 0;
     }
 
     override MATCH implicitConvTo(Type to)
@@ -3693,8 +3692,8 @@ extern (C++) final class TypeSArray : TypeArray
         else
             elementinit = next.defaultInitLiteral(loc);
         auto elements = new Expressions(d);
-        for (size_t i = 0; i < d; i++)
-            (*elements)[i] = null;
+        foreach (ref e; *elements)
+            e = null;
         auto ae = new ArrayLiteralExp(Loc.initial, this, elementinit, elements);
         return ae;
     }
@@ -4169,6 +4168,7 @@ extern (C++) final class TypeFunction : TypeNext
     ubyte iswild;               // bit0: inout on params, bit1: inout on qualifier
     Expressions* fargs;         // function arguments
     int inuse;
+    bool incomplete;            // return type or default arguments removed
 
     extern (D) this(ParameterList pl, Type treturn, LINK linkage, StorageClass stc = 0)
     {
@@ -4584,7 +4584,7 @@ extern (C++) final class TypeFunction : TypeNext
         buf.printf("cannot pass %sargument `%s` of type `%s` to parameter `%s`",
             rv ? "rvalue ".ptr : "".ptr, arg.toChars(), at,
             parameterToChars(par, this, qual));
-        return buf.extractString();
+        return buf.extractChars();
     }
 
     private extern(D) const(char)* getMatchError(A...)(const(char)* format, A args)
@@ -4593,19 +4593,22 @@ extern (C++) final class TypeFunction : TypeNext
             return null;
         OutBuffer buf;
         buf.printf(format, args);
-        return buf.extractString();
+        return buf.extractChars();
     }
 
     /********************************
      * 'args' are being matched to function 'this'
      * Determine match level.
-     * Input:
-     *      flag    1       performing a partial ordering match
-     *      pMessage        address to store error message, or null
+     * Params:
+     *      tthis = type of `this` pointer, null if not member function
+     *      args = array of function arguments
+     *      flag = 1: performing a partial ordering match
+     *      pMessage = address to store error message, or null
+     *      sc = context
      * Returns:
      *      MATCHxxxx
      */
-    extern (D) MATCH callMatch(Type tthis, Expressions* args, int flag = 0, const(char)** pMessage = null, Scope* sc = null)
+    extern (D) MATCH callMatch(Type tthis, Expression[] args, int flag = 0, const(char)** pMessage = null, Scope* sc = null)
     {
         //printf("TypeFunction::callMatch() %s\n", toChars());
         MATCH match = MATCH.exact; // assume exact match
@@ -4641,7 +4644,7 @@ extern (C++) final class TypeFunction : TypeNext
         }
 
         size_t nparams = parameterList.length;
-        size_t nargs = args ? args.dim : 0;
+        size_t nargs = args.length;
         if (nargs > nparams)
         {
             if (parameterList.varargs == VarArg.none)
@@ -4660,7 +4663,7 @@ extern (C++) final class TypeFunction : TypeNext
             if (u >= nparams)
                 break;
             Parameter p = parameterList[u];
-            Expression arg = (*args)[u];
+            Expression arg = args[u];
             assert(arg);
             Type tprm = p.type;
             Type targ = arg.type;
@@ -4702,7 +4705,7 @@ extern (C++) final class TypeFunction : TypeNext
                 goto L1;
             }
             {
-                Expression arg = (*args)[u];
+                Expression arg = args[u];
                 assert(arg);
                 //printf("arg: %s, type: %s\n", arg.toChars(), arg.type.toChars());
 
@@ -4757,7 +4760,7 @@ extern (C++) final class TypeFunction : TypeNext
                                     OutBuffer buf;
                                     buf.printf("`struct %s` does not define a copy constructor for `%s` to `%s` copies",
                                            argStruct.toChars(), targ.toChars(), tprm.toChars());
-                                    *pMessage = buf.extractString();
+                                    *pMessage = buf.extractChars();
                                 }
                                 goto Nomatch;
                             }
@@ -4804,10 +4807,19 @@ extern (C++) final class TypeFunction : TypeNext
                                 ta = tn.sarrayOf(dim);
                             }
                         }
-                        else
+                        else if (!global.params.rvalueRefParam ||
+                                 p.storageClass & STC.out_ ||
+                                 !arg.type.isCopyable())  // can't copy to temp for ref parameter
                         {
                             if (pMessage) *pMessage = getParamError(arg, p);
                             goto Nomatch;
+                        }
+                        else
+                        {
+                            /* in functionParameters() we'll convert this
+                             * rvalue into a temporary
+                             */
+                            m = MATCH.convert;
                         }
                     }
 
@@ -4870,7 +4882,7 @@ extern (C++) final class TypeFunction : TypeNext
                                 OutBuffer buf;
                                 buf.printf("expected %d variadic argument(s)", sz);
                                 buf.printf(", not %d", nargs - u);
-                                *pMessage = buf.extractString();
+                                *pMessage = buf.extractChars();
                             }
                             goto Nomatch;
                         }
@@ -4878,9 +4890,8 @@ extern (C++) final class TypeFunction : TypeNext
                     case Tarray:
                         {
                             TypeArray ta = cast(TypeArray)tb;
-                            for (; u < nargs; u++)
+                            foreach (arg; args[u .. nargs])
                             {
-                                Expression arg = (*args)[u];
                                 assert(arg);
 
                                 /* If lazy array of delegates,
@@ -4923,7 +4934,7 @@ extern (C++) final class TypeFunction : TypeNext
                     }
                 }
                 if (pMessage && u < nargs)
-                    *pMessage = getParamError((*args)[u], p);
+                    *pMessage = getParamError(args[u], p);
                 else if (pMessage)
                     *pMessage = getMatchError("missing argument for parameter #%d: `%s`",
                         u + 1, parameterToChars(p, this, false));
@@ -5485,9 +5496,9 @@ extern (C++) final class TypeStruct : Type
         if (sym.sizeok != Sizeok.done)
             return new ErrorExp();
 
-        auto structelems = new Expressions(sym.fields.dim - sym.isNested());
+        auto structelems = new Expressions(sym.nonHiddenFields());
         uint offset = 0;
-        for (size_t j = 0; j < structelems.dim; j++)
+        foreach (j; 0 .. structelems.dim)
         {
             VarDeclaration vd = sym.fields[j];
             Expression e;
@@ -5824,6 +5835,11 @@ extern (C++) final class TypeEnum : Type
     override bool isunsigned()
     {
         return memType().isunsigned();
+    }
+
+    override bool ischar()
+    {
+        return memType().ischar();
     }
 
     override bool isBoolean()
@@ -6678,3 +6694,23 @@ extern (C++) AggregateDeclaration isAggregate(Type t)
         return (cast(TypeStruct)t).sym;
     return null;
 }
+
+/***************************************************
+ * Determine if type t is copyable.
+ * Params:
+ *      t = type to check
+ * Returns:
+ *      true if we can copy it
+ */
+bool isCopyable(const Type t) pure nothrow @nogc
+{
+    //printf("isCopyable() %s\n", t.toChars());
+    if (auto ts = t.isTypeStruct())
+    {
+        if (ts.sym.postblit &&
+            ts.sym.postblit.storage_class & STC.disable)
+            return false;
+    }
+    return true;
+}
+

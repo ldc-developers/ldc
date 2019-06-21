@@ -11,6 +11,7 @@
 
 #include "dmd/aggregate.h"
 #include "dmd/declaration.h"
+#include "dmd/errors.h"
 #include "dmd/id.h"
 #include "dmd/identifier.h"
 #include "dmd/init.h"

@@ -10,6 +10,7 @@
 #include "dmd/attrib.h"
 #include "dmd/ctfe.h"
 #include "dmd/enum.h"
+#include "dmd/errors.h"
 #include "dmd/hdrgen.h"
 #include "dmd/id.h"
 #include "dmd/identifier.h"

@@ -9,8 +9,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "dmd/errors.h"
 #include "dmd/ldcbindings.h"
-#include "dmd/mars.h"
 #include "dmd/mtype.h"
 #include "dmd/target.h"
 #include "driver/cl_options.h"
@@ -128,7 +128,6 @@ void Target::_init(const Param &params) {
 #endif
 
   RealProperties.nan = CTFloat::nan;
-  RealProperties.snan = CTFloat::initVal;
   RealProperties.infinity = CTFloat::infinity;
 
   if (targetRealSemantics == IEEEdouble) {
