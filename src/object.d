@@ -3118,7 +3118,19 @@ extern (C)
 {
     // from druntime/src/rt/aaA.d
 
-    private struct AA { void* impl; }
+    version (LDC)
+    {
+        /* https://github.com/ldc-developers/ldc/issues/2782
+         * The real type is (non-importable) struct `rt.aaA.AA`;
+         * the compiler uses `void*` for its prototypes.
+         */
+        private alias AA = void*;
+    }
+    else
+    {
+        private struct AA { void* impl; }
+    }
+
     // size_t _aaLen(in AA aa) pure nothrow @nogc;
     private void* _aaGetY(AA* paa, const TypeInfo_AssociativeArray ti, in size_t valsz, in void* pkey) pure nothrow;
     private void* _aaGetX(AA* paa, const TypeInfo_AssociativeArray ti, in size_t valsz, in void* pkey, out bool found) pure nothrow;
