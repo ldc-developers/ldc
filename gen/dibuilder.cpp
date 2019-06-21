@@ -26,15 +26,9 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#if LDC_LLVM_VER >= 307
-typedef llvm::DINode DIFlags;
-#else
-typedef llvm::DIDescriptor DIFlags;
-#endif
-
 namespace {
 #if LDC_LLVM_VER >= 400
-const auto DIFlagZero = DIFlags::FlagZero;
+const auto DIFlagZero = ldc::DIFlags::FlagZero;
 #else
 const unsigned DIFlagZero = 0;
 #endif
@@ -687,7 +681,8 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
       CreateFunctionType(static_cast<TypeFunction *>(fd->type));
 
   // FIXME: duplicates?
-  return DBuilder.createFunction(
+  return CreateFunction(
+      getIrFunc(fd)->func,           // function
       CU,                            // context
       fd->toPrettyChars(),           // name
       mangleExact(fd),               // linkage name
@@ -696,14 +691,37 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
       DIFnType,                      // type
       fd->protection == PROTprivate, // is local to unit
       true,                          // isdefinition
+      isOptimizationEnabled(),       // isOptimized
       fd->loc.linnum,                // FIXME: scope line
-      DIFlags::FlagPrototyped,       // Flags
-      isOptimizationEnabled()        // isOptimized
-#if LDC_LLVM_VER < 308
-      ,
-      getIrFunc(fd)->func
-#endif
+      DIFlags::FlagPrototyped        // Flags
       );
+}
+
+ldc::DISubprogram ldc::DIBuilder::CreateFunction(llvm::Function *Fn, DIScope scope,
+	                                             llvm::StringRef name,
+                                                 llvm::StringRef linkageName, DIFile file,
+                                                 unsigned lineNo, DISubroutineType ty,
+                                                 bool isLocalToUnit, bool isDefinition,
+                                                 bool isOptimized, unsigned scopeLine,
+                                                 DIFlagsType flags) {
+#if LDC_LLVM_VER >= 800
+  const auto dispFlags =
+      llvm::DISubprogram::toSPFlags(isLocalToUnit, isDefinition, isOptimized);
+#endif
+  return DBuilder.createFunction(scope, name, linkageName, file, lineNo, ty,
+#if LDC_LLVM_VER < 800
+                                 isLocalToUnit, isDefinition,
+#endif
+                                 scopeLine, flags,
+#if LDC_LLVM_VER >= 800
+                                 dispFlags
+#else
+                                 isOptimized
+#endif
+#if LDC_LLVM_VER < 308
+                                 , Fn
+#endif
+  );
 }
 
 ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function *Fn,
@@ -748,7 +766,8 @@ ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function *Fn,
 #endif
 
   // FIXME: duplicates?
-  return DBuilder.createFunction(
+  return CreateFunction(
+      Fn,            // function
       CU,            // context
       prettyname,    // name
       Fn->getName(), // linkage name
@@ -757,13 +776,9 @@ ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function *Fn,
       DIFnType,      // return type. TODO: fill it up
       true,          // is local to unit
       true,          // isdefinition
+      isOptimizationEnabled(), // isOptimized
       0,             // FIXME: scope line
-      DIFlags::FlagPrototyped | DIFlags::FlagArtificial,
-      isOptimizationEnabled() // isOptimized
-#if LDC_LLVM_VER < 308
-      ,
-      Fn
-#endif
+      DIFlags::FlagPrototyped | DIFlags::FlagArtificial
       );
 }
 

@@ -35,6 +35,8 @@ enum Type { Unknown, O32, N32, N64, EABI };
 }
 
 namespace llvm {
+class Triple;
+class Target;
 class TargetMachine;
 }
 
@@ -46,15 +48,19 @@ class TargetMachine;
  */
 llvm::TargetMachine *createTargetMachine(
     std::string targetTriple, std::string arch, std::string cpu,
-    std::vector<std::string> attrs, ExplicitBitness::Type bitness,
+    std::string featuresStr, ExplicitBitness::Type bitness,
     FloatABI::Type floatABI,
 #if LDC_LLVM_VER >= 309
     llvm::Optional<llvm::Reloc::Model> relocModel,
 #else
     llvm::Reloc::Model relocModel,
 #endif
-    llvm::CodeModel::Model codeModel, llvm::CodeGenOpt::Level codeGenOptLevel,
-    bool noFramePointerElim, bool noLinkerStripDead);
+#if LDC_LLVM_VER >= 600
+    llvm::Optional<llvm::CodeModel::Model> codeModel,
+#else
+    llvm::CodeModel::Model codeModel,
+#endif
+    llvm::CodeGenOpt::Level codeGenOptLevel, bool noLinkerStripDead);
 
 /**
  * Returns the Mips ABI which is used for code generation.
@@ -64,5 +70,9 @@ llvm::TargetMachine *createTargetMachine(
  * for Mips).
  */
 MipsABI::Type getMipsABI();
+
+// Looks up a target based on an arch name and a target triple.
+const llvm::Target *lookupTarget(const std::string &arch, llvm::Triple &triple,
+                                 std::string &errorMsg);
 
 #endif // LDC_DRIVER_TARGET_H

@@ -27,7 +27,9 @@
 # We also want an user-specified LLVM_ROOT_DIR to take precedence over the
 # system default locations such as /usr/local/bin. Executing find_program()
 # multiples times is the approach recommended in the docs.
-set(llvm_config_names llvm-config-6.0 llvm-config60
+set(llvm_config_names llvm-config-8.0 llvm-config80 llvm-config-8
+                      llvm-config-7.0 llvm-config70 llvm-config-7
+                      llvm-config-6.0 llvm-config60
                       llvm-config-5.0 llvm-config50
                       llvm-config-4.0 llvm-config40
                       llvm-config-3.9 llvm-config39
@@ -87,10 +89,11 @@ if ((WIN32 AND NOT(MINGW OR CYGWIN)) OR NOT LLVM_CONFIG)
             list(APPEND LLVM_FIND_COMPONENTS AMDGPUUtils)
         endif()
         if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-6][\\.0-9A-Za-z]*")
-            # Versions below 3.7 do not support components debuginfo[dwarf|pdb]
+            # Versions below 3.7 do not support components debuginfo[dwarf|pdb], libdriver
             # Only debuginfo is available
             list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfodwarf" index)
             list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfopdb" index)
+            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "libdriver" index)
             list(APPEND LLVM_FIND_COMPONENTS "debuginfo")
         endif()
         if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-8][\\.0-9A-Za-z]*")
@@ -105,6 +108,11 @@ if ((WIN32 AND NOT(MINGW OR CYGWIN)) OR NOT LLVM_CONFIG)
         if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-9][\\.0-9A-Za-z]*")
             # Versions below 4.0 do not support component debuginfomsf
             list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfomsf" index)
+        endif()
+        if(${LLVM_VERSION_STRING} MATCHES "^3\\..*")
+            # Versions below 4.0 do not support components debuginfomsf and demangle
+            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfomsf" index)
+            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "demangle" index)
         endif()
         if(${LLVM_VERSION_STRING} MATCHES "^[4-9]\\.[\\.0-9A-Za-z]*")
             # Versions beginning with 4. do not support component ipa
@@ -188,10 +196,11 @@ else()
     llvm_set(ENABLE_ASSERTIONS assertion-mode)
 
     if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-6][\\.0-9A-Za-z]*")
-        # Versions below 3.7 do not support components debuginfo[dwarf|pdb]
+        # Versions below 3.7 do not support components debuginfo[dwarf|pdb], libdriver
         # Only debuginfo is available
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfodwarf" index)
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfopdb" index)
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "libdriver" index)
         list(APPEND LLVM_FIND_COMPONENTS "debuginfo")
     endif()
     if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-8][\\.0-9A-Za-z]*")
@@ -206,6 +215,11 @@ else()
     if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-9][\\.0-9A-Za-z]*")
         # Versions below 4.0 do not support component debuginfomsf
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfomsf" index)
+    endif()
+    if(${LLVM_VERSION_STRING} MATCHES "^3\\..*")
+        # Versions below 4.0 do not support components debuginfomsf and demangle
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfomsf" index)
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "demangle" index)
     endif()
     if(${LLVM_VERSION_STRING} MATCHES "^[4-9]\\.[\\.0-9A-Za-z]*")
         # Versions beginning with 4. do not support component ipa
@@ -239,9 +253,19 @@ if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang"))
         set(LLVM_CXXFLAGS "${LLVM_CXXFLAGS} -fno-rtti")
     endif()
 endif()
-# GCC (at least on Travis) does not know the -Wstring-conversion flag, so remove it.
+
+# Remove some clang-specific flags for gcc.
 if(CMAKE_COMPILER_IS_GNUCXX)
-    STRING(REGEX REPLACE "-Wstring-conversion" "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+    string(REPLACE "-Wcovered-switch-default " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+    string(REPLACE "-Wstring-conversion " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+    string(REPLACE "-fcolor-diagnostics " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+    # this requires more recent gcc versions (not supported by 4.9)
+    string(REPLACE "-Werror=unguarded-availability-new " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+endif()
+
+# Remove gcc-specific flags for clang.
+if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
+    string(REPLACE "-Wno-maybe-uninitialized " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
 endif()
 
 string(REGEX REPLACE "([0-9]+).*" "\\1" LLVM_VERSION_MAJOR "${LLVM_VERSION_STRING}" )

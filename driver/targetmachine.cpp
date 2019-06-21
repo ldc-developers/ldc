@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "driver/cl_options.h"
 #include "driver/targetmachine.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
@@ -27,7 +28,6 @@
 #include "gen/logger.h"
 
 #if LDC_LLVM_VER >= 307
-#include "driver/cl_options.h"
 
 static const char *getABI(const llvm::Triple &triple) {
   llvm::StringRef ABIName(opts::mABI);
@@ -422,17 +422,27 @@ const llvm::Target *lookupTarget(const std::string &arch, llvm::Triple &triple,
   return target;
 }
 
+static void Split(std::vector<std::string> &V, llvm::StringRef S) {
+  llvm::SmallVector<llvm::StringRef, 3> Tmp;
+  S.split(Tmp, ",", -1, false /* KeepEmpty */);
+  V.assign(Tmp.begin(), Tmp.end());
+}
+
 llvm::TargetMachine *createTargetMachine(
     std::string targetTriple, std::string arch, std::string cpu,
-    std::vector<std::string> attrs, ExplicitBitness::Type bitness,
+    std::string featuresStr, ExplicitBitness::Type bitness,
     FloatABI::Type floatABI,
 #if LDC_LLVM_VER >= 309
     llvm::Optional<llvm::Reloc::Model> relocModel,
 #else
     llvm::Reloc::Model relocModel,
 #endif
-    llvm::CodeModel::Model codeModel, llvm::CodeGenOpt::Level codeGenOptLevel,
-    bool noFramePointerElim, bool noLinkerStripDead) {
+#if LDC_LLVM_VER >= 600
+    llvm::Optional<llvm::CodeModel::Model> codeModel,
+#else
+    llvm::CodeModel::Model codeModel,
+#endif
+    llvm::CodeGenOpt::Level codeGenOptLevel, bool noLinkerStripDead) {
   // Determine target triple. If the user didn't explicitly specify one, use
   // the one set at LLVM configure time.
   llvm::Triple triple;
@@ -475,6 +485,7 @@ llvm::TargetMachine *createTargetMachine(
       }
     }
   }
+  std::vector<std::string> attrs;
 #if LDC_LLVM_VER < 307
   if (triple.getArch() == llvm::Triple::mips ||
       triple.getArch() == llvm::Triple::mipsel ||
@@ -483,6 +494,8 @@ llvm::TargetMachine *createTargetMachine(
     addMipsABI(triple, attrs);
   }
 #endif
+
+  Split(attrs, featuresStr);
   for (auto &attr : attrs) {
     features.AddFeature(attr);
   }
@@ -556,10 +569,7 @@ llvm::TargetMachine *createTargetMachine(
     }
   }
 
-  llvm::TargetOptions targetOptions;
-#if LDC_LLVM_VER < 307
-  targetOptions.NoFramePointerElim = noFramePointerElim;
-#endif
+  llvm::TargetOptions targetOptions = opts::InitTargetOptionsFromCodeGenFlags();
 #if LDC_LLVM_VER >= 307
   targetOptions.MCOptions.ABIName = getABI(triple);
 #endif
