@@ -267,6 +267,7 @@ public:
     virtual bool iscomplex();
     virtual bool isscalar();
     virtual bool isunsigned();
+    virtual bool ischar();
     virtual bool isscope();
     virtual bool isString();
     virtual bool isAssignable();

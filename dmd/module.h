@@ -15,6 +15,7 @@
 struct ModuleDeclaration;
 struct Macro;
 struct Escape;
+struct FileBuffer;
 
 #if IN_LLVM
 namespace llvm {
