@@ -464,6 +464,7 @@ public:
     struct HiddenParameters
     {
         VarDeclaration *this_;
+        bool isThis2;
         VarDeclaration *selector;
     };
 
@@ -504,6 +505,7 @@ public:
     // scopes from having the same name
     DsymbolTable *localsymtab;
     VarDeclaration *vthis;              // 'this' parameter (member and nested)
+    bool isThis2;                       // has a dual-context 'this' parameter
     VarDeclaration *v_arguments;        // '_arguments' parameter
     ObjcSelector *selector;             // Objective-C method selector (member function only)
     VarDeclaration *selectorParameter;  // Objective-C implicit selector parameter
