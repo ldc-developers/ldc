@@ -19,11 +19,11 @@ jobs:
   strategy:
     matrix:
       x64:
-        OS: win64
+        OS: windows
         MODEL: 64
         ARCH: x64
       x86:
-        OS: win32
+        OS: windows
         MODEL: 32
         ARCH: x86
         # Let CMake configure 64-bit clang-cl for 32-bit code emission.
