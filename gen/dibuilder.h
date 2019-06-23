@@ -186,10 +186,14 @@ private:
 #endif
                      );
   DIFile CreateFile(Loc &loc);
+  DIFile CreateFile();
+  DIFile CreateFile(Dsymbol* decl);
   DIType CreateBasicType(Type *type);
   DIType CreateEnumType(Type *type);
   DIType CreatePointerType(Type *type);
   DIType CreateVectorType(Type *type);
+  DIType CreateTypedef(unsigned linnum, Type *type, DIFile file,
+                       const char *c_name);
   DIType CreateMemberType(unsigned linnum, Type *type, DIFile file,
                           const char *c_name, unsigned offset, PROTKIND);
   DISubprogram CreateFunction(llvm::Function *Fn, DIScope scope,
