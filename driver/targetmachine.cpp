@@ -521,6 +521,14 @@ llvm::TargetMachine *createTargetMachine(
     }
   }
 
+#if LDC_LLVM_VER >= 700 && LDC_LLVM_VER < 800
+  // https://bugs.llvm.org/show_bug.cgi?id=38289
+  if (isOptimizationEnabled() && (cpu == "x86-64" || cpu == "i686") &&
+      !hasFeature("ssse3")) {
+    features.push_back("+ssse3");
+  }
+#endif
+
   if (Logger::enabled()) {
     Logger::println("Targeting '%s' (CPU '%s' with features '%s')",
                     triple.str().c_str(), cpu.c_str(),
