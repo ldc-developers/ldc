@@ -18,6 +18,8 @@ matrix:
       env: LLVM_VERSION=3.7.1 OPTS="-DMULTILIB=ON"
     - os: linux
       env: LLVM_VERSION=3.6.2
+    - os: linux
+      env: LLVM_VERSION=3.5.2
     - os: osx
       env: LLVM_VERSION=4.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF"
   allow_failures:
@@ -32,6 +34,8 @@ cache:
     - llvm-3.8.1
     - llvm-3.7.1
     - llvm-3.6.2
+    - llvm-3.5.2
+
 addons:
   apt:
     sources:
@@ -43,6 +47,7 @@ addons:
     - ninja-build
     - libconfig++8-dev
     - libcurl3:i386
+
 before_install:
   -
     if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
