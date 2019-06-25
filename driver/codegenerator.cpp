@@ -86,6 +86,11 @@ void emitSymbolAddrGlobal(llvm::Module &lm, const char *symbolName,
 /// Add the Linker Options module flag.
 /// If the flag is already present, merge it with the new data.
 void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
+#if LDC_LLVM_VER == 305
+  M.addModuleFlag(
+      llvm::Module::AppendUnique, "Linker Options",
+      llvm::MDNode::get(ctx, irs.LinkerMetadataArgs));
+#else
   if (!M.getModuleFlag("Linker Options")) {
     M.addModuleFlag(llvm::Module::AppendUnique, "Linker Options",
                     llvm::MDNode::get(ctx, irs.LinkerMetadataArgs));
@@ -122,6 +127,7 @@ void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
       break;
     }
   }
+#endif
 }
 #else
 /// Add the "llvm.linker.options" metadata.
