@@ -197,12 +197,6 @@ if (UNIX AND NOT "${LLVM_LDFLAGS}" STREQUAL "")
     # LLVM_LDFLAGS may have a space at the end
     string(REGEX REPLACE " $" "" LLVM_LDFLAGS ${LLVM_LDFLAGS})
 endif()
-# LLVM_CXXFLAGS may contain -Wcovered-switch-default and -fcolor-diagnostics
-# which are clang-only options
-if(CMAKE_COMPILER_IS_GNUCXX)
-    string(REPLACE "-Wcovered-switch-default " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
-    string(REPLACE "-fcolor-diagnostics " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
-endif()
 #
 # Run idgen and impcnvgen.
 #

@@ -26,6 +26,10 @@
 #include "mars.h"
 #include "gen/logger.h"
 
+#if LDC_LLVM_VER >= 700
+#include "gen/optimizer.h"
+#endif
+
 #if LDC_LLVM_VER >= 307
 #include "driver/cl_options.h"
 
@@ -507,6 +511,23 @@ llvm::TargetMachine *createTargetMachine(
       features.AddFeature(cx16_plus);
     }
   }
+
+#if LDC_LLVM_VER >= 700 && LDC_LLVM_VER < 800
+  // https://bugs.llvm.org/show_bug.cgi?id=38289
+  if (isOptimizationEnabled() && (cpu == "x86-64" || cpu == "i686")) {
+    const char *ssse3_plus = "+ssse3";
+    const char *ssse3_minus = "-ssse3";
+    bool ssse3 = false;
+    for (auto &attr : attrs) {
+      if (attr == ssse3_plus || attr == ssse3_minus) {
+        ssse3 = true;
+      }
+    }
+    if (!ssse3) {
+      features.AddFeature(ssse3_plus);
+    }
+  }
+#endif
 
   if (Logger::enabled()) {
     Logger::println("Targeting '%s' (CPU '%s' with features '%s')",
