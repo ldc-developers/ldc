@@ -664,12 +664,7 @@ public:
             case Tint128:   c = 'n';        break;
             case Tuns128:   c = 'o';        break;
             case Tfloat64:  c = 'd';        break;
-#if IN_LLVM
-            // There is no platform which uses __float128 for real.
-            case Tfloat80:  c = 'e'; break;
-#else
             case Tfloat80:  c = (Target::realsize - Target::realpad == 16) ? 'g' : 'e'; break;
-#endif
             case Tbool:     c = 'b';        break;
             case Tchar:     c = 'c';        break;
             case Twchar:    c = 't';        break; // unsigned short
