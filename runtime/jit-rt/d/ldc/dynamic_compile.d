@@ -372,7 +372,10 @@ struct BindPayload(OF, F, int[] Index, Args...)
   OF originalFunc = null;
   struct ArgStore
   {
-    Args args;
+    import std.meta: staticMap;
+    import std.traits: Unqual;
+    alias UArgs = staticMap!(Unqual, Args);
+    UArgs args;
   }
   ArgStore argStore;
   bool registered = false;
