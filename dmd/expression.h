@@ -820,7 +820,7 @@ class DelegateExp : public UnaExp
 public:
     FuncDeclaration *func;
     bool hasOverloads;
-    VarDeclaration *vthis2; // container for multi-context
+    VarDeclaration *vthis2;  // container for multi-context
 
 
     void accept(Visitor *v) { v->visit(this); }
