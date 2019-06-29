@@ -2551,7 +2551,7 @@ class Lexer
          */
         OutBuffer buf;
 
-        void trimTrailingWhitespace()
+        void trimTrailingWhitespace() nothrow
         {
             const s = buf.peekSlice();
             auto len = s.length;
@@ -2754,7 +2754,7 @@ unittest
         override void deprecation(const ref Loc, const(char)*, va_list) { assert(0); }
         override void deprecationSupplemental(const ref Loc, const(char)*, va_list) { assert(0); }
     }
-    static void test(string sequence, string expectedError, dchar expectedReturnValue, uint expectedScanLength)
+    static void test(string sequence, string expectedError, dchar expectedReturnValue, uint expectedScanLength) nothrow
     {
         scope handler = new ExpectDiagnosticReporter(expectedError);
         auto p = cast(const(char)*)sequence.ptr;
