@@ -417,7 +417,7 @@ struct BindPayload(OF, F, int[] Index, Args...)
           const ii = ParametersCount - i - 1; // reverse params
           desc[ii].data = &(argStore.args[ind]);
           desc[ii].size = (argStore.args[ind]).sizeof;
-          alias T = FuncParams[ind];
+          alias T = FuncParams[i];
           desc[ii].type = (isAggregateType!T || isDelegate!T ? ParamType.Aggregate : ParamType.Simple);
         }
       }
