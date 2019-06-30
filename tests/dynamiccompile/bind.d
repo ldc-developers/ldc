@@ -61,6 +61,18 @@ int get6()
   return 6;
 }
 
+@dynamicCompile
+int yyy(int i, int delegate() j)
+{
+  return i + j();
+}
+
+@dynamicCompile
+int ccc(int i, const int j, immutable int k)
+{
+  return i + j + k;
+}
+
 void main(string[] args)
 {
   foreach (i; 0..4)
@@ -104,6 +116,15 @@ void main(string[] args)
     auto elem = Bar(Foo(1,3),5);
     auto yy = ldc.dynamic_compile.bind(&elem.get, 7);
     auto yyd = yy.toDelegate();
+
+    int dget6()
+    {
+      return 6;
+    }
+
+    auto p = ldc.dynamic_compile.bind(&yyy, placeholder, &dget6);
+
+    auto c = ldc.dynamic_compile.bind(&ccc, 1, 10, 100);
 
     compileDynamicCode(settings);
     assert(f1.isCallable());
@@ -152,5 +173,8 @@ void main(string[] args)
     assert(yy.isCallable());
     assert(7531 == yy());
     assert(7531 == yyd());
+
+    assert(10 == p(4));
+    assert(111 == c());
   }
 }
