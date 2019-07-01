@@ -421,7 +421,7 @@ struct BindPayload(OF, F, int[] Index, Args...)
           desc[ii].data = &(argStore.args[ind]);
           desc[ii].size = (argStore.args[ind]).sizeof;
           alias T = FuncParams[i];
-          desc[ii].type = (isAggregateType!T || isDelegate!T ? ParamType.Aggregate : ParamType.Simple);
+          desc[ii].type = (isAggregateType!T || isDelegate!T || isStaticArray!T ? ParamType.Aggregate : ParamType.Simple);
         }
       }
     }
