@@ -104,11 +104,16 @@ public:
       if (!stmt->exp) {
         // implicitly return 0 for the main function
         returnValue = LLConstant::getNullValue(funcType->getReturnType());
+      } else if (f->type->next->toBasetype()->ty == Tvoid && !isMainFunc) {
+        // evaluate expression for side effects
+        assert(stmt->exp->type->toBasetype()->ty == Tvoid);
+        toElemDtor(stmt->exp);
       } else if (funcType->getReturnType()->isVoidTy()) {
-        // if the function's return type is void, it uses sret
+        // if the IR function's return type is void (but not the D one), it uses
+        // sret
         assert(!f->type->isref);
 
-        LLValue *sretPointer = getIrFunc(fd)->sretArg;
+        LLValue *sretPointer = f->sretArg;
         assert(sretPointer);
 
         assert(!f->irFty.arg_sret->rewrite &&
@@ -185,7 +190,7 @@ public:
       }
     } else {
       // no return value expression means it's a void function.
-      assert(funcType->getReturnType() == LLType::getVoidTy(irs->context()));
+      assert(funcType->getReturnType()->isVoidTy());
     }
 
     // If there are no cleanups to run, we try to keep the IR simple and
