@@ -91,8 +91,8 @@ struct X86TargetABI : TargetABI {
     const bool externD =
         (tf->linkage == LINKd && tf->parameterList.varargs != VARARGvariadic);
 
-    // non-aggregates and magic C++ structs are returned directly
-    if (!isAggregate(rt) || isMagicCppStruct(rt))
+    // non-aggregates are returned directly
+    if (!isAggregate(rt))
       return false;
 
     // complex numbers
@@ -143,7 +143,7 @@ struct X86TargetABI : TargetABI {
     // return value:
     if (!fty.ret->byref) {
       Type *rt = fty.type->next->toBasetype(); // for sret, rt == void
-      if (isAggregate(rt) && !isMagicCppStruct(rt) && canRewriteAsInt(rt) &&
+      if (isAggregate(rt) && canRewriteAsInt(rt) &&
           // don't rewrite cfloat for extern(D)
           !(externD && rt->ty == Tcomplex32)) {
         integerRewrite.applyToIfNotObsolete(*fty.ret);

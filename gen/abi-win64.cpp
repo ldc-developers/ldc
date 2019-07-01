@@ -42,11 +42,6 @@ private:
   }
 
   bool passPointerToHiddenCopy(Type *t, bool isReturnValue, LINK linkage) const {
-    // Pass magic C++ structs directly as LL aggregate with a single i32/double
-    // element, which LLVM handles as if it was a scalar.
-    if (isMagicCppStruct(t))
-      return false;
-
     // 80-bit real/ireal:
     // * returned on the x87 stack (for DMD inline asm compliance and what LLVM
     //   defaults to)
@@ -110,8 +105,7 @@ public:
     Type *rt = tf->next->toBasetype();
 
     // for non-static member functions, MSVC++ enforces sret for all structs
-    if (isMSVC && tf->linkage == LINKcpp && needsThis && rt->ty == Tstruct &&
-        !isMagicCppStruct(rt)) {
+    if (isMSVC && tf->linkage == LINKcpp && needsThis && rt->ty == Tstruct) {
       return true;
     }
 
@@ -172,7 +166,7 @@ public:
     if (passPointerToHiddenCopy(t, isReturnValue, fty.type->linkage)) {
       // the caller allocates a hidden copy and passes a pointer to that copy
       byvalRewrite.applyTo(arg);
-    } else if (isAggregate(t) && canRewriteAsInt(t) && !isMagicCppStruct(t)) {
+    } else if (isAggregate(t) && canRewriteAsInt(t)) {
       integerRewrite.applyToIfNotObsolete(arg);
     }
 
