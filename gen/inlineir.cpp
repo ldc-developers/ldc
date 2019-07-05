@@ -80,6 +80,8 @@ llvm::Function *DtoInlineIRFunction(FuncDeclaration *fdecl) {
           stream.str().c_str());
   }
 
+  m->setDataLayout(gIR->module.getDataLayout());
+
 #if LDC_LLVM_VER >= 308
   llvm::Linker(gIR->module).linkInModule(std::move(m));
 #elif LDC_LLVM_VER >= 306
@@ -94,6 +96,8 @@ llvm::Function *DtoInlineIRFunction(FuncDeclaration *fdecl) {
 
   LLFunction *fun = gIR->module.getFunction(mangled_name);
   setLinkage({LLGlobalValue::LinkOnceODRLinkage, supportsCOMDAT()}, fun);
-  fun->addFnAttr(LLAttribute::AlwaysInline);
+  fun->removeFnAttr(llvm::Attribute::NoInline);
+  fun->addFnAttr(llvm::Attribute::AlwaysInline);
+  fun->setCallingConv(llvm::CallingConv::C);
   return fun;
 }
