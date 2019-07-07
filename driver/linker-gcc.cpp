@@ -69,9 +69,10 @@ private:
   void addDefaultPlatformLibs();
   virtual void addTargetFlags();
 
-  void addLTOGoldPluginFlags();
+  void addLTOGoldPluginFlags(bool requirePlugin);
   void addDarwinLTOFlags();
   void addLTOLinkFlags();
+  bool isLldDefaultLinker();
 
   virtual void addLdFlag(const llvm::Twine &flag) {
     args.push_back(("-Wl," + flag).str());
@@ -121,8 +122,9 @@ std::string getLTOGoldPluginPath() {
   }
 }
 
-void ArgsBuilder::addLTOGoldPluginFlags() {
-  addLdFlag("-plugin", getLTOGoldPluginPath());
+void ArgsBuilder::addLTOGoldPluginFlags(bool requirePlugin) {
+  if (requirePlugin)
+    addLdFlag("-plugin", getLTOGoldPluginPath());
 
   if (opts::isUsingThinLTO())
     addLdFlag("-plugin-opt=thinlto");
@@ -179,11 +181,26 @@ void ArgsBuilder::addLTOLinkFlags() {
       global.params.targetTriple->isOSNetBSD() ||
       global.params.targetTriple->isOSOpenBSD() ||
       global.params.targetTriple->isOSDragonFly()) {
-    // Assume that ld.gold or ld.bfd is used with plugin support.
-    addLTOGoldPluginFlags();
+    // LLD supports LLVM LTO natively, do not add the plugin itself.
+    // Otherwise, assume that ld.gold or ld.bfd is used with plugin support.
+    bool isLld = opts::linker == "lld" || useInternalLLDForLinking() ||
+      (opts::linker.empty() && isLldDefaultLinker());
+    addLTOGoldPluginFlags(!isLld);
   } else if (global.params.targetTriple->isOSDarwin()) {
     addDarwinLTOFlags();
   }
+}
+
+bool ArgsBuilder::isLldDefaultLinker() {
+  auto triple = global.params.targetTriple;
+  if (triple->isOSFreeBSD()) {
+    if (triple->getOSMajorVersion() >= 12 &&
+        triple->getArch() == llvm::Triple::ArchType::x86_64)
+      return true;
+    if (triple->getArch() == llvm::Triple::ArchType::aarch64)
+      return true;
+  }
+  return false;
 }
 
 //////////////////////////////////////////////////////////////////////////////
