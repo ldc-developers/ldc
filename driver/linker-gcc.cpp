@@ -549,7 +549,11 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
       addLdFlag("-rpath", rpath);
   }
 
-  if (global.params.targetTriple->getOS() == llvm::Triple::Linux) {
+  if (global.params.targetTriple->getOS() == llvm::Triple::Linux ||
+      (global.params.targetTriple->getOS() == llvm::Triple::FreeBSD &&
+       (useInternalLLDForLinking() ||
+        (!opts::linker.empty() && opts::linker != "bfd") ||
+        (opts::linker.empty() && isLldDefaultLinker())))) {
     // Make sure we don't do --gc-sections when generating a profile-
     // instrumented binary. The runtime relies on magic sections, which
     // would be stripped by gc-section on older version of ld, see bug:
