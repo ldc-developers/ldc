@@ -10,6 +10,7 @@ matrix:
     - os: linux
       env: LLVM_VERSION=6.0.1
       dist: xenial
+      compiler: clang
     - os: linux
       env: LLVM_VERSION=5.0.2
     - os: linux
@@ -56,14 +57,15 @@ addons:
 before_install:
   -
     if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
+      export LSB_RELEASE=$(lsb_release -c -s);
       if [ "${LLVM_VERSION}" = "4.0.1" ]; then
         export LLVM_ARCH="x86_64-linux-gnu-debian8";
-      elif [ "$(lsb_release -c -s)" = "xenial" ]; then
+      elif [ "${LSB_RELEASE}" = "xenial" ]; then
         export LLVM_ARCH="x86_64-linux-gnu-ubuntu-16.04";
       else
         export LLVM_ARCH="x86_64-linux-gnu-ubuntu-14.04";
       fi;
-      if [ "$(lsb_release -c -s)" = "xenial" ]; then
+      if [ "${LSB_RELEASE}" = "xenial" ]; then
         sudo apt-get install clang-6.0;
       fi;
     else
@@ -83,7 +85,7 @@ install:
     if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
       if [ "${LLVM_VERSION}" = "7.0.1" ]; then
         export CC="clang-6.0"; export CXX="clang++-6.0";
-      elif [ "$(lsb_release -c -s)" = "xenial" ]; then
+      elif [ "${LSB_RELEASE}" = "xenial" ]; then
         export CC="$PWD/llvm-$LLVM_VERSION/bin/clang"; export CXX="$PWD/llvm-$LLVM_VERSION/bin/clang++";
       else
         export CC="gcc-4.9"; export CXX="g++-4.9";
