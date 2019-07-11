@@ -737,7 +737,11 @@ static bool mayBeUsedAfterRealloc(Instruction *Def, BasicBlock::iterator Alloc,
 
     // All instructions after the starting point in this block have been
     // accounted for. Look for successors to add to the work list.
+#if LDC_LLVM_VER >= 800
+    Instruction *Term = B->getTerminator();
+#else
     TerminatorInst *Term = B->getTerminator();
+#endif
     unsigned SuccCount = Term->getNumSuccessors();
     for (unsigned i = 0; i < SuccCount; i++) {
       BasicBlock *Succ = Term->getSuccessor(i);

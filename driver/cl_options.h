@@ -15,6 +15,7 @@
 #ifndef LDC_DRIVER_CL_OPTIONS_H
 #define LDC_DRIVER_CL_OPTIONS_H
 
+#include "driver/cl_options-llvm.h"
 #include "driver/targetmachine.h"
 #include "gen/cl_helpers.h"
 #include "llvm/Support/CodeGen.h"
@@ -47,7 +48,6 @@ extern cl::opt<bool> output_bc;
 extern cl::opt<bool> output_ll;
 extern cl::opt<bool> output_s;
 extern cl::opt<cl::boolOrDefault> output_o;
-extern cl::opt<bool, true> disableRedZone;
 extern cl::opt<std::string> ddocDir;
 extern cl::opt<std::string> ddocFile;
 extern cl::opt<std::string> jsonFile;
@@ -56,19 +56,13 @@ extern cl::opt<std::string> hdrFile;
 extern cl::list<std::string> versions;
 extern cl::opt<std::string> moduleDepsFile;
 
-extern cl::opt<std::string> mArch;
 extern cl::opt<bool> m32bits;
 extern cl::opt<bool> m64bits;
-extern cl::opt<std::string> mCPU;
-extern cl::list<std::string> mAttrs;
 extern cl::opt<std::string> mTargetTriple;
 #if LDC_LLVM_VER >= 307
 extern cl::opt<std::string> mABI;
 #endif
-extern cl::opt<llvm::Reloc::Model> mRelocModel;
-extern cl::opt<llvm::CodeModel::Model> mCodeModel;
-extern cl::opt<bool> disableFpElim;
-extern cl::opt<FloatABI::Type> mFloatABI;
+extern FloatABI::Type mFloatABI;
 extern cl::opt<bool, true> singleObj;
 extern cl::opt<bool> linkonceTemplates;
 extern cl::opt<bool> disableLinkerStripDead;
@@ -84,6 +78,7 @@ extern std::vector<std::string> debugArgs;
 
 #if LDC_LLVM_VER >= 307
 void CreateColorOption();
+void CreateFloatABIOption();
 #endif
 }
 #endif

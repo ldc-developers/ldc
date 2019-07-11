@@ -106,20 +106,6 @@ static cl::opt<bool> staticFlag(
         "Create a statically linked binary, including all system dependencies"),
     cl::ZeroOrMore);
 
-#if LDC_LLVM_VER >= 309
-static inline llvm::Optional<llvm::Reloc::Model> getRelocModel() {
-  if (mRelocModel.getNumOccurrences()) {
-    llvm::Reloc::Model R = mRelocModel;
-    return R;
-  }
-  return llvm::None;
-}
-#else
-static inline llvm::Reloc::Model getRelocModel() {
-  return mRelocModel;
-}
-#endif
-
 // This function exits the program.
 void printVersion(llvm::raw_ostream &OS) {
   OS << "LDC - the LLVM D compiler (" << global.ldc_version << "):\n";
@@ -298,8 +284,11 @@ static void hideLLVMOptions() {
   // LLVM 3.7 introduces compiling as shared library. The result
   // is a clash in the command line options.
   rename(map, "color", "llvm-color");
+  rename(map, "float-abi", "llvm-float-abi");
   hide(map, "llvm-color");
+  hide(map, "llvm-float-abi");
   opts::CreateColorOption();
+  opts::CreateFloatABIOption();
 #endif
 }
 
@@ -319,8 +308,7 @@ static const char *tryGetExplicitConfFile(int argc, char **argv) {
 /// config file and sets up global.params accordingly.
 ///
 /// Returns a list of source file names.
-static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
-                             bool &helpOnly) {
+static void parseCommandLine(int argc, char **argv, Strings &sourceFiles) {
   global.params.argv0 = exe_path::getExePath().data();
 
   // Set some default values.
@@ -359,8 +347,19 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
                               const_cast<char **>(final_args.data()),
                               "LDC - the LLVM D compiler\n");
 
-  helpOnly = mCPU == "help" ||
-             (std::find(mAttrs.begin(), mAttrs.end(), "help") != mAttrs.end());
+  if (opts::printTargetFeaturesHelp()) {
+    auto triple = llvm::Triple(llvm::sys::getDefaultTargetTriple());
+    std::string errMsg;
+    if (auto target = lookupTarget("", triple, errMsg)) {
+      llvm::errs() << "Targeting " << target->getName() << ". ";
+      // this prints the available CPUs and features of the target to stderr...
+      target->createMCSubtargetInfo(triple.str(), "help", "");
+    } else {
+      error(Loc(), "%s", errMsg.c_str());
+      fatal();
+    }
+    exit(EXIT_SUCCESS);
+  }
 
   // Print some information if -v was passed
   // - path to compiler binary
@@ -536,14 +535,6 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
 
   if (createStaticLib && createSharedLib) {
     error(Loc(), "-lib and -shared switches cannot be used together");
-  }
-
-#if LDC_LLVM_VER >= 309
-  if (createSharedLib && !mRelocModel.getNumOccurrences()) {
-#else
-  if (createSharedLib && mRelocModel == llvm::Reloc::Default) {
-#endif
-    mRelocModel = llvm::Reloc::PIC_;
   }
 
   if (global.params.link && !createSharedLib) {
@@ -969,11 +960,10 @@ int main(int argc, char **argv) {
 
   initializePasses();
 
-  bool helpOnly;
   Strings files;
-  parseCommandLine(argc, argv, files, helpOnly);
+  parseCommandLine(argc, argv, files);
 
-  if (files.dim == 0 && !helpOnly) {
+  if (files.dim == 0) {
     cl::PrintHelpMessage();
     return EXIT_FAILURE;
   }
@@ -983,8 +973,9 @@ int main(int argc, char **argv) {
   }
 
   // Set up the TargetMachine.
+  const auto arch = getArchStr();
   ExplicitBitness::Type bitness = ExplicitBitness::None;
-  if ((m32bits || m64bits) && (!mArch.empty() || !mTargetTriple.empty())) {
+  if ((m32bits || m64bits) && (!arch.empty() || !mTargetTriple.empty())) {
     error(Loc(), "-m32 and -m64 switches cannot be used together with -march "
                  "and -mtriple switches");
   }
@@ -1003,9 +994,20 @@ int main(int argc, char **argv) {
     fatal();
   }
 
+  auto relocModel = getRelocModel();
+#if LDC_LLVM_VER >= 309
+  if (createSharedLib && !relocModel.hasValue()) {
+#else
+  if (createSharedLib && relocModel == llvm::Reloc::Default) {
+#endif
+    relocModel = llvm::Reloc::PIC_;
+  }
+
   gTargetMachine = createTargetMachine(
-      mTargetTriple, mArch, mCPU, mAttrs, bitness, mFloatABI, getRelocModel(),
-      mCodeModel, codeGenOptLevel(), disableFpElim, disableLinkerStripDead);
+      mTargetTriple, arch, opts::getCPUStr(), opts::getFeaturesStr(), bitness,
+      mFloatABI, relocModel,
+      opts::getCodeModel(), codeGenOptLevel(),
+      disableLinkerStripDead);
 
 #if LDC_LLVM_VER >= 308
   static llvm::DataLayout DL = gTargetMachine->createDataLayout();

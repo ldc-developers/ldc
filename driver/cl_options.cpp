@@ -139,12 +139,6 @@ cl::opt<bool> output_s("output-s", cl::desc("Write native assembly"));
 cl::opt<cl::boolOrDefault> output_o("output-o",
                                     cl::desc("Write native object"));
 
-// Disabling Red Zone
-cl::opt<bool, true>
-    disableRedZone("disable-red-zone",
-                   cl::desc("Do not emit code that uses the red zone."),
-                   cl::location(global.params.disableRedZone), cl::init(false));
-
 // DDoc options
 static cl::opt<bool, true> doDdoc("D", cl::desc("Generate documentation"),
                                   cl::location(global.params.doDocComments));
@@ -243,22 +237,9 @@ cl::opt<std::string>
     moduleDepsFile("deps", cl::desc("Write module dependencies to filename"),
                    cl::value_desc("filename"));
 
-cl::opt<std::string> mArch("march",
-                           cl::desc("Architecture to generate code for:"));
-
 cl::opt<bool> m32bits("m32", cl::desc("32 bit target"), cl::ZeroOrMore);
 
 cl::opt<bool> m64bits("m64", cl::desc("64 bit target"), cl::ZeroOrMore);
-
-cl::opt<std::string>
-    mCPU("mcpu",
-         cl::desc("Target a specific cpu type (-mcpu=help for details)"),
-         cl::value_desc("cpu-name"), cl::init(""));
-
-cl::list<std::string>
-    mAttrs("mattr", cl::CommaSeparated,
-           cl::desc("Target specific attributes (-mattr=help for details)"),
-           cl::value_desc("a1,+a2,-a3,..."));
 
 cl::opt<std::string> mTargetTriple("mtriple",
                                    cl::desc("Override target triple"));
@@ -269,55 +250,6 @@ cl::opt<std::string>
          cl::desc("The name of the ABI to be targeted from the backend"),
          cl::Hidden, cl::init(""));
 #endif
-
-cl::opt<llvm::Reloc::Model> mRelocModel(
-    "relocation-model", cl::desc("Relocation model"),
-#if LDC_LLVM_VER < 309
-    cl::init(llvm::Reloc::Default),
-#endif
-    clEnumValues(
-#if LDC_LLVM_VER < 309
-        clEnumValN(llvm::Reloc::Default, "default",
-                   "Target default relocation model"),
-#endif
-        clEnumValN(llvm::Reloc::Static, "static", "Non-relocatable code"),
-        clEnumValN(llvm::Reloc::PIC_, "pic",
-                   "Fully relocatable, position independent code"),
-        clEnumValN(llvm::Reloc::DynamicNoPIC, "dynamic-no-pic",
-                   "Relocatable external references, non-relocatable code")));
-
-cl::opt<llvm::CodeModel::Model> mCodeModel(
-    "code-model", cl::desc("Code model"),
-#if LDC_LLVM_VER < 600
-    cl::init(llvm::CodeModel::Default),
-#endif
-    clEnumValues(
-#if LDC_LLVM_VER < 600
-        clEnumValN(llvm::CodeModel::Default, "default",
-                   "Target default code model"),
-#endif
-        clEnumValN(llvm::CodeModel::Small, "small", "Small code model"),
-        clEnumValN(llvm::CodeModel::Kernel, "kernel", "Kernel code model"),
-        clEnumValN(llvm::CodeModel::Medium, "medium", "Medium code model"),
-        clEnumValN(llvm::CodeModel::Large, "large", "Large code model")));
-
-cl::opt<FloatABI::Type> mFloatABI(
-    "float-abi", cl::desc("ABI/operations to use for floating-point types:"),
-    cl::init(FloatABI::Default),
-    clEnumValues(
-        clEnumValN(FloatABI::Default, "default",
-                   "Target default floating-point ABI"),
-        clEnumValN(FloatABI::Soft, "soft",
-                   "Software floating-point ABI and operations"),
-        clEnumValN(FloatABI::SoftFP, "softfp",
-                   "Soft-float ABI, but hardware floating-point instructions"),
-        clEnumValN(FloatABI::Hard, "hard",
-                   "Hardware floating-point ABI and instructions")));
-
-cl::opt<bool>
-    disableFpElim("disable-fp-elim",
-                  cl::desc("Disable frame pointer elimination optimization"),
-                  cl::init(false));
 
 static cl::opt<bool, true, FlagParser<bool>>
     asserts("asserts", cl::desc("(*) Enable assertions"),
@@ -402,6 +334,24 @@ void CreateColorOption() {
       cl::location(global.params.color));
 }
 #endif
+
+FloatABI::Type mFloatABI;
+
+void CreateFloatABIOption() {
+  new cl::opt<FloatABI::Type, true>(
+      "float-abi", cl::desc("ABI/operations to use for floating-point types:"),
+      cl::ZeroOrMore, cl::location(mFloatABI), cl::init(FloatABI::Default),
+      clEnumValues(
+          clEnumValN(FloatABI::Default, "default",
+                     "Target default floating-point ABI"),
+          clEnumValN(FloatABI::Soft, "soft",
+                     "Software floating-point ABI and operations"),
+          clEnumValN(
+              FloatABI::SoftFP, "softfp",
+              "Soft-float ABI, but hardware floating-point instructions"),
+          clEnumValN(FloatABI::Hard, "hard",
+                     "Hardware floating-point ABI and instructions")));
+}
 
 cl::opt<bool, true>
     useDIP25("dip25",

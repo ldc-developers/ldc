@@ -54,6 +54,12 @@ typedef llvm::DIScope *DIScope;
 typedef llvm::DISubroutineType *DISubroutineType;
 typedef llvm::DISubprogram *DISubprogram;
 typedef llvm::DICompileUnit *DICompileUnit;
+#if LDC_LLVM_VER >= 400
+typedef llvm::DINode::DIFlags DIFlagsType;
+#else
+typedef unsigned DIFlagsType;
+#endif
+typedef llvm::DINode DIFlags;
 #else
 typedef llvm::DIType DIType;
 typedef llvm::DIFile DIFile;
@@ -64,6 +70,8 @@ typedef llvm::DIDescriptor DIScope;
 typedef llvm::DICompositeType DISubroutineType;
 typedef llvm::DISubprogram DISubprogram;
 typedef llvm::DICompileUnit DICompileUnit;
+typedef unsigned DIFlagsType;
+typedef llvm::DIDescriptor DIFlags;
 #if LDC_LLVM_VER == 306
 typedef llvm::DIExpression DIExpression;
 #endif
@@ -178,12 +186,23 @@ private:
 #endif
                      );
   DIFile CreateFile(Loc &loc);
+  DIFile CreateFile();
+  DIFile CreateFile(Dsymbol* decl);
   DIType CreateBasicType(Type *type);
   DIType CreateEnumType(Type *type);
   DIType CreatePointerType(Type *type);
   DIType CreateVectorType(Type *type);
+  DIType CreateTypedef(unsigned linnum, Type *type, DIFile file,
+                       const char *c_name);
   DIType CreateMemberType(unsigned linnum, Type *type, DIFile file,
                           const char *c_name, unsigned offset, PROTKIND);
+  DISubprogram CreateFunction(llvm::Function *Fn, DIScope scope,
+  	                          llvm::StringRef name,
+  	                          llvm::StringRef linkageName, DIFile file,
+                              unsigned lineNo, DISubroutineType ty,
+                              bool isLocalToUnit, bool isDefinition,
+                              bool isOptimized, unsigned scopeLine,
+                              DIFlagsType flags);
   DIType CreateCompositeType(Type *type);
   DIType CreateArrayType(Type *type);
   DIType CreateSArrayType(Type *type);

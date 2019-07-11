@@ -1,5 +1,9 @@
-project(ldc)
 cmake_minimum_required(VERSION 2.8)
+if(POLICY CMP0025)
+  cmake_policy(SET CMP0025 NEW)
+endif()
+
+project(ldc)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
@@ -16,7 +20,11 @@ include(CheckCXXCompilerFlag)
 #
 
 find_package(LLVM 3.5 REQUIRED
-    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfocodeview debuginfodwarf debuginfopdb globalisel instcombine ipa ipo instrumentation irreader linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
+    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core
+    debuginfocodeview debuginfodwarf debuginfomsf debuginfopdb demangle
+    globalisel instcombine ipa ipo instrumentation irreader libdriver linker lto mc
+    mcdisassembler mcparser objcarcopts object option profiledata scalaropts
+    selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 # Remove LLVMTableGen library from list of libraries
 string(REGEX MATCH "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" LLVM_TABLEGEN_LIBRARY "${LLVM_LIBRARIES}")
@@ -197,12 +205,6 @@ if (UNIX AND NOT "${LLVM_LDFLAGS}" STREQUAL "")
     # LLVM_LDFLAGS may have a space at the end
     string(REGEX REPLACE " $" "" LLVM_LDFLAGS ${LLVM_LDFLAGS})
 endif()
-# LLVM_CXXFLAGS may contain -Wcovered-switch-default and -fcolor-diagnostics
-# which are clang-only options
-if(CMAKE_COMPILER_IS_GNUCXX)
-    string(REPLACE "-Wcovered-switch-default " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
-    string(REPLACE "-fcolor-diagnostics " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
-endif()
 #
 # Run idgen and impcnvgen.
 #
@@ -221,6 +223,7 @@ set_target_properties(
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${DMD_CXXFLAGS}"
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
+target_link_libraries(impcnvgen ${LLVM_LIBRARIES} ${PTHREAD_LIBS} ${TERMINFO_LIBS} "${LLVM_LDFLAGS}")
 
 add_custom_command(
     OUTPUT
@@ -285,6 +288,7 @@ file(GLOB IR_SRC ir/*.cpp)
 file(GLOB IR_HDR ir/*.h)
 set(DRV_SRC
     driver/cl_options.cpp
+    driver/cl_options-llvm.cpp
     driver/codegenerator.cpp
     driver/configfile.cpp
     driver/exe_path.cpp
@@ -298,6 +302,7 @@ set(DRV_SRC
 set(DRV_HDR
     driver/linker.h
     driver/cl_options.h
+    driver/cl_options-llvm.h
     driver/codegenerator.h
     driver/configfile.h
     driver/exe_path.h
