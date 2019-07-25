@@ -1777,7 +1777,7 @@ public:
                     if (hgs.fullDump)
                     {
                         auto sym = te.sym;
-                        if (hgs.inEnumDecl != sym)  foreach(i;0 .. sym.members.dim)
+                        if (hgs.inEnumDecl && sym && hgs.inEnumDecl != sym)  foreach(i;0 .. sym.members.dim)
                         {
                             EnumMember em = cast(EnumMember) (*sym.members)[i];
                             if (em.value.toInteger == v)

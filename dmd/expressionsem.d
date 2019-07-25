@@ -1708,6 +1708,7 @@ private bool functionParameters(const ref Loc loc, Scope* sc,
             }
 
             Parameter p = tf.parameterList[i];
+            const bool isRef = (p.storageClass & (STC.ref_ | STC.out_)) != 0;
 
             if (!arg)
             {
@@ -1732,6 +1733,13 @@ private bool functionParameters(const ref Loc loc, Scope* sc,
                     (*arguments)[i] = arg;
                 }
             }
+
+
+            if (isRef && !p.type.isConst && !p.type.isImmutable
+                && (p.storageClass & STC.const_) != STC.const_
+                && (p.storageClass & STC.immutable_) != STC.immutable_
+                && checkIfIsStructLiteralDotExpr(arg))
+                    break;
 
             if (tf.parameterList.varargs == VarArg.typesafe && i + 1 == nparams) // https://dlang.org/spec/function.html#variadic
             {
@@ -1820,7 +1828,7 @@ private bool functionParameters(const ref Loc loc, Scope* sc,
         L1:
             if (!(p.storageClass & STC.lazy_ && p.type.ty == Tvoid))
             {
-                bool isRef = (p.storageClass & (STC.ref_ | STC.out_)) != 0;
+
                 if (ubyte wm = arg.type.deduceWild(p.type, isRef))
                 {
                     wildmatch = wildmatch ? MODmerge(wildmatch, wm) : wm;
@@ -1923,7 +1931,8 @@ private bool functionParameters(const ref Loc loc, Scope* sc,
                     : p.type;
 
                 const hasCopyCtor = (arg.type.ty == Tstruct) && (cast(TypeStruct)arg.type).sym.hasCopyCtor;
-                if (!(hasCopyCtor || tprm.equals(arg.type)))
+                const typesMatch = arg.type.mutableOf().unSharedOf().equals(tprm.mutableOf().unSharedOf());
+                if (!((hasCopyCtor && typesMatch) || tprm.equals(arg.type)))
                 {
                     //printf("arg.type = %s, p.type = %s\n", arg.type.toChars(), p.type.toChars());
                     arg = arg.implicitCastTo(sc, tprm);
@@ -5496,6 +5505,8 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
             return;
         }
 
+        if (checkIfIsStructLiteralDotExpr(exp.e1))
+            return setError();
         if (exp.e1.op == TOK.arrayLength)
         {
             // arr.length op= e2;
@@ -6078,6 +6089,8 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
         AggregateDeclaration ad = f.toParentLocal().isAggregateDeclaration();
         if (f.needThis())
             e.e1 = getRightThis(e.loc, sc, ad, e.e1, f);
+        if (e.e1.op == TOK.error)
+            return setError();
 
         /* A delegate takes the address of e.e1 in order to set the .ptr field
          * https://issues.dlang.org/show_bug.cgi?id=18575
@@ -8749,6 +8762,9 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
             if (exp.op == TOK.assign)
                 e1x = e1x.modifiableLvalue(sc, e1old);
 
+            if (checkIfIsStructLiteralDotExpr(e1x))
+                return setError();
+
             if (e1x.op != TOK.variable)
                 e1x = e1x.optimize(WANTvalue);
 
@@ -9093,6 +9109,9 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                 return setError();
             }
         }
+
+        if (checkIfIsStructLiteralDotExpr(exp.e1))
+            return setError();
 
         exp.e1 = exp.e1.modifiableLvalue(sc, exp.e1);
         if (exp.e1.op == TOK.error)
@@ -11084,6 +11103,12 @@ Expression binSemanticProp(BinExp e, Scope* sc)
 // entrypoint for semantic ExpressionSemanticVisitor
 extern (C++) Expression expressionSemantic(Expression e, Scope* sc)
 {
+    const inConstraint = sc ? (sc.flags & SCOPE.constraint) == SCOPE.constraint : false;
+    if (e.inuse == 2 && inConstraint)
+    {
+        e.error("circular evaluation of constraint `%s`", e.toChars());
+        return new ErrorExp();
+    }
     scope v = new ExpressionSemanticVisitor(sc);
     e.accept(v);
     return v.result;
@@ -11844,4 +11869,41 @@ bool verifyHookExist(const ref Loc loc, ref Scope sc, Identifier id, string desc
           return true;
     error(loc, "`%s.%s` not found. The current runtime does not support %.*s, or the runtime is corrupt.", module_.toChars(), id.toChars(), cast(int)description.length, description.ptr);
     return false;
+}
+
+/**
+ * Check if an expression is an access to a struct member with the struct
+ * defined from a literal.
+ *
+ * This happens with manifest constants since the initializer is reused as is,
+ * each time the declaration is part of an expression, which means that the
+ * literal used as initializer can become a Lvalue. This Lvalue must not be modifiable.
+ *
+ * Params:
+ *      exp = An expression that's attempted to be written.
+ *            Must be the LHS of an `AssignExp`, `BinAssignExp`, `CatAssignExp`,
+ *            or the expression passed to a modifiable function parameter.
+ * Returns:
+ *      `true` if `expr` is a dot var or a dot identifier touching to a struct literal,
+ *      in which case an error message is issued, and `false` otherwise.
+ */
+private bool checkIfIsStructLiteralDotExpr(Expression exp)
+{
+    // e1.var = ...
+    // e1.ident = ...
+    Expression e1;
+    if (exp.op == TOK.dotVariable)
+        e1 = exp.isDotVarExp().e1;
+    else if (exp.op == TOK.dotIdentifier)
+        e1 = exp.isDotIdExp().e1;
+    else
+        return false;
+
+    // enum SomeStruct ss = { ... }
+    // also true for access from a .init: SomeStruct.init.member = ...
+    if (e1.op != TOK.structLiteral)
+        return false;
+
+    error(exp.loc, "cannot modify constant expression `%s`", exp.toChars());
+    return true;
 }

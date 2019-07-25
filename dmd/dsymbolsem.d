@@ -2320,6 +2320,7 @@ static if (!IN_LLVM)
         if (sc.stc & STC.deprecated_)
             ed.isdeprecated = true;
         ed.userAttribDecl = sc.userAttribDecl;
+        ed.namespace = sc.namespace;
 
         ed.semanticRun = PASS.semantic;
 
@@ -2997,6 +2998,15 @@ static if (!IN_LLVM)
         Scope* scy = sc.push(tm);
         scy.parent = tm;
 
+        /* https://issues.dlang.org/show_bug.cgi?id=930
+         *
+         * If the template that is to be mixed in is in the scope of a template
+         * instance, we have to also declare the type aliases in the new mixin scope.
+         */
+        auto parentInstance = tempdecl.parent ? tempdecl.parent.isTemplateInstance() : null;
+        if (parentInstance)
+            parentInstance.declareParameters(scy);
+
         tm.argsym = new ScopeDsymbol();
         tm.argsym.parent = scy.parent;
         Scope* argscope = scy.push(tm.argsym);
@@ -3646,8 +3656,10 @@ version (IN_LLVM)
 
                         debug foreach (const i, s; cd.vtbl)
                         {
+                            // a C++ dtor gets its vtblIndex later (and might even be added twice to the vtbl),
+                            // e.g. when compiling druntime with a debug compiler, namely with core.stdcpp.exception.
                             if (auto fd = s.isFuncDeclaration())
-                                assert(fd.vtblIndex == i);
+                                assert(fd.vtblIndex == i || (cd.classKind == ClassKind.cpp && fd.isDtorDeclaration));
                         }
                     }
                     else
@@ -6364,18 +6376,12 @@ Laftersemantic:
 void aliasSemantic(AliasDeclaration ds, Scope* sc)
 {
     //printf("AliasDeclaration::semantic() %s\n", ds.toChars());
-    if (ds.type && ds.type.ty == Ttraits)
-    {
-        // TypeTraits is not a valid type, it's semantic is called manually to
-        // have either a symbol or a valid type to alias.
-        TypeTraits tt = cast(TypeTraits) ds.type;
-        tt.inAliasDeclaration = true;
-        if (Type t = typeSemantic(tt, tt.loc, sc))
-            ds.type = t;
-        else if (tt.sym)
-            ds.aliassym = tt.sym;
-        tt.inAliasDeclaration = false;
-    }
+
+    // TypeTraits needs to know if it's located in an AliasDeclaration
+    sc.flags |= SCOPE.alias_;
+    scope(exit)
+        sc.flags &= ~SCOPE.alias_;
+
     if (ds.aliassym)
     {
         auto fd = ds.aliassym.isFuncLiteralDeclaration();
@@ -6506,7 +6512,7 @@ void aliasSemantic(AliasDeclaration ds, Scope* sc)
     }
     if (global.gag && errors != global.errors)
     {
-        ds.type = oldtype;
+        ds.type = Type.terror;
         ds.aliassym = null;
     }
     ds.inuse = 0;

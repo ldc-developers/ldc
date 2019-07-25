@@ -477,7 +477,7 @@ version (IN_LLVM)
     final inout(Dsymbol) pastMixin() inout
     {
         //printf("Dsymbol::pastMixin() %s\n", toChars());
-        if (!isTemplateMixin() && !isForwardingAttribDeclaration())
+        if (!isTemplateMixin() && !isForwardingAttribDeclaration() && !isForwardingScopeDsymbol())
             return this;
         if (!parent)
             return null;
@@ -536,7 +536,7 @@ version (IN_LLVM)
     /// ditto
     final inout(Dsymbol) toParent2() inout
     {
-        if (!parent || !parent.isTemplateInstance && !parent.isForwardingAttribDeclaration())
+        if (!parent || !parent.isTemplateInstance && !parent.isForwardingAttribDeclaration() && !parent.isForwardingScopeDsymbol())
             return parent;
         return parent.toParent2;
     }

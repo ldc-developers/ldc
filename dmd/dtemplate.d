@@ -266,15 +266,15 @@ private bool match(RootObject o1, RootObject o2)
 
         static if (log)
         {
-            printf("\te1 = %s '%s' %s\n", e1.type.toChars(), Token.toChars(e1.op), e1.toChars());
-            printf("\te2 = %s '%s' %s\n", e2.type.toChars(), Token.toChars(e2.op), e2.toChars());
+            printf("\te1 = %s '%s' %s\n", e1.type ? e1.type.toChars() : "null", Token.toChars(e1.op), e1.toChars());
+            printf("\te2 = %s '%s' %s\n", e2.type ? e2.type.toChars() : "null", Token.toChars(e2.op), e2.toChars());
         }
 
         // two expressions can be equal although they do not have the same
         // type; that happens when they have the same value. So check type
         // as well as expression equality to ensure templates are properly
         // matched.
-        if (!e1.type.equals(e2.type) || !e1.equals(e2))
+        if (!(e1.type && e2.type && e1.type.equals(e2.type)) || !e1.equals(e2))
             goto Lnomatch;
 
         goto Lmatch;
@@ -705,6 +705,12 @@ else
      */
     extern (D) bool evaluateConstraint(TemplateInstance ti, Scope* sc, Scope* paramscope, Objects* dedargs, FuncDeclaration fd)
     {
+        // circular evaluation of the constraint, see https://issues.dlang.org/show_bug.cgi?id=11856
+        if (constraint.inuse == constraint.inuse.max)
+            return false;
+        constraint.inuse++;
+        scope(exit)
+            constraint.inuse--;
         /* Detect recursive attempts to instantiate this template declaration,
          * https://issues.dlang.org/show_bug.cgi?id=4072
          *  void foo(T)(T x) if (is(typeof(foo(x)))) { }
@@ -978,12 +984,9 @@ else
                 tf.fargs = fargs;
                 uint olderrors = global.startGagging();
                 fd.type = tf.typeSemantic(loc, paramscope);
-                if (global.endGagging(olderrors))
-                {
-                    assert(fd.type.ty != Tfunction);
+                global.endGagging(olderrors);
+                if (fd.type.ty != Tfunction)
                     goto Lnomatch;
-                }
-                assert(fd.type.ty == Tfunction);
                 fd.originalType = fd.type; // for mangling
             }
 
