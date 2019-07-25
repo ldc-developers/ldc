@@ -11,8 +11,6 @@
  */
 module rt.sections_osx_x86_64;
 
-version (LDC) {} else:
-
 version (OSX)
     version = Darwin;
 else version (iOS)
@@ -33,6 +31,13 @@ import core.sys.darwin.mach.dyld;
 import core.sys.darwin.mach.getsect;
 import rt.deh, rt.minfo;
 import rt.util.container.array;
+
+version (LDC)
+{
+    // Implemented in rt.sections_elf_shared, but using some helper functions (`getTLSRange(void*)`).
+}
+else
+{
 
 struct SectionGroup
 {
@@ -181,6 +186,8 @@ ubyte[] getSection(in mach_header* header, intptr_t slide,
     return null;
 }
 
+} // !LDC
+
 extern (C) size_t malloc_size(const void* ptr) nothrow @nogc;
 
 /// Represents a TLS range.
@@ -222,6 +229,23 @@ TLSRange getTLSRange() nothrow @nogc
 
     return TLSRange.init;
 }
+
+/// Returns the TLS range of the image containing the specified TLS symbol.
+version (LDC)
+TLSRange getTLSRange(const void* tlsSymbol) nothrow @nogc
+{
+    foreach (i ; 0 .. _dyld_image_count)
+    {
+        const header = cast(const(mach_header_64)*) _dyld_get_image_header(i);
+        auto tlvInfo = tlvInfo(header);
+
+        if (tlvInfo.foundTLSRange(tlsSymbol))
+            return TLSRange(tlvInfo.tlv_addr, tlvInfo.tlv_size);
+    }
+
+    return TLSRange.init;
+}
+
 
 /**
  * Returns `true` if the correct TLS range was found.

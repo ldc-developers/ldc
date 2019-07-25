@@ -169,7 +169,7 @@ private:
         }
         else static if (SharedDarwin)
         {
-            return getTLSRange(_getTLSAnchor());
+            return getTLSRange(_getTLSAnchor()).toArray();
         }
         else static assert(0, "unimplemented");
     }
@@ -1032,10 +1032,8 @@ struct tls_index
     }
 }
 
-version (OSX)
+static if (SharedDarwin)
 {
-    extern(C) void _d_dyld_getTLSRange(void*, void**, size_t*) nothrow @nogc;
-
     version (LDC)
     {
         private align(16) ubyte dummyTlsSymbol = 42;
@@ -1044,14 +1042,10 @@ version (OSX)
         // for https://github.com/ldc-developers/ldc/issues/1252
     }
 
-    void[] getTLSRange(void *tlsSymbol) nothrow @nogc
-    {
-        void* start = null;
-        size_t size = 0;
-        _d_dyld_getTLSRange(tlsSymbol, &start, &size);
-        assert(start && size, "Could not determine TLS range.");
-        return start[0 .. size];
-    }
+    version (X86_64)
+        import rt.sections_osx_x86_64 : getTLSRange;
+    else
+        static assert(0, "Not implemented for this architecture");
 }
 else
 {
