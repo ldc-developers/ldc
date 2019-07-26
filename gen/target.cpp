@@ -78,6 +78,9 @@ unsigned getCriticalSectionSize(const Param &params) {
     break;
   }
 
+  if (arch == llvm::Triple::wasm32 || arch == llvm::Triple::wasm64)
+    return 0;
+
 #ifndef _MSC_VER
   unsigned hostSize = sizeof(pthread_mutex_t);
   warning(Loc(), "Assuming critical section size = %u bytes", hostSize);
