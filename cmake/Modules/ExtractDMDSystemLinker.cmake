@@ -1,10 +1,8 @@
 # Determines the system linker program and default command line arguments
-# used by a DMD-compatible D compiler to link executables.
+# used by a (CLI-wise, DMD-compatible) D compiler to link executables.
 #
 # The following variables are read:
 #  - D_COMPILER: The D compiler command (i.e., executable) to use.
-#  - D_COMPILER_DMD_COMPAT: Must be TRUE, only compilers with a DMD-compatible
-#    command line interface are supported.
 #
 # The following variables are set:
 #  - D_LINKER_COMMAND: The system linker command used (gcc, clang, …)
@@ -40,21 +38,18 @@ execute_process(
 )
 
 if(result_code)
-	message(FATAL_ERROR "Failed to compile empty program using D compiler '${D_COMPILER}'")
+    message(FATAL_ERROR "Failed to compile empty program using D compiler '${D_COMPILER}'")
 endif()
 
-string(REGEX REPLACE "\n" ";" stdout_lines "${stdout}")
-string(REGEX REPLACE "\n" ";" stderr_lines "${stderr}")
-if("${D_COMPILER_ID}" STREQUAL "GDC" OR "${D_COMPILER_ID}" STREQUAL "GDMD")
+if("${D_COMPILER_ID}" STREQUAL "GDMD")
     # Extract second to last line, which (due to -v) contains the linker command line.
+    string(REGEX REPLACE "\n" ";" stderr_lines "${stderr}")
     list(GET stderr_lines -2 linker_line)
+    string(REGEX REPLACE "^ +" "" linker_line "${linker_line}")
 else()
     # Extract last line, which (due to -v) contains the linker command line.
+    string(REGEX REPLACE "\n" ";" stdout_lines "${stdout}")
     list(GET stdout_lines -1 linker_line)
-endif()
-
-if("${D_COMPILER_ID}" STREQUAL "GDC" OR "${D_COMPILER_ID}" STREQUAL "GDMD")
-    string(REGEX REPLACE "^ +" "" linker_line "${linker_line}")
 endif()
 
 # Remove object file/output file arguments. This of course makes assumptions on
@@ -68,7 +63,7 @@ separate_arguments(linker_line)
 list(GET linker_line 0 D_LINKER_COMMAND)
 list(REMOVE_AT linker_line 0)
 
-if("${D_COMPILER_ID}" STREQUAL "GDC" OR "${D_COMPILER_ID}" STREQUAL "GDMD")
+if("${D_COMPILER_ID}" STREQUAL "GDMD")
     # Filter linker arguments for those we know can be safely reused
     set(D_LINKER_ARGS)
     foreach(arg ${linker_line})

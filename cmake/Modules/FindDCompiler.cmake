@@ -3,13 +3,12 @@
 # Use variable D_COMPILER first if defined by user, then try the environment variable DMD, next use a list of common compiler executables.
 #
 # The following variables are defined:
-#  D_COMPILER_FOUND          - true if a D compiler was found
+#  D_COMPILER_FOUND    - true if a D compiler with DMD-compatible cmdline interface was found
 #  D_COMPILER          - D compiler
 #  D_COMPILER_FLAGS    - D compiler flags (could be passed in the DMD environment variable)
-#  D_COMPILER_ID       = {"DigitalMars", "LDMD", "LDC", "GDC"}
+#  D_COMPILER_ID       = {"DigitalMars", "LDMD", "GDMD"}
 #  D_COMPILER_VERSION_STRING - String containing the compiler version, e.g. "DMD64 D Compiler v2.070.2"
 #  D_COMPILER_FE_VERSION - compiler front-end version, e.g. "2070"
-#  D_COMPILER_DMD_COMPAT - true if the D compiler cmdline interface is compatible with DMD
 
 
 set(D_COMPILER_FOUND "FALSE")
@@ -45,19 +44,12 @@ if (D_COMPILER)
     get_filename_component(__D_COMPILER_NAME ${D_COMPILER} NAME_WE)
     if (__D_COMPILER_NAME STREQUAL "dmd")
         set(D_COMPILER_ID "DigitalMars")
-        set(D_COMPILER_DMD_COMPAT "TRUE")
     elseif (__D_COMPILER_NAME STREQUAL "ldmd2")
         set(D_COMPILER_ID "LDMD")
-        set(D_COMPILER_DMD_COMPAT "TRUE")
-    elseif (__D_COMPILER_NAME STREQUAL "ldc2")
-        set(D_COMPILER_ID "LDC")
-        set(D_COMPILER_DMD_COMPAT "FALSE")
-    elseif (__D_COMPILER_NAME STREQUAL "gdc")
-        set(D_COMPILER_ID "GDC")
-        set(D_COMPILER_DMD_COMPAT "FALSE")
     elseif (__D_COMPILER_NAME STREQUAL "gdmd")
         set(D_COMPILER_ID "GDMD")
-        set(D_COMPILER_DMD_COMPAT "TRUE")
+    elseif (NOT D_COMPILER_ID)
+        message(FATAL_ERROR "Unsupported D compiler filename (try 'ldmd2' or 'gdmd', or set D_COMPILER_ID manually).")
     endif()
 
     # Older versions of ldmd do not have --version cmdline option, but the error message still contains the version info in the first line.
@@ -65,13 +57,7 @@ if (D_COMPILER)
                     OUTPUT_VARIABLE D_COMPILER_VERSION_STRING
                     ERROR_VARIABLE D_COMPILER_VERSION_STRING
                     ERROR_QUIET)
-    if ("${D_COMPILER_ID}" STREQUAL "GDC")
-        execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "pragma(msg, int(__VERSION__));"
-                        COMMAND "${D_COMPILER}" -x d -fsyntax-only -
-                        ERROR_VARIABLE D_COMPILER_FE_VERSION
-                        OUTPUT_QUIET)
-        string(REGEX MATCH "^[^\r\n:]*" D_COMPILER_FE_VERSION "${D_COMPILER_FE_VERSION}")
-    elseif ("${D_COMPILER_ID}" STREQUAL "GDMD")
+    if ("${D_COMPILER_ID}" STREQUAL "GDMD")
         execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "pragma(msg, int(__VERSION__));"
                         COMMAND "${D_COMPILER}" - -o-
                         ERROR_VARIABLE D_COMPILER_FE_VERSION
@@ -91,5 +77,5 @@ if (D_COMPILER_FOUND)
     message(STATUS "Host D compiler version: ${D_COMPILER_VERSION_STRING}")
     message(STATUS "Host D compiler front-end version: ${D_COMPILER_FE_VERSION}")
 else()
-    message(FATAL_ERROR "No D compiler found! Try setting the 'D_COMPILER' variable or 'DMD' environment variable.")
+    message(FATAL_ERROR "No supported D compiler (ldmd2, dmd, gdmd) found! Try setting the 'D_COMPILER' variable or 'DMD' environment variable.")
 endif()

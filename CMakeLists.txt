@@ -27,11 +27,6 @@ function(append value)
     endforeach(variable)
 endfunction()
 
-# The script currently only supports the DMD-style commandline interface
-if (NOT D_COMPILER_DMD_COMPAT)
-    message(FATAL_ERROR "We currently only support building using a D compiler with a DMD-compatible commandline interface. (try 'ldmd2' or 'gdmd')")
-endif()
-
 #
 # Locate LLVM.
 #
