@@ -306,7 +306,11 @@ llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl) {
     } else {
       IF_LOG Logger::println("chars: %s type: %s kind: %s", fdecl->toChars(),
                              fdecl->type->toChars(), fdecl->kind());
-      llvm_unreachable("needThis, but invalid parent declaration.");
+      fdecl->error("requires a dual-context, which is not yet supported by LDC");
+      if (!global.gag)
+        fatal();
+      return LLFunctionType::get(LLType::getVoidTy(gIR->context()),
+                                 /*isVarArg=*/false);
     }
   } else if (fdecl->isNested()) {
     dnest = Type::tvoid->pointerTo();
