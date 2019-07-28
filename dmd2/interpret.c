@@ -4129,8 +4129,13 @@ public:
                 Expression *aggr2 = se->e1;
                 if (aggregate == aggr2)
                 {
+#if WANT_CENT
+                    e->error("overlapping slice assignment [%d..%d] = [%llu..%llu]",
+                        lowerbound, upperbound, (ulonglong)se->lwr->toInteger(), (ulonglong)se->upr->toInteger());
+#else
                     e->error("overlapping slice assignment [%d..%d] = [%llu..%llu]",
                         lowerbound, upperbound, se->lwr->toInteger(), se->upr->toInteger());
+#endif
                     return CTFEExp::cantexp;
                 }
             #if 1   // todo: instead we can directly access to each elements of the slice
@@ -4256,8 +4261,13 @@ public:
                 }
                 if (aggregate == aggr2)
                 {
+#if WANT_CENT
+                    e->error("overlapping slice assignment [%d..%d] = [%llu..%llu]",
+                        lowerbound, upperbound, (ulonglong)se->lwr->toInteger(), (ulonglong)se->upr->toInteger());
+#else
                     e->error("overlapping slice assignment [%d..%d] = [%llu..%llu]",
                         lowerbound, upperbound, se->lwr->toInteger(), se->upr->toInteger());
+#endif
                     return CTFEExp::cantexp;
                 }
             #if 1   // todo: instead we can directly access to each elements of the slice
@@ -5168,8 +5178,13 @@ public:
             *pidx = e2->toInteger();
             if (len <= *pidx)
             {
+#if WANT_CENT
+                e->error("array index %lld is out of bounds [0..%lld]",
+                    (longlong)*pidx, (longlong)len);
+#else
                 e->error("array index %lld is out of bounds [0..%lld]",
                     *pidx, len);
+#endif
                 return false;
             }
         }
@@ -5426,7 +5441,11 @@ public:
                 result = e1;
                 return;
             }
+#if WANT_CENT
+            e1->error("slice [%llu..%llu] is out of bounds", (ulonglong)ilwr, (ulonglong)iupr);
+#else
             e1->error("slice [%llu..%llu] is out of bounds", ilwr, iupr);
+#endif
             result = CTFEExp::cantexp;
             return;
         }
@@ -5439,8 +5458,13 @@ public:
             uinteger_t up1 = se->upr->toInteger();
             if (ilwr > iupr || iupr > up1 - lo1)
             {
+#if WANT_CENT
+                e->error("slice[%llu..%llu] exceeds array bounds[%llu..%llu]",
+                    (ulonglong)ilwr, (ulonglong)iupr, (ulonglong)lo1, (ulonglong)up1);
+#else
                 e->error("slice[%llu..%llu] exceeds array bounds[%llu..%llu]",
                     ilwr, iupr, lo1, up1);
+#endif
                 result = CTFEExp::cantexp;
                 return;
             }
@@ -5456,7 +5480,11 @@ public:
         {
             if (iupr < ilwr || dollar < iupr)
             {
+#if WANT_CENT
+                e->error("slice [%lld..%lld] exceeds array bounds [0..%lld]", (longlong)ilwr, (longlong)iupr, (longlong)dollar);
+#else
                 e->error("slice [%lld..%lld] exceeds array bounds [0..%lld]", ilwr, iupr, dollar);
+#endif
                 result = CTFEExp::cantexp;
                 return;
             }

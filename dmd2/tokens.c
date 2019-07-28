@@ -58,6 +58,34 @@ const char *Token::toChars()
     const char *p = &buffer[0];
     switch (value)
     {
+#if WANT_CENT
+        case TOKint32v:
+            sprintf(&buffer[0],"%d",(d_int32)int128value);
+            break;
+
+        case TOKuns32v:
+        case TOKcharv:
+        case TOKwcharv:
+        case TOKdcharv:
+            sprintf(&buffer[0],"%uU",(d_uns32)uns128value);
+            break;
+
+        case TOKint64v:
+            sprintf(&buffer[0],"%lldL",(longlong)int128value);
+            break;
+
+        case TOKuns64v:
+            sprintf(&buffer[0],"%lluUL",(ulonglong)uns128value);
+            break;
+
+        case TOKint128v:
+            sprintf_i128(&buffer[0], int128value);
+            break;
+
+        case TOKuns128v:
+            sprintf_u128(&buffer[0], uns128value);
+            break;
+#else
         case TOKint32v:
             sprintf(&buffer[0],"%d",(d_int32)int64value);
             break;
@@ -76,6 +104,7 @@ const char *Token::toChars()
         case TOKuns64v:
             sprintf(&buffer[0],"%lluUL",(ulonglong)uns64value);
             break;
+#endif
 
         case TOKfloat32v:
             ld_sprint(&buffer[0], 'g', float80value);

@@ -391,7 +391,11 @@ Expression *Expression_optimize(Expression *e, int result, bool keepLvalue)
                         sinteger_t dim = ts->dim->toInteger();
                         if (index < 0 || index >= dim)
                         {
+#if WANT_CENT
+                            e->error("array index %lld is out of bounds [0..%lld]", (longlong)index, (longlong)dim);
+#else
                             e->error("array index %lld is out of bounds [0..%lld]", index, dim);
+#endif
                             ret = new ErrorExp();
                             return;
                         }

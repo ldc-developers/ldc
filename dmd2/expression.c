@@ -2941,6 +2941,10 @@ void IntegerExp::normalize()
         case Tuns32:        value = (d_uns32) value;        break;
         case Tint64:        value = (d_int64) value;        break;
         case Tuns64:        value = (d_uns64) value;        break;
+#if WANT_CENT
+        case Tint128:       value = (d_int128) value;       break;
+        case Tuns128:       value = (d_uns128) value;       break;
+#endif
         case Tpointer:
             if (Target::ptrsize == 4)
                 value = (d_uns32) value;
@@ -10106,7 +10110,11 @@ Expression *SliceExp::semantic(Scope *sc)
 
         if (i2 < i1 || length < i2)
         {
+#if WANT_CENT
+            error("string slice [%llu .. %llu] is out of bounds", (ulonglong)i1, (ulonglong)i2);
+#else
             error("string slice [%llu .. %llu] is out of bounds", i1, i2);
+#endif
             return new ErrorExp();
         }
 
@@ -10727,8 +10735,13 @@ Expression *IndexExp::semantic(Scope *sc)
 
             if (length <= index)
             {
+#if WANT_CENT
+                error("array index [%llu] is outside array bounds [0 .. %llu]",
+                        (ulonglong)index, (ulonglong)length);
+#else
                 error("array index [%llu] is outside array bounds [0 .. %llu]",
                         index, (ulonglong)length);
+#endif
                 return new ErrorExp();
             }
 
