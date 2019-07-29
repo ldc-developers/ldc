@@ -871,13 +871,7 @@ version (IN_LLVM)
                         const hasCopyCtor = exp.type.ty == Tstruct && (cast(TypeStruct)exp.type).sym.hasCopyCtor;
                         // if a copy constructor is present, the return type conversion will be handled by it
                         if (!hasCopyCtor)
-                        {
-                            if (f.isref && !MODimplicitConv(exp.type.mod, tret.mod) && !tret.isTypeSArray())
-                                error(exp.loc, "expression `%s` of type `%s` is not implicitly convertible to return type `ref %s`",
-                                      exp.toChars(), exp.type.toChars(), tret.toChars());
-                            else
-                                exp = exp.implicitCastTo(sc2, tret);
-                        }
+                            exp = exp.implicitCastTo(sc2, tret);
 
                         if (f.isref)
                         {
