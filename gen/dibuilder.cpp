@@ -503,6 +503,10 @@ void DIBuilder::AddFields(AggregateDeclaration *ad, DIFile file,
 
 void DIBuilder::AddStaticMembers(AggregateDeclaration *ad, DIFile file,
                                  llvm::SmallVector<LLMetadata *, 16> &elems) {
+  auto members = ad->members;
+  if (!members)
+    return;
+
   auto scope = CreateCompositeTypeDescription(ad->getType());
 
   std::function<void(Dsymbols *)> visitMembers = [&](Dsymbols *members) {
@@ -531,7 +535,7 @@ void DIBuilder::AddStaticMembers(AggregateDeclaration *ad, DIFile file,
                                                      // already work without
                                                      // adding them.
   };
-  visitMembers(ad->members);
+  visitMembers(members);
 }
 
 DIType DIBuilder::CreateCompositeType(Type *type) {
@@ -576,8 +580,8 @@ DIType DIBuilder::CreateCompositeType(Type *type) {
   // defaults
   const auto file = CreateFile(ad);
   const auto lineNum = ad->loc.linnum;
-  const auto sizeInBits = getTypeAllocSize(T) * 8;
-  const auto alignmentInBits = getABITypeAlign(T) * 8;
+  const auto sizeInBits = T->isSized() ? getTypeAllocSize(T) * 8 : 0;
+  const auto alignmentInBits = T->isSized() ? getABITypeAlign(T) * 8 : 0;
   const auto classOffsetInBits = 0;
   auto derivedFrom = getNullDIType();
   const auto vtableHolder = getNullDIType();
