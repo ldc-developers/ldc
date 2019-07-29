@@ -63,6 +63,7 @@ void init_msvc()
     stdin = __acrt_iob_func(0);
     stdout = __acrt_iob_func(1);
     stderr = __acrt_iob_func(2);
+    msvcUsesUCRT = 1;
 #else
     if (&__acrt_iob_func != (void*) &_nullfunc)
     {
