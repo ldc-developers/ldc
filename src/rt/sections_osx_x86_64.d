@@ -282,8 +282,6 @@ struct dyld_tlv_info
 /**
  * Returns the TLV info for the given image.
  *
- * Asserts if no TLV address could be found.
- *
  * Params:
  *  header = the image to look for the TLV info in
  *
@@ -291,13 +289,13 @@ struct dyld_tlv_info
  */
 dyld_tlv_info tlvInfo(const mach_header_64* header) nothrow @nogc
 {
-    auto tlvAddress = pthread_getspecific(header.firstTLVKey);
-    assert(tlvAddress, "No TLV address found");
+    const key = header.firstTLVKey;
+    auto tlvAddress = (key == pthread_key_t.max) ? null : pthread_getspecific(key);
 
     dyld_tlv_info info = {
         info_size: dyld_tlv_info.sizeof,
         tlv_addr: tlvAddress,
-        tlv_size: malloc_size(tlvAddress)
+        tlv_size: tlvAddress ? malloc_size(tlvAddress) : 0
     };
 
     return info;

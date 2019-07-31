@@ -169,7 +169,9 @@ private:
         }
         else static if (SharedDarwin)
         {
-            return getTLSRange(_getTLSAnchor()).toArray();
+            auto range = getTLSRange(_getTLSAnchor());
+            safeAssert(range.isValid, "Could not determine TLS range.");
+            return range.toArray;
         }
         else static assert(0, "unimplemented");
     }
