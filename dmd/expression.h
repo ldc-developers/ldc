@@ -88,7 +88,6 @@ public:
     unsigned char parens;       // if this is a parenthesized expression
     Type *type;                 // !=NULL means that semantic() has been run
     Loc loc;                    // file location
-    unsigned char inuse;        // detect expressionSemantic() loops
 
     static void _init();
     Expression *copy();
