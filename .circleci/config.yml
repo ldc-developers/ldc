@@ -70,7 +70,12 @@ commonSteps: &commonSteps
             -DCMAKE_BUILD_TYPE=Release \
             -DD_COMPILER=$PWD/../host-ldc/bin/ldmd2 \
             $EXTRA_CMAKE_FLAGS
-          ninja -j2 all ldc2-unittest all-test-runners
+          # Work around out-of-memory errors - retry twice with -j2 and one last time with -j1
+          targets='all ldc2-unittest all-test-runners'
+          for i in {1..3}; do
+            ninja -j2 $targets && break || true
+          done
+          ninja -j1 $targets
           bin/ldc2 -version
     - run:
         name: Run LDC D unittests
