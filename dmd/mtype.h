@@ -108,9 +108,6 @@ enum ENUMTY
 };
 typedef unsigned char TY;       // ENUMTY
 
-extern int Tsize_t;
-extern int Tptrdiff_t;
-
 #define SIZE_INVALID (~(d_uns64)0)   // error return from size() functions
 
 
@@ -270,6 +267,7 @@ public:
     virtual bool iscomplex();
     virtual bool isscalar();
     virtual bool isunsigned();
+    virtual bool ischar();
     virtual bool isscope();
     virtual bool isString();
     virtual bool isAssignable();
@@ -415,6 +413,7 @@ public:
     bool iscomplex() /*const*/;
     bool isscalar() /*const*/;
     bool isunsigned() /*const*/;
+    bool ischar() /*const*/;
     MATCH implicitConvTo(Type *to);
     bool isZeroInit(const Loc &loc) /*const*/;
 
@@ -600,6 +599,7 @@ public:
     Expressions *fargs; // function arguments
 
     int inuse;
+    bool incomplete;
 
     static TypeFunction *create(Parameters *parameters, Type *treturn, VarArg varargs, LINK linkage, StorageClass stc = 0);
     const char *kind();
@@ -641,8 +641,6 @@ class TypeTraits : public Type
     TraitsExp *exp;
     /// The symbol when exp doesn't represent a type.
     Dsymbol *sym;
-    /// Indicates wether we are in an alias or not.
-    bool inAliasDeclaration;
 
     Type *syntaxCopy();
     d_uns64 size(const Loc &loc);
@@ -775,6 +773,7 @@ public:
     bool iscomplex();
     bool isscalar();
     bool isunsigned();
+    bool ischar();
     bool isBoolean();
     bool isString();
     bool isAssignable();

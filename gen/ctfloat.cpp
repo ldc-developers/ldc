@@ -67,13 +67,6 @@ void CTFloat::initialize() {
   minusone = -1;
   half = 0.5;
 
-  // init value: use a special quiet NaN (with 2nd-most significant mantissa bit
-  //             set too, like signalling NaNs)
-  APInt initMantissa(APFloat::getSizeInBits(*apSemantics), 0);
-  initMantissa.setBit(APFloat::semanticsPrecision(*apSemantics) -
-                      3); // #mantissaBits = precision - 1
-  initVal = fromAPFloat(APFloat::getQNaN(*apSemantics, false, &initMantissa));
-
   nan = fromAPFloat(APFloat::getQNaN(*apSemantics));
   infinity = fromAPFloat(APFloat::getInf(*apSemantics));
 }

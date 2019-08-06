@@ -9,6 +9,7 @@
 
 #include "gen/nested.h"
 
+#include "dmd/errors.h"
 #include "dmd/target.h"
 #include "gen/dvalue.h"
 #include "gen/funcgenstate.h"

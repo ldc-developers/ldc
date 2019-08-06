@@ -10,11 +10,11 @@
 #include "gen/llvmhelpers.h"
 
 #include "dmd/declaration.h"
+#include "dmd/errors.h"
 #include "dmd/expression.h"
 #include "dmd/id.h"
 #include "dmd/identifier.h"
 #include "dmd/init.h"
-#include "dmd/mars.h"
 #include "dmd/module.h"
 #include "dmd/template.h"
 #include "gen/abi.h"
@@ -296,7 +296,7 @@ void DtoAssert(Module *M, Loc &loc, DValue *msg) {
 void DtoCAssert(Module *M, Loc &loc, LLValue *msg) {
   const auto &triple = *global.params.targetTriple;
   const auto file =
-      DtoConstCString(loc.filename ? loc.filename : M->srcfile->name.toChars());
+      DtoConstCString(loc.filename ? loc.filename : M->srcfile.toChars());
   const auto line = DtoConstUint(loc.linnum);
   const auto fn = getCAssertFunction(loc, gIR->module);
 
@@ -338,8 +338,7 @@ void DtoCAssert(Module *M, Loc &loc, LLValue *msg) {
  ******************************************************************************/
 
 LLConstant *DtoModuleFileName(Module *M, const Loc &loc) {
-  return DtoConstString(loc.filename ? loc.filename
-                                     : M->srcfile->name.toChars());
+  return DtoConstString(loc.filename ? loc.filename : M->srcfile.toChars());
 }
 
 /******************************************************************************

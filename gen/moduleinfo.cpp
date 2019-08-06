@@ -9,8 +9,9 @@
 
 #include "gen/moduleinfo.h"
 
-#include "dmd/module.h"
+#include "dmd/errors.h"
 #include "dmd/mangle.h"
+#include "dmd/module.h"
 #include "gen/abi.h"
 #include "gen/classes.h"
 #include "gen/irstate.h"
@@ -101,7 +102,7 @@ std::string getMangledName(Module *m, const char *suffix) {
   mangleToBuffer(m, &buf);
   if (suffix)
     buf.writestring(suffix);
-  return buf.peekString();
+  return buf.peekChars();
 }
 }
 

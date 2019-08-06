@@ -9,7 +9,7 @@
 
 #include "driver/tool.h"
 
-#include "dmd/mars.h"
+#include "dmd/errors.h"
 #include "driver/cl_options.h"
 #include "driver/exe_path.h"
 #include "driver/targetmachine.h"

@@ -201,7 +201,7 @@ void DIBuilder::SetValue(const Loc &loc, llvm::Value *value,
 DIFile DIBuilder::CreateFile(Loc &loc) {
   const char *filename = loc.filename;
   if (!filename)
-    filename = IR->dmodule->srcfile->toChars();
+    filename = IR->dmodule->srcfile.toChars();
   llvm::SmallString<128> path(filename);
   llvm::sys::fs::make_absolute(path);
 
@@ -210,7 +210,7 @@ DIFile DIBuilder::CreateFile(Loc &loc) {
 }
 
 DIFile DIBuilder::CreateFile() {
-  Loc loc(IR->dmodule->srcfile->toChars(), 0, 0);
+  Loc loc(IR->dmodule->srcfile.toChars(), 0, 0);
   return CreateFile(loc);
 }
 
@@ -503,6 +503,10 @@ void DIBuilder::AddFields(AggregateDeclaration *ad, DIFile file,
 
 void DIBuilder::AddStaticMembers(AggregateDeclaration *ad, DIFile file,
                                  llvm::SmallVector<LLMetadata *, 16> &elems) {
+  auto members = ad->members;
+  if (!members)
+    return;
+
   auto scope = CreateCompositeTypeDescription(ad->getType());
 
   std::function<void(Dsymbols *)> visitMembers = [&](Dsymbols *members) {
@@ -531,7 +535,7 @@ void DIBuilder::AddStaticMembers(AggregateDeclaration *ad, DIFile file,
                                                      // already work without
                                                      // adding them.
   };
-  visitMembers(ad->members);
+  visitMembers(members);
 }
 
 DIType DIBuilder::CreateCompositeType(Type *type) {
@@ -576,8 +580,8 @@ DIType DIBuilder::CreateCompositeType(Type *type) {
   // defaults
   const auto file = CreateFile(ad);
   const auto lineNum = ad->loc.linnum;
-  const auto sizeInBits = getTypeAllocSize(T) * 8;
-  const auto alignmentInBits = getABITypeAlign(T) * 8;
+  const auto sizeInBits = T->isSized() ? getTypeAllocSize(T) * 8 : 0;
+  const auto alignmentInBits = T->isSized() ? getABITypeAlign(T) * 8 : 0;
   const auto classOffsetInBits = 0;
   auto derivedFrom = getNullDIType();
   const auto vtableHolder = getNullDIType();
@@ -876,7 +880,7 @@ void DIBuilder::EmitCompileUnit(Module *m) {
   assert(!CUNode && "Already created compile unit for this DIBuilder instance");
 
   // prepare srcpath
-  llvm::SmallString<128> srcpath(m->srcfile->name.toChars());
+  llvm::SmallString<128> srcpath(m->srcfile.toChars());
   llvm::sys::fs::make_absolute(srcpath);
 
   // prepare producer name string
@@ -1366,7 +1370,7 @@ void DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
 #endif
       scope,                                 // context
       vd->toChars(),                         // name
-      mangleBuf.peekString(),                // linkage name
+      mangleBuf.peekChars(),                 // linkage name
       CreateFile(vd),                        // file
       vd->loc.linnum,                        // line num
       CreateTypeDescription(vd->type),       // type

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "dmd/mars.h"
+#include "dmd/globals.h"
 #include "gen/dvalue.h"
 #include "llvm/IR/CallingConv.h"
 #include <vector>

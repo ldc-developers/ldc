@@ -10,7 +10,6 @@
 #include "ir/irtype.h"
 
 #include "dmd/expression.h"
-#include "dmd/mars.h"
 #include "dmd/mtype.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"

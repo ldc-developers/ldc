@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "dmd/ctfe.h"
+#include "dmd/errors.h"
 #include "dmd/template.h"
 #include "gen/arrays.h"
 #include "gen/binops.h"

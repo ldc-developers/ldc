@@ -9,7 +9,7 @@
 
 #include "gen/logger.h"
 
-#include "dmd/mars.h"
+#include "dmd/errors.h"
 #include "gen/irstate.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/Value.h"

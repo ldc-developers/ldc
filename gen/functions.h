@@ -13,13 +13,12 @@
 
 #pragma once
 
-#include "dmd/mars.h"
-
 class DValue;
 class Expression;
 class FuncDeclaration;
 struct IRAsmBlock;
 struct IrFuncTy;
+struct Loc;
 class Parameter;
 class Type;
 namespace llvm {

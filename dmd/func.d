@@ -210,6 +210,11 @@ extern (C++) class FuncDeclaration : Declaration
          */
         VarDeclaration vthis;
 
+        /**
+         * Is 'this' a pointer to a static array holding two contexts.
+         */
+        bool isThis2;
+
         /// The selector parameter for Objective-C methods.
         VarDeclaration selectorParameter;
     }
@@ -252,6 +257,7 @@ version (IN_LLVM)
     // scopes from having the same name
     DsymbolTable localsymtab;
     VarDeclaration vthis;               /// 'this' parameter (member and nested)
+    bool isThis2;                       /// has a dual-context 'this' parameter
     VarDeclaration v_arguments;         /// '_arguments' parameter
     ObjcSelector* selector;             /// Objective-C method selector (member function only)
     VarDeclaration selectorParameter;   /// Objective-C implicit selector parameter
@@ -390,6 +396,8 @@ version (IN_LLVM)
                 return false;
         }
 
+        this.namespace = _scope.namespace;
+
         // if inferring return type, sematic3 needs to be run
         // - When the function body contains any errors, we cannot assume
         //   the inferred return type is valid.
@@ -401,7 +409,7 @@ version (IN_LLVM)
         if (isInstantiated() && !isVirtualMethod() &&
             ((ti = parent.isTemplateInstance()) is null || ti.isTemplateMixin() || ti.tempdecl.ident == ident))
         {
-            AggregateDeclaration ad = isMember2();
+            AggregateDeclaration ad = isMemberLocal();
             if (ad && ad.sizeok != Sizeok.done)
             {
                 /* Currently dmd cannot resolve forward references per methods,
@@ -483,6 +491,32 @@ version (IN_LLVM)
      */
     final HiddenParameters declareThis(Scope* sc, AggregateDeclaration ad)
     {
+        if (toParent2() != toParentLocal())
+        {
+            Type tthis2 = Type.tvoidptr.sarrayOf(2).pointerTo();
+            tthis2 = tthis2.addMod(type.mod)
+                           .addStorageClass(storage_class);
+            VarDeclaration v2 = new VarDeclaration(loc, tthis2, Id.this2, null);
+            v2.storage_class |= STC.parameter | STC.nodtor;
+            if (type.ty == Tfunction)
+            {
+                TypeFunction tf = cast(TypeFunction)type;
+                if (tf.isreturn)
+                    v2.storage_class |= STC.return_;
+                if (tf.isscope)
+                    v2.storage_class |= STC.scope_;
+                // if member function is marked 'inout', then this is 'return ref'
+                if (tf.iswild & 2)
+                    v2.storage_class |= STC.return_;
+            }
+            if (flags & FUNCFLAG.inferScope && !(v2.storage_class & STC.scope_))
+                v2.storage_class |= STC.maybescope;
+            v2.dsymbolSemantic(sc);
+            if (!sc.insert(v2))
+                assert(0);
+            v2.parent = this;
+            return HiddenParameters(v2, true);
+        }
         if (ad)
         {
             //printf("declareThis() %s\n", toChars());
@@ -514,7 +548,7 @@ version (IN_LLVM)
             if (!sc.insert(v))
                 assert(0);
             v.parent = this;
-            return HiddenParameters(v, objc.createSelectorParameter(this, sc));
+            return HiddenParameters(v, false, objc.createSelectorParameter(this, sc));
         }
         if (isNested())
         {
@@ -844,14 +878,12 @@ version (IN_LLVM)
     final FuncDeclaration overloadModMatch(const ref Loc loc, Type tthis, ref bool hasOverloads)
     {
         //printf("FuncDeclaration::overloadModMatch('%s')\n", toChars());
-        Match m;
-        m.last = MATCH.nomatch;
+        MatchAccumulator m;
         overloadApply(this, (Dsymbol s)
         {
             auto f = s.isFuncDeclaration();
             if (!f || f == m.lastf) // skip duplicates
                 return 0;
-            m.anyf = f;
 
             auto tf = f.type.toTypeFunction();
             //printf("tf = %s\n", tf.toChars());
@@ -881,7 +913,6 @@ version (IN_LLVM)
             if (m.lastf.overrides(f)) goto LlastIsBetter;
             if (f.overrides(m.lastf)) goto LcurrIsBetter;
 
-        Lambiguous:
             //printf("\tambiguous\n");
             m.nextf = f;
             m.count++;
@@ -925,7 +956,7 @@ version (IN_LLVM)
                 MODMatchToBuffer(&thisBuf, tthis.mod, tf.mod);
                 MODMatchToBuffer(&funcBuf, tf.mod, tthis.mod);
                 .error(loc, "%smethod %s is not callable using a %sobject",
-                    funcBuf.peekString(), this.toPrettyChars(), thisBuf.peekString());
+                    funcBuf.peekChars(), this.toPrettyChars(), thisBuf.peekChars());
             }
         }
         return m.lastf;
@@ -1024,7 +1055,7 @@ version (IN_LLVM)
             args[u] = e;
         }
 
-        MATCH m = tg.callMatch(null, &args, 1);
+        MATCH m = tg.callMatch(null, args[], 1);
         if (m > MATCH.nomatch)
         {
             /* A variadic parameter list is less specialized than a
@@ -1114,7 +1145,7 @@ version (IN_LLVM)
                     return LevelError;
             }
 
-            s = s.toParent2();
+            s = toParentP(s, fd);
             assert(s);
             level++;
         }
@@ -1167,7 +1198,7 @@ version (IN_LLVM)
     {
         OutBuffer buf;
         functionToBufferWithIdent(type.toTypeFunction(), &buf, toChars());
-        return buf.extractString();
+        return buf.extractChars();
     }
 
     final bool isMain() const
@@ -1222,7 +1253,7 @@ version (IN_LLVM)
         return true; // functions are always in the code segment
     }
 
-    override final bool isOverloadable()
+    override final bool isOverloadable() const
     {
         return true; // functions can be overloaded
     }
@@ -1385,7 +1416,7 @@ version (IN_LLVM)
     }
 
     /**************************************
-     * The function is doing something unsave,
+     * The function is doing something unsafe,
      * so mark it as unsafe.
      * If there's a safe error, return true.
      */
@@ -1611,7 +1642,8 @@ version (IN_LLVM)
      * Returns:
      *  `true` if function is really nested within other function.
      * Contracts:
-     *  If isNested() returns true, isThis() should return false.
+     *  If isNested() returns true, isThis() should return false,
+     *  unless the function needs a dual-context pointer.
      */
     bool isNested() const
     {
@@ -1619,7 +1651,8 @@ version (IN_LLVM)
         //printf("\ttoParent2() = '%s'\n", f.toParent2().toChars());
         return ((f.storage_class & STC.static_) == 0) &&
                 (f.linkage == LINK.d) &&
-                (f.toParent2().isFuncDeclaration() !is null);
+                (f.toParent2().isFuncDeclaration() !is null ||
+                 f.toParent2() !is f.toParentLocal());
     }
 
     /****************************************
@@ -1628,12 +1661,13 @@ version (IN_LLVM)
      * Returns:
      *  The aggregate it is a member of, or null.
      * Contracts:
-     *  If isThis() returns true, isNested() should return false.
+     *  Both isThis() and isNested() should return true if function needs a dual-context pointer,
+     *  otherwise if isThis() returns true, isNested() should return false.
      */
     override inout(AggregateDeclaration) isThis() inout
     {
         //printf("+FuncDeclaration::isThis() '%s'\n", toChars());
-        auto ad = (storage_class & STC.static_) ? objc.isThis(this) : isMember2();
+        auto ad = (storage_class & STC.static_) ? objc.isThis(this) : isMemberLocal();
         //printf("-FuncDeclaration::isThis() %p\n", ad);
         return ad;
     }
@@ -1785,10 +1819,13 @@ version (IN_LLVM)
         if (!fdthis)
             return false; // out of function scope
 
-        Dsymbol p = toParent2();
+        Dsymbol p = toParentLocal();
+        Dsymbol p2 = toParent2();
 
         // Function literals from fdthis to p must be delegates
         ensureStaticLinkTo(fdthis, p);
+        if (p != p2)
+            ensureStaticLinkTo(fdthis, p2);
 
         if (isNested())
         {
@@ -1833,6 +1870,8 @@ version (IN_LLVM)
             }
 
             if (checkEnclosing(p.isFuncDeclaration()))
+                return true;
+            if (checkEnclosing(p == p2 ? null : p2.isFuncDeclaration()))
                 return true;
         }
         return false;
@@ -1887,7 +1926,7 @@ version (IN_LLVM)
                  * so does f.
                  * Mark all affected functions as requiring closures.
                  */
-                for (Dsymbol s = f; s && s != this; s = s.parent)
+                for (Dsymbol s = f; s && s != this; s = toParentP(s, this))
                 {
                     FuncDeclaration fx = s.isFuncDeclaration();
                     if (!fx)
@@ -1898,7 +1937,7 @@ version (IN_LLVM)
 
                         /* Mark as needing closure any functions between this and f
                          */
-                        markAsNeedingClosure((fx == f) ? fx.parent : fx, this);
+                        markAsNeedingClosure((fx == f) ? toParentP(fx, this) : fx, this);
 
                         requiresClosure = true;
                     }
@@ -1960,7 +1999,7 @@ version (IN_LLVM)
                 assert(f !is this);
 
             LcheckAncestorsOfANestedRef:
-                for (Dsymbol s = f; s && s !is this; s = s.parent)
+                for (Dsymbol s = f; s && s !is this; s = toParentP(s, this))
                 {
                     auto fx = s.isFuncDeclaration();
                     if (!fx)
@@ -2521,7 +2560,7 @@ Expression addInvariant(const ref Loc loc, Scope* sc, AggregateDeclaration ad, V
          * Change the behavior of pre-invariant call by following it.
          */
         e = new ThisExp(Loc.initial);
-        e.type = vthis.type;
+        e.type = ad.type.addMod(vthis.type.mod);
         e = new DotVarExp(Loc.initial, e, inv, false);
         e.type = inv.type;
         e = new CallExp(Loc.initial, e);
@@ -2537,11 +2576,12 @@ Expression addInvariant(const ref Loc loc, Scope* sc, AggregateDeclaration ad, V
  * Params:
  *  fstart = symbol to start from
  *  dg = the delegate to be called on the overload
- *  sc = the initial scope from the calling context
+ *  sc = context used to check if symbol is accessible (and therefore visible),
+ *       can be null
  *
  * Returns:
  *      ==0     continue
- *      !=0     done
+ *      !=0     done (and the return value from the last dg() call)
  */
 extern (D) int overloadApply(Dsymbol fstart, scope int delegate(Dsymbol) dg, Scope* sc = null)
 {
@@ -2771,9 +2811,8 @@ FuncDeclaration resolveFuncCall(const ref Loc loc, Scope* sc, Dsymbol s,
         return null;
     }
 
-    Match m;
-    m.last = MATCH.nomatch;
-    functionResolve(&m, s, loc, sc, tiargs, tthis, fargs, null);
+    MatchAccumulator m;
+    functionResolve(m, s, loc, sc, tiargs, tthis, fargs, null);
     auto orig_s = s;
 
     if (m.last > MATCH.nomatch && m.lastf)
@@ -2836,14 +2875,14 @@ FuncDeclaration resolveFuncCall(const ref Loc loc, Scope* sc, Dsymbol s,
         {
             .error(loc, "%s `%s.%s` cannot deduce function from argument types `!(%s)%s`, candidates are:",
                 td.kind(), td.parent.toPrettyChars(), td.ident.toChars(),
-                tiargsBuf.peekString(), fargsBuf.peekString());
+                tiargsBuf.peekChars(), fargsBuf.peekChars());
 
             printCandidates(loc, td);
         }
         else if (od)
         {
             .error(loc, "none of the overloads of `%s` are callable using argument types `!(%s)%s`",
-                od.ident.toChars(), tiargsBuf.peekString(), fargsBuf.peekString());
+                od.ident.toChars(), tiargsBuf.peekChars(), fargsBuf.peekChars());
         }
         else
         {
@@ -2863,25 +2902,25 @@ FuncDeclaration resolveFuncCall(const ref Loc loc, Scope* sc, Dsymbol s,
                 if (hasOverloads)
                 {
                     .error(loc, "none of the overloads of `%s` are callable using a %sobject, candidates are:",
-                        fd.ident.toChars(), thisBuf.peekString());
+                        fd.ident.toChars(), thisBuf.peekChars());
                 }
                 else
                 {
                     const(char)* failMessage;
-                    functionResolve(&m, orig_s, loc, sc, tiargs, tthis, fargs, &failMessage);
+                    functionResolve(m, orig_s, loc, sc, tiargs, tthis, fargs, &failMessage);
                     if (failMessage)
                     {
                         .error(loc, "%s `%s%s%s` is not callable using argument types `%s`",
                             fd.kind(), fd.toPrettyChars(), parametersTypeToChars(tf.parameterList),
-                            tf.modToChars(), fargsBuf.peekString());
+                            tf.modToChars(), fargsBuf.peekChars());
                         errorSupplemental(loc, failMessage);
                     }
                     else
                     {
                         auto fullFdPretty = fd.toPrettyChars();
                         .error(loc, "%smethod `%s` is not callable using a %sobject",
-                            funcBuf.peekString(), fullFdPretty,
-                            thisBuf.peekString());
+                            funcBuf.peekChars(), fullFdPretty,
+                            thisBuf.peekChars());
 
                         if (mismatches.isNotShared)
                             .errorSupplemental(loc, "Consider adding `shared` to %s", fullFdPretty);
@@ -2896,16 +2935,16 @@ FuncDeclaration resolveFuncCall(const ref Loc loc, Scope* sc, Dsymbol s,
                 if (hasOverloads)
                 {
                     .error(loc, "none of the overloads of `%s` are callable using argument types `%s`, candidates are:",
-                        fd.toChars(), fargsBuf.peekString());
+                        fd.toChars(), fargsBuf.peekChars());
                 }
                 else
                 {
                     .error(loc, "%s `%s%s%s` is not callable using argument types `%s`",
                         fd.kind(), fd.toPrettyChars(), parametersTypeToChars(tf.parameterList),
-                        tf.modToChars(), fargsBuf.peekString());
+                        tf.modToChars(), fargsBuf.peekChars());
                     // re-resolve to check for supplemental message
                     const(char)* failMessage;
-                    functionResolve(&m, orig_s, loc, sc, tiargs, tthis, fargs, &failMessage);
+                    functionResolve(m, orig_s, loc, sc, tiargs, tthis, fargs, &failMessage);
                     if (failMessage)
                         errorSupplemental(loc, failMessage);
                 }
@@ -2927,7 +2966,7 @@ FuncDeclaration resolveFuncCall(const ref Loc loc, Scope* sc, Dsymbol s,
 
         .error(loc, "`%s.%s` called with argument types `%s` matches both:\n%s:     `%s%s%s`\nand:\n%s:     `%s%s%s`",
             s.parent.toPrettyChars(), s.ident.toChars(),
-            fargsBuf.peekString(),
+            fargsBuf.peekChars(),
             m.lastf.loc.toChars(), m.lastf.toPrettyChars(), lastprms, mod1,
             m.nextf.loc.toChars(), m.nextf.toPrettyChars(), nextprms, mod2);
     }
@@ -3119,7 +3158,7 @@ private bool traverseIndirections(Type ta, Type tb)
  */
 private void markAsNeedingClosure(Dsymbol f, FuncDeclaration outerFunc)
 {
-    for (Dsymbol sx = f; sx && sx != outerFunc; sx = sx.parent)
+    for (Dsymbol sx = f; sx && sx != outerFunc; sx = toParentP(sx, outerFunc))
     {
         FuncDeclaration fy = sx.isFuncDeclaration();
         if (fy && fy.closureVars.dim)
@@ -3169,7 +3208,7 @@ private bool checkEscapingSiblings(FuncDeclaration f, FuncDeclaration outerFunc,
             bAnyClosures = true;
         }
 
-        for (auto parent = g.parent; parent && parent !is outerFunc; parent = parent.parent)
+        for (auto parent = toParentP(g, outerFunc); parent && parent !is outerFunc; parent = toParentP(parent, outerFunc))
         {
             // A parent of the sibling had its address taken.
             // Assume escaping of parent affects its children, so needs propagating.
@@ -3197,6 +3236,60 @@ private bool checkEscapingSiblings(FuncDeclaration f, FuncDeclaration outerFunc,
     }
     //printf("\t%d\n", bAnyClosures);
     return bAnyClosures;
+}
+
+/***
+ * Returns true if any of the symbols `p` resides in the enclosing instantiation scope of `s`.
+ */
+bool followInstantiationContext(D...)(Dsymbol s, D p)
+{
+    static bool has2This(Dsymbol s)
+    {
+        if (auto f = s.isFuncDeclaration())
+            return f.isThis2;
+        if (auto ad = s.isAggregateDeclaration())
+            return ad.vthis2 !is null;
+        return false;
+    }
+
+    assert(s);
+    if (has2This(s))
+    {
+        assert(p.length);
+        auto parent = s.toParent();
+        while (parent)
+        {
+            auto ti = parent.isTemplateInstance();
+            if (!ti) break;
+            foreach (oarg; *ti.tiargs)
+            {
+                auto sa = getDsymbol(oarg);
+                if (!sa)
+                    continue;
+                sa = sa.toAlias().toParent2();
+                if (!sa)
+                    continue;
+                foreach (ps; p)
+                {
+                    if (sa == ps)
+                        return true;
+                }
+            }
+            parent = ti.tempdecl.toParent();
+        }
+        return false;
+    }
+    return false;
+}
+
+/*
+ * Returns the declaration scope scope of `s`
+ * unless any of the symbols `p` resides in its enclosing instantiation scope
+ * then the latter is returned.
+ */
+Dsymbol toParentP(D...)(Dsymbol s, D p)
+{
+    return followInstantiationContext(s, p) ? s.toParent2() : s.toParentLocal();
 }
 
 /***********************************************************
@@ -3431,6 +3524,7 @@ extern (C++) final class CtorDeclaration : FuncDeclaration
     {
         return this;
     }
+
     override void accept(Visitor v)
     {
         v.visit(this);
@@ -3921,4 +4015,3 @@ extern (C++) final class DeleteDeclaration : FuncDeclaration
         v.visit(this);
     }
 }
-

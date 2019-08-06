@@ -97,21 +97,21 @@ void initializeInstrumentationOptionsFromCmdline(const llvm::Triple &triple) {
       // profile-rt provides a default filename by itself
       global.params.datafileInstrProf = nullptr;
     } else {
-      initFromPathString(global.params.datafileInstrProf, ASTPGOInstrGenFile);
+      global.params.datafileInstrProf = fromPathString(ASTPGOInstrGenFile).ptr;
     }
   } else if (!ASTPGOInstrUseFile.empty()) {
     pgoMode = PGO_ASTBasedUse;
-    initFromPathString(global.params.datafileInstrProf, ASTPGOInstrUseFile);
+    global.params.datafileInstrProf = fromPathString(ASTPGOInstrUseFile).ptr;
   } else if (IRPGOInstrGenFile.getNumOccurrences() > 0) {
     pgoMode = PGO_IRBasedInstr;
     if (IRPGOInstrGenFile.empty()) {
       global.params.datafileInstrProf = "default_%m.profraw";
     } else {
-      initFromPathString(global.params.datafileInstrProf, IRPGOInstrGenFile);
+      global.params.datafileInstrProf = fromPathString(IRPGOInstrGenFile).ptr;
     }
   } else if (!IRPGOInstrUseFile.empty()) {
     pgoMode = PGO_IRBasedUse;
-    initFromPathString(global.params.datafileInstrProf, IRPGOInstrUseFile);
+    global.params.datafileInstrProf = fromPathString(IRPGOInstrUseFile).ptr;
   }
 
   if (dmdFunctionTrace)

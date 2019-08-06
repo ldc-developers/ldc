@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include "dmd/mars.h"
 #include "gen/tollvm.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/Constants.h"

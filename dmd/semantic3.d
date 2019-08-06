@@ -368,6 +368,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
             auto ad = funcdecl.isThis();
             auto hiddenParams = funcdecl.declareThis(sc2, ad);
             funcdecl.vthis = hiddenParams.vthis;
+            funcdecl.isThis2 = hiddenParams.isThis2;
             funcdecl.selectorParameter = hiddenParams.selectorParameter;
             //printf("[%s] ad = %p vthis = %p\n", loc.toChars(), ad, vthis);
             //if (vthis) printf("\tvthis.type = %s\n", vthis.type.toChars());
@@ -593,7 +594,7 @@ version (IN_LLVM)
                 sym.endlinnum = funcdecl.endloc.linnum;
                 sc2 = sc2.push(sym);
 
-                auto ad2 = funcdecl.isMember2();
+                auto ad2 = funcdecl.isMemberLocal();
 
                 /* If this is a class constructor
                  */
@@ -721,7 +722,8 @@ version (IN_LLVM)
                         sc2.ctorflow.callSuper = CSX.none;
 
                         // Insert implicit super() at start of fbody
-                        FuncDeclaration fd = resolveFuncCall(Loc.initial, sc2, cd.baseClass.ctor, null, funcdecl.vthis.type, null, FuncResolveFlag.quiet);
+                        Type tthis = ad2.type.addMod(funcdecl.vthis.type.mod);
+                        FuncDeclaration fd = resolveFuncCall(Loc.initial, sc2, cd.baseClass.ctor, null, tthis, null, FuncResolveFlag.quiet);
                         if (!fd)
                         {
                             funcdecl.error("no match for implicit `super()` call in constructor");
@@ -1007,8 +1009,13 @@ version (IN_LLVM)
                             }
                             ExpInitializer ie = v._init.isExpInitializer();
                             assert(ie);
-                            if (ie.exp.op == TOK.construct)
-                                ie.exp.op = TOK.assign; // construction occurred in parameter processing
+                            if (auto iec = ie.exp.isConstructExp())
+                            {
+                                // construction occurred in parameter processing
+                                auto ec = new AssignExp(iec.loc, iec.e1, iec.e2);
+                                ec.type = iec.type;
+                                ie.exp = ec;
+                            }
                             a.push(new ExpStatement(Loc.initial, ie.exp));
                         }
                     }
@@ -1138,7 +1145,7 @@ else
                 {
                     /* Wrap the entire function body in a synchronized statement
                      */
-                    ClassDeclaration cd = funcdecl.isThis() ? funcdecl.isThis().isClassDeclaration() : funcdecl.parent.isClassDeclaration();
+                    ClassDeclaration cd = funcdecl.toParentDecl().isClassDeclaration();
                     if (cd)
                     {
                         if (!IN_LLVM && !global.params.is64bit && global.params.isWindows && !funcdecl.isStatic() && !sbody.usesEH() && !global.params.trace)
@@ -1159,6 +1166,11 @@ else
                             {
                                 // 'this' is the monitor
                                 vsync = new VarExp(funcdecl.loc, funcdecl.vthis);
+                                if (funcdecl.isThis2)
+                                {
+                                    vsync = new PtrExp(funcdecl.loc, vsync);
+                                    vsync = new IndexExp(funcdecl.loc, vsync, IntegerExp.literal!0);
+                                }
                             }
                             sbody = new PeelStatement(sbody); // don't redo semantic()
                             sbody = new SynchronizedStatement(funcdecl.loc, vsync, sbody);
@@ -1338,7 +1350,7 @@ else
          * structs should be benign.
          * https://issues.dlang.org/show_bug.cgi?id=14246
          */
-        AggregateDeclaration ad = ctor.toParent2().isAggregateDeclaration();
+        AggregateDeclaration ad = ctor.isMemberDecl();
         if (ad && ad.fieldDtor && global.params.dtorFields)
         {
             /* Generate:

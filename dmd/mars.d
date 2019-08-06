@@ -22,7 +22,9 @@ import core.stdc.limits;
 import core.stdc.stdio;
 import core.stdc.stdlib;
 import core.stdc.string;
+
 import dmd.arraytypes;
+import dmd.astcodegen;
 import dmd.gluelayer;
 import dmd.builtin;
 import dmd.cond;
@@ -82,11 +84,11 @@ else
  */
 private void logo()
 {
-    printf("DMD%llu D Compiler %.*s\n%s %s\n",
+    printf("DMD%llu D Compiler %.*s\n%.*s %.*s\n",
         cast(ulong)size_t.sizeof * 8,
         cast(int) global._version.length - 1, global._version.ptr,
-        global.copyright,
-        global.written
+        cast(int)global.copyright.length, global.copyright.ptr,
+        cast(int)global.written.length, global.written.ptr
     );
 }
 
@@ -104,7 +106,7 @@ extern(C) void printInternalFailure(FILE* stream)
             "with, preferably, a reduced, reproducible example and the information below.\n" ~
     "DustMite (https://github.com/CyberShadow/DustMite/wiki) can help with the reduction.\n" ~
     "---\n").ptr, stream);
-    stream.fprintf("DMD %%.*s\n", cast(int) global._version.length - 1, global._version.ptr);
+    stream.fprintf("DMD %.*s\n", cast(int) global._version.length - 1, global._version.ptr);
     stream.printPredefinedVersions;
     stream.printGlobalConfigs();
     fputs("---\n".ptr, stream);
@@ -118,9 +120,10 @@ private void usage()
     import dmd.cli : CLIUsage;
     logo();
     auto help = CLIUsage.usage;
+    const inifileCanon = FileName.canonicalName(global.inifilename);
     printf("
 Documentation: https://dlang.org/
-Config file: %s
+Config file: %.*s
 Usage:
   dmd [<option>...] <file>...
   dmd [<option>...] -run <file> [<arg>...]
@@ -131,7 +134,7 @@ Where:
 
 <option>:
   @<cmdfile>       read arguments from cmdfile
-%.*s", FileName.canonicalName(global.inifilename), cast(int)help.length, &help[0]);
+%.*s", cast(int)inifileCanon.length, inifileCanon.ptr, cast(int)help.length, &help[0]);
 }
 
 /**
@@ -172,7 +175,7 @@ private int tryMain(size_t argc, const(char)** argv, ref Param params)
             goto Largs;
         arguments[i] = argv[i];
     }
-    if (response_expand(&arguments)) // expand response files
+    if (response_expand(arguments)) // expand response files
         error(Loc.initial, "can't open response file");
     //for (size_t i = 0; i < arguments.dim; ++i) printf("arguments[%d] = '%s'\n", i, arguments[i]);
     files.reserve(arguments.dim - 1);
@@ -190,30 +193,31 @@ private int tryMain(size_t argc, const(char)** argv, ref Param params)
     if (global.inifilename)
     {
         // can be empty as in -conf=
-        if (strlen(global.inifilename) && !FileName.exists(global.inifilename))
-            error(Loc.initial, "Config file '%s' does not exist.", global.inifilename);
+        if (global.inifilename.length && !FileName.exists(global.inifilename))
+            error(Loc.initial, "Config file '%.*s' does not exist.",
+                  cast(int)global.inifilename.length, global.inifilename.ptr);
     }
     else
     {
         version (Windows)
         {
-            global.inifilename = findConfFile(params.argv0, "sc.ini").ptr;
+            global.inifilename = findConfFile(params.argv0, "sc.ini");
         }
         else version (Posix)
         {
-            global.inifilename = findConfFile(params.argv0, "dmd.conf").ptr;
+            global.inifilename = findConfFile(params.argv0, "dmd.conf");
         }
         else
         {
             static assert(0, "fix this");
         }
     }
-    // Read the configurarion file
-    auto inifile = File(global.inifilename);
-    inifile.read();
+    // Read the configuration file
+    const iniReadResult = global.inifilename.toCStringThen!(fn => File.read(fn.ptr));
+    const inifileBuffer = iniReadResult.buffer.data;
     /* Need path of configuration file, for use in expanding @P macro
      */
-    const(char)[] inifilepath = FileName.path(global.inifilename.toDString());
+    const(char)[] inifilepath = FileName.path(global.inifilename);
     Strings sections;
     StringTable environment;
     environment._init(7);
@@ -221,7 +225,7 @@ private int tryMain(size_t argc, const(char)** argv, ref Param params)
      * pick up any DFLAGS settings.
      */
     sections.push("Environment");
-    parseConfFile(environment, global.inifilename, inifilepath, inifile.buffer[0..inifile.len], &sections);
+    parseConfFile(environment, global.inifilename, inifilepath, inifileBuffer, &sections);
 
     const(char)* arch = params.is64bit ? "64" : "32"; // use default
     arch = parse_arch_arg(&arguments, arch);
@@ -244,7 +248,7 @@ private int tryMain(size_t argc, const(char)** argv, ref Param params)
     char[80] envsection = void;
     sprintf(envsection.ptr, "Environment%s", arch);
     sections.push(envsection.ptr);
-    parseConfFile(environment, global.inifilename, inifilepath, inifile.buffer[0..inifile.len], &sections);
+    parseConfFile(environment, global.inifilename, inifilepath, inifileBuffer, &sections);
     getenv_setargv(readFromEnv(environment, "DFLAGS"), &arguments);
     updateRealEnvironment(environment);
     environment.reset(1); // don't need environment cache any more
@@ -367,7 +371,8 @@ version (IN_LLVM) {} else
     setTarget(params);           // set target operating system
     setTargetCPU(params);
     if (params.is64bit != is64bit)
-        error(Loc.initial, "the architecture must not be changed in the %s section of %s", envsection.ptr, global.inifilename);
+        error(Loc.initial, "the architecture must not be changed in the %s section of %.*s",
+              envsection.ptr, cast(int)global.inifilename.length, global.inifilename.ptr);
 }
 
     if (global.errors)
@@ -480,31 +485,25 @@ else
     global.filePath = buildPath(params.fileImppath);
 
     if (params.addMain)
-    {
-        files.push(global.main_d); // a dummy name, we never actually look up this file
-    }
+        files.push("__main.d");
     // Create Modules
     Modules modules = createModules(files, libmodules);
     // Read files
-    /* Start by "reading" the dummy main.d file
-     */
-    if (params.addMain)
-    {
-        bool added = false;
-        foreach (m; modules)
-        {
-            if (strcmp(m.srcfile.name.toChars(), global.main_d) == 0)
-            {
-                string buf = "int main(){return 0;}";
-                m.srcfile.setbuffer(cast(void*)buf.ptr, buf.length);
-                m.srcfile._ref = 1;
-                added = true;
-                break;
-            }
-        }
-        assert(added);
-    }
     enum ASYNCREAD = false;
+    // Start by "reading" the special files (__main.d, __stdin.d)
+    foreach (m; modules)
+    {
+        if (params.addMain && m.srcfile.toString() == "__main.d")
+        {
+            auto data = arraydup("int main(){return 0;}\0\0"); // need 2 trailing nulls for sentinel
+            m.srcBuffer = new FileBuffer(cast(ubyte[]) data[0 .. $-2]);
+        }
+        else if (m.srcfile.toString() == "__stdin.d")
+        {
+            auto buffer = readFromStdin();
+            m.srcBuffer = new FileBuffer(buffer.extractData());
+        }
+    }
     static if (ASYNCREAD)
     {
         // Multi threaded
@@ -543,7 +542,7 @@ version (IN_LLVM) {} else
         {
             if (aw.read(filei))
             {
-                error(Loc.initial, "cannot read file %s", m.srcfile.name.toChars());
+                error(Loc.initial, "cannot read file %s", m.srcfile.toChars());
                 fatal();
             }
         }
@@ -553,7 +552,7 @@ version (IN_LLVM) {} else
             // Remove m's object file from list of object files
             for (size_t j = 0; j < params.objfiles.dim; j++)
             {
-                if (m.objfile.name.toChars() == params.objfiles[j])
+                if (m.objfile.toChars() == params.objfiles[j])
                 {
                     params.objfiles.remove(j);
                     break;
@@ -567,11 +566,11 @@ version (IN_LLVM)
         // Finalize output filenames. Update if `-oq` was specified (only feasible after parsing).
         if (params.fullyQualifiedObjectFiles && m.md)
         {
-            m.objfile = m.setOutfile(params.objname, params.objdir, m.arg, m.objfile.name.ext());
+            m.objfile = m.setOutfilename(params.objname, params.objdir, m.arg, FileName.ext(m.objfile.toString()));
             if (m.docfile)
                 m.setDocfile();
             if (m.hdrfile)
-                m.hdrfile = m.setOutfile(params.hdrname, params.hdrdir, m.arg, global.hdr_ext);
+                m.hdrfile = m.setOutfilename(params.hdrname, params.hdrdir, m.arg, global.hdr_ext);
         }
 
         // If `-run` is passed, the obj file is temporary and is removed after execution.
@@ -585,7 +584,7 @@ version (IN_LLVM)
         {
             if (params.objfiles[j] == cast(const(char)*)m)
             {
-                params.objfiles[j] = m.objfile.name.toChars();
+                params.objfiles[j] = m.objfile.toChars();
                 if (!m.isDocFile && params.obj)
                     m.checkAndAddOutputFile(m.objfile);
                 break;
@@ -605,7 +604,7 @@ version (IN_LLVM)
             // Remove m's object file from list of object files
             for (size_t j = 0; j < params.objfiles.dim; j++)
             {
-                if (m.objfile.name.toChars() == params.objfiles[j])
+                if (m.objfile.toChars() == params.objfiles[j])
                 {
                     params.objfiles.remove(j);
                     break;
@@ -746,12 +745,10 @@ else
         foreach (i; 1 .. modules[0].aimports.dim)
             semantic3OnDependencies(modules[0].aimports[i]);
 
+        const data = ob.peekSlice();
         if (params.moduleDepsFile)
         {
-            auto deps = File(params.moduleDepsFile);
-            deps.setbuffer(cast(void*)ob.data, ob.offset);
-            deps._ref = 1;
-            writeFile(Loc.initial, &deps);
+            writeFile(Loc.initial, params.moduleDepsFile, data);
 version (IN_LLVM)
 {
             // fix LDC issue #1625
@@ -760,7 +757,7 @@ version (IN_LLVM)
 }
         }
         else
-            printf("%.*s", cast(int)ob.offset, ob.data);
+            printf("%.*s", cast(int)data.length, data.ptr);
     }
 
     printCtfePerformanceStats();
@@ -805,10 +802,7 @@ version (IN_LLVM) {} else
 
             // write the output to $(filename).cg
             auto cgFilename = FileName.addExt(mod.srcfile.toString(), "cg");
-            auto cgFile = File(cgFilename);
-            cgFile.setbuffer(buf.data, buf.offset);
-            cgFile._ref = 1;
-            cgFile.write();
+            File.write(cgFilename.ptr, buf.peekSlice());
         }
     }
 version (IN_LLVM)
@@ -846,7 +840,7 @@ else
             if (!firstm)
             {
                 firstm = m;
-                obj_start(cast(char*)m.srcfile.toChars());
+                obj_start(m.srcfile.toChars());
             }
             if (params.verbose)
                 message("code      %s", m.toChars());
@@ -856,7 +850,7 @@ else
         }
         if (!global.errors && firstm)
         {
-            obj_end(library, firstm.objfile);
+            obj_end(library, firstm.objfile.toChars());
         }
     }
     else
@@ -871,7 +865,7 @@ else
             genObjFile(m, params.multiobj);
             if (entrypoint && m == rootHasMain)
                 genObjFile(entrypoint, params.multiobj);
-            obj_end(library, m.objfile);
+            obj_end(library, m.objfile.toChars());
             obj_write_deferred(library);
             if (global.errors && !params.lib)
                 m.deleteObjFile();
@@ -932,7 +926,7 @@ version (IN_LLVM) {} else
                         break;
                 }
 }
-                remove(params.exefile);
+                params.exefile.toCStringThen!(ef => File.remove(ef.ptr));
             }
         }
     }
@@ -941,14 +935,54 @@ version (IN_LLVM) {} else
     return status;
 }
 
+private FileBuffer readFromStdin()
+{
+    enum bufIncrement = 128 * 1024;
+    size_t pos = 0;
+    size_t sz = bufIncrement;
+
+    ubyte* buffer = null;
+    for (;;)
+    {
+        buffer = cast(ubyte*)mem.xrealloc(buffer, sz + 2); // +2 for sentinel
+
+        // Fill up buffer
+        do
+        {
+            assert(sz > pos);
+            size_t rlen = fread(buffer + pos, 1, sz - pos, stdin);
+            pos += rlen;
+            if (ferror(stdin))
+            {
+                import core.stdc.errno;
+                error(Loc.initial, "cannot read from stdin, errno = %d", errno);
+                fatal();
+            }
+            if (feof(stdin))
+            {
+                // We're done
+                assert(pos < sz + 2);
+                buffer[pos] = '\0';
+                buffer[pos + 1] = '\0';
+                return FileBuffer(buffer[0 .. pos]);
+            }
+        } while (pos < sz);
+
+        // Buffer full, expand
+        sz += bufIncrement;
+    }
+
+    assert(0);
+}
+
 extern (C++) void generateJson(Modules* modules)
 {
     OutBuffer buf;
     json_generate(&buf, modules);
 
     // Write buf to file
-    const(char)* name = global.params.jsonfilename;
-    if (name && name[0] == '-' && name[1] == 0)
+    const(char)[] name = global.params.jsonfilename;
+    if (name == "-")
     {
         // Write to stdout; assume it succeeds
         size_t n = fwrite(buf.data, 1, buf.offset, stdout);
@@ -956,10 +990,10 @@ extern (C++) void generateJson(Modules* modules)
     }
     else
     {
-        /* The filename generation code here should be harmonized with Module::setOutfile()
+        /* The filename generation code here should be harmonized with Module.setOutfilename()
          */
-        const(char)* jsonfilename;
-        if (name && *name)
+        const(char)[] jsonfilename;
+        if (name)
         {
             jsonfilename = FileName.defaultExt(name, global.json_ext);
         }
@@ -971,17 +1005,13 @@ extern (C++) void generateJson(Modules* modules)
                 fatal();
             }
             // Generate json file name from first obj name
-            const(char)* n = global.params.objfiles[0];
+            const(char)[] n = global.params.objfiles[0].toDString;
             n = FileName.name(n);
             //if (!FileName::absolute(name))
             //    name = FileName::combine(dir, name);
             jsonfilename = FileName.forceExt(n, global.json_ext);
         }
-        ensurePathToNameExists(Loc.initial, jsonfilename);
-        auto jsonfile = new File(jsonfilename);
-        jsonfile.setbuffer(buf.data, buf.offset);
-        jsonfile._ref = 1;
-        writeFile(Loc.initial, jsonfile);
+        writeFile(Loc.initial, jsonfilename, buf.peekSlice());
     }
 }
 
@@ -1221,16 +1251,18 @@ const(char)* parse_arch_arg(Strings* args, const(char)* arch)
  * Returns:
  *   The 'path' in -conf=path, which is the path to the config file to use
  */
-const(char)* parse_conf_arg(Strings* args)
+const(char)[] parse_conf_arg(Strings* args)
 {
-    const(char)* conf = null;
+    const(char)[] conf;
     foreach (const p; *args)
     {
-        if (p[0] == '-')
+        const(char)[] arg = p.toDString;
+        if (arg.length && arg[0] == '-')
         {
-            if (strncmp(p + 1, "conf=", 5) == 0)
-                conf = p + 6;
-            else if (strcmp(p + 1, "run") == 0)
+            if(arg.length >= 6 && arg[1 .. 6] == "conf="){
+                conf = arg[6 .. $];
+            }
+            else if (arg[1 .. $] == "run")
                 break;
         }
     }
@@ -1272,7 +1304,7 @@ private void setDefaultLibrary()
             static assert(0, "fix this");
         }
     }
-    else if (!global.params.defaultlibname[0])  // if `-defaultlib=` (i.e. an empty defaultlib)
+    else if (!global.params.defaultlibname.length)  // if `-defaultlib=` (i.e. an empty defaultlib)
         global.params.defaultlibname = null;
 
     if (global.params.debuglibname is null)
@@ -1455,7 +1487,7 @@ private void printPredefinedVersions(FILE* stream)
             buf.writeByte(' ');
             buf.writestring(str.toChars());
         }
-        stream.fprintf("predefs  %s\n", buf.peekString());
+        stream.fprintf("predefs  %s\n", buf.peekChars());
     }
 }
 
@@ -1466,7 +1498,8 @@ extern(C) void printGlobalConfigs(FILE* stream)
 {
     stream.fprintf("binary    %.*s\n", cast(int)global.params.argv0.length, global.params.argv0.ptr);
     stream.fprintf("version   %.*s\n", cast(int) global._version.length - 1, global._version.ptr);
-    stream.fprintf("config    %s\n", global.inifilename ? global.inifilename : "(none)");
+    const iniOutput = global.inifilename ? global.inifilename : "(none)";
+    stream.fprintf("config    %.*s\n", cast(int)iniOutput.length, iniOutput.ptr);
     // Print DFLAGS environment variable
     {
         StringTable environment;
@@ -1508,7 +1541,7 @@ extern(C) void printGlobalConfigs(FILE* stream)
 
 private void setTargetCPU(ref Param params)
 {
-    if (params.is64bit || params.isOSX)
+    if (target.isXmmSupported())
     {
         switch (params.cpu)
         {
@@ -1547,11 +1580,7 @@ extern(C) void flushMixins()
         return;
 
     assert(global.params.mixinFile);
-    auto f = File(global.params.mixinFile);
-    OutBuffer* ob = global.params.mixinOut;
-    f.setbuffer(cast(void*)ob.data, ob.offset);
-    f._ref = 1;
-    f.write();
+    File.write(global.params.mixinFile, global.params.mixinOut.peekSlice());
 
     global.params.mixinOut.destroy();
     global.params.mixinOut = null;
@@ -1797,12 +1826,20 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                 import dmd.cli : Usage;
                 string buf = `case "all":`;
                 foreach (t; features)
+                {
+                    if (t.deprecated_)
+                        continue;
+
                     buf ~= `params.`~t.paramName~` = true;`;
-                buf ~= "break;";
+                }
+                buf ~= "break;\n";
 
                 foreach (t; features)
                 {
-                    buf ~= `case "`~t.name~`": params.`~t.paramName~` = true; return true;`;
+                    buf ~= `case "`~t.name~`":`;
+                    if (t.deprecated_)
+                        buf ~= "deprecation(Loc.initial, \"`-"~name~"="~t.name~"` no longer has any effect.\"); ";
+                    buf ~= `params.`~t.paramName~` = true; return true;`;
                 }
                 return buf;
             }
@@ -1832,10 +1869,10 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
         {
             static if (TARGET.Windows)
             {
-                const ext = FileName.ext(p);
-                if (ext && FileName.equals(ext, "exe"))
+                const ext = FileName.ext(arg);
+                if (ext.length && FileName.equals(ext, "exe"))
                 {
-                    params.objname = p;
+                    params.objname = arg;
                     continue;
                 }
                 if (arg == "/?")
@@ -2059,7 +2096,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
         {
             static if (TARGET.Windows)
             {
-                params.mscrtlib = p + 10;
+                params.mscrtlib = (p + 10).toDString;
             }
             else
             {
@@ -2308,7 +2345,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                 {
                     path = toWinPath(path);
                 }
-                params.objdir = path;
+                params.objdir = path.toDString;
                 break;
             case 'f':                       // https://dlang.org/dmd.html#switch-of
                 if (!p[3])
@@ -2318,7 +2355,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                 {
                     path = toWinPath(path);
                 }
-                params.objname = path;
+                params.objname = path.toDString;
                 break;
             case 'p':                       // https://dlang.org/dmd.html#switch-op
                 if (p[3])
@@ -2361,12 +2398,12 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             case 'd':               // https://dlang.org/dmd.html#switch-Hd
                 if (!p[3])
                     goto Lnoarg;
-                params.hdrdir = p + 3 + (p[3] == '=');
+                params.hdrdir = (p + 3 + (p[3] == '=')).toDString;
                 break;
             case 'f':               // https://dlang.org/dmd.html#switch-Hf
                 if (!p[3])
                     goto Lnoarg;
-                params.hdrname = p + 3 + (p[3] == '=');
+                params.hdrname = (p + 3 + (p[3] == '=')).toDString;
                 break;
             case 0:
                 break;
@@ -2382,7 +2419,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             case 'f':               // https://dlang.org/dmd.html#switch-Xf
                 if (!p[3])
                     goto Lnoarg;
-                params.jsonfilename = p + 3 + (p[3] == '=');
+                params.jsonfilename = (p + 3 + (p[3] == '=')).toDString;
                 break;
             case 'i':
                 if (!p[3])
@@ -2495,8 +2532,6 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
         {
             if (p[4] && strchr(p + 5, '='))
             {
-                if (!params.modFileAliasStrings)
-                    params.modFileAliasStrings = new Strings();
                 params.modFileAliasStrings.push(p + 4);
             }
             else
@@ -2593,11 +2628,11 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
         }
         else if (startsWith(p + 1, "defaultlib="))   // https://dlang.org/dmd.html#switch-defaultlib
         {
-            params.defaultlibname = p + 1 + 11;
+            params.defaultlibname = (p + 1 + 11).toDString;
         }
         else if (startsWith(p + 1, "debuglib="))     // https://dlang.org/dmd.html#switch-debuglib
         {
-            params.debuglibname = p + 1 + 9;
+            params.debuglibname = (p + 1 + 9).toDString;
         }
         else if (startsWith(p + 1, "deps"))          // https://dlang.org/dmd.html#switch-deps
         {
@@ -2608,7 +2643,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             }
             if (p[5] == '=')
             {
-                params.moduleDepsFile = p + 1 + 5;
+                params.moduleDepsFile = (p + 1 + 5).toDString;
                 if (!params.moduleDepsFile[0])
                     goto Lnoarg;
             }
@@ -2705,7 +2740,7 @@ else
         {
             VSOptions vsopt;
             vsopt.initialize();
-            params.mscrtlib = vsopt.defaultRuntimeLibrary(params.is64bit);
+            params.mscrtlib = vsopt.defaultRuntimeLibrary(params.is64bit).toDString;
         }
     }
 
@@ -2786,14 +2821,14 @@ else
             /* Use this to name the one object file with the same
              * name as the exe file.
              */
-            params.objname = cast(char*)FileName.forceExt(params.objname, global.obj_ext);
+            params.objname = FileName.forceExt(params.objname, global.obj_ext);
             /* If output directory is given, use that path rather than
              * the exe file path.
              */
             if (params.objdir)
             {
-                const(char)* name = FileName.name(params.objname);
-                params.objname = cast(char*)FileName.combine(params.objdir, name);
+                const(char)[] name = FileName.name(params.objname);
+                params.objname = FileName.combine(params.objdir, name);
             }
         }
     }
@@ -2862,7 +2897,7 @@ else
 }
     for (size_t i = 0; i < files.dim; i++)
     {
-        const(char)* name;
+        const(char)[] name;
 version (IN_LLVM) {} else
 {
         version (Windows)
@@ -2870,9 +2905,9 @@ version (IN_LLVM) {} else
             files[i] = toWinPath(files[i]);
         }
 }
-        const(char)* p = files[i];
+        const(char)[] p = files[i].toDString();
         p = FileName.name(p); // strip path
-        const(char)* ext = FileName.ext(p);
+        const(char)[] ext = FileName.ext(p);
         if (ext)
         {
             /* Deduce what to do with a file based on its extension
@@ -2905,7 +2940,7 @@ version (IN_LLVM) {} else
                     continue;
                 }
             }
-            if (strcmp(ext, global.ddoc_ext) == 0)
+            if (ext == global.ddoc_ext)
             {
                 global.params.ddocfiles.push(files[i]);
                 continue;
@@ -2913,12 +2948,12 @@ version (IN_LLVM) {} else
             if (FileName.equals(ext, global.json_ext))
             {
                 global.params.doJsonGeneration = true;
-                global.params.jsonfilename = files[i];
+                global.params.jsonfilename = files[i].toDString;
                 continue;
             }
             if (FileName.equals(ext, global.map_ext))
             {
-                global.params.mapfile = files[i];
+                global.params.mapfile = files[i].toDString;
                 continue;
             }
             // IN_LLVM replaced: static if (TARGET.Windows)
@@ -2926,12 +2961,12 @@ version (IN_LLVM) {} else
             {
                 if (FileName.equals(ext, "res"))
                 {
-                    global.params.resfile = files[i];
+                    global.params.resfile = files[i].toDString;
                     continue;
                 }
                 if (FileName.equals(ext, "def"))
                 {
-                    global.params.deffile = files[i];
+                    global.params.deffile = files[i].toDString;
                     continue;
                 }
                 if (FileName.equals(ext, "exe"))
@@ -2945,7 +2980,7 @@ version (IN_LLVM) {} else
             if (FileName.equals(ext, global.mars_ext) || FileName.equals(ext, global.hdr_ext) || FileName.equals(ext, "dd"))
             {
                 name = FileName.removeExt(p);
-                if (name[0] == 0 || strcmp(name, "..") == 0 || strcmp(name, ".") == 0)
+                if (!name.length || name == ".." || name == ".")
                 {
                 Linvalid:
                     error(Loc.initial, "invalid file name '%s'", files[i]);
@@ -2954,21 +2989,21 @@ version (IN_LLVM) {} else
             }
             else
             {
-                error(Loc.initial, "unrecognized file extension %s", ext);
+                error(Loc.initial, "unrecognized file extension %.*s", cast(int)ext.length, ext.ptr);
                 fatal();
             }
         }
         else
         {
             name = p;
-            if (!*name)
+            if (!name.length)
                 goto Linvalid;
         }
         /* At this point, name is the D source file name stripped of
          * its path and extension.
          */
-        auto id = Identifier.idPool(name, cast(uint)strlen(name));
-        auto m = new Module(files[i], id, global.params.doDocComments, global.params.doHdrGeneration);
+        auto id = Identifier.idPool(name);
+        auto m = new Module(files[i].toDString, id, global.params.doDocComments, global.params.doHdrGeneration);
         modules.push(m);
 version (IN_LLVM)
 {
@@ -2983,7 +3018,7 @@ else
 {
         if (firstmodule)
         {
-            global.params.objfiles.push(m.objfile.name.toChars());
+            global.params.objfiles.push(m.objfile.toChars());
             firstmodule = false;
         }
 }

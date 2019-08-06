@@ -95,6 +95,7 @@ public:
      */
     Dsymbol *enclosing;
     VarDeclaration *vthis;      // 'this' parameter if this aggregate is nested
+    VarDeclaration *vthis2;     // 'this' parameter if this aggregate is a template and is nested
     // Special member functions
     FuncDeclarations invs;              // Array of invariants
     FuncDeclaration *inv;               // invariant
@@ -121,14 +122,16 @@ public:
     virtual Scope *newScope(Scope *sc);
     void setScope(Scope *sc);
     bool determineFields();
+    size_t nonHiddenFields();
     bool determineSize(Loc loc);
     virtual void finalizeSize() = 0;
     d_uns64 size(const Loc &loc);
     bool fill(Loc loc, Expressions *elements, bool ctorinit);
     Type *getType();
-    bool isDeprecated();         // is aggregate deprecated?
-    bool isNested();
+    bool isDeprecated() const;         // is aggregate deprecated?
+    bool isNested() const;
     void makeNested();
+    void makeNested2();
     bool isExport() const;
     Dsymbol *searchCtor();
 

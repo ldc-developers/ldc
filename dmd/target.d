@@ -71,7 +71,6 @@ struct Target
         real_t max;                         /// largest representable value that's not infinity
         real_t min_normal;                  /// smallest representable normalized value that's not 0
         real_t nan;                         /// NaN value
-        real_t snan;                        /// signalling NaN value
         real_t infinity;                    /// infinity value
         real_t epsilon;                     /// smallest increment to the value 1
 
@@ -87,7 +86,6 @@ struct Target
             max = T.max;
             min_normal = T.min_normal;
             nan = T.nan;
-            snan = T.init;
             infinity = T.infinity;
             epsilon = T.epsilon;
         }
@@ -356,6 +354,15 @@ else // !IN_LLVM
     }
 } // !IN_LLVM
 
+    /******************
+     * Returns:
+     *  true if xmm usage is supported
+     */
+    extern (C++) bool isXmmSupported()
+    {
+        return global.params.is64bit || global.params.isOSX;
+    }
+
     /**
      * Checks whether the target supports a vector type.
      * Params:
@@ -370,8 +377,9 @@ else // !IN_LLVM
     extern (C++) int isVectorTypeSupported(int sz, Type type)
     {
         // LDC_FIXME: Is it possible to query the LLVM target about supported vectors?
-        if (!IN_LLVM && !global.params.is64bit && !global.params.isOSX)
+        if (!IN_LLVM && !isXmmSupported())
             return 1; // not supported
+
         switch (type.ty)
         {
         case Tvoid:
@@ -863,7 +871,7 @@ else // !IN_LLVM
                 if (global.params.isWindows)
                 {
                     if (global.params.mscoff)
-                        return stringExp(global.params.mscrtlib ? global.params.mscrtlib.toDString : "");
+                        return stringExp(global.params.mscrtlib);
                     return stringExp("snn");
                 }
                 return stringExp("");

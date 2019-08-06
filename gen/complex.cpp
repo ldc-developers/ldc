@@ -10,6 +10,7 @@
 #include "gen/complex.h"
 
 #include "dmd/declaration.h"
+#include "dmd/errors.h"
 #include "dmd/mtype.h"
 #include "gen/binops.h"
 #include "gen/dvalue.h"

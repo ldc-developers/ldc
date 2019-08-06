@@ -26,12 +26,12 @@
 #include "dmd/attrib.h"
 #include "dmd/declaration.h"
 #include "dmd/enum.h"
+#include "dmd/errors.h"
 #include "dmd/expression.h"
 #include "dmd/id.h"
 #include "dmd/import.h"
 #include "dmd/init.h"
 #include "dmd/mangle.h"
-#include "dmd/mars.h"
 #include "dmd/module.h"
 #include "dmd/mtype.h"
 #include "dmd/scope.h"
@@ -92,7 +92,7 @@ static void emitTypeMetadata(TypeInfoDeclaration *tid) {
     OutBuffer buf;
     buf.writestring(TD_PREFIX);
     mangleToBuffer(tid, &buf);
-    const char *metaname = buf.peekString();
+    const char *metaname = buf.peekChars();
 
     llvm::NamedMDNode *meta = gIR->module.getNamedMetadata(metaname);
 
@@ -621,7 +621,7 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
 
   OutBuffer mangleBuf;
   mangleToBuffer(decl, &mangleBuf);
-  const char *mangled = mangleBuf.peekString();
+  const char *mangled = mangleBuf.peekChars();
 
   IF_LOG {
     Logger::println("type = '%s'", decl->tinfo->toChars());

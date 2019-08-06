@@ -92,7 +92,7 @@ static std::string getOutputName() {
 
   const char *extension = nullptr;
   if (sharedLib) {
-    extension = global.dll_ext;
+    extension = global.dll_ext.ptr;
   } else if (triple.isOSWindows()) {
     extension = "exe";
   } else if (triple.getArch() == llvm::Triple::wasm32 ||
@@ -100,11 +100,11 @@ static std::string getOutputName() {
     extension = "wasm";
   }
 
-  if (global.params.exefile) {
+  if (global.params.exefile.length) {
     // DMD adds the default extension if there is none
     return opts::invokedByLDMD && extension
-               ? FileName::defaultExt(global.params.exefile, extension)
-               : global.params.exefile;
+               ? FileName::defaultExt(global.params.exefile.ptr, extension)
+               : global.params.exefile.ptr;
   }
 
   // Infer output name from first object file.

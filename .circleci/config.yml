@@ -56,6 +56,11 @@ commonSteps: &commonSteps
         name: Build LDC & LDC D unittests & defaultlib unittest runners
         command: |
           set -x
+          # FIXME: disable parallel GC marking for 64-bit unittest runners on Linux
+          #        (unclear segfaults with shared Phobos testrunners, see #3093)
+          if [ "$CI_OS" = "linux" ]; then
+            echo 'version (X86_64) extern(C) __gshared string[] rt_options = [ "gcopt=parallel:0" ];' >> runtime/druntime/src/test_runner.d
+          fi
           cd ..
           cmake --version
           ninja --version
@@ -65,7 +70,12 @@ commonSteps: &commonSteps
             -DCMAKE_BUILD_TYPE=Release \
             -DD_COMPILER=$PWD/../host-ldc/bin/ldmd2 \
             $EXTRA_CMAKE_FLAGS
-          ninja -j2 all ldc2-unittest all-test-runners
+          # Work around out-of-memory errors - retry twice with -j2 and one last time with -j1
+          targets='all ldc2-unittest all-test-runners'
+          for i in {1..3}; do
+            ninja -j2 $targets && break || true
+          done
+          ninja -j1 $targets
           bin/ldc2 -version
     - run:
         name: Run LDC D unittests

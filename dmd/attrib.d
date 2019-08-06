@@ -19,18 +19,18 @@ import dmd.declaration;
 import dmd.dmodule;
 import dmd.dscope;
 import dmd.dsymbol;
-import dmd.dsymbolsem;
+import dmd.dsymbolsem : dsymbolSemantic;
 import dmd.expression;
-import dmd.expressionsem;
+import dmd.expressionsem : arrayExpressionSemantic;
 import dmd.func;
 import dmd.globals;
-import dmd.hdrgen;
+import dmd.hdrgen : protectionToBuffer;
 import dmd.id;
 import dmd.identifier;
 import dmd.mtype;
-import dmd.objc;
+import dmd.objc; // for objc.addSymbols
 import dmd.root.outbuffer;
-import dmd.target;
+import dmd.target; // for target.systemLinkage
 import dmd.tokens;
 import dmd.visitor;
 
@@ -398,6 +398,11 @@ extern (C++) final class LinkDeclaration : AttribDeclaration
 
     override const(char)* toChars() const
     {
+        return toString().ptr;
+    }
+
+    extern(D) override const(char)[] toString() const
+    {
         return "extern ()";
     }
 
@@ -434,6 +439,11 @@ extern (C++) final class CPPMangleDeclaration : AttribDeclaration
 
     override const(char)* toChars() const
     {
+        return toString().ptr;
+    }
+
+    extern(D) override const(char)[] toString() const
+    {
         return "extern ()";
     }
 
@@ -441,6 +451,92 @@ extern (C++) final class CPPMangleDeclaration : AttribDeclaration
     {
         v.visit(this);
     }
+}
+
+/**
+ * A node to represent an `extern(C++)` namespace attribute
+ *
+ * There are two ways to declarate a symbol as member of a namespace:
+ * `Nspace` and `CPPNamespaceDeclaration`.
+ * The former creates a scope for the symbol, and inject them in the
+ * parent scope at the same time.
+ * The later, this class, has no semantic implications and is only
+ * used for mangling.
+ * Additionally, this class allows one to use reserved identifiers
+ * (D keywords) in the namespace.
+ *
+ * A `CPPNamespaceDeclaration` can be created from an `Identifier`
+ * (already resolved) or from an `Expression`, which is CTFE-ed
+ * and can be either a `TupleExp`, in which can additional
+ * `CPPNamespaceDeclaration` nodes are created, or a `StringExp`.
+ *
+ * Note that this class, like `Nspace`, matches only one identifier
+ * part of a namespace. For the namespace `"foo::bar"`,
+ * the will be a `CPPNamespaceDeclaration` with its `ident`
+ * set to `"bar"`, and its `namespace` field pointing to another
+ * `CPPNamespaceDeclaration` with its `ident` set to `"foo"`.
+ */
+extern (C++) final class CPPNamespaceDeclaration : AttribDeclaration
+{
+    /// CTFE-able expression, resolving to `TupleExp` or `StringExp`
+    Expression exp;
+
+    extern (D) this(Identifier ident, Dsymbols* decl)
+    {
+        super(decl);
+        this.ident = ident;
+    }
+
+    extern (D) this(Expression exp, Dsymbols* decl)
+    {
+        super(decl);
+        this.exp = exp;
+    }
+
+    extern (D) this(Identifier ident, Expression exp, Dsymbols* decl,
+                    CPPNamespaceDeclaration parent)
+    {
+        super(decl);
+        this.ident = ident;
+        this.exp = exp;
+        this.namespace = parent;
+    }
+
+    override Dsymbol syntaxCopy(Dsymbol s)
+    {
+        assert(!s);
+        return new CPPNamespaceDeclaration(
+            this.ident, this.exp, Dsymbol.arraySyntaxCopy(this.decl), this.namespace);
+    }
+
+    /**
+     * Returns:
+     *   A copy of the parent scope, with `this` as `namespace` and C++ linkage
+     */
+    override Scope* newScope(Scope* sc)
+    {
+        auto scx = sc.copy();
+        scx.linkage = LINK.cpp;
+        scx.namespace = this;
+        return scx;
+    }
+
+    override const(char)* toChars() const
+    {
+        return toString().ptr;
+    }
+
+    extern(D) override const(char)[] toString() const
+    {
+        return "extern (C++, `namespace`)";
+    }
+
+    override void accept(Visitor v)
+    {
+        v.visit(this);
+    }
+
+    override inout(CPPNamespaceDeclaration) isCPPNamespaceDeclaration() inout { return this; }
 }
 
 /***********************************************************
@@ -527,7 +623,7 @@ extern (C++) final class ProtDeclaration : AttribDeclaration
         assert(protection.kind > Prot.Kind.undefined);
         OutBuffer buf;
         protectionToBuffer(&buf, protection);
-        return buf.extractString();
+        return buf.extractChars();
     }
 
     override inout(ProtDeclaration) isProtDeclaration() inout
@@ -1172,6 +1268,11 @@ extern (C++) final class CompileDeclaration : AttribDeclaration
         return "mixin";
     }
 
+    override inout(CompileDeclaration) isCompileDeclaration() inout
+    {
+        return this;
+    }
+
     override void accept(Visitor v)
     {
         v.visit(this);
@@ -1233,9 +1334,9 @@ extern (C++) final class UserAttributeDeclaration : AttribDeclaration
             /* Create a new tuple that combines them
              * (do not append to left operand, as this is a copy-on-write operation)
              */
-            udas = new Expressions();
-            udas.push(new TupleExp(Loc.initial, udas1));
-            udas.push(new TupleExp(Loc.initial, udas2));
+            udas = new Expressions(2);
+            (*udas)[0] = new TupleExp(Loc.initial, udas1);
+            (*udas)[1] = new TupleExp(Loc.initial, udas2);
         }
         return udas;
     }

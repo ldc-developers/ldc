@@ -9,6 +9,7 @@
 
 #include "dmd/aggregate.h"
 #include "dmd/declaration.h"
+#include "dmd/errors.h"
 #include "dmd/hdrgen.h" // for parametersTypeToChars()
 #include "dmd/identifier.h"
 #include "dmd/mangle.h"
@@ -113,7 +114,7 @@ LLGlobalVariable *IrAggr::getClassInfoSymbol() {
       debugName.write(irMangle.data(), irMangle.length());
     }
     llvm::NamedMDNode *node =
-        gIR->module.getOrInsertNamedMetadata(debugName.peekString());
+        gIR->module.getOrInsertNamedMetadata(debugName.peekChars());
     node->addOperand(llvm::MDNode::get(
         gIR->context(), llvm::makeArrayRef(mdVals, CD_NumFields)));
   }
@@ -297,7 +298,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtblSymbol(BaseClass *b,
   mangledName.writestring(thunkPrefix);
   mangledName.writestring("6__vtblZ");
 
-  const auto irMangle = getIRMangledVarName(mangledName.peekString(), LINKd);
+  const auto irMangle = getIRMangledVarName(mangledName.peekChars(), LINKd);
 
   LLGlobalVariable *gvar =
       declareGlobal(cd->loc, gIR->module, vtblType, irMangle, /*isConstant=*/true);
@@ -386,7 +387,7 @@ void IrAggr::defineInterfaceVtbl(BaseClass *b, bool new_instance,
     nameBuf.writestring(mangledTargetName + 2);
 
     const auto thunkIRMangle =
-        getIRMangledFuncName(nameBuf.peekString(), fd->linkage);
+        getIRMangledFuncName(nameBuf.peekChars(), fd->linkage);
 
     llvm::Function *thunk = gIR->module.getFunction(thunkIRMangle);
     if (!thunk) {

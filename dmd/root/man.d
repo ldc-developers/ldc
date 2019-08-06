@@ -22,7 +22,7 @@ version (Windows)
     import core.sys.windows.shellapi;
     import core.sys.windows.winuser;
 
-    extern (C++) void browse(const(char)* url)
+    extern (C++) void browse(const(char)* url) nothrow @nogc
     in
     {
         assert(strncmp(url, "http://", 7) == 0 || strncmp(url, "https://", 8) == 0);
@@ -34,7 +34,7 @@ version (Windows)
 }
 else version (OSX)
 {
-    extern (C++) void browse(const(char)* url)
+    extern (C++) void browse(const(char)* url) nothrow @nogc
     in
     {
         assert(strncmp(url, "http://", 7) == 0 || strncmp(url, "https://", 8) == 0);
@@ -68,7 +68,7 @@ else version (OSX)
 }
 else version (Posix)
 {
-    extern (C++) void browse(const(char)* url)
+    extern (C++) void browse(const(char)* url) nothrow @nogc
     in
     {
         assert(strncmp(url, "http://", 7) == 0 || strncmp(url, "https://", 8) == 0);

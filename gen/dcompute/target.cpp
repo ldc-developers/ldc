@@ -10,7 +10,7 @@
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
 
 #include "dmd/dsymbol.h"
-#include "dmd/mars.h"
+#include "dmd/errors.h"
 #include "dmd/module.h"
 #include "dmd/scope.h"
 #include "driver/linker.h"
@@ -51,7 +51,8 @@ void DComputeTarget::writeModule() {
   os << opts::dcomputeFilePrefix << '_' << short_name << tversion << '_'
      << (global.params.is64bit ? 64 : 32) << '.' << binSuffix;
 
-  const char *path = FileName::combine(global.params.objdir, os.str().c_str());
+  const char *path =
+      FileName::combine(global.params.objdir.ptr, os.str().c_str());
 
   ::writeModule(&_ir->module, path);
 
