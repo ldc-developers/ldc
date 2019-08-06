@@ -612,7 +612,51 @@ pragma(LDC_intrinsic, "llvm.umul.with.overflow.i#")
     OverflowRet!(T) llvm_umul_with_overflow(T)(T lhs, T rhs)
         if (__traits(isIntegral, T));
 
+version (INTRINSICS_FROM_800)
+{
+//
+// SATURATION ARITHMETIC INTRINSICS
+//
+// Saturation arithmetic is a version of arithmetic in which operations are
+// limited to a fixed range between a minimum and maximum value. If the result of
+// an operation is greater than the maximum value, the result is set (or
+// "clamped") to this maximum. If it is below the minimum, it is clamped to this
+// minimum.
+// 
 
+/// Signed Saturation Addition
+/// The maximum value this operation can clamp to is the largest signed value
+/// representable by the bit width of the arguments. The minimum value is the
+/// smallest signed value representable by this bit width.
+pragma(LDC_intrinsic, "llvm.sadd.sat.i#")
+    T llvm_sadd_sat(T)(T lhs, T rhs)
+        if (__traits(isIntegral, T));
+
+/// Unsigned Saturation Addition
+/// The maximum value this operation can clamp to is the largest unsigned value
+/// representable by the bit width of the arguments. Because this is an unsigned
+/// operation, the result will never saturate towards zero.
+pragma(LDC_intrinsic, "llvm.uadd.sat.i#")
+    T llvm_uadd_sat(T)(T lhs, T rhs)
+        if (__traits(isIntegral, T));
+
+/// Signed Saturation Subtraction
+/// The maximum value this operation can clamp to is the largest signed value
+/// representable by the bit width of the arguments. The minimum value is the
+/// smallest signed value representable by this bit width.
+pragma(LDC_intrinsic, "llvm.ssub.sat.i#")
+    T llvm_ssub_sat(T)(T lhs, T rhs)
+        if (__traits(isIntegral, T));
+
+/// Unsigned Saturation Subtraction
+/// The minimum value this operation can clamp to is 0, which is the smallest
+/// unsigned value representable by the bit width of the unsigned arguments.
+/// Because this is an unsigned operation, the result will never saturate towards
+/// the largest possible value representable by this bit width.
+pragma(LDC_intrinsic, "llvm.usub.sat.i#")
+    T llvm_usub_sat(T)(T lhs, T rhs)
+        if (__traits(isIntegral, T));
+}
 
 //
 // GENERAL INTRINSICS
