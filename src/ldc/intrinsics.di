@@ -410,7 +410,26 @@ pragma(LDC_intrinsic, "llvm.maxnum.f#")
     T llvm_maxnum(T)(T vala, T valb)
         if (__traits(isFloating, T));
 
+version (INTRINSICS_FROM_800)
+{
+/// The ‘llvm.minimum.*’ intrinsics return the minimum of the two arguments, propagating
+/// NaNs and treating -0.0 as less than +0.0.
+/// If either operand is a NaN, returns NaN. Otherwise returns the lesser of the two arguments.
+/// -0.0 is considered to be less than +0.0 for this intrinsic. These are the 
+/// semantics specified in the draft of IEEE 754-2018.
+pragma(LDC_intrinsic, "llvm.minimum.f#")
+    T llvm_minimum(T)(T vala, T valb)
+        if (__traits(isFloating, T));
 
+/// The ‘llvm.maximum.*’ intrinsics return the maximum of the two arguments, propagating
+/// NaNs and treating -0.0 as less than +0.0.
+/// If either operand is a NaN, returns NaN. Otherwise returns the greater of the two arguments.
+/// -0.0 is considered to be less than +0.0 for this intrinsic. Note that these are the
+/// semantics specified in the draft of IEEE 754-2018.
+pragma(LDC_intrinsic, "llvm.maximum.f#")
+    T llvm_maximum(T)(T vala, T valb)
+        if (__traits(isFloating, T));
+}
 
 //
 // BIT MANIPULATION INTRINSICS
