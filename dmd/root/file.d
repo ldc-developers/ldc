@@ -189,9 +189,10 @@ nothrow:
         else version (Windows)
         {
             DWORD numwritten; // here because of the gotos
+            const nameStr = name.toDString;
             // work around Windows file path length limitation
             // (see documentation for extendedPathThen).
-            HANDLE h = name.toDString.extendedPathThen!
+            HANDLE h = nameStr.extendedPathThen!
                 (p => CreateFileW(p.ptr,
                                   GENERIC_WRITE,
                                   0,
@@ -211,7 +212,7 @@ nothrow:
             return true;
         err2:
             CloseHandle(h);
-            DeleteFileA(name);
+            nameStr.extendedPathThen!(p => DeleteFileW(p.ptr));
         err:
             return false;
         }
@@ -242,7 +243,7 @@ nothrow:
         }
         else version (Windows)
         {
-            DeleteFileA(name);
+            name.toDString.extendedPathThen!(p => DeleteFileW(p.ptr));
         }
         else
         {
