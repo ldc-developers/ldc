@@ -73,6 +73,7 @@
 #endif
 
 #if _WIN32
+#include "llvm/Support/ConvertUTF.h"
 #include <windows.h>
 #endif
 
@@ -901,12 +902,22 @@ int main(int argc, const char **originalArgv)
   // Only pass --DRT-* options (before a first potential -run) to _d_run_main;
   // we don't need any args for _Dmain.
   llvm::SmallVector<const args::CArgChar *, 4> drunmainArgs;
-  for (size_t i = 0; i < allArguments.size(); ++i) {
+  drunmainArgs.push_back(originalArgv[0]);
+  for (size_t i = 1; i < allArguments.size(); ++i) {
     const char *arg = allArguments[i];
     if (args::isRunArg(arg))
       break;
-    if (i == 0 || strncmp(arg, "--DRT-", 6) == 0)
-      drunmainArgs.push_back(originalArgv[i]);
+    if (strncmp(arg, "--DRT-", 6) == 0) {
+#if LDC_WINDOWS_WMAIN
+      // cannot use originalArgv, as the arg may originate from a response file
+      llvm::SmallVector<wchar_t, 64> warg;
+      llvm::sys::windows::UTF8ToUTF16(arg, warg);
+      warg.push_back(0);
+      drunmainArgs.push_back(wcsdup(warg.data()));
+#else
+      drunmainArgs.push_back(arg);
+#endif
+    }
   }
 
   // move on to _d_run_main, _Dmain, and finally cppmain below
