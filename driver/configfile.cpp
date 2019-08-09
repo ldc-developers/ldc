@@ -9,6 +9,7 @@
 
 #include "driver/configfile.h"
 
+#include "driver/args.h"
 #include "driver/exe_path.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
@@ -31,6 +32,10 @@
 
 namespace sys = llvm::sys;
 
+#if defined(_WIN32) && LDC_LLVM_VER >= 400
+using llvm::UTF16;
+#endif
+
 // dummy only; needs to be parsed manually earlier as the switches contained in
 // the config file are injected into the command line options fed to the parser
 static llvm::cl::opt<std::string>
@@ -39,12 +44,15 @@ static llvm::cl::opt<std::string>
 
 #if _WIN32
 std::string getUserHomeDirectory() {
-  char buff[MAX_PATH];
-  HRESULT res = SHGetFolderPathA(NULL, CSIDL_FLAG_CREATE | CSIDL_APPDATA, NULL,
-                                 SHGFP_TYPE_CURRENT, buff);
+  wchar_t buff[MAX_PATH];
+  HRESULT res = SHGetFolderPathW(nullptr, CSIDL_FLAG_CREATE | CSIDL_APPDATA,
+                                 nullptr, SHGFP_TYPE_CURRENT, buff);
   if (res != S_OK)
     assert(0 && "Failed to get user home directory");
-  return buff;
+  std::string result;
+  llvm::convertUTF16ToUTF8String(
+      {reinterpret_cast<UTF16 *>(&buff[0]), wcslen(buff)}, result);
+  return result;
 }
 #else
 std::string getUserHomeDirectory() {
@@ -58,30 +66,18 @@ static bool ReadPathFromRegistry(llvm::SmallString<128> &p) {
   HKEY hkey;
   bool res = false;
   // FIXME: Version number should be a define.
-  if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,
-                   _T("SOFTWARE\\ldc-developers\\LDC\\0.11.0"), NULL,
-                   KEY_QUERY_VALUE, &hkey) == ERROR_SUCCESS) {
+  if (RegOpenKeyExW(HKEY_LOCAL_MACHINE,
+                    L"SOFTWARE\\ldc-developers\\LDC\\0.11.0", 0,
+                    KEY_QUERY_VALUE, &hkey) == ERROR_SUCCESS) {
     DWORD length;
-    if (RegGetValue(hkey, NULL, _T("Path"), RRF_RT_REG_SZ, NULL, NULL,
-                    &length) == ERROR_SUCCESS) {
-      std::vector<TCHAR> buffer;
+    if (RegGetValueW(hkey, nullptr, L"Path", RRF_RT_REG_SZ, nullptr, nullptr,
+                     &length) == ERROR_SUCCESS) {
+      std::vector<wchar_t> buffer;
       buffer.reserve(length);
       const auto data = buffer.data();
-      if (RegGetValue(hkey, NULL, _T("Path"), RRF_RT_REG_SZ, NULL, data,
-                      &length) == ERROR_SUCCESS) {
-#if UNICODE
-#if LDC_LLVM_VER >= 400
-        using UTF16 = llvm::UTF16;
-#endif
-        std::string out;
-        res = llvm::convertUTF16ToUTF8String(
-            llvm::ArrayRef<UTF16>(reinterpret_cast<UTF16 *>(data), length),
-            out);
-        p = out;
-#else
-        p = std::string(data);
-        res = true;
-#endif
+      if (RegGetValueW(hkey, nullptr, L"Path", RRF_RT_REG_SZ, nullptr, data,
+                       &length) == ERROR_SUCCESS) {
+        res = !llvm::sys::windows::UTF16ToUTF8(data, length, p);
       }
     }
     RegCloseKey(hkey);
@@ -213,7 +209,7 @@ void ConfigFile::extendCommandLine(llvm::SmallVectorImpl<const char *> &args) {
   // append 'post-switches', but before a first potential '-run'
   size_t runIndex = 0;
   for (size_t i = 1; i < args.size(); ++i) {
-    if (strcmp(args[i], "-run") == 0 || strcmp(args[i], "--run") == 0) {
+    if (args::isRunArg(args[i])) {
       runIndex = i;
       break;
     }

@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "driver/args.h"
+
 #include <fstream>
 #include <iterator>
 #include <list>
@@ -150,10 +152,9 @@ int response_expand(size_t *pargc, char ***ppargv) {
       }
 
       std::vector<std::string> expanded_args;
-      const char *env = getenv(arg.c_str());
-      if (env) {
-        std::string envCppStr(env);
-        std::istringstream ss(envCppStr);
+      std::string env = env::get(arg.c_str());
+      if (!env.empty()) {
+        std::istringstream ss(env);
         expanded_args = expand(ss);
       } else {
         std::ifstream ifs(arg.c_str());

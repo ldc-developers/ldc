@@ -40,8 +40,15 @@ version (Windows)
     extern (Windows) void SetLastError(DWORD) nothrow @nogc;
     extern (C) char* getcwd(char* buffer, size_t maxlen) nothrow;
 
+version (IN_LLVM)
+{
+    private enum codepage = CP_UTF8;
+}
+else
+{
     // assume filenames encoded in system default Windows ANSI code page
     private enum codepage = CP_ACP;
+}
 }
 
 version (CRuntime_Glibc)

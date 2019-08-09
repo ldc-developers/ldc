@@ -23,6 +23,7 @@
 #error "Please define LDC_EXE_NAME to the name of the LDC executable to use."
 #endif
 
+#include "driver/args.h"
 #include "driver/exe_path.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FileSystem.h"
@@ -95,11 +96,7 @@ char *concat(const char *a, const char *b) {
 
 char *concat(const char *a, int b) {
   char bStr[14];
-#if defined(_MSC_VER)
-  _snprintf_s(bStr, _countof(bStr), sizeof(bStr), "%d", b);
-#else
   snprintf(bStr, sizeof(bStr), "%d", b);
-#endif
   return concat(a, bStr);
 }
 
@@ -270,12 +267,12 @@ Where:\n\
  * here since it is defined in mars.c.
  */
 void appendEnvVar(const char *envVarName, std::vector<char *> &args) {
-  char *env = getenv(envVarName);
-  if (!env) {
+  std::string envVar = env::get(envVarName);
+  if (envVar.empty()) {
     return;
   }
 
-  env = strdup(env); // create our own writable copy
+  char *env = strdup(envVar.c_str()); // create forever-living copy
 
   size_t j = 1; // leave argv[0] alone
   while (1) {
@@ -343,16 +340,16 @@ void appendEnvVar(const char *envVarName, std::vector<char *> &args) {
  * to LDC args.
  * `ldcArgs` needs to be initialized with the path to the LDC executable.
  */
-void translateArgs(size_t originalArgc, char **originalArgv,
+void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
                    std::vector<const char *> &ldcArgs) {
   // Expand any response files present into the list of arguments.
-  size_t argc = originalArgc;
-  char **argv = originalArgv;
+  size_t argc = ldmdArgs.size();
+  char **argv = const_cast<char **>(ldmdArgs.data());
   if (response_expand(&argc, &argv)) {
     error("Could not read response file.");
   }
 
-  std::vector<char *> args(argv, argv + argc);
+  std::vector<const char *> args(argv, argv + argc);
 
   std::vector<char *> dflags;
   appendEnvVar("DFLAGS", dflags);
@@ -378,7 +375,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
   bool pic = false; // -fPIC already encountered?
 
   for (size_t i = 1; i < args.size(); i++) {
-    char *p = args[i];
+    const char *p = args[i];
     if (*p == '-') {
       if (strcmp(p + 1, "vdmd") == 0) {
         vdmd = true;
@@ -601,8 +598,9 @@ void translateArgs(size_t originalArgc, char **originalArgv,
           if (isdigit(static_cast<unsigned char>(p[7]))) {
             long level;
             errno = 0;
-            level = strtol(p + 7, &p, 10);
-            if (*p || errno || level > INT_MAX) {
+            char *end;
+            level = strtol(p + 7, &end, 10);
+            if (*end || errno || level > INT_MAX) {
               goto Lerror;
             }
             ldcArgs.push_back(concat("-d-debug=", static_cast<int>(level)));
@@ -622,8 +620,9 @@ void translateArgs(size_t originalArgc, char **originalArgv,
           if (isdigit(static_cast<unsigned char>(p[9]))) {
             long level;
             errno = 0;
-            level = strtol(p + 9, &p, 10);
-            if (*p || errno || level > INT_MAX) {
+            char *end;
+            level = strtol(p + 9, &end, 10);
+            if (*end || errno || level > INT_MAX) {
               goto Lerror;
             }
             ldcArgs.push_back(concat("-d-version=", static_cast<int>(level)));
@@ -638,7 +637,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
                  strcmp(p + 1, "-x") == 0 || strcmp(p + 1, "-y") == 0) {
         ldcArgs.push_back(concat("-hidden-debug-", p + 2));
       } else if (strcmp(p + 1, "-help") == 0 || strcmp(p + 1, "h") == 0) {
-        printUsage(originalArgv[0], ldcPath);
+        printUsage(ldmdArgs[0], ldcPath);
         exit(EXIT_SUCCESS);
       } else if (strcmp(p + 1, "-version") == 0) {
         // Print version information by actually invoking ldc -version.
@@ -680,7 +679,7 @@ void translateArgs(size_t originalArgc, char **originalArgv,
       }
 #ifdef _WIN32
       else if (strcmp(p, "/?") == 0) {
-        printUsage(originalArgv[0], ldcPath);
+        printUsage(ldmdArgs[0], ldcPath);
         exit(EXIT_SUCCESS);
       }
 #endif
@@ -734,11 +733,26 @@ std::string locateBinary(std::string exeName) {
   return "";
 }
 
-// In driver/main.d
-int main(int argc, char **argv);
+static llvm::SmallVector<const char *, 32> ldmdArguments;
 
-int cppmain(int argc, char **argv) {
-  exe_path::initialize(argv[0]);
+/// LDMD's entry point, C main.
+#if LDC_WINDOWS_WMAIN
+int wmain(int argc, const wchar_t **originalArgv)
+#else
+int main(int argc, const char **originalArgv)
+#endif
+{
+  // Initialize `ldmdArguments` with the UTF-8 command-line args.
+  args::getCommandLineArguments(argc, originalArgv, ldmdArguments);
+
+  // Move on to _d_run_main, _Dmain, and finally cppmain below.
+  // Only pass the first arg to skip useless work, e.g., not applying --DRT-* to
+  // LDMD itself.
+  return args::forwardToDruntime(1, originalArgv);
+}
+
+int cppmain() {
+  exe_path::initialize(ldmdArguments[0]);
 
   std::string ldcExeName = LDC_EXE_NAME;
 #ifdef _WIN32
@@ -749,8 +763,8 @@ int cppmain(int argc, char **argv) {
     error("Could not locate " LDC_EXE_NAME " executable.");
   }
 
-  if (argc == 1) {
-    printUsage(argv[0], ldcPath);
+  if (ldmdArguments.size() == 1) {
+    printUsage(ldmdArguments[0], ldcPath);
     exit(EXIT_FAILURE);
   }
 
@@ -758,7 +772,7 @@ int cppmain(int argc, char **argv) {
   std::vector<const char *> args;
   args.push_back(ldcPath.c_str());
 
-  translateArgs(argc, argv, args);
+  translateArgs(ldmdArguments, args);
 
   args.push_back(nullptr);
 

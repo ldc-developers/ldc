@@ -78,9 +78,9 @@ version (IN_LLVM)
             pragma(LDC_profile_instr, false):
             extern(C)
             {
-                int _d_run_main(int argc, char **argv, void* mainFunc);
+                int _d_run_main(int argc, char** argv, void* mainFunc);
                 int _Dmain(char[][] args);
-                int main(int argc, char **argv)
+                int main(int argc, char** argv)
                 {
                     return _d_run_main(argc, argv, &_Dmain);
                 }

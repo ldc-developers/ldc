@@ -10,6 +10,7 @@
 #include "driver/tool.h"
 
 #include "dmd/errors.h"
+#include "driver/args.h"
 #include "driver/cl_options.h"
 #include "driver/exe_path.h"
 #include "driver/targetmachine.h"
@@ -48,14 +49,15 @@ static std::string findProgramByName(llvm::StringRef name) {
 std::string getProgram(const char *name, const llvm::cl::opt<std::string> *opt,
                        const char *envVar) {
   std::string path;
-  const char *prog = nullptr;
 
   if (opt && !opt->empty()) {
     path = findProgramByName(opt->c_str());
   }
 
-  if (path.empty() && envVar && (prog = getenv(envVar)) && prog[0] != '\0') {
-    path = findProgramByName(prog);
+  if (path.empty() && envVar) {
+    const std::string prog = env::get(envVar);
+    if (!prog.empty())
+      path = findProgramByName(prog);
   }
 
   if (path.empty()) {
@@ -223,7 +225,7 @@ bool needsQuotes(const llvm::StringRef &arg) {
 size_t countPrecedingBackslashes(llvm::StringRef arg, size_t index) {
   size_t count = 0;
 
-  for (size_t i = index - 1; i >= 0; --i) {
+  for (ptrdiff_t i = index - 1; i >= 0; --i) {
     if (arg[i] != '\\')
       break;
     ++count;
@@ -275,18 +277,12 @@ int executeAndWait(const char *commandLine) {
 
   DWORD exitCode;
 
-#if UNICODE
-  std::wstring wcommandLine;
-  if (!llvm::ConvertUTF8toWide(commandLine, wcommandLine))
+  llvm::SmallVector<wchar_t, 512> wcommandLine;
+  if (llvm::sys::windows::UTF8ToUTF16(commandLine, wcommandLine))
     return -3;
-  auto cmdline = const_cast<wchar_t *>(wcommandLine.data());
-#else
-  auto cmdline = const_cast<char *>(commandLine);
-#endif
-  // according to MSDN, only CreateProcessW (unicode) may modify the passed
-  // command line
-  if (!CreateProcess(NULL, cmdline, NULL, NULL, TRUE, 0, NULL, NULL, &si,
-                     &pi)) {
+  wcommandLine.push_back(0);
+  if (!CreateProcessW(nullptr, wcommandLine.data(), nullptr, nullptr, TRUE, 0,
+                      nullptr, nullptr, &si, &pi)) {
     exitCode = -1;
   } else {
     if (WaitForSingleObject(pi.hProcess, INFINITE) != 0 ||
@@ -301,15 +297,15 @@ int executeAndWait(const char *commandLine) {
 }
 
 bool setupMsvcEnvironmentImpl() {
-  if (getenv("VSINSTALLDIR"))
+  if (env::has(L"VSINSTALLDIR"))
     return true;
 
   llvm::SmallString<128> tmpFilePath;
   if (llvm::sys::fs::createTemporaryFile("ldc_dumpEnv", "", tmpFilePath))
     return false;
 
-  /* Run `%ComSpec% /s /c "...\dumpEnv.bat <x86|amd64> > <tmpFilePath>"` to dump
-   * the MSVC environment to the temporary file.
+  /* Run `%ComSpec% /s /c "...\dumpEnv.bat <x86|amd64> > <tmpFilePath>"` to
+   * dump the MSVC environment to the temporary file.
    *
    * cmd.exe /c treats the following string argument (the command)
    * in a very peculiar way if it starts with a double-quote.
@@ -318,13 +314,12 @@ bool setupMsvcEnvironmentImpl() {
    * be parsed properly.
    */
 
-  const char *comspecEnv = getenv("ComSpec");
-  if (!comspecEnv) {
+  std::string cmdExecutable = env::get("ComSpec");
+  if (cmdExecutable.empty()) {
     warning(Loc(),
             "'ComSpec' environment variable is not set, assuming 'cmd.exe'.");
-    comspecEnv = "cmd.exe";
+    cmdExecutable = "cmd.exe";
   }
-  std::string cmdExecutable = comspecEnv;
   std::string batchFile = exe_path::prependBinDir("dumpEnv.bat");
   std::string arch =
       global.params.targetTriple->isArch64Bit() ? "amd64" : "x86";
@@ -387,13 +382,22 @@ bool setupMsvcEnvironmentImpl() {
   bool haveVsInstallDir = false;
 
   for (const auto &pair : env) {
-    const std::string key = pair.first.str();
-    const std::string value = pair.second.str();
+    const llvm::StringRef key = pair.first;
+    const llvm::StringRef value = pair.second;
 
-    if (global.params.verbose)
-      message("  %s=%s", key.c_str(), value.c_str());
+    if (global.params.verbose) {
+      message("  %.*s=%.*s", (int)key.size(), key.data(), (int)value.size(),
+              value.data());
+    }
 
-    SetEnvironmentVariableA(key.c_str(), value.c_str());
+    llvm::SmallVector<wchar_t, 32> wkey;
+    llvm::SmallVector<wchar_t, 512> wvalue;
+    llvm::sys::windows::UTF8ToUTF16(key, wkey);
+    llvm::sys::windows::UTF8ToUTF16(value, wvalue);
+    wkey.push_back(0);
+    wvalue.push_back(0);
+
+    SetEnvironmentVariableW(wkey.data(), wvalue.data());
 
     if (key == "VSINSTALLDIR")
       haveVsInstallDir = true;

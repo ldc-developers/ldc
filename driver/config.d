@@ -99,30 +99,16 @@ class GroupSetting : Setting
 
 Setting[] parseConfigFile(const(char)* filename)
 {
-    auto dFilename = filename[0 .. strlen(filename)].idup;
+    import dmd.globals : Loc;
+    import dmd.utils;
 
-    auto file = fopen(filename, "r");
-    if (!file)
-    {
-        throw new Exception("could not open config file " ~
-                            dFilename ~ " for reading");
-    }
-
-    fseek(file, 0, SEEK_END);
-    const fileLength = ftell(file);
-    rewind(file);
-
-    auto content = new char[fileLength];
-    const numRead = fread(content.ptr, 1, fileLength, file);
-    fclose(file);
+    auto content = readFile(Loc.initial, filename).extractData();
 
     // skip UTF-8 BOM
-    int start = 0;
-    if (numRead >= 3 && content[0 .. 3] == "\xEF\xBB\xBF")
-        start = 3;
-    content = content[start .. numRead];
+    if (content.length >= 3 && content[0 .. 3] == "\xEF\xBB\xBF")
+        content = content[3 .. $];
 
-    auto parser = Parser(cast(string) content, dFilename);
+    auto parser = Parser(cast(string) content, cast(string) filename.toDString);
     return parser.parseConfig();
 }
 
