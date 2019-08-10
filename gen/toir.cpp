@@ -2612,7 +2612,12 @@ public:
     } else {
       Logger::println("normal (splat) expression");
       DValue *val = toElem(e->e1);
-      LLValue *llval = DtoRVal(DtoCast(e->loc, val, type->elementType()));
+      LLValue *llval;
+      if (type->elementType()->ty != Tvoid) {
+        llval = DtoRVal(DtoCast(e->loc, val, type->elementType()));
+      } else {
+        llval = DtoRVal(val);
+      }
       for (unsigned int i = 0; i < e->dim; ++i) {
         DtoStore(llval, DtoGEPi(vector, 0, i));
       }
