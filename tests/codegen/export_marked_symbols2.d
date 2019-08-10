@@ -3,9 +3,9 @@
 
 // UNSUPPORTED: Windows
 
-// RUN: ldc2 %S/inputs/export_marked_symbols_lib.d -shared -of=%t_lib%so
-// RUN: ldc2 %s -I%S/inputs -fvisibility=hidden -of=%t%exe %t_lib%so
-// RUN: ldc2 %s -I%S/inputs -fvisibility=hidden -of=%t%exe %t_lib%so -d-version=DECLARE_MANUALLY
+// RUN: %ldc %S/inputs/export_marked_symbols_lib.d -shared -of=%t_lib%so
+// RUN: %ldc %s -I%S/inputs -fvisibility=hidden -of=%t%exe %t_lib%so
+// RUN: %ldc %s -I%S/inputs -fvisibility=hidden -of=%t%exe %t_lib%so -d-version=DECLARE_MANUALLY
 
 version (DECLARE_MANUALLY)
 {

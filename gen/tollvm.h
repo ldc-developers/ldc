@@ -71,7 +71,12 @@ LinkageWithCOMDAT DtoLinkage(Dsymbol *sym);
 
 bool supportsCOMDAT();
 void setLinkage(LinkageWithCOMDAT lwc, llvm::GlobalObject *obj);
-void setLinkage(Dsymbol *sym, llvm::GlobalObject *obj);
+// Sets the linkage of the specified IR global and possibly hides it, both based
+// on the specified D symbol.
+void setLinkageAndVisibility(Dsymbol *sym, llvm::GlobalObject *obj);
+// Hides the specified IR global if using `-fvisibility=hidden` and the
+// specified D symbol is not exported.
+void setVisibility(Dsymbol *sym, llvm::GlobalObject *obj);
 
 // some types
 LLIntegerType *DtoSize_t();
