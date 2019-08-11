@@ -2294,15 +2294,21 @@ public:
     LOG_SCOPE;
 
     if (e->useStaticInit) {
-      DtoResolveStruct(e->sd);
-      LLValue *initsym = getIrAggr(e->sd)->getInitSymbol();
-      initsym = DtoBitCast(initsym, DtoType(e->type->pointerTo()));
+      StructDeclaration *sd = e->sd;
+      DtoResolveStruct(sd);
 
       if (!dstMem)
         dstMem = DtoAlloca(e->type, ".structliteral");
 
-      assert(dstMem->getType() == initsym->getType());
-      DtoMemCpy(dstMem, initsym);
+      if (sd->zeroInit) {
+        DtoMemSetZero(dstMem);
+      } else {
+        LLValue *initsym = getIrAggr(sd)->getInitSymbol();
+        initsym = DtoBitCast(initsym, DtoType(e->type->pointerTo()));
+        assert(dstMem->getType() == initsym->getType());
+        DtoMemCpy(dstMem, initsym);
+      }
+
       return new DLValue(e->type, dstMem);
     }
 
@@ -2755,6 +2761,31 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
     auto sle = static_cast<StructLiteralExp *>(rhs);
     ToElemVisitor::emitStructLiteral(sle, DtoLVal(lhs));
     return true;
+  }
+
+  if (rhs->op == TOKvar) {
+    auto ve = static_cast<VarExp *>(rhs);
+    if (auto symdecl = ve->var->isSymbolDeclaration()) {
+      Type *t = symdecl->type->toBasetype();
+      if (auto ts = t->isTypeStruct()) {
+        // this is the static initializer for a struct (init symbol)
+        StructDeclaration *sd = ts->sym;
+        assert(sd);
+        DtoResolveStruct(sd);
+
+        LLValue *lhsLVal = DtoLVal(lhs);
+        if (sd->zeroInit) {
+          DtoMemSetZero(lhsLVal);
+        } else {
+          LLValue *initsym = getIrAggr(sd)->getInitSymbol();
+          initsym = DtoBitCast(initsym, DtoType(ve->type->pointerTo()));
+          assert(lhsLVal->getType() == initsym->getType());
+          DtoMemCpy(lhsLVal, initsym);
+        }
+
+        return true;
+      }
+    }
   }
 
   // static array literals too
