@@ -2596,6 +2596,11 @@ public:
 
     LLValue *vector = DtoAlloca(e->to);
 
+    Type *elementType = type->elementType();
+    // `void` array literals and vectors are `ubyte` under the hood.
+    if (elementType->ty == Tvoid)
+      elementType = Type::tuns8;
+
     // Array literals are assigned element-wise, other expressions are cast and
     // splat across the vector elements. This is what DMD does.
     if (e->e1->op == TOKarrayliteral) {
@@ -2606,19 +2611,13 @@ public:
              "length mismatch, should have been handled in frontend.");
       for (unsigned int i = 0; i < e->dim; ++i) {
         DValue *val = toElem(indexArrayLiteral(lit, i));
-        LLValue *llval = DtoRVal(DtoCast(e->loc, val, type->elementType()));
+        LLValue *llval = DtoRVal(DtoCast(e->loc, val, elementType));
         DtoStore(llval, DtoGEPi(vector, 0, i));
       }
     } else {
       Logger::println("normal (splat) expression");
       DValue *val = toElem(e->e1);
-      TypeBasic *tb = static_cast<TypeBasic *>(type->elementType());
-      tb->ty = Tuns8;  // Converrt to a ubyte
-      tb->flags = 1; // TFlags.integral
-      tb->dstring = "uns8";  // Provide a string representation for debugging.
-      tb->ctype = NULL;  // Guess that this is for caching types. Don't cache it
-                         // as we're changing it.
-      LLValue *llval = DtoRVal(DtoCast(e->loc, val, tb));
+      LLValue *llval = DtoRVal(DtoCast(e->loc, val, elementType));
       for (unsigned int i = 0; i < e->dim; ++i) {
         DtoStore(llval, DtoGEPi(vector, 0, i));
       }
