@@ -2612,12 +2612,13 @@ public:
     } else {
       Logger::println("normal (splat) expression");
       DValue *val = toElem(e->e1);
-      LLValue *llval;
-      if (type->elementType()->ty != Tvoid) {
-        llval = DtoRVal(DtoCast(e->loc, val, type->elementType()));
-      } else {
-        llval = DtoRVal(val);
-      }
+      TypeBasic *tb = static_cast<TypeBasic *>(type->elementType());
+      tb->ty = Tuns8;  // Converrt to a ubyte
+      tb->flags = 1; // TFlags.integral
+      tb->dstring = "uns8";  // Provide a string representation for debugging.
+      tb->ctype = NULL;  // Guess that this is for caching types. Don't cache it
+                         // as we're changing it.
+      LLValue *llval = DtoRVal(DtoCast(e->loc, val, tb));
       for (unsigned int i = 0; i < e->dim; ++i) {
         DtoStore(llval, DtoGEPi(vector, 0, i));
       }
