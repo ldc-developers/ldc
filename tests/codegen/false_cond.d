@@ -1,4 +1,8 @@
-// Make sure that the `else`/`else if` _will_ be generated if the `if` condition has a constant 0 value.
+// Make sure that the dead code of an `if` (and `else if`) is elminated when the condition is constant.
+// If the condition value is constant, there are two cases:
+// 1) It is 0 (false)    -> Generate the else block (if it exists) with no branching.
+// 2) It is non-0 (true) -> Generate the if block with no branching.
+// Also, verify it _does_ generate correct code when it is not constant.
 
 // RUN: %ldc -O0 -output-ll -of=%t.s %s && FileCheck %s < %t.s
 
