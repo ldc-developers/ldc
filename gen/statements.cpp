@@ -314,53 +314,64 @@ public:
         return;
       }
     }
-
     DValue *cond_e = toElemDtor(stmt->condition);
     LLValue *cond_val = DtoRVal(cond_e);
+    LLConstant* const_val = llvm::dyn_cast<LLConstant>(cond_val);
+    if(!const_val) {
+      llvm::BasicBlock *ifbb = irs->insertBB("if");
+      llvm::BasicBlock *endbb = irs->insertBBAfter(ifbb, "endif");
+      llvm::BasicBlock *elsebb =
+          stmt->elsebody ? irs->insertBBAfter(ifbb, "else") : endbb;
 
-    llvm::BasicBlock *ifbb = irs->insertBB("if");
-    llvm::BasicBlock *endbb = irs->insertBBAfter(ifbb, "endif");
-    llvm::BasicBlock *elsebb =
-        stmt->elsebody ? irs->insertBBAfter(ifbb, "else") : endbb;
+      if (cond_val->getType() != LLType::getInt1Ty(irs->context())) {
+        IF_LOG Logger::cout() << "if conditional: " << *cond_val << '\n';
+        cond_val = DtoRVal(DtoCast(stmt->loc, cond_e, Type::tbool));
+      }
+      auto brinstr =
+          llvm::BranchInst::Create(ifbb, elsebb, cond_val, irs->scopebb());
+      PGO.addBranchWeights(brinstr, brweights);
 
-    if (cond_val->getType() != LLType::getInt1Ty(irs->context())) {
-      IF_LOG Logger::cout() << "if conditional: " << *cond_val << '\n';
-      cond_val = DtoRVal(DtoCast(stmt->loc, cond_e, Type::tbool));
-    }
-    auto brinstr =
-        llvm::BranchInst::Create(ifbb, elsebb, cond_val, irs->scopebb());
-    PGO.addBranchWeights(brinstr, brweights);
+      // replace current scope
+      irs->scope() = IRScope(ifbb);
 
-    // replace current scope
-    irs->scope() = IRScope(ifbb);
+      // do scoped statements
 
-    // do scoped statements
-
-    if (stmt->ifbody) {
-      irs->DBuilder.EmitBlockStart(stmt->ifbody->loc);
-      PGO.emitCounterIncrement(stmt);
-      stmt->ifbody->accept(this);
-      irs->DBuilder.EmitBlockEnd();
-    }
-    if (!irs->scopereturned()) {
-      llvm::BranchInst::Create(endbb, irs->scopebb());
-    }
-
-    if (stmt->elsebody) {
-      irs->scope() = IRScope(elsebb);
-      irs->DBuilder.EmitBlockStart(stmt->elsebody->loc);
-      stmt->elsebody->accept(this);
+      if (stmt->ifbody) {
+        irs->DBuilder.EmitBlockStart(stmt->ifbody->loc);
+        PGO.emitCounterIncrement(stmt);
+        stmt->ifbody->accept(this);
+        irs->DBuilder.EmitBlockEnd();
+      }
       if (!irs->scopereturned()) {
         llvm::BranchInst::Create(endbb, irs->scopebb());
       }
-      irs->DBuilder.EmitBlockEnd();
+
+      if (stmt->elsebody) {
+        irs->scope() = IRScope(elsebb);
+        irs->DBuilder.EmitBlockStart(stmt->elsebody->loc);
+        stmt->elsebody->accept(this);
+        if (!irs->scopereturned()) {
+          llvm::BranchInst::Create(endbb, irs->scopebb());
+        }
+        irs->DBuilder.EmitBlockEnd();
+      }
+
+      // rewrite the scope
+      irs->scope() = IRScope(endbb);
+    } else {  // The condition is contant value
+      IF_LOG Logger::println("The condition value is constant.");
+      bool is_true = !(const_val->isZeroValue());
+      if (is_true) {
+        // Skip the `else` (if it exists) and emit the `if` body without branch.
+        stmt->ifbody->accept(this);
+      } else if (stmt->elsebody) {
+        // Skip the if body and emit the `else` body without branch.
+        stmt->elsebody->accept(this);
+      }
     }
 
     // end the dwarf lexical block
     irs->DBuilder.EmitBlockEnd();
-
-    // rewrite the scope
-    irs->scope() = IRScope(endbb);
   }
 
   //////////////////////////////////////////////////////////////////////////
