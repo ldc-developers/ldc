@@ -504,7 +504,7 @@ public:
     };
 
     // Try to construct the lhs in-place.
-    if (lhs->isLVal() && (e->op == TOKconstruct)) {
+    if (lhs->isLVal() && (e->op == TOKconstruct || e->op == TOKblit)) {
       Logger::println("attempting in-place construction");
       if (toInPlaceConstruction(lhs->isLVal(), e->e2))
         return;
@@ -2587,38 +2587,68 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
-  void visit(VectorExp *e) override {
-    IF_LOG Logger::print("VectorExp::toElem() %s\n", e->toChars());
-    LOG_SCOPE;
-
+  static DLValue *emitVector(VectorExp *e, LLValue *dstMem) {
     TypeVector *type = static_cast<TypeVector *>(e->to->toBasetype());
     assert(e->type->ty == Tvector);
 
-    LLValue *vector = DtoAlloca(e->to);
+    const unsigned N = e->dim;
+
+    Type *elementType = type->elementType();
+    if (elementType->ty == Tvoid)
+      elementType = Type::tuns8;
 
     // Array literals are assigned element-wise, other expressions are cast and
     // splat across the vector elements. This is what DMD does.
     if (e->e1->op == TOKarrayliteral) {
       Logger::println("array literal expression");
       ArrayLiteralExp *lit = static_cast<ArrayLiteralExp *>(e->e1);
-      assert(lit->elements->dim == e->dim &&
+      assert(lit->elements->dim == N &&
              "Array literal vector initializer "
              "length mismatch, should have been handled in frontend.");
-      for (unsigned int i = 0; i < e->dim; ++i) {
+
+      std::vector<LLValue *> llElements;
+      std::vector<LLConstant *> llElementConstants;
+      llElements.reserve(N);
+      llElementConstants.reserve(N);
+      for (unsigned i = 0; i < N; ++i) {
         DValue *val = toElem(indexArrayLiteral(lit, i));
-        LLValue *llval = DtoRVal(DtoCast(e->loc, val, type->elementType()));
-        DtoStore(llval, DtoGEPi(vector, 0, i));
+        LLValue *llVal = DtoRVal(DtoCast(e->loc, val, elementType));
+        llElements.push_back(llVal);
+        if (auto llConstant = isaConstant(llVal))
+          llElementConstants.push_back(llConstant);
+      }
+
+      if (llElementConstants.size() == N) {
+        auto vectorConstant = llvm::ConstantVector::get(llElementConstants);
+        DtoStore(vectorConstant, dstMem);
+      } else {
+        for (unsigned i = 0; i < N; ++i) {
+          DtoStore(llElements[i], DtoGEPi(dstMem, 0, i));
+        }
       }
     } else {
       Logger::println("normal (splat) expression");
       DValue *val = toElem(e->e1);
-      LLValue *llval = DtoRVal(DtoCast(e->loc, val, type->elementType()));
-      for (unsigned int i = 0; i < e->dim; ++i) {
-        DtoStore(llval, DtoGEPi(vector, 0, i));
+      LLValue *llElement = DtoRVal(DtoCast(e->loc, val, elementType));
+      if (auto llConstant = isaConstant(llElement)) {
+        auto vectorConstant = llvm::ConstantVector::getSplat(N, llConstant);
+        DtoStore(vectorConstant, dstMem);
+      } else {
+        for (unsigned int i = 0; i < N; ++i) {
+          DtoStore(llElement, DtoGEPi(dstMem, 0, i));
+        }
       }
     }
 
-    result = new DLValue(e->to, vector);
+    return new DLValue(e->to, dstMem);
+  }
+
+  void visit(VectorExp *e) override {
+    IF_LOG Logger::print("VectorExp::toElem() %s\n", e->toChars());
+    LOG_SCOPE;
+
+    LLValue *vector = DtoAlloca(e->to);
+    result = emitVector(e, vector);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -2762,6 +2792,12 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
   if (rhs->op == TOKarrayliteral && lhsBasetype->ty == Tsarray) {
     auto al = static_cast<ArrayLiteralExp *>(rhs);
     initializeArrayLiteral(gIR, al, DtoLVal(lhs));
+    return true;
+  }
+
+  // vector literals too
+  if (auto ve = rhs->isVectorExp()) {
+    ToElemVisitor::emitVector(ve, DtoLVal(lhs));
     return true;
   }
 
