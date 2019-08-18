@@ -14,7 +14,7 @@ steps:
     echo on
     cd ..
     :: Download & extract libcurl
-    curl -L -o libcurl.zip https://dl.dropboxusercontent.com/s/jxwohqax4e2avyt/libcurl-7.48.0-WinSSL-zlib-x86-x64.zip?dl=0 2>&1
+    curl -L -o libcurl.zip https://dl.dropboxusercontent.com/s/ccthbw233qs7kpv/libcurl-7.65.3-WinSSL-zlib-x86-x64.zip?dl=0 2>&1
     mkdir libcurl
     cd libcurl
     7z x ../libcurl.zip > nul
