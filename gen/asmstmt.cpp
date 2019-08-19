@@ -222,8 +222,8 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
     case Arg_FrameRelative:
       // FIXME
       llvm_unreachable("Arg_FrameRelative not supported.");
-    /*          if (arg->expr->op == TOKvar)
-                    arg_val = ((VarExp *) arg->expr)->var->toSymbol()->Stree;
+    /*          if (auto ve = arg->expr->isVarExp())
+                    arg_val = ve->var->toSymbol()->Stree;
                 else
                     assert(0);
                 if ( getFrameRelativeValue(arg_val, & var_frame_offset) ) {

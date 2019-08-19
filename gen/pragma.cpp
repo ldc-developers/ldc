@@ -37,10 +37,8 @@ bool parseStringExp(Expression *e, const char *&res) {
 }
 
 bool parseIntExp(Expression *e, dinteger_t &res) {
-  IntegerExp *i = nullptr;
-
   e = e->optimize(WANTvalue);
-  if (e->op == TOKint64 && (i = static_cast<IntegerExp *>(e))) {
+  if (auto i = e->isIntegerExp()) {
     res = i->getInteger();
     return true;
   }
@@ -49,10 +47,11 @@ bool parseIntExp(Expression *e, dinteger_t &res) {
 
 bool parseBoolExp(Expression *e, bool &res) {
   e = e->optimize(WANTvalue);
-  if (e->op == TOKint64 && e->type->equals(Type::tbool)) {
-    IntegerExp *i = static_cast<IntegerExp *>(e);
-    res = i->isBool(true);
-    return true;
+  if (auto i = e->isIntegerExp()) {
+    if (e->type->equals(Type::tbool)) {
+      res = i->isBool(true);
+      return true;
+    }
   }
   return false;
 }
