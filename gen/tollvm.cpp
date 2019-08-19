@@ -16,6 +16,7 @@
 #include "dmd/id.h"
 #include "dmd/init.h"
 #include "dmd/module.h"
+#include "driver/cl_options.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
@@ -243,8 +244,14 @@ void setLinkage(LinkageWithCOMDAT lwc, llvm::GlobalObject *obj) {
     obj->setComdat(gIR->module.getOrInsertComdat(obj->getName()));
 }
 
-void setLinkage(Dsymbol *sym, llvm::GlobalObject *obj) {
+void setLinkageAndVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
   setLinkage(DtoLinkage(sym), obj);
+  setVisibility(sym, obj);
+}
+
+void setVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
+  if (opts::defaultToHiddenVisibility && !sym->isExport())
+    obj->setVisibility(LLGlobalValue::HiddenVisibility);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

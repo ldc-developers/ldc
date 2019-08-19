@@ -666,6 +666,8 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
   decl->accept(&v);
 
   setLinkage({TYPEINFO_LINKAGE_TYPE, supportsCOMDAT()}, gvar);
+  if (auto forStructType = forType->isTypeStruct())
+    setVisibility(forStructType->sym, gvar);
 }
 
 /* ========================================================================= */

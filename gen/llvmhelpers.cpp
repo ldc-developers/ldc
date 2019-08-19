@@ -1790,12 +1790,12 @@ llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
 }
 
 void defineGlobal(llvm::GlobalVariable *global, llvm::Constant *init,
-                  Dsymbol *symbolForLinkage) {
+                  Dsymbol *symbolForLinkageAndVisibility) {
   assert(global->isDeclaration() && "Global variable already defined");
   assert(init);
   global->setInitializer(init);
-  if (symbolForLinkage)
-    setLinkage(symbolForLinkage, global);
+  if (symbolForLinkageAndVisibility)
+    setLinkageAndVisibility(symbolForLinkageAndVisibility, global);
 }
 
 llvm::GlobalVariable *defineGlobal(const Loc &loc, llvm::Module &module,

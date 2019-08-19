@@ -146,7 +146,7 @@ public:
       auto &initZ = ir->getInitSymbol();
       auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
       initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
-      setLinkage(decl, initGlobal);
+      setLinkageAndVisibility(decl, initGlobal);
 
       // emit typeinfo
       if (!ir->suppressTypeInfo()) {
@@ -198,7 +198,7 @@ public:
       auto &initZ = ir->getInitSymbol();
       auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
       initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
-      setLinkage(decl, initGlobal);
+      setLinkageAndVisibility(decl, initGlobal);
 
       llvm::GlobalVariable *vtbl = ir->getVtblSymbol();
       defineGlobal(vtbl, ir->getVtblInit(), decl);
