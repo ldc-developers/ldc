@@ -29,6 +29,7 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/recursivevisitor.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
@@ -45,6 +46,30 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs);
 void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p);
 
 //////////////////////////////////////////////////////////////////////////////
+
+/// Used to check if a stmt contains any label.
+/// It is a StoppableVisitor that stops when a label is found.
+/// It's to be passed in a RecursiveWalker. The RecursiveWalker
+/// calls this visitor which in turn calls a RecursiveVisitor to
+/// to the depth-first recursion.
+struct ContainsLabel : public StoppableVisitor {
+  bool found_label;
+  RecursiveVisitor rv;
+
+  ContainsLabel() : found_label(false) {}
+
+  void visit(LabelStatement *stmt) override {
+    found_label = true;
+    stop = true;
+  }
+
+  void visit(Statement *stmt) override { rv.visit(stmt); }
+
+  void visit(Expression *exp) override {}
+  void visit(Declaration *decl) override {}
+  void visit(Initializer *init) override {}
+  void visit(Dsymbol *) override {}
+};
 
 class ToIRVisitor : public Visitor {
   IRState *irs;
@@ -285,6 +310,15 @@ public:
     }
   }
 
+  bool containsLabel(Statement *stmt) {
+    if (!stmt)
+      return false;
+    ContainsLabel labelChecker;
+    RecursiveWalker walker(&labelChecker, false);
+    stmt->accept(&walker);
+    return labelChecker.found_label;
+  }
+
   void visit(IfStatement *stmt) override {
     IF_LOG Logger::println("IfStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
@@ -316,59 +350,70 @@ public:
     }
     DValue *cond_e = toElemDtor(stmt->condition);
     LLValue *cond_val = DtoRVal(cond_e);
-    LLConstant* const_val = llvm::dyn_cast<LLConstant>(cond_val);
-    if(!const_val) {
-      llvm::BasicBlock *ifbb = irs->insertBB("if");
-      llvm::BasicBlock *endbb = irs->insertBBAfter(ifbb, "endif");
-      llvm::BasicBlock *elsebb =
-          stmt->elsebody ? irs->insertBBAfter(ifbb, "else") : endbb;
-
-      if (cond_val->getType() != LLType::getInt1Ty(irs->context())) {
-        IF_LOG Logger::cout() << "if conditional: " << *cond_val << '\n';
-        cond_val = DtoRVal(DtoCast(stmt->loc, cond_e, Type::tbool));
+    LLConstant *const_val = llvm::dyn_cast<LLConstant>(cond_val);
+    if (const_val) {
+      Statement *executed = stmt->ifbody;
+      Statement *skipped = stmt->elsebody;
+      bool incrementPC = false;
+      if (const_val->isZeroValue()) { // swap
+        Statement *temp = executed;
+        executed = skipped;
+        skipped = temp;
+      } else {
+        // it's true (aka taken) branch, incrementProfileCounter
+        incrementPC = true;
       }
-      auto brinstr =
-          llvm::BranchInst::Create(ifbb, elsebb, cond_val, irs->scopebb());
-      PGO.addBranchWeights(brinstr, brweights);
-
-      // replace current scope
-      irs->scope() = IRScope(ifbb);
-
-      // do scoped statements
-
-      if (stmt->ifbody) {
-        irs->DBuilder.EmitBlockStart(stmt->ifbody->loc);
-        PGO.emitCounterIncrement(stmt);
-        stmt->ifbody->accept(this);
+      if (!containsLabel(skipped)) {
+        if (incrementPC) {
+          PGO.emitCounterIncrement(stmt);
+        }
+        if (executed)
+          executed->accept(this);
+        // end the dwarf lexical block
         irs->DBuilder.EmitBlockEnd();
+        return;
       }
+    }
+    llvm::BasicBlock *ifbb = irs->insertBB("if");
+    llvm::BasicBlock *endbb = irs->insertBBAfter(ifbb, "endif");
+    llvm::BasicBlock *elsebb =
+        stmt->elsebody ? irs->insertBBAfter(ifbb, "else") : endbb;
+
+    if (cond_val->getType() != LLType::getInt1Ty(irs->context())) {
+      IF_LOG Logger::cout() << "if conditional: " << *cond_val << '\n';
+      cond_val = DtoRVal(DtoCast(stmt->loc, cond_e, Type::tbool));
+    }
+    auto brinstr =
+        llvm::BranchInst::Create(ifbb, elsebb, cond_val, irs->scopebb());
+    PGO.addBranchWeights(brinstr, brweights);
+
+    // replace current scope
+    irs->scope() = IRScope(ifbb);
+
+    // do scoped statements
+
+    if (stmt->ifbody) {
+      irs->DBuilder.EmitBlockStart(stmt->ifbody->loc);
+      PGO.emitCounterIncrement(stmt);
+      stmt->ifbody->accept(this);
+      irs->DBuilder.EmitBlockEnd();
+    }
+    if (!irs->scopereturned()) {
+      llvm::BranchInst::Create(endbb, irs->scopebb());
+    }
+
+    if (stmt->elsebody) {
+      irs->scope() = IRScope(elsebb);
+      irs->DBuilder.EmitBlockStart(stmt->elsebody->loc);
+      stmt->elsebody->accept(this);
       if (!irs->scopereturned()) {
         llvm::BranchInst::Create(endbb, irs->scopebb());
       }
-
-      if (stmt->elsebody) {
-        irs->scope() = IRScope(elsebb);
-        irs->DBuilder.EmitBlockStart(stmt->elsebody->loc);
-        stmt->elsebody->accept(this);
-        if (!irs->scopereturned()) {
-          llvm::BranchInst::Create(endbb, irs->scopebb());
-        }
-        irs->DBuilder.EmitBlockEnd();
-      }
-
-      // rewrite the scope
-      irs->scope() = IRScope(endbb);
-    } else {  // The condition is contant value
-      IF_LOG Logger::println("The condition value is constant.");
-      bool is_true = !(const_val->isZeroValue());
-      if (is_true) {
-        // Skip the `else` (if it exists) and emit the `if` body without branch.
-        stmt->ifbody->accept(this);
-      } else if (stmt->elsebody) {
-        // Skip the if body and emit the `else` body without branch.
-        stmt->elsebody->accept(this);
-      }
+      irs->DBuilder.EmitBlockEnd();
     }
+
+    // rewrite the scope
+    irs->scope() = IRScope(endbb);
 
     // end the dwarf lexical block
     irs->DBuilder.EmitBlockEnd();
