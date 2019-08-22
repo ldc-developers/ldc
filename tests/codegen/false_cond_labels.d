@@ -29,3 +29,47 @@ L1:
         goto L1;
     }
 }
+
+extern(C) void bar(int a, int b)
+{
+    int c;
+    if (0)
+    {
+        switch (a) {
+        case 10:
+            while (b) {
+            L2:
+            // CHECK: store i32 10, i32* %c
+                c = 10;
+            }
+        default: assert(0);
+        }
+    }
+    else
+    {
+        goto L2;
+    }
+}
+
+extern(C) void third(int a, int b, int c)
+{
+    int j, d;
+    if (a)
+    {
+        goto L3;
+    }
+    else if (false)
+    {
+        for (j = 0; j <= c; ++j)
+        {
+            // Can't `goto` in a foreach because
+            // it always declares a variable.
+            L3:
+            foreach (i; 0..b)
+            {
+                // CHECK: store i32 10, i32* %d
+                d = 10;
+            }
+        }
+    }
+}
