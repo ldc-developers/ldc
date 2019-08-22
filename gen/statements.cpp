@@ -53,17 +53,11 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p);
 /// calls this visitor which in turn calls a RecursiveVisitor to
 /// to the depth-first recursion.
 struct ContainsLabel : public StoppableVisitor {
-  bool found_label;
-  RecursiveVisitor rv;
+  void visit(LabelStatement *stmt) override { stop = true; }
 
-  ContainsLabel() : found_label(false) {}
+  bool foundLabel(void) { return stop; }
 
-  void visit(LabelStatement *stmt) override {
-    found_label = true;
-    stop = true;
-  }
-
-  void visit(Statement *stmt) override { rv.visit(stmt); }
+  void visit(Statement *stmt) override {}
 
   void visit(Expression *exp) override {}
   void visit(Declaration *decl) override {}
@@ -316,7 +310,7 @@ public:
     ContainsLabel labelChecker;
     RecursiveWalker walker(&labelChecker, false);
     stmt->accept(&walker);
-    return labelChecker.found_label;
+    return labelChecker.foundLabel();
   }
 
   void visit(IfStatement *stmt) override {
