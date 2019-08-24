@@ -68,9 +68,15 @@ struct ContainsLabel : public StoppableVisitor {
 
   void visit(LabelStatement *stmt) override { stop = true; }
 
+  // NOTE: This is wrong! We have to keep state (as in a recursion)
+  // so that when we come _out_ of a recursion to a switch statement,
+  // `ignore_case_statements` is restored.
   void visit(SwitchStatement *stmt) override { ignore_case_statements = true; }
 
   void visit(CaseStatement *stmt) override {
+    IF_LOG Logger::println("CaseStatement::ContainsLabel(): %s, %d, %d",
+                           stmt->toChars(), stop, ignore_case_statements);
+    LOG_SCOPE;
     // We haven't seen a switch, so emit the code.
     if (!ignore_case_statements)
       stop = true;

@@ -131,3 +131,24 @@ void case_as_label(int a, int b)
         }
     }
 }
+
+// CHECK-LABEL: @case_as_label2
+void case_as_label2(int a, int b)
+{
+    int c;
+    final switch (a) {
+        // Can elide
+        if (false) {
+            final switch (b) {
+            case 2:
+                // CHECK-NOT: store i32 2, i32* %c
+                c = 2;   
+            }
+    // Test that `switch` in higher or equal nesting level
+    // with a `case` does not impact the handling of `case`s.
+    case 1:
+        // CHECK: store i32 3, i32* %c
+        c = 3;
+        }
+    }
+}
