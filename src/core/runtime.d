@@ -919,10 +919,20 @@ version (Posix) private class DefaultTraceInfo : Throwable.TraceInfo
         {
             import core.internal.traits : externDFunc;
 
+version (LDC)
+{
+            alias traceHandlerOpApplyImpl = externDFunc!(
+                "rt.backtrace.dwarf.traceHandlerOpApplyImpl",
+                int function(const(void*)[], scope int delegate(ref size_t, ref const(char[])))
+                );
+}
+else
+{
             alias traceHandlerOpApplyImpl = externDFunc!(
                 "rt.backtrace.dwarf.traceHandlerOpApplyImpl",
                 int function(const void*[], scope int delegate(ref size_t, ref const(char[])))
                 );
+}
 
             if (numframes >= FIRSTFRAME)
             {
