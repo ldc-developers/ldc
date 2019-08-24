@@ -1769,7 +1769,7 @@ private:
     __gshared Thread    sm_tbeg;
     __gshared size_t    sm_tlen;
 
-    // can't use rt.util.array in public code
+    // can't use core.internal.util.array in public code
     __gshared Thread* pAboutToStart;
     __gshared size_t nAboutToStart;
 
@@ -4641,13 +4641,6 @@ class Fiber
         return null;
     }
 
-    /// ditto
-    deprecated("Please pass Fiber.Rethrow.yes or .no instead of a boolean.")
-    final Throwable call( bool rethrow )
-    {
-        return rethrow ? call!(Rethrow.yes)() : call!(Rethrow.no);
-    }
-
     private void callImpl() nothrow @nogc
     in
     {
@@ -6087,12 +6080,6 @@ unittest
     new Fiber({}).call(Fiber.Rethrow.no);
 }
 
-deprecated unittest
-{
-    new Fiber({}).call(true);
-    new Fiber({}).call(false);
-}
-
 version (Win32) {
     // broken on win32 under windows server 2012: bug 13821
 } else unittest {
@@ -6609,12 +6596,12 @@ private
 
 /**
  * Create a thread not under control of the runtime, i.e. TLS module constructors are
- * not run and the GC does not suspend it during a collection
+ * not run and the GC does not suspend it during a collection.
  *
  * Params:
- *  dg        = delegate to execute in the created thread
+ *  dg        = delegate to execute in the created thread.
  *  stacksize = size of the stack of the created thread. The default of 0 will select the
- *              platform-specific default size
+ *              platform-specific default size.
  *  cbDllUnload = Windows only: if running in a dynamically loaded DLL, this delegate will be called
  *              if the DLL is supposed to be unloaded, but the thread is still running.
  *              The thread must be terminated via `joinLowLevelThread` by the callback.
@@ -6697,14 +6684,14 @@ ThreadID createLowLevelThread(void delegate() nothrow dg, uint stacksize = 0,
 }
 
 /**
- * Wait for a thread created with `createLowLevelThread` to terminate
+ * Wait for a thread created with `createLowLevelThread` to terminate.
  *
  * Note: In a Windows DLL, if this function is called via DllMain with
  *       argument DLL_PROCESS_DETACH, the thread is terminated forcefully
- *       without prooper cleanup as a deadlock would be happen otherwise.
+ *       without proper cleanup as a deadlock would happen otherwise.
  *
  * Params:
- *  tid = the thread ID returned by `createLowLevelThread`
+ *  tid = the thread ID returned by `createLowLevelThread`.
  */
 void joinLowLevelThread(ThreadID tid) nothrow @nogc
 {
@@ -6735,12 +6722,12 @@ void joinLowLevelThread(ThreadID tid) nothrow @nogc
 }
 
 /**
- * Check whether a thread was created by `createLowLevelThread`
+ * Check whether a thread was created by `createLowLevelThread`.
  *
  * Params:
- *  tid = the platform specific thread ID
+ *  tid = the platform specific thread ID.
  *
- * Returns: `true` if the thread was created by `createLowLevelThread` and is still running
+ * Returns: `true` if the thread was created by `createLowLevelThread` and is still running.
  */
 bool findLowLevelThread(ThreadID tid) nothrow @nogc
 {

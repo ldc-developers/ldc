@@ -738,7 +738,7 @@ version (Shared)
         !pthread_mutex_unlock(&_handleToDSOMutex) || assert(0);
     }
 
-    static if (SharedELF) void getDependencies(in ref dl_phdr_info info, ref Array!(DSO*) deps)
+    static if (SharedELF) void getDependencies(const scope ref dl_phdr_info info, ref Array!(DSO*) deps)
     {
         // get the entries of the .dynamic section
         ElfW!"Dyn"[] dyns;
@@ -810,7 +810,7 @@ version (Shared)
  * Scan segments in the image header and store
  * the TLS and writeable data segments in *pdso.
  */
-static if (SharedELF) void scanSegments(in ref dl_phdr_info info, DSO* pdso) nothrow @nogc
+static if (SharedELF) void scanSegments(const scope ref dl_phdr_info info, DSO* pdso) nothrow @nogc
 {
     foreach (ref phdr; info.dlpi_phdr[0 .. info.dlpi_phnum])
     {
@@ -933,7 +933,7 @@ bool findImageHeaderForAddr(in void* addr, ImageHeader* result=null) nothrow @no
  * Determine if 'addr' lies within shared object 'info'.
  * If so, return true and fill in 'result' with the corresponding ELF program header.
  */
-static if (SharedELF) bool findSegmentForAddr(in ref dl_phdr_info info, in void* addr, ElfW!"Phdr"* result=null) nothrow @nogc
+static if (SharedELF) bool findSegmentForAddr(const scope ref dl_phdr_info info, const scope void* addr, ElfW!"Phdr"* result=null) nothrow @nogc
 {
     if (addr < cast(void*)info.dlpi_addr) // less than base address of object means quick reject
         return false;
