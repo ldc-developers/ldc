@@ -14,6 +14,7 @@ import core.internal.attributes : betterC;
 
 version (LDC)
 {
+    enum has64BitXCHG = true;
     enum has64BitCAS = true;
 
     // Enable 128bit CAS on 64bit platforms if supported.
@@ -430,57 +431,87 @@ else version (LDC)
         }
     }
 
+    // atomicExchange
+
+    shared(T) atomicExchange(MemoryOrder ms = MemoryOrder.seq,T,V)( shared(T)* here, V exchangeWith ) pure nothrow @nogc @safe
+        if ( !is(T == class) && !is(T U : U*) && __traits( compiles, { *here = exchangeWith; } ) )
+    {
+        return atomicExchangeImpl!ms(here, exchangeWith);
+    }
+
+    shared(T) atomicExchange(MemoryOrder ms = MemoryOrder.seq,T,V)( shared(T)* here, shared(V) exchangeWith ) pure nothrow @nogc @safe
+        if ( is(T == class) && __traits( compiles, { *here = exchangeWith; } ) )
+    {
+        return atomicExchangeImpl!ms(here, exchangeWith);
+    }
+
+    shared(T) atomicExchange(MemoryOrder ms = MemoryOrder.seq,T,V)( shared(T)* here, shared(V)* exchangeWith ) pure nothrow @nogc @safe
+        if ( is(T U : U*) && __traits( compiles, { *here = exchangeWith; } ) )
+    {
+        return atomicExchangeImpl!ms(here, exchangeWith);
+    }
+
+    private shared(T) atomicExchangeImpl(MemoryOrder ms,T,V)( shared(T)* here, V exchangeWith ) pure nothrow @nogc @trusted
+    {
+        alias A = _AtomicType!T;
+        T rhs = cast(T) exchangeWith;
+        A result = llvm_atomic_rmw_xchg!A(cast(shared A*) here, *cast(A*) &rhs, _ordering!ms);
+        return *cast(shared(T)*) &result;
+    }
+
+    // cas
+
     bool cas(T,V1,V2)( shared(T)* here, const V1 ifThis, V2 writeThis ) pure nothrow @nogc @safe
         if( !is(T == class) && !is(T U : U*) && __traits( compiles, { *here = writeThis; } ) )
     {
-        return casImpl(here, ifThis, writeThis);
+        return casImplNoResult(here, ifThis, writeThis);
     }
 
     bool cas(T,V1,V2)( shared(T)* here, const shared(V1) ifThis, shared(V2) writeThis ) pure nothrow @nogc @safe
         if( is(T == class) && __traits( compiles, { *here = writeThis; } ) )
     {
-        return casImpl(here, ifThis, writeThis);
+        return casImplNoResult(here, ifThis, writeThis);
     }
 
     bool cas(T,V1,V2)( shared(T)* here, const shared(V1)* ifThis, shared(V2)* writeThis ) pure nothrow @nogc @safe
         if( is(T U : U*) && __traits( compiles, { *here = writeThis; } ) )
     {
-        return casImpl(here, ifThis, writeThis);
+        return casImplNoResult(here, ifThis, writeThis);
     }
 
-    private bool casImpl(T,V1,V2)( shared(T)* here, V1 ifThis, V2 writeThis ) pure nothrow @nogc @trusted
+    bool cas(T,V1,V2)( shared(T)* here, V1* ifThis, V2 writeThis ) pure nothrow @nogc @safe
+        if ( !is(T == class) && !is(T U : U*) && __traits( compiles, { *here = writeThis; } ) )
     {
-        T res = void;
-        static if (__traits(isFloating, T))
-        {
-            static if (T.sizeof == int.sizeof)
-                alias I = int;
-            else static if (T.sizeof == long.sizeof)
-                alias I = long;
-            else
-                static assert(0, "Cannot atomically store floating-point values > 64 bits.");
+        return casImplWithResult(here, *ifThis, writeThis);
+    }
 
-            I rawRes = llvm_atomic_cmp_xchg!I(
-                cast(shared I*)here, *cast(I*)&ifThis, *cast(I*)&writeThis);
-            res = *cast(T*)&rawRes;
-        }
-        else static if (is(T P == U*, U) || is(T == class) || is(T == interface))
-        {
-            res = cast(T)cast(void*)llvm_atomic_cmp_xchg!(size_t)(
-                cast(shared size_t*)cast(void**)here,
-                cast(size_t)cast(void*)ifThis,
-                cast(size_t)cast(void*)writeThis
-            );
-        }
-        else static if (is(T : bool))
-        {
-            res = llvm_atomic_cmp_xchg!(ubyte)(cast(shared ubyte*)here, ifThis ? 1 : 0, writeThis ? 1 : 0) ? 1 : 0;
-        }
-        else
-        {
-            res = llvm_atomic_cmp_xchg!(T)(here, cast(T)ifThis, cast(T)writeThis);
-        }
-        return res is cast(T)ifThis;
+    bool cas(T,V1,V2)( shared(T)* here, shared(V1)* ifThis, shared(V2) writeThis ) pure nothrow @nogc @safe
+        if ( is(T == class) && __traits( compiles, { *here = writeThis; } ) )
+    {
+        return casImplWithResult(here, *ifThis, writeThis);
+    }
+
+    bool cas(T,V1,V2)( shared(T)* here, shared(V1*)* ifThis, shared(V2)* writeThis ) pure nothrow @nogc @safe
+        if ( is(T U : U*) && __traits( compiles, { *here = writeThis; } ) )
+    {
+        return casImplWithResult(here, *ifThis, writeThis);
+    }
+
+    private bool casImplNoResult(MemoryOrder ms = MemoryOrder.seq,T,V1,V2)( shared(T)* here, const V1 ifThis, V2 writeThis ) pure nothrow @nogc @trusted
+    {
+        T mutableIfThis = cast(T) ifThis;
+        return casImplWithResult!ms(here, mutableIfThis, writeThis);
+    }
+
+    private bool casImplWithResult(MemoryOrder ms = MemoryOrder.seq,T,V1,V2)( shared(T)* here, ref V1 ifThis, V2 writeThis ) pure nothrow @nogc @trusted
+    {
+        alias A = _AtomicType!T;
+        T cmp = cast(T) ifThis;
+        A rawCmp = *cast(A*) &cmp;
+        T val = cast(T) writeThis;
+        A rawRes = llvm_atomic_cmp_xchg!A(cast(shared A*) here, rawCmp, *cast(A*) &val, _ordering!ms);
+        ifThis = cast(V1) *cast(T*) &rawRes;
+        return rawRes is rawCmp;
     }
 
 
@@ -491,8 +522,6 @@ else version (LDC)
         rel,
         seq,
     }
-
-    deprecated alias MemoryOrder msync;
 
     template _ordering(MemoryOrder ms)
     {
