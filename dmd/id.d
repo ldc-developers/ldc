@@ -337,7 +337,6 @@ immutable Msgtable[] msgtable =
     { "main" },
     { "WinMain" },
     { "DllMain" },
-    { "tls_get_addr", "___tls_get_addr" },
     { "entrypoint", "__entrypoint" },
     { "rt_init" },
     { "__cmp" },
@@ -345,6 +344,10 @@ immutable Msgtable[] msgtable =
     { "__switch"},
     { "__switch_error"},
     { "__ArrayCast"},
+    { "_d_HookTraceImpl" },
+    { "_d_arraysetlengthTImpl"},
+    { "_d_arraysetlengthT"},
+    { "_d_arraysetlengthTTrace"},
 
     // varargs implementation
     { "va_start" },
@@ -425,6 +428,7 @@ immutable Msgtable[] msgtable =
     { "isReturnOnStack" },
     { "isZeroInit" },
     { "getTargetInfo" },
+    { "getLocation" },
 
     // For C++ mangling
     { "allocator" },

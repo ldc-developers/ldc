@@ -239,7 +239,7 @@ nothrow:
     {
         version (Posix)
         {
-            int dummy = .remove(name);
+            .remove(name);
         }
         else version (Windows)
         {
