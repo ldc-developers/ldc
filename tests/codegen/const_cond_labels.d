@@ -10,12 +10,17 @@
 // }
 // assert(a == 2);
 
+// Note that a label is conssidered anything that lets us jump inside the body
+// of the statement _apart from_ the actual statement (e.g. the `if).
+// That generally is a normal label, but also specific cases for switch
+// statements (see last tests).
+
 // RUN: %ldc -O0 -output-ll -of=%t.s %s && FileCheck %s < %t.s
 
-// extern(C) to avoid name mangling.
-extern(C) void foo()
+extern(C):  //to avoid name mangling.
+// CHECK-LABEL: @foo
+void foo()
 {
-    // CHECK: foo()
     // CHECK: %a = alloca i32, align 4
     // CHECK: br
     int a;
@@ -30,7 +35,8 @@ L1:
     }
 }
 
-extern(C) void bar(int a, int b)
+// CHECK-LABEL: @bar
+void bar(int a, int b)
 {
     int c;
     if (0)
@@ -39,7 +45,7 @@ extern(C) void bar(int a, int b)
         case 10:
             while (b) {
             L2:
-            // CHECK: store i32 10, i32* %c
+                // CHECK: store i32 10, i32* %c
                 c = 10;
             }
         default: assert(0);
@@ -51,7 +57,30 @@ extern(C) void bar(int a, int b)
     }
 }
 
-extern(C) void third(int a, int b, int c)
+// CHECK-LABEL: @without_goto
+void without_goto(int a, int b)
+{
+    int c;
+    if (0)
+    {
+        switch (a) {
+        case 10:
+            while (b) {
+            L2:
+                // CHECK: store i32 10, i32* %c
+                c = 10;
+            }
+        default: assert(0);
+        }
+    }
+    else
+    {
+        a = 2;
+    }
+}
+
+// CHECK-LABEL: @fourth
+void fourth(int a, int b, int c)
 {
     int j, d;
     if (a)
@@ -70,6 +99,35 @@ extern(C) void third(int a, int b, int c)
                 // CHECK: store i32 10, i32* %d
                 d = 10;
             }
+        }
+    }
+}
+
+// If a switch is outside the body of a statement "to-be-elided"
+// but a case statement of it is inside that body, then that
+// case acts as a label because we can jump inside the body without
+// using the statement (i.e. using the switch to jump to the case).
+
+// CHECK-LABEL: @case_as_label
+void case_as_label(int a, int b)
+{
+    int c;
+    final switch (a) {
+    case 1:
+        // Can elide
+        if (false) {
+            final switch (b) {
+            case 2:
+                // CHECK-NOT: store i32 2, i32* %c
+                c = 2;   
+            }
+        }
+    case 2:
+        // Can't elide
+        if (false) {
+    case 3:
+            // CHECK: store i32 3, i32* %c
+            c = 3;
         }
     }
 }
