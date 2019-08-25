@@ -11,8 +11,8 @@ extern(C):  //to avoid name mangling.
 // CHECK-LABEL: @foo
 void foo()
 {
-    // CHECK-NOT: %a = alloca i32, align 4
-    // CHECK: %b = alloca i32, align 4
+    // CHECK-NOT: %a = alloca
+    // CHECK: %b = alloca
     // CHECK-NOT: br
     // CHECK-NOT: store i32 1, i32* %a
     // CHECK: store i32 2, i32* %b
@@ -29,7 +29,7 @@ void foo()
 // CHECK-LABEL: @bar
 void bar()
 {
-    // CHECK-NOT: %a = alloca i32, align 4
+    // CHECK-NOT: %a = alloca
     // CHECK: store i32 2, i32* %b
     if (0)
     {

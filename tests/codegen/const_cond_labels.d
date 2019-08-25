@@ -21,7 +21,7 @@ extern(C):  //to avoid name mangling.
 // CHECK-LABEL: @foo
 void foo()
 {
-    // CHECK: %a = alloca i32, align 4
+    // CHECK: %a = alloca
     // CHECK: br
     int a;
     if (0)
@@ -111,6 +111,10 @@ void fourth(int a, int b, int c)
 // CHECK-LABEL: @case_as_label
 void case_as_label(int a, int b)
 {
+    // Note the `CHECK-NOT` trickery.
+    // CHECK-NOT: store i32 2, i32* %c
+    // CHECK: store i32 3, i32* %c
+    // CHECK-NOT: store i32 2, i32* %c
     int c;
     final switch (a) {
     case 1:
@@ -118,7 +122,6 @@ void case_as_label(int a, int b)
         if (false) {
             final switch (b) {
             case 2:
-                // CHECK-NOT: store i32 2, i32* %c
                 c = 2;   
             }
         }
@@ -126,7 +129,6 @@ void case_as_label(int a, int b)
         // Can't elide
         if (false) {
     case 3:
-            // CHECK: store i32 3, i32* %c
             c = 3;
         }
     }
@@ -135,19 +137,19 @@ void case_as_label(int a, int b)
 // CHECK-LABEL: @case_as_label2
 void case_as_label2(int a, int b)
 {
+    // CHECK: store i32 2, i32* %c
+    // CHECK: store i32 3, i32* %c
     int c;
     final switch (a) {
-        // Can elide
+        // Can't elide
         if (false) {
             final switch (b) {
             case 2:
-                // CHECK: store i32 2, i32* %c
                 c = 2;   
             }
     // Test that `switch` in higher or equal nesting level
     // with a `case` does not impact the handling of `case`s.
     case 1:
-        // CHECK: store i32 3, i32* %c
         c = 3;
         }
     }
