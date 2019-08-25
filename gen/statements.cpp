@@ -355,8 +355,7 @@ public:
     DValue *cond_e = toElemDtor(stmt->condition);
     LLValue *cond_val = DtoRVal(cond_e);
     // Is it constant?
-    if (llvm::dyn_cast<LLConstant>(cond_val) != NULL) {
-      LLConstant *const_val = llvm::dyn_cast<LLConstant>(cond_val);
+    if (LLConstant *const_val = llvm::dyn_cast<LLConstant>(cond_val)) {
       Statement *executed = stmt->ifbody;
       Statement *skipped = stmt->elsebody;
       if (const_val->isZeroValue()) { // swap

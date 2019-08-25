@@ -30,6 +30,7 @@
 
 #include "dmd/attrib.h"
 #include "dmd/declaration.h"
+#include "dmd/errors.h"
 #include "dmd/init.h"
 #include "dmd/statement.h"
 #include "dmd/visitor.h"
