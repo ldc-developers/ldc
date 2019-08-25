@@ -480,15 +480,18 @@ public:
 /// As a StoppableVisitor but keeps additional informantion.
 class ExtendedStoppableVisitor : public StoppableVisitor {
 public:
-  bool inside_switch;
+  // If ExtendedRecursiveWalker finds a SwitchStatement,
+  // `insideSwitch` points to that statement.
+  SwitchStatement *insideSwitch;
 
   explicit ExtendedStoppableVisitor()
-      : StoppableVisitor(), inside_switch(false) {}
+      : StoppableVisitor(), insideSwitch(nullptr) {}
 };
 
 /// As the RecursiveWalker, but it provides additional info to the
 /// visitor. For example, when inside a switch statement
-/// it sets `inside_switch` flags and restores it back out.
+/// it sets `insideSwitch` to the switch statement and restores it back
+/// to nullptr when we're getting out.
 class ExtendedRecursiveWalker : public RecursiveWalker {
 public:
   explicit ExtendedRecursiveWalker(ExtendedStoppableVisitor *visitor,
@@ -497,9 +500,9 @@ public:
 
   void visit(SwitchStatement *stmt) override {
     ExtendedStoppableVisitor *ev = static_cast<ExtendedStoppableVisitor *>(v);
-    bool save = ev->inside_switch;
-    ev->inside_switch = true;
-    call_visitor(stmt) || recurse(stmt->condition) || recurse(stmt->_body);
-    ev->inside_switch = save;
+    SwitchStatement *save = ev->insideSwitch;
+    ev->insideSwitch = stmt;
+    RecursiveWalker::visit(stmt);
+    ev->insideSwitch = save;
   }
 };

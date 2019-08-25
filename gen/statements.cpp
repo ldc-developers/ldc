@@ -60,7 +60,7 @@ struct ContainsLabel : public ExtendedStoppableVisitor {
 
   void visit(CaseStatement *stmt) override {
     // We haven't seen a switch, so emit the code.
-    if (!inside_switch)
+    if (insideSwitch == nullptr)
       stop = true;
   }
 
