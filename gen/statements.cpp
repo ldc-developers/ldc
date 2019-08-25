@@ -51,36 +51,20 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p);
 /// is considered anything that lets us jump inside the body _apart from_
 /// the stmt.
 /// It is a StoppableVisitor that stops when a label is found.
-/// It's to be passed in a RecursiveWalker which recursively
-/// walks the tree.
-struct ContainsLabel : public StoppableVisitor {
-  // If a switch is outside the body of the statement "to-be-elided"
-  // but a case statement of it is inside that body, then that
-  // case acts as a label because we can jump inside the body without
-  // using the statement (i.e. using the switch to jump to the case).
-  bool ignore_case_statements;
-
-  explicit ContainsLabel() : ignore_case_statements(false) {}
-
-  bool foundLabel(void) { return stop; }
-
+/// It's to be passed in a ExtendedRecursiveWalker which recursively
+/// walks the tree and updates our `inside_switch` flag accordingly.
+struct ContainsLabel : public ExtendedStoppableVisitor {
   void visit(Statement *stmt) override {}
 
   void visit(LabelStatement *stmt) override { stop = true; }
 
-  // NOTE: This is wrong! We have to keep state (as in a recursion)
-  // so that when we come _out_ of a recursion to a switch statement,
-  // `ignore_case_statements` is restored.
-  void visit(SwitchStatement *stmt) override { ignore_case_statements = true; }
-
   void visit(CaseStatement *stmt) override {
-    IF_LOG Logger::println("CaseStatement::ContainsLabel(): %s, %d, %d",
-                           stmt->toChars(), stop, ignore_case_statements);
-    LOG_SCOPE;
     // We haven't seen a switch, so emit the code.
-    if (!ignore_case_statements)
+    if (!inside_switch)
       stop = true;
   }
+
+  bool foundLabel(void) { return stop; }
 
   void visit(Expression *exp) override {}
   void visit(Declaration *decl) override {}
@@ -333,7 +317,7 @@ public:
     if (!stmt)
       return false;
     ContainsLabel labelChecker;
-    RecursiveWalker walker(&labelChecker, false);
+    ExtendedRecursiveWalker walker(&labelChecker, false);
     stmt->accept(&walker);
     return labelChecker.foundLabel();
   }
@@ -342,7 +326,6 @@ public:
 
   void visit(IfStatement *stmt) override {
     IF_LOG Logger::println("IfStatement::toIR(): %s", stmt->loc.toChars());
-    LOG_SCOPE;
 
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
@@ -382,7 +365,9 @@ public:
         skipped = temp;
       }
       if (!containsLabel(skipped)) {
-        // Always true branch.
+        IF_LOG Logger::println("Constant false condition - elide.");
+        LOG_SCOPE;
+        // True condition, the branch is taken so emit counter increment.
         if (!const_val->isZeroValue()) {
           PGO.emitCounterIncrement(stmt);
         }

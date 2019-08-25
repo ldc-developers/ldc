@@ -30,7 +30,6 @@
 
 #include "dmd/attrib.h"
 #include "dmd/declaration.h"
-#include "dmd/errors.h"
 #include "dmd/init.h"
 #include "dmd/statement.h"
 #include "dmd/visitor.h"
@@ -286,7 +285,7 @@ public:
 
   using Visitor::visit;
 
-  void visit(AttribDeclaration* ad) override {
+  void visit(AttribDeclaration *ad) override {
     call_visitor(ad) || recurse(ad->decl);
   }
 
@@ -388,7 +387,7 @@ public:
         recurse(stmt->_body);
   }
 
-  void visit(PragmaStatement* stmt) override {
+  void visit(PragmaStatement *stmt) override {
     call_visitor(stmt) || recurse(stmt->_body);
   }
   void visit(DebugStatement *stmt) override {
@@ -475,4 +474,31 @@ public:
   void visit(Declaration *decl) override { call_visitor(decl); }
   void visit(Initializer *init) override { call_visitor(init); }
   void visit(Dsymbol *init) override {}
+};
+
+/// As a StoppableVisitor but keeps additional informantion.
+class ExtendedStoppableVisitor : public StoppableVisitor {
+public:
+  bool inside_switch;
+
+  explicit ExtendedStoppableVisitor()
+      : StoppableVisitor(), inside_switch(false) {}
+};
+
+/// As the RecursiveWalker, but it provides additional info to the
+/// visitor. For example, when inside a switch statement
+/// it sets `inside_switch` flags and restores it back out.
+class ExtendedRecursiveWalker : public RecursiveWalker {
+public:
+  explicit ExtendedRecursiveWalker(ExtendedStoppableVisitor *visitor,
+                                   bool _continueAfterStop = true)
+      : RecursiveWalker(visitor, _continueAfterStop) {}
+
+  void visit(SwitchStatement *stmt) override {
+    ExtendedStoppableVisitor *ev = static_cast<ExtendedStoppableVisitor *>(v);
+    bool save = ev->inside_switch;
+    ev->inside_switch = true;
+    call_visitor(stmt) || recurse(stmt->condition) || recurse(stmt->_body);
+    ev->inside_switch = save;
+  }
 };

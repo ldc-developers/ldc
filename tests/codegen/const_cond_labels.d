@@ -141,7 +141,7 @@ void case_as_label2(int a, int b)
         if (false) {
             final switch (b) {
             case 2:
-                // CHECK-NOT: store i32 2, i32* %c
+                // CHECK: store i32 2, i32* %c
                 c = 2;   
             }
     // Test that `switch` in higher or equal nesting level
