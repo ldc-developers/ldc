@@ -418,11 +418,12 @@ else version (LDC)
         {
             TailShared!(T) get, set;
 
+            get = atomicLoad!(MemoryOrder.raw)( val );
             do
             {
-                get = set = atomicLoad!(MemoryOrder.raw)( val );
+                set = get;
                 mixin( "set " ~ op ~ " mod;" );
-            } while( !cas( &val, get, set ) );
+            } while( !cas( &val, &get, set ) );
             return set;
         }
         else
