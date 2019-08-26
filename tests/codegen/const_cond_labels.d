@@ -115,8 +115,10 @@ void case_as_label(int a, int b)
     // CHECK-NOT: store i32 2, i32* %c
     // CHECK: store i32 3, i32* %c
     // CHECK-NOT: store i32 2, i32* %c
+    // CHECK: store i32 4, i32* %c
+    // CHECK-NOT: store i32 2, i32* %c
     int c;
-    final switch (a) {
+    switch (a) {
     case 1:
         // Can elide
         if (false) {
@@ -130,6 +132,11 @@ void case_as_label(int a, int b)
         if (false) {
     case 3:
             c = 3;
+        }
+        // Can't elide
+        if (0 && 1) {
+    default:
+            c = 4;
         }
     }
 }

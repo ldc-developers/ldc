@@ -49,7 +49,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p);
 
 /// Used to check if a control-flow stmt body contains any label. A label
 /// is considered anything that lets us jump inside the body _apart from_
-/// the stmt.
+/// the stmt. That includes case / default statements.
 /// It is a StoppableVisitor that stops when a label is found.
 /// It's to be passed in a ExtendedRecursiveWalker which recursively
 /// walks the tree and updates our `inside_switch` flag accordingly.
@@ -59,7 +59,11 @@ struct ContainsLabel : public ExtendedStoppableVisitor {
   void visit(LabelStatement *stmt) override { stop = true; }
 
   void visit(CaseStatement *stmt) override {
-    // We haven't seen a switch, so emit the code.
+    if (insideSwitch == nullptr)
+      stop = true;
+  }
+
+  void visit(DefaultStatement *stmt) override {
     if (insideSwitch == nullptr)
       stop = true;
   }
