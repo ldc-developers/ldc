@@ -4,7 +4,7 @@
 // 2) It is non-0 (true) -> Generate the if block with no branching.
 // Also, verify it _does_ generate correct code when it is not constant.
 
-// RUN: %ldc -O0 -output-ll -of=%t.s %s && FileCheck %s < %t.s
+// RUN: %ldc -O0 -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 
 extern(C):  //to avoid name mangling.
 

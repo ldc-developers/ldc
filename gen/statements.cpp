@@ -364,7 +364,7 @@ public:
         skipped = temp;
       }
       if (!containsLabel(skipped)) {
-        IF_LOG Logger::println("Constant false condition - elide.");
+        IF_LOG Logger::println("Constant true/false condition - elide.");
         LOG_SCOPE;
         // True condition, the branch is taken so emit counter increment.
         if (!const_val->isZeroValue()) {

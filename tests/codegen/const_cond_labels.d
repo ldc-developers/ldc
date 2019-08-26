@@ -15,7 +15,7 @@
 // That generally is a normal label, but also specific cases for switch
 // statements (see last tests).
 
-// RUN: %ldc -O0 -output-ll -of=%t.s %s && FileCheck %s < %t.s
+// RUN: %ldc -O0 -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 
 extern(C):  //to avoid name mangling.
 // CHECK-LABEL: @foo
