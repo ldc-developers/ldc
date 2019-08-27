@@ -551,12 +551,17 @@ pragma(LDC_atomic_load)
 pragma(LDC_atomic_store)
     void llvm_atomic_store(T)(T val, shared T* ptr, AtomicOrdering ordering = DefaultOrdering);
 
+///
+struct CmpXchgResult(T) {
+    T previousValue; ///
+    bool exchanged; ///
+}
+
 /// Loads a value from memory at ptr and compares it to cmp.
 /// If they are equal, it stores val in memory at ptr.
-/// Returns the previous value in memory.
 /// This is all performed as single atomic operation.
 pragma(LDC_atomic_cmp_xchg)
-    T llvm_atomic_cmp_xchg(T)(shared T* ptr, T cmp, T val, AtomicOrdering ordering = DefaultOrdering);
+    CmpXchgResult!T llvm_atomic_cmp_xchg(T)(shared T* ptr, T cmp, T val, AtomicOrdering ordering = DefaultOrdering);
 
 /// Atomically sets *ptr = val and returns the previous *ptr value.
 pragma(LDC_atomic_rmw, "xchg")
