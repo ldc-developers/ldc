@@ -461,6 +461,10 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       e->error("`cmpxchg` instruction expects 4 arguments");
       fatal();
     }
+    if (e->type->ty != Tstruct) {
+      e->error("`cmpxchg` instruction returns a struct");
+      fatal();
+    }
     Expression *exp1 = (*e->arguments)[0];
     Expression *exp2 = (*e->arguments)[1];
     Expression *exp3 = (*e->arguments)[2];
@@ -490,14 +494,16 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
     LLValue *ret = p->ir->CreateAtomicCmpXchg(ptr, cmp, val, atomicOrdering,
                                               atomicOrdering);
-    // Use the same quickfix as for dragonegg - see r210956
-    ret = p->ir->CreateExtractValue(ret, 0);
-    if (ret->getType() != pointeeType) {
-      ret = DtoAllocaDump(ret, exp3->type);
-      result = new DLValue(exp3->type, ret);
-    } else {
-      result = new DImValue(exp3->type, ret);
-    }
+
+    // we return a struct; allocate on stack and store to both fields manually
+    // (avoiding DtoAllocaDump() due to bad optimized codegen, most likely
+    // because of i1)
+    auto mem = DtoAlloca(e->type);
+    DtoStore(p->ir->CreateExtractValue(ret, 0),
+             DtoBitCast(DtoGEP(mem, 0u, 0), ptr->getType()));
+    DtoStoreZextI8(p->ir->CreateExtractValue(ret, 1), DtoGEP(mem, 0, 1));
+
+    result = new DLValue(e->type, mem);
     return true;
   }
 
