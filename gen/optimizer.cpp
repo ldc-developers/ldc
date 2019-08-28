@@ -290,7 +290,7 @@ static void addOptimizationPasses(legacy::PassManagerBase &mpm,
     builder.Inliner = createAlwaysInlinerPass();
 #endif
   }
-#if LDC_LLVM_VER >= 1000
+#if LDC_LLVM_VER <= 1000
   builder.DisableUnitAtATime = !unitAtATime;
 #endif
   builder.DisableUnrollLoops = optLevel == 0;
