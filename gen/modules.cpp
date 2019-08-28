@@ -542,13 +542,22 @@ void loadInstrProfileData(IRState *irs) {
     }
     irs->PGOReader = std::move(readerOrErr.get());
 
-    if (!irs->module.getProfileSummary(false)) {
+    if (!irs->module.getProfileSummary(
+#if LDC_LLVM_VER >= 1000
+                                       false
+#endif
+                                       )) {
       // Don't reset the summary. There is only one profile data file per LDC
       // invocation so the summary must be the same as the one that is already
       // set.
       irs->module.setProfileSummary(
+#if LDC_LLVM_VER >= 1000
         irs->PGOReader->getSummary(false).getMD(irs->context()),
         llvm::ProfileSummary::PSK_Instr);
+#else
+        irs->PGOReader->getSummary().getMD(irs->context())
+#endif
+        );
     }
   }
 }
