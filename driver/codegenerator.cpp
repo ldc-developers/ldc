@@ -33,6 +33,12 @@ namespace llvm {
 }
 #endif
 
+#if LDC_LLVM_VER >= 1000
+using std::make_unique;
+#else
+using llvm::make_unique;
+#endif
+
 namespace {
 
 std::unique_ptr<llvm::ToolOutputFile>
@@ -52,7 +58,7 @@ createAndSetDiagnosticsOutputFile(IRState &irs, llvm::LLVMContext &ctx,
     }
 
     std::error_code EC;
-    diagnosticsOutputFile = llvm::make_unique<llvm::ToolOutputFile>(
+    diagnosticsOutputFile = make_unique<llvm::ToolOutputFile>(
         diagnosticsFilename, EC, llvm::sys::fs::F_None);
     if (EC) {
       irs.dmodule->error("Could not create file %s: %s",
@@ -60,9 +66,11 @@ createAndSetDiagnosticsOutputFile(IRState &irs, llvm::LLVMContext &ctx,
       fatal();
     }
 
+    //FIXME: this has been replaced by setDiagnosticHandler
+#if LDC_LLVM_VER < 1000
     ctx.setDiagnosticsOutputFile(
-        llvm::make_unique<llvm::yaml::Output>(diagnosticsOutputFile->os()));
-
+        make_unique<llvm::yaml::Output>(diagnosticsOutputFile->os()));
+#endif
     // If there is instrumentation data available, also output function hotness
     if (opts::isUsingPGOProfile()) {
 #if LDC_LLVM_VER >= 500
