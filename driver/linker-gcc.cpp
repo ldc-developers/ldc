@@ -29,6 +29,12 @@
 #include "lld/Common/Driver.h"
 #endif
 
+#if LDC_LLVM_VER >= 1000
+using std::make_unique;
+#else
+using llvm::make_unique;
+#endif
+
 //////////////////////////////////////////////////////////////////////////////
 
 static llvm::cl::opt<std::string>
@@ -759,11 +765,11 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
 #if LDC_LLVM_VER >= 500
   if (global.params.targetTriple->isOSBinFormatWasm()) {
     tool = getProgram("wasm-ld", &opts::linker);
-    argsBuilder = llvm::make_unique<LdArgsBuilder>();
+    argsBuilder = make_unique<LdArgsBuilder>();
   } else {
 #endif
     tool = getGcc();
-    argsBuilder = llvm::make_unique<ArgsBuilder>();
+    argsBuilder = make_unique<ArgsBuilder>();
 #if LDC_LLVM_VER >= 500
   }
 #endif

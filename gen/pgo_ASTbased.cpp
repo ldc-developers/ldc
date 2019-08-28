@@ -34,6 +34,11 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MD5.h"
 
+#if LDC_LLVM_VER >= 1000
+using std::make_unique;
+#else
+using llvm::make_unique;
+#endif
 namespace {
 llvm::cl::opt<bool, false, opts::FlagParser<bool>> enablePGOIndirectCalls(
     "pgo-indirect-calls", llvm::cl::ZeroOrMore, llvm::cl::Hidden,
@@ -888,8 +893,7 @@ void CodeGenPGO::loadRegionCounts(llvm::IndexedInstrProfReader *PGOReader,
     return;
   }
 
-  ProfRecord =
-      llvm::make_unique<llvm::InstrProfRecord>(std::move(RecordExpected.get()));
+  ProfRecord = make_unique<llvm::InstrProfRecord>(std::move(RecordExpected.get()));
   RegionCounts = ProfRecord->Counts;
 
   IF_LOG Logger::println("Loaded profile data for function: %s",
