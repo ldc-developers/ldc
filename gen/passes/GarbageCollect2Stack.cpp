@@ -84,9 +84,9 @@ void EmitMemSet(IRBuilder<> &B, Value *Dst, Value *Val, Value *Len,
     A.CGNode->addCalledFunction(
         CS, A.CG->getOrInsertFunction(
 #if LDC_LLVM_VER >= 1000
-        CS->getCalledFunction()
-#else
         CS.getCalledFunction()
+#else
+        CS->getCalledFunction()
 #endif
         ));
   }
