@@ -544,7 +544,7 @@ void loadInstrProfileData(IRState *irs) {
 
     if (!irs->module.getProfileSummary(
 #if LDC_LLVM_VER >= 1000
-                                       false
+    /*non-context sensitive profile*/  false
 #endif
                                        )) {
       // Don't reset the summary. There is only one profile data file per LDC
@@ -552,7 +552,8 @@ void loadInstrProfileData(IRState *irs) {
       // set.
       irs->module.setProfileSummary(
 #if LDC_LLVM_VER >= 1000
-        irs->PGOReader->getSummary(false).getMD(irs->context()),
+        irs->PGOReader->getSummary(/*non-context sensitive profile*/ false)
+          .getMD(irs->context()),
         llvm::ProfileSummary::PSK_Instr);
 #else
         irs->PGOReader->getSummary().getMD(irs->context())
