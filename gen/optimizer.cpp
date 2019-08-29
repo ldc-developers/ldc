@@ -91,8 +91,10 @@ static cl::opt<cl::boolOrDefault, false, opts::FlagParser<cl::boolOrDefault>>
         "cross-module-inlining", cl::ZeroOrMore, cl::Hidden,
         cl::desc("(*) Enable cross-module function inlining (default disabled)"));
 
+#if LDC_LLVM_VER < 1000
 static cl::opt<bool> unitAtATime("unit-at-a-time", cl::desc("Enable basic IPO"),
                                  cl::ZeroOrMore, cl::init(true));
+#endif
 
 static cl::opt<bool> stripDebug(
     "strip-debug", cl::ZeroOrMore,
@@ -290,7 +292,7 @@ static void addOptimizationPasses(legacy::PassManagerBase &mpm,
     builder.Inliner = createAlwaysInlinerPass();
 #endif
   }
-#if LDC_LLVM_VER <= 1000
+#if LDC_LLVM_VER < 1000
   builder.DisableUnitAtATime = !unitAtATime;
 #endif
   builder.DisableUnrollLoops = optLevel == 0;
@@ -455,7 +457,9 @@ void outputOptimizationSettings(llvm::raw_ostream &hash_os) {
   hash_os << disableSimplifyDruntimeCalls;
   hash_os << disableSimplifyLibCalls;
   hash_os << disableGCToStack;
+#if LDC_LLVM_VER < 1000
   hash_os << unitAtATime;
+#endif
   hash_os << stripDebug;
   hash_os << disableLoopUnrolling;
   hash_os << disableLoopVectorization;
