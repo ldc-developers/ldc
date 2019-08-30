@@ -252,6 +252,32 @@ public:
   }
 }
 
+/+
+ + Set options for dynamic compiler.
+ + Returns false on error.
+ +
+ + This function is not thread-safe.
+ +
+ + Example:
+ + ---
+ + import ldc.attributes, ldc.dynamic_compile;
+ +
+ + auto res = setDynamicCompilerOptions(["-disable-gc2stack"]);
+ + assert(res);
+ +
+ + res = setDynamicCompilerOptions(["-invalid_option"], (in char[] str)
+ + {
+ +   writeln("Error: ", str);
+ + });
+ + assert(!res);
+ +/
+bool setDynamicCompilerOptions(string[] args, scope ErrsHandler errs = null)
+{
+  auto errsFunc = (errs !is null ? &errsWrapper : null);
+  auto errsFuncContext = (errs !is null ? cast(void*)&errs : null);
+  return setDynamicCompilerOptsImpl(&args, errsFunc, errsFuncContext);
+}
+
 private:
 auto bindImpl(F, Args...)(F func, Args args)
 {
@@ -436,33 +462,6 @@ struct BindPayload(OF, F, int[] Index, Args...)
   alias toDelegate = base.toDelegate;
 }
 
-/+
- + Set options for dynamic compiler.
- + Returns false on error.
- +
- + This function is not thread-safe.
- +
- + Example:
- + ---
- + import ldc.attributes, ldc.dynamic_compile;
- +
- + auto res = setDynamicCompilerOptions(["-disable-gc2stack"]);
- + assert(res);
- +
- + res = setDynamicCompilerOptions(["-invalid_option"], (in char[] str)
- + {
- +   writeln("Error: ", str);
- + });
- + assert(!res);
- +/
-bool setDynamicCompilerOptions(string[] args, scope ErrsHandler errs = null)
-{
-  auto errsFunc = (errs !is null ? &errsWrapper : null);
-  auto errsFuncContext = (errs !is null ? cast(void*)&errs : null);
-  return setDynamicCompilerOptsImpl(&args, errsFunc, errsFuncContext);
-}
-
-private:
 alias ErrsHandler = void delegate(const(char)[]);
 
 extern(C)
