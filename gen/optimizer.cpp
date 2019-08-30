@@ -194,7 +194,11 @@ static void addGarbageCollect2StackPass(const PassManagerBuilder &builder,
 static void addAddressSanitizerPasses(const PassManagerBuilder &Builder,
                                       PassManagerBase &PM) {
   PM.add(createAddressSanitizerFunctionPass());
+#if LDC_LLVM_VER >= 1000
   PM.add(createModuleAddressSanitizerLegacyPassPass());
+#else
+  PM.add(createAddressSanitizerModulePass());
+#endif
 }
 
 static void addMemorySanitizerPass(const PassManagerBuilder &Builder,
