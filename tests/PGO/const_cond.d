@@ -9,7 +9,9 @@ extern(C):
 // Test that we have exactly 2 counters for `foo` (one for the function, one for the `if`)
 // and only one counter for `bar` (bar has always false if, should be elided).
 // CHECK: @__{{(llvm_profile_counters|profc)}}_foo ={{.*}} [2 x i64] zeroinitializer
-// CHECK: @__{{(llvm_profile_counters|profc)}}_bar ={{.*}} [1 x i64] zeroinitializer
+// We want 2 counters here too, no matter that the second one (for the `if`) is not referenced.
+// It may be queried by the user.
+// CHECK: @__{{(llvm_profile_counters|profc)}}_bar ={{.*}} [2 x i64] zeroinitializer
 
 
 // CHECK-LABEL: @foo()

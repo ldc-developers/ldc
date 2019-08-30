@@ -134,7 +134,7 @@ void case_as_label(int a, int b)
             c = 3;
         }
         // Can't elide
-        if (0 && 1) {
+        if (false) {
     default:
             c = 4;
         }
