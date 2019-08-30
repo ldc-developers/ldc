@@ -82,9 +82,9 @@ void EmitMemSet(IRBuilder<> &B, Value *Dst, Value *Val, Value *Len,
   auto CS = B.CreateMemSet(Dst, Val, Len, 1 /*Align*/, false /*isVolatile*/);
   if (A.CGNode) {
 #if LDC_LLVM_VER >= 1000
-    auto calledFunc = CS.getCalledFunction();
-#else
     auto calledFunc = CS->getCalledFunction();
+#else
+    auto calledFunc = CS.getCalledFunction();
 #endif
     A.CGNode->addCalledFunction(CS, A.CG->getOrInsertFunction(calledFunc));
   }
