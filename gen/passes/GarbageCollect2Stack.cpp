@@ -20,7 +20,6 @@
 #endif
 
 #include "gen/attributes.h"
-#include "gen/metadata.h"
 #include "gen/passes/Passes.h"
 #include "gen/runtime.h"
 #include "llvm/Pass.h"
