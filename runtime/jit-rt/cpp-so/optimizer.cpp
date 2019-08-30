@@ -46,6 +46,7 @@ cl::opt<bool>
                cl::desc("Run verifier after D-specific and explicitly "
                         "specified optimization passes"));
 
+/// LDC LICENSE START
 #ifdef LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES
 cl::opt<bool>
     disableLangSpecificPasses("disable-d-passes", cl::ZeroOrMore,
@@ -63,6 +64,7 @@ cl::opt<bool> disableGCToStack(
     "disable-gc2stack", cl::ZeroOrMore,
     cl::desc("Disable promotion of GC allocations to stack memory"));
 #endif
+/// LDC LICENSE END
 
 cl::opt<bool> stripDebug(
     "strip-debug", cl::ZeroOrMore,
@@ -79,6 +81,7 @@ cl::opt<bool>
     disableSLPVectorization("disable-slp-vectorization", cl::ZeroOrMore,
                             cl::desc("Disable the slp vectorization pass"));
 
+/// LDC LICENSE START
 #ifdef LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES
 void addPass(llvm::PassManagerBase &pm, llvm::Pass *pass) {
   pm.add(pass);
@@ -110,6 +113,7 @@ void addGarbageCollect2StackPass(const llvm::PassManagerBuilder &builder,
   }
 }
 #endif
+/// LDC LICENSE END
 
 // TODO: share this function with compiler
 void addOptimizationPasses(llvm::legacy::PassManagerBase &mpm,
@@ -153,6 +157,7 @@ void addOptimizationPasses(llvm::legacy::PassManagerBase &mpm,
   // TODO: sanitizers support in jit?
   // TODO: PGO support in jit?
 
+  /// LDC LICENSE START
 #ifdef LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES
   if (!disableLangSpecificPasses) {
     if (!disableSimplifyDruntimeCalls) {
@@ -170,6 +175,7 @@ void addOptimizationPasses(llvm::legacy::PassManagerBase &mpm,
   builder.addExtension(llvm::PassManagerBuilder::EP_OptimizerLast,
                        addStripExternalsPass);
 #endif
+  /// LDC LICENSE END
 
   builder.populateFunctionPassManager(fpm);
   builder.populateModulePassManager(mpm);
