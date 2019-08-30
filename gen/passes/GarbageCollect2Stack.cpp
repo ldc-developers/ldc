@@ -443,7 +443,7 @@ static void RemoveCall(CallSite CS, const Analysis &A) {
   // immediately before it. Ideally, we would find a way to not invalidate
   // the dominator tree here.
   Instruction *inst = CS.getInstruction();
-  if (InvokeInst *Invoke = cast<InvokeInst>(inst)) {
+  if (InvokeInst *Invoke = dyn_cast<InvokeInst>(inst)) {
     BranchInst::Create(Invoke->getNormalDest(), Invoke);
     Invoke->getUnwindDest()->removePredecessor(CS->getParent());
   }
