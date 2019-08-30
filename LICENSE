@@ -24,10 +24,11 @@ Libraries (lib/ and import/ in binary packages):
    Software License. See the individual source files for author information.
 
  - Most of the ldc-jit-rt library is licensed under the terms of the
-   Boost Software license (but additionally makes use of LLVM code).
-   Additionally it incorporates some code from compiler (gen/passes/* and parts
-   of gen/optimizer.cpp) which are under "three-clause BSD" LDC license.
-   They can be omitted if you build runtime with
+   Boost Software license. Additionally it contains code derived from LLVM
+   governed by the University of Illinois Open Source License.
+   Finally, it incorporates code from the LDC compiler (gen/passes/* and parts
+   of gen/optimizer.cpp) which are under "three-clause BSD" LDC license. These
+   parts from the LDC compiler can be omitted if you build ldc-jit-rt with
    LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES=OFF.
 
  - The profile-rt runtime library (runtime/profile-rt) is a copy of LLVM's
