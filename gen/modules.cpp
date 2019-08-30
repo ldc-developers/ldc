@@ -554,7 +554,7 @@ void loadInstrProfileData(IRState *irs) {
 #if LDC_LLVM_VER >= 1000
         irs->PGOReader->getSummary(/*context sensitive profile=*/ false)
           .getMD(irs->context()),
-        llvm::ProfileSummary::PSK_Instr);
+        llvm::ProfileSummary::PSK_Instr
 #else
         irs->PGOReader->getSummary().getMD(irs->context())
 #endif
