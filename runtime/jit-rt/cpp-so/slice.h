@@ -16,10 +16,9 @@
 
 #include <cstddef> //size_t
 
-template<typename T>
-struct Slice final {
+template <typename T> struct Slice final {
   size_t len;
-  T* data;
+  T *data;
 };
 
 #endif // SLICE_HPP

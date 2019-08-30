@@ -89,7 +89,7 @@ void addPass(llvm::PassManagerBase &pm, llvm::Pass *pass) {
 }
 
 void addStripExternalsPass(const llvm::PassManagerBuilder &builder,
-                                 llvm::PassManagerBase &pm) {
+                           llvm::PassManagerBase &pm) {
   if (builder.OptLevel >= 1) {
     addPass(pm, createStripExternalsPass());
     addPass(pm, llvm::createGlobalDCEPass());
@@ -97,14 +97,14 @@ void addStripExternalsPass(const llvm::PassManagerBuilder &builder,
 }
 
 void addSimplifyDRuntimeCallsPass(const llvm::PassManagerBuilder &builder,
-                                        llvm::PassManagerBase &pm) {
+                                  llvm::PassManagerBase &pm) {
   if (builder.OptLevel >= 2 && builder.SizeLevel == 0) {
     addPass(pm, createSimplifyDRuntimeCalls());
   }
 }
 
 void addGarbageCollect2StackPass(const llvm::PassManagerBuilder &builder,
-                                       llvm::PassManagerBase &pm) {
+                                 llvm::PassManagerBase &pm) {
   if (builder.OptLevel >= 2 && builder.SizeLevel == 0) {
     addPass(pm, createGarbageCollect2Stack());
   }

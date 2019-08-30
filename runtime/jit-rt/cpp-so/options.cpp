@@ -14,7 +14,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/CommandLine.h"
 
-bool parseOptions(Slice<Slice<const char> > args,
+bool parseOptions(Slice<Slice<const char>> args,
                   void (*errs)(void *, const char *, size_t),
                   void *errsContext) {
   llvm::SmallVector<std::string, 32 - 1> tempStrs;
@@ -51,7 +51,7 @@ bool parseOptions(Slice<Slice<const char> > args,
   changed = true;
 #endif
   auto res = llvm::cl::ParseCommandLineOptions(
-               static_cast<int>(tempOpts.size()), tempOpts.data(), "", &os);
+      static_cast<int>(tempOpts.size()), tempOpts.data(), "", &os);
   os.flush();
   return res;
 }

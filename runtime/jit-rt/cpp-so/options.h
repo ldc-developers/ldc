@@ -17,7 +17,7 @@
 #include "slice.h"
 
 bool parseOptions(Slice<Slice<const char>> args,
-                  void(*errs)(void *, const char *, size_t),
+                  void (*errs)(void *, const char *, size_t),
                   void *errsContext);
 
 #endif // OPTIONS_HPP

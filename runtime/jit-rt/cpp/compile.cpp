@@ -23,10 +23,9 @@ struct ParamSlice;
 #define EXTERNAL extern
 #endif
 
-template<typename T>
-struct Slice final {
+template <typename T> struct Slice final {
   size_t len;
-  T* data;
+  T *data;
 };
 
 #ifdef _WIN32
@@ -48,7 +47,6 @@ struct Slice final {
 #define JIT_SET_OPTS                                                           \
   MAKE_JIT_API_CALL(setDynamicCompilerOptsImpl, LDC_DYNAMIC_COMPILE_API_VERSION)
 
-
 extern "C" {
 
 // Silence missing-variable-declaration clang warning
@@ -66,7 +64,7 @@ EXTERNAL void JIT_REG_BIND_PAYLOAD(void *handle, void *originalFunc,
 EXTERNAL void JIT_UNREG_BIND_PAYLOAD(void *handle);
 
 EXTERNAL bool JIT_SET_OPTS(const Slice<Slice<const char>> *args,
-                           void(*errs)(void *, const char *, size_t),
+                           void (*errs)(void *, const char *, size_t),
                            void *errsContext);
 
 void rtCompileProcessImpl(const Context *context, std::size_t contextSize) {
@@ -81,7 +79,7 @@ void registerBindPayload(void *handle, void *originalFunc,
 void unregisterBindPayload(void *handle) { JIT_UNREG_BIND_PAYLOAD(handle); }
 
 bool setDynamicCompilerOptsImpl(const Slice<Slice<const char>> *args,
-                                void(*errs)(void *, const char *, size_t),
+                                void (*errs)(void *, const char *, size_t),
                                 void *errsContext) {
   return JIT_SET_OPTS(args, errs, errsContext);
 }
