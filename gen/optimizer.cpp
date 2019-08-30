@@ -40,6 +40,10 @@
 #include "llvm/Analysis/InlineCost.h"
 #endif
 
+#if LDC_LLVM_VER >= 1000
+#include "llvm/Transforms/Instrumentation/AddressSanitizer.h"
+#endif
+
 extern llvm::TargetMachine *gTargetMachine;
 using namespace llvm;
 
@@ -189,7 +193,7 @@ static void addGarbageCollect2StackPass(const PassManagerBuilder &builder,
 static void addAddressSanitizerPasses(const PassManagerBuilder &Builder,
                                       PassManagerBase &PM) {
   PM.add(createAddressSanitizerFunctionPass());
-  PM.add(createAddressSanitizerModulePass());
+  PM.add(createModuleAddressSanitizerLegacyPassPass());
 }
 
 static void addMemorySanitizerPass(const PassManagerBuilder &Builder,
