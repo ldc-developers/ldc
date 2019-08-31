@@ -115,7 +115,7 @@ DValue *emitPointerOffset(Loc loc, DValue *base, Expression *offset,
   if (!llResult) {
     if (negateOffset)
       llOffset = gIR->ir->CreateNeg(llOffset);
-    llResult = DtoGEP1(llBase, llOffset, false);
+    llResult = DtoGEP1(llBase, llOffset, /* inBounds = */ true);
   }
 
   return new DImValue(resultType, DtoBitCast(llResult, DtoType(resultType)));

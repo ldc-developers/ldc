@@ -573,7 +573,7 @@ public:
     }
   }
 
-//////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
 
 #define BIN_OP(Op, Func)                                                       \
   void visit(Op##Exp *e) override {                                            \
@@ -1080,7 +1080,7 @@ public:
 
     LLValue *arrptr = nullptr;
     if (e1type->ty == Tpointer) {
-      arrptr = DtoGEP1(DtoRVal(l), DtoRVal(r), false);
+      arrptr = DtoGEP1(DtoRVal(l), DtoRVal(r), /* inBounds = */ true);
     } else if (e1type->ty == Tsarray) {
       if (p->emitArrayBoundsChecks() && !e->indexIsInBounds) {
         DtoIndexBoundsCheck(e->loc, l, r);
@@ -1420,7 +1420,7 @@ public:
       assert(e->e2->op == TOKint64);
       LLConstant *offset =
           e->op == TOKplusplus ? DtoConstUint(1) : DtoConstInt(-1);
-      post = DtoGEP1(val, offset, false, "", p->scopebb());
+      post = DtoGEP1(val, offset, /* inBounds = */ true, "", p->scopebb());
     } else if (e1type->iscomplex()) {
       assert(e2type->iscomplex());
       LLValue *one = LLConstantFP::get(DtoComplexBaseType(e1type), 1.0);
@@ -2700,7 +2700,7 @@ public:
     llvm_unreachable("Unknown TypeidExp argument kind");
   }
 
-////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////
 
 #define STUB(x)                                                                \
   void visit(x *e) override {                                                  \
