@@ -20,19 +20,13 @@ struct ParamSlice;
 #ifdef _WIN32
 #define EXTERNAL __declspec(dllimport) extern
 #else
-#define EXTERNAL extern
+#define EXTERNAL __attribute__((visibility("default"))) extern
 #endif
 
 template <typename T> struct Slice final {
   size_t len;
   T *data;
 };
-
-#ifdef _WIN32
-#define EXTERNAL __declspec(dllimport) extern
-#else
-#define EXTERNAL extern
-#endif
 
 #define MAKE_JIT_API_CALL_IMPL(prefix, version) prefix##version
 #define MAKE_JIT_API_CALL(prefix, version)                                     \
@@ -78,9 +72,9 @@ void registerBindPayload(void *handle, void *originalFunc,
 
 void unregisterBindPayload(void *handle) { JIT_UNREG_BIND_PAYLOAD(handle); }
 
-bool setDynamicCompilerOptsImpl(const Slice<Slice<const char>> *args,
-                                void (*errs)(void *, const char *, size_t),
-                                void *errsContext) {
+bool setDynamicCompilerOpts(const Slice<Slice<const char>> *args,
+                            void (*errs)(void *, const char *, size_t),
+                            void *errsContext) {
   return JIT_SET_OPTS(args, errs, errsContext);
 }
 }

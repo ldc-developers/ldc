@@ -275,7 +275,7 @@ bool setDynamicCompilerOptions(string[] args, scope ErrsHandler errs = null)
 {
   auto errsFunc = (errs !is null ? &errsWrapper : null);
   auto errsFuncContext = (errs !is null ? cast(void*)&errs : null);
-  return setDynamicCompilerOptsImpl(&args, errsFunc, errsFuncContext);
+  return setDynamicCompilerOpts(&args, errsFunc, errsFuncContext);
 }
 
 private:
@@ -517,6 +517,6 @@ extern void rtCompileProcessImpl(const ref Context context, size_t contextSize);
 
 extern void registerBindPayload(void* handle, void* originalFunc, void* exampleFunc, const ParamSlice* params, size_t paramsSize);
 extern void unregisterBindPayload(void* handle);
-extern bool setDynamicCompilerOptsImpl(const(string[])* args, void function(void*, const char*, size_t) errs, void* errsContext);
+extern bool setDynamicCompilerOpts(const(string[])* args, void function(void*, const char*, size_t) errs, void* errsContext);
 }
 
