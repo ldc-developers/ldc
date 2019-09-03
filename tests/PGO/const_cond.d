@@ -22,7 +22,10 @@ extern(C):
 // The first 2 contain a `pgocount*` named register.
 void foo() {
     // CHECK-NOT: pgocount
-    // CHECK-COUNT-4: pgocount
+    // CHECK: pgocount
+    // CHECK: pgocount
+    // CHECK: pgocount
+    // CHECK: pgocount
     // CHECK-NOT: pgocount
     if (true)
     {
@@ -33,7 +36,8 @@ void foo() {
 // CHECK-LABEL: @bar
 void bar() {
     // CHECK-NOT: pgocount
-    // CHECK-COUNT-2: pgocount
+    // CHECK: pgocount
+    // CHECK: pgocount
     // CHECK-NOT: pgocount
     if (false)
     {
