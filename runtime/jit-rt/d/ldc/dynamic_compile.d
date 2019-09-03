@@ -85,6 +85,28 @@ void compileDynamicCode(in CompilerSettings settings = CompilerSettings.init)
   rtCompileProcessImpl(context, context.sizeof);
 }
 
+void compileDynamicCode(DynamicCompilerContext ctx, in CompilerSettings settings = CompilerSettings.init)
+{
+  assert(ctx !is null);
+  Context context;
+  context.optLevel = settings.optLevel;
+  context.sizeLevel = settings.sizeLevel;
+  context.compilerContext = ctx;
+
+  if (settings.progressHandler !is null)
+  {
+    context.interruptPointHandler = &progressHandlerWrapper;
+    context.interruptPointHandlerData = cast(void*)&settings.progressHandler;
+  }
+
+  if (settings.dumpHandler !is null)
+  {
+    context.dumpHandler = &dumpHandlerWrapper;
+    context.dumpHandlerData = cast(void*)&settings.dumpHandler;
+  }
+  rtCompileProcessImpl(context, context.sizeof);
+}
+
 /++
  + Returns a reference-counted functional object based on a function or delegate
  + with values bound to some parameters.
@@ -133,6 +155,25 @@ auto bind(F, Args...)(F func, Args args) if (isFunctionPointer!F || isDelegate!F
     return context.saved_func(wrapperArgs);
   }
   return bindImpl(null, &wrapper, Context(func), args);
+}
+
+auto bind(F, Args...)(DynamicCompilerContext ctx, F func, Args args) if (isFunctionPointer!F || isDelegate!F)
+{
+  assert(ctx !is null);
+  assert(func !is null);
+  import std.format;
+  alias FuncParams = Parameters!F;
+  enum ParametersCount = FuncParams.length;
+  static assert(ParametersCount == Args.length, format("Invalid bind parameters count: %s, expected %s", Args.length, ParametersCount));
+  struct Context
+  {
+    F saved_func = null;
+  }
+  @dynamicCompileEmit static auto wrapper(Context context, FuncParams wrapperArgs)
+  {
+    return context.saved_func(wrapperArgs);
+  }
+  return bindImpl(ctx, &wrapper, Context(func), args);
 }
 
 /++
@@ -281,6 +322,19 @@ bool setDynamicCompilerOptions(string[] args, scope ErrsHandler errs = null)
 pragma(LDC_no_typeinfo)
 {
   extern (C++, class) abstract class DynamicCompilerContext {}
+}
+
+DynamicCompilerContext createCompilerContext() nothrow @nogc
+{
+  auto ret = createDynamicCompilerContextImpl();
+  assert(ret !is null);
+  return ret;
+}
+
+void destroyCompilerContext(DynamicCompilerContext context) nothrow @nogc
+{
+  assert(context !is null);
+  destroyDynamicCompilerContextImpl(context);
 }
 
 private:
@@ -524,6 +578,8 @@ struct Context
 extern void rtCompileProcessImpl(const ref Context context, size_t contextSize);
 extern void registerBindPayload(DynamicCompilerContext context, void* handle, void* originalFunc, void* exampleFunc, const ParamSlice* params, size_t paramsSize);
 extern void unregisterBindPayload(DynamicCompilerContext context, void* handle);
+extern DynamicCompilerContext createDynamicCompilerContextImpl() nothrow @nogc;
+extern void destroyDynamicCompilerContextImpl(DynamicCompilerContext context) nothrow @nogc;
 extern bool setDynamicCompilerOpts(const(string[])* args, void function(void*, const char*, size_t) errs, void* errsContext);
 }
 

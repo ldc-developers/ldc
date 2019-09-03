@@ -470,6 +470,15 @@ EXTERNAL void JIT_UNREG_BIND_PAYLOAD(class DynamicCompilerContext *context,
   myJit.unregisterBind(handle);
 }
 
+EXTERNAL DynamicCompilerContext *JIT_CREATE_COMPILER_CONTEXT() {
+  return new DynamicCompilerContext(false);
+}
+
+EXTERNAL void JIT_DESTROY_COMPILER_CONTEXT(DynamicCompilerContext *context) {
+  assert(context != nullptr);
+  delete context;
+}
+
 EXTERNAL bool JIT_SET_OPTS(const Slice<Slice<const char>> *args,
                            void (*errs)(void *, const char *, size_t),
                            void *errsContext) {
