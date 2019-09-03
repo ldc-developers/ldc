@@ -46,7 +46,9 @@ struct CompilerSettings
 }
 
 /++
- + Compile all dynamic code.
+ + Compile all dynamic code associated with global context.
+ + This includes bind objects created without explicit context and all
+ + @dynamicCompile functions.
  + This function must be called before any calls to @dynamicCompile functions and
  + after any changes to @dynamicCompileConst variables
  +
@@ -85,6 +87,36 @@ void compileDynamicCode(in CompilerSettings settings = CompilerSettings.init)
   rtCompileProcessImpl(context, context.sizeof);
 }
 
+/++
+ + Compile all dynamic code associated with particular context.
+ + This includes bind objects created without this context.
+ + This function must be called before any calls to these bind objects.
+ + Context must not be null.
+ +
+ + This function is thread-safe as long as each thread has separate
+ + instance of context
+ +
+ + Example:
+ + ---
+ + import ldc.attributes, ldc.dynamic_compile;
+ +
+ + @dynamicCompileEmit int foo(int a, int b, int c)
+ + {
+ +   return a + b + c;
+ + }
+ +
+ + auto context = createCompilerContext();
+ + scope(exit) destroyCompilerContext(context);
+ +
+ + auto f = ldc.dynamic_compile.bind(context, &foo, 1,2,3);
+ +
+ + CompilerSettings settings;
+ + settings.optLevel = 3;
+ +
+ + compileDynamicCode(context, settings);
+ +
+ + assert(6 == f());
+ +/
 void compileDynamicCode(DynamicCompilerContext ctx, in CompilerSettings settings = CompilerSettings.init)
 {
   assert(ctx !is null);
@@ -157,6 +189,40 @@ auto bind(F, Args...)(F func, Args args) if (isFunctionPointer!F || isDelegate!F
   return bindImpl(null, &wrapper, Context(func), args);
 }
 
+/++
+ + Returns a reference-counted functional object based on a function or delegate
+ + with values bound to some parameters.
+ + Each argument in `args` must be either a value, convertible to function parameter,
+ + or `ldc.dynamic_compile.placeholder`.
+ + `func` must be a pointer to a function or to a delegate.
+ + The JIT runtime will generate an efficient function specialization based on `args`.
+ + The passed function (or delegate) must be marked `@dynamicCompile` or
+ + `@dynamicCompileEmit` to be efficiently optimized.
+ +
+ + This version takes additional context parameter. Context must not be null.
+ +
+ + `compileDynamicCode()` with same context must be called before making calls
+ + to the returned functional object.
+ +
+ + `toDelegate()` can be called on the returned object to get a callable delegate.
+ + The returned delegate does not prolong the lifetime of the original object (and
+ + thus a copy of the original object must be kept as long as this delegate is alive).
+ +
+ + Example:
+ + ---
+ + @dynamicCompile int foo(int a, int b)
+ + {
+ +   return a + b;
+ + }
+ +
+ + auto f = bind(context, &foo, 40, placeholder);
+ + int delegate(int) d = f.toDelegate();
+ +
+ + compileDynamicCode(context);
+ +
+ + assert(f(2) == 42);
+ + assert(d(2) == 42);
+ +/
 auto bind(F, Args...)(DynamicCompilerContext ctx, F func, Args args) if (isFunctionPointer!F || isDelegate!F)
 {
   assert(ctx !is null);
@@ -324,6 +390,10 @@ pragma(LDC_no_typeinfo)
   extern (C++, class) abstract class DynamicCompilerContext {}
 }
 
+/++
+ + Create compilation context.
+ + Returns newly create context.
+ +/
 DynamicCompilerContext createCompilerContext() nothrow @nogc
 {
   auto ret = createDynamicCompilerContextImpl();
@@ -331,6 +401,10 @@ DynamicCompilerContext createCompilerContext() nothrow @nogc
   return ret;
 }
 
+/++
+ + Destroy compilation context.
+ + Context must not be null.
+ +/
 void destroyCompilerContext(DynamicCompilerContext context) nothrow @nogc
 {
   assert(context !is null);
