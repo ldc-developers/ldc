@@ -64,6 +64,9 @@ before_install:
       mkdir -p $LLVM_ROOT_DIR
       tar -xf llvm.tar.xz --strip 1 -C $LLVM_ROOT_DIR
       rm llvm.tar.xz
+      if [ "$TRAVIS_OS_NAME" = "linux" ]; then
+        find /home/travis/dlang/ -type f -name *ldc-jit* -exec rm -f {} \;
+      fi
     fi
 
 install:
@@ -85,8 +88,6 @@ install:
   - python -c "import lit; lit.main();" --version | head -n 1
 
 script:
-  - which ldc2
-  - find /home/travis/dlang/ -name *jit*
   - cmake --version
   - ninja --version
   - |
