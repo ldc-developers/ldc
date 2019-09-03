@@ -171,7 +171,7 @@ void *resolveSymbol(llvm::JITSymbol &symbol) {
   }
 }
 
-void generateBind(const Context &context, JITContext &jitContext,
+void generateBind(const Context &context, DynamicCompilerContext &jitContext,
                   JitModuleInfo &moduleInfo, llvm::Module &module) {
   auto getIrFunc = [&](const void *ptr) -> llvm::Function * {
     assert(ptr != nullptr);
@@ -248,7 +248,7 @@ void generateBind(const Context &context, JITContext &jitContext,
   }
 }
 
-void applyBind(const Context &context, JITContext &jitContext,
+void applyBind(const Context &context, DynamicCompilerContext &jitContext,
                const JitModuleInfo &moduleInfo) {
   auto &layout = jitContext.getDataLayout();
   for (auto &elem : moduleInfo.getBindHandles()) {
@@ -266,8 +266,8 @@ void applyBind(const Context &context, JITContext &jitContext,
   }
 }
 
-JITContext &getJit() {
-  static JITContext jit;
+DynamicCompilerContext &getJit() {
+  static DynamicCompilerContext jit;
   return jit;
 }
 
@@ -307,9 +307,9 @@ void setFunctionsTarget(llvm::Module &module, const llvm::TargetMachine &TM) {
 }
 
 struct JitFinaliser final {
-  JITContext &jit;
+  DynamicCompilerContext &jit;
   bool finalized = false;
-  explicit JitFinaliser(JITContext &j) : jit(j) {}
+  explicit JitFinaliser(DynamicCompilerContext &j) : jit(j) {}
   ~JitFinaliser() {
     if (!finalized) {
       jit.reset();
@@ -326,7 +326,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
     return;
   }
   interruptPoint(context, "Init");
-  JITContext &myJit = getJit();
+  DynamicCompilerContext &myJit = getJit();
 
   JitModuleInfo moduleInfo(context, modlist_head);
   std::unique_ptr<llvm::Module> finalModule;
@@ -452,14 +452,14 @@ EXTERNAL void JIT_REG_BIND_PAYLOAD(void *handle, void *originalFunc,
   assert(handle != nullptr);
   assert(originalFunc != nullptr);
   assert(exampleFunc != nullptr);
-  JITContext &myJit = getJit();
+  DynamicCompilerContext &myJit = getJit();
   myJit.registerBind(handle, originalFunc, exampleFunc,
                      toArray(params, paramsSize));
 }
 
 EXTERNAL void JIT_UNREG_BIND_PAYLOAD(void *handle) {
   assert(handle != nullptr);
-  JITContext &myJit = getJit();
+  DynamicCompilerContext &myJit = getJit();
   myJit.unregisterBind(handle);
 }
 

@@ -42,7 +42,7 @@ class TargetMachine;
 
 using SymMap = std::map<std::string, void *>;
 
-class JITContext final {
+class DynamicCompilerContext final {
 private:
   struct ModuleListener {
     llvm::TargetMachine &targetmachine;
@@ -70,9 +70,10 @@ private:
 #if LDC_LLVM_VER >= 800
   using ObjectLayerT = llvm::orc::LegacyRTDyldObjectLinkingLayer;
   using ListenerLayerT =
-    llvm::orc::LegacyObjectTransformLayer<ObjectLayerT, ModuleListener>;
+      llvm::orc::LegacyObjectTransformLayer<ObjectLayerT, ModuleListener>;
   using CompileLayerT =
-    llvm::orc::LegacyIRCompileLayer<ListenerLayerT, llvm::orc::SimpleCompiler>;
+      llvm::orc::LegacyIRCompileLayer<ListenerLayerT,
+                                      llvm::orc::SimpleCompiler>;
 #else
   using ObjectLayerT = llvm::orc::RTDyldObjectLinkingLayer;
   using ListenerLayerT =
@@ -105,14 +106,14 @@ private:
   llvm::MapVector<void *, BindDesc> bindInstances;
 
   struct ListenerCleaner final {
-    JITContext &owner;
-    ListenerCleaner(JITContext &o, llvm::raw_ostream *stream);
+    DynamicCompilerContext &owner;
+    ListenerCleaner(DynamicCompilerContext &o, llvm::raw_ostream *stream);
     ~ListenerCleaner();
   };
 
 public:
-  JITContext();
-  ~JITContext();
+  DynamicCompilerContext();
+  ~DynamicCompilerContext();
 
   llvm::TargetMachine &getTargetMachine() { return *targetmachine; }
   const llvm::DataLayout &getDataLayout() const { return dataLayout; }
