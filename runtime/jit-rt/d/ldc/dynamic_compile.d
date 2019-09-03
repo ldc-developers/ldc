@@ -132,7 +132,7 @@ auto bind(F, Args...)(F func, Args args) if (isFunctionPointer!F || isDelegate!F
   {
     return context.saved_func(wrapperArgs);
   }
-  return bindImpl(&wrapper, Context(func), args);
+  return bindImpl(null, &wrapper, Context(func), args);
 }
 
 /++
@@ -161,7 +161,7 @@ package:
 
   Payload* _payload = null;
 
-  static auto make(int[] Index, OF, Args...)(OF func, Args args)
+  static auto make(int[] Index, OF, Args...)(DynamicCompilerContext context, OF func, Args args)
   {
     import core.exception : onOutOfMemoryError;
     import std.conv : emplace;
@@ -176,7 +176,7 @@ package:
       pureFree(payload);
     }
 
-    emplace(payload, func, args);
+    emplace(payload, context, func, args);
     payload.register();
     BindPtr!F ret;
     ret._payload = cast(Payload*)payload;
@@ -284,7 +284,7 @@ pragma(LDC_no_typeinfo)
 }
 
 private:
-auto bindImpl(F, Args...)(F func, Args args)
+auto bindImpl(F, Args...)(DynamicCompilerContext context, F func, Args args)
 {
   import std.format;
   static assert(isFunctionPointer!F, "Function pointer expected as first parameter");
@@ -295,7 +295,7 @@ auto bindImpl(F, Args...)(F func, Args args)
   enum Index = bindParamsInd!(0, 0, Args)();
   alias PartialF = ReturnType!F function(UnbindTypes!(Index, FuncParams));
   alias BindPtrType = BindPtr!PartialF;
-  return BindPtrType.make!Index(func, mapBindParams!(F, 0)(args).expand);
+  return BindPtrType.make!Index(context, func, mapBindParams!(F, 0)(args).expand);
 }
 
 import std.meta;
@@ -412,10 +412,11 @@ struct BindPayload(OF, F, int[] Index, Args...)
   ArgStore argStore;
   bool registered = false;
 
-  this(OF orFunc, Args a)
+  this(DynamicCompilerContext ctx, OF orFunc, Args a)
   {
     assert(orFunc !is null);
     originalFunc = orFunc;
+    context = ctx;
     static if (hasIndirections!(ArgStore))
     {
         pureGcAddRange(&argStore, ArgStore.sizeof);
