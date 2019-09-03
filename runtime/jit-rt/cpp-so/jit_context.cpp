@@ -39,10 +39,23 @@ llvm::SmallVector<std::string, 4> getHostAttrs() {
   return features;
 }
 
+struct StaticInitHelper {
+  StaticInitHelper() {
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetDisassembler();
+    llvm::InitializeNativeTargetAsmPrinter();
+  }
+};
+
+StaticInitHelper &staticInit() {
+  // Initialization may not be thread safe
+  // Wrap it into static dummy object initialization
+  static StaticInitHelper obj;
+  return obj;
+}
+
 std::unique_ptr<llvm::TargetMachine> createTargetMachine() {
-  llvm::InitializeNativeTarget();
-  llvm::InitializeNativeTargetDisassembler();
-  llvm::InitializeNativeTargetAsmPrinter();
+  staticInit();
 
   std::string triple(llvm::sys::getProcessTriple());
   std::string error;
@@ -87,7 +100,7 @@ DynamicCompilerContext::ListenerCleaner::~ListenerCleaner() {
   owner.listenerlayer.getTransform().stream = nullptr;
 }
 
-DynamicCompilerContext::DynamicCompilerContext()
+DynamicCompilerContext::DynamicCompilerContext(bool isMainContext)
     : targetmachine(createTargetMachine()),
       dataLayout(targetmachine->createDataLayout()),
 #if LDC_LLVM_VER >= 700
@@ -104,7 +117,8 @@ DynamicCompilerContext::DynamicCompilerContext()
           []() { return std::make_shared<llvm::SectionMemoryManager>(); }),
 #endif
       listenerlayer(objectLayer, ModuleListener(*targetmachine)),
-      compileLayer(listenerlayer, llvm::orc::SimpleCompiler(*targetmachine)) {
+      compileLayer(listenerlayer, llvm::orc::SimpleCompiler(*targetmachine)),
+      mainContext(isMainContext) {
   llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 }
 
@@ -178,6 +192,8 @@ bool DynamicCompilerContext::hasBindFunction(const void *handle) const {
   auto it = bindInstances.find(const_cast<void *>(handle));
   return it != bindInstances.end();
 }
+
+bool DynamicCompilerContext::isMainContext() const { return mainContext; }
 
 void DynamicCompilerContext::removeModule(const ModuleHandleT &handle) {
   cantFail(compileLayer.removeModule(handle));

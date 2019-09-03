@@ -270,7 +270,7 @@ DynamicCompilerContext &getJit(DynamicCompilerContext *context) {
   if (context != nullptr) {
     return *context;
   }
-  static DynamicCompilerContext jit;
+  static DynamicCompilerContext jit(/*mainContext*/ true);
   return jit;
 }
 
@@ -410,27 +410,29 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   }
 
   JitFinaliser jitFinalizer(myJit);
-  interruptPoint(context, "Resolve functions");
-  for (auto &&fun : moduleInfo.functions()) {
-    if (fun.thunkVar == nullptr) {
-      continue;
-    }
-    auto decorated = decorate(fun.name, layout);
-    auto symbol = myJit.findSymbol(decorated);
-    auto addr = resolveSymbol(symbol);
-    if (nullptr == addr) {
-      std::string desc = std::string("Symbol not found in jitted code: \"") +
-                         fun.name.data() + "\" (\"" + decorated + "\")";
-      fatal(context, desc);
-    } else {
-      *fun.thunkVar = addr;
-    }
+  if (myJit.isMainContext()) {
+    interruptPoint(context, "Resolve functions");
+    for (auto &&fun : moduleInfo.functions()) {
+      if (fun.thunkVar == nullptr) {
+        continue;
+      }
+      auto decorated = decorate(fun.name, layout);
+      auto symbol = myJit.findSymbol(decorated);
+      auto addr = resolveSymbol(symbol);
+      if (nullptr == addr) {
+        std::string desc = std::string("Symbol not found in jitted code: \"") +
+                           fun.name.data() + "\" (\"" + decorated + "\")";
+        fatal(context, desc);
+      } else {
+        *fun.thunkVar = addr;
+      }
 
-    if (nullptr != context.interruptPointHandler) {
-      std::stringstream ss;
-      ss << fun.name.data() << " to " << addr;
-      auto str = ss.str();
-      interruptPoint(context, "Resolved", str.c_str());
+      if (nullptr != context.interruptPointHandler) {
+        std::stringstream ss;
+        ss << fun.name.data() << " to " << addr;
+        auto str = ss.str();
+        interruptPoint(context, "Resolved", str.c_str());
+      }
     }
   }
   interruptPoint(context, "Update bind handles");

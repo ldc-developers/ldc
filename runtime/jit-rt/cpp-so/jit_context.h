@@ -64,7 +64,6 @@ private:
       return std::move(object);
     }
   };
-  llvm::llvm_shutdown_obj shutdownObj;
   std::unique_ptr<llvm::TargetMachine> targetmachine;
   const llvm::DataLayout dataLayout;
 #if LDC_LLVM_VER >= 800
@@ -104,6 +103,7 @@ private:
     ParamsVec params;
   };
   llvm::MapVector<void *, BindDesc> bindInstances;
+  const bool mainContext = false;
 
   struct ListenerCleaner final {
     DynamicCompilerContext &owner;
@@ -112,7 +112,7 @@ private:
   };
 
 public:
-  DynamicCompilerContext();
+  DynamicCompilerContext(bool isMainContext);
   ~DynamicCompilerContext();
 
   llvm::TargetMachine &getTargetMachine() { return *targetmachine; }
@@ -141,6 +141,8 @@ public:
   const llvm::MapVector<void *, BindDesc> &getBindInstances() const {
     return bindInstances;
   }
+
+  bool isMainContext() const;
 
 private:
   void removeModule(const ModuleHandleT &handle);
