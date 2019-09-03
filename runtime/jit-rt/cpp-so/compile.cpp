@@ -266,7 +266,10 @@ void applyBind(const Context &context, DynamicCompilerContext &jitContext,
   }
 }
 
-DynamicCompilerContext &getJit() {
+DynamicCompilerContext &getJit(DynamicCompilerContext *context) {
+  if (context != nullptr) {
+    return *context;
+  }
   static DynamicCompilerContext jit;
   return jit;
 }
@@ -326,7 +329,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
     return;
   }
   interruptPoint(context, "Init");
-  DynamicCompilerContext &myJit = getJit();
+  DynamicCompilerContext &myJit = getJit(context.compilerContext);
 
   JitModuleInfo moduleInfo(context, modlist_head);
   std::unique_ptr<llvm::Module> finalModule;
@@ -446,20 +449,22 @@ EXTERNAL void JIT_API_ENTRYPOINT(const void *modlist_head,
       static_cast<const RtCompileModuleList *>(modlist_head), *context);
 }
 
-EXTERNAL void JIT_REG_BIND_PAYLOAD(void *handle, void *originalFunc,
+EXTERNAL void JIT_REG_BIND_PAYLOAD(class DynamicCompilerContext *context,
+                                   void *handle, void *originalFunc,
                                    void *exampleFunc, const ParamSlice *params,
                                    size_t paramsSize) {
   assert(handle != nullptr);
   assert(originalFunc != nullptr);
   assert(exampleFunc != nullptr);
-  DynamicCompilerContext &myJit = getJit();
+  DynamicCompilerContext &myJit = getJit(context);
   myJit.registerBind(handle, originalFunc, exampleFunc,
                      toArray(params, paramsSize));
 }
 
-EXTERNAL void JIT_UNREG_BIND_PAYLOAD(void *handle) {
+EXTERNAL void JIT_UNREG_BIND_PAYLOAD(class DynamicCompilerContext *context,
+                                     void *handle) {
   assert(handle != nullptr);
-  DynamicCompilerContext &myJit = getJit();
+  DynamicCompilerContext &myJit = getJit(context);
   myJit.unregisterBind(handle);
 }
 

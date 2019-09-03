@@ -54,6 +54,8 @@ typedef void (*FatalHandlerT)(void *, const char *reason);
 typedef void (*DumpHandlerT)(void *, DumpStage stage, const char *str,
                              std::size_t len);
 
+class DynamicCompilerContext;
+
 struct Context final {
   unsigned optLevel = 0;
   unsigned sizeLevel = 0;
@@ -63,4 +65,5 @@ struct Context final {
   void *fatalHandlerData = nullptr;
   DumpHandlerT dumpHandler = nullptr;
   void *dumpHandlerData = nullptr;
+  DynamicCompilerContext *compilerContext = nullptr;
 };

@@ -52,10 +52,12 @@ EXTERNAL void JIT_API_ENTRYPOINT(const void *modlist_head,
                                  const Context *context,
                                  std::size_t contextSize);
 
-EXTERNAL void JIT_REG_BIND_PAYLOAD(void *handle, void *originalFunc,
+EXTERNAL void JIT_REG_BIND_PAYLOAD(class DynamicCompilerContext *context,
+                                   void *handle, void *originalFunc,
                                    const ParamSlice *desc, size_t descSize);
 
-EXTERNAL void JIT_UNREG_BIND_PAYLOAD(void *handle);
+EXTERNAL void JIT_UNREG_BIND_PAYLOAD(class DynamicCompilerContext *context,
+                                     void *handle);
 
 EXTERNAL bool JIT_SET_OPTS(const Slice<Slice<const char>> *args,
                            void (*errs)(void *, const char *, size_t),
@@ -65,16 +67,20 @@ void rtCompileProcessImpl(const Context *context, std::size_t contextSize) {
   JIT_API_ENTRYPOINT(dynamiccompile_modules_head, context, contextSize);
 }
 
-void registerBindPayload(void *handle, void *originalFunc,
-                         const ParamSlice *desc, size_t descSize) {
-  JIT_REG_BIND_PAYLOAD(handle, originalFunc, desc, descSize);
+void registerBindPayload(class DynamicCompilerContext *context, void *handle,
+                         void *originalFunc, const ParamSlice *desc,
+                         size_t descSize) {
+  JIT_REG_BIND_PAYLOAD(context, handle, originalFunc, desc, descSize);
 }
 
-void unregisterBindPayload(void *handle) { JIT_UNREG_BIND_PAYLOAD(handle); }
+void unregisterBindPayload(class DynamicCompilerContext *context,
+                           void *handle) {
+  JIT_UNREG_BIND_PAYLOAD(context, handle);
 
 bool setDynamicCompilerOpts(const Slice<Slice<const char>> *args,
                             void (*errs)(void *, const char *, size_t),
                             void *errsContext) {
   return JIT_SET_OPTS(args, errs, errsContext);
+}
 }
 }

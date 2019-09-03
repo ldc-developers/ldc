@@ -278,6 +278,11 @@ bool setDynamicCompilerOptions(string[] args, scope ErrsHandler errs = null)
   return setDynamicCompilerOpts(&args, errsFunc, errsFuncContext);
 }
 
+pragma(LDC_no_typeinfo)
+{
+  extern (C++, class) abstract class DynamicCompilerContext {}
+}
+
 private:
 auto bindImpl(F, Args...)(F func, Args args)
 {
@@ -396,6 +401,7 @@ struct BindPayload(OF, F, int[] Index, Args...)
 
   Base base;
   OF originalFunc = null;
+  DynamicCompilerContext context = null;
   struct ArgStore
   {
     import std.meta: staticMap;
@@ -427,7 +433,7 @@ struct BindPayload(OF, F, int[] Index, Args...)
   {
     if (registered)
     {
-      unregisterBindPayload(&base.func);
+      unregisterBindPayload(context, &base.func);
     }
     static if (hasIndirections!(ArgStore))
     {
@@ -455,7 +461,7 @@ struct BindPayload(OF, F, int[] Index, Args...)
     alias Ret = ReturnType!F;
     alias Params = Parameters!F;
     @dynamicCompileEmit static Ret exampleFunc(Params) { assert(false); }
-    registerBindPayload(&base.func, cast(void*)originalFunc, cast(void*)&exampleFunc, desc.ptr, desc.length);
+    registerBindPayload(context, &base.func, cast(void*)originalFunc, cast(void*)&exampleFunc, desc.ptr, desc.length);
     registered = true;
   }
 
@@ -512,11 +518,11 @@ struct Context
   void* fatalHandlerData = null;
   void function(void*, DumpStage, const char*, size_t) dumpHandler = null;
   void* dumpHandlerData = null;
+  DynamicCompilerContext compilerContext = null;
 }
 extern void rtCompileProcessImpl(const ref Context context, size_t contextSize);
-
-extern void registerBindPayload(void* handle, void* originalFunc, void* exampleFunc, const ParamSlice* params, size_t paramsSize);
-extern void unregisterBindPayload(void* handle);
+extern void registerBindPayload(DynamicCompilerContext context, void* handle, void* originalFunc, void* exampleFunc, const ParamSlice* params, size_t paramsSize);
+extern void unregisterBindPayload(DynamicCompilerContext context, void* handle);
 extern bool setDynamicCompilerOpts(const(string[])* args, void function(void*, const char*, size_t) errs, void* errsContext);
 }
 
