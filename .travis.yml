@@ -64,9 +64,9 @@ before_install:
       mkdir -p $LLVM_ROOT_DIR
       tar -xf llvm.tar.xz --strip 1 -C $LLVM_ROOT_DIR
       rm llvm.tar.xz
-      if [ "$TRAVIS_OS_NAME" = "linux" ]; then
+    fi
+    if [ "$TRAVIS_OS_NAME" = "linux" ]; then
         find /home/travis/dlang/ -type f -name *ldc-jit* -exec rm -f {} \;
-      fi
     fi
 
 install:
