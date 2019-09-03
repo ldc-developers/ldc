@@ -419,11 +419,11 @@ public:
       irs->DBuilder.EmitBlockEnd();
     }
 
-    // rewrite the scope
-    irs->scope() = IRScope(endbb);
-
     // end the dwarf lexical block
     irs->DBuilder.EmitBlockEnd();
+
+    // rewrite the scope
+    irs->scope() = IRScope(endbb);
   }
 
   //////////////////////////////////////////////////////////////////////////
