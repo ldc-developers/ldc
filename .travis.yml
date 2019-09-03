@@ -86,9 +86,7 @@ install:
 
 script:
   - which ldc2
-  - find /usr/lib/ -maxdepth 1 -name libldc*
-  - find /usr/lib/ -maxdepth 1 -name libdrun*
-  - find /usr/lib/ -maxdepth 1 -name *jit*
+  - find /home/travis/dlang/ -name *jit*
   - cmake --version
   - ninja --version
   - |
