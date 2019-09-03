@@ -26,7 +26,9 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(gen_gccbuiltins dl)
 endif()
 
-
+if (TARGET FileCheck)
+  # already provided by LLVM
+else()
 # Build FileCheck for testing (build source version depending on LLVM version)
 set(FILECHECK_SRC FileCheck-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.cpp)
 if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${FILECHECK_SRC})
@@ -41,7 +43,11 @@ if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${FILECHECK_SRC})
 else()
     message(STATUS "Skip building FileCheck (source not found), assuming it can be found in LLVM bin directory")
 endif()
+endif()
 
+if (TARGET not)
+  # already provided by LLVM
+else()
 # Build `not` for testing
 add_executable(not not.cpp)
 set_target_properties(
@@ -51,3 +57,4 @@ set_target_properties(
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
 target_link_libraries(not  ${LLVM_LIBRARIES} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
+endif()
