@@ -85,7 +85,10 @@ install:
   - python -c "import lit; lit.main();" --version | head -n 1
 
 script:
+  - which ldc2
   - find /usr/lib/ -maxdepth 1 -name libldc*
+  - find /usr/lib/ -maxdepth 1 -name libdrun*
+  - find /usr/lib/ -maxdepth 1 -name *jit*
   - cmake --version
   - ninja --version
   - |
