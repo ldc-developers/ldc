@@ -94,9 +94,9 @@ unsigned getCriticalSectionSize(const Param &params) {
 void Target::_init(const Param &params) {
   CTFloat::initialize();
 
-  FloatProperties._init();
-  DoubleProperties._init();
-  RealProperties._init();
+  FloatProperties.initialize();
+  DoubleProperties.initialize();
+  RealProperties.initialize();
 
   const auto &triple = *params.targetTriple;
   const bool isMSVC = triple.isWindowsMSVCEnvironment();
@@ -109,13 +109,13 @@ void Target::_init(const Param &params) {
   classinfosize = 0; // unused
   maxStaticDataSize = std::numeric_limits<unsigned long long>::max();
 
-  c_longsize = global.params.is64bit && !isMSVC ? 8 : 4;
-  c_long_doublesize = realsize;
-  criticalSectionSize = getCriticalSectionSize(params);
+  c.longsize = global.params.is64bit && !isMSVC ? 8 : 4;
+  c.long_doublesize = realsize;
+  c.criticalSectionSize = getCriticalSectionSize(params);
 
-  reverseCppOverloads = isMSVC; // according to DMD, only for MSVC++
-  cppExceptions = true;
-  twoDtorInVtable = !isMSVC;
+  cpp.reverseOverloads = isMSVC; // according to DMD, only for MSVC++
+  cpp.exceptions = true;
+  cpp.twoDtorInVtable = !isMSVC;
 
   // Finalize RealProperties for the target's `real` type.
 
@@ -200,7 +200,7 @@ Type *Target::va_listType() { return gABI->vaListType(); }
  *      string if type is mangled specially on target
  *      null if unhandled
  */
-const char *Target::cppTypeMangle(Type *t) {
+const char *TargetCPP::typeMangle(Type *t) {
   if (t->ty == Tfloat80) {
     const auto &triple = *global.params.targetTriple;
     // `long double` on Android/x64 is __float128 and mangled as `g`

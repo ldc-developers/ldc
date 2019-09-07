@@ -19,7 +19,7 @@
 
 namespace opts {
 
-DArray<const char> dupPathString(llvm::StringRef src) {
+DString dupPathString(llvm::StringRef src) {
   const auto length = src.size();
   char *r = static_cast<char *>(mem.xmalloc(length + 1));
   memcpy(r, src.data(), length);
@@ -30,7 +30,7 @@ DArray<const char> dupPathString(llvm::StringRef src) {
   return {length, r};
 }
 
-DArray<const char> fromPathString(const cl::opt<std::string> &src) {
+DString fromPathString(const cl::opt<std::string> &src) {
   if (src.getNumOccurrences() != 0) {
     if (src.empty()) {
       error(Loc(), "Expected argument to '-%s'", src.ArgStr.str().c_str());

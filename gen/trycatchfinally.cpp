@@ -174,7 +174,7 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
 
       ci = irs.module.getGlobalVariable(wrapperMangle);
       if (!ci) {
-        const char *name = target.cppTypeInfoMangle(p.cd);
+        const char *name = target.cpp.typeInfoMangle(p.cd);
         auto cpp_ti =
             declareGlobal(p.cd->loc, irs.module, getVoidPtrType(), name,
                           /*isConstant=*/true);

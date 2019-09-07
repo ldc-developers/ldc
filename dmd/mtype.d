@@ -288,6 +288,7 @@ enum ENUMTY : int
     Tint128,
     Tuns128,
     TTraits,
+    Tmixin,
     TMAX,
 }
 
@@ -336,6 +337,7 @@ alias Tvector = ENUMTY.Tvector;
 alias Tint128 = ENUMTY.Tint128;
 alias Tuns128 = ENUMTY.Tuns128;
 alias Ttraits = ENUMTY.TTraits;
+alias Tmixin = ENUMTY.Tmixin;
 alias TMAX = ENUMTY.TMAX;
 
 alias TY = ubyte;
@@ -494,6 +496,7 @@ version (IN_LLVM)
             sizeTy[Tnull] = __traits(classInstanceSize, TypeNull);
             sizeTy[Tvector] = __traits(classInstanceSize, TypeVector);
             sizeTy[Ttraits] = __traits(classInstanceSize, TypeTraits);
+            sizeTy[Tmixin] = __traits(classInstanceSize, TypeMixin);
             return sizeTy;
         }();
 
@@ -2027,7 +2030,7 @@ version (IN_LLVM)
         if (!ad || !ad.aliasthis)
             return null;
 
-        auto s = ad.aliasthis;
+        auto s = ad.aliasthis.sym;
         if (s.isAliasDeclaration())
             s = s.toAlias();
 
@@ -2454,7 +2457,7 @@ version (IN_LLVM)
         // else path is DDMD original:
 
         const namelen = 19 + size_t.sizeof * 3 + slice.length + 1;
-        name = namelen <= namebuf.length ? namebuf.ptr : cast(char*)malloc(namelen);
+        name = namelen <= namebuf.length ? namebuf.ptr : cast(char*)Mem.check(malloc(namelen));
         assert(name);
 
         length = sprintf(name, "_D%lluTypeInfo_%.*s6__initZ",
@@ -2689,6 +2692,8 @@ version (IN_LLVM)
         inout(TypeTuple)      isTypeTuple()      { return ty == Ttuple     ? cast(typeof(return))this : null; }
         inout(TypeSlice)      isTypeSlice()      { return ty == Tslice     ? cast(typeof(return))this : null; }
         inout(TypeNull)       isTypeNull()       { return ty == Tnull      ? cast(typeof(return))this : null; }
+        inout(TypeMixin)      isTypeMixin()      { return ty == Tmixin     ? cast(typeof(return))this : null; }
+        inout(TypeTraits)     isTypeTraits()     { return ty == Ttraits    ? cast(typeof(return))this : null; }
     }
 
     override void accept(Visitor v)
@@ -5156,6 +5161,37 @@ extern (C++) final class TypeTraits : Type
     }
 }
 
+/******
+ * Implements mixin types.
+ *
+ * Semantic analysis will convert it to a real type.
+ */
+extern (C++) final class TypeMixin : Type
+{
+    Expressions* exps;
+
+    extern (D) this(Expressions* exps)
+    {
+        super(Tmixin);
+        this.exps = exps;
+    }
+
+    override const(char)* kind() const
+    {
+        return "mixin";
+    }
+
+    override Type syntaxCopy()
+    {
+        return new TypeMixin(Expression.arraySyntaxCopy(exps));
+    }
+
+    override void accept(Visitor v)
+    {
+        v.visit(this);
+    }
+}
+
 /***********************************************************
  */
 extern (C++) abstract class TypeQualified : Type
@@ -5634,7 +5670,7 @@ extern (C++) final class TypeStruct : Type
         return false;
     }
 
-    MATCH implicitConvToWithoutAliasThis(Type to)
+    extern (D) MATCH implicitConvToWithoutAliasThis(Type to)
     {
         MATCH m;
 
@@ -5692,7 +5728,7 @@ extern (C++) final class TypeStruct : Type
         return m;
     }
 
-    MATCH implicitConvToThroughAliasThis(Type to)
+    extern (D) MATCH implicitConvToThroughAliasThis(Type to)
     {
         MATCH m;
         if (!(ty == to.ty && sym == (cast(TypeStruct)to).sym) && sym.aliasthis && !(att & AliasThisRec.tracing))
@@ -5971,7 +6007,7 @@ extern (C++) final class TypeClass : Type
         return false;
     }
 
-    MATCH implicitConvToWithoutAliasThis(Type to)
+    extern (D) MATCH implicitConvToWithoutAliasThis(Type to)
     {
         MATCH m = constConv(to);
         if (m > MATCH.nomatch)
@@ -5994,7 +6030,7 @@ extern (C++) final class TypeClass : Type
         return MATCH.nomatch;
     }
 
-    MATCH implicitConvToThroughAliasThis(Type to)
+    extern (D) MATCH implicitConvToThroughAliasThis(Type to)
     {
         MATCH m;
         if (sym.aliasthis && !(att & AliasThisRec.tracing))
@@ -6166,6 +6202,21 @@ extern (C++) final class TypeTuple : Type
         arguments = new Parameters();
         arguments.push(new Parameter(0, t1, null, null, null));
         arguments.push(new Parameter(0, t2, null, null, null));
+    }
+
+    static TypeTuple create()
+    {
+        return new TypeTuple();
+    }
+
+    static TypeTuple create(Type t1)
+    {
+        return new TypeTuple(t1);
+    }
+
+    static TypeTuple create(Type t1, Type t2)
+    {
+        return new TypeTuple(t1, t2);
     }
 
     override const(char)* kind() const
@@ -6694,6 +6745,21 @@ extern (C++) AggregateDeclaration isAggregate(Type t)
 }
 
 /***************************************************
+ * Determine if type t can be indexed or sliced given that it is not an
+ * aggregate with operator overloads.
+ * Params:
+ *      t = type to check
+ * Returns:
+ *      true if an expression of type t can be e1 in an array expression
+ */
+bool isIndexableNonAggregate(Type t)
+{
+    t = t.toBasetype();
+    return (t.ty == Tpointer || t.ty == Tsarray || t.ty == Tarray || t.ty == Taarray ||
+            t.ty == Ttuple || t.ty == Tvector);
+}
+
+/***************************************************
  * Determine if type t is copyable.
  * Params:
  *      t = type to check
@@ -6711,4 +6777,3 @@ bool isCopyable(const Type t) pure nothrow @nogc
     }
     return true;
 }
-

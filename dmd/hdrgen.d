@@ -1607,10 +1607,20 @@ public:
             buf.writeByte(' ');
         }
         TypeFunction tf = cast(TypeFunction)f.type;
-        // Don't print tf.mod, tf.trust, and tf.linkage
+
         if (!f.inferRetType && tf.next)
             typeToBuffer(tf.next, null, buf, hgs);
         parametersToBuffer(tf.parameterList, buf, hgs);
+
+        // https://issues.dlang.org/show_bug.cgi?id=20074
+        void printAttribute(string str)
+        {
+            buf.writeByte(' ');
+            buf.writestring(str);
+        }
+        tf.attributesApply(&printAttribute);
+
+
         CompoundStatement cs = f.fbody.isCompoundStatement();
         Statement s1;
         if (f.semanticRun >= PASS.semantic3done && cs)
@@ -1619,7 +1629,7 @@ public:
         }
         else
             s1 = !cs ? f.fbody : null;
-        ReturnStatement rs = s1 ? s1.isReturnStatement() : null;
+        ReturnStatement rs = s1 ? s1.endsWithReturnStatement() : null;
         if (rs && rs.exp)
         {
             buf.writestring(" => ");
@@ -1828,19 +1838,17 @@ public:
                 break;
             case Tuns8:
                 buf.writestring("cast(ubyte)");
-                goto L3;
+                goto case Tuns32;
             case Tuns16:
                 buf.writestring("cast(ushort)");
-                goto L3;
+                goto case Tuns32;
             case Tuns32:
-            L3:
                 buf.printf("%uu", cast(uint)v);
                 break;
             case Tint64:
                 buf.printf("%lldL", v);
                 break;
             case Tuns64:
-            L4:
                 buf.printf("%lluLU", v);
                 break;
             case Tbool:
@@ -1850,12 +1858,10 @@ public:
                 buf.writestring("cast(");
                 buf.writestring(t.toChars());
                 buf.writeByte(')');
-                if (target.ptrsize == 4)
-                    goto L3;
-                else if (target.ptrsize == 8)
-                    goto L4;
+                if (target.ptrsize == 8)
+                    goto case Tuns64;
                 else
-                    assert(0);
+                    goto case Tuns32;
             default:
                 /* This can happen if errors, such as
                  * the type is painted on like in fromConstInitializer().
@@ -3127,11 +3133,13 @@ private void sizeToBuffer(Expression e, OutBuffer* buf, HdrGenState* hgs)
         const dinteger_t uval = ex.op == TOK.int64 ? ex.toInteger() : cast(dinteger_t)-1;
         if (cast(sinteger_t)uval >= 0)
         {
-            dinteger_t sizemax;
-            if (target.ptrsize == 4)
-                sizemax = 0xFFFFFFFFU;
-            else if (target.ptrsize == 8)
+            dinteger_t sizemax = void;
+            if (target.ptrsize == 8)
                 sizemax = 0xFFFFFFFFFFFFFFFFUL;
+            else if (target.ptrsize == 4)
+                sizemax = 0xFFFFFFFFU;
+            else if (target.ptrsize == 2)
+                sizemax = 0xFFFFU;
             else
                 assert(0);
             if (uval <= sizemax && uval <= 0x7FFFFFFFFFFFFFFFUL)
@@ -3734,6 +3742,13 @@ private void typeToBufferx(Type t, OutBuffer* buf, HdrGenState* hgs)
         buf.writestring("typeof(null)");
     }
 
+    void visitMixin(TypeMixin t)
+    {
+        buf.writestring("mixin(");
+        argsToBuffer(t.exps, buf, hgs, null);
+        buf.writeByte(')');
+    }
+
     switch (t.ty)
     {
         default:        return t.isTypeBasic() ?
@@ -3760,5 +3775,6 @@ private void typeToBufferx(Type t, OutBuffer* buf, HdrGenState* hgs)
         case Ttuple:     return visitTuple (cast(TypeTuple)t);
         case Tslice:     return visitSlice(cast(TypeSlice)t);
         case Tnull:      return visitNull(cast(TypeNull)t);
+        case Tmixin:     return visitMixin(cast(TypeMixin)t);
     }
 }

@@ -28,8 +28,8 @@ bool inv_dynamic_dynamic(bool[] a, bool[] b)
     return a != b;
 }
 
-// LLVM-LABEL: define{{.*}} @{{.*}}_D6object{{.*}}equals{{.*}}
-// ASM-LABEL: _D6object{{.*}}equals{{.*}}:
+// LLVM-LABEL: define{{.*}} @{{.*}}_D4core8internal5array8equality__T8__equals
+// ASM-LABEL: _D4core8internal5array8equality__T8__equals{{.*}}:
 
 // LLVM-LABEL: define{{.*}} @_Dmain
 // ASM-LABEL: _Dmain:
