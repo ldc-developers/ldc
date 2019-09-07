@@ -177,7 +177,6 @@ steps:
     git clone --recursive https://github.com/dlang/dub.git 2>&1
     cd dub
     powershell -c "git checkout \"$(cat %BUILD_SOURCESDIRECTORY%/packaging/dub_version -Raw)\"" 2>&1
-    powershell -c "(cat build.cmd).replace('curl.lib', '%CD%/../installed/lib/curl.lib') | Set-Content build.cmd"
     call build.cmd 2>&1
     cp bin/dub.exe ../installed/bin
     ..\installed\bin\dub --version
