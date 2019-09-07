@@ -1085,13 +1085,13 @@ public:
       if (p->emitArrayBoundsChecks() && !e->indexIsInBounds) {
         DtoIndexBoundsCheck(e->loc, l, r);
       }
-      arrptr =
-          DtoGEP(DtoLVal(l), DtoConstUint(0), DtoRVal(r), e->indexIsInBounds);
+      arrptr = DtoGEP(DtoLVal(l), DtoConstUint(0), DtoRVal(r),
+                      /* inBounds = */ true);
     } else if (e1type->ty == Tarray) {
       if (p->emitArrayBoundsChecks() && !e->indexIsInBounds) {
         DtoIndexBoundsCheck(e->loc, l, r);
       }
-      arrptr = DtoGEP1(DtoArrayPtr(l), DtoRVal(r), e->indexIsInBounds);
+      arrptr = DtoGEP1(DtoArrayPtr(l), DtoRVal(r), /* inBounds = */ true);
     } else if (e1type->ty == Taarray) {
       result = DtoAAIndex(e->loc, e->type, l, r, e->modifiable);
       return;
