@@ -85,6 +85,7 @@ install:
   - python -c "import lit; lit.main();" --version | head -n 1
 
 script:
+  - unset LD_LIBRARY_PATH
   - cmake --version
   - ninja --version
   - |

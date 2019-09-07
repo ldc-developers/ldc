@@ -6,6 +6,7 @@ import platform
 import string
 import re
 import subprocess
+import glob
 from distutils.version import LooseVersion
 
 # Cmake Boolean options
@@ -221,3 +222,14 @@ if config.llvm_version >= 800:
 else:
     config.substitutions.append( ('%disable_fp_elim', '-disable-fp-elim') )
     config.substitutions.append( ('%enable_fp_elim', '-disable-fp-elim=false') )
+
+if 'LD_LIBRARY_PATH' in os.environ:
+    libs = []
+    for lib_path in [s for s in os.environ['LD_LIBRARY_PATH'].split(':') if s]:
+        for pattern in ['*ldc-jit*','*druntime-ldc*','*phobos2-ldc*']:
+            libs += glob.glob(os.path.join(lib_path, pattern))
+
+    if libs:
+        print('Warning: LDC runtime libs found in LD_LIBRARY_PATH:')
+        for l in libs:
+            print(l)
