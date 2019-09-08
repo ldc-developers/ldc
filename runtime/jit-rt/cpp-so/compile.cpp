@@ -171,7 +171,7 @@ void *resolveSymbol(llvm::JITSymbol &symbol) {
   }
 }
 
-void generateBind(const Context &context, JITContext &jitContext,
+void generateBind(const Context &context, DynamicCompilerContext &jitContext,
                   JitModuleInfo &moduleInfo, llvm::Module &module) {
   auto getIrFunc = [&](const void *ptr) -> llvm::Function * {
     assert(ptr != nullptr);
@@ -248,7 +248,7 @@ void generateBind(const Context &context, JITContext &jitContext,
   }
 }
 
-void applyBind(const Context &context, JITContext &jitContext,
+void applyBind(const Context &context, DynamicCompilerContext &jitContext,
                const JitModuleInfo &moduleInfo) {
   auto &layout = jitContext.getDataLayout();
   for (auto &elem : moduleInfo.getBindHandles()) {
@@ -266,8 +266,11 @@ void applyBind(const Context &context, JITContext &jitContext,
   }
 }
 
-JITContext &getJit() {
-  static JITContext jit;
+DynamicCompilerContext &getJit(DynamicCompilerContext *context) {
+  if (context != nullptr) {
+    return *context;
+  }
+  static DynamicCompilerContext jit(/*mainContext*/ true);
   return jit;
 }
 
@@ -307,9 +310,9 @@ void setFunctionsTarget(llvm::Module &module, const llvm::TargetMachine &TM) {
 }
 
 struct JitFinaliser final {
-  JITContext &jit;
+  DynamicCompilerContext &jit;
   bool finalized = false;
-  explicit JitFinaliser(JITContext &j) : jit(j) {}
+  explicit JitFinaliser(DynamicCompilerContext &j) : jit(j) {}
   ~JitFinaliser() {
     if (!finalized) {
       jit.reset();
@@ -326,7 +329,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
     return;
   }
   interruptPoint(context, "Init");
-  JITContext &myJit = getJit();
+  DynamicCompilerContext &myJit = getJit(context.compilerContext);
 
   JitModuleInfo moduleInfo(context, modlist_head);
   std::unique_ptr<llvm::Module> finalModule;
@@ -407,27 +410,29 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   }
 
   JitFinaliser jitFinalizer(myJit);
-  interruptPoint(context, "Resolve functions");
-  for (auto &&fun : moduleInfo.functions()) {
-    if (fun.thunkVar == nullptr) {
-      continue;
-    }
-    auto decorated = decorate(fun.name, layout);
-    auto symbol = myJit.findSymbol(decorated);
-    auto addr = resolveSymbol(symbol);
-    if (nullptr == addr) {
-      std::string desc = std::string("Symbol not found in jitted code: \"") +
-                         fun.name.data() + "\" (\"" + decorated + "\")";
-      fatal(context, desc);
-    } else {
-      *fun.thunkVar = addr;
-    }
+  if (myJit.isMainContext()) {
+    interruptPoint(context, "Resolve functions");
+    for (auto &&fun : moduleInfo.functions()) {
+      if (fun.thunkVar == nullptr) {
+        continue;
+      }
+      auto decorated = decorate(fun.name, layout);
+      auto symbol = myJit.findSymbol(decorated);
+      auto addr = resolveSymbol(symbol);
+      if (nullptr == addr) {
+        std::string desc = std::string("Symbol not found in jitted code: \"") +
+                           fun.name.data() + "\" (\"" + decorated + "\")";
+        fatal(context, desc);
+      } else {
+        *fun.thunkVar = addr;
+      }
 
-    if (nullptr != context.interruptPointHandler) {
-      std::stringstream ss;
-      ss << fun.name.data() << " to " << addr;
-      auto str = ss.str();
-      interruptPoint(context, "Resolved", str.c_str());
+      if (nullptr != context.interruptPointHandler) {
+        std::stringstream ss;
+        ss << fun.name.data() << " to " << addr;
+        auto str = ss.str();
+        interruptPoint(context, "Resolved", str.c_str());
+      }
     }
   }
   interruptPoint(context, "Update bind handles");
@@ -446,21 +451,32 @@ EXTERNAL void JIT_API_ENTRYPOINT(const void *modlist_head,
       static_cast<const RtCompileModuleList *>(modlist_head), *context);
 }
 
-EXTERNAL void JIT_REG_BIND_PAYLOAD(void *handle, void *originalFunc,
+EXTERNAL void JIT_REG_BIND_PAYLOAD(class DynamicCompilerContext *context,
+                                   void *handle, void *originalFunc,
                                    void *exampleFunc, const ParamSlice *params,
                                    size_t paramsSize) {
   assert(handle != nullptr);
   assert(originalFunc != nullptr);
   assert(exampleFunc != nullptr);
-  JITContext &myJit = getJit();
+  DynamicCompilerContext &myJit = getJit(context);
   myJit.registerBind(handle, originalFunc, exampleFunc,
                      toArray(params, paramsSize));
 }
 
-EXTERNAL void JIT_UNREG_BIND_PAYLOAD(void *handle) {
+EXTERNAL void JIT_UNREG_BIND_PAYLOAD(class DynamicCompilerContext *context,
+                                     void *handle) {
   assert(handle != nullptr);
-  JITContext &myJit = getJit();
+  DynamicCompilerContext &myJit = getJit(context);
   myJit.unregisterBind(handle);
+}
+
+EXTERNAL DynamicCompilerContext *JIT_CREATE_COMPILER_CONTEXT() {
+  return new DynamicCompilerContext(false);
+}
+
+EXTERNAL void JIT_DESTROY_COMPILER_CONTEXT(DynamicCompilerContext *context) {
+  assert(context != nullptr);
+  delete context;
 }
 
 EXTERNAL bool JIT_SET_OPTS(const Slice<Slice<const char>> *args,

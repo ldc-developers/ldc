@@ -42,7 +42,7 @@ class TargetMachine;
 
 using SymMap = std::map<std::string, void *>;
 
-class JITContext final {
+class DynamicCompilerContext final {
 private:
   struct ModuleListener {
     llvm::TargetMachine &targetmachine;
@@ -64,15 +64,15 @@ private:
       return std::move(object);
     }
   };
-  llvm::llvm_shutdown_obj shutdownObj;
   std::unique_ptr<llvm::TargetMachine> targetmachine;
   const llvm::DataLayout dataLayout;
 #if LDC_LLVM_VER >= 800
   using ObjectLayerT = llvm::orc::LegacyRTDyldObjectLinkingLayer;
   using ListenerLayerT =
-    llvm::orc::LegacyObjectTransformLayer<ObjectLayerT, ModuleListener>;
+      llvm::orc::LegacyObjectTransformLayer<ObjectLayerT, ModuleListener>;
   using CompileLayerT =
-    llvm::orc::LegacyIRCompileLayer<ListenerLayerT, llvm::orc::SimpleCompiler>;
+      llvm::orc::LegacyIRCompileLayer<ListenerLayerT,
+                                      llvm::orc::SimpleCompiler>;
 #else
   using ObjectLayerT = llvm::orc::RTDyldObjectLinkingLayer;
   using ListenerLayerT =
@@ -103,16 +103,17 @@ private:
     ParamsVec params;
   };
   llvm::MapVector<void *, BindDesc> bindInstances;
+  const bool mainContext = false;
 
   struct ListenerCleaner final {
-    JITContext &owner;
-    ListenerCleaner(JITContext &o, llvm::raw_ostream *stream);
+    DynamicCompilerContext &owner;
+    ListenerCleaner(DynamicCompilerContext &o, llvm::raw_ostream *stream);
     ~ListenerCleaner();
   };
 
 public:
-  JITContext();
-  ~JITContext();
+  DynamicCompilerContext(bool isMainContext);
+  ~DynamicCompilerContext();
 
   llvm::TargetMachine &getTargetMachine() { return *targetmachine; }
   const llvm::DataLayout &getDataLayout() const { return dataLayout; }
@@ -140,6 +141,8 @@ public:
   const llvm::MapVector<void *, BindDesc> &getBindInstances() const {
     return bindInstances;
   }
+
+  bool isMainContext() const;
 
 private:
   void removeModule(const ModuleHandleT &handle);
