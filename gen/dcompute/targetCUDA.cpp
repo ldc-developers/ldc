@@ -11,7 +11,7 @@
 
 #include "gen/dcompute/target.h"
 #include "gen/dcompute/druntime.h"
-#include "gen/metadata.h"
+#include "gen/passes/metadata.h"
 #include "gen/abi-nvptx.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"

@@ -4,6 +4,8 @@
 //
 // This file is distributed under the Boost Software License. See the LICENSE
 // file for details.
+// Uses some parts from gen/optimizer.cpp which is under the BSD-style LDC
+// license.
 //
 //===----------------------------------------------------------------------===//
 
@@ -22,6 +24,8 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 
+#include "llvm/Support/CommandLine.h"
+
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/Inliner.h"
@@ -31,7 +35,86 @@
 #include "utils.h"
 #include "valueparser.h"
 
+#ifdef LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES
+#include "Passes.h"
+#endif
+
 namespace {
+namespace cl = llvm::cl;
+cl::opt<bool>
+    verifyEach("verify-each", cl::ZeroOrMore, cl::Hidden,
+               cl::desc("Run verifier after D-specific and explicitly "
+                        "specified optimization passes"));
+
+/// LDC LICENSE START
+#ifdef LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES
+cl::opt<bool>
+    disableLangSpecificPasses("disable-d-passes", cl::ZeroOrMore,
+                              cl::desc("Disable all D-specific passes"));
+
+cl::opt<bool> disableSimplifyDruntimeCalls(
+    "disable-simplify-drtcalls", cl::ZeroOrMore,
+    cl::desc("Disable simplification of druntime calls"));
+
+cl::opt<bool> disableSimplifyLibCalls(
+    "disable-simplify-libcalls", cl::ZeroOrMore,
+    cl::desc("Disable simplification of well-known C runtime calls"));
+
+cl::opt<bool> disableGCToStack(
+    "disable-gc2stack", cl::ZeroOrMore,
+    cl::desc("Disable promotion of GC allocations to stack memory"));
+#endif
+/// LDC LICENSE END
+
+cl::opt<bool> stripDebug(
+    "strip-debug", cl::ZeroOrMore,
+    cl::desc("Strip symbolic debug information before optimization"));
+
+cl::opt<bool> disableLoopUnrolling(
+    "disable-loop-unrolling", cl::ZeroOrMore,
+    cl::desc("Disable loop unrolling in all relevant passes"));
+cl::opt<bool>
+    disableLoopVectorization("disable-loop-vectorization", cl::ZeroOrMore,
+                             cl::desc("Disable the loop vectorization pass"));
+
+cl::opt<bool>
+    disableSLPVectorization("disable-slp-vectorization", cl::ZeroOrMore,
+                            cl::desc("Disable the slp vectorization pass"));
+
+/// LDC LICENSE START
+#ifdef LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES
+void addPass(llvm::PassManagerBase &pm, llvm::Pass *pass) {
+  pm.add(pass);
+
+  if (verifyEach) {
+    pm.add(llvm::createVerifierPass());
+  }
+}
+
+void addStripExternalsPass(const llvm::PassManagerBuilder &builder,
+                           llvm::PassManagerBase &pm) {
+  if (builder.OptLevel >= 1) {
+    addPass(pm, createStripExternalsPass());
+    addPass(pm, llvm::createGlobalDCEPass());
+  }
+}
+
+void addSimplifyDRuntimeCallsPass(const llvm::PassManagerBuilder &builder,
+                                  llvm::PassManagerBase &pm) {
+  if (builder.OptLevel >= 2 && builder.SizeLevel == 0) {
+    addPass(pm, createSimplifyDRuntimeCalls());
+  }
+}
+
+void addGarbageCollect2StackPass(const llvm::PassManagerBuilder &builder,
+                                 llvm::PassManagerBase &pm) {
+  if (builder.OptLevel >= 2 && builder.SizeLevel == 0) {
+    addPass(pm, createGarbageCollect2Stack());
+  }
+}
+#endif
+/// LDC LICENSE END
+
 // TODO: share this function with compiler
 void addOptimizationPasses(llvm::legacy::PassManagerBase &mpm,
                            llvm::legacy::FunctionPassManager &fpm,
@@ -57,25 +140,42 @@ void addOptimizationPasses(llvm::legacy::PassManagerBase &mpm,
   }
   builder.DisableUnitAtATime = false;
 
-  // TODO: Expose this option
-  builder.DisableUnrollLoops = optLevel == 0;
+  builder.DisableUnrollLoops = (disableLoopUnrolling.getNumOccurrences() > 0)
+                                   ? disableLoopUnrolling
+                                   : optLevel == 0;
 
-  // TODO: expose this option
-  if (/*disableLoopVectorization*/ false) {
+  if (disableLoopVectorization) {
     builder.LoopVectorize = false;
     // If option wasn't forced via cmd line (-vectorize-loops, -loop-vectorize)
   } else if (!builder.LoopVectorize) {
     builder.LoopVectorize = optLevel > 1 && sizeLevel < 2;
   }
 
-  // TODO: expose this option
   builder.SLPVectorize =
-      /*disableSLPVectorization*/ false ? false : optLevel > 1 && sizeLevel < 2;
+      disableSLPVectorization ? false : optLevel > 1 && sizeLevel < 2;
 
   // TODO: sanitizers support in jit?
-  // TODO: lang specific passes support
-  // TODO: addStripExternalsPass?
   // TODO: PGO support in jit?
+
+  /// LDC LICENSE START
+#ifdef LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES
+  if (!disableLangSpecificPasses) {
+    if (!disableSimplifyDruntimeCalls) {
+      builder.addExtension(llvm::PassManagerBuilder::EP_LoopOptimizerEnd,
+                           addSimplifyDRuntimeCallsPass);
+    }
+
+    if (!disableGCToStack) {
+      builder.addExtension(llvm::PassManagerBuilder::EP_LoopOptimizerEnd,
+                           addGarbageCollect2StackPass);
+    }
+  }
+
+  // EP_OptimizerLast does not exist in LLVM 3.0, add it manually below.
+  builder.addExtension(llvm::PassManagerBuilder::EP_OptimizerLast,
+                       addStripExternalsPass);
+#endif
+  /// LDC LICENSE END
 
   builder.populateFunctionPassManager(fpm);
   builder.populateModulePassManager(mpm);
@@ -92,7 +192,7 @@ void setupPasses(llvm::TargetMachine &targetMachine,
   fpm.add(llvm::createTargetTransformInfoWrapperPass(
       targetMachine.getTargetIRAnalysis()));
 
-  if (/*stripDebug*/ true) {
+  if (stripDebug) {
     mpm.add(llvm::createStripSymbolsPass(true));
   }
   mpm.add(llvm::createStripDeadPrototypesPass());

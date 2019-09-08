@@ -23,7 +23,7 @@
 #include "gen/logger.h"
 #include "gen/llvmhelpers.h"
 #include "gen/mangling.h"
-#include "gen/metadata.h"
+#include "gen/passes/metadata.h"
 #include "gen/pragma.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
