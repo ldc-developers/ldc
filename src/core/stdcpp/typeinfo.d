@@ -70,12 +70,12 @@ else version (CppRuntime_Microsoft)
 
     class type_info
     {
-        //virtual ~this();
-        void dtor() { }     // reserve slot in vtbl[]
+    @nogc:
+        extern(D) ~this() nothrow {}
         //bool operator==(const type_info rhs) const;
         //bool operator!=(const type_info rhs) const;
-        final bool before(const type_info rhs) const;
-        final const(char)* name(__type_info_node* p = &__type_info_root_node) const;
+        final bool before(const type_info rhs) const nothrow;
+        final const(char)* name(__type_info_node* p = &__type_info_root_node) const nothrow;
 
     private:
         void* pdata;
@@ -85,14 +85,12 @@ else version (CppRuntime_Microsoft)
 
     class bad_cast : exception
     {
-        this(const(char)* msg = "bad cast");
-        //virtual ~this();
+        extern(D) this(const(char)* msg = "bad cast") @nogc nothrow { super(msg); }
     }
 
     class bad_typeid : exception
     {
-        this(const(char)* msg = "bad typeid");
-        //virtual ~this();
+        extern(D) this(const(char)* msg = "bad typeid") @nogc nothrow { super(msg); }
     }
 }
 else version (CppRuntime_Gcc)
@@ -108,39 +106,47 @@ else version (CppRuntime_Gcc)
 
     class type_info
     {
-        void dtor1();                           // consume destructor slot in vtbl[]
-        void dtor2();                           // consume destructor slot in vtbl[]
-        final const(char)* name()() const nothrow {
+    @nogc:
+    extern(D):
+        ~this() {}
+        final const(char)* name()() const nothrow
+        {
             return _name[0] == '*' ? _name + 1 : _name;
         }
-        final bool before()(const type_info _arg) const {
+        final bool before()(const type_info _arg) const nothrow
+        {
             import core.stdc.string : strcmp;
             return (_name[0] == '*' && _arg._name[0] == '*')
                 ? _name < _arg._name
                 : strcmp(_name, _arg._name) < 0;
         }
         //bool operator==(const type_info) const;
-        bool __is_pointer_p() const;
-        bool __is_function_p() const;
-        bool __do_catch(const type_info, void**, uint) const;
-        bool __do_upcast(const __class_type_info, void**) const;
+        // dummy implementations to populate the D vtable:
+        bool __is_pointer_p() const { assert(0); }
+        bool __is_function_p() const { assert(0); };
+        bool __do_catch(const type_info, void**, uint) const { assert(0); };
+        bool __do_upcast(const __class_type_info, void**) const { assert(0); };
 
+    protected:
         const(char)* _name;
-        this(const(char)*);
+
+        this(const(char)* name) { _name = name; }
     }
 
     class bad_cast : exception
     {
-        this();
-        //~this();
-        override const(char)* what() const;
+    @nogc:
+    extern(D):
+        this() nothrow {}
+        override const(char)* what() const nothrow { return "bad cast"; }
     }
 
     class bad_typeid : exception
     {
-        this();
-        //~this();
-        override const(char)* what() const;
+    @nogc:
+    extern(D):
+        this() nothrow {}
+        override const(char)* what() const nothrow { return "bad typeid"; }
     }
 }
 else

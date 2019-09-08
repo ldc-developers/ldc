@@ -73,13 +73,14 @@ version (GenericBaseException)
     class exception
     {
     @nogc:
+    extern(D):
         ///
         this() nothrow {}
         ///
-        ~this() nothrow {} // HACK: this should extern, but then we have link errors!
+        ~this() nothrow {}
 
         ///
-        const(char)* what() const nothrow { return "unknown"; } // HACK: this should extern, but then we have link errors!
+        const(char)* what() const nothrow { return "unknown"; }
 
     protected:
         this(const(char)*, int = 1) nothrow { this(); } // compat with MS derived classes
@@ -91,19 +92,20 @@ else version (CppRuntime_Microsoft)
     class exception
     {
     @nogc:
+    extern (D):
         ///
         this(const(char)* message = "unknown", int = 1) nothrow { msg = message; }
         ///
-        extern(D) ~this() nothrow {}
+        ~this() nothrow {}
 
         ///
-        extern(D) const(char)* what() const nothrow { return msg != null ? msg : "unknown exception"; }
+        const(char)* what() const nothrow { return msg != null ? msg : "unknown exception"; }
 
         // TODO: do we want this? exceptions are classes... ref types.
 //        final ref exception opAssign(ref const(exception) e) nothrow { msg = e.msg; return this; }
 
     protected:
-        void _Doraise() const {}
+        void _Doraise() const { assert(0); }
 
     protected:
         const(char)* msg;
@@ -117,6 +119,15 @@ else
 class bad_exception : exception
 {
 @nogc:
+extern(D):
+    private static immutable msg = "bad exception";
+
     ///
-    this(const(char)* message = "bad exception") { super(message); }
+    this(const(char)* message = msg.ptr) nothrow { super(message); }
+
+    version (GenericBaseException)
+    {
+        ///
+        override const(char)* what() const nothrow { return msg.ptr; }
+    }
 }
