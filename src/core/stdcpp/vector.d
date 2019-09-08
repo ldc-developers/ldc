@@ -12,6 +12,10 @@
 
 module core.stdcpp.vector;
 
+// LDC: empty module for unsupported C++ runtimes
+version (CppRuntime_Microsoft) version = Supported;
+version (Supported):
+
 ///////////////////////////////////////////////////////////////////////////////
 // std::vector declaration.
 //

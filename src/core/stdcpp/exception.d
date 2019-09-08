@@ -12,6 +12,12 @@
 
 module core.stdcpp.exception;
 
+// LDC: empty module for unsupported C++ runtimes
+version (CppRuntime_Microsoft)  version = Supported;
+else version (CppRuntime_Gcc)   version = Supported;
+else version (CppRuntime_Clang) version = Supported;
+version (Supported):
+
 import core.stdcpp.xutility : __cplusplus, CppStdRevision;
 
 version (CppRuntime_DigitalMars)
