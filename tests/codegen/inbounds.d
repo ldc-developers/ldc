@@ -75,3 +75,17 @@ int foo10(int[] a, int i) {
     // CHECK: getelementptr inbounds i32, i32*
     return a[i];
 }
+
+// SliceExp for static array with const lower bound
+// CHECK-LABEL: @foo11
+int[] foo11(ref int[3] a) {
+    // CHECK: getelementptr inbounds i32, i32*
+    return a[1 .. $];
+}
+
+// SliceExp for dynamic array with variable lower bound
+// CHECK-LABEL: @foo12
+int[] foo12(int[] a, int i) {
+    // CHECK: getelementptr inbounds i32, i32*
+    return a[i .. $];
+}
