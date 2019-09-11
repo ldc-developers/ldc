@@ -65,7 +65,27 @@ version (all) // LDC: was D_AVX
     static if (is(Vector!(ulong[4])))   alias Vector!(ulong[4])   ulong4;        ///
 }
 
-version (D_SIMD)
+version (LDC)
+{
+    public import ldc.simd : loadUnaligned, storeUnaligned;
+
+    /*********************
+    * Emit prefetch instruction.
+    * Params:
+    *    address = address to be prefetched
+    *    writeFetch = true for write fetch, false for read fetch
+    *    locality = 0..3 (0 meaning least local, 3 meaning most local)
+    */
+    pragma(inline, true)
+    void prefetch(bool writeFetch, ubyte locality)(const(void)* address)
+    {
+        import ldc.intrinsics : llvm_prefetch;
+        static assert(locality < 4, "0..3 expected for locality");
+        enum dataCache = 1;
+        llvm_prefetch(address, writeFetch, locality, dataCache);
+    }
+}
+else version (D_SIMD)
 {
     /** XMM opcodes that conform to the following:
     *
@@ -620,6 +640,7 @@ version (D_SIMD)
         else
             return cast(V)__simd(XMM.LODDQU, *cast(const void16*)p);
     }
+} // D_SIMD (keep loadUnaligned unittest for LDC)
 
     @system
     unittest
@@ -665,6 +686,8 @@ version (D_SIMD)
         }
     }
 
+version (D_SIMD) // LDC
+{
     /*************************************
     * Store vector to unaligned address.
     * This is a compiler intrinsic.
@@ -696,6 +719,7 @@ version (D_SIMD)
         else
             return cast(V)__simd_sto(XMM.STODQU, *cast(void16*)p, value);
     }
+} // D_SIMD (keep storeUnaligned unittest for LDC)
 
     @system
     unittest
@@ -744,4 +768,4 @@ version (D_SIMD)
             test!float4();
         }
     }
-}
+//} no D_SIMD scope to terminate for LDC
