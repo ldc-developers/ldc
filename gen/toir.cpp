@@ -2293,15 +2293,21 @@ public:
     LOG_SCOPE;
 
     if (e->useStaticInit) {
-      DtoResolveStruct(e->sd);
-      LLValue *initsym = getIrAggr(e->sd)->getInitSymbol();
-      initsym = DtoBitCast(initsym, DtoType(e->type->pointerTo()));
+      StructDeclaration *sd = e->sd;
+      DtoResolveStruct(sd);
 
       if (!dstMem)
         dstMem = DtoAlloca(e->type, ".structliteral");
 
-      assert(dstMem->getType() == initsym->getType());
-      DtoMemCpy(dstMem, initsym);
+      if (sd->zeroInit) {
+        DtoMemSetZero(dstMem);
+      } else {
+        LLValue *initsym = getIrAggr(sd)->getInitSymbol();
+        initsym = DtoBitCast(initsym, DtoType(e->type->pointerTo()));
+        assert(dstMem->getType() == initsym->getType());
+        DtoMemCpy(dstMem, initsym);
+      }
+
       return new DLValue(e->type, dstMem);
     }
 
@@ -2739,6 +2745,26 @@ bool basetypesAreEqualWithoutModifiers(Type *l, Type *r) {
 }
 
 bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
+  // Is the rhs the init symbol of a zero-initialized struct?
+  // Then aggressively zero-out the lhs, without any type checks, e.g., allowing
+  // to initialize a `S[1]` lhs with a `S` rhs.
+  if (auto ve = rhs->isVarExp()) {
+    if (auto symdecl = ve->var->isSymbolDeclaration()) {
+      Type *t = symdecl->type->toBasetype();
+      if (auto ts = t->isTypeStruct()) {
+        // this is the static initializer for a struct (init symbol)
+        StructDeclaration *sd = ts->sym;
+        assert(sd);
+        DtoResolveStruct(sd);
+
+        if (sd->zeroInit) {
+          DtoMemSetZero(DtoLVal(lhs));
+          return true;
+        }
+      }
+    }
+  }
+
   if (!basetypesAreEqualWithoutModifiers(lhs->type, rhs->type))
     return false;
 

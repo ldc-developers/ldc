@@ -1650,10 +1650,16 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
     IF_LOG Logger::print("Sym: type=%s\n", sdecltype->toChars());
     assert(sdecltype->ty == Tstruct);
     TypeStruct *ts = static_cast<TypeStruct *>(sdecltype);
-    assert(ts->sym);
-    DtoResolveStruct(ts->sym);
+    StructDeclaration *sd = ts->sym;
+    assert(sd);
+    DtoResolveStruct(sd);
 
-    LLValue *initsym = getIrAggr(ts->sym)->getInitSymbol();
+    if (sd->zeroInit) {
+      error(loc, "no init symbol for zero-initialized struct");
+      fatal();
+    }
+
+    LLValue *initsym = getIrAggr(sd)->getInitSymbol();
     initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
     return new DLValue(type, initsym);
   }

@@ -141,12 +141,15 @@ public:
     // Skip __initZ and typeinfo for @compute device code.
     // TODO: support global variables and thus __initZ
     if (!irs->dcomputetarget) {
-      // Define the __initZ symbol.
       IrAggr *ir = getIrAggr(decl);
-      auto &initZ = ir->getInitSymbol();
-      auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
-      initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
-      setLinkageAndVisibility(decl, initGlobal);
+
+      // Define the __initZ symbol.
+      if (!decl->zeroInit) {
+        auto &initZ = ir->getInitSymbol();
+        auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
+        initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
+        setLinkageAndVisibility(decl, initGlobal);
+      }
 
       // emit typeinfo
       if (!ir->suppressTypeInfo()) {
