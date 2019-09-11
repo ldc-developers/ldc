@@ -1654,7 +1654,11 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
     assert(sd);
     DtoResolveStruct(sd);
 
-    assert(!sd->zeroInit && "No init symbol for zero-initialized struct");
+    if (sd->zeroInit) {
+      error(loc, "no init symbol for zero-initialized struct");
+      fatal();
+    }
+
     LLValue *initsym = getIrAggr(sd)->getInitSymbol();
     initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
     return new DLValue(type, initsym);
