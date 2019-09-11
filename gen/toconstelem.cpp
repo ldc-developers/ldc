@@ -312,7 +312,7 @@ public:
         assert(i_index != ~0UL);
 
         // offset pointer
-        instance = DtoGEPi(instance, 0, i_index);
+        instance = DtoGEP(instance, 0, i_index);
       }
       result = DtoBitCast(instance, DtoType(tb));
     } else {
@@ -643,7 +643,7 @@ public:
         assert(i_index != ~0UL);
 
         // offset pointer
-        result = DtoGEPi(result, 0, i_index);
+        result = DtoGEP(result, 0, i_index);
       }
     }
 

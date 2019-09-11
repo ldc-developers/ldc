@@ -314,7 +314,7 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
       as->out_c = "=*m,=*m,";
       LLValue* tmp = DtoRawAlloca(llretTy, 0, ".tmp_asm_ret");
       as->out.push_back( tmp );
-      as->out.push_back( DtoGEPi(tmp, 0,1) );
+      as->out.push_back( DtoGEP(tmp, 0, 1) );
       as->code = "movd %eax, $<<out0>>" "\n\t" "mov %edx, $<<out1>>";
 
       // fix asmblock

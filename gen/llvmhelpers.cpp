@@ -1874,12 +1874,12 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   static_cast<IrTypeAggr *>(ad->type->ctype)
       ->getMemberLocation(vd, fieldIndex, byteOffset);
 
-  LLValue *val = DtoGEPi(src, 0, fieldIndex);
+  LLValue *val = DtoGEP(src, 0, fieldIndex);
 
   if (byteOffset) {
     // Cast to void* to apply byte-wise offset.
     val = DtoBitCast(val, getVoidPtrType());
-    val = DtoGEPi1(val, byteOffset);
+    val = DtoGEP1(val, byteOffset);
   }
 
   // Cast the (possibly void*) pointer to the canonical variable type.
