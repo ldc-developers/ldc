@@ -1,0 +1,67 @@
+container:
+  image: ubuntu:18.04
+  cpu: 8
+  memory: 16G
+
+task:
+  name: Run CI
+  timeout_in: 120m
+  environment:
+    CI_OS: linux
+    LIBCLANG_COMMON_VERSION: "6.0"
+    HOST_LDC_VERSION: 1.14.0
+    EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
+  build_script: |
+    set -x
+    #
+    # Install prerequisites
+    cd ..
+    export DEBIAN_FRONTEND=noninteractive
+    dpkg --add-architecture i386
+    apt-get -q update
+    apt-get -yq install \
+      git-core cmake ninja-build g++-multilib \
+      llvm-dev zlib1g-dev libclang-common-$LIBCLANG_COMMON_VERSION-dev \
+      libcurl4 libcurl4:i386 \
+      curl gdb python-pip tzdata unzip zip
+    # Use ld.gold per default, so that LTO is tested
+    update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
+    # Install lit
+    python -m pip install --user lit
+    python -c "import lit; lit.main();" --version | head -n 1
+    # Download & extract host LDC
+    curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-$CI_OS-x86_64.tar.xz
+    mkdir host-ldc
+    tar -xf ldc2.tar.xz --strip 1 -C host-ldc
+    rm ldc2.tar.xz
+    #
+    # Clone submodules
+    cd $CIRRUS_WORKING_DIR
+    git submodule update --init --depth 50
+    cd ..
+    #
+    # Build LDC & LDC D unittests & defaultlib unittest runners
+    cmake --version
+    ninja --version
+    mkdir build
+    cd build
+    cmake -G Ninja $CIRRUS_WORKING_DIR \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DD_COMPILER=$PWD/../host-ldc/bin/ldmd2 \
+      $EXTRA_CMAKE_FLAGS
+    ninja -j8 all ldc2-unittest all-test-runners
+    bin/ldc2 -version
+    #
+    # Run LDC D unittests
+    ctest --output-on-failure -R ldc2-unittest
+    #
+    # Run LIT testsuite
+    cd tests
+    python runlit.py -v -j 8 .
+    cd ..
+    #
+    # Run DMD testsuite
+    DMD_TESTSUITE_MAKE_ARGS=-j8 ctest -V -R dmd-testsuite
+    #
+    # Run defaultlib unittests & druntime stand-alone tests
+    ctest -j8 --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests"
