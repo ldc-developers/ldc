@@ -1,7 +1,7 @@
 common_steps_template: &COMMON_STEPS_TEMPLATE
   clone_submodules_script: |
     cd $CIRRUS_WORKING_DIR
-    git submodule update --init --depth 50
+    git submodule update --init --depth $CIRRUS_CLONE_DEPTH
   build_script: |
     # Build LDC & LDC D unittests & defaultlib unittest runners
     cmake --version
@@ -15,21 +15,23 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
       $EXTRA_CMAKE_FLAGS
     ninja -j$PARALLELISM all ldc2-unittest all-test-runners
     bin/ldc2 -version
-  run_compiler_unittests_script: |
-    cd $CIRRUS_WORKING_DIR/../build
-    ctest --output-on-failure -R ldc2-unittest
-  run_lit_testsuite_script: |
-    cd $CIRRUS_WORKING_DIR/../build/tests
-    python runlit.py -v -j $PARALLELISM .
-  run_dmd_testsuite_script: |
-    cd $CIRRUS_WORKING_DIR/../build
-    DMD_TESTSUITE_MAKE_ARGS=-j$PARALLELISM OS="" ctest -V -R dmd-testsuite
-  run_defaultlib_tests_script: |
-    # Run defaultlib unittests & druntime stand-alone tests
-    cd $CIRRUS_WORKING_DIR/../build
-    ctest -j$PARALLELISM --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests"
+  always:
+    run_compiler_unittests_script: |
+      cd $CIRRUS_WORKING_DIR/../build
+      ctest --output-on-failure -R ldc2-unittest
+    run_lit_testsuite_script: |
+      cd $CIRRUS_WORKING_DIR/../build/tests
+      python runlit.py -v -j $PARALLELISM .
+    run_dmd_testsuite_script: |
+      cd $CIRRUS_WORKING_DIR/../build
+      DMD_TESTSUITE_MAKE_ARGS=-j$PARALLELISM OS="" ctest -V -R dmd-testsuite
+    run_defaultlib_tests_script: |
+      # Run defaultlib unittests & druntime stand-alone tests
+      cd $CIRRUS_WORKING_DIR/../build
+      ctest -j$PARALLELISM --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests"
 
 environment:
+  CIRRUS_CLONE_DEPTH: 50
   HOST_LDC_VERSION: 1.14.0
 
 task:
@@ -89,6 +91,7 @@ task:
     PARALLELISM: 8
   install_prerequisites_script: |
     cd $CIRRUS_WORKING_DIR/..
+    nproc
     export DEBIAN_FRONTEND=noninteractive
     dpkg --add-architecture i386
     apt-get -q update
@@ -107,4 +110,30 @@ task:
     mkdir host-ldc
     tar -xf ldc2.tar.xz --strip 1 -C host-ldc
     rm ldc2.tar.xz
+  << : *COMMON_STEPS_TEMPLATE
+
+task:
+  name: FreeBSD 12.0 x64
+  freebsd_instance:
+    image: freebsd-12-0-release-amd64
+    cpu: 4
+    memory: 8G
+  timeout_in: 120m
+  environment:
+    CI_OS: freebsd
+    EXTRA_CMAKE_FLAGS: ""
+    PARALLELISM: 4
+  install_prerequisites_script: |
+    cd $CIRRUS_WORKING_DIR/..
+    sysctl -n hw.ncpu
+    pkg install -y git cmake ninja gmake llvm ldc bash
+    # Install pip
+    curl -OL https://bootstrap.pypa.io/get-pip.py
+    python get-pip.py --user
+    rm get-pip.py
+    # Install lit
+    python -m pip install --user lit
+    python -c "import lit; lit.main();" --version | head -n 1
+    # Use FreeBSD's ldc as host D compiler
+    ln -s /usr/local host-ldc
   << : *COMMON_STEPS_TEMPLATE
