@@ -1,3 +1,5 @@
+# Clones the git submodules, builds LDC and the test runners and runs the tests.
+# Requires env variables EXTRA_CMAKE_FLAGS and PARALLELISM.
 common_steps_template: &COMMON_STEPS_TEMPLATE
   clone_submodules_script: |
     cd $CIRRUS_WORKING_DIR
@@ -30,9 +32,64 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
       cd $CIRRUS_WORKING_DIR/../build
       ctest -j$PARALLELISM --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests"
 
+# Installs Ubuntu 18.04+ prerequisites.
+# Requires env variables HOST_LDC_VERSION and LIBCLANG_COMMON_VERSION.
+install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
+  install_prerequisites_script: |
+    cd $CIRRUS_WORKING_DIR/..
+    nproc
+    export DEBIAN_FRONTEND=noninteractive
+    dpkg --add-architecture i386
+    apt-get -q update
+    apt-get -yq install \
+      git-core cmake ninja-build g++-multilib \
+      llvm-dev zlib1g-dev libclang-common-$LIBCLANG_COMMON_VERSION-dev \
+      libcurl4 libcurl4:i386 \
+      curl gdb python-pip tzdata unzip zip
+    # Use ld.gold per default, so that LTO is tested
+    update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
+    # Install lit
+    python -m pip install --user lit
+    python -c "import lit; lit.main();" --version | head -n 1
+    # Download & extract host LDC
+    curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-x86_64.tar.xz
+    mkdir host-ldc
+    tar -xf ldc2.tar.xz --strip 1 -C host-ldc
+    rm ldc2.tar.xz
+
 environment:
   CIRRUS_CLONE_DEPTH: 50
-  HOST_LDC_VERSION: 1.14.0
+  HOST_LDC_VERSION: 1.17.0
+
+task:
+  name: Ubuntu 18.04 x64 multilib
+  container:
+    image: ubuntu:18.04
+    cpu: 8
+    memory: 16G
+  timeout_in: 120m
+  environment:
+    CI_OS: linux
+    LIBCLANG_COMMON_VERSION: "6.0"
+    EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
+    PARALLELISM: 8
+  << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
+  << : *COMMON_STEPS_TEMPLATE
+
+task:
+  name: Ubuntu rolling x64 multilib shared-libs-only
+  container:
+    image: ubuntu:rolling
+    cpu: 8
+    memory: 16G
+  timeout_in: 120m
+  environment:
+    CI_OS: linux
+    LIBCLANG_COMMON_VERSION: "8"
+    EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
+    PARALLELISM: 8
+  << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
+  << : *COMMON_STEPS_TEMPLATE
 
 task:
   name: macOS 10.14 x64
@@ -71,42 +128,7 @@ task:
     python -m pip install --user lit
     python -c "import lit; lit.main();" --version | head -n 1
     # Download & extract host LDC
-    curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-$CI_OS-x86_64.tar.xz
-    mkdir host-ldc
-    tar -xf ldc2.tar.xz --strip 1 -C host-ldc
-    rm ldc2.tar.xz
-  << : *COMMON_STEPS_TEMPLATE
-
-task:
-  name: Ubuntu 18.04 x64 multilib
-  container:
-    image: ubuntu:18.04
-    cpu: 8
-    memory: 16G
-  timeout_in: 120m
-  environment:
-    CI_OS: linux
-    LIBCLANG_COMMON_VERSION: "6.0"
-    EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
-    PARALLELISM: 8
-  install_prerequisites_script: |
-    cd $CIRRUS_WORKING_DIR/..
-    nproc
-    export DEBIAN_FRONTEND=noninteractive
-    dpkg --add-architecture i386
-    apt-get -q update
-    apt-get -yq install \
-      git-core cmake ninja-build g++-multilib \
-      llvm-dev zlib1g-dev libclang-common-$LIBCLANG_COMMON_VERSION-dev \
-      libcurl4 libcurl4:i386 \
-      curl gdb python-pip tzdata unzip zip
-    # Use ld.gold per default, so that LTO is tested
-    update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
-    # Install lit
-    python -m pip install --user lit
-    python -c "import lit; lit.main();" --version | head -n 1
-    # Download & extract host LDC
-    curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-$CI_OS-x86_64.tar.xz
+    curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-osx-x86_64.tar.xz
     mkdir host-ldc
     tar -xf ldc2.tar.xz --strip 1 -C host-ldc
     rm ldc2.tar.xz
