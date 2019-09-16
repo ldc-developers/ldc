@@ -138,7 +138,6 @@ Please consider using D version 2 or checkout the 'd1' git branch for the last v
 elseif(D_VERSION EQUAL 2)
     set(LDC_EXE ldc2)
     set(LDMD_EXE ldmd2)
-    set(LDCPROFDATA_EXE ldc-profdata)
     set(RUNTIME druntime)
     append("-DDMDV2" CMAKE_CXX_FLAGS)
 else()
@@ -147,7 +146,6 @@ endif()
 
 set(LDC_EXE_NAME ${PROGRAM_PREFIX}${LDC_EXE}${PROGRAM_SUFFIX})
 set(LDMD_EXE_NAME ${PROGRAM_PREFIX}${LDMD_EXE}${PROGRAM_SUFFIX})
-set(LDCPROFDATA_EXE_NAME ${PROGRAM_PREFIX}${LDCPROFDATA_EXE}${PROGRAM_SUFFIX})
 
 # Setup D compiler flags (DMD syntax, which also works with LDMD).
 set(DDMD_DFLAGS "-wi")
@@ -556,8 +554,6 @@ endif()
 
 set(LDC_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
 set(LDMD_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDMD_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
-add_custom_target(${LDC_EXE} ALL DEPENDS ${LDC_EXE_FULL})
-add_custom_target(${LDMD_EXE} ALL DEPENDS ${LDMD_EXE_FULL})
 
 # Figure out how to link the main LDC executable, for which we need to take the
 # LLVM flags into account.
@@ -656,6 +652,7 @@ if(MSVC_IDE)
     )
 else()
     build_d_executable(
+        "${LDC_EXE}"
         "${LDC_EXE_FULL}"
         "${LDC_D_SOURCE_FILES}"
         ""
@@ -698,6 +695,7 @@ set_target_properties(
 )
 set(LDMD_D_SOURCE_FILES ${PROJECT_SOURCE_DIR}/dmd/root/man.d ${PROJECT_SOURCE_DIR}/driver/main.d)
 build_d_executable(
+    "${LDMD_EXE}"
     "${LDMD_EXE_FULL}"
     "${LDMD_D_SOURCE_FILES}"
     ""
@@ -852,8 +850,11 @@ add_subdirectory(tools)
 enable_testing()
 
 # LDC unittest executable (D unittests only).
-set(LDC_UNITTEST_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_EXE_NAME}-unittest${CMAKE_EXECUTABLE_SUFFIX})
+set(LDC_UNITTEST_EXE ${LDC_EXE}-unittest)
+set(LDC_UNITTEST_EXE_NAME ${PROGRAM_PREFIX}${LDC_UNITTEST_EXE}${PROGRAM_SUFFIX})
+set(LDC_UNITTEST_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_UNITTEST_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
 build_d_executable(
+    "${LDC_UNITTEST_EXE}"
     "${LDC_UNITTEST_EXE_FULL}"
     "${LDC_D_SOURCE_FILES}"
     "-unittest"
@@ -862,7 +863,7 @@ build_d_executable(
     "${LDC_LIB}"
     ON # always build separately (faster with parallelization)
 )
-add_custom_target(ldc2-unittest DEPENDS ${LDC_UNITTEST_EXE_FULL})
+set_target_properties("${LDC_UNITTEST_EXE}" PROPERTIES EXCLUDE_FROM_ALL ON)
 add_test(NAME build-ldc2-unittest COMMAND "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ldc2-unittest)
 add_test(NAME ldc2-unittest COMMAND ${LDC_UNITTEST_EXE_FULL} --version)
 set_tests_properties(ldc2-unittest PROPERTIES DEPENDS build-ldc2-unittest)
@@ -879,8 +880,11 @@ add_subdirectory(tests)
 
 # ldc-build-runtime tool
 configure_file(${PROJECT_SOURCE_DIR}/runtime/ldc-build-runtime.d.in ${PROJECT_BINARY_DIR}/ldc-build-runtime.d @ONLY)
-set(LDC_BUILD_RUNTIME_EXE_FULL ${PROJECT_BINARY_DIR}/bin/ldc-build-runtime${CMAKE_EXECUTABLE_SUFFIX})
+set(LDC_BUILD_RUNTIME_EXE ldc-build-runtime)
+set(LDC_BUILD_RUNTIME_EXE_NAME ${PROGRAM_PREFIX}${LDC_BUILD_RUNTIME_EXE}${PROGRAM_SUFFIX})
+set(LDC_BUILD_RUNTIME_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_BUILD_RUNTIME_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
 build_d_executable(
+    "${LDC_BUILD_RUNTIME_EXE}"
     "${LDC_BUILD_RUNTIME_EXE_FULL}"
     "${PROJECT_BINARY_DIR}/ldc-build-runtime.d"
     ""
@@ -889,7 +893,6 @@ build_d_executable(
     ""
     ${COMPILE_D_MODULES_SEPARATELY}
 )
-add_custom_target(ldc-build-runtime ALL DEPENDS ${LDC_BUILD_RUNTIME_EXE_FULL})
 
 #
 # Install target.
