@@ -257,6 +257,7 @@ struct Param
     // LDC stuff
     OUTPUTFLAG output_ll;
     OUTPUTFLAG output_bc;
+    OUTPUTFLAG output_mlir;
     OUTPUTFLAG output_s;
     OUTPUTFLAG output_o;
     bool useInlineAsm;
@@ -293,6 +294,7 @@ struct Global
 #if IN_LLVM
     DArray<const char> ll_ext;
     DArray<const char> bc_ext;
+    DArray<const char> mlir_ext;
     DArray<const char> s_ext;
     DArray<const char> ldc_version;
     DArray<const char> llvm_version;
@@ -398,6 +400,16 @@ struct Loc
 #if IN_LLVM
     Loc(const char *filename, unsigned linnum, unsigned charnum)
         : filename(filename), linnum(linnum), charnum(charnum) {}
+
+#elif IN_MLIR
+    Loc(const char *filename, unsigned linnum, unsigned charnum){
+        mlir::Location loc = Location(std::make_shared<std::string>(filename),
+                                          (int)linnum, (int)charnum);
+    this->filename = filename;
+    this->linnum = linnum;
+    this->charnum = charnum;
+
+    }
 #else
     Loc(const char *filename, unsigned linnum, unsigned charnum);
 #endif

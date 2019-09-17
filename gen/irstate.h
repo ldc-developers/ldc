@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include "mlir/"
+
 #include "dmd/aggregate.h"
 #include "dmd/root/root.h"
 #include "gen/dibuilder.h"
@@ -35,6 +37,11 @@ class LLVMContext;
 class TargetMachine;
 class IndexedInstrProfReader;
 }
+
+namespace mlir {
+class MLIRContext;
+}
+
 
 class FuncGenState;
 struct IRState;

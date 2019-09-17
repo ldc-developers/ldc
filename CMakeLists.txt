@@ -921,6 +921,11 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     endif()
     install(DIRECTORY packaging/bash_completion.d/ DESTINATION ${BASH_COMPLETION_COMPLETIONSDIR})
 endif()
+#
+# Build MLIR
+#
+
+## Write here the dependences to compile MLIR with LDC
 
 #
 # Packaging
