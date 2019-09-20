@@ -323,7 +323,13 @@ void disassemble(const llvm::TargetMachine &tm,
     if (object.section_end() != secIt) {
       const auto sec = *secIt;
       llvm::StringRef data;
+#if LDC_LLVM_VER >= 900
+      auto dataOrError = sec.getContents();
+      assert(dataOrError);
+      data = *dataOrError;
+#else
       sec.getContents(data);
+#endif
 
       if (llvm::object::SymbolRef::ST_Function ==
           llvm::cantFail(symbol.getType())) {

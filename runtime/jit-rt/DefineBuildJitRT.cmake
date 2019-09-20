@@ -53,8 +53,13 @@ if(LDC_DYNAMIC_COMPILE)
         # to do find_package(LLVM CONFIG) for it so here is a hackish way to get it
         include("${LLVM_CMAKEDIR}/LLVMConfig.cmake")
         include("${LLVM_CMAKEDIR}/LLVM-Config.cmake")
+
+        set(asmprinter "asmprinter")
+        if(LDC_LLVM_VER LESS 900)
+            set(asmprinter "${LLVM_NATIVE_ARCH}asmprinter")
+        endif()
         llvm_map_components_to_libnames(JITRT_LLVM_LIBS core support irreader executionengine passes nativecodegen orcjit target
-            "${LLVM_NATIVE_ARCH}disassembler" "${LLVM_NATIVE_ARCH}asmprinter")
+            "${LLVM_NATIVE_ARCH}disassembler" "${asmprinter}")
 
         foreach(libname ${JITRT_LLVM_LIBS})
             unset(JITRT_TEMP_LIB CACHE)
