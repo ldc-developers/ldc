@@ -154,7 +154,9 @@ void initializeSanitizerOptionsFromCmdline()
   // The Fuzz sanitizer implies -fsanitize-coverage=trace-pc-guard,indirect-calls,trace-cmp
   if (isSanitizerEnabled(FuzzSanitizer)) {
     enabledSanitizers |= CoverageSanitizer;
+#if LDC_LLVM_VER < 900
     sancovOpts.TracePCGuard = true;
+#endif
     sancovOpts.IndirectCalls = true;
     sancovOpts.TraceCmp = true;
   }
