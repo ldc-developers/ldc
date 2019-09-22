@@ -151,11 +151,15 @@ void initializeSanitizerOptionsFromCmdline()
 #ifdef ENABLE_COVERAGE_SANITIZER
   auto &sancovOpts = sanitizerCoverageOptions;
 
-  // The Fuzz sanitizer implies -fsanitize-coverage=trace-pc-guard,indirect-calls,trace-cmp
+  // LLVM < 6.0: The Fuzz sanitizer implies -fsanitize-coverage=trace-pc-guard,indirect-calls,trace-cmp
+  // LLVM >= 6.0: The Fuzz sanitizer implies -fsanitize-coverage=inline-8bit-counters,indirect-calls,trace-cmp,pc-table
   if (isSanitizerEnabled(FuzzSanitizer)) {
     enabledSanitizers |= CoverageSanitizer;
-#if LDC_LLVM_VER < 900
+#if LDC_LLVM_VER < 600
     sancovOpts.TracePCGuard = true;
+#else
+    sancovOpts.Inline8bitCounters = true;
+    sancovOpts.PCTable = true;
 #endif
     sancovOpts.IndirectCalls = true;
     sancovOpts.TraceCmp = true;
