@@ -167,10 +167,14 @@ void initializeSanitizerOptionsFromCmdline()
 
   parseFSanitizeCoverageCmdlineParameter(sancovOpts);
 
-  // trace-pc and trace-pc-guard without specifying the insertion type implies
-  // edge
+  // trace-pc/trace-pc-guard/inline-8bit-counters without specifying the
+  // insertion type implies edge
   if ((sancovOpts.CoverageType == llvm::SanitizerCoverageOptions::SCK_None) &&
-      (sancovOpts.TracePC || sancovOpts.TracePCGuard)) {
+      (sancovOpts.TracePC || sancovOpts.TracePCGuard
+#if LDC_LLVM_VER >= 500
+       || sancovOpts.Inline8bitCounters
+#endif
+       )) {
     sancovOpts.CoverageType = llvm::SanitizerCoverageOptions::SCK_Edge;
   }
 #endif
