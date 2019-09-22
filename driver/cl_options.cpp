@@ -528,6 +528,8 @@ static cl::extrahelp footer(
     "debug checks (i.e. (asserts, boundschecks, contracts and invariants) as "
     "well\n"
     "as acting as -d-debug=1\n\n"
+    "Boolean options (such as -link-defaultlib-shared) can take a negative value\n"
+    "like this: -link-defaultlib-shared=false\n\n"
     "Options marked with (*) also have a -disable-FOO variant with inverted\n"
     "meaning.\n");
 
