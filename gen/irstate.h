@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "mlir/"
+#include "mlir/IR/MLIRContext.h"
 
 #include "dmd/aggregate.h"
 #include "dmd/root/root.h"
@@ -37,11 +37,6 @@ class LLVMContext;
 class TargetMachine;
 class IndexedInstrProfReader;
 }
-
-namespace mlir {
-class MLIRContext;
-}
-
 
 class FuncGenState;
 struct IRState;
@@ -67,6 +62,7 @@ struct IrFunction;
 struct IrModule;
 
 // represents a scope
+
 struct IRScope {
   llvm::BasicBlock *begin;
   IRBuilder<> builder;
