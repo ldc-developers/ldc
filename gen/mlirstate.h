@@ -19,53 +19,56 @@
 #include "gen/dibuilder.h"
 
 namespace mlir {
-  class MLIRContext;
-}
+  class MLIRContext; /*Get the context of the program - similar to LLVMContext*/
+  class OwningModuleRef; /*returns a newly created MLIR module or nullptr on
+                                                                      failure.*/
+} //namespace mlir
 
-struct MLIRState *gMLIR;
+class TypeFunction; /*unsed*/
+class TypeStruct; /*unsed*/
+class ClassDeclaration; /*unsed*/
+class FuncDeclaration; /*unsed*/
+class Module; /*unsed*/
+class TypeStruct; /*unsed*/
+struct BaseClass; /*unsed*/
+class AnonDeclaration; /*unsed*/
+class StructLiteralExp; /*unsed*/
 
+struct IrFunction; /*unsed*/
+struct IrModule; /*unsed*/
 
-struct IRScope {
-  /// In MLIR (like in LLVM) a "context" object holds the memory allocation and
-  /// ownership of many internal structures of the IR and provides a level of
-  /// "uniquing" across multiple modules (types for instance).
-  mlir::MLIRContext &context;
+struct MLIRState ;
+extern MLIRState *gMLIR;
 
-  /// This "module" matches the D source file: containing a list of functions.
-  mlir::ModuleOp;
+namespace Ddialect {
+class ModuleAST; //TODO: Create in definitions.cpp a ModuleAST closer to MLIR
 
-  /// The builder is a helper class to create IR inside a function. The builder
-  /// is stateful, in particular it keeeps an "insertion point": this is where
-  /// the next operations will be introduced.
-  mlir::OpBuider builder;
+/// Emit IR for the given D moduleAST, returns a newly created MLIR module
+/// or nullptr on failure.
+mlir::OwningModuleRef mlirGen(mlir::MLIRContext &context, ModuleAST &moduleAST);
+} // namespace Ddialect
 
-  /// The symbol table maps a variable name to a value in the current scope.
-  /// Entering a function creates a new scope, and the function arguments are
-  /// added to the mapping. When the processing of a function is terminated, the
-  /// scope is destroyed and the mappings created in this scope are dropped.
-  llvm::ScopedHashTable<StringRef, mlir::Value *> symbolTable;
+// represents the MLIR module (object file)
+struct MLIRState{
+public:
+  MLIRState(const char *name, mlir::MLIRContext &context);
+  ~MLIRState();
 
+  MLIRState(MLIRState const &) = delete;
+  MLIRState &operator=(MLIRState const &) = delete;
+
+  mlir::ModuleOp module;
+  mlir::MLIRContext *ontext() const { return module.getContext(); }
+
+  Module *dmodule = nullptr;
+  
+  /*StructType doesn't has any sintax translation to MLIR.
+    TODO: Find a semantic synonym*/
+  LLStructType *moduleRefType = nullptr; 
+
+  /*ObjCState objc;  -> Do not worry with ObjC right now!*/
 
   
-};
-
-/// Helper conversion for the DMD AST location to an MLIR location.
-mlir::Location loc(Location loc){
-  llvm::StringRef filename(loc.filename);
-  return builder.getFileLineColLoc(builder.getIdentifier(filename), loc.linnum,
-                                   loc.charnum);
-}/*Is this a duplicate from dmd/globals.h:404 ? */
-
-// Declare a variable in the current scope, return success if the variable
-/// wasn't declared yet.
-mlir::LogicalResult declare(llvm::StringRef var, mlir::Value *value) {
-  if (symbolTable.count(var))
-    return mlir::failure();
-  symbolTable.insert(var, value);
-  return mlir::success();
-} /*Is this really necessary?*/
-
-struct MLIRState{
   // debug info helper
   ldc::DIBuilder DBuilder;
 
