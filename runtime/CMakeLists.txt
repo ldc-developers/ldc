@@ -282,29 +282,31 @@ endif()
 #
 
 set(GCCBUILTINS "")
-function(gen_gccbuiltins name)
-  set(module "${PROJECT_BINARY_DIR}/gccbuiltins_${name}.di")
-  if (GCCBUILTINS STREQUAL "")
-    set(GCCBUILTINS "${module}" PARENT_SCOPE)
-  else()
-    set(GCCBUILTINS "${GCCBUILTINS};${module}" PARENT_SCOPE)
-  endif()
-  add_custom_command(
-      OUTPUT ${module}
-      COMMAND gen_gccbuiltins ${module} "${name}"
-  )
-endfunction()
+if(TARGET gen_gccbuiltins)
+  function(gen_gccbuiltins name)
+    set(module "${PROJECT_BINARY_DIR}/gccbuiltins_${name}.di")
+    if (GCCBUILTINS STREQUAL "")
+      set(GCCBUILTINS "${module}" PARENT_SCOPE)
+    else()
+      set(GCCBUILTINS "${GCCBUILTINS};${module}" PARENT_SCOPE)
+    endif()
+    add_custom_command(
+        OUTPUT ${module}
+        COMMAND gen_gccbuiltins ${module} "${name}"
+    )
+  endfunction()
 
-set(target_arch "AArch64;ARM;Mips;PowerPC;SystemZ;X86")
-set(target_name "aarch64;arm;mips;ppc;s390;x86")
+  set(target_arch "AArch64;ARM;Mips;PowerPC;SystemZ;X86")
+  set(target_name "aarch64;arm;mips;ppc;s390;x86")
 
-foreach(target ${LLVM_TARGETS_TO_BUILD})
-  list(FIND target_arch ${target} idx)
-  if(idx GREATER -1)
-    list(GET target_name ${idx} name)
-    gen_gccbuiltins(${name})
-  endif()
-endforeach()
+  foreach(target ${LLVM_TARGETS_TO_BUILD})
+    list(FIND target_arch ${target} idx)
+    if(idx GREATER -1)
+      list(GET target_name ${idx} name)
+      gen_gccbuiltins(${name})
+    endif()
+  endforeach()
+endif()
 
 # Always build zlib and other C parts of the runtime in release mode, regardless
 # of what the user chose for LDC itself. Also add other C_FLAGS here.
