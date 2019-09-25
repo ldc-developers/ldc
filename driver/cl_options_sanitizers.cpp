@@ -151,20 +151,30 @@ void initializeSanitizerOptionsFromCmdline()
 #ifdef ENABLE_COVERAGE_SANITIZER
   auto &sancovOpts = sanitizerCoverageOptions;
 
-  // The Fuzz sanitizer implies -fsanitize-coverage=trace-pc-guard,indirect-calls,trace-cmp
+  // LLVM < 6.0: The Fuzz sanitizer implies -fsanitize-coverage=trace-pc-guard,indirect-calls,trace-cmp
+  // LLVM >= 6.0: The Fuzz sanitizer implies -fsanitize-coverage=inline-8bit-counters,indirect-calls,trace-cmp,pc-table
   if (isSanitizerEnabled(FuzzSanitizer)) {
     enabledSanitizers |= CoverageSanitizer;
+#if LDC_LLVM_VER < 600
     sancovOpts.TracePCGuard = true;
+#else
+    sancovOpts.Inline8bitCounters = true;
+    sancovOpts.PCTable = true;
+#endif
     sancovOpts.IndirectCalls = true;
     sancovOpts.TraceCmp = true;
   }
 
   parseFSanitizeCoverageCmdlineParameter(sancovOpts);
 
-  // trace-pc and trace-pc-guard without specifying the insertion type implies
-  // edge
+  // trace-pc/trace-pc-guard/inline-8bit-counters without specifying the
+  // insertion type implies edge
   if ((sancovOpts.CoverageType == llvm::SanitizerCoverageOptions::SCK_None) &&
-      (sancovOpts.TracePC || sancovOpts.TracePCGuard)) {
+      (sancovOpts.TracePC || sancovOpts.TracePCGuard
+#if LDC_LLVM_VER >= 500
+       || sancovOpts.Inline8bitCounters
+#endif
+       )) {
     sancovOpts.CoverageType = llvm::SanitizerCoverageOptions::SCK_Edge;
   }
 #endif

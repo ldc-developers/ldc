@@ -452,11 +452,11 @@ macro(compile_phobos2 d_flags lib_suffix path_suffix emit_bc all_at_once outlist
     get_target_suffix("${lib_suffix}" "${path_suffix}" target_suffix)
 
     # Special case for Windows and emit_bc=ON:
-    # LLVM (as of v7.0) doesn't support naked DMD-style asm when generating bitcode.
+    # LLVM before v9.0 doesn't support naked DMD-style asm when generating bitcode.
     # For 1 (Win64) / 3 (Win32) remaining modules, compile separately without generating
     # the bitcode file (and adding the binary object file to outlist_bc instead).
     set(phobos_src_files ${PHOBOS2_D})
-    if(${emit_bc} AND "${TARGET_SYSTEM}" MATCHES "Windows")
+    if(${emit_bc} AND (LDC_LLVM_VER LESS 900 AND "${TARGET_SYSTEM}" MATCHES "Windows"))
         set(naked_asm_src_files "${PHOBOS2_DIR}/std/internal/digest/sha_SSSE3.d")
         if(CMAKE_SIZEOF_VOID_P EQUAL 4)
             list(APPEND naked_asm_src_files

@@ -13,7 +13,7 @@
 // RUN:   &&  %ldc -c -output-ll -of=%t2.ll -fprofile-instr-use=%t.profdata %s \
 // RUN:   &&  FileCheck %allow-deprecated-dag-overlap %s -check-prefix=PROFUSE < %t2.ll
 
-// PROFGEN-DAG: @[[SMPL:__(llvm_profile_counters|profc).*simplefunction[A-Za-z0-9]*]] ={{[A-Za-z ]*}} [2 x i64] zeroinitializer
+// PROFGEN-DAG: @[[SMPL:__(llvm_profile_counters|profc).*simplefunction[A-Za-z0-9]*]] ={{.*}} [2 x i64] zeroinitializer
 // PROFGEN-DAG: @[[TMPL:__(llvm_profile_counters|profc).*templatefunc[A-Za-z0-9]*]] ={{.*}} [2 x i64] zeroinitializer
 // PROFGEN-DAG: @[[OUTR:__(llvm_profile_counters|profc).*outerfunc[A-Za-z0-9]*]] ={{.*}} [2 x i64] zeroinitializer
 // PROFGEN-DAG: @[[NEST:__(llvm_profile_counters|profc).*nestedfunc[A-Za-z0-9]*]] ={{.*}} [2 x i64] zeroinitializer
