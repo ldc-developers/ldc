@@ -55,6 +55,18 @@ callOverride(const ParseInitializerOverride &override, llvm::Type &type,
   return nullptr;
 }
 
+llvm::Constant *
+getBool(llvm::LLVMContext &context, const void *data, llvm::Type &type,
+        const llvm::function_ref<void(const std::string &)> &errHandler,
+        const ParseInitializerOverride &override) {
+  assert(nullptr != data);
+  const bool val = *static_cast<const bool *>(data);
+  if (auto ret = callOverride(override, type, val, errHandler)) {
+    return ret;
+  }
+  return llvm::ConstantInt::get(context, llvm::APInt(1, (val ? 1 : 0), true));
+}
+
 template <typename T>
 llvm::Constant *
 getInt(llvm::LLVMContext &context, const void *data, llvm::Type &type,
@@ -135,6 +147,8 @@ parseInitializer(const llvm::DataLayout &dataLayout, llvm::Type &type,
   if (type.isIntegerTy()) {
     const auto width = type.getIntegerBitWidth();
     switch (width) {
+    case 1:
+      return getBool(llcontext, data, type, errHandler, override);
     case 8:
       return getInt<uint8_t>(llcontext, data, type, errHandler, override);
     case 16:
