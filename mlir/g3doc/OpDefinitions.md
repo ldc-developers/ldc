@@ -7,7 +7,7 @@ maintain records of domain-specific information. Facts regarding an operation
 are specified concisely into a TableGen record, which will be expanded into an
 equivalent `mlir::Op` C++ template specialization at compiler build time.
 
-This manual explains in detail all the available mechansims for defining
+This manual explains in detail all the available mechanisms for defining
 operations in such a table-driven manner. It aims to be a specification instead
 of a tutorial. Please refer to [Quickstart tutorial to adding MLIR graph
 rewrite](QuickstartRewrites.md) for the latter.
@@ -298,10 +298,11 @@ of the boilerplate necessary.
 
 Providing a definition of the `OpInterface` class will auto-generate the C++
 classes for the interface. An `OpInterface` includes a name, for the C++ class,
-along with a list of interface methods.
+a description, and a list of interface methods.
 
 ```tablegen
 def MyInterface : OpInterface<"MyInterface"> {
+  let description = ...;
   let methods = [...];
 }
 ```
@@ -313,6 +314,8 @@ static method on the derived operation.
 
 An `InterfaceMethod` is comprised of the following components:
 
+*   Description
+    -   A string description of what this method does and its invariants.
 *   ReturnType
     -   A string corresponding to the C++ return type of the method.
 *   MethodName
@@ -331,27 +334,38 @@ Examples:
 
 ```tablegen
 def MyInterface : OpInterface<"MyInterface"> {
+  let description = [{
+    My interface is very interesting. ...
+  }];
+
   let methods = [
     // A simple non-static method with no inputs.
-    InterfaceMethod<"unsigned", "foo">,
+    InterfaceMethod<"'foo' is a non-static method with no inputs.",
+      "unsigned", "foo"
+    >,
 
     // A new non-static method accepting an input argument.
-    InterfaceMethod<"Value *", "bar", (ins "unsigned":$i)>,
+    InterfaceMethod<"/*insert doc here*/",
+      "Value *", "bar", (ins "unsigned":$i)
+    >,
 
     // Query a static property of the derived operation.
-    StaticInterfaceMethod<"unsigned", "fooStatic">,
+    StaticInterfaceMethod<"'fooStatic' is a static method with no inputs.",
+      "unsigned", "fooStatic"
+    >,
 
     // Provide the definition of a static interface method.
     // Note: `ConcreteOp` corresponds to the derived operation typename.
-    StaticInterfaceMethod<"Operation *", "create",
-      (ins "OpBuilder &":$builder, "Location":$loc), [{
+    StaticInterfaceMethod<"/*insert doc here*/",
+      "Operation *", "create", (ins "OpBuilder &":$builder, "Location":$loc), [{
         return builder.create<ConcreteOp>(loc);
     }]>,
 
     // Provide a definition of the non-static method.
     // Note: `op` corresponds to the derived operation variable.
-    InterfaceMethod<"unsigned", "getNumInputsAndOutputs", (ins), [{
-      return op.getNumInputs() + op.getNumOutputs();
+    InterfaceMethod<"/*insert doc here*/",
+      "unsigned", "getNumInputsAndOutputs", (ins), [{
+        return op.getNumInputs() + op.getNumOutputs();
     }]>,
   ];
 }
@@ -363,12 +377,12 @@ For each operation, there are two builder automatically generated based on the
 arguments and returns types:
 
 ```c++
-static void build(Builder *, OperationState *tblgen_state,
+static void build(Builder *, OperationState &tblgen_state,
                   Type <result0-name>, Type <result1-name>, ...,
                   Value <arg0-name>, Value <arg1-name>, ...,
                   Attribute <attr0-name>, Attribute <attr1-name>, ...);
 
-static void build(Builder *, OperationState *tblgen_state,
+static void build(Builder *, OperationState &tblgen_state,
                   ArrayRef<Type> resultTypes,
                   ArrayRef<Value> operands,
                   ArrayRef<NamedAttribute> attributes);
@@ -383,10 +397,10 @@ convenience build methods with `OpBuilder`.
 
 `OpBuilder` is a class that takes the parameter list and the optional `build()`
 method body. They are separated because we need to generate op declaration and
-definition into separate files. The parameter list should _include_
-`Builder *builder, OperationState *state`. If the `body` is not provided, _only_
-the builder declaration will be generated; this provides a way to define
-complicated builders entirely in C++ files.
+definition into separate files. The parameter list should _include_ `Builder
+*builder, OperationState &state`. If the `body` is not provided, _only_ the
+builder declaration will be generated; this provides a way to define complicated
+builders entirely in C++ files.
 
 For example, for the following op:
 
@@ -406,8 +420,8 @@ def MyOp : ... {
   ...
 
   let builders = [
-    OpBuilder<"Builder *builder, OperationState *state, float val = 0.5f", [{
-      state->addAttribute("attr", builder->getF32FloatAttr(val));
+    OpBuilder<"Builder *builder, OperationState &state, float val = 0.5f", [{
+      state.addAttribute("attr", builder->getF32FloatAttr(val));
     ]}>
   ]
 }
@@ -416,8 +430,8 @@ def MyOp : ... {
 The generated builder will look like:
 
 ```c++
-static void build(Builder *builder, OperationState *state, float val = 0.5f) {
-  state->addAttribute("attr", builder->getF32FloatAttr(val));
+static void build(Builder *builder, OperationState &state, float val = 0.5f) {
+  state.addAttribute("attr", builder->getF32FloatAttr(val));
 }
 ```
 
@@ -454,7 +468,7 @@ for this operation. If it is `1`, then `::fold()` should be defined.
 ### Extra declarations
 
 One of the goals of table-driven op definition is to auto-generate as much logic
-and methods needed for each op as possible. With that said,there will always be
+and methods needed for each op as possible. With that said, there will always be
 long-tail cases that won't be covered. For such cases, you can use
 `extraClassDeclaration`. Code in `extraClassDeclaration` will be copied
 literally to the generated C++ op class.
@@ -502,7 +516,7 @@ For each operation, we automatically generate an _operand adaptor_. This class
 solves the problem of accessing operands provided as a list of `Value`s without
 using "magic" constants. The operand adaptor takes a reference to an array of
 `Value *` and provides methods with the same names as those in the operation
-class to access them. For example, for a binary arithmethic operation, it may
+class to access them. For example, for a binary arithmetic operation, it may
 provide `.lhs()` to access the first operand and `.rhs()` to access the second
 operand.
 

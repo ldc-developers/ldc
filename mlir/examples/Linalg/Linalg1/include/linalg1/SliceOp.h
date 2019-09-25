@@ -36,12 +36,12 @@ public:
   // Hooks to customize the behavior of this op.
   //////////////////////////////////////////////////////////////////////////////
   static llvm::StringRef getOperationName() { return "linalg.slice"; }
-  static void build(mlir::Builder *b, mlir::OperationState *result,
+  static void build(mlir::Builder *b, mlir::OperationState &result,
                     mlir::Value *view, mlir::Value *indexing, unsigned dim);
   mlir::LogicalResult verify();
-  static mlir::ParseResult parse(mlir::OpAsmParser *parser,
-                                 mlir::OperationState *result);
-  void print(mlir::OpAsmPrinter *p);
+  static mlir::ParseResult parse(mlir::OpAsmParser &parser,
+                                 mlir::OperationState &result);
+  void print(mlir::OpAsmPrinter &p);
 
   //////////////////////////////////////////////////////////////////////////////
   // Op-specific functionality.

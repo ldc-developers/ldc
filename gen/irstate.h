@@ -14,8 +14,6 @@
 
 #pragma once
 
-#include "mlir/IR/MLIRContext.h"
-
 #include "dmd/aggregate.h"
 #include "dmd/root/root.h"
 #include "gen/dibuilder.h"

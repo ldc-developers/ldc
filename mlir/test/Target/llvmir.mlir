@@ -9,6 +9,9 @@ llvm.mlir.global constant @i32_const(52: i53) : !llvm.i53
 // CHECK: @int_global_array = internal global [3 x i32] [i32 62, i32 62, i32 62]
 llvm.mlir.global @int_global_array(dense<62> : vector<3xi32>) : !llvm<"[3 x i32]">
 
+// CHECK: @i32_global_addr_space = internal addrspace(7) global i32 62
+llvm.mlir.global @i32_global_addr_space(62: i32) {addr_space = 7 : i32} : !llvm.i32
+
 // CHECK: @float_global = internal global float 0.000000e+00
 llvm.mlir.global @float_global(0.0: f32) : !llvm.float
 
@@ -17,6 +20,9 @@ llvm.mlir.global @float_global_array(dense<[-5.0]> : vector<1xf32>) : !llvm<"[1 
 
 // CHECK: @string_const = internal constant [6 x i8] c"foobar"
 llvm.mlir.global constant @string_const("foobar") : !llvm<"[6 x i8]">
+
+// CHECK: @int_global_undef = internal global i64 undef
+llvm.mlir.global @int_global_undef() : !llvm.i64
 
 //
 // Declarations of the allocation functions to be linked against.
@@ -934,4 +940,14 @@ func @fp_casts(%fp1 : !llvm<"float">, %fp2 : !llvm<"double">) -> !llvm.i16 {
 // CHECK:    fptosi double {{.*}} to i16
   %c = llvm.fptosi %b : !llvm<"double"> to !llvm.i16
   llvm.return %c : !llvm.i16
+}
+
+func @integer_extension_and_truncation(%a : !llvm.i32) {
+// CHECK:    sext i32 {{.*}} to i64
+// CHECK:    zext i32 {{.*}} to i64
+// CHECK:    trunc i32 {{.*}} to i16
+  %0 = llvm.sext %a : !llvm.i32 to !llvm.i64
+  %1 = llvm.zext %a : !llvm.i32 to !llvm.i64
+  %2 = llvm.trunc %a : !llvm.i32 to !llvm.i16
+  llvm.return
 }

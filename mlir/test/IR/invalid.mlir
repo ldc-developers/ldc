@@ -1045,7 +1045,7 @@ func @bad_complex(complex<i32)
 
 // -----
 
-// expected-error @+1 {{cannot parse type: i32 f32}}
+// expected-error @+1 {{unexpected additional tokens 'f32' after parsing type: 'i32'}}
 func @bad_tuple(!spv.ptr<i32 f32, Uniform>)
 
 // -----
@@ -1064,8 +1064,20 @@ func @invalid_region_dominance() {
 
 // -----
 
+func @invalid_region_dominance() {
+  // expected-note @+1 {{operand defined here}}
+  %def = "foo.region_with_def"() ({
+    // expected-error @+1 {{operand #0 does not dominate this use}}
+    "foo.use" (%def) : (i32) -> ()
+    "foo.yield" () : () -> ()
+  }) : () -> (i32)
+  return
+}
+
+// -----
+
 func @hexadecimal_bf16() {
-  // expected-error @+1 {{integer literal not valid for specified type}}
+  // expected-error @+1 {{hexadecimal float literal not supported for bfloat16}}
   "foo"() {value = 0xffff : bf16} : () -> ()
 }
 

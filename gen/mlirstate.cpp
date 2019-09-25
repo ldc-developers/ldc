@@ -7,7 +7,20 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/Location.h"
+#include "mlir/IR/SymbolTable.h"
+
 #include "gen/mlirstate.h"
+
+#include "llvm/ADT/ScopedHashTable.h"
+
+using llvm::cast;
+using llvm::dyn_cast;
+using llvm::isa;
+using llvm::ScopedHashTableScope;
+using llvm::SmallVector;
+using llvm::StringRef;
+using llvm::Twine;
 
 MLIRState *gMLIR = nullptr;
 
@@ -56,12 +69,12 @@ private:
   mlir::MLIRContext &context;
 
   /// This "module" matches the D source file: containing a list of functions.
-  mlir::ModuleOp;
+  mlir::ModuleOp theModule;
 
   /// The builder is a helper class to create IR inside a function. The builder
   /// is stateful, in particular it keeeps an "insertion point": this is where
   /// the next operations will be introduced.
-  mlir::OpBuider builder;
+  mlir::OpBuilder builder;
 
   /// The symbol table maps a variable name to a value in the current scope.
   /// Entering a function creates a new scope, and the function arguments are
@@ -69,25 +82,25 @@ private:
   /// scope is destroyed and the mappings created in this scope are dropped.
   llvm::ScopedHashTable<StringRef, mlir::Value *> symbolTable;
 
-};
 
-/// Helper conversion for the DMD AST location to an MLIR location.
-mlir::Location loc(Location loc){
-  llvm::StringRef filename(loc.filename);
-  return builder.getFileLineColLoc(builder.getIdentifier(filename), loc.linnum,
+
+  /// Helper conversion for the DMD AST location to an MLIR location.
+  mlir::Location loc(Loc loc){
+    llvm::StringRef filename(loc.filename);
+    return builder.getFileLineColLoc(builder.getIdentifier(filename), loc.linnum,
                                    loc.charnum);
-}/*Is this a duplicate from dmd/globals.h:404 ? */
+  }/*Is this a duplicate from dmd/globals.h:404 ? */
 
-// Declare a variable in the current scope, return success if the variable
-/// wasn't declared yet.
-mlir::LogicalResult declare(llvm::StringRef var, mlir::Value *value) {
-  if (symbolTable.count(var))
-    return mlir::failure();
-  symbolTable.insert(var, value);
-  return mlir::success();
-}
+  // Declare a variable in the current scope, return success if the variable
+  /// wasn't declared yet.
+  mlir::LogicalResult declare(llvm::StringRef var, mlir::Value *value) {
+    if (this->symbolTable.count(var))
+      return mlir::failure();
+    symbolTable.insert(var, value);
+    return mlir::success();
+  }
 
-
+};
 /*namespace Ddialect {
 // The public API for codegen.
 mlir::OwningModuleRef mlirGen(mlir::MLIRContext &context,

@@ -36,23 +36,23 @@ using namespace linalg;
 // A view may itself be coming either from a ViewOp or from a SliceOp.
 // TODO assert statically or dynamically that indexing is within the bounds of
 // view.
-void linalg::SliceOp::build(Builder *b, OperationState *result, Value *view,
+void linalg::SliceOp::build(Builder *b, OperationState &result, Value *view,
                             Value *indexing, unsigned dim) {
   // Early sanity checks + extract rank.
   unsigned rank = getViewRank(view);
   ViewType viewType = view->getType().cast<ViewType>();
   Type elementType = viewType.getElementType();
 
-  result->addOperands({view, indexing});
-  result->addAttribute(getSlicingDimAttrName(),
-                       b->getIntegerAttr(b->getIndexType(), dim));
+  result.addOperands({view, indexing});
+  result.addAttribute(getSlicingDimAttrName(),
+                      b->getIntegerAttr(b->getIndexType(), dim));
   if (indexing->getType().isa<RangeType>()) {
     // Taking a range slice does not decrease the rank, the view has the same
     // type.
-    result->addTypes({viewType});
+    result.addTypes({viewType});
   } else {
     assert(indexing->getType().cast<IndexType>());
-    result->addTypes(
+    result.addTypes(
         {linalg::ViewType::get(b->getContext(), elementType, rank - 1)});
   }
 }
@@ -74,32 +74,32 @@ mlir::LogicalResult linalg::SliceOp::verify() {
   return mlir::success();
 }
 
-ParseResult linalg::SliceOp::parse(OpAsmParser *parser,
-                                   OperationState *result) {
+ParseResult linalg::SliceOp::parse(OpAsmParser &parser,
+                                   OperationState &result) {
   OpAsmParser::OperandType viewInfo;
   SmallVector<OpAsmParser::OperandType, 1> indexingInfo;
   SmallVector<Type, 8> types;
-  if (parser->parseOperand(viewInfo) ||
-      parser->parseOperandList(indexingInfo, 1,
-                               OpAsmParser::Delimiter::Square) ||
-      parser->parseOptionalAttributeDict(result->attributes) ||
-      parser->parseColonTypeList(types))
+  if (parser.parseOperand(viewInfo) ||
+      parser.parseOperandList(indexingInfo, 1,
+                              OpAsmParser::Delimiter::Square) ||
+      parser.parseOptionalAttributeDict(result.attributes) ||
+      parser.parseColonTypeList(types))
     return failure();
 
   if (indexingInfo.size() != 1)
-    return parser->emitError(parser->getNameLoc(), "expected 1 indexing type");
+    return parser.emitError(parser.getNameLoc(), "expected 1 indexing type");
 
   ViewType viewType = types.front().dyn_cast<ViewType>();
   if (!viewType)
-    return parser->emitError(parser->getNameLoc(),
-                             "view type expected as first type");
+    return parser.emitError(parser.getNameLoc(),
+                            "view type expected as first type");
 
   IndexType indexType = types.back().dyn_cast<IndexType>();
   RangeType rangeType = types.back().dyn_cast<RangeType>();
   if (!indexType && !rangeType) {
     llvm::errs() << types.back();
-    return parser->emitError(parser->getNameLoc(),
-                             "indexing must be of range or index type");
+    return parser.emitError(parser.getNameLoc(),
+                            "indexing must be of range or index type");
   }
 
   unsigned rank = viewType.getRank();
@@ -108,10 +108,10 @@ ParseResult linalg::SliceOp::parse(OpAsmParser *parser,
   ViewType resultViewType =
       ViewType::get(viewType.getContext(), viewType.getElementType(), rank);
 
-  return failure(parser->resolveOperand(viewInfo, viewType, result->operands) ||
-                 parser->resolveOperands(indexingInfo[0], types.back(),
-                                         result->operands) ||
-                 parser->addTypeToList(resultViewType, result->types));
+  return failure(
+      parser.resolveOperand(viewInfo, viewType, result.operands) ||
+      parser.resolveOperands(indexingInfo[0], types.back(), result.operands) ||
+      parser.addTypeToList(resultViewType, result.types));
 }
 
 // A SliceOp prints as:
@@ -122,12 +122,12 @@ ParseResult linalg::SliceOp::parse(OpAsmParser *parser,
 //
 // Where %0 is an ssa-value holding a `view<?x?xf32>`, %i0 is an ssa-value
 // holding an index.
-void linalg::SliceOp::print(OpAsmPrinter *p) {
-  *p << getOperationName() << " " << *getParentView() << "[" << *getIndexing()
-     << "]";
-  *p << " {dim = " << getAttrOfType<IntegerAttr>("dim").getInt() << "}";
-  p->printOptionalAttrDict(getAttrs(), {"dim"});
-  *p << " : " << getParentViewType() << ", " << getIndexing()->getType();
+void linalg::SliceOp::print(OpAsmPrinter &p) {
+  p << getOperationName() << " " << *getParentView() << "[" << *getIndexing()
+    << "]";
+  p << " {dim = " << getAttrOfType<IntegerAttr>("dim").getInt() << "}";
+  p.printOptionalAttrDict(getAttrs(), {"dim"});
+  p << " : " << getParentViewType() << ", " << getIndexing()->getType();
 }
 
 ViewType linalg::SliceOp::getViewType() { return getType().cast<ViewType>(); }

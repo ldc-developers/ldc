@@ -512,10 +512,18 @@ static void finalizeDispatchDeserializationFn(StringRef opcode,
   os << "  default:\n";
   os << "    ;\n";
   os << "  }\n";
-  os << formatv(
-      "  return emitError(unknownLoc, \"unhandled deserialization of \") << "
-      "spirv::stringifyOpcode({0});\n",
-      opcode);
+  StringRef opcodeVar("opcodeString");
+  os << formatv("  auto {0} = spirv::stringifyOpcode({1});\n", opcodeVar,
+                opcode);
+  os << formatv("  if (!{0}.empty()) {{\n", opcodeVar);
+  os << formatv("    return emitError(unknownLoc, \"unhandled deserialization "
+                "of \") << {0};\n",
+                opcodeVar);
+  os << "  } else {\n";
+  os << formatv("   return emitError(unknownLoc, \"unhandled opcode \") << "
+                "static_cast<uint32_t>({0});\n",
+                opcode);
+  os << "  }\n";
   os << "}\n";
 }
 
@@ -703,6 +711,7 @@ static bool emitOpUtils(const RecordKeeper &recordKeeper, raw_ostream &os) {
 
 // Emits the following inline function for bit enums:
 // inline <enum-type> operator|(<enum-type> a, <enum-type> b);
+// inline <enum-type> operator&(<enum-type> a, <enum-type> b);
 // inline <enum-type> bitEnumContains(<enum-type> a, <enum-type> b);
 static void emitOperators(const Record &enumDef, raw_ostream &os) {
   EnumAttr enumAttr(enumDef);
@@ -711,6 +720,11 @@ static void emitOperators(const Record &enumDef, raw_ostream &os) {
   os << formatv("inline {0} operator|({0} lhs, {0} rhs) {{\n", enumName)
      << formatv("  return static_cast<{0}>("
                 "static_cast<{1}>(lhs) | static_cast<{1}>(rhs));\n",
+                enumName, underlyingType)
+     << "}\n";
+  os << formatv("inline {0} operator&({0} lhs, {0} rhs) {{\n", enumName)
+     << formatv("  return static_cast<{0}>("
+                "static_cast<{1}>(lhs) & static_cast<{1}>(rhs));\n",
                 enumName, underlyingType)
      << "}\n";
   os << formatv(

@@ -12,16 +12,12 @@ func @access_chain_struct() -> () {
   return
 }
 
-// -----
-
 func @access_chain_1D_array(%arg0 : i32) -> () {
   %0 = spv.Variable : !spv.ptr<!spv.array<4xf32>, Function>
   // CHECK: spv.AccessChain {{.*}}[{{.*}}] : !spv.ptr<!spv.array<4 x f32>, Function>
   %1 = spv.AccessChain %0[%arg0] : !spv.ptr<!spv.array<4xf32>, Function>
   return
 }
-
-// -----
 
 func @access_chain_2D_array_1(%arg0 : i32) -> () {
   %0 = spv.Variable : !spv.ptr<!spv.array<4x!spv.array<4xf32>>, Function>
@@ -31,13 +27,19 @@ func @access_chain_2D_array_1(%arg0 : i32) -> () {
   return
 }
 
-// -----
-
 func @access_chain_2D_array_2(%arg0 : i32) -> () {
   %0 = spv.Variable : !spv.ptr<!spv.array<4x!spv.array<4xf32>>, Function>
   // CHECK: spv.AccessChain {{.*}}[{{.*}}] : !spv.ptr<!spv.array<4 x !spv.array<4 x f32>>, Function>
   %1 = spv.AccessChain %0[%arg0] : !spv.ptr<!spv.array<4x!spv.array<4xf32>>, Function>
   %2 = spv.Load "Function" %1 ["Volatile"] : !spv.array<4xf32>
+  return
+}
+
+func @access_chain_rtarray(%arg0 : i32) -> () {
+  %0 = spv.Variable : !spv.ptr<!spv.rtarray<f32>, Function>
+  // CHECK: spv.AccessChain {{.*}}[{{.*}}] : !spv.ptr<!spv.rtarray<f32>, Function>
+  %1 = spv.AccessChain %0[%arg0] : !spv.ptr<!spv.rtarray<f32>, Function>
+  %2 = spv.Load "Function" %1 ["Volatile"] : f32
   return
 }
 
@@ -258,6 +260,26 @@ func @composite_extract_result_type_mismatch(%arg0: !spv.array<4xf32>) -> i32 {
   // expected-error @+1 {{invalid result type: expected 'f32' but provided 'i32'}}
   %0 = "spv.CompositeExtract"(%arg0) {indices = [2: i32]} : (!spv.array<4xf32>) -> (i32)
   return %0: i32
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// spv.ControlBarrier
+//===----------------------------------------------------------------------===//
+
+func @control_barrier_0() -> () {
+  // CHECK:  spv.ControlBarrier "Workgroup", "Device", "Acquire|UniformMemory"
+  spv.ControlBarrier "Workgroup", "Device", "Acquire|UniformMemory"
+  return
+}
+
+// -----
+
+func @control_barrier_1() -> () {
+  // expected-error @+1 {{invalid scope attribute specification: "Something"}}
+  spv.ControlBarrier "Something", "Device", "Acquire|UniformMemory"
+  return
 }
 
 // -----
@@ -498,6 +520,34 @@ spv.module "Logical" "GLSL450" {
     %1 = spv.Load "Input" %0 : f32
     spv.Return
   }
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+// spv.MemoryBarrier
+//===----------------------------------------------------------------------===//
+
+func @memory_barrier_0() -> () {
+  // CHECK: spv.MemoryBarrier "Device", "Acquire|UniformMemory"
+  spv.MemoryBarrier "Device", "Acquire|UniformMemory"
+  return
+}
+
+// -----
+
+func @memory_barrier_1() -> () {
+  // CHECK: spv.MemoryBarrier "Workgroup", "Acquire"
+  spv.MemoryBarrier "Workgroup", "Acquire"
+  return
+}
+
+// -----
+
+func @memory_barrier_2() -> () {
+ // expected-error @+1 {{expected at most one of these four memory constraints to be set: `Acquire`, `Release`,`AcquireRelease` or `SequentiallyConsistent`}}
+  spv.MemoryBarrier "Device", "Acquire|Release"
+  return
 }
 
 // -----

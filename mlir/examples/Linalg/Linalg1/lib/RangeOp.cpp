@@ -31,10 +31,10 @@ using namespace mlir;
 using namespace linalg;
 
 // Minimal example for a new RangeOp operating on RangeType.
-void linalg::RangeOp::build(Builder *b, OperationState *result, Value *min,
+void linalg::RangeOp::build(Builder *b, OperationState &result, Value *min,
                             Value *max, Value *step) {
-  result->addOperands({min, max, step});
-  result->addTypes({RangeType::get(b->getContext())});
+  result.addOperands({min, max, step});
+  result.addTypes({RangeType::get(b->getContext())});
 }
 
 // Verification is simply that a RangeOp takes 3 index ssa-value.
@@ -48,17 +48,17 @@ mlir::LogicalResult linalg::RangeOp::verify() {
   return mlir::success();
 }
 
-ParseResult linalg::RangeOp::parse(OpAsmParser *parser,
-                                   OperationState *result) {
+ParseResult linalg::RangeOp::parse(OpAsmParser &parser,
+                                   OperationState &result) {
   SmallVector<OpAsmParser::OperandType, 3> rangeInfo(3);
   RangeType type;
-  auto indexTy = parser->getBuilder().getIndexType();
-  return failure(
-      parser->parseOperand(rangeInfo[0]) || parser->parseColon() ||
-      parser->parseOperand(rangeInfo[1]) || parser->parseColon() ||
-      parser->parseOperand(rangeInfo[2]) || parser->parseColonType(type) ||
-      parser->resolveOperands(rangeInfo, indexTy, result->operands) ||
-      parser->addTypeToList(type, result->types));
+  auto indexTy = parser.getBuilder().getIndexType();
+  return failure(parser.parseOperand(rangeInfo[0]) || parser.parseColon() ||
+                 parser.parseOperand(rangeInfo[1]) || parser.parseColon() ||
+                 parser.parseOperand(rangeInfo[2]) ||
+                 parser.parseColonType(type) ||
+                 parser.resolveOperands(rangeInfo, indexTy, result.operands) ||
+                 parser.addTypeToList(type, result.types));
 }
 
 // A RangeOp prints as:
@@ -66,9 +66,9 @@ ParseResult linalg::RangeOp::parse(OpAsmParser *parser,
 // ```{.mlir}
 //   linalg.range %arg0:%arg1:%c42 : !linalg.range
 // ```
-void linalg::RangeOp::print(OpAsmPrinter *p) {
-  *p << getOperationName() << " " << *getMin() << ":" << *getMax() << ":"
-     << *getStep();
-  p->printOptionalAttrDict(getAttrs());
-  *p << " : " << getType();
+void linalg::RangeOp::print(OpAsmPrinter &p) {
+  p << getOperationName() << " " << *getMin() << ":" << *getMax() << ":"
+    << *getStep();
+  p.printOptionalAttrDict(getAttrs());
+  p << " : " << getType();
 }

@@ -12,6 +12,9 @@ llvm.mlir.global constant @string("foobar") : !llvm<"[6 x i8]">
 // CHECK: llvm.mlir.global @string_notype("1234567")
 llvm.mlir.global @string_notype("1234567")
 
+// CHECK: llvm.mlir.global @global_undef()
+llvm.mlir.global @global_undef() : !llvm.i64
+
 // CHECK-LABEL: references
 func @references() {
   // CHECK: llvm.mlir.addressof @global : !llvm<"i64*">
@@ -35,13 +38,18 @@ func @references() {
 
 // -----
 
-// expected-error @+1 {{op requires attribute 'value'}}
-"llvm.mlir.global"() {sym_name = "foo", type = !llvm.i64, constant} : () -> ()
+// expected-error @+1 {{expects type to be a valid element type for an LLVM pointer}}
+llvm.mlir.global constant @constant(37.0) : !llvm<"label">
 
 // -----
 
-// expected-error @+1 {{expects type to be a valid element type for an LLVM pointer}}
-llvm.mlir.global constant @constant(37.0) : !llvm<"label">
+// expected-error @+1 {{'addr_space' failed to satisfy constraint: non-negative 32-bit integer}}
+"llvm.mlir.global"() {sym_name = "foo", type = !llvm.i64, value = 42 : i64, addr_space = -1 : i32} : () -> ()
+
+// -----
+
+// expected-error @+1 {{'addr_space' failed to satisfy constraint: non-negative 32-bit integer}}
+"llvm.mlir.global"() {sym_name = "foo", type = !llvm.i64, value = 42 : i64, addr_space = 1.0 : f32} : () -> ()
 
 // -----
 

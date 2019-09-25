@@ -317,23 +317,23 @@ func @more_imperfectly_nested_loops() {
 func @get_i64() -> (i64)
 // CHECK-LABEL: func @get_f32() -> !llvm.float
 func @get_f32() -> (f32)
-// CHECK-LABEL: func @get_memref() -> !llvm<"{ float*, i64, i64 }">
+// CHECK-LABEL: func @get_memref() -> !llvm<"{ float*, [4 x i64] }">
 func @get_memref() -> (memref<42x?x10x?xf32>)
 
-// CHECK-LABEL: func @multireturn() -> !llvm<"{ i64, float, { float*, i64, i64 } }"> {
+// CHECK-LABEL: func @multireturn() -> !llvm<"{ i64, float, { float*, [4 x i64] } }"> {
 func @multireturn() -> (i64, f32, memref<42x?x10x?xf32>) {
 ^bb0:
 // CHECK-NEXT:  {{.*}} = llvm.call @get_i64() : () -> !llvm.i64
 // CHECK-NEXT:  {{.*}} = llvm.call @get_f32() : () -> !llvm.float
-// CHECK-NEXT:  {{.*}} = llvm.call @get_memref() : () -> !llvm<"{ float*, i64, i64 }">
+// CHECK-NEXT:  {{.*}} = llvm.call @get_memref() : () -> !llvm<"{ float*, [4 x i64] }">
   %0 = call @get_i64() : () -> (i64)
   %1 = call @get_f32() : () -> (f32)
   %2 = call @get_memref() : () -> (memref<42x?x10x?xf32>)
-// CHECK-NEXT:  {{.*}} = llvm.mlir.undef : !llvm<"{ i64, float, { float*, i64, i64 } }">
-// CHECK-NEXT:  {{.*}} = llvm.insertvalue {{.*}}, {{.*}}[0 : index] : !llvm<"{ i64, float, { float*, i64, i64 } }">
-// CHECK-NEXT:  {{.*}} = llvm.insertvalue {{.*}}, {{.*}}[1 : index] : !llvm<"{ i64, float, { float*, i64, i64 } }">
-// CHECK-NEXT:  {{.*}} = llvm.insertvalue {{.*}}, {{.*}}[2 : index] : !llvm<"{ i64, float, { float*, i64, i64 } }">
-// CHECK-NEXT:  llvm.return {{.*}} : !llvm<"{ i64, float, { float*, i64, i64 } }">
+// CHECK-NEXT:  {{.*}} = llvm.mlir.undef : !llvm<"{ i64, float, { float*, [4 x i64] } }">
+// CHECK-NEXT:  {{.*}} = llvm.insertvalue {{.*}}, {{.*}}[0 : index] : !llvm<"{ i64, float, { float*, [4 x i64] } }">
+// CHECK-NEXT:  {{.*}} = llvm.insertvalue {{.*}}, {{.*}}[1 : index] : !llvm<"{ i64, float, { float*, [4 x i64] } }">
+// CHECK-NEXT:  {{.*}} = llvm.insertvalue {{.*}}, {{.*}}[2 : index] : !llvm<"{ i64, float, { float*, [4 x i64] } }">
+// CHECK-NEXT:  llvm.return {{.*}} : !llvm<"{ i64, float, { float*, [4 x i64] } }">
   return %0, %1, %2 : i64, f32, memref<42x?x10x?xf32>
 }
 
@@ -341,10 +341,10 @@ func @multireturn() -> (i64, f32, memref<42x?x10x?xf32>) {
 // CHECK-LABEL: func @multireturn_caller() {
 func @multireturn_caller() {
 ^bb0:
-// CHECK-NEXT:  {{.*}} = llvm.call @multireturn() : () -> !llvm<"{ i64, float, { float*, i64, i64 } }">
-// CHECK-NEXT:  {{.*}} = llvm.extractvalue {{.*}}[0 : index] : !llvm<"{ i64, float, { float*, i64, i64 } }">
-// CHECK-NEXT:  {{.*}} = llvm.extractvalue {{.*}}[1 : index] : !llvm<"{ i64, float, { float*, i64, i64 } }">
-// CHECK-NEXT:  {{.*}} = llvm.extractvalue {{.*}}[2 : index] : !llvm<"{ i64, float, { float*, i64, i64 } }">
+// CHECK-NEXT:  {{.*}} = llvm.call @multireturn() : () -> !llvm<"{ i64, float, { float*, [4 x i64] } }">
+// CHECK-NEXT:  {{.*}} = llvm.extractvalue {{.*}}[0 : index] : !llvm<"{ i64, float, { float*, [4 x i64] } }">
+// CHECK-NEXT:  {{.*}} = llvm.extractvalue {{.*}}[1 : index] : !llvm<"{ i64, float, { float*, [4 x i64] } }">
+// CHECK-NEXT:  {{.*}} = llvm.extractvalue {{.*}}[2 : index] : !llvm<"{ i64, float, { float*, [4 x i64] } }">
   %0:3 = call @multireturn() : () -> (i64, f32, memref<42x?x10x?xf32>)
   %1 = constant 42 : i64
 // CHECK:       {{.*}} = llvm.add {{.*}}, {{.*}} : !llvm.i64
@@ -443,6 +443,20 @@ func @sitofp(%arg0 : i32, %arg1 : i64) {
   return
 }
 
+// Check sign and zero extension and truncation of integers.
+// CHECK-LABEL: @integer_extension_and_truncation
+func @integer_extension_and_truncation() {
+// CHECK-NEXT:  %0 = llvm.mlir.constant(-3 : i3) : !llvm.i3
+  %0 = constant 5 : i3
+// CHECK-NEXT: = llvm.sext %0 : !llvm.i3 to !llvm.i6
+  %1 = sexti %0 : i3 to i6
+// CHECK-NEXT: = llvm.zext %0 : !llvm.i3 to !llvm.i6
+  %2 = zexti %0 : i3 to i6
+// CHECK-NEXT: = llvm.trunc %0 : !llvm.i3 to !llvm.i2
+   %3 = trunci %0 : i3 to i2
+  return
+}
+
 // CHECK-LABEL: @dfs_block_order
 func @dfs_block_order() -> (i32) {
 // CHECK-NEXT:  %0 = llvm.mlir.constant(42 : i32) : !llvm.i32
@@ -538,3 +552,18 @@ func @vec_bin(%arg0: vector<2x2x2xf32>) -> vector<2x2x2xf32> {
 // And we're done
 //   CHECK-NEXT: return
 }
+
+// CHECK-LABEL: @splat
+// CHECK-SAME: [[A:%arg[0-9]+]]: !llvm<"<4 x float>">
+// CHECK-SAME: [[ELT:%arg[0-9]+]]: !llvm.float
+func @splat(%a: vector<4xf32>, %b: f32) -> vector<4xf32> {
+  %vb = splat %b : vector<4xf32>
+  %r = mulf %a, %vb : vector<4xf32>
+  return %r : vector<4xf32>
+}
+// CHECK-NEXT: [[UNDEF:%[0-9]+]] = llvm.mlir.undef : !llvm<"<4 x float>">
+// CHECK-NEXT: [[ZERO:%[0-9]+]] = llvm.mlir.constant(0 : i32) : !llvm.i32
+// CHECK-NEXT: [[V:%[0-9]+]] = llvm.insertelement [[UNDEF]], [[ELT]], [[ZERO]] : !llvm<"<4 x float>">
+// CHECK-NEXT: [[SPLAT:%[0-9]+]] = llvm.shufflevector [[V]], [[UNDEF]] [0 : i32, 0 : i32, 0 : i32, 0 : i32]
+// CHECK-NEXT: [[SCALE:%[0-9]+]] = llvm.fmul [[A]], [[SPLAT]] : !llvm<"<4 x float>">
+// CHECK-NEXT: llvm.return [[SCALE]] : !llvm<"<4 x float>">

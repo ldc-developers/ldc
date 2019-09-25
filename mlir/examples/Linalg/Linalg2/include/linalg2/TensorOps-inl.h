@@ -84,8 +84,8 @@ mlir::LogicalResult linalg::TensorContractionBase<ConcreteOp>::verify() {
 
 template <class ConcreteOp>
 mlir::ParseResult
-linalg::TensorContractionBase<ConcreteOp>::parse(mlir::OpAsmParser *parser,
-                                                 mlir::OperationState *result) {
+linalg::TensorContractionBase<ConcreteOp>::parse(mlir::OpAsmParser &parser,
+                                                 mlir::OperationState &result) {
   llvm_unreachable("Parsing linalg dialect is not supported in this tutorial");
 }
 
@@ -103,16 +103,16 @@ linalg::TensorContractionBase<ConcreteOp>::parse(mlir::OpAsmParser *parser,
 //
 // Where %0, %1 and %2 are ssa-values of type ViewType.
 template <class ConcreteOp>
-void linalg::TensorContractionBase<ConcreteOp>::print(mlir::OpAsmPrinter *p) {
-  *p << static_cast<ConcreteOp *>(this)->getOperationName() << "(";
+void linalg::TensorContractionBase<ConcreteOp>::print(mlir::OpAsmPrinter &p) {
+  p << static_cast<ConcreteOp *>(this)->getOperationName() << "(";
   auto *last = *std::prev(getInputsAndOutputs().end());
   for (auto *i : getInputsAndOutputs()) {
-    *p << *i << ((i == last) ? "" : ", ");
+    p << *i << ((i == last) ? "" : ", ");
   }
-  *p << ") : ";
+  p << ") : ";
   auto *lastOutput = *std::prev(getOutputs().end());
   for (auto *o : getOutputs()) {
-    *p << o->getType() << ((o == lastOutput) ? "" : ",");
+    p << o->getType() << ((o == lastOutput) ? "" : ",");
   }
 }
 

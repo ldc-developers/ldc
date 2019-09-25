@@ -36,34 +36,16 @@
 
 using namespace mlir;
 
-/// Returns the word-count-prefixed opcode for an SPIR-V instruction.
-static inline uint32_t getPrefixedOpcode(uint32_t wordCount,
-                                         spirv::Opcode opcode) {
-  assert(((wordCount >> 16) == 0) && "word count out of range!");
-  return (wordCount << 16) | static_cast<uint32_t>(opcode);
-}
-
 /// Encodes an SPIR-V instruction with the given `opcode` and `operands` into
 /// the given `binary` vector.
-static LogicalResult encodeInstructionInto(SmallVectorImpl<uint32_t> &binary,
-                                           spirv::Opcode op,
-                                           ArrayRef<uint32_t> operands) {
+LogicalResult encodeInstructionInto(SmallVectorImpl<uint32_t> &binary,
+                                    spirv::Opcode op,
+                                    ArrayRef<uint32_t> operands) {
   uint32_t wordCount = 1 + operands.size();
-  binary.push_back(getPrefixedOpcode(wordCount, op));
+  binary.push_back(spirv::getPrefixedOpcode(wordCount, op));
   if (!operands.empty()) {
     binary.append(operands.begin(), operands.end());
   }
-  return success();
-}
-
-/// Encodes an SPIR-V `literal` string into the given `binary` vector.
-static LogicalResult encodeStringLiteralInto(SmallVectorImpl<uint32_t> &binary,
-                                             StringRef literal) {
-  // We need to encode the literal and the null termination.
-  auto encodingSize = literal.size() / 4 + 1;
-  auto bufferStartSize = binary.size();
-  binary.resize(bufferStartSize + encodingSize, 0);
-  std::memcpy(binary.data() + bufferStartSize, literal.data(), literal.size());
   return success();
 }
 
@@ -165,9 +147,9 @@ private:
   }
 
   /// Process member decoration
-  LogicalResult processMemberDecoration(uint32_t structID, uint32_t memberNum,
+  LogicalResult processMemberDecoration(uint32_t structID, uint32_t memberIndex,
                                         spirv::Decoration decorationType,
-                                        uint32_t value);
+                                        ArrayRef<uint32_t> values = {});
 
   //===--------------------------------------------------------------------===//
   // Types
@@ -435,7 +417,7 @@ void Serializer::processExtension() {
   for (auto ext : exts.getValue()) {
     auto extStr = ext.cast<StringAttr>().getValue();
     extName.clear();
-    encodeStringLiteralInto(extName, extStr);
+    spirv::encodeStringLiteralInto(extName, extStr);
     encodeInstructionInto(extensions, spirv::Opcode::OpExtension, extName);
   }
 }
@@ -508,7 +490,7 @@ LogicalResult Serializer::processName(uint32_t resultID, StringRef name) {
 
   SmallVector<uint32_t, 4> nameOperands;
   nameOperands.push_back(resultID);
-  if (failed(encodeStringLiteralInto(nameOperands, name))) {
+  if (failed(spirv::encodeStringLiteralInto(nameOperands, name))) {
     return failure();
   }
   return encodeInstructionInto(names, spirv::Opcode::OpName, nameOperands);
@@ -532,9 +514,12 @@ LogicalResult Serializer::processTypeDecoration<spirv::ArrayType>(
 LogicalResult
 Serializer::processMemberDecoration(uint32_t structID, uint32_t memberIndex,
                                     spirv::Decoration decorationType,
-                                    uint32_t value) {
+                                    ArrayRef<uint32_t> values) {
   SmallVector<uint32_t, 4> args(
-      {structID, memberIndex, static_cast<uint32_t>(decorationType), value});
+      {structID, memberIndex, static_cast<uint32_t>(decorationType)});
+  if (!values.empty()) {
+    args.append(values.begin(), values.end());
+  }
   return encodeInstructionInto(decorations, spirv::Opcode::OpMemberDecorate,
                                args);
 }
@@ -766,6 +751,17 @@ Serializer::prepareBasicType(Location loc, Type type, uint32_t resultID,
     return success();
   }
 
+  if (auto runtimeArrayType = type.dyn_cast<spirv::RuntimeArrayType>()) {
+    uint32_t elementTypeID = 0;
+    if (failed(processType(loc, runtimeArrayType.getElementType(),
+                           elementTypeID))) {
+      return failure();
+    }
+    operands.push_back(elementTypeID);
+    typeEnum = spirv::Opcode::OpTypeRuntimeArray;
+    return success();
+  }
+
   if (auto structType = type.dyn_cast<spirv::StructType>()) {
     bool hasLayout = structType.hasLayout();
     for (auto elementIndex :
@@ -782,9 +778,19 @@ Serializer::prepareBasicType(Location loc, Type type, uint32_t resultID,
                 resultID, elementIndex, spirv::Decoration::Offset,
                 static_cast<uint32_t>(structType.getOffset(elementIndex))))) {
           return emitError(loc, "cannot decorate ")
-                 << elementIndex << "-th member of : " << structType
-                 << "with its offset";
+                 << elementIndex << "-th member of " << structType
+                 << " with its offset";
         }
+      }
+    }
+    SmallVector<spirv::StructType::MemberDecorationInfo, 4> memberDecorations;
+    structType.getMemberDecorations(memberDecorations);
+    for (auto &memberDecoration : memberDecorations) {
+      if (failed(processMemberDecoration(resultID, memberDecoration.first,
+                                         memberDecoration.second))) {
+        return emitError(loc, "cannot decorate ")
+               << memberDecoration.first << "-th member of " << structType
+               << " with " << stringifyDecoration(memberDecoration.second);
       }
     }
     typeEnum = spirv::Opcode::OpTypeStruct;
@@ -1364,7 +1370,8 @@ LogicalResult Serializer::encodeExtensionInstruction(
     setID = getNextID();
     SmallVector<uint32_t, 16> importOperands;
     importOperands.push_back(setID);
-    if (failed(encodeStringLiteralInto(importOperands, extensionSetName)) ||
+    if (failed(
+            spirv::encodeStringLiteralInto(importOperands, extensionSetName)) ||
         failed(encodeInstructionInto(
             extendedSets, spirv::Opcode::OpExtInstImport, importOperands))) {
       return failure();
@@ -1466,7 +1473,7 @@ Serializer::processOp<spirv::EntryPointOp>(spirv::EntryPointOp op) {
   }
   operands.push_back(funcID);
   // Add the name of the function.
-  encodeStringLiteralInto(operands, op.fn());
+  spirv::encodeStringLiteralInto(operands, op.fn());
 
   // Add the interface values.
   if (auto interface = op.interface()) {
@@ -1481,6 +1488,26 @@ Serializer::processOp<spirv::EntryPointOp>(spirv::EntryPointOp op) {
     }
   }
   return encodeInstructionInto(entryPoints, spirv::Opcode::OpEntryPoint,
+                               operands);
+}
+
+template <>
+LogicalResult
+Serializer::processOp<spirv::ControlBarrierOp>(spirv::ControlBarrierOp op) {
+  StringRef argNames[] = {"execution_scope", "memory_scope",
+                          "memory_semantics"};
+  SmallVector<uint32_t, 3> operands;
+
+  for (auto argName : argNames) {
+    auto argIntAttr = op.getAttrOfType<IntegerAttr>(argName);
+    auto operand = prepareConstantInt(op.getLoc(), argIntAttr);
+    if (!operand) {
+      return failure();
+    }
+    operands.push_back(operand);
+  }
+
+  return encodeInstructionInto(functions, spirv::Opcode::OpControlBarrier,
                                operands);
 }
 
@@ -1509,6 +1536,25 @@ Serializer::processOp<spirv::ExecutionModeOp>(spirv::ExecutionModeOp op) {
     }
   }
   return encodeInstructionInto(executionModes, spirv::Opcode::OpExecutionMode,
+                               operands);
+}
+
+template <>
+LogicalResult
+Serializer::processOp<spirv::MemoryBarrierOp>(spirv::MemoryBarrierOp op) {
+  StringRef argNames[] = {"memory_scope", "memory_semantics"};
+  SmallVector<uint32_t, 2> operands;
+
+  for (auto argName : argNames) {
+    auto argIntAttr = op.getAttrOfType<IntegerAttr>(argName);
+    auto operand = prepareConstantInt(op.getLoc(), argIntAttr);
+    if (!operand) {
+      return failure();
+    }
+    operands.push_back(operand);
+  }
+
+  return encodeInstructionInto(functions, spirv::Opcode::OpMemoryBarrier,
                                operands);
 }
 

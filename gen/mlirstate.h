@@ -14,9 +14,17 @@
 
 #pragma once
 
+#include "mlir/Dialect/StandardOps/Ops.h"
 #include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/Module.h"
+#include "mlir/IR/Builders.h"
+#include "mlir/IR/Types.h"
+
+/*#include "llvm/"*/
+
 #include "dmd/globals.h"
 #include "gen/dibuilder.h"
+#include "gen/dcompute/target.h"
 
 namespace mlir {
   class MLIRContext; /*Get the context of the program - similar to LLVMContext*/
@@ -58,7 +66,6 @@ public:
   MLIRState &operator=(MLIRState const &) = delete;
 
   mlir::ModuleOp module;
-  mlir::MLIRContext *ontext() const { return module.getContext(); }
 
   Module *dmodule = nullptr;
   
@@ -86,4 +93,4 @@ public:
 
   // Target for dcompute. If not nullptr, it owns this.
   DComputeTarget *dcomputetarget = nullptr;
-}
+};

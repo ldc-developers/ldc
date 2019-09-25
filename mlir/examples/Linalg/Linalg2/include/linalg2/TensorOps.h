@@ -38,9 +38,9 @@ protected:
   //////////////////////////////////////////////////////////////////////////////
   /// Generic implementation of hooks that should be called from `ConcreteType`s
   mlir::LogicalResult verify();
-  static mlir::ParseResult parse(mlir::OpAsmParser *parser,
-                                 mlir::OperationState *result);
-  void print(mlir::OpAsmPrinter *p);
+  static mlir::ParseResult parse(mlir::OpAsmParser &parser,
+                                 mlir::OperationState &result);
+  void print(mlir::OpAsmPrinter &p);
 
 public:
   //////////////////////////////////////////////////////////////////////////////
@@ -111,16 +111,16 @@ public:
   // Hooks to customize the behavior of this op.
   //////////////////////////////////////////////////////////////////////////////
   static llvm::StringRef getOperationName() { return "linalg.dot"; }
-  static void build(mlir::Builder *b, mlir::OperationState *result,
+  static void build(mlir::Builder *b, mlir::OperationState &result,
                     llvm::ArrayRef<mlir::Value *> operands);
-  static void build(mlir::Builder *b, mlir::OperationState *result,
+  static void build(mlir::Builder *b, mlir::OperationState &result,
                     mlir::Value *A, mlir::Value *B, mlir::Value *C) {
     return build(b, result, {A, B, C});
   }
   mlir::LogicalResult verify();
-  static mlir::ParseResult parse(mlir::OpAsmParser *parser,
-                                 mlir::OperationState *result);
-  void print(mlir::OpAsmPrinter *p);
+  static mlir::ParseResult parse(mlir::OpAsmParser &parser,
+                                 mlir::OperationState &result);
+  void print(mlir::OpAsmPrinter &p);
 
   //////////////////////////////////////////////////////////////////////////////
   // Op-specific functionality.
@@ -172,16 +172,16 @@ public:
   // Hooks to customize the behavior of this op.
   //////////////////////////////////////////////////////////////////////////////
   static llvm::StringRef getOperationName() { return "linalg.matvec"; }
-  static void build(mlir::Builder *b, mlir::OperationState *result,
+  static void build(mlir::Builder *b, mlir::OperationState &result,
                     llvm::ArrayRef<mlir::Value *> operands);
-  static void build(mlir::Builder *b, mlir::OperationState *result,
+  static void build(mlir::Builder *b, mlir::OperationState &result,
                     mlir::Value *A, mlir::Value *B, mlir::Value *C) {
     return build(b, result, {A, B, C});
   }
   mlir::LogicalResult verify();
-  static mlir::ParseResult parse(mlir::OpAsmParser *parser,
-                                 mlir::OperationState *result);
-  void print(mlir::OpAsmPrinter *p);
+  static mlir::ParseResult parse(mlir::OpAsmParser &parser,
+                                 mlir::OperationState &result);
+  void print(mlir::OpAsmPrinter &p);
 
   //////////////////////////////////////////////////////////////////////////////
   // Op-specific functionality.
@@ -233,16 +233,16 @@ public:
   // Hooks to customize the behavior of this op.
   //////////////////////////////////////////////////////////////////////////////
   static llvm::StringRef getOperationName() { return "linalg.matmul"; }
-  static void build(mlir::Builder *b, mlir::OperationState *result,
+  static void build(mlir::Builder *b, mlir::OperationState &result,
                     llvm::ArrayRef<mlir::Value *> operands);
-  static void build(mlir::Builder *b, mlir::OperationState *result,
+  static void build(mlir::Builder *b, mlir::OperationState &result,
                     mlir::Value *A, mlir::Value *B, mlir::Value *C) {
     return build(b, result, {A, B, C});
   }
   mlir::LogicalResult verify();
-  static mlir::ParseResult parse(mlir::OpAsmParser *parser,
-                                 mlir::OperationState *result);
-  void print(mlir::OpAsmPrinter *p);
+  static mlir::ParseResult parse(mlir::OpAsmParser &parser,
+                                 mlir::OperationState &result);
+  void print(mlir::OpAsmPrinter &p);
 
   //////////////////////////////////////////////////////////////////////////////
   // Op-specific functionality.
