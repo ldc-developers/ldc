@@ -107,6 +107,7 @@ jobs:
     vmImage: 'ubuntu-16.04'
   variables:
     CI_OS: linux
+    ARCH: x86_64
     # To improve portability of the generated binaries, link the C++ standard library statically.
     # Also don't use relax relocations for the C(++) parts of the default libraries in order to
     # support older user binutils (e.g., Ubuntu 14.04).
@@ -120,8 +121,20 @@ jobs:
     vmImage: 'macOS-10.13'
   variables:
     CI_OS: osx
+    ARCH: x86_64
     EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON
     MACOSX_DEPLOYMENT_TARGET: 10.9
+  steps:
+    - template: .azure-pipelines/posix.yml
+
+- job: Android_armv7a
+  timeoutInMinutes: 120
+  pool:
+    vmImage: 'ubuntu-16.04'
+  variables:
+    CI_OS: android
+    ARCH: armv7a
+    EXTRA_CMAKE_FLAGS: -DANDROID_ABI=armeabi-v7a -DANDROID_NATIVE_API_LEVEL=21 -DANDROID_STL=c++_static -DCMAKE_CROSSCOMPILING=True
   steps:
     - template: .azure-pipelines/posix.yml
 
@@ -134,6 +147,7 @@ jobs:
     - Windows_multilib
     - Linux_multilib
     - macOS_x64
+    - Android_armv7a
   # Only run for commits on the master branch and tags.
   condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')))
   steps:
@@ -157,6 +171,10 @@ jobs:
     - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: osx-x86_64
+        targetPath: artifacts
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: android-armv7a
         targetPath: artifacts
     # We also need to determine whether the GitHub release is a pre-release,
     # as the GitHubRelease task overwrites that flag.

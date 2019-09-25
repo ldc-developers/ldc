@@ -8,21 +8,21 @@ steps:
 - script: |
     set -ex
     cd ..
-    if [ "$CI_OS" = "linux" ]; then
+    if [ "$CI_OS" = "osx" ]; then
+      # Download & extract Ninja
+      curl -L -o ninja-mac.zip https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-mac.zip
+      mkdir ninja
+      tar -xf ninja-mac.zip -C ninja
+    else
       export DEBIAN_FRONTEND=noninteractive
       sudo dpkg --add-architecture i386
       sudo apt-get -q update
       sudo apt-get -yq install \
         git-core cmake ninja-build g++-multilib \
-        libcurl3 libcurl3:i386 libcurl4-openssl-dev \
+        libcurl3 libcurl3:i386 \
         curl gdb tzdata unzip zip
       # Use ld.gold per default, so that LTO is tested
       sudo update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
-    else
-      # Download & extract Ninja
-      curl -L -o ninja-mac.zip https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-mac.zip
-      mkdir ninja
-      tar -xf ninja-mac.zip -C ninja
     fi
     # Install lit
     curl -OL https://bootstrap.pypa.io/get-pip.py
@@ -30,7 +30,9 @@ steps:
     python -m pip install --user lit
     python -c "import lit; lit.main();" --version | head -n 1
     # Download & extract host LDC
-    curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-$CI_OS-x86_64.tar.xz
+    HOST_OS="$CI_OS"
+    if [ "$CI_OS" = "android" ]; then HOST_OS="linux"; fi
+    curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-$HOST_OS-x86_64.tar.xz
     mkdir host-ldc
     tar -xf ldc2.tar.xz --strip 1 -C host-ldc
     # Download & extract LDC-flavoured LLVM
@@ -38,21 +40,22 @@ steps:
     if [ "${BUILD_SOURCEBRANCH:0:10}" != "refs/tags/" ]; then
       assertsSuffix="-withAsserts"
     fi
-    curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$CI_OS-x86_64$assertsSuffix.tar.xz
+    curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$HOST_OS-x86_64$assertsSuffix.tar.xz
     mkdir llvm
     tar -xf llvm.tar.xz --strip 1 -C llvm
     # Set PARALLEL_JOBS env variable and persist it for future steps
-    if [ "$CI_OS" = "linux" ]; then
-      PARALLEL_JOBS=$(nproc)
-    else
+    if [ "$CI_OS" = "osx" ]; then
       PARALLEL_JOBS=$(sysctl -n hw.logicalcpu)
+    else
+      PARALLEL_JOBS=$(nproc)
     fi
+    set +x
     echo "##vso[task.setvariable variable=PARALLEL_JOBS]$PARALLEL_JOBS"
   displayName: Install prerequisites
 - script: |
     set -ex
     cd ..
-    export PATH="$PWD/ninja:$PATH"
+    export PATH="$PWD/ninja:$PATH" # for macOS
     cmake --version
     ninja --version
     mkdir bootstrap-ldc
@@ -69,7 +72,7 @@ steps:
 - script: |
     set -ex
     cd ..
-    export PATH="$PWD/ninja:$PATH"
+    export PATH="$PWD/ninja:$PATH" # for macOS
     installDir=$PWD/install
     mkdir build
     cd build
@@ -83,46 +86,105 @@ steps:
     ninja -j$PARALLEL_JOBS all ldc2-unittest all-test-runners
     bin/ldc2 -version
   displayName: Build LDC & LDC D unittests & defaultlib unittest runners
+  condition: and(succeeded(), ne(variables['CI_OS'], 'android'))
 - script: |
-    set -e
+    set -ex
+    cd ..
+    # Download & extract LDC-flavoured LLVM for Android target
+    curl -L -o llvm-$ARCH.tar.xz https://github.com/ldc-developers/llvm/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$CI_OS-$ARCH.tar.xz
+    mkdir llvm-$ARCH
+    tar -xf llvm-$ARCH.tar.xz --strip 1 -C llvm-$ARCH
+    # Download & extract Android NDK
+    curl -OL https://dl.google.com/android/repository/android-ndk-r20-linux-x86_64.zip
+    unzip android-ndk-r20-linux-x86_64.zip > /dev/null
+    rm android-ndk-r20-linux-x86_64.zip
+    # The NDK toolchain file enforces `-g` as base C[XX] flag - remove it to
+    # *significantly* reduce executable sizes
+    TOOLCHAIN_FILE=$PWD/android-ndk-r20/build/cmake/android.toolchain.cmake
+    sed -i 's|^  -g$||' $TOOLCHAIN_FILE
+    # Extend EXTRA_CMAKE_FLAGS for future steps
+    set +x
+    echo "##vso[task.setvariable variable=EXTRA_CMAKE_FLAGS]$EXTRA_CMAKE_FLAGS -DCMAKE_TOOLCHAIN_FILE=$TOOLCHAIN_FILE"
+    set -x
+    # Add a llvm-config bash script (cannot run ARM executable)
+    LLVM_TRIPLE=$ARCH--linux-androideabi
+    sed $BUILD_SOURCESDIRECTORY/.azure-pipelines/android-llvm-config.in \
+      -e "s|@LLVM_VERSION@|$LLVM_VERSION|g" \
+      -e "s|@LLVM_INSTALL_DIR@|$PWD/llvm-$ARCH|g" \
+      -e "s|@LLVM_DEFAULT_TARGET_TRIPLE@|$LLVM_TRIPLE|g" \
+      -e "s|@LLVM_TARGETS@|AArch64 ARM X86 WebAssembly|g" > llvm-$ARCH/bin/llvm-config
+    chmod 755 llvm-$ARCH/bin/llvm-config
+    # Set up DFLAGS for cross-compiling/linking with host ldmd2
+    DFLAGS="-mtriple=$LLVM_TRIPLE -L-L$PWD/ldc-build-runtime.tmp/lib -linker=bfd -gcc=$PWD/android-ndk-r20/toolchains/llvm/prebuilt/linux-x86_64/bin/$ARCH-linux-androideabi21-clang"
+    if [ "$ARCH" = "armv7a" ]; then DFLAGS="$DFLAGS -mcpu=cortex-a8"; fi
+    set +x
+    echo "##vso[task.setvariable variable=DFLAGS]$DFLAGS"
+  displayName: 'Android: Set up cross-compilation'
+  condition: and(succeeded(), eq(variables['CI_OS'], 'android'))
+- script: |
+    set -ex
+    cd ..
+    bootstrap-ldc/bin/ldc-build-runtime --ninja -j $PARALLEL_JOBS \
+      "--dFlags=${DFLAGS// /;}" \
+      --targetSystem='Android;Linux;UNIX' \
+      --ldcSrcDir=$BUILD_SOURCESDIRECTORY \
+      ${EXTRA_CMAKE_FLAGS//-D/ }
+  displayName: 'Android: Cross-compile default libraries'
+  condition: and(succeeded(), eq(variables['CI_OS'], 'android'))
+- script: |
+    set -ex
+    cd ..
+    installDir=$PWD/install
+    mkdir build-$ARCH
+    cd build-$ARCH
+    cmake -G Ninja $BUILD_SOURCESDIRECTORY \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DLLVM_ROOT_DIR=$PWD/../llvm-$ARCH \
+      -DD_COMPILER=$PWD/../bootstrap-ldc/bin/ldmd2 \
+      -DCMAKE_INSTALL_PREFIX=$installDir \
+      -DINCLUDE_INSTALL_DIR=$installDir/import \
+      -DD_LINKER_ARGS="-fuse-ld=bfd;-L$PWD/../ldc-build-runtime.tmp/lib;-lphobos2-ldc;-ldruntime-ldc" \
+      $EXTRA_CMAKE_FLAGS
+    ninja -j$PARALLEL_JOBS -v ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache
+  displayName: 'Android: Cross-compile LDC executables'
+  condition: and(succeeded(), eq(variables['CI_OS'], 'android'))
+- script: |
+    set -ex
     cd ..
     mkdir artifacts
-    if [ "$CI_OS" = "linux" ]; then
-      if [ "${BUILD_SOURCEBRANCH:0:10}" = "refs/tags/" ]; then
-        artifactID=${BUILD_SOURCEBRANCH:11}
-      else
-        artifactID=${BUILD_SOURCEVERSION:0:8}
-      fi
-      artifactName=ldc-$artifactID-src
-      chmod -R go=rX $BUILD_SOURCESDIRECTORY
-      GZIP=-9 tar -czf artifacts/$artifactName.tar.gz --exclude-vcs --owner=0 --group=0 --transform=s,${BUILD_SOURCESDIRECTORY:1},$artifactName, $BUILD_SOURCESDIRECTORY
-      tar -xf artifacts/$artifactName.tar.gz
-      zip -r -9 artifacts/$artifactName.zip $artifactName
+    if [ "${BUILD_SOURCEBRANCH:0:10}" = "refs/tags/" ]; then
+      artifactID=${BUILD_SOURCEBRANCH:11}
     else
-      echo 'Skipping'
+      artifactID=${BUILD_SOURCEVERSION:0:8}
     fi
+    artifactName=ldc-$artifactID-src
+    chmod -R go=rX $BUILD_SOURCESDIRECTORY
+    GZIP=-9 tar -czf artifacts/$artifactName.tar.gz --exclude-vcs --owner=0 --group=0 --transform=s,${BUILD_SOURCESDIRECTORY:1},$artifactName, $BUILD_SOURCESDIRECTORY
+    tar -xf artifacts/$artifactName.tar.gz
+    zip -r -9 artifacts/$artifactName.zip $artifactName
   displayName: Pack source dir
+  condition: and(succeeded(), eq(variables['CI_OS'], 'linux'))
 - script: |
-    set -e
+    set -ex
     cd ../build
     ctest --output-on-failure -R "ldc2-unittest"
   displayName: Run LDC D unittests
-  condition: succeededOrFailed()
+  condition: and(succeededOrFailed(), ne(variables['CI_OS'], 'android'))
 - script: |
-    set -e
+    set -ex
     cd ../build
     # Temporarily add LLVM bin dir to PATH, so that e.g. wasm-ld is found
     PATH=$PWD/../llvm/bin:$PATH ctest -V -R "lit-tests"
   displayName: Run LIT testsuite
-  condition: succeededOrFailed()
+  condition: and(succeededOrFailed(), ne(variables['CI_OS'], 'android'))
 - script: |
-    set -e
+    set -ex
     cd ../build
     DMD_TESTSUITE_MAKE_ARGS=-j$PARALLEL_JOBS ctest -V -R "dmd-testsuite"
   displayName: Run DMD testsuite
-  condition: succeededOrFailed()
+  condition: and(succeededOrFailed(), ne(variables['CI_OS'], 'android'))
 - script: |
-    set -e
+    set -ex
     cd ../build
     if [ "$CI_OS" = "osx" ]; then
       # FIXME: macOS 10.13 broke this, see https://github.com/ldc-developers/ldc/pull/2839
@@ -130,23 +192,39 @@ steps:
     fi
     ctest -j$PARALLEL_JOBS --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
   displayName: Run defaultlib unittests & druntime stand-alone tests
-  condition: succeededOrFailed()
+  condition: and(succeededOrFailed(), ne(variables['CI_OS'], 'android'))
 - script: |
-    set -e
+    set -ex
     cd ..
-    export PATH="$PWD/ninja:$PATH"
-    cd build
-    ninja install > /dev/null
-    cd ..
-    perl -pi -e s?$PWD/install/?%%ldcbinarypath%%/../?g install/etc/ldc2.conf
+    if [ "$CI_OS" = "android" ]; then
+      mkdir -p install/bin
+      cp build-$ARCH/bin/{ldc2,ldmd2,ldc-build-runtime,ldc-profdata,ldc-prune-cache} install/bin
+      mkdir install/lib
+      cp ldc-build-runtime.tmp/lib/*.a install/lib
+      mkdir install/etc
+      sed "s|$PWD/install/|%%ldcbinarypath%%/../|g" build-$ARCH/bin/ldc2_install.conf > install/etc/ldc2.conf
+      cp -r $BUILD_SOURCESDIRECTORY/packaging/bash_completion.d install/etc
+      #
+      mkdir install/import
+      cp -r $BUILD_SOURCESDIRECTORY/runtime/druntime/src/{core,etc,ldc,object.d} install/import
+      cp bootstrap-ldc/runtime/gccbuiltins_{aarch64,arm,x86}.di install/import/ldc
+      cp -r $BUILD_SOURCESDIRECTORY/runtime/phobos/etc/c install/import/etc
+      rm -rf install/import/etc/c/zlib
+      cp -r $BUILD_SOURCESDIRECTORY/runtime/phobos/std install/import
+    else
+      export PATH="$PWD/ninja:$PATH"
+      cd build
+      ninja install > /dev/null
+      cd ..
+      perl -pi -e s?$PWD/install/?%%ldcbinarypath%%/../?g install/etc/ldc2.conf
+    fi
+    cp $BUILD_SOURCESDIRECTORY/{LICENSE,packaging/README} install
     cat install/etc/ldc2.conf
-    cp $BUILD_SOURCESDIRECTORY/LICENSE install
-    cp $BUILD_SOURCESDIRECTORY/packaging/README install
     # Now rename the installation dir to test portability
     mv install installed
   displayName: Install LDC & make portable
 - script: |
-    set -e
+    set -ex
     cd ..
     echo 'void main() { import std.stdio; writefln("Hello world, %d bits", size_t.sizeof * 8); }' > hello.d
     installed/bin/ldc2 hello.d -m64 -of=hello64 -link-defaultlib-shared
@@ -156,8 +234,9 @@ steps:
       ./hello32
     fi
   displayName: Run hello-world integration test with shared libs
+  condition: and(succeeded(), ne(variables['CI_OS'], 'android'))
 - script: |
-    set -e
+    set -ex
     cd ..
     installed/bin/ldc2 hello.d -of=hello_thin -flto=thin -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
     ./hello_thin
@@ -167,59 +246,75 @@ steps:
       ./hello_full
     fi
   displayName: Run hello-world integration test with LTO
+  condition: and(succeeded(), ne(variables['CI_OS'], 'android'))
 - script: |
-    set -e
+    set -ex
     cd ..
     installed/bin/ldc2 -enable-dynamic-compile -run $BUILD_SOURCESDIRECTORY/tests/dynamiccompile/array.d
   displayName: Run dynamic-compile integration test
+  condition: and(succeeded(), ne(variables['CI_OS'], 'android'))
 - script: |
     set -e
     cd ..
-    export DMD=$PWD/installed/bin/ldmd2
+    if [ "$CI_OS" = "android" ]; then
+      DMD=$PWD/bootstrap-ldc/bin/ldmd2
+    else
+      DMD=$PWD/installed/bin/ldmd2
+    fi
+    echo "##vso[task.setvariable variable=DMD]$DMD"
+  displayName: Set DMD environment variable
+- script: |
+    set -ex
+    cd ..
     git clone --recursive https://github.com/dlang/dub.git
     cd dub
     git checkout "$(cat $BUILD_SOURCESDIRECTORY/packaging/dub_version)"
-    if [ "${BUILD_SOURCEBRANCH:0:10}" != "refs/tags/" ]; then
+    if [ "$CI_OS" = "android" ]; then
+      # Remove -g to prevent invalid debuginfo relocations (apparently due to our custom TLS emulation)
+      sed -i 's| -g -O | -O |g' build.sh
+      # Don't run dub after build
+      sed -i 's|bin/dub --version||' build.sh
+    elif [ "${BUILD_SOURCEBRANCH:0:10}" != "refs/tags/"]; then
       # FIXME: dub is built with `-g -O`, which leads to issue #2361 with enabled
       # assertions, at least on Linux. So strip `-g` for untagged builds.
       perl -pi -e "s? -g -O ? -O ?g" build.sh
     fi
     ./build.sh
     cp bin/dub ../installed/bin
-    ../installed/bin/dub --version
+    if [ "$CI_OS" != "android" ]; then ../installed/bin/dub --version; fi
   displayName: Build & copy dub
 - script: |
-    set -e
+    set -ex
     cd ..
     git clone --recursive https://github.com/dlang/tools.git dlang-tools
     cd dlang-tools
-    make -f posix.mak -j$PARALLEL_JOBS install \
-      DMD=$PWD/../installed/bin/ldmd2 \
-      DMD_DIR=$BUILD_SOURCESDIRECTORY/tests/d2 \
-      DFLAGS="-w -de" \
-      INSTALL_DIR=$PWD
+    mkdir bin
+    $DMD -w -de rdmd.d -of=bin/rdmd
+    $DMD -w -de ddemangle.d -of=bin/ddemangle
+    $DMD -w -de DustMite/dustmite.d DustMite/splitter.d -of=bin/dustmite
     cp bin/{rdmd,ddemangle,dustmite} ../installed/bin
   displayName: Build & copy dlang tools
 - script: |
-    set -e
+    set -ex
     cd ..
+    if [ ! -d artifacts ]; then mkdir artifacts; fi
     if [ "${BUILD_SOURCEBRANCH:0:10}" = "refs/tags/" ]; then
       artifactID=${BUILD_SOURCEBRANCH:11}
     else
       artifactID=${BUILD_SOURCEVERSION:0:8}
     fi
-    artifactName=ldc2-$artifactID-$CI_OS-x86_64
+    artifactName=ldc2-$artifactID-$CI_OS-$ARCH
     mv installed $artifactName
     chmod -R go=rX $artifactName
-    if [ "$CI_OS" = "linux" ]; then
-      XZ_OPT=-9 tar -cJf artifacts/$artifactName.tar.xz --owner=0 --group=0 $artifactName
-    else
+    if [ "$CI_OS" = "osx" ]; then
       sudo chown -R root:wheel $artifactName
       tar -cJf artifacts/$artifactName.tar.xz --options='compression-level=9' $artifactName
+    else
+      XZ_OPT=-9 tar -cJf artifacts/$artifactName.tar.xz --owner=0 --group=0 $artifactName
     fi
   displayName: Pack installation dir
 - task: PublishPipelineArtifact@0
   inputs:
-    artifactName: $(CI_OS)-x86_64
+    artifactName: $(CI_OS)-$(ARCH)
     targetPath: ../artifacts
   displayName: Publish artifact(s)
