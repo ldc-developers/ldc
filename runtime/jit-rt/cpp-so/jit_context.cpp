@@ -93,28 +93,68 @@ auto getSymbolInProcess(const std::string &name)
 DynamicCompilerContext::ListenerCleaner::ListenerCleaner(
     DynamicCompilerContext &o, llvm::raw_ostream *stream)
     : owner(o) {
-  owner.listenerlayer.getTransform().stream = stream;
+  owner.listener_stream = stream;
 }
 
 DynamicCompilerContext::ListenerCleaner::~ListenerCleaner() {
-  owner.listenerlayer.getTransform().stream = nullptr;
+  owner.listener_stream = nullptr;
 }
 
 DynamicCompilerContext::DynamicCompilerContext(bool isMainContext)
     : targetmachine(createTargetMachine()),
       dataLayout(targetmachine->createDataLayout()),
       stringPool(std::make_shared<llvm::orc::SymbolStringPool>()),
-      execSession(stringPool), resolver(createResolver()),
+      execSession(stringPool),
+#if LDC_LLVM_VER >= 900
+      objectLayer(execSession,
+                  []() {
+                    return std::make_unique<llvm::SectionMemoryManager>();
+                  }),
+      listenerlayer(execSession, objectLayer, ModuleListener(*targetmachine,
+                                                &listener_stream)),
+      compileLayer(execSession, listenerlayer, llvm::orc::SimpleCompiler(*targetmachine)),
+      context(std::make_unique<llvm::LLVMContext>()),
+#else
+      resolver(createResolver()),
       objectLayer(execSession,
                   [this](llvm::orc::VModuleKey) {
                     return ObjectLayerT::Resources{
                         std::make_shared<llvm::SectionMemoryManager>(),
                         resolver};
                   }),
-      listenerlayer(objectLayer, ModuleListener(*targetmachine)),
+      listenerlayer(objectLayer, ModuleListener(*targetmachine,
+                                                &listener_stream)),
       compileLayer(listenerlayer, llvm::orc::SimpleCompiler(*targetmachine)),
+#endif
       mainContext(isMainContext) {
   llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
+#if LDC_LLVM_VER >= 900
+  auto generator = [this](llvm::orc::JITDylib &Parent, const llvm::orc::SymbolNameSet &Names)->llvm::Expected<llvm::orc::SymbolNameSet> {
+    llvm::orc::SymbolNameSet Added;
+    llvm::orc::SymbolMap NewSymbols;
+
+    for (auto &Name : Names) {
+      if ((*Name).empty())
+        continue;
+
+      auto it = symMap.find(*Name);
+      if (symMap.end() != it) {
+        auto SymAddr = llvm::pointerToJITTargetAddress(it->second);
+        Added.insert(Name);
+        NewSymbols[Name] = llvm::JITEvaluatedSymbol(SymAddr, llvm::JITSymbolFlags::Exported);
+      }
+      else if (auto SymAddr = getSymbolInProcess(*Name)) {
+        Added.insert(Name);
+        NewSymbols[Name] = llvm::JITEvaluatedSymbol(SymAddr, llvm::JITSymbolFlags::Exported);
+      }
+    }
+    if (!NewSymbols.empty())
+      cantFail(Parent.define(absoluteSymbols(std::move(NewSymbols))));
+
+    return Added;
+  };
+  execSession.getMainJITDylib().setGenerator(generator);
+#endif
 }
 
 DynamicCompilerContext::~DynamicCompilerContext() {}
@@ -128,22 +168,57 @@ DynamicCompilerContext::addModule(std::unique_ptr<llvm::Module> module,
   ListenerCleaner cleaner(*this, asmListener);
   // Add the set to the JIT with the resolver we created above
   auto handle = execSession.allocateVModule();
+#if LDC_LLVM_VER >= 900
+  auto &dylib = execSession.getMainJITDylib();
+//  llvm::orc::SymbolMap symbols;
+//  for (auto &s : symMap) {
+//    symbols[stringPool->intern(s.first)] = llvm::JITEvaluatedSymbol(llvm::pointerToJITTargetAddress(s.second), llvm::JITSymbolFlags::Exported);
+//    std::cout << "aaaaaaaaaaa " << s.first << std::endl;
+//  }
+//  if (auto err = dylib.define(absoluteSymbols(std::move(symbols), handle))) {
+//    return err;
+//  }
+  auto result = compileLayer.add(dylib, llvm::orc::ThreadSafeModule(std::move(module), context), handle);
+#else
   auto result = compileLayer.addModule(handle, std::move(module));
+#endif
   if (result) {
     execSession.releaseVModule(handle);
     return result;
   }
+#if LDC_LLVM_VER < 900
   if (auto err = compileLayer.emitAndFinalize(handle)) {
     execSession.releaseVModule(handle);
     return err;
   }
+#endif
   moduleHandle = handle;
   compiled = true;
   return llvm::Error::success();
 }
 
 llvm::JITSymbol DynamicCompilerContext::findSymbol(const std::string &name) {
+#if LDC_LLVM_VER >= 900
+  llvm::orc::JITDylib *libs[] = {
+    &execSession.getMainJITDylib()
+  };
+  auto ret = execSession.lookup(libs, name);
+  if (!ret) {
+    return nullptr;
+  }
+  return ret.get();
+#else
   return compileLayer.findSymbol(name, false);
+#endif
+}
+
+llvm::LLVMContext &DynamicCompilerContext::getContext()
+{
+#if LDC_LLVM_VER >= 900
+  return *context.getContext();
+#else
+  return context;
+#endif
 }
 
 void DynamicCompilerContext::clearSymMap() { symMap.clear(); }
@@ -182,10 +257,13 @@ bool DynamicCompilerContext::hasBindFunction(const void *handle) const {
 bool DynamicCompilerContext::isMainContext() const { return mainContext; }
 
 void DynamicCompilerContext::removeModule(const ModuleHandleT &handle) {
+#if LDC_LLVM_VER < 900
   cantFail(compileLayer.removeModule(handle));
+#endif
   execSession.releaseVModule(handle);
 }
 
+#if LDC_LLVM_VER < 900
 std::shared_ptr<llvm::orc::SymbolResolver>
 DynamicCompilerContext::createResolver() {
   return llvm::orc::createLegacyLookupResolver(
@@ -211,3 +289,4 @@ DynamicCompilerContext::createResolver() {
         llvm::cantFail(std::move(Err), "lookupFlags failed");
       });
 }
+#endif
