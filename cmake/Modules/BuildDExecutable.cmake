@@ -1,11 +1,21 @@
+# Translates linker args for usage in DMD-compatible command-line (prepend -L).
+macro(translate_linker_args in_var out_var)
+    set(${out_var} "")
+    foreach(f IN LISTS "${in_var}")
+        if(NOT "${f}" STREQUAL "")
+            string(REPLACE "-LIBPATH:" "/LIBPATH:" f ${f})
+            list(APPEND ${out_var} "-L${f}")
+        endif()
+    endforeach()
+endmacro()
+
 # Depends on these global variables:
 # - D_COMPILER
 # - D_COMPILER_FLAGS
 # - DDMD_DFLAGS
 # - DDMD_LFLAGS
 # - LDC_LINK_MANUALLY
-# - LDC_LINKERFLAG_LIST
-# - LDC_TRANSLATED_LINKER_FLAGS
+# - D_LINKER_ARGS
 function(build_d_executable target_name output_exe d_src_files compiler_args linker_args extra_compile_deps link_deps compile_separately)
     set(dflags "${D_COMPILER_FLAGS} ${DDMD_DFLAGS}")
     if(UNIX)
@@ -51,7 +61,7 @@ function(build_d_executable target_name output_exe d_src_files compiler_args lin
             RUNTIME_OUTPUT_DIRECTORY ${output_dir}
             LINKER_LANGUAGE          CXX
         )
-        target_link_libraries(${target_name} ${linker_args} ${LDC_LINKERFLAG_LIST})
+        target_link_libraries(${target_name} ${linker_args} ${D_LINKER_ARGS})
     else()
         # Use a response file on Windows when compiling separately, in order not to
         # exceed the max command-line length.
@@ -62,13 +72,10 @@ function(build_d_executable target_name output_exe d_src_files compiler_args lin
             set(objects_args "@${output_exe}.rsp")
         endif()
 
-        set(translated_linker_args "")
-        foreach(f ${linker_args})
-            list(APPEND translated_linker_args "-L${f}")
-        endforeach()
+        translate_linker_args(linker_args translated_linker_args)
         add_custom_command(
             OUTPUT ${output_exe}
-            COMMAND ${D_COMPILER} ${dflags} ${DDMD_LFLAGS} -of${output_exe} ${objects_args} ${translated_linker_args} ${LDC_TRANSLATED_LINKER_FLAGS}
+            COMMAND ${D_COMPILER} ${dflags} ${DDMD_LFLAGS} -of${output_exe} ${objects_args} ${translated_linker_args}
             WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
             DEPENDS ${object_files} ${link_deps}
         )

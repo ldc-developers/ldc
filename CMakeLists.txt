@@ -626,24 +626,12 @@ if(UNIX AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} MATCHES "Clan
         message(STATUS "Host D compiler linker program: ${D_LINKER_COMMAND}")
         message(STATUS "Host D compiler linker flags: ${D_LINKER_ARGS}")
     endif()
-    list(APPEND LDC_LINKERFLAG_LIST ${D_LINKER_ARGS})
-
-    if(NOT "${CMAKE_EXE_LINKER_FLAGS}" STREQUAL "")
-        separate_arguments(flags UNIX_COMMAND "${CMAKE_EXE_LINKER_FLAGS}")
-        list(APPEND LDC_LINKERFLAG_LIST ${flags})
-    endif()
-else()
-    # Use D compiler for linking, trying to translate a few common linker flags.
-    set(LDC_TRANSLATED_LINKER_FLAGS "")
-    foreach(f ${LDC_LINKERFLAG_LIST})
-        string(REPLACE "-LIBPATH:" "/LIBPATH:" f ${f})
-        list(APPEND LDC_TRANSLATED_LINKER_FLAGS "-L${f}")
-    endforeach()
 endif()
 
 # CONFIG generator expressions need to be repeated due to https://cmake.org/Bug/view.php?id=14353
 if(MSVC_IDE)
-    separate_arguments(LDC_FLAG_LIST WINDOWS_COMMAND "${LDC_TRANSLATED_LINKER_FLAGS} ${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS}")
+    translate_linker_args(linker_args translated_linker_args)
+    separate_arguments(LDC_FLAG_LIST WINDOWS_COMMAND "${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS} ${translated_linker_args}")
     add_custom_command(
         OUTPUT ${LDC_EXE_FULL}
         COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:${LDC_LIB}> ${LDC_FLAG_LIST} -of${LDC_EXE_FULL} ${LDC_D_SOURCE_FILES} $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:-g> $<$<NOT:$<CONFIG:Debug>>:-O> $<$<NOT:$<CONFIG:Debug>>:-inline> $<$<NOT:$<CONFIG:Debug>>:-release>
@@ -656,7 +644,7 @@ else()
         "${LDC_EXE_FULL}"
         "${LDC_D_SOURCE_FILES}"
         ""
-        "$<TARGET_LINKER_FILE:${LDC_LIB}>"
+        "$<TARGET_LINKER_FILE:${LDC_LIB}>;${LDC_LINKERFLAG_LIST}"
         "${FE_RES}"
         "${LDC_LIB}"
         ${COMPILE_D_MODULES_SEPARATELY}
@@ -699,7 +687,7 @@ build_d_executable(
     "${LDMD_EXE_FULL}"
     "${LDMD_D_SOURCE_FILES}"
     ""
-    "$<TARGET_LINKER_FILE:LDMD_CXX_LIB>"
+    "$<TARGET_LINKER_FILE:LDMD_CXX_LIB>;${LDC_LINKERFLAG_LIST}"
     ""
     "LDMD_CXX_LIB"
     ${COMPILE_D_MODULES_SEPARATELY}
@@ -858,7 +846,7 @@ build_d_executable(
     "${LDC_UNITTEST_EXE_FULL}"
     "${LDC_D_SOURCE_FILES}"
     "-unittest"
-    "$<TARGET_LINKER_FILE:${LDC_LIB}>"
+    "$<TARGET_LINKER_FILE:${LDC_LIB}>;${LDC_LINKERFLAG_LIST}"
     ""
     "${LDC_LIB}"
     ON # always build separately (faster with parallelization)
