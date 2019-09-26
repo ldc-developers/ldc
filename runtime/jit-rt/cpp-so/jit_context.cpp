@@ -103,7 +103,6 @@ DynamicCompilerContext::ListenerCleaner::~ListenerCleaner() {
 DynamicCompilerContext::DynamicCompilerContext(bool isMainContext)
     : targetmachine(createTargetMachine()),
       dataLayout(targetmachine->createDataLayout()),
-#if LDC_LLVM_VER >= 700
       stringPool(std::make_shared<llvm::orc::SymbolStringPool>()),
       execSession(stringPool), resolver(createResolver()),
       objectLayer(execSession,
@@ -112,10 +111,6 @@ DynamicCompilerContext::DynamicCompilerContext(bool isMainContext)
                         std::make_shared<llvm::SectionMemoryManager>(),
                         resolver};
                   }),
-#else
-      objectLayer(
-          []() { return std::make_shared<llvm::SectionMemoryManager>(); }),
-#endif
       listenerlayer(objectLayer, ModuleListener(*targetmachine)),
       compileLayer(listenerlayer, llvm::orc::SimpleCompiler(*targetmachine)),
       mainContext(isMainContext) {
@@ -132,7 +127,6 @@ DynamicCompilerContext::addModule(std::unique_ptr<llvm::Module> module,
 
   ListenerCleaner cleaner(*this, asmListener);
   // Add the set to the JIT with the resolver we created above
-#if LDC_LLVM_VER >= 700
   auto handle = execSession.allocateVModule();
   auto result = compileLayer.addModule(handle, std::move(module));
   if (result) {
@@ -144,14 +138,6 @@ DynamicCompilerContext::addModule(std::unique_ptr<llvm::Module> module,
     return err;
   }
   moduleHandle = handle;
-#else
-  auto result = compileLayer.addModule(std::move(module), createResolver());
-  if (!result) {
-    return llvm::make_error<llvm::StringError>("addModule failed",
-                                               llvm::inconvertibleErrorCode());
-  }
-  moduleHandle = result.get();
-#endif
   compiled = true;
   return llvm::Error::success();
 }
@@ -197,12 +183,9 @@ bool DynamicCompilerContext::isMainContext() const { return mainContext; }
 
 void DynamicCompilerContext::removeModule(const ModuleHandleT &handle) {
   cantFail(compileLayer.removeModule(handle));
-#if LDC_LLVM_VER >= 700
   execSession.releaseVModule(handle);
-#endif
 }
 
-#if LDC_LLVM_VER >= 700
 std::shared_ptr<llvm::orc::SymbolResolver>
 DynamicCompilerContext::createResolver() {
   return llvm::orc::createLegacyLookupResolver(
@@ -228,31 +211,3 @@ DynamicCompilerContext::createResolver() {
         llvm::cantFail(std::move(Err), "lookupFlags failed");
       });
 }
-#else
-std::shared_ptr<llvm::JITSymbolResolver>
-DynamicCompilerContext::createResolver() {
-  // Build our symbol resolver:
-  // Lambda 1: Look back into the JIT itself to find symbols that are part of
-  //           the same "logical dylib".
-  // Lambda 2: Search for external symbols in the host process.
-  return llvm::orc::createLambdaResolver(
-      [this](const std::string &name) {
-        if (auto Sym = compileLayer.findSymbol(name, false)) {
-          return Sym;
-        }
-        return llvm::JITSymbol(nullptr);
-      },
-      [this](const std::string &name) {
-        auto it = symMap.find(name);
-        if (symMap.end() != it) {
-          return llvm::JITSymbol(
-              reinterpret_cast<llvm::JITTargetAddress>(it->second),
-              llvm::JITSymbolFlags::Exported);
-        }
-        if (auto SymAddr = getSymbolInProcess(name)) {
-          return llvm::JITSymbol(SymAddr, llvm::JITSymbolFlags::Exported);
-        }
-        return llvm::JITSymbol(nullptr);
-      });
-}
-#endif

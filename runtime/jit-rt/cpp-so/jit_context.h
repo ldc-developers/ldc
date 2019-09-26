@@ -28,9 +28,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/ManagedStatic.h"
 
-#if LDC_LLVM_VER >= 700
 #include "llvm/ExecutionEngine/Orc/Legacy.h"
-#endif
 
 #include "context.h"
 #include "disassembler.h"
@@ -52,14 +50,10 @@ private:
 
     template <typename T> auto operator()(T &&object) -> T {
       if (nullptr != stream) {
-#if LDC_LLVM_VER >= 700
         auto objFile =
             llvm::cantFail(llvm::object::ObjectFile::createObjectFile(
                 object->getMemBufferRef()));
         disassemble(targetmachine, *objFile, *stream);
-#else
-        disassemble(targetmachine, *object->getBinary(), *stream);
-#endif
       }
       return std::move(object);
     }
@@ -80,14 +74,11 @@ private:
   using CompileLayerT =
       llvm::orc::IRCompileLayer<ListenerLayerT, llvm::orc::SimpleCompiler>;
 #endif
-#if LDC_LLVM_VER >= 700
   using ModuleHandleT = llvm::orc::VModuleKey;
   std::shared_ptr<llvm::orc::SymbolStringPool> stringPool;
   llvm::orc::ExecutionSession execSession;
   std::shared_ptr<llvm::orc::SymbolResolver> resolver;
-#else
-  using ModuleHandleT = CompileLayerT::ModuleHandleT;
-#endif
+
   ObjectLayerT objectLayer;
   ListenerLayerT listenerlayer;
   CompileLayerT compileLayer;
@@ -147,9 +138,5 @@ public:
 private:
   void removeModule(const ModuleHandleT &handle);
 
-#if LDC_LLVM_VER >= 700
   std::shared_ptr<llvm::orc::SymbolResolver> createResolver();
-#else
-  std::shared_ptr<llvm::JITSymbolResolver> createResolver();
-#endif
 };

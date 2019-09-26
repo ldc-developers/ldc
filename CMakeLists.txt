@@ -443,7 +443,7 @@ set(LDC_DYNAMIC_COMPILE "AUTO" CACHE STRING "Support dynamic compilation (True|F
 option(LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES "Use custom LDC passes in jit" ON)
 if(LDC_DYNAMIC_COMPILE STREQUAL "AUTO")
     set(LDC_DYNAMIC_COMPILE False)  # must be a valid Python boolean constant (case sensitive)
-    if (NOT (LDC_LLVM_VER LESS 500))
+    if (NOT (LDC_LLVM_VER LESS 700))
         set(LDC_DYNAMIC_COMPILE True)
         add_definitions(-DLDC_DYNAMIC_COMPILE)
         add_definitions(-DLDC_DYNAMIC_COMPILE_API_VERSION=3)
