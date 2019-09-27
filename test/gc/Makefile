@@ -1,6 +1,10 @@
 include ../common.mak
 
-TESTS := sentinel printf memstomp invariant logging precise precisegc forkgc
+TESTS := sentinel printf memstomp invariant logging precise precisegc
+# LDC: disable forkgc on Windows
+ifeq (,$(findstring win,$(OS)))
+TESTS+=forkgc
+endif
 
 SRC_GC = ../../src/gc/impl/conservative/gc.d
 SRC = $(SRC_GC) ../../src/rt/lifetime.d
