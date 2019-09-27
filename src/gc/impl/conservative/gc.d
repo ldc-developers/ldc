@@ -2716,6 +2716,7 @@ struct Gcx
     Event evDone;
 
     shared uint busyThreads;
+    shared uint stoppedThreads;
     bool stopGC;
 
     void markParallel(bool nostack) nothrow
@@ -2823,6 +2824,13 @@ struct Gcx
 
         for (int idx = 0; idx < numScanThreads; idx++)
             scanThreadData[idx].tid = createLowLevelThread(&scanBackground, 0x4000, &stopScanThreads);
+
+        version (Posix)
+        {
+            import core.sys.posix.pthread;
+            forkedGcx = &this;
+            pthread_atfork(null, null, &initChildAfterFork);
+        }
     }
 
     void stopScanThreads() nothrow
@@ -2831,8 +2839,17 @@ struct Gcx
             return;
 
         debug(PARALLEL_PRINTF) printf("stopScanThreads\n");
+        int startedThreads = 0;
+        for (int idx = 0; idx < numScanThreads; idx++)
+            if (scanThreadData[idx].tid != scanThreadData[idx].tid.init)
+                startedThreads++;
+
         stopGC = true;
-        evStart.set();
+        while (atomicLoad(stoppedThreads) < startedThreads)
+        {
+            evStart.set();
+            evDone.wait(dur!"msecs"(1));
+        }
 
         for (int idx = 0; idx < numScanThreads; idx++)
         {
@@ -2849,6 +2866,8 @@ struct Gcx
         cstdlib.free(scanThreadData);
         // scanThreadData = null; // keep non-null to not start again after shutdown
         numScanThreads = 0;
+        version (Posix)
+            forkedGcx = null;
 
         debug(PARALLEL_PRINTF) printf("stopScanThreads done\n");
     }
@@ -2857,10 +2876,11 @@ struct Gcx
     {
         while (!stopGC)
         {
-            evStart.wait(dur!"msecs"(10));
+            evStart.wait();
             pullFromScanStack();
             evDone.set();
         }
+        stoppedThreads.atomicOp!"+="(1);
     }
 
     void pullFromScanStack() nothrow
@@ -2901,6 +2921,26 @@ struct Gcx
             busyThreads.atomicOp!"-="(1);
         }
         debug(PARALLEL_PRINTF) printf("scanBackground thread %d done\n", threadId);
+    }
+
+    version (Posix)
+    {
+        // make sure the threads and event handles are reinitialized in a fork
+        __gshared Gcx* forkedGcx;
+
+        extern(C) static void initChildAfterFork()
+        {
+            if (forkedGcx && forkedGcx.scanThreadData)
+            {
+                cstdlib.free(forkedGcx.scanThreadData);
+                forkedGcx.numScanThreads = 0;
+                forkedGcx.scanThreadData = null;
+                forkedGcx.busyThreads = 0;
+
+                memset(&forkedGcx.evStart, 0, Event.sizeof);
+                memset(&forkedGcx.evDone, 0, Event.sizeof);
+            }
+        }
     }
 }
 
