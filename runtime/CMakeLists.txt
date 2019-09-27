@@ -120,7 +120,9 @@ endif()
 
 # Auto-detect C system libraries
 if("${C_SYSTEM_LIBS}" STREQUAL "AUTO")
-    if("${TARGET_SYSTEM}" MATCHES "Android")
+    if("${TARGET_SYSTEM}" MATCHES "MSVC")
+        set(C_SYSTEM_LIBS libvcruntime libcmt)
+    elseif("${TARGET_SYSTEM}" MATCHES "Android")
         set(C_SYSTEM_LIBS m c)
     elseif("${TARGET_SYSTEM}" MATCHES "Linux")
         set(C_SYSTEM_LIBS m pthread rt dl)
@@ -828,7 +830,7 @@ install(FILES ${GCCBUILTINS} DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
 # link the test runners against those. Some linker command-line magic is
 # required to make sure all objects are pulled in.
 
-macro(append_testrunner_linkflags libname path_suffix is_shared output_flags)
+macro(set_testrunner_linkflags libname path_suffix is_shared output_flags)
     # (Re)set variable 'tested_lib_path', initialize to directory containing the tested lib.
     # It'll contain the full path to the linked-in library when 'returning' to calling build_test_runners().
     set(tested_lib_path "${CMAKE_BINARY_DIR}/lib${path_suffix}")
@@ -836,17 +838,15 @@ macro(append_testrunner_linkflags libname path_suffix is_shared output_flags)
     if("${TARGET_SYSTEM}" MATCHES "MSVC")
         set(tested_lib_path "${tested_lib_path}/${libname}.lib")
         if("${is_shared}" STREQUAL "ON")
-            append("${tested_lib_path}" ${output_flags})
-            append("msvcrt.lib vcruntime.lib" ${output_flags})
+            set(${output_flags} "${tested_lib_path}")
         else()
             # the MS linker supports /WHOLEARCHIVE since VS 2015 Update 2
-            string(REPLACE "/" "\\" tested_lib_winpath ${tested_lib_path})
-            append("/WHOLEARCHIVE:${tested_lib_winpath}" ${output_flags})
-            append("libcmt.lib libvcruntime.lib" ${output_flags})
+            # we need to use `-WHOLEARCHIVE` (leading dash) to make CMake recognize it as a linker *flag*
+            set(${output_flags} "-WHOLEARCHIVE:${tested_lib_path}")
         endif()
     else()
         if("${is_shared}" STREQUAL "ON")
-            append("-Wl,-rpath,${tested_lib_path}" ${output_flags})
+            set(${output_flags} "-Wl,-rpath,${tested_lib_path}")
             if("${TARGET_SYSTEM}" MATCHES "APPLE")
                 set(tested_lib_path "${tested_lib_path}/lib${libname}.dylib")
                 append("${tested_lib_path}" ${output_flags})
@@ -857,23 +857,19 @@ macro(append_testrunner_linkflags libname path_suffix is_shared output_flags)
         else()
             set(tested_lib_path "${tested_lib_path}/lib${libname}.a")
             if("${TARGET_SYSTEM}" MATCHES "APPLE")
-                append("-Wl,-force_load,${tested_lib_path}" ${output_flags})
+                set(${output_flags} "-Wl,-force_load,${tested_lib_path}")
             else()
-                append("-Wl,--whole-archive,${tested_lib_path},--no-whole-archive" ${output_flags})
+                set(${output_flags} "-Wl,--whole-archive,${tested_lib_path},--no-whole-archive")
             endif()
-            foreach(l ${C_SYSTEM_LIBS})
-                append("-l${l}" ${output_flags})
-            endforeach()
         endif()
     endif()
 endmacro()
 
 set(_GLOBAL_TESTRUNNERS "" CACHE INTERNAL "List of all test runner build targets")
-file(WRITE ${PROJECT_BINARY_DIR}/dummy.c "")
 
 # Generates targets for a pair of druntime/Phobos test runners.
 # The build targets are also appended to the _GLOBAL_TESTRUNNERS list.
-function(build_test_runners name_suffix path_suffix d_flags c_flags linkflags is_shared)
+function(build_test_runners name_suffix path_suffix d_flags linkflags is_shared)
     set(target_suffix)
     get_target_suffix("${name_suffix}" "${path_suffix}" target_suffix)
 
@@ -890,30 +886,34 @@ function(build_test_runners name_suffix path_suffix d_flags c_flags linkflags is
     )
     add_custom_target(test_runner${target_suffix} DEPENDS ${test_runner_o})
 
+    set(c_libs "")
+    if("${is_shared}" STREQUAL "OFF")
+        set(c_libs ${C_SYSTEM_LIBS})
+    endif()
+
     set(druntime_name druntime-test-runner${target_suffix})
-    add_executable(${druntime_name} EXCLUDE_FROM_ALL ${PROJECT_BINARY_DIR}/dummy.c)
-    set(full_linkflags "${test_runner_o} ${linkflags}")
-    append_testrunner_linkflags("druntime-ldc-unittest${name_suffix}" "${path_suffix}" "${is_shared}" full_linkflags)
+    add_executable(${druntime_name} EXCLUDE_FROM_ALL ${test_runner_o})
     add_dependencies(${druntime_name} test_runner${target_suffix} druntime-ldc-unittest${target_suffix})
+    set_testrunner_linkflags("druntime-ldc-unittest${name_suffix}" "${path_suffix}" "${is_shared}" runner_linkflags)
+    target_link_libraries(${druntime_name} ${runner_linkflags} ${c_libs})
     set_target_properties(${druntime_name} PROPERTIES
-        COMPILE_FLAGS   ${c_flags}
-        LINK_FLAGS      ${full_linkflags}
-        LINK_DEPENDS    "${test_runner_o};${tested_lib_path}"
+        LINKER_LANGUAGE C
+        LINK_FLAGS      ${linkflags}
+        LINK_DEPENDS    ${tested_lib_path}
     )
     add_test(build-${druntime_name} "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ${druntime_name})
     set(_GLOBAL_TESTRUNNERS "${_GLOBAL_TESTRUNNERS};${druntime_name}" CACHE INTERNAL "")
 
     if(PHOBOS2_DIR)
         set(phobos_name phobos2-test-runner${target_suffix})
-        add_executable(${phobos_name} EXCLUDE_FROM_ALL ${PROJECT_BINARY_DIR}/dummy.c)
-        target_link_libraries(${phobos_name} druntime-ldc${target_suffix})
-        set(full_linkflags "${test_runner_o} ${linkflags}")
-        append_testrunner_linkflags("phobos2-ldc-unittest${name_suffix}" "${path_suffix}" "${is_shared}" full_linkflags)
+        add_executable(${phobos_name} EXCLUDE_FROM_ALL ${test_runner_o})
         add_dependencies(${phobos_name} test_runner${target_suffix} phobos2-ldc-unittest${target_suffix})
+        set_testrunner_linkflags("phobos2-ldc-unittest${name_suffix}" "${path_suffix}" "${is_shared}" runner_linkflags)
+        target_link_libraries(${phobos_name} ${runner_linkflags} druntime-ldc${target_suffix} ${c_libs})
         set_target_properties(${phobos_name} PROPERTIES
-            COMPILE_FLAGS   ${c_flags}
-            LINK_FLAGS      ${full_linkflags}
-            LINK_DEPENDS    "${test_runner_o};${tested_lib_path}"
+            LINKER_LANGUAGE C
+            LINK_FLAGS      ${linkflags}
+            LINK_DEPENDS    ${tested_lib_path}
         )
         add_test(build-${phobos_name} "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ${phobos_name})
         set(_GLOBAL_TESTRUNNERS "${_GLOBAL_TESTRUNNERS};${phobos_name}" CACHE INTERNAL "")
@@ -947,11 +947,11 @@ function(build_test_runner_variant name_suffix path_suffix d_flags c_flags)
 
     # static druntime/Phobos test runners
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "ON")
-        build_test_runners("${name_suffix}" "${path_suffix}" "${full_d_flags}" "${full_c_flags}" "${linkflags}" "OFF")
+        build_test_runners("${name_suffix}" "${path_suffix}" "${full_d_flags}" "${linkflags}" "OFF")
     endif()
     # shared druntime/Phobos test runners
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
-        build_test_runners("${name_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}" "${full_d_flags}" "${full_c_flags}" "${linkflags}" "ON")
+        build_test_runners("${name_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}" "${full_d_flags}" "${linkflags}" "ON")
     endif()
 endfunction()
 
