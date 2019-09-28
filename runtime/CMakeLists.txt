@@ -925,10 +925,6 @@ function(build_test_runner_variant name_suffix path_suffix d_flags c_flags)
     set(full_d_flags ${D_FLAGS} ${d_flags} -unittest -d-version=StdUnittest)
     set(full_c_flags "${RT_CFLAGS} ${c_flags}")
     set(linkflags "${LD_FLAGS} ${c_flags}")
-    if("${TARGET_SYSTEM}" MATCHES "MSVC")
-        # enforce identical COMDAT folding, apparently needed for std.variant
-        set(linkflags "/OPT:ICF ${linkflags}")
-    endif()
 
     # static and/or shared pair(s) of druntime/Phobos unittest libs
     set(unittest_libs "")
