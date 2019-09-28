@@ -6,4 +6,4 @@
 	url = https://github.com/ldc-developers/phobos.git
 [submodule "tests/d2/dmd-testsuite"]
 	path = tests/d2/dmd-testsuite
-	url = https://github.com/ldc-developers/dmd-testsuite.git
+	url = https://github.com/baziotis/dmd-testsuite.git
