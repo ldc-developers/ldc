@@ -124,7 +124,7 @@ DValue *DtoNewClass(Loc &loc, TypeClass *tc, NewExp *newexp) {
     LOG_SCOPE;
     unsigned idx = getFieldGEPIndex(tc->sym, tc->sym->vthis);
     LLValue *src = DtoRVal(newexp->thisexp);
-    LLValue *dst = DtoGEPi(mem, 0, idx);
+    LLValue *dst = DtoGEP(mem, 0, idx);
     IF_LOG Logger::cout() << "dst: " << *dst << "\nsrc: " << *src << '\n';
     DtoStore(src, DtoBitCast(dst, getPtrToType(src->getType())));
   }
@@ -161,7 +161,7 @@ void DtoInitClass(TypeClass *tc, LLValue *dst) {
   DtoResolveClass(tc->sym);
 
   // Set vtable field. Doing this seperately might be optimized better.
-  LLValue *tmp = DtoGEPi(dst, 0, 0, "vtbl");
+  LLValue *tmp = DtoGEP(dst, 0u, 0, "vtbl");
   LLValue *val = DtoBitCast(getIrAggr(tc->sym)->getVtblSymbol(),
                             tmp->getType()->getContainedType(0));
   DtoStore(val, tmp);
@@ -169,7 +169,7 @@ void DtoInitClass(TypeClass *tc, LLValue *dst) {
   // For D classes, set the monitor field to null.
   const bool isCPPclass = tc->sym->isCPPclass() ? true : false;
   if (!isCPPclass) {
-    tmp = DtoGEPi(dst, 0, 1, "monitor");
+    tmp = DtoGEP(dst, 0, 1, "monitor");
     val = LLConstant::getNullValue(tmp->getType()->getContainedType(0));
     DtoStore(val, tmp);
   }
@@ -182,12 +182,12 @@ void DtoInitClass(TypeClass *tc, LLValue *dst) {
     return;
   }
 
-  LLValue *dstarr = DtoGEPi(dst, 0, firstDataIdx);
+  LLValue *dstarr = DtoGEP(dst, 0, firstDataIdx);
 
   // init symbols might not have valid types
   LLValue *initsym = getIrAggr(tc->sym)->getInitSymbol();
   initsym = DtoBitCast(initsym, DtoType(tc));
-  LLValue *srcarr = DtoGEPi(initsym, 0, firstDataIdx);
+  LLValue *srcarr = DtoGEP(initsym, 0, firstDataIdx);
 
   DtoMemCpy(dstarr, srcarr, DtoConstSize_t(dataBytes));
 }
@@ -216,7 +216,7 @@ void DtoFinalizeScopeClass(Loc &loc, LLValue *inst, bool hasDtor) {
   llvm::BasicBlock *ifbb = gIR->insertBB("if");
   llvm::BasicBlock *endbb = gIR->insertBBAfter(ifbb, "endif");
 
-  const auto monitor = DtoLoad(DtoGEPi(inst, 0, 1), ".monitor");
+  const auto monitor = DtoLoad(DtoGEP(inst, 0, 1), ".monitor");
   const auto hasMonitor =
       gIR->ir->CreateICmp(llvm::CmpInst::ICMP_NE, monitor,
                           getNullValue(monitor->getType()), ".hasMonitor");
@@ -436,13 +436,13 @@ LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl,
 
   LLValue *funcval = vthis;
   // get the vtbl for objects
-  funcval = DtoGEPi(funcval, 0, 0);
+  funcval = DtoGEP(funcval, 0u, 0);
   // load vtbl ptr
   funcval = DtoLoad(funcval);
   // index vtbl
   std::string vtblname = name;
   vtblname.append("@vtbl");
-  funcval = DtoGEPi(funcval, 0, fdecl->vtblIndex, vtblname.c_str());
+  funcval = DtoGEP(funcval, 0, fdecl->vtblIndex, vtblname.c_str());
   // load opaque pointer
   funcval = DtoAlignedLoad(funcval);
 

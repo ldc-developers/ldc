@@ -3,10 +3,10 @@
 
 // UNSUPPORTED: Windows
 
-// RUN: ldc2 %s -betterC -shared -fvisibility=default -of=lib%t_default%so
+// RUN: %ldc %s -betterC -shared -fvisibility=default -of=lib%t_default%so
 // RUN: nm -g lib%t_default%so | FileCheck -check-prefix=DEFAULT %s
 
-// RUN: ldc2 %s -betterC -shared -fvisibility=hidden -of=lib%t_hidden%so
+// RUN: %ldc %s -betterC -shared -fvisibility=hidden -of=lib%t_hidden%so
 // RUN: nm -g lib%t_hidden%so | FileCheck -check-prefix=HIDDEN %s
 
 extern(C) export int test__exportedFun() { return 42; }

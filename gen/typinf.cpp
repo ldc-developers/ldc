@@ -44,7 +44,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/mangling.h"
-#include "gen/metadata.h"
+#include "gen/passes/metadata.h"
 #include "gen/pragma.h"
 #include "gen/rttibuilder.h"
 #include "gen/runtime.h"
@@ -666,6 +666,8 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
   decl->accept(&v);
 
   setLinkage({TYPEINFO_LINKAGE_TYPE, supportsCOMDAT()}, gvar);
+  if (auto forStructType = forType->isTypeStruct())
+    setVisibility(forStructType->sym, gvar);
 }
 
 /* ========================================================================= */

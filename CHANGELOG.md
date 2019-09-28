@@ -1,3 +1,28 @@
+# LDC 1.17.0 (2019-08-25)
+
+#### Big news
+- Frontend, druntime and Phobos are at version [2.087.1+](https://dlang.org/changelog/2.087.1.html). (#3093, #3124)
+  - The upstream fix wrt. [local templates can now receive local symbols](https://issues.dlang.org/show_bug.cgi?id=5710) hasn't been ported yet. (#3125)
+- LLVM for prebuilt packages upgraded to v8.0.1. (#3113)
+- Breaking change: Init symbols, TypeInfos and vtables of non-`export`ed aggregates are now hidden with `-fvisibility=hidden`. (#3129)
+- LLVM 8+: New intrinsics `llvm_*_sat` (saturation arithmetic) and `llvm_{min,max}imum`. Thanks Stefanos! (https://github.com/ldc-developers/druntime/pull/161, https://github.com/ldc-developers/druntime/pull/162)
+
+#### Platform support
+- Supports LLVM 3.9 - 8.0.
+
+#### Bug fixes
+- Fix for v1.16.0 regression when returning `void` expressions. (#3094, #3095)
+- `-lowmem` (and on Windows, `--DRT-*` options) in response files (e.g., used by dub) aren't ignored anymore. (#3086)
+- Windows: LDC and LDMD now internally use UTF-8 strings only, incl. command-line options and environment variables. The LDC install dir, source file names etc. can now contain non-ASCII chars. For proper console output, especially to stderr, you'll need Windows 10 v1809+ and may need to set a Unicode console font (e.g., Consolas). (#611, #3086)
+- Android: Linker errors when building LDC/LDMD should be fixed. (#3128)
+- Support for recent `gdmd` as D host compiler. Thanks Moritz! (#3087)
+- Do not require gold plugin when linking with LLD. (#3105)
+- Enable linker stripping on FreeBSD (with non-`bfd` linkers). (#3106)
+- Some JIT bind fixes. (#3099, #3100)
+
+#### Known issues
+- If you encounter segfaults in GC worker threads with shared druntime on Linux that are fixed by disabling new parallel GC marking (e.g., via `--DRT-gcopt=parallel:0` in executable cmdline), please let us know about it: #3127
+
 # LDC 1.16.0 (2019-06-20)
 
 #### Big news

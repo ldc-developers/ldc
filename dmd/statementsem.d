@@ -387,7 +387,7 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
             }
         }
 
-        if (cs.statements.length == 1 && (!IN_LLVM || !cs.isCompoundAsmBlockStatement()))
+        if (cs.statements.length == 1 && (!IN_LLVM || !cs.isCompoundAsmStatement()))
         {
             result = (*cs.statements)[0];
             return;
@@ -1180,7 +1180,7 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
             }
         }
 
-        Statement s = fs;
+        Statement s;
         switch (tab.ty)
         {
         case Tarray:
@@ -1682,15 +1682,14 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
                     goto case Terror;
 
                 // Resolve any forward referenced goto's
-                foreach (i; 0 .. fs.gotos.dim)
+                foreach (ScopeStatement ss; *fs.gotos)
                 {
-                    GotoStatement gs = cast(GotoStatement)(*fs.gotos)[i].statement;
+                    GotoStatement gs = ss.statement.isGotoStatement();
                     if (!gs.label.statement)
                     {
                         // 'Promote' it to this scope, and replace with a return
                         fs.cases.push(gs);
-                        s = new ReturnStatement(Loc.initial, new IntegerExp(fs.cases.dim + 1));
-                        (*fs.gotos)[i].statement = s;
+                        ss.statement = new ReturnStatement(Loc.initial, new IntegerExp(fs.cases.dim + 1));
                     }
                 }
 
@@ -2545,6 +2544,7 @@ else
          */
 
         //printf("SwitchStatement::semantic(%p)\n", ss);
+        ss.tryBody = sc.tryBody;
         ss.tf = sc.tf;
         if (ss.cases)
         {
@@ -2802,7 +2802,7 @@ version (IN_LLVM)
 
                     auto se1 = ox.exp.isStringExp();
                     auto se2 = oy.exp.isStringExp();
-                    return (se1 && se2) ? se1.comparex(se2) : 0;
+                    return (se1 && se2) ? se1.compare(se2) : 0;
                 }
 
                 // Sort cases for efficient lookup
@@ -2959,6 +2959,11 @@ version (IN_LLVM)
                 cs.error("`switch` and `case` are in different `finally` blocks");
                 errors = true;
             }
+            if (sc.sw.tryBody != sc.tryBody)
+            {
+                cs.error("case cannot be in different `try` block level from `switch`");
+                errors = true;
+            }
         }
         else
         {
@@ -3079,6 +3084,11 @@ version (IN_LLVM)
             if (sc.sw.tf != sc.tf)
             {
                 ds.error("`switch` and `default` are in different `finally` blocks");
+                errors = true;
+            }
+            if (sc.sw.tryBody != sc.tryBody)
+            {
+                ds.error("default cannot be in different `try` block level from `switch`");
                 errors = true;
             }
             if (sc.sw.isFinal)
@@ -3242,6 +3252,7 @@ version (IN_LLVM)
                 rs.exp = inferType(rs.exp, fld.treq.nextOf().nextOf());
 
             rs.exp = rs.exp.expressionSemantic(sc);
+            rs.exp.checkSharedAccess(sc);
 
             // for static alias this: https://issues.dlang.org/show_bug.cgi?id=17684
             if (rs.exp.op == TOK.type)
@@ -3316,7 +3327,13 @@ version (IN_LLVM)
                     }
                     else if (rs.exp.op != TOK.error)
                     {
-                        rs.error("mismatched function return type inference of `%s` and `%s`", rs.exp.type.toChars(), tret.toChars());
+                        rs.error("Expected return type of `%s`, not `%s`:",
+                                 tret.toChars(),
+                                 rs.exp.type.toChars());
+                        errorSupplemental((fd.returns) ? (*fd.returns)[0].loc : fd.loc,
+                                          "Return type of `%s` inferred here.",
+                                          tret.toChars());
+
                         errors = true;
                         tf.next = Type.terror;
                     }
@@ -3944,8 +3961,13 @@ version (IN_LLVM)
         enum FLAGcpp = 1;
         enum FLAGd = 2;
 
+        tcs.tryBody = sc.tryBody;
+
+        scope sc2 = sc.push();
+        sc2.tryBody = tcs;
         tcs._body = tcs._body.semanticScope(sc, null, null);
         assert(tcs._body);
+        sc2.pop();
 
         /* Even if body is empty, still do semantic analysis on catches
          */
@@ -4026,7 +4048,12 @@ version (IN_LLVM)
     override void visit(TryFinallyStatement tfs)
     {
         //printf("TryFinallyStatement::semantic()\n");
+        tfs.tryBody = sc.tryBody;
+
+        auto sc2 = sc.push();
+        sc.tryBody = tfs;
         tfs._body = tfs._body.statementSemantic(sc);
+        sc2.pop();
 
         sc = sc.push();
         sc.tf = tfs;
@@ -4173,6 +4200,7 @@ version (IN_LLVM)
 
         gs.ident = fixupLabelName(sc, gs.ident);
         gs.label = fd.searchLabel(gs.ident);
+        gs.tryBody = sc.tryBody;
         gs.tf = sc.tf;
         gs.os = sc.os;
         gs.lastVar = sc.lastVar;
@@ -4185,6 +4213,7 @@ version (IN_LLVM)
              * so we can patch it later, and add it to a 'look at this later'
              * list.
              */
+            gs.label.deleted = true;
             auto ss = new ScopeStatement(gs.loc, gs, gs.loc);
             sc.fes.gotos.push(ss); // 'look at this later' list
             result = ss;
@@ -4210,6 +4239,7 @@ version (IN_LLVM)
         FuncDeclaration fd = sc.parent.isFuncDeclaration();
 
         ls.ident = fixupLabelName(sc, ls.ident);
+        ls.tryBody = sc.tryBody;
         ls.tf = sc.tf;
         ls.os = sc.os;
         ls.lastVar = sc.lastVar;
@@ -4358,7 +4388,7 @@ void catchSemantic(Catch c, Scope* sc)
         }
         else if (cd.isCPPclass())
         {
-            if (!target.cppExceptions)
+            if (!target.cpp.exceptions)
             {
                 error(c.loc, "catching C++ class objects not supported for this target");
                 c.errors = true;

@@ -14,7 +14,7 @@ bool static_dynamic(bool[4] a, bool[] b)
     // LLVM: call i32 @memcmp(
 
     // Also test that LLVM recognizes and optimizes-out the call to memcmp for 4 byte arrays:
-    // ASM-NOT: memcmp
+    // ASM-NOT: {{(mem|b)cmp}}
     return a == b;
 }
 
@@ -24,12 +24,12 @@ bool inv_dynamic_dynamic(bool[] a, bool[] b)
 {
     // The front-end turns this into a call to druntime template function `object.__equals!(bool, bool).__equals(bool[], bool[])`
     // After optimization (inlining), it should boil down to a length check and a call to memcmp.
-    // ASM: memcmp
+    // ASM: {{(mem|b)cmp}}
     return a != b;
 }
 
-// LLVM-LABEL: define{{.*}} @{{.*}}_D6object{{.*}}equals{{.*}}
-// ASM-LABEL: _D6object{{.*}}equals{{.*}}:
+// LLVM-LABEL: define{{.*}} @{{.*}}_D4core8internal5array8equality__T8__equals
+// ASM-LABEL: _D4core8internal5array8equality__T8__equals{{.*}}:
 
 // LLVM-LABEL: define{{.*}} @_Dmain
 // ASM-LABEL: _Dmain:

@@ -288,9 +288,9 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
 // CHECK-GC-NEXT: m_init : slice<byte>
 // CDB: ?? *np
 /*
- * On Win32, `np` is somehow not available.
+ * On Win32 (and Win64 since LLVM 9), `np` is somehow not available.
+ * C HECK: void * {{0x[0`]*}}
  */
-// x64: void * {{0x[0`]*}}
 
     // needs access to references to actually generate debug info
     float cim = c.im + fa[7] + dg() + fun() + slice.length + aa.length + f4[0] + d4[1] +

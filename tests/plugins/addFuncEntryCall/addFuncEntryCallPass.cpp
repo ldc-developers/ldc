@@ -20,7 +20,7 @@ namespace {
 
 class FuncEntryCallPass : public FunctionPass {
 
-  Constant *funcToCallUponEntry = nullptr;
+  Value *funcToCallUponEntry = nullptr;
 
 public:
   static char ID;
@@ -37,7 +37,11 @@ bool FuncEntryCallPass::doInitialization(Module &M) {
   // Add fwd declaration of the `void __test_funcentrycall(void)` function.
   auto functionType = FunctionType::get(Type::getVoidTy(M.getContext()), false);
   funcToCallUponEntry =
-      M.getOrInsertFunction("__test_funcentrycall", functionType);
+      M.getOrInsertFunction("__test_funcentrycall", functionType)
+#if LLVM_VERSION >= 900
+          .getCallee()
+#endif
+      ;
   return true;
 }
 

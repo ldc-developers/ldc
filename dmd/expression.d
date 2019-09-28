@@ -292,7 +292,7 @@ extern (C++) TupleDeclaration isAliasThisTuple(Expression e)
         {
             if (auto ad = s.isAggregateDeclaration())
             {
-                s = ad.aliasthis;
+                s = ad.aliasthis ? ad.aliasthis.sym : null;
                 if (s && s.isVarDeclaration())
                 {
                     TupleDeclaration td = s.isVarDeclaration().toAlias().isTupleDeclaration();
@@ -1092,77 +1092,13 @@ extern (C++) /* IN_LLVM abstract */ class Expression : ASTNode
         if (sc.flags & (SCOPE.ctfe | SCOPE.debug_))
             return false;
 
-        /* Given:
-         * void f() {
-         *   pure void g() {
-         *     /+pure+/ void h() {
-         *       /+pure+/ void i() { }
-         *     }
-         *   }
-         * }
-         * g() can call h() but not f()
-         * i() can call h() and g() but not f()
-         */
-
-        // Find the closest pure parent of the calling function
-        FuncDeclaration outerfunc = sc.func;
-        FuncDeclaration calledparent = f;
-
-        if (outerfunc.isInstantiated())
+        // If the call has a pure parent, then the called func must be pure.
+        if (!f.isPure() && checkImpure(sc))
         {
-            // The attributes of outerfunc should be inferred from the call of f.
-        }
-        else if (f.isInstantiated())
-        {
-            // The attributes of f are inferred from its body.
-        }
-        else if (f.isFuncLiteralDeclaration())
-        {
-            // The attributes of f are always inferred in its declared place.
-        }
-        else
-        {
-            /* Today, static local functions are impure by default, but they cannot
-             * violate purity of enclosing functions.
-             *
-             *  auto foo() pure {      // non instantiated function
-             *    static auto bar() {  // static, without pure attribute
-             *      impureFunc();      // impure call
-             *      // Although impureFunc is called inside bar, f(= impureFunc)
-             *      // is not callable inside pure outerfunc(= foo <- bar).
-             *    }
-             *
-             *    bar();
-             *    // Although bar is called inside foo, f(= bar) is callable
-             *    // bacause calledparent(= foo) is same with outerfunc(= foo).
-             *  }
-             */
-
-            while (outerfunc.toParent2() && outerfunc.isPureBypassingInference() == PURE.impure && outerfunc.toParent2().isFuncDeclaration())
-            {
-                outerfunc = outerfunc.toParent2().isFuncDeclaration();
-                if (outerfunc.type.ty == Terror)
-                    return true;
-            }
-            while (calledparent.toParent2() && calledparent.isPureBypassingInference() == PURE.impure && calledparent.toParent2().isFuncDeclaration())
-            {
-                calledparent = calledparent.toParent2().isFuncDeclaration();
-                if (calledparent.type.ty == Terror)
-                    return true;
-            }
-        }
-
-        // If the caller has a pure parent, then either the called func must be pure,
-        // OR, they must have the same pure parent.
-        if (!f.isPure() && calledparent != outerfunc)
-        {
-            FuncDeclaration ff = outerfunc;
-            if (sc.flags & SCOPE.compile ? ff.isPureBypassingInference() >= PURE.weak : ff.setImpure())
-            {
-                error("`pure` %s `%s` cannot call impure %s `%s`",
-                    ff.kind(), ff.toPrettyChars(), f.kind(), f.toPrettyChars());
-                return true;
-            }
+            error("`pure` %s `%s` cannot call impure %s `%s`",
+                sc.func.kind(), sc.func.toPrettyChars(), f.kind(),
+                f.toPrettyChars());
+            return true;
         }
         return false;
     }
@@ -1208,41 +1144,11 @@ extern (C++) /* IN_LLVM abstract */ class Expression : ASTNode
             if (v.ident == Id.gate)
                 return false;
 
-            /* Accessing global mutable state.
-             * Therefore, this function and all its immediately enclosing
-             * functions must be pure.
-             */
-            /* Today, static local functions are impure by default, but they cannot
-             * violate purity of enclosing functions.
-             *
-             *  auto foo() pure {      // non instantiated function
-             *    static auto bar() {  // static, without pure attribute
-             *      globalData++;      // impure access
-             *      // Although globalData is accessed inside bar,
-             *      // it is not accessible inside pure foo.
-             *    }
-             *  }
-             */
-            for (Dsymbol s = sc.func; s; s = s.toParent2())
+            if (checkImpure(sc))
             {
-                FuncDeclaration ff = s.isFuncDeclaration();
-                if (!ff)
-                    break;
-                if (sc.flags & SCOPE.compile ? ff.isPureBypassingInference() >= PURE.weak : ff.setImpure())
-                {
-                    error("`pure` %s `%s` cannot access mutable static data `%s`",
-                        ff.kind(), ff.toPrettyChars(), v.toChars());
-                    err = true;
-                    break;
-                }
-
-                /* If the enclosing is an instantiated function or a lambda, its
-                 * attribute inference result is preferred.
-                 */
-                if (ff.isInstantiated())
-                    break;
-                if (ff.isFuncLiteralDeclaration())
-                    break;
+                error("`pure` %s `%s` cannot access mutable static data `%s`",
+                    sc.func.kind(), sc.func.toPrettyChars(), v.toChars());
+                err = true;
             }
         }
         else
@@ -1311,6 +1217,17 @@ extern (C++) /* IN_LLVM abstract */ class Expression : ASTNode
         return err;
     }
 
+    /*
+    Check if sc.func is impure or can be made impure.
+    Returns true on error, i.e. if sc.func is pure and cannot be made impure.
+    */
+    private static bool checkImpure(Scope* sc)
+    {
+        return sc.func && (sc.flags & SCOPE.compile
+                ? sc.func.isPureBypassingInference() >= PURE.weak
+                : sc.func.setImpure());
+    }
+
     /*********************************************
      * Calling function f.
      * Check the safety, i.e. if we're in a @safe function
@@ -1369,8 +1286,12 @@ extern (C++) /* IN_LLVM abstract */ class Expression : ASTNode
             {
                 if (loc.linnum == 0) // e.g. implicitly generated dtor
                     loc = sc.func.loc;
-                error("`@nogc` %s `%s` cannot call non-@nogc %s `%s`",
-                    sc.func.kind(), sc.func.toPrettyChars(), f.kind(), f.toPrettyChars());
+
+                // Lowered non-@nogc'd hooks will print their own error message inside of nogc.d (NOGCVisitor.visit(CallExp e)),
+                // so don't print anything to avoid double error messages.
+                if (!(f.ident == Id._d_HookTraceImpl || f.ident == Id._d_arraysetlengthT))
+                    error("`@nogc` %s `%s` cannot call non-@nogc %s `%s`",
+                        sc.func.kind(), sc.func.toPrettyChars(), f.kind(), f.toPrettyChars());
                 return true;
             }
         }
@@ -1435,7 +1356,7 @@ extern (C++) /* IN_LLVM abstract */ class Expression : ASTNode
     extern (D) final bool checkReadModifyWrite(TOK rmwOp, Expression ex = null)
     {
         //printf("Expression::checkReadModifyWrite() %s %s", toChars(), ex ? ex.toChars() : "");
-        if (!type || !type.isShared())
+        if (!type || !type.isShared() || type.isTypeStruct() || type.isTypeClass())
             return false;
 
         // atomicOp uses opAssign (+=/-=) rather than opOp (++/--) for the CT string literal.
@@ -1755,18 +1676,8 @@ extern (C++) final class IntegerExp : Expression
         return new IntegerExp(loc, value, type);
     }
 
-    static IntegerExp createi(Loc loc, int value, Type type)
-    {
-        return new IntegerExp(loc, value, type);
-    }
-
     // Same as create, but doesn't allocate memory.
     static void emplace(UnionExp* pue, Loc loc, dinteger_t value, Type type)
-    {
-        emplaceExp!(IntegerExp)(pue, loc, value, type);
-    }
-
-    static void emplacei(UnionExp* pue, Loc loc, int value, Type type)
     {
         emplaceExp!(IntegerExp)(pue, loc, value, type);
     }
@@ -1843,7 +1754,7 @@ extern (C++) final class IntegerExp : Expression
         this.value = normalize(type.toBasetype().ty, value);
     }
 
-    static dinteger_t normalize(TY ty, dinteger_t value)
+    extern (D) static dinteger_t normalize(TY ty, dinteger_t value)
     {
         /* 'Normalize' the value of the integer to be in range of the type
          */
@@ -1890,15 +1801,13 @@ extern (C++) final class IntegerExp : Expression
             break;
 
         case Tpointer:
+            if (target.ptrsize == 8)
+                goto case Tuns64;
             if (target.ptrsize == 4)
-                result = cast(d_uns32)value;
-            else if (target.ptrsize == 8)
-                result = cast(d_uns64)value;
-            else if (IN_LLVM && target.ptrsize == 2)
-                result = cast(d_uns16)value;
-            else
-                assert(0);
-            break;
+                goto case Tuns32;
+            if (target.ptrsize == 2)
+                goto case Tuns16;
+            assert(0);
 
         default:
             break;
@@ -2412,7 +2321,7 @@ extern (C++) final class StringExp : Expression
         {
             if (auto se = e.isStringExp())
             {
-                return comparex(se) == 0;
+                return compare(se) == 0;
             }
         }
         return false;
@@ -2592,7 +2501,7 @@ extern (C++) final class StringExp : Expression
         return this;
     }
 
-    int comparex(const StringExp se2) const nothrow pure @nogc
+    int compare(const StringExp se2) const nothrow pure @nogc
     {
         //printf("StringExp::compare()\n");
         // Used to sort case statement expressions so we can do an efficient lookup
@@ -2907,6 +2816,11 @@ extern (C++) final class ArrayLiteralExp : Expression
 
     Expression getElement(size_t i)
     {
+        return this[i];
+    }
+
+    Expression opIndex(size_t i)
+    {
         auto el = (*elements)[i];
         return el ? el : basis;
     }
@@ -2934,7 +2848,7 @@ extern (C++) final class ArrayLiteralExp : Expression
             {
                 foreach (i; 0 .. elements.dim)
                 {
-                    auto ch = getElement(i);
+                    auto ch = this[i];
                     if (ch.op != TOK.int64)
                         return null;
                     if (sz == 1)
@@ -4390,6 +4304,13 @@ extern (C++) abstract class BinExp : Expression
         return (r1 || r2);
     }
 
+    extern (D) final bool checkSharedAccessBin(Scope* sc)
+    {
+        const r1 = e1.checkSharedAccess(sc);
+        const r2 = e2.checkSharedAccess(sc);
+        return (r1 || r2);
+    }
+
     /*********************
      * Mark the operands as will never be dereferenced,
      * which is useful info for @safe checks.
@@ -5701,7 +5622,7 @@ extern (C++) final class IndexExp : BinExp
         return Expression.modifiableLvalue(sc, e);
     }
 
-    Expression markSettingAAElem()
+    extern (D) Expression markSettingAAElem()
     {
         if (e1.type.toBasetype().ty == Taarray)
         {

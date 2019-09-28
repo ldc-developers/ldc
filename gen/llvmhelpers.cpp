@@ -1650,10 +1650,16 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
     IF_LOG Logger::print("Sym: type=%s\n", sdecltype->toChars());
     assert(sdecltype->ty == Tstruct);
     TypeStruct *ts = static_cast<TypeStruct *>(sdecltype);
-    assert(ts->sym);
-    DtoResolveStruct(ts->sym);
+    StructDeclaration *sd = ts->sym;
+    assert(sd);
+    DtoResolveStruct(sd);
 
-    LLValue *initsym = getIrAggr(ts->sym)->getInitSymbol();
+    if (sd->zeroInit) {
+      error(loc, "no init symbol for zero-initialized struct");
+      fatal();
+    }
+
+    LLValue *initsym = getIrAggr(sd)->getInitSymbol();
     initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
     return new DLValue(type, initsym);
   }
@@ -1790,12 +1796,12 @@ llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
 }
 
 void defineGlobal(llvm::GlobalVariable *global, llvm::Constant *init,
-                  Dsymbol *symbolForLinkage) {
+                  Dsymbol *symbolForLinkageAndVisibility) {
   assert(global->isDeclaration() && "Global variable already defined");
   assert(init);
   global->setInitializer(init);
-  if (symbolForLinkage)
-    setLinkage(symbolForLinkage, global);
+  if (symbolForLinkageAndVisibility)
+    setLinkageAndVisibility(symbolForLinkageAndVisibility, global);
 }
 
 llvm::GlobalVariable *defineGlobal(const Loc &loc, llvm::Module &module,
@@ -1874,12 +1880,12 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   static_cast<IrTypeAggr *>(ad->type->ctype)
       ->getMemberLocation(vd, fieldIndex, byteOffset);
 
-  LLValue *val = DtoGEPi(src, 0, fieldIndex);
+  LLValue *val = DtoGEP(src, 0, fieldIndex);
 
   if (byteOffset) {
     // Cast to void* to apply byte-wise offset.
     val = DtoBitCast(val, getVoidPtrType());
-    val = DtoGEPi1(val, byteOffset);
+    val = DtoGEP1(val, byteOffset);
   }
 
   // Cast the (possibly void*) pointer to the canonical variable type.

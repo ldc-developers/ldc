@@ -39,10 +39,23 @@ llvm::SmallVector<std::string, 4> getHostAttrs() {
   return features;
 }
 
+struct StaticInitHelper {
+  StaticInitHelper() {
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetDisassembler();
+    llvm::InitializeNativeTargetAsmPrinter();
+  }
+};
+
+StaticInitHelper &staticInit() {
+  // Initialization may not be thread safe
+  // Wrap it into static dummy object initialization
+  static StaticInitHelper obj;
+  return obj;
+}
+
 std::unique_ptr<llvm::TargetMachine> createTargetMachine() {
-  llvm::InitializeNativeTarget();
-  llvm::InitializeNativeTargetDisassembler();
-  llvm::InitializeNativeTargetAsmPrinter();
+  staticInit();
 
   std::string triple(llvm::sys::getProcessTriple());
   std::string error;
@@ -77,17 +90,17 @@ auto getSymbolInProcess(const std::string &name)
 
 } // anon namespace
 
-JITContext::ListenerCleaner::ListenerCleaner(JITContext &o,
-                                             llvm::raw_ostream *stream)
+DynamicCompilerContext::ListenerCleaner::ListenerCleaner(
+    DynamicCompilerContext &o, llvm::raw_ostream *stream)
     : owner(o) {
   owner.listenerlayer.getTransform().stream = stream;
 }
 
-JITContext::ListenerCleaner::~ListenerCleaner() {
+DynamicCompilerContext::ListenerCleaner::~ListenerCleaner() {
   owner.listenerlayer.getTransform().stream = nullptr;
 }
 
-JITContext::JITContext()
+DynamicCompilerContext::DynamicCompilerContext(bool isMainContext)
     : targetmachine(createTargetMachine()),
       dataLayout(targetmachine->createDataLayout()),
 #if LDC_LLVM_VER >= 700
@@ -104,13 +117,15 @@ JITContext::JITContext()
           []() { return std::make_shared<llvm::SectionMemoryManager>(); }),
 #endif
       listenerlayer(objectLayer, ModuleListener(*targetmachine)),
-      compileLayer(listenerlayer, llvm::orc::SimpleCompiler(*targetmachine)) {
+      compileLayer(listenerlayer, llvm::orc::SimpleCompiler(*targetmachine)),
+      mainContext(isMainContext) {
   llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 }
 
-JITContext::~JITContext() {}
+DynamicCompilerContext::~DynamicCompilerContext() {}
 
-llvm::Error JITContext::addModule(std::unique_ptr<llvm::Module> module,
+llvm::Error
+DynamicCompilerContext::addModule(std::unique_ptr<llvm::Module> module,
                                   llvm::raw_ostream *asmListener) {
   assert(nullptr != module);
   reset();
@@ -141,17 +156,17 @@ llvm::Error JITContext::addModule(std::unique_ptr<llvm::Module> module,
   return llvm::Error::success();
 }
 
-llvm::JITSymbol JITContext::findSymbol(const std::string &name) {
+llvm::JITSymbol DynamicCompilerContext::findSymbol(const std::string &name) {
   return compileLayer.findSymbol(name, false);
 }
 
-void JITContext::clearSymMap() { symMap.clear(); }
+void DynamicCompilerContext::clearSymMap() { symMap.clear(); }
 
-void JITContext::addSymbol(std::string &&name, void *value) {
+void DynamicCompilerContext::addSymbol(std::string &&name, void *value) {
   symMap.emplace(std::make_pair(std::move(name), value));
 }
 
-void JITContext::reset() {
+void DynamicCompilerContext::reset() {
   if (compiled) {
     removeModule(moduleHandle);
     moduleHandle = {};
@@ -159,26 +174,28 @@ void JITContext::reset() {
   }
 }
 
-void JITContext::registerBind(void *handle, void *originalFunc,
-                              void *exampleFunc,
-                              const llvm::ArrayRef<ParamSlice> &params) {
+void DynamicCompilerContext::registerBind(
+    void *handle, void *originalFunc, void *exampleFunc,
+    const llvm::ArrayRef<ParamSlice> &params) {
   assert(bindInstances.count(handle) == 0);
   BindDesc::ParamsVec vec(params.begin(), params.end());
   bindInstances.insert({handle, {originalFunc, exampleFunc, std::move(vec)}});
 }
 
-void JITContext::unregisterBind(void *handle) {
+void DynamicCompilerContext::unregisterBind(void *handle) {
   assert(bindInstances.count(handle) == 1);
   bindInstances.erase(handle);
 }
 
-bool JITContext::hasBindFunction(const void *handle) const {
+bool DynamicCompilerContext::hasBindFunction(const void *handle) const {
   assert(handle != nullptr);
   auto it = bindInstances.find(const_cast<void *>(handle));
   return it != bindInstances.end();
 }
 
-void JITContext::removeModule(const ModuleHandleT &handle) {
+bool DynamicCompilerContext::isMainContext() const { return mainContext; }
+
+void DynamicCompilerContext::removeModule(const ModuleHandleT &handle) {
   cantFail(compileLayer.removeModule(handle));
 #if LDC_LLVM_VER >= 700
   execSession.releaseVModule(handle);
@@ -186,7 +203,8 @@ void JITContext::removeModule(const ModuleHandleT &handle) {
 }
 
 #if LDC_LLVM_VER >= 700
-std::shared_ptr<llvm::orc::SymbolResolver> JITContext::createResolver() {
+std::shared_ptr<llvm::orc::SymbolResolver>
+DynamicCompilerContext::createResolver() {
   return llvm::orc::createLegacyLookupResolver(
       execSession,
       [this](const std::string &name) -> llvm::JITSymbol {
@@ -211,7 +229,8 @@ std::shared_ptr<llvm::orc::SymbolResolver> JITContext::createResolver() {
       });
 }
 #else
-std::shared_ptr<llvm::JITSymbolResolver> JITContext::createResolver() {
+std::shared_ptr<llvm::JITSymbolResolver>
+DynamicCompilerContext::createResolver() {
   // Build our symbol resolver:
   // Lambda 1: Look back into the JIT itself to find symbols that are part of
   //           the same "logical dylib".

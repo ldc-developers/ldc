@@ -66,7 +66,7 @@ bool walkPostorder(Expression *e, StoppableVisitor *v);
 
 static LLValue *write_zeroes(LLValue *mem, unsigned start, unsigned end) {
   mem = DtoBitCast(mem, getVoidPtrType());
-  LLValue *gep = DtoGEPi1(mem, start, ".padding");
+  LLValue *gep = DtoGEP1(mem, start, ".padding");
   DtoMemSetZero(gep, DtoConstSize_t(end - start));
   return mem;
 }
@@ -504,7 +504,7 @@ public:
     };
 
     // Try to construct the lhs in-place.
-    if (lhs->isLVal() && (e->op == TOKconstruct)) {
+    if (lhs->isLVal() && (e->op == TOKconstruct || e->op == TOKblit)) {
       Logger::println("attempting in-place construction");
       if (toInPlaceConstruction(lhs->isLVal(), e->e2))
         return;
@@ -573,7 +573,7 @@ public:
     }
   }
 
-//////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
 
 #define BIN_OP(Op, Func)                                                       \
   void visit(Op##Exp *e) override {                                            \
@@ -843,7 +843,7 @@ public:
         uint64_t elemSize = gDataLayout->getTypeAllocSize(elemType);
         if (e->offset % elemSize == 0) {
           // We can turn this into a "nice" GEP.
-          offsetValue = DtoGEPi1(baseValue, e->offset / elemSize);
+          offsetValue = DtoGEP1(baseValue, e->offset / elemSize);
         }
       }
 
@@ -851,7 +851,7 @@ public:
         // Offset isn't a multiple of base type size, just cast to i8* and
         // apply the byte offset.
         offsetValue =
-            DtoGEPi1(DtoBitCast(baseValue, getVoidPtrType()), e->offset);
+            DtoGEP1(DtoBitCast(baseValue, getVoidPtrType()), e->offset);
       }
     }
 
@@ -1080,18 +1080,17 @@ public:
 
     LLValue *arrptr = nullptr;
     if (e1type->ty == Tpointer) {
-      arrptr = DtoGEP1(DtoRVal(l), DtoRVal(r), false);
+      arrptr = DtoGEP1(DtoRVal(l), DtoRVal(r));
     } else if (e1type->ty == Tsarray) {
       if (p->emitArrayBoundsChecks() && !e->indexIsInBounds) {
         DtoIndexBoundsCheck(e->loc, l, r);
       }
-      arrptr =
-          DtoGEP(DtoLVal(l), DtoConstUint(0), DtoRVal(r), e->indexIsInBounds);
+      arrptr = DtoGEP(DtoLVal(l), DtoConstUint(0), DtoRVal(r));
     } else if (e1type->ty == Tarray) {
       if (p->emitArrayBoundsChecks() && !e->indexIsInBounds) {
         DtoIndexBoundsCheck(e->loc, l, r);
       }
-      arrptr = DtoGEP1(DtoArrayPtr(l), DtoRVal(r), e->indexIsInBounds);
+      arrptr = DtoGEP1(DtoArrayPtr(l), DtoRVal(r));
     } else if (e1type->ty == Taarray) {
       result = DtoAAIndex(e->loc, e->type, l, r, e->modifiable);
       return;
@@ -1178,7 +1177,7 @@ public:
       }
 
       // offset by lower
-      eptr = DtoGEP1(getBasePointer(), vlo, !needCheckLower, "lowerbound");
+      eptr = DtoGEP1(getBasePointer(), vlo, "lowerbound");
 
       // adjust length
       elen = p->ir->CreateSub(vup, vlo);
@@ -1420,7 +1419,7 @@ public:
       assert(e->e2->op == TOKint64);
       LLConstant *offset =
           e->op == TOKplusplus ? DtoConstUint(1) : DtoConstInt(-1);
-      post = DtoGEP1(val, offset, false, "", p->scopebb());
+      post = DtoGEP1(val, offset, "", p->scopebb());
     } else if (e1type->iscomplex()) {
       assert(e2type->iscomplex());
       LLValue *one = LLConstantFP::get(DtoComplexBaseType(e1type), 1.0);
@@ -2205,7 +2204,7 @@ public:
           cval =
               ad->isClassDeclaration() ? DtoLoad(irfn.thisArg) : irfn.thisArg;
           cval = DtoLoad(
-              DtoGEPi(cval, 0, getFieldGEPIndex(ad, ad->vthis), ".vthis"));
+              DtoGEP(cval, 0, getFieldGEPIndex(ad, ad->vthis), ".vthis"));
         }
       } else {
         cval = getNullPtr(getVoidPtrType());
@@ -2294,15 +2293,21 @@ public:
     LOG_SCOPE;
 
     if (e->useStaticInit) {
-      DtoResolveStruct(e->sd);
-      LLValue *initsym = getIrAggr(e->sd)->getInitSymbol();
-      initsym = DtoBitCast(initsym, DtoType(e->type->pointerTo()));
+      StructDeclaration *sd = e->sd;
+      DtoResolveStruct(sd);
 
       if (!dstMem)
         dstMem = DtoAlloca(e->type, ".structliteral");
 
-      assert(dstMem->getType() == initsym->getType());
-      DtoMemCpy(dstMem, initsym);
+      if (sd->zeroInit) {
+        DtoMemSetZero(dstMem);
+      } else {
+        LLValue *initsym = getIrAggr(sd)->getInitSymbol();
+        initsym = DtoBitCast(initsym, DtoType(e->type->pointerTo()));
+        assert(dstMem->getType() == initsym->getType());
+        DtoMemCpy(dstMem, initsym);
+      }
+
       return new DLValue(e->type, dstMem);
     }
 
@@ -2471,7 +2476,7 @@ public:
                         .getInstruction();
       if (basetype->ty != Taarray) {
         LLValue *tmp = DtoAlloca(e->type, "aaliteral");
-        DtoStore(aa, DtoGEPi(tmp, 0, 0));
+        DtoStore(aa, DtoGEP(tmp, 0u, 0));
         result = new DLValue(e->type, tmp);
       } else {
         result = new DImValue(e->type, aa);
@@ -2511,7 +2516,7 @@ public:
   DValue *toGEP(UnaExp *exp, unsigned index) {
     // (&a.foo).funcptr is a case where toElem(e1) is genuinely not an l-value.
     LLValue *val = makeLValue(exp->loc, toElem(exp->e1));
-    LLValue *v = DtoGEPi(val, 0, index);
+    LLValue *v = DtoGEP(val, 0, index);
     return new DLValue(exp->type, DtoBitCast(v, DtoPtrToType(exp->type)));
   }
 
@@ -2572,7 +2577,7 @@ public:
     for (size_t i = 0; i < e->exps->dim; i++) {
       Expression *el = (*e->exps)[i];
       DValue *ep = toElem(el);
-      LLValue *gep = DtoGEPi(val, 0, i);
+      LLValue *gep = DtoGEP(val, 0, i);
       if (DtoIsInMemoryOnly(el->type)) {
         DtoMemCpy(gep, DtoLVal(ep));
       } else if (el->type->ty != Tvoid) {
@@ -2587,38 +2592,68 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
-  void visit(VectorExp *e) override {
-    IF_LOG Logger::print("VectorExp::toElem() %s\n", e->toChars());
-    LOG_SCOPE;
-
+  static DLValue *emitVector(VectorExp *e, LLValue *dstMem) {
     TypeVector *type = static_cast<TypeVector *>(e->to->toBasetype());
     assert(e->type->ty == Tvector);
 
-    LLValue *vector = DtoAlloca(e->to);
+    const unsigned N = e->dim;
+
+    Type *elementType = type->elementType();
+    if (elementType->ty == Tvoid)
+      elementType = Type::tuns8;
 
     // Array literals are assigned element-wise, other expressions are cast and
     // splat across the vector elements. This is what DMD does.
     if (e->e1->op == TOKarrayliteral) {
       Logger::println("array literal expression");
       ArrayLiteralExp *lit = static_cast<ArrayLiteralExp *>(e->e1);
-      assert(lit->elements->dim == e->dim &&
+      assert(lit->elements->dim == N &&
              "Array literal vector initializer "
              "length mismatch, should have been handled in frontend.");
-      for (unsigned int i = 0; i < e->dim; ++i) {
+
+      std::vector<LLValue *> llElements;
+      std::vector<LLConstant *> llElementConstants;
+      llElements.reserve(N);
+      llElementConstants.reserve(N);
+      for (unsigned i = 0; i < N; ++i) {
         DValue *val = toElem(indexArrayLiteral(lit, i));
-        LLValue *llval = DtoRVal(DtoCast(e->loc, val, type->elementType()));
-        DtoStore(llval, DtoGEPi(vector, 0, i));
+        LLValue *llVal = DtoRVal(DtoCast(e->loc, val, elementType));
+        llElements.push_back(llVal);
+        if (auto llConstant = isaConstant(llVal))
+          llElementConstants.push_back(llConstant);
+      }
+
+      if (llElementConstants.size() == N) {
+        auto vectorConstant = llvm::ConstantVector::get(llElementConstants);
+        DtoStore(vectorConstant, dstMem);
+      } else {
+        for (unsigned i = 0; i < N; ++i) {
+          DtoStore(llElements[i], DtoGEP(dstMem, 0, i));
+        }
       }
     } else {
       Logger::println("normal (splat) expression");
       DValue *val = toElem(e->e1);
-      LLValue *llval = DtoRVal(DtoCast(e->loc, val, type->elementType()));
-      for (unsigned int i = 0; i < e->dim; ++i) {
-        DtoStore(llval, DtoGEPi(vector, 0, i));
+      LLValue *llElement = DtoRVal(DtoCast(e->loc, val, elementType));
+      if (auto llConstant = isaConstant(llElement)) {
+        auto vectorConstant = llvm::ConstantVector::getSplat(N, llConstant);
+        DtoStore(vectorConstant, dstMem);
+      } else {
+        for (unsigned int i = 0; i < N; ++i) {
+          DtoStore(llElement, DtoGEP(dstMem, 0, i));
+        }
       }
     }
 
-    result = new DLValue(e->to, vector);
+    return new DLValue(e->to, dstMem);
+  }
+
+  void visit(VectorExp *e) override {
+    IF_LOG Logger::print("VectorExp::toElem() %s\n", e->toChars());
+    LOG_SCOPE;
+
+    LLValue *vector = DtoAlloca(e->to);
+    result = emitVector(e, vector);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -2646,10 +2681,10 @@ public:
       LLValue *val = DtoRVal(ex);
 
       // Get and load vtbl pointer.
-      llvm::Value *vtbl = DtoLoad(DtoGEPi(val, 0, 0));
+      llvm::Value *vtbl = DtoLoad(DtoGEP(val, 0u, 0));
 
       // TypeInfo ptr is first vtbl entry.
-      llvm::Value *typinf = DtoGEPi(vtbl, 0, 0);
+      llvm::Value *typinf = DtoGEP(vtbl, 0u, 0);
 
       Type *resultType;
       if (static_cast<TypeClass *>(t)->sym->isInterfaceDeclaration()) {
@@ -2670,7 +2705,7 @@ public:
     llvm_unreachable("Unknown TypeidExp argument kind");
   }
 
-////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////
 
 #define STUB(x)                                                                \
   void visit(x *e) override {                                                  \
@@ -2710,6 +2745,26 @@ bool basetypesAreEqualWithoutModifiers(Type *l, Type *r) {
 }
 
 bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
+  // Is the rhs the init symbol of a zero-initialized struct?
+  // Then aggressively zero-out the lhs, without any type checks, e.g., allowing
+  // to initialize a `S[1]` lhs with a `S` rhs.
+  if (auto ve = rhs->isVarExp()) {
+    if (auto symdecl = ve->var->isSymbolDeclaration()) {
+      Type *t = symdecl->type->toBasetype();
+      if (auto ts = t->isTypeStruct()) {
+        // this is the static initializer for a struct (init symbol)
+        StructDeclaration *sd = ts->sym;
+        assert(sd);
+        DtoResolveStruct(sd);
+
+        if (sd->zeroInit) {
+          DtoMemSetZero(DtoLVal(lhs));
+          return true;
+        }
+      }
+    }
+  }
+
   if (!basetypesAreEqualWithoutModifiers(lhs->type, rhs->type))
     return false;
 
@@ -2762,6 +2817,12 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
   if (rhs->op == TOKarrayliteral && lhsBasetype->ty == Tsarray) {
     auto al = static_cast<ArrayLiteralExp *>(rhs);
     initializeArrayLiteral(gIR, al, DtoLVal(lhs));
+    return true;
+  }
+
+  // vector literals too
+  if (auto ve = rhs->isVectorExp()) {
+    ToElemVisitor::emitVector(ve, DtoLVal(lhs));
     return true;
   }
 

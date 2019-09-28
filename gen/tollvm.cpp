@@ -16,6 +16,7 @@
 #include "dmd/id.h"
 #include "dmd/init.h"
 #include "dmd/module.h"
+#include "driver/cl_options.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
@@ -243,8 +244,14 @@ void setLinkage(LinkageWithCOMDAT lwc, llvm::GlobalObject *obj) {
     obj->setComdat(gIR->module.getOrInsertComdat(obj->getName()));
 }
 
-void setLinkage(Dsymbol *sym, llvm::GlobalObject *obj) {
+void setLinkageAndVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
   setLinkage(DtoLinkage(sym), obj);
+  setVisibility(sym, obj);
+}
+
+void setVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
+  if (opts::defaultToHiddenVisibility && !sym->isExport())
+    obj->setVisibility(LLGlobalValue::HiddenVisibility);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -272,46 +279,45 @@ LLIntegerType *DtoSize_t() {
 
 namespace {
 llvm::GetElementPtrInst *DtoGEP(LLValue *ptr, llvm::ArrayRef<LLValue *> indices,
-                                bool inBounds, const char *name,
-                                llvm::BasicBlock *bb) {
+                                const char *name, llvm::BasicBlock *bb) {
   LLPointerType *p = isaPointer(ptr);
   assert(p && "GEP expects a pointer type");
-  auto gep = llvm::GetElementPtrInst::Create(
-      p->getElementType(), ptr, indices, name, bb ? bb : gIR->scopebb());
-  gep->setIsInBounds(inBounds);
+  auto gep = llvm::GetElementPtrInst::Create(p->getElementType(), ptr, indices,
+                                             name, bb ? bb : gIR->scopebb());
+  gep->setIsInBounds(true);
   return gep;
 }
 }
 
-LLValue *DtoGEP1(LLValue *ptr, LLValue *i0, bool inBounds, const char *name,
+LLValue *DtoGEP1(LLValue *ptr, LLValue *i0, const char *name,
                  llvm::BasicBlock *bb) {
-  return DtoGEP(ptr, i0, inBounds, name, bb);
+  return DtoGEP(ptr, i0, name, bb);
 }
 
-LLValue *DtoGEP(LLValue *ptr, LLValue *i0, LLValue *i1, bool inBounds,
-                const char *name, llvm::BasicBlock *bb) {
+LLValue *DtoGEP(LLValue *ptr, LLValue *i0, LLValue *i1, const char *name,
+                llvm::BasicBlock *bb) {
   LLValue *indices[] = {i0, i1};
-  return DtoGEP(ptr, indices, inBounds, name, bb);
+  return DtoGEP(ptr, indices, name, bb);
 }
 
-LLValue *DtoGEPi1(LLValue *ptr, unsigned i0, const char *name,
-                  llvm::BasicBlock *bb) {
-  return DtoGEP(ptr, DtoConstUint(i0), /* inBounds = */ true, name, bb);
-}
-
-LLValue *DtoGEPi(LLValue *ptr, unsigned i0, unsigned i1, const char *name,
+LLValue *DtoGEP1(LLValue *ptr, unsigned i0, const char *name,
                  llvm::BasicBlock *bb) {
-  LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
-  return DtoGEP(ptr, indices, /* inBounds = */ true, name, bb);
+  return DtoGEP(ptr, DtoConstUint(i0), name, bb);
 }
 
-LLConstant *DtoGEPi(LLConstant *ptr, unsigned i0, unsigned i1) {
+LLValue *DtoGEP(LLValue *ptr, unsigned i0, unsigned i1, const char *name,
+                llvm::BasicBlock *bb) {
+  LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
+  return DtoGEP(ptr, indices, name, bb);
+}
+
+LLConstant *DtoGEP(LLConstant *ptr, unsigned i0, unsigned i1) {
   LLPointerType *p = isaPointer(ptr);
   (void)p;
   assert(p && "GEP expects a pointer type");
   LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
-  return llvm::ConstantExpr::getGetElementPtr(
-      p->getElementType(), ptr, indices, /* InBounds = */ true);
+  return llvm::ConstantExpr::getGetElementPtr(p->getElementType(), ptr, indices,
+                                              /* InBounds = */ true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

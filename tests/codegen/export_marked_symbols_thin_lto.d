@@ -3,8 +3,8 @@
 
 // REQUIRES: LTO
 
-// RUN: ldc2 %S/inputs/export_marked_symbols_lib.d -c -fvisibility=hidden -flto=thin -of=%t_lib%obj
-// RUN: ldc2 %s -I%S/inputs -flto=thin -of=%t%exe %t_lib%obj
+// RUN: %ldc %S/inputs/export_marked_symbols_lib.d -c -fvisibility=hidden -flto=thin -of=%t_lib%obj
+// RUN: %ldc %s -I%S/inputs -flto=thin -of=%t%exe %t_lib%obj
 
 import export_marked_symbols_lib;
 

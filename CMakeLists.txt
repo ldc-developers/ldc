@@ -97,11 +97,11 @@ include(GetLinuxDistribution)
 #
 
 # Version information
-set(LDC_VERSION "1.17.0") # May be overridden by git hash tag
+set(LDC_VERSION "1.18.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   87)
-set(DMDFE_FIX_LEVEL       1) # Comment out if not used
+set(DMDFE_PATCH_VERSION   88)
+set(DMDFE_FIX_LEVEL       0)
 
 set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}${DMDFE_PATCH_VERSION})
 if(DEFINED DMDFE_FIX_LEVEL)
@@ -440,12 +440,13 @@ include(HandleLTOPGOBuildOptions)
 # Enable Dynamic compilation if supported for this platform and LLVM version.
 #
 set(LDC_DYNAMIC_COMPILE "AUTO" CACHE STRING "Support dynamic compilation (True|False). Enabled by default.")
+option(LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES "Use custom LDC passes in jit" ON)
 if(LDC_DYNAMIC_COMPILE STREQUAL "AUTO")
     set(LDC_DYNAMIC_COMPILE False)  # must be a valid Python boolean constant (case sensitive)
     if (NOT (LDC_LLVM_VER LESS 500))
         set(LDC_DYNAMIC_COMPILE True)
         add_definitions(-DLDC_DYNAMIC_COMPILE)
-        add_definitions(-DLDC_DYNAMIC_COMPILE_API_VERSION=2)
+        add_definitions(-DLDC_DYNAMIC_COMPILE_API_VERSION=3)
     endif()
 endif()
 message(STATUS "Building LDC with dynamic compilation support: ${LDC_DYNAMIC_COMPILE} (LDC_DYNAMIC_COMPILE=${LDC_DYNAMIC_COMPILE})")
@@ -561,6 +562,16 @@ add_custom_target(${LDMD_EXE} ALL DEPENDS ${LDMD_EXE_FULL})
 # Figure out how to link the main LDC executable, for which we need to take the
 # LLVM flags into account.
 set(LDC_LINKERFLAG_LIST ${SANITIZE_LDFLAGS} ${LLVM_LIBRARIES} ${LLVM_LDFLAGS})
+if(MSVC)
+    # Issue 1297 – set LDC's stack to 8 MiB like on Linux and Mac (default: 1 MiB).
+    list(APPEND LDC_LINKERFLAG_LIST "/STACK:8388608")
+    # VS 2017+: Use undocumented /NOOPTTLS MS linker switch to keep on emitting
+    # a .tls section. Required for older host druntime versions, otherwise the
+    # GC TLS ranges are garbage starting with VS 2017 Update 15.3.
+    if(MSVC_VERSION GREATER 1900) # VS 2017+
+        list(APPEND LDC_LINKERFLAG_LIST "/NOOPTTLS")
+    endif()
+endif()
 if(LDC_WITH_LLD)
     # ELF, Mach-O, MinGW and WebAssembly formats supported since LLD 6.0.0, otherwise just Windows COFF
     if(NOT (LDC_LLVM_VER LESS 600))
@@ -614,9 +625,11 @@ if(UNIX AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} MATCHES "Clan
     # we manually invoke the linker instead of using the D compiler to do so.
     set(LDC_LINK_MANUALLY ON)
 
-    include(ExtractDMDSystemLinker)
-    message(STATUS "Host D compiler linker program: ${D_LINKER_COMMAND}")
-    message(STATUS "Host D compiler linker flags: ${D_LINKER_ARGS}")
+    if(NOT DEFINED D_LINKER_ARGS)
+        include(ExtractDMDSystemLinker)
+        message(STATUS "Host D compiler linker program: ${D_LINKER_COMMAND}")
+        message(STATUS "Host D compiler linker flags: ${D_LINKER_ARGS}")
+    endif()
     list(APPEND LDC_LINKERFLAG_LIST ${D_LINKER_ARGS})
 
     if(NOT "${CMAKE_EXE_LINKER_FLAGS}" STREQUAL "")
@@ -630,17 +643,6 @@ else()
         string(REPLACE "-LIBPATH:" "/LIBPATH:" f ${f})
         list(APPEND LDC_TRANSLATED_LINKER_FLAGS "-L${f}")
     endforeach()
-
-    if(MSVC)
-        # Issue 1297 – set LDC's stack to 8 MiB like on Linux and Mac (default: 1 MiB).
-        list(APPEND LDC_TRANSLATED_LINKER_FLAGS "-L/STACK:8388608")
-        # VS 2017+: Use undocumented /NOOPTTLS MS linker switch to keep on emitting
-        # a .tls section. Required for older host druntime versions, otherwise the
-        # GC TLS ranges are garbage starting with VS 2017 Update 15.3.
-        if(MSVC_VERSION GREATER 1900) # VS 2017+
-            list(APPEND LDC_TRANSLATED_LINKER_FLAGS "-L/NOOPTTLS")
-        endif()
-    endif()
 endif()
 
 # CONFIG generator expressions need to be repeated due to https://cmake.org/Bug/view.php?id=14353
