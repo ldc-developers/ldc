@@ -442,10 +442,37 @@ void msvc_eh_terminate() nothrow @naked
             je L_retVC14_16
 
             cmp 0x1B(%rax), %rbx           // dec [rax+30h]; xor eax,eax; add rsp,nn (vcruntime140.dll 14.14.x.y)
-            jne L_term
+            je L_retVC14_14
+            
+            mov $$0x30245C8B483048FF, %rbx // dec [rax+30h]; mov rbx,qword ptr [rsp+30h]
+            cmp -0x2b(%rax), %rbx          // (libcmt.lib, 14.23.x.x)
+            je L_retVC14_23_libcmt
+            cmp 0x11(%rax), %rbx           // (vcruntime140.lib, 14.23.x.x)
+            je L_retVC14_23_msvcrt
+
+            mov $$0xccc348c48348c033, %rbx // xor eax,eax; add rsp,48h; ret; int 3
+            cmp 0x2d(%rax), %rbx           // (libcmtd.lib, 14.23.x.x)
+            je L_retVC14_23_libcmtd
+
+            jmp L_term
+
+        L_retVC14_23_msvcrt:               // vcruntime140.dll 14.23.28105
+            lea 0x1b(%rax), %rax
+            mov 0x38(%rdx), %rbx           // restore RBX from stack
+            jmp L_rbxRestored
+
+        L_retVC14_23_libcmt:               // libcmt.lib 14.23.28105
+            lea -0x21(%rax), %rax
+            mov 0x38(%rdx), %rbx           // restore RBX from stack
+            jmp L_rbxRestored
+
+        L_retVC14_23_libcmtd:              // libcmtd.lib/vcruntime140d.dll 14.23.28105
+            lea 0x2f(%rax), %rax
+            jmp L_rbxRestored              // rbx not saved
+
+        L_retVC14_14:                      // (vcruntime140.dll 14.14.x.y)
             lea 0x20(%rax), %rax
             jmp L_retContinue
-
         L_retVC14_16:                      // vcruntime140 14.16.27012.6
             lea 0x16(%rax), %rax
             jmp L_retContinue
@@ -480,6 +507,7 @@ void msvc_eh_terminate() nothrow @naked
             cmovnz -8(%rdx), %rbx          // restore RBX (pushed inside terminate())
             cmovz (%rsp), %rbx             // RBX not changed in terminate inside UCRT 10.0.14393.0
 
+        L_rbxRestored:
             lea 8(%rdx), %rsp
             push %rax                      // new return after setting return value in __frameUnwindHandler
 
