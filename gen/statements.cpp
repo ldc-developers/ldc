@@ -388,19 +388,22 @@ public:
     if (LLConstant *const_val = llvm::dyn_cast<LLConstant>(cond_val)) {
       Statement *executed = stmt->ifbody;
       Statement *skipped = stmt->elsebody;
-      if (const_val->isZeroValue()) { // swap
-        Statement *temp = executed;
-        executed = skipped;
-        skipped = temp;
+      if (const_val->isZeroValue()) {
+        std::swap(executed, skipped);
       }
       if (!containsLabel(skipped)) {
         IF_LOG Logger::println("Constant true/false condition - elide.");
+        if (executed) {
+          irs->DBuilder.EmitBlockStart(executed->loc);
+        }
         // True condition, the branch is taken so emit counter increment.
         if (!const_val->isZeroValue()) {
           PGO.emitCounterIncrement(stmt);
         }
-        if (executed)
+        if (executed) {
           executed->accept(this);
+          irs->DBuilder.EmitBlockEnd();
+        }
         // end the dwarf lexical block
         irs->DBuilder.EmitBlockEnd();
         return;
