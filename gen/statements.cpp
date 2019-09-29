@@ -76,10 +76,10 @@ struct ContainsLabelVisitor : public StoppableVisitor {
 
   bool foundLabel() { return stop; }
 
-  void visit(Expression *) override {}
   void visit(Declaration *) override {}
   void visit(Initializer *) override {}
   void visit(Dsymbol *) override {}
+  void visit(Expression *) override {}
 };
 
 /// As the RecursiveWalker, but it gets a ContainsLabelVisitor
@@ -99,6 +99,8 @@ public:
     RecursiveWalker::visit(stmt);
     ev->insideSwitch = save;
   }
+
+  void visit(Expression *) override {}
 };
 
 class ToIRVisitor : public Visitor {
