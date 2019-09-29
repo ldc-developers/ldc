@@ -476,33 +476,3 @@ public:
   void visit(Initializer *init) override { call_visitor(init); }
   void visit(Dsymbol *init) override {}
 };
-
-/// As a StoppableVisitor but keeps additional informantion.
-class ExtendedStoppableVisitor : public StoppableVisitor {
-public:
-  // If ExtendedRecursiveWalker finds a SwitchStatement,
-  // `insideSwitch` points to that statement.
-  SwitchStatement *insideSwitch;
-
-  explicit ExtendedStoppableVisitor()
-      : StoppableVisitor(), insideSwitch(nullptr) {}
-};
-
-/// As the RecursiveWalker, but it provides additional info to the
-/// visitor. For example, when inside a switch statement
-/// it sets `insideSwitch` to the switch statement and restores it back
-/// to nullptr when we're getting out.
-class ExtendedRecursiveWalker : public RecursiveWalker {
-public:
-  explicit ExtendedRecursiveWalker(ExtendedStoppableVisitor *visitor,
-                                   bool _continueAfterStop = true)
-      : RecursiveWalker(visitor, _continueAfterStop) {}
-
-  void visit(SwitchStatement *stmt) override {
-    ExtendedStoppableVisitor *ev = static_cast<ExtendedStoppableVisitor *>(v);
-    SwitchStatement *save = ev->insideSwitch;
-    ev->insideSwitch = stmt;
-    RecursiveWalker::visit(stmt);
-    ev->insideSwitch = save;
-  }
-};

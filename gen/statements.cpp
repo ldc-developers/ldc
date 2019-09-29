@@ -51,9 +51,15 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p);
 /// is considered anything that lets us jump inside the body _apart from_
 /// the stmt. That includes case / default statements.
 /// It is a StoppableVisitor that stops when a label is found.
-/// It's to be passed in a ExtendedRecursiveWalker which recursively
+/// It's to be passed in a ContainsLabelWalker which recursively
 /// walks the tree and updates our `inside_switch` flag accordingly.
-struct ContainsLabel : public ExtendedStoppableVisitor {
+struct ContainsLabelVisitor : public StoppableVisitor {
+  // If RecursiveWalker finds a SwitchStatement,
+  // `insideSwitch` points to that statement.
+  SwitchStatement *insideSwitch = nullptr;
+
+  using StoppableVisitor::visit;
+
   void visit(Statement *stmt) override {}
 
   void visit(LabelStatement *stmt) override { stop = true; }
@@ -68,12 +74,31 @@ struct ContainsLabel : public ExtendedStoppableVisitor {
       stop = true;
   }
 
-  bool foundLabel(void) { return stop; }
+  bool foundLabel() { return stop; }
 
-  void visit(Expression *exp) override {}
-  void visit(Declaration *decl) override {}
-  void visit(Initializer *init) override {}
+  void visit(Expression *) override {}
+  void visit(Declaration *) override {}
+  void visit(Initializer *) override {}
   void visit(Dsymbol *) override {}
+};
+
+/// As the RecursiveWalker, but it gets a ContainsLabelVisitor
+/// and updates its `insideSwitch` field accordingly.
+class ContainsLabelWalker : public RecursiveWalker {
+public:
+  using RecursiveWalker::visit;
+
+  explicit ContainsLabelWalker(ContainsLabelVisitor *visitor,
+                               bool _continueAfterStop = true)
+      : RecursiveWalker(visitor, _continueAfterStop) {}
+
+  void visit(SwitchStatement *stmt) override {
+    ContainsLabelVisitor *ev = static_cast<ContainsLabelVisitor *>(v);
+    SwitchStatement *save = ev->insideSwitch;
+    ev->insideSwitch = stmt;
+    RecursiveWalker::visit(stmt);
+    ev->insideSwitch = save;
+  }
 };
 
 class ToIRVisitor : public Visitor {
@@ -320,8 +345,8 @@ public:
   bool containsLabel(Statement *stmt) {
     if (!stmt)
       return false;
-    ContainsLabel labelChecker;
-    ExtendedRecursiveWalker walker(&labelChecker, false);
+    ContainsLabelVisitor labelChecker;
+    ContainsLabelWalker walker(&labelChecker, false);
     stmt->accept(&walker);
     return labelChecker.foundLabel();
   }
@@ -330,6 +355,7 @@ public:
 
   void visit(IfStatement *stmt) override {
     IF_LOG Logger::println("IfStatement::toIR(): %s", stmt->loc.toChars());
+    LOG_SCOPE;
 
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
@@ -369,7 +395,6 @@ public:
       }
       if (!containsLabel(skipped)) {
         IF_LOG Logger::println("Constant true/false condition - elide.");
-        LOG_SCOPE;
         // True condition, the branch is taken so emit counter increment.
         if (!const_val->isZeroValue()) {
           PGO.emitCounterIncrement(stmt);
