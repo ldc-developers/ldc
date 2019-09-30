@@ -675,6 +675,12 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
   Type *totype = to->toBasetype();
 
   if (fromtype->ty == Taarray) {
+    if (totype->ty == Taarray) {
+      // reinterpret-cast keeping lvalue-ness, IR types will match up
+      if (val->isLVal())
+        return new DLValue(to, DtoLVal(val));
+      return new DImValue(to, DtoRVal(val));
+    }
     // DMD allows casting AAs to void*, even if they are internally
     // implemented as structs.
     if (totype->ty == Tpointer) {
@@ -727,12 +733,6 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
     return DtoCastStruct(loc, val, to);
   case Tnull:
     return DtoNullValue(to, loc);
-  case Taarray:
-    if (totype->ty == Taarray) {
-      // Do nothing, the types will match up anyway.
-      return new DImValue(to, DtoRVal(val));
-    }
-  // fall-through
   default:
     error(loc, "invalid cast from `%s` to `%s`", val->type->toChars(),
           to->toChars());
