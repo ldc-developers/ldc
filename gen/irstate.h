@@ -60,7 +60,6 @@ struct IrFunction;
 struct IrModule;
 
 // represents a scope
-
 struct IRScope {
   llvm::BasicBlock *begin;
   IRBuilder<> builder;
