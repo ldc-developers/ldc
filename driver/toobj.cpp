@@ -425,6 +425,11 @@ void writeModule(llvm::Module *m, const char *filename) {
     m->print(aos, &annotator);
   }
 
+  //Write MLIR
+  if(global.params.output_mlir) {
+    cost auto
+  }
+
   const bool writeObj = outputObj && !emitBitcodeAsObjectFile;
   // write native assembly
   if (global.params.output_s || assembleExternally) {

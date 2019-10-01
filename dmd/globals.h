@@ -258,6 +258,7 @@ struct Param
 
     // LDC stuff
     OUTPUTFLAG output_ll;
+    OUTPUTFLAG output_mlir;
     OUTPUTFLAG output_bc;
     OUTPUTFLAG output_s;
     OUTPUTFLAG output_o;
@@ -294,6 +295,7 @@ struct Global
     DArray<const char> obj_ext;
 #if IN_LLVM
     DArray<const char> ll_ext;
+    DArray<const char> mlir_ext; //MLIR code
     DArray<const char> bc_ext;
     DArray<const char> s_ext;
     DArray<const char> ldc_version;
