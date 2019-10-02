@@ -427,7 +427,17 @@ void writeModule(llvm::Module *m, const char *filename) {
 
   //Write MLIR
   if(global.params.output_mlir) {
-    cost auto
+    const auto llpath = replaceExtensionWith(global.mlir_ext);
+    Logger::println("Writting MLIR to %s\n", llpath.c_str());
+    std::error_code errinfo;
+    llvm::raw_fd_ostream aos(llpath.c_str(), errinfo, llvm::sys::fs::F_None);
+    if(aos.has_error()){
+      error(Loc(), "Cannot write MLIR file '%s':%s", llpath.c_str(),
+          errinfo.message().c_str());
+      fatal();
+    }
+    AssemblyAnnotator annotator(m->getDataLayout());
+    m->print(aos, &annotator);
   }
 
   const bool writeObj = outputObj && !emitBitcodeAsObjectFile;

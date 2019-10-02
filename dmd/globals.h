@@ -240,9 +240,7 @@ struct Param
     Strings runargs;    // arguments for executable
 
     // Linker stuff
-    Array<const char *> pwd
-
-    objfiles;
+    Array<const char *> objfiles;
     Array<const char *> linkswitches;
     Array<const char *> libfiles;
     Array<const char *> dllfiles;

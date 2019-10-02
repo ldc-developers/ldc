@@ -93,6 +93,11 @@ include(GetLinuxDistribution)
 
 
 #
+# Get MLIR
+# TODO: Make this generic
+include_directories(~/llvm-project/llvm/projects/mlir)
+include_directories( ~/llvm-project/llvm/build/projects/mlir/)
+#
 # Main configuration.
 #
 
@@ -355,6 +360,7 @@ configure_file(driver/ldc-version.cpp.in driver/ldc-version.cpp)
 file(GLOB_RECURSE FE_SRC_D dmd/*.d)
 file(GLOB_RECURSE FE_HDR   dmd/*.h)
 file(GLOB_RECURSE FE_RES   res/*.*)
+file(GLOB_RECURSE MLIR_HDR ~/llvm-project/llvm/projects/mlir/include/IR/*.h)
 file(GLOB_RECURSE GEN_SRC gen/*.cpp)
 file(GLOB_RECURSE GEN_HDR gen/*.h)
 file(GLOB_RECURSE GEN_SRC_D gen/*.d)
@@ -414,6 +420,7 @@ set(LDC_CXX_SOURCE_FILES
     ${GEN_HDR}
     ${IR_SRC}
     ${IR_HDR}
+    ${MLIR_HDR}
 )
 set(LDC_D_SOURCE_FILES
     ${FE_SRC_D}
@@ -426,6 +433,7 @@ source_group("Source Files\\dmd" FILES ${FE_SRC_D})
 source_group("Header Files\\dmd" FILES ${FE_HDR})
 source_group("Source Files\\gen" FILES ${GEN_SRC} ${GEN_SRC_D})
 source_group("Header Files\\gen" FILES ${GEN_HDR})
+source_group("Header FILES\\mlir" FILES ${MLIR_HDR})
 source_group("Source Files\\ir" FILES ${IR_SRC} ${IR_SRC_D})
 source_group("Header Files\\ir" FILES ${IR_HDR})
 source_group("Source Files" FILES ${DRV_SRC_D})
@@ -455,6 +463,8 @@ message(STATUS "Building LDC with dynamic compilation support: ${LDC_DYNAMIC_COM
 #
 
 include_directories(. dmd)
+INCLUDE_DIRECTORIES(~/llvm-project/llvm/projects/mlir/include/)
+INCLUDE_DIRECTORIES(~/llvm-project/llvm/build/projects/mlir/include/)
 append("-I${PROJECT_SOURCE_DIR}" DDMD_DFLAGS)
 append("-I${PROJECT_BINARY_DIR}" DDMD_DFLAGS)
 
