@@ -11,7 +11,7 @@
 // code (i.e. MLIR) for a given D module.
 //
 //===----------------------------------------------------------------------===//
-
+//
 #pragma once
 
 #include "mlir/Dialect/StandardOps/Ops.h"
@@ -29,7 +29,7 @@
 namespace mlir {
   class MLIRContext; /*Get the context of the program - similar to LLVMContext*/
   class OwningModuleRef; /*returns a newly created MLIR module or nullptr
-  on failure.
+  on failure.*/
 } //namespace mlir
 
 class TypeFunction; /*unsed*/

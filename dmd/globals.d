@@ -300,6 +300,7 @@ version (IN_LLVM)
 
     // LDC stuff
     OUTPUTFLAG output_ll;
+    OUTPUTFLAG output_mlir;
     OUTPUTFLAG output_bc;
     OUTPUTFLAG output_s;
     OUTPUTFLAG output_o;
@@ -339,6 +340,7 @@ struct Global
 version (IN_LLVM)
 {
     const(char)[] ll_ext;
+    const(char)[] mlir_ext;
     const(char)[] bc_ext;
     const(char)[] s_ext;
     const(char)[] ldc_version;
