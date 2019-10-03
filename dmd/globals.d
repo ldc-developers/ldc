@@ -420,6 +420,7 @@ version (IN_LLVM)
 {
         obj_ext = "o";
         ll_ext  = "ll";
+        mlir_ext = "mlir";
         bc_ext  = "bc";
         s_ext   = "s";
 }
