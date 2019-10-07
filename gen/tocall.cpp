@@ -415,7 +415,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
     llvm::StoreInst *ret = p->ir->CreateStore(val, ptr);
     ret->setAtomic(llvm::AtomicOrdering(atomicOrdering));
-    ret->setAlignment(getTypeAllocSize(val->getType()));
+    ret->setAlignment(LLMaybeAlign(getTypeAllocSize(val->getType())));
     return true;
   }
 
@@ -456,7 +456,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     }
 
     llvm::LoadInst *load = p->ir->CreateLoad(ptr);
-    load->setAlignment(getTypeAllocSize(load->getType()));
+    load->setAlignment(LLMaybeAlign(getTypeAllocSize(load->getType())));
     load->setAtomic(llvm::AtomicOrdering(atomicOrdering));
     llvm::Value *val = load;
     if (val->getType() != pointeeType) {
