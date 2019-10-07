@@ -521,17 +521,15 @@ cl::opt<bool> dynamicCompileTlsWorkaround(
     cl::Hidden);
 #endif
 
-static cl::extrahelp footer(
-    "\n"
-    "-d-debug can also be specified without options, in which case it enables "
-    "all\n"
-    "debug checks (i.e. (asserts, boundschecks, contracts and invariants) as "
-    "well\n"
-    "as acting as -d-debug=1\n\n"
-    "Boolean options (such as -link-defaultlib-shared) can take a negative value\n"
-    "like this: -link-defaultlib-shared=false\n\n"
-    "Options marked with (*) also have a -disable-FOO variant with inverted\n"
-    "meaning.\n");
+static cl::extrahelp
+    footer("\n"
+           "-d-debug can also be specified without options, in which case it "
+           "enables all debug checks (i.e. (asserts, boundschecks, contracts "
+           "and invariants) as well as acting as -d-debug=1.\n\n"
+           "Boolean options can take an optional value, e.g., "
+           "-link-defaultlib-shared=<true,false>.\n"
+           "Boolean options marked with (*) also have a -disable-FOO variant "
+           "with inverted meaning.\n");
 
 /// Create commandline options that may clash with LLVM's options (depending on
 /// LLVM version and on LLVM configuration), and that thus cannot be created
