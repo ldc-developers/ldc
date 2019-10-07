@@ -586,6 +586,13 @@ if(LDC_WITH_LLD)
             set(LDC_LINKERFLAG_LIST -llldCOFF -llldCore -llldDriver ${LDC_LINKERFLAG_LIST})
         endif()
     endif()
+    if(NOT (LDC_LLVM_VER LESS 1000))
+        if(MSVC)
+            list(APPEND LDC_LINKERFLAG_LIST LLVMSymbolize.lib)
+        else()
+            set(LDC_LINKERFLAG_LIST -lLLVMSymbolize ${LDC_LINKERFLAG_LIST})
+        endif()
+    endif()
 endif()
 
 # Plugin support
