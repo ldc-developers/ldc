@@ -90,6 +90,10 @@ TargetOptions InitTargetOptionsFromCodeGenFlags() {
   return ::InitTargetOptionsFromCodeGenFlags();
 }
 
+#if LDC_LLVM_VER >= 1000
+Optional<Reloc::Model> getRelocModelFromCMModel() { return ::getRelocModel(); }
+#endif
+
 #if LDC_LLVM_VER >= 900
 Optional<CodeModel::Model> getCodeModelFromCMModel() {
   return ::getCodeModel();
@@ -113,5 +117,5 @@ std::vector<std::string> getMAttrs() { return ::MAttrs; }
 #elif LDC_LLVM_VER >= 800
 std::vector<std::string> GetMAttrs() { return ::MAttrs; }
 #endif
-}
+} // namespace lld
 #endif // LDC_WITH_LLD && LDC_LLVM_VER >= 500
