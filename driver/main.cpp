@@ -65,6 +65,14 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <memory.h>
+
+//#ifdef LDC_MLIR_ENABLED                              -- FIX THESE FLAGS --
+#include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/Module.h"
+
+#include "gen/MLIR/MLIRGen.h"
+//#endif
 
 #if LDC_LLVM_VER >= 600
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
@@ -84,6 +92,7 @@ void gendocfile(Module *m);
 void generateJson(Modules *modules);
 
 using namespace opts;
+using namespace ldc_mlir;
 
 static StringsAdapter impPathsStore("I", global.params.imppath);
 static cl::list<std::string, StringsAdapter>
@@ -1054,7 +1063,16 @@ int cppmain() {
 void codegenModules(Modules &modules) {
   // Generate one or more object/IR/bitcode files/dcompute kernels.
   if (global.params.obj && !modules.empty()) {
-    ldc::CodeGenerator cg(getGlobalContext(), global.params.oneobj);
+    mlir::MLIRContext mlircontext;
+    ldc::CodeGenerator cg(getGlobalContext(), mlircontext,
+                                                         global.params.oneobj);
+
+//    if (!module){
+//      IF_LOG Logger::println("Tentou criar um mlir_modulo e falhou");
+//      return;
+//    }
+//    module->dump();
+
     DComputeCodeGenManager dccg(getGlobalContext());
     std::vector<Module *> computeModules;
     // When inlining is enabled, we are calling semantic3 on function
@@ -1074,6 +1092,7 @@ void codegenModules(Modules &modules) {
       if (global.params.verbose)
         message("code      %s", m->toChars());
 
+      mlir::OwningModuleRef module = ldc_mlir::mlirGen(mlircontext, m);
       const auto atCompute = hasComputeAttr(m);
       if (atCompute == DComputeCompileFor::hostOnly ||
           atCompute == DComputeCompileFor::hostAndDevice) {

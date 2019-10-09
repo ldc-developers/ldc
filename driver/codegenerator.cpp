@@ -18,6 +18,7 @@
 #include "driver/cl_options_instrumentation.h"
 #include "driver/linker.h"
 #include "driver/toobj.h"
+#include "driver/tomlir.h"
 #include "gen/dynamiccompile.h"
 #include "gen/logger.h"
 #include "gen/modules.h"
@@ -178,8 +179,10 @@ void emitLLVMUsedArray(IRState &irs) {
 }
 
 namespace ldc {
-CodeGenerator::CodeGenerator(llvm::LLVMContext &context, bool singleObj)
-    : context_(context), moduleCount_(0), singleObj_(singleObj), ir_(nullptr) {
+CodeGenerator::CodeGenerator(llvm::LLVMContext &context,
+    mlir::MLIRContext &mlirContext, bool singleObj)
+    : context_(context), moduleCount_(0), singleObj_(singleObj), ir_(nullptr),
+    mlirContext_(mlirContext){
   // Set the context to discard value names when not generating textual IR.
   if (!global.params.output_ll) {
     context_.setDiscardValueNames(true);
@@ -219,6 +222,7 @@ void CodeGenerator::prepareLLModule(Module *m) {
   // TODO: Make ldc::DIBuilder per-Module to be able to emit several CUs for
   // single-object compilations?
   ir_->DBuilder.EmitCompileUnit(m);
+  writeMLIRModule(m, mlirContext_, m->objfile.toChars());
 
   IrDsymbol::resetAll();
 }
