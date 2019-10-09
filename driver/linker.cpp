@@ -60,7 +60,8 @@ static cl::alias _linkDebugLib("link-debuglib", cl::Hidden,
 
 static cl::opt<cl::boolOrDefault> linkDefaultLibShared(
     "link-defaultlib-shared", cl::ZeroOrMore,
-    cl::desc("Link with shared versions of default libraries"),
+    cl::desc("Link with shared versions of default libraries. Defaults to true "
+             "when generating a shared library (-shared)."),
     cl::cat(opts::linkingCategory));
 
 static cl::opt<cl::boolOrDefault>
