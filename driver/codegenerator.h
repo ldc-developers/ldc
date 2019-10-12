@@ -20,6 +20,7 @@
 #pragma once
 
 #include "gen/irstate.h"
+#include "mlir/IR/MLIRContext.h"
 
 namespace ldc {
 

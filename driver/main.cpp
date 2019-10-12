@@ -1092,7 +1092,6 @@ void codegenModules(Modules &modules) {
       if (global.params.verbose)
         message("code      %s", m->toChars());
 
-      mlir::OwningModuleRef module = ldc_mlir::mlirGen(mlircontext, m);
       const auto atCompute = hasComputeAttr(m);
       if (atCompute == DComputeCompileFor::hostOnly ||
           atCompute == DComputeCompileFor::hostAndDevice) {

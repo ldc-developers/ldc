@@ -16,12 +16,11 @@ class OwningModuleRef;
 }
 
 namespace ldc_mlir{
-//class Module;
-//class IRState;
 
 /// Emit IR for the given Toy moduleAST, returns a newly created MLIR module
 /// or nullptr on failure.
-mlir::OwningModuleRef mlirGen(mlir::MLIRContext &mlirContext, Module *m);
+mlir::OwningModuleRef mlirGen(mlir::MLIRContext &mlirContext, Module *m,
+    IRState *irs);
 } //Namespace ldc_mlir
 
 
