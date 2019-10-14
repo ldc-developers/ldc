@@ -169,6 +169,7 @@ void runCMake() {
         "-DD_FLAGS=" ~ config.dFlags.join(";"),
         "-DRT_CFLAGS=" ~ config.cFlags.join(" "),
         "-DLD_FLAGS=" ~ config.linkerFlags.join(" "),
+	"-DCMAKE_C_COMPILER=clang",
     ];
     if(config.targetPreset.matchFirst("^Android"))
         args ~= ["-DCMAKE_SYSTEM_NAME=Linux", "-DCMAKE_C_COMPILER_WORKS=True"];
