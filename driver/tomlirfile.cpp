@@ -1,6 +1,11 @@
+//===-- tomlirfile.cpp-----------------------------------------------------===//
 //
-// Created by Roberto Rosmaninho on 09/10/19.
+//                         LDC – the LLVM D compiler
 //
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
 
 #include "tomlirfile.h"
 

@@ -1,6 +1,16 @@
+//===-- MLIR/MLIRGen.h - D module CodeGen to MLIR ---------------*- C++ -*-===//
 //
-// Created by Roberto Rosmaninho on 07/10/19.
+//                         LDC – the LLVM D compiler
 //
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Contains ldc::mlirGen, which is the main entry point for emitting code
+// for one or more D modules to MLIR. This class executes like a visitor.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LDC_MLIRGEN_H
 #define LDC_MLIRGEN_H
@@ -17,7 +27,7 @@ class OwningModuleRef;
 
 namespace ldc_mlir{
 
-/// Emit IR for the given Toy moduleAST, returns a newly created MLIR module
+/// Emit IR for the given D module, returns a newly created MLIR module
 /// or nullptr on failure.
 mlir::OwningModuleRef mlirGen(mlir::MLIRContext &mlirContext, Module *m,
     IRState *irs);
