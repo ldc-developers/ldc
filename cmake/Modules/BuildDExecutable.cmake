@@ -61,7 +61,7 @@ function(build_d_executable target_name output_exe d_src_files compiler_args lin
             RUNTIME_OUTPUT_DIRECTORY ${output_dir}
             LINKER_LANGUAGE          CXX
         )
-        target_link_libraries(${target_name} ${linker_args} ${D_LINKER_ARGS})
+        target_link_libraries(${target_name} ${link_deps} ${linker_args} ${D_LINKER_ARGS})
     else()
         # Use a response file on Windows when compiling separately, in order not to
         # exceed the max command-line length.
@@ -72,10 +72,16 @@ function(build_d_executable target_name output_exe d_src_files compiler_args lin
             set(objects_args "@${output_exe}.rsp")
         endif()
 
+        set(dep_libs "")
+        foreach(l ${link_deps})
+            list(APPEND dep_libs "-L$<TARGET_LINKER_FILE:${l}>")
+        endforeach()
+
         translate_linker_args(linker_args translated_linker_args)
+
         add_custom_command(
             OUTPUT ${output_exe}
-            COMMAND ${D_COMPILER} ${dflags} ${DDMD_LFLAGS} -of${output_exe} ${objects_args} ${translated_linker_args}
+            COMMAND ${D_COMPILER} ${dflags} ${DDMD_LFLAGS} -of${output_exe} ${objects_args} ${dep_libs} ${translated_linker_args}
             WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
             DEPENDS ${object_files} ${link_deps}
         )
