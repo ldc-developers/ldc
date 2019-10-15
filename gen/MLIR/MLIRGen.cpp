@@ -125,31 +125,25 @@ private:
   mlir::FuncOp mlirGen(FuncDeclaration *Fd, bool level){
     // This is a generic function, the return type will be inferred later.
     llvm::SmallVector<mlir::Type, 4> ret_types;
-    // Arguments type is uniformly a generic array.
-    auto type = builder.getIntegerType(16);
+
+    //Supposing that the type is integer
+    auto type = builder.getIntegerType(32);
     unsigned long size = 0;
     if(Fd->parameters)
       size = Fd->parameters->dim;
 
+    // Arguments type is uniformly a generic array.
     llvm::SmallVector<mlir::Type, 4> arg_types(size, type);
-
-    auto arg_list = Fd->parameters->copy();
-
-    mlir::NamedAttribute *names;
-    for(unsigned long i = 0; i < size; i++)
-      names[i] = builder.getNamedAttr(StringRef(arg_list->pop()->toChars()),
-          builder.getI32IntegerAttr(0));
-    mlir::ArrayRef<mlir::NamedAttribute> args(names, size);
 
     auto func_type = builder.getFunctionType(arg_types, ret_types);
     auto function = mlir::FuncOp::create(loc(Fd->loc),
-                                         StringRef(Fd->toPrettyChars()),
-                                         func_type, args);
+                                         StringRef(Fd->mangleString),
+                                         func_type, {});
 
     // Mark the function as generic: it'll require type specialization for every
     // call site.
     if (function.getNumArguments()) {
-      function.setAttr("ldc_mlir.generic", builder.getUnitAttr());
+      function.setAttr("ldc.generic", builder.getUnitAttr());
     }
 
     return function;
@@ -178,9 +172,8 @@ private:
     // Initiaize the object to be the "visitor"
     MLIRStatements *genStmt = new MLIRStatements(irs, irs->dmodule, context,
                                                  builder, symbolTable);
-    MLIRDeclaration *genDecl = new MLIRDeclaration(irs, irs->dmodule,
-                                                   context, builder, symbolTable);
 
+    //Setting arguments of a given function
     unsigned long size = 0;
     if(Fd->parameters)
       size = Fd->parameters->dim;
@@ -190,16 +183,14 @@ private:
     auto &protoArgs = args;
 
     // Declare all the function arguments in the symbol table.
-    for (auto name_value :// TODO: Translate Parmeters to Arguments
-        llvm::zip(protoArgs, entryBlock.getArguments())) {
-     // IF_LOG Logger::println("Name = '%s'", std::get<0>(name_value)->pop()->toChars());
+    for (auto name_value : llvm::zip(protoArgs, entryBlock.getArguments())) {
       if (failed(declare(std::get<0>(name_value)->pop()->toChars(),
                          std::get<1>(name_value))))
         return nullptr;
     }
     // Emit the body of the function.
 
-    mlir::LogicalResult result = genStmt->genStatements();
+    mlir::LogicalResult result = genStmt->genStatements(Fd);
     if (mlir::failed(result)) {
       function.erase();
       return nullptr;

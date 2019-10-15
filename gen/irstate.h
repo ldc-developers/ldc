@@ -120,10 +120,6 @@ private:
   // enough to use it directly.]
   llvm::DenseMap<void *, llvm::Constant *> structLiteralConstants;
 
-  //MLIR Stuff to be traslated
-  std::vector<ReturnStatement*> vec_return;
-  std::vector<ExpStatement*> vec_expStatements;
-
 public:
   IRState(const char *name, llvm::LLVMContext &context);
   ~IRState();
@@ -266,22 +262,6 @@ public:
 
   // Target for dcompute. If not nullptr, it owns this.
   DComputeTarget *dcomputetarget = nullptr;
-
-
-  //Getter and Setter to MLIR Translation.
-  std::vector<ExpStatement*> getExpStatements(){
-    return vec_expStatements;
-  }
-  void setExpStatement(ExpStatement *expStatement){
-    vec_expStatements.push_back(expStatement);
-  }
-
-  std::vector<ReturnStatement*> getReturnStatements() {
-    return vec_return;
-  }
-  void setReturnStatements(ReturnStatement *vecReturn) {
-    vec_return.push_back(vecReturn);
-  }// End of Getter and Setter to MLIR Translation
 };
 
 void Statement_toIR(Statement *s, IRState *irs);

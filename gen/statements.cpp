@@ -80,9 +80,6 @@ public:
     IF_LOG Logger::println("ReturnStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
-    //MLIR CodeGen
-    irs->setReturnStatements(stmt);
-
     auto &PGO = irs->funcGen().pgo;
     PGO.setCurrentStmt(stmt);
 
@@ -272,8 +269,6 @@ public:
       }
       delete elem;
     }
-    //MLIR CodeGen
-    irs->setExpStatement(stmt);
   }
 
   //////////////////////////////////////////////////////////////////////////

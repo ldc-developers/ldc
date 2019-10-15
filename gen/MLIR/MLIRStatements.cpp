@@ -68,7 +68,7 @@ mlir::LogicalResult MLIRStatements::mlirGen(ReturnStatement *returnStatement){
   return mlir::success();
 }
 
-mlir::Value* MLIRStatements::mlirGen(CompoundStatement *compoundStatement){
+void MLIRStatements::mlirGen(CompoundStatement *compoundStatement){
   IF_LOG Logger::println("MLIRCodeGen - CompundStatement: '%s'",
                          compoundStatement->toChars());
   LOG_SCOPE
@@ -77,12 +77,16 @@ mlir::Value* MLIRStatements::mlirGen(CompoundStatement *compoundStatement){
     if(ExpStatement *expStmt = stmt->isExpStatement()) {
       IF_LOG Logger::println("MLIRCodeGen ExpStatement");
       LOG_SCOPE
-      return mlirGen(expStmt);
+      mlirGen(expStmt);
+    }else if (CompoundStatement *compoundStatement = stmt->isCompoundStatement()) {
+      mlirGen(stmt->isCompoundStatement()); // Try again
+    }else if(ReturnStatement *returnStatement = stmt->isReturnStatement()){
+      mlirGen(returnStatement);
     }else{
-      IF_LOG Logger::println("Unable to recoganize: '%s'", stmt->toChars());
+      IF_LOG Logger::println("Unable to recoganize: '%s'",
+          stmt->toChars());
     }
   }
-  return nullptr;
 }
 
 mlir::Value* MLIRStatements::mlirGen(Statement* stm) {
@@ -92,14 +96,12 @@ mlir::Value* MLIRStatements::mlirGen(Statement* stm) {
   return nullptr;
 }
 
-mlir::LogicalResult MLIRStatements::genStatements(){
-  auto vec_stm = irState->getExpStatements();
-  for(auto stm : vec_stm)
-    mlirGen(stm);
-
-  auto vec_ret = irState->getReturnStatements();
-  for(auto ret : vec_ret)
-    mlirGen(ret);
-  return mlir::success();
+mlir::LogicalResult MLIRStatements::genStatements(FuncDeclaration *funcDeclaration){
+  if(CompoundStatement *compoundStatment =
+                                  funcDeclaration->fbody->isCompoundStatement()){
+    mlirGen(compoundStatment);
+    return mlir::success();
+  }
+  return mlir::failure();
 }
 
