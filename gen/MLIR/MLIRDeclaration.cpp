@@ -110,6 +110,32 @@ mlir::Value *MLIRDeclaration::mlirGen(AssignExp *assignExp){
   return nullptr;
 }
 
+/// Emit a call expression. It emits specific operations for the `transpose`
+/// builtin. Other identifiers are assumed to be user-defined functions.
+mlir::Value *MLIRDeclaration::mlirGen(CallExp *callExp){
+  IF_LOG Logger::println("MLIRCodeGen - CallExp: '%s'", callExp->toChars
+  ());
+  LOG_SCOPE
+
+  // Codegen the operands first.
+  llvm::SmallVector<mlir::Value *, 4> operands;
+  for(auto exp : *callExp->arguments){
+    auto *arg = mlirGen(exp);
+    if(!arg)
+      return nullptr;
+    operands.push_back(arg);
+  }
+
+  // Otherwise this is a call to a user-defined function. Calls to
+  // user-defined functions are mapped to a custom call that takes the callee
+  // name as an attribute.
+  mlir::OperationState result(loc(callExp->loc), "ldc.call");
+  result.addTypes(builder.getIntegerType(32));
+  result.operands = std::move(operands);
+  result.addAttribute("callee", builder.getSymbolRefAttr(callExp->f->mangleString));
+  return builder.createOperation(result)->getResult(0);
+}
+
 mlir::Value *MLIRDeclaration::mlirGen(ConstructExp *constructExp){
   IF_LOG Logger::println("MLIRCodeGen - ConstructExp: '%s'", constructExp->toChars());
   LOG_SCOPE
@@ -145,6 +171,42 @@ mlir::Value *MLIRDeclaration::mlirGen(VarExp *varExp){
   return var;
 }
 
+mlir::Value *MLIRDeclaration::mlirGen(ArrayLiteralExp *arrayLiteralExp){
+  IF_LOG Logger::println("MLIRCodeGen - ArrayLiteralExp: '%s'",
+                         arrayLiteralExp->toChars());
+  LOG_SCOPE
+
+ // IF_LOG Logger::println("Basis: '%s'",arrayLiteralExp->basis->toChars());
+  IF_LOG Logger::println("Elements: '%s'", arrayLiteralExp->elements->toChars
+  ());
+
+  std::vector<double> data;
+  for(auto e : *arrayLiteralExp->elements){
+    data.push_back(e->toInteger());
+  }
+
+  //For now lets assume one-dimensional arrays
+  std::vector<int64_t> dims;
+  dims.push_back(1);
+  dims.push_back(data.size());
+
+  // The type of this attribute is tensor of 64-bit floating-point with the
+  // shape of the literal.
+  mlir::Type elementType = builder.getF64Type();
+  auto dataType = builder.getTensorType(dims, elementType);
+
+  // This is the actual attribute that holds the list of values for this
+  // tensor literal.
+  auto dataAttribute =
+      mlir::DenseElementsAttr::get(dataType, llvm::makeArrayRef(data));
+
+  // Build the MLIR op `toy.constant`, only boilerplate below.
+  mlir::OperationState result(loc(arrayLiteralExp->loc), "ldc.constant");
+  result.addTypes(builder.getTensorType(dims, builder.getF64Type()));
+  result.addAttribute("value", dataAttribute);
+  return builder.createOperation(result)->getResult(0);
+}
+
 mlir::Value *MLIRDeclaration::mlirGen(Expression *expression) {
   IF_LOG Logger::println("MLIRCodeGen - Expression: '%s'",
       expression->toChars());
@@ -163,6 +225,10 @@ mlir::Value *MLIRDeclaration::mlirGen(Expression *expression) {
     return mlirGen(constructExp);
   else if(AssignExp *assignExp = expression->isAssignExp())
     return mlirGen(assignExp);
+  else if(CallExp *callExp = expression->isCallExp())
+    return mlirGen(callExp);
+  else if(ArrayLiteralExp *arrayLiteralExp = expression->isArrayLiteralExp())
+    return mlirGen(arrayLiteralExp);
   else
   if(AddExp *add = expression->isAddExp()) {
     e1 = mlirGen(add->e1);
@@ -189,7 +255,7 @@ mlir::Value *MLIRDeclaration::mlirGen(Expression *expression) {
     result.addOperands({e1, e2});
     return builder.createOperation(result)->getResult(0);
   } else {
-    Logger::println("Unable to recoganize the Expression: '%s'",
+    IF_LOG Logger::println("Unable to recoganize the Expression: '%s'",
                     expression->toChars());
     return nullptr;
   }

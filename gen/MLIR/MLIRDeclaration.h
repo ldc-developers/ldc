@@ -65,17 +65,17 @@ public:
       mlir::OpBuilder builder_,llvm::ScopedHashTable<StringRef, mlir::Value *> &symbolTable);
   ~MLIRDeclaration();
 
-  mlir::Value* mlirGen(Declaration* declaration);
   mlir::Value* mlirGen(VarDeclaration* varDeclaration);
 
   //Expression
   mlir::Value* mlirGen(DeclarationExp* declarationExp);
   mlir::Value* mlirGen(Expression *expression);
-  mlir::Value* mlirGen(AssignExp *assignExp);
+  mlir::Value* mlirGen(AssignExp *assignExp); //Not perfet yet
   mlir::Value* mlirGen(ConstructExp *constructExp);
   mlir::Value* mlirGen(IntegerExp *integerExp);
   mlir::Value* mlirGen(VarExp *varExp);
-
+  mlir::Value* mlirGen(CallExp *callExp);
+  mlir::Value* mlirGen(ArrayLiteralExp *arrayLiteralExp);
 
   ///Set MLIR Location using D Loc info
   mlir::Location loc(Loc loc){
