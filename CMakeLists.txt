@@ -644,7 +644,7 @@ else()
         "${LDC_EXE_FULL}"
         "${LDC_D_SOURCE_FILES}"
         ""
-        "$<TARGET_LINKER_FILE:${LDC_LIB}>;${LDC_LINKERFLAG_LIST}"
+        "${LDC_LINKERFLAG_LIST}"
         "${FE_RES}"
         "${LDC_LIB}"
         ${COMPILE_D_MODULES_SEPARATELY}
@@ -687,7 +687,7 @@ build_d_executable(
     "${LDMD_EXE_FULL}"
     "${LDMD_D_SOURCE_FILES}"
     ""
-    "$<TARGET_LINKER_FILE:LDMD_CXX_LIB>;${LDC_LINKERFLAG_LIST}"
+    "${LDC_LINKERFLAG_LIST}"
     ""
     "LDMD_CXX_LIB"
     ${COMPILE_D_MODULES_SEPARATELY}
@@ -846,7 +846,7 @@ build_d_executable(
     "${LDC_UNITTEST_EXE_FULL}"
     "${LDC_D_SOURCE_FILES}"
     "-unittest"
-    "$<TARGET_LINKER_FILE:${LDC_LIB}>;${LDC_LINKERFLAG_LIST}"
+    "${LDC_LINKERFLAG_LIST}"
     ""
     "${LDC_LIB}"
     ON # always build separately (faster with parallelization)
