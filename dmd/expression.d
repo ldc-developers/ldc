@@ -280,7 +280,7 @@ extern (C++) void expandTuples(Expressions* exps)
 /****************************************
  * Expand alias this tuples.
  */
-extern (C++) TupleDeclaration isAliasThisTuple(Expression e)
+TupleDeclaration isAliasThisTuple(Expression e)
 {
     if (!e.type)
         return null;
@@ -310,7 +310,7 @@ extern (C++) TupleDeclaration isAliasThisTuple(Expression e)
     }
 }
 
-extern (C++) int expandAliasThisTuples(Expressions* exps, size_t starti = 0)
+int expandAliasThisTuples(Expressions* exps, size_t starti = 0)
 {
     if (!exps || exps.dim == 0)
         return -1;
@@ -351,7 +351,7 @@ extern (C++) int expandAliasThisTuples(Expressions* exps, size_t starti = 0)
  * Returns:
  *      template for that function, otherwise null
  */
-extern (C++) TemplateDeclaration getFuncTemplateDecl(Dsymbol s)
+TemplateDeclaration getFuncTemplateDecl(Dsymbol s)
 {
     FuncDeclaration f = s.isFuncDeclaration();
     if (f && f.parent)
@@ -486,7 +486,7 @@ extern (D) Expression doCopyOrMove(Scope *sc, Expression e, Type t = null)
  * to serve essentially as a Variant that will sit on the stack
  * during CTFE to reduce memory consumption.
  */
-struct UnionExp
+extern (C++) struct UnionExp
 {
     // yes, default constructor does nothing
     extern (D) this(Expression e)
@@ -552,10 +552,10 @@ private:
  *      x1 = first operand
  *      x2 = second operand
  * Returns:
- *      1 if x1 is x2
- *      else 0
+ *      true if x1 is x2
+ *      else false
  */
-int RealIdentical(real_t x1, real_t x2)
+bool RealIdentical(real_t x1, real_t x2)
 {
     return (CTFloat.isNaN(x1) && CTFloat.isNaN(x2)) || CTFloat.isIdentical(x1, x2);
 }
@@ -713,7 +713,7 @@ extern (C++) /* IN_LLVM abstract */ class Expression : ASTNode
         return DYNCAST.expression;
     }
 
-    override const(char)* toChars()
+    override const(char)* toChars() const
     {
         OutBuffer buf;
         HdrGenState hgs;
@@ -1168,7 +1168,7 @@ extern (C++) /* IN_LLVM abstract */ class Expression : ASTNode
              */
 
             Dsymbol vparent = v.toParent2();
-            for (Dsymbol s = sc.func; !err && s; s = toParentP(s, vparent))
+            for (Dsymbol s = sc.func; !err && s; s = s.toParentP(vparent))
             {
                 if (s == vparent)
                     break;
@@ -1682,7 +1682,7 @@ extern (C++) final class IntegerExp : Expression
         emplaceExp!(IntegerExp)(pue, loc, value, type);
     }
 
-    override bool equals(RootObject o)
+    override bool equals(const RootObject o) const
     {
         if (this == o)
             return true;
@@ -1836,6 +1836,25 @@ extern (C++) final class IntegerExp : Expression
             theConstant = new IntegerExp(v);
         return theConstant;
     }
+
+    /**
+     * Use this instead of creating new instances for commonly used bools.
+     *
+     * Parameters:
+     *      b = The value of the expression
+     * Returns:
+     *      A static instance of the expression, typed as `Type.tbool`.
+     */
+    static IntegerExp createBool(bool b)
+    {
+        __gshared IntegerExp trueExp, falseExp;
+        if (!trueExp)
+        {
+            trueExp = new IntegerExp(Loc.initial, 1, Type.tbool);
+            falseExp = new IntegerExp(Loc.initial, 0, Type.tbool);
+        }
+        return b ? trueExp : falseExp;
+    }
 }
 
 /***********************************************************
@@ -1926,7 +1945,7 @@ extern (C++) final class RealExp : Expression
         emplaceExp!(RealExp)(pue, loc, value, type);
     }
 
-    override bool equals(RootObject o)
+    override bool equals(const RootObject o) const
     {
         if (this == o)
             return true;
@@ -2001,7 +2020,7 @@ extern (C++) final class ComplexExp : Expression
         emplaceExp!(ComplexExp)(pue, loc, value, type);
     }
 
-    override bool equals(RootObject o)
+    override bool equals(const RootObject o) const
     {
         if (this == o)
             return true;
@@ -2217,7 +2236,7 @@ extern (C++) final class NullExp : Expression
         this.type = type;
     }
 
-    override bool equals(RootObject o)
+    override bool equals(const RootObject o) const
     {
         if (auto e = o.isExpression())
         {
@@ -2314,7 +2333,7 @@ extern (C++) final class StringExp : Expression
         emplaceExp!(StringExp)(pue, loc, string, len);
     }
 
-    override bool equals(RootObject o)
+    override bool equals(const RootObject o) const
     {
         //printf("StringExp::equals('%s') %s\n", o.toChars(), toChars());
         if (auto e = o.isExpression())
@@ -2697,7 +2716,7 @@ extern (C++) final class TupleExp : Expression
         return new TupleExp(loc, e0 ? e0.syntaxCopy() : null, arraySyntaxCopy(exps));
     }
 
-    override bool equals(RootObject o)
+    override bool equals(const RootObject o) const
     {
         if (this == o)
             return true;
@@ -2710,7 +2729,7 @@ extern (C++) final class TupleExp : Expression
                     return false;
                 foreach (i, e1; *exps)
                 {
-                    Expression e2 = (*te.exps)[i];
+                    auto e2 = (*te.exps)[i];
                     if (!e1.equals(e2))
                         return false;
                 }
@@ -2784,11 +2803,11 @@ extern (C++) final class ArrayLiteralExp : Expression
             arraySyntaxCopy(elements));
     }
 
-    override bool equals(RootObject o)
+    override bool equals(const RootObject o) const
     {
         if (this == o)
             return true;
-        Expression e = o.isExpression();
+        auto e = o.isExpression();
         if (!e)
             return false;
         if (auto ae = e.isArrayLiteralExp())
@@ -2799,14 +2818,14 @@ extern (C++) final class ArrayLiteralExp : Expression
             {
                 return false;
             }
+
             foreach (i, e1; *elements)
             {
-                Expression e2 = (*ae.elements)[i];
-                if (!e1)
-                    e1 = basis;
-                if (!e2)
-                    e2 = ae.basis;
-                if (e1 != e2 && (!e1 || !e2 || !e1.equals(e2)))
+                auto e2 = (*ae.elements)[i];
+                auto e1x = e1 ? e1 : basis;
+                auto e2x = e2 ? e2 : ae.basis;
+
+                if (e1x != e2x && (!e1x || !e2x || !e1x.equals(e2x)))
                     return false;
             }
             return true;
@@ -2876,8 +2895,8 @@ extern (C++) final class ArrayLiteralExp : Expression
                 buf.write4(0);
             }
 
-            const size_t len = buf.offset / sz - 1;
-            auto se = new StringExp(loc, buf.extractData(), len, prefix);
+            const size_t len = buf.length / sz - 1;
+            auto se = new StringExp(loc, buf.extractSlice().ptr, len, prefix);
             se.sz = sz;
             se.type = type;
             return se;
@@ -2911,7 +2930,7 @@ extern (C++) final class AssocArrayLiteralExp : Expression
         this.values = values;
     }
 
-    override bool equals(RootObject o)
+    override bool equals(const RootObject o) const
     {
         if (this == o)
             return true;
@@ -3001,6 +3020,7 @@ version (IN_LLVM)
     int stageflags;
 
     bool useStaticInit;     /// if this is true, use the StructDeclaration's init symbol
+    bool isOriginal = false; /// used when moving instances to indicate `this is this.origin`
     OwnedBy ownedByCtfe = OwnedBy.code;
 
     extern (D) this(const ref Loc loc, StructDeclaration sd, Expressions* elements, Type stype = null)
@@ -3020,11 +3040,11 @@ version (IN_LLVM)
         return new StructLiteralExp(loc, sd, cast(Expressions*)elements, stype);
     }
 
-    override bool equals(RootObject o)
+    override bool equals(const RootObject o) const
     {
         if (this == o)
             return true;
-        Expression e = o.isExpression();
+        auto e = o.isExpression();
         if (!e)
             return false;
         if (auto se = e.isStructLiteralExp())
@@ -3035,7 +3055,7 @@ version (IN_LLVM)
                 return false;
             foreach (i, e1; *elements)
             {
-                Expression e2 = (*se.elements)[i];
+                auto e2 = (*se.elements)[i];
                 if (e1 != e2 && (!e1 || !e2 || !e1.equals(e2)))
                     return false;
             }
@@ -3445,6 +3465,7 @@ version (IN_LLVM)
  */
 extern (C++) final class VarExp : SymbolExp
 {
+    bool delegateWasExtracted;
     extern (D) this(const ref Loc loc, Declaration var, bool hasOverloads = true)
     {
         if (var.isVarDeclaration())
@@ -3461,7 +3482,7 @@ extern (C++) final class VarExp : SymbolExp
         return new VarExp(loc, var, hasOverloads);
     }
 
-    override bool equals(RootObject o)
+    override bool equals(const RootObject o) const
     {
         if (this == o)
             return true;
@@ -3496,7 +3517,7 @@ extern (C++) final class VarExp : SymbolExp
             error("manifest constant `%s` cannot be modified", var.toChars());
             return new ErrorExp();
         }
-        if (var.storage_class & STC.lazy_)
+        if (var.storage_class & STC.lazy_ && !delegateWasExtracted)
         {
             error("lazy variable `%s` cannot be modified", var.toChars());
             return new ErrorExp();
@@ -3594,7 +3615,7 @@ extern (C++) final class FuncExp : Expression
         assert(fd.fbody);
     }
 
-    override bool equals(RootObject o)
+    override bool equals(const RootObject o) const
     {
         if (this == o)
             return true;
@@ -3838,7 +3859,7 @@ version (IN_LLVM)
         return m;
     }
 
-    override const(char)* toChars()
+    override const(char)* toChars() const
     {
         return fd.toChars();
     }
@@ -4082,7 +4103,7 @@ extern (C++) abstract class UnaExp : Expression
 }
 
 alias fp_t = UnionExp function(const ref Loc loc, Type, Expression, Expression);
-alias fp2_t = int function(const ref Loc loc, TOK, Expression, Expression);
+alias fp2_t = bool function(const ref Loc loc, TOK, Expression, Expression);
 
 /***********************************************************
  */
@@ -4429,7 +4450,7 @@ extern (C++) final class CompileExp : Expression
         return new CompileExp(loc, arraySyntaxCopy(exps));
     }
 
-    override bool equals(RootObject o)
+    override bool equals(const RootObject o) const
     {
         if (this == o)
             return true;
@@ -4442,7 +4463,7 @@ extern (C++) final class CompileExp : Expression
                 return false;
             foreach (i, e1; *exps)
             {
-                Expression e2 = (*ce.exps)[i];
+                auto e2 = (*ce.exps)[i];
                 if (e1 != e2 && (!e1 || !e2 || !e1.equals(e2)))
                     return false;
             }

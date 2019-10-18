@@ -500,7 +500,7 @@ nothrow:
                             if (!home)
                                 home = getenv("HOME");
                             // Expand ~ only if it is prefixing the rest of the path.
-                            if (!buf.offset && p[1] == '/' && home)
+                            if (!buf.length && p[1] == '/' && home)
                                 buf.writestring(home);
                             else
                                 buf.writeByte('~');
@@ -520,7 +520,7 @@ nothrow:
                     }
                     break;
                 }
-                if (buf.offset) // if path is not empty
+                if (buf.length) // if path is not empty
                 {
                     if (sink(buf.extractChars()))
                         break;

@@ -44,7 +44,7 @@ version (IN_LLVM) import gen.llvmhelpers;
  * sizes since cross compiling is supported and would end up using the host
  * sizes rather than the target sizes.
  */
-struct Target
+extern (C++) struct Target
 {
     // D ABI
     uint ptrsize;             /// size of a pointer in bytes
@@ -716,6 +716,22 @@ else // !IN_LLVM
     extern (D) bool isXmmSupported()
     {
         return global.params.is64bit || global.params.isOSX;
+    }
+
+    /**
+     * Returns:
+     *  true if generating code for POSIX
+     */
+    extern (D) @property bool isPOSIX() scope const nothrow @nogc
+    out(result) { assert(result || global.params.isWindows); }
+    do
+    {
+        return global.params.isLinux
+            || global.params.isOSX
+            || global.params.isFreeBSD
+            || global.params.isOpenBSD
+            || global.params.isDragonFlyBSD
+            || global.params.isSolaris;
     }
 } // !IN_LLVM
 }
