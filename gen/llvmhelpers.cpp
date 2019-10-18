@@ -183,7 +183,7 @@ llvm::AllocaInst *DtoArrayAlloca(Type *type, unsigned arraysize,
       gIR->module.getDataLayout().getAllocaAddrSpace(),
 #endif
       DtoConstUint(arraysize), name, gIR->topallocapoint());
-  ai->setAlignment(DtoAlignment(type));
+  ai->setAlignment(LLMaybeAlign(DtoAlignment(type)));
   return ai;
 }
 
@@ -196,7 +196,7 @@ llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
 #endif
                            name, gIR->topallocapoint());
   if (alignment) {
-    ai->setAlignment(alignment);
+    ai->setAlignment(LLMaybeAlign(alignment));
   }
   return ai;
 }
@@ -914,7 +914,7 @@ void DtoResolveVariable(VarDeclaration *vd) {
     // Set the alignment (it is important not to use type->alignsize because
     // VarDeclarations can have an align() attribute independent of the type
     // as well).
-    gvar->setAlignment(DtoAlignment(vd));
+    gvar->setAlignment(LLMaybeAlign(DtoAlignment(vd)));
 
     // Windows: initialize DLL storage class with `dllimport` for `export`ed
     // symbols

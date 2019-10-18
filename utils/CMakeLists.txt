@@ -31,7 +31,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(gen_gccbuiltins dl)
 endif()
 
-if (TARGET FileCheck)
+if ((TARGET FileCheck) OR (EXISTS ${LLVM_ROOT_DIR}/bin/FileCheck))
   # already provided by LLVM
 else()
 # Build FileCheck for testing (build source version depending on LLVM version)
@@ -50,7 +50,7 @@ else()
 endif()
 endif()
 
-if (TARGET not)
+if ((TARGET not) OR (EXISTS ${LLVM_ROOT_DIR}/bin/not))
   # already provided by LLVM
 else()
 # Build `not` for testing

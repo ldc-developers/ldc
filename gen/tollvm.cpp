@@ -460,7 +460,7 @@ LLValue *DtoLoad(LLValue *src, const char *name) {
 // the type.
 LLValue *DtoAlignedLoad(LLValue *src, const char *name) {
   llvm::LoadInst *ld = gIR->ir->CreateLoad(src, name);
-  ld->setAlignment(getABITypeAlign(ld->getType()));
+  ld->setAlignment(LLMaybeAlign(getABITypeAlign(ld->getType())));
   return ld;
 }
 
@@ -497,7 +497,7 @@ void DtoAlignedStore(LLValue *src, LLValue *dst) {
   assert(src->getType() != llvm::Type::getInt1Ty(gIR->context()) &&
          "Should store bools as i8 instead of i1.");
   llvm::StoreInst *st = gIR->ir->CreateStore(src, dst);
-  st->setAlignment(getABITypeAlign(src->getType()));
+  st->setAlignment(LLMaybeAlign(getABITypeAlign(src->getType())));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

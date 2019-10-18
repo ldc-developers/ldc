@@ -240,7 +240,7 @@ llvm::Function *buildGetTLSAnchor() {
   const auto one = llvm::ConstantInt::get(LLType::getInt8Ty(gIR->context()), 1);
   const auto anchor =
       defineDSOGlobal("ldc.tls_anchor", one, /*isThreadLocal=*/true);
-  anchor->setAlignment(16);
+  anchor->setAlignment(LLMaybeAlign(16));
 
   const auto getAnchor = createDSOFunction(
       "ldc.get_tls_anchor", LLFunctionType::get(getVoidPtrType(), false));
