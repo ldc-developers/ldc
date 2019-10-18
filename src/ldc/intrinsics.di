@@ -68,6 +68,16 @@ else version (LDC_LLVM_900)
     version = INTRINSICS_FROM_800;
     version = INTRINSICS_FROM_900;
 }
+else version (LDC_LLVM_1000)
+{
+    version = INTRINSICS_FROM_400;
+    version = INTRINSICS_FROM_500;
+    version = INTRINSICS_FROM_600;
+    version = INTRINSICS_FROM_700;
+    version = INTRINSICS_FROM_800;
+    version = INTRINSICS_FROM_900;
+    version = INTRINSICS_FROM_1000;
+}
 else
 {
     static assert(false, "LDC LLVM version not supported");
@@ -92,9 +102,17 @@ nothrow:
 pragma(LDC_intrinsic, "llvm.returnaddress")
     void* llvm_returnaddress(uint level);
 
+version(INTRINSICS_FROM_1000)
+{
+    private enum llvm_frameaddress_fullname = "llvm.frameaddress.p0i8";
+}
+else
+{
+    private enum llvm_frameaddress_fullname = "llvm.frameaddress";
+}
 /// The 'llvm.frameaddress' intrinsic attempts to return the target-specific
 /// frame pointer value for the specified stack frame.
-pragma(LDC_intrinsic, "llvm.frameaddress")
+pragma(LDC_intrinsic, llvm_frameaddress_fullname)
     void* llvm_frameaddress(uint level);
 
 /// The 'llvm.stacksave' intrinsic is used to remember the current state of the
