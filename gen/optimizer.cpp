@@ -29,18 +29,20 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Instrumentation.h"
-#if LDC_LLVM_VER >= 900
-#include "llvm/Transforms/Instrumentation/AddressSanitizer.h"
+#include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#if LDC_LLVM_VER >= 400
+#include "llvm/Analysis/InlineCost.h"
 #endif
 #if LDC_LLVM_VER >= 800
 #include "llvm/Transforms/Instrumentation/MemorySanitizer.h"
 #include "llvm/Transforms/Instrumentation/ThreadSanitizer.h"
 #endif
-#include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
-
-#if LDC_LLVM_VER >= 400
-#include "llvm/Analysis/InlineCost.h"
+#if LDC_LLVM_VER >= 900
+#include "llvm/Transforms/Instrumentation/AddressSanitizer.h"
+#endif
+#if LDC_LLVM_VER >= 1000
+#include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 #endif
 
 extern llvm::TargetMachine *gTargetMachine;
@@ -232,8 +234,13 @@ static void addThreadSanitizerPass(const PassManagerBuilder &Builder,
 static void addSanitizerCoveragePass(const PassManagerBuilder &Builder,
                                      legacy::PassManagerBase &PM) {
 #ifdef ENABLE_COVERAGE_SANITIZER
+#if LDC_LLVM_VER >= 1000
+  PM.add(createModuleSanitizerCoverageLegacyPassPass(
+      opts::getSanitizerCoverageOptions()));
+#else
   PM.add(
       createSanitizerCoverageModulePass(opts::getSanitizerCoverageOptions()));
+#endif
 #endif
 }
 

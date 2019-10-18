@@ -107,8 +107,8 @@ else()
     llvm_set(ROOT_DIR prefix true)
     llvm_set(ENABLE_ASSERTIONS assertion-mode)
 
-    # The LLVM version string _may_ contain a git/svn suffix, so cut that off
-    string(SUBSTRING "${LLVM_VERSION_STRING}" 0 5 LLVM_VERSION_BASE_STRING)
+    # The LLVM version string _may_ contain a git/svn suffix, so match only the x.y.z part
+    string(REGEX MATCH "^[0-9]+[.][0-9]+[.][0-9]+" LLVM_VERSION_BASE_STRING "${LLVM_VERSION_STRING}")
 
     # Versions below 4.0 do not support components debuginfomsf and demangle
     if(${LLVM_VERSION_STRING} MATCHES "^3\\..*")

@@ -150,9 +150,9 @@ config.test_exec_root = os.path.dirname(__file__)
 path = os.path.pathsep.join( (config.test_source_root, config.environment['PATH']) )
 config.environment['PATH'] = path
 
-# add LDC bin dir to the path
+# Add LDC and LLVM bin dir to the path
 # Give priority to LDC's version of LLVM tools (we need FileCheck with certain bug fixes)
-path = os.path.pathsep.join( (config.ldc2_bin_dir, config.environment['PATH']) )
+path = os.path.pathsep.join( (config.ldc2_bin_dir, config.llvm_tools_dir, config.environment['PATH']) )
 config.environment['PATH'] = path
 
 # Add substitutions
