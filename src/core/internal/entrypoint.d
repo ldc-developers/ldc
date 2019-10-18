@@ -31,6 +31,7 @@ template _d_cmain()
         pragma(mangle, "main")
         int main(int argc, char **argv)
         {
+            pragma(LDC_profile_instr, false);
             return _d_run_main(argc, argv, &_Dmain);
         }
 
@@ -40,6 +41,7 @@ template _d_cmain()
             pragma(mangle, "_main")
             int _main(int argc, char** argv)
             {
+                pragma(LDC_profile_instr, false);
                 return main(argc, argv);
             }
         }
