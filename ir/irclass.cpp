@@ -23,7 +23,7 @@
 #include "gen/logger.h"
 #include "gen/llvmhelpers.h"
 #include "gen/mangling.h"
-#include "gen/metadata.h"
+#include "gen/passes/metadata.h"
 #include "gen/pragma.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
@@ -452,7 +452,7 @@ void IrAggr::defineInterfaceVtbl(BaseClass *b, bool new_instance,
       LLValue *&thisArg = args[thisArgIndex];
       LLType *targetThisType = thisArg->getType();
       thisArg = DtoBitCast(thisArg, getVoidPtrType());
-      thisArg = DtoGEP1(thisArg, DtoConstInt(-thunkOffset), true);
+      thisArg = DtoGEP1(thisArg, DtoConstInt(-thunkOffset));
       thisArg = DtoBitCast(thisArg, targetThisType);
 
       // all calls that might be subject to inlining into a caller with debug

@@ -69,7 +69,7 @@ bool four_bools(bool[4] a, bool[4] b)
     // LLVM: call i32 @memcmp({{.*}}, {{.*}}, i{{32|64}} 4)
 
     // Make sure that LLVM recognizes and optimizes-out the call to memcmp for 4 byte arrays:
-    // ASM-NOT: memcmp
+    // ASM-NOT: {{(mem|b)cmp}}
     return a == b;
 }
 

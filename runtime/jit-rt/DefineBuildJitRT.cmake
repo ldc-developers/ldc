@@ -6,6 +6,14 @@ if(LDC_DYNAMIC_COMPILE)
     file(GLOB LDC_JITRT_H ${JITRT_DIR}/cpp/*.h)
     file(GLOB LDC_JITRT_SO_CXX ${JITRT_DIR}/cpp-so/*.cpp)
     file(GLOB LDC_JITRT_SO_H ${JITRT_DIR}/cpp-so/*.h)
+    message(STATUS "Use custom passes in jit: ${LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES}")
+    if(LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES)
+        file(GLOB LDC_JITRT_SO_PASSES_CXX ${CMAKE_SOURCE_DIR}/gen/passes/*.cpp)
+        file(GLOB LDC_JITRT_SO_PASSES_H ${CMAKE_SOURCE_DIR}/gen/passes/*.h)
+    else()
+        set(LDC_JITRT_SO_PASSES_CXX "")
+        set(LDC_JITRT_SO_PASSES_H "")
+    endif()
 
     # Set compiler-dependent flags
     if(MSVC)
@@ -45,8 +53,13 @@ if(LDC_DYNAMIC_COMPILE)
         # to do find_package(LLVM CONFIG) for it so here is a hackish way to get it
         include("${LLVM_CMAKEDIR}/LLVMConfig.cmake")
         include("${LLVM_CMAKEDIR}/LLVM-Config.cmake")
+
+        set(asmprinter "asmprinter")
+        if(LDC_LLVM_VER LESS 900)
+            set(asmprinter "${LLVM_NATIVE_ARCH}asmprinter")
+        endif()
         llvm_map_components_to_libnames(JITRT_LLVM_LIBS core support irreader executionengine passes nativecodegen orcjit target
-            "${LLVM_NATIVE_ARCH}disassembler" "${LLVM_NATIVE_ARCH}asmprinter")
+            "${LLVM_NATIVE_ARCH}disassembler" "${asmprinter}")
 
         foreach(libname ${JITRT_LLVM_LIBS})
             unset(JITRT_TEMP_LIB CACHE)
@@ -61,7 +74,7 @@ if(LDC_DYNAMIC_COMPILE)
         get_target_suffix("" "${path_suffix}" target_suffix)
         set(output_path ${CMAKE_BINARY_DIR}/lib${path_suffix})
 
-        add_library(ldc-jit-rt-so${target_suffix} SHARED ${LDC_JITRT_SO_CXX} ${LDC_JITRT_SO_H})
+        add_library(ldc-jit-rt-so${target_suffix} SHARED ${LDC_JITRT_SO_CXX} ${LDC_JITRT_SO_H} ${LDC_JITRT_SO_PASSES_CXX} ${LDC_JITRT_SO_PASSES_H})
         set_common_library_properties(ldc-jit-rt-so${target_suffix}
             ldc-jit ${output_path}
             "${c_flags} ${LDC_CXXFLAGS} ${LLVM_CXXFLAGS} ${JITRT_EXTRA_FLAGS}"
@@ -69,6 +82,13 @@ if(LDC_DYNAMIC_COMPILE)
             ON
         )
         set_target_properties(ldc-jit-rt-so${target_suffix} PROPERTIES LINKER_LANGUAGE CXX)
+
+        if(LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES)
+            target_compile_definitions(ldc-jit-rt-so${target_suffix} PRIVATE LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES)
+        endif()
+
+        target_include_directories(ldc-jit-rt-so${target_suffix}
+            PRIVATE ${CMAKE_SOURCE_DIR}/gen/passes/)
 
         target_link_libraries(ldc-jit-rt-so${target_suffix} ${JITRT_LLVM_LIBS})
 

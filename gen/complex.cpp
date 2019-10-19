@@ -108,8 +108,8 @@ DValue *DtoComplex(Loc &loc, Type *to, DValue *val) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void DtoComplexSet(LLValue *c, LLValue *re, LLValue *im) {
-  DtoStore(re, DtoGEPi(c, 0, 0));
-  DtoStore(im, DtoGEPi(c, 0, 1));
+  DtoStore(re, DtoGEP(c, 0u, 0));
+  DtoStore(im, DtoGEP(c, 0, 1));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -141,10 +141,8 @@ void DtoGetComplexParts(Loc &loc, Type *to, DValue *val, DValue *&re,
     DValue *v = DtoCastComplex(loc, val, to);
     if (to->iscomplex()) {
       if (v->isLVal()) {
-        LLValue *reVal =
-            DtoGEPi(DtoLVal(v), 0, 0, ".re_part");
-        LLValue *imVal =
-            DtoGEPi(DtoLVal(v), 0, 1, ".im_part");
+        LLValue *reVal = DtoGEP(DtoLVal(v), 0u, 0, ".re_part");
+        LLValue *imVal = DtoGEP(DtoLVal(v), 0, 1, ".im_part");
         re = new DLValue(baserety, reVal);
         im = new DLValue(baseimty, imVal);
       } else {

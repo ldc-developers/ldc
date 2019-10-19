@@ -63,7 +63,7 @@ steps:
     7z x ../llvm.7z > nul
     cd ..
     :: Download & install clang
-    curl -L -o clang.exe https://github.com/llvm/llvm-project/releases/download/llvmorg-%CLANG_VERSION%/LLVM-%CLANG_VERSION%-win64.exe 2>&1
+    curl -L -o clang.exe http://releases.llvm.org/%CLANG_VERSION%/LLVM-%CLANG_VERSION%-win64.exe 2>&1
     clang.exe /S
   displayName: Install prerequisites
 - script: |
@@ -177,7 +177,6 @@ steps:
     git clone --recursive https://github.com/dlang/dub.git 2>&1
     cd dub
     powershell -c "git checkout \"$(cat %BUILD_SOURCESDIRECTORY%/packaging/dub_version -Raw)\"" 2>&1
-    powershell -c "(cat build.cmd).replace('curl.lib', '%CD%/../installed/lib/curl.lib') | Set-Content build.cmd"
     call build.cmd 2>&1
     cp bin/dub.exe ../installed/bin
     ..\installed\bin\dub --version

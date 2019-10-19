@@ -13,8 +13,6 @@
 
 #pragma once
 
-#include "gen/metadata.h"
-
 namespace llvm {
 class FunctionPass;
 class ModulePass;

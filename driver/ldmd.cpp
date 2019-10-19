@@ -399,7 +399,8 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
         if (argLength > 3 && memcmp(arg + argLength - 3, "=on", 3) == 0) {
           enabled = true;
           kindLength = argLength - 3;
-        } else if (argLength > 4 && memcmp(arg + argLength - 4, "=off", 4) == 0) {
+        } else if (argLength > 4 &&
+                   memcmp(arg + argLength - 4, "=off", 4) == 0) {
           enabled = false;
           kindLength = argLength - 4;
         } else {
@@ -407,11 +408,10 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
           kindLength = argLength;
         }
 
-        const auto check = [&](size_t dmdLength, const char *dmd, const char *ldc) {
-          if (kindLength == dmdLength &&
-              memcmp(arg, dmd, dmdLength) == 0) {
-            ldcArgs.push_back(
-                concat(enabled ? "-enable-" : "-disable-", ldc));
+        const auto check = [&](size_t dmdLength, const char *dmd,
+                               const char *ldc) {
+          if (kindLength == dmdLength && memcmp(arg, dmd, dmdLength) == 0) {
+            ldcArgs.push_back(concat(enabled ? "-enable-" : "-disable-", ldc));
             return true;
           }
           return false;
@@ -458,6 +458,8 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
           ldcArgs.push_back("-relocation-model=pic");
           pic = true;
         }
+      } else if (strcmp(p + 1, "fPIE") == 0) {
+        goto Lnot_in_ldc;
       } else if (strcmp(p + 1, "map") == 0) {
         goto Lnot_in_ldc;
       } else if (strcmp(p + 1, "multiobj") == 0) {

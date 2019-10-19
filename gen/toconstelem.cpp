@@ -312,7 +312,7 @@ public:
         assert(i_index != ~0UL);
 
         // offset pointer
-        instance = DtoGEPi(instance, 0, i_index);
+        instance = DtoGEP(instance, 0, i_index);
       }
       result = DtoBitCast(instance, DtoType(tb));
     } else {
@@ -424,7 +424,7 @@ public:
       auto globalVar = new llvm::GlobalVariable(
           p->module, DtoType(se->type), false,
           llvm::GlobalValue::InternalLinkage, nullptr, ".structliteral");
-      globalVar->setAlignment(DtoAlignment(se->type));
+      globalVar->setAlignment(LLMaybeAlign(DtoAlignment(se->type)));
 
       p->setStructLiteralConstant(se, globalVar);
       llvm::Constant *constValue = toConstElem(se);
@@ -643,7 +643,7 @@ public:
         assert(i_index != ~0UL);
 
         // offset pointer
-        result = DtoGEPi(result, 0, i_index);
+        result = DtoGEP(result, 0, i_index);
       }
     }
 

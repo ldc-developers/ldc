@@ -41,14 +41,11 @@
 #endif
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Module.h"
+#ifdef LDC_LLVM_SUPPORTED_TARGET_SPIRV
+#include "LLVMSPIRVLib/LLVMSPIRVLib.h"
+#endif
 #include <cstddef>
 #include <fstream>
-
-#ifdef LDC_LLVM_SUPPORTED_TARGET_SPIRV
-namespace llvm {
-    ModulePass *createSPIRVWriterPass(llvm::raw_ostream &Str);
-}
-#endif
 
 static llvm::cl::opt<bool>
     NoIntegratedAssembler("no-integrated-as", llvm::cl::ZeroOrMore,
@@ -59,18 +56,26 @@ namespace {
 
 // based on llc code, University of Illinois Open Source License
 void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
-                   llvm::raw_fd_ostream &out,
+                   const char *filename,
                    llvm::TargetMachine::CodeGenFileType fileType) {
   using namespace llvm;
 
-// Create a PassManager to hold and optimize the collection of passes we are
-// about to build.
-  legacy::PassManager Passes;
-  ComputeBackend::Type cb = getComputeTargetType(&m);
+  const ComputeBackend::Type cb = getComputeTargetType(&m);
 
   if (cb == ComputeBackend::SPIRV) {
 #ifdef LDC_LLVM_SUPPORTED_TARGET_SPIRV
     IF_LOG Logger::println("running createSPIRVWriterPass()");
+#if LDC_LLVM_VER >= 900
+    std::ofstream out(filename, std::ofstream::binary);
+#else
+    std::error_code errinfo;
+    llvm::raw_fd_ostream out(filename, errinfo, llvm::sys::fs::F_None);
+    if (errinfo) {
+      error(Loc(), "cannot write file '%s': %s", filename,
+            errinfo.message().c_str());
+      fatal();
+    }
+#endif
     llvm::createSPIRVWriterPass(out)->runOnModule(m);
     IF_LOG Logger::println("Success.");
 #else
@@ -80,10 +85,22 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
     return;
   }
 
+  std::error_code errinfo;
+  llvm::raw_fd_ostream out(filename, errinfo, llvm::sys::fs::F_None);
+  if (errinfo) {
+    error(Loc(), "cannot write file '%s': %s", filename,
+          errinfo.message().c_str());
+    fatal();
+  }
+
   // The DataLayout is already set at the module (in module.cpp,
   // method Module::genLLVMModule())
   // FIXME: Introduce new command line switch default-data-layout to
   // override the module data layout
+
+  // Create a PassManager to hold and optimize the collection of passes we are
+  // about to build.
+  legacy::PassManager Passes;
 
   // Add internal analysis passes from the target machine.
   Passes.add(
@@ -104,19 +121,6 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
   }
 
   Passes.run(m);
-}
-
-void cloneAndCodegenModule(llvm::TargetMachine &Target, llvm::Module &m,
-                           llvm::raw_fd_ostream &out,
-                           llvm::TargetMachine::CodeGenFileType fileType) {
-  auto newModule = llvm::CloneModule(
-#if LDC_LLVM_VER >= 700
-                     m
-#else
-                     &m
-#endif
-                     );
-  codegenModule(Target, *newModule, out, fileType);
 }
 
 }
@@ -269,19 +273,8 @@ public:
 
 void writeObjectFile(llvm::Module *m, const char *filename) {
   IF_LOG Logger::println("Writing object file to: %s", filename);
-  std::error_code errinfo;
-  {
-    llvm::raw_fd_ostream out(filename, errinfo, llvm::sys::fs::F_None);
-    if (!errinfo)
-    {
-      codegenModule(*gTargetMachine, *m, out,
-                    llvm::TargetMachine::CGFT_ObjectFile);
-    } else {
-      error(Loc(), "cannot write object file '%s': %s", filename,
-            errinfo.message().c_str());
-      fatal();
-    }
-  }
+  codegenModule(*gTargetMachine, *m, filename,
+                llvm::TargetMachine::CGFT_ObjectFile);
 }
 
 bool shouldAssembleExternally() {
@@ -439,24 +432,21 @@ void writeModule(llvm::Module *m, const char *filename) {
     }
 
     Logger::println("Writing asm to: %s\n", spath.c_str());
-    std::error_code errinfo;
-    {
-      llvm::raw_fd_ostream out(spath.c_str(), errinfo, llvm::sys::fs::F_None);
-      if (!errinfo)
-      {
-        if (writeObj) {
-          // Clone module if we have both output-o and output-s flags
-          // to avoid running 'addPassesToEmitFile' passes twice on same module
-          cloneAndCodegenModule(*gTargetMachine, *m, out,
-                                llvm::TargetMachine::CGFT_AssemblyFile);
-        } else {
-          codegenModule(*gTargetMachine, *m, out,
-                        llvm::TargetMachine::CGFT_AssemblyFile);
-        }
-      } else {
-        error(Loc(), "cannot write asm: %s", errinfo.message().c_str());
-        fatal();
-      }
+    if (writeObj) {
+      // Clone module if we have both output-o and output-s flags
+      // to avoid running 'addPassesToEmitFile' passes twice on same module
+      auto clonedModule = llvm::CloneModule(
+#if LDC_LLVM_VER >= 700
+          *m
+#else
+          m
+#endif
+      );
+      codegenModule(*gTargetMachine, *clonedModule, spath.c_str(),
+                    llvm::TargetMachine::CGFT_AssemblyFile);
+    } else {
+      codegenModule(*gTargetMachine, *m, spath.c_str(),
+                    llvm::TargetMachine::CGFT_AssemblyFile);
     }
 
     if (assembleExternally) {

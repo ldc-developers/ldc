@@ -49,4 +49,8 @@ void check_counters() {
 void main() {
     getdataprofile();
     check_counters();
+
+    // prevent linker stripping
+    fooC(true, false);
+    fooCpp(true, false);
 }

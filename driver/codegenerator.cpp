@@ -23,6 +23,9 @@
 #include "gen/logger.h"
 #include "gen/modules.h"
 #include "gen/runtime.h"
+#if LDC_LLVM_VER >= 900
+#include "llvm/IR/RemarkStreamer.h"
+#endif
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/ToolOutputFile.h"
@@ -58,6 +61,20 @@ createAndSetDiagnosticsOutputFile(IRState &irs, llvm::LLVMContext &ctx,
       llvm::sys::path::replace_extension(diagnosticsFilename, "opt.yaml");
     }
 
+    // If there is instrumentation data available, also output function hotness
+    const bool withHotness = opts::isUsingPGOProfile();
+
+#if LDC_LLVM_VER >= 900
+    auto remarksFileOrError = llvm::setupOptimizationRemarks(
+        ctx, diagnosticsFilename, "", "", withHotness);
+    if (llvm::Error e = remarksFileOrError.takeError()) {
+      irs.dmodule->error("Could not create file %s: %s",
+                         diagnosticsFilename.c_str(),
+                         llvm::toString(std::move(e)).c_str());
+      fatal();
+    }
+    diagnosticsOutputFile = std::move(*remarksFileOrError);
+#else
     std::error_code EC;
     diagnosticsOutputFile = make_unique<llvm::ToolOutputFile>(
         diagnosticsFilename, EC, llvm::sys::fs::F_None);
@@ -67,19 +84,19 @@ createAndSetDiagnosticsOutputFile(IRState &irs, llvm::LLVMContext &ctx,
       fatal();
     }
 
-    //FIXME: this has been replaced by setDiagnosticHandler
-#if LDC_LLVM_VER < 1000
     ctx.setDiagnosticsOutputFile(
-        make_unique<llvm::yaml::Output>(diagnosticsOutputFile->os()));
-#endif
-    // If there is instrumentation data available, also output function hotness
-    if (opts::isUsingPGOProfile()) {
+
+        llvm::make_unique<llvm::yaml::Output>(diagnosticsOutputFile->os()));
+
+    if (withHotness) {
+
 #if LDC_LLVM_VER >= 500
       ctx.setDiagnosticsHotnessRequested(true);
 #else
       ctx.setDiagnosticHotnessRequested(true);
 #endif
     }
+#endif // LDC_LLVM_VER < 900
   }
 #endif
 

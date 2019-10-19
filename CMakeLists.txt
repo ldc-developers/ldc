@@ -53,14 +53,14 @@ set(LLVM_SPIRV_FOUND OFF)
 if(MSVC)
     if(EXISTS "${LLVM_LIBRARY_DIRS}/LLVMSPIRVLib.lib")
         set(LLVM_SPIRV_FOUND ON)
-        append("LLVMSPIRVLib.lib" LLVM_LDFLAGS)
+        set(LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/LLVMSPIRVLib.lib" ${LLVM_LIBRARIES})
     endif()
 else()
     if((EXISTS "${LLVM_LIBRARY_DIRS}/libLLVMSPIRVLib.a") OR
        (EXISTS "${LLVM_LIBRARY_DIRS}/libLLVMSPIRVLib.so") OR
        (EXISTS "${LLVM_LIBRARY_DIRS}/libLLVMSPIRVLib.dylib"))
         set(LLVM_SPIRV_FOUND ON)
-        append("-lLLVMSPIRVLib" LLVM_LDFLAGS)
+        set(LLVM_LIBRARIES -lLLVMSPIRVLib ${LLVM_LIBRARIES})
     endif()
 endif()
 if(NOT LLVM_SPIRV_FOUND)
@@ -96,11 +96,11 @@ include(GetLinuxDistribution)
 #
 
 # Version information
-set(LDC_VERSION "1.17.0") # May be overridden by git hash tag
+set(LDC_VERSION "1.18.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   87)
-set(DMDFE_FIX_LEVEL       1) # Comment out if not used
+set(DMDFE_PATCH_VERSION   88)
+set(DMDFE_FIX_LEVEL       1)
 
 set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}${DMDFE_PATCH_VERSION})
 if(DEFINED DMDFE_FIX_LEVEL)
@@ -137,7 +137,6 @@ Please consider using D version 2 or checkout the 'd1' git branch for the last v
 elseif(D_VERSION EQUAL 2)
     set(LDC_EXE ldc2)
     set(LDMD_EXE ldmd2)
-    set(LDCPROFDATA_EXE ldc-profdata)
     set(RUNTIME druntime)
     append("-DDMDV2" CMAKE_CXX_FLAGS)
 else()
@@ -146,7 +145,6 @@ endif()
 
 set(LDC_EXE_NAME ${PROGRAM_PREFIX}${LDC_EXE}${PROGRAM_SUFFIX})
 set(LDMD_EXE_NAME ${PROGRAM_PREFIX}${LDMD_EXE}${PROGRAM_SUFFIX})
-set(LDCPROFDATA_EXE_NAME ${PROGRAM_PREFIX}${LDCPROFDATA_EXE}${PROGRAM_SUFFIX})
 
 # Setup D compiler flags (DMD syntax, which also works with LDMD).
 set(DDMD_DFLAGS "-wi")
@@ -447,12 +445,13 @@ include(HandleLTOPGOBuildOptions)
 # Enable Dynamic compilation if supported for this platform and LLVM version.
 #
 set(LDC_DYNAMIC_COMPILE "AUTO" CACHE STRING "Support dynamic compilation (True|False). Enabled by default.")
+option(LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES "Use custom LDC passes in jit" ON)
 if(LDC_DYNAMIC_COMPILE STREQUAL "AUTO")
     set(LDC_DYNAMIC_COMPILE False)  # must be a valid Python boolean constant (case sensitive)
     if (NOT (LDC_LLVM_VER LESS 500))
         set(LDC_DYNAMIC_COMPILE True)
         add_definitions(-DLDC_DYNAMIC_COMPILE)
-        add_definitions(-DLDC_DYNAMIC_COMPILE_API_VERSION=2)
+        add_definitions(-DLDC_DYNAMIC_COMPILE_API_VERSION=3)
     endif()
 endif()
 message(STATUS "Building LDC with dynamic compilation support: ${LDC_DYNAMIC_COMPILE} (LDC_DYNAMIC_COMPILE=${LDC_DYNAMIC_COMPILE})")
@@ -589,13 +588,28 @@ endif()
 
 set(LDC_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
 set(LDMD_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDMD_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
-add_custom_target(${LDC_EXE} ALL DEPENDS ${LDC_EXE_FULL})
-add_custom_target(${LDMD_EXE} ALL DEPENDS ${LDMD_EXE_FULL})
 
 # Figure out how to link the main LDC executable, for which we need to take the
 # LLVM flags into account.
 set(LDC_LINKERFLAG_LIST ${SANITIZE_LDFLAGS} ${LLVM_LIBRARIES} ${LLVM_LDFLAGS})
+if(MSVC)
+    # Issue 1297 – set LDC's stack to 8 MiB like on Linux and Mac (default: 1 MiB).
+    list(APPEND LDC_LINKERFLAG_LIST "/STACK:8388608")
+    # VS 2017+: Use undocumented /NOOPTTLS MS linker switch to keep on emitting
+    # a .tls section. Required for older host druntime versions, otherwise the
+    # GC TLS ranges are garbage starting with VS 2017 Update 15.3.
+    if(MSVC_VERSION GREATER 1900) # VS 2017+
+        list(APPEND LDC_LINKERFLAG_LIST "/NOOPTTLS")
+    endif()
+endif()
 if(LDC_WITH_LLD)
+    if(NOT (LDC_LLVM_VER LESS 1000))
+        if(MSVC)
+            list(APPEND LDC_LINKERFLAG_LIST LLVMSymbolize.lib)
+        else()
+            set(LDC_LINKERFLAG_LIST -lLLVMSymbolize ${LDC_LINKERFLAG_LIST})
+        endif()
+    endif()
     # ELF, Mach-O, MinGW and WebAssembly formats supported since LLD 6.0.0, otherwise just Windows COFF
     if(NOT (LDC_LLVM_VER LESS 600))
         if(MSVC)
@@ -648,38 +662,17 @@ if(UNIX AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} MATCHES "Clan
     # we manually invoke the linker instead of using the D compiler to do so.
     set(LDC_LINK_MANUALLY ON)
 
-    include(ExtractDMDSystemLinker)
-    message(STATUS "Host D compiler linker program: ${D_LINKER_COMMAND}")
-    message(STATUS "Host D compiler linker flags: ${D_LINKER_ARGS}")
-    list(APPEND LDC_LINKERFLAG_LIST ${D_LINKER_ARGS})
-
-    if(NOT "${CMAKE_EXE_LINKER_FLAGS}" STREQUAL "")
-        separate_arguments(flags UNIX_COMMAND "${CMAKE_EXE_LINKER_FLAGS}")
-        list(APPEND LDC_LINKERFLAG_LIST ${flags})
-    endif()
-else()
-    # Use D compiler for linking, trying to translate a few common linker flags.
-    set(LDC_TRANSLATED_LINKER_FLAGS "")
-    foreach(f ${LDC_LINKERFLAG_LIST})
-        string(REPLACE "-LIBPATH:" "/LIBPATH:" f ${f})
-        list(APPEND LDC_TRANSLATED_LINKER_FLAGS "-L${f}")
-    endforeach()
-
-    if(MSVC)
-        # Issue 1297 – set LDC's stack to 8 MiB like on Linux and Mac (default: 1 MiB).
-        list(APPEND LDC_TRANSLATED_LINKER_FLAGS "-L/STACK:8388608")
-        # VS 2017+: Use undocumented /NOOPTTLS MS linker switch to keep on emitting
-        # a .tls section. Required for older host druntime versions, otherwise the
-        # GC TLS ranges are garbage starting with VS 2017 Update 15.3.
-        if(MSVC_VERSION GREATER 1900) # VS 2017+
-            list(APPEND LDC_TRANSLATED_LINKER_FLAGS "-L/NOOPTTLS")
-        endif()
+    if(NOT DEFINED D_LINKER_ARGS)
+        include(ExtractDMDSystemLinker)
+        message(STATUS "Host D compiler linker program: ${D_LINKER_COMMAND}")
+        message(STATUS "Host D compiler linker flags: ${D_LINKER_ARGS}")
     endif()
 endif()
 
 # CONFIG generator expressions need to be repeated due to https://cmake.org/Bug/view.php?id=14353
 if(MSVC_IDE)
-    separate_arguments(LDC_FLAG_LIST WINDOWS_COMMAND "${LDC_TRANSLATED_LINKER_FLAGS} ${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS}")
+    translate_linker_args(linker_args translated_linker_args)
+    separate_arguments(LDC_FLAG_LIST WINDOWS_COMMAND "${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS} ${translated_linker_args}")
     add_custom_command(
         OUTPUT ${LDC_EXE_FULL}
         COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:${LDC_LIB}> ${LDC_FLAG_LIST} -of${LDC_EXE_FULL} ${LDC_D_SOURCE_FILES} $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:-g> $<$<NOT:$<CONFIG:Debug>>:-O> $<$<NOT:$<CONFIG:Debug>>:-inline> $<$<NOT:$<CONFIG:Debug>>:-release>
@@ -688,10 +681,11 @@ if(MSVC_IDE)
     )
 else()
     build_d_executable(
+        "${LDC_EXE}"
         "${LDC_EXE_FULL}"
         "${LDC_D_SOURCE_FILES}"
         ""
-        "$<TARGET_LINKER_FILE:${LDC_LIB}>"
+        "${LDC_LINKERFLAG_LIST}"
         "${FE_RES}"
         "${LDC_LIB}"
         ${COMPILE_D_MODULES_SEPARATELY}
@@ -732,10 +726,11 @@ set_target_properties(
 )
 set(LDMD_D_SOURCE_FILES ${PROJECT_SOURCE_DIR}/dmd/root/man.d ${PROJECT_SOURCE_DIR}/driver/main.d)
 build_d_executable(
+    "${LDMD_EXE}"
     "${LDMD_EXE_FULL}"
     "${LDMD_D_SOURCE_FILES}"
     ""
-    "$<TARGET_LINKER_FILE:LDMD_CXX_LIB>"
+    "${LDC_LINKERFLAG_LIST}"
     ""
     "LDMD_CXX_LIB"
     ${COMPILE_D_MODULES_SEPARATELY}
@@ -886,17 +881,20 @@ add_subdirectory(tools)
 enable_testing()
 
 # LDC unittest executable (D unittests only).
-set(LDC_UNITTEST_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_EXE_NAME}-unittest${CMAKE_EXECUTABLE_SUFFIX})
+set(LDC_UNITTEST_EXE ${LDC_EXE}-unittest)
+set(LDC_UNITTEST_EXE_NAME ${PROGRAM_PREFIX}${LDC_UNITTEST_EXE}${PROGRAM_SUFFIX})
+set(LDC_UNITTEST_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_UNITTEST_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
 build_d_executable(
+    "${LDC_UNITTEST_EXE}"
     "${LDC_UNITTEST_EXE_FULL}"
     "${LDC_D_SOURCE_FILES}"
     "-unittest"
-    "$<TARGET_LINKER_FILE:${LDC_LIB}>"
+    "${LDC_LINKERFLAG_LIST}"
     ""
     "${LDC_LIB}"
     ON # always build separately (faster with parallelization)
 )
-add_custom_target(ldc2-unittest DEPENDS ${LDC_UNITTEST_EXE_FULL})
+set_target_properties("${LDC_UNITTEST_EXE}" PROPERTIES EXCLUDE_FROM_ALL ON)
 add_test(NAME build-ldc2-unittest COMMAND "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ldc2-unittest)
 add_test(NAME ldc2-unittest COMMAND ${LDC_UNITTEST_EXE_FULL} --version)
 set_tests_properties(ldc2-unittest PROPERTIES DEPENDS build-ldc2-unittest)
@@ -913,8 +911,11 @@ add_subdirectory(tests)
 
 # ldc-build-runtime tool
 configure_file(${PROJECT_SOURCE_DIR}/runtime/ldc-build-runtime.d.in ${PROJECT_BINARY_DIR}/ldc-build-runtime.d @ONLY)
-set(LDC_BUILD_RUNTIME_EXE_FULL ${PROJECT_BINARY_DIR}/bin/ldc-build-runtime${CMAKE_EXECUTABLE_SUFFIX})
+set(LDC_BUILD_RUNTIME_EXE ldc-build-runtime)
+set(LDC_BUILD_RUNTIME_EXE_NAME ${PROGRAM_PREFIX}${LDC_BUILD_RUNTIME_EXE}${PROGRAM_SUFFIX})
+set(LDC_BUILD_RUNTIME_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDC_BUILD_RUNTIME_EXE_NAME}${CMAKE_EXECUTABLE_SUFFIX})
 build_d_executable(
+    "${LDC_BUILD_RUNTIME_EXE}"
     "${LDC_BUILD_RUNTIME_EXE_FULL}"
     "${PROJECT_BINARY_DIR}/ldc-build-runtime.d"
     ""
@@ -923,7 +924,6 @@ build_d_executable(
     ""
     ${COMPILE_D_MODULES_SEPARATELY}
 )
-add_custom_target(ldc-build-runtime ALL DEPENDS ${LDC_BUILD_RUNTIME_EXE_FULL})
 
 #
 # Install target.

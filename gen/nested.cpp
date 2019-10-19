@@ -74,7 +74,7 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
     if (cd->isClassDeclaration()) {
       val = DtoLoad(val);
     }
-    ctx = DtoLoad(DtoGEPi(val, 0, getVthisIdx(cd), ".vthis"));
+    ctx = DtoLoad(DtoGEP(val, 0, getVthisIdx(cd), ".vthis"));
     skipDIDeclaration = true;
   } else {
     Logger::println("Regular nested function, using context arg");
@@ -118,7 +118,7 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
   const auto offsetToNthField = [&val, &dwarfAddrOps](unsigned fieldIndex,
                                                       const char *name = "") {
     gIR->DBuilder.OpOffset(dwarfAddrOps, val, fieldIndex);
-    val = DtoGEPi(val, 0, fieldIndex, name);
+    val = DtoGEP(val, 0, fieldIndex, name);
   };
   const auto dereference = [&val, &dwarfAddrOps](const char *name = "") {
     gIR->DBuilder.OpDeref(dwarfAddrOps);
@@ -199,7 +199,7 @@ void DtoResolveNestedContext(Loc &loc, AggregateDeclaration *decl,
     DtoResolveDsymbol(decl);
 
     unsigned idx = getVthisIdx(decl);
-    LLValue *gep = DtoGEPi(value, 0, idx, ".vthis");
+    LLValue *gep = DtoGEP(value, 0, idx, ".vthis");
     DtoStore(DtoBitCast(nest, gep->getType()->getContainedType(0)), gep);
   }
 }
@@ -256,7 +256,7 @@ LLValue *DtoNestedContext(Loc &loc, Dsymbol *sym) {
       // function (but without any variables in the nested context).
       return val;
     }
-    val = DtoLoad(DtoGEPi(val, 0, getVthisIdx(ad), ".vthis"));
+    val = DtoLoad(DtoGEP(val, 0, getVthisIdx(ad), ".vthis"));
   } else {
     if (sym->isFuncDeclaration()) {
       // If we are here, the function actually needs its nested context
@@ -300,7 +300,7 @@ LLValue *DtoNestedContext(Loc &loc, Dsymbol *sym) {
     } else {
       val = DtoBitCast(val,
                        LLPointerType::getUnqual(getIrFunc(ctxfd)->frameType));
-      val = DtoGEPi(val, 0, neededDepth);
+      val = DtoGEP(val, 0, neededDepth);
       val = DtoAlignedLoad(
           val, (std::string(".frame.") + frameToPass->toChars()).c_str());
     }
@@ -466,7 +466,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
         if (cd->isStructDeclaration()) {
           src = DtoExtractValue(thisval, getVthisIdx(cd), ".vthis");
         } else {
-          src = DtoLoad(DtoGEPi(thisval, 0, getVthisIdx(cd), ".vthis"));
+          src = DtoLoad(DtoGEP(thisval, 0, getVthisIdx(cd), ".vthis"));
         }
       }
       if (depth > 1) {
@@ -478,7 +478,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
       // Copy nestArg into framelist; the outer frame is not in the list of
       // pointers
       src = DtoBitCast(src, frameType->getContainedType(depth - 1));
-      LLValue *gep = DtoGEPi(frame, 0, depth - 1);
+      LLValue *gep = DtoGEP(frame, 0, depth - 1);
       DtoAlignedStore(src, gep);
     }
 
@@ -493,7 +493,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
       }
 
       IrLocal *irLocal = getIrLocal(vd);
-      LLValue *gep = DtoGEPi(frame, 0, irLocal->nestedIndex, vd->toChars());
+      LLValue *gep = DtoGEP(frame, 0, irLocal->nestedIndex, vd->toChars());
       if (vd->isParameter()) {
         IF_LOG Logger::println("nested param: %s", vd->toChars());
         LOG_SCOPE

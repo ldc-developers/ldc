@@ -136,7 +136,7 @@ struct Param
     bool release;       // build release version
     bool preservePaths; // true means don't strip path from source file
     Diagnostic warnings;
-    bool pic;           // generate position-independent-code for shared libs
+    unsigned char pic;  // generate position-independent-code for shared libs
     bool color;         // use ANSI colors in console output
     bool cov;           // generate code coverage data
     unsigned char covPercent;   // 0..100 code coverage percentage required
@@ -145,6 +145,7 @@ struct Param
     bool useModuleInfo; // generate runtime module information
     bool useTypeInfo;   // generate runtime type information
     bool useExceptions; // support exception handling
+    bool noSharedAccess; // read/write access to shared memory objects
     bool betterC;       // be a "better C" compiler; no dependency on D runtime
     bool addMain;       // add a default main() function
     bool allInst;       // generate code for all template instantiations
@@ -189,13 +190,13 @@ struct Param
 
     unsigned errorLimit;
 
-    DArray<const char>  argv0;    // program name
+    DString  argv0;    // program name
     Array<const char *> modFileAliasStrings; // array of char*'s of -I module filename alias strings
     Array<const char *> *imppath;     // array of char*'s of where to look for import modules
     Array<const char *> *fileImppath; // array of char*'s of where to look for file import modules
-    DArray<const char> objdir;   // .obj/.lib file output directory
-    DArray<const char> objname;  // .obj file output name
-    DArray<const char> libname;  // .lib file output name
+    DString objdir;    // .obj/.lib file output directory
+    DString objname;   // .obj file output name
+    DString libname;   // .lib file output name
 
     bool doDocComments;  // process embedded documentation comments
     const char *docdir;  // write documentation file to docdir directory
@@ -203,12 +204,12 @@ struct Param
     Array<const char *> ddocfiles;  // macro include files for Ddoc
 
     bool doHdrGeneration;  // process embedded documentation comments
-    DArray<const char> hdrdir;    // write 'header' file to docdir directory
-    DArray<const char> hdrname;   // write 'header' file to docname
+    DString hdrdir;        // write 'header' file to docdir directory
+    DString hdrname;       // write 'header' file to docname
     bool hdrStripPlainFunctions; // strip the bodies of plain (non-template) functions
 
     bool doJsonGeneration;    // write JSON file
-    DArray<const char> jsonfilename; // write JSON file to jsonfilename
+    DString jsonfilename;     // write JSON file to jsonfilename
     unsigned jsonFieldFlags;  // JSON field flags to include
 
     OutBuffer *mixinOut;                // write expanded mixins for debugging
@@ -221,11 +222,11 @@ struct Param
     unsigned versionlevel; // version level
     Array<const char *> *versionids;   // version identifiers
 
-    DArray<const char> defaultlibname; // default library for non-debug builds
-    DArray<const char> debuglibname;   // default library for debug builds
-    DArray<const char> mscrtlib;       // MS C runtime library
+    DString defaultlibname;     // default library for non-debug builds
+    DString debuglibname;       // default library for debug builds
+    DString mscrtlib;           // MS C runtime library
 
-    DArray<const char> moduleDepsFile; // filename for deps output
+    DString moduleDepsFile;     // filename for deps output
     OutBuffer *moduleDeps;      // contents to be written to deps file
 
     // Hidden debug switches
@@ -244,10 +245,10 @@ struct Param
     Array<const char *> linkswitches;
     Array<const char *> libfiles;
     Array<const char *> dllfiles;
-    DArray<const char> deffile;
-    DArray<const char> resfile;
-    DArray<const char> exefile;
-    DArray<const char> mapfile;
+    DString deffile;
+    DString resfile;
+    DString exefile;
+    DString mapfile;
 
 #if IN_LLVM
     Array<const char *> bitcodeFiles; // LLVM bitcode files passed on cmdline
@@ -288,36 +289,38 @@ typedef unsigned structalign_t;
 
 struct Global
 {
-    DArray<const char> inifilename;
-    const DArray<const char> mars_ext;
-    DArray<const char> obj_ext;
+    DString inifilename;
+    const DString mars_ext;
+    DString obj_ext;
 #if IN_LLVM
-    DArray<const char> ll_ext;
-    DArray<const char> mlir_ext; //MLIR code
-    DArray<const char> bc_ext;
-    DArray<const char> s_ext;
-    DArray<const char> ldc_version;
-    DArray<const char> llvm_version;
+
+    DString ll_ext;
+    DString mlir_ext; //MLIR code
+    DString bc_ext;
+    DString s_ext;
+    DString ldc_version;
+    DString llvm_version;
+
 
     bool gaggedForInlining; // Set for functionSemantic3 for external inlining candidates
 #endif
-    DArray<const char> lib_ext;
-    DArray<const char> dll_ext;
-    const DArray<const char> doc_ext;  // for Ddoc generated files
-    const DArray<const char> ddoc_ext; // for Ddoc macro include files
-    const DArray<const char> hdr_ext;  // for D 'header' import files
-    const DArray<const char> json_ext; // for JSON files
-    const DArray<const char> map_ext;  // for .map files
+    DString lib_ext;
+    DString dll_ext;
+    const DString doc_ext;      // for Ddoc generated files
+    const DString ddoc_ext;     // for Ddoc macro include files
+    const DString hdr_ext;      // for D 'header' import files
+    const DString json_ext;     // for JSON files
+    const DString map_ext;      // for .map files
     bool run_noext;             // allow -run sources without extensions.
 
 
-    const DArray<const char> copyright;
-    const DArray<const char> written;
+    const DString copyright;
+    const DString written;
     Array<const char *> *path;        // Array of char*'s which form the import lookup path
     Array<const char *> *filePath;    // Array of char*'s which form the file import lookup path
 
-    DArray<const char> version;     // Compiler version string
-    DArray<const char> vendor;             // Compiler backend name
+    DString version;         // Compiler version string
+    DString vendor;          // Compiler backend name
 
     Param params;
     unsigned errors;         // number of errors reported so far
@@ -356,9 +359,10 @@ struct Global
 
 extern Global global;
 
-// Because int64_t and friends may be any integral type of the
-// correct size, we have to explicitly ask for the correct
-// integer type to get the correct mangling with dmd
+// Because int64_t and friends may be any integral type of the correct size,
+// we have to explicitly ask for the correct integer type to get the correct
+// mangling with dmd. The #if logic here should match the mangling of
+// Tint64 and Tuns64 in cppmangle.d.
 #if __LP64__ && !(__APPLE__ && LDC_HOST_DigitalMars &&                         \
                   LDC_HOST_FE_VER >= 2079 && LDC_HOST_FE_VER <= 2081)
 // Be careful not to care about sign when using dinteger_t
@@ -397,12 +401,12 @@ struct Loc
         filename = NULL;
     }
 
-#if IN_LLVM
     Loc(const char *filename, unsigned linnum, unsigned charnum)
-        : filename(filename), linnum(linnum), charnum(charnum) {}
-#else
-    Loc(const char *filename, unsigned linnum, unsigned charnum);
-#endif
+    {
+        this->linnum = linnum;
+        this->charnum = charnum;
+        this->filename = filename;
+    }
 
     const char *toChars(bool showColumns = global.params.showColumns) const;
     bool equals(const Loc& loc) const;

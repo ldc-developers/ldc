@@ -240,7 +240,7 @@ llvm::Function *buildGetTLSAnchor() {
   const auto one = llvm::ConstantInt::get(LLType::getInt8Ty(gIR->context()), 1);
   const auto anchor =
       defineDSOGlobal("ldc.tls_anchor", one, /*isThreadLocal=*/true);
-  anchor->setAlignment(16);
+  anchor->setAlignment(LLMaybeAlign(16));
 
   const auto getAnchor = createDSOFunction(
       "ldc.get_tls_anchor", LLFunctionType::get(getVoidPtrType(), false));
@@ -543,22 +543,25 @@ void loadInstrProfileData(IRState *irs) {
     irs->PGOReader = std::move(readerOrErr.get());
 
     if (!irs->module.getProfileSummary(
-#if LDC_LLVM_VER >= 1000
-    /*context sensitive profile=*/  false
+
+#if LDC_LLVM_VER >= 900
+            /*is context sensitive profile=*/false
 #endif
-                                       )) {
+            )) {
+
       // Don't reset the summary. There is only one profile data file per LDC
       // invocation so the summary must be the same as the one that is already
       // set.
       irs->module.setProfileSummary(
-#if LDC_LLVM_VER >= 1000
-        irs->PGOReader->getSummary(/*context sensitive profile=*/ false)
-          .getMD(irs->context()),
-        llvm::ProfileSummary::PSK_Instr
+
+#if LDC_LLVM_VER >= 900
+          irs->PGOReader->getSummary(/*is context sensitive profile=*/false)
+              .getMD(irs->context()),
+          llvm::ProfileSummary::PSK_Instr
 #else
-        irs->PGOReader->getSummary().getMD(irs->context())
+          irs->PGOReader->getSummary().getMD(irs->context())
 #endif
-        );
+      );
     }
   }
 }

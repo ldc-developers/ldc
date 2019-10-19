@@ -82,11 +82,23 @@ std::string getFeaturesStr() { return ::getFeaturesStr(); }
 // the lld namespace. Define them here to prevent the LLD object from being
 // linked in with its conflicting command-line options.
 namespace lld {
+#if LDC_LLVM_VER >= 900
+TargetOptions initTargetOptionsFromCodeGenFlags() {
+#else
 TargetOptions InitTargetOptionsFromCodeGenFlags() {
+#endif
   return ::InitTargetOptionsFromCodeGenFlags();
 }
 
-#if LDC_LLVM_VER >= 600
+#if LDC_LLVM_VER >= 1000
+Optional<Reloc::Model> getRelocModelFromCMModel() { return ::getRelocModel(); }
+#endif
+
+#if LDC_LLVM_VER >= 900
+Optional<CodeModel::Model> getCodeModelFromCMModel() {
+  return ::getCodeModel();
+}
+#elif LDC_LLVM_VER >= 600
 Optional<CodeModel::Model> GetCodeModelFromCMModel() {
   return ::getCodeModel();
 }
@@ -94,12 +106,16 @@ Optional<CodeModel::Model> GetCodeModelFromCMModel() {
 CodeModel::Model GetCodeModelFromCMModel() { return ::CMModel; }
 #endif
 
-#if LDC_LLVM_VER >= 700
+#if LDC_LLVM_VER >= 900
+std::string getCPUStr() { return ::getCPUStr(); }
+#elif LDC_LLVM_VER >= 700
 std::string GetCPUStr() { return ::getCPUStr(); }
 #endif
 
-#if LDC_LLVM_VER >= 800
+#if LDC_LLVM_VER >= 900
+std::vector<std::string> getMAttrs() { return ::MAttrs; }
+#elif LDC_LLVM_VER >= 800
 std::vector<std::string> GetMAttrs() { return ::MAttrs; }
 #endif
-}
+} // namespace lld
 #endif // LDC_WITH_LLD && LDC_LLVM_VER >= 500

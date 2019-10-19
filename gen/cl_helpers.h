@@ -30,10 +30,10 @@ namespace cl = llvm::cl;
 
 /// Duplicate the string (incl. null-termination) and replace '/' with '\' on
 /// Windows.
-DArray<const char> dupPathString(llvm::StringRef src);
+DString dupPathString(llvm::StringRef src);
 
 /// Helper function to handle -of, -od, etc.
-DArray<const char> fromPathString(const cl::opt<std::string> &src);
+DString fromPathString(const cl::opt<std::string> &src);
 
 /// Helper class to determine values
 template <class DT> struct FlagParserDataType {};

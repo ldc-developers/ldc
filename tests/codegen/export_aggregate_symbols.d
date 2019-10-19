@@ -28,7 +28,7 @@ interface DefaultI { void foo(); }
 
 // DEFAULT:    _D24export_aggregate_symbols8DefaultS6__initZ
 // HIDDEN-NOT: _D24export_aggregate_symbols8DefaultS6__initZ
-struct DefaultS {}
+struct DefaultS { int nonZero = 1; }
 
 
 
@@ -43,7 +43,7 @@ export class ExportedC : ExportedI { void foo() {} }
 export interface ExportedI { void foo(); }
 
 // BOTH: _D24export_aggregate_symbols9ExportedS6__initZ
-export struct ExportedS {}
+export struct ExportedS { int nonZero = 1; }
 
 
 

@@ -18,7 +18,7 @@
 #endif
 
 #include "gen/attributes.h"
-#include "gen/metadata.h"
+#include "metadata.h"
 #include "gen/passes/Passes.h"
 #include "gen/runtime.h"
 #include "llvm/Pass.h"
@@ -450,8 +450,10 @@ static void RemoveCall(CallSite CS, const Analysis &A) {
 
   // Remove the runtime call.
   if (A.CGNode) {
-#if LDC_LLVM_VER >= 1000
-    A.CGNode->removeCallEdgeFor(cast<CallBase>(*inst));
+
+#if LDC_LLVM_VER >= 900
+    A.CGNode->removeCallEdgeFor(*cast<CallBase>(CS.getInstruction()));
+
 #else
     A.CGNode->removeCallEdgeFor(CS);
 #endif
@@ -851,7 +853,7 @@ bool isSafeToStackAllocate(BasicBlock::iterator Alloc, Value *V,
           const unsigned paramHasAttr_firstArg = 0;
 #endif
           if (!CS.paramHasAttr(A - B + paramHasAttr_firstArg,
-                               LLAttribute::NoCapture)) {
+                               llvm::Attribute::AttrKind::NoCapture)) {
             // The parameter is not marked 'nocapture' - captured.
             return false;
           }

@@ -1,3 +1,22 @@
+# LDC 1.18.0 (2019-10-16)
+
+#### Big news
+- Frontend, druntime and Phobos are at version [2.088.1](https://dlang.org/changelog/2.088.1.html). (#3143, #3161, #3176, #3190)
+- Support for **LLVM 9.0**. The prebuilt packages have been upgraded to [LLVM 9.0.0](http://releases.llvm.org/9.0.0/docs/ReleaseNotes.html). (#3166)
+- Preliminary **Android** CI, incl. experimental prebuilt armv7a package generation (API level 21, i.e., Android 5+). (#3164)
+- Bundled dub upgraded to v1.17.0+ with improved LDC support, incl. cross-compilation (e.g., `--arch=x86_64-pc-windows-msvc`). (https://github.com/dlang/dub/pull/1755, [Wiki](https://wiki.dlang.org/Cross-compiling_with_LDC))
+- Init symbols of zero-initialized structs are no longer emitted. (#3131)
+- druntime: DMD-compatible `{load,store}Unaligned` and `prefetch` added to `core.simd`. (https://github.com/ldc-developers/druntime/pull/163)
+- JIT improvements, incl. multi-threaded compilation. (#2758, #3154, #3174)
+
+#### Platform support
+- Supports LLVM 3.9 - 9.0.
+
+#### Bug fixes
+- Don't error out when initializing a `void` vector. (#3130, #3139)
+- druntime: Fix exception chaining for latest MSVC runtime v14.23, shipping with Visual Studio 2019 v16.3. (https://github.com/ldc-developers/druntime/pull/164)
+- Keep lvalue-ness when casting associative array to another AA. (#3162, #3179)
+
 # LDC 1.17.0 (2019-08-25)
 
 #### Big news

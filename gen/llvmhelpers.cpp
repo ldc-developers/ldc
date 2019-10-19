@@ -183,7 +183,7 @@ llvm::AllocaInst *DtoArrayAlloca(Type *type, unsigned arraysize,
       gIR->module.getDataLayout().getAllocaAddrSpace(),
 #endif
       DtoConstUint(arraysize), name, gIR->topallocapoint());
-  ai->setAlignment(DtoAlignment(type));
+  ai->setAlignment(LLMaybeAlign(DtoAlignment(type)));
   return ai;
 }
 
@@ -196,7 +196,7 @@ llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
 #endif
                            name, gIR->topallocapoint());
   if (alignment) {
-    ai->setAlignment(alignment);
+    ai->setAlignment(LLMaybeAlign(alignment));
   }
   return ai;
 }
@@ -675,6 +675,12 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
   Type *totype = to->toBasetype();
 
   if (fromtype->ty == Taarray) {
+    if (totype->ty == Taarray) {
+      // reinterpret-cast keeping lvalue-ness, IR types will match up
+      if (val->isLVal())
+        return new DLValue(to, DtoLVal(val));
+      return new DImValue(to, DtoRVal(val));
+    }
     // DMD allows casting AAs to void*, even if they are internally
     // implemented as structs.
     if (totype->ty == Tpointer) {
@@ -727,12 +733,6 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
     return DtoCastStruct(loc, val, to);
   case Tnull:
     return DtoNullValue(to, loc);
-  case Taarray:
-    if (totype->ty == Taarray) {
-      // Do nothing, the types will match up anyway.
-      return new DImValue(to, DtoRVal(val));
-    }
-  // fall-through
   default:
     error(loc, "invalid cast from `%s` to `%s`", val->type->toChars(),
           to->toChars());
@@ -914,7 +914,7 @@ void DtoResolveVariable(VarDeclaration *vd) {
     // Set the alignment (it is important not to use type->alignsize because
     // VarDeclarations can have an align() attribute independent of the type
     // as well).
-    gvar->setAlignment(DtoAlignment(vd));
+    gvar->setAlignment(LLMaybeAlign(DtoAlignment(vd)));
 
     // Windows: initialize DLL storage class with `dllimport` for `export`ed
     // symbols
@@ -1650,10 +1650,16 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
     IF_LOG Logger::print("Sym: type=%s\n", sdecltype->toChars());
     assert(sdecltype->ty == Tstruct);
     TypeStruct *ts = static_cast<TypeStruct *>(sdecltype);
-    assert(ts->sym);
-    DtoResolveStruct(ts->sym);
+    StructDeclaration *sd = ts->sym;
+    assert(sd);
+    DtoResolveStruct(sd);
 
-    LLValue *initsym = getIrAggr(ts->sym)->getInitSymbol();
+    if (sd->zeroInit) {
+      error(loc, "no init symbol for zero-initialized struct");
+      fatal();
+    }
+
+    LLValue *initsym = getIrAggr(sd)->getInitSymbol();
     initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
     return new DLValue(type, initsym);
   }
@@ -1874,12 +1880,12 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   static_cast<IrTypeAggr *>(ad->type->ctype)
       ->getMemberLocation(vd, fieldIndex, byteOffset);
 
-  LLValue *val = DtoGEPi(src, 0, fieldIndex);
+  LLValue *val = DtoGEP(src, 0, fieldIndex);
 
   if (byteOffset) {
     // Cast to void* to apply byte-wise offset.
     val = DtoBitCast(val, getVoidPtrType());
-    val = DtoGEPi1(val, byteOffset);
+    val = DtoGEP1(val, byteOffset);
   }
 
   // Cast the (possibly void*) pointer to the canonical variable type.

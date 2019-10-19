@@ -53,7 +53,7 @@ LLConstant *&IrAggr::getInitSymbol() {
 
   auto initGlobal = declareGlobal(aggrdecl->loc, gIR->module, getLLStructType(),
                                   irMangle, /*isConstant=*/true);
-  initGlobal->setAlignment(DtoAlignment(type));
+  initGlobal->setAlignment(LLMaybeAlign(DtoAlignment(type)));
 
   init = initGlobal;
 
