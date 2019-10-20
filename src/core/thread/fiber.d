@@ -17,6 +17,11 @@ version (LDC)
 {
     import ldc.attributes;
     import ldc.llvmasm;
+
+    version (SupportSanitizers)
+    {
+        import ldc.sanitizers_optionally_linked;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

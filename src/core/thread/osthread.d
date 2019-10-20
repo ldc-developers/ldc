@@ -21,11 +21,6 @@ version (LDC)
     import ldc.llvmasm;
 
     version (Windows) version = LDC_Windows;
-
-    version (SupportSanitizers)
-    {
-        import ldc.sanitizers_optionally_linked;
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
