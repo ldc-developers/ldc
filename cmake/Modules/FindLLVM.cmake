@@ -13,6 +13,8 @@
 #                        (includes -LLLVM_LIBRARY_DIRS).
 #  LLVM_LIBRARIES      - Full paths to the library files to link against.
 #  LLVM_LIBRARY_DIRS   - Directory containing LLVM libraries.
+#  LLVM_NATIVE_ARCH    - Backend corresponding to LLVM_HOST_TARGET, e.g.,
+#                        X86 for x86_64 and i686 hosts.
 #  LLVM_ROOT_DIR       - The root directory of the LLVM installation.
 #                        llvm-config is searched for in ${LLVM_ROOT_DIR}/bin.
 #  LLVM_VERSION_MAJOR  - Major version of LLVM.
@@ -80,13 +82,13 @@ else()
             endif()
         endif()
     endmacro()
-    macro(llvm_set_libs var flag)
+    macro(llvm_set_libs var flag components)
        if(LLVM_FIND_QUIETLY)
             set(_quiet_arg ERROR_QUIET)
         endif()
         set(result_code)
         execute_process(
-            COMMAND ${LLVM_CONFIG} --${flag} ${LLVM_FIND_COMPONENTS}
+            COMMAND ${LLVM_CONFIG} --${flag} ${components}
             RESULT_VARIABLE result_code
             OUTPUT_VARIABLE tmplibs
             OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -126,7 +128,7 @@ else()
     llvm_set(SYSTEM_LIBS system-libs)
     string(REPLACE "\n" " " LLVM_LDFLAGS "${LLVM_LDFLAGS} ${LLVM_SYSTEM_LIBS}")
     llvm_set(LIBRARY_DIRS libdir true)
-    llvm_set_libs(LIBRARIES libs)
+    llvm_set_libs(LIBRARIES libs "${LLVM_FIND_COMPONENTS}")
     # LLVM bug: llvm-config --libs tablegen returns -lLLVM-3.8.0
     # but code for it is not in shared library
     if("${LLVM_FIND_COMPONENTS}" MATCHES "tablegen")
@@ -144,6 +146,13 @@ else()
 
     llvm_set(TARGETS_TO_BUILD targets-built)
     string(REGEX MATCHALL "${pattern}[^ ]+" LLVM_TARGETS_TO_BUILD ${LLVM_TARGETS_TO_BUILD})
+
+    # Parse LLVM_NATIVE_ARCH manually from LLVMConfig.cmake; including it leads to issues like
+    # https://github.com/ldc-developers/ldc/issues/3079.
+    file(STRINGS "${LLVM_CMAKEDIR}/LLVMConfig.cmake" LLVM_NATIVE_ARCH LIMIT_COUNT 1 REGEX "^set\\(LLVM_NATIVE_ARCH (.+)\\)$")
+    string(REGEX MATCH "set\\(LLVM_NATIVE_ARCH (.+)\\)" LLVM_NATIVE_ARCH "${LLVM_NATIVE_ARCH}")
+    set(LLVM_NATIVE_ARCH ${CMAKE_MATCH_1})
+    message(STATUS "LLVM_NATIVE_ARCH: ${LLVM_NATIVE_ARCH}")
 endif()
 
 # On CMake builds of LLVM, the output of llvm-config --cxxflags does not
