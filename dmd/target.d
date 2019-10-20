@@ -722,6 +722,7 @@ else // !IN_LLVM
      * Returns:
      *  true if generating code for POSIX
      */
+    /* LDC: syntax not supported by ltsmaster
     extern (D) @property bool isPOSIX() scope const nothrow @nogc
     out(result) { assert(result || global.params.isWindows); }
     do
@@ -733,6 +734,7 @@ else // !IN_LLVM
             || global.params.isDragonFlyBSD
             || global.params.isSolaris;
     }
+    */
 } // !IN_LLVM
 }
 
