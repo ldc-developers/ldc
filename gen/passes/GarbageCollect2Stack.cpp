@@ -442,17 +442,18 @@ static void RemoveCall(CallSite CS, const Analysis &A) {
   // For an invoke instruction, we insert a branch to the normal target BB
   // immediately before it. Ideally, we would find a way to not invalidate
   // the dominator tree here.
-  if (CS.isInvoke()) {
-    InvokeInst *Invoke = cast<InvokeInst>(CS.getInstruction());
-
+  Instruction *inst = CS.getInstruction();
+  if (InvokeInst *Invoke = dyn_cast<InvokeInst>(inst)) {
     BranchInst::Create(Invoke->getNormalDest(), Invoke);
     Invoke->getUnwindDest()->removePredecessor(CS->getParent());
   }
 
   // Remove the runtime call.
   if (A.CGNode) {
+
 #if LDC_LLVM_VER >= 900
     A.CGNode->removeCallEdgeFor(*cast<CallBase>(CS.getInstruction()));
+
 #else
     A.CGNode->removeCallEdgeFor(CS);
 #endif

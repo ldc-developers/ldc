@@ -10,8 +10,9 @@
 //
 // This file contains functions to generate instrumentation code for
 // AST-based profile-guided optimization.
-// PGO is enabled by compiling first with "-fprofile-instr-generate",
-// and then with "-fprofile-instr-use=filename.profdata".
+// Profile-guided Optimization(PGO) is enabled by compiling first with 
+// "-fprofile-instr-generate", and then with 
+// "-fprofile-instr-use=filename.profdata".
 //
 //===----------------------------------------------------------------------===//
 

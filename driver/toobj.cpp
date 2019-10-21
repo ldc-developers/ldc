@@ -342,7 +342,8 @@ void writeModule(llvm::Module *m, const char *filename) {
   }
 
   const auto outputFlags = {global.params.output_o, global.params.output_bc,
-                            global.params.output_ll, global.params.output_s};
+                            global.params.output_ll, global.params.output_s,
+                            global.params.output_mlir};
   const auto numOutputFiles =
       std::count_if(outputFlags.begin(), outputFlags.end(),
                     [](OUTPUTFLAG flag) { return flag != 0; });

@@ -20,12 +20,19 @@
 #pragma once
 
 #include "gen/irstate.h"
+#if LDC_MLIR_ENABLED
+#include "mlir/IR/MLIRContext.h"
+#endif
 
 namespace ldc {
 
 class CodeGenerator {
 public:
-  CodeGenerator(llvm::LLVMContext &context, bool singleObj);
+  CodeGenerator(llvm::LLVMContext &context, 
+#if LDC_MLIR_ENABLED	
+	mlir::MLIRContext &mlirContext,
+#endif
+                                                                bool singleObj);
   ~CodeGenerator();
   void emit(Module *m);
 
@@ -35,6 +42,9 @@ private:
   void writeAndFreeLLModule(const char *filename);
 
   llvm::LLVMContext &context_;
+#if LDC_MLIR_ENABLED
+  mlir::MLIRContext &mlirContext_;
+#endif
   int moduleCount_;
   bool const singleObj_;
   IRState *ir_;
